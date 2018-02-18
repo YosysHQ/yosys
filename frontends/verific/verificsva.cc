@@ -28,6 +28,29 @@ using namespace Verific;
 
 YOSYS_NAMESPACE_BEGIN
 
+pool<int> verific_sva_prims = {
+	// Copy&paste from Verific 3.16_484_32_170630 Netlist.h
+	PRIM_SVA_IMMEDIATE_ASSERT, PRIM_SVA_ASSERT, PRIM_SVA_COVER, PRIM_SVA_ASSUME,
+	PRIM_SVA_EXPECT, PRIM_SVA_POSEDGE, PRIM_SVA_NOT, PRIM_SVA_FIRST_MATCH,
+	PRIM_SVA_ENDED, PRIM_SVA_MATCHED, PRIM_SVA_CONSECUTIVE_REPEAT,
+	PRIM_SVA_NON_CONSECUTIVE_REPEAT, PRIM_SVA_GOTO_REPEAT,
+	PRIM_SVA_MATCH_ITEM_TRIGGER, PRIM_SVA_AND, PRIM_SVA_OR, PRIM_SVA_SEQ_AND,
+	PRIM_SVA_SEQ_OR, PRIM_SVA_EVENT_OR, PRIM_SVA_OVERLAPPED_IMPLICATION,
+	PRIM_SVA_NON_OVERLAPPED_IMPLICATION, PRIM_SVA_OVERLAPPED_FOLLOWED_BY,
+	PRIM_SVA_NON_OVERLAPPED_FOLLOWED_BY, PRIM_SVA_INTERSECT, PRIM_SVA_THROUGHOUT,
+	PRIM_SVA_WITHIN, PRIM_SVA_AT, PRIM_SVA_DISABLE_IFF, PRIM_SVA_SAMPLED,
+	PRIM_SVA_ROSE, PRIM_SVA_FELL, PRIM_SVA_STABLE, PRIM_SVA_PAST,
+	PRIM_SVA_MATCH_ITEM_ASSIGN, PRIM_SVA_SEQ_CONCAT, PRIM_SVA_IF,
+	PRIM_SVA_RESTRICT, PRIM_SVA_TRIGGERED, PRIM_SVA_STRONG, PRIM_SVA_WEAK,
+	PRIM_SVA_NEXTTIME, PRIM_SVA_S_NEXTTIME, PRIM_SVA_ALWAYS, PRIM_SVA_S_ALWAYS,
+	PRIM_SVA_S_EVENTUALLY, PRIM_SVA_EVENTUALLY, PRIM_SVA_UNTIL, PRIM_SVA_S_UNTIL,
+	PRIM_SVA_UNTIL_WITH, PRIM_SVA_S_UNTIL_WITH, PRIM_SVA_IMPLIES, PRIM_SVA_IFF,
+	PRIM_SVA_ACCEPT_ON, PRIM_SVA_REJECT_ON, PRIM_SVA_SYNC_ACCEPT_ON,
+	PRIM_SVA_SYNC_REJECT_ON, PRIM_SVA_GLOBAL_CLOCKING_DEF,
+	PRIM_SVA_GLOBAL_CLOCKING_REF, PRIM_SVA_IMMEDIATE_ASSUME,
+	PRIM_SVA_IMMEDIATE_COVER, OPER_SVA_SAMPLED, OPER_SVA_STABLE
+};
+
 struct VerificSvaImporter
 {
 	VerificImporter *importer = nullptr;
@@ -75,6 +98,57 @@ struct VerificSvaImporter
 	Instance *get_ast_input2(Instance *inst) { return net_to_ast_driver(inst->GetInput2()); }
 	Instance *get_ast_input3(Instance *inst) { return net_to_ast_driver(inst->GetInput3()); }
 	Instance *get_ast_control(Instance *inst) { return net_to_ast_driver(inst->GetControl()); }
+
+	// ----------------------------------------------------------
+	// SVA AST Types
+
+	struct svatype_t
+	{
+		bool flag_linear = true;
+	};
+
+	std::map<Instance*, svatype_t> svatype_cache;
+
+	void svatype_visit_child(svatype_t &entry, Instance *inst)
+	{
+		if (inst == nullptr)
+			return;
+
+		const svatype_t &child_entry = svatype(inst);
+		entry.flag_linear &= child_entry.flag_linear;
+	}
+
+	const svatype_t &svatype(Instance *inst)
+	{
+		if (svatype_cache.count(inst) != 0)
+			return svatype_cache.at(inst);
+
+		svatype_t &entry = svatype_cache[inst];
+
+		if (inst == nullptr)
+			return entry;
+
+		if (inst->Type() == PRIM_SVA_UNTIL || inst->Type() == PRIM_SVA_S_UNTIL ||
+				inst->Type() == PRIM_SVA_UNTIL_WITH || inst->Type() == PRIM_SVA_S_UNTIL_WITH)
+			entry.flag_linear = false;
+
+		if (inst->Type() == PRIM_SVA_SEQ_CONCAT || inst->Type() == PRIM_SVA_CONSECUTIVE_REPEAT)
+		{
+			int sva_low = atoi(inst->GetAttValue("sva:low"));
+			int sva_high = atoi(inst->GetAttValue("sva:high"));
+
+			if (sva_low != sva_high)
+				entry.flag_linear = false;
+		}
+
+		svatype_visit_child(entry, get_ast_input(inst));
+		svatype_visit_child(entry, get_ast_input1(inst));
+		svatype_visit_child(entry, get_ast_input2(inst));
+		svatype_visit_child(entry, get_ast_input3(inst));
+		svatype_visit_child(entry, get_ast_control(inst));
+
+		return entry;
+	}
 
 	// ----------------------------------------------------------
 	// SVA Preprocessor
@@ -146,6 +220,9 @@ struct VerificSvaImporter
 	// ----------------------------------------------------------
 	// SVA Importer
 
+	vector<SigBit> sva_until_list_inclusive;
+	vector<SigBit> sva_until_list_exclusive;
+
 	struct sequence_t {
 		int length = 0;
 		SigBit sig_a = State::S1;
@@ -162,6 +239,9 @@ struct VerificSvaImporter
 		if (disable_iff != State::S0)
 			seq.sig_en = module->Mux(NEW_ID, seq.sig_en, State::S0, disable_iff);
 
+		for (auto &expr : sva_until_list_exclusive)
+			seq.sig_a = module->LogicAnd(NEW_ID, seq.sig_a, expr);
+
 		Wire *sig_a_q = module->addWire(NEW_ID);
 		sig_a_q->attributes["\\init"] = Const(0, 1);
 
@@ -174,6 +254,9 @@ struct VerificSvaImporter
 		seq.length++;
 		seq.sig_a = sig_a_q;
 		seq.sig_en = sig_en_q;
+
+		for (auto &expr : sva_until_list_inclusive)
+			seq.sig_a = module->LogicAnd(NEW_ID, seq.sig_a, expr);
 	}
 
 	void parse_sequence(sequence_t &seq, Net *n)
@@ -189,19 +272,21 @@ struct VerificSvaImporter
 
 		// SVA Primitives
 
-		if (inst->Type() == PRIM_SVA_OVERLAPPED_IMPLICATION)
+		if (inst->Type() == PRIM_SVA_OVERLAPPED_IMPLICATION ||
+				inst->Type() == PRIM_SVA_NON_OVERLAPPED_IMPLICATION)
 		{
-			parse_sequence(seq, inst->GetInput1());
-			seq.sig_en = module->And(NEW_ID, seq.sig_en, seq.sig_a);
-			parse_sequence(seq, inst->GetInput2());
-			return;
-		}
+			Instance *consequent = get_ast_input2(inst);
+			bool linear_consequent = svatype(consequent).flag_linear;
 
-		if (inst->Type() == PRIM_SVA_NON_OVERLAPPED_IMPLICATION)
-		{
 			parse_sequence(seq, inst->GetInput1());
 			seq.sig_en = module->And(NEW_ID, seq.sig_en, seq.sig_a);
-			sequence_ff(seq);
+
+			if (inst->Type() == PRIM_SVA_NON_OVERLAPPED_IMPLICATION)
+				sequence_ff(seq);
+
+			if (!linear_consequent && mode_assume)
+				log_error("Non-linear consequent is currently not supported in SVA assumptions.\n");
+
 			parse_sequence(seq, inst->GetInput2());
 			return;
 		}
@@ -209,7 +294,7 @@ struct VerificSvaImporter
 		if (inst->Type() == PRIM_SVA_SEQ_CONCAT)
 		{
 			int sva_low = atoi(inst->GetAttValue("sva:low"));
-			int sva_high = atoi(inst->GetAttValue("sva:low"));
+			int sva_high = atoi(inst->GetAttValue("sva:high"));
 
 			if (sva_low != sva_high)
 				log_error("Ranges on SVA sequence concatenation operator are not supported at the moment.\n");
@@ -226,7 +311,7 @@ struct VerificSvaImporter
 		if (inst->Type() == PRIM_SVA_CONSECUTIVE_REPEAT)
 		{
 			int sva_low = atoi(inst->GetAttValue("sva:low"));
-			int sva_high = atoi(inst->GetAttValue("sva:low"));
+			int sva_high = atoi(inst->GetAttValue("sva:high"));
 
 			if (sva_low != sva_high)
 				log_error("Ranges on SVA consecutive repeat operator are not supported at the moment.\n");
@@ -237,6 +322,29 @@ struct VerificSvaImporter
 				sequence_ff(seq);
 				parse_sequence(seq, inst->GetInput());
 			}
+			return;
+		}
+
+		if (inst->Type() == PRIM_SVA_UNTIL || inst->Type() == PRIM_SVA_S_UNTIL ||
+				inst->Type() == PRIM_SVA_UNTIL_WITH || inst->Type() == PRIM_SVA_S_UNTIL_WITH)
+		{
+			bool flag_with = inst->Type() == PRIM_SVA_UNTIL_WITH || inst->Type() == PRIM_SVA_S_UNTIL_WITH;
+			SigBit expr = importer->net_map_at(inst->GetInput1());
+
+			if (flag_with)
+			{
+				seq.sig_a = module->LogicAnd(NEW_ID, seq.sig_a, expr);
+				sva_until_list_inclusive.push_back(expr);
+				parse_sequence(seq, inst->GetInput2());
+				sva_until_list_inclusive.pop_back();
+			}
+			else
+			{
+				sva_until_list_exclusive.push_back(expr);
+				parse_sequence(seq, inst->GetInput2());
+				sva_until_list_exclusive.pop_back();
+			}
+
 			return;
 		}
 
