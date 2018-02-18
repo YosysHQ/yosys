@@ -3,6 +3,8 @@ OBJS += frontends/verific/verific.o
 
 ifeq ($(ENABLE_VERIFIC),1)
 
+OBJS += frontends/verific/verificsva.o
+
 EXTRA_TARGETS += share/verific
 
 share/verific:
