@@ -41,6 +41,8 @@ struct Smt2Worker
 	std::set<RTLIL::Cell*> exported_cells, hiercells, hiercells_queue;
 	pool<Cell*> recursive_cells, registers;
 
+	pool<SigBit> clock_posedge, clock_negedge;
+
 	std::map<RTLIL::SigBit, std::pair<int, int>> fcache;
 	std::map<Cell*, int> memarrays;
 	std::map<int, int> bvsizes;
@@ -104,18 +106,24 @@ struct Smt2Worker
 			decls.push_back(decl_str + "\n");
 	}
 
-	Smt2Worker(RTLIL::Module *module, bool bvmode, bool memmode, bool wiresmode, bool verbose, bool statebv, bool statedt, dict<IdString, int> &mod_stbv_width) :
+	Smt2Worker(RTLIL::Module *module, bool bvmode, bool memmode, bool wiresmode, bool verbose, bool statebv, bool statedt,
+			dict<IdString, int> &mod_stbv_width, dict<IdString, dict<IdString, pair<bool, bool>>> &mod_clk_cache) :
 			ct(module->design), sigmap(module), module(module), bvmode(bvmode), memmode(memmode), wiresmode(wiresmode),
 			verbose(verbose), statebv(statebv), statedt(statedt), mod_stbv_width(mod_stbv_width), idcounter(0), statebv_width(0)
 	{
+		pool<SigBit> noclock;
+
 		makebits(stringf("%s_is", get_id(module)));
 
 		for (auto cell : module->cells())
-		for (auto &conn : cell->connections()) {
+		for (auto &conn : cell->connections())
+		{
 			if (GetSize(conn.second) == 0)
 				continue;
+
 			bool is_input = ct.cell_input(cell->type, conn.first);
 			bool is_output = ct.cell_output(cell->type, conn.first);
+
 			if (is_output && !is_input)
 				for (auto bit : sigmap(conn.second)) {
 					if (bit_driver.count(bit))
@@ -125,6 +133,48 @@ struct Smt2Worker
 			else if (is_output || !is_input)
 				log_error("Unsupported or unknown directionality on port %s of cell %s.%s (%s).\n",
 						log_id(conn.first), log_id(module), log_id(cell), log_id(cell->type));
+
+			if (cell->type.in("$dff", "$_DFF_P_", "$_DFF_N_") && conn.first.in("\\CLK", "\\C"))
+			{
+				bool posedge = (cell->type == "$_DFF_N_") || (cell->type == "$dff" && cell->getParam("\\CLK_POLARITY").as_bool());
+				for (auto bit : sigmap(conn.second)) {
+					if (posedge)
+						clock_posedge.insert(bit);
+					else
+						clock_negedge.insert(bit);
+				}
+			}
+			else
+			if (mod_clk_cache.count(cell->type) && mod_clk_cache.at(cell->type).count(conn.first))
+			{
+				for (auto bit : sigmap(conn.second)) {
+					if (mod_clk_cache.at(cell->type).at(conn.first).first)
+						clock_posedge.insert(bit);
+					if (mod_clk_cache.at(cell->type).at(conn.first).second)
+						clock_negedge.insert(bit);
+				}
+			}
+			else
+			{
+				for (auto bit : sigmap(conn.second))
+					noclock.insert(bit);
+			}
+		}
+
+		for (auto bit : noclock) {
+			clock_posedge.erase(bit);
+			clock_negedge.erase(bit);
+		}
+
+		for (auto wire : module->wires())
+		{
+			if (!wire->port_input || GetSize(wire) != 1)
+				continue;
+			SigBit bit = sigmap(wire);
+			if (clock_posedge.count(bit))
+				mod_clk_cache[module->name][wire->name].first = true;
+			if (clock_negedge.count(bit))
+				mod_clk_cache[module->name][wire->name].second = true;
 		}
 	}
 
@@ -731,6 +781,9 @@ struct Smt2Worker
 					decls.push_back(stringf("; yosys-smt2-register %s %d\n", get_id(wire), wire->width));
 				if (wire->get_bool_attribute("\\keep") || (wiresmode && wire->name[0] == '\\'))
 					decls.push_back(stringf("; yosys-smt2-wire %s %d\n", get_id(wire), wire->width));
+				if (GetSize(wire) == 1 && (clock_posedge.count(sig) || clock_negedge.count(sig)))
+					decls.push_back(stringf("; yosys-smt2-clock %s%s%s\n", get_id(wire),
+							clock_posedge.count(sig) ? " posedge" : "", clock_negedge.count(sig) ? " negedge" : ""));
 				if (bvmode && GetSize(sig) > 1) {
 					decls.push_back(stringf("(define-fun |%s_n %s| ((state |%s_s|)) (_ BitVec %d) %s)\n",
 							get_id(module), get_id(wire), get_id(module), GetSize(sig), get_bv(sig).c_str()));
@@ -1386,6 +1439,7 @@ struct Smt2Backend : public Backend {
 		}
 
 		dict<IdString, int> mod_stbv_width;
+		dict<IdString, dict<IdString, pair<bool, bool>>> mod_clk_cache;
 		Module *topmod = design->top_module();
 		std::string topmod_id;
 
@@ -1396,7 +1450,7 @@ struct Smt2Backend : public Backend {
 
 			log("Creating SMT-LIBv2 representation of module %s.\n", log_id(module));
 
-			Smt2Worker worker(module, bvmode, memmode, wiresmode, verbose, statebv, statedt, mod_stbv_width);
+			Smt2Worker worker(module, bvmode, memmode, wiresmode, verbose, statebv, statedt, mod_stbv_width, mod_clk_cache);
 			worker.run();
 			worker.write(*f);
 

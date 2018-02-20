@@ -53,6 +53,7 @@ class SmtModInfo:
         self.memories = dict()
         self.wires = set()
         self.wsize = dict()
+        self.clocks = dict()
         self.cells = dict()
         self.asserts = dict()
         self.covers = dict()
@@ -404,6 +405,13 @@ class SmtIo:
             self.modinfo[self.curmod].wires.add(fields[2])
             self.modinfo[self.curmod].wsize[fields[2]] = int(fields[3])
 
+        if fields[1] == "yosys-smt2-clock":
+            for edge in fields[3:]:
+                if fields[2] not in self.modinfo[self.curmod].clocks:
+                    self.modinfo[self.curmod].clocks[fields[2]] = edge
+                elif self.modinfo[self.curmod].clocks[fields[2]] != edge:
+                    self.modinfo[self.curmod].clocks[fields[2]] = "event"
+
         if fields[1] == "yosys-smt2-assert":
             self.modinfo[self.curmod].asserts["%s_a %s" % (self.curmod, fields[2])] = fields[3]
 
@@ -672,6 +680,17 @@ class SmtIo:
         assert net_path[-1] in self.modinfo[mod].wsize
         return self.modinfo[mod].wsize[net_path[-1]]
 
+    def net_clock(self, mod, net_path):
+        for i in range(len(net_path)-1):
+            assert mod in self.modinfo
+            assert net_path[i] in self.modinfo[mod].cells
+            mod = self.modinfo[mod].cells[net_path[i]]
+
+        assert mod in self.modinfo
+        if net_path[-1] not in self.modinfo[mod].clocks:
+            return None
+        return self.modinfo[mod].clocks[net_path[-1]]
+
     def net_exists(self, mod, net_path):
         for i in range(len(net_path)-1):
             if mod not in self.modinfo: return False
@@ -823,6 +842,7 @@ class MkVcd:
         self.f = f
         self.t = -1
         self.nets = dict()
+        self.clocks = dict()
 
     def add_net(self, path, width):
         path = tuple(path)
@@ -830,11 +850,19 @@ class MkVcd:
         key = "n%d" % len(self.nets)
         self.nets[path] = (key, width)
 
+    def add_clock(self, path, edge):
+        path = tuple(path)
+        assert self.t == -1
+        key = "n%d" % len(self.nets)
+        self.nets[path] = (key, 1)
+        self.clocks[path] = (key, edge)
+
     def set_net(self, path, bits):
         path = tuple(path)
         assert self.t >= 0
         assert path in self.nets
-        print("b%s %s" % (bits, self.nets[path][0]), file=self.f)
+        if path not in self.clocks:
+            print("b%s %s" % (bits, self.nets[path][0]), file=self.f)
 
     def set_time(self, t):
         assert t >= self.t
@@ -851,13 +879,32 @@ class MkVcd:
                         print("$scope module %s $end" % path[len(scope)], file=self.f)
                         scope.append(path[len(scope)-1])
                     key, width = self.nets[path]
-                    print("$var wire %d %s %s $end" % (width, key, path[-1]), file=self.f)
+                    if path in self.clocks and self.clocks[path][1] == "event":
+                        print("$var event 1 %s %s $end" % (key, path[-1]), file=self.f)
+                    else:
+                        print("$var wire %d %s %s $end" % (width, key, path[-1]), file=self.f)
                 for i in range(len(scope)):
                     print("$upscope $end", file=self.f)
                 print("$enddefinitions $end", file=self.f)
+
             self.t = t
             assert self.t >= 0
+
+            if self.t > 0:
+                print("#%d" % (10 * self.t - 5), file=self.f)
+                for path in sorted(self.clocks.keys()):
+                    if self.clocks[path][1] == "posedge":
+                        print("b0 %s" % self.nets[path][0], file=self.f)
+                    elif self.clocks[path][1] == "negedge":
+                        print("b1 %s" % self.nets[path][0], file=self.f)
+
             print("#%d" % (10 * self.t), file=self.f)
             print("1!", file=self.f)
             print("b%s t" % format(self.t, "032b"), file=self.f)
+
+            for path in sorted(self.clocks.keys()):
+                if self.clocks[path][1] == "negedge":
+                    print("b0 %s" % self.nets[path][0], file=self.f)
+                else:
+                    print("b1 %s" % self.nets[path][0], file=self.f)
 

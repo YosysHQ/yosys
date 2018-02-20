@@ -589,7 +589,11 @@ def write_vcd_trace(steps_start, steps_stop, index):
                 if n.startswith("$"):
                     hidden_net = True
             if not hidden_net:
-                vcd.add_net([topmod] + netpath, smt.net_width(topmod, netpath))
+                edge = smt.net_clock(topmod, netpath)
+                if edge is None:
+                    vcd.add_net([topmod] + netpath, smt.net_width(topmod, netpath))
+                else:
+                    vcd.add_clock([topmod] + netpath, edge)
                 path_list.append(netpath)
 
         mem_trace_data = dict()
