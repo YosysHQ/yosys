@@ -5,7 +5,7 @@ module top (
 	default clocking @(posedge clk); endclocking
 
 	assert property (
-		a |=> b until_with (c ##1 d)
+		a |=> b throughout (c ##1 d)
 	);
 
 `ifndef FAIL

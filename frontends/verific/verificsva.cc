@@ -433,10 +433,14 @@ struct VerificSvaImporter
 			return;
 		}
 
-		if (inst->Type() == PRIM_SVA_UNTIL || inst->Type() == PRIM_SVA_S_UNTIL ||
+		if (inst->Type() == PRIM_SVA_THROUGHOUT || inst->Type() == PRIM_SVA_UNTIL || inst->Type() == PRIM_SVA_S_UNTIL ||
 				inst->Type() == PRIM_SVA_UNTIL_WITH || inst->Type() == PRIM_SVA_S_UNTIL_WITH)
 		{
-			bool flag_with = inst->Type() == PRIM_SVA_UNTIL_WITH || inst->Type() == PRIM_SVA_S_UNTIL_WITH;
+			bool flag_with = inst->Type() == PRIM_SVA_THROUGHOUT || inst->Type() == PRIM_SVA_UNTIL_WITH || inst->Type() == PRIM_SVA_S_UNTIL_WITH;
+
+			if (get_ast_input1(inst) != nullptr)
+				log_error("Currently only simple expression properties are supported as first operand to SVA_UNTIL.\n");
+
 			SigBit expr = importer->net_map_at(inst->GetInput1());
 
 			if (flag_with)
