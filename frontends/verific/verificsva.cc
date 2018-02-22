@@ -421,15 +421,36 @@ struct VerificSvaImporter
 			int sva_high = atoi(sva_high_s);
 			bool sva_inf = !strcmp(sva_high_s, "$");
 
-			if (sva_inf || sva_low != sva_high)
-				log_error("Ranges on SVA consecutive repeat operator are not supported at the moment.\n");
-
 			parse_sequence(seq, inst->GetInput());
 
 			for (int i = 1; i < sva_low; i++) {
 				sequence_ff(seq);
 				parse_sequence(seq, inst->GetInput());
 			}
+
+			if (sva_inf)
+			{
+				SigBit latched_a = module->addWire(NEW_ID);
+				SigBit latched_en = module->addWire(NEW_ID);
+				combine_seq(seq, latched_a, latched_en);
+
+				sequence_t seq_latched = seq;
+				sequence_ff(seq_latched);
+				parse_sequence(seq_latched, inst->GetInput());
+				module->connect(latched_a, seq_latched.sig_a);
+				module->connect(latched_en, seq_latched.sig_en);
+			}
+			else
+			{
+				for (int i = sva_low; i < sva_high; i++)
+				{
+					sequence_t last_seq = seq;
+					sequence_ff(seq);
+					parse_sequence(seq, inst->GetInput());
+					combine_seq(seq, last_seq);
+				}
+			}
+
 			return;
 		}
 
@@ -463,8 +484,8 @@ struct VerificSvaImporter
 		// Handle unsupported primitives
 
 		if (!importer->mode_keep)
-			log_error("Unsupported Verific SVA primitive %s of type %s.\n", inst->Name(), inst->View()->Owner()->Name());
-		log_warning("Unsupported Verific SVA primitive %s of type %s.\n", inst->Name(), inst->View()->Owner()->Name());
+			log_error("Verific SVA primitive %s (%s) is currently unsupported in this context.\n", inst->View()->Owner()->Name(), inst->Name());
+		log_warning("Verific SVA primitive %s (%s) is currently unsupported in this context.\n", inst->View()->Owner()->Name(), inst->Name());
 	}
 
 	void import()
