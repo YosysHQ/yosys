@@ -9,7 +9,7 @@
 
 module demo2(input clk, input [4:0] addr, output reg [31:0] data);
 	reg [31:0] mem [0:31];
-	always @(posedge clk)
+	always @(negedge clk)
 		data <= mem[addr];
 
 	reg [31:0] used_addr = 0;

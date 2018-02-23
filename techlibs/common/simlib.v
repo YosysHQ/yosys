@@ -1370,6 +1370,30 @@ endmodule
 
 // --------------------------------------------------------
 
+module \$allconst (Y);
+
+parameter WIDTH = 0;
+
+output [WIDTH-1:0] Y;
+
+assign Y = 'bx;
+
+endmodule
+
+// --------------------------------------------------------
+
+module \$allseq (Y);
+
+parameter WIDTH = 0;
+
+output [WIDTH-1:0] Y;
+
+assign Y = 'bx;
+
+endmodule
+
+// --------------------------------------------------------
+
 module \$equiv (A, B, Y);
 
 input A, B;

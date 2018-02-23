@@ -1101,7 +1101,7 @@ namespace {
 				return;
 			}
 
-			if (cell->type.in("$anyconst", "$anyseq")) {
+			if (cell->type.in("$anyconst", "$anyseq", "$allconst", "$allseq")) {
 				port("\\Y", param("\\WIDTH"));
 				check_expected();
 				return;
@@ -2139,6 +2139,26 @@ RTLIL::SigSpec RTLIL::Module::Anyseq(RTLIL::IdString name, int width, const std:
 {
 	RTLIL::SigSpec sig = addWire(NEW_ID, width);
 	Cell *cell = addCell(name, "$anyseq");
+	cell->setParam("\\WIDTH", width);
+	cell->setPort("\\Y", sig);
+	cell->set_src_attribute(src);
+	return sig;
+}
+
+RTLIL::SigSpec RTLIL::Module::Allconst(RTLIL::IdString name, int width, const std::string &src)
+{
+	RTLIL::SigSpec sig = addWire(NEW_ID, width);
+	Cell *cell = addCell(name, "$allconst");
+	cell->setParam("\\WIDTH", width);
+	cell->setPort("\\Y", sig);
+	cell->set_src_attribute(src);
+	return sig;
+}
+
+RTLIL::SigSpec RTLIL::Module::Allseq(RTLIL::IdString name, int width, const std::string &src)
+{
+	RTLIL::SigSpec sig = addWire(NEW_ID, width);
+	Cell *cell = addCell(name, "$allseq");
 	cell->setParam("\\WIDTH", width);
 	cell->setPort("\\Y", sig);
 	cell->set_src_attribute(src);

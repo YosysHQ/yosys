@@ -764,7 +764,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 		break;
 
 	case AST_FCALL:
-		if (str == "\\$anyconst" || str == "\\$anyseq") {
+		if (str == "\\$anyconst" || str == "\\$anyseq" || str == "\\$allconst" || str == "\\$allseq") {
 			if (GetSize(children) == 1) {
 				while (children[0]->simplify(true, false, false, 1, -1, false, true) == true) { }
 				if (children[0]->type != AST_CONSTANT)
@@ -1475,7 +1475,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 		} break;
 
 	case AST_FCALL: {
-			if (str == "\\$anyconst" || str == "\\$anyseq")
+			if (str == "\\$anyconst" || str == "\\$anyseq" || str == "\\$allconst" || str == "\\$allseq")
 			{
 				string myid = stringf("%s$%d", str.c_str() + 1, autoidx++);
 				int width = width_hint;
