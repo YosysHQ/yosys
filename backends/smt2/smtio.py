@@ -59,6 +59,9 @@ class SmtModInfo:
         self.covers = dict()
         self.anyconsts = dict()
         self.anyseqs = dict()
+        self.allconsts = dict()
+        self.allseqs = dict()
+        self.asize = dict()
 
 
 class SmtIo:
@@ -69,6 +72,7 @@ class SmtIo:
         self.logic_uf = True
         self.logic_bv = True
         self.logic_dt = False
+        self.forall = False
         self.produce_models = True
         self.smt2cache = [list()]
         self.p = None
@@ -108,6 +112,9 @@ class SmtIo:
     def setup(self):
         assert not self.setup_done
 
+        if self.forall:
+            self.unroll = False
+
         if self.solver == "yices":
             self.popen_vargs = ['yices-smt2', '--incremental'] + self.solver_opts
 
@@ -143,6 +150,7 @@ class SmtIo:
                 self.p_open()
 
         if self.unroll:
+            assert not self.forall
             self.logic_uf = False
             self.unroll_idcnt = 0
             self.unroll_buffer = ""
@@ -376,6 +384,11 @@ class SmtIo:
             if self.logic is None:
                 self.logic_dt = True
 
+        if fields[1] == "yosys-smt2-forall":
+            if self.logic is None:
+                self.logic_qf = False
+            self.forall = True
+
         if fields[1] == "yosys-smt2-module":
             self.curmod = fields[2]
             self.modinfo[self.curmod] = SmtModInfo()
@@ -419,10 +432,20 @@ class SmtIo:
             self.modinfo[self.curmod].covers["%s_c %s" % (self.curmod, fields[2])] = fields[3]
 
         if fields[1] == "yosys-smt2-anyconst":
-            self.modinfo[self.curmod].anyconsts[fields[2]] = (fields[3], None if len(fields) <= 4 else fields[4])
+            self.modinfo[self.curmod].anyconsts[fields[2]] = (fields[4], None if len(fields) <= 5 else fields[5])
+            self.modinfo[self.curmod].asize[fields[2]] = int(fields[3])
 
         if fields[1] == "yosys-smt2-anyseq":
-            self.modinfo[self.curmod].anyseqs[fields[2]] = (fields[3], None if len(fields) <= 4 else fields[4])
+            self.modinfo[self.curmod].anyseqs[fields[2]] = (fields[4], None if len(fields) <= 5 else fields[5])
+            self.modinfo[self.curmod].asize[fields[2]] = int(fields[3])
+
+        if fields[1] == "yosys-smt2-allconst":
+            self.modinfo[self.curmod].allconsts[fields[2]] = (fields[4], None if len(fields) <= 5 else fields[5])
+            self.modinfo[self.curmod].asize[fields[2]] = int(fields[3])
+
+        if fields[1] == "yosys-smt2-allseq":
+            self.modinfo[self.curmod].allseqs[fields[2]] = (fields[4], None if len(fields) <= 5 else fields[5])
+            self.modinfo[self.curmod].asize[fields[2]] = int(fields[3])
 
     def hiernets(self, top, regs_only=False):
         def hiernets_worker(nets, mod, cursor):
@@ -439,7 +462,8 @@ class SmtIo:
     def hieranyconsts(self, top):
         def worker(results, mod, cursor):
             for name, value in sorted(self.modinfo[mod].anyconsts.items()):
-                results.append((cursor, name, value[0], value[1]))
+                width = self.modinfo[mod].asize[name]
+                results.append((cursor, name, value[0], value[1], width))
             for cellname, celltype in sorted(self.modinfo[mod].cells.items()):
                 worker(results, celltype, cursor + [cellname])
 
@@ -450,7 +474,32 @@ class SmtIo:
     def hieranyseqs(self, top):
         def worker(results, mod, cursor):
             for name, value in sorted(self.modinfo[mod].anyseqs.items()):
-                results.append((cursor, name, value[0], value[1]))
+                width = self.modinfo[mod].asize[name]
+                results.append((cursor, name, value[0], value[1], width))
+            for cellname, celltype in sorted(self.modinfo[mod].cells.items()):
+                worker(results, celltype, cursor + [cellname])
+
+        results = list()
+        worker(results, top, [])
+        return results
+
+    def hierallconsts(self, top):
+        def worker(results, mod, cursor):
+            for name, value in sorted(self.modinfo[mod].allconsts.items()):
+                width = self.modinfo[mod].asize[name]
+                results.append((cursor, name, value[0], value[1], width))
+            for cellname, celltype in sorted(self.modinfo[mod].cells.items()):
+                worker(results, celltype, cursor + [cellname])
+
+        results = list()
+        worker(results, top, [])
+        return results
+
+    def hierallseqs(self, top):
+        def worker(results, mod, cursor):
+            for name, value in sorted(self.modinfo[mod].allseqs.items()):
+                width = self.modinfo[mod].asize[name]
+                results.append((cursor, name, value[0], value[1], width))
             for cellname, celltype in sorted(self.modinfo[mod].cells.items()):
                 worker(results, celltype, cursor + [cellname])
 
