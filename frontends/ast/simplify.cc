@@ -1832,7 +1832,7 @@ skip_dynamic_range_lvalue_expansion:;
 			}
 
 			// $anyconst and $anyseq are mapped in AstNode::genRTLIL()
-			if (str == "\\$anyconst" || str == "\\$anyseq") {
+			if (str == "\\$anyconst" || str == "\\$anyseq" || str == "\\$allconst" || str == "\\$allseq") {
 				recursion_counter--;
 				return false;
 			}

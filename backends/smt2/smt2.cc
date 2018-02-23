@@ -32,9 +32,9 @@ struct Smt2Worker
 	CellTypes ct;
 	SigMap sigmap;
 	RTLIL::Module *module;
-	bool bvmode, memmode, wiresmode, verbose, statebv, statedt;
+	bool bvmode, memmode, wiresmode, verbose, statebv, statedt, forallmode;
 	dict<IdString, int> &mod_stbv_width;
-	int idcounter, statebv_width;
+	int idcounter = 0, statebv_width = 0;
 
 	std::vector<std::string> decls, trans, hier, dtmembers;
 	std::map<RTLIL::SigBit, RTLIL::Cell*> bit_driver;
@@ -42,6 +42,7 @@ struct Smt2Worker
 	pool<Cell*> recursive_cells, registers;
 
 	pool<SigBit> clock_posedge, clock_negedge;
+	vector<string> ex_state_eq, ex_input_eq;
 
 	std::map<RTLIL::SigBit, std::pair<int, int>> fcache;
 	std::map<Cell*, int> memarrays;
@@ -106,10 +107,10 @@ struct Smt2Worker
 			decls.push_back(decl_str + "\n");
 	}
 
-	Smt2Worker(RTLIL::Module *module, bool bvmode, bool memmode, bool wiresmode, bool verbose, bool statebv, bool statedt,
+	Smt2Worker(RTLIL::Module *module, bool bvmode, bool memmode, bool wiresmode, bool verbose, bool statebv, bool statedt, bool forallmode,
 			dict<IdString, int> &mod_stbv_width, dict<IdString, dict<IdString, pair<bool, bool>>> &mod_clk_cache) :
 			ct(module->design), sigmap(module), module(module), bvmode(bvmode), memmode(memmode), wiresmode(wiresmode),
-			verbose(verbose), statebv(statebv), statedt(statedt), mod_stbv_width(mod_stbv_width), idcounter(0), statebv_width(0)
+			verbose(verbose), statebv(statebv), statedt(statedt), forallmode(forallmode), mod_stbv_width(mod_stbv_width)
 	{
 		pool<SigBit> noclock;
 
@@ -507,14 +508,16 @@ struct Smt2Worker
 				return;
 			}
 
-			if (cell->type.in("$anyconst", "$anyseq"))
+			if (cell->type.in("$anyconst", "$anyseq", "$allconst", "$allseq"))
 			{
 				registers.insert(cell);
 				string infostr = cell->attributes.count("\\src") ? cell->attributes.at("\\src").decode_string().c_str() : get_id(cell);
 				if (cell->attributes.count("\\reg"))
 					infostr += " " + cell->attributes.at("\\reg").decode_string();
-				decls.push_back(stringf("; yosys-smt2-%s %s#%d %s\n", cell->type.c_str() + 1, get_id(module), idcounter, infostr.c_str()));
+				decls.push_back(stringf("; yosys-smt2-%s %s#%d %d %s\n", cell->type.c_str() + 1, get_id(module), idcounter, GetSize(cell->getPort("\\Y")), infostr.c_str()));
 				makebits(stringf("%s#%d", get_id(module), idcounter), GetSize(cell->getPort("\\Y")), log_signal(cell->getPort("\\Y")));
+				if (cell->type == "$anyseq")
+					ex_input_eq.push_back(stringf("  (= (|%s#%d| state) (|%s#%d| other_state))", get_id(module), idcounter, get_id(module), idcounter));
 				register_bv(cell->getPort("\\Y"), idcounter++);
 				recursive_cells.erase(cell);
 				return;
@@ -787,14 +790,24 @@ struct Smt2Worker
 				if (bvmode && GetSize(sig) > 1) {
 					decls.push_back(stringf("(define-fun |%s_n %s| ((state |%s_s|)) (_ BitVec %d) %s)\n",
 							get_id(module), get_id(wire), get_id(module), GetSize(sig), get_bv(sig).c_str()));
+					if (wire->port_input)
+						ex_input_eq.push_back(stringf("  (= (|%s_n %s| state) (|%s_n %s| other_state))",
+								get_id(module), get_id(wire), get_id(module), get_id(wire)));
 				} else {
 					for (int i = 0; i < GetSize(sig); i++)
-						if (GetSize(sig) > 1)
+						if (GetSize(sig) > 1) {
 							decls.push_back(stringf("(define-fun |%s_n %s %d| ((state |%s_s|)) Bool %s)\n",
 									get_id(module), get_id(wire), i, get_id(module), get_bool(sig[i]).c_str()));
-						else
+							if (wire->port_input)
+								ex_input_eq.push_back(stringf("  (= (|%s_n %s %d| state) (|%s_n %s %d| other_state))",
+										get_id(module), get_id(wire), i, get_id(module), get_id(wire), i));
+						} else {
 							decls.push_back(stringf("(define-fun |%s_n %s| ((state |%s_s|)) Bool %s)\n",
 									get_id(module), get_id(wire), get_id(module), get_bool(sig[i]).c_str()));
+							if (wire->port_input)
+								ex_input_eq.push_back(stringf("  (= (|%s_n %s| state) (|%s_n %s| other_state))",
+										get_id(module), get_id(wire), get_id(module), get_id(wire)));
+						}
 				}
 			}
 		}
@@ -919,6 +932,7 @@ struct Smt2Worker
 					std::string expr_d = get_bool(cell->getPort("\\D"));
 					std::string expr_q = get_bool(cell->getPort("\\Q"), "next_state");
 					trans.push_back(stringf("  (= %s %s) ; %s %s\n", expr_d.c_str(), expr_q.c_str(), get_id(cell), log_signal(cell->getPort("\\Q"))));
+					ex_state_eq.push_back(stringf("(= %s %s)", get_bool(cell->getPort("\\Q")).c_str(), get_bool(cell->getPort("\\Q"), "other_state").c_str()));
 				}
 
 				if (cell->type.in("$ff", "$dff"))
@@ -926,13 +940,16 @@ struct Smt2Worker
 					std::string expr_d = get_bv(cell->getPort("\\D"));
 					std::string expr_q = get_bv(cell->getPort("\\Q"), "next_state");
 					trans.push_back(stringf("  (= %s %s) ; %s %s\n", expr_d.c_str(), expr_q.c_str(), get_id(cell), log_signal(cell->getPort("\\Q"))));
+					ex_state_eq.push_back(stringf("(= %s %s)", get_bv(cell->getPort("\\Q")).c_str(), get_bv(cell->getPort("\\Q"), "other_state").c_str()));
 				}
 
-				if (cell->type == "$anyconst")
+				if (cell->type.in("$anyconst", "$allconst"))
 				{
 					std::string expr_d = get_bv(cell->getPort("\\Y"));
 					std::string expr_q = get_bv(cell->getPort("\\Y"), "next_state");
 					trans.push_back(stringf("  (= %s %s) ; %s %s\n", expr_d.c_str(), expr_q.c_str(), get_id(cell), log_signal(cell->getPort("\\Y"))));
+					if (cell->type == "$anyconst")
+						ex_state_eq.push_back(stringf("(= %s %s)", get_bv(cell->getPort("\\Y")).c_str(), get_bv(cell->getPort("\\Y"), "other_state").c_str()));
 				}
 
 				if (cell->type == "$mem")
@@ -1044,6 +1061,7 @@ struct Smt2Worker
 					std::string expr_d = stringf("(|%s#%d#%d| state)", get_id(module), arrayid, wr_ports);
 					std::string expr_q = stringf("(|%s#%d#0| next_state)", get_id(module), arrayid);
 					trans.push_back(stringf("  (= %s %s) ; %s\n", expr_d.c_str(), expr_q.c_str(), get_id(cell)));
+					ex_state_eq.push_back(stringf("(= (|%s#%d#0| state) (|%s#%d#0| other_state))", get_id(module), arrayid, get_id(module), arrayid));
 
 					if (async_read)
 						hier.push_back(stringf("  (= %s (|%s| state)) ; %s\n", expr_d.c_str(), final_memstate.c_str(), get_id(cell)));
@@ -1086,6 +1104,37 @@ struct Smt2Worker
 			hier.push_back(stringf("  (|%s_h| (|%s_h %s| state))\n", get_id(c->type), get_id(module), get_id(c->name)));
 			trans.push_back(stringf("  (|%s_t| (|%s_h %s| state) (|%s_h %s| next_state))\n",
 					get_id(c->type), get_id(module), get_id(c->name), get_id(module), get_id(c->name)));
+			ex_state_eq.push_back(stringf("(|%s_ex_state_eq| (|%s_h %s| state) (|%s_h %s| other_state))\n",
+					get_id(c->type), get_id(module), get_id(c->name), get_id(module), get_id(c->name)));
+		}
+
+		if (forallmode)
+		{
+			string expr = ex_state_eq.empty() ? "true" : "(and";
+			if (!ex_state_eq.empty()) {
+				if (GetSize(ex_state_eq) == 1) {
+					expr = "\n  " + ex_state_eq.front() + "\n";
+				} else {
+					for (auto &str : ex_state_eq)
+						expr += stringf("\n  %s", str.c_str());
+					expr += "\n)";
+				}
+			}
+			decls.push_back(stringf("(define-fun |%s_ex_state_eq| ((state |%s_s|) (other_state |%s_s|)) Bool %s)\n",
+				get_id(module), get_id(module), get_id(module), expr.c_str()));
+
+			expr = ex_input_eq.empty() ? "true" : "(and";
+			if (!ex_input_eq.empty()) {
+				if (GetSize(ex_input_eq) == 1) {
+					expr = "\n  " + ex_input_eq.front() + "\n";
+				} else {
+					for (auto &str : ex_input_eq)
+						expr += stringf("\n  %s", str.c_str());
+					expr += "\n)";
+				}
+			}
+			decls.push_back(stringf("(define-fun |%s_ex_input_eq| ((state |%s_s|) (other_state |%s_s|)) Bool %s)\n",
+				get_id(module), get_id(module), get_id(module), expr.c_str()));
 		}
 
 		string assert_expr = assert_list.empty() ? "true" : "(and";
@@ -1336,6 +1385,7 @@ struct Smt2Backend : public Backend {
 	{
 		std::ifstream template_f;
 		bool bvmode = true, memmode = true, wiresmode = false, verbose = false, statebv = false, statedt = false;
+		bool forallmode = false;
 
 		log_header(design, "Executing SMT2 backend.\n");
 
@@ -1444,13 +1494,25 @@ struct Smt2Backend : public Backend {
 		std::string topmod_id;
 
 		for (auto module : sorted_modules)
+			for (auto cell : module->cells())
+				if (cell->type.in("$allconst", "$allseq"))
+					goto found_forall;
+		if (0) {
+	found_forall:
+			forallmode = true;
+			*f << stringf("; yosys-smt2-forall\n");
+			if (!statebv && !statedt)
+				log_error("Forall-exists problems are only supported in -stbv or -stdt mode.\n");
+		}
+
+		for (auto module : sorted_modules)
 		{
 			if (module->get_bool_attribute("\\blackbox") || module->has_memories_warn() || module->has_processes_warn())
 				continue;
 
 			log("Creating SMT-LIBv2 representation of module %s.\n", log_id(module));
 
-			Smt2Worker worker(module, bvmode, memmode, wiresmode, verbose, statebv, statedt, mod_stbv_width, mod_clk_cache);
+			Smt2Worker worker(module, bvmode, memmode, wiresmode, verbose, statebv, statedt, forallmode, mod_stbv_width, mod_clk_cache);
 			worker.run();
 			worker.write(*f);
 

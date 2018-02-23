@@ -1335,7 +1335,9 @@ rvalue:
 		$$ = new AstNode(AST_IDENTIFIER, $2);
 		$$->str = *$1;
 		delete $1;
-		if ($2 == nullptr && ($$->str == "\\$initstate" || $$->str == "\\$anyconst" || $$->str == "\\$anyseq"))
+		if ($2 == nullptr && ($$->str == "\\$initstate" ||
+				$$->str == "\\$anyconst" || $$->str == "\\$anyseq" ||
+				$$->str == "\\$allconst" || $$->str == "\\$allseq"))
 			$$->type = AST_FCALL;
 	} |
 	hierarchical_id non_opt_multirange {
