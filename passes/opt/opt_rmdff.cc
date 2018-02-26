@@ -154,6 +154,9 @@ bool handle_dffsr(RTLIL::Module *mod, RTLIL::Cell *cell)
 	if (used_pol_set && used_pol_clr && pol_set != pol_clr)
 		return did_something;
 
+	if (cell->type == "$dlatchsr")
+		return did_something;
+
 	State unified_pol = used_pol_set ? pol_set : pol_clr;
 
 	if (cell->type == "$dffsr")
