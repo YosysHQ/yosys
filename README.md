@@ -396,10 +396,11 @@ Non-standard or SystemVerilog features for formal verification
   but also works outside of checkers. (Yosys also supports ``rand``
   variables outside checkers.)
 
-- The system functions ``$allconst`` and ``$allseq`` are used to construct formal
-  exist-forall problems. Assertions are only violated if the trace vialoates
-  the assertion for all ``$allconst/$allseq`` values and assumptions only hold
-  if the trace satisfies the assumtion for all ``$allconst/$allseq`` values.
+- The system functions ``$allconst`` and ``$allseq`` can be used to construct
+  formal exist-forall problems. Assumptions only hold if the trace satisfies
+  the assumtion for all ``$allconst/$allseq`` values. For assertions and cover
+  statements it is sufficient if just one ``$allconst/$allseq`` value triggers
+  the property (similar to ``$anyconst/$anyseq``).
 
 - The SystemVerilog tasks ``$past``, ``$stable``, ``$rose`` and ``$fell`` are
   supported in any clocked block.

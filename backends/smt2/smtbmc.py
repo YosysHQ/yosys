@@ -1019,6 +1019,12 @@ def smt_state(step):
     smt.write("(declare-fun s%d () |%s_s|)" % (step, topmod))
     states.append("s%d" % step)
 
+def smt_assert(expr):
+    if expr == "true":
+        return
+
+    smt.write("(assert %s)" % expr)
+
 def smt_assert_antecedent(expr):
     if expr == "true":
         return
@@ -1158,12 +1164,12 @@ if tempind:
         smt_assert_consequent(get_constr_expr(constr_assumes, step))
 
         if step == num_steps:
-            smt_assert_consequent("(not (and (|%s_a| s%d) %s))" % (topmod, step, get_constr_expr(constr_asserts, step)))
+            smt_assert("(not (and (|%s_a| s%d) %s))" % (topmod, step, get_constr_expr(constr_asserts, step)))
 
         else:
             smt_assert_antecedent("(|%s_t| s%d s%d)" % (topmod, step, step+1))
-            smt_assert_consequent("(|%s_a| s%d)" % (topmod, step))
-            smt_assert_consequent(get_constr_expr(constr_asserts, step))
+            smt_assert("(|%s_a| s%d)" % (topmod, step))
+            smt_assert(get_constr_expr(constr_asserts, step))
 
         if step > num_steps-skip_steps:
             print_msg("Skipping induction in step %d.." % (step))
@@ -1234,7 +1240,7 @@ elif covermode:
         while "1" in cover_mask:
             print_msg("Checking cover reachability in step %d.." % (step))
             smt_push()
-            smt_assert_antecedent("(distinct (covers_%d s%d) #b%s)" % (coveridx, step, "0" * len(cover_desc)))
+            smt_assert("(distinct (covers_%d s%d) #b%s)" % (coveridx, step, "0" * len(cover_desc)))
 
             if smt_check_sat() == "unsat":
                 smt_pop()
@@ -1317,8 +1323,8 @@ else:  # not tempind, covermode
         if step < skip_steps:
             if assume_skipped is not None and step >= assume_skipped:
                 print_msg("Skipping step %d (and assuming pass).." % (step))
-                smt_assert_consequent("(|%s_a| s%d)" % (topmod, step))
-                smt_assert_consequent(get_constr_expr(constr_asserts, step))
+                smt_assert("(|%s_a| s%d)" % (topmod, step))
+                smt_assert(get_constr_expr(constr_asserts, step))
             else:
                 print_msg("Skipping step %d.." % (step))
             step += 1
@@ -1354,7 +1360,7 @@ else:  # not tempind, covermode
                     print_msg("Checking assertions in steps %d to %d.." % (step, last_check_step))
                 smt_push()
 
-                smt_assert_consequent("(not (and %s))" % " ".join(["(|%s_a| s%d)" % (topmod, i) for i in range(step, last_check_step+1)] +
+                smt_assert("(not (and %s))" % " ".join(["(|%s_a| s%d)" % (topmod, i) for i in range(step, last_check_step+1)] +
                         [get_constr_expr(constr_asserts, i) for i in range(step, last_check_step+1)]))
 
                 if smt_check_sat() == "sat":
@@ -1380,8 +1386,8 @@ else:  # not tempind, covermode
 
             if (constr_final_start is not None) or (last_check_step+1 != num_steps):
                 for i in range(step, last_check_step+1):
-                    smt_assert_consequent("(|%s_a| s%d)" % (topmod, i))
-                    smt_assert_consequent(get_constr_expr(constr_asserts, i))
+                    smt_assert("(|%s_a| s%d)" % (topmod, i))
+                    smt_assert(get_constr_expr(constr_asserts, i))
 
             if constr_final_start is not None:
                 for i in range(step, last_check_step+1):
@@ -1392,7 +1398,7 @@ else:  # not tempind, covermode
                     smt_push()
 
                     smt_assert_consequent(get_constr_expr(constr_assumes, i, final=True))
-                    smt_assert_consequent("(not %s)" % get_constr_expr(constr_asserts, i, final=True))
+                    smt_assert("(not %s)" % get_constr_expr(constr_asserts, i, final=True))
 
                     if smt_check_sat() == "sat":
                         print("%s BMC failed!" % smt.timestamp())
@@ -1408,8 +1414,8 @@ else:  # not tempind, covermode
 
         else:  # gentrace
             for i in range(step, last_check_step+1):
-                smt_assert_consequent("(|%s_a| s%d)" % (topmod, i))
-                smt_assert_consequent(get_constr_expr(constr_asserts, i))
+                smt_assert("(|%s_a| s%d)" % (topmod, i))
+                smt_assert(get_constr_expr(constr_asserts, i))
 
             print_msg("Solving for step %d.." % (last_check_step))
             if smt_check_sat() != "sat":
