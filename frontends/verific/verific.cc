@@ -478,6 +478,12 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 		return true;
 	}
 
+	if (inst->Type() == OPER_REDUCE_NOR) {
+		SigSpec t = module->ReduceOr(NEW_ID, IN, SIGNED);
+		module->addNot(inst_name, t, net_map_at(inst->GetOutput()));
+		return true;
+	}
+
 	if (inst->Type() == OPER_LESSTHAN) {
 		Net *net_cin = inst->GetCin();
 		if (net_cin->IsGnd())
