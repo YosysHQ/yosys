@@ -153,7 +153,7 @@ struct Clk2fflogicPass : public Pass {
 					cell->setPort("\\WR_DATA", wr_data_port);
 				}
 
-				if (cell->type.in("$dlatch"))
+				if (cell->type.in("$dlatch", "$dlatchsr"))
 				{
 					bool enpol = cell->parameters["\\EN_POLARITY"].as_bool();
 
@@ -168,10 +168,31 @@ struct Clk2fflogicPass : public Pass {
 					Wire *past_q = module->addWire(NEW_ID, GetSize(sig_q));
 					module->addFf(NEW_ID, sig_q, past_q);
 
-					if (enpol)
-						module->addMux(NEW_ID, past_q, sig_d, sig_en, sig_q);
+					if (cell->type == "$dlatch")
+					{
+						if (enpol)
+							module->addMux(NEW_ID, past_q, sig_d, sig_en, sig_q);
+						else
+							module->addMux(NEW_ID, sig_d, past_q, sig_en, sig_q);
+					}
 					else
-						module->addMux(NEW_ID, sig_d, past_q, sig_en, sig_q);
+					{
+						SigSpec t;
+						if (enpol)
+							t = module->Mux(NEW_ID, past_q, sig_d, sig_en);
+						else
+							t = module->Mux(NEW_ID, sig_d, past_q, sig_en);
+
+						SigSpec s = cell->getPort("\\SET");
+						if (!cell->parameters["\\SET_POLARITY"].as_bool())
+							s = module->Not(NEW_ID, s);
+						t = module->Or(NEW_ID, t, s);
+
+						SigSpec c = cell->getPort("\\CLR");
+						if (cell->parameters["\\CLR_POLARITY"].as_bool())
+							c = module->Not(NEW_ID, c);
+						module->addAnd(NEW_ID, t, c, sig_q);
+					}
 
 					Const initval;
 					bool assign_initval = false;
