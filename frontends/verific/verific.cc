@@ -569,6 +569,19 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 		return true;
 	}
 
+	if (inst->Type() == OPER_SELECTOR)
+	{
+		module->addPmux(inst_name, State::S0, IN2, IN1, net_map_at(inst->GetOutput()));
+		return true;
+	}
+
+	if (inst->Type() == OPER_WIDE_SELECTOR)
+	{
+		SigSpec out = OUT;
+		module->addPmux(inst_name, SigSpec(State::S0, GetSize(out)), IN2, IN1, out);
+		return true;
+	}
+
 	if (inst->Type() == OPER_WIDE_TRI) {
 		module->addMux(inst_name, RTLIL::SigSpec(RTLIL::State::Sz, inst->OutputSize()), IN, net_map_at(inst->GetControl()), OUT);
 		return true;
