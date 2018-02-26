@@ -17,6 +17,40 @@
  *
  */
 
+
+// SVA Properties Simplified Syntax:
+//
+// prop:
+//   not prop
+//   prop or prop
+//   prop and prop
+//   seq |-> prop
+//   seq |=> prop
+//   if (expr) prop [else prop]
+//   prop until prop
+//   prop implies prop
+//   prop iff prop
+//   accept_on (expr) prop
+//   reject_on (expr) prop
+//
+// seq:
+//   expr
+//   expr ##N seq
+//   expr ##[N:M] seq
+//   seq or seq
+//   seq and seq
+//   seq intersect seq
+//   first_match (seq)
+//   expr throughout seq
+//   seq within seq
+//   seq [*N]
+//   seq [*N:M]
+//   expr [=N]
+//   expr [=N:M]
+//   expr [->N]
+//   expr [->N:M]
+
+
 #include "kernel/yosys.h"
 #include "frontends/verific/verific.h"
 
