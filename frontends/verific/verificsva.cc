@@ -24,7 +24,6 @@
 //   not prop
 //   prop or prop
 //   prop and prop
-//   seq |-> prop
 //   seq |=> prop
 //   if (expr) prop [else prop]
 //   prop until prop
@@ -35,7 +34,6 @@
 //
 // seq:
 //   expr
-//   expr ##N seq
 //   expr ##[N:M] seq
 //   seq or seq
 //   seq and seq
@@ -43,12 +41,24 @@
 //   first_match (seq)
 //   expr throughout seq
 //   seq within seq
-//   seq [*N]
 //   seq [*N:M]
-//   expr [=N]
 //   expr [=N:M]
-//   expr [->N]
 //   expr [->N:M]
+//
+// Notes:
+//   |=> is a placeholder for |-> and |=>
+//   "until" is a placeholder for all until operators
+//   ##[N:M], [*N:M], [=N:M], [->N:M] includes ##N, [*N], [=N], [->N]
+//
+// Currently supported property styles:
+//   not seq
+//   seq |=> seq
+//   seq |=> seq until seq
+//
+// Currently supported sequence operators:
+//   ##[N:M]
+//   [*N:M]
+//   throughout
 
 
 #include "kernel/yosys.h"
@@ -59,6 +69,316 @@ USING_YOSYS_NAMESPACE
 #ifdef VERIFIC_NAMESPACE
 using namespace Verific;
 #endif
+
+PRIVATE_NAMESPACE_BEGIN
+
+struct SvaFsmNode
+{
+	vector<pair<int, SigBit>> edges, links;
+};
+
+struct SvaFsm
+{
+	Module *module;
+	SigBit clock;
+	bool clockpol;
+
+	SigBit trigger_sig = State::S1, disable_sig;
+	SigBit accept_sig = State::Sz, reject_sig = State::Sz;
+	SigBit throughout_sig = State::S1;
+	bool materialized = false;
+
+	vector<SigBit> disable_stack;
+	vector<SigBit> throughout_stack;
+
+	int startNode, acceptNode, rejectNode;
+	vector<SvaFsmNode> nodes;
+
+	SvaFsm(Module *mod, SigBit clk, bool clkpol, SigBit dis = State::S0, SigBit trig = State::S1)
+	{
+		module = mod;
+		clock = clk;
+		clockpol = clkpol;
+		disable_sig = dis;
+		trigger_sig = trig;
+
+		startNode = createNode();
+		acceptNode = createNode();
+		rejectNode = createNode();
+	}
+
+	void pushDisable(SigBit sig)
+	{
+		log_assert(!materialized);
+
+		disable_stack.push_back(disable_sig);
+
+		if (disable_sig == State::S0)
+			disable_sig = sig;
+		else
+			disable_sig = module->Or(NEW_ID, disable_sig, sig);
+	}
+
+	void popDisable()
+	{
+		log_assert(!materialized);
+		log_assert(!disable_stack.empty());
+
+		disable_sig = disable_stack.back();
+		disable_stack.pop_back();
+	}
+
+	void pushThroughout(SigBit sig)
+	{
+		log_assert(!materialized);
+
+		throughout_stack.push_back(throughout_sig);
+
+		if (throughout_sig == State::S1)
+			throughout_sig = sig;
+		else
+			throughout_sig = module->And(NEW_ID, throughout_sig, sig);
+	}
+
+	void popThroughout()
+	{
+		log_assert(!materialized);
+		log_assert(!throughout_stack.empty());
+
+		throughout_sig = throughout_stack.back();
+		throughout_stack.pop_back();
+	}
+
+	SigBit getAccept()
+	{
+		if (accept_sig != State::Sz)
+			return accept_sig;
+
+		log_assert(!materialized);
+		accept_sig = module->addWire(NEW_ID);
+		return accept_sig;
+	}
+
+	SigBit getReject()
+	{
+		if (reject_sig != State::Sz)
+			return reject_sig;
+
+		log_assert(!materialized);
+		reject_sig = module->addWire(NEW_ID);
+		return reject_sig;
+	}
+
+	int createNode()
+	{
+		log_assert(!materialized);
+
+		int idx = GetSize(nodes);
+		nodes.push_back(SvaFsmNode());
+		return idx;
+	}
+
+	void createEdge(int from_node, int to_node, SigBit ctrl = State::S1)
+	{
+		log_assert(!materialized);
+		log_assert(0 <= from_node && from_node < GetSize(nodes));
+		log_assert(0 <= to_node && to_node < GetSize(nodes));
+
+		if (throughout_sig != State::S1) {
+			if (ctrl != State::S1)
+				ctrl = module->And(NEW_ID, throughout_sig, ctrl);
+			else
+				ctrl = throughout_sig;
+		}
+
+		nodes[from_node].edges.push_back(make_pair(to_node, ctrl));
+	}
+
+	void createLink(int from_node, int to_node, SigBit ctrl = State::S1)
+	{
+		log_assert(!materialized);
+		log_assert(0 <= from_node && from_node < GetSize(nodes));
+		log_assert(0 <= to_node && to_node < GetSize(nodes));
+
+		if (throughout_sig != State::S1) {
+			if (ctrl != State::S1)
+				ctrl = module->And(NEW_ID, throughout_sig, ctrl);
+			else
+				ctrl = throughout_sig;
+		}
+
+		nodes[from_node].links.push_back(make_pair(to_node, ctrl));
+	}
+
+	void make_link_order(vector<int> &order, int node, int min)
+	{
+		order[node] = std::max(order[node], min);
+		for (auto &it : nodes[node].links)
+			make_link_order(order, it.first, order[node]+1);
+	}
+
+	void materialize_ndfsm()
+	{
+		log_assert(!materialized);
+		materialized = true;
+
+		vector<SigBit> next_state_sig(GetSize(nodes));
+		vector<SigBit> state_sig(GetSize(nodes));
+
+		// Create state FFs
+
+		{
+			SigBit not_disable = State::S1;
+
+			if (disable_sig != State::S0)
+				not_disable = module->Not(NEW_ID, disable_sig);
+
+			for (int i = 0; i < GetSize(nodes); i++)
+			{
+				next_state_sig[i] = module->addWire(NEW_ID);
+
+				Wire *w = module->addWire(NEW_ID);
+				w->attributes["\\init"] = Const(0, 1);
+				state_sig[i] = w;
+
+				module->addDff(NEW_ID, clock, next_state_sig[i], state_sig[i], clockpol);
+
+				if (i == startNode)
+					state_sig[i] = module->Or(NEW_ID, state_sig[i], trigger_sig);
+
+				if (disable_sig != State::S0)
+					state_sig[i] = module->And(NEW_ID, state_sig[i], not_disable);
+			}
+		}
+
+		// Follow Links
+
+		{
+			vector<int> node_order(GetSize(nodes));
+			vector<vector<int>> order_to_nodes;
+
+			for (int i = 0; i < GetSize(nodes); i++)
+				make_link_order(node_order, i, 0);
+
+			for (int i = 0; i < GetSize(nodes); i++) {
+				if (node_order[i] >= GetSize(order_to_nodes))
+					order_to_nodes.resize(node_order[i]+1);
+				order_to_nodes[node_order[i]].push_back(i);
+			}
+
+			for (int order = 0; order < GetSize(order_to_nodes); order++)
+			for (int node : order_to_nodes[order])
+			{
+				for (auto &it : nodes[node].links)
+				{
+					int target = it.first;
+					SigBit ctrl = state_sig[node];
+
+					if (it.second != State::S1)
+						ctrl = module->And(NEW_ID, ctrl, it.second);
+
+					state_sig[target] = module->Or(NEW_ID, state_sig[target], ctrl);
+				}
+			}
+		}
+
+		// Construct activations
+
+		{
+			vector<SigSpec> activate_sig(GetSize(nodes));
+			vector<SigBit> activate_bit(GetSize(nodes));
+
+			for (int i = 0; i < GetSize(nodes); i++) {
+				for (auto &it : nodes[i].edges)
+					activate_sig[it.first].append(module->And(NEW_ID, state_sig[i], it.second));
+			}
+
+			for (int i = 0; i < GetSize(nodes); i++) {
+				if (GetSize(activate_sig[i]) == 0)
+					activate_bit[i] = State::S0;
+				else if (GetSize(activate_sig[i]) == 1)
+					activate_bit[i] = activate_sig[i];
+				else
+					activate_bit[i] = module->ReduceOr(NEW_ID, activate_sig[i]);
+			}
+
+			if (activate_bit[rejectNode] != State::S0)
+			{
+				SigBit not_rej = module->Not(NEW_ID, next_state_sig[rejectNode]);
+				for (int i = 0; i < GetSize(nodes); i++)
+					if (i != rejectNode && activate_bit[i] != State::S0)
+						activate_bit[i] = module->And(NEW_ID, activate_bit[i], not_rej);
+				activate_bit[rejectNode] = State::S0;
+			}
+
+			for (int i = 0; i < GetSize(nodes); i++) {
+				module->connect(next_state_sig[i], activate_bit[i]);
+			}
+		}
+
+		// Construct output signals
+
+		if (accept_sig != State::Sz) {
+			module->connect(accept_sig, state_sig[acceptNode]);
+		}
+
+		if (reject_sig != State::Sz)
+		{
+			SigBit fsm_active = module->ReduceOr(NEW_ID, state_sig);
+			SigBit fsm_next_active = module->ReduceOr(NEW_ID, next_state_sig);
+			module->addEq(NEW_ID, {state_sig[acceptNode], fsm_next_active, fsm_active}, SigSpec(1, 3), reject_sig);
+		}
+	}
+
+	void materialize_dfsm()
+	{
+		// FIXME
+		log_abort();
+	}
+
+	bool is_linear()
+	{
+		for (int i = 0; i < GetSize(nodes); i++)
+			if (GetSize(nodes[i].edges) + GetSize(nodes[i].links) > 1)
+				return false;
+		return true;
+	}
+
+	void dump()
+	{
+		log("-----------\n");
+		for (int i = 0; i < GetSize(nodes); i++)
+		{
+			log("node %d:\n", i);
+
+			if (i == startNode)
+				log("  startNode\n");
+
+			if (i == rejectNode)
+				log("  rejectNode\n");
+
+			if (i == acceptNode)
+				log("  acceptNode\n");
+
+			for (auto &it : nodes[i].edges) {
+				if (it.second != State::S1)
+					log("  egde %s -> %d\n", log_signal(it.second), it.first);
+				else
+					log("  egde -> %d\n", it.first);
+			}
+
+			for (auto &it : nodes[i].links) {
+				if (it.second != State::S1)
+					log("  link %s -> %d\n", log_signal(it.second), it.first);
+				else
+					log("  link -> %d\n", it.first);
+			}
+		}
+		log("-----------\n");
+	}
+};
+
+PRIVATE_NAMESPACE_END
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -253,6 +573,253 @@ struct VerificSvaImporter
 
 	// ----------------------------------------------------------
 	// SVA Importer
+
+	int parse_sequence(SvaFsm *fsm, int start_node, Net *net)
+	{
+		Instance *inst = net_to_ast_driver(net);
+
+		if (inst == nullptr) {
+			int node = fsm->createNode();
+			fsm->createLink(start_node, node, importer->net_map_at(net));
+			return node;
+		}
+
+		if (inst->Type() == PRIM_SVA_SEQ_CONCAT)
+		{
+			const char *sva_low_s = inst->GetAttValue("sva:low");
+			const char *sva_high_s = inst->GetAttValue("sva:high");
+
+			int sva_low = atoi(sva_low_s);
+			int sva_high = atoi(sva_high_s);
+			bool sva_inf = !strcmp(sva_high_s, "$");
+
+			int node = parse_sequence(fsm, start_node, inst->GetInput1());
+
+			for (int i = 0; i < sva_low; i++) {
+				int next_node = fsm->createNode();
+				fsm->createEdge(node, next_node);
+				node = next_node;
+			}
+
+			if (sva_inf)
+			{
+				fsm->createEdge(node, node);
+			}
+			else
+			{
+				for (int i = sva_low; i < sva_high; i++)
+				{
+					int next_node = fsm->createNode();
+					fsm->createEdge(node, next_node);
+					fsm->createLink(node, next_node);
+					node = next_node;
+				}
+			}
+
+			node = parse_sequence(fsm, node, inst->GetInput2());
+
+			return node;
+		}
+
+		if (inst->Type() == PRIM_SVA_CONSECUTIVE_REPEAT)
+		{
+			const char *sva_low_s = inst->GetAttValue("sva:low");
+			const char *sva_high_s = inst->GetAttValue("sva:high");
+
+			int sva_low = atoi(sva_low_s);
+			int sva_high = atoi(sva_high_s);
+			bool sva_inf = !strcmp(sva_high_s, "$");
+
+			int node = parse_sequence(fsm, start_node, inst->GetInput());
+
+			for (int i = 1; i < sva_low; i++)
+			{
+				int next_node = fsm->createNode();
+				fsm->createEdge(node, next_node);
+				node = parse_sequence(fsm, next_node, inst->GetInput());
+			}
+
+			if (sva_inf)
+			{
+				int next_node = fsm->createNode();
+				fsm->createEdge(node, next_node);
+				next_node = parse_sequence(fsm, next_node, inst->GetInput());
+				fsm->createLink(next_node, node);
+			}
+			else
+			{
+				for (int i = sva_low; i < sva_high; i++)
+				{
+					int next_node = fsm->createNode();
+					fsm->createEdge(node, next_node);
+					next_node = parse_sequence(fsm, next_node, inst->GetInput());
+					fsm->createLink(node, next_node);
+					node = next_node;
+				}
+			}
+
+			return node;
+		}
+
+		if (inst->Type() == PRIM_SVA_THROUGHOUT)
+		{
+			log_assert(get_ast_input1(inst) == nullptr);
+			SigBit expr = importer->net_map_at(inst->GetInput1());
+
+			fsm->pushThroughout(expr);
+			int node = parse_sequence(fsm, start_node, inst->GetInput2());
+			fsm->popThroughout();
+
+			return node;
+		}
+
+		// Handle unsupported primitives
+
+		if (!importer->mode_keep)
+			log_error("Verific SVA primitive %s (%s) is currently unsupported in this context.\n", inst->View()->Owner()->Name(), inst->Name());
+		log_warning("Verific SVA primitive %s (%s) is currently unsupported in this context.\n", inst->View()->Owner()->Name(), inst->Name());
+
+		return start_node;
+	}
+
+	void import()
+	{
+		module = importer->module;
+		netlist = root->Owner();
+
+		RTLIL::IdString root_name = module->uniquify(importer->mode_names || root->IsUserDeclared() ? RTLIL::escape_id(root->Name()) : NEW_ID);
+
+		// parse SVA property clock event
+
+		Instance *at_node = get_ast_input(root);
+
+		// asynchronous immediate assertion/assumption/cover
+		if (at_node == nullptr && (root->Type() == PRIM_SVA_IMMEDIATE_ASSERT ||
+				root->Type() == PRIM_SVA_IMMEDIATE_COVER || root->Type() == PRIM_SVA_IMMEDIATE_ASSUME))
+		{
+			SigSpec sig_a = importer->net_map_at(root->GetInput());
+			RTLIL::Cell *c = nullptr;
+
+			if (eventually) {
+				if (mode_assert) c = module->addLive(root_name, sig_a, State::S1);
+				if (mode_assume) c = module->addFair(root_name, sig_a, State::S1);
+			} else {
+				if (mode_assert) c = module->addAssert(root_name, sig_a, State::S1);
+				if (mode_assume) c = module->addAssume(root_name, sig_a, State::S1);
+				if (mode_cover) c = module->addCover(root_name, sig_a, State::S1);
+			}
+
+			importer->import_attributes(c->attributes, root);
+			return;
+		}
+
+		log_assert(at_node && at_node->Type() == PRIM_SVA_AT);
+
+		VerificClockEdge clock_edge(importer, get_ast_input1(at_node));
+		clock = clock_edge.clock_sig;
+		clock_posedge = clock_edge.posedge;
+
+		// parse disable_iff expression
+
+		Net *sequence_net = at_node->GetInput2();
+
+		while (1)
+		{
+			Instance *sequence_node = net_to_ast_driver(sequence_net);
+
+			if (sequence_node && sequence_node->Type() == PRIM_SVA_S_EVENTUALLY) {
+				eventually = true;
+				sequence_net = sequence_node->GetInput();
+				continue;
+			}
+
+			if (sequence_node && sequence_node->Type() == PRIM_SVA_DISABLE_IFF) {
+				disable_iff = importer->net_map_at(sequence_node->GetInput1());
+				sequence_net = sequence_node->GetInput2();
+				continue;
+			}
+
+			break;
+		}
+
+		// parse SVA sequence into trigger signal
+
+		SigBit prop_okay;
+		Instance *inst = net_to_ast_driver(sequence_net);
+
+		if (inst == nullptr)
+		{
+			prop_okay = importer->net_map_at(sequence_net);
+		}
+		else
+		if (inst->Type() == PRIM_SVA_OVERLAPPED_IMPLICATION ||
+				inst->Type() == PRIM_SVA_NON_OVERLAPPED_IMPLICATION)
+		{
+			Net *antecedent_net = inst->GetInput1();
+			Net *consequent_net = inst->GetInput2();
+			int node;
+
+			SvaFsm antecedent_fsm(module, clock, clock_posedge, disable_iff);
+			node = parse_sequence(&antecedent_fsm, antecedent_fsm.startNode, antecedent_net);
+			if (inst->Type() == PRIM_SVA_NON_OVERLAPPED_IMPLICATION) {
+				int next_node = antecedent_fsm.createNode();
+				antecedent_fsm.createEdge(node, next_node);
+				node = next_node;
+			}
+			antecedent_fsm.createLink(node, antecedent_fsm.acceptNode);
+
+			SigBit antecedent_accept = antecedent_fsm.getAccept();
+			antecedent_fsm.materialize_ndfsm();
+			antecedent_fsm.dump();
+
+			SvaFsm consequent_fsm(module, clock, clock_posedge, disable_iff, antecedent_accept);
+			node = parse_sequence(&consequent_fsm, consequent_fsm.startNode, consequent_net);
+			consequent_fsm.createLink(node, consequent_fsm.acceptNode);
+
+			SigBit consequent_reject = consequent_fsm.getReject();
+			prop_okay = module->Not(NEW_ID, consequent_reject);
+
+			if (consequent_fsm.is_linear())
+				consequent_fsm.materialize_ndfsm();
+			else
+				log_error("Currently only linear sequences are allowed as impliciation consequent.\n");
+		}
+		else
+		{
+			// Handle unsupported primitives
+
+			if (!importer->mode_keep)
+				log_error("Verific SVA primitive %s (%s) is currently unsupported in this context.\n", inst->View()->Owner()->Name(), inst->Name());
+			log_warning("Verific SVA primitive %s (%s) is currently unsupported in this context.\n", inst->View()->Owner()->Name(), inst->Name());
+			return;
+		}
+
+		// add final FF stage
+
+		Wire *prop_okay_q = module->addWire(NEW_ID);
+		prop_okay_q->attributes["\\init"] = Const(mode_cover ? 0 : 1, 1);
+		module->addDff(NEW_ID, clock, prop_okay, prop_okay_q, clock_posedge);
+
+		// generate assert/assume/cover cell
+
+		RTLIL::Cell *c = nullptr;
+
+		if (eventually) {
+			log_error("No support for eventually in Verific SVA bindings yet.\n");
+			// if (mode_assert) c = module->addLive(root_name, prop_okay_q, prop_start_q);
+			// if (mode_assume) c = module->addFair(root_name, prop_okay_q, prop_start_q);
+		} else {
+			if (mode_assert) c = module->addAssert(root_name, prop_okay_q, State::S1);
+			if (mode_assume) c = module->addAssume(root_name, prop_okay_q, State::S1);
+			if (mode_cover) c = module->addCover(root_name, prop_okay_q, State::S1);
+		}
+
+		importer->import_attributes(c->attributes, root);
+	}
+
+#if 0
+	// ----------------------------------------------------------
+	// Old SVA Importer
 
 	vector<SigBit> sva_until_list_inclusive;
 	vector<SigBit> sva_until_list_exclusive;
@@ -603,6 +1170,7 @@ struct VerificSvaImporter
 
 		importer->import_attributes(c->attributes, root);
 	}
+#endif
 };
 
 void svapp_assert(Instance *inst)
