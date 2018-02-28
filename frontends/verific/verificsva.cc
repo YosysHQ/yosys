@@ -922,6 +922,33 @@ struct VerificSvaImporter
 				consequent_net = consequent_inst->GetInput();
 			}
 
+			if (consequent_inst && (consequent_inst->Type() == PRIM_SVA_UNTIL || consequent_inst->Type() == PRIM_SVA_S_UNTIL ||
+					consequent_inst->Type() == PRIM_SVA_UNTIL_WITH || consequent_inst->Type() == PRIM_SVA_S_UNTIL_WITH))
+			{
+				bool until_with = consequent_inst->Type() == PRIM_SVA_UNTIL_WITH || consequent_inst->Type() == PRIM_SVA_S_UNTIL_WITH;
+				consequent_net = consequent_inst->GetInput1();
+				Net *until_net = consequent_inst->GetInput2();
+
+				SvaFsm until_fsm(module, clock, clockpol, disable_iff);
+				node = parse_sequence(&until_fsm, until_fsm.startNode, until_net);
+				if (until_with) {
+					int next_node = until_fsm.createNode();
+					until_fsm.createEdge(node, next_node);
+					node = next_node;
+				}
+				until_fsm.createLink(node, until_fsm.acceptNode);
+
+				SigBit until_match = until_fsm.getAccept();
+				SigBit not_until_match = module->Not(NEW_ID, until_match);
+
+				Wire *extend_antecedent_match_q = module->addWire(NEW_ID);
+				extend_antecedent_match_q->attributes["\\init"] = Const(0, 1);
+				antecedent_match = module->Or(NEW_ID, antecedent_match, extend_antecedent_match_q);
+
+				SigBit extend_antecedent_match = module->And(NEW_ID, not_until_match, antecedent_match);
+				module->addDff(NEW_ID, clock, extend_antecedent_match, extend_antecedent_match_q, clockpol);
+			}
+
 			SvaFsm consequent_fsm(module, clock, clockpol, disable_iff, antecedent_match);
 			node = parse_sequence(&consequent_fsm, consequent_fsm.startNode, consequent_net);
 			consequent_fsm.createLink(node, consequent_fsm.acceptNode);
