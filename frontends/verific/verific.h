@@ -23,6 +23,8 @@
 
 YOSYS_NAMESPACE_BEGIN
 
+extern bool verific_verbose;
+
 extern pool<int> verific_sva_prims;
 
 struct VerificImporter;
@@ -42,9 +44,9 @@ struct VerificImporter
 	std::map<Verific::Net*, RTLIL::SigBit> net_map;
 	std::map<Verific::Net*, Verific::Net*> sva_posedge_map;
 
-	bool mode_gates, mode_keep, mode_nosva, mode_nosvapp, mode_names, verbose;
+	bool mode_gates, mode_keep, mode_nosva, mode_names;
 
-	VerificImporter(bool mode_gates, bool mode_keep, bool mode_nosva, bool mode_nosvapp, bool mode_names, bool verbose);
+	VerificImporter(bool mode_gates, bool mode_keep, bool mode_nosva, bool mode_names);
 
 	RTLIL::SigBit net_map_at(Verific::Net *net);
 
@@ -69,10 +71,6 @@ struct VerificImporter
 void import_sva_assert(VerificImporter *importer, Verific::Instance *inst);
 void import_sva_assume(VerificImporter *importer, Verific::Instance *inst);
 void import_sva_cover(VerificImporter *importer, Verific::Instance *inst);
-
-void svapp_assert(Verific::Instance *inst);
-void svapp_assume(Verific::Instance *inst);
-void svapp_cover(Verific::Instance *inst);
 
 YOSYS_NAMESPACE_END
 

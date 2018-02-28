@@ -60,6 +60,7 @@ using namespace Verific;
 #ifdef YOSYS_ENABLE_VERIFIC
 YOSYS_NAMESPACE_BEGIN
 
+bool verific_verbose;
 string verific_error_msg;
 
 void msg_func(msg_type_t msg_type, const char *message_id, linefile_type linefile, const char *msg, va_list args)
@@ -97,9 +98,9 @@ string get_full_netlist_name(Netlist *nl)
 
 // ==================================================================
 
-VerificImporter::VerificImporter(bool mode_gates, bool mode_keep, bool mode_nosva, bool mode_nosvapp, bool mode_names, bool verbose) :
+VerificImporter::VerificImporter(bool mode_gates, bool mode_keep, bool mode_nosva, bool mode_names) :
 		mode_gates(mode_gates), mode_keep(mode_keep), mode_nosva(mode_nosva),
-		mode_nosvapp(mode_nosvapp), mode_names(mode_names), verbose(verbose)
+		mode_names(mode_names)
 {
 }
 
@@ -642,13 +643,13 @@ void VerificImporter::merge_past_ffs_clock(pool<RTLIL::Cell*> &candidates, SigBi
 			SigSpec sig_q = module->addWire(NEW_ID, GetSize(sig_d));
 			RTLIL::Cell *new_ff = module->addDff(NEW_ID, clock, sig_d, sig_q, clock_pol);
 
-			if (verbose)
+			if (verific_verbose)
 				log("  merging single-bit past_ffs into new %d-bit ff %s.\n", GetSize(sig_d), log_id(new_ff));
 
 			for (int i = 0; i < GetSize(sig_d); i++)
 				for (auto old_ff : dbits_db[sig_d[i]])
 				{
-					if (verbose)
+					if (verific_verbose)
 						log("    replacing old ff %s on bit %d.\n", log_id(old_ff), i);
 
 					SigBit old_q = old_ff->getPort("\\Q");
@@ -711,38 +712,12 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 	Instance *inst;
 	PortRef *pr;
 
-	if (!mode_nosvapp)
-	{
-		vector<Instance*> asserts, assumes, covers;
-
-		FOREACH_INSTANCE_OF_NETLIST(nl, mi, inst)
-		{
-			if (inst->Type() == PRIM_SVA_ASSERT || inst->Type() == PRIM_SVA_IMMEDIATE_ASSERT)
-				asserts.push_back(inst);
-
-			if (inst->Type() == PRIM_SVA_ASSUME || inst->Type() == PRIM_SVA_IMMEDIATE_ASSUME)
-				assumes.push_back(inst);
-
-			if (inst->Type() == PRIM_SVA_COVER || inst->Type() == PRIM_SVA_IMMEDIATE_COVER)
-				covers.push_back(inst);
-		}
-
-		for (auto inst : asserts)
-			svapp_assert(inst);
-
-		for (auto inst : assumes)
-			svapp_assume(inst);
-
-		for (auto inst : covers)
-			svapp_cover(inst);
-	}
-
 	FOREACH_PORT_OF_NETLIST(nl, mi, port)
 	{
 		if (port->Bus())
 			continue;
 
-		if (verbose)
+		if (verific_verbose)
 			log("  importing port %s.\n", port->Name());
 
 		RTLIL::Wire *wire = module->addWire(RTLIL::escape_id(port->Name()));
@@ -768,7 +743,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 
 	FOREACH_PORTBUS_OF_NETLIST(nl, mi, portbus)
 	{
-		if (verbose)
+		if (verific_verbose)
 			log("  importing portbus %s.\n", portbus->Name());
 
 		RTLIL::Wire *wire = module->addWire(RTLIL::escape_id(portbus->Name()), portbus->Size());
@@ -882,7 +857,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 			anyseq_nets.insert(net);
 
 		if (net_map.count(net)) {
-			if (verbose)
+			if (verific_verbose)
 				log("  skipping net %s.\n", net->Name());
 			continue;
 		}
@@ -892,7 +867,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 
 		RTLIL::IdString wire_name = module->uniquify(mode_names || net->IsUserDeclared() ? RTLIL::escape_id(net->Name()) : NEW_ID);
 
-		if (verbose)
+		if (verific_verbose)
 			log("  importing net %s as %s.\n", net->Name(), log_id(wire_name));
 
 		RTLIL::Wire *wire = module->addWire(wire_name);
@@ -916,7 +891,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 		{
 			RTLIL::IdString wire_name = module->uniquify(mode_names || netbus->IsUserDeclared() ? RTLIL::escape_id(netbus->Name()) : NEW_ID);
 
-			if (verbose)
+			if (verific_verbose)
 				log("  importing netbus %s as %s.\n", netbus->Name(), log_id(wire_name));
 
 			RTLIL::Wire *wire = module->addWire(wire_name, netbus->Size());
@@ -958,7 +933,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 		}
 		else
 		{
-			if (verbose)
+			if (verific_verbose)
 				log("  skipping netbus %s.\n", netbus->Name());
 		}
 
@@ -1022,7 +997,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 	{
 		RTLIL::IdString inst_name = module->uniquify(mode_names || inst->IsUserDeclared() ? RTLIL::escape_id(inst->Name()) : NEW_ID);
 
-		if (verbose)
+		if (verific_verbose)
 			log("  importing cell %s (%s) as %s.\n", inst->Name(), inst->View()->Owner()->Name(), log_id(inst_name));
 
 		if (inst->Type() == PRIM_PWR) {
@@ -1134,7 +1109,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 				sig_o.append(net_map_at(inst->GetOutputBit(i)));
 			}
 
-			if (verbose) {
+			if (verific_verbose) {
 				log("    %sedge FF with D=%s, Q=%s, C=%s.\n", clock_edge.posedge ? "pos" : "neg",
 						log_signal(sig_d), log_signal(sig_q), log_signal(clock_edge.clock_sig));
 				log("    XNOR with A=%s, B=%s, Y=%s.\n",
@@ -1156,7 +1131,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 			SigSpec sig_o = net_map_at(inst->GetOutput());
 			SigSpec sig_q = module->addWire(NEW_ID);
 
-			if (verbose) {
+			if (verific_verbose) {
 				log("    %sedge FF with D=%s, Q=%s, C=%s.\n", clock_edge.posedge ? "pos" : "neg",
 						log_signal(sig_d), log_signal(sig_q), log_signal(clock_edge.clock_sig));
 				log("    XNOR with A=%s, B=%s, Y=%s.\n",
@@ -1177,7 +1152,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 			SigBit sig_d = net_map_at(inst->GetInput1());
 			SigBit sig_q = net_map_at(inst->GetOutput());
 
-			if (verbose)
+			if (verific_verbose)
 				log("    %sedge FF with D=%s, Q=%s, C=%s.\n", clock_edge.posedge ? "pos" : "neg",
 						log_signal(sig_d), log_signal(sig_q), log_signal(clock_edge.clock_sig));
 
@@ -1188,7 +1163,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 		}
 
 		if (!mode_keep && verific_sva_prims.count(inst->Type())) {
-			if (verbose)
+			if (verific_verbose)
 				log("    skipping SVA cell in non k-mode\n");
 			continue;
 		}
@@ -1215,11 +1190,11 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 
 		dict<IdString, vector<SigBit>> cell_port_conns;
 
-		if (verbose)
+		if (verific_verbose)
 			log("    ports in verific db:\n");
 
 		FOREACH_PORTREF_OF_INST(inst, mi2, pr) {
-			if (verbose)
+			if (verific_verbose)
 				log("      .%s(%s)\n", pr->GetPort()->Name(), pr->GetNet()->Name());
 			const char *port_name = pr->GetPort()->Name();
 			int port_offset = 0;
@@ -1238,11 +1213,11 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 			sigvec[port_offset] = net_map_at(pr->GetNet());
 		}
 
-		if (verbose)
+		if (verific_verbose)
 			log("    ports in yosys db:\n");
 
 		for (auto &it : cell_port_conns) {
-			if (verbose)
+			if (verific_verbose)
 				log("      .%s(%s)\n", log_id(it.first), log_signal(it.second));
 			cell->setPort(it.first, it.second);
 		}
@@ -1292,7 +1267,6 @@ VerificClockEdge::VerificClockEdge(VerificImporter *importer, Instance *inst)
 struct VerificExtNets
 {
 	int portname_cnt = 0;
-	bool verbose = false;
 
 	// a map from Net to the same Net one level up in the design hierarchy
 	std::map<Net*, Net*> net_level_up;
@@ -1347,7 +1321,7 @@ struct VerificExtNets
 			if (!net->IsExternalTo(nl))
 				continue;
 
-			if (verbose)
+			if (verific_verbose)
 				log("Fixing external net reference on port %s.%s.%s:\n", get_full_netlist_name(nl).c_str(), inst->Name(), port->Name());
 
 			while (net->IsExternalTo(nl))
@@ -1355,12 +1329,12 @@ struct VerificExtNets
 				Net *newnet = get_net_level_up(net);
 				if (newnet == net) break;
 
-				if (verbose)
+				if (verific_verbose)
 					log("  external net: %s.%s\n", get_full_netlist_name(net->Owner()).c_str(), net->Name());
 				net = newnet;
 			}
 
-			if (verbose)
+			if (verific_verbose)
 				log("  final net: %s.%s%s\n", get_full_netlist_name(net->Owner()).c_str(), net->Name(), net->IsExternalTo(nl) ? " (external)" : "");
 			todo_connect.push_back(tuple<Instance*, Port*, Net*>(inst, port, net));
 		}
@@ -1444,9 +1418,6 @@ struct VerificPass : public Pass {
 		log("  -nosva\n");
 		log("    Ignore SVA properties, do not infer checker logic.\n");
 		log("\n");
-		log("  -nosvapp\n");
-		log("    Disable SVA properties pre-processing pass. This implies -nosva.\n");
-		log("\n");
 		log("  -n\n");
 		log("    Keep all Verific names on instances and nets. By default only\n");
 		log("    user-declared names are preserved.\n");
@@ -1468,6 +1439,8 @@ struct VerificPass : public Pass {
 		RuntimeFlags::SetVar("vhdl_ignore_assertion_statements", 0);
 		veri_file::DefineCmdLineMacro("VERIFIC");
 		veri_file::DefineCmdLineMacro("SYNTHESIS");
+
+		verific_verbose = false;
 
 		const char *release_str = Message::ReleaseString();
 		time_t release_time = Message::ReleaseDate();
@@ -1581,8 +1554,8 @@ struct VerificPass : public Pass {
 		{
 			std::set<Netlist*> nl_todo, nl_done;
 			bool mode_all = false, mode_gates = false, mode_keep = false;
-			bool mode_nosva = false, mode_nosvapp = false, mode_names = false;
-			bool verbose = false, flatten = false, extnets = false;
+			bool mode_nosva = false, mode_names = false;
+			bool flatten = false, extnets = false;
 			string dumpfile;
 
 			for (argidx++; argidx < GetSize(args); argidx++) {
@@ -1610,17 +1583,12 @@ struct VerificPass : public Pass {
 					mode_nosva = true;
 					continue;
 				}
-				if (args[argidx] == "-nosvapp") {
-					mode_nosva = true;
-					mode_nosvapp = true;
-					continue;
-				}
 				if (args[argidx] == "-n") {
 					mode_names = true;
 					continue;
 				}
 				if (args[argidx] == "-v") {
-					verbose = true;
+					verific_verbose = true;
 					continue;
 				}
 				if (args[argidx] == "-d" && argidx+1 < GetSize(args)) {
@@ -1697,7 +1665,6 @@ struct VerificPass : public Pass {
 
 			if (extnets) {
 				VerificExtNets worker;
-				worker.verbose = verbose;
 				for (auto nl : nl_todo)
 					worker.run(nl);
 			}
@@ -1710,7 +1677,7 @@ struct VerificPass : public Pass {
 			while (!nl_todo.empty()) {
 				Netlist *nl = *nl_todo.begin();
 				if (nl_done.count(nl) == 0) {
-					VerificImporter importer(mode_gates, mode_keep, mode_nosva, mode_nosvapp, mode_names, verbose);
+					VerificImporter importer(mode_gates, mode_keep, mode_nosva, mode_names);
 					importer.import_netlist(design, nl, nl_todo);
 				}
 				nl_todo.erase(nl);
