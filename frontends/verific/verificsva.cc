@@ -53,6 +53,7 @@
 // Currently supported property styles:
 //   not seq
 //   seq |=> seq
+//   seq |=> not seq
 //   seq |=> seq until seq
 //
 // Currently supported sequence operators:
@@ -87,6 +88,22 @@ struct SvaUFsmNode
 	// Accept: This node functions as an accept node if all bits in ctrl signal are true
 	vector<pair<int, SigSpec>> edges;
 	vector<SigSpec> accept;
+	bool reachable;
+};
+
+// Deterministic FSM
+struct SvaDFsmNode
+{
+	// A DFSM state corresponds to a set of NFSM states. We represent DFSM states as sorted vectors
+	// of NFSM state node ids. Edge/accept controls are constants matched against the ctrl sigspec.
+	SigSpec ctrl;
+	vector<pair<vector<int>, Const>> edges;
+	vector<Const> accept, reject;
+
+	// additional temp data for getReject()
+	Wire *ffoutwire;
+	SigBit statesig;
+	SigSpec nextstate;
 };
 
 struct SvaFsm
@@ -105,9 +122,6 @@ struct SvaFsm
 
 	int startNode, acceptNode;
 	vector<SvaNFsmNode> nodes;
-
-	// ----------------------------------------------------
-	// API for creating FSM
 
 	SvaFsm(Module *mod, SigBit clk, bool clkpol, SigBit dis = State::S0, SigBit trig = State::S1)
 	{
@@ -212,7 +226,7 @@ struct SvaFsm
 	}
 
 	// ----------------------------------------------------
-	// API for generating NFSM circuit to acquire accept signal
+	// Generating NFSM circuit to acquire accept signal
 
 	SigBit getAccept()
 	{
@@ -313,7 +327,7 @@ struct SvaFsm
 	}
 
 	// ----------------------------------------------------
-	// API for generating quantifier-based NFSM circuit to acquire reject signal
+	// Generating quantifier-based NFSM circuit to acquire reject signal
 
 	SigBit getAnyAllRejectWorker(bool allMode)
 	{
@@ -332,14 +346,206 @@ struct SvaFsm
 	}
 
 	// ----------------------------------------------------
-	// API for generating DFSM circuit to acquire reject signal
+	// Generating DFSM circuit to acquire reject signal
 
-	SigBit getReject()
+	vector<SvaUFsmNode> unodes;
+	dict<vector<int>, SvaDFsmNode> dnodes;
+
+	void node_to_unode(int node, int unode, SigSpec ctrl)
 	{
-		// FIXME
-		log("-----------------\n");
-		dump();
-		log_abort();
+		if (node == acceptNode)
+			unodes[unode].accept.push_back(ctrl);
+
+		for (auto &it : nodes[node].edges) {
+			if (it.second != State::S1) {
+				SigSpec s = {ctrl, it.second};
+				s.sort_and_unify();
+				unodes[unode].edges.push_back(make_pair(it.first, s));
+			} else {
+				unodes[unode].edges.push_back(make_pair(it.first, ctrl));
+			}
+		}
+
+		for (auto &it : nodes[node].links) {
+			if (it.second != State::S1) {
+				SigSpec s = {ctrl, it.second};
+				s.sort_and_unify();
+				node_to_unode(it.first, unode, s);
+			} else {
+				node_to_unode(it.first, unode, ctrl);
+			}
+		}
+	}
+
+	void mark_reachable_unode(int unode)
+	{
+		if (unodes[unode].reachable)
+			return;
+
+		unodes[unode].reachable = true;
+		for (auto &it : unodes[unode].edges)
+			mark_reachable_unode(it.first);
+	}
+
+	void usortint(vector<int> &vec)
+	{
+		vector<int> newvec;
+		std::sort(vec.begin(), vec.end());
+		for (int i = 0; i < GetSize(vec); i++)
+			if (i == GetSize(vec)-1 || vec[i] != vec[i+1])
+				newvec.push_back(vec[i]);
+		vec.swap(newvec);
+	}
+
+	bool cmp_ctrl(const pool<SigBit> &ctrl_bits, const SigSpec &ctrl)
+	{
+		for (int i = 0; i < GetSize(ctrl); i++)
+			if (ctrl_bits.count(ctrl[i]) == 0)
+				return false;
+		return true;
+	}
+
+	void create_dnode(const vector<int> &state, bool firstmatch)
+	{
+		if (dnodes.count(state) != 0)
+			return;
+
+		SvaDFsmNode dnode;
+		dnodes[state] = SvaDFsmNode();
+
+		for (int unode : state) {
+			log_assert(unodes[unode].reachable);
+			for (auto &it : unodes[unode].edges)
+				dnode.ctrl.append(it.second);
+			for (auto &it : unodes[unode].accept)
+				dnode.ctrl.append(it);
+		}
+
+		dnode.ctrl.sort_and_unify();
+
+		if (GetSize(dnode.ctrl) > 10)
+			log_error("SVA property DFSM state ctrl signal has over 10 bits. Stopping to prevent exponential design size explosion.\n");
+
+		for (int i = 0; i < (1 << GetSize(dnode.ctrl)); i++)
+		{
+			Const ctrl_val(i, GetSize(dnode.ctrl));
+			pool<SigBit> ctrl_bits;
+
+			for (int i = 0; i < GetSize(dnode.ctrl); i++)
+				if (ctrl_val[i] == State::S1)
+					ctrl_bits.insert(dnode.ctrl[i]);
+
+			vector<int> new_state;
+			bool accept = false;
+
+			for (int unode : state)
+			for (auto &it : unodes[unode].accept)
+				if (cmp_ctrl(ctrl_bits, it))
+					accept = true;
+
+			if (!accept || !firstmatch) {
+				for (int unode : state)
+				for (auto &it : unodes[unode].edges)
+					if (cmp_ctrl(ctrl_bits, it.second))
+						new_state.push_back(it.first);
+			}
+
+			if (accept)
+				dnode.accept.push_back(ctrl_val);
+
+			if (new_state.empty()) {
+				if (!accept)
+					dnode.reject.push_back(ctrl_val);
+			} else {
+				usortint(new_state);
+				dnode.edges.push_back(make_pair(new_state, ctrl_val));
+				create_dnode(new_state, firstmatch);
+			}
+		}
+
+		dnodes[state] = dnode;
+	}
+
+	SigBit getReject(SigBit *accept_sigptr = nullptr)
+	{
+		// Create unlinked NFSM
+
+		unodes.resize(GetSize(nodes));
+
+		for (int node = 0; node < GetSize(nodes); node++)
+			node_to_unode(node, node, SigSpec());
+
+		mark_reachable_unode(startNode);
+
+		// Create DFSM
+
+		create_dnode(vector<int>{startNode}, true);
+		dnodes.sort();
+
+		// Create DFSM Circuit
+
+		SigSpec accept_sig, reject_sig;
+
+		for (auto &it : dnodes)
+		{
+			SvaDFsmNode &dnode = it.second;
+			dnode.ffoutwire = module->addWire(NEW_ID);
+			dnode.ffoutwire->attributes["\\init"] = Const(0, 1);
+			dnode.statesig = dnode.ffoutwire;
+
+			if (it.first == vector<int>{startNode})
+				dnode.statesig = module->Or(NEW_ID, dnode.statesig, trigger_sig);
+		}
+
+		for (auto &it : dnodes)
+		{
+			SvaDFsmNode &dnode = it.second;
+
+			for (auto &edge : dnode.edges) {
+				SigBit trig = module->Eq(NEW_ID, {dnode.ctrl, dnode.statesig}, {edge.second, State::S1});
+				dnodes.at(edge.first).nextstate.append(trig);
+			}
+
+			if (accept_sigptr) {
+				for (auto &value : dnode.accept)
+					accept_sig.append(module->Eq(NEW_ID, {dnode.ctrl, dnode.statesig}, {value, State::S1}));
+			}
+
+			for (auto &value : dnode.reject)
+				reject_sig.append(module->Eq(NEW_ID, {dnode.ctrl, dnode.statesig}, {value, State::S1}));
+		}
+
+		for (auto &it : dnodes)
+		{
+			SvaDFsmNode &dnode = it.second;
+			if (GetSize(dnode.nextstate) == 0) {
+				module->connect(dnode.ffoutwire, State::S0);
+			} else
+			if (GetSize(dnode.nextstate) == 1) {
+				module->addDff(NEW_ID, clock, dnode.nextstate, dnode.ffoutwire, clockpol);
+			} else {
+				SigSpec nextstate = module->ReduceOr(NEW_ID, dnode.nextstate);
+				module->addDff(NEW_ID, clock, nextstate, dnode.ffoutwire, clockpol);
+			}
+		}
+
+		if (accept_sigptr)
+		{
+			if (GetSize(reject_sig) == 0)
+				*accept_sigptr = State::S0;
+			else if (GetSize(reject_sig) == 1)
+				*accept_sigptr = reject_sig;
+			else
+				*accept_sigptr = module->ReduceOr(NEW_ID, reject_sig);
+		}
+
+		if (GetSize(reject_sig) == 0)
+			return State::S0;
+
+		if (GetSize(reject_sig) == 1)
+			return reject_sig;
+
+		return module->ReduceOr(NEW_ID, reject_sig);
 	}
 
 	// ----------------------------------------------------
@@ -352,13 +558,7 @@ struct SvaFsm
 			log("      non-deterministic encoding:\n");
 			for (int i = 0; i < GetSize(nodes); i++)
 			{
-				log("        node %d:\n", i);
-
-				if (i == startNode)
-					log("          startNode\n");
-
-				if (i == acceptNode)
-					log("          acceptNode\n");
+				log("        node %d:%s\n", i, i == startNode ? " [start]" : i == acceptNode ? " [accept]" : "");
 
 				for (auto &it : nodes[i].edges) {
 					if (it.second != State::S1)
@@ -373,6 +573,59 @@ struct SvaFsm
 					else
 						log("          link -> %d\n", it.first);
 				}
+			}
+		}
+
+		if (!unodes.empty())
+		{
+			log("      unlinked non-deterministic encoding:\n");
+			for (int i = 0; i < GetSize(unodes); i++)
+			{
+				if (!unodes[i].reachable)
+					continue;
+
+				log("        unode %d:%s\n", i, i == startNode ? " [start]" : "");
+
+				for (auto &it : unodes[i].edges) {
+					if (!it.second.empty())
+						log("          egde %s -> %d\n", log_signal(it.second), it.first);
+					else
+						log("          egde -> %d\n", it.first);
+				}
+
+				for (auto &ctrl : unodes[i].accept) {
+					if (!ctrl.empty())
+						log("          accept %s\n", log_signal(ctrl));
+					else
+						log("          accept\n");
+				}
+			}
+		}
+
+		if (!dnodes.empty())
+		{
+			log("      deterministic encoding:\n");
+			for (auto &it : dnodes)
+			{
+				log("        dnode {");
+				for (int i = 0; i < GetSize(it.first); i++)
+					log("%s%d", i ? "," : "", it.first[i]);
+				log("}:%s\n", GetSize(it.first) == 1 && it.first[0] == startNode ? " [start]" : "");
+
+				log("          ctrl %s\n", log_signal(it.second.ctrl));
+
+				for (auto &edge : it.second.edges) {
+					log("          edge %s -> {", log_signal(edge.second));
+					for (int i = 0; i < GetSize(edge.first); i++)
+						log("%s%d", i ? "," : "", edge.first[i]);
+					log("}\n");
+				}
+
+				for (auto &value : it.second.accept)
+					log("          accept %s\n", log_signal(value));
+
+				for (auto &value : it.second.reject)
+					log("          reject %s\n", log_signal(value));
 			}
 		}
 	}
@@ -682,7 +935,7 @@ struct VerificSvaImporter
 
 			if (verific_verbose) {
 				log("    Consequent FSM:\n");
-				antecedent_fsm.dump();
+				consequent_fsm.dump();
 			}
 		}
 		else
