@@ -60,7 +60,7 @@ using namespace Verific;
 #ifdef YOSYS_ENABLE_VERIFIC
 YOSYS_NAMESPACE_BEGIN
 
-bool verific_verbose;
+int verific_verbose;
 string verific_error_msg;
 
 void msg_func(msg_type_t msg_type, const char *message_id, linefile_type linefile, const char *msg, va_list args)
@@ -1422,8 +1422,8 @@ struct VerificPass : public Pass {
 		log("  -extnets\n");
 		log("    Resolve references to external nets by adding module ports as needed.\n");
 		log("\n");
-		log("  -v\n");
-		log("    Verbose log messages.\n");
+		log("  -v, -vv\n");
+		log("    Verbose log messages. (-vv is even more verbose than -v.)\n");
 		log("\n");
 		log("The following additional import options are useful for debugging the Verific\n");
 		log("bindings (for Yosys and/or Verific developers):\n");
@@ -1459,7 +1459,7 @@ struct VerificPass : public Pass {
 		veri_file::DefineCmdLineMacro("VERIFIC");
 		veri_file::DefineCmdLineMacro("SYNTHESIS");
 
-		verific_verbose = false;
+		verific_verbose = 0;
 
 		const char *release_str = Message::ReleaseString();
 		time_t release_time = Message::ReleaseDate();
@@ -1607,7 +1607,11 @@ struct VerificPass : public Pass {
 					continue;
 				}
 				if (args[argidx] == "-v") {
-					verific_verbose = true;
+					verific_verbose = 1;
+					continue;
+				}
+				if (args[argidx] == "-vv") {
+					verific_verbose = 2;
 					continue;
 				}
 				if (args[argidx] == "-d" && argidx+1 < GetSize(args)) {

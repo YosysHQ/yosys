@@ -23,7 +23,7 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-extern bool verific_verbose;
+extern int verific_verbose;
 
 extern pool<int> verific_sva_prims;
 

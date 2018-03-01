@@ -113,7 +113,6 @@ struct SvaFsm
 	bool clockpol;
 
 	SigBit trigger_sig = State::S1, disable_sig;
-	SigBit accept_sig = State::Sz, reject_sig = State::Sz;
 	SigBit throughout_sig = State::S1;
 	bool materialized = false;
 
@@ -122,6 +121,9 @@ struct SvaFsm
 
 	int startNode, acceptNode;
 	vector<SvaNFsmNode> nodes;
+
+	SigBit final_accept_sig = State::Sx;
+	SigBit final_reject_sig = State::Sx;
 
 	SvaFsm(Module *mod, SigBit clk, bool clkpol, SigBit dis = State::S0, SigBit trig = State::S1)
 	{
@@ -323,13 +325,14 @@ struct SvaFsm
 			}
 		}
 
-		return state_sig[acceptNode];
+		final_accept_sig = state_sig[acceptNode];
+		return final_accept_sig;
 	}
 
 	// ----------------------------------------------------
 	// Generating quantifier-based NFSM circuit to acquire reject signal
 
-	SigBit getAnyAllRejectWorker(bool allMode)
+	SigBit getAnyAllRejectWorker(bool /* allMode */)
 	{
 		// FIXME
 		log_abort();
@@ -531,103 +534,143 @@ struct SvaFsm
 
 		if (accept_sigptr)
 		{
-			if (GetSize(reject_sig) == 0)
-				*accept_sigptr = State::S0;
-			else if (GetSize(reject_sig) == 1)
-				*accept_sigptr = reject_sig;
+			if (GetSize(accept_sig) == 0)
+				final_accept_sig = State::S0;
+			else if (GetSize(accept_sig) == 1)
+				final_accept_sig = accept_sig;
 			else
-				*accept_sigptr = module->ReduceOr(NEW_ID, reject_sig);
+				final_accept_sig = module->ReduceOr(NEW_ID, accept_sig);
+			*accept_sigptr = final_accept_sig;
 		}
 
 		if (GetSize(reject_sig) == 0)
-			return State::S0;
+			final_reject_sig = State::S0;
+		else if (GetSize(reject_sig) == 1)
+			final_reject_sig = reject_sig;
+		else
+			final_reject_sig = module->ReduceOr(NEW_ID, reject_sig);
 
-		if (GetSize(reject_sig) == 1)
-			return reject_sig;
-
-		return module->ReduceOr(NEW_ID, reject_sig);
+		return final_reject_sig;
 	}
 
 	// ----------------------------------------------------
 	// State dump for verbose log messages
 
+	void dump_nodes()
+	{
+		if (nodes.empty())
+			return;
+
+		log("      non-deterministic encoding:\n");
+		for (int i = 0; i < GetSize(nodes); i++)
+		{
+			log("        node %d:%s\n", i, i == startNode ? " [start]" : i == acceptNode ? " [accept]" : "");
+
+			for (auto &it : nodes[i].edges) {
+				if (it.second != State::S1)
+					log("          egde %s -> %d\n", log_signal(it.second), it.first);
+				else
+					log("          egde -> %d\n", it.first);
+			}
+
+			for (auto &it : nodes[i].links) {
+				if (it.second != State::S1)
+					log("          link %s -> %d\n", log_signal(it.second), it.first);
+				else
+					log("          link -> %d\n", it.first);
+			}
+		}
+	}
+
+	void dump_unodes()
+	{
+		if (unodes.empty())
+			return;
+
+		log("      unlinked non-deterministic encoding:\n");
+		for (int i = 0; i < GetSize(unodes); i++)
+		{
+			if (!unodes[i].reachable)
+				continue;
+
+			log("        unode %d:%s\n", i, i == startNode ? " [start]" : "");
+
+			for (auto &it : unodes[i].edges) {
+				if (!it.second.empty())
+					log("          egde %s -> %d\n", log_signal(it.second), it.first);
+				else
+					log("          egde -> %d\n", it.first);
+			}
+
+			for (auto &ctrl : unodes[i].accept) {
+				if (!ctrl.empty())
+					log("          accept %s\n", log_signal(ctrl));
+				else
+					log("          accept\n");
+			}
+		}
+	}
+
+	void dump_dnodes()
+	{
+		if (dnodes.empty())
+			return;
+
+		log("      deterministic encoding:\n");
+		for (auto &it : dnodes)
+		{
+			log("        dnode {");
+			for (int i = 0; i < GetSize(it.first); i++)
+				log("%s%d", i ? "," : "", it.first[i]);
+			log("}:%s\n", GetSize(it.first) == 1 && it.first[0] == startNode ? " [start]" : "");
+
+			log("          ctrl %s\n", log_signal(it.second.ctrl));
+
+			for (auto &edge : it.second.edges) {
+				log("          edge %s -> {", log_signal(edge.second));
+				for (int i = 0; i < GetSize(edge.first); i++)
+					log("%s%d", i ? "," : "", edge.first[i]);
+				log("}\n");
+			}
+
+			for (auto &value : it.second.accept)
+				log("          accept %s\n", log_signal(value));
+
+			for (auto &value : it.second.reject)
+				log("          reject %s\n", log_signal(value));
+		}
+	}
+
 	void dump()
 	{
 		if (!nodes.empty())
-		{
-			log("      non-deterministic encoding:\n");
-			for (int i = 0; i < GetSize(nodes); i++)
-			{
-				log("        node %d:%s\n", i, i == startNode ? " [start]" : i == acceptNode ? " [accept]" : "");
+			log("      number of NFSM states: %d\n", GetSize(nodes));
 
-				for (auto &it : nodes[i].edges) {
-					if (it.second != State::S1)
-						log("          egde %s -> %d\n", log_signal(it.second), it.first);
-					else
-						log("          egde -> %d\n", it.first);
-				}
-
-				for (auto &it : nodes[i].links) {
-					if (it.second != State::S1)
-						log("          link %s -> %d\n", log_signal(it.second), it.first);
-					else
-						log("          link -> %d\n", it.first);
-				}
-			}
-		}
-
-		if (!unodes.empty())
-		{
-			log("      unlinked non-deterministic encoding:\n");
-			for (int i = 0; i < GetSize(unodes); i++)
-			{
-				if (!unodes[i].reachable)
-					continue;
-
-				log("        unode %d:%s\n", i, i == startNode ? " [start]" : "");
-
-				for (auto &it : unodes[i].edges) {
-					if (!it.second.empty())
-						log("          egde %s -> %d\n", log_signal(it.second), it.first);
-					else
-						log("          egde -> %d\n", it.first);
-				}
-
-				for (auto &ctrl : unodes[i].accept) {
-					if (!ctrl.empty())
-						log("          accept %s\n", log_signal(ctrl));
-					else
-						log("          accept\n");
-				}
-			}
+		if (!unodes.empty()) {
+			int count = 0;
+			for (auto &unode : unodes)
+				if (unode.reachable)
+					count++;
+			log("      number of reachable UFSM states: %d\n", count);
 		}
 
 		if (!dnodes.empty())
-		{
-			log("      deterministic encoding:\n");
-			for (auto &it : dnodes)
-			{
-				log("        dnode {");
-				for (int i = 0; i < GetSize(it.first); i++)
-					log("%s%d", i ? "," : "", it.first[i]);
-				log("}:%s\n", GetSize(it.first) == 1 && it.first[0] == startNode ? " [start]" : "");
+			log("      number of DFSM states: %d\n", GetSize(dnodes));
 
-				log("          ctrl %s\n", log_signal(it.second.ctrl));
-
-				for (auto &edge : it.second.edges) {
-					log("          edge %s -> {", log_signal(edge.second));
-					for (int i = 0; i < GetSize(edge.first); i++)
-						log("%s%d", i ? "," : "", edge.first[i]);
-					log("}\n");
-				}
-
-				for (auto &value : it.second.accept)
-					log("          accept %s\n", log_signal(value));
-
-				for (auto &value : it.second.reject)
-					log("          reject %s\n", log_signal(value));
-			}
+		if (verific_verbose >= 2) {
+			dump_nodes();
+			dump_unodes();
+			dump_dnodes();
 		}
+
+		if (trigger_sig != State::S1)
+			log("      trigger signal: %s\n", log_signal(trigger_sig));
+
+		if (final_accept_sig != State::Sx)
+			log("      accept signal: %s\n", log_signal(final_accept_sig));
+
+		if (final_reject_sig != State::Sx)
+			log("      reject signal: %s\n", log_signal(final_reject_sig));
 	}
 };
 
@@ -941,12 +984,18 @@ struct VerificSvaImporter
 				SigBit until_match = until_fsm.getAccept();
 				SigBit not_until_match = module->Not(NEW_ID, until_match);
 
-				Wire *extend_antecedent_match_q = module->addWire(NEW_ID);
-				extend_antecedent_match_q->attributes["\\init"] = Const(0, 1);
-				antecedent_match = module->Or(NEW_ID, antecedent_match, extend_antecedent_match_q);
+				if (verific_verbose) {
+					log("    Until FSM:\n");
+					until_fsm.dump();
+				}
 
-				SigBit extend_antecedent_match = module->And(NEW_ID, not_until_match, antecedent_match);
-				module->addDff(NEW_ID, clock, extend_antecedent_match, extend_antecedent_match_q, clockpol);
+				Wire *antecedent_match_q = module->addWire(NEW_ID);
+				antecedent_match_q->attributes["\\init"] = Const(0, 1);
+
+				antecedent_match = module->Or(NEW_ID, antecedent_match, antecedent_match_q);
+				antecedent_match = module->And(NEW_ID, antecedent_match, not_until_match);
+
+				module->addDff(NEW_ID, clock, antecedent_match, antecedent_match_q, clockpol);
 			}
 
 			SvaFsm consequent_fsm(module, clock, clockpol, disable_iff, antecedent_match);
