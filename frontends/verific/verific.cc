@@ -1095,7 +1095,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 		if (inst->Type() == PRIM_SVA_COVER || inst->Type() == PRIM_SVA_IMMEDIATE_COVER)
 			sva_covers.insert(inst);
 
-		if (inst->Type() == OPER_SVA_STABLE && !mode_nosva)
+		if (inst->Type() == OPER_SVA_STABLE)
 		{
 			VerificClockEdge clock_edge(this, inst->GetInput2Bit(0)->Driver());
 
@@ -1123,7 +1123,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 				continue;
 		}
 
-		if (inst->Type() == PRIM_SVA_STABLE && !mode_nosva)
+		if (inst->Type() == PRIM_SVA_STABLE)
 		{
 			VerificClockEdge clock_edge(this, inst->GetInput2()->Driver());
 
@@ -1145,7 +1145,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 				continue;
 		}
 
-		if (inst->Type() == PRIM_SVA_PAST && !mode_nosva)
+		if (inst->Type() == PRIM_SVA_PAST)
 		{
 			VerificClockEdge clock_edge(this, inst->GetInput2()->Driver());
 
@@ -1157,6 +1157,25 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 						log_signal(sig_d), log_signal(sig_q), log_signal(clock_edge.clock_sig));
 
 			past_ffs.insert(module->addDff(NEW_ID, clock_edge.clock_sig, sig_d, sig_q, clock_edge.posedge));
+
+			if (!mode_keep)
+				continue;
+		}
+
+		if ((inst->Type() == PRIM_SVA_ROSE || inst->Type() == PRIM_SVA_FELL))
+		{
+			VerificClockEdge clock_edge(this, inst->GetInput2()->Driver());
+
+			SigBit sig_d = net_map_at(inst->GetInput1());
+			SigBit sig_o = net_map_at(inst->GetOutput());
+			SigBit sig_q = module->addWire(NEW_ID);
+
+			if (verific_verbose)
+				log("    %sedge FF with D=%s, Q=%s, C=%s.\n", clock_edge.posedge ? "pos" : "neg",
+						log_signal(sig_d), log_signal(sig_q), log_signal(clock_edge.clock_sig));
+
+			module->addDff(NEW_ID, clock_edge.clock_sig, sig_d, sig_q, clock_edge.posedge);
+			module->addEq(NEW_ID, {sig_q, sig_d}, Const(inst->Type() == PRIM_SVA_ROSE ? 1 : 2, 2), sig_o);
 
 			if (!mode_keep)
 				continue;
