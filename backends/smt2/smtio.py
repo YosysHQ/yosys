@@ -913,6 +913,12 @@ class MkVcd:
         if path not in self.clocks:
             print("b%s %s" % (bits, self.nets[path][0]), file=self.f)
 
+    def escape_name(self, name):
+        name = re.sub(r"\[([a-zA-Z_][0-9a-zA-Z_]*)\]", r".\1", name)
+        if re.match("[\[\]]", name) and name[0] != "\\":
+            name = "\\" + name
+        return name
+
     def set_time(self, t):
         assert t >= self.t
         if t != self.t:
@@ -929,9 +935,9 @@ class MkVcd:
                         scope.append(path[len(scope)-1])
                     key, width = self.nets[path]
                     if path in self.clocks and self.clocks[path][1] == "event":
-                        print("$var event 1 %s %s $end" % (key, path[-1]), file=self.f)
+                        print("$var event 1 %s %s $end" % (key, self.escape_name(path[-1])), file=self.f)
                     else:
-                        print("$var wire %d %s %s $end" % (width, key, path[-1]), file=self.f)
+                        print("$var wire %d %s %s $end" % (width, key, self.escape_name(path[-1])), file=self.f)
                 for i in range(len(scope)):
                     print("$upscope $end", file=self.f)
                 print("$enddefinitions $end", file=self.f)
