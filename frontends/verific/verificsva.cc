@@ -974,11 +974,6 @@ struct VerificSvaImporter
 
 				SvaFsm until_fsm(module, clock, clockpol, disable_iff);
 				node = parse_sequence(&until_fsm, until_fsm.startNode, until_net);
-				if (until_with) {
-					int next_node = until_fsm.createNode();
-					until_fsm.createEdge(node, next_node);
-					node = next_node;
-				}
 				until_fsm.createLink(node, until_fsm.acceptNode);
 
 				SigBit until_match = until_fsm.getAccept();
@@ -993,9 +988,12 @@ struct VerificSvaImporter
 				antecedent_match_q->attributes["\\init"] = Const(0, 1);
 
 				antecedent_match = module->Or(NEW_ID, antecedent_match, antecedent_match_q);
-				antecedent_match = module->And(NEW_ID, antecedent_match, not_until_match);
+				SigBit antecedent_match_filtered = module->And(NEW_ID, antecedent_match, not_until_match);
 
-				module->addDff(NEW_ID, clock, antecedent_match, antecedent_match_q, clockpol);
+				module->addDff(NEW_ID, clock, antecedent_match_filtered, antecedent_match_q, clockpol);
+
+				if (!until_with)
+					antecedent_match = antecedent_match_filtered;
 			}
 
 			SvaFsm consequent_fsm(module, clock, clockpol, disable_iff, antecedent_match);
