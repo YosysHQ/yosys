@@ -56,7 +56,10 @@
 //   not seq
 //   seq |=> seq
 //   seq |=> not seq
+//   seq |=> seq until expr
 //   seq |=> seq until seq.triggered
+//   seq |=> not seq until expr
+//   seq |=> not seq until seq.triggered
 //
 // Currently supported sequence operators:
 //   ##[N:M]
@@ -959,20 +962,28 @@ struct VerificSvaImporter
 				antecedent_fsm.dump();
 			}
 
-			bool consequent_not = false;
 			Instance *consequent_inst = net_to_ast_driver(consequent_net);
-
-			if (consequent_inst && consequent_inst->Type() == PRIM_SVA_NOT) {
-				consequent_not = true;
-				consequent_net = consequent_inst->GetInput();
-			}
 
 			if (consequent_inst && (consequent_inst->Type() == PRIM_SVA_UNTIL || consequent_inst->Type() == PRIM_SVA_S_UNTIL ||
 					consequent_inst->Type() == PRIM_SVA_UNTIL_WITH || consequent_inst->Type() == PRIM_SVA_S_UNTIL_WITH))
 			{
 				bool until_with = consequent_inst->Type() == PRIM_SVA_UNTIL_WITH || consequent_inst->Type() == PRIM_SVA_S_UNTIL_WITH;
-				consequent_net = consequent_inst->GetInput1();
+
 				Net *until_net = consequent_inst->GetInput2();
+				Instance *until_inst = net_to_ast_driver(until_net);
+
+				consequent_net = consequent_inst->GetInput1();
+				consequent_inst = net_to_ast_driver(consequent_net);
+
+				if (until_inst != nullptr) {
+					if (until_inst->Type() != PRIM_SVA_TRIGGERED) {
+						if (!importer->mode_keep)
+							log_error("Currently only boolean expressions or sequence.triggered is alowed in SVA_UNTIL condition.\n");
+						log_warning("Currently only boolean expressions or sequence.triggered is alowed in SVA_UNTIL condition.\n");
+						return;
+					}
+					until_net = until_inst->GetInput();
+				}
 
 				SvaFsm until_fsm(module, clock, clockpol, disable_iff);
 				node = parse_sequence(&until_fsm, until_fsm.startNode, until_net);
@@ -996,6 +1007,13 @@ struct VerificSvaImporter
 
 				if (!until_with)
 					antecedent_match = antecedent_match_filtered;
+			}
+
+			bool consequent_not = false;
+			if (consequent_inst && consequent_inst->Type() == PRIM_SVA_NOT) {
+				consequent_not = true;
+				consequent_net = consequent_inst->GetInput();
+				consequent_inst = net_to_ast_driver(consequent_net);
 			}
 
 			SvaFsm consequent_fsm(module, clock, clockpol, disable_iff, antecedent_match);
