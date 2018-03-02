@@ -26,6 +26,7 @@
 //   prop and prop
 //   seq |=> prop
 //   if (expr) prop [else prop]
+//   always prop
 //   prop until prop
 //   prop implies prop
 //   prop iff prop
@@ -34,7 +35,7 @@
 //
 // seq:
 //   expr
-//   expr ##[N:M] seq
+//   seq ##[N:M] seq
 //   seq or seq
 //   seq and seq
 //   seq intersect seq
@@ -51,10 +52,11 @@
 //   ##[N:M], [*N:M], [=N:M], [->N:M] includes ##N, [*N], [=N], [->N]
 //
 // Currently supported property styles:
+//   seq
 //   not seq
 //   seq |=> seq
 //   seq |=> not seq
-//   seq |=> seq until seq
+//   seq |=> seq until seq.triggered
 //
 // Currently supported sequence operators:
 //   ##[N:M]
