@@ -16,7 +16,7 @@
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #
 
-import sys, re, os
+import sys, re, os, signal
 import resource, subprocess
 from copy import deepcopy
 from select import select
@@ -33,6 +33,25 @@ if sys.getrecursionlimit() < smtio_reclimit:
     sys.setrecursionlimit(smtio_reclimit)
 if resource.getrlimit(resource.RLIMIT_STACK)[0] < smtio_stacksize:
     resource.setrlimit(resource.RLIMIT_STACK, (smtio_stacksize, -1))
+
+
+# currently running solvers (so we can kill them)
+running_solvers = dict()
+got_term_signal = False
+solvers_index = 0
+
+def sig_handler(signum, frame):
+    global got_term_signal
+    if not got_term_signal:
+        print("<%s>" % signal.Signals(signum).name)
+        got_term_signal = True
+    for p in running_solvers.values():
+        os.killpg(os.getpgid(p.pid), signal.SIGTERM)
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, sig_handler)
+signal.signal(signal.SIGHUP, sig_handler)
+signal.signal(signal.SIGTERM, sig_handler)
 
 
 hex_dict = {
@@ -66,6 +85,8 @@ class SmtModInfo:
 
 class SmtIo:
     def __init__(self, opts=None):
+        global solvers_index
+
         self.logic = None
         self.logic_qf = True
         self.logic_ax = True
@@ -76,6 +97,8 @@ class SmtIo:
         self.produce_models = True
         self.smt2cache = [list()]
         self.p = None
+        self.p_index = solvers_index
+        solvers_index += 1
 
         if opts is not None:
             self.logic = opts.logic
@@ -108,6 +131,11 @@ class SmtIo:
         self.curmod = None
         self.topmod = None
         self.setup_done = False
+
+    def __del__(self):
+        if self.p is not None:
+            os.killpg(os.getpgid(self.p.pid), signal.SIGTERM)
+            del running_solvers[self.p_index]
 
     def setup(self):
         assert not self.setup_done
@@ -241,6 +269,7 @@ class SmtIo:
     def p_open(self):
         assert self.p is None
         self.p = subprocess.Popen(self.popen_vargs, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        running_solvers[self.p_index] = self.p
         self.p_running = True
         self.p_next = None
         self.p_queue = Queue()
@@ -277,6 +306,7 @@ class SmtIo:
         self.p.stdin.close()
         self.p_thread.join()
         assert not self.p_running
+        del running_solvers[self.p_index]
         self.p = None
         self.p_next = None
         self.p_queue = None
