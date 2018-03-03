@@ -135,7 +135,8 @@ class SmtIo:
     def __del__(self):
         if self.p is not None:
             os.killpg(os.getpgid(self.p.pid), signal.SIGTERM)
-            del running_solvers[self.p_index]
+            if running_solvers is not None:
+                del running_solvers[self.p_index]
 
     def setup(self):
         assert not self.setup_done
@@ -264,6 +265,7 @@ class SmtIo:
             data = self.p.stdout.readline().decode("ascii")
             if data == "": break
             self.p_queue.put(data)
+        self.p_queue.put("")
         self.p_running = False
 
     def p_open(self):
