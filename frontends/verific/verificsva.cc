@@ -18,13 +18,36 @@
  */
 
 
-// SVA Properties Simplified Syntax:
+// Currently supported property styles:
+//   seq
+//   not seq
+//   seq |-> seq
+//   seq |-> not seq
+//   seq |-> seq until expr
+//   seq |-> seq until seq.triggered
+//   seq |-> not seq until expr
+//   seq |-> not seq until seq.triggered
+//
+// Currently supported sequence operators:
+//   expr ##[N:M] seq
+//   seq or seq
+//   expr throughout seq
+//   seq [*N:M]
+//
+// Notes:
+//   |-> is a placeholder for |-> and |=>
+//   "until" is a placeholder for all until operators
+//   ##[N:M], [*N:M], [=N:M], [->N:M] includes ##N, [*N], [=N], [->N]
+//
+// -------------------------------------------------------
+//
+// SVA Properties Simplified Syntax (essentially a todo-list):
 //
 // prop:
 //   not prop
 //   prop or prop
 //   prop and prop
-//   seq |=> prop
+//   seq |-> prop
 //   if (expr) prop [else prop]
 //   always prop
 //   prop until prop
@@ -45,26 +68,6 @@
 //   seq [*N:M]
 //   expr [=N:M]
 //   expr [->N:M]
-//
-// Notes:
-//   |=> is a placeholder for |-> and |=>
-//   "until" is a placeholder for all until operators
-//   ##[N:M], [*N:M], [=N:M], [->N:M] includes ##N, [*N], [=N], [->N]
-//
-// Currently supported property styles:
-//   seq
-//   not seq
-//   seq |=> seq
-//   seq |=> not seq
-//   seq |=> seq until expr
-//   seq |=> seq until seq.triggered
-//   seq |=> not seq until expr
-//   seq |=> not seq until seq.triggered
-//
-// Currently supported sequence operators:
-//   ##[N:M]
-//   [*N:M]
-//   throughout
 
 
 #include "kernel/yosys.h"
@@ -841,6 +844,14 @@ struct VerificSvaImporter
 				}
 			}
 
+			return node;
+		}
+
+		if (inst->Type() == PRIM_SVA_SEQ_OR)
+		{
+			int node = parse_sequence(fsm, start_node, inst->GetInput1());
+			int node2 = parse_sequence(fsm, start_node, inst->GetInput2());
+			fsm->createLink(node2, node);
 			return node;
 		}
 
