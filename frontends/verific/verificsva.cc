@@ -31,6 +31,7 @@
 // Currently supported sequence operators:
 //   seq ##[N:M] seq
 //   seq or seq
+//   seq and seq
 //   expr throughout seq
 //   seq [*N:M]
 //
@@ -114,6 +115,9 @@ struct SvaDFsmNode
 	Wire *ffoutwire;
 	SigBit statesig;
 	SigSpec nextstate;
+
+	// additional temp data for getDFsm()
+	int outnode;
 };
 
 struct SvaFsm
@@ -477,6 +481,9 @@ struct SvaFsm
 
 	SigBit getReject(SigBit *accept_sigptr = nullptr)
 	{
+		log_assert(!materialized);
+		materialized = true;
+
 		// Create unlinked NFSM
 
 		unodes.resize(GetSize(nodes));
@@ -556,6 +563,52 @@ struct SvaFsm
 			final_reject_sig = module->ReduceOr(NEW_ID, reject_sig);
 
 		return final_reject_sig;
+	}
+
+	void getDFsm(SvaFsm &output_fsm, int output_start_node, int output_accept_node, int output_reject_node)
+	{
+		log_assert(!materialized);
+		materialized = true;
+
+		// Create unlinked NFSM
+
+		unodes.resize(GetSize(nodes));
+
+		for (int node = 0; node < GetSize(nodes); node++)
+			node_to_unode(node, node, SigSpec());
+
+		mark_reachable_unode(startNode);
+
+		// Create DFSM
+
+		create_dnode(vector<int>{startNode}, true);
+		dnodes.sort();
+
+		// Create DFSM Graph
+
+		for (auto &it : dnodes)
+		{
+			it.second.outnode = output_fsm.createNode();
+
+			if (it.first == vector<int>{startNode})
+				output_fsm.createLink(output_start_node, it.second.outnode);
+
+			if (output_accept_node >= 0) {
+				for (auto &value : it.second.accept)
+					output_fsm.createLink(it.second.outnode, output_accept_node, module->Eq(NEW_ID, it.second.ctrl, value));
+			}
+
+			if (output_reject_node >= 0) {
+				for (auto &value : it.second.reject)
+					output_fsm.createLink(it.second.outnode, output_reject_node, module->Eq(NEW_ID, it.second.ctrl, value));
+			}
+		}
+
+		for (auto &it : dnodes)
+		{
+			for (auto &edge : it.second.edges)
+				output_fsm.createEdge(it.second.outnode, dnodes.at(edge.first).outnode, module->Eq(NEW_ID, it.second.ctrl, edge.second));
+		}
 	}
 
 	// ----------------------------------------------------
@@ -778,13 +831,13 @@ struct VerificSvaImporter
 				inst->View()->Owner()->Name(), inst->Name()), inst->Linefile());
 	}
 
-	int parse_sequence(SvaFsm *fsm, int start_node, Net *net)
+	int parse_sequence(SvaFsm &fsm, int start_node, Net *net)
 	{
 		Instance *inst = net_to_ast_driver(net);
 
 		if (inst == nullptr) {
-			int node = fsm->createNode();
-			fsm->createLink(start_node, node, importer->net_map_at(net));
+			int node = fsm.createNode();
+			fsm.createLink(start_node, node, importer->net_map_at(net));
 			return node;
 		}
 
@@ -800,22 +853,22 @@ struct VerificSvaImporter
 			int node = parse_sequence(fsm, start_node, inst->GetInput1());
 
 			for (int i = 0; i < sva_low; i++) {
-				int next_node = fsm->createNode();
-				fsm->createEdge(node, next_node);
+				int next_node = fsm.createNode();
+				fsm.createEdge(node, next_node);
 				node = next_node;
 			}
 
 			if (sva_inf)
 			{
-				fsm->createEdge(node, node);
+				fsm.createEdge(node, node);
 			}
 			else
 			{
 				for (int i = sva_low; i < sva_high; i++)
 				{
-					int next_node = fsm->createNode();
-					fsm->createEdge(node, next_node);
-					fsm->createLink(node, next_node);
+					int next_node = fsm.createNode();
+					fsm.createEdge(node, next_node);
+					fsm.createLink(node, next_node);
 					node = next_node;
 				}
 			}
@@ -838,26 +891,26 @@ struct VerificSvaImporter
 
 			for (int i = 1; i < sva_low; i++)
 			{
-				int next_node = fsm->createNode();
-				fsm->createEdge(node, next_node);
+				int next_node = fsm.createNode();
+				fsm.createEdge(node, next_node);
 				node = parse_sequence(fsm, next_node, inst->GetInput());
 			}
 
 			if (sva_inf)
 			{
-				int next_node = fsm->createNode();
-				fsm->createEdge(node, next_node);
+				int next_node = fsm.createNode();
+				fsm.createEdge(node, next_node);
 				next_node = parse_sequence(fsm, next_node, inst->GetInput());
-				fsm->createLink(next_node, node);
+				fsm.createLink(next_node, node);
 			}
 			else
 			{
 				for (int i = sva_low; i < sva_high; i++)
 				{
-					int next_node = fsm->createNode();
-					fsm->createEdge(node, next_node);
+					int next_node = fsm.createNode();
+					fsm.createEdge(node, next_node);
 					next_node = parse_sequence(fsm, next_node, inst->GetInput());
-					fsm->createLink(node, next_node);
+					fsm.createLink(node, next_node);
 					node = next_node;
 				}
 			}
@@ -869,7 +922,24 @@ struct VerificSvaImporter
 		{
 			int node = parse_sequence(fsm, start_node, inst->GetInput1());
 			int node2 = parse_sequence(fsm, start_node, inst->GetInput2());
-			fsm->createLink(node2, node);
+			fsm.createLink(node2, node);
+			return node;
+		}
+
+		if (inst->Type() == PRIM_SVA_SEQ_AND)
+		{
+			SvaFsm fsm1(clocking);
+			fsm1.createLink(parse_sequence(fsm1, fsm1.startNode, inst->GetInput1()), fsm1.acceptNode);
+
+			SvaFsm fsm2(clocking);
+			fsm2.createLink(parse_sequence(fsm2, fsm2.startNode, inst->GetInput2()), fsm2.acceptNode);
+
+			SvaFsm combined_fsm(clocking);
+			fsm1.getDFsm(combined_fsm, combined_fsm.startNode, -1, combined_fsm.acceptNode);
+			fsm2.getDFsm(combined_fsm, combined_fsm.startNode, -1, combined_fsm.acceptNode);
+
+			int node = fsm.createNode();
+			combined_fsm.getDFsm(fsm, start_node, -1, node);
 			return node;
 		}
 
@@ -878,9 +948,9 @@ struct VerificSvaImporter
 			log_assert(get_ast_input1(inst) == nullptr);
 			SigBit expr = importer->net_map_at(inst->GetInput1());
 
-			fsm->pushThroughout(expr);
+			fsm.pushThroughout(expr);
 			int node = parse_sequence(fsm, start_node, inst->GetInput2());
-			fsm->popThroughout();
+			fsm.popThroughout();
 
 			return node;
 		}
@@ -905,7 +975,7 @@ struct VerificSvaImporter
 			int node;
 
 			SvaFsm antecedent_fsm(clocking);
-			node = parse_sequence(&antecedent_fsm, antecedent_fsm.startNode, antecedent_net);
+			node = parse_sequence(antecedent_fsm, antecedent_fsm.startNode, antecedent_net);
 			if (inst->Type() == PRIM_SVA_NON_OVERLAPPED_IMPLICATION) {
 				int next_node = antecedent_fsm.createNode();
 				antecedent_fsm.createEdge(node, next_node);
@@ -940,7 +1010,7 @@ struct VerificSvaImporter
 				}
 
 				SvaFsm until_fsm(clocking);
-				node = parse_sequence(&until_fsm, until_fsm.startNode, until_net);
+				node = parse_sequence(until_fsm, until_fsm.startNode, until_net);
 				until_fsm.createLink(node, until_fsm.acceptNode);
 
 				SigBit until_match = until_fsm.getAccept();
@@ -969,7 +1039,7 @@ struct VerificSvaImporter
 			}
 
 			SvaFsm consequent_fsm(clocking, antecedent_match);
-			node = parse_sequence(&consequent_fsm, consequent_fsm.startNode, consequent_net);
+			node = parse_sequence(consequent_fsm, consequent_fsm.startNode, consequent_net);
 			consequent_fsm.createLink(node, consequent_fsm.acceptNode);
 
 			SigBit prop_okay;
@@ -991,7 +1061,7 @@ struct VerificSvaImporter
 		if (inst->Type() == PRIM_SVA_NOT || mode_cover)
 		{
 			SvaFsm fsm(clocking);
-			int node = parse_sequence(&fsm, fsm.startNode, mode_cover ? net : inst->GetInput());
+			int node = parse_sequence(fsm, fsm.startNode, mode_cover ? net : inst->GetInput());
 			fsm.createLink(node, fsm.acceptNode);
 			SigBit accept = fsm.getAccept();
 			SigBit prop_okay = module->Not(NEW_ID, accept);
