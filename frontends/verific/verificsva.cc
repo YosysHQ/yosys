@@ -29,7 +29,7 @@
 //   seq |-> not seq until seq.triggered
 //
 // Currently supported sequence operators:
-//   expr ##[N:M] seq
+//   seq ##[N:M] seq
 //   seq or seq
 //   expr throughout seq
 //   seq [*N:M]
@@ -753,6 +753,31 @@ struct VerificSvaImporter
 	// ----------------------------------------------------------
 	// SVA Importer
 
+	struct ParserErrorException {
+	};
+
+	[[noreturn]] void parser_error(std::string errmsg)
+	{
+		if (!importer->mode_keep)
+			log_error("%s", errmsg.c_str());
+		log_warning("%s", errmsg.c_str());
+		throw ParserErrorException();
+	}
+
+	[[noreturn]] void parser_error(std::string errmsg, linefile_type loc)
+	{
+		if (!importer->mode_keep)
+			log_error("%s at %s:%d.\n", errmsg.c_str(), LineFile::GetFileName(loc), LineFile::GetLineNo(loc));
+		log_warning("%s at %s:%d.\n", errmsg.c_str(), LineFile::GetFileName(loc), LineFile::GetLineNo(loc));
+		throw ParserErrorException();
+	}
+
+	[[noreturn]] void parser_error(Instance *inst)
+	{
+		parser_error(stringf("Verific SVA primitive %s (%s) is currently unsupported in this context",
+				inst->View()->Owner()->Name(), inst->Name()), inst->Linefile());
+	}
+
 	int parse_sequence(SvaFsm *fsm, int start_node, Net *net)
 	{
 		Instance *inst = net_to_ast_driver(net);
@@ -860,41 +885,16 @@ struct VerificSvaImporter
 			return node;
 		}
 
-		// Handle unsupported primitives
-
-		if (!importer->mode_keep)
-			log_error("Verific SVA primitive %s (%s) is currently unsupported in this context.\n", inst->View()->Owner()->Name(), inst->Name());
-		log_warning("Verific SVA primitive %s (%s) is currently unsupported in this context.\n", inst->View()->Owner()->Name(), inst->Name());
-
-		return start_node;
+		parser_error(inst);
 	}
 
-	void import()
+	SigBit parse_property(Net *net)
 	{
-		module = importer->module;
-		netlist = root->Owner();
-
-		if (verific_verbose)
-			log("  importing SVA property at root cell %s (%s) at %s:%d.\n", root->Name(), root->View()->Owner()->Name(),
-					LineFile::GetFileName(root->Linefile()), LineFile::GetLineNo(root->Linefile()));
-
-		RTLIL::IdString root_name = module->uniquify(importer->mode_names || root->IsUserDeclared() ? RTLIL::escape_id(root->Name()) : NEW_ID);
-
-		clocking = VerificClocking(importer, root->GetInput());
-
-		if (clocking.body_net == nullptr)
-			log_error("Failed to parse SVA clocking at %s (%s) at %s:%d.", root->Name(), root->View()->Owner()->Name(),
-					LineFile::GetFileName(root->Linefile()), LineFile::GetLineNo(root->Linefile()));
-
-		// parse SVA sequence into trigger signal
-
-		SigBit prop_okay;
-		Net *net = clocking.body_net;
 		Instance *inst = net_to_ast_driver(net);
 
 		if (inst == nullptr)
 		{
-			prop_okay = importer->net_map_at(net);
+			return importer->net_map_at(net);
 		}
 		else
 		if (inst->Type() == PRIM_SVA_OVERLAPPED_IMPLICATION ||
@@ -934,12 +934,8 @@ struct VerificSvaImporter
 				consequent_inst = net_to_ast_driver(consequent_net);
 
 				if (until_inst != nullptr) {
-					if (until_inst->Type() != PRIM_SVA_TRIGGERED) {
-						if (!importer->mode_keep)
-							log_error("Currently only boolean expressions or sequence.triggered is alowed in SVA_UNTIL condition.\n");
-						log_warning("Currently only boolean expressions or sequence.triggered is alowed in SVA_UNTIL condition.\n");
-						return;
-					}
+					if (until_inst->Type() != PRIM_SVA_TRIGGERED)
+						parser_error("Currently only boolean expressions or sequence.triggered is allowed in SVA_UNTIL condition", until_inst->Linefile());
 					until_net = until_inst->GetInput();
 				}
 
@@ -976,6 +972,7 @@ struct VerificSvaImporter
 			node = parse_sequence(&consequent_fsm, consequent_fsm.startNode, consequent_net);
 			consequent_fsm.createLink(node, consequent_fsm.acceptNode);
 
+			SigBit prop_okay;
 			if (mode_cover) {
 				prop_okay = consequent_not ? consequent_fsm.getReject() : consequent_fsm.getAccept();
 			} else {
@@ -987,6 +984,8 @@ struct VerificSvaImporter
 				log("    Consequent FSM:\n");
 				consequent_fsm.dump();
 			}
+
+			return prop_okay;
 		}
 		else
 		if (inst->Type() == PRIM_SVA_NOT || mode_cover)
@@ -995,43 +994,70 @@ struct VerificSvaImporter
 			int node = parse_sequence(&fsm, fsm.startNode, mode_cover ? net : inst->GetInput());
 			fsm.createLink(node, fsm.acceptNode);
 			SigBit accept = fsm.getAccept();
-			prop_okay = module->Not(NEW_ID, accept);
+			SigBit prop_okay = module->Not(NEW_ID, accept);
 
 			if (verific_verbose) {
 				log("    Sequence FSM:\n");
 				fsm.dump();
 			}
+
+			return prop_okay;
 		}
 		else
 		{
 			// Handle unsupported primitives
-
-			if (!importer->mode_keep)
-				log_error("Verific SVA primitive %s (%s) is currently unsupported in this context.\n", inst->View()->Owner()->Name(), inst->Name());
-			log_warning("Verific SVA primitive %s (%s) is currently unsupported in this context.\n", inst->View()->Owner()->Name(), inst->Name());
-			return;
+			parser_error(inst);
 		}
+	}
 
-		// add final FF stage
+	void import()
+	{
+		try
+		{
+			module = importer->module;
+			netlist = root->Owner();
 
-		SigBit prop_okay_q = module->addWire(NEW_ID);
-		clocking.addDff(NEW_ID, prop_okay, prop_okay_q, Const(mode_cover ? 0 : 1, 1));
+			if (verific_verbose)
+				log("  importing SVA property at root cell %s (%s) at %s:%d.\n", root->Name(), root->View()->Owner()->Name(),
+						LineFile::GetFileName(root->Linefile()), LineFile::GetLineNo(root->Linefile()));
 
-		// generate assert/assume/cover cell
+			RTLIL::IdString root_name = module->uniquify(importer->mode_names || root->IsUserDeclared() ? RTLIL::escape_id(root->Name()) : NEW_ID);
 
-		RTLIL::Cell *c = nullptr;
+			clocking = VerificClocking(importer, root->GetInput());
 
-		if (eventually) {
-			log_error("No support for eventually in Verific SVA bindings yet.\n");
-			// if (mode_assert) c = module->addLive(root_name, prop_okay_q, prop_start_q);
-			// if (mode_assume) c = module->addFair(root_name, prop_okay_q, prop_start_q);
-		} else {
-			if (mode_assert) c = module->addAssert(root_name, prop_okay_q, State::S1);
-			if (mode_assume) c = module->addAssume(root_name, prop_okay_q, State::S1);
-			if (mode_cover) c = module->addCover(root_name, prop_okay_q, State::S1);
+			if (clocking.body_net == nullptr)
+				parser_error(stringf("Failed to parse SVA clocking at %s (%s) at %s:%d.", root->Name(), root->View()->Owner()->Name(),
+						LineFile::GetFileName(root->Linefile()), LineFile::GetLineNo(root->Linefile())));
+
+			// parse SVA sequence into trigger signal
+
+			Net *net = clocking.body_net;
+			SigBit prop_okay = parse_property(net);
+
+			// add final FF stage
+
+			SigBit prop_okay_q = module->addWire(NEW_ID);
+			clocking.addDff(NEW_ID, prop_okay, prop_okay_q, Const(mode_cover ? 0 : 1, 1));
+
+			// generate assert/assume/cover cell
+
+			RTLIL::Cell *c = nullptr;
+
+			if (eventually) {
+				parser_error("No support for eventually in Verific SVA bindings yet.\n");
+				// if (mode_assert) c = module->addLive(root_name, prop_okay_q, prop_start_q);
+				// if (mode_assume) c = module->addFair(root_name, prop_okay_q, prop_start_q);
+			} else {
+				if (mode_assert) c = module->addAssert(root_name, prop_okay_q, State::S1);
+				if (mode_assume) c = module->addAssume(root_name, prop_okay_q, State::S1);
+				if (mode_cover) c = module->addCover(root_name, prop_okay_q, State::S1);
+			}
+
+			importer->import_attributes(c->attributes, root);
 		}
-
-		importer->import_attributes(c->attributes, root);
+		catch (ParserErrorException)
+		{
+		}
 	}
 };
 
