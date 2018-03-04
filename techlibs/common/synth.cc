@@ -64,6 +64,9 @@ struct SynthPass : public ScriptPass
 		log("    -nordff\n");
 		log("        passed to 'memory'. prohibits merging of FFs into memory read ports\n");
 		log("\n");
+		log("    -noshare\n");
+		log("        do not run SAT-based resource sharing\n");
+		log("\n");
 		log("    -run <from_label>[:<to_label>]\n");
 		log("        only run the commands between the labels (see below). an empty\n");
 		log("        from label is synonymous to 'begin', and empty to label is\n");
@@ -76,7 +79,7 @@ struct SynthPass : public ScriptPass
 	}
 
 	string top_module, fsm_opts, memory_opts;
-	bool autotop, flatten, noalumacc, nofsm, noabc;
+	bool autotop, flatten, noalumacc, nofsm, noabc, noshare;
 
 	virtual void clear_flags() YS_OVERRIDE
 	{
@@ -89,6 +92,7 @@ struct SynthPass : public ScriptPass
 		noalumacc = false;
 		nofsm = false;
 		noabc = false;
+		noshare = false;
 	}
 
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -142,6 +146,10 @@ struct SynthPass : public ScriptPass
 				memory_opts += " -nordff";
 				continue;
 			}
+			if (args[argidx] == "-noshare") {
+				noshare = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -186,7 +194,8 @@ struct SynthPass : public ScriptPass
 			run("wreduce");
 			if (!noalumacc)
 				run("alumacc");
-			run("share");
+			if (!noshare)
+				run("share");
 			run("opt");
 			if (!nofsm)
 				run("fsm" + fsm_opts);
