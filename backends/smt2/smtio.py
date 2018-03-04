@@ -47,7 +47,7 @@ def sig_handler(signum, frame):
         got_term_signal = True
     for p in running_solvers.values():
         os.killpg(os.getpgid(p.pid), signal.SIGTERM)
-    sys.exit(0)
+    sys.exit(1)
 
 signal.signal(signal.SIGINT, sig_handler)
 signal.signal(signal.SIGHUP, sig_handler)
@@ -571,12 +571,14 @@ class SmtIo:
             if count_brackets == 0:
                 break
             if self.solver != "dummy" and self.p.poll():
-                print("SMT Solver terminated unexpectedly: %s" % "".join(stmt))
+                print("SMT Solver terminated unexpectedly: %s" % "".join(stmt), flush=True)
                 sys.exit(1)
 
         stmt = "".join(stmt)
         if stmt.startswith("(error"):
-            print("SMT Solver Error: %s" % stmt, file=sys.stderr)
+            print("SMT Solver Error: %s" % stmt, file=sys.stderr, flush=True)
+            if self.solver != "dummy":
+                self.p_close()
             sys.exit(1)
 
         return stmt
