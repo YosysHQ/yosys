@@ -45,6 +45,16 @@ struct VerificClocking {
 	RTLIL::Cell *addDff(IdString name, SigSpec sig_d, SigSpec sig_q, Const init_value = Const());
 	RTLIL::Cell *addAdff(IdString name, RTLIL::SigSpec sig_arst, SigSpec sig_d, SigSpec sig_q, Const arst_value);
 	RTLIL::Cell *addDffsr(IdString name, RTLIL::SigSpec sig_set, RTLIL::SigSpec sig_clr, SigSpec sig_d, SigSpec sig_q);
+
+	bool property_matches_sequence(const VerificClocking &seq) const {
+		if (clock_net != seq.clock_net)
+			return false;
+		if (enable_net != seq.enable_net)
+			return false;
+		if (posedge != seq.posedge)
+			return false;
+		return true;
+	}
 };
 
 struct VerificImporter
@@ -78,10 +88,10 @@ struct VerificImporter
 	void import_netlist(RTLIL::Design *design, Verific::Netlist *nl, std::set<Verific::Netlist*> &nl_todo);
 };
 
-
 void import_sva_assert(VerificImporter *importer, Verific::Instance *inst);
 void import_sva_assume(VerificImporter *importer, Verific::Instance *inst);
 void import_sva_cover(VerificImporter *importer, Verific::Instance *inst);
+void import_sva_trigger(VerificImporter *importer, Verific::Instance *inst);
 
 YOSYS_NAMESPACE_END
 

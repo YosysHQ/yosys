@@ -24,9 +24,7 @@
 //   seq |-> seq
 //   seq |-> not seq
 //   seq |-> seq until expr
-//   seq |-> seq until seq.triggered
 //   seq |-> not seq until expr
-//   seq |-> not seq until seq.triggered
 //
 // Currently supported sequence operators:
 //   seq ##[N:M] seq
@@ -41,6 +39,9 @@
 //   ##[N:M] includes ##N, ##[*], ##[+]
 //   [*N:M] includes [*N], [*], [+]
 //   [=N:M], [->N:M] includes [=N], [->N]
+//
+// Expressions can be any boolean expression, including expressions
+// that use $past, $rose, $fell, $stable, and sequence.triggered.
 //
 // -------------------------------------------------------
 //
@@ -772,6 +773,7 @@ struct VerificSvaImporter
 	bool mode_assert = false;
 	bool mode_assume = false;
 	bool mode_cover = false;
+	bool mode_trigger = false;
 	bool eventually = false;
 
 	Instance *net_to_ast_driver(Net *n)
@@ -791,7 +793,8 @@ struct VerificSvaImporter
 			return nullptr;
 
 		if (inst->Type() == PRIM_SVA_ROSE || inst->Type() == PRIM_SVA_FELL ||
-				inst->Type() == PRIM_SVA_STABLE || inst->Type() == OPER_SVA_STABLE || inst->Type() == PRIM_SVA_PAST)
+				inst->Type() == PRIM_SVA_STABLE || inst->Type() == OPER_SVA_STABLE ||
+				inst->Type() == PRIM_SVA_PAST || inst->Type() == PRIM_SVA_TRIGGERED)
 			return nullptr;
 
 		return inst;
@@ -819,10 +822,12 @@ struct VerificSvaImporter
 
 	[[noreturn]] void parser_error(std::string errmsg, linefile_type loc)
 	{
-		if (!importer->mode_keep)
-			log_error("%s at %s:%d.\n", errmsg.c_str(), LineFile::GetFileName(loc), LineFile::GetLineNo(loc));
-		log_warning("%s at %s:%d.\n", errmsg.c_str(), LineFile::GetFileName(loc), LineFile::GetLineNo(loc));
-		throw ParserErrorException();
+		parser_error(stringf("%s at %s:%d.\n", errmsg.c_str(), LineFile::GetFileName(loc), LineFile::GetLineNo(loc)));
+	}
+
+	[[noreturn]] void parser_error(std::string errmsg, Instance *inst)
+	{
+		parser_error(stringf("%s at %s (%s)", errmsg.c_str(), inst->View()->Owner()->Name(), inst->Name()), inst->Linefile());
 	}
 
 	[[noreturn]] void parser_error(Instance *inst)
@@ -839,6 +844,14 @@ struct VerificSvaImporter
 			int node = fsm.createNode();
 			fsm.createLink(start_node, node, importer->net_map_at(net));
 			return node;
+		}
+
+		if (inst->Type() == PRIM_SVA_AT)
+		{
+			VerificClocking new_clocking(importer, net);
+			if (!clocking.property_matches_sequence(new_clocking))
+				parser_error("Mixed clocking is currently not supported", inst);
+			return parse_sequence(fsm, start_node, new_clocking.body_net);
 		}
 
 		if (inst->Type() == PRIM_SVA_SEQ_CONCAT)
@@ -1003,11 +1016,8 @@ struct VerificSvaImporter
 				consequent_net = consequent_inst->GetInput1();
 				consequent_inst = net_to_ast_driver(consequent_net);
 
-				if (until_inst != nullptr) {
-					if (until_inst->Type() != PRIM_SVA_TRIGGERED)
-						parser_error("Currently only boolean expressions or sequence.triggered is allowed in SVA_UNTIL condition", until_inst->Linefile());
-					until_net = until_inst->GetInput();
-				}
+				if (until_inst != nullptr)
+					parser_error("Currently only expressions are allowed in SVA_UNTIL condition", until_inst);
 
 				SvaFsm until_fsm(clocking);
 				node = parse_sequence(until_fsm, until_fsm.startNode, until_net);
@@ -1043,7 +1053,7 @@ struct VerificSvaImporter
 			consequent_fsm.createLink(node, consequent_fsm.acceptNode);
 
 			SigBit prop_okay;
-			if (mode_cover) {
+			if (mode_cover || mode_trigger) {
 				prop_okay = consequent_not ? consequent_fsm.getReject() : consequent_fsm.getAccept();
 			} else {
 				SigBit consequent_match = consequent_not ? consequent_fsm.getAccept() : consequent_fsm.getReject();
@@ -1058,13 +1068,19 @@ struct VerificSvaImporter
 			return prop_okay;
 		}
 		else
-		if (inst->Type() == PRIM_SVA_NOT || mode_cover)
+		if (inst->Type() == PRIM_SVA_NOT)
 		{
 			SvaFsm fsm(clocking);
-			int node = parse_sequence(fsm, fsm.startNode, mode_cover ? net : inst->GetInput());
+			int node = parse_sequence(fsm, fsm.startNode, inst->GetInput());
 			fsm.createLink(node, fsm.acceptNode);
-			SigBit accept = fsm.getAccept();
-			SigBit prop_okay = module->Not(NEW_ID, accept);
+
+			SigBit prop_okay;
+			if (mode_cover || mode_trigger) {
+				prop_okay = fsm.getReject();
+			} else {
+				SigBit accept = fsm.getAccept();
+				prop_okay = module->Not(NEW_ID, accept);
+			}
 
 			if (verific_verbose) {
 				log("    Sequence FSM:\n");
@@ -1075,8 +1091,24 @@ struct VerificSvaImporter
 		}
 		else
 		{
-			// Handle unsupported primitives
-			parser_error(inst);
+			SvaFsm fsm(clocking);
+			int node = parse_sequence(fsm, fsm.startNode, net);
+			fsm.createLink(node, fsm.acceptNode);
+
+			SigBit prop_okay;
+			if (mode_cover || mode_trigger) {
+				prop_okay = fsm.getAccept();
+			} else {
+				SigBit accept = fsm.getReject();
+				prop_okay = module->Not(NEW_ID, accept);
+			}
+
+			if (verific_verbose) {
+				log("    Sequence FSM:\n");
+				fsm.dump();
+			}
+
+			return prop_okay;
 		}
 	}
 
@@ -1096,34 +1128,41 @@ struct VerificSvaImporter
 			clocking = VerificClocking(importer, root->GetInput());
 
 			if (clocking.body_net == nullptr)
-				parser_error(stringf("Failed to parse SVA clocking at %s (%s) at %s:%d.", root->Name(), root->View()->Owner()->Name(),
-						LineFile::GetFileName(root->Linefile()), LineFile::GetLineNo(root->Linefile())));
+				parser_error(stringf("Failed to parse SVA clocking"), root);
 
 			// parse SVA sequence into trigger signal
 
 			Net *net = clocking.body_net;
 			SigBit prop_okay = parse_property(net);
 
-			// add final FF stage
-
-			SigBit prop_okay_q = module->addWire(NEW_ID);
-			clocking.addDff(NEW_ID, prop_okay, prop_okay_q, Const(mode_cover ? 0 : 1, 1));
-
-			// generate assert/assume/cover cell
-
-			RTLIL::Cell *c = nullptr;
-
-			if (eventually) {
-				parser_error("No support for eventually in Verific SVA bindings yet.\n");
-				// if (mode_assert) c = module->addLive(root_name, prop_okay_q, prop_start_q);
-				// if (mode_assume) c = module->addFair(root_name, prop_okay_q, prop_start_q);
-			} else {
-				if (mode_assert) c = module->addAssert(root_name, prop_okay_q, State::S1);
-				if (mode_assume) c = module->addAssume(root_name, prop_okay_q, State::S1);
-				if (mode_cover) c = module->addCover(root_name, prop_okay_q, State::S1);
+			if (mode_trigger)
+			{
+				module->connect(importer->net_map_at(root->GetOutput()), prop_okay);
 			}
+			else
+			{
+				// add final FF stage
 
-			importer->import_attributes(c->attributes, root);
+				SigBit prop_okay_q = module->addWire(NEW_ID);
+				clocking.addDff(NEW_ID, prop_okay, prop_okay_q, Const(mode_cover ? 0 : 1, 1));
+
+				// generate assert/assume/cover cell
+
+				RTLIL::Cell *c = nullptr;
+
+				if (eventually) {
+					parser_error("No support for eventually in Verific SVA bindings yet", root);
+					// if (mode_assert) c = module->addLive(root_name, prop_okay_q, prop_start_q);
+					// if (mode_assume) c = module->addFair(root_name, prop_okay_q, prop_start_q);
+				} else {
+					if (mode_assert) c = module->addAssert(root_name, prop_okay_q, State::S1);
+					if (mode_assume) c = module->addAssume(root_name, prop_okay_q, State::S1);
+					if (mode_cover) c = module->addCover(root_name, prop_okay_q, State::S1);
+				}
+
+				if (c != nullptr)
+					importer->import_attributes(c->attributes, root);
+			}
 		}
 		catch (ParserErrorException)
 		{
@@ -1155,6 +1194,15 @@ void import_sva_cover(VerificImporter *importer, Instance *inst)
 	worker.importer = importer;
 	worker.root = inst;
 	worker.mode_cover = true;
+	worker.import();
+}
+
+void import_sva_trigger(VerificImporter *importer, Instance *inst)
+{
+	VerificSvaImporter worker;
+	worker.importer = importer;
+	worker.root = inst;
+	worker.mode_trigger = true;
 	worker.import();
 }
 

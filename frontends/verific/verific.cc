@@ -1001,6 +1001,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 	pool<Instance*, hash_ptr_ops> sva_asserts;
 	pool<Instance*, hash_ptr_ops> sva_assumes;
 	pool<Instance*, hash_ptr_ops> sva_covers;
+	pool<Instance*, hash_ptr_ops> sva_triggers;
 
 	pool<RTLIL::Cell*> past_ffs;
 
@@ -1105,6 +1106,9 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 
 		if (inst->Type() == PRIM_SVA_COVER || inst->Type() == PRIM_SVA_IMMEDIATE_COVER)
 			sva_covers.insert(inst);
+
+		if (inst->Type() == PRIM_SVA_TRIGGERED)
+			sva_triggers.insert(inst);
 
 		if (inst->Type() == OPER_SVA_STABLE)
 		{
@@ -1263,6 +1267,9 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 
 		for (auto inst : sva_covers)
 			import_sva_cover(this, inst);
+
+		for (auto inst : sva_triggers)
+			import_sva_trigger(this, inst);
 
 		merge_past_ffs(past_ffs);
 	}
