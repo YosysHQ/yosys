@@ -480,6 +480,8 @@ int main(int argc, char **argv)
 		if (mode_v && !mode_q)
 			log_files.push_back(stderr);
 
+		if (log_warnings_count)
+			log("Warnings: %d unique messages, %d total\n", GetSize(log_warnings), log_warnings_count);
 #ifdef _WIN32
 		log("End of script. Logfile hash: %s\n", hash.c_str());
 #else

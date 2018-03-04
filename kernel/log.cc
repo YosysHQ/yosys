@@ -42,6 +42,8 @@ std::vector<FILE*> log_files;
 std::vector<std::ostream*> log_streams;
 std::map<std::string, std::set<std::string>> log_hdump;
 std::vector<std::regex> log_warn_regexes, log_nowarn_regexes;
+std::set<std::string> log_warnings;
+int log_warnings_count = 0;
 bool log_hdump_all = false;
 FILE *log_errfile = NULL;
 SHA1 *log_hasher = NULL;
@@ -216,14 +218,26 @@ void logv_warning(const char *format, va_list ap)
 	}
 	else
 	{
-		if (log_errfile != NULL && !log_quiet_warnings)
-			log_files.push_back(log_errfile);
+		if (log_warnings.count(message))
+		{
+			log("Warning: %s", message.c_str());
+			log_flush();
+		}
+		else
+		{
+			if (log_errfile != NULL && !log_quiet_warnings)
+				log_files.push_back(log_errfile);
 
-		log("Warning: %s", message.c_str());
-		log_flush();
+			log("Warning: %s", message.c_str());
+			log_flush();
 
-		if (log_errfile != NULL && !log_quiet_warnings)
-			log_files.pop_back();
+			if (log_errfile != NULL && !log_quiet_warnings)
+				log_files.pop_back();
+
+			log_warnings.insert(message);
+		}
+
+		log_warnings_count++;
 	}
 }
 
@@ -242,14 +256,26 @@ void logv_warning_noprefix(const char *format, va_list ap)
 	}
 	else
 	{
-		if (log_errfile != NULL && !log_quiet_warnings)
-			log_files.push_back(log_errfile);
+		if (log_warnings.count(message))
+		{
+			log("%s", message.c_str());
+			log_flush();
+		}
+		else
+		{
+			if (log_errfile != NULL && !log_quiet_warnings)
+				log_files.push_back(log_errfile);
 
-		log("%s", message.c_str());
-		log_flush();
+			log("%s", message.c_str());
+			log_flush();
 
-		if (log_errfile != NULL && !log_quiet_warnings)
-			log_files.pop_back();
+			if (log_errfile != NULL && !log_quiet_warnings)
+				log_files.pop_back();
+
+			log_warnings.insert(message);
+		}
+
+		log_warnings_count++;
 	}
 }
 
