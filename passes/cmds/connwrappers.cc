@@ -149,7 +149,7 @@ struct ConnwrappersWorker
 };
 
 struct ConnwrappersPass : public Pass {
-	ConnwrappersPass() : Pass("connwrappers", "replace undef values with defined constants") { }
+	ConnwrappersPass() : Pass("connwrappers", "match width of input-output port pairs") { }
 	virtual void help()
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
