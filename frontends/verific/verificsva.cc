@@ -37,7 +37,9 @@
 // Notes:
 //   |-> is a placeholder for |-> and |=>
 //   "until" is a placeholder for all until operators
-//   ##[N:M], [*N:M], [=N:M], [->N:M] includes ##N, [*N], [=N], [->N]
+//   ##[N:M] includes ##N, ##[*], ##[+]
+//   [*N:M] includes [*N], [*], [+]
+//   [=N:M], [->N:M] includes [=N], [->N]
 //
 // -------------------------------------------------------
 //
@@ -117,8 +119,7 @@ struct SvaDFsmNode
 struct SvaFsm
 {
 	Module *module;
-	SigBit clock;
-	bool clockpol;
+	VerificClocking clocking;
 
 	SigBit trigger_sig = State::S1, disable_sig;
 	SigBit throughout_sig = State::S1;
@@ -133,12 +134,10 @@ struct SvaFsm
 	SigBit final_accept_sig = State::Sx;
 	SigBit final_reject_sig = State::Sx;
 
-	SvaFsm(Module *mod, SigBit clk, bool clkpol, SigBit dis = State::S0, SigBit trig = State::S1)
+	SvaFsm(const VerificClocking &clking, SigBit trig = State::S1)
 	{
-		module = mod;
-		clock = clk;
-		clockpol = clkpol;
-		disable_sig = dis;
+		module = clking.module;
+		clocking = clking;
 		trigger_sig = trig;
 
 		startNode = createNode();
@@ -326,8 +325,7 @@ struct SvaFsm
 		for (int i = 0; i < GetSize(nodes); i++)
 		{
 			if (next_state_sig[i] != State::S0) {
-				state_wire[i]->attributes["\\init"] = Const(0, 1);
-				module->addDff(NEW_ID, clock, next_state_sig[i], state_wire[i], clockpol);
+				clocking.addDff(NEW_ID, next_state_sig[i], state_wire[i], Const(0, 1));
 			} else {
 				module->connect(state_wire[i], State::S0);
 			}
@@ -501,7 +499,6 @@ struct SvaFsm
 		{
 			SvaDFsmNode &dnode = it.second;
 			dnode.ffoutwire = module->addWire(NEW_ID);
-			dnode.ffoutwire->attributes["\\init"] = Const(0, 1);
 			dnode.statesig = dnode.ffoutwire;
 
 			if (it.first == vector<int>{startNode})
@@ -533,10 +530,10 @@ struct SvaFsm
 				module->connect(dnode.ffoutwire, State::S0);
 			} else
 			if (GetSize(dnode.nextstate) == 1) {
-				module->addDff(NEW_ID, clock, dnode.nextstate, dnode.ffoutwire, clockpol);
+				clocking.addDff(NEW_ID, dnode.nextstate, dnode.ffoutwire, State::S0);
 			} else {
 				SigSpec nextstate = module->ReduceOr(NEW_ID, dnode.nextstate);
-				module->addDff(NEW_ID, clock, nextstate, dnode.ffoutwire, clockpol);
+				clocking.addDff(NEW_ID, nextstate, dnode.ffoutwire, State::S0);
 			}
 		}
 
@@ -717,16 +714,12 @@ struct VerificSvaImporter
 	Netlist *netlist = nullptr;
 	Instance *root = nullptr;
 
-	SigBit clock = State::Sx;
-	bool clockpol = false;
-
-	SigBit disable_iff = State::S0;
+	VerificClocking clocking;
 
 	bool mode_assert = false;
 	bool mode_assume = false;
 	bool mode_cover = false;
 	bool eventually = false;
-	bool did_something = false;
 
 	Instance *net_to_ast_driver(Net *n)
 	{
@@ -887,62 +880,16 @@ struct VerificSvaImporter
 
 		RTLIL::IdString root_name = module->uniquify(importer->mode_names || root->IsUserDeclared() ? RTLIL::escape_id(root->Name()) : NEW_ID);
 
-		// parse SVA property clock event
+		clocking = VerificClocking(importer, root->GetInput());
 
-		Instance *at_node = get_ast_input(root);
-
-		// asynchronous immediate assertion/assumption/cover
-		if (at_node == nullptr && (root->Type() == PRIM_SVA_IMMEDIATE_ASSERT ||
-				root->Type() == PRIM_SVA_IMMEDIATE_COVER || root->Type() == PRIM_SVA_IMMEDIATE_ASSUME))
-		{
-			SigSpec sig_a = importer->net_map_at(root->GetInput());
-			RTLIL::Cell *c = nullptr;
-
-			if (eventually) {
-				if (mode_assert) c = module->addLive(root_name, sig_a, State::S1);
-				if (mode_assume) c = module->addFair(root_name, sig_a, State::S1);
-			} else {
-				if (mode_assert) c = module->addAssert(root_name, sig_a, State::S1);
-				if (mode_assume) c = module->addAssume(root_name, sig_a, State::S1);
-				if (mode_cover) c = module->addCover(root_name, sig_a, State::S1);
-			}
-
-			importer->import_attributes(c->attributes, root);
-			return;
-		}
-
-		log_assert(at_node && at_node->Type() == PRIM_SVA_AT);
-
-		VerificClockEdge clock_edge(importer, get_ast_input1(at_node));
-		clock = clock_edge.clock_sig;
-		clockpol = clock_edge.posedge;
-
-		// parse disable_iff expression
-
-		Net *net = at_node->GetInput2();
-
-		while (1)
-		{
-			Instance *sequence_node = net_to_ast_driver(net);
-
-			if (sequence_node && sequence_node->Type() == PRIM_SVA_S_EVENTUALLY) {
-				eventually = true;
-				net = sequence_node->GetInput();
-				continue;
-			}
-
-			if (sequence_node && sequence_node->Type() == PRIM_SVA_DISABLE_IFF) {
-				disable_iff = importer->net_map_at(sequence_node->GetInput1());
-				net = sequence_node->GetInput2();
-				continue;
-			}
-
-			break;
-		}
+		if (clocking.body_net == nullptr)
+			log_error("Failed to parse SVA clocking at %s (%s) at %s:%d.", root->Name(), root->View()->Owner()->Name(),
+					LineFile::GetFileName(root->Linefile()), LineFile::GetLineNo(root->Linefile()));
 
 		// parse SVA sequence into trigger signal
 
 		SigBit prop_okay;
+		Net *net = clocking.body_net;
 		Instance *inst = net_to_ast_driver(net);
 
 		if (inst == nullptr)
@@ -957,7 +904,7 @@ struct VerificSvaImporter
 			Net *consequent_net = inst->GetInput2();
 			int node;
 
-			SvaFsm antecedent_fsm(module, clock, clockpol, disable_iff);
+			SvaFsm antecedent_fsm(clocking);
 			node = parse_sequence(&antecedent_fsm, antecedent_fsm.startNode, antecedent_net);
 			if (inst->Type() == PRIM_SVA_NON_OVERLAPPED_IMPLICATION) {
 				int next_node = antecedent_fsm.createNode();
@@ -996,7 +943,7 @@ struct VerificSvaImporter
 					until_net = until_inst->GetInput();
 				}
 
-				SvaFsm until_fsm(module, clock, clockpol, disable_iff);
+				SvaFsm until_fsm(clocking);
 				node = parse_sequence(&until_fsm, until_fsm.startNode, until_net);
 				until_fsm.createLink(node, until_fsm.acceptNode);
 
@@ -1008,13 +955,11 @@ struct VerificSvaImporter
 					until_fsm.dump();
 				}
 
-				Wire *antecedent_match_q = module->addWire(NEW_ID);
-				antecedent_match_q->attributes["\\init"] = Const(0, 1);
-
+				SigBit antecedent_match_q = module->addWire(NEW_ID);
 				antecedent_match = module->Or(NEW_ID, antecedent_match, antecedent_match_q);
 				SigBit antecedent_match_filtered = module->And(NEW_ID, antecedent_match, not_until_match);
 
-				module->addDff(NEW_ID, clock, antecedent_match_filtered, antecedent_match_q, clockpol);
+				clocking.addDff(NEW_ID, antecedent_match_filtered, antecedent_match_q, State::S0);
 
 				if (!until_with)
 					antecedent_match = antecedent_match_filtered;
@@ -1027,7 +972,7 @@ struct VerificSvaImporter
 				consequent_inst = net_to_ast_driver(consequent_net);
 			}
 
-			SvaFsm consequent_fsm(module, clock, clockpol, disable_iff, antecedent_match);
+			SvaFsm consequent_fsm(clocking, antecedent_match);
 			node = parse_sequence(&consequent_fsm, consequent_fsm.startNode, consequent_net);
 			consequent_fsm.createLink(node, consequent_fsm.acceptNode);
 
@@ -1046,7 +991,7 @@ struct VerificSvaImporter
 		else
 		if (inst->Type() == PRIM_SVA_NOT || mode_cover)
 		{
-			SvaFsm fsm(module, clock, clockpol, disable_iff);
+			SvaFsm fsm(clocking);
 			int node = parse_sequence(&fsm, fsm.startNode, mode_cover ? net : inst->GetInput());
 			fsm.createLink(node, fsm.acceptNode);
 			SigBit accept = fsm.getAccept();
@@ -1069,9 +1014,8 @@ struct VerificSvaImporter
 
 		// add final FF stage
 
-		Wire *prop_okay_q = module->addWire(NEW_ID);
-		prop_okay_q->attributes["\\init"] = Const(mode_cover ? 0 : 1, 1);
-		module->addDff(NEW_ID, clock, prop_okay, prop_okay_q, clockpol);
+		SigBit prop_okay_q = module->addWire(NEW_ID);
+		clocking.addDff(NEW_ID, prop_okay, prop_okay_q, Const(mode_cover ? 0 : 1, 1));
 
 		// generate assert/assume/cover cell
 

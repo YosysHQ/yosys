@@ -277,16 +277,18 @@ bool VerificImporter::import_netlist_instance_gates(Instance *inst, RTLIL::IdStr
 
 	if (inst->Type() == PRIM_DFFRS)
 	{
+		VerificClocking clocking(this, inst->GetClock());
+		log_assert(clocking.disable_sig == State::S0);
+		log_assert(clocking.body_net == nullptr);
+
 		if (inst->GetSet()->IsGnd() && inst->GetReset()->IsGnd())
-			module->addDffGate(inst_name, net_map_at(inst->GetClock()), net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
+			clocking.addDff(inst_name, net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
 		else if (inst->GetSet()->IsGnd())
-			module->addAdffGate(inst_name, net_map_at(inst->GetClock()), net_map_at(inst->GetReset()),
-					net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()), false);
+			clocking.addAdff(inst_name, net_map_at(inst->GetReset()), net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()), State::S0);
 		else if (inst->GetReset()->IsGnd())
-			module->addAdffGate(inst_name, net_map_at(inst->GetClock()), net_map_at(inst->GetSet()),
-					net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()), true);
+			clocking.addAdff(inst_name, net_map_at(inst->GetSet()), net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()), State::S1);
 		else
-			module->addDffsrGate(inst_name, net_map_at(inst->GetClock()), net_map_at(inst->GetSet()), net_map_at(inst->GetReset()),
+			clocking.addDffsr(inst_name, net_map_at(inst->GetSet()), net_map_at(inst->GetReset()),
 					net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
 		return true;
 	}
@@ -358,16 +360,18 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 
 	if (inst->Type() == PRIM_DFFRS)
 	{
+		VerificClocking clocking(this, inst->GetClock());
+		log_assert(clocking.disable_sig == State::S0);
+		log_assert(clocking.body_net == nullptr);
+
 		if (inst->GetSet()->IsGnd() && inst->GetReset()->IsGnd())
-			module->addDff(inst_name, net_map_at(inst->GetClock()), net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
+			clocking.addDff(inst_name, net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
 		else if (inst->GetSet()->IsGnd())
-			module->addAdff(inst_name, net_map_at(inst->GetClock()), net_map_at(inst->GetReset()),
-					net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()), RTLIL::State::S0);
+			clocking.addAdff(inst_name, net_map_at(inst->GetReset()), net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()), RTLIL::State::S0);
 		else if (inst->GetReset()->IsGnd())
-			module->addAdff(inst_name, net_map_at(inst->GetClock()), net_map_at(inst->GetSet()),
-					net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()), RTLIL::State::S1);
+			clocking.addAdff(inst_name, net_map_at(inst->GetSet()), net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()), RTLIL::State::S1);
 		else
-			module->addDffsr(inst_name, net_map_at(inst->GetClock()), net_map_at(inst->GetSet()), net_map_at(inst->GetReset()),
+			clocking.addDffsr(inst_name, net_map_at(inst->GetSet()), net_map_at(inst->GetReset()),
 					net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
 		return true;
 	}
@@ -594,13 +598,20 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 		return true;
 	}
 
-	if (inst->Type() == OPER_WIDE_DFFRS) {
+	if (inst->Type() == OPER_WIDE_DFFRS)
+	{
+		VerificClocking clocking(this, inst->GetClock());
+		log_assert(clocking.disable_sig == State::S0);
+		log_assert(clocking.body_net == nullptr);
+
 		RTLIL::SigSpec sig_set = operatorInport(inst, "set");
 		RTLIL::SigSpec sig_reset = operatorInport(inst, "reset");
+
 		if (sig_set.is_fully_const() && !sig_set.as_bool() && sig_reset.is_fully_const() && !sig_reset.as_bool())
-			module->addDff(inst_name, net_map_at(inst->GetClock()), IN, OUT);
+			clocking.addDff(inst_name, IN, OUT);
 		else
-			module->addDffsr(inst_name, net_map_at(inst->GetClock()), sig_set, sig_reset, IN, OUT);
+			clocking.addDffsr(inst_name, sig_set, sig_reset, IN, OUT);
+
 		return true;
 	}
 
@@ -1097,7 +1108,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 
 		if (inst->Type() == OPER_SVA_STABLE)
 		{
-			VerificClockEdge clock_edge(this, inst->GetInput2Bit(0)->Driver());
+			VerificClocking clocking(this, inst->GetInput2Bit(0));
 
 			log_assert(inst->Input1Size() == inst->OutputSize());
 
@@ -1110,13 +1121,13 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 			}
 
 			if (verific_verbose) {
-				log("    %sedge FF with D=%s, Q=%s, C=%s.\n", clock_edge.posedge ? "pos" : "neg",
-						log_signal(sig_d), log_signal(sig_q), log_signal(clock_edge.clock_sig));
+				log("    %sedge FF with D=%s, Q=%s, C=%s.\n", clocking.posedge ? "pos" : "neg",
+						log_signal(sig_d), log_signal(sig_q), log_signal(clocking.clock_sig));
 				log("    XNOR with A=%s, B=%s, Y=%s.\n",
 						log_signal(sig_d), log_signal(sig_q), log_signal(sig_o));
 			}
 
-			module->addDff(NEW_ID, clock_edge.clock_sig, sig_d, sig_q, clock_edge.posedge);
+			clocking.addDff(NEW_ID, sig_d, sig_q);
 			module->addXnor(NEW_ID, sig_d, sig_q, sig_o);
 
 			if (!mode_keep)
@@ -1125,20 +1136,20 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 
 		if (inst->Type() == PRIM_SVA_STABLE)
 		{
-			VerificClockEdge clock_edge(this, inst->GetInput2()->Driver());
+			VerificClocking clocking(this, inst->GetInput2());
 
 			SigSpec sig_d = net_map_at(inst->GetInput1());
 			SigSpec sig_o = net_map_at(inst->GetOutput());
 			SigSpec sig_q = module->addWire(NEW_ID);
 
 			if (verific_verbose) {
-				log("    %sedge FF with D=%s, Q=%s, C=%s.\n", clock_edge.posedge ? "pos" : "neg",
-						log_signal(sig_d), log_signal(sig_q), log_signal(clock_edge.clock_sig));
+				log("    %sedge FF with D=%s, Q=%s, C=%s.\n", clocking.posedge ? "pos" : "neg",
+						log_signal(sig_d), log_signal(sig_q), log_signal(clocking.clock_sig));
 				log("    XNOR with A=%s, B=%s, Y=%s.\n",
 						log_signal(sig_d), log_signal(sig_q), log_signal(sig_o));
 			}
 
-			module->addDff(NEW_ID, clock_edge.clock_sig, sig_d, sig_q, clock_edge.posedge);
+			clocking.addDff(NEW_ID, sig_d, sig_q);
 			module->addXnor(NEW_ID, sig_d, sig_q, sig_o);
 
 			if (!mode_keep)
@@ -1147,16 +1158,16 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 
 		if (inst->Type() == PRIM_SVA_PAST)
 		{
-			VerificClockEdge clock_edge(this, inst->GetInput2()->Driver());
+			VerificClocking clocking(this, inst->GetInput2());
 
 			SigBit sig_d = net_map_at(inst->GetInput1());
 			SigBit sig_q = net_map_at(inst->GetOutput());
 
 			if (verific_verbose)
-				log("    %sedge FF with D=%s, Q=%s, C=%s.\n", clock_edge.posedge ? "pos" : "neg",
-						log_signal(sig_d), log_signal(sig_q), log_signal(clock_edge.clock_sig));
+				log("    %sedge FF with D=%s, Q=%s, C=%s.\n", clocking.posedge ? "pos" : "neg",
+						log_signal(sig_d), log_signal(sig_q), log_signal(clocking.clock_sig));
 
-			past_ffs.insert(module->addDff(NEW_ID, clock_edge.clock_sig, sig_d, sig_q, clock_edge.posedge));
+			past_ffs.insert(clocking.addDff(NEW_ID, sig_d, sig_q));
 
 			if (!mode_keep)
 				continue;
@@ -1164,17 +1175,17 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 
 		if ((inst->Type() == PRIM_SVA_ROSE || inst->Type() == PRIM_SVA_FELL))
 		{
-			VerificClockEdge clock_edge(this, inst->GetInput2()->Driver());
+			VerificClocking clocking(this, inst->GetInput2());
 
 			SigBit sig_d = net_map_at(inst->GetInput1());
 			SigBit sig_o = net_map_at(inst->GetOutput());
 			SigBit sig_q = module->addWire(NEW_ID);
 
 			if (verific_verbose)
-				log("    %sedge FF with D=%s, Q=%s, C=%s.\n", clock_edge.posedge ? "pos" : "neg",
-						log_signal(sig_d), log_signal(sig_q), log_signal(clock_edge.clock_sig));
+				log("    %sedge FF with D=%s, Q=%s, C=%s.\n", clocking.posedge ? "pos" : "neg",
+						log_signal(sig_d), log_signal(sig_q), log_signal(clocking.clock_sig));
 
-			module->addDff(NEW_ID, clock_edge.clock_sig, sig_d, sig_q, clock_edge.posedge);
+			clocking.addDff(NEW_ID, sig_d, sig_q);
 			module->addEq(NEW_ID, {sig_q, sig_d}, Const(inst->Type() == PRIM_SVA_ROSE ? 1 : 2, 2), sig_o);
 
 			if (!mode_keep)
@@ -1259,26 +1270,130 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 
 // ==================================================================
 
-VerificClockEdge::VerificClockEdge(VerificImporter *importer, Instance *inst)
+VerificClocking::VerificClocking(VerificImporter *importer, Net *net)
 {
+	module = importer->module;
+
 	log_assert(importer != nullptr);
-	log_assert(inst != nullptr);
+	log_assert(net != nullptr);
 
-	// SVA posedge/negedge
-	if (inst->Type() == PRIM_SVA_POSEDGE)
+	Instance *inst = net->Driver();
+
+	if (inst != nullptr && inst->Type() == PRIM_SVA_AT)
 	{
-		clock_net = inst->GetInput();
-		posedge = true;
+		net = inst->GetInput1();
+		body_net = inst->GetInput2();
 
-		Instance *driver = clock_net->Driver();
-		if (!clock_net->IsMultipleDriven() && driver && driver->Type() == PRIM_INV) {
-			clock_net = driver->GetInput();
-			posedge = false;
+		inst = net->Driver();
+
+		Instance *body_inst = body_net->Driver();
+		if (body_inst != nullptr && body_inst->Type() == PRIM_SVA_DISABLE_IFF) {
+			disable_net = body_inst->GetInput1();
+			disable_sig = importer->net_map_at(disable_net);
+			body_net = body_inst->GetInput2();
 		}
-
-		clock_sig = importer->net_map_at(clock_net);
-		return;
 	}
+
+	if (inst != nullptr && inst->Type() == PRIM_SVA_POSEDGE)
+	{
+		net = inst->GetInput();
+		inst = net->Driver();;
+	}
+
+	if (inst != nullptr && inst->Type() == PRIM_INV)
+	{
+		net = inst->GetInput();
+		inst = net->Driver();;
+		posedge = false;
+	}
+
+	// Detect clock-enable circuit
+	do {
+		if (inst == nullptr || inst->Type() != PRIM_AND)
+			break;
+
+		Net *net_dlatch = inst->GetInput1();
+		Instance *inst_dlatch = net_dlatch->Driver();
+
+		if (inst_dlatch == nullptr || inst_dlatch->Type() != PRIM_DLATCHRS)
+			break;
+
+		if (!inst_dlatch->GetSet()->IsGnd() || !inst_dlatch->GetReset()->IsGnd())
+			break;
+
+		Net *net_enable = inst_dlatch->GetInput();
+		Net *net_not_clock = inst_dlatch->GetControl();
+
+		if (net_enable == nullptr || net_not_clock == nullptr)
+			break;
+
+		Instance *inst_not_clock = net_not_clock->Driver();
+
+		if (inst_not_clock == nullptr || inst_not_clock->Type() != PRIM_INV)
+			break;
+
+		Net *net_clock1 = inst_not_clock->GetInput();
+		Net *net_clock2 = inst->GetInput2();
+
+		if (net_clock1 == nullptr || net_clock1 != net_clock2)
+			break;
+
+		enable_net = net_enable;
+		enable_sig = importer->net_map_at(enable_net);
+
+		net = net_clock1;
+		inst = net->Driver();;
+	} while (0);
+
+	clock_net = net;
+	clock_sig = importer->net_map_at(clock_net);
+}
+
+Cell *VerificClocking::addDff(IdString name, SigSpec sig_d, SigSpec sig_q, Const init_value)
+{
+	log_assert(GetSize(sig_d) == GetSize(sig_q));
+
+	if (GetSize(init_value) != 0) {
+		log_assert(GetSize(sig_q) == GetSize(init_value));
+		if (sig_q.is_wire()) {
+			sig_q.as_wire()->attributes["\\init"] = init_value;
+		} else {
+			Wire *w = module->addWire(NEW_ID, GetSize(sig_q));
+			w->attributes["\\init"] = init_value;
+			module->connect(sig_q, w);
+			sig_q = w;
+		}
+	}
+
+	if (enable_sig != State::S1)
+		sig_d = module->Mux(NEW_ID, sig_q, sig_d, enable_sig);
+
+	if (disable_sig != State::S0) {
+		log_assert(GetSize(sig_q) == GetSize(init_value));
+		return module->addAdff(name, clock_sig, disable_sig, sig_d, sig_q, init_value, posedge);
+	}
+
+	return module->addDff(name, clock_sig, sig_d, sig_q, posedge);
+}
+
+Cell *VerificClocking::addAdff(IdString name, RTLIL::SigSpec sig_arst, SigSpec sig_d, SigSpec sig_q, Const arst_value)
+{
+	log_assert(disable_sig == State::S0);
+
+	if (enable_sig != State::S1)
+		sig_d = module->Mux(NEW_ID, sig_q, sig_d, enable_sig);
+
+	return module->addAdff(name, clock_sig, sig_arst, sig_d, sig_q, arst_value, posedge);
+}
+
+Cell *VerificClocking::addDffsr(IdString name, RTLIL::SigSpec sig_set, RTLIL::SigSpec sig_clr, SigSpec sig_d, SigSpec sig_q)
+{
+	log_assert(disable_sig == State::S0);
+
+	if (enable_sig != State::S1)
+		sig_d = module->Mux(NEW_ID, sig_q, sig_d, enable_sig);
+
+	return module->addDffsr(name, clock_sig, sig_set, sig_clr, sig_d, sig_q, posedge);
 }
 
 // ==================================================================
