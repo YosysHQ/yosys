@@ -379,7 +379,8 @@ struct Smt2Worker
 
 		if (type == 's' || type == 'd' || type == 'b') {
 			width = max(width, GetSize(cell->getPort("\\A")));
-			width = max(width, GetSize(cell->getPort("\\B")));
+			if (cell->hasPort("\\B"))
+				width = max(width, GetSize(cell->getPort("\\B")));
 		}
 
 		if (cell->hasPort("\\A")) {
@@ -560,6 +561,13 @@ struct Smt2Worker
 			if (cell->type == "$mul") return export_bvop(cell, "(bvmul A B)");
 			if (cell->type == "$div") return export_bvop(cell, "(bvUdiv A B)", 'd');
 			if (cell->type == "$mod") return export_bvop(cell, "(bvUrem A B)", 'd');
+
+			if (cell->type.in("$reduce_and", "$reduce_or", "$reduce_bool") &&
+					2*GetSize(cell->getPort("\\A").chunks()) < GetSize(cell->getPort("\\A"))) {
+				bool is_and = cell->type == "$reduce_and";
+				string bits(GetSize(cell->getPort("\\A")), is_and ? '1' : '0');
+				return export_bvop(cell, stringf("(%s A #b%s)", is_and ? "=" : "distinct", bits.c_str()), 'b');
+			}
 
 			if (cell->type == "$reduce_and") return export_reduce(cell, "(and A)", true);
 			if (cell->type == "$reduce_or") return export_reduce(cell, "(or A)", false);
