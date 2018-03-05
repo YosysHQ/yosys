@@ -37,21 +37,30 @@ if resource.getrlimit(resource.RLIMIT_STACK)[0] < smtio_stacksize:
 
 # currently running solvers (so we can kill them)
 running_solvers = dict()
-got_term_signal = False
+forced_shutdown = False
 solvers_index = 0
 
-def sig_handler(signum, frame):
-    global got_term_signal
-    if not got_term_signal:
-        print("<%s>" % signal.Signals(signum).name)
-        got_term_signal = True
-    for p in running_solvers.values():
-        os.killpg(os.getpgid(p.pid), signal.SIGTERM)
+def force_shutdown(signum, frame):
+    global forced_shutdown
+    if not forced_shutdown:
+        forced_shutdown = True
+        if signum is not None:
+            print("<%s>" % signal.Signals(signum).name)
+        for p in running_solvers.values():
+            # os.killpg(os.getpgid(p.pid), signal.SIGTERM)
+            os.kill(p.pid, signal.SIGTERM)
     sys.exit(1)
 
-signal.signal(signal.SIGINT, sig_handler)
-signal.signal(signal.SIGHUP, sig_handler)
-signal.signal(signal.SIGTERM, sig_handler)
+signal.signal(signal.SIGINT, force_shutdown)
+signal.signal(signal.SIGHUP, force_shutdown)
+signal.signal(signal.SIGTERM, force_shutdown)
+
+def except_hook(exctype, value, traceback):
+    if not forced_shutdown:
+        sys.__excepthook__(exctype, value, traceback)
+    force_shutdown(None, None)
+
+sys.excepthook = except_hook
 
 
 hex_dict = {
@@ -133,7 +142,7 @@ class SmtIo:
         self.setup_done = False
 
     def __del__(self):
-        if self.p is not None:
+        if self.p is not None and not forced_shutdown:
             os.killpg(os.getpgid(self.p.pid), signal.SIGTERM)
             if running_solvers is not None:
                 del running_solvers[self.p_index]
@@ -948,7 +957,7 @@ class MkVcd:
             print("b%s %s" % (bits, self.nets[path][0]), file=self.f)
 
     def escape_name(self, name):
-        name = re.sub(r"\[([a-zA-Z_][0-9a-zA-Z_]*)\]", r".\1", name)
+        name = re.sub(r"\[([0-9a-zA-Z_]*[a-zA-Z_][0-9a-zA-Z_]*)\]", r"<\1>", name)
         if re.match("[\[\]]", name) and name[0] != "\\":
             name = "\\" + name
         return name
@@ -959,21 +968,35 @@ class MkVcd:
             if self.t == -1:
                 print("$var integer 32 t smt_step $end", file=self.f)
                 print("$var event 1 ! smt_clock $end", file=self.f)
+
                 scope = []
                 for path in sorted(self.nets):
-                    while len(scope)+1 > len(path) or (len(scope) > 0 and scope[-1] != path[len(scope)-1]):
+                    key, width = self.nets[path]
+
+                    uipath = list(path)
+                    if "." in uipath[-1]:
+                        uipath = uipath[0:-1] + uipath[-1].split(".")
+                    for i in range(len(uipath)):
+                        uipath[i] = re.sub(r"\[([^\]]*)\]", r"<\1>", uipath[i])
+
+                    while uipath[:len(scope)] != scope[:-1]:
                         print("$upscope $end", file=self.f)
                         scope = scope[:-1]
-                    while len(scope)+1 < len(path):
-                        print("$scope module %s $end" % path[len(scope)], file=self.f)
-                        scope.append(path[len(scope)-1])
-                    key, width = self.nets[path]
+                        print(scope, file=self.f)
+
+                    while uipath[:-1] != scope:
+                        print("$scope module %s $end" % uipath[len(scope)], file=self.f)
+                        scope.append(uipath[len(scope)])
+                        print(scope, file=self.f)
+
                     if path in self.clocks and self.clocks[path][1] == "event":
-                        print("$var event 1 %s %s $end" % (key, self.escape_name(path[-1])), file=self.f)
+                        print("$var event 1 %s %s $end" % (key, uipath[-1]), file=self.f)
                     else:
-                        print("$var wire %d %s %s $end" % (width, key, self.escape_name(path[-1])), file=self.f)
+                        print("$var wire %d %s %s $end" % (width, key, uipath[-1]), file=self.f)
+
                 for i in range(len(scope)):
                     print("$upscope $end", file=self.f)
+
                 print("$enddefinitions $end", file=self.f)
 
             self.t = t

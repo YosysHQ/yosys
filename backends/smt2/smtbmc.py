@@ -719,9 +719,12 @@ def write_vlogtb_trace(steps_start, steps_stop, index):
 
     if vlogtbtop is not None:
         for item in vlogtbtop.split("."):
-            assert item in smt.modinfo[vlogtb_topmod].cells
-            vlogtb_state = "(|%s_h %s| %s)" % (vlogtb_topmod, item, vlogtb_state)
-            vlogtb_topmod = smt.modinfo[vlogtb_topmod].cells[item]
+            if item in smt.modinfo[vlogtb_topmod].cells:
+                vlogtb_state = "(|%s_h %s| %s)" % (vlogtb_topmod, item, vlogtb_state)
+                vlogtb_topmod = smt.modinfo[vlogtb_topmod].cells[item]
+            else:
+                print_msg("Vlog top module '%s' not found: no cell '%s' in module '%s'" % (vlogtbtop, item, vlogtb_topmod))
+                break
 
     with open(filename, "w") as f:
         print("`ifndef VERILATOR", file=f)
