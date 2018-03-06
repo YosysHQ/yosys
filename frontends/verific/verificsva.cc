@@ -1179,10 +1179,26 @@ struct VerificSvaImporter
 			return node;
 		}
 
-		if (inst->Type() == PRIM_SVA_INTERSECT)
+		if (inst->Type() == PRIM_SVA_INTERSECT || inst->Type() == PRIM_SVA_WITHIN)
 		{
 			SvaFsm intersect_fsm(clocking);
-			intersect_fsm.createLink(parse_sequence(intersect_fsm, intersect_fsm.startNode, inst->GetInput1()), intersect_fsm.acceptNode);
+
+			if (inst->Type() == PRIM_SVA_INTERSECT)
+			{
+				intersect_fsm.createLink(parse_sequence(intersect_fsm, intersect_fsm.startNode, inst->GetInput1()), intersect_fsm.acceptNode);
+			}
+			else
+			{
+				int n = intersect_fsm.createNode();
+				intersect_fsm.createLink(intersect_fsm.startNode, n);
+				intersect_fsm.createEdge(n, n);
+
+				n = parse_sequence(intersect_fsm, n, inst->GetInput1());
+
+				intersect_fsm.createLink(n, intersect_fsm.acceptNode);
+				intersect_fsm.createEdge(n, n);
+			}
+
 			intersect_fsm.in_cond_mode = true;
 			intersect_fsm.createLink(parse_sequence(intersect_fsm, intersect_fsm.startNode, inst->GetInput2()), intersect_fsm.condNode);
 			intersect_fsm.in_cond_mode = false;
