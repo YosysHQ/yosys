@@ -205,6 +205,8 @@ struct SvaFsm
 		log_assert(!materialized);
 		log_assert(0 <= from_node && from_node < GetSize(nodes));
 		log_assert(0 <= to_node && to_node < GetSize(nodes));
+		log_assert(from_node != acceptNode);
+		log_assert(to_node != acceptNode);
 
 		if (throughout_sig != State::S1) {
 			if (ctrl != State::S1)
@@ -221,6 +223,7 @@ struct SvaFsm
 		log_assert(!materialized);
 		log_assert(0 <= from_node && from_node < GetSize(nodes));
 		log_assert(0 <= to_node && to_node < GetSize(nodes));
+		log_assert(from_node != acceptNode);
 
 		if (throughout_sig != State::S1) {
 			if (ctrl != State::S1)
@@ -994,14 +997,6 @@ struct VerificSvaImporter
 				antecedent_fsm.createEdge(node, next_node);
 				node = next_node;
 			}
-			antecedent_fsm.createLink(node, antecedent_fsm.acceptNode);
-
-			SigBit antecedent_match = antecedent_fsm.getAccept();
-
-			if (verific_verbose) {
-				log("    Antecedent FSM:\n");
-				antecedent_fsm.dump();
-			}
 
 			Instance *consequent_inst = net_to_ast_driver(consequent_net);
 
@@ -1019,26 +1014,22 @@ struct VerificSvaImporter
 				if (until_inst != nullptr)
 					parser_error("Currently only expressions are allowed in SVA_UNTIL condition", until_inst);
 
-				SvaFsm until_fsm(clocking);
-				node = parse_sequence(until_fsm, until_fsm.startNode, until_net);
-				until_fsm.createLink(node, until_fsm.acceptNode);
+				SigBit until_sig = importer->net_map_at(until_net);
+				SigBit not_until_sig = module->Not(NEW_ID, until_sig);
+				antecedent_fsm.createEdge(node, node, not_until_sig);
 
-				SigBit until_match = until_fsm.getAccept();
-				SigBit not_until_match = module->Not(NEW_ID, until_match);
+				antecedent_fsm.createLink(node, antecedent_fsm.acceptNode, until_with ? State::S1 : not_until_sig);
+			}
+			else
+			{
+				antecedent_fsm.createLink(node, antecedent_fsm.acceptNode);
+			}
 
-				if (verific_verbose) {
-					log("    Until FSM:\n");
-					until_fsm.dump();
-				}
+			SigBit antecedent_match = antecedent_fsm.getAccept();
 
-				SigBit antecedent_match_q = module->addWire(NEW_ID);
-				antecedent_match = module->Or(NEW_ID, antecedent_match, antecedent_match_q);
-				SigBit antecedent_match_filtered = module->And(NEW_ID, antecedent_match, not_until_match);
-
-				clocking.addDff(NEW_ID, antecedent_match_filtered, antecedent_match_q, State::S0);
-
-				if (!until_with)
-					antecedent_match = antecedent_match_filtered;
+			if (verific_verbose) {
+				log("    Antecedent FSM:\n");
+				antecedent_fsm.dump();
 			}
 
 			bool consequent_not = false;
