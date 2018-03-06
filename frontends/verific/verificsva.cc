@@ -1058,6 +1058,22 @@ struct VerificSvaImporter
 			return parse_sequence(fsm, start_node, new_clocking.body_net);
 		}
 
+		if (inst->Type() == PRIM_SVA_FIRST_MATCH)
+		{
+			SvaFsm match_fsm(clocking);
+			match_fsm.createLink(parse_sequence(match_fsm, match_fsm.startNode, inst->GetInput()), match_fsm.acceptNode);
+
+			int node = fsm.createNode();
+			match_fsm.getDFsm(fsm, start_node, node);
+
+			if (verific_verbose) {
+				log("    First Match FSM:\n");
+				match_fsm.dump();
+			}
+
+			return node;
+		}
+
 		if (inst->Type() == PRIM_SVA_SEQ_CONCAT)
 		{
 			const char *sva_low_s = inst->GetAttValue("sva:low");
