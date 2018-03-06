@@ -211,6 +211,13 @@ struct SvaFsm
 		return idx;
 	}
 
+	int createStartNode()
+	{
+		int node = createNode();
+		createLink(startNode, node);
+		return node;
+	}
+
 	void createEdge(int from_node, int to_node, SigBit ctrl = State::S1)
 	{
 		log_assert(!materialized);
@@ -1061,7 +1068,7 @@ struct VerificSvaImporter
 		if (inst->Type() == PRIM_SVA_FIRST_MATCH)
 		{
 			SvaFsm match_fsm(clocking);
-			match_fsm.createLink(parse_sequence(match_fsm, match_fsm.startNode, inst->GetInput()), match_fsm.acceptNode);
+			match_fsm.createLink(parse_sequence(match_fsm, match_fsm.createStartNode(), inst->GetInput()), match_fsm.acceptNode);
 
 			int node = fsm.createNode();
 			match_fsm.getDFsm(fsm, start_node, node);
@@ -1111,7 +1118,7 @@ struct VerificSvaImporter
 			return node;
 		}
 
-		if (inst->Type() == PRIM_SVA_CONSECUTIVE_REPEAT)
+		if (inst->Type() == PRIM_SVA_CONSECUTIVE_REPEAT || inst->Type() == PRIM_SVA_NON_CONSECUTIVE_REPEAT || inst->Type() == PRIM_SVA_GOTO_REPEAT)
 		{
 			const char *sva_low_s = inst->GetAttValue("sva:low");
 			const char *sva_high_s = inst->GetAttValue("sva:high");
@@ -1121,17 +1128,20 @@ struct VerificSvaImporter
 			bool sva_inf = !strcmp(sva_high_s, "$");
 
 			Net *body_net = inst->GetInput();
-			Instance *body_inst = net_to_ast_driver(body_net);
+			int node = start_node;
 
-			if (body_inst != nullptr)
-				parser_error(body_inst);
-
-			int node = parse_sequence(fsm, start_node, body_net);
-
-			for (int i = 1; i < sva_low; i++)
+			for (int i = 0; i < sva_low; i++)
 			{
 				int next_node = fsm.createNode();
-				fsm.createEdge(node, next_node);
+
+				if (i == 0)
+					fsm.createLink(node, next_node);
+				else
+					fsm.createEdge(node, next_node);
+
+				if (inst->Type() == PRIM_SVA_NON_CONSECUTIVE_REPEAT || inst->Type() == PRIM_SVA_GOTO_REPEAT)
+					fsm.createEdge(next_node, next_node);
+
 				node = parse_sequence(fsm, next_node, body_net);
 			}
 
@@ -1139,6 +1149,10 @@ struct VerificSvaImporter
 			{
 				int next_node = fsm.createNode();
 				fsm.createEdge(node, next_node);
+
+				if (inst->Type() == PRIM_SVA_NON_CONSECUTIVE_REPEAT || inst->Type() == PRIM_SVA_GOTO_REPEAT)
+					fsm.createEdge(next_node, next_node);
+
 				next_node = parse_sequence(fsm, next_node, body_net);
 				fsm.createLink(next_node, node);
 			}
@@ -1148,11 +1162,18 @@ struct VerificSvaImporter
 				{
 					int next_node = fsm.createNode();
 					fsm.createEdge(node, next_node);
+
+					if (inst->Type() == PRIM_SVA_NON_CONSECUTIVE_REPEAT || inst->Type() == PRIM_SVA_GOTO_REPEAT)
+						fsm.createEdge(next_node, next_node);
+
 					next_node = parse_sequence(fsm, next_node, body_net);
 					fsm.createLink(node, next_node);
 					node = next_node;
 				}
 			}
+
+			if (inst->Type() == PRIM_SVA_NON_CONSECUTIVE_REPEAT)
+				fsm.createEdge(node, node);
 
 			return node;
 		}
@@ -1168,14 +1189,14 @@ struct VerificSvaImporter
 		if (inst->Type() == PRIM_SVA_SEQ_AND)
 		{
 			SvaFsm fsm1(clocking);
-			fsm1.createLink(parse_sequence(fsm1, fsm1.startNode, inst->GetInput1()), fsm1.acceptNode);
+			fsm1.createLink(parse_sequence(fsm1, fsm1.createStartNode(), inst->GetInput1()), fsm1.acceptNode);
 
 			SvaFsm fsm2(clocking);
-			fsm2.createLink(parse_sequence(fsm2, fsm2.startNode, inst->GetInput2()), fsm2.acceptNode);
+			fsm2.createLink(parse_sequence(fsm2, fsm2.createStartNode(), inst->GetInput2()), fsm2.acceptNode);
 
 			SvaFsm combined_fsm(clocking);
-			fsm1.getDFsm(combined_fsm, combined_fsm.startNode, -1, combined_fsm.acceptNode);
-			fsm2.getDFsm(combined_fsm, combined_fsm.startNode, -1, combined_fsm.acceptNode);
+			fsm1.getDFsm(combined_fsm, combined_fsm.createStartNode(), -1, combined_fsm.acceptNode);
+			fsm2.getDFsm(combined_fsm, combined_fsm.createStartNode(), -1, combined_fsm.acceptNode);
 
 			int node = fsm.createNode();
 			combined_fsm.getDFsm(fsm, start_node, -1, node);
@@ -1201,12 +1222,12 @@ struct VerificSvaImporter
 
 			if (inst->Type() == PRIM_SVA_INTERSECT)
 			{
-				intersect_fsm.createLink(parse_sequence(intersect_fsm, intersect_fsm.startNode, inst->GetInput1()), intersect_fsm.acceptNode);
+				intersect_fsm.createLink(parse_sequence(intersect_fsm, intersect_fsm.createStartNode(), inst->GetInput1()), intersect_fsm.acceptNode);
 			}
 			else
 			{
 				int n = intersect_fsm.createNode();
-				intersect_fsm.createLink(intersect_fsm.startNode, n);
+				intersect_fsm.createLink(intersect_fsm.createStartNode(), n);
 				intersect_fsm.createEdge(n, n);
 
 				n = parse_sequence(intersect_fsm, n, inst->GetInput1());
@@ -1216,7 +1237,7 @@ struct VerificSvaImporter
 			}
 
 			intersect_fsm.in_cond_mode = true;
-			intersect_fsm.createLink(parse_sequence(intersect_fsm, intersect_fsm.startNode, inst->GetInput2()), intersect_fsm.condNode);
+			intersect_fsm.createLink(parse_sequence(intersect_fsm, intersect_fsm.createStartNode(), inst->GetInput2()), intersect_fsm.condNode);
 			intersect_fsm.in_cond_mode = false;
 
 			int node = fsm.createNode();
@@ -1279,7 +1300,7 @@ struct VerificSvaImporter
 			int node;
 
 			SvaFsm antecedent_fsm(clocking);
-			node = parse_sequence(antecedent_fsm, antecedent_fsm.startNode, antecedent_net);
+			node = parse_sequence(antecedent_fsm, antecedent_fsm.createStartNode(), antecedent_net);
 			if (inst->Type() == PRIM_SVA_NON_OVERLAPPED_IMPLICATION) {
 				int next_node = antecedent_fsm.createNode();
 				antecedent_fsm.createEdge(node, next_node);
@@ -1328,7 +1349,7 @@ struct VerificSvaImporter
 			}
 
 			SvaFsm consequent_fsm(clocking, antecedent_match);
-			node = parse_sequence(consequent_fsm, consequent_fsm.startNode, consequent_net);
+			node = parse_sequence(consequent_fsm, consequent_fsm.createStartNode(), consequent_net);
 			consequent_fsm.createLink(node, consequent_fsm.acceptNode);
 
 			get_fsm_accept_reject(consequent_fsm, accept_p, reject_p, consequent_not);
@@ -1347,7 +1368,7 @@ struct VerificSvaImporter
 			}
 
 			SvaFsm fsm(clocking);
-			int node = parse_sequence(fsm, fsm.startNode, net);
+			int node = parse_sequence(fsm, fsm.createStartNode(), net);
 			fsm.createLink(node, fsm.acceptNode);
 
 			get_fsm_accept_reject(fsm, accept_p, reject_p, prop_not);
