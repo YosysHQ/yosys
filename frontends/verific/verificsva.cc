@@ -18,60 +18,17 @@
  */
 
 
-// Currently supported property styles:
-//   seq
-//   not seq
-//   seq |-> seq
-//   seq |-> not seq
-//   seq |-> seq until expr
-//   seq |-> not seq until expr
+// Currently supported SVA sequence and property syntax:
+// http://symbiyosys.readthedocs.io/en/latest/verific.html
 //
-// Currently supported sequence operators:
-//   seq ##[N:M] seq
-//   seq or seq
-//   seq and seq
-//   expr throughout seq
-//   seq [*N:M]
-//
-// Notes:
-//   |-> is a placeholder for |-> and |=>
-//   "until" is a placeholder for all until operators
-//   ##[N:M] includes ##N, ##[*], ##[+]
-//   [*N:M] includes [*N], [*], [+]
-//   [=N:M], [->N:M] includes [=N], [->N]
-//
-// Expressions can be any boolean expression, including expressions
-// that use $past, $rose, $fell, $stable, and sequence.triggered.
-//
-// -------------------------------------------------------
-//
-// SVA Properties Simplified Syntax (essentially a todo-list):
-//
-// prop:
-//   not prop
-//   prop or prop
-//   prop and prop
-//   seq |-> prop
-//   if (expr) prop [else prop]
-//   always prop
-//   prop until prop
-//   prop implies prop
-//   prop iff prop
+// Todos:
+//   property and property
+//   sequence |-> always sequence
+//   sequence |-> eventually sequence
+//   sequence implies sequence
+//   sequence iff sequence
 //   accept_on (expr) prop
 //   reject_on (expr) prop
-//
-// seq:
-//   expr
-//   seq ##[N:M] seq
-//   seq or seq
-//   seq and seq
-//   seq intersect seq
-//   first_match (seq)
-//   expr throughout seq
-//   seq within seq
-//   seq [*N:M]
-//   expr [=N:M]
-//   expr [->N:M]
 
 
 #include "kernel/yosys.h"
