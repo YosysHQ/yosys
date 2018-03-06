@@ -173,7 +173,7 @@ struct PerformanceTimer
 	}
 
 	static int64_t query() {
-#  if _WIN32
+#  ifdef _WIN32
 		return 0;
 #  elif defined(_POSIX_TIMERS) && (_POSIX_TIMERS > 0)
 		struct timespec ts;
