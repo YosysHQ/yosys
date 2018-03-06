@@ -483,7 +483,7 @@ struct SvaFsm
 		dnodes[state] = dnode;
 	}
 
-	SigBit getReject(SigBit *accept_sigptr = nullptr)
+	void getFirstAcceptReject(SigBit *accept_p, SigBit *reject_p)
 	{
 		log_assert(!materialized);
 		materialized = true;
@@ -525,13 +525,15 @@ struct SvaFsm
 				dnodes.at(edge.first).nextstate.append(trig);
 			}
 
-			if (accept_sigptr) {
+			if (accept_p) {
 				for (auto &value : dnode.accept)
 					accept_sig.append(module->Eq(NEW_ID, {dnode.ctrl, dnode.statesig}, {value, State::S1}));
 			}
 
-			for (auto &value : dnode.reject)
-				reject_sig.append(module->Eq(NEW_ID, {dnode.ctrl, dnode.statesig}, {value, State::S1}));
+			if (reject_p) {
+				for (auto &value : dnode.reject)
+					reject_sig.append(module->Eq(NEW_ID, {dnode.ctrl, dnode.statesig}, {value, State::S1}));
+			}
 		}
 
 		for (auto &it : dnodes)
@@ -548,7 +550,7 @@ struct SvaFsm
 			}
 		}
 
-		if (accept_sigptr)
+		if (accept_p)
 		{
 			if (GetSize(accept_sig) == 0)
 				final_accept_sig = State::S0;
@@ -556,17 +558,33 @@ struct SvaFsm
 				final_accept_sig = accept_sig;
 			else
 				final_accept_sig = module->ReduceOr(NEW_ID, accept_sig);
-			*accept_sigptr = final_accept_sig;
+			*accept_p = final_accept_sig;
 		}
 
-		if (GetSize(reject_sig) == 0)
-			final_reject_sig = State::S0;
-		else if (GetSize(reject_sig) == 1)
-			final_reject_sig = reject_sig;
-		else
-			final_reject_sig = module->ReduceOr(NEW_ID, reject_sig);
+		if (reject_p)
+		{
+			if (GetSize(reject_sig) == 0)
+				final_reject_sig = State::S0;
+			else if (GetSize(reject_sig) == 1)
+				final_reject_sig = reject_sig;
+			else
+				final_reject_sig = module->ReduceOr(NEW_ID, reject_sig);
+			*reject_p = final_reject_sig;
+		}
+	}
 
-		return final_reject_sig;
+	SigBit getFirstAccept()
+	{
+		SigBit accept;
+		getFirstAcceptReject(nullptr, &accept);
+		return accept;
+	}
+
+	SigBit getReject()
+	{
+		SigBit reject;
+		getFirstAcceptReject(nullptr, &reject);
+		return reject;
 	}
 
 	void getDFsm(SvaFsm &output_fsm, int output_start_node, int output_accept_node, int output_reject_node)
@@ -903,20 +921,26 @@ struct VerificSvaImporter
 			int sva_high = atoi(sva_high_s);
 			bool sva_inf = !strcmp(sva_high_s, "$");
 
-			int node = parse_sequence(fsm, start_node, inst->GetInput());
+			Net *body_net = inst->GetInput();
+			Instance *body_inst = net_to_ast_driver(body_net);
+
+			if (body_inst != nullptr)
+				parser_error(body_inst);
+
+			int node = parse_sequence(fsm, start_node, body_net);
 
 			for (int i = 1; i < sva_low; i++)
 			{
 				int next_node = fsm.createNode();
 				fsm.createEdge(node, next_node);
-				node = parse_sequence(fsm, next_node, inst->GetInput());
+				node = parse_sequence(fsm, next_node, body_net);
 			}
 
 			if (sva_inf)
 			{
 				int next_node = fsm.createNode();
 				fsm.createEdge(node, next_node);
-				next_node = parse_sequence(fsm, next_node, inst->GetInput());
+				next_node = parse_sequence(fsm, next_node, body_net);
 				fsm.createLink(next_node, node);
 			}
 			else
@@ -925,7 +949,7 @@ struct VerificSvaImporter
 				{
 					int next_node = fsm.createNode();
 					fsm.createEdge(node, next_node);
-					next_node = parse_sequence(fsm, next_node, inst->GetInput());
+					next_node = parse_sequence(fsm, next_node, body_net);
 					fsm.createLink(node, next_node);
 					node = next_node;
 				}
@@ -974,13 +998,30 @@ struct VerificSvaImporter
 		parser_error(inst);
 	}
 
-	SigBit parse_property(Net *net)
+	void get_fsm_accept_reject(SvaFsm &fsm, SigBit *accept_p, SigBit *reject_p, bool swap_accpet_reject = false)
+	{
+		log_assert(accept_p != nullptr || reject_p != nullptr);
+
+		if (swap_accpet_reject)
+			get_fsm_accept_reject(fsm, reject_p, accept_p);
+		else if (reject_p == nullptr)
+			*accept_p = fsm.getAccept();
+		else if (accept_p == nullptr)
+			*reject_p = fsm.getReject();
+		else
+			fsm.getFirstAcceptReject(accept_p, reject_p);
+	}
+
+	void parse_property(Net *net, SigBit *accept_p, SigBit *reject_p)
 	{
 		Instance *inst = net_to_ast_driver(net);
 
 		if (inst == nullptr)
 		{
-			return importer->net_map_at(net);
+			if (accept_p != nullptr)
+				*accept_p = importer->net_map_at(net);
+			if (reject_p != nullptr)
+				*reject_p = module->Not(NEW_ID, importer->net_map_at(net));
 		}
 		else
 		if (inst->Type() == PRIM_SVA_OVERLAPPED_IMPLICATION ||
@@ -1012,7 +1053,7 @@ struct VerificSvaImporter
 				consequent_inst = net_to_ast_driver(consequent_net);
 
 				if (until_inst != nullptr)
-					parser_error("Currently only expressions are allowed in SVA_UNTIL condition", until_inst);
+					parser_error(until_inst);
 
 				SigBit until_sig = importer->net_map_at(until_net);
 				SigBit not_until_sig = module->Not(NEW_ID, until_sig);
@@ -1043,63 +1084,31 @@ struct VerificSvaImporter
 			node = parse_sequence(consequent_fsm, consequent_fsm.startNode, consequent_net);
 			consequent_fsm.createLink(node, consequent_fsm.acceptNode);
 
-			SigBit prop_okay;
-			if (mode_cover || mode_trigger) {
-				prop_okay = consequent_not ? consequent_fsm.getReject() : consequent_fsm.getAccept();
-			} else {
-				SigBit consequent_match = consequent_not ? consequent_fsm.getAccept() : consequent_fsm.getReject();
-				prop_okay = module->Not(NEW_ID, consequent_match);
-			}
+			get_fsm_accept_reject(consequent_fsm, accept_p, reject_p, consequent_not);
 
 			if (verific_verbose) {
 				log("    Consequent FSM:\n");
 				consequent_fsm.dump();
 			}
-
-			return prop_okay;
-		}
-		else
-		if (inst->Type() == PRIM_SVA_NOT)
-		{
-			SvaFsm fsm(clocking);
-			int node = parse_sequence(fsm, fsm.startNode, inst->GetInput());
-			fsm.createLink(node, fsm.acceptNode);
-
-			SigBit prop_okay;
-			if (mode_cover || mode_trigger) {
-				prop_okay = fsm.getReject();
-			} else {
-				SigBit accept = fsm.getAccept();
-				prop_okay = module->Not(NEW_ID, accept);
-			}
-
-			if (verific_verbose) {
-				log("    Sequence FSM:\n");
-				fsm.dump();
-			}
-
-			return prop_okay;
 		}
 		else
 		{
+			bool prop_not = inst->Type() == PRIM_SVA_NOT;
+			if (prop_not) {
+				net = inst->GetInput();
+				inst = net_to_ast_driver(net);
+			}
+
 			SvaFsm fsm(clocking);
 			int node = parse_sequence(fsm, fsm.startNode, net);
 			fsm.createLink(node, fsm.acceptNode);
 
-			SigBit prop_okay;
-			if (mode_cover || mode_trigger) {
-				prop_okay = fsm.getAccept();
-			} else {
-				SigBit accept = fsm.getReject();
-				prop_okay = module->Not(NEW_ID, accept);
-			}
+			get_fsm_accept_reject(fsm, accept_p, reject_p, prop_not);
 
 			if (verific_verbose) {
 				log("    Sequence FSM:\n");
 				fsm.dump();
 			}
-
-			return prop_okay;
 		}
 	}
 
@@ -1124,35 +1133,39 @@ struct VerificSvaImporter
 			// parse SVA sequence into trigger signal
 
 			Net *net = clocking.body_net;
-			SigBit prop_okay = parse_property(net);
+			SigBit accept_bit = State::S0, reject_bit =  State::S0;
+
+			if (mode_assert || mode_assume) {
+				parse_property(net, nullptr, &reject_bit);
+			} else {
+				parse_property(net, &accept_bit, nullptr);
+			}
 
 			if (mode_trigger)
 			{
-				module->connect(importer->net_map_at(root->GetOutput()), prop_okay);
+				module->connect(importer->net_map_at(root->GetOutput()), accept_bit);
 			}
 			else
 			{
+				SigBit sig_a = module->Not(NEW_ID, reject_bit);
+				SigBit sig_en = module->Or(NEW_ID, accept_bit, reject_bit);
+
 				// add final FF stage
 
-				SigBit prop_okay_q = module->addWire(NEW_ID);
-				clocking.addDff(NEW_ID, prop_okay, prop_okay_q, Const(mode_cover ? 0 : 1, 1));
+				SigBit sig_a_q = module->addWire(NEW_ID);
+				SigBit sig_en_q = module->addWire(NEW_ID);
+				clocking.addDff(NEW_ID, sig_a, sig_a_q, State::S0);
+				clocking.addDff(NEW_ID, sig_en, sig_en_q, State::S0);
 
 				// generate assert/assume/cover cell
 
 				RTLIL::Cell *c = nullptr;
 
-				if (eventually) {
-					parser_error("No support for eventually in Verific SVA bindings yet", root);
-					// if (mode_assert) c = module->addLive(root_name, prop_okay_q, prop_start_q);
-					// if (mode_assume) c = module->addFair(root_name, prop_okay_q, prop_start_q);
-				} else {
-					if (mode_assert) c = module->addAssert(root_name, prop_okay_q, State::S1);
-					if (mode_assume) c = module->addAssume(root_name, prop_okay_q, State::S1);
-					if (mode_cover) c = module->addCover(root_name, prop_okay_q, State::S1);
-				}
+				if (mode_assert) c = module->addAssert(root_name, sig_a_q, sig_en_q);
+				if (mode_assume) c = module->addAssume(root_name, sig_a_q, sig_en_q);
+				if (mode_cover) c = module->addCover(root_name, sig_a_q, sig_en_q);
 
-				if (c != nullptr)
-					importer->import_attributes(c->attributes, root);
+				importer->import_attributes(c->attributes, root);
 			}
 		}
 		catch (ParserErrorException)
