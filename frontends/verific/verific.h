@@ -35,6 +35,7 @@ struct VerificClocking {
 	Verific::Net *enable_net = nullptr;
 	Verific::Net *disable_net = nullptr;
 	Verific::Net *body_net = nullptr;
+	Verific::Net *cond_net = nullptr;
 	SigBit clock_sig = State::Sx;
 	SigBit enable_sig = State::S1;
 	SigBit disable_sig = State::S0;
@@ -88,10 +89,11 @@ struct VerificImporter
 	void import_netlist(RTLIL::Design *design, Verific::Netlist *nl, std::set<Verific::Netlist*> &nl_todo);
 };
 
-void import_sva_assert(VerificImporter *importer, Verific::Instance *inst);
-void import_sva_assume(VerificImporter *importer, Verific::Instance *inst);
-void import_sva_cover(VerificImporter *importer, Verific::Instance *inst);
-void import_sva_trigger(VerificImporter *importer, Verific::Instance *inst);
+void verific_import_sva_assert(VerificImporter *importer, Verific::Instance *inst);
+void verific_import_sva_assume(VerificImporter *importer, Verific::Instance *inst);
+void verific_import_sva_cover(VerificImporter *importer, Verific::Instance *inst);
+void verific_import_sva_trigger(VerificImporter *importer, Verific::Instance *inst);
+bool verific_is_sva_net(VerificImporter *importer, Verific::Net *net);
 
 YOSYS_NAMESPACE_END
 

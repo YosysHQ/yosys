@@ -1017,6 +1017,7 @@ struct VerificSvaImporter
 		if (inst->Type() == PRIM_SVA_AT)
 		{
 			VerificClocking new_clocking(importer, net);
+			log_assert(new_clocking.cond_net == nullptr);
 			if (!clocking.property_matches_sequence(new_clocking))
 				parser_error("Mixed clocking is currently not supported", inst);
 			return parse_sequence(fsm, start_node, new_clocking.body_net);
@@ -1241,8 +1242,15 @@ struct VerificSvaImporter
 	{
 		Instance *inst = net_to_ast_driver(net);
 
+		SigBit trig = State::S1;
+
+		if (clocking.cond_net != nullptr)
+			trig = importer->net_map_at(clocking.cond_net);
+
 		if (inst == nullptr)
 		{
+			log_assert(trig == State::S1);
+
 			if (accept_p != nullptr)
 				*accept_p = importer->net_map_at(net);
 			if (reject_p != nullptr)
@@ -1256,7 +1264,7 @@ struct VerificSvaImporter
 			Net *consequent_net = inst->GetInput2();
 			int node;
 
-			SvaFsm antecedent_fsm(clocking);
+			SvaFsm antecedent_fsm(clocking, trig);
 			node = parse_sequence(antecedent_fsm, antecedent_fsm.createStartNode(), antecedent_net);
 			if (inst->Type() == PRIM_SVA_NON_OVERLAPPED_IMPLICATION) {
 				int next_node = antecedent_fsm.createNode();
@@ -1324,7 +1332,7 @@ struct VerificSvaImporter
 				inst = net_to_ast_driver(net);
 			}
 
-			SvaFsm fsm(clocking);
+			SvaFsm fsm(clocking, trig);
 			int node = parse_sequence(fsm, fsm.createStartNode(), net);
 			fsm.createLink(node, fsm.acceptNode);
 
@@ -1399,7 +1407,7 @@ struct VerificSvaImporter
 	}
 };
 
-void import_sva_assert(VerificImporter *importer, Instance *inst)
+void verific_import_sva_assert(VerificImporter *importer, Instance *inst)
 {
 	VerificSvaImporter worker;
 	worker.importer = importer;
@@ -1408,7 +1416,7 @@ void import_sva_assert(VerificImporter *importer, Instance *inst)
 	worker.import();
 }
 
-void import_sva_assume(VerificImporter *importer, Instance *inst)
+void verific_import_sva_assume(VerificImporter *importer, Instance *inst)
 {
 	VerificSvaImporter worker;
 	worker.importer = importer;
@@ -1417,7 +1425,7 @@ void import_sva_assume(VerificImporter *importer, Instance *inst)
 	worker.import();
 }
 
-void import_sva_cover(VerificImporter *importer, Instance *inst)
+void verific_import_sva_cover(VerificImporter *importer, Instance *inst)
 {
 	VerificSvaImporter worker;
 	worker.importer = importer;
@@ -1426,13 +1434,20 @@ void import_sva_cover(VerificImporter *importer, Instance *inst)
 	worker.import();
 }
 
-void import_sva_trigger(VerificImporter *importer, Instance *inst)
+void verific_import_sva_trigger(VerificImporter *importer, Instance *inst)
 {
 	VerificSvaImporter worker;
 	worker.importer = importer;
 	worker.root = inst;
 	worker.mode_trigger = true;
 	worker.import();
+}
+
+bool verific_is_sva_net(VerificImporter *importer, Verific::Net *net)
+{
+	VerificSvaImporter worker;
+	worker.importer = importer;
+	return worker.net_to_ast_driver(net) != nullptr;
 }
 
 YOSYS_NAMESPACE_END

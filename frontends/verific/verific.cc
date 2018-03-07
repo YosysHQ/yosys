@@ -1116,6 +1116,8 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 		if (inst->Type() == OPER_SVA_STABLE)
 		{
 			VerificClocking clocking(this, inst->GetInput2Bit(0));
+			log_assert(clocking.disable_sig == State::S0);
+			log_assert(clocking.body_net == nullptr);
 
 			log_assert(inst->Input1Size() == inst->OutputSize());
 
@@ -1144,6 +1146,8 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 		if (inst->Type() == PRIM_SVA_STABLE)
 		{
 			VerificClocking clocking(this, inst->GetInput2());
+			log_assert(clocking.disable_sig == State::S0);
+			log_assert(clocking.body_net == nullptr);
 
 			SigSpec sig_d = net_map_at(inst->GetInput1());
 			SigSpec sig_o = net_map_at(inst->GetOutput());
@@ -1166,6 +1170,8 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 		if (inst->Type() == PRIM_SVA_PAST)
 		{
 			VerificClocking clocking(this, inst->GetInput2());
+			log_assert(clocking.disable_sig == State::S0);
+			log_assert(clocking.body_net == nullptr);
 
 			SigBit sig_d = net_map_at(inst->GetInput1());
 			SigBit sig_q = net_map_at(inst->GetOutput());
@@ -1183,6 +1189,8 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 		if ((inst->Type() == PRIM_SVA_ROSE || inst->Type() == PRIM_SVA_FELL))
 		{
 			VerificClocking clocking(this, inst->GetInput2());
+			log_assert(clocking.disable_sig == State::S0);
+			log_assert(clocking.body_net == nullptr);
 
 			SigBit sig_d = net_map_at(inst->GetInput1());
 			SigBit sig_o = net_map_at(inst->GetOutput());
@@ -1264,16 +1272,16 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 	if (!mode_nosva)
 	{
 		for (auto inst : sva_asserts)
-			import_sva_assert(this, inst);
+			verific_import_sva_assert(this, inst);
 
 		for (auto inst : sva_assumes)
-			import_sva_assume(this, inst);
+			verific_import_sva_assume(this, inst);
 
 		for (auto inst : sva_covers)
-			import_sva_cover(this, inst);
+			verific_import_sva_cover(this, inst);
 
 		for (auto inst : sva_triggers)
-			import_sva_trigger(this, inst);
+			verific_import_sva_trigger(this, inst);
 
 		merge_past_ffs(past_ffs);
 	}
@@ -1354,6 +1362,27 @@ VerificClocking::VerificClocking(VerificImporter *importer, Net *net)
 
 		net = net_clock1;
 		inst = net->Driver();;
+	} while (0);
+
+	// Detect condition expression
+	do {
+		if (body_net == nullptr)
+			break;
+
+		Instance *inst_mux = body_net->Driver();
+
+		if (inst_mux == nullptr || inst_mux->Type() != PRIM_MUX)
+			break;
+
+		if (!inst_mux->GetInput1()->IsPwr())
+			break;
+
+		Net *sva_net = inst_mux->GetInput2();
+		if (!verific_is_sva_net(importer, sva_net))
+			break;
+
+		body_net = sva_net;
+		cond_net = inst_mux->GetControl();
 	} while (0);
 
 	clock_net = net;
