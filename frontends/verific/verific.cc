@@ -98,9 +98,9 @@ string get_full_netlist_name(Netlist *nl)
 
 // ==================================================================
 
-VerificImporter::VerificImporter(bool mode_gates, bool mode_keep, bool mode_nosva, bool mode_names) :
+VerificImporter::VerificImporter(bool mode_gates, bool mode_keep, bool mode_nosva, bool mode_names, bool mode_verific) :
 		mode_gates(mode_gates), mode_keep(mode_keep), mode_nosva(mode_nosva),
-		mode_names(mode_names)
+		mode_names(mode_names), mode_verific(mode_verific)
 {
 }
 
@@ -1012,6 +1012,9 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 		if (verific_verbose)
 			log("  importing cell %s (%s) as %s.\n", inst->Name(), inst->View()->Owner()->Name(), log_id(inst_name));
 
+		if (mode_verific)
+			goto import_verific_cells;
+
 		if (inst->Type() == PRIM_PWR) {
 			module->connect(net_map_at(inst->GetOutput()), RTLIL::State::S1);
 			continue;
@@ -1214,6 +1217,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 				log_warning("Unsupported Verific primitive %s of type %s\n", inst->Name(), inst->View()->Owner()->Name());
 		}
 
+	import_verific_cells:
 		nl_todo.insert(inst->View());
 
 		RTLIL::Cell *cell = module->addCell(inst_name, inst->IsOperator() ?
@@ -1556,6 +1560,9 @@ struct VerificPass : public Pass {
 		log("    This will also add all SVA related cells to the design parallel to\n");
 		log("    the checker logic inferred by it.\n");
 		log("\n");
+		log("  -V\n");
+		log("    Import Verific netlist as-is without translating to Yosys cell types. \n");
+		log("\n");
 		log("  -nosva\n");
 		log("    Ignore SVA properties, do not infer checker logic.\n");
 		log("\n");
@@ -1696,7 +1703,7 @@ struct VerificPass : public Pass {
 		{
 			std::set<Netlist*> nl_todo, nl_done;
 			bool mode_all = false, mode_gates = false, mode_keep = false;
-			bool mode_nosva = false, mode_names = false;
+			bool mode_nosva = false, mode_names = false, mode_verific = false;
 			bool flatten = false, extnets = false;
 			string dumpfile;
 
@@ -1727,6 +1734,10 @@ struct VerificPass : public Pass {
 				}
 				if (args[argidx] == "-n") {
 					mode_names = true;
+					continue;
+				}
+				if (args[argidx] == "-V") {
+					mode_verific = true;
 					continue;
 				}
 				if (args[argidx] == "-v") {
@@ -1823,7 +1834,8 @@ struct VerificPass : public Pass {
 			while (!nl_todo.empty()) {
 				Netlist *nl = *nl_todo.begin();
 				if (nl_done.count(nl) == 0) {
-					VerificImporter importer(mode_gates, mode_keep, mode_nosva, mode_names);
+					VerificImporter importer(mode_gates, mode_keep, mode_nosva,
+							mode_names, mode_verific);
 					importer.import_netlist(design, nl, nl_todo);
 				}
 				nl_todo.erase(nl);
