@@ -1576,6 +1576,7 @@ struct VerificPass : public Pass {
 
 		Message::SetConsoleOutput(0);
 		Message::RegisterCallBackMsg(msg_func);
+		RuntimeFlags::SetVar("db_preserve_user_nets", 1);
 		RuntimeFlags::SetVar("db_allow_external_nets", 1);
 		RuntimeFlags::SetVar("vhdl_ignore_assertion_statements", 0);
 		veri_file::DefineCmdLineMacro("VERIFIC");
