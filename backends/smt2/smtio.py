@@ -646,6 +646,8 @@ class SmtIo:
                     sys.stderr.flush()
 
         result = self.read()
+        assert result in ["sat", "unsat"]
+
         if self.debug_file:
             print("(set-info :status %s)" % result, file=self.debug_file)
             print("(check-sat)", file=self.debug_file)
