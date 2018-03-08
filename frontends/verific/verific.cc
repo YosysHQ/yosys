@@ -42,6 +42,7 @@ USING_YOSYS_NAMESPACE
 
 #include "veri_file.h"
 #include "vhdl_file.h"
+#include "hier_tree.h"
 #include "VeriModule.h"
 #include "VeriWrite.h"
 #include "VhdlUnits.h"
@@ -1789,6 +1790,7 @@ struct VerificPass : public Pass {
 
 			if (mode_all)
 			{
+#if 0
 				log("Running veri_file::ElaborateAll().\n");
 				if (!veri_file::ElaborateAll())
 					log_cmd_error("Elaboration of Verilog modules failed.\n");
@@ -1823,12 +1825,31 @@ struct VerificPass : public Pass {
 						cell->GetFirstNetlist()->SetPresentDesign();
 					}
 				}
+#else
+				log("Running hier_tree::ElaborateAll().\n");
+
+				VhdlLibrary *vhdl_lib = vhdl_file::GetLibrary("work", 1);
+				VeriLibrary *veri_lib = veri_file::GetLibrary("work", 1);
+
+				Array veri_libs, vhdl_libs;
+				if (vhdl_lib) vhdl_libs.InsertLast(vhdl_lib);
+				if (veri_lib) veri_libs.InsertLast(veri_lib);
+
+				Array *netlists = hier_tree::ElaborateAll(&veri_libs, &vhdl_libs);
+				Netlist *nl;
+				int i;
+
+				FOREACH_ARRAY_ITEM(netlists, i, nl)
+					nl_todo.insert(nl);
+				delete netlists;
+#endif
 			}
 			else
 			{
 				if (argidx == GetSize(args))
 					log_cmd_error("No top module specified.\n");
 
+#if 0
 				for (; argidx < GetSize(args); argidx++) {
 					if (veri_file::GetModule(args[argidx].c_str())) {
 						log("Running veri_file::Elaborate(\"%s\").\n", args[argidx].c_str());
@@ -1842,6 +1863,39 @@ struct VerificPass : public Pass {
 						nl_todo.insert(Netlist::PresentDesign());
 					}
 				}
+#else
+				Array veri_modules, vhdl_units;
+				for (; argidx < GetSize(args); argidx++)
+				{
+					const char *name = args[argidx].c_str();
+
+					VeriModule *veri_module = veri_file::GetModule(name);
+					if (veri_module) {
+						log("Adding Verilog module '%s' to elaboration queue.\n", name);
+						veri_modules.InsertLast(veri_module);
+						continue;
+					}
+
+					VhdlLibrary *vhdl_lib = vhdl_file::GetLibrary("work", 1);
+					VhdlDesignUnit *vhdl_unit = vhdl_lib->GetPrimUnit(name);
+					if (vhdl_unit) {
+						log("Adding VHDL unit '%s' to elaboration queue.\n", name);
+						vhdl_units.InsertLast(vhdl_unit);
+						continue;
+					}
+
+					log_error("Can't find module/unit '%s'.\n", name);
+				}
+
+				log("Running hier_tree::Elaborate().\n");
+				Array *netlists = hier_tree::Elaborate(&veri_modules, &vhdl_units);
+				Netlist *nl;
+				int i;
+
+				FOREACH_ARRAY_ITEM(netlists, i, nl)
+					nl_todo.insert(nl);
+				delete netlists;
+#endif
 			}
 
 			if (flatten) {
