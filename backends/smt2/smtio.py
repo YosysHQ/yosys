@@ -984,12 +984,10 @@ class MkVcd:
                     while uipath[:len(scope)] != scope[:-1]:
                         print("$upscope $end", file=self.f)
                         scope = scope[:-1]
-                        print(scope, file=self.f)
 
                     while uipath[:-1] != scope:
                         print("$scope module %s $end" % uipath[len(scope)], file=self.f)
                         scope.append(uipath[len(scope)])
-                        print(scope, file=self.f)
 
                     if path in self.clocks and self.clocks[path][1] == "event":
                         print("$var event 1 %s %s $end" % (key, uipath[-1]), file=self.f)
