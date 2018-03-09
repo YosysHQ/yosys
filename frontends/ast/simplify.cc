@@ -327,6 +327,8 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			if (node->type == AST_WIRE) {
 				if (this_wire_scope.count(node->str) > 0) {
 					AstNode *first_node = this_wire_scope[node->str];
+					if (first_node->is_input && node->is_reg)
+						goto wires_are_incompatible;
 					if (!node->is_input && !node->is_output && node->is_reg && node->children.size() == 0)
 						goto wires_are_compatible;
 					if (first_node->children.size() == 0 && node->children.size() == 1 && node->children[0]->type == AST_RANGE) {
@@ -361,6 +363,8 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 						first_node->is_output = true;
 					if (node->is_reg)
 						first_node->is_reg = true;
+					if (node->is_logic)
+						first_node->is_logic = true;
 					if (node->is_signed)
 						first_node->is_signed = true;
 					for (auto &it : node->attributes) {
@@ -440,6 +444,12 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		children[1]->detectSignWidth(width_hint, sign_hint);
 		width_hint = max(width_hint, backup_width_hint);
 		child_0_is_self_determined = true;
+		if ((type == AST_ASSIGN_LE || type == AST_ASSIGN_EQ) && children[0]->id2ast->is_logic)
+			children[0]->id2ast->is_reg = true; // if logic type is used in a block asignment
+		if ((type == AST_ASSIGN_LE || type == AST_ASSIGN_EQ) && !children[0]->id2ast->is_reg)
+			log_warning("wire '%s' is assigned in a block at %s:%d.\n", children[0]->str.c_str(), filename.c_str(), linenum);
+		if (type == AST_ASSIGN && children[0]->id2ast->is_reg)
+			log_error("reg '%s' is assigned in a continuous assignment at %s:%d.\n", children[0]->str.c_str(), filename.c_str(), linenum);
 		break;
 
 	case AST_PARAMETER:
