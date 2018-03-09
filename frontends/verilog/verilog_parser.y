@@ -108,6 +108,20 @@ struct specify_rise_fall {
 	specify_triple fall;
 };
 
+static AstNode *makeRange(int msb = 31, int lsb = 0, bool isSigned = true)
+{
+	auto range = new AstNode(AST_RANGE);
+	range->children.push_back(AstNode::mkconst_int(msb, true));
+	range->children.push_back(AstNode::mkconst_int(lsb, true));
+	range->is_signed = isSigned;
+	return range;
+}
+
+static void addRange(AstNode *parent, int msb = 31, int lsb = 0, bool isSigned = true)
+{
+	auto range = makeRange(msb, lsb, isSigned);
+	parent->children.push_back(range);
+}
 %}
 
 %define api.prefix {frontend_verilog_yy}
@@ -157,6 +171,7 @@ struct specify_rise_fall {
 %type <ast> range range_or_multirange  non_opt_range non_opt_multirange range_or_signed_int
 %type <ast> wire_type expr basic_expr concat_list rvalue lvalue lvalue_concat_list
 %type <string> opt_label opt_sva_label tok_prim_wrapper hierarchical_id hierarchical_type_id
+%type <ast> opt_enum_init
 %type <boolean> opt_signed opt_property unique_case_attr always_comb_or_latch always_or_always_ff
 %type <al> attr case_attr
 
@@ -428,7 +443,9 @@ package:
 	};
 
 package_body:
-	package_body package_body_stmt |;
+	package_body package_body_stmt
+	| // optional
+	;
 
 package_body_stmt:
 	typedef_decl |
@@ -604,6 +621,7 @@ module_body:
 
 module_body_stmt:
 	task_func_decl | specify_block | param_decl | localparam_decl | typedef_decl | defparam_decl | specparam_declaration | wire_decl | assign_stmt | cell_stmt |
+	enum_decl |
 	always_stmt | TOK_GENERATE module_gen_body TOK_ENDGENERATE | defattr | assert_property | checker_decl | ignored_specify_block;
 
 checker_decl:
@@ -1223,6 +1241,77 @@ single_defparam_decl:
 			node->children.push_back($1);
 		ast_stack.back()->children.push_back(node);
 	};
+
+enum_type: TOK_ENUM {
+		// create parent node for the enum
+		astbuf2 = new AstNode(AST_ENUM);
+		ast_stack.back()->children.push_back(astbuf2);
+		// create the template for the names
+		astbuf1 = new AstNode(AST_ENUM_ITEM);
+		astbuf1->children.push_back(AstNode::mkconst_int(0, true));
+	 } param_signed enum_base_type '{' enum_name_list '}' {  // create template for the enum vars
+								auto tnode = astbuf1->clone();
+								delete astbuf1;
+								astbuf1 = tnode;
+								tnode->type = AST_WIRE;
+								// drop constant but keep any range
+								delete tnode->children[0];
+								tnode->children.erase(tnode->children.begin()); }
+	 ;
+
+enum_base_type: int_vec param_range
+	| int_atom
+	| /* nothing */		{ addRange(astbuf1); }
+	;
+
+int_atom: TOK_INTEGER		{ addRange(astbuf1); }		// probably should do byte, range [7:0] here
+	;
+
+int_vec: TOK_REG		{ astbuf1->is_reg = true; }	// lexer returns this for logic|bit too
+	;
+
+enum_name_list:
+	enum_name_decl
+	| enum_name_list ',' enum_name_decl
+	;
+
+enum_name_decl:
+	TOK_ID opt_enum_init {
+		// put in fn
+		log_assert(astbuf1);
+		log_assert(astbuf2);
+		auto node = astbuf1->clone();
+		node->str = *$1;
+		delete $1;
+		delete node->children[0];
+		node->children[0] = $2 ?: new AstNode(AST_NONE);
+		astbuf2->children.push_back(node);
+	}
+	;
+
+opt_enum_init:
+	'=' basic_expr		{ $$ = $2; }	// TODO: restrict this
+	| /* optional */	{ $$ = NULL; }
+	;
+
+enum_var_list:
+	enum_var
+	| enum_var_list ',' enum_var
+	;
+
+enum_var: TOK_ID {
+		log_assert(astbuf1);
+		log_assert(astbuf2);
+		auto node = astbuf1->clone();
+		ast_stack.back()->children.push_back(node);
+		node->str = *$1;
+		delete $1;
+		node->is_enum = true;
+	}
+	;
+
+enum_decl: enum_type enum_var_list ';'			{ delete astbuf1; }
+	;
 
 wire_decl:
 	attr wire_type range {

@@ -68,6 +68,8 @@ namespace AST
 		AST_LIVE,
 		AST_FAIR,
 		AST_COVER,
+		AST_ENUM,
+		AST_ENUM_ITEM,
 
 		AST_FCALL,
 		AST_TO_BITS,
@@ -181,6 +183,8 @@ namespace AST
 		int port_id, range_left, range_right;
 		uint32_t integer;
 		double realvalue;
+		// set for IDs typed to an enumeration, not used
+		bool is_enum;
 
 		// if this is a multirange memory then this vector contains offset and length of each dimension
 		std::vector<int> multirange_dimensions;
@@ -285,6 +289,9 @@ namespace AST
 		int isConst() const; // return '1' for AST_CONSTANT and '2' for AST_REALVALUE
 		double asReal(bool is_signed);
 		RTLIL::Const realAsConst(int width);
+
+		// helpers for enum
+		void allocateDefaultEnumValues();
 	};
 
 	// process an AST tree (ast must point to an AST_DESIGN node) and generate RTLIL code
