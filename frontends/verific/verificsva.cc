@@ -1319,11 +1319,11 @@ struct VerificSvaImporter
 		parser_error(inst);
 	}
 
-	void get_fsm_accept_reject(SvaFsm &fsm, SigBit *accept_p, SigBit *reject_p, bool swap_accpet_reject = false)
+	void get_fsm_accept_reject(SvaFsm &fsm, SigBit *accept_p, SigBit *reject_p, bool swap_accept_reject = false)
 	{
 		log_assert(accept_p != nullptr || reject_p != nullptr);
 
-		if (swap_accpet_reject)
+		if (swap_accept_reject)
 			get_fsm_accept_reject(fsm, reject_p, accept_p);
 		else if (reject_p == nullptr)
 			*accept_p = fsm.getAccept();
