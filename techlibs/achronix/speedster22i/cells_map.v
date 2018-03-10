@@ -44,7 +44,7 @@ module  \$_DFF_PN0_ (input D, C, R, output Q);
    dffeas #(.is_wysiwyg(WYSIWYG)) _TECHMAP_REPLACE_ (.d(D), .q(Q), .clk(C), .clrn(R), .prn(1'b1), .ena(1'b1), .asdata(1'b0), .aload(1'b0), .sclr(1'b0), .sload(1'b0));
 endmodule
 /* */
-module  \$__DFFE_PP0 (input D, C, E, R, output Q); 
+module  \$__DFFE_PP0 (input D, C, E, R, output Q);
    parameter WYSIWYG="TRUE";
    wire E_i = ~ E;
    dffeas #(.is_wysiwyg(WYSIWYG)) _TECHMAP_REPLACE_ (.d(D), .q(Q), .clk(C), .clrn(R), .prn(1'b1), .ena(1'b1), .asdata(1'b0), .aload(1'b0), .sclr(E_i), .sload(1'b0));

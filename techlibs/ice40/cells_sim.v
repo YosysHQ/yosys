@@ -912,7 +912,7 @@ module SB_MAC16 (
 	output CO,
 	output ACCUMCO,
 	output SIGNEXTOUT
-); 
+);
 parameter NEG_TRIGGER = 1'b0;
 parameter C_REG = 1'b0;
 parameter A_REG = 1'b0;
@@ -1030,7 +1030,7 @@ endmodule
 (* blackbox *)
 module SB_SPI (
 	input  SBCLKI,
-	input  SBRWI,				   
+	input  SBRWI,
 	input  SBSTBI,
 	input  SBADRI7,
 	input  SBADRI6,
@@ -1125,7 +1125,7 @@ module SB_IO_I3C (
 	input  D_OUT_1,
 	output D_IN_0,
 	output D_IN_1,
-	input  PU_ENB, 
+	input  PU_ENB,
 	input  WEAK_PU_ENB
 );
 	parameter [5:0] PIN_TYPE = 6'b000000;
