@@ -1004,15 +1004,111 @@ struct VerificSvaImporter
 				inst->View()->Owner()->Name(), inst->Name()), inst->Linefile());
 	}
 
-	int parse_sequence(SvaFsm &fsm, int start_node, Net *net)
+	dict<Net*, bool, hash_ptr_ops> check_expression_cache;
+
+	bool check_expression(Net *net, bool raise_error = false)
 	{
+		while (!check_expression_cache.count(net))
+		{
+			Instance *inst = net_to_ast_driver(net);
+
+			if (inst == nullptr) {
+				check_expression_cache[net] = true;
+				break;
+			}
+
+			if (inst->Type() == PRIM_SVA_AT)
+			{
+				VerificClocking new_clocking(importer, net);
+				log_assert(new_clocking.cond_net == nullptr);
+				if (!clocking.property_matches_sequence(new_clocking))
+					parser_error("Mixed clocking is currently not supported", inst);
+				check_expression_cache[net] = check_expression(new_clocking.body_net, raise_error);
+				break;
+			}
+
+			if (inst->Type() == PRIM_SVA_FIRST_MATCH || inst->Type() == PRIM_SVA_NOT)
+			{
+				check_expression_cache[net] = check_expression(inst->GetInput(), raise_error);
+				break;
+			}
+
+			if (inst->Type() == PRIM_SVA_SEQ_OR || inst->Type() == PRIM_SVA_SEQ_AND || inst->Type() == PRIM_SVA_INTERSECT ||
+					inst->Type() == PRIM_SVA_WITHIN || inst->Type() == PRIM_SVA_THROUGHOUT ||
+					inst->Type() == PRIM_SVA_OR || inst->Type() == PRIM_SVA_AND)
+			{
+				check_expression_cache[net] = check_expression(inst->GetInput1(), raise_error) && check_expression(inst->GetInput2(), raise_error);
+				break;
+			}
+
+			if (inst->Type() == PRIM_SVA_SEQ_CONCAT)
+			{
+				const char *sva_low_s = inst->GetAttValue("sva:low");
+				const char *sva_high_s = inst->GetAttValue("sva:high");
+
+				int sva_low = atoi(sva_low_s);
+				int sva_high = atoi(sva_high_s);
+				bool sva_inf = !strcmp(sva_high_s, "$");
+
+				if (sva_low == 0 && sva_high == 0 && !sva_inf)
+					check_expression_cache[net] = check_expression(inst->GetInput1(), raise_error) && check_expression(inst->GetInput2(), raise_error);
+				else
+					check_expression_cache[net] = false;
+				break;
+			}
+
+			check_expression_cache[net] = false;
+		}
+
+		if (raise_error && !check_expression_cache.at(net))
+			parser_error(net_to_ast_driver(net));
+		return check_expression_cache.at(net);
+	}
+
+	SigBit parse_expression(Net *net)
+	{
+		check_expression(net, true);
+
 		Instance *inst = net_to_ast_driver(net);
 
 		if (inst == nullptr) {
+			return importer->net_map_at(net);
+		}
+
+		if (inst->Type() == PRIM_SVA_AT)
+		{
+			VerificClocking new_clocking(importer, net);
+			log_assert(new_clocking.cond_net == nullptr);
+			if (!clocking.property_matches_sequence(new_clocking))
+				parser_error("Mixed clocking is currently not supported", inst);
+			return parse_expression(new_clocking.body_net);
+		}
+
+		if (inst->Type() == PRIM_SVA_FIRST_MATCH)
+			return parse_expression(inst->GetInput());
+
+		if (inst->Type() == PRIM_SVA_NOT)
+			return module->Not(NEW_ID, parse_expression(inst->GetInput()));
+
+		if (inst->Type() == PRIM_SVA_SEQ_OR || inst->Type() == PRIM_SVA_OR)
+			return module->Or(NEW_ID, parse_expression(inst->GetInput1()), parse_expression(inst->GetInput2()));
+
+		if (inst->Type() == PRIM_SVA_SEQ_AND || inst->Type() == PRIM_SVA_AND || inst->Type() == PRIM_SVA_INTERSECT ||
+				inst->Type() == PRIM_SVA_WITHIN || inst->Type() == PRIM_SVA_THROUGHOUT || inst->Type() == PRIM_SVA_SEQ_CONCAT)
+			return module->And(NEW_ID, parse_expression(inst->GetInput1()), parse_expression(inst->GetInput2()));
+
+		log_abort();
+	}
+
+	int parse_sequence(SvaFsm &fsm, int start_node, Net *net)
+	{
+		if (check_expression(net)) {
 			int node = fsm.createNode();
-			fsm.createLink(start_node, node, importer->net_map_at(net));
+			fsm.createLink(start_node, node, parse_expression(net));
 			return node;
 		}
+
+		Instance *inst = net_to_ast_driver(net);
 
 		if (inst->Type() == PRIM_SVA_AT)
 		{
@@ -1136,7 +1232,7 @@ struct VerificSvaImporter
 			return node;
 		}
 
-		if (inst->Type() == PRIM_SVA_SEQ_OR)
+		if (inst->Type() == PRIM_SVA_SEQ_OR || inst->Type() == PRIM_SVA_OR)
 		{
 			int node = parse_sequence(fsm, start_node, inst->GetInput1());
 			int node2 = parse_sequence(fsm, start_node, inst->GetInput2());
@@ -1144,7 +1240,7 @@ struct VerificSvaImporter
 			return node;
 		}
 
-		if (inst->Type() == PRIM_SVA_SEQ_AND)
+		if (inst->Type() == PRIM_SVA_SEQ_AND || inst->Type() == PRIM_SVA_AND)
 		{
 			SvaFsm fsm1(clocking);
 			fsm1.createLink(parse_sequence(fsm1, fsm1.createStartNode(), inst->GetInput1()), fsm1.acceptNode);
@@ -1211,8 +1307,7 @@ struct VerificSvaImporter
 
 		if (inst->Type() == PRIM_SVA_THROUGHOUT)
 		{
-			log_assert(get_ast_input1(inst) == nullptr);
-			SigBit expr = importer->net_map_at(inst->GetInput1());
+			SigBit expr = parse_expression(inst->GetInput1());
 
 			fsm.pushThroughout(expr);
 			int node = parse_sequence(fsm, start_node, inst->GetInput2());
@@ -1280,15 +1375,10 @@ struct VerificSvaImporter
 				bool until_with = consequent_inst->Type() == PRIM_SVA_UNTIL_WITH || consequent_inst->Type() == PRIM_SVA_S_UNTIL_WITH;
 
 				Net *until_net = consequent_inst->GetInput2();
-				Instance *until_inst = net_to_ast_driver(until_net);
-
 				consequent_net = consequent_inst->GetInput1();
 				consequent_inst = net_to_ast_driver(consequent_net);
 
-				if (until_inst != nullptr)
-					parser_error(until_inst);
-
-				SigBit until_sig = importer->net_map_at(until_net);
+				SigBit until_sig = parse_expression(until_net);
 				SigBit not_until_sig = module->Not(NEW_ID, until_sig);
 				antecedent_fsm.createEdge(node, node, not_until_sig);
 
