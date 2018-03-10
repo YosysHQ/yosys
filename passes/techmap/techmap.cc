@@ -171,18 +171,15 @@ struct TechmapWorker
 		}
 
 		std::string orig_cell_name;
-		pool<string> extra_src_attrs;
+		pool<string> extra_src_attrs = cell->get_strpool_attribute("\\src");
 
-		if (!flatten_mode)
-		{
+		if (!flatten_mode) {
 			for (auto &it : tpl->cells_)
 				if (it.first == "\\_TECHMAP_REPLACE_") {
 					orig_cell_name = cell->name.str();
 					module->rename(cell, stringf("$techmap%d", autoidx++) + cell->name.str());
 					break;
 				}
-
-			extra_src_attrs = cell->get_strpool_attribute("\\src");
 		}
 
 		dict<IdString, IdString> memory_renames;
@@ -339,8 +336,6 @@ struct TechmapWorker
 
 			RTLIL::Cell *c = module->addCell(c_name, it.second);
 			design->select(module, c);
-
-			c->set_src_attribute(cell->get_src_attribute());
 
 			if (!flatten_mode && c->type.substr(0, 2) == "\\$")
 				c->type = c->type.substr(1);
