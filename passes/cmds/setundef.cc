@@ -40,6 +40,9 @@ struct SetundefWorker
 		if (next_bit_mode == 1)
 			return RTLIL::State::S1;
 
+		if (next_bit_mode == 4)
+			return RTLIL::State::Sx;
+
 		// xorshift32
 		next_bit_state ^= next_bit_state << 13;
 		next_bit_state ^= next_bit_state >> 17;
@@ -81,6 +84,9 @@ struct SetundefPass : public Pass {
 		log("    -one\n");
 		log("        replace with bits set (1)\n");
 		log("\n");
+		log("    -undef\n");
+		log("        replace with undef (x) bits, may be used with -undriven\n");
+		log("\n");
 		log("    -anyseq\n");
 		log("        replace with $anyseq drivers (for formal)\n");
 		log("\n");
@@ -121,6 +127,11 @@ struct SetundefPass : public Pass {
 			if (args[argidx] == "-anyseq") {
 				got_value = true;
 				worker.next_bit_mode = 2;
+				continue;
+			}
+			if (args[argidx] == "-undef") {
+				got_value = true;
+				worker.next_bit_mode = 4;
 				continue;
 			}
 			if (args[argidx] == "-init") {
