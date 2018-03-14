@@ -1536,6 +1536,10 @@ struct VerificPass : public Pass {
 		log("\n");
 		log("Load the specified Verilog/SystemVerilog files into Verific.\n");
 		log("\n");
+		log("All files specified in one call to this command are one compilation unit.\n");
+		log("Files passed to different calls to this command are treated as belonging to\n");
+		log("different compilation units.\n");
+		log("\n");
 		log("\n");
 		log("    verific {-vhdl87|-vhdl93|-vhdl2k|-vhdl2008|-vhdl} <vhdl-file>..\n");
 		log("\n");
@@ -1662,38 +1666,31 @@ struct VerificPass : public Pass {
 			goto check_error;
 		}
 
-		if (GetSize(args) > argidx && args[argidx] == "-vlog95") {
-			for (argidx++; argidx < GetSize(args); argidx++)
-				if (!veri_file::Analyze(args[argidx].c_str(), veri_file::VERILOG_95))
-					log_cmd_error("Reading `%s' in VERILOG_95 mode failed.\n", args[argidx].c_str());
-			goto check_error;
-		}
+		if (GetSize(args) > argidx && (args[argidx] == "-vlog95" || args[argidx] == "-vlog2k" || args[argidx] == "-sv2005" ||
+				args[argidx] == "-sv2009" || args[argidx] == "-sv2012" || args[argidx] == "-sv"))
+		{
+			Array file_names;
+			unsigned verilog_mode;
 
-		if (GetSize(args) > argidx && args[argidx] == "-vlog2k") {
-			for (argidx++; argidx < GetSize(args); argidx++)
-				if (!veri_file::Analyze(args[argidx].c_str(), veri_file::VERILOG_2K))
-					log_cmd_error("Reading `%s' in VERILOG_2K mode failed.\n", args[argidx].c_str());
-			goto check_error;
-		}
+			if (args[argidx] == "-vlog95")
+				verilog_mode = veri_file::VERILOG_95;
+			else if (args[argidx] == "-vlog2k")
+				verilog_mode = veri_file::VERILOG_2K;
+			else if (args[argidx] == "-sv2005")
+				verilog_mode = veri_file::SYSTEM_VERILOG_2005;
+			else if (args[argidx] == "-sv2009")
+				verilog_mode = veri_file::SYSTEM_VERILOG_2009;
+			else if (args[argidx] == "-sv2012" || args[argidx] == "-sv")
+				verilog_mode = veri_file::SYSTEM_VERILOG;
+			else
+				log_abort();
 
-		if (GetSize(args) > argidx && args[argidx] == "-sv2005") {
 			for (argidx++; argidx < GetSize(args); argidx++)
-				if (!veri_file::Analyze(args[argidx].c_str(), veri_file::SYSTEM_VERILOG_2005))
-					log_cmd_error("Reading `%s' in SYSTEM_VERILOG_2005 mode failed.\n", args[argidx].c_str());
-			goto check_error;
-		}
+				file_names.Insert(args[argidx].c_str());
 
-		if (GetSize(args) > argidx && args[argidx] == "-sv2009") {
-			for (argidx++; argidx < GetSize(args); argidx++)
-				if (!veri_file::Analyze(args[argidx].c_str(), veri_file::SYSTEM_VERILOG_2009))
-					log_cmd_error("Reading `%s' in SYSTEM_VERILOG_2009 mode failed.\n", args[argidx].c_str());
-			goto check_error;
-		}
+			if (!veri_file::AnalyzeMultipleFiles(&file_names, verilog_mode, "work", veri_file::MFCU))
+					log_cmd_error("Reading Verilog/SystemVerilog sources failed.\n");
 
-		if (GetSize(args) > argidx && (args[argidx] == "-sv2012" || args[argidx] == "-sv")) {
-			for (argidx++; argidx < GetSize(args); argidx++)
-				if (!veri_file::Analyze(args[argidx].c_str(), veri_file::SYSTEM_VERILOG))
-					log_cmd_error("Reading `%s' in SYSTEM_VERILOG mode failed.\n", args[argidx].c_str());
 			goto check_error;
 		}
 
