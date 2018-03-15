@@ -1044,23 +1044,30 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 		if (inst->Type() == OPER_READ_PORT)
 		{
 			RTLIL::Memory *memory = module->memories.at(RTLIL::escape_id(inst->GetInput()->Name()));
-			if (memory->width != int(inst->OutputSize()))
-				log_error("Import of asymetric memories from Verific is not supported yet: %s %s\n", inst->Name(), inst->GetInput()->Name());
+			int numchunks = int(inst->OutputSize()) / memory->width;
+			int chunksbits = ceil_log2(numchunks);
 
-			RTLIL::SigSpec addr = operatorInput1(inst);
-			RTLIL::SigSpec data = operatorOutput(inst);
+			if ((numchunks * memory->width) != int(inst->OutputSize()) || (numchunks & (numchunks - 1)) != 0)
+				log_error("Import of asymmetric memories of this type is not supported yet: %s %s\n", inst->Name(), inst->GetInput()->Name());
 
-			RTLIL::Cell *cell = module->addCell(inst_name, "$memrd");
-			cell->parameters["\\MEMID"] = memory->name.str();
-			cell->parameters["\\CLK_ENABLE"] = false;
-			cell->parameters["\\CLK_POLARITY"] = true;
-			cell->parameters["\\TRANSPARENT"] = false;
-			cell->parameters["\\ABITS"] = GetSize(addr);
-			cell->parameters["\\WIDTH"] = GetSize(data);
-			cell->setPort("\\CLK", RTLIL::State::Sx);
-			cell->setPort("\\EN", RTLIL::State::Sx);
-			cell->setPort("\\ADDR", addr);
-			cell->setPort("\\DATA", data);
+			for (int i = 0; i < numchunks; i++)
+			{
+				RTLIL::SigSpec addr = {operatorInput1(inst), RTLIL::Const(i, chunksbits)};
+				RTLIL::SigSpec data = operatorOutput(inst).extract(i * memory->width, memory->width);
+
+				RTLIL::Cell *cell = module->addCell(numchunks == 1 ? inst_name :
+						RTLIL::IdString(stringf("%s_%d", inst_name.c_str(), i)), "$memrd");
+				cell->parameters["\\MEMID"] = memory->name.str();
+				cell->parameters["\\CLK_ENABLE"] = false;
+				cell->parameters["\\CLK_POLARITY"] = true;
+				cell->parameters["\\TRANSPARENT"] = false;
+				cell->parameters["\\ABITS"] = GetSize(addr);
+				cell->parameters["\\WIDTH"] = GetSize(data);
+				cell->setPort("\\CLK", RTLIL::State::Sx);
+				cell->setPort("\\EN", RTLIL::State::Sx);
+				cell->setPort("\\ADDR", addr);
+				cell->setPort("\\DATA", data);
+			}
 			continue;
 		}
 
@@ -1068,7 +1075,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 		{
 			RTLIL::Memory *memory = module->memories.at(RTLIL::escape_id(inst->GetOutput()->Name()));
 			if (memory->width != int(inst->Input2Size()))
-				log_error("Import of asymetric memories from Verific is not supported yet: %s %s\n", inst->Name(), inst->GetInput()->Name());
+				log_error("Import of asymmetric memories of this type is not supported yet: %s %s\n", inst->Name(), inst->GetInput()->Name());
 
 			RTLIL::SigSpec addr = operatorInput1(inst);
 			RTLIL::SigSpec data = operatorInput2(inst);
