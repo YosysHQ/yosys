@@ -27,7 +27,7 @@
 //   [antecedent_condition] always.. property
 //   [antecedent_condition] eventually.. basic_property
 //   [antecedent_condition] property until.. expression
-//   [antecedent_condition] basic_property until.. basic_property
+//   [antecedent_condition] basic_property until.. basic_property      (assert/assume only)
 //
 // antecedent_condition:
 //   sequence |->
@@ -38,8 +38,8 @@
 //   not basic_property
 //   sequence #-# basic_property
 //   sequence #=# basic_property
-//   basic_property or basic_property       (cover only)
-//   basic_property and basic_property      (assert/assume only)
+//   basic_property or basic_property           (cover only)
+//   basic_property and basic_property          (assert/assume only)
 //   basic_property implies basic_property
 //   basic_property iff basic_property
 //
