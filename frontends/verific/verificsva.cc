@@ -35,6 +35,7 @@
 //
 // basic_property:
 //   sequence
+//   not basic_property
 //   sequence #-# basic_property
 //   sequence #=# basic_property
 //   basic_property or basic_property       (cover only)
