@@ -21,14 +21,51 @@
 // Currently supported SVA sequence and property syntax:
 // http://symbiyosys.readthedocs.io/en/latest/verific.html
 //
-// Todos:
-//   property and property
-//   sequence |-> always sequence
-//   sequence |-> eventually sequence
-//   sequence implies sequence
-//   sequence iff sequence
-//   accept_on (expr) prop
-//   reject_on (expr) prop
+// Next gen property syntax:
+//   basic_property
+//   [antecedent_condition] property
+//   [antecedent_condition] always.. property
+//   [antecedent_condition] eventually.. basic_property
+//   [antecedent_condition] property until.. expression
+//   [antecedent_condition] basic_property until.. basic_property
+//
+// antecedent_condition:
+//   sequence |->
+//   sequence |=>
+//
+// basic_property:
+//   sequence
+//   sequence #-# basic_property
+//   sequence #=# basic_property
+//   basic_property or basic_property       (cover only)
+//   basic_property and basic_property      (assert/assume only)
+//   basic_property implies basic_property
+//   basic_property iff basic_property
+//
+// sequence:
+//   expression
+//   sequence ##N sequence
+//   sequence ##[*] sequence
+//   sequence ##[+] sequence
+//   sequence ##[N:M] sequence
+//   sequence ##[N:$] sequence
+//   sequence [*]
+//   sequence [+]
+//   sequence [*N]
+//   sequence [*N:M]
+//   sequence [*N:$]
+//   sequence or sequence
+//   sequence and sequence
+//   expression throughout sequence
+//   sequence intersect sequence
+//   sequence within sequence
+//   first_match( sequence )
+//   expression [=N]
+//   expression [=N:M]
+//   expression [=N:$]
+//   expression [->N]
+//   expression [->N:M]
+//   expression [->N:$]
 
 
 #include "kernel/yosys.h"
