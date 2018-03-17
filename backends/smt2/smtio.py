@@ -218,7 +218,7 @@ class SmtIo:
 
     def timestamp(self):
         secs = int(time() - self.start_time)
-        return "## %6d %3d:%02d:%02d " % (secs, secs // (60*60), (secs // 60) % 60, secs % 60)
+        return "## %3d:%02d:%02d " % (secs // (60*60), (secs // 60) % 60, secs % 60)
 
     def replace_in_stmt(self, stmt, pat, repl):
         if stmt == pat:
@@ -294,11 +294,12 @@ class SmtIo:
 
     def p_read(self):
         assert self.p is not None
-        assert self.p_running
         if self.p_next is not None:
             data = self.p_next
             self.p_next = None
             return data
+        if not self.p_running:
+            return ""
         return self.p_queue.get()
 
     def p_poll(self):
@@ -580,12 +581,12 @@ class SmtIo:
             if count_brackets == 0:
                 break
             if self.solver != "dummy" and self.p.poll():
-                print("SMT Solver terminated unexpectedly: %s" % "".join(stmt), flush=True)
+                print("%s Solver terminated unexpectedly: %s" % (self.timestamp(), "".join(stmt)), flush=True)
                 sys.exit(1)
 
         stmt = "".join(stmt)
         if stmt.startswith("(error"):
-            print("SMT Solver Error: %s" % stmt, file=sys.stderr, flush=True)
+            print("%s Solver Error: %s" % (self.timestamp(), stmt), flush=True)
             if self.solver != "dummy":
                 self.p_close()
             sys.exit(1)
@@ -652,7 +653,15 @@ class SmtIo:
             print("(check-sat)", file=self.debug_file)
             self.debug_file.flush()
 
-        assert result in ["sat", "unsat"]
+        if result not in ["sat", "unsat"]:
+            if result == "":
+                print("%s Unexpected EOF response from solver." % (self.timestamp()), flush=True)
+            else:
+                print("%s Unexpected response from solver: %s" % (self.timestamp(), result), flush=True)
+            if self.solver != "dummy":
+                self.p_close()
+            sys.exit(1)
+
         return result
 
     def parse(self, stmt):
