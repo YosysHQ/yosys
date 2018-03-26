@@ -1297,7 +1297,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 
 // ==================================================================
 
-VerificClocking::VerificClocking(VerificImporter *importer, Net *net)
+VerificClocking::VerificClocking(VerificImporter *importer, Net *net, bool sva_at_only)
 {
 	module = importer->module;
 
@@ -1319,6 +1319,11 @@ VerificClocking::VerificClocking(VerificImporter *importer, Net *net)
 			disable_sig = importer->net_map_at(disable_net);
 			body_net = body_inst->GetInput2();
 		}
+	}
+	else
+	{
+		if (sva_at_only)
+			return;
 	}
 
 	if (inst != nullptr && inst->Type() == PRIM_SVA_POSEDGE)

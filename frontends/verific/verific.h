@@ -42,7 +42,7 @@ struct VerificClocking {
 	bool posedge = true;
 
 	VerificClocking() { }
-	VerificClocking(VerificImporter *importer, Verific::Net *net);
+	VerificClocking(VerificImporter *importer, Verific::Net *net, bool sva_at_only = false);
 	RTLIL::Cell *addDff(IdString name, SigSpec sig_d, SigSpec sig_q, Const init_value = Const());
 	RTLIL::Cell *addAdff(IdString name, RTLIL::SigSpec sig_arst, SigSpec sig_d, SigSpec sig_q, Const arst_value);
 	RTLIL::Cell *addDffsr(IdString name, RTLIL::SigSpec sig_set, RTLIL::SigSpec sig_clr, SigSpec sig_d, SigSpec sig_q);

@@ -1543,20 +1543,33 @@ struct VerificSvaImporter
 
 			RTLIL::IdString root_name = module->uniquify(importer->mode_names || root->IsUserDeclared() ? RTLIL::escape_id(root->Name()) : NEW_ID);
 
-			clocking = VerificClocking(importer, root->GetInput());
-
-			if (clocking.body_net == nullptr)
-				parser_error(stringf("Failed to parse SVA clocking"), root);
-
 			// parse SVA sequence into trigger signal
 
-			Net *net = clocking.body_net;
-			SigBit accept_bit = State::S0, reject_bit =  State::S0;
+			clocking = VerificClocking(importer, root->GetInput(), true);
+			SigBit accept_bit = State::S0, reject_bit = State::S0;
 
-			if (mode_assert || mode_assume) {
-				parse_property(net, nullptr, &reject_bit);
-			} else {
-				parse_property(net, &accept_bit, nullptr);
+			if (clocking.body_net == nullptr)
+			{
+				if (clocking.clock_net != nullptr || clocking.enable_net != nullptr || clocking.disable_net != nullptr ||  clocking.cond_net != nullptr)
+					parser_error(stringf("Failed to parse SVA clocking"), root);
+
+				if (mode_assert || mode_assume) {
+					log_ping();
+					reject_bit = module->Not(NEW_ID, parse_expression(root->GetInput()));
+				} else {
+					log_ping();
+					accept_bit = parse_expression(root->GetInput());
+				}
+			}
+			else
+			{
+				if (mode_assert || mode_assume) {
+					log_ping();
+					parse_property(clocking.body_net, nullptr, &reject_bit);
+				} else {
+					log_ping();
+					parse_property(clocking.body_net, &accept_bit, nullptr);
+				}
 			}
 
 			if (mode_trigger)
@@ -1570,10 +1583,17 @@ struct VerificSvaImporter
 
 				// add final FF stage
 
-				SigBit sig_a_q = module->addWire(NEW_ID);
-				SigBit sig_en_q = module->addWire(NEW_ID);
-				clocking.addDff(NEW_ID, sig_a, sig_a_q, State::S0);
-				clocking.addDff(NEW_ID, sig_en, sig_en_q, State::S0);
+				SigBit sig_a_q, sig_en_q;
+
+				if (clocking.body_net == nullptr) {
+					sig_a_q = sig_a;
+					sig_en_q = sig_en;
+				} else {
+					sig_a_q = module->addWire(NEW_ID);
+					sig_en_q = module->addWire(NEW_ID);
+					clocking.addDff(NEW_ID, sig_a, sig_a_q, State::S0);
+					clocking.addDff(NEW_ID, sig_en, sig_en_q, State::S0);
+				}
 
 				// generate assert/assume/cover cell
 
