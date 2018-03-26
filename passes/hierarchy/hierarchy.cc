@@ -179,6 +179,12 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 					goto loaded_module;
 				}
 
+				filename = dir + "/" + RTLIL::unescape_id(cell->type) + ".sv";
+				if (check_file_exists(filename)) {
+					Frontend::frontend_call(design, NULL, filename, "verilog -sv");
+					goto loaded_module;
+				}
+
 				filename = dir + "/" + RTLIL::unescape_id(cell->type) + ".il";
 				if (check_file_exists(filename)) {
 					Frontend::frontend_call(design, NULL, filename, "ilang");
