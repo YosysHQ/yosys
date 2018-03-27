@@ -598,6 +598,8 @@ static int tcl_yosys_cmd(ClientData, Tcl_Interp *interp, int argc, const char *a
 			std::string tcl_command_name = it.first;
 			if (tcl_command_name == "proc")
 				tcl_command_name = "procs";
+			else if (tcl_command_name == "rename")
+				tcl_command_name = "renames";
 			Tcl_CmdInfo info;
 			if (Tcl_GetCommandInfo(interp, tcl_command_name.c_str(), &info) != 0) {
 				log("[TCL: yosys -import] Command name collision: found pre-existing command `%s' -> skip.\n", it.first.c_str());
@@ -637,9 +639,9 @@ struct TclPass : public Pass {
 		log("Use 'yosys cmd' to run the yosys command 'cmd' from tcl.\n");
 		log("\n");
 		log("The tcl command 'yosys -import' can be used to import all yosys\n");
-		log("commands directly as tcl commands to the tcl shell. The yosys\n");
-		log("command 'proc' is wrapped using the tcl command 'procs' in order\n");
-		log("to avoid a name collision with the tcl builtin command 'proc'.\n");
+		log("commands directly as tcl commands to the tcl shell. Yosys commands\n");
+		log("'proc' and 'rename' are wrapped to tcl commands 'procs' and 'renames'\n");
+		log("in order to avoid a name collision with the built in commands.\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) {
