@@ -19,12 +19,12 @@ specify
  7.7, 8.8, 9,
  10.1, 11, 12
 ) ;
-specparam a=1;
+specparam b=1;
 specparam [1:2] asasa=1;
 endspecify
 
 specify
-specparam a=1:2:3;
+specparam c=1:2:3;
 endspecify
 
 endmodule
