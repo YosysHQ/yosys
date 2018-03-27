@@ -173,14 +173,14 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 
 			for (auto &dir : libdirs)
 			{
-				static const std::map<std::string, std::string> extensions_map =
+				static const vector<pair<string, string>> extensions_list =
 				{
 					{".v", "verilog"},
 					{".sv", "verilog -sv"},
 					{".il", "ilang"}
 				};
 
-				for (auto &ext : extensions_map)
+				for (auto &ext : extensions_list)
 				{
 					filename = dir + "/" + RTLIL::unescape_id(cell->type) + ext.first;
 					if (check_file_exists(filename)) {
