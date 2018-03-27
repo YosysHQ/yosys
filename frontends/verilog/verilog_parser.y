@@ -110,7 +110,7 @@ static void free_attr(std::map<std::string, AstNode*> *al)
 %token TOK_BEGIN TOK_END TOK_IF TOK_ELSE TOK_FOR TOK_WHILE TOK_REPEAT
 %token TOK_DPI_FUNCTION TOK_POSEDGE TOK_NEGEDGE TOK_OR TOK_AUTOMATIC
 %token TOK_CASE TOK_CASEX TOK_CASEZ TOK_ENDCASE TOK_DEFAULT
-%token TOK_FUNCTION TOK_ENDFUNCTION TOK_TASK TOK_ENDTASK
+%token TOK_FUNCTION TOK_ENDFUNCTION TOK_TASK TOK_ENDTASK TOK_SPECIFY TOK_ENDSPECIFY TOK_SPECPARAM
 %token TOK_GENERATE TOK_ENDGENERATE TOK_GENVAR TOK_REAL
 %token TOK_SYNOPSYS_FULL_CASE TOK_SYNOPSYS_PARALLEL_CASE
 %token TOK_SUPPLY0 TOK_SUPPLY1 TOK_TO_SIGNED TOK_TO_UNSIGNED
@@ -476,7 +476,7 @@ module_body:
 	/* empty */;
 
 module_body_stmt:
-	task_func_decl | param_decl | localparam_decl | defparam_decl | wire_decl | assign_stmt | cell_stmt |
+	task_func_decl | specify_block |param_decl | localparam_decl | defparam_decl | specparam_declaration | wire_decl | assign_stmt | cell_stmt |
 	always_stmt | TOK_GENERATE module_gen_body TOK_ENDGENERATE | defattr | assert_property | checker_decl;
 
 checker_decl:
@@ -633,6 +633,171 @@ task_func_port:
 task_func_body:
 	task_func_body behavioral_stmt |
 	/* empty */;
+
+specify_block:
+	TOK_SPECIFY specify_item_opt TOK_ENDSPECIFY |
+	TOK_SPECIFY TOK_ENDSPECIFY ;
+
+specify_item_opt:
+	specify_item_opt specify_item |
+	specify_item ;
+
+specify_item:
+	specparam_declaration
+	// | pulsestyle_declaration
+	// | showcancelled_declaration
+	| path_declaration
+	// | system_timing_declaration
+	;
+
+specparam_declaration:
+	TOK_SPECPARAM list_of_specparam_assignments ';' |
+	TOK_SPECPARAM specparam_range list_of_specparam_assignments ';' ;
+
+// IEEE 1364-2005 calls this sinmply 'range' but the current 'range' rule allows empty match
+// and the 'non_opt_range' rule allows index ranges not allowed by 1364-2005
+// exxxxtending this for SV specparam would change this anyhow
+specparam_range:
+	'[' constant_expression ':' constant_expression ']' ;
+
+list_of_specparam_assignments:
+	specparam_assignment | list_of_specparam_assignments ',' specparam_assignment;
+
+specparam_assignment:
+	TOK_ID '=' constant_mintypmax_expression ;
+
+/*
+pulsestyle_declaration :
+	;
+
+showcancelled_declaration :
+	;
+*/
+
+path_declaration :
+	simple_path_declaration
+	// | edge_sensitive_path_declaration
+	// | state_dependent_path_declaration
+	;
+
+simple_path_declaration :
+	parallel_path_description '=' path_delay_value ';'
+	// | full_path_description '=' path_delay_value ';'
+	;
+
+path_delay_value :
+	//list_of_path_delay_expressions
+	'(' list_of_path_delay_expressions ')'
+	;
+
+list_of_path_delay_expressions :
+/*
+	t_path_delay_expression
+	| trise_path_delay_expression ',' tfall_path_delay_expression
+	| trise_path_delay_expression ',' tfall_path_delay_expression ',' tz_path_delay_expression
+	| t01_path_delay_expression ',' t10_path_delay_expression ',' t0z_path_delay_expression ','
+	  tz1_path_delay_expression ',' t1z_path_delay_expression ',' tz0_path_delay_expression
+	| t01_path_delay_expression ',' t10_path_delay_expression ',' t0z_path_delay_expression ','
+	  tz1_path_delay_expression ',' t1z_path_delay_expression ',' tz0_path_delay_expression ','
+	  t0x_path_delay_expression ',' tx1_path_delay_expression ',' t1x_path_delay_expression ','
+	  tx0_path_delay_expression ',' txz_path_delay_expression ',' tzx_path_delay_expression
+*/
+	path_delay_expression
+	| path_delay_expression ',' path_delay_expression
+	| path_delay_expression ',' path_delay_expression ',' path_delay_expression
+	| path_delay_expression ',' path_delay_expression ',' path_delay_expression ','
+	  path_delay_expression ',' path_delay_expression ',' path_delay_expression
+	| path_delay_expression ',' path_delay_expression ',' path_delay_expression ','
+	  path_delay_expression ',' path_delay_expression ',' path_delay_expression ','
+	  path_delay_expression ',' path_delay_expression ',' path_delay_expression ','
+	  path_delay_expression ',' path_delay_expression ',' path_delay_expression
+	;
+
+parallel_path_description :
+	'(' specify_input_terminal_descriptor opt_polarity_operator '=' '>' specify_output_terminal_descriptor ')' ;
+
+opt_polarity_operator :
+	'+'
+	| '-'
+	| ;
+
+// Good enough for the time being
+specify_input_terminal_descriptor :
+	TOK_ID ;
+
+// Good enough for the time being
+specify_output_terminal_descriptor :
+	TOK_ID ;
+
+/*
+system_timing_declaration :
+	;
+*/
+
+/*
+t_path_delay_expression :
+	path_delay_expression;
+
+trise_path_delay_expression :
+	path_delay_expression;
+
+tfall_path_delay_expression :
+	path_delay_expression;
+
+tz_path_delay_expression :
+	path_delay_expression;
+
+t01_path_delay_expression :
+	path_delay_expression;
+
+t10_path_delay_expression :
+	path_delay_expression;
+
+t0z_path_delay_expression :
+	path_delay_expression;
+
+tz1_path_delay_expression :
+	path_delay_expression;
+
+t1z_path_delay_expression :
+	path_delay_expression;
+
+tz0_path_delay_expression :
+	path_delay_expression;
+
+t0x_path_delay_expression :
+	path_delay_expression;
+
+tx1_path_delay_expression :
+	path_delay_expression;
+
+t1x_path_delay_expression :
+	path_delay_expression;
+
+tx0_path_delay_expression :
+	path_delay_expression;
+
+txz_path_delay_expression :
+	path_delay_expression;
+
+tzx_path_delay_expression :
+	path_delay_expression;
+*/
+
+path_delay_expression :
+	constant_mintypmax_expression;
+
+constant_mintypmax_expression :
+	constant_expression
+	| constant_expression ':' constant_expression ':' constant_expression
+	;
+
+// for the time being this is OK, but we may write our own expr here.
+// as I'm not sure it is legal to use a full expr here (probably not)
+// On the other hand, other rules requiring constant expressions also use 'expr'
+// (such as param assignment), so we may leave this as-is, perhaps assing runtime checks for constant-ness
+constant_expression:
+	expr ;
 
 param_signed:
 	TOK_SIGNED {

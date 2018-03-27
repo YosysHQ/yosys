@@ -145,6 +145,9 @@ YOSYS_NAMESPACE_END
 "endfunction"  { return TOK_ENDFUNCTION; }
 "task"         { return TOK_TASK; }
 "endtask"      { return TOK_ENDTASK; }
+"specify"      { return TOK_SPECIFY; }
+"endspecify"   { return TOK_ENDSPECIFY; }
+"specparam"    { return TOK_SPECPARAM; }
 "package"      { SV_KEYWORD(TOK_PACKAGE); }
 "endpackage"   { SV_KEYWORD(TOK_ENDPACKAGE); }
 "parameter"    { return TOK_PARAMETER; }
