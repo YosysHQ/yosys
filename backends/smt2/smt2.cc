@@ -135,6 +135,24 @@ struct Smt2Worker
 				log_error("Unsupported or unknown directionality on port %s of cell %s.%s (%s).\n",
 						log_id(conn.first), log_id(module), log_id(cell), log_id(cell->type));
 
+			if (cell->type.in("$mem") && conn.first.in("\\RD_CLK", "\\WR_CLK"))
+			{
+				SigSpec clk = sigmap(conn.second);
+				for (int i = 0; i < GetSize(clk); i++)
+				{
+					if (clk[i].wire == nullptr)
+						continue;
+
+					if (cell->getParam(conn.first == "\\RD_CLK" ? "\\RD_CLK_ENABLE" : "\\WR_CLK_ENABLE")[i] != State::S1)
+						continue;
+
+					if (cell->getParam(conn.first == "\\RD_CLK" ? "\\RD_CLK_POLARITY" : "\\WR_CLK_POLARITY")[i] == State::S1)
+						clock_posedge.insert(clk[i]);
+					else
+						clock_negedge.insert(clk[i]);
+				}
+			}
+			else
 			if (cell->type.in("$dff", "$_DFF_P_", "$_DFF_N_") && conn.first.in("\\CLK", "\\C"))
 			{
 				bool posedge = (cell->type == "$_DFF_N_") || (cell->type == "$dff" && cell->getParam("\\CLK_POLARITY").as_bool());
