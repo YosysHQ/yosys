@@ -35,6 +35,7 @@
 #include <errno.h>
 
 #ifdef __linux__
+#  include <sys/resource.h>
 #  include <sys/types.h>
 #  include <unistd.h>
 #endif
@@ -415,6 +416,18 @@ int main(int argc, char **argv)
 
 	if (print_stats)
 		log_hasher = new SHA1;
+
+#if defined(__linux__)
+	// set stack size to >= 128 MB
+	{
+		struct rlimit rl;
+		const rlim_t stack_size = 128L * 1024L * 1024L;
+		if (getrlimit(RLIMIT_STACK, &rl) == 0 && rl.rlim_cur < stack_size) {
+			rl.rlim_cur = stack_size;
+			setrlimit(RLIMIT_STACK, &rl);
+		}
+	}
+#endif
 
 	yosys_setup();
 	log_error_atexit = yosys_atexit;
