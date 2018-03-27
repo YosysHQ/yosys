@@ -173,22 +173,20 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 
 			for (auto &dir : libdirs)
 			{
-				filename = dir + "/" + RTLIL::unescape_id(cell->type) + ".v";
-				if (check_file_exists(filename)) {
-					Frontend::frontend_call(design, NULL, filename, "verilog");
-					goto loaded_module;
-				}
+				static const std::map<std::string, std::string> extensions_map =
+				{
+					{".v", "verilog"},
+					{".sv", "verilog -sv"},
+					{".il", "ilang"}
+				};
 
-				filename = dir + "/" + RTLIL::unescape_id(cell->type) + ".sv";
-				if (check_file_exists(filename)) {
-					Frontend::frontend_call(design, NULL, filename, "verilog -sv");
-					goto loaded_module;
-				}
-
-				filename = dir + "/" + RTLIL::unescape_id(cell->type) + ".il";
-				if (check_file_exists(filename)) {
-					Frontend::frontend_call(design, NULL, filename, "ilang");
-					goto loaded_module;
+				for (auto &ext : extensions_map)
+				{
+					filename = dir + "/" + RTLIL::unescape_id(cell->type) + ext.first;
+					if (check_file_exists(filename)) {
+						Frontend::frontend_call(design, NULL, filename, ext.second);
+						goto loaded_module;
+					}
 				}
 			}
 
