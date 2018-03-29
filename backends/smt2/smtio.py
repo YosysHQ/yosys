@@ -991,7 +991,7 @@ class MkVcd:
                     for i in range(len(uipath)):
                         uipath[i] = re.sub(r"\[([^\]]*)\]", r"<\1>", uipath[i])
 
-                    while uipath[:len(scope)] != scope[:-1]:
+                    while uipath[:len(scope)] != scope:
                         print("$upscope $end", file=self.f)
                         scope = scope[:-1]
 
