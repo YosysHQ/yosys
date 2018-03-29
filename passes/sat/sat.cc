@@ -691,7 +691,6 @@ struct SatHelper
 		// VCD has some limits on internal (non-display) identifier names, so make legal ones
 		std::map<std::string, std::string> vcdnames;
 
-		fprintf(f, "$timescale 1ns\n"); // arbitrary time scale since actual clock period is unknown/unimportant
 		fprintf(f, "$scope module %s $end\n", module->name.c_str());
 		for (auto &info : modelInfo)
 		{
