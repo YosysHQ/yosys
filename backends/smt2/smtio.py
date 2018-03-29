@@ -302,13 +302,13 @@ class SmtIo:
             return ""
         return self.p_queue.get()
 
-    def p_poll(self):
+    def p_poll(self, timeout=0.1):
         assert self.p is not None
         assert self.p_running
         if self.p_next is not None:
             return False
         try:
-            self.p_next = self.p_queue.get(True, 0.1)
+            self.p_next = self.p_queue.get(True, timeout)
             return False
         except Empty:
             return True
@@ -645,6 +645,27 @@ class SmtIo:
                 if num_bs != 0:
                     print("\b \b" * num_bs, end="", file=sys.stderr)
                     sys.stderr.flush()
+
+            else:
+                count = 0
+                while self.p_poll(60):
+                    count += 1
+                    msg = None
+
+                    if count == 1:
+                        msg = "1 minute"
+
+                    elif count in [5, 10, 15, 30]:
+                        msg = "%d minutes" % count
+
+                    elif count == 60:
+                        msg = "1 hour"
+
+                    elif count % 60 == 0:
+                        msg = "%d hours" % (count // 60)
+
+                    if msg is not None:
+                        print("%s waiting for solver (%s)" % (self.timestamp(), msg), flush=True)
 
         result = self.read()
 
