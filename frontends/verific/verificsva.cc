@@ -1554,20 +1554,16 @@ struct VerificSvaImporter
 					parser_error(stringf("Failed to parse SVA clocking"), root);
 
 				if (mode_assert || mode_assume) {
-					log_ping();
 					reject_bit = module->Not(NEW_ID, parse_expression(root->GetInput()));
 				} else {
-					log_ping();
 					accept_bit = parse_expression(root->GetInput());
 				}
 			}
 			else
 			{
 				if (mode_assert || mode_assume) {
-					log_ping();
 					parse_property(clocking.body_net, nullptr, &reject_bit);
 				} else {
-					log_ping();
 					parse_property(clocking.body_net, &accept_bit, nullptr);
 				}
 			}
