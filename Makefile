@@ -178,6 +178,11 @@ EXE = .js
 TARGETS := $(filter-out yosys-config,$(TARGETS))
 EXTRA_TARGETS += yosysjs-$(YOSYS_VER).zip
 
+ifeq ($(ENABLE_ABC),1)
+LINK_ABC := 1
+DISABLE_ABC_THREADS := 1
+endif
+
 viz.js:
 	wget -O viz.js.part https://github.com/mdaines/viz.js/releases/download/0.0.3/viz.js
 	mv viz.js.part viz.js
