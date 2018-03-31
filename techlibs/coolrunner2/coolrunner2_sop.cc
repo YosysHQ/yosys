@@ -250,6 +250,64 @@ struct Coolrunner2SopPass : public Pass {
 				}
 			}
 
+			// In some cases we can get a FF feeding straight into an FF. This is not possible, so we need to insert
+			// some AND/XOR cells in the middle to make it actually work.
+
+			// Find all the FF outputs
+			pool<SigBit> sig_fed_by_ff;
+			for (auto cell : module->selected_cells())
+			{
+				if (cell->type == "\\FDCP" || cell->type == "\\FDCP_N" || cell->type == "\\FDDCP" ||
+					cell->type == "\\LDCP" || cell->type == "\\LDCP_N" ||
+					cell->type == "\\FTCP" || cell->type == "\\FTCP_N" || cell->type == "\\FTDCP" ||
+					cell->type == "\\FDCPE" || cell->type == "\\FDCPE_N" || cell->type == "\\FDDCPE")
+				{
+					auto output = sigmap(cell->getPort("\\Q")[0]);
+					sig_fed_by_ff.insert(output);
+				}
+			}
+
+			// Look at all the FF inputs
+			for (auto cell : module->selected_cells())
+			{
+				if (cell->type == "\\FDCP" || cell->type == "\\FDCP_N" || cell->type == "\\FDDCP" ||
+					cell->type == "\\LDCP" || cell->type == "\\LDCP_N" ||
+					cell->type == "\\FTCP" || cell->type == "\\FTCP_N" || cell->type == "\\FTDCP" ||
+					cell->type == "\\FDCPE" || cell->type == "\\FDCPE_N" || cell->type == "\\FDDCPE")
+				{
+					SigBit input;
+					if (cell->type == "\\FTCP" || cell->type == "\\FTCP_N" || cell->type == "\\FTDCP")
+						input = sigmap(cell->getPort("\\T")[0]);
+					else
+						input = sigmap(cell->getPort("\\D")[0]);
+
+					if (sig_fed_by_ff[input])
+					{
+						printf("Buffering input to \"%s\"\n", cell->name.c_str());
+
+						auto and_to_xor_wire = module->addWire(NEW_ID);
+						auto xor_to_ff_wire = module->addWire(NEW_ID);
+
+						auto and_cell = module->addCell(NEW_ID, "\\ANDTERM");
+						and_cell->setParam("\\TRUE_INP", 1);
+						and_cell->setParam("\\COMP_INP", 0);
+						and_cell->setPort("\\OUT", and_to_xor_wire);
+						and_cell->setPort("\\IN", input);
+						and_cell->setPort("\\IN_B", SigSpec());
+
+						auto xor_cell = module->addCell(NEW_ID, "\\MACROCELL_XOR");
+						xor_cell->setParam("\\INVERT_OUT", false);
+						xor_cell->setPort("\\IN_PTC", and_to_xor_wire);
+						xor_cell->setPort("\\OUT", xor_to_ff_wire);
+
+						if (cell->type == "\\FTCP" || cell->type == "\\FTCP_N" || cell->type == "\\FTDCP")
+							cell->setPort("\\T", xor_to_ff_wire);
+						else
+							cell->setPort("\\D", xor_to_ff_wire);
+					}
+				}
+			}
+
 			// Actually do the removal now that we aren't iterating
 			for (auto cell : cells_to_remove)
 			{

@@ -149,6 +149,16 @@ struct SynthCoolrunner2Pass : public ScriptPass
 			run("dfflibmap -prepare -liberty +/coolrunner2/xc2_dff.lib");
 		}
 
+		if (check_label("map_tff"))
+		{
+			// This is quite hacky. By telling abc that it can only use AND and XOR gates, abc will try and use XOR
+			// gates "whenever possible." This will hopefully cause toggle flip-flop structures to turn into an XOR
+			// connected to a D flip-flop. We then match on these and convert them into XC2 TFF cells.
+			run("abc -g AND,XOR");
+			run("clean");
+			run("extract -map +/coolrunner2/tff_extract.v");
+		}
+
 		if (check_label("map_pla"))
 		{
 			run("abc -sop -I 40 -P 56");
@@ -160,12 +170,15 @@ struct SynthCoolrunner2Pass : public ScriptPass
 			run("dfflibmap -liberty +/coolrunner2/xc2_dff.lib");
 			run("dffinit -ff FDCP Q INIT");
 			run("dffinit -ff FDCP_N Q INIT");
+			run("dffinit -ff FTCP Q INIT");
+			run("dffinit -ff FTCP_N Q INIT");
 			run("dffinit -ff LDCP Q INIT");
 			run("dffinit -ff LDCP_N Q INIT");
 			run("coolrunner2_sop");
 			run("iopadmap -bits -inpad IBUF O:I -outpad IOBUFE I:IO -inoutpad IOBUFE O:IO -toutpad IOBUFE E:I:IO -tinoutpad IOBUFE E:O:I:IO");
 			run("attrmvcp -attr src -attr LOC t:IOBUFE n:*");
 			run("attrmvcp -attr src -attr LOC -driven t:IBUF n:*");
+			run("splitnets");
 			run("clean");
 		}
 
