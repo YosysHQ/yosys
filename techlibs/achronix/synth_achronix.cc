@@ -25,14 +25,14 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-struct SynthIntelPass : public ScriptPass {
-  SynthIntelPass() : ScriptPass("synth_speedster", "synthesis for Acrhonix Speedster22i FPGAs.") { }
+struct SynthAchronixPass : public ScriptPass {
+  SynthAchronixPass() : ScriptPass("synth_achronix", "synthesis for Acrhonix Speedster22i FPGAs.") { }
 
   virtual void help() YS_OVERRIDE
   {
     //   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
     log("\n");
-    log("    synth_speedster [options]\n");
+    log("    synth_achronix [options]\n");
     log("\n");
     log("This command runs synthesis for Achronix Speedster eFPGAs. This work is still experimental.\n");
     log("\n");
@@ -110,7 +110,7 @@ struct SynthIntelPass : public ScriptPass {
     if (!design->full_selection())
       log_cmd_error("This comannd only operates on fully selected designs!\n");
 
-    log_header(design, "Executing SYNTH_SPEEDSTER pass.\n");
+    log_header(design, "Executing SYNTH_ACHRONIX pass.\n");
     log_push();
 
     run_script(design, run_from, run_to);
@@ -146,9 +146,9 @@ struct SynthIntelPass : public ScriptPass {
         run("opt -undriven -fine");
         run("dffsr2dff");
         run("dff2dffe -direct-match $_DFF_*");
-        run("opt -full");
+        run("opt -fine");
         run("techmap -map +/techmap.v");
-        run("opt -fast");
+        run("opt -full");
         run("clean -purge");
         run("setundef -undriven -zero");
         if (retime || help_mode)
@@ -157,7 +157,7 @@ struct SynthIntelPass : public ScriptPass {
 
     if (check_label("map_luts"))
       {
-        run("abc -luts 2:2,3,6:5,10,20" + string(retime ? " -dff" : ""));
+        run("abc -lut 4" + string(retime ? " -dff" : ""));
         run("clean");
       }
 
@@ -165,7 +165,7 @@ struct SynthIntelPass : public ScriptPass {
       {
         run("iopadmap -bits -outpad $__outpad I:O -inpad $__inpad O:I");
         run("techmap -map +/achronix/speedster22i/cells_map.v");
-        run("dffinit -ff dffeas Q INIT");
+        // VT: not done yet run("dffinit -highlow -ff DFF q power_up");
         run("clean -purge");
       }
 
@@ -179,10 +179,10 @@ struct SynthIntelPass : public ScriptPass {
     if (check_label("vout"))
       {
         if (!vout_file.empty() || help_mode)
-          run(stringf("write_verilog -nodec -attr2comment -defparam -nohex -renameprefix yosys_ %s",
+          run(stringf("write_verilog -nodec -attr2comment -defparam -renameprefix syn_ %s",
                       help_mode ? "<file-name>" : vout_file.c_str()));
       }
   }
-} SynthIntelPass;
+} SynthAchronixPass;
 
 PRIVATE_NAMESPACE_END

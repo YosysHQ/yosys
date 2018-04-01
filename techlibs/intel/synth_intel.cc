@@ -36,7 +36,7 @@ struct SynthIntelPass : public ScriptPass {
     log("\n");
     log("This command runs synthesis for Intel FPGAs.\n");
     log("\n");
-    log("    -family < max10 | a10gx | cyclonev | cycloneiv | cycloneive>\n");
+    log("    -family < max10 | a10gx | cyclone10 | cyclonev | cycloneiv | cycloneive>\n");
     log("        generate the synthesis netlist for the specified family.\n");
     log("        MAX10 is the default target if not family argument specified.\n");
     log("        For Cyclone GX devices, use cycloneiv argument; For Cyclone E, use cycloneive.\n");
@@ -47,6 +47,11 @@ struct SynthIntelPass : public ScriptPass {
     log("\n");
     log("    -vqm <file>\n");
     log("        write the design to the specified Verilog Quartus Mapping File. Writing of an\n");
+    log("        output file is omitted if this parameter is not specified.\n");
+    log("\n");
+    log("    -vpr <file>\n");
+    log("        write BLIF files for VPR flow experiments. The synthesized BLIF output file is not\n");
+    log("        compatible with the Quartus flow. Writing of an\n");
     log("        output file is omitted if this parameter is not specified.\n");
     log("\n");
     log("    -run <from_label>:<to_label>\n");
@@ -68,7 +73,7 @@ struct SynthIntelPass : public ScriptPass {
     log("\n");
   }
 
-  string top_opt, family_opt, vout_file;
+  string top_opt, family_opt, vout_file, blif_file;
   bool retime, flatten, nobram;
 
   virtual void clear_flags() YS_OVERRIDE
@@ -76,6 +81,7 @@ struct SynthIntelPass : public ScriptPass {
     top_opt = "-auto-top";
     family_opt = "max10";
     vout_file = "";
+    blif_file = "";
     retime = false;
     flatten = true;
     nobram = false;
@@ -99,6 +105,10 @@ struct SynthIntelPass : public ScriptPass {
         }
         if (args[argidx] == "-vqm" && argidx+1 < args.size()) {
           vout_file = args[++argidx];
+          continue;
+        }
+        if (args[argidx] == "-vpr" && argidx+1 < args.size()) {
+          blif_file = args[++argidx];
           continue;
         }
         if (args[argidx] == "-run" && argidx+1 < args.size()) {
@@ -198,7 +208,7 @@ struct SynthIntelPass : public ScriptPass {
     if (check_label("map_luts"))
       {
         if(family_opt=="a10gx" || family_opt=="cyclonev")
-          run("abc -luts 2:2,3,6:5,10" + string(retime ? " -dff" : ""));
+          run("abc -luts 2:2,3,6:5" + string(retime ? " -dff" : ""));
         else
           run("abc -lut 4" + string(retime ? " -dff" : ""));
         run("clean");
@@ -236,7 +246,16 @@ struct SynthIntelPass : public ScriptPass {
           run(stringf("write_verilog -attr2comment -defparam -nohex -decimal -renameprefix syn_ %s",
                       help_mode ? "<file-name>" : vout_file.c_str()));
       }
-  }
+    
+    if (check_label("vpr"))
+      {
+        if (!blif_file.empty() || help_mode)
+          {
+            run(stringf("opt_clean -purge"));
+            run(stringf("write_blif %s", help_mode ? "<file-name>" : blif_file.c_str()));
+          }
+      }
+  }       
 } SynthIntelPass;
 
 PRIVATE_NAMESPACE_END
