@@ -766,7 +766,7 @@ struct Smt2Worker
 
 			if (statebv)
 				makebits(stringf("%s_h %s", get_id(module), get_id(cell->name)), mod_stbv_width.at(cell->type));
-			if (statedt)
+			else if (statedt)
 				dtmembers.push_back(stringf("  (|%s_h %s| |%s_s|)\n",
 						get_id(module), get_id(cell->name), get_id(cell->type)));
 			else
