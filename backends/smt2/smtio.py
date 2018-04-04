@@ -737,6 +737,9 @@ class SmtIo:
         return h
 
     def bv2bin(self, v):
+        if type(v) is list and len(v) == 3 and v[0] == "_" and v[1].startswith("bv"):
+            x, n = int(v[1][2:]), int(v[2])
+            return "".join("1" if (x & (1 << i)) else "0" for i in range(n-1, -1, -1))
         if v == "true": return "1"
         if v == "false": return "0"
         if v.startswith("#b"):
