@@ -240,6 +240,10 @@ static void find_cell_sr(LibertyAst *ast, std::string cell_type, bool clkpol, bo
 		if (cell->id != "cell" || cell->args.size() != 1)
 			continue;
 
+		LibertyAst *dn = cell->find("dont_use");
+		if (dn != NULL && dn->value == "true")
+			continue;
+
 		LibertyAst *ff = cell->find("ff");
 		if (ff == NULL)
 			continue;
