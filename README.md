@@ -402,6 +402,10 @@ Non-standard or SystemVerilog features for formal verification
   statements it is sufficient if just one ``$allconst/$allseq`` value triggers
   the property (similar to ``$anyconst/$anyseq``).
 
+- Wires/registers decalred using the ``anyconst/anyseq/allconst/allseq`` attribute
+  (for example ``(* anyconst *) reg [7:0] foobar;``) will behave as if driven
+  by a ``$anyconst/$anyseq/$allconst/$allseq`` function.
+
 - The SystemVerilog tasks ``$past``, ``$stable``, ``$rose`` and ``$fell`` are
   supported in any clocked block.
 
