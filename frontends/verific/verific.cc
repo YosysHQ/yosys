@@ -123,8 +123,11 @@ void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &att
 		attributes["\\src"] = stringf("%s:%d", LineFile::GetFileName(obj->Linefile()), LineFile::GetLineNo(obj->Linefile()));
 
 	// FIXME: Parse numeric attributes
-	FOREACH_ATTRIBUTE(obj, mi, attr)
+	FOREACH_ATTRIBUTE(obj, mi, attr) {
+		if (attr->Key()[0] == ' ' || attr->Value() == nullptr)
+			continue;
 		attributes[RTLIL::escape_id(attr->Key())] = RTLIL::Const(std::string(attr->Value()));
+	}
 }
 
 RTLIL::SigSpec VerificImporter::operatorInput(Instance *inst)
@@ -1954,6 +1957,9 @@ struct VerificPass : public Pass {
 				delete netlists;
 #endif
 			}
+
+			if (!verific_error_msg.empty())
+				goto check_error;
 
 			if (flatten) {
 				for (auto nl : nl_todo)
