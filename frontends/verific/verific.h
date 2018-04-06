@@ -67,8 +67,9 @@ struct VerificImporter
 	std::map<Verific::Net*, Verific::Net*> sva_posedge_map;
 
 	bool mode_gates, mode_keep, mode_nosva, mode_names, mode_verific;
+	bool mode_autocover;
 
-	VerificImporter(bool mode_gates, bool mode_keep, bool mode_nosva, bool mode_names, bool mode_verific);
+	VerificImporter(bool mode_gates, bool mode_keep, bool mode_nosva, bool mode_names, bool mode_verific, bool mode_autocover);
 
 	RTLIL::SigBit net_map_at(Verific::Net *net);
 

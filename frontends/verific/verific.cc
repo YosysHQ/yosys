@@ -99,9 +99,9 @@ string get_full_netlist_name(Netlist *nl)
 
 // ==================================================================
 
-VerificImporter::VerificImporter(bool mode_gates, bool mode_keep, bool mode_nosva, bool mode_names, bool mode_verific) :
+VerificImporter::VerificImporter(bool mode_gates, bool mode_keep, bool mode_nosva, bool mode_names, bool mode_verific, bool mode_autocover) :
 		mode_gates(mode_gates), mode_keep(mode_keep), mode_nosva(mode_nosva),
-		mode_names(mode_names), mode_verific(mode_verific)
+		mode_names(mode_names), mode_verific(mode_verific), mode_autocover(mode_autocover)
 {
 }
 
@@ -1279,8 +1279,11 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 
 	if (!mode_nosva)
 	{
-		for (auto inst : sva_asserts)
+		for (auto inst : sva_asserts) {
+			if (mode_autocover)
+				verific_import_sva_cover(this, inst);
 			verific_import_sva_assert(this, inst);
+		}
 
 		for (auto inst : sva_assumes)
 			verific_import_sva_assume(this, inst);
@@ -1594,6 +1597,9 @@ struct VerificPass : public Pass {
 		log("  -extnets\n");
 		log("    Resolve references to external nets by adding module ports as needed.\n");
 		log("\n");
+		log("  -autocover\n");
+		log("    Generate automatic cover statements for all asserts\n");
+		log("\n");
 		log("  -v, -vv\n");
 		log("    Verbose log messages. (-vv is even more verbose than -v.)\n");
 		log("\n");
@@ -1746,6 +1752,7 @@ struct VerificPass : public Pass {
 			std::set<Netlist*> nl_todo, nl_done;
 			bool mode_all = false, mode_gates = false, mode_keep = false;
 			bool mode_nosva = false, mode_names = false, mode_verific = false;
+			bool mode_autocover = false;
 			bool flatten = false, extnets = false;
 			string dumpfile;
 
@@ -1776,6 +1783,10 @@ struct VerificPass : public Pass {
 				}
 				if (args[argidx] == "-n") {
 					mode_names = true;
+					continue;
+				}
+				if (args[argidx] == "-autocover") {
+					mode_autocover = true;
 					continue;
 				}
 				if (args[argidx] == "-V") {
@@ -1930,7 +1941,7 @@ struct VerificPass : public Pass {
 				Netlist *nl = *nl_todo.begin();
 				if (nl_done.count(nl) == 0) {
 					VerificImporter importer(mode_gates, mode_keep, mode_nosva,
-							mode_names, mode_verific);
+							mode_names, mode_verific, mode_autocover);
 					importer.import_netlist(design, nl, nl_todo);
 				}
 				nl_todo.erase(nl);
