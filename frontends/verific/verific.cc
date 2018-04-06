@@ -1632,6 +1632,9 @@ struct VerificPass : public Pass {
 		RuntimeFlags::SetVar("db_preserve_user_nets", 1);
 		RuntimeFlags::SetVar("db_allow_external_nets", 1);
 		RuntimeFlags::SetVar("vhdl_ignore_assertion_statements", 0);
+		RuntimeFlags::SetVar("veri_extract_dualport_rams", 0);
+		RuntimeFlags::SetVar("veri_extract_multiport_rams", 1);
+		RuntimeFlags::SetVar("db_infer_wide_operators", 1);
 		veri_file::DefineCmdLineMacro("VERIFIC");
 		veri_file::DefineCmdLineMacro("SYNTHESIS");
 
