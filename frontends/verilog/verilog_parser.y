@@ -933,11 +933,43 @@ wire_name_list:
 
 wire_name_and_opt_assign:
 	wire_name {
-		if (current_wire_rand) {
+		bool attr_anyconst = false;
+		bool attr_anyseq = false;
+		bool attr_allconst = false;
+		bool attr_allseq = false;
+		if (ast_stack.back()->children.back()->get_bool_attribute("\\anyconst")) {
+			delete ast_stack.back()->children.back()->attributes.at("\\anyconst");
+			ast_stack.back()->children.back()->attributes.erase("\\anyconst");
+			attr_anyconst = true;
+		}
+		if (ast_stack.back()->children.back()->get_bool_attribute("\\anyseq")) {
+			delete ast_stack.back()->children.back()->attributes.at("\\anyseq");
+			ast_stack.back()->children.back()->attributes.erase("\\anyseq");
+			attr_anyseq = true;
+		}
+		if (ast_stack.back()->children.back()->get_bool_attribute("\\allconst")) {
+			delete ast_stack.back()->children.back()->attributes.at("\\allconst");
+			ast_stack.back()->children.back()->attributes.erase("\\allconst");
+			attr_allconst = true;
+		}
+		if (ast_stack.back()->children.back()->get_bool_attribute("\\allseq")) {
+			delete ast_stack.back()->children.back()->attributes.at("\\allseq");
+			ast_stack.back()->children.back()->attributes.erase("\\allseq");
+			attr_allseq = true;
+		}
+		if (current_wire_rand || attr_anyconst || attr_anyseq || attr_allconst || attr_allseq) {
 			AstNode *wire = new AstNode(AST_IDENTIFIER);
 			AstNode *fcall = new AstNode(AST_FCALL);
 			wire->str = ast_stack.back()->children.back()->str;
 			fcall->str = current_wire_const ? "\\$anyconst" : "\\$anyseq";
+			if (attr_anyconst)
+				fcall->str = "\\$anyconst";
+			if (attr_anyseq)
+				fcall->str = "\\$anyseq";
+			if (attr_allconst)
+				fcall->str = "\\$allconst";
+			if (attr_allseq)
+				fcall->str = "\\$allseq";
 			fcall->attributes["\\reg"] = AstNode::mkconst_str(RTLIL::unescape_id(wire->str));
 			ast_stack.back()->children.push_back(new AstNode(AST_ASSIGN, wire, fcall));
 		}
