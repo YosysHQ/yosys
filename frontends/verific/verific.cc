@@ -786,8 +786,8 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 	module->fixup_ports();
 
 	dict<Net*, char, hash_ptr_ops> init_nets;
-	pool<Net*, hash_ptr_ops> anyconst_nets;
-	pool<Net*, hash_ptr_ops> anyseq_nets;
+	pool<Net*, hash_ptr_ops> anyconst_nets, anyseq_nets;
+	pool<Net*, hash_ptr_ops> allconst_nets, allseq_nets;
 
 	FOREACH_NET_OF_NETLIST(nl, mi, net)
 	{
@@ -862,11 +862,29 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 		const char *rand_const_attr = net->GetAttValue(" rand_const");
 		const char *rand_attr = net->GetAttValue(" rand");
 
+		const char *anyconst_attr = net->GetAttValue("anyconst");
+		const char *anyseq_attr = net->GetAttValue("anyseq");
+
+		const char *allconst_attr = net->GetAttValue("allconst");
+		const char *allseq_attr = net->GetAttValue("allseq");
+
 		if (rand_const_attr != nullptr && !strcmp(rand_const_attr, "1"))
 			anyconst_nets.insert(net);
 
 		else if (rand_attr != nullptr && !strcmp(rand_attr, "1"))
 			anyseq_nets.insert(net);
+
+		else if (anyconst_attr != nullptr && !strcmp(anyconst_attr, "1"))
+			anyconst_nets.insert(net);
+
+		else if (anyseq_attr != nullptr && !strcmp(anyseq_attr, "1"))
+			anyseq_nets.insert(net);
+
+		else if (allconst_attr != nullptr && !strcmp(allconst_attr, "1"))
+			allconst_nets.insert(net);
+
+		else if (allseq_attr != nullptr && !strcmp(allseq_attr, "1"))
+			allseq_nets.insert(net);
 
 		if (net_map.count(net)) {
 			if (verific_verbose)
@@ -951,6 +969,8 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 
 		SigSpec anyconst_sig;
 		SigSpec anyseq_sig;
+		SigSpec allconst_sig;
+		SigSpec allseq_sig;
 
 		for (int i = netbus->RightIndex();; i += netbus->IsUp() ? -1 : +1) {
 			net = netbus->ElementAtIndex(i);
@@ -962,6 +982,14 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 				anyseq_sig.append(net_map_at(net));
 				anyseq_nets.erase(net);
 			}
+			if (net != nullptr && allconst_nets.count(net)) {
+				allconst_sig.append(net_map_at(net));
+				allconst_nets.erase(net);
+			}
+			if (net != nullptr && allseq_nets.count(net)) {
+				allseq_sig.append(net_map_at(net));
+				allseq_nets.erase(net);
+			}
 			if (i == netbus->LeftIndex())
 				break;
 		}
@@ -971,6 +999,12 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 
 		if (GetSize(anyseq_sig))
 			module->connect(anyseq_sig, module->Anyseq(NEW_ID, GetSize(anyseq_sig)));
+
+		if (GetSize(allconst_sig))
+			module->connect(allconst_sig, module->Allconst(NEW_ID, GetSize(allconst_sig)));
+
+		if (GetSize(allseq_sig))
+			module->connect(allseq_sig, module->Allseq(NEW_ID, GetSize(allseq_sig)));
 	}
 
 	for (auto it : init_nets)
