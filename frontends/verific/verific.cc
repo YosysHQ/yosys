@@ -1258,11 +1258,27 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 			continue;
 		}
 
+		if (inst->Type() == PRIM_HDL_ASSERTION)
+		{
+			SigBit cond = net_map_at(inst->GetInput());
+
+			if (verific_verbose)
+				log("    assert condition %s.\n", log_signal(cond));
+
+			const char *assume_attr = nullptr; // inst->GetAttValue("assume");
+
+			Cell *cell = nullptr;
+			if (assume_attr != nullptr && !strcmp(assume_attr, "1"))
+				cell = module->addAssume(NEW_ID, cond, State::S1);
+			else
+				cell = module->addAssert(NEW_ID, cond, State::S1);
+
+			import_attributes(cell->attributes, inst);
+			continue;
+		}
+
 		if (inst->IsPrimitive())
 		{
-			if (inst->Type() == PRIM_HDL_ASSERTION)
-				continue;
-
 			if (!mode_keep)
 				log_error("Unsupported Verific primitive %s of type %s\n", inst->Name(), inst->View()->Owner()->Name());
 
