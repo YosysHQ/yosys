@@ -30,6 +30,15 @@ SANITIZER =
 # SANITIZER = undefined
 # SANITIZER = cfi
 
+# Work out the number of parallel jobs we should run on this computer
+JOBS := $(shell nproc)
+JOBS := 1
+
+ifeq ($(JOBS),1)
+else
+    export MAKEFLAGS="-j $(JOBS) -l $(JOBS)"
+endif
+
 
 PREFIX ?= /usr/local
 INSTALL_SUDO :=

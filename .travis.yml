@@ -9,7 +9,8 @@ cache:
 
 env:
   global:
-    - MAKEFLAGS="-j 2"
+    # Travis reports the wrong number of CPUs, so force two.
+    - JOBS=2
 
 matrix:
   include:
