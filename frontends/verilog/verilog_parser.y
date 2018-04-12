@@ -1236,39 +1236,42 @@ opt_label:
 		$$ = NULL;
 	};
 
+opt_property:
+	TOK_PROPERTY | /* empty */;
+
 assert:
-	TOK_ASSERT '(' expr ')' ';' {
-		ast_stack.back()->children.push_back(new AstNode(assume_asserts_mode ? AST_ASSUME : AST_ASSERT, $3));
+	TOK_ASSERT opt_property '(' expr ')' ';' {
+		ast_stack.back()->children.push_back(new AstNode(assume_asserts_mode ? AST_ASSUME : AST_ASSERT, $4));
 	} |
-	TOK_ASSUME '(' expr ')' ';' {
-		ast_stack.back()->children.push_back(new AstNode(AST_ASSUME, $3));
+	TOK_ASSUME opt_property '(' expr ')' ';' {
+		ast_stack.back()->children.push_back(new AstNode(AST_ASSUME, $4));
 	} |
-	TOK_ASSERT '(' TOK_EVENTUALLY expr ')' ';' {
-		ast_stack.back()->children.push_back(new AstNode(assume_asserts_mode ? AST_FAIR : AST_LIVE, $4));
+	TOK_ASSERT opt_property '(' TOK_EVENTUALLY expr ')' ';' {
+		ast_stack.back()->children.push_back(new AstNode(assume_asserts_mode ? AST_FAIR : AST_LIVE, $5));
 	} |
-	TOK_ASSUME '(' TOK_EVENTUALLY expr ')' ';' {
-		ast_stack.back()->children.push_back(new AstNode(AST_FAIR, $4));
+	TOK_ASSUME opt_property '(' TOK_EVENTUALLY expr ')' ';' {
+		ast_stack.back()->children.push_back(new AstNode(AST_FAIR, $5));
 	} |
-	TOK_COVER '(' expr ')' ';' {
-		ast_stack.back()->children.push_back(new AstNode(AST_COVER, $3));
+	TOK_COVER opt_property '(' expr ')' ';' {
+		ast_stack.back()->children.push_back(new AstNode(AST_COVER, $4));
 	} |
-	TOK_COVER '(' ')' ';' {
+	TOK_COVER opt_property '(' ')' ';' {
 		ast_stack.back()->children.push_back(new AstNode(AST_COVER, AstNode::mkconst_int(1, false)));
 	} |
 	TOK_COVER ';' {
 		ast_stack.back()->children.push_back(new AstNode(AST_COVER, AstNode::mkconst_int(1, false)));
 	} |
-	TOK_RESTRICT '(' expr ')' ';' {
-		if (norestrict_mode)
-			delete $3;
-		else
-			ast_stack.back()->children.push_back(new AstNode(AST_ASSUME, $3));
-	} |
-	TOK_RESTRICT '(' TOK_EVENTUALLY expr ')' ';' {
+	TOK_RESTRICT opt_property '(' expr ')' ';' {
 		if (norestrict_mode)
 			delete $4;
 		else
-			ast_stack.back()->children.push_back(new AstNode(AST_FAIR, $4));
+			ast_stack.back()->children.push_back(new AstNode(AST_ASSUME, $4));
+	} |
+	TOK_RESTRICT opt_property '(' TOK_EVENTUALLY expr ')' ';' {
+		if (norestrict_mode)
+			delete $5;
+		else
+			ast_stack.back()->children.push_back(new AstNode(AST_FAIR, $5));
 	};
 
 assert_property:
