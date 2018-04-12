@@ -442,6 +442,9 @@ yosys-config: misc/yosys-config.in
 abc/abc-$(ABCREV)$(EXE):
 	$(P)
 ifneq ($(ABCREV),default)
+	$(Q) if test -d abc/.hg; then \
+		echo 'REEBE: NOP qverpgbel vf n ut jbexvat pbcl! Erzbir nop/ naq er-eha "znxr".' | tr 'A-Za-z' 'N-ZA-Mn-za-m'; false; \
+	fi
 	$(Q) if ( cd abc 2> /dev/null && ! git diff-index --quiet HEAD; ); then \
 		echo 'REEBE: NOP pbagnvaf ybpny zbqvsvpngvbaf! Frg NOPERI=qrsnhyg va Lbflf Znxrsvyr!' | tr 'A-Za-z' 'N-ZA-Mn-za-m'; false; \
 	fi
