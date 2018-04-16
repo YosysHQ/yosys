@@ -62,6 +62,9 @@ struct SynthIce40Pass : public ScriptPass
 		log("    -nocarry\n");
 		log("        do not use SB_CARRY cells in output netlist\n");
 		log("\n");
+		log("    -nodffe\n");
+		log("        do not use SB_DFFE* cells in output netlist\n");
+		log("\n");
 		log("    -nobram\n");
 		log("        do not use SB_RAM40_4K* cells in output netlist\n");
 		log("\n");
@@ -79,7 +82,7 @@ struct SynthIce40Pass : public ScriptPass
 	}
 
 	string top_opt, blif_file, edif_file;
-	bool nocarry, nobram, flatten, retime, abc2, vpr;
+	bool nocarry, nodffe, nobram, flatten, retime, abc2, vpr;
 
 	virtual void clear_flags() YS_OVERRIDE
 	{
@@ -87,6 +90,7 @@ struct SynthIce40Pass : public ScriptPass
 		blif_file = "";
 		edif_file = "";
 		nocarry = false;
+		nodffe = false;
 		nobram = false;
 		flatten = true;
 		retime = false;
@@ -136,6 +140,10 @@ struct SynthIce40Pass : public ScriptPass
 			}
 			if (args[argidx] == "-nocarry") {
 				nocarry = true;
+				continue;
+			}
+			if (args[argidx] == "-nodffe") {
+				nodffe = true;
 				continue;
 			}
 			if (args[argidx] == "-nobram") {
@@ -209,7 +217,8 @@ struct SynthIce40Pass : public ScriptPass
 		if (check_label("map_ffs"))
 		{
 			run("dffsr2dff");
-			run("dff2dffe -direct-match $_DFF_*");
+			if (!nodffe)
+				run("dff2dffe -direct-match $_DFF_*");
 			run("techmap -D NO_SB_LUT4 -map +/ice40/cells_map.v");
 			run("opt_expr -mux_undef");
 			run("simplemap");
