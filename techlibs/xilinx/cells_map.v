@@ -15,6 +15,7 @@ module  \$_DFF_NP1_ (input D, C, R, output Q); FDPE #(.INIT(|0), .IS_C_INVERTED(
 module  \$_DFF_PN1_ (input D, C, R, output Q); FDPE #(.INIT(|0), .IS_C_INVERTED(|0), .IS_D_INVERTED(|0), .IS_PRE_INVERTED(|1)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(1'b1), .PRE(R)); endmodule
 module  \$_DFF_PP1_ (input D, C, R, output Q); FDPE #(.INIT(|0), .IS_C_INVERTED(|0), .IS_D_INVERTED(|0), .IS_PRE_INVERTED(|0)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(1'b1), .PRE(R)); endmodule
 
+`ifndef NO_LUT
 module \$lut (A, Y);
   parameter WIDTH = 0;
   parameter LUT = 0;
@@ -82,3 +83,4 @@ module \$lut (A, Y);
     end
   endgenerate
 endmodule
+`endif

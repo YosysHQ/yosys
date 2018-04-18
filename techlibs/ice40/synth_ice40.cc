@@ -219,7 +219,7 @@ struct SynthIce40Pass : public ScriptPass
 			run("dffsr2dff");
 			if (!nodffe)
 				run("dff2dffe -direct-match $_DFF_*");
-			run("techmap -D NO_SB_LUT4 -map +/ice40/cells_map.v");
+			run("techmap -D NO_LUT -map +/ice40/cells_map.v");
 			run("opt_expr -mux_undef");
 			run("simplemap");
 			run("ice40_ffinit");
@@ -241,9 +241,9 @@ struct SynthIce40Pass : public ScriptPass
 		if (check_label("map_cells"))
 		{
 			if (vpr)
-				run("techmap -D NO_SB_LUT4 -map +/ice40/cells_map.v");
+				run("techmap -D NO_LUT -map +/ice40/cells_map.v");
 			else
-				run("techmap -map +/ice40/cells_map.v", "(with -D NO_SB_LUT4 in vpr mode)");
+				run("techmap -map +/ice40/cells_map.v", "(with -D NO_LUT in vpr mode)");
 
 			run("clean");
 		}
