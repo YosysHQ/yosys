@@ -59,6 +59,9 @@ struct SynthIntelPass : public ScriptPass {
     log("        from label is synonymous to 'begin', and empty to label is\n");
     log("        synonymous to the end of the command list.\n");
     log("\n");
+    log("    -noiopads\n");
+    log("        do not use altsyncram cells in output netlist\n");
+    log("\n");
     log("    -nobram\n");
     log("        do not use altsyncram cells in output netlist\n");
     log("\n");
@@ -74,7 +77,7 @@ struct SynthIntelPass : public ScriptPass {
   }
 
   string top_opt, family_opt, vout_file, blif_file;
-  bool retime, flatten, nobram;
+  bool retime, flatten, nobram, noiopads;
 
   virtual void clear_flags() YS_OVERRIDE
   {
@@ -85,6 +88,7 @@ struct SynthIntelPass : public ScriptPass {
     retime = false;
     flatten = true;
     nobram = false;
+    noiopads = false;
   }
 
   virtual void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -117,6 +121,10 @@ struct SynthIntelPass : public ScriptPass {
             break;
           run_from = args[++argidx].substr(0, pos);
           run_to = args[argidx].substr(pos+1);
+          continue;
+        }
+        if (args[argidx] == "-noiopads") {
+          noiopads = true;
           continue;
         }
         if (args[argidx] == "-nobram") {
@@ -216,7 +224,8 @@ struct SynthIntelPass : public ScriptPass {
 
     if (check_label("map_cells"))
       {
-        run("iopadmap -bits -outpad $__outpad I:O -inpad $__inpad O:I");
+        if (!noiopads)
+          run("iopadmap -bits -outpad $__outpad I:O -inpad $__inpad O:I", "(unless -noiopads)");
         if(family_opt=="max10")
           run("techmap -map +/intel/max10/cells_map.v");
         else if(family_opt=="a10gx")
