@@ -241,10 +241,18 @@ YOSYS_NAMESPACE_END
 	while (yystr[i]) {
 		if (yystr[i] == '\\' && yystr[i + 1]) {
 			i++;
-			if (yystr[i] == 'n')
+			if (yystr[i] == 'a')
+				yystr[i] = '\a';
+			else if (yystr[i] == 'f')
+				yystr[i] = '\f';
+			else if (yystr[i] == 'n')
 				yystr[i] = '\n';
+			else if (yystr[i] == 'r')
+				yystr[i] = '\r';
 			else if (yystr[i] == 't')
 				yystr[i] = '\t';
+			else if (yystr[i] == 'v')
+				yystr[i] = '\v';
 			else if ('0' <= yystr[i] && yystr[i] <= '7') {
 				yystr[i] = yystr[i] - '0';
 				if ('0' <= yystr[i + 1] && yystr[i + 1] <= '7') {
