@@ -1003,7 +1003,7 @@ static AstModule* process_module(AstNode *ast, bool defer)
 
 // create AstModule instances for all modules in the AST tree and add them to 'design'
 void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump_ast2, bool dump_vlog, bool dump_rtlil,
-		bool nolatches, bool nomeminit, bool nomem2reg, bool mem2reg, bool lib, bool noopt, bool icells, bool ignore_redef, bool defer, bool autowire)
+		bool nolatches, bool nomeminit, bool nomem2reg, bool mem2reg, bool lib, bool noopt, bool icells, bool nooverwrite, bool overwrite, bool defer, bool autowire)
 {
 	current_ast = ast;
 	flag_dump_ast1 = dump_ast1;
@@ -1042,12 +1042,20 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 				(*it)->str = "$abstract" + (*it)->str;
 
 			if (design->has((*it)->str)) {
-				if (!ignore_redef)
+				RTLIL::Module *existing_mod = design->module((*it)->str);
+				if (!nooverwrite && !overwrite && !existing_mod->get_bool_attribute("\\blackbox")) {
 					log_error("Re-definition of module `%s' at %s:%d!\n",
 							(*it)->str.c_str(), (*it)->filename.c_str(), (*it)->linenum);
-				log("Ignoring re-definition of module `%s' at %s:%d!\n",
-						(*it)->str.c_str(), (*it)->filename.c_str(), (*it)->linenum);
-				continue;
+				} else if (nooverwrite) {
+					log("Ignoring re-definition of module `%s' at %s:%d.\n",
+							(*it)->str.c_str(), (*it)->filename.c_str(), (*it)->linenum);
+					continue;
+				} else {
+					log("Replacing existing%s module `%s' at %s:%d.\n",
+							existing_mod->get_bool_attribute("\\blackbox") ? " blackbox" : "",
+							(*it)->str.c_str(), (*it)->filename.c_str(), (*it)->linenum);
+					design->remove(existing_mod);
+				}
 			}
 
 			design->add(process_module(*it, defer));

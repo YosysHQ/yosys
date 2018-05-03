@@ -933,7 +933,7 @@ struct TechmapPass : public Pass {
 		log("    -D <define>, -I <incdir>\n");
 		log("        this options are passed as-is to the Verilog frontend for loading the\n");
 		log("        map file. Note that the Verilog frontend is also called with the\n");
-		log("        '-ignore_redef' option set.\n");
+		log("        '-nooverwrite' option set.\n");
 		log("\n");
 		log("When a module in the map file has the 'techmap_celltype' attribute set, it will\n");
 		log("match cells with a type that match the text value of this attribute. Otherwise\n");
@@ -1031,7 +1031,7 @@ struct TechmapPass : public Pass {
 		simplemap_get_mappers(worker.simplemap_mappers);
 
 		std::vector<std::string> map_files;
-		std::string verilog_frontend = "verilog -ignore_redef";
+		std::string verilog_frontend = "verilog -nooverwrite";
 		int max_iter = -1;
 
 		size_t argidx;
