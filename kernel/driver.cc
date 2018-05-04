@@ -255,8 +255,12 @@ int main(int argc, char **argv)
 		printf("        print a warning for all log messages matching the regex.\n");
 		printf("\n");
 		printf("    -w regex\n");
-		printf("        if a warning message matches the regex, it is printes as regular\n");
+		printf("        if a warning message matches the regex, it is printed as regular\n");
 		printf("        message instead.\n");
+		printf("\n");
+		printf("    -e regex\n");
+		printf("        if a warning message matches the regex, it is printed as error\n");
+		printf("        message instead and the tool terminates with a nonzero return code.\n");
 		printf("\n");
 		printf("    -E <depsfile>\n");
 		printf("        write a Makefile dependencies file with in- and output file names\n");
@@ -281,7 +285,7 @@ int main(int argc, char **argv)
 	}
 
 	int opt;
-	while ((opt = getopt(argc, argv, "MXAQTVSm:f:Hh:b:o:p:l:L:qv:tds:c:W:w:D:E:")) != -1)
+	while ((opt = getopt(argc, argv, "MXAQTVSm:f:Hh:b:o:p:l:L:qv:tds:c:W:w:e:D:E:")) != -1)
 	{
 		switch (opt)
 		{
@@ -371,6 +375,12 @@ int main(int argc, char **argv)
 			break;
 		case 'w':
 			log_nowarn_regexes.push_back(std::regex(optarg,
+					std::regex_constants::nosubs |
+					std::regex_constants::optimize |
+					std::regex_constants::egrep));
+			break;
+		case 'e':
+			log_werror_regexes.push_back(std::regex(optarg,
 					std::regex_constants::nosubs |
 					std::regex_constants::optimize |
 					std::regex_constants::egrep));

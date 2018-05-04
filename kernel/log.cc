@@ -41,7 +41,7 @@ YOSYS_NAMESPACE_BEGIN
 std::vector<FILE*> log_files;
 std::vector<std::ostream*> log_streams;
 std::map<std::string, std::set<std::string>> log_hdump;
-std::vector<std::regex> log_warn_regexes, log_nowarn_regexes;
+std::vector<std::regex> log_warn_regexes, log_nowarn_regexes, log_werror_regexes;
 std::set<std::string> log_warnings;
 int log_warnings_count = 0;
 bool log_hdump_all = false;
@@ -218,6 +218,10 @@ void logv_warning(const char *format, va_list ap)
 	}
 	else
 	{
+		for (auto &re : log_werror_regexes)
+			if (std::regex_search(message, re))
+				log_error("%s",  message.c_str());
+
 		if (log_warnings.count(message))
 		{
 			log("Warning: %s", message.c_str());
@@ -256,6 +260,10 @@ void logv_warning_noprefix(const char *format, va_list ap)
 	}
 	else
 	{
+		for (auto &re : log_werror_regexes)
+			if (std::regex_search(message, re))
+				log_error("%s",  message.c_str());
+
 		if (log_warnings.count(message))
 		{
 			log("%s", message.c_str());
