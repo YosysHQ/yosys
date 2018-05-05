@@ -128,7 +128,7 @@ struct CoverPass : public Pass {
 			log("\n");
 		}
 
-#if defined(YOSYS_ENABLE_COVER) && defined(__linux__)
+#if defined(YOSYS_ENABLE_COVER) && (defined(__linux__) || defined(__FreeBSD__))
 		for (auto &it : get_coverage_data()) {
 			if (!patterns.empty()) {
 				for (auto &p : patterns)
