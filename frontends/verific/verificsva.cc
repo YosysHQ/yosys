@@ -50,11 +50,11 @@
 //   sequence ##[+] sequence
 //   sequence ##[N:M] sequence
 //   sequence ##[N:$] sequence
-//   sequence [*]
-//   sequence [+]
-//   sequence [*N]
-//   sequence [*N:M]
-//   sequence [*N:$]
+//   expression [*]
+//   expression [+]
+//   expression [*N]
+//   expression [*N:M]
+//   expression [*N:$]
 //   sequence or sequence
 //   sequence and sequence
 //   expression throughout sequence
@@ -1138,7 +1138,7 @@ struct VerificSvaImporter
 		log_abort();
 	}
 
-	int parse_sequence(SvaFsm &fsm, int start_node, Net *net)
+	int parse_sequence(SvaFsm &fsm, int start_node, Net *net, int past_start_node = -1)
 	{
 		if (check_expression(net)) {
 			int node = fsm.createNode();
@@ -1183,15 +1183,28 @@ struct VerificSvaImporter
 			bool sva_inf = !strcmp(sva_high_s, "$");
 
 			int node = parse_sequence(fsm, start_node, inst->GetInput1());
+			int past_node = -1;
+
+			Net *next_net = inst->GetInput2();
+			Instance *next_inst = net_to_ast_driver(next_net);
+
+			if (next_inst != nullptr && next_inst->Type() == PRIM_SVA_CONSECUTIVE_REPEAT && sva_low > 0) {
+				past_node = fsm.createNode();
+				log_dump(past_node);
+			}
 
 			for (int i = 0; i < sva_low; i++) {
 				int next_node = fsm.createNode();
 				fsm.createEdge(node, next_node);
+				if (past_node >= 0 && i == sva_low-1)
+					fsm.createLink(node, past_node);
 				node = next_node;
 			}
 
 			if (sva_inf)
 			{
+				if (past_node >= 0)
+					fsm.createLink(node, past_node);
 				fsm.createEdge(node, node);
 			}
 			else
@@ -1201,11 +1214,13 @@ struct VerificSvaImporter
 					int next_node = fsm.createNode();
 					fsm.createEdge(node, next_node);
 					fsm.createLink(node, next_node);
+					if (past_node >= 0)
+						fsm.createLink(node, past_node);
 					node = next_node;
 				}
 			}
 
-			node = parse_sequence(fsm, node, inst->GetInput2());
+			node = parse_sequence(fsm, node, inst->GetInput2(), past_node);
 
 			return node;
 		}
@@ -1220,45 +1235,50 @@ struct VerificSvaImporter
 			bool sva_inf = !strcmp(sva_high_s, "$");
 
 			Net *body_net = inst->GetInput();
-			int node = fsm.createNode(start_node);
 
-			for (int i = 0; i < sva_low; i++)
+			bool bypass = false;
+
+			if (sva_low == 0) {
+				if (past_start_node == -1)
+					parser_error("Possibly zero-length consecutive repeat must follow a delay of at least one cycle", inst);
+				bypass = true;
+				sva_low++;
+			}
+
+			int node = fsm.createNode(start_node);
+			int prev_node = node;
+			node = parse_sequence(fsm, node, body_net);
+
+			for (int i = 1; i < sva_low; i++)
 			{
 				int next_node = fsm.createNode();
+				fsm.createEdge(node, next_node);
 
-				if (i == 0)
-					fsm.createLink(node, next_node);
-				else
-					fsm.createEdge(node, next_node);
-
+				prev_node = node;
 				node = parse_sequence(fsm, next_node, body_net);
 			}
 
 			if (sva_inf)
 			{
-				int next_node = fsm.createNode();
-				fsm.createEdge(node, next_node);
-
-				next_node = parse_sequence(fsm, next_node, body_net);
-				fsm.createLink(next_node, node);
+				log_assert(prev_node >= 0);
+				fsm.createEdge(node, prev_node);
 			}
 			else
 			{
 				for (int i = sva_low; i < sva_high; i++)
 				{
 					int next_node = fsm.createNode();
+					fsm.createEdge(node, next_node);
 
-					if (i == 0)
-						fsm.createLink(node, next_node);
-					else
-						fsm.createEdge(node, next_node);
+					prev_node = node;
+					node = parse_sequence(fsm, next_node, body_net);
 
-					next_node = parse_sequence(fsm, next_node, body_net);
-
-					fsm.createLink(node, next_node);
-					node = next_node;
+					fsm.createLink(prev_node, node);
 				}
 			}
+
+			if (bypass)
+				fsm.createLink(past_start_node, node);
 
 			return node;
 		}
