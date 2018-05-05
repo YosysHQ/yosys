@@ -1138,7 +1138,98 @@ struct VerificSvaImporter
 		log_abort();
 	}
 
-	int parse_sequence(SvaFsm &fsm, int start_node, Net *net, int past_start_node = -1)
+	bool check_zero_consecutive_repeat(Net *net)
+	{
+		Instance *inst = net_to_ast_driver(net);
+
+		if (inst == nullptr)
+			return false;
+
+		if (inst->Type() != PRIM_SVA_CONSECUTIVE_REPEAT)
+			return false;
+
+		const char *sva_low_s = inst->GetAttValue("sva:low");
+		int sva_low = atoi(sva_low_s);
+
+		return sva_low == 0;
+	}
+
+	int parse_consecutive_repeat(SvaFsm &fsm, int start_node, Net *net, bool add_pre_delay, bool add_post_delay)
+	{
+		Instance *inst = net_to_ast_driver(net);
+
+		log_assert(inst->Type() == PRIM_SVA_CONSECUTIVE_REPEAT);
+
+		const char *sva_low_s = inst->GetAttValue("sva:low");
+		const char *sva_high_s = inst->GetAttValue("sva:high");
+
+		int sva_low = atoi(sva_low_s);
+		int sva_high = atoi(sva_high_s);
+		bool sva_inf = !strcmp(sva_high_s, "$");
+
+		Net *body_net = inst->GetInput();
+
+		if (add_pre_delay || add_post_delay)
+			log_assert(sva_low == 0);
+
+		if (sva_low == 0) {
+			if (!add_pre_delay && !add_post_delay)
+				parser_error("Possibly zero-length consecutive repeat must follow or precede a delay of at least one cycle", inst);
+			sva_low++;
+		}
+
+		int node = fsm.createNode(start_node);
+		start_node = node;
+
+		if (add_pre_delay) {
+			node = fsm.createNode(start_node);
+			fsm.createEdge(start_node, node);
+		}
+
+		int prev_node = node;
+		node = parse_sequence(fsm, node, body_net);
+
+		for (int i = 1; i < sva_low; i++)
+		{
+			int next_node = fsm.createNode();
+			fsm.createEdge(node, next_node);
+
+			prev_node = node;
+			node = parse_sequence(fsm, next_node, body_net);
+		}
+
+		if (sva_inf)
+		{
+			log_assert(prev_node >= 0);
+			fsm.createEdge(node, prev_node);
+		}
+		else
+		{
+			for (int i = sva_low; i < sva_high; i++)
+			{
+				int next_node = fsm.createNode();
+				fsm.createEdge(node, next_node);
+
+				prev_node = node;
+				node = parse_sequence(fsm, next_node, body_net);
+
+				fsm.createLink(prev_node, node);
+			}
+		}
+
+		if (add_post_delay) {
+			int next_node = fsm.createNode();
+			fsm.createEdge(node, next_node);
+			node = next_node;
+		}
+
+		if (add_pre_delay || add_post_delay)
+			fsm.createLink(start_node, node);
+
+		return node;
+	}
+
+	int parse_sequence(SvaFsm &fsm, int start_node, Net *net)
 	{
 		if (check_expression(net)) {
 			int node = fsm.createNode();
@@ -1182,29 +1273,29 @@ struct VerificSvaImporter
 			int sva_high = atoi(sva_high_s);
 			bool sva_inf = !strcmp(sva_high_s, "$");
 
-			int node = parse_sequence(fsm, start_node, inst->GetInput1());
-			int past_node = -1;
+			int node = -1;
+			bool past_add_delay = false;
 
-			Net *next_net = inst->GetInput2();
-			Instance *next_inst = net_to_ast_driver(next_net);
+			if (check_zero_consecutive_repeat(inst->GetInput1()) && sva_low > 0) {
+				node = parse_consecutive_repeat(fsm, start_node, inst->GetInput1(), false, true);
+				sva_low--, sva_high--;
+			} else {
+				node = parse_sequence(fsm, start_node, inst->GetInput1());
+			}
 
-			if (next_inst != nullptr && next_inst->Type() == PRIM_SVA_CONSECUTIVE_REPEAT && sva_low > 0) {
-				past_node = fsm.createNode();
-				log_dump(past_node);
+			if (check_zero_consecutive_repeat(inst->GetInput2()) && sva_low > 0) {
+				past_add_delay = true;
+				sva_low--, sva_high--;
 			}
 
 			for (int i = 0; i < sva_low; i++) {
 				int next_node = fsm.createNode();
 				fsm.createEdge(node, next_node);
-				if (past_node >= 0 && i == sva_low-1)
-					fsm.createLink(node, past_node);
 				node = next_node;
 			}
 
 			if (sva_inf)
 			{
-				if (past_node >= 0)
-					fsm.createLink(node, past_node);
 				fsm.createEdge(node, node);
 			}
 			else
@@ -1214,73 +1305,21 @@ struct VerificSvaImporter
 					int next_node = fsm.createNode();
 					fsm.createEdge(node, next_node);
 					fsm.createLink(node, next_node);
-					if (past_node >= 0)
-						fsm.createLink(node, past_node);
 					node = next_node;
 				}
 			}
 
-			node = parse_sequence(fsm, node, inst->GetInput2(), past_node);
+			if (past_add_delay)
+				node = parse_consecutive_repeat(fsm, node, inst->GetInput2(), true, false);
+			else
+				node = parse_sequence(fsm, node, inst->GetInput2());
 
 			return node;
 		}
 
 		if (inst->Type() == PRIM_SVA_CONSECUTIVE_REPEAT)
 		{
-			const char *sva_low_s = inst->GetAttValue("sva:low");
-			const char *sva_high_s = inst->GetAttValue("sva:high");
-
-			int sva_low = atoi(sva_low_s);
-			int sva_high = atoi(sva_high_s);
-			bool sva_inf = !strcmp(sva_high_s, "$");
-
-			Net *body_net = inst->GetInput();
-
-			bool bypass = false;
-
-			if (sva_low == 0) {
-				if (past_start_node == -1)
-					parser_error("Possibly zero-length consecutive repeat must follow a delay of at least one cycle", inst);
-				bypass = true;
-				sva_low++;
-			}
-
-			int node = fsm.createNode(start_node);
-			int prev_node = node;
-			node = parse_sequence(fsm, node, body_net);
-
-			for (int i = 1; i < sva_low; i++)
-			{
-				int next_node = fsm.createNode();
-				fsm.createEdge(node, next_node);
-
-				prev_node = node;
-				node = parse_sequence(fsm, next_node, body_net);
-			}
-
-			if (sva_inf)
-			{
-				log_assert(prev_node >= 0);
-				fsm.createEdge(node, prev_node);
-			}
-			else
-			{
-				for (int i = sva_low; i < sva_high; i++)
-				{
-					int next_node = fsm.createNode();
-					fsm.createEdge(node, next_node);
-
-					prev_node = node;
-					node = parse_sequence(fsm, next_node, body_net);
-
-					fsm.createLink(prev_node, node);
-				}
-			}
-
-			if (bypass)
-				fsm.createLink(past_start_node, node);
-
-			return node;
+			return parse_consecutive_repeat(fsm, start_node, net, false, false);
 		}
 
 		if (inst->Type() == PRIM_SVA_NON_CONSECUTIVE_REPEAT || inst->Type() == PRIM_SVA_GOTO_REPEAT)
