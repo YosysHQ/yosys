@@ -46,8 +46,13 @@
 #  include <unistd.h>
 #  include <dirent.h>
 #  include <sys/types.h>
+#  include <sys/wait.h>
 #  include <sys/stat.h>
 #  include <glob.h>
+#endif
+
+#ifdef __FreeBSD__
+#  include <sys/sysctl.h>
 #endif
 
 #include <limits.h>
@@ -72,7 +77,7 @@ std::vector<void*> memhasher_store;
 
 void memhasher_on()
 {
-#ifdef __linux__
+#if defined(__linux__) || defined(__FreeBSD__)
 	memhasher_rng += time(NULL) << 16 ^ getpid();
 #endif
 	memhasher_store.resize(0x10000);
@@ -666,6 +671,26 @@ std::string proc_self_dirname()
 	while (buflen > 0 && path[buflen-1] != '/')
 		buflen--;
 	return std::string(path, buflen);
+}
+#elif defined(__FreeBSD__)
+std::string proc_self_dirname()
+{
+	int mib[4] = {CTL_KERN, KERN_PROC, KERN_PROC_PATHNAME, -1};
+	size_t buflen;
+	char *buffer;
+	std::string path;
+	if (sysctl(mib, 4, NULL, &buflen, NULL, 0) != 0)
+		log_error("sysctl failed: %s\n", strerror(errno));
+	buffer = (char*)malloc(buflen);
+	if (buffer == NULL)
+		log_error("malloc failed: %s\n", strerror(errno));
+	if (sysctl(mib, 4, buffer, &buflen, NULL, 0) != 0)
+		log_error("sysctl failed: %s\n", strerror(errno));
+	while (buflen > 0 && buffer[buflen-1] != '/')
+		buflen--;
+	path.assign(buffer, buflen);
+	free(buffer);
+	return path;
 }
 #elif defined(__APPLE__)
 std::string proc_self_dirname()

@@ -34,10 +34,15 @@
 #include <limits.h>
 #include <errno.h>
 
-#ifdef __linux__
+#if defined (__linux__) || defined(__FreeBSD__)
 #  include <sys/resource.h>
 #  include <sys/types.h>
 #  include <unistd.h>
+#endif
+
+#ifdef __FreeBSD__
+#  include <sys/sysctl.h>
+#  include <sys/user.h>
 #endif
 
 #if !defined(_WIN32) || defined(__MINGW32__)
@@ -510,7 +515,7 @@ int main(int argc, char **argv)
 #else
 		std::string meminfo;
 		std::string stats_divider = ", ";
-#  ifdef __linux__
+#  if defined(__linux__)
 		std::ifstream statm;
 		statm.open(stringf("/proc/%lld/statm", (long long)getpid()));
 		if (statm.is_open()) {
@@ -519,6 +524,19 @@ int main(int argc, char **argv)
 			meminfo = stringf(", MEM: %.2f MB total, %.2f MB resident",
 					sz_total * (getpagesize() / 1024.0 / 1024.0),
 					sz_resident * (getpagesize() / 1024.0 / 1024.0));
+			stats_divider = "\n";
+		}
+#  elif defined(__FreeBSD__)
+		pid_t pid = getpid();
+		int mib[4] = {CTL_KERN, KERN_PROC, KERN_PROC_PID, (int)pid};
+		struct kinfo_proc kip;
+		size_t kip_len = sizeof(kip);
+		if (sysctl(mib, 4, &kip, &kip_len, NULL, 0) == 0) {
+			vm_size_t sz_total = kip.ki_size;
+			segsz_t sz_resident = kip.ki_rssize;
+			meminfo = stringf(", MEM: %.2f MB total, %.2f MB resident",
+				(int)sz_total / 1024.0 / 1024.0,
+				(int)sz_resident * (getpagesize() / 1024.0 / 1024.0));
 			stats_divider = "\n";
 		}
 #  endif
@@ -564,7 +582,7 @@ int main(int argc, char **argv)
 		}
 	}
 
-#if defined(YOSYS_ENABLE_COVER) && defined(__linux__)
+#if defined(YOSYS_ENABLE_COVER) && (defined(__linux__) || defined(__FreeBSD__))
 	if (getenv("YOSYS_COVER_DIR") || getenv("YOSYS_COVER_FILE"))
 	{
 		string filename;
