@@ -61,6 +61,14 @@ Similarily, on Mac OS X MacPorts or Homebrew can be used to install dependencies
 	$ sudo port install bison flex readline gawk libffi \
 		git mercurial graphviz pkgconfig python36
 
+On FreeBSD use the following command to install all prerequisites:
+
+	# pkg install bison flex readline gawk libffi\
+		git mercurial graphviz pkgconfig python3 python36 tcl-wrapper
+
+On FreeBSD system use gmake instead of make. To run tests use:
+    % MAKE=gmake CC=cc gmake test
+
 There are also pre-compiled Yosys binary packages for Ubuntu and Win32 as well
 as a source distribution for Visual Studio. Visit the Yosys download page for
 more information: http://www.clifford.at/yosys/download.html
