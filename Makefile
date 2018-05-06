@@ -31,6 +31,7 @@ SANITIZER =
 # SANITIZER = cfi
 
 
+OS := $(shell uname -s)
 PREFIX ?= /usr/local
 INSTALL_SUDO :=
 
@@ -216,6 +217,9 @@ endif
 
 ifeq ($(ENABLE_READLINE),1)
 CXXFLAGS += -DYOSYS_ENABLE_READLINE
+ifeq ($(OS), FreeBSD)
+CXXFLAGS += -I/usr/local/include
+endif
 LDLIBS += -lreadline
 ifeq ($(LINK_CURSES),1)
 LDLIBS += -lcurses
@@ -237,19 +241,31 @@ endif
 
 ifeq ($(ENABLE_PLUGINS),1)
 CXXFLAGS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKG_CONFIG) --silence-errors --cflags libffi) -DYOSYS_ENABLE_PLUGINS
-LDLIBS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKG_CONFIG) --silence-errors --libs libffi || echo -lffi) -ldl
+LDLIBS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKG_CONFIG) --silence-errors --libs libffi || echo -lffi)
+ifneq ($(OS), FreeBSD)
+LDLIBS += -ldl
+endif
 endif
 
 ifeq ($(ENABLE_TCL),1)
 TCL_VERSION ?= tcl$(shell bash -c "tclsh <(echo 'puts [info tclversion]')")
+ifeq ($(OS), FreeBSD)
+TCL_INCLUDE ?= /usr/local/include/$(TCL_VERSION)
+else
 TCL_INCLUDE ?= /usr/include/$(TCL_VERSION)
+endif
 
 ifeq ($(CONFIG),mxe)
 CXXFLAGS += -DYOSYS_ENABLE_TCL
 LDLIBS += -ltcl86 -lwsock32 -lws2_32 -lnetapi32
 else
 CXXFLAGS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKG_CONFIG) --silence-errors --cflags tcl || echo -I$(TCL_INCLUDE)) -DYOSYS_ENABLE_TCL
+ifeq ($(OS), FreeBSD)
+# FreeBSD uses tcl8.6, but lib is named "libtcl86"
+LDLIBS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKG_CONFIG) --silence-errors --libs tcl || echo -l$(TCL_VERSION) | tr -d '.')
+else
 LDLIBS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKG_CONFIG) --silence-errors --libs tcl || echo -l$(TCL_VERSION))
+endif
 endif
 endif
 
