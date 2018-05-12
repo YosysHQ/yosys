@@ -138,7 +138,7 @@ void generate(RTLIL::Design *design, const std::vector<std::string> &celltypes, 
 	}
 }
 
-bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check, std::vector<std::string> &libdirs)
+bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check, bool flag_simcheck, std::vector<std::string> &libdirs)
 {
 	bool did_something = false;
 	std::map<RTLIL::Cell*, std::pair<int, int>> array_cells;
@@ -190,7 +190,7 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 				}
 			}
 
-			if (flag_check && cell->type[0] != '$')
+			if ((flag_check || flag_simcheck) && cell->type[0] != '$')
 				log_error("Module `%s' referenced in module `%s' in cell `%s' is not part of the design.\n",
 						cell->type.c_str(), module->name.c_str(), cell->name.c_str());
 			continue;
@@ -200,7 +200,7 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 				log_error("File `%s' from libdir does not declare module `%s'.\n", filename.c_str(), cell->type.c_str());
 			did_something = true;
 		} else
-		if (flag_check)
+		if (flag_check || flag_simcheck)
 		{
 			RTLIL::Module *mod = design->module(cell->type);
 			for (auto &conn : cell->connections())
@@ -218,10 +218,14 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 							log_id(cell->type), log_id(module), log_id(cell), log_id(param.first));
 		}
 
-		if (cell->parameters.size() == 0)
+		if (design->modules_.at(cell->type)->get_bool_attribute("\\blackbox")) {
+			if (flag_simcheck)
+				log_error("Module `%s' referenced in module `%s' in cell `%s' is a blackbox module.\n",
+						cell->type.c_str(), module->name.c_str(), cell->name.c_str());
 			continue;
+		}
 
-		if (design->modules_.at(cell->type)->get_bool_attribute("\\blackbox"))
+		if (cell->parameters.size() == 0)
 			continue;
 
 		RTLIL::Module *mod = design->modules_[cell->type];
@@ -354,6 +358,10 @@ struct HierarchyPass : public Pass {
 		log("        also check the design hierarchy. this generates an error when\n");
 		log("        an unknown module is used as cell type.\n");
 		log("\n");
+		log("    -simcheck\n");
+		log("        like -check, but also thow an error if blackbox modules are\n");
+		log("        instantiated, and throw an error if the design has no top module\n");
+		log("\n");
 		log("    -purge_lib\n");
 		log("        by default the hierarchy command will not remove library (blackbox)\n");
 		log("        modules. use this option to also remove unused blackbox modules.\n");
@@ -410,6 +418,7 @@ struct HierarchyPass : public Pass {
 		log_header(design, "Executing HIERARCHY pass (managing design hierarchy).\n");
 
 		bool flag_check = false;
+		bool flag_simcheck = false;
 		bool purge_lib = false;
 		RTLIL::Module *top_mod = NULL;
 		std::vector<std::string> libdirs;
@@ -425,7 +434,7 @@ struct HierarchyPass : public Pass {
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
-			if (args[argidx] == "-generate" && !flag_check && !top_mod) {
+			if (args[argidx] == "-generate" && !flag_check && !flag_simcheck && !top_mod) {
 				generate_mode = true;
 				log("Entering generate mode.\n");
 				while (++argidx < args.size()) {
@@ -466,6 +475,10 @@ struct HierarchyPass : public Pass {
 			}
 			if (args[argidx] == "-check") {
 				flag_check = true;
+				continue;
+			}
+			if (args[argidx] == "-simcheck") {
+				flag_simcheck = true;
 				continue;
 			}
 			if (args[argidx] == "-purge_lib") {
@@ -534,6 +547,9 @@ struct HierarchyPass : public Pass {
 				log("Automatically selected %s as design top module.\n", log_id(top_mod));
 		}
 
+		if (flag_simcheck && top_mod == nullptr)
+			log_error("Design has no top module.\n");
+
 		bool did_something = true;
 		while (did_something)
 		{
@@ -549,7 +565,7 @@ struct HierarchyPass : public Pass {
 			}
 
 			for (auto module : used_modules) {
-				if (expand_module(design, module, flag_check, libdirs))
+				if (expand_module(design, module, flag_check, flag_simcheck, libdirs))
 					did_something = true;
 			}
 		}
