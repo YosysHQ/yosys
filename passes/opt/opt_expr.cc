@@ -718,6 +718,23 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			}
 		}
 
+		if (cell->type == "$_TBUF_" || cell->type == "$tribuf") {
+			RTLIL::SigSpec input = cell->getPort(cell->type == "$_TBUF_" ? "\\E" : "\\EN");
+			RTLIL::SigSpec a = cell->getPort("\\A");
+			assign_map.apply(input);
+			assign_map.apply(a);
+			if (input == State::S1)
+				ACTION_DO("\\Y", cell->getPort("\\A"));
+			if (input == State::S0 && !a.is_fully_undef()) {
+				cover("opt.opt_expr.action_" S__LINE__);
+				log("Replacing data input of %s cell `%s' in module `%s' with constant undef.\n",
+					cell->type.c_str(), cell->name.c_str(), module->name.c_str());
+				cell->setPort("\\A", SigSpec(State::Sx, GetSize(a)));
+				did_something = true;
+				goto next_cell;
+			}
+		}
+
 		if (cell->type == "$eq" || cell->type == "$ne" || cell->type == "$eqx" || cell->type == "$nex")
 		{
 			RTLIL::SigSpec a = cell->getPort("\\A");
