@@ -188,7 +188,7 @@ static RTLIL::SigSpec parse_func_expr(RTLIL::Module *module, const char *expr)
 		}
 
 		token_t next_token(0);
-		if (*expr == '(' || *expr == ')' || *expr == '\'' || *expr == '!' || *expr == '^' || *expr == '*' || *expr == '+' || *expr == '|')
+		if (*expr == '(' || *expr == ')' || *expr == '\'' || *expr == '!' || *expr == '^' || *expr == '*' || *expr == '+' || *expr == '|' || *expr == '&')
 			next_token = token_t(*(expr++));
 		else
 			next_token = token_t(0, parse_func_identifier(module, expr));
