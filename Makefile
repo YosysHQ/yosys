@@ -67,7 +67,7 @@ SED ?= sed
 BISON ?= bison
 STRIP ?= strip
 
-ifeq (Darwin,$(findstring Darwin,$(shell uname)))
+ifeq ($(OS), Darwin)
 PLUGIN_LDFLAGS += -undefined dynamic_lookup
 
 # homebrew search paths
