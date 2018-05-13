@@ -40,6 +40,9 @@ struct SetundefWorker
 		if (next_bit_mode == 1)
 			return RTLIL::State::S1;
 
+		if (next_bit_mode == 2)
+			log_abort();
+
 		if (next_bit_mode == 4)
 			return RTLIL::State::Sx;
 
@@ -117,21 +120,25 @@ struct SetundefPass : public Pass {
 			if (args[argidx] == "-zero") {
 				got_value = true;
 				worker.next_bit_mode = 0;
+				worker.next_bit_state = 0;
 				continue;
 			}
 			if (args[argidx] == "-one") {
 				got_value = true;
 				worker.next_bit_mode = 1;
+				worker.next_bit_state = 0;
 				continue;
 			}
 			if (args[argidx] == "-anyseq") {
 				got_value = true;
 				worker.next_bit_mode = 2;
+				worker.next_bit_state = 0;
 				continue;
 			}
 			if (args[argidx] == "-undef") {
 				got_value = true;
 				worker.next_bit_mode = 4;
+				worker.next_bit_state = 0;
 				continue;
 			}
 			if (args[argidx] == "-init") {
