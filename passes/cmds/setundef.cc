@@ -81,6 +81,9 @@ struct SetundefPass : public Pass {
 		log("    -undriven\n");
 		log("        also set undriven nets to constant values\n");
 		log("\n");
+		log("    -expose\n");
+		log("        also expose undriven nets as inputs\n");
+		log("\n");
 		log("    -zero\n");
 		log("        replace with bits cleared (0)\n");
 		log("\n");
@@ -105,6 +108,7 @@ struct SetundefPass : public Pass {
 	{
 		bool got_value = false;
 		bool undriven_mode = false;
+		bool expose_mode = false;
 		bool init_mode = false;
 		SetundefWorker worker;
 
@@ -115,6 +119,11 @@ struct SetundefPass : public Pass {
 		{
 			if (args[argidx] == "-undriven") {
 				undriven_mode = true;
+				continue;
+			}
+			if (args[argidx] == "-expose") {
+				got_value = true;
+				expose_mode = true;
 				continue;
 			}
 			if (args[argidx] == "-zero") {
@@ -157,6 +166,8 @@ struct SetundefPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		if (expose_mode && !undriven_mode)
+			log_cmd_error("Option -expose must be used with option -undriven.\n");
 		if (!got_value)
 			log_cmd_error("One of the options -zero, -one, -anyseq, or -random <seed> must be specified.\n");
 
@@ -184,12 +195,21 @@ struct SetundefPass : public Pass {
 						undriven_signals.del(sigmap(conn.second));
 
 				RTLIL::SigSpec sig = undriven_signals.export_all();
-				for (auto &c : sig.chunks()) {
-					RTLIL::SigSpec bits;
-					for (int i = 0; i < c.width; i++)
-						bits.append(worker.next_bit());
-					module->connect(RTLIL::SigSig(c, bits));
-				}
+        if (expose_mode) {
+          for (auto &c : sig.chunks()) {
+            c.wire->port_input = true;
+            log("New module port: %s/%s\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(c.wire->name));
+          }
+          module->fixup_ports();
+        }
+        else {
+          for (auto &c : sig.chunks()) {
+            RTLIL::SigSpec bits;
+            for (int i = 0; i < c.width; i++)
+              bits.append(worker.next_bit());
+            module->connect(RTLIL::SigSig(c, bits));
+          }
+        }
 			}
 
 			if (init_mode)
