@@ -89,7 +89,6 @@ static RTLIL::Wire * add_wire(RTLIL::Design *design, RTLIL::Module *module, std:
   return wire;
 }
 
-
 struct SetundefWorker
 {
 	int next_bit_mode;
@@ -304,7 +303,7 @@ struct SetundefPass : public Pass {
             else {
               string name = c.wire->name.str() + "$[" + std::to_string(c.width + c.offset) + ":" + std::to_string(c.offset) + "]";
               wire = add_wire(design, module, name, c.width, true, false, false);
-              module->connect(RTLIL::SigSig(c.wire, wire));
+              module->connect(RTLIL::SigSig(c, wire));
             }
             log("Exposing undriven wire %s as input.\n", wire->name.c_str());
           }
