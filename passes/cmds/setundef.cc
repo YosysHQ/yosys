@@ -308,6 +308,7 @@ struct SetundefPass : public Pass {
             log("Exposing undriven wire %s as input.\n", wire->name.c_str());
           }
           module->fixup_ports();
+          continue;
         }
         else {
           SigMap sigmap(module);
