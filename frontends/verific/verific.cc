@@ -871,22 +871,22 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 		const char *allconst_attr = net->GetAttValue("allconst");
 		const char *allseq_attr = net->GetAttValue("allseq");
 
-		if (rand_const_attr != nullptr && !strcmp(rand_const_attr, "1"))
+		if (rand_const_attr != nullptr && (!strcmp(rand_const_attr, "1") || !strcmp(rand_const_attr, "'1'")))
 			anyconst_nets.insert(net);
 
-		else if (rand_attr != nullptr && !strcmp(rand_attr, "1"))
+		else if (rand_attr != nullptr && (!strcmp(rand_attr, "1") || !strcmp(rand_attr, "'1'")))
 			anyseq_nets.insert(net);
 
-		else if (anyconst_attr != nullptr && !strcmp(anyconst_attr, "1"))
+		else if (anyconst_attr != nullptr && (!strcmp(anyconst_attr, "1") || !strcmp(anyconst_attr, "'1'")))
 			anyconst_nets.insert(net);
 
-		else if (anyseq_attr != nullptr && !strcmp(anyseq_attr, "1"))
+		else if (anyseq_attr != nullptr && (!strcmp(anyseq_attr, "1") || !strcmp(anyseq_attr, "'1'")))
 			anyseq_nets.insert(net);
 
-		else if (allconst_attr != nullptr && !strcmp(allconst_attr, "1"))
+		else if (allconst_attr != nullptr && (!strcmp(allconst_attr, "1") || !strcmp(allconst_attr, "'1'")))
 			allconst_nets.insert(net);
 
-		else if (allseq_attr != nullptr && !strcmp(allseq_attr, "1"))
+		else if (allseq_attr != nullptr && (!strcmp(allseq_attr, "1") || !strcmp(allseq_attr, "'1'")))
 			allseq_nets.insert(net);
 
 		if (net_map.count(net)) {
