@@ -175,6 +175,8 @@ struct IopadmapPass : public Pass {
 			if (!toutpad_celltype.empty() || !tinoutpad_celltype.empty())
 			{
 				dict<SigBit, pair<IdString, pool<IdString>>> tbuf_bits;
+				pool<pair<IdString, IdString>> norewrites;
+				SigMap rewrites;
 
 				for (auto cell : module->cells())
 					if (cell->type == "$_TBUF_") {
@@ -246,6 +248,9 @@ struct IopadmapPass : public Pass {
 
 							module->remove(tbuf_cell);
 							skip_wires[wire->name].insert(i);
+
+							norewrites.insert(make_pair(cell->name, RTLIL::escape_id(tinoutpad_portname4)));
+							rewrites.add(sigmap(wire_bit), owire);
 							continue;
 						}
 
@@ -281,6 +286,22 @@ struct IopadmapPass : public Pass {
 							skip_wires[wire->name].insert(i);
 							continue;
 						}
+					}
+				}
+
+				if (GetSize(norewrites))
+				{
+					for (auto cell : module->cells())
+					for (auto port : cell->connections())
+					{
+						if (norewrites.count(make_pair(cell->name, port.first)))
+							continue;
+
+						SigSpec orig_sig = sigmap(port.second);
+						SigSpec new_sig = rewrites(orig_sig);
+
+						if (orig_sig != new_sig)
+							cell->setPort(port.first, new_sig);
 					}
 				}
 			}
