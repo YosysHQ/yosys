@@ -67,6 +67,8 @@ SED ?= sed
 BISON ?= bison
 STRIP ?= strip
 
+STRIPFLAGS ?= -S
+
 ifeq ($(OS), Darwin)
 PLUGIN_LDFLAGS += -undefined dynamic_lookup
 
@@ -529,7 +531,7 @@ install: $(TARGETS) $(EXTRA_TARGETS)
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(BINDIR)
 	$(INSTALL_SUDO) cp $(TARGETS) $(DESTDIR)$(BINDIR)
 ifneq ($(filter yosys,$(TARGETS)),)
-	$(INSTALL_SUDO) $(STRIP) -S $(DESTDIR)$(BINDIR)/yosys
+	$(INSTALL_SUDO) $(STRIP) $(STRIPFLAGS) $(DESTDIR)$(BINDIR)/yosys
 endif
 ifneq ($(filter yosys-abc,$(TARGETS)),)
 	$(INSTALL_SUDO) $(STRIP) $(DESTDIR)$(BINDIR)/yosys-abc
@@ -541,7 +543,7 @@ endif
 	$(INSTALL_SUDO) cp -r share/. $(DESTDIR)$(DATDIR)/.
 ifeq ($(ENABLE_LIBYOSYS),1)
 	$(INSTALL_SUDO) cp libyosys.so $(DESTDIR)$(LIBDIR)
-	$(INSTALL_SUDO) $(STRIP) -S $(DESTDIR)$(LIBDIR)/libyosys.so
+	$(INSTALL_SUDO) $(STRIP) $(STRIPFLAGS) $(DESTDIR)$(LIBDIR)/libyosys.so
 	$(INSTALL_SUDO) ldconfig
 endif
 
