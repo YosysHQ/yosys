@@ -244,6 +244,7 @@ static bool try_expand_macro(std::set<std::string> &defines_with_args,
 				args.push_back(std::string());
 				while (1)
 				{
+					skip_spaces();
 					tok = next_token(true);
 					if (tok == ")" || tok == "}" || tok == "]")
 						level--;
