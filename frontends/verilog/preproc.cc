@@ -183,8 +183,9 @@ static std::string next_token(bool pass_newline = false)
 		const char *ok = "abcdefghijklmnopqrstuvwxyz_ABCDEFGHIJKLMNOPQRSTUVWXYZ$0123456789";
 		if (ch == '`' || strchr(ok, ch) != NULL)
 		{
+			char first = ch;
 			ch = next_char();
-			if (ch == '"') {
+			if (first == '`' && (ch == '"' || ch == '`')) {
 				token += ch;
 			} else do {
 					if (strchr(ok, ch) == NULL) {
@@ -265,6 +266,9 @@ static bool try_expand_macro(std::set<std::string> &defines_with_args,
 			}
 			insert_input(defines_map[name]);
 			return true;
+	} else if (tok == "``") {
+		// Swallow `` in macro expansion
+		return true;
 	} else return false;
 }
 
