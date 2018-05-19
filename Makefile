@@ -22,6 +22,9 @@ ENABLE_DEBUG := 0
 ENABLE_NDEBUG := 0
 LINK_CURSES := 0
 LINK_TERMCAP := 0
+LINK_ABC := 0
+# Needed for environments that don't have proper thread support (i.e. emscripten)
+DISABLE_ABC_THREADS := 0
 
 # clang sanitizers
 SANITIZER =
@@ -126,6 +129,7 @@ ifeq ($(CONFIG),clang)
 CXX = clang
 LD = clang++
 CXXFLAGS += -std=c++11 -Os
+ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H"
 
 ifneq ($(SANITIZER),)
 $(info [Clang Sanitizer] $(SANITIZER))
@@ -148,16 +152,19 @@ else ifeq ($(CONFIG),gcc)
 CXX = gcc
 LD = gcc
 CXXFLAGS += -std=c++11 -Os
+ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H"
 
 else ifeq ($(CONFIG),gcc-4.8)
 CXX = gcc-4.8
 LD = gcc-4.8
 CXXFLAGS += -std=c++11 -Os
+ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H"
 
 else ifeq ($(CONFIG),emcc)
 CXX = emcc
 LD = emcc
 CXXFLAGS := -std=c++11 $(filter-out -fPIC -ggdb,$(CXXFLAGS))
+ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H -DABC_MEMALIGN=8"
 EMCCFLAGS := -Os -Wno-warn-absolute-paths
 EMCCFLAGS += --memory-init-file 0 --embed-file share -s NO_EXIT_RUNTIME=1
 EMCCFLAGS += -s EXPORTED_FUNCTIONS="['_main','_run','_prompt','_errmsg']"
@@ -170,6 +177,11 @@ EXE = .js
 
 TARGETS := $(filter-out yosys-config,$(TARGETS))
 EXTRA_TARGETS += yosysjs-$(YOSYS_VER).zip
+
+ifeq ($(ENABLE_ABC),1)
+LINK_ABC := 1
+DISABLE_ABC_THREADS := 1
+endif
 
 viz.js:
 	wget -O viz.js.part https://github.com/mdaines/viz.js/releases/download/0.0.3/viz.js
@@ -192,8 +204,8 @@ CXXFLAGS += -std=c++11 -Os -D_POSIX_SOURCE -DYOSYS_MXE_HACKS -Wno-attributes
 CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
 LDFLAGS := $(filter-out -rdynamic,$(LDFLAGS)) -s
 LDLIBS := $(filter-out -lrt,$(LDLIBS))
-ABCMKARGS += ARCHFLAGS="-DSIZEOF_VOID_P=4 -DSIZEOF_LONG=4 -DSIZEOF_INT=4 -DWIN32_NO_DLL -DHAVE_STRUCT_TIMESPEC -fpermissive -w"
-ABCMKARGS += LIBS="lib/x86/pthreadVC2.lib -s" ABC_USE_NO_READLINE=1 CC="$(CXX)" CXX="$(CXX)"
+ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H -DWIN32_NO_DLL -DHAVE_STRUCT_TIMESPEC -fpermissive -w"
+ABCMKARGS += LIBS="lib/x86/pthreadVC2.lib -s" ABC_USE_NO_READLINE=1
 EXE = .exe
 
 else ifeq ($(CONFIG),msys2)
@@ -203,8 +215,8 @@ CXXFLAGS += -std=c++11 -Os -D_POSIX_SOURCE -DYOSYS_WIN32_UNIX_DIR
 CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
 LDFLAGS := $(filter-out -rdynamic,$(LDFLAGS)) -s
 LDLIBS := $(filter-out -lrt,$(LDLIBS))
-ABCMKARGS += ARCHFLAGS="-DSIZEOF_VOID_P=4 -DSIZEOF_LONG=4 -DSIZEOF_INT=4 -DWIN32_NO_DLL -DHAVE_STRUCT_TIMESPEC -fpermissive -w"
-ABCMKARGS += LIBS="lib/x86/pthreadVC2.lib -s" ABC_USE_NO_READLINE=0 CC="i686-w64-mingw32-gcc" CXX="$(CXX)"
+ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H -DWIN32_NO_DLL -DHAVE_STRUCT_TIMESPEC -fpermissive -w"
+ABCMKARGS += LIBS="lib/x86/pthreadVC2.lib -s" ABC_USE_NO_READLINE=0
 EXE = .exe
 
 else ifneq ($(CONFIG),none)
@@ -236,7 +248,13 @@ else
 ifeq ($(ENABLE_EDITLINE),1)
 CXXFLAGS += -DYOSYS_ENABLE_EDITLINE
 LDLIBS += -ledit -ltinfo -lbsd
+else
+ABCMKARGS += "ABC_USE_NO_READLINE=1"
 endif
+endif
+
+ifeq ($(DISABLE_ABC_THREADS),1)
+ABCMKARGS += "ABC_USE_NO_PTHREADS=1"
 endif
 
 ifeq ($(ENABLE_PLUGINS),1)
@@ -288,8 +306,15 @@ endif
 
 ifeq ($(ENABLE_ABC),1)
 CXXFLAGS += -DYOSYS_ENABLE_ABC
+ifeq ($(LINK_ABC),1)
+CXXFLAGS += -DYOSYS_LINK_ABC
+ifeq ($(DISABLE_ABC_THREADS),0)
+LDLIBS += -lpthread
+endif
+else
 ifeq ($(ABCEXTERNAL),)
 TARGETS += yosys-abc$(EXE)
+endif
 endif
 endif
 
@@ -411,6 +436,10 @@ include techlibs/common/Makefile.inc
 
 endif
 
+ifeq ($(LINK_ABC),1)
+OBJS += yosys-libabc.a
+endif
+
 top-all: $(TARGETS) $(EXTRA_TARGETS)
 	@echo ""
 	@echo "  Build successful."
@@ -455,7 +484,7 @@ yosys-config: misc/yosys-config.in
 			-e 's#@BINDIR@#$(strip $(BINDIR))#;' -e 's#@DATDIR@#$(strip $(DATDIR))#;' < $< > yosys-config
 	$(Q) chmod +x yosys-config
 
-abc/abc-$(ABCREV)$(EXE):
+abc/abc-$(ABCREV)$(EXE) abc/libabc-$(ABCREV).a:
 	$(P)
 ifneq ($(ABCREV),default)
 	$(Q) if test -d abc/.hg; then \
@@ -472,14 +501,18 @@ ifneq ($(ABCREV),default)
 	fi
 endif
 	$(Q) rm -f abc/abc-[0-9a-f]*
-	$(Q) cd abc && $(MAKE) $(S) $(ABCMKARGS) PROG="abc-$(ABCREV)$(EXE)" MSG_PREFIX="$(eval P_OFFSET = 5)$(call P_SHOW)$(eval P_OFFSET = 10) ABC: "
+	$(Q) cd abc && $(MAKE) $(S) $(ABCMKARGS) $(if $(filter %.a,$@),PROG="abc-$(ABCREV)",PROG="abc-$(ABCREV)$(EXE)") MSG_PREFIX="$(eval P_OFFSET = 5)$(call P_SHOW)$(eval P_OFFSET = 10) ABC: " $(if $(filter %.a,$@),libabc-$(ABCREV).a)
 
 ifeq ($(ABCREV),default)
 .PHONY: abc/abc-$(ABCREV)$(EXE)
+.PHONY: abc/libabc-$(ABCREV).a
 endif
 
 yosys-abc$(EXE): abc/abc-$(ABCREV)$(EXE)
 	$(P) cp abc/abc-$(ABCREV)$(EXE) yosys-abc$(EXE)
+
+yosys-libabc.a: abc/libabc-$(ABCREV).a
+	$(P) cp abc/libabc-$(ABCREV).a yosys-libabc.a
 
 ifneq ($(SEED),)
 SEEDOPT="-S $(SEED)"
@@ -564,7 +597,7 @@ clean:
 	rm -rf share
 	if test -d manual; then cd manual && sh clean.sh; fi
 	rm -f $(OBJS) $(GENFILES) $(TARGETS) $(EXTRA_TARGETS) $(EXTRA_OBJS)
-	rm -f kernel/version_*.o kernel/version_*.cc abc/abc-[0-9a-f]*
+	rm -f kernel/version_*.o kernel/version_*.cc abc/abc-[0-9a-f]* abc/libabc-[0-9a-f]*.a
 	rm -f libs/*/*.d frontends/*/*.d passes/*/*.d backends/*/*.d kernel/*.d techlibs/*/*.d
 	rm -rf tests/asicworld/*.out tests/asicworld/*.log
 	rm -rf tests/hana/*.out tests/hana/*.log
@@ -577,7 +610,7 @@ clean:
 
 clean-abc:
 	$(MAKE) -C abc DEP= clean
-	rm -f yosys-abc$(EXE) abc/abc-[0-9a-f]*
+	rm -f yosys-abc$(EXE) yosys-libabc.a abc/abc-[0-9a-f]* abc/libabc-[0-9a-f]*.a
 
 mrproper: clean
 	git clean -xdf
