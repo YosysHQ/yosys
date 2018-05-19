@@ -23,6 +23,8 @@ ENABLE_NDEBUG := 0
 LINK_CURSES := 0
 LINK_TERMCAP := 0
 LINK_ABC := 0
+# Needed for environments that don't have proper thread support (i.e. emscripten)
+DISABLE_ABC_THREADS := 0
 
 # clang sanitizers
 SANITIZER =
@@ -241,7 +243,13 @@ else
 ifeq ($(ENABLE_EDITLINE),1)
 CXXFLAGS += -DYOSYS_ENABLE_EDITLINE
 LDLIBS += -ledit -ltinfo -lbsd
+else
+ABCMKARGS += "ABC_USE_NO_READLINE=1"
 endif
+endif
+
+ifeq ($(DISABLE_ABC_THREADS),1)
+ABCMKARGS += "ABC_USE_NO_PTHREADS=1"
 endif
 
 ifeq ($(ENABLE_PLUGINS),1)
@@ -295,7 +303,9 @@ ifeq ($(ENABLE_ABC),1)
 CXXFLAGS += -DYOSYS_ENABLE_ABC
 ifeq ($(LINK_ABC),1)
 CXXFLAGS += -DYOSYS_LINK_ABC
+ifeq ($(DISABLE_ABC_THREADS),0)
 LDLIBS += -lpthread
+endif
 else
 ifeq ($(ABCEXTERNAL),)
 TARGETS += yosys-abc$(EXE)
