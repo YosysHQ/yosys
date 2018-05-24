@@ -189,12 +189,12 @@ RTLIL::SigSpec VerificImporter::operatorInport(Instance *inst, const char *portn
 	}
 }
 
-RTLIL::SigSpec VerificImporter::operatorOutput(Instance *inst)
+RTLIL::SigSpec VerificImporter::operatorOutput(Instance *inst, const pool<Net*, hash_ptr_ops> *any_all_nets)
 {
 	RTLIL::SigSpec sig;
 	RTLIL::Wire *dummy_wire = NULL;
 	for (int i = int(inst->OutputSize())-1; i >= 0; i--)
-		if (inst->GetOutputBit(i)) {
+		if (inst->GetOutputBit(i) && (!any_all_nets || !any_all_nets->count(inst->GetOutputBit(i)))) {
 			sig.append(net_map_at(inst->GetOutputBit(i)));
 			dummy_wire = NULL;
 		} else {
@@ -394,6 +394,7 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 	#define IN1 operatorInput1(inst)
 	#define IN2 operatorInput2(inst)
 	#define OUT operatorOutput(inst)
+	#define FILTERED_OUT operatorOutput(inst, &any_all_nets)
 	#define SIGNED inst->View()->IsSigned()
 
 	if (inst->Type() == OPER_ADDER) {
@@ -525,7 +526,7 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 	}
 
 	if (inst->Type() == OPER_WIDE_BUF) {
-		module->addPos(inst_name, IN, OUT, SIGNED);
+		module->addPos(inst_name, IN, FILTERED_OUT, SIGNED);
 		return true;
 	}
 
@@ -791,6 +792,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 	dict<Net*, char, hash_ptr_ops> init_nets;
 	pool<Net*, hash_ptr_ops> anyconst_nets, anyseq_nets;
 	pool<Net*, hash_ptr_ops> allconst_nets, allseq_nets;
+	any_all_nets.clear();
 
 	FOREACH_NET_OF_NETLIST(nl, mi, net)
 	{
@@ -871,23 +873,30 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 		const char *allconst_attr = net->GetAttValue("allconst");
 		const char *allseq_attr = net->GetAttValue("allseq");
 
-		if (rand_const_attr != nullptr && (!strcmp(rand_const_attr, "1") || !strcmp(rand_const_attr, "'1'")))
+		if (rand_const_attr != nullptr && (!strcmp(rand_const_attr, "1") || !strcmp(rand_const_attr, "'1'"))) {
 			anyconst_nets.insert(net);
-
-		else if (rand_attr != nullptr && (!strcmp(rand_attr, "1") || !strcmp(rand_attr, "'1'")))
+			any_all_nets.insert(net);
+		}
+		else if (rand_attr != nullptr && (!strcmp(rand_attr, "1") || !strcmp(rand_attr, "'1'"))) {
 			anyseq_nets.insert(net);
-
-		else if (anyconst_attr != nullptr && (!strcmp(anyconst_attr, "1") || !strcmp(anyconst_attr, "'1'")))
+			any_all_nets.insert(net);
+		}
+		else if (anyconst_attr != nullptr && (!strcmp(anyconst_attr, "1") || !strcmp(anyconst_attr, "'1'"))) {
 			anyconst_nets.insert(net);
-
-		else if (anyseq_attr != nullptr && (!strcmp(anyseq_attr, "1") || !strcmp(anyseq_attr, "'1'")))
+			any_all_nets.insert(net);
+		}
+		else if (anyseq_attr != nullptr && (!strcmp(anyseq_attr, "1") || !strcmp(anyseq_attr, "'1'"))) {
 			anyseq_nets.insert(net);
-
-		else if (allconst_attr != nullptr && (!strcmp(allconst_attr, "1") || !strcmp(allconst_attr, "'1'")))
+			any_all_nets.insert(net);
+		}
+		else if (allconst_attr != nullptr && (!strcmp(allconst_attr, "1") || !strcmp(allconst_attr, "'1'"))) {
 			allconst_nets.insert(net);
-
-		else if (allseq_attr != nullptr && (!strcmp(allseq_attr, "1") || !strcmp(allseq_attr, "'1'")))
+			any_all_nets.insert(net);
+		}
+		else if (allseq_attr != nullptr && (!strcmp(allseq_attr, "1") || !strcmp(allseq_attr, "'1'"))) {
 			allseq_nets.insert(net);
+			any_all_nets.insert(net);
+		}
 
 		if (net_map.count(net)) {
 			if (verific_verbose)
@@ -1064,7 +1073,9 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 		}
 
 		if (inst->Type() == PRIM_BUF) {
-			module->addBufGate(inst_name, net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
+			auto outnet = inst->GetOutput();
+			if (!anyconst_nets.count(outnet) && !anyseq_nets.count(outnet) && !allconst_nets.count(outnet) && !allseq_nets.count(outnet))
+				module->addBufGate(inst_name, net_map_at(inst->GetInput()), net_map_at(outnet));
 			continue;
 		}
 
