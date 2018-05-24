@@ -1393,7 +1393,7 @@ VerificClocking::VerificClocking(VerificImporter *importer, Net *net, bool sva_a
 			return;
 	}
 
-	if (inst != nullptr && inst->Type() == PRIM_SVA_POSEDGE)
+	while (inst != nullptr && inst->Type() == PRIM_SVA_POSEDGE)
 	{
 		net = inst->GetInput();
 		inst = net->Driver();;
