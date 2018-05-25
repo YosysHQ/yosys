@@ -244,7 +244,9 @@ bool VerificImporter::import_netlist_instance_gates(Instance *inst, RTLIL::IdStr
 	}
 
 	if (inst->Type() == PRIM_BUF) {
-		module->addBufGate(inst_name, net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
+		auto outnet = inst->GetOutput();
+		if (!any_all_nets.count(outnet))
+			module->addBufGate(inst_name, net_map_at(inst->GetInput()), net_map_at(outnet));
 		return true;
 	}
 
@@ -1074,7 +1076,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 
 		if (inst->Type() == PRIM_BUF) {
 			auto outnet = inst->GetOutput();
-			if (!anyconst_nets.count(outnet) && !anyseq_nets.count(outnet) && !allconst_nets.count(outnet) && !allseq_nets.count(outnet))
+			if (!any_all_nets.count(outnet))
 				module->addBufGate(inst_name, net_map_at(inst->GetInput()), net_map_at(outnet));
 			continue;
 		}
