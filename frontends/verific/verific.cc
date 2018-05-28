@@ -1395,6 +1395,7 @@ VerificClocking::VerificClocking(VerificImporter *importer, Net *net, bool sva_a
 			return;
 	}
 
+	// Use while() instead of if() to work around VIPER #13453
 	while (inst != nullptr && inst->Type() == PRIM_SVA_POSEDGE)
 	{
 		net = inst->GetInput();
