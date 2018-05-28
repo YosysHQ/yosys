@@ -61,49 +61,59 @@ struct MemoryNordffPass : public Pass {
 
 			SigSpec rd_addr = cell->getPort("\\RD_ADDR");
 			SigSpec rd_data = cell->getPort("\\RD_DATA");
+			SigSpec rd_clk = cell->getPort("\\RD_CLK");
+			SigSpec rd_en = cell->getPort("\\RD_EN");
 			Const rd_clk_enable = cell->getParam("\\RD_CLK_ENABLE");
+			Const rd_clk_polarity = cell->getParam("\\RD_CLK_POLARITY");
 
 			for (int i = 0; i < rd_ports; i++)
 			{
 				bool clk_enable = rd_clk_enable[i] == State::S1;
 
-				if (!clk_enable)
-					continue;
-
-				bool clk_polarity = cell->getParam("\\RD_CLK_POLARITY")[i] == State::S1;
-				bool transparent = cell->getParam("\\RD_TRANSPARENT")[i] == State::S1;
-
-				SigSpec clk = cell->getPort("\\RD_CLK")[i] ;
-				SigSpec en = cell->getPort("\\RD_EN")[i];
-				Cell *c;
-
-				if (transparent)
+				if (clk_enable)
 				{
-					SigSpec sig_q = module->addWire(NEW_ID, abits);
-					SigSpec sig_d = rd_addr.extract(abits * i, abits);
-					rd_addr.replace(abits * i, sig_q);
-					if (en != State::S1)
-						sig_d = module->Mux(NEW_ID, sig_q, sig_d, en);
-					c = module->addDff(NEW_ID, clk, sig_d, sig_q, clk_polarity);
-				}
-				else
-				{
-					SigSpec sig_d = module->addWire(NEW_ID, width);
-					SigSpec sig_q = rd_data.extract(width * i, width);
-					rd_data.replace(width *i, sig_d);
-					if (en != State::S1)
-						sig_d = module->Mux(NEW_ID, sig_q, sig_d, en);
-					c = module->addDff(NEW_ID, clk, sig_d, sig_q, clk_polarity);
+					bool clk_polarity = cell->getParam("\\RD_CLK_POLARITY")[i] == State::S1;
+					bool transparent = cell->getParam("\\RD_TRANSPARENT")[i] == State::S1;
+
+					SigSpec clk = cell->getPort("\\RD_CLK")[i] ;
+					SigSpec en = cell->getPort("\\RD_EN")[i];
+					Cell *c;
+
+					if (transparent)
+					{
+						SigSpec sig_q = module->addWire(NEW_ID, abits);
+						SigSpec sig_d = rd_addr.extract(abits * i, abits);
+						rd_addr.replace(abits * i, sig_q);
+						if (en != State::S1)
+							sig_d = module->Mux(NEW_ID, sig_q, sig_d, en);
+						c = module->addDff(NEW_ID, clk, sig_d, sig_q, clk_polarity);
+					}
+					else
+					{
+						SigSpec sig_d = module->addWire(NEW_ID, width);
+						SigSpec sig_q = rd_data.extract(width * i, width);
+						rd_data.replace(width *i, sig_d);
+						if (en != State::S1)
+							sig_d = module->Mux(NEW_ID, sig_q, sig_d, en);
+						c = module->addDff(NEW_ID, clk, sig_d, sig_q, clk_polarity);
+					}
+
+					log("Extracted %s FF from read port %d of %s.%s: %s\n", transparent ? "addr" : "data",
+							i, log_id(module), log_id(cell), log_id(c));
 				}
 
-				log("Extracted %s FF from read port %d of %s.%s: %s\n", transparent ? "addr" : "data",
-						i, log_id(module), log_id(cell), log_id(c));
+				rd_en[i] = State::S1;
+				rd_clk[i] = State::S0;
 				rd_clk_enable[i] = State::S0;
+				rd_clk_polarity[i] = State::S1;
 			}
 
 			cell->setPort("\\RD_ADDR", rd_addr);
 			cell->setPort("\\RD_DATA", rd_data);
+			cell->setPort("\\RD_CLK", rd_clk);
+			cell->setPort("\\RD_EN", rd_en);
 			cell->setParam("\\RD_CLK_ENABLE", rd_clk_enable);
+			cell->setParam("\\RD_CLK_POLARITY", rd_clk_polarity);
 		}
 	}
 } MemoryNordffPass;
