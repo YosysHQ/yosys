@@ -258,7 +258,7 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 			if (mod->wires_.count(portname) == 0)
 				log_error("Array cell `%s.%s' connects to unknown port `%s'.\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(conn.first));
 			int port_size = mod->wires_.at(portname)->width;
-			if (conn_size == port_size)
+			if (conn_size == port_size || conn_size == 0)
 				continue;
 			if (conn_size != port_size*num)
 				log_error("Array cell `%s.%s' has invalid port vs. signal size for port `%s'.\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(conn.first));
