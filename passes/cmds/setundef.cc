@@ -23,6 +23,13 @@
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
 
+#define MODE_ZERO     0
+#define MODE_ONE      1
+#define MODE_UNDEF    2
+#define MODE_RANDOM   3
+#define MODE_ANYSEQ   4
+#define MODE_ANYCONST 5
+
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
@@ -34,30 +41,32 @@ struct SetundefWorker
 
 	RTLIL::State next_bit()
 	{
-		if (next_bit_mode == 0)
+		if (next_bit_mode == MODE_ZERO)
 			return RTLIL::State::S0;
 
-		if (next_bit_mode == 1)
+		if (next_bit_mode == MODE_ONE)
 			return RTLIL::State::S1;
 
-		if (next_bit_mode == 2)
-			log_abort();
-
-		if (next_bit_mode == 4)
+		if (next_bit_mode == MODE_UNDEF)
 			return RTLIL::State::Sx;
 
-		// xorshift32
-		next_bit_state ^= next_bit_state << 13;
-		next_bit_state ^= next_bit_state >> 17;
-		next_bit_state ^= next_bit_state << 5;
-		log_assert(next_bit_state != 0);
+		if (next_bit_mode == MODE_RANDOM)
+		{
+			// xorshift32
+			next_bit_state ^= next_bit_state << 13;
+			next_bit_state ^= next_bit_state >> 17;
+			next_bit_state ^= next_bit_state << 5;
+			log_assert(next_bit_state != 0);
 
-		return ((next_bit_state >> (next_bit_state & 15)) & 16) ? RTLIL::State::S0 : RTLIL::State::S1;
+			return ((next_bit_state >> (next_bit_state & 15)) & 16) ? RTLIL::State::S0 : RTLIL::State::S1;
+		}
+
+		log_abort();
 	}
 
 	void operator()(RTLIL::SigSpec &sig)
 	{
-		if (next_bit_mode == 2) {
+		if (next_bit_mode == MODE_ANYSEQ || next_bit_mode == MODE_ANYCONST) {
 			siglist.push_back(&sig);
 			return;
 		}
@@ -93,6 +102,9 @@ struct SetundefPass : public Pass {
 		log("    -anyseq\n");
 		log("        replace with $anyseq drivers (for formal)\n");
 		log("\n");
+		log("    -anyconst\n");
+		log("        replace with $anyconst drivers (for formal)\n");
+		log("\n");
 		log("    -random <seed>\n");
 		log("        replace with random bits using the specified integer als seed\n");
 		log("        value for the random number generator.\n");
@@ -119,25 +131,31 @@ struct SetundefPass : public Pass {
 			}
 			if (args[argidx] == "-zero") {
 				got_value = true;
-				worker.next_bit_mode = 0;
+				worker.next_bit_mode = MODE_ZERO;
 				worker.next_bit_state = 0;
 				continue;
 			}
 			if (args[argidx] == "-one") {
 				got_value = true;
-				worker.next_bit_mode = 1;
+				worker.next_bit_mode = MODE_ONE;
 				worker.next_bit_state = 0;
 				continue;
 			}
 			if (args[argidx] == "-anyseq") {
 				got_value = true;
-				worker.next_bit_mode = 2;
+				worker.next_bit_mode = MODE_ANYSEQ;
+				worker.next_bit_state = 0;
+				continue;
+			}
+			if (args[argidx] == "-anyconst") {
+				got_value = true;
+				worker.next_bit_mode = MODE_ANYCONST;
 				worker.next_bit_state = 0;
 				continue;
 			}
 			if (args[argidx] == "-undef") {
 				got_value = true;
-				worker.next_bit_mode = 4;
+				worker.next_bit_mode = MODE_UNDEF;
 				worker.next_bit_state = 0;
 				continue;
 			}
@@ -147,7 +165,7 @@ struct SetundefPass : public Pass {
 			}
 			if (args[argidx] == "-random" && !got_value && argidx+1 < args.size()) {
 				got_value = true;
-				worker.next_bit_mode = 3;
+				worker.next_bit_mode = MODE_RANDOM;
 				worker.next_bit_state = atoi(args[++argidx].c_str()) + 1;
 				for (int i = 0; i < 10; i++)
 					worker.next_bit();
@@ -274,7 +292,7 @@ struct SetundefPass : public Pass {
 
 			module->rewrite_sigspecs(worker);
 
-			if (worker.next_bit_mode == 2)
+			if (worker.next_bit_mode == MODE_ANYSEQ || worker.next_bit_mode == MODE_ANYCONST)
 			{
 				vector<SigSpec*> siglist;
 				siglist.swap(worker.siglist);
@@ -291,7 +309,10 @@ struct SetundefPass : public Pass {
 							width++;
 
 						if (width > 0) {
-							sig.replace(cursor, module->Anyseq(NEW_ID, width));
+							if (worker.next_bit_mode == MODE_ANYSEQ)
+								sig.replace(cursor, module->Anyseq(NEW_ID, width));
+							else
+								sig.replace(cursor, module->Anyconst(NEW_ID, width));
 							cursor += width;
 						} else {
 							cursor++;
