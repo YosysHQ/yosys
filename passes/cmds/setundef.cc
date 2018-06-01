@@ -176,7 +176,10 @@ struct SetundefPass : public Pass {
 		extra_args(args, argidx, design);
 
 		if (!got_value)
-			log_cmd_error("One of the options -zero, -one, -anyseq, or -random <seed> must be specified.\n");
+			log_cmd_error("One of the options -zero, -one, -anyseq, -anyconst, or -random <seed> must be specified.\n");
+
+		if (init_mode && (worker.next_bit_mode == MODE_ANYSEQ || worker.next_bit_mode == MODE_ANYCONST))
+			log_cmd_error("The options -init and -anyseq / -anyconst are exclusive.\n");
 
 		for (auto module : design->selected_modules())
 		{
@@ -204,8 +207,13 @@ struct SetundefPass : public Pass {
 				RTLIL::SigSpec sig = undriven_signals.export_all();
 				for (auto &c : sig.chunks()) {
 					RTLIL::SigSpec bits;
-					for (int i = 0; i < c.width; i++)
-						bits.append(worker.next_bit());
+					if (worker.next_bit_mode == MODE_ANYSEQ)
+						bits = module->Anyseq(NEW_ID, c.width);
+					else if (worker.next_bit_mode == MODE_ANYCONST)
+						bits = module->Anyconst(NEW_ID, c.width);
+					else
+						for (int i = 0; i < c.width; i++)
+							bits.append(worker.next_bit());
 					module->connect(RTLIL::SigSig(c, bits));
 				}
 			}
