@@ -40,6 +40,7 @@ struct VerificClocking {
 	SigBit enable_sig = State::S1;
 	SigBit disable_sig = State::S0;
 	bool posedge = true;
+	bool gclk = false;
 
 	VerificClocking() { }
 	VerificClocking(VerificImporter *importer, Verific::Net *net, bool sva_at_only = false);

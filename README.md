@@ -418,7 +418,9 @@ Non-standard or SystemVerilog features for formal verification
   supported in any clocked block.
 
 - The syntax ``@($global_clock)`` can be used to create FFs that have no
-  explicit clock input ($ff cells).
+  explicit clock input ($ff cells). The same can be achieved by using
+  ``@(posedge <netname>)`` or ``@(negedge <netname>)`` when ``<netname>``
+  is marked with the ``(* gclk *)`` Verilog attribute.
 
 
 Supported features from SystemVerilog

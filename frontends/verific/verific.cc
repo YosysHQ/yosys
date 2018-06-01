@@ -1470,6 +1470,10 @@ VerificClocking::VerificClocking(VerificImporter *importer, Net *net, bool sva_a
 
 	clock_net = net;
 	clock_sig = importer->net_map_at(clock_net);
+
+	const char *gclk_attr = clock_net->GetAttValue("gclk");
+	if (gclk_attr != nullptr && (!strcmp(gclk_attr, "1") || !strcmp(gclk_attr, "'1'")))
+		gclk = true;
 }
 
 Cell *VerificClocking::addDff(IdString name, SigSpec sig_d, SigSpec sig_q, Const init_value)
@@ -1492,15 +1496,20 @@ Cell *VerificClocking::addDff(IdString name, SigSpec sig_d, SigSpec sig_q, Const
 		sig_d = module->Mux(NEW_ID, sig_q, sig_d, enable_sig);
 
 	if (disable_sig != State::S0) {
+		log_assert(gclk == false);
 		log_assert(GetSize(sig_q) == GetSize(init_value));
 		return module->addAdff(name, clock_sig, disable_sig, sig_d, sig_q, init_value, posedge);
 	}
+
+	if (gclk)
+		return module->addFf(name, sig_d, sig_q);
 
 	return module->addDff(name, clock_sig, sig_d, sig_q, posedge);
 }
 
 Cell *VerificClocking::addAdff(IdString name, RTLIL::SigSpec sig_arst, SigSpec sig_d, SigSpec sig_q, Const arst_value)
 {
+	log_assert(gclk == false);
 	log_assert(disable_sig == State::S0);
 
 	if (enable_sig != State::S1)
@@ -1511,6 +1520,7 @@ Cell *VerificClocking::addAdff(IdString name, RTLIL::SigSpec sig_arst, SigSpec s
 
 Cell *VerificClocking::addDffsr(IdString name, RTLIL::SigSpec sig_set, RTLIL::SigSpec sig_clr, SigSpec sig_d, SigSpec sig_q)
 {
+	log_assert(gclk == false);
 	log_assert(disable_sig == State::S0);
 
 	if (enable_sig != State::S1)
