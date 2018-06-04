@@ -121,6 +121,7 @@ static void free_attr(std::map<std::string, AstNode*> *al)
 
 %type <ast> range range_or_multirange  non_opt_range non_opt_multirange range_or_signed_int
 %type <ast> wire_type expr basic_expr concat_list rvalue lvalue lvalue_concat_list
+%type <ast> named_port
 %type <string> opt_label tok_prim_wrapper hierarchical_id
 %type <boolean> opt_signed unique_case_attr
 %type <al> attr case_attr
@@ -992,7 +993,8 @@ wire_name:
 		append_attr_clone(node, albuf);
 		if (astbuf2 != NULL)
 			node->children.push_back(astbuf2->clone());
-		if ($2 != NULL) {
+		if ($2) {
+			// memory
 			if (node->is_input || node->is_output)
 				frontend_verilog_yyerror("Syntax error.");
 			if (!astbuf2) {
@@ -1002,7 +1004,13 @@ wire_name:
 				node->children.push_back(rng);
 			}
 			node->type = AST_MEMORY;
-			node->children.push_back($2);
+			auto *rangeNode = $2;
+			if (rangeNode->type == AST_RANGE && rangeNode->children.size() == 1) {
+				// SV array size [n], rewrite as [n-1:0]
+				rangeNode->children[0] = new AstNode(AST_SUB, rangeNode->children[0], AstNode::mkconst_int(1, true));
+				rangeNode->children.push_back(AstNode::mkconst_int(0, false));
+			}
+			node->children.push_back(rangeNode);
 		}
 		if (current_function_or_task == NULL) {
 			if (do_not_require_port_stubs && (node->is_input || node->is_output) && port_stubs.count(*$1) == 0) {
@@ -1151,25 +1159,31 @@ cell_port:
 	/* empty */ {
 		AstNode *node = new AstNode(AST_ARGUMENT);
 		astbuf2->children.push_back(node);
-	} |
-	expr {
+	}
+	| expr {
+		// ordered list arg
 		AstNode *node = new AstNode(AST_ARGUMENT);
 		astbuf2->children.push_back(node);
 		node->children.push_back($1);
-	} |
-	'.' TOK_ID '(' expr ')' {
-		AstNode *node = new AstNode(AST_ARGUMENT);
-		node->str = *$2;
-		astbuf2->children.push_back(node);
-		node->children.push_back($4);
-		delete $2;
-	} |
-	'.' TOK_ID '(' ')' {
-		AstNode *node = new AstNode(AST_ARGUMENT);
-		node->str = *$2;
-		astbuf2->children.push_back(node);
-		delete $2;
+	}
+	| named_port '(' ')'	// not connected
+	| named_port '(' expr ')' { ($1)->children.push_back($3); }
+	| named_port {
+		// SV implied port. Fake as .x(x)
+		auto id_node = new AstNode(AST_IDENTIFIER);
+		id_node->str = ($1)->str;
+		($1)->children.push_back(id_node);
 	};
+
+named_port:
+	'.' TOK_ID {
+		AstNode *node = new AstNode(AST_ARGUMENT);
+		node->str = *$2;
+		delete $2;
+		astbuf2->children.push_back(node);
+		$$ = node;
+	};
+
 
 always_stmt:
 	attr TOK_ALWAYS {

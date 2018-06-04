@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 libs=""
 genvcd=false
@@ -67,6 +67,10 @@ done
 
 compile_and_run() {
 	exe="$1"; output="$2"; shift 2
+	ext=${1##*.}
+	if [ "$ext" == sv ]; then
+		svmode=-g2012
+	fi
 	if $use_modelsim; then
 		altver=$( ls -v /opt/altera/ | grep '^[0-9]' | tail -n1; )
 		/opt/altera/$altver/modelsim_ase/bin/vlib work
@@ -77,7 +81,7 @@ compile_and_run() {
 		/opt/Xilinx/Vivado/$xilver/bin/xvlog $xinclude_opts -d outfile=\"$output\" "$@"
 		/opt/Xilinx/Vivado/$xilver/bin/xelab -R work.testbench
 	else
-		iverilog $include_opts -Doutfile=\"$output\" -s testbench -o "$exe" "$@"
+		iverilog $svmode $include_opts -Doutfile=\"$output\" -s testbench -o "$exe" "$@"
 		vvp -n "$exe"
 	fi
 }
@@ -86,7 +90,8 @@ shift $((OPTIND - 1))
 
 for fn
 do
-	bn=${fn%.v}
+	ext=${fn##*.}
+	bn=${fn%.$ext}
 	if [ "$bn" == "$fn" ]; then
 		echo "Invalid argument: $fn" >&2
 		exit 1
@@ -100,6 +105,12 @@ do
 		echo -n "Test: $bn "
 	fi
 
+	if [ "$ext" == sv ]; then
+		sv="-sv"
+	else
+		sv=""
+	fi
+
 	rm -f ${bn}.{err,log,sikp}
 	mkdir -p ${bn}.out
 	rm -rf ${bn}.out/*
@@ -108,23 +119,26 @@ do
 		cd ${bn}.out
 		fn=$(basename $fn)
 		bn=$(basename $bn)
+		ref=${bn}_ref.$ext
+		tb=${bn}_tb.$ext
+		fe="$frontend $sv $include_opts"
 
-		egrep -v '^\s*`timescale' ../$fn > ${bn}_ref.v
+		egrep -v '^\s*`timescale' ../$fn > $ref
 
-		if [ ! -f ../${bn}_tb.v ]; then
-			"$toolsdir"/../../yosys -f "$frontend $include_opts" -b "test_autotb $autotb_opts" -o ${bn}_tb.v ${bn}_ref.v
+		if [ ! -f ../$tb ]; then
+			"$toolsdir"/../../yosys -f "$fe" -b "test_autotb $autotb_opts" -o $tb $ref
 		else
-			cp ../${bn}_tb.v ${bn}_tb.v
+			cp ../$tb $tb
 		fi
-		if $genvcd; then sed -i 's,// \$dump,$dump,g' ${bn}_tb.v; fi
-		compile_and_run ${bn}_tb_ref ${bn}_out_ref ${bn}_tb.v ${bn}_ref.v $libs
+		if $genvcd; then sed -i 's,// \$dump,$dump,g' $tb; fi
+		compile_and_run ${bn}_tb_ref ${bn}_out_ref $tb $ref $libs
 		if $genvcd; then mv testbench.vcd ${bn}_ref.vcd; fi
 
 		test_count=0
 		test_passes() {
-			"$toolsdir"/../../yosys -b "verilog $backend_opts" -o ${bn}_syn${test_count}.v "$@"
+			"$toolsdir"/../../yosys -b "verilog $backend_opts" -o ${bn}_syn${test_count}.$ext "$@"
 			compile_and_run ${bn}_tb_syn${test_count} ${bn}_out_syn${test_count} \
-					${bn}_tb.v ${bn}_syn${test_count}.v $libs \
+					$tb ${bn}_syn${test_count}.$ext $libs \
 					"$toolsdir"/../../techlibs/common/simlib.v \
 					"$toolsdir"/../../techlibs/common/simcells.v
 			if $genvcd; then mv testbench.vcd ${bn}_syn${test_count}.vcd; fi
@@ -132,22 +146,22 @@ do
 			test_count=$(( test_count + 1 ))
 		}
 
-		if [ "$frontend" = "verific" -o "$frontend" = "verific_gates" ] && grep -q VERIFIC-SKIP ${bn}_ref.v; then
+		if [ "$frontend" = "verific" -o "$frontend" = "verific_gates" ] && grep -q VERIFIC-SKIP $ref; then
 			touch ../${bn}.skip
 			return
 		fi
 
 		if [ -n "$scriptfiles" ]; then
-			test_passes -f "$frontend $include_opts" ${bn}_ref.v $scriptfiles
+			test_passes -f "$fe" $ref $scriptfiles
 		elif [ -n "$scriptopt" ]; then
-			test_passes -f "$frontend $include_opts" -p "$scriptopt" ${bn}_ref.v
+			test_passes -f "$fe" -p "$scriptopt" $ref
 		elif [ "$frontend" = "verific" ]; then
-			test_passes -p "verific -vlog2k ${bn}_ref.v; verific -import -all; opt; memory;;"
+			test_passes -p "verific -vlog2k $ref; verific -import -all; opt; memory;;"
 		elif [ "$frontend" = "verific_gates" ]; then
-			test_passes -p "verific -vlog2k ${bn}_ref.v; verific -import -gates -all; opt; memory;;"
+			test_passes -p "verific -vlog2k $ref; verific -import -gates -all; opt; memory;;"
 		else
-			test_passes -f "$frontend $include_opts" -p "hierarchy; proc; opt; memory; opt; fsm; opt -full -fine" ${bn}_ref.v
-			test_passes -f "$frontend $include_opts" -p "hierarchy; synth -run coarse; techmap; opt; abc -dff" ${bn}_ref.v
+			test_passes -f "$fe" -p "hierarchy; proc; opt; memory; opt; fsm; opt -full -fine" $ref
+			test_passes -f "$fe" -p "hierarchy; synth -run coarse; techmap; opt; abc -dff" $ref
 		fi
 		touch ../${bn}.log
 	}
