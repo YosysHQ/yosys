@@ -100,7 +100,7 @@ do
 		echo -n "Test: $bn "
 	fi
 
-	rm -f ${bn}.{err,log,sikp}
+	rm -f ${bn}.{err,log,skip}
 	mkdir -p ${bn}.out
 	rm -rf ${bn}.out/*
 
