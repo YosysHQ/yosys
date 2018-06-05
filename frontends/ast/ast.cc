@@ -194,6 +194,7 @@ AstNode::AstNode(AstNodeType type, AstNode *child1, AstNode *child2, AstNode *ch
 	is_logic = false;
 	is_signed = false;
 	is_string = false;
+	was_checked = false;
 	range_valid = false;
 	range_swapped = false;
 	port_id = 0;

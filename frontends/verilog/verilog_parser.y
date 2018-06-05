@@ -548,6 +548,7 @@ task_func_decl:
 		AstNode *outreg = new AstNode(AST_WIRE);
 		outreg->str = *$6;
 		outreg->is_signed = $4;
+		outreg->is_reg = true;
 		if ($5 != NULL) {
 			outreg->children.push_back($5);
 			outreg->is_signed = $4 || $5->is_signed;
