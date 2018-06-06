@@ -376,9 +376,10 @@ wire_type:
 	};
 
 wire_type_token_list:
-	wire_type_token | wire_type_token_list wire_type_token;
+	wire_type_token | wire_type_token_list wire_type_token |
+	wire_type_token_io ;
 
-wire_type_token:
+wire_type_token_io:
 	TOK_INPUT {
 		astbuf3->is_input = true;
 	} |
@@ -388,7 +389,9 @@ wire_type_token:
 	TOK_INOUT {
 		astbuf3->is_input = true;
 		astbuf3->is_output = true;
-	} |
+	};
+
+wire_type_token:
 	TOK_WIRE {
 	} |
 	TOK_REG {
