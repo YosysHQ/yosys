@@ -33,6 +33,7 @@ struct rules_t
 		bool effective_clkpol;
 		bool make_transp;
 		bool make_outreg;
+		bool force_single_port;
 		int mapped_port;
 	};
 
@@ -87,6 +88,7 @@ struct rules_t
 				pi.mapped_port = -1;
 				pi.make_transp = false;
 				pi.make_outreg = false;
+				pi.force_single_port = false;
 				pi.effective_clkpol = false;
 				portinfos.push_back(pi);
 			}
@@ -128,7 +130,7 @@ struct rules_t
 	struct match_t {
 		IdString name;
 		dict<string, int> min_limits, max_limits;
-		bool or_next_if_better, make_transp, make_outreg;
+		bool or_next_if_better, make_transp, make_outreg, force_single_port;
 		char shuffle_enable;
 	};
 
@@ -280,6 +282,7 @@ struct rules_t
 		data.or_next_if_better = false;
 		data.make_transp = false;
 		data.make_outreg = false;
+		data.force_single_port = false;
 		data.shuffle_enable = 0;
 
 		while (next_line())
@@ -315,6 +318,11 @@ struct rules_t
 			if (GetSize(tokens) == 1 && tokens[0] == "make_outreg") {
 				data.make_transp = true;
 				data.make_outreg = true;
+				continue;
+			}
+
+			if (GetSize(tokens) == 1 && tokens[0] == "force_single_port") {
+				data.force_single_port = true;
 				continue;
 			}
 
@@ -433,6 +441,8 @@ bool replace_cell(Cell *cell, const rules_t &rules, const rules_t::bram_t &bram,
 	SigSpec rd_clk = cell->getPort("\\RD_CLK");
 	SigSpec rd_data = cell->getPort("\\RD_DATA");
 	SigSpec rd_addr = cell->getPort("\\RD_ADDR");
+
+	bool same_wr_rd_addr = (rd_addr == wr_addr) ? true : false;
 
 	if (match.shuffle_enable && bram.dbits >= portinfos.at(match.shuffle_enable - 'A').enable*2 && portinfos.at(match.shuffle_enable - 'A').enable > 0 && wr_ports > 0)
 	{
@@ -671,6 +681,8 @@ grow_read_ports:;
 		{
 			auto &pi = portinfos[bram_port_i];
 
+			pi.force_single_port = match.force_single_port;
+
 			if (pi.wrmode != 0 || pi.mapped_port >= 0)
 		skip_bram_rport:
 				continue;
@@ -879,10 +891,17 @@ grow_read_ports:;
 
 				SigSpec sig_addr = pi.sig_addr;
 				sig_addr.extend_u0(bram.abits);
-				c->setPort(stringf("\\%sADDR", pf), sig_addr);
 
-				if (pi.wrmode == 1 && enable_make_transp && grid_a == 0)
-					module->connect(mktr_wraddr, sig_addr);
+				if (pi.group > 0 && pi.force_single_port && same_wr_rd_addr) {
+					// skip connection of B*ADDR if match rule contains 'force_single_port'
+					// and read and write addrs match.
+				}
+				else {
+					c->setPort(stringf("\\%sADDR", pf), sig_addr);
+
+					if (pi.wrmode == 1 && enable_make_transp && grid_a == 0)
+						module->connect(mktr_wraddr, sig_addr);
+				}
 
 				SigSpec sig_data = pi.sig_data;
 				sig_data.extend_u0((grid_d+1) * bram.dbits);
