@@ -15,6 +15,7 @@ ENABLE_EDITLINE := 0
 ENABLE_VERIFIC := 0
 ENABLE_COVER := 1
 ENABLE_LIBYOSYS := 0
+ENABLE_PROTOBUF := 0
 
 # other configuration flags
 ENABLE_GPROF := 0
@@ -323,6 +324,10 @@ VERIFIC_DIR ?= /usr/local/src/verific_lib_eval
 VERIFIC_COMPONENTS ?= verilog vhdl database util containers sdf hier_tree
 CXXFLAGS += $(patsubst %,-I$(VERIFIC_DIR)/%,$(VERIFIC_COMPONENTS)) -DYOSYS_ENABLE_VERIFIC
 LDLIBS += $(patsubst %,$(VERIFIC_DIR)/%/*-linux.a,$(VERIFIC_COMPONENTS)) -lz
+endif
+
+ifeq ($(ENABLE_PROTOBUF),1)
+LDLIBS += $(shell pkg-config --cflags --libs protobuf)
 endif
 
 ifeq ($(ENABLE_COVER),1)
