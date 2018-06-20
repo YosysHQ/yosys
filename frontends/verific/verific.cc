@@ -62,6 +62,7 @@ using namespace Verific;
 YOSYS_NAMESPACE_BEGIN
 
 int verific_verbose;
+bool verific_import_pending;
 string verific_error_msg;
 
 void msg_func(msg_type_t msg_type, const char *message_id, linefile_type linefile, const char *msg, va_list args)
@@ -1613,6 +1614,52 @@ struct VerificExtNets
 	}
 };
 
+void verific_import(Design *design, std::string top)
+{
+	std::set<Netlist*> nl_todo, nl_done;
+
+	{
+		VhdlLibrary *vhdl_lib = vhdl_file::GetLibrary("work", 1);
+		VeriLibrary *veri_lib = veri_file::GetLibrary("work", 1);
+
+		Array veri_libs, vhdl_libs;
+		if (vhdl_lib) vhdl_libs.InsertLast(vhdl_lib);
+		if (veri_lib) veri_libs.InsertLast(veri_lib);
+
+		Array *netlists = hier_tree::ElaborateAll(&veri_libs, &vhdl_libs);
+		Netlist *nl;
+		int i;
+
+		FOREACH_ARRAY_ITEM(netlists, i, nl) {
+			if (top.empty() || nl->Owner()->Name() == top)
+				nl_todo.insert(nl);
+		}
+
+		delete netlists;
+	}
+
+	if (!verific_error_msg.empty())
+		log_error("%s\n", verific_error_msg.c_str());
+
+	while (!nl_todo.empty()) {
+		Netlist *nl = *nl_todo.begin();
+		if (nl_done.count(nl) == 0) {
+			VerificImporter importer(false, false, false, false, false, false);
+			importer.import_netlist(design, nl, nl_todo);
+		}
+		nl_todo.erase(nl);
+		nl_done.insert(nl);
+	}
+
+	veri_file::Reset();
+	vhdl_file::Reset();
+	Libset::Reset();
+	verific_import_pending = false;
+
+	if (!verific_error_msg.empty())
+		log_error("%s\n", verific_error_msg.c_str());
+}
+
 YOSYS_NAMESPACE_END
 #endif /* YOSYS_ENABLE_VERIFIC */
 
@@ -1789,6 +1836,7 @@ struct VerificPass : public Pass {
 			if (!veri_file::AnalyzeMultipleFiles(&file_names, verilog_mode, "work", veri_file::MFCU))
 					log_cmd_error("Reading Verilog/SystemVerilog sources failed.\n");
 
+			verific_import_pending = true;
 			goto check_error;
 		}
 
@@ -1797,6 +1845,7 @@ struct VerificPass : public Pass {
 			for (argidx++; argidx < GetSize(args); argidx++)
 				if (!vhdl_file::Analyze(args[argidx].c_str(), "work", vhdl_file::VHDL_87))
 					log_cmd_error("Reading `%s' in VHDL_87 mode failed.\n", args[argidx].c_str());
+			verific_import_pending = true;
 			goto check_error;
 		}
 
@@ -1805,6 +1854,7 @@ struct VerificPass : public Pass {
 			for (argidx++; argidx < GetSize(args); argidx++)
 				if (!vhdl_file::Analyze(args[argidx].c_str(), "work", vhdl_file::VHDL_93))
 					log_cmd_error("Reading `%s' in VHDL_93 mode failed.\n", args[argidx].c_str());
+			verific_import_pending = true;
 			goto check_error;
 		}
 
@@ -1813,6 +1863,7 @@ struct VerificPass : public Pass {
 			for (argidx++; argidx < GetSize(args); argidx++)
 				if (!vhdl_file::Analyze(args[argidx].c_str(), "work", vhdl_file::VHDL_2K))
 					log_cmd_error("Reading `%s' in VHDL_2K mode failed.\n", args[argidx].c_str());
+			verific_import_pending = true;
 			goto check_error;
 		}
 
@@ -1821,6 +1872,7 @@ struct VerificPass : public Pass {
 			for (argidx++; argidx < GetSize(args); argidx++)
 				if (!vhdl_file::Analyze(args[argidx].c_str(), "work", vhdl_file::VHDL_2008))
 					log_cmd_error("Reading `%s' in VHDL_2008 mode failed.\n", args[argidx].c_str());
+			verific_import_pending = true;
 			goto check_error;
 		}
 
@@ -2031,6 +2083,7 @@ struct VerificPass : public Pass {
 			veri_file::Reset();
 			vhdl_file::Reset();
 			Libset::Reset();
+			verific_import_pending = false;
 			goto check_error;
 		}
 
