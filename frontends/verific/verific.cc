@@ -1641,6 +1641,10 @@ void verific_import(Design *design, std::string top)
 	if (!verific_error_msg.empty())
 		log_error("%s\n", verific_error_msg.c_str());
 
+	VerificExtNets worker;
+	for (auto nl : nl_todo)
+		worker.run(nl);
+
 	while (!nl_todo.empty()) {
 		Netlist *nl = *nl_todo.begin();
 		if (nl_done.count(nl) == 0) {
@@ -2100,6 +2104,86 @@ struct VerificPass : public Pass {
 	}
 #endif
 } VerificPass;
+
+struct ReadPass : public Pass {
+	ReadPass() : Pass("read", "load HDL designs") { }
+	virtual void help()
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    read {-vlog95|-vlog2k|-sv2005|-sv2009|-sv2012|-sv} <verilog-file>..\n");
+		log("\n");
+		log("Load the specified Verilog/SystemVerilog files. (Full SystemVerilog support\n");
+		log("is only available via Verific.)\n");
+		log("\n");
+		log("\n");
+		log("    read {-vhdl87|-vhdl93|-vhdl2k|-vhdl2008|-vhdl} <vhdl-file>..\n");
+		log("\n");
+		log("Load the specified VHDL files. (Requires Verific.)\n");
+		log("\n");
+		log("\n");
+		log("    read -define <macro>[=<value>]..\n");
+		log("\n");
+		log("Set global Verilog/SystemVerilog defines.\n");
+		log("\n");
+	}
+	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	{
+		if (args.size() < 2)
+			log_cmd_error("Missing mode parameter.\n");
+
+		if (args.size() < 3)
+			log_cmd_error("Missing file name parameter.\n");
+
+		if (args[1] == "-vlog95" || args[1] == "-vlog2k") {
+#ifdef YOSYS_ENABLE_VERIFIC
+			args[0] = "verific";
+#else
+			args[0] = "read_verilog";
+			args.erase(args.begin()+1, args.begin()+2);
+#endif
+			Pass::call(design, args);
+			return;
+		}
+
+		if (args[1] == "-sv2005" || args[1] == "-sv2009" || args[1] == "-sv2012" || args[1] == "-sv") {
+#ifdef YOSYS_ENABLE_VERIFIC
+			args[0] = "verific";
+#else
+			args[0] = "read_verilog";
+			args[1] = "-sv";
+#endif
+			Pass::call(design, args);
+			return;
+		}
+
+		if (args[1] == "-vhdl87" || args[1] == "-vhdl93" || args[1] == "-vhdl2k" || args[1] == "-vhdl2008" || args[1] == "-vhdl") {
+#ifdef YOSYS_ENABLE_VERIFIC
+			args[0] = "verific";
+#else
+			log_cmd_error("This version of Yosys is built without Verific support.\n");
+#endif
+			Pass::call(design, args);
+			return;
+		}
+
+		if (args[1] == "-define") {
+#ifdef YOSYS_ENABLE_VERIFIC
+			args[0] = "verific";
+			args[1] = "-vlog-define";
+			Pass::call(design, args);
+#endif
+			args[0] = "verilog_defines";
+			args.erase(args.begin()+1, args.begin()+2);
+			for (int i = 1; i < GetSize(args); i++)
+				args[i] = "-D" + args[i];
+			Pass::call(design, args);
+			return;
+		}
+
+		log_cmd_error("Missing or unsupported mode parameter.\n");
+	}
+} ReadPass;
 
 PRIVATE_NAMESPACE_END
 
