@@ -1669,6 +1669,16 @@ YOSYS_NAMESPACE_END
 
 PRIVATE_NAMESPACE_BEGIN
 
+bool check_noverific_env()
+{
+	const char *e = getenv("YOSYS_NOVERIFIC");
+	if (e == nullptr)
+		return false;
+	if (atoi(e) == 0)
+		return false;
+	return true;
+}
+
 struct VerificPass : public Pass {
 	VerificPass() : Pass("verific", "load Verilog and VHDL designs using Verific") { }
 	virtual void help()
@@ -1759,6 +1769,9 @@ struct VerificPass : public Pass {
 #ifdef YOSYS_ENABLE_VERIFIC
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
+		if (check_noverific_env())
+			log_cmd_error("This version of Yosys is built without Verific support.\n");
+
 		log_header(design, "Executing VERIFIC (loading SystemVerilog and VHDL designs using Verific).\n");
 
 		Message::SetConsoleOutput(0);
@@ -2135,44 +2148,50 @@ struct ReadPass : public Pass {
 		if (args.size() < 3)
 			log_cmd_error("Missing file name parameter.\n");
 
-		if (args[1] == "-vlog95" || args[1] == "-vlog2k") {
 #ifdef YOSYS_ENABLE_VERIFIC
-			args[0] = "verific";
+		bool use_verific = !check_noverific_env();
 #else
-			args[0] = "read_verilog";
-			args.erase(args.begin()+1, args.begin()+2);
+		bool use_verific = false;
 #endif
+
+		if (args[1] == "-vlog95" || args[1] == "-vlog2k") {
+			if (use_verific) {
+				args[0] = "verific";
+			} else {
+				args[0] = "read_verilog";
+				args.erase(args.begin()+1, args.begin()+2);
+			}
 			Pass::call(design, args);
 			return;
 		}
 
 		if (args[1] == "-sv2005" || args[1] == "-sv2009" || args[1] == "-sv2012" || args[1] == "-sv") {
-#ifdef YOSYS_ENABLE_VERIFIC
-			args[0] = "verific";
-#else
-			args[0] = "read_verilog";
-			args[1] = "-sv";
-#endif
+			if (use_verific) {
+				args[0] = "verific";
+			} else {
+				args[0] = "read_verilog";
+				args[1] = "-sv";
+			}
 			Pass::call(design, args);
 			return;
 		}
 
 		if (args[1] == "-vhdl87" || args[1] == "-vhdl93" || args[1] == "-vhdl2k" || args[1] == "-vhdl2008" || args[1] == "-vhdl") {
-#ifdef YOSYS_ENABLE_VERIFIC
-			args[0] = "verific";
-#else
-			log_cmd_error("This version of Yosys is built without Verific support.\n");
-#endif
-			Pass::call(design, args);
+			if (use_verific) {
+				args[0] = "verific";
+				Pass::call(design, args);
+			} else {
+				log_cmd_error("This version of Yosys is built without Verific support.\n");
+			}
 			return;
 		}
 
 		if (args[1] == "-define") {
-#ifdef YOSYS_ENABLE_VERIFIC
-			args[0] = "verific";
-			args[1] = "-vlog-define";
-			Pass::call(design, args);
-#endif
+			if (use_verific) {
+				args[0] = "verific";
+				args[1] = "-vlog-define";
+				Pass::call(design, args);
+			}
 			args[0] = "verilog_defines";
 			args.erase(args.begin()+1, args.begin()+2);
 			for (int i = 1; i < GetSize(args); i++)
@@ -2186,4 +2205,3 @@ struct ReadPass : public Pass {
 } ReadPass;
 
 PRIVATE_NAMESPACE_END
-
