@@ -14,8 +14,12 @@ ENABLE_READLINE := 1
 ENABLE_EDITLINE := 0
 ENABLE_VERIFIC := 0
 ENABLE_COVER := 1
-ENABLE_LIBYOSYS := 0
+ENABLE_LIBYOSYS := 1
 ENABLE_PROTOBUF := 0
+
+# python wrappers
+ENABLE_PYTHON := 1
+PYTHON_VERSION := 3.5
 
 # other configuration flags
 ENABLE_GPROF := 0
@@ -226,6 +230,11 @@ endif
 
 ifeq ($(ENABLE_LIBYOSYS),1)
 TARGETS += libyosys.so
+endif
+
+ifeq ($(ENABLE_PYTHON),1)
+LDLIBS += -lpython$(PYTHON_VERSION)m -lboost_python-py$(subst .,,$(PYTHON_VERSION)) -lboost_system
+CXXFLAGS += -I/usr/include/python$(PYTHON_VERSION) -fPIC -D WITH_PYTHON
 endif
 
 ifeq ($(ENABLE_READLINE),1)
