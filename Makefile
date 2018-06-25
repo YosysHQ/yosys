@@ -235,6 +235,7 @@ endif
 ifeq ($(ENABLE_PYTHON),1)
 LDLIBS += -lpython$(PYTHON_VERSION)m -lboost_python-py$(subst .,,$(PYTHON_VERSION)) -lboost_system
 CXXFLAGS += -I/usr/include/python$(PYTHON_VERSION) -fPIC -D WITH_PYTHON
+OBJS += kernel/python_wrappers.o
 endif
 
 ifeq ($(ENABLE_READLINE),1)
