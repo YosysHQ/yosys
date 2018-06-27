@@ -5,6 +5,7 @@ CONFIG := clang
 # CONFIG := emcc
 # CONFIG := mxe
 # CONFIG := msys2
+# CONFIG := msys2-64
 
 # features (the more the better)
 ENABLE_TCL := 1
@@ -220,8 +221,19 @@ ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H -DWIN32_NO_DLL -DHAVE_STRUCT_TIMESPEC
 ABCMKARGS += LIBS="-lpthread -s" ABC_USE_NO_READLINE=0 CC="i686-w64-mingw32-gcc" CXX="$(CXX)"
 EXE = .exe
 
+else ifeq ($(CONFIG),msys2-64)
+CXX = x86_64-w64-mingw32-g++
+LD = x86_64-w64-mingw32-g++
+CXXFLAGS += -std=c++11 -Os -D_POSIX_SOURCE -DYOSYS_WIN32_UNIX_DIR
+CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
+LDFLAGS := $(filter-out -rdynamic,$(LDFLAGS)) -s
+LDLIBS := $(filter-out -lrt,$(LDLIBS))
+ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H -DWIN32_NO_DLL -DHAVE_STRUCT_TIMESPEC -fpermissive -w"
+ABCMKARGS += LIBS="-lpthread -s" ABC_USE_NO_READLINE=0 CC="x86_64-w64-mingw32-gcc" CXX="$(CXX)"
+EXE = .exe
+
 else ifneq ($(CONFIG),none)
-$(error Invalid CONFIG setting '$(CONFIG)'. Valid values: clang, gcc, gcc-4.8, emcc, mxe, msys2)
+$(error Invalid CONFIG setting '$(CONFIG)'. Valid values: clang, gcc, gcc-4.8, emcc, mxe, msys2, msys2-64)
 endif
 
 ifeq ($(ENABLE_LIBYOSYS),1)
@@ -675,6 +687,9 @@ config-mxe: clean
 
 config-msys2: clean
 	echo 'CONFIG := msys2' > Makefile.conf
+
+config-msys2-64: clean
+	echo 'CONFIG := msys2-64' > Makefile.conf
 
 config-gprof: clean
 	echo 'CONFIG := gcc' > Makefile.conf
