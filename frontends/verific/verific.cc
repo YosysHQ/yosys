@@ -1693,6 +1693,9 @@ struct VerificPass : public Pass {
 		log("Files passed to different calls to this command are treated as belonging to\n");
 		log("different compilation units.\n");
 		log("\n");
+		log("Additional -D<macro>[=<value>] options may be added after the option indicating\n");
+		log("the language version (and before file names) to set additional verilog defines.\n");
+		log("\n");
 		log("\n");
 		log("    verific {-vhdl87|-vhdl93|-vhdl2k|-vhdl2008|-vhdl} <vhdl-file>..\n");
 		log("\n");
@@ -1860,8 +1863,25 @@ struct VerificPass : public Pass {
 			else
 				log_abort();
 
-			for (argidx++; argidx < GetSize(args); argidx++)
-				file_names.Insert(args[argidx].c_str());
+			for (argidx++; argidx < GetSize(args) && GetSize(args[argidx]) >= 2 && args[argidx].substr(0, 2) == "-D"; argidx++) {
+				std::string name = args[argidx].substr(2);
+				if (args[argidx] == "-D") {
+					if (++argidx >= GetSize(args))
+						break;
+					name = args[argidx];
+				}
+				size_t equal = name.find('=');
+				if (equal != std::string::npos) {
+					string value = name.substr(equal+1);
+					name = name.substr(0, equal);
+					veri_file::DefineMacro(name.c_str(), value.c_str());
+				} else {
+					veri_file::DefineMacro(name.c_str());
+				}
+			}
+
+			while (argidx < GetSize(args))
+				file_names.Insert(args[argidx++].c_str());
 
 			if (!veri_file::AnalyzeMultipleFiles(&file_names, verilog_mode, "work", veri_file::MFCU))
 					log_cmd_error("Reading Verilog/SystemVerilog sources failed.\n");
@@ -2141,6 +2161,9 @@ struct ReadPass : public Pass {
 		log("\n");
 		log("Load the specified Verilog/SystemVerilog files. (Full SystemVerilog support\n");
 		log("is only available via Verific.)\n");
+		log("\n");
+		log("Additional -D<macro>[=<value>] options may be added after the option indicating\n");
+		log("the language version (and before file names) to set additional verilog defines.\n");
 		log("\n");
 		log("\n");
 		log("    read {-vhdl87|-vhdl93|-vhdl2k|-vhdl2008|-vhdl} <vhdl-file>..\n");
