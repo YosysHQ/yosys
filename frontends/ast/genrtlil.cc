@@ -1300,6 +1300,9 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			cell->parameters["\\CLK_POLARITY"] = RTLIL::Const(0);
 			cell->parameters["\\TRANSPARENT"] = RTLIL::Const(0);
 
+			if (!sign_hint)
+				is_signed = false;
+
 			return RTLIL::SigSpec(wire);
 		}
 
