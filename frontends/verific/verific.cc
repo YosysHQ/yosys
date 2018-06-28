@@ -1715,6 +1715,11 @@ struct VerificPass : public Pass {
 		log("Add Verilog defines. (The macros SYNTHESIS and VERIFIC are defined implicitly.)\n");
 		log("\n");
 		log("\n");
+		log("    verific -vlog-undef <macro>..\n");
+		log("\n");
+		log("Remove Verilog defines previously set with -vlog-define.\n");
+		log("\n");
+		log("\n");
 		log("    verific -import [options] <top-module>..\n");
 		log("\n");
 		log("Elaborate the design for the specified top modules, import to Yosys and\n");
@@ -1824,6 +1829,14 @@ struct VerificPass : public Pass {
 				} else {
 					veri_file::DefineCmdLineMacro(name.c_str());
 				}
+			}
+			goto check_error;
+		}
+
+		if (GetSize(args) > argidx && args[argidx] == "-vlog-undef") {
+			for (argidx++; argidx < GetSize(args); argidx++) {
+				string name = args[argidx];
+				veri_file::UndefineMacro(name.c_str());
 			}
 			goto check_error;
 		}
@@ -2139,6 +2152,11 @@ struct ReadPass : public Pass {
 		log("\n");
 		log("Set global Verilog/SystemVerilog defines.\n");
 		log("\n");
+		log("\n");
+		log("    read -undef <macro>..\n");
+		log("\n");
+		log("Unset global Verilog/SystemVerilog defines.\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
@@ -2196,6 +2214,20 @@ struct ReadPass : public Pass {
 			args.erase(args.begin()+1, args.begin()+2);
 			for (int i = 1; i < GetSize(args); i++)
 				args[i] = "-D" + args[i];
+			Pass::call(design, args);
+			return;
+		}
+
+		if (args[1] == "-undef") {
+			if (use_verific) {
+				args[0] = "verific";
+				args[1] = "-vlog-undef";
+				Pass::call(design, args);
+			}
+			args[0] = "verilog_defines";
+			args.erase(args.begin()+1, args.begin()+2);
+			for (int i = 1; i < GetSize(args); i++)
+				args[i] = "-U" + args[i];
 			Pass::call(design, args);
 			return;
 		}
