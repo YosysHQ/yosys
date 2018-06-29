@@ -1488,12 +1488,15 @@ struct VerificSvaImporter
 
 	bool eventually_property(Net *&net, SigBit &trig)
 	{
+		Instance *inst = net_to_ast_driver(net);
+
+		if (inst == nullptr)
+			return false;
+
 		if (clocking.cond_net != nullptr)
 			trig = importer->net_map_at(clocking.cond_net);
 		else
 			trig = State::S1;
-
-		Instance *inst = net_to_ast_driver(net);
 
 		if (inst->Type() == PRIM_SVA_S_EVENTUALLY || inst->Type() == PRIM_SVA_EVENTUALLY)
 		{
@@ -1523,7 +1526,6 @@ struct VerificSvaImporter
 
 			int node;
 
-			log_dump(trig);
 			SvaFsm antecedent_fsm(clocking, trig);
 			node = parse_sequence(antecedent_fsm, antecedent_fsm.createStartNode(), antecedent_net);
 			if (inst->Type() == PRIM_SVA_NON_OVERLAPPED_IMPLICATION) {
@@ -1540,7 +1542,6 @@ struct VerificSvaImporter
 			if (verific_verbose) {
 				log("    Eventually Antecedent FSM:\n");
 				antecedent_fsm.dump();
-				log_dump(trig);
 			}
 
 			return true;
@@ -1689,8 +1690,6 @@ struct VerificSvaImporter
 				{
 					SigBit sig_a, sig_en = trig;
 					parse_property(net, &sig_a, nullptr);
-
-					log_dump(trig, sig_a, sig_en);
 
 					// add final FF stage
 
