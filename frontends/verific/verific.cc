@@ -1695,7 +1695,12 @@ struct VerificPass : public Pass {
 		log("\n");
 		log("Additional -D<macro>[=<value>] options may be added after the option indicating\n");
 		log("the language version (and before file names) to set additional verilog defines.\n");
+		log("The macros SYNTHESIS and VERIFIC are defined implicitly.\n");
 		log("\n");
+		log("\n");
+		log("    verific -formal <verilog-file>..\n");
+		log("\n");
+		log("Like -sv, but define FORMAL instead of SYNTHESIS.\n");
 		log("\n");
 		log("    verific {-vhdl87|-vhdl93|-vhdl2k|-vhdl2008|-vhdl} <vhdl-file>..\n");
 		log("\n");
@@ -1715,7 +1720,7 @@ struct VerificPass : public Pass {
 		log("\n");
 		log("    verific -vlog-define <macro>[=<value>]..\n");
 		log("\n");
-		log("Add Verilog defines. (The macros SYNTHESIS and VERIFIC are defined implicitly.)\n");
+		log("Add Verilog defines.\n");
 		log("\n");
 		log("\n");
 		log("    verific -vlog-undef <macro>..\n");
@@ -1790,8 +1795,6 @@ struct VerificPass : public Pass {
 		RuntimeFlags::SetVar("veri_extract_dualport_rams", 0);
 		RuntimeFlags::SetVar("veri_extract_multiport_rams", 1);
 		RuntimeFlags::SetVar("db_infer_wide_operators", 1);
-		veri_file::DefineCmdLineMacro("VERIFIC");
-		veri_file::DefineCmdLineMacro("SYNTHESIS");
 
 		verific_verbose = 0;
 
@@ -1845,7 +1848,7 @@ struct VerificPass : public Pass {
 		}
 
 		if (GetSize(args) > argidx && (args[argidx] == "-vlog95" || args[argidx] == "-vlog2k" || args[argidx] == "-sv2005" ||
-				args[argidx] == "-sv2009" || args[argidx] == "-sv2012" || args[argidx] == "-sv"))
+				args[argidx] == "-sv2009" || args[argidx] == "-sv2012" || args[argidx] == "-sv" || args[argidx] == "-formal"))
 		{
 			Array file_names;
 			unsigned verilog_mode;
@@ -1858,10 +1861,13 @@ struct VerificPass : public Pass {
 				verilog_mode = veri_file::SYSTEM_VERILOG_2005;
 			else if (args[argidx] == "-sv2009")
 				verilog_mode = veri_file::SYSTEM_VERILOG_2009;
-			else if (args[argidx] == "-sv2012" || args[argidx] == "-sv")
+			else if (args[argidx] == "-sv2012" || args[argidx] == "-sv" || args[argidx] == "-formal")
 				verilog_mode = veri_file::SYSTEM_VERILOG;
 			else
 				log_abort();
+
+			veri_file::DefineMacro("VERIFIC");
+			veri_file::DefineMacro(args[argidx] == "-formal" ? "FORMAL" : "SYNTHESIS");
 
 			for (argidx++; argidx < GetSize(args) && GetSize(args[argidx]) >= 2 && args[argidx].substr(0, 2) == "-D"; argidx++) {
 				std::string name = args[argidx].substr(2);
@@ -2157,7 +2163,7 @@ struct ReadPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    read {-vlog95|-vlog2k|-sv2005|-sv2009|-sv2012|-sv} <verilog-file>..\n");
+		log("    read {-vlog95|-vlog2k|-sv2005|-sv2009|-sv2012|-sv|-formal} <verilog-file>..\n");
 		log("\n");
 		log("Load the specified Verilog/SystemVerilog files. (Full SystemVerilog support\n");
 		log("is only available via Verific.)\n");
@@ -2206,11 +2212,13 @@ struct ReadPass : public Pass {
 			return;
 		}
 
-		if (args[1] == "-sv2005" || args[1] == "-sv2009" || args[1] == "-sv2012" || args[1] == "-sv") {
+		if (args[1] == "-sv2005" || args[1] == "-sv2009" || args[1] == "-sv2012" || args[1] == "-sv" || args[1] == "-formal") {
 			if (use_verific) {
 				args[0] = "verific";
 			} else {
 				args[0] = "read_verilog";
+				if (args[1] == "-formal")
+					args.insert(args.begin()+1, std::string());
 				args[1] = "-sv";
 			}
 			Pass::call(design, args);
