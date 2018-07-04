@@ -148,7 +148,7 @@ static bool parse_func_reduce(RTLIL::Module *module, std::vector<token_t> &stack
 	}
 
 	if (0 <= top && stack[top].type == 2) {
-		if (next_token.type == '*' || next_token.type == '&' || next_token.type == 0 || next_token.type == '(')
+		if (next_token.type == '*' || next_token.type == '&' || next_token.type == 0 || next_token.type == '(' || next_token.type == '!')
 			return false;
 		stack[top].type = 3;
 		return true;

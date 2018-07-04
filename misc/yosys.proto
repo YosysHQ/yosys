@@ -1,0 +1,175 @@
+//
+// yosys -- Yosys Open SYnthesis Suite
+// 
+// Copyright (C) 2018  Serge Bazanski <q3k@symbioticeda.com>
+// 
+// Permission to use, copy, modify, and/or distribute this software for any
+// purpose with or without fee is hereby granted, provided that the above
+// copyright notice and this permission notice appear in all copies.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+// WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+// MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+// ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+// WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+// ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+// OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+//
+
+/// Protobuf definition of Yosys RTLIL dump/restore format for RTL designs.
+
+syntax = "proto3";
+
+package yosys.pb;
+
+// Port direction.
+enum Direction {
+    DIRECTION_INVALID = 0;
+    DIRECTION_INPUT = 1;
+    DIRECTION_OUTPUT = 2;
+    DIRECTION_INOUT = 3;
+}
+
+// A freeform parameter/attribute value.
+message Parameter {
+    oneof value {
+        int64 int = 1;
+        string str = 2;
+    }
+}
+
+// A signal in the design - either a unique identifier for one, or a constant
+// driver (low or high).
+message Signal {
+    // A constant signal driver in the design.
+    enum ConstantDriver {
+        CONSTANT_DRIVER_INVALID = 0;
+        CONSTANT_DRIVER_LOW = 1;
+        CONSTANT_DRIVER_HIGH = 2;
+        CONSTANT_DRIVER_Z = 3;
+        CONSTANT_DRIVER_X = 4;
+    }
+    oneof type {
+        // Signal uniquely identified by ID number.
+        int64 id = 1;
+        // Constant driver.
+        ConstantDriver constant = 2;
+    }
+}
+
+// A vector of signals.
+message BitVector {
+    repeated Signal signal = 1;
+}
+
+// A netlist module.
+message Module {
+    // Freeform attributes.
+    map<string, Parameter> attribute = 1;
+
+    // Named ports in this module.
+    message Port {
+        Direction direction = 1;
+        BitVector bits = 2;
+    }
+    map<string, Port> port = 2;
+    
+    // Named cells in this module.
+    message Cell {
+        // Set to true when the name of this cell is automatically created and
+        // likely not of interest for a regular user.
+        bool hide_name = 1;
+        string type = 2;
+        // Set if this module has an AIG model available.
+        string model = 3;
+        // Freeform parameters.
+        map<string, Parameter> parameter = 4;
+        // Freeform attributes.
+        map<string, Parameter> attribute = 5;
+
+        /// Ports of the cell.
+        // Direction of the port, if interface is known.
+        map<string, Direction> port_direction = 6;
+        // Connection of named port to signal(s).
+        map<string, BitVector> connection = 7;
+    }
+    map<string, Cell> cell = 3;
+
+    // Nets in this module.
+    message Netname {
+        // Set to true when the name of this net is automatically created and
+        // likely not of interest for a regular user.
+        bool hide_name = 1;
+        // Signal(s) that make up this net.
+        BitVector bits = 2;
+        // Freeform attributes.
+        map<string, Parameter> attributes = 3;
+    }
+    repeated Netname netname = 4;
+}
+
+// And-Inverter-Graph model.
+message Model {
+    message Node {
+        // Type of AIG node - or, what its' value is.
+        enum Type {
+            TYPE_INVALID = 0;
+            // The node's value is the value of the specified input port bit.
+            TYPE_PORT = 1;
+            // The node's value is the inverted value of the specified input
+            // port bit.
+            TYPE_NPORT = 2;
+            // The node's value is the ANDed value of specified nodes.
+            TYPE_AND = 3;
+            // The node's value is the NANDed value of specified nodes.
+            TYPE_NAND = 4;
+            // The node's value is a constant 1.
+            TYPE_TRUE = 5;
+            // The node's value is a constant 0.
+            TYPE_FALSE = 6;
+        };
+        Type type = 1;
+    
+        message Port {
+            // Name of port.
+            string portname = 1;
+            // Bit index in port.
+            int64 bitindex = 2;
+        }
+        message Gate {
+            // Node index of left side of operation.
+            int64 left = 1;
+            // Node index of right side of operation.
+            int64 right = 2;
+        }
+        oneof node {
+            // Set for PORT, NPORT
+            Port port = 2;
+            // Set for AND, NAND.
+            Gate gate = 3;
+        }
+    
+        // Set when the node drives given output port(s).
+        message OutPort {
+            // Name of port.
+            string name = 1;
+            // Bit index in port.
+            int64 bit_index = 2;
+        }
+        repeated OutPort out_port = 4;
+    }
+
+    // List of  AIG nodes - each is explicitely numbered by its' index in this
+    // array.
+    repeated Node node = 1;
+}
+
+// A Yosys design netlist dumped from RTLIL.
+message Design {
+    // Human-readable freeform 'remark' string.
+    string creator = 1;
+    // List of named modules in design.
+    map<string, Module> modules = 2;
+    // List of named AIG models in design (if AIG export enabled).
+    map<string, Model> models = 3;
+}

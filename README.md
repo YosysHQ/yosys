@@ -52,19 +52,19 @@ For example on Ubuntu Linux 16.04 LTS the following commands will install all
 prerequisites for building yosys:
 
 	$ sudo apt-get install build-essential clang bison flex \
-		libreadline-dev gawk tcl-dev libffi-dev git mercurial \
+		libreadline-dev gawk tcl-dev libffi-dev git \
 		graphviz xdot pkg-config python3
 
 Similarily, on Mac OS X MacPorts or Homebrew can be used to install dependencies:
 
 	$ brew tap Homebrew/bundle && brew bundle
 	$ sudo port install bison flex readline gawk libffi \
-		git mercurial graphviz pkgconfig python36
+		git graphviz pkgconfig python36
 
 On FreeBSD use the following command to install all prerequisites:
 
 	# pkg install bison flex readline gawk libffi\
-		git mercurial graphviz pkgconfig python3 python36 tcl-wrapper
+		git graphviz pkgconfig python3 python36 tcl-wrapper
 
 On FreeBSD system use gmake instead of make. To run tests use:
     % MAKE=gmake CC=cc gmake test
@@ -418,7 +418,9 @@ Non-standard or SystemVerilog features for formal verification
   supported in any clocked block.
 
 - The syntax ``@($global_clock)`` can be used to create FFs that have no
-  explicit clock input ($ff cells).
+  explicit clock input ($ff cells). The same can be achieved by using
+  ``@(posedge <netname>)`` or ``@(negedge <netname>)`` when ``<netname>``
+  is marked with the ``(* gclk *)`` Verilog attribute.
 
 
 Supported features from SystemVerilog

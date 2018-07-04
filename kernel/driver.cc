@@ -85,20 +85,37 @@ USING_YOSYS_NAMESPACE
 #ifdef EMSCRIPTEN
 #  include <sys/stat.h>
 #  include <sys/types.h>
+#  include <emscripten.h>
 
 extern "C" int main(int, char**);
 extern "C" void run(const char*);
 extern "C" const char *errmsg();
 extern "C" const char *prompt();
 
-int main(int, char**)
+int main(int argc, char **argv)
 {
+	EM_ASM(
+		if (ENVIRONMENT_IS_NODE)
+		{
+			FS.mkdir('/hostcwd');
+			FS.mount(NODEFS, { root: '.' }, '/hostcwd');
+			FS.mkdir('/hostfs');
+			FS.mount(NODEFS, { root: '/' }, '/hostfs');
+		}
+	);
+
 	mkdir("/work", 0777);
 	chdir("/work");
 	log_files.push_back(stdout);
 	log_error_stderr = true;
 	yosys_banner();
 	yosys_setup();
+
+	if (argc == 2)
+	{
+		// Run the first argument as a script file
+		run_frontend(argv[1], "script", 0, 0, 0);
+	}
 }
 
 void run(const char *command)
