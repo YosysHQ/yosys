@@ -18,6 +18,7 @@
  */
 
 #include "kernel/yosys.h"
+#include "frontends/verific/verific.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <set>
@@ -258,7 +259,7 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 			if (mod->wires_.count(portname) == 0)
 				log_error("Array cell `%s.%s' connects to unknown port `%s'.\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(conn.first));
 			int port_size = mod->wires_.at(portname)->width;
-			if (conn_size == port_size)
+			if (conn_size == port_size || conn_size == 0)
 				continue;
 			if (conn_size != port_size*num)
 				log_error("Array cell `%s.%s' has invalid port vs. signal size for port `%s'.\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(conn.first));
@@ -421,6 +422,7 @@ struct HierarchyPass : public Pass {
 		bool flag_simcheck = false;
 		bool purge_lib = false;
 		RTLIL::Module *top_mod = NULL;
+		std::string load_top_mod;
 		std::vector<std::string> libdirs;
 
 		bool auto_top_mode = false;
@@ -511,7 +513,7 @@ struct HierarchyPass : public Pass {
 					top_mod = design->modules_.count(RTLIL::escape_id(args[argidx])) ? design->modules_.at(RTLIL::escape_id(args[argidx])) : NULL;
 				}
 				if (top_mod == NULL)
-					log_cmd_error("Module `%s' not found!\n", args[argidx].c_str());
+					load_top_mod = args[argidx];
 				continue;
 			}
 			if (args[argidx] == "-auto-top") {
@@ -521,6 +523,22 @@ struct HierarchyPass : public Pass {
 			break;
 		}
 		extra_args(args, argidx, design, false);
+
+		if (!load_top_mod.empty()) {
+#ifdef YOSYS_ENABLE_VERIFIC
+			if (verific_import_pending) {
+				verific_import(design, load_top_mod);
+				top_mod = design->module(RTLIL::escape_id(load_top_mod));
+			}
+#endif
+			if (top_mod == NULL)
+				log_cmd_error("Module `%s' not found!\n", load_top_mod.c_str());
+		} else {
+#ifdef YOSYS_ENABLE_VERIFIC
+			if (verific_import_pending)
+				verific_import(design);
+#endif
+		}
 
 		if (generate_mode) {
 			generate(design, generate_cells, generate_ports);

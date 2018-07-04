@@ -223,12 +223,18 @@ struct AST_INTERNAL::ProcessGenerator
 		bool found_global_syncs = false;
 		bool found_anyedge_syncs = false;
 		for (auto child : always->children)
+		{
+			if ((child->type == AST_POSEDGE || child->type == AST_NEGEDGE) && GetSize(child->children) == 1 && child->children.at(0)->type == AST_IDENTIFIER &&
+					child->children.at(0)->id2ast && child->children.at(0)->id2ast->type == AST_WIRE && child->children.at(0)->id2ast->get_bool_attribute("\\gclk")) {
+				found_global_syncs = true;
+			}
 			if (child->type == AST_EDGE) {
 				if (GetSize(child->children) == 1 && child->children.at(0)->type == AST_IDENTIFIER && child->children.at(0)->str == "\\$global_clock")
 					found_global_syncs = true;
 				else
 					found_anyedge_syncs = true;
 			}
+		}
 
 		if (found_anyedge_syncs) {
 			if (found_global_syncs)
@@ -242,6 +248,9 @@ struct AST_INTERNAL::ProcessGenerator
 		bool found_clocked_sync = false;
 		for (auto child : always->children)
 			if (child->type == AST_POSEDGE || child->type == AST_NEGEDGE) {
+				if (GetSize(child->children) == 1 && child->children.at(0)->type == AST_IDENTIFIER && child->children.at(0)->id2ast &&
+						child->children.at(0)->id2ast->type == AST_WIRE && child->children.at(0)->id2ast->get_bool_attribute("\\gclk"))
+					continue;
 				found_clocked_sync = true;
 				if (found_global_syncs || found_anyedge_syncs)
 					log_error("Found non-synthesizable event list at %s:%d!\n", always->filename.c_str(), always->linenum);
@@ -1290,6 +1299,9 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			cell->parameters["\\CLK_ENABLE"] = RTLIL::Const(0);
 			cell->parameters["\\CLK_POLARITY"] = RTLIL::Const(0);
 			cell->parameters["\\TRANSPARENT"] = RTLIL::Const(0);
+
+			if (!sign_hint)
+				is_signed = false;
 
 			return RTLIL::SigSpec(wire);
 		}

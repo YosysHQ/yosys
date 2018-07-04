@@ -45,7 +45,11 @@ struct SynthIce40Pass : public ScriptPass
 		log("        is omitted if this parameter is not specified.\n");
 		log("\n");
 		log("    -edif <file>\n");
-		log("        write the design to the specified edif file. writing of an output file\n");
+		log("        write the design to the specified EDIF file. writing of an output file\n");
+		log("        is omitted if this parameter is not specified.\n");
+		log("\n");
+		log("    -json <file>\n");
+		log("        write the design to the specified JSON file. writing of an output file\n");
 		log("        is omitted if this parameter is not specified.\n");
 		log("\n");
 		log("    -run <from_label>:<to_label>\n");
@@ -81,7 +85,7 @@ struct SynthIce40Pass : public ScriptPass
 		log("\n");
 	}
 
-	string top_opt, blif_file, edif_file;
+	string top_opt, blif_file, edif_file, json_file;
 	bool nocarry, nodffe, nobram, flatten, retime, abc2, vpr;
 
 	virtual void clear_flags() YS_OVERRIDE
@@ -89,6 +93,7 @@ struct SynthIce40Pass : public ScriptPass
 		top_opt = "-auto-top";
 		blif_file = "";
 		edif_file = "";
+		json_file = "";
 		nocarry = false;
 		nodffe = false;
 		nobram = false;
@@ -116,6 +121,10 @@ struct SynthIce40Pass : public ScriptPass
 			}
 			if (args[argidx] == "-edif" && argidx+1 < args.size()) {
 				edif_file = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-json" && argidx+1 < args.size()) {
+				json_file = args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-run" && argidx+1 < args.size()) {
@@ -260,17 +269,15 @@ struct SynthIce40Pass : public ScriptPass
 			if (!blif_file.empty() || help_mode) {
 				if (vpr || help_mode) {
 					run(stringf("opt_clean -purge"),
-						"                                        "
-						" (vpr mode)");
+							"                                 (vpr mode)");
 					run(stringf("write_blif -attr -cname -conn -param %s",
-								help_mode ? "<file-name>" : blif_file.c_str()),
-						" (vpr mode)");
+							help_mode ? "<file-name>" : blif_file.c_str()),
+							" (vpr mode)");
 				}
 				if (!vpr)
 					run(stringf("write_blif -gates -attr -param %s",
-								help_mode ? "<file-name>" : blif_file.c_str()),
-						"              "
-						" (non-vpr mode)");
+							help_mode ? "<file-name>" : blif_file.c_str()),
+							"       (non-vpr mode)");
 			}
 		}
 
@@ -278,6 +285,12 @@ struct SynthIce40Pass : public ScriptPass
 		{
 			if (!edif_file.empty() || help_mode)
 				run(stringf("write_edif %s", help_mode ? "<file-name>" : edif_file.c_str()));
+		}
+
+		if (check_label("json"))
+		{
+			if (!json_file.empty() || help_mode)
+				run(stringf("write_json %s", help_mode ? "<file-name>" : json_file.c_str()));
 		}
 	}
 } SynthIce40Pass;
