@@ -668,6 +668,10 @@ struct ShowPass : public Pass {
 		log("    -notitle\n");
 		log("        do not add the module name as graph title to the dot file\n");
 		log("\n");
+		log("    -nobg\n");
+		log("        don't run viewer in the background, IE wait for the viewer tool to\n");
+		log("        exit before returning\n");
+		log("\n");
 		log("When no <format> is specified, 'dot' is used. When no <format> and <viewer> is\n");
 		log("specified, 'xdot' is used to display the schematic (POSIX systems only).\n");
 		log("\n");
@@ -706,6 +710,7 @@ struct ShowPass : public Pass {
 		bool flag_abbreviate = true;
 		bool flag_notitle = false;
 		bool custom_prefix = false;
+		std::string background = "&";
 		RTLIL::IdString colorattr;
 
 		size_t argidx;
@@ -787,6 +792,10 @@ struct ShowPass : public Pass {
 				flag_notitle = true;
 				continue;
 			}
+			if (arg == "-nobg") {
+				background= "";
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -859,21 +868,19 @@ struct ShowPass : public Pass {
 				// system()/cmd.exe does not understand single quotes nor
 				// background tasks on Windows. So we have to pause yosys
 				// until the viewer exits.
-				#define VIEW_CMD "%s \"%s\""
+				std::string cmd = stringf("%s \"%s\"", viewer_exe.c_str(), out_file.c_str());
 			#else
-				#define VIEW_CMD "%s '%s' &"
+				std::string cmd = stringf("%s '%s' %s", viewer_exe.c_str(), out_file.c_str(), background.c_str());
 			#endif
-			std::string cmd = stringf(VIEW_CMD, viewer_exe.c_str(), out_file.c_str());
-			#undef VIEW_CMD
 			log("Exec: %s\n", cmd.c_str());
 			if (run_command(cmd) != 0)
 				log_cmd_error("Shell command failed!\n");
 		} else
 		if (format.empty()) {
 			#ifdef __APPLE__
-			std::string cmd = stringf("ps -fu %d | grep -q '[ ]%s' || xdot '%s' &", getuid(), dot_file.c_str(), dot_file.c_str());
+			std::string cmd = stringf("ps -fu %d | grep -q '[ ]%s' || xdot '%s' %s", getuid(), dot_file.c_str(), dot_file.c_str(), background.c_str());
 			#else
-			std::string cmd = stringf("{ test -f '%s.pid' && fuser -s '%s.pid' 2> /dev/null; } || ( echo $$ >&3; exec xdot '%s'; ) 3> '%s.pid' &", dot_file.c_str(), dot_file.c_str(), dot_file.c_str(), dot_file.c_str());
+			std::string cmd = stringf("{ test -f '%s.pid' && fuser -s '%s.pid' 2> /dev/null; } || ( echo $$ >&3; exec xdot '%s'; ) 3> '%s.pid' %s", dot_file.c_str(), dot_file.c_str(), dot_file.c_str(), dot_file.c_str(), background.c_str());
 			#endif
 			log("Exec: %s\n", cmd.c_str());
 			if (run_command(cmd) != 0)
