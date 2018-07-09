@@ -161,6 +161,13 @@ namespace YOSYS_PYTHON {
 			}
 			return result;
 		}
+
+		void run(std::string command)
+		{
+			Yosys::RTLIL::Design* cpp_design = get_cpp_obj();
+			if(cpp_design != NULL)
+				Yosys::run_pass(command, cpp_design);
+		}
 	};
 
 	std::ostream &operator<<(std::ostream &ostr, const Design &design)
@@ -184,8 +191,11 @@ namespace YOSYS_PYTHON {
 		using namespace boost::python;
 
 		class_<Design>("Design", init<unsigned int>())
+			.def(boost::python::self_ns::str(boost::python::self_ns::self))
+			.def(boost::python::self_ns::repr(boost::python::self_ns::self))
 			.def(init<>())
 			.def("get_modules", &Design::get_modules)
+			.def("run",&Design::run)
 			;
 
 		class_<Module>("Module", no_init)
