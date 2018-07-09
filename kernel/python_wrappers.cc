@@ -31,79 +31,64 @@ namespace YOSYS_PYTHON {
 
 	struct Cell
 	{
-		Yosys::RTLIL::IdString name;
-		Yosys::RTLIL::IdString parent_name;
+		unsigned int id;
 
 		Cell(Yosys::RTLIL::Cell* ref)
 		{
-			this->name = ref->name;
-			this->parent_name = ref->module->name;
+			this->id = ref->hashidx_;
 		}
 	
-		Yosys::RTLIL::Cell* get_cpp_obj()
+		Yosys::RTLIL::Cell* get_cpp_obj() const
 		{
-			Yosys::RTLIL::Design* active_design = Yosys::yosys_get_design();
-			if(active_design == NULL)
-				return NULL;
-			if(active_design->modules_[this->parent_name] == NULL)
-				return NULL;
-			return active_design->modules_[this->parent_name]->cells_[this->name];
+			return Yosys::RTLIL::Cell::get_all_cells()->at(this->id);
 		}
 	};
 
 	std::ostream &operator<<(std::ostream &ostr, const Cell &cell)
 	{
-		ostr << "Cell with name " << cell.name.c_str();
+		if(cell.get_cpp_obj() != NULL)
+			ostr << "Cell with name " << cell.get_cpp_obj()->name.c_str();
+		else
+			ostr << "deleted cell";
 		return ostr;
 	}
 
 	struct Wire
 	{
-		Yosys::RTLIL::IdString name;
-		Yosys::RTLIL::IdString parent_name;
+		unsigned int id;
 
 		Wire(Yosys::RTLIL::Wire* ref)
 		{
-			this->name = ref->name;
-			this->parent_name = ref->module->name;
+			this->id = ref->hashidx_;
 		}
 	
-		Yosys::RTLIL::Wire* get_cpp_obj()
+		Yosys::RTLIL::Wire* get_cpp_obj() const
 		{
-			Yosys::RTLIL::Design* active_design = Yosys::yosys_get_design();
-			if(active_design == NULL)
-				return NULL;
-			if(active_design->modules_[this->parent_name] == NULL)
-				return NULL;
-			return active_design->modules_[this->parent_name]->wires_[this->name];
+			return Yosys::RTLIL::Wire::get_all_wires()->at(this->id);
 		}
 	};
 
 	std::ostream &operator<<(std::ostream &ostr, const Wire &wire)
 	{
-		ostr << "Wire with name " << wire.name.c_str();
+		if(wire.get_cpp_obj() != NULL)
+			ostr << "Wire with name " << wire.get_cpp_obj()->name.c_str();
+		else
+			ostr << "deleted wire";
 		return ostr;
 	}
 
 	struct Module
 	{
-		Yosys::RTLIL::IdString name;
-		unsigned int parent_hashid;
+		unsigned int id;
 
 		Module(Yosys::RTLIL::Module* ref)
 		{
-			this->name = ref->name;
-			this->parent_hashid = ref->design->hashidx_;
+			this->id = ref->hashidx_;
 		}
 
-		Yosys::RTLIL::Module* get_cpp_obj()
+		Yosys::RTLIL::Module* get_cpp_obj() const
 		{
-			Yosys::RTLIL::Design* active_design = Yosys::yosys_get_design();
-			if(active_design == NULL)
-				return NULL;
-			if(active_design->hashidx_ != this->parent_hashid)
-				printf("Somehow the active design changed!\n");
-			return active_design->modules_[this->name];
+			return Yosys::RTLIL::Module::get_all_modules()->at(this->id);
 		}
 
 		boost::python::list get_cells()
@@ -135,7 +120,10 @@ namespace YOSYS_PYTHON {
 
 	std::ostream &operator<<(std::ostream &ostr, const Module &module)
 	{
-		ostr << "Module with name " << module.name.c_str();
+		if(module.get_cpp_obj() != NULL)
+			ostr << "Module with name " << module.get_cpp_obj()->name.c_str();
+		else
+			ostr << "deleted module";
 		return ostr;
 	}
 
@@ -150,21 +138,24 @@ namespace YOSYS_PYTHON {
 
 		Design()
 		{
-			Yosys::RTLIL::Design* active_design = Yosys::yosys_get_design();
-			if(active_design != NULL)
-			{
-				printf("design is not null and has id %u\n", active_design->hashidx_);
-				this->hashid = active_design->hashidx_;
-			}
+			Yosys::RTLIL::Design* new_design = new Yosys::RTLIL::Design();
+			this->hashid = new_design->hashidx_;
+		}
+
+		Yosys::RTLIL::Design* get_cpp_obj()
+		{
+			return Yosys::RTLIL::Design::get_all_designs()->at(hashid);
 		}
 
 		boost::python::list get_modules()
 		{
-			Yosys::RTLIL::Design* active_design = Yosys::yosys_get_design();
+			Yosys::RTLIL::Design* cpp_design = get_cpp_obj();
 			boost::python::list result;
-			if(active_design == NULL)
+			if(cpp_design == NULL)
+			{
 				return result;
-			for(auto &mod_it : active_design->modules_)
+			}
+			for(auto &mod_it : cpp_design->modules_)
 			{
 				result.append(new Module(mod_it.second));
 			}
@@ -176,6 +167,16 @@ namespace YOSYS_PYTHON {
 	{
 		ostr << "Design with id " << design.hashid;
 		return ostr;
+	}
+
+	unsigned int get_active_design_id()
+	{
+		Yosys::RTLIL::Design* active_design = Yosys::yosys_get_design();
+		if(active_design != NULL)
+		{
+			return active_design->hashidx_;
+		}
+		return 0;
 	}
 
 	BOOST_PYTHON_MODULE(libyosys)
@@ -207,6 +208,7 @@ namespace YOSYS_PYTHON {
 
 		def("yosys_setup",yosys_setup);
 		def("run",run);
+		def("get_active_design_id",get_active_design_id);
 		def("yosys_shutdown",yosys_shutdown);
 	}
 

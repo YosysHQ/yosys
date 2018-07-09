@@ -874,6 +874,10 @@ struct RTLIL::Design
 		}
 	}
 
+#ifdef WITH_PYTHON
+	static std::map<unsigned int, RTLIL::Design*> *get_all_designs(void);
+#endif
+
 	std::vector<RTLIL::Module*> selected_modules() const;
 	std::vector<RTLIL::Module*> selected_whole_modules() const;
 	std::vector<RTLIL::Module*> selected_whole_modules_warn() const;
@@ -1130,6 +1134,10 @@ public:
 	RTLIL::SigSpec Allconst  (RTLIL::IdString name, int width = 1, const std::string &src = "");
 	RTLIL::SigSpec Allseq    (RTLIL::IdString name, int width = 1, const std::string &src = "");
 	RTLIL::SigSpec Initstate (RTLIL::IdString name, const std::string &src = "");
+
+#ifdef WITH_PYTHON
+	static std::map<unsigned int, RTLIL::Module*> *get_all_modules(void);
+#endif
 };
 
 struct RTLIL::Wire : public RTLIL::AttrObject
@@ -1152,6 +1160,10 @@ public:
 	RTLIL::IdString name;
 	int width, start_offset, port_id;
 	bool port_input, port_output, upto;
+
+#ifdef WITH_PYTHON
+	static std::map<unsigned int, RTLIL::Wire*> *get_all_wires(void);
+#endif
 };
 
 struct RTLIL::Memory : public RTLIL::AttrObject
@@ -1214,6 +1226,10 @@ public:
 	}
 
 	template<typename T> void rewrite_sigspecs(T &functor);
+
+#ifdef WITH_PYTHON
+	static std::map<unsigned int, RTLIL::Cell*> *get_all_cells(void);
+#endif
 };
 
 struct RTLIL::CaseRule
