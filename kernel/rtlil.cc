@@ -642,7 +642,6 @@ RTLIL::Module::Module()
 	refcount_cells_ = 0;
 
 #ifdef WITH_PYTHON
-	std::cout << "inserting module with name " << this->name.c_str() << "\n";
 	RTLIL::Module::get_all_modules()->insert(std::pair<unsigned int, RTLIL::Module*>(hashidx_, this));
 #endif
 }
