@@ -2223,6 +2223,13 @@ RTLIL::Wire::Wire()
 #endif
 }
 
+RTLIL::Wire::~Wire()
+{
+#ifdef WITH_PYTHON
+	RTLIL::Wire::get_all_wires()->erase(hashidx_);
+#endif
+}
+
 #ifdef WITH_PYTHON
 static std::map<unsigned int, RTLIL::Wire*> *all_wires = new std::map<unsigned int, RTLIL::Wire*>();
 std::map<unsigned int, RTLIL::Wire*> *RTLIL::Wire::get_all_wires(void)
@@ -2253,6 +2260,13 @@ RTLIL::Cell::Cell() : module(nullptr)
 
 #ifdef WITH_PYTHON
 	RTLIL::Cell::get_all_cells()->insert(std::pair<unsigned int, RTLIL::Cell*>(hashidx_, this));
+#endif
+}
+
+RTLIL::Cell::~Cell()
+{
+#ifdef WITH_PYTHON
+	RTLIL::Cell::get_all_cells()->erase(hashidx_);
 #endif
 }
 

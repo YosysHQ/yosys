@@ -1149,7 +1149,7 @@ protected:
 	// use module->addWire() and module->remove() to create or destroy wires
 	friend struct RTLIL::Module;
 	Wire();
-	~Wire() { };
+	~Wire();
 
 public:
 	// do not simply copy wires
@@ -1186,6 +1186,7 @@ protected:
 	// use module->addCell() and module->remove() to create or destroy cells
 	friend struct RTLIL::Module;
 	Cell();
+	~Cell();
 
 public:
 	// do not simply copy cells
