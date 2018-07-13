@@ -199,7 +199,7 @@ module TRELLIS_FF(input CLK, LSR, CE, DI, output reg Q);
 
 	wire srval = (REGSET == "SET") ? 1'b1 : 1'b0;
 
-	initial Q = 1'b0;
+	initial Q = srval;
 
 	generate
 		if (SRMODE == "ASYNC") begin
