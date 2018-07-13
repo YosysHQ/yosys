@@ -236,15 +236,10 @@ struct SynthEcp5Pass : public ScriptPass
 			run("opt -fast -mux_undef -undriven -fine");
 			run("memory_map");
 			run("opt -undriven -fine");
-			//TODO
-#if 0
-			if (nocarry)
+			if (noccu2)
 				run("techmap");
 			else
 				run("techmap -map +/techmap.v -map +/ecp5/arith_map.v");
-#else
-				run("techmap");
-#endif
 			if (retime || help_mode)
 				run("abc -dff", "(only if -retime)");
 		}
