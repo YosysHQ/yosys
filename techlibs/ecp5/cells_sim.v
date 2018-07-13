@@ -103,7 +103,7 @@ module TRELLIS_DPR16X4 (
 	integer i;
 	initial begin
 		for (i = 0; i < 16; i = i + 1)
-			mem[i] <= INITVAL[4*i :+ 4];
+			mem[i] <= {INITVAL[i+3], INITVAL[i+2], INITVAL[i+1], INITVAL[i]};
 	end
 
 	wire muxwck = (WCKMUX == "INV") ? ~WCK : WCK;
@@ -197,7 +197,7 @@ module TRELLIS_FF(input CLK, LSR, CE, DI, output reg Q);
 	wire muxlsr = (LSRMUX == "INV") ? ~LSR : LSR;
 	wire muxclk = (CLKMUX == "INV") ? ~CLK : CLK;
 
-	wire srval = (REGSET == "SET") ? 1'b1 : 1'b0;
+	localparam srval = (REGSET == "SET") ? 1'b1 : 1'b0;
 
 	initial Q = srval;
 

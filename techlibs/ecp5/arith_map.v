@@ -58,12 +58,12 @@ module _80_ecp5_alu (A, B, CI, BI, X, Y, CO);
 		CCU2C #(
 			.INIT0(16'b0110011010101010),
 			.INIT1(16'b0110011010101010),
-			.INJECT1_0(1'b0),
-			.INJECT1_1(1'b0)
+			.INJECT1_0("NO"),
+			.INJECT1_1("NO")
 	   ) ccu2c_i (
 			.CIN(C[i]),
 			.A0(AA[i]), .B0(BB[i]), .C0(1'b0), .D0(1'b1),
-			.A1(AA[i+1]), .B1(BB[i]), .C1(1'b0), .D1(1'b1),
+			.A1(AA[i+1]), .B1(BB[i+1]), .C1(1'b0), .D1(1'b1),
 			.S0(Y[i]), .S1(Y1[i]),
 			.COUT(FCO[i])
 		);
