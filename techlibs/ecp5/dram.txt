@@ -10,3 +10,7 @@ bram $__TRELLIS_DPR16X4
   clocks 0 1
   clkpol 0 2
 endbram
+
+match $__TRELLIS_DPR16X4
+  make_outreg
+endmatch
