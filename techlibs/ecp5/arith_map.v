@@ -51,7 +51,7 @@ module _80_ecp5_alu (A, B, CI, BI, X, Y, CO);
 	wire [Y_WIDTH2-1:0] AA = A_buf;
 	wire [Y_WIDTH2-1:0] BB = BI ? ~B_buf : B_buf;
 	wire [Y_WIDTH2-1:0] C = {CO, CI};
-	wire [Y_WIDTH2-1:0] FCO;
+	wire [Y_WIDTH2-1:0] FCO, Y1;
 
 	genvar i;
 	generate for (i = 0; i < Y_WIDTH2; i = i + 2) begin:slice
@@ -64,14 +64,15 @@ module _80_ecp5_alu (A, B, CI, BI, X, Y, CO);
 			.CIN(C[i]),
 			.A0(AA[i]), .B0(BB[i]), .C0(1'b0), .D0(1'b1),
 			.A1(AA[i+1]), .B1(BB[i]), .C1(1'b0), .D1(1'b1),
-			.S0(F0), .S1(F1),
+			.S0(Y[i]), .S1(Y1[i]),
 			.COUT(FCO[i])
 		);
 
 		assign CO[i] = (AA[i] && BB[i]) || (C[i] && (AA[i] || BB[i]));
-		if (i < Y_WIDTH)
+		if (i < Y_WIDTH) begin
 			assign CO[i+1] = FCO[i];
-
+			assign Y[i+1] = Y1[i];
+		end
 	end endgenerate
 
 	assign X = AA ^ BB;
