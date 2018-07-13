@@ -59,7 +59,7 @@ module \$lut (A, Y);
                 .A(A[0]), .B(A[1]), .C(A[2]), .D(A[3]));
             LUT4 #(.INIT(LUT[31:16])) lut1 (.Z(f1),
                 .A(A[0]), .B(A[1]), .C(A[2]), .D(A[3]));
-            PFUMX mux5(.ALUT(f1), .BLUT(f0), .SD(A[4]), .Z(Y));
+            PFUMX mux5(.ALUT(f1), .BLUT(f0), .C0(A[4]), .Z(Y));
         end else
         if (WIDTH == 6) begin
             wire f0, f1, f2, f3, g0, g1;
@@ -73,8 +73,8 @@ module \$lut (A, Y);
             LUT4 #(.INIT(LUT[63:48])) lut3 (.Z(f3),
                 .A(A[0]), .B(A[1]), .C(A[2]), .D(A[3]));
 
-            PFUMX mux50(.ALUT(f1), .BLUT(f0), .SD(A[4]), .Z(g0));
-            PFUMX mux51(.ALUT(f3), .BLUT(f2), .SD(A[4]), .Z(g1));
+            PFUMX mux50(.ALUT(f1), .BLUT(f0), .C0(A[4]), .Z(g0));
+            PFUMX mux51(.ALUT(f3), .BLUT(f2), .C0(A[4]), .Z(g1));
             L6MUX21 mux6 (.D0(g0), .D1(g1), .SD(A[5]), .Z(Y));
         end else
         if (WIDTH == 7) begin
@@ -99,10 +99,10 @@ module \$lut (A, Y);
             LUT4 #(.INIT(LUT[127:112])) lut7 (.Z(f7),
                 .A(A[0]), .B(A[1]), .C(A[2]), .D(A[3]));
 
-            PFUMX mux50(.ALUT(f1), .BLUT(f0), .SD(A[4]), .Z(g0));
-            PFUMX mux51(.ALUT(f3), .BLUT(f2), .SD(A[4]), .Z(g1));
-            PFUMX mux52(.ALUT(f5), .BLUT(f4), .SD(A[4]), .Z(g2));
-            PFUMX mux53(.ALUT(f7), .BLUT(f6), .SD(A[4]), .Z(g3));
+            PFUMX mux50(.ALUT(f1), .BLUT(f0), .C0(A[4]), .Z(g0));
+            PFUMX mux51(.ALUT(f3), .BLUT(f2), .C0(A[4]), .Z(g1));
+            PFUMX mux52(.ALUT(f5), .BLUT(f4), .C0(A[4]), .Z(g2));
+            PFUMX mux53(.ALUT(f7), .BLUT(f6), .C0(A[4]), .Z(g3));
             L6MUX21 mux60 (.D0(g0), .D1(g1), .SD(A[5]), .Z(h0));
             L6MUX21 mux61 (.D0(g2), .D1(g3), .SD(A[5]), .Z(h1));
             L6MUX21 mux7  (.D0(h0), .D1(h1), .SD(A[6]), .Z(Y));
