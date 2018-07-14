@@ -247,15 +247,16 @@ struct SynthEcp5Pass : public ScriptPass
 		if (check_label("map_ffs"))
 		{
 			run("dffsr2dff");
+			run("dff2dffs");
+			run("opt_clean");
 			if (!nodffe)
-				run("dff2dffe -direct-match $_DFF_*");
+				run("dff2dffe -direct-match $_DFF_* -direct-match $__DFFS_*");
 			run("techmap -D NO_LUT -map +/ecp5/cells_map.v");
 			run("opt_expr -mux_undef");
 			run("simplemap");
 			// TODO
 #if 0
 			run("ecp5_ffinit");
-			run("ecp5_ffssr");
 #endif
 		}
 
