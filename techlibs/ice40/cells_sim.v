@@ -657,7 +657,12 @@ module ICESTORM_LC (
 	parameter [0:0] SET_NORESET  = 0;
 	parameter [0:0] ASYNC_SR     = 0;
 
-	assign COUT = CARRY_ENABLE ? (I1 && I2) || ((I1 || I2) && CIN) : 1'bx;
+	parameter [0:0] CIN_CONST    = 0;
+	parameter [0:0] CIN_SET      = 0;
+
+	wire mux_cin = CIN_CONST ? CIN_SET : CIN;
+
+	assign COUT = CARRY_ENABLE ? (I1 && I2) || ((I1 || I2) && mux_cin) : 1'bx;
 
 	wire [7:0] lut_s3 = I3 ? LUT_INIT[15:8] : LUT_INIT[7:0];
 	wire [3:0] lut_s2 = I2 ?   lut_s3[ 7:4] :   lut_s3[3:0];
@@ -1226,4 +1231,3 @@ module SB_IO_OD (
 	endgenerate
 `endif
 endmodule
-
