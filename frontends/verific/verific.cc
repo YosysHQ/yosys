@@ -2186,6 +2186,11 @@ struct ReadPass : public Pass {
 		log("\n");
 		log("Unset global Verilog/SystemVerilog defines.\n");
 		log("\n");
+		log("\n");
+		log("    read -incdir <directory>\n");
+		log("\n");
+		log("Add directory to global Verilog/SystemVerilog include directories.\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
@@ -2259,6 +2264,20 @@ struct ReadPass : public Pass {
 			args.erase(args.begin()+1, args.begin()+2);
 			for (int i = 1; i < GetSize(args); i++)
 				args[i] = "-U" + args[i];
+			Pass::call(design, args);
+			return;
+		}
+
+		if (args[1] == "-incdir") {
+			if (use_verific) {
+				args[0] = "verific";
+				args[1] = "-vlog-incdir";
+				Pass::call(design, args);
+			}
+			args[0] = "verilog_defaults";
+			args[1] = "-add";
+			for (int i = 1; i < GetSize(args); i++)
+				args[i] = "-I" + args[i];
 			Pass::call(design, args);
 			return;
 		}
