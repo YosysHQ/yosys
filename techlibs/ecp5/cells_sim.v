@@ -232,13 +232,13 @@ module TRELLIS_FF(input CLK, LSR, CE, DI, output reg Q);
 			always @(posedge muxclk, posedge muxlsr)
 				if (muxlsr)
 					Q <= srval;
-				else
+				else if (muxce)
 					Q <= DI;
 		end else begin
 			always @(posedge muxclk)
 				if (muxlsr)
 					Q <= srval;
-				else
+				else if (muxce)
 					Q <= DI;
 		end
 	endgenerate
