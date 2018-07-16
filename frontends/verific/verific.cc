@@ -2276,7 +2276,7 @@ struct ReadPass : public Pass {
 			}
 			args[0] = "verilog_defaults";
 			args[1] = "-add";
-			for (int i = 1; i < GetSize(args); i++)
+			for (int i = 2; i < GetSize(args); i++)
 				args[i] = "-I" + args[i];
 			Pass::call(design, args);
 			return;
