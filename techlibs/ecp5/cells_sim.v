@@ -67,10 +67,15 @@ module TRELLIS_RAM16X2 (
 
 	wire muxwck = (WCKMUX == "INV") ? ~WCK : WCK;
 
-	wire muxwre = (WREMUX == "1") ? 1'b1 :
-							  (WREMUX == "0") ? 1'b0 :
-							  (WREMUX == "INV") ? ~WRE :
-							  WRE;
+	reg muxwre;
+	always @(*)
+		case (WREMUX)
+			"1": muxwre = 1'b1;
+			"0": muxwre = 1'b0;
+			"INV": muxwre = ~WRE;
+			default: muxwre = WRE;
+		endcase
+
 
 	always @(posedge muxwck)
 		if (muxwre)
@@ -108,10 +113,14 @@ module TRELLIS_DPR16X4 (
 
 	wire muxwck = (WCKMUX == "INV") ? ~WCK : WCK;
 
-	wire muxwre = (WREMUX == "1") ? 1'b1 :
-							  (WREMUX == "0") ? 1'b0 :
-							  (WREMUX == "INV") ? ~WRE :
-							  WRE;
+	reg muxwre;
+	always @(*)
+		case (WREMUX)
+			"1": muxwre = 1'b1;
+			"0": muxwre = 1'b0;
+			"INV": muxwre = ~WRE;
+			default: muxwre = WRE;
+		endcase
 
 	always @(posedge muxwck)
 		if (muxwre)
@@ -167,7 +176,7 @@ module DPR16X4C (
 	integer i;
 	initial begin
 		for (i = 0; i < 15; i = i + 1) begin
-			ram[i] = conv_initval[4*i +: 4];
+			ram[i] <= conv_initval[4*i +: 4];
 		end
 	end
 
@@ -189,10 +198,14 @@ module TRELLIS_FF(input CLK, LSR, CE, DI, output reg Q);
 	parameter SRMODE = "LSR_OVER_CE";
 	parameter REGSET = "RESET";
 
-	wire muxce = (CEMUX == "1") ? 1'b1 :
-	             (CEMUX == "0") ? 1'b0 :
-							 (CEMUX == "INV") ? ~CE :
-							 CE;
+	reg muxce;
+	always @(*)
+		case (CEMUX)
+			"1": muxce = 1'b1;
+			"0": muxce = 1'b0;
+			"INV": muxce = ~CE;
+			default: muxce = CE;
+		endcase
 
 	wire muxlsr = (LSRMUX == "INV") ? ~LSR : LSR;
 	wire muxclk = (CLKMUX == "INV") ? ~CLK : CLK;

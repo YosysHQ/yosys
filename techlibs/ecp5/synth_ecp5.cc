@@ -172,6 +172,10 @@ struct SynthEcp5Pass : public ScriptPass
 				nodram = true;
 				continue;
 			}
+			if (args[argidx] == "-nomux") {
+				nomux = true;
+				continue;
+			}
 			if (args[argidx] == "-abc2") {
 				abc2 = true;
 				continue;

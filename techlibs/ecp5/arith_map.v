@@ -42,7 +42,7 @@ module _80_ecp5_alu (A, B, CI, BI, X, Y, CO);
 	function integer round_up2;
 		input integer N;
 		begin
-			round_up2 = ((N / 2) + 1) * 2;
+			round_up2 = ((N + 1) / 2) * 2;
 		end
 	endfunction
 
@@ -69,7 +69,7 @@ module _80_ecp5_alu (A, B, CI, BI, X, Y, CO);
 		);
 
 		assign CO[i] = (AA[i] && BB[i]) || (C[i] && (AA[i] || BB[i]));
-		if (i < Y_WIDTH) begin
+		if (i+1 < Y_WIDTH) begin
 			assign CO[i+1] = FCO[i];
 			assign Y[i+1] = Y1[i];
 		end
