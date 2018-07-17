@@ -1517,9 +1517,11 @@ struct VerificSvaImporter
 
 			Instance *consequent_inst = net_to_ast_driver(consequent_net);
 
-			if (consequent_inst->Type() != PRIM_SVA_S_EVENTUALLY && consequent_inst->Type() != PRIM_SVA_EVENTUALLY) {
+			if (consequent_inst == nullptr)
 				return false;
-			}
+
+			if (consequent_inst->Type() != PRIM_SVA_S_EVENTUALLY && consequent_inst->Type() != PRIM_SVA_EVENTUALLY)
+				return false;
 
 			if (mode_cover || mode_trigger)
 				parser_error(consequent_inst);
