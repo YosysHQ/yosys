@@ -65,6 +65,8 @@ int verific_verbose;
 bool verific_import_pending;
 string verific_error_msg;
 
+vector<string> verific_incdirs, verific_libdirs;
+
 void msg_func(msg_type_t msg_type, const char *message_id, linefile_type linefile, const char *msg, va_list args)
 {
 	string message_prefix = stringf("VERIFIC-%s [%s] ",
@@ -1658,6 +1660,8 @@ void verific_import(Design *design, std::string top)
 	veri_file::Reset();
 	vhdl_file::Reset();
 	Libset::Reset();
+	verific_incdirs.clear();
+	verific_libdirs.clear();
 	verific_import_pending = false;
 
 	if (!verific_error_msg.empty())
@@ -1814,13 +1818,13 @@ struct VerificPass : public Pass {
 
 		if (GetSize(args) > argidx && args[argidx] == "-vlog-incdir") {
 			for (argidx++; argidx < GetSize(args); argidx++)
-				veri_file::AddIncludeDir(args[argidx].c_str());
+				verific_incdirs.push_back(args[argidx]);
 			goto check_error;
 		}
 
 		if (GetSize(args) > argidx && args[argidx] == "-vlog-libdir") {
 			for (argidx++; argidx < GetSize(args); argidx++)
-				veri_file::AddYDir(args[argidx].c_str());
+				verific_libdirs.push_back(args[argidx]);
 			goto check_error;
 		}
 
@@ -1885,6 +1889,11 @@ struct VerificPass : public Pass {
 					veri_file::DefineMacro(name.c_str());
 				}
 			}
+
+			for (auto &dir : verific_incdirs)
+				veri_file::AddIncludeDir(dir.c_str());
+			for (auto &dir : verific_libdirs)
+				veri_file::AddYDir(dir.c_str());
 
 			while (argidx < GetSize(args))
 				file_names.Insert(args[argidx++].c_str());
@@ -2139,6 +2148,8 @@ struct VerificPass : public Pass {
 			veri_file::Reset();
 			vhdl_file::Reset();
 			Libset::Reset();
+			verific_incdirs.clear();
+			verific_libdirs.clear();
 			verific_import_pending = false;
 			goto check_error;
 		}
@@ -2185,6 +2196,11 @@ struct ReadPass : public Pass {
 		log("    read -undef <macro>..\n");
 		log("\n");
 		log("Unset global Verilog/SystemVerilog defines.\n");
+		log("\n");
+		log("\n");
+		log("    read -incdir <directory>\n");
+		log("\n");
+		log("Add directory to global Verilog/SystemVerilog include directories.\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
@@ -2259,6 +2275,20 @@ struct ReadPass : public Pass {
 			args.erase(args.begin()+1, args.begin()+2);
 			for (int i = 1; i < GetSize(args); i++)
 				args[i] = "-U" + args[i];
+			Pass::call(design, args);
+			return;
+		}
+
+		if (args[1] == "-incdir") {
+			if (use_verific) {
+				args[0] = "verific";
+				args[1] = "-vlog-incdir";
+				Pass::call(design, args);
+			}
+			args[0] = "verilog_defaults";
+			args[1] = "-add";
+			for (int i = 2; i < GetSize(args); i++)
+				args[i] = "-I" + args[i];
 			Pass::call(design, args);
 			return;
 		}
