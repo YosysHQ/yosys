@@ -238,7 +238,7 @@ struct AST_INTERNAL::ProcessGenerator
 
 		if (found_anyedge_syncs) {
 			if (found_global_syncs)
-				log_error("Found non-synthesizable event list at %s:%d!\n", always->filename.c_str(), always->linenum);
+				log_file_error(always->filename, always->linenum, "Found non-synthesizable event list!\n");
 			log("Note: Assuming pure combinatorial block at %s:%d in\n", always->filename.c_str(), always->linenum);
 			log("compliance with IEC 62142(E):2005 / IEEE Std. 1364.1(E):2002. Recommending\n");
 			log("use of @* instead of @(...) for better match of synthesis and simulation.\n");
@@ -253,12 +253,12 @@ struct AST_INTERNAL::ProcessGenerator
 					continue;
 				found_clocked_sync = true;
 				if (found_global_syncs || found_anyedge_syncs)
-					log_error("Found non-synthesizable event list at %s:%d!\n", always->filename.c_str(), always->linenum);
+					log_file_error(always->filename, always->linenum, "Found non-synthesizable event list!\n");
 				RTLIL::SyncRule *syncrule = new RTLIL::SyncRule;
 				syncrule->type = child->type == AST_POSEDGE ? RTLIL::STp : RTLIL::STn;
 				syncrule->signal = child->children[0]->genRTLIL();
 				if (GetSize(syncrule->signal) != 1)
-					log_error("Found posedge/negedge event on a signal that is not 1 bit wide at %s:%d!\n", always->filename.c_str(), always->linenum);
+					log_file_error(always->filename, always->linenum, "Found posedge/negedge event on a signal that is not 1 bit wide!\n");
 				addChunkActions(syncrule->actions, subst_lvalue_from, subst_lvalue_to, true);
 				proc->syncs.push_back(syncrule);
 			}
@@ -549,12 +549,12 @@ struct AST_INTERNAL::ProcessGenerator
 			break;
 
 		case AST_WIRE:
-			log_error("Found wire declaration in block without label at at %s:%d!\n", ast->filename.c_str(), ast->linenum);
+			log_file_error(ast->filename, ast->linenum, "Found wire declaration in block without label!\n");
 			break;
 
 		case AST_PARAMETER:
 		case AST_LOCALPARAM:
-			log_error("Found parameter declaration in block without label at at %s:%d!\n", ast->filename.c_str(), ast->linenum);
+			log_file_error(ast->filename, ast->linenum, "Found parameter declaration in block without label!\n");
 			break;
 
 		case AST_NONE:
@@ -602,7 +602,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 		if (id_ast == NULL && current_scope.count(str))
 			id_ast = current_scope.at(str);
 		if (!id_ast)
-			log_error("Failed to resolve identifier %s for width detection at %s:%d!\n", str.c_str(), filename.c_str(), linenum);
+			log_file_error(filename, linenum, "Failed to resolve identifier %s for width detection!\n", str.c_str());
 		if (id_ast->type == AST_PARAMETER || id_ast->type == AST_LOCALPARAM) {
 			if (id_ast->children.size() > 1 && id_ast->children[1]->range_valid) {
 				this_width = id_ast->children[1]->range_left - id_ast->children[1]->range_right + 1;
@@ -612,7 +612,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 			if (id_ast->children[0]->type == AST_CONSTANT)
 				this_width = id_ast->children[0]->bits.size();
 			else
-				log_error("Failed to detect width for parameter %s at %s:%d!\n", str.c_str(), filename.c_str(), linenum);
+				log_file_error(filename, linenum, "Failed to detect width for parameter %s!\n", str.c_str());
 			if (children.size() != 0)
 				range = children[0];
 		} else if (id_ast->type == AST_WIRE || id_ast->type == AST_AUTOWIRE) {
@@ -624,7 +624,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 					// log("---\n");
 					// id_ast->dumpAst(NULL, "decl> ");
 					// dumpAst(NULL, "ref> ");
-					log_error("Failed to detect width of signal access `%s' at %s:%d!\n", str.c_str(), filename.c_str(), linenum);
+					log_file_error(filename, linenum, "Failed to detect width of signal access `%s'!\n", str.c_str());
 				}
 			} else {
 				this_width = id_ast->range_left - id_ast->range_right + 1;
@@ -635,10 +635,10 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 			this_width = 32;
 		} else if (id_ast->type == AST_MEMORY) {
 			if (!id_ast->children[0]->range_valid)
-				log_error("Failed to detect width of memory access `%s' at %s:%d!\n", str.c_str(), filename.c_str(), linenum);
+				log_file_error(filename, linenum, "Failed to detect width of memory access `%s'!\n", str.c_str());
 			this_width = id_ast->children[0]->range_left - id_ast->children[0]->range_right + 1;
 		} else
-			log_error("Failed to detect width for identifier %s at %s:%d!\n", str.c_str(), filename.c_str(), linenum);
+			log_file_error(filename, linenum, "Failed to detect width for identifier %s!\n", str.c_str());
 		if (range) {
 			if (range->children.size() == 1)
 				this_width = 1;
@@ -665,7 +665,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 	case AST_TO_BITS:
 		while (children[0]->simplify(true, false, false, 1, -1, false, false) == true) { }
 		if (children[0]->type != AST_CONSTANT)
-			log_error("Left operand of tobits expression is not constant at %s:%d!\n", filename.c_str(), linenum);
+			log_file_error(filename, linenum, "Left operand of tobits expression is not constant!\n");
 		children[1]->detectSignWidthWorker(sub_width_hint, sign_hint);
 		width_hint = max(width_hint, children[0]->bitsAsConst().as_int());
 		break;
@@ -693,7 +693,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 	case AST_REPLICATE:
 		while (children[0]->simplify(true, false, false, 1, -1, false, true) == true) { }
 		if (children[0]->type != AST_CONSTANT)
-			log_error("Left operand of replicate expression is not constant at %s:%d!\n", filename.c_str(), linenum);
+			log_file_error(filename, linenum, "Left operand of replicate expression is not constant!\n");
 		children[1]->detectSignWidthWorker(sub_width_hint, sub_sign_hint);
 		width_hint = max(width_hint, children[0]->bitsAsConst().as_int() * sub_width_hint);
 		sign_hint = false;
@@ -767,7 +767,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 		if (!id2ast->is_signed)
 			sign_hint = false;
 		if (!id2ast->children[0]->range_valid)
-			log_error("Failed to detect width of memory access `%s' at %s:%d!\n", str.c_str(), filename.c_str(), linenum);
+			log_file_error(filename, linenum, "Failed to detect width of memory access `%s'!\n", str.c_str());
 		this_width = id2ast->children[0]->range_left - id2ast->children[0]->range_right + 1;
 		width_hint = max(width_hint, this_width);
 		break;
@@ -1083,7 +1083,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			RTLIL::SigSpec left = children[0]->genRTLIL();
 			RTLIL::SigSpec right = children[1]->genRTLIL();
 			if (!left.is_fully_const())
-				log_error("Left operand of replicate expression is not constant at %s:%d!\n", filename.c_str(), linenum);
+				log_file_error(filename, linenum, "Left operand of replicate expression is not constant!\n");
 			int count = left.as_int();
 			RTLIL::SigSpec sig;
 			for (int i = 0; i < count; i++)
@@ -1322,7 +1322,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			int num_words = 1;
 			if (type == AST_MEMINIT) {
 				if (children[2]->type != AST_CONSTANT)
-					log_error("Memory init with non-constant word count at %s:%d!\n", filename.c_str(), linenum);
+					log_file_error(filename, linenum, "Memory init with non-constant word count!\n");
 				num_words = int(children[2]->asInt(false));
 				cell->parameters["\\WORDS"] = RTLIL::Const(num_words);
 			}
@@ -1514,7 +1514,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				if (attributes.count("\\reg")) {
 					auto &attr = attributes.at("\\reg");
 					if (attr->type != AST_CONSTANT)
-						log_error("Attribute `reg' with non-constant value at %s:%d!\n", filename.c_str(), linenum);
+						log_file_error(filename, linenum, "Attribute `reg' with non-constant value!\n");
 					cell->attributes["\\reg"] =  attr->asAttrConst();
 				}
 

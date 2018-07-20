@@ -177,13 +177,13 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	// note that $display, $finish, and $stop are used for synthesis-time DRC so they're not in this list
 	if ((type == AST_FCALL || type == AST_TCALL) && (str == "$strobe" || str == "$monitor" || str == "$time" ||
 			str == "$dumpfile" || str == "$dumpvars" || str == "$dumpon" || str == "$dumpoff" || str == "$dumpall")) {
-		log_warning("Ignoring call to system %s %s at %s:%d.\n", type == AST_FCALL ? "function" : "task", str.c_str(), filename.c_str(), linenum);
+		log_file_warning(filename, linenum, "Ignoring call to system %s %s.\n", type == AST_FCALL ? "function" : "task", str.c_str());
 		delete_children();
 		str = std::string();
 	}
 
 	if ((type == AST_TCALL) && (str == "$display" || str == "$write") && (!current_always || current_always->type != AST_INITIAL)) {
-		log_warning("System task `%s' outside initial block is unsupported at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
+		log_file_warning(filename, linenum, "System task `%s' outside initial block is unsupported.\n", str.c_str());
 		delete_children();
 		str = std::string();
 	}
@@ -202,7 +202,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		AstNode *node_string = children[0];
 		while (node_string->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
 		if (node_string->type != AST_CONSTANT)
-			log_error("Failed to evaluate system task `%s' with non-constant 1st argument at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
+			log_file_error(filename, linenum, "Failed to evaluate system task `%s' with non-constant 1st argument.\n", str.c_str());
 		std::string sformat = node_string->bitsAsConst().decode_string();
 
 		// Other arguments are placeholders. Process the string as we go through it
@@ -215,7 +215,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			{
 				// If there's no next character, that's a problem
 				if (i+1 >= sformat.length())
-					log_error("System task `%s' called with `%%' at end of string at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
+					log_file_error(filename, linenum, "System task `%s' called with `%%' at end of string.\n", str.c_str());
 
 				char cformat = sformat[++i];
 
@@ -245,7 +245,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 						node_arg = children[next_arg++];
 						while (node_arg->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
 						if (node_arg->type != AST_CONSTANT)
-							log_error("Failed to evaluate system task `%s' with non-constant argument at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
+							log_file_error(filename, linenum, "Failed to evaluate system task `%s' with non-constant argument.\n", str.c_str());
 						break;
 
 					case 'm':
@@ -253,7 +253,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 						break;
 
 					default:
-						log_error("System task `%s' called with invalid/unsupported format specifier at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
+						log_file_error(filename, linenum, "System task `%s' called with invalid/unsupported format specifier.\n", str.c_str());
 						break;
 				}
 
@@ -374,7 +374,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 					continue;
 				wires_are_incompatible:
 					if (stage > 1)
-						log_error("Incompatible re-declaration of wire %s at %s:%d.\n", node->str.c_str(), filename.c_str(), linenum);
+						log_file_error(filename, linenum, "Incompatible re-declaration of wire %s.\n", node->str.c_str());
 					continue;
 				}
 				this_wire_scope[node->str] = node;
@@ -402,7 +402,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	if (type == AST_ALWAYS || type == AST_INITIAL)
 	{
 		if (current_always != nullptr)
-			log_error("Invalid nesting of always blocks and/or initializations at %s:%d.\n", filename.c_str(), linenum);
+			log_file_error(filename, linenum, "Invalid nesting of always blocks and/or initializations.\n");
 
 		current_always = this;
 		current_always_clocked = false;
@@ -451,7 +451,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			while (!children[1]->basic_prep && children[1]->simplify(false, false, false, stage, -1, false, true) == true)
 				did_something = true;
 			if (!children[1]->range_valid)
-				log_error("Non-constant width range on parameter decl at %s:%d.\n", filename.c_str(), linenum);
+				log_file_error(filename, linenum, "Non-constant width range on parameter decl.\n");
 			width_hint = max(width_hint, children[1]->range_left - children[1]->range_right + 1);
 		}
 		break;
@@ -695,7 +695,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	if (type == AST_DEFPARAM && !children.empty())
 	{
 		if (children[0]->type != AST_IDENTIFIER)
-			log_error("Module name in defparam at %s:%d contains non-constant expressions!\n", filename.c_str(), linenum);
+			log_file_error(filename, linenum, "Module name in defparam contains non-constant expressions!\n");
 
 		string modname, paramname = children[0]->str;
 
@@ -712,7 +712,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		}
 
 		if (pos == std::string::npos)
-			log_error("Can't find object for defparam `%s` at %s:%d!\n", RTLIL::unescape_id(paramname).c_str(), filename.c_str(), linenum);
+			log_file_error(filename, linenum, "Can't find object for defparam `%s`!\n", RTLIL::unescape_id(paramname).c_str());
 
 		paramname = "\\" + paramname.substr(pos+1);
 
@@ -732,7 +732,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	if (type == AST_PREFIX) {
 		if (children[0]->type != AST_CONSTANT) {
 			// dumpAst(NULL, ">   ");
-			log_error("Index in generate block prefix syntax at %s:%d is not constant!\n", filename.c_str(), linenum);
+			log_file_error(filename, linenum, "Index in generate block prefix syntax is not constant!\n");
 		}
 		if (children[1]->type == AST_PREFIX)
 			children[1]->simplify(const_fold, at_zero, in_lvalue, stage, width_hint, sign_hint, in_param);
@@ -748,9 +748,9 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	// evaluate TO_BITS nodes
 	if (type == AST_TO_BITS) {
 		if (children[0]->type != AST_CONSTANT)
-			log_error("Left operand of to_bits expression is not constant at %s:%d!\n", filename.c_str(), linenum);
+			log_file_error(filename, linenum, "Left operand of to_bits expression is not constant!\n");
 		if (children[1]->type != AST_CONSTANT)
-			log_error("Right operand of to_bits expression is not constant at %s:%d!\n", filename.c_str(), linenum);
+			log_file_error(filename, linenum, "Right operand of to_bits expression is not constant!\n");
 		RTLIL::Const new_value = children[1]->bitsAsConst(children[0]->bitsAsConst().as_int(), children[1]->is_signed);
 		newNode = mkconst_bits(new_value.bits, children[1]->is_signed);
 		goto apply_newNode;
@@ -814,7 +814,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		multirange_dimensions.clear();
 		for (auto range : children[1]->children) {
 			if (!range->range_valid)
-				log_error("Non-constant range on memory decl at %s:%d.\n", filename.c_str(), linenum);
+				log_file_error(filename, linenum, "Non-constant range on memory decl.\n");
 			multirange_dimensions.push_back(min(range->range_left, range->range_right));
 			multirange_dimensions.push_back(max(range->range_left, range->range_right) - min(range->range_left, range->range_right) + 1);
 			total_size *= multirange_dimensions.back();
@@ -832,7 +832,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		for (int i = 0; 2*i < GetSize(id2ast->multirange_dimensions); i++)
 		{
 			if (GetSize(children[0]->children) < i)
-				log_error("Insufficient number of array indices for %s at %s:%d.\n", log_id(str), filename.c_str(), linenum);
+				log_file_error(filename, linenum, "Insufficient number of array indices for %s.\n", log_id(str));
 
 			AstNode *new_index_expr = children[0]->children[i]->children.at(0)->clone();
 
@@ -861,7 +861,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	if (type == AST_PARAMETER || type == AST_LOCALPARAM) {
 		if (children.size() > 1 && children[1]->type == AST_RANGE) {
 			if (!children[1]->range_valid)
-				log_error("Non-constant width range on parameter decl at %s:%d.\n", filename.c_str(), linenum);
+				log_file_error(filename, linenum, "Non-constant width range on parameter decl.\n");
 			int width = std::abs(children[1]->range_left - children[1]->range_right) + 1;
 			if (children[0]->type == AST_REALVALUE) {
 				RTLIL::Const constvalue = children[0]->realAsConst(width);
@@ -924,7 +924,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	if (type == AST_IDENTIFIER && children.size() == 2 && children[0]->type == AST_RANGE && children[1]->type == AST_RANGE && !in_lvalue)
 	{
 		if (id2ast == NULL || id2ast->type != AST_MEMORY || children[0]->children.size() != 1)
-			log_error("Invalid bit-select on memory access at %s:%d!\n", filename.c_str(), linenum);
+			log_file_error(filename, linenum, "Invalid bit-select on memory access!\n");
 
 		int mem_width, mem_size, addr_bits;
 		id2ast->meminfo(mem_width, mem_size, addr_bits);
@@ -973,10 +973,10 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	}
 
 	if (type == AST_WHILE)
-		log_error("While loops are only allowed in constant functions at %s:%d!\n", filename.c_str(), linenum);
+		log_file_error(filename, linenum, "While loops are only allowed in constant functions!\n");
 
 	if (type == AST_REPEAT)
-		log_error("Repeat loops are only allowed in constant functions at %s:%d!\n", filename.c_str(), linenum);
+		log_file_error(filename, linenum, "Repeat loops are only allowed in constant functions!\n");
 
 	// unroll for loops and generate-for blocks
 	if ((type == AST_GENFOR || type == AST_FOR) && children.size() != 0)
@@ -991,31 +991,31 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			body_ast = body_ast->children.at(0);
 
 		if (init_ast->type != AST_ASSIGN_EQ)
-			log_error("Unsupported 1st expression of generate for-loop at %s:%d!\n", filename.c_str(), linenum);
+			log_file_error(filename, linenum, "Unsupported 1st expression of generate for-loop!\n");
 		if (next_ast->type != AST_ASSIGN_EQ)
-			log_error("Unsupported 3rd expression of generate for-loop at %s:%d!\n", filename.c_str(), linenum);
+			log_file_error(filename, linenum, "Unsupported 3rd expression of generate for-loop!\n");
 
 		if (type == AST_GENFOR) {
 			if (init_ast->children[0]->id2ast == NULL || init_ast->children[0]->id2ast->type != AST_GENVAR)
-				log_error("Left hand side of 1st expression of generate for-loop at %s:%d is not a gen var!\n", filename.c_str(), linenum);
+				log_file_error(filename, linenum, "Left hand side of 1st expression of generate for-loop is not a gen var!\n");
 			if (next_ast->children[0]->id2ast == NULL || next_ast->children[0]->id2ast->type != AST_GENVAR)
-				log_error("Left hand side of 3rd expression of generate for-loop at %s:%d is not a gen var!\n", filename.c_str(), linenum);
+				log_file_error(filename, linenum, "Left hand side of 3rd expression of generate for-loop is not a gen var!\n");
 		} else {
 			if (init_ast->children[0]->id2ast == NULL || init_ast->children[0]->id2ast->type != AST_WIRE)
-				log_error("Left hand side of 1st expression of generate for-loop at %s:%d is not a register!\n", filename.c_str(), linenum);
+				log_file_error(filename, linenum, "Left hand side of 1st expression of generate for-loop is not a register!\n");
 			if (next_ast->children[0]->id2ast == NULL || next_ast->children[0]->id2ast->type != AST_WIRE)
-				log_error("Left hand side of 3rd expression of generate for-loop at %s:%d is not a register!\n", filename.c_str(), linenum);
+				log_file_error(filename, linenum, "Left hand side of 3rd expression of generate for-loop is not a register!\n");
 		}
 
 		if (init_ast->children[0]->id2ast != next_ast->children[0]->id2ast)
-			log_error("Incompatible left-hand sides in 1st and 3rd expression of generate for-loop at %s:%d!\n", filename.c_str(), linenum);
+			log_file_error(filename, linenum, "Incompatible left-hand sides in 1st and 3rd expression of generate for-loop!\n");
 
 		// eval 1st expression
 		AstNode *varbuf = init_ast->children[1]->clone();
 		while (varbuf->simplify(true, false, false, stage, 32, true, false)) { }
 
 		if (varbuf->type != AST_CONSTANT)
-			log_error("Right hand side of 1st expression of generate for-loop at %s:%d is not constant!\n", filename.c_str(), linenum);
+			log_file_error(filename, linenum, "Right hand side of 1st expression of generate for-loop is not constant!\n");
 
 		varbuf = new AstNode(AST_LOCALPARAM, varbuf);
 		varbuf->str = init_ast->children[0]->str;
@@ -1037,7 +1037,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			while (buf->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
 
 			if (buf->type != AST_CONSTANT)
-				log_error("2nd expression of generate for-loop at %s:%d is not constant!\n", filename.c_str(), linenum);
+				log_file_error(filename, linenum, "2nd expression of generate for-loop is not constant!\n");
 
 			if (buf->integer == 0) {
 				delete buf;
@@ -1078,7 +1078,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			while (buf->simplify(true, false, false, stage, 32, true, false)) { }
 
 			if (buf->type != AST_CONSTANT)
-				log_error("Right hand side of 3rd expression of generate for-loop at %s:%d is not constant!\n", filename.c_str(), linenum);
+				log_file_error(filename, linenum, "Right hand side of 3rd expression of generate for-loop is not constant!\n");
 
 			delete varbuf->children[0];
 			varbuf->children[0] = buf;
@@ -1144,7 +1144,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		if (buf->type != AST_CONSTANT) {
 			// for (auto f : log_files)
 			// 	dumpAst(f, "verilog-ast> ");
-			log_error("Condition for generate if at %s:%d is not constant!\n", filename.c_str(), linenum);
+			log_file_error(filename, linenum, "Condition for generate if is not constant!\n");
 		}
 		if (buf->asBool() != 0) {
 			delete buf;
@@ -1185,7 +1185,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		if (buf->type != AST_CONSTANT) {
 			// for (auto f : log_files)
 			// 	dumpAst(f, "verilog-ast> ");
-			log_error("Condition for generate case at %s:%d is not constant!\n", filename.c_str(), linenum);
+			log_file_error(filename, linenum, "Condition for generate case is not constant!\n");
 		}
 
 		bool ref_signed = buf->is_signed;
@@ -1219,7 +1219,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				if (buf->type != AST_CONSTANT) {
 					// for (auto f : log_files)
 					// 	dumpAst(f, "verilog-ast> ");
-					log_error("Expression in generate case at %s:%d is not constant!\n", filename.c_str(), linenum);
+					log_file_error(filename, linenum, "Expression in generate case is not constant!\n");
 				}
 
 				bool is_selected = RTLIL::const_eq(ref_value, buf->bitsAsConst(), ref_signed && buf->is_signed, ref_signed && buf->is_signed, 1).as_bool();
@@ -1260,7 +1260,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	if (type == AST_CELLARRAY)
 	{
 		if (!children.at(0)->range_valid)
-			log_error("Non-constant array range on cell array at %s:%d.\n", filename.c_str(), linenum);
+			log_file_error(filename, linenum, "Non-constant array range on cell array.\n");
 
 		newNode = new AstNode(AST_GENBLOCK);
 		int num = max(children.at(0)->range_left, children.at(0)->range_right) - min(children.at(0)->range_left, children.at(0)->range_right) + 1;
@@ -1271,7 +1271,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			newNode->children.push_back(new_cell);
 			new_cell->str += stringf("[%d]", idx);
 			if (new_cell->type == AST_PRIMITIVE) {
-				log_error("Cell arrays of primitives are currently not supported at %s:%d.\n", filename.c_str(), linenum);
+				log_file_error(filename, linenum, "Cell arrays of primitives are currently not supported.\n");
 			} else {
 				log_assert(new_cell->children.at(0)->type == AST_CELLTYPE);
 				new_cell->children.at(0)->str = stringf("$array:%d:%d:%s", i, num, new_cell->children.at(0)->str.c_str());
@@ -1645,7 +1645,7 @@ skip_dynamic_range_lvalue_expansion:;
 				while (left_at_zero_ast->simplify(true, true, false, 1, -1, false, false)) { }
 				while (right_at_zero_ast->simplify(true, true, false, 1, -1, false, false)) { }
 				if (left_at_zero_ast->type != AST_CONSTANT || right_at_zero_ast->type != AST_CONSTANT)
-					log_error("Unsupported expression on dynamic range select on signal `%s' at %s:%d!\n", str.c_str(), filename.c_str(), linenum);
+					log_file_error(filename, linenum, "Unsupported expression on dynamic range select on signal `%s'!\n", str.c_str());
 				int width = left_at_zero_ast->integer - right_at_zero_ast->integer + 1;
 
 				assign_data = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER),
@@ -1749,7 +1749,7 @@ skip_dynamic_range_lvalue_expansion:;
 					AstNode *buf = children[1]->clone();
 					while (buf->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
 					if (buf->type != AST_CONSTANT)
-						log_error("Failed to evaluate system function `%s' with non-constant value at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
+						log_file_error(filename, linenum, "Failed to evaluate system function `%s' with non-constant value.\n", str.c_str());
 
 					num_steps = buf->asInt(true);
 					delete buf;
@@ -1846,7 +1846,7 @@ skip_dynamic_range_lvalue_expansion:;
 				AstNode *buf = children[0]->clone();
 				while (buf->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
 				if (buf->type != AST_CONSTANT)
-					log_error("Failed to evaluate system function `%s' with non-constant value at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
+					log_file_error(filename, linenum, "Failed to evaluate system function `%s' with non-constant value.\n", str.c_str());
 
 				RTLIL::Const arg_value = buf->bitsAsConst();
 				if (arg_value.as_bool())
@@ -1893,7 +1893,7 @@ skip_dynamic_range_lvalue_expansion:;
 					if (id_ast == NULL && current_scope.count(buf->str))
 						id_ast = current_scope.at(buf->str);
 					if (!id_ast)
-						log_error("Failed to resolve identifier %s for width detection at %s:%d!\n", buf->str.c_str(), filename.c_str(), linenum);
+						log_file_error(filename, linenum, "Failed to resolve identifier %s for width detection!\n", buf->str.c_str());
 					if (id_ast->type == AST_MEMORY) {
 						// We got here only if the argument is a memory
 						// Otherwise $size() and $bits() return the expression width
@@ -1901,15 +1901,15 @@ skip_dynamic_range_lvalue_expansion:;
 						if (str == "\\$bits") {
 							if (mem_range->type == AST_RANGE) {
 								if (!mem_range->range_valid)
-									log_error("Failed to detect width of memory access `%s' at %s:%d!\n", buf->str.c_str(), filename.c_str(), linenum);
+									log_file_error(filename, linenum, "Failed to detect width of memory access `%s'!\n", buf->str.c_str());
 								mem_depth = mem_range->range_left - mem_range->range_right + 1;
 							} else
-								log_error("Unknown memory depth AST type in `%s' at %s:%d!\n", buf->str.c_str(), filename.c_str(), linenum);
+								log_file_error(filename, linenum, "Unknown memory depth AST type in `%s'!\n", buf->str.c_str());
 						} else {
 							// $size()
 							if (mem_range->type == AST_RANGE) {
 								if (!mem_range->range_valid)
-									log_error("Failed to detect width of memory access `%s' at %s:%d!\n", buf->str.c_str(), filename.c_str(), linenum);
+									log_file_error(filename, linenum, "Failed to detect width of memory access `%s'!\n", buf->str.c_str());
 								int dims;
 								if (id_ast->multirange_dimensions.empty())
 									dims = 1;
@@ -1920,9 +1920,9 @@ skip_dynamic_range_lvalue_expansion:;
 								else if (dim <= dims) {
 									width_hint = id_ast->multirange_dimensions[2*dim-1];
 								} else if ((dim > dims+1) || (dim < 0))
-									log_error("Dimension %d out of range in `%s', as it only has dimensions 1..%d at %s:%d!\n", dim, buf->str.c_str(), dims+1, filename.c_str(), linenum);
+									log_file_error(filename, linenum, "Dimension %d out of range in `%s', as it only has dimensions 1..%d!\n", dim, buf->str.c_str(), dims+1);
 							} else
-								log_error("Unknown memory depth AST type in `%s' at %s:%d!\n", buf->str.c_str(), filename.c_str(), linenum);
+								log_file_error(filename, linenum, "Unknown memory depth AST type in `%s'!\n", buf->str.c_str());
 						}
 					}
 				}
@@ -2018,14 +2018,14 @@ skip_dynamic_range_lvalue_expansion:;
 				for (int i = 2; i < GetSize(dpi_decl->children); i++)
 				{
 					if (i-2 >= GetSize(children))
-						log_error("Insufficient number of arguments in DPI function call at %s:%d.\n", filename.c_str(), linenum);
+						log_file_error(filename, linenum, "Insufficient number of arguments in DPI function call.\n");
 
 					argtypes.push_back(RTLIL::unescape_id(dpi_decl->children.at(i)->str));
 					args.push_back(children.at(i-2)->clone());
 					while (args.back()->simplify(true, false, false, stage, -1, false, true)) { }
 
 					if (args.back()->type != AST_CONSTANT && args.back()->type != AST_REALVALUE)
-						log_error("Failed to evaluate DPI function with non-constant argument at %s:%d.\n", filename.c_str(), linenum);
+						log_file_error(filename, linenum, "Failed to evaluate DPI function with non-constant argument.\n");
 				}
 
 				newNode = dpi_call(rtype, fname, argtypes, args);
@@ -2037,7 +2037,7 @@ skip_dynamic_range_lvalue_expansion:;
 			}
 
 			if (current_scope.count(str) == 0 || current_scope[str]->type != AST_FUNCTION)
-				log_error("Can't resolve function name `%s' at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
+				log_file_error(filename, linenum, "Can't resolve function name `%s'.\n", str.c_str());
 		}
 
 		if (type == AST_TCALL)
@@ -2045,9 +2045,9 @@ skip_dynamic_range_lvalue_expansion:;
 			if (str == "$finish" || str == "$stop")
 			{
 				if (!current_always || current_always->type != AST_INITIAL)
-					log_error("System task `%s' outside initial block is unsupported at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
+					log_file_error(filename, linenum, "System task `%s' outside initial block is unsupported.\n", str.c_str());
 
-				log_error("System task `%s' executed at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
+				log_file_error(filename, linenum, "System task `%s' executed.\n", str.c_str());
 			}
 
 			if (str == "\\$readmemh" || str == "\\$readmemb")
@@ -2059,12 +2059,12 @@ skip_dynamic_range_lvalue_expansion:;
 				AstNode *node_filename = children[0]->clone();
 				while (node_filename->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
 				if (node_filename->type != AST_CONSTANT)
-					log_error("Failed to evaluate system function `%s' with non-constant 1st argument at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
+					log_file_error(filename, linenum, "Failed to evaluate system function `%s' with non-constant 1st argument.\n", str.c_str());
 
 				AstNode *node_memory = children[1]->clone();
 				while (node_memory->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
 				if (node_memory->type != AST_IDENTIFIER || node_memory->id2ast == nullptr || node_memory->id2ast->type != AST_MEMORY)
-					log_error("Failed to evaluate system function `%s' with non-memory 2nd argument at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
+					log_file_error(filename, linenum, "Failed to evaluate system function `%s' with non-memory 2nd argument.\n", str.c_str());
 
 				int start_addr = -1, finish_addr = -1;
 
@@ -2072,7 +2072,7 @@ skip_dynamic_range_lvalue_expansion:;
 					AstNode *node_addr = children[2]->clone();
 					while (node_addr->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
 					if (node_addr->type != AST_CONSTANT)
-						log_error("Failed to evaluate system function `%s' with non-constant 3rd argument at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
+						log_file_error(filename, linenum, "Failed to evaluate system function `%s' with non-constant 3rd argument.\n", str.c_str());
 					start_addr = int(node_addr->asInt(false));
 				}
 
@@ -2080,7 +2080,7 @@ skip_dynamic_range_lvalue_expansion:;
 					AstNode *node_addr = children[3]->clone();
 					while (node_addr->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
 					if (node_addr->type != AST_CONSTANT)
-						log_error("Failed to evaluate system function `%s' with non-constant 4th argument at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
+						log_file_error(filename, linenum, "Failed to evaluate system function `%s' with non-constant 4th argument.\n", str.c_str());
 					finish_addr = int(node_addr->asInt(false));
 				}
 
@@ -2106,7 +2106,7 @@ skip_dynamic_range_lvalue_expansion:;
 			}
 
 			if (current_scope.count(str) == 0 || current_scope[str]->type != AST_TASK)
-				log_error("Can't resolve task name `%s' at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
+				log_file_error(filename, linenum, "Can't resolve task name `%s'.\n", str.c_str());
 		}
 
 		AstNode *decl = current_scope[str];
@@ -2134,9 +2134,9 @@ skip_dynamic_range_lvalue_expansion:;
 			}
 
 			if (in_param)
-				log_error("Non-constant function call in constant expression at %s:%d.\n", filename.c_str(), linenum);
+				log_file_error(filename, linenum, "Non-constant function call in constant expression.\n");
 			if (require_const_eval)
-				log_error("Function %s can only be called with constant arguments at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
+				log_file_error(filename, linenum, "Function %s can only be called with constant arguments.\n", str.c_str());
 		}
 
 		size_t arg_count = 0;
@@ -2253,7 +2253,7 @@ skip_dynamic_range_lvalue_expansion:;
 									goto tcall_incompatible_wires;
 						} else {
 					tcall_incompatible_wires:
-							log_error("Incompatible re-declaration of wire %s at %s:%d.\n", child->str.c_str(), filename.c_str(), linenum);
+							log_file_error(filename, linenum, "Incompatible re-declaration of wire %s.\n", child->str.c_str());
 						}
 					}
 				}
@@ -2641,7 +2641,7 @@ AstNode *AstNode::readmem(bool is_readmemh, std::string mem_filename, AstNode *m
 	yosys_input_files.insert(mem_filename);
 
 	if (f.fail())
-		log_error("Can not open file `%s` for %s at %s:%d.\n", mem_filename.c_str(), str.c_str(), filename.c_str(), linenum);
+		log_file_error(filename, linenum, "Can not open file `%s` for %s.\n", mem_filename.c_str(), str.c_str());
 
 	log_assert(GetSize(memory->children) == 2 && memory->children[1]->type == AST_RANGE && memory->children[1]->range_valid);
 	int range_left =  memory->children[1]->range_left, range_right =  memory->children[1]->range_right;
@@ -2687,7 +2687,7 @@ AstNode *AstNode::readmem(bool is_readmemh, std::string mem_filename, AstNode *m
 				char *endptr;
 				cursor = strtol(nptr, &endptr, 16);
 				if (!*nptr || *endptr)
-					log_error("Can not parse address `%s` for %s at %s:%d.\n", nptr, str.c_str(), filename.c_str(), linenum);
+					log_file_error(filename, linenum, "Can not parse address `%s` for %s.\n", nptr, str.c_str());
 				continue;
 			}
 
@@ -2943,7 +2943,7 @@ bool AstNode::mem2reg_check(pool<AstNode*> &mem2reg_set)
 		return false;
 
 	if (children.empty() || children[0]->type != AST_RANGE || GetSize(children[0]->children) != 1)
-		log_error("Invalid array access at %s:%d.\n", filename.c_str(), linenum);
+		log_file_error(filename, linenum, "Invalid array access.\n");
 
 	return true;
 }
@@ -3446,4 +3446,3 @@ AstNode *AstNode::eval_const_function(AstNode *fcall)
 }
 
 YOSYS_NAMESPACE_END
-
