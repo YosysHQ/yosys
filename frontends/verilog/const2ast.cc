@@ -49,8 +49,7 @@ static int my_decimal_div_by_two(std::vector<uint8_t> &digits)
 	int carry = 0;
 	for (size_t i = 0; i < digits.size(); i++) {
 		if (digits[i] >= 10)
-			log_error("Invalid use of [a-fxz?] in decimal constant at %s:%d.\n",
-				current_filename.c_str(), get_line_num());
+			log_file_error(current_filename, get_line_num(), "Invalid use of [a-fxz?] in decimal constant.\n");
 		digits[i] += carry * 10;
 		carry = digits[i] % 2;
 		digits[i] /= 2;
@@ -105,8 +104,8 @@ static void my_strtobin(std::vector<RTLIL::State> &data, const char *str, int le
 		int bits_per_digit = my_ilog2(base-1);
 		for (auto it = digits.rbegin(), e = digits.rend(); it != e; it++) {
 			if (*it > (base-1) && *it < 0xf0)
-				log_error("Digit larger than %d used in in base-%d constant at %s:%d.\n",
-					base-1, base, current_filename.c_str(), get_line_num());
+				log_file_error(current_filename, get_line_num(), "Digit larger than %d used in in base-%d constant.\n",
+					       base-1, base);
 			for (int i = 0; i < bits_per_digit; i++) {
 				int bitmask = 1 << i;
 				if (*it == 0xf0)
@@ -238,4 +237,3 @@ AstNode *VERILOG_FRONTEND::const2ast(std::string code, char case_type, bool warn
 }
 
 YOSYS_NAMESPACE_END
-
