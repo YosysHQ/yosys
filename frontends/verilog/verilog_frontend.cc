@@ -42,7 +42,7 @@ static std::list<std::vector<std::string>> verilog_defaults_stack;
 static void error_on_dpi_function(AST::AstNode *node)
 {
 	if (node->type == AST::AST_DPI_FUNCTION)
-		log_error("Found DPI function %s at %s:%d.\n", node->str.c_str(), node->filename.c_str(), node->linenum);
+		log_file_error(node->filename, node->linenum, "Found DPI function %s.\n", node->str.c_str());
 	for (auto child : node->children)
 		error_on_dpi_function(child);
 }
@@ -519,13 +519,11 @@ void frontend_verilog_yyerror(char const *fmt, ...)
 	va_list ap;
 	char buffer[1024];
 	char *p = buffer;
-	p += snprintf(p, buffer + sizeof(buffer) - p, "Parser error in line %s:%d: ",
-			YOSYS_NAMESPACE_PREFIX AST::current_filename.c_str(), frontend_verilog_yyget_lineno());
 	va_start(ap, fmt);
 	p += vsnprintf(p, buffer + sizeof(buffer) - p, fmt, ap);
 	va_end(ap);
 	p += snprintf(p, buffer + sizeof(buffer) - p, "\n");
-	YOSYS_NAMESPACE_PREFIX log_error("%s", buffer);
+	YOSYS_NAMESPACE_PREFIX log_file_error(YOSYS_NAMESPACE_PREFIX AST::current_filename, frontend_verilog_yyget_lineno(),
+					      "%s", buffer);
 	exit(1);
 }
-
