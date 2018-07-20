@@ -958,9 +958,9 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				wire->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
 				wire->name = str;
 				if (flag_autowire)
-					log_warning("Identifier `%s' is implicitly declared at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
+					log_file_warning(filename, linenum, "Identifier `%s' is implicitly declared.\n", str.c_str());
 				else
-					log_error("Identifier `%s' is implicitly declared at %s:%d and `default_nettype is set to none.\n", str.c_str(), filename.c_str(), linenum);
+					log_file_error(filename, linenum, "Identifier `%s' is implicitly declared and `default_nettype is set to none.\n", str.c_str());
 			}
 			else if (id2ast->type == AST_PARAMETER || id2ast->type == AST_LOCALPARAM) {
 				if (id2ast->children[0]->type != AST_CONSTANT)
@@ -1563,4 +1563,3 @@ RTLIL::SigSpec AstNode::genWidthRTLIL(int width, const dict<RTLIL::SigBit, RTLIL
 }
 
 YOSYS_NAMESPACE_END
-
