@@ -1373,11 +1373,13 @@ std::vector<RTLIL::Cell*> RTLIL::Module::selected_cells() const
 	return result;
 }
 
+#include <cassert>
+
 void RTLIL::Module::add(RTLIL::Wire *wire)
 {
 	log_assert(!wire->name.empty());
 	log_assert(count_id(wire->name) == 0);
-	log_assert(refcount_wires_ == 0);
+	assert(refcount_wires_ == 0);
 	wires_[wire->name] = wire;
 	wire->module = this;
 }
