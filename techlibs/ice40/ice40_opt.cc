@@ -136,7 +136,7 @@ static void run_ice40_opts(Module *module, bool unlut_mode)
 
 struct Ice40OptPass : public Pass {
 	Ice40OptPass() : Pass("ice40_opt", "iCE40: perform simple optimizations") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -156,7 +156,7 @@ struct Ice40OptPass : public Pass {
 		log("mapped SB_LUT4 cells back to logic.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		string opt_expr_args = "-mux_undef -undriven";
 		bool unlut_mode = false;

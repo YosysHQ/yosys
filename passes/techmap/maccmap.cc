@@ -365,7 +365,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct MaccmapPass : public Pass {
 	MaccmapPass() : Pass("maccmap", "mapping macc cells") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -375,7 +375,7 @@ struct MaccmapPass : public Pass {
 		log("is used then the $macc cell is mapped to $add, $sub, etc. cells instead.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		bool unmap_mode = false;
 

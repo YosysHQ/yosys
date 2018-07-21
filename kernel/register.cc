@@ -615,7 +615,7 @@ static struct CellHelpMessages {
 
 struct HelpPass : public Pass {
 	HelpPass() : Pass("help", "display help messages") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		log("\n");
 		log("    help  ................  list all commands\n");
@@ -684,7 +684,7 @@ struct HelpPass : public Pass {
 
 		fclose(f);
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design*)
+	void execute(std::vector<std::string> args, RTLIL::Design*) YS_OVERRIDE
 	{
 		if (args.size() == 1) {
 			log("\n");
@@ -768,7 +768,7 @@ struct HelpPass : public Pass {
 
 struct EchoPass : public Pass {
 	EchoPass() : Pass("echo", "turning echoing back of commands on and off") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		log("\n");
 		log("    echo on\n");
@@ -781,7 +781,7 @@ struct EchoPass : public Pass {
 		log("Do not print all commands to log before executing them. (default)\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design*)
+	void execute(std::vector<std::string> args, RTLIL::Design*) YS_OVERRIDE
 	{
 		if (args.size() > 2)
 			cmd_error(args, 2, "Unexpected argument.");
@@ -806,10 +806,9 @@ struct MinisatSatSolver : public SatSolver {
 	MinisatSatSolver() : SatSolver("minisat") {
 		yosys_satsolver = this;
 	}
-	virtual ezSAT *create() YS_OVERRIDE {
+	ezSAT *create() YS_OVERRIDE {
 		return new ezMiniSAT();
 	}
 } MinisatSatSolver;
 
 YOSYS_NAMESPACE_END
-

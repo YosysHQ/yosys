@@ -231,7 +231,7 @@ struct ProtobufDesignSerializer
 
 struct ProtobufBackend : public Backend {
 	ProtobufBackend(): Backend("protobuf", "write design to a Protocol Buffer file") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -249,7 +249,7 @@ struct ProtobufBackend : public Backend {
 		log("Yosys source code distribution.\n");
 		log("\n");
 	}
-	virtual void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		bool aig_mode = false;
 		bool text_mode = false;
@@ -286,7 +286,7 @@ struct ProtobufBackend : public Backend {
 
 struct ProtobufPass : public Pass {
 	ProtobufPass() : Pass("protobuf", "write design in Protobuf format") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -307,7 +307,7 @@ struct ProtobufPass : public Pass {
 		log("Yosys source code distribution.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		std::string filename;
 		bool aig_mode = false;

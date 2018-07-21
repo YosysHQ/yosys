@@ -176,7 +176,7 @@ void adff_worker(SigMap &sigmap, Module *module, Cell *cell)
 
 struct Dffsr2dffPass : public Pass {
 	Dffsr2dffPass() : Pass("dffsr2dff", "convert DFFSR cells to simpler FF cell types") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -186,7 +186,7 @@ struct Dffsr2dffPass : public Pass {
 		log("$_DFF_???_) to simpler FF cell types when any of the set/reset inputs is unused.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing DFFSR2DFF pass (mapping DFFSR cells to simpler FFs).\n");
 

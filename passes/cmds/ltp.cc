@@ -141,7 +141,7 @@ struct LtpWorker
 
 struct LtpPass : public Pass {
 	LtpPass() : Pass("ltp", "print longest topological path") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -154,7 +154,7 @@ struct LtpPass : public Pass {
 		log("        automatically exclude FF cell types\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		bool noff = false;
 

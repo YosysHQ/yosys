@@ -527,7 +527,7 @@ struct FirrtlWorker
 
 struct FirrtlBackend : public Backend {
 	FirrtlBackend() : Backend("firrtl", "write design to a FIRRTL file") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -536,7 +536,7 @@ struct FirrtlBackend : public Backend {
 		log("Write a FIRRTL netlist of the current design.\n");
 		log("\n");
 	}
-	virtual void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)

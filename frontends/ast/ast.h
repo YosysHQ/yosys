@@ -1,4 +1,4 @@
-/*
+/* -*- c++ -*-
  *  yosys -- Yosys Open SYnthesis Suite
  *
  *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
@@ -282,9 +282,9 @@ namespace AST
 	struct AstModule : RTLIL::Module {
 		AstNode *ast;
 		bool nolatches, nomeminit, nomem2reg, mem2reg, lib, noopt, icells, autowire;
-		virtual ~AstModule();
-		virtual RTLIL::IdString derive(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters, bool mayfail);
-		virtual RTLIL::Module *clone() const;
+		~AstModule() YS_OVERRIDE;
+		RTLIL::IdString derive(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters, bool mayfail) YS_OVERRIDE;
+		RTLIL::Module *clone() const YS_OVERRIDE;
 	};
 
 	// this must be set by the language frontend before parsing the sources

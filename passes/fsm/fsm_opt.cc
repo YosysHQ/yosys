@@ -323,7 +323,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct FsmOptPass : public Pass {
 	FsmOptPass() : Pass("fsm_opt", "optimize finite state machines") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -334,7 +334,7 @@ struct FsmOptPass : public Pass {
 		log("combination with the 'opt_clean' pass (see also 'help fsm').\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing FSM_OPT pass (simple optimizations of FSMs).\n");
 		extra_args(args, 1, design);

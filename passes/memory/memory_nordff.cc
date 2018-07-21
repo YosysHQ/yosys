@@ -25,7 +25,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct MemoryNordffPass : public Pass {
 	MemoryNordffPass() : Pass("memory_nordff", "extract read port FFs from memories") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -35,7 +35,7 @@ struct MemoryNordffPass : public Pass {
 		log("similar to what one would get from calling memory_dff with -nordff.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing MEMORY_NORDFF pass (extracting $dff cells from $mem).\n");
 

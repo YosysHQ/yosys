@@ -79,7 +79,7 @@ struct SetundefWorker
 
 struct SetundefPass : public Pass {
 	SetundefPass() : Pass("setundef", "replace undef values with defined constants") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -113,7 +113,7 @@ struct SetundefPass : public Pass {
 		log("        also create/update init values for flip-flops\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		bool got_value = false;
 		bool undriven_mode = false;

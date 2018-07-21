@@ -1685,7 +1685,7 @@ bool check_noverific_env()
 
 struct VerificPass : public Pass {
 	VerificPass() : Pass("verific", "load Verilog and VHDL designs using Verific") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -1784,7 +1784,7 @@ struct VerificPass : public Pass {
 		log("\n");
 	}
 #ifdef YOSYS_ENABLE_VERIFIC
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		if (check_noverific_env())
 			log_cmd_error("This version of Yosys is built without Verific support.\n");
@@ -2162,7 +2162,7 @@ struct VerificPass : public Pass {
 
 	}
 #else /* YOSYS_ENABLE_VERIFIC */
-	virtual void execute(std::vector<std::string>, RTLIL::Design *) {
+	void execute(std::vector<std::string>, RTLIL::Design *) YS_OVERRIDE {
 		log_cmd_error("This version of Yosys is built without Verific support.\n");
 	}
 #endif
@@ -2170,7 +2170,7 @@ struct VerificPass : public Pass {
 
 struct ReadPass : public Pass {
 	ReadPass() : Pass("read", "load HDL designs") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -2203,7 +2203,7 @@ struct ReadPass : public Pass {
 		log("Add directory to global Verilog/SystemVerilog include directories.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		if (args.size() < 2)
 			log_cmd_error("Missing mode parameter.\n");
