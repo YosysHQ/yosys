@@ -1800,6 +1800,9 @@ struct VerificPass : public Pass {
 		RuntimeFlags::SetVar("veri_extract_multiport_rams", 1);
 		RuntimeFlags::SetVar("db_infer_wide_operators", 1);
 
+		// WARNING: instantiating unknown module 'XYZ' (VERI-1063)
+		Message::SetMessageType("VERI-1063", VERIFIC_ERROR);
+
 		verific_verbose = 0;
 
 		const char *release_str = Message::ReleaseString();
