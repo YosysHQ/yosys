@@ -318,7 +318,11 @@ ifeq ($(ENABLE_DEBUG),1)
 ifeq ($(CONFIG),clang)
 CXXFLAGS := -O0 -DDEBUG $(filter-out -Os,$(CXXFLAGS))
 else
+ifeq ($(CONFIG),gcc)
+CXXFLAGS := -O0 -ggdb3 -fvar-tracking -fvar-tracking-assignments -DDEBUG $(filter-out -Os -ggdb,$(CXXFLAGS))
+else
 CXXFLAGS := -Og -DDEBUG $(filter-out -Os,$(CXXFLAGS))
+endif
 endif
 endif
 
