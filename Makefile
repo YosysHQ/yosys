@@ -116,6 +116,23 @@ ABCMKARGS = CC="$(CXX)" CXX="$(CXX)" ABC_USE_LIBSTDCXX=1
 # Note: The in-tree ABC (yosys-abc) will not be installed when ABCEXTERNAL is set.
 ABCEXTERNAL ?=
 
+# Does GDB have Python enabled?
+ifeq ($(GDB_PYTHON),)
+GDB_PYTHON := $(shell gdb --configuration 2>&1 | grep -q 'python' && echo "1" || echo "0")
+endif
+
+ifeq ($(GDB_PYTHON),1)
+# GDB data directory for Python pretty printing scripts
+ifeq ($(GDB_PYTHON_DIR),)
+# Try to auto-detect where gdb data directory is.
+GDB_PYTHON_DIR := $(shell gdb --configuration 2>&1 | grep -- '--with-gdb-datadir' | sed -e's/^[^=]*=//' -e's/ (relocatable)//')/python
+endif
+# If autodetect failed, fallback to this path
+ifeq ($(GDB_PYTHON_DIR),)
+GDB_PYTHON_DIR = $(DATDIR)/gdb/python
+endif
+endif
+
 define newline
 
 
@@ -582,6 +599,9 @@ ifeq ($(ENABLE_LIBYOSYS),1)
 	$(INSTALL_SUDO) $(STRIP) -S $(DESTDIR)$(LIBDIR)/libyosys.so
 	$(INSTALL_SUDO) ldconfig
 endif
+	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(GDB_PYTHON_DIR)
+	$(INSTALL_SUDO) cp misc/gdb/printers.py $(DESTDIR)$(GDB_PYTHON_DIR)
+	$(INSTALL_SUDO) cp misc/gdb/yosys-gdb.py $(DESTDIR)$(GDB_PYTHON_DIR)
 
 uninstall:
 	$(INSTALL_SUDO) rm -vf $(addprefix $(DESTDIR)$(BINDIR)/,$(notdir $(TARGETS)))

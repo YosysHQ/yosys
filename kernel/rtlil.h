@@ -17,10 +17,14 @@
  *
  */
 
+#include "kernel/gdb.h"
 #include "kernel/yosys.h"
 
 #ifndef RTLIL_H
 #define RTLIL_H
+
+/* GDB pretty printer to make viewing IdStrings easy */
+DEFINE_GDB_PY_SCRIPT ("yosys-gdb.py")
 
 YOSYS_NAMESPACE_BEGIN
 
