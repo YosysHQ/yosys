@@ -897,7 +897,7 @@ RTLIL::Const AstNode::realAsConst(int width)
 // create a new AstModule from an AST_MODULE AST node
 static AstModule* process_module(AstNode *ast, bool defer)
 {
-	log_assert(ast->type == AST_MODULE);
+	log_assert(ast->type == AST_MODULE || ast->type == AST_INTERFACE);
 
 	if (defer)
 		log("Storing AST representation for module `%s'.\n", ast->str.c_str());
@@ -981,6 +981,8 @@ static AstModule* process_module(AstNode *ast, bool defer)
 		ignoreThisSignalsInInitial = RTLIL::SigSpec();
 	}
 
+	if (ast->type == AST_INTERFACE)
+		current_module->is_interface = true;
 	current_module->ast = ast_before_simplify;
 	current_module->nolatches = flag_nolatches;
 	current_module->nomeminit = flag_nomeminit;
@@ -1022,7 +1024,7 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 	log_assert(current_ast->type == AST_DESIGN);
 	for (auto it = current_ast->children.begin(); it != current_ast->children.end(); it++)
 	{
-		if ((*it)->type == AST_MODULE)
+		if ((*it)->type == AST_MODULE || (*it)->type == AST_INTERFACE)
 		{
 			for (auto n : design->verilog_globals)
 				(*it)->children.push_back(n->clone());
@@ -1057,7 +1059,6 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 					design->remove(existing_mod);
 				}
 			}
-
 			design->add(process_module(*it, defer));
 		}
 		else if ((*it)->type == AST_PACKAGE)
@@ -1074,8 +1075,96 @@ AstModule::~AstModule()
 		delete ast;
 }
 
+// create a new parametric module (when needed) and return the name of the generated module - WITH support for interfaces
+RTLIL::IdString AstModule::derive(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters, dict<RTLIL::IdString, RTLIL::Cell*> interfaces, bool mayfail)
+{
+	AstNode *new_ast = NULL;
+	std::string modname = derive_common(design, parameters, &new_ast, mayfail);
+
+	// Since interfaces themselves may be instantiated with different parameters,
+	// "modname" must also take those into account, so that unique modules
+	// are derived for any variant of interface connections:
+	std::string interf_info = "";
+
+	bool has_interfaces = false;
+	for(auto &intf : interfaces) {
+		interf_info += log_id(intf.second->type);
+		has_interfaces = true;
+	}
+
+	if (has_interfaces)
+		modname += "$interfaces$" + interf_info;
+
+	if (!design->has(modname)) {
+		new_ast->str = modname;
+		design->add(process_module(new_ast, false));
+		design->module(modname)->check();
+	} else {
+		log("Found cached RTLIL representation for module `%s'.\n", modname.c_str());
+	}
+
+	RTLIL::Module* mod = design->module(modname);
+
+	for(auto &intf : interfaces) {
+		mod->interfaces_[intf.first] = intf.second;
+	}
+
+	for(auto &intf : mod->interfaces_) {
+		RTLIL::Module * interface_module = design->module(intf.second->type);
+		int max_port_id = 0;
+		for(auto &w : mod->wires_) {
+			max_port_id = w.second->port_id > max_port_id ? w.second->port_id : max_port_id;
+		}
+		for(auto &w : interface_module->wires_){
+			max_port_id++;
+			std::string signal_name3 = "\\" + std::string(log_id(intf.first)) + "." + std::string(log_id(w.first));
+
+			// If signal with the same name already exists, we use the existing signal:
+			if (mod->wires_.count(signal_name3) == 0) {
+				RTLIL::Wire *new_wire = mod->addWire(RTLIL::IdString(signal_name3), w.second);
+				// Since support for modports is not implemented, we set the new signals to inout
+				new_wire->port_input = true; // XXX: handle modports
+				new_wire->port_output = true; // XXX: handle modports
+				new_wire->port_id = max_port_id;
+				mod->ports.push_back(signal_name3);
+			}
+			else {
+				RTLIL::Wire *existing_wire = mod->wire(signal_name3);
+				// Since support for modports is not implemented, we set the new signals to inout
+				existing_wire->port_input = true; // XXX: handle modports
+				existing_wire->port_output = true; // XXX: handle modports
+				if (existing_wire->port_id <= 0) {
+					existing_wire->port_id = max_port_id;
+					mod->ports.push_back(signal_name3);
+				}
+			}
+		}
+	}
+
+	delete new_ast;
+	return modname;
+}
+
+// create a new parametric module (when needed) and return the name of the generated module - without support for interfaces
+RTLIL::IdString AstModule::derive(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters, bool mayfail)
+{
+	AstNode *new_ast = NULL;
+	std::string modname = derive_common(design, parameters, &new_ast, mayfail);
+
+	if (!design->has(modname)) {
+		new_ast->str = modname;
+		design->add(process_module(new_ast, false));
+		design->module(modname)->check();
+	} else {
+		log("Found cached RTLIL representation for module `%s'.\n", modname.c_str());
+	}
+
+	delete new_ast;
+	return modname;
+}
+
 // create a new parametric module (when needed) and return the name of the generated module
-RTLIL::IdString AstModule::derive(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters, bool)
+std::string AstModule::derive_common(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters, AstNode **new_ast_out, bool)
 {
 	std::string stripped_name = name.str();
 
@@ -1147,15 +1236,8 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, dict<RTLIL::IdString, R
 	else
 		modname = "$paramod" + stripped_name + para_info;
 
-	if (!design->has(modname)) {
-		new_ast->str = modname;
-		design->add(process_module(new_ast, false));
-		design->module(modname)->check();
-	} else {
-		log("Found cached RTLIL representation for module `%s'.\n", modname.c_str());
-	}
 
-	delete new_ast;
+	(*new_ast_out) = new_ast;
 	return modname;
 }
 

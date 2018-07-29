@@ -101,10 +101,11 @@ static void free_attr(std::map<std::string, AstNode*> *al)
 	bool boolean;
 }
 
-%token <string> TOK_STRING TOK_ID TOK_CONSTVAL TOK_REALVAL TOK_PRIMITIVE
+%token <string> TOK_STRING TOK_ID TOK_CONSTVAL TOK_REALVAL TOK_PRIMITIVE TOK_ID_IGNORE
 %token ATTR_BEGIN ATTR_END DEFATTR_BEGIN DEFATTR_END
 %token TOK_MODULE TOK_ENDMODULE TOK_PARAMETER TOK_LOCALPARAM TOK_DEFPARAM
 %token TOK_PACKAGE TOK_ENDPACKAGE TOK_PACKAGESEP
+%token TOK_INTERFACE TOK_ENDINTERFACE TOK_MODPORT
 %token TOK_INPUT TOK_OUTPUT TOK_INOUT TOK_WIRE TOK_REG
 %token TOK_INTEGER TOK_SIGNED TOK_ASSIGN TOK_ALWAYS TOK_INITIAL
 %token TOK_BEGIN TOK_END TOK_IF TOK_ELSE TOK_FOR TOK_WHILE TOK_REPEAT
@@ -167,6 +168,7 @@ design:
 	param_decl design |
 	localparam_decl design |
 	package design |
+	interface design |
 	/* empty */;
 
 attr:
@@ -319,6 +321,21 @@ module_arg:
 		}
 		delete $1;
 	} module_arg_opt_assignment |
+	TOK_ID {
+		astbuf1 = new AstNode(AST_INTERFACEPORT);
+		astbuf1->children.push_back(new AstNode(AST_INTERFACEPORTTYPE));
+		astbuf1->children[0]->str = *$1;
+		delete $1;
+	} TOK_ID {  /* SV interfaces */
+		if (!sv_mode)
+			frontend_verilog_yyerror("Interface found in port list (%s). This is not supported unless read_verilog is called with -sv!", $3->c_str());
+		astbuf2 = astbuf1->clone(); // really only needed if multiple instances of same type.
+		astbuf2->str = *$3;
+		delete $3;
+		astbuf2->port_id = ++port_counter;
+		ast_stack.back()->children.push_back(astbuf2);
+		delete astbuf1; // really only needed if multiple instances of same type.
+	} module_arg_opt_assignment |
 	attr wire_type range TOK_ID {
 		AstNode *node = $2;
 		node->str = *$4;
@@ -355,6 +372,33 @@ package_body:
 
 package_body_stmt:
 	localparam_decl;
+
+interface:
+	TOK_INTERFACE TOK_ID {
+		do_not_require_port_stubs = false;
+		AstNode *intf = new AstNode(AST_INTERFACE);
+		ast_stack.back()->children.push_back(intf);
+		ast_stack.push_back(intf);
+		current_ast_mod = intf;
+		port_stubs.clear();
+		port_counter = 0;
+		intf->str = *$2;
+		delete $2;
+	} module_para_opt module_args_opt ';' interface_body TOK_ENDINTERFACE {
+		if (port_stubs.size() != 0)
+			frontend_verilog_yyerror("Missing details for module port `%s'.",
+				port_stubs.begin()->first.c_str());
+		ast_stack.pop_back();
+		log_assert(ast_stack.size() == 1);
+		current_ast_mod = NULL;
+	};
+
+interface_body:
+	interface_body interface_body_stmt |;
+
+interface_body_stmt:
+	param_decl | localparam_decl | defparam_decl | wire_decl | always_stmt | assign_stmt |
+	modport_stmt;
 
 non_opt_delay:
 	'#' TOK_ID { delete $2; } |
@@ -1241,6 +1285,22 @@ opt_property:
 
 opt_stmt_label:
 	TOK_ID ':' | /* empty */;
+
+modport_stmt:
+    TOK_MODPORT TOK_ID modport_args_opt ';'
+
+modport_args_opt:
+    '(' ')' | '(' modport_args optional_comma ')';
+
+modport_args:
+    modport_arg | modport_args ',' modport_arg;
+
+modport_arg:
+    modport_type_token TOK_ID |
+    TOK_ID
+
+modport_type_token:
+    TOK_INPUT | TOK_OUTPUT
 
 assert:
 	opt_stmt_label TOK_ASSERT opt_property '(' expr ')' ';' {

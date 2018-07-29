@@ -854,6 +854,22 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	case AST_GENCASE:
 	case AST_PACKAGE:
 		break;
+	case AST_INTERFACEPORT: {
+		// If a port in a module with unknown type is found, mark it as "is_interface=true"
+		// This is used by the hierarchy pass to know when it can replace interface connection with the individual
+		// signals.
+		RTLIL::Wire *wire = current_module->addWire(str, 1);
+		wire->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
+		wire->start_offset = 0;
+		wire->port_id = port_id;
+		wire->port_input = false;
+		wire->port_output = false;
+		wire->is_interface = true;
+		wire->upto = 0;
+		}
+		break;
+	case AST_INTERFACEPORTTYPE:
+		break;
 
 	// remember the parameter, needed for example in techmap
 	case AST_PARAMETER:
@@ -949,6 +965,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 		{
 			RTLIL::Wire *wire = NULL;
 			RTLIL::SigChunk chunk;
+			bool is_interface = false;
 
 			int add_undef_bits_msb = 0;
 			int add_undef_bits_lsb = 0;
@@ -969,14 +986,31 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				chunk = RTLIL::Const(id2ast->children[0]->bits);
 				goto use_const_chunk;
 			}
-			else if (!id2ast || (id2ast->type != AST_WIRE && id2ast->type != AST_AUTOWIRE &&
-					id2ast->type != AST_MEMORY) || current_module->wires_.count(str) == 0)
+			else if (id2ast && (id2ast->type == AST_WIRE || id2ast->type == AST_AUTOWIRE || id2ast->type == AST_MEMORY) && current_module->wires_.count(str) != 0) {
+				// Ignore
+			}
+			// If an identifier is found that is not already known, assume that it is an interface:
+			else if (1) { // FIXME: Check if sv_mode first?
+				is_interface = true;
+			}
+			else {
 				log_file_error(filename, linenum, "Identifier `%s' doesn't map to any signal!\n",
 						str.c_str());
+			}
 
 			if (id2ast->type == AST_MEMORY)
 				log_file_error(filename, linenum, "Identifier `%s' does map to an unexpanded memory!\n",
 					       str.c_str());
+
+			// If identifier is an interface, create a RTLIL::SigSpec object and set is_interface to true.
+			// This makes it possible for the hierarchy pass to see what are interface connections and then replace them
+			// with the individual signals:
+			if (is_interface) {
+				RTLIL::SigSpec tmp = RTLIL::SigSpec();
+				tmp.is_interface = true;
+				tmp.interface_name = str;
+				return tmp;
+			}
 
 			wire = current_module->wires_[str];
 			chunk.wire = wire;

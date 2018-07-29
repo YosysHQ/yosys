@@ -148,6 +148,11 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 	for (auto &cell_it : module->cells_)
 	{
 		RTLIL::Cell *cell = cell_it.second;
+		bool has_interfaces_not_found = false;
+
+		std::vector<RTLIL::IdString> connections_to_remove;
+		std::vector<RTLIL::IdString> connections_to_add_name;
+		std::vector<RTLIL::SigSpec> connections_to_add_signal;
 
 		if (cell->type.substr(0, 7) == "$array:") {
 			int pos_idx = cell->type.str().find_first_of(':');
@@ -158,6 +163,7 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 			array_cells[cell] = std::pair<int, int>(idx, num);
 			cell->type = cell->type.str().substr(pos_type + 1);
 		}
+		dict<RTLIL::IdString, RTLIL::Cell*> interfaces_to_add_to_submodule;
 
 		if (design->modules_.count(cell->type) == 0)
 		{
@@ -200,11 +206,52 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 			if (design->modules_.count(cell->type) == 0)
 				log_error("File `%s' from libdir does not declare module `%s'.\n", filename.c_str(), cell->type.c_str());
 			did_something = true;
-		} else
+		} else {
+
+		RTLIL::Module *mod = design->module(cell->type);
+
+		// Go over all connections and see if any of them are SV interfaces. If they are, then add the replacements to
+		// some lists, so that they can be replaced further down:
+		for (auto &conn : cell->connections()) {
+			if(mod->wires_.count(conn.first) != 0 && mod->wire(conn.first)->is_interface) { // Check if the connection is present as an interface in the sub-module's port list
+				if(conn.second.is_interface) { // Check if the 'wire' is an interface instance in the parent module
+					if(module->interface(conn.second.interface_name)) { // Check if the interface instance is present in module
+						RTLIL::Module *mod_replace_ports = design->modules_[module->interface(conn.second.interface_name)->type];
+						for (auto &mod_wire : mod_replace_ports->wires_) {
+							std::string signal_name1 = "\\" + std::string(log_id(conn.first)) + "." + std::string(log_id(mod_wire.first));
+							std::string signal_name2 = "\\" + std::string(log_id(conn.second.interface_name)) + "." + std::string(log_id(mod_wire.first));
+							connections_to_add_name.push_back(RTLIL::IdString(signal_name1));
+							if(module->wires_.count(signal_name2) == 0) {
+								log_error("Could not find signal '%s' in '%s'\n", signal_name2.c_str(), log_id(module->name));
+							}
+							else {
+								RTLIL::Wire *wire_in_parent = module->wire(signal_name2);
+								connections_to_add_signal.push_back(wire_in_parent);
+							}
+						}
+						connections_to_remove.push_back(conn.first);
+						interfaces_to_add_to_submodule[conn.first] = module->interface(conn.second.interface_name);
+					}
+					// If the interface instance has not already been derived in the module, we cannot complete at this stage. Set "has_interfaces_not_found"
+					// which will delay the expansion of this cell:
+					else {
+						// If we have already gone over all cells in this module, and the interface has still not been found - flag it as an error:
+						if(module->done_interface_cells) {
+							log_error("Could not find interface instance for `%s' in `%s'", log_id(conn.second.interface_name), log_id(module));
+						}
+						else {
+							// Only set has_interfaces_not_found if it would be possible to find them, since otherwiser we will end up in an infinite loop:
+							has_interfaces_not_found = true;
+						}
+					}
+				}
+			}
+		}
+		//
+
 		if (flag_check || flag_simcheck)
 		{
-			RTLIL::Module *mod = design->module(cell->type);
-			for (auto &conn : cell->connections())
+			for (auto &conn : cell->connections()) {
 				if (conn.first[0] == '$' && '0' <= conn.first[1] && conn.first[1] <= '9') {
 					int id = atoi(conn.first.c_str()+1);
 					if (id <= 0 || id > GetSize(mod->ports))
@@ -213,11 +260,15 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 				} else if (mod->wire(conn.first) == nullptr || mod->wire(conn.first)->port_id == 0)
 					log_error("Module `%s' referenced in module `%s' in cell `%s' does not have a port named '%s'.\n",
 							log_id(cell->type), log_id(module), log_id(cell), log_id(conn.first));
+			}
 			for (auto &param : cell->parameters)
 				if (mod->avail_parameters.count(param.first) == 0 && param.first[0] != '$' && strchr(param.first.c_str(), '.') == NULL)
 					log_error("Module `%s' referenced in module `%s' in cell `%s' does not have a parameter named '%s'.\n",
 							log_id(cell->type), log_id(module), log_id(cell), log_id(param.first));
+
 		}
+		}
+		RTLIL::Module *mod = design->modules_[cell->type];
 
 		if (design->modules_.at(cell->type)->get_bool_attribute("\\blackbox")) {
 			if (flag_simcheck)
@@ -226,14 +277,63 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 			continue;
 		}
 
+		// If interface instances not yet found, skip cell for now, and say we did something, so that we will return back here:
+		if(has_interfaces_not_found) {
+			did_something = true; // waiting for interfaces to be handled
+			continue;
+		}
+
+		// Do the actual replacements of the SV interface port connection with the individual signal connections:
+		for(unsigned int i=0;i<connections_to_add_name.size();i++) {
+			cell->connections_[connections_to_add_name[i]] = connections_to_add_signal[i];
+		}
+		// Remove the connection for the interface itself:
+		for(unsigned int i=0;i<connections_to_remove.size();i++) {
+			cell->connections_.erase(connections_to_remove[i]);
+		}
+
+		// If there are no overridden parameters AND not interfaces, then we can use the existing module instance as the type
+		// for the cell:
+		if (cell->parameters.size() == 0 && (interfaces_to_add_to_submodule.size() == 0 || cell->already_derived)) {
+			// If the cell being processed is an the interface instance itself, go down to "handle_interface_instance:",
+			// so that the signals of the interface are added to the parent module.
+			if (mod->is_interface) {
+				goto handle_interface_instance;
+			}
+			continue;
+		}
+
 		if (cell->parameters.size() == 0)
 			continue;
 
-		RTLIL::Module *mod = design->modules_[cell->type];
-		cell->type = mod->derive(design, cell->parameters);
+		cell->type = mod->derive(design, cell->parameters, interfaces_to_add_to_submodule);
 		cell->parameters.clear();
+		// We set 'already-derived' such that we will not rederive the cell again (needed when there are interfaces connected to the cell)
+		cell->already_derived = true;
 		did_something = true;
+
+		handle_interface_instance:
+
+			// We add all the signals of the interface explicitly to the parent module. This is always needed when we encounter
+			// an interface instance:
+			if (mod->is_interface && !cell->replaced_interface) {
+				module->interfaces_[cell->name] = cell;
+				RTLIL::Module *derived_module = design->modules_[cell->type];
+				for (auto &mod_wire : derived_module->wires_) {
+					std::string signal_name = "\\" + std::string(log_id(cell->name)) + "." + std::string(log_id(mod_wire.first));
+					if (module->wires_.count(signal_name) == 0)
+						module->addWire(signal_name, mod_wire.second);
+				}
+				// We only need to do it once for every instantiation of an interface (and since we risk ending up here again due to
+				// 'did_something', we need to set 'cell->replaced_interface = true':
+				cell->replaced_interface = true;
+				did_something = true;
+			}
 	}
+	// Setting a flag such that it can be known that we have been through all cells at least once, such that we can know whether to flag
+	// an error because of interface instances not found:
+	module->done_interface_cells = true;
+
 
 	for (auto &it : array_cells)
 	{
