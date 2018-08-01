@@ -23,15 +23,20 @@ namespace YOSYS_PYTHON {
 	struct Cell
 	{
 		unsigned int id;
+		Yosys::RTLIL::Cell* ref_obj;
 
 		Cell(Yosys::RTLIL::Cell* ref)
 		{
 			this->id = ref->hashidx_;
+			this->ref_obj = ref;
 		}
 	
 		Yosys::RTLIL::Cell* get_cpp_obj() const
 		{
-			return Yosys::RTLIL::Cell::get_all_cells()->at(this->id);
+			Yosys::RTLIL::Cell* ret = Yosys::RTLIL::Cell::get_all_cells()->at(this->id);
+			if(ret != NULL && ret == this->ref_obj)
+				return ret;
+			return NULL;
 		}
 	};
 
@@ -47,15 +52,20 @@ namespace YOSYS_PYTHON {
 	struct Wire
 	{
 		unsigned int id;
+		Yosys::RTLIL::Wire* ref_obj;
 
 		Wire(Yosys::RTLIL::Wire* ref)
 		{
 			this->id = ref->hashidx_;
+			this->ref_obj = ref;
 		}
 	
 		Yosys::RTLIL::Wire* get_cpp_obj() const
 		{
-			return Yosys::RTLIL::Wire::get_all_wires()->at(this->id);
+			Yosys::RTLIL::Wire* ret = Yosys::RTLIL::Wire::get_all_wires()->at(this->id);
+			if(ret != NULL && ret == this->ref_obj)
+				return ret;
+			return NULL;
 		}
 	};
 
@@ -71,15 +81,20 @@ namespace YOSYS_PYTHON {
 	struct Module
 	{
 		unsigned int id;
+		Yosys::RTLIL::Module* ref_obj;
 
 		Module(Yosys::RTLIL::Module* ref)
 		{
 			this->id = ref->hashidx_;
+			this->ref_obj = ref;
 		}
 
 		Yosys::RTLIL::Module* get_cpp_obj() const
 		{
-			return Yosys::RTLIL::Module::get_all_modules()->at(this->id);
+			Yosys::RTLIL::Module* ret = Yosys::RTLIL::Module::get_all_modules()->at(this->id);
+			if(ret != NULL && ret == this->ref_obj)
+				return ret;
+			return NULL;
 		}
 
 		boost::python::list get_cells()
@@ -122,22 +137,28 @@ namespace YOSYS_PYTHON {
 
 	struct Design
 	{
-		unsigned int hashid;
+		unsigned int id;
+		Yosys::RTLIL::Design* ref_obj;
 
 		Design(unsigned int hashid)
 		{
-			this->hashid = hashid;
+			this->id = hashid;
+			this->ref_obj = Yosys::RTLIL::Design::get_all_designs()->at(this->id);
 		}
 
 		Design()
 		{
 			Yosys::RTLIL::Design* new_design = new Yosys::RTLIL::Design();
-			this->hashid = new_design->hashidx_;
+			this->id = new_design->hashidx_;
+			this->ref_obj = new_design;
 		}
 
 		Yosys::RTLIL::Design* get_cpp_obj()
 		{
-			return Yosys::RTLIL::Design::get_all_designs()->at(hashid);
+			Yosys::RTLIL::Design* ret = Yosys::RTLIL::Design::get_all_designs()->at(this->id);
+			if(ret != NULL && ret == this->ref_obj)
+				return ret;
+			return NULL;
 		}
 
 		boost::python::list get_modules()
@@ -264,7 +285,7 @@ namespace YOSYS_PYTHON {
 
 	std::ostream &operator<<(std::ostream &ostr, const Design &design)
 	{
-		ostr << "Design with id " << design.hashid;
+		ostr << "Design with id " << design.id;
 		return ostr;
 	}
 
