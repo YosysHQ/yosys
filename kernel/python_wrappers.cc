@@ -15,23 +15,9 @@ namespace YOSYS_PYTHON {
 	struct Wire;
 	struct Monitor;
 
-	void yosys_setup()
-	{
-		Yosys::log_streams.push_back(&std::cout);
-		Yosys::log_error_stderr = true;
-
-		Yosys::yosys_setup();
-		Yosys::yosys_banner();
-	}
-
 	void run(std::string command)
 	{
 		Yosys::run_pass(command);
-	}
-
-	void yosys_shutdown()
-	{
-		Yosys::yosys_shutdown();
 	}
 
 	struct Cell
@@ -292,9 +278,28 @@ namespace YOSYS_PYTHON {
 		return 0;
 	}
 
+	struct Initializer
+	{
+		Initializer() {
+			Yosys::log_streams.push_back(&std::cout);
+			Yosys::log_error_stderr = true;
+			Yosys::yosys_setup();
+			Yosys::yosys_banner();
+		}
+
+		Initializer(Initializer const &) {}
+
+		~Initializer() {
+			Yosys::yosys_shutdown();
+		}
+	};
+
 	BOOST_PYTHON_MODULE(libyosys)
 	{
 		using namespace boost::python;
+
+		class_<Initializer>("Initializer");
+		scope().attr("_hidden") = new Initializer();
 
 		class_<Design>("Design", init<unsigned int>())
 			.def(boost::python::self_ns::str(boost::python::self_ns::self))
@@ -329,10 +334,8 @@ namespace YOSYS_PYTHON {
 			.def("py_notify_blackout", &Monitor::py_notify_blackout, &MonitorWrap::default_py_notify_blackout)
 			;
 
-		def("yosys_setup",yosys_setup);
 		def("run",run);
 		def("get_active_design_id",get_active_design_id);
-		def("yosys_shutdown",yosys_shutdown);
 	}
 
 }
