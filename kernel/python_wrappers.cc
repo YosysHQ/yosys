@@ -194,29 +194,23 @@ namespace YOSYS_PYTHON {
 
 		virtual void notify_connect(Yosys::RTLIL::Cell *cell, const Yosys::RTLIL::IdString &port, const Yosys::RTLIL::SigSpec &old_sig, Yosys::RTLIL::SigSpec &sig) YS_OVERRIDE
 		{
-			//log("#TRACE# Cell connect: %s.%s.%s = %s (was: %s)\n", log_id(cell->module), log_id(cell), log_id(port), log_signal(sig), log_signal(old_sig));
+			//@TODO: Implement once necessary classes are wrapped
 		}
 
 		virtual void notify_connect(Yosys::RTLIL::Module *module, const Yosys::RTLIL::SigSig &sigsig) YS_OVERRIDE
 		{
-			//log("#TRACE# Connection in module %s: %s = %s\n", log_id(module), log_signal(sigsig.first), log_signal(sigsig.second));
+			//@TODO: Implement once necessary classes are wrapped
 		}
 
 		virtual void notify_connect(Yosys::RTLIL::Module *module, const std::vector<Yosys::RTLIL::SigSig> &sigsig_vec) YS_OVERRIDE
 		{
-			//log("#TRACE# New connections in module %s:\n", log_id(module));
-			//for (auto &sigsig : sigsig_vec)
-			//	log("##    %s = %s\n", log_signal(sigsig.first), log_signal(sigsig.second));
+			//@TODO: Implement once necessary classes are wrapped
 		}
 
 		virtual void notify_blackout(Yosys::RTLIL::Module *module) YS_OVERRIDE
 		{
 			py_notify_blackout(new Module(module));
 		}
-
-		//virtual void notify_connect(Cell*, const Yosys::RTLIL::IdString&, const Yosys::RTLIL::SigSpec&, Yosys::RTLIL::SigSpec&) { }
-		//virtual void notify_connect(RTLIL::Module*, const RTLIL::SigSig&) { }
-		//virtual void notify_connect(RTLIL::Module*, const std::vector<RTLIL::SigSig>&) { }
 
 		virtual void py_notify_module_add(Module*){};
 		virtual void py_notify_module_del(Module*){};
