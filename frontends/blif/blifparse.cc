@@ -275,7 +275,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name, bo
 
 				if(lastcell == nullptr || module == nullptr)
 				{
-					log_error("No primative object to attach .cname %s.\n", p);
+					log_warning("No primative object to attach .cname %s.\n", p);
 					goto error;
 				}
 
@@ -301,13 +301,13 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name, bo
 				}
 				if (!strcmp(cmd, ".attr")) {
 					if (obj_attributes == nullptr) {
-						log_error("No object to attach .attr too.\n");
+						log_warning("No object to attach .attr too.\n");
 						goto error;
 					}
 					(*obj_attributes)[id_n] = const_v;
 				} else {
 					if (obj_parameters == nullptr) {
-						log_error("No object to attach .param too.\n");
+						log_warning("No object to attach .param too.\n");
 						goto error;
 					}
 					(*obj_parameters)[id_n] = const_v;
