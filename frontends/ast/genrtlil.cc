@@ -987,6 +987,9 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				goto use_const_chunk;
 			}
 			else if (id2ast && (id2ast->type == AST_WIRE || id2ast->type == AST_AUTOWIRE || id2ast->type == AST_MEMORY) && current_module->wires_.count(str) != 0) {
+				RTLIL::Wire *current_wire = current_module->wire(str);
+				if (current_wire->is_interface)
+					is_interface = true;
 				// Ignore
 			}
 			// If an identifier is found that is not already known, assume that it is an interface:

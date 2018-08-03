@@ -237,7 +237,7 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 					else {
 						// If we have already gone over all cells in this module, and the interface has still not been found - flag it as an error:
 						if(module->done_interface_cells) {
-							log_error("Could not find interface instance for `%s' in `%s'", log_id(conn.second.interface_name), log_id(module));
+							log_warning("Could not find interface instance for `%s' in `%s'\n", log_id(conn.second.interface_name), log_id(module));
 						}
 						else {
 							// Only set has_interfaces_not_found if it would be possible to find them, since otherwiser we will end up in an infinite loop:
