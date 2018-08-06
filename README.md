@@ -389,7 +389,7 @@ Verilog Attributes and non-standard features
 Non-standard or SystemVerilog features for formal verification
 ==============================================================
 
-- Support for ``assert``, ``assume``, ``restrict``, and ``cover'' is enabled
+- Support for ``assert``, ``assume``, ``restrict``, and ``cover`` is enabled
   when ``read_verilog`` is called with ``-formal``.
 
 - The system task ``$initstate`` evaluates to 1 in the initial state and
