@@ -83,7 +83,9 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name, bo
 	RTLIL::Module *module = nullptr;
 	RTLIL::Const *lutptr = NULL;
 	RTLIL::Cell *sopcell = NULL;
+	RTLIL::Cell *lastcell = nullptr;
 	RTLIL::State lut_default_state = RTLIL::State::Sx;
+	char err_reason[80];
 	int blif_maxnum = 0, sopmode = -1;
 
 	auto blif_wire = [&](const std::string &wire_name) -> Wire*
@@ -159,6 +161,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name, bo
 				if (module != nullptr)
 					goto error;
 				module = new RTLIL::Module;
+				lastcell = nullptr;
 				module->name = RTLIL::escape_id(strtok(NULL, " \t\r\n"));
 				obj_attributes = &module->attributes;
 				obj_parameters = nullptr;
@@ -232,6 +235,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name, bo
 				}
 
 				module = nullptr;
+				lastcell = nullptr;
 				obj_attributes = nullptr;
 				obj_parameters = nullptr;
 				continue;
@@ -264,6 +268,22 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name, bo
 				continue;
 			}
 
+			if (!strcmp(cmd, ".cname"))
+			{
+				char *p = strtok(NULL, " \t\r\n");
+				if (p == NULL)
+					goto error;
+
+				if(lastcell == nullptr || module == nullptr)
+				{
+					snprintf(err_reason, sizeof(err_reason), "No primative object to attach .cname %s.", p);
+					goto error_with_reason;
+				}
+
+				module->rename(lastcell, p);
+				continue;
+			}
+
 			if (!strcmp(cmd, ".attr") || !strcmp(cmd, ".param")) {
 				char *n = strtok(NULL, " \t\r\n");
 				char *v = strtok(NULL, "\r\n");
@@ -281,12 +301,16 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name, bo
 						const_v.bits[i] = v[n-i-1] != '0' ? State::S1 : State::S0;
 				}
 				if (!strcmp(cmd, ".attr")) {
-					if (obj_attributes == nullptr)
-						goto error;
+					if (obj_attributes == nullptr) {
+						snprintf(err_reason, sizeof(err_reason), "No object to attach .attr too.");
+						goto error_with_reason;
+					}
 					(*obj_attributes)[id_n] = const_v;
 				} else {
-					if (obj_parameters == nullptr)
-						goto error;
+					if (obj_parameters == nullptr) {
+						snprintf(err_reason, sizeof(err_reason), "No object to attach .param too.");
+						goto error_with_reason;
+					}
 					(*obj_parameters)[id_n] = const_v;
 				}
 				continue;
@@ -331,6 +355,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name, bo
 					}
 				}
 
+				lastcell = cell;
 				obj_attributes = &cell->attributes;
 				obj_parameters = &cell->parameters;
 				continue;
@@ -383,6 +408,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name, bo
 					cell->setPort(it.first, sig);
 				}
 
+				lastcell = cell;
 				obj_attributes = &cell->attributes;
 				obj_parameters = &cell->parameters;
 				continue;
@@ -391,7 +417,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name, bo
 			obj_attributes = nullptr;
 			obj_parameters = nullptr;
 
-			if (!strcmp(cmd, ".barbuf"))
+			if (!strcmp(cmd, ".barbuf") || !strcmp(cmd, ".conn"))
 			{
 				char *p = strtok(NULL, " \t\r\n");
 				if (p == NULL)
@@ -459,6 +485,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name, bo
 					sopcell->setPort("\\A", input_sig);
 					sopcell->setPort("\\Y", output_sig);
 					sopmode = -1;
+					lastcell = sopcell;
 				}
 				else
 				{
@@ -469,6 +496,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name, bo
 					cell->setPort("\\Y", output_sig);
 					lutptr = &cell->parameters.at("\\LUT");
 					lut_default_state = RTLIL::State::Sx;
+					lastcell = cell;
 				}
 				continue;
 			}
@@ -546,6 +574,8 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name, bo
 
 error:
 	log_error("Syntax error in line %d!\n", line_count);
+error_with_reason:
+	log_error("Syntax error in line %d: %s\n", line_count, err_reason);
 }
 
 struct BlifFrontend : public Frontend {
