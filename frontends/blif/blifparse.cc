@@ -85,6 +85,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name, bo
 	RTLIL::Cell *sopcell = NULL;
 	RTLIL::Cell *lastcell = nullptr;
 	RTLIL::State lut_default_state = RTLIL::State::Sx;
+	char err_reason[80];
 	int blif_maxnum = 0, sopmode = -1;
 
 	auto blif_wire = [&](const std::string &wire_name) -> Wire*
@@ -275,8 +276,8 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name, bo
 
 				if(lastcell == nullptr || module == nullptr)
 				{
-					log_warning("No primative object to attach .cname %s.\n", p);
-					goto error;
+					snprintf(err_reason, sizeof(err_reason), "No primative object to attach .cname %s.", p);
+					goto error_with_reason;
 				}
 
 				module->rename(lastcell, p);
@@ -301,14 +302,14 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name, bo
 				}
 				if (!strcmp(cmd, ".attr")) {
 					if (obj_attributes == nullptr) {
-						log_warning("No object to attach .attr too.\n");
-						goto error;
+						snprintf(err_reason, sizeof(err_reason), "No object to attach .attr too.");
+						goto error_with_reason;
 					}
 					(*obj_attributes)[id_n] = const_v;
 				} else {
 					if (obj_parameters == nullptr) {
-						log_warning("No object to attach .param too.\n");
-						goto error;
+						snprintf(err_reason, sizeof(err_reason), "No object to attach .param too.");
+						goto error_with_reason;
 					}
 					(*obj_parameters)[id_n] = const_v;
 				}
@@ -573,6 +574,8 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name, bo
 
 error:
 	log_error("Syntax error in line %d!\n", line_count);
+error_with_reason:
+	log_error("Syntax error in line %d: %s\n", line_count, err_reason);
 }
 
 struct BlifFrontend : public Frontend {
