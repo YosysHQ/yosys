@@ -625,6 +625,8 @@ RTLIL::Module::Module()
 	design = nullptr;
 	refcount_wires_ = 0;
 	refcount_cells_ = 0;
+	is_interface = false;
+	done_interface_cells = false;
 }
 
 RTLIL::Module::~Module()
@@ -640,6 +642,14 @@ RTLIL::Module::~Module()
 }
 
 RTLIL::IdString RTLIL::Module::derive(RTLIL::Design*, dict<RTLIL::IdString, RTLIL::Const>, bool mayfail)
+{
+	if (mayfail)
+		return RTLIL::IdString();
+	log_error("Module `%s' is used with parameters but is not parametric!\n", id2cstr(name));
+}
+
+
+RTLIL::IdString RTLIL::Module::derive(RTLIL::Design*, dict<RTLIL::IdString, RTLIL::Const>, dict<RTLIL::IdString, RTLIL::Cell*> , bool mayfail)
 {
 	if (mayfail)
 		return RTLIL::IdString();
@@ -1217,7 +1227,7 @@ void RTLIL::Module::check()
 		if (it.second->port_id) {
 			log_assert(GetSize(ports) >= it.second->port_id);
 			log_assert(ports.at(it.second->port_id-1) == it.first);
-			log_assert(it.second->port_input || it.second->port_output);
+			log_assert(it.second->port_input || it.second->port_output || it.second->is_interface);
 			if (GetSize(ports_declared) < it.second->port_id)
 				ports_declared.resize(it.second->port_id);
 			log_assert(ports_declared[it.second->port_id-1] == false);
@@ -1594,7 +1604,7 @@ void RTLIL::Module::fixup_ports()
 	std::vector<RTLIL::Wire*> all_ports;
 
 	for (auto &w : wires_)
-		if (w.second->port_input || w.second->port_output)
+		if (w.second->port_input || w.second->port_output || w.second->is_interface)
 			all_ports.push_back(w.second);
 		else
 			w.second->port_id = 0;
@@ -2187,6 +2197,7 @@ RTLIL::Wire::Wire()
 	port_input = false;
 	port_output = false;
 	upto = false;
+	is_interface = false;
 }
 
 RTLIL::Memory::Memory()
@@ -2205,6 +2216,8 @@ RTLIL::Cell::Cell() : module(nullptr)
 	static unsigned int hashidx_count = 123456789;
 	hashidx_count = mkhash_xorshift(hashidx_count);
 	hashidx_ = hashidx_count;
+	replaced_interface = false;
+	already_derived = false;
 
 	// log("#memtrace# %p\n", this);
 	memhasher();
@@ -2515,16 +2528,19 @@ RTLIL::SigSpec::SigSpec()
 {
 	width_ = 0;
 	hash_ = 0;
+	is_interface = false;
 }
 
 RTLIL::SigSpec::SigSpec(const RTLIL::SigSpec &other)
 {
+	is_interface = false;
 	*this = other;
 }
 
 RTLIL::SigSpec::SigSpec(std::initializer_list<RTLIL::SigSpec> parts)
 {
 	cover("kernel.rtlil.sigspec.init.list");
+	is_interface = false;
 
 	width_ = 0;
 	hash_ = 0;
@@ -2542,6 +2558,8 @@ const RTLIL::SigSpec &RTLIL::SigSpec::operator=(const RTLIL::SigSpec &other)
 	hash_ = other.hash_;
 	chunks_ = other.chunks_;
 	bits_.clear();
+	is_interface = other.is_interface;
+	interface_name = other.interface_name;
 
 	if (!other.bits_.empty())
 	{
@@ -2574,6 +2592,7 @@ const RTLIL::SigSpec &RTLIL::SigSpec::operator=(const RTLIL::SigSpec &other)
 RTLIL::SigSpec::SigSpec(const RTLIL::Const &value)
 {
 	cover("kernel.rtlil.sigspec.init.const");
+	is_interface = false;
 
 	chunks_.push_back(RTLIL::SigChunk(value));
 	width_ = chunks_.back().width;
@@ -2584,6 +2603,7 @@ RTLIL::SigSpec::SigSpec(const RTLIL::Const &value)
 RTLIL::SigSpec::SigSpec(const RTLIL::SigChunk &chunk)
 {
 	cover("kernel.rtlil.sigspec.init.chunk");
+	is_interface = false;
 
 	chunks_.push_back(chunk);
 	width_ = chunks_.back().width;
@@ -2594,6 +2614,7 @@ RTLIL::SigSpec::SigSpec(const RTLIL::SigChunk &chunk)
 RTLIL::SigSpec::SigSpec(RTLIL::Wire *wire)
 {
 	cover("kernel.rtlil.sigspec.init.wire");
+	is_interface = false;
 
 	chunks_.push_back(RTLIL::SigChunk(wire));
 	width_ = chunks_.back().width;
@@ -2604,6 +2625,7 @@ RTLIL::SigSpec::SigSpec(RTLIL::Wire *wire)
 RTLIL::SigSpec::SigSpec(RTLIL::Wire *wire, int offset, int width)
 {
 	cover("kernel.rtlil.sigspec.init.wire_part");
+	is_interface = false;
 
 	chunks_.push_back(RTLIL::SigChunk(wire, offset, width));
 	width_ = chunks_.back().width;
@@ -2614,6 +2636,7 @@ RTLIL::SigSpec::SigSpec(RTLIL::Wire *wire, int offset, int width)
 RTLIL::SigSpec::SigSpec(const std::string &str)
 {
 	cover("kernel.rtlil.sigspec.init.str");
+	is_interface = false;
 
 	chunks_.push_back(RTLIL::SigChunk(str));
 	width_ = chunks_.back().width;
@@ -2624,6 +2647,7 @@ RTLIL::SigSpec::SigSpec(const std::string &str)
 RTLIL::SigSpec::SigSpec(int val, int width)
 {
 	cover("kernel.rtlil.sigspec.init.int");
+	is_interface = false;
 
 	chunks_.push_back(RTLIL::SigChunk(val, width));
 	width_ = width;
@@ -2634,6 +2658,7 @@ RTLIL::SigSpec::SigSpec(int val, int width)
 RTLIL::SigSpec::SigSpec(RTLIL::State bit, int width)
 {
 	cover("kernel.rtlil.sigspec.init.state");
+	is_interface = false;
 
 	chunks_.push_back(RTLIL::SigChunk(bit, width));
 	width_ = width;
@@ -2644,6 +2669,7 @@ RTLIL::SigSpec::SigSpec(RTLIL::State bit, int width)
 RTLIL::SigSpec::SigSpec(RTLIL::SigBit bit, int width)
 {
 	cover("kernel.rtlil.sigspec.init.bit");
+	is_interface = false;
 
 	if (bit.wire == NULL)
 		chunks_.push_back(RTLIL::SigChunk(bit.data, width));
@@ -2658,6 +2684,7 @@ RTLIL::SigSpec::SigSpec(RTLIL::SigBit bit, int width)
 RTLIL::SigSpec::SigSpec(std::vector<RTLIL::SigChunk> chunks)
 {
 	cover("kernel.rtlil.sigspec.init.stdvec_chunks");
+	is_interface = false;
 
 	width_ = 0;
 	hash_ = 0;
@@ -2669,6 +2696,7 @@ RTLIL::SigSpec::SigSpec(std::vector<RTLIL::SigChunk> chunks)
 RTLIL::SigSpec::SigSpec(std::vector<RTLIL::SigBit> bits)
 {
 	cover("kernel.rtlil.sigspec.init.stdvec_bits");
+	is_interface = false;
 
 	width_ = 0;
 	hash_ = 0;
@@ -2680,6 +2708,7 @@ RTLIL::SigSpec::SigSpec(std::vector<RTLIL::SigBit> bits)
 RTLIL::SigSpec::SigSpec(pool<RTLIL::SigBit> bits)
 {
 	cover("kernel.rtlil.sigspec.init.pool_bits");
+	is_interface = false;
 
 	width_ = 0;
 	hash_ = 0;
@@ -2691,6 +2720,7 @@ RTLIL::SigSpec::SigSpec(pool<RTLIL::SigBit> bits)
 RTLIL::SigSpec::SigSpec(std::set<RTLIL::SigBit> bits)
 {
 	cover("kernel.rtlil.sigspec.init.stdset_bits");
+	is_interface = false;
 
 	width_ = 0;
 	hash_ = 0;
@@ -2702,6 +2732,7 @@ RTLIL::SigSpec::SigSpec(std::set<RTLIL::SigBit> bits)
 RTLIL::SigSpec::SigSpec(bool bit)
 {
 	cover("kernel.rtlil.sigspec.init.bool");
+	is_interface = false;
 
 	width_ = 0;
 	hash_ = 0;

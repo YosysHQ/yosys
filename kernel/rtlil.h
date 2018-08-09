@@ -624,6 +624,7 @@ public:
 	SigSpec(bool bit);
 
 	SigSpec(RTLIL::SigSpec &&other) {
+		is_interface = false;
 		width_ = other.width_;
 		hash_ = other.hash_;
 		chunks_ = std::move(other.chunks_);
@@ -631,6 +632,8 @@ public:
 	}
 
 	const RTLIL::SigSpec &operator=(RTLIL::SigSpec &&other) {
+		is_interface = other.is_interface;
+		interface_name = other.interface_name;
 		width_ = other.width_;
 		hash_ = other.hash_;
 		chunks_ = std::move(other.chunks_);
@@ -642,6 +645,9 @@ public:
 		if (!hash_) hash();
 		return hash_;
 	}
+
+	bool is_interface;
+	RTLIL::IdString interface_name;
 
 	inline const std::vector<RTLIL::SigChunk> &chunks() const { pack(); return chunks_; }
 	inline const std::vector<RTLIL::SigBit> &bits() const { inline_unpack(); return bits_; }
@@ -894,10 +900,13 @@ public:
 
 	int refcount_wires_;
 	int refcount_cells_;
+	bool is_interface;
 
 	dict<RTLIL::IdString, RTLIL::Wire*> wires_;
 	dict<RTLIL::IdString, RTLIL::Cell*> cells_;
 	std::vector<RTLIL::SigSig> connections_;
+	dict<RTLIL::IdString, RTLIL::Cell*> interfaces_;
+	bool done_interface_cells;
 
 	RTLIL::IdString name;
 	pool<RTLIL::IdString> avail_parameters;
@@ -907,6 +916,7 @@ public:
 	Module();
 	virtual ~Module();
 	virtual RTLIL::IdString derive(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters, bool mayfail = false);
+	virtual RTLIL::IdString derive(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters, dict<RTLIL::IdString, RTLIL::Cell*> interfaces, bool mayfail = false);
 	virtual size_t count_id(RTLIL::IdString id);
 
 	virtual void sort();
@@ -940,6 +950,7 @@ public:
 
 	RTLIL::Wire* wire(RTLIL::IdString id) { return wires_.count(id) ? wires_.at(id) : nullptr; }
 	RTLIL::Cell* cell(RTLIL::IdString id) { return cells_.count(id) ? cells_.at(id) : nullptr; }
+	RTLIL::Cell* interface(RTLIL::IdString id) { return interfaces_.count(id) ? interfaces_.at(id) : nullptr; }
 
 	RTLIL::ObjRange<RTLIL::Wire*> wires() { return RTLIL::ObjRange<RTLIL::Wire*>(&wires_, &refcount_wires_); }
 	RTLIL::ObjRange<RTLIL::Cell*> cells() { return RTLIL::ObjRange<RTLIL::Cell*>(&cells_, &refcount_cells_); }
@@ -1152,6 +1163,7 @@ public:
 	RTLIL::IdString name;
 	int width, start_offset, port_id;
 	bool port_input, port_output, upto;
+	bool is_interface;
 };
 
 struct RTLIL::Memory : public RTLIL::AttrObject
@@ -1185,6 +1197,8 @@ public:
 	RTLIL::IdString type;
 	dict<RTLIL::IdString, RTLIL::SigSpec> connections_;
 	dict<RTLIL::IdString, RTLIL::Const> parameters;
+	bool replaced_interface;
+	bool already_derived;
 
 	// access cell ports
 	bool hasPort(RTLIL::IdString portname) const;
