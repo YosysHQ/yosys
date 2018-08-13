@@ -74,6 +74,13 @@ RTLIL::Const::Const(const std::vector<bool> &bits)
 		this->bits.push_back(b ? RTLIL::S1 : RTLIL::S0);
 }
 
+RTLIL::Const::Const(const RTLIL::Const &c)
+{
+	flags = c.flags;
+	for (auto b : c.bits)
+		this->bits.push_back(b);
+}
+
 bool RTLIL::Const::operator <(const RTLIL::Const &other) const
 {
 	if (bits.size() != other.bits.size())
@@ -2247,6 +2254,9 @@ RTLIL::Memory::Memory()
 	width = 1;
 	start_offset = 0;
 	size = 0;
+#ifdef WITH_PYTHON
+	RTLIL::Memory::get_all_memorys()->insert(std::pair<unsigned int, RTLIL::Memory*>(hashidx_, this));
+#endif
 }
 
 RTLIL::Cell::Cell() : module(nullptr)
@@ -2532,6 +2542,14 @@ RTLIL::SigChunk::SigChunk(RTLIL::SigBit bit)
 	else
 		offset = bit.offset;
 	width = 1;
+}
+
+RTLIL::SigChunk::SigChunk(const RTLIL::SigChunk &sigchunk) : data(sigchunk.data)
+{
+	wire = sigchunk.wire;
+	data = sigchunk.data;
+	width = sigchunk.width;
+	offset = sigchunk.offset;
 }
 
 RTLIL::SigChunk RTLIL::SigChunk::extract(int offset, int length) const
@@ -3907,6 +3925,18 @@ RTLIL::Process *RTLIL::Process::clone() const
 
 	return new_proc;
 }
+RTLIL::Memory::~Memory()
+{
+#ifdef WITH_PYTHON
+	RTLIL::Memory::get_all_memorys()->erase(hashidx_);
+#endif
+}
 
+#ifdef WITH_PYTHON
+static std::map<unsigned int, RTLIL::Memory*> *all_memorys = new std::map<unsigned int, RTLIL::Memory*>();
+std::map<unsigned int, RTLIL::Memory*> *RTLIL::Memory::get_all_memorys(void)
+{
+	return all_memorys;
+}
+#endif
 YOSYS_NAMESPACE_END
-

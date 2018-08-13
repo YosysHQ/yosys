@@ -19,7 +19,7 @@ ENABLE_PROTOBUF := 0
 
 # python wrappers
 ENABLE_PYTHON := 1
-PYTHON_VERSION := 3.6
+PYTHON_VERSION := 3.5
 
 # other configuration flags
 ENABLE_GPROF := 0
@@ -233,7 +233,7 @@ TARGETS += libyosys.so
 endif
 
 ifeq ($(ENABLE_PYTHON),1)
-LDLIBS += -lpython$(PYTHON_VERSION)m -lboost_python-py$(subst .,,$(PYTHON_VERSION))
+LDLIBS += -lpython$(PYTHON_VERSION)m -lboost_python-py$(subst .,,$(PYTHON_VERSION)) -lboost_system
 CXXFLAGS += -I/usr/include/python$(PYTHON_VERSION) -D WITH_PYTHON
 OBJS += kernel/python_wrappers.o
 endif
