@@ -825,6 +825,8 @@ void run_frontend(std::string filename, std::string command, std::string *backen
 			command = "vhdl";
 		else if (filename.size() > 4 && filename.substr(filename.size()-5) == ".blif")
 			command = "blif";
+		else if (filename.size() > 5 && filename.substr(filename.size()-6) == ".eblif")
+			command = "blif";
 		else if (filename.size() > 4 && filename.substr(filename.size()-5) == ".json")
 			command = "json";
 		else if (filename.size() > 3 && filename.substr(filename.size()-3) == ".il")
