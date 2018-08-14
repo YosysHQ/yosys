@@ -93,8 +93,10 @@ struct JsonWriter
 				f << get_string(param.second.decode_string());
 			else if (GetSize(param.second.bits) > 32)
 				f << get_string(param.second.as_string());
-			else
+			else if ((param.second.flags & RTLIL::ConstFlags::CONST_FLAG_SIGNED) != 0)
 				f << stringf("%d", param.second.as_int());
+			else
+				f << stringf("%u", param.second.as_int());
 			first = false;
 		}
 	}
