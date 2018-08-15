@@ -817,14 +817,30 @@ struct ShowPass : public Pass {
 			log_cmd_error("Nothing there to show.\n");
 
 		if (format != "dot" && !format.empty()) {
-			std::string cmd = stringf("dot -T%s '%s' > '%s.new' && mv '%s.new' '%s'", format.c_str(), dot_file.c_str(), out_file.c_str(), out_file.c_str(), out_file.c_str());
+			#ifdef _WIN32
+				// system()/cmd.exe does not understand single quotes on Windows.
+				#define DOT_CMD "dot -T%s \"%s\" > \"%s.new\" && move \"%s.new\" \"%s\""
+			#else
+				#define DOT_CMD "dot -T%s '%s' > '%s.new' && mv '%s.new' '%s'"
+			#endif
+			std::string cmd = stringf(DOT_CMD, format.c_str(), dot_file.c_str(), out_file.c_str(), out_file.c_str(), out_file.c_str());
+			#undef DOT_CMD
 			log("Exec: %s\n", cmd.c_str());
 			if (run_command(cmd) != 0)
 				log_cmd_error("Shell command failed!\n");
 		}
 
 		if (!viewer_exe.empty()) {
-			std::string cmd = stringf("%s '%s' &", viewer_exe.c_str(), out_file.c_str());
+			#ifdef _WIN32
+				// system()/cmd.exe does not understand single quotes nor
+				// background tasks on Windows. So we have to pause yosys
+				// until the viewer exits.
+				#define VIEW_CMD "%s \"%s\""
+			#else
+				#define VIEW_CMD "%s '%s' &"
+			#endif
+			std::string cmd = stringf(VIEW_CMD, viewer_exe.c_str(), out_file.c_str());
+			#undef VIEW_CMD
 			log("Exec: %s\n", cmd.c_str());
 			if (run_command(cmd) != 0)
 				log_cmd_error("Shell command failed!\n");
