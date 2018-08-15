@@ -688,8 +688,8 @@ path_declaration :
 	;
 
 simple_path_declaration :
-	parallel_path_description '=' path_delay_value ';'
-	// | full_path_description '=' path_delay_value ';'
+	parallel_path_description '=' path_delay_value ';' |
+	full_path_description '=' path_delay_value ';'
 	;
 
 path_delay_value :
@@ -723,6 +723,17 @@ list_of_path_delay_expressions :
 parallel_path_description :
 	'(' specify_input_terminal_descriptor opt_polarity_operator '=' '>' specify_output_terminal_descriptor ')' ;
 
+full_path_description :
+	'(' list_of_path_inputs opt_polarity_operator '*' '>' list_of_path_outputs ')' ;
+
+list_of_path_inputs :
+	specify_input_terminal_descriptor |
+	list_of_path_inputs ',' specify_input_terminal_descriptor ;
+	
+list_of_path_outputs :
+	specify_output_terminal_descriptor |
+	list_of_path_outputs ',' specify_output_terminal_descriptor ;
+	
 opt_polarity_operator :
 	'+'
 	| '-'
