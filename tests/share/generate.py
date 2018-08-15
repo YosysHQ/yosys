@@ -69,14 +69,14 @@ for idx in range(args.count):
                 print('endmodule')
     with open('temp/uut_%05d.ys' % idx, 'w') as f:
         with redirect_stdout(f):
-            print('read_verilog temp/uut_%05d.v' % idx)
+            print('read_verilog uut_%05d.v' % idx)
             print('proc;;')
             print('copy uut_%05d gold' % idx)
             print('rename uut_%05d gate' % idx)
-            print('tee -a temp/all_share_log.txt log')
-            print('tee -a temp/all_share_log.txt log #job# uut_%05d' % idx)
-            print('tee -a temp/all_share_log.txt wreduce')
-            print('tee -a temp/all_share_log.txt share -aggressive gate')
+            print('tee -a uut_%05d_share_log.txt log' % idx)
+            print('tee -a uut_%05d_share_log.txt log #job# uut_%05d' % (idx, idx))
+            print('tee -a uut_%05d_share_log.txt wreduce' % idx)
+            print('tee -a uut_%05d_share_log.txt share -aggressive gate' % idx)
             print('miter -equiv -flatten -ignore_gold_x -make_outputs -make_outcmp gold gate miter')
             print('sat -set-def-inputs -verify -prove trigger 0 -show-inputs -show-outputs miter')
 

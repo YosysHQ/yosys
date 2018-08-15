@@ -8,11 +8,13 @@ set -e
 OPTIND=1
 count=100
 seed=""    # default to no seed specified
-while getopts "c:S:" opt
+verbose=0
+while getopts "c:S:v" opt
 do
     case "$opt" in
 	c) count="$OPTARG" ;;
 	S) seed="-S $OPTARG" ;;
+	v) verbose="1" ;;
     esac
 done
 shift "$((OPTIND-1))"
@@ -29,16 +31,46 @@ python3 generate.py -c $count $seed
 	for i in $( ls temp/*.ys | sed 's,[^0-9],,g; s,^0*\(.\),\1,g;' ); do
 		idx=$( printf "%05d" $i )
 		echo "temp/uut_${idx}.log: temp/uut_${idx}.ys temp/uut_${idx}.v"
-		echo "	@echo -n '[$i]'"
+		if test $verbose -gt 0; then
+			echo "	@echo -n 'Test fsm[$i] -> '"
+		fi
 		echo "	@../../yosys -ql temp/uut_${idx}.out temp/uut_${idx}.ys"
 		echo "	@mv temp/uut_${idx}.out temp/uut_${idx}.log"
-		echo "	@grep -q 'SAT proof finished' temp/uut_${idx}.log && echo -n K || echo -n T"
+		echo -n "	@grep -q 'SAT proof finished' temp/uut_${idx}.log "
+		if test $verbose -gt 0; then
+			# Passing output
+			echo -n "&& echo 'ok' "
+			# Failing output
+			echo -n "|| ("
+			echo -n " echo 'fail';"
+			echo -n " echo '-----------------------';"
+			echo -n " cat temp/uut_${idx}.log;"
+			echo -n " echo '-----------------------';"
+			echo -n " exit 1"
+			echo ")"
+		else
+			# Passing output
+			echo -n "&& echo -n '.' "
+			# Failing output
+			echo -n "|| ("
+			echo -n " echo 'F';"
+			echo -n " echo 'Test fsm[$i] failed ---';"
+			echo -n " tail -n 20 temp/uut_${idx}.log;"
+			echo -n " echo '-----------------------';"
+			echo -n " exit 1"
+			echo ")"
+		fi
 		all_targets="$all_targets temp/uut_${idx}.log"
+		echo
 	done
+	echo "	@echo"
 	echo "$all_targets"
 } > temp/makefile
 
-echo "running tests.."
-${MAKE:-make} -f temp/makefile
+echo -n "running tests.. "
+if test $verbose -gt 0; then
+	echo
+fi
+${MAKE:-make} -s -f temp/makefile
 
 exit 0
