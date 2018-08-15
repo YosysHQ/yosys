@@ -584,6 +584,7 @@ struct ShowPass : public Pass {
 		log("\n");
 		log("    -viewer <viewer>\n");
 		log("        Run the specified command with the graphics file as parameter.\n");
+		log("        On Windows, this pauses yosys until the viewer exits.\n");
 		log("\n");
 		log("    -format <format>\n");
 		log("        Generate a graphics file in the specified format. Use 'dot' to just\n");
@@ -645,7 +646,7 @@ struct ShowPass : public Pass {
 		log("        do not add the module name as graph title to the dot file\n");
 		log("\n");
 		log("When no <format> is specified, 'dot' is used. When no <format> and <viewer> is\n");
-		log("specified, 'xdot' is used to display the schematic.\n");
+		log("specified, 'xdot' is used to display the schematic (POSIX systems only).\n");
 		log("\n");
 		log("The generated output files are '~/.yosys_show.dot' and '~/.yosys_show.<format>',\n");
 		log("unless another prefix is specified using -prefix <prefix>.\n");
