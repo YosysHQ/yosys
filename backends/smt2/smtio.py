@@ -17,7 +17,9 @@
 #
 
 import sys, re, os, signal
-import resource, subprocess
+import subprocess
+if os.name == "posix":
+    import resource
 from copy import deepcopy
 from select import select
 from time import time
@@ -27,12 +29,13 @@ from threading import Thread
 
 # This is needed so that the recursive SMT2 S-expression parser
 # does not run out of stack frames when parsing large expressions
-smtio_reclimit = 64 * 1024
-smtio_stacksize = 128 * 1024 * 1024
-if sys.getrecursionlimit() < smtio_reclimit:
-    sys.setrecursionlimit(smtio_reclimit)
-if resource.getrlimit(resource.RLIMIT_STACK)[0] < smtio_stacksize:
-    resource.setrlimit(resource.RLIMIT_STACK, (smtio_stacksize, -1))
+if os.name == "posix":
+    smtio_reclimit = 64 * 1024
+    smtio_stacksize = 128 * 1024 * 1024
+    if sys.getrecursionlimit() < smtio_reclimit:
+        sys.setrecursionlimit(smtio_reclimit)
+    if resource.getrlimit(resource.RLIMIT_STACK)[0] < smtio_stacksize:
+        resource.setrlimit(resource.RLIMIT_STACK, (smtio_stacksize, -1))
 
 
 # currently running solvers (so we can kill them)
@@ -51,8 +54,9 @@ def force_shutdown(signum, frame):
             os.kill(p.pid, signal.SIGTERM)
     sys.exit(1)
 
+if os.name == "posix":
+    signal.signal(signal.SIGHUP, force_shutdown)
 signal.signal(signal.SIGINT, force_shutdown)
-signal.signal(signal.SIGHUP, force_shutdown)
 signal.signal(signal.SIGTERM, force_shutdown)
 
 def except_hook(exctype, value, traceback):
@@ -1053,4 +1057,3 @@ class MkVcd:
                     print("b0 %s" % self.nets[path][0], file=self.f)
                 else:
                     print("b1 %s" % self.nets[path][0], file=self.f)
-
