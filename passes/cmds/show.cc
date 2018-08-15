@@ -573,7 +573,7 @@ struct ShowWorker
 
 struct ShowPass : public Pass {
 	ShowPass() : Pass("show", "generate schematics using graphviz") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -655,7 +655,7 @@ struct ShowPass : public Pass {
 		log("the 'show' command is executed.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Generating Graphviz representation of design.\n");
 		log_push();

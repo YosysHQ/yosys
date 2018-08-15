@@ -675,7 +675,7 @@ struct SmvWorker
 
 struct SmvBackend : public Backend {
 	SmvBackend() : Backend("smv", "write design to SMV file") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -693,7 +693,7 @@ struct SmvBackend : public Backend {
 		log("THIS COMMAND IS UNDER CONSTRUCTION\n");
 		log("\n");
 	}
-	virtual void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		std::ifstream template_f;
 		bool verbose = false;

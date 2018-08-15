@@ -54,7 +54,7 @@ static void rename_in_module(RTLIL::Module *module, std::string from_name, std::
 
 struct RenamePass : public Pass {
 	RenamePass() : Pass("rename", "rename object in the design") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -81,7 +81,7 @@ struct RenamePass : public Pass {
 		log("Rename top module.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		std::string pattern_prefix = "_", pattern_suffix = "_";
 		bool flag_enumerate = false;

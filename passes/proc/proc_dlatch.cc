@@ -422,7 +422,7 @@ void proc_dlatch(proc_dlatch_db_t &db, RTLIL::Process *proc)
 
 struct ProcDlatchPass : public Pass {
 	ProcDlatchPass() : Pass("proc_dlatch", "extract latches from processes") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -432,7 +432,7 @@ struct ProcDlatchPass : public Pass {
 		log("d-type latches.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing PROC_DLATCH pass (convert process syncs to latches).\n");
 

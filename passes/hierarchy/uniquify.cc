@@ -24,7 +24,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct UniquifyPass : public Pass {
 	UniquifyPass() : Pass("uniquify", "create unique copies of modules") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -41,7 +41,7 @@ struct UniquifyPass : public Pass {
 		log("attribute set (the 'top' module is unique implicitly).\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing UNIQUIFY pass (creating unique copies of modules).\n");
 

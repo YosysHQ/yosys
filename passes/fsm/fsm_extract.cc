@@ -401,7 +401,7 @@ static void extract_fsm(RTLIL::Wire *wire)
 
 struct FsmExtractPass : public Pass {
 	FsmExtractPass() : Pass("fsm_extract", "extracting FSMs in design") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -417,7 +417,7 @@ struct FsmExtractPass : public Pass {
 		log("'opt_clean' pass to eliminate this signal.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing FSM_EXTRACT pass (extracting FSM from design).\n");
 		extra_args(args, 1, design);

@@ -181,7 +181,7 @@ struct AssertpmuxWorker
 
 struct AssertpmuxPass : public Pass {
 	AssertpmuxPass() : Pass("assertpmux", "convert internal signals to module ports") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -199,7 +199,7 @@ struct AssertpmuxPass : public Pass {
 		log("        additional constrained and check the $pmux condition always.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		bool flag_noinit = false;
 		bool flag_always = false;

@@ -120,7 +120,7 @@ void write_kiss2(struct RTLIL::Module *module, struct RTLIL::Cell *cell, std::st
  */
 struct FsmExportPass : public Pass {
 	FsmExportPass() : Pass("fsm_export", "exporting FSMs to KISS2 files") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -143,7 +143,7 @@ struct FsmExportPass : public Pass {
 		log("        use binary state encoding as state names instead of s0, s1, ...\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		dict<RTLIL::IdString, RTLIL::Const>::iterator attr_it;
 		std::string arg;

@@ -1421,7 +1421,7 @@ struct ShareWorker
 
 struct SharePass : public Pass {
 	SharePass() : Pass("share", "perform sat-based resource sharing") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -1453,7 +1453,7 @@ struct SharePass : public Pass {
 		log("    Only perform the first N merges, then stop. This is useful for debugging.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		ShareWorkerConfig config;
 

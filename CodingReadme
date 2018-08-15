@@ -21,7 +21,7 @@ Here is a the C++ code for a "hello_world" Yosys command (hello.cc):
 
 	struct HelloWorldPass : public Pass {
 		HelloWorldPass() : Pass("hello_world") { }
-		virtual void execute(vector<string>, Design*) {
+		void execute(vector<string>, Design*) override {
 			log("Hello World!\n");
 		}
 	} HelloWorldPass;

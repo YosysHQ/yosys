@@ -390,7 +390,7 @@ struct EquivMakeWorker
 
 struct EquivMakePass : public Pass {
 	EquivMakePass() : Pass("equiv_make", "prepare a circuit for equivalence checking") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -415,7 +415,7 @@ struct EquivMakePass : public Pass {
 		log("checking problem. Use 'miter -equiv' if you want to create a miter circuit.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		EquivMakeWorker worker;
 		worker.ct.setup(design);

@@ -38,7 +38,7 @@ struct SynthXilinxPass : public Pass
 {
 	SynthXilinxPass() : Pass("synth_xilinx", "synthesis for Xilinx FPGAs") { }
 
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -128,7 +128,7 @@ struct SynthXilinxPass : public Pass
 		log("        write_blif <file-name>\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		std::string top_opt = "-auto-top";
 		std::string edif_file;

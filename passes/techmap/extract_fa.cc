@@ -531,7 +531,7 @@ struct ExtractFaWorker
 
 struct ExtractFaPass : public Pass {
 	ExtractFaPass() : Pass("extract_fa", "find and extract full/half adders") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -553,7 +553,7 @@ struct ExtractFaPass : public Pass {
 		log("        Verbose output\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		ExtractFaConfig config;
 

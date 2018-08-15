@@ -34,7 +34,7 @@ struct ExtractReducePass : public Pass
 
 	ExtractReducePass() : Pass("extract_reduce", "converts gate chains into $reduce_* cells") { }
 
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -63,7 +63,7 @@ struct ExtractReducePass : public Pass
 				(cell->type == "$_XOR_" && gt == GateType::Xor);
 	}
 
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing EXTRACT_REDUCE pass.\n");
 		log_push();

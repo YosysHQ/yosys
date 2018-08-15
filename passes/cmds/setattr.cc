@@ -56,7 +56,7 @@ static void do_setunset(dict<RTLIL::IdString, RTLIL::Const> &attrs, const std::v
 
 struct SetattrPass : public Pass {
 	SetattrPass() : Pass("setattr", "set/unset attributes on objects") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -69,7 +69,7 @@ struct SetattrPass : public Pass {
 		log("instead of objects within modules.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		std::vector<setunset_t> setunset_list;
 		bool flag_mod = false;
@@ -130,7 +130,7 @@ struct SetattrPass : public Pass {
 
 struct SetparamPass : public Pass {
 	SetparamPass() : Pass("setparam", "set/unset parameters on objects") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -142,7 +142,7 @@ struct SetparamPass : public Pass {
 		log("The -type option can be used to change the cell type of the selected cells.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		vector<setunset_t> setunset_list;
 		string new_cell_type;
@@ -188,7 +188,7 @@ struct SetparamPass : public Pass {
 
 struct ChparamPass : public Pass {
 	ChparamPass() : Pass("chparam", "re-evaluate modules with new parameters") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -203,7 +203,7 @@ struct ChparamPass : public Pass {
 		log("List the available parameters of the selected modules.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		std::vector<setunset_t> setunset_list;
 		dict<RTLIL::IdString, RTLIL::Const> new_parameters;

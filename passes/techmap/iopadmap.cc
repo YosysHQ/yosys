@@ -34,7 +34,7 @@ void split_portname_pair(std::string &port1, std::string &port2)
 
 struct IopadmapPass : public Pass {
 	IopadmapPass() : Pass("iopadmap", "technology mapping of i/o pads (or buffers)") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		log("\n");
 		log("    iopadmap [options] [selection]\n");
@@ -78,7 +78,7 @@ struct IopadmapPass : public Pass {
 		log("Tristate PADS (-toutpad, -tinoutpad) always operate in -bits mode.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing IOPADMAP pass (mapping inputs/outputs to IO-PAD cells).\n");
 

@@ -352,7 +352,7 @@ bool compareSortNeedleList(RTLIL::Module *left, RTLIL::Module *right)
 
 struct ExtractPass : public Pass {
 	ExtractPass() : Pass("extract", "find subcircuits and replace them with cells") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -440,7 +440,7 @@ struct ExtractPass : public Pass {
 		log("See 'help techmap' for a pass that does the opposite thing.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing EXTRACT pass (map subcircuits to cells).\n");
 		log_push();

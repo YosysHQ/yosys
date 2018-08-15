@@ -1251,7 +1251,7 @@ struct Smt2Worker
 
 struct Smt2Backend : public Backend {
 	Smt2Backend() : Backend("smt2", "write design to SMT-LIBv2 file") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -1407,7 +1407,7 @@ struct Smt2Backend : public Backend {
 		log("from non-zero to zero in the test design.\n");
 		log("\n");
 	}
-	virtual void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		std::ifstream template_f;
 		bool bvmode = true, memmode = true, wiresmode = false, verbose = false, statebv = false, statedt = false;

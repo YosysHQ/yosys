@@ -253,7 +253,7 @@ struct Dff2dffeWorker
 
 struct Dff2dffePass : public Pass {
 	Dff2dffePass() : Pass("dff2dffe", "transform $dff cells to $dffe cells") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -284,7 +284,7 @@ struct Dff2dffePass : public Pass {
 		log("        $_DFFE_[NP]_.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing DFF2DFFE pass (transform $dff to $dffe where applicable).\n");
 
