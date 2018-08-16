@@ -624,7 +624,8 @@ public:
 	SigSpec(bool bit);
 
 	SigSpec(RTLIL::SigSpec &&other) {
-		is_interface = false;
+		is_interface = other.is_interface;
+		interface_name = other.interface_name;
 		width_ = other.width_;
 		hash_ = other.hash_;
 		chunks_ = std::move(other.chunks_);
