@@ -1800,6 +1800,9 @@ struct VerificPass : public Pass {
 		RuntimeFlags::SetVar("veri_extract_multiport_rams", 1);
 		RuntimeFlags::SetVar("db_infer_wide_operators", 1);
 
+		// Workaround for VIPER #13851
+		RuntimeFlags::SetVar("veri_create_name_for_unnamed_gen_block", 1);
+
 		// WARNING: instantiating unknown module 'XYZ' (VERI-1063)
 		Message::SetMessageType("VERI-1063", VERIFIC_ERROR);
 
