@@ -23,9 +23,17 @@
 #  include <dlfcn.h>
 #endif
 
+#ifdef WITH_PYTHON
+#  include <boost/algorithm/string/predicate.hpp>
+#  include <Python.h>
+#endif
+
 YOSYS_NAMESPACE_BEGIN
 
 std::map<std::string, void*> loaded_plugins;
+#ifdef WITH_PYTHON
+std::map<std::string, void*> loaded_python_plugins;
+#endif
 std::map<std::string, std::string> loaded_plugin_aliases;
 
 #ifdef YOSYS_ENABLE_PLUGINS
@@ -37,6 +45,48 @@ void load_plugin(std::string filename, std::vector<std::string> aliases)
 		filename = "./" + filename;
 
 	if (!loaded_plugins.count(filename)) {
+
+		#ifdef WITH_PYTHON
+		if(boost::algorithm::ends_with(filename, ".py"))
+		{
+			int last_slash = filename.find('/');
+			filename = filename.substr(last_slash+1, filename.size());
+			filename = filename.substr(0,filename.size()-3);
+			PyObject *filename_p = PyUnicode_FromString(filename.c_str());//filename.c_str());
+			if(filename_p == NULL)
+			{
+				log_cmd_error("Issues converting `%s' to Python\n", filename.c_str());
+				return;
+			}
+			PyObject *module_p = PyImport_Import(filename_p);
+			if(module_p == NULL)
+			{
+				log_cmd_error("Can't load python module `%s'\n", filename.c_str());
+				return;
+			}/*
+			PyObject *dict_p = PyModule_GetDict(module_p);
+			if(dict_p == NULL)
+			{
+				log_cmd_error("Can't load dictionary from module `%s'\n", filename.c_str());
+				return;
+			}
+			PyObject *func_p = PyDict_GetItemString(dict_p, "test");
+			if(module_p == NULL)
+			{
+				log_cmd_error("Module `%s' does not contain test function\n", filename.c_str());
+				return;
+			}
+			PyObject *args_p = PyTuple_New(0);
+			PyObject *result_p = PyObject_CallObject(func_p, args_p);
+			if(result_p == NULL)
+					printf("Calling test failed\n");
+			printf("Loaded Python module\n");
+			*/
+			loaded_python_plugins[orig_filename] = module_p;
+			Pass::init_register();
+		} else {
+		#endif
+
 		void *hdl = dlopen(filename.c_str(), RTLD_LAZY|RTLD_LOCAL);
 		if (hdl == NULL && orig_filename.find('/') == std::string::npos)
 			hdl = dlopen((proc_share_dirname() + "plugins/" + orig_filename + ".so").c_str(), RTLD_LAZY|RTLD_LOCAL);
@@ -44,6 +94,10 @@ void load_plugin(std::string filename, std::vector<std::string> aliases)
 			log_cmd_error("Can't load module `%s': %s\n", filename.c_str(), dlerror());
 		loaded_plugins[orig_filename] = hdl;
 		Pass::init_register();
+
+		#ifdef WITH_PYTHON
+		}
+		#endif
 	}
 
 	for (auto &alias : aliases)
@@ -107,13 +161,22 @@ struct PluginPass : public Pass {
 		if (list_mode)
 		{
 			log("\n");
+#ifdef WITH_PYTHON
+			if (loaded_plugins.empty() and loaded_python_plugins.empty())
+#else
 			if (loaded_plugins.empty())
+#endif
 				log("No plugins loaded.\n");
 			else
 				log("Loaded plugins:\n");
 
 			for (auto &it : loaded_plugins)
 				log("  %s\n", it.first.c_str());
+
+#ifdef WITH_PYTHON
+			for (auto &it : loaded_python_plugins)
+				log("  %s\n", it.first.c_str());
+#endif
 
 			if (!loaded_plugin_aliases.empty()) {
 				log("\n");

@@ -469,12 +469,26 @@ int GetSize(RTLIL::Wire *wire)
 	return wire->width;
 }
 
+bool already_setup = false;
+
 void yosys_setup()
 {
+	if(already_setup)
+		return;
+	already_setup = true;
 	// if there are already IdString objects then we have a global initialization order bug
 	IdString empty_id;
 	log_assert(empty_id.index_ == 0);
 	IdString::get_reference(empty_id.index_);
+
+	#ifdef WITH_PYTHON
+		Py_Initialize();
+		PyRun_SimpleString("import sys");
+		PyRun_SimpleString("sys.path.append(\"./\")");
+		//PyRun_SimpleString("import libyosys");
+		//PyRun_SimpleString("sys.path.append(\"./plugins\")");
+		//PyRun_SimpleString(("sys.path.append(\""+proc_share_dirname()+"plugins\")").c_str());
+	#endif
 
 	Pass::init_register();
 	yosys_design = new RTLIL::Design;
@@ -482,8 +496,13 @@ void yosys_setup()
 	log_push();
 }
 
+bool already_shutdown = false;
+
 void yosys_shutdown()
 {
+	if(already_shutdown)
+		return;
+	already_shutdown = true;
 	log_pop();
 
 	delete yosys_design;
@@ -511,7 +530,14 @@ void yosys_shutdown()
 		dlclose(it.second);
 
 	loaded_plugins.clear();
+#ifdef WITH_PYTHON
+	loaded_python_plugins.clear();
+#endif
 	loaded_plugin_aliases.clear();
+#endif
+
+#ifdef WITH_PYTHON
+	Py_Finalize();
 #endif
 
 	IdString empty_id;

@@ -66,6 +66,8 @@
 #include <stdio.h>
 #include <limits.h>
 
+#include <Python.h>
+
 #ifndef _YOSYS_
 #  error It looks like you are trying to build Yosys without the config defines set. \
          When building Yosys with a custom make system, make sure you set all the \
@@ -317,6 +319,9 @@ extern std::vector<RTLIL::Design*> pushed_designs;
 
 // from passes/cmds/pluginc.cc
 extern std::map<std::string, void*> loaded_plugins;
+#ifdef WITH_PYTHON
+extern std::map<std::string, void*> loaded_python_plugins;
+#endif
 extern std::map<std::string, std::string> loaded_plugin_aliases;
 void load_plugin(std::string filename, std::vector<std::string> aliases);
 

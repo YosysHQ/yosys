@@ -34,6 +34,11 @@ namespace YOSYS_PYTHON {
 		Yosys::run_pass(command);
 	}
 
+	void log(std::string text)
+	{
+		Yosys::log(text.c_str());
+	}
+
 	struct IdString
 	{
 		Yosys::RTLIL::IdString* ref_obj;
@@ -1388,7 +1393,7 @@ namespace YOSYS_PYTHON {
         virtual void py_notify_connect_tuple(Module *module, boost::python::tuple sigsig){};
         virtual void py_notify_connect_list(Module* module, boost::python::list sigsig_list){};
         virtual void py_notify_blackout(Module*){};
-        };
+    };
 
     struct MonitorWrap : Monitor, boost::python::wrapper<Monitor>
     {
@@ -1469,6 +1474,59 @@ namespace YOSYS_PYTHON {
         {
             this->Monitor::py_notify_blackout(m);
         }
+    };
+
+    struct PyPass : public Yosys::Pass
+    {
+		PyPass(std::string name, std::string short_help) : Yosys::Pass(name, short_help) { }
+	
+		virtual void execute(vector<string> args, Yosys::RTLIL::Design* d)  YS_OVERRIDE
+		{
+			boost::python::list py_args;
+            for(auto arg : args)
+                py_args.append(arg);
+			py_execute(py_args, new Design(d));
+		}
+
+		virtual void help() YS_OVERRIDE
+		{
+			py_help();
+		}
+
+		virtual void py_execute(boost::python::list args, Design* d){}
+		virtual void py_help(){}
+    };
+
+    struct PassWrap : PyPass, boost::python::wrapper<PyPass>
+    {
+
+		PassWrap(std::string name, std::string short_help) : PyPass(name, short_help) { }
+	
+		void py_execute(boost::python::list args, Design* d)
+		{
+            if(boost::python::override py_execute = this->get_override("py_execute"))
+                py_execute(args, d);
+            else
+                PyPass::py_execute(args, d);
+		}
+
+		void default_py_execute(boost::python::list args, Design* d)
+		{
+			this->PyPass::py_execute(args, d);
+		}
+
+		void py_help()
+		{
+            if(boost::python::override py_help = this->get_override("py_help"))
+                py_help();
+            else
+                PyPass::py_help();
+		}
+
+		void default_py_help()
+		{
+			this->PyPass::py_help();
+		}
     };
 
 	void Module::register_monitor(Monitor* const m)
@@ -2778,6 +2836,11 @@ namespace YOSYS_PYTHON {
 		    .def("py_notify_blackout", &Monitor::py_notify_blackout, &MonitorWrap::default_py_notify_blackout)
 		    ;
 
+		class_<PassWrap, boost::noncopyable>("Pass", init<std::string, std::string>())
+		    .def("py_execute", &PyPass::py_execute, &PassWrap::default_py_execute)
+		    .def("py_help", &PyPass::py_help, &PassWrap::default_py_help)
+		    ;
+
 		class_<Initializer>("Initializer");
 		scope().attr("_hidden") = new Initializer();
 
@@ -3099,6 +3162,7 @@ namespace YOSYS_PYTHON {
 		def("const_neg", const_neg);
 
 		def("run",run);
+		def("log",log);
 
 	}
 
