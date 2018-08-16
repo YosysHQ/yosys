@@ -1732,6 +1732,15 @@ struct VerificPass : public Pass {
 		log("Remove Verilog defines previously set with -vlog-define.\n");
 		log("\n");
 		log("\n");
+		log("    verific -set-error <msg_id>..\n");
+		log("    verific -set-warning <msg_id>..\n");
+		log("    verific -set-info <msg_id>..\n");
+		log("    verific -set-ignore <msg_id>..\n");
+		log("\n");
+		log("Set message severity. <msg_id> is the string in square brackets when a message\n");
+		log("is printed, such as VERI-1209.\n");
+		log("\n");
+		log("\n");
 		log("    verific -import [options] <top-module>..\n");
 		log("\n");
 		log("Elaborate the design for the specified top modules, import to Yosys and\n");
@@ -1786,25 +1795,32 @@ struct VerificPass : public Pass {
 #ifdef YOSYS_ENABLE_VERIFIC
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
+		static bool set_verific_global_flags = true;
+
 		if (check_noverific_env())
 			log_cmd_error("This version of Yosys is built without Verific support.\n");
 
 		log_header(design, "Executing VERIFIC (loading SystemVerilog and VHDL designs using Verific).\n");
 
-		Message::SetConsoleOutput(0);
-		Message::RegisterCallBackMsg(msg_func);
-		RuntimeFlags::SetVar("db_preserve_user_nets", 1);
-		RuntimeFlags::SetVar("db_allow_external_nets", 1);
-		RuntimeFlags::SetVar("vhdl_ignore_assertion_statements", 0);
-		RuntimeFlags::SetVar("veri_extract_dualport_rams", 0);
-		RuntimeFlags::SetVar("veri_extract_multiport_rams", 1);
-		RuntimeFlags::SetVar("db_infer_wide_operators", 1);
+		if (set_verific_global_flags)
+		{
+			Message::SetConsoleOutput(0);
+			Message::RegisterCallBackMsg(msg_func);
+			RuntimeFlags::SetVar("db_preserve_user_nets", 1);
+			RuntimeFlags::SetVar("db_allow_external_nets", 1);
+			RuntimeFlags::SetVar("vhdl_ignore_assertion_statements", 0);
+			RuntimeFlags::SetVar("veri_extract_dualport_rams", 0);
+			RuntimeFlags::SetVar("veri_extract_multiport_rams", 1);
+			RuntimeFlags::SetVar("db_infer_wide_operators", 1);
 
-		// Workaround for VIPER #13851
-		RuntimeFlags::SetVar("veri_create_name_for_unnamed_gen_block", 1);
+			// Workaround for VIPER #13851
+			RuntimeFlags::SetVar("veri_create_name_for_unnamed_gen_block", 1);
 
-		// WARNING: instantiating unknown module 'XYZ' (VERI-1063)
-		Message::SetMessageType("VERI-1063", VERIFIC_ERROR);
+			// WARNING: instantiating unknown module 'XYZ' (VERI-1063)
+			Message::SetMessageType("VERI-1063", VERIFIC_ERROR);
+
+			set_verific_global_flags = false;
+		}
 
 		verific_verbose = 0;
 
@@ -1821,6 +1837,28 @@ struct VerificPass : public Pass {
 		log("Built with Verific %s, released at %s.\n", release_str, release_tmstr);
 
 		int argidx = 1;
+
+		if (GetSize(args) > argidx && (args[argidx] == "-set-error" || args[argidx] == "-set-warning" ||
+				args[argidx] == "-set-info" || args[argidx] == "-set-ignore"))
+		{
+			msg_type_t new_type;
+
+			if (args[argidx] == "-set-error")
+				new_type = VERIFIC_ERROR;
+			else if (args[argidx] == "-set-warning")
+				new_type = VERIFIC_WARNING;
+			else if (args[argidx] == "-set-info")
+				new_type = VERIFIC_INFO;
+			else if (args[argidx] == "-set-ignore")
+				new_type = VERIFIC_IGNORE;
+			else
+				log_abort();
+
+			for (argidx++; argidx < GetSize(args); argidx++)
+				Message::SetMessageType(args[argidx].c_str(), new_type);
+
+			goto check_error;
+		}
 
 		if (GetSize(args) > argidx && args[argidx] == "-vlog-incdir") {
 			for (argidx++; argidx < GetSize(args); argidx++)
