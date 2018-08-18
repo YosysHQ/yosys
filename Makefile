@@ -164,8 +164,8 @@ ifeq ($(NO_FPIC),1)
 CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
 endif
 CXXFLAGS += -std=c++11 -Os
-ABCMKARGS = CC="$(CC)" CXX="$(CXX)" LD="$(LD)" LIBS="-static -lm -ldl -pthread" OPTFLAGS="-O" \
-                       ARCHFLAGS="-DABC_USE_STDINT_H -DABC_NO_DYNAMIC_LINKING=1 -Wno-unused-but-set-variable" ABC_USE_NO_READLINE=1
+ABCMKARGS = CC="$(CC)" CXX="$(CXX)" LD="$(LD)" ABC_USE_LIBSTDCXX=1 LIBS="-static -lm -lpthread" OPTFLAGS="-O" \
+                       ARCHFLAGS="-DABC_USE_STDINT_H -DABC_NO_DYNAMIC_LINKING=1 -Wno-unused-but-set-variable $(ARCHFLAGS)" ABC_USE_NO_READLINE=1
 
 else ifeq ($(CONFIG),gcc-4.8)
 CXX = gcc-4.8
