@@ -156,6 +156,14 @@ LD = gcc
 CXXFLAGS += -std=c++11 -Os
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H"
 
+else ifeq ($(CONFIG),gcc-static)
+LD = $(CXX)
+LDFLAGS := $(filter-out -rdynamic,$(LDFLAGS)) -s
+LDLIBS := -static $(filter-out -lrt,$(LDLIBS))
+CXXFLAGS += -std=c++11 -Os
+ABCMKARGS = CC="$(CC)" CXX="$(CXX)" LD="$(LD)" LIBS="-static -lm -ldl -pthread" OPTFLAGS="-O" \
+                       ARCHFLAGS="-DABC_USE_STDINT_H -DABC_NO_DYNAMIC_LINKING=1 -Wno-unused-but-set-variable" ABC_USE_NO_READLINE=1
+
 else ifeq ($(CONFIG),gcc-4.8)
 CXX = gcc-4.8
 LD = gcc-4.8
@@ -671,6 +679,12 @@ config-clang: clean
 config-gcc: clean
 	echo 'CONFIG := gcc' > Makefile.conf
 
+config-gcc-static: clean
+	echo 'CONFIG := gcc-static' > Makefile.conf
+	echo 'ENABLE_PLUGINS := 0' >> Makefile.conf
+	echo 'ENABLE_READLINE := 0' >> Makefile.conf
+	echo 'ENABLE_TCL := 0' >> Makefile.conf
+
 config-gcc-4.8: clean
 	echo 'CONFIG := gcc-4.8' > Makefile.conf
 
@@ -712,5 +726,5 @@ echo-git-rev:
 -include techlibs/*/*.d
 
 .PHONY: all top-all abc test install install-abc manual clean mrproper qtcreator
-.PHONY: config-clean config-clang config-gcc config-gcc-4.8 config-gprof config-sudo
+.PHONY: config-clean config-clang config-gcc config-gcc-static config-gcc-4.8 config-gprof config-sudo
 
