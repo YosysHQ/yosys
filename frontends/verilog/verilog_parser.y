@@ -105,7 +105,7 @@ static void free_attr(std::map<std::string, AstNode*> *al)
 %token ATTR_BEGIN ATTR_END DEFATTR_BEGIN DEFATTR_END
 %token TOK_MODULE TOK_ENDMODULE TOK_PARAMETER TOK_LOCALPARAM TOK_DEFPARAM
 %token TOK_PACKAGE TOK_ENDPACKAGE TOK_PACKAGESEP
-%token TOK_INPUT TOK_OUTPUT TOK_INOUT TOK_WIRE TOK_REG
+%token TOK_INPUT TOK_OUTPUT TOK_INOUT TOK_WIRE TOK_REG TOK_LOGIC
 %token TOK_INTEGER TOK_SIGNED TOK_ASSIGN TOK_ALWAYS TOK_INITIAL
 %token TOK_BEGIN TOK_END TOK_IF TOK_ELSE TOK_FOR TOK_WHILE TOK_REPEAT
 %token TOK_DPI_FUNCTION TOK_POSEDGE TOK_NEGEDGE TOK_OR TOK_AUTOMATIC
@@ -376,9 +376,10 @@ wire_type:
 	};
 
 wire_type_token_list:
-	wire_type_token | wire_type_token_list wire_type_token;
+	wire_type_token | wire_type_token_list wire_type_token |
+	wire_type_token_io ;
 
-wire_type_token:
+wire_type_token_io:
 	TOK_INPUT {
 		astbuf3->is_input = true;
 	} |
@@ -388,11 +389,16 @@ wire_type_token:
 	TOK_INOUT {
 		astbuf3->is_input = true;
 		astbuf3->is_output = true;
-	} |
+	};
+
+wire_type_token:
 	TOK_WIRE {
 	} |
 	TOK_REG {
 		astbuf3->is_reg = true;
+	} |
+	TOK_LOGIC {
+		astbuf3->is_logic = true;
 	} |
 	TOK_INTEGER {
 		astbuf3->is_reg = true;
@@ -545,6 +551,7 @@ task_func_decl:
 		AstNode *outreg = new AstNode(AST_WIRE);
 		outreg->str = *$6;
 		outreg->is_signed = $4;
+		outreg->is_reg = true;
 		if ($5 != NULL) {
 			outreg->children.push_back($5);
 			outreg->is_signed = $4 || $5->is_signed;
@@ -1024,6 +1031,7 @@ wire_name:
 				node->port_id = current_function_or_task_port_id++;
 		}
 		ast_stack.back()->children.push_back(node);
+
 		delete $1;
 	};
 

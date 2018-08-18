@@ -24,7 +24,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct BlackboxPass : public Pass {
 	BlackboxPass() : Pass("blackbox", "change type of cells in the design") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -34,7 +34,7 @@ struct BlackboxPass : public Pass {
 		log("module attribute).\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)

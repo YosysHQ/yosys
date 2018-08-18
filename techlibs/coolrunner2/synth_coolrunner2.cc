@@ -29,7 +29,7 @@ struct SynthCoolrunner2Pass : public ScriptPass
 {
 	SynthCoolrunner2Pass() : ScriptPass("synth_coolrunner2", "synthesis for Xilinx Coolrunner-II CPLDs") { }
 
-	virtual void help() YS_OVERRIDE
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -66,7 +66,7 @@ struct SynthCoolrunner2Pass : public ScriptPass
 	string top_opt, json_file;
 	bool flatten, retime;
 
-	virtual void clear_flags() YS_OVERRIDE
+	void clear_flags() YS_OVERRIDE
 	{
 		top_opt = "-auto-top";
 		json_file = "";
@@ -74,7 +74,7 @@ struct SynthCoolrunner2Pass : public ScriptPass
 		retime = false;
 	}
 
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		string run_from, run_to;
 		clear_flags();
@@ -121,7 +121,7 @@ struct SynthCoolrunner2Pass : public ScriptPass
 		log_pop();
 	}
 
-	virtual void script() YS_OVERRIDE
+	void script() YS_OVERRIDE
 	{
 		if (check_label("begin"))
 		{

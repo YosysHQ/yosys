@@ -29,7 +29,7 @@ struct SynthEasicPass : public ScriptPass
 {
 	SynthEasicPass() : ScriptPass("synth_easic", "synthesis for eASIC platform") { }
 
-	virtual void help() YS_OVERRIDE
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -67,7 +67,7 @@ struct SynthEasicPass : public ScriptPass
 	string top_opt, vlog_file, etools_path;
 	bool flatten, retime;
 
-	virtual void clear_flags() YS_OVERRIDE
+	void clear_flags() YS_OVERRIDE
 	{
 		top_opt = "-auto-top";
 		vlog_file = "";
@@ -76,7 +76,7 @@ struct SynthEasicPass : public ScriptPass
 		retime = false;
 	}
 
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		string run_from, run_to;
 		clear_flags();
@@ -127,7 +127,7 @@ struct SynthEasicPass : public ScriptPass
 		log_pop();
 	}
 
-	virtual void script() YS_OVERRIDE
+	void script() YS_OVERRIDE
 	{
 		string phys_clk_lib = stringf("%s/data_ruby28/design_libs/logical/timing/gp/n3x_phys_clk_0v893ff125c.lib", etools_path.c_str());
 		string logic_lut_lib = stringf("%s/data_ruby28/design_libs/logical/timing/gp/n3x_logic_lut_0v893ff125c.lib", etools_path.c_str());

@@ -537,7 +537,7 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module, bool prepare
 
 struct DfflibmapPass : public Pass {
 	DfflibmapPass() : Pass("dfflibmap", "technology mapping of flip-flops") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		log("\n");
 		log("    dfflibmap [-prepare] -liberty <file> [selection]\n");
@@ -553,7 +553,7 @@ struct DfflibmapPass : public Pass {
 		log("liberty file.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing DFFLIBMAP pass (mapping DFF cells to sequential cells from liberty file).\n");
 

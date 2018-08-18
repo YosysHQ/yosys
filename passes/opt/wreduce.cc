@@ -353,7 +353,7 @@ struct WreduceWorker
 
 struct WreducePass : public Pass {
 	WreducePass() : Pass("wreduce", "reduce the word size of operations if possible") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -373,7 +373,7 @@ struct WreducePass : public Pass {
 		log("        flows that use the 'memory_memx' pass.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, Design *design)
+	void execute(std::vector<std::string> args, Design *design) YS_OVERRIDE
 	{
 		WreduceConfig config;
 		bool opt_memx = false;

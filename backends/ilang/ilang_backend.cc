@@ -382,7 +382,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct IlangBackend : public Backend {
 	IlangBackend() : Backend("ilang", "write design to ilang file") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -395,7 +395,7 @@ struct IlangBackend : public Backend {
 		log("        only write selected parts of the design.\n");
 		log("\n");
 	}
-	virtual void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		bool selected = false;
 
@@ -422,7 +422,7 @@ struct IlangBackend : public Backend {
 
 struct DumpPass : public Pass {
 	DumpPass() : Pass("dump", "print parts of the design in ilang format") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -445,7 +445,7 @@ struct DumpPass : public Pass {
 		log("        like -outfile but append instead of overwrite\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		std::string filename;
 		bool flag_m = false, flag_n = false, append = false;

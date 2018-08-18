@@ -139,7 +139,7 @@ struct TribufWorker {
 
 struct TribufPass : public Pass {
 	TribufPass() : Pass("tribuf", "infer tri-state buffers") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -156,7 +156,7 @@ struct TribufPass : public Pass {
 		log("        to non-tristate logic. this option implies -merge.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		TribufConfig config;
 

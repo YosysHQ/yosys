@@ -25,7 +25,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct EdgetypePass : public Pass {
 	EdgetypePass() : Pass("edgetypes", "list all types of edges in selection") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -35,7 +35,7 @@ struct EdgetypePass : public Pass {
 		log("is a 4-tuple of source and sink cell type and port name.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {

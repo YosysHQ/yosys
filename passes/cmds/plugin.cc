@@ -58,7 +58,7 @@ void load_plugin(std::string, std::vector<std::string>)
 
 struct PluginPass : public Pass {
 	PluginPass() : Pass("plugin", "load and list loaded plugins") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -76,7 +76,7 @@ struct PluginPass : public Pass {
 		log("        List loaded plugins\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		std::string plugin_filename;
 		std::vector<std::string> plugin_aliases;

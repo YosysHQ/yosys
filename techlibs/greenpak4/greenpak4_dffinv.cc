@@ -91,7 +91,7 @@ void invert_gp_dff(Cell *cell, bool invert_input)
 
 struct Greenpak4DffInvPass : public Pass {
 	Greenpak4DffInvPass() : Pass("greenpak4_dffinv", "merge greenpak4 inverters and DFF/latches") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		log("\n");
 		log("    greenpak4_dffinv [options] [selection]\n");
@@ -99,7 +99,7 @@ struct Greenpak4DffInvPass : public Pass {
 		log("Merge GP_INV cells with GP_DFF* and GP_DLATCH* cells.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing GREENPAK4_DFFINV pass (merge input/output inverters into FF/latch cells).\n");
 
