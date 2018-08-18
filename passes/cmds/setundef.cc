@@ -33,67 +33,32 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-static RTLIL::Wire * add_wire(RTLIL::Design *design, RTLIL::Module *module, std::string name, int width, bool flag_input, bool flag_output, bool flag_global)
+static RTLIL::Wire * add_wire(RTLIL::Module *module, std::string name, int width, bool flag_input, bool flag_output)
 {
-  RTLIL::Wire *wire = NULL;
-  name = RTLIL::escape_id(name);
+	RTLIL::Wire *wire = NULL;
+	name = RTLIL::escape_id(name);
 
-  if (module->count_id(name) != 0)
-  {
-    if (module->wires_.count(name) > 0)
-      wire = module->wires_.at(name);
+	if (module->count_id(name) != 0)
+	{
+		log("Module %s already has such an object %s.\n", module->name.c_str(), name.c_str());
+		name += "$";
+		return add_wire(module, name, width, flag_input, flag_output);
+	}
+	else
+	{
+		wire = module->addWire(name, width);
+		wire->port_input = flag_input;
+		wire->port_output = flag_output;
 
-    if (wire != NULL && wire->width != width)
-      wire = NULL;
+		if (flag_input || flag_output) {
+			wire->port_id = module->wires_.size();
+			module->fixup_ports();
+		}
 
-    if (wire != NULL && wire->port_input != flag_input)
-      wire = NULL;
+		log("Added wire %s to module %s.\n", name.c_str(), module->name.c_str());
+	}
 
-    if (wire != NULL && wire->port_output != flag_output)
-      wire = NULL;
-
-    if (wire == NULL) {
-      return wire;
-      log_cmd_error("Found incompatible object %s with same name in module %s!\n", name.c_str(), module->name.c_str());
-    }
-
-    log("Module %s already has such an object %s.\n", module->name.c_str(), name.c_str());
-  }
-  else
-  {
-    wire = module->addWire(name, width);
-    wire->port_input = flag_input;
-    wire->port_output = flag_output;
-
-    if (flag_input || flag_output) {
-      wire->port_id = module->wires_.size();
-      module->fixup_ports();
-    }
-
-    log("Added wire %s to module %s.\n", name.c_str(), module->name.c_str());
-  }
-
-  if (!flag_global)
-    return wire;
-
-  for (auto &it : module->cells_)
-  {
-    if (design->modules_.count(it.second->type) == 0)
-      continue;
-
-    RTLIL::Module *mod = design->modules_.at(it.second->type);
-    if (!design->selected_whole_module(mod->name))
-      continue;
-    if (mod->get_bool_attribute("\\blackbox"))
-      continue;
-    if (it.second->hasPort(name))
-      continue;
-
-    it.second->setPort(name, wire);
-    log("Added connection %s to cell %s.%s (%s).\n", name.c_str(), module->name.c_str(), it.first.c_str(), it.second->type.c_str());
-  }
-
-  return wire;
+	return wire;
 }
 
 struct SetundefWorker
@@ -262,100 +227,104 @@ struct SetundefPass : public Pass {
 				if (!module->processes.empty())
 					log_error("The 'setundef' command can't operate in -undriven mode on modules with processes. Run 'proc' first.\n");
 
-        if (expose_mode) {
-          SigMap sigmap(module);
-          dict<SigBit, bool> wire_drivers;
-          pool<SigBit> used_wires;
-          SigPool undriven_signals;
+				if (expose_mode)
+				{
+					SigMap sigmap(module);
+					dict<SigBit, bool> wire_drivers;
+					pool<SigBit> used_wires;
+					SigPool undriven_signals;
 
-          for (auto cell : module->cells())
-          for (auto &conn : cell->connections()) {
-            SigSpec sig = sigmap(conn.second);
-            if (cell->input(conn.first))
-              for (auto bit : sig)
-                if (bit.wire) {
-                  used_wires.insert(bit);
-                }
-            if (cell->output(conn.first))
-              for (int i = 0; i < GetSize(sig); i++) {
-                if (sig[i].wire)
-                  wire_drivers[sig[i]] = true;
-              }
-          }
+					for (auto cell : module->cells())
+						for (auto &conn : cell->connections()) {
+							SigSpec sig = sigmap(conn.second);
+							if (cell->input(conn.first))
+								for (auto bit : sig)
+									if (bit.wire)
+										used_wires.insert(bit);
+							if (cell->output(conn.first))
+								for (int i = 0; i < GetSize(sig); i++)
+									if (sig[i].wire)
+										wire_drivers[sig[i]] = true;
+						}
 
-          for (auto wire : module->wires()) {
-            if (wire->port_input) {
-              SigSpec sig = sigmap(wire);
-              for (int i = 0; i < GetSize(sig); i++)
-                wire_drivers[sig[i]] = true;
-            }
-            if (wire->port_output)
-              for (auto bit : sigmap(wire))
-                if (bit.wire) used_wires.insert(bit);
-          }
+					for (auto wire : module->wires()) {
+						if (wire->port_input) {
+							SigSpec sig = sigmap(wire);
+							for (int i = 0; i < GetSize(sig); i++)
+								wire_drivers[sig[i]] = true;
+						}
+						if (wire->port_output) {
+							SigSpec sig = sigmap(wire);
+							for (auto bit : sig)
+								if (bit.wire)
+									used_wires.insert(bit);
+						}
+					}
 
-          pool<RTLIL::Wire*> undriven_wires;
-          for (auto bit : used_wires) {
-            if (!wire_drivers.count(bit)) {
-              undriven_wires.insert(bit.wire);
-            }
-          }
+					pool<RTLIL::Wire*> undriven_wires;
+					for (auto bit : used_wires)
+						if (!wire_drivers.count(bit))
+							undriven_wires.insert(bit.wire);
 
-          for (auto &it : undriven_wires)
-            undriven_signals.add(sigmap(it));
+					for (auto &it : undriven_wires)
+						undriven_signals.add(sigmap(it));
 
-          for (auto &it : undriven_wires)
-            if (it->port_input)
-              undriven_signals.del(sigmap(it));
+					for (auto &it : undriven_wires)
+						if (it->port_input)
+							undriven_signals.del(sigmap(it));
 
-          CellTypes ct(design);
-          for (auto &it : module->cells_)
-          for (auto &conn : it.second->connections())
-            if (!ct.cell_known(it.second->type) || ct.cell_output(it.second->type, conn.first))
-              undriven_signals.del(sigmap(conn.second));
+					CellTypes ct(design);
+					for (auto &it : module->cells_)
+					for (auto &conn : it.second->connections())
+						if (!ct.cell_known(it.second->type) || ct.cell_output(it.second->type, conn.first))
+							undriven_signals.del(sigmap(conn.second));
 
-          RTLIL::SigSpec sig = undriven_signals.export_all();
-          for (auto &c : sig.chunks()) {
-            RTLIL::Wire * wire;
-            if (c.wire->width == c.width) {
-              wire = c.wire;
-              wire->port_input = true;
-            }
-            else {
-              string name = c.wire->name.str() + "$[" + std::to_string(c.width + c.offset) + ":" + std::to_string(c.offset) + "]";
-              wire = add_wire(design, module, name, c.width, true, false, false);
-              module->connect(RTLIL::SigSig(c, wire));
-            }
-            log("Exposing undriven wire %s as input.\n", wire->name.c_str());
-          }
-          module->fixup_ports();
-          continue;
-        }
-        else {
-          SigMap sigmap(module);
-          SigPool undriven_signals;
+					RTLIL::SigSpec sig = undriven_signals.export_all();
+					for (auto &c : sig.chunks()) {
+						RTLIL::Wire * wire;
+						if (c.wire->width == c.width) {
+							wire = c.wire;
+							wire->port_input = true;
+						} else {
+							string name = c.wire->name.str() + "$[" + std::to_string(c.width + c.offset) + ":" + std::to_string(c.offset) + "]";
+							wire = add_wire(module, name, c.width, true, false);
+							module->connect(RTLIL::SigSig(c, wire));
+						}
+						log("Exposing undriven wire %s as input.\n", wire->name.c_str());
+					}
+					module->fixup_ports();
+				}
+				else
+				{
+					SigMap sigmap(module);
+					SigPool undriven_signals;
 
-          for (auto &it : module->wires_)
-            undriven_signals.add(sigmap(it.second));
+					for (auto &it : module->wires_)
+						undriven_signals.add(sigmap(it.second));
 
-          for (auto &it : module->wires_)
-            if (it.second->port_input)
-              undriven_signals.del(sigmap(it.second));
+					for (auto &it : module->wires_)
+						if (it.second->port_input)
+							undriven_signals.del(sigmap(it.second));
 
-          CellTypes ct(design);
-          for (auto &it : module->cells_)
-          for (auto &conn : it.second->connections())
-            if (!ct.cell_known(it.second->type) || ct.cell_output(it.second->type, conn.first))
-              undriven_signals.del(sigmap(conn.second));
+					CellTypes ct(design);
+					for (auto &it : module->cells_)
+					for (auto &conn : it.second->connections())
+						if (!ct.cell_known(it.second->type) || ct.cell_output(it.second->type, conn.first))
+							undriven_signals.del(sigmap(conn.second));
 
-          RTLIL::SigSpec sig = undriven_signals.export_all();
-          for (auto &c : sig.chunks()) {
-            RTLIL::SigSpec bits;
-            for (int i = 0; i < c.width; i++)
-              bits.append(worker.next_bit());
-            module->connect(RTLIL::SigSig(c, bits));
-          }
-        }
+					RTLIL::SigSpec sig = undriven_signals.export_all();
+					for (auto &c : sig.chunks()) {
+						RTLIL::SigSpec bits;
+						if (worker.next_bit_mode == MODE_ANYSEQ)
+							bits = module->Anyseq(NEW_ID, c.width);
+						else if (worker.next_bit_mode == MODE_ANYCONST)
+							bits = module->Anyconst(NEW_ID, c.width);
+						else
+							for (int i = 0; i < c.width; i++)
+								bits.append(worker.next_bit());
+						module->connect(RTLIL::SigSig(c, bits));
+					}
+				}
 			}
 
 			if (init_mode)
