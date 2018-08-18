@@ -160,6 +160,9 @@ else ifeq ($(CONFIG),gcc-static)
 LD = $(CXX)
 LDFLAGS := $(filter-out -rdynamic,$(LDFLAGS)) -s
 LDLIBS := -static $(filter-out -lrt,$(LDLIBS))
+ifeq ($(NO_FPIC),1)
+CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
+endif
 CXXFLAGS += -std=c++11 -Os
 ABCMKARGS = CC="$(CC)" CXX="$(CXX)" LD="$(LD)" LIBS="-static -lm -ldl -pthread" OPTFLAGS="-O" \
                        ARCHFLAGS="-DABC_USE_STDINT_H -DABC_NO_DYNAMIC_LINKING=1 -Wno-unused-but-set-variable" ABC_USE_NO_READLINE=1
