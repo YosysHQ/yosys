@@ -654,7 +654,7 @@ specify_item:
 	// | pulsestyle_declaration
 	// | showcancelled_declaration
 	| path_declaration
-	// | system_timing_declaration
+	| system_timing_declaration
 	;
 
 specparam_declaration:
@@ -693,8 +693,8 @@ simple_path_declaration :
 	;
 
 path_delay_value :
-	//list_of_path_delay_expressions
-	'(' list_of_path_delay_expressions ')'
+	list_of_path_delay_expressions |
+	%prec '(' list_of_path_delay_expressions ')'
 	;
 
 list_of_path_delay_expressions :
@@ -724,12 +724,17 @@ parallel_path_description :
 	'(' specify_input_terminal_descriptor opt_polarity_operator '=' '>' specify_output_terminal_descriptor ')' ;
 
 full_path_description :
-	'(' list_of_path_inputs opt_polarity_operator '*' '>' list_of_path_outputs ')' ;
+	'(' list_of_path_inputs '*' '>' list_of_path_outputs ')' ;
 
+// This was broken into 2 rules to solve shift/reduce conflicts
 list_of_path_inputs :
-	specify_input_terminal_descriptor |
-	list_of_path_inputs ',' specify_input_terminal_descriptor ;
-	
+	specify_input_terminal_descriptor                  opt_polarity_operator  |
+	specify_input_terminal_descriptor more_path_inputs opt_polarity_operator ;
+
+more_path_inputs :
+    ',' specify_input_terminal_descriptor |
+    more_path_inputs ',' specify_input_terminal_descriptor ;
+
 list_of_path_outputs :
 	specify_output_terminal_descriptor |
 	list_of_path_outputs ',' specify_output_terminal_descriptor ;
@@ -747,11 +752,18 @@ specify_input_terminal_descriptor :
 specify_output_terminal_descriptor :
 	TOK_ID ;
 
-/*
 system_timing_declaration :
-	;
-*/
+	TOK_ID '(' system_timing_args ')' ';' ;
 
+system_timing_arg :
+	TOK_POSEDGE TOK_ID |
+	TOK_NEGEDGE TOK_ID |
+	expr ;
+
+system_timing_args :
+	system_timing_arg |
+	system_timing_args ',' system_timing_arg ;
+ 
 /*
 t_path_delay_expression :
 	path_delay_expression;
