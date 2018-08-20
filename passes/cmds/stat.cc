@@ -142,7 +142,7 @@ struct statdata_t
 		}
 	}
 
-	void log_data()
+	void log_data(RTLIL::IdString mod_name, bool top_mod)
 	{
 		log("   Number of wires:             %6d\n", num_wires);
 		log("   Number of wire bits:         %6d\n", num_wire_bits);
@@ -163,7 +163,7 @@ struct statdata_t
 
 		if (area != 0) {
 			log("\n");
-			log("   Chip area for this module: %f\n", area);
+			log("   Chip area for %smodule '%s': %f\n", (top_mod) ? "top " : "", mod_name.c_str(), area);
 		}
 	}
 };
@@ -209,7 +209,7 @@ void read_liberty_cellarea(dict<IdString, double> &cell_area, string liberty_fil
 
 struct StatPass : public Pass {
 	StatPass() : Pass("stat", "print some statistics") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -231,7 +231,7 @@ struct StatPass : public Pass {
 		log("        e.g. $add_8 for an 8 bit wide $add cell.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Printing statistics.\n");
 
@@ -275,7 +275,7 @@ struct StatPass : public Pass {
 			log("\n");
 			log("=== %s%s ===\n", RTLIL::id2cstr(mod->name), design->selected_whole_module(mod->name) ? "" : " (partially selected)");
 			log("\n");
-			data.log_data();
+			data.log_data(mod->name, false);
 		}
 
 		if (top_mod != NULL && GetSize(mod_stat) > 1)
@@ -288,7 +288,7 @@ struct StatPass : public Pass {
 			statdata_t data = hierarchy_worker(mod_stat, top_mod->name, 0);
 
 			log("\n");
-			data.log_data();
+			data.log_data(top_mod->name, true);
 		}
 
 		log("\n");

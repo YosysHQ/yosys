@@ -265,7 +265,7 @@ struct FsmExpand
 
 struct FsmExpandPass : public Pass {
 	FsmExpandPass() : Pass("fsm_expand", "expand FSM cells by merging logic into it") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -279,7 +279,7 @@ struct FsmExpandPass : public Pass {
 		log("word-wide cells. Call with -full to consider all cells for merging.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		bool full_mode = false;
 

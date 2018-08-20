@@ -25,7 +25,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct DeminoutPass : public Pass {
 	DeminoutPass() : Pass("deminout", "demote inout ports to input or output") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		log("\n");
 		log("    deminout [options] [selection]\n");
@@ -33,7 +33,7 @@ struct DeminoutPass : public Pass {
 		log("\"Demote\" inout ports to input or output ports, if possible.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing DEMINOUT pass (demote inout ports to input or output).\n");
 
@@ -57,7 +57,7 @@ struct DeminoutPass : public Pass {
 			for (auto module : design->selected_modules())
 			{
 				SigMap sigmap(module);
-				pool<SigBit> bits_written, bits_used, bits_inout;
+				pool<SigBit> bits_written, bits_used, bits_inout, bits_tribuf;
 				dict<SigBit, int> bits_numports;
 
 				for (auto wire : module->wires())
@@ -82,6 +82,25 @@ struct DeminoutPass : public Pass {
 					if (cellport_in)
 						for (auto bit : sigmap(conn.second))
 							bits_used.insert(bit);
+
+					if (conn.first == "\\Y" && cell->type.in("$mux", "$pmux", "$_MUX_", "$_TBUF_"))
+					{
+						bool tribuf = (cell->type == "$_TBUF_");
+
+						if (!tribuf) {
+							for (auto &c : cell->connections()) {
+								if (!c.first.in("\\A", "\\B"))
+									continue;
+								for (auto b : sigmap(c.second))
+									if (b == State::Sz)
+										tribuf = true;
+							}
+						}
+
+						if (tribuf)
+							for (auto bit : sigmap(conn.second))
+								bits_tribuf.insert(bit);
+					}
 				}
 
 				for (auto wire : module->selected_wires())
@@ -95,10 +114,15 @@ struct DeminoutPass : public Pass {
 							if (bits_numports[bit] > 1 || bits_inout.count(bit))
 								new_input = true, new_output = true;
 
-							if (bits_written.count(bit))
+							if (bits_written.count(bit)) {
 								new_output = true;
-							else if (bits_used.count(bit))
-								new_input = true;
+								if (bits_tribuf.count(bit))
+									goto tribuf_bit;
+							} else {
+						tribuf_bit:
+								if (bits_used.count(bit))
+									new_input = true;
+							}
 						}
 
 						if (new_input != new_output) {

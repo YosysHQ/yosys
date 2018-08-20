@@ -81,7 +81,7 @@ struct AttrmapAction {
 
 struct AttrmapTocase : AttrmapAction {
 	string name;
-	virtual bool apply(IdString &id, Const&) {
+	bool apply(IdString &id, Const&) YS_OVERRIDE {
 		if (match_name(name, id, true))
 			id = RTLIL::escape_id(name);
 		return true;
@@ -90,7 +90,7 @@ struct AttrmapTocase : AttrmapAction {
 
 struct AttrmapRename : AttrmapAction {
 	string old_name, new_name;
-	virtual bool apply(IdString &id, Const&) {
+	bool apply(IdString &id, Const&) YS_OVERRIDE {
 		if (match_name(old_name, id))
 			id = RTLIL::escape_id(new_name);
 		return true;
@@ -101,7 +101,7 @@ struct AttrmapMap : AttrmapAction {
 	bool imap;
 	string old_name, new_name;
 	string old_value, new_value;
-	virtual bool apply(IdString &id, Const &val) {
+	bool apply(IdString &id, Const &val) YS_OVERRIDE {
 		if (match_name(old_name, id) && match_value(old_value, val, true)) {
 			id = RTLIL::escape_id(new_name);
 			val = make_value(new_value);
@@ -112,7 +112,7 @@ struct AttrmapMap : AttrmapAction {
 
 struct AttrmapRemove : AttrmapAction {
 	string name, value;
-	virtual bool apply(IdString &id, Const &val) {
+	bool apply(IdString &id, Const &val) YS_OVERRIDE {
 		return !(match_name(name, id) && match_value(value, val));
 	}
 };
@@ -144,7 +144,7 @@ void attrmap_apply(string objname, vector<std::unique_ptr<AttrmapAction>> &actio
 
 struct AttrmapPass : public Pass {
 	AttrmapPass() : Pass("attrmap", "renaming attributes") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -179,7 +179,7 @@ struct AttrmapPass : public Pass {
 		log("            -imap keep=\"false\" keep=0 -remove keep=0\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing ATTRMAP pass (move or copy attributes).\n");
 

@@ -50,11 +50,11 @@
 //   sequence ##[+] sequence
 //   sequence ##[N:M] sequence
 //   sequence ##[N:$] sequence
-//   sequence [*]
-//   sequence [+]
-//   sequence [*N]
-//   sequence [*N:M]
-//   sequence [*N:$]
+//   expression [*]
+//   expression [+]
+//   expression [*N]
+//   expression [*N:M]
+//   expression [*N:$]
 //   sequence or sequence
 //   sequence and sequence
 //   expression throughout sequence
@@ -980,7 +980,6 @@ struct VerificSvaImporter
 	bool mode_assume = false;
 	bool mode_cover = false;
 	bool mode_trigger = false;
-	bool eventually = false;
 
 	Instance *net_to_ast_driver(Net *n)
 	{
@@ -1138,6 +1137,97 @@ struct VerificSvaImporter
 		log_abort();
 	}
 
+	bool check_zero_consecutive_repeat(Net *net)
+	{
+		Instance *inst = net_to_ast_driver(net);
+
+		if (inst == nullptr)
+			return false;
+
+		if (inst->Type() != PRIM_SVA_CONSECUTIVE_REPEAT)
+			return false;
+
+		const char *sva_low_s = inst->GetAttValue("sva:low");
+		int sva_low = atoi(sva_low_s);
+
+		return sva_low == 0;
+	}
+
+	int parse_consecutive_repeat(SvaFsm &fsm, int start_node, Net *net, bool add_pre_delay, bool add_post_delay)
+	{
+		Instance *inst = net_to_ast_driver(net);
+
+		log_assert(inst->Type() == PRIM_SVA_CONSECUTIVE_REPEAT);
+
+		const char *sva_low_s = inst->GetAttValue("sva:low");
+		const char *sva_high_s = inst->GetAttValue("sva:high");
+
+		int sva_low = atoi(sva_low_s);
+		int sva_high = atoi(sva_high_s);
+		bool sva_inf = !strcmp(sva_high_s, "$");
+
+		Net *body_net = inst->GetInput();
+
+		if (add_pre_delay || add_post_delay)
+			log_assert(sva_low == 0);
+
+		if (sva_low == 0) {
+			if (!add_pre_delay && !add_post_delay)
+				parser_error("Possibly zero-length consecutive repeat must follow or precede a delay of at least one cycle", inst);
+			sva_low++;
+		}
+
+		int node = fsm.createNode(start_node);
+		start_node = node;
+
+		if (add_pre_delay) {
+			node = fsm.createNode(start_node);
+			fsm.createEdge(start_node, node);
+		}
+
+		int prev_node = node;
+		node = parse_sequence(fsm, node, body_net);
+
+		for (int i = 1; i < sva_low; i++)
+		{
+			int next_node = fsm.createNode();
+			fsm.createEdge(node, next_node);
+
+			prev_node = node;
+			node = parse_sequence(fsm, next_node, body_net);
+		}
+
+		if (sva_inf)
+		{
+			log_assert(prev_node >= 0);
+			fsm.createEdge(node, prev_node);
+		}
+		else
+		{
+			for (int i = sva_low; i < sva_high; i++)
+			{
+				int next_node = fsm.createNode();
+				fsm.createEdge(node, next_node);
+
+				prev_node = node;
+				node = parse_sequence(fsm, next_node, body_net);
+
+				fsm.createLink(prev_node, node);
+			}
+		}
+
+		if (add_post_delay) {
+			int next_node = fsm.createNode();
+			fsm.createEdge(node, next_node);
+			node = next_node;
+		}
+
+		if (add_pre_delay || add_post_delay)
+			fsm.createLink(start_node, node);
+
+		return node;
+	}
+
 	int parse_sequence(SvaFsm &fsm, int start_node, Net *net)
 	{
 		if (check_expression(net)) {
@@ -1182,7 +1272,20 @@ struct VerificSvaImporter
 			int sva_high = atoi(sva_high_s);
 			bool sva_inf = !strcmp(sva_high_s, "$");
 
-			int node = parse_sequence(fsm, start_node, inst->GetInput1());
+			int node = -1;
+			bool past_add_delay = false;
+
+			if (check_zero_consecutive_repeat(inst->GetInput1()) && sva_low > 0) {
+				node = parse_consecutive_repeat(fsm, start_node, inst->GetInput1(), false, true);
+				sva_low--, sva_high--;
+			} else {
+				node = parse_sequence(fsm, start_node, inst->GetInput1());
+			}
+
+			if (check_zero_consecutive_repeat(inst->GetInput2()) && sva_low > 0) {
+				past_add_delay = true;
+				sva_low--, sva_high--;
+			}
 
 			for (int i = 0; i < sva_low; i++) {
 				int next_node = fsm.createNode();
@@ -1205,62 +1308,17 @@ struct VerificSvaImporter
 				}
 			}
 
-			node = parse_sequence(fsm, node, inst->GetInput2());
+			if (past_add_delay)
+				node = parse_consecutive_repeat(fsm, node, inst->GetInput2(), true, false);
+			else
+				node = parse_sequence(fsm, node, inst->GetInput2());
 
 			return node;
 		}
 
 		if (inst->Type() == PRIM_SVA_CONSECUTIVE_REPEAT)
 		{
-			const char *sva_low_s = inst->GetAttValue("sva:low");
-			const char *sva_high_s = inst->GetAttValue("sva:high");
-
-			int sva_low = atoi(sva_low_s);
-			int sva_high = atoi(sva_high_s);
-			bool sva_inf = !strcmp(sva_high_s, "$");
-
-			Net *body_net = inst->GetInput();
-			int node = fsm.createNode(start_node);
-
-			for (int i = 0; i < sva_low; i++)
-			{
-				int next_node = fsm.createNode();
-
-				if (i == 0)
-					fsm.createLink(node, next_node);
-				else
-					fsm.createEdge(node, next_node);
-
-				node = parse_sequence(fsm, next_node, body_net);
-			}
-
-			if (sva_inf)
-			{
-				int next_node = fsm.createNode();
-				fsm.createEdge(node, next_node);
-
-				next_node = parse_sequence(fsm, next_node, body_net);
-				fsm.createLink(next_node, node);
-			}
-			else
-			{
-				for (int i = sva_low; i < sva_high; i++)
-				{
-					int next_node = fsm.createNode();
-
-					if (i == 0)
-						fsm.createLink(node, next_node);
-					else
-						fsm.createEdge(node, next_node);
-
-					next_node = parse_sequence(fsm, next_node, body_net);
-
-					fsm.createLink(node, next_node);
-					node = next_node;
-				}
-			}
-
-			return node;
+			return parse_consecutive_repeat(fsm, start_node, net, false, false);
 		}
 
 		if (inst->Type() == PRIM_SVA_NON_CONSECUTIVE_REPEAT || inst->Type() == PRIM_SVA_GOTO_REPEAT)
@@ -1428,6 +1486,72 @@ struct VerificSvaImporter
 			fsm.getFirstAcceptReject(accept_p, reject_p);
 	}
 
+	bool eventually_property(Net *&net, SigBit &trig)
+	{
+		Instance *inst = net_to_ast_driver(net);
+
+		if (inst == nullptr)
+			return false;
+
+		if (clocking.cond_net != nullptr)
+			trig = importer->net_map_at(clocking.cond_net);
+		else
+			trig = State::S1;
+
+		if (inst->Type() == PRIM_SVA_S_EVENTUALLY || inst->Type() == PRIM_SVA_EVENTUALLY)
+		{
+			if (mode_cover || mode_trigger)
+				parser_error(inst);
+
+			net = inst->GetInput();
+			clocking.cond_net = nullptr;
+
+			return true;
+		}
+
+		if (inst->Type() == PRIM_SVA_OVERLAPPED_IMPLICATION ||
+				inst->Type() == PRIM_SVA_NON_OVERLAPPED_IMPLICATION)
+		{
+			Net *antecedent_net = inst->GetInput1();
+			Net *consequent_net = inst->GetInput2();
+
+			Instance *consequent_inst = net_to_ast_driver(consequent_net);
+
+			if (consequent_inst == nullptr)
+				return false;
+
+			if (consequent_inst->Type() != PRIM_SVA_S_EVENTUALLY && consequent_inst->Type() != PRIM_SVA_EVENTUALLY)
+				return false;
+
+			if (mode_cover || mode_trigger)
+				parser_error(consequent_inst);
+
+			int node;
+
+			SvaFsm antecedent_fsm(clocking, trig);
+			node = parse_sequence(antecedent_fsm, antecedent_fsm.createStartNode(), antecedent_net);
+			if (inst->Type() == PRIM_SVA_NON_OVERLAPPED_IMPLICATION) {
+				int next_node = antecedent_fsm.createNode();
+				antecedent_fsm.createEdge(node, next_node);
+				node = next_node;
+			}
+			antecedent_fsm.createLink(node, antecedent_fsm.acceptNode);
+
+			trig = antecedent_fsm.getAccept();
+			net = consequent_inst->GetInput();
+			clocking.cond_net = nullptr;
+
+			if (verific_verbose) {
+				log("    Eventually Antecedent FSM:\n");
+				antecedent_fsm.dump();
+			}
+
+			return true;
+		}
+
+		return false;
+	}
+
 	void parse_property(Net *net, SigBit *accept_p, SigBit *reject_p)
 	{
 		Instance *inst = net_to_ast_driver(net);
@@ -1561,10 +1685,46 @@ struct VerificSvaImporter
 			}
 			else
 			{
-				if (mode_assert || mode_assume) {
-					parse_property(clocking.body_net, nullptr, &reject_bit);
-				} else {
-					parse_property(clocking.body_net, &accept_bit, nullptr);
+				Net *net = clocking.body_net;
+				SigBit trig;
+
+				if (eventually_property(net, trig))
+				{
+					SigBit sig_a, sig_en = trig;
+					parse_property(net, &sig_a, nullptr);
+
+					// add final FF stage
+
+					SigBit sig_a_q, sig_en_q;
+
+					if (clocking.body_net == nullptr) {
+						sig_a_q = sig_a;
+						sig_en_q = sig_en;
+					} else {
+						sig_a_q = module->addWire(NEW_ID);
+						sig_en_q = module->addWire(NEW_ID);
+						clocking.addDff(NEW_ID, sig_a, sig_a_q, State::S0);
+						clocking.addDff(NEW_ID, sig_en, sig_en_q, State::S0);
+					}
+
+					// generate fair/live cell
+
+					RTLIL::Cell *c = nullptr;
+
+					if (mode_assert) c = module->addLive(root_name, sig_a_q, sig_en_q);
+					if (mode_assume) c = module->addFair(root_name, sig_a_q, sig_en_q);
+
+					importer->import_attributes(c->attributes, root);
+
+					return;
+				}
+				else
+				{
+					if (mode_assert || mode_assume) {
+						parse_property(net, nullptr, &reject_bit);
+					} else {
+						parse_property(net, &accept_bit, nullptr);
+					}
 				}
 			}
 

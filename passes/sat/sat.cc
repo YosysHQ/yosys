@@ -890,7 +890,7 @@ void print_qed()
 
 struct SatPass : public Pass {
 	SatPass() : Pass("sat", "solve a SAT problem in the circuit") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -1057,7 +1057,7 @@ struct SatPass : public Pass {
 		log("        Like -falsify but do not return an error for timeouts.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		std::vector<std::pair<std::string, std::string>> sets, sets_init, prove, prove_x;
 		std::map<int, std::vector<std::pair<std::string, std::string>>> sets_at;

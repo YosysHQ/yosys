@@ -29,7 +29,7 @@ struct SynthIce40Pass : public ScriptPass
 {
 	SynthIce40Pass() : ScriptPass("synth_ice40", "synthesis for iCE40 FPGAs") { }
 
-	virtual void help() YS_OVERRIDE
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -45,7 +45,11 @@ struct SynthIce40Pass : public ScriptPass
 		log("        is omitted if this parameter is not specified.\n");
 		log("\n");
 		log("    -edif <file>\n");
-		log("        write the design to the specified edif file. writing of an output file\n");
+		log("        write the design to the specified EDIF file. writing of an output file\n");
+		log("        is omitted if this parameter is not specified.\n");
+		log("\n");
+		log("    -json <file>\n");
+		log("        write the design to the specified JSON file. writing of an output file\n");
 		log("        is omitted if this parameter is not specified.\n");
 		log("\n");
 		log("    -run <from_label>:<to_label>\n");
@@ -81,14 +85,15 @@ struct SynthIce40Pass : public ScriptPass
 		log("\n");
 	}
 
-	string top_opt, blif_file, edif_file;
+	string top_opt, blif_file, edif_file, json_file;
 	bool nocarry, nodffe, nobram, flatten, retime, abc2, vpr;
 
-	virtual void clear_flags() YS_OVERRIDE
+	void clear_flags() YS_OVERRIDE
 	{
 		top_opt = "-auto-top";
 		blif_file = "";
 		edif_file = "";
+		json_file = "";
 		nocarry = false;
 		nodffe = false;
 		nobram = false;
@@ -98,7 +103,7 @@ struct SynthIce40Pass : public ScriptPass
 		vpr = false;
 	}
 
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		string run_from, run_to;
 		clear_flags();
@@ -116,6 +121,10 @@ struct SynthIce40Pass : public ScriptPass
 			}
 			if (args[argidx] == "-edif" && argidx+1 < args.size()) {
 				edif_file = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-json" && argidx+1 < args.size()) {
+				json_file = args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-run" && argidx+1 < args.size()) {
@@ -173,7 +182,7 @@ struct SynthIce40Pass : public ScriptPass
 		log_pop();
 	}
 
-	virtual void script() YS_OVERRIDE
+	void script() YS_OVERRIDE
 	{
 		if (check_label("begin"))
 		{
@@ -219,7 +228,7 @@ struct SynthIce40Pass : public ScriptPass
 			run("dffsr2dff");
 			if (!nodffe)
 				run("dff2dffe -direct-match $_DFF_*");
-			run("techmap -D NO_SB_LUT4 -map +/ice40/cells_map.v");
+			run("techmap -D NO_LUT -map +/ice40/cells_map.v");
 			run("opt_expr -mux_undef");
 			run("simplemap");
 			run("ice40_ffinit");
@@ -241,9 +250,9 @@ struct SynthIce40Pass : public ScriptPass
 		if (check_label("map_cells"))
 		{
 			if (vpr)
-				run("techmap -D NO_SB_LUT4 -map +/ice40/cells_map.v");
+				run("techmap -D NO_LUT -map +/ice40/cells_map.v");
 			else
-				run("techmap -map +/ice40/cells_map.v", "(with -D NO_SB_LUT4 in vpr mode)");
+				run("techmap -map +/ice40/cells_map.v", "(with -D NO_LUT in vpr mode)");
 
 			run("clean");
 		}
@@ -260,13 +269,15 @@ struct SynthIce40Pass : public ScriptPass
 			if (!blif_file.empty() || help_mode) {
 				if (vpr || help_mode) {
 					run(stringf("opt_clean -purge"),
-							"                          (vpr mode)");
-					run(stringf("write_blif %s", help_mode ? "<file-name>" : blif_file.c_str()),
-							"                    (vpr mode)");
+							"                                 (vpr mode)");
+					run(stringf("write_blif -attr -cname -conn -param %s",
+							help_mode ? "<file-name>" : blif_file.c_str()),
+							" (vpr mode)");
 				}
 				if (!vpr)
 					run(stringf("write_blif -gates -attr -param %s",
-							help_mode ? "<file-name>" : blif_file.c_str()), "(non-vpr mode)");
+							help_mode ? "<file-name>" : blif_file.c_str()),
+							"       (non-vpr mode)");
 			}
 		}
 
@@ -274,6 +285,12 @@ struct SynthIce40Pass : public ScriptPass
 		{
 			if (!edif_file.empty() || help_mode)
 				run(stringf("write_edif %s", help_mode ? "<file-name>" : edif_file.c_str()));
+		}
+
+		if (check_label("json"))
+		{
+			if (!json_file.empty() || help_mode)
+				run(stringf("write_json %s", help_mode ? "<file-name>" : json_file.c_str()));
 		}
 	}
 } SynthIce40Pass;

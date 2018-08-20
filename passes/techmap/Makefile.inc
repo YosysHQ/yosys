@@ -35,6 +35,7 @@ OBJS += passes/techmap/insbuf.o
 OBJS += passes/techmap/attrmvcp.o
 OBJS += passes/techmap/attrmap.o
 OBJS += passes/techmap/zinit.o
+OBJS += passes/techmap/dff2dffs.o
 endif
 
 GENFILES += passes/techmap/techmap.inc
@@ -57,4 +58,3 @@ yosys-filterlib$(EXE): passes/techmap/filterlib.o
 	$(Q) mkdir -p $(dir $@)
 	$(P) $(LD) -o yosys-filterlib$(EXE) $(LDFLAGS) $^ $(LDLIBS)
 endif
-

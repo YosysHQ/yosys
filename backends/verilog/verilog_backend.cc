@@ -1482,7 +1482,7 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 
 struct VerilogBackend : public Backend {
 	VerilogBackend() : Backend("verilog", "write design to Verilog file") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -1550,7 +1550,7 @@ struct VerilogBackend : public Backend {
 		log("this command is called on a design with RTLIL processes.\n");
 		log("\n");
 	}
-	virtual void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing Verilog backend.\n");
 

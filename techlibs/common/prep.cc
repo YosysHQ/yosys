@@ -29,7 +29,7 @@ struct PrepPass : public ScriptPass
 {
 	PrepPass() : ScriptPass("prep", "generic synthesis script") { }
 
-	virtual void help() YS_OVERRIDE
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -55,13 +55,14 @@ struct PrepPass : public ScriptPass
 		log("\n");
 		log("    -memx\n");
 		log("        simulate verilog simulation behavior for out-of-bounds memory accesses\n");
-		log("        using the 'memory_memx' pass. This option implies -nordff.\n");
+		log("        using the 'memory_memx' pass.\n");
 		log("\n");
 		log("    -nomem\n");
 		log("        do not run any of the memory_* passes\n");
 		log("\n");
-		log("    -nordff\n");
-		log("        passed to 'memory_dff'. prohibits merging of FFs into memory read ports\n");
+		log("    -rdff\n");
+		log("        do not pass -nordff to 'memory_dff'. This enables merging of FFs into\n");
+		log("        memory read ports.\n");
 		log("\n");
 		log("    -nokeepdc\n");
 		log("        do not call opt_* with -keepdc\n");
@@ -77,13 +78,12 @@ struct PrepPass : public ScriptPass
 		log("\n");
 	}
 
-	string top_module, fsm_opts, memory_opts;
-	bool autotop, flatten, ifxmode, memxmode, nomemmode, nokeepdc;
+	string top_module, fsm_opts;
+	bool autotop, flatten, ifxmode, memxmode, nomemmode, nokeepdc, nordff;
 
-	virtual void clear_flags() YS_OVERRIDE
+	void clear_flags() YS_OVERRIDE
 	{
 		top_module.clear();
-		memory_opts.clear();
 
 		autotop = false;
 		flatten = false;
@@ -91,9 +91,10 @@ struct PrepPass : public ScriptPass
 		memxmode = false;
 		nomemmode = false;
 		nokeepdc = false;
+		nordff = true;
 	}
 
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		string run_from, run_to;
 
@@ -129,7 +130,6 @@ struct PrepPass : public ScriptPass
 			}
 			if (args[argidx] == "-memx") {
 				memxmode = true;
-				memory_opts += " -nordff";
 				continue;
 			}
 			if (args[argidx] == "-nomem") {
@@ -137,7 +137,11 @@ struct PrepPass : public ScriptPass
 				continue;
 			}
 			if (args[argidx] == "-nordff") {
-				memory_opts += " -nordff";
+				nordff = true;
+				continue;
+			}
+			if (args[argidx] == "-rdff") {
+				nordff = false;
 				continue;
 			}
 			if (args[argidx] == "-nokeepdc") {
@@ -159,7 +163,7 @@ struct PrepPass : public ScriptPass
 		log_pop();
 	}
 
-	virtual void script() YS_OVERRIDE
+	void script() YS_OVERRIDE
 	{
 
 		if (check_label("begin"))
@@ -196,7 +200,7 @@ struct PrepPass : public ScriptPass
 					run(memxmode ? "wreduce -memx" : "wreduce");
 			}
 			if (!nomemmode) {
-				run("memory_dff" + (help_mode ? " [-nordff]" : memory_opts));
+				run(string("memory_dff") + (help_mode ? " [-nordff]" : nordff ? " -nordff" : ""));
 				if (help_mode || memxmode)
 					run("memory_memx", "(if -memx)");
 				run("opt_clean");
