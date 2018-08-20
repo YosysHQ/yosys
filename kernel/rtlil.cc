@@ -3925,14 +3925,12 @@ RTLIL::Process *RTLIL::Process::clone() const
 
 	return new_proc;
 }
-RTLIL::Memory::~Memory()
-{
-#ifdef WITH_PYTHON
-	RTLIL::Memory::get_all_memorys()->erase(hashidx_);
-#endif
-}
 
 #ifdef WITH_PYTHON
+RTLIL::Memory::~Memory()
+{
+	RTLIL::Memory::get_all_memorys()->erase(hashidx_);
+}
 static std::map<unsigned int, RTLIL::Memory*> *all_memorys = new std::map<unsigned int, RTLIL::Memory*>();
 std::map<unsigned int, RTLIL::Memory*> *RTLIL::Memory::get_all_memorys(void)
 {

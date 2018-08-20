@@ -66,7 +66,9 @@
 #include <stdio.h>
 #include <limits.h>
 
+#ifdef WITH_PYTHON
 #include <Python.h>
+#endif
 
 #ifndef _YOSYS_
 #  error It looks like you are trying to build Yosys without the config defines set. \

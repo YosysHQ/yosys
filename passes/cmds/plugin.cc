@@ -44,7 +44,11 @@ void load_plugin(std::string filename, std::vector<std::string> aliases)
 	if (filename.find('/') == std::string::npos)
 		filename = "./" + filename;
 
+	#ifdef WITH_PYTHON
 	if (!loaded_plugins.count(filename) && !loaded_python_plugins.count(filename)) {
+	#else
+	if (!loaded_plugins.count(filename)) {
+	#endif
 
 		#ifdef WITH_PYTHON
 		if(boost::algorithm::ends_with(filename, ".py"))

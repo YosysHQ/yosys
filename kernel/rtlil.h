@@ -1175,6 +1175,7 @@ struct RTLIL::Memory : public RTLIL::AttrObject
 	unsigned int hash() const { return hashidx_; }
 
 	Memory();
+	~Memory();
 
 	RTLIL::IdString name;
 	int width, start_offset, size;
