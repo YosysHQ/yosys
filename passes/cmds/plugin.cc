@@ -49,10 +49,12 @@ void load_plugin(std::string filename, std::vector<std::string> aliases)
 		#ifdef WITH_PYTHON
 		if(boost::algorithm::ends_with(filename, ".py"))
 		{
-			int last_slash = filename.find('/');
+			int last_slash = filename.find_last_of('/');
+			std::string path = filename.substr(0, last_slash);
 			filename = filename.substr(last_slash+1, filename.size());
 			filename = filename.substr(0,filename.size()-3);
-			PyObject *filename_p = PyUnicode_FromString(filename.c_str());//filename.c_str());
+			PyRun_SimpleString(("sys.path.insert(0,\""+path+"\")").c_str()); 
+			PyObject *filename_p = PyUnicode_FromString(filename.c_str());
 			if(filename_p == NULL)
 			{
 				log_cmd_error("Issues converting `%s' to Python\n", filename.c_str());
@@ -63,25 +65,7 @@ void load_plugin(std::string filename, std::vector<std::string> aliases)
 			{
 				log_cmd_error("Can't load python module `%s'\n", filename.c_str());
 				return;
-			}/*
-			PyObject *dict_p = PyModule_GetDict(module_p);
-			if(dict_p == NULL)
-			{
-				log_cmd_error("Can't load dictionary from module `%s'\n", filename.c_str());
-				return;
 			}
-			PyObject *func_p = PyDict_GetItemString(dict_p, "test");
-			if(module_p == NULL)
-			{
-				log_cmd_error("Module `%s' does not contain test function\n", filename.c_str());
-				return;
-			}
-			PyObject *args_p = PyTuple_New(0);
-			PyObject *result_p = PyObject_CallObject(func_p, args_p);
-			if(result_p == NULL)
-					printf("Calling test failed\n");
-			printf("Loaded Python module\n");
-			*/
 			loaded_python_plugins[orig_filename] = module_p;
 			Pass::init_register();
 		} else {

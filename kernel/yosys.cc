@@ -495,10 +495,7 @@ void yosys_setup()
 		PyImport_AppendInittab((char*)"libyosys", INIT_MODULE);
 		Py_Initialize();
 		PyRun_SimpleString("import sys");
-		PyRun_SimpleString("sys.path.append(\"./\")");
-		//PyRun_SimpleString("import libyosys");
-		//PyRun_SimpleString("sys.path.append(\"./plugins\")");
-		//PyRun_SimpleString(("sys.path.append(\""+proc_share_dirname()+"plugins\")").c_str());
+		PyRun_SimpleString(("sys.path.append(\""+proc_share_dirname()+"plugins\")").c_str());
 	#endif
 
 	Pass::init_register();
