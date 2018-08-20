@@ -278,6 +278,11 @@ namespace hashlib {
 }
 
 void yosys_setup();
+
+#ifdef WITH_PYTHON
+bool yosys_already_setup();
+#endif
+
 void yosys_shutdown();
 
 #ifdef YOSYS_ENABLE_TCL

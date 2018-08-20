@@ -55,6 +55,16 @@
 #  include <sys/sysctl.h>
 #endif
 
+#ifdef WITH_PYTHON
+#if PY_MAJOR_VERSION >= 3
+#   define INIT_MODULE PyInit_libyosys
+    extern "C" PyObject* INIT_MODULE();
+#else
+#   define INIT_MODULE initlibyosys
+	    extern "C" void INIT_MODULE();
+#endif
+#endif
+
 #include <limits.h>
 #include <errno.h>
 
@@ -482,6 +492,7 @@ void yosys_setup()
 	IdString::get_reference(empty_id.index_);
 
 	#ifdef WITH_PYTHON
+		PyImport_AppendInittab((char*)"libyosys", INIT_MODULE);
 		Py_Initialize();
 		PyRun_SimpleString("import sys");
 		PyRun_SimpleString("sys.path.append(\"./\")");
@@ -494,6 +505,11 @@ void yosys_setup()
 	yosys_design = new RTLIL::Design;
 	yosys_celltypes.setup();
 	log_push();
+}
+
+bool yosys_already_setup()
+{
+	return already_setup;
 }
 
 bool already_shutdown = false;

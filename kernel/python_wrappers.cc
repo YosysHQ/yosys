@@ -2783,10 +2783,13 @@ namespace YOSYS_PYTHON {
 	struct Initializer
 	{
 		Initializer() {
-			Yosys::log_streams.push_back(&std::cout);
-			Yosys::log_error_stderr = true;
-			Yosys::yosys_setup();
-			Yosys::yosys_banner();
+			if(!Yosys::yosys_already_setup())
+			{
+				Yosys::log_streams.push_back(&std::cout);
+				Yosys::log_error_stderr = true;
+				Yosys::yosys_setup();
+				Yosys::yosys_banner();
+			}
 		}
 
 		Initializer(Initializer const &) {}
