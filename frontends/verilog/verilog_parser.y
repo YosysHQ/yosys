@@ -682,22 +682,23 @@ showcancelled_declaration :
 */
 
 path_declaration :
-	simple_path_declaration
+	simple_path_declaration ';'
 	// | edge_sensitive_path_declaration
 	// | state_dependent_path_declaration
 	;
 
 simple_path_declaration :
-	parallel_path_description '=' path_delay_value ';' |
-	full_path_description '=' path_delay_value ';'
+	parallel_path_description '=' path_delay_value |
+	full_path_description '=' path_delay_value
 	;
 
 path_delay_value :
-	list_of_path_delay_expressions |
-	%prec '(' list_of_path_delay_expressions ')'
+	'(' path_delay_expression list_of_path_delay_extra_expressions ')'
+	|     path_delay_expression
+	|     path_delay_expression list_of_path_delay_extra_expressions
 	;
 
-list_of_path_delay_expressions :
+list_of_path_delay_extra_expressions :
 /*
 	t_path_delay_expression
 	| trise_path_delay_expression ',' tfall_path_delay_expression
@@ -709,12 +710,11 @@ list_of_path_delay_expressions :
 	  t0x_path_delay_expression ',' tx1_path_delay_expression ',' t1x_path_delay_expression ','
 	  tx0_path_delay_expression ',' txz_path_delay_expression ',' tzx_path_delay_expression
 */
-	path_delay_expression
-	| path_delay_expression ',' path_delay_expression
-	| path_delay_expression ',' path_delay_expression ',' path_delay_expression
-	| path_delay_expression ',' path_delay_expression ',' path_delay_expression ','
+	',' path_delay_expression
+	|  ',' path_delay_expression ',' path_delay_expression
+	|  ',' path_delay_expression ',' path_delay_expression ','
 	  path_delay_expression ',' path_delay_expression ',' path_delay_expression
-	| path_delay_expression ',' path_delay_expression ',' path_delay_expression ','
+	|  ',' path_delay_expression ',' path_delay_expression ','
 	  path_delay_expression ',' path_delay_expression ',' path_delay_expression ','
 	  path_delay_expression ',' path_delay_expression ',' path_delay_expression ','
 	  path_delay_expression ',' path_delay_expression ',' path_delay_expression
@@ -815,7 +815,7 @@ tzx_path_delay_expression :
 */
 
 path_delay_expression :
-	constant_mintypmax_expression;
+	constant_expression;
 
 constant_mintypmax_expression :
 	constant_expression
