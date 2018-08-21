@@ -36,7 +36,7 @@ namespace YOSYS_PYTHON {
 
 	void log(std::string text)
 	{
-		Yosys::log(text.c_str());
+		Yosys::log("%s",text.c_str());
 	}
 
 	struct IdString
@@ -74,11 +74,23 @@ namespace YOSYS_PYTHON {
 		//WRAPPED static inline void put_reference(int idx)
 		static inline void put_reference(int idx);
 
+		//WRAPPED std::string str() const {
+		std::string str();
+
+		//WRAPPED bool empty() const {
+		bool empty();
+
+		//WRAPPED void clear() {
+		void clear();
+
 		//WRAPPED bool in(IdString rhs) const { return *this == rhs; }
 		bool in_IdString(IdString *rhs);
 
 		//WRAPPED bool in(const std::string &rhs) const { return *this == rhs; }
 		bool in_std_string(std::string rhs);
+
+		//WRAPPED bool in(const pool<IdString> &rhs) const { return rhs.count(*this) != 0; }
+		bool in_pool_IdString(boost::python::list *rhs);
 	};
 
 	std::ostream &operator<<(std::ostream &ostr, const IdString &ref)
@@ -110,11 +122,35 @@ namespace YOSYS_PYTHON {
 			return ref_obj;
 		}
 
+		//WRAPPED bool as_bool() const;
+		bool as_bool();
+
 		//WRAPPED int as_int(bool is_signed = false) const;
 		int as_int(bool is_signed = false);
 
+		//WRAPPED std::string as_string() const;
+		std::string as_string();
+
 		//WRAPPED static Const from_string(std::string str);
 		static Const from_string(std::string str);
+
+		//WRAPPED std::string decode_string() const;
+		std::string decode_string();
+
+		//WRAPPED inline int size() const { return bits.size(); }
+		inline int size();
+
+		//WRAPPED bool is_fully_zero() const;
+		bool is_fully_zero();
+
+		//WRAPPED bool is_fully_ones() const;
+		bool is_fully_ones();
+
+		//WRAPPED bool is_fully_def() const;
+		bool is_fully_def();
+
+		//WRAPPED bool is_fully_undef() const;
+		bool is_fully_undef();
 
 		//WRAPPED inline RTLIL::Const extract(int offset, int len = 1, RTLIL::State padding = RTLIL::State::S0) const {
 		inline Const extract(int offset, int len = 1, State padding = RTLIL::State::S0);
@@ -148,6 +184,9 @@ namespace YOSYS_PYTHON {
 		{
 			return ref_obj;
 		}
+
+		//WRAPPED RTLIL::CaseRule *clone() const;
+		CaseRule clone();
 	};
 
 	std::ostream &operator<<(std::ostream &ostr, const CaseRule &ref)
@@ -178,6 +217,9 @@ namespace YOSYS_PYTHON {
 		{
 			return ref_obj;
 		}
+
+		//WRAPPED RTLIL::SwitchRule *clone() const;
+		SwitchRule clone();
 	};
 
 	std::ostream &operator<<(std::ostream &ostr, const SwitchRule &ref)
@@ -208,6 +250,9 @@ namespace YOSYS_PYTHON {
 		{
 			return ref_obj;
 		}
+
+		//WRAPPED RTLIL::SyncRule *clone() const;
+		SyncRule clone();
 	};
 
 	std::ostream &operator<<(std::ostream &ostr, const SyncRule &ref)
@@ -238,6 +283,9 @@ namespace YOSYS_PYTHON {
 		{
 			return ref_obj;
 		}
+
+		//WRAPPED RTLIL::Process *clone() const;
+		Process clone();
 	};
 
 	std::ostream &operator<<(std::ostream &ostr, const Process &ref)
@@ -332,6 +380,12 @@ namespace YOSYS_PYTHON {
 			return ref_obj;
 		}
 
+		//WRAPPED inline int size() const { return width_; }
+		inline int size();
+
+		//WRAPPED inline bool empty() const { return width_ == 0; }
+		inline bool empty();
+
 		//WRAPPED void replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec &with);
 		void replace_SigSpec_SigSpec(SigSpec *pattern, SigSpec *with);
 
@@ -383,8 +437,56 @@ namespace YOSYS_PYTHON {
 		//WRAPPED RTLIL::SigSpec repeat(int num) const;
 		SigSpec repeat(int num);
 
+		//WRAPPED bool is_wire() const;
+		bool is_wire();
+
+		//WRAPPED bool is_chunk() const;
+		bool is_chunk();
+
+		//WRAPPED inline bool is_bit() const { return width_ == 1; }
+		inline bool is_bit();
+
+		//WRAPPED bool is_fully_const() const;
+		bool is_fully_const();
+
+		//WRAPPED bool is_fully_zero() const;
+		bool is_fully_zero();
+
+		//WRAPPED bool is_fully_ones() const;
+		bool is_fully_ones();
+
+		//WRAPPED bool is_fully_def() const;
+		bool is_fully_def();
+
+		//WRAPPED bool is_fully_undef() const;
+		bool is_fully_undef();
+
+		//WRAPPED bool has_const() const;
+		bool has_const();
+
+		//WRAPPED bool has_marked_bits() const;
+		bool has_marked_bits();
+
+		//WRAPPED bool as_bool() const;
+		bool as_bool();
+
 		//WRAPPED int as_int(bool is_signed = false) const;
 		int as_int(bool is_signed = false);
+
+		//WRAPPED std::string as_string() const;
+		std::string as_string();
+
+		//WRAPPED RTLIL::Const as_const() const;
+		Const as_const();
+
+		//WRAPPED RTLIL::Wire *as_wire() const;
+		Wire as_wire();
+
+		//WRAPPED RTLIL::SigChunk as_chunk() const;
+		SigChunk as_chunk();
+
+		//WRAPPED RTLIL::SigBit as_bit() const;
+		SigBit as_bit();
 
 		//WRAPPED bool match(std::string pattern) const;
 		bool match(std::string pattern);
@@ -397,6 +499,9 @@ namespace YOSYS_PYTHON {
 
 		//WRAPPED static bool parse_rhs(const RTLIL::SigSpec &lhs, RTLIL::SigSpec &sig, RTLIL::Module *module, std::string str);
 		static bool parse_rhs(SigSpec *lhs, SigSpec *sig, Module *module, std::string str);
+
+		//WRAPPED void check() const;
+		void check();
 	};
 
 	std::ostream &operator<<(std::ostream &ostr, const SigSpec &ref)
@@ -432,6 +537,9 @@ namespace YOSYS_PYTHON {
 		//WRAPPED void setPort(RTLIL::IdString portname, RTLIL::SigSpec signal);
 		void setPort(IdString *portname, SigSpec *signal);
 
+		//WRAPPED bool known() const;
+		bool known();
+
 		//WRAPPED bool input(RTLIL::IdString portname) const;
 		bool input(IdString *portname);
 
@@ -449,6 +557,9 @@ namespace YOSYS_PYTHON {
 
 		//WRAPPED void fixup_parameters(bool set_a_signed = false, bool set_b_signed = false);
 		void fixup_parameters(bool set_a_signed = false, bool set_b_signed = false);
+
+		//WRAPPED bool has_keep_attr() const {
+		bool has_keep_attr();
 	};
 
 	std::ostream &operator<<(std::ostream &ostr, const Cell &ref)
@@ -577,6 +688,24 @@ namespace YOSYS_PYTHON {
 
 		//WRAPPED void cloneInto(RTLIL::Module *new_mod) const;
 		void cloneInto(Module *new_mod);
+
+		//WRAPPED bool has_memories() const;
+		bool has_memories();
+
+		//WRAPPED bool has_processes() const;
+		bool has_processes();
+
+		//WRAPPED bool has_memories_warn() const;
+		bool has_memories_warn();
+
+		//WRAPPED bool has_processes_warn() const;
+		bool has_processes_warn();
+
+		//WRAPPED RTLIL::Wire* wire(RTLIL::IdString id) { return wires_.count(id) ? wires_.at(id) : nullptr; }
+		Wire wire(IdString *id);
+
+		//WRAPPED RTLIL::Cell* cell(RTLIL::IdString id) { return cells_.count(id) ? cells_.at(id) : nullptr; }
+		Cell cell(IdString *id);
 
 		//WRAPPED void remove(const pool<RTLIL::Wire*> &wires);
 		void remove_pool_Wire(boost::python::list *wires);
@@ -1104,6 +1233,9 @@ namespace YOSYS_PYTHON {
 
 		//WRAPPED bool selected_whole_module(RTLIL::Module *mod) const;
 		bool selected_whole_module_Module(Module *mod);
+
+		//WRAPPED bool full_selection() const {
+		bool full_selection();
 	};
 
 	std::ostream &operator<<(std::ostream &ostr, const Design &ref)
@@ -1557,6 +1689,24 @@ namespace YOSYS_PYTHON {
 		Yosys::RTLIL::IdString::put_reference(idx);
 	}
 
+	//WRAPPED std::string str() const {
+	std::string IdString::str()
+	{
+		return this->get_cpp_obj()->str();
+	}
+
+	//WRAPPED bool empty() const {
+	bool IdString::empty()
+	{
+		return this->get_cpp_obj()->empty();
+	}
+
+	//WRAPPED void clear() {
+	void IdString::clear()
+	{
+		this->get_cpp_obj()->clear();
+	}
+
 	//WRAPPED bool in(IdString rhs) const { return *this == rhs; }
 	bool IdString::in_IdString(IdString *rhs)
 	{
@@ -1569,10 +1719,32 @@ namespace YOSYS_PYTHON {
 		return this->get_cpp_obj()->in(rhs);
 	}
 
+	//WRAPPED bool in(const pool<IdString> &rhs) const { return rhs.count(*this) != 0; }
+	bool IdString::in_pool_IdString(boost::python::list *rhs)
+	{
+		pool<Yosys::RTLIL::IdString> rhs_;
+		for(int i = 0; i < len(*rhs); ++i)
+		{
+		}
+		return this->get_cpp_obj()->in(rhs_);
+	}
+
+	//WRAPPED bool as_bool() const;
+	bool Const::as_bool()
+	{
+		return this->get_cpp_obj()->as_bool();
+	}
+
 	//WRAPPED int as_int(bool is_signed = false) const;
 	int Const::as_int(bool is_signed)
 	{
 		return this->get_cpp_obj()->as_int(is_signed);
+	}
+
+	//WRAPPED std::string as_string() const;
+	std::string Const::as_string()
+	{
+		return this->get_cpp_obj()->as_string();
 	}
 
 	//WRAPPED static Const from_string(std::string str);
@@ -1581,16 +1753,88 @@ namespace YOSYS_PYTHON {
 		return Const(Yosys::RTLIL::Const::from_string(str));
 	}
 
+	//WRAPPED std::string decode_string() const;
+	std::string Const::decode_string()
+	{
+		return this->get_cpp_obj()->decode_string();
+	}
+
+	//WRAPPED inline int size() const { return bits.size(); }
+	inline int Const::size()
+	{
+		return this->get_cpp_obj()->size();
+	}
+
+	//WRAPPED bool is_fully_zero() const;
+	bool Const::is_fully_zero()
+	{
+		return this->get_cpp_obj()->is_fully_zero();
+	}
+
+	//WRAPPED bool is_fully_ones() const;
+	bool Const::is_fully_ones()
+	{
+		return this->get_cpp_obj()->is_fully_ones();
+	}
+
+	//WRAPPED bool is_fully_def() const;
+	bool Const::is_fully_def()
+	{
+		return this->get_cpp_obj()->is_fully_def();
+	}
+
+	//WRAPPED bool is_fully_undef() const;
+	bool Const::is_fully_undef()
+	{
+		return this->get_cpp_obj()->is_fully_undef();
+	}
+
 	//WRAPPED inline RTLIL::Const extract(int offset, int len = 1, RTLIL::State padding = RTLIL::State::S0) const {
 	inline Const Const::extract(int offset, int len, State padding)
 	{
 		return Const(this->get_cpp_obj()->extract(offset, len, padding));
 	}
 
+	//WRAPPED RTLIL::CaseRule *clone() const;
+	CaseRule CaseRule::clone()
+	{
+		return CaseRule(this->get_cpp_obj()->clone());
+	}
+
+	//WRAPPED RTLIL::SwitchRule *clone() const;
+	SwitchRule SwitchRule::clone()
+	{
+		return SwitchRule(this->get_cpp_obj()->clone());
+	}
+
+	//WRAPPED RTLIL::SyncRule *clone() const;
+	SyncRule SyncRule::clone()
+	{
+		return SyncRule(this->get_cpp_obj()->clone());
+	}
+
+	//WRAPPED RTLIL::Process *clone() const;
+	Process Process::clone()
+	{
+		return Process(this->get_cpp_obj()->clone());
+	}
+
 	//WRAPPED RTLIL::SigChunk extract(int offset, int length) const;
 	SigChunk SigChunk::extract(int offset, int length)
 	{
 		return SigChunk(this->get_cpp_obj()->extract(offset, length));
+	}
+
+	//WRAPPED inline int size() const { return width_; }
+	inline int SigSpec::size()
+	{
+		return this->get_cpp_obj()->size();
+	}
+
+	//WRAPPED inline bool empty() const { return width_ == 0; }
+	inline bool SigSpec::empty()
+	{
+		return this->get_cpp_obj()->empty();
 	}
 
 	//WRAPPED void replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec &with);
@@ -1711,10 +1955,106 @@ namespace YOSYS_PYTHON {
 		return SigSpec(this->get_cpp_obj()->repeat(num));
 	}
 
+	//WRAPPED bool is_wire() const;
+	bool SigSpec::is_wire()
+	{
+		return this->get_cpp_obj()->is_wire();
+	}
+
+	//WRAPPED bool is_chunk() const;
+	bool SigSpec::is_chunk()
+	{
+		return this->get_cpp_obj()->is_chunk();
+	}
+
+	//WRAPPED inline bool is_bit() const { return width_ == 1; }
+	inline bool SigSpec::is_bit()
+	{
+		return this->get_cpp_obj()->is_bit();
+	}
+
+	//WRAPPED bool is_fully_const() const;
+	bool SigSpec::is_fully_const()
+	{
+		return this->get_cpp_obj()->is_fully_const();
+	}
+
+	//WRAPPED bool is_fully_zero() const;
+	bool SigSpec::is_fully_zero()
+	{
+		return this->get_cpp_obj()->is_fully_zero();
+	}
+
+	//WRAPPED bool is_fully_ones() const;
+	bool SigSpec::is_fully_ones()
+	{
+		return this->get_cpp_obj()->is_fully_ones();
+	}
+
+	//WRAPPED bool is_fully_def() const;
+	bool SigSpec::is_fully_def()
+	{
+		return this->get_cpp_obj()->is_fully_def();
+	}
+
+	//WRAPPED bool is_fully_undef() const;
+	bool SigSpec::is_fully_undef()
+	{
+		return this->get_cpp_obj()->is_fully_undef();
+	}
+
+	//WRAPPED bool has_const() const;
+	bool SigSpec::has_const()
+	{
+		return this->get_cpp_obj()->has_const();
+	}
+
+	//WRAPPED bool has_marked_bits() const;
+	bool SigSpec::has_marked_bits()
+	{
+		return this->get_cpp_obj()->has_marked_bits();
+	}
+
+	//WRAPPED bool as_bool() const;
+	bool SigSpec::as_bool()
+	{
+		return this->get_cpp_obj()->as_bool();
+	}
+
 	//WRAPPED int as_int(bool is_signed = false) const;
 	int SigSpec::as_int(bool is_signed)
 	{
 		return this->get_cpp_obj()->as_int(is_signed);
+	}
+
+	//WRAPPED std::string as_string() const;
+	std::string SigSpec::as_string()
+	{
+		return this->get_cpp_obj()->as_string();
+	}
+
+	//WRAPPED RTLIL::Const as_const() const;
+	Const SigSpec::as_const()
+	{
+		return Const(this->get_cpp_obj()->as_const());
+	}
+
+	//WRAPPED RTLIL::Wire *as_wire() const;
+	Wire SigSpec::as_wire()
+	{
+		return Wire(this->get_cpp_obj()->as_wire());
+	}
+
+	//WRAPPED RTLIL::SigChunk as_chunk() const;
+	SigChunk SigSpec::as_chunk()
+	{
+		return SigChunk(this->get_cpp_obj()->as_chunk());
+	}
+
+	//WRAPPED RTLIL::SigBit as_bit() const;
+	SigBit SigSpec::as_bit()
+	{
+		return SigBit(this->get_cpp_obj()->as_bit());
 	}
 
 	//WRAPPED bool match(std::string pattern) const;
@@ -1741,6 +2081,12 @@ namespace YOSYS_PYTHON {
 		return Yosys::RTLIL::SigSpec::parse_rhs(*lhs->get_cpp_obj(), *sig->get_cpp_obj(), module->get_cpp_obj(), str);
 	}
 
+	//WRAPPED void check() const;
+	void SigSpec::check()
+	{
+		this->get_cpp_obj()->check();
+	}
+
 	//WRAPPED bool hasPort(RTLIL::IdString portname) const;
 	bool Cell::hasPort(IdString *portname)
 	{
@@ -1757,6 +2103,12 @@ namespace YOSYS_PYTHON {
 	void Cell::setPort(IdString *portname, SigSpec *signal)
 	{
 		this->get_cpp_obj()->setPort(*portname->get_cpp_obj(), *signal->get_cpp_obj());
+	}
+
+	//WRAPPED bool known() const;
+	bool Cell::known()
+	{
+		return this->get_cpp_obj()->known();
 	}
 
 	//WRAPPED bool input(RTLIL::IdString portname) const;
@@ -1795,6 +2147,12 @@ namespace YOSYS_PYTHON {
 		this->get_cpp_obj()->fixup_parameters(set_a_signed, set_b_signed);
 	}
 
+	//WRAPPED bool has_keep_attr() const {
+	bool Cell::has_keep_attr()
+	{
+		return this->get_cpp_obj()->has_keep_attr();
+	}
+
 	//WRAPPED void connect(const RTLIL::SigSig &conn);
 	void Module::connect_SigSig(PyObject* conn)
 	{
@@ -1826,6 +2184,42 @@ namespace YOSYS_PYTHON {
 	void Module::cloneInto(Module *new_mod)
 	{
 		this->get_cpp_obj()->cloneInto(new_mod->get_cpp_obj());
+	}
+
+	//WRAPPED bool has_memories() const;
+	bool Module::has_memories()
+	{
+		return this->get_cpp_obj()->has_memories();
+	}
+
+	//WRAPPED bool has_processes() const;
+	bool Module::has_processes()
+	{
+		return this->get_cpp_obj()->has_processes();
+	}
+
+	//WRAPPED bool has_memories_warn() const;
+	bool Module::has_memories_warn()
+	{
+		return this->get_cpp_obj()->has_memories_warn();
+	}
+
+	//WRAPPED bool has_processes_warn() const;
+	bool Module::has_processes_warn()
+	{
+		return this->get_cpp_obj()->has_processes_warn();
+	}
+
+	//WRAPPED RTLIL::Wire* wire(RTLIL::IdString id) { return wires_.count(id) ? wires_.at(id) : nullptr; }
+	Wire Module::wire(IdString *id)
+	{
+		return Wire(this->get_cpp_obj()->wire(*id->get_cpp_obj()));
+	}
+
+	//WRAPPED RTLIL::Cell* cell(RTLIL::IdString id) { return cells_.count(id) ? cells_.at(id) : nullptr; }
+	Cell Module::cell(IdString *id)
+	{
+		return Cell(this->get_cpp_obj()->cell(*id->get_cpp_obj()));
 	}
 
 	//WRAPPED void remove(const pool<RTLIL::Wire*> &wires);
@@ -2780,6 +3174,12 @@ namespace YOSYS_PYTHON {
 		return this->get_cpp_obj()->selected_whole_module(mod->get_cpp_obj());
 	}
 
+	//WRAPPED bool full_selection() const {
+	bool Design::full_selection()
+	{
+		return this->get_cpp_obj()->full_selection();
+	}
+
 	struct Initializer
 	{
 		Initializer() {
@@ -2853,36 +3253,52 @@ namespace YOSYS_PYTHON {
 			.def(boost::python::self_ns::repr(boost::python::self_ns::self))
 			.def("get_reference", &IdString::get_reference)
 			.def("put_reference", &IdString::put_reference)
+			.def("str", &IdString::str)
+			.def("empty", &IdString::empty)
+			.def("clear", &IdString::clear)
 			.def("in_IdString", &IdString::in_IdString)
 			.def("in_std_string", &IdString::in_std_string)
+			.def("in_pool_IdString", &IdString::in_pool_IdString)
 			;
 
 		class_<Const>("Const")
 			.def(boost::python::self_ns::str(boost::python::self_ns::self))
 			.def(boost::python::self_ns::repr(boost::python::self_ns::self))
+			.def("as_bool", &Const::as_bool)
 			.def("as_int", &Const::as_int)
+			.def("as_string", &Const::as_string)
 			.def("from_string", &Const::from_string)
+			.def("decode_string", &Const::decode_string)
+			.def("size", &Const::size)
+			.def("is_fully_zero", &Const::is_fully_zero)
+			.def("is_fully_ones", &Const::is_fully_ones)
+			.def("is_fully_def", &Const::is_fully_def)
+			.def("is_fully_undef", &Const::is_fully_undef)
 			.def("extract", &Const::extract)
 			;
 
 		class_<CaseRule>("CaseRule")
 			.def(boost::python::self_ns::str(boost::python::self_ns::self))
 			.def(boost::python::self_ns::repr(boost::python::self_ns::self))
+			.def("clone", &CaseRule::clone)
 			;
 
 		class_<SwitchRule>("SwitchRule")
 			.def(boost::python::self_ns::str(boost::python::self_ns::self))
 			.def(boost::python::self_ns::repr(boost::python::self_ns::self))
+			.def("clone", &SwitchRule::clone)
 			;
 
 		class_<SyncRule>("SyncRule")
 			.def(boost::python::self_ns::str(boost::python::self_ns::self))
 			.def(boost::python::self_ns::repr(boost::python::self_ns::self))
+			.def("clone", &SyncRule::clone)
 			;
 
 		class_<Process>("Process")
 			.def(boost::python::self_ns::str(boost::python::self_ns::self))
 			.def(boost::python::self_ns::repr(boost::python::self_ns::self))
+			.def("clone", &Process::clone)
 			;
 
 		class_<SigChunk>("SigChunk")
@@ -2899,6 +3315,8 @@ namespace YOSYS_PYTHON {
 		class_<SigSpec>("SigSpec")
 			.def(boost::python::self_ns::str(boost::python::self_ns::self))
 			.def(boost::python::self_ns::repr(boost::python::self_ns::self))
+			.def("size", &SigSpec::size)
+			.def("empty", &SigSpec::empty)
 			.def("replace_SigSpec_SigSpec", &SigSpec::replace_SigSpec_SigSpec)
 			.def("replace_SigSpec_SigSpec_SigSpec", &SigSpec::replace_SigSpec_SigSpec_SigSpec)
 			.def("replace_int_SigSpec", &SigSpec::replace_int_SigSpec)
@@ -2916,11 +3334,28 @@ namespace YOSYS_PYTHON {
 			.def("append_bit", &SigSpec::append_bit)
 			.def("extend_u0", &SigSpec::extend_u0)
 			.def("repeat", &SigSpec::repeat)
+			.def("is_wire", &SigSpec::is_wire)
+			.def("is_chunk", &SigSpec::is_chunk)
+			.def("is_bit", &SigSpec::is_bit)
+			.def("is_fully_const", &SigSpec::is_fully_const)
+			.def("is_fully_zero", &SigSpec::is_fully_zero)
+			.def("is_fully_ones", &SigSpec::is_fully_ones)
+			.def("is_fully_def", &SigSpec::is_fully_def)
+			.def("is_fully_undef", &SigSpec::is_fully_undef)
+			.def("has_const", &SigSpec::has_const)
+			.def("has_marked_bits", &SigSpec::has_marked_bits)
+			.def("as_bool", &SigSpec::as_bool)
 			.def("as_int", &SigSpec::as_int)
+			.def("as_string", &SigSpec::as_string)
+			.def("as_const", &SigSpec::as_const)
+			.def("as_wire", &SigSpec::as_wire)
+			.def("as_chunk", &SigSpec::as_chunk)
+			.def("as_bit", &SigSpec::as_bit)
 			.def("match", &SigSpec::match)
 			.def("parse", &SigSpec::parse)
 			.def("parse_sel", &SigSpec::parse_sel)
 			.def("parse_rhs", &SigSpec::parse_rhs)
+			.def("check", &SigSpec::check)
 			;
 
 		class_<Cell>("Cell", no_init)
@@ -2929,12 +3364,14 @@ namespace YOSYS_PYTHON {
 			.def("hasPort", &Cell::hasPort)
 			.def("unsetPort", &Cell::unsetPort)
 			.def("setPort", &Cell::setPort)
+			.def("known", &Cell::known)
 			.def("input", &Cell::input)
 			.def("output", &Cell::output)
 			.def("hasParam", &Cell::hasParam)
 			.def("unsetParam", &Cell::unsetParam)
 			.def("setParam", &Cell::setParam)
 			.def("fixup_parameters", &Cell::fixup_parameters)
+			.def("has_keep_attr", &Cell::has_keep_attr)
 			;
 
 		class_<Wire>("Wire", no_init)
@@ -2957,6 +3394,12 @@ namespace YOSYS_PYTHON {
 			.def("connect_SigSpec_SigSpec", &Module::connect_SigSpec_SigSpec)
 			.def("new_connections", &Module::new_connections)
 			.def("cloneInto", &Module::cloneInto)
+			.def("has_memories", &Module::has_memories)
+			.def("has_processes", &Module::has_processes)
+			.def("has_memories_warn", &Module::has_memories_warn)
+			.def("has_processes_warn", &Module::has_processes_warn)
+			.def("wire", &Module::wire)
+			.def("cell", &Module::cell)
 			.def("remove_pool_Wire", &Module::remove_pool_Wire)
 			.def("remove_Cell", &Module::remove_Cell)
 			.def("rename_Wire_IdString", &Module::rename_Wire_IdString)
@@ -3123,6 +3566,7 @@ namespace YOSYS_PYTHON {
 			.def("selected_member", &Design::selected_member)
 			.def("selected_module_Module", &Design::selected_module_Module)
 			.def("selected_whole_module_Module", &Design::selected_whole_module_Module)
+			.def("full_selection", &Design::full_selection)
 			;
 
 		def("escape_id", escape_id);
