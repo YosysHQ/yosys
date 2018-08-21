@@ -69,19 +69,28 @@ namespace YOSYS_PYTHON {
 		}
 
 		//WRAPPED static inline int get_reference(int idx)
-		static inline int get_reference(int idx);
+		static int get_reference(int idx);
 
 		//WRAPPED static inline void put_reference(int idx)
-		static inline void put_reference(int idx);
+		static void put_reference(int idx);
 
 		//WRAPPED std::string str() const {
 		std::string str();
+
+		//WRAPPED std::string substr(size_t pos = 0, size_t len = std::string::npos) const {
+		std::string substr(size_t pos = 0, size_t len = std::string::npos);
+
+		//WRAPPED size_t size() const {
+		size_t size();
 
 		//WRAPPED bool empty() const {
 		bool empty();
 
 		//WRAPPED void clear() {
 		void clear();
+
+		//WRAPPED unsigned int hash() const {
+		unsigned int hash();
 
 		//WRAPPED bool in(IdString rhs) const { return *this == rhs; }
 		bool in_IdString(IdString *rhs);
@@ -144,7 +153,7 @@ namespace YOSYS_PYTHON {
 		std::string decode_string();
 
 		//WRAPPED inline int size() const { return bits.size(); }
-		inline int size();
+		int size();
 
 		//WRAPPED bool is_fully_zero() const;
 		bool is_fully_zero();
@@ -159,7 +168,10 @@ namespace YOSYS_PYTHON {
 		bool is_fully_undef();
 
 		//WRAPPED inline RTLIL::Const extract(int offset, int len = 1, RTLIL::State padding = RTLIL::State::S0) const {
-		inline Const extract(int offset, int len = 1, State padding = RTLIL::State::S0);
+		Const extract(int offset, int len = 1, State padding = RTLIL::State::S0);
+
+		//WRAPPED inline unsigned int hash() const {
+		unsigned int hash();
 
 		bool operator<(Const rhs) { return get_cpp_obj() <rhs.get_cpp_obj(); }
 
@@ -368,6 +380,9 @@ namespace YOSYS_PYTHON {
 			return ref_obj;
 		}
 
+		//WRAPPED unsigned int hash() const;
+		unsigned int hash();
+
 		bool operator<(SigBit rhs) { return get_cpp_obj() <rhs.get_cpp_obj(); }
 
 		bool operator==(SigBit rhs) { return get_cpp_obj() ==rhs.get_cpp_obj(); }
@@ -404,11 +419,14 @@ namespace YOSYS_PYTHON {
 			return ref_obj;
 		}
 
+		//WRAPPED size_t get_hash() const {
+		size_t get_hash();
+
 		//WRAPPED inline int size() const { return width_; }
-		inline int size();
+		int size();
 
 		//WRAPPED inline bool empty() const { return width_ == 0; }
-		inline bool empty();
+		bool empty();
 
 		//WRAPPED void replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec &with);
 		void replace_SigSpec_SigSpec(SigSpec *pattern, SigSpec *with);
@@ -468,7 +486,7 @@ namespace YOSYS_PYTHON {
 		bool is_chunk();
 
 		//WRAPPED inline bool is_bit() const { return width_ == 1; }
-		inline bool is_bit();
+		bool is_bit();
 
 		//WRAPPED bool is_fully_const() const;
 		bool is_fully_const();
@@ -524,6 +542,9 @@ namespace YOSYS_PYTHON {
 		//WRAPPED static bool parse_rhs(const RTLIL::SigSpec &lhs, RTLIL::SigSpec &sig, RTLIL::Module *module, std::string str);
 		static bool parse_rhs(SigSpec *lhs, SigSpec *sig, Module *module, std::string str);
 
+		//WRAPPED unsigned int hash() const { if(!hash_) updhash(); return hash_; };
+		unsigned int hash();
+
 		//WRAPPED void check() const;
 		void check();
 
@@ -557,6 +578,9 @@ namespace YOSYS_PYTHON {
 				return ret;
 			return NULL;
 		}
+
+		//WRAPPED unsigned int hash() const { return hashidx_; }
+		unsigned int hash();
 
 		//WRAPPED bool hasPort(RTLIL::IdString portname) const;
 		bool hasPort(IdString *portname);
@@ -618,6 +642,9 @@ namespace YOSYS_PYTHON {
 				return ret;
 			return NULL;
 		}
+
+		//WRAPPED unsigned int hash() const { return hashidx_; }
+		unsigned int hash();
 	};
 
 	std::ostream &operator<<(std::ostream &ostr, const Wire &ref)
@@ -646,6 +673,9 @@ namespace YOSYS_PYTHON {
 				return ret;
 			return NULL;
 		}
+
+		//WRAPPED unsigned int hash() const { return hashidx_; }
+		unsigned int hash();
 	};
 
 	std::ostream &operator<<(std::ostream &ostr, const Memory &ref)
@@ -706,6 +736,9 @@ namespace YOSYS_PYTHON {
 		}
 
 		void register_monitor(Monitor* const m);
+
+		//WRAPPED unsigned int hash() const { return hashidx_; }
+		unsigned int hash();
 
 		//WRAPPED void connect(const RTLIL::SigSig &conn);
 		void connect_SigSig(PyObject *conn);
@@ -1209,6 +1242,9 @@ namespace YOSYS_PYTHON {
 		}
 
 		void register_monitor(Monitor* const m);
+
+		//WRAPPED unsigned int hash() const { return hashidx_; }
+		unsigned int hash();
 
 		//WRAPPED RTLIL::Module *module(RTLIL::IdString name);
 		Module module(IdString *name);
@@ -1725,6 +1761,18 @@ namespace YOSYS_PYTHON {
 		return this->get_cpp_obj()->str();
 	}
 
+	//WRAPPED std::string substr(size_t pos = 0, size_t len = std::string::npos) const {
+	std::string IdString::substr(size_t pos, size_t len)
+	{
+		return this->get_cpp_obj()->substr(pos, len);
+	}
+
+	//WRAPPED size_t size() const {
+	size_t IdString::size()
+	{
+		return this->get_cpp_obj()->size();
+	}
+
 	//WRAPPED bool empty() const {
 	bool IdString::empty()
 	{
@@ -1735,6 +1783,12 @@ namespace YOSYS_PYTHON {
 	void IdString::clear()
 	{
 		this->get_cpp_obj()->clear();
+	}
+
+	//WRAPPED unsigned int hash() const {
+	unsigned int IdString::hash()
+	{
+		return this->get_cpp_obj()->hash();
 	}
 
 	//WRAPPED bool in(IdString rhs) const { return *this == rhs; }
@@ -1825,6 +1879,12 @@ namespace YOSYS_PYTHON {
 		return Const(this->get_cpp_obj()->extract(offset, len, padding));
 	}
 
+	//WRAPPED inline unsigned int hash() const {
+	inline unsigned int Const::hash()
+	{
+		return this->get_cpp_obj()->hash();
+	}
+
 	//WRAPPED RTLIL::CaseRule *clone() const;
 	CaseRule CaseRule::clone()
 	{
@@ -1853,6 +1913,18 @@ namespace YOSYS_PYTHON {
 	SigChunk SigChunk::extract(int offset, int length)
 	{
 		return SigChunk(this->get_cpp_obj()->extract(offset, length));
+	}
+
+	//WRAPPED unsigned int hash() const;
+	unsigned int SigBit::hash()
+	{
+		return this->get_cpp_obj()->hash();
+	}
+
+	//WRAPPED size_t get_hash() const {
+	size_t SigSpec::get_hash()
+	{
+		return this->get_cpp_obj()->get_hash();
 	}
 
 	//WRAPPED inline int size() const { return width_; }
@@ -2111,10 +2183,22 @@ namespace YOSYS_PYTHON {
 		return Yosys::RTLIL::SigSpec::parse_rhs(*lhs->get_cpp_obj(), *sig->get_cpp_obj(), module->get_cpp_obj(), str);
 	}
 
+	//WRAPPED unsigned int hash() const { if(!hash_) updhash(); return hash_; };
+	unsigned int SigSpec::hash()
+	{
+		return this->get_cpp_obj()->hash();
+	}
+
 	//WRAPPED void check() const;
 	void SigSpec::check()
 	{
 		this->get_cpp_obj()->check();
+	}
+
+	//WRAPPED unsigned int hash() const { return hashidx_; }
+	unsigned int Cell::hash()
+	{
+		return this->get_cpp_obj()->hash();
 	}
 
 	//WRAPPED bool hasPort(RTLIL::IdString portname) const;
@@ -2181,6 +2265,24 @@ namespace YOSYS_PYTHON {
 	bool Cell::has_keep_attr()
 	{
 		return this->get_cpp_obj()->has_keep_attr();
+	}
+
+	//WRAPPED unsigned int hash() const { return hashidx_; }
+	unsigned int Wire::hash()
+	{
+		return this->get_cpp_obj()->hash();
+	}
+
+	//WRAPPED unsigned int hash() const { return hashidx_; }
+	unsigned int Memory::hash()
+	{
+		return this->get_cpp_obj()->hash();
+	}
+
+	//WRAPPED unsigned int hash() const { return hashidx_; }
+	unsigned int Module::hash()
+	{
+		return this->get_cpp_obj()->hash();
 	}
 
 	//WRAPPED void connect(const RTLIL::SigSig &conn);
@@ -3096,6 +3198,12 @@ namespace YOSYS_PYTHON {
 		return SigSpec(this->get_cpp_obj()->Initstate(*name->get_cpp_obj(), src));
 	}
 
+	//WRAPPED unsigned int hash() const { return hashidx_; }
+	unsigned int Design::hash()
+	{
+		return this->get_cpp_obj()->hash();
+	}
+
 	//WRAPPED RTLIL::Module *module(RTLIL::IdString name);
 	Module Design::module(IdString *name)
 	{
@@ -3284,8 +3392,11 @@ namespace YOSYS_PYTHON {
 			.def("get_reference", &IdString::get_reference)
 			.def("put_reference", &IdString::put_reference)
 			.def("str", &IdString::str)
+			.def("substr", &IdString::substr)
+			.def("size", &IdString::size)
 			.def("empty", &IdString::empty)
 			.def("clear", &IdString::clear)
+			.def("hash", &IdString::hash)
 			.def("in_IdString", &IdString::in_IdString)
 			.def("in_std_string", &IdString::in_std_string)
 			.def("in_pool_IdString", &IdString::in_pool_IdString)
@@ -3308,6 +3419,7 @@ namespace YOSYS_PYTHON {
 			.def("is_fully_def", &Const::is_fully_def)
 			.def("is_fully_undef", &Const::is_fully_undef)
 			.def("extract", &Const::extract)
+			.def("hash", &Const::hash)
 			.def(self < self)
 			.def(self == self)
 			.def(self != self)
@@ -3349,6 +3461,7 @@ namespace YOSYS_PYTHON {
 		class_<SigBit>("SigBit")
 			.def(boost::python::self_ns::str(boost::python::self_ns::self))
 			.def(boost::python::self_ns::repr(boost::python::self_ns::self))
+			.def("hash", &SigBit::hash)
 			.def(self < self)
 			.def(self == self)
 			.def(self != self)
@@ -3357,6 +3470,7 @@ namespace YOSYS_PYTHON {
 		class_<SigSpec>("SigSpec")
 			.def(boost::python::self_ns::str(boost::python::self_ns::self))
 			.def(boost::python::self_ns::repr(boost::python::self_ns::self))
+			.def("get_hash", &SigSpec::get_hash)
 			.def("size", &SigSpec::size)
 			.def("empty", &SigSpec::empty)
 			.def("replace_SigSpec_SigSpec", &SigSpec::replace_SigSpec_SigSpec)
@@ -3397,6 +3511,7 @@ namespace YOSYS_PYTHON {
 			.def("parse", &SigSpec::parse)
 			.def("parse_sel", &SigSpec::parse_sel)
 			.def("parse_rhs", &SigSpec::parse_rhs)
+			.def("hash", &SigSpec::hash)
 			.def("check", &SigSpec::check)
 			.def(self < self)
 			.def(self == self)
@@ -3406,6 +3521,7 @@ namespace YOSYS_PYTHON {
 		class_<Cell>("Cell", no_init)
 			.def(boost::python::self_ns::str(boost::python::self_ns::self))
 			.def(boost::python::self_ns::repr(boost::python::self_ns::self))
+			.def("hash", &Cell::hash)
 			.def("hasPort", &Cell::hasPort)
 			.def("unsetPort", &Cell::unsetPort)
 			.def("setPort", &Cell::setPort)
@@ -3422,11 +3538,13 @@ namespace YOSYS_PYTHON {
 		class_<Wire>("Wire", no_init)
 			.def(boost::python::self_ns::str(boost::python::self_ns::self))
 			.def(boost::python::self_ns::repr(boost::python::self_ns::self))
+			.def("hash", &Wire::hash)
 			;
 
 		class_<Memory>("Memory", no_init)
 			.def(boost::python::self_ns::str(boost::python::self_ns::self))
 			.def(boost::python::self_ns::repr(boost::python::self_ns::self))
+			.def("hash", &Memory::hash)
 			;
 
 		class_<Module>("Module")
@@ -3435,6 +3553,7 @@ namespace YOSYS_PYTHON {
 			.def("get_cells", &Module::get_cells)
 			.def("get_wires", &Module::get_wires)
 			.def("register_monitor", &Module::register_monitor)
+			.def("hash", &Module::hash)
 			.def("connect_SigSig", &Module::connect_SigSig)
 			.def("connect_SigSpec_SigSpec", &Module::connect_SigSpec_SigSpec)
 			.def("new_connections", &Module::new_connections)
@@ -3593,6 +3712,7 @@ namespace YOSYS_PYTHON {
 			.def("get_modules", &Design::get_modules)
 			.def("run", &Design::run)
 			.def("register_monitor", &Design::register_monitor)
+			.def("hash", &Design::hash)
 			.def("module", &Design::module)
 			.def("has", &Design::has)
 			.def("add", &Design::add)
