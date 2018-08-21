@@ -91,6 +91,12 @@ namespace YOSYS_PYTHON {
 
 		//WRAPPED bool in(const pool<IdString> &rhs) const { return rhs.count(*this) != 0; }
 		bool in_pool_IdString(boost::python::list *rhs);
+
+		bool operator<(IdString rhs) { return get_cpp_obj() <rhs.get_cpp_obj(); }
+
+		bool operator==(IdString rhs) { return get_cpp_obj() ==rhs.get_cpp_obj(); }
+
+		bool operator!=(IdString rhs) { return get_cpp_obj() !=rhs.get_cpp_obj(); }
 	};
 
 	std::ostream &operator<<(std::ostream &ostr, const IdString &ref)
@@ -154,6 +160,12 @@ namespace YOSYS_PYTHON {
 
 		//WRAPPED inline RTLIL::Const extract(int offset, int len = 1, RTLIL::State padding = RTLIL::State::S0) const {
 		inline Const extract(int offset, int len = 1, State padding = RTLIL::State::S0);
+
+		bool operator<(Const rhs) { return get_cpp_obj() <rhs.get_cpp_obj(); }
+
+		bool operator==(Const rhs) { return get_cpp_obj() ==rhs.get_cpp_obj(); }
+
+		bool operator!=(Const rhs) { return get_cpp_obj() !=rhs.get_cpp_obj(); }
 	};
 
 	std::ostream &operator<<(std::ostream &ostr, const Const &ref)
@@ -319,6 +331,12 @@ namespace YOSYS_PYTHON {
 
 		//WRAPPED RTLIL::SigChunk extract(int offset, int length) const;
 		SigChunk extract(int offset, int length);
+
+		bool operator<(SigChunk rhs) { return get_cpp_obj() <rhs.get_cpp_obj(); }
+
+		bool operator==(SigChunk rhs) { return get_cpp_obj() ==rhs.get_cpp_obj(); }
+
+		bool operator!=(SigChunk rhs) { return get_cpp_obj() !=rhs.get_cpp_obj(); }
 	};
 
 	std::ostream &operator<<(std::ostream &ostr, const SigChunk &ref)
@@ -349,6 +367,12 @@ namespace YOSYS_PYTHON {
 		{
 			return ref_obj;
 		}
+
+		bool operator<(SigBit rhs) { return get_cpp_obj() <rhs.get_cpp_obj(); }
+
+		bool operator==(SigBit rhs) { return get_cpp_obj() ==rhs.get_cpp_obj(); }
+
+		bool operator!=(SigBit rhs) { return get_cpp_obj() !=rhs.get_cpp_obj(); }
 	};
 
 	std::ostream &operator<<(std::ostream &ostr, const SigBit &ref)
@@ -502,6 +526,12 @@ namespace YOSYS_PYTHON {
 
 		//WRAPPED void check() const;
 		void check();
+
+		bool operator<(SigSpec rhs) { return get_cpp_obj() <rhs.get_cpp_obj(); }
+
+		bool operator==(SigSpec rhs) { return get_cpp_obj() ==rhs.get_cpp_obj(); }
+
+		bool operator!=(SigSpec rhs) { return get_cpp_obj() !=rhs.get_cpp_obj(); }
 	};
 
 	std::ostream &operator<<(std::ostream &ostr, const SigSpec &ref)
@@ -3259,6 +3289,9 @@ namespace YOSYS_PYTHON {
 			.def("in_IdString", &IdString::in_IdString)
 			.def("in_std_string", &IdString::in_std_string)
 			.def("in_pool_IdString", &IdString::in_pool_IdString)
+			.def(self < self)
+			.def(self == self)
+			.def(self != self)
 			;
 
 		class_<Const>("Const")
@@ -3275,6 +3308,9 @@ namespace YOSYS_PYTHON {
 			.def("is_fully_def", &Const::is_fully_def)
 			.def("is_fully_undef", &Const::is_fully_undef)
 			.def("extract", &Const::extract)
+			.def(self < self)
+			.def(self == self)
+			.def(self != self)
 			;
 
 		class_<CaseRule>("CaseRule")
@@ -3305,11 +3341,17 @@ namespace YOSYS_PYTHON {
 			.def(boost::python::self_ns::str(boost::python::self_ns::self))
 			.def(boost::python::self_ns::repr(boost::python::self_ns::self))
 			.def("extract", &SigChunk::extract)
+			.def(self < self)
+			.def(self == self)
+			.def(self != self)
 			;
 
 		class_<SigBit>("SigBit")
 			.def(boost::python::self_ns::str(boost::python::self_ns::self))
 			.def(boost::python::self_ns::repr(boost::python::self_ns::self))
+			.def(self < self)
+			.def(self == self)
+			.def(self != self)
 			;
 
 		class_<SigSpec>("SigSpec")
@@ -3356,6 +3398,9 @@ namespace YOSYS_PYTHON {
 			.def("parse_sel", &SigSpec::parse_sel)
 			.def("parse_rhs", &SigSpec::parse_rhs)
 			.def("check", &SigSpec::check)
+			.def(self < self)
+			.def(self == self)
+			.def(self != self)
 			;
 
 		class_<Cell>("Cell", no_init)
