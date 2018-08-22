@@ -1706,9 +1706,16 @@ struct VerificPass : public Pass {
 		log("\n");
 		log("Like -sv, but define FORMAL instead of SYNTHESIS.\n");
 		log("\n");
+		log("\n");
 		log("    verific {-vhdl87|-vhdl93|-vhdl2k|-vhdl2008|-vhdl} <vhdl-file>..\n");
 		log("\n");
 		log("Load the specified VHDL files into Verific.\n");
+		log("\n");
+		log("\n");
+		log("    verific -work <libname> {-sv|-vhdl|...} <hdl-file>\n");
+		log("\n");
+		log("Load the specified Verilog/SystemVerilog/VHDL file into the specified library.\n");
+		log("(default library when -work is not present: \"work\")\n");
 		log("\n");
 		log("\n");
 		log("    verific -vlog-incdir <directory>..\n");
