@@ -1541,148 +1541,148 @@ namespace YOSYS_PYTHON {
 		return Const(Yosys::RTLIL::const_neg(*arg1->get_cpp_obj(), *arg2->get_cpp_obj(), signed1, signed2, result_len));
 	}
 
-    struct Monitor : public Yosys::RTLIL::Monitor
-    {
+	struct Monitor : public Yosys::RTLIL::Monitor
+	{
 
-        virtual void notify_module_add(Yosys::RTLIL::Module *module) YS_OVERRIDE
-        {
-            py_notify_module_add(new Module(module));
-        }
+		virtual void notify_module_add(Yosys::RTLIL::Module *module) YS_OVERRIDE
+		{
+			py_notify_module_add(new Module(module));
+		}
 
-        virtual void notify_module_del(Yosys::RTLIL::Module *module) YS_OVERRIDE
-        {
-            py_notify_module_del(new Module(module));
-        }
+		virtual void notify_module_del(Yosys::RTLIL::Module *module) YS_OVERRIDE
+		{
+			py_notify_module_del(new Module(module));
+		}
 
-        virtual void notify_connect(Yosys::RTLIL::Cell *cell, const Yosys::RTLIL::IdString &port, const Yosys::RTLIL::SigSpec &old_sig, Yosys::RTLIL::SigSpec &sig) YS_OVERRIDE
-        {
-            Yosys::RTLIL::IdString *tmp_port = new Yosys::RTLIL::IdString(port);
-            Yosys::RTLIL::SigSpec *tmp_old_sig = new Yosys::RTLIL::SigSpec(old_sig);
-            py_notify_connect_cell(new Cell(cell), new IdString(tmp_port), new SigSpec(tmp_old_sig), new SigSpec(&sig));
-            delete tmp_port;
-            delete tmp_old_sig;
-	}
+		virtual void notify_connect(Yosys::RTLIL::Cell *cell, const Yosys::RTLIL::IdString &port, const Yosys::RTLIL::SigSpec &old_sig, Yosys::RTLIL::SigSpec &sig) YS_OVERRIDE
+		{
+			Yosys::RTLIL::IdString *tmp_port = new Yosys::RTLIL::IdString(port);
+			Yosys::RTLIL::SigSpec *tmp_old_sig = new Yosys::RTLIL::SigSpec(old_sig);
+			py_notify_connect_cell(new Cell(cell), new IdString(tmp_port), new SigSpec(tmp_old_sig), new SigSpec(&sig));
+			delete tmp_port;
+			delete tmp_old_sig;
+		}
 
-        virtual void notify_connect(Yosys::RTLIL::Module *module, const Yosys::RTLIL::SigSig &sigsig) YS_OVERRIDE
-        {
-            Yosys::RTLIL::SigSpec *first = new Yosys::RTLIL::SigSpec(sigsig.first);
-            Yosys::RTLIL::SigSpec *second = new Yosys::RTLIL::SigSpec(sigsig.second);
-            py_notify_connect_tuple(new Module(module), boost::python::make_tuple(new SigSpec(first), new SigSpec(second)));
-            delete first;
-            delete second;
-        }
+		virtual void notify_connect(Yosys::RTLIL::Module *module, const Yosys::RTLIL::SigSig &sigsig) YS_OVERRIDE
+		{
+			Yosys::RTLIL::SigSpec *first = new Yosys::RTLIL::SigSpec(sigsig.first);
+			Yosys::RTLIL::SigSpec *second = new Yosys::RTLIL::SigSpec(sigsig.second);
+			py_notify_connect_tuple(new Module(module), boost::python::make_tuple(new SigSpec(first), new SigSpec(second)));
+			delete first;
+			delete second;
+		}
 
-        virtual void notify_connect(Yosys::RTLIL::Module *module, const std::vector<Yosys::RTLIL::SigSig> &sigsig_vec) YS_OVERRIDE
-        {
-            boost::python::list sigsig_list;
-            for(auto sigsig : sigsig_vec)
-                sigsig_list.append(boost::python::make_tuple(new SigSpec(&sigsig.first), new SigSpec(&sigsig.second)));
-            py_notify_connect_list(new Module(module), sigsig_list);
-        }
+		virtual void notify_connect(Yosys::RTLIL::Module *module, const std::vector<Yosys::RTLIL::SigSig> &sigsig_vec) YS_OVERRIDE
+		{
+			boost::python::list sigsig_list;
+			for(auto sigsig : sigsig_vec)
+				sigsig_list.append(boost::python::make_tuple(new SigSpec(&sigsig.first), new SigSpec(&sigsig.second)));
+			py_notify_connect_list(new Module(module), sigsig_list);
+		}
 
-        virtual void notify_blackout(Yosys::RTLIL::Module *module) YS_OVERRIDE
-        {
-            py_notify_blackout(new Module(module));
-        }
+		virtual void notify_blackout(Yosys::RTLIL::Module *module) YS_OVERRIDE
+		{
+			py_notify_blackout(new Module(module));
+		}
 
-        virtual void py_notify_module_add(Module*){};
-        virtual void py_notify_module_del(Module*){};
-        virtual void py_notify_connect_cell(Cell *cell, IdString *port, SigSpec *old_sig, SigSpec *sig){};
-        virtual void py_notify_connect_tuple(Module *module, boost::python::tuple sigsig){};
-        virtual void py_notify_connect_list(Module* module, boost::python::list sigsig_list){};
-        virtual void py_notify_blackout(Module*){};
-    };
+		virtual void py_notify_module_add(Module*){};
+		virtual void py_notify_module_del(Module*){};
+		virtual void py_notify_connect_cell(Cell *cell, IdString *port, SigSpec *old_sig, SigSpec *sig){};
+		virtual void py_notify_connect_tuple(Module *module, boost::python::tuple sigsig){};
+		virtual void py_notify_connect_list(Module* module, boost::python::list sigsig_list){};
+		virtual void py_notify_blackout(Module*){};
+	};
 
-    struct MonitorWrap : Monitor, boost::python::wrapper<Monitor>
-    {
-        void py_notify_module_add(Module* m)
-        {
-            if(boost::python::override py_notify_module_add = this->get_override("py_notify_module_add"))
-                py_notify_module_add(m);
-            else
-                Monitor::py_notify_module_add(m);
-        }
+	struct MonitorWrap : Monitor, boost::python::wrapper<Monitor>
+	{
+		void py_notify_module_add(Module* m)
+		{
+			if(boost::python::override py_notify_module_add = this->get_override("py_notify_module_add"))
+				py_notify_module_add(m);
+			else
+				Monitor::py_notify_module_add(m);
+		}
 
-        void default_py_notify_module_add(Module* m)
-        {
-            this->Monitor::py_notify_module_add(m);
-        }
+		void default_py_notify_module_add(Module* m)
+		{
+			this->Monitor::py_notify_module_add(m);
+		}
 
-        void py_notify_module_del(Module* m)
-        {
-            if(boost::python::override py_notify_module_del = this->get_override("py_notify_module_del"))
-                py_notify_module_del(m);
-	    else
-                Monitor::py_notify_module_del(m);
-	}
+		void py_notify_module_del(Module* m)
+		{
+			if(boost::python::override py_notify_module_del = this->get_override("py_notify_module_del"))
+				py_notify_module_del(m);
+		else
+				Monitor::py_notify_module_del(m);
+		}
 
-        void default_py_notify_module_del(Module* m)
-        {
-            this->Monitor::py_notify_module_del(m);
-        }
+		void default_py_notify_module_del(Module* m)
+		{
+			this->Monitor::py_notify_module_del(m);
+		}
 
-        void py_notify_connect_cell(Cell *cell, IdString *port, SigSpec *old_sig, SigSpec *sig)
-        {
-            if(boost::python::override py_notify_connect_cell = this->get_override("py_notify_connect_cell"))
-                py_notify_connect_cell(cell, port, old_sig, sig);
-            else
-                Monitor::py_notify_connect_cell(cell, port, old_sig, sig);
-        }
+		void py_notify_connect_cell(Cell *cell, IdString *port, SigSpec *old_sig, SigSpec *sig)
+		{
+			if(boost::python::override py_notify_connect_cell = this->get_override("py_notify_connect_cell"))
+				py_notify_connect_cell(cell, port, old_sig, sig);
+			else
+				Monitor::py_notify_connect_cell(cell, port, old_sig, sig);
+		}
 
-        void default_py_notify_connect_cell(Cell *cell, IdString *port, SigSpec *old_sig, SigSpec *sig)
-        {
-            this->Monitor::py_notify_connect_cell(cell, port, old_sig, sig);
-        }
+		void default_py_notify_connect_cell(Cell *cell, IdString *port, SigSpec *old_sig, SigSpec *sig)
+		{
+			this->Monitor::py_notify_connect_cell(cell, port, old_sig, sig);
+		}
 
-        void py_notify_connect_tuple(Module *module, boost::python::tuple sigsig)
-        {
-            if(boost::python::override py_notify_connect_tuple = this->get_override("py_notify_connect_tuple"))
-                py_notify_connect_tuple(module, sigsig);
-            else
-                Monitor::py_notify_connect_tuple(module, sigsig);
-        }
+		void py_notify_connect_tuple(Module *module, boost::python::tuple sigsig)
+		{
+			if(boost::python::override py_notify_connect_tuple = this->get_override("py_notify_connect_tuple"))
+				py_notify_connect_tuple(module, sigsig);
+			else
+				Monitor::py_notify_connect_tuple(module, sigsig);
+		}
 
-        void default_py_notify_connect_tuple(Module *module, boost::python::tuple sigsig)
-        {
-            this->Monitor::py_notify_connect_tuple(module, sigsig);
-        }
+		void default_py_notify_connect_tuple(Module *module, boost::python::tuple sigsig)
+		{
+			this->Monitor::py_notify_connect_tuple(module, sigsig);
+		}
 
-        void py_notify_connect_list(Module* module, boost::python::list sigsig_list)
-        {
-            if(boost::python::override py_notify_connect_list = this->get_override("py_notify_connect_list"))
-                py_notify_connect_list(module, sigsig_list);
-            else
-                Monitor::py_notify_connect_list(module, sigsig_list);
-        }
+		void py_notify_connect_list(Module* module, boost::python::list sigsig_list)
+		{
+			if(boost::python::override py_notify_connect_list = this->get_override("py_notify_connect_list"))
+				py_notify_connect_list(module, sigsig_list);
+			else
+				Monitor::py_notify_connect_list(module, sigsig_list);
+		}
 
-        void default_py_notify_connect_list(Module* module, boost::python::list sigsig_list)
-        {
-            this->Monitor::py_notify_connect_list(module, sigsig_list);
-        }
+		void default_py_notify_connect_list(Module* module, boost::python::list sigsig_list)
+		{
+			this->Monitor::py_notify_connect_list(module, sigsig_list);
+		}
 
-        void py_notify_blackout(Module* m)
-        {
-            if(boost::python::override py_notify_blackout = this->get_override("py_notify_blackout"))
-                py_notify_blackout(m);
-            else
-                Monitor::py_notify_blackout(m);
-        }
+		void py_notify_blackout(Module* m)
+		{
+			if(boost::python::override py_notify_blackout = this->get_override("py_notify_blackout"))
+				py_notify_blackout(m);
+			else
+				Monitor::py_notify_blackout(m);
+		}
 
-        void default_py_notify_blackout(Module* m)
-        {
-            this->Monitor::py_notify_blackout(m);
-        }
-    };
+		void default_py_notify_blackout(Module* m)
+		{
+			this->Monitor::py_notify_blackout(m);
+		}
+	};
 
-    struct PyPass : public Yosys::Pass
-    {
+	struct PyPass : public Yosys::Pass
+	{
 		PyPass(std::string name, std::string short_help) : Yosys::Pass(name, short_help) { }
 	
 		virtual void execute(vector<string> args, Yosys::RTLIL::Design* d)  YS_OVERRIDE
 		{
 			boost::python::list py_args;
-            for(auto arg : args)
-                py_args.append(arg);
+			for(auto arg : args)
+				py_args.append(arg);
 			py_execute(py_args, new Design(d));
 		}
 
@@ -1693,19 +1693,19 @@ namespace YOSYS_PYTHON {
 
 		virtual void py_execute(boost::python::list args, Design* d){}
 		virtual void py_help(){}
-    };
+	};
 
-    struct PassWrap : PyPass, boost::python::wrapper<PyPass>
-    {
+	struct PassWrap : PyPass, boost::python::wrapper<PyPass>
+	{
 
 		PassWrap(std::string name, std::string short_help) : PyPass(name, short_help) { }
 	
 		void py_execute(boost::python::list args, Design* d)
 		{
-            if(boost::python::override py_execute = this->get_override("py_execute"))
-                py_execute(args, d);
-            else
-                PyPass::py_execute(args, d);
+			if(boost::python::override py_execute = this->get_override("py_execute"))
+				py_execute(args, d);
+			else
+				PyPass::py_execute(args, d);
 		}
 
 		void default_py_execute(boost::python::list args, Design* d)
@@ -1715,17 +1715,17 @@ namespace YOSYS_PYTHON {
 
 		void py_help()
 		{
-            if(boost::python::override py_help = this->get_override("py_help"))
-                py_help();
-            else
-                PyPass::py_help();
+			if(boost::python::override py_help = this->get_override("py_help"))
+				py_help();
+			else
+				PyPass::py_help();
 		}
 
 		void default_py_help()
 		{
 			this->PyPass::py_help();
 		}
-    };
+	};
 
 	void Module::register_monitor(Monitor* const m)
 	{
@@ -3321,13 +3321,13 @@ namespace YOSYS_PYTHON {
 	struct Initializer
 	{
 		Initializer() {
-                       if(!Yosys::yosys_already_setup())
-                       {
+			if(!Yosys::yosys_already_setup())
+			{
 				Yosys::log_streams.push_back(&std::cout);
 				Yosys::log_error_stderr = true;
 				Yosys::yosys_setup();
 				Yosys::yosys_banner();
-                       }
+			}
 		}
 
 		Initializer(Initializer const &) {}
@@ -3341,46 +3341,46 @@ namespace YOSYS_PYTHON {
 	{
 		using namespace boost::python;
 
-                enum_<Yosys::RTLIL::State>("State")
-                    .value("S0",Yosys::RTLIL::S0)
-                    .value("S1",Yosys::RTLIL::S1)
-                    .value("Sx",Yosys::RTLIL::Sx)
-                    .value("Sz",Yosys::RTLIL::Sz)
-                    .value("Sa",Yosys::RTLIL::Sa)
-                    .value("Sm",Yosys::RTLIL::Sm)
-                ;
+				enum_<Yosys::RTLIL::State>("State")
+					.value("S0",Yosys::RTLIL::S0)
+					.value("S1",Yosys::RTLIL::S1)
+					.value("Sx",Yosys::RTLIL::Sx)
+					.value("Sz",Yosys::RTLIL::Sz)
+					.value("Sa",Yosys::RTLIL::Sa)
+					.value("Sm",Yosys::RTLIL::Sm)
+				;
 
-                enum_<Yosys::RTLIL::SyncType>("SyncType")
-                    .value("ST0",Yosys::RTLIL::ST0)
-                    .value("ST1",Yosys::RTLIL::ST1)
-                    .value("STp",Yosys::RTLIL::STp)
-                    .value("STn",Yosys::RTLIL::STn)
-                    .value("STe",Yosys::RTLIL::STe)
-                    .value("STa",Yosys::RTLIL::STa)
-                    .value("STg",Yosys::RTLIL::STg)
-                    .value("STi",Yosys::RTLIL::STi)
-                ;
+				enum_<Yosys::RTLIL::SyncType>("SyncType")
+					.value("ST0",Yosys::RTLIL::ST0)
+					.value("ST1",Yosys::RTLIL::ST1)
+					.value("STp",Yosys::RTLIL::STp)
+					.value("STn",Yosys::RTLIL::STn)
+					.value("STe",Yosys::RTLIL::STe)
+					.value("STa",Yosys::RTLIL::STa)
+					.value("STg",Yosys::RTLIL::STg)
+					.value("STi",Yosys::RTLIL::STi)
+				;
 
-                enum_<Yosys::RTLIL::ConstFlags>("ConstFlags")
-                    .value("CONST_FLAG_NONE",Yosys::RTLIL::CONST_FLAG_NONE)
-                    .value("CONST_FLAG_STRING",Yosys::RTLIL::CONST_FLAG_STRING)
-                    .value("CONST_FLAG_SIGNED",Yosys::RTLIL::CONST_FLAG_SIGNED)
-                    .value("CONST_FLAG_REAL",Yosys::RTLIL::CONST_FLAG_REAL)
-                ;
+				enum_<Yosys::RTLIL::ConstFlags>("ConstFlags")
+					.value("CONST_FLAG_NONE",Yosys::RTLIL::CONST_FLAG_NONE)
+					.value("CONST_FLAG_STRING",Yosys::RTLIL::CONST_FLAG_STRING)
+					.value("CONST_FLAG_SIGNED",Yosys::RTLIL::CONST_FLAG_SIGNED)
+					.value("CONST_FLAG_REAL",Yosys::RTLIL::CONST_FLAG_REAL)
+				;
 
 		class_<MonitorWrap, boost::noncopyable>("Monitor")
-		    .def("py_notify_module_add", &Monitor::py_notify_module_add, &MonitorWrap::default_py_notify_module_add)
-		    .def("py_notify_module_del", &Monitor::py_notify_module_del, &MonitorWrap::default_py_notify_module_del)
-		    .def("py_notify_connect_cell", &Monitor::py_notify_connect_cell, &MonitorWrap::default_py_notify_connect_cell)
-		    .def("py_notify_connect_tuple", &Monitor::py_notify_connect_tuple, &MonitorWrap::default_py_notify_connect_tuple)
-		    .def("py_notify_connect_list", &Monitor::py_notify_connect_list, &MonitorWrap::default_py_notify_connect_list)
-		    .def("py_notify_blackout", &Monitor::py_notify_blackout, &MonitorWrap::default_py_notify_blackout)
-		    ;
+			.def("py_notify_module_add", &Monitor::py_notify_module_add, &MonitorWrap::default_py_notify_module_add)
+			.def("py_notify_module_del", &Monitor::py_notify_module_del, &MonitorWrap::default_py_notify_module_del)
+			.def("py_notify_connect_cell", &Monitor::py_notify_connect_cell, &MonitorWrap::default_py_notify_connect_cell)
+			.def("py_notify_connect_tuple", &Monitor::py_notify_connect_tuple, &MonitorWrap::default_py_notify_connect_tuple)
+			.def("py_notify_connect_list", &Monitor::py_notify_connect_list, &MonitorWrap::default_py_notify_connect_list)
+			.def("py_notify_blackout", &Monitor::py_notify_blackout, &MonitorWrap::default_py_notify_blackout)
+			;
 
 		class_<PassWrap, boost::noncopyable>("Pass", init<std::string, std::string>())
-		    .def("py_execute", &PyPass::py_execute, &PassWrap::default_py_execute)
-		    .def("py_help", &PyPass::py_help, &PassWrap::default_py_help)
-		    ;
+			.def("py_execute", &PyPass::py_execute, &PassWrap::default_py_execute)
+			.def("py_help", &PyPass::py_help, &PassWrap::default_py_help)
+			;
 
 		class_<Initializer>("Initializer");
 		scope().attr("_hidden") = new Initializer();
@@ -3772,7 +3772,6 @@ namespace YOSYS_PYTHON {
 		def("const_pow", const_pow);
 		def("const_pos", const_pos);
 		def("const_neg", const_neg);
-
 		def("run",run);
 		def("log",log);
 
