@@ -657,7 +657,7 @@ struct AigerWriter
 
 struct AigerBackend : public Backend {
 	AigerBackend() : Backend("aiger", "write design to AIGER file") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -690,7 +690,7 @@ struct AigerBackend : public Backend {
 		log("        like -map, but more verbose\n");
 		log("\n");
 	}
-	virtual void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		bool ascii_mode = false;
 		bool zinit_mode = false;

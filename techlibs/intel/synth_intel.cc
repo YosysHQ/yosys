@@ -28,7 +28,7 @@ PRIVATE_NAMESPACE_BEGIN
 struct SynthIntelPass : public ScriptPass {
   SynthIntelPass() : ScriptPass("synth_intel", "synthesis for Intel (Altera) FPGAs.") { }
 
-  virtual void help() YS_OVERRIDE
+  void help() YS_OVERRIDE
   {
     //   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
     log("\n");
@@ -79,7 +79,7 @@ struct SynthIntelPass : public ScriptPass {
   string top_opt, family_opt, vout_file, blif_file;
   bool retime, flatten, nobram, noiopads;
 
-  virtual void clear_flags() YS_OVERRIDE
+  void clear_flags() YS_OVERRIDE
   {
     top_opt = "-auto-top";
     family_opt = "max10";
@@ -91,7 +91,7 @@ struct SynthIntelPass : public ScriptPass {
     noiopads = false;
   }
 
-  virtual void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+  void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
   {
     string run_from, run_to;
     clear_flags();
@@ -156,7 +156,7 @@ struct SynthIntelPass : public ScriptPass {
     log_pop();
   }
 
-  virtual void script() YS_OVERRIDE
+  void script() YS_OVERRIDE
   {
     if (check_label("begin"))
       {
@@ -255,7 +255,7 @@ struct SynthIntelPass : public ScriptPass {
           run(stringf("write_verilog -attr2comment -defparam -nohex -decimal -renameprefix syn_ %s",
                       help_mode ? "<file-name>" : vout_file.c_str()));
       }
-    
+
     if (check_label("vpr"))
       {
         if (!blif_file.empty() || help_mode)
@@ -264,7 +264,7 @@ struct SynthIntelPass : public ScriptPass {
             run(stringf("write_blif %s", help_mode ? "<file-name>" : blif_file.c_str()));
           }
       }
-  }       
+  }
 } SynthIntelPass;
 
 PRIVATE_NAMESPACE_END

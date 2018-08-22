@@ -1470,7 +1470,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 
 struct OptExprPass : public Pass {
 	OptExprPass() : Pass("opt_expr", "perform const folding and simple expression rewriting") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -1504,7 +1504,7 @@ struct OptExprPass : public Pass {
 		log("        replaced by 'a'. the -keepdc option disables all such optimizations.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		bool mux_undef = false;
 		bool mux_bool = false;

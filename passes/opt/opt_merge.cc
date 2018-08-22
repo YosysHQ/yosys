@@ -341,7 +341,7 @@ struct OptMergeWorker
 
 struct OptMergePass : public Pass {
 	OptMergePass() : Pass("opt_merge", "consolidate identical cells") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -357,7 +357,7 @@ struct OptMergePass : public Pass {
 		log("        Operate on all cell types, not just built-in types.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing OPT_MERGE pass (detect identical cells).\n");
 

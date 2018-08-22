@@ -203,7 +203,8 @@ void logv_header(RTLIL::Design *design, const char *format, va_list ap)
 		log_files.pop_back();
 }
 
-void logv_warning(const char *format, va_list ap)
+static void logv_warning_with_prefix(const char *prefix,
+                                     const char *format, va_list ap)
 {
 	std::string message = vstringf(format, ap);
 	bool suppressed = false;
@@ -214,7 +215,7 @@ void logv_warning(const char *format, va_list ap)
 
 	if (suppressed)
 	{
-		log("Suppressed warning: %s", message.c_str());
+		log("Suppressed %s%s", prefix, message.c_str());
 	}
 	else
 	{
@@ -224,7 +225,7 @@ void logv_warning(const char *format, va_list ap)
 
 		if (log_warnings.count(message))
 		{
-			log("Warning: %s", message.c_str());
+			log("%s%s", prefix, message.c_str());
 			log_flush();
 		}
 		else
@@ -232,7 +233,7 @@ void logv_warning(const char *format, va_list ap)
 			if (log_errfile != NULL && !log_quiet_warnings)
 				log_files.push_back(log_errfile);
 
-			log("Warning: %s", message.c_str());
+			log("%s%s", prefix, message.c_str());
 			log_flush();
 
 			if (log_errfile != NULL && !log_quiet_warnings)
@@ -243,51 +244,32 @@ void logv_warning(const char *format, va_list ap)
 
 		log_warnings_count++;
 	}
+}
+
+void logv_warning(const char *format, va_list ap)
+{
+	logv_warning_with_prefix("Warning: ", format, ap);
 }
 
 void logv_warning_noprefix(const char *format, va_list ap)
 {
-	std::string message = vstringf(format, ap);
-	bool suppressed = false;
-
-	for (auto &re : log_nowarn_regexes)
-		if (std::regex_search(message, re))
-			suppressed = true;
-
-	if (suppressed)
-	{
-		log("%s", message.c_str());
-	}
-	else
-	{
-		for (auto &re : log_werror_regexes)
-			if (std::regex_search(message, re))
-				log_error("%s",  message.c_str());
-
-		if (log_warnings.count(message))
-		{
-			log("%s", message.c_str());
-			log_flush();
-		}
-		else
-		{
-			if (log_errfile != NULL && !log_quiet_warnings)
-				log_files.push_back(log_errfile);
-
-			log("%s", message.c_str());
-			log_flush();
-
-			if (log_errfile != NULL && !log_quiet_warnings)
-				log_files.pop_back();
-
-			log_warnings.insert(message);
-		}
-
-		log_warnings_count++;
-	}
+	logv_warning_with_prefix("", format, ap);
 }
 
-void logv_error(const char *format, va_list ap)
+void log_file_warning(const std::string &filename, int lineno,
+                      const char *format, ...)
+{
+	va_list ap;
+	va_start(ap, format);
+	std::string prefix = stringf("%s:%d: Warning: ",
+				     filename.c_str(), lineno);
+	logv_warning_with_prefix(prefix.c_str(), format, ap);
+	va_end(ap);
+}
+
+YS_ATTRIBUTE(noreturn)
+static void logv_error_with_prefix(const char *prefix,
+                                   const char *format, va_list ap)
 {
 #ifdef EMSCRIPTEN
 	auto backup_log_files = log_files;
@@ -302,7 +284,7 @@ void logv_error(const char *format, va_list ap)
 				f = stderr;
 
 	log_last_error = vstringf(format, ap);
-	log("ERROR: %s", log_last_error.c_str());
+	log("%s%s", prefix, log_last_error.c_str());
 	log_flush();
 
 	if (log_error_atexit)
@@ -316,6 +298,21 @@ void logv_error(const char *format, va_list ap)
 #else
 	_Exit(1);
 #endif
+}
+
+void logv_error(const char *format, va_list ap)
+{
+	logv_error_with_prefix("ERROR: ", format, ap);
+}
+
+void log_file_error(const string &filename, int lineno,
+                    const char *format, ...)
+{
+	va_list ap;
+	va_start(ap, format);
+	std::string prefix = stringf("%s:%d: ERROR: ",
+				     filename.c_str(), lineno);
+	logv_error_with_prefix(prefix.c_str(), format, ap);
 }
 
 void log(const char *format, ...)
@@ -636,4 +633,3 @@ dict<std::string, std::pair<std::string, int>> get_coverage_data()
 #endif
 
 YOSYS_NAMESPACE_END
-

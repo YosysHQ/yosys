@@ -636,7 +636,7 @@ extern Tcl_Interp *yosys_get_tcl_interp()
 
 struct TclPass : public Pass {
 	TclPass() : Pass("tcl", "execute a TCL script file") { }
-	virtual void help() {
+	void help() YS_OVERRIDE {
 		log("\n");
 		log("    tcl <filename>\n");
 		log("\n");
@@ -649,7 +649,7 @@ struct TclPass : public Pass {
 		log("in order to avoid a name collision with the built in commands.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) {
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE {
 		if (args.size() < 2)
 			log_cmd_error("Missing script file.\n");
 		if (args.size() > 2)
@@ -824,6 +824,8 @@ void run_frontend(std::string filename, std::string command, std::string *backen
 		else if (filename.size() > 2 && filename.substr(filename.size()-4) == ".vhd")
 			command = "vhdl";
 		else if (filename.size() > 4 && filename.substr(filename.size()-5) == ".blif")
+			command = "blif";
+		else if (filename.size() > 5 && filename.substr(filename.size()-6) == ".eblif")
 			command = "blif";
 		else if (filename.size() > 4 && filename.substr(filename.size()-5) == ".json")
 			command = "json";
@@ -1111,7 +1113,7 @@ void shell(RTLIL::Design *design)
 
 struct ShellPass : public Pass {
 	ShellPass() : Pass("shell", "enter interactive command mode") { }
-	virtual void help() {
+	void help() YS_OVERRIDE {
 		log("\n");
 		log("    shell\n");
 		log("\n");
@@ -1143,7 +1145,7 @@ struct ShellPass : public Pass {
 		log("Press Ctrl-D or type 'exit' to leave the interactive shell.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) {
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE {
 		extra_args(args, 1, design, false);
 		shell(design);
 	}
@@ -1152,7 +1154,7 @@ struct ShellPass : public Pass {
 #if defined(YOSYS_ENABLE_READLINE) || defined(YOSYS_ENABLE_EDITLINE)
 struct HistoryPass : public Pass {
 	HistoryPass() : Pass("history", "show last interactive commands") { }
-	virtual void help() {
+	void help() YS_OVERRIDE {
 		log("\n");
 		log("    history\n");
 		log("\n");
@@ -1161,7 +1163,7 @@ struct HistoryPass : public Pass {
 		log("from executed scripts.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) {
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE {
 		extra_args(args, 1, design, false);
 #ifdef YOSYS_ENABLE_READLINE
 		for(HIST_ENTRY **list = history_list(); *list != NULL; list++)
@@ -1176,7 +1178,7 @@ struct HistoryPass : public Pass {
 
 struct ScriptCmdPass : public Pass {
 	ScriptCmdPass() : Pass("script", "execute commands from script file") { }
-	virtual void help() {
+	void help() YS_OVERRIDE {
 		log("\n");
 		log("    script <filename> [<from_label>:<to_label>]\n");
 		log("\n");
@@ -1191,7 +1193,7 @@ struct ScriptCmdPass : public Pass {
 		log("marked with that label (until the next label) is executed.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) {
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE {
 		if (args.size() < 2)
 			log_cmd_error("Missing script file.\n");
 		else if (args.size() == 2)

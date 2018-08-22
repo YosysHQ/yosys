@@ -24,7 +24,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct ChtypePass : public Pass {
 	ChtypePass() : Pass("chtype", "change type of cells in the design") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -40,7 +40,7 @@ struct ChtypePass : public Pass {
 		log("\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		IdString set_type;
 		dict<IdString, IdString> map_types;

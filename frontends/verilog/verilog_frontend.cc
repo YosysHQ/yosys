@@ -42,14 +42,14 @@ static std::list<std::vector<std::string>> verilog_defaults_stack;
 static void error_on_dpi_function(AST::AstNode *node)
 {
 	if (node->type == AST::AST_DPI_FUNCTION)
-		log_error("Found DPI function %s at %s:%d.\n", node->str.c_str(), node->filename.c_str(), node->linenum);
+		log_file_error(node->filename, node->linenum, "Found DPI function %s.\n", node->str.c_str());
 	for (auto child : node->children)
 		error_on_dpi_function(child);
 }
 
 struct VerilogFrontend : public Frontend {
 	VerilogFrontend() : Frontend("verilog", "read modules from Verilog file") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -180,7 +180,7 @@ struct VerilogFrontend : public Frontend {
 		log("supported by the Yosys Verilog front-end.\n");
 		log("\n");
 	}
-	virtual void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		bool flag_dump_ast1 = false;
 		bool flag_dump_ast2 = false;
@@ -395,7 +395,7 @@ struct VerilogFrontend : public Frontend {
 
 struct VerilogDefaults : public Pass {
 	VerilogDefaults() : Pass("verilog_defaults", "set default options for read_verilog") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -416,7 +416,7 @@ struct VerilogDefaults : public Pass {
 		log("not imply -clear.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design*)
+	void execute(std::vector<std::string> args, RTLIL::Design*) YS_OVERRIDE
 	{
 		if (args.size() < 2)
 			cmd_error(args, 1, "Missing argument.");
@@ -453,7 +453,7 @@ struct VerilogDefaults : public Pass {
 
 struct VerilogDefines : public Pass {
 	VerilogDefines() : Pass("verilog_defines", "define and undefine verilog defines") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -469,7 +469,7 @@ struct VerilogDefines : public Pass {
 		log("        undefine the preprocessor symbol 'name'\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -519,13 +519,11 @@ void frontend_verilog_yyerror(char const *fmt, ...)
 	va_list ap;
 	char buffer[1024];
 	char *p = buffer;
-	p += snprintf(p, buffer + sizeof(buffer) - p, "Parser error in line %s:%d: ",
-			YOSYS_NAMESPACE_PREFIX AST::current_filename.c_str(), frontend_verilog_yyget_lineno());
 	va_start(ap, fmt);
 	p += vsnprintf(p, buffer + sizeof(buffer) - p, fmt, ap);
 	va_end(ap);
 	p += snprintf(p, buffer + sizeof(buffer) - p, "\n");
-	YOSYS_NAMESPACE_PREFIX log_error("%s", buffer);
+	YOSYS_NAMESPACE_PREFIX log_file_error(YOSYS_NAMESPACE_PREFIX AST::current_filename, frontend_verilog_yyget_lineno(),
+					      "%s", buffer);
 	exit(1);
 }
-
