@@ -39,6 +39,7 @@ namespace YOSYS_PYTHON {
 		Yosys::log("%s",text.c_str());
 	}
 
+	//WRAPPED from kernel/rtlil
 	struct IdString
 	{
 		Yosys::RTLIL::IdString* ref_obj;
@@ -113,6 +114,7 @@ namespace YOSYS_PYTHON {
 		ostr << ref.ref_obj->str();
 		return ostr;
 	}
+	//WRAPPED from kernel/rtlil
 	struct Const
 	{
 		Yosys::RTLIL::Const* ref_obj;
@@ -185,6 +187,7 @@ namespace YOSYS_PYTHON {
 		ostr << ref.ref_obj->as_string();
 		return ostr;
 	}
+	//WRAPPED from kernel/rtlil
 	struct CaseRule
 	{
 		Yosys::RTLIL::CaseRule* ref_obj;
@@ -218,6 +221,7 @@ namespace YOSYS_PYTHON {
 		ostr << "CaseRule object at " << ref.ref_obj;
 		return ostr;
 	}
+	//WRAPPED from kernel/rtlil
 	struct SwitchRule
 	{
 		Yosys::RTLIL::SwitchRule* ref_obj;
@@ -251,6 +255,7 @@ namespace YOSYS_PYTHON {
 		ostr << "SwitchRule object at " << ref.ref_obj;
 		return ostr;
 	}
+	//WRAPPED from kernel/rtlil
 	struct SyncRule
 	{
 		Yosys::RTLIL::SyncRule* ref_obj;
@@ -284,6 +289,7 @@ namespace YOSYS_PYTHON {
 		ostr << "SyncRule object at " << ref.ref_obj;
 		return ostr;
 	}
+	//WRAPPED from kernel/rtlil
 	struct Process
 	{
 		Yosys::RTLIL::Process* ref_obj;
@@ -317,6 +323,7 @@ namespace YOSYS_PYTHON {
 		ostr << "Process with name " << ref.ref_obj->name.c_str();
 		return ostr;
 	}
+	//WRAPPED from kernel/rtlil
 	struct SigChunk
 	{
 		Yosys::RTLIL::SigChunk* ref_obj;
@@ -356,6 +363,7 @@ namespace YOSYS_PYTHON {
 		ostr << "SigChunk object at " << ref.ref_obj;
 		return ostr;
 	}
+	//WRAPPED from kernel/rtlil
 	struct SigBit
 	{
 		Yosys::RTLIL::SigBit* ref_obj;
@@ -395,6 +403,7 @@ namespace YOSYS_PYTHON {
 		ostr << "SigBit object at " << ref.ref_obj;
 		return ostr;
 	}
+	//WRAPPED from kernel/rtlil
 	struct SigSpec
 	{
 		Yosys::RTLIL::SigSpec* ref_obj;
@@ -560,6 +569,7 @@ namespace YOSYS_PYTHON {
 		ostr << "SigSpec object at " << ref.ref_obj;
 		return ostr;
 	}
+	//WRAPPED from kernel/rtlil
 	struct Cell
 	{
 		unsigned int hashidx_;
@@ -624,6 +634,7 @@ namespace YOSYS_PYTHON {
 			ostr << "deleted Cell";
 		return ostr;
 	}
+	//WRAPPED from kernel/rtlil
 	struct Wire
 	{
 		unsigned int hashidx_;
@@ -655,6 +666,7 @@ namespace YOSYS_PYTHON {
 			ostr << "deleted Wire";
 		return ostr;
 	}
+	//WRAPPED from kernel/rtlil
 	struct Memory
 	{
 		unsigned int hashidx_;
@@ -686,6 +698,7 @@ namespace YOSYS_PYTHON {
 			ostr << "deleted Memory";
 		return ostr;
 	}
+	//WRAPPED from kernel/rtlil
 	struct Module
 	{
 		unsigned int hashidx_;
@@ -715,7 +728,7 @@ namespace YOSYS_PYTHON {
 			}
 			for(auto &mod_it : cpp_obj->cells_)
 			{
-				result.append(new Cell(mod_it.second));
+				result.append(Cell(mod_it.second));
 			}
 			return result;
 		}
@@ -730,7 +743,7 @@ namespace YOSYS_PYTHON {
 			}
 			for(auto &mod_it : cpp_obj->wires_)
 			{
-				result.append(new Wire(mod_it.second));
+				result.append(Wire(mod_it.second));
 			}
 			return result;
 		}
@@ -1199,6 +1212,7 @@ namespace YOSYS_PYTHON {
 			ostr << "deleted Module";
 		return ostr;
 	}
+	//WRAPPED from kernel/rtlil
 	struct Design
 	{
 		unsigned int hashidx_;
@@ -1228,7 +1242,7 @@ namespace YOSYS_PYTHON {
 			}
 			for(auto &mod_it : cpp_obj->modules_)
 			{
-				result.append(new Module(mod_it.second));
+				result.append(Module(mod_it.second));
 			}
 			return result;
 		}
@@ -1313,229 +1327,229 @@ namespace YOSYS_PYTHON {
 		return ostr;
 	}
 
-	//WRAPPED static inline std::string escape_id(std::string str) {
+	//WRAPPED static inline std::string escape_id(std::string str) { FROM FILE kernel/rtlil.h
 	inline std::string escape_id(std::string str)
 	{
 		return Yosys::RTLIL::escape_id(str);
 	}
 
-	//WRAPPED static inline std::string unescape_id(std::string str) {
+	//WRAPPED static inline std::string unescape_id(std::string str) { FROM FILE kernel/rtlil.h
 	inline std::string unescape_id_std_string(std::string str)
 	{
 		return Yosys::RTLIL::unescape_id(str);
 	}
 
-	//WRAPPED static inline std::string unescape_id(RTLIL::IdString str) {
+	//WRAPPED static inline std::string unescape_id(RTLIL::IdString str) { FROM FILE kernel/rtlil.h
 	inline std::string unescape_id_IdString(IdString *str)
 	{
 		return Yosys::RTLIL::unescape_id(*str->get_cpp_obj());
 	}
 
-	//WRAPPED RTLIL::Const const_not(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	//WRAPPED RTLIL::Const const_not(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len); FROM FILE kernel/rtlil.h
 	Const const_not(Const *arg1, Const *arg2, bool signed1, bool signed2, int result_len)
 	{
 		return Const(Yosys::RTLIL::const_not(*arg1->get_cpp_obj(), *arg2->get_cpp_obj(), signed1, signed2, result_len));
 	}
 
-	//WRAPPED RTLIL::Const const_and(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	//WRAPPED RTLIL::Const const_and(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len); FROM FILE kernel/rtlil.h
 	Const const_and(Const *arg1, Const *arg2, bool signed1, bool signed2, int result_len)
 	{
 		return Const(Yosys::RTLIL::const_and(*arg1->get_cpp_obj(), *arg2->get_cpp_obj(), signed1, signed2, result_len));
 	}
 
-	//WRAPPED RTLIL::Const const_or(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	//WRAPPED RTLIL::Const const_or(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len); FROM FILE kernel/rtlil.h
 	Const const_or(Const *arg1, Const *arg2, bool signed1, bool signed2, int result_len)
 	{
 		return Const(Yosys::RTLIL::const_or(*arg1->get_cpp_obj(), *arg2->get_cpp_obj(), signed1, signed2, result_len));
 	}
 
-	//WRAPPED RTLIL::Const const_xor(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	//WRAPPED RTLIL::Const const_xor(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len); FROM FILE kernel/rtlil.h
 	Const const_xor(Const *arg1, Const *arg2, bool signed1, bool signed2, int result_len)
 	{
 		return Const(Yosys::RTLIL::const_xor(*arg1->get_cpp_obj(), *arg2->get_cpp_obj(), signed1, signed2, result_len));
 	}
 
-	//WRAPPED RTLIL::Const const_xnor(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	//WRAPPED RTLIL::Const const_xnor(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len); FROM FILE kernel/rtlil.h
 	Const const_xnor(Const *arg1, Const *arg2, bool signed1, bool signed2, int result_len)
 	{
 		return Const(Yosys::RTLIL::const_xnor(*arg1->get_cpp_obj(), *arg2->get_cpp_obj(), signed1, signed2, result_len));
 	}
 
-	//WRAPPED RTLIL::Const const_reduce_and(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	//WRAPPED RTLIL::Const const_reduce_and(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len); FROM FILE kernel/rtlil.h
 	Const const_reduce_and(Const *arg1, Const *arg2, bool signed1, bool signed2, int result_len)
 	{
 		return Const(Yosys::RTLIL::const_reduce_and(*arg1->get_cpp_obj(), *arg2->get_cpp_obj(), signed1, signed2, result_len));
 	}
 
-	//WRAPPED RTLIL::Const const_reduce_or(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	//WRAPPED RTLIL::Const const_reduce_or(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len); FROM FILE kernel/rtlil.h
 	Const const_reduce_or(Const *arg1, Const *arg2, bool signed1, bool signed2, int result_len)
 	{
 		return Const(Yosys::RTLIL::const_reduce_or(*arg1->get_cpp_obj(), *arg2->get_cpp_obj(), signed1, signed2, result_len));
 	}
 
-	//WRAPPED RTLIL::Const const_reduce_xor(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	//WRAPPED RTLIL::Const const_reduce_xor(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len); FROM FILE kernel/rtlil.h
 	Const const_reduce_xor(Const *arg1, Const *arg2, bool signed1, bool signed2, int result_len)
 	{
 		return Const(Yosys::RTLIL::const_reduce_xor(*arg1->get_cpp_obj(), *arg2->get_cpp_obj(), signed1, signed2, result_len));
 	}
 
-	//WRAPPED RTLIL::Const const_reduce_xnor(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	//WRAPPED RTLIL::Const const_reduce_xnor(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len); FROM FILE kernel/rtlil.h
 	Const const_reduce_xnor(Const *arg1, Const *arg2, bool signed1, bool signed2, int result_len)
 	{
 		return Const(Yosys::RTLIL::const_reduce_xnor(*arg1->get_cpp_obj(), *arg2->get_cpp_obj(), signed1, signed2, result_len));
 	}
 
-	//WRAPPED RTLIL::Const const_reduce_bool(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	//WRAPPED RTLIL::Const const_reduce_bool(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len); FROM FILE kernel/rtlil.h
 	Const const_reduce_bool(Const *arg1, Const *arg2, bool signed1, bool signed2, int result_len)
 	{
 		return Const(Yosys::RTLIL::const_reduce_bool(*arg1->get_cpp_obj(), *arg2->get_cpp_obj(), signed1, signed2, result_len));
 	}
 
-	//WRAPPED RTLIL::Const const_logic_not(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	//WRAPPED RTLIL::Const const_logic_not(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len); FROM FILE kernel/rtlil.h
 	Const const_logic_not(Const *arg1, Const *arg2, bool signed1, bool signed2, int result_len)
 	{
 		return Const(Yosys::RTLIL::const_logic_not(*arg1->get_cpp_obj(), *arg2->get_cpp_obj(), signed1, signed2, result_len));
 	}
 
-	//WRAPPED RTLIL::Const const_logic_and(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	//WRAPPED RTLIL::Const const_logic_and(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len); FROM FILE kernel/rtlil.h
 	Const const_logic_and(Const *arg1, Const *arg2, bool signed1, bool signed2, int result_len)
 	{
 		return Const(Yosys::RTLIL::const_logic_and(*arg1->get_cpp_obj(), *arg2->get_cpp_obj(), signed1, signed2, result_len));
 	}
 
-	//WRAPPED RTLIL::Const const_logic_or(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	//WRAPPED RTLIL::Const const_logic_or(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len); FROM FILE kernel/rtlil.h
 	Const const_logic_or(Const *arg1, Const *arg2, bool signed1, bool signed2, int result_len)
 	{
 		return Const(Yosys::RTLIL::const_logic_or(*arg1->get_cpp_obj(), *arg2->get_cpp_obj(), signed1, signed2, result_len));
 	}
 
-	//WRAPPED RTLIL::Const const_shl(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	//WRAPPED RTLIL::Const const_shl(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len); FROM FILE kernel/rtlil.h
 	Const const_shl(Const *arg1, Const *arg2, bool signed1, bool signed2, int result_len)
 	{
 		return Const(Yosys::RTLIL::const_shl(*arg1->get_cpp_obj(), *arg2->get_cpp_obj(), signed1, signed2, result_len));
 	}
 
-	//WRAPPED RTLIL::Const const_shr(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	//WRAPPED RTLIL::Const const_shr(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len); FROM FILE kernel/rtlil.h
 	Const const_shr(Const *arg1, Const *arg2, bool signed1, bool signed2, int result_len)
 	{
 		return Const(Yosys::RTLIL::const_shr(*arg1->get_cpp_obj(), *arg2->get_cpp_obj(), signed1, signed2, result_len));
 	}
 
-	//WRAPPED RTLIL::Const const_sshl(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	//WRAPPED RTLIL::Const const_sshl(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len); FROM FILE kernel/rtlil.h
 	Const const_sshl(Const *arg1, Const *arg2, bool signed1, bool signed2, int result_len)
 	{
 		return Const(Yosys::RTLIL::const_sshl(*arg1->get_cpp_obj(), *arg2->get_cpp_obj(), signed1, signed2, result_len));
 	}
 
-	//WRAPPED RTLIL::Const const_sshr(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	//WRAPPED RTLIL::Const const_sshr(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len); FROM FILE kernel/rtlil.h
 	Const const_sshr(Const *arg1, Const *arg2, bool signed1, bool signed2, int result_len)
 	{
 		return Const(Yosys::RTLIL::const_sshr(*arg1->get_cpp_obj(), *arg2->get_cpp_obj(), signed1, signed2, result_len));
 	}
 
-	//WRAPPED RTLIL::Const const_shift(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	//WRAPPED RTLIL::Const const_shift(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len); FROM FILE kernel/rtlil.h
 	Const const_shift(Const *arg1, Const *arg2, bool signed1, bool signed2, int result_len)
 	{
 		return Const(Yosys::RTLIL::const_shift(*arg1->get_cpp_obj(), *arg2->get_cpp_obj(), signed1, signed2, result_len));
 	}
 
-	//WRAPPED RTLIL::Const const_shiftx(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	//WRAPPED RTLIL::Const const_shiftx(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len); FROM FILE kernel/rtlil.h
 	Const const_shiftx(Const *arg1, Const *arg2, bool signed1, bool signed2, int result_len)
 	{
 		return Const(Yosys::RTLIL::const_shiftx(*arg1->get_cpp_obj(), *arg2->get_cpp_obj(), signed1, signed2, result_len));
 	}
 
-	//WRAPPED RTLIL::Const const_lt(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	//WRAPPED RTLIL::Const const_lt(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len); FROM FILE kernel/rtlil.h
 	Const const_lt(Const *arg1, Const *arg2, bool signed1, bool signed2, int result_len)
 	{
 		return Const(Yosys::RTLIL::const_lt(*arg1->get_cpp_obj(), *arg2->get_cpp_obj(), signed1, signed2, result_len));
 	}
 
-	//WRAPPED RTLIL::Const const_le(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	//WRAPPED RTLIL::Const const_le(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len); FROM FILE kernel/rtlil.h
 	Const const_le(Const *arg1, Const *arg2, bool signed1, bool signed2, int result_len)
 	{
 		return Const(Yosys::RTLIL::const_le(*arg1->get_cpp_obj(), *arg2->get_cpp_obj(), signed1, signed2, result_len));
 	}
 
-	//WRAPPED RTLIL::Const const_eq(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	//WRAPPED RTLIL::Const const_eq(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len); FROM FILE kernel/rtlil.h
 	Const const_eq(Const *arg1, Const *arg2, bool signed1, bool signed2, int result_len)
 	{
 		return Const(Yosys::RTLIL::const_eq(*arg1->get_cpp_obj(), *arg2->get_cpp_obj(), signed1, signed2, result_len));
 	}
 
-	//WRAPPED RTLIL::Const const_ne(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	//WRAPPED RTLIL::Const const_ne(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len); FROM FILE kernel/rtlil.h
 	Const const_ne(Const *arg1, Const *arg2, bool signed1, bool signed2, int result_len)
 	{
 		return Const(Yosys::RTLIL::const_ne(*arg1->get_cpp_obj(), *arg2->get_cpp_obj(), signed1, signed2, result_len));
 	}
 
-	//WRAPPED RTLIL::Const const_eqx(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	//WRAPPED RTLIL::Const const_eqx(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len); FROM FILE kernel/rtlil.h
 	Const const_eqx(Const *arg1, Const *arg2, bool signed1, bool signed2, int result_len)
 	{
 		return Const(Yosys::RTLIL::const_eqx(*arg1->get_cpp_obj(), *arg2->get_cpp_obj(), signed1, signed2, result_len));
 	}
 
-	//WRAPPED RTLIL::Const const_nex(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	//WRAPPED RTLIL::Const const_nex(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len); FROM FILE kernel/rtlil.h
 	Const const_nex(Const *arg1, Const *arg2, bool signed1, bool signed2, int result_len)
 	{
 		return Const(Yosys::RTLIL::const_nex(*arg1->get_cpp_obj(), *arg2->get_cpp_obj(), signed1, signed2, result_len));
 	}
 
-	//WRAPPED RTLIL::Const const_ge(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	//WRAPPED RTLIL::Const const_ge(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len); FROM FILE kernel/rtlil.h
 	Const const_ge(Const *arg1, Const *arg2, bool signed1, bool signed2, int result_len)
 	{
 		return Const(Yosys::RTLIL::const_ge(*arg1->get_cpp_obj(), *arg2->get_cpp_obj(), signed1, signed2, result_len));
 	}
 
-	//WRAPPED RTLIL::Const const_gt(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	//WRAPPED RTLIL::Const const_gt(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len); FROM FILE kernel/rtlil.h
 	Const const_gt(Const *arg1, Const *arg2, bool signed1, bool signed2, int result_len)
 	{
 		return Const(Yosys::RTLIL::const_gt(*arg1->get_cpp_obj(), *arg2->get_cpp_obj(), signed1, signed2, result_len));
 	}
 
-	//WRAPPED RTLIL::Const const_add(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	//WRAPPED RTLIL::Const const_add(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len); FROM FILE kernel/rtlil.h
 	Const const_add(Const *arg1, Const *arg2, bool signed1, bool signed2, int result_len)
 	{
 		return Const(Yosys::RTLIL::const_add(*arg1->get_cpp_obj(), *arg2->get_cpp_obj(), signed1, signed2, result_len));
 	}
 
-	//WRAPPED RTLIL::Const const_sub(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	//WRAPPED RTLIL::Const const_sub(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len); FROM FILE kernel/rtlil.h
 	Const const_sub(Const *arg1, Const *arg2, bool signed1, bool signed2, int result_len)
 	{
 		return Const(Yosys::RTLIL::const_sub(*arg1->get_cpp_obj(), *arg2->get_cpp_obj(), signed1, signed2, result_len));
 	}
 
-	//WRAPPED RTLIL::Const const_mul(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	//WRAPPED RTLIL::Const const_mul(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len); FROM FILE kernel/rtlil.h
 	Const const_mul(Const *arg1, Const *arg2, bool signed1, bool signed2, int result_len)
 	{
 		return Const(Yosys::RTLIL::const_mul(*arg1->get_cpp_obj(), *arg2->get_cpp_obj(), signed1, signed2, result_len));
 	}
 
-	//WRAPPED RTLIL::Const const_div(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	//WRAPPED RTLIL::Const const_div(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len); FROM FILE kernel/rtlil.h
 	Const const_div(Const *arg1, Const *arg2, bool signed1, bool signed2, int result_len)
 	{
 		return Const(Yosys::RTLIL::const_div(*arg1->get_cpp_obj(), *arg2->get_cpp_obj(), signed1, signed2, result_len));
 	}
 
-	//WRAPPED RTLIL::Const const_mod(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	//WRAPPED RTLIL::Const const_mod(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len); FROM FILE kernel/rtlil.h
 	Const const_mod(Const *arg1, Const *arg2, bool signed1, bool signed2, int result_len)
 	{
 		return Const(Yosys::RTLIL::const_mod(*arg1->get_cpp_obj(), *arg2->get_cpp_obj(), signed1, signed2, result_len));
 	}
 
-	//WRAPPED RTLIL::Const const_pow(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	//WRAPPED RTLIL::Const const_pow(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len); FROM FILE kernel/rtlil.h
 	Const const_pow(Const *arg1, Const *arg2, bool signed1, bool signed2, int result_len)
 	{
 		return Const(Yosys::RTLIL::const_pow(*arg1->get_cpp_obj(), *arg2->get_cpp_obj(), signed1, signed2, result_len));
 	}
 
-	//WRAPPED RTLIL::Const const_pos(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	//WRAPPED RTLIL::Const const_pos(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len); FROM FILE kernel/rtlil.h
 	Const const_pos(Const *arg1, Const *arg2, bool signed1, bool signed2, int result_len)
 	{
 		return Const(Yosys::RTLIL::const_pos(*arg1->get_cpp_obj(), *arg2->get_cpp_obj(), signed1, signed2, result_len));
 	}
 
-	//WRAPPED RTLIL::Const const_neg(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	//WRAPPED RTLIL::Const const_neg(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len); FROM FILE kernel/rtlil.h
 	Const const_neg(Const *arg1, Const *arg2, bool signed1, bool signed2, int result_len)
 	{
 		return Const(Yosys::RTLIL::const_neg(*arg1->get_cpp_obj(), *arg2->get_cpp_obj(), signed1, signed2, result_len));
@@ -1546,19 +1560,19 @@ namespace YOSYS_PYTHON {
 
 		virtual void notify_module_add(Yosys::RTLIL::Module *module) YS_OVERRIDE
 		{
-			py_notify_module_add(new Module(module));
+			py_notify_module_add(Module(module));
 		}
 
 		virtual void notify_module_del(Yosys::RTLIL::Module *module) YS_OVERRIDE
 		{
-			py_notify_module_del(new Module(module));
+			py_notify_module_del(Module(module));
 		}
 
 		virtual void notify_connect(Yosys::RTLIL::Cell *cell, const Yosys::RTLIL::IdString &port, const Yosys::RTLIL::SigSpec &old_sig, Yosys::RTLIL::SigSpec &sig) YS_OVERRIDE
 		{
 			Yosys::RTLIL::IdString *tmp_port = new Yosys::RTLIL::IdString(port);
 			Yosys::RTLIL::SigSpec *tmp_old_sig = new Yosys::RTLIL::SigSpec(old_sig);
-			py_notify_connect_cell(new Cell(cell), new IdString(tmp_port), new SigSpec(tmp_old_sig), new SigSpec(&sig));
+			py_notify_connect_cell(Cell(cell), IdString(tmp_port), SigSpec(tmp_old_sig), SigSpec(&sig));
 			delete tmp_port;
 			delete tmp_old_sig;
 		}
@@ -1567,7 +1581,7 @@ namespace YOSYS_PYTHON {
 		{
 			Yosys::RTLIL::SigSpec *first = new Yosys::RTLIL::SigSpec(sigsig.first);
 			Yosys::RTLIL::SigSpec *second = new Yosys::RTLIL::SigSpec(sigsig.second);
-			py_notify_connect_tuple(new Module(module), boost::python::make_tuple(new SigSpec(first), new SigSpec(second)));
+			py_notify_connect_tuple(Module(module), boost::python::make_tuple(SigSpec(first), SigSpec(second)));
 			delete first;
 			delete second;
 		}
@@ -1576,26 +1590,26 @@ namespace YOSYS_PYTHON {
 		{
 			boost::python::list sigsig_list;
 			for(auto sigsig : sigsig_vec)
-				sigsig_list.append(boost::python::make_tuple(new SigSpec(&sigsig.first), new SigSpec(&sigsig.second)));
-			py_notify_connect_list(new Module(module), sigsig_list);
+				sigsig_list.append(boost::python::make_tuple(SigSpec(&sigsig.first), SigSpec(&sigsig.second)));
+			py_notify_connect_list(Module(module), sigsig_list);
 		}
 
 		virtual void notify_blackout(Yosys::RTLIL::Module *module) YS_OVERRIDE
 		{
-			py_notify_blackout(new Module(module));
+			py_notify_blackout(Module(module));
 		}
 
-		virtual void py_notify_module_add(Module*){};
-		virtual void py_notify_module_del(Module*){};
-		virtual void py_notify_connect_cell(Cell *cell, IdString *port, SigSpec *old_sig, SigSpec *sig){};
-		virtual void py_notify_connect_tuple(Module *module, boost::python::tuple sigsig){};
-		virtual void py_notify_connect_list(Module* module, boost::python::list sigsig_list){};
-		virtual void py_notify_blackout(Module*){};
+		virtual void py_notify_module_add(Module){};
+		virtual void py_notify_module_del(Module){};
+		virtual void py_notify_connect_cell(Cell cell, IdString port, SigSpec old_sig, SigSpec sig){};
+		virtual void py_notify_connect_tuple(Module module, boost::python::tuple sigsig){};
+		virtual void py_notify_connect_list(Module module, boost::python::list sigsig_list){};
+		virtual void py_notify_blackout(Module){};
 	};
 
 	struct MonitorWrap : Monitor, boost::python::wrapper<Monitor>
 	{
-		void py_notify_module_add(Module* m)
+		void py_notify_module_add(Module m)
 		{
 			if(boost::python::override py_notify_module_add = this->get_override("py_notify_module_add"))
 				py_notify_module_add(m);
@@ -1603,12 +1617,12 @@ namespace YOSYS_PYTHON {
 				Monitor::py_notify_module_add(m);
 		}
 
-		void default_py_notify_module_add(Module* m)
+		void default_py_notify_module_add(Module m)
 		{
 			this->Monitor::py_notify_module_add(m);
 		}
 
-		void py_notify_module_del(Module* m)
+		void py_notify_module_del(Module m)
 		{
 			if(boost::python::override py_notify_module_del = this->get_override("py_notify_module_del"))
 				py_notify_module_del(m);
@@ -1616,12 +1630,12 @@ namespace YOSYS_PYTHON {
 				Monitor::py_notify_module_del(m);
 		}
 
-		void default_py_notify_module_del(Module* m)
+		void default_py_notify_module_del(Module m)
 		{
 			this->Monitor::py_notify_module_del(m);
 		}
 
-		void py_notify_connect_cell(Cell *cell, IdString *port, SigSpec *old_sig, SigSpec *sig)
+		void py_notify_connect_cell(Cell cell, IdString port, SigSpec old_sig, SigSpec sig)
 		{
 			if(boost::python::override py_notify_connect_cell = this->get_override("py_notify_connect_cell"))
 				py_notify_connect_cell(cell, port, old_sig, sig);
@@ -1629,12 +1643,12 @@ namespace YOSYS_PYTHON {
 				Monitor::py_notify_connect_cell(cell, port, old_sig, sig);
 		}
 
-		void default_py_notify_connect_cell(Cell *cell, IdString *port, SigSpec *old_sig, SigSpec *sig)
+		void default_py_notify_connect_cell(Cell cell, IdString port, SigSpec old_sig, SigSpec sig)
 		{
 			this->Monitor::py_notify_connect_cell(cell, port, old_sig, sig);
 		}
 
-		void py_notify_connect_tuple(Module *module, boost::python::tuple sigsig)
+		void py_notify_connect_tuple(Module module, boost::python::tuple sigsig)
 		{
 			if(boost::python::override py_notify_connect_tuple = this->get_override("py_notify_connect_tuple"))
 				py_notify_connect_tuple(module, sigsig);
@@ -1642,12 +1656,12 @@ namespace YOSYS_PYTHON {
 				Monitor::py_notify_connect_tuple(module, sigsig);
 		}
 
-		void default_py_notify_connect_tuple(Module *module, boost::python::tuple sigsig)
+		void default_py_notify_connect_tuple(Module module, boost::python::tuple sigsig)
 		{
 			this->Monitor::py_notify_connect_tuple(module, sigsig);
 		}
 
-		void py_notify_connect_list(Module* module, boost::python::list sigsig_list)
+		void py_notify_connect_list(Module module, boost::python::list sigsig_list)
 		{
 			if(boost::python::override py_notify_connect_list = this->get_override("py_notify_connect_list"))
 				py_notify_connect_list(module, sigsig_list);
@@ -1655,12 +1669,12 @@ namespace YOSYS_PYTHON {
 				Monitor::py_notify_connect_list(module, sigsig_list);
 		}
 
-		void default_py_notify_connect_list(Module* module, boost::python::list sigsig_list)
+		void default_py_notify_connect_list(Module module, boost::python::list sigsig_list)
 		{
 			this->Monitor::py_notify_connect_list(module, sigsig_list);
 		}
 
-		void py_notify_blackout(Module* m)
+		void py_notify_blackout(Module m)
 		{
 			if(boost::python::override py_notify_blackout = this->get_override("py_notify_blackout"))
 				py_notify_blackout(m);
@@ -1668,7 +1682,7 @@ namespace YOSYS_PYTHON {
 				Monitor::py_notify_blackout(m);
 		}
 
-		void default_py_notify_blackout(Module* m)
+		void default_py_notify_blackout(Module m)
 		{
 			this->Monitor::py_notify_blackout(m);
 		}
@@ -1743,67 +1757,67 @@ namespace YOSYS_PYTHON {
 		cpp_design->monitors.insert(m);
 	}
 
-	//WRAPPED static inline int get_reference(int idx)
+	//WRAPPED static inline int get_reference(int idx) FROM FILE kernel/rtlil.h
 	inline int IdString::get_reference(int idx)
 	{
 		return Yosys::RTLIL::IdString::get_reference(idx);
 	}
 
-	//WRAPPED static inline void put_reference(int idx)
+	//WRAPPED static inline void put_reference(int idx) FROM FILE kernel/rtlil.h
 	inline void IdString::put_reference(int idx)
 	{
 		Yosys::RTLIL::IdString::put_reference(idx);
 	}
 
-	//WRAPPED std::string str() const {
+	//WRAPPED std::string str() const { FROM FILE kernel/rtlil.h
 	std::string IdString::str()
 	{
 		return this->get_cpp_obj()->str();
 	}
 
-	//WRAPPED std::string substr(size_t pos = 0, size_t len = std::string::npos) const {
+	//WRAPPED std::string substr(size_t pos = 0, size_t len = std::string::npos) const { FROM FILE kernel/rtlil.h
 	std::string IdString::substr(size_t pos, size_t len)
 	{
 		return this->get_cpp_obj()->substr(pos, len);
 	}
 
-	//WRAPPED size_t size() const {
+	//WRAPPED size_t size() const { FROM FILE kernel/rtlil.h
 	size_t IdString::size()
 	{
 		return this->get_cpp_obj()->size();
 	}
 
-	//WRAPPED bool empty() const {
+	//WRAPPED bool empty() const { FROM FILE kernel/rtlil.h
 	bool IdString::empty()
 	{
 		return this->get_cpp_obj()->empty();
 	}
 
-	//WRAPPED void clear() {
+	//WRAPPED void clear() { FROM FILE kernel/rtlil.h
 	void IdString::clear()
 	{
 		this->get_cpp_obj()->clear();
 	}
 
-	//WRAPPED unsigned int hash() const {
+	//WRAPPED unsigned int hash() const { FROM FILE kernel/rtlil.h
 	unsigned int IdString::hash()
 	{
 		return this->get_cpp_obj()->hash();
 	}
 
-	//WRAPPED bool in(IdString rhs) const { return *this == rhs; }
+	//WRAPPED bool in(IdString rhs) const { return *this == rhs; } FROM FILE kernel/rtlil.h
 	bool IdString::in_IdString(IdString *rhs)
 	{
 		return this->get_cpp_obj()->in(*rhs->get_cpp_obj());
 	}
 
-	//WRAPPED bool in(const std::string &rhs) const { return *this == rhs; }
+	//WRAPPED bool in(const std::string &rhs) const { return *this == rhs; } FROM FILE kernel/rtlil.h
 	bool IdString::in_std_string(std::string rhs)
 	{
 		return this->get_cpp_obj()->in(rhs);
 	}
 
-	//WRAPPED bool in(const pool<IdString> &rhs) const { return rhs.count(*this) != 0; }
+	//WRAPPED bool in(const pool<IdString> &rhs) const { return rhs.count(*this) != 0; } FROM FILE kernel/rtlil.h
 	bool IdString::in_pool_IdString(boost::python::list *rhs)
 	{
 		pool<Yosys::RTLIL::IdString> rhs_;
@@ -1813,169 +1827,169 @@ namespace YOSYS_PYTHON {
 		return this->get_cpp_obj()->in(rhs_);
 	}
 
-	//WRAPPED bool as_bool() const;
+	//WRAPPED bool as_bool() const; FROM FILE kernel/rtlil.h
 	bool Const::as_bool()
 	{
 		return this->get_cpp_obj()->as_bool();
 	}
 
-	//WRAPPED int as_int(bool is_signed = false) const;
+	//WRAPPED int as_int(bool is_signed = false) const; FROM FILE kernel/rtlil.h
 	int Const::as_int(bool is_signed)
 	{
 		return this->get_cpp_obj()->as_int(is_signed);
 	}
 
-	//WRAPPED std::string as_string() const;
+	//WRAPPED std::string as_string() const; FROM FILE kernel/rtlil.h
 	std::string Const::as_string()
 	{
 		return this->get_cpp_obj()->as_string();
 	}
 
-	//WRAPPED static Const from_string(std::string str);
+	//WRAPPED static Const from_string(std::string str); FROM FILE kernel/rtlil.h
 	Const Const::from_string(std::string str)
 	{
 		return Const(Yosys::RTLIL::Const::from_string(str));
 	}
 
-	//WRAPPED std::string decode_string() const;
+	//WRAPPED std::string decode_string() const; FROM FILE kernel/rtlil.h
 	std::string Const::decode_string()
 	{
 		return this->get_cpp_obj()->decode_string();
 	}
 
-	//WRAPPED inline int size() const { return bits.size(); }
+	//WRAPPED inline int size() const { return bits.size(); } FROM FILE kernel/rtlil.h
 	inline int Const::size()
 	{
 		return this->get_cpp_obj()->size();
 	}
 
-	//WRAPPED bool is_fully_zero() const;
+	//WRAPPED bool is_fully_zero() const; FROM FILE kernel/rtlil.h
 	bool Const::is_fully_zero()
 	{
 		return this->get_cpp_obj()->is_fully_zero();
 	}
 
-	//WRAPPED bool is_fully_ones() const;
+	//WRAPPED bool is_fully_ones() const; FROM FILE kernel/rtlil.h
 	bool Const::is_fully_ones()
 	{
 		return this->get_cpp_obj()->is_fully_ones();
 	}
 
-	//WRAPPED bool is_fully_def() const;
+	//WRAPPED bool is_fully_def() const; FROM FILE kernel/rtlil.h
 	bool Const::is_fully_def()
 	{
 		return this->get_cpp_obj()->is_fully_def();
 	}
 
-	//WRAPPED bool is_fully_undef() const;
+	//WRAPPED bool is_fully_undef() const; FROM FILE kernel/rtlil.h
 	bool Const::is_fully_undef()
 	{
 		return this->get_cpp_obj()->is_fully_undef();
 	}
 
-	//WRAPPED inline RTLIL::Const extract(int offset, int len = 1, RTLIL::State padding = RTLIL::State::S0) const {
+	//WRAPPED inline RTLIL::Const extract(int offset, int len = 1, RTLIL::State padding = RTLIL::State::S0) const { FROM FILE kernel/rtlil.h
 	inline Const Const::extract(int offset, int len, State padding)
 	{
 		return Const(this->get_cpp_obj()->extract(offset, len, padding));
 	}
 
-	//WRAPPED inline unsigned int hash() const {
+	//WRAPPED inline unsigned int hash() const { FROM FILE kernel/rtlil.h
 	inline unsigned int Const::hash()
 	{
 		return this->get_cpp_obj()->hash();
 	}
 
-	//WRAPPED RTLIL::CaseRule *clone() const;
+	//WRAPPED RTLIL::CaseRule *clone() const; FROM FILE kernel/rtlil.h
 	CaseRule CaseRule::clone()
 	{
 		return CaseRule(this->get_cpp_obj()->clone());
 	}
 
-	//WRAPPED RTLIL::SwitchRule *clone() const;
+	//WRAPPED RTLIL::SwitchRule *clone() const; FROM FILE kernel/rtlil.h
 	SwitchRule SwitchRule::clone()
 	{
 		return SwitchRule(this->get_cpp_obj()->clone());
 	}
 
-	//WRAPPED RTLIL::SyncRule *clone() const;
+	//WRAPPED RTLIL::SyncRule *clone() const; FROM FILE kernel/rtlil.h
 	SyncRule SyncRule::clone()
 	{
 		return SyncRule(this->get_cpp_obj()->clone());
 	}
 
-	//WRAPPED RTLIL::Process *clone() const;
+	//WRAPPED RTLIL::Process *clone() const; FROM FILE kernel/rtlil.h
 	Process Process::clone()
 	{
 		return Process(this->get_cpp_obj()->clone());
 	}
 
-	//WRAPPED RTLIL::SigChunk extract(int offset, int length) const;
+	//WRAPPED RTLIL::SigChunk extract(int offset, int length) const; FROM FILE kernel/rtlil.h
 	SigChunk SigChunk::extract(int offset, int length)
 	{
 		return SigChunk(this->get_cpp_obj()->extract(offset, length));
 	}
 
-	//WRAPPED unsigned int hash() const;
+	//WRAPPED unsigned int hash() const; FROM FILE kernel/rtlil.h
 	unsigned int SigBit::hash()
 	{
 		return this->get_cpp_obj()->hash();
 	}
 
-	//WRAPPED size_t get_hash() const {
+	//WRAPPED size_t get_hash() const { FROM FILE kernel/rtlil.h
 	size_t SigSpec::get_hash()
 	{
 		return this->get_cpp_obj()->get_hash();
 	}
 
-	//WRAPPED inline int size() const { return width_; }
+	//WRAPPED inline int size() const { return width_; } FROM FILE kernel/rtlil.h
 	inline int SigSpec::size()
 	{
 		return this->get_cpp_obj()->size();
 	}
 
-	//WRAPPED inline bool empty() const { return width_ == 0; }
+	//WRAPPED inline bool empty() const { return width_ == 0; } FROM FILE kernel/rtlil.h
 	inline bool SigSpec::empty()
 	{
 		return this->get_cpp_obj()->empty();
 	}
 
-	//WRAPPED void replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec &with);
+	//WRAPPED void replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec &with); FROM FILE kernel/rtlil.h
 	void SigSpec::replace_SigSpec_SigSpec(SigSpec *pattern, SigSpec *with)
 	{
 		this->get_cpp_obj()->replace(*pattern->get_cpp_obj(), *with->get_cpp_obj());
 	}
 
-	//WRAPPED void replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec &with, RTLIL::SigSpec *other) const;
+	//WRAPPED void replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec &with, RTLIL::SigSpec *other) const; FROM FILE kernel/rtlil.h
 	void SigSpec::replace_SigSpec_SigSpec_SigSpec(SigSpec *pattern, SigSpec *with, SigSpec *other)
 	{
 		this->get_cpp_obj()->replace(*pattern->get_cpp_obj(), *with->get_cpp_obj(), other->get_cpp_obj());
 	}
 
-	//WRAPPED void replace(int offset, const RTLIL::SigSpec &with);
+	//WRAPPED void replace(int offset, const RTLIL::SigSpec &with); FROM FILE kernel/rtlil.h
 	void SigSpec::replace_int_SigSpec(int offset, SigSpec *with)
 	{
 		this->get_cpp_obj()->replace(offset, *with->get_cpp_obj());
 	}
 
-	//WRAPPED void remove(const RTLIL::SigSpec &pattern);
+	//WRAPPED void remove(const RTLIL::SigSpec &pattern); FROM FILE kernel/rtlil.h
 	void SigSpec::remove_SigSpec(SigSpec *pattern)
 	{
 		this->get_cpp_obj()->remove(*pattern->get_cpp_obj());
 	}
 
-	//WRAPPED void remove(const RTLIL::SigSpec &pattern, RTLIL::SigSpec *other) const;
+	//WRAPPED void remove(const RTLIL::SigSpec &pattern, RTLIL::SigSpec *other) const; FROM FILE kernel/rtlil.h
 	void SigSpec::remove_SigSpec_SigSpec(SigSpec *pattern, SigSpec *other)
 	{
 		this->get_cpp_obj()->remove(*pattern->get_cpp_obj(), other->get_cpp_obj());
 	}
 
-	//WRAPPED void remove2(const RTLIL::SigSpec &pattern, RTLIL::SigSpec *other);
+	//WRAPPED void remove2(const RTLIL::SigSpec &pattern, RTLIL::SigSpec *other); FROM FILE kernel/rtlil.h
 	void SigSpec::remove2_SigSpec_SigSpec(SigSpec *pattern, SigSpec *other)
 	{
 		this->get_cpp_obj()->remove2(*pattern->get_cpp_obj(), other->get_cpp_obj());
 	}
 
-	//WRAPPED void remove(const pool<RTLIL::SigBit> &pattern);
+	//WRAPPED void remove(const pool<RTLIL::SigBit> &pattern); FROM FILE kernel/rtlil.h
 	void SigSpec::remove_pool_SigBit(boost::python::list *pattern)
 	{
 		pool<Yosys::RTLIL::SigBit> pattern_;
@@ -1985,7 +1999,7 @@ namespace YOSYS_PYTHON {
 		this->get_cpp_obj()->remove(pattern_);
 	}
 
-	//WRAPPED void remove(const pool<RTLIL::SigBit> &pattern, RTLIL::SigSpec *other) const;
+	//WRAPPED void remove(const pool<RTLIL::SigBit> &pattern, RTLIL::SigSpec *other) const; FROM FILE kernel/rtlil.h
 	void SigSpec::remove_pool_SigBit_SigSpec(boost::python::list *pattern, SigSpec *other)
 	{
 		pool<Yosys::RTLIL::SigBit> pattern_;
@@ -1995,7 +2009,7 @@ namespace YOSYS_PYTHON {
 		this->get_cpp_obj()->remove(pattern_, other->get_cpp_obj());
 	}
 
-	//WRAPPED void remove2(const pool<RTLIL::SigBit> &pattern, RTLIL::SigSpec *other);
+	//WRAPPED void remove2(const pool<RTLIL::SigBit> &pattern, RTLIL::SigSpec *other); FROM FILE kernel/rtlil.h
 	void SigSpec::remove2_pool_SigBit_SigSpec(boost::python::list *pattern, SigSpec *other)
 	{
 		pool<Yosys::RTLIL::SigBit> pattern_;
@@ -2005,19 +2019,19 @@ namespace YOSYS_PYTHON {
 		this->get_cpp_obj()->remove2(pattern_, other->get_cpp_obj());
 	}
 
-	//WRAPPED void remove(int offset, int length = 1);
+	//WRAPPED void remove(int offset, int length = 1); FROM FILE kernel/rtlil.h
 	void SigSpec::remove_int_int(int offset, int length)
 	{
 		this->get_cpp_obj()->remove(offset, length);
 	}
 
-	//WRAPPED RTLIL::SigSpec extract(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec *other = NULL) const;
+	//WRAPPED RTLIL::SigSpec extract(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec *other = NULL) const; FROM FILE kernel/rtlil.h
 	SigSpec SigSpec::extract_SigSpec_SigSpec(SigSpec *pattern, SigSpec *other)
 	{
 		return SigSpec(this->get_cpp_obj()->extract(*pattern->get_cpp_obj(), other->get_cpp_obj()));
 	}
 
-	//WRAPPED RTLIL::SigSpec extract(const pool<RTLIL::SigBit> &pattern, const RTLIL::SigSpec *other = NULL) const;
+	//WRAPPED RTLIL::SigSpec extract(const pool<RTLIL::SigBit> &pattern, const RTLIL::SigSpec *other = NULL) const; FROM FILE kernel/rtlil.h
 	SigSpec SigSpec::extract_pool_SigBit_SigSpec(boost::python::list *pattern, SigSpec *other)
 	{
 		pool<Yosys::RTLIL::SigBit> pattern_;
@@ -2027,265 +2041,265 @@ namespace YOSYS_PYTHON {
 		return SigSpec(this->get_cpp_obj()->extract(pattern_, other->get_cpp_obj()));
 	}
 
-	//WRAPPED RTLIL::SigSpec extract(int offset, int length = 1) const;
+	//WRAPPED RTLIL::SigSpec extract(int offset, int length = 1) const; FROM FILE kernel/rtlil.h
 	SigSpec SigSpec::extract_int_int(int offset, int length)
 	{
 		return SigSpec(this->get_cpp_obj()->extract(offset, length));
 	}
 
-	//WRAPPED void append(const RTLIL::SigSpec &signal);
+	//WRAPPED void append(const RTLIL::SigSpec &signal); FROM FILE kernel/rtlil.h
 	void SigSpec::append(SigSpec *signal)
 	{
 		this->get_cpp_obj()->append(*signal->get_cpp_obj());
 	}
 
-	//WRAPPED void append_bit(const RTLIL::SigBit &bit);
+	//WRAPPED void append_bit(const RTLIL::SigBit &bit); FROM FILE kernel/rtlil.h
 	void SigSpec::append_bit(SigBit *bit)
 	{
 		this->get_cpp_obj()->append_bit(*bit->get_cpp_obj());
 	}
 
-	//WRAPPED void extend_u0(int width, bool is_signed = false);
+	//WRAPPED void extend_u0(int width, bool is_signed = false); FROM FILE kernel/rtlil.h
 	void SigSpec::extend_u0(int width, bool is_signed)
 	{
 		this->get_cpp_obj()->extend_u0(width, is_signed);
 	}
 
-	//WRAPPED RTLIL::SigSpec repeat(int num) const;
+	//WRAPPED RTLIL::SigSpec repeat(int num) const; FROM FILE kernel/rtlil.h
 	SigSpec SigSpec::repeat(int num)
 	{
 		return SigSpec(this->get_cpp_obj()->repeat(num));
 	}
 
-	//WRAPPED bool is_wire() const;
+	//WRAPPED bool is_wire() const; FROM FILE kernel/rtlil.h
 	bool SigSpec::is_wire()
 	{
 		return this->get_cpp_obj()->is_wire();
 	}
 
-	//WRAPPED bool is_chunk() const;
+	//WRAPPED bool is_chunk() const; FROM FILE kernel/rtlil.h
 	bool SigSpec::is_chunk()
 	{
 		return this->get_cpp_obj()->is_chunk();
 	}
 
-	//WRAPPED inline bool is_bit() const { return width_ == 1; }
+	//WRAPPED inline bool is_bit() const { return width_ == 1; } FROM FILE kernel/rtlil.h
 	inline bool SigSpec::is_bit()
 	{
 		return this->get_cpp_obj()->is_bit();
 	}
 
-	//WRAPPED bool is_fully_const() const;
+	//WRAPPED bool is_fully_const() const; FROM FILE kernel/rtlil.h
 	bool SigSpec::is_fully_const()
 	{
 		return this->get_cpp_obj()->is_fully_const();
 	}
 
-	//WRAPPED bool is_fully_zero() const;
+	//WRAPPED bool is_fully_zero() const; FROM FILE kernel/rtlil.h
 	bool SigSpec::is_fully_zero()
 	{
 		return this->get_cpp_obj()->is_fully_zero();
 	}
 
-	//WRAPPED bool is_fully_ones() const;
+	//WRAPPED bool is_fully_ones() const; FROM FILE kernel/rtlil.h
 	bool SigSpec::is_fully_ones()
 	{
 		return this->get_cpp_obj()->is_fully_ones();
 	}
 
-	//WRAPPED bool is_fully_def() const;
+	//WRAPPED bool is_fully_def() const; FROM FILE kernel/rtlil.h
 	bool SigSpec::is_fully_def()
 	{
 		return this->get_cpp_obj()->is_fully_def();
 	}
 
-	//WRAPPED bool is_fully_undef() const;
+	//WRAPPED bool is_fully_undef() const; FROM FILE kernel/rtlil.h
 	bool SigSpec::is_fully_undef()
 	{
 		return this->get_cpp_obj()->is_fully_undef();
 	}
 
-	//WRAPPED bool has_const() const;
+	//WRAPPED bool has_const() const; FROM FILE kernel/rtlil.h
 	bool SigSpec::has_const()
 	{
 		return this->get_cpp_obj()->has_const();
 	}
 
-	//WRAPPED bool has_marked_bits() const;
+	//WRAPPED bool has_marked_bits() const; FROM FILE kernel/rtlil.h
 	bool SigSpec::has_marked_bits()
 	{
 		return this->get_cpp_obj()->has_marked_bits();
 	}
 
-	//WRAPPED bool as_bool() const;
+	//WRAPPED bool as_bool() const; FROM FILE kernel/rtlil.h
 	bool SigSpec::as_bool()
 	{
 		return this->get_cpp_obj()->as_bool();
 	}
 
-	//WRAPPED int as_int(bool is_signed = false) const;
+	//WRAPPED int as_int(bool is_signed = false) const; FROM FILE kernel/rtlil.h
 	int SigSpec::as_int(bool is_signed)
 	{
 		return this->get_cpp_obj()->as_int(is_signed);
 	}
 
-	//WRAPPED std::string as_string() const;
+	//WRAPPED std::string as_string() const; FROM FILE kernel/rtlil.h
 	std::string SigSpec::as_string()
 	{
 		return this->get_cpp_obj()->as_string();
 	}
 
-	//WRAPPED RTLIL::Const as_const() const;
+	//WRAPPED RTLIL::Const as_const() const; FROM FILE kernel/rtlil.h
 	Const SigSpec::as_const()
 	{
 		return Const(this->get_cpp_obj()->as_const());
 	}
 
-	//WRAPPED RTLIL::Wire *as_wire() const;
+	//WRAPPED RTLIL::Wire *as_wire() const; FROM FILE kernel/rtlil.h
 	Wire SigSpec::as_wire()
 	{
 		return Wire(this->get_cpp_obj()->as_wire());
 	}
 
-	//WRAPPED RTLIL::SigChunk as_chunk() const;
+	//WRAPPED RTLIL::SigChunk as_chunk() const; FROM FILE kernel/rtlil.h
 	SigChunk SigSpec::as_chunk()
 	{
 		return SigChunk(this->get_cpp_obj()->as_chunk());
 	}
 
-	//WRAPPED RTLIL::SigBit as_bit() const;
+	//WRAPPED RTLIL::SigBit as_bit() const; FROM FILE kernel/rtlil.h
 	SigBit SigSpec::as_bit()
 	{
 		return SigBit(this->get_cpp_obj()->as_bit());
 	}
 
-	//WRAPPED bool match(std::string pattern) const;
+	//WRAPPED bool match(std::string pattern) const; FROM FILE kernel/rtlil.h
 	bool SigSpec::match(std::string pattern)
 	{
 		return this->get_cpp_obj()->match(pattern);
 	}
 
-	//WRAPPED static bool parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::string str);
+	//WRAPPED static bool parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::string str); FROM FILE kernel/rtlil.h
 	bool SigSpec::parse(SigSpec *sig, Module *module, std::string str)
 	{
 		return Yosys::RTLIL::SigSpec::parse(*sig->get_cpp_obj(), module->get_cpp_obj(), str);
 	}
 
-	//WRAPPED static bool parse_sel(RTLIL::SigSpec &sig, RTLIL::Design *design, RTLIL::Module *module, std::string str);
+	//WRAPPED static bool parse_sel(RTLIL::SigSpec &sig, RTLIL::Design *design, RTLIL::Module *module, std::string str); FROM FILE kernel/rtlil.h
 	bool SigSpec::parse_sel(SigSpec *sig, Design *design, Module *module, std::string str)
 	{
 		return Yosys::RTLIL::SigSpec::parse_sel(*sig->get_cpp_obj(), design->get_cpp_obj(), module->get_cpp_obj(), str);
 	}
 
-	//WRAPPED static bool parse_rhs(const RTLIL::SigSpec &lhs, RTLIL::SigSpec &sig, RTLIL::Module *module, std::string str);
+	//WRAPPED static bool parse_rhs(const RTLIL::SigSpec &lhs, RTLIL::SigSpec &sig, RTLIL::Module *module, std::string str); FROM FILE kernel/rtlil.h
 	bool SigSpec::parse_rhs(SigSpec *lhs, SigSpec *sig, Module *module, std::string str)
 	{
 		return Yosys::RTLIL::SigSpec::parse_rhs(*lhs->get_cpp_obj(), *sig->get_cpp_obj(), module->get_cpp_obj(), str);
 	}
 
-	//WRAPPED unsigned int hash() const { if(!hash_) updhash(); return hash_; };
+	//WRAPPED unsigned int hash() const { if(!hash_) updhash(); return hash_; }; FROM FILE kernel/rtlil.h
 	unsigned int SigSpec::hash()
 	{
 		return this->get_cpp_obj()->hash();
 	}
 
-	//WRAPPED void check() const;
+	//WRAPPED void check() const; FROM FILE kernel/rtlil.h
 	void SigSpec::check()
 	{
 		this->get_cpp_obj()->check();
 	}
 
-	//WRAPPED unsigned int hash() const { return hashidx_; }
+	//WRAPPED unsigned int hash() const { return hashidx_; } FROM FILE kernel/rtlil.h
 	unsigned int Cell::hash()
 	{
 		return this->get_cpp_obj()->hash();
 	}
 
-	//WRAPPED bool hasPort(RTLIL::IdString portname) const;
+	//WRAPPED bool hasPort(RTLIL::IdString portname) const; FROM FILE kernel/rtlil.h
 	bool Cell::hasPort(IdString *portname)
 	{
 		return this->get_cpp_obj()->hasPort(*portname->get_cpp_obj());
 	}
 
-	//WRAPPED void unsetPort(RTLIL::IdString portname);
+	//WRAPPED void unsetPort(RTLIL::IdString portname); FROM FILE kernel/rtlil.h
 	void Cell::unsetPort(IdString *portname)
 	{
 		this->get_cpp_obj()->unsetPort(*portname->get_cpp_obj());
 	}
 
-	//WRAPPED void setPort(RTLIL::IdString portname, RTLIL::SigSpec signal);
+	//WRAPPED void setPort(RTLIL::IdString portname, RTLIL::SigSpec signal); FROM FILE kernel/rtlil.h
 	void Cell::setPort(IdString *portname, SigSpec *signal)
 	{
 		this->get_cpp_obj()->setPort(*portname->get_cpp_obj(), *signal->get_cpp_obj());
 	}
 
-	//WRAPPED bool known() const;
+	//WRAPPED bool known() const; FROM FILE kernel/rtlil.h
 	bool Cell::known()
 	{
 		return this->get_cpp_obj()->known();
 	}
 
-	//WRAPPED bool input(RTLIL::IdString portname) const;
+	//WRAPPED bool input(RTLIL::IdString portname) const; FROM FILE kernel/rtlil.h
 	bool Cell::input(IdString *portname)
 	{
 		return this->get_cpp_obj()->input(*portname->get_cpp_obj());
 	}
 
-	//WRAPPED bool output(RTLIL::IdString portname) const;
+	//WRAPPED bool output(RTLIL::IdString portname) const; FROM FILE kernel/rtlil.h
 	bool Cell::output(IdString *portname)
 	{
 		return this->get_cpp_obj()->output(*portname->get_cpp_obj());
 	}
 
-	//WRAPPED bool hasParam(RTLIL::IdString paramname) const;
+	//WRAPPED bool hasParam(RTLIL::IdString paramname) const; FROM FILE kernel/rtlil.h
 	bool Cell::hasParam(IdString *paramname)
 	{
 		return this->get_cpp_obj()->hasParam(*paramname->get_cpp_obj());
 	}
 
-	//WRAPPED void unsetParam(RTLIL::IdString paramname);
+	//WRAPPED void unsetParam(RTLIL::IdString paramname); FROM FILE kernel/rtlil.h
 	void Cell::unsetParam(IdString *paramname)
 	{
 		this->get_cpp_obj()->unsetParam(*paramname->get_cpp_obj());
 	}
 
-	//WRAPPED void setParam(RTLIL::IdString paramname, RTLIL::Const value);
+	//WRAPPED void setParam(RTLIL::IdString paramname, RTLIL::Const value); FROM FILE kernel/rtlil.h
 	void Cell::setParam(IdString *paramname, Const *value)
 	{
 		this->get_cpp_obj()->setParam(*paramname->get_cpp_obj(), *value->get_cpp_obj());
 	}
 
-	//WRAPPED void fixup_parameters(bool set_a_signed = false, bool set_b_signed = false);
+	//WRAPPED void fixup_parameters(bool set_a_signed = false, bool set_b_signed = false); FROM FILE kernel/rtlil.h
 	void Cell::fixup_parameters(bool set_a_signed, bool set_b_signed)
 	{
 		this->get_cpp_obj()->fixup_parameters(set_a_signed, set_b_signed);
 	}
 
-	//WRAPPED bool has_keep_attr() const {
+	//WRAPPED bool has_keep_attr() const { FROM FILE kernel/rtlil.h
 	bool Cell::has_keep_attr()
 	{
 		return this->get_cpp_obj()->has_keep_attr();
 	}
 
-	//WRAPPED unsigned int hash() const { return hashidx_; }
+	//WRAPPED unsigned int hash() const { return hashidx_; } FROM FILE kernel/rtlil.h
 	unsigned int Wire::hash()
 	{
 		return this->get_cpp_obj()->hash();
 	}
 
-	//WRAPPED unsigned int hash() const { return hashidx_; }
+	//WRAPPED unsigned int hash() const { return hashidx_; } FROM FILE kernel/rtlil.h
 	unsigned int Memory::hash()
 	{
 		return this->get_cpp_obj()->hash();
 	}
 
-	//WRAPPED unsigned int hash() const { return hashidx_; }
+	//WRAPPED unsigned int hash() const { return hashidx_; } FROM FILE kernel/rtlil.h
 	unsigned int Module::hash()
 	{
 		return this->get_cpp_obj()->hash();
 	}
 
-	//WRAPPED void connect(const RTLIL::SigSig &conn);
+	//WRAPPED void connect(const RTLIL::SigSig &conn); FROM FILE kernel/rtlil.h
 	void Module::connect_SigSig(PyObject* conn)
 	{
 		if(!PyTuple_Check(conn) or PyTuple_Size(conn) != 2)
@@ -2296,13 +2310,13 @@ namespace YOSYS_PYTHON {
 		this->get_cpp_obj()->connect(conn_);
 	}
 
-	//WRAPPED void connect(const RTLIL::SigSpec &lhs, const RTLIL::SigSpec &rhs);
+	//WRAPPED void connect(const RTLIL::SigSpec &lhs, const RTLIL::SigSpec &rhs); FROM FILE kernel/rtlil.h
 	void Module::connect_SigSpec_SigSpec(SigSpec *lhs, SigSpec *rhs)
 	{
 		this->get_cpp_obj()->connect(*lhs->get_cpp_obj(), *rhs->get_cpp_obj());
 	}
 
-	//WRAPPED void new_connections(const std::vector<RTLIL::SigSig> &new_conn);
+	//WRAPPED void new_connections(const std::vector<RTLIL::SigSig> &new_conn); FROM FILE kernel/rtlil.h
 	void Module::new_connections(boost::python::list *new_conn)
 	{
 		std::vector<Yosys::RTLIL::SigSig> new_conn_;
@@ -2312,49 +2326,49 @@ namespace YOSYS_PYTHON {
 		this->get_cpp_obj()->new_connections(new_conn_);
 	}
 
-	//WRAPPED void cloneInto(RTLIL::Module *new_mod) const;
+	//WRAPPED void cloneInto(RTLIL::Module *new_mod) const; FROM FILE kernel/rtlil.h
 	void Module::cloneInto(Module *new_mod)
 	{
 		this->get_cpp_obj()->cloneInto(new_mod->get_cpp_obj());
 	}
 
-	//WRAPPED bool has_memories() const;
+	//WRAPPED bool has_memories() const; FROM FILE kernel/rtlil.h
 	bool Module::has_memories()
 	{
 		return this->get_cpp_obj()->has_memories();
 	}
 
-	//WRAPPED bool has_processes() const;
+	//WRAPPED bool has_processes() const; FROM FILE kernel/rtlil.h
 	bool Module::has_processes()
 	{
 		return this->get_cpp_obj()->has_processes();
 	}
 
-	//WRAPPED bool has_memories_warn() const;
+	//WRAPPED bool has_memories_warn() const; FROM FILE kernel/rtlil.h
 	bool Module::has_memories_warn()
 	{
 		return this->get_cpp_obj()->has_memories_warn();
 	}
 
-	//WRAPPED bool has_processes_warn() const;
+	//WRAPPED bool has_processes_warn() const; FROM FILE kernel/rtlil.h
 	bool Module::has_processes_warn()
 	{
 		return this->get_cpp_obj()->has_processes_warn();
 	}
 
-	//WRAPPED RTLIL::Wire* wire(RTLIL::IdString id) { return wires_.count(id) ? wires_.at(id) : nullptr; }
+	//WRAPPED RTLIL::Wire* wire(RTLIL::IdString id) { return wires_.count(id) ? wires_.at(id) : nullptr; } FROM FILE kernel/rtlil.h
 	Wire Module::wire(IdString *id)
 	{
 		return Wire(this->get_cpp_obj()->wire(*id->get_cpp_obj()));
 	}
 
-	//WRAPPED RTLIL::Cell* cell(RTLIL::IdString id) { return cells_.count(id) ? cells_.at(id) : nullptr; }
+	//WRAPPED RTLIL::Cell* cell(RTLIL::IdString id) { return cells_.count(id) ? cells_.at(id) : nullptr; } FROM FILE kernel/rtlil.h
 	Cell Module::cell(IdString *id)
 	{
 		return Cell(this->get_cpp_obj()->cell(*id->get_cpp_obj()));
 	}
 
-	//WRAPPED void remove(const pool<RTLIL::Wire*> &wires);
+	//WRAPPED void remove(const pool<RTLIL::Wire*> &wires); FROM FILE kernel/rtlil.h
 	void Module::remove_pool_Wire(boost::python::list *wires)
 	{
 		pool<Yosys::RTLIL::Wire*> wires_;
@@ -2364,955 +2378,955 @@ namespace YOSYS_PYTHON {
 		this->get_cpp_obj()->remove(wires_);
 	}
 
-	//WRAPPED void remove(RTLIL::Cell *cell);
+	//WRAPPED void remove(RTLIL::Cell *cell); FROM FILE kernel/rtlil.h
 	void Module::remove_Cell(Cell *cell)
 	{
 		this->get_cpp_obj()->remove(cell->get_cpp_obj());
 	}
 
-	//WRAPPED void rename(RTLIL::Wire *wire, RTLIL::IdString new_name);
+	//WRAPPED void rename(RTLIL::Wire *wire, RTLIL::IdString new_name); FROM FILE kernel/rtlil.h
 	void Module::rename_Wire_IdString(Wire *wire, IdString *new_name)
 	{
 		this->get_cpp_obj()->rename(wire->get_cpp_obj(), *new_name->get_cpp_obj());
 	}
 
-	//WRAPPED void rename(RTLIL::Cell *cell, RTLIL::IdString new_name);
+	//WRAPPED void rename(RTLIL::Cell *cell, RTLIL::IdString new_name); FROM FILE kernel/rtlil.h
 	void Module::rename_Cell_IdString(Cell *cell, IdString *new_name)
 	{
 		this->get_cpp_obj()->rename(cell->get_cpp_obj(), *new_name->get_cpp_obj());
 	}
 
-	//WRAPPED void rename(RTLIL::IdString old_name, RTLIL::IdString new_name);
+	//WRAPPED void rename(RTLIL::IdString old_name, RTLIL::IdString new_name); FROM FILE kernel/rtlil.h
 	void Module::rename_IdString_IdString(IdString *old_name, IdString *new_name)
 	{
 		this->get_cpp_obj()->rename(*old_name->get_cpp_obj(), *new_name->get_cpp_obj());
 	}
 
-	//WRAPPED void swap_names(RTLIL::Wire *w1, RTLIL::Wire *w2);
+	//WRAPPED void swap_names(RTLIL::Wire *w1, RTLIL::Wire *w2); FROM FILE kernel/rtlil.h
 	void Module::swap_names_Wire_Wire(Wire *w1, Wire *w2)
 	{
 		this->get_cpp_obj()->swap_names(w1->get_cpp_obj(), w2->get_cpp_obj());
 	}
 
-	//WRAPPED void swap_names(RTLIL::Cell *c1, RTLIL::Cell *c2);
+	//WRAPPED void swap_names(RTLIL::Cell *c1, RTLIL::Cell *c2); FROM FILE kernel/rtlil.h
 	void Module::swap_names_Cell_Cell(Cell *c1, Cell *c2)
 	{
 		this->get_cpp_obj()->swap_names(c1->get_cpp_obj(), c2->get_cpp_obj());
 	}
 
-	//WRAPPED RTLIL::IdString uniquify(RTLIL::IdString name);
+	//WRAPPED RTLIL::IdString uniquify(RTLIL::IdString name); FROM FILE kernel/rtlil.h
 	IdString Module::uniquify_IdString(IdString *name)
 	{
 		return IdString(this->get_cpp_obj()->uniquify(*name->get_cpp_obj()));
 	}
 
-	//WRAPPED RTLIL::IdString uniquify(RTLIL::IdString name, int &index);
+	//WRAPPED RTLIL::IdString uniquify(RTLIL::IdString name, int &index); FROM FILE kernel/rtlil.h
 	IdString Module::uniquify_IdString_int(IdString *name, int index)
 	{
 		return IdString(this->get_cpp_obj()->uniquify(*name->get_cpp_obj(), index));
 	}
 
-	//WRAPPED RTLIL::Wire *addWire(RTLIL::IdString name, int width = 1);
+	//WRAPPED RTLIL::Wire *addWire(RTLIL::IdString name, int width = 1); FROM FILE kernel/rtlil.h
 	Wire Module::addWire_IdString_int(IdString *name, int width)
 	{
 		return Wire(this->get_cpp_obj()->addWire(*name->get_cpp_obj(), width));
 	}
 
-	//WRAPPED RTLIL::Wire *addWire(RTLIL::IdString name, const RTLIL::Wire *other);
+	//WRAPPED RTLIL::Wire *addWire(RTLIL::IdString name, const RTLIL::Wire *other); FROM FILE kernel/rtlil.h
 	Wire Module::addWire_IdString_Wire(IdString *name, Wire *other)
 	{
 		return Wire(this->get_cpp_obj()->addWire(*name->get_cpp_obj(), other->get_cpp_obj()));
 	}
 
-	//WRAPPED RTLIL::Cell *addCell(RTLIL::IdString name, RTLIL::IdString type);
+	//WRAPPED RTLIL::Cell *addCell(RTLIL::IdString name, RTLIL::IdString type); FROM FILE kernel/rtlil.h
 	Cell Module::addCell_IdString_IdString(IdString *name, IdString *type)
 	{
 		return Cell(this->get_cpp_obj()->addCell(*name->get_cpp_obj(), *type->get_cpp_obj()));
 	}
 
-	//WRAPPED RTLIL::Cell *addCell(RTLIL::IdString name, const RTLIL::Cell *other);
+	//WRAPPED RTLIL::Cell *addCell(RTLIL::IdString name, const RTLIL::Cell *other); FROM FILE kernel/rtlil.h
 	Cell Module::addCell_IdString_Cell(IdString *name, Cell *other)
 	{
 		return Cell(this->get_cpp_obj()->addCell(*name->get_cpp_obj(), other->get_cpp_obj()));
 	}
 
-	//WRAPPED RTLIL::Cell* addNot(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addNot(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addNot(IdString *name, SigSpec *sig_a, SigSpec *sig_y, bool is_signed, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addNot(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_y->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::Cell* addPos(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addPos(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addPos(IdString *name, SigSpec *sig_a, SigSpec *sig_y, bool is_signed, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addPos(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_y->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::Cell* addNeg(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addNeg(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addNeg(IdString *name, SigSpec *sig_a, SigSpec *sig_y, bool is_signed, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addNeg(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_y->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::Cell* addAnd(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addAnd(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addAnd(IdString *name, SigSpec *sig_a, SigSpec *sig_b, SigSpec *sig_y, bool is_signed, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addAnd(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_y->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::Cell* addOr(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addOr(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addOr(IdString *name, SigSpec *sig_a, SigSpec *sig_b, SigSpec *sig_y, bool is_signed, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addOr(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_y->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::Cell* addXor(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addXor(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addXor(IdString *name, SigSpec *sig_a, SigSpec *sig_b, SigSpec *sig_y, bool is_signed, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addXor(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_y->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::Cell* addXnor(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addXnor(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addXnor(IdString *name, SigSpec *sig_a, SigSpec *sig_b, SigSpec *sig_y, bool is_signed, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addXnor(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_y->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::Cell* addReduceAnd(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addReduceAnd(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addReduceAnd(IdString *name, SigSpec *sig_a, SigSpec *sig_y, bool is_signed, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addReduceAnd(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_y->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::Cell* addReduceOr(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addReduceOr(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addReduceOr(IdString *name, SigSpec *sig_a, SigSpec *sig_y, bool is_signed, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addReduceOr(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_y->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::Cell* addReduceXor(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addReduceXor(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addReduceXor(IdString *name, SigSpec *sig_a, SigSpec *sig_y, bool is_signed, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addReduceXor(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_y->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::Cell* addReduceXnor(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addReduceXnor(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addReduceXnor(IdString *name, SigSpec *sig_a, SigSpec *sig_y, bool is_signed, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addReduceXnor(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_y->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::Cell* addReduceBool(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addReduceBool(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addReduceBool(IdString *name, SigSpec *sig_a, SigSpec *sig_y, bool is_signed, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addReduceBool(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_y->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::Cell* addShl(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addShl(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addShl(IdString *name, SigSpec *sig_a, SigSpec *sig_b, SigSpec *sig_y, bool is_signed, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addShl(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_y->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::Cell* addShr(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addShr(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addShr(IdString *name, SigSpec *sig_a, SigSpec *sig_b, SigSpec *sig_y, bool is_signed, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addShr(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_y->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::Cell* addSshl(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addSshl(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addSshl(IdString *name, SigSpec *sig_a, SigSpec *sig_b, SigSpec *sig_y, bool is_signed, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addSshl(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_y->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::Cell* addSshr(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addSshr(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addSshr(IdString *name, SigSpec *sig_a, SigSpec *sig_b, SigSpec *sig_y, bool is_signed, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addSshr(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_y->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::Cell* addShift(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addShift(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addShift(IdString *name, SigSpec *sig_a, SigSpec *sig_b, SigSpec *sig_y, bool is_signed, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addShift(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_y->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::Cell* addShiftx(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addShiftx(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addShiftx(IdString *name, SigSpec *sig_a, SigSpec *sig_b, SigSpec *sig_y, bool is_signed, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addShiftx(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_y->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::Cell* addLt(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addLt(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addLt(IdString *name, SigSpec *sig_a, SigSpec *sig_b, SigSpec *sig_y, bool is_signed, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addLt(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_y->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::Cell* addLe(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addLe(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addLe(IdString *name, SigSpec *sig_a, SigSpec *sig_b, SigSpec *sig_y, bool is_signed, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addLe(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_y->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::Cell* addEq(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addEq(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addEq(IdString *name, SigSpec *sig_a, SigSpec *sig_b, SigSpec *sig_y, bool is_signed, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addEq(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_y->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::Cell* addNe(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addNe(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addNe(IdString *name, SigSpec *sig_a, SigSpec *sig_b, SigSpec *sig_y, bool is_signed, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addNe(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_y->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::Cell* addEqx(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addEqx(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addEqx(IdString *name, SigSpec *sig_a, SigSpec *sig_b, SigSpec *sig_y, bool is_signed, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addEqx(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_y->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::Cell* addNex(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addNex(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addNex(IdString *name, SigSpec *sig_a, SigSpec *sig_b, SigSpec *sig_y, bool is_signed, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addNex(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_y->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::Cell* addGe(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addGe(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addGe(IdString *name, SigSpec *sig_a, SigSpec *sig_b, SigSpec *sig_y, bool is_signed, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addGe(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_y->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::Cell* addGt(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addGt(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addGt(IdString *name, SigSpec *sig_a, SigSpec *sig_b, SigSpec *sig_y, bool is_signed, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addGt(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_y->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::Cell* addAdd(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addAdd(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addAdd(IdString *name, SigSpec *sig_a, SigSpec *sig_b, SigSpec *sig_y, bool is_signed, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addAdd(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_y->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::Cell* addSub(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addSub(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addSub(IdString *name, SigSpec *sig_a, SigSpec *sig_b, SigSpec *sig_y, bool is_signed, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addSub(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_y->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::Cell* addMul(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addMul(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addMul(IdString *name, SigSpec *sig_a, SigSpec *sig_b, SigSpec *sig_y, bool is_signed, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addMul(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_y->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::Cell* addDiv(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addDiv(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addDiv(IdString *name, SigSpec *sig_a, SigSpec *sig_b, SigSpec *sig_y, bool is_signed, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addDiv(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_y->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::Cell* addMod(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addMod(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addMod(IdString *name, SigSpec *sig_a, SigSpec *sig_b, SigSpec *sig_y, bool is_signed, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addMod(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_y->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::Cell* addPow(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool a_signed = false, bool b_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addPow(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool a_signed = false, bool b_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addPow(IdString *name, SigSpec *sig_a, SigSpec *sig_b, SigSpec *sig_y, bool a_signed, bool b_signed, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addPow(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_y->get_cpp_obj(), a_signed, b_signed, src));
 	}
 
-	//WRAPPED RTLIL::Cell* addLogicNot(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addLogicNot(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addLogicNot(IdString *name, SigSpec *sig_a, SigSpec *sig_y, bool is_signed, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addLogicNot(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_y->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::Cell* addLogicAnd(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addLogicAnd(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addLogicAnd(IdString *name, SigSpec *sig_a, SigSpec *sig_b, SigSpec *sig_y, bool is_signed, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addLogicAnd(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_y->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::Cell* addLogicOr(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addLogicOr(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addLogicOr(IdString *name, SigSpec *sig_a, SigSpec *sig_b, SigSpec *sig_y, bool is_signed, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addLogicOr(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_y->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::Cell* addMux(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_s, RTLIL::SigSpec sig_y, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addMux(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_s, RTLIL::SigSpec sig_y, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addMux(IdString *name, SigSpec *sig_a, SigSpec *sig_b, SigSpec *sig_s, SigSpec *sig_y, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addMux(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_s->get_cpp_obj(), *sig_y->get_cpp_obj(), src));
 	}
 
-	//WRAPPED RTLIL::Cell* addPmux(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_s, RTLIL::SigSpec sig_y, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addPmux(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_s, RTLIL::SigSpec sig_y, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addPmux(IdString *name, SigSpec *sig_a, SigSpec *sig_b, SigSpec *sig_s, SigSpec *sig_y, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addPmux(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_s->get_cpp_obj(), *sig_y->get_cpp_obj(), src));
 	}
 
-	//WRAPPED RTLIL::Cell* addSlice(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_y, RTLIL::Const offset, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addSlice(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_y, RTLIL::Const offset, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addSlice(IdString *name, SigSpec *sig_a, SigSpec *sig_y, Const *offset, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addSlice(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_y->get_cpp_obj(), *offset->get_cpp_obj(), src));
 	}
 
-	//WRAPPED RTLIL::Cell* addConcat(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addConcat(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addConcat(IdString *name, SigSpec *sig_a, SigSpec *sig_b, SigSpec *sig_y, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addConcat(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_y->get_cpp_obj(), src));
 	}
 
-	//WRAPPED RTLIL::Cell* addLut(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_y, RTLIL::Const lut, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addLut(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_y, RTLIL::Const lut, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addLut(IdString *name, SigSpec *sig_a, SigSpec *sig_y, Const *lut, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addLut(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_y->get_cpp_obj(), *lut->get_cpp_obj(), src));
 	}
 
-	//WRAPPED RTLIL::Cell* addTribuf(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_en, RTLIL::SigSpec sig_y, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addTribuf(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_en, RTLIL::SigSpec sig_y, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addTribuf(IdString *name, SigSpec *sig_a, SigSpec *sig_en, SigSpec *sig_y, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addTribuf(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_en->get_cpp_obj(), *sig_y->get_cpp_obj(), src));
 	}
 
-	//WRAPPED RTLIL::Cell* addAssert(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_en, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addAssert(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_en, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addAssert(IdString *name, SigSpec *sig_a, SigSpec *sig_en, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addAssert(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_en->get_cpp_obj(), src));
 	}
 
-	//WRAPPED RTLIL::Cell* addAssume(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_en, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addAssume(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_en, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addAssume(IdString *name, SigSpec *sig_a, SigSpec *sig_en, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addAssume(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_en->get_cpp_obj(), src));
 	}
 
-	//WRAPPED RTLIL::Cell* addLive(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_en, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addLive(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_en, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addLive(IdString *name, SigSpec *sig_a, SigSpec *sig_en, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addLive(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_en->get_cpp_obj(), src));
 	}
 
-	//WRAPPED RTLIL::Cell* addFair(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_en, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addFair(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_en, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addFair(IdString *name, SigSpec *sig_a, SigSpec *sig_en, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addFair(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_en->get_cpp_obj(), src));
 	}
 
-	//WRAPPED RTLIL::Cell* addCover(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_en, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addCover(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_en, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addCover(IdString *name, SigSpec *sig_a, SigSpec *sig_en, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addCover(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_en->get_cpp_obj(), src));
 	}
 
-	//WRAPPED RTLIL::Cell* addEquiv(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addEquiv(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addEquiv(IdString *name, SigSpec *sig_a, SigSpec *sig_b, SigSpec *sig_y, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addEquiv(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_y->get_cpp_obj(), src));
 	}
 
-	//WRAPPED RTLIL::Cell* addSr(RTLIL::IdString name, RTLIL::SigSpec sig_set, RTLIL::SigSpec sig_clr, RTLIL::SigSpec sig_q, bool set_polarity = true, bool clr_polarity = true, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addSr(RTLIL::IdString name, RTLIL::SigSpec sig_set, RTLIL::SigSpec sig_clr, RTLIL::SigSpec sig_q, bool set_polarity = true, bool clr_polarity = true, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addSr(IdString *name, SigSpec *sig_set, SigSpec *sig_clr, SigSpec *sig_q, bool set_polarity, bool clr_polarity, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addSr(*name->get_cpp_obj(), *sig_set->get_cpp_obj(), *sig_clr->get_cpp_obj(), *sig_q->get_cpp_obj(), set_polarity, clr_polarity, src));
 	}
 
-	//WRAPPED RTLIL::Cell* addFf(RTLIL::IdString name, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addFf(RTLIL::IdString name, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addFf(IdString *name, SigSpec *sig_d, SigSpec *sig_q, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addFf(*name->get_cpp_obj(), *sig_d->get_cpp_obj(), *sig_q->get_cpp_obj(), src));
 	}
 
-	//WRAPPED RTLIL::Cell* addDff(RTLIL::IdString name, RTLIL::SigSpec sig_clk, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool clk_polarity = true, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addDff(RTLIL::IdString name, RTLIL::SigSpec sig_clk, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool clk_polarity = true, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addDff(IdString *name, SigSpec *sig_clk, SigSpec *sig_d, SigSpec *sig_q, bool clk_polarity, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addDff(*name->get_cpp_obj(), *sig_clk->get_cpp_obj(), *sig_d->get_cpp_obj(), *sig_q->get_cpp_obj(), clk_polarity, src));
 	}
 
-	//WRAPPED RTLIL::Cell* addDffe(RTLIL::IdString name, RTLIL::SigSpec sig_clk, RTLIL::SigSpec sig_en, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool clk_polarity = true, bool en_polarity = true, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addDffe(RTLIL::IdString name, RTLIL::SigSpec sig_clk, RTLIL::SigSpec sig_en, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool clk_polarity = true, bool en_polarity = true, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addDffe(IdString *name, SigSpec *sig_clk, SigSpec *sig_en, SigSpec *sig_d, SigSpec *sig_q, bool clk_polarity, bool en_polarity, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addDffe(*name->get_cpp_obj(), *sig_clk->get_cpp_obj(), *sig_en->get_cpp_obj(), *sig_d->get_cpp_obj(), *sig_q->get_cpp_obj(), clk_polarity, en_polarity, src));
 	}
 
-	//WRAPPED RTLIL::Cell* addDlatch(RTLIL::IdString name, RTLIL::SigSpec sig_en, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool en_polarity = true, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addDlatch(RTLIL::IdString name, RTLIL::SigSpec sig_en, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool en_polarity = true, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addDlatch(IdString *name, SigSpec *sig_en, SigSpec *sig_d, SigSpec *sig_q, bool en_polarity, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addDlatch(*name->get_cpp_obj(), *sig_en->get_cpp_obj(), *sig_d->get_cpp_obj(), *sig_q->get_cpp_obj(), en_polarity, src));
 	}
 
-	//WRAPPED RTLIL::Cell* addBufGate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_y, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addBufGate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_y, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addBufGate(IdString *name, SigBit *sig_a, SigBit *sig_y, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addBufGate(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_y->get_cpp_obj(), src));
 	}
 
-	//WRAPPED RTLIL::Cell* addNotGate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_y, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addNotGate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_y, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addNotGate(IdString *name, SigBit *sig_a, SigBit *sig_y, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addNotGate(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_y->get_cpp_obj(), src));
 	}
 
-	//WRAPPED RTLIL::Cell* addAndGate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_y, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addAndGate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_y, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addAndGate(IdString *name, SigBit *sig_a, SigBit *sig_b, SigBit *sig_y, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addAndGate(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_y->get_cpp_obj(), src));
 	}
 
-	//WRAPPED RTLIL::Cell* addNandGate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_y, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addNandGate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_y, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addNandGate(IdString *name, SigBit *sig_a, SigBit *sig_b, SigBit *sig_y, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addNandGate(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_y->get_cpp_obj(), src));
 	}
 
-	//WRAPPED RTLIL::Cell* addOrGate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_y, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addOrGate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_y, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addOrGate(IdString *name, SigBit *sig_a, SigBit *sig_b, SigBit *sig_y, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addOrGate(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_y->get_cpp_obj(), src));
 	}
 
-	//WRAPPED RTLIL::Cell* addNorGate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_y, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addNorGate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_y, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addNorGate(IdString *name, SigBit *sig_a, SigBit *sig_b, SigBit *sig_y, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addNorGate(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_y->get_cpp_obj(), src));
 	}
 
-	//WRAPPED RTLIL::Cell* addXorGate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_y, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addXorGate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_y, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addXorGate(IdString *name, SigBit *sig_a, SigBit *sig_b, SigBit *sig_y, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addXorGate(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_y->get_cpp_obj(), src));
 	}
 
-	//WRAPPED RTLIL::Cell* addXnorGate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_y, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addXnorGate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_y, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addXnorGate(IdString *name, SigBit *sig_a, SigBit *sig_b, SigBit *sig_y, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addXnorGate(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_y->get_cpp_obj(), src));
 	}
 
-	//WRAPPED RTLIL::Cell* addAndnotGate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_y, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addAndnotGate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_y, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addAndnotGate(IdString *name, SigBit *sig_a, SigBit *sig_b, SigBit *sig_y, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addAndnotGate(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_y->get_cpp_obj(), src));
 	}
 
-	//WRAPPED RTLIL::Cell* addOrnotGate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_y, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addOrnotGate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_y, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addOrnotGate(IdString *name, SigBit *sig_a, SigBit *sig_b, SigBit *sig_y, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addOrnotGate(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_y->get_cpp_obj(), src));
 	}
 
-	//WRAPPED RTLIL::Cell* addMuxGate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_s, RTLIL::SigBit sig_y, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addMuxGate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_s, RTLIL::SigBit sig_y, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addMuxGate(IdString *name, SigBit *sig_a, SigBit *sig_b, SigBit *sig_s, SigBit *sig_y, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addMuxGate(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_s->get_cpp_obj(), *sig_y->get_cpp_obj(), src));
 	}
 
-	//WRAPPED RTLIL::Cell* addAoi3Gate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_c, RTLIL::SigBit sig_y, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addAoi3Gate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_c, RTLIL::SigBit sig_y, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addAoi3Gate(IdString *name, SigBit *sig_a, SigBit *sig_b, SigBit *sig_c, SigBit *sig_y, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addAoi3Gate(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_c->get_cpp_obj(), *sig_y->get_cpp_obj(), src));
 	}
 
-	//WRAPPED RTLIL::Cell* addOai3Gate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_c, RTLIL::SigBit sig_y, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addOai3Gate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_c, RTLIL::SigBit sig_y, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addOai3Gate(IdString *name, SigBit *sig_a, SigBit *sig_b, SigBit *sig_c, SigBit *sig_y, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addOai3Gate(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_c->get_cpp_obj(), *sig_y->get_cpp_obj(), src));
 	}
 
-	//WRAPPED RTLIL::Cell* addAoi4Gate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_c, RTLIL::SigBit sig_d, RTLIL::SigBit sig_y, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addAoi4Gate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_c, RTLIL::SigBit sig_d, RTLIL::SigBit sig_y, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addAoi4Gate(IdString *name, SigBit *sig_a, SigBit *sig_b, SigBit *sig_c, SigBit *sig_d, SigBit *sig_y, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addAoi4Gate(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_c->get_cpp_obj(), *sig_d->get_cpp_obj(), *sig_y->get_cpp_obj(), src));
 	}
 
-	//WRAPPED RTLIL::Cell* addOai4Gate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_c, RTLIL::SigBit sig_d, RTLIL::SigBit sig_y, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addOai4Gate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_c, RTLIL::SigBit sig_d, RTLIL::SigBit sig_y, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addOai4Gate(IdString *name, SigBit *sig_a, SigBit *sig_b, SigBit *sig_c, SigBit *sig_d, SigBit *sig_y, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addOai4Gate(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_c->get_cpp_obj(), *sig_d->get_cpp_obj(), *sig_y->get_cpp_obj(), src));
 	}
 
-	//WRAPPED RTLIL::Cell* addFfGate(RTLIL::IdString name, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addFfGate(RTLIL::IdString name, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addFfGate(IdString *name, SigSpec *sig_d, SigSpec *sig_q, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addFfGate(*name->get_cpp_obj(), *sig_d->get_cpp_obj(), *sig_q->get_cpp_obj(), src));
 	}
 
-	//WRAPPED RTLIL::Cell* addDffGate(RTLIL::IdString name, RTLIL::SigSpec sig_clk, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool clk_polarity = true, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addDffGate(RTLIL::IdString name, RTLIL::SigSpec sig_clk, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool clk_polarity = true, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addDffGate(IdString *name, SigSpec *sig_clk, SigSpec *sig_d, SigSpec *sig_q, bool clk_polarity, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addDffGate(*name->get_cpp_obj(), *sig_clk->get_cpp_obj(), *sig_d->get_cpp_obj(), *sig_q->get_cpp_obj(), clk_polarity, src));
 	}
 
-	//WRAPPED RTLIL::Cell* addDffeGate(RTLIL::IdString name, RTLIL::SigSpec sig_clk, RTLIL::SigSpec sig_en, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool clk_polarity = true, bool en_polarity = true, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addDffeGate(RTLIL::IdString name, RTLIL::SigSpec sig_clk, RTLIL::SigSpec sig_en, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool clk_polarity = true, bool en_polarity = true, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addDffeGate(IdString *name, SigSpec *sig_clk, SigSpec *sig_en, SigSpec *sig_d, SigSpec *sig_q, bool clk_polarity, bool en_polarity, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addDffeGate(*name->get_cpp_obj(), *sig_clk->get_cpp_obj(), *sig_en->get_cpp_obj(), *sig_d->get_cpp_obj(), *sig_q->get_cpp_obj(), clk_polarity, en_polarity, src));
 	}
 
-	//WRAPPED RTLIL::Cell* addDlatchGate(RTLIL::IdString name, RTLIL::SigSpec sig_en, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool en_polarity = true, const std::string &src = "");
+	//WRAPPED RTLIL::Cell* addDlatchGate(RTLIL::IdString name, RTLIL::SigSpec sig_en, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool en_polarity = true, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addDlatchGate(IdString *name, SigSpec *sig_en, SigSpec *sig_d, SigSpec *sig_q, bool en_polarity, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addDlatchGate(*name->get_cpp_obj(), *sig_en->get_cpp_obj(), *sig_d->get_cpp_obj(), *sig_q->get_cpp_obj(), en_polarity, src));
 	}
 
-	//WRAPPED RTLIL::SigSpec Not(RTLIL::IdString name, RTLIL::SigSpec sig_a, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::SigSpec Not(RTLIL::IdString name, RTLIL::SigSpec sig_a, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigSpec Module::Not(IdString *name, SigSpec *sig_a, bool is_signed, std::string src)
 	{
 		return SigSpec(this->get_cpp_obj()->Not(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::SigSpec Pos(RTLIL::IdString name, RTLIL::SigSpec sig_a, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::SigSpec Pos(RTLIL::IdString name, RTLIL::SigSpec sig_a, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigSpec Module::Pos(IdString *name, SigSpec *sig_a, bool is_signed, std::string src)
 	{
 		return SigSpec(this->get_cpp_obj()->Pos(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::SigSpec Neg(RTLIL::IdString name, RTLIL::SigSpec sig_a, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::SigSpec Neg(RTLIL::IdString name, RTLIL::SigSpec sig_a, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigSpec Module::Neg(IdString *name, SigSpec *sig_a, bool is_signed, std::string src)
 	{
 		return SigSpec(this->get_cpp_obj()->Neg(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::SigSpec And(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::SigSpec And(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigSpec Module::And(IdString *name, SigSpec *sig_a, SigSpec *sig_b, bool is_signed, std::string src)
 	{
 		return SigSpec(this->get_cpp_obj()->And(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::SigSpec Or(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::SigSpec Or(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigSpec Module::Or(IdString *name, SigSpec *sig_a, SigSpec *sig_b, bool is_signed, std::string src)
 	{
 		return SigSpec(this->get_cpp_obj()->Or(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::SigSpec Xor(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::SigSpec Xor(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigSpec Module::Xor(IdString *name, SigSpec *sig_a, SigSpec *sig_b, bool is_signed, std::string src)
 	{
 		return SigSpec(this->get_cpp_obj()->Xor(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::SigSpec Xnor(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::SigSpec Xnor(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigSpec Module::Xnor(IdString *name, SigSpec *sig_a, SigSpec *sig_b, bool is_signed, std::string src)
 	{
 		return SigSpec(this->get_cpp_obj()->Xnor(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::SigSpec ReduceAnd(RTLIL::IdString name, RTLIL::SigSpec sig_a, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::SigSpec ReduceAnd(RTLIL::IdString name, RTLIL::SigSpec sig_a, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigSpec Module::ReduceAnd(IdString *name, SigSpec *sig_a, bool is_signed, std::string src)
 	{
 		return SigSpec(this->get_cpp_obj()->ReduceAnd(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::SigSpec ReduceOr(RTLIL::IdString name, RTLIL::SigSpec sig_a, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::SigSpec ReduceOr(RTLIL::IdString name, RTLIL::SigSpec sig_a, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigSpec Module::ReduceOr(IdString *name, SigSpec *sig_a, bool is_signed, std::string src)
 	{
 		return SigSpec(this->get_cpp_obj()->ReduceOr(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::SigSpec ReduceXor(RTLIL::IdString name, RTLIL::SigSpec sig_a, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::SigSpec ReduceXor(RTLIL::IdString name, RTLIL::SigSpec sig_a, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigSpec Module::ReduceXor(IdString *name, SigSpec *sig_a, bool is_signed, std::string src)
 	{
 		return SigSpec(this->get_cpp_obj()->ReduceXor(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::SigSpec ReduceXnor(RTLIL::IdString name, RTLIL::SigSpec sig_a, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::SigSpec ReduceXnor(RTLIL::IdString name, RTLIL::SigSpec sig_a, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigSpec Module::ReduceXnor(IdString *name, SigSpec *sig_a, bool is_signed, std::string src)
 	{
 		return SigSpec(this->get_cpp_obj()->ReduceXnor(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::SigSpec ReduceBool(RTLIL::IdString name, RTLIL::SigSpec sig_a, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::SigSpec ReduceBool(RTLIL::IdString name, RTLIL::SigSpec sig_a, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigSpec Module::ReduceBool(IdString *name, SigSpec *sig_a, bool is_signed, std::string src)
 	{
 		return SigSpec(this->get_cpp_obj()->ReduceBool(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::SigSpec Shl(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::SigSpec Shl(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigSpec Module::Shl(IdString *name, SigSpec *sig_a, SigSpec *sig_b, bool is_signed, std::string src)
 	{
 		return SigSpec(this->get_cpp_obj()->Shl(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::SigSpec Shr(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::SigSpec Shr(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigSpec Module::Shr(IdString *name, SigSpec *sig_a, SigSpec *sig_b, bool is_signed, std::string src)
 	{
 		return SigSpec(this->get_cpp_obj()->Shr(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::SigSpec Sshl(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::SigSpec Sshl(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigSpec Module::Sshl(IdString *name, SigSpec *sig_a, SigSpec *sig_b, bool is_signed, std::string src)
 	{
 		return SigSpec(this->get_cpp_obj()->Sshl(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::SigSpec Sshr(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::SigSpec Sshr(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigSpec Module::Sshr(IdString *name, SigSpec *sig_a, SigSpec *sig_b, bool is_signed, std::string src)
 	{
 		return SigSpec(this->get_cpp_obj()->Sshr(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::SigSpec Shift(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::SigSpec Shift(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigSpec Module::Shift(IdString *name, SigSpec *sig_a, SigSpec *sig_b, bool is_signed, std::string src)
 	{
 		return SigSpec(this->get_cpp_obj()->Shift(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::SigSpec Shiftx(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::SigSpec Shiftx(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigSpec Module::Shiftx(IdString *name, SigSpec *sig_a, SigSpec *sig_b, bool is_signed, std::string src)
 	{
 		return SigSpec(this->get_cpp_obj()->Shiftx(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::SigSpec Lt(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::SigSpec Lt(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigSpec Module::Lt(IdString *name, SigSpec *sig_a, SigSpec *sig_b, bool is_signed, std::string src)
 	{
 		return SigSpec(this->get_cpp_obj()->Lt(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::SigSpec Le(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::SigSpec Le(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigSpec Module::Le(IdString *name, SigSpec *sig_a, SigSpec *sig_b, bool is_signed, std::string src)
 	{
 		return SigSpec(this->get_cpp_obj()->Le(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::SigSpec Eq(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::SigSpec Eq(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigSpec Module::Eq(IdString *name, SigSpec *sig_a, SigSpec *sig_b, bool is_signed, std::string src)
 	{
 		return SigSpec(this->get_cpp_obj()->Eq(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::SigSpec Ne(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::SigSpec Ne(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigSpec Module::Ne(IdString *name, SigSpec *sig_a, SigSpec *sig_b, bool is_signed, std::string src)
 	{
 		return SigSpec(this->get_cpp_obj()->Ne(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::SigSpec Eqx(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::SigSpec Eqx(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigSpec Module::Eqx(IdString *name, SigSpec *sig_a, SigSpec *sig_b, bool is_signed, std::string src)
 	{
 		return SigSpec(this->get_cpp_obj()->Eqx(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::SigSpec Nex(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::SigSpec Nex(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigSpec Module::Nex(IdString *name, SigSpec *sig_a, SigSpec *sig_b, bool is_signed, std::string src)
 	{
 		return SigSpec(this->get_cpp_obj()->Nex(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::SigSpec Ge(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::SigSpec Ge(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigSpec Module::Ge(IdString *name, SigSpec *sig_a, SigSpec *sig_b, bool is_signed, std::string src)
 	{
 		return SigSpec(this->get_cpp_obj()->Ge(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::SigSpec Gt(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::SigSpec Gt(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigSpec Module::Gt(IdString *name, SigSpec *sig_a, SigSpec *sig_b, bool is_signed, std::string src)
 	{
 		return SigSpec(this->get_cpp_obj()->Gt(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::SigSpec Add(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::SigSpec Add(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigSpec Module::Add(IdString *name, SigSpec *sig_a, SigSpec *sig_b, bool is_signed, std::string src)
 	{
 		return SigSpec(this->get_cpp_obj()->Add(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::SigSpec Sub(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::SigSpec Sub(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigSpec Module::Sub(IdString *name, SigSpec *sig_a, SigSpec *sig_b, bool is_signed, std::string src)
 	{
 		return SigSpec(this->get_cpp_obj()->Sub(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::SigSpec Mul(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::SigSpec Mul(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigSpec Module::Mul(IdString *name, SigSpec *sig_a, SigSpec *sig_b, bool is_signed, std::string src)
 	{
 		return SigSpec(this->get_cpp_obj()->Mul(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::SigSpec Div(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::SigSpec Div(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigSpec Module::Div(IdString *name, SigSpec *sig_a, SigSpec *sig_b, bool is_signed, std::string src)
 	{
 		return SigSpec(this->get_cpp_obj()->Div(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::SigSpec Mod(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::SigSpec Mod(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigSpec Module::Mod(IdString *name, SigSpec *sig_a, SigSpec *sig_b, bool is_signed, std::string src)
 	{
 		return SigSpec(this->get_cpp_obj()->Mod(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::SigSpec LogicNot(RTLIL::IdString name, RTLIL::SigSpec sig_a, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::SigSpec LogicNot(RTLIL::IdString name, RTLIL::SigSpec sig_a, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigSpec Module::LogicNot(IdString *name, SigSpec *sig_a, bool is_signed, std::string src)
 	{
 		return SigSpec(this->get_cpp_obj()->LogicNot(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::SigSpec LogicAnd(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::SigSpec LogicAnd(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigSpec Module::LogicAnd(IdString *name, SigSpec *sig_a, SigSpec *sig_b, bool is_signed, std::string src)
 	{
 		return SigSpec(this->get_cpp_obj()->LogicAnd(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::SigSpec LogicOr(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = "");
+	//WRAPPED RTLIL::SigSpec LogicOr(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigSpec Module::LogicOr(IdString *name, SigSpec *sig_a, SigSpec *sig_b, bool is_signed, std::string src)
 	{
 		return SigSpec(this->get_cpp_obj()->LogicOr(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), is_signed, src));
 	}
 
-	//WRAPPED RTLIL::SigSpec Mux(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_s, const std::string &src = "");
+	//WRAPPED RTLIL::SigSpec Mux(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_s, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigSpec Module::Mux(IdString *name, SigSpec *sig_a, SigSpec *sig_b, SigSpec *sig_s, std::string src)
 	{
 		return SigSpec(this->get_cpp_obj()->Mux(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_s->get_cpp_obj(), src));
 	}
 
-	//WRAPPED RTLIL::SigSpec Pmux(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_s, const std::string &src = "");
+	//WRAPPED RTLIL::SigSpec Pmux(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_s, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigSpec Module::Pmux(IdString *name, SigSpec *sig_a, SigSpec *sig_b, SigSpec *sig_s, std::string src)
 	{
 		return SigSpec(this->get_cpp_obj()->Pmux(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_s->get_cpp_obj(), src));
 	}
 
-	//WRAPPED RTLIL::SigBit BufGate(RTLIL::IdString name, RTLIL::SigBit sig_a, const std::string &src = "");
+	//WRAPPED RTLIL::SigBit BufGate(RTLIL::IdString name, RTLIL::SigBit sig_a, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigBit Module::BufGate(IdString *name, SigBit *sig_a, std::string src)
 	{
 		return SigBit(this->get_cpp_obj()->BufGate(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), src));
 	}
 
-	//WRAPPED RTLIL::SigBit NotGate(RTLIL::IdString name, RTLIL::SigBit sig_a, const std::string &src = "");
+	//WRAPPED RTLIL::SigBit NotGate(RTLIL::IdString name, RTLIL::SigBit sig_a, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigBit Module::NotGate(IdString *name, SigBit *sig_a, std::string src)
 	{
 		return SigBit(this->get_cpp_obj()->NotGate(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), src));
 	}
 
-	//WRAPPED RTLIL::SigBit AndGate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, const std::string &src = "");
+	//WRAPPED RTLIL::SigBit AndGate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigBit Module::AndGate(IdString *name, SigBit *sig_a, SigBit *sig_b, std::string src)
 	{
 		return SigBit(this->get_cpp_obj()->AndGate(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), src));
 	}
 
-	//WRAPPED RTLIL::SigBit NandGate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, const std::string &src = "");
+	//WRAPPED RTLIL::SigBit NandGate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigBit Module::NandGate(IdString *name, SigBit *sig_a, SigBit *sig_b, std::string src)
 	{
 		return SigBit(this->get_cpp_obj()->NandGate(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), src));
 	}
 
-	//WRAPPED RTLIL::SigBit OrGate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, const std::string &src = "");
+	//WRAPPED RTLIL::SigBit OrGate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigBit Module::OrGate(IdString *name, SigBit *sig_a, SigBit *sig_b, std::string src)
 	{
 		return SigBit(this->get_cpp_obj()->OrGate(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), src));
 	}
 
-	//WRAPPED RTLIL::SigBit NorGate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, const std::string &src = "");
+	//WRAPPED RTLIL::SigBit NorGate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigBit Module::NorGate(IdString *name, SigBit *sig_a, SigBit *sig_b, std::string src)
 	{
 		return SigBit(this->get_cpp_obj()->NorGate(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), src));
 	}
 
-	//WRAPPED RTLIL::SigBit XorGate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, const std::string &src = "");
+	//WRAPPED RTLIL::SigBit XorGate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigBit Module::XorGate(IdString *name, SigBit *sig_a, SigBit *sig_b, std::string src)
 	{
 		return SigBit(this->get_cpp_obj()->XorGate(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), src));
 	}
 
-	//WRAPPED RTLIL::SigBit XnorGate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, const std::string &src = "");
+	//WRAPPED RTLIL::SigBit XnorGate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigBit Module::XnorGate(IdString *name, SigBit *sig_a, SigBit *sig_b, std::string src)
 	{
 		return SigBit(this->get_cpp_obj()->XnorGate(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), src));
 	}
 
-	//WRAPPED RTLIL::SigBit AndnotGate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, const std::string &src = "");
+	//WRAPPED RTLIL::SigBit AndnotGate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigBit Module::AndnotGate(IdString *name, SigBit *sig_a, SigBit *sig_b, std::string src)
 	{
 		return SigBit(this->get_cpp_obj()->AndnotGate(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), src));
 	}
 
-	//WRAPPED RTLIL::SigBit OrnotGate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, const std::string &src = "");
+	//WRAPPED RTLIL::SigBit OrnotGate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigBit Module::OrnotGate(IdString *name, SigBit *sig_a, SigBit *sig_b, std::string src)
 	{
 		return SigBit(this->get_cpp_obj()->OrnotGate(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), src));
 	}
 
-	//WRAPPED RTLIL::SigBit MuxGate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_s, const std::string &src = "");
+	//WRAPPED RTLIL::SigBit MuxGate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_s, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigBit Module::MuxGate(IdString *name, SigBit *sig_a, SigBit *sig_b, SigBit *sig_s, std::string src)
 	{
 		return SigBit(this->get_cpp_obj()->MuxGate(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_s->get_cpp_obj(), src));
 	}
 
-	//WRAPPED RTLIL::SigBit Aoi3Gate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_c, const std::string &src = "");
+	//WRAPPED RTLIL::SigBit Aoi3Gate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_c, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigBit Module::Aoi3Gate(IdString *name, SigBit *sig_a, SigBit *sig_b, SigBit *sig_c, std::string src)
 	{
 		return SigBit(this->get_cpp_obj()->Aoi3Gate(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_c->get_cpp_obj(), src));
 	}
 
-	//WRAPPED RTLIL::SigBit Oai3Gate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_c, const std::string &src = "");
+	//WRAPPED RTLIL::SigBit Oai3Gate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_c, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigBit Module::Oai3Gate(IdString *name, SigBit *sig_a, SigBit *sig_b, SigBit *sig_c, std::string src)
 	{
 		return SigBit(this->get_cpp_obj()->Oai3Gate(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_c->get_cpp_obj(), src));
 	}
 
-	//WRAPPED RTLIL::SigBit Aoi4Gate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_c, RTLIL::SigBit sig_d, const std::string &src = "");
+	//WRAPPED RTLIL::SigBit Aoi4Gate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_c, RTLIL::SigBit sig_d, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigBit Module::Aoi4Gate(IdString *name, SigBit *sig_a, SigBit *sig_b, SigBit *sig_c, SigBit *sig_d, std::string src)
 	{
 		return SigBit(this->get_cpp_obj()->Aoi4Gate(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_c->get_cpp_obj(), *sig_d->get_cpp_obj(), src));
 	}
 
-	//WRAPPED RTLIL::SigBit Oai4Gate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_c, RTLIL::SigBit sig_d, const std::string &src = "");
+	//WRAPPED RTLIL::SigBit Oai4Gate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_c, RTLIL::SigBit sig_d, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigBit Module::Oai4Gate(IdString *name, SigBit *sig_a, SigBit *sig_b, SigBit *sig_c, SigBit *sig_d, std::string src)
 	{
 		return SigBit(this->get_cpp_obj()->Oai4Gate(*name->get_cpp_obj(), *sig_a->get_cpp_obj(), *sig_b->get_cpp_obj(), *sig_c->get_cpp_obj(), *sig_d->get_cpp_obj(), src));
 	}
 
-	//WRAPPED RTLIL::SigSpec Anyconst(RTLIL::IdString name, int width = 1, const std::string &src = "");
+	//WRAPPED RTLIL::SigSpec Anyconst(RTLIL::IdString name, int width = 1, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigSpec Module::Anyconst(IdString *name, int width, std::string src)
 	{
 		return SigSpec(this->get_cpp_obj()->Anyconst(*name->get_cpp_obj(), width, src));
 	}
 
-	//WRAPPED RTLIL::SigSpec Anyseq(RTLIL::IdString name, int width = 1, const std::string &src = "");
+	//WRAPPED RTLIL::SigSpec Anyseq(RTLIL::IdString name, int width = 1, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigSpec Module::Anyseq(IdString *name, int width, std::string src)
 	{
 		return SigSpec(this->get_cpp_obj()->Anyseq(*name->get_cpp_obj(), width, src));
 	}
 
-	//WRAPPED RTLIL::SigSpec Allconst(RTLIL::IdString name, int width = 1, const std::string &src = "");
+	//WRAPPED RTLIL::SigSpec Allconst(RTLIL::IdString name, int width = 1, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigSpec Module::Allconst(IdString *name, int width, std::string src)
 	{
 		return SigSpec(this->get_cpp_obj()->Allconst(*name->get_cpp_obj(), width, src));
 	}
 
-	//WRAPPED RTLIL::SigSpec Allseq(RTLIL::IdString name, int width = 1, const std::string &src = "");
+	//WRAPPED RTLIL::SigSpec Allseq(RTLIL::IdString name, int width = 1, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigSpec Module::Allseq(IdString *name, int width, std::string src)
 	{
 		return SigSpec(this->get_cpp_obj()->Allseq(*name->get_cpp_obj(), width, src));
 	}
 
-	//WRAPPED RTLIL::SigSpec Initstate(RTLIL::IdString name, const std::string &src = "");
+	//WRAPPED RTLIL::SigSpec Initstate(RTLIL::IdString name, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	SigSpec Module::Initstate(IdString *name, std::string src)
 	{
 		return SigSpec(this->get_cpp_obj()->Initstate(*name->get_cpp_obj(), src));
 	}
 
-	//WRAPPED unsigned int hash() const { return hashidx_; }
+	//WRAPPED unsigned int hash() const { return hashidx_; } FROM FILE kernel/rtlil.h
 	unsigned int Design::hash()
 	{
 		return this->get_cpp_obj()->hash();
 	}
 
-	//WRAPPED RTLIL::Module *module(RTLIL::IdString name);
+	//WRAPPED RTLIL::Module *module(RTLIL::IdString name); FROM FILE kernel/rtlil.h
 	Module Design::module(IdString *name)
 	{
 		return Module(this->get_cpp_obj()->module(*name->get_cpp_obj()));
 	}
 
-	//WRAPPED bool has(RTLIL::IdString id) const {
+	//WRAPPED bool has(RTLIL::IdString id) const { FROM FILE kernel/rtlil.h
 	bool Design::has(IdString *id)
 	{
 		return this->get_cpp_obj()->has(*id->get_cpp_obj());
 	}
 
-	//WRAPPED void add(RTLIL::Module *module);
+	//WRAPPED void add(RTLIL::Module *module); FROM FILE kernel/rtlil.h
 	void Design::add(Module *module)
 	{
 		this->get_cpp_obj()->add(module->get_cpp_obj());
 	}
 
-	//WRAPPED RTLIL::Module *addModule(RTLIL::IdString name);
+	//WRAPPED RTLIL::Module *addModule(RTLIL::IdString name); FROM FILE kernel/rtlil.h
 	Module Design::addModule(IdString *name)
 	{
 		return Module(this->get_cpp_obj()->addModule(*name->get_cpp_obj()));
 	}
 
-	//WRAPPED void remove(RTLIL::Module *module);
+	//WRAPPED void remove(RTLIL::Module *module); FROM FILE kernel/rtlil.h
 	void Design::remove(Module *module)
 	{
 		this->get_cpp_obj()->remove(module->get_cpp_obj());
 	}
 
-	//WRAPPED void rename(RTLIL::Module *module, RTLIL::IdString new_name);
+	//WRAPPED void rename(RTLIL::Module *module, RTLIL::IdString new_name); FROM FILE kernel/rtlil.h
 	void Design::rename(Module *module, IdString *new_name)
 	{
 		this->get_cpp_obj()->rename(module->get_cpp_obj(), *new_name->get_cpp_obj());
 	}
 
-	//WRAPPED void scratchpad_unset(std::string varname);
+	//WRAPPED void scratchpad_unset(std::string varname); FROM FILE kernel/rtlil.h
 	void Design::scratchpad_unset(std::string varname)
 	{
 		this->get_cpp_obj()->scratchpad_unset(varname);
 	}
 
-	//WRAPPED void scratchpad_set_int(std::string varname, int value);
+	//WRAPPED void scratchpad_set_int(std::string varname, int value); FROM FILE kernel/rtlil.h
 	void Design::scratchpad_set_int(std::string varname, int value)
 	{
 		this->get_cpp_obj()->scratchpad_set_int(varname, value);
 	}
 
-	//WRAPPED void scratchpad_set_bool(std::string varname, bool value);
+	//WRAPPED void scratchpad_set_bool(std::string varname, bool value); FROM FILE kernel/rtlil.h
 	void Design::scratchpad_set_bool(std::string varname, bool value)
 	{
 		this->get_cpp_obj()->scratchpad_set_bool(varname, value);
 	}
 
-	//WRAPPED void scratchpad_set_string(std::string varname, std::string value);
+	//WRAPPED void scratchpad_set_string(std::string varname, std::string value); FROM FILE kernel/rtlil.h
 	void Design::scratchpad_set_string(std::string varname, std::string value)
 	{
 		this->get_cpp_obj()->scratchpad_set_string(varname, value);
 	}
 
-	//WRAPPED int scratchpad_get_int(std::string varname, int default_value = 0) const;
+	//WRAPPED int scratchpad_get_int(std::string varname, int default_value = 0) const; FROM FILE kernel/rtlil.h
 	int Design::scratchpad_get_int(std::string varname, int default_value)
 	{
 		return this->get_cpp_obj()->scratchpad_get_int(varname, default_value);
 	}
 
-	//WRAPPED bool scratchpad_get_bool(std::string varname, bool default_value = false) const;
+	//WRAPPED bool scratchpad_get_bool(std::string varname, bool default_value = false) const; FROM FILE kernel/rtlil.h
 	bool Design::scratchpad_get_bool(std::string varname, bool default_value)
 	{
 		return this->get_cpp_obj()->scratchpad_get_bool(varname, default_value);
 	}
 
-	//WRAPPED std::string scratchpad_get_string(std::string varname, std::string default_value = std::string()) const;
+	//WRAPPED std::string scratchpad_get_string(std::string varname, std::string default_value = std::string()) const; FROM FILE kernel/rtlil.h
 	std::string Design::scratchpad_get_string(std::string varname, std::string default_value)
 	{
 		return this->get_cpp_obj()->scratchpad_get_string(varname, default_value);
 	}
 
-	//WRAPPED bool selected_module(RTLIL::IdString mod_name) const;
+	//WRAPPED bool selected_module(RTLIL::IdString mod_name) const; FROM FILE kernel/rtlil.h
 	bool Design::selected_module_IdString(IdString *mod_name)
 	{
 		return this->get_cpp_obj()->selected_module(*mod_name->get_cpp_obj());
 	}
 
-	//WRAPPED bool selected_whole_module(RTLIL::IdString mod_name) const;
+	//WRAPPED bool selected_whole_module(RTLIL::IdString mod_name) const; FROM FILE kernel/rtlil.h
 	bool Design::selected_whole_module_IdString(IdString *mod_name)
 	{
 		return this->get_cpp_obj()->selected_whole_module(*mod_name->get_cpp_obj());
 	}
 
-	//WRAPPED bool selected_member(RTLIL::IdString mod_name, RTLIL::IdString memb_name) const;
+	//WRAPPED bool selected_member(RTLIL::IdString mod_name, RTLIL::IdString memb_name) const; FROM FILE kernel/rtlil.h
 	bool Design::selected_member(IdString *mod_name, IdString *memb_name)
 	{
 		return this->get_cpp_obj()->selected_member(*mod_name->get_cpp_obj(), *memb_name->get_cpp_obj());
 	}
 
-	//WRAPPED bool selected_module(RTLIL::Module *mod) const;
+	//WRAPPED bool selected_module(RTLIL::Module *mod) const; FROM FILE kernel/rtlil.h
 	bool Design::selected_module_Module(Module *mod)
 	{
 		return this->get_cpp_obj()->selected_module(mod->get_cpp_obj());
 	}
 
-	//WRAPPED bool selected_whole_module(RTLIL::Module *mod) const;
+	//WRAPPED bool selected_whole_module(RTLIL::Module *mod) const; FROM FILE kernel/rtlil.h
 	bool Design::selected_whole_module_Module(Module *mod)
 	{
 		return this->get_cpp_obj()->selected_whole_module(mod->get_cpp_obj());
 	}
 
-	//WRAPPED bool full_selection() const {
+	//WRAPPED bool full_selection() const { FROM FILE kernel/rtlil.h
 	bool Design::full_selection()
 	{
 		return this->get_cpp_obj()->full_selection();
