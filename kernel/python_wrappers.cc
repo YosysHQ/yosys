@@ -100,7 +100,7 @@ namespace YOSYS_PYTHON {
 		bool in_std_string(std::string rhs);
 
 		//WRAPPED bool in(const pool<IdString> &rhs) const { return rhs.count(*this) != 0; }
-		bool in_pool_IdString(boost::python::list *rhs);
+		bool in_pool_IdString(boost::python::list rhs);
 
 		bool operator<(IdString rhs) { return get_cpp_obj() <rhs.get_cpp_obj(); }
 
@@ -456,13 +456,13 @@ namespace YOSYS_PYTHON {
 		void remove2_SigSpec_SigSpec(SigSpec *pattern, SigSpec *other);
 
 		//WRAPPED void remove(const pool<RTLIL::SigBit> &pattern);
-		void remove_pool_SigBit(boost::python::list *pattern);
+		void remove_pool_SigBit(boost::python::list pattern);
 
 		//WRAPPED void remove(const pool<RTLIL::SigBit> &pattern, RTLIL::SigSpec *other) const;
-		void remove_pool_SigBit_SigSpec(boost::python::list *pattern, SigSpec *other);
+		void remove_pool_SigBit_SigSpec(boost::python::list pattern, SigSpec *other);
 
 		//WRAPPED void remove2(const pool<RTLIL::SigBit> &pattern, RTLIL::SigSpec *other);
-		void remove2_pool_SigBit_SigSpec(boost::python::list *pattern, SigSpec *other);
+		void remove2_pool_SigBit_SigSpec(boost::python::list pattern, SigSpec *other);
 
 		//WRAPPED void remove(int offset, int length = 1);
 		void remove_int_int(int offset, int length = 1);
@@ -471,7 +471,7 @@ namespace YOSYS_PYTHON {
 		SigSpec extract_SigSpec_SigSpec(SigSpec *pattern, SigSpec *other);
 
 		//WRAPPED RTLIL::SigSpec extract(const pool<RTLIL::SigBit> &pattern, const RTLIL::SigSpec *other = NULL) const;
-		SigSpec extract_pool_SigBit_SigSpec(boost::python::list *pattern, SigSpec *other);
+		SigSpec extract_pool_SigBit_SigSpec(boost::python::list pattern, SigSpec *other);
 
 		//WRAPPED RTLIL::SigSpec extract(int offset, int length = 1) const;
 		SigSpec extract_int_int(int offset, int length = 1);
@@ -760,7 +760,7 @@ namespace YOSYS_PYTHON {
 		void connect_SigSpec_SigSpec(SigSpec *lhs, SigSpec *rhs);
 
 		//WRAPPED void new_connections(const std::vector<RTLIL::SigSig> &new_conn);
-		void new_connections(boost::python::list *new_conn);
+		void new_connections(boost::python::list new_conn);
 
 		//WRAPPED void cloneInto(RTLIL::Module *new_mod) const;
 		void cloneInto(Module *new_mod);
@@ -784,7 +784,7 @@ namespace YOSYS_PYTHON {
 		Cell cell(IdString *id);
 
 		//WRAPPED void remove(const pool<RTLIL::Wire*> &wires);
-		void remove_pool_Wire(boost::python::list *wires);
+		void remove_pool_Wire(boost::python::list wires);
 
 		//WRAPPED void remove(RTLIL::Cell *cell);
 		void remove_Cell(Cell *cell);
@@ -1573,8 +1573,6 @@ namespace YOSYS_PYTHON {
 			Yosys::RTLIL::IdString *tmp_port = new Yosys::RTLIL::IdString(port);
 			Yosys::RTLIL::SigSpec *tmp_old_sig = new Yosys::RTLIL::SigSpec(old_sig);
 			py_notify_connect_cell(Cell(cell), IdString(tmp_port), SigSpec(tmp_old_sig), SigSpec(&sig));
-			delete tmp_port;
-			delete tmp_old_sig;
 		}
 
 		virtual void notify_connect(Yosys::RTLIL::Module *module, const Yosys::RTLIL::SigSig &sigsig) YS_OVERRIDE
@@ -1582,15 +1580,13 @@ namespace YOSYS_PYTHON {
 			Yosys::RTLIL::SigSpec *first = new Yosys::RTLIL::SigSpec(sigsig.first);
 			Yosys::RTLIL::SigSpec *second = new Yosys::RTLIL::SigSpec(sigsig.second);
 			py_notify_connect_tuple(Module(module), boost::python::make_tuple(SigSpec(first), SigSpec(second)));
-			delete first;
-			delete second;
 		}
 
 		virtual void notify_connect(Yosys::RTLIL::Module *module, const std::vector<Yosys::RTLIL::SigSig> &sigsig_vec) YS_OVERRIDE
 		{
 			boost::python::list sigsig_list;
 			for(auto sigsig : sigsig_vec)
-				sigsig_list.append(boost::python::make_tuple(SigSpec(&sigsig.first), SigSpec(&sigsig.second)));
+				sigsig_list.append(boost::python::make_tuple(*(new SigSpec(&sigsig.first)), *(new SigSpec(&sigsig.second))));
 			py_notify_connect_list(Module(module), sigsig_list);
 		}
 
@@ -1818,11 +1814,13 @@ namespace YOSYS_PYTHON {
 	}
 
 	//WRAPPED bool in(const pool<IdString> &rhs) const { return rhs.count(*this) != 0; } FROM FILE kernel/rtlil.h
-	bool IdString::in_pool_IdString(boost::python::list *rhs)
+	bool IdString::in_pool_IdString(boost::python::list rhs)
 	{
 		pool<Yosys::RTLIL::IdString> rhs_;
-		for(int i = 0; i < len(*rhs); ++i)
+		while(len(rhs) > 0)
 		{
+			IdString tmp = boost::python::extract<IdString>(rhs.pop());
+			rhs_.insert(*tmp.get_cpp_obj());
 		}
 		return this->get_cpp_obj()->in(rhs_);
 	}
@@ -1990,31 +1988,37 @@ namespace YOSYS_PYTHON {
 	}
 
 	//WRAPPED void remove(const pool<RTLIL::SigBit> &pattern); FROM FILE kernel/rtlil.h
-	void SigSpec::remove_pool_SigBit(boost::python::list *pattern)
+	void SigSpec::remove_pool_SigBit(boost::python::list pattern)
 	{
 		pool<Yosys::RTLIL::SigBit> pattern_;
-		for(int i = 0; i < len(*pattern); ++i)
+		while(len(pattern) > 0)
 		{
+			SigBit tmp = boost::python::extract<SigBit>(pattern.pop());
+			pattern_.insert(*tmp.get_cpp_obj());
 		}
 		this->get_cpp_obj()->remove(pattern_);
 	}
 
 	//WRAPPED void remove(const pool<RTLIL::SigBit> &pattern, RTLIL::SigSpec *other) const; FROM FILE kernel/rtlil.h
-	void SigSpec::remove_pool_SigBit_SigSpec(boost::python::list *pattern, SigSpec *other)
+	void SigSpec::remove_pool_SigBit_SigSpec(boost::python::list pattern, SigSpec *other)
 	{
 		pool<Yosys::RTLIL::SigBit> pattern_;
-		for(int i = 0; i < len(*pattern); ++i)
+		while(len(pattern) > 0)
 		{
+			SigBit tmp = boost::python::extract<SigBit>(pattern.pop());
+			pattern_.insert(*tmp.get_cpp_obj());
 		}
 		this->get_cpp_obj()->remove(pattern_, other->get_cpp_obj());
 	}
 
 	//WRAPPED void remove2(const pool<RTLIL::SigBit> &pattern, RTLIL::SigSpec *other); FROM FILE kernel/rtlil.h
-	void SigSpec::remove2_pool_SigBit_SigSpec(boost::python::list *pattern, SigSpec *other)
+	void SigSpec::remove2_pool_SigBit_SigSpec(boost::python::list pattern, SigSpec *other)
 	{
 		pool<Yosys::RTLIL::SigBit> pattern_;
-		for(int i = 0; i < len(*pattern); ++i)
+		while(len(pattern) > 0)
 		{
+			SigBit tmp = boost::python::extract<SigBit>(pattern.pop());
+			pattern_.insert(*tmp.get_cpp_obj());
 		}
 		this->get_cpp_obj()->remove2(pattern_, other->get_cpp_obj());
 	}
@@ -2032,11 +2036,13 @@ namespace YOSYS_PYTHON {
 	}
 
 	//WRAPPED RTLIL::SigSpec extract(const pool<RTLIL::SigBit> &pattern, const RTLIL::SigSpec *other = NULL) const; FROM FILE kernel/rtlil.h
-	SigSpec SigSpec::extract_pool_SigBit_SigSpec(boost::python::list *pattern, SigSpec *other)
+	SigSpec SigSpec::extract_pool_SigBit_SigSpec(boost::python::list pattern, SigSpec *other)
 	{
 		pool<Yosys::RTLIL::SigBit> pattern_;
-		for(int i = 0; i < len(*pattern); ++i)
+		while(len(pattern) > 0)
 		{
+			SigBit tmp = boost::python::extract<SigBit>(pattern.pop());
+			pattern_.insert(*tmp.get_cpp_obj());
 		}
 		return SigSpec(this->get_cpp_obj()->extract(pattern_, other->get_cpp_obj()));
 	}
@@ -2317,11 +2323,15 @@ namespace YOSYS_PYTHON {
 	}
 
 	//WRAPPED void new_connections(const std::vector<RTLIL::SigSig> &new_conn); FROM FILE kernel/rtlil.h
-	void Module::new_connections(boost::python::list *new_conn)
+	void Module::new_connections(boost::python::list new_conn)
 	{
 		std::vector<Yosys::RTLIL::SigSig> new_conn_;
-		for(int i = 0; i < len(*new_conn); ++i)
+		while(len(new_conn) > 0)
 		{
+			boost::python::tuple tmp1 = boost::python::extract<boost::python::tuple>(new_conn.pop());
+			SigSpec tmp2 = boost::python::extract<SigSpec>(tmp1[0]);
+			SigSpec tmp3 = boost::python::extract<SigSpec>(tmp1[1]);
+			new_conn_.push_back(Yosys::RTLIL::SigSig(*tmp2.get_cpp_obj(), *tmp3.get_cpp_obj()));
 		}
 		this->get_cpp_obj()->new_connections(new_conn_);
 	}
@@ -2369,11 +2379,13 @@ namespace YOSYS_PYTHON {
 	}
 
 	//WRAPPED void remove(const pool<RTLIL::Wire*> &wires); FROM FILE kernel/rtlil.h
-	void Module::remove_pool_Wire(boost::python::list *wires)
+	void Module::remove_pool_Wire(boost::python::list wires)
 	{
 		pool<Yosys::RTLIL::Wire*> wires_;
-		for(int i = 0; i < len(*wires); ++i)
+		while(len(wires) > 0)
 		{
+			Wire tmp = boost::python::extract<Wire>(wires.pop());
+			wires_.insert(tmp.get_cpp_obj());
 		}
 		this->get_cpp_obj()->remove(wires_);
 	}
