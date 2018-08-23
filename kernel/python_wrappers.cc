@@ -994,8 +994,17 @@ namespace YOSYS_PYTHON {
 		//WRAPPED RTLIL::Cell* addDffe(RTLIL::IdString name, RTLIL::SigSpec sig_clk, RTLIL::SigSpec sig_en, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool clk_polarity = true, bool en_polarity = true, const std::string &src = "");
 		Cell addDffe(IdString *name, SigSpec *sig_clk, SigSpec *sig_en, SigSpec *sig_d, SigSpec *sig_q, bool clk_polarity = true, bool en_polarity = true, std::string src = "");
 
+		//WRAPPED RTLIL::Cell* addDffsr(RTLIL::IdString name, RTLIL::SigSpec sig_clk, RTLIL::SigSpec sig_set, RTLIL::SigSpec sig_clr,RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool clk_polarity = true, bool set_polarity = true, bool clr_polarity = true, const std::string &src = "");
+		Cell addDffsr(IdString *name, SigSpec *sig_clk, SigSpec *sig_set, SigSpec *sig_clr, SigSpec *sig_d, SigSpec *sig_q, bool clk_polarity = true, bool set_polarity = true, bool clr_polarity = true, std::string src = "");
+
+		//WRAPPED RTLIL::Cell* addAdff(RTLIL::IdString name, RTLIL::SigSpec sig_clk, RTLIL::SigSpec sig_arst, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q,RTLIL::Const arst_value, bool clk_polarity = true, bool arst_polarity = true, const std::string &src = "");
+		Cell addAdff(IdString *name, SigSpec *sig_clk, SigSpec *sig_arst, SigSpec *sig_d, SigSpec *sig_q, Const *arst_value, bool clk_polarity = true, bool arst_polarity = true, std::string src = "");
+
 		//WRAPPED RTLIL::Cell* addDlatch(RTLIL::IdString name, RTLIL::SigSpec sig_en, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool en_polarity = true, const std::string &src = "");
 		Cell addDlatch(IdString *name, SigSpec *sig_en, SigSpec *sig_d, SigSpec *sig_q, bool en_polarity = true, std::string src = "");
+
+		//WRAPPED RTLIL::Cell* addDlatchsr(RTLIL::IdString name, RTLIL::SigSpec sig_en, RTLIL::SigSpec sig_set, RTLIL::SigSpec sig_clr,RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool en_polarity = true, bool set_polarity = true, bool clr_polarity = true, const std::string &src = "");
+		Cell addDlatchsr(IdString *name, SigSpec *sig_en, SigSpec *sig_set, SigSpec *sig_clr, SigSpec *sig_d, SigSpec *sig_q, bool en_polarity = true, bool set_polarity = true, bool clr_polarity = true, std::string src = "");
 
 		//WRAPPED RTLIL::Cell* addBufGate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_y, const std::string &src = "");
 		Cell addBufGate(IdString *name, SigBit *sig_a, SigBit *sig_y, std::string src = "");
@@ -1051,8 +1060,17 @@ namespace YOSYS_PYTHON {
 		//WRAPPED RTLIL::Cell* addDffeGate(RTLIL::IdString name, RTLIL::SigSpec sig_clk, RTLIL::SigSpec sig_en, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool clk_polarity = true, bool en_polarity = true, const std::string &src = "");
 		Cell addDffeGate(IdString *name, SigSpec *sig_clk, SigSpec *sig_en, SigSpec *sig_d, SigSpec *sig_q, bool clk_polarity = true, bool en_polarity = true, std::string src = "");
 
+		//WRAPPED RTLIL::Cell* addDffsrGate(RTLIL::IdString name, RTLIL::SigSpec sig_clk, RTLIL::SigSpec sig_set, RTLIL::SigSpec sig_clr,RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool clk_polarity = true, bool set_polarity = true, bool clr_polarity = true, const std::string &src = "");
+		Cell addDffsrGate(IdString *name, SigSpec *sig_clk, SigSpec *sig_set, SigSpec *sig_clr, SigSpec *sig_d, SigSpec *sig_q, bool clk_polarity = true, bool set_polarity = true, bool clr_polarity = true, std::string src = "");
+
+		//WRAPPED RTLIL::Cell* addAdffGate(RTLIL::IdString name, RTLIL::SigSpec sig_clk, RTLIL::SigSpec sig_arst, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q,bool arst_value = false, bool clk_polarity = true, bool arst_polarity = true, const std::string &src = "");
+		Cell addAdffGate(IdString *name, SigSpec *sig_clk, SigSpec *sig_arst, SigSpec *sig_d, SigSpec *sig_q, bool arst_value = false, bool clk_polarity = true, bool arst_polarity = true, std::string src = "");
+
 		//WRAPPED RTLIL::Cell* addDlatchGate(RTLIL::IdString name, RTLIL::SigSpec sig_en, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool en_polarity = true, const std::string &src = "");
 		Cell addDlatchGate(IdString *name, SigSpec *sig_en, SigSpec *sig_d, SigSpec *sig_q, bool en_polarity = true, std::string src = "");
+
+		//WRAPPED RTLIL::Cell* addDlatchsrGate(RTLIL::IdString name, RTLIL::SigSpec sig_en, RTLIL::SigSpec sig_set, RTLIL::SigSpec sig_clr,RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool en_polarity = true, bool set_polarity = true, bool clr_polarity = true, const std::string &src = "");
+		Cell addDlatchsrGate(IdString *name, SigSpec *sig_en, SigSpec *sig_set, SigSpec *sig_clr, SigSpec *sig_d, SigSpec *sig_q, bool en_polarity = true, bool set_polarity = true, bool clr_polarity = true, std::string src = "");
 
 		//WRAPPED RTLIL::SigSpec Not(RTLIL::IdString name, RTLIL::SigSpec sig_a, bool is_signed = false, const std::string &src = "");
 		SigSpec Not(IdString *name, SigSpec *sig_a, bool is_signed = false, std::string src = "");
@@ -2787,10 +2805,28 @@ namespace YOSYS_PYTHON {
 		return Cell(this->get_cpp_obj()->addDffe(*name->get_cpp_obj(), *sig_clk->get_cpp_obj(), *sig_en->get_cpp_obj(), *sig_d->get_cpp_obj(), *sig_q->get_cpp_obj(), clk_polarity, en_polarity, src));
 	}
 
+	//WRAPPED RTLIL::Cell* addDffsr(RTLIL::IdString name, RTLIL::SigSpec sig_clk, RTLIL::SigSpec sig_set, RTLIL::SigSpec sig_clr,RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool clk_polarity = true, bool set_polarity = true, bool clr_polarity = true, const std::string &src = ""); FROM FILE kernel/rtlil.h
+	Cell Module::addDffsr(IdString *name, SigSpec *sig_clk, SigSpec *sig_set, SigSpec *sig_clr, SigSpec *sig_d, SigSpec *sig_q, bool clk_polarity, bool set_polarity, bool clr_polarity, std::string src)
+	{
+		return Cell(this->get_cpp_obj()->addDffsr(*name->get_cpp_obj(), *sig_clk->get_cpp_obj(), *sig_set->get_cpp_obj(), *sig_clr->get_cpp_obj(), *sig_d->get_cpp_obj(), *sig_q->get_cpp_obj(), clk_polarity, set_polarity, clr_polarity, src));
+	}
+
+	//WRAPPED RTLIL::Cell* addAdff(RTLIL::IdString name, RTLIL::SigSpec sig_clk, RTLIL::SigSpec sig_arst, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q,RTLIL::Const arst_value, bool clk_polarity = true, bool arst_polarity = true, const std::string &src = ""); FROM FILE kernel/rtlil.h
+	Cell Module::addAdff(IdString *name, SigSpec *sig_clk, SigSpec *sig_arst, SigSpec *sig_d, SigSpec *sig_q, Const *arst_value, bool clk_polarity, bool arst_polarity, std::string src)
+	{
+		return Cell(this->get_cpp_obj()->addAdff(*name->get_cpp_obj(), *sig_clk->get_cpp_obj(), *sig_arst->get_cpp_obj(), *sig_d->get_cpp_obj(), *sig_q->get_cpp_obj(), *arst_value->get_cpp_obj(), clk_polarity, arst_polarity, src));
+	}
+
 	//WRAPPED RTLIL::Cell* addDlatch(RTLIL::IdString name, RTLIL::SigSpec sig_en, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool en_polarity = true, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addDlatch(IdString *name, SigSpec *sig_en, SigSpec *sig_d, SigSpec *sig_q, bool en_polarity, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addDlatch(*name->get_cpp_obj(), *sig_en->get_cpp_obj(), *sig_d->get_cpp_obj(), *sig_q->get_cpp_obj(), en_polarity, src));
+	}
+
+	//WRAPPED RTLIL::Cell* addDlatchsr(RTLIL::IdString name, RTLIL::SigSpec sig_en, RTLIL::SigSpec sig_set, RTLIL::SigSpec sig_clr,RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool en_polarity = true, bool set_polarity = true, bool clr_polarity = true, const std::string &src = ""); FROM FILE kernel/rtlil.h
+	Cell Module::addDlatchsr(IdString *name, SigSpec *sig_en, SigSpec *sig_set, SigSpec *sig_clr, SigSpec *sig_d, SigSpec *sig_q, bool en_polarity, bool set_polarity, bool clr_polarity, std::string src)
+	{
+		return Cell(this->get_cpp_obj()->addDlatchsr(*name->get_cpp_obj(), *sig_en->get_cpp_obj(), *sig_set->get_cpp_obj(), *sig_clr->get_cpp_obj(), *sig_d->get_cpp_obj(), *sig_q->get_cpp_obj(), en_polarity, set_polarity, clr_polarity, src));
 	}
 
 	//WRAPPED RTLIL::Cell* addBufGate(RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_y, const std::string &src = ""); FROM FILE kernel/rtlil.h
@@ -2901,10 +2937,28 @@ namespace YOSYS_PYTHON {
 		return Cell(this->get_cpp_obj()->addDffeGate(*name->get_cpp_obj(), *sig_clk->get_cpp_obj(), *sig_en->get_cpp_obj(), *sig_d->get_cpp_obj(), *sig_q->get_cpp_obj(), clk_polarity, en_polarity, src));
 	}
 
+	//WRAPPED RTLIL::Cell* addDffsrGate(RTLIL::IdString name, RTLIL::SigSpec sig_clk, RTLIL::SigSpec sig_set, RTLIL::SigSpec sig_clr,RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool clk_polarity = true, bool set_polarity = true, bool clr_polarity = true, const std::string &src = ""); FROM FILE kernel/rtlil.h
+	Cell Module::addDffsrGate(IdString *name, SigSpec *sig_clk, SigSpec *sig_set, SigSpec *sig_clr, SigSpec *sig_d, SigSpec *sig_q, bool clk_polarity, bool set_polarity, bool clr_polarity, std::string src)
+	{
+		return Cell(this->get_cpp_obj()->addDffsrGate(*name->get_cpp_obj(), *sig_clk->get_cpp_obj(), *sig_set->get_cpp_obj(), *sig_clr->get_cpp_obj(), *sig_d->get_cpp_obj(), *sig_q->get_cpp_obj(), clk_polarity, set_polarity, clr_polarity, src));
+	}
+
+	//WRAPPED RTLIL::Cell* addAdffGate(RTLIL::IdString name, RTLIL::SigSpec sig_clk, RTLIL::SigSpec sig_arst, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q,bool arst_value = false, bool clk_polarity = true, bool arst_polarity = true, const std::string &src = ""); FROM FILE kernel/rtlil.h
+	Cell Module::addAdffGate(IdString *name, SigSpec *sig_clk, SigSpec *sig_arst, SigSpec *sig_d, SigSpec *sig_q, bool arst_value, bool clk_polarity, bool arst_polarity, std::string src)
+	{
+		return Cell(this->get_cpp_obj()->addAdffGate(*name->get_cpp_obj(), *sig_clk->get_cpp_obj(), *sig_arst->get_cpp_obj(), *sig_d->get_cpp_obj(), *sig_q->get_cpp_obj(), arst_value, clk_polarity, arst_polarity, src));
+	}
+
 	//WRAPPED RTLIL::Cell* addDlatchGate(RTLIL::IdString name, RTLIL::SigSpec sig_en, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool en_polarity = true, const std::string &src = ""); FROM FILE kernel/rtlil.h
 	Cell Module::addDlatchGate(IdString *name, SigSpec *sig_en, SigSpec *sig_d, SigSpec *sig_q, bool en_polarity, std::string src)
 	{
 		return Cell(this->get_cpp_obj()->addDlatchGate(*name->get_cpp_obj(), *sig_en->get_cpp_obj(), *sig_d->get_cpp_obj(), *sig_q->get_cpp_obj(), en_polarity, src));
+	}
+
+	//WRAPPED RTLIL::Cell* addDlatchsrGate(RTLIL::IdString name, RTLIL::SigSpec sig_en, RTLIL::SigSpec sig_set, RTLIL::SigSpec sig_clr,RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool en_polarity = true, bool set_polarity = true, bool clr_polarity = true, const std::string &src = ""); FROM FILE kernel/rtlil.h
+	Cell Module::addDlatchsrGate(IdString *name, SigSpec *sig_en, SigSpec *sig_set, SigSpec *sig_clr, SigSpec *sig_d, SigSpec *sig_q, bool en_polarity, bool set_polarity, bool clr_polarity, std::string src)
+	{
+		return Cell(this->get_cpp_obj()->addDlatchsrGate(*name->get_cpp_obj(), *sig_en->get_cpp_obj(), *sig_set->get_cpp_obj(), *sig_clr->get_cpp_obj(), *sig_d->get_cpp_obj(), *sig_q->get_cpp_obj(), en_polarity, set_polarity, clr_polarity, src));
 	}
 
 	//WRAPPED RTLIL::SigSpec Not(RTLIL::IdString name, RTLIL::SigSpec sig_a, bool is_signed = false, const std::string &src = ""); FROM FILE kernel/rtlil.h
@@ -3673,7 +3727,10 @@ namespace YOSYS_PYTHON {
 			.def("addFf", &Module::addFf)
 			.def("addDff", &Module::addDff)
 			.def("addDffe", &Module::addDffe)
+			.def("addDffsr", &Module::addDffsr)
+			.def("addAdff", &Module::addAdff)
 			.def("addDlatch", &Module::addDlatch)
+			.def("addDlatchsr", &Module::addDlatchsr)
 			.def("addBufGate", &Module::addBufGate)
 			.def("addNotGate", &Module::addNotGate)
 			.def("addAndGate", &Module::addAndGate)
@@ -3692,7 +3749,10 @@ namespace YOSYS_PYTHON {
 			.def("addFfGate", &Module::addFfGate)
 			.def("addDffGate", &Module::addDffGate)
 			.def("addDffeGate", &Module::addDffeGate)
+			.def("addDffsrGate", &Module::addDffsrGate)
+			.def("addAdffGate", &Module::addAdffGate)
 			.def("addDlatchGate", &Module::addDlatchGate)
+			.def("addDlatchsrGate", &Module::addDlatchsrGate)
 			.def("Not", &Module::Not)
 			.def("Pos", &Module::Pos)
 			.def("Neg", &Module::Neg)
