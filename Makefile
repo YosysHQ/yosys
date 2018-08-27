@@ -19,6 +19,7 @@ ENABLE_LIBYOSYS := 0
 ENABLE_PROTOBUF := 0
 
 # other configuration flags
+ENABLE_GCOV := 0
 ENABLE_GPROF := 0
 ENABLE_DEBUG := 0
 ENABLE_NDEBUG := 0
@@ -310,6 +311,11 @@ else
 LDLIBS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKG_CONFIG) --silence-errors --libs tcl || echo -l$(TCL_VERSION))
 endif
 endif
+endif
+
+ifeq ($(ENABLE_GCOV),1)
+CXXFLAGS += --coverage
+LDFLAGS += --coverage
 endif
 
 ifeq ($(ENABLE_GPROF),1)
@@ -708,6 +714,11 @@ config-msys2: clean
 
 config-msys2-64: clean
 	echo 'CONFIG := msys2-64' > Makefile.conf
+
+config-gcov: clean
+	echo 'CONFIG := gcc' > Makefile.conf
+	echo 'ENABLE_GCOV := 1' >> Makefile.conf
+	echo 'ENABLE_DEBUG := 1' >> Makefile.conf
 
 config-gprof: clean
 	echo 'CONFIG := gcc' > Makefile.conf
