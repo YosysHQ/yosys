@@ -78,6 +78,9 @@ struct VerilogFrontend : public Frontend {
 		log("    -dump_ast2\n");
 		log("        dump abstract syntax tree (after simplification)\n");
 		log("\n");
+		log("    -no_dump_ptr\n");
+		log("        do not include hex memory addresses in dump (easier to diff dumps)\n");
+		log("\n");
 		log("    -dump_vlog\n");
 		log("        dump ast as Verilog code (after simplification)\n");
 		log("\n");
@@ -184,6 +187,7 @@ struct VerilogFrontend : public Frontend {
 	{
 		bool flag_dump_ast1 = false;
 		bool flag_dump_ast2 = false;
+		bool flag_no_dump_ptr = false;
 		bool flag_dump_vlog = false;
 		bool flag_dump_rtlil = false;
 		bool flag_nolatches = false;
@@ -239,6 +243,10 @@ struct VerilogFrontend : public Frontend {
 			}
 			if (arg == "-dump_ast2") {
 				flag_dump_ast2 = true;
+				continue;
+			}
+			if (arg == "-no_dump_ptr") {
+				flag_no_dump_ptr = true;
 				continue;
 			}
 			if (arg == "-dump_vlog") {
@@ -381,7 +389,7 @@ struct VerilogFrontend : public Frontend {
 		if (flag_nodpi)
 			error_on_dpi_function(current_ast);
 
-		AST::process(design, current_ast, flag_dump_ast1, flag_dump_ast2, flag_dump_vlog, flag_dump_rtlil, flag_nolatches, flag_nomeminit, flag_nomem2reg, flag_mem2reg, lib_mode, flag_noopt, flag_icells, flag_nooverwrite, flag_overwrite, flag_defer, default_nettype_wire);
+		AST::process(design, current_ast, flag_dump_ast1, flag_dump_ast2, flag_no_dump_ptr, flag_dump_vlog, flag_dump_rtlil, flag_nolatches, flag_nomeminit, flag_nomem2reg, flag_mem2reg, lib_mode, flag_noopt, flag_icells, flag_nooverwrite, flag_overwrite, flag_defer, default_nettype_wire);
 
 		if (!flag_nopp)
 			delete lexin;

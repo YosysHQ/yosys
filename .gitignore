@@ -2,6 +2,8 @@
 *.d
 .*.swp
 *.gch
+*.gcda
+*.gcno
 /.cproject
 /.project
 /.settings
@@ -10,6 +12,8 @@
 /qtcreator.config
 /qtcreator.creator
 /qtcreator.creator.user
+/coverage.info
+/coverage_html
 /Makefile.conf
 /abc
 /viz.js
