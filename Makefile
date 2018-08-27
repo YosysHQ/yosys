@@ -19,6 +19,7 @@ ENABLE_LIBYOSYS := 0
 ENABLE_PROTOBUF := 0
 
 # other configuration flags
+ENABLE_GCOV := 0
 ENABLE_GPROF := 0
 ENABLE_DEBUG := 0
 ENABLE_NDEBUG := 0
@@ -158,7 +159,7 @@ ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H"
 
 else ifeq ($(CONFIG),gcc-static)
 LD = $(CXX)
-LDFLAGS := $(filter-out -rdynamic,$(LDFLAGS)) -s
+LDFLAGS := $(filter-out -rdynamic,$(LDFLAGS)) -static
 LDLIBS := $(filter-out -lrt,$(LDLIBS)) 
 CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
 CXXFLAGS += -std=c++11 -Os
@@ -310,6 +311,11 @@ else
 LDLIBS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKG_CONFIG) --silence-errors --libs tcl || echo -l$(TCL_VERSION))
 endif
 endif
+endif
+
+ifeq ($(ENABLE_GCOV),1)
+CXXFLAGS += --coverage
+LDFLAGS += --coverage
 endif
 
 ifeq ($(ENABLE_GPROF),1)
@@ -644,6 +650,12 @@ clean-abc:
 mrproper: clean
 	git clean -xdf
 
+coverage:
+	./yosys -qp 'help; help -all'
+	rm -rf coverage.info coverage_html
+	lcov --capture -d . --no-external -o coverage.info
+	genhtml coverage.info --output-directory coverage_html
+
 qtcreator:
 	{ for file in $(basename $(OBJS)); do \
 		for prefix in cc y l; do if [ -f $${file}.$${prefix} ]; then echo $$file.$${prefix}; fi; done \
@@ -709,6 +721,11 @@ config-msys2: clean
 config-msys2-64: clean
 	echo 'CONFIG := msys2-64' > Makefile.conf
 
+config-gcov: clean
+	echo 'CONFIG := gcc' > Makefile.conf
+	echo 'ENABLE_GCOV := 1' >> Makefile.conf
+	echo 'ENABLE_DEBUG := 1' >> Makefile.conf
+
 config-gprof: clean
 	echo 'CONFIG := gcc' > Makefile.conf
 	echo 'ENABLE_GPROF := 1' >> Makefile.conf
@@ -729,6 +746,6 @@ echo-git-rev:
 -include kernel/*.d
 -include techlibs/*/*.d
 
-.PHONY: all top-all abc test install install-abc manual clean mrproper qtcreator
+.PHONY: all top-all abc test install install-abc manual clean mrproper qtcreator coverage vcxsrc mxebin
 .PHONY: config-clean config-clang config-gcc config-gcc-static config-gcc-4.8 config-gprof config-sudo
 

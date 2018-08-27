@@ -42,7 +42,7 @@
 #include "kernel/log.h"
 #include "frontends/verilog/verilog_frontend.h"
 #include "frontends/ast/ast.h"
-#include "verilog_parser.tab.h"
+#include "verilog_parser.tab.hh"
 
 USING_YOSYS_NAMESPACE
 using namespace AST;

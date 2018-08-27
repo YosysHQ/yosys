@@ -654,7 +654,7 @@ specify_item:
 	// | pulsestyle_declaration
 	// | showcancelled_declaration
 	| path_declaration
-	// | system_timing_declaration
+	| system_timing_declaration
 	;
 
 specparam_declaration:
@@ -682,22 +682,23 @@ showcancelled_declaration :
 */
 
 path_declaration :
-	simple_path_declaration
+	simple_path_declaration ';'
 	// | edge_sensitive_path_declaration
 	// | state_dependent_path_declaration
 	;
 
 simple_path_declaration :
-	parallel_path_description '=' path_delay_value ';'
-	// | full_path_description '=' path_delay_value ';'
+	parallel_path_description '=' path_delay_value |
+	full_path_description '=' path_delay_value
 	;
 
 path_delay_value :
-	//list_of_path_delay_expressions
-	'(' list_of_path_delay_expressions ')'
+	'(' path_delay_expression list_of_path_delay_extra_expressions ')'
+	|     path_delay_expression
+	|     path_delay_expression list_of_path_delay_extra_expressions
 	;
 
-list_of_path_delay_expressions :
+list_of_path_delay_extra_expressions :
 /*
 	t_path_delay_expression
 	| trise_path_delay_expression ',' tfall_path_delay_expression
@@ -709,12 +710,11 @@ list_of_path_delay_expressions :
 	  t0x_path_delay_expression ',' tx1_path_delay_expression ',' t1x_path_delay_expression ','
 	  tx0_path_delay_expression ',' txz_path_delay_expression ',' tzx_path_delay_expression
 */
-	path_delay_expression
-	| path_delay_expression ',' path_delay_expression
-	| path_delay_expression ',' path_delay_expression ',' path_delay_expression
-	| path_delay_expression ',' path_delay_expression ',' path_delay_expression ','
+	',' path_delay_expression
+	|  ',' path_delay_expression ',' path_delay_expression
+	|  ',' path_delay_expression ',' path_delay_expression ','
 	  path_delay_expression ',' path_delay_expression ',' path_delay_expression
-	| path_delay_expression ',' path_delay_expression ',' path_delay_expression ','
+	|  ',' path_delay_expression ',' path_delay_expression ','
 	  path_delay_expression ',' path_delay_expression ',' path_delay_expression ','
 	  path_delay_expression ',' path_delay_expression ',' path_delay_expression ','
 	  path_delay_expression ',' path_delay_expression ',' path_delay_expression
@@ -723,6 +723,22 @@ list_of_path_delay_expressions :
 parallel_path_description :
 	'(' specify_input_terminal_descriptor opt_polarity_operator '=' '>' specify_output_terminal_descriptor ')' ;
 
+full_path_description :
+	'(' list_of_path_inputs '*' '>' list_of_path_outputs ')' ;
+
+// This was broken into 2 rules to solve shift/reduce conflicts
+list_of_path_inputs :
+	specify_input_terminal_descriptor                  opt_polarity_operator  |
+	specify_input_terminal_descriptor more_path_inputs opt_polarity_operator ;
+
+more_path_inputs :
+    ',' specify_input_terminal_descriptor |
+    more_path_inputs ',' specify_input_terminal_descriptor ;
+
+list_of_path_outputs :
+	specify_output_terminal_descriptor |
+	list_of_path_outputs ',' specify_output_terminal_descriptor ;
+	
 opt_polarity_operator :
 	'+'
 	| '-'
@@ -736,11 +752,18 @@ specify_input_terminal_descriptor :
 specify_output_terminal_descriptor :
 	TOK_ID ;
 
-/*
 system_timing_declaration :
-	;
-*/
+	TOK_ID '(' system_timing_args ')' ';' ;
 
+system_timing_arg :
+	TOK_POSEDGE TOK_ID |
+	TOK_NEGEDGE TOK_ID |
+	expr ;
+
+system_timing_args :
+	system_timing_arg |
+	system_timing_args ',' system_timing_arg ;
+ 
 /*
 t_path_delay_expression :
 	path_delay_expression;
@@ -792,7 +815,7 @@ tzx_path_delay_expression :
 */
 
 path_delay_expression :
-	constant_mintypmax_expression;
+	constant_expression;
 
 constant_mintypmax_expression :
 	constant_expression
