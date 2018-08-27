@@ -28,7 +28,6 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-bool defparam, noattr;
 pool<string> used_names;
 dict<IdString, string> namecache;
 int autoid_counter;
@@ -173,16 +172,7 @@ struct FirrtlWorker
 
 	void process_instance(RTLIL::Cell *cell, vector<string> &wire_exprs)
 	{
-		// TODO: Deal with cell attributes
-		if (!noattr && !cell->attributes.empty()) {
-
-		}
 		std::string cell_type = fid(cell->type);
-
-		// TODO: Deal with cell parameters
-		if (!defparam && cell->parameters.size() > 0) {
-
-		}
 
 		std::string cell_name = cellname(cell);
 		std::string cell_name_comment;
