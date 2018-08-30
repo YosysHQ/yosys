@@ -585,6 +585,14 @@ vloghtb: $(TARGETS) $(EXTRA_TARGETS)
 	@echo "  Passed \"make vloghtb\"."
 	@echo ""
 
+ystests: $(TARGETS) $(EXTRA_TARGETS)
+	rm -rf tests/ystests
+	git clone https://github.com/YosysHQ/yosys-tests.git tests/ystests
+	+PATH="$$PWD:$$PATH" cd tests/ystests && $(MAKE)
+	@echo ""
+	@echo "  Finished \"make ystests\"."
+	@echo ""
+
 # Unit test
 unit-test: libyosys.so
 	@$(MAKE) -C $(UNITESTPATH) CXX="$(CXX)" CPPFLAGS="$(CPPFLAGS)" \
