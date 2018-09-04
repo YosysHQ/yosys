@@ -64,6 +64,7 @@ YOSYS_NAMESPACE_BEGIN
 int verific_verbose;
 bool verific_import_pending;
 string verific_error_msg;
+int verific_sva_fsm_limit;
 
 vector<string> verific_incdirs, verific_libdirs;
 
@@ -1618,6 +1619,8 @@ struct VerificExtNets
 
 void verific_import(Design *design, std::string top)
 {
+	verific_sva_fsm_limit = 16;
+
 	std::set<Netlist*> nl_todo, nl_done;
 
 	{
@@ -1789,6 +1792,9 @@ struct VerificPass : public Pass {
 		log("  -nosva\n");
 		log("    Ignore SVA properties, do not infer checker logic.\n");
 		log("\n");
+		log("  -L <int>\n");
+		log("    Maximum number of ctrl bits for SVA checker FSMs (default=16).\n");
+		log("\n");
 		log("  -n\n");
 		log("    Keep all Verific names on instances and nets. By default only\n");
 		log("    user-declared names are preserved.\n");
@@ -1830,6 +1836,7 @@ struct VerificPass : public Pass {
 		}
 
 		verific_verbose = 0;
+		verific_sva_fsm_limit = 16;
 
 		const char *release_str = Message::ReleaseString();
 		time_t release_time = Message::ReleaseDate();
@@ -2034,6 +2041,10 @@ struct VerificPass : public Pass {
 				}
 				if (args[argidx] == "-nosva") {
 					mode_nosva = true;
+					continue;
+				}
+				if (args[argidx] == "-L" && argidx+1 < GetSize(args)) {
+					verific_sva_fsm_limit = atoi(args[++argidx].c_str());
 					continue;
 				}
 				if (args[argidx] == "-n") {
