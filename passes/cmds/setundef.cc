@@ -162,7 +162,6 @@ struct SetundefPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-expose") {
-				got_value = true;
 				expose_mode = true;
 				continue;
 			}
@@ -211,6 +210,13 @@ struct SetundefPass : public Pass {
 			break;
 		}
 		extra_args(args, argidx, design);
+
+		if (!got_value && expose_mode) {
+			log("Using default as -undef with -expose.\n");
+			got_value = true;
+			worker.next_bit_mode = MODE_UNDEF;
+			worker.next_bit_state = 0;
+		}
 
 		if (expose_mode && !undriven_mode)
 			log_cmd_error("Option -expose must be used with option -undriven.\n");
