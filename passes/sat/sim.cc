@@ -778,7 +778,7 @@ struct SimPass : public Pass {
 		log("        number of cycles to simulate (default: 20)\n");
 		log("\n");
 		log("    -a\n");
-		log("        include all nets in VCD output, nut just those with public names\n");
+		log("        include all nets in VCD output, not just those with public names\n");
 		log("\n");
 		log("    -w\n");
 		log("        writeback mode: use final simulation state as new init state\n");
