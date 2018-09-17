@@ -34,3 +34,4 @@
 /libyosys.so
 /tests/unit/bintest/
 /tests/unit/objtest/
+/tests/ystests

@@ -101,6 +101,8 @@ void verific_import_sva_cover(VerificImporter *importer, Verific::Instance *inst
 void verific_import_sva_trigger(VerificImporter *importer, Verific::Instance *inst);
 bool verific_is_sva_net(VerificImporter *importer, Verific::Net *net);
 
+extern int verific_sva_fsm_limit;
+
 YOSYS_NAMESPACE_END
 
 #endif

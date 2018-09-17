@@ -779,6 +779,19 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		return true;
 	}
 
+	if (cell->type == "$lut")
+	{
+		f << stringf("%s" "assign ", indent.c_str());
+		dump_sigspec(f, cell->getPort("\\Y"));
+		f << stringf(" = ");
+		dump_const(f, cell->parameters.at("\\LUT"));
+		f << stringf(" >> ");
+		dump_attributes(f, "", cell->attributes, ' ');
+		dump_sigspec(f, cell->getPort("\\A"));
+		f << stringf(";\n");
+		return true;
+	}
+
 	if (cell->type == "$dffsr")
 	{
 		SigSpec sig_clk = cell->getPort("\\CLK");

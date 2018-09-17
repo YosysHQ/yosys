@@ -373,6 +373,7 @@ Finally run all tests with "make config-{clang,gcc,gcc-4.8}":
 	cd ~yosys
 	make clean
 	make test
+	make ystests
 	make vloghtb
 	make install
 

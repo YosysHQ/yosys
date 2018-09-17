@@ -466,13 +466,14 @@ struct SvaFsm
 
 		dnode.ctrl.sort_and_unify();
 
-		if (GetSize(dnode.ctrl) > 16) {
+		if (GetSize(dnode.ctrl) > verific_sva_fsm_limit) {
 			if (verific_verbose >= 2) {
 				log("    detected state explosion in DFSM generation:\n");
 				dump();
 				log("      ctrl signal: %s\n", log_signal(dnode.ctrl));
 			}
-			log_error("SVA DFSM state ctrl signal has %d (>16) bits. Stopping to prevent exponential design size explosion.\n", GetSize(dnode.ctrl));
+			log_error("SVA DFSM state ctrl signal has %d (>%d) bits. Stopping to prevent exponential design size explosion.\n",
+					GetSize(dnode.ctrl), verific_sva_fsm_limit);
 		}
 
 		for (int i = 0; i < (1 << GetSize(dnode.ctrl)); i++)
