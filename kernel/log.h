@@ -49,7 +49,7 @@ struct log_cmd_error_exception { };
 extern std::vector<FILE*> log_files;
 extern std::vector<std::ostream*> log_streams;
 extern std::map<std::string, std::set<std::string>> log_hdump;
-extern std::vector<std::regex> log_warn_regexes, log_nowarn_regexes;
+extern std::vector<std::regex> log_warn_regexes, log_nowarn_regexes, log_werror_regexes;
 extern std::set<std::string> log_warnings;
 extern int log_warnings_count;
 extern bool log_hdump_all;
@@ -73,8 +73,13 @@ YS_NORETURN void logv_error(const char *format, va_list ap) YS_ATTRIBUTE(noretur
 void log(const char *format, ...)  YS_ATTRIBUTE(format(printf, 1, 2));
 void log_header(RTLIL::Design *design, const char *format, ...) YS_ATTRIBUTE(format(printf, 2, 3));
 void log_warning(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
+
+// Log with filename to report a problem in a source file.
+void log_file_warning(const std::string &filename, int lineno, const char *format, ...) YS_ATTRIBUTE(format(printf, 3, 4));
+
 void log_warning_noprefix(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
 YS_NORETURN void log_error(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2), noreturn);
+void log_file_error(const string &filename, int lineno, const char *format, ...) YS_ATTRIBUTE(format(printf, 3, 4), noreturn);
 YS_NORETURN void log_cmd_error(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2), noreturn);
 
 void log_spacer();
@@ -114,7 +119,7 @@ static inline void log_assert_worker(bool cond, const char *expr, const char *fi
 // This is the magic behind the code coverage counters
 // ---------------------------------------------------
 
-#if defined(YOSYS_ENABLE_COVER) && defined(__linux__)
+#if defined(YOSYS_ENABLE_COVER) && (defined(__linux__) || defined(__FreeBSD__))
 
 #define cover(_id) do { \
     static CoverData __d __attribute__((section("yosys_cover_list"), aligned(1), used)) = { __FILE__, __FUNCTION__, _id, __LINE__, 0 }; \

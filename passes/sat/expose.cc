@@ -220,7 +220,7 @@ RTLIL::Wire *add_new_wire(RTLIL::Module *module, RTLIL::IdString name, int width
 
 struct ExposePass : public Pass {
 	ExposePass() : Pass("expose", "convert internal signals to module ports") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -235,6 +235,10 @@ struct ExposePass : public Pass {
 		log("    -cut\n");
 		log("        when exposing a wire, create an input/output pair and cut the internal\n");
 		log("        signal path at that wire.\n");
+		log("\n");
+		log("    -input\n");
+		log("        when exposing a wire, create an input port and disconnect the internal\n");
+		log("        driver.\n");
 		log("\n");
 		log("    -shared\n");
 		log("        only expose those signals that are shared among the selected modules.\n");
@@ -253,12 +257,13 @@ struct ExposePass : public Pass {
 		log("        designator for the exposed signal.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		bool flag_shared = false;
 		bool flag_evert = false;
 		bool flag_dff = false;
 		bool flag_cut = false;
+		bool flag_input = false;
 		bool flag_evert_dff = false;
 		std::string sep = ".";
 
@@ -279,8 +284,12 @@ struct ExposePass : public Pass {
 				flag_dff = true;
 				continue;
 			}
-			if (args[argidx] == "-cut") {
+			if (args[argidx] == "-cut" && !flag_input) {
 				flag_cut = true;
+				continue;
+			}
+			if (args[argidx] == "-input" && !flag_cut) {
+				flag_input = true;
 				continue;
 			}
 			if (args[argidx] == "-evert-dff") {
@@ -464,16 +473,42 @@ struct ExposePass : public Pass {
 						continue;
 				}
 
-				if (!it.second->port_output) {
-					it.second->port_output = true;
-					log("New module port: %s/%s\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(it.second->name));
+				if (flag_input)
+				{
+					if (!it.second->port_input) {
+						it.second->port_input = true;
+						log("New module port: %s/%s\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(it.second->name));
+						RTLIL::Wire *w = module->addWire(NEW_ID, GetSize(it.second));
+						out_to_in_map.add(it.second, w);
+					}
+				}
+				else
+				{
+					if (!it.second->port_output) {
+						it.second->port_output = true;
+						log("New module port: %s/%s\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(it.second->name));
+					}
+
+					if (flag_cut) {
+						RTLIL::Wire *in_wire = add_new_wire(module, it.second->name.str() + sep + "i", it.second->width);
+						in_wire->port_input = true;
+						out_to_in_map.add(sigmap(it.second), in_wire);
+					}
+				}
+			}
+
+			if (flag_input)
+			{
+				for (auto &it : module->cells_) {
+					if (!ct.cell_known(it.second->type))
+						continue;
+					for (auto &conn : it.second->connections_)
+						if (ct.cell_output(it.second->type, conn.first))
+							conn.second = out_to_in_map(sigmap(conn.second));
 				}
 
-				if (flag_cut) {
-					RTLIL::Wire *in_wire = add_new_wire(module, it.second->name.str() + sep + "i", it.second->width);
-					in_wire->port_input = true;
-					out_to_in_map.add(sigmap(it.second), in_wire);
-				}
+				for (auto &conn : module->connections_)
+					conn.first = out_to_in_map(sigmap(conn.first));
 			}
 
 			if (flag_cut)

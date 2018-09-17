@@ -1,4 +1,4 @@
-/*
+/* -*- c++ -*-
  *  yosys -- Yosys Open SYnthesis Suite
  *
  *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
@@ -274,17 +274,17 @@ namespace AST
 	};
 
 	// process an AST tree (ast must point to an AST_DESIGN node) and generate RTLIL code
-	void process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump_ast2, bool dump_vlog, bool dump_rtlil, bool nolatches, bool nomeminit,
-			bool nomem2reg, bool mem2reg, bool lib, bool noopt, bool icells, bool ignore_redef, bool defer, bool autowire);
+	void process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump_ast2, bool no_dump_ptr, bool dump_vlog, bool dump_rtlil, bool nolatches, bool nomeminit,
+			bool nomem2reg, bool mem2reg, bool lib, bool noopt, bool icells, bool nooverwrite, bool overwrite, bool defer, bool autowire);
 
 	// parametric modules are supported directly by the AST library
 	// therefore we need our own derivate of RTLIL::Module with overloaded virtual functions
 	struct AstModule : RTLIL::Module {
 		AstNode *ast;
 		bool nolatches, nomeminit, nomem2reg, mem2reg, lib, noopt, icells, autowire;
-		virtual ~AstModule();
-		virtual RTLIL::IdString derive(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters, bool mayfail);
-		virtual RTLIL::Module *clone() const;
+		~AstModule() YS_OVERRIDE;
+		RTLIL::IdString derive(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters, bool mayfail) YS_OVERRIDE;
+		RTLIL::Module *clone() const YS_OVERRIDE;
 	};
 
 	// this must be set by the language frontend before parsing the sources
@@ -305,7 +305,7 @@ namespace AST
 namespace AST_INTERNAL
 {
 	// internal state variables
-	extern bool flag_dump_ast1, flag_dump_ast2, flag_dump_rtlil, flag_nolatches, flag_nomeminit;
+	extern bool flag_dump_ast1, flag_dump_ast2, flag_no_dump_ptr, flag_dump_rtlil, flag_nolatches, flag_nomeminit;
 	extern bool flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt, flag_icells, flag_autowire;
 	extern AST::AstNode *current_ast, *current_ast_mod;
 	extern std::map<std::string, AST::AstNode*> current_scope;

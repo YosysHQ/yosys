@@ -27,7 +27,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct OptPass : public Pass {
 	OptPass() : Pass("opt", "perform simple optimizations") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -63,7 +63,7 @@ struct OptPass : public Pass {
 		log("\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		std::string opt_clean_args;
 		std::string opt_expr_args;

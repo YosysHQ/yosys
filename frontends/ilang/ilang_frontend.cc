@@ -35,7 +35,7 @@ YOSYS_NAMESPACE_BEGIN
 
 struct IlangFrontend : public Frontend {
 	IlangFrontend() : Frontend("ilang", "read modules from ilang file") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -45,7 +45,7 @@ struct IlangFrontend : public Frontend {
 		log("representation of a design in yosys's internal format.)\n");
 		log("\n");
 	}
-	virtual void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing ILANG frontend.\n");
 		extra_args(f, filename, args, 1);

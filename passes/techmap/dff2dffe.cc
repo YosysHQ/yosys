@@ -253,7 +253,7 @@ struct Dff2dffeWorker
 
 struct Dff2dffePass : public Pass {
 	Dff2dffePass() : Pass("dff2dffe", "transform $dff cells to $dffe cells") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -279,11 +279,12 @@ struct Dff2dffePass : public Pass {
 		log("    -direct-match <pattern>\n");
 		log("        like -direct for all DFF cell types matching the expression.\n");
 		log("        this will use $__DFFE_* as <external_gate_type> matching the\n");
-		log("        internal gate type $_DFF_*_, except for $_DFF_[NP]_, which is\n");
-		log("        converted to $_DFFE_[NP]_.\n");
+		log("        internal gate type $_DFF_*_, and $__DFFSE_* for those matching\n");
+		log("        $_DFFS_*_, except for $_DFF_[NP]_, which is converted to \n");
+		log("        $_DFFE_[NP]_.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing DFF2DFFE pass (transform $dff to $dffe where applicable).\n");
 
@@ -315,6 +316,15 @@ struct Dff2dffePass : public Pass {
 				if (patmatch(pattern, "$_DFF_PN1_")) found_match = true, direct_dict["$_DFF_PN1_"] = "$__DFFE_PN1";
 				if (patmatch(pattern, "$_DFF_PP0_")) found_match = true, direct_dict["$_DFF_PP0_"] = "$__DFFE_PP0";
 				if (patmatch(pattern, "$_DFF_PP1_")) found_match = true, direct_dict["$_DFF_PP1_"] = "$__DFFE_PP1";
+
+				if (patmatch(pattern, "$__DFFS_NN0_")) found_match = true, direct_dict["$__DFFS_NN0_"] = "$__DFFSE_NN0";
+				if (patmatch(pattern, "$__DFFS_NN1_")) found_match = true, direct_dict["$__DFFS_NN1_"] = "$__DFFSE_NN1";
+				if (patmatch(pattern, "$__DFFS_NP0_")) found_match = true, direct_dict["$__DFFS_NP0_"] = "$__DFFSE_NP0";
+				if (patmatch(pattern, "$__DFFS_NP1_")) found_match = true, direct_dict["$__DFFS_NP1_"] = "$__DFFSE_NP1";
+				if (patmatch(pattern, "$__DFFS_PN0_")) found_match = true, direct_dict["$__DFFS_PN0_"] = "$__DFFSE_PN0";
+				if (patmatch(pattern, "$__DFFS_PN1_")) found_match = true, direct_dict["$__DFFS_PN1_"] = "$__DFFSE_PN1";
+				if (patmatch(pattern, "$__DFFS_PP0_")) found_match = true, direct_dict["$__DFFS_PP0_"] = "$__DFFSE_PP0";
+				if (patmatch(pattern, "$__DFFS_PP1_")) found_match = true, direct_dict["$__DFFS_PP1_"] = "$__DFFSE_PP1";
 				if (!found_match)
 					log_cmd_error("No cell types matched pattern '%s'.\n", pattern);
 				continue;

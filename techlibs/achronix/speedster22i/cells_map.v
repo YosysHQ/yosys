@@ -16,53 +16,25 @@
  *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  */
-// Normal mode DFF negedge clk, negedge reset
-module  \$_DFF_N_ (input D, C, output Q);
-   parameter WYSIWYG="TRUE";
-   dffeas #(.is_wysiwyg(WYSIWYG)) _TECHMAP_REPLACE_ (.d(D), .q(Q), .clk(C), .clrn(1'b1), .prn(1'b1), .ena(1'b1), .asdata(1'b0), .aload(1'b0), .sclr(1'b0), .sload(1'b0));
-endmodule
-// Normal mode DFF
-module  \$_DFF_P_ (input D, C, output Q);
-   parameter WYSIWYG="TRUE";
-   dffeas #(.is_wysiwyg(WYSIWYG)) _TECHMAP_REPLACE_ (.d(D), .q(Q), .clk(C), .clrn(1'b1), .prn(1'b1), .ena(1'b1), .asdata(1'b0), .aload(1'b0), .sclr(1'b0), .sload(1'b0));
-endmodule
+// > c60k28 (Viacheslav, VT) [at] yandex [dot] com
+// > Achronix eFPGA technology mapping. User must first simulate the generated \
+// > netlist before going to test it on board/custom chip.
 
-// Async Active Low Reset DFF
-module  \$_DFF_PN0_ (input D, C, R, output Q);
-   parameter WYSIWYG="TRUE";
-   dffeas #(.is_wysiwyg(WYSIWYG)) _TECHMAP_REPLACE_ (.d(D), .q(Q), .clk(C), .clrn(R), .prn(1'b1), .ena(1'b1), .asdata(1'b0), .aload(1'b0), .sclr(1'b0), .sload(1'b0));
-endmodule
-// Async Active High Reset DFF
-module  \$_DFF_PP0_ (input D, C, R, output Q);
-   parameter WYSIWYG="TRUE";
-   wire R_i = ~ R;
-   dffeas #(.is_wysiwyg(WYSIWYG)) _TECHMAP_REPLACE_ (.d(D), .q(Q), .clk(C), .clrn(R_i), .prn(1'b1), .ena(1'b1), .asdata(1'b0), .aload(1'b0), .sclr(1'b0), .sload(1'b0));
-endmodule
-// Async Active Low Reset DFF
-module  \$_DFF_PN0_ (input D, C, R, output Q);
-   parameter WYSIWYG="TRUE";
-   dffeas #(.is_wysiwyg(WYSIWYG)) _TECHMAP_REPLACE_ (.d(D), .q(Q), .clk(C), .clrn(R), .prn(1'b1), .ena(1'b1), .asdata(1'b0), .aload(1'b0), .sclr(1'b0), .sload(1'b0));
-endmodule
-/* */
-module  \$__DFFE_PP0 (input D, C, E, R, output Q);
-   parameter WYSIWYG="TRUE";
-   wire E_i = ~ E;
-   dffeas #(.is_wysiwyg(WYSIWYG)) _TECHMAP_REPLACE_ (.d(D), .q(Q), .clk(C), .clrn(R), .prn(1'b1), .ena(1'b1), .asdata(1'b0), .aload(1'b0), .sclr(E_i), .sload(1'b0));
-endmodule
-
+// > Input/Output buffers <
 // Input buffer map
 module \$__inpad (input I, output O);
     PADIN _TECHMAP_REPLACE_ (.padout(O), .padin(I));
 endmodule
-
 // Output buffer map
 module \$__outpad (input I, output O);
     PADOUT _TECHMAP_REPLACE_ (.padout(O), .padin(I), .oe(1'b1));
 endmodule
+// > end buffers <
 
+// > Look-Up table <
+// > VT: I still think Achronix folks would have choosen a better \
+// >     logic architecture.
 // LUT Map
-/* 0 -> datac
-   1 -> cin */
 module \$lut (A, Y);
    parameter WIDTH  = 0;
    parameter LUT    = 0;
@@ -70,19 +42,31 @@ module \$lut (A, Y);
    output 	     Y;
    generate
       if (WIDTH == 1) begin
-	   assign Y = ~A[0]; // Not need to spend 1 logic cell for such an easy function
+	   // VT: This is not consistent and ACE will complain: assign Y = ~A[0];
+         LUT4 #(.lut_function({4{LUT}})) _TECHMAP_REPLACE_ 
+           (.dout(Y), .din0(A[0]), .din1(1'b0), .din2(1'b0), .din3(1'b0));
       end else
       if (WIDTH == 2) begin
-              LUT4 #(.lut_function({4{LUT}})) _TECHMAP_REPLACE_ (.dout(Y), .din0(A[0]), .din1(A[1]), .din2(1'b0),.din3(1'b0));
+              LUT4 #(.lut_function({4{LUT}})) _TECHMAP_REPLACE_ 
+                (.dout(Y), .din0(A[0]), .din1(A[1]), .din2(1'b0), .din3(1'b0));
       end else
       if(WIDTH == 3) begin
-	      LUT4 #(.lut_function({2{LUT}})) _TECHMAP_REPLACE_ (.dout(Y), .din0(A[0]), .din1(A[1]), .din2(A[2]),.din3(1'b0));
+	      LUT4 #(.lut_function({2{LUT}})) _TECHMAP_REPLACE_ 
+                (.dout(Y), .din0(A[0]), .din1(A[1]), .din2(A[2]), .din3(1'b0));
       end else
       if(WIDTH == 4) begin
-             LUT4 #(.lut_function(LUT)) _TECHMAP_REPLACE_ (.dout(Y), .din0(A[0]), .din1(A[1]), .din2(A[2]), .din3(A[3]));
+             LUT4 #(.lut_function(LUT)) _TECHMAP_REPLACE_ 
+               (.dout(Y), .din0(A[0]), .din1(A[1]), .din2(A[2]), .din3(A[3]));
       end else
 	   wire _TECHMAP_FAIL_ = 1;
    endgenerate
-endmodule //
+endmodule 
+// > end LUT <
 
+// > Flops <
+// DFF flop
+module  \$_DFF_P_ (input D, C, output Q);
+   DFF _TECHMAP_REPLACE_ 
+     (.q(Q), .d(D), .ck(C));
+endmodule 
 

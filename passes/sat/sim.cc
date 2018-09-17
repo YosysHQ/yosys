@@ -745,7 +745,7 @@ struct SimWorker : SimShared
 
 struct SimPass : public Pass {
 	SimPass() : Pass("sim", "simulate the circuit") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -778,7 +778,7 @@ struct SimPass : public Pass {
 		log("        number of cycles to simulate (default: 20)\n");
 		log("\n");
 		log("    -a\n");
-		log("        include all nets in VCD output, nut just those with public names\n");
+		log("        include all nets in VCD output, not just those with public names\n");
 		log("\n");
 		log("    -w\n");
 		log("        writeback mode: use final simulation state as new init state\n");
@@ -787,7 +787,7 @@ struct SimPass : public Pass {
 		log("        enable debug output\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		SimWorker worker;
 		int numcycles = 20;

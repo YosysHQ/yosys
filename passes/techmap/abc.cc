@@ -60,6 +60,10 @@
 
 #include "frontends/blif/blifparse.h"
 
+#ifdef YOSYS_LINK_ABC
+extern "C" int Abc_RealMain(int argc, char *argv[]);
+#endif
+
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
@@ -546,11 +550,13 @@ std::string replace_tempdir(std::string text, std::string tempdir_name, bool sho
 	}
 
 	std::string  selfdir_name = proc_self_dirname();
-	while (1) {
-		size_t pos = text.find(selfdir_name);
-		if (pos == std::string::npos)
-			break;
-		text = text.substr(0, pos) + "<yosys-exe-dir>/" + text.substr(pos + GetSize(selfdir_name));
+	if (selfdir_name != "/") {
+		while (1) {
+			size_t pos = text.find(selfdir_name);
+			if (pos == std::string::npos)
+				break;
+			text = text.substr(0, pos) + "<yosys-exe-dir>/" + text.substr(pos + GetSize(selfdir_name));
+		}
 	}
 
 	return text;
@@ -943,8 +949,24 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		buffer = stringf("%s -s -f %s/abc.script 2>&1", exe_file.c_str(), tempdir_name.c_str());
 		log("Running ABC command: %s\n", replace_tempdir(buffer, tempdir_name, show_tempdir).c_str());
 
+#ifndef YOSYS_LINK_ABC
 		abc_output_filter filt(tempdir_name, show_tempdir);
 		int ret = run_command(buffer, std::bind(&abc_output_filter::next_line, filt, std::placeholders::_1));
+#else
+		// These needs to be mutable, supposedly due to getopt
+		char *abc_argv[5];
+		string tmp_script_name = stringf("%s/abc.script", tempdir_name.c_str());
+		abc_argv[0] = strdup(exe_file.c_str());
+		abc_argv[1] = strdup("-s");
+		abc_argv[2] = strdup("-f");
+		abc_argv[3] = strdup(tmp_script_name.c_str());
+		abc_argv[4] = 0;
+		int ret = Abc_RealMain(4, abc_argv);
+		free(abc_argv[0]);
+		free(abc_argv[1]);
+		free(abc_argv[2]);
+		free(abc_argv[3]);
+#endif
 		if (ret != 0)
 			log_error("ABC: execution of command \"%s\" failed: return code %d.\n", buffer.c_str(), ret);
 
@@ -1226,7 +1248,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 
 struct AbcPass : public Pass {
 	AbcPass() : Pass("abc", "use ABC for technology mapping") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -1388,13 +1410,17 @@ struct AbcPass : public Pass {
 		log("When neither -liberty nor -lut is used, the Yosys standard cell library is\n");
 		log("loaded into ABC before the ABC script is executed.\n");
 		log("\n");
-		log("This pass does not operate on modules with unprocessed processes in it.\n");
-		log("(I.e. the 'proc' pass should be used first to convert processes to netlists.)\n");
+		log("Note that this is a logic optimization pass within Yosys that is calling ABC\n");
+		log("internally. This is not going to \"run ABC on your design\". It will instead run\n");
+		log("ABC on logic snippets extracted from your design. You will not get any useful\n");
+		log("output when passing an ABC script that writes a file. Instead write your full\n");
+		log("design as BLIF file with write_blif and the load that into ABC externally if\n");
+		log("you want to use ABC to convert your design into another format.\n");
 		log("\n");
 		log("[1] http://www.eecs.berkeley.edu/~alanmi/abc/\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing ABC pass (technology mapping using ABC).\n");
 		log_push();

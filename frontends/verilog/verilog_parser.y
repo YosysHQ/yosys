@@ -110,7 +110,7 @@ static void free_attr(std::map<std::string, AstNode*> *al)
 %token TOK_BEGIN TOK_END TOK_IF TOK_ELSE TOK_FOR TOK_WHILE TOK_REPEAT
 %token TOK_DPI_FUNCTION TOK_POSEDGE TOK_NEGEDGE TOK_OR TOK_AUTOMATIC
 %token TOK_CASE TOK_CASEX TOK_CASEZ TOK_ENDCASE TOK_DEFAULT
-%token TOK_FUNCTION TOK_ENDFUNCTION TOK_TASK TOK_ENDTASK
+%token TOK_FUNCTION TOK_ENDFUNCTION TOK_TASK TOK_ENDTASK TOK_SPECIFY TOK_ENDSPECIFY TOK_SPECPARAM
 %token TOK_GENERATE TOK_ENDGENERATE TOK_GENVAR TOK_REAL
 %token TOK_SYNOPSYS_FULL_CASE TOK_SYNOPSYS_PARALLEL_CASE
 %token TOK_SUPPLY0 TOK_SUPPLY1 TOK_TO_SIGNED TOK_TO_UNSIGNED
@@ -376,9 +376,10 @@ wire_type:
 	};
 
 wire_type_token_list:
-	wire_type_token | wire_type_token_list wire_type_token;
+	wire_type_token | wire_type_token_list wire_type_token |
+	wire_type_token_io ;
 
-wire_type_token:
+wire_type_token_io:
 	TOK_INPUT {
 		astbuf3->is_input = true;
 	} |
@@ -388,7 +389,9 @@ wire_type_token:
 	TOK_INOUT {
 		astbuf3->is_input = true;
 		astbuf3->is_output = true;
-	} |
+	};
+
+wire_type_token:
 	TOK_WIRE {
 	} |
 	TOK_REG {
@@ -479,7 +482,7 @@ module_body:
 	/* empty */;
 
 module_body_stmt:
-	task_func_decl | param_decl | localparam_decl | defparam_decl | wire_decl | assign_stmt | cell_stmt |
+	task_func_decl | specify_block |param_decl | localparam_decl | defparam_decl | specparam_declaration | wire_decl | assign_stmt | cell_stmt |
 	always_stmt | TOK_GENERATE module_gen_body TOK_ENDGENERATE | defattr | assert_property | checker_decl;
 
 checker_decl:
@@ -638,6 +641,194 @@ task_func_body:
 	task_func_body behavioral_stmt |
 	/* empty */;
 
+specify_block:
+	TOK_SPECIFY specify_item_opt TOK_ENDSPECIFY |
+	TOK_SPECIFY TOK_ENDSPECIFY ;
+
+specify_item_opt:
+	specify_item_opt specify_item |
+	specify_item ;
+
+specify_item:
+	specparam_declaration
+	// | pulsestyle_declaration
+	// | showcancelled_declaration
+	| path_declaration
+	| system_timing_declaration
+	;
+
+specparam_declaration:
+	TOK_SPECPARAM list_of_specparam_assignments ';' |
+	TOK_SPECPARAM specparam_range list_of_specparam_assignments ';' ;
+
+// IEEE 1364-2005 calls this sinmply 'range' but the current 'range' rule allows empty match
+// and the 'non_opt_range' rule allows index ranges not allowed by 1364-2005
+// exxxxtending this for SV specparam would change this anyhow
+specparam_range:
+	'[' constant_expression ':' constant_expression ']' ;
+
+list_of_specparam_assignments:
+	specparam_assignment | list_of_specparam_assignments ',' specparam_assignment;
+
+specparam_assignment:
+	TOK_ID '=' constant_mintypmax_expression ;
+
+/*
+pulsestyle_declaration :
+	;
+
+showcancelled_declaration :
+	;
+*/
+
+path_declaration :
+	simple_path_declaration ';'
+	// | edge_sensitive_path_declaration
+	// | state_dependent_path_declaration
+	;
+
+simple_path_declaration :
+	parallel_path_description '=' path_delay_value |
+	full_path_description '=' path_delay_value
+	;
+
+path_delay_value :
+	'(' path_delay_expression list_of_path_delay_extra_expressions ')'
+	|     path_delay_expression
+	|     path_delay_expression list_of_path_delay_extra_expressions
+	;
+
+list_of_path_delay_extra_expressions :
+/*
+	t_path_delay_expression
+	| trise_path_delay_expression ',' tfall_path_delay_expression
+	| trise_path_delay_expression ',' tfall_path_delay_expression ',' tz_path_delay_expression
+	| t01_path_delay_expression ',' t10_path_delay_expression ',' t0z_path_delay_expression ','
+	  tz1_path_delay_expression ',' t1z_path_delay_expression ',' tz0_path_delay_expression
+	| t01_path_delay_expression ',' t10_path_delay_expression ',' t0z_path_delay_expression ','
+	  tz1_path_delay_expression ',' t1z_path_delay_expression ',' tz0_path_delay_expression ','
+	  t0x_path_delay_expression ',' tx1_path_delay_expression ',' t1x_path_delay_expression ','
+	  tx0_path_delay_expression ',' txz_path_delay_expression ',' tzx_path_delay_expression
+*/
+	',' path_delay_expression
+	|  ',' path_delay_expression ',' path_delay_expression
+	|  ',' path_delay_expression ',' path_delay_expression ','
+	  path_delay_expression ',' path_delay_expression ',' path_delay_expression
+	|  ',' path_delay_expression ',' path_delay_expression ','
+	  path_delay_expression ',' path_delay_expression ',' path_delay_expression ','
+	  path_delay_expression ',' path_delay_expression ',' path_delay_expression ','
+	  path_delay_expression ',' path_delay_expression ',' path_delay_expression
+	;
+
+parallel_path_description :
+	'(' specify_input_terminal_descriptor opt_polarity_operator '=' '>' specify_output_terminal_descriptor ')' ;
+
+full_path_description :
+	'(' list_of_path_inputs '*' '>' list_of_path_outputs ')' ;
+
+// This was broken into 2 rules to solve shift/reduce conflicts
+list_of_path_inputs :
+	specify_input_terminal_descriptor                  opt_polarity_operator  |
+	specify_input_terminal_descriptor more_path_inputs opt_polarity_operator ;
+
+more_path_inputs :
+    ',' specify_input_terminal_descriptor |
+    more_path_inputs ',' specify_input_terminal_descriptor ;
+
+list_of_path_outputs :
+	specify_output_terminal_descriptor |
+	list_of_path_outputs ',' specify_output_terminal_descriptor ;
+	
+opt_polarity_operator :
+	'+'
+	| '-'
+	| ;
+
+// Good enough for the time being
+specify_input_terminal_descriptor :
+	TOK_ID ;
+
+// Good enough for the time being
+specify_output_terminal_descriptor :
+	TOK_ID ;
+
+system_timing_declaration :
+	TOK_ID '(' system_timing_args ')' ';' ;
+
+system_timing_arg :
+	TOK_POSEDGE TOK_ID |
+	TOK_NEGEDGE TOK_ID |
+	expr ;
+
+system_timing_args :
+	system_timing_arg |
+	system_timing_args ',' system_timing_arg ;
+ 
+/*
+t_path_delay_expression :
+	path_delay_expression;
+
+trise_path_delay_expression :
+	path_delay_expression;
+
+tfall_path_delay_expression :
+	path_delay_expression;
+
+tz_path_delay_expression :
+	path_delay_expression;
+
+t01_path_delay_expression :
+	path_delay_expression;
+
+t10_path_delay_expression :
+	path_delay_expression;
+
+t0z_path_delay_expression :
+	path_delay_expression;
+
+tz1_path_delay_expression :
+	path_delay_expression;
+
+t1z_path_delay_expression :
+	path_delay_expression;
+
+tz0_path_delay_expression :
+	path_delay_expression;
+
+t0x_path_delay_expression :
+	path_delay_expression;
+
+tx1_path_delay_expression :
+	path_delay_expression;
+
+t1x_path_delay_expression :
+	path_delay_expression;
+
+tx0_path_delay_expression :
+	path_delay_expression;
+
+txz_path_delay_expression :
+	path_delay_expression;
+
+tzx_path_delay_expression :
+	path_delay_expression;
+*/
+
+path_delay_expression :
+	constant_expression;
+
+constant_mintypmax_expression :
+	constant_expression
+	| constant_expression ':' constant_expression ':' constant_expression
+	;
+
+// for the time being this is OK, but we may write our own expr here.
+// as I'm not sure it is legal to use a full expr here (probably not)
+// On the other hand, other rules requiring constant expressions also use 'expr'
+// (such as param assignment), so we may leave this as-is, perhaps assing runtime checks for constant-ness
+constant_expression:
+	expr ;
+
 param_signed:
 	TOK_SIGNED {
 		astbuf1->is_signed = true;
@@ -772,11 +963,43 @@ wire_name_list:
 
 wire_name_and_opt_assign:
 	wire_name {
-		if (current_wire_rand) {
+		bool attr_anyconst = false;
+		bool attr_anyseq = false;
+		bool attr_allconst = false;
+		bool attr_allseq = false;
+		if (ast_stack.back()->children.back()->get_bool_attribute("\\anyconst")) {
+			delete ast_stack.back()->children.back()->attributes.at("\\anyconst");
+			ast_stack.back()->children.back()->attributes.erase("\\anyconst");
+			attr_anyconst = true;
+		}
+		if (ast_stack.back()->children.back()->get_bool_attribute("\\anyseq")) {
+			delete ast_stack.back()->children.back()->attributes.at("\\anyseq");
+			ast_stack.back()->children.back()->attributes.erase("\\anyseq");
+			attr_anyseq = true;
+		}
+		if (ast_stack.back()->children.back()->get_bool_attribute("\\allconst")) {
+			delete ast_stack.back()->children.back()->attributes.at("\\allconst");
+			ast_stack.back()->children.back()->attributes.erase("\\allconst");
+			attr_allconst = true;
+		}
+		if (ast_stack.back()->children.back()->get_bool_attribute("\\allseq")) {
+			delete ast_stack.back()->children.back()->attributes.at("\\allseq");
+			ast_stack.back()->children.back()->attributes.erase("\\allseq");
+			attr_allseq = true;
+		}
+		if (current_wire_rand || attr_anyconst || attr_anyseq || attr_allconst || attr_allseq) {
 			AstNode *wire = new AstNode(AST_IDENTIFIER);
 			AstNode *fcall = new AstNode(AST_FCALL);
 			wire->str = ast_stack.back()->children.back()->str;
 			fcall->str = current_wire_const ? "\\$anyconst" : "\\$anyseq";
+			if (attr_anyconst)
+				fcall->str = "\\$anyconst";
+			if (attr_anyseq)
+				fcall->str = "\\$anyseq";
+			if (attr_allconst)
+				fcall->str = "\\$allconst";
+			if (attr_allseq)
+				fcall->str = "\\$allseq";
 			fcall->attributes["\\reg"] = AstNode::mkconst_str(RTLIL::unescape_id(wire->str));
 			ast_stack.back()->children.push_back(new AstNode(AST_ASSIGN, wire, fcall));
 		}
@@ -1044,39 +1267,45 @@ opt_label:
 		$$ = NULL;
 	};
 
+opt_property:
+	TOK_PROPERTY | /* empty */;
+
+opt_stmt_label:
+	TOK_ID ':' | /* empty */;
+
 assert:
-	TOK_ASSERT '(' expr ')' ';' {
-		ast_stack.back()->children.push_back(new AstNode(assume_asserts_mode ? AST_ASSUME : AST_ASSERT, $3));
+	opt_stmt_label TOK_ASSERT opt_property '(' expr ')' ';' {
+		ast_stack.back()->children.push_back(new AstNode(assume_asserts_mode ? AST_ASSUME : AST_ASSERT, $5));
 	} |
-	TOK_ASSUME '(' expr ')' ';' {
-		ast_stack.back()->children.push_back(new AstNode(AST_ASSUME, $3));
+	opt_stmt_label TOK_ASSUME opt_property '(' expr ')' ';' {
+		ast_stack.back()->children.push_back(new AstNode(AST_ASSUME, $5));
 	} |
-	TOK_ASSERT '(' TOK_EVENTUALLY expr ')' ';' {
-		ast_stack.back()->children.push_back(new AstNode(assume_asserts_mode ? AST_FAIR : AST_LIVE, $4));
+	opt_stmt_label TOK_ASSERT opt_property '(' TOK_EVENTUALLY expr ')' ';' {
+		ast_stack.back()->children.push_back(new AstNode(assume_asserts_mode ? AST_FAIR : AST_LIVE, $6));
 	} |
-	TOK_ASSUME '(' TOK_EVENTUALLY expr ')' ';' {
-		ast_stack.back()->children.push_back(new AstNode(AST_FAIR, $4));
+	opt_stmt_label TOK_ASSUME opt_property '(' TOK_EVENTUALLY expr ')' ';' {
+		ast_stack.back()->children.push_back(new AstNode(AST_FAIR, $6));
 	} |
-	TOK_COVER '(' expr ')' ';' {
-		ast_stack.back()->children.push_back(new AstNode(AST_COVER, $3));
+	opt_stmt_label TOK_COVER opt_property '(' expr ')' ';' {
+		ast_stack.back()->children.push_back(new AstNode(AST_COVER, $5));
 	} |
-	TOK_COVER '(' ')' ';' {
+	opt_stmt_label TOK_COVER opt_property '(' ')' ';' {
 		ast_stack.back()->children.push_back(new AstNode(AST_COVER, AstNode::mkconst_int(1, false)));
 	} |
-	TOK_COVER ';' {
+	opt_stmt_label TOK_COVER ';' {
 		ast_stack.back()->children.push_back(new AstNode(AST_COVER, AstNode::mkconst_int(1, false)));
 	} |
-	TOK_RESTRICT '(' expr ')' ';' {
+	opt_stmt_label TOK_RESTRICT opt_property '(' expr ')' ';' {
 		if (norestrict_mode)
-			delete $3;
+			delete $5;
 		else
-			ast_stack.back()->children.push_back(new AstNode(AST_ASSUME, $3));
+			ast_stack.back()->children.push_back(new AstNode(AST_ASSUME, $5));
 	} |
-	TOK_RESTRICT '(' TOK_EVENTUALLY expr ')' ';' {
+	opt_stmt_label TOK_RESTRICT opt_property '(' TOK_EVENTUALLY expr ')' ';' {
 		if (norestrict_mode)
-			delete $4;
+			delete $6;
 		else
-			ast_stack.back()->children.push_back(new AstNode(AST_FAIR, $4));
+			ast_stack.back()->children.push_back(new AstNode(AST_FAIR, $6));
 	};
 
 assert_property:

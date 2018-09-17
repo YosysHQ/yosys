@@ -29,7 +29,7 @@ struct SynthGowinPass : public ScriptPass
 {
 	SynthGowinPass() : ScriptPass("synth_gowin", "synthesis for Gowin FPGAs") { }
 
-	virtual void help() YS_OVERRIDE
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -61,14 +61,14 @@ struct SynthGowinPass : public ScriptPass
 	string top_opt, vout_file;
 	bool retime;
 
-	virtual void clear_flags() YS_OVERRIDE
+	void clear_flags() YS_OVERRIDE
 	{
 		top_opt = "-auto-top";
 		vout_file = "";
 		retime = false;
 	}
 
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		string run_from, run_to;
 		clear_flags();
@@ -111,7 +111,7 @@ struct SynthGowinPass : public ScriptPass
 		log_pop();
 	}
 
-	virtual void script() YS_OVERRIDE
+	void script() YS_OVERRIDE
 	{
 		if (check_label("begin"))
 		{

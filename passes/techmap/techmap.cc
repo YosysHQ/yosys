@@ -891,7 +891,7 @@ struct TechmapWorker
 
 struct TechmapPass : public Pass {
 	TechmapPass() : Pass("techmap", "generic technology mapper") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -933,7 +933,7 @@ struct TechmapPass : public Pass {
 		log("    -D <define>, -I <incdir>\n");
 		log("        this options are passed as-is to the Verilog frontend for loading the\n");
 		log("        map file. Note that the Verilog frontend is also called with the\n");
-		log("        '-ignore_redef' option set.\n");
+		log("        '-nooverwrite' option set.\n");
 		log("\n");
 		log("When a module in the map file has the 'techmap_celltype' attribute set, it will\n");
 		log("match cells with a type that match the text value of this attribute. Otherwise\n");
@@ -1022,7 +1022,7 @@ struct TechmapPass : public Pass {
 		log("essentially techmap but using the design itself as map library).\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing TECHMAP pass (map to technology primitives).\n");
 		log_push();
@@ -1031,7 +1031,7 @@ struct TechmapPass : public Pass {
 		simplemap_get_mappers(worker.simplemap_mappers);
 
 		std::vector<std::string> map_files;
-		std::string verilog_frontend = "verilog -ignore_redef";
+		std::string verilog_frontend = "verilog -nooverwrite";
 		int max_iter = -1;
 
 		size_t argidx;
@@ -1141,7 +1141,7 @@ struct TechmapPass : public Pass {
 
 struct FlattenPass : public Pass {
 	FlattenPass() : Pass("flatten", "flatten design") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -1155,7 +1155,7 @@ struct FlattenPass : public Pass {
 		log("flattened by this command.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing FLATTEN pass (flatten design).\n");
 		log_push();

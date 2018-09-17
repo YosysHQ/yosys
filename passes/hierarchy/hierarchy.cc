@@ -18,6 +18,7 @@
  */
 
 #include "kernel/yosys.h"
+#include "frontends/verific/verific.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <set>
@@ -138,7 +139,7 @@ void generate(RTLIL::Design *design, const std::vector<std::string> &celltypes, 
 	}
 }
 
-bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check, std::vector<std::string> &libdirs)
+bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check, bool flag_simcheck, std::vector<std::string> &libdirs)
 {
 	bool did_something = false;
 	std::map<RTLIL::Cell*, std::pair<int, int>> array_cells;
@@ -173,20 +174,24 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 
 			for (auto &dir : libdirs)
 			{
-				filename = dir + "/" + RTLIL::unescape_id(cell->type) + ".v";
-				if (check_file_exists(filename)) {
-					Frontend::frontend_call(design, NULL, filename, "verilog");
-					goto loaded_module;
-				}
+				static const vector<pair<string, string>> extensions_list =
+				{
+					{".v", "verilog"},
+					{".sv", "verilog -sv"},
+					{".il", "ilang"}
+				};
 
-				filename = dir + "/" + RTLIL::unescape_id(cell->type) + ".il";
-				if (check_file_exists(filename)) {
-					Frontend::frontend_call(design, NULL, filename, "ilang");
-					goto loaded_module;
+				for (auto &ext : extensions_list)
+				{
+					filename = dir + "/" + RTLIL::unescape_id(cell->type) + ext.first;
+					if (check_file_exists(filename)) {
+						Frontend::frontend_call(design, NULL, filename, ext.second);
+						goto loaded_module;
+					}
 				}
 			}
 
-			if (flag_check && cell->type[0] != '$')
+			if ((flag_check || flag_simcheck) && cell->type[0] != '$')
 				log_error("Module `%s' referenced in module `%s' in cell `%s' is not part of the design.\n",
 						cell->type.c_str(), module->name.c_str(), cell->name.c_str());
 			continue;
@@ -196,7 +201,7 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 				log_error("File `%s' from libdir does not declare module `%s'.\n", filename.c_str(), cell->type.c_str());
 			did_something = true;
 		} else
-		if (flag_check)
+		if (flag_check || flag_simcheck)
 		{
 			RTLIL::Module *mod = design->module(cell->type);
 			for (auto &conn : cell->connections())
@@ -214,10 +219,14 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 							log_id(cell->type), log_id(module), log_id(cell), log_id(param.first));
 		}
 
-		if (cell->parameters.size() == 0)
+		if (design->modules_.at(cell->type)->get_bool_attribute("\\blackbox")) {
+			if (flag_simcheck)
+				log_error("Module `%s' referenced in module `%s' in cell `%s' is a blackbox module.\n",
+						cell->type.c_str(), module->name.c_str(), cell->name.c_str());
 			continue;
+		}
 
-		if (design->modules_.at(cell->type)->get_bool_attribute("\\blackbox"))
+		if (cell->parameters.size() == 0)
 			continue;
 
 		RTLIL::Module *mod = design->modules_[cell->type];
@@ -250,7 +259,7 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 			if (mod->wires_.count(portname) == 0)
 				log_error("Array cell `%s.%s' connects to unknown port `%s'.\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(conn.first));
 			int port_size = mod->wires_.at(portname)->width;
-			if (conn_size == port_size)
+			if (conn_size == port_size || conn_size == 0)
 				continue;
 			if (conn_size != port_size*num)
 				log_error("Array cell `%s.%s' has invalid port vs. signal size for port `%s'.\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(conn.first));
@@ -334,7 +343,7 @@ int find_top_mod_score(Design *design, Module *module, dict<Module*, int> &db)
 
 struct HierarchyPass : public Pass {
 	HierarchyPass() : Pass("hierarchy", "check, expand and clean up design hierarchy") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -349,6 +358,10 @@ struct HierarchyPass : public Pass {
 		log("    -check\n");
 		log("        also check the design hierarchy. this generates an error when\n");
 		log("        an unknown module is used as cell type.\n");
+		log("\n");
+		log("    -simcheck\n");
+		log("        like -check, but also thow an error if blackbox modules are\n");
+		log("        instantiated, and throw an error if the design has no top module\n");
 		log("\n");
 		log("    -purge_lib\n");
 		log("        by default the hierarchy command will not remove library (blackbox)\n");
@@ -401,13 +414,15 @@ struct HierarchyPass : public Pass {
 		log("in the current design.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing HIERARCHY pass (managing design hierarchy).\n");
 
 		bool flag_check = false;
+		bool flag_simcheck = false;
 		bool purge_lib = false;
 		RTLIL::Module *top_mod = NULL;
+		std::string load_top_mod;
 		std::vector<std::string> libdirs;
 
 		bool auto_top_mode = false;
@@ -421,7 +436,7 @@ struct HierarchyPass : public Pass {
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
-			if (args[argidx] == "-generate" && !flag_check && !top_mod) {
+			if (args[argidx] == "-generate" && !flag_check && !flag_simcheck && !top_mod) {
 				generate_mode = true;
 				log("Entering generate mode.\n");
 				while (++argidx < args.size()) {
@@ -464,6 +479,10 @@ struct HierarchyPass : public Pass {
 				flag_check = true;
 				continue;
 			}
+			if (args[argidx] == "-simcheck") {
+				flag_simcheck = true;
+				continue;
+			}
 			if (args[argidx] == "-purge_lib") {
 				purge_lib = true;
 				continue;
@@ -494,7 +513,7 @@ struct HierarchyPass : public Pass {
 					top_mod = design->modules_.count(RTLIL::escape_id(args[argidx])) ? design->modules_.at(RTLIL::escape_id(args[argidx])) : NULL;
 				}
 				if (top_mod == NULL)
-					log_cmd_error("Module `%s' not found!\n", args[argidx].c_str());
+					load_top_mod = args[argidx];
 				continue;
 			}
 			if (args[argidx] == "-auto-top") {
@@ -504,6 +523,22 @@ struct HierarchyPass : public Pass {
 			break;
 		}
 		extra_args(args, argidx, design, false);
+
+		if (!load_top_mod.empty()) {
+#ifdef YOSYS_ENABLE_VERIFIC
+			if (verific_import_pending) {
+				verific_import(design, load_top_mod);
+				top_mod = design->module(RTLIL::escape_id(load_top_mod));
+			}
+#endif
+			if (top_mod == NULL)
+				log_cmd_error("Module `%s' not found!\n", load_top_mod.c_str());
+		} else {
+#ifdef YOSYS_ENABLE_VERIFIC
+			if (verific_import_pending)
+				verific_import(design);
+#endif
+		}
 
 		if (generate_mode) {
 			generate(design, generate_cells, generate_ports);
@@ -530,6 +565,9 @@ struct HierarchyPass : public Pass {
 				log("Automatically selected %s as design top module.\n", log_id(top_mod));
 		}
 
+		if (flag_simcheck && top_mod == nullptr)
+			log_error("Design has no top module.\n");
+
 		bool did_something = true;
 		while (did_something)
 		{
@@ -545,7 +583,7 @@ struct HierarchyPass : public Pass {
 			}
 
 			for (auto module : used_modules) {
-				if (expand_module(design, module, flag_check, libdirs))
+				if (expand_module(design, module, flag_check, flag_simcheck, libdirs))
 					did_something = true;
 			}
 		}

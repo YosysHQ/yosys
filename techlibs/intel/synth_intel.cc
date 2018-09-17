@@ -28,7 +28,7 @@ PRIVATE_NAMESPACE_BEGIN
 struct SynthIntelPass : public ScriptPass {
   SynthIntelPass() : ScriptPass("synth_intel", "synthesis for Intel (Altera) FPGAs.") { }
 
-  virtual void help() YS_OVERRIDE
+  void help() YS_OVERRIDE
   {
     //   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
     log("\n");
@@ -36,7 +36,7 @@ struct SynthIntelPass : public ScriptPass {
     log("\n");
     log("This command runs synthesis for Intel FPGAs.\n");
     log("\n");
-    log("    -family < max10 | a10gx | cyclonev | cycloneiv | cycloneive>\n");
+    log("    -family < max10 | a10gx | cyclone10 | cyclonev | cycloneiv | cycloneive>\n");
     log("        generate the synthesis netlist for the specified family.\n");
     log("        MAX10 is the default target if not family argument specified.\n");
     log("        For Cyclone GX devices, use cycloneiv argument; For Cyclone E, use cycloneive.\n");
@@ -49,10 +49,18 @@ struct SynthIntelPass : public ScriptPass {
     log("        write the design to the specified Verilog Quartus Mapping File. Writing of an\n");
     log("        output file is omitted if this parameter is not specified.\n");
     log("\n");
+    log("    -vpr <file>\n");
+    log("        write BLIF files for VPR flow experiments. The synthesized BLIF output file is not\n");
+    log("        compatible with the Quartus flow. Writing of an\n");
+    log("        output file is omitted if this parameter is not specified.\n");
+    log("\n");
     log("    -run <from_label>:<to_label>\n");
     log("        only run the commands between the labels (see below). an empty\n");
     log("        from label is synonymous to 'begin', and empty to label is\n");
     log("        synonymous to the end of the command list.\n");
+    log("\n");
+    log("    -noiopads\n");
+    log("        do not use altsyncram cells in output netlist\n");
     log("\n");
     log("    -nobram\n");
     log("        do not use altsyncram cells in output netlist\n");
@@ -68,20 +76,22 @@ struct SynthIntelPass : public ScriptPass {
     log("\n");
   }
 
-  string top_opt, family_opt, vout_file;
-  bool retime, flatten, nobram;
+  string top_opt, family_opt, vout_file, blif_file;
+  bool retime, flatten, nobram, noiopads;
 
-  virtual void clear_flags() YS_OVERRIDE
+  void clear_flags() YS_OVERRIDE
   {
     top_opt = "-auto-top";
     family_opt = "max10";
     vout_file = "";
+    blif_file = "";
     retime = false;
     flatten = true;
     nobram = false;
+    noiopads = false;
   }
 
-  virtual void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+  void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
   {
     string run_from, run_to;
     clear_flags();
@@ -101,12 +111,20 @@ struct SynthIntelPass : public ScriptPass {
           vout_file = args[++argidx];
           continue;
         }
+        if (args[argidx] == "-vpr" && argidx+1 < args.size()) {
+          blif_file = args[++argidx];
+          continue;
+        }
         if (args[argidx] == "-run" && argidx+1 < args.size()) {
           size_t pos = args[argidx+1].find(':');
           if (pos == std::string::npos)
             break;
           run_from = args[++argidx].substr(0, pos);
           run_to = args[argidx].substr(pos+1);
+          continue;
+        }
+        if (args[argidx] == "-noiopads") {
+          noiopads = true;
           continue;
         }
         if (args[argidx] == "-nobram") {
@@ -138,7 +156,7 @@ struct SynthIntelPass : public ScriptPass {
     log_pop();
   }
 
-  virtual void script() YS_OVERRIDE
+  void script() YS_OVERRIDE
   {
     if (check_label("begin"))
       {
@@ -198,7 +216,7 @@ struct SynthIntelPass : public ScriptPass {
     if (check_label("map_luts"))
       {
         if(family_opt=="a10gx" || family_opt=="cyclonev")
-          run("abc -luts 2:2,3,6:5,10" + string(retime ? " -dff" : ""));
+          run("abc -luts 2:2,3,6:5" + string(retime ? " -dff" : ""));
         else
           run("abc -lut 4" + string(retime ? " -dff" : ""));
         run("clean");
@@ -206,7 +224,8 @@ struct SynthIntelPass : public ScriptPass {
 
     if (check_label("map_cells"))
       {
-        run("iopadmap -bits -outpad $__outpad I:O -inpad $__inpad O:I");
+        if (!noiopads)
+          run("iopadmap -bits -outpad $__outpad I:O -inpad $__inpad O:I", "(unless -noiopads)");
         if(family_opt=="max10")
           run("techmap -map +/intel/max10/cells_map.v");
         else if(family_opt=="a10gx")
@@ -235,6 +254,15 @@ struct SynthIntelPass : public ScriptPass {
         if (!vout_file.empty() || help_mode)
           run(stringf("write_verilog -attr2comment -defparam -nohex -decimal -renameprefix syn_ %s",
                       help_mode ? "<file-name>" : vout_file.c_str()));
+      }
+
+    if (check_label("vpr"))
+      {
+        if (!blif_file.empty() || help_mode)
+          {
+            run(stringf("opt_clean -purge"));
+            run(stringf("write_blif %s", help_mode ? "<file-name>" : blif_file.c_str()));
+          }
       }
   }
 } SynthIntelPass;

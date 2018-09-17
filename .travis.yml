@@ -28,7 +28,6 @@ matrix:
             - tcl-dev
             - libffi-dev
             - git
-            - mercurial
             - graphviz
             - xdot
             - pkg-config
@@ -53,7 +52,6 @@ matrix:
             - tcl-dev
             - libffi-dev
             - git
-            - mercurial
             - graphviz
             - xdot
             - pkg-config
@@ -78,7 +76,6 @@ matrix:
             - tcl-dev
             - libffi-dev
             - git
-            - mercurial
             - graphviz
             - xdot
             - pkg-config
@@ -104,7 +101,6 @@ matrix:
             - tcl-dev
             - libffi-dev
             - git
-            - mercurial
             - graphviz
             - xdot
             - pkg-config
@@ -129,7 +125,6 @@ matrix:
             - tcl-dev
             - libffi-dev
             - git
-            - mercurial
             - graphviz
             - xdot
             - pkg-config

@@ -1,4 +1,4 @@
 verilog_lexer.cc
 verilog_parser.output
 verilog_parser.tab.cc
-verilog_parser.tab.h
+verilog_parser.tab.hh

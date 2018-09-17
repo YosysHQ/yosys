@@ -573,7 +573,7 @@ struct ShowWorker
 
 struct ShowPass : public Pass {
 	ShowPass() : Pass("show", "generate schematics using graphviz") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -584,6 +584,7 @@ struct ShowPass : public Pass {
 		log("\n");
 		log("    -viewer <viewer>\n");
 		log("        Run the specified command with the graphics file as parameter.\n");
+		log("        On Windows, this pauses yosys until the viewer exits.\n");
 		log("\n");
 		log("    -format <format>\n");
 		log("        Generate a graphics file in the specified format. Use 'dot' to just\n");
@@ -645,7 +646,7 @@ struct ShowPass : public Pass {
 		log("        do not add the module name as graph title to the dot file\n");
 		log("\n");
 		log("When no <format> is specified, 'dot' is used. When no <format> and <viewer> is\n");
-		log("specified, 'xdot' is used to display the schematic.\n");
+		log("specified, 'xdot' is used to display the schematic (POSIX systems only).\n");
 		log("\n");
 		log("The generated output files are '~/.yosys_show.dot' and '~/.yosys_show.<format>',\n");
 		log("unless another prefix is specified using -prefix <prefix>.\n");
@@ -655,7 +656,7 @@ struct ShowPass : public Pass {
 		log("the 'show' command is executed.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Generating Graphviz representation of design.\n");
 		log_push();
@@ -817,14 +818,30 @@ struct ShowPass : public Pass {
 			log_cmd_error("Nothing there to show.\n");
 
 		if (format != "dot" && !format.empty()) {
-			std::string cmd = stringf("dot -T%s '%s' > '%s.new' && mv '%s.new' '%s'", format.c_str(), dot_file.c_str(), out_file.c_str(), out_file.c_str(), out_file.c_str());
+			#ifdef _WIN32
+				// system()/cmd.exe does not understand single quotes on Windows.
+				#define DOT_CMD "dot -T%s \"%s\" > \"%s.new\" && move \"%s.new\" \"%s\""
+			#else
+				#define DOT_CMD "dot -T%s '%s' > '%s.new' && mv '%s.new' '%s'"
+			#endif
+			std::string cmd = stringf(DOT_CMD, format.c_str(), dot_file.c_str(), out_file.c_str(), out_file.c_str(), out_file.c_str());
+			#undef DOT_CMD
 			log("Exec: %s\n", cmd.c_str());
 			if (run_command(cmd) != 0)
 				log_cmd_error("Shell command failed!\n");
 		}
 
 		if (!viewer_exe.empty()) {
-			std::string cmd = stringf("%s '%s' &", viewer_exe.c_str(), out_file.c_str());
+			#ifdef _WIN32
+				// system()/cmd.exe does not understand single quotes nor
+				// background tasks on Windows. So we have to pause yosys
+				// until the viewer exits.
+				#define VIEW_CMD "%s \"%s\""
+			#else
+				#define VIEW_CMD "%s '%s' &"
+			#endif
+			std::string cmd = stringf(VIEW_CMD, viewer_exe.c_str(), out_file.c_str());
+			#undef VIEW_CMD
 			log("Exec: %s\n", cmd.c_str());
 			if (run_command(cmd) != 0)
 				log_cmd_error("Shell command failed!\n");

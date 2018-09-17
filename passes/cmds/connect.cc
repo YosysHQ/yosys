@@ -43,7 +43,7 @@ static void unset_drivers(RTLIL::Design *design, RTLIL::Module *module, SigMap &
 
 struct ConnectPass : public Pass {
 	ConnectPass() : Pass("connect", "create or remove connections") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -75,7 +75,7 @@ struct ConnectPass : public Pass {
 		log("This command does not operate on module with processes.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		RTLIL::Module *module = NULL;
 		for (auto &it : design->modules_) {

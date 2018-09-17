@@ -17,7 +17,9 @@
 #
 
 import sys, re, os, signal
-import resource, subprocess
+import subprocess
+if os.name == "posix":
+    import resource
 from copy import deepcopy
 from select import select
 from time import time
@@ -27,12 +29,13 @@ from threading import Thread
 
 # This is needed so that the recursive SMT2 S-expression parser
 # does not run out of stack frames when parsing large expressions
-smtio_reclimit = 64 * 1024
-smtio_stacksize = 128 * 1024 * 1024
-if sys.getrecursionlimit() < smtio_reclimit:
-    sys.setrecursionlimit(smtio_reclimit)
-if resource.getrlimit(resource.RLIMIT_STACK)[0] < smtio_stacksize:
-    resource.setrlimit(resource.RLIMIT_STACK, (smtio_stacksize, -1))
+if os.name == "posix":
+    smtio_reclimit = 64 * 1024
+    smtio_stacksize = 128 * 1024 * 1024
+    if sys.getrecursionlimit() < smtio_reclimit:
+        sys.setrecursionlimit(smtio_reclimit)
+    if resource.getrlimit(resource.RLIMIT_STACK)[0] < smtio_stacksize:
+        resource.setrlimit(resource.RLIMIT_STACK, (smtio_stacksize, -1))
 
 
 # currently running solvers (so we can kill them)
@@ -51,8 +54,9 @@ def force_shutdown(signum, frame):
             os.kill(p.pid, signal.SIGTERM)
     sys.exit(1)
 
+if os.name == "posix":
+    signal.signal(signal.SIGHUP, force_shutdown)
 signal.signal(signal.SIGINT, force_shutdown)
-signal.signal(signal.SIGHUP, force_shutdown)
 signal.signal(signal.SIGTERM, force_shutdown)
 
 def except_hook(exctype, value, traceback):
@@ -218,7 +222,7 @@ class SmtIo:
 
     def timestamp(self):
         secs = int(time() - self.start_time)
-        return "## %6d %3d:%02d:%02d " % (secs, secs // (60*60), (secs // 60) % 60, secs % 60)
+        return "## %3d:%02d:%02d " % (secs // (60*60), (secs // 60) % 60, secs % 60)
 
     def replace_in_stmt(self, stmt, pat, repl):
         if stmt == pat:
@@ -294,20 +298,21 @@ class SmtIo:
 
     def p_read(self):
         assert self.p is not None
-        assert self.p_running
         if self.p_next is not None:
             data = self.p_next
             self.p_next = None
             return data
+        if not self.p_running:
+            return ""
         return self.p_queue.get()
 
-    def p_poll(self):
+    def p_poll(self, timeout=0.1):
         assert self.p is not None
         assert self.p_running
         if self.p_next is not None:
             return False
         try:
-            self.p_next = self.p_queue.get(True, 0.1)
+            self.p_next = self.p_queue.get(True, timeout)
             return False
         except Empty:
             return True
@@ -580,12 +585,12 @@ class SmtIo:
             if count_brackets == 0:
                 break
             if self.solver != "dummy" and self.p.poll():
-                print("SMT Solver terminated unexpectedly: %s" % "".join(stmt), flush=True)
+                print("%s Solver terminated unexpectedly: %s" % (self.timestamp(), "".join(stmt)), flush=True)
                 sys.exit(1)
 
         stmt = "".join(stmt)
         if stmt.startswith("(error"):
-            print("SMT Solver Error: %s" % stmt, file=sys.stderr, flush=True)
+            print("%s Solver Error: %s" % (self.timestamp(), stmt), flush=True)
             if self.solver != "dummy":
                 self.p_close()
             sys.exit(1)
@@ -645,13 +650,43 @@ class SmtIo:
                     print("\b \b" * num_bs, end="", file=sys.stderr)
                     sys.stderr.flush()
 
+            else:
+                count = 0
+                while self.p_poll(60):
+                    count += 1
+                    msg = None
+
+                    if count == 1:
+                        msg = "1 minute"
+
+                    elif count in [5, 10, 15, 30]:
+                        msg = "%d minutes" % count
+
+                    elif count == 60:
+                        msg = "1 hour"
+
+                    elif count % 60 == 0:
+                        msg = "%d hours" % (count // 60)
+
+                    if msg is not None:
+                        print("%s waiting for solver (%s)" % (self.timestamp(), msg), flush=True)
+
         result = self.read()
-        assert result in ["sat", "unsat"]
 
         if self.debug_file:
             print("(set-info :status %s)" % result, file=self.debug_file)
             print("(check-sat)", file=self.debug_file)
             self.debug_file.flush()
+
+        if result not in ["sat", "unsat"]:
+            if result == "":
+                print("%s Unexpected EOF response from solver." % (self.timestamp()), flush=True)
+            else:
+                print("%s Unexpected response from solver: %s" % (self.timestamp(), result), flush=True)
+            if self.solver != "dummy":
+                self.p_close()
+            sys.exit(1)
+
         return result
 
     def parse(self, stmt):
@@ -706,6 +741,9 @@ class SmtIo:
         return h
 
     def bv2bin(self, v):
+        if type(v) is list and len(v) == 3 and v[0] == "_" and v[1].startswith("bv"):
+            x, n = int(v[1][2:]), int(v[2])
+            return "".join("1" if (x & (1 << i)) else "0" for i in range(n-1, -1, -1))
         if v == "true": return "1"
         if v == "false": return "0"
         if v.startswith("#b"):
@@ -981,7 +1019,7 @@ class MkVcd:
                     for i in range(len(uipath)):
                         uipath[i] = re.sub(r"\[([^\]]*)\]", r"<\1>", uipath[i])
 
-                    while uipath[:len(scope)] != scope[:-1]:
+                    while uipath[:len(scope)] != scope:
                         print("$upscope $end", file=self.f)
                         scope = scope[:-1]
 
@@ -1019,4 +1057,3 @@ class MkVcd:
                     print("b0 %s" % self.nets[path][0], file=self.f)
                 else:
                     print("b1 %s" % self.nets[path][0], file=self.f)
-

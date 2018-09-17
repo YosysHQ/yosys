@@ -25,6 +25,9 @@ YOSYS_NAMESPACE_BEGIN
 
 extern int verific_verbose;
 
+extern bool verific_import_pending;
+extern void verific_import(Design *design, std::string top = std::string());
+
 extern pool<int> verific_sva_prims;
 
 struct VerificImporter;
@@ -40,9 +43,10 @@ struct VerificClocking {
 	SigBit enable_sig = State::S1;
 	SigBit disable_sig = State::S0;
 	bool posedge = true;
+	bool gclk = false;
 
 	VerificClocking() { }
-	VerificClocking(VerificImporter *importer, Verific::Net *net);
+	VerificClocking(VerificImporter *importer, Verific::Net *net, bool sva_at_only = false);
 	RTLIL::Cell *addDff(IdString name, SigSpec sig_d, SigSpec sig_q, Const init_value = Const());
 	RTLIL::Cell *addAdff(IdString name, RTLIL::SigSpec sig_arst, SigSpec sig_d, SigSpec sig_q, Const arst_value);
 	RTLIL::Cell *addDffsr(IdString name, RTLIL::SigSpec sig_set, RTLIL::SigSpec sig_clr, SigSpec sig_d, SigSpec sig_q);
@@ -65,10 +69,12 @@ struct VerificImporter
 
 	std::map<Verific::Net*, RTLIL::SigBit> net_map;
 	std::map<Verific::Net*, Verific::Net*> sva_posedge_map;
+	pool<Verific::Net*, hash_ptr_ops> any_all_nets;
 
 	bool mode_gates, mode_keep, mode_nosva, mode_names, mode_verific;
+	bool mode_autocover;
 
-	VerificImporter(bool mode_gates, bool mode_keep, bool mode_nosva, bool mode_names, bool mode_verific);
+	VerificImporter(bool mode_gates, bool mode_keep, bool mode_nosva, bool mode_names, bool mode_verific, bool mode_autocover);
 
 	RTLIL::SigBit net_map_at(Verific::Net *net);
 
@@ -78,7 +84,7 @@ struct VerificImporter
 	RTLIL::SigSpec operatorInput1(Verific::Instance *inst);
 	RTLIL::SigSpec operatorInput2(Verific::Instance *inst);
 	RTLIL::SigSpec operatorInport(Verific::Instance *inst, const char *portname);
-	RTLIL::SigSpec operatorOutput(Verific::Instance *inst);
+	RTLIL::SigSpec operatorOutput(Verific::Instance *inst, const pool<Verific::Net*, hash_ptr_ops> *any_all_nets = nullptr);
 
 	bool import_netlist_instance_gates(Verific::Instance *inst, RTLIL::IdString inst_name);
 	bool import_netlist_instance_cells(Verific::Instance *inst, RTLIL::IdString inst_name);
@@ -94,6 +100,8 @@ void verific_import_sva_assume(VerificImporter *importer, Verific::Instance *ins
 void verific_import_sva_cover(VerificImporter *importer, Verific::Instance *inst);
 void verific_import_sva_trigger(VerificImporter *importer, Verific::Instance *inst);
 bool verific_is_sva_net(VerificImporter *importer, Verific::Net *net);
+
+extern int verific_sva_fsm_limit;
 
 YOSYS_NAMESPACE_END
 

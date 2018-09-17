@@ -34,9 +34,15 @@
 #include <limits.h>
 #include <errno.h>
 
-#ifdef __linux__
+#if defined (__linux__) || defined(__FreeBSD__)
+#  include <sys/resource.h>
 #  include <sys/types.h>
 #  include <unistd.h>
+#endif
+
+#ifdef __FreeBSD__
+#  include <sys/sysctl.h>
+#  include <sys/user.h>
 #endif
 
 #if !defined(_WIN32) || defined(__MINGW32__)
@@ -79,20 +85,37 @@ USING_YOSYS_NAMESPACE
 #ifdef EMSCRIPTEN
 #  include <sys/stat.h>
 #  include <sys/types.h>
+#  include <emscripten.h>
 
 extern "C" int main(int, char**);
 extern "C" void run(const char*);
 extern "C" const char *errmsg();
 extern "C" const char *prompt();
 
-int main(int, char**)
+int main(int argc, char **argv)
 {
+	EM_ASM(
+		if (ENVIRONMENT_IS_NODE)
+		{
+			FS.mkdir('/hostcwd');
+			FS.mount(NODEFS, { root: '.' }, '/hostcwd');
+			FS.mkdir('/hostfs');
+			FS.mount(NODEFS, { root: '/' }, '/hostfs');
+		}
+	);
+
 	mkdir("/work", 0777);
 	chdir("/work");
 	log_files.push_back(stdout);
 	log_error_stderr = true;
 	yosys_banner();
 	yosys_setup();
+
+	if (argc == 2)
+	{
+		// Run the first argument as a script file
+		run_frontend(argv[1], "script", 0, 0, 0);
+	}
 }
 
 void run(const char *command)
@@ -254,8 +277,12 @@ int main(int argc, char **argv)
 		printf("        print a warning for all log messages matching the regex.\n");
 		printf("\n");
 		printf("    -w regex\n");
-		printf("        if a warning message matches the regex, it is printes as regular\n");
+		printf("        if a warning message matches the regex, it is printed as regular\n");
 		printf("        message instead.\n");
+		printf("\n");
+		printf("    -e regex\n");
+		printf("        if a warning message matches the regex, it is printed as error\n");
+		printf("        message instead and the tool terminates with a nonzero return code.\n");
 		printf("\n");
 		printf("    -E <depsfile>\n");
 		printf("        write a Makefile dependencies file with in- and output file names\n");
@@ -280,7 +307,7 @@ int main(int argc, char **argv)
 	}
 
 	int opt;
-	while ((opt = getopt(argc, argv, "MXAQTVSm:f:Hh:b:o:p:l:L:qv:tds:c:W:w:D:E:")) != -1)
+	while ((opt = getopt(argc, argv, "MXAQTVSm:f:Hh:b:o:p:l:L:qv:tds:c:W:w:e:D:E:")) != -1)
 	{
 		switch (opt)
 		{
@@ -374,6 +401,12 @@ int main(int argc, char **argv)
 					std::regex_constants::optimize |
 					std::regex_constants::egrep));
 			break;
+		case 'e':
+			log_werror_regexes.push_back(std::regex(optarg,
+					std::regex_constants::nosubs |
+					std::regex_constants::optimize |
+					std::regex_constants::egrep));
+			break;
 		case 'D':
 			{
 				auto args = split_tokens(optarg, ":");
@@ -415,6 +448,18 @@ int main(int argc, char **argv)
 
 	if (print_stats)
 		log_hasher = new SHA1;
+
+#if defined(__linux__)
+	// set stack size to >= 128 MB
+	{
+		struct rlimit rl;
+		const rlim_t stack_size = 128L * 1024L * 1024L;
+		if (getrlimit(RLIMIT_STACK, &rl) == 0 && rl.rlim_cur < stack_size) {
+			rl.rlim_cur = stack_size;
+			setrlimit(RLIMIT_STACK, &rl);
+		}
+	}
+#endif
 
 	yosys_setup();
 	log_error_atexit = yosys_atexit;
@@ -487,7 +532,7 @@ int main(int argc, char **argv)
 #else
 		std::string meminfo;
 		std::string stats_divider = ", ";
-#  ifdef __linux__
+#  if defined(__linux__)
 		std::ifstream statm;
 		statm.open(stringf("/proc/%lld/statm", (long long)getpid()));
 		if (statm.is_open()) {
@@ -496,6 +541,19 @@ int main(int argc, char **argv)
 			meminfo = stringf(", MEM: %.2f MB total, %.2f MB resident",
 					sz_total * (getpagesize() / 1024.0 / 1024.0),
 					sz_resident * (getpagesize() / 1024.0 / 1024.0));
+			stats_divider = "\n";
+		}
+#  elif defined(__FreeBSD__)
+		pid_t pid = getpid();
+		int mib[4] = {CTL_KERN, KERN_PROC, KERN_PROC_PID, (int)pid};
+		struct kinfo_proc kip;
+		size_t kip_len = sizeof(kip);
+		if (sysctl(mib, 4, &kip, &kip_len, NULL, 0) == 0) {
+			vm_size_t sz_total = kip.ki_size;
+			segsz_t sz_resident = kip.ki_rssize;
+			meminfo = stringf(", MEM: %.2f MB total, %.2f MB resident",
+				(int)sz_total / 1024.0 / 1024.0,
+				(int)sz_resident * (getpagesize() / 1024.0 / 1024.0));
 			stats_divider = "\n";
 		}
 #  endif
@@ -541,7 +599,7 @@ int main(int argc, char **argv)
 		}
 	}
 
-#if defined(YOSYS_ENABLE_COVER) && defined(__linux__)
+#if defined(YOSYS_ENABLE_COVER) && (defined(__linux__) || defined(__FreeBSD__))
 	if (getenv("YOSYS_COVER_DIR") || getenv("YOSYS_COVER_FILE"))
 	{
 		string filename;

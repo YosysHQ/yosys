@@ -135,6 +135,24 @@ struct Smt2Worker
 				log_error("Unsupported or unknown directionality on port %s of cell %s.%s (%s).\n",
 						log_id(conn.first), log_id(module), log_id(cell), log_id(cell->type));
 
+			if (cell->type.in("$mem") && conn.first.in("\\RD_CLK", "\\WR_CLK"))
+			{
+				SigSpec clk = sigmap(conn.second);
+				for (int i = 0; i < GetSize(clk); i++)
+				{
+					if (clk[i].wire == nullptr)
+						continue;
+
+					if (cell->getParam(conn.first == "\\RD_CLK" ? "\\RD_CLK_ENABLE" : "\\WR_CLK_ENABLE")[i] != State::S1)
+						continue;
+
+					if (cell->getParam(conn.first == "\\RD_CLK" ? "\\RD_CLK_POLARITY" : "\\WR_CLK_POLARITY")[i] == State::S1)
+						clock_posedge.insert(clk[i]);
+					else
+						clock_negedge.insert(clk[i]);
+				}
+			}
+			else
 			if (cell->type.in("$dff", "$_DFF_P_", "$_DFF_N_") && conn.first.in("\\CLK", "\\C"))
 			{
 				bool posedge = (cell->type == "$_DFF_N_") || (cell->type == "$dff" && cell->getParam("\\CLK_POLARITY").as_bool());
@@ -748,7 +766,7 @@ struct Smt2Worker
 
 			if (statebv)
 				makebits(stringf("%s_h %s", get_id(module), get_id(cell->name)), mod_stbv_width.at(cell->type));
-			if (statedt)
+			else if (statedt)
 				dtmembers.push_back(stringf("  (|%s_h %s| |%s_s|)\n",
 						get_id(module), get_id(cell->name), get_id(cell->type)));
 			else
@@ -1233,7 +1251,7 @@ struct Smt2Worker
 
 struct Smt2Backend : public Backend {
 	Smt2Backend() : Backend("smt2", "write design to SMT-LIBv2 file") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -1389,7 +1407,7 @@ struct Smt2Backend : public Backend {
 		log("from non-zero to zero in the test design.\n");
 		log("\n");
 	}
-	virtual void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		std::ifstream template_f;
 		bool bvmode = true, memmode = true, wiresmode = false, verbose = false, statebv = false, statedt = false;

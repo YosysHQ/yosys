@@ -26,6 +26,13 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+static SigBit get_bit_or_zero(const SigSpec &sig)
+{
+	if (GetSize(sig) == 0)
+		return State::S0;
+	return sig[0];
+}
+
 static void run_ice40_opts(Module *module, bool unlut_mode)
 {
 	pool<SigBit> optimized_co;
@@ -45,7 +52,11 @@ static void run_ice40_opts(Module *module, bool unlut_mode)
 			SigSpec non_const_inputs, replacement_output;
 			int count_zeros = 0, count_ones = 0;
 
-			SigBit inbit[3] = {cell->getPort("\\I0"), cell->getPort("\\I1"), cell->getPort("\\CI")};
+			SigBit inbit[3] = {
+				get_bit_or_zero(cell->getPort("\\I0")),
+				get_bit_or_zero(cell->getPort("\\I1")),
+				get_bit_or_zero(cell->getPort("\\CI"))
+			};
 			for (int i = 0; i < 3; i++)
 				if (inbit[i].wire == nullptr) {
 					if (inbit[i] == State::S1)
@@ -63,8 +74,8 @@ static void run_ice40_opts(Module *module, bool unlut_mode)
 				replacement_output = non_const_inputs;
 
 			if (GetSize(replacement_output)) {
-				optimized_co.insert(sigmap(cell->getPort("\\CO")));
-				module->connect(cell->getPort("\\CO"), replacement_output);
+				optimized_co.insert(sigmap(cell->getPort("\\CO")[0]));
+				module->connect(cell->getPort("\\CO")[0], replacement_output);
 				module->design->scratchpad_set_bool("opt.did_something", true);
 				log("Optimized away SB_CARRY cell %s.%s: CO=%s\n",
 						log_id(module), log_id(cell), log_signal(replacement_output));
@@ -78,10 +89,10 @@ static void run_ice40_opts(Module *module, bool unlut_mode)
 	{
 		SigSpec inbits;
 
-		inbits.append(cell->getPort("\\I0"));
-		inbits.append(cell->getPort("\\I1"));
-		inbits.append(cell->getPort("\\I2"));
-		inbits.append(cell->getPort("\\I3"));
+		inbits.append(get_bit_or_zero(cell->getPort("\\I0")));
+		inbits.append(get_bit_or_zero(cell->getPort("\\I1")));
+		inbits.append(get_bit_or_zero(cell->getPort("\\I2")));
+		inbits.append(get_bit_or_zero(cell->getPort("\\I3")));
 		sigmap.apply(inbits);
 
 		if (unlut_mode)
@@ -104,8 +115,13 @@ static void run_ice40_opts(Module *module, bool unlut_mode)
 		cell->setParam("\\LUT", cell->getParam("\\LUT_INIT"));
 		cell->unsetParam("\\LUT_INIT");
 
-		cell->setPort("\\A", SigSpec({cell->getPort("\\I3"), cell->getPort("\\I2"), cell->getPort("\\I1"), cell->getPort("\\I0")}));
-		cell->setPort("\\Y", cell->getPort("\\O"));
+		cell->setPort("\\A", SigSpec({
+			get_bit_or_zero(cell->getPort("\\I3")),
+			get_bit_or_zero(cell->getPort("\\I2")),
+			get_bit_or_zero(cell->getPort("\\I1")),
+			get_bit_or_zero(cell->getPort("\\I0"))
+		}));
+		cell->setPort("\\Y", cell->getPort("\\O")[0]);
 		cell->unsetPort("\\I0");
 		cell->unsetPort("\\I1");
 		cell->unsetPort("\\I2");
@@ -120,7 +136,7 @@ static void run_ice40_opts(Module *module, bool unlut_mode)
 
 struct Ice40OptPass : public Pass {
 	Ice40OptPass() : Pass("ice40_opt", "iCE40: perform simple optimizations") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -140,7 +156,7 @@ struct Ice40OptPass : public Pass {
 		log("mapped SB_LUT4 cells back to logic.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		string opt_expr_args = "-mux_undef -undriven";
 		bool unlut_mode = false;

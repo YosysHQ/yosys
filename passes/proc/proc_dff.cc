@@ -370,7 +370,7 @@ void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 
 struct ProcDffPass : public Pass {
 	ProcDffPass() : Pass("proc_dff", "extract flip-flops from processes") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -380,7 +380,7 @@ struct ProcDffPass : public Pass {
 		log("d-type flip-flop cells.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing PROC_DFF pass (convert process syncs to FFs).\n");
 

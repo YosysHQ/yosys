@@ -148,7 +148,7 @@ static bool parse_func_reduce(RTLIL::Module *module, std::vector<token_t> &stack
 	}
 
 	if (0 <= top && stack[top].type == 2) {
-		if (next_token.type == '*' || next_token.type == '&' || next_token.type == 0 || next_token.type == '(')
+		if (next_token.type == '*' || next_token.type == '&' || next_token.type == 0 || next_token.type == '(' || next_token.type == '!')
 			return false;
 		stack[top].type = 3;
 		return true;
@@ -188,7 +188,7 @@ static RTLIL::SigSpec parse_func_expr(RTLIL::Module *module, const char *expr)
 		}
 
 		token_t next_token(0);
-		if (*expr == '(' || *expr == ')' || *expr == '\'' || *expr == '!' || *expr == '^' || *expr == '*' || *expr == '+' || *expr == '|')
+		if (*expr == '(' || *expr == ')' || *expr == '\'' || *expr == '!' || *expr == '^' || *expr == '*' || *expr == '+' || *expr == '|' || *expr == '&')
 			next_token = token_t(*(expr++));
 		else
 			next_token = token_t(0, parse_func_identifier(module, expr));
@@ -452,7 +452,7 @@ void parse_type_map(std::map<std::string, std::tuple<int, int, bool>> &type_map,
 
 struct LibertyFrontend : public Frontend {
 	LibertyFrontend() : Frontend("liberty", "read cells from liberty file") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -463,9 +463,13 @@ struct LibertyFrontend : public Frontend {
 		log("    -lib\n");
 		log("        only create empty blackbox modules\n");
 		log("\n");
-		log("    -ignore_redef\n");
+		log("    -nooverwrite\n");
 		log("        ignore re-definitions of modules. (the default behavior is to\n");
-		log("        create an error message.)\n");
+		log("        create an error message if the existing module is not a blackbox\n");
+		log("        module, and overwrite the existing module if it is  a blackbox module.)\n");
+		log("\n");
+		log("    -overwrite\n");
+		log("        overwrite existing modules with the same name\n");
 		log("\n");
 		log("    -ignore_miss_func\n");
 		log("        ignore cells with missing function specification of outputs\n");
@@ -481,10 +485,11 @@ struct LibertyFrontend : public Frontend {
 		log("        set the specified attribute (to the value 1) on all loaded modules\n");
 		log("\n");
 	}
-	virtual void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		bool flag_lib = false;
-		bool flag_ignore_redef = false;
+		bool flag_nooverwrite = false;
+		bool flag_overwrite = false;
 		bool flag_ignore_miss_func = false;
 		bool flag_ignore_miss_dir  = false;
 		bool flag_ignore_miss_data_latch = false;
@@ -499,8 +504,14 @@ struct LibertyFrontend : public Frontend {
 				flag_lib = true;
 				continue;
 			}
-			if (arg == "-ignore_redef") {
-				flag_ignore_redef = true;
+			if (arg == "-ignore_redef" || arg == "-nooverwrite") {
+				flag_nooverwrite = true;
+				flag_overwrite = false;
+				continue;
+			}
+			if (arg == "-overwrite") {
+				flag_nooverwrite = false;
+				flag_overwrite = true;
 				continue;
 			}
 			if (arg == "-ignore_miss_func") {
@@ -537,9 +548,16 @@ struct LibertyFrontend : public Frontend {
 			std::string cell_name = RTLIL::escape_id(cell->args.at(0));
 
 			if (design->has(cell_name)) {
-				if (flag_ignore_redef)
+				Module *existing_mod = design->module(cell_name);
+				if (!flag_nooverwrite && !flag_overwrite && !existing_mod->get_bool_attribute("\\blackbox")) {
+					log_error("Re-definition of of cell/module %s!\n", log_id(cell_name));
+				} else if (flag_nooverwrite) {
+					log("Ignoring re-definition of module %s.\n", log_id(cell_name));
 					continue;
-				log_error("Duplicate definition of cell/module %s.\n", RTLIL::unescape_id(cell_name).c_str());
+				} else {
+					log("Replacing existing%s module %s.\n", existing_mod->get_bool_attribute("\\blackbox") ? " blackbox" : "", log_id(cell_name));
+					design->remove(existing_mod);
+				}
 			}
 
 			// log("Processing cell type %s.\n", RTLIL::unescape_id(cell_name).c_str());

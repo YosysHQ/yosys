@@ -44,7 +44,7 @@ namespace AST {
 
 // instanciate global variables (private API)
 namespace AST_INTERNAL {
-	bool flag_dump_ast1, flag_dump_ast2, flag_dump_vlog, flag_dump_rtlil, flag_nolatches, flag_nomeminit;
+	bool flag_dump_ast1, flag_dump_ast2, flag_no_dump_ptr, flag_dump_vlog, flag_dump_rtlil, flag_nolatches, flag_nomeminit;
 	bool flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt, flag_icells, flag_autowire;
 	AstNode *current_ast, *current_ast_mod;
 	std::map<std::string, AstNode*> current_scope;
@@ -171,8 +171,8 @@ bool AstNode::get_bool_attribute(RTLIL::IdString id)
 
 	AstNode *attr = attributes.at(id);
 	if (attr->type != AST_CONSTANT)
-		log_error("Attribute `%s' with non-constant value at %s:%d!\n",
-				id.c_str(), attr->filename.c_str(), attr->linenum);
+		log_file_error(attr->filename, attr->linenum, "Attribute `%s' with non-constant value!\n",
+			       id.c_str());
 
 	return attr->integer != 0;
 }
@@ -267,10 +267,12 @@ void AstNode::dumpAst(FILE *f, std::string indent) const
 	std::string type_name = type2str(type);
 	fprintf(f, "%s%s <%s:%d>", indent.c_str(), type_name.c_str(), filename.c_str(), linenum);
 
-	if (id2ast)
-		fprintf(f, " [%p -> %p]", this, id2ast);
-	else
-		fprintf(f, " [%p]", this);
+	if (!flag_no_dump_ptr) {
+		if (id2ast)
+			fprintf(f, " [%p -> %p]", this, id2ast);
+		else
+			fprintf(f, " [%p]", this);
+	}
 
 	if (!str.empty())
 		fprintf(f, " str='%s'", str.c_str());
@@ -961,8 +963,8 @@ static AstModule* process_module(AstNode *ast, bool defer)
 
 		for (auto &attr : ast->attributes) {
 			if (attr.second->type != AST_CONSTANT)
-				log_error("Attribute `%s' with non-constant value at %s:%d!\n",
-						attr.first.c_str(), ast->filename.c_str(), ast->linenum);
+				log_file_error(ast->filename, ast->linenum, "Attribute `%s' with non-constant value!\n",
+					       attr.first.c_str());
 			current_module->attributes[attr.first] = attr.second->asAttrConst();
 		}
 		for (size_t i = 0; i < ast->children.size(); i++) {
@@ -1008,12 +1010,13 @@ static AstModule* process_module(AstNode *ast, bool defer)
 }
 
 // create AstModule instances for all modules in the AST tree and add them to 'design'
-void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump_ast2, bool dump_vlog, bool dump_rtlil,
-		bool nolatches, bool nomeminit, bool nomem2reg, bool mem2reg, bool lib, bool noopt, bool icells, bool ignore_redef, bool defer, bool autowire)
+void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump_ast2, bool no_dump_ptr, bool dump_vlog, bool dump_rtlil,
+		bool nolatches, bool nomeminit, bool nomem2reg, bool mem2reg, bool lib, bool noopt, bool icells, bool nooverwrite, bool overwrite, bool defer, bool autowire)
 {
 	current_ast = ast;
 	flag_dump_ast1 = dump_ast1;
 	flag_dump_ast2 = dump_ast2;
+	flag_no_dump_ptr = no_dump_ptr;
 	flag_dump_vlog = dump_vlog;
 	flag_dump_rtlil = dump_rtlil;
 	flag_nolatches = nolatches;
@@ -1048,12 +1051,20 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 				(*it)->str = "$abstract" + (*it)->str;
 
 			if (design->has((*it)->str)) {
-				if (!ignore_redef)
-					log_error("Re-definition of module `%s' at %s:%d!\n",
+				RTLIL::Module *existing_mod = design->module((*it)->str);
+				if (!nooverwrite && !overwrite && !existing_mod->get_bool_attribute("\\blackbox")) {
+					log_file_error((*it)->filename, (*it)->linenum, "Re-definition of module `%s'!\n",
+						       (*it)->str.c_str());
+				} else if (nooverwrite) {
+					log("Ignoring re-definition of module `%s' at %s:%d.\n",
 							(*it)->str.c_str(), (*it)->filename.c_str(), (*it)->linenum);
-				log("Ignoring re-definition of module `%s' at %s:%d!\n",
-						(*it)->str.c_str(), (*it)->filename.c_str(), (*it)->linenum);
-				continue;
+					continue;
+				} else {
+					log("Replacing existing%s module `%s' at %s:%d.\n",
+							existing_mod->get_bool_attribute("\\blackbox") ? " blackbox" : "",
+							(*it)->str.c_str(), (*it)->filename.c_str(), (*it)->linenum);
+					design->remove(existing_mod);
+				}
 			}
 
 			design->add(process_module(*it, defer));
@@ -1195,4 +1206,3 @@ void AST::use_internal_line_num()
 }
 
 YOSYS_NAMESPACE_END
-

@@ -1,6 +1,6 @@
 
-`define SB_DFF_REG reg Q = 0;
-// `define SB_DFF_REG reg Q;
+`define SB_DFF_REG reg Q = 0
+// `define SB_DFF_REG reg Q
 
 // SiliconBlue IO Cells
 
@@ -132,21 +132,18 @@ endmodule
 
 // Positive Edge SiliconBlue FF Cells
 
-module SB_DFF (output Q, input C, D);
-	`SB_DFF_REG
+module SB_DFF (output `SB_DFF_REG, input C, D);
 	always @(posedge C)
 		Q <= D;
 endmodule
 
-module SB_DFFE (output Q, input C, E, D);
-	`SB_DFF_REG
+module SB_DFFE (output `SB_DFF_REG, input C, E, D);
 	always @(posedge C)
 		if (E)
 			Q <= D;
 endmodule
 
-module SB_DFFSR (output Q, input C, R, D);
-	`SB_DFF_REG
+module SB_DFFSR (output `SB_DFF_REG, input C, R, D);
 	always @(posedge C)
 		if (R)
 			Q <= 0;
@@ -154,8 +151,7 @@ module SB_DFFSR (output Q, input C, R, D);
 			Q <= D;
 endmodule
 
-module SB_DFFR (output Q, input C, R, D);
-	`SB_DFF_REG
+module SB_DFFR (output `SB_DFF_REG, input C, R, D);
 	always @(posedge C, posedge R)
 		if (R)
 			Q <= 0;
@@ -163,8 +159,7 @@ module SB_DFFR (output Q, input C, R, D);
 			Q <= D;
 endmodule
 
-module SB_DFFSS (output Q, input C, S, D);
-	`SB_DFF_REG
+module SB_DFFSS (output `SB_DFF_REG, input C, S, D);
 	always @(posedge C)
 		if (S)
 			Q <= 1;
@@ -172,8 +167,7 @@ module SB_DFFSS (output Q, input C, S, D);
 			Q <= D;
 endmodule
 
-module SB_DFFS (output Q, input C, S, D);
-	`SB_DFF_REG
+module SB_DFFS (output `SB_DFF_REG, input C, S, D);
 	always @(posedge C, posedge S)
 		if (S)
 			Q <= 1;
@@ -181,8 +175,7 @@ module SB_DFFS (output Q, input C, S, D);
 			Q <= D;
 endmodule
 
-module SB_DFFESR (output Q, input C, E, R, D);
-	`SB_DFF_REG
+module SB_DFFESR (output `SB_DFF_REG, input C, E, R, D);
 	always @(posedge C)
 		if (E) begin
 			if (R)
@@ -192,8 +185,7 @@ module SB_DFFESR (output Q, input C, E, R, D);
 		end
 endmodule
 
-module SB_DFFER (output Q, input C, E, R, D);
-	`SB_DFF_REG
+module SB_DFFER (output `SB_DFF_REG, input C, E, R, D);
 	always @(posedge C, posedge R)
 		if (R)
 			Q <= 0;
@@ -201,8 +193,7 @@ module SB_DFFER (output Q, input C, E, R, D);
 			Q <= D;
 endmodule
 
-module SB_DFFESS (output Q, input C, E, S, D);
-	`SB_DFF_REG
+module SB_DFFESS (output `SB_DFF_REG, input C, E, S, D);
 	always @(posedge C)
 		if (E) begin
 			if (S)
@@ -212,8 +203,7 @@ module SB_DFFESS (output Q, input C, E, S, D);
 		end
 endmodule
 
-module SB_DFFES (output Q, input C, E, S, D);
-	`SB_DFF_REG
+module SB_DFFES (output `SB_DFF_REG, input C, E, S, D);
 	always @(posedge C, posedge S)
 		if (S)
 			Q <= 1;
@@ -223,21 +213,18 @@ endmodule
 
 // Negative Edge SiliconBlue FF Cells
 
-module SB_DFFN (output Q, input C, D);
-	`SB_DFF_REG
+module SB_DFFN (output `SB_DFF_REG, input C, D);
 	always @(negedge C)
 		Q <= D;
 endmodule
 
-module SB_DFFNE (output Q, input C, E, D);
-	`SB_DFF_REG
+module SB_DFFNE (output `SB_DFF_REG, input C, E, D);
 	always @(negedge C)
 		if (E)
 			Q <= D;
 endmodule
 
-module SB_DFFNSR (output Q, input C, R, D);
-	`SB_DFF_REG
+module SB_DFFNSR (output `SB_DFF_REG, input C, R, D);
 	always @(negedge C)
 		if (R)
 			Q <= 0;
@@ -245,8 +232,7 @@ module SB_DFFNSR (output Q, input C, R, D);
 			Q <= D;
 endmodule
 
-module SB_DFFNR (output Q, input C, R, D);
-	`SB_DFF_REG
+module SB_DFFNR (output `SB_DFF_REG, input C, R, D);
 	always @(negedge C, posedge R)
 		if (R)
 			Q <= 0;
@@ -254,8 +240,7 @@ module SB_DFFNR (output Q, input C, R, D);
 			Q <= D;
 endmodule
 
-module SB_DFFNSS (output Q, input C, S, D);
-	`SB_DFF_REG
+module SB_DFFNSS (output `SB_DFF_REG, input C, S, D);
 	always @(negedge C)
 		if (S)
 			Q <= 1;
@@ -263,8 +248,7 @@ module SB_DFFNSS (output Q, input C, S, D);
 			Q <= D;
 endmodule
 
-module SB_DFFNS (output Q, input C, S, D);
-	`SB_DFF_REG
+module SB_DFFNS (output `SB_DFF_REG, input C, S, D);
 	always @(negedge C, posedge S)
 		if (S)
 			Q <= 1;
@@ -272,8 +256,7 @@ module SB_DFFNS (output Q, input C, S, D);
 			Q <= D;
 endmodule
 
-module SB_DFFNESR (output Q, input C, E, R, D);
-	`SB_DFF_REG
+module SB_DFFNESR (output `SB_DFF_REG, input C, E, R, D);
 	always @(negedge C)
 		if (E) begin
 			if (R)
@@ -283,8 +266,7 @@ module SB_DFFNESR (output Q, input C, E, R, D);
 		end
 endmodule
 
-module SB_DFFNER (output Q, input C, E, R, D);
-	`SB_DFF_REG
+module SB_DFFNER (output `SB_DFF_REG, input C, E, R, D);
 	always @(negedge C, posedge R)
 		if (R)
 			Q <= 0;
@@ -292,8 +274,7 @@ module SB_DFFNER (output Q, input C, E, R, D);
 			Q <= D;
 endmodule
 
-module SB_DFFNESS (output Q, input C, E, S, D);
-	`SB_DFF_REG
+module SB_DFFNESS (output `SB_DFF_REG, input C, E, S, D);
 	always @(negedge C)
 		if (E) begin
 			if (S)
@@ -303,8 +284,7 @@ module SB_DFFNESS (output Q, input C, E, S, D);
 		end
 endmodule
 
-module SB_DFFNES (output Q, input C, E, S, D);
-	`SB_DFF_REG
+module SB_DFFNES (output `SB_DFF_REG, input C, E, S, D);
 	always @(negedge C, posedge S)
 		if (S)
 			Q <= 1;
@@ -677,7 +657,12 @@ module ICESTORM_LC (
 	parameter [0:0] SET_NORESET  = 0;
 	parameter [0:0] ASYNC_SR     = 0;
 
-	wire COUT = CARRY_ENABLE ? (I1 && I2) || ((I1 || I2) && CIN) : 1'bx;
+	parameter [0:0] CIN_CONST    = 0;
+	parameter [0:0] CIN_SET      = 0;
+
+	wire mux_cin = CIN_CONST ? CIN_SET : CIN;
+
+	assign COUT = CARRY_ENABLE ? (I1 && I2) || ((I1 || I2) && mux_cin) : 1'bx;
 
 	wire [7:0] lut_s3 = I3 ? LUT_INIT[15:8] : LUT_INIT[7:0];
 	wire [3:0] lut_s2 = I2 ?   lut_s3[ 7:4] :   lut_s3[3:0];
@@ -935,19 +920,40 @@ parameter A_SIGNED = 1'b0;
 parameter B_SIGNED = 1'b0;
 endmodule
 
-(* blackbox *)
-module SB_SPRAM256KA(
+module SB_SPRAM256KA (
 	input [13:0] ADDRESS,
 	input [15:0] DATAIN,
 	input [3:0] MASKWREN,
-	input WREN,
-	input CHIPSELECT,
-	input CLOCK,
-	input STANDBY,
-	input SLEEP,
-	input POWEROFF,
-	output [15:0] DATAOUT
+	input WREN, CHIPSELECT, CLOCK, STANDBY, SLEEP, POWEROFF,
+	output reg [15:0] DATAOUT
 );
+`ifndef BLACKBOX
+	reg [15:0] mem [0:16383];
+	wire off = SLEEP || !POWEROFF;
+	integer i;
+
+	always @(negedge POWEROFF) begin
+		for (i = 0; i <= 16383; i = i+1)
+			mem[i] = 'bx;
+	end
+
+	always @(posedge CLOCK, posedge off) begin
+		if (off) begin
+			DATAOUT <= 0;
+		end else
+		if (CHIPSELECT && !STANDBY && !WREN) begin
+			DATAOUT <= mem[ADDRESS];
+		end else begin
+			if (CHIPSELECT && !STANDBY && WREN) begin
+				if (MASKWREN[0]) mem[ADDRESS][ 3: 0] = DATAIN[ 3: 0];
+				if (MASKWREN[1]) mem[ADDRESS][ 7: 4] = DATAIN[ 7: 4];
+				if (MASKWREN[2]) mem[ADDRESS][11: 8] = DATAIN[11: 8];
+				if (MASKWREN[3]) mem[ADDRESS][15:12] = DATAIN[15:12];
+			end
+			DATAOUT <= 'bx;
+		end
+	end
+`endif
 endmodule
 
 (* blackbox *)
@@ -1246,4 +1252,3 @@ module SB_IO_OD (
 	endgenerate
 `endif
 endmodule
-

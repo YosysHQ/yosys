@@ -1076,7 +1076,7 @@ struct BtorWorker
 
 struct BtorBackend : public Backend {
 	BtorBackend() : Backend("btor", "write design to BTOR file") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -1091,7 +1091,7 @@ struct BtorBackend : public Backend {
 		log("    Output only a single bad property for all asserts\n");
 		log("\n");
 	}
-	virtual void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		bool verbose = false, single_bad = false;
 
