@@ -1523,7 +1523,7 @@ struct VerilogBackend : public Backend {
 		log("\n");
 		log("    -nodec\n");
 		log("        32-bit constant values are by default dumped as decimal numbers,\n");
-		log("        not bit pattern. This option decativates this feature and instead\n");
+		log("        not bit pattern. This option deactivates this feature and instead\n");
 		log("        will write out all constants in binary.\n");
 		log("\n");
 		log("    -decimal\n");
@@ -1531,13 +1531,13 @@ struct VerilogBackend : public Backend {
 		log("\n");
 		log("    -nohex\n");
 		log("        constant values that are compatible with hex output are usually\n");
-		log("        dumped as hex values. This option decativates this feature and\n");
+		log("        dumped as hex values. This option deactivates this feature and\n");
 		log("        instead will write out all constants in binary.\n");
 		log("\n");
 		log("    -nostr\n");
 		log("        Parameters and attributes that are specified as strings in the\n");
 		log("        original input will be output as strings by this back-end. This\n");
-		log("        decativates this feature and instead will write string constants\n");
+		log("        deactivates this feature and instead will write string constants\n");
 		log("        as binary numbers.\n");
 		log("\n");
 		log("    -defparam\n");
