@@ -175,6 +175,12 @@ LD = gcc-4.8
 CXXFLAGS += -std=c++11 -Os
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H"
 
+else ifeq ($(CONFIG),cygwin)
+CXX = gcc
+LD = gcc
+CXXFLAGS += -std=gnu++11 -Os
+ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H"
+
 else ifeq ($(CONFIG),emcc)
 CXX = emcc
 LD = emcc
@@ -728,6 +734,9 @@ config-msys2: clean
 
 config-msys2-64: clean
 	echo 'CONFIG := msys2-64' > Makefile.conf
+
+config-cygwin: clean
+	echo 'CONFIG := cygwin' > Makefile.conf
 
 config-gcov: clean
 	echo 'CONFIG := gcc' > Makefile.conf
