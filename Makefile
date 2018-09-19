@@ -23,7 +23,7 @@ PYTHON_VERSION := 3.5
 
 # other configuration flags
 ENABLE_GPROF := 0
-ENABLE_DEBUG := 1
+ENABLE_DEBUG := 0
 ENABLE_NDEBUG := 0
 LINK_CURSES := 0
 LINK_TERMCAP := 0
@@ -65,8 +65,8 @@ all: top-all
 YOSYS_SRC := $(dir $(firstword $(MAKEFILE_LIST)))
 VPATH := $(YOSYS_SRC)
 
-CXXFLAGS := $(CXXFLAGS) -Wall -Wextra -ggdb -I. -I"$(YOSYS_SRC)" -MD -D_YOSYS_ -fPIC -I$(PREFIX)/include
-LDFLAGS := $(LDFLAGS) -L$(LIBDIR)
+CXXFLAGS := $(CXXFLAGS) -Wall -Wextra -ggdb -I. -I"$(YOSYS_SRC)" -MD -D_YOSYS_ -fPIC -I$(PREFIX)/include -ferror-limit=0
+LDFLAGS := $(LDFLAGS) -L$(LIBDIR) -ferror-limit=0
 LDLIBS := $(LDLIBS) -lstdc++ -lm
 PLUGIN_LDFLAGS :=
 
@@ -235,7 +235,10 @@ endif
 ifeq ($(ENABLE_PYTHON),1)
 LDLIBS += -lpython$(PYTHON_VERSION)m -lboost_python-py$(subst .,,$(PYTHON_VERSION)) -lboost_system
 CXXFLAGS += -I/usr/include/python$(PYTHON_VERSION) -D WITH_PYTHON
-OBJS += kernel/python_wrappers.o
+PY_WRAPPER_FILE = kernel/python_wrappers
+OBJS += $(PY_WRAPPER_FILE).o
+PY_GEN_SCRIPT= py_wrap_generator
+PY_WRAP_INCLUDES := $(shell python$(PYTHON_VERSION) -c "import $(PY_GEN_SCRIPT); $(PY_GEN_SCRIPT).print_includes()")
 endif
 
 ifeq ($(ENABLE_READLINE),1)
@@ -474,6 +477,14 @@ libyosys.so: $(filter-out kernel/driver.o,$(OBJS))
 	$(Q) mkdir -p $(dir $@)
 	$(P) $(CXX) -o $@ -c $(CPPFLAGS) $(CXXFLAGS) $<
 
+%.pyh: %.h
+	$(Q) mkdir -p $(dir $@)
+	$(P) cat $< | grep -E -v "#[ ]*(include|error)" | $(LD) -x c++ -o $@ -E -P $(CPPFLAGS) $(CXXFLAGS) -Qunused-arguments -
+
+$(PY_WRAPPER_FILE).cc: $(PY_GEN_SCRIPT).py $(PY_WRAP_INCLUDES)
+	$(Q) mkdir -p $(dir $@)
+	$(P) python$(PYTHON_VERSION) -c "import $(PY_GEN_SCRIPT); $(PY_GEN_SCRIPT).gen_wrappers(\"$(PY_WRAPPER_FILE).cc\")"
+
 %.o: %.cpp
 	$(Q) mkdir -p $(dir $@)
 	$(P) $(CXX) -o $@ -c $(CPPFLAGS) $(CXXFLAGS) $<
@@ -610,8 +621,9 @@ manual: $(TARGETS) $(EXTRA_TARGETS)
 
 clean:
 	rm -rf share
+	rm -rf kernel/*.pyh
 	if test -d manual; then cd manual && sh clean.sh; fi
-	rm -f $(OBJS) $(GENFILES) $(TARGETS) $(EXTRA_TARGETS) $(EXTRA_OBJS)
+	rm -f $(OBJS) $(GENFILES) $(TARGETS) $(EXTRA_TARGETS) $(EXTRA_OBJS) $(PY_WRAP_INCLUDES) $(PY_WRAPPER_FILE).cc
 	rm -f kernel/version_*.o kernel/version_*.cc abc/abc-[0-9a-f]* abc/libabc-[0-9a-f]*.a
 	rm -f libs/*/*.d frontends/*/*.d passes/*/*.d backends/*/*.d kernel/*.d techlibs/*/*.d
 	rm -rf tests/asicworld/*.out tests/asicworld/*.log
