@@ -3,8 +3,61 @@ List of major changes and improvements between releases
 =======================================================
 
 
-Yosys 0.7 .. Yosys ???
+Yosys 0.7 .. Yosys ???    (2017-07-07)
 ----------------------
+
+ * Various
+    - Many bugfixes and small improvements
+    - Added write_verilog hex dump support, add -nohex option
+    - Added "scc -set_attr"
+    - Added "verilog_defines" command
+    - Remeber defines from one read_verilog to next
+    - Added support for hierarchical defparam
+    - Added FIRRTL back-end
+    - Improved ABC default scripts
+    - Added "design -reset-vlog"
+    - Added "yosys -W regex" and "yosys -w regex"
+    - Added Verilog $rtoi and $itor support
+    - Added "check -initdrv"
+    - Added "read_blif -wideports"
+    - Added support for systemVerilog "++" and "--" operators
+    - Added support for SystemVerilog unique, unique0, and priority case
+    - Added "write_edif" options for edif "flavors"
+    - Added support for resetall compiler directive
+    - Added simple C beck-end (bitwise combinatorical only atm)
+    - Added $_ANDNOT_ and $_ORNOT_ cell types
+    - Added cell library aliases to "abc -g"
+    - Added "setundef -anyseq"
+    - Added "chtype" command
+    - Added "design -import"
+    - Added "write_table" command
+
+ * Changes in Yosys APIs
+    - Added ConstEval defaultval feature
+
+ * Formal Verification
+    - Added "write_aiger"
+    - Added "yosys-smtbmc --aig"
+    - Added "always <positive_int>" to .smtc format
+    - Added $cover cell type and support for cover properties
+    - Added $fair/$live cell type and support for liveness properties
+    - Added smtbmc support for memory vcd dumping
+    - Added "chformal" command
+    - Added "write_smt2 -stbv" and "write_smt2 -stdt"
+    - Fix equiv_simple, old behavior now available with "equiv_simple -short"
+    - Change to Yices2 as default SMT solver (it is GPL now)
+    - Added "yosys-smtbmc --presat" (now default in SymbiYosys)
+
+ * Verific support
+    - Many improvements in Verific front-end
+    - Add proper handling of concurent SVA properties
+    - Map "const" and "rand const" to $anyseq/$anyconst
+
+ * GreenPAK Support
+    - Added support for GP_DLATCH, GP_SPI, GP_DCMx, GP_COUNT, etc.
+
+ * Coolrunner-II Support
+    - Added initial Coolrunner-II support
 
  * MAX10 and Cyclone IV Support
     - Added initial version of metacommand "synth_intel".
