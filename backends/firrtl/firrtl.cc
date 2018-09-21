@@ -33,22 +33,22 @@ dict<IdString, string> namecache;
 int autoid_counter;
 
 typedef unsigned FDirection;
-static const FDirection NODIRECTION = 0x0;
-static const FDirection IN = 0x1;
-static const FDirection OUT = 0x2;
-static const FDirection INOUT = 0x3;
+static const FDirection FD_NODIRECTION = 0x0;
+static const FDirection FD_IN = 0x1;
+static const FDirection FD_OUT = 0x2;
+static const FDirection FD_INOUT = 0x3;
 
 // Get a port direction with respect to a specific module.
 FDirection getPortFDirection(IdString id, Module *module)
 {
 	Wire *wire = module->wires_.at(id);
-	FDirection direction = NODIRECTION;
+	FDirection direction = FD_NODIRECTION;
 	if (wire && wire->port_id)
 	{
 		if (wire->port_input)
-			direction |= IN;
+			direction |= FD_IN;
 		if (wire->port_output)
-			direction |= OUT;
+			direction |= FD_OUT;
 	}
 	return direction;
 }
@@ -193,16 +193,16 @@ struct FirrtlWorker
 				FDirection dir = getPortFDirection(it->first, instModule);
 				std::string source, sink;
 				switch (dir) {
-					case INOUT:
+					case FD_INOUT:
 						log_warning("Instance port connection %s.%s is INOUT; treating as OUT\n", log_id(cell_type), log_signal(it->second));
-					case OUT:
+					case FD_OUT:
 						source = firstName;
 						sink = secondName;
 						break;
-					case NODIRECTION:
+					case FD_NODIRECTION:
 						log_warning("Instance port connection %s.%s is NODIRECTION; treating as IN\n", log_id(cell_type), log_signal(it->second));
 						/* FALL_THROUGH */
-					case IN:
+					case FD_IN:
 						source = secondName;
 						sink = firstName;
 						break;
