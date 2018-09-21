@@ -3,12 +3,13 @@ List of major changes and improvements between releases
 =======================================================
 
 
-Yosys 0.7 .. Yosys ???    (2017-07-07)
+Yosys 0.7 .. Yosys ???    (2017-12-12)
 ----------------------
 
  * Various
     - Many bugfixes and small improvements
     - Added write_verilog hex dump support, add -nohex option
+    - Added "write_verilog -decimal"
     - Added "scc -set_attr"
     - Added "verilog_defines" command
     - Remeber defines from one read_verilog to next
@@ -31,9 +32,20 @@ Yosys 0.7 .. Yosys ???    (2017-07-07)
     - Added "chtype" command
     - Added "design -import"
     - Added "write_table" command
+    - Added "read_json" command
+    - Added "sim" command
+    - Added "extract_fa" and "extract_reduce" commands
+    - Added "extract_counter" command
+    - Added "opt_demorgan" command
+    - Added support for $size and $bits SystemVerilog functions
+    - Added "blackbox" command
+    - Added "ltp" command
+    - Added support for editline as replacement for readline
+    - Added warnings for driver-driver conflicts between FFs (and other cells) and constants
 
  * Changes in Yosys APIs
     - Added ConstEval defaultval feature
+    - Added {get,set}_src_attribute() methods on RTLIL::AttrObject
 
  * Formal Verification
     - Added "write_aiger"
@@ -47,17 +59,27 @@ Yosys 0.7 .. Yosys ???    (2017-07-07)
     - Fix equiv_simple, old behavior now available with "equiv_simple -short"
     - Change to Yices2 as default SMT solver (it is GPL now)
     - Added "yosys-smtbmc --presat" (now default in SymbiYosys)
+    - Added "yosys-smtbmc --smtc-init --smtc-top --noinit"
+    - Added a brand new "write_btor" command for BTOR2
 
  * Verific support
     - Many improvements in Verific front-end
-    - Add proper handling of concurent SVA properties
+    - Added proper handling of concurent SVA properties
     - Map "const" and "rand const" to $anyseq/$anyconst
+    - Added "verific -import -flatten" and "verific -import -extnets"
+    - Added "verific -vlog-incdir -vlog-define -vlog-libdir"
+    - Remove PSL support (because PSL has been removed in upstream Verific)
+
+ * New back-ends
+    - Added initial Coolrunner-II support
+    - Added initial eASIC support
 
  * GreenPAK Support
-    - Added support for GP_DLATCH, GP_SPI, GP_DCMx, GP_COUNT, etc.
+    - Added support for GP_DLATCH, GP_SPI, GP_DCMx, GP_COUNTx, etc.
 
- * Coolrunner-II Support
-    - Added initial Coolrunner-II support
+ * iCE40 Support
+    - Add "synth_ice40 -vpr"
+    - Add Support for UltraPlus cells
 
  * MAX10 and Cyclone IV Support
     - Added initial version of metacommand "synth_intel".
