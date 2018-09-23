@@ -881,9 +881,15 @@ param_decl_list:
 
 single_param_decl:
 	TOK_ID '=' expr {
-		if (astbuf1 == nullptr)
-			frontend_verilog_yyerror("syntax error");
-		AstNode *node = astbuf1->clone();
+		AstNode *node;
+		if (astbuf1 == nullptr) {
+			if (!sv_mode)
+				frontend_verilog_yyerror("syntax error");
+			node = new AstNode(AST_PARAMETER);
+			node->children.push_back(AstNode::mkconst_int(0, true));
+		} else {
+			node = astbuf1->clone();
+		}
 		node->str = *$1;
 		delete node->children[0];
 		node->children[0] = $3;
