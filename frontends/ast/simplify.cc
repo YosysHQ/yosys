@@ -3028,8 +3028,8 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 
 		AstNode *newNode = clone();
 		newNode->type = AST_ASSIGN_EQ;
+		newNode->children[0]->was_checked = true;
 		async_block->children[0]->children.push_back(newNode);
-		async_block->children[0]->children.back()->children[0]->was_checked = true;
 
 		newNode = new AstNode(AST_NONE);
 		newNode->cloneInto(this);
@@ -3074,7 +3074,7 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 
 		AstNode *assign_addr = new AstNode(AST_ASSIGN_EQ, new AstNode(AST_IDENTIFIER), children[0]->children[0]->children[0]->clone());
 		assign_addr->children[0]->str = id_addr;
-		assign_addr->children[0]->str = was_checked;
+		assign_addr->children[0]->was_checked = true;
 		block->children.insert(block->children.begin()+assign_idx+1, assign_addr);
 
 		AstNode *case_node = new AstNode(AST_CASE, new AstNode(AST_IDENTIFIER));
