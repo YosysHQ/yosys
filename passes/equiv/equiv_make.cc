@@ -404,7 +404,7 @@ struct EquivMakeWorker
 		}
 	}
 
-	bool check_signal_in_fanout(pool<Cell*> visited_cells, SigBit source_bit, SigBit target_bit)
+	bool check_signal_in_fanout(pool<Cell*> & visited_cells, SigBit source_bit, SigBit target_bit)
 	{
 		if (source_bit == target_bit)
 			return true;
