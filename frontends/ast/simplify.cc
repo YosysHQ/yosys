@@ -1781,7 +1781,7 @@ skip_dynamic_range_lvalue_expansion:;
 				if (GetSize(children) == 2)
 				{
 					AstNode *buf = children[1]->clone();
-					while (buf->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
+					while (buf->simplify(true, false, false, stage, -1, false, false)) { }
 					if (buf->type != AST_CONSTANT)
 						log_file_error(filename, linenum, "Failed to evaluate system function `%s' with non-constant value.\n", str.c_str());
 
