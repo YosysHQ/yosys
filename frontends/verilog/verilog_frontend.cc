@@ -66,17 +66,29 @@ struct VerilogFrontend : public Frontend {
 		log("        enable support for SystemVerilog assertions and some Yosys extensions\n");
 		log("        replace the implicit -D SYNTHESIS with -D FORMAL\n");
 		log("\n");
+		log("    -noassert\n");
+		log("        ignore assert() statements\n");
+		log("\n");
+		log("    -noassume\n");
+		log("        ignore assume() statements\n");
+		log("\n");
 		log("    -norestrict\n");
-		log("        ignore restrict() assertions\n");
+		log("        ignore restrict() statements\n");
 		log("\n");
 		log("    -assume-asserts\n");
 		log("        treat all assert() statements like assume() statements\n");
+		log("\n");
+		log("    -assert-assumes\n");
+		log("        treat all assume() statements like assert() statements\n");
 		log("\n");
 		log("    -dump_ast1\n");
 		log("        dump abstract syntax tree (before simplification)\n");
 		log("\n");
 		log("    -dump_ast2\n");
 		log("        dump abstract syntax tree (after simplification)\n");
+		log("\n");
+		log("    -no_dump_ptr\n");
+		log("        do not include hex memory addresses in dump (easier to diff dumps)\n");
 		log("\n");
 		log("    -dump_vlog\n");
 		log("        dump ast as Verilog code (after simplification)\n");
@@ -184,6 +196,7 @@ struct VerilogFrontend : public Frontend {
 	{
 		bool flag_dump_ast1 = false;
 		bool flag_dump_ast2 = false;
+		bool flag_no_dump_ptr = false;
 		bool flag_dump_vlog = false;
 		bool flag_dump_rtlil = false;
 		bool flag_nolatches = false;
@@ -225,6 +238,14 @@ struct VerilogFrontend : public Frontend {
 				formal_mode = true;
 				continue;
 			}
+			if (arg == "-noassert") {
+				noassert_mode = true;
+				continue;
+			}
+			if (arg == "-noassume") {
+				noassume_mode = true;
+				continue;
+			}
 			if (arg == "-norestrict") {
 				norestrict_mode = true;
 				continue;
@@ -233,12 +254,20 @@ struct VerilogFrontend : public Frontend {
 				assume_asserts_mode = true;
 				continue;
 			}
+			if (arg == "-assert-assumes") {
+				assert_assumes_mode = true;
+				continue;
+			}
 			if (arg == "-dump_ast1") {
 				flag_dump_ast1 = true;
 				continue;
 			}
 			if (arg == "-dump_ast2") {
 				flag_dump_ast2 = true;
+				continue;
+			}
+			if (arg == "-no_dump_ptr") {
+				flag_no_dump_ptr = true;
 				continue;
 			}
 			if (arg == "-dump_vlog") {
@@ -381,7 +410,7 @@ struct VerilogFrontend : public Frontend {
 		if (flag_nodpi)
 			error_on_dpi_function(current_ast);
 
-		AST::process(design, current_ast, flag_dump_ast1, flag_dump_ast2, flag_dump_vlog, flag_dump_rtlil, flag_nolatches, flag_nomeminit, flag_nomem2reg, flag_mem2reg, lib_mode, flag_noopt, flag_icells, flag_nooverwrite, flag_overwrite, flag_defer, default_nettype_wire);
+		AST::process(design, current_ast, flag_dump_ast1, flag_dump_ast2, flag_no_dump_ptr, flag_dump_vlog, flag_dump_rtlil, flag_nolatches, flag_nomeminit, flag_nomem2reg, flag_mem2reg, lib_mode, flag_noopt, flag_icells, flag_nooverwrite, flag_overwrite, flag_defer, default_nettype_wire);
 
 		if (!flag_nopp)
 			delete lexin;

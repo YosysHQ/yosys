@@ -64,6 +64,7 @@ YOSYS_NAMESPACE_BEGIN
 int verific_verbose;
 bool verific_import_pending;
 string verific_error_msg;
+int verific_sva_fsm_limit;
 
 vector<string> verific_incdirs, verific_libdirs;
 
@@ -1618,6 +1619,8 @@ struct VerificExtNets
 
 void verific_import(Design *design, std::string top)
 {
+	verific_sva_fsm_limit = 16;
+
 	std::set<Netlist*> nl_todo, nl_done;
 
 	{
@@ -1706,9 +1709,16 @@ struct VerificPass : public Pass {
 		log("\n");
 		log("Like -sv, but define FORMAL instead of SYNTHESIS.\n");
 		log("\n");
+		log("\n");
 		log("    verific {-vhdl87|-vhdl93|-vhdl2k|-vhdl2008|-vhdl} <vhdl-file>..\n");
 		log("\n");
 		log("Load the specified VHDL files into Verific.\n");
+		log("\n");
+		log("\n");
+		log("    verific -work <libname> {-sv|-vhdl|...} <hdl-file>\n");
+		log("\n");
+		log("Load the specified Verilog/SystemVerilog/VHDL file into the specified library.\n");
+		log("(default library when -work is not present: \"work\")\n");
 		log("\n");
 		log("\n");
 		log("    verific -vlog-incdir <directory>..\n");
@@ -1782,6 +1792,9 @@ struct VerificPass : public Pass {
 		log("  -nosva\n");
 		log("    Ignore SVA properties, do not infer checker logic.\n");
 		log("\n");
+		log("  -L <int>\n");
+		log("    Maximum number of ctrl bits for SVA checker FSMs (default=16).\n");
+		log("\n");
 		log("  -n\n");
 		log("    Keep all Verific names on instances and nets. By default only\n");
 		log("    user-declared names are preserved.\n");
@@ -1823,6 +1836,7 @@ struct VerificPass : public Pass {
 		}
 
 		verific_verbose = 0;
+		verific_sva_fsm_limit = 16;
 
 		const char *release_str = Message::ReleaseString();
 		time_t release_time = Message::ReleaseDate();
@@ -1837,6 +1851,7 @@ struct VerificPass : public Pass {
 		log("Built with Verific %s, released at %s.\n", release_str, release_tmstr);
 
 		int argidx = 1;
+		std::string work = "work";
 
 		if (GetSize(args) > argidx && (args[argidx] == "-set-error" || args[argidx] == "-set-warning" ||
 				args[argidx] == "-set-info" || args[argidx] == "-set-ignore"))
@@ -1895,6 +1910,15 @@ struct VerificPass : public Pass {
 			goto check_error;
 		}
 
+		for (; argidx < GetSize(args); argidx++)
+		{
+			if (args[argidx] == "-work" && argidx+1 < GetSize(args)) {
+				work = args[++argidx];
+				continue;
+			}
+			break;
+		}
+
 		if (GetSize(args) > argidx && (args[argidx] == "-vlog95" || args[argidx] == "-vlog2k" || args[argidx] == "-sv2005" ||
 				args[argidx] == "-sv2009" || args[argidx] == "-sv2012" || args[argidx] == "-sv" || args[argidx] == "-formal"))
 		{
@@ -1942,7 +1966,7 @@ struct VerificPass : public Pass {
 			while (argidx < GetSize(args))
 				file_names.Insert(args[argidx++].c_str());
 
-			if (!veri_file::AnalyzeMultipleFiles(&file_names, verilog_mode, "work", veri_file::MFCU))
+			if (!veri_file::AnalyzeMultipleFiles(&file_names, verilog_mode, work.c_str(), veri_file::MFCU))
 					log_cmd_error("Reading Verilog/SystemVerilog sources failed.\n");
 
 			verific_import_pending = true;
@@ -1952,7 +1976,7 @@ struct VerificPass : public Pass {
 		if (GetSize(args) > argidx && args[argidx] == "-vhdl87") {
 			vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_1987").c_str());
 			for (argidx++; argidx < GetSize(args); argidx++)
-				if (!vhdl_file::Analyze(args[argidx].c_str(), "work", vhdl_file::VHDL_87))
+				if (!vhdl_file::Analyze(args[argidx].c_str(), work.c_str(), vhdl_file::VHDL_87))
 					log_cmd_error("Reading `%s' in VHDL_87 mode failed.\n", args[argidx].c_str());
 			verific_import_pending = true;
 			goto check_error;
@@ -1961,7 +1985,7 @@ struct VerificPass : public Pass {
 		if (GetSize(args) > argidx && args[argidx] == "-vhdl93") {
 			vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_1993").c_str());
 			for (argidx++; argidx < GetSize(args); argidx++)
-				if (!vhdl_file::Analyze(args[argidx].c_str(), "work", vhdl_file::VHDL_93))
+				if (!vhdl_file::Analyze(args[argidx].c_str(), work.c_str(), vhdl_file::VHDL_93))
 					log_cmd_error("Reading `%s' in VHDL_93 mode failed.\n", args[argidx].c_str());
 			verific_import_pending = true;
 			goto check_error;
@@ -1970,7 +1994,7 @@ struct VerificPass : public Pass {
 		if (GetSize(args) > argidx && args[argidx] == "-vhdl2k") {
 			vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_1993").c_str());
 			for (argidx++; argidx < GetSize(args); argidx++)
-				if (!vhdl_file::Analyze(args[argidx].c_str(), "work", vhdl_file::VHDL_2K))
+				if (!vhdl_file::Analyze(args[argidx].c_str(), work.c_str(), vhdl_file::VHDL_2K))
 					log_cmd_error("Reading `%s' in VHDL_2K mode failed.\n", args[argidx].c_str());
 			verific_import_pending = true;
 			goto check_error;
@@ -1979,7 +2003,7 @@ struct VerificPass : public Pass {
 		if (GetSize(args) > argidx && (args[argidx] == "-vhdl2008" || args[argidx] == "-vhdl")) {
 			vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_2008").c_str());
 			for (argidx++; argidx < GetSize(args); argidx++)
-				if (!vhdl_file::Analyze(args[argidx].c_str(), "work", vhdl_file::VHDL_2008))
+				if (!vhdl_file::Analyze(args[argidx].c_str(), work.c_str(), vhdl_file::VHDL_2008))
 					log_cmd_error("Reading `%s' in VHDL_2008 mode failed.\n", args[argidx].c_str());
 			verific_import_pending = true;
 			goto check_error;
@@ -2017,6 +2041,10 @@ struct VerificPass : public Pass {
 				}
 				if (args[argidx] == "-nosva") {
 					mode_nosva = true;
+					continue;
+				}
+				if (args[argidx] == "-L" && argidx+1 < GetSize(args)) {
+					verific_sva_fsm_limit = atoi(args[++argidx].c_str());
 					continue;
 				}
 				if (args[argidx] == "-n") {
@@ -2089,8 +2117,8 @@ struct VerificPass : public Pass {
 #else
 				log("Running hier_tree::ElaborateAll().\n");
 
-				VhdlLibrary *vhdl_lib = vhdl_file::GetLibrary("work", 1);
-				VeriLibrary *veri_lib = veri_file::GetLibrary("work", 1);
+				VhdlLibrary *vhdl_lib = vhdl_file::GetLibrary(work.c_str(), 1);
+				VeriLibrary *veri_lib = veri_file::GetLibrary(work.c_str(), 1);
 
 				Array veri_libs, vhdl_libs;
 				if (vhdl_lib) vhdl_libs.InsertLast(vhdl_lib);
@@ -2137,7 +2165,7 @@ struct VerificPass : public Pass {
 						continue;
 					}
 
-					VhdlLibrary *vhdl_lib = vhdl_file::GetLibrary("work", 1);
+					VhdlLibrary *vhdl_lib = vhdl_file::GetLibrary(work.c_str(), 1);
 					VhdlDesignUnit *vhdl_unit = vhdl_lib->GetPrimUnit(name);
 					if (vhdl_unit) {
 						log("Adding VHDL unit '%s' to elaboration queue.\n", name);

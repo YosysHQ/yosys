@@ -5,11 +5,11 @@ vcxsrc="$1-$2"
 yosysver="$2"
 gitsha="$3"
 
-rm -rf YosysVS-Tpl-v1.zip YosysVS
-wget http://www.clifford.at/yosys/nogit/YosysVS-Tpl-v1.zip
+rm -rf YosysVS-Tpl-v2.zip YosysVS
+wget http://www.clifford.at/yosys/nogit/YosysVS-Tpl-v2.zip
 
-unzip YosysVS-Tpl-v1.zip
-rm -f YosysVS-Tpl-v1.zip
+unzip YosysVS-Tpl-v2.zip
+rm -f YosysVS-Tpl-v2.zip
 mv YosysVS "$vcxsrc"
 
 {

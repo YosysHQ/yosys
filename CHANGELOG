@@ -3,8 +3,115 @@ List of major changes and improvements between releases
 =======================================================
 
 
-Yosys 0.7 .. Yosys ???
+Yosys 0.7 .. Yosys 0.8
 ----------------------
+
+ * Various
+    - Many bugfixes and small improvements
+    - Strip debug symbols from installed binary
+    - Replace -ignore_redef with -[no]overwrite in front-ends
+    - Added write_verilog hex dump support, add -nohex option
+    - Added "write_verilog -decimal"
+    - Added "scc -set_attr"
+    - Added "verilog_defines" command
+    - Remeber defines from one read_verilog to next
+    - Added support for hierarchical defparam
+    - Added FIRRTL back-end
+    - Improved ABC default scripts
+    - Added "design -reset-vlog"
+    - Added "yosys -W regex", "yosys -w regex", and "yosys -e regex"
+    - Added Verilog $rtoi and $itor support
+    - Added "check -initdrv"
+    - Added "read_blif -wideports"
+    - Added support for systemVerilog "++" and "--" operators
+    - Added support for SystemVerilog unique, unique0, and priority case
+    - Added "write_edif" options for edif "flavors"
+    - Added support for resetall compiler directive
+    - Added simple C beck-end (bitwise combinatorical only atm)
+    - Added $_ANDNOT_ and $_ORNOT_ cell types
+    - Added cell library aliases to "abc -g"
+    - Added "setundef -anyseq"
+    - Added "chtype" command
+    - Added "design -import"
+    - Added "write_table" command
+    - Added "read_json" command
+    - Added "sim" command
+    - Added "extract_fa" and "extract_reduce" commands
+    - Added "extract_counter" command
+    - Added "opt_demorgan" command
+    - Added support for $size and $bits SystemVerilog functions
+    - Added "blackbox" command
+    - Added "ltp" command
+    - Added support for editline as replacement for readline
+    - Added warnings for driver-driver conflicts between FFs (and other cells) and constants
+    - Added "yosys -E" for creating Makefile dependencies files
+    - Added "synth -noshare"
+    - Added "memory_nordff"
+    - Added "setundef -undef -expose -anyconst"
+    - Added "expose -input"
+    - Added specify/specparam parser support (simply ignore them)
+    - Added "write_blif -inames -iattr"
+    - Added "hierarchy -simcheck"
+    - Added an option to statically link abc into yosys
+    - Added protobuf back-end
+    - Added BLIF parsing support for .conn and .cname
+    - Added read_verilog error checking for reg/wire/logic misuse
+    - Added "make coverage" and ENABLE_GCOV build option
+
+ * Changes in Yosys APIs
+    - Added ConstEval defaultval feature
+    - Added {get,set}_src_attribute() methods on RTLIL::AttrObject
+    - Added SigSpec::is_fully_ones() and Const::is_fully_ones()
+    - Added log_file_warning() and log_file_error() functions
+
+ * Formal Verification
+    - Added "write_aiger"
+    - Added "yosys-smtbmc --aig"
+    - Added "always <positive_int>" to .smtc format
+    - Added $cover cell type and support for cover properties
+    - Added $fair/$live cell type and support for liveness properties
+    - Added smtbmc support for memory vcd dumping
+    - Added "chformal" command
+    - Added "write_smt2 -stbv" and "write_smt2 -stdt"
+    - Fix equiv_simple, old behavior now available with "equiv_simple -short"
+    - Change to Yices2 as default SMT solver (it is GPL now)
+    - Added "yosys-smtbmc --presat" (now default in SymbiYosys)
+    - Added "yosys-smtbmc --smtc-init --smtc-top --noinit"
+    - Added a brand new "write_btor" command for BTOR2
+    - Added clk2fflogic memory support and other improvements
+    - Added "async memory write" support to write_smt2
+    - Simulate clock toggling in yosys-smtbmc VCD output
+    - Added $allseq/$allconst cells for EA-solving
+    - Make -nordff the default in "prep"
+    - Added (* gclk *) attribute
+    - Added "async2sync" pass for single-clock designs with async resets
+
+ * Verific support
+    - Many improvements in Verific front-end
+    - Added proper handling of concurent SVA properties
+    - Map "const" and "rand const" to $anyseq/$anyconst
+    - Added "verific -import -flatten" and "verific -import -extnets"
+    - Added "verific -vlog-incdir -vlog-define -vlog-libdir"
+    - Remove PSL support (because PSL has been removed in upstream Verific)
+    - Improve integration with "hierarchy" command design elaboration
+    - Added YOSYS_NOVERIFIC for running non-verific test cases with verific bin
+    - Added simpilied "read" command that automatically uses verific if available
+    - Added "verific -set-<severity> <msg_id>.."
+    - Added "verific -work <libname>"
+
+ * New back-ends
+    - Added initial Coolrunner-II support
+    - Added initial eASIC support
+    - Added initial ECP5 support
+
+ * GreenPAK Support
+    - Added support for GP_DLATCH, GP_SPI, GP_DCMx, GP_COUNTx, etc.
+
+ * iCE40 Support
+    - Add "synth_ice40 -vpr"
+    - Add "synth_ice40 -nodffe"
+    - Add "synth_ice40 -json"
+    - Add Support for UltraPlus cells
 
  * MAX10 and Cyclone IV Support
     - Added initial version of metacommand "synth_intel".
@@ -14,6 +121,7 @@ Yosys 0.7 .. Yosys ???
     - Added example of implementation for DE2i-150 board.
     - Added example of implementation for MAX10 development kit.
     - Added LFSR example from Asic World.
+    - Added "dffinit -highlow" for mapping to Intel primitives
 
 
 Yosys 0.6 .. Yosys 0.7
