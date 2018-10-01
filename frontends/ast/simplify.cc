@@ -1836,7 +1836,7 @@ skip_dynamic_range_lvalue_expansion:;
 				goto apply_newNode;
 			}
 
-			if (str == "\\$stable" || str == "\\$rose" || str == "\\$fell")
+			if (str == "\\$stable" || str == "\\$rose" || str == "\\$fell" || str == "\\$changed")
 			{
 				if (GetSize(children) != 1)
 					log_file_error(filename, linenum, "System function %s got %d arguments, expected 1.\n",
@@ -1852,6 +1852,9 @@ skip_dynamic_range_lvalue_expansion:;
 
 				if (str == "\\$stable")
 					newNode = new AstNode(AST_EQ, past, present);
+
+				else if (str == "\\$changed")
+					newNode = new AstNode(AST_NE, past, present);
 
 				else if (str == "\\$rose")
 					newNode = new AstNode(AST_LOGIC_AND, new AstNode(AST_LOGIC_NOT, past), present);
