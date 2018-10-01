@@ -13,4 +13,5 @@ endbram
 
 match $__TRELLIS_DPR16X4
   make_outreg
+  min wports 1
 endmatch
