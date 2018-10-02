@@ -39,6 +39,6 @@ python3 generate.py -c $count $seed
 } > temp/makefile
 
 echo "running tests.."
-${MAKE:-make} -f temp/makefile
+${MAKE:-make} -j $(nproc) -f temp/makefile
 
 exit 0

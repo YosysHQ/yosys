@@ -11,4 +11,4 @@ do
 done
 shift "$((OPTIND-1))"
 
-exec ${MAKE:-make} -f ../tools/autotest.mk $seed EXTRA_FLAGS="-l hana_vlib.v -n 300 -e" test_*.v
+exec ${MAKE:-make} -j $(nproc) -f ../tools/autotest.mk $seed EXTRA_FLAGS="-l hana_vlib.v -n 300 -e" test_*.v
