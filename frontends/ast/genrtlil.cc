@@ -985,7 +985,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 		use_const_chunk:
 			if (children.size() != 0) {
-				log_assert(children[0]->type == AST_RANGE);
+				if (children[0]->type != AST_RANGE)
+					log_file_error(filename, linenum, "Single range expected.\n");
 				int source_width = id2ast->range_left - id2ast->range_right + 1;
 				int source_offset = id2ast->range_right;
 				if (!children[0]->range_valid) {
