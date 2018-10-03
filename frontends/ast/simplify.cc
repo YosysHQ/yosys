@@ -2515,8 +2515,9 @@ replace_fcall_later:;
 		if (0) { case AST_DIV: const_func = RTLIL::const_div; }
 		if (0) { case AST_MOD: const_func = RTLIL::const_mod; }
 			if (children[0]->type == AST_CONSTANT && children[1]->type == AST_CONSTANT) {
-				RTLIL::Const y = const_func(children[0]->bitsAsConst(width_hint, sign_hint),
-						children[1]->bitsAsConst(width_hint, sign_hint), sign_hint, sign_hint, width_hint);
+				RTLIL::Const y = const_func(
+						children[0]->bitsAsConst(width_hint, children[0]->is_signed),
+						children[1]->bitsAsConst(width_hint, children[1]->is_signed), children[0]->is_signed, children[1]->is_signed, width_hint);
 				newNode = mkconst_bits(y.bits, sign_hint);
 			} else
 			if (children[0]->isConst() && children[1]->isConst()) {
