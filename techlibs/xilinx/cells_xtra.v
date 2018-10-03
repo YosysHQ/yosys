@@ -2225,6 +2225,7 @@ module IOBUF (...);
     parameter IOSTANDARD = "DEFAULT";
     parameter SLEW = "SLOW";
     output O;
+    inout IO;
     input I, T;
 endmodule
 
