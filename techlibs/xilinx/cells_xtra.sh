@@ -1,13 +1,13 @@
 #!/bin/bash
 
 set -e
-libdir="/opt/Xilinx/Vivado/2015.4/data/verilog/src"
+libdir="/opt/Xilinx/Vivado/2018.1/data/verilog/src"
 
 function xtract_cell_decl()
 {
 	for dir in $libdir/xeclib $libdir/retarget; do
 		[ -f $dir/$1.v ] || continue
-		egrep '^\s*((end)?module|parameter|input|output|(end)?function|(end)?task)' $dir/$1.v |
+		egrep '^\s*((end)?module|parameter|input|inout|output|(end)?function|(end)?task)' $dir/$1.v |
 			sed -re '/UNPLACED/ d; /^\s*function/,/endfunction/ d; /^\s*task/,/endtask/ d;
 			         s,//.*,,; s/#?\(.*/(...);/; s/^(input|output|parameter)/ \1/;
 			         s/\s+$//; s/,$/;/; /input|output|parameter/ s/[^;]$/&;/; s/\s+/ /g;

@@ -2237,6 +2237,7 @@ module IOBUF_DCIEN (...);
     parameter SLEW = "SLOW";
     parameter USE_IBUFDISABLE = "TRUE";
     output O;
+    inout IO;
     input DCITERMDISABLE;
     input I;
     input IBUFDISABLE;
@@ -2251,6 +2252,7 @@ module IOBUF_INTERMDISABLE (...);
     parameter SLEW = "SLOW";
     parameter USE_IBUFDISABLE = "TRUE";
     output O;
+    inout IO;
     input I;
     input IBUFDISABLE;
     input INTERMDISABLE;
@@ -2264,6 +2266,7 @@ module IOBUFDS (...);
     parameter IOSTANDARD = "DEFAULT";
     parameter SLEW = "SLOW";
     output O;
+    inout IO, IOB;
     input I, T;
 endmodule
 
@@ -2276,6 +2279,8 @@ module IOBUFDS_DCIEN (...);
     parameter SLEW = "SLOW";
     parameter USE_IBUFDISABLE = "TRUE";
     output O;
+    inout IO;
+    inout IOB;
     input DCITERMDISABLE;
     input I;
     input IBUFDISABLE;
@@ -2289,6 +2294,8 @@ module IOBUFDS_DIFF_OUT (...);
     parameter IOSTANDARD = "DEFAULT";
     output O;
     output OB;
+    inout IO;
+    inout IOB;
     input I;
     input TM;
     input TS;
@@ -2303,6 +2310,8 @@ module IOBUFDS_DIFF_OUT_DCIEN (...);
     parameter USE_IBUFDISABLE = "TRUE";
     output O;
     output OB;
+    inout IO;
+    inout IOB;
     input DCITERMDISABLE;
     input I;
     input IBUFDISABLE;
@@ -2319,6 +2328,8 @@ module IOBUFDS_DIFF_OUT_INTERMDISABLE (...);
     parameter USE_IBUFDISABLE = "TRUE";
     output O;
     output OB;
+    inout IO;
+    inout IOB;
     input I;
     input IBUFDISABLE;
     input INTERMDISABLE;
@@ -2382,6 +2393,7 @@ module ISERDESE2 (...);
 endmodule
 
 module KEEPER (...);
+    inout O;
 endmodule
 
 module LDCE (...);
