@@ -1676,6 +1676,7 @@ YOSYS_NAMESPACE_END
 
 PRIVATE_NAMESPACE_BEGIN
 
+#ifdef YOSYS_ENABLE_VERIFIC
 bool check_noverific_env()
 {
 	const char *e = getenv("YOSYS_NOVERIFIC");
@@ -1685,6 +1686,7 @@ bool check_noverific_env()
 		return false;
 	return true;
 }
+#endif
 
 struct VerificPass : public Pass {
 	VerificPass() : Pass("verific", "load Verilog and VHDL designs using Verific") { }
