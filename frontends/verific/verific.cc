@@ -118,6 +118,18 @@ RTLIL::SigBit VerificImporter::net_map_at(Net *net)
 	return net_map.at(net);
 }
 
+bool is_blackbox(Netlist *nl)
+{
+	if (nl->IsBlackBox())
+		return true;
+
+	const char *attr = nl->GetAttValue("blackbox");
+	if (attr != nullptr && strcmp(attr, "0"))
+		return true;
+
+	return false;
+}
+
 void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &attributes, DesignObj *obj)
 {
 	MapIter mi;
@@ -709,7 +721,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 	netlist = nl;
 
 	if (design->has(module_name)) {
-		if (!nl->IsOperator())
+		if (!nl->IsOperator() && !is_blackbox(nl))
 			log_cmd_error("Re-definition of module `%s'.\n", nl->Owner()->Name());
 		return;
 	}
@@ -718,7 +730,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 	module->name = module_name;
 	design->add(module);
 
-	if (nl->IsBlackBox()) {
+	if (is_blackbox(nl)) {
 		log("Importing blackbox module %s.\n", RTLIL::id2cstr(module->name));
 		module->set_bool_attribute("\\blackbox");
 	} else {
