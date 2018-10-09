@@ -96,6 +96,15 @@ module XORCY(output O, input CI, LI);
   assign O = CI ^ LI;
 endmodule
 
+module CYINIT_CONSTANTS(output C0, C1);
+  assign C0 = 0;
+  assign C1 = 0;
+endmodule
+
+module CYINIT_FABRIC(output CI_CHAIN, input CI_FABRIC);
+  assign CI_CHAIN = CI_FABRIC;
+endmodule
+
 module CARRY4(output [3:0] CO, O, input CI, CYINIT, input [3:0] DI, S);
   assign O = S ^ {CO[2:0], CI | CYINIT};
   assign CO[0] = S[0] ? CI | CYINIT : DI[0];

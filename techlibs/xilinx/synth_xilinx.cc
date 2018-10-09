@@ -223,7 +223,14 @@ struct SynthXilinxPass : public Pass
 			Pass::call(design, "dffsr2dff");
 			Pass::call(design, "dff2dffe");
 			Pass::call(design, "opt -full");
-			Pass::call(design, "techmap -map +/techmap.v -map +/xilinx/arith_map.v");
+			if (vpr)
+			{
+				Pass::call(design, "techmap -map +/techmap.v -map +/xilinx/arith_map.v -D _EXPLICIT_CARRY");
+			}
+			else
+			{
+				Pass::call(design, "techmap -map +/techmap.v -map +/xilinx/arith_map.v");
+			}
 			Pass::call(design, "opt -fast");
 		}
 
@@ -237,7 +244,9 @@ struct SynthXilinxPass : public Pass
 		{
 			Pass::call(design, "techmap -map +/xilinx/cells_map.v");
 			if (vpr)
+			{
 			    Pass::call(design, "techmap -map +/xilinx/lut2lut.v");
+			}
 			Pass::call(design, "dffinit -ff FDRE Q INIT -ff FDCE Q INIT -ff FDPE Q INIT");
 			Pass::call(design, "clean");
 		}
