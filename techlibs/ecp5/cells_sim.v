@@ -475,6 +475,8 @@ module DP16KD(
   parameter WRITEMODE_A = "NORMAL";
   parameter WRITEMODE_B = "NORMAL";
 
+  parameter CLKAMUX = "CLKA";
+  parameter CLKBMUX = "CLKB";
 
   parameter GSR = "ENABLED";
 

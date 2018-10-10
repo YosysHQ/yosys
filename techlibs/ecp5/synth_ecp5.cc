@@ -222,11 +222,8 @@ struct SynthEcp5Pass : public ScriptPass
 
 		if (!nobram && check_label("bram", "(skip if -nobram)"))
 		{
-			//TODO
-#if 0
-			run("memory_bram -rules +/ecp5/brams.txt");
+			run("memory_bram -rules +/ecp5/bram.txt");
 			run("techmap -map +/ecp5/brams_map.v");
-#endif
 		}
 
 		if (!nodram && check_label("dram", "(skip if -nodram)"))
