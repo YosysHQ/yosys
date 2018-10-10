@@ -24,7 +24,6 @@ module \$__ECP5_DP16KD (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1EN);
 
 	localparam WRITEMODE_A = TRANSP2 ? "WRITETHROUGH" : "NORMAL";
 
-
 	generate if (CFG_DBITS == 1) begin
 		DP16KD #(
 			`include "bram_init_1_2_4.vh"
@@ -36,6 +35,70 @@ module \$__ECP5_DP16KD (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1EN);
 			.GSR("DISABLED")
 		) _TECHMAP_REPLACE_ (
 			`include "bram_conn_1.vh"
+			.CLKA(CLK2), .CLKB(CLK3),
+			.WEA(1'b1), .CEA(|A1EN), .OCEA(1'b1),
+			.WEB(1'b0), .CEB(B1EN), .OCEB(1'b1),
+			.RSTA(1'b0), .RSTB(1'b0)
+		);
+	end else if (CFG_DBITS == 2) begin
+		DP16KD #(
+			`include "bram_init_1_2_4.vh"
+			.DATA_WIDTH_A(2),
+			.DATA_WIDTH_B(2),
+			.CLKAMUX(CLKAMUX),
+			.CLKBMUX(CLKBMUX),
+			.WRITEMODE_A(WRITEMODE_A),
+			.GSR("DISABLED")
+		) _TECHMAP_REPLACE_ (
+			`include "bram_conn_2.vh"
+			.CLKA(CLK2), .CLKB(CLK3),
+			.WEA(1'b1), .CEA(|A1EN), .OCEA(1'b1),
+			.WEB(1'b0), .CEB(B1EN), .OCEB(1'b1),
+			.RSTA(1'b0), .RSTB(1'b0)
+		);
+	end else if (CFG_DBITS <= 4) begin
+		DP16KD #(
+			`include "bram_init_1_2_4.vh"
+			.DATA_WIDTH_A(4),
+			.DATA_WIDTH_B(4),
+			.CLKAMUX(CLKAMUX),
+			.CLKBMUX(CLKBMUX),
+			.WRITEMODE_A(WRITEMODE_A),
+			.GSR("DISABLED")
+		) _TECHMAP_REPLACE_ (
+			`include "bram_conn_4.vh"
+			.CLKA(CLK2), .CLKB(CLK3),
+			.WEA(1'b1), .CEA(|A1EN), .OCEA(1'b1),
+			.WEB(1'b0), .CEB(B1EN), .OCEB(1'b1),
+			.RSTA(1'b0), .RSTB(1'b0)
+		);
+	end else if (CFG_DBITS <= 9) begin
+		DP16KD #(
+			`include "bram_init_9_18_36.vh"
+			.DATA_WIDTH_A(9),
+			.DATA_WIDTH_B(9),
+			.CLKAMUX(CLKAMUX),
+			.CLKBMUX(CLKBMUX),
+			.WRITEMODE_A(WRITEMODE_A),
+			.GSR("DISABLED")
+		) _TECHMAP_REPLACE_ (
+			`include "bram_conn_9.vh"
+			.CLKA(CLK2), .CLKB(CLK3),
+			.WEA(1'b1), .CEA(|A1EN), .OCEA(1'b1),
+			.WEB(1'b0), .CEB(B1EN), .OCEB(1'b1),
+			.RSTA(1'b0), .RSTB(1'b0)
+		);
+	end else if (CFG_DBITS <= 18) begin
+		DP16KD #(
+			`include "bram_init_9_18_36.vh"
+			.DATA_WIDTH_A(18),
+			.DATA_WIDTH_B(18),
+			.CLKAMUX(CLKAMUX),
+			.CLKBMUX(CLKBMUX),
+			.WRITEMODE_A(WRITEMODE_A),
+			.GSR("DISABLED")
+		) _TECHMAP_REPLACE_ (
+			`include "bram_conn_18.vh"
 			.CLKA(CLK2), .CLKB(CLK3),
 			.WEA(1'b1), .CEA(|A1EN), .OCEA(1'b1),
 			.WEB(1'b0), .CEB(B1EN), .OCEB(1'b1),
