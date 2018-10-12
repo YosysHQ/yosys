@@ -145,6 +145,8 @@ namespace AST
 		AST_INTERFACE,
 		AST_INTERFACEPORT,
 		AST_INTERFACEPORTTYPE,
+		AST_MODPORT,
+		AST_MODPORTMEMBER,
 		AST_PACKAGE
 	};
 
@@ -287,7 +289,7 @@ namespace AST
 		bool nolatches, nomeminit, nomem2reg, mem2reg, lib, noopt, icells, autowire;
 		~AstModule() YS_OVERRIDE;
 		RTLIL::IdString derive(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters, bool mayfail) YS_OVERRIDE;
-		RTLIL::IdString derive(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters, dict<RTLIL::IdString, RTLIL::Module*> interfaces, bool mayfail) YS_OVERRIDE;
+		RTLIL::IdString derive(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters, dict<RTLIL::IdString, RTLIL::Module*> interfaces, dict<RTLIL::IdString, RTLIL::IdString> modports, bool mayfail) YS_OVERRIDE;
 		std::string derive_common(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters, AstNode **new_ast_out, bool mayfail);
 		void reprocess_module(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Module *> local_interfaces) YS_OVERRIDE;
 		RTLIL::Module *clone() const YS_OVERRIDE;

@@ -174,6 +174,7 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 			cell->type = cell->type.str().substr(pos_type + 1);
 		}
 		dict<RTLIL::IdString, RTLIL::Module*> interfaces_to_add_to_submodule;
+		dict<RTLIL::IdString, RTLIL::IdString> modports_used_in_submodule;
 
 		if (design->modules_.count(cell->type) == 0)
 		{
@@ -224,6 +225,14 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 		// some lists, so that they can be replaced further down:
 		for (auto &conn : cell->connections()) {
 			if(mod->wires_.count(conn.first) != 0 && mod->wire(conn.first)->get_bool_attribute("\\is_interface")) { // Check if the connection is present as an interface in the sub-module's port list
+				//const pool<string> &interface_type_pool = mod->wire(conn.first)->get_strpool_attribute("\\interface_type");
+				//for (auto &d : interface_type_pool) { // TODO: Compare interface type to type in parent module
+				//}
+				const pool<string> &interface_modport_pool = mod->wire(conn.first)->get_strpool_attribute("\\interface_modport");
+				std::string interface_modport = "";
+				for (auto &d : interface_modport_pool) {
+					interface_modport = "\\" + d;
+				}
 				if(conn.second.bits().size() == 1 && conn.second.bits()[0].wire->get_bool_attribute("\\is_interface")) {
 					std::string interface_name_str = conn.second.bits()[0].wire->name.str();
 					interface_name_str.replace(0,23,"");
@@ -247,6 +256,9 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 						}
 						connections_to_remove.push_back(conn.first);
 						interfaces_to_add_to_submodule[conn.first] = interfaces_in_module.at(interface_name);
+						if (interface_modport != "") {
+							modports_used_in_submodule[conn.first] = interface_modport;
+						}
 					  }
 					  else will_do_step = true;
 					}
@@ -322,7 +334,7 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 			continue;
 		}
 
-		cell->type = mod->derive(design, cell->parameters, interfaces_to_add_to_submodule);
+		cell->type = mod->derive(design, cell->parameters, interfaces_to_add_to_submodule, modports_used_in_submodule);
 		cell->parameters.clear();
 		did_something = true;
 

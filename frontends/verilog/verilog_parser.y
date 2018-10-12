@@ -61,6 +61,7 @@ namespace VERILOG_FRONTEND {
 	bool noassert_mode, noassume_mode, norestrict_mode;
 	bool assume_asserts_mode, assert_assumes_mode;
 	bool current_wire_rand, current_wire_const;
+	bool current_modport_input, current_modport_output;
 	std::istream *lexin;
 }
 YOSYS_NAMESPACE_END
@@ -1325,7 +1326,16 @@ opt_stmt_label:
 	TOK_ID ':' | /* empty */;
 
 modport_stmt:
-    TOK_MODPORT TOK_ID modport_args_opt ';'
+    TOK_MODPORT TOK_ID {
+        AstNode *modport = new AstNode(AST_MODPORT);
+        ast_stack.back()->children.push_back(modport);
+        ast_stack.push_back(modport);
+        modport->str = *$2;
+        delete $2;
+    }  modport_args_opt {
+        ast_stack.pop_back();
+        log_assert(ast_stack.size() == 2);
+    } ';'
 
 modport_args_opt:
     '(' ')' | '(' modport_args optional_comma ')';
@@ -1334,11 +1344,19 @@ modport_args:
     modport_arg | modport_args ',' modport_arg;
 
 modport_arg:
-    modport_type_token TOK_ID |
+    modport_type_token TOK_ID {
+        AstNode *modport_member = new AstNode(AST_MODPORTMEMBER);
+        ast_stack.back()->children.push_back(modport_member);
+        modport_member->str = *$2;
+        modport_member->is_input = current_modport_input;
+        modport_member->is_output = current_modport_output;
+        delete $2;
+    } |
     TOK_ID
+    /* FIXME for TOK_ID without modport_type_token */
 
 modport_type_token:
-    TOK_INPUT | TOK_OUTPUT
+    TOK_INPUT {current_modport_input = 1; current_modport_output = 0;} | TOK_OUTPUT {current_modport_input = 0; current_modport_output = 1;}
 
 assert:
 	opt_stmt_label TOK_ASSERT opt_property '(' expr ')' ';' {

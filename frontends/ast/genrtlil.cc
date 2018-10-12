@@ -853,6 +853,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	case AST_GENIF:
 	case AST_GENCASE:
 	case AST_PACKAGE:
+	case AST_MODPORT:
+	case AST_MODPORTMEMBER:
 		break;
 	case AST_INTERFACEPORT: {
 		// If a port in a module with unknown type is found, mark it as "is_interface=true"
@@ -865,6 +867,33 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 		wire->port_input = true;
 		wire->port_output = true;
 		wire->set_bool_attribute("\\is_interface");
+		if (children.size() > 0) {
+			for(size_t i=0; i<children.size();i++) {
+				if(children[i]->type == AST_INTERFACEPORTTYPE) {
+					std::string name_type = children[i]->str;
+					size_t ndots = std::count(name_type.begin(), name_type.end(), '.');
+					if (ndots == 0) {
+						wire->attributes["\\interface_type"] = name_type;
+					}
+					else {
+						std::stringstream name_type_stream(name_type);
+						std::string segment;
+						std::vector<std::string> seglist;
+						while(std::getline(name_type_stream, segment, '.')) {
+							seglist.push_back(segment);
+						}
+						if (ndots == 1) {
+							wire->attributes["\\interface_type"] = seglist[0];
+							wire->attributes["\\interface_modport"] = seglist[1];
+						}
+						else {
+							log_error("More than two '.' in signal port type (%s)\n", name_type.c_str());
+						}
+					}
+					break;
+				}
+			}
+		}
 		wire->upto = 0;
 		}
 		break;
