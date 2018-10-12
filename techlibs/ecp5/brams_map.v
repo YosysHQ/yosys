@@ -22,7 +22,7 @@ module \$__ECP5_DP16KD (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1EN);
 	localparam CLKAMUX = CLKPOL2 ? "CLKA" : "INV";
 	localparam CLKBMUX = CLKPOL3 ? "CLKB" : "INV";
 
-	localparam WRITEMODE_A = TRANSP2 ? "WRITETHROUGH" : "NORMAL";
+	localparam WRITEMODE_A = TRANSP2 ? "WRITETHROUGH" : "READBEFOREWRITE";
 
 	generate if (CFG_DBITS == 1) begin
 		DP16KD #(
@@ -32,12 +32,13 @@ module \$__ECP5_DP16KD (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1EN);
 			.CLKAMUX(CLKAMUX),
 			.CLKBMUX(CLKBMUX),
 			.WRITEMODE_A(WRITEMODE_A),
+			.WRITEMODE_B("READBEFOREWRITE"),
 			.GSR("DISABLED")
 		) _TECHMAP_REPLACE_ (
 			`include "bram_conn_1.vh"
 			.CLKA(CLK2), .CLKB(CLK3),
-			.WEA(1'b1), .CEA(|A1EN), .OCEA(1'b1),
-			.WEB(1'b0), .CEB(B1EN), .OCEB(1'b1),
+			.WEA(|A1EN), .CEA(1'b1), .OCEA(1'b1),
+			.WEB(1'b0), .CEB(1'b1), .OCEB(B1EN),
 			.RSTA(1'b0), .RSTB(1'b0)
 		);
 	end else if (CFG_DBITS == 2) begin
@@ -48,12 +49,13 @@ module \$__ECP5_DP16KD (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1EN);
 			.CLKAMUX(CLKAMUX),
 			.CLKBMUX(CLKBMUX),
 			.WRITEMODE_A(WRITEMODE_A),
+			.WRITEMODE_B("READBEFOREWRITE"),
 			.GSR("DISABLED")
 		) _TECHMAP_REPLACE_ (
 			`include "bram_conn_2.vh"
 			.CLKA(CLK2), .CLKB(CLK3),
-			.WEA(1'b1), .CEA(|A1EN), .OCEA(1'b1),
-			.WEB(1'b0), .CEB(B1EN), .OCEB(1'b1),
+			.WEA(|A1EN), .CEA(1'b1), .OCEA(1'b1),
+			.WEB(1'b0), .CEB(1'b1), .OCEB(B1EN),
 			.RSTA(1'b0), .RSTB(1'b0)
 		);
 	end else if (CFG_DBITS <= 4) begin
@@ -64,12 +66,13 @@ module \$__ECP5_DP16KD (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1EN);
 			.CLKAMUX(CLKAMUX),
 			.CLKBMUX(CLKBMUX),
 			.WRITEMODE_A(WRITEMODE_A),
+			.WRITEMODE_B("READBEFOREWRITE"),
 			.GSR("DISABLED")
 		) _TECHMAP_REPLACE_ (
 			`include "bram_conn_4.vh"
 			.CLKA(CLK2), .CLKB(CLK3),
-			.WEA(1'b1), .CEA(|A1EN), .OCEA(1'b1),
-			.WEB(1'b0), .CEB(B1EN), .OCEB(1'b1),
+			.WEA(|A1EN), .CEA(1'b1), .OCEA(1'b1),
+			.WEB(1'b0), .CEB(1'b1), .OCEB(B1EN),
 			.RSTA(1'b0), .RSTB(1'b0)
 		);
 	end else if (CFG_DBITS <= 9) begin
@@ -80,12 +83,13 @@ module \$__ECP5_DP16KD (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1EN);
 			.CLKAMUX(CLKAMUX),
 			.CLKBMUX(CLKBMUX),
 			.WRITEMODE_A(WRITEMODE_A),
+			.WRITEMODE_B("READBEFOREWRITE"),
 			.GSR("DISABLED")
 		) _TECHMAP_REPLACE_ (
 			`include "bram_conn_9.vh"
 			.CLKA(CLK2), .CLKB(CLK3),
-			.WEA(1'b1), .CEA(|A1EN), .OCEA(1'b1),
-			.WEB(1'b0), .CEB(B1EN), .OCEB(1'b1),
+			.WEA(|A1EN), .CEA(1'b1), .OCEA(1'b1),
+			.WEB(1'b0), .CEB(1'b1), .OCEB(B1EN),
 			.RSTA(1'b0), .RSTB(1'b0)
 		);
 	end else if (CFG_DBITS <= 18) begin
@@ -96,12 +100,13 @@ module \$__ECP5_DP16KD (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1EN);
 			.CLKAMUX(CLKAMUX),
 			.CLKBMUX(CLKBMUX),
 			.WRITEMODE_A(WRITEMODE_A),
+			.WRITEMODE_B("READBEFOREWRITE"),
 			.GSR("DISABLED")
 		) _TECHMAP_REPLACE_ (
 			`include "bram_conn_18.vh"
 			.CLKA(CLK2), .CLKB(CLK3),
-			.WEA(1'b1), .CEA(|A1EN), .OCEA(1'b1),
-			.WEB(1'b0), .CEB(B1EN), .OCEB(1'b1),
+			.WEA(|A1EN), .CEA(1'b1), .OCEA(1'b1),
+			.WEB(1'b0), .CEB(1'b1), .OCEB(B1EN),
 			.RSTA(1'b0), .RSTB(1'b0)
 		);
 	end else begin
