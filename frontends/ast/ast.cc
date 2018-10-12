@@ -1199,7 +1199,7 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, dict<RTLIL::IdString, R
 				new_subcell->set_bool_attribute("\\is_interface");
 			}
 			else {
-				log_error("No port with matching name found (%s) in %s. Stopping\n", log_id(intf.first), modname);
+				log_error("No port with matching name found (%s) in %s. Stopping\n", log_id(intf.first), modname.c_str());
 			}
 		}
 
