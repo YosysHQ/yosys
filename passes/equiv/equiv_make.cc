@@ -42,6 +42,14 @@ struct EquivMakeWorker
 
 	dict<SigBit, pool<Cell*>> bit2driven; // map: bit <--> and its driven cells
 
+	CellTypes comb_ct;
+
+	EquivMakeWorker()
+	{
+		comb_ct.setup_internals();
+		comb_ct.setup_stdcells();
+	}
+
 	void read_blacklists()
 	{
 		for (auto fn : blacklists)
@@ -415,9 +423,12 @@ struct EquivMakeWorker
 		auto driven_cells = bit2driven.at(source_bit);
 		for (auto driven_cell: driven_cells)
 		{
-			if (visited_cells.count(driven_cell) > 0)
+			bool is_comb = comb_ct.cell_known(cell->type);
+			if (is_comb)
 				continue;
 
+			if (visited_cells.count(driven_cell) > 0)
+				continue;
 			visited_cells.insert(driven_cell);
 
 			for (auto &conn: driven_cell->connections())
