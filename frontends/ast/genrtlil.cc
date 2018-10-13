@@ -857,7 +857,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	case AST_MODPORTMEMBER:
 		break;
 	case AST_INTERFACEPORT: {
-		// If a port in a module with unknown type is found, mark it as "is_interface=true"
+		// If a port in a module with unknown type is found, mark it with the attribute 'is_interface'
 		// This is used by the hierarchy pass to know when it can replace interface connection with the individual
 		// signals.
 		RTLIL::Wire *wire = current_module->addWire(str, 1);
@@ -872,7 +872,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				if(children[i]->type == AST_INTERFACEPORTTYPE) {
 					std::string name_type = children[i]->str;
 					size_t ndots = std::count(name_type.begin(), name_type.end(), '.');
-					if (ndots == 0) {
+					// Separate the interface instance name from any modports:
+					if (ndots == 0) { // Does not have modport
 						wire->attributes["\\interface_type"] = name_type;
 					}
 					else {
@@ -882,11 +883,11 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 						while(std::getline(name_type_stream, segment, '.')) {
 							seglist.push_back(segment);
 						}
-						if (ndots == 1) {
+						if (ndots == 1) { // Has modport
 							wire->attributes["\\interface_type"] = seglist[0];
 							wire->attributes["\\interface_modport"] = seglist[1];
 						}
-						else {
+						else { // Erroneous port type
 							log_error("More than two '.' in signal port type (%s)\n", name_type.c_str());
 						}
 					}
@@ -1034,7 +1035,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				log_file_error(filename, linenum, "Identifier `%s' does map to an unexpanded memory!\n",
 					       str.c_str());
 
-			// If identifier is an interface, create a RTLIL::SigSpec object and set is_interface to true.
+			// If identifier is an interface, create a RTLIL::SigSpec with a dummy wire with a attribute called 'is_interface'
 			// This makes it possible for the hierarchy pass to see what are interface connections and then replace them
 			// with the individual signals:
 			if (is_interface) {
@@ -1495,6 +1496,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 			RTLIL::Cell *cell = current_module->addCell(str, "");
 			cell->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
+			// Set attribute 'module_not_derived' which will be cleared again after the hierarchy pass
 			cell->set_bool_attribute("\\module_not_derived");
 
 			for (auto it = children.begin(); it != children.end(); it++) {

@@ -452,6 +452,9 @@ from SystemVerilog:
   into a design with ``read_verilog``, all its packages are available to
   SystemVerilog files being read into the same design afterwards.
 
+- SystemVerilog interfaces (SVIs) are supported. Modports for specifying whether
+  ports are inputs or outputs are supported.
+
 
 Building the documentation
 ==========================

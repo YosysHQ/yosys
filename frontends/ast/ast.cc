@@ -2,6 +2,7 @@
  *  yosys -- Yosys Open SYnthesis Suite
  *
  *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2018  Ruben Undheim <ruben.undheim@gmail.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -1086,6 +1087,8 @@ AstModule::~AstModule()
 		delete ast;
 }
 
+// When an interface instance is found in a module, the whole RTLIL for the module will be rederived again
+// from AST. The interface members are copied into the AST module with the prefix of the interface.
 void AstModule::reprocess_module(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Module*> local_interfaces)
 {
 	bool is_top = false;
@@ -1101,23 +1104,33 @@ void AstModule::reprocess_module(RTLIL::Design *design, dict<RTLIL::IdString, RT
 			new_ast->children.push_back(wire);
 		}
 	}
+
+	// The old module will be deleted. Rename and mark for deletion:
 	std::string original_name = this->name.str();
 	std::string changed_name = original_name + "_before_replacing_local_interfaces";
 	design->rename(this, changed_name);
 	this->set_bool_attribute("\\to_delete");
+
+	// Check if the module was the top module. If it was, we need to remove the top attribute and put it on the
+	// new module.
 	if (this->get_bool_attribute("\\initial_top")) {
 		this->attributes.erase("\\initial_top");
 		is_top = true;
 	}
+
+	// Generate RTLIL from AST for the new module and add to the design:
 	AstModule *newmod = process_module(new_ast, false);
 	design->add(newmod);
 	RTLIL::Module* mod = design->module(original_name);
 	if (is_top)
 		mod->set_bool_attribute("\\top");
+
+	// Set the attribute "interfaces_replaced_in_module" so that it does not happen again.
 	mod->set_bool_attribute("\\interfaces_replaced_in_module");
 }
 
 // create a new parametric module (when needed) and return the name of the generated module - WITH support for interfaces
+// This method is used to explode the interface when the interface is a port of the module (not instantiated inside)
 RTLIL::IdString AstModule::derive(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters, dict<RTLIL::IdString, RTLIL::Module*> interfaces, dict<RTLIL::IdString, RTLIL::IdString> modports, bool mayfail)
 {
 	AstNode *new_ast = NULL;
@@ -1140,9 +1153,12 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, dict<RTLIL::IdString, R
 
 	if (!design->has(modname)) {
 		new_ast->str = modname;
+
+		// Iterate over all interfaces which are ports in this module:
 		for(auto &intf : interfaces) {
 			RTLIL::Module * intfmodule = intf.second;
 			std::string intfname = intf.first.str();
+			// Check if a modport applies for the interface port:
 			AstNode *modport = NULL;
 			if (modports.count(intfname) > 0) {
 				std::string interface_modport = modports.at(intfname).str();
@@ -1150,12 +1166,13 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, dict<RTLIL::IdString, R
 				AstNode *ast_node_of_interface = ast_module_of_interface->ast;
 				for (auto &ch : ast_node_of_interface->children) {
 					if (ch->type == AST_MODPORT) {
-						if (ch->str == interface_modport) {
+						if (ch->str == interface_modport) { // Modport found
 							modport = ch;
 						}
 					}
 				}
 			}
+			// Iterate over all wires in the interface and add them to the module:
 			for (auto &wire_it : intfmodule->wires_){
 				AstNode *wire = new AstNode(AST_WIRE, new AstNode(AST_RANGE, AstNode::mkconst_int(wire_it.second->width -1, true), AstNode::mkconst_int(0, true)));
 				std::string origname = log_id(wire_it.first);
@@ -1163,10 +1180,11 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, dict<RTLIL::IdString, R
 				wire->str = newname;
 				if (modport != NULL) {
 					bool found_in_modport = false;
+					// Search for the current wire in the wire list for the current modport
 					for (auto &ch : modport->children) {
 						if (ch->type == AST_MODPORTMEMBER) {
 							std::string compare_name = "\\" + origname;
-							if (ch->str == compare_name) {
+							if (ch->str == compare_name) { // Found signal. The modport decides whether it is input or output
 								found_in_modport = true;
 								wire->is_input = ch->is_input;
 								wire->is_output = ch->is_output;
@@ -1174,8 +1192,11 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, dict<RTLIL::IdString, R
 							}
 						}
 					}
-					if (found_in_modport) { // If not found in modport, do not create port
+					if (found_in_modport) {
 						new_ast->children.push_back(wire);
+					}
+					else { // If not found in modport, do not create port
+						delete wire;
 					}
 				}
 				else { // If no modport, set inout
@@ -1191,10 +1212,13 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, dict<RTLIL::IdString, R
 
 		RTLIL::Module* mod = design->module(modname);
 
+		// Now that the interfaces have been exploded, we can delete the dummy port related to every interface.
 		for(auto &intf : interfaces) {
 			if(mod->wires_.count(intf.first)) {
 				mod->wires_.erase(intf.first);
 				mod->fixup_ports();
+				// We copy the cell of the interface to the sub-module such that it can further be found if it is propagated
+				// down to sub-sub-modules etc.
 				RTLIL::Cell * new_subcell = mod->addCell(intf.first, intf.second->name);
 				new_subcell->set_bool_attribute("\\is_interface");
 			}
@@ -1203,6 +1227,7 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, dict<RTLIL::IdString, R
 			}
 		}
 
+		// If any interfaces were replaced, set the attribute 'interfaces_replaced_in_module':
 		if (interfaces.size() > 0) {
 			mod->set_bool_attribute("\\interfaces_replaced_in_module");
 		}
