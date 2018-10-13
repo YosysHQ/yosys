@@ -1,7 +1,7 @@
 ## Steps to reproduce the issue
 
 *Provide instructions for reproducing the issue. Make sure to include
-all neccessary source files. (You can simply drag&drop a .zip file into
+all necessary source files. (You can simply drag&drop a .zip file into
 the issue editor.)*
 
 ## Expected behavior

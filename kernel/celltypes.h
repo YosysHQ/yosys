@@ -157,7 +157,7 @@ struct CellTypes
 		IdString A = "\\A", B = "\\B", C = "\\C", D = "\\D";
 		IdString E = "\\E", F = "\\F", G = "\\G", H = "\\H";
 		IdString I = "\\I", J = "\\J", K = "\\K", L = "\\L";
-		IdString M = "\\I", N = "\\N", O = "\\O", P = "\\P";
+		IdString M = "\\M", N = "\\N", O = "\\O", P = "\\P";
 		IdString S = "\\S", T = "\\T", U = "\\U", V = "\\V";
 		IdString Y = "\\Y";
 
