@@ -1344,16 +1344,18 @@ modport_args:
     modport_arg | modport_args ',' modport_arg;
 
 modport_arg:
-    modport_type_token TOK_ID {
+    modport_type_token modport_member |
+    modport_member
+
+modport_member:
+    TOK_ID {
         AstNode *modport_member = new AstNode(AST_MODPORTMEMBER);
         ast_stack.back()->children.push_back(modport_member);
-        modport_member->str = *$2;
+        modport_member->str = *$1;
         modport_member->is_input = current_modport_input;
         modport_member->is_output = current_modport_output;
-        delete $2;
-    } |
-    TOK_ID
-    /* FIXME for TOK_ID without modport_type_token */
+        delete $1;
+    }
 
 modport_type_token:
     TOK_INPUT {current_modport_input = 1; current_modport_output = 0;} | TOK_OUTPUT {current_modport_input = 0; current_modport_output = 1;}
