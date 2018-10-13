@@ -96,6 +96,10 @@ module CARRY_COPY(output COUT1, COUT2, input CIN);
 endmodule
 `endif
 
+module MUXF6(output O, input I0, I1, S);
+  assign O = S ? I1 : I0;
+endmodule
+
 module MUXF7(output O, input I0, I1, S);
   assign O = S ? I1 : I0;
 endmodule
