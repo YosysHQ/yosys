@@ -423,8 +423,8 @@ struct EquivMakeWorker
 		auto driven_cells = bit2driven.at(source_bit);
 		for (auto driven_cell: driven_cells)
 		{
-			bool is_comb = comb_ct.cell_known(cell->type);
-			if (is_comb)
+			bool is_comb = comb_ct.cell_known(driven_cell->type);
+			if (!is_comb)
 				continue;
 
 			if (visited_cells.count(driven_cell) > 0)
