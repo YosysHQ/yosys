@@ -232,7 +232,7 @@ struct SmvWorker
 				SigSpec sig_a = cell->getPort("\\A");
 				SigSpec sig_en = cell->getPort("\\EN");
 
-				invarspecs.push_back(stringf("(!bool(%s) | bool(%s));", rvalue(sig_en), rvalue(sig_a)));
+				invarspecs.push_back(stringf("!bool(%s) | bool(%s);", rvalue(sig_en), rvalue(sig_a)));
 
 				continue;
 			}
