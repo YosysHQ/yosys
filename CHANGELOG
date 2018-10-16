@@ -3,6 +3,14 @@ List of major changes and improvements between releases
 =======================================================
 
 
+Yosys 0.8 .. Yosys 0.8-dev
+--------------------------
+
+ * Various
+    - Added $changed support to read_verilog
+    - Added "write_edif -attrprop"
+
+
 Yosys 0.7 .. Yosys 0.8
 ----------------------
 
