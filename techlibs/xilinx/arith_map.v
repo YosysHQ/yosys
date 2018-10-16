@@ -144,6 +144,6 @@ module _80_xilinx_alu (A, B, CI, BI, X, Y, CO);
 `endif
 
 
-	assign X = P;
+	assign X = S;
 endmodule
 
