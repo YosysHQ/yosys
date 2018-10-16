@@ -38,7 +38,7 @@ module \$__ECP5_DP16KD (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1EN);
 			`include "bram_conn_1.vh"
 			.CLKA(CLK2), .CLKB(CLK3),
 			.WEA(|A1EN), .CEA(1'b1), .OCEA(1'b1),
-			.WEB(1'b0), .CEB(1'b1), .OCEB(B1EN),
+			.WEB(1'b0), .CEB(B1EN), .OCEB(1'b1),
 			.RSTA(1'b0), .RSTB(1'b0)
 		);
 	end else if (CFG_DBITS == 2) begin
@@ -55,7 +55,7 @@ module \$__ECP5_DP16KD (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1EN);
 			`include "bram_conn_2.vh"
 			.CLKA(CLK2), .CLKB(CLK3),
 			.WEA(|A1EN), .CEA(1'b1), .OCEA(1'b1),
-			.WEB(1'b0), .CEB(1'b1), .OCEB(B1EN),
+			.WEB(1'b0), .CEB(B1EN), .OCEB(1'b1),
 			.RSTA(1'b0), .RSTB(1'b0)
 		);
 	end else if (CFG_DBITS <= 4) begin
@@ -72,7 +72,7 @@ module \$__ECP5_DP16KD (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1EN);
 			`include "bram_conn_4.vh"
 			.CLKA(CLK2), .CLKB(CLK3),
 			.WEA(|A1EN), .CEA(1'b1), .OCEA(1'b1),
-			.WEB(1'b0), .CEB(1'b1), .OCEB(B1EN),
+			.WEB(1'b0), .CEB(B1EN), .OCEB(1'b1),
 			.RSTA(1'b0), .RSTB(1'b0)
 		);
 	end else if (CFG_DBITS <= 9) begin
@@ -89,7 +89,7 @@ module \$__ECP5_DP16KD (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1EN);
 			`include "bram_conn_9.vh"
 			.CLKA(CLK2), .CLKB(CLK3),
 			.WEA(|A1EN), .CEA(1'b1), .OCEA(1'b1),
-			.WEB(1'b0), .CEB(1'b1), .OCEB(B1EN),
+			.WEB(1'b0), .CEB(B1EN), .OCEB(1'b1),
 			.RSTA(1'b0), .RSTB(1'b0)
 		);
 	end else if (CFG_DBITS <= 18) begin
@@ -106,7 +106,7 @@ module \$__ECP5_DP16KD (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1EN);
 			`include "bram_conn_18.vh"
 			.CLKA(CLK2), .CLKB(CLK3),
 			.WEA(|A1EN), .CEA(1'b1), .OCEA(1'b1),
-			.WEB(1'b0), .CEB(1'b1), .OCEB(B1EN),
+			.WEB(1'b0), .CEB(B1EN), .OCEB(1'b1),
 			.RSTA(1'b0), .RSTB(1'b0)
 		);
 	end else begin
