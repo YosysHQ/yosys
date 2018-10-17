@@ -107,8 +107,7 @@ module _80_xilinx_alu (A, B, CI, BI, X, Y, CO);
 	wire CINIT;
 	// Carry outputs for carry chain.
 	wire [Y_WIDTH-1:0] C = {CO, CINIT};
-	// Carry outputs for fabric.
-	wire [Y_WIDTH-1:0] LO;
+	wire [Y_WIDTH-1:0] L;
 
 	// If carry chain is being initialized to a constant, techmap the constant
 	// source.  Otherwise techmap the fabric source.
@@ -128,16 +127,12 @@ module _80_xilinx_alu (A, B, CI, BI, X, Y, CO);
 
 	genvar i;
 	generate for (i = 0; i < Y_WIDTH; i = i + 1) begin:slice
-		MUXCY muxcy (
+		CARRY carry (
 			.CI(C[i]),
 			.DI(DI[i]),
 			.S(S[i]),
-			.CO(CO[i]),
-			.CO2(LO[i])
-		);
-		XORCY xorcy (
-			.CI(C[i]),
-			.LI(S[i]),
+			.CO_CHAIN(CO[i]),
+			.CO_FABRIC(L[i]),
 			.O(Y[i])
 		);
 	end endgenerate
