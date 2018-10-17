@@ -187,7 +187,12 @@ struct SynthXilinxPass : public Pass
 
 		if (check_label(active, run_from, run_to, "begin"))
 		{
-			Pass::call(design, "read_verilog -lib +/xilinx/cells_sim.v");
+			if (vpr)
+			{
+				Pass::call(design, "read_verilog -lib -D_EXPLICIT_CARRY +/xilinx/cells_sim.v");
+			} else {
+				Pass::call(design, "read_verilog -lib +/xilinx/cells_sim.v");
+			}
 			Pass::call(design, "read_verilog -lib +/xilinx/cells_xtra.v");
 			Pass::call(design, "read_verilog -lib +/xilinx/brams_bb.v");
 			Pass::call(design, stringf("hierarchy -check %s", top_opt.c_str()));
@@ -223,7 +228,15 @@ struct SynthXilinxPass : public Pass
 			Pass::call(design, "dffsr2dff");
 			Pass::call(design, "dff2dffe");
 			Pass::call(design, "opt -full");
-			Pass::call(design, "techmap -map +/techmap.v -map +/xilinx/arith_map.v");
+			if (vpr)
+			{
+				Pass::call(design, "techmap -map +/techmap.v -map +/xilinx/arith_map.v -D _EXPLICIT_CARRY");
+				Pass::call(design, "hierarchy -check");
+			}
+			else
+			{
+				Pass::call(design, "techmap -map +/techmap.v -map +/xilinx/arith_map.v");
+			}
 			Pass::call(design, "opt -fast");
 		}
 
@@ -235,10 +248,11 @@ struct SynthXilinxPass : public Pass
 
 		if (check_label(active, run_from, run_to, "map_cells"))
 		{
+			Pass::call(design, "techmap -map +/xilinx/cells_map.v");
 			if (vpr)
-			    Pass::call(design, "techmap -D NO_LUT -map +/xilinx/cells_map.v");
-			else
-			    Pass::call(design, "techmap -map +/xilinx/cells_map.v");
+			{
+			    Pass::call(design, "techmap -map +/xilinx/lut2lut.v");
+			}
 			Pass::call(design, "dffinit -ff FDRE Q INIT -ff FDCE Q INIT -ff FDPE Q INIT");
 			Pass::call(design, "clean");
 		}

@@ -80,8 +80,33 @@ module LUT6(output O, input I0, I1, I2, I3, I4, I5);
   assign O = I0 ? s1[1] : s1[0];
 endmodule
 
+`ifndef _EXPLICIT_CARRY
 module MUXCY(output O, input CI, DI, S);
   assign O = S ? CI : DI;
+endmodule
+
+module XORCY(output O, input CI, LI);
+  assign O = CI ^ LI;
+endmodule
+`else
+module CARRY(output CO_CHAIN, CO_FABRIC, O, input CI, DI, S);
+  assign CO_CHAIN = S ? CI : DI;
+  assign CO_FABRIC = S ? CI : DI;
+  assign O = S ^ CI;
+endmodule
+
+module CYINIT_CONSTANTS(output C0, C1);
+  assign C0 = 0;
+  assign C1 = 1;
+endmodule
+
+module CYINIT_FABRIC(output CI_CHAIN, input CI_FABRIC);
+  assign CI_CHAIN = CI_FABRIC;
+endmodule
+`endif
+
+module MUXF6(output O, input I0, I1, S);
+  assign O = S ? I1 : I0;
 endmodule
 
 module MUXF7(output O, input I0, I1, S);
@@ -90,10 +115,6 @@ endmodule
 
 module MUXF8(output O, input I0, I1, S);
   assign O = S ? I1 : I0;
-endmodule
-
-module XORCY(output O, input CI, LI);
-  assign O = CI ^ LI;
 endmodule
 
 module CARRY4(output [3:0] CO, O, input CI, CYINIT, input [3:0] DI, S);
