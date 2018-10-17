@@ -42,7 +42,7 @@ struct SmvWorker
 
 	pool<Wire*> partial_assignment_wires;
 	dict<SigBit, std::pair<const char*, int>> partial_assignment_bits;
-	vector<string> assignments, invarspecs;
+	vector<string> inputvars, vars, definitions, assignments, invarspecs;
 
 	const char *cid()
 	{
@@ -195,7 +195,7 @@ struct SmvWorker
 			return rvalue(sig);
 
 		const char *temp_id = cid();
-		f << stringf("    %s : unsigned word[%d]; -- %s\n", temp_id, GetSize(sig), log_signal(sig));
+//		f << stringf("    %s : unsigned word[%d]; -- %s\n", temp_id, GetSize(sig), log_signal(sig));
 
 		int offset = 0;
 		for (auto bit : sig) {
@@ -210,14 +210,14 @@ struct SmvWorker
 	void run()
 	{
 		f << stringf("MODULE %s\n", cid(module->name));
-		f << stringf("  VAR\n");
 
 		for (auto wire : module->wires())
 		{
 			if (SigSpec(wire) != sigmap(wire))
 				partial_assignment_wires.insert(wire);
 
-			f << stringf("    %s : unsigned word[%d]; -- %s\n", cid(wire->name), wire->width, log_id(wire));
+			if (wire->port_input)
+				inputvars.push_back(stringf("%s : unsigned word[%d]; -- %s", cid(wire->name), wire->width, log_id(wire)));
 
 			if (wire->attributes.count("\\init"))
 				assignments.push_back(stringf("init(%s) := %s;", lvalue(wire), rvalue(wire->attributes.at("\\init"))));
@@ -275,8 +275,8 @@ struct SmvWorker
 					const char *b_shr = rvalue_u(sig_b);
 					const char *b_shl = cid();
 
-					f << stringf("    %s : unsigned word[%d]; -- neg(%s)\n", b_shl, GetSize(sig_b), log_signal(sig_b));
-					assignments.push_back(stringf("%s := unsigned(-%s);", b_shl, rvalue_s(sig_b)));
+//					f << stringf("    %s : unsigned word[%d]; -- neg(%s)\n", b_shl, GetSize(sig_b), log_signal(sig_b));
+					definitions.push_back(stringf("%s := unsigned(-%s);", b_shl, rvalue_s(sig_b)));
 
 					string expr_shl = stringf("resize(%s << %s[%d:0], %d)", expr_a.c_str(), b_shl, shift_b_width-1, width_y);
 					string expr_shr = stringf("resize(%s >> %s[%d:0], %d)", expr_a.c_str(), b_shr, shift_b_width-1, width_y);
@@ -303,7 +303,7 @@ struct SmvWorker
 								GetSize(sig_b)-shift_b_width, width_y, expr.c_str());
 				}
 
-				assignments.push_back(stringf("%s := %s;", lvalue(cell->getPort("\\Y")), expr.c_str()));
+				definitions.push_back(stringf("%s := %s;", lvalue(cell->getPort("\\Y")), expr.c_str()));
 
 				continue;
 			}
@@ -319,12 +319,12 @@ struct SmvWorker
 
 				if (cell->getParam("\\A_SIGNED").as_bool())
 				{
-					assignments.push_back(stringf("%s := unsigned(%s%s);", lvalue(cell->getPort("\\Y")),
+					definitions.push_back(stringf("%s := unsigned(%s%s);", lvalue(cell->getPort("\\Y")),
 							op.c_str(), rvalue_s(cell->getPort("\\A"), width)));
 				}
 				else
 				{
-					assignments.push_back(stringf("%s := %s%s;", lvalue(cell->getPort("\\Y")),
+					definitions.push_back(stringf("%s := %s%s;", lvalue(cell->getPort("\\Y")),
 							op.c_str(), rvalue_u(cell->getPort("\\A"), width)));
 				}
 
@@ -346,12 +346,12 @@ struct SmvWorker
 
 				if (cell->getParam("\\A_SIGNED").as_bool())
 				{
-					assignments.push_back(stringf("%s := unsigned(%s %s %s);", lvalue(cell->getPort("\\Y")),
+					definitions.push_back(stringf("%s := unsigned(%s %s %s);", lvalue(cell->getPort("\\Y")),
 							rvalue_s(cell->getPort("\\A"), width), op.c_str(), rvalue_s(cell->getPort("\\B"), width)));
 				}
 				else
 				{
-					assignments.push_back(stringf("%s := %s %s %s;", lvalue(cell->getPort("\\Y")),
+					definitions.push_back(stringf("%s := %s %s %s;", lvalue(cell->getPort("\\Y")),
 							rvalue_u(cell->getPort("\\A"), width), op.c_str(), rvalue_u(cell->getPort("\\B"), width)));
 				}
 
@@ -370,12 +370,12 @@ struct SmvWorker
 
 				if (cell->getParam("\\A_SIGNED").as_bool())
 				{
-					assignments.push_back(stringf("%s := resize(unsigned(%s %s %s), %d);", lvalue(cell->getPort("\\Y")),
+					definitions.push_back(stringf("%s := resize(unsigned(%s %s %s), %d);", lvalue(cell->getPort("\\Y")),
 							rvalue_s(cell->getPort("\\A"), width), op.c_str(), rvalue_s(cell->getPort("\\B"), width), width_y));
 				}
 				else
 				{
-					assignments.push_back(stringf("%s := resize(%s %s %s, %d);", lvalue(cell->getPort("\\Y")),
+					definitions.push_back(stringf("%s := resize(%s %s %s, %d);", lvalue(cell->getPort("\\Y")),
 							rvalue_u(cell->getPort("\\A"), width), op.c_str(), rvalue_u(cell->getPort("\\B"), width), width_y));
 				}
 
@@ -407,7 +407,7 @@ struct SmvWorker
 					expr_b = stringf("resize(%s, %d)", rvalue(cell->getPort("\\B")), width);
 				}
 
-				assignments.push_back(stringf("%s := resize(word1(%s %s %s), %d);", lvalue(cell->getPort("\\Y")),
+				definitions.push_back(stringf("%s := resize(word1(%s %s %s), %d);", lvalue(cell->getPort("\\Y")),
 						expr_a.c_str(), op.c_str(), expr_b.c_str(), GetSize(cell->getPort("\\Y"))));
 
 				continue;
@@ -425,7 +425,7 @@ struct SmvWorker
 				if (cell->type == "$reduce_or")   expr = stringf("%s != 0ub%d_0", expr_a, width_a);
 				if (cell->type == "$reduce_bool") expr = stringf("%s != 0ub%d_0", expr_a, width_a);
 
-				assignments.push_back(stringf("%s := resize(word1(%s), %d);", expr_y, expr.c_str(), width_y));
+				definitions.push_back(stringf("%s := resize(word1(%s), %d);", expr_y, expr.c_str(), width_y));
 				continue;
 			}
 
@@ -444,7 +444,7 @@ struct SmvWorker
 				if (cell->type == "$reduce_xnor")
 					expr = "!(" + expr + ")";
 
-				assignments.push_back(stringf("%s := resize(%s, %d);", expr_y, expr.c_str(), width_y));
+				definitions.push_back(stringf("%s := resize(%s, %d);", expr_y, expr.c_str(), width_y));
 				continue;
 			}
 
@@ -462,7 +462,7 @@ struct SmvWorker
 				if (cell->type == "$logic_and") expr = expr_a + " & " + expr_b;
 				if (cell->type == "$logic_or")  expr = expr_a + " | " + expr_b;
 
-				assignments.push_back(stringf("%s := resize(word1(%s), %d);", expr_y, expr.c_str(), width_y));
+				definitions.push_back(stringf("%s := resize(word1(%s), %d);", expr_y, expr.c_str(), width_y));
 				continue;
 			}
 
@@ -474,7 +474,7 @@ struct SmvWorker
 				string expr_a = stringf("(%s = 0ub%d_0)", rvalue(cell->getPort("\\A")), width_a);
 				const char *expr_y = lvalue(cell->getPort("\\Y"));
 
-				assignments.push_back(stringf("%s := resize(word1(%s), %d);", expr_y, expr_a.c_str(), width_y));
+				definitions.push_back(stringf("%s := resize(word1(%s), %d);", expr_y, expr_a.c_str(), width_y));
 				continue;
 			}
 
@@ -490,12 +490,13 @@ struct SmvWorker
 					expr += stringf("bool(%s) ? %s : ", rvalue(sig_s[i]), rvalue(sig_b.extract(i*width, width)));
 				expr += rvalue(sig_a);
 
-				assignments.push_back(stringf("%s := %s;", lvalue(cell->getPort("\\Y")), expr.c_str()));
+				definitions.push_back(stringf("%s := %s;", lvalue(cell->getPort("\\Y")), expr.c_str()));
 				continue;
 			}
 
 			if (cell->type == "$dff")
 			{
+				vars.push_back(stringf("%s : unsigned word[%d]; -- %s", lvalue(cell->getPort("\\Q")), GetSize(cell->getPort("\\Q")), log_signal(cell->getPort("\\Q"))));
 				assignments.push_back(stringf("next(%s) := %s;", lvalue(cell->getPort("\\Q")), rvalue(cell->getPort("\\D"))));
 				continue;
 			}
@@ -503,7 +504,7 @@ struct SmvWorker
 			if (cell->type.in("$_BUF_", "$_NOT_"))
 			{
 				string op = cell->type == "$_NOT_" ? "!" : "";
-				assignments.push_back(stringf("%s := %s%s;", lvalue(cell->getPort("\\Y")), op.c_str(), rvalue(cell->getPort("\\A"))));
+				definitions.push_back(stringf("%s := %s%s;", lvalue(cell->getPort("\\Y")), op.c_str(), rvalue(cell->getPort("\\A"))));
 				continue;
 			}
 
@@ -517,49 +518,49 @@ struct SmvWorker
 				if (cell->type.in("$_XNOR_"))  op = "xnor";
 
 				if (cell->type.in("$_ANDNOT_", "$_ORNOT_"))
-					assignments.push_back(stringf("%s := %s %s (!%s);", lvalue(cell->getPort("\\Y")),
+					definitions.push_back(stringf("%s := %s %s (!%s);", lvalue(cell->getPort("\\Y")),
 							rvalue(cell->getPort("\\A")), op.c_str(), rvalue(cell->getPort("\\B"))));
 				else
 				if (cell->type.in("$_NAND_", "$_NOR_"))
-					assignments.push_back(stringf("%s := !(%s %s %s);", lvalue(cell->getPort("\\Y")),
+					definitions.push_back(stringf("%s := !(%s %s %s);", lvalue(cell->getPort("\\Y")),
 							rvalue(cell->getPort("\\A")), op.c_str(), rvalue(cell->getPort("\\B"))));
 				else
-					assignments.push_back(stringf("%s := %s %s %s;", lvalue(cell->getPort("\\Y")),
+					definitions.push_back(stringf("%s := %s %s %s;", lvalue(cell->getPort("\\Y")),
 							rvalue(cell->getPort("\\A")), op.c_str(), rvalue(cell->getPort("\\B"))));
 				continue;
 			}
 
 			if (cell->type == "$_MUX_")
 			{
-				assignments.push_back(stringf("%s := bool(%s) ? %s : %s;", lvalue(cell->getPort("\\Y")),
+				definitions.push_back(stringf("%s := bool(%s) ? %s : %s;", lvalue(cell->getPort("\\Y")),
 						rvalue(cell->getPort("\\S")), rvalue(cell->getPort("\\B")), rvalue(cell->getPort("\\A"))));
 				continue;
 			}
 
 			if (cell->type == "$_AOI3_")
 			{
-				assignments.push_back(stringf("%s := !((%s & %s) | %s);", lvalue(cell->getPort("\\Y")),
+				definitions.push_back(stringf("%s := !((%s & %s) | %s);", lvalue(cell->getPort("\\Y")),
 						rvalue(cell->getPort("\\A")), rvalue(cell->getPort("\\B")), rvalue(cell->getPort("\\C"))));
 				continue;
 			}
 
 			if (cell->type == "$_OAI3_")
 			{
-				assignments.push_back(stringf("%s := !((%s | %s) & %s);", lvalue(cell->getPort("\\Y")),
+				definitions.push_back(stringf("%s := !((%s | %s) & %s);", lvalue(cell->getPort("\\Y")),
 						rvalue(cell->getPort("\\A")), rvalue(cell->getPort("\\B")), rvalue(cell->getPort("\\C"))));
 				continue;
 			}
 
 			if (cell->type == "$_AOI4_")
 			{
-				assignments.push_back(stringf("%s := !((%s & %s) | (%s & %s));", lvalue(cell->getPort("\\Y")),
+				definitions.push_back(stringf("%s := !((%s & %s) | (%s & %s));", lvalue(cell->getPort("\\Y")),
 						rvalue(cell->getPort("\\A")), rvalue(cell->getPort("\\B")), rvalue(cell->getPort("\\C")), rvalue(cell->getPort("\\D"))));
 				continue;
 			}
 
 			if (cell->type == "$_OAI4_")
 			{
-				assignments.push_back(stringf("%s := !((%s | %s) & (%s | %s));", lvalue(cell->getPort("\\Y")),
+				definitions.push_back(stringf("%s := !((%s | %s) & (%s | %s));", lvalue(cell->getPort("\\Y")),
 						rvalue(cell->getPort("\\A")), rvalue(cell->getPort("\\B")), rvalue(cell->getPort("\\C")), rvalue(cell->getPort("\\D"))));
 				continue;
 			}
@@ -567,13 +568,13 @@ struct SmvWorker
 			if (cell->type[0] == '$')
 				log_error("Found currently unsupported cell type %s (%s.%s).\n", log_id(cell->type), log_id(module), log_id(cell));
 
-			f << stringf("    %s : %s;\n", cid(cell->name), cid(cell->type));
+//			f << stringf("    %s : %s;\n", cid(cell->name), cid(cell->type));
 
 			for (auto &conn : cell->connections())
 				if (cell->output(conn.first))
-					assignments.push_back(stringf("%s := %s.%s;", lvalue(conn.second), cid(cell->name), cid(conn.first)));
+					definitions.push_back(stringf("%s := %s.%s;", lvalue(conn.second), cid(cell->name), cid(conn.first)));
 				else
-					assignments.push_back(stringf("%s.%s := %s;", cid(cell->name), cid(conn.first), rvalue(conn.second)));
+					definitions.push_back(stringf("%s.%s := %s;", cid(cell->name), cid(conn.first), rvalue(conn.second)));
 		}
 
 		for (Wire *wire : partial_assignment_wires)
@@ -657,7 +658,25 @@ struct SmvWorker
 				}
 			}
 
-			assignments.push_back(stringf("%s := %s;", cid(wire->name), expr.c_str()));
+			definitions.push_back(stringf("%s := %s;", cid(wire->name), expr.c_str()));
+		}
+
+		if (!inputvars.empty()) {
+			f << stringf("  IVAR\n");
+			for (const string &line : inputvars)
+				f << stringf("    %s\n", line.c_str());
+		}
+
+		if (!vars.empty()) {
+			f << stringf("  VAR\n");
+			for (const string &line : vars)
+				f << stringf("    %s\n", line.c_str());
+		}
+
+		if (!definitions.empty()) {
+			f << stringf("  DEFINE\n");
+			for (const string &line : definitions)
+				f << stringf("    %s\n", line.c_str());
 		}
 
 		if (!assignments.empty()) {
