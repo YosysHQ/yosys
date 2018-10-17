@@ -1336,6 +1336,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			str.clear();
 			type = AST_ASSIGN;
 			children.push_back(children_list.at(0));
+			children.back()->was_checked = true;
 			children.push_back(node);
 			did_something = true;
 		}
@@ -1372,6 +1373,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			str.clear();
 			type = AST_ASSIGN;
 			children.push_back(children_list[0]);
+			children.back()->was_checked = true;
 			children.push_back(node);
 			did_something = true;
 		}
@@ -1530,6 +1532,7 @@ skip_dynamic_range_lvalue_expansion:;
 			wire_tmp_id->str = wire_tmp->str;
 
 			newNode->children.push_back(new AstNode(AST_ASSIGN_EQ, wire_tmp_id, children[1]->clone()));
+			newNode->children.back()->was_checked = true;
 
 			int cursor = 0;
 			for (auto child : children[0]->children)
@@ -1815,6 +1818,7 @@ skip_dynamic_range_lvalue_expansion:;
 					AstNode *regid = new AstNode(AST_IDENTIFIER);
 					regid->str = reg->str;
 					regid->id2ast = reg;
+					regid->was_checked = true;
 
 					AstNode *rhs = nullptr;
 
@@ -2204,6 +2208,8 @@ skip_dynamic_range_lvalue_expansion:;
 
 			AstNode *always = new AstNode(AST_ALWAYS, new AstNode(AST_BLOCK,
 					new AstNode(AST_ASSIGN_EQ, lvalue, clone())));
+			always->children[0]->children[0]->was_checked = true;
+
 			current_ast_mod->children.push_back(always);
 
 			goto replace_fcall_with_id;
@@ -2253,6 +2259,7 @@ skip_dynamic_range_lvalue_expansion:;
 						AstNode *assign = child->is_input ?
 								new AstNode(AST_ASSIGN_EQ, wire_id->clone(), arg) :
 								new AstNode(AST_ASSIGN_EQ, arg, wire_id->clone());
+						assign->children[0]->was_checked = true;
 
 						for (auto it = current_block->children.begin(); it != current_block->children.end(); it++) {
 							if (*it != current_block_child)
@@ -2323,6 +2330,7 @@ skip_dynamic_range_lvalue_expansion:;
 					AstNode *assign = child->is_input ?
 							new AstNode(AST_ASSIGN_EQ, wire_id, arg) :
 							new AstNode(AST_ASSIGN_EQ, arg, wire_id);
+					assign->children[0]->was_checked = true;
 
 					for (auto it = current_block->children.begin(); it != current_block->children.end(); it++) {
 						if (*it != current_block_child)
@@ -2762,6 +2770,7 @@ AstNode *AstNode::readmem(bool is_readmemh, std::string mem_filename, AstNode *m
 				block->children.push_back(new AstNode(AST_ASSIGN_EQ, new AstNode(AST_IDENTIFIER, new AstNode(AST_RANGE, AstNode::mkconst_int(cursor, false))), value));
 				block->children.back()->children[0]->str = memory->str;
 				block->children.back()->children[0]->id2ast = memory;
+				block->children.back()->children[0]->was_checked = true;
 			}
 
 			cursor += increment;
@@ -3022,6 +3031,7 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 
 		AstNode *newNode = clone();
 		newNode->type = AST_ASSIGN_EQ;
+		newNode->children[0]->was_checked = true;
 		async_block->children[0]->children.push_back(newNode);
 
 		newNode = new AstNode(AST_NONE);
@@ -3067,6 +3077,7 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 
 		AstNode *assign_addr = new AstNode(AST_ASSIGN_EQ, new AstNode(AST_IDENTIFIER), children[0]->children[0]->children[0]->clone());
 		assign_addr->children[0]->str = id_addr;
+		assign_addr->children[0]->was_checked = true;
 		block->children.insert(block->children.begin()+assign_idx+1, assign_addr);
 
 		AstNode *case_node = new AstNode(AST_CASE, new AstNode(AST_IDENTIFIER));
@@ -3090,6 +3101,7 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 		children[0]->id2ast = NULL;
 		children[0]->str = id_data;
 		type = AST_ASSIGN_EQ;
+		children[0]->was_checked = true;
 
 		did_something = true;
 	}
