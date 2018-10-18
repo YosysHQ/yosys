@@ -135,6 +135,9 @@ YOSYS_NAMESPACE_END
 		frontend_verilog_yyerror("Unsupported default nettype: %s", p);
 }
 
+"`protect"[^\n]* /* ignore `protect*/
+"`endprotect"[^\n]* /* ignore `endprotect*/
+
 "`"[a-zA-Z_$][a-zA-Z0-9_$]* {
 	frontend_verilog_yyerror("Unimplemented compiler directive or undefined macro %s.", yytext);
 }
