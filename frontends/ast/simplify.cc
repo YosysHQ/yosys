@@ -71,7 +71,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 	if (stage == 0)
 	{
-		log_assert(type == AST_MODULE);
+		log_assert(type == AST_MODULE || type == AST_INTERFACE);
 		last_blocking_assignment_warn = pair<string, int>();
 
 		deep_recursion_warning = true;

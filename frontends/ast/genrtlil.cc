@@ -853,6 +853,52 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	case AST_GENIF:
 	case AST_GENCASE:
 	case AST_PACKAGE:
+	case AST_MODPORT:
+	case AST_MODPORTMEMBER:
+		break;
+	case AST_INTERFACEPORT: {
+		// If a port in a module with unknown type is found, mark it with the attribute 'is_interface'
+		// This is used by the hierarchy pass to know when it can replace interface connection with the individual
+		// signals.
+		RTLIL::Wire *wire = current_module->addWire(str, 1);
+		wire->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
+		wire->start_offset = 0;
+		wire->port_id = port_id;
+		wire->port_input = true;
+		wire->port_output = true;
+		wire->set_bool_attribute("\\is_interface");
+		if (children.size() > 0) {
+			for(size_t i=0; i<children.size();i++) {
+				if(children[i]->type == AST_INTERFACEPORTTYPE) {
+					std::string name_type = children[i]->str;
+					size_t ndots = std::count(name_type.begin(), name_type.end(), '.');
+					// Separate the interface instance name from any modports:
+					if (ndots == 0) { // Does not have modport
+						wire->attributes["\\interface_type"] = name_type;
+					}
+					else {
+						std::stringstream name_type_stream(name_type);
+						std::string segment;
+						std::vector<std::string> seglist;
+						while(std::getline(name_type_stream, segment, '.')) {
+							seglist.push_back(segment);
+						}
+						if (ndots == 1) { // Has modport
+							wire->attributes["\\interface_type"] = seglist[0];
+							wire->attributes["\\interface_modport"] = seglist[1];
+						}
+						else { // Erroneous port type
+							log_error("More than two '.' in signal port type (%s)\n", name_type.c_str());
+						}
+					}
+					break;
+				}
+			}
+		}
+		wire->upto = 0;
+		}
+		break;
+	case AST_INTERFACEPORTTYPE:
 		break;
 
 	// remember the parameter, needed for example in techmap
@@ -949,6 +995,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 		{
 			RTLIL::Wire *wire = NULL;
 			RTLIL::SigChunk chunk;
+			bool is_interface = false;
 
 			int add_undef_bits_msb = 0;
 			int add_undef_bits_lsb = 0;
@@ -969,14 +1016,40 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				chunk = RTLIL::Const(id2ast->children[0]->bits);
 				goto use_const_chunk;
 			}
-			else if (!id2ast || (id2ast->type != AST_WIRE && id2ast->type != AST_AUTOWIRE &&
-					id2ast->type != AST_MEMORY) || current_module->wires_.count(str) == 0)
+			else if (id2ast && (id2ast->type == AST_WIRE || id2ast->type == AST_AUTOWIRE || id2ast->type == AST_MEMORY) && current_module->wires_.count(str) != 0) {
+				RTLIL::Wire *current_wire = current_module->wire(str);
+				if (current_wire->get_bool_attribute("\\is_interface"))
+					is_interface = true;
+				// Ignore
+			}
+			// If an identifier is found that is not already known, assume that it is an interface:
+			else if (1) { // FIXME: Check if sv_mode first?
+				is_interface = true;
+			}
+			else {
 				log_file_error(filename, linenum, "Identifier `%s' doesn't map to any signal!\n",
 						str.c_str());
+			}
 
 			if (id2ast->type == AST_MEMORY)
 				log_file_error(filename, linenum, "Identifier `%s' does map to an unexpanded memory!\n",
 					       str.c_str());
+
+			// If identifier is an interface, create a RTLIL::SigSpec with a dummy wire with a attribute called 'is_interface'
+			// This makes it possible for the hierarchy pass to see what are interface connections and then replace them
+			// with the individual signals:
+			if (is_interface) {
+				RTLIL::Wire *dummy_wire;
+				std::string dummy_wire_name = "$dummywireforinterface" + str;
+				if (current_module->wires_.count(dummy_wire_name))
+					dummy_wire = current_module->wires_[dummy_wire_name];
+				else {
+					dummy_wire = current_module->addWire(dummy_wire_name);
+					dummy_wire->set_bool_attribute("\\is_interface");
+				}
+				RTLIL::SigSpec tmp = RTLIL::SigSpec(dummy_wire);
+				return tmp;
+			}
 
 			wire = current_module->wires_[str];
 			chunk.wire = wire;
@@ -1423,6 +1496,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 			RTLIL::Cell *cell = current_module->addCell(str, "");
 			cell->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
+			// Set attribute 'module_not_derived' which will be cleared again after the hierarchy pass
+			cell->set_bool_attribute("\\module_not_derived");
 
 			for (auto it = children.begin(); it != children.end(); it++) {
 				AstNode *child = *it;
