@@ -388,7 +388,7 @@ void dump_wire(std::ostream &f, std::string indent, RTLIL::Wire *wire)
 void dump_memory(std::ostream &f, std::string indent, RTLIL::Memory *memory)
 {
 	dump_attributes(f, indent, memory->attributes);
-	f << stringf("%s" "reg [%d:0] %s [%d:%d];\n", indent.c_str(), (memory->width-1), id(memory->name).c_str(), memory->size+memory->start_offset-1, memory->start_offset);
+	f << stringf("%s" "reg [%d:0] %s [%d:%d];\n", indent.c_str(), memory->width-1, id(memory->name).c_str(), memory->size+memory->start_offset-1, memory->start_offset);
 }
 
 void dump_cell_expr_port(std::ostream &f, RTLIL::Cell *cell, std::string port, bool gen_signed = true)
