@@ -266,10 +266,7 @@ struct SynthEcp5Pass : public ScriptPass
 			if (abc2 || help_mode) {
 				run("abc", "      (only if -abc2)");
 			}
-			//TODO
-#if 0
 			run("techmap -map +/ecp5/latches_map.v");
-#endif
 			if (nomux)
 				run("abc -lut 4");
 			else
