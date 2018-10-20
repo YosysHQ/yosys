@@ -22,11 +22,14 @@ iverilog -g2012 ${TESTNAME}_syn.v
 iverilog -g2012 ${TESTNAME}_ref_syn.v
 
 set +e
-
 iverilog -g2012 ${TESTNAME}_tb.v ${TESTNAME}_ref_syn.v
 ./a.out
 mv output.txt reference_result.txt
-iverilog -g2012 ${TESTNAME}_tb.v ${TESTNAME}_syn.v
+if [ -f ${TESTNAME}_wrapper.v ] ; then
+    iverilog -g2012 ${TESTNAME}_tb_wrapper.v ${TESTNAME}_syn.v
+else
+    iverilog -g2012 ${TESTNAME}_tb.v ${TESTNAME}_syn.v
+fi
 ./a.out
 mv output.txt dut_result.txt
 
