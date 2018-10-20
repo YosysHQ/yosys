@@ -1120,6 +1120,7 @@ void AstModule::reprocess_module(RTLIL::Design *design, dict<RTLIL::IdString, RT
 
 	// Generate RTLIL from AST for the new module and add to the design:
 	AstModule *newmod = process_module(new_ast, false);
+	delete(new_ast);
 	design->add(newmod);
 	RTLIL::Module* mod = design->module(original_name);
 	if (is_top)
