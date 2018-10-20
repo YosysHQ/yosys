@@ -255,12 +255,15 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 					RTLIL::IdString interface_name = interface_name_str;
 					bool not_found_interface = false;
 					if(module->get_bool_attribute("\\interfaces_replaced_in_module")) { // If 'interfaces' in the cell have not be been handled yet, there is no need to derive the sub-module either
+						// Check if the interface instance is present in module:
+						// Interface instances may either have the plain name or the name appended with '_inst_from_top_dummy'.
+						// Check for both of them here
 						int nexactmatch = interfaces_in_module.count(interface_name) > 0;
 						std::string interface_name_str2 =  interface_name_str + "_inst_from_top_dummy";
 						RTLIL::IdString interface_name2 = interface_name_str2;
 						int nmatch2 = interfaces_in_module.count(interface_name2) > 0;
-						if (nexactmatch > 0 || nmatch2 > 0) { // Check if the interface instance is present in module
-							if (nexactmatch != 0)
+						if (nexactmatch > 0 || nmatch2 > 0) {
+							if (nexactmatch != 0) // Choose the one with the plain name if it exists
 								interface_name2 = interface_name;
 							RTLIL::Module *mod_replace_ports = interfaces_in_module.at(interface_name2);
 							for (auto &mod_wire : mod_replace_ports->wires_) { // Go over all wires in interface, and add replacements to lists.
