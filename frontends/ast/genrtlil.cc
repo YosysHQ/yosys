@@ -870,27 +870,10 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 		if (children.size() > 0) {
 			for(size_t i=0; i<children.size();i++) {
 				if(children[i]->type == AST_INTERFACEPORTTYPE) {
-					std::string name_type = children[i]->str;
-					size_t ndots = std::count(name_type.begin(), name_type.end(), '.');
-					// Separate the interface instance name from any modports:
-					if (ndots == 0) { // Does not have modport
-						wire->attributes["\\interface_type"] = name_type;
-					}
-					else {
-						std::stringstream name_type_stream(name_type);
-						std::string segment;
-						std::vector<std::string> seglist;
-						while(std::getline(name_type_stream, segment, '.')) {
-							seglist.push_back(segment);
-						}
-						if (ndots == 1) { // Has modport
-							wire->attributes["\\interface_type"] = seglist[0];
-							wire->attributes["\\interface_modport"] = seglist[1];
-						}
-						else { // Erroneous port type
-							log_error("More than two '.' in signal port type (%s)\n", name_type.c_str());
-						}
-					}
+					std::pair<std::string,std::string> res = AST::split_modport_from_type(children[i]->str);
+					wire->attributes["\\interface_type"] = res.first;
+					if (res.second != "")
+						wire->attributes["\\interface_modport"] = res.second;
 					break;
 				}
 			}

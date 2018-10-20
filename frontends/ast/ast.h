@@ -308,6 +308,11 @@ namespace AST
 
 	// call a DPI function
 	AstNode *dpi_call(const std::string &rtype, const std::string &fname, const std::vector<std::string> &argtypes, const std::vector<AstNode*> &args);
+
+	// Helper functions related to handling SystemVerilog interfaces
+	std::pair<std::string,std::string> split_modport_from_type(std::string name_type);
+	AstNode * find_modport(AstNode *intf, std::string name);
+	void explode_interface_port(AstNode *module_ast, RTLIL::Module * intfmodule, std::string intfname, AstNode *modport);
 }
 
 namespace AST_INTERNAL
