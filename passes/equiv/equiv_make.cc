@@ -298,20 +298,21 @@ struct EquivMakeWorker
 				SigSpec new_sig = rd_signal_map(old_sig);
 
 				if(old_sig != new_sig) {
-					for (auto &old_bit : old_sig.bits()) {
-						SigBit new_bit = new_sig.bits()[old_bit.offset];
+					SigSpec tmp_sig = old_sig;
+					for (int i = 0; i < GetSize(old_sig); i++) {
+						SigBit old_bit = old_sig[i], new_bit = new_sig[i];
 
 						visited_cells.clear();
-						if (old_bit != new_bit) {
-							if (check_signal_in_fanout(visited_cells, old_bit, new_bit))
-								continue;
+						if (check_signal_in_fanout(visited_cells, old_bit, new_bit))
+							continue;
 
-							log("Changing input %s of cell %s (%s): %s -> %s\n",
-									log_id(conn.first), log_id(c), log_id(c->type),
-									log_signal(old_bit), log_signal(new_bit));
-							c->setPort(conn.first, new_bit);
-						}
+						log("Changing input %s of cell %s (%s): %s -> %s\n",
+								log_id(conn.first), log_id(c), log_id(c->type),
+								log_signal(old_bit), log_signal(new_bit));
+
+						tmp_sig[i] = new_bit;
 					}
+					c->setPort(conn.first, tmp_sig);
 				}
 			}
 
