@@ -290,22 +290,28 @@ struct EquivMakeWorker
 
 		init_bit2driven();
 
-	 	pool<Cell*> visited_cells;
+		pool<Cell*>	visited_cells;
 		for (auto c : cells_list)
 		for (auto &conn : c->connections())
 			if (!ct.cell_output(c->type, conn.first)) {
 				SigSpec old_sig = assign_map(conn.second);
 				SigSpec new_sig = rd_signal_map(old_sig);
-				
-				visited_cells.clear();
-				if (old_sig != new_sig) {
-					if (check_signal_in_fanout(visited_cells, old_sig, new_sig)) 
-						continue;
 
-					log("Changing input %s of cell %s (%s): %s -> %s\n",
-							log_id(conn.first), log_id(c), log_id(c->type),
-							log_signal(old_sig), log_signal(new_sig));
-					c->setPort(conn.first, new_sig);
+				if(old_sig != new_sig) {
+					for(auto & old_bit : old_sig.bits()) {
+						SigBit new_bit = new_sig.bits()[old_bit.offset];
+
+						visited_cells.clear();
+						if (old_bit != new_bit) {
+							if (check_signal_in_fanout(visited_cells, old_bit, new_bit))
+								continue;
+
+							log("Changing input %s of cell %s (%s): %s -> %s\n",
+									log_id(conn.first), log_id(c), log_id(c->type),
+									log_signal(old_bit), log_signal(new_bit));
+							c->setPort(conn.first, new_bit);
+						}
+					}
 				}
 			}
 
@@ -412,7 +418,7 @@ struct EquivMakeWorker
 		}
 	}
 
-	bool check_signal_in_fanout(pool<Cell*> & visited_cells, SigBit source_bit, SigBit target_bit)
+	bool check_signal_in_fanout(pool<Cell*> & visited_cells, SigSpec source_bit, SigSpec target_bit)
 	{
 		if (source_bit == target_bit)
 			return true;
