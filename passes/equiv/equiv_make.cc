@@ -298,7 +298,7 @@ struct EquivMakeWorker
 				SigSpec new_sig = rd_signal_map(old_sig);
 
 				if(old_sig != new_sig) {
-					for(auto & old_bit : old_sig.bits()) {
+					for (auto &old_bit : old_sig.bits()) {
 						SigBit new_bit = new_sig.bits()[old_bit.offset];
 
 						visited_cells.clear();
