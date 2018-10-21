@@ -290,7 +290,7 @@ struct EquivMakeWorker
 
 		init_bit2driven();
 
-		pool<Cell*>	visited_cells;
+		pool<Cell*> visited_cells;
 		for (auto c : cells_list)
 		for (auto &conn : c->connections())
 			if (!ct.cell_output(c->type, conn.first)) {
@@ -418,7 +418,7 @@ struct EquivMakeWorker
 		}
 	}
 
-	bool check_signal_in_fanout(pool<Cell*> & visited_cells, SigSpec source_bit, SigSpec target_bit)
+	bool check_signal_in_fanout(pool<Cell*> & visited_cells, SigBit source_bit, SigBit target_bit)
 	{
 		if (source_bit == target_bit)
 			return true;

@@ -1304,10 +1304,6 @@ inline const RTLIL::SigBit &RTLIL::SigSpecConstIterator::operator*() const {
 }
 
 inline RTLIL::SigBit::SigBit(const RTLIL::SigSpec &sig) {
-	if(sig.size() != 1 || sig.chunks().size() != 1) {
-    std::cout << "rtp " << sig.size() << std::endl;
-    std::cout << "rtp " << sig.chunks().size() << std::endl;
-  }
 	log_assert(sig.size() == 1 && sig.chunks().size() == 1);
 	*this = SigBit(sig.chunks().front());
 }
