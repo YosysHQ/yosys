@@ -870,27 +870,10 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 		if (children.size() > 0) {
 			for(size_t i=0; i<children.size();i++) {
 				if(children[i]->type == AST_INTERFACEPORTTYPE) {
-					std::string name_type = children[i]->str;
-					size_t ndots = std::count(name_type.begin(), name_type.end(), '.');
-					// Separate the interface instance name from any modports:
-					if (ndots == 0) { // Does not have modport
-						wire->attributes["\\interface_type"] = name_type;
-					}
-					else {
-						std::stringstream name_type_stream(name_type);
-						std::string segment;
-						std::vector<std::string> seglist;
-						while(std::getline(name_type_stream, segment, '.')) {
-							seglist.push_back(segment);
-						}
-						if (ndots == 1) { // Has modport
-							wire->attributes["\\interface_type"] = seglist[0];
-							wire->attributes["\\interface_modport"] = seglist[1];
-						}
-						else { // Erroneous port type
-							log_error("More than two '.' in signal port type (%s)\n", name_type.c_str());
-						}
-					}
+					std::pair<std::string,std::string> res = AST::split_modport_from_type(children[i]->str);
+					wire->attributes["\\interface_type"] = res.first;
+					if (res.second != "")
+						wire->attributes["\\interface_modport"] = res.second;
 					break;
 				}
 			}
@@ -1100,8 +1083,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 							log_file_warning(filename, linenum, "Range select out of bounds on signal `%s': Setting result bit to undef.\n",
 									 str.c_str());
 						else
-							log_file_warning(filename, linenum, "Range select out of bounds on signal `%s': Setting all %d result bits to undef.\n",
-									str.c_str(), chunk.width);
+							log_file_warning(filename, linenum, "Range select [%d:%d] out of bounds on signal `%s': Setting all %d result bits to undef.\n",
+									children[0]->range_left, children[0]->range_right, str.c_str(), chunk.width);
 						chunk = RTLIL::SigChunk(RTLIL::State::Sx, chunk.width);
 					} else {
 						if (chunk.width + chunk.offset > source_width) {
@@ -1114,11 +1097,11 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 							chunk.offset += add_undef_bits_lsb;
 						}
 						if (add_undef_bits_lsb)
-							log_file_warning(filename, linenum, "Range select out of bounds on signal `%s': Setting %d LSB bits to undef.\n",
-									 str.c_str(), add_undef_bits_lsb);
+							log_file_warning(filename, linenum, "Range [%d:%d] select out of bounds on signal `%s': Setting %d LSB bits to undef.\n",
+									 children[0]->range_left, children[0]->range_right, str.c_str(), add_undef_bits_lsb);
 						if (add_undef_bits_msb)
-							log_file_warning(filename, linenum, "Range select out of bounds on signal `%s': Setting %d MSB bits to undef.\n",
-									 str.c_str(), add_undef_bits_msb);
+							log_file_warning(filename, linenum, "Range [%d:%d] select out of bounds on signal `%s': Setting %d MSB bits to undef.\n",
+									 children[0]->range_left, children[0]->range_right, str.c_str(), add_undef_bits_msb);
 					}
 				}
 			}

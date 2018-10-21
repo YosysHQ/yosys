@@ -8,6 +8,7 @@ $(eval $(call add_share_file,share/ecp5,techlibs/ecp5/dram.txt))
 $(eval $(call add_share_file,share/ecp5,techlibs/ecp5/brams_map.v))
 $(eval $(call add_share_file,share/ecp5,techlibs/ecp5/bram.txt))
 $(eval $(call add_share_file,share/ecp5,techlibs/ecp5/arith_map.v))
+$(eval $(call add_share_file,share/ecp5,techlibs/ecp5/latches_map.v))
 
 EXTRA_OBJS += techlibs/ecp5/brams_init.mk techlibs/ecp5/brams_connect.mk
 .SECONDARY: techlibs/ecp5/brams_init.mk techlibs/ecp5/brams_connect.mk
