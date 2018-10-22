@@ -821,7 +821,7 @@ void run_frontend(std::string filename, std::string command, std::string *backen
 			command = "verilog";
 		else if (filename.size() > 2 && filename.substr(filename.size()-3) == ".sv")
 			command = "verilog -sv";
-		else if (filename.size() > 2 && filename.substr(filename.size()-4) == ".vhd")
+		else if (filename.size() > 3 && filename.substr(filename.size()-4) == ".vhd")
 			command = "vhdl";
 		else if (filename.size() > 4 && filename.substr(filename.size()-5) == ".blif")
 			command = "blif";
@@ -833,7 +833,7 @@ void run_frontend(std::string filename, std::string command, std::string *backen
 			command = "ilang";
 		else if (filename.size() > 3 && filename.substr(filename.size()-3) == ".ys")
 			command = "script";
-		else if (filename.size() > 2 && filename.substr(filename.size()-4) == ".tcl")
+		else if (filename.size() > 3 && filename.substr(filename.size()-4) == ".tcl")
 			command = "tcl";
 		else if (filename == "-")
 			command = "script";
