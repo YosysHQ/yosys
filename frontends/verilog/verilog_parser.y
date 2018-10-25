@@ -1478,7 +1478,7 @@ behavioral_stmt:
 			node->str = *$3;
 	} behavioral_stmt_list TOK_END opt_label {
 		if ($3 != NULL && $7 != NULL && *$3 != *$7)
-			frontend_verilog_yyerror("Begin label (%s) and end label (%s) doesn't match.", $3->c_str()+1, $7->c_str()+1);
+			frontend_verilog_yyerror("Begin label (%s) and end label (%s) don't match.", $3->c_str()+1, $7->c_str()+1);
 		if ($3 != NULL)
 			delete $3;
 		if ($7 != NULL)
