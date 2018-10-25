@@ -1973,7 +1973,7 @@ def clean_duplicates():
 		else:
 			known_decls.append(fun.gen_decl_hash_py())
 
-def gen_wrappers(filename, debug_level_ = 30):
+def gen_wrappers(filename, debug_level_ = 0):
 	debug.debug_level = debug_level_
 	for source in sources:
 		parse_header(source)
