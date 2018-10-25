@@ -305,7 +305,7 @@ module_arg_opt_assignment:
 			else
 				ast_stack.back()->children.push_back(new AstNode(AST_ASSIGN, wire, $2));
 		} else
-			frontend_verilog_yyerror("Syntax error.");
+			frontend_verilog_yyerror("SystemVerilog interface in module port list cannot have a default value.");
 	} |
 	/* empty */;
 
@@ -672,7 +672,7 @@ task_func_port:
 		astbuf2 = $3;
 		if (astbuf1->range_left >= 0 && astbuf1->range_right >= 0) {
 			if (astbuf2) {
-				frontend_verilog_yyerror("Syntax error.");
+				frontend_verilog_yyerror("integer/genvar types cannot have packed dimensions (task/function arguments)");
 			} else {
 				astbuf2 = new AstNode(AST_RANGE);
 				astbuf2->children.push_back(AstNode::mkconst_int(astbuf1->range_left, true));
@@ -680,7 +680,7 @@ task_func_port:
 			}
 		}
 		if (astbuf2 && astbuf2->children.size() != 2)
-			frontend_verilog_yyerror("Syntax error.");
+			frontend_verilog_yyerror("task/function argument range must be of the form: [<expr>:<expr>], [<expr>+:<expr>], or [<expr>-:<expr>]");
 	} wire_name | wire_name;
 
 task_func_body:
@@ -883,7 +883,7 @@ param_signed:
 param_integer:
 	TOK_INTEGER {
 		if (astbuf1->children.size() != 1)
-			frontend_verilog_yyerror("Syntax error.");
+			frontend_verilog_yyerror("Internal error in param_integer - should not happen?");
 		astbuf1->children.push_back(new AstNode(AST_RANGE));
 		astbuf1->children.back()->children.push_back(AstNode::mkconst_int(31, true));
 		astbuf1->children.back()->children.push_back(AstNode::mkconst_int(0, true));
@@ -893,7 +893,7 @@ param_integer:
 param_real:
 	TOK_REAL {
 		if (astbuf1->children.size() != 1)
-			frontend_verilog_yyerror("Syntax error.");
+			frontend_verilog_yyerror("Parameter already declared as integer, cannot set to real.");
 		astbuf1->children.push_back(new AstNode(AST_REALVALUE));
 	} | /* empty */;
 
@@ -901,7 +901,7 @@ param_range:
 	range {
 		if ($1 != NULL) {
 			if (astbuf1->children.size() != 1)
-				frontend_verilog_yyerror("Syntax error.");
+				frontend_verilog_yyerror("integer/real parameters should not have a range.");
 			astbuf1->children.push_back($1);
 		}
 	};
@@ -930,7 +930,7 @@ single_param_decl:
 		AstNode *node;
 		if (astbuf1 == nullptr) {
 			if (!sv_mode)
-				frontend_verilog_yyerror("syntax error");
+				frontend_verilog_yyerror("In pure Verilog (not SystemVerilog), parameter/localparam with an initializer must use the parameter/localparam keyword");
 			node = new AstNode(AST_PARAMETER);
 			node->children.push_back(AstNode::mkconst_int(0, true));
 		} else {
@@ -966,7 +966,7 @@ wire_decl:
 		astbuf2 = $3;
 		if (astbuf1->range_left >= 0 && astbuf1->range_right >= 0) {
 			if (astbuf2) {
-				frontend_verilog_yyerror("Syntax error.");
+				frontend_verilog_yyerror("integer/genvar types cannot have packed dimensions.");
 			} else {
 				astbuf2 = new AstNode(AST_RANGE);
 				astbuf2->children.push_back(AstNode::mkconst_int(astbuf1->range_left, true));
@@ -974,7 +974,7 @@ wire_decl:
 			}
 		}
 		if (astbuf2 && astbuf2->children.size() != 2)
-			frontend_verilog_yyerror("Syntax error.");
+			frontend_verilog_yyerror("wire/reg/logic packed dimension must be of the form: [<expr>:<expr>], [<expr>+:<expr>], or [<expr>-:<expr>]");
 	} wire_name_list {
 		delete astbuf1;
 		if (astbuf2 != NULL)
@@ -1068,7 +1068,7 @@ wire_name_and_opt_assign:
 wire_name:
 	TOK_ID range_or_multirange {
 		if (astbuf1 == nullptr)
-			frontend_verilog_yyerror("Syntax error.");
+			frontend_verilog_yyerror("Internal error - should not happen - no AST_WIRE node.");
 		AstNode *node = astbuf1->clone();
 		node->str = *$1;
 		append_attr_clone(node, albuf);
@@ -1076,7 +1076,7 @@ wire_name:
 			node->children.push_back(astbuf2->clone());
 		if ($2 != NULL) {
 			if (node->is_input || node->is_output)
-				frontend_verilog_yyerror("Syntax error.");
+				frontend_verilog_yyerror("input/output/inout ports cannot have unpacked dimensions.");
 			if (!astbuf2) {
 				AstNode *rng = new AstNode(AST_RANGE);
 				rng->children.push_back(AstNode::mkconst_int(0, true));
@@ -1478,7 +1478,7 @@ behavioral_stmt:
 			node->str = *$3;
 	} behavioral_stmt_list TOK_END opt_label {
 		if ($3 != NULL && $7 != NULL && *$3 != *$7)
-			frontend_verilog_yyerror("Syntax error.");
+			frontend_verilog_yyerror("Begin label (%s) and end label (%s) doesn't match.", $3->c_str()+1, $7->c_str()+1);
 		if ($3 != NULL)
 			delete $3;
 		if ($7 != NULL)
@@ -1794,7 +1794,7 @@ basic_expr:
 	} |
 	'(' expr ')' TOK_CONSTVAL {
 		if ($4->substr(0, 1) != "'")
-			frontend_verilog_yyerror("Syntax error.");
+			frontend_verilog_yyerror("Cast operation must be applied on sized constants e.g. (<expr>)<constval> , while %s is not a sized constant.", $4->c_str());
 		AstNode *bits = $2;
 		AstNode *val = const2ast(*$4, case_type_stack.size() == 0 ? 0 : case_type_stack.back(), !lib_mode);
 		if (val == NULL)
@@ -1804,7 +1804,7 @@ basic_expr:
 	} |
 	hierarchical_id TOK_CONSTVAL {
 		if ($2->substr(0, 1) != "'")
-			frontend_verilog_yyerror("Syntax error.");
+			frontend_verilog_yyerror("Cast operation must be applied on sized constants, e.g. <ID>\'d0, while %s is not a sized constant.", $2->c_str());
 		AstNode *bits = new AstNode(AST_IDENTIFIER);
 		bits->str = *$1;
 		AstNode *val = const2ast(*$2, case_type_stack.size() == 0 ? 0 : case_type_stack.back(), !lib_mode);
