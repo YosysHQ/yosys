@@ -799,7 +799,7 @@ static void handle_label(std::string &command, bool &from_to_active, const std::
 	while (pos < GetSize(command) && command[pos] != ' ' && command[pos] != '\t' && command[pos] != '\r' && command[pos] != '\n')
 		label += command[pos++];
 
-	if (label.back() == ':' && GetSize(label) > 1)
+	if (GetSize(label) > 1 && label.back() == ':')
 	{
 		label = label.substr(0, GetSize(label)-1);
 		command = command.substr(pos);
