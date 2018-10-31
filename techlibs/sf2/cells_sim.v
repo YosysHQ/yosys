@@ -37,39 +37,39 @@ module SLE (
 endmodule
 
 module CFG1 (
-	output O,
+	output Y,
 	input A
 );
 	parameter [1:0] INIT = 2'h0;
-	assign O = INIT >> A;
+	assign Y = INIT >> A;
 endmodule
 
 module CFG2 (
-	output O,
+	output Y,
 	input A,
 	input B
 );
 	parameter [3:0] INIT = 4'h0;
-	assign O = INIT >> {B, A};
+	assign Y = INIT >> {B, A};
 endmodule
 
 module CFG3 (
-	output O,
+	output Y,
 	input A,
 	input B,
 	input C
 );
 	parameter [7:0] INIT = 8'h0;
-	assign O = INIT >> {C, B, A};
+	assign Y = INIT >> {C, B, A};
 endmodule
 
 module CFG4 (
-	output O,
+	output Y,
 	input A,
 	input B,
 	input C,
 	input D
 );
 	parameter [15:0] INIT = 16'h0;
-	assign O = INIT >> {D, C, B, A};
+	assign Y = INIT >> {D, C, B, A};
 endmodule

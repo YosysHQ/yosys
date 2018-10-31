@@ -50,16 +50,16 @@ module \$lut (A, Y);
 
   generate
     if (WIDTH == 1) begin
-      CFG1 #(.INIT(LUT)) _TECHMAP_REPLACE_ (.O(Y), .A(A[0]));
+      CFG1 #(.INIT(LUT)) _TECHMAP_REPLACE_ (.Y(Y), .A(A[0]));
     end else
     if (WIDTH == 2) begin
-      CFG2 #(.INIT(LUT)) _TECHMAP_REPLACE_ (.O(Y), .A(A[0]), .B(A[1]));
+      CFG2 #(.INIT(LUT)) _TECHMAP_REPLACE_ (.Y(Y), .A(A[0]), .B(A[1]));
     end else
     if (WIDTH == 3) begin
-      CFG3 #(.INIT(LUT)) _TECHMAP_REPLACE_ (.O(Y), .A(A[0]), .B(A[1]), .C(A[2]));
+      CFG3 #(.INIT(LUT)) _TECHMAP_REPLACE_ (.Y(Y), .A(A[0]), .B(A[1]), .C(A[2]));
     end else
     if (WIDTH == 4) begin
-      CFG4 #(.INIT(LUT)) _TECHMAP_REPLACE_ (.O(Y), .A(A[0]), .B(A[1]), .C(A[2]), .D(A[3]));
+      CFG4 #(.INIT(LUT)) _TECHMAP_REPLACE_ (.Y(Y), .A(A[0]), .B(A[1]), .C(A[2]), .D(A[3]));
     end else begin
       wire _TECHMAP_FAIL_ = 1;
     end
