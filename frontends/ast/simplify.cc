@@ -450,8 +450,21 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				children[0]->id2ast->is_reg = true; // if logic type is used in a block asignment
 			if ((type == AST_ASSIGN_LE || type == AST_ASSIGN_EQ) && !children[0]->id2ast->is_reg)
 				log_warning("wire '%s' is assigned in a block at %s:%d.\n", children[0]->str.c_str(), filename.c_str(), linenum);
-			if (type == AST_ASSIGN && children[0]->id2ast->is_reg)
-				log_warning("reg '%s' is assigned in a continuous assignment at %s:%d.\n", children[0]->str.c_str(), filename.c_str(), linenum);
+			if (type == AST_ASSIGN && children[0]->id2ast->is_reg) {
+				bool is_rand_reg = false;
+				if (children[1]->type == AST_FCALL) {
+					if (children[1]->str == "\\$anyconst")
+						is_rand_reg = true;
+					if (children[1]->str == "\\$anyseq")
+						is_rand_reg = true;
+					if (children[1]->str == "\\$allconst")
+						is_rand_reg = true;
+					if (children[1]->str == "\\$allseq")
+						is_rand_reg = true;
+				}
+				if (!is_rand_reg)
+					log_warning("reg '%s' is assigned in a continuous assignment at %s:%d.\n", children[0]->str.c_str(), filename.c_str(), linenum);
+			}
 			children[0]->was_checked = true;
 		}
 		break;
