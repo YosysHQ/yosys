@@ -554,7 +554,9 @@ struct Smt2Worker
 
 			if (cell->type.in("$shift", "$shiftx")) {
 				if (cell->getParam("\\B_SIGNED").as_bool()) {
-					/* FIXME */
+					return export_bvop(cell, stringf("(ite (bvsge B #b%0*d) "
+							"(bvlshr A B) (bvlshr A (bvneg B)))",
+							GetSize(cell->getPort("\\B")), 0), 's');
 				} else {
 					return export_bvop(cell, "(bvlshr A B)", 's');
 				}
