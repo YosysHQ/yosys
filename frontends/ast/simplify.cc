@@ -1874,10 +1874,16 @@ skip_dynamic_range_lvalue_expansion:;
 					newNode = new AstNode(AST_NE, past, present);
 
 				else if (str == "\\$rose")
-					newNode = new AstNode(AST_LOGIC_AND, new AstNode(AST_LOGIC_NOT, past), present);
+					newNode = new AstNode(AST_LOGIC_AND,
+						new AstNode(AST_LOGIC_NOT,
+							new AstNode(AST_BIT_AND, past, mkconst_int(1,false))),
+							new AstNode(AST_BIT_AND, present, mkconst_int(1,false)));
 
 				else if (str == "\\$fell")
-					newNode = new AstNode(AST_LOGIC_AND, past, new AstNode(AST_LOGIC_NOT, present));
+					newNode = new AstNode(AST_LOGIC_AND,
+						new AstNode(AST_BIT_AND, past, mkconst_int(1,false)),
+						new AstNode(AST_LOGIC_NOT,
+							new AstNode(AST_BIT_AND, present, mkconst_int(1,false))));
 
 				else
 					log_abort();
