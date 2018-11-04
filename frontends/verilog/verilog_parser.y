@@ -125,7 +125,7 @@ static void free_attr(std::map<std::string, AstNode*> *al)
 %type <ast> range range_or_multirange  non_opt_range non_opt_multirange range_or_signed_int
 %type <ast> wire_type expr basic_expr concat_list rvalue lvalue lvalue_concat_list
 %type <string> opt_label tok_prim_wrapper hierarchical_id
-%type <boolean> opt_signed unique_case_attr
+%type <boolean> opt_signed opt_property unique_case_attr
 %type <al> attr case_attr
 
 // operator precedence from low to high
@@ -1320,7 +1320,12 @@ opt_label:
 	};
 
 opt_property:
-	TOK_PROPERTY | /* empty */;
+	TOK_PROPERTY {
+		$$ = true;
+	} |
+	/* empty */ {
+		$$ = false;
+	};
 
 opt_stmt_label:
 	TOK_ID ':' | /* empty */;
@@ -1399,12 +1404,16 @@ assert:
 			delete $5;
 		else
 			ast_stack.back()->children.push_back(new AstNode(AST_ASSUME, $5));
+		if (!$3)
+			log_file_warning(current_filename, get_line_num(), "SystemVerilog does not allow \"restrict\" without \"property\".\n");
 	} |
 	opt_stmt_label TOK_RESTRICT opt_property '(' TOK_EVENTUALLY expr ')' ';' {
 		if (norestrict_mode)
 			delete $6;
 		else
 			ast_stack.back()->children.push_back(new AstNode(AST_FAIR, $6));
+		if (!$3)
+			log_file_warning(current_filename, get_line_num(), "SystemVerilog does not allow \"restrict\" without \"property\".\n");
 	};
 
 assert_property:
