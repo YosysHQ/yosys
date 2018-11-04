@@ -172,8 +172,7 @@ bool AstNode::get_bool_attribute(RTLIL::IdString id)
 
 	AstNode *attr = attributes.at(id);
 	if (attr->type != AST_CONSTANT)
-		log_file_error(attr->filename, attr->linenum, "Attribute `%s' with non-constant value!\n",
-			       id.c_str());
+		log_file_error(attr->filename, attr->linenum, "Attribute `%s' with non-constant value!\n", id.c_str());
 
 	return attr->integer != 0;
 }
@@ -969,8 +968,7 @@ static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast
 
 		for (auto &attr : ast->attributes) {
 			if (attr.second->type != AST_CONSTANT)
-				log_file_error(ast->filename, ast->linenum, "Attribute `%s' with non-constant value!\n",
-					       attr.first.c_str());
+				log_file_error(ast->filename, ast->linenum, "Attribute `%s' with non-constant value!\n", attr.first.c_str());
 			current_module->attributes[attr.first] = attr.second->asAttrConst();
 		}
 		for (size_t i = 0; i < ast->children.size(); i++) {
@@ -1061,8 +1059,7 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 			if (design->has((*it)->str)) {
 				RTLIL::Module *existing_mod = design->module((*it)->str);
 				if (!nooverwrite && !overwrite && !existing_mod->get_bool_attribute("\\blackbox")) {
-					log_file_error((*it)->filename, (*it)->linenum, "Re-definition of module `%s'!\n",
-						       (*it)->str.c_str());
+					log_file_error((*it)->filename, (*it)->linenum, "Re-definition of module `%s'!\n", (*it)->str.c_str());
 				} else if (nooverwrite) {
 					log("Ignoring re-definition of module `%s' at %s:%d.\n",
 							(*it)->str.c_str(), (*it)->filename.c_str(), (*it)->linenum);
