@@ -100,6 +100,9 @@ static bool parse_pin(LibertyAst *cell, LibertyAst *attr, std::string &pin_name,
 	for (auto child : cell->children)
 		if (child->id == "pin" && child->args.size() == 1 && child->args[0] == pin_name)
 			return true;
+
+	log_error("Malformed liberty file - cannot find pin '%s' in cell '%s'.\n", pin_name.c_str(), cell->args[0].c_str());
+
 	return false;
 }
 
