@@ -36,7 +36,8 @@ static RTLIL::SigSpec parse_func_identifier(RTLIL::Module *module, const char *&
 
 	int id_len = 0;
 	while (('a' <= expr[id_len] && expr[id_len] <= 'z') || ('A' <= expr[id_len] && expr[id_len] <= 'Z') ||
-			('0' <= expr[id_len] && expr[id_len] <= '9') || expr[id_len] == '.' || expr[id_len] == '_') id_len++;
+			('0' <= expr[id_len] && expr[id_len] <= '9') || expr[id_len] == '.' ||
+			expr[id_len] == '_' || expr[id_len] == '[' || expr[id_len] == ']') id_len++;
 
 	if (id_len == 0)
 		log_error("Expected identifier at `%s'.\n", expr);
