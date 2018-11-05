@@ -32,10 +32,15 @@ from threading import Thread
 if os.name == "posix":
     smtio_reclimit = 64 * 1024
     smtio_stacksize = 128 * 1024 * 1024
+    smtio_stacklimit = resource.RLIM_INFINITY
+    if os.uname().sysname == "Darwin":
+        # MacOS has rather conservative stack limits
+        smtio_stacksize = 16 * 1024 * 1024
+        smtio_stacklimit = resource.getrlimit(resource.RLIMIT_STACK)[1]
     if sys.getrecursionlimit() < smtio_reclimit:
         sys.setrecursionlimit(smtio_reclimit)
     if resource.getrlimit(resource.RLIMIT_STACK)[0] < smtio_stacksize:
-        resource.setrlimit(resource.RLIMIT_STACK, (smtio_stacksize, -1))
+        resource.setrlimit(resource.RLIMIT_STACK, (smtio_stacksize, smtio_stacklimit))
 
 
 # currently running solvers (so we can kill them)
