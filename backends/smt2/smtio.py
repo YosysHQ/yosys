@@ -31,16 +31,16 @@ from threading import Thread
 # does not run out of stack frames when parsing large expressions
 if os.name == "posix":
     smtio_reclimit = 64 * 1024
-    smtio_stacksize = 128 * 1024 * 1024
-    smtio_stacklimit = resource.RLIM_INFINITY
-    if os.uname().sysname == "Darwin":
-        # MacOS has rather conservative stack limits
-        smtio_stacksize = 16 * 1024 * 1024
-        smtio_stacklimit = resource.getrlimit(resource.RLIMIT_STACK)[1]
     if sys.getrecursionlimit() < smtio_reclimit:
         sys.setrecursionlimit(smtio_reclimit)
-    if resource.getrlimit(resource.RLIMIT_STACK)[0] < smtio_stacksize:
-        resource.setrlimit(resource.RLIMIT_STACK, (smtio_stacksize, smtio_stacklimit))
+
+    smtio_stacksize = 128 * 1024 * 1024
+    current_rlimit_stack = resource.getrlimit(resource.RLIMIT_STACK)
+    if current_rlimit_stack[0] != resource.RLIM_INFINITY:
+        if current_rlimit_stack[1] != resource.RLIM_INFINITY:
+            smtio_stacksize = min(smtio_stacksize, smtio_stacklimit)
+        if current_rlimit_stack[0] < smtio_stacksize:
+            resource.setrlimit(resource.RLIMIT_STACK, (smtio_stacksize, current_rlimit_stack[1]))
 
 
 # currently running solvers (so we can kill them)
