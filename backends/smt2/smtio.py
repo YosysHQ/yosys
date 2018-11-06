@@ -163,19 +163,28 @@ class SmtIo:
             self.unroll = False
 
         if self.solver == "yices":
-            self.popen_vargs = ['yices-smt2', '--incremental'] + self.solver_opts
+            if self.noincr:
+                self.popen_vargs = ['yices-smt2'] + self.solver_opts
+            else:
+                self.popen_vargs = ['yices-smt2', '--incremental'] + self.solver_opts
 
         if self.solver == "z3":
             self.popen_vargs = ['z3', '-smt2', '-in'] + self.solver_opts
 
         if self.solver == "cvc4":
-            self.popen_vargs = ['cvc4', '--incremental', '--lang', 'smt2.6' if self.logic_dt else 'smt2'] + self.solver_opts
+            if self.noincr:
+                self.popen_vargs = ['cvc4', '--lang', 'smt2.6' if self.logic_dt else 'smt2'] + self.solver_opts
+            else:
+                self.popen_vargs = ['cvc4', '--incremental', '--lang', 'smt2.6' if self.logic_dt else 'smt2'] + self.solver_opts
 
         if self.solver == "mathsat":
             self.popen_vargs = ['mathsat'] + self.solver_opts
 
         if self.solver == "boolector":
-            self.popen_vargs = ['boolector', '--smt2', '-i'] + self.solver_opts
+            if self.noincr:
+                self.popen_vargs = ['boolector', '--smt2'] + self.solver_opts
+            else:
+                self.popen_vargs = ['boolector', '--smt2', '-i'] + self.solver_opts
             self.unroll = True
 
         if self.solver == "abc":
