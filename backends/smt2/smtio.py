@@ -38,7 +38,7 @@ if os.name == "posix":
     current_rlimit_stack = resource.getrlimit(resource.RLIMIT_STACK)
     if current_rlimit_stack[0] != resource.RLIM_INFINITY:
         if current_rlimit_stack[1] != resource.RLIM_INFINITY:
-            smtio_stacksize = min(smtio_stacksize, smtio_stacklimit)
+            smtio_stacksize = min(smtio_stacksize, current_rlimit_stack[1])
         if current_rlimit_stack[0] < smtio_stacksize:
             resource.setrlimit(resource.RLIMIT_STACK, (smtio_stacksize, current_rlimit_stack[1]))
 
