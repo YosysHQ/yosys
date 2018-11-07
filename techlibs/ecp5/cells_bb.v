@@ -93,3 +93,393 @@ module ALU54B(
 	parameter FORCE_ZERO_BARREL_SHIFT = "DISABLED";
 	parameter LEGACY = "DISABLED";
 endmodule
+
+(* blackbox *)
+module EHXPLLL (
+	input CLKI, CLKFB,
+	input PHASESEL1, PHASESEL0, PHASEDIR, PHASESTEP, PHASELOADREG,
+	input STDBY, PLLWAKESYNC,
+	input RST, ENCLKOP, ENCLKOS, ENCLKOS2, ENCLKOS3,
+	output CLKOP, CLKOS, CLKOS2, CLKOS3,
+	output LOCK, INTLOCK,
+	output REFCLK, CLKINTFB
+);
+	parameter CLKI_DIV = 1;
+	parameter CLKFB_DIV = 1;
+	parameter CLKOP_DIV = 8;
+	parameter CLKOS_DIV = 8;
+	parameter CLKOS2_DIV = 8;
+	parameter CLKOS3_DIV = 8;
+	parameter CLKOP_ENABLE = "ENABLED";
+	parameter CLKOS_ENABLE = "DISABLED";
+	parameter CLKOS2_ENABLE = "DISABLED";
+	parameter CLKOS3_ENABLE = "DISABLED";
+	parameter CLKOP_CPHASE = 0;
+	parameter CLKOS_CPHASE = 0;
+	parameter CLKOS2_CPHASE = 0;
+	parameter CLKOS3_CPHASE = 0;
+	parameter CLKOP_FPHASE = 0;
+	parameter CLKOS_FPHASE = 0;
+	parameter CLKOS2_FPHASE = 0;
+	parameter CLKOS3_FPHASE = 0;
+	parameter FEEDBK_PATH = "CLKOP";
+	parameter CLKOP_TRIM_POL = "RISING";
+	parameter CLKOP_TRIM_DELAY = 0;
+	parameter CLKOS_TRIM_POL = "RISING";
+	parameter CLKOS_TRIM_DELAY = 0;
+	parameter OUTDIVIDER_MUXA = "DIVA";
+	parameter OUTDIVIDER_MUXB = "DIVB";
+	parameter OUTDIVIDER_MUXC = "DIVC";
+	parameter OUTDIVIDER_MUXD = "DIVD";
+	parameter PLL_LOCK_MODE = 0;
+	parameter PLL_LOCK_DELAY = 200;
+	parameter STDBY_ENABLE = "DISABLED";
+	parameter REFIN_RESET = "DISABLED";
+	parameter SYNC_ENABLE = "DISABLED";
+	parameter INT_LOCK_STICKY = "ENABLED";
+	parameter DPHASE_SOURCE = "DISABLED";
+	parameter PLLRST_ENA = "DISABLED";
+	parameter INTFB_WAKE = "DISABLED";
+endmodule
+
+(* blackbox *)
+module DTR(
+	input STARTPULSE,
+	output DTROUT7, DTROUT6, DTROUT5, DTROUT4, DTROUT3, DTROUT2, DTROUT1, DTROUT0
+);
+endmodule
+
+(* blackbox *)
+module OSCG(
+	output OSC
+);
+parameter DIV = 128;
+endmodule
+
+(* blackbox *)
+module IDDRX1F(
+	input D, SCLK, RST,
+	output Q0, Q1
+);
+	parameter GSR = "ENABLED";
+endmodule
+
+(* blackbox *)
+module ODDRX1F(
+	input SCLK, RST, D0, D1,
+	output Q
+);
+	parameter GSR = "ENABLED";
+endmodule
+
+(* blackbox *)
+module CLKDIVF(
+	input CLKI, RST, ALIGNWD,
+	output CDIVX
+);
+	parameter GSR = "DISABLED";
+	parameter DIV = "2.0";
+endmodule
+
+(* blackbox *)
+module DCCA(
+	input CLKI, CE,
+	output CLKO
+);
+endmodule
+
+(* blackbox *) (* keep *)
+module DCUA(
+	input CH0_HDINP, CH1_HDINP, CH0_HDINN, CH1_HDINN,
+	input D_TXBIT_CLKP_FROM_ND, D_TXBIT_CLKN_FROM_ND, D_SYNC_ND, D_TXPLL_LOL_FROM_ND,
+	input CH0_RX_REFCLK, CH1_RX_REFCLK, CH0_FF_RXI_CLK, CH1_FF_RXI_CLK, CH0_FF_TXI_CLK, CH1_FF_TXI_CLK, CH0_FF_EBRD_CLK, CH1_FF_EBRD_CLK,
+	input CH0_FF_TX_D_0, CH1_FF_TX_D_0, CH0_FF_TX_D_1, CH1_FF_TX_D_1, CH0_FF_TX_D_2, CH1_FF_TX_D_2, CH0_FF_TX_D_3, CH1_FF_TX_D_3,
+	input CH0_FF_TX_D_4, CH1_FF_TX_D_4, CH0_FF_TX_D_5, CH1_FF_TX_D_5, CH0_FF_TX_D_6, CH1_FF_TX_D_6, CH0_FF_TX_D_7, CH1_FF_TX_D_7,
+	input CH0_FF_TX_D_8, CH1_FF_TX_D_8, CH0_FF_TX_D_9, CH1_FF_TX_D_9, CH0_FF_TX_D_10, CH1_FF_TX_D_10, CH0_FF_TX_D_11, CH1_FF_TX_D_11,
+	input CH0_FF_TX_D_12, CH1_FF_TX_D_12, CH0_FF_TX_D_13, CH1_FF_TX_D_13, CH0_FF_TX_D_14, CH1_FF_TX_D_14, CH0_FF_TX_D_15, CH1_FF_TX_D_15,
+	input CH0_FF_TX_D_16, CH1_FF_TX_D_16, CH0_FF_TX_D_17, CH1_FF_TX_D_17, CH0_FF_TX_D_18, CH1_FF_TX_D_18, CH0_FF_TX_D_19, CH1_FF_TX_D_19,
+	input CH0_FF_TX_D_20, CH1_FF_TX_D_20, CH0_FF_TX_D_21, CH1_FF_TX_D_21, CH0_FF_TX_D_22, CH1_FF_TX_D_22, CH0_FF_TX_D_23, CH1_FF_TX_D_23,
+	input CH0_FFC_EI_EN, CH1_FFC_EI_EN, CH0_FFC_PCIE_DET_EN, CH1_FFC_PCIE_DET_EN, CH0_FFC_PCIE_CT, CH1_FFC_PCIE_CT, CH0_FFC_SB_INV_RX, CH1_FFC_SB_INV_RX,
+	input CH0_FFC_ENABLE_CGALIGN, CH1_FFC_ENABLE_CGALIGN, CH0_FFC_SIGNAL_DETECT, CH1_FFC_SIGNAL_DETECT, CH0_FFC_FB_LOOPBACK, CH1_FFC_FB_LOOPBACK, CH0_FFC_SB_PFIFO_LP, CH1_FFC_SB_PFIFO_LP,
+	input CH0_FFC_PFIFO_CLR, CH1_FFC_PFIFO_CLR, CH0_FFC_RATE_MODE_RX, CH1_FFC_RATE_MODE_RX, CH0_FFC_RATE_MODE_TX, CH1_FFC_RATE_MODE_TX, CH0_FFC_DIV11_MODE_RX, CH1_FFC_DIV11_MODE_RX, CH0_FFC_RX_GEAR_MODE, CH1_FFC_RX_GEAR_MODE, CH0_FFC_TX_GEAR_MODE, CH1_FFC_TX_GEAR_MODE,
+	input CH0_FFC_DIV11_MODE_TX, CH1_FFC_DIV11_MODE_TX, CH0_FFC_LDR_CORE2TX_EN, CH1_FFC_LDR_CORE2TX_EN, CH0_FFC_LANE_TX_RST, CH1_FFC_LANE_TX_RST, CH0_FFC_LANE_RX_RST, CH1_FFC_LANE_RX_RST,
+	input CH0_FFC_RRST, CH1_FFC_RRST, CH0_FFC_TXPWDNB, CH1_FFC_TXPWDNB, CH0_FFC_RXPWDNB, CH1_FFC_RXPWDNB, CH0_LDR_CORE2TX, CH1_LDR_CORE2TX,
+	input D_SCIWDATA0, D_SCIWDATA1, D_SCIWDATA2, D_SCIWDATA3, D_SCIWDATA4, D_SCIWDATA5, D_SCIWDATA6, D_SCIWDATA7,
+	input D_SCIADDR0, D_SCIADDR1, D_SCIADDR2, D_SCIADDR3, D_SCIADDR4, D_SCIADDR5, D_SCIENAUX, D_SCISELAUX,
+	input CH0_SCIEN, CH1_SCIEN, CH0_SCISEL, CH1_SCISEL, D_SCIRD, D_SCIWSTN, D_CYAWSTN, D_FFC_SYNC_TOGGLE,
+	input D_FFC_DUAL_RST, D_FFC_MACRO_RST, D_FFC_MACROPDB, D_FFC_TRST, CH0_FFC_CDR_EN_BITSLIP, CH1_FFC_CDR_EN_BITSLIP, D_SCAN_ENABLE, D_SCAN_IN_0,
+	input D_SCAN_IN_1, D_SCAN_IN_2, D_SCAN_IN_3, D_SCAN_IN_4, D_SCAN_IN_5, D_SCAN_IN_6, D_SCAN_IN_7, D_SCAN_MODE,
+	input D_SCAN_RESET, D_CIN0, D_CIN1, D_CIN2, D_CIN3, D_CIN4, D_CIN5, D_CIN6,D_CIN7, D_CIN8, D_CIN9, D_CIN10, D_CIN11,
+	output CH0_HDOUTP, CH1_HDOUTP, CH0_HDOUTN, CH1_HDOUTN, D_TXBIT_CLKP_TO_ND, D_TXBIT_CLKN_TO_ND, D_SYNC_PULSE2ND, D_TXPLL_LOL_TO_ND,
+	output CH0_FF_RX_F_CLK, CH1_FF_RX_F_CLK, CH0_FF_RX_H_CLK, CH1_FF_RX_H_CLK, CH0_FF_TX_F_CLK, CH1_FF_TX_F_CLK, CH0_FF_TX_H_CLK, CH1_FF_TX_H_CLK,
+	output CH0_FF_RX_PCLK, CH1_FF_RX_PCLK, CH0_FF_TX_PCLK, CH1_FF_TX_PCLK, CH0_FF_RX_D_0, CH1_FF_RX_D_0, CH0_FF_RX_D_1, CH1_FF_RX_D_1,
+	output CH0_FF_RX_D_2, CH1_FF_RX_D_2, CH0_FF_RX_D_3, CH1_FF_RX_D_3, CH0_FF_RX_D_4, CH1_FF_RX_D_4, CH0_FF_RX_D_5, CH1_FF_RX_D_5,
+	output CH0_FF_RX_D_6, CH1_FF_RX_D_6, CH0_FF_RX_D_7, CH1_FF_RX_D_7, CH0_FF_RX_D_8, CH1_FF_RX_D_8, CH0_FF_RX_D_9, CH1_FF_RX_D_9,
+	output CH0_FF_RX_D_10, CH1_FF_RX_D_10, CH0_FF_RX_D_11, CH1_FF_RX_D_11, CH0_FF_RX_D_12, CH1_FF_RX_D_12, CH0_FF_RX_D_13, CH1_FF_RX_D_13,
+	output CH0_FF_RX_D_14, CH1_FF_RX_D_14, CH0_FF_RX_D_15, CH1_FF_RX_D_15, CH0_FF_RX_D_16, CH1_FF_RX_D_16, CH0_FF_RX_D_17, CH1_FF_RX_D_17,
+	output CH0_FF_RX_D_18, CH1_FF_RX_D_18, CH0_FF_RX_D_19, CH1_FF_RX_D_19, CH0_FF_RX_D_20, CH1_FF_RX_D_20, CH0_FF_RX_D_21, CH1_FF_RX_D_21,
+	output CH0_FF_RX_D_22, CH1_FF_RX_D_22, CH0_FF_RX_D_23, CH1_FF_RX_D_23, CH0_FFS_PCIE_DONE, CH1_FFS_PCIE_DONE, CH0_FFS_PCIE_CON, CH1_FFS_PCIE_CON,
+	output CH0_FFS_RLOS, CH1_FFS_RLOS, CH0_FFS_LS_SYNC_STATUS, CH1_FFS_LS_SYNC_STATUS, CH0_FFS_CC_UNDERRUN, CH1_FFS_CC_UNDERRUN, CH0_FFS_CC_OVERRUN, CH1_FFS_CC_OVERRUN,
+	output CH0_FFS_RXFBFIFO_ERROR, CH1_FFS_RXFBFIFO_ERROR, CH0_FFS_TXFBFIFO_ERROR, CH1_FFS_TXFBFIFO_ERROR, CH0_FFS_RLOL, CH1_FFS_RLOL, CH0_FFS_SKP_ADDED, CH1_FFS_SKP_ADDED,
+	output CH0_FFS_SKP_DELETED, CH1_FFS_SKP_DELETED, CH0_LDR_RX2CORE, CH1_LDR_RX2CORE, D_SCIRDATA0, D_SCIRDATA1, D_SCIRDATA2, D_SCIRDATA3,
+	output D_SCIRDATA4, D_SCIRDATA5, D_SCIRDATA6, D_SCIRDATA7, D_SCIINT, D_SCAN_OUT_0, D_SCAN_OUT_1, D_SCAN_OUT_2, D_SCAN_OUT_3, D_SCAN_OUT_4, D_SCAN_OUT_5, D_SCAN_OUT_6, D_SCAN_OUT_7,
+	output D_COUT0, D_COUT1, D_COUT2, D_COUT3, D_COUT4, D_COUT5, D_COUT6, D_COUT7, D_COUT8, D_COUT9, D_COUT10, D_COUT11, D_COUT12, D_COUT13, D_COUT14, D_COUT15, D_COUT16, D_COUT17, D_COUT18, D_COUT19,
+
+	input  D_REFCLKI,
+	output D_FFS_PLOL
+);
+	parameter CH0_AUTO_CALIB_EN = "0b0";
+	parameter CH0_AUTO_FACQ_EN = "0b0";
+	parameter CH0_BAND_THRESHOLD = "0b000000";
+	parameter CH0_CALIB_CK_MODE = "0b0";
+	parameter CH0_CC_MATCH_1 = "0b0000000000";
+	parameter CH0_CC_MATCH_2 = "0b0000000000";
+	parameter CH0_CC_MATCH_3 = "0b0000000000";
+	parameter CH0_CC_MATCH_4 = "0b0000000000";
+	parameter CH0_CDR_CNT4SEL = "0b00";
+	parameter CH0_CDR_CNT8SEL = "0b00";
+	parameter CH0_CTC_BYPASS = "0b0";
+	parameter CH0_DCOATDCFG = "0b00";
+	parameter CH0_DCOATDDLY = "0b00";
+	parameter CH0_DCOBYPSATD = "0b0";
+	parameter CH0_DCOCALDIV = "0b000";
+	parameter CH0_DCOCTLGI = "0b000";
+	parameter CH0_DCODISBDAVOID = "0b0";
+	parameter CH0_DCOFLTDAC = "0b00";
+	parameter CH0_DCOFTNRG = "0b000";
+	parameter CH0_DCOIOSTUNE = "0b000";
+	parameter CH0_DCOITUNE = "0b00";
+	parameter CH0_DCOITUNE4LSB = "0b000";
+	parameter CH0_DCOIUPDNX2 = "0b0";
+	parameter CH0_DCONUOFLSB = "0b000";
+	parameter CH0_DCOSCALEI = "0b00";
+	parameter CH0_DCOSTARTVAL = "0b000";
+	parameter CH0_DCOSTEP = "0b00";
+	parameter CH0_DEC_BYPASS = "0b0";
+	parameter CH0_ENABLE_CG_ALIGN = "0b0";
+	parameter CH0_ENC_BYPASS = "0b0";
+	parameter CH0_FF_RX_F_CLK_DIS = "0b0";
+	parameter CH0_FF_RX_H_CLK_EN = "0b0";
+	parameter CH0_FF_TX_F_CLK_DIS = "0b0";
+	parameter CH0_FF_TX_H_CLK_EN = "0b0";
+	parameter CH0_GE_AN_ENABLE = "0b0";
+	parameter CH0_INVERT_RX = "0b0";
+	parameter CH0_INVERT_TX = "0b0";
+	parameter CH0_LDR_CORE2TX_SEL = "0b0";
+	parameter CH0_LDR_RX2CORE_SEL = "0b0";
+	parameter CH0_LEQ_OFFSET_SEL = "0b0";
+	parameter CH0_LEQ_OFFSET_TRIM = "0b000";
+	parameter CH0_LSM_DISABLE = "0b0";
+	parameter CH0_MATCH_2_ENABLE = "0b0";
+	parameter CH0_MATCH_4_ENABLE = "0b0";
+	parameter CH0_MIN_IPG_CNT = "0b00";
+	parameter CH0_PCIE_EI_EN = "0b0";
+	parameter CH0_PCIE_MODE = "0b0";
+	parameter CH0_PCS_DET_TIME_SEL = "0b00";
+	parameter CH0_PDEN_SEL = "0b0";
+	parameter CH0_PRBS_ENABLE = "0b0";
+	parameter CH0_PRBS_LOCK = "0b0";
+	parameter CH0_PRBS_SELECTION = "0b0";
+	parameter CH0_RATE_MODE_RX = "0b0";
+	parameter CH0_RATE_MODE_TX = "0b0";
+	parameter CH0_RCV_DCC_EN = "0b0";
+	parameter CH0_REG_BAND_OFFSET = "0b0000";
+	parameter CH0_REG_BAND_SEL = "0b000000";
+	parameter CH0_REG_IDAC_EN = "0b0";
+	parameter CH0_REG_IDAC_SEL = "0b0000000000";
+	parameter CH0_REQ_EN = "0b0";
+	parameter CH0_REQ_LVL_SET = "0b00";
+	parameter CH0_RIO_MODE = "0b0";
+	parameter CH0_RLOS_SEL = "0b0";
+	parameter CH0_RPWDNB = "0b0";
+	parameter CH0_RTERM_RX = "0b00000";
+	parameter CH0_RTERM_TX = "0b00000";
+	parameter CH0_RXIN_CM = "0b00";
+	parameter CH0_RXTERM_CM = "0b00";
+	parameter CH0_RX_DCO_CK_DIV = "0b000";
+	parameter CH0_RX_DIV11_SEL = "0b0";
+	parameter CH0_RX_GEAR_BYPASS = "0b0";
+	parameter CH0_RX_GEAR_MODE = "0b0";
+	parameter CH0_RX_LOS_CEQ = "0b00";
+	parameter CH0_RX_LOS_EN = "0b0";
+	parameter CH0_RX_LOS_HYST_EN = "0b0";
+	parameter CH0_RX_LOS_LVL = "0b000";
+	parameter CH0_RX_RATE_SEL = "0b0000";
+	parameter CH0_RX_SB_BYPASS = "0b0";
+	parameter CH0_SB_BYPASS = "0b0";
+	parameter CH0_SEL_SD_RX_CLK = "0b0";
+	parameter CH0_TDRV_DAT_SEL = "0b00";
+	parameter CH0_TDRV_POST_EN = "0b0";
+	parameter CH0_TDRV_PRE_EN = "0b0";
+	parameter CH0_TDRV_SLICE0_CUR = "0b000";
+	parameter CH0_TDRV_SLICE0_SEL = "0b00";
+	parameter CH0_TDRV_SLICE1_CUR = "0b000";
+	parameter CH0_TDRV_SLICE1_SEL = "0b00";
+	parameter CH0_TDRV_SLICE2_CUR = "0b00";
+	parameter CH0_TDRV_SLICE2_SEL = "0b00";
+	parameter CH0_TDRV_SLICE3_CUR = "0b00";
+	parameter CH0_TDRV_SLICE3_SEL = "0b00";
+	parameter CH0_TDRV_SLICE4_CUR = "0b00";
+	parameter CH0_TDRV_SLICE4_SEL = "0b00";
+	parameter CH0_TDRV_SLICE5_CUR = "0b00";
+	parameter CH0_TDRV_SLICE5_SEL = "0b00";
+	parameter CH0_TPWDNB = "0b0";
+	parameter CH0_TX_CM_SEL = "0b00";
+	parameter CH0_TX_DIV11_SEL = "0b0";
+	parameter CH0_TX_GEAR_BYPASS = "0b0";
+	parameter CH0_TX_GEAR_MODE = "0b0";
+	parameter CH0_TX_POST_SIGN = "0b0";
+	parameter CH0_TX_PRE_SIGN = "0b0";
+	parameter CH0_UC_MODE = "0b0";
+	parameter CH0_UDF_COMMA_A = "0b0000000000";
+	parameter CH0_UDF_COMMA_B = "0b0000000000";
+	parameter CH0_UDF_COMMA_MASK = "0b0000000000";
+	parameter CH0_WA_BYPASS = "0b0";
+	parameter CH0_WA_MODE = "0b0";
+	parameter CH1_AUTO_CALIB_EN = "0b0";
+	parameter CH1_AUTO_FACQ_EN = "0b0";
+	parameter CH1_BAND_THRESHOLD = "0b000000";
+	parameter CH1_CALIB_CK_MODE = "0b0";
+	parameter CH1_CC_MATCH_1 = "0b0000000000";
+	parameter CH1_CC_MATCH_2 = "0b0000000000";
+	parameter CH1_CC_MATCH_3 = "0b0000000000";
+	parameter CH1_CC_MATCH_4 = "0b0000000000";
+	parameter CH1_CDR_CNT4SEL = "0b00";
+	parameter CH1_CDR_CNT8SEL = "0b00";
+	parameter CH1_CTC_BYPASS = "0b0";
+	parameter CH1_DCOATDCFG = "0b00";
+	parameter CH1_DCOATDDLY = "0b00";
+	parameter CH1_DCOBYPSATD = "0b0";
+	parameter CH1_DCOCALDIV = "0b000";
+	parameter CH1_DCOCTLGI = "0b000";
+	parameter CH1_DCODISBDAVOID = "0b0";
+	parameter CH1_DCOFLTDAC = "0b00";
+	parameter CH1_DCOFTNRG = "0b000";
+	parameter CH1_DCOIOSTUNE = "0b000";
+	parameter CH1_DCOITUNE = "0b00";
+	parameter CH1_DCOITUNE4LSB = "0b000";
+	parameter CH1_DCOIUPDNX2 = "0b0";
+	parameter CH1_DCONUOFLSB = "0b000";
+	parameter CH1_DCOSCALEI = "0b00";
+	parameter CH1_DCOSTARTVAL = "0b000";
+	parameter CH1_DCOSTEP = "0b00";
+	parameter CH1_DEC_BYPASS = "0b0";
+	parameter CH1_ENABLE_CG_ALIGN = "0b0";
+	parameter CH1_ENC_BYPASS = "0b0";
+	parameter CH1_FF_RX_F_CLK_DIS = "0b0";
+	parameter CH1_FF_RX_H_CLK_EN = "0b0";
+	parameter CH1_FF_TX_F_CLK_DIS = "0b0";
+	parameter CH1_FF_TX_H_CLK_EN = "0b0";
+	parameter CH1_GE_AN_ENABLE = "0b0";
+	parameter CH1_INVERT_RX = "0b0";
+	parameter CH1_INVERT_TX = "0b0";
+	parameter CH1_LDR_CORE2TX_SEL = "0b0";
+	parameter CH1_LDR_RX2CORE_SEL = "0b0";
+	parameter CH1_LEQ_OFFSET_SEL = "0b0";
+	parameter CH1_LEQ_OFFSET_TRIM = "0b000";
+	parameter CH1_LSM_DISABLE = "0b0";
+	parameter CH1_MATCH_2_ENABLE = "0b0";
+	parameter CH1_MATCH_4_ENABLE = "0b0";
+	parameter CH1_MIN_IPG_CNT = "0b00";
+	parameter CH1_PCIE_EI_EN = "0b0";
+	parameter CH1_PCIE_MODE = "0b0";
+	parameter CH1_PCS_DET_TIME_SEL = "0b00";
+	parameter CH1_PDEN_SEL = "0b0";
+	parameter CH1_PRBS_ENABLE = "0b0";
+	parameter CH1_PRBS_LOCK = "0b0";
+	parameter CH1_PRBS_SELECTION = "0b0";
+	parameter CH1_RATE_MODE_RX = "0b0";
+	parameter CH1_RATE_MODE_TX = "0b0";
+	parameter CH1_RCV_DCC_EN = "0b0";
+	parameter CH1_REG_BAND_OFFSET = "0b0000";
+	parameter CH1_REG_BAND_SEL = "0b000000";
+	parameter CH1_REG_IDAC_EN = "0b0";
+	parameter CH1_REG_IDAC_SEL = "0b0000000000";
+	parameter CH1_REQ_EN = "0b0";
+	parameter CH1_REQ_LVL_SET = "0b00";
+	parameter CH1_RIO_MODE = "0b0";
+	parameter CH1_RLOS_SEL = "0b0";
+	parameter CH1_RPWDNB = "0b0";
+	parameter CH1_RTERM_RX = "0b00000";
+	parameter CH1_RTERM_TX = "0b00000";
+	parameter CH1_RXIN_CM = "0b00";
+	parameter CH1_RXTERM_CM = "0b00";
+	parameter CH1_RX_DCO_CK_DIV = "0b000";
+	parameter CH1_RX_DIV11_SEL = "0b0";
+	parameter CH1_RX_GEAR_BYPASS = "0b0";
+	parameter CH1_RX_GEAR_MODE = "0b0";
+	parameter CH1_RX_LOS_CEQ = "0b00";
+	parameter CH1_RX_LOS_EN = "0b0";
+	parameter CH1_RX_LOS_HYST_EN = "0b0";
+	parameter CH1_RX_LOS_LVL = "0b000";
+	parameter CH1_RX_RATE_SEL = "0b0000";
+	parameter CH1_RX_SB_BYPASS = "0b0";
+	parameter CH1_SB_BYPASS = "0b0";
+	parameter CH1_SEL_SD_RX_CLK = "0b0";
+	parameter CH1_TDRV_DAT_SEL = "0b00";
+	parameter CH1_TDRV_POST_EN = "0b0";
+	parameter CH1_TDRV_PRE_EN = "0b0";
+	parameter CH1_TDRV_SLICE0_CUR = "0b000";
+	parameter CH1_TDRV_SLICE0_SEL = "0b00";
+	parameter CH1_TDRV_SLICE1_CUR = "0b000";
+	parameter CH1_TDRV_SLICE1_SEL = "0b00";
+	parameter CH1_TDRV_SLICE2_CUR = "0b00";
+	parameter CH1_TDRV_SLICE2_SEL = "0b00";
+	parameter CH1_TDRV_SLICE3_CUR = "0b00";
+	parameter CH1_TDRV_SLICE3_SEL = "0b00";
+	parameter CH1_TDRV_SLICE4_CUR = "0b00";
+	parameter CH1_TDRV_SLICE4_SEL = "0b00";
+	parameter CH1_TDRV_SLICE5_CUR = "0b00";
+	parameter CH1_TDRV_SLICE5_SEL = "0b00";
+	parameter CH1_TPWDNB = "0b0";
+	parameter CH1_TX_CM_SEL = "0b00";
+	parameter CH1_TX_DIV11_SEL = "0b0";
+	parameter CH1_TX_GEAR_BYPASS = "0b0";
+	parameter CH1_TX_GEAR_MODE = "0b0";
+	parameter CH1_TX_POST_SIGN = "0b0";
+	parameter CH1_TX_PRE_SIGN = "0b0";
+	parameter CH1_UC_MODE = "0b0";
+	parameter CH1_UDF_COMMA_A = "0b0000000000";
+	parameter CH1_UDF_COMMA_B = "0b0000000000";
+	parameter CH1_UDF_COMMA_MASK = "0b0000000000";
+	parameter CH1_WA_BYPASS = "0b0";
+	parameter CH1_WA_MODE = "0b0";
+	parameter D_BITCLK_FROM_ND_EN = "0b0";
+	parameter D_BITCLK_LOCAL_EN = "0b0";
+	parameter D_BITCLK_ND_EN = "0b0";
+	parameter D_BUS8BIT_SEL = "0b0";
+	parameter D_CDR_LOL_SET = "0b00";
+	parameter D_CMUSETBIASI = "0b00";
+	parameter D_CMUSETI4CPP = "0b0000";
+	parameter D_CMUSETI4CPZ = "0b0000";
+	parameter D_CMUSETI4VCO = "0b00";
+	parameter D_CMUSETICP4P = "0b00";
+	parameter D_CMUSETICP4Z = "0b000";
+	parameter D_CMUSETINITVCT = "0b00";
+	parameter D_CMUSETISCL4VCO = "0b000";
+	parameter D_CMUSETP1GM = "0b000";
+	parameter D_CMUSETP2AGM = "0b000";
+	parameter D_CMUSETZGM = "0b000";
+	parameter D_DCO_CALIB_TIME_SEL = "0b00";
+	parameter D_HIGH_MARK = "0b0000";
+	parameter D_IB_PWDNB = "0b0";
+	parameter D_ISETLOS = "0b00000000";
+	parameter D_LOW_MARK = "0b0000";
+	parameter D_MACROPDB = "0b0";
+	parameter D_PD_ISET = "0b00";
+	parameter D_PLL_LOL_SET = "0b00";
+	parameter D_REFCK_MODE = "0b000";
+	parameter D_REQ_ISET = "0b000";
+	parameter D_RG_EN = "0b0";
+	parameter D_RG_SET = "0b00";
+	parameter D_SETICONST_AUX = "0b00";
+	parameter D_SETICONST_CH = "0b00";
+	parameter D_SETIRPOLY_AUX = "0b00";
+	parameter D_SETIRPOLY_CH = "0b00";
+	parameter D_SETPLLRC = "0b000000";
+	parameter D_SYNC_LOCAL_EN = "0b0";
+	parameter D_SYNC_ND_EN = "0b0";
+	parameter D_TXPLL_PWDNB = "0b0";
+	parameter D_TX_VCO_CK_DIV = "0b000";
+	parameter D_XGE_MODE = "0b0";
+endmodule
