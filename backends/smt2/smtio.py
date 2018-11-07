@@ -34,9 +34,12 @@ if os.name == "posix":
     if sys.getrecursionlimit() < smtio_reclimit:
         sys.setrecursionlimit(smtio_reclimit)
 
-    smtio_stacksize = 128 * 1024 * 1024
     current_rlimit_stack = resource.getrlimit(resource.RLIMIT_STACK)
     if current_rlimit_stack[0] != resource.RLIM_INFINITY:
+        smtio_stacksize = 128 * 1024 * 1024
+        if os.uname().sysname == "Darwin":
+            # MacOS has rather conservative stack limits
+            smtio_stacksize = 16 * 1024 * 1024
         if current_rlimit_stack[1] != resource.RLIM_INFINITY:
             smtio_stacksize = min(smtio_stacksize, current_rlimit_stack[1])
         if current_rlimit_stack[0] < smtio_stacksize:
