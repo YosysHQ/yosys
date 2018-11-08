@@ -595,7 +595,7 @@ vloghtb: $(TARGETS) $(EXTRA_TARGETS)
 ystests: $(TARGETS) $(EXTRA_TARGETS)
 	rm -rf tests/ystests
 	git clone https://github.com/YosysHQ/yosys-tests.git tests/ystests
-	+PATH="$$PWD:$$PATH" cd tests/ystests && $(MAKE)
+	+$(MAKE) PATH="$$PWD:$$PATH" -C tests/ystests
 	@echo ""
 	@echo "  Finished \"make ystests\"."
 	@echo ""
