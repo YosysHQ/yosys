@@ -482,6 +482,17 @@ module DCUA(
 	parameter D_TXPLL_PWDNB = "0b0";
 	parameter D_TX_VCO_CK_DIV = "0b000";
 	parameter D_XGE_MODE = "0b0";
+
+// These parameters don't do anything but are
+// needed for compatability with Diamond
+	parameter D_TX_MAX_RATE = "2.5";
+	parameter D_RX_MAX_RATE = "2.5";
+	parameter CH0_TXAMPLITUDE = "0d1300";
+	parameter CH1_TXAMPLITUDE = "0d1300";
+	parameter CH0_PROTOCOL = "8B10B";
+	parameter CH1_PROTOCOL = "8B10B";
+	parameter CH0_CDR_MAX_RATE = "2.5";
+	parameter CH1_CDR_MAX_RATE = "2.5";
 endmodule
 
 (* blackbox *)
