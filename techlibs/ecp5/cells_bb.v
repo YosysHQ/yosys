@@ -483,3 +483,21 @@ module DCUA(
 	parameter D_TX_VCO_CK_DIV = "0b000";
 	parameter D_XGE_MODE = "0b0";
 endmodule
+
+(* blackbox *)
+module EXTREFB (
+	input  REFCLKP, REFCLKN,
+	output REFCLKO
+);
+	parameter REFCK_PWDNB = "0b0";
+	parameter REFCK_RTERM = "0b0";
+	parameter REFCK_DCBIAS_EN = "0b0";
+endmodule
+
+(* blackbox *)
+module PCSCLKDIV (
+	input CLKI, RST, SEL2, SEL1, SEL0,
+	output CDIV1, CDIVX
+);
+	parameter GSR = "DISABLED";
+endmodule
