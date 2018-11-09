@@ -1835,6 +1835,7 @@ struct VerificPass : public Pass {
 			Message::RegisterCallBackMsg(msg_func);
 			RuntimeFlags::SetVar("db_preserve_user_nets", 1);
 			RuntimeFlags::SetVar("db_allow_external_nets", 1);
+			RuntimeFlags::SetVar("vhdl_support_variable_slice", 1);
 			RuntimeFlags::SetVar("vhdl_ignore_assertion_statements", 0);
 			RuntimeFlags::SetVar("veri_extract_dualport_rams", 0);
 			RuntimeFlags::SetVar("veri_extract_multiport_rams", 1);
