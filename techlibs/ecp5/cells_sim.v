@@ -257,7 +257,7 @@ assign O = I;
 endmodule
 
 // ---------------------------------------
-
+(* keep *)
 module TRELLIS_IO(
 	inout B,
 	input I,

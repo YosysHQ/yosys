@@ -112,6 +112,7 @@ function xtract_cell_decl()
 	xtract_cell_decl PHY_CONTROL
 	xtract_cell_decl PLLE2_ADV
 	xtract_cell_decl PLLE2_BASE
+	xtract_cell_decl PS7
 	xtract_cell_decl PULLDOWN
 	xtract_cell_decl PULLUP
 	# xtract_cell_decl RAM128X1D
