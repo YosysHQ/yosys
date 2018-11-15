@@ -69,6 +69,10 @@ struct SynthIce40Pass : public ScriptPass
 		log("    -nodffe\n");
 		log("        do not use SB_DFFE* cells in output netlist\n");
 		log("\n");
+		log("    -dffe_min_ce_use <min_ce_use>\n");
+		log("        do not use SB_DFFE* cells if the resulting CE line would go to less\n");
+		log("        than min_ce_use SB_DFFE*in output netlist\n");
+		log("\n");
 		log("    -nobram\n");
 		log("        do not use SB_RAM40_4K* cells in output netlist\n");
 		log("\n");
@@ -87,6 +91,7 @@ struct SynthIce40Pass : public ScriptPass
 
 	string top_opt, blif_file, edif_file, json_file;
 	bool nocarry, nodffe, nobram, flatten, retime, abc2, vpr;
+	int min_ce_use;
 
 	void clear_flags() YS_OVERRIDE
 	{
@@ -96,6 +101,7 @@ struct SynthIce40Pass : public ScriptPass
 		json_file = "";
 		nocarry = false;
 		nodffe = false;
+		min_ce_use = -1;
 		nobram = false;
 		flatten = true;
 		retime = false;
@@ -153,6 +159,10 @@ struct SynthIce40Pass : public ScriptPass
 			}
 			if (args[argidx] == "-nodffe") {
 				nodffe = true;
+				continue;
+			}
+			if (args[argidx] == "-dffe_min_ce_use" && argidx+1 < args.size()) {
+				min_ce_use = std::stoi(args[++argidx]);
 				continue;
 			}
 			if (args[argidx] == "-nobram") {
@@ -228,6 +238,10 @@ struct SynthIce40Pass : public ScriptPass
 			run("dffsr2dff");
 			if (!nodffe)
 				run("dff2dffe -direct-match $_DFF_*");
+			if (min_ce_use >= 0) {
+				run("opt_merge");
+				run(stringf("dff2dffe -unmap-mince %d", min_ce_use));
+			}
 			run("techmap -D NO_LUT -map +/ice40/cells_map.v");
 			run("opt_expr -mux_undef");
 			run("simplemap");
