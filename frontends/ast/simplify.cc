@@ -1913,7 +1913,7 @@ skip_dynamic_range_lvalue_expansion:;
 					if (arg_value.bits.at(i) == RTLIL::State::S1)
 						result = i + 1;
 
-				newNode = mkconst_int(result, false);
+				newNode = mkconst_int(result, true);
 				goto apply_newNode;
 			}
 
