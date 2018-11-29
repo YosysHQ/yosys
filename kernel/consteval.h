@@ -321,8 +321,13 @@ struct ConstEval
 			if (sig_d.size() > 0 && !eval(sig_d, undef, cell))
 				return false;
 
-			set(sig_y, CellTypes::eval(cell, sig_a.as_const(), sig_b.as_const(),
-					sig_c.as_const(), sig_d.as_const()));
+			bool eval_err = false;
+			RTLIL::Const eval_ret = CellTypes::eval(cell, sig_a.as_const(), sig_b.as_const(), sig_c.as_const(), sig_d.as_const(), &eval_err);
+
+			if (eval_err)
+				return false;
+
+			set(sig_y, eval_ret);
 		}
 
 		return true;
