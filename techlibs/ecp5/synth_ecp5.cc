@@ -255,10 +255,7 @@ struct SynthEcp5Pass : public ScriptPass
 			run("techmap -D NO_LUT -map +/ecp5/cells_map.v");
 			run("opt_expr -mux_undef");
 			run("simplemap");
-			// TODO
-#if 0
 			run("ecp5_ffinit");
-#endif
 		}
 
 		if (check_label("map_luts"))
