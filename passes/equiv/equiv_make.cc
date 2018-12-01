@@ -290,22 +290,29 @@ struct EquivMakeWorker
 
 		init_bit2driven();
 
-	 	pool<Cell*> visited_cells;
+		pool<Cell*> visited_cells;
 		for (auto c : cells_list)
 		for (auto &conn : c->connections())
 			if (!ct.cell_output(c->type, conn.first)) {
 				SigSpec old_sig = assign_map(conn.second);
 				SigSpec new_sig = rd_signal_map(old_sig);
-				
-				visited_cells.clear();
-				if (old_sig != new_sig) {
-					if (check_signal_in_fanout(visited_cells, old_sig, new_sig)) 
-						continue;
 
-					log("Changing input %s of cell %s (%s): %s -> %s\n",
-							log_id(conn.first), log_id(c), log_id(c->type),
-							log_signal(old_sig), log_signal(new_sig));
-					c->setPort(conn.first, new_sig);
+				if(old_sig != new_sig) {
+					SigSpec tmp_sig = old_sig;
+					for (int i = 0; i < GetSize(old_sig); i++) {
+						SigBit old_bit = old_sig[i], new_bit = new_sig[i];
+
+						visited_cells.clear();
+						if (check_signal_in_fanout(visited_cells, old_bit, new_bit))
+							continue;
+
+						log("Changing input %s of cell %s (%s): %s -> %s\n",
+								log_id(conn.first), log_id(c), log_id(c->type),
+								log_signal(old_bit), log_signal(new_bit));
+
+						tmp_sig[i] = new_bit;
+					}
+					c->setPort(conn.first, tmp_sig);
 				}
 			}
 
