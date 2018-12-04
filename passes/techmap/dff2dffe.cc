@@ -263,7 +263,7 @@ struct Dff2dffePass : public Pass {
 		log("more feedback paths to $dffe cells. It also works on gate-level cells such as\n");
 		log("$_DFF_P_, $_DFF_N_ and $_MUX_.\n");
 		log("\n");
-		log("    -unmap");
+		log("    -unmap\n");
 		log("        operate in the opposite direction: replace $dffe cells with combinations\n");
 		log("        of $dff and $mux cells. the options below are ignore in unmap mode.\n");
 		log("\n");
