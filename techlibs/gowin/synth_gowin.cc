@@ -49,6 +49,9 @@ struct SynthGowinPass : public ScriptPass
 		log("        from label is synonymous to 'begin', and empty to label is\n");
 		log("        synonymous to the end of the command list.\n");
 		log("\n");
+		log("    -nobram\n");
+		log("        do not use BRAM cells in output netlist\n");
+		log("\n");
 		log("    -retime\n");
 		log("        run 'abc' with -dff option\n");
 		log("\n");
@@ -59,13 +62,14 @@ struct SynthGowinPass : public ScriptPass
 	}
 
 	string top_opt, vout_file;
-	bool retime;
+	bool retime, nobram;
 
 	void clear_flags() YS_OVERRIDE
 	{
 		top_opt = "-auto-top";
 		vout_file = "";
 		retime = false;
+                nobram = true;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -96,6 +100,10 @@ struct SynthGowinPass : public ScriptPass
 				retime = true;
 				continue;
 			}
+			if (args[argidx] == "-nobram") {
+				nobram = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -119,7 +127,7 @@ struct SynthGowinPass : public ScriptPass
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
 		}
 
-		if (check_label("flatten"))
+		if (check_label("flatten") && check_label("flatten", "(unless -noflatten)"))
 		{
 			run("proc");
 			run("flatten");
@@ -131,13 +139,18 @@ struct SynthGowinPass : public ScriptPass
 		{
 			run("synth -run coarse");
 		}
-
+		if (!nobram && check_label("bram", "(skip if -nobram)"))
+		{
+			run("memory_bram -rules +/gowin/bram.txt");
+			run("techmap -map +/gowin/brams_map.v");
+		}
 		if (check_label("fine"))
 		{
 			run("opt -fast -mux_undef -undriven -fine");
 			run("memory_map");
 			run("opt -undriven -fine");
-			run("techmap");
+			run("techmap -map +/techmap.v -map +/gowin/arith_map.v");
+			run("opt -fine");
 			run("clean -purge");
 			run("splitnets -ports");
 			run("setundef -undriven -zero");
