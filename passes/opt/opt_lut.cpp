@@ -30,6 +30,11 @@ struct OptLutWorker
 	ModIndex index;
 	SigMap sigmap;
 
+	pool<RTLIL::Cell*> luts;
+	dict<RTLIL::Cell*, int> luts_arity;
+
+	int combined_count = 0;
+
 	bool evaluate_lut(RTLIL::Cell *lut, dict<SigBit, bool> inputs)
 	{
 		SigSpec lut_input = sigmap(lut->getPort("\\A"));
@@ -53,12 +58,27 @@ struct OptLutWorker
 		return lut_table.extract(lut_index).as_int();
 	}
 
+	void show_stats_by_arity()
+	{
+		dict<int, int> arity_counts;
+		int max_arity = 0;
+		for (auto lut_arity : luts_arity)
+		{
+			max_arity = max(max_arity, lut_arity.second);
+			arity_counts[lut_arity.second]++;
+		}
+
+		log("Number of LUTs: %6zu\n", luts.size());
+		for (int arity = 1; arity <= max_arity; arity++)
+		{
+			if (arity_counts[arity])
+				log("  %d-LUT: %13d\n", arity, arity_counts[arity]);
+		}
+	}
+
 	OptLutWorker(RTLIL::Module *module) :
 		module(module), index(module), sigmap(module)
 	{
-		pool<RTLIL::Cell*> luts;
-		dict<RTLIL::Cell*, int> luts_arity;
-
 		log("Discovering LUTs.\n");
 		for (auto cell : module->selected_cells())
 		{
@@ -79,10 +99,10 @@ struct OptLutWorker
 				luts_arity[cell] = lut_arity;
 			}
 		}
+		show_stats_by_arity();
 
 		log("\n");
 		log("Combining LUTs.\n");
-
 		pool<RTLIL::Cell*> worklist = luts;
 		while (worklist.size())
 		{
@@ -241,9 +261,12 @@ struct OptLutWorker
 
 					worklist.insert(lutM);
 					worklist.erase(lutR);
+
+					combined_count++;
 				}
 			}
 		}
+		show_stats_by_arity();
 	}
 };
 
@@ -271,10 +294,16 @@ struct OptLutPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		int total_count = 0;
 		for (auto module : design->selected_modules())
 		{
 			OptLutWorker worker(module);
+			total_count += worker.combined_count;
 		}
+		if (total_count)
+			design->scratchpad_set_bool("opt.did_something", true);
+		log("\n");
+		log("Combined %d LUTs.\n", total_count);
 	}
 } OptLutPass;
 
