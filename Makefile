@@ -160,7 +160,7 @@ ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H"
 else ifeq ($(CONFIG),gcc-static)
 LD = $(CXX)
 LDFLAGS := $(filter-out -rdynamic,$(LDFLAGS)) -static
-LDLIBS := $(filter-out -lrt,$(LDLIBS)) 
+LDLIBS := $(filter-out -lrt,$(LDLIBS))
 CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
 CXXFLAGS += -std=c++11 -Os
 ABCMKARGS = CC="$(CC)" CXX="$(CXX)" LD="$(LD)" ABC_USE_LIBSTDCXX=1 LIBS="-lm -lpthread -static" OPTFLAGS="-O" \
@@ -578,6 +578,7 @@ test: $(TARGETS) $(EXTRA_TARGETS)
 	+cd tests/various && bash run-test.sh
 	+cd tests/sat && bash run-test.sh
 	+cd tests/svinterfaces && bash run-test.sh $(SEEDOPT)
+	+cd tests/opt && bash run-test.sh
 	@echo ""
 	@echo "  Passed \"make test\"."
 	@echo ""
