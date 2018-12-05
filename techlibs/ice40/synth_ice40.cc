@@ -63,6 +63,9 @@ struct SynthIce40Pass : public ScriptPass
 		log("    -retime\n");
 		log("        run 'abc' with -dff option\n");
 		log("\n");
+		log("    -relut\n");
+		log("        combine LUTs after synthesis\n");
+		log("\n");
 		log("    -nocarry\n");
 		log("        do not use SB_CARRY cells in output netlist\n");
 		log("\n");
@@ -90,7 +93,7 @@ struct SynthIce40Pass : public ScriptPass
 	}
 
 	string top_opt, blif_file, edif_file, json_file;
-	bool nocarry, nodffe, nobram, flatten, retime, abc2, vpr;
+	bool nocarry, nodffe, nobram, flatten, retime, relut, abc2, vpr;
 	int min_ce_use;
 
 	void clear_flags() YS_OVERRIDE
@@ -105,6 +108,7 @@ struct SynthIce40Pass : public ScriptPass
 		nobram = false;
 		flatten = true;
 		retime = false;
+		relut = false;
 		abc2 = false;
 		vpr = false;
 	}
@@ -151,6 +155,10 @@ struct SynthIce40Pass : public ScriptPass
 			}
 			if (args[argidx] == "-retime") {
 				retime = true;
+				continue;
+			}
+			if (args[argidx] == "-relut") {
+				relut = true;
 				continue;
 			}
 			if (args[argidx] == "-nocarry") {
@@ -259,6 +267,10 @@ struct SynthIce40Pass : public ScriptPass
 			run("techmap -map +/ice40/latches_map.v");
 			run("abc -lut 4");
 			run("clean");
+			if (relut || help_mode) {
+				run("ice40_unlut", "(only if -relut)");
+				run("opt_lut", "    (only if -relut)");
+			}
 		}
 
 		if (check_label("map_cells"))
