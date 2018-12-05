@@ -58,7 +58,7 @@ struct OptLutWorker
 			}
 		}
 
-		return lut_table.extract(lut_index).as_int();
+		return lut_table.extract(lut_index).as_bool();
 	}
 
 	void show_stats_by_arity()
