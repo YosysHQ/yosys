@@ -1,0 +1,13 @@
+design -save preopt
+
+simplemap
+techmap -map +/gate2lut.v -D LUT_WIDTH=4
+select -assert-count 1 t:$lut
+design -stash postopt
+
+design -copy-from preopt -as preopt top
+design -copy-from postopt -as postopt top
+equiv_make preopt postopt equiv
+prep -flatten -top equiv
+equiv_induct
+equiv_status -assert
