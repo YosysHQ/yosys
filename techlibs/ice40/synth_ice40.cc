@@ -268,8 +268,8 @@ struct SynthIce40Pass : public ScriptPass
 			run("abc -lut 4");
 			run("clean");
 			if (relut || help_mode) {
-				run("ice40_unlut", "(only if -relut)");
-				run("opt_lut", "    (only if -relut)");
+				run("ice40_unlut", "                            (only if -relut)");
+				run("opt_lut -dlogic SB_CARRY:I0=1:I1=2:CI=3", "(only if -relut)");
 			}
 		}
 

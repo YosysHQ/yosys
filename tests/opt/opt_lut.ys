@@ -3,7 +3,7 @@ synth_ice40
 ice40_unlut
 design -save preopt
 
-opt_lut
+opt_lut -dlogic SB_CARRY:I0=1:I1=2:CI=3
 design -stash postopt
 
 design -copy-from preopt -as preopt top

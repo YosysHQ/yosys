@@ -26,12 +26,15 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct OptLutWorker
 {
+	dict<IdString, dict<int, IdString>> &dlogic;
 	RTLIL::Module *module;
 	ModIndex index;
 	SigMap sigmap;
 
 	pool<RTLIL::Cell*> luts;
 	dict<RTLIL::Cell*, int> luts_arity;
+	dict<RTLIL::Cell*, pool<RTLIL::Cell*>> luts_dlogics;
+	dict<RTLIL::Cell*, pool<int>> luts_dlogic_inputs;
 
 	int combined_count = 0;
 
@@ -61,23 +64,37 @@ struct OptLutWorker
 	void show_stats_by_arity()
 	{
 		dict<int, int> arity_counts;
+		dict<IdString, int> dlogic_counts;
 		int max_arity = 0;
+
 		for (auto lut_arity : luts_arity)
 		{
 			max_arity = max(max_arity, lut_arity.second);
 			arity_counts[lut_arity.second]++;
 		}
 
-		log("Number of LUTs: %6zu\n", luts.size());
+		for (auto &lut_dlogics : luts_dlogics)
+		{
+			for (auto &lut_dlogic : lut_dlogics.second)
+			{
+				dlogic_counts[lut_dlogic->type]++;
+			}
+		}
+
+		log("Number of LUTs: %8zu\n", luts.size());
 		for (int arity = 1; arity <= max_arity; arity++)
 		{
 			if (arity_counts[arity])
-				log("  %d-LUT: %13d\n", arity, arity_counts[arity]);
+				log("  %d-LUT %16d\n", arity, arity_counts[arity]);
+		}
+		for (auto &dlogic_count : dlogic_counts)
+		{
+			log("  with %-12s %4d\n", dlogic_count.first.c_str(), dlogic_count.second);
 		}
 	}
 
-	OptLutWorker(RTLIL::Module *module) :
-		module(module), index(module), sigmap(module)
+	OptLutWorker(dict<IdString, dict<int, IdString>> &dlogic, RTLIL::Module *module) :
+		dlogic(dlogic), module(module), index(module), sigmap(module)
 	{
 		log("Discovering LUTs.\n");
 		for (auto cell : module->selected_cells())
@@ -88,15 +105,84 @@ struct OptLutWorker
 				SigSpec lut_input = cell->getPort("\\A");
 				int lut_arity = 0;
 
-				for (auto &bit : lut_input)
+				log("Found $lut\\WIDTH=%d cell %s.%s.\n", lut_width, log_id(module), log_id(cell));
+				luts.insert(cell);
+
+				// First, find all dedicated logic we're connected to. This results in an overapproximation
+				// of such connections.
+				pool<RTLIL::Cell*> lut_all_dlogics;
+				for (int i = 0; i < lut_width; i++)
 				{
-					if (bit.wire)
+					SigBit bit = lut_input[i];
+					for (auto &port : index.query_ports(bit))
+					{
+						if (dlogic.count(port.cell->type))
+						{
+							auto &dlogic_map = dlogic[port.cell->type];
+							if (dlogic_map.count(i))
+							{
+								if (port.port == dlogic_map[i])
+								{
+									lut_all_dlogics.insert(port.cell);
+								}
+							}
+						}
+					}
+				}
+
+				// Second, make sure that the connection to dedicated logic is legal. If it is not legal,
+				// it means one of the two things:
+				//   * The connection is spurious. I.e. this is dedicated logic that will be packed
+				//     with some other LUT, and it just happens to be conected to this LUT as well.
+				//   * The connection is illegal.
+				// In either of these cases, we don't need to concern ourselves with preserving the connection
+				// between this LUT and this dedicated logic cell.
+				pool<RTLIL::Cell*> lut_legal_dlogics;
+				pool<int> lut_dlogic_inputs;
+				for (auto lut_dlogic : lut_all_dlogics)
+				{
+					auto &dlogic_map = dlogic[lut_dlogic->type];
+					bool legal = true;
+					for (auto &dlogic_conn : dlogic_map)
+					{
+						if (lut_width <= dlogic_conn.first)
+						{
+							log("  LUT has illegal connection to %s cell %s.%s.\n", lut_dlogic->type.c_str(), log_id(module), log_id(lut_dlogic));
+							log("    LUT input A[%d] not present.\n", dlogic_conn.first);
+							legal = false;
+							break;
+						}
+						if (sigmap(lut_input[dlogic_conn.first]) != sigmap(lut_dlogic->getPort(dlogic_conn.second)))
+						{
+							log("  LUT has illegal connection to %s cell %s.%s.\n", lut_dlogic->type.c_str(), log_id(module), log_id(lut_dlogic));
+							log("    LUT input A[%d] (wire %s) not connected to %s port %s (wire %s).\n", dlogic_conn.first, log_signal(lut_input[dlogic_conn.first]), lut_dlogic->type.c_str(), dlogic_conn.second.c_str(), log_signal(lut_dlogic->getPort(dlogic_conn.second)));
+							legal = false;
+							break;
+						}
+					}
+
+					if (legal)
+					{
+						log("  LUT has legal connection to %s cell %s.%s.\n", lut_dlogic->type.c_str(), log_id(module), log_id(lut_dlogic));
+						lut_legal_dlogics.insert(lut_dlogic);
+						for (auto &dlogic_conn : dlogic_map)
+							lut_dlogic_inputs.insert(dlogic_conn.first);
+					}
+				}
+
+				// Third, determine LUT arity. An n-wide LUT that has k constant inputs and m inputs shared with dedicated
+				// logic implements an (n-k-m)-ary function.
+				for (int i = 0; i < lut_width; i++)
+				{
+					SigBit bit = lut_input[i];
+					if (bit.wire || lut_dlogic_inputs.count(i))
 						lut_arity++;
 				}
 
-				log("Found $lut cell %s.%s with WIDTH=%d implementing %d-LUT.\n", log_id(module), log_id(cell), lut_width, lut_arity);
-				luts.insert(cell);
+				log("  Cell implements a %d-LUT.\n", lut_arity);
 				luts_arity[cell] = lut_arity;
+				luts_dlogics[cell] = lut_legal_dlogics;
+				luts_dlogic_inputs[cell] = lut_dlogic_inputs;
 			}
 		}
 		show_stats_by_arity();
@@ -111,12 +197,13 @@ struct OptLutWorker
 			SigSpec lutA_output = sigmap(lutA->getPort("\\Y")[0]);
 			int lutA_width = lutA->getParam("\\WIDTH").as_int();
 			int lutA_arity = luts_arity[lutA];
+			pool<int> &lutA_dlogic_inputs = luts_dlogic_inputs[lutA];
 
 			auto lutA_output_ports = index.query_ports(lutA->getPort("\\Y"));
 			if (lutA_output_ports.size() != 2)
 				continue;
 
-			for (auto port : lutA_output_ports)
+			for (auto &port : lutA_output_ports)
 			{
 				if (port.cell == lutA)
 					continue;
@@ -128,6 +215,7 @@ struct OptLutWorker
 					SigSpec lutB_output = sigmap(lutB->getPort("\\Y")[0]);
 					int lutB_width = lutB->getParam("\\WIDTH").as_int();
 					int lutB_arity = luts_arity[lutB];
+					pool<int> &lutB_dlogic_inputs = luts_dlogic_inputs[lutB];
 
 					log("Found %s.%s (cell A) feeding %s.%s (cell B).\n", log_id(module), log_id(lutA), log_id(module), log_id(lutB));
 
@@ -140,7 +228,7 @@ struct OptLutWorker
 					}
 					for (auto &bit : lutB_input)
 					{
-						if(bit.wire)
+						if (bit.wire)
 							lutB_inputs.insert(sigmap(bit));
 					}
 
@@ -152,13 +240,25 @@ struct OptLutWorker
 					}
 
 					int lutM_arity = lutA_arity + lutB_arity - 1 - common_inputs.size();
-					log("  Cell A is a %d-LUT. Cell B is a %d-LUT. Cells share %zu input(s) and can be merged into one %d-LUT.\n", lutA_arity, lutB_arity, common_inputs.size(), lutM_arity);
+					if (lutA_dlogic_inputs.size())
+						log("  Cell A is a %d-LUT with %zu dedicated connections. ", lutA_arity, lutA_dlogic_inputs.size());
+					else
+						log("  Cell A is a %d-LUT. ", lutA_arity);
+					if (lutB_dlogic_inputs.size())
+						log("Cell B is a %d-LUT with %zu dedicated connections.\n", lutB_arity, lutB_dlogic_inputs.size());
+					else
+						log("Cell B is a %d-LUT.\n", lutB_arity);
+					log("  Cells share %zu input(s) and can be merged into one %d-LUT.\n", common_inputs.size(), lutM_arity);
 
 					const int COMBINE_A = 1, COMBINE_B = 2, COMBINE_EITHER = COMBINE_A | COMBINE_B;
 					int combine_mask = 0;
 					if (lutM_arity > lutA_width)
 					{
 						log("  Not combining LUTs into cell A (combined LUT wider than cell A).\n");
+					}
+					else if (lutB_dlogic_inputs.size() > 0)
+					{
+						log("  Not combining LUTs into cell A (cell B is connected to dedicated logic).\n");
 					}
 					else if (lutB->get_bool_attribute("\\lut_keep"))
 					{
@@ -171,6 +271,10 @@ struct OptLutWorker
 					if (lutM_arity > lutB_width)
 					{
 						log("  Not combining LUTs into cell B (combined LUT wider than cell B).\n");
+					}
+					else if (lutA_dlogic_inputs.size() > 0)
+					{
+						log("  Not combining LUTs into cell B (cell A is connected to dedicated logic).\n");
 					}
 					else if (lutA->get_bool_attribute("\\lut_keep"))
 					{
@@ -204,11 +308,13 @@ struct OptLutWorker
 
 					RTLIL::Cell *lutM, *lutR;
 					pool<SigBit> lutM_inputs, lutR_inputs;
+					pool<int> lutM_dlogic_inputs;
 					if (combine == COMBINE_A)
 					{
 						log("  Combining LUTs into cell A.\n");
 						lutM = lutA;
 						lutM_inputs = lutA_inputs;
+						lutM_dlogic_inputs = lutA_dlogic_inputs;
 						lutR = lutB;
 						lutR_inputs = lutB_inputs;
 					}
@@ -217,6 +323,7 @@ struct OptLutWorker
 						log("  Combining LUTs into cell B.\n");
 						lutM = lutB;
 						lutM_inputs = lutB_inputs;
+						lutM_dlogic_inputs = lutB_dlogic_inputs;
 						lutR = lutA;
 						lutR_inputs = lutA_inputs;
 					}
@@ -238,7 +345,13 @@ struct OptLutWorker
 					std::vector<SigBit> lutM_new_inputs;
 					for (int i = 0; i < lutM_width; i++)
 					{
-						if ((!lutM_input[i].wire || sigmap(lutM_input[i]) == lutA_output) && lutR_unique.size())
+						bool input_unused = false;
+						if (sigmap(lutM_input[i]) == lutA_output)
+							input_unused = true;
+						if (!lutM_input[i].wire && !lutM_dlogic_inputs.count(i))
+							input_unused = true;
+
+						if (input_unused && lutR_unique.size())
 						{
 							SigBit new_input = lutR_unique.pop();
 							log("    Connecting input %d as %s.\n", i, log_signal(new_input));
@@ -246,7 +359,7 @@ struct OptLutWorker
 						}
 						else if (sigmap(lutM_input[i]) == lutA_output)
 						{
-							log("    Disconnecting input %d.\n", i);
+							log("    Disconnecting cascade input %d.\n", i);
 							lutM_new_inputs.push_back(SigBit());
 						}
 						else
@@ -292,26 +405,59 @@ struct OptLutWorker
 	}
 };
 
+static void split(std::vector<std::string> &tokens, const std::string &text, char sep)
+{
+	size_t start = 0, end = 0;
+	while ((end = text.find(sep, start)) != std::string::npos) {
+		tokens.push_back(text.substr(start, end - start));
+		start = end + 1;
+	}
+	tokens.push_back(text.substr(start));
+}
+
 struct OptLutPass : public Pass {
 	OptLutPass() : Pass("opt_lut", "optimize LUT cells") { }
 	void help() YS_OVERRIDE
 	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
 		log("    opt_lut [options] [selection]\n");
 		log("\n");
 		log("This pass combines cascaded $lut cells with unused inputs.\n");
+		log("\n");
+		log("    -dlogic <type>:<cell-port>=<LUT-input>[:<cell-port>=<LUT-input>...]\n");
+		log("        preserve connections to dedicated logic cell <type> that has ports\n");
+		log("        <cell-port> connected to LUT inputs <LUT-input>. this includes\n");
+		log("        the case where both LUT and dedicated logic input are connected to\n");
+		log("        the same constant.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing OPT_LUT pass (optimize LUTs).\n");
 
+		dict<IdString, dict<int, IdString>> dlogic;
+
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
-			// if (args[argidx] == "-???") {
-			// 	continue;
-			// }
+			if (args[argidx] == "-dlogic" && argidx+1 < args.size()) {
+				std::vector<std::string> tokens;
+				split(tokens, args[++argidx], ':');
+				if (tokens.size() < 2)
+					log_cmd_error("The -dlogic option requires at least one connection.\n");
+				IdString type = "\\" + tokens[0];
+				for (auto it = tokens.begin() + 1; it != tokens.end(); ++it) {
+					std::vector<std::string> conn_tokens;
+					split(conn_tokens, *it, '=');
+					if (conn_tokens.size() != 2)
+						log_cmd_error("Invalid format of -dlogic signal mapping.\n");
+					IdString logic_port = "\\" + conn_tokens[0];
+					int lut_input = atoi(conn_tokens[1].c_str());
+					dlogic[type][lut_input] = logic_port;
+				}
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -319,7 +465,7 @@ struct OptLutPass : public Pass {
 		int total_count = 0;
 		for (auto module : design->selected_modules())
 		{
-			OptLutWorker worker(module);
+			OptLutWorker worker(dlogic, module);
 			total_count += worker.combined_count;
 		}
 		if (total_count)
