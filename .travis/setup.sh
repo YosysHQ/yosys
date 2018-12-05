@@ -64,7 +64,6 @@ if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
 		brew tap Homebrew/bundle
 		brew bundle
 		brew install ccache
-		brew install gcc@7
 		echo
 		echo -en 'travis_fold:end:before_install.brew\\r'
 		echo
