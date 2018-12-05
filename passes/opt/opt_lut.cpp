@@ -154,35 +154,57 @@ struct OptLutWorker
 					int lutM_arity = lutA_arity + lutB_arity - 1 - common_inputs.size();
 					log("  Cell A is a %d-LUT. Cell B is a %d-LUT. Cells share %zu input(s) and can be merged into one %d-LUT.\n", lutA_arity, lutB_arity, common_inputs.size(), lutM_arity);
 
-					int combine = -1;
-					if (combine == -1)
+					const int COMBINE_A = 1, COMBINE_B = 2, COMBINE_EITHER = COMBINE_A | COMBINE_B;
+					int combine_mask = 0;
+					if (lutM_arity > lutA_width)
 					{
-						if (lutM_arity > lutA_width)
-						{
-							log("  Not combining LUTs into cell A (combined LUT too wide).\n");
-						}
-						else if (lutB->get_bool_attribute("\\lut_keep"))
-						{
-							log("  Not combining LUTs into cell A (cell B has attribute \\lut_keep).\n");
-						}
-						else combine = 0;
+						log("  Not combining LUTs into cell A (combined LUT wider than cell A).\n");
 					}
-					if (combine == -1)
+					else if (lutB->get_bool_attribute("\\lut_keep"))
 					{
-						if (lutM_arity > lutB_width)
+						log("  Not combining LUTs into cell A (cell B has attribute \\lut_keep).\n");
+					}
+					else
+					{
+						combine_mask |= COMBINE_A;
+					}
+					if (lutM_arity > lutB_width)
+					{
+						log("  Not combining LUTs into cell B (combined LUT wider than cell B).\n");
+					}
+					else if (lutA->get_bool_attribute("\\lut_keep"))
+					{
+						log("  Not combining LUTs into cell B (cell A has attribute \\lut_keep).\n");
+					}
+					else
+					{
+						combine_mask |= COMBINE_B;
+					}
+
+					int combine = combine_mask;
+					if (combine == COMBINE_EITHER)
+					{
+						log("  Can combine into either cell.\n");
+						if (lutA_arity == 1)
 						{
-							log("  Not combining LUTs into cell B (combined LUT too wide).\n");
+							log("    Cell A is a buffer or inverter, combining into cell B.\n");
+							combine = COMBINE_B;
 						}
-						else if (lutA->get_bool_attribute("\\lut_keep"))
+						else if (lutB_arity == 1)
 						{
-							log("  Not combining LUTs into cell B (cell A has attribute \\lut_keep).\n");
+							log("    Cell B is a buffer or inverter, combining into cell A.\n");
+							combine = COMBINE_A;
 						}
-						else combine = 1;
+						else
+						{
+							log("    Arbitrarily combining into cell A.\n");
+							combine = COMBINE_A;
+						}
 					}
 
 					RTLIL::Cell *lutM, *lutR;
 					pool<SigBit> lutM_inputs, lutR_inputs;
-					if (combine == 0)
+					if (combine == COMBINE_A)
 					{
 						log("  Combining LUTs into cell A.\n");
 						lutM = lutA;
@@ -190,7 +212,7 @@ struct OptLutWorker
 						lutR = lutB;
 						lutR_inputs = lutB_inputs;
 					}
-					else if (combine == 1)
+					else if (combine == COMBINE_B)
 					{
 						log("  Combining LUTs into cell B.\n");
 						lutM = lutB;
