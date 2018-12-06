@@ -2094,42 +2094,6 @@ struct VerificPass : public Pass {
 
 			if (mode_all)
 			{
-#if 0
-				log("Running veri_file::ElaborateAll().\n");
-				if (!veri_file::ElaborateAll())
-					log_cmd_error("Elaboration of Verilog modules failed.\n");
-
-				log("Running vhdl_file::ElaborateAll().\n");
-				if (!vhdl_file::ElaborateAll())
-					log_cmd_error("Elaboration of VHDL modules failed.\n");
-
-				Library *lib = Netlist::PresentDesign()->Owner()->Owner();
-
-				if (argidx == GetSize(args))
-				{
-					MapIter iter;
-					char *iter_name;
-					Verific::Cell *iter_cell;
-
-					FOREACH_MAP_ITEM(lib->GetCells(), iter, &iter_name, &iter_cell) {
-						if (*iter_name != '$')
-							nl_todo.insert(iter_cell->GetFirstNetlist());
-					}
-				}
-				else
-				{
-					for (; argidx < GetSize(args); argidx++)
-					{
-						Verific::Cell *cell = lib->GetCell(args[argidx].c_str());
-
-						if (cell == nullptr)
-							log_cmd_error("Module not found: %s\n", args[argidx].c_str());
-
-						nl_todo.insert(cell->GetFirstNetlist());
-						cell->GetFirstNetlist()->SetPresentDesign();
-					}
-				}
-#else
 				log("Running hier_tree::ElaborateAll().\n");
 
 				VhdlLibrary *vhdl_lib = vhdl_file::GetLibrary(work.c_str(), 1);
@@ -2146,28 +2110,12 @@ struct VerificPass : public Pass {
 				FOREACH_ARRAY_ITEM(netlists, i, nl)
 					nl_todo.insert(nl);
 				delete netlists;
-#endif
 			}
 			else
 			{
 				if (argidx == GetSize(args))
 					log_cmd_error("No top module specified.\n");
 
-#if 0
-				for (; argidx < GetSize(args); argidx++) {
-					if (veri_file::GetModule(args[argidx].c_str())) {
-						log("Running veri_file::Elaborate(\"%s\").\n", args[argidx].c_str());
-						if (!veri_file::Elaborate(args[argidx].c_str()))
-							log_cmd_error("Elaboration of top module `%s' failed.\n", args[argidx].c_str());
-						nl_todo.insert(Netlist::PresentDesign());
-					} else {
-						log("Running vhdl_file::Elaborate(\"%s\").\n", args[argidx].c_str());
-						if (!vhdl_file::Elaborate(args[argidx].c_str()))
-							log_cmd_error("Elaboration of top module `%s' failed.\n", args[argidx].c_str());
-						nl_todo.insert(Netlist::PresentDesign());
-					}
-				}
-#else
 				Array veri_modules, vhdl_units;
 				for (; argidx < GetSize(args); argidx++)
 				{
@@ -2199,7 +2147,6 @@ struct VerificPass : public Pass {
 				FOREACH_ARRAY_ITEM(netlists, i, nl)
 					nl_todo.insert(nl);
 				delete netlists;
-#endif
 			}
 
 			if (!verific_error_msg.empty())
