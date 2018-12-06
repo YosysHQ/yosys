@@ -1676,6 +1676,9 @@ class WMember:
 	def gen_def(self):
 		text = "\n\t" + self.wtype.gen_text() + " " + self.member_of.name +"::get_var_py_" + self.name + "()"
 		text += "\n\t{\n\t\t"
+		if self.wtype.attr_type == attr_types.star:
+			text += "if(this->get_cpp_obj()->" + self.name + " == NULL)\n\t\t\t"
+			text += "throw std::runtime_error(\"Member \\\"" + self.name + "\\\" is NULL\");\n\t\t"
 		if self.wtype.name in known_containers:
 			text += self.wtype.gen_text_cpp()
 		else:
