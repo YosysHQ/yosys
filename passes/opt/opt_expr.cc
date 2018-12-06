@@ -1406,7 +1406,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			if (sigConst.is_fully_const() && sigConst.is_fully_def() && var_signed == false)
 			{
 				if (sigConst.is_fully_zero()) {
-					RTLIL::SigSpec a_prime(RTLIL::State::S0, 1);
+					RTLIL::SigSpec a_prime(RTLIL::State::S0, GetSize(cell->getPort("\\Y")));
 					if (is_lt) {
 						log("Replacing %s cell `%s' (implementing unsigned X<0) with constant false.\n",
 								log_id(cell->type), log_id(cell));
