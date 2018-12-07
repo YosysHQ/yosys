@@ -93,7 +93,7 @@ struct OptLutWorker
 		}
 	}
 
-	OptLutWorker(dict<IdString, dict<int, IdString>> &dlogic, RTLIL::Module *module) :
+	OptLutWorker(dict<IdString, dict<int, IdString>> &dlogic, RTLIL::Module *module, int limit) :
 		dlogic(dlogic), module(module), index(module), sigmap(module)
 	{
 		log("Discovering LUTs.\n");
@@ -192,6 +192,12 @@ struct OptLutWorker
 		pool<RTLIL::Cell*> worklist = luts;
 		while (worklist.size())
 		{
+			if (limit == 0)
+			{
+				log("Limit reached.\n");
+				break;
+			}
+
 			auto lutA = worklist.pop();
 			SigSpec lutA_input = sigmap(lutA->getPort("\\A"));
 			SigSpec lutA_output = sigmap(lutA->getPort("\\Y")[0]);
@@ -398,6 +404,8 @@ struct OptLutWorker
 					worklist.erase(lutR);
 
 					combined_count++;
+					if (limit > 0)
+						limit--;
 				}
 			}
 		}
@@ -431,17 +439,22 @@ struct OptLutPass : public Pass {
 		log("        the case where both LUT and dedicated logic input are connected to\n");
 		log("        the same constant.\n");
 		log("\n");
+		log("    -limit N\n");
+		log("        only perform the first N combines, then stop. useful for debugging.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing OPT_LUT pass (optimize LUTs).\n");
 
 		dict<IdString, dict<int, IdString>> dlogic;
+		int limit = -1;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
-			if (args[argidx] == "-dlogic" && argidx+1 < args.size()) {
+			if (args[argidx] == "-dlogic" && argidx+1 < args.size())
+			{
 				std::vector<std::string> tokens;
 				split(tokens, args[++argidx], ':');
 				if (tokens.size() < 2)
@@ -458,6 +471,11 @@ struct OptLutPass : public Pass {
 				}
 				continue;
 			}
+			if (args[argidx] == "-limit" && argidx + 1 < args.size())
+			{
+				limit = atoi(args[++argidx].c_str());
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -465,7 +483,7 @@ struct OptLutPass : public Pass {
 		int total_count = 0;
 		for (auto module : design->selected_modules())
 		{
-			OptLutWorker worker(dlogic, module);
+			OptLutWorker worker(dlogic, module, limit - total_count);
 			total_count += worker.combined_count;
 		}
 		if (total_count)
