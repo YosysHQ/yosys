@@ -1,0 +1,2 @@
+read_ilang opt_lut_port.il
+select -assert-count 2 t:$lut

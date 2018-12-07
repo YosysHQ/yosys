@@ -93,7 +93,7 @@ struct OptLutWorker
 		}
 	}
 
-	OptLutWorker(dict<IdString, dict<int, IdString>> &dlogic, RTLIL::Module *module) :
+	OptLutWorker(dict<IdString, dict<int, IdString>> &dlogic, RTLIL::Module *module, int limit) :
 		dlogic(dlogic), module(module), index(module), sigmap(module)
 	{
 		log("Discovering LUTs.\n");
@@ -192,6 +192,12 @@ struct OptLutWorker
 		pool<RTLIL::Cell*> worklist = luts;
 		while (worklist.size())
 		{
+			if (limit == 0)
+			{
+				log("Limit reached.\n");
+				break;
+			}
+
 			auto lutA = worklist.pop();
 			SigSpec lutA_input = sigmap(lutA->getPort("\\A"));
 			SigSpec lutA_output = sigmap(lutA->getPort("\\Y")[0]);
@@ -218,6 +224,12 @@ struct OptLutWorker
 					pool<int> &lutB_dlogic_inputs = luts_dlogic_inputs[lutB];
 
 					log("Found %s.%s (cell A) feeding %s.%s (cell B).\n", log_id(module), log_id(lutA), log_id(module), log_id(lutB));
+
+					if (index.query_is_output(lutA->getPort("\\Y")))
+					{
+						log("  Not combining LUTs (cascade connection feeds module output).\n");
+						continue;
+					}
 
 					pool<SigBit> lutA_inputs;
 					pool<SigBit> lutB_inputs;
@@ -382,8 +394,9 @@ struct OptLutWorker
 						lutM_new_table[eval] = (RTLIL::State) evaluate_lut(lutB, eval_inputs);
 					}
 
-					log("  Old truth table: %s.\n", lutM->getParam("\\LUT").as_string().c_str());
-					log("  New truth table: %s.\n", lutM_new_table.as_string().c_str());
+					log("  Cell A truth table: %s.\n", lutA->getParam("\\LUT").as_string().c_str());
+					log("  Cell B truth table: %s.\n", lutB->getParam("\\LUT").as_string().c_str());
+					log("  Merged truth table: %s.\n", lutM_new_table.as_string().c_str());
 
 					lutM->setParam("\\LUT", lutM_new_table);
 					lutM->setPort("\\A", lutM_new_inputs);
@@ -398,6 +411,8 @@ struct OptLutWorker
 					worklist.erase(lutR);
 
 					combined_count++;
+					if (limit > 0)
+						limit--;
 				}
 			}
 		}
@@ -431,17 +446,22 @@ struct OptLutPass : public Pass {
 		log("        the case where both LUT and dedicated logic input are connected to\n");
 		log("        the same constant.\n");
 		log("\n");
+		log("    -limit N\n");
+		log("        only perform the first N combines, then stop. useful for debugging.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing OPT_LUT pass (optimize LUTs).\n");
 
 		dict<IdString, dict<int, IdString>> dlogic;
+		int limit = -1;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
-			if (args[argidx] == "-dlogic" && argidx+1 < args.size()) {
+			if (args[argidx] == "-dlogic" && argidx+1 < args.size())
+			{
 				std::vector<std::string> tokens;
 				split(tokens, args[++argidx], ':');
 				if (tokens.size() < 2)
@@ -458,6 +478,11 @@ struct OptLutPass : public Pass {
 				}
 				continue;
 			}
+			if (args[argidx] == "-limit" && argidx + 1 < args.size())
+			{
+				limit = atoi(args[++argidx].c_str());
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -465,7 +490,7 @@ struct OptLutPass : public Pass {
 		int total_count = 0;
 		for (auto module : design->selected_modules())
 		{
-			OptLutWorker worker(dlogic, module);
+			OptLutWorker worker(dlogic, module, limit - total_count);
 			total_count += worker.combined_count;
 		}
 		if (total_count)
