@@ -178,7 +178,7 @@ undef_bit_in_next_state:
 			log_state_in = fsm_data.state_table.at(state_in);
 
 		if (states.count(ce.values_map(ce.assign_map(dff_in)).as_const()) == 0) {
-			log("  transition: %10s %s -> INVALID_STATE(%s) %s  <ignored invalid transistion!>%s\n",
+			log("  transition: %10s %s -> INVALID_STATE(%s) %s  <ignored invalid transition!>%s\n",
 					log_signal(log_state_in), log_signal(tr.ctrl_in),
 					log_signal(ce.values_map(ce.assign_map(dff_in))), log_signal(tr.ctrl_out),
 					undef_bit_in_next_state_mode ? " SHORTENED" : "");
@@ -194,7 +194,7 @@ undef_bit_in_next_state:
 					log_signal(log_state_in), log_signal(tr.ctrl_in),
 					log_signal(fsm_data.state_table[tr.state_out]), log_signal(tr.ctrl_out));
 		} else {
-			log("  transition: %10s %s -> %10s %s  <ignored undef transistion!>\n",
+			log("  transition: %10s %s -> %10s %s  <ignored undef transition!>\n",
 					log_signal(log_state_in), log_signal(tr.ctrl_in),
 					log_signal(fsm_data.state_table[tr.state_out]), log_signal(tr.ctrl_out));
 		}

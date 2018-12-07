@@ -36,14 +36,14 @@ YOSYS_NAMESPACE_BEGIN
 using namespace AST;
 using namespace AST_INTERNAL;
 
-// instanciate global variables (public API)
+// instantiate global variables (public API)
 namespace AST {
 	std::string current_filename;
 	void (*set_line_num)(int) = NULL;
 	int (*get_line_num)() = NULL;
 }
 
-// instanciate global variables (private API)
+// instantiate global variables (private API)
 namespace AST_INTERNAL {
 	bool flag_dump_ast1, flag_dump_ast2, flag_no_dump_ptr, flag_dump_vlog, flag_dump_rtlil, flag_nolatches, flag_nomeminit;
 	bool flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt, flag_icells, flag_autowire;

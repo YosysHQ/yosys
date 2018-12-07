@@ -744,7 +744,7 @@ std::string proc_self_dirname()
 	return "/";
 }
 #else
-	#error Dont know how to determine process executable base path!
+	#error "Don't know how to determine process executable base path!"
 #endif
 
 #ifdef EMSCRIPTEN

@@ -32,7 +32,7 @@ struct ChformalPass : public Pass {
 		log("    chformal [types] [mode] [options] [selection]\n");
 		log("\n");
 		log("Make changes to the formal constraints of the design. The [types] options\n");
-		log("the type of constraint to operate on. If none of the folling options is given,\n");
+		log("the type of constraint to operate on. If none of the following options are given,\n");
 		log("the command will operate on all constraint types:\n");
 		log("\n");
 		log("    -assert       $assert cells, representing assert(...) constraints\n");
@@ -59,7 +59,7 @@ struct ChformalPass : public Pass {
 		log("    -assume2assert\n");
 		log("    -live2fair\n");
 		log("    -fair2live\n");
-		log("        change the roles of cells as indicated. this options can be combined\n");
+		log("        change the roles of cells as indicated. these options can be combined\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE

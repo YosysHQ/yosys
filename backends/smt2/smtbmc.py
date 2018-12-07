@@ -87,7 +87,7 @@ yosys-smtbmc [options] <yosys_smt2_output>
 
     --aig <aim_filename>:<aiw_filename>
         like above, but for map files and witness files that do not
-        share a filename prefix (or use differen file extensions).
+        share a filename prefix (or use different file extensions).
 
     --aig-noheader
         the AIGER witness file does not include the status and
@@ -103,8 +103,8 @@ yosys-smtbmc [options] <yosys_smt2_output>
     --presat
         check if the design with assumptions but without assertions
         is SAT before checking if assertions are UNSAT. This will
-        detect if there are contradicting assumtions. In some cases
-        this will also help to "warmup" the solver, potentially
+        detect if there are contradicting assumptions. In some cases
+        this will also help to "warm up" the solver, potentially
         yielding a speedup.
 
     --final-only
@@ -149,7 +149,7 @@ yosys-smtbmc [options] <yosys_smt2_output>
     --append <num_steps>
         add <num_steps> time steps at the end of the trace
         when creating a counter example (this additional time
-        steps will still be constrained by assumtions)
+        steps will still be constrained by assumptions)
 """ + so.helpmsg())
     sys.exit(1)
 

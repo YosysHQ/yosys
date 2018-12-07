@@ -111,7 +111,7 @@ struct SynthCoolrunner2Pass : public ScriptPass
 		extra_args(args, argidx, design);
 
 		if (!design->full_selection())
-			log_cmd_error("This comannd only operates on fully selected designs!\n");
+			log_cmd_error("This command only operates on fully selected designs!\n");
 
 		log_header(design, "Executing SYNTH_COOLRUNNER2 pass.\n");
 		log_push();
