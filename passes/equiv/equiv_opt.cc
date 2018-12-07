@@ -137,10 +137,12 @@ struct EquivOptPass : public ScriptPass
 
     if ((!techmap_opts.empty() || help_mode) && check_label("techmap", "(only with -map)"))
     {
+      string opts;
       if (help_mode)
-        run("techmap -autoproc -map <filename> ...");
+        opts = " -map <filename> ...";
       else
-        run("techmap -autoproc" + techmap_opts);
+        opts = techmap_opts;
+      run("techmap -D EQUIV -autoproc" + opts);
     }
 
     if (check_label("prove"))
