@@ -388,8 +388,9 @@ struct OptLutWorker
 						lutM_new_table[eval] = (RTLIL::State) evaluate_lut(lutB, eval_inputs);
 					}
 
-					log("  Old truth table: %s.\n", lutM->getParam("\\LUT").as_string().c_str());
-					log("  New truth table: %s.\n", lutM_new_table.as_string().c_str());
+					log("  Cell A truth table: %s.\n", lutA->getParam("\\LUT").as_string().c_str());
+					log("  Cell B truth table: %s.\n", lutB->getParam("\\LUT").as_string().c_str());
+					log("  Merged truth table: %s.\n", lutM_new_table.as_string().c_str());
 
 					lutM->setParam("\\LUT", lutM_new_table);
 					lutM->setPort("\\A", lutM_new_inputs);
