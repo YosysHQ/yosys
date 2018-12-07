@@ -225,6 +225,12 @@ struct OptLutWorker
 
 					log("Found %s.%s (cell A) feeding %s.%s (cell B).\n", log_id(module), log_id(lutA), log_id(module), log_id(lutB));
 
+					if (index.query_is_output(lutA->getPort("\\Y")))
+					{
+						log("  Not combining LUTs (cascade connection feeds module output).\n");
+						continue;
+					}
+
 					pool<SigBit> lutA_inputs;
 					pool<SigBit> lutB_inputs;
 					for (auto &bit : lutA_input)
