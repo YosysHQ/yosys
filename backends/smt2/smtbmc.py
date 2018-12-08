@@ -32,6 +32,8 @@ cexfile = None
 aimfile = None
 aiwfile = None
 aigheader = True
+btorfile = None
+witfile = None
 vlogtbfile = None
 vlogtbtop = None
 inconstr = list()
@@ -91,6 +93,10 @@ yosys-smtbmc [options] <yosys_smt2_output>
     --aig-noheader
         the AIGER witness file does not include the status and
         properties lines.
+
+    --btorwit <prefix>
+    --btorwit <btor_filename>:<witness_filename>
+        read a BTOR file and a BTOR witness for that BTOR file.
 
     --noinfo
         only run the core proof, do not collect and print any
@@ -152,7 +158,7 @@ yosys-smtbmc [options] <yosys_smt2_output>
 
 try:
     opts, args = getopt.getopt(sys.argv[1:], so.shortopts + "t:igcm:", so.longopts +
-            ["final-only", "assume-skipped=", "smtc=", "cex=", "aig=", "aig-noheader", "presat",
+            ["final-only", "assume-skipped=", "smtc=", "cex=", "aig=", "aig-noheader", "btorwit=", "presat",
              "dump-vcd=", "dump-vlogtb=", "vlogtb-top=", "dump-smtc=", "dump-all", "noinfo", "append=",
              "smtc-init", "smtc-top=", "noinit"])
 except:
@@ -189,6 +195,12 @@ for o, a in opts:
             aiwfile = a + ".aiw"
     elif o == "--aig-noheader":
         aigheader = False
+    elif o == "--btorwit":
+        if ":" in a:
+            btorfile, witfile = a.split(":")
+        else:
+            btorfile = a + ".btor"
+            witfile = a + ".wit"
     elif o == "--dump-vcd":
         vcdfile = a
     elif o == "--dump-vlogtb":
@@ -574,6 +586,12 @@ if aimfile is not None:
                 skip_steps = max(skip_steps, step)
                 num_steps = max(num_steps, step+1)
             step += 1
+
+if btorfile is not None:
+    print("The --btorwit feature is not implemented yet")
+    smt.write("(exit)")
+    smt.wait()
+    sys.exit(1)
 
 def write_vcd_trace(steps_start, steps_stop, index):
     filename = vcdfile.replace("%", index)
