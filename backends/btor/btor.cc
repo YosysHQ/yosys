@@ -506,6 +506,18 @@ struct BtorWorker
 				}
 			}
 
+			Const initval;
+			for (int i = 0; i < GetSize(sig_q); i++)
+				if (initbits.count(sig_q[i]))
+					initval.bits.push_back(initbits.at(sig_q[i]) ? State::S1 : State::S0);
+				else
+					initval.bits.push_back(State::Sx);
+
+			int nid_init_val = -1;
+
+			if (!initval.is_fully_undef())
+				nid_init_val = get_sig_nid(initval);
+
 			int sid = get_bv_sid(GetSize(sig_q));
 			int nid = next_nid++;
 
@@ -514,15 +526,7 @@ struct BtorWorker
 			else
 				btorf("%d state %d %s\n", nid, sid, log_id(symbol));
 
-			Const initval;
-			for (int i = 0; i < GetSize(sig_q); i++)
-				if (initbits.count(sig_q[i]))
-					initval.bits.push_back(initbits.at(sig_q[i]) ? State::S1 : State::S0);
-				else
-					initval.bits.push_back(State::Sx);
-
-			if (!initval.is_fully_undef()) {
-				int nid_init_val = get_sig_nid(initval);
+			if (nid_init_val >= 0) {
 				int nid_init = next_nid++;
 				if (verbose)
 					btorf("; initval = %s\n", log_signal(initval));
