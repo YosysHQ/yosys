@@ -81,6 +81,9 @@ struct Ice40FfssrPass : public Pass {
 
 			for (auto cell : ff_cells)
 			{
+				if (cell->get_bool_attribute("\\dont_touch"))
+					continue;
+
 				SigSpec sig_d = cell->getPort("\\D");
 
 				if (GetSize(sig_d) < 1)
