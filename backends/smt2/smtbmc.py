@@ -32,8 +32,7 @@ cexfile = None
 aimfile = None
 aiwfile = None
 aigheader = True
-btorfile = None
-witfile = None
+btorwitfile = None
 vlogtbfile = None
 vlogtbtop = None
 inconstr = list()
@@ -94,9 +93,8 @@ yosys-smtbmc [options] <yosys_smt2_output>
         the AIGER witness file does not include the status and
         properties lines.
 
-    --btorwit <prefix>
-    --btorwit <btor_filename>:<witness_filename>
-        read a BTOR file and a BTOR witness for that BTOR file.
+    --btorwit <btor_witness_filename>
+        read a BTOR witness.
 
     --noinfo
         only run the core proof, do not collect and print any
@@ -196,11 +194,7 @@ for o, a in opts:
     elif o == "--aig-noheader":
         aigheader = False
     elif o == "--btorwit":
-        if ":" in a:
-            btorfile, witfile = a.split(":")
-        else:
-            btorfile = a + ".btor"
-            witfile = a + ".wit"
+        btorwitfile = a
     elif o == "--dump-vcd":
         vcdfile = a
     elif o == "--dump-vlogtb":
@@ -587,11 +581,102 @@ if aimfile is not None:
                 num_steps = max(num_steps, step+1)
             step += 1
 
-if btorfile is not None:
-    print("The --btorwit feature is not implemented yet")
-    smt.write("(exit)")
-    smt.wait()
-    sys.exit(1)
+if btorwitfile is not None:
+    with open(btorwitfile, "r") as f:
+        step = None
+        suffix = None
+        altsuffix = None
+        header_okay = False
+
+        for line in f:
+            line = line.strip()
+
+            if line == "sat":
+                header_okay = True
+                continue
+
+            if not header_okay:
+                continue
+
+            if line == "" or line[0] == "b" or line[0] == "j":
+                continue
+
+            if line == ".":
+                break
+
+            if line[0] == '#' or line[0] == '@':
+                step = int(line[1:])
+                suffix = line
+                altsuffix = suffix
+                if suffix[0] == "@":
+                    altsuffix = "#" + suffix[1:]
+                else:
+                    altsuffix = "@" + suffix[1:]
+                continue
+
+            line = line.split()
+
+            if len(line) == 0:
+                continue
+
+            if line[-1].endswith(suffix):
+                line[-1] = line[-1][0:len(line[-1]) - len(suffix)]
+
+            if line[-1].endswith(altsuffix):
+                line[-1] = line[-1][0:len(line[-1]) - len(altsuffix)]
+
+            if line[-1][0] == "$":
+                continue
+
+            # BV assignments
+            if len(line) == 3 and line[1][0] != "[":
+                value = line[1]
+                name = line[2]
+
+                path = smt.get_path(topmod, name)
+
+                if not smt.net_exists(topmod, path):
+                    continue
+
+                width = smt.net_width(topmod, path)
+
+                if width == 1:
+                    assert value in ["0", "1"]
+                    value = "true" if value == "1" else "false"
+                else:
+                    value = "#b" + value
+
+                smtexpr = "(= [%s] %s)" % (name, value)
+                constr_assumes[step].append((btorwitfile, smtexpr))
+
+            # Array assignments
+            if len(line) == 4 and line[1][0] == "[":
+                index = line[1]
+                value = line[2]
+                name = line[3]
+
+                path = smt.get_path(topmod, name)
+
+                if not smt.mem_exists(topmod, path):
+                    continue
+
+                meminfo = smt.mem_info(topmod, path)
+
+                if meminfo[1] == 1:
+                    assert value in ["0", "1"]
+                    value = "true" if value == "1" else "false"
+                else:
+                    value = "#b" + value
+
+                assert index[0] == "["
+                assert index[-1] == "]"
+                index = "#b" + index[1:-1]
+
+                smtexpr = "(= (select [%s] %s) %s)" % (name, index, value)
+                constr_assumes[step].append((btorwitfile, smtexpr))
+
+        skip_steps = step
+        num_steps = step+1
 
 def write_vcd_trace(steps_start, steps_stop, index):
     filename = vcdfile.replace("%", index)
