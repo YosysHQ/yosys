@@ -20,6 +20,7 @@ ENABLE_PROTOBUF := 0
 # python wrappers
 ENABLE_PYTHON := 1
 PYTHON_VERSION := 3.5
+PYTHON_DESTDIR := /usr/local/lib/python$(PYTHON_VERSION)/dist-packages
 
 # other configuration flags
 ENABLE_GPROF := 0
@@ -602,6 +603,11 @@ ifeq ($(ENABLE_LIBYOSYS),1)
 	$(INSTALL_SUDO) cp libyosys.so $(DESTDIR)$(LIBDIR)
 	$(INSTALL_SUDO) $(STRIP) -S $(DESTDIR)$(LIBDIR)/libyosys.so
 	$(INSTALL_SUDO) ldconfig
+ifeq ($(ENABLE_PYTHON),1)
+	$(INSTALL_SUDO) mkdir -p $(PYTHON_DESTDIR)/libyosys
+	$(INSTALL_SUDO) cp libyosys.so $(PYTHON_DESTDIR)/libyosys
+	$(INSTALL_SUDO) cp __init__.py $(PYTHON_DESTDIR)/libyosys
+endif
 endif
 
 uninstall:
@@ -609,6 +615,11 @@ uninstall:
 	$(INSTALL_SUDO) rm -rvf $(DESTDIR)$(DATDIR)
 ifeq ($(ENABLE_LIBYOSYS),1)
 	$(INSTALL_SUDO) rm -vf $(DESTDIR)$(LIBDIR)/libyosys.so
+ifeq ($(ENABLE_PYTHON),1)
+	$(INSTALL_SUDO) rm -vf $(PYTHON_DESTDIR)/libyosys/libyosys.so
+	$(INSTALL_SUDO) rm -vf $(PYTHON_DESTDIR)/libyosys/__init__.py
+	$(INSTALL_SUDO) rmdir $(PYTHON_DESTDIR)/libyosys
+endif
 endif
 
 update-manual: $(TARGETS) $(EXTRA_TARGETS)
