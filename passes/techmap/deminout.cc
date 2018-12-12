@@ -83,9 +83,9 @@ struct DeminoutPass : public Pass {
 						for (auto bit : sigmap(conn.second))
 							bits_used.insert(bit);
 
-					if (conn.first == "\\Y" && cell->type.in("$mux", "$pmux", "$_MUX_", "$_TBUF_"))
+					if (conn.first == "\\Y" && cell->type.in("$mux", "$pmux", "$_MUX_", "$_TBUF_", "$tribuf"))
 					{
-						bool tribuf = (cell->type == "$_TBUF_");
+						bool tribuf = (cell->type == "$_TBUF_" || cell->type == "$tribuf");
 
 						if (!tribuf) {
 							for (auto &c : cell->connections()) {
