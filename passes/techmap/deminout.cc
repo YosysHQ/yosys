@@ -113,7 +113,8 @@ struct DeminoutPass : public Pass {
 						{
 							if (bits_numports[bit] > 1 || bits_inout.count(bit))
 								new_input = true, new_output = true;
-
+							if (bit == State::S0 || bit == State::S1)
+								new_output = true;
 							if (bits_written.count(bit)) {
 								new_output = true;
 								if (bits_tribuf.count(bit))
