@@ -2,6 +2,274 @@
 // FIXME: Create sim models
 
 (* blackbox *)
+module EG_LOGIC_BUF(
+  output o,
+  input i
+);
+endmodule
+
+(* blackbox *)
+module EG_LOGIC_BUFG(
+  output o,
+  input i
+);
+endmodule
+
+(* blackbox *)
+module EG_LOGIC_BUFIO(
+  input clki,
+  input rst,
+  input coe,
+  output clko,
+  output clkdiv1,
+  output clkdivx
+);
+  parameter GSR = "DISABLE";
+  parameter DIV = 2;
+  parameter STOPCLK = "DISABLE";
+endmodule
+
+(* blackbox *)
+module EG_LOGIC_BUFGMUX(
+  output o,
+  input i0,
+  input i1,
+  input s
+);
+  parameter INIT_OUT = "0";
+  parameter PRESELECT_I0 = "TRUE";
+  parameter PRESELECT_I1 = "FALSE";
+endmodule
+
+(* blackbox *)
+module EG_LOGIC_MBOOT(
+  input rebootn,
+  input [7:0] dynamic_addr  
+);
+  parameter ADDR_SOURCE_SEL = "STATIC";
+  parameter STATIC_ADDR = 8'b00000000;
+endmodule
+
+(* blackbox *)
+module EG_LOGIC_DNA(
+  output dout,
+  input  clk,
+  input  din,
+  input  shift_en
+);
+endmodule
+
+(* blackbox *)
+module EG_LOGIC_GCTRL(
+  output done,
+  output highz
+);
+endmodule
+
+(* blackbox *)
+module EG_LOGIC_GSRN(
+  input gsrn,
+  input sync_clk
+);
+  parameter GSRN_SYNC_SEL = "DISABLE";
+  parameter USR_GSRN_EN = "DISABLE";
+endmodule
+
+(* blackbox *)
+module EG_LOGIC_CCLK(
+  output cclk,
+  input  en
+);
+  parameter FREQ = "4.5";
+endmodule
+
+(* blackbox *)
+module EG_LOGIC_IDELAY(
+  output o,
+  input i
+);
+  parameter INDEL = 0;
+endmodule
+
+(* blackbox *)
+module EG_LOGIC_IDDR(
+  output q1,
+  output q0,
+  input clk,
+  input d,
+  input rst
+);
+  parameter ASYNCRST = "ENABLE";
+  parameter PIPEMODE = "PIPED";
+endmodule
+
+(* blackbox *)
+module EG_LOGIC_ODDR(
+  output q,
+  input clk,
+  input d1,
+  input d0,
+  input rst
+);
+  parameter ASYNCRST = "ENABLE";
+endmodule
+
+(* blackbox *)
+module EG_LOGIC_IDDRx2(
+  output q3,
+  output q2,
+  output q1,
+  output q0,
+  input pclk,
+  input sclk,
+  input d,
+  input rst
+);
+  parameter ASYNCRST = "ENABLE";
+endmodule
+
+(* blackbox *)
+module EG_LOGIC_ODELAY(
+  output o,
+  input i
+);
+  parameter OUTDEL = 0;
+endmodule
+
+(* blackbox *)
+module EG_LOGIC_ODDRx2(
+  output q,
+  input pclk,
+  input sclk,
+  input d3,
+  input d2,
+  input d1,
+  input d0,
+  input rst
+);
+  parameter ASYNCRST = "ENABLE";
+endmodule
+
+(* blackbox *)
+module EG_LOGIC_ODDRx2l(
+  output q,
+  input sclk,
+  input d3,
+  input d2,
+  input d1,
+  input d0,
+  input rst
+);
+  parameter ASYNCRST = "ENABLE";
+endmodule
+
+(* blackbox *)
+module EG_LOGIC_FIFO(
+  input rst,
+  input [DATA_WIDTH_W-1:0] di,
+  output [DATA_WIDTH_R-1:0] do,
+  input clkw,
+  input we,
+  input clkr,
+  input re,
+  input ore,
+  input [2:0] csw,
+  input [2:0] csr,
+  output empty_flag,
+  output aempty_flag,
+  output full_flag,
+  output afull_flag
+);
+  parameter DATA_WIDTH_W = 9;
+  parameter DATA_WIDTH_R = DATA_WIDTH_W;
+  parameter DATA_DEPTH_W = 1024;
+  parameter DATA_DEPTH_R = DATA_WIDTH_W * DATA_DEPTH_W / DATA_WIDTH_R;
+  parameter MODE = "FIFO8K";
+  parameter REGMODE_W = "NOREG";
+  parameter REGMODE_R = "NOREG";
+  parameter E = 0;
+  parameter AE = 6;
+  parameter AF = DATA_DEPTH_W - 6;
+  parameter F = DATA_DEPTH_W;
+  parameter GSR = "DISABLE";
+  parameter RESETMODE = "ASYNC";
+  parameter ASYNC_RESET_RELEASE = "SYNC";
+  parameter ENDIAN = "LITTLE";
+endmodule
+
+(* blackbox *)
+module EG_LOGIC_DRAM(
+  input [DATA_WIDTH_W-1:0] di,
+  input [ADDR_WIDTH_W-1:0] waddr,
+  input wclk,
+  input we,
+  output [DATA_WIDTH_R-1:0] do,
+  input [ADDR_WIDTH_R-1:0] raddr
+);
+  parameter DATA_WIDTH_W = 9;
+  parameter ADDR_WIDTH_W = 10;
+  parameter DATA_DEPTH_W = 2 ** ADDR_WIDTH_W;
+  parameter DATA_WIDTH_R = 9;
+  parameter ADDR_WIDTH_R = 10;
+  parameter DATA_DEPTH_R = 2 ** ADDR_WIDTH_R;
+  parameter INIT_FILE = "NONE";
+endmodule
+
+(* blackbox *)
+module EG_LOGIC_DRAM16X4(
+  input [3:0] di,
+  input [3:0] waddr,
+  input wclk,
+  input we,
+  input [3:0]raddr,
+  output [3:0]do
+);
+  parameter INIT_D0=16'h0000;
+  parameter INIT_D1=16'h0000;
+  parameter INIT_D2=16'h0000;
+  parameter INIT_D3=16'h0000;
+endmodule
+
+(* blackbox *)
+module EG_LOGIC_MULT(
+  output [OUTPUT_WIDTH-1:0] p,
+  input [INPUT_WIDTH_A-1:0] a,
+  input [INPUT_WIDTH_B-1:0] b,
+  input cea,
+  input ceb,
+  input cepd,
+  input clk,
+  input rstan,
+  input rstbn,
+  input rstpdn
+); 
+  parameter INPUT_WIDTH_A = 18;
+  parameter INPUT_WIDTH_B = 18;
+  parameter OUTPUT_WIDTH = 36;
+  parameter INPUTFORMAT = "SIGNED";
+  parameter INPUTREGA = "ENABLE";
+  parameter INPUTREGB = "ENABLE";
+  parameter OUTPUTREG = "ENABLE";
+  parameter SRMODE = "ASYNC";
+  parameter IMPLEMENT = "AUTO";
+endmodule
+
+(* blackbox *)
+module EG_LOGIC_SEQ_DIV(
+  input clk,
+  input rst,
+  input start,
+  input [NUMER_WIDTH-1:0] numer,
+  input [DENOM_WIDTH-1:0] denom,
+  output [NUMER_WIDTH-1:0] quotient,
+  output [DENOM_WIDTH-1:0] remain,
+  output done
+);
+	parameter NUMER_WIDTH = 16;
+  parameter DENOM_WIDTH = 16;
+endmodule
+
+(* blackbox *)
 module EG_PHY_BRAM(
   output [8:0] doa,
   output [8:0] dob,
@@ -694,6 +962,50 @@ module EG_PHY_PLL(
   parameter DERIVE_PLL_CLOCKS = "DISABLE";
   parameter GEN_BASIC_CLOCK = "DISABLE";
 endmodule
+
+(* blackbox *)
+module EG_LOGIC_BRAM(
+  output [DATA_WIDTH_A-1:0] doa,
+  output [DATA_WIDTH_B-1:0] dob,
+  input [DATA_WIDTH_A-1:0] dia,
+  input [DATA_WIDTH_B-1:0] dib,
+  input cea,
+  input ocea,
+  input clka,
+  input wea,
+  input rsta,
+  input ceb,
+  input oceb,
+  input clkb,
+  input web,
+  input rstb,
+  input [BYTE_A - 1 : 0] bea,
+  input [BYTE_B - 1 : 0] beb,
+  input [ADDR_WIDTH_A-1:0] addra,
+  input [ADDR_WIDTH_B-1:0] addrb
+);
+  parameter DATA_WIDTH_A = 9;
+  parameter DATA_WIDTH_B = DATA_WIDTH_A;
+  parameter ADDR_WIDTH_A = 10;
+  parameter ADDR_WIDTH_B = ADDR_WIDTH_A;
+  parameter DATA_DEPTH_A = 2 ** ADDR_WIDTH_A;
+  parameter DATA_DEPTH_B = 2 ** ADDR_WIDTH_B;
+  parameter BYTE_ENABLE = 0;
+  parameter BYTE_A = BYTE_ENABLE == 0 ? 1 : DATA_WIDTH_A / BYTE_ENABLE;
+  parameter BYTE_B = BYTE_ENABLE == 0 ? 1 : DATA_WIDTH_B / BYTE_ENABLE;  
+  parameter MODE = "DP";
+  parameter REGMODE_A = "NOREG";
+  parameter REGMODE_B = "NOREG";
+  parameter WRITEMODE_A = "NORMAL";
+  parameter WRITEMODE_B = "NORMAL";
+  parameter RESETMODE = "SYNC";
+  parameter DEBUGGABLE = "NO";
+  parameter PACKABLE = "NO";
+  parameter FORCE_KEEP = "OFF";
+  parameter INIT_FILE = "NONE";
+  parameter FILL_ALL = "NONE";
+  parameter IMPLEMENT = "9K";
+endmodule     
 
 (* blackbox *)
 module EG_PHY_ADC(
