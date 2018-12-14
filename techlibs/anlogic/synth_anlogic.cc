@@ -150,6 +150,12 @@ struct SynthAnlogicPass : public ScriptPass
 			run("synth -run coarse");
 		}
 
+		if (check_label("dram"))
+		{
+			run("memory_bram -rules +/anlogic/drams.txt");
+			run("techmap -map +/anlogic/drams_map.v");
+		}
+
 		if (check_label("fine"))
 		{
 			run("opt -fast -mux_undef -undriven -fine");
