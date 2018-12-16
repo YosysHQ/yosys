@@ -896,6 +896,29 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 	select_filter_active_mod(design, work_stack.back());
 }
 
+static std::string describe_selection_for_assert(RTLIL::Design *design, RTLIL::Selection *sel)
+{
+	std::string desc = "Selection contains:\n";
+	for (auto mod_it : design->modules_)
+	{
+		if (sel->selected_module(mod_it.first)) {
+			for (auto &it : mod_it.second->wires_)
+				if (sel->selected_member(mod_it.first, it.first))
+					desc += stringf("%s/%s\n", id2cstr(mod_it.first), id2cstr(it.first));
+			for (auto &it : mod_it.second->memories)
+				if (sel->selected_member(mod_it.first, it.first))
+					desc += stringf("%s/%s\n", id2cstr(mod_it.first), id2cstr(it.first));
+			for (auto &it : mod_it.second->cells_)
+				if (sel->selected_member(mod_it.first, it.first))
+					desc += stringf("%s/%s\n", id2cstr(mod_it.first), id2cstr(it.first));
+			for (auto &it : mod_it.second->processes)
+				if (sel->selected_member(mod_it.first, it.first))
+					desc += stringf("%s/%s\n", id2cstr(mod_it.first), id2cstr(it.first));
+		}
+	}
+	return desc;
+}
+
 PRIVATE_NAMESPACE_END
 YOSYS_NAMESPACE_BEGIN
 
@@ -1394,7 +1417,12 @@ struct SelectPass : public Pass {
 				log_cmd_error("No selection to check.\n");
 			work_stack.back().optimize(design);
 			if (!work_stack.back().empty())
-				log_error("Assertion failed: selection is not empty:%s\n", sel_str.c_str());
+			{
+				RTLIL::Selection *sel = &work_stack.back();
+				sel->optimize(design);
+				std::string desc = describe_selection_for_assert(design, sel);
+				log_error("Assertion failed: selection is not empty:%s\n%s", sel_str.c_str(), desc.c_str());
+			}
 			return;
 		}
 
@@ -1404,7 +1432,12 @@ struct SelectPass : public Pass {
 				log_cmd_error("No selection to check.\n");
 			work_stack.back().optimize(design);
 			if (work_stack.back().empty())
-				log_error("Assertion failed: selection is empty:%s\n", sel_str.c_str());
+			{
+				RTLIL::Selection *sel = &work_stack.back();
+				sel->optimize(design);
+				std::string desc = describe_selection_for_assert(design, sel);
+				log_error("Assertion failed: selection is empty:%s\n%s", sel_str.c_str(), desc.c_str());
+			}
 			return;
 		}
 
@@ -1431,14 +1464,23 @@ struct SelectPass : public Pass {
 							total_count++;
 				}
 			if (assert_count >= 0 && assert_count != total_count)
-				log_error("Assertion failed: selection contains %d elements instead of the asserted %d:%s\n",
-						total_count, assert_count, sel_str.c_str());
+			{
+				std::string desc = describe_selection_for_assert(design, sel);
+				log_error("Assertion failed: selection contains %d elements instead of the asserted %d:%s\n%s",
+						total_count, assert_count, sel_str.c_str(), desc.c_str());
+			}
 			if (assert_max >= 0 && assert_max < total_count)
-				log_error("Assertion failed: selection contains %d elements, more than the maximum number %d:%s\n",
-						total_count, assert_max, sel_str.c_str());
+			{
+				std::string desc = describe_selection_for_assert(design, sel);
+				log_error("Assertion failed: selection contains %d elements, more than the maximum number %d:%s\n%s",
+						total_count, assert_max, sel_str.c_str(), desc.c_str());
+			}
 			if (assert_min >= 0 && assert_min > total_count)
-				log_error("Assertion failed: selection contains %d elements, less than the minimum number %d:%s\n",
-						total_count, assert_min, sel_str.c_str());
+			{
+				std::string desc = describe_selection_for_assert(design, sel);
+				log_error("Assertion failed: selection contains %d elements, less than the minimum number %d:%s\n%s",
+						total_count, assert_min, sel_str.c_str(), desc.c_str());
+			}
 			return;
 		}
 

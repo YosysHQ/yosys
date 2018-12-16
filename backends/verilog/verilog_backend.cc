@@ -1421,7 +1421,7 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 		log_warning("Module %s contains unmapped RTLIL proccesses. RTLIL processes\n"
 				"can't always be mapped directly to Verilog always blocks. Unintended\n"
 				"changes in simulation behavior are possible! Use \"proc\" to convert\n"
-				"processes to logic networks and registers.", log_id(module));
+				"processes to logic networks and registers.\n", log_id(module));
 
 	f << stringf("\n");
 	for (auto it = module->processes.begin(); it != module->processes.end(); ++it)
