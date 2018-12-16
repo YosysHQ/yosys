@@ -35,6 +35,7 @@
 
 %{
 #include <list>
+#include <stack>
 #include <string.h>
 #include "frontends/verilog/verilog_frontend.h"
 #include "kernel/log.h"
@@ -47,7 +48,8 @@ YOSYS_NAMESPACE_BEGIN
 namespace VERILOG_FRONTEND {
 	int port_counter;
 	std::map<std::string, int> port_stubs;
-	std::map<std::string, AstNode*> attr_list, default_attr_list;
+	std::map<std::string, AstNode*> *attr_list, default_attr_list;
+	std::stack<std::map<std::string, AstNode*> *> attr_list_stack;
 	std::map<std::string, AstNode*> *albuf;
 	std::vector<AstNode*> ast_stack;
 	struct AstNode *astbuf1, *astbuf2, *astbuf3;
@@ -175,15 +177,18 @@ design:
 
 attr:
 	{
-		for (auto &it : attr_list)
-			delete it.second;
-		attr_list.clear();
+		if (attr_list != nullptr)
+			attr_list_stack.push(attr_list);
+		attr_list = new std::map<std::string, AstNode*>;
 		for (auto &it : default_attr_list)
-			attr_list[it.first] = it.second->clone();
+			(*attr_list)[it.first] = it.second->clone();
 	} attr_opt {
-		std::map<std::string, AstNode*> *al = new std::map<std::string, AstNode*>;
-		al->swap(attr_list);
-		$$ = al;
+		$$ = attr_list;
+		if (!attr_list_stack.empty()) {
+			attr_list = attr_list_stack.top();
+			attr_list_stack.pop();
+		} else
+			attr_list = nullptr;
 	};
 
 attr_opt:
@@ -192,15 +197,20 @@ attr_opt:
 
 defattr:
 	DEFATTR_BEGIN {
+		if (attr_list != nullptr)
+			attr_list_stack.push(attr_list);
+		attr_list = new std::map<std::string, AstNode*>;
 		for (auto &it : default_attr_list)
 			delete it.second;
 		default_attr_list.clear();
-		for (auto &it : attr_list)
-			delete it.second;
-		attr_list.clear();
 	} opt_attr_list {
-		default_attr_list = attr_list;
-		attr_list.clear();
+		attr_list->swap(default_attr_list);
+		delete attr_list;
+		if (!attr_list_stack.empty()) {
+			attr_list = attr_list_stack.top();
+			attr_list_stack.pop();
+		} else
+			attr_list = nullptr;
 	} DEFATTR_END;
 
 opt_attr_list:
@@ -212,15 +222,15 @@ attr_list:
 
 attr_assign:
 	hierarchical_id {
-		if (attr_list.count(*$1) != 0)
-			delete attr_list[*$1];
-		attr_list[*$1] = AstNode::mkconst_int(1, false);
+		if (attr_list->count(*$1) != 0)
+			delete (*attr_list)[*$1];
+		(*attr_list)[*$1] = AstNode::mkconst_int(1, false);
 		delete $1;
 	} |
 	hierarchical_id '=' expr {
-		if (attr_list.count(*$1) != 0)
-			delete attr_list[*$1];
-		attr_list[*$1] = $3;
+		if (attr_list->count(*$1) != 0)
+			delete (*attr_list)[*$1];
+		(*attr_list)[*$1] = $3;
 		delete $1;
 	};
 
