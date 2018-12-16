@@ -235,7 +235,7 @@ struct SynthIce40Pass : public ScriptPass
 			run("techmap -map +/ice40/brams_map.v");
 		}
 
-		if (check_label("fine"))
+		if (check_label("map"))
 		{
 			run("opt -fast -mux_undef -undriven -fine");
 			run("memory_map");
