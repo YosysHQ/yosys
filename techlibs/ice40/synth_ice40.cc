@@ -240,6 +240,10 @@ struct SynthIce40Pass : public ScriptPass
 			run("opt -fast -mux_undef -undriven -fine");
 			run("memory_map");
 			run("opt -undriven -fine");
+		}
+
+		if (check_label("map_gates"))
+		{
 			if (nocarry)
 				run("techmap");
 			else
