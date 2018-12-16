@@ -327,16 +327,22 @@ void extract_cell(RTLIL::Cell *cell, bool keepff)
 	}
 }
 
-std::string remap_name(RTLIL::IdString abc_name)
+std::string remap_name(RTLIL::IdString abc_name, RTLIL::Wire **orig_wire = nullptr)
 {
 	std::string abc_sname = abc_name.substr(1);
 	if (abc_sname.substr(0, 5) == "ys__n") {
 		int sid = std::stoi(abc_sname.substr(5));
 		bool inv = abc_sname.back() == 'v';
 		for (auto sig : signal_list) {
-			if (sig.id == sid) {
+			if (sig.id == sid && sig.bit.wire != nullptr) {
 				std::stringstream sstr;
-				sstr << "$abc$" << map_autoidx << "$" << log_signal(sig.bit) << (inv ? "_inv" : "");
+				sstr << "$abc$" << map_autoidx << "$" << sig.bit.wire->name.substr(1);
+				if (sig.bit.wire->width != 1)
+					sstr << "[" << sig.bit.offset << "]";
+				if (inv)
+					sstr << "_inv";
+				if (orig_wire != nullptr)
+					*orig_wire = sig.bit.wire;
 				return sstr.str();
 			}
 		}
@@ -1000,7 +1006,10 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 			log_error("ABC output file does not contain a module `netlist'.\n");
 		for (auto &it : mapped_mod->wires_) {
 			RTLIL::Wire *w = it.second;
-			RTLIL::Wire *wire = module->addWire(remap_name(w->name));
+			RTLIL::Wire *orig_wire = nullptr;
+			RTLIL::Wire *wire = module->addWire(remap_name(w->name, &orig_wire));
+			if (orig_wire != nullptr && orig_wire->attributes.count("\\src"))
+				wire->attributes["\\src"] = orig_wire->attributes["\\src"];
 			if (markgroups) wire->attributes["\\abcgroup"] = map_autoidx;
 			design->select(module, wire);
 		}
