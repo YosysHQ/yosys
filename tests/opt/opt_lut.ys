@@ -1,15 +1,4 @@
 read_verilog opt_lut.v
 synth_ice40
 ice40_unlut
-design -save preopt
-
-opt_lut -dlogic SB_CARRY:I0=1:I1=2:CI=3
-design -stash postopt
-
-design -copy-from preopt -as preopt top
-design -copy-from postopt -as postopt top
-equiv_make preopt postopt equiv
-techmap -map ice40_carry.v
-prep -flatten -top equiv
-equiv_induct
-equiv_status -assert
+equiv_opt -map +/ice40/cells_sim.v -assert opt_lut -dlogic SB_CARRY:I0=1:I1=2:CI=3

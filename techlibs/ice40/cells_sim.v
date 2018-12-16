@@ -947,6 +947,7 @@ module SB_SPRAM256KA (
 	output reg [15:0] DATAOUT
 );
 `ifndef BLACKBOX
+`ifndef EQUIV
 	reg [15:0] mem [0:16383];
 	wire off = SLEEP || !POWEROFF;
 	integer i;
@@ -972,6 +973,7 @@ module SB_SPRAM256KA (
 			DATAOUT <= 'bx;
 		end
 	end
+`endif
 `endif
 endmodule
 
