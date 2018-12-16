@@ -1352,6 +1352,8 @@ void dump_process(std::ostream &f, std::string indent, RTLIL::Process *proc, boo
 
 		if (sync->type == RTLIL::STa) {
 			f << stringf("%s" "always @* begin\n", indent.c_str());
+		} else if (sync->type == RTLIL::STi) {
+			f << stringf("%s" "initial begin\n", indent.c_str());
 		} else {
 			f << stringf("%s" "always @(", indent.c_str());
 			if (sync->type == RTLIL::STp || sync->type == RTLIL::ST1)
