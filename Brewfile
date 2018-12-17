@@ -1,3 +1,4 @@
+brew "autoconf"
 brew "bison"
 brew "flex"
 brew "gawk"

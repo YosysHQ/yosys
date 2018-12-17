@@ -1,0 +1,63 @@
+task:
+  name: build-test-trusty-gcc
+  container:
+    cpu: 4
+    memory: 6
+    dockerfile: .cirrus/Dockerfile.ubuntu14.04
+  env:
+    CONFIG: gcc
+  build_script: .cirrus/step-build.sh
+  test_script: .cirrus/step-test.sh
+
+task:
+  name: build-test-trusty-clang
+  container:
+    cpu: 4
+    memory: 6
+    dockerfile: .cirrus/Dockerfile.ubuntu14.04
+  env:
+    CONFIG: clang
+  build_script: .cirrus/step-build.sh
+  test_script: .cirrus/step-test.sh
+
+task:
+  name: build-test-bionic-gcc
+  container:
+    cpu: 4
+    memory: 6
+    dockerfile: .cirrus/Dockerfile.ubuntu18.04
+  env:
+    CONFIG: gcc
+  build_script: .cirrus/step-build.sh
+  test_script: .cirrus/step-test.sh
+
+task:
+  name: build-test-bionic-clang
+  container:
+    cpu: 4
+    memory: 6
+    dockerfile: .cirrus/Dockerfile.ubuntu18.04
+  env:
+    CONFIG: clang
+  build_script: .cirrus/step-build.sh
+  test_script: .cirrus/step-test.sh
+
+task:
+  name: build-test-high-sierra-clang
+  osx_instance:
+    image: high-sierra-xcode-9.4.1
+  env:
+    CONFIG: clang
+  prepare_script: .cirrus/step-macos-prepare.sh
+  build_script: .cirrus/step-build.sh
+  test_script: .cirrus/step-test.sh
+
+task:
+  name: build-test-mojave-clang
+  osx_instance:
+    image: mojave-xcode-10.1
+  env:
+    CONFIG: clang
+  prepare_script: .cirrus/step-macos-prepare.sh
+  build_script: .cirrus/step-build.sh
+  test_script: .cirrus/step-test.sh
