@@ -1810,6 +1810,11 @@ skip_dynamic_range_lvalue_expansion:;
 
 				log_assert(block != nullptr);
 
+				if (num_steps == 0) {
+					newNode = children[0]->clone();
+					goto apply_newNode;
+				}
+
 				int myidx = autoidx++;
 				AstNode *outreg = nullptr;
 
