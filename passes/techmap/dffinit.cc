@@ -48,13 +48,18 @@ struct DffinitPass : public Pass {
 		log("        initial value of 1 or 0. (multi-bit values are not supported in this\n");
 		log("        mode.)\n");
 		log("\n");
+		log("    -noreinit\n");
+		log("        fail if the FF cell has already a defined initial value set in other\n");
+		log("        passes and the initial value of the net it drives is not equal to\n");
+		log("        the already defined initial value.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing DFFINIT pass (set INIT param on FF cells).\n");
 
 		dict<IdString, dict<IdString, IdString>> ff_types;
-		bool highlow_mode = false;
+		bool highlow_mode = false, noreinit = false;
 		std::string high_string, low_string;
 
 		size_t argidx;
@@ -76,6 +81,10 @@ struct DffinitPass : public Pass {
 				IdString output_port = RTLIL::escape_id(args[++argidx]);
 				IdString init_param = RTLIL::escape_id(args[++argidx]);
 				ff_types[cell_name][output_port] = init_param;
+				continue;
+			}
+			if (args[argidx] == "-noreinit") {
+				noreinit = true;
 				continue;
 			}
 			break;
@@ -126,6 +135,10 @@ struct DffinitPass : public Pass {
 							continue;
 						while (GetSize(value.bits) <= i)
 							value.bits.push_back(State::S0);
+						if (noreinit && value.bits[i] != State::Sx && value.bits[i] != init_bits.at(sig[i]))
+							log_error("Trying to assign a different init value for %s.%s.%s which technically "
+									"have a conflicted init value.\n",
+									log_id(module), log_id(cell), log_id(it.second));
 						value.bits[i] = init_bits.at(sig[i]);
 						cleanup_bits.insert(sig[i]);
 					}
