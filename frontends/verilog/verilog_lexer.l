@@ -135,6 +135,9 @@ YOSYS_NAMESPACE_END
 		frontend_verilog_yyerror("Unsupported default nettype: %s", p);
 }
 
+"`protect"[^\n]* /* ignore `protect*/
+"`endprotect"[^\n]* /* ignore `endprotect*/
+
 "`"[a-zA-Z_$][a-zA-Z0-9_$]* {
 	frontend_verilog_yyerror("Unimplemented compiler directive or undefined macro %s.", yytext);
 }
@@ -150,6 +153,9 @@ YOSYS_NAMESPACE_END
 "specparam"    { return TOK_SPECPARAM; }
 "package"      { SV_KEYWORD(TOK_PACKAGE); }
 "endpackage"   { SV_KEYWORD(TOK_ENDPACKAGE); }
+"interface"    { SV_KEYWORD(TOK_INTERFACE); }
+"endinterface" { SV_KEYWORD(TOK_ENDINTERFACE); }
+"modport"      { SV_KEYWORD(TOK_MODPORT); }
 "parameter"    { return TOK_PARAMETER; }
 "localparam"   { return TOK_LOCALPARAM; }
 "defparam"     { return TOK_DEFPARAM; }
@@ -293,6 +299,11 @@ supply1 { return TOK_SUPPLY1; }
 [a-zA-Z_$][a-zA-Z0-9_$]* {
 	frontend_verilog_yylval.string = new std::string(std::string("\\") + yytext);
 	return TOK_ID;
+}
+
+[a-zA-Z_$][a-zA-Z0-9_$\.]* {
+	frontend_verilog_yylval.string = new std::string(std::string("\\") + yytext);
+    return TOK_ID;
 }
 
 "/*"[ \t]*(synopsys|synthesis)[ \t]*translate_off[ \t]*"*/" {

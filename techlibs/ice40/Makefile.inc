@@ -3,6 +3,7 @@ OBJS += techlibs/ice40/synth_ice40.o
 OBJS += techlibs/ice40/ice40_ffssr.o
 OBJS += techlibs/ice40/ice40_ffinit.o
 OBJS += techlibs/ice40/ice40_opt.o
+OBJS += techlibs/ice40/ice40_unlut.o
 
 GENFILES += techlibs/ice40/brams_init1.vh
 GENFILES += techlibs/ice40/brams_init2.vh

@@ -388,7 +388,7 @@ void dump_wire(std::ostream &f, std::string indent, RTLIL::Wire *wire)
 void dump_memory(std::ostream &f, std::string indent, RTLIL::Memory *memory)
 {
 	dump_attributes(f, indent, memory->attributes);
-	f << stringf("%s" "reg [%d:0] %s [%d:0];\n", indent.c_str(), memory->width-1, id(memory->name).c_str(), memory->size-1);
+	f << stringf("%s" "reg [%d:0] %s [%d:%d];\n", indent.c_str(), memory->width-1, id(memory->name).c_str(), memory->size+memory->start_offset-1, memory->start_offset);
 }
 
 void dump_cell_expr_port(std::ostream &f, RTLIL::Cell *cell, std::string port, bool gen_signed = true)
@@ -678,6 +678,35 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 #undef HANDLE_UNIOP
 #undef HANDLE_BINOP
 
+	if (cell->type == "$shift")
+	{
+		f << stringf("%s" "assign ", indent.c_str());
+		dump_sigspec(f, cell->getPort("\\Y"));
+		f << stringf(" = ");
+		if (cell->getParam("\\B_SIGNED").as_bool())
+		{
+			f << stringf("$signed(");
+			dump_sigspec(f, cell->getPort("\\B"));
+			f << stringf(")");
+			f << stringf(" < 0 ? ");
+			dump_sigspec(f, cell->getPort("\\A"));
+			f << stringf(" << - ");
+			dump_sigspec(f, cell->getPort("\\B"));
+			f << stringf(" : ");
+			dump_sigspec(f, cell->getPort("\\A"));
+			f << stringf(" >> ");
+			dump_sigspec(f, cell->getPort("\\B"));
+		}
+		else
+		{
+			dump_sigspec(f, cell->getPort("\\A"));
+			f << stringf(" >> ");
+			dump_sigspec(f, cell->getPort("\\B"));
+		}
+		f << stringf(";\n");
+		return true;
+	}
+
 	if (cell->type == "$shiftx")
 	{
 		f << stringf("%s" "assign ", indent.c_str());
@@ -952,6 +981,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		std::string mem_id = id(cell->parameters["\\MEMID"].decode_string());
 		int abits = cell->parameters["\\ABITS"].as_int();
 		int size = cell->parameters["\\SIZE"].as_int();
+		int offset = cell->parameters["\\OFFSET"].as_int();
 		int width = cell->parameters["\\WIDTH"].as_int();
 		bool use_init = !(RTLIL::SigSpec(cell->parameters["\\INIT"]).is_fully_undef());
 
@@ -960,7 +990,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		//  initial begin
 		//    memid[0] = ...
 		//  end
-		f << stringf("%s" "reg [%d:%d] %s [%d:%d];\n", indent.c_str(), width-1, 0, mem_id.c_str(), size-1, 0);
+		f << stringf("%s" "reg [%d:%d] %s [%d:%d];\n", indent.c_str(), width-1, 0, mem_id.c_str(), size+offset-1, offset);
 		if (use_init)
 		{
 			f << stringf("%s" "initial begin\n", indent.c_str());
@@ -1351,6 +1381,8 @@ void dump_process(std::ostream &f, std::string indent, RTLIL::Process *proc, boo
 
 		if (sync->type == RTLIL::STa) {
 			f << stringf("%s" "always @* begin\n", indent.c_str());
+		} else if (sync->type == RTLIL::STi) {
+			f << stringf("%s" "initial begin\n", indent.c_str());
 		} else {
 			f << stringf("%s" "always @(", indent.c_str());
 			if (sync->type == RTLIL::STp || sync->type == RTLIL::ST1)
@@ -1418,7 +1450,7 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 		log_warning("Module %s contains unmapped RTLIL proccesses. RTLIL processes\n"
 				"can't always be mapped directly to Verilog always blocks. Unintended\n"
 				"changes in simulation behavior are possible! Use \"proc\" to convert\n"
-				"processes to logic networks and registers.", log_id(module));
+				"processes to logic networks and registers.\n", log_id(module));
 
 	f << stringf("\n");
 	for (auto it = module->processes.begin(); it != module->processes.end(); ++it)

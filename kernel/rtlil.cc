@@ -639,7 +639,20 @@ RTLIL::Module::~Module()
 		delete it->second;
 }
 
+void RTLIL::Module::reprocess_module(RTLIL::Design *, dict<RTLIL::IdString, RTLIL::Module *>)
+{
+	log_error("Cannot reprocess_module module `%s' !\n", id2cstr(name));
+}
+
 RTLIL::IdString RTLIL::Module::derive(RTLIL::Design*, dict<RTLIL::IdString, RTLIL::Const>, bool mayfail)
+{
+	if (mayfail)
+		return RTLIL::IdString();
+	log_error("Module `%s' is used with parameters but is not parametric!\n", id2cstr(name));
+}
+
+
+RTLIL::IdString RTLIL::Module::derive(RTLIL::Design*, dict<RTLIL::IdString, RTLIL::Const>, dict<RTLIL::IdString, RTLIL::Module*>, dict<RTLIL::IdString, RTLIL::IdString>, bool mayfail)
 {
 	if (mayfail)
 		return RTLIL::IdString();

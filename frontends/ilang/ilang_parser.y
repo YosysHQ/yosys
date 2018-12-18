@@ -387,17 +387,13 @@ sigspec:
 		$$ = new RTLIL::SigSpec(current_module->wires_[$1]);
 		free($1);
 	} |
-	TOK_ID '[' TOK_INT ']' {
-		if (current_module->wires_.count($1) == 0)
-			rtlil_frontend_ilang_yyerror(stringf("ilang error: wire %s not found", $1).c_str());
-		$$ = new RTLIL::SigSpec(current_module->wires_[$1], $3);
-		free($1);
+	sigspec '[' TOK_INT ']' {
+		$$ = new RTLIL::SigSpec($1->extract($3));
+		delete $1;
 	} |
-	TOK_ID '[' TOK_INT ':' TOK_INT ']' {
-		if (current_module->wires_.count($1) == 0)
-			rtlil_frontend_ilang_yyerror(stringf("ilang error: wire %s not found", $1).c_str());
-		$$ = new RTLIL::SigSpec(current_module->wires_[$1], $5, $3 - $5 + 1);
-		free($1);
+	sigspec '[' TOK_INT ':' TOK_INT ']' {
+		$$ = new RTLIL::SigSpec($1->extract($5, $3 - $5 + 1));
+		delete $1;
 	} |
 	'{' sigspec_list '}' {
 		$$ = $2;

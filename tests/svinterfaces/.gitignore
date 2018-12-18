@@ -1,0 +1,8 @@
+/a.out
+/dut_result.txt
+/reference_result.txt
+/*.diff
+/*.log_stderr
+/*.log_stdout
+/*_ref_syn.v
+/*_syn.v

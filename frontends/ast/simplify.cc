@@ -71,7 +71,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 	if (stage == 0)
 	{
-		log_assert(type == AST_MODULE);
+		log_assert(type == AST_MODULE || type == AST_INTERFACE);
 		last_blocking_assignment_warn = pair<string, int>();
 
 		deep_recursion_warning = true;
@@ -196,7 +196,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		int nargs = GetSize(children);
 		if (nargs < 1)
 			log_file_error(filename, linenum, "System task `%s' got %d arguments, expected >= 1.\n",
-				       str.c_str(), int(children.size()));
+					str.c_str(), int(children.size()));
 
 		// First argument is the format string
 		AstNode *node_string = children[0];
@@ -240,7 +240,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 					case 'X':
 						if (next_arg >= GetSize(children))
 							log_file_error(filename, linenum, "Missing argument for %%%c format specifier in system task `%s'.\n",
-								       cformat, str.c_str());
+									cformat, str.c_str());
 
 						node_arg = children[next_arg++];
 						while (node_arg->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
@@ -450,8 +450,21 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				children[0]->id2ast->is_reg = true; // if logic type is used in a block asignment
 			if ((type == AST_ASSIGN_LE || type == AST_ASSIGN_EQ) && !children[0]->id2ast->is_reg)
 				log_warning("wire '%s' is assigned in a block at %s:%d.\n", children[0]->str.c_str(), filename.c_str(), linenum);
-			if (type == AST_ASSIGN && children[0]->id2ast->is_reg)
-				log_warning("reg '%s' is assigned in a continuous assignment at %s:%d.\n", children[0]->str.c_str(), filename.c_str(), linenum);
+			if (type == AST_ASSIGN && children[0]->id2ast->is_reg) {
+				bool is_rand_reg = false;
+				if (children[1]->type == AST_FCALL) {
+					if (children[1]->str == "\\$anyconst")
+						is_rand_reg = true;
+					if (children[1]->str == "\\$anyseq")
+						is_rand_reg = true;
+					if (children[1]->str == "\\$allconst")
+						is_rand_reg = true;
+					if (children[1]->str == "\\$allseq")
+						is_rand_reg = true;
+				}
+				if (!is_rand_reg)
+					log_warning("reg '%s' is assigned in a continuous assignment at %s:%d.\n", children[0]->str.c_str(), filename.c_str(), linenum);
+			}
 			children[0]->was_checked = true;
 		}
 		break;
@@ -732,7 +745,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 		if (current_scope.at(modname)->type != AST_CELL)
 			log_file_error(filename, linenum, "Defparam argument `%s . %s` does not match a cell!\n",
-				       RTLIL::unescape_id(modname).c_str(), RTLIL::unescape_id(paramname).c_str());
+					RTLIL::unescape_id(modname).c_str(), RTLIL::unescape_id(paramname).c_str());
 
 		AstNode *paraset = new AstNode(AST_PARASET, children[1]->clone(), GetSize(children) > 2 ? children[2]->clone() : NULL);
 		paraset->str = paramname;
@@ -880,7 +893,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			if (children[0]->type == AST_REALVALUE) {
 				RTLIL::Const constvalue = children[0]->realAsConst(width);
 				log_file_warning(filename, linenum, "converting real value %e to binary %s.\n",
-						 children[0]->realvalue, log_signal(constvalue));
+						children[0]->realvalue, log_signal(constvalue));
 				delete children[0];
 				children[0] = mkconst_bits(constvalue.bits, sign_hint);
 				did_something = true;
@@ -1299,8 +1312,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	if (type == AST_PRIMITIVE)
 	{
 		if (children.size() < 2)
-			log_file_error(filename, linenum, "Insufficient number of arguments for primitive `%s'!\n",
-				       str.c_str());
+			log_file_error(filename, linenum, "Insufficient number of arguments for primitive `%s'!\n", str.c_str());
 
 		std::vector<AstNode*> children_list;
 		for (auto child : children) {
@@ -1315,8 +1327,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		if (str == "bufif0" || str == "bufif1" || str == "notif0" || str == "notif1")
 		{
 			if (children_list.size() != 3)
-				log_file_error(filename, linenum, "Invalid number of arguments for primitive `%s'!\n",
-					       str.c_str());
+				log_file_error(filename, linenum, "Invalid number of arguments for primitive `%s'!\n", str.c_str());
 
 			std::vector<RTLIL::State> z_const(1, RTLIL::State::Sz);
 
@@ -1336,6 +1347,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			str.clear();
 			type = AST_ASSIGN;
 			children.push_back(children_list.at(0));
+			children.back()->was_checked = true;
 			children.push_back(node);
 			did_something = true;
 		}
@@ -1372,6 +1384,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			str.clear();
 			type = AST_ASSIGN;
 			children.push_back(children_list[0]);
+			children.back()->was_checked = true;
 			children.push_back(node);
 			did_something = true;
 		}
@@ -1401,8 +1414,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			while (left_at_zero_ast->simplify(true, true, false, stage, -1, false, false)) { }
 			while (right_at_zero_ast->simplify(true, true, false, stage, -1, false, false)) { }
 			if (left_at_zero_ast->type != AST_CONSTANT || right_at_zero_ast->type != AST_CONSTANT)
-				log_file_error(filename, linenum, "Unsupported expression on dynamic range select on signal `%s'!\n",
-					       str.c_str());
+				log_file_error(filename, linenum, "Unsupported expression on dynamic range select on signal `%s'!\n", str.c_str());
 			result_width = abs(int(left_at_zero_ast->integer - right_at_zero_ast->integer)) + 1;
 		}
 		did_something = true;
@@ -1530,6 +1542,7 @@ skip_dynamic_range_lvalue_expansion:;
 			wire_tmp_id->str = wire_tmp->str;
 
 			newNode->children.push_back(new AstNode(AST_ASSIGN_EQ, wire_tmp_id, children[1]->clone()));
+			newNode->children.back()->was_checked = true;
 
 			int cursor = 0;
 			for (auto child : children[0]->children)
@@ -1772,11 +1785,11 @@ skip_dynamic_range_lvalue_expansion:;
 
 				if (GetSize(children) != 1 && GetSize(children) != 2)
 					log_file_error(filename, linenum, "System function %s got %d arguments, expected 1 or 2.\n",
-						       RTLIL::unescape_id(str).c_str(), int(children.size()));
+							RTLIL::unescape_id(str).c_str(), int(children.size()));
 
 				if (!current_always_clocked)
 					log_file_error(filename, linenum, "System function %s is only allowed in clocked blocks.\n",
-						       RTLIL::unescape_id(str).c_str());
+							RTLIL::unescape_id(str).c_str());
 
 				if (GetSize(children) == 2)
 				{
@@ -1797,6 +1810,11 @@ skip_dynamic_range_lvalue_expansion:;
 
 				log_assert(block != nullptr);
 
+				if (num_steps == 0) {
+					newNode = children[0]->clone();
+					goto apply_newNode;
+				}
+
 				int myidx = autoidx++;
 				AstNode *outreg = nullptr;
 
@@ -1815,6 +1833,7 @@ skip_dynamic_range_lvalue_expansion:;
 					AstNode *regid = new AstNode(AST_IDENTIFIER);
 					regid->str = reg->str;
 					regid->id2ast = reg;
+					regid->was_checked = true;
 
 					AstNode *rhs = nullptr;
 
@@ -1840,11 +1859,11 @@ skip_dynamic_range_lvalue_expansion:;
 			{
 				if (GetSize(children) != 1)
 					log_file_error(filename, linenum, "System function %s got %d arguments, expected 1.\n",
-						       RTLIL::unescape_id(str).c_str(), int(children.size()));
+							RTLIL::unescape_id(str).c_str(), int(children.size()));
 
 				if (!current_always_clocked)
 					log_file_error(filename, linenum, "System function %s is only allowed in clocked blocks.\n",
-						       RTLIL::unescape_id(str).c_str());
+							RTLIL::unescape_id(str).c_str());
 
 				AstNode *present = children.at(0)->clone();
 				AstNode *past = clone();
@@ -1857,10 +1876,14 @@ skip_dynamic_range_lvalue_expansion:;
 					newNode = new AstNode(AST_NE, past, present);
 
 				else if (str == "\\$rose")
-					newNode = new AstNode(AST_LOGIC_AND, new AstNode(AST_LOGIC_NOT, past), present);
+					newNode = new AstNode(AST_LOGIC_AND,
+							new AstNode(AST_LOGIC_NOT, new AstNode(AST_BIT_AND, past, mkconst_int(1,false))),
+							new AstNode(AST_BIT_AND, present, mkconst_int(1,false)));
 
 				else if (str == "\\$fell")
-					newNode = new AstNode(AST_LOGIC_AND, past, new AstNode(AST_LOGIC_NOT, present));
+					newNode = new AstNode(AST_LOGIC_AND,
+							new AstNode(AST_BIT_AND, past, mkconst_int(1,false)),
+							new AstNode(AST_LOGIC_NOT, new AstNode(AST_BIT_AND, present, mkconst_int(1,false))));
 
 				else
 					log_abort();
@@ -1878,7 +1901,7 @@ skip_dynamic_range_lvalue_expansion:;
 			{
 				if (children.size() != 1)
 					log_file_error(filename, linenum, "System function %s got %d arguments, expected 1.\n",
-						       RTLIL::unescape_id(str).c_str(), int(children.size()));
+							RTLIL::unescape_id(str).c_str(), int(children.size()));
 
 				AstNode *buf = children[0]->clone();
 				while (buf->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
@@ -1895,7 +1918,7 @@ skip_dynamic_range_lvalue_expansion:;
 					if (arg_value.bits.at(i) == RTLIL::State::S1)
 						result = i + 1;
 
-				newNode = mkconst_int(result, false);
+				newNode = mkconst_int(result, true);
 				goto apply_newNode;
 			}
 
@@ -1903,11 +1926,11 @@ skip_dynamic_range_lvalue_expansion:;
 			{
 				if (str == "\\$bits" && children.size() != 1)
 					log_file_error(filename, linenum, "System function %s got %d arguments, expected 1.\n",
-						       RTLIL::unescape_id(str).c_str(), int(children.size()));
+							RTLIL::unescape_id(str).c_str(), int(children.size()));
 
 				if (str == "\\$size" && children.size() != 1 && children.size() != 2)
 					log_file_error(filename, linenum, "System function %s got %d arguments, expected 1 or 2.\n",
-						       RTLIL::unescape_id(str).c_str(), int(children.size()));
+							RTLIL::unescape_id(str).c_str(), int(children.size()));
 
 				int dim = 1;
 				if (str == "\\$size" && children.size() == 2) {
@@ -1981,18 +2004,18 @@ skip_dynamic_range_lvalue_expansion:;
 				if (func_with_two_arguments) {
 					if (children.size() != 2)
 						log_file_error(filename, linenum, "System function %s got %d arguments, expected 2.\n",
-							       RTLIL::unescape_id(str).c_str(), int(children.size()));
+								RTLIL::unescape_id(str).c_str(), int(children.size()));
 				} else {
 					if (children.size() != 1)
 						log_file_error(filename, linenum, "System function %s got %d arguments, expected 1.\n",
-							       RTLIL::unescape_id(str).c_str(), int(children.size()));
+								RTLIL::unescape_id(str).c_str(), int(children.size()));
 				}
 
 				if (children.size() >= 1) {
 					while (children[0]->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
 					if (!children[0]->isConst())
 						log_file_error(filename, linenum, "Failed to evaluate system function `%s' with non-constant argument.\n",
-							       RTLIL::unescape_id(str).c_str());
+								RTLIL::unescape_id(str).c_str());
 					int child_width_hint = width_hint;
 					bool child_sign_hint = sign_hint;
 					children[0]->detectSignWidth(child_width_hint, child_sign_hint);
@@ -2003,7 +2026,7 @@ skip_dynamic_range_lvalue_expansion:;
 					while (children[1]->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
 					if (!children[1]->isConst())
 						log_file_error(filename, linenum, "Failed to evaluate system function `%s' with non-constant argument.\n",
-							       RTLIL::unescape_id(str).c_str());
+								RTLIL::unescape_id(str).c_str());
 					int child_width_hint = width_hint;
 					bool child_sign_hint = sign_hint;
 					children[1]->detectSignWidth(child_width_hint, child_sign_hint);
@@ -2091,7 +2114,7 @@ skip_dynamic_range_lvalue_expansion:;
 			{
 				if (GetSize(children) < 2 || GetSize(children) > 4)
 					log_file_error(filename, linenum, "System function %s got %d arguments, expected 2-4.\n",
-						       RTLIL::unescape_id(str).c_str(), int(children.size()));
+							RTLIL::unescape_id(str).c_str(), int(children.size()));
 
 				AstNode *node_filename = children[0]->clone();
 				while (node_filename->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
@@ -2204,6 +2227,8 @@ skip_dynamic_range_lvalue_expansion:;
 
 			AstNode *always = new AstNode(AST_ALWAYS, new AstNode(AST_BLOCK,
 					new AstNode(AST_ASSIGN_EQ, lvalue, clone())));
+			always->children[0]->children[0]->was_checked = true;
+
 			current_ast_mod->children.push_back(always);
 
 			goto replace_fcall_with_id;
@@ -2253,6 +2278,7 @@ skip_dynamic_range_lvalue_expansion:;
 						AstNode *assign = child->is_input ?
 								new AstNode(AST_ASSIGN_EQ, wire_id->clone(), arg) :
 								new AstNode(AST_ASSIGN_EQ, arg, wire_id->clone());
+						assign->children[0]->was_checked = true;
 
 						for (auto it = current_block->children.begin(); it != current_block->children.end(); it++) {
 							if (*it != current_block_child)
@@ -2323,6 +2349,7 @@ skip_dynamic_range_lvalue_expansion:;
 					AstNode *assign = child->is_input ?
 							new AstNode(AST_ASSIGN_EQ, wire_id, arg) :
 							new AstNode(AST_ASSIGN_EQ, arg, wire_id);
+					assign->children[0]->was_checked = true;
 
 					for (auto it = current_block->children.begin(); it != current_block->children.end(); it++) {
 						if (*it != current_block_child)
@@ -2762,6 +2789,7 @@ AstNode *AstNode::readmem(bool is_readmemh, std::string mem_filename, AstNode *m
 				block->children.push_back(new AstNode(AST_ASSIGN_EQ, new AstNode(AST_IDENTIFIER, new AstNode(AST_RANGE, AstNode::mkconst_int(cursor, false))), value));
 				block->children.back()->children[0]->str = memory->str;
 				block->children.back()->children[0]->id2ast = memory;
+				block->children.back()->children[0]->was_checked = true;
 			}
 
 			cursor += increment;
@@ -3022,6 +3050,7 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 
 		AstNode *newNode = clone();
 		newNode->type = AST_ASSIGN_EQ;
+		newNode->children[0]->was_checked = true;
 		async_block->children[0]->children.push_back(newNode);
 
 		newNode = new AstNode(AST_NONE);
@@ -3067,6 +3096,7 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 
 		AstNode *assign_addr = new AstNode(AST_ASSIGN_EQ, new AstNode(AST_IDENTIFIER), children[0]->children[0]->children[0]->clone());
 		assign_addr->children[0]->str = id_addr;
+		assign_addr->children[0]->was_checked = true;
 		block->children.insert(block->children.begin()+assign_idx+1, assign_addr);
 
 		AstNode *case_node = new AstNode(AST_CASE, new AstNode(AST_IDENTIFIER));
@@ -3090,6 +3120,7 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 		children[0]->id2ast = NULL;
 		children[0]->str = id_data;
 		type = AST_ASSIGN_EQ;
+		children[0]->was_checked = true;
 
 		did_something = true;
 	}
@@ -3247,12 +3278,12 @@ void AstNode::replace_variables(std::map<std::string, AstNode::varinfo_t> &varia
 		if (!children.empty()) {
 			if (children.size() != 1 || children.at(0)->type != AST_RANGE)
 				log_file_error(filename, linenum, "Memory access in constant function is not supported\n%s:%d: ...called from here.\n",
-					       fcall->filename.c_str(), fcall->linenum);
+						fcall->filename.c_str(), fcall->linenum);
 			children.at(0)->replace_variables(variables, fcall);
 			while (simplify(true, false, false, 1, -1, false, true)) { }
 			if (!children.at(0)->range_valid)
 				log_file_error(filename, linenum, "Non-constant range\n%s:%d: ... called from here.\n",
-					       fcall->filename.c_str(), fcall->linenum);
+						fcall->filename.c_str(), fcall->linenum);
 			offset = min(children.at(0)->range_left, children.at(0)->range_right);
 			width = min(std::abs(children.at(0)->range_left - children.at(0)->range_right) + 1, width);
 		}
@@ -3292,7 +3323,7 @@ AstNode *AstNode::eval_const_function(AstNode *fcall)
 			while (child->simplify(true, false, false, 1, -1, false, true)) { }
 			if (!child->range_valid)
 				log_file_error(child->filename, child->linenum, "Can't determine size of variable %s\n%s:%d: ... called from here.\n",
-					       child->str.c_str(), fcall->filename.c_str(), fcall->linenum);
+						child->str.c_str(), fcall->filename.c_str(), fcall->linenum);
 			variables[child->str].val = RTLIL::Const(RTLIL::State::Sx, abs(child->range_left - child->range_right)+1);
 			variables[child->str].offset = min(child->range_left, child->range_right);
 			variables[child->str].is_signed = child->is_signed;
@@ -3336,15 +3367,15 @@ AstNode *AstNode::eval_const_function(AstNode *fcall)
 
 			if (stmt->children.at(1)->type != AST_CONSTANT)
 				log_file_error(stmt->filename, stmt->linenum, "Non-constant expression in constant function\n%s:%d: ... called from here. X\n",
-					       fcall->filename.c_str(), fcall->linenum);
+						fcall->filename.c_str(), fcall->linenum);
 
 			if (stmt->children.at(0)->type != AST_IDENTIFIER)
 				log_file_error(stmt->filename, stmt->linenum, "Unsupported composite left hand side in constant function\n%s:%d: ... called from here.\n",
-					       fcall->filename.c_str(), fcall->linenum);
+						fcall->filename.c_str(), fcall->linenum);
 
 			if (!variables.count(stmt->children.at(0)->str))
 				log_file_error(stmt->filename, stmt->linenum, "Assignment to non-local variable in constant function\n%s:%d: ... called from here.\n",
-					       fcall->filename.c_str(), fcall->linenum);
+						fcall->filename.c_str(), fcall->linenum);
 
 			if (stmt->children.at(0)->children.empty()) {
 				variables[stmt->children.at(0)->str].val = stmt->children.at(1)->bitsAsConst(variables[stmt->children.at(0)->str].val.bits.size());
@@ -3352,7 +3383,7 @@ AstNode *AstNode::eval_const_function(AstNode *fcall)
 				AstNode *range = stmt->children.at(0)->children.at(0);
 				if (!range->range_valid)
 					log_file_error(range->filename, range->linenum, "Non-constant range\n%s:%d: ... called from here.\n",
-						       fcall->filename.c_str(), fcall->linenum);
+							fcall->filename.c_str(), fcall->linenum);
 				int offset = min(range->range_left, range->range_right);
 				int width = std::abs(range->range_left - range->range_right) + 1;
 				varinfo_t &v = variables[stmt->children.at(0)->str];
@@ -3384,7 +3415,7 @@ AstNode *AstNode::eval_const_function(AstNode *fcall)
 
 			if (cond->type != AST_CONSTANT)
 				log_file_error(stmt->filename, stmt->linenum, "Non-constant expression in constant function\n%s:%d: ... called from here.\n",
-					       fcall->filename.c_str(), fcall->linenum);
+						fcall->filename.c_str(), fcall->linenum);
 
 			if (cond->asBool()) {
 				block->children.insert(block->children.begin(), stmt->children.at(1)->clone());
@@ -3405,7 +3436,7 @@ AstNode *AstNode::eval_const_function(AstNode *fcall)
 
 			if (num->type != AST_CONSTANT)
 				log_file_error(stmt->filename, stmt->linenum, "Non-constant expression in constant function\n%s:%d: ... called from here.\n",
-					       fcall->filename.c_str(), fcall->linenum);
+						fcall->filename.c_str(), fcall->linenum);
 
 			block->children.erase(block->children.begin());
 			for (int i = 0; i < num->bitsAsConst().as_int(); i++)
@@ -3443,7 +3474,7 @@ AstNode *AstNode::eval_const_function(AstNode *fcall)
 
 					if (cond->type != AST_CONSTANT)
 						log_file_error(stmt->filename, stmt->linenum, "Non-constant expression in constant function\n%s:%d: ... called from here.\n",
-							       fcall->filename.c_str(), fcall->linenum);
+								fcall->filename.c_str(), fcall->linenum);
 
 					found_match = cond->asBool();
 					delete cond;
@@ -3473,7 +3504,7 @@ AstNode *AstNode::eval_const_function(AstNode *fcall)
 		}
 
 		log_file_error(stmt->filename, stmt->linenum, "Unsupported language construct in constant function\n%s:%d: ... called from here.\n",
-			       fcall->filename.c_str(), fcall->linenum);
+				fcall->filename.c_str(), fcall->linenum);
 		log_abort();
 	}
 

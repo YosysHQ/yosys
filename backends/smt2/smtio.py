@@ -31,11 +31,19 @@ from threading import Thread
 # does not run out of stack frames when parsing large expressions
 if os.name == "posix":
     smtio_reclimit = 64 * 1024
-    smtio_stacksize = 128 * 1024 * 1024
     if sys.getrecursionlimit() < smtio_reclimit:
         sys.setrecursionlimit(smtio_reclimit)
-    if resource.getrlimit(resource.RLIMIT_STACK)[0] < smtio_stacksize:
-        resource.setrlimit(resource.RLIMIT_STACK, (smtio_stacksize, -1))
+
+    current_rlimit_stack = resource.getrlimit(resource.RLIMIT_STACK)
+    if current_rlimit_stack[0] != resource.RLIM_INFINITY:
+        smtio_stacksize = 128 * 1024 * 1024
+        if os.uname().sysname == "Darwin":
+            # MacOS has rather conservative stack limits
+            smtio_stacksize = 16 * 1024 * 1024
+        if current_rlimit_stack[1] != resource.RLIM_INFINITY:
+            smtio_stacksize = min(smtio_stacksize, current_rlimit_stack[1])
+        if current_rlimit_stack[0] < smtio_stacksize:
+            resource.setrlimit(resource.RLIMIT_STACK, (smtio_stacksize, current_rlimit_stack[1]))
 
 
 # currently running solvers (so we can kill them)
@@ -158,19 +166,28 @@ class SmtIo:
             self.unroll = False
 
         if self.solver == "yices":
-            self.popen_vargs = ['yices-smt2', '--incremental'] + self.solver_opts
+            if self.noincr:
+                self.popen_vargs = ['yices-smt2'] + self.solver_opts
+            else:
+                self.popen_vargs = ['yices-smt2', '--incremental'] + self.solver_opts
 
         if self.solver == "z3":
             self.popen_vargs = ['z3', '-smt2', '-in'] + self.solver_opts
 
         if self.solver == "cvc4":
-            self.popen_vargs = ['cvc4', '--incremental', '--lang', 'smt2.6' if self.logic_dt else 'smt2'] + self.solver_opts
+            if self.noincr:
+                self.popen_vargs = ['cvc4', '--lang', 'smt2.6' if self.logic_dt else 'smt2'] + self.solver_opts
+            else:
+                self.popen_vargs = ['cvc4', '--incremental', '--lang', 'smt2.6' if self.logic_dt else 'smt2'] + self.solver_opts
 
         if self.solver == "mathsat":
             self.popen_vargs = ['mathsat'] + self.solver_opts
 
         if self.solver == "boolector":
-            self.popen_vargs = ['boolector', '--smt2', '-i'] + self.solver_opts
+            if self.noincr:
+                self.popen_vargs = ['boolector', '--smt2'] + self.solver_opts
+            else:
+                self.popen_vargs = ['boolector', '--smt2', '-i'] + self.solver_opts
             self.unroll = True
 
         if self.solver == "abc":

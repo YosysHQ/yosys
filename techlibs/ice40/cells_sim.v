@@ -409,6 +409,7 @@ module SB_RAM40_4K (
 
 	initial begin
 		for (i=0; i<16; i=i+1) begin
+`ifdef YOSYS
 			memory[ 0*16 + i] <= INIT_0[16*i +: 16];
 			memory[ 1*16 + i] <= INIT_1[16*i +: 16];
 			memory[ 2*16 + i] <= INIT_2[16*i +: 16];
@@ -425,6 +426,24 @@ module SB_RAM40_4K (
 			memory[13*16 + i] <= INIT_D[16*i +: 16];
 			memory[14*16 + i] <= INIT_E[16*i +: 16];
 			memory[15*16 + i] <= INIT_F[16*i +: 16];
+`else
+			memory[ 0*16 + i] = INIT_0[16*i +: 16];
+			memory[ 1*16 + i] = INIT_1[16*i +: 16];
+			memory[ 2*16 + i] = INIT_2[16*i +: 16];
+			memory[ 3*16 + i] = INIT_3[16*i +: 16];
+			memory[ 4*16 + i] = INIT_4[16*i +: 16];
+			memory[ 5*16 + i] = INIT_5[16*i +: 16];
+			memory[ 6*16 + i] = INIT_6[16*i +: 16];
+			memory[ 7*16 + i] = INIT_7[16*i +: 16];
+			memory[ 8*16 + i] = INIT_8[16*i +: 16];
+			memory[ 9*16 + i] = INIT_9[16*i +: 16];
+			memory[10*16 + i] = INIT_A[16*i +: 16];
+			memory[11*16 + i] = INIT_B[16*i +: 16];
+			memory[12*16 + i] = INIT_C[16*i +: 16];
+			memory[13*16 + i] = INIT_D[16*i +: 16];
+			memory[14*16 + i] = INIT_E[16*i +: 16];
+			memory[15*16 + i] = INIT_F[16*i +: 16];
+`endif
 		end
 	end
 
@@ -928,6 +947,7 @@ module SB_SPRAM256KA (
 	output reg [15:0] DATAOUT
 );
 `ifndef BLACKBOX
+`ifndef EQUIV
 	reg [15:0] mem [0:16383];
 	wire off = SLEEP || !POWEROFF;
 	integer i;
@@ -953,6 +973,7 @@ module SB_SPRAM256KA (
 			DATAOUT <= 'bx;
 		end
 	end
+`endif
 `endif
 endmodule
 

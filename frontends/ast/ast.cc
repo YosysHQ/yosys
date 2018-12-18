@@ -2,6 +2,7 @@
  *  yosys -- Yosys Open SYnthesis Suite
  *
  *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2018  Ruben Undheim <ruben.undheim@gmail.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -171,8 +172,7 @@ bool AstNode::get_bool_attribute(RTLIL::IdString id)
 
 	AstNode *attr = attributes.at(id);
 	if (attr->type != AST_CONSTANT)
-		log_file_error(attr->filename, attr->linenum, "Attribute `%s' with non-constant value!\n",
-			       id.c_str());
+		log_file_error(attr->filename, attr->linenum, "Attribute `%s' with non-constant value!\n", id.c_str());
 
 	return attr->integer != 0;
 }
@@ -903,9 +903,9 @@ RTLIL::Const AstNode::realAsConst(int width)
 }
 
 // create a new AstModule from an AST_MODULE AST node
-static AstModule* process_module(AstNode *ast, bool defer)
+static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast = NULL)
 {
-	log_assert(ast->type == AST_MODULE);
+	log_assert(ast->type == AST_MODULE || ast->type == AST_INTERFACE);
 
 	if (defer)
 		log("Storing AST representation for module `%s'.\n", ast->str.c_str());
@@ -916,9 +916,14 @@ static AstModule* process_module(AstNode *ast, bool defer)
 	current_module->ast = NULL;
 	current_module->name = ast->str;
 	current_module->attributes["\\src"] = stringf("%s:%d", ast->filename.c_str(), ast->linenum);
+	current_module->set_bool_attribute("\\cells_not_processed");
 
 	current_ast_mod = ast;
-	AstNode *ast_before_simplify = ast->clone();
+	AstNode *ast_before_simplify;
+	if (original_ast != NULL)
+		ast_before_simplify = original_ast;
+	else
+		ast_before_simplify = ast->clone();
 
 	if (flag_dump_ast1) {
 		log("Dumping Verilog AST before simplification:\n");
@@ -963,8 +968,7 @@ static AstModule* process_module(AstNode *ast, bool defer)
 
 		for (auto &attr : ast->attributes) {
 			if (attr.second->type != AST_CONSTANT)
-				log_file_error(ast->filename, ast->linenum, "Attribute `%s' with non-constant value!\n",
-					       attr.first.c_str());
+				log_file_error(ast->filename, ast->linenum, "Attribute `%s' with non-constant value!\n", attr.first.c_str());
 			current_module->attributes[attr.first] = attr.second->asAttrConst();
 		}
 		for (size_t i = 0; i < ast->children.size(); i++) {
@@ -989,6 +993,8 @@ static AstModule* process_module(AstNode *ast, bool defer)
 		ignoreThisSignalsInInitial = RTLIL::SigSpec();
 	}
 
+	if (ast->type == AST_INTERFACE)
+		current_module->set_bool_attribute("\\is_interface");
 	current_module->ast = ast_before_simplify;
 	current_module->nolatches = flag_nolatches;
 	current_module->nomeminit = flag_nomeminit;
@@ -1031,7 +1037,7 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 	log_assert(current_ast->type == AST_DESIGN);
 	for (auto it = current_ast->children.begin(); it != current_ast->children.end(); it++)
 	{
-		if ((*it)->type == AST_MODULE)
+		if ((*it)->type == AST_MODULE || (*it)->type == AST_INTERFACE)
 		{
 			for (auto n : design->verilog_globals)
 				(*it)->children.push_back(n->clone());
@@ -1053,8 +1059,7 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 			if (design->has((*it)->str)) {
 				RTLIL::Module *existing_mod = design->module((*it)->str);
 				if (!nooverwrite && !overwrite && !existing_mod->get_bool_attribute("\\blackbox")) {
-					log_file_error((*it)->filename, (*it)->linenum, "Re-definition of module `%s'!\n",
-						       (*it)->str.c_str());
+					log_file_error((*it)->filename, (*it)->linenum, "Re-definition of module `%s'!\n", (*it)->str.c_str());
 				} else if (nooverwrite) {
 					log("Ignoring re-definition of module `%s' at %s:%d.\n",
 							(*it)->str.c_str(), (*it)->filename.c_str(), (*it)->linenum);
@@ -1083,8 +1088,264 @@ AstModule::~AstModule()
 		delete ast;
 }
 
+
+// An interface port with modport is specified like this:
+//    <interface_name>.<modport_name>
+// This function splits the interface_name from the modport_name, and fails if it is not a valid combination
+std::pair<std::string,std::string> AST::split_modport_from_type(std::string name_type)
+{
+	std::string interface_type = "";
+	std::string interface_modport = "";
+	size_t ndots = std::count(name_type.begin(), name_type.end(), '.');
+	// Separate the interface instance name from any modports:
+	if (ndots == 0) { // Does not have modport
+		interface_type = name_type;
+	}
+	else {
+		std::stringstream name_type_stream(name_type);
+		std::string segment;
+		std::vector<std::string> seglist;
+		while(std::getline(name_type_stream, segment, '.')) {
+			seglist.push_back(segment);
+		}
+		if (ndots == 1) { // Has modport
+			interface_type = seglist[0];
+			interface_modport = seglist[1];
+		}
+		else { // Erroneous port type
+			log_error("More than two '.' in signal port type (%s)\n", name_type.c_str());
+		}
+	}
+	return std::pair<std::string,std::string>(interface_type, interface_modport);
+
+}
+
+AstNode * AST::find_modport(AstNode *intf, std::string name)
+{
+	for (auto &ch : intf->children)
+		if (ch->type == AST_MODPORT)
+			if (ch->str == name) // Modport found
+				return ch;
+	return NULL;
+}
+
+// Iterate over all wires in an interface and add them as wires in the AST module:
+void AST::explode_interface_port(AstNode *module_ast, RTLIL::Module * intfmodule, std::string intfname, AstNode *modport)
+{
+	for (auto &wire_it : intfmodule->wires_){
+		AstNode *wire = new AstNode(AST_WIRE, new AstNode(AST_RANGE, AstNode::mkconst_int(wire_it.second->width -1, true), AstNode::mkconst_int(0, true)));
+		std::string origname = log_id(wire_it.first);
+		std::string newname = intfname + "." + origname;
+		wire->str = newname;
+		if (modport != NULL) {
+			bool found_in_modport = false;
+			// Search for the current wire in the wire list for the current modport
+			for (auto &ch : modport->children) {
+				if (ch->type == AST_MODPORTMEMBER) {
+					std::string compare_name = "\\" + origname;
+					if (ch->str == compare_name) { // Found signal. The modport decides whether it is input or output
+						found_in_modport = true;
+						wire->is_input = ch->is_input;
+						wire->is_output = ch->is_output;
+						break;
+					}
+				}
+			}
+			if (found_in_modport) {
+				module_ast->children.push_back(wire);
+			}
+			else { // If not found in modport, do not create port
+				delete wire;
+			}
+		}
+		else { // If no modport, set inout
+			wire->is_input = true;
+			wire->is_output = true;
+			module_ast->children.push_back(wire);
+		}
+	}
+}
+
+// When an interface instance is found in a module, the whole RTLIL for the module will be rederived again
+// from AST. The interface members are copied into the AST module with the prefix of the interface.
+void AstModule::reprocess_module(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Module*> local_interfaces)
+{
+	bool is_top = false;
+	AstNode *new_ast = ast->clone();
+	for (auto &intf : local_interfaces) {
+		std::string intfname = intf.first.str();
+		RTLIL::Module *intfmodule = intf.second;
+		for (auto &wire_it : intfmodule->wires_){
+			AstNode *wire = new AstNode(AST_WIRE, new AstNode(AST_RANGE, AstNode::mkconst_int(wire_it.second->width -1, true), AstNode::mkconst_int(0, true)));
+			std::string newname = log_id(wire_it.first);
+			newname = intfname + "." + newname;
+			wire->str = newname;
+			new_ast->children.push_back(wire);
+		}
+	}
+
+	AstNode *ast_before_replacing_interface_ports = new_ast->clone();
+
+	// Explode all interface ports. Note this will only have an effect on 'top
+	// level' modules. Other sub-modules will have their interface ports
+	// exploded via the derive(..) function
+	for (size_t i =0; i<new_ast->children.size(); i++)
+	{
+		AstNode *ch2 = new_ast->children[i];
+		if (ch2->type == AST_INTERFACEPORT) { // Is an interface port
+			std::string name_port = ch2->str; // Name of the interface port
+			if (ch2->children.size() > 0) {
+				for(size_t j=0; j<ch2->children.size();j++) {
+					AstNode *ch = ch2->children[j];
+					if(ch->type == AST_INTERFACEPORTTYPE) { // Found the AST node containing the type of the interface
+						std::pair<std::string,std::string> res = split_modport_from_type(ch->str);
+						std::string interface_type = res.first;
+						std::string interface_modport = res.second; // Is "", if no modport
+						if (design->modules_.count(interface_type) > 0) {
+							// Add a cell to the module corresponding to the interface port such that
+							// it can further propagated down if needed:
+							AstNode *celltype_for_intf = new AstNode(AST_CELLTYPE);
+							celltype_for_intf->str = interface_type;
+							AstNode *cell_for_intf = new AstNode(AST_CELL, celltype_for_intf);
+							cell_for_intf->str = name_port + "_inst_from_top_dummy";
+							new_ast->children.push_back(cell_for_intf);
+
+							// Get all members of this non-overridden dummy interface instance:
+							RTLIL::Module *intfmodule = design->modules_[interface_type]; // All interfaces should at this point in time (assuming
+							                                                              // reprocess_module is called from the hierarchy pass) be
+							                                                              // present in design->modules_
+							AstModule *ast_module_of_interface = (AstModule*)intfmodule;
+							std::string interface_modport_compare_str = "\\" + interface_modport;
+							AstNode *modport = find_modport(ast_module_of_interface->ast, interface_modport_compare_str); // modport == NULL if no modport
+							// Iterate over all wires in the interface and add them to the module:
+							explode_interface_port(new_ast, intfmodule, name_port, modport);
+						}
+						break;
+					}
+				}
+			}
+		}
+	}
+
+	// The old module will be deleted. Rename and mark for deletion:
+	std::string original_name = this->name.str();
+	std::string changed_name = original_name + "_before_replacing_local_interfaces";
+	design->rename(this, changed_name);
+	this->set_bool_attribute("\\to_delete");
+
+	// Check if the module was the top module. If it was, we need to remove the top attribute and put it on the
+	// new module.
+	if (this->get_bool_attribute("\\initial_top")) {
+		this->attributes.erase("\\initial_top");
+		is_top = true;
+	}
+
+	// Generate RTLIL from AST for the new module and add to the design:
+	AstModule *newmod = process_module(new_ast, false, ast_before_replacing_interface_ports);
+	delete(new_ast);
+	design->add(newmod);
+	RTLIL::Module* mod = design->module(original_name);
+	if (is_top)
+		mod->set_bool_attribute("\\top");
+
+	// Set the attribute "interfaces_replaced_in_module" so that it does not happen again.
+	mod->set_bool_attribute("\\interfaces_replaced_in_module");
+}
+
+// create a new parametric module (when needed) and return the name of the generated module - WITH support for interfaces
+// This method is used to explode the interface when the interface is a port of the module (not instantiated inside)
+RTLIL::IdString AstModule::derive(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters, dict<RTLIL::IdString, RTLIL::Module*> interfaces, dict<RTLIL::IdString, RTLIL::IdString> modports, bool mayfail)
+{
+	AstNode *new_ast = NULL;
+	std::string modname = derive_common(design, parameters, &new_ast, mayfail);
+
+	// Since interfaces themselves may be instantiated with different parameters,
+	// "modname" must also take those into account, so that unique modules
+	// are derived for any variant of interface connections:
+	std::string interf_info = "";
+
+	bool has_interfaces = false;
+	for(auto &intf : interfaces) {
+		interf_info += log_id(intf.second->name);
+		has_interfaces = true;
+	}
+
+	if (has_interfaces)
+		modname += "$interfaces$" + interf_info;
+
+
+	if (!design->has(modname)) {
+		new_ast->str = modname;
+
+		// Iterate over all interfaces which are ports in this module:
+		for(auto &intf : interfaces) {
+			RTLIL::Module * intfmodule = intf.second;
+			std::string intfname = intf.first.str();
+			// Check if a modport applies for the interface port:
+			AstNode *modport = NULL;
+			if (modports.count(intfname) > 0) {
+				std::string interface_modport = modports.at(intfname).str();
+				AstModule *ast_module_of_interface = (AstModule*)intfmodule;
+				AstNode *ast_node_of_interface = ast_module_of_interface->ast;
+				modport = find_modport(ast_node_of_interface, interface_modport);
+			}
+			// Iterate over all wires in the interface and add them to the module:
+			explode_interface_port(new_ast, intfmodule, intfname, modport);
+		}
+
+		design->add(process_module(new_ast, false));
+		design->module(modname)->check();
+
+		RTLIL::Module* mod = design->module(modname);
+
+		// Now that the interfaces have been exploded, we can delete the dummy port related to every interface.
+		for(auto &intf : interfaces) {
+			if(mod->wires_.count(intf.first)) {
+				mod->wires_.erase(intf.first);
+				mod->fixup_ports();
+				// We copy the cell of the interface to the sub-module such that it can further be found if it is propagated
+				// down to sub-sub-modules etc.
+				RTLIL::Cell * new_subcell = mod->addCell(intf.first, intf.second->name);
+				new_subcell->set_bool_attribute("\\is_interface");
+			}
+			else {
+				log_error("No port with matching name found (%s) in %s. Stopping\n", log_id(intf.first), modname.c_str());
+			}
+		}
+
+		// If any interfaces were replaced, set the attribute 'interfaces_replaced_in_module':
+		if (interfaces.size() > 0) {
+			mod->set_bool_attribute("\\interfaces_replaced_in_module");
+		}
+
+	} else {
+		log("Found cached RTLIL representation for module `%s'.\n", modname.c_str());
+	}
+
+	delete new_ast;
+	return modname;
+}
+
+// create a new parametric module (when needed) and return the name of the generated module - without support for interfaces
+RTLIL::IdString AstModule::derive(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters, bool mayfail)
+{
+	AstNode *new_ast = NULL;
+	std::string modname = derive_common(design, parameters, &new_ast, mayfail);
+
+	if (!design->has(modname)) {
+		new_ast->str = modname;
+		design->add(process_module(new_ast, false));
+		design->module(modname)->check();
+	} else {
+		log("Found cached RTLIL representation for module `%s'.\n", modname.c_str());
+	}
+
+	delete new_ast;
+	return modname;
+}
+
 // create a new parametric module (when needed) and return the name of the generated module
-RTLIL::IdString AstModule::derive(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters, bool)
+std::string AstModule::derive_common(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters, AstNode **new_ast_out, bool)
 {
 	std::string stripped_name = name.str();
 
@@ -1156,15 +1417,8 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, dict<RTLIL::IdString, R
 	else
 		modname = "$paramod" + stripped_name + para_info;
 
-	if (!design->has(modname)) {
-		new_ast->str = modname;
-		design->add(process_module(new_ast, false));
-		design->module(modname)->check();
-	} else {
-		log("Found cached RTLIL representation for module `%s'.\n", modname.c_str());
-	}
 
-	delete new_ast;
+	(*new_ast_out) = new_ast;
 	return modname;
 }
 

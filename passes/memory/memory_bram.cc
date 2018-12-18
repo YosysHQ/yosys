@@ -472,7 +472,11 @@ bool replace_cell(Cell *cell, const rules_t &rules, const rules_t::bram_t &bram,
 		std::vector<SigSpec> new_wr_en(GetSize(old_wr_en));
 		std::vector<SigSpec> new_wr_data(GetSize(old_wr_data));
 		std::vector<SigSpec> new_rd_data(GetSize(old_rd_data));
+		std::vector<std::vector<State>> new_initdata;
 		std::vector<int> shuffle_map;
+
+		if (cell_init)
+			new_initdata.resize(mem_size);
 
 		for (auto &it : en_order)
 		{
@@ -489,6 +493,10 @@ bool replace_cell(Cell *cell, const rules_t &rules, const rules_t::bram_t &bram,
 				}
 				for (int j = 0; j < rd_ports; j++)
 					new_rd_data[j].append(old_rd_data[j][bits[i]]);
+				if (cell_init) {
+					for (int j = 0; j < mem_size; j++)
+						new_initdata[j].push_back(initdata[j][bits[i]]);
+				}
 				shuffle_map.push_back(bits[i]);
 			}
 
@@ -499,6 +507,10 @@ bool replace_cell(Cell *cell, const rules_t &rules, const rules_t::bram_t &bram,
 				}
 				for (int j = 0; j < rd_ports; j++)
 					new_rd_data[j].append(State::Sx);
+				if (cell_init) {
+					for (int j = 0; j < mem_size; j++)
+						new_initdata[j].push_back(State::Sx);
+				}
 				shuffle_map.push_back(-1);
 			}
 		}
@@ -522,6 +534,11 @@ bool replace_cell(Cell *cell, const rules_t &rules, const rules_t::bram_t &bram,
 
 		for (int i = 0; i < rd_ports; i++)
 			rd_data.replace(i*mem_width, new_rd_data[i]);
+
+		if (cell_init) {
+			for (int i = 0; i < mem_size; i++)
+				initdata[i] = Const(new_initdata[i]);
+		}
 	}
 
 	// assign write ports
@@ -623,6 +640,7 @@ grow_read_ports:;
 				pi.sig_addr = SigSpec();
 				pi.sig_data = SigSpec();
 				pi.sig_en = SigSpec();
+				pi.make_outreg = false;
 			}
 			new_portinfos.push_back(pi);
 			if (pi.dupidx == dup_count-1) {

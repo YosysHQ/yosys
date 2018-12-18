@@ -1,0 +1,4 @@
+simplemap
+equiv_opt -assert techmap -map +/gate2lut.v -D LUT_WIDTH=4
+design -load postopt
+select -assert-count 1 t:$lut

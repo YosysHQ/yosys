@@ -32,6 +32,7 @@ cexfile = None
 aimfile = None
 aiwfile = None
 aigheader = True
+btorwitfile = None
 vlogtbfile = None
 vlogtbtop = None
 inconstr = list()
@@ -91,6 +92,9 @@ yosys-smtbmc [options] <yosys_smt2_output>
     --aig-noheader
         the AIGER witness file does not include the status and
         properties lines.
+
+    --btorwit <btor_witness_filename>
+        read a BTOR witness.
 
     --noinfo
         only run the core proof, do not collect and print any
@@ -152,7 +156,7 @@ yosys-smtbmc [options] <yosys_smt2_output>
 
 try:
     opts, args = getopt.getopt(sys.argv[1:], so.shortopts + "t:igcm:", so.longopts +
-            ["final-only", "assume-skipped=", "smtc=", "cex=", "aig=", "aig-noheader", "presat",
+            ["final-only", "assume-skipped=", "smtc=", "cex=", "aig=", "aig-noheader", "btorwit=", "presat",
              "dump-vcd=", "dump-vlogtb=", "vlogtb-top=", "dump-smtc=", "dump-all", "noinfo", "append=",
              "smtc-init", "smtc-top=", "noinit"])
 except:
@@ -189,6 +193,8 @@ for o, a in opts:
             aiwfile = a + ".aiw"
     elif o == "--aig-noheader":
         aigheader = False
+    elif o == "--btorwit":
+        btorwitfile = a
     elif o == "--dump-vcd":
         vcdfile = a
     elif o == "--dump-vlogtb":
@@ -574,6 +580,103 @@ if aimfile is not None:
                 skip_steps = max(skip_steps, step)
                 num_steps = max(num_steps, step+1)
             step += 1
+
+if btorwitfile is not None:
+    with open(btorwitfile, "r") as f:
+        step = None
+        suffix = None
+        altsuffix = None
+        header_okay = False
+
+        for line in f:
+            line = line.strip()
+
+            if line == "sat":
+                header_okay = True
+                continue
+
+            if not header_okay:
+                continue
+
+            if line == "" or line[0] == "b" or line[0] == "j":
+                continue
+
+            if line == ".":
+                break
+
+            if line[0] == '#' or line[0] == '@':
+                step = int(line[1:])
+                suffix = line
+                altsuffix = suffix
+                if suffix[0] == "@":
+                    altsuffix = "#" + suffix[1:]
+                else:
+                    altsuffix = "@" + suffix[1:]
+                continue
+
+            line = line.split()
+
+            if len(line) == 0:
+                continue
+
+            if line[-1].endswith(suffix):
+                line[-1] = line[-1][0:len(line[-1]) - len(suffix)]
+
+            if line[-1].endswith(altsuffix):
+                line[-1] = line[-1][0:len(line[-1]) - len(altsuffix)]
+
+            if line[-1][0] == "$":
+                continue
+
+            # BV assignments
+            if len(line) == 3 and line[1][0] != "[":
+                value = line[1]
+                name = line[2]
+
+                path = smt.get_path(topmod, name)
+
+                if not smt.net_exists(topmod, path):
+                    continue
+
+                width = smt.net_width(topmod, path)
+
+                if width == 1:
+                    assert value in ["0", "1"]
+                    value = "true" if value == "1" else "false"
+                else:
+                    value = "#b" + value
+
+                smtexpr = "(= [%s] %s)" % (name, value)
+                constr_assumes[step].append((btorwitfile, smtexpr))
+
+            # Array assignments
+            if len(line) == 4 and line[1][0] == "[":
+                index = line[1]
+                value = line[2]
+                name = line[3]
+
+                path = smt.get_path(topmod, name)
+
+                if not smt.mem_exists(topmod, path):
+                    continue
+
+                meminfo = smt.mem_info(topmod, path)
+
+                if meminfo[1] == 1:
+                    assert value in ["0", "1"]
+                    value = "true" if value == "1" else "false"
+                else:
+                    value = "#b" + value
+
+                assert index[0] == "["
+                assert index[-1] == "]"
+                index = "#b" + index[1:-1]
+
+                smtexpr = "(= (select [%s] %s) %s)" % (name, index, value)
+                constr_assumes[step].append((btorwitfile, smtexpr))
+
+        skip_steps = step
+        num_steps = step+1
 
 def write_vcd_trace(steps_start, steps_stop, index):
     filename = vcdfile.replace("%", index)
@@ -1259,7 +1362,11 @@ elif covermode:
                     smt_assert_antecedent("(|%s_t| s%d s%d)" % (topmod, i-1, i))
                     smt_assert_consequent(get_constr_expr(constr_assumes, i))
                 print_msg("Re-solving with appended steps..")
-                assert smt_check_sat() == "sat"
+                if smt_check_sat() == "unsat":
+                    print("%s Cannot appended steps without violating assumptions!" % smt.timestamp())
+                    found_failed_assert = True
+                    retstatus = False
+                    break
 
             reached_covers = smt.bv2bin(smt.get("(covers_%d s%d)" % (coveridx, step)))
             assert len(reached_covers) == len(cover_desc)
@@ -1377,7 +1484,11 @@ else:  # not tempind, covermode
                             smt_assert_antecedent("(|%s_h| s%d)" % (topmod, i))
                             smt_assert_antecedent("(|%s_t| s%d s%d)" % (topmod, i-1, i))
                             smt_assert_consequent(get_constr_expr(constr_assumes, i))
-                            assert smt_check_sat() == "sat"
+                    print_msg("Re-solving with appended steps..")
+                    if smt_check_sat() == "unsat":
+                        print("%s Cannot appended steps without violating assumptions!" % smt.timestamp())
+                        retstatus = False
+                        break
                     print_anyconsts(step)
                     for i in range(step, last_check_step+1):
                         print_failed_asserts(i)
