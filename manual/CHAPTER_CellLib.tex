@@ -254,7 +254,7 @@ enable bit for each data bit), an address input \B{ADDR} and a data input
 
 \begin{itemize}
 \item \B{MEMID} \\
-The name of the RTLIL::Memory object that is associated with this read port.
+The name of the RTLIL::Memory object that is associated with this write port.
 
 \item \B{ABITS} \\
 The number of address bits (width of the \B{ADDR} input port).
@@ -263,7 +263,7 @@ The number of address bits (width of the \B{ADDR} input port).
 The number of data bits (width of the \B{DATA} output port).
 
 \item \B{CLK\_ENABLE} \\
-When this parameter is non-zero, the clock is used. Otherwise this read port is asynchronous and
+When this parameter is non-zero, the clock is used. Otherwise this write port is asynchronous and
 the \B{CLK} input is not used.
 
 \item \B{CLK\_POLARITY} \\
