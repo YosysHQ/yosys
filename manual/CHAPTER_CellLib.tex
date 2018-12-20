@@ -211,14 +211,15 @@ Add information about {\tt \$sr} cells (set-reset flip-flops) and d-type latches
 \subsection{Memories}
 \label{sec:memcells}
 
-Memories are either represented using RTLIL::Memory objects and {\tt \$memrd} and {\tt \$memwr} cells
-or simply by using {\tt \$mem} cells.
+Memories are either represented using RTLIL::Memory objects, {\tt \$memrd}, {\tt \$memwr}, and {\tt \$meminit}
+cells, or by {\tt \$mem} cells alone.
 
 In the first alternative the RTLIL::Memory objects hold the general metadata for the memory (bit width,
 size in number of words, etc.) and for each port a {\tt \$memrd} (read port) or {\tt \$memwr} (write port)
 cell is created. Having individual cells for read and write ports has the advantage that they can be
 consolidated using resource sharing passes. In some cases this drastically reduces the number of required
-ports on the memory cell.
+ports on the memory cell. In this alternative, memory initialization data is represented by {\tt \$meminit} cells,
+which allow delaying constant folding for initialization addresses and data until after the frontend finishes.
 
 The {\tt \$memrd} cells have a clock input \B{CLK}, an enable input \B{EN}, an
 address input \B{ADDR}, and a data output \B{DATA}. They also have the
@@ -273,6 +274,15 @@ edge if this parameter is {\tt 1'b0}.
 The cell with the higher integer value in this parameter wins a write conflict.
 \end{itemize}
 
+The {\tt \$meminit} cells have an address input \B{ADDR} and a data input \B{DATA}. Both of the inputs
+must resolve to a constant for synthesis to succeed. If two {\tt \$meminit} cells have the same
+\B{MEMID} parameter and \B{ADDR} input, the contents of that memory at that address is undefined.
+
+\begin{itemize}
+\item \B{MEMID} \\
+The name of the RTLIL::Memory object that is associated with this initialization cell.
+\end{itemize}
+
 The HDL frontend models a memory using RTLIL::Memory objects and asynchronous
 {\tt \$memrd} and {\tt \$memwr} cells. The {\tt memory} pass (i.e.~its various sub-passes) migrates
 {\tt \$dff} cells into the {\tt \$memrd} and {\tt \$memwr} cells making them synchronous, then
@@ -294,6 +304,9 @@ The number of address bits.
 
 \item \B{WIDTH} \\
 The number of data bits per word.
+
+\item \B{INIT} \\
+The initial memory contents.
 
 \item \B{RD\_PORTS} \\
 The number of read ports on this memory cell.
@@ -345,9 +358,11 @@ This input is \B{WR\_PORTS}*\B{ABITS} bits wide, containing all address signals 
 This input is \B{WR\_PORTS}*\B{WIDTH} bits wide, containing all data signals for the write ports.
 \end{itemize}
 
-The {\tt techmap} pass can be used to manually map {\tt \$mem} cells to
-specialized memory cells on the target architecture, such as block ram resources
-on an FPGA.
+The {\tt memory\_collect} pass can be used to convert discrete {\tt \$memrd}, {\tt \$memwr}, and {\tt \$meminit} cells
+belonging to the same memory to a single {\tt \$mem} cell, whereas the {\tt memory\_unpack} pass performs the inverse operation.
+The {\tt memory\_dff} pass can combine asynchronous memory ports that are fed by or feeding registers into synchronous memory ports.
+The {\tt memory\_bram} pass can be used to recognize {\tt \$mem} cells that can be implemented with a block RAM resource on an FPGA.
+The {\tt memory\_map} pass can be used to implement {\tt \$mem} cells as basic logic: word-wide DFFs and address decoders.
 
 \subsection{Finite State Machines}
 
