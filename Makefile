@@ -18,7 +18,7 @@ ENABLE_LIBYOSYS := 1
 ENABLE_PROTOBUF := 0
 
 # python wrappers
-ENABLE_PYTHON := 1
+ENABLE_PYOSYS := 1
 PYTHON_VERSION := 3.5
 PYTHON_DESTDIR := /usr/local/lib/python$(PYTHON_VERSION)/dist-packages
 
@@ -233,7 +233,7 @@ ifeq ($(ENABLE_LIBYOSYS),1)
 TARGETS += libyosys.so
 endif
 
-ifeq ($(ENABLE_PYTHON),1)
+ifeq ($(ENABLE_PYOSYS),1)
 LDLIBS += -lpython$(PYTHON_VERSION)m -lboost_python-py$(subst .,,$(PYTHON_VERSION)) -lboost_system
 CXXFLAGS += -I/usr/include/python$(PYTHON_VERSION) -D WITH_PYTHON
 PY_WRAPPER_FILE = kernel/python_wrappers
@@ -603,10 +603,10 @@ ifeq ($(ENABLE_LIBYOSYS),1)
 	$(INSTALL_SUDO) cp libyosys.so $(DESTDIR)$(LIBDIR)
 	$(INSTALL_SUDO) $(STRIP) -S $(DESTDIR)$(LIBDIR)/libyosys.so
 	$(INSTALL_SUDO) ldconfig
-ifeq ($(ENABLE_PYTHON),1)
-	$(INSTALL_SUDO) mkdir -p $(PYTHON_DESTDIR)/libyosys
-	$(INSTALL_SUDO) cp libyosys.so $(PYTHON_DESTDIR)/libyosys
-	$(INSTALL_SUDO) cp __init__.py $(PYTHON_DESTDIR)/libyosys
+ifeq ($(ENABLE_PYOSYS),1)
+	$(INSTALL_SUDO) mkdir -p $(PYTHON_DESTDIR)/pyosys
+	$(INSTALL_SUDO) cp libyosys.so $(PYTHON_DESTDIR)/pyosys
+	$(INSTALL_SUDO) cp __init__.py $(PYTHON_DESTDIR)/pyosys
 endif
 endif
 
@@ -615,10 +615,10 @@ uninstall:
 	$(INSTALL_SUDO) rm -rvf $(DESTDIR)$(DATDIR)
 ifeq ($(ENABLE_LIBYOSYS),1)
 	$(INSTALL_SUDO) rm -vf $(DESTDIR)$(LIBDIR)/libyosys.so
-ifeq ($(ENABLE_PYTHON),1)
-	$(INSTALL_SUDO) rm -vf $(PYTHON_DESTDIR)/libyosys/libyosys.so
-	$(INSTALL_SUDO) rm -vf $(PYTHON_DESTDIR)/libyosys/__init__.py
-	$(INSTALL_SUDO) rmdir $(PYTHON_DESTDIR)/libyosys
+ifeq ($(ENABLE_PYOSYS),1)
+	$(INSTALL_SUDO) rm -vf $(PYTHON_DESTDIR)/pyosys/libyosys.so
+	$(INSTALL_SUDO) rm -vf $(PYTHON_DESTDIR)/pyosys/__init__.py
+	$(INSTALL_SUDO) rmdir $(PYTHON_DESTDIR)/pyosys
 endif
 endif
 
