@@ -274,13 +274,25 @@ edge if this parameter is {\tt 1'b0}.
 The cell with the higher integer value in this parameter wins a write conflict.
 \end{itemize}
 
-The {\tt \$meminit} cells have an address input \B{ADDR} and a data input \B{DATA}. Both of the inputs
-must resolve to a constant for synthesis to succeed. If two {\tt \$meminit} cells have the same
-\B{MEMID} parameter and \B{ADDR} input, the contents of that memory at that address is undefined.
+The {\tt \$meminit} cells have an address input \B{ADDR} and a data input \B{DATA}, with the width
+of the \B{DATA} port equal to \B{WIDTH} parameter times \B{WORDS} parameter. Both of the inputs
+must resolve to a constant for synthesis to succeed.
 
 \begin{itemize}
 \item \B{MEMID} \\
 The name of the RTLIL::Memory object that is associated with this initialization cell.
+
+\item \B{ABITS} \\
+The number of address bits (width of the \B{ADDR} input port).
+
+\item \B{WIDTH} \\
+The number of data bits per memory location.
+
+\item \B{WORDS} \\
+The number of consecutive memory locations initialized by this cell.
+
+\item \B{PRIORITY} \\
+The cell with the higher integer value in this parameter wins an initialization conflict.
 \end{itemize}
 
 The HDL frontend models a memory using RTLIL::Memory objects and asynchronous
