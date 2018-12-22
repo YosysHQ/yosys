@@ -77,18 +77,14 @@ void proc_clean_switch(RTLIL::SwitchRule *sw, RTLIL::CaseRule *parent, bool &did
 	}
 	else
 	{
-		bool all_cases_are_empty = true;
 		for (auto cs : sw->cases) {
-			if (cs->actions.size() != 0 || cs->switches.size() != 0)
-				all_cases_are_empty = false;
 			if (max_depth != 0)
 				proc_clean_case(cs, did_something, count, max_depth-1);
 		}
-		if (all_cases_are_empty) {
+		while (!sw->cases.empty() && (sw->cases.back()->actions.empty() && sw->cases.back()->switches.empty())) {
 			did_something = true;
-			for (auto cs : sw->cases)
-				delete cs;
-			sw->cases.clear();
+			delete sw->cases.back();
+			sw->cases.pop_back();
 		}
 	}
 }
