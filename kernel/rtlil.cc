@@ -3793,6 +3793,11 @@ RTLIL::CaseRule::~CaseRule()
 		delete *it;
 }
 
+bool RTLIL::CaseRule::empty() const
+{
+	return actions.empty() && switches.empty();
+}
+
 RTLIL::CaseRule *RTLIL::CaseRule::clone() const
 {
 	RTLIL::CaseRule *new_caserule = new RTLIL::CaseRule;
@@ -3807,6 +3812,11 @@ RTLIL::SwitchRule::~SwitchRule()
 {
 	for (auto it = cases.begin(); it != cases.end(); it++)
 		delete *it;
+}
+
+bool RTLIL::SwitchRule::empty() const
+{
+	return cases.empty();
 }
 
 RTLIL::SwitchRule *RTLIL::SwitchRule::clone() const
