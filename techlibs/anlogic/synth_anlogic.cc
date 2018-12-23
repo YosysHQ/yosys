@@ -176,7 +176,7 @@ struct SynthAnlogicPass : public ScriptPass
 
 		if (check_label("map_luts"))
 		{
-			run("abc -lut 6");
+			run("abc -lut 4:6");
 			run("clean");
 		}
 
