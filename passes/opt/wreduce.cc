@@ -235,8 +235,11 @@ struct WreduceWorker
 		} else {
 			while (GetSize(sig) > 0)
 			{
-				auto info = mi.query(sig[GetSize(sig)-1]);
+				auto bit = sig[GetSize(sig)-1];
+				if (keep_bits.count(bit))
+					break;
 
+				auto info = mi.query(bit);
 				if (info->is_output || GetSize(info->ports) > 1)
 					break;
 
