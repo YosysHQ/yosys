@@ -15,6 +15,18 @@ module  \$_DFF_PN1_ (input D, C, R, output Q); AL_MAP_SEQ #(.DFFMODE("FF"), .REG
 module  \$_DFF_PP0_ (input D, C, R, output Q); AL_MAP_SEQ #(.DFFMODE("FF"), .REGSET("RESET"), .SRMUX("SR"),  .SRMODE("SYNC")) _TECHMAP_REPLACE_ (.d(D), .q(Q), .clk(C),  .ce(1'b1), .sr(R)); endmodule
 module  \$_DFF_PP1_ (input D, C, R, output Q); AL_MAP_SEQ #(.DFFMODE("FF"), .REGSET("SET"),   .SRMUX("SR"), . SRMODE("SYNC")) _TECHMAP_REPLACE_ (.d(D), .q(Q), .clk(C),  .ce(1'b1), .sr(R)); endmodule
 
+module \$_DLATCH_N_ (E, D, Q);
+  wire [1023:0] _TECHMAP_DO_ = "simplemap; opt";
+  input E, D;
+  output Q = !E ? D : Q;
+endmodule
+
+module \$_DLATCH_P_ (E, D, Q);
+  wire [1023:0] _TECHMAP_DO_ = "simplemap; opt";
+  input E, D;
+  output Q = E ? D : Q;
+endmodule
+
 `ifndef NO_LUT
 module \$lut (A, Y);
   parameter WIDTH = 0;
