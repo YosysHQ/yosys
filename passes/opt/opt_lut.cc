@@ -188,6 +188,87 @@ struct OptLutWorker
 		show_stats_by_arity();
 
 		log("\n");
+		log("Eliminating LUTs.\n");
+		for (auto lut : luts)
+		{
+			SigSpec lut_input = sigmap(lut->getPort("\\A"));
+			pool<int> &lut_dlogic_inputs = luts_dlogic_inputs[lut];
+
+			vector<SigBit> lut_inputs;
+			for (auto &bit : lut_input)
+			{
+				if (bit.wire)
+					lut_inputs.push_back(sigmap(bit));
+			}
+
+			bool const0_match = true;
+			bool const1_match = true;
+			vector<bool> input_matches;
+			for (size_t i = 0; i < lut_inputs.size(); i++)
+				input_matches.push_back(true);
+
+			for (int eval = 0; eval < 1 << lut_inputs.size(); eval++)
+			{
+				dict<SigBit, bool> eval_inputs;
+				for (size_t i = 0; i < lut_inputs.size(); i++)
+					eval_inputs[lut_inputs[i]] = (eval >> i) & 1;
+				bool value = evaluate_lut(lut, eval_inputs);
+				if (value != 0)
+					const0_match = false;
+				if (value != 1)
+					const1_match = false;
+				for (size_t i = 0; i < lut_inputs.size(); i++)
+				{
+					if (value != eval_inputs[lut_inputs[i]])
+						input_matches[i] = false;
+				}
+			}
+
+			int input_match = -1;
+			for (size_t i = 0; i < lut_inputs.size(); i++)
+				if (input_matches[i])
+					input_match = i;
+
+			if (const0_match || const1_match || input_match != -1)
+			{
+				log("Found redundant cell %s.%s.\n", log_id(module), log_id(lut));
+
+				SigBit value;
+				if (const0_match)
+				{
+					log("  Cell evaluates constant 0.\n");
+					value = State::S0;
+				}
+				if (const1_match)
+				{
+					log("  Cell evaluates constant 1.\n");
+					value = State::S1;
+				}
+				if (input_match != -1) {
+					log("  Cell evaluates signal %s.\n", log_signal(lut_inputs[input_match]));
+					value = lut_inputs[input_match];
+				}
+
+				if (lut_dlogic_inputs.size())
+				{
+					log("  Not eliminating cell (connected to dedicated logic).\n");
+				}
+				else
+				{
+					SigSpec lut_output = lut->getPort("\\Y");
+					module->connect(lut_output, value);
+
+					module->remove(lut);
+					luts.erase(lut);
+					luts_arity.erase(lut);
+					luts_dlogics.erase(lut);
+					luts_dlogic_inputs.erase(lut);
+				}
+			}
+		}
+		show_stats_by_arity();
+
+		log("\n");
 		log("Combining LUTs.\n");
 		pool<RTLIL::Cell*> worklist = luts;
 		while (worklist.size())
