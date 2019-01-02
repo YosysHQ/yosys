@@ -36,6 +36,7 @@ OBJS += passes/techmap/attrmvcp.o
 OBJS += passes/techmap/attrmap.o
 OBJS += passes/techmap/zinit.o
 OBJS += passes/techmap/dff2dffs.o
+OBJS += passes/techmap/flowmap.o
 endif
 
 GENFILES += passes/techmap/techmap.inc
