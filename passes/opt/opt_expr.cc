@@ -1344,6 +1344,75 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			}
 		}
 
+		// simplify comparisons
+		// currently, only replaces comparisons with an extreme of the signal range with a constant
+		// TODO: since, unlike the following optimization, this one does not assume that both inputs to the cell are constant,
+		// it is more robust; the following optimization should be folded into this one at some point
+		if (do_fine && (cell->type == "$lt" || cell->type == "$ge" || cell->type == "$gt" || cell->type == "$le"))
+		{
+			IdString cmp_type = cell->type;
+			SigSpec var_sig = cell->getPort("\\A");
+			SigSpec const_sig = cell->getPort("\\B");
+			int var_width = cell->parameters["\\A_WIDTH"].as_int();
+			int const_width = cell->parameters["\\B_WIDTH"].as_int();
+			bool is_signed = cell->getParam("\\A_SIGNED").as_bool();
+
+			if (!const_sig.is_fully_const())
+			{
+				std::swap(var_sig, const_sig);
+				std::swap(var_width, const_width);
+				if (cmp_type == "$gt")
+					cmp_type = "$lt";
+				else if (cmp_type == "$lt")
+					cmp_type = "$gt";
+				else if (cmp_type == "$ge")
+					cmp_type = "$le";
+				else if (cmp_type == "$le")
+					cmp_type = "$ge";
+			}
+
+			if (const_sig.is_fully_def() && const_sig.is_fully_const())
+			{
+				const char *condition, *replacement;
+				SigSpec result_sig(State::S0, GetSize(cell->getPort("\\Y")));
+				result_sig[0] = State::Sx;
+
+				if (!is_signed)
+				{
+					if (const_sig.is_fully_zero() && cmp_type == "$lt") {
+						condition   = "unsigned X<0";
+						replacement = "constant 0";
+						result_sig[0] = State::S0;
+					}
+					if (const_sig.is_fully_zero() && cmp_type == "$ge") {
+						condition   = "unsigned X>=0";
+						replacement = "constant 1";
+						result_sig[0] = State::S1;
+					}
+					if (const_width == var_width && const_sig.is_fully_ones() && cmp_type == "$gt") {
+						condition   = "unsigned X>~0";
+						replacement = "constant 0";
+						result_sig[0] = State::S0;
+					}
+					if (const_width == var_width && const_sig.is_fully_ones() && cmp_type == "$le") {
+						condition   = "unsigned X<=~0";
+						replacement = "constant 1";
+						result_sig[0] = State::S1;
+					}
+				}
+
+				if (result_sig.is_fully_def())
+				{
+					log("Replacing %s cell `%s' (implementing %s) with %s.\n",
+							log_id(cell->type), log_id(cell), condition, replacement);
+					module->connect(cell->getPort("\\Y"), result_sig);
+					module->remove(cell);
+					did_something = true;
+					goto next_cell;
+				}
+			}
+		}
+
 		// replace a<0 or a>=0 with the top bit of a
 		if (do_fine && (cell->type == "$lt" || cell->type == "$ge" || cell->type == "$gt" || cell->type == "$le"))
 		{
@@ -1405,23 +1474,6 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			} else
 			if (sigConst.is_fully_const() && sigConst.is_fully_def() && var_signed == false)
 			{
-				if (sigConst.is_fully_zero()) {
-					RTLIL::SigSpec a_prime(RTLIL::State::S0, GetSize(cell->getPort("\\Y")));
-					if (is_lt) {
-						log("Replacing %s cell `%s' (implementing unsigned X<0) with constant false.\n",
-								log_id(cell->type), log_id(cell));
-						a_prime[0] = RTLIL::State::S0;
-					} else {
-						log("Replacing %s cell `%s' (implementing unsigned X>=0) with constant true.\n",
-								log_id(cell->type), log_id(cell));
-						a_prime[0] = RTLIL::State::S1;
-					}
-					module->connect(cell->getPort("\\Y"), a_prime);
-					module->remove(cell);
-					did_something = true;
-					goto next_cell;
-				}
-
 				int const_bit_set = get_onehot_bit_index(sigConst);
 				if (const_bit_set >= 0 && const_bit_set < width) {
 					int bit_set = const_bit_set;
