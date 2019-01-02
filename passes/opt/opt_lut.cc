@@ -189,7 +189,8 @@ struct OptLutWorker
 
 		log("\n");
 		log("Eliminating LUTs.\n");
-		for (auto lut : luts)
+		pool<RTLIL::Cell*> worklist = luts;
+		while (worklist.size())
 		{
 			if (limit == 0)
 			{
@@ -197,6 +198,7 @@ struct OptLutWorker
 				break;
 			}
 
+			auto lut = worklist.pop();
 			SigSpec lut_input = sigmap(lut->getPort("\\A"));
 			pool<int> &lut_dlogic_inputs = luts_dlogic_inputs[lut];
 
@@ -262,8 +264,13 @@ struct OptLutWorker
 				else
 				{
 					SigSpec lut_output = lut->getPort("\\Y");
-					module->connect(lut_output, value);
+					for (auto &port : index.query_ports(lut_output))
+					{
+						if (port.cell != lut && luts.count(port.cell))
+							worklist.insert(port.cell);
+					}
 
+					module->connect(lut_output, value);
 					module->remove(lut);
 					luts.erase(lut);
 					luts_arity.erase(lut);
@@ -280,7 +287,7 @@ struct OptLutWorker
 
 		log("\n");
 		log("Combining LUTs.\n");
-		pool<RTLIL::Cell*> worklist = luts;
+		worklist = luts;
 		while (worklist.size())
 		{
 			if (limit == 0)
