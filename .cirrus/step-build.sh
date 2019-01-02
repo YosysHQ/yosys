@@ -13,4 +13,9 @@ else
     exit 1
 fi
 
-make -j $(nproc)
+ncpu=4
+if nproc; then
+    ncpu=$(nproc)
+fi
+
+make -j ${ncpu}
