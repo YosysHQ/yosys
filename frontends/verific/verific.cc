@@ -1201,7 +1201,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 		{
 			RTLIL::Memory *memory = module->memories.at(RTLIL::escape_id(inst->GetOutput()->Name()));
 			if (memory->width != int(inst->Input2Size()))
-				log_error("Import of asymmetric memories of this type is not supported yet: %s %s\n", inst->Name(), inst->GetInput()->Name());
+				log_error("Import of asymmetric memories of this type is not supported yet: %s %s\n", inst->Name(), inst->GetOutput()->Name());
 
 			RTLIL::SigSpec addr = operatorInput1(inst);
 			RTLIL::SigSpec data = operatorInput2(inst);
