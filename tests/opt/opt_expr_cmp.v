@@ -19,4 +19,22 @@ module top(...);
   output o3_2 = 4'b0100 <= a;
   output o3_3 = a <  4'b0100;
   output o3_4 = a >= 4'b0100;
+
+  output o4_1 = 5'b10000 >  a;
+  output o4_2 = 5'b10000 >= a;
+  output o4_3 = 5'b10000 <  a;
+  output o4_4 = 5'b10000 <= a;
+  output o4_5 = a <  5'b10000;
+  output o4_6 = a <= 5'b10000;
+  output o4_7 = a >  5'b10000;
+  output o4_8 = a >= 5'b10000;
+
+  output o5_1 = 5'b10100 >  a;
+  output o5_2 = 5'b10100 >= a;
+  output o5_3 = 5'b10100 <  a;
+  output o5_4 = 5'b10100 <= a;
+  output o5_5 = a <  5'b10100;
+  output o5_6 = a <= 5'b10100;
+  output o5_7 = a >  5'b10100;
+  output o5_8 = a >= 5'b10100;
 endmodule
