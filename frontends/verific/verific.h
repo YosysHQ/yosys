@@ -78,6 +78,7 @@ struct VerificImporter
 
 	RTLIL::SigBit net_map_at(Verific::Net *net);
 
+	RTLIL::IdString new_verific_id(Verific::DesignObj *obj);
 	void import_attributes(dict<RTLIL::IdString, RTLIL::Const> &attributes, Verific::DesignObj *obj);
 
 	RTLIL::SigSpec operatorInput(Verific::Instance *inst);

@@ -120,7 +120,7 @@ struct SynthGreenPAK4Pass : public ScriptPass
 		extra_args(args, argidx, design);
 
 		if (!design->full_selection())
-			log_cmd_error("This comannd only operates on fully selected designs!\n");
+			log_cmd_error("This command only operates on fully selected designs!\n");
 
 		if (part != "SLG46140V" && part != "SLG46620V" && part != "SLG46621V")
 			log_cmd_error("Invalid part name: '%s'\n", part.c_str());

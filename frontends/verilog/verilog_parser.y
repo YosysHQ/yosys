@@ -794,7 +794,7 @@ more_path_inputs :
 list_of_path_outputs :
 	specify_output_terminal_descriptor |
 	list_of_path_outputs ',' specify_output_terminal_descriptor ;
-	
+
 opt_polarity_operator :
 	'+'
 	| '-'
@@ -819,7 +819,7 @@ system_timing_arg :
 system_timing_args :
 	system_timing_arg |
 	system_timing_args ',' system_timing_arg ;
- 
+
 /*
 t_path_delay_expression :
 	path_delay_expression;
@@ -881,7 +881,7 @@ constant_mintypmax_expression :
 // for the time being this is OK, but we may write our own expr here.
 // as I'm not sure it is legal to use a full expr here (probably not)
 // On the other hand, other rules requiring constant expressions also use 'expr'
-// (such as param assignment), so we may leave this as-is, perhaps assing runtime checks for constant-ness
+// (such as param assignment), so we may leave this as-is, perhaps adding runtime checks for constant-ness
 constant_expression:
 	expr ;
 

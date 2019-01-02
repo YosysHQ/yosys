@@ -26,5 +26,5 @@ $(eval $(call add_share_file,share,techlibs/common/pmux2mux.v))
 $(eval $(call add_share_file,share,techlibs/common/adff2dff.v))
 $(eval $(call add_share_file,share,techlibs/common/dff2ff.v))
 $(eval $(call add_share_file,share,techlibs/common/gate2lut.v))
+$(eval $(call add_share_file,share,techlibs/common/cmp2lut.v))
 $(eval $(call add_share_file,share,techlibs/common/cells.lib))
-

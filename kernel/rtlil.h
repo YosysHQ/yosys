@@ -1227,6 +1227,8 @@ struct RTLIL::CaseRule
 	~CaseRule();
 	void optimize();
 
+	bool empty() const;
+
 	template<typename T> void rewrite_sigspecs(T &functor);
 	RTLIL::CaseRule *clone() const;
 };
@@ -1237,6 +1239,8 @@ struct RTLIL::SwitchRule : public RTLIL::AttrObject
 	std::vector<RTLIL::CaseRule*> cases;
 
 	~SwitchRule();
+
+	bool empty() const;
 
 	template<typename T> void rewrite_sigspecs(T &functor);
 	RTLIL::SwitchRule *clone() const;

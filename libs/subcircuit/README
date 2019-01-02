@@ -109,7 +109,7 @@ look at the demo.cc example program in this directory.
 Setting up graphs
 -----------------
 
-Instanciate the SubCircuit::Graph class and use the methods of this class to
+Instantiate the SubCircuit::Graph class and use the methods of this class to
 set up the circuit.
 
 	SubCircuit::Graph myGraph;
@@ -152,7 +152,7 @@ rotate shift,
 
 The method createConstant() can be used to add a constant driver to a signal.
 The signal value is encoded as one char by bit, allowing for multi-valued
-logic matching. The follwoing command sets the lowest bit of cell6.A to a
+logic matching. The following command sets the lowest bit of cell6.A to a
 logic 1:
 
 	myGraph.createConnection("cell6", "A", 0, '1');
@@ -314,7 +314,7 @@ bool userCompareEdge(needleGraphId, needleFromNodeId, needleFromUserData, needle
 
 	Perform additional checks on a pair of a pair of adjacent nodes (one
 	adjacent pair from the needle and one adjacent pair from the haystack)
-	to determine wheter this edge from the needle is compatible with
+	to determine whether this edge from the needle is compatible with
 	that edge from the haystack. The default implementation always
 	returns true.
 

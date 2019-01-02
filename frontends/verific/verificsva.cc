@@ -827,9 +827,9 @@ struct SvaFsm
 
 			for (auto &it : nodes[i].edges) {
 				if (it.second != State::S1)
-					log("          egde %s -> %d\n", log_signal(it.second), it.first);
+					log("          edge %s -> %d\n", log_signal(it.second), it.first);
 				else
-					log("          egde -> %d\n", it.first);
+					log("          edge -> %d\n", it.first);
 			}
 
 			for (auto &it : nodes[i].links) {
@@ -856,9 +856,9 @@ struct SvaFsm
 
 			for (auto &it : unodes[i].edges) {
 				if (!it.second.empty())
-					log("          egde %s -> %d\n", log_signal(it.second), it.first);
+					log("          edge %s -> %d\n", log_signal(it.second), it.first);
 				else
-					log("          egde -> %d\n", it.first);
+					log("          edge -> %d\n", it.first);
 			}
 
 			for (auto &ctrl : unodes[i].accept) {

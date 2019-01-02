@@ -137,7 +137,7 @@ struct SetundefPass : public Pass {
 		log("        replace with $anyconst drivers (for formal)\n");
 		log("\n");
 		log("    -random <seed>\n");
-		log("        replace with random bits using the specified integer als seed\n");
+		log("        replace with random bits using the specified integer as seed\n");
 		log("        value for the random number generator.\n");
 		log("\n");
 		log("    -init\n");

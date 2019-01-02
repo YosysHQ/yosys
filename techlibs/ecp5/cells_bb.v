@@ -484,7 +484,7 @@ module DCUA(
 	parameter D_XGE_MODE = "0b0";
 
 // These parameters don't do anything but are
-// needed for compatability with Diamond
+// needed for compatibility with Diamond
 	parameter D_TX_MAX_RATE = "2.5";
 	parameter D_RX_MAX_RATE = "2.5";
 	parameter CH0_TXAMPLITUDE = "0d1300";

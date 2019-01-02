@@ -137,7 +137,7 @@ struct ConnectPass : public Pass {
 		if (!set_lhs.empty())
 		{
 			if (!unset_expr.empty() || !port_cell.empty())
-				log_cmd_error("Cant use -set together with -unset and/or -port.\n");
+				log_cmd_error("Can't use -set together with -unset and/or -port.\n");
 
 			RTLIL::SigSpec sig_lhs, sig_rhs;
 			if (!RTLIL::SigSpec::parse_sel(sig_lhs, design, module, set_lhs))
@@ -157,7 +157,7 @@ struct ConnectPass : public Pass {
 		if (!unset_expr.empty())
 		{
 			if (!port_cell.empty() || flag_nounset)
-				log_cmd_error("Cant use -unset together with -port and/or -nounset.\n");
+				log_cmd_error("Can't use -unset together with -port and/or -nounset.\n");
 
 			RTLIL::SigSpec sig;
 			if (!RTLIL::SigSpec::parse_sel(sig, design, module, unset_expr))
@@ -170,7 +170,7 @@ struct ConnectPass : public Pass {
 		if (!port_cell.empty())
 		{
 			if (flag_nounset)
-				log_cmd_error("Cant use -port together with -nounset.\n");
+				log_cmd_error("Can't use -port together with -nounset.\n");
 
 			if (module->cells_.count(RTLIL::escape_id(port_cell)) == 0)
 				log_cmd_error("Can't find cell %s.\n", port_cell.c_str());

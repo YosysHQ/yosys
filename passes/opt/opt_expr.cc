@@ -1477,7 +1477,7 @@ struct OptExprPass : public Pass {
 		log("    opt_expr [options] [selection]\n");
 		log("\n");
 		log("This pass performs const folding on internal cell types with constant inputs.\n");
-		log("It also performs some simple expression rewritring.\n");
+		log("It also performs some simple expression rewriting.\n");
 		log("\n");
 		log("    -mux_undef\n");
 		log("        remove 'undef' inputs from $mux, $pmux and $_MUX_ cells\n");

@@ -543,7 +543,7 @@ struct HierarchyPass : public Pass {
 		log("        an unknown module is used as cell type.\n");
 		log("\n");
 		log("    -simcheck\n");
-		log("        like -check, but also thow an error if blackbox modules are\n");
+		log("        like -check, but also throw an error if blackbox modules are\n");
 		log("        instantiated, and throw an error if the design has no top module\n");
 		log("\n");
 		log("    -purge_lib\n");

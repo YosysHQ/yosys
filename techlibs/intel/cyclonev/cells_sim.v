@@ -54,7 +54,7 @@ module cyclonev_lcell_comb
    // Internal variables
    // Sub mask for fragmented LUTs
    wire [15:0] mask_a, mask_b, mask_c, mask_d;
-   // Independant output for fragmented LUTs
+   // Independent output for fragmented LUTs
    wire        output_0, output_1, output_2, output_3;
    // Extended mode uses mux to define the output
    wire        mux_0, mux_1;
