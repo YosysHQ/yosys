@@ -154,6 +154,7 @@ struct SynthAnlogicPass : public ScriptPass
 		{
 			run("memory_bram -rules +/anlogic/drams.txt");
 			run("techmap -map +/anlogic/drams_map.v");
+			run("anlogic_determine_init");
 		}
 
 		if (check_label("fine"))
