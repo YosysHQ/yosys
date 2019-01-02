@@ -186,19 +186,19 @@ struct SynthPass : public ScriptPass
 		{
 			run("proc");
 			if (help_mode || flatten)
-				run("flatten", "(if -flatten)");
+				run("flatten", "  (if -flatten)");
 			run("opt_expr");
 			run("opt_clean");
 			run("check");
 			run("opt");
 			run("wreduce");
 			if (!noalumacc)
-				run("alumacc");
+				run("alumacc", "  (unless -noalumacc)");
 			if (!noshare)
-				run("share");
+				run("share", "    (unless -noshare)");
 			run("opt");
 			if (!nofsm)
-				run("fsm" + fsm_opts);
+				run("fsm" + fsm_opts, "      (unless -nofsm)");
 			run("opt -fast");
 			run("memory -nomap" + memory_opts);
 			run("opt_clean");
@@ -214,8 +214,8 @@ struct SynthPass : public ScriptPass
 
 			if (!noabc) {
 		#ifdef YOSYS_ENABLE_ABC
-				run("abc -fast");
-				run("opt -fast");
+				run("abc -fast", "(unless -noabc)");
+				run("opt -fast", "(unless -noabc)");
 		#endif
 			}
 		}
