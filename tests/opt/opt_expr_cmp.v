@@ -14,4 +14,9 @@ module top(...);
   output o2_2 = 4'sb0000 <= $signed(a);
   output o2_3 = $signed(a) <  4'sb0000;
   output o2_4 = $signed(a) >= 4'sb0000;
+
+  output o3_1 = 4'b0100 >  a;
+  output o3_2 = 4'b0100 <= a;
+  output o3_3 = a <  4'b0100;
+  output o3_4 = a >= 4'b0100;
 endmodule

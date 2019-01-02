@@ -1374,34 +1374,59 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			if (const_sig.is_fully_def() && const_sig.is_fully_const())
 			{
 				std::string condition, replacement;
-				SigSpec result_sig(State::S0, GetSize(cell->getPort("\\Y")));
+				SigSpec replace_sig(State::S0, GetSize(cell->getPort("\\Y")));
 				bool replace = false;
+				bool remove = false;
 
 				if (!is_signed)
 				{ /* unsigned */
 					if (const_sig.is_fully_zero() && cmp_type == "$lt") {
 						condition   = "unsigned X<0";
 						replacement = "constant 0";
-						result_sig[0] = State::S0;
+						replace_sig[0] = State::S0;
 						replace = true;
 					}
 					if (const_sig.is_fully_zero() && cmp_type == "$ge") {
 						condition   = "unsigned X>=0";
 						replacement = "constant 1";
-						result_sig[0] = State::S1;
+						replace_sig[0] = State::S1;
 						replace = true;
 					}
 					if (const_width == var_width && const_sig.is_fully_ones() && cmp_type == "$gt") {
 						condition   = "unsigned X>~0";
 						replacement = "constant 0";
-						result_sig[0] = State::S0;
+						replace_sig[0] = State::S0;
 						replace = true;
 					}
 					if (const_width == var_width && const_sig.is_fully_ones() && cmp_type == "$le") {
 						condition   = "unsigned X<=~0";
 						replacement = "constant 1";
-						result_sig[0] = State::S1;
+						replace_sig[0] = State::S1;
 						replace = true;
+					}
+
+					int const_bit_set = get_onehot_bit_index(const_sig);
+					if (const_bit_set >= 0 && const_bit_set < var_width)
+					{
+						RTLIL::SigSpec var_high_sig(RTLIL::State::S0, var_width - const_bit_set);
+						for (int i = const_bit_set; i < var_width; i++) {
+							var_high_sig[i - const_bit_set] = var_sig[i];
+						}
+
+						if (cmp_type == "$lt")
+						{
+							condition   = stringf("unsigned X<%s", log_signal(const_sig));
+							replacement = stringf("!X[%d:%d]", var_width - 1, const_bit_set);
+							module->addLogicNot(NEW_ID, var_high_sig, cell->getPort("\\Y"));
+							remove = true;
+						}
+						if (cmp_type == "$ge")
+						{
+							condition   = stringf("unsigned X>=%s", log_signal(const_sig));
+							replacement = stringf("|X[%d:%d]", var_width - 1, const_bit_set);
+							module->addReduceOr(NEW_ID, var_high_sig, cell->getPort("\\Y"));
+							remove = true;
+						}
 					}
 				}
 				else
@@ -1410,23 +1435,24 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 					{
 						condition   = "signed X<0";
 						replacement = stringf("X[%d]", var_width - 1);
-						result_sig[0] = var_sig[var_width - 1];
+						replace_sig[0] = var_sig[var_width - 1];
 						replace = true;
 					}
 					if (const_sig.is_fully_zero() && cmp_type == "$ge")
 					{
 						condition   = "signed X>=0";
 						replacement = stringf("X[%d]", var_width - 1);
-						module->addNot(NEW_ID, var_sig[var_width - 1], result_sig);
-						replace = true;
+						module->addNot(NEW_ID, var_sig[var_width - 1], cell->getPort("\\Y"));
+						remove = true;
 					}
 				}
 
-				if (replace)
+				if (replace || remove)
 				{
 					log("Replacing %s cell `%s' (implementing %s) with %s.\n",
 							log_id(cell->type), log_id(cell), condition.c_str(), replacement.c_str());
-					module->connect(cell->getPort("\\Y"), result_sig);
+					if (replace)
+						module->connect(cell->getPort("\\Y"), replace_sig);
 					module->remove(cell);
 					did_something = true;
 					goto next_cell;
@@ -1477,26 +1503,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			if (sigConst.is_fully_const() && sigConst.is_fully_def() && var_signed == false)
 			{
 				int const_bit_set = get_onehot_bit_index(sigConst);
-				if (const_bit_set >= 0 && const_bit_set < width) {
-					int bit_set = const_bit_set;
-					RTLIL::SigSpec a_prime(RTLIL::State::S0, width - bit_set);
-					for (int i = bit_set; i < width; i++) {
-						a_prime[i - bit_set] = sigVar[i];
-					}
-					if (is_lt) {
-						log("Replacing %s cell `%s' (implementing unsigned X<%s) with !X[%d:%d]: %s.\n",
-								log_id(cell->type), log_id(cell), log_signal(sigConst), width - 1, bit_set, log_signal(a_prime));
-						module->addLogicNot(NEW_ID, a_prime, cell->getPort("\\Y"));
-					} else {
-						log("Replacing %s cell `%s' (implementing unsigned X>=%s) with |X[%d:%d]: %s.\n",
-								log_id(cell->type), log_id(cell), log_signal(sigConst), width - 1, bit_set, log_signal(a_prime));
-						module->addReduceOr(NEW_ID, a_prime, cell->getPort("\\Y"));
-					}
-					module->remove(cell);
-					did_something = true;
-					goto next_cell;
-				}
-				else if(const_bit_set >= width && const_bit_set >= 0){
+				if(const_bit_set >= width && const_bit_set >= 0){
 					RTLIL::SigSpec a_prime(RTLIL::State::S0, 1);
 					if(is_lt){
 						a_prime[0] = RTLIL::State::S1;
@@ -1509,7 +1516,6 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 					module->remove(cell);
 					did_something = true;
 					goto next_cell;
-
 				}
 			}
 		}
