@@ -271,6 +271,8 @@ struct OptLutWorker
 					}
 
 					module->connect(lut_output, value);
+					sigmap.add(lut_output, value);
+
 					module->remove(lut);
 					luts.erase(lut);
 					luts_arity.erase(lut);
