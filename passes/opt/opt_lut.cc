@@ -36,7 +36,7 @@ struct OptLutWorker
 	dict<RTLIL::Cell*, pool<RTLIL::Cell*>> luts_dlogics;
 	dict<RTLIL::Cell*, pool<int>> luts_dlogic_inputs;
 
-	int combined_count = 0;
+	int eliminated_count = 0, combined_count = 0;
 
 	bool evaluate_lut(RTLIL::Cell *lut, dict<SigBit, bool> inputs)
 	{
@@ -191,6 +191,12 @@ struct OptLutWorker
 		log("Eliminating LUTs.\n");
 		for (auto lut : luts)
 		{
+			if (limit == 0)
+			{
+				log("Limit reached.\n");
+				break;
+			}
+
 			SigSpec lut_input = sigmap(lut->getPort("\\A"));
 			pool<int> &lut_dlogic_inputs = luts_dlogic_inputs[lut];
 
@@ -263,6 +269,10 @@ struct OptLutWorker
 					luts_arity.erase(lut);
 					luts_dlogics.erase(lut);
 					luts_dlogic_inputs.erase(lut);
+
+					eliminated_count++;
+					if (limit > 0)
+						limit--;
 				}
 			}
 		}
@@ -568,16 +578,20 @@ struct OptLutPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		int total_count = 0;
+		int eliminated_count = 0, combined_count = 0;
 		for (auto module : design->selected_modules())
 		{
-			OptLutWorker worker(dlogic, module, limit - total_count);
-			total_count += worker.combined_count;
+			OptLutWorker worker(dlogic, module, limit - eliminated_count - combined_count);
+			eliminated_count += worker.eliminated_count;
+			combined_count   += worker.combined_count;
 		}
-		if (total_count)
+		if (eliminated_count)
+			design->scratchpad_set_bool("opt.did_something", true);
+		if (combined_count)
 			design->scratchpad_set_bool("opt.did_something", true);
 		log("\n");
-		log("Combined %d LUTs.\n", total_count);
+		log("Eliminated %d LUTs.\n", eliminated_count);
+		log("Combined %d LUTs.\n", combined_count);
 	}
 } OptLutPass;
 
