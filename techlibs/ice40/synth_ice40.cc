@@ -226,7 +226,7 @@ struct SynthIce40Pass : public ScriptPass
 
 		if (check_label("coarse"))
 		{
-			run("synth -run coarse");
+			run("synth -lut 4 -run coarse");
 		}
 
 		if (!nobram && check_label("bram", "(skip if -nobram)"))

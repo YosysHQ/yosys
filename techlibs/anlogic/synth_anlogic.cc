@@ -170,6 +170,7 @@ struct SynthAnlogicPass : public ScriptPass
 		{
 			run("dffsr2dff");
 			run("techmap -D NO_LUT -map +/anlogic/cells_map.v");
+			run("dffinit -strinit SET RESET -ff AL_MAP_SEQ q REGSET -noreinit");
 			run("opt_expr -mux_undef");
 			run("simplemap");
 		}
