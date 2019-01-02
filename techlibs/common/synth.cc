@@ -51,6 +51,9 @@ struct SynthPass : public ScriptPass
 		log("    -encfile <file>\n");
 		log("        passed to 'fsm_recode' via 'fsm'\n");
 		log("\n");
+		log("    -lut <k>\n");
+		log("        perform synthesis for a k-LUT architecture.\n");
+		log("\n");
 		log("    -nofsm\n");
 		log("        do not run FSM optimization\n");
 		log("\n");
@@ -80,6 +83,7 @@ struct SynthPass : public ScriptPass
 
 	string top_module, fsm_opts, memory_opts;
 	bool autotop, flatten, noalumacc, nofsm, noabc, noshare;
+	int lut;
 
 	void clear_flags() YS_OVERRIDE
 	{
@@ -89,6 +93,7 @@ struct SynthPass : public ScriptPass
 
 		autotop = false;
 		flatten = false;
+		lut = 0;
 		noalumacc = false;
 		nofsm = false;
 		noabc = false;
@@ -128,6 +133,10 @@ struct SynthPass : public ScriptPass
 			}
 			if (args[argidx] == "-flatten") {
 				flatten = true;
+				continue;
+			}
+			if (args[argidx] == "-lut") {
+				lut = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-nofsm") {
@@ -192,6 +201,10 @@ struct SynthPass : public ScriptPass
 			run("check");
 			run("opt");
 			run("wreduce");
+			if (help_mode)
+				run("techmap -map +/cmp2lut.v", " (if -lut)");
+			else
+				run(stringf("techmap -map +/cmp2lut.v -D LUT_WIDTH=%d", lut));
 			if (!noalumacc)
 				run("alumacc", "  (unless -noalumacc)");
 			if (!noshare)
@@ -210,12 +223,33 @@ struct SynthPass : public ScriptPass
 			run("memory_map");
 			run("opt -full");
 			run("techmap");
+			if (help_mode)
+			{
+				run("techmap -map +/gate2lut.v", "(if -noabc and -lut)");
+				run("clean; opt_lut", "           (if -noabc and -lut)");
+			}
+			else if (noabc && lut)
+			{
+				run(stringf("techmap -map +/gate2lut.v -D LUT_WIDTH=%d", lut));
+				run("clean; opt_lut");
+			}
 			run("opt -fast");
 
 			if (!noabc) {
 		#ifdef YOSYS_ENABLE_ABC
-				run("abc -fast", "(unless -noabc)");
-				run("opt -fast", "(unless -noabc)");
+				if (help_mode)
+				{
+					run("abc -fast", "       (unless -noabc, unless -lut)");
+					run("abc -fast -lut k", "(unless -noabc, if -lut)");
+				}
+				else
+				{
+					if (lut)
+						run(stringf("abc -fast -lut %d", lut));
+					else
+						run("abc -fast");
+				}
+				run("opt -fast", "       (unless -noabc)");
 		#endif
 			}
 		}
