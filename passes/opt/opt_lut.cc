@@ -133,7 +133,7 @@ struct OptLutWorker
 				// Second, make sure that the connection to dedicated logic is legal. If it is not legal,
 				// it means one of the two things:
 				//   * The connection is spurious. I.e. this is dedicated logic that will be packed
-				//     with some other LUT, and it just happens to be conected to this LUT as well.
+				//     with some other LUT, and it just happens to be connected to this LUT as well.
 				//   * The connection is illegal.
 				// In either of these cases, we don't need to concern ourselves with preserving the connection
 				// between this LUT and this dedicated logic cell.

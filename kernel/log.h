@@ -195,7 +195,7 @@ struct PerformanceTimer
 		t += 1000000000ULL * (int64_t) rusage.ru_stime.tv_sec + (int64_t) rusage.ru_stime.tv_usec * 1000ULL;
 		return t;
 #  else
-#    error Dont know how to measure per-process CPU time. Need alternative method (times()/clocks()/gettimeofday()?).
+#    error "Don't know how to measure per-process CPU time. Need alternative method (times()/clocks()/gettimeofday()?)."
 #  endif
 	}
 

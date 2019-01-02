@@ -109,7 +109,7 @@ struct TableBackend : public Backend {
 				else if (cell->output(conn.first))
 					*f << "out" << "\t";
 				else
-					*f << "unkown" << "\t";
+					*f << "unknown" << "\t";
 
 				*f << log_signal(sigmap(conn.second)) << "\n";
 			}
