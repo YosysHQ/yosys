@@ -16,10 +16,11 @@ git clone git://github.com/steveicarus/iverilog.git
 cd iverilog
 autoconf
 ./configure --prefix=$HOME/.local-bin
-make -j $(nproc)
+make -j 4
 make install
 
 # Configure new PATH
 
-export PATH="$HOME/.local-bin/bin:$PATH"
-export PATH="/usr/local/opt/ccache/libexec:$PATH"
+cat >>$HOME/.bash_profile <<'EOF'
+export PATH="/usr/local/opt/ccache/libexec:$HOME/.local-bin/bin:$PATH"
+EOF

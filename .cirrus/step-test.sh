@@ -2,4 +2,9 @@
 
 set -e -x
 
-make -j $(nproc) test
+ncpu=4
+if nproc; then
+    ncpu=$(nproc)
+fi
+
+make -j ${ncpu} test
