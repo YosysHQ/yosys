@@ -64,10 +64,10 @@ PRIVATE_NAMESPACE_BEGIN
 struct GraphStyle
 {
 	string label;
-	string color;
+	string color, fillcolor;
 
-	GraphStyle(string label = "", string color = "black") :
-		label(label), color(color) {}
+	GraphStyle(string label = "", string color = "black", string fillcolor = "") :
+		label(label), color(color), fillcolor(fillcolor) {}
 };
 
 static string dot_escape(string value)
@@ -110,13 +110,11 @@ static void dump_dot_graph(string filename,
 		if (outputs[node])
 			shape = "octagon";
 		auto prop = node_style(node);
-		string id;
-		if (node == SigBit())
-			id = "(source)";
-		else
-			id = log_signal(node);
-		fprintf(f, "  n%d [ shape=%s, fontname=\"Monospace\", label=\"%s%s\", color=\"%s\" ];\n",
-		        ids[node], shape.c_str(), dot_escape(id).c_str(), dot_escape(prop.label.c_str()).c_str(), prop.color.c_str());
+		string style = "";
+		if (!prop.fillcolor.empty())
+			style = "filled";
+		fprintf(f, "  n%d [ shape=%s, fontname=\"Monospace\", label=\"%s\", color=\"%s\", fillcolor=\"%s\", style=\"%s\" ];\n",
+		        ids[node], shape.c_str(), dot_escape(prop.label.c_str()).c_str(), prop.color.c_str(), prop.fillcolor.c_str(), style.c_str());
 	}
 
 	fprintf(f, "  { rank=\"source\"; ");
@@ -138,8 +136,8 @@ static void dump_dot_graph(string filename,
 			if (nodes[source] && nodes[sink])
 			{
 				auto prop = edge_style(source, sink);
-				fprintf(f, "  n%d -> n%d [ label=\"%s\", color=\"%s\" ];\n",
-				        ids[source], ids[sink], dot_escape(prop.label.c_str()).c_str(), prop.color.c_str());
+				fprintf(f, "  n%d -> n%d [ label=\"%s\", color=\"%s\", fillcolor=\"%s\" ];\n",
+				        ids[source], ids[sink], dot_escape(prop.label.c_str()).c_str(), prop.color.c_str(), prop.fillcolor.c_str());
 			}
 		}
 	}
@@ -164,7 +162,7 @@ struct FlowGraph
 	void dump_dot_graph(string filename)
 	{
 		auto node_style = [&](RTLIL::SigBit node) {
-			string label;
+			string label = (node == source) ? "(source)" : log_signal(node);
 			for (auto collapsed_node : collapsed[node])
 				label += stringf(" %s", log_signal(collapsed_node));
 			int flow = node_flow[node];
@@ -423,28 +421,46 @@ struct FlowmapWorker
 
 	int mapped_count = 0, packed_count = 0, unique_packed_count = 0;
 
-	void dump_dot_graph(string filename, pool<RTLIL::SigBit> subgraph = {}, pair<pool<RTLIL::SigBit>, pool<RTLIL::SigBit>> cut = {})
+	void dump_dot_graph(string filename,
+	                    pool<RTLIL::SigBit> subgraph_nodes = {}, dict<RTLIL::SigBit, pool<RTLIL::SigBit>> subgraph_edges = {},
+	                    pair<pool<RTLIL::SigBit>, pool<RTLIL::SigBit>> cut = {},
+	                    dict<RTLIL::SigBit, pool<RTLIL::SigBit>> collapsed = {})
 	{
-		if (subgraph.empty())
-			subgraph = nodes;
+		if (subgraph_nodes.empty())
+			subgraph_nodes = nodes;
+		if (subgraph_edges.empty())
+			subgraph_edges = edges_fw;
 
 		auto node_style = [&](RTLIL::SigBit node) {
-			string label, color;
+			string label = log_signal(node);
+			for (auto collapsed_node : collapsed[node])
+				if (collapsed_node != node)
+					label += stringf(" %s", log_signal(collapsed_node));
 			if (labels[node] == -1)
-				label = string("\n<unlabeled>");
+				label += "\nl=?";
 			else
-				label = stringf("\nl=%d", labels[node]);
-			color = "black";
-			if (cut.first[node])
-				color = "blue";
-			if (cut.second[node])
-				color = "red";
-			return GraphStyle{label, color};
+				label += stringf("\nl=%d", labels[node]);
+			if (cut.first.empty() && cut.second.empty())
+			{
+				if (labels[node] == -1)
+					return GraphStyle{label};
+				string fillcolor = stringf("/set311/%d", 1 + labels[node] % 11);
+				return GraphStyle{label, "", fillcolor};
+			}
+			else
+			{
+				string color = "black";
+				if (cut.first[node])
+					color = "blue";
+				if (cut.second[node])
+					color = "red";
+				return GraphStyle{label, color};
+			}
 		};
 		auto edge_style = [&](RTLIL::SigBit, RTLIL::SigBit) {
 			return GraphStyle{};
 		};
-		::dump_dot_graph(filename, subgraph, edges_fw, inputs, outputs, node_style, edge_style, module->name.str());
+		::dump_dot_graph(filename, subgraph_nodes, subgraph_edges, inputs, outputs, node_style, edge_style, module->name.str());
 	}
 
 	pool<RTLIL::SigBit> find_subgraph(RTLIL::SigBit sink)
@@ -582,8 +598,8 @@ struct FlowmapWorker
 
 		if (debug)
 		{
-			dump_dot_graph("flowmap-init.dot");
-			log("Dumped complete combinatorial graph to `flowmap-init.dot`.\n");
+			dump_dot_graph("flowmap-initial.dot");
+			log("Dumped complete initial graph to `flowmap-initial.dot`.\n");
 		}
 
 		pool<RTLIL::SigBit> worklist = nodes;
@@ -650,7 +666,7 @@ struct FlowmapWorker
 			if (debug)
 			{
 				log("  Maximum flow: %d. Assigned label %d.\n", flow, labels[sink]);
-				dump_dot_graph(stringf("flowmap-%d-sub.dot", debug_num), subgraph, {x, xi});
+				dump_dot_graph(stringf("flowmap-%d-sub.dot", debug_num), subgraph, {}, {x, xi});
 				log("  Dumped subgraph to `flowmap-%d-sub.dot`.\n", debug_num);
 				flow_graph.dump_dot_graph(stringf("flowmap-%d-flow.dot", debug_num));
 				log("  Dumped flow graph to `flowmap-%d-flow.dot`.\n", debug_num);
@@ -668,16 +684,39 @@ struct FlowmapWorker
 				worklist.insert(sink_succ);
 		}
 
-		if (debug)
-		{
-			dump_dot_graph("flowmap-done.dot");
-			log("Dumped complete combinatorial graph to `flowmap-done.dot`.\n");
-		}
-
 		int depth = 0;
 		for (auto label : labels)
 			depth = max(depth, label.second);
 		log("Maximum depth: %d levels.\n", depth);
+
+		if (debug)
+		{
+			dump_dot_graph("flowmap-labeled.dot");
+			log("Dumped complete labeled graph to `flowmap-labeled.dot`.\n");
+		}
+
+		pool<RTLIL::SigBit> lut_nodes;
+		dict<RTLIL::SigBit, pool<RTLIL::SigBit>> lut_edges;
+		worklist = outputs;
+		while (!worklist.empty())
+		{
+			auto lut_node = worklist.pop();
+			lut_nodes.insert(lut_node);
+			for (auto input_node : lut_inputs[lut_node])
+			{
+				lut_edges[input_node].insert(lut_node);
+				if (!lut_nodes[input_node] && !inputs[input_node])
+					worklist.insert(input_node);
+			}
+		}
+
+		if (debug)
+		{
+			pool<RTLIL::SigBit> lut_and_input_nodes = lut_nodes;
+			lut_and_input_nodes.insert(inputs.begin(), inputs.end());
+			dump_dot_graph("flowmap-packed.dot", lut_and_input_nodes, lut_edges, {}, lut_gates);
+			log("Dumped complete packed graph to `flowmap-packed.dot`.\n");
+		}
 
 		ConstEval ce(module);
 		for (auto input_node : inputs)
@@ -687,10 +726,8 @@ struct FlowmapWorker
 		log("Mapping cells.\n");
 
 		pool<RTLIL::SigBit> mapped_nodes;
-		worklist = outputs;
-		while (!worklist.empty())
+		for (auto node : lut_nodes)
 		{
-			auto node = worklist.pop();
 			if (node_origins.count(node))
 			{
 				auto origin = node_origins[node];
@@ -750,22 +787,14 @@ struct FlowmapWorker
 
 			RTLIL::Cell *lut = module->addLut(NEW_ID, lut_a, lut_y, lut_table);
 			mapped_count++;
-
+			mapped_nodes.insert(node);
 			for (auto gate_node : lut_gates[node])
 			{
 				auto gate_origin = node_origins[gate_node];
 				lut->add_strpool_attribute("\\src", gate_origin.cell->get_strpool_attribute("\\src"));
 				packed_count++;
 			}
-
 			log("  Packed into a %d-LUT %s.%s.\n", (int)input_nodes.size(), log_id(module), log_id(lut));
-
-			mapped_nodes.insert(node);
-			for (auto input_node : input_nodes)
-			{
-				if (!mapped_nodes[input_node] && !inputs[input_node])
-					worklist.insert(input_node);
-			}
 		}
 
 		unique_packed_count += nodes.size();
