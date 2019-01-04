@@ -131,8 +131,8 @@ struct SynthIntelPass : public ScriptPass {
           nobram = true;
           continue;
         }
-        if (args[argidx] == "-flatten") {
-          flatten = true;
+        if (args[argidx] == "-noflatten") {
+          flatten = false;
           continue;
         }
         if (args[argidx] == "-retime") {
