@@ -737,7 +737,7 @@ struct FlowmapWorker
 		return depth;
 	}
 
-	void map_cells()
+	void map_cells(int minlut)
 	{
 		ConstEval ce(module);
 		for (auto input_node : inputs)
@@ -778,7 +778,7 @@ struct FlowmapWorker
 			}
 
 			vector<RTLIL::SigBit> input_nodes(lut_edges_bw[node].begin(), lut_edges_bw[node].end());
-			RTLIL::Const lut_table(State::Sx, 1 << input_nodes.size());
+			RTLIL::Const lut_table(State::Sx, max(1 << input_nodes.size(), 1 << minlut));
 			for (unsigned i = 0; i < (1 << input_nodes.size()); i++)
 			{
 				ce.push();
@@ -802,6 +802,7 @@ struct FlowmapWorker
 			RTLIL::SigSpec lut_a, lut_y = node;
 			for (auto input_node : input_nodes)
 				lut_a.append_bit(input_node);
+			lut_a.append(RTLIL::Const(State::Sx, minlut - input_nodes.size()));
 
 			RTLIL::Cell *lut = module->addLut(NEW_ID, lut_a, lut_y, lut_table);
 			mapped_nodes.insert(node);
@@ -812,8 +813,12 @@ struct FlowmapWorker
 				packed_count++;
 			}
 			lut_count++;
-			lut_area += 1 << input_nodes.size();
-			log("  Packed into a %d-LUT %s.%s.\n", (int)input_nodes.size(), log_id(module), log_id(lut));
+			lut_area += lut_table.size();
+
+			if ((int)input_nodes.size() >= minlut)
+				log("  Packed into a %d-LUT %s.%s.\n", (int)input_nodes.size(), log_id(module), log_id(lut));
+			else
+				log("  Packed into a %d-LUT %s.%s (implemented as %d-LUT).\n", (int)input_nodes.size(), log_id(module), log_id(lut), minlut);
 		}
 
 		for (auto node : mapped_nodes)
@@ -825,7 +830,7 @@ struct FlowmapWorker
 		}
 	}
 
-	FlowmapWorker(int order, pool<IdString> cell_types, bool debug, RTLIL::Module *module) :
+	FlowmapWorker(int order, int minlut, pool<IdString> cell_types, bool debug, RTLIL::Module *module) :
 		order(order), debug(debug), module(module), sigmap(module), index(module)
 	{
 		log("Labeling cells.\n");
@@ -835,7 +840,7 @@ struct FlowmapWorker
 
 		log("\n");
 		log("Mapping cells.\n");
-		map_cells();
+		map_cells(minlut);
 	}
 };
 
@@ -866,6 +871,9 @@ struct FlowmapPass : public Pass {
 		log("        perform technology mapping for a k-LUT architecture. if not specified,\n");
 		log("        defaults to 3.\n");
 		log("\n");
+		log("    -minlut n\n");
+		log("        only produce n-input or larger LUTs. if not specified, defaults to 1.\n");
+		log("\n");
 		log("    -cells <cell>[,<cell>,...]\n");
 		log("        map specified cells. if not specified, maps $_NOT_, $_AND_, $_OR_,\n");
 		log("        $_XOR_ and $_MUX_, which are the outputs of the `simplemap` pass.\n");
@@ -877,6 +885,7 @@ struct FlowmapPass : public Pass {
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		int order = 3;
+		int minlut = 1;
 		vector<string> cells;
 		bool debug = false;
 
@@ -886,6 +895,11 @@ struct FlowmapPass : public Pass {
 			if (args[argidx] == "-maxlut" && argidx + 1 < args.size())
 			{
 				order = atoi(args[++argidx].c_str());
+				continue;
+			}
+			if (args[argidx] == "-minlut" && argidx + 1 < args.size())
+			{
+				minlut = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-cells" && argidx + 1 < args.size())
@@ -919,7 +933,7 @@ struct FlowmapPass : public Pass {
 		int gate_area = 0, lut_area = 0;
 		for (auto module : design->selected_modules())
 		{
-			FlowmapWorker worker(order, cell_types, debug, module);
+			FlowmapWorker worker(order, minlut, cell_types, debug, module);
 			gate_count += worker.gate_count;
 			lut_count += worker.lut_count;
 			packed_count += worker.packed_count;
