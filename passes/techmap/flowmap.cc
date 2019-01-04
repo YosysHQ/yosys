@@ -19,7 +19,7 @@
 
 // [[CITE]]
 // Jason Cong; Yuzheng Ding, "An Optimal Technology Mapping Algorithm for Delay Optimization in Lookup-Table Based FPGA Designs,"
-// Computer-Aided Design of Integrated Circuits and Systems, IEEE Transactions on, vol. 13, no. 1, Jan 1994
+// Computer-Aided Design of Integrated Circuits and Systems, IEEE Transactions on, Vol. 13, pp. 1-12, Jan. 1994.
 // doi: 10.1109/43.273754
 
 // Required reading material:
@@ -27,7 +27,8 @@
 // Min-cut max-flow theorem:
 //   https://www.coursera.org/lecture/algorithms-part2/maxflow-mincut-theorem-beb9G
 // FlowMap paper:
-//   http://cadlab.cs.ucla.edu/~cong/papers/iccad92.pdf
+//   http://cadlab.cs.ucla.edu/~cong/papers/iccad92.pdf   (short version)
+//   https://limsk.ece.gatech.edu/book/papers/flowmap.pdf (long version)
 
 // Notes on implementation:
 //
