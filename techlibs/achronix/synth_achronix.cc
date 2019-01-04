@@ -95,8 +95,8 @@ struct SynthAchronixPass : public ScriptPass {
           run_to = args[argidx].substr(pos+1);
           continue;
         }
-        if (args[argidx] == "-flatten") {
-          flatten = true;
+        if (args[argidx] == "-noflatten") {
+          flatten = false;
           continue;
         }
         if (args[argidx] == "-retime") {

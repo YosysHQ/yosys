@@ -129,7 +129,7 @@ struct SynthCoolrunner2Pass : public ScriptPass
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
 		}
 
-		if (check_label("flatten", "(unless -noflatten)") && flatten)
+		if (flatten && check_label("flatten", "(unless -noflatten)"))
 		{
 			run("proc");
 			run("flatten");
