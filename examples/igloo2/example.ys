@@ -1,0 +1,2 @@
+read_verilog example.v
+synth_sf2 -top top -edif example.edn
