@@ -274,7 +274,7 @@ YOSYS_NAMESPACE_END
 		yystr[j++] = yystr[i++];
 	}
 	yystr[j] = 0;
-	frontend_verilog_yylval.string = new std::string(yystr);
+	frontend_verilog_yylval.string = new std::string(yystr, j);
 	free(yystr);
 	return TOK_STRING;
 }
