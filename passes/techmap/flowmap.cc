@@ -51,7 +51,8 @@
 // 3. The paper ambiguously states: "Moreover, we can find such a cut (X′′, X̅′′) by performing a depth first search starting at the source s,
 // and including in X′′ all the nodes which are reachable from s." This actually refers to a specific kind of search, mincut computation.
 // Mincut computation involves computing the set of nodes reachable from s by an undirected path with no full (i.e. zero capacity) forward
-// edges or empty (i.e. no flow) backward edges.
+// edges or empty (i.e. no flow) backward edges. In addition, the depth first search is required to compute a max-volume max-flow min-cut
+// specifically, because a max-flow min-cut is not, in general, unique.
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
@@ -356,10 +357,12 @@ struct FlowGraph
 
 		NodePrime source_prime = {source, true};
 		NodePrime sink_prime = {sink, false};
-		pool<NodePrime> worklist = {source_prime}, visited;
+		pool<NodePrime> visited;
+		vector<NodePrime> worklist = {source_prime};
 		while (!worklist.empty())
 		{
-			auto node_prime = worklist.pop();
+			auto node_prime = worklist.back();
+			worklist.pop_back();
 			if (visited[node_prime])
 				continue;
 			visited.insert(node_prime);
@@ -372,18 +375,18 @@ struct FlowGraph
 			if (!node_prime.is_bottom) // top
 			{
 				if (node_flow[node_prime.node] < MAX_NODE_FLOW)
-					worklist.insert(node_prime.as_bottom());
+					worklist.push_back(node_prime.as_bottom());
 				for (auto node_pred : edges_bw[node_prime.node])
 					if (edge_flow[{node_pred, node_prime.node}] > 0)
-						worklist.insert(NodePrime::bottom(node_pred));
+						worklist.push_back(NodePrime::bottom(node_pred));
 			}
 			else // bottom
 			{
 				if (node_flow[node_prime.node] > 0)
-					worklist.insert(node_prime.as_top());
+					worklist.push_back(node_prime.as_top());
 				for (auto node_succ : edges_fw[node_prime.node])
 					if (true /* edge_flow[...] < ∞ */)
-						worklist.insert(NodePrime::top(node_succ));
+						worklist.push_back(NodePrime::top(node_succ));
 			}
 		}
 
