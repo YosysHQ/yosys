@@ -61,6 +61,42 @@ static std::string derive_name_from_src(const std::string &src, int counter)
 		return stringf("\\%s$%d", src_base.c_str(), counter);
 }
 
+static IdString derive_name_from_wire(const RTLIL::Cell &cell)
+{
+	// Find output
+	const SigSpec *output = nullptr;
+	int num_outputs = 0;
+	for (auto &connection : cell.connections()) {
+		if (cell.output(connection.first)) {
+			output = &connection.second;
+			num_outputs++;
+		}
+	}
+
+	if (num_outputs != 1) // Skip cells thad drive multiple outputs
+		return cell.name;
+
+	std::string name = "";
+	for (auto &chunk : output->chunks()) {
+		// Skip cells that drive privately named wires
+		if (!chunk.wire || chunk.wire->name.str()[0] == '$')
+			return cell.name;
+
+		if (name != "")
+			name += "$";
+
+		name += chunk.wire->name.str();
+		if (chunk.wire->width != chunk.width) {
+			name += "[";
+			if (chunk.width != 1)
+				name += std::to_string(chunk.offset + chunk.width) + ":";
+			name += std::to_string(chunk.offset) + "]";
+		}
+	}
+
+	return name + cell.type.str();
+}
+
 struct RenamePass : public Pass {
 	RenamePass() : Pass("rename", "rename object in the design") { }
 	void help() YS_OVERRIDE
@@ -76,6 +112,10 @@ struct RenamePass : public Pass {
 		log("\n");
 		log("Assign names auto-generated from the src attribute to all selected wires and\n");
 		log("cells with private names.\n");
+		log("\n");
+		log("    rename -wire [selection]\n");
+		log("Assign auto-generated names based on the wires they drive to all selected\n");
+		log("cells with private names. Ignores cells driving privatly named wires.\n");
 		log("\n");
 		log("    rename -enumerate [-pattern <pattern>] [selection]\n");
 		log("\n");
@@ -98,6 +138,7 @@ struct RenamePass : public Pass {
 	{
 		std::string pattern_prefix = "_", pattern_suffix = "_";
 		bool flag_src = false;
+		bool flag_wire = false;
 		bool flag_enumerate = false;
 		bool flag_hide = false;
 		bool flag_top = false;
@@ -109,6 +150,11 @@ struct RenamePass : public Pass {
 			std::string arg = args[argidx];
 			if (arg == "-src" && !got_mode) {
 				flag_src = true;
+				got_mode = true;
+				continue;
+			}
+			if (arg == "-wire" && !got_mode) {
+				flag_wire = true;
 				got_mode = true;
 				continue;
 			}
@@ -161,6 +207,26 @@ struct RenamePass : public Pass {
 				for (auto &it : module->cells_) {
 					if (it.first[0] == '$' && design->selected(module, it.second))
 						it.second->name = derive_name_from_src(it.second->get_src_attribute(), counter++);
+					new_cells[it.second->name] = it.second;
+				}
+				module->cells_.swap(new_cells);
+			}
+		}
+		else
+		if (flag_wire)
+		{
+			extra_args(args, argidx, design);
+
+			for (auto &mod : design->modules_)
+			{
+				RTLIL::Module *module = mod.second;
+				if (!design->selected(module))
+					continue;
+
+				dict<RTLIL::IdString, RTLIL::Cell*> new_cells;
+				for (auto &it : module->cells_) {
+					if (it.first[0] == '$' && design->selected(module, it.second))
+						it.second->name = derive_name_from_wire(*it.second);
 					new_cells[it.second->name] = it.second;
 				}
 				module->cells_.swap(new_cells);
