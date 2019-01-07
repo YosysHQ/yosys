@@ -83,7 +83,7 @@ struct BugpointPass : public Pass {
 		f.close();
 
 		string yosys_cmdline = stringf("%s -qq -L bugpoint-case.log -s %s bugpoint-case.il", yosys_cmd.c_str(), script.c_str());
-		return system(yosys_cmdline.c_str()) == 0;
+		return run_command(yosys_cmdline) == 0;
 	}
 
 	bool check_logfile(string grep)
