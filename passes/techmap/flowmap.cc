@@ -769,7 +769,7 @@ struct FlowmapWorker
 		}
 	}
 
-	int pack_luts()
+	int map_luts()
 	{
 		pool<RTLIL::SigBit> worklist = outputs;
 		while (!worklist.empty())
@@ -784,12 +784,12 @@ struct FlowmapWorker
 		int depth = 0;
 		for (auto label : labels)
 			depth = max(depth, label.second);
-		log("Solved to %d LUTs with maximum depth %d.\n", (int)lut_nodes.size(), depth);
+		log("Mapped to %zu LUTs with maximum depth %d.\n", lut_nodes.size(), depth);
 
 		if (debug)
 		{
-			dump_dot_lut_graph("flowmap-packed.dot", GraphMode::Label);
-			log("Dumped packed graph to `flowmap-packed.dot`.\n");
+			dump_dot_lut_graph("flowmap-mapped.dot", GraphMode::Label);
+			log("Dumped mapped graph to `flowmap-mapped.dot`.\n");
 		}
 
 		return depth;
@@ -1196,6 +1196,8 @@ struct FlowmapWorker
 
 	bool relax_depth_for_bound(bool first, int depth_bound, dict<RTLIL::SigBit, pool<RTLIL::SigBit>> &lut_critical_outputs)
 	{
+		size_t initial_count = lut_nodes.size();
+
 		for (auto node : lut_nodes)
 		{
 			lut_slacks[node] = depth_bound - (lut_depths[node] + lut_altitudes[node]);
@@ -1214,7 +1216,7 @@ struct FlowmapWorker
 
 			if (potentials.empty())
 			{
-				log("  Relaxed to %d LUTs.\n", (int)lut_nodes.size());
+				log("  Relaxed to %zu (+%zu) LUTs.\n", lut_nodes.size(), lut_nodes.size() - initial_count);
 				if (!first && break_num == 1)
 				{
 					log("  Design fully relaxed.\n");
@@ -1338,7 +1340,7 @@ struct FlowmapWorker
 		}
 	}
 
-	void map_cells(int minlut)
+	void pack_cells(int minlut)
 	{
 		ConstEval ce(module);
 		for (auto input_node : inputs)
@@ -1351,15 +1353,15 @@ struct FlowmapWorker
 			{
 				auto origin = node_origins[node];
 				if (origin.cell->getPort(origin.port).size() == 1)
-					log("Mapping %s.%s.%s (%s).\n",
+					log("Packing %s.%s.%s (%s).\n",
 					    log_id(module), log_id(origin.cell), origin.port.c_str(), log_signal(node));
 				else
-					log("Mapping %s.%s.%s [%d] (%s).\n",
+					log("Packing %s.%s.%s [%d] (%s).\n",
 					    log_id(module), log_id(origin.cell), origin.port.c_str(), origin.offset, log_signal(node));
 			}
 			else
 			{
-				log("Mapping %s.%s.\n", log_id(module), log_signal(node));
+				log("Packing %s.%s.\n", log_id(module), log_signal(node));
 			}
 
 			for (auto gate_node : lut_gates[node])
@@ -1417,9 +1419,9 @@ struct FlowmapWorker
 			lut_area += lut_table.size();
 
 			if ((int)input_nodes.size() >= minlut)
-				log("  Packed into a %d-LUT %s.%s.\n", (int)input_nodes.size(), log_id(module), log_id(lut));
+				log("  Packed into a %zu-LUT %s.%s.\n", input_nodes.size(), log_id(module), log_id(lut));
 			else
-				log("  Packed into a %d-LUT %s.%s (implemented as %d-LUT).\n", (int)input_nodes.size(), log_id(module), log_id(lut), minlut);
+				log("  Packed into a %zu-LUT %s.%s (implemented as %d-LUT).\n", input_nodes.size(), log_id(module), log_id(lut), minlut);
 		}
 
 		for (auto node : mapped_nodes)
@@ -1440,7 +1442,7 @@ struct FlowmapWorker
 		log("Labeling cells.\n");
 		discover_nodes(cell_types);
 		label_nodes();
-		int depth = pack_luts();
+		int depth = map_luts();
 
 		if (relax)
 		{
@@ -1450,8 +1452,8 @@ struct FlowmapWorker
 		}
 
 		log("\n");
-		log("Mapping cells.\n");
-		map_cells(minlut);
+		log("Packing cells.\n");
+		pack_cells(minlut);
 	}
 };
 
@@ -1603,9 +1605,8 @@ struct FlowmapPass : public Pass {
 		}
 
 		log("\n");
-		log("Mapped %d LUTs.\n", lut_count);
-		log("Packed %d cells; duplicated %d cells.\n", packed_count, packed_count - gate_count);
-		log("Solution has %.1f%% area overhead.\n", (lut_area - gate_area) * 100.0 / gate_area);
+		log("Packed %d cells (%d of them duplicated) into %d LUTs.\n", packed_count, packed_count - gate_count, lut_count);
+		log("Solution takes %.1f%% of original gate area.\n", lut_area * 100.0 / gate_area);
 	}
 } FlowmapPass;
 
