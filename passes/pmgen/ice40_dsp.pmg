@@ -1,0 +1,75 @@
+state SigBit clock
+state bool clock_pol, clock_vld
+state SigSpec sigA, sigB, sigY
+
+match mul
+	select mul->type.in($mul)
+	select GetSize(mul->getPort(\A)) + GetSize(mul->getPort(\B)) > 10
+	select GetSize(mul->getPort(\Y)) > 10
+endmatch
+
+match ffA
+	select ffA->type.in($dff)
+	filter port(ffA, \Q) === port(mul, \A)
+	optional
+endmatch
+
+code sigA clock clock_pol clock_vld
+	sigA = port(mul, \A);
+
+	if (ffA != nullptr) {
+		sigA = port(ffA, \D);
+
+		clock = port(ffA, \CLK).as_bit();
+		clock_pol = param(ffA, \CLK_POLARITY).as_bool();
+		clock_vld = true;
+	}
+endcode
+
+match ffB
+	select ffB->type.in($dff)
+	filter port(ffB, \Q) === port(mul, \B)
+	optional
+endmatch
+
+code sigB clock clok_pol clock_vld
+	sigB = port(mul, \B);
+
+	if (ffB != nullptr) {
+		sigB = port(ffB, \D);
+		SigBit c = port(ffB, \CLK).as_bit();
+		bool cp = param(ffB, \CLK_POLARITY).as_bool();
+
+		if (clock_vld && (c != clock || cp != clock_pol))
+			reject;
+
+		clock = c;
+		clock_pol = cp;
+		clock_vld = true;
+	}
+endcode
+
+match ffY
+	select ffY->type.in($dff)
+	filter port(ffY, \D) === port(mul, \Y)
+	optional
+endmatch
+
+code sigY clock clok_pol clock_vld
+	sigY = port(mul, \Y);
+
+	if (ffY != nullptr) {
+		sigY = port(ffY, \D);
+		SigBit c = port(ffY, \CLK).as_bit();
+		bool cp = param(ffY, \CLK_POLARITY).as_bool();
+
+		if (clock_vld && (c != clock || cp != clock_pol))
+			reject;
+
+		clock = c;
+		clock_pol = cp;
+		clock_vld = true;
+	}
+
+	accept;
+endcode
