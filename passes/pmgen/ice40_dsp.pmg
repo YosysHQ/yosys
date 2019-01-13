@@ -10,7 +10,7 @@ endmatch
 
 match ffA
 	select ffA->type.in($dff)
-	select nusers(port(ffA, \Q)) == 2
+	// select nusers(port(ffA, \Q)) == 2
 	filter <SigSpec> port(ffA, \Q) === port(mul, \A)
 	optional
 endmatch
@@ -29,7 +29,7 @@ endcode
 
 match ffB
 	select ffB->type.in($dff)
-	select nusers(port(ffA, \Q)) == 2
+	// select nusers(port(ffB, \Q)) == 2
 	filter <SigSpec> port(ffB, \Q) === port(mul, \B)
 	optional
 endmatch
@@ -73,6 +73,4 @@ code sigY clock clock_pol clock_vld
 		clock_pol = cp;
 		clock_vld = true;
 	}
-
-	accept;
 endcode

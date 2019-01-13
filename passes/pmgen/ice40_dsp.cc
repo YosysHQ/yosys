@@ -24,8 +24,15 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-void ice40_dsp_accept(ice40_dsp_pm * /* pm */)
+void ice40_dsp_accept(ice40_dsp_pm *pm)
 {
+	log("\n");
+	log("mul: %s\n", pm->st.mul ? log_id(pm->st.mul) : "--");
+	log("ffA: %s\n", pm->st.ffA ? log_id(pm->st.ffA) : "--");
+	log("ffB: %s\n", pm->st.ffB ? log_id(pm->st.ffB) : "--");
+	log("ffY: %s\n", pm->st.ffY ? log_id(pm->st.ffY) : "--");
+
+	pm->blacklist(pm->st.mul);
 }
 
 struct Ice40DspPass : public Pass {
@@ -56,7 +63,7 @@ struct Ice40DspPass : public Pass {
 
 		for (auto module : design->selected_modules())
 		{
-			ice40_dsp_pm pm(module);
+			ice40_dsp_pm pm(module, module->cells());
 			pm.run(ice40_dsp_accept);
 		}
 	}
