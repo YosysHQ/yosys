@@ -102,7 +102,9 @@ with open("%s.pmg" % prefix, "r") as f:
             block["cell"] = line[1]
             state_types[line[1]] = "Cell*";
 
+            block["if"] = list()
             block["select"] = list()
+            block["index"] = list()
             block["filter"] = list()
             block["optional"] = False
 
@@ -113,15 +115,25 @@ with open("%s.pmg" % prefix, "r") as f:
                 if len(a) == 0 or a[0].startswith("//"): continue
                 if a[0] == "endmatch": break
 
+                if a[0] == "if":
+                    b = l.lstrip()[2:]
+                    block["if"].append(rewrite_cpp(b.strip()))
+                    continue
+
                 if a[0] == "select":
                     b = l.lstrip()[6:]
                     block["select"].append(rewrite_cpp(b.strip()))
                     continue
 
-                if a[0] == "filter":
-                    m = re.match(r"^\s*filter\s+<(.*?)>\s+(.*?)\s*===\s*(.*?)\s*$", l)
+                if a[0] == "index":
+                    m = re.match(r"^\s*index\s+<(.*?)>\s+(.*?)\s*===\s*(.*?)\s*$", l)
                     assert m
-                    block["filter"].append((m.group(1), rewrite_cpp(m.group(2)), rewrite_cpp(m.group(3))))
+                    block["index"].append((m.group(1), rewrite_cpp(m.group(2)), rewrite_cpp(m.group(3))))
+                    continue
+
+                if a[0] == "filter":
+                    b = l.lstrip()[6:]
+                    block["filter"].append(rewrite_cpp(b.strip()))
                     continue
 
                 if a[0] == "optional":
@@ -167,15 +179,15 @@ with open("%s_pm.h" % prefix, "w") as f:
     print("struct {}_pm {{".format(prefix), file=f)
     print("  Module *module;", file=f)
     print("  SigMap sigmap;", file=f)
-    print("  std::function<void(struct {}_pm*)> on_accept;".format(prefix), file=f)
+    print("  std::function<void()> on_accept;".format(prefix), file=f)
     print("", file=f)
 
     for index in range(len(blocks)):
         block = blocks[index]
         if block["type"] == "match":
             index_types = list()
-            for filt in block["filter"]:
-                index_types.append(filt[0])
+            for entry in block["index"]:
+                index_types.append(entry[0])
             print("  typedef std::tuple<{}> index_{}_key_type;".format(", ".join(index_types), index), file=f)
             print("  dict<index_{}_key_type, vector<Cell*>> index_{};".format(index, index), file=f)
     print("  dict<SigBit, pool<Cell*>> sigusers;", file=f)
@@ -208,7 +220,8 @@ with open("%s_pm.h" % prefix, "w") as f:
     print("", file=f)
 
     print("  void blacklist(Cell *cell) {", file=f)
-    print("    blacklist_cells.insert(cell);", file=f)
+    print("    if (cell != nullptr)", file=f)
+    print("      blacklist_cells.insert(cell);", file=f)
     print("  }", file=f)
     print("", file=f)
 
@@ -248,6 +261,8 @@ with open("%s_pm.h" % prefix, "w") as f:
     print("    for (auto cell : cells) {", file=f)
     print("      for (auto &conn : cell->connections())", file=f)
     print("        add_siguser(conn.second, cell);", file=f)
+    print("    }", file=f)
+    print("    for (auto cell : cells) {", file=f)
 
     for index in range(len(blocks)):
         block = blocks[index]
@@ -257,8 +272,8 @@ with open("%s_pm.h" % prefix, "w") as f:
             for expr in block["select"]:
                 print("        if (!({})) break;".format(expr), file=f)
             print("        index_{}_key_type key;".format(index), file=f)
-            for field, filt in enumerate(block["filter"]):
-                print("        std::get<{}>(key) = {};".format(field, filt[1]), file=f)
+            for field, entry in enumerate(block["index"]):
+                print("        std::get<{}>(key) = {};".format(field, entry[1]), file=f)
             print("        index_{}[key].push_back(cell);".format(index), file=f)
             print("      } while (0);", file=f)
 
@@ -266,15 +281,20 @@ with open("%s_pm.h" % prefix, "w") as f:
     print("  }", file=f)
     print("", file=f)
 
-    print("  void run(std::function<void(struct {}_pm*)> on_accept_f) {{".format(prefix), file=f)
+    print("  void match(std::function<void()> on_accept_f) {{".format(prefix), file=f)
     print("    on_accept = on_accept_f;", file=f)
     print("    rollback = 0;", file=f)
+    for s, t in sorted(state_types.items()):
+        if t.endswith("*"):
+            print("    st.{} = nullptr;".format(s), file=f)
+        else:
+            print("    st.{} = {}();".format(s, t), file=f)
     print("    block_0();", file=f)
     print("  }", file=f)
     print("", file=f)
 
     print("#define reject break", file=f)
-    print("#define accept do { on_accept(this); check_blacklist(); if (rollback) goto rollback_label; } while(0)", file=f)
+    print("#define accept do { on_accept(); check_blacklist(); if (rollback) goto rollback_label; } while(0)", file=f)
     print("", file=f)
 
     for index in range(len(blocks)):
@@ -323,7 +343,7 @@ with open("%s_pm.h" % prefix, "w") as f:
             print("", file=f)
             for s in sorted(restore_st):
                 t = state_types[s]
-                print("    {} backup_{} = st.{};".format(t, s, s), file=f)
+                print("    {} backup_{} = {};".format(t, s, s), file=f)
 
         if block["type"] == "code":
             print("", file=f)
@@ -336,24 +356,42 @@ with open("%s_pm.h" % prefix, "w") as f:
             print("rollback_label: YS_ATTRIBUTE(unused);", file=f)
             print("    } while (0);", file=f)
 
-            if len(restore_st):
+            if len(restore_st) or len(nonconst_st):
                 print("", file=f)
                 for s in sorted(restore_st):
                     t = state_types[s]
-                    print("    st.{} = backup_{};".format(s, s), file=f)
+                    print("    {} = backup_{};".format(s, s), file=f)
+                for s in sorted(nonconst_st):
+                    if s not in restore_st:
+                        t = state_types[s]
+                        if t.endswith("*"):
+                            print("    {} = nullptr;".format(s), file=f)
+                        else:
+                            print("    {} = {}();".format(s, t), file=f)
 
         elif block["type"] == "match":
             assert len(restore_st) == 0
 
+            if len(block["if"]):
+                for expr in block["if"]:
+                    print("", file=f)
+                    print("    if (!({})) {{".format(expr), file=f)
+                    print("      {} = nullptr;".format(block["cell"]), file=f)
+                    print("      block_{}();".format(index+1), file=f)
+                    print("      return;", file=f)
+                    print("    }", file=f)
+
             print("", file=f)
             print("    index_{}_key_type key;".format(index), file=f)
-            for field, filt in enumerate(block["filter"]):
-                print("    std::get<{}>(key) = {};".format(field, filt[2]), file=f)
+            for field, entry in enumerate(block["index"]):
+                print("    std::get<{}>(key) = {};".format(field, entry[2]), file=f)
             print("    const vector<Cell*> &cells = index_{}[key];".format(index), file=f)
 
             print("", file=f)
             print("    for (int idx = 0; idx < GetSize(cells); idx++) {", file=f)
             print("      {} = cells[idx];".format(block["cell"]), file=f)
+            for expr in block["filter"]:
+                print("      if (!({})) continue;".format(expr), file=f)
             print("      block_{}();".format(index+1), file=f)
             print("      if (rollback) {", file=f)
             print("        if (rollback != {}) {{".format(index+1), file=f)
@@ -382,7 +420,7 @@ with open("%s_pm.h" % prefix, "w") as f:
     print("", file=f)
 
     print("  void block_{}() {{".format(len(blocks)), file=f)
-    print("    on_accept(this);", file=f)
+    print("    on_accept();", file=f)
     print("    check_blacklist();", file=f)
     print("  }", file=f)
     print("};", file=f)

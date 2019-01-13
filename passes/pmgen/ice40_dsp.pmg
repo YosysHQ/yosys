@@ -1,6 +1,7 @@
 state <SigBit> clock
 state <bool> clock_pol clock_vld
-state <SigSpec> sigA sigB sigY
+state <SigSpec> sigA sigB sigY sigS
+state <Cell*> addAB muxAB
 
 match mul
 	select mul->type.in($mul)
@@ -11,14 +12,14 @@ endmatch
 match ffA
 	select ffA->type.in($dff)
 	// select nusers(port(ffA, \Q)) == 2
-	filter <SigSpec> port(ffA, \Q) === port(mul, \A)
+	index <SigSpec> port(ffA, \Q) === port(mul, \A)
 	optional
 endmatch
 
 code sigA clock clock_pol clock_vld
 	sigA = port(mul, \A);
 
-	if (ffA != nullptr) {
+	if (ffA) {
 		sigA = port(ffA, \D);
 
 		clock = port(ffA, \CLK).as_bit();
@@ -30,14 +31,14 @@ endcode
 match ffB
 	select ffB->type.in($dff)
 	// select nusers(port(ffB, \Q)) == 2
-	filter <SigSpec> port(ffB, \Q) === port(mul, \B)
+	index <SigSpec> port(ffB, \Q) === port(mul, \B)
 	optional
 endmatch
 
 code sigB clock clock_pol clock_vld
 	sigB = port(mul, \B);
 
-	if (ffB != nullptr) {
+	if (ffB) {
 		sigB = port(ffB, \D);
 		SigBit c = port(ffB, \CLK).as_bit();
 		bool cp = param(ffB, \CLK_POLARITY).as_bool();
@@ -54,14 +55,14 @@ endcode
 match ffY
 	select ffY->type.in($dff)
 	select nusers(port(ffY, \D)) == 2
-	filter <SigSpec> port(ffY, \D) === port(mul, \Y)
+	index <SigSpec> port(ffY, \D) === port(mul, \Y)
 	optional
 endmatch
 
 code sigY clock clock_pol clock_vld
 	sigY = port(mul, \Y);
 
-	if (ffY != nullptr) {
+	if (ffY) {
 		sigY = port(ffY, \D);
 		SigBit c = port(ffY, \CLK).as_bit();
 		bool cp = param(ffY, \CLK_POLARITY).as_bool();
@@ -74,3 +75,62 @@ code sigY clock clock_pol clock_vld
 		clock_vld = true;
 	}
 endcode
+
+match addA
+	select addA->type.in($add, $sub)
+	select nusers(port(addA, \A)) == 2
+	index <SigSpec> port(addA, \A) === sigY
+	optional
+endmatch
+
+match addB
+	if !addA
+	select addB->type.in($add, $sub)
+	select nusers(port(addB, \B)) == 2
+	index <SigSpec> port(addB, \B) === sigY
+	optional
+endmatch
+
+code addAB sigS
+	if (addA) {
+		addAB = addA;
+		sigS = port(addA, \B);
+	}
+	if (addB) {
+		addAB = addB;
+		sigS = port(addB, \A);
+	}
+endcode
+
+match muxA
+	if addAB
+	select muxA->type.in($mux)
+	select nusers(port(muxA, \A)) == 2
+	index <SigSpec> port(muxA, \A) === port(addAB, \Y)
+	optional
+endmatch
+
+match muxB
+	if addAB
+	if !muxA
+	select muxB->type.in($mux)
+	select nusers(port(muxB, \B)) == 2
+	index <SigSpec> port(muxB, \B) === port(addAB, \Y)
+	optional
+endmatch
+
+code muxAB
+	muxAB = addAB;
+	if (muxA)
+		muxAB = muxA;
+	if (muxB)
+		muxAB = muxB;
+endcode
+
+match ffS
+	if muxAB
+	select ffS->type.in($dff)
+	select nusers(port(ffS, \D)) == 2
+	index <SigSpec> port(ffS, \D) === port(muxAB, \Y)
+	index <SigSpec> port(ffS, \Q) === sigS
+endmatch
