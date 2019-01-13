@@ -293,7 +293,7 @@ with open("%s_pm.h" % prefix, "w") as f:
     print("  }", file=f)
     print("", file=f)
 
-    print("#define reject break", file=f)
+    print("#define reject do { check_blacklist(); goto rollback_label; } while(0)", file=f)
     print("#define accept do { on_accept(); check_blacklist(); if (rollback) goto rollback_label; } while(0)", file=f)
     print("", file=f)
 
