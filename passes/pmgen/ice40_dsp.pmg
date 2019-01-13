@@ -1,6 +1,6 @@
-state SigBit clock
-state bool clock_pol, clock_vld
-state SigSpec sigA, sigB, sigY
+state <SigBit> clock
+state <bool> clock_pol clock_vld
+state <SigSpec> sigA sigB sigY
 
 match mul
 	select mul->type.in($mul)
@@ -10,7 +10,8 @@ endmatch
 
 match ffA
 	select ffA->type.in($dff)
-	filter port(ffA, \Q) === port(mul, \A)
+	select nusers(port(ffA, \Q)) == 2
+	filter <SigSpec> port(ffA, \Q) === port(mul, \A)
 	optional
 endmatch
 
@@ -28,11 +29,12 @@ endcode
 
 match ffB
 	select ffB->type.in($dff)
-	filter port(ffB, \Q) === port(mul, \B)
+	select nusers(port(ffA, \Q)) == 2
+	filter <SigSpec> port(ffB, \Q) === port(mul, \B)
 	optional
 endmatch
 
-code sigB clock clok_pol clock_vld
+code sigB clock clock_pol clock_vld
 	sigB = port(mul, \B);
 
 	if (ffB != nullptr) {
@@ -51,11 +53,12 @@ endcode
 
 match ffY
 	select ffY->type.in($dff)
-	filter port(ffY, \D) === port(mul, \Y)
+	select nusers(port(ffY, \D)) == 2
+	filter <SigSpec> port(ffY, \D) === port(mul, \Y)
 	optional
 endmatch
 
-code sigY clock clok_pol clock_vld
+code sigY clock clock_pol clock_vld
 	sigY = port(mul, \Y);
 
 	if (ffY != nullptr) {
