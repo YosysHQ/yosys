@@ -52,8 +52,8 @@ struct Ice40DspPass : public Pass {
 
 		for (auto module : design->selected_modules())
 		{
-			ice40_dsp_pm pm(module, module->cells());
-			pm.match([&]()
+			ice40_dsp_pm pm(module, module->selected_cells());
+			pm.run([&]()
 			{
 				log("\n");
 				log("ffA:   %s\n", log_id(pm.st.ffA, "--"));

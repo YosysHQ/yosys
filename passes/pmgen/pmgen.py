@@ -9,6 +9,7 @@ pp = pprint.PrettyPrinter(indent=4)
 prefix = sys.argv[1]
 
 state_types = dict()
+udata_types = dict()
 blocks = list()
 ids = dict()
 
@@ -90,6 +91,16 @@ with open("%s.pmg" % prefix, "r") as f:
             for s in re.split(r"\s+", states_str):
                 assert s not in state_types
                 state_types[s] = type_str
+            continue
+
+        if cmd == "udata":
+            m = re.match(r"^udata\s+<(.*?)>\s+(([A-Za-z_][A-Za-z_0-9]*\s+)*[A-Za-z_][A-Za-z_0-9]*)\s*$", line)
+            assert m
+            type_str = m.group(1)
+            udatas_str = m.group(2)
+            for s in re.split(r"\s+", udatas_str):
+                assert s not in udata_types
+                udata_types[s] = type_str
             continue
 
         if cmd == "match":
@@ -196,10 +207,15 @@ with open("%s_pm.h" % prefix, "w") as f:
     print("", file=f)
 
     print("  struct state_t {", file=f)
-    
     for s, t in sorted(state_types.items()):
         print("    {} {};".format(t, s), file=f)
     print("  } st;", file=f)
+    print("", file=f)
+
+    print("  struct udata_t {", file=f)
+    for s, t in sorted(udata_types.items()):
+        print("    {} {};".format(t, s), file=f)
+    print("  } ud;", file=f)
     print("", file=f)
 
     for v, n in sorted(ids.items()):
@@ -258,7 +274,12 @@ with open("%s_pm.h" % prefix, "w") as f:
 
     print("  {}_pm(Module *module, const vector<Cell*> &cells) :".format(prefix), file=f)
     print("      module(module), sigmap(module) {", file=f)
-    print("    for (auto cell : cells) {", file=f)
+    for s, t in sorted(udata_types.items()):
+        if t.endswith("*"):
+            print("    ud.{} = nullptr;".format(s), file=f)
+        else:
+            print("    ud.{} = {}();".format(s, t), file=f)
+    print("    for (auto cell : module->cells()) {", file=f)
     print("      for (auto &conn : cell->connections())", file=f)
     print("        add_siguser(conn.second, cell);", file=f)
     print("    }", file=f)
@@ -281,7 +302,7 @@ with open("%s_pm.h" % prefix, "w") as f:
     print("  }", file=f)
     print("", file=f)
 
-    print("  void match(std::function<void()> on_accept_f) {{".format(prefix), file=f)
+    print("  void run(std::function<void()> on_accept_f) {{".format(prefix), file=f)
     print("    on_accept = on_accept_f;", file=f)
     print("    rollback = 0;", file=f)
     for s, t in sorted(state_types.items()):
@@ -291,10 +312,6 @@ with open("%s_pm.h" % prefix, "w") as f:
             print("    st.{} = {}();".format(s, t), file=f)
     print("    block_0();", file=f)
     print("  }", file=f)
-    print("", file=f)
-
-    print("#define reject do { check_blacklist(); goto rollback_label; } while(0)", file=f)
-    print("#define accept do { on_accept(); check_blacklist(); if (rollback) goto rollback_label; } while(0)", file=f)
     print("", file=f)
 
     for index in range(len(blocks)):
@@ -348,13 +365,22 @@ with open("%s_pm.h" % prefix, "w") as f:
         if block["type"] == "code":
             print("", file=f)
             print("    do {", file=f)
+            print("#define reject do { check_blacklist(); goto rollback_label; } while(0)", file=f)
+            print("#define accept do { on_accept(); check_blacklist(); if (rollback) goto rollback_label; } while(0)", file=f)
+            print("#define branch do {{ block_{}(); }} while(0)".format(index+1), file=f)
+
             for line in block["code"]:
                 print("    " + line, file=f)
 
             print("", file=f)
             print("      block_{}();".format(index+1), file=f)
-            print("rollback_label: YS_ATTRIBUTE(unused);", file=f)
+            print("#undef reject", file=f)
+            print("#undef accept", file=f)
+            print("#undef branch", file=f)
             print("    } while (0);", file=f)
+            print("", file=f)
+            print("rollback_label:", file=f)
+            print("    YS_ATTRIBUTE(unused);", file=f)
 
             if len(restore_st) or len(nonconst_st):
                 print("", file=f)
@@ -414,10 +440,6 @@ with open("%s_pm.h" % prefix, "w") as f:
 
         print("  }", file=f)
         print("", file=f)
-
-    print("#undef reject", file=f)
-    print("#undef accept", file=f)
-    print("", file=f)
 
     print("  void block_{}() {{".format(len(blocks)), file=f)
     print("    on_accept();", file=f)
