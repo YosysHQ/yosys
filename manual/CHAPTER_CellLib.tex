@@ -119,6 +119,12 @@ than one bit from \B{S} is set the output is undefined. Cells of this type are u
 ``parallel cases'' (defined by using the {\tt parallel\_case} attribute or detected by
 an optimization).
 
+The {\tt \$tribuf} cell is used to implement tristate logic. Cells of this type have a \B{WIDTH}
+parameter and inputs \B{A} and \B{EN} and an output \B{Y}. The \B{A} input and \B{Y} output are
+\B{WIDTH} bits wide, and the \B{EN} input is one bit wide. When \B{EN} is 0, the output \B{Y}
+is not driven. When \B{EN} is 1, the value from \B{A} input is sent to the \B{Y} output. Therefore,
+the {\tt \$tribuf} cell implements the function \lstinline[language=Verilog]; Y = EN ? A : 'bz;.
+
 Behavioural code with cascaded {\tt if-then-else}- and {\tt case}-statements
 usually results in trees of multiplexer cells. Many passes (from various
 optimizations to FSM extraction) heavily depend on these multiplexer trees to
@@ -474,6 +480,10 @@ Add information about {\tt \$dffe}, {\tt \$dffsr}, {\tt \$dlatch}, and {\tt \$dl
 
 \begin{fixme}
 Add information about {\tt \$\_DFFE\_??\_}, {\tt \$\_DFFSR\_???\_}, {\tt \$\_DLATCH\_?\_}, and {\tt \$\_DLATCHSR\_???\_} cells.
+\end{fixme}
+
+\begin{fixme}
+Add information about {\tt \$\_TBUF\_} cells.
 \end{fixme}
 
 \begin{fixme}
