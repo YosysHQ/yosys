@@ -203,6 +203,7 @@ with open("%s_pm.h" % prefix, "w") as f:
             print("  dict<index_{}_key_type, vector<Cell*>> index_{};".format(index, index), file=f)
     print("  dict<SigBit, pool<Cell*>> sigusers;", file=f)
     print("  pool<Cell*> blacklist_cells;", file=f)
+    print("  bool blacklist_dirty;", file=f)
     print("  int rollback;", file=f)
     print("", file=f)
 
@@ -236,12 +237,17 @@ with open("%s_pm.h" % prefix, "w") as f:
     print("", file=f)
 
     print("  void blacklist(Cell *cell) {", file=f)
-    print("    if (cell != nullptr)", file=f)
-    print("      blacklist_cells.insert(cell);", file=f)
+    print("    if (cell != nullptr) {", file=f)
+    print("      if (blacklist_cells.insert(cell).second)", file=f)
+    print("        blacklist_dirty = true;", file=f)
+    print("    }", file=f)
     print("  }", file=f)
     print("", file=f)
 
     print("  void check_blacklist() {", file=f)
+    print("    if (!blacklist_dirty)", file=f)
+    print("      return;", file=f)
+    print("    blacklist_dirty = false;", file=f)
     for index in range(len(blocks)):
         block = blocks[index]
         if block["type"] == "match":
@@ -305,6 +311,7 @@ with open("%s_pm.h" % prefix, "w") as f:
     print("  void run(std::function<void()> on_accept_f) {{".format(prefix), file=f)
     print("    on_accept = on_accept_f;", file=f)
     print("    rollback = 0;", file=f)
+    print("    blacklist_dirty = false;", file=f)
     for s, t in sorted(state_types.items()):
         if t.endswith("*"):
             print("    st.{} = nullptr;".format(s), file=f)
@@ -367,7 +374,7 @@ with open("%s_pm.h" % prefix, "w") as f:
             print("    do {", file=f)
             print("#define reject do { check_blacklist(); goto rollback_label; } while(0)", file=f)
             print("#define accept do { on_accept(); check_blacklist(); if (rollback) goto rollback_label; } while(0)", file=f)
-            print("#define branch do {{ block_{}(); }} while(0)".format(index+1), file=f)
+            print("#define branch do {{ block_{}(); if (rollback) goto rollback_label; }} while(0)".format(index+1), file=f)
 
             for line in block["code"]:
                 print("    " + line, file=f)
@@ -416,6 +423,7 @@ with open("%s_pm.h" % prefix, "w") as f:
             print("", file=f)
             print("    for (int idx = 0; idx < GetSize(cells); idx++) {", file=f)
             print("      {} = cells[idx];".format(block["cell"]), file=f)
+            print("      if (blacklist_cells.count({})) continue;".format(block["cell"]), file=f)
             for expr in block["filter"]:
                 print("      if (!({})) continue;".format(expr), file=f)
             print("      block_{}();".format(index+1), file=f)
