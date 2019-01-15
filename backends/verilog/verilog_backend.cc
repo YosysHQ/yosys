@@ -709,11 +709,14 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 
 	if (cell->type == "$shiftx")
 	{
+		std::string temp_id = next_auto_id();
+		f << stringf("%s" "wire [%d:0] %s = ", indent.c_str(), GetSize(cell->getPort("\\A"))-1, temp_id.c_str());
+		dump_sigspec(f, cell->getPort("\\A"));
+		f << stringf(";\n");
+
 		f << stringf("%s" "assign ", indent.c_str());
 		dump_sigspec(f, cell->getPort("\\Y"));
-		f << stringf(" = ");
-		dump_sigspec(f, cell->getPort("\\A"));
-		f << stringf("[");
+		f << stringf(" = %s[", temp_id.c_str());
 		if (cell->getParam("\\B_SIGNED").as_bool())
 			f << stringf("$signed(");
 		dump_sigspec(f, cell->getPort("\\B"));
