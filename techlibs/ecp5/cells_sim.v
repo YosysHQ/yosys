@@ -697,3 +697,136 @@ module ODDRX2F(/*AUTOARG*/
       else if(ECLK === 0)
 	Q <= out_next[1];
 endmodule // ODDRX2F
+
+module IDDRX2F(/*AUTOARG*/
+    // Outputs
+    Q0, Q1, Q2, Q3,
+    // Inputs
+    D, ECLK, SCLK, RST, ALIGNWD
+    );
+    input D;
+    input ECLK;
+    input SCLK, RST, ALIGNWD;
+    output  Q0, Q1, Q2, Q3;
+
+    // Global set reset / power up reset
+    parameter GSR = "ENABLED";
+    wire   gsr, pur;
+    gsr_pur_assign gsr_inst(gsr, pur);
+    reg   sr;
+    always @(*)
+      if(GSR == "ENABLED")
+	sr = !(gsr && pur);
+      else
+	sr = !pur;
+
+    wire   rst_internal;
+    assign rst_internal = RST | sr;
+
+    reg [1:0] data_in; // Holds data from right after the ddr
+    reg [3:0] pipe_1;  
+    wire [3:0] m;      // Updated based on the contents of pipe1 and sel
+
+    reg [3:0] pipe_2;  // delays to match the real thing
+    reg [3:0] pipe_3;
+
+    assign {Q3, Q2, Q1, Q0} = pipe_3;
+
+    reg       last_clk = 0;
+
+    // read ddr data into data_in
+    always @(ECLK)
+      last_clk <= ECLK;
+    always @(ECLK or posedge rst_internal)
+      if(rst_internal == 1'b1)
+	data_in <= 2'b0;
+      else
+	if(ECLK == 1'b1 && last_clk == 1'b0)
+	  data_in[0] <= D;
+	else if(ECLK == 1'b0)
+	  data_in[1] <= D;
+
+    // read data from data_in into pipe_1
+    always @(posedge ECLK or posedge rst_internal)
+      if(rst_internal == 1'b1)
+	pipe_1 <= 4'b0;
+      else
+	pipe_1 <= {data_in[1], data_in[0], pipe_1[3:2]};
+	
+    //delay
+    always @(posedge SCLK or posedge rst_internal)
+      if(rst_internal == 1'b1) begin
+	  pipe_3 <= 4'b0;
+      end
+    
+      else begin
+	pipe_3 <= pipe_2;
+      end
+    //sample m on the correct edge of SCLK and ECLK into pipe_2
+    always @(posedge ECLK or posedge rst_internal)
+      if(rst_internal == 1'b1) begin
+	  pipe_2 <= 4'b0;
+      end
+      else
+	if(sample == 1'b1)
+	  pipe_2 <= m;
+
+    // sample = 1 when m holds the correct data for sampling
+    reg sample;
+    always @(posedge ECLK or posedge rst_internal)
+      if(rst_internal == 1'b1) begin
+	  sample <= 1'b0;
+      end
+      else begin
+	  if(SCLK == 1'b1)
+	    sample <= 1;
+	  else
+	    sample <= 0;
+      end // else: !if(rst_internal == 1'b1)
+
+    /*
+     Handles ALIGNWD 
+     What ALIGNWD does is it shifts the signal output by Q[3:0] by one
+     bit every time it has a rising edge. This toggles sel, which
+     changes the contents of m by 1 bit.
+     */
+
+    reg       sel = 0;
+    reg sel_trig; // set to 1 on the cycle sel needs to be toggled
+    reg align_delay1, align_delay2; // flip flops to detect a rising
+				    // edge on ALIGNWD
+    reg align_sync;
+    always @(posedge ECLK or posedge rst_internal)
+      if(rst_internal == 1'b1) begin
+	  /*AUTORESET*/
+	  // Beginning of autoreset for uninitialized flops
+	  align_delay1 <= 1'h0;
+	  align_delay2 <= 1'h0;
+	  align_sync <= 1'h0;
+	  sel <= 1'h0;
+	  sel_trig <= 1'h0;
+	  // End of automatics
+      end
+      else begin
+	  align_sync <= ALIGNWD;
+	  align_delay1 <= align_sync;
+	  align_delay2 <= align_delay1;
+
+	  // set sel_trig to 1 on when a rising edge is detected
+	  sel_trig <= align_delay1 == 1'b1 && align_delay2 == 1'b0;
+	  if(sel_trig == 1'b1)
+	    sel <= ~sel;
+      end
+	  
+	
+	  
+    
+
+    assign m[0] = sel ? pipe_1[1] : pipe_1[0];
+    assign m[2] = sel ? pipe_1[3] : pipe_1[2];
+    assign m[1] = sel ? pipe_1[2] : pipe_1[1];
+    assign m[3] = sel ? data_in[0] : pipe_1[3];
+    
+
+    
+endmodule // IDDRX2F
