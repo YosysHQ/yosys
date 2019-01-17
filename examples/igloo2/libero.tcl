@@ -5,7 +5,7 @@ file delete -force proj
 new_project \
     -name example \
     -location proj \
-    -block_mode 1 \
+    -block_mode 0 \
     -hdl "VERILOG" \
     -family IGLOO2 \
     -die PA4MGL500 \

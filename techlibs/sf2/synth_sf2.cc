@@ -60,6 +60,9 @@ struct SynthSf2Pass : public ScriptPass
 		log("    -noflatten\n");
 		log("        do not flatten design before synthesis\n");
 		log("\n");
+		log("    -noiobs\n");
+		log("        run synthesis in \"block mode\", i.e. do not insert IO buffers\n");
+		log("\n");
 		log("    -retime\n");
 		log("        run 'abc' with -dff option\n");
 		log("\n");
@@ -70,7 +73,7 @@ struct SynthSf2Pass : public ScriptPass
 	}
 
 	string top_opt, edif_file, vlog_file, json_file;
-	bool flatten, retime;
+	bool flatten, retime, iobs;
 
 	void clear_flags() YS_OVERRIDE
 	{
@@ -80,6 +83,7 @@ struct SynthSf2Pass : public ScriptPass
 		json_file = "";
 		flatten = true;
 		retime = false;
+		iobs = true;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -120,6 +124,10 @@ struct SynthSf2Pass : public ScriptPass
 			}
 			if (args[argidx] == "-retime") {
 				retime = true;
+				continue;
+			}
+			if (args[argidx] == "-noiobs") {
+				iobs = false;
 				continue;
 			}
 			break;
@@ -188,6 +196,13 @@ struct SynthSf2Pass : public ScriptPass
 		if (check_label("map_cells"))
 		{
 			run("techmap -map +/sf2/cells_map.v");
+			run("clean");
+		}
+
+		if (check_label("map_iobs"))
+		{
+			if (iobs || help_mode)
+				run("sf2_iobs", "(unless -noiobs)");
 			run("clean");
 		}
 
