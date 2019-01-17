@@ -1,4 +1,4 @@
-module top (
+module example (
 	input  clk,
 	output LED1,
 	output LED2,
