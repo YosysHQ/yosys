@@ -14,14 +14,12 @@ new_project \
 
 import_files -hdl_source {netlist.vm}
 import_files -sdc {example.sdc}
-import_files -io_pdc {example.io.pdc}
-import_files -fp_pdc {example.fp.pdc}
+import_files -io_pdc {example.pdc}
 set_option -synth 0
 
 organize_tool_files -tool PLACEROUTE \
     -file {proj/constraint/example.sdc} \
-    -file {proj/constraint/io/example.io.pdc} \
-    -file {proj/constraint/fp/example.fp.pdc} \
+    -file {proj/constraint/io/example.pdc} \
     -input_type constraint
 
 organize_tool_files -tool VERIFYTIMING \
