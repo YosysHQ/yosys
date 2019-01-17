@@ -547,3 +547,153 @@ module DP16KD(
   parameter INITVAL_3E = 320'h00000000000000000000000000000000000000000000000000000000000000000000000000000000;
   parameter INITVAL_3F = 320'h00000000000000000000000000000000000000000000000000000000000000000000000000000000;
 endmodule
+
+module IDDRX1F(/*AUTOARG*/
+    // Outputs
+    Q0, Q1,
+    // Inputs
+    D, SCLK, RST
+    );
+    input D, SCLK, RST;
+    output reg Q0, Q1;
+    initial
+      {Q0, Q1} = 2'b0;
+
+    reg [1:0] pipe_1;
+
+    parameter GSR = "ENABLED";
+    wire   gsr, pur;
+    gsr_pur_assign gsr_inst(gsr, pur);
+    reg   sr;
+    always @(*)
+      if(GSR == "ENABLED")
+	sr = !(gsr && pur);
+      else
+	sr = !pur;
+    wire  rst_internal = RST || sr;
+
+    reg   last_clock;
+    always @(SCLK)
+      last_clock <= SCLK;
+    
+    always @(SCLK or rst_internal) begin
+	if(rst_internal == 1'b1) begin
+	    pipe_1 <= 2'b0;
+	end
+	else if(SCLK === 1'b1 && last_clock === 1'b0) begin
+	    pipe_1[0] <= D;
+	    {Q1, Q0} <= pipe_1;
+	end
+	
+	else if(SCLK === 1'b0 && last_clock === 1'b1)
+	  pipe_1[1] <= D;
+    end // always @ (SCLK or rst_internal)
+      
+endmodule // IDDRX1F
+
+
+module ODDRX1F(/*AUTOARG*/
+    // Outputs
+    Q,
+    // Inputs
+    D0, D1, SCLK, RST
+    );
+
+    input D0, D1, SCLK, RST;
+    output Q;
+
+    parameter GSR = "ENABLED";
+    wire   gsr, pur;
+    gsr_pur_assign gsr_inst(gsr, pur);
+    reg   sr;
+    always @(*)
+      if(GSR == "ENABLED")
+	sr = !(gsr && pur);
+      else
+	sr = !pur;
+
+    wire   rst_internal;
+    assign rst_internal = RST | sr;
+      
+
+
+    assign Q = SCLK ? pipe_3[1] : pipe_3[0];
+
+    reg [1:0] pipe_1, pipe_2, pipe_3;
+    always @(posedge SCLK or posedge rst_internal) begin
+	if(rst_internal) begin
+	    /*AUTORESET*/
+	    // Beginning of autoreset for uninitialized flops
+	    pipe_1 <= 2'h0;
+	    pipe_2 <= 2'h0;
+	    pipe_3 <= 2'h0;
+	    // End of automatics
+	end
+	
+	else if(SCLK == 1) begin
+	    pipe_1 <= {D0, D1};
+	    pipe_2 <= pipe_1;
+	    pipe_3 <= pipe_2;
+	end
+    end
+
+endmodule // ODDRX1F
+
+module ODDRX2F(/*AUTOARG*/
+    // Outputs
+    Q,
+    // Inputs
+    D0, D1, D2, D3, RST, ECLK, SCLK
+    );
+    input D0, D1, D2, D3;
+    input RST;
+    input ECLK, SCLK;
+    output reg Q;
+
+    parameter GSR = "ENABLED";
+    wire   gsr, pur;
+    gsr_pur_assign gsr_inst(gsr, pur);
+    reg   sr;
+    always @(*)
+      if(GSR == "ENABLED")
+	sr = !(gsr && pur);
+      else
+	sr = !pur;
+
+    wire   rst_internal;
+    assign rst_internal = RST | sr;
+
+    reg [3:0] pipe_1;
+    reg [3:0] pipe_2;
+    reg [3:0] pipe_3;
+    reg [1:0] out_next;
+
+    always @(posedge SCLK or posedge rst_internal)
+	if(rst_internal == 1'b1) begin
+	    pipe_1 <= 4'h0;
+	    pipe_2 <= 4'h0;
+	    pipe_3 <= 4'h0;
+	end
+	else begin
+	  pipe_1 <= {D3, D2, D1, D0};
+	    pipe_2 <= pipe_1;
+	    pipe_3 <= pipe_2;
+	end
+    // this needs to trigger on both clock edges, and also when reset
+    // is brought high, but not when reset is brought low
+    always @(SCLK or posedge rst_internal)
+	if(rst_internal == 1'b1) 
+	    out_next <= 4'h0;
+	else if(SCLK === 1)
+	  out_next <= pipe_2[1:0];
+	else 
+	  out_next <= pipe_3[3:2];
+
+    always @(ECLK or posedge rst_internal)
+      if(rst_internal == 1'b1)
+	Q <= 1'b0;
+      else if(ECLK === 1)
+	Q <= out_next[0];
+      else if(ECLK === 0)
+	Q <= out_next[1];
+endmodule // ODDRX2F
