@@ -86,7 +86,7 @@ void proc_clean_switch(RTLIL::SwitchRule *sw, RTLIL::CaseRule *parent, bool &did
 			for (auto cmp : cs->compare)
 			{
 				size += cmp.size();
-				if (cmp.is_fully_def())
+				if (!cmp.is_fully_def())
 					all_fully_def = false;
 			}
 			if (sw->signal.size() != size)
