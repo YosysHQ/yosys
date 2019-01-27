@@ -816,6 +816,18 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		return true;
 	}
 
+	if (cell->type == "$tribuf")
+	{
+		f << stringf("%s" "assign ", indent.c_str());
+		dump_sigspec(f, cell->getPort("\\Y"));
+		f << stringf(" = ");
+		dump_sigspec(f, cell->getPort("\\EN"));
+		f << stringf(" ? ");
+		dump_sigspec(f, cell->getPort("\\A"));
+		f << stringf(" : %d'bz;\n", cell->parameters.at("\\WIDTH").as_int());
+		return true;
+	}
+
 	if (cell->type == "$slice")
 	{
 		f << stringf("%s" "assign ", indent.c_str());
