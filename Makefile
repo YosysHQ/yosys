@@ -71,7 +71,6 @@ PLUGIN_LDFLAGS :=
 PKG_CONFIG ?= pkg-config
 SED ?= sed
 BISON ?= bison
-STRIP ?= strip
 AWK ?= awk
 
 ifeq ($(OS), Darwin)
@@ -617,20 +616,10 @@ clean-unit-test:
 install: $(TARGETS) $(EXTRA_TARGETS)
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(BINDIR)
 	$(INSTALL_SUDO) cp $(TARGETS) $(DESTDIR)$(BINDIR)
-ifneq ($(filter yosys,$(TARGETS)),)
-	$(INSTALL_SUDO) $(STRIP) -S $(DESTDIR)$(BINDIR)/yosys
-endif
-ifneq ($(filter yosys-abc,$(TARGETS)),)
-	$(INSTALL_SUDO) $(STRIP) $(DESTDIR)$(BINDIR)/yosys-abc
-endif
-ifneq ($(filter yosys-filterlib,$(TARGETS)),)
-	$(INSTALL_SUDO) $(STRIP) $(DESTDIR)$(BINDIR)/yosys-filterlib
-endif
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(DATDIR)
 	$(INSTALL_SUDO) cp -r share/. $(DESTDIR)$(DATDIR)/.
 ifeq ($(ENABLE_LIBYOSYS),1)
 	$(INSTALL_SUDO) cp libyosys.so $(DESTDIR)$(LIBDIR)
-	$(INSTALL_SUDO) $(STRIP) -S $(DESTDIR)$(LIBDIR)/libyosys.so
 	$(INSTALL_SUDO) ldconfig
 endif
 
