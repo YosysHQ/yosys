@@ -86,8 +86,9 @@ shift $((OPTIND - 1))
 
 for fn
 do
-	bn=${fn%.v}
-	if [ "$bn" == "$fn" ]; then
+	bn=${fn%.*}
+	ext=${fn##*.}
+	if [[ "$ext" != "v" ]] && [[ "$ext" != "aag" ]]; then
 		echo "Invalid argument: $fn" >&2
 		exit 1
 	fi
@@ -109,10 +110,14 @@ do
 		fn=$(basename $fn)
 		bn=$(basename $bn)
 
-		egrep -v '^\s*`timescale' ../$fn > ${bn}_ref.v
+		if [[ "$ext" == "v" ]]; then
+			egrep -v '^\s*`timescale' ../$fn > ${bn}_ref.${ext}
+		else
+			cp ../$fn ${bn}_ref.${ext}
+		fi
 
 		if [ ! -f ../${bn}_tb.v ]; then
-			"$toolsdir"/../../yosys -f "$frontend $include_opts" -b "test_autotb $autotb_opts" -o ${bn}_tb.v ${bn}_ref.v
+			"$toolsdir"/../../yosys -f "$frontend $include_opts" -b "test_autotb $autotb_opts" -o ${bn}_tb.v ${bn}_ref.${ext}
 		else
 			cp ../${bn}_tb.v ${bn}_tb.v
 		fi
@@ -138,16 +143,16 @@ do
 		fi
 
 		if [ -n "$scriptfiles" ]; then
-			test_passes -f "$frontend $include_opts" ${bn}_ref.v $scriptfiles
+			test_passes -f "$frontend $include_opts" ${bn}_ref.${ext} $scriptfiles
 		elif [ -n "$scriptopt" ]; then
-			test_passes -f "$frontend $include_opts" -p "$scriptopt" ${bn}_ref.v
+			test_passes -f "$frontend $include_opts" -p "$scriptopt" ${bn}_ref.${ext}
 		elif [ "$frontend" = "verific" ]; then
 			test_passes -p "verific -vlog2k ${bn}_ref.v; verific -import -all; opt; memory;;"
 		elif [ "$frontend" = "verific_gates" ]; then
 			test_passes -p "verific -vlog2k ${bn}_ref.v; verific -import -gates -all; opt; memory;;"
 		else
-			test_passes -f "$frontend $include_opts" -p "hierarchy; proc; opt; memory; opt; fsm; opt -full -fine" ${bn}_ref.v
-			test_passes -f "$frontend $include_opts" -p "hierarchy; synth -run coarse; techmap; opt; abc -dff" ${bn}_ref.v
+			test_passes -f "$frontend $include_opts" -p "hierarchy; proc; opt; memory; opt; fsm; opt -full -fine" ${bn}_ref.${ext}
+			test_passes -f "$frontend $include_opts" -p "hierarchy; synth -run coarse; techmap; opt; abc -dff" ${bn}_ref.${ext}
 		fi
 		touch ../${bn}.log
 	}
