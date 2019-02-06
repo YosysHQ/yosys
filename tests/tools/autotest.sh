@@ -22,7 +22,7 @@ if [ ! -f $toolsdir/cmp_tbdata -o $toolsdir/cmp_tbdata.c -nt $toolsdir/cmp_tbdat
 	( set -ex; ${CC:-gcc} -Wall -o $toolsdir/cmp_tbdata $toolsdir/cmp_tbdata.c; ) || exit 1
 fi
 
-while getopts xmGl:wkjvref:s:p:n:S:I: opt; do
+while getopts xmGl:wkjvref:s:p:n:S:I:B: opt; do
 	case "$opt" in
 		x)
 			use_xsim=true ;;
@@ -59,8 +59,10 @@ while getopts xmGl:wkjvref:s:p:n:S:I: opt; do
 			include_opts="$include_opts -I $OPTARG"
 			xinclude_opts="$xinclude_opts -i $OPTARG"
 			minclude_opts="$minclude_opts +incdir+$OPTARG" ;;
+        B)
+			backend_opts="$backend_opts $OPTARG" ;;
 		*)
-			echo "Usage: $0 [-x|-m] [-G] [-w] [-k] [-j] [-v] [-r] [-e] [-l libs] [-f frontend] [-s script] [-p cmdstring] [-n iters] [-S seed] [-I incdir] verilog-files\n" >&2
+			echo "Usage: $0 [-x|-m] [-G] [-w] [-k] [-j] [-v] [-r] [-e] [-l libs] [-f frontend] [-s script] [-p cmdstring] [-n iters] [-S seed] [-I incdir] [-B backend_opt] verilog-files\n" >&2
 			exit 1
 	esac
 done
