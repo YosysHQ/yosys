@@ -451,8 +451,9 @@ endmodule
 //-                 1 1 | y
 //-
 module \$_SR_NN_ (S, R, Q);
+parameter INIT = 1'bx;
 input S, R;
-output reg Q;
+output reg Q = INIT;
 always @(negedge S, negedge R) begin
 	if (R == 0)
 		Q <= 0;
@@ -475,8 +476,9 @@ endmodule
 //-                 1 0 | y
 //-
 module \$_SR_NP_ (S, R, Q);
+parameter INIT = 1'bx;
 input S, R;
-output reg Q;
+output reg Q = INIT;
 always @(negedge S, posedge R) begin
 	if (R == 1)
 		Q <= 0;
@@ -499,8 +501,9 @@ endmodule
 //-                 0 1 | y
 //-
 module \$_SR_PN_ (S, R, Q);
+parameter INIT = 1'bx;
 input S, R;
-output reg Q;
+output reg Q = INIT;
 always @(posedge S, negedge R) begin
 	if (R == 0)
 		Q <= 0;
@@ -523,8 +526,9 @@ endmodule
 //-                 0 0 | y
 //-
 module \$_SR_PP_ (S, R, Q);
+parameter INIT = 1'bx;
 input S, R;
-output reg Q;
+output reg Q = INIT;
 always @(posedge S, posedge R) begin
 	if (R == 1)
 		Q <= 0;
@@ -542,8 +546,9 @@ endmodule
 //- type is usually only used in netlists for formal verification.)
 //-
 module \$_FF_ (D, Q);
+parameter INIT = 1'bx;
 input D;
-output reg Q;
+output reg Q = INIT;
 always @($global_clock) begin
 	Q <= D;
 end
@@ -562,8 +567,9 @@ endmodule
 //-                 - - | q
 //-
 module \$_DFF_N_ (D, C, Q);
+parameter INIT = 1'bx;
 input D, C;
-output reg Q;
+output reg Q = INIT;
 always @(negedge C) begin
 	Q <= D;
 end
@@ -581,8 +587,9 @@ endmodule
 //-                 - - | q
 //-
 module \$_DFF_P_ (D, C, Q);
+parameter INIT = 1'bx;
 input D, C;
-output reg Q;
+output reg Q = INIT;
 always @(posedge C) begin
 	Q <= D;
 end
@@ -600,8 +607,9 @@ endmodule
 //-                 - - - | q
 //-
 module \$_DFFE_NN_ (D, C, E, Q);
+parameter INIT = 1'bx;
 input D, C, E;
-output reg Q;
+output reg Q = INIT;
 always @(negedge C) begin
 	if (!E) Q <= D;
 end
@@ -619,8 +627,9 @@ endmodule
 //-                 - - - | q
 //-
 module \$_DFFE_NP_ (D, C, E, Q);
+parameter INIT = 1'bx;
 input D, C, E;
-output reg Q;
+output reg Q = INIT;
 always @(negedge C) begin
 	if (E) Q <= D;
 end
@@ -638,8 +647,9 @@ endmodule
 //-                 - - - | q
 //-
 module \$_DFFE_PN_ (D, C, E, Q);
+parameter INIT = 1'bx;
 input D, C, E;
-output reg Q;
+output reg Q = INIT;
 always @(posedge C) begin
 	if (!E) Q <= D;
 end
@@ -657,8 +667,9 @@ endmodule
 //-                 - - - | q
 //-
 module \$_DFFE_PP_ (D, C, E, Q);
+parameter INIT = 1'bx;
 input D, C, E;
-output reg Q;
+output reg Q = INIT;
 always @(posedge C) begin
 	if (E) Q <= D;
 end
@@ -677,8 +688,9 @@ endmodule
 //-                 - - - | q
 //-
 module \$_DFF_NN0_ (D, C, R, Q);
+parameter INIT = 1'bx;
 input D, C, R;
-output reg Q;
+output reg Q = INIT;
 always @(negedge C or negedge R) begin
 	if (R == 0)
 		Q <= 0;
@@ -700,8 +712,9 @@ endmodule
 //-                 - - - | q
 //-
 module \$_DFF_NN1_ (D, C, R, Q);
+parameter INIT = 1'bx;
 input D, C, R;
-output reg Q;
+output reg Q = INIT;
 always @(negedge C or negedge R) begin
 	if (R == 0)
 		Q <= 1;
@@ -723,8 +736,9 @@ endmodule
 //-                 - - - | q
 //-
 module \$_DFF_NP0_ (D, C, R, Q);
+parameter INIT = 1'bx;
 input D, C, R;
-output reg Q;
+output reg Q = INIT;
 always @(negedge C or posedge R) begin
 	if (R == 1)
 		Q <= 0;
@@ -746,8 +760,9 @@ endmodule
 //-                 - - - | q
 //-
 module \$_DFF_NP1_ (D, C, R, Q);
+parameter INIT = 1'bx;
 input D, C, R;
-output reg Q;
+output reg Q = INIT;
 always @(negedge C or posedge R) begin
 	if (R == 1)
 		Q <= 1;
@@ -769,8 +784,9 @@ endmodule
 //-                 - - - | q
 //-
 module \$_DFF_PN0_ (D, C, R, Q);
+parameter INIT = 1'bx;
 input D, C, R;
-output reg Q;
+output reg Q = INIT;
 always @(posedge C or negedge R) begin
 	if (R == 0)
 		Q <= 0;
@@ -792,8 +808,9 @@ endmodule
 //-                 - - - | q
 //-
 module \$_DFF_PN1_ (D, C, R, Q);
+parameter INIT = 1'bx;
 input D, C, R;
-output reg Q;
+output reg Q = INIT;
 always @(posedge C or negedge R) begin
 	if (R == 0)
 		Q <= 1;
@@ -815,8 +832,9 @@ endmodule
 //-                 - - - | q
 //-
 module \$_DFF_PP0_ (D, C, R, Q);
+parameter INIT = 1'bx;
 input D, C, R;
-output reg Q;
+output reg Q = INIT;
 always @(posedge C or posedge R) begin
 	if (R == 1)
 		Q <= 0;
@@ -838,8 +856,9 @@ endmodule
 //-                 - - - | q
 //-
 module \$_DFF_PP1_ (D, C, R, Q);
+parameter INIT = 1'bx;
 input D, C, R;
-output reg Q;
+output reg Q = INIT;
 always @(posedge C or posedge R) begin
 	if (R == 1)
 		Q <= 1;
@@ -862,8 +881,9 @@ endmodule
 //-                 - - - - | q
 //-
 module \$_DFFSR_NNN_ (C, S, R, D, Q);
+parameter INIT = 1'bx;
 input C, S, R, D;
-output reg Q;
+output reg Q = INIT;
 always @(negedge C, negedge S, negedge R) begin
 	if (R == 0)
 		Q <= 0;
@@ -889,8 +909,9 @@ endmodule
 //-                 - - - - | q
 //-
 module \$_DFFSR_NNP_ (C, S, R, D, Q);
+parameter INIT = 1'bx;
 input C, S, R, D;
-output reg Q;
+output reg Q = INIT;
 always @(negedge C, negedge S, posedge R) begin
 	if (R == 1)
 		Q <= 0;
@@ -916,8 +937,9 @@ endmodule
 //-                 - - - - | q
 //-
 module \$_DFFSR_NPN_ (C, S, R, D, Q);
+parameter INIT = 1'bx;
 input C, S, R, D;
-output reg Q;
+output reg Q = INIT;
 always @(negedge C, posedge S, negedge R) begin
 	if (R == 0)
 		Q <= 0;
@@ -942,8 +964,9 @@ endmodule
 //-                 - - - - | q
 //-
 module \$_DFFSR_NPP_ (C, S, R, D, Q);
+parameter INIT = 1'bx;
 input C, S, R, D;
-output reg Q;
+output reg Q = INIT;
 always @(negedge C, posedge S, posedge R) begin
 	if (R == 1)
 		Q <= 0;
@@ -968,8 +991,9 @@ endmodule
 //-                 - - - - | q
 //-
 module \$_DFFSR_PNN_ (C, S, R, D, Q);
+parameter INIT = 1'bx;
 input C, S, R, D;
-output reg Q;
+output reg Q = INIT;
 always @(posedge C, negedge S, negedge R) begin
 	if (R == 0)
 		Q <= 0;
@@ -995,8 +1019,9 @@ endmodule
 //-                 - - - - | q
 //-
 module \$_DFFSR_PNP_ (C, S, R, D, Q);
+parameter INIT = 1'bx;
 input C, S, R, D;
-output reg Q;
+output reg Q = INIT;
 always @(posedge C, negedge S, posedge R) begin
 	if (R == 1)
 		Q <= 0;
@@ -1022,8 +1047,9 @@ endmodule
 //-                 - - - - | q
 //-
 module \$_DFFSR_PPN_ (C, S, R, D, Q);
+parameter INIT = 1'bx;
 input C, S, R, D;
-output reg Q;
+output reg Q = INIT;
 always @(posedge C, posedge S, negedge R) begin
 	if (R == 0)
 		Q <= 0;
@@ -1048,8 +1074,9 @@ endmodule
 //-                 - - - - | q
 //-
 module \$_DFFSR_PPP_ (C, S, R, D, Q);
+parameter INIT = 1'bx;
 input C, S, R, D;
-output reg Q;
+output reg Q = INIT;
 always @(posedge C, posedge S, posedge R) begin
 	if (R == 1)
 		Q <= 0;
@@ -1072,8 +1099,9 @@ endmodule
 //-                 - - | q
 //-
 module \$_DLATCH_N_ (E, D, Q);
+parameter INIT = 1'bx;
 input E, D;
-output reg Q;
+output reg Q = INIT;
 always @* begin
 	if (E == 0)
 		Q <= D;
@@ -1092,8 +1120,9 @@ endmodule
 //-                 - - | q
 //-
 module \$_DLATCH_P_ (E, D, Q);
+parameter INIT = 1'bx;
 input E, D;
-output reg Q;
+output reg Q = INIT;
 always @* begin
 	if (E == 1)
 		Q <= D;
@@ -1114,8 +1143,9 @@ endmodule
 //-                 - - - - | q
 //-
 module \$_DLATCHSR_NNN_ (E, S, R, D, Q);
+parameter INIT = 1'bx;
 input E, S, R, D;
-output reg Q;
+output reg Q = INIT;
 always @* begin
 	if (R == 0)
 		Q <= 0;
@@ -1141,8 +1171,9 @@ endmodule
 //-                 - - - - | q
 //-
 module \$_DLATCHSR_NNP_ (E, S, R, D, Q);
+parameter INIT = 1'bx;
 input E, S, R, D;
-output reg Q;
+output reg Q = INIT;
 always @* begin
 	if (R == 1)
 		Q <= 0;
@@ -1168,8 +1199,9 @@ endmodule
 //-                 - - - - | q
 //-
 module \$_DLATCHSR_NPN_ (E, S, R, D, Q);
+parameter INIT = 1'bx;
 input E, S, R, D;
-output reg Q;
+output reg Q = INIT;
 always @* begin
 	if (R == 0)
 		Q <= 0;
@@ -1194,8 +1226,9 @@ endmodule
 //-                 - - - - | q
 //-
 module \$_DLATCHSR_NPP_ (E, S, R, D, Q);
+parameter INIT = 1'bx;
 input E, S, R, D;
-output reg Q;
+output reg Q = INIT;
 always @* begin
 	if (R == 1)
 		Q <= 0;
@@ -1220,8 +1253,9 @@ endmodule
 //-                 - - - - | q
 //-
 module \$_DLATCHSR_PNN_ (E, S, R, D, Q);
+parameter INIT = 1'bx;
 input E, S, R, D;
-output reg Q;
+output reg Q = INIT;
 always @* begin
 	if (R == 0)
 		Q <= 0;
@@ -1247,8 +1281,9 @@ endmodule
 //-                 - - - - | q
 //-
 module \$_DLATCHSR_PNP_ (E, S, R, D, Q);
+parameter INIT = 1'bx;
 input E, S, R, D;
-output reg Q;
+output reg Q = INIT;
 always @* begin
 	if (R == 1)
 		Q <= 0;
@@ -1274,8 +1309,9 @@ endmodule
 //-                 - - - - | q
 //-
 module \$_DLATCHSR_PPN_ (E, S, R, D, Q);
+parameter INIT = 1'bx;
 input E, S, R, D;
-output reg Q;
+output reg Q = INIT;
 always @* begin
 	if (R == 0)
 		Q <= 0;
@@ -1300,8 +1336,9 @@ endmodule
 //-                 - - - - | q
 //-
 module \$_DLATCHSR_PPP_ (E, S, R, D, Q);
+parameter INIT = 1'bx;
 input E, S, R, D;
-output reg Q;
+output reg Q = INIT;
 always @* begin
 	if (R == 1)
 		Q <= 0;
