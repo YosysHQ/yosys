@@ -1247,7 +1247,30 @@ void dump_cell(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 	dump_attributes(f, indent, cell->attributes);
 	f << stringf("%s" "%s", indent.c_str(), id(cell->type, false).c_str());
 
-	if (!defparam && cell->parameters.size() > 0) {
+	std::string init;
+	if (cell->name[0] == '$' && reg_ct.count(cell->type) && cell->hasPort("\\Q")) {
+		auto q_wire = cell->getPort("\\Q");
+
+		Const initval;
+		bool gotinit = false;
+
+		for (auto bit : active_sigmap(q_wire)) {
+			if (active_initdata.count(bit)) {
+				initval.bits.push_back(active_initdata.at(bit));
+				gotinit = true;
+			} else {
+				initval.bits.push_back(State::Sx);
+			}
+		}
+
+		if (gotinit) {
+			std::stringstream ss;
+			dump_const(ss, initval);
+			init = ss.str();
+		}
+	}
+
+	if (!defparam && (cell->parameters.size() > 0 || !init.empty())) {
 		f << stringf(" #(");
 		for (auto it = cell->parameters.begin(); it != cell->parameters.end(); ++it) {
 			if (it != cell->parameters.begin())
@@ -1256,6 +1279,11 @@ void dump_cell(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 			bool is_signed = (it->second.flags & RTLIL::CONST_FLAG_SIGNED) != 0;
 			dump_const(f, it->second, -1, 0, false, is_signed);
 			f << stringf(")");
+		}
+		if (!init.empty()) {
+			if (!cell->parameters.empty())
+				f << stringf(",");
+			f << stringf("\n%s  .INIT(%s)", indent.c_str(), init.c_str());
 		}
 		f << stringf("\n%s" ")", indent.c_str());
 	}
@@ -1298,13 +1326,15 @@ void dump_cell(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 	}
 	f << stringf("\n%s" ");\n", indent.c_str());
 
-	if (defparam && cell->parameters.size() > 0) {
+	if (defparam && (cell->parameters.size() > 0 || !init.empty())) {
 		for (auto it = cell->parameters.begin(); it != cell->parameters.end(); ++it) {
 			f << stringf("%sdefparam %s.%s = ", indent.c_str(), cell_name.c_str(), id(it->first).c_str());
 			bool is_signed = (it->second.flags & RTLIL::CONST_FLAG_SIGNED) != 0;
 			dump_const(f, it->second, -1, 0, false, is_signed);
 			f << stringf(";\n");
 		}
+		if (!init.empty())
+			f << stringf("%sdefparam %s.INIT = %s;\n", indent.c_str(), cell_name.c_str(), init.c_str());
 	}
 
 }
