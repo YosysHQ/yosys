@@ -293,7 +293,7 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 	}
 }
 
-void dump_reg_init(std::ostream &f, SigSpec sig)
+void dump_reg_init(std::ostream &f, SigSpec sig, bool write_equals = true)
 {
 	Const initval;
 	bool gotinit = false;
@@ -308,7 +308,7 @@ void dump_reg_init(std::ostream &f, SigSpec sig)
 	}
 
 	if (gotinit) {
-		f << " = ";
+		if (write_equals) f << " = ";
 		dump_const(f, initval);
 	}
 }
@@ -1249,25 +1249,9 @@ void dump_cell(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 
 	std::string init;
 	if (cell->name[0] == '$' && reg_ct.count(cell->type) && cell->hasPort("\\Q")) {
-		auto q_wire = cell->getPort("\\Q");
-
-		Const initval;
-		bool gotinit = false;
-
-		for (auto bit : active_sigmap(q_wire)) {
-			if (active_initdata.count(bit)) {
-				initval.bits.push_back(active_initdata.at(bit));
-				gotinit = true;
-			} else {
-				initval.bits.push_back(State::Sx);
-			}
-		}
-
-		if (gotinit) {
-			std::stringstream ss;
-			dump_const(ss, initval);
-			init = ss.str();
-		}
+		std::stringstream ss;
+		dump_reg_init(ss, cell->getPort("\\Q"), false /* write_equals */);
+		init = ss.str();
 	}
 
 	if (!defparam && (cell->parameters.size() > 0 || !init.empty())) {
