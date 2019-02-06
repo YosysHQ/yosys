@@ -1464,7 +1464,7 @@ module \$dff (CLK, D, Q);
 
 parameter WIDTH = 0;
 parameter CLK_POLARITY = 1'b1;
-parameter INIT = {WIDTH{1'bx}};
+parameter INIT = {WIDTH > 0 ? WIDTH : 1{1'bx}};
 
 input CLK;
 input [WIDTH-1:0] D;
@@ -1484,7 +1484,7 @@ module \$dffe (CLK, EN, D, Q);
 parameter WIDTH = 0;
 parameter CLK_POLARITY = 1'b1;
 parameter EN_POLARITY = 1'b1;
-parameter INIT = {WIDTH{1'bx}};
+parameter INIT = {WIDTH > 0 ? WIDTH : 1{1'bx}};
 
 input CLK, EN;
 input [WIDTH-1:0] D;
@@ -1506,7 +1506,7 @@ parameter WIDTH = 0;
 parameter CLK_POLARITY = 1'b1;
 parameter SET_POLARITY = 1'b1;
 parameter CLR_POLARITY = 1'b1;
-parameter INIT = {WIDTH{1'bx}};
+parameter INIT = {WIDTH > 0 ? WIDTH : 1{1'bx}};
 
 input CLK;
 input [WIDTH-1:0] SET, CLR, D;
@@ -1540,7 +1540,7 @@ parameter WIDTH = 0;
 parameter CLK_POLARITY = 1'b1;
 parameter ARST_POLARITY = 1'b1;
 parameter ARST_VALUE = 0;
-parameter INIT = {WIDTH{1'bx}};
+parameter INIT = {WIDTH > 0 ? WIDTH : 1{1'bx}};
 
 input CLK, ARST;
 input [WIDTH-1:0] D;
@@ -1563,7 +1563,7 @@ module \$dlatch (EN, D, Q);
 
 parameter WIDTH = 0;
 parameter EN_POLARITY = 1'b1;
-parameter INIT = {WIDTH{1'bx}};
+parameter INIT = {WIDTH > 0 ? WIDTH : 1{1'bx}};
 
 input EN;
 input [WIDTH-1:0] D;
@@ -1585,7 +1585,7 @@ parameter WIDTH = 0;
 parameter EN_POLARITY = 1'b1;
 parameter SET_POLARITY = 1'b1;
 parameter CLR_POLARITY = 1'b1;
-parameter INIT = {WIDTH{1'bx}};
+parameter INIT = {WIDTH > 0 ? WIDTH : 1{1'bx}};
 
 input EN;
 input [WIDTH-1:0] SET, CLR, D;
