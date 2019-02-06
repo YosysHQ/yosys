@@ -113,16 +113,18 @@ do
 		if [[ "$ext" == "v" ]]; then
 			egrep -v '^\s*`timescale' ../$fn > ${bn}_ref.${ext}
 		else
-			cp ../$fn ${bn}_ref.${ext}
+			"$toolsdir"/../../yosys -f "$frontend $include_opts" -b "verilog" -o ${bn}_ref.v ../${fn}
+			frontend="verilog"
 		fi
 
 		if [ ! -f ../${bn}_tb.v ]; then
-			"$toolsdir"/../../yosys -f "$frontend $include_opts" -b "test_autotb $autotb_opts" -o ${bn}_tb.v ${bn}_ref.${ext}
+			"$toolsdir"/../../yosys -f "$frontend $include_opts" -b "test_autotb $autotb_opts" -o ${bn}_tb.v ${bn}_ref.v
 		else
 			cp ../${bn}_tb.v ${bn}_tb.v
 		fi
 		if $genvcd; then sed -i 's,// \$dump,$dump,g' ${bn}_tb.v; fi
-		compile_and_run ${bn}_tb_ref ${bn}_out_ref ${bn}_tb.v ${bn}_ref.v $libs
+		compile_and_run ${bn}_tb_ref ${bn}_out_ref ${bn}_tb.v ${bn}_ref.v $libs \
+					"$toolsdir"/../../techlibs/common/simlib.v
 		if $genvcd; then mv testbench.vcd ${bn}_ref.vcd; fi
 
 		test_count=0
@@ -143,16 +145,16 @@ do
 		fi
 
 		if [ -n "$scriptfiles" ]; then
-			test_passes -f "$frontend $include_opts" ${bn}_ref.${ext} $scriptfiles
+			test_passes -f "$frontend $include_opts" ${bn}_ref.v $scriptfiles
 		elif [ -n "$scriptopt" ]; then
-			test_passes -f "$frontend $include_opts" -p "$scriptopt" ${bn}_ref.${ext}
+			test_passes -f "$frontend $include_opts" -p "$scriptopt" ${bn}_ref.v
 		elif [ "$frontend" = "verific" ]; then
 			test_passes -p "verific -vlog2k ${bn}_ref.v; verific -import -all; opt; memory;;"
 		elif [ "$frontend" = "verific_gates" ]; then
 			test_passes -p "verific -vlog2k ${bn}_ref.v; verific -import -gates -all; opt; memory;;"
 		else
-			test_passes -f "$frontend $include_opts" -p "hierarchy; proc; opt; memory; opt; fsm; opt -full -fine" ${bn}_ref.${ext}
-			test_passes -f "$frontend $include_opts" -p "hierarchy; synth -run coarse; techmap; opt; abc -dff" ${bn}_ref.${ext}
+			test_passes -f "$frontend $include_opts" -p "hierarchy; proc; opt; memory; opt; fsm; opt -full -fine" ${bn}_ref.v
+			test_passes -f "$frontend $include_opts" -p "hierarchy; synth -run coarse; techmap; opt; abc -dff" ${bn}_ref.v
 		fi
 		touch ../${bn}.log
 	}
