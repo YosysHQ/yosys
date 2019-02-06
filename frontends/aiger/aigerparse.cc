@@ -30,15 +30,22 @@ YOSYS_NAMESPACE_BEGIN
 
 #define log_debug log
 
+static void parse_aiger_ascii(RTLIL::Design *design, std::istream &f, std::string clk_name);
+
 void parse_aiger(RTLIL::Design *design, std::istream &f, std::string clk_name)
 {
     std::string header;
     f >> header;
-    if (header != "aag") {
+    if (header == "aag")
+        return parse_aiger_ascii(design, f, clk_name);
+    else {
         log_error("Unsupported AIGER file!\n");
         return;
     }
+}
 
+static void parse_aiger_ascii(RTLIL::Design *design, std::istream &f, std::string clk_name)
+{
     int M, I, L, O, A;
     int B=0, C=0, J=0, F=0; // Optional in AIGER 1.9
     if (!(f >> M >> I >> L >> O >> A)) {
