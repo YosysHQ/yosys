@@ -621,7 +621,7 @@ struct abc_output_filter
 	}
 };
 
-void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::string script_file, std::string exe_file,
+void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::string script_file, std::string exe_file,
 		std::string liberty_file, std::string constr_file, bool cleanup, vector<int> lut_costs, bool dff_mode, std::string clk_str,
 		bool keepff, std::string delay_target, std::string sop_inputs, std::string sop_products, std::string lutin_shared, bool fast_mode,
 		const std::vector<RTLIL::Cell*> &cells, bool show_tempdir, bool sop_mode)
@@ -1246,13 +1246,13 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 	log_pop();
 }
 
-struct AbcPass : public Pass {
-	AbcPass() : Pass("abc", "use ABC for technology mapping") { }
+struct Abc9Pass : public Pass {
+	Abc9Pass() : Pass("abc9", "use ABC for technology mapping") { }
 	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    abc [options] [selection]\n");
+		log("    abc9 [options] [selection]\n");
 		log("\n");
 		log("This pass uses the ABC tool [1] for technology mapping of yosys's internal gate\n");
 		log("library to a target architecture.\n");
@@ -1422,7 +1422,7 @@ struct AbcPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
-		log_header(design, "Executing ABC pass (technology mapping using ABC).\n");
+		log_header(design, "Executing ABC9 pass (technology mapping using ABC).\n");
 		log_push();
 
 		assign_map.clear();
@@ -1703,7 +1703,7 @@ struct AbcPass : public Pass {
 				}
 
 			if (!dff_mode || !clk_str.empty()) {
-				abc_module(design, mod, script_file, exe_file, liberty_file, constr_file, cleanup, lut_costs, dff_mode, clk_str, keepff,
+				abc9_module(design, mod, script_file, exe_file, liberty_file, constr_file, cleanup, lut_costs, dff_mode, clk_str, keepff,
 						delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, mod->selected_cells(), show_tempdir, sop_mode);
 				continue;
 			}
@@ -1848,7 +1848,7 @@ struct AbcPass : public Pass {
 				clk_sig = assign_map(std::get<1>(it.first));
 				en_polarity = std::get<2>(it.first);
 				en_sig = assign_map(std::get<3>(it.first));
-				abc_module(design, mod, script_file, exe_file, liberty_file, constr_file, cleanup, lut_costs, !clk_sig.empty(), "$",
+				abc9_module(design, mod, script_file, exe_file, liberty_file, constr_file, cleanup, lut_costs, !clk_sig.empty(), "$",
 						keepff, delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, it.second, show_tempdir, sop_mode);
 				assign_map.set(mod);
 			}
@@ -1863,6 +1863,6 @@ struct AbcPass : public Pass {
 
 		log_pop();
 	}
-} AbcPass;
+} Abc9Pass;
 
 PRIVATE_NAMESPACE_END
