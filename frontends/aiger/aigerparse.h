@@ -28,7 +28,7 @@ struct AigerReader
 {
     RTLIL::Design *design;
     std::istream &f;
-    std::string clk_name;
+    RTLIL::IdString clk_name;
     RTLIL::Module *module;
 
     unsigned M, I, L, O, A;
@@ -39,7 +39,7 @@ struct AigerReader
     std::vector<RTLIL::Wire*> latches;
     std::vector<RTLIL::Wire*> outputs;
 
-    AigerReader(RTLIL::Design *design, std::istream &f, std::string clk_name="clk");
+    AigerReader(RTLIL::Design *design, std::istream &f, RTLIL::IdString module_name, RTLIL::IdString clk_name);
     void parse_aiger();
     void parse_aiger_ascii();
     void parse_aiger_binary();

@@ -30,11 +30,11 @@ YOSYS_NAMESPACE_BEGIN
 
 #define log_debug log
 
-AigerReader::AigerReader(RTLIL::Design *design, std::istream &f, std::string clk_name)
+AigerReader::AigerReader(RTLIL::Design *design, std::istream &f, RTLIL::IdString module_name, RTLIL::IdString clk_name)
     : design(design), f(f), clk_name(clk_name)
 {
     module = new RTLIL::Module;
-    module->name = RTLIL::escape_id("aig"); // TODO: Name?
+    module->name = module_name;
     if (design->module(module->name))
         log_error("Duplicate definition of module %s!\n", log_id(module->name));
 }
@@ -162,11 +162,10 @@ void AigerReader::parse_aiger_ascii()
     // Parse latches
     RTLIL::Wire *clk_wire = nullptr;
     if (L > 0) {
-        RTLIL::IdString clk_id = RTLIL::escape_id(clk_name.c_str());
-        clk_wire = module->wire(clk_id);
+        clk_wire = module->wire(clk_name);
         log_assert(!clk_wire);
-        log_debug("Creating %s\n", clk_id.c_str());
-        clk_wire = module->addWire(clk_id);
+        log_debug("Creating %s\n", clk_name.c_str());
+        clk_wire = module->addWire(clk_name);
         clk_wire->port_input = true;
     }
     for (unsigned i = 0; i < L; ++i, ++line_count) {
@@ -270,11 +269,10 @@ void AigerReader::parse_aiger_binary()
     // Parse latches
     RTLIL::Wire *clk_wire = nullptr;
     if (L > 0) {
-        RTLIL::IdString clk_id = RTLIL::escape_id(clk_name.c_str());
-        clk_wire = module->wire(clk_id);
+        clk_wire = module->wire(clk_name);
         log_assert(!clk_wire);
-        log_debug("Creating %s\n", clk_id.c_str());
-        clk_wire = module->addWire(clk_id);
+        log_debug("Creating %s\n", clk_name.c_str());
+        clk_wire = module->addWire(clk_name);
         clk_wire->port_input = true;
     }
     l1 = (I+1) * 2;
@@ -364,21 +362,53 @@ struct AigerFrontend : public Frontend {
 		log("\n");
 		log("    read_aiger [options] [filename]\n");
 		log("\n");
-		log("Load modules from an AIGER file into the current design.\n");
+		log("Load module from an AIGER file into the current design.\n");
+		log("\n");
+		log("    -clk_name <wire_name>\n");
+		log("        AIGER latches to be transformed into posedge DFFs clocked by wire of");
+        log("        this name (default: clk)\n");
+        log("\n");
+		log("    -module_name <module_name>\n");
+		log("        Name of module to be created (default: <filename>)"
+#ifdef _WIN32
+		                                                   "top" // FIXME
+#else
+		                                                   "<filename>"
+#endif
+                                                           ")\n");
 		log("\n");
 	}
 	void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing AIGER frontend.\n");
 
+        RTLIL::IdString clk_name = "\\clk";
+        RTLIL::IdString module_name;
+
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			std::string arg = args[argidx];
+			if (arg == "-clk_name" && argidx+1 < args.size()) {
+				clk_name = RTLIL::escape_id(args[++argidx]);
+				continue;
+			}
+			if (arg == "-module_name" && argidx+1 < args.size()) {
+				module_name = RTLIL::escape_id(args[++argidx]);
+				continue;
+			}
 			break;
 		}
 		extra_args(f, filename, args, argidx);
 
-        AigerReader reader(design, *f);
+        if (module_name.empty()) {
+#ifdef _WIN32
+            module_name = "top"; // FIXME: basename equivalent on Win32?
+#else
+            module_name = RTLIL::escape_id(basename(filename.c_str()));
+#endif
+        }
+
+        AigerReader reader(design, *f, module_name, clk_name);
 		reader.parse_aiger();
 	}
 } AigerFrontend;
