@@ -363,13 +363,13 @@ struct AigerFrontend : public Frontend {
 		log("    read_aiger [options] [filename]\n");
 		log("\n");
 		log("Load module from an AIGER file into the current design.\n");
+        log("\n");
+		log("    -module_name <module_name>\n");
+		log("        Name of module to be created (default: <filename>)"
 		log("\n");
 		log("    -clk_name <wire_name>\n");
 		log("        AIGER latches to be transformed into posedge DFFs clocked by wire of");
         log("        this name (default: clk)\n");
-        log("\n");
-		log("    -module_name <module_name>\n");
-		log("        Name of module to be created (default: <filename>)"
 #ifdef _WIN32
 		                                                   "top" // FIXME
 #else
@@ -388,12 +388,12 @@ struct AigerFrontend : public Frontend {
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			std::string arg = args[argidx];
-			if (arg == "-clk_name" && argidx+1 < args.size()) {
-				clk_name = RTLIL::escape_id(args[++argidx]);
-				continue;
-			}
 			if (arg == "-module_name" && argidx+1 < args.size()) {
 				module_name = RTLIL::escape_id(args[++argidx]);
+				continue;
+			}
+			if (arg == "-clk_name" && argidx+1 < args.size()) {
+				clk_name = RTLIL::escape_id(args[++argidx]);
 				continue;
 			}
 			break;
