@@ -24,7 +24,26 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-extern void parse_aiger(RTLIL::Design *design, std::istream &f, std::string clk_name="clk");
+struct AigerReader
+{
+    RTLIL::Design *design;
+    std::istream &f;
+    std::string clk_name;
+    RTLIL::Module *module;
+
+    unsigned M, I, L, O, A;
+    unsigned B, C, J, F; // Optional in AIGER 1.9
+    unsigned line_count;
+
+    std::vector<RTLIL::Wire*> inputs;
+    std::vector<RTLIL::Wire*> latches;
+    std::vector<RTLIL::Wire*> outputs;
+
+    AigerReader(RTLIL::Design *design, std::istream &f, std::string clk_name="clk");
+    void parse_aiger();
+    void parse_aiger_ascii();
+    void parse_aiger_binary();
+};
 
 YOSYS_NAMESPACE_END
 

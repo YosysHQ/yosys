@@ -30,24 +30,84 @@ YOSYS_NAMESPACE_BEGIN
 
 #define log_debug log
 
-static void parse_aiger_ascii(RTLIL::Module *module, std::istream &f, std::string clk_name);
-static void parse_aiger_binary(RTLIL::Module *module, std::istream &f, std::string clk_name);
-
-void parse_aiger(RTLIL::Design *design, std::istream &f, std::string clk_name)
+AigerReader::AigerReader(RTLIL::Design *design, std::istream &f, std::string clk_name)
+    : design(design), f(f), clk_name(clk_name)
 {
-    auto module = new RTLIL::Module;
+    module = new RTLIL::Module;
     module->name = RTLIL::escape_id("aig"); // TODO: Name?
     if (design->module(module->name))
         log_error("Duplicate definition of module %s!\n", log_id(module->name));
+}
 
+void AigerReader::parse_aiger()
+{
     std::string header;
     f >> header;
-    if (header == "aag")
-        parse_aiger_ascii(module, f, clk_name);
-    else if (header == "aig")
-        parse_aiger_binary(module, f, clk_name);
-    else
+    if (header != "aag" && header != "aig")
         log_error("Unsupported AIGER file!\n");
+
+    // Parse rest of header
+    if (!(f >> M >> I >> L >> O >> A))
+        log_error("Invalid AIGER header\n");
+
+    // Optional values
+    B = C = J = F = 0;
+    for (auto &i : std::array<std::reference_wrapper<unsigned>,4>{B, C, J, F}) {
+        if (f.peek() != ' ') break;
+        if (!(f >> i))
+            log_error("Invalid AIGER header\n");
+    }
+
+    std::string line;
+    std::getline(f, line); // Ignore up to start of next line, as standard
+                           // says anything that follows could be used for
+                           // optional sections
+
+    log_debug("M=%u I=%u L=%u O=%u A=%u B=%u C=%u J=%u F=%u\n", M, I, L, O, A, B, C, J, F);
+
+    line_count = 1;
+
+    if (header == "aag")
+        parse_aiger_ascii();
+    else if (header == "aig")
+        parse_aiger_binary();
+    else
+        log_abort();
+
+    // Parse footer (symbol table, comments, etc.)
+    unsigned l1;
+    std::string s;
+    for (int c = f.peek(); c != EOF; c = f.peek(), ++line_count) {
+        if (c == 'i' || c == 'l' || c == 'o') {
+            f.ignore(1);
+            if (!(f >> l1 >> s))
+                log_error("Line %u cannot be interpreted as a symbol entry!\n", line_count);
+
+            if ((c == 'i' && l1 > inputs.size()) || (c == 'l' && l1 > latches.size()) || (c == 'o' && l1 > outputs.size()))
+                log_error("Line %u has invalid symbol position!\n", line_count);
+
+            RTLIL::Wire* wire;
+            if (c == 'i') wire = inputs[l1];
+            else if (c == 'l') wire = latches[l1];
+            else if (c == 'o') wire = outputs[l1];
+            else log_abort();
+
+            module->rename(wire, stringf("\\%s", s.c_str()));
+        }
+        else if (c == 'b' || c == 'j' || c == 'f') {
+            // TODO
+        }
+        else if (c == 'c') {
+            f.ignore(1);
+            if (f.peek() == '\n')
+                break;
+            // Else constraint (TODO)
+            break;
+        }
+        else
+            log_error("Line %u: cannot interpret first character '%c'!\n", line_count, c);
+        std::getline(f, line); // Ignore up to start of next line
+    }
 
     module->fixup_ports();
     design->add(module);
@@ -81,38 +141,14 @@ static RTLIL::Wire* createWireIfNotExists(RTLIL::Module *module, unsigned litera
     return wire;
 }
 
-static void parse_aiger_header(std::istream &f, unsigned &M, unsigned &I, unsigned &L, unsigned &O, unsigned &A, unsigned &B, unsigned &C, unsigned &J, unsigned &F)
+void AigerReader::parse_aiger_ascii()
 {
-    if (!(f >> M >> I >> L >> O >> A))
-        log_error("Invalid AIGER header\n");
-    for (auto &i : std::array<std::reference_wrapper<unsigned>,4>{B, C, J, F}) {
-        if (f.peek() != ' ') break;
-        if (!(f >> i))
-            log_error("Invalid AIGER header\n");
-    }
-
-    std::string line;
-    std::getline(f, line); // Ignore up to start of next line, as standard
-                           // says anything that follows could be used for
-                           // optional sections
-    
-    log_debug("M=%u I=%u L=%u O=%u A=%u B=%u C=%u J=%u F=%u\n", M, I, L, O, A, B, C, J, F);
-}
-
-static void parse_aiger_ascii(RTLIL::Module *module, std::istream &f, std::string clk_name)
-{
-    unsigned M, I, L, O, A;
-    unsigned B=0, C=0, J=0, F=0; // Optional in AIGER 1.9
-    parse_aiger_header(f, M, I, L, O, A, B, C, J, F);
-
-    unsigned line_count = 1;
     std::string line;
     std::stringstream ss;
 
     unsigned l1, l2, l3;
 
     // Parse inputs
-    std::vector<RTLIL::Wire*> inputs;
     for (unsigned i = 0; i < I; ++i, ++line_count) {
         if (!(f >> l1))
             log_error("Line %u cannot be interpreted as an input!\n", line_count);
@@ -124,7 +160,6 @@ static void parse_aiger_ascii(RTLIL::Module *module, std::istream &f, std::strin
     }
 
     // Parse latches
-    std::vector<RTLIL::Wire*> latches;
     RTLIL::Wire *clk_wire = nullptr;
     if (L > 0) {
         RTLIL::IdString clk_id = RTLIL::escape_id(clk_name.c_str());
@@ -165,7 +200,6 @@ static void parse_aiger_ascii(RTLIL::Module *module, std::istream &f, std::strin
     }
 
     // Parse outputs
-    std::vector<RTLIL::Wire*> outputs;
     for (unsigned i = 0; i < O; ++i, ++line_count) {
         if (!(f >> l1))
             log_error("Line %u cannot be interpreted as an output!\n", line_count);
@@ -210,39 +244,6 @@ static void parse_aiger_ascii(RTLIL::Module *module, std::istream &f, std::strin
 		and_cell->setPort("\\Y", o_wire);
     }
     std::getline(f, line); // Ignore up to start of next line
-
-    std::string s;
-    for (int c = f.peek(); c != EOF; c = f.peek(), ++line_count) {
-        if (c == 'i' || c == 'l' || c == 'o') {
-            f.ignore(1);
-            if (!(f >> l1 >> s))
-                log_error("Line %u cannot be interpreted as a symbol entry!\n", line_count);
-
-            if ((c == 'i' && l1 > inputs.size()) || (c == 'l' && l1 > latches.size()) || (c == 'o' && l1 > outputs.size()))
-                log_error("Line %u has invalid symbol position!\n", line_count);
-
-            RTLIL::Wire* wire;
-            if (c == 'i') wire = inputs[l1];
-            else if (c == 'l') wire = latches[l1];
-            else if (c == 'o') wire = outputs[l1];
-            else log_abort();
-
-            module->rename(wire, stringf("\\%s", s.c_str()));
-        }
-        else if (c == 'b' || c == 'j' || c == 'f') {
-            // TODO
-        }
-        else if (c == 'c') {
-            f.ignore(1);
-            if (f.peek() == '\n')
-                break;
-            // Else constraint (TODO)
-            break;
-        }
-        else
-            log_error("Line %u: cannot interpret first character '%c'!\n", line_count, c);
-        std::getline(f, line); // Ignore up to start of next line
-    }
 }
 
 static unsigned parse_next_delta_literal(std::istream &f, unsigned ref)
@@ -254,18 +255,12 @@ static unsigned parse_next_delta_literal(std::istream &f, unsigned ref)
     return ref - (x | (ch << (7 * i)));
 }
 
-static void parse_aiger_binary(RTLIL::Module *module, std::istream &f, std::string clk_name)
+void AigerReader::parse_aiger_binary()
 {
-    unsigned M, I, L, O, A;
-    unsigned B=0, C=0, J=0, F=0; // Optional in AIGER 1.9
-    parse_aiger_header(f, M, I, L, O, A, B, C, J, F);
-
-    unsigned line_count = 1;
     unsigned l1, l2, l3;
     std::string line;
 
     // Parse inputs
-    std::vector<RTLIL::Wire*> inputs;
     for (unsigned i = 1; i <= I; ++i) {
         RTLIL::Wire *wire = createWireIfNotExists(module, i << 1);
         wire->port_input = true;
@@ -273,7 +268,6 @@ static void parse_aiger_binary(RTLIL::Module *module, std::istream &f, std::stri
     }
 
     // Parse latches
-    std::vector<RTLIL::Wire*> latches;
     RTLIL::Wire *clk_wire = nullptr;
     if (L > 0) {
         RTLIL::IdString clk_id = RTLIL::escape_id(clk_name.c_str());
@@ -314,7 +308,6 @@ static void parse_aiger_binary(RTLIL::Module *module, std::istream &f, std::stri
     }
 
     // Parse outputs
-    std::vector<RTLIL::Wire*> outputs;
     for (unsigned i = 0; i < O; ++i, ++line_count) {
         if (!(f >> l1))
             log_error("Line %u cannot be interpreted as an output!\n", line_count);
@@ -385,7 +378,8 @@ struct AigerFrontend : public Frontend {
 		}
 		extra_args(f, filename, args, argidx);
 
-		parse_aiger(design, *f);
+        AigerReader reader(design, *f);
+		reader.parse_aiger();
 	}
 } AigerFrontend;
 
