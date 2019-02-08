@@ -1,0 +1,8 @@
+aig 7 2 1 2 4
+14
+6
+7
+i0 enable
+i1 reset
+o0 Q
+o1 !Q

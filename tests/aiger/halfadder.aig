@@ -1,0 +1,9 @@
+aig 5 2 0 2 3
+10
+6
+i0 x
+i1 y
+o0 s
+o1 c
+c
+half adder
