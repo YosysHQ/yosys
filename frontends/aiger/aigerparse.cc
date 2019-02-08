@@ -135,6 +135,7 @@ static void parse_aiger_ascii(RTLIL::Design *design, std::istream &f, std::strin
 
         module->addDff(NEW_ID, clk_wire, d_wire, q_wire);
 
+        // Reset logic is optional in AIGER 1.9
         if (f.peek() == ' ') {
             if (!(f >> l3))
                 log_error("Line %d cannot be interpreted as a latch!\n", line_count);
