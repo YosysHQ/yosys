@@ -100,7 +100,7 @@ static void parse_aiger_ascii(RTLIL::Design *design, std::istream &f, std::strin
         return wire;
     };
 
-    int l1, l2, l3;
+    unsigned l1, l2, l3;
 
     // Parse inputs
     std::vector<RTLIL::Wire*> inputs;
