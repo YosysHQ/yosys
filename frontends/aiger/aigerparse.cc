@@ -31,6 +31,7 @@ YOSYS_NAMESPACE_BEGIN
 #define log_debug log
 
 static void parse_aiger_ascii(RTLIL::Design *design, std::istream &f, std::string clk_name);
+static void parse_aiger_binary(RTLIL::Design *design, std::istream &f, std::string clk_name);
 
 void parse_aiger(RTLIL::Design *design, std::istream &f, std::string clk_name)
 {
@@ -38,10 +39,10 @@ void parse_aiger(RTLIL::Design *design, std::istream &f, std::string clk_name)
     f >> header;
     if (header == "aag")
         return parse_aiger_ascii(design, f, clk_name);
-    else {
+    else if (header == "aig")
+        return parse_aiger_binary(design, f, clk_name);
+    else
         log_error("Unsupported AIGER file!\n");
-        return;
-    }
 }
 
 static void parse_aiger_ascii(RTLIL::Design *design, std::istream &f, std::string clk_name)
@@ -189,6 +190,10 @@ static void parse_aiger_ascii(RTLIL::Design *design, std::istream &f, std::strin
     }
 
     module->fixup_ports();
+}
+
+static void parse_aiger_binary(RTLIL::Design *design, std::istream &f, std::string clk_name)
+{
 }
 
 struct AigerFrontend : public Frontend {
