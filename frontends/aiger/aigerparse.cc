@@ -176,7 +176,7 @@ void AigerReader::parse_aiger_ascii()
         RTLIL::Wire *q_wire = createWireIfNotExists(module, l1);
         RTLIL::Wire *d_wire = createWireIfNotExists(module, l2);
 
-        module->addDff(NEW_ID, clk_wire, d_wire, q_wire);
+        module->addDffGate(NEW_ID, clk_wire, d_wire, q_wire);
 
         // Reset logic is optional in AIGER 1.9
         if (f.peek() == ' ') {
