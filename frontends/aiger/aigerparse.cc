@@ -116,6 +116,15 @@ static void parse_aiger_ascii(RTLIL::Design *design, std::istream &f, std::strin
 
     // Parse latches
     std::vector<RTLIL::Wire*> latches;
+    RTLIL::Wire *clk_wire = nullptr;
+    if (L > 0) {
+        RTLIL::IdString clk_id = RTLIL::escape_id(clk_name.c_str());
+        clk_wire = module->wire(clk_id);
+        log_assert(!clk_wire);
+        log_debug("Creating %s\n", clk_id.c_str());
+        clk_wire = module->addWire(clk_id);
+        clk_wire->port_input = true;
+    }
     for (int i = 0; i < L; ++i, ++line_count) {
         if (!(f >> l1 >> l2))
             log_error("Line %d cannot be interpreted as a latch!\n", line_count);
@@ -123,13 +132,6 @@ static void parse_aiger_ascii(RTLIL::Design *design, std::istream &f, std::strin
         log_assert(!(l1 & 1)); // TODO: Latch outputs can't be inverted?
         RTLIL::Wire *q_wire = createWireIfNotExists(l1);
         RTLIL::Wire *d_wire = createWireIfNotExists(l2);
-        RTLIL::IdString clk_id = RTLIL::escape_id(clk_name.c_str());
-        RTLIL::Wire *clk_wire = module->wire(clk_id);
-        if (!clk_wire) {
-            log_debug("Creating %s\n", clk_id.c_str());
-            clk_wire = module->addWire(clk_id);
-            clk_wire->port_input = true;
-        }
 
         module->addDff(NEW_ID, clk_wire, d_wire, q_wire);
         // AIGER latches are assumed to be initialized to zero
