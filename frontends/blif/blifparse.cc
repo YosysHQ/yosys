@@ -584,7 +584,7 @@ struct BlifFrontend : public Frontend {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    read_blif [filename]\n");
+		log("    read_blif [options] [filename]\n");
 		log("\n");
 		log("Load modules from a BLIF file into the current design.\n");
 		log("\n");
