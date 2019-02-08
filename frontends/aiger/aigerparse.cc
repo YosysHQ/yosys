@@ -186,7 +186,7 @@ static void parse_aiger_ascii(RTLIL::Design *design, std::istream &f, std::strin
 
     std::string s;
     for (int c = f.peek(); c != EOF; c = f.peek(), ++line_count) {
-        if (c == 'i' || c == 'o') {
+        if (c == 'i' || c == 'l' || c == 'o') {
             f.ignore(1);
             if (!(f >> l1 >> s))
                 log_error("Line %d cannot be interpreted as a symbol entry!\n", line_count);
@@ -201,8 +201,6 @@ static void parse_aiger_ascii(RTLIL::Design *design, std::istream &f, std::strin
             else log_abort();
 
             module->rename(wire, stringf("\\%s", s.c_str()));
-        }
-        else if (c == 'l') {
         }
         else if (c == 'b' || c == 'j' || c == 'f') {
             // TODO
