@@ -49,16 +49,12 @@ static void parse_aiger_ascii(RTLIL::Design *design, std::istream &f, std::strin
 {
     int M, I, L, O, A;
     int B=0, C=0, J=0, F=0; // Optional in AIGER 1.9
-    if (!(f >> M >> I >> L >> O >> A)) {
+    if (!(f >> M >> I >> L >> O >> A))
         log_error("Invalid AIGER header\n");
-        return;
-    }
     for (auto &i : std::array<std::reference_wrapper<int>,4>{B, C, J, F}) {
         if (f.peek() != ' ') break;
-        if (!(f >> i)) {
+        if (!(f >> i))
             log_error("Invalid AIGER header\n");
-            return;
-        }
     }
 
     std::string line;
@@ -109,10 +105,8 @@ static void parse_aiger_ascii(RTLIL::Design *design, std::istream &f, std::strin
     // Parse inputs
     std::vector<RTLIL::Wire*> inputs;
     for (int i = 0; i < I; ++i, ++line_count) {
-        if (!(f >> l1)) {
+        if (!(f >> l1))
             log_error("Line %d cannot be interpreted as an input!\n", line_count);
-            return;
-        }
         log_debug("%d is an input\n", l1);
         log_assert(!(l1 & 1)); // TODO: Inputs can't be inverted?
         RTLIL::Wire *wire = createWireIfNotExists(l1);
@@ -123,10 +117,8 @@ static void parse_aiger_ascii(RTLIL::Design *design, std::istream &f, std::strin
     // Parse latches
     std::vector<RTLIL::Wire*> latches;
     for (int i = 0; i < L; ++i, ++line_count) {
-        if (!(f >> l1 >> l2)) {
+        if (!(f >> l1 >> l2))
             log_error("Line %d cannot be interpreted as a latch!\n", line_count);
-            return;
-        }
         log_debug("%d %d is a latch\n", l1, l2);
         log_assert(!(l1 & 1)); // TODO: Latch outputs can't be inverted?
         RTLIL::Wire *q_wire = createWireIfNotExists(l1);
@@ -148,10 +140,8 @@ static void parse_aiger_ascii(RTLIL::Design *design, std::istream &f, std::strin
     // Parse outputs
     std::vector<RTLIL::Wire*> outputs;
     for (int i = 0; i < O; ++i, ++line_count) {
-        if (!(f >> l1)) {
+        if (!(f >> l1))
             log_error("Line %d cannot be interpreted as an output!\n", line_count);
-            return;
-        }
 
         log_debug("%d is an output\n", l1);
         RTLIL::Wire *wire = createWireIfNotExists(l1);
@@ -178,10 +168,8 @@ static void parse_aiger_ascii(RTLIL::Design *design, std::istream &f, std::strin
 
     // Parse AND
     for (int i = 0; i < A; ++i, ++line_count) {
-        if (!(f >> l1 >> l2 >> l3)) {
+        if (!(f >> l1 >> l2 >> l3))
             log_error("Line %d cannot be interpreted as an AND!\n", line_count);
-            return;
-        }
 
         log_debug("%d %d %d is an AND\n", l1, l2, l3);
         log_assert(!(l1 & 1)); // TODO: Output of ANDs can't be inverted?
@@ -200,15 +188,11 @@ static void parse_aiger_ascii(RTLIL::Design *design, std::istream &f, std::strin
     for (int c = f.peek(); c != EOF; c = f.peek(), ++line_count) {
         if (c == 'i' || c == 'o') {
             f.ignore(1);
-            if (!(f >> l1 >> s)) {
+            if (!(f >> l1 >> s))
                 log_error("Line %d cannot be interpreted as a symbol entry!\n", line_count);
-                return;
-            }
 
-            if ((c == 'i' && l1 > inputs.size()) || (c == 'l' && l1 > latches.size()) || (c == 'o' && l1 > outputs.size())) {
+            if ((c == 'i' && l1 > inputs.size()) || (c == 'l' && l1 > latches.size()) || (c == 'o' && l1 > outputs.size()))
                 log_error("Line %d has invalid symbol position!\n", line_count);
-                return;
-            }
 
             RTLIL::Wire* wire;
             if (c == 'i') wire = inputs[l1];
@@ -230,10 +214,8 @@ static void parse_aiger_ascii(RTLIL::Design *design, std::istream &f, std::strin
             // Else constraint (TODO)
             break;
         }
-        else {
+        else
             log_error("Line %d: cannot interpret first character '%c'!\n", line_count, c);
-            return;
-        }
         std::getline(f, line); // Ignore up to start of next line
     }
 
