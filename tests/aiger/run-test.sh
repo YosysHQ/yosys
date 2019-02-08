@@ -17,4 +17,8 @@ if ! which iverilog > /dev/null ; then
   exit 1
 fi
 
-exec ${MAKE:-make} -f ../tools/autotest.mk $seed *.aag EXTRA_FLAGS="-f aiger"
+echo "===== AAG ======"
+${MAKE:-make} -f ../tools/autotest.mk $seed *.aag EXTRA_FLAGS="-f aiger"
+
+echo "===== AIG ======"
+exec ${MAKE:-make} -f ../tools/autotest.mk $seed *.aig EXTRA_FLAGS="-f aiger"

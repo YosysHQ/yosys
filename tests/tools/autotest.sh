@@ -90,7 +90,7 @@ for fn
 do
 	bn=${fn%.*}
 	ext=${fn##*.}
-	if [[ "$ext" != "v" ]] && [[ "$ext" != "aag" ]]; then
+	if [[ "$ext" != "v" ]] && [[ "$ext" != "aag" ]] && [[ "$ext" != "aig" ]]; then
 		echo "Invalid argument: $fn" >&2
 		exit 1
 	fi
