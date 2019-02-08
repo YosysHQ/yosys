@@ -134,8 +134,23 @@ static void parse_aiger_ascii(RTLIL::Design *design, std::istream &f, std::strin
         RTLIL::Wire *d_wire = createWireIfNotExists(l2);
 
         module->addDff(NEW_ID, clk_wire, d_wire, q_wire);
-        // AIGER latches are assumed to be initialized to zero
-        q_wire->attributes["\\init"] = RTLIL::Const(0);
+
+        if (f.peek() == ' ') {
+            if (!(f >> l3))
+                log_error("Line %d cannot be interpreted as a latch!\n", line_count);
+
+            if (l3 == 0 || l3 == 1)
+                q_wire->attributes["\\init"] = RTLIL::Const(0);
+            else if (l3 == l1) {
+                //q_wire->attributes["\\init"] = RTLIL::Const(RTLIL::State::Sx);
+            }
+            else
+                log_error("Line %d has invalid reset literal for latch!\n", line_count);
+        }
+        else {
+            // AIGER latches are assumed to be initialized to zero
+            q_wire->attributes["\\init"] = RTLIL::Const(0);
+        }
         latches.push_back(q_wire);
     }
 
