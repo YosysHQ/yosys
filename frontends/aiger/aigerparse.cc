@@ -107,6 +107,7 @@ static void parse_aiger_ascii(RTLIL::Design *design, std::istream &f, std::strin
     int l1, l2, l3;
 
     // Parse inputs
+    std::vector<RTLIL::Wire*> inputs;
     for (int i = 0; i < I; ++i, ++line_count) {
         if (!(f >> l1)) {
             log_error("Line %d cannot be interpreted as an input!\n", line_count);
@@ -116,9 +117,11 @@ static void parse_aiger_ascii(RTLIL::Design *design, std::istream &f, std::strin
         log_assert(!(l1 & 1)); // TODO: Inputs can't be inverted?
         RTLIL::Wire *wire = createWireIfNotExists(l1);
         wire->port_input = true;
+        inputs.push_back(wire);
     }
 
     // Parse latches
+    std::vector<RTLIL::Wire*> latches;
     for (int i = 0; i < L; ++i, ++line_count) {
         if (!(f >> l1 >> l2)) {
             log_error("Line %d cannot be interpreted as a latch!\n", line_count);
@@ -139,9 +142,11 @@ static void parse_aiger_ascii(RTLIL::Design *design, std::istream &f, std::strin
         module->addDff(NEW_ID, clk_wire, d_wire, q_wire);
         // AIGER latches are assumed to be initialized to zero
         q_wire->attributes["\\init"] = RTLIL::Const(0);
+        latches.push_back(q_wire);
     }
 
     // Parse outputs
+    std::vector<RTLIL::Wire*> outputs;
     for (int i = 0; i < O; ++i, ++line_count) {
         if (!(f >> l1)) {
             log_error("Line %d cannot be interpreted as an output!\n", line_count);
@@ -151,9 +156,10 @@ static void parse_aiger_ascii(RTLIL::Design *design, std::istream &f, std::strin
         log_debug("%d is an output\n", l1);
         RTLIL::Wire *wire = createWireIfNotExists(l1);
         wire->port_output = true;
+        outputs.push_back(wire);
     }
     std::getline(f, line); // Ignore up to start of next line
-    
+
     // TODO: Parse bad state properties
     for (int i = 0; i < B; ++i, ++line_count)
         std::getline(f, line); // Ignore up to start of next line
@@ -187,6 +193,48 @@ static void parse_aiger_ascii(RTLIL::Design *design, std::istream &f, std::strin
 		and_cell->setPort("\\A", i1_wire);
 		and_cell->setPort("\\B", i2_wire);
 		and_cell->setPort("\\Y", o_wire);
+    }
+    std::getline(f, line); // Ignore up to start of next line
+
+    std::string s;
+    for (int c = f.peek(); c != EOF; c = f.peek(), ++line_count) {
+        if (c == 'i' || c == 'o') {
+            f.ignore(1);
+            if (!(f >> l1 >> s)) {
+                log_error("Line %d cannot be interpreted as a symbol entry!\n", line_count);
+                return;
+            }
+
+            if ((c == 'i' && l1 > inputs.size()) || (c == 'l' && l1 > latches.size()) || (c == 'o' && l1 > outputs.size())) {
+                log_error("Line %d has invalid symbol position!\n", line_count);
+                return;
+            }
+
+            RTLIL::Wire* wire;
+            if (c == 'i') wire = inputs[l1];
+            else if (c == 'l') wire = latches[l1];
+            else if (c == 'o') wire = outputs[l1];
+            else log_abort();
+
+            module->rename(wire, stringf("\\%s", s.c_str()));
+        }
+        else if (c == 'l') {
+        }
+        else if (c == 'b' || c == 'j' || c == 'f') {
+            // TODO
+        }
+        else if (c == 'c') {
+            f.ignore(1);
+            if (f.peek() == '\n')
+                break;
+            // Else constraint (TODO)
+            break;
+        }
+        else {
+            log_error("Line %d: cannot interpret first character '%c'!\n", line_count, c);
+            return;
+        }
+        std::getline(f, line); // Ignore up to start of next line
     }
 
     module->fixup_ports();
