@@ -237,10 +237,10 @@ void AigerReader::parse_aiger_ascii()
         RTLIL::Wire *i1_wire = createWireIfNotExists(module, l2);
         RTLIL::Wire *i2_wire = createWireIfNotExists(module, l3);
 
-		RTLIL::Cell *and_cell = module->addCell(NEW_ID, "$_AND_");
-		and_cell->setPort("\\A", i1_wire);
-		and_cell->setPort("\\B", i2_wire);
-		and_cell->setPort("\\Y", o_wire);
+        RTLIL::Cell *and_cell = module->addCell(NEW_ID, "$_AND_");
+        and_cell->setPort("\\A", i1_wire);
+        and_cell->setPort("\\B", i2_wire);
+        and_cell->setPort("\\Y", o_wire);
     }
     std::getline(f, line); // Ignore up to start of next line
 }
@@ -345,42 +345,42 @@ void AigerReader::parse_aiger_binary()
         RTLIL::Wire *i1_wire = createWireIfNotExists(module, l2);
         RTLIL::Wire *i2_wire = createWireIfNotExists(module, l3);
 
-		RTLIL::Cell *and_cell = module->addCell(NEW_ID, "$_AND_");
-		and_cell->setPort("\\A", i1_wire);
-		and_cell->setPort("\\B", i2_wire);
-		and_cell->setPort("\\Y", o_wire);
+        RTLIL::Cell *and_cell = module->addCell(NEW_ID, "$_AND_");
+        and_cell->setPort("\\A", i1_wire);
+        and_cell->setPort("\\B", i2_wire);
+        and_cell->setPort("\\Y", o_wire);
     }
     std::getline(f, line); // Ignore up to start of next line
 
 }
 
 struct AigerFrontend : public Frontend {
-	AigerFrontend() : Frontend("aiger", "read AIGER file") { }
-	void help() YS_OVERRIDE
-	{
-		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
-		log("\n");
-		log("    read_aiger [options] [filename]\n");
-		log("\n");
-		log("Load module from an AIGER file into the current design.\n");
+    AigerFrontend() : Frontend("aiger", "read AIGER file") { }
+    void help() YS_OVERRIDE
+    {
+        //   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
         log("\n");
-		log("    -module_name <module_name>\n");
-		log("        Name of module to be created (default: <filename>)"
-		log("\n");
-		log("    -clk_name <wire_name>\n");
-		log("        AIGER latches to be transformed into posedge DFFs clocked by wire of");
-        log("        this name (default: clk)\n");
+        log("    read_aiger [options] [filename]\n");
+        log("\n");
+        log("Load module from an AIGER file into the current design.\n");
+        log("\n");
+        log("    -module_name <module_name>\n");
+        log("        Name of module to be created (default: <filename>)"
 #ifdef _WIN32
 		                                                   "top" // FIXME
 #else
 		                                                   "<filename>"
 #endif
                                                            ")\n");
-		log("\n");
-	}
-	void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
-	{
-		log_header(design, "Executing AIGER frontend.\n");
+        log("\n");
+        log("    -clk_name <wire_name>\n");
+        log("        AIGER latches to be transformed into posedge DFFs clocked by wire of");
+        log("        this name (default: clk)\n");
+        log("\n");
+    }
+    void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+    {
+        log_header(design, "Executing AIGER frontend.\n");
 
         RTLIL::IdString clk_name = "\\clk";
         RTLIL::IdString module_name;
@@ -410,7 +410,7 @@ struct AigerFrontend : public Frontend {
 
         AigerReader reader(design, *f, module_name, clk_name);
 		reader.parse_aiger();
-	}
+    }
 } AigerFrontend;
 
 YOSYS_NAMESPACE_END
