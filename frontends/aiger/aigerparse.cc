@@ -227,7 +227,7 @@ void AigerReader::parse_aiger_ascii()
         std::getline(f, line); // Ignore up to start of next line
 
     // Parse AND
-    for (unsigned i = 0; i < A; ++i, ++line_count) {
+    for (unsigned i = 0; i < A; ++i) {
         if (!(f >> l1 >> l2 >> l3))
             log_error("Line %u cannot be interpreted as an AND!\n", line_count);
 
