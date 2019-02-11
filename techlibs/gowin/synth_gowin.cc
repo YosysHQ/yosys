@@ -52,6 +52,9 @@ struct SynthGowinPass : public ScriptPass
 		log("    -nobram\n");
 		log("        do not use BRAM cells in output netlist\n");
 		log("\n");
+		log("    -noflatten\n");
+		log("        do not flatten design before synthesis\n");
+		log("\n");
 		log("    -retime\n");
 		log("        run 'abc' with -dff option\n");
 		log("\n");
@@ -62,14 +65,15 @@ struct SynthGowinPass : public ScriptPass
 	}
 
 	string top_opt, vout_file;
-	bool retime, nobram;
+	bool retime, flatten, nobram;
 
 	void clear_flags() YS_OVERRIDE
 	{
 		top_opt = "-auto-top";
 		vout_file = "";
 		retime = false;
-                nobram = true;
+		flatten = true;
+		nobram = true;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -104,12 +108,16 @@ struct SynthGowinPass : public ScriptPass
 				nobram = true;
 				continue;
 			}
+			if (args[argidx] == "-noflatten") {
+				flatten = false;
+				continue;
+			}			
 			break;
 		}
 		extra_args(args, argidx, design);
 
 		if (!design->full_selection())
-			log_cmd_error("This comannd only operates on fully selected designs!\n");
+			log_cmd_error("This command only operates on fully selected designs!\n");
 
 		log_header(design, "Executing SYNTH_GOWIN pass.\n");
 		log_push();
@@ -127,7 +135,7 @@ struct SynthGowinPass : public ScriptPass
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
 		}
 
-		if (check_label("flatten") && check_label("flatten", "(unless -noflatten)"))
+		if (flatten && check_label("flatten", "(unless -noflatten)"))
 		{
 			run("proc");
 			run("flatten");

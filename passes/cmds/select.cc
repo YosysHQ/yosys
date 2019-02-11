@@ -987,7 +987,7 @@ struct SelectPass : public Pass {
 		log("list of selected objects.\n");
 		log("\n");
 		log("Note that many commands support an optional [selection] argument that can be\n");
-		log("used to YS_OVERRIDE the global selection for the command. The syntax of this\n");
+		log("used to override the global selection for the command. The syntax of this\n");
 		log("optional argument is identical to the syntax of the <selection> argument\n");
 		log("described here.\n");
 		log("\n");

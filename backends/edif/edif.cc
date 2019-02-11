@@ -106,6 +106,10 @@ struct EdifBackend : public Backend {
 		log("        if the design contains constant nets. use \"hilomap\" to map to custom\n");
 		log("        constant drivers first)\n");
 		log("\n");
+		log("    -gndvccy\n");
+		log("        create \"GND\" and \"VCC\" cells with \"Y\" outputs. (the default is \"G\"\n");
+		log("        for \"GND\" and \"P\" for \"VCC\".)\n");
+		log("\n");
 		log("    -attrprop\n");
 		log("        create EDIF properties for cell attributes\n");
 		log("\n");
@@ -126,7 +130,7 @@ struct EdifBackend : public Backend {
 		bool port_rename = false;
 		bool attr_properties = false;
 		std::map<RTLIL::IdString, std::map<RTLIL::IdString, int>> lib_cell_ports;
-		bool nogndvcc = false;
+		bool nogndvcc = false, gndvccy = true;
 		CellTypes ct(design);
 		EdifNames edif_names;
 
@@ -139,6 +143,10 @@ struct EdifBackend : public Backend {
 			}
 			if (args[argidx] == "-nogndvcc") {
 				nogndvcc = true;
+				continue;
+			}
+			if (args[argidx] == "-gndvccy") {
+				gndvccy = true;
 				continue;
 			}
 			if (args[argidx] == "-attrprop") {
@@ -211,7 +219,7 @@ struct EdifBackend : public Backend {
 			*f << stringf("      (cellType GENERIC)\n");
 			*f << stringf("      (view VIEW_NETLIST\n");
 			*f << stringf("        (viewType NETLIST)\n");
-			*f << stringf("        (interface (port G (direction OUTPUT)))\n");
+			*f << stringf("        (interface (port %c (direction OUTPUT)))\n", gndvccy ? 'Y' : 'G');
 			*f << stringf("      )\n");
 			*f << stringf("    )\n");
 
@@ -219,7 +227,7 @@ struct EdifBackend : public Backend {
 			*f << stringf("      (cellType GENERIC)\n");
 			*f << stringf("      (view VIEW_NETLIST\n");
 			*f << stringf("        (viewType NETLIST)\n");
-			*f << stringf("        (interface (port P (direction OUTPUT)))\n");
+			*f << stringf("        (interface (port %c (direction OUTPUT)))\n", gndvccy ? 'Y' : 'P');
 			*f << stringf("      )\n");
 			*f << stringf("    )\n");
 		}
@@ -420,9 +428,9 @@ struct EdifBackend : public Backend {
 					if (nogndvcc)
 						log_error("Design contains constant nodes (map with \"hilomap\" first).\n");
 					if (sig == RTLIL::State::S0)
-						*f << stringf("            (portRef G (instanceRef GND))\n");
+						*f << stringf("            (portRef %c (instanceRef GND))\n", gndvccy ? 'Y' : 'G');
 					if (sig == RTLIL::State::S1)
-						*f << stringf("            (portRef P (instanceRef VCC))\n");
+						*f << stringf("            (portRef %c (instanceRef VCC))\n", gndvccy ? 'Y' : 'P');
 				}
 				*f << stringf("          ))\n");
 			}

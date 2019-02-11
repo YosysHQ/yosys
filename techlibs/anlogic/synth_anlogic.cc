@@ -119,7 +119,7 @@ struct SynthAnlogicPass : public ScriptPass
 		extra_args(args, argidx, design);
 
 		if (!design->full_selection())
-			log_cmd_error("This comannd only operates on fully selected designs!\n");
+			log_cmd_error("This command only operates on fully selected designs!\n");
 
 		log_header(design, "Executing SYNTH_ANLOGIC pass.\n");
 		log_push();
@@ -154,6 +154,7 @@ struct SynthAnlogicPass : public ScriptPass
 		{
 			run("memory_bram -rules +/anlogic/drams.txt");
 			run("techmap -map +/anlogic/drams_map.v");
+			run("anlogic_determine_init");
 		}
 
 		if (check_label("fine"))
@@ -170,13 +171,14 @@ struct SynthAnlogicPass : public ScriptPass
 		{
 			run("dffsr2dff");
 			run("techmap -D NO_LUT -map +/anlogic/cells_map.v");
+			run("dffinit -strinit SET RESET -ff AL_MAP_SEQ q REGSET -noreinit");
 			run("opt_expr -mux_undef");
 			run("simplemap");
 		}
 
 		if (check_label("map_luts"))
 		{
-			run("abc -lut 6");
+			run("abc -lut 4:6");
 			run("clean");
 		}
 

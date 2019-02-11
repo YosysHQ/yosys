@@ -616,7 +616,7 @@ struct LibertyFrontend : public Frontend {
 					LibertyAst *bus_type_node = node->find("bus_type");
 
 					if (!bus_type_node || !type_map.count(bus_type_node->value))
-						log_error("Unkown or unsupported type for bus interface %s on cell %s.\n",
+						log_error("Unknown or unsupported type for bus interface %s on cell %s.\n",
 								node->args.at(0).c_str(), log_id(cell_name));
 
 					int bus_type_width = std::get<0>(type_map.at(bus_type_node->value));

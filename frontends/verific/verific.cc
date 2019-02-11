@@ -1200,27 +1200,34 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 		if (inst->Type() == OPER_WRITE_PORT || inst->Type() == OPER_CLOCKED_WRITE_PORT)
 		{
 			RTLIL::Memory *memory = module->memories.at(RTLIL::escape_id(inst->GetOutput()->Name()));
-			if (memory->width != int(inst->Input2Size()))
-				log_error("Import of asymmetric memories of this type is not supported yet: %s %s\n", inst->Name(), inst->GetInput()->Name());
+			int numchunks = int(inst->Input2Size()) / memory->width;
+			int chunksbits = ceil_log2(numchunks);
 
-			RTLIL::SigSpec addr = operatorInput1(inst);
-			RTLIL::SigSpec data = operatorInput2(inst);
+			if ((numchunks * memory->width) != int(inst->Input2Size()) || (numchunks & (numchunks - 1)) != 0)
+				log_error("Import of asymmetric memories of this type is not supported yet: %s %s\n", inst->Name(), inst->GetOutput()->Name());
 
-			RTLIL::Cell *cell = module->addCell(inst_name, "$memwr");
-			cell->parameters["\\MEMID"] = memory->name.str();
-			cell->parameters["\\CLK_ENABLE"] = false;
-			cell->parameters["\\CLK_POLARITY"] = true;
-			cell->parameters["\\PRIORITY"] = 0;
-			cell->parameters["\\ABITS"] = GetSize(addr);
-			cell->parameters["\\WIDTH"] = GetSize(data);
-			cell->setPort("\\EN", RTLIL::SigSpec(net_map_at(inst->GetControl())).repeat(GetSize(data)));
-			cell->setPort("\\CLK", RTLIL::State::S0);
-			cell->setPort("\\ADDR", addr);
-			cell->setPort("\\DATA", data);
+			for (int i = 0; i < numchunks; i++)
+			{
+				RTLIL::SigSpec addr = {operatorInput1(inst), RTLIL::Const(i, chunksbits)};
+				RTLIL::SigSpec data = operatorInput2(inst).extract(i * memory->width, memory->width);
 
-			if (inst->Type() == OPER_CLOCKED_WRITE_PORT) {
-				cell->parameters["\\CLK_ENABLE"] = true;
-				cell->setPort("\\CLK", net_map_at(inst->GetClock()));
+				RTLIL::Cell *cell = module->addCell(numchunks == 1 ? inst_name :
+						RTLIL::IdString(stringf("%s_%d", inst_name.c_str(), i)), "$memwr");
+				cell->parameters["\\MEMID"] = memory->name.str();
+				cell->parameters["\\CLK_ENABLE"] = false;
+				cell->parameters["\\CLK_POLARITY"] = true;
+				cell->parameters["\\PRIORITY"] = 0;
+				cell->parameters["\\ABITS"] = GetSize(addr);
+				cell->parameters["\\WIDTH"] = GetSize(data);
+				cell->setPort("\\EN", RTLIL::SigSpec(net_map_at(inst->GetControl())).repeat(GetSize(data)));
+				cell->setPort("\\CLK", RTLIL::State::S0);
+				cell->setPort("\\ADDR", addr);
+				cell->setPort("\\DATA", data);
+
+				if (inst->Type() == OPER_CLOCKED_WRITE_PORT) {
+					cell->parameters["\\CLK_ENABLE"] = true;
+					cell->setPort("\\CLK", net_map_at(inst->GetClock()));
+				}
 			}
 			continue;
 		}
@@ -1893,13 +1900,19 @@ struct VerificPass : public Pass {
 		{
 			Message::SetConsoleOutput(0);
 			Message::RegisterCallBackMsg(msg_func);
+
 			RuntimeFlags::SetVar("db_preserve_user_nets", 1);
 			RuntimeFlags::SetVar("db_allow_external_nets", 1);
-			RuntimeFlags::SetVar("vhdl_support_variable_slice", 1);
-			RuntimeFlags::SetVar("vhdl_ignore_assertion_statements", 0);
+			RuntimeFlags::SetVar("db_infer_wide_operators", 1);
+
 			RuntimeFlags::SetVar("veri_extract_dualport_rams", 0);
 			RuntimeFlags::SetVar("veri_extract_multiport_rams", 1);
-			RuntimeFlags::SetVar("db_infer_wide_operators", 1);
+
+			RuntimeFlags::SetVar("vhdl_extract_dualport_rams", 0);
+			RuntimeFlags::SetVar("vhdl_extract_multiport_rams", 1);
+
+			RuntimeFlags::SetVar("vhdl_support_variable_slice", 1);
+			RuntimeFlags::SetVar("vhdl_ignore_assertion_statements", 0);
 
 			// Workaround for VIPER #13851
 			RuntimeFlags::SetVar("veri_create_name_for_unnamed_gen_block", 1);

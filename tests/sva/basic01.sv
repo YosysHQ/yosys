@@ -6,7 +6,7 @@ module top (input logic clock, ctrl);
 		write <= ctrl;
 		ready <= write;
 	end
-	
+
 	a_rw: assert property ( @(posedge clock) !(read && write) );
 `ifdef FAIL
 	a_wr: assert property ( @(posedge clock) write |-> ready );

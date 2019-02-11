@@ -73,3 +73,24 @@ module CFG4 (
 	parameter [15:0] INIT = 16'h0;
 	assign Y = INIT >> {D, C, B, A};
 endmodule
+
+module CLKBUF (
+	input PAD,
+	output Y
+);
+	assign Y = PAD;
+endmodule
+
+module INBUF (
+	input PAD,
+	output Y
+);
+	assign Y = PAD;
+endmodule
+
+module OUTBUF (
+	input D,
+	output PAD
+);
+	assign PAD = D;
+endmodule

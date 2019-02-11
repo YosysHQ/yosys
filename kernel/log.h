@@ -94,7 +94,9 @@ const char *log_signal(const RTLIL::SigSpec &sig, bool autoint = true);
 const char *log_const(const RTLIL::Const &value, bool autoint = true);
 const char *log_id(RTLIL::IdString id);
 
-template<typename T> static inline const char *log_id(T *obj) {
+template<typename T> static inline const char *log_id(T *obj, const char *nullstr = nullptr) {
+	if (nullstr && obj == nullptr)
+		return nullstr;
 	return log_id(obj->name);
 }
 
@@ -195,7 +197,7 @@ struct PerformanceTimer
 		t += 1000000000ULL * (int64_t) rusage.ru_stime.tv_sec + (int64_t) rusage.ru_stime.tv_usec * 1000ULL;
 		return t;
 #  else
-#    error Dont know how to measure per-process CPU time. Need alternative method (times()/clocks()/gettimeofday()?).
+#    error "Don't know how to measure per-process CPU time. Need alternative method (times()/clocks()/gettimeofday()?)."
 #  endif
 	}
 

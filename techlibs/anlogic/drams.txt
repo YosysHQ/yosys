@@ -1,7 +1,7 @@
 bram $__ANLOGIC_DRAM16X4
-  init 0
+  init 1
   abits 4
-  dbits 2
+  dbits 4
   groups 2
   ports  1 1
   wrmode 0 1

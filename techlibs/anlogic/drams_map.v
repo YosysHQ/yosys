@@ -1,4 +1,5 @@
 module \$__ANLOGIC_DRAM16X4 (CLK1, A1ADDR, A1DATA, B1ADDR, B1DATA, B1EN);
+	parameter [63:0]INIT = 64'bx;
 	input CLK1;
 
 	input [3:0] A1ADDR;
@@ -8,7 +9,9 @@ module \$__ANLOGIC_DRAM16X4 (CLK1, A1ADDR, A1DATA, B1ADDR, B1DATA, B1EN);
 	input [3:0] B1DATA;
 	input B1EN;
 
-	EG_LOGIC_DRAM16X4 _TECHMAP_REPLACE_ (
+	EG_LOGIC_DRAM16X4 #(
+		`include "dram_init_16x4.vh"
+	) _TECHMAP_REPLACE_ (
 		.di(B1DATA),
 		.waddr(B1ADDR),
 		.wclk(CLK1),

@@ -61,7 +61,7 @@ reg [1:0]   s1;
   end
 endfunction
 
-always @(dataa_w or datab_w or datac_w or datad_w or cin_w) begin
+always @(dataa_w or datab_w or datac_w or datad_w) begin
    combout_rt = lut_data(lut_function, dataa_w, datab_w,
                          datac_w, datad_w);
 end

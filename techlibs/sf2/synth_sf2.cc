@@ -44,6 +44,10 @@ struct SynthSf2Pass : public ScriptPass
 		log("        write the design to the specified EDIF file. writing of an output file\n");
 		log("        is omitted if this parameter is not specified.\n");
 		log("\n");
+		log("    -vlog <file>\n");
+		log("        write the design to the specified Verilog file. writing of an output file\n");
+		log("        is omitted if this parameter is not specified.\n");
+		log("\n");
 		log("    -json <file>\n");
 		log("        write the design to the specified JSON file. writing of an output file\n");
 		log("        is omitted if this parameter is not specified.\n");
@@ -56,6 +60,9 @@ struct SynthSf2Pass : public ScriptPass
 		log("    -noflatten\n");
 		log("        do not flatten design before synthesis\n");
 		log("\n");
+		log("    -noiobs\n");
+		log("        run synthesis in \"block mode\", i.e. do not insert IO buffers\n");
+		log("\n");
 		log("    -retime\n");
 		log("        run 'abc' with -dff option\n");
 		log("\n");
@@ -65,16 +72,18 @@ struct SynthSf2Pass : public ScriptPass
 		log("\n");
 	}
 
-	string top_opt, edif_file, json_file;
-	bool flatten, retime;
+	string top_opt, edif_file, vlog_file, json_file;
+	bool flatten, retime, iobs;
 
 	void clear_flags() YS_OVERRIDE
 	{
 		top_opt = "-auto-top";
 		edif_file = "";
+		vlog_file = "";
 		json_file = "";
 		flatten = true;
 		retime = false;
+		iobs = true;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -91,6 +100,10 @@ struct SynthSf2Pass : public ScriptPass
 			}
 			if (args[argidx] == "-edif" && argidx+1 < args.size()) {
 				edif_file = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-vlog" && argidx+1 < args.size()) {
+				vlog_file = args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-json" && argidx+1 < args.size()) {
@@ -113,12 +126,16 @@ struct SynthSf2Pass : public ScriptPass
 				retime = true;
 				continue;
 			}
+			if (args[argidx] == "-noiobs") {
+				iobs = false;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
 		if (!design->full_selection())
-			log_cmd_error("This comannd only operates on fully selected designs!\n");
+			log_cmd_error("This command only operates on fully selected designs!\n");
 
 		log_header(design, "Executing SYNTH_SF2 pass.\n");
 		log_push();
@@ -182,6 +199,13 @@ struct SynthSf2Pass : public ScriptPass
 			run("clean");
 		}
 
+		if (check_label("map_iobs"))
+		{
+			if (iobs || help_mode)
+				run("sf2_iobs", "(unless -noiobs)");
+			run("clean");
+		}
+
 		if (check_label("check"))
 		{
 			run("hierarchy -check");
@@ -192,7 +216,13 @@ struct SynthSf2Pass : public ScriptPass
 		if (check_label("edif"))
 		{
 			if (!edif_file.empty() || help_mode)
-				run(stringf("write_edif %s", help_mode ? "<file-name>" : edif_file.c_str()));
+				run(stringf("write_edif -gndvccy %s", help_mode ? "<file-name>" : edif_file.c_str()));
+		}
+
+		if (check_label("vlog"))
+		{
+			if (!vlog_file.empty() || help_mode)
+				run(stringf("write_verilog %s", help_mode ? "<file-name>" : vlog_file.c_str()));
 		}
 
 		if (check_label("json"))
