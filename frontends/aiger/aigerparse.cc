@@ -242,7 +242,6 @@ void AigerReader::parse_aiger_ascii()
         and_cell->setPort("\\B", i2_wire);
         and_cell->setPort("\\Y", o_wire);
     }
-    std::getline(f, line); // Ignore up to start of next line
 }
 
 static unsigned parse_next_delta_literal(std::istream &f, unsigned ref)
