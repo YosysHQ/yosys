@@ -35,7 +35,7 @@ void aiger_encode(std::ostream &f, int x)
 	f.put(x);
 }
 
-struct AigerWriter
+struct XAigerWriter
 {
 	Module *module;
 	bool zinit_mode;
@@ -100,7 +100,7 @@ struct AigerWriter
 		return aig_map.at(bit);
 	}
 
-	AigerWriter(Module *module, bool zinit_mode, bool imode, bool omode, bool bmode) : module(module), zinit_mode(zinit_mode), sigmap(module)
+	XAigerWriter(Module *module, bool zinit_mode, bool imode, bool omode, bool bmode) : module(module), zinit_mode(zinit_mode), sigmap(module)
 	{
 		pool<SigBit> undriven_bits;
 		pool<SigBit> unused_bits;
@@ -669,20 +669,16 @@ struct AigerWriter
 	}
 };
 
-struct AigerBackend : public Backend {
-	AigerBackend() : Backend("aiger", "write design to AIGER file") { }
+struct XAigerBackend : public Backend {
+	XAigerBackend() : Backend("xaiger", "write design to XAIGER file") { }
 	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    write_aiger [options] [filename]\n");
+		log("    write_xaiger [options] [filename]\n");
 		log("\n");
-		log("Write the current design to an AIGER file. The design must be flattened and\n");
-		log("must not contain any cell types except $_AND_, $_NOT_, simple FF types,\n");
-		log("$assert and $assume cells, and $initstate cells.\n");
-		log("\n");
-		log("$assert and $assume cells are converted to AIGER bad state properties and\n");
-		log("invariant constraints.\n");
+		log("Write the current design to an XAIGER file. The design must be flattened and\n");
+		log("all unsupported cells will be converted into psuedo-inputs and pseudo-outputs.\n");
 		log("\n");
 		log("    -ascii\n");
 		log("        write ASCII version of AGIER format\n");
@@ -690,9 +686,6 @@ struct AigerBackend : public Backend {
 		log("    -zinit\n");
 		log("        convert FFs to zero-initialized FFs, adding additional inputs for\n");
 		log("        uninitialized FFs.\n");
-		log("\n");
-		log("    -miter\n");
-		log("        design outputs are AIGER bad state properties\n");
 		log("\n");
 		log("    -symbols\n");
 		log("        include a symbol table in the generated AIGER file\n");
@@ -721,7 +714,7 @@ struct AigerBackend : public Backend {
 		bool bmode = false;
 		std::string map_filename;
 
-		log_header(design, "Executing AIGER backend.\n");
+		log_header(design, "Executing XAIGER backend.\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -732,10 +725,6 @@ struct AigerBackend : public Backend {
 			}
 			if (args[argidx] == "-zinit") {
 				zinit_mode = true;
-				continue;
-			}
-			if (args[argidx] == "-miter") {
-				miter_mode = true;
 				continue;
 			}
 			if (args[argidx] == "-symbols") {
@@ -772,7 +761,7 @@ struct AigerBackend : public Backend {
 		if (top_module == nullptr)
 			log_error("Can't find top module in current design!\n");
 
-		AigerWriter writer(top_module, zinit_mode, imode, omode, bmode);
+		XAigerWriter writer(top_module, zinit_mode, imode, omode, bmode);
 		writer.write_aiger(*f, ascii_mode, miter_mode, symbols_mode);
 
 		if (!map_filename.empty()) {
@@ -783,6 +772,6 @@ struct AigerBackend : public Backend {
 			writer.write_map(mapf, verbose_map);
 		}
 	}
-} AigerBackend;
+} XAigerBackend;
 
 PRIVATE_NAMESPACE_END
