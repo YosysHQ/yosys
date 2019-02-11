@@ -26,6 +26,8 @@
 #include "kernel/sigtools.h"
 #include "aigerparse.h"
 
+#include <boost/endian/buffers.hpp>
+
 YOSYS_NAMESPACE_BEGIN
 
 #define log_debug log
@@ -68,9 +70,9 @@ void AigerReader::parse_aiger()
     line_count = 1;
 
     if (header == "aag")
-        parse_aiger_ascii();
+        parse_aiger_ascii(true /* create_and */);
     else if (header == "aig")
-        parse_aiger_binary();
+        parse_aiger_binary(true /* create_and */);
     else
         log_abort();
 
@@ -102,11 +104,87 @@ void AigerReader::parse_aiger()
             if (f.peek() == '\n')
                 break;
             // Else constraint (TODO)
-            break;
         }
         else
             log_error("Line %u: cannot interpret first character '%c'!\n", line_count, c);
         std::getline(f, line); // Ignore up to start of next line
+    }
+
+    module->fixup_ports();
+    design->add(module);
+}
+
+void AigerReader::parse_xaiger()
+{
+    std::string header;
+    f >> header;
+    if (header != "aag" && header != "aig")
+        log_error("Unsupported AIGER file!\n");
+
+    // Parse rest of header
+    if (!(f >> M >> I >> L >> O >> A))
+        log_error("Invalid AIGER header\n");
+
+    // Optional values
+    B = C = J = F = 0;
+
+    std::string line;
+    std::getline(f, line); // Ignore up to start of next line, as standard
+                           // says anything that follows could be used for
+                           // optional sections
+
+    log_debug("M=%u I=%u L=%u O=%u A=%u\n", M, I, L, O, A);
+
+    line_count = 1;
+
+    if (header == "aag")
+        parse_aiger_ascii(false /* create_and */);
+    else if (header == "aig")
+        parse_aiger_binary(false /* create_and */);
+    else
+        log_abort();
+
+    // Parse footer (symbol table, comments, etc.)
+    unsigned l1;
+    std::string s;
+    for (int c = f.peek(); c != EOF; c = f.peek()) {
+        if (c == 'i' || c == 'l' || c == 'o') {
+            f.ignore(1);
+            if (!(f >> l1 >> s))
+                log_error("Line %u cannot be interpreted as a symbol entry!\n", line_count);
+
+            if ((c == 'i' && l1 > inputs.size()) || (c == 'l' && l1 > latches.size()) || (c == 'o' && l1 > outputs.size()))
+                log_error("Line %u has invalid symbol position!\n", line_count);
+
+            RTLIL::Wire* wire;
+            if (c == 'i') wire = inputs[l1];
+            else if (c == 'l') wire = latches[l1];
+            else if (c == 'o') wire = outputs[l1];
+            else log_abort();
+
+            module->rename(wire, stringf("\\%s", s.c_str()));
+        }
+        else if (c == 'c') {
+            f.ignore(1);
+            if (f.peek() == '\n')
+                break;
+            if (f.peek() == 'm') {
+                f.ignore(1);
+                boost::endian::big_uint32_buf_t dataSize, lutNum, lutSize;
+                if (f.readsome(reinterpret_cast<char*>(&dataSize), sizeof(dataSize)) != sizeof(dataSize))
+                    log_error("Line %u: unable to read dataSize!\n", line_count);
+                if (f.readsome(reinterpret_cast<char*>(&lutNum), sizeof(lutNum)) != sizeof(lutNum))
+                    log_error("Line %u: unable to read lutNum!\n", line_count);
+                if (f.readsome(reinterpret_cast<char*>(&lutSize), sizeof(lutSize)) != sizeof(lutSize))
+                    log_error("Line %u: unable to read lutSize!\n", line_count);
+                log_debug("m: dataSize=%u lutNum=%u lutSize=%u\n", dataSize.value(), lutNum.value(), lutSize.value());
+                break;
+            }
+        }
+        else
+            log_error("Line %u: cannot interpret first character '%c'!\n", line_count, c);
+        std::getline(f, line); // Ignore up to start of next line
+        ++line_count;
     }
 
     module->fixup_ports();
@@ -141,7 +219,7 @@ static RTLIL::Wire* createWireIfNotExists(RTLIL::Module *module, unsigned litera
     return wire;
 }
 
-void AigerReader::parse_aiger_ascii()
+void AigerReader::parse_aiger_ascii(bool create_and)
 {
     std::string line;
     std::stringstream ss;
@@ -232,15 +310,17 @@ void AigerReader::parse_aiger_ascii()
             log_error("Line %u cannot be interpreted as an AND!\n", line_count);
 
         log_debug("%d %d %d is an AND\n", l1, l2, l3);
-        log_assert(!(l1 & 1)); // TODO: Output of ANDs can't be inverted?
-        RTLIL::Wire *o_wire = createWireIfNotExists(module, l1);
-        RTLIL::Wire *i1_wire = createWireIfNotExists(module, l2);
-        RTLIL::Wire *i2_wire = createWireIfNotExists(module, l3);
+        if (create_and) {
+            log_assert(!(l1 & 1));
+            RTLIL::Wire *o_wire = createWireIfNotExists(module, l1);
+            RTLIL::Wire *i1_wire = createWireIfNotExists(module, l2);
+            RTLIL::Wire *i2_wire = createWireIfNotExists(module, l3);
 
-        RTLIL::Cell *and_cell = module->addCell(NEW_ID, "$_AND_");
-        and_cell->setPort("\\A", i1_wire);
-        and_cell->setPort("\\B", i2_wire);
-        and_cell->setPort("\\Y", o_wire);
+            RTLIL::Cell *and_cell = module->addCell(NEW_ID, "$_AND_");
+            and_cell->setPort("\\A", i1_wire);
+            and_cell->setPort("\\B", i2_wire);
+            and_cell->setPort("\\Y", o_wire);
+        }
     }
     std::getline(f, line); // Ignore up to start of next line
 }
@@ -254,7 +334,7 @@ static unsigned parse_next_delta_literal(std::istream &f, unsigned ref)
     return ref - (x | (ch << (7 * i)));
 }
 
-void AigerReader::parse_aiger_binary()
+void AigerReader::parse_aiger_binary(bool create_and)
 {
     unsigned l1, l2, l3;
     std::string line;
@@ -340,18 +420,18 @@ void AigerReader::parse_aiger_binary()
         l3 = parse_next_delta_literal(f, l2);
 
         log_debug("%d %d %d is an AND\n", l1, l2, l3);
-        log_assert(!(l1 & 1)); // TODO: Output of ANDs can't be inverted?
-        RTLIL::Wire *o_wire = createWireIfNotExists(module, l1);
-        RTLIL::Wire *i1_wire = createWireIfNotExists(module, l2);
-        RTLIL::Wire *i2_wire = createWireIfNotExists(module, l3);
+        if (create_and) {
+            log_assert(!(l1 & 1)); // TODO: Output of ANDs can't be inverted?
+            RTLIL::Wire *o_wire = createWireIfNotExists(module, l1);
+            RTLIL::Wire *i1_wire = createWireIfNotExists(module, l2);
+            RTLIL::Wire *i2_wire = createWireIfNotExists(module, l3);
 
-        RTLIL::Cell *and_cell = module->addCell(NEW_ID, "$_AND_");
-        and_cell->setPort("\\A", i1_wire);
-        and_cell->setPort("\\B", i2_wire);
-        and_cell->setPort("\\Y", o_wire);
+            RTLIL::Cell *and_cell = module->addCell(NEW_ID, "$_AND_");
+            and_cell->setPort("\\A", i1_wire);
+            and_cell->setPort("\\B", i2_wire);
+            and_cell->setPort("\\Y", o_wire);
+        }
     }
-    std::getline(f, line); // Ignore up to start of next line
-
 }
 
 struct AigerFrontend : public Frontend {
