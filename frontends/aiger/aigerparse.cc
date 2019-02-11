@@ -102,7 +102,6 @@ void AigerReader::parse_aiger()
             if (f.peek() == '\n')
                 break;
             // Else constraint (TODO)
-            break;
         }
         else
             log_error("Line %u: cannot interpret first character '%c'!\n", line_count, c);
