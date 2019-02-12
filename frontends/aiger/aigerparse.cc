@@ -102,7 +102,6 @@ void AigerReader::parse_aiger()
             if (f.peek() == '\n')
                 break;
             // Else constraint (TODO)
-            break;
         }
         else
             log_error("Line %u: cannot interpret first character '%c'!\n", line_count, c);
@@ -225,7 +224,7 @@ void AigerReader::parse_aiger_ascii()
         std::getline(f, line); // Ignore up to start of next line
 
     // Parse AND
-    for (unsigned i = 0; i < A; ++i, ++line_count) {
+    for (unsigned i = 0; i < A; ++i) {
         if (!(f >> l1 >> l2 >> l3))
             log_error("Line %u cannot be interpreted as an AND!\n", line_count);
 
@@ -236,7 +235,6 @@ void AigerReader::parse_aiger_ascii()
         RTLIL::Wire *i2_wire = createWireIfNotExists(module, l3);
         module->addAndGate(NEW_ID, i1_wire, i2_wire, o_wire);
     }
-    std::getline(f, line); // Ignore up to start of next line
 }
 
 static unsigned parse_next_delta_literal(std::istream &f, unsigned ref)
