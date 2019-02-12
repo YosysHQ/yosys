@@ -33,8 +33,8 @@ YOSYS_NAMESPACE_BEGIN
 
 #define log_debug log
 
-AigerReader::AigerReader(RTLIL::Design *design, std::istream &f, RTLIL::IdString module_name, RTLIL::IdString clk_name)
-    : design(design), f(f), clk_name(clk_name)
+AigerReader::AigerReader(RTLIL::Design *design, std::istream &f, RTLIL::IdString module_name, RTLIL::IdString clk_name, std::string map_filename)
+    : design(design), f(f), clk_name(clk_name), map_filename(map_filename)
 {
     module = new RTLIL::Module;
     module->name = module_name;
@@ -221,6 +221,75 @@ void AigerReader::parse_xaiger()
         }
         else
             log_error("Line %u: cannot interpret first character '%c'!\n", line_count, c);
+    }
+
+    bool wideports = true;
+    dict<RTLIL::IdString, int> wideports_cache;
+
+    if (!map_filename.empty()) {
+        std::ifstream mf(map_filename);
+        std::string type, symbol;
+        int variable, index;
+        while (mf >> type >> variable >> index >> symbol) {
+            RTLIL::IdString escaped_symbol = RTLIL::escape_id(symbol);
+            if (type == "input") {
+                log_assert(static_cast<unsigned>(variable) < inputs.size());
+                RTLIL::Wire* wire = inputs[variable];
+                log_assert(wire);
+                log_assert(wire->port_input);
+
+                if (index == 0)
+                    module->rename(wire, RTLIL::escape_id(symbol));
+                else if (index > 0) {
+                    module->rename(wire, RTLIL::escape_id(stringf("%s[%d]", symbol.c_str(), index)));
+                    if (wideports)
+                        wideports_cache[escaped_symbol] = std::max(wideports_cache[escaped_symbol], index);
+
+                }
+            }
+            else if (type == "output") {
+                log_assert(static_cast<unsigned>(variable) < outputs.size());
+                RTLIL::Wire* wire = outputs[variable];
+                log_assert(wire);
+                log_assert(wire->port_output);
+                if (index == 0)
+                    module->rename(wire, RTLIL::escape_id(symbol));
+                else if (index > 0) {
+                    module->rename(wire, RTLIL::escape_id(stringf("%s[%d]", symbol.c_str(), index)));
+                    if (wideports)
+                        wideports_cache[escaped_symbol] = std::max(wideports_cache[escaped_symbol], index);
+
+                }
+            }
+            else
+                log_error("Symbol type '%s' not recognised.\n", type.c_str());
+        }
+    }
+
+    for (auto &wp : wideports_cache)
+    {
+        auto name = wp.first;
+        int width = wp.second + 1;
+
+        RTLIL::Wire *wire = module->wire(name);
+        if (wire)
+            module->rename(wire, RTLIL::escape_id(stringf("%s[%d]", name.c_str(), 0)));
+        wire = module->addWire(name, width);
+
+        for (int i = 0; i < width; i++) {
+            RTLIL::IdString other_name = name.str() + stringf("[%d]", i);
+            RTLIL::Wire *other_wire = module->wire(other_name);
+            if (other_wire) {
+                wire->port_input = other_wire->port_input;
+                wire->port_output = other_wire->port_output;
+                other_wire->port_input = false;
+                other_wire->port_output = false;
+                if (wire->port_input)
+                    module->connect(other_wire, SigSpec(wire, i));
+                else
+                    module->connect(SigSpec(wire, i), other_wire);
+            }
+        }
     }
 
     module->fixup_ports();
@@ -494,6 +563,9 @@ struct AigerFrontend : public Frontend {
         log("        AIGER latches to be transformed into posedge DFFs clocked by wire of");
         log("        this name (default: clk)\n");
         log("\n");
+		log("    -map <filename>\n");
+		log("        read file with port and latch symbols\n");
+        log("\n");
     }
     void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
     {
@@ -501,6 +573,7 @@ struct AigerFrontend : public Frontend {
 
         RTLIL::IdString clk_name = "\\clk";
         RTLIL::IdString module_name;
+        std::string map_filename;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -511,6 +584,10 @@ struct AigerFrontend : public Frontend {
 			}
 			if (arg == "-clk_name" && argidx+1 < args.size()) {
 				clk_name = RTLIL::escape_id(args[++argidx]);
+				continue;
+			}
+			if (map_filename.empty() && arg == "-map" && argidx+1 < args.size()) {
+				map_filename = args[++argidx];
 				continue;
 			}
 			break;
@@ -525,7 +602,7 @@ struct AigerFrontend : public Frontend {
 #endif
         }
 
-        AigerReader reader(design, *f, module_name, clk_name);
+        AigerReader reader(design, *f, module_name, clk_name, map_filename);
 		reader.parse_aiger();
     }
 } AigerFrontend;
