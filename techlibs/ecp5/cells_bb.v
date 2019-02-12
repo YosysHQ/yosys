@@ -182,10 +182,112 @@ module IDDRX1F(
 endmodule
 
 (* blackbox *)
+module IDDRX2F(
+	input D, SCLK, ECLK, RST,
+	output Q0, Q1, Q2, Q3
+);
+	parameter GSR = "ENABLED";
+endmodule
+
+(* blackbox *)
+module IDDR71B(
+	input D, SCLK, ECLK, RST, ALIGNWD,
+	output Q0, Q1, Q2, Q3, Q4, Q5, Q6
+);
+	parameter GSR = "ENABLED";
+endmodule
+
+(* blackbox *)
+module IDDRX2DQA(
+	input D, DQSR90, ECLK, SCLK, RST,
+	input RDPNTR2, RDPNTR1, RDPNTR0, WRPNTR2, WRPNTR1, WRPNTR0,
+	output Q0, Q1, Q2, Q3, QWL
+);
+	parameter GSR = "ENABLED";
+endmodule
+
+(* blackbox *)
 module ODDRX1F(
 	input SCLK, RST, D0, D1,
 	output Q
 );
+	parameter GSR = "ENABLED";
+endmodule
+
+(* blackbox *)
+module ODDRX2F(
+	input SCLK, ECLK, RST, D0, D1, D2, D3,
+	output Q
+);
+	parameter GSR = "ENABLED";
+endmodule
+
+(* blackbox *)
+module ODDR71B(
+	input SCLK, ECLK, RST, D0, D1, D2, D3, D4, D5, D6,
+	output Q
+);
+	parameter GSR = "ENABLED";
+endmodule
+
+(* blackbox *)
+module OSHX2A(
+	input D0, D1, RST, ECLK, SCLK,
+	output Q
+);
+	parameter GSR = "ENABLED";
+endmodule
+
+(* blackbox *)
+module ODDRX2DQA(
+	input D0, D1, D2, D3, RST, ECLK, SCLK, DQSW270,
+	output Q
+);
+	parameter GSR = "ENABLED";
+endmodule
+
+(* blackbox *)
+module ODDRX2DQSB(
+	input D0, D1, D2, D3, RST, ECLK, SCLK, DQSW,
+	output Q
+);
+	parameter GSR = "ENABLED";
+endmodule
+
+(* blackbox *)
+module TSHX2DQA(
+	input T0, T1, SCLK, ECLK, DQSW270, RST,
+	output Q
+);
+	parameter GSR = "ENABLED";
+	parameter REGSET = "SET";
+endmodule
+
+(* blackbox *)
+module TSHX2DQSA(
+	input T0, T1, SCLK, ECLK, DQSW, RST,
+	output Q
+);
+	parameter GSR = "ENABLED";
+	parameter REGSET = "SET";
+endmodule
+
+
+(* blackbox *)
+module DQSBUFM(
+	input DQSI, READ1, READ0, READCLKSEL2, READCLKSEL1, READCLKSEL0, DDRDEL,
+	input ECLK, SCLK,
+	input DYNDELAY7, DYNDELAY6, DYNDELAY5, DYNDELAY4,
+	input DYNDELAY3, DYNDELAY2, DYNDELAY1, DYNDELAY0, 
+	input RST, RDLOADN, RDMOVE, RDDIRECTION, WRLOADN, WRMOVE, WRDIRECTION, PAUSE,
+	output DQSR90, DQSW, DQSW270,
+	output RDPNTR2, RDPNTR1, RDPNTR0, WRPNTR2, WRPNTR1, WRPNTR0,
+	output DATAVALID, BURSTDET, RDCFLAG, WRCFLAG
+);
+	parameter DQS_LI_DEL_ADJ = "FACTORYONLY";
+	parameter DQS_LI_DEL_VAL = 0;
+	parameter DQS_LO_DEL_ADJ = "FACTORYONLY";
+	parameter DQS_LO_DEL_VAL = 0;
 	parameter GSR = "ENABLED";
 endmodule
 
