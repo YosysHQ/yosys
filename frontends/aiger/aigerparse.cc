@@ -134,9 +134,7 @@ static RTLIL::Wire* createWireIfNotExists(RTLIL::Module *module, unsigned litera
     }
 
     log_debug("Creating %s = ~%s\n", wire_name.c_str(), wire_inv_name.c_str());
-    RTLIL::Cell *inv = module->addCell(stringf("\\n%d_not", variable), "$_NOT_"); // FIXME: is "_not" the right suffix?
-    inv->setPort("\\A", wire_inv);
-    inv->setPort("\\Y", wire);
+    module->addNotGate(stringf("\\n%d_not", variable), wire_inv, wire); // FIXME: is "_not" the right suffix?
 
     return wire;
 }
@@ -236,11 +234,7 @@ void AigerReader::parse_aiger_ascii()
         RTLIL::Wire *o_wire = createWireIfNotExists(module, l1);
         RTLIL::Wire *i1_wire = createWireIfNotExists(module, l2);
         RTLIL::Wire *i2_wire = createWireIfNotExists(module, l3);
-
-        RTLIL::Cell *and_cell = module->addCell(NEW_ID, "$_AND_");
-        and_cell->setPort("\\A", i1_wire);
-        and_cell->setPort("\\B", i2_wire);
-        and_cell->setPort("\\Y", o_wire);
+        module->addAndGate(NEW_ID, i1_wire, i2_wire, o_wire);
     }
     std::getline(f, line); // Ignore up to start of next line
 }
