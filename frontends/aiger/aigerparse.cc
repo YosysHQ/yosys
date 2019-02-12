@@ -27,6 +27,7 @@
 #include "aigerparse.h"
 
 #include <boost/endian/buffers.hpp>
+#include <boost/lexical_cast.hpp>
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -114,6 +115,14 @@ void AigerReader::parse_aiger()
     design->add(module);
 }
 
+static uint32_t parse_xaiger_literal(std::istream &f)
+{
+    boost::endian::big_uint32_buf_t l;
+    if (f.readsome(reinterpret_cast<char*>(&l), sizeof(l)) != sizeof(l))
+        log_error("Offset %ld: unable to read literal!\n", boost::lexical_cast<int64_t>(f.tellg()));
+    return l.value();
+}
+
 void AigerReader::parse_xaiger()
 {
     std::string header;
@@ -147,8 +156,52 @@ void AigerReader::parse_xaiger()
     // Parse footer (symbol table, comments, etc.)
     unsigned l1;
     std::string s;
+    bool comment_seen = false;
     for (int c = f.peek(); c != EOF; c = f.peek()) {
-        if (c == 'i' || c == 'l' || c == 'o') {
+        if (comment_seen || c == 'c') {
+            if (!comment_seen) {
+                f.ignore(1);
+                c = f.peek();
+                if (c == '\n')
+                    break;
+                f.ignore(1);
+                comment_seen = true;
+            }
+            // XAIGER extensions
+            if (c == 'm') {
+                uint32_t dataSize = parse_xaiger_literal(f);
+                uint32_t lutNum = parse_xaiger_literal(f);
+                uint32_t lutSize = parse_xaiger_literal(f);
+                log_debug("m: dataSize=%u lutNum=%u lutSize=%u\n", dataSize, lutNum, lutSize);
+                for (unsigned i = 0; i < lutNum; ++i) {
+                    uint32_t rootNodeID = parse_xaiger_literal(f);
+                    uint32_t cutLeavesM = parse_xaiger_literal(f);
+                    log_debug("rootNodeID=%d cutLeavesM=%d\n", rootNodeID, cutLeavesM);
+                    RTLIL::Wire *output_sig = module->wire(stringf("\\n%d", rootNodeID));
+                    log_assert(output_sig);
+                    uint32_t nodeID;
+                    RTLIL::SigSpec input_sig;
+                    for (unsigned j = 0; j < cutLeavesM; ++j) {
+                        nodeID = parse_xaiger_literal(f);
+                        log_debug("\t%u\n", nodeID);
+                        RTLIL::Wire *wire = module->wire(stringf("\\n%d", nodeID));
+                        log_assert(wire);
+                        input_sig.append(wire);
+                    }
+					RTLIL::Cell *cell = module->addCell(NEW_ID, "$lut");
+					cell->parameters["\\WIDTH"] = RTLIL::Const(input_sig.size());
+					cell->parameters["\\LUT"] = RTLIL::Const(RTLIL::State::Sx, 1 << input_sig.size());
+					cell->setPort("\\A", input_sig);
+					cell->setPort("\\Y", output_sig);
+                }
+            }
+            else if (c == 'n') {
+                // TODO: What is this?
+                uint32_t n = parse_xaiger_literal(f);
+                f.seekg(n);
+            }
+        }
+        else if (c == 'i' || c == 'l' || c == 'o') {
             f.ignore(1);
             if (!(f >> l1 >> s))
                 log_error("Line %u cannot be interpreted as a symbol entry!\n", line_count);
@@ -163,28 +216,11 @@ void AigerReader::parse_xaiger()
             else log_abort();
 
             module->rename(wire, stringf("\\%s", s.c_str()));
-        }
-        else if (c == 'c') {
-            f.ignore(1);
-            if (f.peek() == '\n')
-                break;
-            if (f.peek() == 'm') {
-                f.ignore(1);
-                boost::endian::big_uint32_buf_t dataSize, lutNum, lutSize;
-                if (f.readsome(reinterpret_cast<char*>(&dataSize), sizeof(dataSize)) != sizeof(dataSize))
-                    log_error("Line %u: unable to read dataSize!\n", line_count);
-                if (f.readsome(reinterpret_cast<char*>(&lutNum), sizeof(lutNum)) != sizeof(lutNum))
-                    log_error("Line %u: unable to read lutNum!\n", line_count);
-                if (f.readsome(reinterpret_cast<char*>(&lutSize), sizeof(lutSize)) != sizeof(lutSize))
-                    log_error("Line %u: unable to read lutSize!\n", line_count);
-                log_debug("m: dataSize=%u lutNum=%u lutSize=%u\n", dataSize.value(), lutNum.value(), lutSize.value());
-                break;
-            }
+            std::getline(f, line); // Ignore up to start of next line
+            ++line_count;
         }
         else
             log_error("Line %u: cannot interpret first character '%c'!\n", line_count, c);
-        std::getline(f, line); // Ignore up to start of next line
-        ++line_count;
     }
 
     module->fixup_ports();
@@ -341,6 +377,7 @@ void AigerReader::parse_aiger_binary(bool create_and)
 
     // Parse inputs
     for (unsigned i = 1; i <= I; ++i) {
+        log_debug("%d is an input\n", i);
         RTLIL::Wire *wire = createWireIfNotExists(module, i << 1);
         wire->port_input = true;
         inputs.push_back(wire);
