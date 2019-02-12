@@ -33,8 +33,8 @@ YOSYS_NAMESPACE_BEGIN
 
 #define log_debug log
 
-AigerReader::AigerReader(RTLIL::Design *design, std::istream &f, RTLIL::IdString module_name, RTLIL::IdString clk_name, std::string map_filename)
-    : design(design), f(f), clk_name(clk_name), map_filename(map_filename)
+AigerReader::AigerReader(RTLIL::Design *design, std::istream &f, RTLIL::IdString module_name, RTLIL::IdString clk_name, std::string map_filename, bool wideports)
+    : design(design), f(f), clk_name(clk_name), map_filename(map_filename), wideports(wideports)
 {
     module = new RTLIL::Module;
     module->name = module_name;
@@ -223,7 +223,6 @@ void AigerReader::parse_xaiger()
             log_error("Line %u: cannot interpret first character '%c'!\n", line_count, c);
     }
 
-    bool wideports = true;
     dict<RTLIL::IdString, int> wideports_cache;
 
     if (!map_filename.empty()) {
@@ -284,7 +283,7 @@ void AigerReader::parse_xaiger()
                 wire->port_output = other_wire->port_output;
                 other_wire->port_input = false;
                 other_wire->port_output = false;
-                if (wire->port_input)
+                if (wire->port_output)
                     module->connect(other_wire, SigSpec(wire, i));
                 else
                     module->connect(SigSpec(wire, i), other_wire);
@@ -566,6 +565,10 @@ struct AigerFrontend : public Frontend {
 		log("    -map <filename>\n");
 		log("        read file with port and latch symbols\n");
         log("\n");
+		log("    -wideports\n");
+		log("        Merge ports that match the pattern 'name[int]' into a single\n");
+		log("        multi-bit port 'name'.\n");
+		log("\n");
     }
     void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
     {
@@ -574,6 +577,7 @@ struct AigerFrontend : public Frontend {
         RTLIL::IdString clk_name = "\\clk";
         RTLIL::IdString module_name;
         std::string map_filename;
+        bool wideports = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -590,6 +594,10 @@ struct AigerFrontend : public Frontend {
 				map_filename = args[++argidx];
 				continue;
 			}
+			if (arg == "-wideports") {
+				wideports = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(f, filename, args, argidx);
@@ -602,7 +610,7 @@ struct AigerFrontend : public Frontend {
 #endif
         }
 
-        AigerReader reader(design, *f, module_name, clk_name, map_filename);
+        AigerReader reader(design, *f, module_name, clk_name, map_filename, wideports);
 		reader.parse_aiger();
     }
 } AigerFrontend;

@@ -31,6 +31,7 @@ struct AigerReader
     RTLIL::IdString clk_name;
     RTLIL::Module *module;
     std::string map_filename;
+    bool wideports;
 
     unsigned M, I, L, O, A;
     unsigned B, C, J, F; // Optional in AIGER 1.9
@@ -40,7 +41,7 @@ struct AigerReader
     std::vector<RTLIL::Wire*> latches;
     std::vector<RTLIL::Wire*> outputs;
 
-    AigerReader(RTLIL::Design *design, std::istream &f, RTLIL::IdString module_name, RTLIL::IdString clk_name, std::string map_filename);
+    AigerReader(RTLIL::Design *design, std::istream &f, RTLIL::IdString module_name, RTLIL::IdString clk_name, std::string map_filename, bool wideports);
     void parse_aiger();
     void parse_xaiger();
     void parse_aiger_ascii(bool create_and);
