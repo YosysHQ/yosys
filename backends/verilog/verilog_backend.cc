@@ -1251,7 +1251,7 @@ void dump_cell(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 	f << stringf("%s" "%s", indent.c_str(), id(cell->type, false).c_str());
 
 	std::string init;
-	if (cell->name[0] == '$' && reg_ct.count(cell->type) && cell->hasPort("\\Q")) {
+	if (reg_ct.count(cell->type) && cell->hasPort("\\Q")) {
 		std::stringstream ss;
 		dump_reg_init(ss, cell->getPort("\\Q"), false /* write_equals */);
 		init = ss.str();
