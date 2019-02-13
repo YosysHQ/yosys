@@ -117,383 +117,11 @@ bool clk_polarity, en_polarity;
 RTLIL::SigSpec clk_sig, en_sig;
 dict<int, std::string> pi_map, po_map;
 
-int map_signal(RTLIL::SigBit bit, gate_type_t gate_type = G(NONE), int in1 = -1, int in2 = -1, int in3 = -1, int in4 = -1)
-{
-	assign_map.apply(bit);
-
-	if (signal_map.count(bit) == 0) {
-		gate_t gate;
-		gate.id = signal_list.size();
-		gate.type = G(NONE);
-		gate.in1 = -1;
-		gate.in2 = -1;
-		gate.in3 = -1;
-		gate.in4 = -1;
-		gate.is_port = false;
-		gate.bit = bit;
-		if (signal_init.count(bit))
-			gate.init = signal_init.at(bit);
-		else
-			gate.init = State::Sx;
-		signal_list.push_back(gate);
-		signal_map[bit] = gate.id;
-	}
-
-	gate_t &gate = signal_list[signal_map[bit]];
-
-	if (gate_type != G(NONE))
-		gate.type = gate_type;
-	if (in1 >= 0)
-		gate.in1 = in1;
-	if (in2 >= 0)
-		gate.in2 = in2;
-	if (in3 >= 0)
-		gate.in3 = in3;
-	if (in4 >= 0)
-		gate.in4 = in4;
-
-	return gate.id;
-}
-
-void mark_port(RTLIL::SigSpec sig)
-{
-	for (auto &bit : assign_map(sig))
-		if (bit.wire != NULL && signal_map.count(bit) > 0)
-			signal_list[signal_map[bit]].is_port = true;
-}
-
-void extract_cell(RTLIL::Cell *cell, bool keepff)
-{
-	if (cell->type == "$_DFF_N_" || cell->type == "$_DFF_P_")
-	{
-		if (clk_polarity != (cell->type == "$_DFF_P_"))
-			return;
-		if (clk_sig != assign_map(cell->getPort("\\C")))
-			return;
-		if (GetSize(en_sig) != 0)
-			return;
-		goto matching_dff;
-	}
-
-	if (cell->type == "$_DFFE_NN_" || cell->type == "$_DFFE_NP_" || cell->type == "$_DFFE_PN_" || cell->type == "$_DFFE_PP_")
-	{
-		if (clk_polarity != (cell->type == "$_DFFE_PN_" || cell->type == "$_DFFE_PP_"))
-			return;
-		if (en_polarity != (cell->type == "$_DFFE_NP_" || cell->type == "$_DFFE_PP_"))
-			return;
-		if (clk_sig != assign_map(cell->getPort("\\C")))
-			return;
-		if (en_sig != assign_map(cell->getPort("\\E")))
-			return;
-		goto matching_dff;
-	}
-
-	if (0) {
-	matching_dff:
-		RTLIL::SigSpec sig_d = cell->getPort("\\D");
-		RTLIL::SigSpec sig_q = cell->getPort("\\Q");
-
-		if (keepff)
-			for (auto &c : sig_q.chunks())
-				if (c.wire != NULL)
-					c.wire->attributes["\\keep"] = 1;
-
-		assign_map.apply(sig_d);
-		assign_map.apply(sig_q);
-
-		map_signal(sig_q, G(FF), map_signal(sig_d));
-
-		module->remove(cell);
-		return;
-	}
-
-	if (cell->type.in("$_BUF_", "$_NOT_"))
-	{
-		RTLIL::SigSpec sig_a = cell->getPort("\\A");
-		RTLIL::SigSpec sig_y = cell->getPort("\\Y");
-
-		assign_map.apply(sig_a);
-		assign_map.apply(sig_y);
-
-		map_signal(sig_y, cell->type == "$_BUF_" ? G(BUF) : G(NOT), map_signal(sig_a));
-
-		module->remove(cell);
-		return;
-	}
-
-	if (cell->type.in("$_AND_", "$_NAND_", "$_OR_", "$_NOR_", "$_XOR_", "$_XNOR_", "$_ANDNOT_", "$_ORNOT_"))
-	{
-		RTLIL::SigSpec sig_a = cell->getPort("\\A");
-		RTLIL::SigSpec sig_b = cell->getPort("\\B");
-		RTLIL::SigSpec sig_y = cell->getPort("\\Y");
-
-		assign_map.apply(sig_a);
-		assign_map.apply(sig_b);
-		assign_map.apply(sig_y);
-
-		int mapped_a = map_signal(sig_a);
-		int mapped_b = map_signal(sig_b);
-
-		if (cell->type == "$_AND_")
-			map_signal(sig_y, G(AND), mapped_a, mapped_b);
-		else if (cell->type == "$_NAND_")
-			map_signal(sig_y, G(NAND), mapped_a, mapped_b);
-		else if (cell->type == "$_OR_")
-			map_signal(sig_y, G(OR), mapped_a, mapped_b);
-		else if (cell->type == "$_NOR_")
-			map_signal(sig_y, G(NOR), mapped_a, mapped_b);
-		else if (cell->type == "$_XOR_")
-			map_signal(sig_y, G(XOR), mapped_a, mapped_b);
-		else if (cell->type == "$_XNOR_")
-			map_signal(sig_y, G(XNOR), mapped_a, mapped_b);
-		else if (cell->type == "$_ANDNOT_")
-			map_signal(sig_y, G(ANDNOT), mapped_a, mapped_b);
-		else if (cell->type == "$_ORNOT_")
-			map_signal(sig_y, G(ORNOT), mapped_a, mapped_b);
-		else
-			log_abort();
-
-		module->remove(cell);
-		return;
-	}
-
-	if (cell->type == "$_MUX_")
-	{
-		RTLIL::SigSpec sig_a = cell->getPort("\\A");
-		RTLIL::SigSpec sig_b = cell->getPort("\\B");
-		RTLIL::SigSpec sig_s = cell->getPort("\\S");
-		RTLIL::SigSpec sig_y = cell->getPort("\\Y");
-
-		assign_map.apply(sig_a);
-		assign_map.apply(sig_b);
-		assign_map.apply(sig_s);
-		assign_map.apply(sig_y);
-
-		int mapped_a = map_signal(sig_a);
-		int mapped_b = map_signal(sig_b);
-		int mapped_s = map_signal(sig_s);
-
-		map_signal(sig_y, G(MUX), mapped_a, mapped_b, mapped_s);
-
-		module->remove(cell);
-		return;
-	}
-
-	if (cell->type.in("$_AOI3_", "$_OAI3_"))
-	{
-		RTLIL::SigSpec sig_a = cell->getPort("\\A");
-		RTLIL::SigSpec sig_b = cell->getPort("\\B");
-		RTLIL::SigSpec sig_c = cell->getPort("\\C");
-		RTLIL::SigSpec sig_y = cell->getPort("\\Y");
-
-		assign_map.apply(sig_a);
-		assign_map.apply(sig_b);
-		assign_map.apply(sig_c);
-		assign_map.apply(sig_y);
-
-		int mapped_a = map_signal(sig_a);
-		int mapped_b = map_signal(sig_b);
-		int mapped_c = map_signal(sig_c);
-
-		map_signal(sig_y, cell->type == "$_AOI3_" ? G(AOI3) : G(OAI3), mapped_a, mapped_b, mapped_c);
-
-		module->remove(cell);
-		return;
-	}
-
-	if (cell->type.in("$_AOI4_", "$_OAI4_"))
-	{
-		RTLIL::SigSpec sig_a = cell->getPort("\\A");
-		RTLIL::SigSpec sig_b = cell->getPort("\\B");
-		RTLIL::SigSpec sig_c = cell->getPort("\\C");
-		RTLIL::SigSpec sig_d = cell->getPort("\\D");
-		RTLIL::SigSpec sig_y = cell->getPort("\\Y");
-
-		assign_map.apply(sig_a);
-		assign_map.apply(sig_b);
-		assign_map.apply(sig_c);
-		assign_map.apply(sig_d);
-		assign_map.apply(sig_y);
-
-		int mapped_a = map_signal(sig_a);
-		int mapped_b = map_signal(sig_b);
-		int mapped_c = map_signal(sig_c);
-		int mapped_d = map_signal(sig_d);
-
-		map_signal(sig_y, cell->type == "$_AOI4_" ? G(AOI4) : G(OAI4), mapped_a, mapped_b, mapped_c, mapped_d);
-
-		module->remove(cell);
-		return;
-	}
-}
-
 std::string remap_name(RTLIL::IdString abc_name)
 {
 	std::stringstream sstr;
 	sstr << "$abc$" << map_autoidx << "$" << abc_name.substr(1);
 	return sstr.str();
-}
-
-void dump_loop_graph(FILE *f, int &nr, std::map<int, std::set<int>> &edges, std::set<int> &workpool, std::vector<int> &in_counts)
-{
-	if (f == NULL)
-		return;
-
-	log("Dumping loop state graph to slide %d.\n", ++nr);
-
-	fprintf(f, "digraph \"slide%d\" {\n", nr);
-	fprintf(f, "  label=\"slide%d\";\n", nr);
-	fprintf(f, "  rankdir=\"TD\";\n");
-
-	std::set<int> nodes;
-	for (auto &e : edges) {
-		nodes.insert(e.first);
-		for (auto n : e.second)
-			nodes.insert(n);
-	}
-
-	for (auto n : nodes)
-		fprintf(f, "  n%d [label=\"%s\\nid=%d, count=%d\"%s];\n", n, log_signal(signal_list[n].bit),
-				n, in_counts[n], workpool.count(n) ? ", shape=box" : "");
-
-	for (auto &e : edges)
-	for (auto n : e.second)
-		fprintf(f, "  n%d -> n%d;\n", e.first, n);
-
-	fprintf(f, "}\n");
-}
-
-void handle_loops()
-{
-	// http://en.wikipedia.org/wiki/Topological_sorting
-	// (Kahn, Arthur B. (1962), "Topological sorting of large networks")
-
-	std::map<int, std::set<int>> edges;
-	std::vector<int> in_edges_count(signal_list.size());
-	std::set<int> workpool;
-
-	FILE *dot_f = NULL;
-	int dot_nr = 0;
-
-	// uncomment for troubleshooting the loop detection code
-	// dot_f = fopen("test.dot", "w");
-
-	for (auto &g : signal_list) {
-		if (g.type == G(NONE) || g.type == G(FF)) {
-			workpool.insert(g.id);
-		} else {
-			if (g.in1 >= 0) {
-				edges[g.in1].insert(g.id);
-				in_edges_count[g.id]++;
-			}
-			if (g.in2 >= 0 && g.in2 != g.in1) {
-				edges[g.in2].insert(g.id);
-				in_edges_count[g.id]++;
-			}
-			if (g.in3 >= 0 && g.in3 != g.in2 && g.in3 != g.in1) {
-				edges[g.in3].insert(g.id);
-				in_edges_count[g.id]++;
-			}
-			if (g.in4 >= 0 && g.in4 != g.in3 && g.in4 != g.in2 && g.in4 != g.in1) {
-				edges[g.in4].insert(g.id);
-				in_edges_count[g.id]++;
-			}
-		}
-	}
-
-	dump_loop_graph(dot_f, dot_nr, edges, workpool, in_edges_count);
-
-	while (workpool.size() > 0)
-	{
-		int id = *workpool.begin();
-		workpool.erase(id);
-
-		// log("Removing non-loop node %d from graph: %s\n", id, log_signal(signal_list[id].bit));
-
-		for (int id2 : edges[id]) {
-			log_assert(in_edges_count[id2] > 0);
-			if (--in_edges_count[id2] == 0)
-				workpool.insert(id2);
-		}
-		edges.erase(id);
-
-		dump_loop_graph(dot_f, dot_nr, edges, workpool, in_edges_count);
-
-		while (workpool.size() == 0)
-		{
-			if (edges.size() == 0)
-				break;
-
-			int id1 = edges.begin()->first;
-
-			for (auto &edge_it : edges) {
-				int id2 = edge_it.first;
-				RTLIL::Wire *w1 = signal_list[id1].bit.wire;
-				RTLIL::Wire *w2 = signal_list[id2].bit.wire;
-				if (w1 == NULL)
-					id1 = id2;
-				else if (w2 == NULL)
-					continue;
-				else if (w1->name[0] == '$' && w2->name[0] == '\\')
-					id1 = id2;
-				else if (w1->name[0] == '\\' && w2->name[0] == '$')
-					continue;
-				else if (edges[id1].size() < edges[id2].size())
-					id1 = id2;
-				else if (edges[id1].size() > edges[id2].size())
-					continue;
-				else if (w2->name.str() < w1->name.str())
-					id1 = id2;
-			}
-
-			if (edges[id1].size() == 0) {
-				edges.erase(id1);
-				continue;
-			}
-
-			log_assert(signal_list[id1].bit.wire != NULL);
-
-			std::stringstream sstr;
-			sstr << "$abcloop$" << (autoidx++);
-			RTLIL::Wire *wire = module->addWire(sstr.str());
-
-			bool first_line = true;
-			for (int id2 : edges[id1]) {
-				if (first_line)
-					log("Breaking loop using new signal %s: %s -> %s\n", log_signal(RTLIL::SigSpec(wire)),
-							log_signal(signal_list[id1].bit), log_signal(signal_list[id2].bit));
-				else
-					log("                               %*s  %s -> %s\n", int(strlen(log_signal(RTLIL::SigSpec(wire)))), "",
-							log_signal(signal_list[id1].bit), log_signal(signal_list[id2].bit));
-				first_line = false;
-			}
-
-			int id3 = map_signal(RTLIL::SigSpec(wire));
-			signal_list[id1].is_port = true;
-			signal_list[id3].is_port = true;
-			log_assert(id3 == int(in_edges_count.size()));
-			in_edges_count.push_back(0);
-			workpool.insert(id3);
-
-			for (int id2 : edges[id1]) {
-				if (signal_list[id2].in1 == id1)
-					signal_list[id2].in1 = id3;
-				if (signal_list[id2].in2 == id1)
-					signal_list[id2].in2 = id3;
-				if (signal_list[id2].in3 == id1)
-					signal_list[id2].in3 = id3;
-				if (signal_list[id2].in4 == id1)
-					signal_list[id2].in4 = id3;
-			}
-			edges[id1].swap(edges[id3]);
-
-			module->connect(RTLIL::SigSig(signal_list[id3].bit, signal_list[id1].bit));
-			dump_loop_graph(dot_f, dot_nr, edges, workpool, in_edges_count);
-		}
-	}
-
-	if (dot_f != NULL)
-		fclose(dot_f);
 }
 
 std::string add_echos_to_abc_cmd(std::string str)
@@ -675,7 +303,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 	log_header(design, "Extracting gate netlist of module `%s' to `%s/input.xaig'..\n",
 			module->name.c_str(), replace_tempdir(tempdir_name, tempdir_name, show_tempdir).c_str());
 
-	std::string abc_script = stringf("&read %s/input.xaig; ", tempdir_name.c_str());
+	std::string abc_script = stringf("&read %s/input.xaig; &ps; ", tempdir_name.c_str());
 
 	if (!liberty_file.empty()) {
 		abc_script += stringf("read_lib -w %s; ", liberty_file.c_str());
@@ -729,7 +357,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 	for (size_t pos = abc_script.find("{S}"); pos != std::string::npos; pos = abc_script.find("{S}", pos))
 		abc_script = abc_script.substr(0, pos) + lutin_shared + abc_script.substr(pos+3);
 
-	abc_script += stringf("; &write -v %s/output.xaig", tempdir_name.c_str());
+	abc_script += stringf("; &ps; &write -v %s/output.xaig", tempdir_name.c_str());
 	abc_script = add_echos_to_abc_cmd(abc_script);
 
 	for (size_t i = 0; i+1 < abc_script.size(); i++)
@@ -752,27 +380,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		}
 	}
 
-	for (auto c : cells)
-		extract_cell(c, keepff);
-
-	for (auto &wire_it : module->wires_) {
-		if (wire_it.second->port_id > 0 || wire_it.second->get_bool_attribute("\\keep"))
-			mark_port(RTLIL::SigSpec(wire_it.second));
-	}
-
-	for (auto &cell_it : module->cells_)
-	for (auto &port_it : cell_it.second->connections())
-		mark_port(port_it.second);
-
-	if (clk_sig.size() != 0)
-		mark_port(clk_sig);
-
-	if (en_sig.size() != 0)
-		mark_port(en_sig);
-
-	handle_loops();
-
-    Pass::call(design, stringf("aigmap; write_xaiger %s/input.xaig", tempdir_name.c_str()));
+    Pass::call(design, stringf("aigmap; write_xaiger -map %s/input.symbols %s/input.xaig; ", tempdir_name.c_str(), tempdir_name.c_str()));
 
 	log_push();
 
@@ -865,8 +473,9 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		bool builtin_lib = liberty_file.empty();
 		RTLIL::Design *mapped_design = new RTLIL::Design;
 		//parse_blif(mapped_design, ifs, builtin_lib ? "\\DFF" : "\\_dff_", false, sop_mode);
-		AigerReader reader(mapped_design, ifs, "\\netlist", "\\clk");
-		reader.parse_aiger();
+		buffer = stringf("%s/%s", tempdir_name.c_str(), "input.symbols");
+		AigerReader reader(mapped_design, ifs, "\\netlist", "\\clk", buffer, true /* wideports */);
+		reader.parse_xaiger();
 
 		ifs.close();
 
@@ -876,7 +485,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			log_error("ABC output file does not contain a module `netlist'.\n");
 		for (auto &it : mapped_mod->wires_) {
 			RTLIL::Wire *w = it.second;
-			RTLIL::Wire *wire = module->addWire(remap_name(w->name));
+			RTLIL::Wire *wire = module->addWire(remap_name(w->name), GetSize(w));
 			if (markgroups) wire->attributes["\\abcgroup"] = map_autoidx;
 			design->select(module, wire);
 		}
@@ -1079,10 +688,18 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		}
 
 		for (auto conn : mapped_mod->connections()) {
-			if (!conn.first.is_fully_const())
-				conn.first = RTLIL::SigSpec(module->wires_[remap_name(conn.first.as_wire()->name)]);
-			if (!conn.second.is_fully_const())
-				conn.second = RTLIL::SigSpec(module->wires_[remap_name(conn.second.as_wire()->name)]);
+			if (!conn.first.is_fully_const()) {
+				auto chunks = conn.first.chunks();
+				for (auto &c : chunks)
+					c.wire = module->wires_[remap_name(c.wire->name)];
+				conn.first = std::move(chunks);
+			}
+			if (!conn.second.is_fully_const() && conn.second.is_wire()) {
+				auto chunks = conn.second.chunks();
+				for (auto &c : chunks)
+					c.wire = module->wires_[remap_name(c.wire->name)];
+				conn.second = std::move(chunks);
+			}
 			module->connect(conn);
 		}
 
@@ -1098,23 +715,51 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		for (auto &it : cell_stats)
 			log("ABC RESULTS:   %15s cells: %8d\n", it.first.c_str(), it.second);
 		int in_wires = 0, out_wires = 0;
-		for (auto &si : signal_list)
-			if (si.is_port) {
-				char buffer[100];
-				snprintf(buffer, 100, "\\n%d", si.id);
+		//for (auto &si : signal_list)
+		//	if (si.is_port) {
+		//		char buffer[100];
+		//		snprintf(buffer, 100, "\\n%d", si.id);
+		//		RTLIL::SigSig conn;
+		//		if (si.type != G(NONE)) {
+		//			conn.first = si.bit;
+		//			conn.second = RTLIL::SigSpec(module->wires_[remap_name(buffer)]);
+		//			out_wires++;
+		//		} else {
+		//			conn.first = RTLIL::SigSpec(module->wires_[remap_name(buffer)]);
+		//			conn.second = si.bit;
+		//			in_wires++;
+		//		}
+		//		module->connect(conn);
+		//	}
+
+		// FIXME:
+		module->connections_.clear();
+
+		for (auto &it : mapped_mod->wires_) {
+			RTLIL::Wire *w = it.second;
+			if (!w->port_input && !w->port_output)
+				continue;
+			RTLIL::Wire *wire = module->wire(remap_name(w->name));
+			if (w->port_input) {
 				RTLIL::SigSig conn;
-				if (si.type != G(NONE)) {
-					conn.first = si.bit;
-					conn.second = RTLIL::SigSpec(module->wires_[remap_name(buffer)]);
-					out_wires++;
-				} else {
-					conn.first = RTLIL::SigSpec(module->wires_[remap_name(buffer)]);
-					conn.second = si.bit;
-					in_wires++;
-				}
+				conn.first = wire;
+				conn.second = module->wire(w->name);
+				if (conn.second.empty())
+					log_error("Input port %s not found in original module.\n", w->name.c_str());
+				in_wires++;
 				module->connect(conn);
 			}
-		log("ABC RESULTS:        internal signals: %8d\n", int(signal_list.size()) - in_wires - out_wires);
+			else if (w->port_output) {
+				RTLIL::SigSig conn;
+				conn.first = module->wire(w->name);
+				if (conn.first.empty())
+					log_error("Output port %s not found in original module.\n", w->name.c_str());
+				conn.second = wire;
+				out_wires++;
+				module->connect(conn);
+			}
+		}
+		//log("ABC RESULTS:        internal signals: %8d\n", int(signal_list.size()) - in_wires - out_wires);
 		log("ABC RESULTS:           input signals: %8d\n", in_wires);
 		log("ABC RESULTS:          output signals: %8d\n", out_wires);
 
