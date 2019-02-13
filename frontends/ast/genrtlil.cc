@@ -942,16 +942,15 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 	// simply return the corresponding RTLIL::SigSpec for an AST_CONSTANT node
 	case AST_CONSTANT:
+	case AST_REALVALUE:
 		{
 			if (width_hint < 0)
 				detectSignWidth(width_hint, sign_hint);
-
 			is_signed = sign_hint;
-			return RTLIL::SigSpec(bitsAsConst());
-		}
 
-	case AST_REALVALUE:
-		{
+			if (type == AST_CONSTANT)
+				return RTLIL::SigSpec(bitsAsConst());
+
 			RTLIL::SigSpec sig = realAsConst(width_hint);
 			log_file_warning(filename, linenum, "converting real value %e to binary %s.\n", realvalue, log_signal(sig));
 			return sig;
