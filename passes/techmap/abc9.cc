@@ -67,38 +67,6 @@ extern "C" int Abc_RealMain(int argc, char *argv[]);
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-enum class gate_type_t {
-	G_NONE,
-	G_FF,
-	G_BUF,
-	G_NOT,
-	G_AND,
-	G_NAND,
-	G_OR,
-	G_NOR,
-	G_XOR,
-	G_XNOR,
-	G_ANDNOT,
-	G_ORNOT,
-	G_MUX,
-	G_AOI3,
-	G_OAI3,
-	G_AOI4,
-	G_OAI4
-};
-
-#define G(_name) gate_type_t::G_ ## _name
-
-struct gate_t
-{
-	int id;
-	gate_type_t type;
-	int in1, in2, in3, in4;
-	bool is_port;
-	RTLIL::SigBit bit;
-	RTLIL::State init;
-};
-
 bool map_mux4;
 bool map_mux8;
 bool map_mux16;
@@ -107,7 +75,6 @@ bool markgroups;
 int map_autoidx;
 SigMap assign_map;
 RTLIL::Module *module;
-std::vector<gate_t> signal_list;
 std::map<RTLIL::SigBit, int> signal_map;
 std::map<RTLIL::SigBit, RTLIL::State> signal_init;
 pool<std::string> enabled_gates;
@@ -258,7 +225,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 	map_autoidx = autoidx++;
 
 	signal_map.clear();
-	signal_list.clear();
 	pi_map.clear();
 	po_map.clear();
 	recover_init = false;
@@ -959,7 +925,6 @@ struct Abc9Pass : public Pass {
 		log_push();
 
 		assign_map.clear();
-		signal_list.clear();
 		signal_map.clear();
 		signal_init.clear();
 		pi_map.clear();
@@ -1389,7 +1354,6 @@ struct Abc9Pass : public Pass {
 		}
 
 		assign_map.clear();
-		signal_list.clear();
 		signal_map.clear();
 		signal_init.clear();
 		pi_map.clear();
