@@ -272,7 +272,6 @@ module TSHX2DQSA(
 	parameter REGSET = "SET";
 endmodule
 
-
 (* blackbox *)
 module DQSBUFM(
 	input DQSI, READ1, READ0, READCLKSEL2, READCLKSEL1, READCLKSEL0, DDRDEL,
@@ -298,6 +297,13 @@ module CLKDIVF(
 );
 	parameter GSR = "DISABLED";
 	parameter DIV = "2.0";
+endmodule
+
+(* blackbox *)
+module ECLKSYNCB(
+	input ECLKI, STOP,
+	output ECLKO
+);
 endmodule
 
 (* blackbox *)
