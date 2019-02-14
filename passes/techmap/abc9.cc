@@ -653,6 +653,9 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			design->select(module, cell);
 		}
 
+		// FIXME: Better way to clean out module contents?
+		module->connections_.clear();
+
 		for (auto conn : mapped_mod->connections()) {
 			if (!conn.first.is_fully_const()) {
 				auto chunks = conn.first.chunks();
@@ -660,7 +663,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 					c.wire = module->wires_[remap_name(c.wire->name)];
 				conn.first = std::move(chunks);
 			}
-			if (!conn.second.is_fully_const() && conn.second.is_wire()) {
+			if (!conn.second.is_fully_const()) {
 				auto chunks = conn.second.chunks();
 				for (auto &c : chunks)
 					c.wire = module->wires_[remap_name(c.wire->name)];
@@ -697,9 +700,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		//		}
 		//		module->connect(conn);
 		//	}
-
-		// FIXME:
-		module->connections_.clear();
 
 		for (auto &it : mapped_mod->wires_) {
 			RTLIL::Wire *w = it.second;
