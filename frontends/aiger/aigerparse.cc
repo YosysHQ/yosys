@@ -317,10 +317,8 @@ void AigerReader::parse_xaiger()
                 wire->port_output = other_wire->port_output;
                 other_wire->port_input = false;
                 other_wire->port_output = false;
-                if (wire->port_input) {
-                    log_debug("assign %s = %s [%d];\n", other_wire->name.c_str(), wire->name.c_str(), i);
+                if (wire->port_input)
                     module->connect(other_wire, SigSpec(wire, i));
-                }
                 else
                     module->connect(SigSpec(wire, i), other_wire);
             }
@@ -329,6 +327,8 @@ void AigerReader::parse_xaiger()
 
     module->fixup_ports();
     design->add(module);
+    // FIXME: 'clean'-ing causes assertion fail in abc9.cc, and checks to fail...
+    //Pass::call(design, "clean");
 }
 
 void AigerReader::parse_aiger_ascii()
