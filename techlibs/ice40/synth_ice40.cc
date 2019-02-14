@@ -89,13 +89,16 @@ struct SynthIce40Pass : public ScriptPass
 		log("        generate an output netlist (and BLIF file) suitable for VPR\n");
 		log("        (this feature is experimental and incomplete)\n");
 		log("\n");
+		log("    -abc9\n");
+		log("        use abc9 instead of abc\n");
+		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
 		log("\n");
 	}
 
-	string top_opt, blif_file, edif_file, json_file;
+	string top_opt, blif_file, edif_file, json_file, abc;
 	bool nocarry, nodffe, nobram, flatten, retime, relut, noabc, abc2, vpr;
 	int min_ce_use;
 
@@ -115,6 +118,7 @@ struct SynthIce40Pass : public ScriptPass
 		noabc = false;
 		abc2 = false;
 		vpr = false;
+		abc = "abc";
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -193,6 +197,10 @@ struct SynthIce40Pass : public ScriptPass
 				vpr = true;
 				continue;
 			}
+			if (args[argidx] == "-abc9") {
+				abc = "abc9";
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -249,7 +257,7 @@ struct SynthIce40Pass : public ScriptPass
 			else
 				run("techmap -map +/techmap.v -map +/ice40/arith_map.v");
 			if (retime || help_mode)
-				run("abc -dff", "(only if -retime)");
+				run(abc + " -dff", "(only if -retime)");
 			run("ice40_opt");
 		}
 
@@ -273,7 +281,7 @@ struct SynthIce40Pass : public ScriptPass
 		if (check_label("map_luts"))
 		{
 			if (abc2 || help_mode) {
-				run("abc", "      (only if -abc2)");
+				run(abc, "      (only if -abc2)");
 				run("ice40_opt", "(only if -abc2)");
 			}
 			run("techmap -map +/ice40/latches_map.v");
@@ -282,7 +290,7 @@ struct SynthIce40Pass : public ScriptPass
 				run("techmap -map +/gate2lut.v -D LUT_WIDTH=4", "(only if -noabc)");
 			}
 			if (!noabc) {
-				run("abc -lut 4", "(skip if -noabc)");
+				run(abc + " -lut 4", "(skip if -noabc)");
 			}
 			run("clean");
 			if (relut || help_mode) {
