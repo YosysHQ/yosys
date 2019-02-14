@@ -227,11 +227,7 @@ void AigerReader::parse_xaiger()
                     RTLIL::Cell *output_cell = module->cell(stringf("\\n%d_and", rootNodeID));
                     log_assert(output_cell);
                     module->remove(output_cell);
-					RTLIL::Cell *cell = module->addCell(NEW_ID, "$lut");
-					cell->parameters["\\WIDTH"] = RTLIL::Const(input_sig.size());
-					cell->parameters["\\LUT"] = std::move(lut_mask);
-					cell->setPort("\\A", input_sig);
-					cell->setPort("\\Y", output_sig);
+					module->addLut(NEW_ID, input_sig, output_sig, std::move(lut_mask));
                 }
             }
             else if (c == 'n') {
