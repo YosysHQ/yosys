@@ -45,8 +45,6 @@ struct XAigerWriter
 	pool<SigBit> input_bits, output_bits;
 	dict<SigBit, SigBit> not_map, ff_map, alias_map;
 	dict<SigBit, pair<SigBit, SigBit>> and_map;
-	vector<pair<SigBit, SigBit>> asserts, assumes;
-	vector<pair<SigBit, SigBit>> liveness, fairness;
 	pool<SigBit> initstate_bits;
 
 	vector<pair<int, int>> aig_gates;
@@ -249,12 +247,6 @@ struct XAigerWriter
 			}
 		}
 
-		int fair_live_inputs_cnt = GetSize(liveness);
-		int fair_live_inputs_m = aig_m;
-
-		aig_m += fair_live_inputs_cnt;
-		aig_i += fair_live_inputs_cnt;
-
 		for (auto it : ff_map) {
 			aig_m++, aig_l++;
 			aig_map[it.first] = 2*aig_m;
@@ -270,16 +262,6 @@ struct XAigerWriter
 			initstate_ff = 2*aig_m+1;
 			aig_latchinit.push_back(0);
 		}
-
-		int fair_live_latches_cnt = GetSize(fairness) + 2*GetSize(liveness);
-		int fair_live_latches_m = aig_m;
-		int fair_live_latches_l = aig_l;
-
-		aig_m += fair_live_latches_cnt;
-		aig_l += fair_live_latches_cnt;
-
-		for (int i = 0; i < fair_live_latches_cnt; i++)
-			aig_latchinit.push_back(0);
 
 		if (zinit_mode)
 		{
@@ -322,63 +304,9 @@ struct XAigerWriter
 			aig_outputs.push_back(0);
 		}
 
-		for (auto it : asserts) {
-			aig_b++;
-			int bit_a = bit2aig(it.first);
-			int bit_en = bit2aig(it.second);
-			aig_outputs.push_back(mkgate(bit_a^1, bit_en));
-		}
-
-		if (bmode && asserts.empty()) {
+		if (bmode) {
 			aig_b++;
 			aig_outputs.push_back(0);
-		}
-
-		for (auto it : assumes) {
-			aig_c++;
-			int bit_a = bit2aig(it.first);
-			int bit_en = bit2aig(it.second);
-			aig_outputs.push_back(mkgate(bit_a^1, bit_en)^1);
-		}
-
-		for (auto it : liveness)
-		{
-			int input_m = ++fair_live_inputs_m;
-			int latch_m1 = ++fair_live_latches_m;
-			int latch_m2 = ++fair_live_latches_m;
-
-			log_assert(GetSize(aig_latchin) == fair_live_latches_l);
-			fair_live_latches_l += 2;
-
-			int bit_a = bit2aig(it.first);
-			int bit_en = bit2aig(it.second);
-			int bit_s = 2*input_m;
-			int bit_q1 = 2*latch_m1;
-			int bit_q2 = 2*latch_m2;
-
-			int bit_d1 = mkgate(mkgate(bit_s, bit_en)^1, bit_q1^1)^1;
-			int bit_d2 = mkgate(mkgate(bit_d1, bit_a)^1, bit_q2^1)^1;
-
-			aig_j++;
-			aig_latchin.push_back(bit_d1);
-			aig_latchin.push_back(bit_d2);
-			aig_outputs.push_back(mkgate(bit_q1, bit_q2^1));
-		}
-
-		for (auto it : fairness)
-		{
-			int latch_m = ++fair_live_latches_m;
-
-			log_assert(GetSize(aig_latchin) == fair_live_latches_l);
-			fair_live_latches_l += 1;
-
-			int bit_a = bit2aig(it.first);
-			int bit_en = bit2aig(it.second);
-			int bit_q = 2*latch_m;
-
-			aig_f++;
-			aig_latchin.push_back(mkgate(mkgate(bit_q^1, bit_en^1)^1, bit_a^1));
-			aig_outputs.push_back(bit_q^1);
 		}
 	}
 
