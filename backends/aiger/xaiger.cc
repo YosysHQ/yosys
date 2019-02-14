@@ -50,7 +50,6 @@ struct XAigerWriter
 	vector<pair<int, int>> aig_gates;
 	vector<int> aig_latchin, aig_latchinit, aig_outputs;
 	int aig_m = 0, aig_i = 0, aig_l = 0, aig_o = 0, aig_a = 0;
-	int aig_b = 0, aig_c = 0, aig_j = 0, aig_f = 0;
 
 	dict<SigBit, int> aig_map;
 	dict<SigBit, int> ordered_outputs;
@@ -305,32 +304,24 @@ struct XAigerWriter
 		}
 
 		if (bmode) {
-			aig_b++;
+			//aig_b++;
 			aig_outputs.push_back(0);
 		}
 	}
 
 	void write_aiger(std::ostream &f, bool ascii_mode, bool miter_mode, bool symbols_mode)
 	{
-		int aig_obc = aig_o + aig_b + aig_c;
-		int aig_obcj = aig_obc + aig_j;
-		int aig_obcjf = aig_obcj + aig_f;
+		int aig_obc = aig_o;
+		int aig_obcj = aig_obc;
+		int aig_obcjf = aig_obcj;
 
 		log_assert(aig_m == aig_i + aig_l + aig_a);
 		log_assert(aig_l == GetSize(aig_latchin));
 		log_assert(aig_l == GetSize(aig_latchinit));
 		log_assert(aig_obcjf == GetSize(aig_outputs));
 
-		if (miter_mode) {
-			if (aig_b || aig_c || aig_j || aig_f)
-				log_error("Running AIGER back-end in -miter mode, but design contains $assert, $assume, $live and/or $fair cells!\n");
-			f << stringf("%s %d %d %d 0 %d %d\n", ascii_mode ? "aag" : "aig", aig_m, aig_i, aig_l, aig_a, aig_o);
-		} else {
-			f << stringf("%s %d %d %d %d %d", ascii_mode ? "aag" : "aig", aig_m, aig_i, aig_l, aig_o, aig_a);
-			if (aig_b || aig_c || aig_j || aig_f)
-				f << stringf(" %d %d %d %d", aig_b, aig_c, aig_j, aig_f);
-			f << stringf("\n");
-		}
+		f << stringf("%s %d %d %d %d %d", ascii_mode ? "aag" : "aig", aig_m, aig_i, aig_l, aig_o, aig_a);
+		f << stringf("\n");
 
 		if (ascii_mode)
 		{
