@@ -205,64 +205,6 @@ struct XAigerWriter
 				continue;
 			}
 
-			if (cell->type == "$assert")
-			{
-				SigBit A = sigmap(cell->getPort("\\A").as_bit());
-				SigBit EN = sigmap(cell->getPort("\\EN").as_bit());
-				unused_bits.erase(A);
-				unused_bits.erase(EN);
-				asserts.push_back(make_pair(A, EN));
-				continue;
-			}
-
-			if (cell->type == "$assume")
-			{
-				SigBit A = sigmap(cell->getPort("\\A").as_bit());
-				SigBit EN = sigmap(cell->getPort("\\EN").as_bit());
-				unused_bits.erase(A);
-				unused_bits.erase(EN);
-				assumes.push_back(make_pair(A, EN));
-				continue;
-			}
-
-			if (cell->type == "$live")
-			{
-				SigBit A = sigmap(cell->getPort("\\A").as_bit());
-				SigBit EN = sigmap(cell->getPort("\\EN").as_bit());
-				unused_bits.erase(A);
-				unused_bits.erase(EN);
-				liveness.push_back(make_pair(A, EN));
-				continue;
-			}
-
-			if (cell->type == "$fair")
-			{
-				SigBit A = sigmap(cell->getPort("\\A").as_bit());
-				SigBit EN = sigmap(cell->getPort("\\EN").as_bit());
-				unused_bits.erase(A);
-				unused_bits.erase(EN);
-				fairness.push_back(make_pair(A, EN));
-				continue;
-			}
-
-			if (cell->type == "$anyconst")
-			{
-				for (auto bit : sigmap(cell->getPort("\\Y"))) {
-					undriven_bits.erase(bit);
-					ff_map[bit] = bit;
-				}
-				continue;
-			}
-
-			if (cell->type == "$anyseq")
-			{
-				for (auto bit : sigmap(cell->getPort("\\Y"))) {
-					undriven_bits.erase(bit);
-					input_bits.insert(bit);
-				}
-				continue;
-			}
-
 			log_error("Unsupported cell type: %s (%s)\n", log_id(cell->type), log_id(cell));
 		}
 
