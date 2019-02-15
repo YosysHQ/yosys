@@ -642,11 +642,12 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			cell->parameters = c->parameters;
 			for (auto &conn : c->connections()) {
 				RTLIL::SigSpec newsig;
-				for (auto &c : conn.second.chunks()) {
+				for (auto c : conn.second.chunks()) {
 					if (c.width == 0)
 						continue;
 					//log_assert(c.width == 1);
-					newsig.append(module->wires_[remap_name(c.wire->name)]);
+					c.wire = module->wires_[remap_name(c.wire->name)];
+					newsig.append(c);
 				}
 				cell->setPort(conn.first, newsig);
 			}
@@ -715,7 +716,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 				conn.second = RTLIL::SigSpec(wire, 0, GetSize(remap_wire));
 				in_wires++;
 				connections.emplace_back(std::move(conn));
-				printf("INPUT: assign %s = %s\n", remap_wire->name.c_str(), w->name.c_str());
+				printf("INPUT: assign %s = %s\n", remap_wire->name.c_str(), wire->name.c_str());
 			}
 			else if (w->port_output) {
 				RTLIL::SigSig conn;
@@ -724,18 +725,31 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 				conn.second = remap_wire;
 				for (int i = 0; i < GetSize(remap_wire); i++)
 					output_bits.insert({wire, i});
-				printf("OUTPUT: assign %s = %s\n", w->name.c_str(), remap_wire->name.c_str());
+				printf("OUTPUT: assign %s = %s\n", wire->name.c_str(), remap_wire->name.c_str());
 				connections.emplace_back(std::move(conn));
 			}
 			else log_abort();
 		}
-		auto f = [&output_bits](RTLIL::SigSpec &s) {
-			if (!s.is_bit()) return;
-			RTLIL::SigBit b = s.as_bit();
-			if (output_bits.count(b))
-				s = RTLIL::State::Sx;
-		};
-		module->rewrite_sigspecs(f);
+		// Go through all cell output connections,
+		// and for those output ports driving wires
+		// also driven by mapped_mod, disconnect them
+		for (auto cell : module->cells()) {
+			for (auto &it : cell->connections_) {
+				auto port_name = it.first;
+				if (!cell->output(port_name)) continue;
+				auto &signal = it.second;
+				if (!signal.is_bit()) continue;
+				if (output_bits.count(signal.as_bit()))
+					signal = RTLIL::State::Sx;
+			}
+		}
+		// Do the same for module connections
+		for (auto &it : module->connections_) {
+			auto &signal = it.first;
+			if (!signal.is_bit()) continue;
+			if (output_bits.count(signal.as_bit()))
+				signal = RTLIL::State::Sx;
+		}
 		for (const auto &c : connections)
 			module->connect(c);
 
