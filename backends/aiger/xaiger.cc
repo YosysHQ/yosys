@@ -137,7 +137,7 @@ struct XAigerWriter
 				if (bit.wire == nullptr) {
 					if (wire->port_output) {
 						aig_map[wirebit] = (bit == State::S1) ? 1 : 0;
-						output_bits.insert(wirebit);
+						//output_bits.insert(wirebit);
 					}
 					continue;
 				}
@@ -220,8 +220,7 @@ struct XAigerWriter
 				}
 				else if (cell->output(c.first)) {
 					SigBit O = sigmap(b);
-					if (!w->port_output)
-						ci_bits.insert(O);
+					ci_bits.insert(O);
 					undriven_bits.erase(O);
 				}
 				else log_abort();
@@ -525,7 +524,7 @@ struct XAigerWriter
 					input_lines[a] += stringf("input %d %d %s\n", (a >> 1)-1, i, log_id(wire));
 				}
 
-				if (wire->port_output || co_bits.count(RTLIL::SigBit{wire, i})) {
+				if (output_bits.count(RTLIL::SigBit{wire, i}) || co_bits.count(RTLIL::SigBit{wire, i})) {
 					int o = ordered_outputs.at(sig[i]);
 					output_lines[o] += stringf("output %d %d %s\n", o, i, log_id(wire));
 				}
