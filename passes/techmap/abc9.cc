@@ -645,7 +645,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 				for (auto &c : conn.second.chunks()) {
 					if (c.width == 0)
 						continue;
-					log_assert(c.width == 1);
+					//log_assert(c.width == 1);
 					newsig.append(module->wires_[remap_name(c.wire->name)]);
 				}
 				cell->setPort(conn.first, newsig);
@@ -653,9 +653,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			design->select(module, cell);
 		}
 
-		// FIXME: Better way to clean out module contents?
-		module->connections_.clear();
-
+		// Copy connections (and rename) from mapped_mod to module
 		for (auto conn : mapped_mod->connections()) {
 			if (!conn.first.is_fully_const()) {
 				auto chunks = conn.first.chunks();
@@ -701,30 +699,46 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		//		module->connect(conn);
 		//	}
 
+		pool<RTLIL::SigBit> output_bits;
+		std::vector<RTLIL::SigSig> connections;
+		// Stitch in mapped_mod's inputs/outputs into module
 		for (auto &it : mapped_mod->wires_) {
 			RTLIL::Wire *w = it.second;
 			if (!w->port_input && !w->port_output)
 				continue;
-			RTLIL::Wire *wire = module->wire(remap_name(w->name));
+			RTLIL::Wire *wire = module->wire(w->name);
+			RTLIL::Wire *remap_wire = module->wire(remap_name(w->name));
 			if (w->port_input) {
 				RTLIL::SigSig conn;
-				conn.first = wire;
-				conn.second = module->wire(w->name);
-				if (conn.second.empty())
-					log_error("Input port %s not found in original module.\n", w->name.c_str());
+				log_assert(GetSize(wire) >= GetSize(remap_wire));
+				conn.first = remap_wire;
+				conn.second = RTLIL::SigSpec(wire, 0, GetSize(remap_wire));
 				in_wires++;
-				module->connect(conn);
+				connections.emplace_back(std::move(conn));
+				printf("INPUT: assign %s = %s\n", remap_wire->name.c_str(), w->name.c_str());
 			}
 			else if (w->port_output) {
 				RTLIL::SigSig conn;
-				conn.first = module->wire(w->name);
-				if (conn.first.empty())
-					log_error("Output port %s not found in original module.\n", w->name.c_str());
-				conn.second = wire;
-				out_wires++;
-				module->connect(conn);
+				log_assert(GetSize(wire) >= GetSize(remap_wire));
+				conn.first = RTLIL::SigSpec(wire, 0, GetSize(remap_wire));
+				conn.second = remap_wire;
+				for (int i = 0; i < GetSize(remap_wire); i++)
+					output_bits.insert({wire, i});
+				printf("OUTPUT: assign %s = %s\n", w->name.c_str(), remap_wire->name.c_str());
+				connections.emplace_back(std::move(conn));
 			}
+			else log_abort();
 		}
+		auto f = [&output_bits](RTLIL::SigSpec &s) {
+			if (!s.is_bit()) return;
+			RTLIL::SigBit b = s.as_bit();
+			if (output_bits.count(b))
+				s = RTLIL::State::Sx;
+		};
+		module->rewrite_sigspecs(f);
+		for (const auto &c : connections)
+			module->connect(c);
+
 		//log("ABC RESULTS:        internal signals: %8d\n", int(signal_list.size()) - in_wires - out_wires);
 		log("ABC RESULTS:           input signals: %8d\n", in_wires);
 		log("ABC RESULTS:          output signals: %8d\n", out_wires);
@@ -735,6 +749,8 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 	//{
 	//	log("Don't call ABC as there is nothing to map.\n");
 	//}
+
+	Pass::call(design, "clean");
 
 	if (cleanup)
 	{
