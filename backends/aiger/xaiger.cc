@@ -46,6 +46,8 @@ struct XAigerWriter
 	dict<SigBit, SigBit> not_map, ff_map, alias_map;
 	dict<SigBit, pair<SigBit, SigBit>> and_map;
 	pool<SigBit> initstate_bits;
+	pool<SigBit> ci_bits, co_bits;
+	dict<IdString, unsigned> type_map;
 
 	vector<pair<int, int>> aig_gates;
 	vector<int> aig_latchin, aig_latchinit, aig_outputs;
@@ -149,7 +151,7 @@ struct XAigerWriter
 				if (wire->port_output) {
 					if (bit != wirebit)
 						alias_map[wirebit] = bit;
-					output_bits.insert(wirebit);
+					//output_bits.insert(wirebit);
 				}
 			}
 		}
@@ -166,6 +168,8 @@ struct XAigerWriter
 			{
 				SigBit A = sigmap(cell->getPort("\\A").as_bit());
 				SigBit Y = sigmap(cell->getPort("\\Y").as_bit());
+				if (Y.wire->port_output)
+					output_bits.insert(Y);
 				unused_bits.erase(A);
 				undriven_bits.erase(Y);
 				not_map[Y] = A;
@@ -187,6 +191,8 @@ struct XAigerWriter
 				SigBit A = sigmap(cell->getPort("\\A").as_bit());
 				SigBit B = sigmap(cell->getPort("\\B").as_bit());
 				SigBit Y = sigmap(cell->getPort("\\Y").as_bit());
+				if (Y.wire->port_output)
+					output_bits.insert(Y);
 				unused_bits.erase(A);
 				unused_bits.erase(B);
 				undriven_bits.erase(Y);
@@ -202,7 +208,27 @@ struct XAigerWriter
 				continue;
 			}
 
-			log_error("Unsupported cell type: %s (%s)\n", log_id(cell->type), log_id(cell));
+			for (const auto &c : cell->connections()) {
+				if (c.second.is_fully_const()) continue;
+				SigBit b = c.second.as_bit();
+				Wire *w = b.wire;
+				if (cell->input(c.first)) {
+					SigBit I = sigmap(b);
+					if (!w->port_input)
+						co_bits.insert(I);
+					unused_bits.erase(I);
+				}
+				else if (cell->output(c.first)) {
+					SigBit O = sigmap(b);
+					if (!w->port_output)
+						ci_bits.insert(O);
+					undriven_bits.erase(O);
+				}
+				else log_abort();
+				if (!type_map.count(cell->type))
+					type_map[cell->type] = type_map.size()+1;
+			}
+			//log_error("Unsupported cell type: %s (%s)\n", log_id(cell->type), log_id(cell));
 		}
 
 		for (auto bit : unused_bits)
@@ -226,6 +252,12 @@ struct XAigerWriter
 
 		aig_map[State::S0] = 0;
 		aig_map[State::S1] = 1;
+
+		for (auto bit : ci_bits) {
+			aig_m++, aig_i++;
+			aig_map[bit] = 2*aig_m;
+			co_bits.erase(bit);
+		}
 
 		for (auto bit : input_bits) {
 			aig_m++, aig_i++;
@@ -291,6 +323,12 @@ struct XAigerWriter
 
 		if (!initstate_bits.empty() || !init_inputs.empty())
 			aig_latchin.push_back(1);
+
+		for (auto bit : co_bits) {
+			aig_o++;
+			ordered_outputs[bit] = aig_o-1;
+			aig_outputs.push_back(bit2aig(bit));
+		}
 
 		for (auto bit : output_bits) {
 			aig_o++;
@@ -467,8 +505,8 @@ struct XAigerWriter
 
 		for (auto wire : module->wires())
 		{
-			if (!verbose_map && wire->name[0] == '$')
-				continue;
+			//if (!verbose_map && wire->name[0] == '$')
+			//	continue;
 
 			SigSpec sig = sigmap(wire);
 
@@ -482,12 +520,12 @@ struct XAigerWriter
 				if (verbose_map)
 					wire_lines[a] += stringf("wire %d %d %s\n", a, i, log_id(wire));
 
-				if (wire->port_input) {
+				if (wire->port_input || ci_bits.count(RTLIL::SigBit{wire, i})) {
 					log_assert((a & 1) == 0);
 					input_lines[a] += stringf("input %d %d %s\n", (a >> 1)-1, i, log_id(wire));
 				}
 
-				if (wire->port_output) {
+				if (wire->port_output || co_bits.count(RTLIL::SigBit{wire, i})) {
 					int o = ordered_outputs.at(sig[i]);
 					output_lines[o] += stringf("output %d %d %s\n", o, i, log_id(wire));
 				}
