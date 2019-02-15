@@ -96,23 +96,6 @@ const char *make_id(IdString id)
 	return namecache.at(id).c_str();
 }
 
-static std::vector<string> Tokenize( const string str, const std::regex regex )
-{
-	using namespace std;
-
-	std::vector<string> result;
-
-	sregex_token_iterator it( str.begin(), str.end(), regex, -1 );
-	sregex_token_iterator reg_end;
-
-	for ( ; it != reg_end; ++it ) {
-		if ( !it->str().empty() ) //token could be empty:check
-			result.emplace_back( it->str() );
-	}
-
-	return result;
-}
-
 struct FirrtlWorker
 {
 	Module *module;
@@ -373,7 +356,6 @@ struct FirrtlWorker
 				bool is_signed = cell->parameters.at("\\A_SIGNED").as_bool();
 				int y_width =  cell->parameters.at("\\Y_WIDTH").as_int();
 				string a_expr = make_expr(cell->getPort("\\A"));
-				int a_padded_width = cell->parameters.at("\\A_WIDTH").as_int();
 				string b_expr = make_expr(cell->getPort("\\B"));
 				int b_padded_width = cell->parameters.at("\\B_WIDTH").as_int();
 				wire_decls.push_back(stringf("    wire %s: UInt<%d>\n", y_id.c_str(), y_width));
@@ -618,8 +600,6 @@ struct FirrtlWorker
 			// This may be a parameterized module - paramod.
 			if (cell->type.substr(0, 8) == "$paramod")
 			{
-				auto paramod_module = log_id(module);
-				auto paramod_instance = log_id(cell);
 				process_instance(cell, wire_exprs);
 				continue;
 			}
