@@ -455,9 +455,9 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			RTLIL::Wire *remap_wire = module->addWire(remap_name(w->name), GetSize(w));
 			if (markgroups) remap_wire->attributes["\\abcgroup"] = map_autoidx;
 			design->select(module, remap_wire);
-			RTLIL::Wire *wire = module->wire(w->name);
 			if (w->port_output) {
-				for (int i = 0; i < GetSize(remap_wire); i++)
+				RTLIL::Wire *wire = module->wire(w->name);
+				for (int i = 0; i < GetSize(wire); i++)
 					output_bits.insert({wire, i});
 			}
 		}
