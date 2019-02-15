@@ -133,6 +133,7 @@ static RTLIL::Wire* createWireIfNotExists(RTLIL::Module *module, unsigned litera
     if (wire) return wire;
     log_debug("Creating %s\n", wire_name.c_str());
     wire = module->addWire(wire_name);
+    wire->port_input = wire->port_output = false;
     if (!invert) return wire;
     RTLIL::IdString wire_inv_name(stringf("\\n%d", variable));
     RTLIL::Wire *wire_inv = module->wire(wire_inv_name);
@@ -142,6 +143,7 @@ static RTLIL::Wire* createWireIfNotExists(RTLIL::Module *module, unsigned litera
     else {
         log_debug("Creating %s\n", wire_inv_name.c_str());
         wire_inv = module->addWire(wire_inv_name);
+        wire_inv->port_input = wire_inv->port_output = false;
     }
 
     log_debug("Creating %s = ~%s\n", wire_name.c_str(), wire_inv_name.c_str());
@@ -278,7 +280,6 @@ void AigerReader::parse_xaiger()
                     module->rename(wire, RTLIL::escape_id(stringf("%s[%d]", symbol.c_str(), index)));
                     if (wideports)
                         wideports_cache[escaped_symbol] = std::max(wideports_cache[escaped_symbol], index);
-
                 }
             }
             else if (type == "output") {
@@ -286,13 +287,13 @@ void AigerReader::parse_xaiger()
                 RTLIL::Wire* wire = outputs[variable];
                 log_assert(wire);
                 log_assert(wire->port_output);
+
                 if (index == 0)
                     module->rename(wire, RTLIL::escape_id(symbol));
                 else if (index > 0) {
                     module->rename(wire, RTLIL::escape_id(stringf("%s[%d]", symbol.c_str(), index)));
                     if (wideports)
                         wideports_cache[escaped_symbol] = std::max(wideports_cache[escaped_symbol], index);
-
                 }
             }
             else
@@ -308,11 +309,13 @@ void AigerReader::parse_xaiger()
         if (wire)
             module->rename(wire, RTLIL::escape_id(stringf("%s[%d]", name.c_str(), 0)));
         wire = module->addWire(name, width);
+        wire->port_input = wire->port_output = false;
 
         for (int i = 0; i < width; i++) {
             RTLIL::IdString other_name = name.str() + stringf("[%d]", i);
             RTLIL::Wire *other_wire = module->wire(other_name);
             if (other_wire) {
+                log_assert((other_wire->port_input && !other_wire->port_output) || (other_wire->port_output && !other_wire->port_input));
                 wire->port_input = other_wire->port_input;
                 wire->port_output = other_wire->port_output;
                 other_wire->port_input = false;
@@ -327,8 +330,8 @@ void AigerReader::parse_xaiger()
 
     module->fixup_ports();
     design->add(module);
-    // FIXME: 'clean'-ing causes assertion fail in abc9.cc, and checks to fail...
-    //Pass::call(design, "clean");
+
+    Pass::call(design, "clean");
 }
 
 void AigerReader::parse_aiger_ascii()
@@ -357,6 +360,7 @@ void AigerReader::parse_aiger_ascii()
         log_debug("Creating %s\n", clk_name.c_str());
         clk_wire = module->addWire(clk_name);
         clk_wire->port_input = true;
+        clk_wire->port_output = false;
     }
     for (unsigned i = 0; i < L; ++i, ++line_count) {
         if (!(f >> l1 >> l2))
@@ -449,6 +453,7 @@ void AigerReader::parse_aiger_binary()
         log_debug("%d is an input\n", i);
         RTLIL::Wire *wire = createWireIfNotExists(module, i << 1);
         wire->port_input = true;
+        log_assert(!wire->port_output);
         inputs.push_back(wire);
     }
 
@@ -460,6 +465,7 @@ void AigerReader::parse_aiger_binary()
         log_debug("Creating %s\n", clk_name.c_str());
         clk_wire = module->addWire(clk_name);
         clk_wire->port_input = true;
+        clk_wire->port_output = false;
     }
     l1 = (I+1) * 2;
     for (unsigned i = 0; i < L; ++i, ++line_count, l1 += 2) {
@@ -499,6 +505,7 @@ void AigerReader::parse_aiger_binary()
         log_debug("%d is an output\n", l1);
         RTLIL::Wire *wire = createWireIfNotExists(module, l1);
         wire->port_output = true;
+        log_assert(!wire->port_input);
         outputs.push_back(wire);
     }
     std::getline(f, line); // Ignore up to start of next line
