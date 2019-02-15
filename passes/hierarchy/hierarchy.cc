@@ -140,6 +140,23 @@ void generate(RTLIL::Design *design, const std::vector<std::string> &celltypes, 
 	}
 }
 
+// Return the "basic" type for an array item.
+std::string basic_cell_type(const std::string celltype, int pos[3] = nullptr) {
+	std::string basicType = celltype;
+	if (celltype.substr(0, 7) == "$array:") {
+		int pos_idx = celltype.find_first_of(':');
+		int pos_num = celltype.find_first_of(':', pos_idx + 1);
+		int pos_type = celltype.find_first_of(':', pos_num + 1);
+		basicType = celltype.substr(pos_type + 1);
+		if (pos != nullptr) {
+			pos[0] = pos_idx;
+			pos[1] = pos_num;
+			pos[2] = pos_type;
+		}
+	}
+	return basicType;
+}
+
 bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check, bool flag_simcheck, std::vector<std::string> &libdirs)
 {
 	bool did_something = false;
@@ -178,9 +195,11 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 		std::vector<RTLIL::SigSpec> connections_to_add_signal;
 
 		if (cell->type.substr(0, 7) == "$array:") {
-			int pos_idx = cell->type.str().find_first_of(':');
-			int pos_num = cell->type.str().find_first_of(':', pos_idx + 1);
-			int pos_type = cell->type.str().find_first_of(':', pos_num + 1);
+			int pos[3];
+			basic_cell_type(cell->type.str(), pos);
+			int pos_idx = pos[0];
+			int pos_num = pos[1];
+			int pos_type = pos[2];
 			int idx = atoi(cell->type.str().substr(pos_idx + 1, pos_num).c_str());
 			int num = atoi(cell->type.str().substr(pos_num + 1, pos_type).c_str());
 			array_cells[cell] = std::pair<int, int>(idx, num);
@@ -439,10 +458,7 @@ void hierarchy_worker(RTLIL::Design *design, std::set<RTLIL::Module*, IdString::
 	for (auto cell : mod->cells()) {
 		std::string celltype = cell->type.str();
 		if (celltype.substr(0, 7) == "$array:") {
-			int pos_idx = celltype.find_first_of(':');
-			int pos_num = celltype.find_first_of(':', pos_idx + 1);
-			int pos_type = celltype.find_first_of(':', pos_num + 1);
-			celltype = celltype.substr(pos_type + 1);
+			celltype = basic_cell_type(celltype);
 		}
 		if (design->module(celltype))
 			hierarchy_worker(design, used, design->module(celltype), indent+4);
@@ -502,9 +518,23 @@ int find_top_mod_score(Design *design, Module *module, dict<Module*, int> &db)
 	if (db.count(module) == 0) {
 		int score = 0;
 		db[module] = 0;
-		for (auto cell : module->cells())
-			if (design->module(cell->type))
-				score = max(score, find_top_mod_score(design, design->module(cell->type), db) + 1);
+		for (auto cell : module->cells()) {
+			std::string celltype = cell->type.str();
+			// Is this an array instance
+			if (celltype.substr(0, 7) == "$array:") {
+				celltype = basic_cell_type(celltype);
+				// Is this cell is a module instance?
+				if (celltype[0] != '$') {
+					auto instModule = design->module(celltype);
+					// If there is no instance for this, issue a warning.
+					if (instModule == NULL) {
+						log_warning("find_top_mod_score: no instance for %s.%s\n", celltype.c_str(), cell->name.c_str());
+					}
+					if (instModule != NULL)
+						score = max(score, find_top_mod_score(design, instModule, db) + 1);
+				}
+			}
+		}
 		db[module] = score;
 	}
 	return db.at(module);
