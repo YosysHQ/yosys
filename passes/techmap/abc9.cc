@@ -449,11 +449,17 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		RTLIL::Module *mapped_mod = mapped_design->modules_["\\netlist"];
 		if (mapped_mod == NULL)
 			log_error("ABC output file does not contain a module `netlist'.\n");
+		pool<RTLIL::SigBit> output_bits;
 		for (auto &it : mapped_mod->wires_) {
 			RTLIL::Wire *w = it.second;
-			RTLIL::Wire *wire = module->addWire(remap_name(w->name), GetSize(w));
-			if (markgroups) wire->attributes["\\abcgroup"] = map_autoidx;
-			design->select(module, wire);
+			RTLIL::Wire *remap_wire = module->addWire(remap_name(w->name), GetSize(w));
+			if (markgroups) remap_wire->attributes["\\abcgroup"] = map_autoidx;
+			design->select(module, remap_wire);
+			RTLIL::Wire *wire = module->wire(w->name);
+			if (w->port_output) {
+				for (int i = 0; i < GetSize(remap_wire); i++)
+					output_bits.insert({wire, i});
+			}
 		}
 
 		std::map<std::string, int> cell_stats;
@@ -700,36 +706,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		//		module->connect(conn);
 		//	}
 
-		pool<RTLIL::SigBit> output_bits;
-		std::vector<RTLIL::SigSig> connections;
-		// Stitch in mapped_mod's inputs/outputs into module
-		for (auto &it : mapped_mod->wires_) {
-			RTLIL::Wire *w = it.second;
-			if (!w->port_input && !w->port_output)
-				continue;
-			RTLIL::Wire *wire = module->wire(w->name);
-			RTLIL::Wire *remap_wire = module->wire(remap_name(w->name));
-			if (w->port_input) {
-				RTLIL::SigSig conn;
-				log_assert(GetSize(wire) >= GetSize(remap_wire));
-				conn.first = remap_wire;
-				conn.second = RTLIL::SigSpec(wire, 0, GetSize(remap_wire));
-				in_wires++;
-				connections.emplace_back(std::move(conn));
-				printf("INPUT: assign %s = %s\n", remap_wire->name.c_str(), wire->name.c_str());
-			}
-			else if (w->port_output) {
-				RTLIL::SigSig conn;
-				log_assert(GetSize(wire) >= GetSize(remap_wire));
-				conn.first = RTLIL::SigSpec(wire, 0, GetSize(remap_wire));
-				conn.second = remap_wire;
-				for (int i = 0; i < GetSize(remap_wire); i++)
-					output_bits.insert({wire, i});
-				printf("OUTPUT: assign %s = %s\n", wire->name.c_str(), remap_wire->name.c_str());
-				connections.emplace_back(std::move(conn));
-			}
-			else log_abort();
-		}
 		// Go through all cell output connections,
 		// and for those output ports driving wires
 		// also driven by mapped_mod, disconnect them
@@ -750,8 +726,35 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			if (output_bits.count(signal.as_bit()))
 				signal = RTLIL::State::Sx;
 		}
-		for (const auto &c : connections)
-			module->connect(c);
+
+		// Stitch in mapped_mod's inputs/outputs into module
+		for (auto &it : mapped_mod->wires_) {
+			RTLIL::Wire *w = it.second;
+			if (!w->port_input && !w->port_output)
+				continue;
+			RTLIL::Wire *wire = module->wire(w->name);
+			RTLIL::Wire *remap_wire = module->wire(remap_name(w->name));
+			if (w->port_input) {
+				RTLIL::SigSig conn;
+				log_assert(GetSize(wire) >= GetSize(remap_wire));
+				conn.first = remap_wire;
+				conn.second = RTLIL::SigSpec(wire, 0, GetSize(remap_wire));
+				in_wires++;
+				module->connect(conn);
+				printf("INPUT: assign %s = %s\n", remap_wire->name.c_str(), wire->name.c_str());
+			}
+			else if (w->port_output) {
+				RTLIL::SigSig conn;
+				log_assert(GetSize(wire) >= GetSize(remap_wire));
+				conn.first = RTLIL::SigSpec(wire, 0, GetSize(remap_wire));
+				conn.second = remap_wire;
+				for (int i = 0; i < GetSize(remap_wire); i++)
+					output_bits.insert({wire, i});
+				printf("OUTPUT: assign %s = %s\n", wire->name.c_str(), remap_wire->name.c_str());
+				module->connect(conn);
+			}
+			else log_abort();
+		}
 
 		//log("ABC RESULTS:        internal signals: %8d\n", int(signal_list.size()) - in_wires - out_wires);
 		log("ABC RESULTS:           input signals: %8d\n", in_wires);
