@@ -202,7 +202,8 @@ void AigerReader::parse_aiger()
 static uint32_t parse_xaiger_literal(std::istream &f)
 {
     boost::endian::big_uint32_buf_t l;
-    if (f.readsome(reinterpret_cast<char*>(&l), sizeof(l)) != sizeof(l))
+    f.read(reinterpret_cast<char*>(&l), sizeof(l));
+    if (f.gcount() != sizeof(l))
         log_error("Offset %ld: unable to read literal!\n", boost::lexical_cast<int64_t>(f.tellg()));
     return l.value();
 }
