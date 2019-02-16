@@ -216,6 +216,29 @@ struct abc_output_filter
 	}
 };
 
+static std::pair<RTLIL::IdString, int> wideports_split(std::string name)
+{
+	int pos = -1;
+
+	if (name.empty() || name.back() != ']')
+		goto failed;
+
+	for (int i = 0; i+1 < GetSize(name); i++) {
+		if (name[i] == '[')
+			pos = i;
+		else if (name[i] < '0' || name[i] > '9')
+			pos = -1;
+		else if (i == pos+1 && name[i] == '0' && name[i+1] != ']')
+			pos = -1;
+	}
+
+	if (pos >= 0)
+		return std::pair<RTLIL::IdString, int>(RTLIL::escape_id(name.substr(0, pos)), atoi(name.c_str() + pos+1));
+
+failed:
+	return std::pair<RTLIL::IdString, int>(name, 0);
+}
+
 void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::string script_file, std::string exe_file,
 		std::string liberty_file, std::string constr_file, bool cleanup, vector<int> lut_costs, bool dff_mode, std::string clk_str,
 		bool keepff, std::string delay_target, std::string sop_inputs, std::string sop_products, std::string lutin_shared, bool fast_mode,
@@ -323,7 +346,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 	for (size_t pos = abc_script.find("{S}"); pos != std::string::npos; pos = abc_script.find("{S}", pos))
 		abc_script = abc_script.substr(0, pos) + lutin_shared + abc_script.substr(pos+3);
 
-	abc_script += stringf("; &ps; &write -v %s/output.xaig", tempdir_name.c_str());
+	abc_script += stringf("; &ps; &write %s/output.xaig", tempdir_name.c_str());
 	abc_script = add_echos_to_abc_cmd(abc_script);
 
 	for (size_t i = 0; i+1 < abc_script.size(); i++)
@@ -346,7 +369,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		}
 	}
 
-    Pass::call(design, stringf("aigmap; write_xaiger -map %s/input.symbols %s/input.xaig; ", tempdir_name.c_str(), tempdir_name.c_str()));
+    Pass::call(design, stringf("aigmap; clean; write_xaiger -map %s/input.symbols %s/input.xaig; ", tempdir_name.c_str(), tempdir_name.c_str()));
 
 	log_push();
 
@@ -457,8 +480,17 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			design->select(module, remap_wire);
 			if (w->port_output) {
 				RTLIL::Wire *wire = module->wire(w->name);
-				for (int i = 0; i < GetSize(wire); i++)
+				if (wire) {
+					for (int i = 0; i < GetSize(wire); i++)
+						output_bits.insert({wire, i});
+				}
+				else {
+					auto r = wideports_split(w->name.str());
+					wire = module->wire(r.first);
+					log_assert(wire);
+					int i = r.second;
 					output_bits.insert({wire, i});
+				}
 			}
 		}
 
@@ -607,8 +639,8 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 					continue;
 				}
 			}
-
-			cell_stats[RTLIL::unescape_id(c->type)]++;
+			else
+				cell_stats[RTLIL::unescape_id(c->type)]++;
 
 			if (c->type == "\\_const0_" || c->type == "\\_const1_") {
 				RTLIL::SigSig conn;
@@ -734,23 +766,34 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 				continue;
 			RTLIL::Wire *wire = module->wire(w->name);
 			RTLIL::Wire *remap_wire = module->wire(remap_name(w->name));
+			RTLIL::SigSpec signal;
+			if (wire) {
+				signal = RTLIL::SigSpec(wire, 0, GetSize(remap_wire));
+			}
+			else {
+				auto r = wideports_split(w->name.str());
+				wire = module->wire(r.first);
+				log_assert(wire);
+				int i = r.second;
+				printf("%s %s %d\n", w->name.c_str(), wire->name.c_str(), i);
+				signal = RTLIL::SigSpec(wire, i);
+			}
+			log_assert(GetSize(signal) >= GetSize(remap_wire));
+
 			if (w->port_input) {
 				RTLIL::SigSig conn;
-				log_assert(GetSize(wire) >= GetSize(remap_wire));
 				conn.first = remap_wire;
-				conn.second = RTLIL::SigSpec(wire, 0, GetSize(remap_wire));
+				conn.second = signal;
 				in_wires++;
 				module->connect(conn);
 				printf("INPUT: assign %s = %s\n", remap_wire->name.c_str(), wire->name.c_str());
 			}
 			else if (w->port_output) {
 				RTLIL::SigSig conn;
-				log_assert(GetSize(wire) >= GetSize(remap_wire));
-				conn.first = RTLIL::SigSpec(wire, 0, GetSize(remap_wire));
+				conn.first = signal;
 				conn.second = remap_wire;
-				for (int i = 0; i < GetSize(remap_wire); i++)
-					output_bits.insert({wire, i});
 				printf("OUTPUT: assign %s = %s\n", wire->name.c_str(), remap_wire->name.c_str());
+				out_wires++;
 				module->connect(conn);
 			}
 			else log_abort();
