@@ -33,6 +33,7 @@
 YOSYS_NAMESPACE_BEGIN
 
 #define log_debug log
+#define log_debug(...) ;
 
 AigerReader::AigerReader(RTLIL::Design *design, std::istream &f, RTLIL::IdString module_name, RTLIL::IdString clk_name, std::string map_filename, bool wideports)
     : design(design), f(f), clk_name(clk_name), map_filename(map_filename), wideports(wideports)
@@ -627,8 +628,8 @@ void AigerReader::parse_aiger_binary()
             log_debug("%d is an output\n", l1);
             wire = createWireIfNotExists(module, l1);
         }
-        wire->port_output = true;
         log_assert(!wire->port_input);
+        wire->port_output = true;
         outputs.push_back(wire);
     }
     std::getline(f, line); // Ignore up to start of next line
