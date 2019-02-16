@@ -137,7 +137,7 @@ struct XAigerWriter
 				if (bit.wire == nullptr) {
 					if (wire->port_output) {
 						aig_map[wirebit] = (bit == State::S1) ? 1 : 0;
-						//output_bits.insert(wirebit);
+						output_bits.insert(wirebit);
 					}
 					continue;
 				}
@@ -151,7 +151,7 @@ struct XAigerWriter
 				if (wire->port_output) {
 					if (bit != wirebit)
 						alias_map[wirebit] = bit;
-					//output_bits.insert(wirebit);
+					output_bits.insert(wirebit);
 				}
 			}
 		}
@@ -168,8 +168,6 @@ struct XAigerWriter
 			{
 				SigBit A = sigmap(cell->getPort("\\A").as_bit());
 				SigBit Y = sigmap(cell->getPort("\\Y").as_bit());
-				if (Y.wire->port_output)
-					output_bits.insert(Y);
 				unused_bits.erase(A);
 				undriven_bits.erase(Y);
 				not_map[Y] = A;
@@ -191,8 +189,6 @@ struct XAigerWriter
 				SigBit A = sigmap(cell->getPort("\\A").as_bit());
 				SigBit B = sigmap(cell->getPort("\\B").as_bit());
 				SigBit Y = sigmap(cell->getPort("\\Y").as_bit());
-				if (Y.wire->port_output)
-					output_bits.insert(Y);
 				unused_bits.erase(A);
 				unused_bits.erase(B);
 				undriven_bits.erase(Y);
@@ -229,9 +225,11 @@ struct XAigerWriter
 		}
 
 		// Do some CI/CO post-processing:
-		// Erase all COs that are undriven
-		for (auto bit : undriven_bits)
+		// Erase all POs and COs that are undriven
+		for (auto bit : undriven_bits) {
 			co_bits.erase(bit);
+			output_bits.erase(bit);
+		}
 		// Erase all CIs that are also COs or POs
 		for (auto bit : co_bits)
 			ci_bits.erase(bit);
