@@ -112,8 +112,91 @@ void AigerReader::parse_aiger()
         std::getline(f, line); // Ignore up to start of next line
     }
 
+    dict<RTLIL::IdString, int> wideports_cache;
+
+    if (!map_filename.empty()) {
+        std::ifstream mf(map_filename);
+        std::string type, symbol;
+        int variable, index;
+        while (mf >> type >> variable >> index >> symbol) {
+            RTLIL::IdString escaped_symbol = RTLIL::escape_id(symbol);
+            if (type == "input") {
+                log_assert(static_cast<unsigned>(variable) < inputs.size());
+                RTLIL::Wire* wire = inputs[variable];
+                log_assert(wire);
+                log_assert(wire->port_input);
+
+                if (index == 0)
+                    module->rename(wire, RTLIL::escape_id(symbol));
+                else if (index > 0) {
+                    module->rename(wire, RTLIL::escape_id(stringf("%s[%d]", symbol.c_str(), index)));
+                    if (wideports)
+                        wideports_cache[escaped_symbol] = std::max(wideports_cache[escaped_symbol], index);
+                }
+            }
+            else if (type == "output") {
+                log_assert(static_cast<unsigned>(variable) < outputs.size());
+                RTLIL::Wire* wire = outputs[variable];
+                log_assert(wire);
+                log_assert(wire->port_output);
+
+                if (index == 0)
+                    module->rename(wire, RTLIL::escape_id(symbol));
+                else if (index > 0) {
+                    module->rename(wire, RTLIL::escape_id(stringf("%s[%d]", symbol.c_str(), index)));
+                    if (wideports)
+                        wideports_cache[escaped_symbol] = std::max(wideports_cache[escaped_symbol], index);
+                }
+            }
+            else
+                log_error("Symbol type '%s' not recognised.\n", type.c_str());
+        }
+    }
+
+    for (auto &wp : wideports_cache) {
+        auto name = wp.first;
+        int width = wp.second + 1;
+
+        RTLIL::Wire *wire = module->wire(name);
+        if (wire)
+            module->rename(wire, RTLIL::escape_id(stringf("%s[%d]", name.c_str(), 0)));
+
+        // Do not make ports with a mix of input/output into
+        // wide ports
+        bool port_input = false, port_output = false;
+        for (int i = 0; i < width; i++) {
+            RTLIL::IdString other_name = name.str() + stringf("[%d]", i);
+            RTLIL::Wire *other_wire = module->wire(other_name);
+            if (other_wire) {
+                port_input = port_input || other_wire->port_input;
+                port_output = port_output || other_wire->port_output;
+            }
+        }
+        if ((port_input && port_output) || (!port_input && !port_output))
+            continue;
+
+        wire = module->addWire(name, width);
+        wire->port_input = port_input;
+        wire->port_output = port_output;
+
+        for (int i = 0; i < width; i++) {
+            RTLIL::IdString other_name = name.str() + stringf("[%d]", i);
+            RTLIL::Wire *other_wire = module->wire(other_name);
+            if (other_wire) {
+                other_wire->port_input = false;
+                other_wire->port_output = false;
+                if (wire->port_input)
+                    module->connect(other_wire, SigSpec(wire, i));
+                else
+                    module->connect(SigSpec(wire, i), other_wire);
+            }
+        }
+    }
+
     module->fixup_ports();
     design->add(module);
+
+    Pass::call(design, "clean");
 }
 
 static uint32_t parse_xaiger_literal(std::istream &f)
@@ -308,16 +391,29 @@ void AigerReader::parse_xaiger()
         RTLIL::Wire *wire = module->wire(name);
         if (wire)
             module->rename(wire, RTLIL::escape_id(stringf("%s[%d]", name.c_str(), 0)));
+
+        // Do not make ports with a mix of input/output into
+        // wide ports
+        bool port_input = false, port_output = false;
+        for (int i = 0; i < width; i++) {
+            RTLIL::IdString other_name = name.str() + stringf("[%d]", i);
+            RTLIL::Wire *other_wire = module->wire(other_name);
+            if (other_wire) {
+                port_input = port_input || other_wire->port_input;
+                port_output = port_output || other_wire->port_output;
+            }
+        }
+        if ((port_input && port_output) || (!port_input && !port_output))
+            continue;
+
         wire = module->addWire(name, width);
-        wire->port_input = wire->port_output = false;
+        wire->port_input = port_input;
+        wire->port_output = port_output;
 
         for (int i = 0; i < width; i++) {
             RTLIL::IdString other_name = name.str() + stringf("[%d]", i);
             RTLIL::Wire *other_wire = module->wire(other_name);
             if (other_wire) {
-                log_assert((other_wire->port_input && !other_wire->port_output) || (other_wire->port_output && !other_wire->port_input));
-                wire->port_input = other_wire->port_input;
-                wire->port_output = other_wire->port_output;
                 other_wire->port_input = false;
                 other_wire->port_output = false;
                 if (wire->port_input)
@@ -397,9 +493,22 @@ void AigerReader::parse_aiger_ascii()
         if (!(f >> l1))
             log_error("Line %u cannot be interpreted as an output!\n", line_count);
 
-        log_debug("%d is an output\n", l1);
-        RTLIL::Wire *wire = createWireIfNotExists(module, l1);
+        RTLIL::Wire *wire;
+        if (l1 == 0 || l1 == 1) {
+            wire = module->addWire(stringf("\\o%zu", outputs.size()));
+            if (l1 == 0)
+                module->connect(wire, RTLIL::State::S0);
+            else if (l1 == 1)
+                module->connect(wire, RTLIL::State::S1);
+            else
+                log_abort();
+        }
+        else {
+            log_debug("%d is an output\n", l1);
+            wire = createWireIfNotExists(module, l1);
+        }
         wire->port_output = true;
+        log_assert(!wire->port_input);
         outputs.push_back(wire);
     }
     std::getline(f, line); // Ignore up to start of next line
@@ -432,6 +541,7 @@ void AigerReader::parse_aiger_ascii()
         RTLIL::Wire *i2_wire = createWireIfNotExists(module, l3);
         module->addAndGate(o_wire->name.str() + "_and", i1_wire, i2_wire, o_wire);
     }
+    std::getline(f, line);
 }
 
 static unsigned parse_next_delta_literal(std::istream &f, unsigned ref)
@@ -502,8 +612,20 @@ void AigerReader::parse_aiger_binary()
         if (!(f >> l1))
             log_error("Line %u cannot be interpreted as an output!\n", line_count);
 
-        log_debug("%d is an output\n", l1);
-        RTLIL::Wire *wire = createWireIfNotExists(module, l1);
+        RTLIL::Wire *wire;
+        if (l1 == 0 || l1 == 1) {
+            wire = module->addWire(stringf("\\o%zu", outputs.size()));
+            if (l1 == 0)
+                module->connect(wire, RTLIL::State::S0);
+            else if (l1 == 1)
+                module->connect(wire, RTLIL::State::S1);
+            else
+                log_abort();
+        }
+        else {
+            log_debug("%d is an output\n", l1);
+            wire = createWireIfNotExists(module, l1);
+        }
         wire->port_output = true;
         log_assert(!wire->port_input);
         outputs.push_back(wire);
