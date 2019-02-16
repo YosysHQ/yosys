@@ -216,12 +216,10 @@ struct XAigerWriter
 					SigBit I = sigmap(b);
 					if (!w->port_input)
 						co_bits.insert(I);
-					unused_bits.erase(I);
 				}
 				else if (cell->output(c.first)) {
 					SigBit O = sigmap(b);
 					ci_bits.insert(O);
-					undriven_bits.erase(O);
 				}
 				else log_abort();
 				if (!type_map.count(cell->type))
@@ -229,6 +227,19 @@ struct XAigerWriter
 			}
 			//log_error("Unsupported cell type: %s (%s)\n", log_id(cell->type), log_id(cell));
 		}
+
+		// Do some CI/CO post-processing:
+		// Erase all COs that are undriven
+		for (auto bit : undriven_bits)
+			co_bits.erase(bit);
+		// Erase all CIs that are also COs or POs
+		for (auto bit : co_bits)
+			ci_bits.erase(bit);
+		for (auto bit : output_bits)
+			ci_bits.erase(bit);
+		// CIs cannot be undriven
+		for (auto bit : ci_bits)
+			undriven_bits.erase(bit);
 
 		for (auto bit : unused_bits)
 			undriven_bits.erase(bit);
@@ -255,7 +266,6 @@ struct XAigerWriter
 		for (auto bit : ci_bits) {
 			aig_m++, aig_i++;
 			aig_map[bit] = 2*aig_m;
-			co_bits.erase(bit);
 		}
 
 		for (auto bit : input_bits) {
@@ -429,8 +439,8 @@ struct XAigerWriter
 
 			for (auto wire : module->wires())
 			{
-				if (wire->name[0] == '$')
-					continue;
+				//if (wire->name[0] == '$')
+				//	continue;
 
 				SigSpec sig = sigmap(wire);
 
@@ -443,7 +453,7 @@ struct XAigerWriter
 							continue;
 					}
 
-					if (wire->port_input) {
+					if (input_bits.count(sig[i]) || ci_bits.count(SigSpec(sig[i]))) {
 						int a = aig_map.at(sig[i]);
 						log_assert((a & 1) == 0);
 						if (GetSize(wire) != 1)
@@ -452,7 +462,7 @@ struct XAigerWriter
 							symbols[stringf("i%d", (a >> 1)-1)].push_back(stringf("%s", log_id(wire)));
 					}
 
-					if (wire->port_output) {
+					if (output_bits.count(SigSpec(wire, i)) || co_bits.count(SigSpec(wire, i))) {
 						int o = ordered_outputs.at(SigSpec(wire, i));
 						if (GetSize(wire) != 1)
 							symbols[stringf("%c%d", miter_mode ? 'b' : 'o', o)].push_back(stringf("%s[%d]", log_id(wire), i));
