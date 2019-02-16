@@ -91,6 +91,44 @@ std::string remap_name(RTLIL::IdString abc_name)
 	return sstr.str();
 }
 
+void handle_loops(RTLIL::Design *design, RTLIL::Module *module)
+{
+	design->selection_stack.emplace_back(false);
+	RTLIL::Selection& sel = design->selection_stack.back();
+	sel.select(module);
+	Pass::call(design, "scc -set_attr abc_scc_id {}");
+
+	sel = RTLIL::Selection(false);
+
+	// For every unique SCC found, (arbitrarily) find the first
+	// cell in the component, and select (and mark) all its output
+	// wires
+	pool<RTLIL::Const> ids_seen;
+	for (auto cell : module->cells()) {
+		auto it = cell->attributes.find("\\abc_scc_id");
+		if (it != cell->attributes.end()) {
+			auto r = ids_seen.insert(it->second);
+			if (r.second) {
+				for (const auto &c : cell->connections()) {
+					if (c.second.is_fully_const()) continue;
+					if (cell->output(c.first)) {
+						SigBit b = c.second.as_bit();
+						Wire *w = b.wire;
+						w->set_bool_attribute("\\abc_scc_break");
+						sel.select(module, w);
+					}
+				}
+			}
+			cell->attributes.erase(it);
+		}
+	}
+
+	// Then cut those selected wires to expose them as new PO/PI
+	Pass::call(design, "expose -cut -sep .abc");
+
+	design->selection_stack.pop_back();
+}
+
 std::string add_echos_to_abc_cmd(std::string str)
 {
 	std::string new_str, token;
@@ -369,7 +407,31 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		}
 	}
 
-    Pass::call(design, stringf("aigmap; clean; write_xaiger -map %s/input.symbols %s/input.xaig; ", tempdir_name.c_str(), tempdir_name.c_str()));
+	Pass::call(design, "aigmap; clean;");
+
+	handle_loops(design, module);
+
+    Pass::call(design, "write_verilog -norename -noexpr input.v");
+    Pass::call(design, stringf("write_xaiger -map %s/input.symbols %s/input.xaig; ", tempdir_name.c_str(), tempdir_name.c_str()));
+    Pass::call(design, stringf("write_xaiger -ascii -symbols %s/input.xaag; read_aiger -wideports -map %s/input.symbols %s/input.xaag; write_verilog -norename -noexpr input.v", tempdir_name.c_str(), tempdir_name.c_str(), tempdir_name.c_str()));
+
+	// Now 'unexpose' those wires by undoing
+	// the expose operation -- remove them from PO/PI
+	// and re-connecting them back together
+	for (auto wire : module->wires()) {
+		auto it = wire->attributes.find("\\abc_scc_break");
+		if (it != wire->attributes.end()) {
+			wire->attributes.erase(it);
+			log_assert(wire->port_output);
+			wire->port_output = false;
+			RTLIL::Wire *i_wire = module->wire(wire->name.str() + ".abci");
+			log_assert(i_wire);
+			log_assert(i_wire->port_input);
+			i_wire->port_input = false;
+			module->connect(i_wire, wire);
+		}
+	}
+	module->fixup_ports();
 
 	log_push();
 
@@ -703,7 +765,8 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			if (!conn.second.is_fully_const()) {
 				auto chunks = conn.second.chunks();
 				for (auto &c : chunks)
-					c.wire = module->wires_[remap_name(c.wire->name)];
+					if (c.wire)
+						c.wire = module->wires_[remap_name(c.wire->name)];
 				conn.second = std::move(chunks);
 			}
 			module->connect(conn);
@@ -748,7 +811,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 				auto &signal = it.second;
 				if (!signal.is_bit()) continue;
 				if (output_bits.count(signal.as_bit()))
-					signal = RTLIL::State::Sx;
+					signal = module->addWire(NEW_ID);
 			}
 		}
 		// Do the same for module connections
@@ -756,7 +819,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			auto &signal = it.first;
 			if (!signal.is_bit()) continue;
 			if (output_bits.count(signal.as_bit()))
-				signal = RTLIL::State::Sx;
+				signal = module->addWire(NEW_ID);
 		}
 
 		// Stitch in mapped_mod's inputs/outputs into module
