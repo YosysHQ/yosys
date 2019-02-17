@@ -566,9 +566,8 @@ struct XAigerWriter
 		output_lines.sort();
 		for (auto &it : output_lines)
 			f << it.second;
-		if (omode && output_bits.empty() && co_bits.empty()) {
+		if (omode && output_lines.empty())
 			f << "output 0 0 __dummy_o__\n";
-		}
 
 		latch_lines.sort();
 		for (auto &it : latch_lines)
