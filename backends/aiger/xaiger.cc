@@ -521,7 +521,7 @@ struct XAigerWriter
 
 			for (int i = 0; i < GetSize(wire); i++)
 			{
-				if (aig_map.count(sig[i]) == 0 || sig[i].wire == nullptr)
+				if (aig_map.count(sig[i]) == 0 /*|| sig[i].wire == nullptr*/)
 					continue;
 
 				int a = aig_map.at(sig[i]);
@@ -529,13 +529,14 @@ struct XAigerWriter
 				if (verbose_map)
 					wire_lines[a] += stringf("wire %d %d %s\n", a, i, log_id(wire));
 
-				if (wire->port_input || ci_bits.count(RTLIL::SigBit{wire, i})) {
+				RTLIL::SigBit b(wire, i);
+				if (wire->port_input || ci_bits.count(b)) {
 					log_assert((a & 1) == 0);
 					input_lines[a] += stringf("input %d %d %s\n", (a >> 1)-1, i, log_id(wire));
 				}
 
-				if (output_bits.count(RTLIL::SigBit{wire, i}) || co_bits.count(RTLIL::SigBit{wire, i})) {
-					int o = ordered_outputs.at(sig[i]);
+				if (output_bits.count(b) || co_bits.count(b)) {
+					int o = ordered_outputs.at(b);
 					output_lines[o] += stringf("output %d %d %s\n", o, i, log_id(wire));
 				}
 
