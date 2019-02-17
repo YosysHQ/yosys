@@ -290,6 +290,7 @@ void AigerReader::parse_xaiger()
                 uint32_t lutNum = parse_xaiger_literal(f);
                 uint32_t lutSize = parse_xaiger_literal(f);
                 log_debug("m: dataSize=%u lutNum=%u lutSize=%u\n", dataSize, lutNum, lutSize);
+                ConstEval ce(module);
                 for (unsigned i = 0; i < lutNum; ++i) {
                     uint32_t rootNodeID = parse_xaiger_literal(f);
                     uint32_t cutLeavesM = parse_xaiger_literal(f);
@@ -305,7 +306,6 @@ void AigerReader::parse_xaiger()
                         input_sig.append(wire);
                     }
                     RTLIL::Const lut_mask(RTLIL::State::Sx, 1 << input_sig.size());
-                    ConstEval ce(module);
                     for (int j = 0; j < (1 << cutLeavesM); ++j) {
                         ce.push();
                         ce.set(input_sig, RTLIL::Const{j, static_cast<int>(cutLeavesM)});
