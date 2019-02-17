@@ -139,6 +139,9 @@ void AigerReader::parse_aiger()
                 log_assert(static_cast<unsigned>(variable) < outputs.size());
                 RTLIL::Wire* wire = outputs[variable];
                 log_assert(wire);
+                // Ignore direct output -> input connections
+                if (!wire->port_output)
+                    continue;
                 log_assert(wire->port_output);
 
                 if (index == 0)
@@ -371,6 +374,9 @@ void AigerReader::parse_xaiger()
                 log_assert(static_cast<unsigned>(variable) < outputs.size());
                 RTLIL::Wire* wire = outputs[variable];
                 log_assert(wire);
+                // Ignore direct output -> input connections
+                if (!wire->port_output)
+                    continue;
                 log_assert(wire->port_output);
 
                 if (index == 0)
@@ -509,8 +515,12 @@ void AigerReader::parse_aiger_ascii()
             log_debug("%d is an output\n", l1);
             wire = createWireIfNotExists(module, l1);
         }
+        if (wire->port_input) {
+            RTLIL::Wire *new_wire = module->addWire(NEW_ID);
+            module->connect(new_wire, wire);
+            wire = new_wire;
+        }
         wire->port_output = true;
-        log_assert(!wire->port_input);
         outputs.push_back(wire);
     }
     std::getline(f, line); // Ignore up to start of next line
@@ -628,7 +638,11 @@ void AigerReader::parse_aiger_binary()
             log_debug("%d is an output\n", l1);
             wire = createWireIfNotExists(module, l1);
         }
-        log_assert(!wire->port_input);
+        if (wire->port_input) {
+            RTLIL::Wire *new_wire = module->addWire(NEW_ID);
+            module->connect(new_wire, wire);
+            wire = new_wire;
+        }
         wire->port_output = true;
         outputs.push_back(wire);
     }
