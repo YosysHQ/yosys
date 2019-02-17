@@ -63,7 +63,7 @@ code sigY clock clock_pol clock_vld
 	sigY = port(mul, \Y);
 
 	if (ffY) {
-		sigY = port(ffY, \D);
+		sigY = port(ffY, \Q);
 		SigBit c = port(ffY, \CLK).as_bit();
 		bool cp = param(ffY, \CLK_POLARITY).as_bool();
 
@@ -77,7 +77,7 @@ code sigY clock clock_pol clock_vld
 endcode
 
 match addA
-	select addA->type.in($add, $sub)
+	select addA->type.in($add)
 	select nusers(port(addA, \A)) == 2
 	index <SigSpec> port(addA, \A) === sigY
 	optional
@@ -134,3 +134,17 @@ match ffS
 	index <SigSpec> port(ffS, \D) === port(muxAB, \Y)
 	index <SigSpec> port(ffS, \Q) === sigS
 endmatch
+
+code clock clock_pol clock_vld
+	if (ffS) {
+		SigBit c = port(ffS, \CLK).as_bit();
+		bool cp = param(ffS, \CLK_POLARITY).as_bool();
+
+		if (clock_vld && (c != clock || cp != clock_pol))
+			reject;
+
+		clock = c;
+		clock_pol = cp;
+		clock_vld = true;
+	}
+endcode

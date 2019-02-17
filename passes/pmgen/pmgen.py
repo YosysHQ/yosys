@@ -203,6 +203,7 @@ with open("%s_pm.h" % prefix, "w") as f:
             print("  dict<index_{}_key_type, vector<Cell*>> index_{};".format(index, index), file=f)
     print("  dict<SigBit, pool<Cell*>> sigusers;", file=f)
     print("  pool<Cell*> blacklist_cells;", file=f)
+    print("  pool<Cell*> autoremove_cells;", file=f)
     print("  bool blacklist_dirty;", file=f)
     print("  int rollback;", file=f)
     print("", file=f)
@@ -240,6 +241,15 @@ with open("%s_pm.h" % prefix, "w") as f:
     print("    if (cell != nullptr) {", file=f)
     print("      if (blacklist_cells.insert(cell).second)", file=f)
     print("        blacklist_dirty = true;", file=f)
+    print("    }", file=f)
+    print("  }", file=f)
+    print("", file=f)
+
+    print("  void autoremove(Cell *cell) {", file=f)
+    print("    if (cell != nullptr) {", file=f)
+    print("      if (blacklist_cells.insert(cell).second)", file=f)
+    print("        blacklist_dirty = true;", file=f)
+    print("      autoremove_cells.insert(cell);", file=f)
     print("    }", file=f)
     print("  }", file=f)
     print("", file=f)
@@ -308,7 +318,13 @@ with open("%s_pm.h" % prefix, "w") as f:
     print("  }", file=f)
     print("", file=f)
 
-    print("  void run(std::function<void()> on_accept_f) {{".format(prefix), file=f)
+    print("  ~{}_pm() {{".format(prefix), file=f)
+    print("    for (auto cell : autoremove_cells)", file=f)
+    print("      module->remove(cell);", file=f)
+    print("  }", file=f)
+    print("", file=f)
+
+    print("  void run(std::function<void()> on_accept_f) {", file=f)
     print("    on_accept = on_accept_f;", file=f)
     print("    rollback = 0;", file=f)
     print("    blacklist_dirty = false;", file=f)
@@ -318,6 +334,11 @@ with open("%s_pm.h" % prefix, "w") as f:
         else:
             print("    st.{} = {}();".format(s, t), file=f)
     print("    block_0();", file=f)
+    print("  }", file=f)
+    print("", file=f)
+
+    print("  void run(std::function<void({}_pm&)> on_accept_f) {{".format(prefix), file=f)
+    print("    run([&](){on_accept_f(*this);});", file=f)
     print("  }", file=f)
     print("", file=f)
 
