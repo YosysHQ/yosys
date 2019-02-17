@@ -235,6 +235,7 @@ void AigerReader::parse_aiger_ascii()
         RTLIL::Wire *i2_wire = createWireIfNotExists(module, l3);
         module->addAndGate(NEW_ID, i1_wire, i2_wire, o_wire);
     }
+    std::getline(f, line); // Ignore up to start of next line
 }
 
 static unsigned parse_next_delta_literal(std::istream &f, unsigned ref)
@@ -342,8 +343,6 @@ void AigerReader::parse_aiger_binary()
         and_cell->setPort("\\B", i2_wire);
         and_cell->setPort("\\Y", o_wire);
     }
-    std::getline(f, line); // Ignore up to start of next line
-
 }
 
 struct AigerFrontend : public Frontend {
