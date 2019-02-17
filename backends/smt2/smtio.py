@@ -784,7 +784,7 @@ class SmtIo:
 
     def get_path(self, mod, path):
         assert mod in self.modinfo
-        path = path.split(".")
+        path = path.replace("\\", "/").split(".")
 
         for i in range(len(path)-1):
             first = ".".join(path[0:i+1])

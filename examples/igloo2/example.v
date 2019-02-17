@@ -1,5 +1,6 @@
-module top (
+module example (
 	input  clk,
+	input  EN,
 	output LED1,
 	output LED2,
 	output LED3,
@@ -14,7 +15,7 @@ module top (
 	reg [BITS-1:0] outcnt;
 
 	always @(posedge clk) begin
-		counter <= counter + 1;
+		counter <= counter + EN;
 		outcnt <= counter >> LOG2DELAY;
 	end
 

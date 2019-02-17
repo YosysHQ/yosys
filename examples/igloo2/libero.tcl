@@ -1,24 +1,36 @@
 # Run with "libero SCRIPT:libero.tcl"
 
+file delete -force proj
+
 new_project \
-    -name top \
-    -location work \
+    -name example \
+    -location proj \
+    -block_mode 0 \
+    -hdl "VERILOG" \
     -family IGLOO2 \
     -die PA4MGL500 \
     -package tq144 \
-    -speed -1 \
-    -hdl VERILOG
+    -speed -1
 
-# import_files -edif "[pwd]/netlist.edn"
+import_files -hdl_source {netlist.vm}
+import_files -sdc {example.sdc}
+import_files -io_pdc {example.pdc}
+set_option -synth 0
 
-import_files -hdl_source "[pwd]/netlist.v"
-set_root top
+organize_tool_files -tool PLACEROUTE \
+    -file {proj/constraint/example.sdc} \
+    -file {proj/constraint/io/example.pdc} \
+    -input_type constraint
 
-save_project
+organize_tool_files -tool VERIFYTIMING \
+    -file {proj/constraint/example.sdc} \
+    -input_type constraint
 
-puts "**> SYNTHESIZE"
-run_tool -name {SYNTHESIZE}
-puts "<** SYNTHESIZE"
+configure_tool -name PLACEROUTE \
+    -params TDPR:true \
+    -params PDPR:false \
+    -params EFFORT_LEVEL:false \
+    -params REPAIR_MIN_DELAY:false
 
 puts "**> COMPILE"
 run_tool -name {COMPILE}
@@ -27,6 +39,12 @@ puts "<** COMPILE"
 puts "**> PLACEROUTE"
 run_tool -name {PLACEROUTE}
 puts "<** PLACEROUTE"
+
+puts "**> VERIFYTIMING"
+run_tool -name {VERIFYTIMING}
+puts "<** VERIFYTIMING"
+
+save_project
 
 # puts "**> export_bitstream"
 # export_bitstream_file -trusted_facility_file 1 -trusted_facility_file_components {FABRIC}

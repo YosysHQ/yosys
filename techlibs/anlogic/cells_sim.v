@@ -17,7 +17,7 @@ module AL_MAP_LUT1 (
 );
 	parameter [1:0] INIT = 2'h0;
 	parameter EQN = "(A)";
-	assign Y = INIT >> A;
+	assign o = INIT >> a;
 endmodule
 
 module AL_MAP_LUT2 (
