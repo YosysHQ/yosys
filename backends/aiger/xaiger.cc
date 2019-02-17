@@ -206,18 +206,20 @@ struct XAigerWriter
 
 			for (const auto &c : cell->connections()) {
 				if (c.second.is_fully_const()) continue;
-				SigBit b = c.second.as_bit();
-				Wire *w = b.wire;
-				if (cell->input(c.first)) {
-					SigBit I = sigmap(b);
-					if (!w->port_input)
-						co_bits.insert(I);
+				for (auto b : c.second.bits()) {
+					Wire *w = b.wire;
+					if (!w) continue;
+					if (cell->input(c.first)) {
+						SigBit I = sigmap(b);
+						if (!w->port_input)
+							co_bits.insert(I);
+					}
+					else if (cell->output(c.first)) {
+						SigBit O = sigmap(b);
+						ci_bits.insert(O);
+					}
+					else log_abort();
 				}
-				else if (cell->output(c.first)) {
-					SigBit O = sigmap(b);
-					ci_bits.insert(O);
-				}
-				else log_abort();
 				if (!type_map.count(cell->type))
 					type_map[cell->type] = type_map.size()+1;
 			}
@@ -343,7 +345,7 @@ struct XAigerWriter
 			aig_outputs.push_back(bit2aig(bit));
 		}
 
-		if (omode && output_bits.empty()) {
+		if (omode && output_bits.empty() && co_bits.empty()) {
 			aig_o++;
 			aig_outputs.push_back(0);
 		}
@@ -564,7 +566,7 @@ struct XAigerWriter
 		output_lines.sort();
 		for (auto &it : output_lines)
 			f << it.second;
-		if (omode && output_bits.empty()) {
+		if (omode && output_bits.empty() && co_bits.empty()) {
 			f << "output 0 0 __dummy_o__\n";
 		}
 
