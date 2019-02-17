@@ -411,9 +411,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 
 	handle_loops(design, module);
 
-    Pass::call(design, "write_verilog -norename -noexpr input.v");
     Pass::call(design, stringf("write_xaiger -O -map %s/input.symbols %s/input.xaig; ", tempdir_name.c_str(), tempdir_name.c_str()));
-    Pass::call(design, stringf("write_xaiger -ascii -symbols %s/input.xaag; read_aiger -wideports %s/input.xaag; write_verilog -norename -noexpr input.v", tempdir_name.c_str(), tempdir_name.c_str()));
 
 	// Now 'unexpose' those wires by undoing
 	// the expose operation -- remove them from PO/PI
@@ -843,7 +841,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 				wire = module->wire(r.first);
 				log_assert(wire);
 				int i = r.second;
-				printf("%s %s %d\n", w->name.c_str(), wire->name.c_str(), i);
 				signal = RTLIL::SigSpec(wire, i);
 			}
 			log_assert(GetSize(signal) >= GetSize(remap_wire));
@@ -854,13 +851,11 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 				conn.second = signal;
 				in_wires++;
 				module->connect(conn);
-				printf("INPUT: assign %s = %s\n", remap_wire->name.c_str(), wire->name.c_str());
 			}
 			else if (w->port_output) {
 				RTLIL::SigSig conn;
 				conn.first = signal;
 				conn.second = remap_wire;
-				printf("OUTPUT: assign %s = %s\n", wire->name.c_str(), remap_wire->name.c_str());
 				out_wires++;
 				module->connect(conn);
 			}
@@ -1084,7 +1079,7 @@ struct Abc9Pass : public Pass {
 		std::string delay_target, sop_inputs, sop_products, lutin_shared = "-S 1";
 		bool fast_mode = false, dff_mode = false, keepff = false, cleanup = true;
 		bool show_tempdir = false, sop_mode = false;
-		show_tempdir = true; cleanup = false;
+		show_tempdir = true; cleanup = true;
 		vector<int> lut_costs;
 		markgroups = false;
 
