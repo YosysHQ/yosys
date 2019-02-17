@@ -412,8 +412,8 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 	handle_loops(design, module);
 
     Pass::call(design, "write_verilog -norename -noexpr input.v");
-    Pass::call(design, stringf("write_xaiger -map %s/input.symbols %s/input.xaig; ", tempdir_name.c_str(), tempdir_name.c_str()));
-    Pass::call(design, stringf("write_xaiger -ascii -symbols %s/input.xaag; read_aiger -wideports -map %s/input.symbols %s/input.xaag; write_verilog -norename -noexpr input.v", tempdir_name.c_str(), tempdir_name.c_str(), tempdir_name.c_str()));
+    Pass::call(design, stringf("write_xaiger -O -map %s/input.symbols %s/input.xaig; ", tempdir_name.c_str(), tempdir_name.c_str()));
+    Pass::call(design, stringf("write_xaiger -ascii -symbols %s/input.xaag; read_aiger -wideports %s/input.xaag; write_verilog -norename -noexpr input.v", tempdir_name.c_str(), tempdir_name.c_str()));
 
 	// Now 'unexpose' those wires by undoing
 	// the expose operation -- remove them from PO/PI
@@ -547,6 +547,11 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 						output_bits.insert({wire, i});
 				}
 				else {
+					if (w->name.str() == "\\__dummy_o__") {
+						log("Don't call ABC as there is nothing to map.\n");
+						goto cleanup;
+					}
+
 					auto r = wideports_split(w->name.str());
 					wire = module->wire(r.first);
 					log_assert(wire);
@@ -875,6 +880,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 
 	Pass::call(design, "clean");
 
+cleanup:
 	if (cleanup)
 	{
 		log("Removing temp directory.\n");
