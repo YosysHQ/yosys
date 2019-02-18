@@ -52,8 +52,6 @@
 #include <cerrno>
 #include <sstream>
 #include <climits>
-#include <array>
-#include <functional>
 
 #ifndef _WIN32
 #  include <unistd.h>
