@@ -293,7 +293,7 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 	}
 }
 
-void dump_reg_init(std::ostream &f, SigSpec sig, bool write_equals = true)
+void dump_reg_init(std::ostream &f, SigSpec sig)
 {
 	Const initval;
 	bool gotinit = false;
@@ -308,7 +308,7 @@ void dump_reg_init(std::ostream &f, SigSpec sig, bool write_equals = true)
 	}
 
 	if (gotinit) {
-		if (write_equals) f << " = ";
+		f << " = ";
 		dump_const(f, initval);
 	}
 }
@@ -1250,14 +1250,7 @@ void dump_cell(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 	dump_attributes(f, indent, cell->attributes);
 	f << stringf("%s" "%s", indent.c_str(), id(cell->type, false).c_str());
 
-	std::string init;
-	if (reg_ct.count(cell->type) && cell->hasPort("\\Q")) {
-		std::stringstream ss;
-		dump_reg_init(ss, cell->getPort("\\Q"), false /* write_equals */);
-		init = ss.str();
-	}
-
-	if (!defparam && (cell->parameters.size() > 0 || !init.empty())) {
+	if (!defparam && cell->parameters.size() > 0) {
 		f << stringf(" #(");
 		for (auto it = cell->parameters.begin(); it != cell->parameters.end(); ++it) {
 			if (it != cell->parameters.begin())
@@ -1266,11 +1259,6 @@ void dump_cell(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 			bool is_signed = (it->second.flags & RTLIL::CONST_FLAG_SIGNED) != 0;
 			dump_const(f, it->second, -1, 0, false, is_signed);
 			f << stringf(")");
-		}
-		if (!init.empty()) {
-			if (!cell->parameters.empty())
-				f << stringf(",");
-			f << stringf("\n%s  .INIT(%s)", indent.c_str(), init.c_str());
 		}
 		f << stringf("\n%s" ")", indent.c_str());
 	}
@@ -1313,17 +1301,24 @@ void dump_cell(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 	}
 	f << stringf("\n%s" ");\n", indent.c_str());
 
-	if (defparam && (cell->parameters.size() > 0 || !init.empty())) {
+	if (defparam && cell->parameters.size() > 0) {
 		for (auto it = cell->parameters.begin(); it != cell->parameters.end(); ++it) {
 			f << stringf("%sdefparam %s.%s = ", indent.c_str(), cell_name.c_str(), id(it->first).c_str());
 			bool is_signed = (it->second.flags & RTLIL::CONST_FLAG_SIGNED) != 0;
 			dump_const(f, it->second, -1, 0, false, is_signed);
 			f << stringf(";\n");
 		}
-		if (!init.empty())
-			f << stringf("%sdefparam %s.INIT = %s;\n", indent.c_str(), cell_name.c_str(), init.c_str());
 	}
 
+	if (reg_ct.count(cell->type) && cell->hasPort("\\Q")) {
+		std::stringstream ss;
+		dump_reg_init(ss, cell->getPort("\\Q"));
+		if (!ss.str().empty()) {
+			f << stringf("%sinitial %s.Q", indent.c_str(), cell_name.c_str());
+			f << ss.str();
+			f << ";\n";
+		}
+	}
 }
 
 void dump_conn(std::ostream &f, std::string indent, const RTLIL::SigSpec &left, const RTLIL::SigSpec &right)
