@@ -22,6 +22,11 @@
 // Armin Biere. The AIGER And-Inverter Graph (AIG) Format Version 20071012. Technical Report 07/1, October 2011, FMV Reports Series, Institute for Formal Models and Verification, Johannes Kepler University, Altenbergerstr. 69, 4040 Linz, Austria.
 // http://fmv.jku.at/papers/Biere-FMV-TR-07-1.pdf
 
+#ifdef __linux__
+#include <libgen.h>
+#endif
+#include <array>
+
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 #include "aigerparse.h"
