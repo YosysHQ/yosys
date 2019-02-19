@@ -309,6 +309,15 @@ module DQSBUFM(
 endmodule
 
 (* blackbox *)
+module DDRDLLA(
+	input CLK, RST, UDDCNTLN, FREEZE,
+	output LOCK, DDRDEL, DCNTL7, DCNTL6, DCNTL5, DCNTL4, DCNTL3, DCNTL2, DCNTL1, DCNTL0
+);
+	parameter FORCE_MAX_DELAY = "NO";
+	parameter GSR = "ENABLED";
+endmodule
+
+(* blackbox *)
 module CLKDIVF(
 	input CLKI, RST, ALIGNWD,
 	output CDIVX
