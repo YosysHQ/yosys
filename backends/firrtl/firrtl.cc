@@ -23,7 +23,11 @@
 #include "kernel/celltypes.h"
 #include "kernel/cellaigs.h"
 #include "kernel/log.h"
+#include <algorithm>
 #include <string>
+#include <regex>
+#include <vector>
+#include <cmath>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -37,6 +41,7 @@ static const FDirection FD_NODIRECTION = 0x0;
 static const FDirection FD_IN = 0x1;
 static const FDirection FD_OUT = 0x2;
 static const FDirection FD_INOUT = 0x3;
+static const int FIRRTL_MAX_DSH_WIDTH_ERROR = 20; // For historic reasons, this is actually one greater than the maximum allowed shift width
 
 // Get a port direction with respect to a specific module.
 FDirection getPortFDirection(IdString id, Module *module)
@@ -173,6 +178,26 @@ struct FirrtlWorker
 	void process_instance(RTLIL::Cell *cell, vector<string> &wire_exprs)
 	{
 		std::string cell_type = fid(cell->type);
+		std::string instanceOf;
+		// If this is a parameterized module, its parent module is encoded in the cell type
+		if (cell->type.substr(0, 8) == "$paramod")
+		{
+			std::string::iterator it;
+			for (it = cell_type.begin(); it < cell_type.end(); it++)
+			{
+				switch (*it) {
+					case '\\': /* FALL_THROUGH */
+					case '=': /* FALL_THROUGH */
+					case '\'': /* FALL_THROUGH */
+					case '$': instanceOf.append("_"); break;
+					default: instanceOf.append(1, *it); break;
+				}
+			}
+		}
+		else
+		{
+			instanceOf = cell_type;
+		}
 
 		std::string cell_name = cellname(cell);
 		std::string cell_name_comment;
@@ -182,7 +207,13 @@ struct FirrtlWorker
 			cell_name_comment = "";
 		// Find the module corresponding to this instance.
 		auto instModule = design->module(cell->type);
-		wire_exprs.push_back(stringf("%s" "inst %s%s of %s", indent.c_str(), cell_name.c_str(), cell_name_comment.c_str(), cell_type.c_str()));
+		// If there is no instance for this, just return.
+		if (instModule == NULL)
+		{
+			log_warning("No instance for %s.%s\n", cell_type.c_str(), cell_name.c_str());
+			return;
+		}
+		wire_exprs.push_back(stringf("%s" "inst %s%s of %s", indent.c_str(), cell_name.c_str(), cell_name_comment.c_str(), instanceOf.c_str()));
 
 		for (auto it = cell->connections().begin(); it != cell->connections().end(); ++it) {
 			if (it->second.size() > 0) {
@@ -194,20 +225,20 @@ struct FirrtlWorker
 				std::string source, sink;
 				switch (dir) {
 					case FD_INOUT:
-						log_warning("Instance port connection %s.%s is INOUT; treating as OUT\n", log_id(cell_type), log_signal(it->second));
+						log_warning("Instance port connection %s.%s is INOUT; treating as OUT\n", cell_type.c_str(), log_signal(it->second));
 					case FD_OUT:
 						source = firstName;
 						sink = secondName;
 						break;
 					case FD_NODIRECTION:
-						log_warning("Instance port connection %s.%s is NODIRECTION; treating as IN\n", log_id(cell_type), log_signal(it->second));
+						log_warning("Instance port connection %s.%s is NODIRECTION; treating as IN\n", cell_type.c_str(), log_signal(it->second));
 						/* FALL_THROUGH */
 					case FD_IN:
 						source = secondName;
 						sink = firstName;
 						break;
 					default:
-						log_error("Instance port %s.%s unrecognized connection direction 0x%x !\n", log_id(cell_type), log_signal(it->second), dir);
+						log_error("Instance port %s.%s unrecognized connection direction 0x%x !\n", cell_type.c_str(), log_signal(it->second), dir);
 						break;
 				}
 				wire_exprs.push_back(stringf("\n%s%s <= %s", indent.c_str(), sink.c_str(), source.c_str()));
@@ -215,6 +246,20 @@ struct FirrtlWorker
 		}
 		wire_exprs.push_back(stringf("\n"));
 
+	}
+
+	// Given an expression for a shift amount, and a maximum width,
+	//  generate the FIRRTL expression for equivalent dynamic shift taking into account FIRRTL shift semantics.
+	std::string gen_dshl(const string b_expr, const int b_padded_width)
+	{
+		string result = b_expr;
+		if (b_padded_width >= FIRRTL_MAX_DSH_WIDTH_ERROR) {
+			int max_shift_width_bits = FIRRTL_MAX_DSH_WIDTH_ERROR - 1;
+			string max_shift_string = stringf("UInt<%d>(%d)", max_shift_width_bits, (1<<max_shift_width_bits) - 1);
+			// Deal with the difference in semantics between FIRRTL and verilog
+			result = stringf("mux(gt(%s, %s), %s, bits(%s, %d, 0))", b_expr.c_str(), max_shift_string.c_str(), max_shift_string.c_str(), b_expr.c_str(), max_shift_width_bits - 1);
+		}
+		return result;
 	}
 
 	void run()
@@ -225,6 +270,12 @@ struct FirrtlWorker
 		for (auto wire : module->wires())
 		{
 			const auto wireName = make_id(wire->name);
+			// If a wire has initial data, issue a warning since FIRRTL doesn't currently support it.
+			if (wire->attributes.count("\\init")) {
+				log_warning("Initial value (%s) for (%s.%s) not supported\n",
+							wire->attributes.at("\\init").as_string().c_str(),
+							log_id(module), log_id(wire));
+			}
 			if (wire->port_id)
 			{
 				if (wire->port_input && wire->port_output)
@@ -240,7 +291,8 @@ struct FirrtlWorker
 
 		for (auto cell : module->cells())
 		{
-		  // Is this cell is a module instance?
+			bool extract_y_bits = false;		// Assume no extraction of final bits will be required.
+		    // Is this cell is a module instance?
 			if (cell->type[0] != '$')
 			{
 				process_instance(cell, wire_exprs);
@@ -264,21 +316,21 @@ struct FirrtlWorker
 				}
 
 				string primop;
-                                bool always_uint = false;
+				bool always_uint = false;
 				if (cell->type == "$not") primop = "not";
-				if (cell->type == "$neg") primop = "neg";
-				if (cell->type == "$logic_not") {
+				else if (cell->type == "$neg") primop = "neg";
+				else if (cell->type == "$logic_not") {
                                         primop = "eq";
                                         a_expr = stringf("%s, UInt(0)", a_expr.c_str());
                                 }
-				if (cell->type == "$reduce_and") primop = "andr";
-				if (cell->type == "$reduce_or") primop = "orr";
-				if (cell->type == "$reduce_xor") primop = "xorr";
-				if (cell->type == "$reduce_xnor") {
+				else if (cell->type == "$reduce_and") primop = "andr";
+				else if (cell->type == "$reduce_or") primop = "orr";
+				else if (cell->type == "$reduce_xor") primop = "xorr";
+				else if (cell->type == "$reduce_xnor") {
                                         primop = "not";
                                         a_expr = stringf("xorr(%s)", a_expr.c_str());
                                 }
-				if (cell->type == "$reduce_bool") {
+				else if (cell->type == "$reduce_bool") {
 					primop = "neq";
 					// Use the sign of the a_expr and its width as the type (UInt/SInt) and width of the comparand.
 					bool a_signed = cell->parameters.at("\\A_SIGNED").as_bool();
@@ -297,14 +349,15 @@ struct FirrtlWorker
 				continue;
 			}
 			if (cell->type.in("$add", "$sub", "$mul", "$div", "$mod", "$xor", "$and", "$or", "$eq", "$eqx",
-                                        "$gt", "$ge", "$lt", "$le", "$ne", "$nex", "$shr", "$sshr", "$sshl", "$shl",
-                                        "$logic_and", "$logic_or"))
+							  "$gt", "$ge", "$lt", "$le", "$ne", "$nex", "$shr", "$sshr", "$sshl", "$shl",
+							  "$logic_and", "$logic_or"))
 			{
 				string y_id = make_id(cell->name);
 				bool is_signed = cell->parameters.at("\\A_SIGNED").as_bool();
 				int y_width =  cell->parameters.at("\\Y_WIDTH").as_int();
 				string a_expr = make_expr(cell->getPort("\\A"));
 				string b_expr = make_expr(cell->getPort("\\B"));
+				int b_padded_width = cell->parameters.at("\\B_WIDTH").as_int();
 				wire_decls.push_back(stringf("    wire %s: UInt<%d>\n", y_id.c_str(), y_width));
 
 				if (cell->parameters.at("\\A_SIGNED").as_bool()) {
@@ -315,67 +368,93 @@ struct FirrtlWorker
 					if (cell->parameters.at("\\B_SIGNED").as_bool()) {
 						b_expr = "asSInt(" + b_expr + ")";
 					}
-					b_expr = stringf("pad(%s, %d)", b_expr.c_str(), y_width);
+					if (b_padded_width < y_width) {
+						auto b_sig = cell->getPort("\\B");
+						b_padded_width = y_width;
+					}
 				}
 
-				a_expr = stringf("pad(%s, %d)", a_expr.c_str(), y_width);
+				auto a_sig = cell->getPort("\\A");
 
 				if (cell->parameters.at("\\A_SIGNED").as_bool()  & (cell->type == "$shr")) {
 					a_expr = "asUInt(" + a_expr + ")";
 				}
 
 				string primop;
-                                bool always_uint = false;
+				bool always_uint = false;
 				if (cell->type == "$add") primop = "add";
-				if (cell->type == "$sub") primop = "sub";
-				if (cell->type == "$mul") primop = "mul";
-				if (cell->type == "$div") primop = "div";
-				if (cell->type == "$mod") primop = "rem";
-				if (cell->type == "$and") {
+				else if (cell->type == "$sub") primop = "sub";
+				else if (cell->type == "$mul") primop = "mul";
+				else if (cell->type == "$div") primop = "div";
+				else if (cell->type == "$mod") primop = "rem";
+				else if (cell->type == "$and") {
                                         primop = "and";
                                         always_uint = true;
                                 }
-				if (cell->type == "$or" ) {
+				else if (cell->type == "$or" ) {
                                         primop =  "or";
                                         always_uint = true;
                                 }
-				if (cell->type == "$xor") {
+				else if (cell->type == "$xor") {
                                         primop = "xor";
                                         always_uint = true;
                                 }
-				if ((cell->type == "$eq") | (cell->type == "$eqx")) {
+				else if ((cell->type == "$eq") | (cell->type == "$eqx")) {
                                         primop = "eq";
                                         always_uint = true;
                                 }
-				if ((cell->type == "$ne") | (cell->type == "$nex")) {
+				else if ((cell->type == "$ne") | (cell->type == "$nex")) {
                                         primop = "neq";
                                         always_uint = true;
                                 }
-				if (cell->type == "$gt") {
+				else if (cell->type == "$gt") {
                                         primop = "gt";
                                         always_uint = true;
                                 }
-				if (cell->type == "$ge") {
+				else if (cell->type == "$ge") {
                                         primop = "geq";
                                         always_uint = true;
                                 }
-				if (cell->type == "$lt") {
+				else if (cell->type == "$lt") {
                                         primop = "lt";
                                         always_uint = true;
                                 }
-				if (cell->type == "$le") {
+				else if (cell->type == "$le") {
                                         primop = "leq";
                                         always_uint = true;
                                 }
-				if ((cell->type == "$shl") | (cell->type == "$sshl")) primop = "dshl";
-				if ((cell->type == "$shr") | (cell->type == "$sshr")) primop = "dshr";
-				if ((cell->type == "$logic_and")) {
+				else if ((cell->type == "$shl") | (cell->type == "$sshl")) {
+					// FIRRTL will widen the result (y) by the amount of the shift.
+					// We'll need to offset this by extracting the un-widened portion as Verilog would do.
+					extract_y_bits = true;
+					// Is the shift amount constant?
+					auto b_sig = cell->getPort("\\B");
+					if (b_sig.is_fully_const()) {
+						primop = "shl";
+					} else {
+						primop = "dshl";
+						// Convert from FIRRTL left shift semantics.
+						b_expr = gen_dshl(b_expr, b_padded_width);
+					}
+				}
+				else if ((cell->type == "$shr") | (cell->type == "$sshr")) {
+					// We don't need to extract a specific range of bits.
+					extract_y_bits = false;
+					// Is the shift amount constant?
+					auto b_sig = cell->getPort("\\B");
+					if (b_sig.is_fully_const()) {
+						primop = "shr";
+					} else {
+						primop = "dshr";
+					}
+				}
+				else if ((cell->type == "$logic_and")) {
                                         primop = "and";
                                         a_expr = "neq(" + a_expr + ", UInt(0))";
                                         b_expr = "neq(" + b_expr + ", UInt(0))";
                                         always_uint = true;
                                 }
-				if ((cell->type == "$logic_or")) {
+				else if ((cell->type == "$logic_or")) {
                                         primop = "or";
                                         a_expr = "neq(" + a_expr + ", UInt(0))";
                                         b_expr = "neq(" + b_expr + ", UInt(0))";
@@ -387,6 +466,11 @@ struct FirrtlWorker
 				}
 
 				string expr = stringf("%s(%s, %s)", primop.c_str(), a_expr.c_str(), b_expr.c_str());
+
+				// Deal with FIRRTL's "shift widens" semantics
+				if (extract_y_bits) {
+					expr = stringf("bits(%s, %d, 0)", expr.c_str(), y_width - 1);
+				}
 
 				if ((is_signed && !always_uint) || cell->type.in("$sub"))
 					expr = stringf("asUInt(%s)", expr.c_str());
@@ -513,7 +597,65 @@ struct FirrtlWorker
 				continue;
 			}
 
-			log_error("Cell type not supported: %s (%s.%s)\n", log_id(cell->type), log_id(module), log_id(cell));
+			// This may be a parameterized module - paramod.
+			if (cell->type.substr(0, 8) == "$paramod")
+			{
+				process_instance(cell, wire_exprs);
+				continue;
+			}
+			if (cell->type == "$shiftx") {
+				// assign y = a[b +: y_width];
+				// We'll extract the correct bits as part of the primop.
+
+				string y_id = make_id(cell->name);
+				int y_width =  cell->parameters.at("\\Y_WIDTH").as_int();
+				string a_expr = make_expr(cell->getPort("\\A"));
+				// Get the initial bit selector
+				string b_expr = make_expr(cell->getPort("\\B"));
+				wire_decls.push_back(stringf("    wire %s: UInt<%d>\n", y_id.c_str(), y_width));
+
+				if (cell->getParam("\\B_SIGNED").as_bool()) {
+					// Use validif to constrain the selection (test the sign bit)
+					auto b_string = b_expr.c_str();
+					int b_sign = cell->parameters.at("\\B_WIDTH").as_int() - 1;
+					b_expr = stringf("validif(not(bits(%s, %d, %d)), %s)", b_string, b_sign, b_sign, b_string);
+				}
+				string expr = stringf("dshr(%s, %s)", a_expr.c_str(), b_expr.c_str());
+
+				cell_exprs.push_back(stringf("    %s <= %s\n", y_id.c_str(), expr.c_str()));
+				register_reverse_wire_map(y_id, cell->getPort("\\Y"));
+				continue;
+			}
+			if (cell->type == "$shift") {
+				// assign y = a >> b;
+				//  where b may be negative
+
+				string y_id = make_id(cell->name);
+				int y_width =  cell->parameters.at("\\Y_WIDTH").as_int();
+				string a_expr = make_expr(cell->getPort("\\A"));
+				string b_expr = make_expr(cell->getPort("\\B"));
+				auto b_string = b_expr.c_str();
+				int b_padded_width = cell->parameters.at("\\B_WIDTH").as_int();
+				string expr;
+				wire_decls.push_back(stringf("    wire %s: UInt<%d>\n", y_id.c_str(), y_width));
+
+				if (cell->getParam("\\B_SIGNED").as_bool()) {
+					// We generate a left or right shift based on the sign of b.
+					std::string dshl = stringf("bits(dshl(%s, %s), 0, %d)", a_expr.c_str(), gen_dshl(b_expr, b_padded_width).c_str(), y_width);
+					std::string dshr = stringf("dshr(%s, %s)", a_expr.c_str(), b_string);
+					expr = stringf("mux(%s < 0, %s, %s)",
+									 b_string,
+									 dshl.c_str(),
+									 dshr.c_str()
+									 );
+				} else {
+					expr = stringf("dshr(%s, %s)", a_expr.c_str(), b_string);
+				}
+				cell_exprs.push_back(stringf("    %s <= %s\n", y_id.c_str(), expr.c_str()));
+				register_reverse_wire_map(y_id, cell->getPort("\\Y"));
+				continue;
+			}
+			log_warning("Cell type not supported: %s (%s.%s)\n", log_id(cell->type), log_id(module), log_id(cell));
 		}
 
 		for (auto conn : module->connections())
@@ -629,37 +771,52 @@ struct FirrtlBackend : public Backend {
 		log("    write_firrtl [options] [filename]\n");
 		log("\n");
 		log("Write a FIRRTL netlist of the current design.\n");
+		log("The following commands are executed by this command:\n");
+		log("        pmuxtree\n");
 		log("\n");
 	}
 	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
-		size_t argidx;
-		for (argidx = 1; argidx < args.size(); argidx++)
-		{
-			// if (args[argidx] == "-aig") {
-			// 	aig_mode = true;
-			// 	continue;
-			// }
-			break;
+		size_t argidx = args.size();	// We aren't expecting any arguments.
+
+		// If we weren't explicitly passed a filename, use the last argument (if it isn't a flag).
+		if (filename == "") {
+			if (argidx > 0 && args[argidx - 1][0] != '-') {
+				// extra_args and friends need to see this argument.
+				argidx -= 1;
+				filename = args[argidx];
+			}
 		}
 		extra_args(f, filename, args, argidx);
 
+		if (!design->full_selection())
+			log_cmd_error("This command only operates on fully selected designs!\n");
+
 		log_header(design, "Executing FIRRTL backend.\n");
+		log_push();
 
-		Module *top = design->top_module();
-
-		if (top == nullptr)
-			log_error("No top module found!\n");
+		Pass::call(design, stringf("pmuxtree"));
 
 		namecache.clear();
 		autoid_counter = 0;
 
+		// Get the top module, or a reasonable facsimile - we need something for the circuit name.
+		Module *top = design->top_module();
+		Module *last = nullptr;
+		// Generate module and wire names.
 		for (auto module : design->modules()) {
 			make_id(module->name);
+			last = module;
+			if (top == nullptr && module->get_bool_attribute("\\top")) {
+				top = module;
+			}
 			for (auto wire : module->wires())
 				if (wire->port_id)
 					make_id(wire->name);
 		}
+
+		if (top == nullptr)
+			top = last;
 
 		*f << stringf("circuit %s:\n", make_id(top->name));
 
