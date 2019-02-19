@@ -174,6 +174,24 @@ parameter ER2 = "ENABLED";
 endmodule
 
 (* blackbox *)
+module DELAYF(
+	input A, LOADN, MOVE, DIRECTION,
+	output Z, CFLAG
+);
+	parameter DEL_MODE = "USER_DEFINED";
+	parameter DEL_VALUE = 0;
+endmodule
+
+(* blackbox *)
+module DELAYG(
+	input A,
+	output Z
+);
+	parameter DEL_MODE = "USER_DEFINED";
+	parameter DEL_VALUE = 0;
+endmodule
+
+(* blackbox *)
 module IDDRX1F(
 	input D, SCLK, RST,
 	output Q0, Q1
