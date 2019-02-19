@@ -322,7 +322,7 @@ void AigerReader::parse_xaiger()
                     RTLIL::Cell *output_cell = module->cell(stringf("\\n%d_and", rootNodeID));
                     log_assert(output_cell);
                     module->remove(output_cell);
-					module->addLut(NEW_ID, input_sig, output_sig, std::move(lut_mask));
+					module->addLut(stringf("\\n%d_lut", rootNodeID), input_sig, output_sig, std::move(lut_mask));
                 }
             }
             else if (c == 'n') {
@@ -346,6 +346,10 @@ void AigerReader::parse_xaiger()
             else log_abort();
 
             module->rename(wire, stringf("\\%s", s.c_str()));
+
+            RTLIL::Cell* driver = module->cell(stringf("%s_lut", wire->name.c_str()));
+            module->rename(driver, stringf("%s_lut", wire->name.c_str()));
+
             std::getline(f, line); // Ignore up to start of next line
             ++line_count;
         }
@@ -384,6 +388,8 @@ void AigerReader::parse_xaiger()
                     continue;
                 log_assert(wire->port_output);
 
+                RTLIL::Cell* driver = module->cell(stringf("%s_lut", wire->name.c_str()));
+
                 if (index == 0)
                     module->rename(wire, RTLIL::escape_id(symbol));
                 else if (index > 0) {
@@ -391,6 +397,9 @@ void AigerReader::parse_xaiger()
                     if (wideports)
                         wideports_cache[escaped_symbol] = std::max(wideports_cache[escaped_symbol], index);
                 }
+
+                if (driver)
+                    module->rename(driver, stringf("%s_lut", wire->name.c_str()));
             }
             else
                 log_error("Symbol type '%s' not recognised.\n", type.c_str());
@@ -440,7 +449,7 @@ void AigerReader::parse_xaiger()
     module->fixup_ports();
     design->add(module);
 
-    Pass::call(design, "clean");
+    Pass::call(design, "clean -purge");
 }
 
 void AigerReader::parse_aiger_ascii()
