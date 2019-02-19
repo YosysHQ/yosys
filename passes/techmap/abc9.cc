@@ -579,11 +579,46 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 					module->connect(conn);
 					continue;
 				}
-				if (c->type == "\\NOT") {
-					RTLIL::Cell *cell = module->addCell(remap_name(c->name), "$_NOT_");
+				if (c->type == "$_NOT_") {
+					RTLIL::Cell *cell;
+					RTLIL::SigBit a_bit = c->getPort("\\A").as_bit();
+					RTLIL::SigBit y_bit = c->getPort("\\Y").as_bit();
+					if (!lut_costs.empty()) {
+						// ABC can return NOT gates that drive POs
+						if (a_bit.wire->port_input) {
+							// If it's a NOT gate that comes from a primary input directly
+							// then implement it using a LUT
+							cell = module->addLut(remap_name(stringf("%s_lut", c->name.c_str())),
+									RTLIL::SigBit(module->wires_[remap_name(a_bit.wire->name)], a_bit.offset),
+									RTLIL::SigBit(module->wires_[remap_name(y_bit.wire->name)], y_bit.offset),
+									1);
+						}
+						else {
+							// Otherwise, clone the driving LUT to guarantee that we
+							// won't increase the max logic depth
+							// (TODO: Optimise by not cloning unless will increase depth)
+							RTLIL::Cell* driver = mapped_mod->cell(stringf("%s_lut", a_bit.wire->name.c_str()));
+							log_assert(driver);
+							auto driver_a = driver->getPort("\\A").chunks();
+							for (auto &chunk : driver_a)
+								chunk.wire = module->wires_[remap_name(chunk.wire->name)];
+							RTLIL::Const driver_lut = driver->getParam("\\LUT");
+							for (auto &b : driver_lut.bits) {
+								if (b == RTLIL::State::S0) b = RTLIL::State::S1;
+								else if (b == RTLIL::State::S1) b = RTLIL::State::S0;
+							}
+							cell = module->addLut(remap_name(stringf("%s_lut", c->name.c_str())),
+									driver_a,
+									RTLIL::SigBit(module->wires_[remap_name(y_bit.wire->name)], y_bit.offset),
+									driver_lut);
+						}
+					}
+					else {
+						cell = module->addCell(remap_name(c->name), "$_NOT_");
+						cell->setPort("\\A", RTLIL::SigBit(module->wires_[remap_name(a_bit.wire->name)], a_bit.offset));
+						cell->setPort("\\Y", RTLIL::SigBit(module->wires_[remap_name(y_bit.wire->name)], y_bit.offset));
+					}
 					if (markgroups) cell->attributes["\\abcgroup"] = map_autoidx;
-					cell->setPort("\\A", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\A").as_wire()->name)]));
-					cell->setPort("\\Y", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\Y").as_wire()->name)]));
 					design->select(module, cell);
 					continue;
 				}
