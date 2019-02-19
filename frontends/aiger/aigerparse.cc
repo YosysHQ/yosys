@@ -527,12 +527,19 @@ void AigerReader::parse_aiger_ascii()
         }
         else {
             log_debug("%d is an output\n", l1);
-            wire = createWireIfNotExists(module, l1);
-        }
-        if (wire->port_input) {
-            RTLIL::Wire *new_wire = module->addWire(NEW_ID);
-            module->connect(new_wire, wire);
-            wire = new_wire;
+            const unsigned variable = l1 >> 1;
+            const bool invert = l1 & 1;
+            RTLIL::IdString wire_name(stringf("\\n%d%s", variable, invert ? "_inv" : "")); // FIXME: is "_inv" the right suffix?
+            wire = module->wire(wire_name);
+            if (!wire)
+                wire = createWireIfNotExists(module, l1);
+            else {
+                if ((wire->port_input || wire->port_output)) {
+                    RTLIL::Wire *new_wire = module->addWire(stringf("\\o%zu", outputs.size()));
+                    module->connect(new_wire, wire);
+                    wire = new_wire;
+                }
+            }
         }
         wire->port_output = true;
         outputs.push_back(wire);
