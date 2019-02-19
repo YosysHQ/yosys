@@ -1310,6 +1310,15 @@ void dump_cell(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		}
 	}
 
+	if (reg_ct.count(cell->type) && cell->hasPort("\\Q")) {
+		std::stringstream ss;
+		dump_reg_init(ss, cell->getPort("\\Q"));
+		if (!ss.str().empty()) {
+			f << stringf("%sinitial %s.Q", indent.c_str(), cell_name.c_str());
+			f << ss.str();
+			f << ";\n";
+		}
+	}
 }
 
 void dump_conn(std::ostream &f, std::string indent, const RTLIL::SigSpec &left, const RTLIL::SigSpec &right)
