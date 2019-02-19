@@ -32,7 +32,7 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-#define log_debug log
+//#define log_debug log
 #define log_debug(...) ;
 
 AigerReader::AigerReader(RTLIL::Design *design, std::istream &f, RTLIL::IdString module_name, RTLIL::IdString clk_name, std::string map_filename, bool wideports)
@@ -209,6 +209,7 @@ static uint32_t parse_xaiger_literal(std::istream &f)
     f.read(reinterpret_cast<char*>(&l), sizeof(l));
     if (f.gcount() != sizeof(l))
         log_error("Offset %ld: unable to read literal!\n", static_cast<int64_t>(f.tellg()));
+    // TODO: Don't assume we're on little endian
 #ifdef _WIN32
     return _byteswap_ulong(l);
 #else
