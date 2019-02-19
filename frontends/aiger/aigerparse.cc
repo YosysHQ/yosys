@@ -22,13 +22,13 @@
 // Armin Biere. The AIGER And-Inverter Graph (AIG) Format Version 20071012. Technical Report 07/1, October 2011, FMV Reports Series, Institute for Formal Models and Verification, Johannes Kepler University, Altenbergerstr. 69, 4040 Linz, Austria.
 // http://fmv.jku.at/papers/Biere-FMV-TR-07-1.pdf
 
+#ifdef _WIN32
+#include <stdlib.h>
+#endif
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 #include "kernel/consteval.h"
 #include "aigerparse.h"
-
-#include <boost/endian/buffers.hpp>
-#include <boost/lexical_cast.hpp>
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -205,11 +205,15 @@ void AigerReader::parse_aiger()
 
 static uint32_t parse_xaiger_literal(std::istream &f)
 {
-    boost::endian::big_uint32_buf_t l;
+    uint32_t l;
     f.read(reinterpret_cast<char*>(&l), sizeof(l));
     if (f.gcount() != sizeof(l))
-        log_error("Offset %ld: unable to read literal!\n", boost::lexical_cast<int64_t>(f.tellg()));
-    return l.value();
+        log_error("Offset %ld: unable to read literal!\n", static_cast<int64_t>(f.tellg()));
+#ifdef _WIN32
+    return _byteswap_ulong(l);
+#else
+    return __builtin_bswap32(l);
+#endif
 }
 
 static RTLIL::Wire* createWireIfNotExists(RTLIL::Module *module, unsigned literal)
@@ -690,13 +694,7 @@ struct AigerFrontend : public Frontend {
         log("Load module from an AIGER file into the current design.\n");
         log("\n");
         log("    -module_name <module_name>\n");
-        log("        Name of module to be created (default: <filename>)"
-#ifdef _WIN32
-		                                                   "top" // FIXME
-#else
-		                                                   "<filename>"
-#endif
-                                                           ")\n");
+        log("        Name of module to be created (default: <filename>)\n");
         log("\n");
         log("    -clk_name <wire_name>\n");
         log("        AIGER latches to be transformed into posedge DFFs clocked by wire of");
@@ -744,7 +742,9 @@ struct AigerFrontend : public Frontend {
 
         if (module_name.empty()) {
 #ifdef _WIN32
-            module_name = "top"; // FIXME: basename equivalent on Win32?
+            char fname[_MAX_FNAME];
+            _splitpath(filename.c_str(), NULL /* drive */, NULL /* dir */, fname, NULL /* ext */)
+            module_name = fname;
 #else
             module_name = RTLIL::escape_id(basename(filename.c_str()));
 #endif
