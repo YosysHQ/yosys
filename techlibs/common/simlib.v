@@ -1464,11 +1464,10 @@ module \$dff (CLK, D, Q);
 
 parameter WIDTH = 0;
 parameter CLK_POLARITY = 1'b1;
-parameter INIT = {WIDTH{1'bx}};
 
 input CLK;
 input [WIDTH-1:0] D;
-output reg [WIDTH-1:0] Q = INIT;
+output reg [WIDTH-1:0] Q;
 wire pos_clk = CLK == CLK_POLARITY;
 
 always @(posedge pos_clk) begin
@@ -1484,11 +1483,10 @@ module \$dffe (CLK, EN, D, Q);
 parameter WIDTH = 0;
 parameter CLK_POLARITY = 1'b1;
 parameter EN_POLARITY = 1'b1;
-parameter INIT = {WIDTH{1'bx}};
 
 input CLK, EN;
 input [WIDTH-1:0] D;
-output reg [WIDTH-1:0] Q = INIT;
+output reg [WIDTH-1:0] Q;
 wire pos_clk = CLK == CLK_POLARITY;
 
 always @(posedge pos_clk) begin
@@ -1506,11 +1504,10 @@ parameter WIDTH = 0;
 parameter CLK_POLARITY = 1'b1;
 parameter SET_POLARITY = 1'b1;
 parameter CLR_POLARITY = 1'b1;
-parameter INIT = {WIDTH{1'bx}};
 
 input CLK;
 input [WIDTH-1:0] SET, CLR, D;
-output reg [WIDTH-1:0] Q = INIT;
+output reg [WIDTH-1:0] Q;
 
 wire pos_clk = CLK == CLK_POLARITY;
 wire [WIDTH-1:0] pos_set = SET_POLARITY ? SET : ~SET;
@@ -1540,11 +1537,10 @@ parameter WIDTH = 0;
 parameter CLK_POLARITY = 1'b1;
 parameter ARST_POLARITY = 1'b1;
 parameter ARST_VALUE = 0;
-parameter INIT = {WIDTH{1'bx}};
 
 input CLK, ARST;
 input [WIDTH-1:0] D;
-output reg [WIDTH-1:0] Q = INIT;
+output reg [WIDTH-1:0] Q;
 wire pos_clk = CLK == CLK_POLARITY;
 wire pos_arst = ARST == ARST_POLARITY;
 
@@ -1563,11 +1559,10 @@ module \$dlatch (EN, D, Q);
 
 parameter WIDTH = 0;
 parameter EN_POLARITY = 1'b1;
-parameter INIT = {WIDTH{1'bx}};
 
 input EN;
 input [WIDTH-1:0] D;
-output reg [WIDTH-1:0] Q = INIT;
+output reg [WIDTH-1:0] Q;
 
 always @* begin
 	if (EN == EN_POLARITY)
@@ -1585,11 +1580,10 @@ parameter WIDTH = 0;
 parameter EN_POLARITY = 1'b1;
 parameter SET_POLARITY = 1'b1;
 parameter CLR_POLARITY = 1'b1;
-parameter INIT = {WIDTH{1'bx}};
 
 input EN;
 input [WIDTH-1:0] SET, CLR, D;
-output reg [WIDTH-1:0] Q = INIT;
+output reg [WIDTH-1:0] Q;
 
 wire pos_en = EN == EN_POLARITY;
 wire [WIDTH-1:0] pos_set = SET_POLARITY ? SET : ~SET;

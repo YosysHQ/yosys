@@ -293,7 +293,7 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 	}
 }
 
-void dump_reg_init(std::ostream &f, SigSpec sig, bool write_equals = true)
+void dump_reg_init(std::ostream &f, SigSpec sig)
 {
 	Const initval;
 	bool gotinit = false;
@@ -308,7 +308,7 @@ void dump_reg_init(std::ostream &f, SigSpec sig, bool write_equals = true)
 	}
 
 	if (gotinit) {
-		if (write_equals) f << " = ";
+		f << " = ";
 		dump_const(f, initval);
 	}
 }
@@ -1065,43 +1065,46 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 			use_rd_clk = cell->parameters["\\RD_CLK_ENABLE"].extract(i).as_bool();
 			rd_clk_posedge = cell->parameters["\\RD_CLK_POLARITY"].extract(i).as_bool();
 			rd_transparent = cell->parameters["\\RD_TRANSPARENT"].extract(i).as_bool();
+			if (use_rd_clk)
 			{
-				std::ostringstream os;
-				dump_sigspec(os, sig_rd_clk);
-				clk_domain_str = stringf("%sedge %s", rd_clk_posedge ? "pos" : "neg", os.str().c_str());
-				if( clk_to_lof_body.count(clk_domain_str) == 0 )
-					clk_to_lof_body[clk_domain_str] = std::vector<std::string>();
-			}
-			if (use_rd_clk && !rd_transparent)
-			{
-				// for clocked read ports make something like:
-				//   reg [..] temp_id;
-				//   always @(posedge clk)
-				//      if (rd_en) temp_id <= array_reg[r_addr];
-				//   assign r_data = temp_id;
-				std::string temp_id = next_auto_id();
-				lof_reg_declarations.push_back( stringf("reg [%d:0] %s;\n", sig_rd_data.size() - 1, temp_id.c_str()) );
 				{
 					std::ostringstream os;
-					if (sig_rd_en != RTLIL::SigBit(true))
+					dump_sigspec(os, sig_rd_clk);
+					clk_domain_str = stringf("%sedge %s", rd_clk_posedge ? "pos" : "neg", os.str().c_str());
+					if( clk_to_lof_body.count(clk_domain_str) == 0 )
+						clk_to_lof_body[clk_domain_str] = std::vector<std::string>();
+				}
+				if (!rd_transparent)
+				{
+					// for clocked read ports make something like:
+					//   reg [..] temp_id;
+					//   always @(posedge clk)
+					//      if (rd_en) temp_id <= array_reg[r_addr];
+					//   assign r_data = temp_id;
+					std::string temp_id = next_auto_id();
+					lof_reg_declarations.push_back( stringf("reg [%d:0] %s;\n", sig_rd_data.size() - 1, temp_id.c_str()) );
 					{
-						os << stringf("if (");
-						dump_sigspec(os, sig_rd_en);
-						os << stringf(") ");
+						std::ostringstream os;
+						if (sig_rd_en != RTLIL::SigBit(true))
+						{
+							os << stringf("if (");
+							dump_sigspec(os, sig_rd_en);
+							os << stringf(") ");
+						}
+						os << stringf("%s <= %s[", temp_id.c_str(), mem_id.c_str());
+						dump_sigspec(os, sig_rd_addr);
+						os << stringf("];\n");
+						clk_to_lof_body[clk_domain_str].push_back(os.str());
 					}
-					os << stringf("%s <= %s[", temp_id.c_str(), mem_id.c_str());
-					dump_sigspec(os, sig_rd_addr);
-					os << stringf("];\n");
-					clk_to_lof_body[clk_domain_str].push_back(os.str());
+					{
+						std::ostringstream os;
+						dump_sigspec(os, sig_rd_data);
+						std::string line = stringf("assign %s = %s;\n", os.str().c_str(), temp_id.c_str());
+						clk_to_lof_body[""].push_back(line);
+					}
 				}
+				else
 				{
-					std::ostringstream os;
-					dump_sigspec(os, sig_rd_data);
-					std::string line = stringf("assign %s = %s;\n", os.str().c_str(), temp_id.c_str());
-					clk_to_lof_body[""].push_back(line);
-				}
-			} else {
-				if (rd_transparent) {
 					// for rd-transparent read-ports make something like:
 					//   reg [..] temp_id;
 					//   always @(posedge clk)
@@ -1121,15 +1124,15 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 						std::string line = stringf("assign %s = %s[%s];\n", os.str().c_str(), mem_id.c_str(), temp_id.c_str());
 						clk_to_lof_body[""].push_back(line);
 					}
-				} else {
-					// for non-clocked read-ports make something like:
-					//   assign r_data = array_reg[r_addr];
-					std::ostringstream os, os2;
-					dump_sigspec(os, sig_rd_data);
-					dump_sigspec(os2, sig_rd_addr);
-					std::string line = stringf("assign %s = %s[%s];\n", os.str().c_str(), mem_id.c_str(), os2.str().c_str());
-					clk_to_lof_body[""].push_back(line);
 				}
+			} else {
+				// for non-clocked read-ports make something like:
+				//   assign r_data = array_reg[r_addr];
+				std::ostringstream os, os2;
+				dump_sigspec(os, sig_rd_data);
+				dump_sigspec(os2, sig_rd_addr);
+				std::string line = stringf("assign %s = %s[%s];\n", os.str().c_str(), mem_id.c_str(), os2.str().c_str());
+				clk_to_lof_body[""].push_back(line);
 			}
 		}
 
@@ -1247,14 +1250,7 @@ void dump_cell(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 	dump_attributes(f, indent, cell->attributes);
 	f << stringf("%s" "%s", indent.c_str(), id(cell->type, false).c_str());
 
-	std::string init;
-	if (cell->name[0] == '$' && reg_ct.count(cell->type) && cell->hasPort("\\Q")) {
-		std::stringstream ss;
-		dump_reg_init(ss, cell->getPort("\\Q"), false /* write_equals */);
-		init = ss.str();
-	}
-
-	if (!defparam && (cell->parameters.size() > 0 || !init.empty())) {
+	if (!defparam && cell->parameters.size() > 0) {
 		f << stringf(" #(");
 		for (auto it = cell->parameters.begin(); it != cell->parameters.end(); ++it) {
 			if (it != cell->parameters.begin())
@@ -1263,11 +1259,6 @@ void dump_cell(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 			bool is_signed = (it->second.flags & RTLIL::CONST_FLAG_SIGNED) != 0;
 			dump_const(f, it->second, -1, 0, false, is_signed);
 			f << stringf(")");
-		}
-		if (!init.empty()) {
-			if (!cell->parameters.empty())
-				f << stringf(",");
-			f << stringf("\n%s  .INIT(%s)", indent.c_str(), init.c_str());
 		}
 		f << stringf("\n%s" ")", indent.c_str());
 	}
@@ -1310,17 +1301,24 @@ void dump_cell(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 	}
 	f << stringf("\n%s" ");\n", indent.c_str());
 
-	if (defparam && (cell->parameters.size() > 0 || !init.empty())) {
+	if (defparam && cell->parameters.size() > 0) {
 		for (auto it = cell->parameters.begin(); it != cell->parameters.end(); ++it) {
 			f << stringf("%sdefparam %s.%s = ", indent.c_str(), cell_name.c_str(), id(it->first).c_str());
 			bool is_signed = (it->second.flags & RTLIL::CONST_FLAG_SIGNED) != 0;
 			dump_const(f, it->second, -1, 0, false, is_signed);
 			f << stringf(";\n");
 		}
-		if (!init.empty())
-			f << stringf("%sdefparam %s.INIT = %s;\n", indent.c_str(), cell_name.c_str(), init.c_str());
 	}
 
+	if (reg_ct.count(cell->type) && cell->hasPort("\\Q")) {
+		std::stringstream ss;
+		dump_reg_init(ss, cell->getPort("\\Q"));
+		if (!ss.str().empty()) {
+			f << stringf("%sinitial %s.Q", indent.c_str(), cell_name.c_str());
+			f << ss.str();
+			f << ";\n";
+		}
+	}
 }
 
 void dump_conn(std::ostream &f, std::string indent, const RTLIL::SigSpec &left, const RTLIL::SigSpec &right)
