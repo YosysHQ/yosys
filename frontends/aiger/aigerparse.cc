@@ -22,7 +22,7 @@
 // Armin Biere. The AIGER And-Inverter Graph (AIG) Format Version 20071012. Technical Report 07/1, October 2011, FMV Reports Series, Institute for Formal Models and Verification, Johannes Kepler University, Altenbergerstr. 69, 4040 Linz, Austria.
 // http://fmv.jku.at/papers/Biere-FMV-TR-07-1.pdf
 
-#ifdef __linux__
+#ifndef _WIN32
 #include <libgen.h>
 #endif
 #include <array>
@@ -400,7 +400,9 @@ struct AigerFrontend : public Frontend {
 #ifdef _WIN32
             module_name = "top"; // FIXME: basename equivalent on Win32?
 #else
-            module_name = RTLIL::escape_id(basename(filename.c_str()));
+            char* bn = strdup(filename.c_str());
+            module_name = RTLIL::escape_id(bn);
+            free(bn);
 #endif
         }
 
