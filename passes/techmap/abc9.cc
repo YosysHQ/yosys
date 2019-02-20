@@ -91,14 +91,12 @@ std::string remap_name(RTLIL::IdString abc_name)
 	return sstr.str();
 }
 
-void handle_loops(RTLIL::Design *design, RTLIL::Module *module)
+void handle_loops(RTLIL::Design *design)
 {
-	design->selection_stack.emplace_back(false);
-	RTLIL::Selection& sel = design->selection_stack.back();
-	sel.select(module);
 	Pass::call(design, "scc -set_attr abc_scc_id {}");
 
-	sel = RTLIL::Selection(false);
+	design->selection_stack.emplace_back(false);
+	RTLIL::Selection& sel = design->selection_stack.back();
 
 	// For every unique SCC found, (arbitrarily) find the first
 	// cell in the component, and select (and mark) all its output
@@ -407,11 +405,17 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		}
 	}
 
+	design->selection_stack.emplace_back(false);
+	RTLIL::Selection& sel = design->selection_stack.back();
+	sel.select(module);
+
 	Pass::call(design, "aigmap; clean;");
 
-	handle_loops(design, module);
+	handle_loops(design);
 
     Pass::call(design, stringf("write_xaiger -O -map %s/input.symbols %s/input.xaig; ", tempdir_name.c_str(), tempdir_name.c_str()));
+
+	design->selection_stack.pop_back();
 
 	// Now 'unexpose' those wires by undoing
 	// the expose operation -- remove them from PO/PI
@@ -435,7 +439,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 
 	//if (count_output > 0)
 	{
-		log_header(design, "Executing ABC.\n");
+		log_header(design, "Executing ABC9.\n");
 
 		std::string buffer = stringf("%s/stdcells.genlib", tempdir_name.c_str());
 		f = fopen(buffer.c_str(), "wt");
