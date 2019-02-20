@@ -232,17 +232,22 @@ struct XAigerWriter
 			co_bits.erase(bit);
 			output_bits.erase(bit);
 		}
-		// Erase all CIs that are also COs or POs
-		for (auto bit : co_bits)
+		// Erase all POs and CIs that are also PIs
+		for (auto bit : input_bits) {
+			output_bits.erase(bit);
 			ci_bits.erase(bit);
-		for (auto bit : output_bits)
+		}
+		for (auto bit : output_bits) {
+			ci_bits.erase(bit);
+			// POs override COs
+			co_bits.erase(bit);
+		}
+		// Erase all CIs that are also COs
+		for (auto bit : co_bits)
 			ci_bits.erase(bit);
 		// CIs cannot be undriven
 		for (auto bit : ci_bits)
 			undriven_bits.erase(bit);
-		// POs override COs
-		for (auto bit : output_bits)
-			co_bits.erase(bit);
 
 		for (auto bit : unused_bits)
 			undriven_bits.erase(bit);
@@ -525,7 +530,7 @@ struct XAigerWriter
 			for (int i = 0; i < GetSize(wire); i++)
 			{
 				RTLIL::SigBit b(wire, i);
-				if (wire->port_input || ci_bits.count(b)) {
+				if (input_bits.count(b) || ci_bits.count(b)) {
 					int a = aig_map.at(sig[i]);
 					log_assert((a & 1) == 0);
 					input_lines[a] += stringf("input %d %d %s\n", (a >> 1)-1, i, log_id(wire));
@@ -567,6 +572,7 @@ struct XAigerWriter
 		input_lines.sort();
 		for (auto &it : input_lines)
 			f << it.second;
+		log_assert(input_lines.size() == input_bits.size() + ci_bits.size());
 
 		init_lines.sort();
 		for (auto &it : init_lines)
