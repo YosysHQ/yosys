@@ -8,11 +8,3 @@ for x in *_runtest.sh; do
 		exit 1
 	fi
 done
-
-for d in */; do
-    if [ -x $d/run-test.sh ]; then
-        cd $d
-        bash run-test.sh
-        cd ..
-    fi
-done
