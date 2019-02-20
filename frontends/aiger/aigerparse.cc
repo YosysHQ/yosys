@@ -221,14 +221,14 @@ static RTLIL::Wire* createWireIfNotExists(RTLIL::Module *module, unsigned litera
 {
     const unsigned variable = literal >> 1;
     const bool invert = literal & 1;
-    RTLIL::IdString wire_name(stringf("\\n%d%s", variable, invert ? "_inv" : "")); // FIXME: is "_inv" the right suffix?
+    RTLIL::IdString wire_name(stringf("\\__%d%s__", variable, invert ? "b" : "")); // FIXME: is "b" the right suffix?
     RTLIL::Wire *wire = module->wire(wire_name);
     if (wire) return wire;
     log_debug("Creating %s\n", wire_name.c_str());
     wire = module->addWire(wire_name);
     wire->port_input = wire->port_output = false;
     if (!invert) return wire;
-    RTLIL::IdString wire_inv_name(stringf("\\n%d", variable));
+    RTLIL::IdString wire_inv_name(stringf("\\__%d__", variable));
     RTLIL::Wire *wire_inv = module->wire(wire_inv_name);
     if (wire_inv) {
         if (module->cell(wire_inv_name)) return wire;
@@ -240,7 +240,7 @@ static RTLIL::Wire* createWireIfNotExists(RTLIL::Module *module, unsigned litera
     }
 
     log_debug("Creating %s = ~%s\n", wire_name.c_str(), wire_inv_name.c_str());
-    module->addNotGate(stringf("\\n%d_not", variable), wire_inv, wire); // FIXME: is "_not" the right suffix?
+    module->addNotGate(stringf("\\__%d__not", variable), wire_inv, wire); // FIXME: is "not" the right suffix?
 
     return wire;
 }
@@ -300,13 +300,13 @@ void AigerReader::parse_xaiger()
                     uint32_t rootNodeID = parse_xaiger_literal(f);
                     uint32_t cutLeavesM = parse_xaiger_literal(f);
                     log_debug("rootNodeID=%d cutLeavesM=%d\n", rootNodeID, cutLeavesM);
-                    RTLIL::Wire *output_sig = module->wire(stringf("\\n%d", rootNodeID));
+                    RTLIL::Wire *output_sig = module->wire(stringf("\\__%d__", rootNodeID));
                     uint32_t nodeID;
                     RTLIL::SigSpec input_sig;
                     for (unsigned j = 0; j < cutLeavesM; ++j) {
                         nodeID = parse_xaiger_literal(f);
                         log_debug("\t%u\n", nodeID);
-                        RTLIL::Wire *wire = module->wire(stringf("\\n%d", nodeID));
+                        RTLIL::Wire *wire = module->wire(stringf("\\__%d__", nodeID));
                         log_assert(wire);
                         input_sig.append(wire);
                     }
@@ -319,10 +319,10 @@ void AigerReader::parse_xaiger()
                         lut_mask[j] = o.as_const()[0];
                         ce.pop();
                     }
-                    RTLIL::Cell *output_cell = module->cell(stringf("\\n%d_and", rootNodeID));
+                    RTLIL::Cell *output_cell = module->cell(stringf("\\__%d__and", rootNodeID));
                     log_assert(output_cell);
                     module->remove(output_cell);
-					module->addLut(stringf("\\n%d_lut", rootNodeID), input_sig, output_sig, std::move(lut_mask));
+					module->addLut(stringf("\\__%d__lut", rootNodeID), input_sig, output_sig, std::move(lut_mask));
                 }
             }
             else if (c == 'n') {
@@ -383,9 +383,6 @@ void AigerReader::parse_xaiger()
                 log_assert(static_cast<unsigned>(variable) < outputs.size());
                 RTLIL::Wire* wire = outputs[variable];
                 log_assert(wire);
-                // Ignore direct output -> input connections
-                if (!wire->port_output)
-                    continue;
                 log_assert(wire->port_output);
 
                 RTLIL::Cell* driver = module->cell(stringf("%s_lut", wire->name.c_str()));
@@ -517,7 +514,7 @@ void AigerReader::parse_aiger_ascii()
 
         RTLIL::Wire *wire;
         if (l1 == 0 || l1 == 1) {
-            wire = module->addWire(stringf("\\o%zu", outputs.size()));
+            wire = module->addWire(NEW_ID);
             if (l1 == 0)
                 module->connect(wire, RTLIL::State::S0);
             else if (l1 == 1)
@@ -529,13 +526,13 @@ void AigerReader::parse_aiger_ascii()
             log_debug("%d is an output\n", l1);
             const unsigned variable = l1 >> 1;
             const bool invert = l1 & 1;
-            RTLIL::IdString wire_name(stringf("\\n%d%s", variable, invert ? "_inv" : "")); // FIXME: is "_inv" the right suffix?
+            RTLIL::IdString wire_name(stringf("\\__%d%s__", variable, invert ? "b" : "")); // FIXME: is "b" the right suffix?
             wire = module->wire(wire_name);
             if (!wire)
                 wire = createWireIfNotExists(module, l1);
             else {
                 if ((wire->port_input || wire->port_output)) {
-                    RTLIL::Wire *new_wire = module->addWire(stringf("\\o%zu", outputs.size()));
+                    RTLIL::Wire *new_wire = module->addWire(NEW_ID);
                     module->connect(new_wire, wire);
                     wire = new_wire;
                 }
@@ -572,7 +569,7 @@ void AigerReader::parse_aiger_ascii()
         RTLIL::Wire *o_wire = createWireIfNotExists(module, l1);
         RTLIL::Wire *i1_wire = createWireIfNotExists(module, l2);
         RTLIL::Wire *i2_wire = createWireIfNotExists(module, l3);
-        module->addAndGate(o_wire->name.str() + "_and", i1_wire, i2_wire, o_wire);
+        module->addAndGate(o_wire->name.str() + "and", i1_wire, i2_wire, o_wire);
     }
     std::getline(f, line);
 }
@@ -647,7 +644,7 @@ void AigerReader::parse_aiger_binary()
 
         RTLIL::Wire *wire;
         if (l1 == 0 || l1 == 1) {
-            wire = module->addWire(stringf("\\o%zu", outputs.size()));
+            wire = module->addWire(NEW_ID);
             if (l1 == 0)
                 module->connect(wire, RTLIL::State::S0);
             else if (l1 == 1)
@@ -659,13 +656,13 @@ void AigerReader::parse_aiger_binary()
             log_debug("%d is an output\n", l1);
             const unsigned variable = l1 >> 1;
             const bool invert = l1 & 1;
-            RTLIL::IdString wire_name(stringf("\\n%d%s", variable, invert ? "_inv" : "")); // FIXME: is "_inv" the right suffix?
+            RTLIL::IdString wire_name(stringf("\\__%d%s__", variable, invert ? "_b" : "")); // FIXME: is "_inv" the right suffix?
             wire = module->wire(wire_name);
             if (!wire)
                 wire = createWireIfNotExists(module, l1);
             else {
                 if ((wire->port_input || wire->port_output)) {
-                    RTLIL::Wire *new_wire = module->addWire(stringf("\\o%zu", outputs.size()));
+                    RTLIL::Wire *new_wire = module->addWire(NEW_ID);
                     module->connect(new_wire, wire);
                     wire = new_wire;
                 }
@@ -703,7 +700,7 @@ void AigerReader::parse_aiger_binary()
         RTLIL::Wire *o_wire = createWireIfNotExists(module, l1);
         RTLIL::Wire *i1_wire = createWireIfNotExists(module, l2);
         RTLIL::Wire *i2_wire = createWireIfNotExists(module, l3);
-        module->addAndGate(o_wire->name.str() + "_and", i1_wire, i2_wire, o_wire);
+        module->addAndGate(o_wire->name.str() + "and", i1_wire, i2_wire, o_wire);
     }
 }
 
