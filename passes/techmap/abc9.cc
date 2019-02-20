@@ -597,7 +597,12 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 							// Otherwise, clone the driving LUT to guarantee that we
 							// won't increase the max logic depth
 							// (TODO: Optimise by not cloning unless will increase depth)
-							RTLIL::Cell* driver = mapped_mod->cell(stringf("%s_lut", a_bit.wire->name.c_str()));
+							RTLIL::IdString driver_name;
+							if (GetSize(a_bit.wire) == 1)
+								driver_name = stringf("%s_lut", a_bit.wire->name.c_str());
+							else
+								driver_name = stringf("%s[%d]_lut", a_bit.wire->name.c_str(), a_bit.offset);
+							RTLIL::Cell* driver = mapped_mod->cell(driver_name);
 							log_assert(driver);
 							auto driver_a = driver->getPort("\\A").chunks();
 							for (auto &chunk : driver_a)
