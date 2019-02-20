@@ -11,13 +11,13 @@ module testbench;
 	parameter [0:0] PIPELINE_16x16_MULT_REG1 = 0;
 	parameter [0:0] PIPELINE_16x16_MULT_REG2 = 0;
 	parameter [1:0] TOPOUTPUT_SELECT = 0;
-	parameter [1:0] TOPADDSUB_LOWERINPUT = 2;
+	parameter [1:0] TOPADDSUB_LOWERINPUT = 0;
 	parameter [0:0] TOPADDSUB_UPPERINPUT = 1;
-	parameter [1:0] TOPADDSUB_CARRYSELECT = 2;
+	parameter [1:0] TOPADDSUB_CARRYSELECT = 0;
 	parameter [1:0] BOTOUTPUT_SELECT = 0;
-	parameter [1:0] BOTADDSUB_LOWERINPUT = 2;
+	parameter [1:0] BOTADDSUB_LOWERINPUT = 0;
 	parameter [0:0] BOTADDSUB_UPPERINPUT = 1;
-	parameter [1:0] BOTADDSUB_CARRYSELECT = 2;
+	parameter [1:0] BOTADDSUB_CARRYSELECT = 0;
 	parameter [0:0] MODE_8x8 = 0;
 	parameter [0:0] A_SIGNED = 0;
 	parameter [0:0] B_SIGNED = 0;
@@ -46,7 +46,7 @@ module testbench;
 			CLK = ~CLK;
 			#2;
 			if (REF_O !== UUT_O) begin
-				$display("ERROR at %1t: REF_O=%b UUT_O=%b", $time, REF_O, UUT_O);
+				$display("ERROR at %1t: REF_O=%b UUT_O=%b DIFF=%b", $time, REF_O, UUT_O, REF_O ^ UUT_O);
 				errcount = errcount + 1;
 			end
 			if (REF_CO !== UUT_CO) begin
@@ -69,29 +69,47 @@ module testbench;
 		$dumpfile("test_dsp_model.vcd");
 		$dumpvars(0, testbench);
 
-		#5;
+		#2;
 		CLK = NEG_TRIGGER;
 		CE = 1;
 		{C, A, B, D} = 0;
 		{AHOLD, BHOLD, CHOLD, DHOLD} = 0;
-		{IRSTTOP, IRSTBOT} = 0;
-		{ORSTTOP, ORSTBOT} = 0;
 		{OLOADTOP, OLOADBOT} = 0;
 		{ADDSUBTOP, ADDSUBBOT} = 0;
 		{OHOLDTOP, OHOLDBOT} = 0;
 		{CI, ACCUMCI, SIGNEXTIN} = 0;
 
-		// C = 10;
-		// A = 15;
-		// B = 22;
-		// D = 27;
+		{IRSTTOP, IRSTBOT} = ~0;
+		{ORSTTOP, ORSTBOT} = ~0;
 
-		repeat (10) clkcycle;
+		#3;
+		{IRSTTOP, IRSTBOT} = 0;
+		{ORSTTOP, ORSTBOT} = 0;
+
+		repeat (300) begin
+			clkcycle;
+
+			A = $urandom;
+			B = $urandom;
+			C = $urandom;
+			D = $urandom;
+
+			{AHOLD, BHOLD, CHOLD, DHOLD} = $urandom & $urandom & $urandom;
+			{OLOADTOP, OLOADBOT} = $urandom & $urandom & $urandom;
+			{ADDSUBTOP, ADDSUBBOT} = $urandom & $urandom & $urandom;
+			{OHOLDTOP, OHOLDBOT} = $urandom & $urandom & $urandom;
+			{CI, ACCUMCI, SIGNEXTIN} = $urandom & $urandom & $urandom;
+
+			{IRSTTOP, IRSTBOT} = $urandom & $urandom & $urandom;
+			{ORSTTOP, ORSTBOT} = $urandom & $urandom & $urandom;
+		end
 
 		if (errcount == 0) begin
 			$display("All tests passed.");
+			$finish;
 		end else begin
 			$display("Caught %1d errors.", errcount);
+			$stop;
 		end
 	end
 
@@ -196,4 +214,129 @@ module testbench;
 		.ACCUMCO    (UUT_ACCUMCO   ),
 		.SIGNEXTOUT (UUT_SIGNEXTOUT)
 	);
+endmodule
+
+module testbench_comb_8x8_A;
+	testbench #(
+		.NEG_TRIGGER               (0),
+		.C_REG                     (0),
+		.A_REG                     (0),
+		.B_REG                     (0),
+		.D_REG                     (0),
+		.TOP_8x8_MULT_REG          (0),
+		.BOT_8x8_MULT_REG          (0),
+		.PIPELINE_16x16_MULT_REG1  (0),
+		.PIPELINE_16x16_MULT_REG2  (0),
+		.TOPOUTPUT_SELECT          (2),   // 0=P, 1=Q, 2=8x8, 3=16x16
+		.TOPADDSUB_LOWERINPUT      (0),   // 0=A, 1=8x8, 2=16x16, 3=S-EXT
+		.TOPADDSUB_UPPERINPUT      (0),   // 0=Q, 1=C
+		.TOPADDSUB_CARRYSELECT     (0),   // 0=0, 1=1, 2=ACI, 3=CI
+		.BOTOUTPUT_SELECT          (2),   // 0=R, 1=S, 2=8x8, 3=16x16
+		.BOTADDSUB_LOWERINPUT      (0),   // 0=B, 1=8x8, 2=16x16, 3=S-EXT
+		.BOTADDSUB_UPPERINPUT      (0),   // 0=S, 1=D
+		.BOTADDSUB_CARRYSELECT     (0),   // 0=0, 1=1, 2=ACI, 3=CI
+		.MODE_8x8                  (0),
+		.A_SIGNED                  (0),
+		.B_SIGNED                  (0)
+	) testbench ();
+endmodule
+
+module testbench_comb_8x8_B;
+	testbench #(
+		.NEG_TRIGGER               (0),
+		.C_REG                     (0),
+		.A_REG                     (0),
+		.B_REG                     (0),
+		.D_REG                     (0),
+		.TOP_8x8_MULT_REG          (0),
+		.BOT_8x8_MULT_REG          (0),
+		.PIPELINE_16x16_MULT_REG1  (0),
+		.PIPELINE_16x16_MULT_REG2  (0),
+		.TOPOUTPUT_SELECT          (0),   // 0=P, 1=Q, 2=8x8, 3=16x16
+		.TOPADDSUB_LOWERINPUT      (1),   // 0=A, 1=8x8, 2=16x16, 3=S-EXT
+		.TOPADDSUB_UPPERINPUT      (1),   // 0=Q, 1=C
+		.TOPADDSUB_CARRYSELECT     (0),   // 0=0, 1=1, 2=ACI, 3=CI
+		.BOTOUTPUT_SELECT          (0),   // 0=R, 1=S, 2=8x8, 3=16x16
+		.BOTADDSUB_LOWERINPUT      (1),   // 0=B, 1=8x8, 2=16x16, 3=S-EXT
+		.BOTADDSUB_UPPERINPUT      (1),   // 0=S, 1=D
+		.BOTADDSUB_CARRYSELECT     (0),   // 0=0, 1=1, 2=ACI, 3=CI
+		.MODE_8x8                  (0),
+		.A_SIGNED                  (0),
+		.B_SIGNED                  (0)
+	) testbench ();
+endmodule
+
+module testbench_comb_16x16;
+	testbench #(
+		.NEG_TRIGGER               (0),
+		.C_REG                     (0),
+		.A_REG                     (0),
+		.B_REG                     (0),
+		.D_REG                     (0),
+		.TOP_8x8_MULT_REG          (0),
+		.BOT_8x8_MULT_REG          (0),
+		.PIPELINE_16x16_MULT_REG1  (0),
+		.PIPELINE_16x16_MULT_REG2  (0),
+		.TOPOUTPUT_SELECT          (0),   // 0=P, 1=Q, 2=8x8, 3=16x16
+		.TOPADDSUB_LOWERINPUT      (2),   // 0=A, 1=8x8, 2=16x16, 3=S-EXT
+		.TOPADDSUB_UPPERINPUT      (1),   // 0=Q, 1=C
+		.TOPADDSUB_CARRYSELECT     (2),   // 0=0, 1=1, 2=ACI, 3=CI
+		.BOTOUTPUT_SELECT          (0),   // 0=R, 1=S, 2=8x8, 3=16x16
+		.BOTADDSUB_LOWERINPUT      (2),   // 0=B, 1=8x8, 2=16x16, 3=S-EXT
+		.BOTADDSUB_UPPERINPUT      (1),   // 0=S, 1=D
+		.BOTADDSUB_CARRYSELECT     (2),   // 0=0, 1=1, 2=ACI, 3=CI
+		.MODE_8x8                  (0),
+		.A_SIGNED                  (0),
+		.B_SIGNED                  (0)
+	) testbench ();
+endmodule
+
+module testbench_seq_16x16_A;
+	testbench #(
+		.NEG_TRIGGER               (0),
+		.C_REG                     (1),
+		.A_REG                     (1),
+		.B_REG                     (1),
+		.D_REG                     (1),
+		.TOP_8x8_MULT_REG          (1),
+		.BOT_8x8_MULT_REG          (1),
+		.PIPELINE_16x16_MULT_REG1  (1),
+		.PIPELINE_16x16_MULT_REG2  (1),
+		.TOPOUTPUT_SELECT          (0),   // 0=P, 1=Q, 2=8x8, 3=16x16
+		.TOPADDSUB_LOWERINPUT      (2),   // 0=A, 1=8x8, 2=16x16, 3=S-EXT
+		.TOPADDSUB_UPPERINPUT      (1),   // 0=Q, 1=C
+		.TOPADDSUB_CARRYSELECT     (2),   // 0=0, 1=1, 2=ACI, 3=CI
+		.BOTOUTPUT_SELECT          (0),   // 0=R, 1=S, 2=8x8, 3=16x16
+		.BOTADDSUB_LOWERINPUT      (2),   // 0=B, 1=8x8, 2=16x16, 3=S-EXT
+		.BOTADDSUB_UPPERINPUT      (1),   // 0=S, 1=D
+		.BOTADDSUB_CARRYSELECT     (2),   // 0=0, 1=1, 2=ACI, 3=CI
+		.MODE_8x8                  (0),
+		.A_SIGNED                  (0),
+		.B_SIGNED                  (0)
+	) testbench ();
+endmodule
+
+module testbench_seq_16x16_B;
+	testbench #(
+		.NEG_TRIGGER               (0),
+		.C_REG                     (1),
+		.A_REG                     (1),
+		.B_REG                     (1),
+		.D_REG                     (1),
+		.TOP_8x8_MULT_REG          (1),
+		.BOT_8x8_MULT_REG          (1),
+		.PIPELINE_16x16_MULT_REG1  (1),
+		.PIPELINE_16x16_MULT_REG2  (0),
+		.TOPOUTPUT_SELECT          (1),   // 0=P, 1=Q, 2=8x8, 3=16x16
+		.TOPADDSUB_LOWERINPUT      (2),   // 0=A, 1=8x8, 2=16x16, 3=S-EXT
+		.TOPADDSUB_UPPERINPUT      (0),   // 0=Q, 1=C
+		.TOPADDSUB_CARRYSELECT     (2),   // 0=0, 1=1, 2=ACI, 3=CI
+		.BOTOUTPUT_SELECT          (1),   // 0=R, 1=S, 2=8x8, 3=16x16
+		.BOTADDSUB_LOWERINPUT      (2),   // 0=B, 1=8x8, 2=16x16, 3=S-EXT
+		.BOTADDSUB_UPPERINPUT      (0),   // 0=S, 1=D
+		.BOTADDSUB_CARRYSELECT     (2),   // 0=0, 1=1, 2=ACI, 3=CI
+		.MODE_8x8                  (0),
+		.A_SIGNED                  (0),
+		.B_SIGNED                  (0)
+	) testbench ();
 endmodule

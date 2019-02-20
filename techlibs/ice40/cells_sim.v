@@ -1283,7 +1283,7 @@ module SB_MAC16 (
 
 	// Regs B and D
 	reg [15:0] rB, rD;
-	always @(posedge clock, posedge IRSTTOP) begin
+	always @(posedge clock, posedge IRSTBOT) begin
 		if (IRSTBOT) begin
 			rB <= 0;
 			rD <= 0;
@@ -1298,10 +1298,10 @@ module SB_MAC16 (
 	// Multiplier Stage
 	wire [15:0] p_Ah_Bh, p_Al_Bh, p_Ah_Bl, p_Al_Bl;
 	wire [15:0] Ah, Al, Bh, Bl;
-	assign Ah = A_SIGNED ? {{8{iA[15]}}, iA[15: 8]} : iA[15: 8];
-	assign Al = A_SIGNED ? {{8{iA[ 7]}}, iA[ 7: 0]} : iA[15: 8];
-	assign Bh = B_SIGNED ? {{8{iB[15]}}, iB[15: 8]} : iB[15: 8];
-	assign Bl = B_SIGNED ? {{8{iB[ 7]}}, iB[ 7: 0]} : iB[15: 8];
+	assign Ah = {A_SIGNED ? {8{iA[15]}} : 8'b0, iA[15: 8]};
+	assign Al = {A_SIGNED ? {8{iA[ 7]}} : 8'b0, iA[ 7: 0]};
+	assign Bh = {B_SIGNED ? {8{iB[15]}} : 8'b0, iB[15: 8]};
+	assign Bl = {B_SIGNED ? {8{iB[ 7]}} : 8'b0, iB[ 7: 0]};
 	assign p_Ah_Bh = Ah * Bh;
 	assign p_Al_Bh = Al * Bh;
 	assign p_Ah_Bl = Ah * Bl;
@@ -1336,17 +1336,10 @@ module SB_MAC16 (
 	assign iG = BOT_8x8_MULT_REG ? rG : p_Al_Bl;
 
 	// Adder Stage
-	reg [31:0] P;
-	always @* begin
-		P = iG[7:0];
-		P = P + (iG[15:8] + iK[7:0]) << 8;
-		P = P + (iK[15:8] + iJ[7:0]) << 16;
-		P = P + (iJ[15:8] + iF[7:0]) << 24;
-	end
-	assign iL = P;
+	assign iL = iG + (iK << 8) + (iJ << 8) + (iF << 16);
 
 	// Reg H
-	reg [15:0] rH;
+	reg [31:0] rH;
 	always @(posedge clock, posedge IRSTBOT) begin
 		if (IRSTBOT) begin
 			rH <= 0;
@@ -1359,7 +1352,7 @@ module SB_MAC16 (
 	// Hi Output Stage
 	wire [15:0] XW, Oh;
 	reg [15:0] rQ;
-	assign iW = TOPADDSUB_UPPERINPUT ? iC : iQ[31:16];
+	assign iW = TOPADDSUB_UPPERINPUT ? iC : iQ;
 	assign iX = (TOPADDSUB_LOWERINPUT == 0) ? iA : (TOPADDSUB_LOWERINPUT == 1) ? iF : (TOPADDSUB_LOWERINPUT == 2) ? iH[31:16] : {16{iZ[15]}};
 	assign {ACCUMCO, XW} = iX + (iW ^ {16{ADDSUBTOP}}) + HCI;
 	assign CO = ACCUMCO ^ ADDSUBTOP;
@@ -1379,7 +1372,7 @@ module SB_MAC16 (
 	// Lo Output Stage
 	wire [15:0] YZ, Ol;
 	reg [15:0] rS;
-	assign iY = BOTADDSUB_UPPERINPUT ? iD : iQ[15:0];
+	assign iY = BOTADDSUB_UPPERINPUT ? iD : iS;
 	assign iZ = (BOTADDSUB_LOWERINPUT == 0) ? iB : (BOTADDSUB_LOWERINPUT == 1) ? iG : (BOTADDSUB_LOWERINPUT == 2) ? iH[15:0] : {16{SIGNEXTIN}};
 	assign {LCO, YZ} = iZ + (iY ^ {16{ADDSUBBOT}}) + LCI;
 	assign iR = OLOADBOT ? iD : YZ ^ {16{ADDSUBBOT}};
@@ -1387,7 +1380,7 @@ module SB_MAC16 (
 		if (ORSTBOT) begin
 			rS <= 0;
 		end else if (CE) begin
-			if (!OHOLDTOP) rS <= iR;
+			if (!OHOLDBOT) rS <= iR;
 		end
 	end
 	assign iS = rS;

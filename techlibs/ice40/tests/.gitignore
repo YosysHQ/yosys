@@ -1,2 +1,6 @@
-test_ffs_[01][01][01][01][01]_*
-test_bram_[0-9]*
+/test_ffs_[01][01][01][01][01]_*
+/test_bram_[0-9]*
+/test_dsp_model
+/test_dsp_model.vcd
+/test_dsp_model_ref.v
+/test_dsp_model_uut.v
