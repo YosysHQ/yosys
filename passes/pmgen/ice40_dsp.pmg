@@ -100,6 +100,16 @@ code addAB sigS
 		addAB = addB;
 		sigS = port(addB, \A);
 	}
+	if (addAB) {
+		int natural_mul_width = GetSize(sigA) + GetSize(sigB);
+		int actual_mul_width = GetSize(sigY);
+		int actual_acc_width = GetSize(sigS);
+
+		if ((actual_acc_width > actual_mul_width) && (natural_mul_width > actual_mul_width))
+			reject;
+		if ((actual_acc_width != actual_mul_width) && (param(mul, \A_SIGNED).as_bool() != param(addAB, \A_SIGNED).as_bool()))
+			reject;
+	}
 endcode
 
 match muxA

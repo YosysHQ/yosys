@@ -59,9 +59,14 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 		return;
 	}
 
-	log("  replacing $mul with SB_MAC16 cell.\n");
-
 	bool mul_signed = pm.st.mul->getParam("\\A_SIGNED").as_bool();
+
+	if (mul_signed) {
+		log("  inference of signed iCE40 DSP arithmetic is currently not supported.\n");
+		return;
+	}
+
+	log("  replacing $mul with SB_MAC16 cell.\n");
 
 	Cell *cell = pm.module->addCell(NEW_ID, "\\SB_MAC16");
 	pm.module->swap_names(cell, pm.st.mul);
