@@ -174,15 +174,15 @@ struct XAigerWriter
 				continue;
 			}
 
-			if (cell->type.in("$_FF_", "$_DFF_N_", "$_DFF_P_"))
-			{
-				SigBit D = sigmap(cell->getPort("\\D").as_bit());
-				SigBit Q = sigmap(cell->getPort("\\Q").as_bit());
-				unused_bits.erase(D);
-				undriven_bits.erase(Q);
-				ff_map[Q] = D;
-				continue;
-			}
+			//if (cell->type.in("$_FF_", "$_DFF_N_", "$_DFF_P_"))
+			//{
+			//	SigBit D = sigmap(cell->getPort("\\D").as_bit());
+			//	SigBit Q = sigmap(cell->getPort("\\Q").as_bit());
+			//	unused_bits.erase(D);
+			//	undriven_bits.erase(Q);
+			//	ff_map[Q] = D;
+			//	continue;
+			//}
 
 			if (cell->type == "$_AND_")
 			{
@@ -240,6 +240,9 @@ struct XAigerWriter
 		// CIs cannot be undriven
 		for (auto bit : ci_bits)
 			undriven_bits.erase(bit);
+		// POs override COs
+		for (auto bit : output_bits)
+			co_bits.erase(bit);
 
 		for (auto bit : unused_bits)
 			undriven_bits.erase(bit);
@@ -521,29 +524,25 @@ struct XAigerWriter
 
 			for (int i = 0; i < GetSize(wire); i++)
 			{
-				if (aig_map.count(sig[i]) == 0 /*|| sig[i].wire == nullptr*/)
-					continue;
-
-				int a = aig_map.at(sig[i]);
-
-				if (verbose_map)
-					wire_lines[a] += stringf("wire %d %d %s\n", a, i, log_id(wire));
-
 				RTLIL::SigBit b(wire, i);
 				if (wire->port_input || ci_bits.count(b)) {
+					int a = aig_map.at(sig[i]);
 					log_assert((a & 1) == 0);
 					input_lines[a] += stringf("input %d %d %s\n", (a >> 1)-1, i, log_id(wire));
+					continue;
 				}
 
 				if (output_bits.count(b) || co_bits.count(b)) {
 					int o = ordered_outputs.at(b);
 					output_lines[o] += stringf("output %d %d %s\n", o, i, log_id(wire));
+					continue;
 				}
 
 				if (init_inputs.count(sig[i])) {
 					int a = init_inputs.at(sig[i]);
 					log_assert((a & 1) == 0);
 					init_lines[a] += stringf("init %d %d %s\n", (a >> 1)-1, i, log_id(wire));
+					continue;
 				}
 
 				if (ordered_latches.count(sig[i])) {
@@ -552,6 +551,15 @@ struct XAigerWriter
 						latch_lines[l] += stringf("invlatch %d %d %s\n", l, i, log_id(wire));
 					else
 						latch_lines[l] += stringf("latch %d %d %s\n", l, i, log_id(wire));
+					continue;
+				}
+
+				if (verbose_map) {
+					if (aig_map.count(sig[i]) == 0)
+						continue;
+
+					int a = aig_map.at(sig[i]);
+					wire_lines[a] += stringf("wire %d %d %s\n", a, i, log_id(wire));
 				}
 			}
 		}
@@ -567,6 +575,7 @@ struct XAigerWriter
 		output_lines.sort();
 		for (auto &it : output_lines)
 			f << it.second;
+		log_assert(output_lines.size() == output_bits.size() + co_bits.size());
 		if (omode && output_lines.empty())
 			f << "output 0 0 __dummy_o__\n";
 
