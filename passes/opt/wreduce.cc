@@ -38,7 +38,8 @@ struct WreduceConfig
 			"$shl", "$shr", "$sshl", "$sshr", "$shift", "$shiftx",
 			"$lt", "$le", "$eq", "$ne", "$eqx", "$nex", "$ge", "$gt",
 			"$add", "$sub", "$mul", // "$div", "$mod", "$pow",
-			"$mux", "$pmux"
+			"$mux", "$pmux",
+			"$dff", "$adff"
 		});
 	}
 };
@@ -134,6 +135,71 @@ struct WreduceWorker
 		module->connect(sig_y.extract(n_kept, n_removed), sig_removed);
 	}
 
+	void run_cell_dff(Cell *cell)
+	{
+		// Reduce size of FF if inputs are just sign/zero extended or output bit is not used
+
+		SigSpec sig_d = mi.sigmap(cell->getPort("\\D"));
+		SigSpec sig_q = mi.sigmap(cell->getPort("\\Q"));
+
+		int width_before = GetSize(sig_q);
+
+		if (width_before == 0)
+			return;
+
+		bool zero_ext = sig_d[GetSize(sig_d)-1] == State::S0;
+		bool sign_ext = !zero_ext;
+
+		for (int i = GetSize(sig_q)-1; i >= 0; i--)
+		{
+			if (zero_ext && sig_d[i] == State::S0) {
+				module->connect(sig_q[i], State::S0);
+				sig_d.remove(i);
+				sig_q.remove(i);
+				continue;
+			}
+
+			if (sign_ext && i > 0 && sig_d[i] == sig_d[i-1]) {
+				module->connect(sig_q[i], sig_q[i-1]);
+				sig_d.remove(i);
+				sig_q.remove(i);
+				continue;
+			}
+
+			auto info = mi.query(sig_q[i]);
+			if (!info->is_output && GetSize(info->ports) <= 1 && !keep_bits.count(mi.sigmap(sig_q[i]))) {
+				sig_d.remove(i);
+				sig_q.remove(i);
+				zero_ext = false;
+				sign_ext = false;
+				continue;
+			}
+
+			break;
+		}
+
+		if (width_before == GetSize(sig_q))
+			return;
+
+		if (GetSize(sig_q) == 0) {
+			log("Removed cell %s.%s (%s).\n", log_id(module), log_id(cell), log_id(cell->type));
+			return;
+		}
+
+		log("Removed top %d bits (of %d) from mux cell %s.%s (%s).\n", width_before - GetSize(sig_q), width_before,
+				log_id(module), log_id(cell), log_id(cell->type));
+
+		for (auto bit : sig_d)
+			work_queue_bits.insert(bit);
+
+		for (auto bit : sig_q)
+			work_queue_bits.insert(bit);
+
+		cell->setPort("\\D", sig_d);
+		cell->setPort("\\Q", sig_q);
+		cell->fixup_parameters();
+	}
+
 	void run_reduce_inport(Cell *cell, char port, int max_port_size, bool &port_signed, bool &did_something)
 	{
 		port_signed = cell->getParam(stringf("\\%c_SIGNED", port)).as_bool();
@@ -175,6 +241,9 @@ struct WreduceWorker
 
 		if (cell->type.in("$mux", "$pmux"))
 			return run_cell_mux(cell);
+
+		if (cell->type.in("$dff", "$adff"))
+			return run_cell_dff(cell);
 
 		SigSpec sig = mi.sigmap(cell->getPort("\\Y"));
 
