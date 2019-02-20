@@ -4,3 +4,7 @@
 /test_dsp_model.vcd
 /test_dsp_model_ref.v
 /test_dsp_model_uut.v
+/test_dsp_map
+/test_dsp_map_tb.v
+/test_dsp_map_top.v
+/test_dsp_map_syn.v
