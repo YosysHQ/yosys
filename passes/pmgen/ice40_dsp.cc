@@ -159,8 +159,8 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 		cell->setPort("\\ADDSUBBOT", State::S0);
 	}
 
-	cell->setPort("\\ORTSTOP", State::S0);
-	cell->setPort("\\ORTSBOT", State::S0);
+	cell->setPort("\\ORSTTOP", State::S0);
+	cell->setPort("\\ORSTBOT", State::S0);
 
 	cell->setPort("\\OHOLDTOP", State::S0);
 	cell->setPort("\\OHOLDBOT", State::S0);
@@ -181,8 +181,8 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 
 	cell->setParam("\\TOP_8x8_MULT_REG", pm.st.ffY ? State::S1 : State::S0);
 	cell->setParam("\\BOT_8x8_MULT_REG", pm.st.ffY ? State::S1 : State::S0);
-	cell->setParam("\\PIPELINE_16X16_MULT_REG1", pm.st.ffY ? State::S1 : State::S0);
-	cell->setParam("\\PIPELINE_16X16_MULT_REG2", State::S0);
+	cell->setParam("\\PIPELINE_16x16_MULT_REG1", pm.st.ffY ? State::S1 : State::S0);
+	cell->setParam("\\PIPELINE_16x16_MULT_REG2", State::S0);
 
 	cell->setParam("\\TOPOUTPUT_SELECT", Const(pm.st.ffS ? 1 : 3, 2));
 	cell->setParam("\\TOPADDSUB_LOWERINPUT", Const(2, 2));
