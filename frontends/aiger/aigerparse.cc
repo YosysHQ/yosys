@@ -347,8 +347,8 @@ void AigerReader::parse_xaiger()
 
             module->rename(wire, stringf("\\%s", s.c_str()));
 
-            RTLIL::Cell* driver = module->cell(stringf("%s_lut", wire->name.c_str()));
-            module->rename(driver, stringf("%s_lut", wire->name.c_str()));
+            RTLIL::Cell* driver = module->cell(stringf("%slut", wire->name.c_str()));
+            module->rename(driver, stringf("%slut", wire->name.c_str()));
 
             std::getline(f, line); // Ignore up to start of next line
             ++line_count;
@@ -385,7 +385,7 @@ void AigerReader::parse_xaiger()
                 log_assert(wire);
                 log_assert(wire->port_output);
 
-                RTLIL::Cell* driver = module->cell(stringf("%s_lut", wire->name.c_str()));
+                RTLIL::Cell* driver = module->cell(stringf("%slut", wire->name.c_str()));
 
                 if (index == 0)
                     module->rename(wire, RTLIL::escape_id(symbol));
@@ -396,7 +396,7 @@ void AigerReader::parse_xaiger()
                 }
 
                 if (driver)
-                    module->rename(driver, stringf("%s_lut", wire->name.c_str()));
+                    module->rename(driver, stringf("%slut", wire->name.c_str()));
             }
             else
                 log_error("Symbol type '%s' not recognised.\n", type.c_str());
@@ -656,7 +656,7 @@ void AigerReader::parse_aiger_binary()
             log_debug("%d is an output\n", l1);
             const unsigned variable = l1 >> 1;
             const bool invert = l1 & 1;
-            RTLIL::IdString wire_name(stringf("\\__%d%s__", variable, invert ? "_b" : "")); // FIXME: is "_inv" the right suffix?
+            RTLIL::IdString wire_name(stringf("\\__%d%s__", variable, invert ? "b" : "")); // FIXME: is "_inv" the right suffix?
             wire = module->wire(wire_name);
             if (!wire)
                 wire = createWireIfNotExists(module, l1);
