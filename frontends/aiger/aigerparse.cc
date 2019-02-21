@@ -23,8 +23,11 @@
 // http://fmv.jku.at/papers/Biere-FMV-TR-07-1.pdf
 
 #ifdef _WIN32
+#include <libgen.h>
 #include <stdlib.h>
 #endif
+#include <array>
+
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 #include "kernel/consteval.h"
@@ -583,7 +586,7 @@ void AigerReader::parse_aiger_ascii()
         RTLIL::Wire *i2_wire = createWireIfNotExists(module, l3);
         module->addAndGate(o_wire->name.str() + "$and", i1_wire, i2_wire, o_wire);
     }
-    std::getline(f, line);
+    std::getline(f, line); // Ignore up to start of next line
 }
 
 static unsigned parse_next_delta_literal(std::istream &f, unsigned ref)
@@ -779,7 +782,9 @@ struct AigerFrontend : public Frontend {
             _splitpath(filename.c_str(), NULL /* drive */, NULL /* dir */, fname, NULL /* ext */)
             module_name = fname;
 #else
-            module_name = RTLIL::escape_id(basename(filename.c_str()));
+            char* bn = strdup(filename.c_str());
+            module_name = RTLIL::escape_id(bn);
+            free(bn);
 #endif
         }
 
