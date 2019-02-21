@@ -536,6 +536,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		RTLIL::Module *mapped_mod = mapped_design->modules_["\\netlist"];
 		if (mapped_mod == NULL)
 			log_error("ABC output file does not contain a module `netlist'.\n");
+
 		pool<RTLIL::SigBit> output_bits;
 		for (auto &it : mapped_mod->wires_) {
 			RTLIL::Wire *w = it.second;
@@ -852,10 +853,12 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		//		module->connect(conn);
 		//	}
 
-		// Go through all cell output connections,
+		// Go through all AND and NOT output connections,
 		// and for those output ports driving wires
 		// also driven by mapped_mod, disconnect them
 		for (auto cell : module->cells()) {
+			if (!cell->type.in("$_AND_", "$_NOT_"))
+				continue;
 			for (auto &it : cell->connections_) {
 				auto port_name = it.first;
 				if (!cell->output(port_name)) continue;
@@ -1131,7 +1134,6 @@ struct Abc9Pass : public Pass {
 		std::string delay_target, sop_inputs, sop_products, lutin_shared = "-S 1";
 		bool fast_mode = false, dff_mode = false, keepff = false, cleanup = true;
 		bool show_tempdir = false, sop_mode = false;
-		show_tempdir = true; cleanup = true;
 		vector<int> lut_costs;
 		markgroups = false;
 
