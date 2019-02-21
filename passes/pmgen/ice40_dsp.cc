@@ -91,8 +91,8 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 	cell->setPort("\\C", CD.extract(0, 16));
 	cell->setPort("\\D", CD.extract(16, 16));
 
-	cell->setParam("\\A_REG", pm.st.ffA ? State::S0 : State::S1);
-	cell->setParam("\\B_REG", pm.st.ffB ? State::S0 : State::S1);
+	cell->setParam("\\A_REG", pm.st.ffA ? State::S1 : State::S0);
+	cell->setParam("\\B_REG", pm.st.ffB ? State::S1 : State::S0);
 
 	cell->setPort("\\AHOLD", State::S0);
 	cell->setPort("\\BHOLD", State::S0);

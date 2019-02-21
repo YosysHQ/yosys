@@ -1,26 +1,28 @@
 #!/bin/bash
 set -ex
 
-SZA=$(( 3 + $RANDOM % 13 ))
-SZB=$(( 3 + $RANDOM % 13 ))
-SZO=$(( 3 + $RANDOM % 29 ))
+for iter in {1..100}
+do
+	SZA=$(( 3 + $RANDOM % 13 ))
+	SZB=$(( 3 + $RANDOM % 13 ))
+	SZO=$(( 3 + $RANDOM % 29 ))
 
-C0=clk$(( $RANDOM & 1))
-C1=clk$(( $RANDOM & 1))
-C2=clk$(( $RANDOM & 1))
-C3=clk$(( $RANDOM & 1))
+	C0=clk$(( $RANDOM & 1))
+	C1=clk$(( $RANDOM & 1))
+	C2=clk$(( $RANDOM & 1))
+	C3=clk$(( $RANDOM & 1))
 
-E0=$( test $(( $RANDOM & 1 )) -eq 0 && echo posedge || echo negedge )
-E1=$( test $(( $RANDOM & 1 )) -eq 0 && echo posedge || echo negedge )
-E2=$( test $(( $RANDOM & 1 )) -eq 0 && echo posedge || echo negedge )
-E3=$( test $(( $RANDOM & 1 )) -eq 0 && echo posedge || echo negedge )
+	E0=$( test $(( $RANDOM & 1 )) -eq 0 && echo posedge || echo negedge )
+	E1=$( test $(( $RANDOM & 1 )) -eq 0 && echo posedge || echo negedge )
+	E2=$( test $(( $RANDOM & 1 )) -eq 0 && echo posedge || echo negedge )
+	E3=$( test $(( $RANDOM & 1 )) -eq 0 && echo posedge || echo negedge )
 
-SP=$( test $(( $RANDOM & 1 )) -eq 0 && echo S || echo P )
+	SP=$( test $(( $RANDOM & 1 )) -eq 0 && echo S || echo P )
 
-RC=$( test $(( $RANDOM & 1 )) -eq 0 && echo "reset" || echo "!reset" )
-RV="32'h$( echo $RANDOM | md5sum | cut -c1-8 )"
+	RC=$( test $(( $RANDOM & 1 )) -eq 0 && echo "reset" || echo "!reset" )
+	RV="32'h$( echo $RANDOM | md5sum | cut -c1-8 )"
 
-cat > test_dsp_map_top.v << EOT
+	cat > test_dsp_map_top.v << EOT
 module top (
 	input clk0, clk1, reset,
 	input  [$SZA:0] A,
@@ -38,7 +40,7 @@ module top (
 endmodule
 EOT
 
-cat > test_dsp_map_tb.v << EOT
+	cat > test_dsp_map_tb.v << EOT
 \`timescale 1ns / 1ps
 module testbench;
 	reg clk1, clk0, reset;
@@ -51,10 +53,14 @@ module testbench;
 	syn syn_inst (.clk0(clk0), .clk1(clk1), .reset(reset), .A(A), .B(B), .O(O_syn));
 
 	initial begin
+		// \$dumpfile("test_dsp_map.vcd");
+		// \$dumpvars(0, testbench);
+
 		#2;
 		clk0 = 0;
 		clk1 = 0;
 		reset = 1;
+		reset = $RC;
 		A = 0;
 		B = 0;
 
@@ -82,14 +88,20 @@ module testbench;
 				\$display("ERROR: O_top=%b O_syn=%b", O_top, O_syn);
 				\$stop;
 			end
-			\$display("OK O_top=O_syn=%b", O_top);
+			// \$display("OK O_top=O_syn=%b", O_top);
 		end
 
+		\$display("Test passed.");
 		\$finish;
 	end
 endmodule
 EOT
 
-../../../yosys -p 'read_verilog test_dsp_map_top.v; synth_ice40 -dsp; rename top syn; write_verilog test_dsp_map_syn.v'
-iverilog -o test_dsp_map -s testbench test_dsp_map_tb.v test_dsp_map_top.v test_dsp_map_syn.v ../cells_sim.v
-vvp -N test_dsp_map
+	../../../yosys -p 'read_verilog test_dsp_map_top.v; synth_ice40 -dsp; rename top syn; write_verilog test_dsp_map_syn.v'
+	iverilog -o test_dsp_map -s testbench test_dsp_map_tb.v test_dsp_map_top.v test_dsp_map_syn.v ../cells_sim.v
+	vvp -N test_dsp_map
+done
+
+: ""
+: "####  All tests passed.  ####"
+: ""
