@@ -532,7 +532,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 
 		ifs.close();
 
-		log_header(design, "Re-integrating ABC results.\n");
+		log_header(design, "Re-integrating ABC9 results.\n");
 		RTLIL::Module *mapped_mod = mapped_design->modules_["\\netlist"];
 		if (mapped_mod == NULL)
 			log_error("ABC output file does not contain a module `netlist'.\n");
