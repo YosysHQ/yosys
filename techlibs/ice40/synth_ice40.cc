@@ -79,6 +79,9 @@ struct SynthIce40Pass : public ScriptPass
 		log("    -nobram\n");
 		log("        do not use SB_RAM40_4K* cells in output netlist\n");
 		log("\n");
+		log("    -dsp\n");
+		log("        use iCE40 UltraPlus DSP cells for large arithmetic\n");
+		log("\n");
 		log("    -noabc\n");
 		log("        use built-in Yosys LUT techmapping instead of abc\n");
 		log("\n");
@@ -98,8 +101,9 @@ struct SynthIce40Pass : public ScriptPass
 		log("\n");
 	}
 
+
 	string top_opt, blif_file, edif_file, json_file, abc;
-	bool nocarry, nodffe, nobram, flatten, retime, relut, noabc, abc2, vpr;
+	bool nocarry, nodffe, nobram, dsp, flatten, retime, relut, noabc, abc2, vpr;
 	int min_ce_use;
 
 	void clear_flags() YS_OVERRIDE
@@ -112,6 +116,7 @@ struct SynthIce40Pass : public ScriptPass
 		nodffe = false;
 		min_ce_use = -1;
 		nobram = false;
+		dsp = false;
 		flatten = true;
 		retime = false;
 		relut = false;
@@ -185,6 +190,10 @@ struct SynthIce40Pass : public ScriptPass
 				nobram = true;
 				continue;
 			}
+			if (args[argidx] == "-dsp") {
+				dsp = true;
+				continue;
+			}
 			if (args[argidx] == "-noabc") {
 				noabc = true;
 				continue;
@@ -222,11 +231,11 @@ struct SynthIce40Pass : public ScriptPass
 		{
 			run("read_verilog -lib +/ice40/cells_sim.v");
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
+			run("proc");
 		}
 
 		if (flatten && check_label("flatten", "(unless -noflatten)"))
 		{
-			run("proc");
 			run("flatten");
 			run("tribuf -logic");
 			run("deminout");
@@ -234,7 +243,23 @@ struct SynthIce40Pass : public ScriptPass
 
 		if (check_label("coarse"))
 		{
-			run("synth -lut 4 -run coarse");
+			run("opt_expr");
+			run("opt_clean");
+			run("check");
+			run("opt");
+			run("wreduce");
+			run("share");
+			run("techmap -map +/cmp2lut.v -D LUT_WIDTH=4");
+			run("opt_expr");
+			run("opt_clean");
+			if (help_mode || dsp)
+				run("ice40_dsp", "(if -dsp)");
+			run("alumacc");
+			run("opt");
+			run("fsm");
+			run("opt -fast");
+			run("memory -nomap");
+			run("opt_clean");
 		}
 
 		if (!nobram && check_label("bram", "(skip if -nobram)"))

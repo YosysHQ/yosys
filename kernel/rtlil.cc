@@ -2410,6 +2410,9 @@ void RTLIL::Cell::fixup_parameters(bool set_a_signed, bool set_b_signed)
 	if (connections_.count("\\Y"))
 		parameters["\\Y_WIDTH"] = GetSize(connections_["\\Y"]);
 
+	if (connections_.count("\\Q"))
+		parameters["\\WIDTH"] = GetSize(connections_["\\Q"]);
+
 	check();
 }
 
