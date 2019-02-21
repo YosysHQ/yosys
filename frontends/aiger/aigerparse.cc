@@ -162,8 +162,14 @@ void AigerReader::parse_aiger()
         int width = wp.second + 1;
 
         RTLIL::Wire *wire = module->wire(name);
-        if (wire)
+        if (wire) {
+            RTLIL::Cell* driver = module->cell(stringf("%slut", wire->name.c_str()));
+
             module->rename(wire, RTLIL::escape_id(stringf("%s[%d]", name.c_str(), 0)));
+
+            if (driver)
+                module->rename(driver, stringf("%slut", wire->name.c_str()));
+        }
 
         // Do not make ports with a mix of input/output into
         // wide ports
@@ -408,8 +414,14 @@ void AigerReader::parse_xaiger()
         int width = wp.second + 1;
 
         RTLIL::Wire *wire = module->wire(name);
-        if (wire)
+        if (wire) {
+            RTLIL::Cell* driver = module->cell(stringf("%slut", wire->name.c_str()));
+
             module->rename(wire, RTLIL::escape_id(stringf("%s[%d]", name.c_str(), 0)));
+
+            if (driver)
+                module->rename(driver, stringf("%slut", wire->name.c_str()));
+        }
 
         // Do not make ports with a mix of input/output into
         // wide ports
