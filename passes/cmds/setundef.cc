@@ -238,20 +238,11 @@ struct SetundefPass : public Pass {
 		{
 			if (params_mode)
 			{
-				for (auto *cell : module->cells())
-				{
-					// Only modify selected cells.
-					if (!design->selected(module, it)) {
-						continue;
-					}
-
-					for (auto &parameter : cell->parameters)
-					{
+				for (auto *cell : module->selected_cells()) {
+					for (auto &parameter : cell->parameters) {
 						for (auto &bit : parameter.second.bits) {
 							if (bit > RTLIL::State::S1)
-							{
 								bit = worker.next_bit();
-							}
 						}
 					}
 				}
