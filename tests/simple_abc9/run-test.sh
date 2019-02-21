@@ -20,4 +20,4 @@ fi
 cp ../simple/*.v .
 rm dff_different_styles.v # FIXME: dffsr1 fails because opt_rmdff does something fishy (#816)
 rm partsel.v # FIXME: Contains 1'hx, thus write_xaiger fails
-exec ${MAKE:-make} -f ../tools/autotest.mk $seed *.v EXTRA_FLAGS="-p \"synth -abc9 -lut 4\""
+exec ${MAKE:-make} -f ../tools/autotest.mk $seed *.v EXTRA_FLAGS="-p \"hierarchy; synth -run coarse; techmap; opt -full; abc9 -lut 4\""
