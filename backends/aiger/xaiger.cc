@@ -210,9 +210,12 @@ struct XAigerWriter
 					Wire *w = b.wire;
 					if (!w) continue;
 					if (cell->input(c.first)) {
-						SigBit I = sigmap(b);
-						if (!w->port_input)
-							co_bits.insert(I);
+						if (!w->port_input) {
+							SigBit I = sigmap(b);
+							if (I != b)
+								alias_map[b] = I;
+							co_bits.insert(b);
+						}
 					}
 					else if (cell->output(c.first)) {
 						SigBit O = sigmap(b);
