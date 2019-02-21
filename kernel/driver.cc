@@ -272,7 +272,7 @@ int main(int argc, char **argv)
 		printf("    -D <macro>[=<value>]\n");
 		printf("        set the specified Verilog define (via \"read -define\")\n");
 		printf("\n");
-		printf("    -U <header_id>[:<filename>]\n");
+		printf("    -P <header_id>[:<filename>]\n");
 		printf("        dump the design when printing the specified log header to a file.\n");
 		printf("        yosys_dump_<header_id>.il is used as filename if none is specified.\n");
 		printf("        Use 'ALL' as <header_id> to dump at every header.\n");
@@ -311,7 +311,7 @@ int main(int argc, char **argv)
 	}
 
 	int opt;
-	while ((opt = getopt(argc, argv, "MXAQTVSm:f:Hh:b:o:p:l:L:qv:tds:c:W:w:e:D:U:E:")) != -1)
+	while ((opt = getopt(argc, argv, "MXAQTVSm:f:Hh:b:o:p:l:L:qv:tds:c:W:w:e:D:P:E:")) != -1)
 	{
 		switch (opt)
 		{
@@ -414,7 +414,7 @@ int main(int argc, char **argv)
 		case 'D':
 			vlog_defines.push_back(optarg);
 			break;
-		case 'U':
+		case 'P':
 			{
 				auto args = split_tokens(optarg, ":");
 				if (!args.empty() && args[0] == "ALL") {
