@@ -65,7 +65,7 @@ list of variable names. For example:
 State variables are automatically managed by the generated backtracking algorithm
 and saved and restored as needed.
 
-They are atomatically initialzed to the default constructed value of their type
+They are automatically initialized to the default constructed value of their type
 when `.run(callback_function)` is called.
 
 Declaring udata variables
