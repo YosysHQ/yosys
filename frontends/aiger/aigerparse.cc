@@ -458,7 +458,7 @@ void AigerReader::parse_xaiger()
     module->fixup_ports();
     design->add(module);
 
-    Pass::call(design, "clean -purge");
+    Pass::call(design, "clean");
 }
 
 void AigerReader::parse_aiger_ascii()
