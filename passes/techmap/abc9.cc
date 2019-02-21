@@ -592,7 +592,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 						if (a_bit.wire->port_input) {
 							// If it's a NOT gate that comes from a primary input directly
 							// then implement it using a LUT
-							cell = module->addLut(remap_name(stringf("%slut", c->name.c_str())),
+							cell = module->addLut(remap_name(stringf("%s$lut", c->name.c_str())),
 									RTLIL::SigBit(module->wires_[remap_name(a_bit.wire->name)], a_bit.offset),
 									RTLIL::SigBit(module->wires_[remap_name(y_bit.wire->name)], y_bit.offset),
 									1);
@@ -603,9 +603,9 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 							// (TODO: Optimise by not cloning unless will increase depth)
 							RTLIL::IdString driver_name;
 							if (GetSize(a_bit.wire) == 1)
-								driver_name = stringf("%slut", a_bit.wire->name.c_str());
+								driver_name = stringf("%s$lut", a_bit.wire->name.c_str());
 							else
-								driver_name = stringf("%s[%d]lut", a_bit.wire->name.c_str(), a_bit.offset);
+								driver_name = stringf("%s[%d]$lut", a_bit.wire->name.c_str(), a_bit.offset);
 							RTLIL::Cell* driver = mapped_mod->cell(driver_name);
 							log_assert(driver);
 							auto driver_a = driver->getPort("\\A").chunks();
@@ -616,7 +616,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 								if (b == RTLIL::State::S0) b = RTLIL::State::S1;
 								else if (b == RTLIL::State::S1) b = RTLIL::State::S0;
 							}
-							cell = module->addLut(remap_name(stringf("%slut", c->name.c_str())),
+							cell = module->addLut(remap_name(stringf("%s$lut", c->name.c_str())),
 									driver_a,
 									RTLIL::SigBit(module->wires_[remap_name(y_bit.wire->name)], y_bit.offset),
 									driver_lut);

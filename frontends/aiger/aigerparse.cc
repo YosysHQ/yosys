@@ -163,12 +163,12 @@ void AigerReader::parse_aiger()
 
         RTLIL::Wire *wire = module->wire(name);
         if (wire) {
-            RTLIL::Cell* driver = module->cell(stringf("%slut", wire->name.c_str()));
+            RTLIL::Cell* driver = module->cell(stringf("%s$lut", wire->name.c_str()));
 
             module->rename(wire, RTLIL::escape_id(stringf("%s[%d]", name.c_str(), 0)));
 
             if (driver)
-                module->rename(driver, stringf("%slut", wire->name.c_str()));
+                module->rename(driver, stringf("%s$lut", wire->name.c_str()));
         }
 
         // Do not make ports with a mix of input/output into
@@ -246,7 +246,7 @@ static RTLIL::Wire* createWireIfNotExists(RTLIL::Module *module, unsigned litera
     }
 
     log_debug("Creating %s = ~%s\n", wire_name.c_str(), wire_inv_name.c_str());
-    module->addNotGate(stringf("\\__%d__not", variable), wire_inv, wire); // FIXME: is "not" the right suffix?
+    module->addNotGate(stringf("\\__%d__$not", variable), wire_inv, wire); // FIXME: is "$not" the right suffix?
 
     return wire;
 }
@@ -325,10 +325,10 @@ void AigerReader::parse_xaiger()
                         lut_mask[j] = o.as_const()[0];
                         ce.pop();
                     }
-                    RTLIL::Cell *output_cell = module->cell(stringf("\\__%d__and", rootNodeID));
+                    RTLIL::Cell *output_cell = module->cell(stringf("\\__%d__$and", rootNodeID));
                     log_assert(output_cell);
                     module->remove(output_cell);
-					module->addLut(stringf("\\__%d__lut", rootNodeID), input_sig, output_sig, std::move(lut_mask));
+					module->addLut(stringf("\\__%d__$lut", rootNodeID), input_sig, output_sig, std::move(lut_mask));
                 }
             }
             else if (c == 'n') {
@@ -353,8 +353,8 @@ void AigerReader::parse_xaiger()
 
             module->rename(wire, stringf("\\%s", s.c_str()));
 
-            RTLIL::Cell* driver = module->cell(stringf("%slut", wire->name.c_str()));
-            module->rename(driver, stringf("%slut", wire->name.c_str()));
+            RTLIL::Cell* driver = module->cell(stringf("%s$lut", wire->name.c_str()));
+            module->rename(driver, stringf("%s$lut", wire->name.c_str()));
 
             std::getline(f, line); // Ignore up to start of next line
             ++line_count;
@@ -391,7 +391,7 @@ void AigerReader::parse_xaiger()
                 log_assert(wire);
                 log_assert(wire->port_output);
 
-                RTLIL::Cell* driver = module->cell(stringf("%slut", wire->name.c_str()));
+                RTLIL::Cell* driver = module->cell(stringf("%s$lut", wire->name.c_str()));
 
                 if (index == 0)
                     module->rename(wire, RTLIL::escape_id(symbol));
@@ -402,7 +402,7 @@ void AigerReader::parse_xaiger()
                 }
 
                 if (driver)
-                    module->rename(driver, stringf("%slut", wire->name.c_str()));
+                    module->rename(driver, stringf("%s$lut", wire->name.c_str()));
             }
             else
                 log_error("Symbol type '%s' not recognised.\n", type.c_str());
@@ -415,12 +415,12 @@ void AigerReader::parse_xaiger()
 
         RTLIL::Wire *wire = module->wire(name);
         if (wire) {
-            RTLIL::Cell* driver = module->cell(stringf("%slut", wire->name.c_str()));
+            RTLIL::Cell* driver = module->cell(stringf("%s$lut", wire->name.c_str()));
 
             module->rename(wire, RTLIL::escape_id(stringf("%s[%d]", name.c_str(), 0)));
 
             if (driver)
-                module->rename(driver, stringf("%slut", wire->name.c_str()));
+                module->rename(driver, stringf("%s$lut", wire->name.c_str()));
         }
 
         // Do not make ports with a mix of input/output into
@@ -581,7 +581,7 @@ void AigerReader::parse_aiger_ascii()
         RTLIL::Wire *o_wire = createWireIfNotExists(module, l1);
         RTLIL::Wire *i1_wire = createWireIfNotExists(module, l2);
         RTLIL::Wire *i2_wire = createWireIfNotExists(module, l3);
-        module->addAndGate(o_wire->name.str() + "and", i1_wire, i2_wire, o_wire);
+        module->addAndGate(o_wire->name.str() + "$and", i1_wire, i2_wire, o_wire);
     }
     std::getline(f, line);
 }
@@ -712,7 +712,7 @@ void AigerReader::parse_aiger_binary()
         RTLIL::Wire *o_wire = createWireIfNotExists(module, l1);
         RTLIL::Wire *i1_wire = createWireIfNotExists(module, l2);
         RTLIL::Wire *i2_wire = createWireIfNotExists(module, l3);
-        module->addAndGate(o_wire->name.str() + "and", i1_wire, i2_wire, o_wire);
+        module->addAndGate(o_wire->name.str() + "$and", i1_wire, i2_wire, o_wire);
     }
 }
 
