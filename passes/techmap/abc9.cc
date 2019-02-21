@@ -568,21 +568,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		{
 			if (builtin_lib)
 			{
-				cell_stats[RTLIL::unescape_id(c->type)]++;
-				if (c->type == "\\ZERO" || c->type == "\\ONE") {
-					RTLIL::SigSig conn;
-					conn.first = RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\Y").as_wire()->name)]);
-					conn.second = RTLIL::SigSpec(c->type == "\\ZERO" ? 0 : 1, 1);
-					module->connect(conn);
-					continue;
-				}
-				if (c->type == "\\BUF") {
-					RTLIL::SigSig conn;
-					conn.first = RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\Y").as_wire()->name)]);
-					conn.second = RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\A").as_wire()->name)]);
-					module->connect(conn);
-					continue;
-				}
 				if (c->type == "$_NOT_") {
 					RTLIL::Cell *cell;
 					RTLIL::SigBit a_bit = c->getPort("\\A").as_bit();
@@ -621,16 +606,35 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 									RTLIL::SigBit(module->wires_[remap_name(y_bit.wire->name)], y_bit.offset),
 									driver_lut);
 						}
+						cell_stats["$lut"]++;
 					}
 					else {
 						cell = module->addCell(remap_name(c->name), "$_NOT_");
 						cell->setPort("\\A", RTLIL::SigBit(module->wires_[remap_name(a_bit.wire->name)], a_bit.offset));
 						cell->setPort("\\Y", RTLIL::SigBit(module->wires_[remap_name(y_bit.wire->name)], y_bit.offset));
+						cell_stats[RTLIL::unescape_id(c->type)]++;
 					}
 					if (markgroups) cell->attributes["\\abcgroup"] = map_autoidx;
 					design->select(module, cell);
 					continue;
 				}
+
+				cell_stats[RTLIL::unescape_id(c->type)]++;
+				if (c->type == "\\ZERO" || c->type == "\\ONE") {
+					RTLIL::SigSig conn;
+					conn.first = RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\Y").as_wire()->name)]);
+					conn.second = RTLIL::SigSpec(c->type == "\\ZERO" ? 0 : 1, 1);
+					module->connect(conn);
+					continue;
+				}
+				if (c->type == "\\BUF") {
+					RTLIL::SigSig conn;
+					conn.first = RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\Y").as_wire()->name)]);
+					conn.second = RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\A").as_wire()->name)]);
+					module->connect(conn);
+					continue;
+				}
+
 				if (c->type == "\\AND" || c->type == "\\OR" || c->type == "\\XOR" || c->type == "\\NAND" || c->type == "\\NOR" ||
 						c->type == "\\XNOR" || c->type == "\\ANDNOT" || c->type == "\\ORNOT") {
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), "$_" + c->type.substr(1) + "_");
@@ -856,17 +860,21 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 				auto port_name = it.first;
 				if (!cell->output(port_name)) continue;
 				auto &signal = it.second;
-				if (!signal.is_bit()) continue;
-				if (output_bits.count(signal.as_bit()))
-					signal = module->addWire(NEW_ID);
+				auto bits = signal.bits();
+				for (auto &b : bits)
+					if (output_bits.count(b))
+						b = module->addWire(NEW_ID);
+				signal = std::move(bits);
 			}
 		}
 		// Do the same for module connections
 		for (auto &it : module->connections_) {
 			auto &signal = it.first;
-			if (!signal.is_bit()) continue;
-			if (output_bits.count(signal.as_bit()))
-				signal = module->addWire(NEW_ID);
+			auto bits = signal.bits();
+			for (auto &b : bits)
+				if (output_bits.count(b))
+					b = module->addWire(NEW_ID);
+			signal = std::move(bits);
 		}
 
 		// Stitch in mapped_mod's inputs/outputs into module
