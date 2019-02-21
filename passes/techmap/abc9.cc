@@ -416,8 +416,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 
     Pass::call(design, stringf("write_xaiger -O -symbols %s/input.xaig; ", tempdir_name.c_str()));
 
-	design->selection_stack.pop_back();
-
 	// Now 'unexpose' those wires by undoing
 	// the expose operation -- remove them from PO/PI
 	// and re-connecting them back together
@@ -542,7 +540,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			RTLIL::Wire *w = it.second;
 			RTLIL::Wire *remap_wire = module->addWire(remap_name(w->name), GetSize(w));
 			if (markgroups) remap_wire->attributes["\\abcgroup"] = map_autoidx;
-			design->select(module, remap_wire);
 			if (w->port_output) {
 				RTLIL::Wire *wire = module->wire(w->name);
 				if (wire) {
@@ -616,7 +613,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 						cell_stats[RTLIL::unescape_id(c->type)]++;
 					}
 					if (markgroups) cell->attributes["\\abcgroup"] = map_autoidx;
-					design->select(module, cell);
 					continue;
 				}
 
@@ -643,7 +639,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 					cell->setPort("\\A", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\A").as_wire()->name)]));
 					cell->setPort("\\B", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\B").as_wire()->name)]));
 					cell->setPort("\\Y", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\Y").as_wire()->name)]));
-					design->select(module, cell);
 					continue;
 				}
 				if (c->type == "\\MUX") {
@@ -653,7 +648,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 					cell->setPort("\\B", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\B").as_wire()->name)]));
 					cell->setPort("\\S", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\S").as_wire()->name)]));
 					cell->setPort("\\Y", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\Y").as_wire()->name)]));
-					design->select(module, cell);
 					continue;
 				}
 				if (c->type == "\\MUX4") {
@@ -666,7 +660,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 					cell->setPort("\\S", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\S").as_wire()->name)]));
 					cell->setPort("\\T", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\T").as_wire()->name)]));
 					cell->setPort("\\Y", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\Y").as_wire()->name)]));
-					design->select(module, cell);
 					continue;
 				}
 				if (c->type == "\\MUX8") {
@@ -684,7 +677,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 					cell->setPort("\\T", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\T").as_wire()->name)]));
 					cell->setPort("\\U", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\U").as_wire()->name)]));
 					cell->setPort("\\Y", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\Y").as_wire()->name)]));
-					design->select(module, cell);
 					continue;
 				}
 				if (c->type == "\\MUX16") {
@@ -711,7 +703,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 					cell->setPort("\\U", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\U").as_wire()->name)]));
 					cell->setPort("\\V", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\V").as_wire()->name)]));
 					cell->setPort("\\Y", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\Y").as_wire()->name)]));
-					design->select(module, cell);
 					continue;
 				}
 				if (c->type == "\\AOI3" || c->type == "\\OAI3") {
@@ -721,7 +712,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 					cell->setPort("\\B", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\B").as_wire()->name)]));
 					cell->setPort("\\C", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\C").as_wire()->name)]));
 					cell->setPort("\\Y", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\Y").as_wire()->name)]));
-					design->select(module, cell);
 					continue;
 				}
 				if (c->type == "\\AOI4" || c->type == "\\OAI4") {
@@ -732,7 +722,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 					cell->setPort("\\C", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\C").as_wire()->name)]));
 					cell->setPort("\\D", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\D").as_wire()->name)]));
 					cell->setPort("\\Y", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\Y").as_wire()->name)]));
-					design->select(module, cell);
 					continue;
 				}
 				if (c->type == "\\DFF") {
@@ -749,7 +738,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 					cell->setPort("\\D", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\D").as_wire()->name)]));
 					cell->setPort("\\Q", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\Q").as_wire()->name)]));
 					cell->setPort("\\C", clk_sig);
-					design->select(module, cell);
 					continue;
 				}
 			}
@@ -778,7 +766,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 				cell->setPort("\\D", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\D").as_wire()->name)]));
 				cell->setPort("\\Q", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\Q").as_wire()->name)]));
 				cell->setPort("\\C", clk_sig);
-				design->select(module, cell);
 				continue;
 			}
 
@@ -803,7 +790,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 				}
 				cell->setPort(conn.first, newsig);
 			}
-			design->select(module, cell);
 		}
 
 		// Copy connections (and rename) from mapped_mod to module
@@ -936,6 +922,8 @@ cleanup:
 		log("Removing temp directory.\n");
 		remove_directory(tempdir_name);
 	}
+
+	design->selection_stack.pop_back();
 
 	log_pop();
 }
