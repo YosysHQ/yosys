@@ -22,6 +22,11 @@
 // Armin Biere. The AIGER And-Inverter Graph (AIG) Format Version 20071012. Technical Report 07/1, October 2011, FMV Reports Series, Institute for Formal Models and Verification, Johannes Kepler University, Altenbergerstr. 69, 4040 Linz, Austria.
 // http://fmv.jku.at/papers/Biere-FMV-TR-07-1.pdf
 
+#ifndef _WIN32
+#include <libgen.h>
+#endif
+#include <array>
+
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 #include "aigerparse.h"
@@ -102,7 +107,6 @@ void AigerReader::parse_aiger()
             if (f.peek() == '\n')
                 break;
             // Else constraint (TODO)
-            break;
         }
         else
             log_error("Line %u: cannot interpret first character '%c'!\n", line_count, c);
@@ -134,9 +138,7 @@ static RTLIL::Wire* createWireIfNotExists(RTLIL::Module *module, unsigned litera
     }
 
     log_debug("Creating %s = ~%s\n", wire_name.c_str(), wire_inv_name.c_str());
-    RTLIL::Cell *inv = module->addCell(stringf("\\n%d_not", variable), "$_NOT_"); // FIXME: is "_not" the right suffix?
-    inv->setPort("\\A", wire_inv);
-    inv->setPort("\\Y", wire);
+    module->addNotGate(stringf("\\n%d_not", variable), wire_inv, wire); // FIXME: is "_not" the right suffix?
 
     return wire;
 }
@@ -227,7 +229,7 @@ void AigerReader::parse_aiger_ascii()
         std::getline(f, line); // Ignore up to start of next line
 
     // Parse AND
-    for (unsigned i = 0; i < A; ++i, ++line_count) {
+    for (unsigned i = 0; i < A; ++i) {
         if (!(f >> l1 >> l2 >> l3))
             log_error("Line %u cannot be interpreted as an AND!\n", line_count);
 
@@ -236,11 +238,7 @@ void AigerReader::parse_aiger_ascii()
         RTLIL::Wire *o_wire = createWireIfNotExists(module, l1);
         RTLIL::Wire *i1_wire = createWireIfNotExists(module, l2);
         RTLIL::Wire *i2_wire = createWireIfNotExists(module, l3);
-
-        RTLIL::Cell *and_cell = module->addCell(NEW_ID, "$_AND_");
-        and_cell->setPort("\\A", i1_wire);
-        and_cell->setPort("\\B", i2_wire);
-        and_cell->setPort("\\Y", o_wire);
+        module->addAndGate(NEW_ID, i1_wire, i2_wire, o_wire);
     }
     std::getline(f, line); // Ignore up to start of next line
 }
@@ -350,8 +348,6 @@ void AigerReader::parse_aiger_binary()
         and_cell->setPort("\\B", i2_wire);
         and_cell->setPort("\\Y", o_wire);
     }
-    std::getline(f, line); // Ignore up to start of next line
-
 }
 
 struct AigerFrontend : public Frontend {
@@ -404,7 +400,9 @@ struct AigerFrontend : public Frontend {
 #ifdef _WIN32
             module_name = "top"; // FIXME: basename equivalent on Win32?
 #else
-            module_name = RTLIL::escape_id(basename(filename.c_str()));
+            char* bn = strdup(filename.c_str());
+            module_name = RTLIL::escape_id(bn);
+            free(bn);
 #endif
         }
 
