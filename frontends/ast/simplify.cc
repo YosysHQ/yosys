@@ -1778,7 +1778,7 @@ skip_dynamic_range_lvalue_expansion:;
 
 			if (str == "\\$past")
 			{
-				if (width_hint <= 0)
+				if (width_hint < 0)
 					goto replace_fcall_later;
 
 				int num_steps = 1;
