@@ -792,7 +792,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 	// everything should have been handled above -> print error if not.
 	default:
 		for (auto f : log_files)
-			current_ast->dumpAst(f, "verilog-ast> ");
+			current_ast_mod->dumpAst(f, "verilog-ast> ");
 		log_file_error(filename, linenum, "Don't know how to detect sign and width for %s node!\n", type2str(type).c_str());
 	}
 
@@ -1565,7 +1565,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	// everything should have been handled above -> print error if not.
 	default:
 		for (auto f : log_files)
-			current_ast->dumpAst(f, "verilog-ast> ");
+			current_ast_mod->dumpAst(f, "verilog-ast> ");
 		type_name = type2str(type);
 		log_file_error(filename, linenum, "Don't know how to generate RTLIL code for %s node!\n", type_name.c_str());
 	}
