@@ -195,6 +195,19 @@ struct WreduceWorker
 		for (auto bit : sig_q)
 			work_queue_bits.insert(bit);
 
+		// Narrow ARST_VALUE parameter to new size.
+		//
+		// Note: This works because earlier loop only removes signals from
+		// the upper bits of the DFF.
+		if(cell->parameters.count("\\ARST_VALUE") > 0) {
+			RTLIL::Const old_arst_value = cell->parameters.at("\\ARST_VALUE");
+			std::vector<RTLIL::State> new_arst_value(GetSize(sig_q));
+			for(int i = 0; i < GetSize(sig_q); ++i) {
+				new_arst_value[i] = old_arst_value[i];
+			}
+			cell->parameters["\\ARST_VALUE"] = RTLIL::Const(new_arst_value);
+		}
+
 		cell->setPort("\\D", sig_d);
 		cell->setPort("\\Q", sig_q);
 		cell->fixup_parameters();
