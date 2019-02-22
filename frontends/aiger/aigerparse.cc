@@ -254,6 +254,29 @@ static RTLIL::Wire* createWireIfNotExists(RTLIL::Module *module, unsigned litera
     return wire;
 }
 
+static std::pair<RTLIL::IdString, int> wideports_split(std::string name)
+{
+	int pos = -1;
+
+	if (name.empty() || name.back() != ']')
+		goto failed;
+
+	for (int i = 0; i+1 < GetSize(name); i++) {
+		if (name[i] == '[')
+			pos = i;
+		else if (name[i] < '0' || name[i] > '9')
+			pos = -1;
+		else if (i == pos+1 && name[i] == '0' && name[i+1] != ']')
+			pos = -1;
+	}
+
+	if (pos >= 0)
+		return std::pair<RTLIL::IdString, int>(RTLIL::escape_id(name.substr(0, pos)), atoi(name.c_str() + pos+1));
+
+failed:
+	return std::pair<RTLIL::IdString, int>(name, 0);
+}
+
 void AigerReader::parse_xaiger()
 {
     std::string header;
@@ -288,6 +311,8 @@ void AigerReader::parse_xaiger()
     unsigned l1;
     std::string s;
     bool comment_seen = false;
+    std::vector<std::pair<RTLIL::Wire*,RTLIL::IdString>> deferred_renames;
+    deferred_renames.reserve(inputs.size() + latches.size() + outputs.size());
     for (int c = f.peek(); c != EOF; c = f.peek()) {
         if (comment_seen || c == 'c') {
             if (!comment_seen) {
@@ -354,10 +379,7 @@ void AigerReader::parse_xaiger()
             else if (c == 'o') wire = outputs[l1];
             else log_abort();
 
-            module->rename(wire, stringf("\\%s", s.c_str()));
-
-            RTLIL::Cell* driver = module->cell(stringf("%s$lut", wire->name.c_str()));
-            module->rename(driver, stringf("%s$lut", wire->name.c_str()));
+            deferred_renames.emplace_back(wire, RTLIL::escape_id(s));
 
             std::getline(f, line); // Ignore up to start of next line
             ++line_count;
@@ -367,6 +389,23 @@ void AigerReader::parse_xaiger()
     }
 
     dict<RTLIL::IdString, int> wideports_cache;
+    for (auto i : deferred_renames) {
+        RTLIL::Wire *wire = i.first;
+        RTLIL::Cell* driver = module->cell(stringf("%s$lut", wire->name.c_str()));
+
+        module->rename(wire, i.second);
+
+        if (driver)
+            module->rename(driver, stringf("%s$lut", wire->name.c_str()));
+
+        if (wideports && (wire->port_input || wire->port_output)) {
+            RTLIL::IdString escaped_symbol;
+            int index;
+            std::tie(escaped_symbol,index) = wideports_split(wire->name.str());
+            if (index > 0)
+                wideports_cache[escaped_symbol] = std::max(wideports_cache[escaped_symbol], index);
+        }
+    }
 
     if (!map_filename.empty()) {
         std::ifstream mf(map_filename);
@@ -381,9 +420,9 @@ void AigerReader::parse_xaiger()
                 log_assert(wire->port_input);
 
                 if (index == 0)
-                    module->rename(wire, RTLIL::escape_id(symbol));
+                    module->rename(wire, escaped_symbol);
                 else if (index > 0) {
-                    module->rename(wire, RTLIL::escape_id(stringf("%s[%d]", symbol.c_str(), index)));
+                    module->rename(wire, stringf("%s[%d]", escaped_symbol.c_str(), index));
                     if (wideports)
                         wideports_cache[escaped_symbol] = std::max(wideports_cache[escaped_symbol], index);
                 }
@@ -397,9 +436,9 @@ void AigerReader::parse_xaiger()
                 RTLIL::Cell* driver = module->cell(stringf("%s$lut", wire->name.c_str()));
 
                 if (index == 0)
-                    module->rename(wire, RTLIL::escape_id(symbol));
+                    module->rename(wire, escaped_symbol);
                 else if (index > 0) {
-                    module->rename(wire, RTLIL::escape_id(stringf("%s[%d]", symbol.c_str(), index)));
+                    module->rename(wire, stringf("%s[%d]", escaped_symbol.c_str(), index));
                     if (wideports)
                         wideports_cache[escaped_symbol] = std::max(wideports_cache[escaped_symbol], index);
                 }
