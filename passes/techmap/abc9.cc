@@ -319,10 +319,10 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 	if (!cleanup)
 		tempdir_name[0] = tempdir_name[4] = '_';
 	tempdir_name = make_temp_dir(tempdir_name);
-	log_header(design, "Extracting gate netlist of module `%s' to `%s/input.xaig'..\n",
+	log_header(design, "Extracting gate netlist of module `%s' to `%s/input.aig'..\n",
 			module->name.c_str(), replace_tempdir(tempdir_name, tempdir_name, show_tempdir).c_str());
 
-	std::string abc_script = stringf("&read %s/input.xaig; &ps; ", tempdir_name.c_str());
+	std::string abc_script = stringf("read %s/input.aig; &get -n; ", tempdir_name.c_str());
 
 	if (!liberty_file.empty()) {
 		abc_script += stringf("read_lib -w %s; ", liberty_file.c_str());
@@ -376,7 +376,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 	for (size_t pos = abc_script.find("{S}"); pos != std::string::npos; pos = abc_script.find("{S}", pos))
 		abc_script = abc_script.substr(0, pos) + lutin_shared + abc_script.substr(pos+3);
 
-	abc_script += stringf("; &ps; &write %s/output.xaig", tempdir_name.c_str());
+	abc_script += stringf("; &write %s/output.aig", tempdir_name.c_str());
 	abc_script = add_echos_to_abc_cmd(abc_script);
 
 	for (size_t i = 0; i+1 < abc_script.size(); i++)
@@ -407,7 +407,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 
 	handle_loops(design);
 
-    Pass::call(design, stringf("write_xaiger -O -map %s/input.symbols %s/input.xaig; ", tempdir_name.c_str(), tempdir_name.c_str()));
+    Pass::call(design, stringf("write_xaiger -O -symbols %s/input.aig; ", tempdir_name.c_str()));
 
 	// Now 'unexpose' those wires by undoing
 	// the expose operation -- remove them from PO/PI
@@ -426,6 +426,9 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		}
 	}
 	module->fixup_ports();
+
+	//log("Extracted %d gates and %d wires to a netlist network with %d inputs and %d outputs.\n",
+	//		count_gates, GetSize(signal_list), count_input, count_output);
 
 	log_push();
 
@@ -509,7 +512,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		if (ret != 0)
 			log_error("ABC: execution of command \"%s\" failed: return code %d.\n", buffer.c_str(), ret);
 
-		buffer = stringf("%s/%s", tempdir_name.c_str(), "output.xaig");
+		buffer = stringf("%s/%s", tempdir_name.c_str(), "output.aig");
 		std::ifstream ifs;
 		ifs.open(buffer);
 		if (ifs.fail())
@@ -546,6 +549,10 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 						goto cleanup;
 					}
 
+					// Attempt another wideports_split here because there
+					// exists the possibility that different bits of a port
+					// could be an input and output, therefore parse_xiager()
+					// could not combine it into a wideport
 					auto r = wideports_split(w->name.str());
 					wire = module->wire(r.first);
 					log_assert(wire);
@@ -872,6 +879,10 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 				signal = RTLIL::SigSpec(wire, 0, GetSize(remap_wire));
 			}
 			else {
+				// Attempt another wideports_split here because there
+				// exists the possibility that different bits of a port
+				// could be an input and output, therefore parse_xiager()
+				// could not combine it into a wideport
 				auto r = wideports_split(w->name.str());
 				wire = module->wire(r.first);
 				log_assert(wire);
