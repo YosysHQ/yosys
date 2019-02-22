@@ -368,7 +368,7 @@ struct XAigerWriter
 		}
 	}
 
-	void write_aiger(std::ostream &f, bool ascii_mode, bool miter_mode, bool symbols_mode)
+	void write_aiger(std::ostream &f, bool ascii_mode, bool miter_mode, bool symbols_mode, bool omode)
 	{
 		int aig_obc = aig_o;
 		int aig_obcj = aig_obc;
@@ -449,6 +449,7 @@ struct XAigerWriter
 		{
 			dict<string, vector<string>> symbols;
 
+			bool output_seen = false;
 			for (auto wire : module->wires())
 			{
 				//if (wire->name[0] == '$')
@@ -458,14 +459,8 @@ struct XAigerWriter
 
 				for (int i = 0; i < GetSize(wire); i++)
 				{
-					if (sig[i].wire == nullptr) {
-						if (wire->port_output)
-							sig[i] = SigBit(wire, i);
-						else
-							continue;
-					}
-
-					if (input_bits.count(sig[i]) || ci_bits.count(SigSpec(sig[i]))) {
+					RTLIL::SigBit b(wire, i);
+					if (input_bits.count(b) || ci_bits.count(b)) {
 						int a = aig_map.at(sig[i]);
 						log_assert((a & 1) == 0);
 						if (GetSize(wire) != 1)
@@ -474,8 +469,9 @@ struct XAigerWriter
 							symbols[stringf("i%d", (a >> 1)-1)].push_back(stringf("%s", log_id(wire)));
 					}
 
-					if (output_bits.count(SigSpec(wire, i)) || co_bits.count(SigSpec(wire, i))) {
-						int o = ordered_outputs.at(SigSpec(wire, i));
+					if (output_bits.count(b) || co_bits.count(b)) {
+						int o = ordered_outputs.at(b);
+						output_seen = !miter_mode;
 						if (GetSize(wire) != 1)
 							symbols[stringf("%c%d", miter_mode ? 'b' : 'o', o)].push_back(stringf("%s[%d]", log_id(wire), i));
 						else
@@ -501,6 +497,9 @@ struct XAigerWriter
 					}
 				}
 			}
+
+			if (omode && !output_seen)
+				symbols["o0"].push_back("__dummy_o__");
 
 			symbols.sort();
 
@@ -692,7 +691,7 @@ struct XAigerBackend : public Backend {
 			log_error("Can't find top module in current design!\n");
 
 		XAigerWriter writer(top_module, zinit_mode, imode, omode, bmode);
-		writer.write_aiger(*f, ascii_mode, miter_mode, symbols_mode);
+		writer.write_aiger(*f, ascii_mode, miter_mode, symbols_mode, omode);
 
 		if (!map_filename.empty()) {
 			std::ofstream mapf;
