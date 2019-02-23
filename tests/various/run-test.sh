@@ -9,6 +9,6 @@ shell_tests=$(echo *.sh | sed -e 's/run-test.sh//')
 if [ "$shell_tests" ]; then
     for s in $shell_tests; do
         echo "Running $s.."
-        bash $s >& ${s%.sh}.log
+        bash $s
     done
 fi

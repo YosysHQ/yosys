@@ -3,7 +3,8 @@
 
 set -e
 
-../../yosys -q -s - <<- EOY 2>&1 | grep "Automatically selected TOP as design top module"
+echo -n "  TOP first - "
+../../yosys -s - <<- EOY | grep "Automatically selected TOP as design top module"
   read_verilog << EOV
     module TOP(a, y);
       input a;
@@ -21,7 +22,8 @@ set -e
   hierarchy -auto-top
 EOY
 
-../../yosys -q -s - <<- EOY 2>&1 | grep "Automatically selected TOP as design top module"
+echo -n "  TOP last - "
+../../yosys -s - <<- EOY | grep "Automatically selected TOP as design top module"
   read_verilog << EOV
     module aoi12(a, y);
       input a;
@@ -39,7 +41,8 @@ EOY
   hierarchy -auto-top
 EOY
 
-../../yosys -q -s - <<- EOY 2>&1 | grep "Automatically selected noTop as design top module."
+echo -n "  no explicit top - "
+../../yosys -s - <<- EOY | grep "Automatically selected noTop as design top module."
   read_verilog << EOV
     module aoi12(a, y);
       input a;
