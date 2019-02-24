@@ -527,11 +527,7 @@ int find_top_mod_score(Design *design, Module *module, dict<Module*, int> &db)
 			// Is this cell a module instance?
 			auto instModule = design->module(celltype);
 			// If there is no instance for this, issue a warning.
-			if (instModule == NULL) {
-				//  but only if we're sure it is a reference to a module.
-				if (celltype[0] != '$')
-					log_warning("find_top_mod_score: no instance for %s.%s\n", celltype.c_str(), cell->name.c_str());
-			} else {
+			if (instModule != nullptr) {
 				score = max(score, find_top_mod_score(design, instModule, db) + 1);
 			}
 		}
