@@ -157,8 +157,11 @@ struct XAigerWriter
 			}
 		}
 
-		for (auto bit : input_bits)
+		for (auto bit : input_bits) {
 			undriven_bits.erase(bit);
+			// Erase POs that are also PIs
+			output_bits.erase(bit);
+		}
 
 		for (auto bit : output_bits)
 			unused_bits.erase(bit);
@@ -215,12 +218,14 @@ struct XAigerWriter
 							SigBit I = sigmap(b);
 							if (I != b)
 								alias_map[b] = I;
-							co_bits.insert(b);
+							if (!output_bits.count(b))
+								co_bits.insert(b);
 						}
 					}
 					else if (cell->output(c.first)) {
 						SigBit O = sigmap(b);
-						ci_bits.insert(O);
+						if (!input_bits.count(O) && !output_bits.count(O))
+							ci_bits.insert(O);
 					}
 					else log_abort();
 				}
@@ -235,16 +240,6 @@ struct XAigerWriter
 		for (auto bit : undriven_bits) {
 			co_bits.erase(bit);
 			output_bits.erase(bit);
-		}
-		// Erase all POs and CIs that are also PIs
-		for (auto bit : input_bits) {
-			output_bits.erase(bit);
-			ci_bits.erase(bit);
-		}
-		for (auto bit : output_bits) {
-			ci_bits.erase(bit);
-			// POs override COs
-			co_bits.erase(bit);
 		}
 		// Erase all CIs that are also COs
 		for (auto bit : co_bits)
