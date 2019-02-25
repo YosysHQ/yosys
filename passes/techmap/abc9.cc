@@ -409,6 +409,8 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 
     Pass::call(design, stringf("write_xaiger -O -symbols %s/input.aig; ", tempdir_name.c_str()));
 
+	design->selection_stack.pop_back();
+
 	// Now 'unexpose' those wires by undoing
 	// the expose operation -- remove them from PO/PI
 	// and re-connecting them back together
@@ -919,16 +921,12 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 	//	log("Don't call ABC as there is nothing to map.\n");
 	//}
 
-	Pass::call(design, "clean");
-
 cleanup:
 	if (cleanup)
 	{
 		log("Removing temp directory.\n");
 		remove_directory(tempdir_name);
 	}
-
-	design->selection_stack.pop_back();
 
 	log_pop();
 }
@@ -1539,6 +1537,8 @@ struct Abc9Pass : public Pass {
 				assign_map.set(mod);
 			}
 		}
+
+        Pass::call(design, "clean");
 
 		assign_map.clear();
 		signal_map.clear();
