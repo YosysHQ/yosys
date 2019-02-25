@@ -524,6 +524,7 @@ void AigerReader::parse_aiger_ascii()
     // Parse latches
     RTLIL::Wire *clk_wire = nullptr;
     if (L > 0) {
+        log_assert(clk_name != "");
         clk_wire = module->wire(clk_name);
         log_assert(!clk_wire);
         log_debug("Creating %s\n", clk_name.c_str());
@@ -654,6 +655,7 @@ void AigerReader::parse_aiger_binary()
     // Parse latches
     RTLIL::Wire *clk_wire = nullptr;
     if (L > 0) {
+        log_assert(clk_name != "");
         clk_wire = module->wire(clk_name);
         log_assert(!clk_wire);
         log_debug("Creating %s\n", clk_name.c_str());

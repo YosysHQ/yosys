@@ -523,8 +523,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		bool builtin_lib = liberty_file.empty();
 		RTLIL::Design *mapped_design = new RTLIL::Design;
 		//parse_blif(mapped_design, ifs, builtin_lib ? "\\DFF" : "\\_dff_", false, sop_mode);
-		buffer = stringf("%s/%s", tempdir_name.c_str(), "input.symbols");
-		AigerReader reader(mapped_design, ifs, "\\netlist", "\\clk", buffer, true /* wideports */);
+		AigerReader reader(mapped_design, ifs, "\\netlist", "" /* clk_name */, "" /* map_filename */, true /* wideports */);
 		reader.parse_xaiger();
 
 		ifs.close();
