@@ -57,7 +57,7 @@ module TRELLIS_RAM16X2 (
 	input RAD0, RAD1, RAD2, RAD3,
 	output DO0, DO1
 );
-  	parameter WCKMUX = "WCK";
+	parameter WCKMUX = "WCK";
 	parameter WREMUX = "WRE";
 	parameter INITVAL_0 = 16'h0000;
 	parameter INITVAL_1 = 16'h0000;
@@ -104,7 +104,7 @@ module TRELLIS_DPR16X4 (
 	input [3:0] RAD,
 	output [3:0] DO
 );
-  	parameter WCKMUX = "WCK";
+	parameter WCKMUX = "WCK";
 	parameter WREMUX = "WRE";
 	parameter [63:0] INITVAL = 64'h0000000000000000;
 

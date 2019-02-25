@@ -660,8 +660,8 @@ struct DfflibmapPass : public Pass {
 		map_adff_to_dff("$_DFF_PP0_", "$_DFF_P_");
 		map_adff_to_dff("$_DFF_PP1_", "$_DFF_P_");
 
- 		log("  final dff cell mappings:\n");
- 		logmap_all();
+		log("  final dff cell mappings:\n");
+		logmap_all();
 
 		for (auto &it : design->modules_)
 			if (design->selected(it.second) && !it.second->get_bool_attribute("\\blackbox"))
