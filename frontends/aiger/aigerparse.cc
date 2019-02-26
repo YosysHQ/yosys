@@ -380,20 +380,22 @@ void AigerReader::parse_xaiger()
             else if (c == 'o') wire = outputs[l1];
             else log_abort();
 
-            if (wideports && (wire->port_input || wire->port_output)) {
-                RTLIL::IdString escaped_symbol;
+            RTLIL::IdString escaped_s = RTLIL::escape_id(s);
+
+            if (escaped_s.ends_with("$inout.out")) {
+                deferred_inouts.emplace_back(wire, escaped_s.substr(0, escaped_s.size()-10));
+                goto next_line;
+            }
+            else if (wideports && (wire->port_input || wire->port_output)) {
+                RTLIL::IdString wide_symbol;
                 int index;
-                std::tie(escaped_symbol,index) = wideports_split(RTLIL::escape_id(s));
-                if (escaped_symbol.size() > 10 && escaped_symbol.substr(escaped_symbol.size()-10) == "$inout.out") {
-                    deferred_inouts.emplace_back(wire, stringf("%s[%d]", escaped_symbol.substr(0, escaped_symbol.size()-10).c_str(), index));
+                std::tie(wide_symbol,index) = wideports_split(escaped_s.str());
+                if (wide_symbol.ends_with("$inout.out")) {
+                    deferred_inouts.emplace_back(wire, stringf("%s[%d]", wide_symbol.substr(0, wide_symbol.size()-10).c_str(), index));
                     goto next_line;
                 }
             }
-
-            if (s.size() > 10 && s.substr(s.size()-10) == "$inout.out")
-                deferred_inouts.emplace_back(wire, RTLIL::escape_id(s.substr(0, s.size()-10)));
-            else
-                deferred_renames.emplace_back(wire, RTLIL::escape_id(s));
+            deferred_renames.emplace_back(wire, escaped_s);
 
 next_line:
             std::getline(f, line); // Ignore up to start of next line
