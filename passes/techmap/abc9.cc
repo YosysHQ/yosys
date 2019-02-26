@@ -898,13 +898,14 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 				conn.first = remap_wire;
 				conn.second = signal;
 				in_wires++;
+				module->connect(conn);
 			}
 			if (w->port_output) {
 				conn.first = signal;
 				conn.second = remap_wire;
 				out_wires++;
+				module->connect(conn);
 			}
-			module->connect(conn);
 		}
 
 		//log("ABC RESULTS:        internal signals: %8d\n", int(signal_list.size()) - in_wires - out_wires);
