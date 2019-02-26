@@ -85,7 +85,7 @@ with open(pmgfile, "r") as f:
         cmd = line.split()
         if len(cmd) == 0 or cmd[0].startswith("//"): continue
         cmd = cmd[0]
-        
+
         if cmd == "state":
             m = re.match(r"^state\s+<(.*?)>\s+(([A-Za-z_][A-Za-z_0-9]*\s+)*[A-Za-z_][A-Za-z_0-9]*)\s*$", line)
             assert m
