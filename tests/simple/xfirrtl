@@ -12,7 +12,6 @@ multiplier.v	inst id[0] of
 muxtree.v	drops modules
 omsp_dbg_uart.v	$adff
 operators.v	$pow
-paramods.v	subfield assignment (bits() <= ...)
 partsel.v	drops modules
 process.v	drops modules
 realexpr.v	drops modules
