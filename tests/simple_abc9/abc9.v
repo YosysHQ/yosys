@@ -63,30 +63,44 @@ always @(io or oe)
 assign io = oe ? ~latch : 8'bz;
 endmodule
 
-// TODO
-//module abc9_test011(inout [7:0] io, input oe);
-//reg [7:0] latch;
-//always @(io or oe)
-//    if (!oe)
-//        latch[3:0] <= io;
-//    else
-//        latch[7:4] <= io;
-//assign io[3:0] = oe ? ~latch[3:0] : 4'bz;
-//assign io[7:4] = !oe ? {latch[4], latch[7:3]} : 4'bz;
-//endmodule
+module abc9_test011(inout io, input oe);
+reg latch;
+always @(io or oe)
+    if (!oe)
+        latch <= io;
+//assign io = oe ? ~latch : 8'bz;
+endmodule
 
-// TODO
-//module abc9_test012(inout [7:0] io, input oe);
-//abc9_test012_sub sub(io, oe);
-//endmodule
-//
-//module abc9_test012_sub(inout [7:0] io, input oe);
-//reg [7:0] latch;
+module abc9_test012(inout io, input oe);
+reg latch;
 //always @(io or oe)
 //    if (!oe)
-//        latch[3:0] <= io;
-//    else
-//        latch[7:4] <= io;
-//assign io[3:0] = oe ? ~latch[3:0] : 4'bz;
-//assign io[7:4] = !oe ? {latch[4], latch[7:3]} : 4'bz;
-//endmodule
+//        latch <= io;
+assign io = oe ? ~latch : 8'bz;
+endmodule
+
+module abc9_test013(inout [3:0] io, input oe);
+reg [3:0] latch;
+always @(io or oe)
+    if (!oe)
+        latch[3:0] <= io[3:0];
+    else
+        latch[7:4] <= io;
+assign io[3:0] = oe ? ~latch[3:0] : 4'bz;
+assign io[7:4] = !oe ? {latch[4], latch[7:3]} : 4'bz;
+endmodule
+
+module abc9_test014(inout [7:0] io, input oe);
+abc9_test012_sub sub(io, oe);
+endmodule
+
+module abc9_test012_sub(inout [7:0] io, input oe);
+reg [7:0] latch;
+always @(io or oe)
+    if (!oe)
+        latch[3:0] <= io;
+    else
+        latch[7:4] <= io;
+assign io[3:0] = oe ? ~latch[3:0] : 4'bz;
+assign io[7:4] = !oe ? {latch[4], latch[7:3]} : 4'bz;
+endmodule
