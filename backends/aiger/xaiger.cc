@@ -213,7 +213,10 @@ struct XAigerWriter
 				for (auto b : c.second.bits()) {
 					Wire *w = b.wire;
 					if (!w) continue;
-					if (cell->input(c.first)) {
+					auto is_input = cell->input(c.first);
+					auto is_output = cell->output(c.first);
+					log_assert(is_input || is_output);
+					if (is_input) {
 						if (!w->port_input) {
 							SigBit I = sigmap(b);
 							if (I != b)
@@ -222,12 +225,11 @@ struct XAigerWriter
 								co_bits.insert(b);
 						}
 					}
-					else if (cell->output(c.first)) {
+					if (is_output) {
 						SigBit O = sigmap(b);
 						if (!input_bits.count(O) && !output_bits.count(O))
 							ci_bits.insert(O);
 					}
-					else log_abort();
 				}
 				if (!type_map.count(cell->type))
 					type_map[cell->type] = type_map.size()+1;
@@ -258,6 +260,27 @@ struct XAigerWriter
 				input_bits.insert(bit);
 			}
 			log_warning("Treating a total of %d undriven bits in %s like $anyseq.\n", GetSize(undriven_bits), log_id(module));
+		}
+
+		for (auto bit : input_bits) {
+			RTLIL::Wire *wire = bit.wire;
+			// If encountering an inout port, then create a new wire with $inout.out
+			// suffix, make it a CO driven by the existing inout, and inherit existing
+			// inout's drivers
+			if (wire->port_input && wire->port_output) {
+				RTLIL::Wire *new_wire = module->wire(wire->name.str() + "$inout.out");
+				if (!new_wire)
+					new_wire = module->addWire(wire->name.str() + "$inout.out", GetSize(wire));
+				SigBit new_bit(new_wire, bit.offset);
+				module->connect(new_bit, bit);
+				if (not_map.count(bit))
+					not_map[new_bit] = not_map.at(bit);
+				else if (and_map.count(bit))
+					and_map[new_bit] = and_map.at(bit);
+				else if (alias_map.count(bit))
+					alias_map[new_bit] = alias_map.at(bit);
+				co_bits.insert(new_bit);
+			}
 		}
 
 		init_map.sort();
