@@ -268,9 +268,9 @@ struct SynthEcp5Pass : public ScriptPass
 			}
 			run("techmap -map +/ecp5/latches_map.v");
 			if (nomux)
-				run("abc -lut 4");
+				run("abc -lut 4 -dress");
 			else
-				run("abc -lut 4:7");
+				run("abc -lut 4:7 -dress");
 			run("clean");
 		}
 

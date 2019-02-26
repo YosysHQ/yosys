@@ -644,7 +644,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 				while (right_at_zero_ast->simplify(true, true, false, 1, -1, false, false)) { }
 				if (left_at_zero_ast->type != AST_CONSTANT || right_at_zero_ast->type != AST_CONSTANT)
 					log_file_error(filename, linenum, "Unsupported expression on dynamic range select on signal `%s'!\n", str.c_str());
-				this_width = left_at_zero_ast->integer - right_at_zero_ast->integer + 1;
+				this_width = abs(int(left_at_zero_ast->integer - right_at_zero_ast->integer)) + 1;
 				delete left_at_zero_ast;
 				delete right_at_zero_ast;
 			} else
@@ -792,7 +792,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 	// everything should have been handled above -> print error if not.
 	default:
 		for (auto f : log_files)
-			current_ast->dumpAst(f, "verilog-ast> ");
+			current_ast_mod->dumpAst(f, "verilog-ast> ");
 		log_file_error(filename, linenum, "Don't know how to detect sign and width for %s node!\n", type2str(type).c_str());
 	}
 
@@ -1034,7 +1034,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 					while (right_at_zero_ast->simplify(true, true, false, 1, -1, false, false)) { }
 					if (left_at_zero_ast->type != AST_CONSTANT || right_at_zero_ast->type != AST_CONSTANT)
 						log_file_error(filename, linenum, "Unsupported expression on dynamic range select on signal `%s'!\n", str.c_str());
-					int width = left_at_zero_ast->integer - right_at_zero_ast->integer + 1;
+					int width = abs(int(left_at_zero_ast->integer - right_at_zero_ast->integer)) + 1;
 					AstNode *fake_ast = new AstNode(AST_NONE, clone(), children[0]->children.size() >= 2 ?
 							children[0]->children[1]->clone() : children[0]->children[0]->clone());
 					fake_ast->children[0]->delete_children();
@@ -1565,7 +1565,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	// everything should have been handled above -> print error if not.
 	default:
 		for (auto f : log_files)
-			current_ast->dumpAst(f, "verilog-ast> ");
+			current_ast_mod->dumpAst(f, "verilog-ast> ");
 		type_name = type2str(type);
 		log_file_error(filename, linenum, "Don't know how to generate RTLIL code for %s node!\n", type_name.c_str());
 	}

@@ -1,3 +1,5 @@
+`default_nettype none
+
 module hierdefparam_top(input [7:0] A, output [7:0] Y);
   generate begin:foo
     hierdefparam_a mod_a(.A(A), .Y(Y));

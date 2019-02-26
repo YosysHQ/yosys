@@ -642,6 +642,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	// (iterate by index as e.g. auto wires can add new children in the process)
 	for (size_t i = 0; i < children.size(); i++) {
 		bool did_something_here = true;
+		bool backup_flag_autowire = flag_autowire;
 		if ((type == AST_GENFOR || type == AST_FOR) && i >= 3)
 			break;
 		if ((type == AST_GENIF || type == AST_GENCASE) && i >= 1)
@@ -652,6 +653,8 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			break;
 		if (type == AST_PREFIX && i >= 1)
 			break;
+		if (type == AST_DEFPARAM && i == 0)
+			flag_autowire = true;
 		while (did_something_here && i < children.size()) {
 			bool const_fold_here = const_fold, in_lvalue_here = in_lvalue;
 			int width_hint_here = width_hint;
@@ -686,6 +689,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			children.erase(children.begin() + (i--));
 			did_something = true;
 		}
+		flag_autowire = backup_flag_autowire;
 	}
 	for (auto &attr : attributes) {
 		while (attr.second->simplify(true, false, false, stage, -1, false, true))
@@ -934,12 +938,15 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			}
 		}
 		if (current_scope.count(str) == 0) {
-			// log_warning("Creating auto-wire `%s' in module `%s'.\n", str.c_str(), current_ast_mod->str.c_str());
-			AstNode *auto_wire = new AstNode(AST_AUTOWIRE);
-			auto_wire->str = str;
-			current_ast_mod->children.push_back(auto_wire);
-			current_scope[str] = auto_wire;
-			did_something = true;
+			if (flag_autowire) {
+				AstNode *auto_wire = new AstNode(AST_AUTOWIRE);
+				auto_wire->str = str;
+				current_ast_mod->children.push_back(auto_wire);
+				current_scope[str] = auto_wire;
+				did_something = true;
+			} else {
+				log_file_error(filename, linenum, "Identifier `%s' is implicitly declared and `default_nettype is set to none.\n", str.c_str());
+			}
 		}
 		if (id2ast != current_scope[str]) {
 			id2ast = current_scope[str];
@@ -1689,7 +1696,7 @@ skip_dynamic_range_lvalue_expansion:;
 				while (right_at_zero_ast->simplify(true, true, false, 1, -1, false, false)) { }
 				if (left_at_zero_ast->type != AST_CONSTANT || right_at_zero_ast->type != AST_CONSTANT)
 					log_file_error(filename, linenum, "Unsupported expression on dynamic range select on signal `%s'!\n", str.c_str());
-				int width = left_at_zero_ast->integer - right_at_zero_ast->integer + 1;
+				int width = abs(int(left_at_zero_ast->integer - right_at_zero_ast->integer)) + 1;
 
 				assign_data = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER),
 						new AstNode(AST_SHIFT_LEFT, children[1]->clone(), offset_ast->clone()));
@@ -1778,7 +1785,7 @@ skip_dynamic_range_lvalue_expansion:;
 
 			if (str == "\\$past")
 			{
-				if (width_hint <= 0)
+				if (width_hint < 0)
 					goto replace_fcall_later;
 
 				int num_steps = 1;
