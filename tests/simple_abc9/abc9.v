@@ -47,23 +47,21 @@ module abc9_test008_sub(input a, output b);
 assign b = ~a;
 endmodule
 
-// TODO
-//module abc9_test009(inout io, input oe);
-//reg latch;
-//always @(io or oe)
-//    if (!oe)
-//        latch <= io;
-//assign io = oe ? ~latch : 1'bz;
-//endmodule
+module abc9_test009(inout io, input oe);
+reg latch;
+always @(io or oe)
+    if (!oe)
+        latch <= io;
+assign io = oe ? ~latch : 1'bz;
+endmodule
 
-// TODO
-//module abc9_test010(inout [7:0] io, input oe);
-//reg [7:0] latch;
-//always @(io or oe)
-//    if (!oe)
-//        latch <= io;
-//assign io = oe ? ~latch : 1'bz;
-//endmodule
+module abc9_test010(inout [7:0] io, input oe);
+reg [7:0] latch;
+always @(io or oe)
+    if (!oe)
+        latch <= io;
+assign io = oe ? ~latch : 8'bz;
+endmodule
 
 // TODO
 //module abc9_test011(inout [7:0] io, input oe);
