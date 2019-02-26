@@ -158,13 +158,15 @@ struct XAigerWriter
 		}
 
 		for (auto bit : input_bits) {
-			undriven_bits.erase(bit);
+			if (!bit.wire->port_output)
+				undriven_bits.erase(bit);
 			// Erase POs that are also PIs
 			output_bits.erase(bit);
 		}
 
 		for (auto bit : output_bits)
-			unused_bits.erase(bit);
+			if (!bit.wire->port_input)
+				unused_bits.erase(bit);
 
 		for (auto cell : module->cells())
 		{
@@ -237,6 +239,27 @@ struct XAigerWriter
 			//log_error("Unsupported cell type: %s (%s)\n", log_id(cell->type), log_id(cell));
 		}
 
+		for (auto bit : input_bits) {
+			RTLIL::Wire *wire = bit.wire;
+			// If encountering an inout port, then create a new wire with $inout.out
+			// suffix, make it a CO driven by the existing inout, and inherit existing
+			// inout's drivers
+			if (wire->port_input && wire->port_output && !undriven_bits.count(bit)) {
+				RTLIL::Wire *new_wire = module->wire(wire->name.str() + "$inout.out");
+				if (!new_wire)
+					new_wire = module->addWire(wire->name.str() + "$inout.out", GetSize(wire));
+				SigBit new_bit(new_wire, bit.offset);
+				module->connect(new_bit, bit);
+				if (not_map.count(bit))
+					not_map[new_bit] = not_map.at(bit);
+				else if (and_map.count(bit))
+					and_map[new_bit] = and_map.at(bit);
+				else if (alias_map.count(bit))
+					alias_map[new_bit] = alias_map.at(bit);
+				co_bits.insert(new_bit);
+			}
+		}
+
 		// Do some CI/CO post-processing:
 		// Erase all POs and COs that are undriven
 		for (auto bit : undriven_bits) {
@@ -260,27 +283,6 @@ struct XAigerWriter
 				input_bits.insert(bit);
 			}
 			log_warning("Treating a total of %d undriven bits in %s like $anyseq.\n", GetSize(undriven_bits), log_id(module));
-		}
-
-		for (auto bit : input_bits) {
-			RTLIL::Wire *wire = bit.wire;
-			// If encountering an inout port, then create a new wire with $inout.out
-			// suffix, make it a CO driven by the existing inout, and inherit existing
-			// inout's drivers
-			if (wire->port_input && wire->port_output) {
-				RTLIL::Wire *new_wire = module->wire(wire->name.str() + "$inout.out");
-				if (!new_wire)
-					new_wire = module->addWire(wire->name.str() + "$inout.out", GetSize(wire));
-				SigBit new_bit(new_wire, bit.offset);
-				module->connect(new_bit, bit);
-				if (not_map.count(bit))
-					not_map[new_bit] = not_map.at(bit);
-				else if (and_map.count(bit))
-					and_map[new_bit] = and_map.at(bit);
-				else if (alias_map.count(bit))
-					alias_map[new_bit] = alias_map.at(bit);
-				co_bits.insert(new_bit);
-			}
 		}
 
 		init_map.sort();
