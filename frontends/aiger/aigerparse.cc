@@ -312,6 +312,7 @@ void AigerReader::parse_xaiger()
     std::string s;
     bool comment_seen = false;
     std::vector<std::pair<RTLIL::Wire*,RTLIL::IdString>> deferred_renames;
+    std::vector<std::pair<RTLIL::Wire*,RTLIL::IdString>> deferred_inouts;
     deferred_renames.reserve(inputs.size() + latches.size() + outputs.size());
     for (int c = f.peek(); c != EOF; c = f.peek()) {
         if (comment_seen || c == 'c') {
@@ -379,7 +380,10 @@ void AigerReader::parse_xaiger()
             else if (c == 'o') wire = outputs[l1];
             else log_abort();
 
-            deferred_renames.emplace_back(wire, RTLIL::escape_id(s));
+            if (s.size() > 10 && s.substr(s.size()-10) == "$inout.out")
+                deferred_inouts.emplace_back(wire, RTLIL::escape_id(s.substr(0, s.size()-10)));
+            else
+                deferred_renames.emplace_back(wire, RTLIL::escape_id(s));
 
             std::getline(f, line); // Ignore up to start of next line
             ++line_count;
@@ -389,7 +393,7 @@ void AigerReader::parse_xaiger()
     }
 
     dict<RTLIL::IdString, int> wideports_cache;
-    for (auto i : deferred_renames) {
+    for (const auto &i : deferred_renames) {
         RTLIL::Wire *wire = i.first;
         RTLIL::Cell* driver = module->cell(stringf("%s$lut", wire->name.c_str()));
 
@@ -405,6 +409,17 @@ void AigerReader::parse_xaiger()
             if (index > 0)
                 wideports_cache[escaped_symbol] = std::max(wideports_cache[escaped_symbol], index);
         }
+    }
+
+    for (const auto &i : deferred_inouts) {
+        RTLIL::Wire *out_wire = i.first;
+        log_assert(out_wire->port_output);
+        out_wire->port_output = false;
+        RTLIL::Wire *wire = module->wire(i.second);
+        log_assert(wire);
+        log_assert(wire->port_input && !wire->port_output);
+        wire->port_output = true;
+        module->connect(wire, out_wire);
     }
 
     if (!map_filename.empty()) {
@@ -515,7 +530,7 @@ void AigerReader::parse_aiger_ascii()
         if (!(f >> l1))
             log_error("Line %u cannot be interpreted as an input!\n", line_count);
         log_debug("%d is an input\n", l1);
-        log_assert(!(l1 & 1)); // TODO: Inputs can't be inverted?
+        log_assert(!(l1 & 1)); // Inputs can't be inverted
         RTLIL::Wire *wire = createWireIfNotExists(module, l1);
         wire->port_input = true;
         inputs.push_back(wire);
@@ -586,7 +601,7 @@ void AigerReader::parse_aiger_ascii()
             if (!wire)
                 wire = createWireIfNotExists(module, l1);
             else {
-                if ((wire->port_input || wire->port_output)) {
+                if (wire->port_input || wire->port_output) {
                     RTLIL::Wire *new_wire = module->addWire(NEW_ID);
                     module->connect(new_wire, wire);
                     wire = new_wire;
@@ -717,7 +732,7 @@ void AigerReader::parse_aiger_binary()
             if (!wire)
                 wire = createWireIfNotExists(module, l1);
             else {
-                if ((wire->port_input || wire->port_output)) {
+                if (wire->port_input || wire->port_output) {
                     RTLIL::Wire *new_wire = module->addWire(NEW_ID);
                     module->connect(new_wire, wire);
                     wire = new_wire;
