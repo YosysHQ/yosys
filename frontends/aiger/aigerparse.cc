@@ -380,11 +380,22 @@ void AigerReader::parse_xaiger()
             else if (c == 'o') wire = outputs[l1];
             else log_abort();
 
+            if (wideports && (wire->port_input || wire->port_output)) {
+                RTLIL::IdString escaped_symbol;
+                int index;
+                std::tie(escaped_symbol,index) = wideports_split(RTLIL::escape_id(s));
+                if (escaped_symbol.size() > 10 && escaped_symbol.substr(escaped_symbol.size()-10) == "$inout.out") {
+                    deferred_inouts.emplace_back(wire, stringf("%s[%d]", escaped_symbol.substr(0, escaped_symbol.size()-10).c_str(), index));
+                    goto next_line;
+                }
+            }
+
             if (s.size() > 10 && s.substr(s.size()-10) == "$inout.out")
                 deferred_inouts.emplace_back(wire, RTLIL::escape_id(s.substr(0, s.size()-10)));
             else
                 deferred_renames.emplace_back(wire, RTLIL::escape_id(s));
 
+next_line:
             std::getline(f, line); // Ignore up to start of next line
             ++line_count;
         }
