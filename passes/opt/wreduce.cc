@@ -195,6 +195,13 @@ struct WreduceWorker
 		for (auto bit : sig_q)
 			work_queue_bits.insert(bit);
 
+		// Narrow ARST_VALUE parameter to new size.
+		if (cell->parameters.count("\\ARST_VALUE")) {
+			Const arst_value = cell->getParam("\\ARST_VALUE");
+			arst_value.bits.resize(GetSize(sig_q));
+			cell->setParam("\\ARST_VALUE", arst_value);
+		}
+
 		cell->setPort("\\D", sig_d);
 		cell->setPort("\\Q", sig_q);
 		cell->fixup_parameters();

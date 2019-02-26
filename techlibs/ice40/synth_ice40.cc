@@ -315,7 +315,7 @@ struct SynthIce40Pass : public ScriptPass
 				run("techmap -map +/gate2lut.v -D LUT_WIDTH=4", "(only if -noabc)");
 			}
 			if (!noabc) {
-				run(abc + " -lut 4", "(skip if -noabc)");
+				run(abc + " -dress -lut 4", "(skip if -noabc)");
 			}
 			run("clean");
 			if (relut || help_mode) {
