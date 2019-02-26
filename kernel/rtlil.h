@@ -222,6 +222,12 @@ namespace RTLIL
 				return std::string(c_str() + pos, len);
 		}
 
+		bool ends_with(const char* suffix) const {
+			size_t len = strlen(suffix);
+			if (size() < len) return false;
+			return substr(size()-len) == suffix;
+		}
+
 		size_t size() const {
 			return str().size();
 		}
