@@ -892,21 +892,19 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			}
 			log_assert(GetSize(signal) >= GetSize(remap_wire));
 
+			log_assert(w->port_input || w->port_output);
+			RTLIL::SigSig conn;
 			if (w->port_input) {
-				RTLIL::SigSig conn;
 				conn.first = remap_wire;
 				conn.second = signal;
 				in_wires++;
-				module->connect(conn);
 			}
-			else if (w->port_output) {
-				RTLIL::SigSig conn;
+			if (w->port_output) {
 				conn.first = signal;
 				conn.second = remap_wire;
 				out_wires++;
-				module->connect(conn);
 			}
-			else log_abort();
+			module->connect(conn);
 		}
 
 		//log("ABC RESULTS:        internal signals: %8d\n", int(signal_list.size()) - in_wires - out_wires);
