@@ -54,17 +54,33 @@ struct SupercoverPass : public Pass {
 
 		for (auto module : design->selected_modules())
 		{
+			SigMap sigmap(module);
+			pool<SigBit> handled_bits;
+
 			int cnt_wire = 0, cnt_bits = 0;
 			log("Adding cover cells to module %s.\n", log_id(module));
 			for (auto wire : module->selected_wires())
 			{
+				bool counted_wire = false;
 				std::string src = wire->get_src_attribute();
-				cnt_wire++;
-				for (auto bit : SigSpec(wire))
+
+				for (auto bit : sigmap(SigSpec(wire)))
 				{
+					if (bit.wire == nullptr)
+						continue;
+
+					if (handled_bits.count(bit))
+						continue;
+
 					SigSpec inv = module->Not(NEW_ID, bit);
 					module->addCover(NEW_ID, bit, State::S1, src);
 					module->addCover(NEW_ID, inv, State::S1, src);
+
+					handled_bits.insert(bit);
+					if (!counted_wire) {
+						counted_wire = false;
+						cnt_wire++;
+					}
 					cnt_bits++;
 				}
 			}
