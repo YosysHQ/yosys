@@ -7,8 +7,9 @@ import pprint
 pp = pprint.PrettyPrinter(indent=4)
 
 pmgfile = sys.argv[1]
-prefix = pmgfile.split("/")[-1]
-prefix = prefix.split(".")[0]
+assert pmgfile.endswith(".pmg")
+prefix = pmgfile[0:-4]
+pmname = prefix.split('/')[-1]
 
 state_types = dict()
 udata_types = dict()
@@ -189,10 +190,10 @@ with open("%s_pm.h" % prefix, "w") as f:
     print("YOSYS_NAMESPACE_BEGIN", file=f)
     print("", file=f)
 
-    print("struct {}_pm {{".format(prefix), file=f)
+    print("struct {}_pm {{".format(pmname), file=f)
     print("  Module *module;", file=f)
     print("  SigMap sigmap;", file=f)
-    print("  std::function<void()> on_accept;".format(prefix), file=f)
+    print("  std::function<void()> on_accept;".format(pmname), file=f)
     print("", file=f)
 
     for index in range(len(blocks)):
@@ -290,7 +291,7 @@ with open("%s_pm.h" % prefix, "w") as f:
     print("  }", file=f)
     print("", file=f)
 
-    print("  {}_pm(Module *module, const vector<Cell*> &cells) :".format(prefix), file=f)
+    print("  {}_pm(Module *module, const vector<Cell*> &cells) :".format(pmname), file=f)
     print("      module(module), sigmap(module) {", file=f)
     for s, t in sorted(udata_types.items()):
         if t.endswith("*"):
@@ -320,7 +321,7 @@ with open("%s_pm.h" % prefix, "w") as f:
     print("  }", file=f)
     print("", file=f)
 
-    print("  ~{}_pm() {{".format(prefix), file=f)
+    print("  ~{}_pm() {{".format(pmname), file=f)
     print("    for (auto cell : autoremove_cells)", file=f)
     print("      module->remove(cell);", file=f)
     print("  }", file=f)
@@ -339,7 +340,7 @@ with open("%s_pm.h" % prefix, "w") as f:
     print("  }", file=f)
     print("", file=f)
 
-    print("  void run(std::function<void({}_pm&)> on_accept_f) {{".format(prefix), file=f)
+    print("  void run(std::function<void({}_pm&)> on_accept_f) {{".format(pmname), file=f)
     print("    run([&](){on_accept_f(*this);});", file=f)
     print("  }", file=f)
     print("", file=f)
