@@ -1103,20 +1103,27 @@ struct Smt2Worker
 							break;
 
 						Const initword = init_data.extract(i*width, width, State::Sx);
+						Const initmask = initword;
 						bool gen_init_constr = false;
 
-						for (auto bit : initword.bits)
-							if (bit == State::S0 || bit == State::S1)
+						for (int k = 0; k < GetSize(initword); k++) {
+							if (initword[k] == State::S0 || initword[k] == State::S1) {
 								gen_init_constr = true;
+								initmask[k] = State::S1;
+							} else {
+								initmask[k] = State::S0;
+								initword[k] = State::S0;
+							}
+						}
 
 						if (gen_init_constr)
 						{
 							if (statebv)
 								/* FIXME */;
 							else
-								init_list.push_back(stringf("(= (select (|%s#%d#0| state) #b%s) #b%s) ; %s[%d]",
+								init_list.push_back(stringf("(= (bvand (select (|%s#%d#0| state) #b%s) #b%s) #b%s) ; %s[%d]",
 										get_id(module), arrayid, Const(i, abits).as_string().c_str(),
-										initword.as_string().c_str(), get_id(cell), i));
+										initmask.as_string().c_str(), initword.as_string().c_str(), get_id(cell), i));
 						}
 					}
 				}
