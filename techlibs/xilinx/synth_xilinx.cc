@@ -103,6 +103,7 @@ struct SynthXilinxPass : public Pass
 		log("        memory_map\n");
 		log("        dffsr2dff\n");
 		log("        dff2dffe\n");
+		log("        shregmap -init\n");
 		log("        opt -full\n");
 		log("        techmap -map +/techmap.v -map +/xilinx/arith_map.v\n");
 		log("        opt -fast\n");
@@ -222,6 +223,7 @@ struct SynthXilinxPass : public Pass
 			Pass::call(design, "memory_map");
 			Pass::call(design, "dffsr2dff");
 			Pass::call(design, "dff2dffe");
+			Pass::call(design, "shregmap -init");
 			Pass::call(design, "opt -full");
 			Pass::call(design, "techmap -map +/techmap.v -map +/xilinx/arith_map.v");
 			Pass::call(design, "opt -fast");
