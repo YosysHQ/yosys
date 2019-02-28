@@ -3824,22 +3824,6 @@ module ROM64X1 (...);
     input A0, A1, A2, A3, A4, A5;
 endmodule
 
-module SRL16E (...);
-    parameter [15:0] INIT = 16'h0000;
-    parameter [0:0] IS_CLK_INVERTED = 1'b0;
-    output Q;
-    input A0, A1, A2, A3, CE, CLK, D;
-endmodule
-
-module SRLC32E (...);
-    parameter [31:0] INIT = 32'h00000000;
-    parameter [0:0] IS_CLK_INVERTED = 1'b0;
-    output Q;
-    output Q31;
-    input [4:0] A;
-    input CE, CLK, D;
-endmodule
-
 module STARTUPE2 (...);
     parameter PROG_USR = "FALSE";
     parameter real SIM_CCLK_FREQ = 0.0;
