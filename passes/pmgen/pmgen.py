@@ -6,7 +6,9 @@ import pprint
 
 pp = pprint.PrettyPrinter(indent=4)
 
-prefix = sys.argv[1]
+pmgfile = sys.argv[1]
+prefix = pmgfile.split("/")[-1]
+prefix = prefix.split(".")[0]
 
 state_types = dict()
 udata_types = dict()
@@ -73,7 +75,7 @@ def rewrite_cpp(s):
 
     return "".join(t)
 
-with open("%s.pmg" % prefix, "r") as f:
+with open(pmgfile, "r") as f:
     while True:
         line = f.readline()
         if line == "": break
