@@ -85,70 +85,75 @@ module \$lut (A, Y);
 endmodule
 `endif
 
-module \$__SHREG_ (input C, input D, output Q);
+module \$__SHREG_ (input C, input D, input E, output Q);
   parameter DEPTH = 0;
   parameter [DEPTH-1:0] INIT = 0;
   parameter CLKPOL = 0;
   parameter ENPOL = 2;
+  wire CE;
   generate
+    if (ENPOL != 0)
+      assign CE = E;
+    else
+      assign CE = ~E;
     if (DEPTH == 1) begin
-        FDRE #(.INIT(INIT), .IS_C_INVERTED(CLKPOL), .IS_D_INVERTED(|0), .IS_R_INVERTED(|0)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(1'b1), .R(1'b0));
+        FDRE #(.INIT(INIT), .IS_C_INVERTED(~CLKPOL[0]), .IS_D_INVERTED(|0), .IS_R_INVERTED(|0)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(CE), .R(1'b0));
     end else
     if (DEPTH <= 16) begin
-      SRL16E #(.INIT(INIT), .IS_CLK_INVERTED(|0)) _TECHMAP_REPLACE_ (.A0(DEPTH[0]), .A1(DEPTH[1]), .A2(DEPTH[2]), .A3(DEPTH[3]), .CE(1'b1), .CLK(C), .D(D), .Q(Q));
+      SRL16E #(.INIT(INIT), .IS_CLK_INVERTED(~CLKPOL[0])) _TECHMAP_REPLACE_ (.A0(DEPTH[0]), .A1(DEPTH[1]), .A2(DEPTH[2]), .A3(DEPTH[3]), .CE(CE), .CLK(C), .D(D), .Q(Q));
     end else
     if (DEPTH == 17) begin
       wire T0;
-      \$__SHREG_ #(.DEPTH(DEPTH-1), .INIT(INIT[DEPTH-2:0]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_0 (.C(C), .D(D), .Q(T0));
-      \$__SHREG_ #(.DEPTH(1), .INIT(INIT[DEPTH-1]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_1 (.C(C), .D(T0), .Q(Q));
+      \$__SHREG_ #(.DEPTH(DEPTH-1), .INIT(INIT[DEPTH-2:0]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_0 (.C(C), .D(D), .E(E), .Q(T0));
+      \$__SHREG_ #(.DEPTH(1), .INIT(INIT[DEPTH-1]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_1 (.C(C), .D(T0), .E(E), .Q(Q));
     end else
     if (DEPTH <= 32) begin
-      SRLC32E #(.INIT(INIT), .IS_CLK_INVERTED(|0)) _TECHMAP_REPLACE_ (.A(DEPTH), .CE(1'b1), .CLK(C), .D(D), .Q(Q));
+      SRLC32E #(.INIT(INIT), .IS_CLK_INVERTED(~CLKPOL[0])) _TECHMAP_REPLACE_ (.A(DEPTH), .CE(CE), .CLK(C), .D(D), .Q(Q));
     end else
     if (DEPTH == 33 || DEPTH == 49) begin
       wire T0;
-      \$__SHREG_ #(.DEPTH(DEPTH-1), .INIT(INIT[DEPTH-2:0]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_0 (.C(C), .D(D), .Q(T0));
-      \$__SHREG_ #(.DEPTH(1), .INIT(INIT[DEPTH-1]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_1 (.C(C), .D(T0), .Q(Q));
+      \$__SHREG_ #(.DEPTH(DEPTH-1), .INIT(INIT[DEPTH-2:0]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_0 (.C(C), .D(D), .E(E), .Q(T0));
+      \$__SHREG_ #(.DEPTH(1), .INIT(INIT[DEPTH-1]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_1 (.C(C), .D(T0), .E(E), .Q(Q));
     end else
     if (DEPTH <= 64) begin
       wire T0, T1, T2;
-      SRLC32E #(.INIT(INIT[32-1:0]), .IS_CLK_INVERTED(|0)) fpga_srl_0 (.A(DEPTH), .CE(1'b1), .CLK(C), .D(D), .Q(T0), .Q31(T1));
-      \$__SHREG_ #(.DEPTH(DEPTH-32), .INIT(INIT[DEPTH-1:32]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_1 (.C(C), .D(T1), .Q(T2));
+      SRLC32E #(.INIT(INIT[32-1:0]), .IS_CLK_INVERTED(~CLKPOL[0])) fpga_srl_0 (.A(DEPTH), .CE(CE), .CLK(C), .D(D), .Q(T0), .Q31(T1));
+      \$__SHREG_ #(.DEPTH(DEPTH-32), .INIT(INIT[DEPTH-1:32]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_1 (.C(C), .D(T1), .E(E), .Q(T2));
       MUXF7 fpga_mux_0 (.O(Q), .I0(T0), .I1(T2), .S(DEPTH[5]));
     end else
     if (DEPTH == 65 || DEPTH == 81) begin
       wire T0;
-      \$__SHREG_ #(.DEPTH(DEPTH-1), .INIT(INIT[DEPTH-2:0]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_0 (.C(C), .D(D), .Q(T0));
-      \$__SHREG_ #(.DEPTH(1), .INIT(INIT[DEPTH-1]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_1 (.C(C), .D(T0), .Q(Q));
+      \$__SHREG_ #(.DEPTH(DEPTH-1), .INIT(INIT[DEPTH-2:0]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_0 (.C(C), .D(D), .E(E), .Q(T0));
+      \$__SHREG_ #(.DEPTH(1), .INIT(INIT[DEPTH-1]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_1 (.C(C), .D(T0), .E(E), .Q(Q));
     end else
     if (DEPTH <= 96) begin
       wire T0, T1, T2, T3, T4, T5, T6;
-      SRLC32E #(.INIT(INIT[32-1:0]), .IS_CLK_INVERTED(|0)) fpga_srl_0 (.A(DEPTH[4:0]), .CE(1'b1), .CLK(C), .D(D), .Q(T0), .Q31(T1));
-      SRLC32E #(.INIT(INIT[64-1:32]), .IS_CLK_INVERTED(|0)) fpga_srl_1 (.A(DEPTH[4:0]), .CE(1'b1), .CLK(C), .D(T1), .Q(T2), .Q31(T3));
-      \$__SHREG_ #(.DEPTH(DEPTH-64), .INIT(INIT[DEPTH-1:64]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_2 (.C(C), .D(T3), .Q(T4));
+      SRLC32E #(.INIT(INIT[32-1:0]), .IS_CLK_INVERTED(~CLKPOL[0])) fpga_srl_0 (.A(DEPTH[4:0]), .CE(CE), .CLK(C), .D(D), .Q(T0), .Q31(T1));
+      SRLC32E #(.INIT(INIT[64-1:32]), .IS_CLK_INVERTED(~CLKPOL[0])) fpga_srl_1 (.A(DEPTH[4:0]), .CE(CE), .CLK(C), .D(T1), .Q(T2), .Q31(T3));
+      \$__SHREG_ #(.DEPTH(DEPTH-64), .INIT(INIT[DEPTH-1:64]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_2 (.C(C), .D(T3), .E(E), .Q(T4));
       MUXF7 fpga_mux_0 (.O(T5), .I0(T0), .I1(T2), .S(DEPTH[5]));
       MUXF7 fpga_mux_1 (.O(T6), .I0(T4), .I1(1'b0 /* unused */), .S(DEPTH[5]));
       MUXF8 fpga_mux_2 (.O(Q), .I0(T5), .I1(T6), .S(DEPTH[6]));
     end else
     if (DEPTH == 97 || DEPTH == 113) begin
       wire T0;
-      \$__SHREG_ #(.DEPTH(DEPTH-1), .INIT(INIT[DEPTH-2:0]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_0 (.C(C), .D(D), .Q(T0));
-      \$__SHREG_ #(.DEPTH(1), .INIT(INIT[DEPTH-1]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_1 (.C(C), .D(T0), .Q(Q));
+      \$__SHREG_ #(.DEPTH(DEPTH-1), .INIT(INIT[DEPTH-2:0]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_0 (.C(C), .D(D), .E(E), .Q(T0));
+      \$__SHREG_ #(.DEPTH(1), .INIT(INIT[DEPTH-1]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_1 (.C(C), .D(T0), .E(E), .Q(Q));
     end else
     if (DEPTH <= 128) begin
       wire T0, T1, T2, T3, T4, T5, T6, T7, T8;
-      SRLC32E #(.INIT(INIT[32-1:0]), .IS_CLK_INVERTED(|0)) fpga_srl_0 (.A(DEPTH[4:0]), .CE(1'b1), .CLK(C), .D(D), .Q(T0), .Q31(T1));
-      SRLC32E #(.INIT(INIT[64-1:32]), .IS_CLK_INVERTED(|0)) fpga_srl_1 (.A(DEPTH[4:0]), .CE(1'b1), .CLK(C), .D(T1), .Q(T2), .Q31(T3));
-      SRLC32E #(.INIT(INIT[96-1:64]), .IS_CLK_INVERTED(|0)) fpga_srl_2 (.A(DEPTH[4:0]), .CE(1'b1), .CLK(C), .D(T3), .Q(T4), .Q31(T5));
-      \$__SHREG_ #(.DEPTH(DEPTH-96), .INIT(INIT[DEPTH-1:96]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_3 (.C(C), .D(T5), .Q(T6));
+      SRLC32E #(.INIT(INIT[32-1:0]), .IS_CLK_INVERTED(~CLKPOL[0])) fpga_srl_0 (.A(DEPTH[4:0]), .CE(CE), .CLK(C), .D(D), .Q(T0), .Q31(T1));
+      SRLC32E #(.INIT(INIT[64-1:32]), .IS_CLK_INVERTED(~CLKPOL[0])) fpga_srl_1 (.A(DEPTH[4:0]), .CE(CE), .CLK(C), .D(T1), .Q(T2), .Q31(T3));
+      SRLC32E #(.INIT(INIT[96-1:64]), .IS_CLK_INVERTED(~CLKPOL[0])) fpga_srl_2 (.A(DEPTH[4:0]), .CE(CE), .CLK(C), .D(T3), .Q(T4), .Q31(T5));
+      \$__SHREG_ #(.DEPTH(DEPTH-96), .INIT(INIT[DEPTH-1:96]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_3 (.C(C), .D(T5), .E(E), .Q(T6));
       MUXF7 fpga_mux_0 (.O(T7), .I0(T0), .I1(T2), .S(DEPTH[5]));
       MUXF7 fpga_mux_1 (.O(T8), .I0(T4), .I1(T6), .S(DEPTH[5]));
       MUXF8 fpga_mux_2 (.O(Q), .I0(T7), .I1(T8), .S(DEPTH[6]));
     end else
     begin
       wire T0, T1;
-      \$__SHREG_ #(.DEPTH(128), .INIT(INIT[128-1:0]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_0 (.C(C), .D(D), .Q(T0));
-      \$__SHREG_ #(.DEPTH(DEPTH-128), .INIT(INIT[DEPTH-1:128]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_1 (.C(C), .D(T0), .Q(Q));
+      \$__SHREG_ #(.DEPTH(128), .INIT(INIT[128-1:0]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_0 (.C(C), .D(D), .E(E), .Q(T0));
+      \$__SHREG_ #(.DEPTH(DEPTH-128), .INIT(INIT[DEPTH-1:128]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_1 (.C(C), .D(T0), .E(E), .Q(Q));
     end
   endgenerate
 endmodule
