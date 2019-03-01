@@ -49,7 +49,7 @@ while getopts xmGl:wkjvref:s:p:n:S:I:-: opt; do
 		r)
 			backend_opts="$backend_opts -norename" ;;
 		e)
-			backend_opts="$( echo " $backend_opts " | sed 's, -noexpr ,,; s,^ ,,; s, $,,;'; )" ;;
+			backend_opts="$( echo " $backend_opts " | sed 's, -noexpr , ,; s,^ ,,; s, $,,;'; )" ;;
 		f)
 			frontend="$OPTARG" ;;
 		s)
