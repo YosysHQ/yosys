@@ -4247,10 +4247,10 @@ compatible with 7-Series Xilinx devices.
         generate an output netlist (and BLIF file) suitable for VPR.
         (this feature is experimental and incomplete)
 
-    -no-brams
-		disable infering of block rams
+    -nobrams
+        disable infering of block rams
 
-    -no-drams
+    -nodrams
         disable infering of distributed rams
 
     -run <from_label>:<to_label>
@@ -4280,11 +4280,11 @@ The following commands are executed by this synthesis command:
     coarse:
         synth -run coarse
 
-    bram: (only executed when '-no-brams' is not given)
+    bram: (only executed when '-nobrams' is not given)
         memory_bram -rules +/xilinx/brams.txt
         techmap -map +/xilinx/brams_map.v
 
-    dram: (only executed when '-no-drams' is not given)
+    dram: (only executed when '-nodrams' is not given)
         memory_bram -rules +/xilinx/drams.txt
         techmap -map +/xilinx/drams_map.v
 

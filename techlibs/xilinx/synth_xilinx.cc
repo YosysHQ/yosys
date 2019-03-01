@@ -63,10 +63,10 @@ struct SynthXilinxPass : public Pass
 		log("        generate an output netlist (and BLIF file) suitable for VPR\n");
 		log("        (this feature is experimental and incomplete)\n");
 		log("\n");
-		log("    -no-brams\n");
+		log("    -nobrams\n");
 		log("        disable infering of block rams\n");
 		log("\n");
-		log("    -no-drams\n");
+		log("    -nodrams\n");
 		log("        disable infering of distributed rams\n");
 		log("\n");
 		log("    -run <from_label>:<to_label>\n");
@@ -96,11 +96,11 @@ struct SynthXilinxPass : public Pass
 		log("    coarse:\n");
 		log("        synth -run coarse\n");
 		log("\n");
-		log("    bram: (only executed when '-no-brams' is not given)\n");
+		log("    bram: (only executed when '-nobrams' is not given)\n");
 		log("        memory_bram -rules +/xilinx/brams.txt\n");
 		log("        techmap -map +/xilinx/brams_map.v\n");
 		log("\n");
-		log("    dram: (only executed when '-no-drams' is not given)\n");
+		log("    dram: (only executed when '-nodrams' is not given)\n");
 		log("        memory_bram -rules +/xilinx/drams.txt\n");
 		log("        techmap -map +/xilinx/drams_map.v\n");
 		log("\n");
@@ -182,11 +182,11 @@ struct SynthXilinxPass : public Pass
 				vpr = true;
 				continue;
 			}
-			if (args[argidx] == "-no-brams") {
+			if (args[argidx] == "-nobrams") {
 				noBrams = true;
 				continue;
 			}
-			if (args[argidx] == "-no-drams") {
+			if (args[argidx] == "-nodrams") {
 				noDrams = true;
 				continue;
 			}
