@@ -33,7 +33,7 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-bool verbose, norename, noattr, attr2comment, noexpr, nodec, nohex, nostr, defparam, decimal;
+bool verbose, norename, noattr, attr2comment, noexpr, nodec, nohex, nostr, defparam, decimal, siminit;
 int auto_name_counter, auto_name_offset, auto_name_digits;
 std::map<RTLIL::IdString, int> auto_name_map;
 std::set<RTLIL::IdString> reg_wires, reg_ct;
@@ -1310,7 +1310,7 @@ void dump_cell(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		}
 	}
 
-	if (reg_ct.count(cell->type) && cell->hasPort("\\Q")) {
+	if (siminit && reg_ct.count(cell->type) && cell->hasPort("\\Q")) {
 		std::stringstream ss;
 		dump_reg_init(ss, cell->getPort("\\Q"));
 		if (!ss.str().empty()) {
@@ -1607,6 +1607,10 @@ struct VerilogBackend : public Backend {
 		log("        without this option all internal cells are converted to Verilog\n");
 		log("        expressions.\n");
 		log("\n");
+		log("    -siminit\n");
+		log("        add initial statements with hierarchical refs to initialize FFs when\n");
+		log("        in -noexpr mode.\n");
+		log("\n");
 		log("    -nodec\n");
 		log("        32-bit constant values are by default dumped as decimal numbers,\n");
 		log("        not bit pattern. This option deactivates this feature and instead\n");
@@ -1663,6 +1667,7 @@ struct VerilogBackend : public Backend {
 		nostr = false;
 		defparam = false;
 		decimal = false;
+		siminit = false;
 		auto_prefix = "";
 
 		bool blackboxes = false;
@@ -1737,6 +1742,10 @@ struct VerilogBackend : public Backend {
 			}
 			if (arg == "-decimal") {
 				decimal = true;
+				continue;
+			}
+			if (arg == "-siminit") {
+				siminit = true;
 				continue;
 			}
 			if (arg == "-blackboxes") {

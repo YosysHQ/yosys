@@ -6,7 +6,10 @@ import pprint
 
 pp = pprint.PrettyPrinter(indent=4)
 
-prefix = sys.argv[1]
+pmgfile = sys.argv[1]
+assert pmgfile.endswith(".pmg")
+prefix = pmgfile[0:-4]
+pmname = prefix.split('/')[-1]
 
 state_types = dict()
 udata_types = dict()
@@ -73,7 +76,7 @@ def rewrite_cpp(s):
 
     return "".join(t)
 
-with open("%s.pmg" % prefix, "r") as f:
+with open(pmgfile, "r") as f:
     while True:
         line = f.readline()
         if line == "": break
@@ -82,7 +85,7 @@ with open("%s.pmg" % prefix, "r") as f:
         cmd = line.split()
         if len(cmd) == 0 or cmd[0].startswith("//"): continue
         cmd = cmd[0]
-        
+
         if cmd == "state":
             m = re.match(r"^state\s+<(.*?)>\s+(([A-Za-z_][A-Za-z_0-9]*\s+)*[A-Za-z_][A-Za-z_0-9]*)\s*$", line)
             assert m
@@ -187,10 +190,10 @@ with open("%s_pm.h" % prefix, "w") as f:
     print("YOSYS_NAMESPACE_BEGIN", file=f)
     print("", file=f)
 
-    print("struct {}_pm {{".format(prefix), file=f)
+    print("struct {}_pm {{".format(pmname), file=f)
     print("  Module *module;", file=f)
     print("  SigMap sigmap;", file=f)
-    print("  std::function<void()> on_accept;".format(prefix), file=f)
+    print("  std::function<void()> on_accept;".format(pmname), file=f)
     print("", file=f)
 
     for index in range(len(blocks)):
@@ -288,7 +291,7 @@ with open("%s_pm.h" % prefix, "w") as f:
     print("  }", file=f)
     print("", file=f)
 
-    print("  {}_pm(Module *module, const vector<Cell*> &cells) :".format(prefix), file=f)
+    print("  {}_pm(Module *module, const vector<Cell*> &cells) :".format(pmname), file=f)
     print("      module(module), sigmap(module) {", file=f)
     for s, t in sorted(udata_types.items()):
         if t.endswith("*"):
@@ -318,7 +321,7 @@ with open("%s_pm.h" % prefix, "w") as f:
     print("  }", file=f)
     print("", file=f)
 
-    print("  ~{}_pm() {{".format(prefix), file=f)
+    print("  ~{}_pm() {{".format(pmname), file=f)
     print("    for (auto cell : autoremove_cells)", file=f)
     print("      module->remove(cell);", file=f)
     print("  }", file=f)
@@ -337,7 +340,7 @@ with open("%s_pm.h" % prefix, "w") as f:
     print("  }", file=f)
     print("", file=f)
 
-    print("  void run(std::function<void({}_pm&)> on_accept_f) {{".format(prefix), file=f)
+    print("  void run(std::function<void({}_pm&)> on_accept_f) {{".format(pmname), file=f)
     print("    run([&](){on_accept_f(*this);});", file=f)
     print("  }", file=f)
     print("", file=f)

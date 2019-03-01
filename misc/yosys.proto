@@ -1,12 +1,12 @@
 //
 // yosys -- Yosys Open SYnthesis Suite
-// 
+//
 // Copyright (C) 2018  Serge Bazanski <q3k@symbioticeda.com>
-// 
+//
 // Permission to use, copy, modify, and/or distribute this software for any
 // purpose with or without fee is hereby granted, provided that the above
 // copyright notice and this permission notice appear in all copies.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
 // WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
@@ -73,7 +73,7 @@ message Module {
         BitVector bits = 2;
     }
     map<string, Port> port = 2;
-    
+
     // Named cells in this module.
     message Cell {
         // Set to true when the name of this cell is automatically created and
@@ -129,7 +129,7 @@ message Model {
             TYPE_FALSE = 6;
         };
         Type type = 1;
-    
+
         message Port {
             // Name of port.
             string portname = 1;
@@ -148,7 +148,7 @@ message Model {
             // Set for AND, NAND.
             Gate gate = 3;
         }
-    
+
         // Set when the node drives given output port(s).
         message OutPort {
             // Name of port.
