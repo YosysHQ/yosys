@@ -63,10 +63,10 @@ struct SynthXilinxPass : public Pass
 		log("        generate an output netlist (and BLIF file) suitable for VPR\n");
 		log("        (this feature is experimental and incomplete)\n");
 		log("\n");
-		log("    -nobrams\n");
+		log("    -nobram\n");
 		log("        disable infering of block rams\n");
 		log("\n");
-		log("    -nodrams\n");
+		log("    -nodram\n");
 		log("        disable infering of distributed rams\n");
 		log("\n");
 		log("    -run <from_label>:<to_label>\n");
@@ -96,11 +96,11 @@ struct SynthXilinxPass : public Pass
 		log("    coarse:\n");
 		log("        synth -run coarse\n");
 		log("\n");
-		log("    bram: (only executed when '-nobrams' is not given)\n");
+		log("    bram: (only executed when '-nobram' is not given)\n");
 		log("        memory_bram -rules +/xilinx/brams.txt\n");
 		log("        techmap -map +/xilinx/brams_map.v\n");
 		log("\n");
-		log("    dram: (only executed when '-nodrams' is not given)\n");
+		log("    dram: (only executed when '-nodram' is not given)\n");
 		log("        memory_bram -rules +/xilinx/drams.txt\n");
 		log("        techmap -map +/xilinx/drams_map.v\n");
 		log("\n");
@@ -144,8 +144,8 @@ struct SynthXilinxPass : public Pass
 		bool flatten = false;
 		bool retime = false;
 		bool vpr = false;
-		bool noBrams = false;
-		bool noDrams = false;
+		bool nobram = false;
+		bool nodram = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -182,12 +182,12 @@ struct SynthXilinxPass : public Pass
 				vpr = true;
 				continue;
 			}
-			if (args[argidx] == "-nobrams") {
-				noBrams = true;
+			if (args[argidx] == "-nobram") {
+				nobram = true;
 				continue;
 			}
-			if (args[argidx] == "-nodrams") {
-				noDrams = true;
+			if (args[argidx] == "-nodram") {
+				nodram = true;
 				continue;
 			}
 			break;
@@ -212,7 +212,7 @@ struct SynthXilinxPass : public Pass
 
 			Pass::call(design, "read_verilog -lib +/xilinx/cells_xtra.v");
 
-			if (!noBrams) {
+			if (!nobram) {
 				Pass::call(design, "read_verilog -lib +/xilinx/brams_bb.v");
 			}
 
@@ -232,7 +232,7 @@ struct SynthXilinxPass : public Pass
 
 		if (check_label(active, run_from, run_to, "bram"))
 		{
-			if (!noBrams) {
+			if (!nobram) {
 				Pass::call(design, "memory_bram -rules +/xilinx/brams.txt");
 				Pass::call(design, "techmap -map +/xilinx/brams_map.v");
 			}
@@ -240,7 +240,7 @@ struct SynthXilinxPass : public Pass
 
 		if (check_label(active, run_from, run_to, "dram"))
 		{
-			if (!noDrams) {
+			if (!nodram) {
 				Pass::call(design, "memory_bram -rules +/xilinx/drams.txt");
 				Pass::call(design, "techmap -map +/xilinx/drams_map.v");
 			}
