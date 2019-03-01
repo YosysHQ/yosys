@@ -113,6 +113,9 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				if (memflags & AstNode::MEM2REG_FL_CMPLX_LHS)
 					goto verbose_activate;
 
+				if ((memflags & AstNode::MEM2REG_FL_CONST_LHS) && !(memflags & AstNode::MEM2REG_FL_VAR_LHS))
+					goto verbose_activate;
+
 				// log("Note: Not replacing memory %s with list of registers (flags=0x%08lx).\n", mem->str.c_str(), long(memflags));
 				continue;
 
@@ -2934,6 +2937,14 @@ void AstNode::mem2reg_as_needed_pass1(dict<AstNode*, pool<std::string>> &mem2reg
 				if (!(proc_flags[mem] & AstNode::MEM2REG_FL_EQ1))
 					mem2reg_places[mem].insert(stringf("%s:%d", filename.c_str(), linenum));
 				proc_flags[mem] |= AstNode::MEM2REG_FL_EQ1;
+			}
+
+			// remember if this is a constant index or not
+			if (children[0]->children.size() && children[0]->children[0]->type == AST_RANGE && children[0]->children[0]->children.size()) {
+				if (children[0]->children[0]->children[0]->type == AST_CONSTANT)
+					mem2reg_candidates[mem] |= AstNode::MEM2REG_FL_CONST_LHS;
+				else
+					mem2reg_candidates[mem] |= AstNode::MEM2REG_FL_VAR_LHS;
 			}
 
 			// remember where this is
