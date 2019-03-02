@@ -941,7 +941,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			}
 		}
 		if (current_scope.count(str) == 0) {
-			if (flag_autowire) {
+			if (flag_autowire || str == "\\$global_clock") {
 				AstNode *auto_wire = new AstNode(AST_AUTOWIRE);
 				auto_wire->str = str;
 				current_ast_mod->children.push_back(auto_wire);
