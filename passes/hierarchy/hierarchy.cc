@@ -910,7 +910,7 @@ struct HierarchyPass : public Pass {
 			if (m == nullptr)
 				continue;
 
-			if (m->get_bool_attribute("\\blackbox") && !cell->parameters.empty()) {
+			if (m->get_bool_attribute("\\blackbox") && !cell->parameters.empty() && m->get_bool_attribute("\\dynports")) {
 				IdString new_m_name = m->derive(design, cell->parameters, true);
 				if (new_m_name.empty())
 					continue;

@@ -239,6 +239,7 @@ namespace AST
 		bool has_const_only_constructs(bool &recommend_const_eval);
 		void replace_variables(std::map<std::string, varinfo_t> &variables, AstNode *fcall);
 		AstNode *eval_const_function(AstNode *fcall);
+		bool is_simple_const_expr();
 
 		// create a human-readable text representation of the AST (for debugging)
 		void dumpAst(FILE *f, std::string indent) const;

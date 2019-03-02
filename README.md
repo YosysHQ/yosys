@@ -309,6 +309,9 @@ Verilog Attributes and non-standard features
   passes to identify input and output ports of cells. The Verilog backend
   also does not output blackbox modules on default.
 
+- The ``dynports'' attribute is used by the Verilog front-end to mark modules
+  that have ports with a width that depends on a parameter.
+
 - The ``keep`` attribute on cells and wires is used to mark objects that should
   never be removed by the optimizer. This is used for example for cells that
   have hidden connections that are not part of the netlist, such as IO pads.
