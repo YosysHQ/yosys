@@ -1,3 +1,20 @@
+bram $__TRELLIS_DPR16X4_REG
+  init 1
+  abits 4
+  dbits 4
+  groups 2
+  ports  1 1
+  wrmode 0 1
+  enable 1 1
+  transp 2 0
+  clocks 2 1
+  clkpol 3 2
+endbram
+
+match $__TRELLIS_DPR16X4_REG
+  min wports 1
+endmatch
+
 bram $__TRELLIS_DPR16X4
   init 1
   abits 4
@@ -12,6 +29,5 @@ bram $__TRELLIS_DPR16X4
 endbram
 
 match $__TRELLIS_DPR16X4
-  make_outreg
   min wports 1
 endmatch
