@@ -2172,6 +2172,8 @@ skip_dynamic_range_lvalue_expansion:;
 				}
 
 				newNode = readmem(str == "\\$readmemh", node_filename->bitsAsConst().decode_string(), node_memory->id2ast, start_addr, finish_addr, unconditional_init);
+				delete node_filename;
+				delete node_memory;
 				goto apply_newNode;
 			}
 
@@ -3058,6 +3060,39 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 
 	if (type == AST_FUNCTION || type == AST_TASK)
 		return false;
+
+	if (type == AST_MEMINIT && id2ast && mem2reg_set.count(id2ast))
+	{
+		log_assert(children[0]->type == AST_CONSTANT);
+		log_assert(children[1]->type == AST_CONSTANT);
+		log_assert(children[2]->type == AST_CONSTANT);
+
+		int cursor = children[0]->asInt(false);
+		Const data = children[1]->bitsAsConst();
+		int length = children[2]->asInt(false);
+
+		if (length != 0)
+		{
+			AstNode *block = new AstNode(AST_INITIAL, new AstNode(AST_BLOCK));
+			mod->children.push_back(block);
+			block = block->children[0];
+
+			int wordsz = GetSize(data) / length;
+
+			for (int i = 0; i < length; i++) {
+				block->children.push_back(new AstNode(AST_ASSIGN_EQ, new AstNode(AST_IDENTIFIER, new AstNode(AST_RANGE, AstNode::mkconst_int(cursor+i, false))), mkconst_bits(data.extract(i*wordsz, wordsz).bits, false)));
+				block->children.back()->children[0]->str = str;
+				block->children.back()->children[0]->id2ast = id2ast;
+				block->children.back()->children[0]->was_checked = true;
+			}
+		}
+
+		AstNode *newNode = new AstNode(AST_NONE);
+		newNode->cloneInto(this);
+		delete newNode;
+
+		did_something = true;
+	}
 
 	if (type == AST_ASSIGN && block == NULL && children[0]->mem2reg_check(mem2reg_set))
 	{
