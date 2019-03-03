@@ -544,7 +544,11 @@ struct AST_INTERNAL::ProcessGenerator
 			break;
 
 		case AST_WIRE:
-			log_file_error(ast->filename, ast->linenum, "Found wire declaration in block without label!\n");
+			log_file_error(ast->filename, ast->linenum, "Found reg declaration in block without label!\n");
+			break;
+
+		case AST_ASSIGN:
+			log_file_error(ast->filename, ast->linenum, "Found continous assignment in always/initial block!\n");
 			break;
 
 		case AST_PARAMETER:
