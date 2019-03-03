@@ -328,6 +328,15 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		for (size_t i = 0; i < children.size(); i++) {
 			AstNode *node = children[i];
 			if (node->type == AST_WIRE) {
+				if (node->children.size() == 1 && node->children[0]->type == AST_RANGE) {
+					for (auto c : node->children[0]->children) {
+						if (!c->is_simple_const_expr()) {
+							if (attributes.count("\\dynports"))
+								delete attributes.at("\\dynports");
+							attributes["\\dynports"] = AstNode::mkconst_int(1, true);
+						}
+					}
+				}
 				if (this_wire_scope.count(node->str) > 0) {
 					AstNode *first_node = this_wire_scope[node->str];
 					if (first_node->is_input && node->is_reg)
@@ -3321,6 +3330,16 @@ bool AstNode::has_const_only_constructs(bool &recommend_const_eval)
 		if (child->AstNode::has_const_only_constructs(recommend_const_eval))
 			return true;
 	return false;
+}
+
+bool AstNode::is_simple_const_expr()
+{
+	if (type == AST_IDENTIFIER)
+		return false;
+	for (auto child : children)
+		if (!child->is_simple_const_expr())
+			return false;
+	return true;
 }
 
 // helper function for AstNode::eval_const_function()
