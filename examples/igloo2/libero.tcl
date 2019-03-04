@@ -15,6 +15,7 @@ new_project \
 import_files -hdl_source {netlist.vm}
 import_files -sdc {example.sdc}
 import_files -io_pdc {example.pdc}
+build_design_hierarchy
 set_option -synth 0
 
 organize_tool_files -tool PLACEROUTE \
@@ -44,10 +45,8 @@ puts "**> VERIFYTIMING"
 run_tool -name {VERIFYTIMING}
 puts "<** VERIFYTIMING"
 
-save_project
-
-# puts "**> export_bitstream"
-# export_bitstream_file -trusted_facility_file 1 -trusted_facility_file_components {FABRIC}
-# puts "<** export_bitstream"
+puts "**> export_bitstream"
+export_bitstream_file -trusted_facility_file 1 -trusted_facility_file_components {FABRIC}
+puts "<** export_bitstream"
 
 exit 0
