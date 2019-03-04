@@ -33,20 +33,25 @@ configure_tool -name PLACEROUTE \
     -params EFFORT_LEVEL:false \
     -params REPAIR_MIN_DELAY:false
 
+puts ""
 puts "**> COMPILE"
 run_tool -name {COMPILE}
 puts "<** COMPILE"
 
+puts ""
 puts "**> PLACEROUTE"
 run_tool -name {PLACEROUTE}
 puts "<** PLACEROUTE"
 
+puts ""
 puts "**> VERIFYTIMING"
 run_tool -name {VERIFYTIMING}
 puts "<** VERIFYTIMING"
 
-puts "**> export_bitstream"
+puts ""
+puts "**> BITSTREAM"
 export_bitstream_file -trusted_facility_file 1 -trusted_facility_file_components {FABRIC}
-puts "<** export_bitstream"
+puts "<** BITSTREAM"
 
+puts ""
 exit 0
