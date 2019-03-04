@@ -15,6 +15,7 @@ new_project \
 import_files -hdl_source {netlist.vm}
 import_files -sdc {example.sdc}
 import_files -io_pdc {example.pdc}
+build_design_hierarchy
 set_option -synth 0
 
 organize_tool_files -tool PLACEROUTE \
@@ -32,22 +33,25 @@ configure_tool -name PLACEROUTE \
     -params EFFORT_LEVEL:false \
     -params REPAIR_MIN_DELAY:false
 
+puts ""
 puts "**> COMPILE"
 run_tool -name {COMPILE}
 puts "<** COMPILE"
 
+puts ""
 puts "**> PLACEROUTE"
 run_tool -name {PLACEROUTE}
 puts "<** PLACEROUTE"
 
+puts ""
 puts "**> VERIFYTIMING"
 run_tool -name {VERIFYTIMING}
 puts "<** VERIFYTIMING"
 
-save_project
+puts ""
+puts "**> BITSTREAM"
+export_bitstream_file -trusted_facility_file 1 -trusted_facility_file_components {FABRIC}
+puts "<** BITSTREAM"
 
-# puts "**> export_bitstream"
-# export_bitstream_file -trusted_facility_file 1 -trusted_facility_file_components {FABRIC}
-# puts "<** export_bitstream"
-
+puts ""
 exit 0
