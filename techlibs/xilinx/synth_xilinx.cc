@@ -252,7 +252,7 @@ struct SynthXilinxPass : public Pass
 		if (check_label(active, run_from, run_to, "edif"))
 		{
 			if (!edif_file.empty())
-				Pass::call(design, stringf("write_edif %s", edif_file.c_str()));
+				Pass::call(design, stringf("write_edif -pvector bra %s", edif_file.c_str()));
 		}
 		if (check_label(active, run_from, run_to, "blif"))
 		{
