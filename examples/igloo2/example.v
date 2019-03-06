@@ -24,13 +24,14 @@ module example (
 
 	assign {LED1, LED2, LED3, LED4} = outcnt ^ (outcnt >> 1);
 
+	// assign CA = counter[10];
 	// seg7enc seg7encinst (
 	// 	.seg({AA, AB, AC, AD, AE, AF, AG}),
 	// 	.dat(CA ? outcnt[3:0] : outcnt[7:4])
 	// );
 
-	assign {AA, AB, AC, AD, AE, AF, AG} = ~(7'b 100_0000 >> outcnt[7:4]);
-	assign CA = counter[10];
+	assign {AA, AB, AC, AD, AE, AF, AG} = ~(7'b 100_0000 >> outcnt[6:4]);
+	assign CA = outcnt[7];
 endmodule
 
 module seg7enc (
