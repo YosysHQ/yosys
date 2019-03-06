@@ -1,1 +1,8 @@
 # Add placement constraints here
+set_io clk  -pinname H16 -fixed yes -DIRECTION INPUT
+set_io SW1  -pinname H12 -fixed yes -DIRECTION INPUT
+set_io SW2  -pinname H13 -fixed yes -DIRECTION INPUT
+set_io LED1 -pinname J16 -fixed yes -DIRECTION OUTPUT
+set_io LED2 -pinname M16 -fixed yes -DIRECTION OUTPUT
+set_io LED3 -pinname K16 -fixed yes -DIRECTION OUTPUT
+set_io LED4 -pinname N16 -fixed yes -DIRECTION OUTPUT

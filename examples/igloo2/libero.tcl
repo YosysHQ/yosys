@@ -8,8 +8,8 @@ new_project \
     -block_mode 0 \
     -hdl "VERILOG" \
     -family IGLOO2 \
-    -die PA4MGL500 \
-    -package tq144 \
+    -die PA4MGL2500 \
+    -package vf256 \
     -speed -1
 
 import_files -hdl_source {netlist.vm}
