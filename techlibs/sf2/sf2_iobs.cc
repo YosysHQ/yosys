@@ -33,18 +33,23 @@ struct Sf2IobsPass : public Pass {
 		log("\n");
 		log("Add SF2 I/O buffers to top module IOs as needed.\n");
 		log("\n");
+		log("    -noclkbuf\n");
+		log("        Do not insert clock buffers\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
+		bool noclkbuf_mode = false;
+
 		log_header(design, "Executing sf2_iobs pass (insert IO buffers).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
-			// if (args[argidx] == "-singleton") {
-			// 	singleton_mode = true;
-			// 	continue;
-			// }
+			if (args[argidx] == "-noclkbuf") {
+				noclkbuf_mode = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -94,7 +99,7 @@ struct Sf2IobsPass : public Pass {
 				if (wire->port_output) {
 					buf_type = "\\OUTBUF";
 					buf_port = "\\D";
-				} else if (clk_bits.count(canonical_bit)) {
+				} else if (clk_bits.count(canonical_bit) && !noclkbuf_mode) {
 					buf_type = "\\CLKBUF";
 					buf_port = "\\Y";
 				} else {
