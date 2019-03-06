@@ -10,4 +10,3 @@ set TD_HOME env variable to the full path to the TD <TD Install Directory> as fo
 export TD_HOME=<TD Install Directory>
 
 then run "bash build.sh" in this directory.
-
