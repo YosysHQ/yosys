@@ -63,8 +63,8 @@ struct SynthSf2Pass : public ScriptPass
 		log("    -noiobs\n");
 		log("        run synthesis in \"block mode\", i.e. do not insert IO buffers\n");
 		log("\n");
-		log("    -noclkbuf\n");
-		log("        do not inser clock buffers, only simpe IO buffers\n");
+		log("    -clkbuf\n");
+		log("        insert direct PAD->global_net buffers\n");
 		log("\n");
 		log("    -retime\n");
 		log("        run 'abc' with -dff option\n");
@@ -87,7 +87,7 @@ struct SynthSf2Pass : public ScriptPass
 		flatten = true;
 		retime = false;
 		iobs = true;
-		clkbuf = true;
+		clkbuf = false;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -134,8 +134,8 @@ struct SynthSf2Pass : public ScriptPass
 				iobs = false;
 				continue;
 			}
-			if (args[argidx] == "-noclkbuf") {
-				clkbuf = false;
+			if (args[argidx] == "-clkbuf") {
+				clkbuf = true;
 				continue;
 			}
 			break;
@@ -210,9 +210,9 @@ struct SynthSf2Pass : public ScriptPass
 		if (check_label("map_iobs"))
 		{
 			if (help_mode)
-				run("sf2_iobs [-noclkbuf]", "(unless -noiobs)");
+				run("sf2_iobs [-clkbuf]", "(unless -noiobs)");
 			else if (iobs)
-				run(clkbuf ? "sf2_iobs" : "sf2_iobs -noclkbuf");
+				run(clkbuf ? "sf2_iobs -clkbuf" : "sf2_iobs");
 			run("clean");
 		}
 

@@ -74,6 +74,13 @@ module CFG4 (
 	assign Y = INIT >> {D, C, B, A};
 endmodule
 
+module CLKINT (
+	input A,
+	output Y
+);
+	assign Y = A;
+endmodule
+
 module CLKBUF (
 	input PAD,
 	output Y
