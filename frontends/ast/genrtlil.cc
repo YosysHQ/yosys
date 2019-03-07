@@ -1413,10 +1413,16 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			if (GetSize(en) != 1)
 				en = current_module->ReduceBool(NEW_ID, en);
 
-			std::stringstream sstr;
-			sstr << celltype << "$" << filename << ":" << linenum << "$" << (autoidx++);
+			IdString cellname;
+			if (str.empty()) {
+				std::stringstream sstr;
+				sstr << celltype << "$" << filename << ":" << linenum << "$" << (autoidx++);
+				cellname = sstr.str();
+			} else {
+				cellname = str;
+			}
 
-			RTLIL::Cell *cell = current_module->addCell(sstr.str(), celltype);
+			RTLIL::Cell *cell = current_module->addCell(cellname, celltype);
 			cell->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
 
 			for (auto &attr : attributes) {
