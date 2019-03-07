@@ -2,3 +2,6 @@ demo.bit
 demo_phy.area
 full.v
 *.log
+*.h
+*.tde
+*.svf
