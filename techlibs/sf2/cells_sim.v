@@ -1,3 +1,27 @@
+// https://coredocs.s3.amazonaws.com/Libero/12_0_0/Tool/sf2_mlg.pdf
+
+module ADD2 (
+
+	input A, B,
+	output Y
+);
+	assign Y = A & B;
+endmodule
+
+module ADD3 (
+	input A, B, C,
+	output Y
+);
+	assign Y = A & B & C;
+endmodule
+
+module ADD4 (
+	input A, B, C, D,
+	output Y
+);
+	assign Y = A & B & C & D;
+endmodule
+
 module CFG1 (
 	output Y,
 	input A
@@ -34,27 +58,6 @@ module CFG4 (
 );
 	parameter [15:0] INIT = 16'h0;
 	assign Y = INIT >> {D, C, B, A};
-endmodule
-
-module ADD2 (
-	input A, B,
-	output Y
-);
-	assign Y = A & B;
-endmodule
-
-module ADD3 (
-	input A, B, C,
-	output Y
-);
-	assign Y = A & B & C;
-endmodule
-
-module ADD4 (
-	input A, B, C, D,
-	output Y
-);
-	assign Y = A & B & C & D;
 endmodule
 
 module BUFF (
