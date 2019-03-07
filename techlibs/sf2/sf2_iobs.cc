@@ -38,8 +38,8 @@ static void handle_iobufs(Module *module, bool clkbuf_mode)
 			for (auto bit : sigmap(cell->getPort("\\CLK")))
 				clk_bits.insert(bit);
 		}
-		if (cell->type.in("\\INBUF", "\\OUTBUF", "\\TRIBUF", "\\BIBUF", "\\CLKBUF", "\\CLKBIBUF",
-				"\\INBUF_DIFF", "\\OUTBUF_DIFF", "\\BIBUFF_DIFF", "\\TRIBUF_DIFF", "\\CLKBUF_DIFF",
+		if (cell->type.in("\\INBUF", "\\OUTBUF", "\\TRIBUFF", "\\BIBUF", "\\CLKBUF", "\\CLKBIBUF",
+				"\\INBUF_DIFF", "\\OUTBUF_DIFF", "\\BIBUFF_DIFF", "\\TRIBUFF_DIFF", "\\CLKBUF_DIFF",
 				"\\GCLKBUF", "\\GCLKBUF_DIFF", "\\GCLKBIBUF")) {
 			for (auto bit : sigmap(cell->getPort("\\PAD")))
 				handled_io_bits.insert(bit);
