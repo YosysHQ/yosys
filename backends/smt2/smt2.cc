@@ -887,8 +887,8 @@ struct Smt2Worker
 
 				string name_a = get_bool(cell->getPort("\\A"));
 				string name_en = get_bool(cell->getPort("\\EN"));
-				decls.push_back(stringf("; yosys-smt2-%s %d %s\n", cell->type.c_str() + 1, id,
-						cell->attributes.count("\\src") ? cell->attributes.at("\\src").decode_string().c_str() : get_id(cell)));
+				string infostr = (cell->name[0] == '$' && cell->attributes.count("\\src")) ? cell->attributes.at("\\src").decode_string() : get_id(cell);
+				decls.push_back(stringf("; yosys-smt2-%s %d %s\n", cell->type.c_str() + 1, id, infostr.c_str()));
 
 				if (cell->type == "$cover")
 					decls.push_back(stringf("(define-fun |%s_%c %d| ((state |%s_s|)) Bool (and %s %s)) ; %s\n",
