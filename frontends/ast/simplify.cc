@@ -2224,6 +2224,8 @@ skip_dynamic_range_lvalue_expansion:;
 		std::map<std::string, std::string> replace_rules;
 		vector<AstNode*> added_mod_children;
 		dict<std::string, AstNode*> wire_cache;
+		vector<AstNode*> new_stmts;
+		vector<AstNode*> output_assignments;
 
 		if (current_block == NULL)
 		{
@@ -2348,8 +2350,8 @@ skip_dynamic_range_lvalue_expansion:;
 					wire->port_id = 0;
 					wire->is_input = false;
 					wire->is_output = false;
-					if (!child->is_output)
-						wire->attributes["\\nosync"] = AstNode::mkconst_int(1, false);
+					wire->is_reg = true;
+					wire->attributes["\\nosync"] = AstNode::mkconst_int(1, false);
 					wire_cache[child->str] = wire;
 
 					current_ast_mod->children.push_back(wire);
@@ -2371,13 +2373,10 @@ skip_dynamic_range_lvalue_expansion:;
 							new AstNode(AST_ASSIGN_EQ, wire_id, arg) :
 							new AstNode(AST_ASSIGN_EQ, arg, wire_id);
 					assign->children[0]->was_checked = true;
-
-					for (auto it = current_block->children.begin(); it != current_block->children.end(); it++) {
-						if (*it != current_block_child)
-							continue;
-						current_block->children.insert(it, assign);
-						break;
-					}
+					if (child->is_input)
+						new_stmts.push_back(assign);
+					else
+						output_assignments.push_back(assign);
 				}
 			}
 
@@ -2391,14 +2390,18 @@ skip_dynamic_range_lvalue_expansion:;
 			{
 				AstNode *stmt = child->clone();
 				stmt->replace_ids(prefix, replace_rules);
-
-				for (auto it = current_block->children.begin(); it != current_block->children.end(); it++) {
-					if (*it != current_block_child)
-						continue;
-					current_block->children.insert(it, stmt);
-					break;
-				}
+				new_stmts.push_back(stmt);
 			}
+
+		new_stmts.insert(new_stmts.end(), output_assignments.begin(), output_assignments.end());
+
+		for (auto it = current_block->children.begin(); ; it++) {
+			log_assert(it != current_block->children.end());
+			if (*it == current_block_child) {
+				current_block->children.insert(it, new_stmts.begin(), new_stmts.end());
+				break;
+			}
+		}
 
 	replace_fcall_with_id:
 		if (type == AST_FCALL) {
