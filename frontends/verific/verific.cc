@@ -1855,6 +1855,13 @@ struct VerificPass : public Pass {
 		log("  -autocover\n");
 		log("    Generate automatic cover statements for all asserts\n");
 		log("\n");
+		log("  -chparam name value \n");
+		log("    Elaborate the specified top modules (all modules when -all given) using\n");
+		log("    this parameter value. Modules on which this parameter does not exist will\n");
+		log("    cause Verific to produce a VERI-1928 or VHDL-1676 message. This option\n");
+		log("    can be specified multiple times to override multiple parameters.\n");
+		log("    String values must be passed in double quotes (\").\n");
+		log("\n");
 		log("  -v, -vv\n");
 		log("    Verbose log messages. (-vv is even more verbose than -v.)\n");
 		log("\n");
@@ -2109,6 +2116,7 @@ struct VerificPass : public Pass {
 			bool mode_autocover = false;
 			bool flatten = false, extnets = false;
 			string dumpfile;
+			Map parameters(STRING_HASH);
 
 			for (argidx++; argidx < GetSize(args); argidx++) {
 				if (args[argidx] == "-all") {
@@ -2147,6 +2155,15 @@ struct VerificPass : public Pass {
 					mode_autocover = true;
 					continue;
 				}
+				if (args[argidx] == "-chparam"  && argidx+2 < GetSize(args)) {
+                                        const std::string &key = args[++argidx];
+                                        const std::string &value = args[++argidx];
+					unsigned new_insertion = parameters.Insert(key.c_str(), value.c_str(),
+									           1 /* force_overwrite */);
+					if (!new_insertion)
+						log_warning_noprefix("-chparam %s already specified: overwriting.\n", key.c_str());
+					continue;
+				}
 				if (args[argidx] == "-V") {
 					mode_verific = true;
 					continue;
@@ -2180,7 +2197,7 @@ struct VerificPass : public Pass {
 				if (vhdl_lib) vhdl_libs.InsertLast(vhdl_lib);
 				if (veri_lib) veri_libs.InsertLast(veri_lib);
 
-				Array *netlists = hier_tree::ElaborateAll(&veri_libs, &vhdl_libs);
+				Array *netlists = hier_tree::ElaborateAll(&veri_libs, &vhdl_libs, &parameters);
 				Netlist *nl;
 				int i;
 
@@ -2217,7 +2234,7 @@ struct VerificPass : public Pass {
 				}
 
 				log("Running hier_tree::Elaborate().\n");
-				Array *netlists = hier_tree::Elaborate(&veri_modules, &vhdl_units);
+				Array *netlists = hier_tree::Elaborate(&veri_modules, &vhdl_units, &parameters);
 				Netlist *nl;
 				int i;
 
