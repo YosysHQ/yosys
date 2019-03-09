@@ -1857,7 +1857,8 @@ struct VerificPass : public Pass {
 		log("\n");
 		log("  -chparam name value \n");
 		log("    Elaborate the specified top modules (all modules when -all given) using\n");
-		log("    this parameter value, for modules where this parameter exists. This option\n");
+		log("    this parameter value. Modules on which this parameter does not exist will\n");
+		log("    cause Verific to produce a VERI-1928 or VHDL-1676 message. This option\n");
 		log("    can be specified multiple times to override multiple parameters.\n");
 		log("    String values must be passed in double quotes (\").\n");
 		log("\n");
