@@ -416,6 +416,7 @@ struct Smt2Worker
 		for (char ch : expr) {
 			if (ch == 'A') processed_expr += get_bv(sig_a);
 			else if (ch == 'B') processed_expr += get_bv(sig_b);
+			else if (ch == 'P') processed_expr += get_bv(cell->getPort("\\B"));
 			else if (ch == 'L') processed_expr += is_signed ? "a" : "l";
 			else if (ch == 'U') processed_expr += is_signed ? "s" : "u";
 			else processed_expr += ch;
@@ -554,7 +555,7 @@ struct Smt2Worker
 
 			if (cell->type.in("$shift", "$shiftx")) {
 				if (cell->getParam("\\B_SIGNED").as_bool()) {
-					return export_bvop(cell, stringf("(ite (bvsge B #b%0*d) "
+					return export_bvop(cell, stringf("(ite (bvsge P #b%0*d) "
 							"(bvlshr A B) (bvlshr A (bvneg B)))",
 							GetSize(cell->getPort("\\B")), 0), 's');
 				} else {
