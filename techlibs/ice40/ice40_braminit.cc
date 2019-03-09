@@ -135,7 +135,7 @@ struct Ice40BRAMInitPass : public Pass {
 		log("    ice40_braminit\n");
 		log("\n");
 		log("This command processes all SB_RAM40_4K blocks with a non-empty INIT_FILE\n");
-		log("parameter and converts it inti the required INIT_x attributes\n");
+		log("parameter and converts it into the required INIT_x attributes\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
