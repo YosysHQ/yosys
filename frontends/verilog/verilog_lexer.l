@@ -189,57 +189,18 @@ YOSYS_NAMESPACE_END
 "always_ff"    { SV_KEYWORD(TOK_ALWAYS); }
 "always_latch" { SV_KEYWORD(TOK_ALWAYS); }
 
- /* parse labels on assert, assume, cover, and restrict right here because it's insanley complex
-    to do it in the parser (because we force the parser too early to reduce when parsing cells..) */
-([a-zA-Z_$][a-zA-Z0-9_$]*[ \t\r\n]*:[ \t\r\n]*)?(assert|assume|cover|restrict)/[^a-zA-Z0-9_$\.] {
-	frontend_verilog_yylval.string = new std::string(yytext);
-	auto &str = *frontend_verilog_yylval.string;
-	std::string keyword;
-	int cursor = 0;
-
-	while (1) {
-		if (cursor == GetSize(str)) {
-			keyword = str;
-			delete frontend_verilog_yylval.string;
-			frontend_verilog_yylval.string = nullptr;
-			goto sva_without_label;
-		}
-		char c = str[cursor];
-		if (c != ' ' && c != '\t' && c != '\r' && c != '\n' && c != ':') {
-			cursor++;
-			continue;
-		}
-
-		keyword = str.substr(cursor);
-		str = "\\" + str.substr(0, cursor);
-		break;
-	}
-
-	cursor = 0;
-	while (1) {
-		log_assert(cursor < GetSize(keyword));
-		char c = keyword[cursor];
-		if (c != ' ' && c != '\t' && c != '\r' && c != '\n' && c != ':') {
-			keyword = keyword.substr(cursor);
-			break;
-		}
-		cursor++;
-	}
-
-	if      (keyword == "assert")     { return TOK_ASSERT;   }
-	else if (keyword == "assume")     { return TOK_ASSUME;   }
-	else if (keyword == "cover")      { return TOK_COVER;    }
-	else if (keyword == "restrict")   { return TOK_RESTRICT; }
-	else log_abort();
-
-sva_without_label:
-	if      (keyword == "assert")     { if (formal_mode) return TOK_ASSERT;   SV_KEYWORD(TOK_ASSERT);   }
-	else if (keyword == "assume")     { if (formal_mode) return TOK_ASSUME;   SV_KEYWORD(TOK_ASSUME);   }
-	else if (keyword == "cover")      { if (formal_mode) return TOK_COVER;    SV_KEYWORD(TOK_COVER);    }
-	else if (keyword == "restrict")   { if (formal_mode) return TOK_RESTRICT; SV_KEYWORD(TOK_RESTRICT); }
-	else log_abort();
+ /* use special token for labels on assert, assume, cover, and restrict because it's insanley complex
+    to fix parsing of cells otherwise. (the current cell parser forces a reduce very early to update some
+    global state.. its a mess) */
+[a-zA-Z_$][a-zA-Z0-9_$]*/[ \t\r\n]*:[ \t\r\n]*(assert|assume|cover|restrict)[^a-zA-Z0-9_$\.] {
+	frontend_verilog_yylval.string = new std::string(std::string("\\") + yytext);
+	return TOK_SVA_LABEL;
 }
 
+"assert"     { if (formal_mode) return TOK_ASSERT; SV_KEYWORD(TOK_ASSERT); }
+"assume"     { if (formal_mode) return TOK_ASSUME; SV_KEYWORD(TOK_ASSUME); }
+"cover"      { if (formal_mode) return TOK_COVER; SV_KEYWORD(TOK_COVER); }
+"restrict"   { if (formal_mode) return TOK_RESTRICT; SV_KEYWORD(TOK_RESTRICT); }
 "property"   { if (formal_mode) return TOK_PROPERTY; SV_KEYWORD(TOK_PROPERTY); }
 "rand"       { if (formal_mode) return TOK_RAND; SV_KEYWORD(TOK_RAND); }
 "const"      { if (formal_mode) return TOK_CONST; SV_KEYWORD(TOK_CONST); }
