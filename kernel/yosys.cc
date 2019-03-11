@@ -33,7 +33,7 @@
 #  include <dlfcn.h>
 #endif
 
-#ifdef _WIN32
+#if defined(_WIN32)
 #  include <windows.h>
 #  include <io.h>
 #elif defined(__APPLE__)
@@ -41,13 +41,15 @@
 #  include <unistd.h>
 #  include <dirent.h>
 #  include <sys/stat.h>
-#  include <glob.h>
 #else
 #  include <unistd.h>
 #  include <dirent.h>
 #  include <sys/types.h>
 #  include <sys/wait.h>
 #  include <sys/stat.h>
+#endif
+
+#if !defined(_WIN32) && defined(YOSYS_ENABLE_GLOB)
 #  include <glob.h>
 #endif
 
@@ -564,7 +566,7 @@ std::vector<std::string> glob_filename(const std::string &filename_pattern)
 {
 	std::vector<std::string> results;
 
-#ifdef _WIN32
+#if defined(_WIN32) || !defined(YOSYS_ENABLE_GLOB)
 	results.push_back(filename_pattern);
 #else
 	glob_t globbuf;
