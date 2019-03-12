@@ -2918,7 +2918,7 @@ void AstNode::mem2reg_as_needed_pass1(dict<AstNode*, pool<std::string>> &mem2reg
 		dict<AstNode*, uint32_t> &mem2reg_candidates, dict<AstNode*, uint32_t> &proc_flags, uint32_t &flags)
 {
 	uint32_t children_flags = 0;
-	int ignore_children_counter = 0;
+	int lhs_children_counter = 0;
 
 	if (type == AST_ASSIGN || type == AST_ASSIGN_LE || type == AST_ASSIGN_EQ)
 	{
@@ -2966,7 +2966,7 @@ void AstNode::mem2reg_as_needed_pass1(dict<AstNode*, pool<std::string>> &mem2reg
 			}
 		}
 
-		ignore_children_counter = 1;
+		lhs_children_counter = 1;
 	}
 
 	if (type == AST_IDENTIFIER && id2ast && id2ast->type == AST_MEMORY)
@@ -3009,12 +3009,23 @@ void AstNode::mem2reg_as_needed_pass1(dict<AstNode*, pool<std::string>> &mem2reg
 	log_assert((flags & ~0x000000ff) == 0);
 
 	for (auto child : children)
-		if (ignore_children_counter > 0)
-			ignore_children_counter--;
-		else if (proc_flags_p)
+	{
+		if (lhs_children_counter > 0) {
+			lhs_children_counter--;
+			if (child->children.size() && child->children[0]->type == AST_RANGE && child->children[0]->children.size()) {
+				for (auto c : child->children[0]->children) {
+					if (proc_flags_p)
+						c->mem2reg_as_needed_pass1(mem2reg_places, mem2reg_candidates, *proc_flags_p, flags);
+					else
+						c->mem2reg_as_needed_pass1(mem2reg_places, mem2reg_candidates, proc_flags, flags);
+				}
+			}
+		} else
+		if (proc_flags_p)
 			child->mem2reg_as_needed_pass1(mem2reg_places, mem2reg_candidates, *proc_flags_p, flags);
 		else
 			child->mem2reg_as_needed_pass1(mem2reg_places, mem2reg_candidates, proc_flags, flags);
+	}
 
 	flags &= ~children_flags | backup_flags;
 
