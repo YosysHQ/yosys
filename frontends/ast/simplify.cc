@@ -50,7 +50,6 @@ using namespace AST_INTERNAL;
 bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage, int width_hint, bool sign_hint, bool in_param)
 {
 	static int recursion_counter = 0;
-	static pair<string, int> last_blocking_assignment_warn;
 	static bool deep_recursion_warning = false;
 
 	if (recursion_counter++ == 1000 && deep_recursion_warning) {
@@ -72,7 +71,6 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	if (stage == 0)
 	{
 		log_assert(type == AST_MODULE || type == AST_INTERFACE);
-		last_blocking_assignment_warn = pair<string, int>();
 
 		deep_recursion_warning = true;
 		while (simplify(const_fold, at_zero, in_lvalue, 1, width_hint, sign_hint, in_param)) { }
@@ -1591,14 +1589,6 @@ skip_dynamic_range_lvalue_expansion:;
 		std::stringstream sstr;
 		sstr << "$memwr$" << children[0]->str << "$" << filename << ":" << linenum << "$" << (autoidx++);
 		std::string id_addr = sstr.str() + "_ADDR", id_data = sstr.str() + "_DATA", id_en = sstr.str() + "_EN";
-
-		if (type == AST_ASSIGN_EQ) {
-			pair<string, int> this_blocking_assignment_warn(filename, linenum);
-			if (this_blocking_assignment_warn != last_blocking_assignment_warn)
-				log_warning("Blocking assignment to memory in line %s:%d is handled like a non-blocking assignment.\n",
-						filename.c_str(), linenum);
-			last_blocking_assignment_warn = this_blocking_assignment_warn;
-		}
 
 		int mem_width, mem_size, addr_bits;
 		bool mem_signed = children[0]->id2ast->is_signed;
