@@ -33,6 +33,8 @@ std::vector<int> RTLIL::IdString::global_refcount_storage_;
 std::vector<char*> RTLIL::IdString::global_id_storage_;
 dict<char*, int, hash_cstr_ops> RTLIL::IdString::global_id_index_;
 std::vector<int> RTLIL::IdString::global_free_idx_list_;
+int RTLIL::IdString::last_created_idx_[8];
+int RTLIL::IdString::last_created_idx_ptr_;
 
 RTLIL::Const::Const()
 {

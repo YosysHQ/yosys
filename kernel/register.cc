@@ -86,6 +86,8 @@ Pass::pre_post_exec_state_t Pass::pre_execute()
 
 void Pass::post_execute(Pass::pre_post_exec_state_t state)
 {
+	IdString::checkpoint();
+
 	int64_t time_ns = PerformanceTimer::query() - state.begin_ns;
 	runtime_ns += time_ns;
 	current_pass = state.parent_pass;
