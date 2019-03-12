@@ -2954,12 +2954,14 @@ void AstNode::mem2reg_as_needed_pass1(dict<AstNode*, pool<std::string>> &mem2reg
 				proc_flags[mem] |= AstNode::MEM2REG_FL_EQ1;
 			}
 
-			// remember if this is a constant index or not
-			if (children[0]->children.size() && children[0]->children[0]->type == AST_RANGE && children[0]->children[0]->children.size()) {
-				if (children[0]->children[0]->children[0]->type == AST_CONSTANT)
-					mem2reg_candidates[mem] |= AstNode::MEM2REG_FL_CONST_LHS;
-				else
-					mem2reg_candidates[mem] |= AstNode::MEM2REG_FL_VAR_LHS;
+			// for proper (non-init) writes: remember if this is a constant index or not
+			if ((flags & MEM2REG_FL_INIT) == 0) {
+				if (children[0]->children.size() && children[0]->children[0]->type == AST_RANGE && children[0]->children[0]->children.size()) {
+					if (children[0]->children[0]->children[0]->type == AST_CONSTANT)
+						mem2reg_candidates[mem] |= AstNode::MEM2REG_FL_CONST_LHS;
+					else
+						mem2reg_candidates[mem] |= AstNode::MEM2REG_FL_VAR_LHS;
+				}
 			}
 
 			// remember where this is
