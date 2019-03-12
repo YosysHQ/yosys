@@ -218,12 +218,18 @@ std::string next_token(std::string &text, const char *sep, bool long_strings)
 
 	if (long_strings && pos_begin != text.size() && text[pos_begin] == '"') {
 		string sep_string = sep;
-		for (size_t i = pos_begin+1; i < text.size(); i++)
+		for (size_t i = pos_begin+1; i < text.size(); i++) {
 			if (text[i] == '"' && (i+1 == text.size() || sep_string.find(text[i+1]) != std::string::npos)) {
 				std::string token = text.substr(pos_begin, i-pos_begin+1);
 				text = text.substr(i+1);
 				return token;
 			}
+			if (i+1 < text.size() && text[i] == '"' && text[i+1] == ';' && (i+2 == text.size() || sep_string.find(text[i+2]) != std::string::npos)) {
+				std::string token = text.substr(pos_begin, i-pos_begin+1);
+				text = text.substr(i+2);
+				return token + ";";
+			}
+		}
 	}
 
 	size_t pos_end = text.find_first_of(sep, pos_begin);
