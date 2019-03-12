@@ -9,4 +9,5 @@ OBJS += passes/sat/assertpmux.o
 OBJS += passes/sat/clk2fflogic.o
 OBJS += passes/sat/async2sync.o
 OBJS += passes/sat/supercover.o
+OBJS += passes/sat/mutate.o
 
