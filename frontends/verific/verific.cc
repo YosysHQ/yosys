@@ -775,15 +775,16 @@ void VerificImporter::merge_past_ffs(pool<RTLIL::Cell*> &candidates)
 		merge_past_ffs_clock(it.second, it.first.first, it.first.second);
 }
 
-void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*> &nl_todo)
+void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*> &nl_todo, bool top)
 {
-	std::string module_name = nl->IsOperator() ? std::string("$verific$") + nl->Owner()->Name() : RTLIL::escape_id(nl->Owner()->Name());
+	std::string netlist_name = top ? nl->CellBaseName() : nl->Owner()->Name();
+	std::string module_name = nl->IsOperator() ? "$verific$" + netlist_name : RTLIL::escape_id(netlist_name);
 
 	netlist = nl;
 
 	if (design->has(module_name)) {
 		if (!nl->IsOperator() && !is_blackbox(nl))
-			log_cmd_error("Re-definition of module `%s'.\n", nl->Owner()->Name());
+			log_cmd_error("Re-definition of module `%s'.\n", netlist_name.c_str());
 		return;
 	}
 
@@ -1753,7 +1754,7 @@ struct VerificExtNets
 	}
 };
 
-void verific_import(Design *design, std::string top)
+void verific_import(Design *design, const std::map<std::string,std::string> &parameters, std::string top)
 {
 	verific_sva_fsm_limit = 16;
 
@@ -1766,11 +1767,15 @@ void verific_import(Design *design, std::string top)
 	if (vhdl_lib) vhdl_libs.InsertLast(vhdl_lib);
 	if (veri_lib) veri_libs.InsertLast(veri_lib);
 
+	Map verific_params(STRING_HASH);
+	for (auto i : parameters)
+		verific_params.Insert(i.first.c_str(), i.second.c_str());
+
 	if (top.empty()) {
-		netlists = hier_tree::ElaborateAll(&veri_libs, &vhdl_libs);
+		netlists = hier_tree::ElaborateAll(&veri_libs, &vhdl_libs, &verific_params);
 	}
 	else {
-		const Map *tree_tops = hier_tree::CreateHierarchicalTreeAll(&veri_libs, &vhdl_libs);
+		const Map *tree_tops = hier_tree::CreateHierarchicalTreeAll(&veri_libs, &vhdl_libs, &verific_params);
 		HierTreeNode *node = tree_tops ? static_cast<HierTreeNode*>(tree_tops->GetValue(top.c_str())) : NULL;
 		if (node) {
 			Map specific_tops(STRING_HASH);
@@ -1795,7 +1800,7 @@ void verific_import(Design *design, std::string top)
 	int i;
 
 	FOREACH_ARRAY_ITEM(netlists, i, nl) {
-		if (top.empty() || nl->Owner()->Name() == top)
+		if (top.empty() || nl->CellBaseName() == top)
 			nl_todo.insert(nl);
 	}
 
@@ -1812,7 +1817,7 @@ void verific_import(Design *design, std::string top)
 		Netlist *nl = *nl_todo.begin();
 		if (nl_done.count(nl) == 0) {
 			VerificImporter importer(false, false, false, false, false, false);
-			importer.import_netlist(design, nl, nl_todo);
+			importer.import_netlist(design, nl, nl_todo, nl->CellBaseName() == top);
 		}
 		nl_todo.erase(nl);
 		nl_done.insert(nl);
@@ -2235,8 +2240,8 @@ struct VerificPass : public Pass {
 					continue;
 				}
 				if (args[argidx] == "-chparam"  && argidx+2 < GetSize(args)) {
-                                        const std::string &key = args[++argidx];
-                                        const std::string &value = args[++argidx];
+					const std::string &key = args[++argidx];
+					const std::string &value = args[++argidx];
 					unsigned new_insertion = parameters.Insert(key.c_str(), value.c_str(),
 									           1 /* force_overwrite */);
 					if (!new_insertion)

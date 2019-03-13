@@ -26,7 +26,7 @@ YOSYS_NAMESPACE_BEGIN
 extern int verific_verbose;
 
 extern bool verific_import_pending;
-extern void verific_import(Design *design, std::string top = std::string());
+extern void verific_import(Design *design, const std::map<std::string,std::string> &parameters, std::string top = std::string());
 
 extern pool<int> verific_sva_prims;
 
@@ -93,7 +93,7 @@ struct VerificImporter
 	void merge_past_ffs_clock(pool<RTLIL::Cell*> &candidates, SigBit clock, bool clock_pol);
 	void merge_past_ffs(pool<RTLIL::Cell*> &candidates);
 
-	void import_netlist(RTLIL::Design *design, Verific::Netlist *nl, std::set<Verific::Netlist*> &nl_todo);
+	void import_netlist(RTLIL::Design *design, Verific::Netlist *nl, std::set<Verific::Netlist*> &nl_todo, bool top=false);
 };
 
 void verific_import_sva_assert(VerificImporter *importer, Verific::Instance *inst);

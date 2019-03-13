@@ -570,7 +570,7 @@ struct HierarchyPass : public Pass {
 		log("\n");
 		log("    -simcheck\n");
 		log("        like -check, but also throw an error if blackbox modules are\n");
-		log("        instantiated, and throw an error if the design has no top module\n");
+		log("        instantiated, and throw an error if the design has no top module.\n");
 		log("\n");
 		log("    -purge_lib\n");
 		log("        by default the hierarchy command will not remove library (blackbox)\n");
@@ -583,20 +583,20 @@ struct HierarchyPass : public Pass {
 		log("\n");
 		log("    -keep_positionals\n");
 		log("        per default this pass also converts positional arguments in cells\n");
-		log("        to arguments using port names. this option disables this behavior.\n");
+		log("        to arguments using port names. This option disables this behavior.\n");
 		log("\n");
 		log("    -keep_portwidths\n");
 		log("        per default this pass adjusts the port width on cells that are\n");
-		log("        module instances when the width does not match the module port. this\n");
+		log("        module instances when the width does not match the module port. This\n");
 		log("        option disables this behavior.\n");
 		log("\n");
 		log("    -nokeep_asserts\n");
 		log("        per default this pass sets the \"keep\" attribute on all modules\n");
-		log("        that directly or indirectly contain one or more $assert cells. this\n");
+		log("        that directly or indirectly contain one or more $assert cells. This\n");
 		log("        option disables this behavior.\n");
 		log("\n");
 		log("    -top <module>\n");
-		log("        use the specified top module to built a design hierarchy. modules\n");
+		log("        use the specified top module to build the design hierarchy. Modules\n");
 		log("        outside this tree (unused modules) are removed.\n");
 		log("\n");
 		log("        when the -top option is used, the 'top' attribute will be set on the\n");
@@ -605,6 +605,12 @@ struct HierarchyPass : public Pass {
 		log("\n");
 		log("    -auto-top\n");
 		log("        automatically determine the top of the design hierarchy and mark it.\n");
+		log("\n");
+		log("    -chparam name value \n");
+		log("       elaborate the top module using this parameter value. Modules on which\n");
+		log("       this parameter does not exist may cause a warning message to be output.\n");
+		log("       This option can be specified multiple times to override multiple\n");
+		log("       parameters. String values must be passed in double quotes (\").\n");
 		log("\n");
 		log("In -generate mode this pass generates blackbox modules for the given cell\n");
 		log("types (wildcards supported). For this the design is searched for cells that\n");
@@ -641,6 +647,7 @@ struct HierarchyPass : public Pass {
 		bool nokeep_asserts = false;
 		std::vector<std::string> generate_cells;
 		std::vector<generate_port_decl_t> generate_ports;
+		std::map<std::string, std::string> parameters;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -729,6 +736,16 @@ struct HierarchyPass : public Pass {
 				auto_top_mode = true;
 				continue;
 			}
+			if (args[argidx] == "-chparam"  && argidx+2 < args.size()) {
+				const std::string &key = args[++argidx];
+				const std::string &value = args[++argidx];
+				auto r = parameters.emplace(key, value);
+				if (!r.second) {
+					log_warning_noprefix("-chparam %s already specified: overwriting.\n", key.c_str());
+					r.first->second = value;
+				}
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design, false);
@@ -736,7 +753,7 @@ struct HierarchyPass : public Pass {
 		if (!load_top_mod.empty()) {
 #ifdef YOSYS_ENABLE_VERIFIC
 			if (verific_import_pending) {
-				verific_import(design, load_top_mod);
+				verific_import(design, parameters, load_top_mod);
 				top_mod = design->module(RTLIL::escape_id(load_top_mod));
 			}
 #endif
@@ -745,7 +762,7 @@ struct HierarchyPass : public Pass {
 		} else {
 #ifdef YOSYS_ENABLE_VERIFIC
 			if (verific_import_pending)
-				verific_import(design);
+				verific_import(design, parameters);
 #endif
 		}
 
