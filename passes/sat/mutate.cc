@@ -25,16 +25,19 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct mutate_t {
 	std::string mode, src;
-	IdString modname, cellname, celltype, cellport;
+	Module *module;
+	Cell *cell;
+	IdString cellport;
 	SigBit outsigbit;
 	int portbit = -1;
+	bool used = false;
 };
 
 struct mutate_opts_t {
+	int seed = 0;
 	std::string mode;
 	IdString module, cell, port;
 	int bit = -1;
-
 	IdString ctrl_name;
 	int ctrl_width, ctrl_value;
 };
@@ -44,10 +47,10 @@ void database_add(std::vector<mutate_t> &database, const mutate_opts_t &opts, co
 	if (!opts.mode.empty() && opts.mode != entry.mode)
 		return;
 
-	if (!opts.module.empty() && opts.module != entry.modname)
+	if (!opts.module.empty() && opts.module != entry.module->name)
 		return;
 
-	if (!opts.cell.empty() && opts.cell != entry.cellname)
+	if (!opts.cell.empty() && opts.cell != entry.cell->name)
 		return;
 
 	if (!opts.port.empty() && opts.port != entry.cellport)
@@ -59,8 +62,159 @@ void database_add(std::vector<mutate_t> &database, const mutate_opts_t &opts, co
 	database.push_back(entry);
 }
 
+struct xs128_t
+{
+	uint32_t x = 123456789;
+	uint32_t y = 0, z = 0, w = 0;
+
+	xs128_t(int seed = 0) : w(seed) {
+		next();
+		next();
+		next();
+	}
+
+	void next() {
+		uint32_t t = x ^ (x << 11);
+		x = y, y = z, z = w;
+		w ^= (w >> 19) ^ t ^ (t >> 8);
+	}
+
+	int operator()() {
+		next();
+		return w & 0x3fffffff;
+	}
+
+	int operator()(int n) {
+		if (n < 2)
+			return 0;
+		while (1) {
+			int k = (*this)(), p = k % n;
+			if ((k - p + n) <= 0x40000000)
+				return p;
+		}
+	}
+};
+
+struct mutate_leaf_queue_t
+{
+	pool<mutate_t*, hash_ptr_ops> db;
+
+	mutate_t *pick(xs128_t &rng) {
+		while (!db.empty()) {
+			int i = rng(GetSize(db));
+			auto it = db.element(i);
+			mutate_t *m = *it;
+			db.erase(it);
+			if (m->used == false) {
+				m->used = true;
+				return m;
+			}
+		}
+		return nullptr;
+	}
+
+	void add(mutate_t *m) {
+		db.insert(m);
+	}
+};
+
+template <typename K, typename T>
+struct mutate_inner_queue_t
+{
+	dict<K, T> db;
+
+	mutate_t *pick(xs128_t &rng) {
+		while (!db.empty()) {
+			int i = rng(GetSize(db));
+			auto it = db.element(i);
+			mutate_t *m = it->second.pick(rng);
+			if (m != nullptr)
+				return m;
+			db.erase(it);
+		}
+		return nullptr;
+	}
+
+	template<typename... Args>
+	void add(mutate_t *m, K key, Args... args) {
+		db[key].add(m, args...);
+	}
+};
+
 void database_reduce(std::vector<mutate_t> &database, const mutate_opts_t &opts, int N)
 {
+	if (N >= GetSize(database))
+		return;
+
+	mutate_inner_queue_t<Wire*, mutate_leaf_queue_t> primary_queue_wire;
+	mutate_inner_queue_t<SigBit, mutate_leaf_queue_t> primary_queue_bit;
+	mutate_inner_queue_t<Cell*, mutate_leaf_queue_t> primary_queue_cell;
+	mutate_inner_queue_t<string, mutate_leaf_queue_t> primary_queue_src;
+
+	mutate_inner_queue_t<Module*, mutate_inner_queue_t<Wire*, mutate_leaf_queue_t>> primary_queue_module_wire;
+	mutate_inner_queue_t<Module*, mutate_inner_queue_t<SigBit, mutate_leaf_queue_t>> primary_queue_module_bit;
+	mutate_inner_queue_t<Module*, mutate_inner_queue_t<Cell*, mutate_leaf_queue_t>> primary_queue_module_cell;
+	mutate_inner_queue_t<Module*, mutate_inner_queue_t<string, mutate_leaf_queue_t>> primary_queue_module_src;
+
+	for (auto &m : database)
+	{
+		if (m.outsigbit.wire) {
+			primary_queue_wire.add(&m, m.outsigbit.wire);
+			primary_queue_bit.add(&m, m.outsigbit);
+			primary_queue_module_wire.add(&m, m.module, m.outsigbit.wire);
+			primary_queue_module_bit.add(&m, m.module, m.outsigbit);
+		}
+
+		primary_queue_cell.add(&m, m.cell);
+		primary_queue_module_cell.add(&m, m.module, m.cell);
+
+		if (!m.src.empty()) {
+			primary_queue_src.add(&m, m.src);
+			primary_queue_module_src.add(&m, m.module, m.src);
+		}
+	}
+
+	int weight_pq_w = 100;
+	int weight_pq_b = 100;
+	int weight_pq_c = 100;
+	int weight_pq_s = 100;
+
+	int weight_pq_mw = 100;
+	int weight_pq_mb = 100;
+	int weight_pq_mc = 100;
+	int weight_pq_ms = 100;
+
+	int total_weight = weight_pq_w + weight_pq_b + weight_pq_c + weight_pq_s;
+	total_weight += weight_pq_mw + weight_pq_mb + weight_pq_mc + weight_pq_ms;
+
+	std::vector<mutate_t> new_database;
+	xs128_t rng(opts.seed);
+
+	while (GetSize(new_database) < N)
+	{
+		int k = rng(total_weight);
+
+#define X(__wght, __queue)                \
+    k -= __wght;                          \
+    if (k < 0) {                          \
+      mutate_t *m = __queue.pick(rng);    \
+      if (m != nullptr)                   \
+        new_database.push_back(*m);       \
+      continue;                           \
+    }
+
+		X(weight_pq_w, primary_queue_wire)
+		X(weight_pq_b, primary_queue_bit)
+		X(weight_pq_c, primary_queue_cell)
+		X(weight_pq_s, primary_queue_src)
+
+		X(weight_pq_mw, primary_queue_module_wire)
+		X(weight_pq_mb, primary_queue_module_bit)
+		X(weight_pq_mc, primary_queue_module_cell)
+		X(weight_pq_ms, primary_queue_module_src)
+	}
+
+	std::swap(new_database, database);
 }
 
 void mutate_list(Design *design, const mutate_opts_t &opts, const string &filename, int N)
@@ -108,9 +262,8 @@ void mutate_list(Design *design, const mutate_opts_t &opts, const string &filena
 					mutate_t entry;
 					entry.mode = "inv";
 					entry.src = cell->get_src_attribute();
-					entry.modname = module->name;
-					entry.cellname = cell->name;
-					entry.celltype = cell->type;
+					entry.module = module;
+					entry.cell = cell;
 					entry.cellport = conn.first;
 					entry.portbit = i;
 
@@ -140,12 +293,17 @@ void mutate_list(Design *design, const mutate_opts_t &opts, const string &filena
 			log_error("Could not open file \"%s\" with write access.\n", filename.c_str());
 	}
 
+	int ctrl_value = opts.ctrl_value;
+
 	for (auto &entry : database) {
-		string str = stringf("mutate -mode %s", entry.mode.c_str());
-		if (!entry.modname.empty())
-			str += stringf(" -module %s", log_id(entry.modname));
-		if (!entry.cellname.empty())
-			str += stringf(" -cell %s", log_id(entry.cellname));
+		string str = "mutate";
+		if (!opts.ctrl_name.empty())
+			str += stringf(" -ctrl %s %d %d", log_id(opts.ctrl_name), opts.ctrl_width, ctrl_value++);
+		str += stringf(" -mode %s", entry.mode.c_str());
+		if (entry.module)
+			str += stringf(" -module %s", log_id(entry.module));
+		if (entry.cell)
+			str += stringf(" -cell %s", log_id(entry.cell));
 		if (!entry.cellport.empty())
 			str += stringf(" -port %s", log_id(entry.cellport));
 		if (entry.portbit >= 0)
@@ -253,6 +411,13 @@ struct MutatePass : public Pass {
 		log("    -o filename\n");
 		log("        Write list to this file instead of console output\n");
 		log("\n");
+		log("    -seed N\n");
+		log("        RNG seed for selecting mutations\n");
+		log("\n");
+		log("    -ctrl name width value\n");
+		log("        Add -ctrl options to the output. Use 'value' for first mutation, then\n");
+		log("        simply count up from there.\n");
+		log("\n");
 		log("    -mode name\n");
 		log("    -module name\n");
 		log("    -cell name\n");
@@ -294,6 +459,10 @@ struct MutatePass : public Pass {
 			}
 			if (args[argidx] == "-o" && argidx+1 < args.size()) {
 				filename = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-seed" && argidx+1 < args.size()) {
+				opts.seed = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-mode" && argidx+1 < args.size()) {
