@@ -46,8 +46,7 @@ USING_YOSYS_NAMESPACE
 #include "VeriModule.h"
 #include "VeriWrite.h"
 #include "VhdlUnits.h"
-#include "HierTreeNode.h"
-#include "Message.h"
+#include "VeriLibrary.h"
 
 #ifdef __clang__
 #pragma clang diagnostic pop
@@ -1775,25 +1774,29 @@ void verific_import(Design *design, const std::map<std::string,std::string> &par
 		netlists = hier_tree::ElaborateAll(&veri_libs, &vhdl_libs, &verific_params);
 	}
 	else {
-		const Map *tree_tops = hier_tree::CreateHierarchicalTreeAll(&veri_libs, &vhdl_libs, &verific_params);
-		HierTreeNode *node = tree_tops ? static_cast<HierTreeNode*>(tree_tops->GetValue(top.c_str())) : NULL;
-		if (node) {
-			Map specific_tops(STRING_HASH);
-			specific_tops.Insert(top.c_str(), node);
+		Array veri_modules, vhdl_units;
 
-			if (node->HasBindChild()) {
-				MapIter mi;
-				const char *key;
-				FOREACH_MAP_ITEM(tree_tops, mi, &key, &node) {
-					if (!node->IsPackage()) continue;
-					specific_tops.Insert(key, node);
-				}
+		if (veri_lib) {
+			VeriModule *veri_module = veri_lib->GetModule(top.c_str(), 1);
+			if (veri_module) {
+				veri_modules.InsertLast(veri_module);
 			}
 
-			netlists = hier_tree::GenerateNetlists(&specific_tops);
+			// Also elaborate all root modules since they may contain bind statements
+			MapIter mi;
+			FOREACH_VERILOG_MODULE_IN_LIBRARY(veri_lib, mi, veri_module) {
+				if (!veri_module->IsRootModule()) continue;
+				veri_modules.InsertLast(veri_module);
+			}
 		}
-		hier_tree::DeleteHierarchicalTree();
-		veri_file::DeleteInstantiatedClassValues();
+
+		if (vhdl_lib) {
+			VhdlDesignUnit *vhdl_unit = vhdl_lib->GetPrimUnit(top.c_str());
+			if (vhdl_unit)
+				vhdl_units.InsertLast(vhdl_unit);
+		}
+
+		netlists = hier_tree::Elaborate(&veri_modules, &vhdl_units, &verific_params);
 	}
 
 	Netlist *nl;
@@ -2300,12 +2303,22 @@ struct VerificPass : public Pass {
 				for (; argidx < GetSize(args); argidx++)
 				{
 					const char *name = args[argidx].c_str();
+					VeriLibrary* veri_lib = veri_file::GetLibrary(work.c_str(), 1);
 
-					VeriModule *veri_module = veri_file::GetModule(name);
-					if (veri_module) {
-						log("Adding Verilog module '%s' to elaboration queue.\n", name);
-						veri_modules.InsertLast(veri_module);
-						continue;
+					if (veri_lib) {
+						VeriModule *veri_module = veri_lib->GetModule(name, 1);
+						if (veri_module) {
+							log("Adding Verilog module '%s' to elaboration queue.\n", name);
+							veri_modules.InsertLast(veri_module);
+							continue;
+						}
+
+						// Also elaborate all root modules since they may contain bind statements
+						MapIter mi;
+						FOREACH_VERILOG_MODULE_IN_LIBRARY(veri_lib, mi, veri_module) {
+							if (!veri_module->IsRootModule()) continue;
+							veri_modules.InsertLast(veri_module);
+						}
 					}
 
 					VhdlLibrary *vhdl_lib = vhdl_file::GetLibrary(work.c_str(), 1);
