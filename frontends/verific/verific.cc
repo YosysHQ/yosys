@@ -46,6 +46,7 @@ USING_YOSYS_NAMESPACE
 #include "VeriModule.h"
 #include "VeriWrite.h"
 #include "VhdlUnits.h"
+#include "HierTreeNode.h"
 #include "Message.h"
 
 #ifdef __clang__
@@ -1758,25 +1759,47 @@ void verific_import(Design *design, std::string top)
 
 	std::set<Netlist*> nl_todo, nl_done;
 
-	{
-		VhdlLibrary *vhdl_lib = vhdl_file::GetLibrary("work", 1);
-		VeriLibrary *veri_lib = veri_file::GetLibrary("work", 1);
+	VhdlLibrary *vhdl_lib = vhdl_file::GetLibrary("work", 1);
+	VeriLibrary *veri_lib = veri_file::GetLibrary("work", 1);
+	Array *netlists = NULL;
+	Array veri_libs, vhdl_libs;
+	if (vhdl_lib) vhdl_libs.InsertLast(vhdl_lib);
+	if (veri_lib) veri_libs.InsertLast(veri_lib);
 
-		Array veri_libs, vhdl_libs;
-		if (vhdl_lib) vhdl_libs.InsertLast(vhdl_lib);
-		if (veri_lib) veri_libs.InsertLast(veri_lib);
-
-		Array *netlists = hier_tree::ElaborateAll(&veri_libs, &vhdl_libs);
-		Netlist *nl;
-		int i;
-
-		FOREACH_ARRAY_ITEM(netlists, i, nl) {
-			if (top.empty() || nl->Owner()->Name() == top)
-				nl_todo.insert(nl);
-		}
-
-		delete netlists;
+	if (top.empty()) {
+		netlists = hier_tree::ElaborateAll(&veri_libs, &vhdl_libs);
 	}
+	else {
+		const Map *tree_tops = hier_tree::CreateHierarchicalTreeAll(&veri_libs, &vhdl_libs);
+		HierTreeNode *node = tree_tops ? static_cast<HierTreeNode*>(tree_tops->GetValue(top.c_str())) : NULL;
+		if (node) {
+			Map specific_tops(STRING_HASH);
+			specific_tops.Insert(top.c_str(), node);
+
+			if (node->HasBindChild()) {
+				MapIter mi;
+				const char *key;
+				FOREACH_MAP_ITEM(tree_tops, mi, &key, &node) {
+					if (!node->IsPackage()) continue;
+					specific_tops.Insert(key, node);
+				}
+			}
+
+			netlists = hier_tree::GenerateNetlists(&specific_tops);
+		}
+		hier_tree::DeleteHierarchicalTree();
+		veri_file::DeleteInstantiatedClassValues();
+	}
+
+	Netlist *nl;
+	int i;
+
+	FOREACH_ARRAY_ITEM(netlists, i, nl) {
+		if (top.empty() || nl->Owner()->Name() == top)
+			nl_todo.insert(nl);
+	}
+
+	delete netlists;
 
 	if (!verific_error_msg.empty())
 		log_error("%s\n", verific_error_msg.c_str());
