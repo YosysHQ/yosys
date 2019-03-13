@@ -50,7 +50,6 @@ using namespace AST_INTERNAL;
 bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage, int width_hint, bool sign_hint, bool in_param)
 {
 	static int recursion_counter = 0;
-	static pair<string, int> last_blocking_assignment_warn;
 	static bool deep_recursion_warning = false;
 
 	if (recursion_counter++ == 1000 && deep_recursion_warning) {
@@ -72,7 +71,6 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	if (stage == 0)
 	{
 		log_assert(type == AST_MODULE || type == AST_INTERFACE);
-		last_blocking_assignment_warn = pair<string, int>();
 
 		deep_recursion_warning = true;
 		while (simplify(const_fold, at_zero, in_lvalue, 1, width_hint, sign_hint, in_param)) { }
@@ -1592,14 +1590,6 @@ skip_dynamic_range_lvalue_expansion:;
 		sstr << "$memwr$" << children[0]->str << "$" << filename << ":" << linenum << "$" << (autoidx++);
 		std::string id_addr = sstr.str() + "_ADDR", id_data = sstr.str() + "_DATA", id_en = sstr.str() + "_EN";
 
-		if (type == AST_ASSIGN_EQ) {
-			pair<string, int> this_blocking_assignment_warn(filename, linenum);
-			if (this_blocking_assignment_warn != last_blocking_assignment_warn)
-				log_warning("Blocking assignment to memory in line %s:%d is handled like a non-blocking assignment.\n",
-						filename.c_str(), linenum);
-			last_blocking_assignment_warn = this_blocking_assignment_warn;
-		}
-
 		int mem_width, mem_size, addr_bits;
 		bool mem_signed = children[0]->id2ast->is_signed;
 		children[0]->id2ast->meminfo(mem_width, mem_size, addr_bits);
@@ -2928,7 +2918,7 @@ void AstNode::mem2reg_as_needed_pass1(dict<AstNode*, pool<std::string>> &mem2reg
 		dict<AstNode*, uint32_t> &mem2reg_candidates, dict<AstNode*, uint32_t> &proc_flags, uint32_t &flags)
 {
 	uint32_t children_flags = 0;
-	int ignore_children_counter = 0;
+	int lhs_children_counter = 0;
 
 	if (type == AST_ASSIGN || type == AST_ASSIGN_LE || type == AST_ASSIGN_EQ)
 	{
@@ -2954,12 +2944,14 @@ void AstNode::mem2reg_as_needed_pass1(dict<AstNode*, pool<std::string>> &mem2reg
 				proc_flags[mem] |= AstNode::MEM2REG_FL_EQ1;
 			}
 
-			// remember if this is a constant index or not
-			if (children[0]->children.size() && children[0]->children[0]->type == AST_RANGE && children[0]->children[0]->children.size()) {
-				if (children[0]->children[0]->children[0]->type == AST_CONSTANT)
-					mem2reg_candidates[mem] |= AstNode::MEM2REG_FL_CONST_LHS;
-				else
-					mem2reg_candidates[mem] |= AstNode::MEM2REG_FL_VAR_LHS;
+			// for proper (non-init) writes: remember if this is a constant index or not
+			if ((flags & MEM2REG_FL_INIT) == 0) {
+				if (children[0]->children.size() && children[0]->children[0]->type == AST_RANGE && children[0]->children[0]->children.size()) {
+					if (children[0]->children[0]->children[0]->type == AST_CONSTANT)
+						mem2reg_candidates[mem] |= AstNode::MEM2REG_FL_CONST_LHS;
+					else
+						mem2reg_candidates[mem] |= AstNode::MEM2REG_FL_VAR_LHS;
+				}
 			}
 
 			// remember where this is
@@ -2974,7 +2966,7 @@ void AstNode::mem2reg_as_needed_pass1(dict<AstNode*, pool<std::string>> &mem2reg
 			}
 		}
 
-		ignore_children_counter = 1;
+		lhs_children_counter = 1;
 	}
 
 	if (type == AST_IDENTIFIER && id2ast && id2ast->type == AST_MEMORY)
@@ -3017,12 +3009,23 @@ void AstNode::mem2reg_as_needed_pass1(dict<AstNode*, pool<std::string>> &mem2reg
 	log_assert((flags & ~0x000000ff) == 0);
 
 	for (auto child : children)
-		if (ignore_children_counter > 0)
-			ignore_children_counter--;
-		else if (proc_flags_p)
+	{
+		if (lhs_children_counter > 0) {
+			lhs_children_counter--;
+			if (child->children.size() && child->children[0]->type == AST_RANGE && child->children[0]->children.size()) {
+				for (auto c : child->children[0]->children) {
+					if (proc_flags_p)
+						c->mem2reg_as_needed_pass1(mem2reg_places, mem2reg_candidates, *proc_flags_p, flags);
+					else
+						c->mem2reg_as_needed_pass1(mem2reg_places, mem2reg_candidates, proc_flags, flags);
+				}
+			}
+		} else
+		if (proc_flags_p)
 			child->mem2reg_as_needed_pass1(mem2reg_places, mem2reg_candidates, *proc_flags_p, flags);
 		else
 			child->mem2reg_as_needed_pass1(mem2reg_places, mem2reg_candidates, proc_flags, flags);
+	}
 
 	flags &= ~children_flags | backup_flags;
 
