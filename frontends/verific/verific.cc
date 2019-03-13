@@ -775,9 +775,9 @@ void VerificImporter::merge_past_ffs(pool<RTLIL::Cell*> &candidates)
 		merge_past_ffs_clock(it.second, it.first.first, it.first.second);
 }
 
-void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*> &nl_todo, bool top)
+void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*> &nl_todo)
 {
-	std::string netlist_name = top ? nl->CellBaseName() : nl->Owner()->Name();
+	std::string netlist_name = nl->GetAtt(" \\top") ? nl->CellBaseName() : nl->Owner()->Name();
 	std::string module_name = nl->IsOperator() ? "$verific$" + netlist_name : RTLIL::escape_id(netlist_name);
 
 	netlist = nl;
@@ -1768,7 +1768,7 @@ void verific_import(Design *design, const std::map<std::string,std::string> &par
 	if (veri_lib) veri_libs.InsertLast(veri_lib);
 
 	Map verific_params(STRING_HASH);
-	for (auto i : parameters)
+	for (const auto &i : parameters)
 		verific_params.Insert(i.first.c_str(), i.second.c_str());
 
 	if (top.empty()) {
@@ -1800,8 +1800,10 @@ void verific_import(Design *design, const std::map<std::string,std::string> &par
 	int i;
 
 	FOREACH_ARRAY_ITEM(netlists, i, nl) {
-		if (top.empty() || nl->CellBaseName() == top)
-			nl_todo.insert(nl);
+		if (top.empty() && nl->CellBaseName() != top)
+			continue;
+		nl->AddAtt(new Att(" \\top", NULL));
+		nl_todo.insert(nl);
 	}
 
 	delete netlists;
@@ -1817,7 +1819,7 @@ void verific_import(Design *design, const std::map<std::string,std::string> &par
 		Netlist *nl = *nl_todo.begin();
 		if (nl_done.count(nl) == 0) {
 			VerificImporter importer(false, false, false, false, false, false);
-			importer.import_netlist(design, nl, nl_todo, nl->CellBaseName() == top);
+			importer.import_netlist(design, nl, nl_todo);
 		}
 		nl_todo.erase(nl);
 		nl_done.insert(nl);
@@ -2322,8 +2324,10 @@ struct VerificPass : public Pass {
 				Netlist *nl;
 				int i;
 
-				FOREACH_ARRAY_ITEM(netlists, i, nl)
+				FOREACH_ARRAY_ITEM(netlists, i, nl) {
+					nl->AddAtt(new Att(" \\top", NULL));
 					nl_todo.insert(nl);
+				}
 				delete netlists;
 			}
 
