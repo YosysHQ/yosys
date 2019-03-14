@@ -42,8 +42,23 @@ struct mutate_opts_t {
 	int portbit = -1;
 	int ctrlbit = -1;
 	int wirebit = -1;
+
 	IdString ctrl_name;
-	int ctrl_width, ctrl_value;
+	int ctrl_width = -1, ctrl_value = -1;
+
+	int pick_cover_prcnt = 50;
+
+	int weight_cover = 500;
+
+	int weight_pq_w = 100;
+	int weight_pq_b = 100;
+	int weight_pq_c = 100;
+	int weight_pq_s = 100;
+
+	int weight_pq_mw = 100;
+	int weight_pq_mb = 100;
+	int weight_pq_mc = 100;
+	int weight_pq_ms = 100;
 };
 
 void database_add(std::vector<mutate_t> &database, const mutate_opts_t &opts, const mutate_t &entry)
@@ -122,25 +137,19 @@ struct mutate_leaf_queue_t
 {
 	pool<mutate_t*, hash_ptr_ops> db;
 
-	mutate_t *pick(xs128_t &rng, dict<string, int> &coverdb) {
+	mutate_t *pick(xs128_t &rng, dict<string, int> &coverdb, const mutate_opts_t &opts) {
 		mutate_t *m = nullptr;
-		if (rng(3)) {
+		if (rng(100) < opts.pick_cover_prcnt) {
 			vector<mutate_t*> candidates;
-			int best_score = -1;
 			for (auto p : db) {
 				if (p->used || p->src.empty())
 					continue;
-				int this_score = -1;
+				bool is_covered = false;
 				for (auto &s : p->src) {
-					if (this_score == -1 || this_score > coverdb.at(s))
-						this_score = coverdb.at(s);
+					if (coverdb.at(s))
+						is_covered = true;
 				}
-				log_assert(this_score != -1);
-				if (best_score == -1 || this_score < best_score) {
-					candidates.clear();
-					best_score = this_score;
-				}
-				if (best_score == this_score)
+				if (!is_covered)
 					candidates.push_back(p);
 			}
 			if (!candidates.empty())
@@ -176,11 +185,11 @@ struct mutate_inner_queue_t
 {
 	dict<K, T> db;
 
-	mutate_t *pick(xs128_t &rng, dict<string, int> &coverdb) {
+	mutate_t *pick(xs128_t &rng, dict<string, int> &coverdb, const mutate_opts_t &opts) {
 		while (!db.empty()) {
 			int i = rng(GetSize(db));
 			auto it = db.element(i);
-			mutate_t *m = it->second.pick(rng, coverdb);
+			mutate_t *m = it->second.pick(rng, coverdb, opts);
 			if (m != nullptr)
 				return m;
 			db.erase(it);
@@ -194,25 +203,13 @@ struct mutate_inner_queue_t
 	}
 };
 
-void database_reduce(std::vector<mutate_t> &database, const mutate_opts_t &/* opts */, int N, xs128_t &rng)
+void database_reduce(std::vector<mutate_t> &database, const mutate_opts_t &opts, int N, xs128_t &rng)
 {
 	std::vector<mutate_t> new_database;
 	dict<string, int> coverdb;
 
-	int weight_cover = 500;
-
-	int weight_pq_w = 100;
-	int weight_pq_b = 100;
-	int weight_pq_c = 100;
-	int weight_pq_s = 100;
-
-	int weight_pq_mw = 100;
-	int weight_pq_mb = 100;
-	int weight_pq_mc = 100;
-	int weight_pq_ms = 100;
-
-	int total_weight = weight_cover + weight_pq_w + weight_pq_b + weight_pq_c + weight_pq_s;
-	total_weight += weight_pq_mw + weight_pq_mb + weight_pq_mc + weight_pq_ms;
+	int total_weight = opts.weight_cover + opts.weight_pq_w + opts.weight_pq_b + opts.weight_pq_c + opts.weight_pq_s;
+	total_weight += opts.weight_pq_mw + opts.weight_pq_mb + opts.weight_pq_mc + opts.weight_pq_ms;
 
 	if (N >= GetSize(database))
 		return;
@@ -254,7 +251,7 @@ void database_reduce(std::vector<mutate_t> &database, const mutate_opts_t &/* op
 	{
 		int k = rng(total_weight);
 
-		k -= weight_cover;
+		k -= opts.weight_cover;
 		if (k < 0) {
 			while (!skip_cover) {
 				if (cover_candidates.empty()) {
@@ -316,24 +313,24 @@ void database_reduce(std::vector<mutate_t> &database, const mutate_opts_t &/* op
 			continue;
 		}
 
-#define X(__wght, __queue)                         \
-    k -= __wght;                                   \
-    if (k < 0) {                                   \
-      mutate_t *m = __queue.pick(rng, coverdb);    \
-      if (m != nullptr)                            \
-        new_database.push_back(*m);                \
-      continue;                                    \
+#define X(__wght, __queue)                               \
+    k -= __wght;                                         \
+    if (k < 0) {                                         \
+      mutate_t *m = __queue.pick(rng, coverdb, opts);    \
+      if (m != nullptr)                                  \
+        new_database.push_back(*m);                      \
+      continue;                                          \
     }
 
-		X(weight_pq_w, primary_queue_wire)
-		X(weight_pq_b, primary_queue_bit)
-		X(weight_pq_c, primary_queue_cell)
-		X(weight_pq_s, primary_queue_src)
+		X(opts.weight_pq_w, primary_queue_wire)
+		X(opts.weight_pq_b, primary_queue_bit)
+		X(opts.weight_pq_c, primary_queue_cell)
+		X(opts.weight_pq_s, primary_queue_src)
 
-		X(weight_pq_mw, primary_queue_module_wire)
-		X(weight_pq_mb, primary_queue_module_bit)
-		X(weight_pq_mc, primary_queue_module_cell)
-		X(weight_pq_ms, primary_queue_module_src)
+		X(opts.weight_pq_mw, primary_queue_module_wire)
+		X(opts.weight_pq_mb, primary_queue_module_bit)
+		X(opts.weight_pq_mc, primary_queue_module_cell)
+		X(opts.weight_pq_ms, primary_queue_module_src)
 #undef X
 	}
 
@@ -654,6 +651,12 @@ struct MutatePass : public Pass {
 		log("        Filter list of mutation candidates to those matching\n");
 		log("        the given parameters.\n");
 		log("\n");
+		log("    -cfg option int\n");
+		log("        Set a configuration option. Options available:\n");
+		log("          weight_pq_w weight_pq_b weight_pq_c weight_pq_s\n");
+		log("          weight_pq_mw weight_pq_mb weight_pq_mc weight_pq_ms\n");
+		log("          weight_cover pick_cover_prcnt\n");
+		log("\n");
 		log("\n");
 		log("    mutate -mode MODE [options]\n");
 		log("\n");
@@ -740,6 +743,58 @@ struct MutatePass : public Pass {
 			if (args[argidx] == "-src" && argidx+1 < args.size()) {
 				opts.src.insert(args[++argidx]);
 				continue;
+			}
+			if (args[argidx] == "-cfg" && argidx+2 < args.size()) {
+				if (args[argidx+1] == "pick_cover_prcnt") {
+					opts.pick_cover_prcnt = atoi(args[argidx+2].c_str());
+					argidx += 2;
+					continue;
+				}
+				if (args[argidx+1] == "weight_cover") {
+					opts.weight_cover = atoi(args[argidx+2].c_str());
+					argidx += 2;
+					continue;
+				}
+				if (args[argidx+1] == "weight_pq_w") {
+					opts.weight_pq_w = atoi(args[argidx+2].c_str());
+					argidx += 2;
+					continue;
+				}
+				if (args[argidx+1] == "weight_pq_b") {
+					opts.weight_pq_b = atoi(args[argidx+2].c_str());
+					argidx += 2;
+					continue;
+				}
+				if (args[argidx+1] == "weight_pq_c") {
+					opts.weight_pq_c = atoi(args[argidx+2].c_str());
+					argidx += 2;
+					continue;
+				}
+				if (args[argidx+1] == "weight_pq_s") {
+					opts.weight_pq_s = atoi(args[argidx+2].c_str());
+					argidx += 2;
+					continue;
+				}
+				if (args[argidx+1] == "weight_pq_mw") {
+					opts.weight_pq_mw = atoi(args[argidx+2].c_str());
+					argidx += 2;
+					continue;
+				}
+				if (args[argidx+1] == "weight_pq_mb") {
+					opts.weight_pq_mb = atoi(args[argidx+2].c_str());
+					argidx += 2;
+					continue;
+				}
+				if (args[argidx+1] == "weight_pq_mc") {
+					opts.weight_pq_mc = atoi(args[argidx+2].c_str());
+					argidx += 2;
+					continue;
+				}
+				if (args[argidx+1] == "weight_pq_ms") {
+					opts.weight_pq_ms = atoi(args[argidx+2].c_str());
+					argidx += 2;
+					continue;
+				}
 			}
 			break;
 		}
