@@ -34,7 +34,7 @@ struct ShregmapOptions
 {
 	int minlen, maxlen;
 	int keep_before, keep_after;
-	bool zinit, init, params, ffe, init_msb_first;
+	bool zinit, init, params, ffe;
 	dict<IdString, pair<IdString, IdString>> ffcells;
 	ShregmapTech *tech;
 
@@ -48,7 +48,6 @@ struct ShregmapOptions
 		init = false;
 		params = false;
 		ffe = false;
-		init_msb_first = false;
 		tech = nullptr;
 	}
 };
@@ -308,8 +307,6 @@ struct ShregmapWorker
 						initval.push_back(State::S0);
 					remove_init.insert(bit);
 				}
-				if (opts.init_msb_first)
-					std::reverse(initval.begin(), initval.end());
 				first_cell->setParam("\\INIT", initval);
 			}
 
@@ -445,12 +442,8 @@ struct ShregmapPass : public Pass {
 		log("\n");
 		log("    -init\n");
 		log("        map initialized registers to the shift reg, add an INIT parameter to\n");
-		log("        generated cells with the initialization value. (First bit to shift out\n");
+		log("        generated cells with the initialization value. (first bit to shift out\n");
 		log("        in LSB position)\n");
-		log("\n");
-		log("    -init_msb_first\n");
-		log("        same as -init, but INIT parameter to have first bit to shift out\n");
-		log("        in MSB position.\n");
 		log("\n");
 		log("    -tech greenpak4\n");
 		log("        map to greenpak4 shift registers.\n");
@@ -520,11 +513,6 @@ struct ShregmapPass : public Pass {
 			}
 			if (args[argidx] == "-init") {
 				opts.init = true;
-				continue;
-			}
-			if (args[argidx] == "-init_msb_first") {
-				opts.init = true;
-				opts.init_msb_first = true;
 				continue;
 			}
 			if (args[argidx] == "-params") {
