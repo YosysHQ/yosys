@@ -262,7 +262,7 @@ struct SynthXilinxPass : public Pass
 				Pass::call(design, "techmap -map +/techmap.v -map +/xilinx/arith_map.v");
 			}
 
-			Pass::call(design, "shregmap -initt -params -enpol any_or_none");
+			Pass::call(design, "shregmap -init -params -enpol any_or_none");
 			Pass::call(design, "techmap -map +/xilinx/ff_map.v");
 			Pass::call(design, "opt -fast");
 		}
