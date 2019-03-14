@@ -155,6 +155,13 @@ bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutativ
 			new_b.append_bit(it.first.second);
 		}
 
+		if (cell->type.in("$and", "$or") && i == GRP_CONST_A) {
+			log("  Direct Connection: %s (%s with %s)\n", log_signal(new_b), log_id(cell->type), log_signal(new_a));
+			module->connect(new_y, new_b);
+			module->connect(new_conn);
+			continue;
+		}
+
 		RTLIL::Cell *c = module->addCell(NEW_ID, cell->type);
 
 		c->setPort("\\A", new_a);
