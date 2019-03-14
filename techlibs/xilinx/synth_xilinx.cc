@@ -105,7 +105,7 @@ struct SynthXilinxPass : public Pass
 		log("        dff2dffe\n");
 		log("        opt -full\n");
 		log("        techmap -map +/techmap.v -map +/xilinx/arith_map.v\n");
-		log("        shregmap -init -params -enpol any_or_none\n");
+		log("        shregmap -init_msb_first -params -enpol any_or_none\n");
 		log("        opt -fast\n");
 		log("\n");
 		log("    map_luts:\n");
@@ -225,7 +225,7 @@ struct SynthXilinxPass : public Pass
 			Pass::call(design, "dff2dffe");
 			Pass::call(design, "opt -full");
 			Pass::call(design, "techmap -map +/techmap.v -map +/xilinx/arith_map.v");
-			Pass::call(design, "shregmap -init -params -enpol any_or_none");
+			Pass::call(design, "shregmap -init_msb_first -params -enpol any_or_none");
 			Pass::call(design, "opt -fast");
 		}
 
