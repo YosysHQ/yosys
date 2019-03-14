@@ -125,31 +125,29 @@ module \$__SHREG_ (input C, input D, input E, output Q);
       MUXF7 fpga_mux_1 (.O(T6), .I0(T4), .I1(1'b0 /* unused */), .S(A[5]));
       MUXF8 fpga_mux_2 (.O(Q), .I0(T5), .I1(T6), .S(A[6]));
     end else
-    if (DEPTH <= 128) begin
-      if (DEPTH > 97) begin
-        localparam [6:0] A = DEPTH-1;
-        wire T0, T1, T2, T3, T4, T5, T6, T7, T8;
-        SRLC32E #(.INIT(INIT[32-1:0]), .IS_CLK_INVERTED(~CLKPOL[0])) fpga_srl_0 (.A(A[4:0]), .CE(CE), .CLK(C), .D(D), .Q(T0), .Q31(T1));
-        SRLC32E #(.INIT(INIT[64-1:32]), .IS_CLK_INVERTED(~CLKPOL[0])) fpga_srl_1 (.A(A[4:0]), .CE(CE), .CLK(C), .D(T1), .Q(T2), .Q31(T3));
-        SRLC32E #(.INIT(INIT[96-1:64]), .IS_CLK_INVERTED(~CLKPOL[0])) fpga_srl_2 (.A(A[4:0]), .CE(CE), .CLK(C), .D(T3), .Q(T4), .Q31(T5));
-        \$__SHREG_ #(.DEPTH(DEPTH-96), .INIT(INIT[DEPTH-1:96]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_3 (.C(C), .D(T5), .E(E), .Q(T6));
-        MUXF7 fpga_mux_0 (.O(T7), .I0(T0), .I1(T2), .S(A[5]));
-        MUXF7 fpga_mux_1 (.O(T8), .I0(T4), .I1(T6), .S(A[5]));
-        MUXF8 fpga_mux_2 (.O(Q), .I0(T7), .I1(T8), .S(A[6]));
-      end
-      // Handle case where depth is just 1 over a convenient value,
+    if (DEPTH > 97 && DEPTH <= 128) begin
+      localparam [6:0] A = DEPTH-1;
+      wire T0, T1, T2, T3, T4, T5, T6, T7, T8;
+      SRLC32E #(.INIT(INIT[32-1:0]), .IS_CLK_INVERTED(~CLKPOL[0])) fpga_srl_0 (.A(A[4:0]), .CE(CE), .CLK(C), .D(D), .Q(T0), .Q31(T1));
+      SRLC32E #(.INIT(INIT[64-1:32]), .IS_CLK_INVERTED(~CLKPOL[0])) fpga_srl_1 (.A(A[4:0]), .CE(CE), .CLK(C), .D(T1), .Q(T2), .Q31(T3));
+      SRLC32E #(.INIT(INIT[96-1:64]), .IS_CLK_INVERTED(~CLKPOL[0])) fpga_srl_2 (.A(A[4:0]), .CE(CE), .CLK(C), .D(T3), .Q(T4), .Q31(T5));
+      \$__SHREG_ #(.DEPTH(DEPTH-96), .INIT(INIT[DEPTH-1:96]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_3 (.C(C), .D(T5), .E(E), .Q(T6));
+      MUXF7 fpga_mux_0 (.O(T7), .I0(T0), .I1(T2), .S(A[5]));
+      MUXF7 fpga_mux_1 (.O(T8), .I0(T4), .I1(T6), .S(A[5]));
+      MUXF8 fpga_mux_2 (.O(Q), .I0(T7), .I1(T8), .S(A[6]));
+    end
+    else if (DEPTH <= 129) begin
+      // Handle cases where depth is just 1 over a convenient value,
       // in which case use the flop
-      else begin
-        wire T0;
-        \$__SHREG_ #(.DEPTH(DEPTH-1), .INIT(INIT[DEPTH-2:0]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_0 (.C(C), .D(D), .E(E), .Q(T0));
-        \$__SHREG_ #(.DEPTH(1), .INIT(INIT[DEPTH-1]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_1 (.C(C), .D(T0), .E(E), .Q(Q));
-      end
+      wire T0;
+      \$__SHREG_ #(.DEPTH(DEPTH-1), .INIT(INIT[DEPTH-2:0]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_0 (.C(C), .D(D), .E(E), .Q(T0));
+      \$__SHREG_ #(.DEPTH(1), .INIT(INIT[DEPTH-1]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_1 (.C(C), .D(T0), .E(E), .Q(Q));
     end else
     begin
       // UG474 (v1.8, p34) states that:
       //   "There are no direct connections between slices to form longer shift
       //    registers, nor is the MC31 output at LUT B/C/D available."
-      wire T0, T1;
+      wire T0;
       \$__SHREG_ #(.DEPTH(128), .INIT(INIT[128-1:0]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_0 (.C(C), .D(D), .E(E), .Q(T0));
       \$__SHREG_ #(.DEPTH(DEPTH-128), .INIT(INIT[DEPTH-1:128]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_1 (.C(C), .D(T0), .E(E), .Q(Q));
     end
