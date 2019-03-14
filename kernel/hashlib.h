@@ -557,9 +557,11 @@ public:
 	void clear() { hashtable.clear(); entries.clear(); }
 
 	iterator begin() { return iterator(this, int(entries.size())-1); }
+	iterator element(int n) { return iterator(this, int(entries.size())-1-n); }
 	iterator end() { return iterator(nullptr, -1); }
 
 	const_iterator begin() const { return const_iterator(this, int(entries.size())-1); }
+	const_iterator element(int n) const { return const_iterator(this, int(entries.size())-1-n); }
 	const_iterator end() const { return const_iterator(nullptr, -1); }
 };
 
@@ -881,9 +883,11 @@ public:
 	void clear() { hashtable.clear(); entries.clear(); }
 
 	iterator begin() { return iterator(this, int(entries.size())-1); }
+	iterator element(int n) { return iterator(this, int(entries.size())-1-n); }
 	iterator end() { return iterator(nullptr, -1); }
 
 	const_iterator begin() const { return const_iterator(this, int(entries.size())-1); }
+	const_iterator element(int n) const { return const_iterator(this, int(entries.size())-1-n); }
 	const_iterator end() const { return const_iterator(nullptr, -1); }
 };
 
@@ -952,6 +956,7 @@ public:
 	void clear() { database.clear(); }
 
 	const_iterator begin() const { return database.begin(); }
+	const_iterator element(int n) const { return database.element(n); }
 	const_iterator end() const { return database.end(); }
 };
 
@@ -1051,6 +1056,7 @@ public:
 	void clear() { database.clear(); parents.clear(); }
 
 	const_iterator begin() const { return database.begin(); }
+	const_iterator element(int n) const { return database.element(n); }
 	const_iterator end() const { return database.end(); }
 };
 
