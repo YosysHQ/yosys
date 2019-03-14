@@ -204,7 +204,7 @@ void ILANG_BACKEND::dump_proc_switch(std::ostream &f, std::string indent, const 
 		f << stringf("%s  case ", indent.c_str());
 		for (size_t i = 0; i < (*it)->compare.size(); i++) {
 			if (i > 0)
-				f << stringf(", ");
+				f << stringf(" , ");
 			dump_sigspec(f, (*it)->compare[i]);
 		}
 		f << stringf("\n");
