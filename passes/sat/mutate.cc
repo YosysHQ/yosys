@@ -199,6 +199,8 @@ void database_reduce(std::vector<mutate_t> &database, const mutate_opts_t &/* op
 	std::vector<mutate_t> new_database;
 	dict<string, int> coverdb;
 
+	int weight_cover = 500;
+
 	int weight_pq_w = 100;
 	int weight_pq_b = 100;
 	int weight_pq_c = 100;
@@ -209,7 +211,7 @@ void database_reduce(std::vector<mutate_t> &database, const mutate_opts_t &/* op
 	int weight_pq_mc = 100;
 	int weight_pq_ms = 100;
 
-	int total_weight = weight_pq_w + weight_pq_b + weight_pq_c + weight_pq_s;
+	int total_weight = weight_cover + weight_pq_w + weight_pq_b + weight_pq_c + weight_pq_s;
 	total_weight += weight_pq_mw + weight_pq_mb + weight_pq_mc + weight_pq_ms;
 
 	if (N >= GetSize(database))
@@ -244,9 +246,75 @@ void database_reduce(std::vector<mutate_t> &database, const mutate_opts_t &/* op
 		}
 	}
 
+	vector<mutate_t*> cover_candidates;
+	int best_cover_score = -1;
+	bool skip_cover = false;
+
 	while (GetSize(new_database) < N)
 	{
 		int k = rng(total_weight);
+
+		k -= weight_cover;
+		if (k < 0) {
+			while (!skip_cover) {
+				if (cover_candidates.empty()) {
+					best_cover_score = -1;
+					for (auto &m : database) {
+						if (m.used || m.src.empty())
+							continue;
+						int this_score = -1;
+						for (auto &s : m.src) {
+							if (this_score == -1 || this_score > coverdb.at(s))
+								this_score = coverdb.at(s);
+						}
+						log_assert(this_score != -1);
+						if (best_cover_score == -1 || this_score < best_cover_score) {
+							cover_candidates.clear();
+							best_cover_score = this_score;
+						}
+						if (best_cover_score == this_score)
+							cover_candidates.push_back(&m);
+					}
+					if (best_cover_score == -1) {
+						skip_cover = true;
+						break;
+					}
+				}
+
+				mutate_t *m = nullptr;
+				while (!cover_candidates.empty())
+				{
+					int idx = rng(GetSize(cover_candidates));
+					mutate_t *p = cover_candidates[idx];
+					cover_candidates[idx] = cover_candidates.back();
+					cover_candidates.pop_back();
+
+					if (p->used)
+						continue;
+
+					int this_score = -1;
+					for (auto &s : p->src) {
+						if (this_score == -1 || this_score > coverdb.at(s))
+							this_score = coverdb.at(s);
+					}
+
+					if (this_score != best_cover_score)
+						continue;
+
+					m = p;
+					break;
+				}
+
+				if (m != nullptr) {
+					m->used = true;
+					for (auto &s : m->src)
+						coverdb[s]++;
+					new_database.push_back(*m);
+					break;
+				}
+			}
+			continue;
+		}
 
 #define X(__wght, __queue)                         \
     k -= __wght;                                   \
@@ -266,6 +334,7 @@ void database_reduce(std::vector<mutate_t> &database, const mutate_opts_t &/* op
 		X(weight_pq_mb, primary_queue_module_bit)
 		X(weight_pq_mc, primary_queue_module_cell)
 		X(weight_pq_ms, primary_queue_module_src)
+#undef X
 	}
 
 	std::swap(new_database, database);
