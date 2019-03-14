@@ -21,7 +21,7 @@ Then run in the following command in this directory:
 
 	sby -f example.sby
 
-This will generate approximately one page of text outpout. The last lines
+This will generate approximately one page of text output. The last lines
 should be something like this:
 
 	SBY [example] summary: Elapsed clock time [H:MM:SS (secs)]: 0:00:00 (0)

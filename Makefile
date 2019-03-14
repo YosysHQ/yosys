@@ -10,6 +10,7 @@ CONFIG := clang
 # features (the more the better)
 ENABLE_TCL := 1
 ENABLE_ABC := 1
+ENABLE_GLOB := 1
 ENABLE_PLUGINS := 1
 ENABLE_READLINE := 1
 ENABLE_EDITLINE := 0
@@ -296,6 +297,10 @@ LDLIBS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKG_CONFIG) --silence-err
 ifneq ($(OS), FreeBSD)
 LDLIBS += -ldl
 endif
+endif
+
+ifeq ($(ENABLE_GLOB),1)
+CXXFLAGS += -DYOSYS_ENABLE_GLOB
 endif
 
 ifeq ($(ENABLE_TCL),1)

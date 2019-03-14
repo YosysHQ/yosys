@@ -132,9 +132,9 @@ static void dump_dot_graph(string filename,
                            pool<RTLIL::SigBit> nodes, dict<RTLIL::SigBit, pool<RTLIL::SigBit>> edges,
                            pool<RTLIL::SigBit> inputs, pool<RTLIL::SigBit> outputs,
                            std::function<GraphStyle(RTLIL::SigBit)> node_style =
-                           		[](RTLIL::SigBit) { return GraphStyle{}; },
+                                   [](RTLIL::SigBit) { return GraphStyle{}; },
                            std::function<GraphStyle(RTLIL::SigBit, RTLIL::SigBit)> edge_style =
-                           		[](RTLIL::SigBit, RTLIL::SigBit) { return GraphStyle{}; },
+                                   [](RTLIL::SigBit, RTLIL::SigBit) { return GraphStyle{}; },
                            string name = "")
 {
 	FILE *f = fopen(filename.c_str(), "w");

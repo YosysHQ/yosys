@@ -39,7 +39,7 @@ struct Async2syncPass : public Pass {
 		log("reset value in the next cycle regardless of the data-in value at the time of\n");
 		log("the clock edge.\n");
 		log("\n");
-		log("Currently only $adff cells are supported by this pass.\n");
+		log("Currently only $adff and $dffsr cells are supported by this pass.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -84,7 +84,7 @@ struct Async2syncPass : public Pass {
 					bool arst_pol = cell->parameters["\\ARST_POLARITY"].as_bool();
 					Const arst_val = cell->parameters["\\ARST_VALUE"];
 
-					SigSpec sig_clk = cell->getPort("\\CLK");
+					// SigSpec sig_clk = cell->getPort("\\CLK");
 					SigSpec sig_arst = cell->getPort("\\ARST");
 					SigSpec sig_d = cell->getPort("\\D");
 					SigSpec sig_q = cell->getPort("\\Q");
@@ -117,6 +117,55 @@ struct Async2syncPass : public Pass {
 					cell->unsetPort("\\ARST");
 					cell->unsetParam("\\ARST_POLARITY");
 					cell->unsetParam("\\ARST_VALUE");
+					cell->type = "$dff";
+					continue;
+				}
+
+				if (cell->type.in("$dffsr"))
+				{
+					// bool clk_pol = cell->parameters["\\CLK_POLARITY"].as_bool();
+					bool set_pol = cell->parameters["\\SET_POLARITY"].as_bool();
+					bool clr_pol = cell->parameters["\\CLR_POLARITY"].as_bool();
+
+					// SigSpec sig_clk = cell->getPort("\\CLK");
+					SigSpec sig_set = cell->getPort("\\SET");
+					SigSpec sig_clr = cell->getPort("\\CLR");
+					SigSpec sig_d = cell->getPort("\\D");
+					SigSpec sig_q = cell->getPort("\\Q");
+
+					log("Replacing %s.%s (%s): SET=%s, CLR=%s, D=%s, Q=%s\n",
+							log_id(module), log_id(cell), log_id(cell->type),
+							log_signal(sig_set), log_signal(sig_clr), log_signal(sig_d), log_signal(sig_q));
+
+					Const init_val;
+					for (int i = 0; i < GetSize(sig_q); i++) {
+						SigBit bit = sigmap(sig_q[i]);
+						init_val.bits.push_back(initbits.count(bit) ? initbits.at(bit) : State::Sx);
+						del_initbits.insert(bit);
+					}
+
+					Wire *new_d = module->addWire(NEW_ID, GetSize(sig_d));
+					Wire *new_q = module->addWire(NEW_ID, GetSize(sig_q));
+					new_q->attributes["\\init"] = init_val;
+
+					if (!set_pol)
+						sig_set = module->Not(NEW_ID, sig_set);
+
+					if (clr_pol)
+						sig_clr = module->Not(NEW_ID, sig_clr);
+
+					SigSpec tmp = module->Or(NEW_ID, sig_d, sig_set);
+					module->addAnd(NEW_ID, tmp, sig_clr, new_d);
+
+					tmp = module->Or(NEW_ID, new_q, sig_set);
+					module->addAnd(NEW_ID, tmp, sig_clr, sig_q);
+
+					cell->setPort("\\D", new_d);
+					cell->setPort("\\Q", new_q);
+					cell->unsetPort("\\SET");
+					cell->unsetPort("\\CLR");
+					cell->unsetParam("\\SET_POLARITY");
+					cell->unsetParam("\\CLR_POLARITY");
 					cell->type = "$dff";
 					continue;
 				}

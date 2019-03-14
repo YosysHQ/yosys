@@ -1,6 +1,7 @@
 # This file contains the names of verilog files to exclude from verilog to FIRRTL regression tests due to known failures.
 arraycells.v	inst id[0] of
 dff_different_styles.v
+dff_init.v	Initial value not supported
 generate.v	combinational loop
 hierdefparam.v	inst id[0] of
 i2c_master_tests.v   $adff
@@ -12,7 +13,6 @@ multiplier.v	inst id[0] of
 muxtree.v	drops modules
 omsp_dbg_uart.v	$adff
 operators.v	$pow
-paramods.v	subfield assignment (bits() <= ...)
 partsel.v	drops modules
 process.v	drops modules
 realexpr.v	drops modules

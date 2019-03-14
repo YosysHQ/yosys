@@ -196,7 +196,11 @@ void logv_header(RTLIL::Design *design, const char *format, va_list ap)
 	if (log_hdump.count(header_id) && design != nullptr)
 		for (auto &filename : log_hdump.at(header_id)) {
 			log("Dumping current design to '%s'.\n", filename.c_str());
+			if (yosys_xtrace)
+				IdString::xtrace_db_dump();
 			Pass::call(design, {"dump", "-o", filename});
+			if (yosys_xtrace)
+				log("#X# -- end of dump --\n");
 		}
 
 	if (pop_errfile)

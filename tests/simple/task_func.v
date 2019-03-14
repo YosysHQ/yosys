@@ -120,3 +120,22 @@ module task_func_test04(input [7:0] in, output [7:0] out1, out2, out3, out4);
 	assign out3 = test3(in);
 	assign out4 = test4(in);
 endmodule
+
+// -------------------------------------------------------------------
+
+// https://github.com/YosysHQ/yosys/issues/857
+module task_func_test05(data_in,data_out,clk);
+	output reg data_out;
+	input data_in;
+	input clk;
+
+	task myTask;
+		output out;
+		input in;
+		out = in;
+	endtask
+
+	always @(posedge clk) begin
+		myTask(data_out,data_in);
+	end
+endmodule

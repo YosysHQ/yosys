@@ -57,7 +57,7 @@ module TRELLIS_RAM16X2 (
 	input RAD0, RAD1, RAD2, RAD3,
 	output DO0, DO1
 );
-  	parameter WCKMUX = "WCK";
+	parameter WCKMUX = "WCK";
 	parameter WREMUX = "WRE";
 	parameter INITVAL_0 = 16'h0000;
 	parameter INITVAL_1 = 16'h0000;
@@ -104,7 +104,7 @@ module TRELLIS_DPR16X4 (
 	input [3:0] RAD,
 	output [3:0] DO
 );
-  	parameter WCKMUX = "WCK";
+	parameter WCKMUX = "WCK";
 	parameter WREMUX = "WRE";
 	parameter [63:0] INITVAL = 64'h0000000000000000;
 
@@ -203,13 +203,14 @@ endmodule
 
 // ---------------------------------------
 
-module TRELLIS_FF(input CLK, LSR, CE, DI, output reg Q);
+module TRELLIS_FF(input CLK, LSR, CE, DI, M, output reg Q);
 	parameter GSR = "ENABLED";
 	parameter [127:0] CEMUX = "1";
 	parameter CLKMUX = "CLK";
 	parameter LSRMUX = "LSR";
 	parameter SRMODE = "LSR_OVER_CE";
 	parameter REGSET = "RESET";
+	parameter [127:0] LSRMODE = "LSR";
 
 	reg muxce;
 	always @(*)
@@ -222,8 +223,13 @@ module TRELLIS_FF(input CLK, LSR, CE, DI, output reg Q);
 
 	wire muxlsr = (LSRMUX == "INV") ? ~LSR : LSR;
 	wire muxclk = (CLKMUX == "INV") ? ~CLK : CLK;
-
-	localparam srval = (REGSET == "SET") ? 1'b1 : 1'b0;
+	wire srval;
+	generate
+		if (LSRMODE == "PRLD")
+			assign srval = M;
+		else
+			assign srval = (REGSET == "SET") ? 1'b1 : 1'b0;
+	endgenerate
 
 	initial Q = srval;
 
@@ -339,6 +345,8 @@ module TRELLIS_SLICE(
 	parameter REG1_SD = "0";
 	parameter REG0_REGSET = "RESET";
 	parameter REG1_REGSET = "RESET";
+	parameter REG0_LSRMODE = "LSR";
+	parameter REG1_LSRMODE = "LSR";
 	parameter [127:0] CCU2_INJECT1_0 = "NO";
 	parameter [127:0] CCU2_INJECT1_1 = "NO";
 	parameter WREMUX = "WRE";
@@ -428,10 +436,11 @@ module TRELLIS_SLICE(
 		.CLKMUX(CLKMUX),
 		.LSRMUX(LSRMUX),
 		.SRMODE(SRMODE),
-		.REGSET(REG0_REGSET)
+		.REGSET(REG0_REGSET),
+		.LSRMODE(REG0_LSRMODE)
 	) ff_0 (
 		.CLK(CLK), .LSR(LSR), .CE(CE),
-		.DI(muxdi0),
+		.DI(muxdi0), .M(M0),
 		.Q(Q0)
 	);
 	TRELLIS_FF #(
@@ -440,10 +449,11 @@ module TRELLIS_SLICE(
 		.CLKMUX(CLKMUX),
 		.LSRMUX(LSRMUX),
 		.SRMODE(SRMODE),
-		.REGSET(REG1_REGSET)
+		.REGSET(REG1_REGSET),
+		.LSRMODE(REG1_LSRMODE)
 	) ff_1 (
 		.CLK(CLK), .LSR(LSR), .CE(CE),
-		.DI(muxdi1),
+		.DI(muxdi1), .M(M1),
 		.Q(Q1)
 	);
 endmodule
@@ -546,4 +556,21 @@ module DP16KD(
   parameter INITVAL_3D = 320'h00000000000000000000000000000000000000000000000000000000000000000000000000000000;
   parameter INITVAL_3E = 320'h00000000000000000000000000000000000000000000000000000000000000000000000000000000;
   parameter INITVAL_3F = 320'h00000000000000000000000000000000000000000000000000000000000000000000000000000000;
+endmodule
+
+// For Diamond compatibility, FIXME: add all Diamond flipflop mappings
+module FD1S3BX(input PD, D, CK, output Q);
+	TRELLIS_FF #(
+		.GSR("DISABLED"),
+		.CEMUX("1"),
+		.CLKMUX("CLK"),
+		.LSRMUX("LSR"),
+		.REGSET("SET"),
+		.SRMODE("ASYNC")
+	) tff_i (
+		.CLK(CK),
+		.LSR(PD),
+		.DI(D),
+		.Q(Q)
+	);
 endmodule
