@@ -52,6 +52,51 @@ static void rename_in_module(RTLIL::Module *module, std::string from_name, std::
 	log_cmd_error("Object `%s' not found!\n", from_name.c_str());
 }
 
+static std::string derive_name_from_src(const std::string &src, int counter)
+{
+	std::string src_base = src.substr(0, src.find('|'));
+	if (src_base.empty())
+		return stringf("$%d", counter);
+	else
+		return stringf("\\%s$%d", src_base.c_str(), counter);
+}
+
+static IdString derive_name_from_wire(const RTLIL::Cell &cell)
+{
+	// Find output
+	const SigSpec *output = nullptr;
+	int num_outputs = 0;
+	for (auto &connection : cell.connections()) {
+		if (cell.output(connection.first)) {
+			output = &connection.second;
+			num_outputs++;
+		}
+	}
+
+	if (num_outputs != 1) // Skip cells thad drive multiple outputs
+		return cell.name;
+
+	std::string name = "";
+	for (auto &chunk : output->chunks()) {
+		// Skip cells that drive privately named wires
+		if (!chunk.wire || chunk.wire->name.str()[0] == '$')
+			return cell.name;
+
+		if (name != "")
+			name += "$";
+
+		name += chunk.wire->name.str();
+		if (chunk.wire->width != chunk.width) {
+			name += "[";
+			if (chunk.width != 1)
+				name += std::to_string(chunk.offset + chunk.width) + ":";
+			name += std::to_string(chunk.offset) + "]";
+		}
+	}
+
+	return name + cell.type.str();
+}
+
 struct RenamePass : public Pass {
 	RenamePass() : Pass("rename", "rename object in the design") { }
 	void help() YS_OVERRIDE
@@ -63,6 +108,14 @@ struct RenamePass : public Pass {
 		log("Rename the specified object. Note that selection patterns are not supported\n");
 		log("by this command.\n");
 		log("\n");
+		log("    rename -src [selection]\n");
+		log("\n");
+		log("Assign names auto-generated from the src attribute to all selected wires and\n");
+		log("cells with private names.\n");
+		log("\n");
+		log("    rename -wire [selection]\n");
+		log("Assign auto-generated names based on the wires they drive to all selected\n");
+		log("cells with private names. Ignores cells driving privatly named wires.\n");
 		log("\n");
 		log("    rename -enumerate [-pattern <pattern>] [selection]\n");
 		log("\n");
@@ -84,6 +137,8 @@ struct RenamePass : public Pass {
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		std::string pattern_prefix = "_", pattern_suffix = "_";
+		bool flag_src = false;
+		bool flag_wire = false;
 		bool flag_enumerate = false;
 		bool flag_hide = false;
 		bool flag_top = false;
@@ -93,6 +148,16 @@ struct RenamePass : public Pass {
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
 			std::string arg = args[argidx];
+			if (arg == "-src" && !got_mode) {
+				flag_src = true;
+				got_mode = true;
+				continue;
+			}
+			if (arg == "-wire" && !got_mode) {
+				flag_wire = true;
+				got_mode = true;
+				continue;
+			}
 			if (arg == "-enumerate" && !got_mode) {
 				flag_enumerate = true;
 				got_mode = true;
@@ -117,6 +182,57 @@ struct RenamePass : public Pass {
 			break;
 		}
 
+		if (flag_src)
+		{
+			extra_args(args, argidx, design);
+
+			for (auto &mod : design->modules_)
+			{
+				int counter = 0;
+
+				RTLIL::Module *module = mod.second;
+				if (!design->selected(module))
+					continue;
+
+				dict<RTLIL::IdString, RTLIL::Wire*> new_wires;
+				for (auto &it : module->wires_) {
+					if (it.first[0] == '$' && design->selected(module, it.second))
+						it.second->name = derive_name_from_src(it.second->get_src_attribute(), counter++);
+					new_wires[it.second->name] = it.second;
+				}
+				module->wires_.swap(new_wires);
+				module->fixup_ports();
+
+				dict<RTLIL::IdString, RTLIL::Cell*> new_cells;
+				for (auto &it : module->cells_) {
+					if (it.first[0] == '$' && design->selected(module, it.second))
+						it.second->name = derive_name_from_src(it.second->get_src_attribute(), counter++);
+					new_cells[it.second->name] = it.second;
+				}
+				module->cells_.swap(new_cells);
+			}
+		}
+		else
+		if (flag_wire)
+		{
+			extra_args(args, argidx, design);
+
+			for (auto &mod : design->modules_)
+			{
+				RTLIL::Module *module = mod.second;
+				if (!design->selected(module))
+					continue;
+
+				dict<RTLIL::IdString, RTLIL::Cell*> new_cells;
+				for (auto &it : module->cells_) {
+					if (it.first[0] == '$' && design->selected(module, it.second))
+						it.second->name = derive_name_from_wire(*it.second);
+					new_cells[it.second->name] = it.second;
+				}
+				module->cells_.swap(new_cells);
+			}
+		}
+		else
 		if (flag_enumerate)
 		{
 			extra_args(args, argidx, design);

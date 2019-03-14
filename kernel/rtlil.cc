@@ -33,6 +33,8 @@ std::vector<int> RTLIL::IdString::global_refcount_storage_;
 std::vector<char*> RTLIL::IdString::global_id_storage_;
 dict<char*, int, hash_cstr_ops> RTLIL::IdString::global_id_index_;
 std::vector<int> RTLIL::IdString::global_free_idx_list_;
+int RTLIL::IdString::last_created_idx_[8];
+int RTLIL::IdString::last_created_idx_ptr_;
 
 RTLIL::Const::Const()
 {
@@ -2410,6 +2412,9 @@ void RTLIL::Cell::fixup_parameters(bool set_a_signed, bool set_b_signed)
 	if (connections_.count("\\Y"))
 		parameters["\\Y_WIDTH"] = GetSize(connections_["\\Y"]);
 
+	if (connections_.count("\\Q"))
+		parameters["\\WIDTH"] = GetSize(connections_["\\Q"]);
+
 	check();
 }
 
@@ -3793,6 +3798,11 @@ RTLIL::CaseRule::~CaseRule()
 		delete *it;
 }
 
+bool RTLIL::CaseRule::empty() const
+{
+	return actions.empty() && switches.empty();
+}
+
 RTLIL::CaseRule *RTLIL::CaseRule::clone() const
 {
 	RTLIL::CaseRule *new_caserule = new RTLIL::CaseRule;
@@ -3807,6 +3817,11 @@ RTLIL::SwitchRule::~SwitchRule()
 {
 	for (auto it = cases.begin(); it != cases.end(); it++)
 		delete *it;
+}
+
+bool RTLIL::SwitchRule::empty() const
+{
+	return cases.empty();
 }
 
 RTLIL::SwitchRule *RTLIL::SwitchRule::clone() const

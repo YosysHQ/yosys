@@ -12,5 +12,6 @@ OBJS += passes/opt/share.o
 OBJS += passes/opt/wreduce.o
 OBJS += passes/opt/opt_demorgan.o
 OBJS += passes/opt/rmports.o
+OBJS += passes/opt/opt_lut.o
 endif
 

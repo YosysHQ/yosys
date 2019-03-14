@@ -29,4 +29,4 @@ OBJS += passes/cmds/chformal.o
 OBJS += passes/cmds/chtype.o
 OBJS += passes/cmds/blackbox.o
 OBJS += passes/cmds/ltp.o
-
+OBJS += passes/cmds/bugpoint.o

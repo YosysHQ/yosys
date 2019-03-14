@@ -1,0 +1,23 @@
+# This file contains the names of verilog files to exclude from verilog to FIRRTL regression tests due to known failures.
+code_hdl_models_arbiter.v	error: reg rst; cannot be driven by primitives or continuous assignment.
+code_hdl_models_clk_div_45.v	yosys issue: 2nd PMUXTREE pass yields: ERROR: Negative edge clock on FF clk_div_45.$procdff$49.
+code_hdl_models_d_ff_gates.v	combinational loop
+code_hdl_models_d_latch_gates.v	combinational loop
+code_hdl_models_dff_async_reset.v	$adff
+code_hdl_models_tff_async_reset.v	$adff
+code_hdl_models_uart.v	$adff
+code_tidbits_asyn_reset.v	$adff
+code_tidbits_reg_seq_example.v	$adff
+code_verilog_tutorial_always_example.v	empty module
+code_verilog_tutorial_escape_id.v	make_id issues (name begins with a digit)
+code_verilog_tutorial_explicit.v	firrtl backend bug (empty module)
+code_verilog_tutorial_first_counter.v	error: reg rst; cannot be driven by primitives or continuous assignment.
+code_verilog_tutorial_fsm_full.v	error: reg reset; cannot be driven by primitives or continuous assignment.
+code_verilog_tutorial_if_else.v	empty module (everything is under 'always @ (posedge clk)')
+[code_verilog_tutorial_n_out_primitive.v	empty module
+code_verilog_tutorial_parallel_if.v	empty module (everything is under 'always @ (posedge clk)')
+code_verilog_tutorial_simple_function.v	empty module (no hardware)
+code_verilog_tutorial_simple_if.v	empty module (everything is under 'always @ (posedge clk)')
+code_verilog_tutorial_task_global.v	empty module (everything is under 'always @ (posedge clk)')
+code_verilog_tutorial_v2k_reg.v		empty module
+code_verilog_tutorial_which_clock.v	 $adff

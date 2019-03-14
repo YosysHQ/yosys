@@ -1,3 +1,21 @@
+/*
+ *  yosys -- Yosys Open SYnthesis Suite
+ *
+ *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *
+ *  Permission to use, copy, modify, and/or distribute this software for any
+ *  purpose with or without fee is hereby granted, provided that the above
+ *  copyright notice and this permission notice appear in all copies.
+ *
+ *  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ *  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ *  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ *  ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ *  WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ *  ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
+ */
 
 // See Xilinx UG953 and UG474 for a description of the cell types below.
 // http://www.xilinx.com/support/documentation/user_guides/ug474_7Series_CLB.pdf
@@ -104,6 +122,29 @@ module CARRY4(output [3:0] CO, O, input CI, CYINIT, input [3:0] DI, S);
   assign CO[3] = S[3] ? CO[2] : DI[3];
 endmodule
 
+`ifdef _EXPLICIT_CARRY
+
+module CARRY0(output CO_CHAIN, CO_FABRIC, O, input CI, CI_INIT, DI, S);
+  parameter CYINIT_FABRIC = 0;
+  wire CI_COMBINE;
+  if(CYINIT_FABRIC) begin
+    assign CI_COMBINE = CI_INIT;
+  end else begin
+    assign CI_COMBINE = CI;
+  end
+  assign CO_CHAIN = S ? CI_COMBINE : DI;
+  assign CO_FABRIC = S ? CI_COMBINE : DI;
+  assign O = S ^ CI_COMBINE;
+endmodule
+
+module CARRY(output CO_CHAIN, CO_FABRIC, O, input CI, DI, S);
+  assign CO_CHAIN = S ? CI : DI;
+  assign CO_FABRIC = S ? CI : DI;
+  assign O = S ^ CI;
+endmodule
+
+`endif
+
 module FDRE (output reg Q, input C, CE, D, R);
   parameter [0:0] INIT = 1'b0;
   parameter [0:0] IS_C_INVERTED = 1'b0;
@@ -154,6 +195,30 @@ module FDPE (output reg Q, input C, CE, D, PRE);
     2'b10: always @(negedge C, posedge PRE) if ( PRE) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
     2'b11: always @(negedge C, negedge PRE) if (!PRE) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
   endcase endgenerate
+endmodule
+
+module FDRE_1 (output reg Q, input C, CE, D, R);
+  parameter [0:0] INIT = 1'b0;
+  initial Q <= INIT;
+  always @(negedge C) if (R) Q <= 1'b0; else if(CE) Q <= D;
+endmodule
+
+module FDSE_1 (output reg Q, input C, CE, D, S);
+  parameter [0:0] INIT = 1'b1;
+  initial Q <= INIT;
+  always @(negedge C) if (S) Q <= 1'b1; else if(CE) Q <= D;
+endmodule
+
+module FDCE_1 (output reg Q, input C, CE, D, CLR);
+  parameter [0:0] INIT = 1'b0;
+  initial Q <= INIT;
+  always @(negedge C, posedge CLR) if (CLR) Q <= 1'b0; else if (CE) Q <= D;
+endmodule
+
+module FDPE_1 (output reg Q, input C, CE, D, PRE);
+  parameter [0:0] INIT = 1'b1;
+  initial Q <= INIT;
+  always @(negedge C, posedge PRE) if (PRE) Q <= 1'b1; else if (CE) Q <= D;
 endmodule
 
 module RAM64X1D (

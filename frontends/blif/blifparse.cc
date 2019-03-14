@@ -276,7 +276,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name, bo
 
 				if(lastcell == nullptr || module == nullptr)
 				{
-					err_reason = stringf("No primative object to attach .cname %s.", p);
+					err_reason = stringf("No primitive object to attach .cname %s.", p);
 					goto error_with_reason;
 				}
 

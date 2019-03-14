@@ -623,7 +623,7 @@ struct ShowPass : public Pass {
 		log("        assigned to each unique value of this attribute.\n");
 		log("\n");
 		log("    -width\n");
-		log("        annotate busses with a label indicating the width of the bus.\n");
+		log("        annotate buses with a label indicating the width of the bus.\n");
 		log("\n");
 		log("    -signed\n");
 		log("        mark ports (A, B) that are declared as signed (using the [AB]_SIGNED\n");

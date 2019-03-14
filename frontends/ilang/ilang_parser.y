@@ -37,6 +37,8 @@ namespace ILANG_FRONTEND {
 	std::vector<std::vector<RTLIL::SwitchRule*>*> switch_stack;
 	std::vector<RTLIL::CaseRule*> case_stack;
 	dict<RTLIL::IdString, RTLIL::Const> attrbuf;
+	bool flag_nooverwrite, flag_overwrite;
+	bool delete_current_module;
 }
 using namespace ILANG_FRONTEND;
 YOSYS_NAMESPACE_END
@@ -93,18 +95,36 @@ design:
 
 module:
 	TOK_MODULE TOK_ID EOL {
-		if (current_design->has($2))
-			rtlil_frontend_ilang_yyerror(stringf("ilang error: redefinition of module %s.", $2).c_str());
+		delete_current_module = false;
+		if (current_design->has($2)) {
+			RTLIL::Module *existing_mod = current_design->module($2);
+			if (!flag_overwrite && attrbuf.count("\\blackbox") && attrbuf.at("\\blackbox").as_bool()) {
+				log("Ignoring blackbox re-definition of module %s.\n", $2);
+				delete_current_module = true;
+			} else if (!flag_nooverwrite && !flag_overwrite && !existing_mod->get_bool_attribute("\\blackbox")) {
+				rtlil_frontend_ilang_yyerror(stringf("ilang error: redefinition of module %s.", $2).c_str());
+			} else if (flag_nooverwrite) {
+				log("Ignoring re-definition of module %s.\n", $2);
+				delete_current_module = true;
+			} else {
+				log("Replacing existing%s module %s.\n", existing_mod->get_bool_attribute("\\blackbox") ? " blackbox" : "", $2);
+				current_design->remove(existing_mod);
+			}
+		}
 		current_module = new RTLIL::Module;
 		current_module->name = $2;
 		current_module->attributes = attrbuf;
-		current_design->add(current_module);
+		if (!delete_current_module)
+			current_design->add(current_module);
 		attrbuf.clear();
 		free($2);
 	} module_body TOK_END {
 		if (attrbuf.size() != 0)
 			rtlil_frontend_ilang_yyerror("dangling attribute");
 		current_module->fixup_ports();
+		if (delete_current_module)
+			delete current_module;
+		current_module = nullptr;
 	} EOL;
 
 module_body:
@@ -387,17 +407,13 @@ sigspec:
 		$$ = new RTLIL::SigSpec(current_module->wires_[$1]);
 		free($1);
 	} |
-	TOK_ID '[' TOK_INT ']' {
-		if (current_module->wires_.count($1) == 0)
-			rtlil_frontend_ilang_yyerror(stringf("ilang error: wire %s not found", $1).c_str());
-		$$ = new RTLIL::SigSpec(current_module->wires_[$1], $3);
-		free($1);
+	sigspec '[' TOK_INT ']' {
+		$$ = new RTLIL::SigSpec($1->extract($3));
+		delete $1;
 	} |
-	TOK_ID '[' TOK_INT ':' TOK_INT ']' {
-		if (current_module->wires_.count($1) == 0)
-			rtlil_frontend_ilang_yyerror(stringf("ilang error: wire %s not found", $1).c_str());
-		$$ = new RTLIL::SigSpec(current_module->wires_[$1], $5, $3 - $5 + 1);
-		free($1);
+	sigspec '[' TOK_INT ':' TOK_INT ']' {
+		$$ = new RTLIL::SigSpec($1->extract($5, $3 - $5 + 1));
+		delete $1;
 	} |
 	'{' sigspec_list '}' {
 		$$ = $2;

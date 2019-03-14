@@ -1,0 +1,4 @@
+read_verilog opt_expr_cmp.v
+equiv_opt -assert opt_expr -fine
+design -load postopt
+select -assert-count 0 t:$gt t:$ge t:$lt t:$le

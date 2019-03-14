@@ -34,11 +34,24 @@ compatible license that is similar in terms to the MIT license
 or the 2-clause BSD license).
 
 
-Web Site
-========
+Web Site and Other Resources
+============================
 
 More information and documentation can be found on the Yosys web site:
-http://www.clifford.at/yosys/
+- http://www.clifford.at/yosys/
+
+The "Documentation" page on the web site contains links to more resources,
+including a manual that even describes some of the Yosys internals:
+- http://www.clifford.at/yosys/documentation.html
+
+The file `CodingReadme` in this directory contains additional information
+for people interested in using the Yosys C++ APIs.
+
+Users interested in formal verification might want to use the formal verification
+front-end for Yosys, SymbiYosys:
+- https://symbiyosys.readthedocs.io/en/latest/
+- https://github.com/YosysHQ/SymbiYosys
+
 
 Setup
 ======
@@ -117,7 +130,7 @@ reading the design using the Verilog frontend:
 
 	yosys> read_verilog tests/simple/fiedler-cooley.v
 
-writing the design to the console in yosys's internal format:
+writing the design to the console in Yosys's internal format:
 
 	yosys> write_ilang
 
@@ -234,7 +247,7 @@ Unsupported Verilog-2005 Features
 =================================
 
 The following Verilog-2005 features are not supported by
-yosys and there are currently no plans to add support
+Yosys and there are currently no plans to add support
 for them:
 
 - Non-synthesizable language features as defined in
@@ -285,9 +298,9 @@ Verilog Attributes and non-standard features
   storage element. The register itself will always have all bits set
   to 'x' (undefined). The variable may only be used as blocking assigned
   temporary variable within an always block. This is mostly used internally
-  by yosys to synthesize Verilog functions and access arrays.
+  by Yosys to synthesize Verilog functions and access arrays.
 
-- The ``onehot`` attribute on wires mark them as onehot state register. This
+- The ``onehot`` attribute on wires mark them as one-hot state register. This
   is used for example for memory port sharing and set by the fsm_map pass.
 
 - The ``blackbox`` attribute on modules is used to mark empty stub modules
@@ -295,6 +308,9 @@ Verilog Attributes and non-standard features
   on the internal configuration. This modules are only used by the synthesis
   passes to identify input and output ports of cells. The Verilog backend
   also does not output blackbox modules on default.
+
+- The ``dynports'' attribute is used by the Verilog front-end to mark modules
+  that have ports with a width that depends on a parameter.
 
 - The ``keep`` attribute on cells and wires is used to mark objects that should
   never be removed by the optimizer. This is used for example for cells that
@@ -319,13 +335,13 @@ Verilog Attributes and non-standard features
   through the synthesis. When entities are combined, a new |-separated
   string is created that contains all the string from the original entities.
 
-- In addition to the ``(* ... *)`` attribute syntax, yosys supports
+- In addition to the ``(* ... *)`` attribute syntax, Yosys supports
   the non-standard ``{* ... *}`` attribute syntax to set default attributes
   for everything that comes after the ``{* ... *}`` statement. (Reset
   by adding an empty ``{* *}`` statement.)
 
 - In module parameter and port declarations, and cell port and parameter
-  lists, a trailing comma is ignored. This simplifies writing verilog code
+  lists, a trailing comma is ignored. This simplifies writing Verilog code
   generators a bit in some cases.
 
 - Modules can be declared with ``module mod_name(...);`` (with three dots
@@ -410,11 +426,11 @@ Non-standard or SystemVerilog features for formal verification
 
 - The system functions ``$allconst`` and ``$allseq`` can be used to construct
   formal exist-forall problems. Assumptions only hold if the trace satisfies
-  the assumtion for all ``$allconst/$allseq`` values. For assertions and cover
+  the assumption for all ``$allconst/$allseq`` values. For assertions and cover
   statements it is sufficient if just one ``$allconst/$allseq`` value triggers
   the property (similar to ``$anyconst/$anyseq``).
 
-- Wires/registers decalred using the ``anyconst/anyseq/allconst/allseq`` attribute
+- Wires/registers declared using the ``anyconst/anyseq/allconst/allseq`` attribute
   (for example ``(* anyconst *) reg [7:0] foobar;``) will behave as if driven
   by a ``$anyconst/$anyseq/$allconst/$allseq`` function.
 
@@ -485,6 +501,6 @@ Then execute, from the root of the repository:
 
 Notes:
 
-- To run `make manual` you need to have installed yosys with `make install`,
+- To run `make manual` you need to have installed Yosys with `make install`,
   otherwise it will fail on finding `kernel/yosys.h` while building
   `PRESENTATION_Prog`.

@@ -748,7 +748,7 @@ struct SimplecBackend : public Backend {
 		log("\n");
 		log("    write_simplec [options] [filename]\n");
 		log("\n");
-		log("Write simple C code for simulating the design. The C code writen can be used to\n");
+		log("Write simple C code for simulating the design. The C code written can be used to\n");
 		log("simulate the design in a C environment, but the purpose of this command is to\n");
 		log("generate code that works well with C-based formal verification.\n");
 		log("\n");

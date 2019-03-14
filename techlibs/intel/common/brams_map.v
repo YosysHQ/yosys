@@ -2,8 +2,8 @@ module \$__M9K_ALTSYNCRAM_SINGLEPORT_FULL (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1A
 
    parameter CFG_ABITS = 8;
    parameter CFG_DBITS = 36;
-   parameter ABITS = "1";
-   parameter DBITS = "1";
+   parameter ABITS = 1;
+   parameter DBITS = 1;
    parameter CLKPOL2 = 1;
    parameter CLKPOL3 = 1;
 
@@ -63,21 +63,21 @@ module \$__M9K_ALTSYNCRAM_SINGLEPORT_FULL (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1A
                  .width_byteena_a                (1), // Forced value
                  .numwords_b                     ( NUMWORDS     ),
                  .numwords_a                     ( NUMWORDS     ),
-                 .widthad_b                      ( CFG_ABITS    ),
-                 .width_b                        ( CFG_DBITS    ),
-                 .widthad_a                      ( CFG_ABITS    ),
-                 .width_a                        ( CFG_DBITS    )
+                 .widthad_b                      ( CFG_DBITS    ),
+                 .width_b                        ( CFG_ABITS    ),
+                 .widthad_a                      ( CFG_DBITS    ),
+                 .width_a                        ( CFG_ABITS    )
                  ) _TECHMAP_REPLACE_ (
                                       .data_a(B1DATA),
                                       .address_a(B1ADDR),
                                       .wren_a(B1EN),
                                       .rden_a(A1EN),
                                       .q_a(A1DATA),
-                                      .data_b(1'b0),
+                                      .data_b(B1DATA),
                                       .address_b(0),
                                       .wren_b(1'b0),
                                       .rden_b(1'b0),
-                                      .q_b(1'b0),
+                                      .q_b(),
                                       .clock0(CLK2),
                                       .clock1(1'b1), // Unused in single port mode
                                       .clocken0(1'b1),

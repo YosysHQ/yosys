@@ -32,7 +32,7 @@ endmodule
 // > end buffers <
 
 // > Look-Up table <
-// > VT: I still think Achronix folks would have choosen a better \
+// > VT: I still think Achronix folks would have chosen a better \
 // >     logic architecture.
 // LUT Map
 module \$lut (A, Y);
@@ -43,30 +43,30 @@ module \$lut (A, Y);
    generate
       if (WIDTH == 1) begin
 	   // VT: This is not consistent and ACE will complain: assign Y = ~A[0];
-         LUT4 #(.lut_function({4{LUT}})) _TECHMAP_REPLACE_ 
+         LUT4 #(.lut_function({4{LUT}})) _TECHMAP_REPLACE_
            (.dout(Y), .din0(A[0]), .din1(1'b0), .din2(1'b0), .din3(1'b0));
       end else
       if (WIDTH == 2) begin
-              LUT4 #(.lut_function({4{LUT}})) _TECHMAP_REPLACE_ 
+              LUT4 #(.lut_function({4{LUT}})) _TECHMAP_REPLACE_
                 (.dout(Y), .din0(A[0]), .din1(A[1]), .din2(1'b0), .din3(1'b0));
       end else
       if(WIDTH == 3) begin
-	      LUT4 #(.lut_function({2{LUT}})) _TECHMAP_REPLACE_ 
+	      LUT4 #(.lut_function({2{LUT}})) _TECHMAP_REPLACE_
                 (.dout(Y), .din0(A[0]), .din1(A[1]), .din2(A[2]), .din3(1'b0));
       end else
       if(WIDTH == 4) begin
-             LUT4 #(.lut_function(LUT)) _TECHMAP_REPLACE_ 
+             LUT4 #(.lut_function(LUT)) _TECHMAP_REPLACE_
                (.dout(Y), .din0(A[0]), .din1(A[1]), .din2(A[2]), .din3(A[3]));
       end else
 	   wire _TECHMAP_FAIL_ = 1;
    endgenerate
-endmodule 
+endmodule
 // > end LUT <
 
 // > Flops <
 // DFF flop
 module  \$_DFF_P_ (input D, C, output Q);
-   DFF _TECHMAP_REPLACE_ 
+   DFF _TECHMAP_REPLACE_
      (.q(Q), .d(D), .ck(C));
-endmodule 
+endmodule
 

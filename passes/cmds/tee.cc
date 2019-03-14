@@ -37,7 +37,7 @@ struct TeePass : public Pass {
 		log("specified logfile(s).\n");
 		log("\n");
 		log("    -q\n");
-		log("        Do not print output to the normal destination (console and/or log file)\n");
+		log("        Do not print output to the normal destination (console and/or log file).\n");
 		log("\n");
 		log("    -o logfile\n");
 		log("        Write output to this file, truncate if exists.\n");
@@ -46,7 +46,7 @@ struct TeePass : public Pass {
 		log("        Write output to this file, append if exists.\n");
 		log("\n");
 		log("    +INT, -INT\n");
-		log("        Add/subract INT from the -v setting for this command.\n");
+		log("        Add/subtract INT from the -v setting for this command.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
