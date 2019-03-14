@@ -289,6 +289,21 @@ void mutate_list(Design *design, const mutate_opts_t &opts, const string &filena
 			continue;
 
 		SigMap sigmap(module);
+		dict<SigBit, int> bit_user_cnt;
+
+		for (auto wire : module->wires()) {
+			if (wire->name[0] == '\\' && wire->attributes.count("\\src"))
+				sigmap.add(wire);
+		}
+
+		for (auto cell : module->cells()) {
+			for (auto &conn : cell->connections()) {
+				if (cell->output(conn.first))
+					continue;
+				for (auto bit : sigmap(conn.second))
+					bit_user_cnt[bit]++;
+			}
+		}
 
 		for (auto wire : module->selected_wires())
 		{
@@ -331,7 +346,7 @@ void mutate_list(Design *design, const mutate_opts_t &opts, const string &filena
 						entry.src.insert(s);
 
 					SigBit bit = sigmap(conn.second[i]);
-					if (bit.wire && bit.wire->name[0] == '\\') {
+					if (bit.wire && bit.wire->name[0] == '\\' && (cell->output(conn.first) || bit_user_cnt[bit] == 1)) {
 						for (auto &s : bit.wire->get_strpool_attribute("\\src"))
 							entry.src.insert(s);
 						entry.wire = bit.wire->name;
