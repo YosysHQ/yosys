@@ -133,7 +133,7 @@ struct xs128_t
 	}
 };
 
-struct mutate_leaf_queue_t
+struct mutate_queue_t
 {
 	pool<mutate_t*, hash_ptr_ops> db;
 
@@ -181,7 +181,7 @@ struct mutate_leaf_queue_t
 };
 
 template <typename K, typename T>
-struct mutate_inner_queue_t
+struct mutate_chain_queue_t
 {
 	dict<K, T> db;
 
@@ -203,6 +203,29 @@ struct mutate_inner_queue_t
 	}
 };
 
+template <typename K, typename T>
+struct mutate_once_queue_t
+{
+	dict<K, T> db;
+
+	mutate_t *pick(xs128_t &rng, dict<string, int> &coverdb, const mutate_opts_t &opts) {
+		while (!db.empty()) {
+			int i = rng(GetSize(db));
+			auto it = db.element(i);
+			mutate_t *m = it->second.pick(rng, coverdb, opts);
+			db.erase(it);
+			if (m != nullptr)
+				return m;
+		}
+		return nullptr;
+	}
+
+	template<typename... Args>
+	void add(mutate_t *m, K key, Args... args) {
+		db[key].add(m, args...);
+	}
+};
+
 void database_reduce(std::vector<mutate_t> &database, const mutate_opts_t &opts, int N, xs128_t &rng)
 {
 	std::vector<mutate_t> new_database;
@@ -214,26 +237,26 @@ void database_reduce(std::vector<mutate_t> &database, const mutate_opts_t &opts,
 	if (N >= GetSize(database))
 		return;
 
-	mutate_inner_queue_t<IdString, mutate_leaf_queue_t> primary_queue_wire;
-	mutate_inner_queue_t<pair<IdString, int>, mutate_leaf_queue_t> primary_queue_bit;
-	mutate_inner_queue_t<IdString, mutate_leaf_queue_t> primary_queue_cell;
-	mutate_inner_queue_t<string, mutate_leaf_queue_t> primary_queue_src;
+	mutate_once_queue_t<tuple<IdString, IdString>, mutate_queue_t> primary_queue_wire;
+	mutate_once_queue_t<tuple<IdString, IdString, int>, mutate_queue_t> primary_queue_bit;
+	mutate_once_queue_t<tuple<IdString, IdString>, mutate_queue_t> primary_queue_cell;
+	mutate_once_queue_t<string, mutate_queue_t> primary_queue_src;
 
-	mutate_inner_queue_t<IdString, mutate_inner_queue_t<IdString, mutate_leaf_queue_t>> primary_queue_module_wire;
-	mutate_inner_queue_t<IdString, mutate_inner_queue_t<pair<IdString, int>, mutate_leaf_queue_t>> primary_queue_module_bit;
-	mutate_inner_queue_t<IdString, mutate_inner_queue_t<IdString, mutate_leaf_queue_t>> primary_queue_module_cell;
-	mutate_inner_queue_t<IdString, mutate_inner_queue_t<string, mutate_leaf_queue_t>> primary_queue_module_src;
+	mutate_chain_queue_t<IdString, mutate_once_queue_t<IdString, mutate_queue_t>> primary_queue_module_wire;
+	mutate_chain_queue_t<IdString, mutate_once_queue_t<pair<IdString, int>, mutate_queue_t>> primary_queue_module_bit;
+	mutate_chain_queue_t<IdString, mutate_once_queue_t<IdString, mutate_queue_t>> primary_queue_module_cell;
+	mutate_chain_queue_t<IdString, mutate_once_queue_t<string, mutate_queue_t>> primary_queue_module_src;
 
 	for (auto &m : database)
 	{
 		if (!m.wire.empty()) {
-			primary_queue_wire.add(&m, m.wire);
-			primary_queue_bit.add(&m, pair<IdString, int>(m.wire, m.wirebit));
+			primary_queue_wire.add(&m, tuple<IdString, IdString>(m.module, m.wire));
+			primary_queue_bit.add(&m, tuple<IdString, IdString, int>(m.module, m.wire, m.wirebit));
 			primary_queue_module_wire.add(&m, m.module, m.wire);
 			primary_queue_module_bit.add(&m, m.module, pair<IdString, int>(m.wire, m.wirebit));
 		}
 
-		primary_queue_cell.add(&m, m.cell);
+		primary_queue_cell.add(&m, tuple<IdString, IdString>(m.module, m.cell));
 		primary_queue_module_cell.add(&m, m.module, m.cell);
 
 		for (auto &s : m.src) {
