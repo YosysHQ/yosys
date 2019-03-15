@@ -24,15 +24,23 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+struct opts_t
+{
+	bool fwd = false;
+	bool bwd = false;
+	bool nop = false;
+};
+
 struct FmcombineWorker
 {
+	const opts_t &opts;
 	Design *design;
 	Module *original = nullptr;
 	Module *module = nullptr;
 	IdString orig_type, combined_type;
 
-	FmcombineWorker(Design *design, IdString orig_type) :
-			design(design), original(design->module(orig_type)),
+	FmcombineWorker(Design *design, IdString orig_type, const opts_t &opts) :
+			opts(opts), design(design), original(design->module(orig_type)),
 			orig_type(orig_type), combined_type("$fmcombine" + orig_type.str())
 	{
 	}
@@ -63,7 +71,7 @@ struct FmcombineWorker
 		if (!cell->parameters.empty())
 			log_cmd_error("Cell %s.%s has unresolved instance parameters.\n", log_id(original), log_id(cell));
 
-		FmcombineWorker sub_worker(design, cell->type);
+		FmcombineWorker sub_worker(design, cell->type, opts);
 		sub_worker.generate();
 
 		Cell *c = module->addCell(cell->name.str() + "_combined", sub_worker.combined_type);
@@ -105,6 +113,9 @@ struct FmcombineWorker
 			module->connect(import_sig(conn.first, "_gold"), import_sig(conn.second, "_gold"));
 			module->connect(import_sig(conn.first, "_gate"), import_sig(conn.second, "_gate"));
 		}
+
+		if (opts.nop)
+			return;
 
 		CellTypes ct;
 		ct.setup_internals_eval();
@@ -184,15 +195,19 @@ struct FmcombineWorker
 					consequent = reduce_db.at(consequent);
 				}
 
-				module->addAssume(NEW_ID, consequent, antecedent);
+				if (opts.fwd)
+					module->addAssume(NEW_ID, consequent, antecedent);
 
-				if (invert_db.count(antecedent) == 0)
-					invert_db[antecedent] = module->Not(NEW_ID, antecedent);
+				if (opts.bwd)
+				{
+					if (invert_db.count(antecedent) == 0)
+						invert_db[antecedent] = module->Not(NEW_ID, antecedent);
 
-				if (invert_db.count(consequent) == 0)
-					invert_db[consequent] = module->Not(NEW_ID, consequent);
+					if (invert_db.count(consequent) == 0)
+						invert_db[consequent] = module->Not(NEW_ID, consequent);
 
-				module->addAssume(NEW_ID, invert_db.at(antecedent), invert_db.at(consequent));
+					module->addAssume(NEW_ID, invert_db.at(antecedent), invert_db.at(consequent));
+				}
 			}
 		}
 	}
@@ -214,9 +229,25 @@ struct FmcombinePass : public Pass {
 		log("This is useful for formal test benches that check what differences in behavior\n");
 		log("a slight difference in input causes in a module.\n");
 		log("\n");
+		log("    -fwd\n");
+		log("        Insert forward hint assumptions into the combined module.\n");
+		log("\n");
+		log("    -bwd\n");
+		log("        Insert backward hint assumptions into the combined module.\n");
+		log("        (Backward hints are logically equivalend to fordward hits, but\n");
+		log("        some solvers are faster with bwd hints, or even both -bwd and -fwd.)\n");
+		log("\n");
+		log("    -nop\n");
+		log("        Don't insert hint assumptions into the combined module.\n");
+		log("        (This should not provide any speedup over the original design, but\n");
+		log("        strangely sometimes it does.)\n");
+		log("\n");
+		log("If none of -fwd, -bwd, and -nop is given, then -fwd is used as default.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
+		opts_t opts;
 		Module *module = nullptr;
 		Cell *gold_cell = nullptr;
 		Cell *gate_cell = nullptr;
@@ -230,6 +261,18 @@ struct FmcombinePass : public Pass {
 			// 	filename = args[++argidx];
 			// 	continue;
 			// }
+			if (args[argidx] == "-fwd") {
+				opts.fwd = true;
+				continue;
+			}
+			if (args[argidx] == "-bwd") {
+				opts.bwd = true;
+				continue;
+			}
+			if (args[argidx] == "-nop") {
+				opts.nop = true;
+				continue;
+			}
 			break;
 		}
 		if (argidx+2 == args.size())
@@ -262,6 +305,12 @@ struct FmcombinePass : public Pass {
 		}
 		// extra_args(args, argidx, design);
 
+		if (opts.nop && (opts.fwd || opts.bwd))
+			log_cmd_error("Option -nop can not be combined with -fwd and/or -bwd.\n");
+
+		if (!opts.nop && !opts.fwd && !opts.bwd)
+			opts.fwd = true;
+
 		if (gold_cell->type != gate_cell->type)
 			log_cmd_error("Types of gold and gate cells do not match.\n");
 		if (!gold_cell->parameters.empty())
@@ -269,7 +318,7 @@ struct FmcombinePass : public Pass {
 		if (!gate_cell->parameters.empty())
 			log_cmd_error("Gold cell has unresolved instance parameters.\n");
 
-		FmcombineWorker worker(design, gold_cell->type);
+		FmcombineWorker worker(design, gold_cell->type, opts);
 		worker.generate();
 		IdString combined_cell_name = module->uniquify(stringf("\\%s_%s", log_id(gold_cell), log_id(gate_cell)));
 
