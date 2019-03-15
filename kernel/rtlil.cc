@@ -760,7 +760,7 @@ namespace {
 
 		void check()
 		{
-			if (cell->type.substr(0, 1) != "$" || cell->type.substr(0, 3) == "$__" || cell->type.substr(0, 8) == "$paramod" ||
+			if (cell->type.substr(0, 1) != "$" || cell->type.substr(0, 3) == "$__" || cell->type.substr(0, 8) == "$paramod" || cell->type.substr(0,10) == "$fmcombine" ||
 					cell->type.substr(0, 9) == "$verific$" || cell->type.substr(0, 7) == "$array:" || cell->type.substr(0, 8) == "$extern:")
 				return;
 
@@ -2360,7 +2360,7 @@ void RTLIL::Cell::check()
 
 void RTLIL::Cell::fixup_parameters(bool set_a_signed, bool set_b_signed)
 {
-	if (type.substr(0, 1) != "$" || type.substr(0, 2) == "$_" || type.substr(0, 8) == "$paramod" ||
+	if (type.substr(0, 1) != "$" || type.substr(0, 2) == "$_" || type.substr(0, 8) == "$paramod" || type.substr(0,10) == "$fmcombine" ||
 			type.substr(0, 9) == "$verific$" || type.substr(0, 7) == "$array:" || type.substr(0, 8) == "$extern:")
 		return;
 
