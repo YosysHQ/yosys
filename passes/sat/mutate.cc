@@ -46,7 +46,7 @@ struct mutate_opts_t {
 	IdString ctrl_name;
 	int ctrl_width = -1, ctrl_value = -1;
 
-	int pick_cover_prcnt = 50;
+	int pick_cover_prcnt = 80;
 
 	int weight_cover = 500;
 
@@ -133,25 +133,69 @@ struct xs128_t
 	}
 };
 
+struct coverdb_t
+{
+	dict<string, int> src_db;
+	dict<tuple<IdString, IdString>, int> wire_db;
+	dict<tuple<IdString, IdString, int>, int> wirebit_db;
+
+	void insert(const mutate_t &m) {
+		if (!m.wire.empty()) {
+			wire_db[tuple<IdString, IdString>(m.module, m.wire)] = 0;
+			wirebit_db[tuple<IdString, IdString, int>(m.module, m.wire, m.wirebit)] = 0;
+		}
+		for (auto &s : m.src) {
+			src_db[s] = 0;
+		}
+	}
+
+	void update(const mutate_t &m) {
+		if (!m.wire.empty()) {
+			wire_db.at(tuple<IdString, IdString>(m.module, m.wire))++;
+			wirebit_db.at(tuple<IdString, IdString, int>(m.module, m.wire, m.wirebit))++;
+		}
+		for (auto &s : m.src) {
+			src_db.at(s)++;
+		}
+	}
+
+	int score(const mutate_t &m) {
+		int this_score = m.src.empty() ? 0 : 1;
+		if (!m.wire.empty()) {
+			this_score += wire_db.at(tuple<IdString, IdString>(m.module, m.wire)) ? 0 : 5;
+			this_score += wirebit_db.at(tuple<IdString, IdString, int>(m.module, m.wire, m.wirebit)) ? 0 : 1;
+		}
+		for (auto &s : m.src) {
+			this_score += src_db.at(s) ? 0 : 5;
+		}
+		return this_score;
+	}
+};
+
 struct mutate_queue_t
 {
 	pool<mutate_t*, hash_ptr_ops> db;
 
-	mutate_t *pick(xs128_t &rng, dict<string, int> &coverdb, const mutate_opts_t &opts) {
+	mutate_t *pick(xs128_t &rng, coverdb_t &coverdb, const mutate_opts_t &opts) {
 		mutate_t *m = nullptr;
 		if (rng(100) < opts.pick_cover_prcnt) {
-			vector<mutate_t*> candidates;
+			vector<mutate_t*> candidates, rmqueue;
+			int best_score = -1;
 			for (auto p : db) {
-				if (p->used || p->src.empty())
+				if (p->used) {
+					rmqueue.push_back(p);
 					continue;
-				bool is_covered = false;
-				for (auto &s : p->src) {
-					if (coverdb.at(s))
-						is_covered = true;
 				}
-				if (!is_covered)
+				int this_score = coverdb.score(*p);
+				if (this_score > best_score) {
+					best_score = this_score;
+					candidates.clear();
+				}
+				if (best_score == this_score)
 					candidates.push_back(p);
 			}
+			for (auto p : rmqueue)
+				db.erase(p);
 			if (!candidates.empty())
 				m = candidates[rng(GetSize(candidates))];
 		}
@@ -167,11 +211,6 @@ struct mutate_queue_t
 				}
 			}
 		}
-		if (m != nullptr) {
-			m->used = true;
-			for (auto &s : m->src)
-				coverdb[s]++;
-		}
 		return m;
 	}
 
@@ -185,7 +224,7 @@ struct mutate_chain_queue_t
 {
 	dict<K, T> db;
 
-	mutate_t *pick(xs128_t &rng, dict<string, int> &coverdb, const mutate_opts_t &opts) {
+	mutate_t *pick(xs128_t &rng, coverdb_t &coverdb, const mutate_opts_t &opts) {
 		while (!db.empty()) {
 			int i = rng(GetSize(db));
 			auto it = db.element(i);
@@ -208,7 +247,7 @@ struct mutate_once_queue_t
 {
 	dict<K, T> db;
 
-	mutate_t *pick(xs128_t &rng, dict<string, int> &coverdb, const mutate_opts_t &opts) {
+	mutate_t *pick(xs128_t &rng, coverdb_t &coverdb, const mutate_opts_t &opts) {
 		while (!db.empty()) {
 			int i = rng(GetSize(db));
 			auto it = db.element(i);
@@ -229,7 +268,7 @@ struct mutate_once_queue_t
 void database_reduce(std::vector<mutate_t> &database, const mutate_opts_t &opts, int N, xs128_t &rng)
 {
 	std::vector<mutate_t> new_database;
-	dict<string, int> coverdb;
+	coverdb_t coverdb;
 
 	int total_weight = opts.weight_cover + opts.weight_pq_w + opts.weight_pq_b + opts.weight_pq_c + opts.weight_pq_s;
 	total_weight += opts.weight_pq_mw + opts.weight_pq_mb + opts.weight_pq_mc + opts.weight_pq_ms;
@@ -249,6 +288,8 @@ void database_reduce(std::vector<mutate_t> &database, const mutate_opts_t &opts,
 
 	for (auto &m : database)
 	{
+		coverdb.insert(m);
+
 		if (!m.wire.empty()) {
 			primary_queue_wire.add(&m, tuple<IdString, IdString>(m.module, m.wire));
 			primary_queue_bit.add(&m, tuple<IdString, IdString, int>(m.module, m.wire, m.wirebit));
@@ -260,7 +301,6 @@ void database_reduce(std::vector<mutate_t> &database, const mutate_opts_t &opts,
 		primary_queue_module_cell.add(&m, m.module, m.cell);
 
 		for (auto &s : m.src) {
-			coverdb[s] = 0;
 			primary_queue_src.add(&m, s);
 			primary_queue_module_src.add(&m, m.module, s);
 		}
@@ -284,8 +324,8 @@ void database_reduce(std::vector<mutate_t> &database, const mutate_opts_t &opts,
 							continue;
 						int this_score = -1;
 						for (auto &s : m.src) {
-							if (this_score == -1 || this_score > coverdb.at(s))
-								this_score = coverdb.at(s);
+							if (this_score == -1 || this_score > coverdb.src_db.at(s))
+								this_score = coverdb.src_db.at(s);
 						}
 						log_assert(this_score != -1);
 						if (best_cover_score == -1 || this_score < best_cover_score) {
@@ -314,8 +354,8 @@ void database_reduce(std::vector<mutate_t> &database, const mutate_opts_t &opts,
 
 					int this_score = -1;
 					for (auto &s : p->src) {
-						if (this_score == -1 || this_score > coverdb.at(s))
-							this_score = coverdb.at(s);
+						if (this_score == -1 || this_score > coverdb.src_db.at(s))
+							this_score = coverdb.src_db.at(s);
 					}
 
 					if (this_score != best_cover_score)
@@ -327,8 +367,7 @@ void database_reduce(std::vector<mutate_t> &database, const mutate_opts_t &opts,
 
 				if (m != nullptr) {
 					m->used = true;
-					for (auto &s : m->src)
-						coverdb[s]++;
+					coverdb.update(*m);
 					new_database.push_back(*m);
 					break;
 				}
@@ -340,8 +379,11 @@ void database_reduce(std::vector<mutate_t> &database, const mutate_opts_t &opts,
     k -= __wght;                                         \
     if (k < 0) {                                         \
       mutate_t *m = __queue.pick(rng, coverdb, opts);    \
-      if (m != nullptr)                                  \
+      if (m != nullptr) {                                \
+        m->used = true;                                  \
+        coverdb.update(*m);                              \
         new_database.push_back(*m);                      \
+      };                                                 \
       continue;                                          \
     }
 
@@ -359,12 +401,25 @@ void database_reduce(std::vector<mutate_t> &database, const mutate_opts_t &opts,
 
 	std::swap(new_database, database);
 
-	int covered_cnt = 0;
-	for (auto &it : coverdb)
-		if (it.second)
-			covered_cnt++;
+	int covered_src_cnt = 0;
+	int covered_wire_cnt = 0;
+	int covered_wirebit_cnt = 0;
 
-	log("Covered %d/%d src attributes (%.2f%%).\n", covered_cnt, GetSize(coverdb), 100.0 * covered_cnt / GetSize(coverdb));
+	for (auto &it : coverdb.src_db)
+		if (it.second)
+			covered_src_cnt++;
+
+	for (auto &it : coverdb.wire_db)
+		if (it.second)
+			covered_wire_cnt++;
+
+	for (auto &it : coverdb.wirebit_db)
+		if (it.second)
+			covered_wirebit_cnt++;
+
+	log("Covered %d/%d src attributes (%.2f%%).\n", covered_src_cnt, GetSize(coverdb.src_db), 100.0 * covered_src_cnt / GetSize(coverdb.src_db));
+	log("Covered %d/%d wires (%.2f%%).\n", covered_wire_cnt, GetSize(coverdb.wire_db), 100.0 * covered_wire_cnt / GetSize(coverdb.wire_db));
+	log("Covered %d/%d wire bits (%.2f%%).\n", covered_wirebit_cnt, GetSize(coverdb.wirebit_db), 100.0 * covered_wirebit_cnt / GetSize(coverdb.wirebit_db));
 }
 
 void mutate_list(Design *design, const mutate_opts_t &opts, const string &filename, int N)
