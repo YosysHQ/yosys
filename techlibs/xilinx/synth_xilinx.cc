@@ -110,9 +110,8 @@ struct SynthXilinxPass : public Pass
 		log("        dffsr2dff\n");
 		log("        dff2dffe\n");
 		log("        opt -full\n");
-		log("        techmap -map +/techmap.v -map +/xilinx/arith_map.v\n");
-		log("        shregmap -init -params -enpol any_or_none\n");
-		log("        techmap -map +/xilinx/ff_map.v\n");
+		log("        shregmap -tech xilinx\n");
+		log("        techmap -map +/techmap.v -map +/xilinx/arith_map.v +/xilinx/ff_map.v\n");
 		log("        opt -fast\n");
 		log("\n");
 		log("    map_luts:\n");
@@ -256,14 +255,17 @@ struct SynthXilinxPass : public Pass
 			Pass::call(design, "dff2dffe");
 			Pass::call(design, "opt -full");
 
+			Pass::call(design, "simplemap t:$dff*");
+			Pass::call(design, "shregmap -tech xilinx");
+			Pass::call(design, "techmap -map +/xilinx/cells_map.v t:$__SHREG_");
+			Pass::call(design, "opt -fast");
+
 			if (vpr) {
-				Pass::call(design, "techmap -map +/techmap.v -map +/xilinx/arith_map.v -D _EXPLICIT_CARRY");
+				Pass::call(design, "techmap -map +/techmap.v -map +/xilinx/arith_map.v -map +/xilinx/ff_map.v -D _EXPLICIT_CARRY");
 			} else {
-				Pass::call(design, "techmap -map +/techmap.v -map +/xilinx/arith_map.v");
+				Pass::call(design, "techmap -map +/techmap.v -map +/xilinx/arith_map.v -map +/xilinx/ff_map.v");
 			}
 
-			Pass::call(design, "shregmap -init -params -enpol any_or_none");
-			Pass::call(design, "techmap -map +/xilinx/ff_map.v");
 			Pass::call(design, "opt -fast");
 		}
 

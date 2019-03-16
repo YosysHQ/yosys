@@ -17,7 +17,7 @@
  *
  */
 
-module \$__SHREG_ (input C, input D, input E, output Q);
+module \$__SHREG_ (input C, input D, input [31:0] L, input E, output Q);
   parameter DEPTH = 0;
   parameter [DEPTH-1:0] INIT = 0;
   parameter CLKPOL = 1;
@@ -36,6 +36,9 @@ module \$__SHREG_ (input C, input D, input E, output Q);
   endfunction
   localparam [DEPTH-1:0] INIT_R = brev(INIT);
 
+  parameter _TECHMAP_CONSTMSK_L_ = 0;
+  parameter _TECHMAP_CONSTVAL_L_ = 0;
+
   generate
     if (ENPOL == 0)
       assign CE = ~E;
@@ -44,60 +47,86 @@ module \$__SHREG_ (input C, input D, input E, output Q);
     else
       assign CE = 1'b1;
     if (DEPTH == 1) begin
-        if (CLKPOL)
-            FDRE #(.INIT(INIT_R)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(CE), .R(1'b0));
-        else
-            FDRE_1 #(.INIT(INIT_R)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(CE), .R(1'b0));
+      wire _TECHMAP_FAIL_ = ~&_TECHMAP_CONSTMSK_L_ || _TECHMAP_CONSTVAL_L_ != 0;
+      if (CLKPOL)
+          FDRE #(.INIT(INIT_R)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(CE), .R(1'b0));
+      else
+          FDRE_1 #(.INIT(INIT_R)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(CE), .R(1'b0));
     end else
     if (DEPTH <= 16) begin
-      localparam [3:0] A = DEPTH - 1;
-      SRL16E #(.INIT(INIT_R), .IS_CLK_INVERTED(~CLKPOL[0])) _TECHMAP_REPLACE_ (.A0(A[0]), .A1(A[1]), .A2(A[2]), .A3(A[3]), .CE(CE), .CLK(C), .D(D), .Q(Q));
+      SRL16E #(.INIT(INIT_R), .IS_CLK_INVERTED(~CLKPOL[0])) _TECHMAP_REPLACE_ (.A0(L[0]), .A1(L[1]), .A2(L[2]), .A3(L[3]), .CE(CE), .CLK(C), .D(D), .Q(Q));
     end else
     if (DEPTH > 17 && DEPTH <= 32) begin
-      SRLC32E #(.INIT(INIT_R), .IS_CLK_INVERTED(~CLKPOL[0])) _TECHMAP_REPLACE_ (.A(DEPTH-1), .CE(CE), .CLK(C), .D(D), .Q(Q));
+      SRLC32E #(.INIT(INIT_R), .IS_CLK_INVERTED(~CLKPOL[0])) _TECHMAP_REPLACE_ (.A(L[4:0]), .CE(CE), .CLK(C), .D(D), .Q(Q));
     end else
     if (DEPTH > 33 && DEPTH <= 64) begin
       wire T0, T1, T2;
-      localparam [5:0] A = DEPTH-1;
-      SRLC32E #(.INIT(INIT_R[32-1:0]), .IS_CLK_INVERTED(~CLKPOL[0])) fpga_srl_0 (.A(A[4:0]), .CE(CE), .CLK(C), .D(D), .Q(T0), .Q31(T1));
-      \$__SHREG_ #(.DEPTH(DEPTH-32), .INIT(INIT[DEPTH-32-1:0]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_1 (.C(C), .D(T1), .E(E), .Q(T2));
-      MUXF7 fpga_mux_0 (.O(Q), .I0(T0), .I1(T2), .S(A[5]));
+      SRLC32E #(.INIT(INIT_R[32-1:0]), .IS_CLK_INVERTED(~CLKPOL[0])) fpga_srl_0 (.A(L[4:0]), .CE(CE), .CLK(C), .D(D), .Q(T0), .Q31(T1));
+      \$__SHREG_ #(.DEPTH(DEPTH-32), .INIT(INIT[DEPTH-32-1:0]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_1 (.C(C), .D(T1), .L(L), .E(E), .Q(T2));
+      if (&_TECHMAP_CONSTMSK_L_)
+        assign Q = T2;
+      else
+        MUXF7 fpga_mux_0 (.O(Q), .I0(T0), .I1(T2), .S(L[5]));
     end else
     if (DEPTH > 65 && DEPTH <= 96) begin
-      localparam [6:0] A = DEPTH-1;
       wire T0, T1, T2, T3, T4, T5, T6;
-      SRLC32E #(.INIT(INIT_R[32-1:0]), .IS_CLK_INVERTED(~CLKPOL[0])) fpga_srl_0 (.A(A[4:0]), .CE(CE), .CLK(C), .D(D), .Q(T0), .Q31(T1));
-      SRLC32E #(.INIT(INIT_R[64-1:32]), .IS_CLK_INVERTED(~CLKPOL[0])) fpga_srl_1 (.A(A[4:0]), .CE(CE), .CLK(C), .D(T1), .Q(T2), .Q31(T3));
-      \$__SHREG_ #(.DEPTH(DEPTH-64), .INIT(INIT[DEPTH-64-1:0]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_2 (.C(C), .D(T3), .E(E), .Q(T4));
-      MUXF7 fpga_mux_0 (.O(T5), .I0(T0), .I1(T2), .S(A[5]));
-      MUXF7 fpga_mux_1 (.O(T6), .I0(T4), .I1(1'b0 /* unused */), .S(A[5]));
-      MUXF8 fpga_mux_2 (.O(Q), .I0(T5), .I1(T6), .S(A[6]));
+      SRLC32E #(.INIT(INIT_R[32-1:0]), .IS_CLK_INVERTED(~CLKPOL[0])) fpga_srl_0 (.A(L[4:0]), .CE(CE), .CLK(C), .D(D), .Q(T0), .Q31(T1));
+      SRLC32E #(.INIT(INIT_R[64-1:32]), .IS_CLK_INVERTED(~CLKPOL[0])) fpga_srl_1 (.A(L[4:0]), .CE(CE), .CLK(C), .D(T1), .Q(T2), .Q31(T3));
+      \$__SHREG_ #(.DEPTH(DEPTH-64), .INIT(INIT[DEPTH-64-1:0]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_2 (.C(C), .D(T3), .L(L[4:0]), .E(E), .Q(T4));
+      if (&_TECHMAP_CONSTMSK_L_)
+        assign Q = T4;
+      else begin
+         MUXF7 fpga_mux_0 (.O(T5), .I0(T0), .I1(T2), .S(L[5]));
+        MUXF7 fpga_mux_1 (.O(T6), .I0(T4), .I1(1'b0 /* unused */), .S(L[5]));
+        MUXF8 fpga_mux_2 (.O(Q), .I0(T5), .I1(T6), .S(L[6]));
+      end
     end else
     if (DEPTH > 97 && DEPTH <= 128) begin
-      localparam [6:0] A = DEPTH-1;
       wire T0, T1, T2, T3, T4, T5, T6, T7, T8;
-      SRLC32E #(.INIT(INIT_R[32-1:0]), .IS_CLK_INVERTED(~CLKPOL[0])) fpga_srl_0 (.A(A[4:0]), .CE(CE), .CLK(C), .D(D), .Q(T0), .Q31(T1));
-      SRLC32E #(.INIT(INIT_R[64-1:32]), .IS_CLK_INVERTED(~CLKPOL[0])) fpga_srl_1 (.A(A[4:0]), .CE(CE), .CLK(C), .D(T1), .Q(T2), .Q31(T3));
-      SRLC32E #(.INIT(INIT_R[96-1:64]), .IS_CLK_INVERTED(~CLKPOL[0])) fpga_srl_2 (.A(A[4:0]), .CE(CE), .CLK(C), .D(T3), .Q(T4), .Q31(T5));
-      \$__SHREG_ #(.DEPTH(DEPTH-96), .INIT(INIT[DEPTH-96-1:0]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_3 (.C(C), .D(T5), .E(E), .Q(T6));
-      MUXF7 fpga_mux_0 (.O(T7), .I0(T0), .I1(T2), .S(A[5]));
-      MUXF7 fpga_mux_1 (.O(T8), .I0(T4), .I1(T6), .S(A[5]));
-      MUXF8 fpga_mux_2 (.O(Q), .I0(T7), .I1(T8), .S(A[6]));
+      SRLC32E #(.INIT(INIT_R[32-1:0]), .IS_CLK_INVERTED(~CLKPOL[0])) fpga_srl_0 (.A(L[4:0]), .CE(CE), .CLK(C), .D(D), .Q(T0), .Q31(T1));
+      SRLC32E #(.INIT(INIT_R[64-1:32]), .IS_CLK_INVERTED(~CLKPOL[0])) fpga_srl_1 (.A(L[4:0]), .CE(CE), .CLK(C), .D(T1), .Q(T2), .Q31(T3));
+      SRLC32E #(.INIT(INIT_R[96-1:64]), .IS_CLK_INVERTED(~CLKPOL[0])) fpga_srl_2 (.A(L[4:0]), .CE(CE), .CLK(C), .D(T3), .Q(T4), .Q31(T5));
+      \$__SHREG_ #(.DEPTH(DEPTH-96), .INIT(INIT[DEPTH-96-1:0]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_3 (.C(C), .D(T5), .L(L[4:0]), .E(E), .Q(T6));
+      if (&_TECHMAP_CONSTMSK_L_)
+        assign Q = T6;
+      else begin
+        MUXF7 fpga_mux_0 (.O(T7), .I0(T0), .I1(T2), .S(L[5]));
+        MUXF7 fpga_mux_1 (.O(T8), .I0(T4), .I1(T6), .S(L[5]));
+        MUXF8 fpga_mux_2 (.O(Q), .I0(T7), .I1(T8), .S(L[6]));
+      end
     end
-    else if (DEPTH <= 129) begin
+    else if (DEPTH < 129 || (DEPTH <= 129 && &_TECHMAP_CONSTMSK_L_)) begin
       // Handle cases where depth is just 1 over a convenient value,
-      // in which case use the flop
-      wire T0;
-      \$__SHREG_ #(.DEPTH(DEPTH-1), .INIT(INIT[DEPTH-1:1]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_0 (.C(C), .D(D), .E(E), .Q(T0));
-      \$__SHREG_ #(.DEPTH(1), .INIT(INIT[0]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_1 (.C(C), .D(T0), .E(E), .Q(Q));
-    end else
-    begin
-      // UG474 (v1.8, p34) states that:
-      //   "There are no direct connections between slices to form longer shift
-      //    registers, nor is the MC31 output at LUT B/C/D available."
-      wire T0;
-      \$__SHREG_ #(.DEPTH(128), .INIT(INIT[DEPTH-1:DEPTH-128]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_0 (.C(C), .D(D), .E(E), .Q(T0));
-      \$__SHREG_ #(.DEPTH(DEPTH-128), .INIT(INIT[DEPTH-128-1:0]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_1 (.C(C), .D(T0), .E(E), .Q(Q));
+      if (&_TECHMAP_CONSTMSK_L_) begin
+        // For constant length, use the flop
+        wire T0;
+        \$__SHREG_ #(.DEPTH(DEPTH-1), .INIT(INIT[DEPTH-1:1]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_0 (.C(C), .D(D), .L(DEPTH-1-1), .E(E), .Q(T0));
+        \$__SHREG_ #(.DEPTH(1), .INIT(INIT[0]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_1 (.C(C), .D(T0), .L(0), .E(E), .Q(Q));
+      end
+      else begin
+        // For variable length, bump up to the next length
+        // because we can't access Q31
+        \$__SHREG_ #(.DEPTH(DEPTH+1), .INIT(INIT), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) _TECHMAP_REPLACE_ (.C(C), .D(D), .L(L), .E(E), .Q(Q));
+      end
+    end 
+    else begin
+      if (&_TECHMAP_CONSTMSK_L_) begin
+        // UG474 (v1.8, p34) states that:
+        //   "There are no direct connections between slices to form longer shift
+        //    registers, nor is the MC31 output at LUT B/C/D available."
+        wire T0;
+        \$__SHREG_ #(.DEPTH(128), .INIT(INIT[DEPTH-1:DEPTH-128]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_0 (.C(C), .D(D), .L(127), .E(E), .Q(T0));
+        \$__SHREG_ #(.DEPTH(DEPTH-128), .INIT(INIT[DEPTH-128-1:0]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_1 (.C(C), .D(T0), .L(DEPTH-1-128), .E(E), .Q(Q));
+      end
+      else begin
+        // No way to create variable length shift registers >128 bits as Q31
+        // cannot be output to the fabric...
+        wire [DEPTH-1:-1] c;
+        genvar i;
+        for (i = 0; i < DEPTH; i=i+1)
+            \$__SHREG_ #(.DEPTH(1), .INIT(INIT_R[i]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl (.C(C), .D(c[i-1]), .L(0), .E(E), .Q(c[i]));
+        assign { c[-1], Q } = { D, c[L] };
+      end
     end
   endgenerate
 endmodule
