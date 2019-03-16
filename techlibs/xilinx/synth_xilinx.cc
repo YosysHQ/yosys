@@ -110,6 +110,7 @@ struct SynthXilinxPass : public Pass
 		log("        dffsr2dff\n");
 		log("        dff2dffe\n");
 		log("        opt -full\n");
+		log("        simplemap t:$dff*\n");
 		log("        shregmap -tech xilinx\n");
 		log("        techmap -map +/techmap.v -map +/xilinx/arith_map.v +/xilinx/ff_map.v\n");
 		log("        opt -fast\n");
@@ -257,8 +258,6 @@ struct SynthXilinxPass : public Pass
 
 			Pass::call(design, "simplemap t:$dff*");
 			Pass::call(design, "shregmap -tech xilinx");
-			Pass::call(design, "techmap -map +/xilinx/cells_map.v t:$__SHREG_");
-			Pass::call(design, "opt -fast");
 
 			if (vpr) {
 				Pass::call(design, "techmap -map +/techmap.v -map +/xilinx/arith_map.v -map +/xilinx/ff_map.v -D _EXPLICIT_CARRY");

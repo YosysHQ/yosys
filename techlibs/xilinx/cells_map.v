@@ -95,7 +95,7 @@ module \$__SHREG_ (input C, input D, input [31:0] L, input E, output Q);
         MUXF8 fpga_mux_2 (.O(Q), .I0(T7), .I1(T8), .S(L[6]));
       end
     end
-    else if (DEPTH < 129 || (DEPTH <= 129 && &_TECHMAP_CONSTMSK_L_)) begin
+    else if (DEPTH <= 128 || (DEPTH == 129 && &_TECHMAP_CONSTMSK_L_)) begin
       // Handle cases where depth is just 1 over a convenient value,
       if (&_TECHMAP_CONSTMSK_L_) begin
         // For constant length, use the flop
