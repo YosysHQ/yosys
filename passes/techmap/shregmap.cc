@@ -95,7 +95,7 @@ struct ShregmapTechGreenpak4 : ShregmapTech
 
 struct ShregmapTechXilinx7 : ShregmapTech
 {
-	dict<SigBit, Cell*> sigbit_to_shiftx;
+	dict<SigBit, std::pair<Cell*,int>> sigbit_to_shiftx_offset;
 	const ShregmapOptions &opts;
 
 	ShregmapTechXilinx7(const ShregmapOptions &opts) : opts(opts) {}
@@ -106,19 +106,21 @@ struct ShregmapTechXilinx7 : ShregmapTech
 			auto cell = i.second;
 			if (cell->type != "$shiftx") continue;
 			if (cell->getParam("\\Y_WIDTH") != 1) continue;
+			int j = 0;
 			for (auto bit : sigmap(cell->getPort("\\A")))
-				sigbit_to_shiftx[bit] = cell;
+				sigbit_to_shiftx_offset[bit] = std::make_pair(cell, j++);
+			log_assert(j == cell->getParam("\\A_WIDTH").as_int());
 		}
 	}
 
 	virtual void non_chain_user(const SigBit &bit, const Cell *cell, IdString port) override
 	{
-		auto it = sigbit_to_shiftx.find(bit);
-		if (it == sigbit_to_shiftx.end())
+		auto it = sigbit_to_shiftx_offset.find(bit);
+		if (it == sigbit_to_shiftx_offset.end())
 			return;
 		if (cell->type == "$shiftx" && port == "\\A")
 			return;
-		it->second = nullptr;
+		it->second = std::make_pair(nullptr, 0);
 	}
 
 	virtual bool analyze(vector<int> &taps, const vector<SigBit> &qbits) override
@@ -130,32 +132,34 @@ struct ShregmapTechXilinx7 : ShregmapTech
 			return false;
 
 		Cell *shiftx = nullptr;
-		int offset = 0;
 		for (int i = 0; i < GetSize(taps); ++i) {
 			// Check taps are sequential
 			if (i != taps[i])
 				return false;
 			// Check taps are not connected to a shift register,
 			// or sequential to the same shift register
-			auto it = sigbit_to_shiftx.find(qbits[i]);
+			auto it = sigbit_to_shiftx_offset.find(qbits[i]);
 			if (i == 0) {
-				if (it != sigbit_to_shiftx.end()) {
-					shiftx = it->second;
+				if (it != sigbit_to_shiftx_offset.end()) {
+					shiftx = it->second.first;
 					// NULL indicates there are non-shiftx users
 					if (shiftx == nullptr)
 						return false;
-					offset = qbits[i].offset;
+					int offset = it->second.second;
+					if (offset != i)
+						return false;
 				}
 			}
 			else {
-				if (it == sigbit_to_shiftx.end()) {
+				if (it == sigbit_to_shiftx_offset.end()) {
 					if (shiftx != nullptr)
 						return false;
 				}
 				else {
-					if (shiftx != it->second)
+					if (shiftx != it->second.first)
 						return false;
-					if (qbits[i].offset != offset + i)
+					int offset = it->second.second;
+					if (offset != i)
 						return false;
 				}
 			}
@@ -178,36 +182,22 @@ struct ShregmapTechXilinx7 : ShregmapTech
 	{
 		const auto &tap = *taps.begin();
 		auto bit = tap.second;
-		auto it = sigbit_to_shiftx.find(bit);
-		if (it == sigbit_to_shiftx.end())
+		auto it = sigbit_to_shiftx_offset.find(bit);
+		// If fixed-length, no fixup necessary
+		if (it == sigbit_to_shiftx_offset.end())
 			return true;
 
-		Cell* shiftx = it->second;
-		auto shiftx_a = shiftx->getPort("\\A").bits();
+		auto cell_q = cell->getPort("\\Q");
+		log_assert(cell_q.is_bit());
 
-		auto cell_q = cell->getPort("\\Q").as_bit();
-
-		int offset = 0;
-#ifndef NDEBUG
-		for (auto bit : shiftx_a) {
-			if (bit == cell_q)
-				break;
-			++offset;
-		}
-		offset -= taps.size() - 1;
-		log_assert(offset == 0);
-#endif
-		for (size_t i = offset; i < offset + taps.size(); ++i)
-			shiftx_a[i] = cell_q;
-
+		Cell* shiftx = it->second.first;
 		// FIXME: Hack to ensure that $shiftx gets optimised away
 		//   Without this, Yosys will refuse to optimise away a $shiftx
 		//   where \\A 's width is not perfectly \\B_WIDTH ** 2
 		// See YosysHQ/yosys#878
 		auto shiftx_bwidth = shiftx->getParam("\\B_WIDTH").as_int();
-		shiftx_a.resize(1 << shiftx_bwidth, shiftx_a.back());
-		shiftx->setPort("\\A", shiftx_a);
-		shiftx->setParam("\\A_WIDTH", shiftx_a.size());
+		shiftx->setPort("\\A", cell_q.repeat(1 << shiftx_bwidth));
+		shiftx->setParam("\\A_WIDTH", 1 << shiftx_bwidth);
 
 		cell->setPort("\\L", shiftx->getPort("\\B"));
 
