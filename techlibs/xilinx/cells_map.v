@@ -121,11 +121,7 @@ module \$__SHREG_ (input C, input D, input [31:0] L, input E, output Q);
       else begin
         // No way to create variable length shift registers >128 bits as Q31
         // cannot be output to the fabric...
-        wire [DEPTH-1:-1] c;
-        genvar i;
-        for (i = 0; i < DEPTH; i=i+1)
-            \$__SHREG_ #(.DEPTH(1), .INIT(INIT_R[i]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl (.C(C), .D(c[i-1]), .L(0), .E(E), .Q(c[i]));
-        assign { c[-1], Q } = { D, c[L] };
+        wire _TECHMAP_FAIL_ = 1;
       end
     end
   endgenerate

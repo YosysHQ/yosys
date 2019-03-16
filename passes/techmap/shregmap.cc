@@ -161,6 +161,16 @@ struct ShregmapTechXilinx7 : ShregmapTech
 			}
 		}
 
+		// Cannot implement variable-length shift registers
+		// greater than 128 since Q31 cannot be output onto
+		// fabric
+		if (shiftx && GetSize(taps) > 128)
+			return false;
+
+		// Only map if $shiftx exclusively covers the shift register
+		if (GetSize(taps) != shiftx->getParam("\\A_WIDTH").as_int())
+			return false;
+
 		return true;
 	}
 
@@ -173,34 +183,33 @@ struct ShregmapTechXilinx7 : ShregmapTech
 			return true;
 
 		Cell* shiftx = it->second;
-
-		auto module = cell->module;
+		auto shiftx_a = shiftx->getPort("\\A").bits();
 
 		auto cell_q = cell->getPort("\\Q").as_bit();
 
-		auto shiftx_a = shiftx->getPort("\\A").bits();
 		int offset = 0;
+#ifndef NDEBUG
 		for (auto bit : shiftx_a) {
 			if (bit == cell_q)
 				break;
 			++offset;
 		}
 		offset -= taps.size() - 1;
-		log_assert(offset >= 0);
+		log_assert(offset == 0);
+#endif
 		for (size_t i = offset; i < offset + taps.size(); ++i)
 			shiftx_a[i] = cell_q;
+
 		// FIXME: Hack to ensure that $shiftx gets optimised away
 		//   Without this, Yosys will refuse to optimise away a $shiftx
 		//   where \\A 's width is not perfectly \\B_WIDTH ** 2
+		// See YosysHQ/yosys#878
 		auto shiftx_bwidth = shiftx->getParam("\\B_WIDTH").as_int();
 		shiftx_a.resize(1 << shiftx_bwidth, shiftx_a.back());
 		shiftx->setPort("\\A", shiftx_a);
 		shiftx->setParam("\\A_WIDTH", shiftx_a.size());
 
-		auto length = module->addWire(NEW_ID, ceil(log2(taps.size())));
-		module->addSub(NEW_ID, shiftx->getPort("\\B"), RTLIL::Const(offset, ceil(log2(offset))), length);
-		cell->setPort("\\L", length);
-
+		cell->setPort("\\L", shiftx->getPort("\\B"));
 
 		return true;
 	}
