@@ -165,15 +165,17 @@ struct ShregmapTechXilinx7 : ShregmapTech
 			}
 		}
 
-		// Cannot implement variable-length shift registers
-		// greater than 128 since Q31 cannot be output onto
-		// fabric
-		if (shiftx && GetSize(taps) > 128)
-			return false;
+		if (shiftx) {
+			// Cannot implement variable-length shift registers
+			// greater than 128 since Q31 cannot be output onto
+			// fabric
+			if (GetSize(taps) > 128)
+				return false;
 
-		// Only map if $shiftx exclusively covers the shift register
-		if (GetSize(taps) != shiftx->getParam("\\A_WIDTH").as_int())
-			return false;
+			// Only map if $shiftx exclusively covers the shift register
+			if (GetSize(taps) != shiftx->getParam("\\A_WIDTH").as_int())
+				return false;
+		}
 
 		return true;
 	}
