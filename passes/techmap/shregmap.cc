@@ -120,7 +120,7 @@ struct ShregmapTechXilinx7 : ShregmapTech
 			return;
 		if (cell->type == "$shiftx" && port == "\\A")
 			return;
-		it->second = std::make_pair(nullptr, 0);
+		sigbit_to_shiftx_offset.erase(it);
 	}
 
 	virtual bool analyze(vector<int> &taps, const vector<SigBit> &qbits) override
@@ -140,11 +140,11 @@ struct ShregmapTechXilinx7 : ShregmapTech
 			// or sequential to the same shift register
 			auto it = sigbit_to_shiftx_offset.find(qbits[i]);
 			if (i == 0) {
-				if (it != sigbit_to_shiftx_offset.end()) {
+				if (it == sigbit_to_shiftx_offset.end()) {
+					return false;
+				}
+				else {
 					shiftx = it->second.first;
-					// NULL indicates there are non-shiftx users
-					if (shiftx == nullptr)
-						return false;
 					int offset = it->second.second;
 					if (offset != i)
 						return false;
@@ -152,8 +152,7 @@ struct ShregmapTechXilinx7 : ShregmapTech
 			}
 			else {
 				if (it == sigbit_to_shiftx_offset.end()) {
-					if (shiftx != nullptr)
-						return false;
+					return false;
 				}
 				else {
 					if (shiftx != it->second.first)
@@ -164,18 +163,17 @@ struct ShregmapTechXilinx7 : ShregmapTech
 				}
 			}
 		}
+		log_assert(shiftx);
 
-		if (shiftx) {
-			// Cannot implement variable-length shift registers
-			// greater than 128 since Q31 cannot be output onto
-			// fabric
-			if (GetSize(taps) > 128)
-				return false;
+		// Cannot implement variable-length shift registers
+		// greater than 128 since Q31 cannot be output onto
+		// fabric
+		if (GetSize(taps) > 128)
+			return false;
 
-			// Only map if $shiftx exclusively covers the shift register
-			if (GetSize(taps) != shiftx->getParam("\\A_WIDTH").as_int())
-				return false;
-		}
+		// Only map if $shiftx exclusively covers the shift register
+		if (GetSize(taps) != shiftx->getParam("\\A_WIDTH").as_int())
+			return false;
 
 		return true;
 	}
