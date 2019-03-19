@@ -2863,7 +2863,11 @@ void AstNode::expand_genblock(std::string index_var, std::string prefix, std::ma
 
 	for (size_t i = 0; i < children.size(); i++) {
 		AstNode *child = children[i];
-		if (child->type != AST_FUNCTION && child->type != AST_TASK && child->type != AST_PREFIX)
+		// AST_PREFIX member names should not be prefixed; a nested AST_PREFIX
+		// still needs to recursed-into
+		if (type == AST_PREFIX && i == 1 && child->type == AST_IDENTIFIER)
+			continue;
+		if (child->type != AST_FUNCTION && child->type != AST_TASK)
 			child->expand_genblock(index_var, prefix, name_map);
 	}
 
