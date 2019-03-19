@@ -112,7 +112,7 @@ struct SynthXilinxPass : public Pass
 		log("        opt -full\n");
 		log("        simplemap t:$dff*\n");
 		log("        shregmap -tech xilinx\n");
-		log("        techmap -map +/techmap.v -map +/xilinx/arith_map.v +/xilinx/ff_map.v\n");
+		log("        techmap -map +/techmap.v -map +/xilinx/arith_map.v -map +/xilinx/ff_map.v\n");
 		log("        opt -fast\n");
 		log("\n");
 		log("    map_luts:\n");
@@ -266,6 +266,7 @@ struct SynthXilinxPass : public Pass
 				Pass::call(design, "techmap -map +/techmap.v -map +/xilinx/arith_map.v -map +/xilinx/ff_map.v");
 			}
 
+			Pass::call(design, "hierarchy -check");
 			Pass::call(design, "opt -fast");
 		}
 
