@@ -189,6 +189,14 @@ YOSYS_NAMESPACE_END
 "always_ff"    { SV_KEYWORD(TOK_ALWAYS); }
 "always_latch" { SV_KEYWORD(TOK_ALWAYS); }
 
+ /* use special token for labels on assert, assume, cover, and restrict because it's insanley complex
+    to fix parsing of cells otherwise. (the current cell parser forces a reduce very early to update some
+    global state.. its a mess) */
+[a-zA-Z_$][a-zA-Z0-9_$]*/[ \t\r\n]*:[ \t\r\n]*(assert|assume|cover|restrict)[^a-zA-Z0-9_$\.] {
+	frontend_verilog_yylval.string = new std::string(std::string("\\") + yytext);
+	return TOK_SVA_LABEL;
+}
+
 "assert"     { if (formal_mode) return TOK_ASSERT; SV_KEYWORD(TOK_ASSERT); }
 "assume"     { if (formal_mode) return TOK_ASSUME; SV_KEYWORD(TOK_ASSUME); }
 "cover"      { if (formal_mode) return TOK_COVER; SV_KEYWORD(TOK_COVER); }
@@ -303,7 +311,7 @@ supply1 { return TOK_SUPPLY1; }
 
 [a-zA-Z_$][a-zA-Z0-9_$\.]* {
 	frontend_verilog_yylval.string = new std::string(std::string("\\") + yytext);
-    return TOK_ID;
+	return TOK_ID;
 }
 
 "/*"[ \t]*(synopsys|synthesis)[ \t]*translate_off[ \t]*"*/" {

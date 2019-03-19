@@ -38,7 +38,8 @@ struct WreduceConfig
 			"$shl", "$shr", "$sshl", "$sshr", "$shift", "$shiftx",
 			"$lt", "$le", "$eq", "$ne", "$eqx", "$nex", "$ge", "$gt",
 			"$add", "$sub", "$mul", // "$div", "$mod", "$pow",
-			"$mux", "$pmux"
+			"$mux", "$pmux",
+			"$dff", "$adff"
 		});
 	}
 };
@@ -52,6 +53,7 @@ struct WreduceWorker
 	std::set<Cell*, IdString::compare_ptr_by_name<Cell>> work_queue_cells;
 	std::set<SigBit> work_queue_bits;
 	pool<SigBit> keep_bits;
+	dict<SigBit, State> init_bits;
 
 	WreduceWorker(WreduceConfig *config, Module *module) :
 			config(config), module(module), mi(module) { }
@@ -134,6 +136,88 @@ struct WreduceWorker
 		module->connect(sig_y.extract(n_kept, n_removed), sig_removed);
 	}
 
+	void run_cell_dff(Cell *cell)
+	{
+		// Reduce size of FF if inputs are just sign/zero extended or output bit is not used
+
+		SigSpec sig_d = mi.sigmap(cell->getPort("\\D"));
+		SigSpec sig_q = mi.sigmap(cell->getPort("\\Q"));
+		Const initval;
+
+		int width_before = GetSize(sig_q);
+
+		if (width_before == 0)
+			return;
+
+		bool zero_ext = sig_d[GetSize(sig_d)-1] == State::S0;
+		bool sign_ext = !zero_ext;
+
+		for (int i = 0; i < GetSize(sig_q); i++) {
+			SigBit bit = sig_q[i];
+			if (init_bits.count(bit))
+				initval.bits.push_back(init_bits.at(bit));
+			else
+				initval.bits.push_back(State::Sx);
+		}
+
+		for (int i = GetSize(sig_q)-1; i >= 0; i--)
+		{
+			if (zero_ext && sig_d[i] == State::S0 && (initval[i] == State::S0 || initval[i] == State::Sx)) {
+				module->connect(sig_q[i], State::S0);
+				sig_d.remove(i);
+				sig_q.remove(i);
+				continue;
+			}
+
+			if (sign_ext && i > 0 && sig_d[i] == sig_d[i-1] && initval[i] == initval[i-1]) {
+				module->connect(sig_q[i], sig_q[i-1]);
+				sig_d.remove(i);
+				sig_q.remove(i);
+				continue;
+			}
+
+			auto info = mi.query(sig_q[i]);
+			if (!info->is_output && GetSize(info->ports) == 1 && !keep_bits.count(mi.sigmap(sig_q[i]))) {
+				sig_d.remove(i);
+				sig_q.remove(i);
+				zero_ext = false;
+				sign_ext = false;
+				continue;
+			}
+
+			break;
+		}
+
+		if (width_before == GetSize(sig_q))
+			return;
+
+		if (GetSize(sig_q) == 0) {
+			log("Removed cell %s.%s (%s).\n", log_id(module), log_id(cell), log_id(cell->type));
+			module->remove(cell);
+			return;
+		}
+
+		log("Removed top %d bits (of %d) from FF cell %s.%s (%s).\n", width_before - GetSize(sig_q), width_before,
+				log_id(module), log_id(cell), log_id(cell->type));
+
+		for (auto bit : sig_d)
+			work_queue_bits.insert(bit);
+
+		for (auto bit : sig_q)
+			work_queue_bits.insert(bit);
+
+		// Narrow ARST_VALUE parameter to new size.
+		if (cell->parameters.count("\\ARST_VALUE")) {
+			Const arst_value = cell->getParam("\\ARST_VALUE");
+			arst_value.bits.resize(GetSize(sig_q));
+			cell->setParam("\\ARST_VALUE", arst_value);
+		}
+
+		cell->setPort("\\D", sig_d);
+		cell->setPort("\\Q", sig_q);
+		cell->fixup_parameters();
+	}
+
 	void run_reduce_inport(Cell *cell, char port, int max_port_size, bool &port_signed, bool &did_something)
 	{
 		port_signed = cell->getParam(stringf("\\%c_SIGNED", port)).as_bool();
@@ -175,6 +259,9 @@ struct WreduceWorker
 
 		if (cell->type.in("$mux", "$pmux"))
 			return run_cell_mux(cell);
+
+		if (cell->type.in("$dff", "$adff"))
+			return run_cell_dff(cell);
 
 		SigSpec sig = mi.sigmap(cell->getPort("\\Y"));
 
@@ -300,10 +387,18 @@ struct WreduceWorker
 
 	void run()
 	{
-		for (auto w : module->wires())
+		for (auto w : module->wires()) {
 			if (w->get_bool_attribute("\\keep"))
 				for (auto bit : mi.sigmap(w))
 					keep_bits.insert(bit);
+			if (w->attributes.count("\\init")) {
+				Const initval = w->attributes.at("\\init");
+				SigSpec initsig = mi.sigmap(w);
+				int width = std::min(GetSize(initval), GetSize(initsig));
+				for (int i = 0; i < width; i++)
+					init_bits[initsig[i]] = initval[i];
+			}
+		}
 
 		for (auto c : module->selected_cells())
 			work_queue_cells.insert(c);

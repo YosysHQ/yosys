@@ -33,7 +33,7 @@
 #  include <dlfcn.h>
 #endif
 
-#ifdef _WIN32
+#if defined(_WIN32)
 #  include <windows.h>
 #  include <io.h>
 #elif defined(__APPLE__)
@@ -41,13 +41,15 @@
 #  include <unistd.h>
 #  include <dirent.h>
 #  include <sys/stat.h>
-#  include <glob.h>
 #else
 #  include <unistd.h>
 #  include <dirent.h>
 #  include <sys/types.h>
 #  include <sys/wait.h>
 #  include <sys/stat.h>
+#endif
+
+#if !defined(_WIN32) && defined(YOSYS_ENABLE_GLOB)
 #  include <glob.h>
 #endif
 
@@ -216,12 +218,18 @@ std::string next_token(std::string &text, const char *sep, bool long_strings)
 
 	if (long_strings && pos_begin != text.size() && text[pos_begin] == '"') {
 		string sep_string = sep;
-		for (size_t i = pos_begin+1; i < text.size(); i++)
+		for (size_t i = pos_begin+1; i < text.size(); i++) {
 			if (text[i] == '"' && (i+1 == text.size() || sep_string.find(text[i+1]) != std::string::npos)) {
 				std::string token = text.substr(pos_begin, i-pos_begin+1);
 				text = text.substr(i+1);
 				return token;
 			}
+			if (i+1 < text.size() && text[i] == '"' && text[i+1] == ';' && (i+2 == text.size() || sep_string.find(text[i+2]) != std::string::npos)) {
+				std::string token = text.substr(pos_begin, i-pos_begin+1);
+				text = text.substr(i+2);
+				return token + ";";
+			}
+		}
 	}
 
 	size_t pos_end = text.find_first_of(sep, pos_begin);
@@ -564,7 +572,7 @@ std::vector<std::string> glob_filename(const std::string &filename_pattern)
 {
 	std::vector<std::string> results;
 
-#ifdef _WIN32
+#if defined(_WIN32) || !defined(YOSYS_ENABLE_GLOB)
 	results.push_back(filename_pattern);
 #else
 	glob_t globbuf;

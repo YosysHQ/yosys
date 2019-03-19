@@ -6,7 +6,6 @@ code_hdl_models_d_latch_gates.v	combinational loop
 code_hdl_models_dff_async_reset.v	$adff
 code_hdl_models_tff_async_reset.v	$adff
 code_hdl_models_uart.v	$adff
-code_specman_switch_fabric.v	subfield assignment (bits() <= ...)
 code_tidbits_asyn_reset.v	$adff
 code_tidbits_reg_seq_example.v	$adff
 code_verilog_tutorial_always_example.v	empty module

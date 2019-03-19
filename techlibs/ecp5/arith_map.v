@@ -33,7 +33,7 @@ module _80_ecp5_alu (A, B, CI, BI, X, Y, CO);
 	input CI, BI;
 	output [Y_WIDTH-1:0] CO;
 
-	wire _TECHMAP_FAIL_ = Y_WIDTH <= 2;
+	wire _TECHMAP_FAIL_ = Y_WIDTH <= 4;
 
 	wire [Y_WIDTH-1:0] A_buf, B_buf;
 	\$pos #(.A_SIGNED(A_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(Y_WIDTH)) A_conv (.A(A), .Y(A_buf));

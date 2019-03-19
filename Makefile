@@ -10,6 +10,7 @@ CONFIG := clang
 # features (the more the better)
 ENABLE_TCL := 1
 ENABLE_ABC := 1
+ENABLE_GLOB := 1
 ENABLE_PLUGINS := 1
 ENABLE_READLINE := 1
 ENABLE_EDITLINE := 0
@@ -100,7 +101,7 @@ LDFLAGS += -rdynamic
 LDLIBS += -lrt
 endif
 
-YOSYS_VER := 0.8+$(shell cd $(YOSYS_SRC) && test -e .git && { git log --author=clifford@clifford.at --oneline 4d4665b.. | wc -l; })
+YOSYS_VER := 0.8+$(shell cd $(YOSYS_SRC) && test -e .git && { git log --author=clifford@clifford.at --oneline 4d4665b.. 2> /dev/null | wc -l; })
 GIT_REV := $(shell cd $(YOSYS_SRC) && git rev-parse --short HEAD 2> /dev/null || echo UNKNOWN)
 OBJS = kernel/version_$(GIT_REV).o
 
@@ -296,6 +297,10 @@ LDLIBS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKG_CONFIG) --silence-err
 ifneq ($(OS), FreeBSD)
 LDLIBS += -ldl
 endif
+endif
+
+ifeq ($(ENABLE_GLOB),1)
+CXXFLAGS += -DYOSYS_ENABLE_GLOB
 endif
 
 ifeq ($(ENABLE_TCL),1)
@@ -570,7 +575,7 @@ test: $(TARGETS) $(EXTRA_TARGETS)
 	+cd tests/simple && bash run-test.sh $(SEEDOPT)
 	+cd tests/hana && bash run-test.sh $(SEEDOPT)
 	+cd tests/asicworld && bash run-test.sh $(SEEDOPT)
-	+cd tests/realmath && bash run-test.sh $(SEEDOPT)
+	# +cd tests/realmath && bash run-test.sh $(SEEDOPT)
 	+cd tests/share && bash run-test.sh $(SEEDOPT)
 	+cd tests/fsm && bash run-test.sh $(SEEDOPT)
 	+cd tests/techmap && bash run-test.sh

@@ -3695,6 +3695,25 @@ module RAM128X1S (...);
     input A0, A1, A2, A3, A4, A5, A6, D, WCLK, WE;
 endmodule
 
+module RAM128X1D (
+  output       DPO, SPO,
+  input        D, WCLK, WE,
+  input  [6:0] A, DPRA
+);
+	parameter [127:0] INIT = 128'bx;
+	parameter IS_WCLK_INVERTED = 0;
+endmodule
+
+module RAM64X1D (
+  output DPO, SPO,
+  input  D, WCLK, WE,
+  input  A0, A1, A2, A3, A4, A5,
+  input  DPRA0, DPRA1, DPRA2, DPRA3, DPRA4, DPRA5
+);
+	parameter [63:0] INIT = 64'bx;
+	parameter IS_WCLK_INVERTED = 0;
+endmodule
+
 module RAM256X1S (...);
     parameter [255:0] INIT = 256'h0;
     parameter [0:0] IS_WCLK_INVERTED = 1'b0;

@@ -7,8 +7,8 @@ module \$__ICE40_RAM4K (
 	input  [10:0] WADDR,
 	input  [15:0] MASK, WDATA
 );
-	parameter integer READ_MODE = 0;
-	parameter integer WRITE_MODE = 0;
+	parameter [1:0] READ_MODE = 0;
+	parameter [1:0] WRITE_MODE = 0;
 	parameter [0:0] NEGCLK_R = 0;
 	parameter [0:0] NEGCLK_W = 0;
 
