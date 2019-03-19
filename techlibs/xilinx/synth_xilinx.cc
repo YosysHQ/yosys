@@ -120,7 +120,8 @@ struct SynthXilinxPass : public Pass
 		log("\n");
 		log("    map_cells:\n");
 		log("        techmap -map +/xilinx/cells_map.v\n");
-		log("        dffinit -ff FDRE Q INIT -ff FDCE Q INIT -ff FDPE Q INIT -ff FDSE Q INIT\n");
+		log("        dffinit -ff FDRE   Q INIT -ff FDCE   Q INIT -ff FDPE   Q INIT -ff FDSE   Q INIT \\\n");
+		log("                -ff FDRE_1 Q INIT -ff FDCE_1 Q INIT -ff FDPE_1 Q INIT -ff FDSE_1 Q INIT\n");
 		log("        clean\n");
 		log("\n");
 		log("    check:\n");
@@ -274,7 +275,8 @@ struct SynthXilinxPass : public Pass
 		if (check_label(active, run_from, run_to, "map_cells"))
 		{
 			Pass::call(design, "techmap -map +/xilinx/cells_map.v");
-			Pass::call(design, "dffinit -ff FDRE Q INIT -ff FDCE Q INIT -ff FDPE Q INIT -ff FDSE Q INIT");
+			Pass::call(design, "dffinit -ff FDRE Q INIT -ff FDCE Q INIT -ff FDPE Q INIT -ff FDSE Q INIT "
+					"-ff FDRE_1 Q INIT -ff FDCE_1 Q INIT -ff FDPE_1 Q INIT -ff FDSE_1 Q INIT");
 			Pass::call(design, "clean");
 		}
 
