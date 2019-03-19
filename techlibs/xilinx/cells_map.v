@@ -76,7 +76,7 @@ module \$__SHREG_ (input C, input D, input [31:0] L, input E, output Q);
       if (&_TECHMAP_CONSTMSK_L_)
         assign Q = T4;
       else begin
-         MUXF7 fpga_mux_0 (.O(T5), .I0(T0), .I1(T2), .S(L[5]));
+        MUXF7 fpga_mux_0 (.O(T5), .I0(T0), .I1(T2), .S(L[5]));
         MUXF7 fpga_mux_1 (.O(T6), .I0(T4), .I1(1'b0 /* unused */), .S(L[5]));
         MUXF8 fpga_mux_2 (.O(Q), .I0(T5), .I1(T6), .S(L[6]));
       end
