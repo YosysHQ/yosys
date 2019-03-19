@@ -187,19 +187,12 @@ struct ShregmapTechXilinx7 : ShregmapTech
 		if (it == sigbit_to_shiftx_offset.end())
 			return true;
 
-		auto cell_q = cell->getPort("\\Q");
-		log_assert(cell_q.is_bit());
-
 		Cell* shiftx = it->second.first;
-		// FIXME: Hack to ensure that $shiftx gets optimised away
-		//   Without this, Yosys will refuse to optimise away a $shiftx
-		//   where \\A 's width is not perfectly \\B_WIDTH ** 2
-		// See YosysHQ/yosys#878
-		auto shiftx_bwidth = shiftx->getParam("\\B_WIDTH").as_int();
-		shiftx->setPort("\\A", cell_q.repeat(1 << shiftx_bwidth));
-		shiftx->setParam("\\A_WIDTH", 1 << shiftx_bwidth);
 
 		cell->setPort("\\L", shiftx->getPort("\\B"));
+		cell->setPort("\\Q", shiftx->getPort("\\Y"));
+
+		cell->module->remove(shiftx);
 
 		return true;
 	}
