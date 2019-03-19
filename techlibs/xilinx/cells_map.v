@@ -106,7 +106,7 @@ module \$__SHREG_ (input C, input D, input [31:0] L, input E, output Q);
       else begin
         // For variable length, bump up to the next length
         // because we can't access Q31
-        \$__SHREG_ #(.DEPTH(DEPTH+1), .INIT(INIT), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) _TECHMAP_REPLACE_ (.C(C), .D(D), .L(L), .E(E), .Q(Q));
+        \$__SHREG_ #(.DEPTH(DEPTH+1), .INIT({INIT,1'b0}), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) _TECHMAP_REPLACE_ (.C(C), .D(D), .L(L), .E(E), .Q(Q));
       end
     end 
     else begin
