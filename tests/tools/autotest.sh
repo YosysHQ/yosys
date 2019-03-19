@@ -108,8 +108,9 @@ shift $((OPTIND - 1))
 
 for fn
 do
-	bn=${fn%.v}
-	if [ "$bn" == "$fn" ]; then
+	bn=${fn%.*}
+	ext=${fn##*.}
+	if [[ "$ext" != "v" ]] && [[ "$ext" != "aag" ]] && [[ "$ext" != "aig" ]]; then
 		echo "Invalid argument: $fn" >&2
 		exit 1
 	fi
@@ -132,8 +133,12 @@ do
 		bn=$(basename $bn)
 
 		rm -f ${bn}_ref.fir
-
-		egrep -v '^\s*`timescale' ../$fn > ${bn}_ref.v
+		if [[ "$ext" == "v" ]]; then
+			egrep -v '^\s*`timescale' ../$fn > ${bn}_ref.${ext}
+		else
+			"$toolsdir"/../../yosys -f "$frontend $include_opts" -b "verilog" -o ${bn}_ref.v ../${fn}
+			frontend="verilog"
+		fi
 
 		if [ ! -f ../${bn}_tb.v ]; then
 			"$toolsdir"/../../yosys -f "$frontend $include_opts" -b "test_autotb $autotb_opts" -o ${bn}_tb.v ${bn}_ref.v
@@ -141,7 +146,8 @@ do
 			cp ../${bn}_tb.v ${bn}_tb.v
 		fi
 		if $genvcd; then sed -i 's,// \$dump,$dump,g' ${bn}_tb.v; fi
-		compile_and_run ${bn}_tb_ref ${bn}_out_ref ${bn}_tb.v ${bn}_ref.v $libs
+		compile_and_run ${bn}_tb_ref ${bn}_out_ref ${bn}_tb.v ${bn}_ref.v $libs \
+					"$toolsdir"/../../techlibs/common/simlib.v
 		if $genvcd; then mv testbench.vcd ${bn}_ref.vcd; fi
 
 		test_count=0

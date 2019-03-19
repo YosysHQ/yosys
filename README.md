@@ -105,11 +105,14 @@ Makefile.
 To build Yosys simply type 'make' in this directory.
 
 	$ make
-	$ make test
 	$ sudo make install
 
 Note that this also downloads, builds and installs ABC (using yosys-abc
 as executable name).
+
+Tests are located in the tests subdirectory and can be executed using the test target. Note that you need gawk as well as a recent version of iverilog (i.e. build from git). Then, execute tests via:
+
+	$ make test
 
 Getting Started
 ===============

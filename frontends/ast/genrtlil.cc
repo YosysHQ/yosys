@@ -525,7 +525,16 @@ struct AST_INTERNAL::ProcessGenerator
 				}
 
 				if (last_generated_case != NULL && ast->get_bool_attribute("\\full_case") && default_case == NULL) {
+			#if 0
+					// this is a valid transformation, but as optimization it is premature.
+					// better: add a default case that assigns 'x' to everything, and let later
+					// optimizations take care of the rest
 					last_generated_case->compare.clear();
+			#else
+					default_case = new RTLIL::CaseRule;
+					addChunkActions(default_case->actions, this_case_eq_ltemp, SigSpec(State::Sx, GetSize(this_case_eq_rvalue)));
+					sw->cases.push_back(default_case);
+			#endif
 				} else {
 					if (default_case == NULL) {
 						default_case = new RTLIL::CaseRule;
