@@ -118,7 +118,7 @@ struct ShregmapTechXilinx7 : ShregmapTech
 		auto it = sigbit_to_shiftx_offset.find(bit);
 		if (it == sigbit_to_shiftx_offset.end())
 			return;
-		if (cell->type == "$shiftx" && port == "\\A")
+		if (cell && cell->type == "$shiftx" && port == "\\A")
 			return;
 		sigbit_to_shiftx_offset.erase(it);
 	}
@@ -228,8 +228,10 @@ struct ShregmapWorker
 	for (auto wire : module->wires())
 	{
 	    if (wire->port_output || wire->get_bool_attribute("\\keep")) {
-		for (auto bit : sigmap(wire))
+		for (auto bit : sigmap(wire)) {
 		    sigbit_with_non_chain_users.insert(bit);
+		    if (opts.tech) opts.tech->non_chain_user(bit, nullptr, {});
+		}
 	    }
 
 	    if (wire->attributes.count("\\init")) {
