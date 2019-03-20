@@ -176,19 +176,30 @@ struct ShregmapTechXilinx7 : ShregmapTech
 	{
 		const auto &tap = *taps.begin();
 		auto bit = tap.second;
+
 		auto it = sigbit_to_shiftx_offset.find(bit);
 		// If fixed-length, no fixup necessary
 		if (it == sigbit_to_shiftx_offset.end())
 			return true;
 
+		auto newcell = cell->module->addCell(NEW_ID, "$__XILINX_SHREG_");
+		newcell->setParam("\\DEPTH", cell->getParam("\\DEPTH"));
+		newcell->setParam("\\INIT", cell->getParam("\\INIT"));
+		newcell->setParam("\\CLKPOL", cell->getParam("\\CLKPOL"));
+		newcell->setParam("\\ENPOL", cell->getParam("\\ENPOL"));
+
+		newcell->setPort("\\C", cell->getPort("\\C"));
+		newcell->setPort("\\D", cell->getPort("\\D"));
+		newcell->setPort("\\E", cell->getPort("\\E"));
+
 		Cell* shiftx = it->second.first;
 
-		cell->setPort("\\L", shiftx->getPort("\\B"));
-		cell->setPort("\\Q", shiftx->getPort("\\Y"));
+		newcell->setPort("\\L", shiftx->getPort("\\B"));
+		newcell->setPort("\\Q", shiftx->getPort("\\Y"));
 
 		cell->module->remove(shiftx);
 
-		return true;
+		return false;
 	}
 };
 
@@ -442,8 +453,6 @@ start_cell:
 
 	    first_cell->type = shreg_cell_type_str;
 	    first_cell->setPort(q_port, last_cell->getPort(q_port));
-	    if (!first_cell->hasPort("\\L"))
-		    first_cell->setPort("\\L", depth-1);
 	    first_cell->setParam("\\DEPTH", depth);
 
 	    if (opts.tech != nullptr && !opts.tech->fixup(first_cell, taps_dict))
