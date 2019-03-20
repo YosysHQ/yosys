@@ -105,23 +105,79 @@ module \$__SHREG_ (input C, input D, input [31:0] L, input E, output Q);
       end
       else begin
         // For variable length, bump up to the next length
-        // because we can't access Q31
         \$__SHREG_ #(.DEPTH(DEPTH+1), .INIT({INIT,1'b0}), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) _TECHMAP_REPLACE_ (.C(C), .D(D), .L(L), .E(E), .Q(Q));
       end
     end 
     else begin
-      if (&_TECHMAP_CONSTMSK_L_) begin
-        // UG474 (v1.8, p34) states that:
-        //   "There are no direct connections between slices to form longer shift
-        //    registers, nor is the MC31 output at LUT B/C/D available."
-        wire T0;
-        \$__SHREG_ #(.DEPTH(128), .INIT(INIT[DEPTH-1:DEPTH-128]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_0 (.C(C), .D(D), .L(127), .E(E), .Q(T0));
-        \$__SHREG_ #(.DEPTH(DEPTH-128), .INIT(INIT[DEPTH-128-1:0]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_1 (.C(C), .D(T0), .L(DEPTH-1-128), .E(E), .Q(Q));
-      end
+        \$__XILINX_SHREG_ #(.DEPTH(DEPTH), .INIT(INIT), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) _TECHMAP_REPLACE_ (.C(C), .D(D), .L(L), .E(E), .Q(Q));
+    end
+  endgenerate
+endmodule
+
+module \$__XILINX_SHREG_ (input C, input D, input [31:0] L, input E, output Q, output SO);
+  parameter DEPTH = 0;
+  parameter [DEPTH-1:0] INIT = 0;
+  parameter CLKPOL = 1;
+  parameter ENPOL = 2;
+
+  // shregmap's INIT parameter shifts out LSB first;
+  // however Xilinx expects MSB first
+  function [DEPTH-1:0] brev;
+    input [DEPTH-1:0] din;
+    integer i;
+    begin
+      for (i = 0; i < DEPTH; i=i+1)
+        brev[i] = din[DEPTH-1-i];
+    end
+  endfunction
+  localparam [DEPTH-1:0] INIT_R = brev(INIT);
+
+  parameter _TECHMAP_CONSTMSK_L_ = 0;
+  parameter _TECHMAP_CONSTVAL_L_ = 0;
+
+  generate
+    if (DEPTH == 1) begin
+        \$__SHREG_ #(.DEPTH(DEPTH), .INIT(INIT), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) _TECHMAP_REPLACE_ (.C(C), .D(D), .L(0), .E(E), .Q(Q));
+    end
+    else if (DEPTH < 128) begin
+        \$__SHREG_ #(.DEPTH(DEPTH), .INIT(INIT), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) _TECHMAP_REPLACE_ (.C(C), .D(D), .L(L), .E(E), .Q(Q));
+    end
+    else if (DEPTH == 128) begin
+      wire CE;
+      if (ENPOL == 0)
+        assign CE = ~E;
+      else if (ENPOL == 1)
+        assign CE = E;
+      else
+        assign CE = 1'b1;
+
+      wire T0, T1, T2, T3, T4, T5, T6;
+      SRLC32E #(.INIT(INIT_R[32-1:0]), .IS_CLK_INVERTED(~CLKPOL[0])) fpga_srl_0 (.A(L[4:0]), .CE(CE), .CLK(C), .D(D), .Q(T0), .Q31(T1));
+      SRLC32E #(.INIT(INIT_R[64-1:32]), .IS_CLK_INVERTED(~CLKPOL[0])) fpga_srl_1 (.A(L[4:0]), .CE(CE), .CLK(C), .D(T1), .Q(T2), .Q31(T3));
+      SRLC32E #(.INIT(INIT_R[96-1:64]), .IS_CLK_INVERTED(~CLKPOL[0])) fpga_srl_2 (.A(L[4:0]), .CE(CE), .CLK(C), .D(T3), .Q(T4), .Q31(T5));
+      SRLC32E #(.INIT(INIT_R[128-1:96]), .IS_CLK_INVERTED(~CLKPOL[0])) fpga_srl_3 (.A(L[4:0]), .CE(CE), .CLK(C), .D(T5), .Q(T6), .Q31(SO));
+      if (&_TECHMAP_CONSTMSK_L_)
+        assign Q = T6;
       else begin
-        // No way to create variable length shift registers >128 bits as Q31
-        // cannot be output to the fabric...
-        wire _TECHMAP_FAIL_ = 1;
+        wire T7, T8;
+        MUXF7 fpga_mux_0 (.O(T7), .I0(T0), .I1(T2), .S(L[5]));
+        MUXF7 fpga_mux_1 (.O(T8), .I0(T4), .I1(T6), .S(L[5]));
+        MUXF8 fpga_mux_2 (.O(Q), .I0(T7), .I1(T8), .S(L[6]));
+      end
+    end
+    else if (DEPTH > 128) begin
+      localparam lower_clog2 = $clog2((DEPTH+1)/2);
+      localparam lower_depth = 2 ** lower_clog2;
+      wire T0, T1, T2;
+      \$__XILINX_SHREG_ #(.DEPTH(lower_depth), .INIT(INIT[DEPTH-1:DEPTH-lower_depth]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_0 (.C(C), .D(D), .L(L[lower_clog2-1:0]), .E(E), .Q(T0), .SO(T1));
+      \$__XILINX_SHREG_ #(.DEPTH(DEPTH-lower_depth), .INIT(INIT[DEPTH-lower_depth-1:0]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_1 (.C(C), .D(T1), .L(L[lower_clog2-1:0]), .E(E), .Q(T2));
+      if (&_TECHMAP_CONSTMSK_L_)
+        assign Q = T2;
+      else begin
+        //assign Q = L[lower_clog2-1] ? T2 : T0;
+        // FIXME: Need to instantiate 2:1 MUX here since
+        //        techmap with this file is run AFTER abc
+        LUT3 #(.INIT(8'b10101100)) fpga_mux (.I0(T2), .I1(T0), .I2(L[lower_clog2]), .O(Q));
       end
     end
   endgenerate
