@@ -64,10 +64,13 @@ struct SynthXilinxPass : public Pass
 		log("        (this feature is experimental and incomplete)\n");
 		log("\n");
 		log("    -nobram\n");
-		log("        disable infering of block rams\n");
+		log("        disable inference of block rams\n");
 		log("\n");
 		log("    -nodram\n");
-		log("        disable infering of distributed rams\n");
+		log("        disable inference of distributed rams\n");
+		log("\n");
+		log("    -nobram\n");
+		log("        disable inference of shift registers\n");
 		log("\n");
 		log("    -run <from_label>:<to_label>\n");
 		log("        only run the commands between the labels (see below). an empty\n");
@@ -110,8 +113,8 @@ struct SynthXilinxPass : public Pass
 		log("        dffsr2dff\n");
 		log("        dff2dffe\n");
 		log("        opt -full\n");
-		log("        simplemap t:$dff*\n");
-		log("        shregmap -tech xilinx\n");
+		log("        simplemap t:$dff* (only without -nosrl)\n");
+		log("        shregmap -tech xilinx (only without -nosrl)\n");
 		log("        techmap -map +/techmap.v -map +/xilinx/arith_map.v -map +/xilinx/ff_map.v\n");
 		log("        opt -fast\n");
 		log("\n");
@@ -149,6 +152,7 @@ struct SynthXilinxPass : public Pass
 		bool vpr = false;
 		bool nobram = false;
 		bool nodram = false;
+		bool nosrl = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -191,6 +195,10 @@ struct SynthXilinxPass : public Pass
 			}
 			if (args[argidx] == "-nodram") {
 				nodram = true;
+				continue;
+			}
+			if (args[argidx] == "-nosrl") {
+				nosrl = true;
 				continue;
 			}
 			break;
@@ -257,8 +265,10 @@ struct SynthXilinxPass : public Pass
 			Pass::call(design, "dff2dffe");
 			Pass::call(design, "opt -full");
 
-			Pass::call(design, "simplemap t:$dff*");
-			Pass::call(design, "shregmap -tech xilinx");
+			if (!nosrl) {
+				Pass::call(design, "simplemap t:$dff*");
+				Pass::call(design, "shregmap -tech xilinx");
+			}
 
 			if (vpr) {
 				Pass::call(design, "techmap -map +/techmap.v -map +/xilinx/arith_map.v -map +/xilinx/ff_map.v -D _EXPLICIT_CARRY");
