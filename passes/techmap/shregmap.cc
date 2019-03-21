@@ -102,7 +102,7 @@ struct ShregmapTechXilinx7 : ShregmapTech
 
 	virtual void init(const Module* module, const SigMap &sigmap) override
 	{
-		for (auto i : module->cells_) {
+		for (const auto &i : module->cells_) {
 			auto cell = i.second;
 			if (cell->type != "$shiftx") continue;
 			if (cell->getParam("\\Y_WIDTH") != 1) continue;
