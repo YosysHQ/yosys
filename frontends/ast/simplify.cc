@@ -138,9 +138,15 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				int mem_width, mem_size, addr_bits;
 				node->meminfo(mem_width, mem_size, addr_bits);
 
+				int data_range_left = node->children[0]->range_left;
+				int data_range_right = node->children[0]->range_right;
+
+				if (node->children[0]->range_swapped)
+					std::swap(data_range_left, data_range_right);
+
 				for (int i = 0; i < mem_size; i++) {
 					AstNode *reg = new AstNode(AST_WIRE, new AstNode(AST_RANGE,
-							mkconst_int(mem_width-1, true), mkconst_int(0, true)));
+							mkconst_int(data_range_left, true), mkconst_int(data_range_right, true)));
 					reg->str = stringf("%s[%d]", node->str.c_str(), i);
 					reg->is_reg = true;
 					reg->is_signed = node->is_signed;
@@ -975,6 +981,9 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 		int data_range_left = id2ast->children[0]->range_left;
 		int data_range_right = id2ast->children[0]->range_right;
+
+		if (id2ast->children[0]->range_swapped)
+			std::swap(data_range_left, data_range_right);
 
 		std::stringstream sstr;
 		sstr << "$mem2bits$" << str << "$" << filename << ":" << linenum << "$" << (autoidx++);
