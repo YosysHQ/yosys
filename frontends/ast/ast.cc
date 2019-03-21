@@ -431,9 +431,12 @@ void AstNode::dumpVlog(FILE *f, std::string indent) const
 		break;
 
 	case AST_RANGE:
-		if (range_valid)
-			fprintf(f, "[%d:%d]", range_left, range_right);
-		else {
+		if (range_valid) {
+			if (range_swapped)
+				fprintf(f, "[%d:%d]", range_right, range_left);
+			else
+				fprintf(f, "[%d:%d]", range_left, range_right);
+		} else {
 			for (auto child : children) {
 				fprintf(f, "%c", first ? '[' : ':');
 				child->dumpVlog(f, "");
