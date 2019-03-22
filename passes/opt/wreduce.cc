@@ -54,6 +54,7 @@ struct WreduceWorker
 	std::set<SigBit> work_queue_bits;
 	pool<SigBit> keep_bits;
 	dict<SigBit, State> init_bits;
+	pool<SigBit> remove_init_bits;
 
 	WreduceWorker(WreduceConfig *config, Module *module) :
 			config(config), module(module), mi(module) { }
@@ -164,6 +165,7 @@ struct WreduceWorker
 		{
 			if (zero_ext && sig_d[i] == State::S0 && (initval[i] == State::S0 || initval[i] == State::Sx)) {
 				module->connect(sig_q[i], State::S0);
+				remove_init_bits.insert(sig_q[i]);
 				sig_d.remove(i);
 				sig_q.remove(i);
 				continue;
@@ -171,6 +173,7 @@ struct WreduceWorker
 
 			if (sign_ext && i > 0 && sig_d[i] == sig_d[i-1] && initval[i] == initval[i-1]) {
 				module->connect(sig_q[i], sig_q[i-1]);
+				remove_init_bits.insert(sig_q[i]);
 				sig_d.remove(i);
 				sig_q.remove(i);
 				continue;
@@ -178,6 +181,7 @@ struct WreduceWorker
 
 			auto info = mi.query(sig_q[i]);
 			if (!info->is_output && GetSize(info->ports) == 1 && !keep_bits.count(mi.sigmap(sig_q[i]))) {
+				remove_init_bits.insert(sig_q[i]);
 				sig_d.remove(i);
 				sig_q.remove(i);
 				zero_ext = false;
@@ -387,13 +391,16 @@ struct WreduceWorker
 
 	void run()
 	{
+		// create a copy as mi.sigmap will be updated as we process the module
+		SigMap init_attr_sigmap = mi.sigmap;
+
 		for (auto w : module->wires()) {
 			if (w->get_bool_attribute("\\keep"))
 				for (auto bit : mi.sigmap(w))
 					keep_bits.insert(bit);
 			if (w->attributes.count("\\init")) {
 				Const initval = w->attributes.at("\\init");
-				SigSpec initsig = mi.sigmap(w);
+				SigSpec initsig = init_attr_sigmap(w);
 				int width = std::min(GetSize(initval), GetSize(initsig));
 				for (int i = 0; i < width; i++)
 					init_bits[initsig[i]] = initval[i];
@@ -445,6 +452,24 @@ struct WreduceWorker
 			Wire *nw = module->addWire(NEW_ID, GetSize(w) - unused_top_bits);
 			module->connect(nw, SigSpec(w).extract(0, GetSize(nw)));
 			module->swap_names(w, nw);
+		}
+
+		if (!remove_init_bits.empty()) {
+			for (auto w : module->wires()) {
+				if (w->attributes.count("\\init")) {
+					Const initval = w->attributes.at("\\init");
+					Const new_initval(State::Sx, GetSize(w));
+					SigSpec initsig = init_attr_sigmap(w);
+					int width = std::min(GetSize(initval), GetSize(initsig));
+					for (int i = 0; i < width; i++) {
+						log_dump(initsig[i], remove_init_bits.count(initsig[i]));
+						if (!remove_init_bits.count(initsig[i]))
+							new_initval[i] = initval[i];
+					}
+					w->attributes.at("\\init") = new_initval;
+					log_dump(w->name, initval, new_initval);
+				}
+			}
 		}
 	}
 };
