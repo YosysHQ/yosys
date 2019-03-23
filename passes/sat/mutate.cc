@@ -46,6 +46,8 @@ struct mutate_opts_t {
 	IdString ctrl_name;
 	int ctrl_width = -1, ctrl_value = -1;
 
+	bool none = false;
+
 	int pick_cover_prcnt = 80;
 
 	int weight_cover = 500;
@@ -526,7 +528,7 @@ void mutate_list(Design *design, const mutate_opts_t &opts, const string &filena
 
 	log("Raw database size: %d\n", GetSize(database));
 	if (N != 0) {
-		database_reduce(database, opts, N, rng);
+		database_reduce(database, opts, opts.none ? N-1 : N, rng);
 		log("Reduced database size: %d\n", GetSize(database));
 	}
 
@@ -549,6 +551,17 @@ void mutate_list(Design *design, const mutate_opts_t &opts, const string &filena
 	}
 
 	int ctrl_value = opts.ctrl_value;
+
+	if (opts.none) {
+		string str = "mutate";
+		if (!opts.ctrl_name.empty())
+			str += stringf(" -ctrl %s %d %d", log_id(opts.ctrl_name), opts.ctrl_width, ctrl_value++);
+		str += " -mode none";
+		if (filename.empty())
+			log("%s\n", str.c_str());
+		else
+			fout << str << std::endl;
+	}
 
 	for (auto &entry : database) {
 		string str = "mutate";
@@ -730,6 +743,9 @@ struct MutatePass : public Pass {
 		log("    -seed N\n");
 		log("        RNG seed for selecting mutations\n");
 		log("\n");
+		log("    -none\n");
+		log("        Include a \"none\" mutation in the output\n");
+		log("\n");
 		log("    -ctrl name width value\n");
 		log("        Add -ctrl options to the output. Use 'value' for first mutation, then\n");
 		log("        simply count up from there.\n");
@@ -800,6 +816,10 @@ struct MutatePass : public Pass {
 			}
 			if (args[argidx] == "-seed" && argidx+1 < args.size()) {
 				opts.seed = atoi(args[++argidx].c_str());
+				continue;
+			}
+			if (args[argidx] == "-none") {
+				opts.none = true;
 				continue;
 			}
 			if (args[argidx] == "-mode" && argidx+1 < args.size()) {
@@ -902,6 +922,15 @@ struct MutatePass : public Pass {
 
 		if (N >= 0) {
 			mutate_list(design, opts, filename, srcsfile, N);
+			return;
+		}
+
+		if (opts.mode == "none") {
+			if (!opts.ctrl_name.empty()) {
+				Module *topmod = opts.module.empty() ? design->top_module() : design->module(opts.module);
+				if (topmod)
+					mutate_ctrl_sig(topmod, opts.ctrl_name, opts.ctrl_width);
+			}
 			return;
 		}
 
