@@ -111,6 +111,14 @@ struct ShregmapTechXilinx7 : ShregmapTech
 					sigbit_to_shiftx_offset[bit] = std::make_tuple(cell, j++, 0);
 				log_assert(j == cell->getParam("\\A_WIDTH").as_int());
 			}
+			else if (cell->type == "$mux") {
+				int j = 0;
+				for (auto bit : cell->getPort("\\A"))
+					sigbit_to_shiftx_offset[bit] = std::make_tuple(cell, 0, j++);
+				j = 0;
+				for (auto bit : sigmap(cell->getPort("\\B")))
+					sigbit_to_shiftx_offset[bit] = std::make_tuple(cell, 1, j++);
+			}
 			else if (cell->type == "$pmux") {
 				int width = cell->getParam("\\WIDTH").as_int();
 				int j = 0;
@@ -139,6 +147,8 @@ struct ShregmapTechXilinx7 : ShregmapTech
 			if (cell->type == "$shiftx" && port == "\\A")
 				return;
 			if (cell->type == "$pmux" && (port == "\\A" || port == "\\B"))
+				return;
+			if (cell->type == "$mux" && (port == "\\A" || port == "\\B"))
 				return;
 		}
 		sigbit_to_shiftx_offset.erase(it);
@@ -203,6 +213,10 @@ struct ShregmapTechXilinx7 : ShregmapTech
 			if (GetSize(taps) != shiftx->getParam("\\S_WIDTH").as_int() + 1)
 				return false;
 		}
+		else if (shiftx->type == "$mux") {
+			if (GetSize(taps) != 2)
+				return false;
+		}
 		else log_abort();
 
 		return true;
@@ -243,13 +257,22 @@ struct ShregmapTechXilinx7 : ShregmapTech
 			RTLIL::SigSpec b_port;
 			for (int i = shiftx->getParam("\\S_WIDTH").as_int(); i > 0; i--)
 				b_port.append(RTLIL::Const(i, clog2taps));
+			for (int i = (1 << clog2taps); i > shiftx->getParam("\\S_WIDTH").as_int(); i--)
+				b_port.append(RTLIL::Const(RTLIL::Sx, clog2taps));
 			l_wire = cell->module->addWire(NEW_ID, clog2taps);
-			cell->module->addPmux(NEW_ID, RTLIL::Const(0, clog2taps), b_port, shiftx->getPort("\\S"), l_wire);
+			RTLIL::SigSpec s_wire = cell->module->addWire(NEW_ID, (1 << clog2taps));
+			cell->module->connect(s_wire.extract(0, shiftx->getParam("\\S_WIDTH").as_int()), shiftx->getPort("\\S"));
+			cell->module->addPmux(NEW_ID, RTLIL::Const(0, clog2taps), b_port, s_wire, l_wire);
 			int group = std::get<2>(it->second);
 			RTLIL::SigSpec y_wire = shiftx->getPort("\\Y");
 			q_wire = y_wire[group];
 			y_wire[group] = cell->module->addWire(NEW_ID);
 			shiftx->setPort("\\Y", y_wire);
+		}
+		else if (shiftx->type == "$mux") {
+			l_wire = shiftx->getPort("\\S");
+			q_wire = shiftx->getPort("\\Y");
+			shiftx->setPort("\\Y", cell->module->addWire(NEW_ID));
 		}
 		else log_abort();
 
