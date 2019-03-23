@@ -104,12 +104,23 @@ struct ShregmapTechXilinx7 : ShregmapTech
 	{
 		for (const auto &i : module->cells_) {
 			auto cell = i.second;
-			if (cell->type != "$shiftx") continue;
-			if (cell->getParam("\\Y_WIDTH") != 1) continue;
-			int j = 0;
-			for (auto bit : sigmap(cell->getPort("\\A")))
-				sigbit_to_shiftx_offset[bit] = std::make_pair(cell, j++);
-			log_assert(j == cell->getParam("\\A_WIDTH").as_int());
+			if (cell->type == "$shiftx") {
+				if (cell->getParam("\\Y_WIDTH") != 1) continue;
+				int j = 0;
+				for (auto bit : sigmap(cell->getPort("\\A")))
+					sigbit_to_shiftx_offset[bit] = std::make_pair(cell, j++);
+				log_assert(j == cell->getParam("\\A_WIDTH").as_int());
+			}
+			else if (cell->type == "$pmux") {
+				if (cell->getParam("\\WIDTH") != 1) continue;
+				auto a_bit = sigmap(cell->getPort("\\A")).as_bit();
+				sigbit_to_shiftx_offset[a_bit] = std::make_pair(cell, 0);
+				int j = cell->getParam("\\S_WIDTH").as_int();
+				for (auto bit : sigmap(cell->getPort("\\B")))
+					sigbit_to_shiftx_offset[bit] = std::make_pair(cell, j--);
+				log_assert(j == 0);
+
+			}
 		}
 	}
 
@@ -118,8 +129,12 @@ struct ShregmapTechXilinx7 : ShregmapTech
 		auto it = sigbit_to_shiftx_offset.find(bit);
 		if (it == sigbit_to_shiftx_offset.end())
 			return;
-		if (cell && cell->type == "$shiftx" && port == "\\A")
-			return;
+		if (cell) {
+			if (cell->type == "$shiftx" && port == "\\A")
+				return;
+			if (cell->type == "$pmux" && (port == "\\A" || port == "\\B"))
+				return;
+		}
 		sigbit_to_shiftx_offset.erase(it);
 	}
 
@@ -166,8 +181,15 @@ struct ShregmapTechXilinx7 : ShregmapTech
 		log_assert(shiftx);
 
 		// Only map if $shiftx exclusively covers the shift register
-		if (GetSize(taps) != shiftx->getParam("\\A_WIDTH").as_int())
-			return false;
+		if (shiftx->type == "$shiftx") {
+			if (GetSize(taps) != shiftx->getParam("\\A_WIDTH").as_int())
+				return false;
+		}
+		else if (shiftx->type == "$pmux") {
+			if (GetSize(taps) != shiftx->getParam("\\S_WIDTH").as_int() + 1)
+				return false;
+		}
+		else log_abort();
 
 		return true;
 	}
@@ -193,9 +215,25 @@ struct ShregmapTechXilinx7 : ShregmapTech
 		newcell->setPort("\\E", cell->getPort("\\E"));
 
 		Cell* shiftx = it->second.first;
+		RTLIL::SigSpec l_wire;
+		if (shiftx->type == "$shiftx") {
+			l_wire = shiftx->getPort("\\B");
+		}
+		else if (shiftx->type == "$pmux") {
+			// Create a new encoder, out of a $pmux, that takes
+			// the existing pmux's 'S' input and transforms it
+			// back into a binary value
+			int clog2taps = ceil(log2(taps.size()));
+			RTLIL::SigSpec b_port;
+			for (int i = shiftx->getParam("\\S_WIDTH").as_int(); i > 0; i--)
+				b_port.append(RTLIL::Const(i, clog2taps));
+			l_wire = cell->module->addWire(NEW_ID, clog2taps);
+			cell->module->addPmux(NEW_ID, RTLIL::Const(0, clog2taps), b_port, shiftx->getPort("\\S"), l_wire);
+		}
+		else log_abort();
 
-		newcell->setPort("\\L", shiftx->getPort("\\B"));
 		newcell->setPort("\\Q", shiftx->getPort("\\Y"));
+		newcell->setPort("\\L", l_wire);
 
 		cell->module->remove(shiftx);
 
