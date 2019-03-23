@@ -340,6 +340,7 @@ RTLIL::SigSpec signal_to_mux_tree(RTLIL::Module *mod, SnippetSwCache &swcache, d
 		// evaluate in reverse order to give the first entry the top priority
 		RTLIL::SigSpec initial_val = result;
 		RTLIL::Cell *last_mux_cell = NULL;
+		bool shiftx = true;
 		for (size_t i = 0; i < sw->cases.size(); i++) {
 			int case_idx = sw->cases.size() - i - 1;
 			RTLIL::CaseRule *cs2 = sw->cases[case_idx];
@@ -348,6 +349,26 @@ RTLIL::SigSpec signal_to_mux_tree(RTLIL::Module *mod, SnippetSwCache &swcache, d
 				append_pmux(mod, sw->signal, cs2->compare, value, last_mux_cell, sw, ifxmode);
 			else
 				result = gen_mux(mod, sw->signal, cs2->compare, value, result, last_mux_cell, sw, ifxmode);
+
+			// Ignore output values which are entirely don't care
+			if (shiftx && !value.is_fully_undef()) {
+				// Keep checking if case condition is the same as the current case index
+				if (cs2->compare.size() == 1 && cs2->compare.front().is_fully_const())
+					shiftx = (cs2->compare.front().as_int() == case_idx);
+			}
+		}
+
+		// Transform into a $shiftx if possible
+		if (shiftx && last_mux_cell->type == "$pmux") {
+			// Sanity check that A port of $pmux should be 'bx
+			log_assert(last_mux_cell->getPort("\\A").is_fully_undef());
+			// Because we went in reverse order above, un-reverse its B port here
+			auto b_port = last_mux_cell->getPort("\\B").chunks();
+			std::reverse(b_port.begin(), b_port.end());
+			// Create a $shiftx that shifts by the address line used in the case statement
+			mod->addShiftx(NEW_ID, b_port, sw->signal, last_mux_cell->getPort("\\Y"));
+			// Disconnect $pmux by replacing its output port with a floating wire
+			last_mux_cell->setPort("\\Y", mod->addWire(NEW_ID, last_mux_cell->getParam("\\WIDTH").as_int()));
 		}
 	}
 
