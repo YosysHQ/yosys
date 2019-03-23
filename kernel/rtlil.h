@@ -546,6 +546,14 @@ struct RTLIL::Const
 		return ret;
 	}
 
+	void extu(int width) {
+		bits.resize(width, RTLIL::State::S0);
+	}
+
+	void exts(int width) {
+		bits.resize(width, bits.empty() ? RTLIL::State::Sx : bits.back());
+	}
+
 	inline unsigned int hash() const {
 		unsigned int h = mkhash_init;
 		for (auto b : bits)
