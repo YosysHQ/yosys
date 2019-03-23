@@ -95,7 +95,7 @@ struct ShregmapTechGreenpak4 : ShregmapTech
 
 struct ShregmapTechXilinx7 : ShregmapTech
 {
-	dict<SigBit, std::pair<Cell*,int>> sigbit_to_shiftx_offset;
+	dict<SigBit, std::tuple<Cell*,int,int>> sigbit_to_shiftx_offset;
 	const ShregmapOptions &opts;
 
 	ShregmapTechXilinx7(const ShregmapOptions &opts) : opts(opts) {}
@@ -108,18 +108,25 @@ struct ShregmapTechXilinx7 : ShregmapTech
 				if (cell->getParam("\\Y_WIDTH") != 1) continue;
 				int j = 0;
 				for (auto bit : sigmap(cell->getPort("\\A")))
-					sigbit_to_shiftx_offset[bit] = std::make_pair(cell, j++);
+					sigbit_to_shiftx_offset[bit] = std::make_tuple(cell, j++, 0);
 				log_assert(j == cell->getParam("\\A_WIDTH").as_int());
 			}
 			else if (cell->type == "$pmux") {
-				if (cell->getParam("\\WIDTH") != 1) continue;
-				auto a_bit = sigmap(cell->getPort("\\A")).as_bit();
-				sigbit_to_shiftx_offset[a_bit] = std::make_pair(cell, 0);
-				int j = cell->getParam("\\S_WIDTH").as_int();
-				for (auto bit : sigmap(cell->getPort("\\B")))
-					sigbit_to_shiftx_offset[bit] = std::make_pair(cell, j--);
+				int width = cell->getParam("\\WIDTH").as_int();
+				int j = 0;
+				for (auto bit : cell->getPort("\\A"))
+					sigbit_to_shiftx_offset[bit] = std::make_tuple(cell, 0, j++);
+				j = cell->getParam("\\S_WIDTH").as_int();
+				int k = 0;
+				for (auto bit : sigmap(cell->getPort("\\B"))) {
+					printf("%d\n", bit.offset);
+					sigbit_to_shiftx_offset[bit] = std::make_tuple(cell, j, k++);
+					if (k == width) {
+						k = 0;
+						--j;
+					}
+				}
 				log_assert(j == 0);
-
 			}
 		}
 	}
@@ -140,6 +147,9 @@ struct ShregmapTechXilinx7 : ShregmapTech
 
 	virtual bool analyze(vector<int> &taps, const vector<SigBit> &qbits) override
 	{
+		log("analyze() with %zu taps", taps.size());
+		for (auto t : taps) log(" %d", t);
+		log("\n");
 		if (GetSize(taps) == 1)
 			return taps[0] >= opts.minlen-1;
 
@@ -147,6 +157,7 @@ struct ShregmapTechXilinx7 : ShregmapTech
 			return false;
 
 		Cell *shiftx = nullptr;
+		int group = 0;
 		for (int i = 0; i < GetSize(taps); ++i) {
 			// Check taps are sequential
 			if (i != taps[i])
@@ -159,8 +170,8 @@ struct ShregmapTechXilinx7 : ShregmapTech
 					return false;
 				}
 				else {
-					shiftx = it->second.first;
-					int offset = it->second.second;
+					int offset;
+					std::tie(shiftx,offset,group) = it->second;
 					if (offset != i)
 						return false;
 				}
@@ -170,10 +181,14 @@ struct ShregmapTechXilinx7 : ShregmapTech
 					return false;
 				}
 				else {
-					if (shiftx != it->second.first)
+					Cell *shiftx_ = std::get<0>(it->second);
+					if (shiftx_ != shiftx)
 						return false;
-					int offset = it->second.second;
+					int offset = std::get<1>(it->second);
 					if (offset != i)
+						return false;
+					int group_ = std::get<2>(it->second);
+					if (group_ != group)
 						return false;
 				}
 			}
@@ -214,10 +229,12 @@ struct ShregmapTechXilinx7 : ShregmapTech
 		newcell->setPort("\\D", cell->getPort("\\D"));
 		newcell->setPort("\\E", cell->getPort("\\E"));
 
-		Cell* shiftx = it->second.first;
-		RTLIL::SigSpec l_wire;
+		Cell* shiftx = std::get<0>(it->second);
+		RTLIL::SigSpec l_wire, q_wire;
 		if (shiftx->type == "$shiftx") {
 			l_wire = shiftx->getPort("\\B");
+			q_wire = shiftx->getPort("\\Y");
+			shiftx->setPort("\\Y", cell->module->addWire(NEW_ID));
 		}
 		else if (shiftx->type == "$pmux") {
 			// Create a new encoder, out of a $pmux, that takes
@@ -229,13 +246,16 @@ struct ShregmapTechXilinx7 : ShregmapTech
 				b_port.append(RTLIL::Const(i, clog2taps));
 			l_wire = cell->module->addWire(NEW_ID, clog2taps);
 			cell->module->addPmux(NEW_ID, RTLIL::Const(0, clog2taps), b_port, shiftx->getPort("\\S"), l_wire);
+			int group = std::get<2>(it->second);
+			RTLIL::SigSpec y_wire = shiftx->getPort("\\Y");
+			q_wire = y_wire[group];
+			y_wire[group] = cell->module->addWire(NEW_ID);
+			shiftx->setPort("\\Y", y_wire);
 		}
 		else log_abort();
 
-		newcell->setPort("\\Q", shiftx->getPort("\\Y"));
+		newcell->setPort("\\Q", q_wire);
 		newcell->setPort("\\L", l_wire);
-
-		cell->module->remove(shiftx);
 
 		return false;
 	}
