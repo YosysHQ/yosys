@@ -422,8 +422,9 @@ void database_reduce(std::vector<mutate_t> &database, const mutate_opts_t &opts,
 	log("Covered %d/%d wire bits (%.2f%%).\n", covered_wirebit_cnt, GetSize(coverdb.wirebit_db), 100.0 * covered_wirebit_cnt / GetSize(coverdb.wirebit_db));
 }
 
-void mutate_list(Design *design, const mutate_opts_t &opts, const string &filename, int N)
+void mutate_list(Design *design, const mutate_opts_t &opts, const string &filename, const string &srcsfile, int N)
 {
+	pool<string> sources;
 	std::vector<mutate_t> database;
 	xs128_t rng(opts.seed);
 
@@ -497,6 +498,9 @@ void mutate_list(Design *design, const mutate_opts_t &opts, const string &filena
 						entry.wirebit = bit.offset;
 					}
 
+					if (!srcsfile.empty())
+						sources.insert(entry.src.begin(), entry.src.end());
+
 					entry.mode = "inv";
 					database_add(database, opts, entry);
 
@@ -524,6 +528,16 @@ void mutate_list(Design *design, const mutate_opts_t &opts, const string &filena
 	if (N != 0) {
 		database_reduce(database, opts, N, rng);
 		log("Reduced database size: %d\n", GetSize(database));
+	}
+
+	if (!srcsfile.empty()) {
+		std::ofstream sout;
+		sout.open(srcsfile, std::ios::out | std::ios::trunc);
+		if (!sout.is_open())
+			log_error("Could not open file \"%s\" with write access.\n", srcsfile.c_str());
+		sources.sort();
+		for (auto &s : sources)
+			sout << s << std::endl;
 	}
 
 	std::ofstream fout;
@@ -710,6 +724,9 @@ struct MutatePass : public Pass {
 		log("    -o filename\n");
 		log("        Write list to this file instead of console output\n");
 		log("\n");
+		log("    -s filename\n");
+		log("        Write a list of all src tags found in the design to the specified file\n");
+		log("\n");
 		log("    -seed N\n");
 		log("        RNG seed for selecting mutations\n");
 		log("\n");
@@ -761,6 +778,7 @@ struct MutatePass : public Pass {
 	{
 		mutate_opts_t opts;
 		string filename;
+		string srcsfile;
 		int N = -1;
 
 		log_header(design, "Executing MUTATE pass.\n");
@@ -774,6 +792,10 @@ struct MutatePass : public Pass {
 			}
 			if (args[argidx] == "-o" && argidx+1 < args.size()) {
 				filename = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-s" && argidx+1 < args.size()) {
+				srcsfile = args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-seed" && argidx+1 < args.size()) {
@@ -879,7 +901,7 @@ struct MutatePass : public Pass {
 		extra_args(args, argidx, design);
 
 		if (N >= 0) {
-			mutate_list(design, opts, filename, N);
+			mutate_list(design, opts, filename, srcsfile, N);
 			return;
 		}
 
