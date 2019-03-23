@@ -932,9 +932,8 @@ struct BtorWorker
 
 			btorf_push(stringf("output %s", log_id(wire)));
 
-			int sid = get_bv_sid(GetSize(wire));
 			int nid = get_sig_nid(wire);
-			btorf("%d output %d %d %s\n", next_nid++, sid, nid, log_id(wire));
+			btorf("%d output %d %s\n", next_nid++, nid, log_id(wire));
 
 			btorf_pop(stringf("output %s", log_id(wire)));
 		}
