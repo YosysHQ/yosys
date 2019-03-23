@@ -240,7 +240,8 @@ struct ShregmapTechXilinx7 : ShregmapTech
 
 		newcell->setPort("\\C", cell->getPort("\\C"));
 		newcell->setPort("\\D", cell->getPort("\\D"));
-		newcell->setPort("\\E", cell->getPort("\\E"));
+		if (cell->hasPort("\\E"))
+			newcell->setPort("\\E", cell->getPort("\\E"));
 
 		Cell* shiftx = std::get<0>(it->second);
 		RTLIL::SigSpec l_wire, q_wire;
@@ -257,10 +258,8 @@ struct ShregmapTechXilinx7 : ShregmapTech
 			RTLIL::SigSpec b_port;
 			for (int i = shiftx->getParam("\\S_WIDTH").as_int(); i > 0; i--)
 				b_port.append(RTLIL::Const(i, clog2taps));
-			for (int i = (1 << clog2taps); i > shiftx->getParam("\\S_WIDTH").as_int(); i--)
-				b_port.append(RTLIL::Const(RTLIL::Sx, clog2taps));
 			l_wire = cell->module->addWire(NEW_ID, clog2taps);
-			RTLIL::SigSpec s_wire = cell->module->addWire(NEW_ID, (1 << clog2taps));
+			RTLIL::SigSpec s_wire = cell->module->addWire(NEW_ID, shiftx->getParam("\\S_WIDTH").as_int());
 			cell->module->connect(s_wire.extract(0, shiftx->getParam("\\S_WIDTH").as_int()), shiftx->getPort("\\S"));
 			cell->module->addPmux(NEW_ID, RTLIL::Const(0, clog2taps), b_port, s_wire, l_wire);
 			int group = std::get<2>(it->second);
