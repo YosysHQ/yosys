@@ -119,7 +119,6 @@ struct ShregmapTechXilinx7 : ShregmapTech
 				j = cell->getParam("\\S_WIDTH").as_int();
 				int k = 0;
 				for (auto bit : sigmap(cell->getPort("\\B"))) {
-					printf("%d\n", bit.offset);
 					sigbit_to_shiftx_offset[bit] = std::make_tuple(cell, j, k++);
 					if (k == width) {
 						k = 0;
