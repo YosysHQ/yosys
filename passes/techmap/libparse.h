@@ -46,9 +46,17 @@ namespace Yosys
 		LibertyAst *ast;
 		LibertyParser(std::istream &f) : f(f), line(1), ast(parse()) {}
 		~LibertyParser() { if (ast) delete ast; }
+        
+        /* lexer return values:
+           'v': identifier, string, array range [...] -> str holds the token string
+           'n': newline
+           anything else is a single character.
+        */
 		int lexer(std::string &str);
-		LibertyAst *parse();
+		
+        LibertyAst *parse();
 		void error();
+        void error(const std::string &str);
 	};
 }
 
