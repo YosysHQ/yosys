@@ -202,11 +202,10 @@ LibertyAst *LibertyParser::parse()
 	{
 		tok = lexer(str);
 
-		if (tok == ';')
+        // allow both ';' and new lines to 
+        // terminate a statement.
+		if ((tok == ';') || (tok == 'n'))
 			break;
-
-		if (tok == 'n')
-			continue;
 
 		if (tok == ':' && ast->value.empty()) {
 			tok = lexer(ast->value);
