@@ -87,12 +87,12 @@ int LibertyParser::lexer(std::string &str)
 {
 	int c;
 
-    // eat whitespace
+	// eat whitespace
 	do {
 		c = f.get();
 	} while (c == ' ' || c == '\t' || c == '\r');
 
-    // search for identifiers, numbers, plus or minus.
+	// search for identifiers, numbers, plus or minus.
 	if (('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || ('0' <= c && c <= '9') || c == '_' || c == '-' || c == '+' || c == '.') {
 		str = c;
 		while (1) {
@@ -114,8 +114,8 @@ int LibertyParser::lexer(std::string &str)
 		}
 	}
 
-    // if it wasn't an identifer, number of array range,
-    // maybe it's a string?
+	// if it wasn't an identifer, number of array range,
+	// maybe it's a string?
 	if (c == '"') {
 		str = "";
 		while (1) {
@@ -130,7 +130,7 @@ int LibertyParser::lexer(std::string &str)
 		return 'v';
 	}
 
-    // if it wasn't a string, perhaps it's a comment or a forward slash?
+	// if it wasn't a string, perhaps it's a comment or a forward slash?
 	if (c == '/') {
 		c = f.get();
 		if (c == '*') {         // start of '/*' block comment
@@ -153,7 +153,7 @@ int LibertyParser::lexer(std::string &str)
 		return '/';             // a single '/' charater.
 	}
 
-    // check for a backslash
+	// check for a backslash
 	if (c == '\\') {
 		c = f.get();
 		if (c == '\r')
@@ -164,14 +164,14 @@ int LibertyParser::lexer(std::string &str)
 		return '\\';
 	}
 
-    // check for a new line
+	// check for a new line
 	if (c == '\n') {
 		line++;
 		return 'n';
 	}
 
-    // anything else, such as ';' will get passed
-    // through as literal items.
+	// anything else, such as ';' will get passed
+	// through as literal items.
 
 	// if (c >= 32 && c < 255)
 	// 	fprintf(stderr, "LEX: char >>%c<<\n", c);
@@ -202,8 +202,8 @@ LibertyAst *LibertyParser::parse()
 	{
 		tok = lexer(str);
 
-        // allow both ';' and new lines to 
-        // terminate a statement.
+		// allow both ';' and new lines to 
+		// terminate a statement.
 		if ((tok == ';') || (tok == 'n'))
 			break;
 
@@ -220,11 +220,11 @@ LibertyAst *LibertyParser::parse()
 				ast->value += str;
 				tok = lexer(str);
 			}
-            
-            // In a liberty file, all key : value pairs should end in ';'
-            // However, there are some liberty files in the wild that
-            // just have a newline. We'll be kind and accept a newline
-            // instead of the ';' too..
+			
+			// In a liberty file, all key : value pairs should end in ';'
+			// However, there are some liberty files in the wild that
+			// just have a newline. We'll be kind and accept a newline
+			// instead of the ';' too..
 			if ((tok == ';') || (tok == 'n'))
 				break;
 			else
@@ -240,48 +240,48 @@ LibertyAst *LibertyParser::parse()
 					continue;
 				if (tok == ')')
 					break;
-                
-                // FIXME: the AST needs to be extended to store
-                //        these vector ranges.
-                if (tok == '[')
-                {
-                    // parse vector range [A] or [A:B]
-                    std::string arg;
-                    tok = lexer(arg);
-                    if (tok != 'v')
-                    {
-                        // expected a vector array index
-                        error("Expected a number.");
-                    }
-                    else
-                    {
-                        // fixme: check for number A
-                    }
-                    tok = lexer(arg);
-                    // optionally check for : in case of [A:B]
-                    // if it isn't we just expect ']'
-                    // as we have [A]
-                    if (tok == ':')
-                    {
-                        tok = lexer(arg);
-                        if (tok != 'v')
-                        {
-                            // expected a vector array index
-                            error("Expected a number.");
-                        }
-                        else
-                        {
-                            // fixme: check for number B
-                            tok = lexer(arg);                            
-                        }
-                    }
-                    // expect a closing bracket of array range
-                    if (tok != ']')
-                    {
-                        error("Expected ']' on array range.");
-                    }
-                    continue;           
-                }
+				
+				// FIXME: the AST needs to be extended to store
+				//        these vector ranges.
+				if (tok == '[')
+				{
+					// parse vector range [A] or [A:B]
+					std::string arg;
+					tok = lexer(arg);
+					if (tok != 'v')
+					{
+						// expected a vector array index
+						error("Expected a number.");
+					}
+					else
+					{
+						// fixme: check for number A
+					}
+					tok = lexer(arg);
+					// optionally check for : in case of [A:B]
+					// if it isn't we just expect ']'
+					// as we have [A]
+					if (tok == ':')
+					{
+						tok = lexer(arg);
+						if (tok != 'v')
+						{
+							// expected a vector array index
+							error("Expected a number.");
+						}
+						else
+						{
+							// fixme: check for number B
+							tok = lexer(arg);                            
+						}
+					}
+					// expect a closing bracket of array range
+					if (tok != ']')
+					{
+						error("Expected ']' on array range.");
+					}
+					continue;           
+				}
 				if (tok != 'v')
 					error();
 				ast->args.push_back(arg);
@@ -314,10 +314,10 @@ void LibertyParser::error()
 
 void LibertyParser::error(const std::string &str)
 {
-    std::stringstream ss;
-    ss << "Syntax error in liberty file on line " << line << ".\n";
-    ss << "  " << str << "\n";
-    log_error("%s", ss.str().c_str());
+	std::stringstream ss;
+	ss << "Syntax error in liberty file on line " << line << ".\n";
+	ss << "  " << str << "\n";
+	log_error("%s", ss.str().c_str());
 }
 
 #else
@@ -330,32 +330,32 @@ void LibertyParser::error()
 
 void LibertyParser::error(const std::string &str)
 {
-    std::stringstream ss;
-    ss << "Syntax error in liberty file on line " << line << ".\n";
-    ss << "  " << str << "\n";
-    printf("%s", ss.str().c_str());
-    exit(1);
+	std::stringstream ss;
+	ss << "Syntax error in liberty file on line " << line << ".\n";
+	ss << "  " << str << "\n";
+	printf("%s", ss.str().c_str());
+	exit(1);
 }
 
 /**** BEGIN: http://svn.clifford.at/tools/trunk/examples/check.h ****/
 
 #define CHECK_NV(result, check)                                      \
    do {                                                              \
-     auto _R = (result);                                             \
-     if (!(_R check)) {                                              \
-       fprintf(stderr, "Error from '%s' (%ld %s) in %s:%d.\n",       \
-               #result, (long int)_R, #check, __FILE__, __LINE__);   \
-       abort();                                                      \
-     }                                                               \
+	 auto _R = (result);                                             \
+	 if (!(_R check)) {                                              \
+	   fprintf(stderr, "Error from '%s' (%ld %s) in %s:%d.\n",       \
+			   #result, (long int)_R, #check, __FILE__, __LINE__);   \
+	   abort();                                                      \
+	 }                                                               \
    } while(0)
 
 #define CHECK_COND(result)                                           \
    do {                                                              \
-     if (!(result)) {                                                \
-       fprintf(stderr, "Error from '%s' in %s:%d.\n",                \
-               #result, __FILE__, __LINE__);                         \
-       abort();                                                      \
-     }                                                               \
+	 if (!(result)) {                                                \
+	   fprintf(stderr, "Error from '%s' in %s:%d.\n",                \
+			   #result, __FILE__, __LINE__);                         \
+	   abort();                                                      \
+	 }                                                               \
    } while(0)
 
 /**** END: http://svn.clifford.at/tools/trunk/examples/check.h ****/
