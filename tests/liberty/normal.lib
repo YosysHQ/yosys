@@ -142,8 +142,7 @@ library(supergate) {
   }
   
   /* D-type flip-flop with asynchronous reset and preset */
-  cell (dff) 
-  {
+  cell (dff) {
     area : 6;
     ff("IQ", "IQN") {
       next_state : "D";
