@@ -188,7 +188,7 @@ LibertyAst *LibertyParser::parse()
 
 	int tok = lexer(str);
 
-	// there are liberty files in the while that
+	// there are liberty files in the wild that
 	// have superfluous ';' at the end of
 	// a  { ... }. We simply ignore a ';' here.
 	// and get to the next statement.
