@@ -641,6 +641,7 @@ grow_read_ports:;
 				pi.sig_data = SigSpec();
 				pi.sig_en = SigSpec();
 				pi.make_outreg = false;
+				pi.make_transp = false;
 			}
 			new_portinfos.push_back(pi);
 			if (pi.dupidx == dup_count-1) {
