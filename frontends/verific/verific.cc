@@ -2386,20 +2386,42 @@ struct ReadPass : public Pass {
 		log("\n");
 		log("Add directory to global Verilog/SystemVerilog include directories.\n");
 		log("\n");
+		log("\n");
+		log("    read -verific\n");
+		log("    read -noverific\n");
+		log("\n");
+		log("Subsequent calls to 'read' will either use or not use Verific. Calling 'read'\n");
+		log("with -verific will result in an error on Yosys binaries that are built without\n");
+		log("Verific support. The default is to use Verific if it is available.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
+#ifdef YOSYS_ENABLE_VERIFIC
+		static bool verific_available = !check_noverific_env();
+#else
+		static bool verific_available = false;
+#endif
+		static bool use_verific = verific_available;
+
 		if (args.size() < 2 || args[1][0] != '-')
 			log_cmd_error("Missing mode parameter.\n");
 
+		if (args[1] == "-verific" || args[1] == "-noverific") {
+			if (args.size() != 2)
+				log_cmd_error("Additional arguments to -verific/-noverific.\n");
+			if (args[1] == "-verific") {
+				if (!verific_available)
+					log_cmd_error("This version of Yosys is built without Verific support.\n");
+				use_verific = true;
+			} else {
+				use_verific = false;
+			}
+			return;
+		}
+
 		if (args.size() < 3)
 			log_cmd_error("Missing file name parameter.\n");
-
-#ifdef YOSYS_ENABLE_VERIFIC
-		bool use_verific = !check_noverific_env();
-#else
-		bool use_verific = false;
-#endif
 
 		if (args[1] == "-vlog95" || args[1] == "-vlog2k") {
 			if (use_verific) {
