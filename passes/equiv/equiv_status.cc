@@ -24,7 +24,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct EquivStatusPass : public Pass {
 	EquivStatusPass() : Pass("equiv_status", "print status of equivalent checking module") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -36,7 +36,7 @@ struct EquivStatusPass : public Pass {
 		log("        produce an error if any unproven $equiv cell is found\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, Design *design)
+	void execute(std::vector<std::string> args, Design *design) YS_OVERRIDE
 	{
 		bool assert_mode = false;
 		int unproven_count = 0;

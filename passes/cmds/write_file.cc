@@ -25,7 +25,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct WriteFileFrontend : public Frontend {
 	WriteFileFrontend() : Frontend("=write_file", "write a text to a file") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -44,7 +44,7 @@ struct WriteFileFrontend : public Frontend {
 		log("    EOT\n");
 		log("\n");
 	}
-	virtual void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design*)
+	void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design*) YS_OVERRIDE
 	{
 		bool append_mode = false;
 		std::string output_filename;

@@ -36,6 +36,7 @@ struct OptMuxtreeWorker
 	RTLIL::Module *module;
 	SigMap assign_map;
 	int removed_count;
+	int glob_abort_cnt = 100000;
 
 	struct bitinfo_t {
 		bool seen_non_mux;
@@ -293,6 +294,9 @@ struct OptMuxtreeWorker
 
 	void eval_mux_port(knowledge_t &knowledge, int mux_idx, int port_idx, bool do_replace_known, bool do_enable_ports, int abort_count)
 	{
+		if (glob_abort_cnt == 0)
+			return;
+
 		muxinfo_t &muxinfo = mux2info[mux_idx];
 
 		if (do_enable_ports)
@@ -315,7 +319,7 @@ struct OptMuxtreeWorker
 			knowledge.visited_muxes[m] = true;
 			parent_muxes.push_back(m);
 		}
-		for (int m : parent_muxes)
+		for (int m : parent_muxes) {
 			if (root_enable_muxes.at(m))
 				continue;
 			else if (root_muxes.at(m)) {
@@ -327,6 +331,9 @@ struct OptMuxtreeWorker
 					eval_mux(knowledge, m, false, do_enable_ports, abort_count - 1);
 			} else
 				eval_mux(knowledge, m, do_replace_known, do_enable_ports, abort_count);
+			if (glob_abort_cnt == 0)
+				return;
+		}
 		for (int m : parent_muxes)
 			knowledge.visited_muxes[m] = false;
 
@@ -390,6 +397,12 @@ struct OptMuxtreeWorker
 
 	void eval_mux(knowledge_t &knowledge, int mux_idx, bool do_replace_known, bool do_enable_ports, int abort_count)
 	{
+		if (glob_abort_cnt == 0) {
+			log("  Giving up (too many iterations)\n");
+			return;
+		}
+		glob_abort_cnt--;
+
 		muxinfo_t &muxinfo = mux2info[mux_idx];
 
 		// set input ports to constants if we find known active or inactive signals
@@ -433,6 +446,9 @@ struct OptMuxtreeWorker
 				if (knowledge.known_inactive.at(portinfo.ctrl_sig))
 					continue;
 			eval_mux_port(knowledge, mux_idx, port_idx, do_replace_known, do_enable_ports, abort_count);
+
+			if (glob_abort_cnt == 0)
+				return;
 		}
 	}
 
@@ -449,7 +465,7 @@ struct OptMuxtreeWorker
 
 struct OptMuxtreePass : public Pass {
 	OptMuxtreePass() : Pass("opt_muxtree", "eliminate dead trees in multiplexer trees") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -462,7 +478,7 @@ struct OptMuxtreePass : public Pass {
 		log("This pass only operates on completely selected modules without processes.\n");
 		log("\n");
 	}
-	virtual void execute(vector<std::string> args, RTLIL::Design *design)
+	void execute(vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing OPT_MUXTREE pass (detect dead branches in mux trees).\n");
 		extra_args(args, 1, design);

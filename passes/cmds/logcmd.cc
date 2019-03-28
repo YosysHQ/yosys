@@ -27,7 +27,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct LogPass : public Pass {
 	LogPass() : Pass("log", "print text and log files") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -52,7 +52,7 @@ struct LogPass : public Pass {
 		log("        do not append a newline\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design*)
+	void execute(std::vector<std::string> args, RTLIL::Design*) YS_OVERRIDE
 	{
 		size_t argidx;
 		bool to_stdout = false;

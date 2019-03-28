@@ -83,7 +83,7 @@ static void add_wire(RTLIL::Design *design, RTLIL::Module *module, std::string n
 
 struct AddPass : public Pass {
 	AddPass() : Pass("add", "add objects to the design") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -106,7 +106,7 @@ struct AddPass : public Pass {
 		log("selected modules.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		std::string command;
 		std::string arg_name;

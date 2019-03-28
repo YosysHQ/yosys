@@ -36,6 +36,8 @@ echo
 
 ##########################################################################
 
+./yosys tests/simple/fiedler-cooley.v
+
 echo
 echo 'Testing...' && echo -en 'travis_fold:start:script.test\\r'
 echo

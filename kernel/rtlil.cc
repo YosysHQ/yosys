@@ -33,6 +33,8 @@ std::vector<int> RTLIL::IdString::global_refcount_storage_;
 std::vector<char*> RTLIL::IdString::global_id_storage_;
 dict<char*, int, hash_cstr_ops> RTLIL::IdString::global_id_index_;
 std::vector<int> RTLIL::IdString::global_free_idx_list_;
+int RTLIL::IdString::last_created_idx_[8];
+int RTLIL::IdString::last_created_idx_ptr_;
 
 RTLIL::Const::Const()
 {
@@ -676,7 +678,20 @@ std::map<unsigned int, RTLIL::Module*> *RTLIL::Module::get_all_modules(void)
 }
 #endif
 
+void RTLIL::Module::reprocess_module(RTLIL::Design *, dict<RTLIL::IdString, RTLIL::Module *>)
+{
+	log_error("Cannot reprocess_module module `%s' !\n", id2cstr(name));
+}
+
 RTLIL::IdString RTLIL::Module::derive(RTLIL::Design*, dict<RTLIL::IdString, RTLIL::Const>, bool mayfail)
+{
+	if (mayfail)
+		return RTLIL::IdString();
+	log_error("Module `%s' is used with parameters but is not parametric!\n", id2cstr(name));
+}
+
+
+RTLIL::IdString RTLIL::Module::derive(RTLIL::Design*, dict<RTLIL::IdString, RTLIL::Const>, dict<RTLIL::IdString, RTLIL::Module*>, dict<RTLIL::IdString, RTLIL::IdString>, bool mayfail)
 {
 	if (mayfail)
 		return RTLIL::IdString();
@@ -782,7 +797,7 @@ namespace {
 
 		void check()
 		{
-			if (cell->type.substr(0, 1) != "$" || cell->type.substr(0, 3) == "$__" || cell->type.substr(0, 8) == "$paramod" ||
+			if (cell->type.substr(0, 1) != "$" || cell->type.substr(0, 3) == "$__" || cell->type.substr(0, 8) == "$paramod" || cell->type.substr(0,10) == "$fmcombine" ||
 					cell->type.substr(0, 9) == "$verific$" || cell->type.substr(0, 7) == "$array:" || cell->type.substr(0, 8) == "$extern:")
 				return;
 
@@ -2423,7 +2438,7 @@ void RTLIL::Cell::check()
 
 void RTLIL::Cell::fixup_parameters(bool set_a_signed, bool set_b_signed)
 {
-	if (type.substr(0, 1) != "$" || type.substr(0, 2) == "$_" || type.substr(0, 8) == "$paramod" ||
+	if (type.substr(0, 1) != "$" || type.substr(0, 2) == "$_" || type.substr(0, 8) == "$paramod" || type.substr(0,10) == "$fmcombine" ||
 			type.substr(0, 9) == "$verific$" || type.substr(0, 7) == "$array:" || type.substr(0, 8) == "$extern:")
 		return;
 
@@ -2474,6 +2489,9 @@ void RTLIL::Cell::fixup_parameters(bool set_a_signed, bool set_b_signed)
 
 	if (connections_.count("\\Y"))
 		parameters["\\Y_WIDTH"] = GetSize(connections_["\\Y"]);
+
+	if (connections_.count("\\Q"))
+		parameters["\\WIDTH"] = GetSize(connections_["\\Q"]);
 
 	check();
 }
@@ -3305,7 +3323,7 @@ void RTLIL::SigSpec::extend_u0(int width, bool is_signed)
 		remove(width, width_ - width);
 
 	if (width_ < width) {
-		RTLIL::SigBit padding = width_ > 0 ? (*this)[width_ - 1] : RTLIL::State::S0;
+		RTLIL::SigBit padding = width_ > 0 ? (*this)[width_ - 1] : RTLIL::State::Sx;
 		if (!is_signed)
 			padding = RTLIL::State::S0;
 		while (width_ < width)
@@ -3866,6 +3884,11 @@ RTLIL::CaseRule::~CaseRule()
 		delete *it;
 }
 
+bool RTLIL::CaseRule::empty() const
+{
+	return actions.empty() && switches.empty();
+}
+
 RTLIL::CaseRule *RTLIL::CaseRule::clone() const
 {
 	RTLIL::CaseRule *new_caserule = new RTLIL::CaseRule;
@@ -3880,6 +3903,11 @@ RTLIL::SwitchRule::~SwitchRule()
 {
 	for (auto it = cases.begin(); it != cases.end(); it++)
 		delete *it;
+}
+
+bool RTLIL::SwitchRule::empty() const
+{
+	return cases.empty();
 }
 
 RTLIL::SwitchRule *RTLIL::SwitchRule::clone() const

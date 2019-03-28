@@ -1,0 +1,48 @@
+/*
+
+	Test case for https://www.reddit.com/r/yosys/comments/b5texg/yosys_fails_to_parse_apparentlycorrect_liberty/
+
+	fall_constraint (SETUP_HOLD) formatting.
+
+*/
+
+library(supergate) {
+  technology (cmos);
+  revision : 1.0;
+
+    cell (DFF) {
+        cell_footprint : dff;
+        area : 50;
+        pin(D) {
+            direction : input;
+            capacitance : 0.002;
+            timing() {
+                related_pin : "CK";
+                timing_type : setup_rising;
+
+                fall_constraint (SETUP_HOLD) { values ("0.4000, 0.3000, 0.2000, 0.1000, 0.0000", \
+                    "0.4000, 0.3000, 0.2000, 0.1000, 0.000", \
+                    "0.5000, 0.4000, 0.3000, 0.2000, 0.0000", \
+                    "0.7000, 0.6000, 0.5000, 0.4000, 0.2000", \
+                    "1.0000, 1.0000, 0.9000, 0.8000, 0.6000"); };
+            }
+        }	
+
+        pin(CK) {
+            direction : input;
+            clock : true;
+            capacitance : 0.00290;
+        }
+
+        ff(IQ,IQN) {
+            clocked_on : "CK";
+            next_state : "D";
+        }
+        pin(Q) {
+            direction : output;
+            capacitance : 0.003;
+            max_capacitance : 0.3;
+        }
+        cell_leakage_power : 0.3;
+    }
+}

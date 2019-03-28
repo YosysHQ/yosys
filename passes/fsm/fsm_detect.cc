@@ -196,13 +196,13 @@ static void detect_fsm(RTLIL::Wire *wire)
 		vector<string> warnings;
 
 		if (is_module_port)
-			warnings.push_back("Forcing fsm recoding on module port might result in larger circuit.\n");
+			warnings.push_back("Forcing FSM recoding on module port might result in larger circuit.\n");
 
 		if (!looks_like_good_state_reg)
-			warnings.push_back("Users of state reg look like fsm recoding might result in larger circuit.\n");
+			warnings.push_back("Users of state reg look like FSM recoding might result in larger circuit.\n");
 
 		if (has_init_attr)
-			warnings.push_back("Init value on fsm state registers are ignored. Possible simulation-synthesis mismatch!");
+			warnings.push_back("Initialization value on FSM state register is ignored. Possible simulation-synthesis mismatch!\n");
 
 		if (!looks_like_state_reg)
 			warnings.push_back("Doesn't look like a proper FSM. Possible simulation-synthesis mismatch!\n");
@@ -236,7 +236,7 @@ static void detect_fsm(RTLIL::Wire *wire)
 			log("    Users of register don't seem to benefit from recoding.\n");
 
 		if (has_init_attr)
-			log("    Register has an initialization value.");
+			log("    Register has an initialization value.\n");
 
 		if (is_self_resetting)
 			log("    Circuit seems to be self-resetting.\n");
@@ -245,7 +245,7 @@ static void detect_fsm(RTLIL::Wire *wire)
 
 struct FsmDetectPass : public Pass {
 	FsmDetectPass() : Pass("fsm_detect", "finding FSMs in design") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -261,7 +261,7 @@ struct FsmDetectPass : public Pass {
 		log("'fsm_encoding' attribute to \"none\".\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing FSM_DETECT pass (finding FSMs in design).\n");
 		extra_args(args, 1, design);

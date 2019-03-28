@@ -169,7 +169,7 @@ void demorgan_worker(
 
 struct OptDemorganPass : public Pass {
 	OptDemorganPass() : Pass("opt_demorgan", "Optimize reductions with DeMorgan equivalents") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -179,7 +179,7 @@ struct OptDemorganPass : public Pass {
 		log("overall gate count of the circuit\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing OPT_DEMORGAN pass (push inverters through $reduce_* cells).\n");
 

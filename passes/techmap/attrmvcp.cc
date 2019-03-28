@@ -25,7 +25,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct AttrmvcpPass : public Pass {
 	AttrmvcpPass() : Pass("attrmvcp", "move or copy attributes from wires to driving cells") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		log("\n");
 		log("    attrmvcp [options] [selection]\n");
@@ -53,7 +53,7 @@ struct AttrmvcpPass : public Pass {
 		log("        multiple times.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing ATTRMVCP pass (move or copy attributes).\n");
 

@@ -391,7 +391,7 @@ struct ShregmapWorker
 
 struct ShregmapPass : public Pass {
 	ShregmapPass() : Pass("shregmap", "map shift registers") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -449,7 +449,7 @@ struct ShregmapPass : public Pass {
 		log("        map to greenpak4 shift registers.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		ShregmapOptions opts;
 		string clkpol, enpol;

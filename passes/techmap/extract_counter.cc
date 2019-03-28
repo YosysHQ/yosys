@@ -559,7 +559,7 @@ void counter_worker(
 
 struct ExtractCounterPass : public Pass {
 	ExtractCounterPass() : Pass("extract_counter", "Extract GreenPak4 counter cells") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -578,7 +578,7 @@ struct ExtractCounterPass : public Pass {
 		log("\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing EXTRACT_COUNTER pass (find counters in netlist).\n");
 

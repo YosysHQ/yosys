@@ -119,6 +119,12 @@ than one bit from \B{S} is set the output is undefined. Cells of this type are u
 ``parallel cases'' (defined by using the {\tt parallel\_case} attribute or detected by
 an optimization).
 
+The {\tt \$tribuf} cell is used to implement tristate logic. Cells of this type have a \B{WIDTH}
+parameter and inputs \B{A} and \B{EN} and an output \B{Y}. The \B{A} input and \B{Y} output are
+\B{WIDTH} bits wide, and the \B{EN} input is one bit wide. When \B{EN} is 0, the output \B{Y}
+is not driven. When \B{EN} is 1, the value from \B{A} input is sent to the \B{Y} output. Therefore,
+the {\tt \$tribuf} cell implements the function \lstinline[language=Verilog]; Y = EN ? A : 'bz;.
+
 Behavioural code with cascaded {\tt if-then-else}- and {\tt case}-statements
 usually results in trees of multiplexer cells. Many passes (from various
 optimizations to FSM extraction) heavily depend on these multiplexer trees to
@@ -211,14 +217,15 @@ Add information about {\tt \$sr} cells (set-reset flip-flops) and d-type latches
 \subsection{Memories}
 \label{sec:memcells}
 
-Memories are either represented using RTLIL::Memory objects and {\tt \$memrd} and {\tt \$memwr} cells
-or simply by using {\tt \$mem} cells.
+Memories are either represented using RTLIL::Memory objects, {\tt \$memrd}, {\tt \$memwr}, and {\tt \$meminit}
+cells, or by {\tt \$mem} cells alone.
 
 In the first alternative the RTLIL::Memory objects hold the general metadata for the memory (bit width,
 size in number of words, etc.) and for each port a {\tt \$memrd} (read port) or {\tt \$memwr} (write port)
 cell is created. Having individual cells for read and write ports has the advantage that they can be
 consolidated using resource sharing passes. In some cases this drastically reduces the number of required
-ports on the memory cell.
+ports on the memory cell. In this alternative, memory initialization data is represented by {\tt \$meminit} cells,
+which allow delaying constant folding for initialization addresses and data until after the frontend finishes.
 
 The {\tt \$memrd} cells have a clock input \B{CLK}, an enable input \B{EN}, an
 address input \B{ADDR}, and a data output \B{DATA}. They also have the
@@ -253,7 +260,7 @@ enable bit for each data bit), an address input \B{ADDR} and a data input
 
 \begin{itemize}
 \item \B{MEMID} \\
-The name of the RTLIL::Memory object that is associated with this read port.
+The name of the RTLIL::Memory object that is associated with this write port.
 
 \item \B{ABITS} \\
 The number of address bits (width of the \B{ADDR} input port).
@@ -262,7 +269,7 @@ The number of address bits (width of the \B{ADDR} input port).
 The number of data bits (width of the \B{DATA} output port).
 
 \item \B{CLK\_ENABLE} \\
-When this parameter is non-zero, the clock is used. Otherwise this read port is asynchronous and
+When this parameter is non-zero, the clock is used. Otherwise this write port is asynchronous and
 the \B{CLK} input is not used.
 
 \item \B{CLK\_POLARITY} \\
@@ -271,6 +278,27 @@ edge if this parameter is {\tt 1'b0}.
 
 \item \B{PRIORITY} \\
 The cell with the higher integer value in this parameter wins a write conflict.
+\end{itemize}
+
+The {\tt \$meminit} cells have an address input \B{ADDR} and a data input \B{DATA}, with the width
+of the \B{DATA} port equal to \B{WIDTH} parameter times \B{WORDS} parameter. Both of the inputs
+must resolve to a constant for synthesis to succeed.
+
+\begin{itemize}
+\item \B{MEMID} \\
+The name of the RTLIL::Memory object that is associated with this initialization cell.
+
+\item \B{ABITS} \\
+The number of address bits (width of the \B{ADDR} input port).
+
+\item \B{WIDTH} \\
+The number of data bits per memory location.
+
+\item \B{WORDS} \\
+The number of consecutive memory locations initialized by this cell.
+
+\item \B{PRIORITY} \\
+The cell with the higher integer value in this parameter wins an initialization conflict.
 \end{itemize}
 
 The HDL frontend models a memory using RTLIL::Memory objects and asynchronous
@@ -294,6 +322,9 @@ The number of address bits.
 
 \item \B{WIDTH} \\
 The number of data bits per word.
+
+\item \B{INIT} \\
+The initial memory contents.
 
 \item \B{RD\_PORTS} \\
 The number of read ports on this memory cell.
@@ -345,9 +376,11 @@ This input is \B{WR\_PORTS}*\B{ABITS} bits wide, containing all address signals 
 This input is \B{WR\_PORTS}*\B{WIDTH} bits wide, containing all data signals for the write ports.
 \end{itemize}
 
-The {\tt techmap} pass can be used to manually map {\tt \$mem} cells to
-specialized memory cells on the target architecture, such as block ram resources
-on an FPGA.
+The {\tt memory\_collect} pass can be used to convert discrete {\tt \$memrd}, {\tt \$memwr}, and {\tt \$meminit} cells
+belonging to the same memory to a single {\tt \$mem} cell, whereas the {\tt memory\_unpack} pass performs the inverse operation.
+The {\tt memory\_dff} pass can combine asynchronous memory ports that are fed by or feeding registers into synchronous memory ports.
+The {\tt memory\_bram} pass can be used to recognize {\tt \$mem} cells that can be implemented with a block RAM resource on an FPGA.
+The {\tt memory\_map} pass can be used to implement {\tt \$mem} cells as basic logic: word-wide DFFs and address decoders.
 
 \subsection{Finite State Machines}
 
@@ -371,9 +404,15 @@ Verilog & Cell Type \\
 \hline
 \lstinline[language=Verilog]; Y = ~A;    & {\tt \$\_NOT\_} \\
 \lstinline[language=Verilog]; Y = A & B; & {\tt \$\_AND\_} \\
+\lstinline[language=Verilog]; Y = ~(A & B); & {\tt \$\_NAND\_} \\
+\lstinline[language=Verilog]; Y = A & ~B; & {\tt \$\_ANDNOT\_} \\
 \lstinline[language=Verilog]; Y = A | B; & {\tt \$\_OR\_} \\
+\lstinline[language=Verilog]; Y = ~(A | B); & {\tt \$\_NOR\_} \\
+\lstinline[language=Verilog]; Y = A | ~B; & {\tt \$\_ORNOT\_} \\
 \lstinline[language=Verilog]; Y = A ^ B; & {\tt \$\_XOR\_} \\
+\lstinline[language=Verilog]; Y = ~(A ^ B); & {\tt \$\_XNOR\_} \\
 \lstinline[language=Verilog]; Y = S ? B : A; & {\tt \$\_MUX\_} \\
+\lstinline[language=Verilog]; Y = EN ? A : 'bz; & {\tt \$\_TBUF\_} \\
 \hline
 \lstinline[language=Verilog]; always @(negedge C) Q <= D; & {\tt \$\_DFF\_N\_} \\
 \lstinline[language=Verilog]; always @(posedge C) Q <= D; & {\tt \$\_DFF\_P\_} \\
@@ -396,9 +435,10 @@ $ClkEdge$ & $RstLvl$ & $RstVal$ & Cell Type \\
 \end{table}
 
 Table~\ref{tab:CellLib_gates} lists all cell types used for gate level logic. The cell types
-{\tt \$\_NOT\_}, {\tt \$\_AND\_}, {\tt \$\_OR\_}, {\tt \$\_XOR\_} and {\tt \$\_MUX\_}
-are used to model combinatorial logic. The cell types {\tt \$\_DFF\_N\_} and {\tt \$\_DFF\_P\_}
-represent d-type flip-flops.
+{\tt \$\_NOT\_}, {\tt \$\_AND\_}, {\tt \$\_NAND\_}, {\tt \$\_ANDNOT\_}, {\tt \$\_OR\_}, {\tt \$\_NOR\_},
+{\tt \$\_ORNOT\_}, {\tt \$\_XOR\_}, {\tt \$\_XNOR\_} and {\tt \$\_MUX\_} are used to model combinatorial logic.
+The cell type {\tt \$\_TBUF\_} is used to model tristate logic.
+The cell types {\tt \$\_DFF\_N\_} and {\tt \$\_DFF\_P\_} represent d-type flip-flops.
 
 The cell types {\tt \$\_DFF\_NN0\_}, {\tt \$\_DFF\_NN1\_}, {\tt \$\_DFF\_NP0\_}, {\tt \$\_DFF\_NP1\_},
 {\tt \$\_DFF\_PN0\_}, {\tt \$\_DFF\_PN1\_}, {\tt \$\_DFF\_PP0\_} and {\tt \$\_DFF\_PP1\_} implement
@@ -410,7 +450,7 @@ otherwise.
 \begin{lstlisting}[mathescape,language=Verilog]
 	always @($ClkEdge$ C, $RstEdge$ R)
 		if (R == $RstLvl$)
-			Q <= $RstVa$l;
+			Q <= $RstVal$;
 		else
 			Q <= D;
 \end{lstlisting}
@@ -450,7 +490,6 @@ Add information about {\tt \$\_DFFE\_??\_}, {\tt \$\_DFFSR\_???\_}, {\tt \$\_DLA
 \end{fixme}
 
 \begin{fixme}
-Add information about {\tt \$\_NAND\_}, {\tt \$\_NOR\_}, {\tt \$\_XNOR\_}, {\tt \$\_ANDNOT\_}, {\tt \$\_ORNOT\_},
-{\tt \$\_AOI3\_}, {\tt \$\_OAI3\_}, {\tt \$\_AOI4\_}, and {\tt \$\_OAI4\_} cells.
+Add information about {\tt \$\_AOI3\_}, {\tt \$\_OAI3\_}, {\tt \$\_AOI4\_}, and {\tt \$\_OAI4\_} cells.
 \end{fixme}
 

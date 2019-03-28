@@ -209,7 +209,7 @@ void read_liberty_cellarea(dict<IdString, double> &cell_area, string liberty_fil
 
 struct StatPass : public Pass {
 	StatPass() : Pass("stat", "print some statistics") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -231,7 +231,7 @@ struct StatPass : public Pass {
 		log("        e.g. $add_8 for an 8 bit wide $add cell.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Printing statistics.\n");
 

@@ -324,7 +324,7 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter, int s
 
 struct TestAutotbBackend : public Backend {
 	TestAutotbBackend() : Backend("=test_autotb", "generate simple test benches") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -349,7 +349,7 @@ struct TestAutotbBackend : public Backend {
 		log("        number of iterations the test bench should run (default = 1000)\n");
 		log("\n");
 	}
-	virtual void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		int num_iter = 1000;
 		int seed = 0;

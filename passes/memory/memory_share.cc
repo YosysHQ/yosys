@@ -726,7 +726,7 @@ struct MemoryShareWorker
 
 struct MemorySharePass : public Pass {
 	MemorySharePass() : Pass("memory_share", "consolidate memory ports") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -752,7 +752,7 @@ struct MemorySharePass : public Pass {
 		log("optimizations) such as \"share\" and \"opt_merge\".\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) {
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE {
 		log_header(design, "Executing MEMORY_SHARE pass (consolidating $memrd/$memwr cells).\n");
 		extra_args(args, 1, design);
 		for (auto module : design->selected_modules())

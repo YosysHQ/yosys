@@ -891,7 +891,7 @@ struct TechmapWorker
 
 struct TechmapPass : public Pass {
 	TechmapPass() : Pass("techmap", "generic technology mapper") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -1022,7 +1022,7 @@ struct TechmapPass : public Pass {
 		log("essentially techmap but using the design itself as map library).\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing TECHMAP pass (map to technology primitives).\n");
 		log_push();
@@ -1141,7 +1141,7 @@ struct TechmapPass : public Pass {
 
 struct FlattenPass : public Pass {
 	FlattenPass() : Pass("flatten", "flatten design") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -1155,7 +1155,7 @@ struct FlattenPass : public Pass {
 		log("flattened by this command.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing FLATTEN pass (flatten design).\n");
 		log_push();

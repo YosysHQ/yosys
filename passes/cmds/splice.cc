@@ -247,7 +247,7 @@ struct SpliceWorker
 
 struct SplicePass : public Pass {
 	SplicePass() : Pass("splice", "create explicit splicing cells") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -288,7 +288,7 @@ struct SplicePass : public Pass {
 		log("by selected wires are rewired.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		bool sel_by_cell = false;
 		bool sel_by_wire = false;

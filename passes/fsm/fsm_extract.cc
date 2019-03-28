@@ -178,7 +178,7 @@ undef_bit_in_next_state:
 			log_state_in = fsm_data.state_table.at(state_in);
 
 		if (states.count(ce.values_map(ce.assign_map(dff_in)).as_const()) == 0) {
-			log("  transition: %10s %s -> INVALID_STATE(%s) %s  <ignored invalid transistion!>%s\n",
+			log("  transition: %10s %s -> INVALID_STATE(%s) %s  <ignored invalid transition!>%s\n",
 					log_signal(log_state_in), log_signal(tr.ctrl_in),
 					log_signal(ce.values_map(ce.assign_map(dff_in))), log_signal(tr.ctrl_out),
 					undef_bit_in_next_state_mode ? " SHORTENED" : "");
@@ -194,7 +194,7 @@ undef_bit_in_next_state:
 					log_signal(log_state_in), log_signal(tr.ctrl_in),
 					log_signal(fsm_data.state_table[tr.state_out]), log_signal(tr.ctrl_out));
 		} else {
-			log("  transition: %10s %s -> %10s %s  <ignored undef transistion!>\n",
+			log("  transition: %10s %s -> %10s %s  <ignored undef transition!>\n",
 					log_signal(log_state_in), log_signal(tr.ctrl_in),
 					log_signal(fsm_data.state_table[tr.state_out]), log_signal(tr.ctrl_out));
 		}
@@ -401,7 +401,7 @@ static void extract_fsm(RTLIL::Wire *wire)
 
 struct FsmExtractPass : public Pass {
 	FsmExtractPass() : Pass("fsm_extract", "extracting FSMs in design") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -417,7 +417,7 @@ struct FsmExtractPass : public Pass {
 		log("'opt_clean' pass to eliminate this signal.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing FSM_EXTRACT pass (extracting FSM from design).\n");
 		extra_args(args, 1, design);

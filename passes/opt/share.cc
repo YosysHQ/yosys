@@ -710,8 +710,12 @@ struct ShareWorker
 			RTLIL::Cell *supercell = module->addCell(NEW_ID, c1);
 			RTLIL::SigSpec addr1 = c1->getPort("\\ADDR");
 			RTLIL::SigSpec addr2 = c2->getPort("\\ADDR");
-			if (addr1 != addr2)
-				supercell->setPort("\\ADDR", module->Mux(NEW_ID, addr2, addr1, act));
+			if (GetSize(addr1) < GetSize(addr2))
+				addr1.extend_u0(GetSize(addr2));
+			else
+				addr2.extend_u0(GetSize(addr1));
+			supercell->setPort("\\ADDR", addr1 != addr2 ? module->Mux(NEW_ID, addr2, addr1, act) : addr1);
+			supercell->parameters["\\ABITS"] = RTLIL::Const(GetSize(addr1));
 			supercell_aux.insert(module->addPos(NEW_ID, supercell->getPort("\\DATA"), c2->getPort("\\DATA")));
 			supercell_aux.insert(supercell);
 			return supercell;
@@ -1421,7 +1425,7 @@ struct ShareWorker
 
 struct SharePass : public Pass {
 	SharePass() : Pass("share", "perform sat-based resource sharing") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -1453,7 +1457,7 @@ struct SharePass : public Pass {
 		log("    Only perform the first N merges, then stop. This is useful for debugging.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		ShareWorkerConfig config;
 

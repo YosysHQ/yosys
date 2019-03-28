@@ -742,13 +742,13 @@ struct SimplecWorker
 
 struct SimplecBackend : public Backend {
 	SimplecBackend() : Backend("simplec", "convert design to simple C code") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
 		log("    write_simplec [options] [filename]\n");
 		log("\n");
-		log("Write simple C code for simulating the design. The C code writen can be used to\n");
+		log("Write simple C code for simulating the design. The C code written can be used to\n");
 		log("simulate the design in a C environment, but the purpose of this command is to\n");
 		log("generate code that works well with C-based formal verification.\n");
 		log("\n");
@@ -761,7 +761,7 @@ struct SimplecBackend : public Backend {
 		log("THIS COMMAND IS UNDER CONSTRUCTION\n");
 		log("\n");
 	}
-	virtual void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		reserved_cids.clear();
 		id2cid.clear();

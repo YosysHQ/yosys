@@ -203,7 +203,7 @@ restart_proc_arst:
 
 struct ProcArstPass : public Pass {
 	ProcArstPass() : Pass("proc_arst", "detect asynchronous resets") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -221,7 +221,7 @@ struct ProcArstPass : public Pass {
 		log("        in the 'init' attribute on the net.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		std::string global_arst;
 		bool global_arst_neg = false;

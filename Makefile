@@ -5,10 +5,12 @@ CONFIG := clang
 # CONFIG := emcc
 # CONFIG := mxe
 # CONFIG := msys2
+# CONFIG := msys2-64
 
 # features (the more the better)
 ENABLE_TCL := 1
 ENABLE_ABC := 1
+ENABLE_GLOB := 1
 ENABLE_PLUGINS := 1
 ENABLE_READLINE := 1
 ENABLE_EDITLINE := 0
@@ -23,6 +25,7 @@ PYTHON_VERSION := 3.5
 PYTHON_DESTDIR := /usr/local/lib/python$(PYTHON_VERSION)/dist-packages
 
 # other configuration flags
+ENABLE_GCOV := 0
 ENABLE_GPROF := 0
 ENABLE_DEBUG := 0
 ENABLE_NDEBUG := 0
@@ -75,6 +78,7 @@ PKG_CONFIG ?= pkg-config
 SED ?= sed
 BISON ?= bison
 STRIP ?= strip
+AWK ?= awk
 
 ifeq ($(OS), Darwin)
 PLUGIN_LDFLAGS += -undefined dynamic_lookup
@@ -102,7 +106,7 @@ LDFLAGS += -rdynamic
 LDLIBS += -lrt
 endif
 
-YOSYS_VER := 0.7+$(shell cd $(YOSYS_SRC) && test -e .git && { git log --author=clifford@clifford.at --oneline 61f6811.. | wc -l; })
+YOSYS_VER := 0.8+$(shell cd $(YOSYS_SRC) && test -e .git && { git log --author=clifford@clifford.at --oneline 4d4665b.. 2> /dev/null | wc -l; })
 GIT_REV := $(shell cd $(YOSYS_SRC) && git rev-parse --short HEAD 2> /dev/null || echo UNKNOWN)
 OBJS = kernel/version_$(GIT_REV).o
 
@@ -112,7 +116,7 @@ OBJS = kernel/version_$(GIT_REV).o
 # is just a symlink to your actual ABC working directory, as 'make mrproper'
 # will remove the 'abc' directory and you do not want to accidentally
 # delete your work on ABC..
-ABCREV = 6df1396
+ABCREV = 2ddc57d
 ABCPULL = 1
 ABCURL ?= https://github.com/berkeley-abc/abc
 ABCMKARGS = CC="$(CXX)" CXX="$(CXX)" ABC_USE_LIBSTDCXX=1
@@ -160,10 +164,28 @@ LD = gcc
 CXXFLAGS += -std=c++11 -Os
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H"
 
+else ifeq ($(CONFIG),gcc-static)
+LD = $(CXX)
+LDFLAGS := $(filter-out -rdynamic,$(LDFLAGS)) -static
+LDLIBS := $(filter-out -lrt,$(LDLIBS))
+CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
+CXXFLAGS += -std=c++11 -Os
+ABCMKARGS = CC="$(CC)" CXX="$(CXX)" LD="$(LD)" ABC_USE_LIBSTDCXX=1 LIBS="-lm -lpthread -static" OPTFLAGS="-O" \
+                       ARCHFLAGS="-DABC_USE_STDINT_H -DABC_NO_DYNAMIC_LINKING=1 -Wno-unused-but-set-variable $(ARCHFLAGS)" ABC_USE_NO_READLINE=1
+ifeq ($(DISABLE_ABC_THREADS),1)
+ABCMKARGS += "ABC_USE_NO_PTHREADS=1"
+endif
+
 else ifeq ($(CONFIG),gcc-4.8)
 CXX = gcc-4.8
 LD = gcc-4.8
 CXXFLAGS += -std=c++11 -Os
+ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H"
+
+else ifeq ($(CONFIG),cygwin)
+CXX = gcc
+LD = gcc
+CXXFLAGS += -std=gnu++11 -Os
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H"
 
 else ifeq ($(CONFIG),emcc)
@@ -204,14 +226,14 @@ yosys.html: misc/yosys.html
 
 else ifeq ($(CONFIG),mxe)
 PKG_CONFIG = /usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-pkg-config
-CXX = /usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-gcc
-LD = /usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-gcc
+CXX = /usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-g++
+LD = /usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-g++
 CXXFLAGS += -std=c++11 -Os -D_POSIX_SOURCE -DYOSYS_MXE_HACKS -Wno-attributes
 CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
 LDFLAGS := $(filter-out -rdynamic,$(LDFLAGS)) -s
 LDLIBS := $(filter-out -lrt,$(LDLIBS))
-ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H -DWIN32_NO_DLL -DHAVE_STRUCT_TIMESPEC -fpermissive -w"
-ABCMKARGS += LIBS="lib/x86/pthreadVC2.lib -s" ABC_USE_NO_READLINE=1
+ABCMKARGS += ARCHFLAGS="-DWIN32_NO_DLL -DHAVE_STRUCT_TIMESPEC -fpermissive -w"
+ABCMKARGS += LIBS="lib/x86/pthreadVC2.lib -s" ABC_USE_NO_READLINE=1 CC="/usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-gcc"
 EXE = .exe
 
 else ifeq ($(CONFIG),msys2)
@@ -222,11 +244,22 @@ CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
 LDFLAGS := $(filter-out -rdynamic,$(LDFLAGS)) -s
 LDLIBS := $(filter-out -lrt,$(LDLIBS))
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H -DWIN32_NO_DLL -DHAVE_STRUCT_TIMESPEC -fpermissive -w"
-ABCMKARGS += LIBS="lib/x86/pthreadVC2.lib -s" ABC_USE_NO_READLINE=0
+ABCMKARGS += LIBS="-lpthread -s" ABC_USE_NO_READLINE=0 CC="i686-w64-mingw32-gcc" CXX="$(CXX)"
+EXE = .exe
+
+else ifeq ($(CONFIG),msys2-64)
+CXX = x86_64-w64-mingw32-g++
+LD = x86_64-w64-mingw32-g++
+CXXFLAGS += -std=c++11 -Os -D_POSIX_SOURCE -DYOSYS_WIN32_UNIX_DIR
+CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
+LDFLAGS := $(filter-out -rdynamic,$(LDFLAGS)) -s
+LDLIBS := $(filter-out -lrt,$(LDLIBS))
+ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H -DWIN32_NO_DLL -DHAVE_STRUCT_TIMESPEC -fpermissive -w"
+ABCMKARGS += LIBS="-lpthread -s" ABC_USE_NO_READLINE=0 CC="x86_64-w64-mingw32-gcc" CXX="$(CXX)"
 EXE = .exe
 
 else ifneq ($(CONFIG),none)
-$(error Invalid CONFIG setting '$(CONFIG)'. Valid values: clang, gcc, gcc-4.8, emcc, mxe, msys2)
+$(error Invalid CONFIG setting '$(CONFIG)'. Valid values: clang, gcc, gcc-4.8, emcc, mxe, msys2, msys2-64)
 endif
 
 ifeq ($(ENABLE_LIBYOSYS),1)
@@ -280,6 +313,10 @@ LDLIBS += -ldl
 endif
 endif
 
+ifeq ($(ENABLE_GLOB),1)
+CXXFLAGS += -DYOSYS_ENABLE_GLOB
+endif
+
 ifeq ($(ENABLE_TCL),1)
 TCL_VERSION ?= tcl$(shell bash -c "tclsh <(echo 'puts [info tclversion]')")
 ifeq ($(OS), FreeBSD)
@@ -290,7 +327,7 @@ endif
 
 ifeq ($(CONFIG),mxe)
 CXXFLAGS += -DYOSYS_ENABLE_TCL
-LDLIBS += -ltcl86 -lwsock32 -lws2_32 -lnetapi32
+LDLIBS += -ltcl86 -lwsock32 -lws2_32 -lnetapi32 -lz
 else
 CXXFLAGS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKG_CONFIG) --silence-errors --cflags tcl || echo -I$(TCL_INCLUDE)) -DYOSYS_ENABLE_TCL
 ifeq ($(OS), FreeBSD)
@@ -300,6 +337,11 @@ else
 LDLIBS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKG_CONFIG) --silence-errors --libs tcl || echo -l$(TCL_VERSION))
 endif
 endif
+endif
+
+ifeq ($(ENABLE_GCOV),1)
+CXXFLAGS += --coverage
+LDFLAGS += --coverage
 endif
 
 ifeq ($(ENABLE_GPROF),1)
@@ -334,10 +376,14 @@ endif
 endif
 
 ifeq ($(ENABLE_VERIFIC),1)
-VERIFIC_DIR ?= /usr/local/src/verific_lib_eval
-VERIFIC_COMPONENTS ?= verilog vhdl database util containers sdf hier_tree
+VERIFIC_DIR ?= /usr/local/src/verific_lib
+VERIFIC_COMPONENTS ?= verilog vhdl database util containers hier_tree
 CXXFLAGS += $(patsubst %,-I$(VERIFIC_DIR)/%,$(VERIFIC_COMPONENTS)) -DYOSYS_ENABLE_VERIFIC
+ifeq ($(OS), Darwin)
+LDLIBS += $(patsubst %,$(VERIFIC_DIR)/%/*-mac.a,$(VERIFIC_COMPONENTS)) -lz
+else
 LDLIBS += $(patsubst %,$(VERIFIC_DIR)/%/*-linux.a,$(VERIFIC_COMPONENTS)) -lz
+endif
 endif
 
 ifeq ($(ENABLE_PROTOBUF),1)
@@ -369,8 +415,8 @@ endef
 ifeq ($(PRETTY), 1)
 P_STATUS = 0
 P_OFFSET = 0
-P_UPDATE = $(eval P_STATUS=$(shell echo $(OBJS) yosys$(EXE) | gawk 'BEGIN { RS = " "; I = $(P_STATUS)+0; } $$1 == "$@" && NR > I { I = NR; } END { print I; }'))
-P_SHOW = [$(shell gawk "BEGIN { N=$(words $(OBJS) yosys$(EXE)); printf \"%3d\", $(P_OFFSET)+90*$(P_STATUS)/N; exit; }")%]
+P_UPDATE = $(eval P_STATUS=$(shell echo $(OBJS) yosys$(EXE) | $(AWK) 'BEGIN { RS = " "; I = $(P_STATUS)+0; } $$1 == "$@" && NR > I { I = NR; } END { print I; }'))
+P_SHOW = [$(shell $(AWK) "BEGIN { N=$(words $(OBJS) yosys$(EXE)); printf \"%3d\", $(P_OFFSET)+90*$(P_STATUS)/N; exit; }")%]
 P = @echo "$(if $(findstring $@,$(TARGETS) $(EXTRA_TARGETS)),$(eval P_OFFSET = 10))$(call P_UPDATE)$(call P_SHOW) Building $@";
 Q = @
 S = -s
@@ -551,7 +597,7 @@ test: $(TARGETS) $(EXTRA_TARGETS)
 	+cd tests/simple && bash run-test.sh $(SEEDOPT)
 	+cd tests/hana && bash run-test.sh $(SEEDOPT)
 	+cd tests/asicworld && bash run-test.sh $(SEEDOPT)
-	+cd tests/realmath && bash run-test.sh $(SEEDOPT)
+	# +cd tests/realmath && bash run-test.sh $(SEEDOPT)
 	+cd tests/share && bash run-test.sh $(SEEDOPT)
 	+cd tests/fsm && bash run-test.sh $(SEEDOPT)
 	+cd tests/techmap && bash run-test.sh
@@ -559,6 +605,9 @@ test: $(TARGETS) $(EXTRA_TARGETS)
 	+cd tests/bram && bash run-test.sh $(SEEDOPT)
 	+cd tests/various && bash run-test.sh
 	+cd tests/sat && bash run-test.sh
+	+cd tests/svinterfaces && bash run-test.sh $(SEEDOPT)
+	+cd tests/opt && bash run-test.sh
+	+cd tests/aiger && bash run-test.sh
 	@echo ""
 	@echo "  Passed \"make test\"."
 	@echo ""
@@ -575,6 +624,14 @@ vloghtb: $(TARGETS) $(EXTRA_TARGETS)
 	+cd tests/vloghtb && bash run-test.sh
 	@echo ""
 	@echo "  Passed \"make vloghtb\"."
+	@echo ""
+
+ystests: $(TARGETS) $(EXTRA_TARGETS)
+	rm -rf tests/ystests
+	git clone https://github.com/YosysHQ/yosys-tests.git tests/ystests
+	+$(MAKE) PATH="$$PWD:$$PATH" -C tests/ystests
+	@echo ""
+	@echo "  Finished \"make ystests\"."
 	@echo ""
 
 # Unit test
@@ -644,6 +701,7 @@ clean:
 	rm -rf tests/sat/*.log tests/techmap/*.log tests/various/*.log
 	rm -rf tests/bram/temp tests/fsm/temp tests/realmath/temp tests/share/temp tests/smv/temp
 	rm -rf vloghtb/Makefile vloghtb/refdat vloghtb/rtl vloghtb/scripts vloghtb/spec vloghtb/check_yosys vloghtb/vloghammer_tb.tar.bz2 vloghtb/temp vloghtb/log_test_*
+	rm -f tests/svinterfaces/*.log_stdout tests/svinterfaces/*.log_stderr tests/svinterfaces/dut_result.txt tests/svinterfaces/reference_result.txt tests/svinterfaces/a.out tests/svinterfaces/*_syn.v tests/svinterfaces/*.diff
 	rm -f  tests/tools/cmp_tbdata
 
 clean-abc:
@@ -652,6 +710,12 @@ clean-abc:
 
 mrproper: clean
 	git clean -xdf
+
+coverage:
+	./yosys -qp 'help; help -all'
+	rm -rf coverage.info coverage_html
+	lcov --capture -d . --no-external -o coverage.info
+	genhtml coverage.info --output-directory coverage_html
 
 qtcreator:
 	{ for file in $(basename $(OBJS)); do \
@@ -692,6 +756,12 @@ config-clang: clean
 config-gcc: clean
 	echo 'CONFIG := gcc' > Makefile.conf
 
+config-gcc-static: clean
+	echo 'CONFIG := gcc-static' > Makefile.conf
+	echo 'ENABLE_PLUGINS := 0' >> Makefile.conf
+	echo 'ENABLE_READLINE := 0' >> Makefile.conf
+	echo 'ENABLE_TCL := 0' >> Makefile.conf
+
 config-gcc-4.8: clean
 	echo 'CONFIG := gcc-4.8' > Makefile.conf
 
@@ -708,6 +778,17 @@ config-mxe: clean
 
 config-msys2: clean
 	echo 'CONFIG := msys2' > Makefile.conf
+
+config-msys2-64: clean
+	echo 'CONFIG := msys2-64' > Makefile.conf
+
+config-cygwin: clean
+	echo 'CONFIG := cygwin' > Makefile.conf
+
+config-gcov: clean
+	echo 'CONFIG := gcc' > Makefile.conf
+	echo 'ENABLE_GCOV := 1' >> Makefile.conf
+	echo 'ENABLE_DEBUG := 1' >> Makefile.conf
 
 config-gprof: clean
 	echo 'CONFIG := gcc' > Makefile.conf
@@ -729,6 +810,6 @@ echo-git-rev:
 -include kernel/*.d
 -include techlibs/*/*.d
 
-.PHONY: all top-all abc test install install-abc manual clean mrproper qtcreator
-.PHONY: config-clean config-clang config-gcc config-gcc-4.8 config-gprof config-sudo
+.PHONY: all top-all abc test install install-abc manual clean mrproper qtcreator coverage vcxsrc mxebin
+.PHONY: config-clean config-clang config-gcc config-gcc-static config-gcc-4.8 config-gprof config-sudo
 

@@ -352,7 +352,7 @@ struct MemoryMapWorker
 
 struct MemoryMapPass : public Pass {
 	MemoryMapPass() : Pass("memory_map", "translate multiport memories to basic cells") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -362,7 +362,7 @@ struct MemoryMapPass : public Pass {
 		log("pass to word-wide DFFs and address decoders.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) {
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE {
 		log_header(design, "Executing MEMORY_MAP pass (converting $mem cells to logic and flip-flops).\n");
 		extra_args(args, 1, design);
 		for (auto mod : design->selected_modules())

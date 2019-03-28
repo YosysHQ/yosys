@@ -35,7 +35,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct CoverPass : public Pass {
 	CoverPass() : Pass("cover", "print code coverage counters") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -83,7 +83,7 @@ struct CoverPass : public Pass {
 		log("Coverage counters are only available in Yosys for Linux.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		std::vector<FILE*> out_files;
 		std::vector<std::string> patterns;

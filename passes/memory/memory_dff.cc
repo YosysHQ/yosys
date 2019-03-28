@@ -41,7 +41,7 @@ struct MemoryDffWorker
 			if (wire->attributes.count("\\init") == 0)
 				continue;
 			SigSpec sig = sigmap(wire);
-			Const initval = wire->attributes.count("\\init");
+			Const initval = wire->attributes.at("\\init");
 			for (int i = 0; i < GetSize(sig) && i < GetSize(initval); i++)
 				if (initval[i] == State::S0 || initval[i] == State::S1)
 					init_bits.insert(sig[i]);
@@ -283,7 +283,7 @@ struct MemoryDffWorker
 
 struct MemoryDffPass : public Pass {
 	MemoryDffPass() : Pass("memory_dff", "merge input/output DFFs into memories") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -297,7 +297,7 @@ struct MemoryDffPass : public Pass {
 		log("        do not merge registers on read ports\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		bool flag_wr_only = false;
 

@@ -652,7 +652,7 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 
 struct TestCellPass : public Pass {
 	TestCellPass() : Pass("test_cell", "automatically test the implementation of a cell type") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -712,7 +712,7 @@ struct TestCellPass : public Pass {
 		log("        create a Verilog test bench to test simlib and write_verilog\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design*)
+	void execute(std::vector<std::string> args, RTLIL::Design*) YS_OVERRIDE
 	{
 		int num_iter = 100;
 		std::string techmap_cmd = "techmap -assert";

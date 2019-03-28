@@ -253,7 +253,7 @@ struct Dff2dffeWorker
 
 struct Dff2dffePass : public Pass {
 	Dff2dffePass() : Pass("dff2dffe", "transform $dff cells to $dffe cells") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -267,6 +267,10 @@ struct Dff2dffePass : public Pass {
 		log("        operate in the opposite direction: replace $dffe cells with combinations\n");
 		log("        of $dff and $mux cells. the options below are ignore in unmap mode.\n");
 		log("\n");
+		log("    -unmap-mince N\n");
+		log("        Same as -unmap but only unmap $dffe where the clock enable port\n");
+		log("        signal is used by less $dffe than the specified number\n");
+		log("\n");
 		log("    -direct <internal_gate_type> <external_gate_type>\n");
 		log("        map directly to external gate type. <internal_gate_type> can\n");
 		log("        be any internal gate-level FF cell (except $_DFFE_??_). the\n");
@@ -279,21 +283,28 @@ struct Dff2dffePass : public Pass {
 		log("    -direct-match <pattern>\n");
 		log("        like -direct for all DFF cell types matching the expression.\n");
 		log("        this will use $__DFFE_* as <external_gate_type> matching the\n");
-		log("        internal gate type $_DFF_*_, except for $_DFF_[NP]_, which is\n");
-		log("        converted to $_DFFE_[NP]_.\n");
+		log("        internal gate type $_DFF_*_, and $__DFFSE_* for those matching\n");
+		log("        $_DFFS_*_, except for $_DFF_[NP]_, which is converted to \n");
+		log("        $_DFFE_[NP]_.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing DFF2DFFE pass (transform $dff to $dffe where applicable).\n");
 
 		bool unmap_mode = false;
+		int min_ce_use = -1;
 		dict<IdString, IdString> direct_dict;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-unmap") {
 				unmap_mode = true;
+				continue;
+			}
+			if (args[argidx] == "-unmap-mince" && argidx + 1 < args.size()) {
+				unmap_mode = true;
+				min_ce_use = std::stoi(args[++argidx]);
 				continue;
 			}
 			if (args[argidx] == "-direct" && argidx + 2 < args.size()) {
@@ -315,6 +326,15 @@ struct Dff2dffePass : public Pass {
 				if (patmatch(pattern, "$_DFF_PN1_")) found_match = true, direct_dict["$_DFF_PN1_"] = "$__DFFE_PN1";
 				if (patmatch(pattern, "$_DFF_PP0_")) found_match = true, direct_dict["$_DFF_PP0_"] = "$__DFFE_PP0";
 				if (patmatch(pattern, "$_DFF_PP1_")) found_match = true, direct_dict["$_DFF_PP1_"] = "$__DFFE_PP1";
+
+				if (patmatch(pattern, "$__DFFS_NN0_")) found_match = true, direct_dict["$__DFFS_NN0_"] = "$__DFFSE_NN0";
+				if (patmatch(pattern, "$__DFFS_NN1_")) found_match = true, direct_dict["$__DFFS_NN1_"] = "$__DFFSE_NN1";
+				if (patmatch(pattern, "$__DFFS_NP0_")) found_match = true, direct_dict["$__DFFS_NP0_"] = "$__DFFSE_NP0";
+				if (patmatch(pattern, "$__DFFS_NP1_")) found_match = true, direct_dict["$__DFFS_NP1_"] = "$__DFFSE_NP1";
+				if (patmatch(pattern, "$__DFFS_PN0_")) found_match = true, direct_dict["$__DFFS_PN0_"] = "$__DFFSE_PN0";
+				if (patmatch(pattern, "$__DFFS_PN1_")) found_match = true, direct_dict["$__DFFS_PN1_"] = "$__DFFSE_PN1";
+				if (patmatch(pattern, "$__DFFS_PP0_")) found_match = true, direct_dict["$__DFFS_PP0_"] = "$__DFFSE_PP0";
+				if (patmatch(pattern, "$__DFFS_PP1_")) found_match = true, direct_dict["$__DFFS_PP1_"] = "$__DFFSE_PP1";
 				if (!found_match)
 					log_cmd_error("No cell types matched pattern '%s'.\n", pattern);
 				continue;
@@ -333,8 +353,21 @@ struct Dff2dffePass : public Pass {
 			if (!mod->has_processes_warn())
 			{
 				if (unmap_mode) {
+					SigMap sigmap(mod);
 					for (auto cell : mod->selected_cells()) {
 						if (cell->type == "$dffe") {
+							if (min_ce_use >= 0) {
+								int ce_use = 0;
+								for (auto cell_other : mod->selected_cells()) {
+									if (cell_other->type != cell->type)
+										continue;
+									if (sigmap(cell->getPort("\\EN")) == sigmap(cell_other->getPort("\\EN")))
+										ce_use++;
+								}
+								if (ce_use >= min_ce_use)
+									continue;
+							}
+
 							RTLIL::SigSpec tmp = mod->addWire(NEW_ID, GetSize(cell->getPort("\\D")));
 							mod->addDff(NEW_ID, cell->getPort("\\CLK"), tmp, cell->getPort("\\Q"), cell->getParam("\\CLK_POLARITY").as_bool());
 							if (cell->getParam("\\EN_POLARITY").as_bool())
@@ -345,6 +378,18 @@ struct Dff2dffePass : public Pass {
 							continue;
 						}
 						if (cell->type.substr(0, 7) == "$_DFFE_") {
+							if (min_ce_use >= 0) {
+								int ce_use = 0;
+								for (auto cell_other : mod->selected_cells()) {
+									if (cell_other->type != cell->type)
+										continue;
+									if (sigmap(cell->getPort("\\E")) == sigmap(cell_other->getPort("\\E")))
+										ce_use++;
+								}
+								if (ce_use >= min_ce_use)
+									continue;
+							}
+
 							bool clk_pol = cell->type.substr(7, 1) == "P";
 							bool en_pol = cell->type.substr(8, 1) == "P";
 							RTLIL::SigSpec tmp = mod->addWire(NEW_ID);

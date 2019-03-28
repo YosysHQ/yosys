@@ -174,8 +174,6 @@ bool handle_dffsr(RTLIL::Module *mod, RTLIL::Cell *cell)
 			cell->unsetParam("\\CLR_POLARITY");
 			cell->unsetPort("\\SET");
 			cell->unsetPort("\\CLR");
-
-			return true;
 		}
 		else
 		{
@@ -186,11 +184,12 @@ bool handle_dffsr(RTLIL::Module *mod, RTLIL::Cell *cell)
 			cell->unsetParam("\\CLR_POLARITY");
 			cell->unsetPort("\\SET");
 			cell->unsetPort("\\CLR");
-
-			return true;
 		}
+
+		return true;
 	}
-	else
+
+	if (!hasreset)
 	{
 		IdString new_type;
 
@@ -207,8 +206,10 @@ bool handle_dffsr(RTLIL::Module *mod, RTLIL::Cell *cell)
 		cell->unsetPort("\\S");
 		cell->unsetPort("\\R");
 
-		return did_something;
+		return true;
 	}
+
+	return did_something;
 }
 
 bool handle_dlatch(RTLIL::Module *mod, RTLIL::Cell *dlatch)
@@ -399,7 +400,7 @@ delete_dff:
 
 struct OptRmdffPass : public Pass {
 	OptRmdffPass() : Pass("opt_rmdff", "remove DFFs with constant inputs") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -409,7 +410,7 @@ struct OptRmdffPass : public Pass {
 		log("a constant driver.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		int total_count = 0, total_initdrv = 0;
 		log_header(design, "Executing OPT_RMDFF pass (remove dff with constant values).\n");

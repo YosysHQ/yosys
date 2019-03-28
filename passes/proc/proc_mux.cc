@@ -382,7 +382,7 @@ void proc_mux(RTLIL::Module *mod, RTLIL::Process *proc, bool ifxmode)
 
 struct ProcMuxPass : public Pass {
 	ProcMuxPass() : Pass("proc_mux", "convert decision trees to multiplexers") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -396,7 +396,7 @@ struct ProcMuxPass : public Pass {
 		log("        'case' expressions and 'if' conditions.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		bool ifxmode = false;
 		log_header(design, "Executing PROC_MUX pass (convert decision trees to multiplexers).\n");

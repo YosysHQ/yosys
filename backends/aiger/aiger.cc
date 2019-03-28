@@ -100,7 +100,7 @@ struct AigerWriter
 		return aig_map.at(bit);
 	}
 
-	AigerWriter(Module *module, bool zinit_mode) : module(module), zinit_mode(zinit_mode), sigmap(module)
+	AigerWriter(Module *module, bool zinit_mode, bool imode, bool omode, bool bmode) : module(module), zinit_mode(zinit_mode), sigmap(module)
 	{
 		pool<SigBit> undriven_bits;
 		pool<SigBit> unused_bits;
@@ -293,6 +293,10 @@ struct AigerWriter
 			aig_map[bit] = 2*aig_m;
 		}
 
+		if (imode && input_bits.empty()) {
+			aig_m++, aig_i++;
+		}
+
 		if (zinit_mode)
 		{
 			for (auto it : ff_map) {
@@ -371,11 +375,21 @@ struct AigerWriter
 			aig_outputs.push_back(bit2aig(bit));
 		}
 
+		if (omode && output_bits.empty()) {
+			aig_o++;
+			aig_outputs.push_back(0);
+		}
+
 		for (auto it : asserts) {
 			aig_b++;
 			int bit_a = bit2aig(it.first);
 			int bit_en = bit2aig(it.second);
 			aig_outputs.push_back(mkgate(bit_a^1, bit_en));
+		}
+
+		if (bmode && asserts.empty()) {
+			aig_b++;
+			aig_outputs.push_back(0);
 		}
 
 		for (auto it : assumes) {
@@ -657,7 +671,7 @@ struct AigerWriter
 
 struct AigerBackend : public Backend {
 	AigerBackend() : Backend("aiger", "write design to AIGER file") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -689,14 +703,22 @@ struct AigerBackend : public Backend {
 		log("    -vmap <filename>\n");
 		log("        like -map, but more verbose\n");
 		log("\n");
+		log("    -I, -O, -B\n");
+		log("        If the design contains no input/output/assert then create one\n");
+		log("        dummy input/output/bad_state pin to make the tools reading the\n");
+		log("        AIGER file happy.\n");
+		log("\n");
 	}
-	virtual void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		bool ascii_mode = false;
 		bool zinit_mode = false;
 		bool miter_mode = false;
 		bool symbols_mode = false;
 		bool verbose_map = false;
+		bool imode = false;
+		bool omode = false;
+		bool bmode = false;
 		std::string map_filename;
 
 		log_header(design, "Executing AIGER backend.\n");
@@ -729,6 +751,18 @@ struct AigerBackend : public Backend {
 				verbose_map = true;
 				continue;
 			}
+			if (args[argidx] == "-I") {
+				imode = true;
+				continue;
+			}
+			if (args[argidx] == "-O") {
+				omode = true;
+				continue;
+			}
+			if (args[argidx] == "-B") {
+				bmode = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(f, filename, args, argidx);
@@ -738,7 +772,7 @@ struct AigerBackend : public Backend {
 		if (top_module == nullptr)
 			log_error("Can't find top module in current design!\n");
 
-		AigerWriter writer(top_module, zinit_mode);
+		AigerWriter writer(top_module, zinit_mode, imode, omode, bmode);
 		writer.write_aiger(*f, ascii_mode, miter_mode, symbols_mode);
 
 		if (!map_filename.empty()) {

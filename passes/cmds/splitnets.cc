@@ -87,7 +87,7 @@ struct SplitnetsWorker
 
 struct SplitnetsPass : public Pass {
 	SplitnetsPass() : Pass("splitnets", "split up multi-bit nets") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -109,7 +109,7 @@ struct SplitnetsPass : public Pass {
 		log("        and split nets so that no driver drives only part of a net.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		bool flag_ports = false;
 		bool flag_driver = false;

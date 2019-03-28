@@ -77,18 +77,42 @@ void proc_clean_switch(RTLIL::SwitchRule *sw, RTLIL::CaseRule *parent, bool &did
 	}
 	else
 	{
-		bool all_cases_are_empty = true;
-		for (auto cs : sw->cases) {
-			if (cs->actions.size() != 0 || cs->switches.size() != 0)
-				all_cases_are_empty = false;
+		bool all_fully_def = true;
+		for (auto cs : sw->cases)
+		{
 			if (max_depth != 0)
 				proc_clean_case(cs, did_something, count, max_depth-1);
+			int size = 0;
+			for (auto cmp : cs->compare)
+			{
+				size += cmp.size();
+				if (!cmp.is_fully_def())
+					all_fully_def = false;
+			}
+			if (sw->signal.size() != size)
+				all_fully_def = false;
 		}
-		if (all_cases_are_empty) {
-			did_something = true;
-			for (auto cs : sw->cases)
-				delete cs;
-			sw->cases.clear();
+		if (all_fully_def)
+		{
+			for (auto cs = sw->cases.begin(); cs != sw->cases.end();)
+			{
+				if ((*cs)->empty())
+				{
+					did_something = true;
+					delete *cs;
+					cs = sw->cases.erase(cs);
+				}
+				else ++cs;
+			}
+		}
+		else
+		{
+			while (!sw->cases.empty() && sw->cases.back()->empty())
+			{
+				did_something = true;
+				delete sw->cases.back();
+				sw->cases.pop_back();
+			}
 		}
 	}
 }
@@ -106,7 +130,7 @@ void proc_clean_case(RTLIL::CaseRule *cs, bool &did_something, int &count, int m
 	}
 	for (size_t i = 0; i < cs->switches.size(); i++) {
 		RTLIL::SwitchRule *sw = cs->switches[i];
-		if (sw->cases.size() == 0) {
+		if (sw->empty()) {
 			cs->switches.erase(cs->switches.begin() + (i--));
 			did_something = true;
 			delete sw;
@@ -143,7 +167,7 @@ void proc_clean(RTLIL::Module *mod, RTLIL::Process *proc, int &total_count)
 
 struct ProcCleanPass : public Pass {
 	ProcCleanPass() : Pass("proc_clean", "remove empty parts of processes") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -153,7 +177,7 @@ struct ProcCleanPass : public Pass {
 		log("if it contains only empty structures.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		int total_count = 0;
 		log_header(design, "Executing PROC_CLEAN pass (remove empty switches from decision trees).\n");

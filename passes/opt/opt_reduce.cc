@@ -329,7 +329,7 @@ struct OptReduceWorker
 
 struct OptReducePass : public Pass {
 	OptReducePass() : Pass("opt_reduce", "simplify large MUXes and AND/OR gates") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -350,7 +350,7 @@ struct OptReducePass : public Pass {
 		log("      alias for -fine\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		bool do_fine = false;
 

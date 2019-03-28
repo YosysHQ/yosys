@@ -244,7 +244,7 @@ static void test_abcloop()
 
 struct TestAbcloopPass : public Pass {
 	TestAbcloopPass() : Pass("test_abcloop", "automatically test handling of loops in abc command") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -259,7 +259,7 @@ struct TestAbcloopPass : public Pass {
 		log("        use this value as rng seed value (default = unix time).\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design*)
+	void execute(std::vector<std::string> args, RTLIL::Design*) YS_OVERRIDE
 	{
 		int num_iter = 100;
 		xorshift32_state = 0;

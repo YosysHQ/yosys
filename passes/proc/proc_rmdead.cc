@@ -65,7 +65,7 @@ void proc_rmdead(RTLIL::SwitchRule *sw, int &counter)
 
 struct ProcRmdeadPass : public Pass {
 	ProcRmdeadPass() : Pass("proc_rmdead", "eliminate dead trees in decision trees") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -74,7 +74,7 @@ struct ProcRmdeadPass : public Pass {
 		log("This pass identifies unreachable branches in decision trees and removes them.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing PROC_RMDEAD pass (remove dead branches from decision trees).\n");
 

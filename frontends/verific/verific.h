@@ -78,6 +78,7 @@ struct VerificImporter
 
 	RTLIL::SigBit net_map_at(Verific::Net *net);
 
+	RTLIL::IdString new_verific_id(Verific::DesignObj *obj);
 	void import_attributes(dict<RTLIL::IdString, RTLIL::Const> &attributes, Verific::DesignObj *obj);
 
 	RTLIL::SigSpec operatorInput(Verific::Instance *inst);
@@ -100,6 +101,8 @@ void verific_import_sva_assume(VerificImporter *importer, Verific::Instance *ins
 void verific_import_sva_cover(VerificImporter *importer, Verific::Instance *inst);
 void verific_import_sva_trigger(VerificImporter *importer, Verific::Instance *inst);
 bool verific_is_sva_net(VerificImporter *importer, Verific::Net *net);
+
+extern int verific_sva_fsm_limit;
 
 YOSYS_NAMESPACE_END
 

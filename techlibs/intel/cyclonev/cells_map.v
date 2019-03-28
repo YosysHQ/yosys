@@ -76,7 +76,7 @@ module \$lut (A, Y);
    wire              VCC;
    wire              GND;
    assign {VCC,GND} = {1'b1,1'b0};
-   
+
    generate
       if (WIDTH == 1) begin
 	 assign Y = ~A[0]; // Not need to spend 1 logic cell for such an easy function
@@ -151,7 +151,7 @@ module \$lut (A, Y);
                     TODO: There's not a just 7-input function on Cyclone V, see the following note:
                     **Extended LUT Mode**
                     Use extended LUT mode to implement a specific set of 7-input functions. The set must
-                    be a 2-to-1 multiplexer fed by two arbitrary 5-input functions sharing four inputs. 
+                    be a 2-to-1 multiplexer fed by two arbitrary 5-input functions sharing four inputs.
                     [source](Device Interfaces and Integration Basics for Cyclone V Devices).
                   end*/
                   else

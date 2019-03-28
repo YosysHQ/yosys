@@ -57,3 +57,9 @@ endmodule
 module GSR (input GSRI);
 	wire GSRO = GSRI;
 endmodule
+
+module ALU (input I0, input I1, input I3, input CIN, output COUT, output SUM);
+   parameter [3:0] ALU_MODE = 0; // default 0 = ADD
+   assign  {COUT, SUM} = CIN + I1 + I0;
+endmodule // alu
+

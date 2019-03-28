@@ -32,6 +32,8 @@ YOSYS_NAMESPACE_BEGIN
 namespace ILANG_FRONTEND {
 	extern std::istream *lexin;
 	extern RTLIL::Design *current_design;
+	extern bool flag_nooverwrite;
+	extern bool flag_overwrite;
 }
 
 YOSYS_NAMESPACE_END

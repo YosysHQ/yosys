@@ -30,7 +30,7 @@ endmodule
 module PADOUT (output padout, input padin, input oe);
    assign padout  = padin;
    assign oe = oe;
-endmodule 
+endmodule
 
 module LUT4 (output dout,
              input  din0, din1, din2, din3);
@@ -61,19 +61,19 @@ reg [1:0]   s1;
   end
 endfunction
 
-always @(dataa_w or datab_w or datac_w or datad_w or cin_w) begin
+always @(dataa_w or datab_w or datac_w or datad_w) begin
    combout_rt = lut_data(lut_function, dataa_w, datab_w,
                          datac_w, datad_w);
 end
 assign dout = combout_rt & 1'b1;
-endmodule 
+endmodule
 
 module DFF (output q,
             input  d, ck);
    reg             q;
    always @(posedge ck)
      q <= d;
-   
+
 endmodule
 
 

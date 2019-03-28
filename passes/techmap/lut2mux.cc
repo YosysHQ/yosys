@@ -32,7 +32,7 @@ int lut2mux(Cell *cell)
 
 	if (GetSize(sig_a) == 1)
 	{
-		cell->module->addMuxGate(NEW_ID, lut[0], lut[1], sig_a, sig_y);
+		cell->module->addMuxGate(NEW_ID, lut.extract(0)[0], lut.extract(1)[0], sig_a, sig_y);
 	}
 	else
 	{
@@ -56,7 +56,7 @@ int lut2mux(Cell *cell)
 
 struct Lut2muxPass : public Pass {
 	Lut2muxPass() : Pass("lut2mux", "convert $lut to $_MUX_") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -65,7 +65,7 @@ struct Lut2muxPass : public Pass {
 		log("This pass converts $lut cells to $_MUX_ gates.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing LUT2MUX pass (convert $lut to $_MUX_).\n");
 

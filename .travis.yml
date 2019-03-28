@@ -28,7 +28,6 @@ matrix:
             - tcl-dev
             - libffi-dev
             - git
-            - mercurial
             - graphviz
             - xdot
             - pkg-config
@@ -53,7 +52,6 @@ matrix:
             - tcl-dev
             - libffi-dev
             - git
-            - mercurial
             - graphviz
             - xdot
             - pkg-config
@@ -78,7 +76,6 @@ matrix:
             - tcl-dev
             - libffi-dev
             - git
-            - mercurial
             - graphviz
             - xdot
             - pkg-config
@@ -104,7 +101,6 @@ matrix:
             - tcl-dev
             - libffi-dev
             - git
-            - mercurial
             - graphviz
             - xdot
             - pkg-config
@@ -129,7 +125,6 @@ matrix:
             - tcl-dev
             - libffi-dev
             - git
-            - mercurial
             - graphviz
             - xdot
             - pkg-config
@@ -137,11 +132,11 @@ matrix:
       env:
         - MATRIX_EVAL="CONFIG=clang && CC=clang-5.0 && CXX=clang++-5.0"
 
-    # Latest clang on Mac OS X
-    - os: osx
-      osx_image: xcode8
-      env:
-        - MATRIX_EVAL="CONFIG=gcc && CC=gcc-7 && CXX=g++-7"
+#   # Latest clang on Mac OS X
+#   - os: osx
+#     osx_image: xcode9.4
+#     env:
+#       - MATRIX_EVAL="CONFIG=clang && CC=clang && CXX=clang++"
 
 before_install:
   - ./.travis/setup.sh

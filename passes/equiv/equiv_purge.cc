@@ -176,7 +176,7 @@ struct EquivPurgeWorker
 
 struct EquivPurgePass : public Pass {
 	EquivPurgePass() : Pass("equiv_purge", "purge equivalence checking module") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -187,7 +187,7 @@ struct EquivPurgePass : public Pass {
 		log("ports as needed.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, Design *design)
+	void execute(std::vector<std::string> args, Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing EQUIV_PURGE pass.\n");
 

@@ -184,9 +184,6 @@ Cell *handle_memory(Module *module, RTLIL::Memory *memory)
 	mem->parameters["\\OFFSET"] = Const(memory->start_offset);
 	mem->parameters["\\SIZE"] = Const(memory->size);
 	mem->parameters["\\ABITS"] = Const(addr_bits);
-
-	while (GetSize(init_data) > 1 && init_data.bits.back() == State::Sx && init_data.bits[GetSize(init_data)-2] == State::Sx)
-		init_data.bits.pop_back();
 	mem->parameters["\\INIT"] = init_data;
 
 	log_assert(sig_wr_clk.size() == wr_ports);
@@ -246,7 +243,7 @@ static void handle_module(Design *design, Module *module)
 
 struct MemoryCollectPass : public Pass {
 	MemoryCollectPass() : Pass("memory_collect", "creating multi-port memory cells") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -256,7 +253,7 @@ struct MemoryCollectPass : public Pass {
 		log("memory cells.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) {
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE {
 		log_header(design, "Executing MEMORY_COLLECT pass (generating $mem cells).\n");
 		extra_args(args, 1, design);
 		for (auto &mod_it : design->modules_)

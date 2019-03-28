@@ -1,7 +1,7 @@
 ```
 yosys -- Yosys Open SYnthesis Suite
 
-Copyright (C) 2012 - 2017  Clifford Wolf <clifford@clifford.at>
+Copyright (C) 2012 - 2018  Clifford Wolf <clifford@clifford.at>
 
 Permission to use, copy, modify, and/or distribute this software for any
 purpose with or without fee is hereby granted, provided that the above
@@ -34,11 +34,24 @@ compatible license that is similar in terms to the MIT license
 or the 2-clause BSD license).
 
 
-Web Site
-========
+Web Site and Other Resources
+============================
 
 More information and documentation can be found on the Yosys web site:
-http://www.clifford.at/yosys/
+- http://www.clifford.at/yosys/
+
+The "Documentation" page on the web site contains links to more resources,
+including a manual that even describes some of the Yosys internals:
+- http://www.clifford.at/yosys/documentation.html
+
+The file `CodingReadme` in this directory contains additional information
+for people interested in using the Yosys C++ APIs.
+
+Users interested in formal verification might want to use the formal verification
+front-end for Yosys, SymbiYosys:
+- https://symbiyosys.readthedocs.io/en/latest/
+- https://github.com/YosysHQ/SymbiYosys
+
 
 Setup
 ======
@@ -69,6 +82,10 @@ On FreeBSD use the following command to install all prerequisites:
 On FreeBSD system use gmake instead of make. To run tests use:
     % MAKE=gmake CC=cc gmake test
 
+For Cygwin use the following command to install all prerequisites, or select these additional packages:
+
+	setup-x86_64.exe -q --packages=bison,flex,gcc-core,gcc-g++,git,libffi-devel,libreadline-devel,make,pkg-config,python3,tcl-devel
+
 There are also pre-compiled Yosys binary packages for Ubuntu and Win32 as well
 as a source distribution for Visual Studio. Visit the Yosys download page for
 more information: http://www.clifford.at/yosys/download.html
@@ -88,11 +105,14 @@ Makefile.
 To build Yosys simply type 'make' in this directory.
 
 	$ make
-	$ make test
 	$ sudo make install
 
 Note that this also downloads, builds and installs ABC (using yosys-abc
 as executable name).
+
+Tests are located in the tests subdirectory and can be executed using the test target. Note that you need gawk as well as a recent version of iverilog (i.e. build from git). Then, execute tests via:
+
+	$ make test
 
 Getting Started
 ===============
@@ -113,7 +133,7 @@ reading the design using the Verilog frontend:
 
 	yosys> read_verilog tests/simple/fiedler-cooley.v
 
-writing the design to the console in yosys's internal format:
+writing the design to the console in Yosys's internal format:
 
 	yosys> write_ilang
 
@@ -230,7 +250,7 @@ Unsupported Verilog-2005 Features
 =================================
 
 The following Verilog-2005 features are not supported by
-yosys and there are currently no plans to add support
+Yosys and there are currently no plans to add support
 for them:
 
 - Non-synthesizable language features as defined in
@@ -281,9 +301,9 @@ Verilog Attributes and non-standard features
   storage element. The register itself will always have all bits set
   to 'x' (undefined). The variable may only be used as blocking assigned
   temporary variable within an always block. This is mostly used internally
-  by yosys to synthesize Verilog functions and access arrays.
+  by Yosys to synthesize Verilog functions and access arrays.
 
-- The ``onehot`` attribute on wires mark them as onehot state register. This
+- The ``onehot`` attribute on wires mark them as one-hot state register. This
   is used for example for memory port sharing and set by the fsm_map pass.
 
 - The ``blackbox`` attribute on modules is used to mark empty stub modules
@@ -291,6 +311,12 @@ Verilog Attributes and non-standard features
   on the internal configuration. This modules are only used by the synthesis
   passes to identify input and output ports of cells. The Verilog backend
   also does not output blackbox modules on default.
+
+- The ``dynports'' attribute is used by the Verilog front-end to mark modules
+  that have ports with a width that depends on a parameter.
+
+- The ``hdlname'' attribute is used by some passes to document the original
+  (HDL) name of a module when renaming a module.
 
 - The ``keep`` attribute on cells and wires is used to mark objects that should
   never be removed by the optimizer. This is used for example for cells that
@@ -315,13 +341,13 @@ Verilog Attributes and non-standard features
   through the synthesis. When entities are combined, a new |-separated
   string is created that contains all the string from the original entities.
 
-- In addition to the ``(* ... *)`` attribute syntax, yosys supports
+- In addition to the ``(* ... *)`` attribute syntax, Yosys supports
   the non-standard ``{* ... *}`` attribute syntax to set default attributes
   for everything that comes after the ``{* ... *}`` statement. (Reset
   by adding an empty ``{* *}`` statement.)
 
 - In module parameter and port declarations, and cell port and parameter
-  lists, a trailing comma is ignored. This simplifies writing verilog code
+  lists, a trailing comma is ignored. This simplifies writing Verilog code
   generators a bit in some cases.
 
 - Modules can be declared with ``module mod_name(...);`` (with three dots
@@ -389,7 +415,7 @@ Verilog Attributes and non-standard features
 Non-standard or SystemVerilog features for formal verification
 ==============================================================
 
-- Support for ``assert``, ``assume``, ``restrict``, and ``cover'' is enabled
+- Support for ``assert``, ``assume``, ``restrict``, and ``cover`` is enabled
   when ``read_verilog`` is called with ``-formal``.
 
 - The system task ``$initstate`` evaluates to 1 in the initial state and
@@ -406,11 +432,11 @@ Non-standard or SystemVerilog features for formal verification
 
 - The system functions ``$allconst`` and ``$allseq`` can be used to construct
   formal exist-forall problems. Assumptions only hold if the trace satisfies
-  the assumtion for all ``$allconst/$allseq`` values. For assertions and cover
+  the assumption for all ``$allconst/$allseq`` values. For assertions and cover
   statements it is sufficient if just one ``$allconst/$allseq`` value triggers
   the property (similar to ``$anyconst/$anyseq``).
 
-- Wires/registers decalred using the ``anyconst/anyseq/allconst/allseq`` attribute
+- Wires/registers declared using the ``anyconst/anyseq/allconst/allseq`` attribute
   (for example ``(* anyconst *) reg [7:0] foobar;``) will behave as if driven
   by a ``$anyconst/$anyseq/$allconst/$allseq`` function.
 
@@ -448,6 +474,9 @@ from SystemVerilog:
   into a design with ``read_verilog``, all its packages are available to
   SystemVerilog files being read into the same design afterwards.
 
+- SystemVerilog interfaces (SVIs) are supported. Modports for specifying whether
+  ports are inputs or outputs are supported.
+
 
 Building the documentation
 ==========================
@@ -478,6 +507,6 @@ Then execute, from the root of the repository:
 
 Notes:
 
-- To run `make manual` you need to have installed yosys with `make install`,
+- To run `make manual` you need to have installed Yosys with `make install`,
   otherwise it will fail on finding `kernel/yosys.h` while building
   `PRESENTATION_Prog`.

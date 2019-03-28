@@ -30,7 +30,7 @@
 #endif
 
 #include "frontends/ilang/ilang_frontend.h"
-#include "ilang_parser.tab.h"
+#include "ilang_parser.tab.hh"
 
 USING_YOSYS_NAMESPACE
 

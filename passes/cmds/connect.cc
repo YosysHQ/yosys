@@ -43,7 +43,7 @@ static void unset_drivers(RTLIL::Design *design, RTLIL::Module *module, SigMap &
 
 struct ConnectPass : public Pass {
 	ConnectPass() : Pass("connect", "create or remove connections") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -75,7 +75,7 @@ struct ConnectPass : public Pass {
 		log("This command does not operate on module with processes.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		RTLIL::Module *module = NULL;
 		for (auto &it : design->modules_) {
@@ -137,7 +137,7 @@ struct ConnectPass : public Pass {
 		if (!set_lhs.empty())
 		{
 			if (!unset_expr.empty() || !port_cell.empty())
-				log_cmd_error("Cant use -set together with -unset and/or -port.\n");
+				log_cmd_error("Can't use -set together with -unset and/or -port.\n");
 
 			RTLIL::SigSpec sig_lhs, sig_rhs;
 			if (!RTLIL::SigSpec::parse_sel(sig_lhs, design, module, set_lhs))
@@ -157,7 +157,7 @@ struct ConnectPass : public Pass {
 		if (!unset_expr.empty())
 		{
 			if (!port_cell.empty() || flag_nounset)
-				log_cmd_error("Cant use -unset together with -port and/or -nounset.\n");
+				log_cmd_error("Can't use -unset together with -port and/or -nounset.\n");
 
 			RTLIL::SigSpec sig;
 			if (!RTLIL::SigSpec::parse_sel(sig, design, module, unset_expr))
@@ -170,7 +170,7 @@ struct ConnectPass : public Pass {
 		if (!port_cell.empty())
 		{
 			if (flag_nounset)
-				log_cmd_error("Cant use -port together with -nounset.\n");
+				log_cmd_error("Can't use -port together with -nounset.\n");
 
 			if (module->cells_.count(RTLIL::escape_id(port_cell)) == 0)
 				log_cmd_error("Can't find cell %s.\n", port_cell.c_str());
