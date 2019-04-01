@@ -63,7 +63,7 @@
     extern "C" PyObject* INIT_MODULE();
 #else
 #   define INIT_MODULE initlibyosys
-	    extern "C" void INIT_MODULE();
+	extern "C" void INIT_MODULE();
 #endif
 #endif
 
