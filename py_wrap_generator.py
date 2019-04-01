@@ -1263,7 +1263,7 @@ class WFunction:
 		for part in parts:
 			if part in ["unsigned", "long", "short"]:
 				prefix += part + " "
-				i = i + 1
+				i += 1
 			else:
 				break
 		parts = parts[i:]
@@ -1604,7 +1604,7 @@ class WMember:
 		for part in parts:
 			if part in ["unsigned", "long", "short"]:
 				prefix += part + " "
-				i = i + 1
+				i += 1
 			else:
 				break
 		parts = parts[i:]
@@ -1776,7 +1776,7 @@ def parse_header(source):
 			namespace_name = ugly_line[10:].replace("{","").strip()
 			namespaces.append((namespace_name, ugly_line.count("{")))
 			debug("-----NAMESPACE " + concat_namespace(namespaces) + "-----",3)
-			i = i + 1
+			i += 1
 			continue
 
 		if len(namespaces) != 0:
@@ -1784,7 +1784,7 @@ def parse_header(source):
 			if namespaces[-1][1] == 0:
 				debug("-----END NAMESPACE " + concat_namespace(namespaces) + "-----",3)
 				del namespaces[-1]
-				i = i + 1
+				i += 1
 				continue
 
 		if class_ == None and (str.startswith(ugly_line, "struct ") or str.startswith(ugly_line, "class")) and ugly_line.count(";") == 0:
@@ -1798,7 +1798,7 @@ def parse_header(source):
 			class_ = (class_by_name(struct_name), ugly_line.count("{"))#calc_ident(line))
 			if struct_name in classnames:
 				class_[0].namespace = complete_namespace
-			i = i + 1
+			i += 1
 			continue
 
 		if class_ != None:
@@ -1810,16 +1810,16 @@ def parse_header(source):
 					debug("\tExiting class " + class_[0].name, 3)
 				class_ = None
 				private_segment = False
-				i = i + 1
+				i += 1
 				continue
 
 		if class_ != None and (line.find("private:") != -1 or line.find("protected:") != -1):
 			private_segment = True
-			i = i + 1
+			i += 1
 			continue
 		if class_ != None and line.find("public:") != -1:
 			private_segment = False
-			i = i + 1
+			i += 1
 			continue
 
 		candidate = None
@@ -1829,7 +1829,7 @@ def parse_header(source):
 			if candidate != None:
 				debug("\t\tFound constructor of class \"" + class_[0].name + "\" in namespace " + concat_namespace(namespaces),2)
 				class_[0].found_constrs.append(candidate)
-				i = i + 1
+				i += 1
 				continue
 
 		if not private_segment and (class_ == None or class_[0] != None):
@@ -1868,7 +1868,7 @@ def parse_header(source):
 			j = i
 			line = unpretty_string(line)
 			while candidate == None and j+1 < len(source_text) and  line.count(';') <= 1 and line.count("(") >= line.count(")"):
-				j = j + 1
+				j += 1
 				line = line + "\n" + unpretty_string(source_text[j])
 				if class_ != None:
 					candidate = WFunction.from_string(ugly_line, source.name, class_[0], i, concat_namespace(namespaces))
@@ -1895,7 +1895,7 @@ def parse_header(source):
 						continue
 		if candidate != None:
 			while i < j:
-				i = i + 1
+				i += 1
 				line = source_text[i].replace("YOSYS_NAMESPACE_BEGIN", "                    namespace Yosys{").replace("YOSYS_NAMESPACE_END","                    }")
 				ugly_line = unpretty_string(line)
 				if len(namespaces) != 0:
@@ -1912,10 +1912,9 @@ def parse_header(source):
 							debug("\tExiting class " + class_[0].name, 3)
 						class_ = None
 						private_segment = False
-			i = i + 1
-			#i = j + 1
+			i += 1
 		else:
-			i = i + 1
+			i += 1
 
 def debug(message, level):
 	if level <= debug.debug_level:
