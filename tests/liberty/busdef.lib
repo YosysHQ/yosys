@@ -1,0 +1,81 @@
+/********************************************/
+/*                                          */
+/* Supergate cell library for Bench marking */
+/*                                          */
+/* Symbiotic EDA GmbH / Moseley Instruments */
+/* Niels A. Moseley                         */
+/*                                          */
+/* Process: none                            */
+/*                                          */
+/* Date   : 02-11-2018                      */
+/* Version: 1.0                             */
+/*                                          */
+/********************************************/
+
+library(supergate) {
+  technology (cmos);
+  revision : 1.0;
+  
+  time_unit                     : "1ps";
+  pulling_resistance_unit       : "1kohm";  
+  voltage_unit                  : "1V";
+  current_unit                  : "1uA";  
+  
+  capacitive_load_unit(1,ff);
+  
+  default_inout_pin_cap         :  7.0;
+  default_input_pin_cap         :  7.0;
+  default_output_pin_cap        :  0.0;
+  default_fanout_load           :  1.0;
+
+  default_wire_load_capacitance : 0.1;
+  default_wire_load_resistance  : 1.0e-3;
+  default_wire_load_area        : 0.0;
+
+  nom_process                   :  1.0;
+  nom_temperature               : 25.0;
+  nom_voltage                   :  1.2;
+  
+  delay_model                   : generic_cmos;
+  
+    type( IO_bus_3_to_0 ) {
+        base_type : array ;
+        data_type : bit ;
+        bit_width : 4;
+        bit_from : 3 ;
+        bit_to : 0 ;
+        downto : true ;
+    }
+
+    cell (SRAM) {
+        area : 1 ;
+        memory() {
+            type : ram;
+            address_width : 4;
+            word_width : 4;
+        }
+        pin(CE1) {
+            direction : input;
+            capacitance : 0.021;
+            max_transition : 1.024;
+            switch_pin : true;
+        }
+        bus(I1)  {
+            bus_type : IO_bus_3_to_0 ;
+            direction : input;
+            pin (I1[3:0]) {
+                timing() {
+                    related_pin :   "CE1" ;
+                    timing_type : setup_rising ;
+                    rise_constraint (scalar) {
+                        values("0.0507786");
+                    }
+                    fall_constraint (scalar) {
+                        values("0.0507786");
+                    }
+                }
+            }
+        }
+    }
+
+} /* end */

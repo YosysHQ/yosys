@@ -79,10 +79,12 @@ struct Ecp5FfinitPass : public Pass {
 						continue;
 
 					if (initbits.count(bit)) {
-						if (initbits.at(bit) != val)
-							log_error("Conflicting init values for signal %s (%s = %s, %s = %s).\n",
+						if (initbits.at(bit) != val) {
+							log_warning("Conflicting init values for signal %s (%s = %s, %s = %s).\n",
 									log_signal(bit), log_signal(SigBit(wire, i)), log_signal(val),
 									log_signal(initbit_to_wire[bit]), log_signal(initbits.at(bit)));
+							initbits.at(bit) = State::Sx;
+						}
 						continue;
 					}
 
@@ -120,6 +122,9 @@ struct Ecp5FfinitPass : public Pass {
 					continue;
 
 				State val = initbits.at(bit_q);
+
+				if (val == State::Sx)
+					continue;
 
 				log("FF init value for cell %s (%s): %s = %c\n", log_id(cell), log_id(cell->type),
 						log_signal(bit_q), val != State::S0 ? '1' : '0');

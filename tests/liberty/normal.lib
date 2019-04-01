@@ -1,0 +1,359 @@
+/********************************************/
+/*                                          */
+/* Supergate cell library for Bench marking */
+/*                                          */
+/* Symbiotic EDA GmbH / Moseley Instruments */
+/* Niels A. Moseley                         */
+/*                                          */
+/* Process: none                            */
+/*                                          */
+/* Date   : 02-11-2018                      */
+/* Version: 1.0                             */
+/*                                          */
+/********************************************/
+
+library(supergate) {
+  technology (cmos);
+  revision : 1.0;
+  
+  time_unit                     : "1ps";
+  pulling_resistance_unit       : "1kohm";  
+  voltage_unit                  : "1V";
+  current_unit                  : "1uA";  
+  
+  capacitive_load_unit(1,ff);
+  
+  default_inout_pin_cap         :  7.0;
+  default_input_pin_cap         :  7.0;
+  default_output_pin_cap        :  0.0;
+  default_fanout_load           :  1.0;
+
+  default_wire_load_capacitance : 0.1;
+  default_wire_load_resistance  : 1.0e-3;
+  default_wire_load_area        : 0.0;
+
+  nom_process                   :  1.0;
+  nom_temperature               : 25.0;
+  nom_voltage                   :  1.2;
+  
+  delay_model                   : generic_cmos;
+  
+  /* Inverter */
+  cell (inv) {
+    area : 1;
+    pin(A) {
+      direction : input;
+    }
+    
+    pin(Y) {
+      direction : output;
+      function : "A'";
+    }
+  }
+  
+  /* tri-state inverter */
+  cell (tri_inv) {
+    area : 4;
+    pin(A) {
+      direction : input;    
+    }
+    pin(S) {
+      direction : input;
+    }
+    pin(Z) {
+      direction : output;
+      function  : "A'";
+      three_State : "S'";
+    }
+  }
+  
+  cell (buffer) {
+    area : 5;
+    pin(A) {
+      direction : input;
+    }
+    pin(Y) {
+      direction : output;
+      function : "A";
+    }
+  }  
+  
+  /* 2-input NAND gate */
+  cell (nand2) {
+    area : 3;
+    pin(A) {
+      direction : input;
+    }
+    pin(B) {
+      direction : input;
+    }
+    pin(Y) {
+      direction: output;
+      function : "(A * B)'";
+    }
+  }
+  
+  /* 2-input NOR gate */
+  cell (nor2) {
+    area : 3;
+    pin(A) {
+      direction : input;
+    }
+    pin(B) {
+      direction : input;
+    }
+    pin(Y) {
+      direction: output;
+      function : "(A + B)'";
+    }
+  }
+  
+  /* 2-input XOR */
+  cell (xor2) {
+    area : 6;
+    pin(A) {
+      direction : input;
+    }
+    pin(B) {
+      direction : input;
+    }
+    pin(Y) {
+      direction: output;
+      function : "(A *B') + (A' * B)";
+    }
+  }
+  
+  /* 2-input inverting MUX */
+  cell (imux2) {
+    area : 5;
+    pin(A) {
+      direction : input;
+    }
+    pin(B) {
+      direction : input;
+    }
+    pin(S) {
+      direction : input;
+    } 
+    pin(Y) {
+      direction: output;
+      function : "( (A * S) + (B * S') )'";
+    }
+  }
+  
+  /* D-type flip-flop with asynchronous reset and preset */
+  cell (dff) {
+    area : 6;
+    ff("IQ", "IQN") {
+      next_state : "D";
+      clocked_on : "CLK";
+      clear      : "RESET";
+      preset     : "PRESET";
+      clear_preset_var1 : L;
+      clear_preset_var2 : L;
+    } 
+    pin(D) {
+      direction : input;
+    }
+    pin(CLK) {
+      direction : input;
+    }
+    pin(RESET) {
+      direction : input;
+    }
+    pin(PRESET) {
+      direction : input;
+    }
+    pin(Q) {
+      direction: output;
+      function : "IQ";
+      timing() {
+        timing_type : rising_edge;
+        intrinsic_rise : 65;
+        intrinsic_fall : 65;
+        rise_resistance : 0;
+        fall_resistance : 0; 
+        related_pin : "CLK";
+      }
+      timing () {
+        timing_type : clear;
+        timing_sense : positive_unate;
+        intrinsic_fall : 75;
+        related_pin : "RESET";
+      }
+      timing () {
+        timing_type : preset;
+        timing_sense : negative_unate;
+        intrinsic_rise : 75;
+        related_pin : "PRESET";
+      }      
+    }
+    pin(QN) {
+      direction: output;
+      function : "IQN";
+      timing() {
+        timing_type : rising_edge;
+        intrinsic_rise : 65;
+        intrinsic_fall : 65;
+        rise_resistance : 0;
+        fall_resistance : 0; 
+        related_pin : "CLK";
+      }
+      timing () {
+        timing_type : preset;
+        timing_sense : negative_unate;
+        intrinsic_rise : 75;
+        related_pin : "RESET";
+      }
+      timing () {
+        timing_type : clear;
+        timing_sense : positive_unate;
+        intrinsic_fall : 75;
+        related_pin : "PRESET";
+      }      
+    } 
+  }
+
+  /* Latch */
+  cell(latch) {
+    area : 5;
+    latch ("IQ","IQN") {
+      enable : "G";
+      data_in : "D";
+    }
+
+    pin(D) {
+      direction : input;
+    }
+    pin(G) {
+      direction : input;
+    }
+ 
+    pin(Q) {
+      direction : output;
+      function : "IQ";
+      internal_node : "Q";
+      
+      timing() {
+        timing_type : rising_edge;
+        intrinsic_rise : 65;
+        intrinsic_fall : 65;
+        rise_resistance : 0;
+        fall_resistance : 0;
+        related_pin : "G";
+      }
+      
+      timing() {
+        timing_sense : positive_unate;
+        intrinsic_rise : 65;
+        intrinsic_fall : 65;
+        rise_resistance : 0;
+        fall_resistance : 0;
+        related_pin : "D";
+      }
+    }
+    
+    pin(QN) {
+      direction : output;
+      function : "IQN";
+      internal_node : "QN";
+      
+      timing() {
+        timing_type : rising_edge;
+        intrinsic_rise : 65;
+        intrinsic_fall : 65;
+        rise_resistance : 0;
+        fall_resistance : 0;
+        related_pin : "G";
+      }
+      
+      timing() {
+        timing_sense : negative_unate;
+        intrinsic_rise : 65;
+        intrinsic_fall : 65;
+        rise_resistance : 0;
+        fall_resistance : 0;
+        related_pin : "D";
+      }
+    }
+  }
+
+  /* 3 input AND-OR-INVERT gate */
+  cell (aoi211) {
+    area : 3;
+    pin(A) {
+      direction : input;
+    }
+    pin(B) {
+      direction : input;
+    }
+    pin(C) {
+      direction : input;
+    }    
+    pin(Y) {
+      direction: output;
+      function : "((A * B) + C)'";
+    }
+  }
+
+
+  /* 3 input OR-AND-INVERT gate */
+  cell (oai211) {
+    area : 3;
+    pin(A) {
+      direction : input;
+    }
+    pin(B) {
+      direction : input;
+    }
+    pin(C) {
+      direction : input;
+    }    
+    pin(Y) {
+      direction: output;
+      function : "((A + B) * C)'";
+    }
+  }
+
+  /* half adder */
+  cell (halfadder) {
+    area : 5;
+    pin(A) {
+      direction : input;
+    }
+    pin(B) {
+      direction : input;
+    }
+    pin(C) {
+      direction : output;
+      function  : "(A * B)";
+    }    
+    pin(Y) {
+      direction: output;
+      function : "(A *B') + (A' * B)";
+    }    
+  }
+
+  /* full adder */
+  cell (fulladder) {
+    area : 8;
+    pin(A) {
+      direction : input;
+    }
+    pin(B) {
+      direction : input;
+    }
+    pin(CI) {
+      direction : input;
+    }    
+    pin(CO) {
+      direction : output;
+      function : "(((A * B)+(B * CI))+(CI * A))";
+    }
+    pin(Y) {
+      direction: output;
+      function : "((A^B)^CI)";
+    }    
+  }
+
+} /* end */

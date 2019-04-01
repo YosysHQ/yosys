@@ -1619,36 +1619,74 @@ struct VerificExtNets
 	int portname_cnt = 0;
 
 	// a map from Net to the same Net one level up in the design hierarchy
-	std::map<Net*, Net*> net_level_up;
+	std::map<Net*, Net*> net_level_up_drive_up;
+	std::map<Net*, Net*> net_level_up_drive_down;
 
-	Net *get_net_level_up(Net *net)
+	Net *route_up(Net *net, bool drive_up, Net *final_net = nullptr)
 	{
+		auto &net_level_up = drive_up ? net_level_up_drive_up : net_level_up_drive_down;
+
 		if (net_level_up.count(net) == 0)
 		{
 			Netlist *nl = net->Owner();
 
 			// Simply return if Netlist is not unique
-			if (nl->NumOfRefs() != 1)
-				return net;
+			log_assert(nl->NumOfRefs() == 1);
 
 			Instance *up_inst = (Instance*)nl->GetReferences()->GetLast();
 			Netlist *up_nl = up_inst->Owner();
 
 			// create new Port
 			string name = stringf("___extnets_%d", portname_cnt++);
-			Port *new_port = new Port(name.c_str(), DIR_OUT);
+			Port *new_port = new Port(name.c_str(), drive_up ? DIR_OUT : DIR_IN);
 			nl->Add(new_port);
 			net->Connect(new_port);
 
 			// create new Net in up Netlist
-			Net *new_net = new Net(name.c_str());
-			up_nl->Add(new_net);
+			Net *new_net = final_net;
+			if (new_net == nullptr || new_net->Owner() != up_nl) {
+				new_net = new Net(name.c_str());
+				up_nl->Add(new_net);
+			}
 			up_inst->Connect(new_port, new_net);
 
 			net_level_up[net] = new_net;
 		}
 
 		return net_level_up.at(net);
+	}
+
+	Net *route_up(Net *net, bool drive_up, Netlist *dest, Net *final_net = nullptr)
+	{
+		while (net->Owner() != dest)
+			net = route_up(net, drive_up, final_net);
+		if (final_net != nullptr)
+			log_assert(net == final_net);
+		return net;
+	}
+
+	Netlist *find_common_ancestor(Netlist *A, Netlist *B)
+	{
+		std::set<Netlist*> ancestors_of_A;
+
+		Netlist *cursor = A;
+		while (1) {
+			ancestors_of_A.insert(cursor);
+			if (cursor->NumOfRefs() != 1)
+				break;
+			cursor = ((Instance*)cursor->GetReferences()->GetLast())->Owner();
+		}
+
+		cursor = B;
+		while (1) {
+			if (ancestors_of_A.count(cursor))
+				return cursor;
+			if (cursor->NumOfRefs() != 1)
+				break;
+			cursor = ((Instance*)cursor->GetReferences()->GetLast())->Owner();
+		}
+
+		log_error("No common ancestor found between %s and %s.\n", get_full_netlist_name(A).c_str(), get_full_netlist_name(B).c_str());
 	}
 
 	void run(Netlist *nl)
@@ -1674,19 +1712,37 @@ struct VerificExtNets
 			if (verific_verbose)
 				log("Fixing external net reference on port %s.%s.%s:\n", get_full_netlist_name(nl).c_str(), inst->Name(), port->Name());
 
-			while (net->IsExternalTo(nl))
-			{
-				Net *newnet = get_net_level_up(net);
-				if (newnet == net) break;
+			Netlist *ext_nl = net->Owner();
 
+			if (verific_verbose)
+				log(" external net owner: %s\n", get_full_netlist_name(ext_nl).c_str());
+
+			Netlist *ca_nl = find_common_ancestor(nl, ext_nl);
+
+			if (verific_verbose)
+				log(" common ancestor: %s\n", get_full_netlist_name(ca_nl).c_str());
+
+			Net *ca_net = route_up(net, !port->IsOutput(), ca_nl);
+			Net *new_net = ca_net;
+
+			if (ca_nl != nl)
+			{
 				if (verific_verbose)
-					log("  external net: %s.%s\n", get_full_netlist_name(net->Owner()).c_str(), net->Name());
-				net = newnet;
+					log(" net in common ancestor: %s\n", ca_net->Name());
+
+				string name = stringf("___extnets_%d", portname_cnt++);
+				new_net = new Net(name.c_str());
+				nl->Add(new_net);
+
+				Net *n = route_up(new_net, port->IsOutput(), ca_nl, ca_net);
+				log_assert(n == ca_net);
 			}
 
 			if (verific_verbose)
-				log("  final net: %s.%s%s\n", get_full_netlist_name(net->Owner()).c_str(), net->Name(), net->IsExternalTo(nl) ? " (external)" : "");
-			todo_connect.push_back(tuple<Instance*, Port*, Net*>(inst, port, net));
+				log(" new local net: %s\n", new_net->Name());
+
+			log_assert(!new_net->IsExternalTo(nl));
+			todo_connect.push_back(tuple<Instance*, Port*, Net*>(inst, port, new_net));
 		}
 
 		for (auto it : todo_connect) {
@@ -1854,6 +1910,13 @@ struct VerificPass : public Pass {
 		log("\n");
 		log("  -autocover\n");
 		log("    Generate automatic cover statements for all asserts\n");
+		log("\n");
+		log("  -chparam name value \n");
+		log("    Elaborate the specified top modules (all modules when -all given) using\n");
+		log("    this parameter value. Modules on which this parameter does not exist will\n");
+		log("    cause Verific to produce a VERI-1928 or VHDL-1676 message. This option\n");
+		log("    can be specified multiple times to override multiple parameters.\n");
+		log("    String values must be passed in double quotes (\").\n");
 		log("\n");
 		log("  -v, -vv\n");
 		log("    Verbose log messages. (-vv is even more verbose than -v.)\n");
@@ -2109,6 +2172,7 @@ struct VerificPass : public Pass {
 			bool mode_autocover = false;
 			bool flatten = false, extnets = false;
 			string dumpfile;
+			Map parameters(STRING_HASH);
 
 			for (argidx++; argidx < GetSize(args); argidx++) {
 				if (args[argidx] == "-all") {
@@ -2147,6 +2211,15 @@ struct VerificPass : public Pass {
 					mode_autocover = true;
 					continue;
 				}
+				if (args[argidx] == "-chparam"  && argidx+2 < GetSize(args)) {
+                                        const std::string &key = args[++argidx];
+                                        const std::string &value = args[++argidx];
+					unsigned new_insertion = parameters.Insert(key.c_str(), value.c_str(),
+									           1 /* force_overwrite */);
+					if (!new_insertion)
+						log_warning_noprefix("-chparam %s already specified: overwriting.\n", key.c_str());
+					continue;
+				}
 				if (args[argidx] == "-V") {
 					mode_verific = true;
 					continue;
@@ -2180,7 +2253,7 @@ struct VerificPass : public Pass {
 				if (vhdl_lib) vhdl_libs.InsertLast(vhdl_lib);
 				if (veri_lib) veri_libs.InsertLast(veri_lib);
 
-				Array *netlists = hier_tree::ElaborateAll(&veri_libs, &vhdl_libs);
+				Array *netlists = hier_tree::ElaborateAll(&veri_libs, &vhdl_libs, &parameters);
 				Netlist *nl;
 				int i;
 
@@ -2217,7 +2290,7 @@ struct VerificPass : public Pass {
 				}
 
 				log("Running hier_tree::Elaborate().\n");
-				Array *netlists = hier_tree::Elaborate(&veri_modules, &vhdl_units);
+				Array *netlists = hier_tree::Elaborate(&veri_modules, &vhdl_units, &parameters);
 				Netlist *nl;
 				int i;
 
@@ -2313,20 +2386,42 @@ struct ReadPass : public Pass {
 		log("\n");
 		log("Add directory to global Verilog/SystemVerilog include directories.\n");
 		log("\n");
+		log("\n");
+		log("    read -verific\n");
+		log("    read -noverific\n");
+		log("\n");
+		log("Subsequent calls to 'read' will either use or not use Verific. Calling 'read'\n");
+		log("with -verific will result in an error on Yosys binaries that are built without\n");
+		log("Verific support. The default is to use Verific if it is available.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
+#ifdef YOSYS_ENABLE_VERIFIC
+		static bool verific_available = !check_noverific_env();
+#else
+		static bool verific_available = false;
+#endif
+		static bool use_verific = verific_available;
+
 		if (args.size() < 2 || args[1][0] != '-')
 			log_cmd_error("Missing mode parameter.\n");
 
+		if (args[1] == "-verific" || args[1] == "-noverific") {
+			if (args.size() != 2)
+				log_cmd_error("Additional arguments to -verific/-noverific.\n");
+			if (args[1] == "-verific") {
+				if (!verific_available)
+					log_cmd_error("This version of Yosys is built without Verific support.\n");
+				use_verific = true;
+			} else {
+				use_verific = false;
+			}
+			return;
+		}
+
 		if (args.size() < 3)
 			log_cmd_error("Missing file name parameter.\n");
-
-#ifdef YOSYS_ENABLE_VERIFIC
-		bool use_verific = !check_noverific_env();
-#else
-		bool use_verific = false;
-#endif
 
 		if (args[1] == "-vlog95" || args[1] == "-vlog2k") {
 			if (use_verific) {

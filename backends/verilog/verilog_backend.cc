@@ -1673,6 +1673,8 @@ struct VerilogBackend : public Backend {
 		bool blackboxes = false;
 		bool selected = false;
 
+		auto_name_map.clear();
+		reg_wires.clear();
 		reg_ct.clear();
 
 		reg_ct.insert("$dff");
@@ -1779,6 +1781,8 @@ struct VerilogBackend : public Backend {
 			dump_module(*f, "", it->second);
 		}
 
+		auto_name_map.clear();
+		reg_wires.clear();
 		reg_ct.clear();
 	}
 } VerilogBackend;

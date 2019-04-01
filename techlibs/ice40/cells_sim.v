@@ -326,6 +326,8 @@ module SB_RAM40_4K (
 	parameter INIT_E = 256'h0000000000000000000000000000000000000000000000000000000000000000;
 	parameter INIT_F = 256'h0000000000000000000000000000000000000000000000000000000000000000;
 
+	parameter INIT_FILE = "";
+
 `ifndef BLACKBOX
 	wire [15:0] WMASK_I;
 	wire [15:0] RMASK_I;
@@ -408,43 +410,27 @@ module SB_RAM40_4K (
 	reg [15:0] memory [0:255];
 
 	initial begin
-		for (i=0; i<16; i=i+1) begin
-`ifdef YOSYS
-			memory[ 0*16 + i] <= INIT_0[16*i +: 16];
-			memory[ 1*16 + i] <= INIT_1[16*i +: 16];
-			memory[ 2*16 + i] <= INIT_2[16*i +: 16];
-			memory[ 3*16 + i] <= INIT_3[16*i +: 16];
-			memory[ 4*16 + i] <= INIT_4[16*i +: 16];
-			memory[ 5*16 + i] <= INIT_5[16*i +: 16];
-			memory[ 6*16 + i] <= INIT_6[16*i +: 16];
-			memory[ 7*16 + i] <= INIT_7[16*i +: 16];
-			memory[ 8*16 + i] <= INIT_8[16*i +: 16];
-			memory[ 9*16 + i] <= INIT_9[16*i +: 16];
-			memory[10*16 + i] <= INIT_A[16*i +: 16];
-			memory[11*16 + i] <= INIT_B[16*i +: 16];
-			memory[12*16 + i] <= INIT_C[16*i +: 16];
-			memory[13*16 + i] <= INIT_D[16*i +: 16];
-			memory[14*16 + i] <= INIT_E[16*i +: 16];
-			memory[15*16 + i] <= INIT_F[16*i +: 16];
-`else
-			memory[ 0*16 + i] = INIT_0[16*i +: 16];
-			memory[ 1*16 + i] = INIT_1[16*i +: 16];
-			memory[ 2*16 + i] = INIT_2[16*i +: 16];
-			memory[ 3*16 + i] = INIT_3[16*i +: 16];
-			memory[ 4*16 + i] = INIT_4[16*i +: 16];
-			memory[ 5*16 + i] = INIT_5[16*i +: 16];
-			memory[ 6*16 + i] = INIT_6[16*i +: 16];
-			memory[ 7*16 + i] = INIT_7[16*i +: 16];
-			memory[ 8*16 + i] = INIT_8[16*i +: 16];
-			memory[ 9*16 + i] = INIT_9[16*i +: 16];
-			memory[10*16 + i] = INIT_A[16*i +: 16];
-			memory[11*16 + i] = INIT_B[16*i +: 16];
-			memory[12*16 + i] = INIT_C[16*i +: 16];
-			memory[13*16 + i] = INIT_D[16*i +: 16];
-			memory[14*16 + i] = INIT_E[16*i +: 16];
-			memory[15*16 + i] = INIT_F[16*i +: 16];
-`endif
-		end
+		if (INIT_FILE != "")
+			$readmemh(INIT_FILE, memory);
+		else
+			for (i=0; i<16; i=i+1) begin
+				memory[ 0*16 + i] = INIT_0[16*i +: 16];
+				memory[ 1*16 + i] = INIT_1[16*i +: 16];
+				memory[ 2*16 + i] = INIT_2[16*i +: 16];
+				memory[ 3*16 + i] = INIT_3[16*i +: 16];
+				memory[ 4*16 + i] = INIT_4[16*i +: 16];
+				memory[ 5*16 + i] = INIT_5[16*i +: 16];
+				memory[ 6*16 + i] = INIT_6[16*i +: 16];
+				memory[ 7*16 + i] = INIT_7[16*i +: 16];
+				memory[ 8*16 + i] = INIT_8[16*i +: 16];
+				memory[ 9*16 + i] = INIT_9[16*i +: 16];
+				memory[10*16 + i] = INIT_A[16*i +: 16];
+				memory[11*16 + i] = INIT_B[16*i +: 16];
+				memory[12*16 + i] = INIT_C[16*i +: 16];
+				memory[13*16 + i] = INIT_D[16*i +: 16];
+				memory[14*16 + i] = INIT_E[16*i +: 16];
+				memory[15*16 + i] = INIT_F[16*i +: 16];
+			end
 	end
 
 	always @(posedge WCLK) begin
@@ -504,6 +490,8 @@ module SB_RAM40_4KNR (
 	parameter INIT_E = 256'h0000000000000000000000000000000000000000000000000000000000000000;
 	parameter INIT_F = 256'h0000000000000000000000000000000000000000000000000000000000000000;
 
+	parameter INIT_FILE = "";
+
 	SB_RAM40_4K #(
 		.WRITE_MODE(WRITE_MODE),
 		.READ_MODE (READ_MODE ),
@@ -522,7 +510,8 @@ module SB_RAM40_4KNR (
 		.INIT_C    (INIT_C    ),
 		.INIT_D    (INIT_D    ),
 		.INIT_E    (INIT_E    ),
-		.INIT_F    (INIT_F    )
+		.INIT_F    (INIT_F    ),
+		.INIT_FILE (INIT_FILE )
 	) RAM (
 		.RDATA(RDATA),
 		.RCLK (~RCLKN),
@@ -566,6 +555,8 @@ module SB_RAM40_4KNW (
 	parameter INIT_E = 256'h0000000000000000000000000000000000000000000000000000000000000000;
 	parameter INIT_F = 256'h0000000000000000000000000000000000000000000000000000000000000000;
 
+	parameter INIT_FILE = "";
+
 	SB_RAM40_4K #(
 		.WRITE_MODE(WRITE_MODE),
 		.READ_MODE (READ_MODE ),
@@ -584,7 +575,8 @@ module SB_RAM40_4KNW (
 		.INIT_C    (INIT_C    ),
 		.INIT_D    (INIT_D    ),
 		.INIT_E    (INIT_E    ),
-		.INIT_F    (INIT_F    )
+		.INIT_F    (INIT_F    ),
+		.INIT_FILE (INIT_FILE )
 	) RAM (
 		.RDATA(RDATA),
 		.RCLK (RCLK ),
@@ -628,6 +620,8 @@ module SB_RAM40_4KNRNW (
 	parameter INIT_E = 256'h0000000000000000000000000000000000000000000000000000000000000000;
 	parameter INIT_F = 256'h0000000000000000000000000000000000000000000000000000000000000000;
 
+	parameter INIT_FILE = "";
+
 	SB_RAM40_4K #(
 		.WRITE_MODE(WRITE_MODE),
 		.READ_MODE (READ_MODE ),
@@ -646,7 +640,8 @@ module SB_RAM40_4KNRNW (
 		.INIT_C    (INIT_C    ),
 		.INIT_D    (INIT_D    ),
 		.INIT_E    (INIT_E    ),
-		.INIT_F    (INIT_F    )
+		.INIT_F    (INIT_F    ),
+		.INIT_FILE (INIT_FILE )
 	) RAM (
 		.RDATA(RDATA),
 		.RCLK (~RCLKN),

@@ -45,7 +45,7 @@ namespace AST {
 
 // instantiate global variables (private API)
 namespace AST_INTERNAL {
-	bool flag_dump_ast1, flag_dump_ast2, flag_no_dump_ptr, flag_dump_vlog, flag_dump_rtlil, flag_nolatches, flag_nomeminit;
+	bool flag_dump_ast1, flag_dump_ast2, flag_no_dump_ptr, flag_dump_vlog1, flag_dump_vlog2, flag_dump_rtlil, flag_nolatches, flag_nomeminit;
 	bool flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt, flag_icells, flag_autowire;
 	AstNode *current_ast, *current_ast_mod;
 	std::map<std::string, AstNode*> current_scope;
@@ -431,9 +431,12 @@ void AstNode::dumpVlog(FILE *f, std::string indent) const
 		break;
 
 	case AST_RANGE:
-		if (range_valid)
-			fprintf(f, "[%d:%d]", range_left, range_right);
-		else {
+		if (range_valid) {
+			if (range_swapped)
+				fprintf(f, "[%d:%d]", range_right, range_left);
+			else
+				fprintf(f, "[%d:%d]", range_left, range_right);
+		} else {
 			for (auto child : children) {
 				fprintf(f, "%c", first ? '[' : ':');
 				child->dumpVlog(f, "");
@@ -562,7 +565,8 @@ void AstNode::dumpVlog(FILE *f, std::string indent) const
 
 	case AST_CONCAT:
 		fprintf(f, "{");
-		for (auto child : children) {
+		for (int i = GetSize(children)-1; i >= 0; i--) {
+			auto child = children[i];
 			if (!first)
 				fprintf(f, ", ");
 			child->dumpVlog(f, "");
@@ -926,8 +930,13 @@ static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast
 		ast_before_simplify = ast->clone();
 
 	if (flag_dump_ast1) {
-		log("Dumping Verilog AST before simplification:\n");
+		log("Dumping AST before simplification:\n");
 		ast->dumpAst(NULL, "    ");
+		log("--- END OF AST DUMP ---\n");
+	}
+	if (flag_dump_vlog1) {
+		log("Dumping Verilog AST before simplification:\n");
+		ast->dumpVlog(NULL, "    ");
 		log("--- END OF AST DUMP ---\n");
 	}
 
@@ -936,13 +945,13 @@ static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast
 		while (ast->simplify(!flag_noopt, false, false, 0, -1, false, false)) { }
 
 		if (flag_dump_ast2) {
-			log("Dumping Verilog AST after simplification:\n");
+			log("Dumping AST after simplification:\n");
 			ast->dumpAst(NULL, "    ");
 			log("--- END OF AST DUMP ---\n");
 		}
 
-		if (flag_dump_vlog) {
-			log("Dumping Verilog AST (as requested by dump_vlog option):\n");
+		if (flag_dump_vlog2) {
+			log("Dumping Verilog AST after simplification:\n");
 			ast->dumpVlog(NULL, "    ");
 			log("--- END OF AST DUMP ---\n");
 		}
@@ -1016,14 +1025,15 @@ static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast
 }
 
 // create AstModule instances for all modules in the AST tree and add them to 'design'
-void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump_ast2, bool no_dump_ptr, bool dump_vlog, bool dump_rtlil,
+void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump_ast2, bool no_dump_ptr, bool dump_vlog1, bool dump_vlog2, bool dump_rtlil,
 		bool nolatches, bool nomeminit, bool nomem2reg, bool mem2reg, bool lib, bool noopt, bool icells, bool nooverwrite, bool overwrite, bool defer, bool autowire)
 {
 	current_ast = ast;
 	flag_dump_ast1 = dump_ast1;
 	flag_dump_ast2 = dump_ast2;
 	flag_no_dump_ptr = no_dump_ptr;
-	flag_dump_vlog = dump_vlog;
+	flag_dump_vlog1 = dump_vlog1;
+	flag_dump_vlog2 = dump_vlog2;
 	flag_dump_rtlil = dump_rtlil;
 	flag_nolatches = nolatches;
 	flag_nomeminit = nomeminit;
@@ -1357,7 +1367,8 @@ std::string AstModule::derive_common(RTLIL::Design *design, dict<RTLIL::IdString
 	current_ast = NULL;
 	flag_dump_ast1 = false;
 	flag_dump_ast2 = false;
-	flag_dump_vlog = false;
+	flag_dump_vlog1 = false;
+	flag_dump_vlog2 = false;
 	flag_nolatches = nolatches;
 	flag_nomeminit = nomeminit;
 	flag_nomem2reg = nomem2reg;

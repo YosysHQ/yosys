@@ -416,6 +416,7 @@ struct Smt2Worker
 		for (char ch : expr) {
 			if (ch == 'A') processed_expr += get_bv(sig_a);
 			else if (ch == 'B') processed_expr += get_bv(sig_b);
+			else if (ch == 'P') processed_expr += get_bv(cell->getPort("\\B"));
 			else if (ch == 'L') processed_expr += is_signed ? "a" : "l";
 			else if (ch == 'U') processed_expr += is_signed ? "s" : "u";
 			else processed_expr += ch;
@@ -554,7 +555,7 @@ struct Smt2Worker
 
 			if (cell->type.in("$shift", "$shiftx")) {
 				if (cell->getParam("\\B_SIGNED").as_bool()) {
-					return export_bvop(cell, stringf("(ite (bvsge B #b%0*d) "
+					return export_bvop(cell, stringf("(ite (bvsge P #b%0*d) "
 							"(bvlshr A B) (bvlshr A (bvneg B)))",
 							GetSize(cell->getPort("\\B")), 0), 's');
 				} else {
@@ -887,8 +888,8 @@ struct Smt2Worker
 
 				string name_a = get_bool(cell->getPort("\\A"));
 				string name_en = get_bool(cell->getPort("\\EN"));
-				decls.push_back(stringf("; yosys-smt2-%s %d %s\n", cell->type.c_str() + 1, id,
-						cell->attributes.count("\\src") ? cell->attributes.at("\\src").decode_string().c_str() : get_id(cell)));
+				string infostr = (cell->name[0] == '$' && cell->attributes.count("\\src")) ? cell->attributes.at("\\src").decode_string() : get_id(cell);
+				decls.push_back(stringf("; yosys-smt2-%s %d %s\n", cell->type.c_str() + 1, id, infostr.c_str()));
 
 				if (cell->type == "$cover")
 					decls.push_back(stringf("(define-fun |%s_%c %d| ((state |%s_s|)) Bool (and %s %s)) ; %s\n",

@@ -10,6 +10,7 @@ CONFIG := clang
 # features (the more the better)
 ENABLE_TCL := 1
 ENABLE_ABC := 1
+ENABLE_GLOB := 1
 ENABLE_PLUGINS := 1
 ENABLE_READLINE := 1
 ENABLE_EDITLINE := 0
@@ -298,6 +299,10 @@ LDLIBS += -ldl
 endif
 endif
 
+ifeq ($(ENABLE_GLOB),1)
+CXXFLAGS += -DYOSYS_ENABLE_GLOB
+endif
+
 ifeq ($(ENABLE_TCL),1)
 TCL_VERSION ?= tcl$(shell bash -c "tclsh <(echo 'puts [info tclversion]')")
 ifeq ($(OS), FreeBSD)
@@ -570,7 +575,7 @@ test: $(TARGETS) $(EXTRA_TARGETS)
 	+cd tests/simple && bash run-test.sh $(SEEDOPT)
 	+cd tests/hana && bash run-test.sh $(SEEDOPT)
 	+cd tests/asicworld && bash run-test.sh $(SEEDOPT)
-	+cd tests/realmath && bash run-test.sh $(SEEDOPT)
+	# +cd tests/realmath && bash run-test.sh $(SEEDOPT)
 	+cd tests/share && bash run-test.sh $(SEEDOPT)
 	+cd tests/fsm && bash run-test.sh $(SEEDOPT)
 	+cd tests/techmap && bash run-test.sh
@@ -580,6 +585,7 @@ test: $(TARGETS) $(EXTRA_TARGETS)
 	+cd tests/sat && bash run-test.sh
 	+cd tests/svinterfaces && bash run-test.sh $(SEEDOPT)
 	+cd tests/opt && bash run-test.sh
+	+cd tests/aiger && bash run-test.sh
 	@echo ""
 	@echo "  Passed \"make test\"."
 	@echo ""

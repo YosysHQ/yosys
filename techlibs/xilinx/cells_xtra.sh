@@ -7,6 +7,7 @@ function xtract_cell_decl()
 {
 	for dir in $libdir/xeclib $libdir/retarget; do
 		[ -f $dir/$1.v ] || continue
+		[ -z "$2" ] || echo $2
 		egrep '^\s*((end)?module|parameter|input|inout|output|(end)?function|(end)?task)' $dir/$1.v |
 			sed -re '/UNPLACED/ d; /^\s*function/,/endfunction/ d; /^\s*task/,/endtask/ d;
 			         s,//.*,,; s/#?\(.*/(...);/; s/^(input|output|parameter)/ \1/;
@@ -37,10 +38,10 @@ function xtract_cell_decl()
 	xtract_cell_decl BUFMR
 	xtract_cell_decl BUFMRCE
 	xtract_cell_decl BUFR
-	xtract_cell_decl CAPTUREE2
+	xtract_cell_decl CAPTUREE2 "(* keep *)"
 	# xtract_cell_decl CARRY4
 	xtract_cell_decl CFGLUT5
-	xtract_cell_decl DCIRESET
+	xtract_cell_decl DCIRESET "(* keep *)"
 	xtract_cell_decl DNA_PORT
 	xtract_cell_decl DSP48E1
 	xtract_cell_decl EFUSE_USR
@@ -67,10 +68,10 @@ function xtract_cell_decl()
 	xtract_cell_decl IBUFDS_GTE2
 	xtract_cell_decl IBUFDS_IBUFDISABLE
 	xtract_cell_decl IBUFDS_INTERMDISABLE
-	xtract_cell_decl ICAPE2
+	xtract_cell_decl ICAPE2 "(* keep *)"
 	xtract_cell_decl IDDR
 	xtract_cell_decl IDDR_2CLK
-	xtract_cell_decl IDELAYCTRL
+	xtract_cell_decl IDELAYCTRL "(* keep *)"
 	xtract_cell_decl IDELAYE2
 	xtract_cell_decl IN_FIFO
 	xtract_cell_decl IOBUF
@@ -112,10 +113,10 @@ function xtract_cell_decl()
 	xtract_cell_decl PHY_CONTROL
 	xtract_cell_decl PLLE2_ADV
 	xtract_cell_decl PLLE2_BASE
-	xtract_cell_decl PS7
+	xtract_cell_decl PS7 "(* keep *)"
 	xtract_cell_decl PULLDOWN
 	xtract_cell_decl PULLUP
-	# xtract_cell_decl RAM128X1D
+	xtract_cell_decl RAM128X1D
 	xtract_cell_decl RAM128X1S
 	xtract_cell_decl RAM256X1S
 	xtract_cell_decl RAM32M
@@ -124,7 +125,7 @@ function xtract_cell_decl()
 	xtract_cell_decl RAM32X1S_1
 	xtract_cell_decl RAM32X2S
 	xtract_cell_decl RAM64M
-	# xtract_cell_decl RAM64X1D
+	xtract_cell_decl RAM64X1D
 	xtract_cell_decl RAM64X1S
 	xtract_cell_decl RAM64X1S_1
 	xtract_cell_decl RAM64X2S
@@ -136,7 +137,7 @@ function xtract_cell_decl()
 	xtract_cell_decl ROM64X1
 	xtract_cell_decl SRL16E
 	xtract_cell_decl SRLC32E
-	xtract_cell_decl STARTUPE2
+	xtract_cell_decl STARTUPE2 "(* keep *)"
 	xtract_cell_decl USR_ACCESSE2
 	xtract_cell_decl XADC
 } > cells_xtra.new

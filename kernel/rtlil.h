@@ -76,6 +76,9 @@ namespace RTLIL
 
 	struct IdString
 	{
+		#undef YOSYS_XTRACE_GET_PUT
+		#undef YOSYS_SORT_ID_FREE_LIST
+
 		// the global id string cache
 
 		static struct destruct_guard_t {
@@ -89,9 +92,43 @@ namespace RTLIL
 		static dict<char*, int, hash_cstr_ops> global_id_index_;
 		static std::vector<int> global_free_idx_list_;
 
+		static int last_created_idx_ptr_;
+		static int last_created_idx_[8];
+
+		static inline void xtrace_db_dump()
+		{
+		#ifdef YOSYS_XTRACE_GET_PUT
+			for (int idx = 0; idx < GetSize(global_id_storage_); idx++)
+			{
+				if (global_id_storage_.at(idx) == nullptr)
+					log("#X# DB-DUMP index %d: FREE\n", idx);
+				else
+					log("#X# DB-DUMP index %d: '%s' (ref %d)\n", idx, global_id_storage_.at(idx), global_refcount_storage_.at(idx));
+			}
+		#endif
+		}
+
+		static inline void checkpoint()
+		{
+			last_created_idx_ptr_ = 0;
+			for (int i = 0; i < 8; i++) {
+				if (last_created_idx_[i])
+					put_reference(last_created_idx_[i]);
+				last_created_idx_[i] = 0;
+			}
+		#ifdef YOSYS_SORT_ID_FREE_LIST
+			std::sort(global_free_idx_list_.begin(), global_free_idx_list_.end(), std::greater<int>());
+		#endif
+		}
+
 		static inline int get_reference(int idx)
 		{
 			global_refcount_storage_.at(idx)++;
+		#ifdef YOSYS_XTRACE_GET_PUT
+			if (yosys_xtrace) {
+				log("#X# GET-BY-INDEX '%s' (index %d, refcount %d)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
+			}
+		#endif
 			return idx;
 		}
 
@@ -107,6 +144,11 @@ namespace RTLIL
 			auto it = global_id_index_.find((char*)p);
 			if (it != global_id_index_.end()) {
 				global_refcount_storage_.at(it->second)++;
+		#ifdef YOSYS_XTRACE_GET_PUT
+				if (yosys_xtrace) {
+					log("#X# GET-BY-NAME '%s' (index %d, refcount %d)\n", global_id_storage_.at(it->second), it->second, global_refcount_storage_.at(it->second));
+				}
+		#endif
 				return it->second;
 			}
 
@@ -124,16 +166,22 @@ namespace RTLIL
 			global_refcount_storage_.at(idx)++;
 
 			// Avoid Create->Delete->Create pattern
-			static IdString last_created_id;
-			put_reference(last_created_id.index_);
-			last_created_id.index_ = idx;
-			get_reference(last_created_id.index_);
+			if (last_created_idx_[last_created_idx_ptr_])
+				put_reference(last_created_idx_[last_created_idx_ptr_]);
+			last_created_idx_[last_created_idx_ptr_] = idx;
+			get_reference(last_created_idx_[last_created_idx_ptr_]);
+			last_created_idx_ptr_ = (last_created_idx_ptr_ + 1) & 7;
 
 			if (yosys_xtrace) {
 				log("#X# New IdString '%s' with index %d.\n", p, idx);
 				log_backtrace("-X- ", yosys_xtrace-1);
 			}
 
+		#ifdef YOSYS_XTRACE_GET_PUT
+			if (yosys_xtrace) {
+				log("#X# GET-BY-NAME '%s' (index %d, refcount %d)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
+			}
+		#endif
 			return idx;
 		}
 
@@ -143,6 +191,12 @@ namespace RTLIL
 			// global_refcount_storage_ has been run. in this case we simply do nothing.
 			if (!destruct_guard.ok)
 				return;
+
+		#ifdef YOSYS_XTRACE_GET_PUT
+			if (yosys_xtrace) {
+				log("#X# PUT '%s' (index %d, refcount %d)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
+			}
+		#endif
 
 			log_assert(global_refcount_storage_.at(idx) > 0);
 
@@ -490,6 +544,14 @@ struct RTLIL::Const
 		for (int i = offset; i < offset + len; i++)
 			ret.bits.push_back(i < GetSize(bits) ? bits[i] : padding);
 		return ret;
+	}
+
+	void extu(int width) {
+		bits.resize(width, RTLIL::State::S0);
+	}
+
+	void exts(int width) {
+		bits.resize(width, bits.empty() ? RTLIL::State::Sx : bits.back());
 	}
 
 	inline unsigned int hash() const {
@@ -1282,7 +1344,7 @@ inline bool RTLIL::SigBit::operator<(const RTLIL::SigBit &other) const {
 		return wire ? (offset < other.offset) : (data < other.data);
 	if (wire != nullptr && other.wire != nullptr)
 		return wire->name < other.wire->name;
-	return wire < other.wire;
+	return (wire != nullptr) < (other.wire != nullptr);
 }
 
 inline bool RTLIL::SigBit::operator==(const RTLIL::SigBit &other) const {
