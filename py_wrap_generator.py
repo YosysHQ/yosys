@@ -803,10 +803,6 @@ class WClass:
 				text += "\n\t\t\treturn ret;"
 				text += "\n\t\t}\n"
 
-			if self.link_type != link_types.global_list:
-				text += "\n\t\t~" + self.name + "()\n\t\t{"
-				text += "\n\t\t\t//delete(this->ref_obj);\n\t\t}\n"
-
 			for con in self.found_constrs:
 				text += con.gen_decl()
 			for var in self.found_vars:
