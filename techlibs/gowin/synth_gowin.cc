@@ -73,7 +73,7 @@ struct SynthGowinPass : public ScriptPass
 		vout_file = "";
 		retime = false;
 		flatten = true;
-		nobram = true;
+		nobram = false;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
