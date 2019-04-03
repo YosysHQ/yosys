@@ -119,22 +119,6 @@ struct ShregmapTechXilinx7 : ShregmapTech
 				for (auto bit : sigmap(cell->getPort("\\B")))
 					sigbit_to_shiftx_offset[bit] = std::make_tuple(cell, 1, j++);
 			}
-			else if (cell->type == "$pmux") {
-				int width = cell->getParam("\\WIDTH").as_int();
-				int j = 0;
-				for (auto bit : cell->getPort("\\A"))
-					sigbit_to_shiftx_offset[bit] = std::make_tuple(cell, 0, j++);
-				j = cell->getParam("\\S_WIDTH").as_int();
-				int k = 0;
-				for (auto bit : sigmap(cell->getPort("\\B"))) {
-					sigbit_to_shiftx_offset[bit] = std::make_tuple(cell, j, k++);
-					if (k == width) {
-						k = 0;
-						--j;
-					}
-				}
-				log_assert(j == 0);
-			}
 		}
 	}
 
@@ -145,8 +129,6 @@ struct ShregmapTechXilinx7 : ShregmapTech
 			return;
 		if (cell) {
 			if (cell->type == "$shiftx" && port == "\\A")
-				return;
-			if (cell->type == "$pmux" && (port == "\\A" || port == "\\B"))
 				return;
 			if (cell->type == "$mux" && (port == "\\A" || port == "\\B"))
 				return;
@@ -209,10 +191,6 @@ struct ShregmapTechXilinx7 : ShregmapTech
 			if (GetSize(taps) != shiftx->getParam("\\A_WIDTH").as_int())
 				return false;
 		}
-		else if (shiftx->type == "$pmux") {
-			if (GetSize(taps) != shiftx->getParam("\\S_WIDTH").as_int() + 1)
-				return false;
-		}
 		else if (shiftx->type == "$mux") {
 			if (GetSize(taps) != 2)
 				return false;
@@ -249,24 +227,6 @@ struct ShregmapTechXilinx7 : ShregmapTech
 			l_wire = shiftx->getPort("\\B");
 			q_wire = shiftx->getPort("\\Y");
 			shiftx->setPort("\\Y", cell->module->addWire(NEW_ID));
-		}
-		else if (shiftx->type == "$pmux") {
-			// Create a new encoder, out of a $pmux, that takes
-			// the existing pmux's 'S' input and transforms it
-			// back into a binary value
-			int clog2taps = ceil(log2(taps.size()));
-			RTLIL::SigSpec b_port;
-			for (int i = shiftx->getParam("\\S_WIDTH").as_int(); i > 0; i--)
-				b_port.append(RTLIL::Const(i, clog2taps));
-			l_wire = cell->module->addWire(NEW_ID, clog2taps);
-			RTLIL::SigSpec s_wire = cell->module->addWire(NEW_ID, shiftx->getParam("\\S_WIDTH").as_int());
-			cell->module->connect(s_wire.extract(0, shiftx->getParam("\\S_WIDTH").as_int()), shiftx->getPort("\\S"));
-			cell->module->addPmux(NEW_ID, RTLIL::Const(0, clog2taps), b_port, s_wire, l_wire);
-			int group = std::get<2>(it->second);
-			RTLIL::SigSpec y_wire = shiftx->getPort("\\Y");
-			q_wire = y_wire[group];
-			y_wire[group] = cell->module->addWire(NEW_ID);
-			shiftx->setPort("\\Y", y_wire);
 		}
 		else if (shiftx->type == "$mux") {
 			l_wire = shiftx->getPort("\\S");
