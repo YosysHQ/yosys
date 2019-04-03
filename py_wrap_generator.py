@@ -972,7 +972,7 @@ sources = [
 	Source("kernel/cost",[])
 	]
 
-blacklist_methods = ["Yosys::Pass::run_register", "Yosys::Module::Pow", "Yosys::Module::Bu0", "Yosys::CaseRule::optimize"]
+blacklist_methods = ["YOSYS_NAMESPACE::Pass::run_register", "YOSYS_NAMESPACE::Module::Pow", "YOSYS_NAMESPACE::Module::Bu0", "YOSYS_NAMESPACE::CaseRule::optimize"]
 
 enum_names = ["State","SyncType","ConstFlags"]
 
@@ -1765,7 +1765,7 @@ def parse_header(source):
 	private_segment = False
 
 	while i < len(source_text):
-		line = source_text[i].replace("YOSYS_NAMESPACE_BEGIN", "                    namespace Yosys{").replace("YOSYS_NAMESPACE_END","                    }")
+		line = source_text[i].replace("YOSYS_NAMESPACE_BEGIN", "                    namespace YOSYS_NAMESPACE{").replace("YOSYS_NAMESPACE_END","                    }")
 		ugly_line = unpretty_string(line)
 
 		if str.startswith(ugly_line, "namespace "):# and ugly_line.find("std") == -1 and ugly_line.find("__") == -1:
@@ -1892,7 +1892,7 @@ def parse_header(source):
 		if candidate != None:
 			while i < j:
 				i += 1
-				line = source_text[i].replace("YOSYS_NAMESPACE_BEGIN", "                    namespace Yosys{").replace("YOSYS_NAMESPACE_END","                    }")
+				line = source_text[i].replace("YOSYS_NAMESPACE_BEGIN", "                    namespace YOSYS_NAMESPACE{").replace("YOSYS_NAMESPACE_END","                    }")
 				ugly_line = unpretty_string(line)
 				if len(namespaces) != 0:
 					namespaces[-1] = (namespaces[-1][0], namespaces[-1][1] + ugly_line.count("{") - ugly_line.count("}"))
@@ -2028,7 +2028,7 @@ def gen_wrappers(filename, debug_level_ = 0):
 #include <boost/python.hpp>
 #include <boost/log/exceptions.hpp>
 
-using namespace Yosys;
+USING_YOSYS_NAMESPACE
 
 namespace YOSYS_PYTHON {
 """)

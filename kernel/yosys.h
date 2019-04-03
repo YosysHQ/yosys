@@ -119,6 +119,7 @@ extern const char *Tcl_GetStringResult(Tcl_Interp *interp);
 #  define PATH_MAX 4096
 #endif
 
+#define YOSYS_NAMESPACE          Yosys
 #define PRIVATE_NAMESPACE_BEGIN  namespace {
 #define PRIVATE_NAMESPACE_END    }
 #define YOSYS_NAMESPACE_BEGIN    namespace Yosys {
