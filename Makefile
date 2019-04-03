@@ -21,7 +21,9 @@ ENABLE_PROTOBUF := 0
 
 # python wrappers
 ENABLE_PYOSYS := 1
-PYTHON_VERSION := 3.5
+PYTHON_VERSION_TESTCODE := "import sys;t='{v[0]}.{v[1]}'.format(v=list(sys.version_info[:2]));print(t)"
+PYTHON_VERSION := $(shell if python3 -c ""; then python3 -c ""$(PYTHON_VERSION_TESTCODE)""; else python -c ""$(PYTHON_VERSION_TESTCODE)""; fi)
+PYTHON_MAJOR_VERSION := $(shell echo $(PYTHON_VERSION) | cut -f1 -d.)
 PYTHON_DESTDIR := /usr/local/lib/python$(PYTHON_VERSION)/dist-packages
 
 # other configuration flags
@@ -267,7 +269,11 @@ TARGETS += libyosys.so
 endif
 
 ifeq ($(ENABLE_PYOSYS),1)
-LDLIBS += -lpython$(PYTHON_VERSION)m -lboost_python-py$(subst .,,$(PYTHON_VERSION)) -lboost_system
+	ifeq ($(PYTHON_MAJOR_VERSION),3)
+		LDLIBS += -lpython$(PYTHON_VERSION)m -lboost_python-py$(subst .,,$(PYTHON_VERSION)) -lboost_system
+	else
+		LDLIBS += -lpython$(PYTHON_VERSION) -lboost_python-py$(subst .,,$(PYTHON_VERSION)) -lboost_system
+	endif
 CXXFLAGS += -I/usr/include/python$(PYTHON_VERSION) -D WITH_PYTHON
 PY_WRAPPER_FILE = kernel/python_wrappers
 OBJS += $(PY_WRAPPER_FILE).o
