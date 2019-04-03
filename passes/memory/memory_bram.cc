@@ -641,6 +641,7 @@ grow_read_ports:;
 				pi.sig_data = SigSpec();
 				pi.sig_en = SigSpec();
 				pi.make_outreg = false;
+				pi.make_transp = false;
 			}
 			new_portinfos.push_back(pi);
 			if (pi.dupidx == dup_count-1) {
@@ -956,6 +957,8 @@ grow_read_ports:;
 					SigSpec addr_ok_q = addr_ok;
 					if ((pi.clocks || pi.make_outreg) && !addr_ok.empty()) {
 						addr_ok_q = module->addWire(NEW_ID);
+						if (!pi.sig_en.empty())
+							addr_ok = module->Mux(NEW_ID, addr_ok_q, addr_ok, pi.sig_en);
 						module->addDff(NEW_ID, pi.sig_clock, addr_ok, addr_ok_q, pi.effective_clkpol);
 					}
 

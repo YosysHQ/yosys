@@ -33,20 +33,24 @@ struct CutpointPass : public Pass {
 		log("\n");
 		log("This command adds formal cut points to the design.\n");
 		log("\n");
+		log("    -undef\n");
+		log("        set cupoint nets to undef (x). the default behavior is to create a\n");
+		log("        $anyseq cell and drive the cutpoint net from that\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
-		// bool flag_noinit = false;
+		 bool flag_undef = false;
 
 		log_header(design, "Executing CUTPOINT pass.\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
-			// if (args[argidx] == "-noinit") {
-			// 	flag_noinit = true;
-			// 	continue;
-			// }
+			if (args[argidx] == "-undef") {
+				flag_undef = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -63,7 +67,7 @@ struct CutpointPass : public Pass {
 					if (wire->port_output)
 						output_wires.push_back(wire);
 				for (auto wire : output_wires)
-					module->connect(wire, module->Anyseq(NEW_ID, GetSize(wire)));
+					module->connect(wire, flag_undef ? Const(State::Sx, GetSize(wire)) : module->Anyseq(NEW_ID, GetSize(wire)));
 				continue;
 			}
 
@@ -76,7 +80,7 @@ struct CutpointPass : public Pass {
 				log("Removing cell %s.%s, making all cell outputs cutpoints.\n", log_id(module), log_id(cell));
 				for (auto &conn : cell->connections()) {
 					if (cell->output(conn.first))
-						module->connect(conn.second, module->Anyseq(NEW_ID, GetSize(conn.second)));
+						module->connect(conn.second, flag_undef ? Const(State::Sx, GetSize(conn.second)) : module->Anyseq(NEW_ID, GetSize(conn.second)));
 				}
 				module->remove(cell);
 			}
@@ -86,7 +90,7 @@ struct CutpointPass : public Pass {
 					log("Making output wire %s.%s a cutpoint.\n", log_id(module), log_id(wire));
 					Wire *new_wire = module->addWire(NEW_ID, wire);
 					module->swap_names(wire, new_wire);
-					module->connect(new_wire, module->Anyseq(NEW_ID, GetSize(new_wire)));
+					module->connect(new_wire, flag_undef ? Const(State::Sx, GetSize(new_wire)) : module->Anyseq(NEW_ID, GetSize(new_wire)));
 					wire->port_id = 0;
 					wire->port_input = false;
 					wire->port_output = false;
@@ -142,7 +146,7 @@ struct CutpointPass : public Pass {
 							rhs.append(SigBit(new_wire, i));
 						}
 					if (GetSize(lhs))
-					module->connect(lhs, rhs);
+						module->connect(lhs, rhs);
 					module->swap_names(wire, new_wire);
 					wire->port_id = 0;
 					wire->port_input = false;
@@ -154,7 +158,7 @@ struct CutpointPass : public Pass {
 
 				for (auto chunk : sig.chunks()) {
 					SigSpec s(chunk);
-					module->connect(s, module->Anyseq(NEW_ID, GetSize(s)));
+					module->connect(s, flag_undef ? Const(State::Sx, GetSize(s)) : module->Anyseq(NEW_ID, GetSize(s)));
 				}
 			}
 		}

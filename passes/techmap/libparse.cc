@@ -155,11 +155,13 @@ int LibertyParser::lexer(std::string &str)
 
 	// check for a backslash
 	if (c == '\\') {
-		c = f.get();
+		c = f.get();		
 		if (c == '\r')
 			c = f.get();
-		if (c == '\n')
+		if (c == '\n') {
+			line++;
 			return lexer(str);
+		}
 		f.unget();
 		return '\\';
 	}
@@ -186,14 +188,39 @@ LibertyAst *LibertyParser::parse()
 
 	int tok = lexer(str);
 
-	while (tok == 'n')
+	// there are liberty files in the wild that
+	// have superfluous ';' at the end of
+	// a  { ... }. We simply ignore a ';' here.
+	// and get to the next statement.
+
+	while ((tok == 'n') || (tok == ';'))
 		tok = lexer(str);
 
 	if (tok == '}' || tok < 0)
 		return NULL;
 
-	if (tok != 'v')
-		error();
+	if (tok != 'v') {
+		std::string eReport;
+		switch(tok)
+		{
+		case 'n':
+			error("Unexpected newline.");
+			break;
+		case '[':
+		case ']':
+		case '}':
+		case '{':
+		case '\"':
+		case ':':
+			eReport = "Unexpected '";
+			eReport += static_cast<char>(tok);
+			eReport += "'.";
+			error(eReport);
+			break;
+		default:
+			error();
+		}
+	}
 
 	LibertyAst *ast = new LibertyAst;
 	ast->id = str;
@@ -282,8 +309,28 @@ LibertyAst *LibertyParser::parse()
 					}
 					continue;           
 				}
-				if (tok != 'v')
-					error();
+				if (tok != 'v') {
+					std::string eReport;
+					switch(tok)
+					{
+					case 'n':
+						error("Unexpected newline.");
+						break;
+					case '[':
+					case ']':
+					case '}':
+					case '{':
+					case '\"':
+					case ':':
+						eReport = "Unexpected '";
+						eReport += static_cast<char>(tok);
+						eReport += "'.";
+						error(eReport);
+						break;
+					default:
+						error();
+					}
+				}
 				ast->args.push_back(arg);
 			}
 			continue;
