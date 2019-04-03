@@ -387,10 +387,10 @@ RTLIL::Design::~Design()
 }
 
 #ifdef WITH_PYTHON
-static std::map<unsigned int, RTLIL::Design*> *all_designs = new std::map<unsigned int, RTLIL::Design*>();
+static std::map<unsigned int, RTLIL::Design*> all_designs;
 std::map<unsigned int, RTLIL::Design*> *RTLIL::Design::get_all_designs(void)
 {
-	return all_designs;
+	return &all_designs;
 }
 #endif
 
@@ -671,10 +671,10 @@ RTLIL::Module::~Module()
 }
 
 #ifdef WITH_PYTHON
-static std::map<unsigned int, RTLIL::Module*> *all_modules = new std::map<unsigned int, RTLIL::Module*>();
+static std::map<unsigned int, RTLIL::Module*> all_modules;
 std::map<unsigned int, RTLIL::Module*> *RTLIL::Module::get_all_modules(void)
 {
-	return all_modules;
+	return &all_modules;
 }
 #endif
 
@@ -2253,10 +2253,10 @@ RTLIL::Wire::~Wire()
 }
 
 #ifdef WITH_PYTHON
-static std::map<unsigned int, RTLIL::Wire*> *all_wires = new std::map<unsigned int, RTLIL::Wire*>();
+static std::map<unsigned int, RTLIL::Wire*> all_wires;
 std::map<unsigned int, RTLIL::Wire*> *RTLIL::Wire::get_all_wires(void)
 {
-	return all_wires;
+	return &all_wires;
 }
 #endif
 
@@ -2296,10 +2296,10 @@ RTLIL::Cell::~Cell()
 }
 
 #ifdef WITH_PYTHON
-static std::map<unsigned int, RTLIL::Cell*> *all_cells = new std::map<unsigned int, RTLIL::Cell*>();
+static std::map<unsigned int, RTLIL::Cell*> all_cells;
 std::map<unsigned int, RTLIL::Cell*> *RTLIL::Cell::get_all_cells(void)
 {
-	return all_cells;
+	return &all_cells;
 }
 #endif
 
@@ -3959,10 +3959,10 @@ RTLIL::Memory::~Memory()
 {
 	RTLIL::Memory::get_all_memorys()->erase(hashidx_);
 }
-static std::map<unsigned int, RTLIL::Memory*> *all_memorys = new std::map<unsigned int, RTLIL::Memory*>();
+static std::map<unsigned int, RTLIL::Memory*> all_memorys;
 std::map<unsigned int, RTLIL::Memory*> *RTLIL::Memory::get_all_memorys(void)
 {
-	return all_memorys;
+	return &all_memorys;
 }
 #endif
 YOSYS_NAMESPACE_END
