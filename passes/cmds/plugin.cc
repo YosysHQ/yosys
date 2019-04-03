@@ -61,12 +61,14 @@ void load_plugin(std::string filename, std::vector<std::string> aliases)
 			PyObject *filename_p = PyUnicode_FromString(filename.c_str());
 			if(filename_p == NULL)
 			{
+				PyErr_Print();
 				log_cmd_error("Issues converting `%s' to Python\n", filename.c_str());
 				return;
 			}
 			PyObject *module_p = PyImport_Import(filename_p);
 			if(module_p == NULL)
 			{
+				PyErr_Print();
 				log_cmd_error("Can't load python module `%s'\n", filename.c_str());
 				return;
 			}
