@@ -69,7 +69,7 @@ struct SynthXilinxPass : public Pass
 		log("    -nodram\n");
 		log("        disable inference of distributed rams\n");
 		log("\n");
-		log("    -nobram\n");
+		log("    -nosrl\n");
 		log("        disable inference of shift registers\n");
 		log("\n");
 		log("    -run <from_label>:<to_label>\n");
