@@ -26,6 +26,7 @@
 #ifdef WITH_PYTHON
 #  include <boost/algorithm/string/predicate.hpp>
 #  include <Python.h>
+#  include <experimental/filesystem>
 #endif
 
 YOSYS_NAMESPACE_BEGIN
@@ -51,25 +52,28 @@ void load_plugin(std::string filename, std::vector<std::string> aliases)
 	#endif
 
 		#ifdef WITH_PYTHON
-		if(boost::algorithm::ends_with(filename, ".py"))
+
+		std::experimental::filesystem::path full_path(filename);
+
+		if(strcmp(full_path.extension().c_str(), ".py") == 0)
 		{
-			int last_slash = filename.find_last_of('/');
-			std::string path = filename.substr(0, last_slash);
-			filename = filename.substr(last_slash+1, filename.size());
+			std::string path(full_path.parent_path().c_str());
+			filename = full_path.filename().c_str();
 			filename = filename.substr(0,filename.size()-3);
 			PyRun_SimpleString(("sys.path.insert(0,\""+path+"\")").c_str()); 
+			PyErr_Print();
 			PyObject *filename_p = PyUnicode_FromString(filename.c_str());
 			if(filename_p == NULL)
 			{
 				PyErr_Print();
-				log_cmd_error("Issues converting `%s' to Python\n", filename.c_str());
+				log_cmd_error("Issues converting `%s' to Python\n", full_path.filename().c_str());
 				return;
 			}
 			PyObject *module_p = PyImport_Import(filename_p);
 			if(module_p == NULL)
 			{
 				PyErr_Print();
-				log_cmd_error("Can't load python module `%s'\n", filename.c_str());
+				log_cmd_error("Can't load python module `%s'\n", full_path.filename().c_str());
 				return;
 			}
 			loaded_python_plugins[orig_filename] = module_p;
