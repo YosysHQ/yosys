@@ -361,7 +361,7 @@ RTLIL::SigSpec signal_to_mux_tree(RTLIL::Module *mod, SnippetSwCache &swcache, d
 		}
 
 		// Transform into a $shiftx where possible
-		if (shiftx && last_mux_cell->type == "$pmux") {
+		if (shiftx && last_mux_cell && last_mux_cell->type == "$pmux") {
 			// Create bit-blasted $shiftx-es that shifts by the address line used in the case statement
 			auto pmux_b_port = last_mux_cell->getPort("\\B");
 			auto pmux_y_port = last_mux_cell->getPort("\\Y");
