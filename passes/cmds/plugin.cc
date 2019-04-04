@@ -26,7 +26,7 @@
 #ifdef WITH_PYTHON
 #  include <boost/algorithm/string/predicate.hpp>
 #  include <Python.h>
-#  include <experimental/filesystem>
+#  include <boost/filesystem.hpp>
 #endif
 
 YOSYS_NAMESPACE_BEGIN
@@ -53,7 +53,7 @@ void load_plugin(std::string filename, std::vector<std::string> aliases)
 
 		#ifdef WITH_PYTHON
 
-		std::experimental::filesystem::path full_path(filename);
+		boost::filesystem::path full_path(filename);
 
 		if(strcmp(full_path.extension().c_str(), ".py") == 0)
 		{
@@ -63,6 +63,7 @@ void load_plugin(std::string filename, std::vector<std::string> aliases)
 			PyRun_SimpleString(("sys.path.insert(0,\""+path+"\")").c_str()); 
 			PyErr_Print();
 			PyObject *filename_p = PyUnicode_FromString(filename.c_str());
+
 			if(filename_p == NULL)
 			{
 				PyErr_Print();
