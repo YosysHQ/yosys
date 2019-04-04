@@ -270,9 +270,9 @@ endif
 
 ifeq ($(ENABLE_PYOSYS),1)
 	ifeq ($(PYTHON_MAJOR_VERSION),3)
-		LDLIBS += -lpython$(PYTHON_VERSION)m -lboost_python-py$(subst .,,$(PYTHON_VERSION)) -lboost_system -lboost_filesystem -lstdc++fs
+		LDLIBS += -lpython$(PYTHON_VERSION)m -lboost_python-py$(subst .,,$(PYTHON_VERSION)) -lboost_system -lboost_filesystem
 	else
-		LDLIBS += -lpython$(PYTHON_VERSION) -lboost_python-py$(subst .,,$(PYTHON_VERSION)) -lboost_system -lboost_filesystem -lstdc++fs
+		LDLIBS += -lpython$(PYTHON_VERSION) -lboost_python-py$(subst .,,$(PYTHON_VERSION)) -lboost_system -lboost_filesystem
 	endif
 CXXFLAGS += -I/usr/include/python$(PYTHON_VERSION) -D WITH_PYTHON
 PY_WRAPPER_FILE = kernel/python_wrappers
