@@ -123,6 +123,7 @@ struct SynthXilinxPass : public Pass
 		log("        abc -luts 2:2,3,6:5,10,20 [-dff] (without '-vpr' only!)\n");
 		log("        abc -lut 5 [-dff] (with '-vpr' only!)\n");
 		log("        clean\n");
+		log("        techmap -map +/xilinx/lut_map.v\n");
 		log("\n");
 		log("    check:\n");
 		log("        hierarchy -check\n");
