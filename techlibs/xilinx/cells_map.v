@@ -56,7 +56,6 @@ module \$__XILINX_SHREG_ (input C, input D, input [31:0] L, input E, output Q, o
     else
       assign CE = 1'b1;
     if (DEPTH == 1) begin
-      //wire _TECHMAP_FAIL_ = ~&_TECHMAP_CONSTMSK_L_ || _TECHMAP_CONSTVAL_L_ != 0;
       if (CLKPOL)
           FDRE #(.INIT(INIT_R)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(CE), .R(1'b0));
       else
@@ -120,11 +119,11 @@ module \$__XILINX_SHREG_ (input C, input D, input [31:0] L, input E, output Q, o
       end
     end
     else if (DEPTH <= 129 && ~&_TECHMAP_CONSTMSK_L_) begin
-      // Handle cases where depth is just 1 over a convenient value,
-      // For variable length, bump up to the next length
+      // Handle cases where fixed-length depth is
+      // just 1 over a convenient value
       \$__XILINX_SHREG_ #(.DEPTH(DEPTH+1), .INIT({INIT,1'b0}), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) _TECHMAP_REPLACE_ (.C(C), .D(D), .L(L), .E(E), .Q(Q));
     end
-    else /*if (DEPTH > 128)*/ begin
+    else begin
       localparam lower_clog2 = $clog2((DEPTH+1)/2);
       localparam lower_depth = 2 ** lower_clog2;
       wire T0, T1, T2, T3;
@@ -135,9 +134,9 @@ module \$__XILINX_SHREG_ (input C, input D, input [31:0] L, input E, output Q, o
       else begin
         \$__XILINX_SHREG_ #(.DEPTH(lower_depth), .INIT(INIT[DEPTH-1:DEPTH-lower_depth]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_0 (.C(C), .D(D), .L(L[lower_clog2-1:0]), .E(E), .Q(T0), .SO(T1));
         \$__XILINX_SHREG_ #(.DEPTH(DEPTH-lower_depth), .INIT(INIT[DEPTH-lower_depth-1:0]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_1 (.C(C), .D(T1), .L(L[lower_clog2-1:0]), .E(E), .Q(T2), .SO(T3));
-        //assign Q = L[lower_clog2-1] ? T2 : T0;
         // FIXME: Need to instantiate 2:1 MUX here since
         //        techmap with this file is run AFTER abc
+        //assign Q = L[lower_clog2-1] ? T2 : T0;
         LUT3 #(.INIT(8'b10101100)) fpga_mux (.I0(T2), .I1(T0), .I2(L[lower_clog2]), .O(Q));
       end
       if (DEPTH == 2 * lower_depth)
