@@ -113,7 +113,7 @@ struct SynthXilinxPass : public Pass
 		log("        dffsr2dff\n");
 		log("        dff2dffe\n");
 		log("        opt -full\n");
-		log("        simplemap t:$dff* (without -nosrl and without -retime only)\n");
+		log("        simplemap t:$dff t:$dffe (without -nosrl and without -retime only)\n");
 		log("        shregmap -tech xilinx -minlen 3 (without -nosrl and without -retime only)\n");
 		log("        techmap -map +/techmap.v -map +/xilinx/arith_map.v -map +/xilinx/ff_map.v\n");
 		log("        opt -fast\n");
@@ -266,7 +266,7 @@ struct SynthXilinxPass : public Pass
 			Pass::call(design, "opt -full");
 
 			if (!nosrl && !retime) {
-				Pass::call(design, "simplemap t:$dff*");
+				Pass::call(design, "simplemap t:$dff t:$dffe");
 				Pass::call(design, "shregmap -tech xilinx -minlen 3");
 			}
 
