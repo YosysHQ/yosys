@@ -60,17 +60,9 @@ void load_plugin(std::string filename, std::vector<std::string> aliases)
 			std::string path(full_path.parent_path().c_str());
 			filename = full_path.filename().c_str();
 			filename = filename.substr(0,filename.size()-3);
-			PyRun_SimpleString(("sys.path.insert(0,\""+path+"\")").c_str()); 
+			PyRun_SimpleString(("sys.path.insert(0,\""+path+"\")").c_str());
 			PyErr_Print();
-			PyObject *filename_p = PyUnicode_FromString(filename.c_str());
-
-			if(filename_p == NULL)
-			{
-				PyErr_Print();
-				log_cmd_error("Issues converting `%s' to Python\n", full_path.filename().c_str());
-				return;
-			}
-			PyObject *module_p = PyImport_Import(filename_p);
+			PyObject *module_p = PyImport_ImportModule(filename.c_str());
 			if(module_p == NULL)
 			{
 				PyErr_Print();
