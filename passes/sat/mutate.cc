@@ -934,6 +934,32 @@ struct MutatePass : public Pass {
 			return;
 		}
 
+		if (opts.module.empty())
+			log_cmd_error("Missing -module argument.\n");
+
+		Module *module = design->module(opts.module);
+		if (module == nullptr)
+			log_cmd_error("Module %s not found.\n", log_id(opts.module));
+
+		if (opts.cell.empty())
+			log_cmd_error("Missing -cell argument.\n");
+
+		Cell *cell = module->cell(opts.cell);
+		if (cell == nullptr)
+			log_cmd_error("Cell %s not found in module %s.\n", log_id(opts.cell), log_id(opts.module));
+
+		if (opts.port.empty())
+			log_cmd_error("Missing -port argument.\n");
+
+		if (!cell->hasPort(opts.port))
+			log_cmd_error("Port %s not found on cell %s.%s.\n", log_id(opts.port), log_id(opts.module), log_id(opts.cell));
+
+		if (opts.portbit < 0)
+			log_cmd_error("Missing -portbit argument.\n");
+
+		if (GetSize(cell->getPort(opts.port)) <= opts.portbit)
+			log_cmd_error("Out-of-range -portbit argument for port %s on cell %s.%s.\n", log_id(opts.port), log_id(opts.module), log_id(opts.cell));
+
 		if (opts.mode == "inv") {
 			mutate_inv(design, opts);
 			return;
@@ -943,6 +969,12 @@ struct MutatePass : public Pass {
 			mutate_const(design, opts, opts.mode == "const1");
 			return;
 		}
+
+		if (opts.ctrlbit < 0)
+			log_cmd_error("Missing -ctrlbit argument.\n");
+
+		if (GetSize(cell->getPort(opts.port)) <= opts.ctrlbit)
+			log_cmd_error("Out-of-range -ctrlbit argument for port %s on cell %s.%s.\n", log_id(opts.port), log_id(opts.module), log_id(opts.cell));
 
 		if (opts.mode == "cnot0" || opts.mode == "cnot1") {
 			mutate_cnot(design, opts, opts.mode == "cnot1");
