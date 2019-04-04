@@ -551,7 +551,7 @@ struct Smt2Worker
 			if (cell->type == "$shl") return export_bvop(cell, "(bvshl A B)", 's');
 			if (cell->type == "$shr") return export_bvop(cell, "(bvlshr A B)", 's');
 			if (cell->type == "$sshl") return export_bvop(cell, "(bvshl A B)", 's');
-			if (cell->type == "$sshr") return export_bvop(cell, "(bvLshr A B)", 's');
+			if (cell->type == "$sshr") return export_bvop(cell, "(bvashr A B)", 's');
 
 			if (cell->type.in("$shift", "$shiftx")) {
 				if (cell->getParam("\\B_SIGNED").as_bool()) {
