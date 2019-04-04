@@ -113,15 +113,15 @@ struct SynthXilinxPass : public Pass
 		log("        techmap -map +/techmap.v -map +/xilinx/arith_map.v -map +/xilinx/ff_map.v\n");
 		log("        opt -fast\n");
 		log("\n");
-		log("    map_luts:\n");
-		log("        abc -luts 2:2,3,6:5,10,20 [-dff] (without '-vpr' only!)\n");
-		log("        abc -lut 5 [-dff] (with '-vpr' only!)\n");
-		log("        clean\n");
-		log("\n");
 		log("    map_cells:\n");
 		log("        techmap -map +/xilinx/cells_map.v\n");
 		log("        dffinit -ff FDRE   Q INIT -ff FDCE   Q INIT -ff FDPE   Q INIT -ff FDSE   Q INIT \\\n");
 		log("                -ff FDRE_1 Q INIT -ff FDCE_1 Q INIT -ff FDPE_1 Q INIT -ff FDSE_1 Q INIT\n");
+		log("        clean\n");
+		log("\n");
+		log("    map_luts:\n");
+		log("        abc -luts 2:2,3,6:5,10,20 [-dff] (without '-vpr' only!)\n");
+		log("        abc -lut 5 [-dff] (with '-vpr' only!)\n");
 		log("        clean\n");
 		log("\n");
 		log("    check:\n");
@@ -265,19 +265,19 @@ struct SynthXilinxPass : public Pass
 			Pass::call(design, "opt -fast");
 		}
 
-		if (check_label(active, run_from, run_to, "map_luts"))
-		{
-			Pass::call(design, "abc -luts 2:2,3,6:5,10,20" + string(retime ? " -dff" : ""));
-			Pass::call(design, "clean");
-			Pass::call(design, "techmap -map +/xilinx/lut_map.v");
-		}
-
 		if (check_label(active, run_from, run_to, "map_cells"))
 		{
 			Pass::call(design, "techmap -map +/xilinx/cells_map.v");
 			Pass::call(design, "dffinit -ff FDRE Q INIT -ff FDCE Q INIT -ff FDPE Q INIT -ff FDSE Q INIT "
 					"-ff FDRE_1 Q INIT -ff FDCE_1 Q INIT -ff FDPE_1 Q INIT -ff FDSE_1 Q INIT");
 			Pass::call(design, "clean");
+		}
+
+		if (check_label(active, run_from, run_to, "map_luts"))
+		{
+			Pass::call(design, "abc -luts 2:2,3,6:5,10,20" + string(retime ? " -dff" : ""));
+			Pass::call(design, "clean");
+			Pass::call(design, "techmap -map +/xilinx/lut_map.v");
 		}
 
 		if (check_label(active, run_from, run_to, "check"))
