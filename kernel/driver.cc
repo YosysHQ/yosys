@@ -179,6 +179,7 @@ int main(int argc, char **argv)
 {
 	std::string frontend_command = "auto";
 	std::string backend_command = "auto";
+	std::vector<std::string> vlog_defines;
 	std::vector<std::string> passes_commands;
 	std::vector<std::string> plugin_filenames;
 	std::string output_filename = "";
@@ -268,7 +269,10 @@ int main(int argc, char **argv)
 		printf("    -A\n");
 		printf("        will call abort() at the end of the script. for debugging\n");
 		printf("\n");
-		printf("    -D <header_id>[:<filename>]\n");
+		printf("    -D <macro>[=<value>]\n");
+		printf("        set the specified Verilog define (via \"read -define\")\n");
+		printf("\n");
+		printf("    -P <header_id>[:<filename>]\n");
 		printf("        dump the design when printing the specified log header to a file.\n");
 		printf("        yosys_dump_<header_id>.il is used as filename if none is specified.\n");
 		printf("        Use 'ALL' as <header_id> to dump at every header.\n");
@@ -307,7 +311,7 @@ int main(int argc, char **argv)
 	}
 
 	int opt;
-	while ((opt = getopt(argc, argv, "MXAQTVSm:f:Hh:b:o:p:l:L:qv:tds:c:W:w:e:D:E:")) != -1)
+	while ((opt = getopt(argc, argv, "MXAQTVSm:f:Hh:b:o:p:l:L:qv:tds:c:W:w:e:D:P:E:")) != -1)
 	{
 		switch (opt)
 		{
@@ -408,6 +412,9 @@ int main(int argc, char **argv)
 					std::regex_constants::egrep));
 			break;
 		case 'D':
+			vlog_defines.push_back(optarg);
+			break;
+		case 'P':
 			{
 				auto args = split_tokens(optarg, ":");
 				if (!args.empty() && args[0] == "ALL") {
@@ -471,6 +478,13 @@ int main(int argc, char **argv)
 		if (!got_output_filename)
 			backend_command = "";
 		shell(yosys_design);
+	}
+
+	if (!vlog_defines.empty()) {
+		std::string vdef_cmd = "read -define";
+		for (auto vdef : vlog_defines)
+			vdef_cmd += " " + vdef;
+		run_pass(vdef_cmd);
 	}
 
 	while (optind < argc)

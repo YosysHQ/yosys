@@ -32,7 +32,7 @@ int lut2mux(Cell *cell)
 
 	if (GetSize(sig_a) == 1)
 	{
-		cell->module->addMuxGate(NEW_ID, lut[0], lut[1], sig_a, sig_y);
+		cell->module->addMuxGate(NEW_ID, lut.extract(0)[0], lut.extract(1)[0], sig_a, sig_y);
 	}
 	else
 	{

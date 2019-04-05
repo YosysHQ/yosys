@@ -276,7 +276,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name, bo
 
 				if(lastcell == nullptr || module == nullptr)
 				{
-					err_reason = stringf("No primative object to attach .cname %s.", p);
+					err_reason = stringf("No primitive object to attach .cname %s.", p);
 					goto error_with_reason;
 				}
 
@@ -584,7 +584,7 @@ struct BlifFrontend : public Frontend {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    read_blif [filename]\n");
+		log("    read_blif [options] [filename]\n");
 		log("\n");
 		log("Load modules from a BLIF file into the current design.\n");
 		log("\n");

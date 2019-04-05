@@ -41,7 +41,7 @@ struct MemoryDffWorker
 			if (wire->attributes.count("\\init") == 0)
 				continue;
 			SigSpec sig = sigmap(wire);
-			Const initval = wire->attributes.count("\\init");
+			Const initval = wire->attributes.at("\\init");
 			for (int i = 0; i < GetSize(sig) && i < GetSize(initval); i++)
 				if (initval[i] == State::S0 || initval[i] == State::S1)
 					init_bits.insert(sig[i]);

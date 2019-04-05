@@ -174,8 +174,6 @@ bool handle_dffsr(RTLIL::Module *mod, RTLIL::Cell *cell)
 			cell->unsetParam("\\CLR_POLARITY");
 			cell->unsetPort("\\SET");
 			cell->unsetPort("\\CLR");
-
-			return true;
 		}
 		else
 		{
@@ -186,11 +184,12 @@ bool handle_dffsr(RTLIL::Module *mod, RTLIL::Cell *cell)
 			cell->unsetParam("\\CLR_POLARITY");
 			cell->unsetPort("\\SET");
 			cell->unsetPort("\\CLR");
-
-			return true;
 		}
+
+		return true;
 	}
-	else
+
+	if (!hasreset)
 	{
 		IdString new_type;
 
@@ -207,8 +206,10 @@ bool handle_dffsr(RTLIL::Module *mod, RTLIL::Cell *cell)
 		cell->unsetPort("\\S");
 		cell->unsetPort("\\R");
 
-		return did_something;
+		return true;
 	}
+
+	return did_something;
 }
 
 bool handle_dlatch(RTLIL::Module *mod, RTLIL::Cell *dlatch)

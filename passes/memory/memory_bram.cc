@@ -472,7 +472,11 @@ bool replace_cell(Cell *cell, const rules_t &rules, const rules_t::bram_t &bram,
 		std::vector<SigSpec> new_wr_en(GetSize(old_wr_en));
 		std::vector<SigSpec> new_wr_data(GetSize(old_wr_data));
 		std::vector<SigSpec> new_rd_data(GetSize(old_rd_data));
+		std::vector<std::vector<State>> new_initdata;
 		std::vector<int> shuffle_map;
+
+		if (cell_init)
+			new_initdata.resize(mem_size);
 
 		for (auto &it : en_order)
 		{
@@ -489,6 +493,10 @@ bool replace_cell(Cell *cell, const rules_t &rules, const rules_t::bram_t &bram,
 				}
 				for (int j = 0; j < rd_ports; j++)
 					new_rd_data[j].append(old_rd_data[j][bits[i]]);
+				if (cell_init) {
+					for (int j = 0; j < mem_size; j++)
+						new_initdata[j].push_back(initdata[j][bits[i]]);
+				}
 				shuffle_map.push_back(bits[i]);
 			}
 
@@ -499,6 +507,10 @@ bool replace_cell(Cell *cell, const rules_t &rules, const rules_t::bram_t &bram,
 				}
 				for (int j = 0; j < rd_ports; j++)
 					new_rd_data[j].append(State::Sx);
+				if (cell_init) {
+					for (int j = 0; j < mem_size; j++)
+						new_initdata[j].push_back(State::Sx);
+				}
 				shuffle_map.push_back(-1);
 			}
 		}
@@ -522,10 +534,15 @@ bool replace_cell(Cell *cell, const rules_t &rules, const rules_t::bram_t &bram,
 
 		for (int i = 0; i < rd_ports; i++)
 			rd_data.replace(i*mem_width, new_rd_data[i]);
+
+		if (cell_init) {
+			for (int i = 0; i < mem_size; i++)
+				initdata[i] = Const(new_initdata[i]);
+		}
 	}
 
 	// assign write ports
-
+	pair<SigBit, bool> wr_clkdom;
 	for (int cell_port_i = 0, bram_port_i = 0; cell_port_i < wr_ports; cell_port_i++)
 	{
 		bool clken = wr_clken[cell_port_i] == State::S1;
@@ -535,7 +552,7 @@ bool replace_cell(Cell *cell, const rules_t &rules, const rules_t::bram_t &bram,
 		pair<SigBit, bool> clkdom(clksig, clkpol);
 		if (!clken)
 			clkdom = pair<SigBit, bool>(State::S1, false);
-
+		wr_clkdom = clkdom;
 		log("      Write port #%d is in clock domain %s%s.\n",
 				cell_port_i, clkdom.second ? "" : "!",
 				clken ? log_signal(clkdom.first) : "~async~");
@@ -623,6 +640,8 @@ grow_read_ports:;
 				pi.sig_addr = SigSpec();
 				pi.sig_data = SigSpec();
 				pi.sig_en = SigSpec();
+				pi.make_outreg = false;
+				pi.make_transp = false;
 			}
 			new_portinfos.push_back(pi);
 			if (pi.dupidx == dup_count-1) {
@@ -700,7 +719,13 @@ grow_read_ports:;
 				if (read_transp.count(pi.transp) && read_transp.at(pi.transp) != transp) {
 					if (match.make_transp && wr_ports <= 1) {
 						pi.make_transp = true;
-						enable_make_transp = true;
+						if (pi.clocks != 0) {
+							if (wr_ports == 1 && wr_clkdom != clkdom) {								
+								log("        Bram port %c%d.%d cannot have soft transparency logic added as read and write clock domains differ.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
+								goto skip_bram_rport;
+							}
+							enable_make_transp = true;
+						}
 					} else {
 						log("        Bram port %c%d.%d has incompatible read transparency.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
 						goto skip_bram_rport;
@@ -895,17 +920,18 @@ grow_read_ports:;
 				} else {
 					SigSpec bram_dout = module->addWire(NEW_ID, bram.dbits);
 					c->setPort(stringf("\\%sDATA", pf), bram_dout);
-
-					if (pi.make_outreg) {
+					if (pi.make_outreg && pi.make_transp) {
+						log("        Moving output register to address for transparent port %c%d.%d.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
+						SigSpec sig_addr_q = module->addWire(NEW_ID, bram.abits);
+						module->addDff(NEW_ID, pi.sig_clock, sig_addr, sig_addr_q, pi.effective_clkpol);
+						c->setPort(stringf("\\%sADDR", pf), sig_addr_q);
+					} else if (pi.make_outreg) {
 						SigSpec bram_dout_q = module->addWire(NEW_ID, bram.dbits);
 						if (!pi.sig_en.empty())
 							bram_dout = module->Mux(NEW_ID, bram_dout_q, bram_dout, pi.sig_en);
 						module->addDff(NEW_ID, pi.sig_clock, bram_dout, bram_dout_q, pi.effective_clkpol);
 						bram_dout = bram_dout_q;
-					}
-
-					if (pi.make_transp)
-					{
+					} else if (pi.make_transp) {
 						log("        Adding extra logic for transparent port %c%d.%d.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
 
 						SigSpec transp_en_d = module->Mux(NEW_ID, SigSpec(0, make_transp_enbits),
@@ -931,6 +957,8 @@ grow_read_ports:;
 					SigSpec addr_ok_q = addr_ok;
 					if ((pi.clocks || pi.make_outreg) && !addr_ok.empty()) {
 						addr_ok_q = module->addWire(NEW_ID);
+						if (!pi.sig_en.empty())
+							addr_ok = module->Mux(NEW_ID, addr_ok_q, addr_ok, pi.sig_en);
 						module->addDff(NEW_ID, pi.sig_clock, addr_ok, addr_ok_q, pi.effective_clkpol);
 					}
 

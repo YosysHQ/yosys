@@ -33,7 +33,7 @@ static SigBit get_bit_or_zero(const SigSpec &sig)
 	return sig[0];
 }
 
-static void run_ice40_opts(Module *module, bool unlut_mode)
+static void run_ice40_opts(Module *module)
 {
 	pool<SigBit> optimized_co;
 	vector<Cell*> sb_lut_cells;
@@ -95,9 +95,6 @@ static void run_ice40_opts(Module *module, bool unlut_mode)
 		inbits.append(get_bit_or_zero(cell->getPort("\\I3")));
 		sigmap.apply(inbits);
 
-		if (unlut_mode)
-			goto remap_lut;
-
 		if (optimized_co.count(inbits[0])) goto remap_lut;
 		if (optimized_co.count(inbits[1])) goto remap_lut;
 		if (optimized_co.count(inbits[2])) goto remap_lut;
@@ -152,14 +149,10 @@ struct Ice40OptPass : public Pass {
 		log("        opt_clean\n");
 		log("    while <changed design>\n");
 		log("\n");
-		log("When called with the option -unlut, this command will transform all already\n");
-		log("mapped SB_LUT4 cells back to logic.\n");
-		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		string opt_expr_args = "-mux_undef -undriven";
-		bool unlut_mode = false;
 
 		log_header(design, "Executing ICE40_OPT pass (performing simple optimizations).\n");
 		log_push();
@@ -168,10 +161,6 @@ struct Ice40OptPass : public Pass {
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-full") {
 				opt_expr_args += " -full";
-				continue;
-			}
-			if (args[argidx] == "-unlut") {
-				unlut_mode = true;
 				continue;
 			}
 			break;
@@ -184,7 +173,7 @@ struct Ice40OptPass : public Pass {
 
 			log_header(design, "Running ICE40 specific optimizations.\n");
 			for (auto module : design->selected_modules())
-				run_ice40_opts(module, unlut_mode);
+				run_ice40_opts(module);
 
 			Pass::call(design, "opt_expr " + opt_expr_args);
 			Pass::call(design, "opt_merge");

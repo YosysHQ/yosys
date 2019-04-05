@@ -63,14 +63,27 @@ struct SynthIce40Pass : public ScriptPass
 		log("    -retime\n");
 		log("        run 'abc' with -dff option\n");
 		log("\n");
+		log("    -relut\n");
+		log("        combine LUTs after synthesis\n");
+		log("\n");
 		log("    -nocarry\n");
 		log("        do not use SB_CARRY cells in output netlist\n");
 		log("\n");
 		log("    -nodffe\n");
 		log("        do not use SB_DFFE* cells in output netlist\n");
 		log("\n");
+		log("    -dffe_min_ce_use <min_ce_use>\n");
+		log("        do not use SB_DFFE* cells if the resulting CE line would go to less\n");
+		log("        than min_ce_use SB_DFFE*in output netlist\n");
+		log("\n");
 		log("    -nobram\n");
 		log("        do not use SB_RAM40_4K* cells in output netlist\n");
+		log("\n");
+		log("    -dsp\n");
+		log("        use iCE40 UltraPlus DSP cells for large arithmetic\n");
+		log("\n");
+		log("    -noabc\n");
+		log("        use built-in Yosys LUT techmapping instead of abc\n");
 		log("\n");
 		log("    -abc2\n");
 		log("        run two passes of 'abc' for slightly improved logic density\n");
@@ -86,7 +99,8 @@ struct SynthIce40Pass : public ScriptPass
 	}
 
 	string top_opt, blif_file, edif_file, json_file;
-	bool nocarry, nodffe, nobram, flatten, retime, abc2, vpr;
+	bool nocarry, nodffe, nobram, dsp, flatten, retime, relut, noabc, abc2, vpr;
+	int min_ce_use;
 
 	void clear_flags() YS_OVERRIDE
 	{
@@ -96,9 +110,13 @@ struct SynthIce40Pass : public ScriptPass
 		json_file = "";
 		nocarry = false;
 		nodffe = false;
+		min_ce_use = -1;
 		nobram = false;
+		dsp = false;
 		flatten = true;
 		retime = false;
+		relut = false;
+		noabc = false;
 		abc2 = false;
 		vpr = false;
 	}
@@ -147,6 +165,10 @@ struct SynthIce40Pass : public ScriptPass
 				retime = true;
 				continue;
 			}
+			if (args[argidx] == "-relut") {
+				relut = true;
+				continue;
+			}
 			if (args[argidx] == "-nocarry") {
 				nocarry = true;
 				continue;
@@ -155,8 +177,20 @@ struct SynthIce40Pass : public ScriptPass
 				nodffe = true;
 				continue;
 			}
+			if (args[argidx] == "-dffe_min_ce_use" && argidx+1 < args.size()) {
+				min_ce_use = std::stoi(args[++argidx]);
+				continue;
+			}
 			if (args[argidx] == "-nobram") {
 				nobram = true;
+				continue;
+			}
+			if (args[argidx] == "-dsp") {
+				dsp = true;
+				continue;
+			}
+			if (args[argidx] == "-noabc") {
+				noabc = true;
 				continue;
 			}
 			if (args[argidx] == "-abc2") {
@@ -172,7 +206,7 @@ struct SynthIce40Pass : public ScriptPass
 		extra_args(args, argidx, design);
 
 		if (!design->full_selection())
-			log_cmd_error("This comannd only operates on fully selected designs!\n");
+			log_cmd_error("This command only operates on fully selected designs!\n");
 
 		log_header(design, "Executing SYNTH_ICE40 pass.\n");
 		log_push();
@@ -188,11 +222,11 @@ struct SynthIce40Pass : public ScriptPass
 		{
 			run("read_verilog -lib +/ice40/cells_sim.v");
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
+			run("proc");
 		}
 
 		if (flatten && check_label("flatten", "(unless -noflatten)"))
 		{
-			run("proc");
 			run("flatten");
 			run("tribuf -logic");
 			run("deminout");
@@ -200,20 +234,41 @@ struct SynthIce40Pass : public ScriptPass
 
 		if (check_label("coarse"))
 		{
-			run("synth -run coarse");
+			run("opt_expr");
+			run("opt_clean");
+			run("check");
+			run("opt");
+			run("wreduce");
+			run("share");
+			run("techmap -map +/cmp2lut.v -D LUT_WIDTH=4");
+			run("opt_expr");
+			run("opt_clean");
+			if (help_mode || dsp)
+				run("ice40_dsp", "(if -dsp)");
+			run("alumacc");
+			run("opt");
+			run("fsm");
+			run("opt -fast");
+			run("memory -nomap");
+			run("opt_clean");
 		}
 
 		if (!nobram && check_label("bram", "(skip if -nobram)"))
 		{
 			run("memory_bram -rules +/ice40/brams.txt");
 			run("techmap -map +/ice40/brams_map.v");
+			run("ice40_braminit");
 		}
 
-		if (check_label("fine"))
+		if (check_label("map"))
 		{
 			run("opt -fast -mux_undef -undriven -fine");
 			run("memory_map");
 			run("opt -undriven -fine");
+		}
+
+		if (check_label("map_gates"))
+		{
 			if (nocarry)
 				run("techmap");
 			else
@@ -228,6 +283,10 @@ struct SynthIce40Pass : public ScriptPass
 			run("dffsr2dff");
 			if (!nodffe)
 				run("dff2dffe -direct-match $_DFF_*");
+			if (min_ce_use >= 0) {
+				run("opt_merge");
+				run(stringf("dff2dffe -unmap-mince %d", min_ce_use));
+			}
 			run("techmap -D NO_LUT -map +/ice40/cells_map.v");
 			run("opt_expr -mux_undef");
 			run("simplemap");
@@ -243,8 +302,18 @@ struct SynthIce40Pass : public ScriptPass
 				run("ice40_opt", "(only if -abc2)");
 			}
 			run("techmap -map +/ice40/latches_map.v");
-			run("abc -lut 4");
+			if (noabc || help_mode) {
+				run("simplemap", "                               (only if -noabc)");
+				run("techmap -map +/gate2lut.v -D LUT_WIDTH=4", "(only if -noabc)");
+			}
+			if (!noabc) {
+				run("abc -dress -lut 4", "(skip if -noabc)");
+			}
 			run("clean");
+			if (relut || help_mode) {
+				run("ice40_unlut", "                            (only if -relut)");
+				run("opt_lut -dlogic SB_CARRY:I0=1:I1=2:CI=3", "(only if -relut)");
+			}
 		}
 
 		if (check_label("map_cells"))

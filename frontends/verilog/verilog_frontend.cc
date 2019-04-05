@@ -81,6 +81,9 @@ struct VerilogFrontend : public Frontend {
 		log("    -assert-assumes\n");
 		log("        treat all assume() statements like assert() statements\n");
 		log("\n");
+		log("    -debug\n");
+		log("        alias for -dump_ast1 -dump_ast2 -dump_vlog1 -dump_vlog2 -yydebug\n");
+		log("\n");
 		log("    -dump_ast1\n");
 		log("        dump abstract syntax tree (before simplification)\n");
 		log("\n");
@@ -90,7 +93,10 @@ struct VerilogFrontend : public Frontend {
 		log("    -no_dump_ptr\n");
 		log("        do not include hex memory addresses in dump (easier to diff dumps)\n");
 		log("\n");
-		log("    -dump_vlog\n");
+		log("    -dump_vlog1\n");
+		log("        dump ast as Verilog code (before simplification)\n");
+		log("\n");
+		log("    -dump_vlog2\n");
 		log("        dump ast as Verilog code (after simplification)\n");
 		log("\n");
 		log("    -dump_rtlil\n");
@@ -197,7 +203,8 @@ struct VerilogFrontend : public Frontend {
 		bool flag_dump_ast1 = false;
 		bool flag_dump_ast2 = false;
 		bool flag_no_dump_ptr = false;
-		bool flag_dump_vlog = false;
+		bool flag_dump_vlog1 = false;
+		bool flag_dump_vlog2 = false;
 		bool flag_dump_rtlil = false;
 		bool flag_nolatches = false;
 		bool flag_nomeminit = false;
@@ -258,6 +265,14 @@ struct VerilogFrontend : public Frontend {
 				assert_assumes_mode = true;
 				continue;
 			}
+			if (arg == "-debug") {
+				flag_dump_ast1 = true;
+				flag_dump_ast2 = true;
+				flag_dump_vlog1 = true;
+				flag_dump_vlog2 = true;
+				frontend_verilog_yydebug = true;
+				continue;
+			}
 			if (arg == "-dump_ast1") {
 				flag_dump_ast1 = true;
 				continue;
@@ -270,8 +285,12 @@ struct VerilogFrontend : public Frontend {
 				flag_no_dump_ptr = true;
 				continue;
 			}
-			if (arg == "-dump_vlog") {
-				flag_dump_vlog = true;
+			if (arg == "-dump_vlog1") {
+				flag_dump_vlog1 = true;
+				continue;
+			}
+			if (arg == "-dump_vlog2") {
+				flag_dump_vlog2 = true;
 				continue;
 			}
 			if (arg == "-dump_rtlil") {
@@ -410,7 +429,7 @@ struct VerilogFrontend : public Frontend {
 		if (flag_nodpi)
 			error_on_dpi_function(current_ast);
 
-		AST::process(design, current_ast, flag_dump_ast1, flag_dump_ast2, flag_no_dump_ptr, flag_dump_vlog, flag_dump_rtlil, flag_nolatches, flag_nomeminit, flag_nomem2reg, flag_mem2reg, lib_mode, flag_noopt, flag_icells, flag_nooverwrite, flag_overwrite, flag_defer, default_nettype_wire);
+		AST::process(design, current_ast, flag_dump_ast1, flag_dump_ast2, flag_no_dump_ptr, flag_dump_vlog1, flag_dump_vlog2, flag_dump_rtlil, flag_nolatches, flag_nomeminit, flag_nomem2reg, flag_mem2reg, lib_mode, flag_noopt, flag_icells, flag_nooverwrite, flag_overwrite, flag_defer, default_nettype_wire);
 
 		if (!flag_nopp)
 			delete lexin;

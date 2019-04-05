@@ -465,7 +465,7 @@ endmodule
 //-
 //-     $_SR_NP_ (S, R, Q)
 //-
-//- A set-reset latch with negative polarity SET and positive polarioty RESET.
+//- A set-reset latch with negative polarity SET and positive polarity RESET.
 //-
 //- Truth table:    S R | Q
 //-                -----+---
@@ -489,7 +489,7 @@ endmodule
 //-
 //-     $_SR_PN_ (S, R, Q)
 //-
-//- A set-reset latch with positive polarity SET and negative polarioty RESET.
+//- A set-reset latch with positive polarity SET and negative polarity RESET.
 //-
 //- Truth table:    S R | Q
 //-                -----+---

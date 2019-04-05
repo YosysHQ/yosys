@@ -189,7 +189,7 @@ struct SynthEcp5Pass : public ScriptPass
 		extra_args(args, argidx, design);
 
 		if (!design->full_selection())
-			log_cmd_error("This comannd only operates on fully selected designs!\n");
+			log_cmd_error("This command only operates on fully selected designs!\n");
 
 		log_header(design, "Executing SYNTH_ECP5 pass.\n");
 		log_push();
@@ -203,7 +203,7 @@ struct SynthEcp5Pass : public ScriptPass
 	{
 		if (check_label("begin"))
 		{
-			run("read_verilog -lib +/ecp5/cells_sim.v");
+			run("read_verilog -lib +/ecp5/cells_sim.v +/ecp5/cells_bb.v");
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
 		}
 
@@ -222,11 +222,8 @@ struct SynthEcp5Pass : public ScriptPass
 
 		if (!nobram && check_label("bram", "(skip if -nobram)"))
 		{
-			//TODO
-#if 0
-			run("memory_bram -rules +/ecp5/brams.txt");
+			run("memory_bram -rules +/ecp5/bram.txt");
 			run("techmap -map +/ecp5/brams_map.v");
-#endif
 		}
 
 		if (!nodram && check_label("dram", "(skip if -nodram)"))
@@ -258,10 +255,7 @@ struct SynthEcp5Pass : public ScriptPass
 			run("techmap -D NO_LUT -map +/ecp5/cells_map.v");
 			run("opt_expr -mux_undef");
 			run("simplemap");
-			// TODO
-#if 0
 			run("ecp5_ffinit");
-#endif
 		}
 
 		if (check_label("map_luts"))
@@ -269,14 +263,11 @@ struct SynthEcp5Pass : public ScriptPass
 			if (abc2 || help_mode) {
 				run("abc", "      (only if -abc2)");
 			}
-			//TODO
-#if 0
 			run("techmap -map +/ecp5/latches_map.v");
-#endif
 			if (nomux)
-				run("abc -lut 4");
+				run("abc -lut 4 -dress");
 			else
-				run("abc -lut 4:7");
+				run("abc -lut 4:7 -dress");
 			run("clean");
 		}
 

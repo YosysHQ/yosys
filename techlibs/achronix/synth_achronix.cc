@@ -95,8 +95,8 @@ struct SynthAchronixPass : public ScriptPass {
           run_to = args[argidx].substr(pos+1);
           continue;
         }
-        if (args[argidx] == "-flatten") {
-          flatten = true;
+        if (args[argidx] == "-noflatten") {
+          flatten = false;
           continue;
         }
         if (args[argidx] == "-retime") {
@@ -108,7 +108,7 @@ struct SynthAchronixPass : public ScriptPass {
     extra_args(args, argidx, design);
 
     if (!design->full_selection())
-      log_cmd_error("This comannd only operates on fully selected designs!\n");
+      log_cmd_error("This command only operates on fully selected designs!\n");
 
     log_header(design, "Executing SYNTH_ACHRONIX pass.\n");
     log_push();

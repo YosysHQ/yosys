@@ -827,9 +827,9 @@ struct SvaFsm
 
 			for (auto &it : nodes[i].edges) {
 				if (it.second != State::S1)
-					log("          egde %s -> %d\n", log_signal(it.second), it.first);
+					log("          edge %s -> %d\n", log_signal(it.second), it.first);
 				else
-					log("          egde -> %d\n", it.first);
+					log("          edge -> %d\n", it.first);
 			}
 
 			for (auto &it : nodes[i].links) {
@@ -856,9 +856,9 @@ struct SvaFsm
 
 			for (auto &it : unodes[i].edges) {
 				if (!it.second.empty())
-					log("          egde %s -> %d\n", log_signal(it.second), it.first);
+					log("          edge %s -> %d\n", log_signal(it.second), it.first);
 				else
-					log("          egde -> %d\n", it.first);
+					log("          edge -> %d\n", it.first);
 			}
 
 			for (auto &ctrl : unodes[i].accept) {
@@ -1666,7 +1666,20 @@ struct VerificSvaImporter
 				log("  importing SVA property at root cell %s (%s) at %s:%d.\n", root->Name(), root->View()->Owner()->Name(),
 						LineFile::GetFileName(root->Linefile()), LineFile::GetLineNo(root->Linefile()));
 
-			RTLIL::IdString root_name = module->uniquify(importer->mode_names || root->IsUserDeclared() ? RTLIL::escape_id(root->Name()) : NEW_ID);
+			bool is_user_declared = root->IsUserDeclared();
+
+			// FIXME
+			if (!is_user_declared) {
+				const char *name = root->Name();
+				for (int i = 0; name[i]; i++) {
+					if (i ? (name[i] < '0' || name[i] > '9') : (name[i] != 'i')) {
+						is_user_declared = true;
+						break;
+					}
+				}
+			}
+
+			RTLIL::IdString root_name = module->uniquify(importer->mode_names || is_user_declared ? RTLIL::escape_id(root->Name()) : NEW_ID);
 
 			// parse SVA sequence into trigger signal
 

@@ -9,4 +9,4 @@ OBJS += passes/equiv/equiv_induct.o
 OBJS += passes/equiv/equiv_struct.o
 OBJS += passes/equiv/equiv_purge.o
 OBJS += passes/equiv/equiv_mark.o
-
+OBJS += passes/equiv/equiv_opt.o

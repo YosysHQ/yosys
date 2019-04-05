@@ -100,6 +100,18 @@ static bool parse_pin(LibertyAst *cell, LibertyAst *attr, std::string &pin_name,
 	for (auto child : cell->children)
 		if (child->id == "pin" && child->args.size() == 1 && child->args[0] == pin_name)
 			return true;
+
+	/* If we end up here, the pin specified in the attribute does not exist, which is an error,
+	   or, the attribute contains an expression which we do not yet support.
+       For now, we'll simply produce a warning to let the user know something is up.
+	*/
+	if (pin_name.find_first_of("^*|&") == std::string::npos) {
+		log_warning("Malformed liberty file - cannot find pin '%s' in cell '%s' - skipping.\n", pin_name.c_str(), cell->args[0].c_str());
+	}
+	else {
+		log_warning("Found unsupported expression '%s' in pin attribute of cell '%s' - skipping.\n", pin_name.c_str(), cell->args[0].c_str());
+	}
+
 	return false;
 }
 
@@ -648,8 +660,8 @@ struct DfflibmapPass : public Pass {
 		map_adff_to_dff("$_DFF_PP0_", "$_DFF_P_");
 		map_adff_to_dff("$_DFF_PP1_", "$_DFF_P_");
 
- 		log("  final dff cell mappings:\n");
- 		logmap_all();
+		log("  final dff cell mappings:\n");
+		logmap_all();
 
 		for (auto &it : design->modules_)
 			if (design->selected(it.second) && !it.second->get_bool_attribute("\\blackbox"))

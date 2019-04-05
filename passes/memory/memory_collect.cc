@@ -184,9 +184,6 @@ Cell *handle_memory(Module *module, RTLIL::Memory *memory)
 	mem->parameters["\\OFFSET"] = Const(memory->start_offset);
 	mem->parameters["\\SIZE"] = Const(memory->size);
 	mem->parameters["\\ABITS"] = Const(addr_bits);
-
-	while (GetSize(init_data) > 1 && init_data.bits.back() == State::Sx && init_data.bits[GetSize(init_data)-2] == State::Sx)
-		init_data.bits.pop_back();
 	mem->parameters["\\INIT"] = init_data;
 
 	log_assert(sig_wr_clk.size() == wr_ports);

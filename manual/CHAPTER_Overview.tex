@@ -428,8 +428,8 @@ memory object has the following properties:
 
 All read accesses to the memory are transformed to {\tt \$memrd} cells and all write accesses to
 {\tt \$memwr} cells by the language frontend. These cells consist of independent read- and write-ports
-to the memory. The \B{MEMID} parameter on these cells is used to link them together and to the
-RTLIL::Memory object they belong to.
+to the memory. Memory initialization is transformed to {\tt \$meminit} cells by the language frontend.
+The \B{MEMID} parameter on these cells is used to link them together and to the RTLIL::Memory object they belong to.
 
 The rationale behind using separate cells for the individual ports versus
 creating a large multiport memory cell right in the language frontend is that

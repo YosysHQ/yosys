@@ -3,6 +3,21 @@ List of major changes and improvements between releases
 =======================================================
 
 
+Yosys 0.8 .. Yosys 0.8-dev
+--------------------------
+
+ * Various
+    - Added $changed support to read_verilog
+    - Added "write_edif -attrprop"
+    - Added "ice40_unlut" pass
+    - Added "opt_lut" pass
+    - Added "synth_ice40 -relut"
+    - Added "synth_ice40 -noabc"
+    - Added "gate2lut.v" techmap rule
+    - Added "rename -src"
+    - Added "equiv_opt" pass
+
+
 Yosys 0.7 .. Yosys 0.8
 ----------------------
 

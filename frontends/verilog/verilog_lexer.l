@@ -135,6 +135,9 @@ YOSYS_NAMESPACE_END
 		frontend_verilog_yyerror("Unsupported default nettype: %s", p);
 }
 
+"`protect"[^\n]* /* ignore `protect*/
+"`endprotect"[^\n]* /* ignore `endprotect*/
+
 "`"[a-zA-Z_$][a-zA-Z0-9_$]* {
 	frontend_verilog_yyerror("Unimplemented compiler directive or undefined macro %s.", yytext);
 }
@@ -150,6 +153,9 @@ YOSYS_NAMESPACE_END
 "specparam"    { return TOK_SPECPARAM; }
 "package"      { SV_KEYWORD(TOK_PACKAGE); }
 "endpackage"   { SV_KEYWORD(TOK_ENDPACKAGE); }
+"interface"    { SV_KEYWORD(TOK_INTERFACE); }
+"endinterface" { SV_KEYWORD(TOK_ENDINTERFACE); }
+"modport"      { SV_KEYWORD(TOK_MODPORT); }
 "parameter"    { return TOK_PARAMETER; }
 "localparam"   { return TOK_LOCALPARAM; }
 "defparam"     { return TOK_DEFPARAM; }
@@ -182,6 +188,14 @@ YOSYS_NAMESPACE_END
 "always_comb"  { SV_KEYWORD(TOK_ALWAYS); }
 "always_ff"    { SV_KEYWORD(TOK_ALWAYS); }
 "always_latch" { SV_KEYWORD(TOK_ALWAYS); }
+
+ /* use special token for labels on assert, assume, cover, and restrict because it's insanley complex
+    to fix parsing of cells otherwise. (the current cell parser forces a reduce very early to update some
+    global state.. its a mess) */
+[a-zA-Z_$][a-zA-Z0-9_$]*/[ \t\r\n]*:[ \t\r\n]*(assert|assume|cover|restrict)[^a-zA-Z0-9_$\.] {
+	frontend_verilog_yylval.string = new std::string(std::string("\\") + yytext);
+	return TOK_SVA_LABEL;
+}
 
 "assert"     { if (formal_mode) return TOK_ASSERT; SV_KEYWORD(TOK_ASSERT); }
 "assume"     { if (formal_mode) return TOK_ASSUME; SV_KEYWORD(TOK_ASSUME); }
@@ -268,7 +282,7 @@ YOSYS_NAMESPACE_END
 		yystr[j++] = yystr[i++];
 	}
 	yystr[j] = 0;
-	frontend_verilog_yylval.string = new std::string(yystr);
+	frontend_verilog_yylval.string = new std::string(yystr, j);
 	free(yystr);
 	return TOK_STRING;
 }
@@ -291,6 +305,11 @@ supply1 { return TOK_SUPPLY1; }
 "$unsigned" { return TOK_TO_UNSIGNED; }
 
 [a-zA-Z_$][a-zA-Z0-9_$]* {
+	frontend_verilog_yylval.string = new std::string(std::string("\\") + yytext);
+	return TOK_ID;
+}
+
+[a-zA-Z_$][a-zA-Z0-9_$\.]* {
 	frontend_verilog_yylval.string = new std::string(std::string("\\") + yytext);
 	return TOK_ID;
 }

@@ -32,7 +32,7 @@ module fa
    wire   VCC;
 
    assign VCC = 1'b1;
-   
+
    cycloneiv_lcell_comb gen_sum_0 (.combout(sum_x),
                                    .dataa(a_c),
                                    .datab(b_c),
@@ -40,7 +40,7 @@ module fa
                                    .datad(VCC));
    defparam syn__05_.lut_mask = 16'b1001011010010110;
    defparam syn__05_.sum_lutc_input = "datac";
-   
+
    cycloneiv_lcell_comb gen_cout_0 (.combout(cout_t),
                                     .dataa(cin_c),
                                     .datab(b_c),
@@ -48,11 +48,11 @@ module fa
                                     .datad(VCC));
    defparam syn__06_.lut_mask = 16'b1110000011100000;
    defparam syn__06_.sum_lutc_input = "datac";
-   
+
 endmodule // fa
 
 module f_stage();
-   
+
 endmodule // f_stage
 
 module f_end();
@@ -88,7 +88,7 @@ module _80_cycloneive_alu (A, B, CI, BI, X, Y, CO);
           .cin_c(C[0]),
           .cout_t(C0[1]),
           .sum_x(Y[0]));
-   
+
    genvar i;
    generate for (i = 1; i < Y_WIDTH; i = i + 1) begin:slice
       cycloneive_lcell_comb #(.lut_mask(16'b0101_1010_0101_0000), .sum_lutc_input("cin")) arith_cell (.combout(Y[i]), .cout(CO[i]), .dataa(BB[i]), .datab(1'b1), .datac(1'b1), .datad(1'b1), .cin(C[i]));

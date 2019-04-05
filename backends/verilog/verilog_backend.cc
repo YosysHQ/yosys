@@ -33,7 +33,7 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-bool verbose, norename, noattr, attr2comment, noexpr, nodec, nohex, nostr, defparam, decimal;
+bool verbose, norename, noattr, attr2comment, noexpr, nodec, nohex, nostr, defparam, decimal, siminit;
 int auto_name_counter, auto_name_offset, auto_name_digits;
 std::map<RTLIL::IdString, int> auto_name_map;
 std::set<RTLIL::IdString> reg_wires, reg_ct;
@@ -125,6 +125,33 @@ std::string id(RTLIL::IdString internal_id, bool may_rename = true)
 		do_escape = true;
 		break;
 	}
+
+	const pool<string> keywords = {
+		// IEEE 1800-2017 Annex B
+		"accept_on", "alias", "always", "always_comb", "always_ff", "always_latch", "and", "assert", "assign", "assume", "automatic", "before",
+		"begin", "bind", "bins", "binsof", "bit", "break", "buf", "bufif0", "bufif1", "byte", "case", "casex", "casez", "cell", "chandle",
+		"checker", "class", "clocking", "cmos", "config", "const", "constraint", "context", "continue", "cover", "covergroup", "coverpoint",
+		"cross", "deassign", "default", "defparam", "design", "disable", "dist", "do", "edge", "else", "end", "endcase", "endchecker",
+		"endclass", "endclocking", "endconfig", "endfunction", "endgenerate", "endgroup", "endinterface", "endmodule", "endpackage",
+		"endprimitive", "endprogram", "endproperty", "endsequence", "endspecify", "endtable", "endtask", "enum", "event", "eventually",
+		"expect", "export", "extends", "extern", "final", "first_match", "for", "force", "foreach", "forever", "fork", "forkjoin", "function",
+		"generate", "genvar", "global", "highz0", "highz1", "if", "iff", "ifnone", "ignore_bins", "illegal_bins", "implements", "implies",
+		"import", "incdir", "include", "initial", "inout", "input", "inside", "instance", "int", "integer", "interconnect", "interface",
+		"intersect", "join", "join_any", "join_none", "large", "let", "liblist", "library", "local", "localparam", "logic", "longint",
+		"macromodule", "matches", "medium", "modport", "module", "nand", "negedge", "nettype", "new", "nexttime", "nmos", "nor",
+		"noshowcancelled", "not", "notif0", "notif1", "null", "or", "output", "package", "packed", "parameter", "pmos", "posedge", "primitive",
+		"priority", "program", "property", "protected", "pull0", "pull1", "pulldown", "pullup", "pulsestyle_ondetect", "pulsestyle_onevent",
+		"pure", "rand", "randc", "randcase", "randsequence", "rcmos", "real", "realtime", "ref", "reg", "reject_on", "release", "repeat",
+		"restrict", "return", "rnmos", "rpmos", "rtran", "rtranif0", "rtranif1", "s_always", "s_eventually", "s_nexttime", "s_until",
+		"s_until_with", "scalared", "sequence", "shortint", "shortreal", "showcancelled", "signed", "small", "soft", "solve", "specify",
+		"specparam", "static", "string", "strong", "strong0", "strong1", "struct", "super", "supply0", "supply1", "sync_accept_on",
+		"sync_reject_on", "table", "tagged", "task", "this", "throughout", "time", "timeprecision", "timeunit", "tran", "tranif0", "tranif1",
+		"tri", "tri0", "tri1", "triand", "trior", "trireg", "type", "typedef", "union", "unique", "unique0", "unsigned", "until", "until_with",
+		"untyped", "use", "uwire", "var", "vectored", "virtual", "void", "wait", "wait_order", "wand", "weak", "weak0", "weak1", "while",
+		"wildcard", "wire", "with", "within", "wor", "xnor", "xor",
+	};
+	if (keywords.count(str))
+		do_escape = true;
 
 	if (do_escape)
 		return "\\" + std::string(str) + " ";
@@ -388,7 +415,7 @@ void dump_wire(std::ostream &f, std::string indent, RTLIL::Wire *wire)
 void dump_memory(std::ostream &f, std::string indent, RTLIL::Memory *memory)
 {
 	dump_attributes(f, indent, memory->attributes);
-	f << stringf("%s" "reg [%d:0] %s [%d:0];\n", indent.c_str(), memory->width-1, id(memory->name).c_str(), memory->size-1);
+	f << stringf("%s" "reg [%d:0] %s [%d:%d];\n", indent.c_str(), memory->width-1, id(memory->name).c_str(), memory->size+memory->start_offset-1, memory->start_offset);
 }
 
 void dump_cell_expr_port(std::ostream &f, RTLIL::Cell *cell, std::string port, bool gen_signed = true)
@@ -678,13 +705,45 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 #undef HANDLE_UNIOP
 #undef HANDLE_BINOP
 
-	if (cell->type == "$shiftx")
+	if (cell->type == "$shift")
 	{
 		f << stringf("%s" "assign ", indent.c_str());
 		dump_sigspec(f, cell->getPort("\\Y"));
 		f << stringf(" = ");
+		if (cell->getParam("\\B_SIGNED").as_bool())
+		{
+			f << stringf("$signed(");
+			dump_sigspec(f, cell->getPort("\\B"));
+			f << stringf(")");
+			f << stringf(" < 0 ? ");
+			dump_sigspec(f, cell->getPort("\\A"));
+			f << stringf(" << - ");
+			dump_sigspec(f, cell->getPort("\\B"));
+			f << stringf(" : ");
+			dump_sigspec(f, cell->getPort("\\A"));
+			f << stringf(" >> ");
+			dump_sigspec(f, cell->getPort("\\B"));
+		}
+		else
+		{
+			dump_sigspec(f, cell->getPort("\\A"));
+			f << stringf(" >> ");
+			dump_sigspec(f, cell->getPort("\\B"));
+		}
+		f << stringf(";\n");
+		return true;
+	}
+
+	if (cell->type == "$shiftx")
+	{
+		std::string temp_id = next_auto_id();
+		f << stringf("%s" "wire [%d:0] %s = ", indent.c_str(), GetSize(cell->getPort("\\A"))-1, temp_id.c_str());
 		dump_sigspec(f, cell->getPort("\\A"));
-		f << stringf("[");
+		f << stringf(";\n");
+
+		f << stringf("%s" "assign ", indent.c_str());
+		dump_sigspec(f, cell->getPort("\\Y"));
+		f << stringf(" = %s[", temp_id.c_str());
 		if (cell->getParam("\\B_SIGNED").as_bool())
 			f << stringf("$signed(");
 		dump_sigspec(f, cell->getPort("\\B"));
@@ -754,6 +813,18 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		f << stringf(", ");
 		dump_sigspec(f, cell->getPort("\\S"));
 		f << stringf(");\n");
+		return true;
+	}
+
+	if (cell->type == "$tribuf")
+	{
+		f << stringf("%s" "assign ", indent.c_str());
+		dump_sigspec(f, cell->getPort("\\Y"));
+		f << stringf(" = ");
+		dump_sigspec(f, cell->getPort("\\EN"));
+		f << stringf(" ? ");
+		dump_sigspec(f, cell->getPort("\\A"));
+		f << stringf(" : %d'bz;\n", cell->parameters.at("\\WIDTH").as_int());
 		return true;
 	}
 
@@ -952,6 +1023,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		std::string mem_id = id(cell->parameters["\\MEMID"].decode_string());
 		int abits = cell->parameters["\\ABITS"].as_int();
 		int size = cell->parameters["\\SIZE"].as_int();
+		int offset = cell->parameters["\\OFFSET"].as_int();
 		int width = cell->parameters["\\WIDTH"].as_int();
 		bool use_init = !(RTLIL::SigSpec(cell->parameters["\\INIT"]).is_fully_undef());
 
@@ -960,7 +1032,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		//  initial begin
 		//    memid[0] = ...
 		//  end
-		f << stringf("%s" "reg [%d:%d] %s [%d:%d];\n", indent.c_str(), width-1, 0, mem_id.c_str(), size-1, 0);
+		f << stringf("%s" "reg [%d:%d] %s [%d:%d];\n", indent.c_str(), width-1, 0, mem_id.c_str(), size+offset-1, offset);
 		if (use_init)
 		{
 			f << stringf("%s" "initial begin\n", indent.c_str());
@@ -993,43 +1065,46 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 			use_rd_clk = cell->parameters["\\RD_CLK_ENABLE"].extract(i).as_bool();
 			rd_clk_posedge = cell->parameters["\\RD_CLK_POLARITY"].extract(i).as_bool();
 			rd_transparent = cell->parameters["\\RD_TRANSPARENT"].extract(i).as_bool();
+			if (use_rd_clk)
 			{
-				std::ostringstream os;
-				dump_sigspec(os, sig_rd_clk);
-				clk_domain_str = stringf("%sedge %s", rd_clk_posedge ? "pos" : "neg", os.str().c_str());
-				if( clk_to_lof_body.count(clk_domain_str) == 0 )
-					clk_to_lof_body[clk_domain_str] = std::vector<std::string>();
-			}
-			if (use_rd_clk && !rd_transparent)
-			{
-				// for clocked read ports make something like:
-				//   reg [..] temp_id;
-				//   always @(posedge clk)
-				//      if (rd_en) temp_id <= array_reg[r_addr];
-				//   assign r_data = temp_id;
-				std::string temp_id = next_auto_id();
-				lof_reg_declarations.push_back( stringf("reg [%d:0] %s;\n", sig_rd_data.size() - 1, temp_id.c_str()) );
 				{
 					std::ostringstream os;
-					if (sig_rd_en != RTLIL::SigBit(true))
+					dump_sigspec(os, sig_rd_clk);
+					clk_domain_str = stringf("%sedge %s", rd_clk_posedge ? "pos" : "neg", os.str().c_str());
+					if( clk_to_lof_body.count(clk_domain_str) == 0 )
+						clk_to_lof_body[clk_domain_str] = std::vector<std::string>();
+				}
+				if (!rd_transparent)
+				{
+					// for clocked read ports make something like:
+					//   reg [..] temp_id;
+					//   always @(posedge clk)
+					//      if (rd_en) temp_id <= array_reg[r_addr];
+					//   assign r_data = temp_id;
+					std::string temp_id = next_auto_id();
+					lof_reg_declarations.push_back( stringf("reg [%d:0] %s;\n", sig_rd_data.size() - 1, temp_id.c_str()) );
 					{
-						os << stringf("if (");
-						dump_sigspec(os, sig_rd_en);
-						os << stringf(") ");
+						std::ostringstream os;
+						if (sig_rd_en != RTLIL::SigBit(true))
+						{
+							os << stringf("if (");
+							dump_sigspec(os, sig_rd_en);
+							os << stringf(") ");
+						}
+						os << stringf("%s <= %s[", temp_id.c_str(), mem_id.c_str());
+						dump_sigspec(os, sig_rd_addr);
+						os << stringf("];\n");
+						clk_to_lof_body[clk_domain_str].push_back(os.str());
 					}
-					os << stringf("%s <= %s[", temp_id.c_str(), mem_id.c_str());
-					dump_sigspec(os, sig_rd_addr);
-					os << stringf("];\n");
-					clk_to_lof_body[clk_domain_str].push_back(os.str());
+					{
+						std::ostringstream os;
+						dump_sigspec(os, sig_rd_data);
+						std::string line = stringf("assign %s = %s;\n", os.str().c_str(), temp_id.c_str());
+						clk_to_lof_body[""].push_back(line);
+					}
 				}
+				else
 				{
-					std::ostringstream os;
-					dump_sigspec(os, sig_rd_data);
-					std::string line = stringf("assign %s = %s;\n", os.str().c_str(), temp_id.c_str());
-					clk_to_lof_body[""].push_back(line);
-				}
-			} else {
-				if (rd_transparent) {
 					// for rd-transparent read-ports make something like:
 					//   reg [..] temp_id;
 					//   always @(posedge clk)
@@ -1049,15 +1124,15 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 						std::string line = stringf("assign %s = %s[%s];\n", os.str().c_str(), mem_id.c_str(), temp_id.c_str());
 						clk_to_lof_body[""].push_back(line);
 					}
-				} else {
-					// for non-clocked read-ports make something like:
-					//   assign r_data = array_reg[r_addr];
-					std::ostringstream os, os2;
-					dump_sigspec(os, sig_rd_data);
-					dump_sigspec(os2, sig_rd_addr);
-					std::string line = stringf("assign %s = %s[%s];\n", os.str().c_str(), mem_id.c_str(), os2.str().c_str());
-					clk_to_lof_body[""].push_back(line);
 				}
+			} else {
+				// for non-clocked read-ports make something like:
+				//   assign r_data = array_reg[r_addr];
+				std::ostringstream os, os2;
+				dump_sigspec(os, sig_rd_data);
+				dump_sigspec(os2, sig_rd_addr);
+				std::string line = stringf("assign %s = %s[%s];\n", os.str().c_str(), mem_id.c_str(), os2.str().c_str());
+				clk_to_lof_body[""].push_back(line);
 			}
 		}
 
@@ -1235,6 +1310,15 @@ void dump_cell(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		}
 	}
 
+	if (siminit && reg_ct.count(cell->type) && cell->hasPort("\\Q")) {
+		std::stringstream ss;
+		dump_reg_init(ss, cell->getPort("\\Q"));
+		if (!ss.str().empty()) {
+			f << stringf("%sinitial %s.Q", indent.c_str(), cell_name.c_str());
+			f << ss.str();
+			f << ";\n";
+		}
+	}
 }
 
 void dump_conn(std::ostream &f, std::string indent, const RTLIL::SigSpec &left, const RTLIL::SigSpec &right)
@@ -1351,6 +1435,8 @@ void dump_process(std::ostream &f, std::string indent, RTLIL::Process *proc, boo
 
 		if (sync->type == RTLIL::STa) {
 			f << stringf("%s" "always @* begin\n", indent.c_str());
+		} else if (sync->type == RTLIL::STi) {
+			f << stringf("%s" "initial begin\n", indent.c_str());
 		} else {
 			f << stringf("%s" "always @(", indent.c_str());
 			if (sync->type == RTLIL::STp || sync->type == RTLIL::ST1)
@@ -1415,10 +1501,10 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 		}
 
 	if (!module->processes.empty())
-		log_warning("Module %s contains unmapped RTLIL proccesses. RTLIL processes\n"
+		log_warning("Module %s contains unmapped RTLIL processes. RTLIL processes\n"
 				"can't always be mapped directly to Verilog always blocks. Unintended\n"
 				"changes in simulation behavior are possible! Use \"proc\" to convert\n"
-				"processes to logic networks and registers.", log_id(module));
+				"processes to logic networks and registers.\n", log_id(module));
 
 	f << stringf("\n");
 	for (auto it = module->processes.begin(); it != module->processes.end(); ++it)
@@ -1521,6 +1607,10 @@ struct VerilogBackend : public Backend {
 		log("        without this option all internal cells are converted to Verilog\n");
 		log("        expressions.\n");
 		log("\n");
+		log("    -siminit\n");
+		log("        add initial statements with hierarchical refs to initialize FFs when\n");
+		log("        in -noexpr mode.\n");
+		log("\n");
 		log("    -nodec\n");
 		log("        32-bit constant values are by default dumped as decimal numbers,\n");
 		log("        not bit pattern. This option deactivates this feature and instead\n");
@@ -1577,11 +1667,14 @@ struct VerilogBackend : public Backend {
 		nostr = false;
 		defparam = false;
 		decimal = false;
+		siminit = false;
 		auto_prefix = "";
 
 		bool blackboxes = false;
 		bool selected = false;
 
+		auto_name_map.clear();
+		reg_wires.clear();
 		reg_ct.clear();
 
 		reg_ct.insert("$dff");
@@ -1653,6 +1746,10 @@ struct VerilogBackend : public Backend {
 				decimal = true;
 				continue;
 			}
+			if (arg == "-siminit") {
+				siminit = true;
+				continue;
+			}
 			if (arg == "-blackboxes") {
 				blackboxes = true;
 				continue;
@@ -1684,6 +1781,8 @@ struct VerilogBackend : public Backend {
 			dump_module(*f, "", it->second);
 		}
 
+		auto_name_map.clear();
+		reg_wires.clear();
 		reg_ct.clear();
 	}
 } VerilogBackend;
