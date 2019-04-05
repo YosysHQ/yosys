@@ -256,9 +256,9 @@ struct SynthXilinxPass : public Pass
 			Pass::call(design, "opt -full");
 
 			if (vpr) {
-				Pass::call(design, "techmap -map +/techmap.v -map +/xilinx/arith_map.v -map +/xilinx/ff_map.v -D _EXPLICIT_CARRY");
+				Pass::call(design, "techmap -map +/techmap.v -map +/xilinx/arith_map.v -D _EXPLICIT_CARRY");
 			} else {
-				Pass::call(design, "techmap -map +/techmap.v -map +/xilinx/arith_map.v -map +/xilinx/ff_map.v");
+				Pass::call(design, "techmap -map +/techmap.v -map +/xilinx/arith_map.v");
 			}
 
 			Pass::call(design, "hierarchy -check");
@@ -269,7 +269,7 @@ struct SynthXilinxPass : public Pass
 		{
 			Pass::call(design, "abc -luts 2:2,3,6:5,10,20" + string(retime ? " -dff" : ""));
 			Pass::call(design, "clean");
-			Pass::call(design, "techmap -map +/xilinx/lut_map.v");
+			Pass::call(design, "techmap -map +/xilinx/lut_map.v -map +/xilinx/ff_map.v");
 		}
 
 		if (check_label(active, run_from, run_to, "map_cells"))
