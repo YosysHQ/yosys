@@ -641,6 +641,30 @@ RTLIL::Module::~Module()
 		delete it->second;
 }
 
+void RTLIL::Module::makeblackbox()
+{
+	pool<RTLIL::Wire*> delwires;
+
+	for (auto it = wires_.begin(); it != wires_.end(); ++it)
+		if (!it->second->port_input && !it->second->port_output)
+			delwires.insert(it->second);
+
+	for (auto it = memories.begin(); it != memories.end(); ++it)
+		delete it->second;
+	memories.clear();
+
+	for (auto it = cells_.begin(); it != cells_.end(); ++it)
+		delete it->second;
+	cells_.clear();
+
+	for (auto it = processes.begin(); it != processes.end(); ++it)
+		delete it->second;
+	processes.clear();
+
+	remove(delwires);
+	set_bool_attribute("\\blackbox");
+}
+
 void RTLIL::Module::reprocess_module(RTLIL::Design *, dict<RTLIL::IdString, RTLIL::Module *>)
 {
 	log_error("Cannot reprocess_module module `%s' !\n", id2cstr(name));
