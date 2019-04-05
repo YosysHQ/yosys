@@ -1675,7 +1675,7 @@ struct AbcPass : public Pass {
 			if (arg == "-dff") {
 				dff_mode = true;
 				if (delay_target.empty())
-					delay_target = "-D 0";
+					delay_target = "-D 1";
 				continue;
 			}
 			if (arg == "-clk" && argidx+1 < args.size()) {
