@@ -47,16 +47,20 @@ struct IlangFrontend : public Frontend {
 		log("    -nooverwrite\n");
 		log("        ignore re-definitions of modules. (the default behavior is to\n");
 		log("        create an error message if the existing module is not a blackbox\n");
-		log("        module, and overwrite the existing module if it is  a blackbox module.)\n");
+		log("        module, and overwrite the existing module if it is a blackbox module.)\n");
 		log("\n");
 		log("    -overwrite\n");
 		log("        overwrite existing modules with the same name\n");
+		log("\n");
+		log("    -lib\n");
+		log("        only create empty blackbox modules\n");
 		log("\n");
 	}
 	void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		ILANG_FRONTEND::flag_nooverwrite = false;
 		ILANG_FRONTEND::flag_overwrite = false;
+		ILANG_FRONTEND::flag_lib = false;
 
 		log_header(design, "Executing ILANG frontend.\n");
 
@@ -71,6 +75,10 @@ struct IlangFrontend : public Frontend {
 			if (arg == "-overwrite") {
 				ILANG_FRONTEND::flag_nooverwrite = false;
 				ILANG_FRONTEND::flag_overwrite = true;
+				continue;
+			}
+			if (arg == "-lib") {
+				ILANG_FRONTEND::flag_lib = true;
 				continue;
 			}
 			break;
