@@ -1728,7 +1728,7 @@ struct AbcPass : public Pass {
 								signal_init[initsig[i]] = State::S0;
 								break;
 							case State::S1:
-								signal_init[initsig[i]] = State::S0;
+								signal_init[initsig[i]] = State::S1;
 								break;
 							default:
 								break;
