@@ -30,7 +30,7 @@ module  \$_DFFE_PP_ (input D, C, E, output Q); FDRE   #(.INIT(|0)) _TECHMAP_REPL
 
 module  \$_DFF_NN0_ (input D, C, R, output Q); \$_DFF_NP0_         _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C),              .R(~R)); endmodule
 module  \$_DFF_NP0_ (input D, C, R, output Q); FDCE_1 #(.INIT(|0)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(1'b1), .CLR( R)); endmodule
-module  \$_DFF_PN0_ (input D, C, R, output Q); \$_DFF_PN0_         _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C),              .R(~R)); endmodule
+module  \$_DFF_PN0_ (input D, C, R, output Q); \$_DFF_PP0_         _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C),              .R(~R)); endmodule
 module  \$_DFF_PP0_ (input D, C, R, output Q); FDCE   #(.INIT(|0)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(1'b1), .CLR( R)); endmodule
 
 module  \$_DFF_NN1_ (input D, C, R, output Q); \$_DFF_NP1          _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C),              .R(~R)); endmodule
