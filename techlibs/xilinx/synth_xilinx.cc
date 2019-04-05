@@ -283,7 +283,7 @@ struct SynthXilinxPass : public Pass
 
 		if (check_label(active, run_from, run_to, "map_cells"))
 		{
-			Pass::call(design, "techmap -map +/xilinx/cells_map.v");
+			Pass::call(design, "techmap -map +/techmap.v -map +/xilinx/cells_map.v");
 			Pass::call(design, "dffinit -ff FDRE Q INIT -ff FDCE Q INIT -ff FDPE Q INIT -ff FDSE Q INIT "
 					"-ff FDRE_1 Q INIT -ff FDCE_1 Q INIT -ff FDPE_1 Q INIT -ff FDSE_1 Q INIT");
 			Pass::call(design, "clean");
