@@ -22,9 +22,10 @@ ENABLE_PROTOBUF := 0
 # python wrappers
 ENABLE_PYOSYS := 1
 PYTHON_VERSION_TESTCODE := "import sys;t='{v[0]}.{v[1]}'.format(v=list(sys.version_info[:2]));print(t)"
-PYTHON_VERSION := $(shell if python3 -c ""; then python3 -c ""$(PYTHON_VERSION_TESTCODE)""; else python -c ""$(PYTHON_VERSION_TESTCODE)""; fi)
+PYTHON_EXECUTABLE := $(shell if python3 -c ""; then echo "python3"; else echo "python"; fi)
+PYTHON_VERSION := $(shell $(PYTHON_EXECUTABLE) -c ""$(PYTHON_VERSION_TESTCODE)"")
 PYTHON_MAJOR_VERSION := $(shell echo $(PYTHON_VERSION) | cut -f1 -d.)
-PYTHON_DESTDIR := /usr/local/lib/python$(PYTHON_VERSION)/dist-packages
+PYTHON_DESTDIR := `$(PYTHON_EXECUTABLE)-config --prefix`/lib/python$(PYTHON_VERSION)/dist-packages
 
 # other configuration flags
 ENABLE_GCOV := 0
@@ -269,12 +270,27 @@ TARGETS += libyosys.so
 endif
 
 ifeq ($(ENABLE_PYOSYS),1)
-	ifeq ($(PYTHON_MAJOR_VERSION),3)
-		LDLIBS += -lpython$(PYTHON_VERSION)m -lboost_python-py$(subst .,,$(PYTHON_VERSION)) -lboost_system -lboost_filesystem
-	else
-		LDLIBS += -lpython$(PYTHON_VERSION) -lboost_python-py$(subst .,,$(PYTHON_VERSION)) -lboost_system -lboost_filesystem
-	endif
-CXXFLAGS += -I/usr/include/python$(PYTHON_VERSION) -D WITH_PYTHON
+
+#Detect name of boost_python library. Some distros usbe boost_python-py<version>, other boost_python<version>, some only use the major version number, some a concatenation of major and minor version numbers
+BOOST_PYTHON_LIB ?= $(shell \
+	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null `$(PYTHON_EXECUTABLE)-config --libs` -lboost_python-py$(subst .,,$(PYTHON_VERSION)) -;        then echo "-lboost_python-py$(subst .,,$(PYTHON_VERSION))";       else \
+	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null `$(PYTHON_EXECUTABLE)-config --libs` -lboost_python-py$(subst .,,$(PYTHON_MAJOR_VERSION)) -;  then echo "-lboost_python-py$(subst .,,$(PYTHON_MAJOR_VERSION))"; else \
+	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null `$(PYTHON_EXECUTABLE)-config --libs` -lboost_python$(subst .,,$(PYTHON_VERSION)) -;           then echo "-lboost_python$(subst .,,$(PYTHON_VERSION))";          else \
+	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null `$(PYTHON_EXECUTABLE)-config --libs` -lboost_python$(subst .,,$(PYTHON_MAJOR_VERSION)) -;     then echo "-lboost_python$(subst .,,$(PYTHON_MAJOR_VERSION))";    else \
+                                                                                                                                                                                        echo ""; fi; fi; fi; fi;)
+
+ifeq ($(BOOST_PYTHON_LIB),)
+$(error BOOST_PYTHON_LIB could not be detected. Please define manualy)
+endif
+
+ifeq ($(PYTHON_MAJOR_VERSION),3)
+LDLIBS += `$(PYTHON_EXECUTABLE)-config --libs` $(BOOST_PYTHON_LIB) -lboost_system -lboost_filesystem
+CXXFLAGS += `$(PYTHON_EXECUTABLE)-config --includes` -D WITH_PYTHON
+else
+LDLIBS += `$(PYTHON_EXECUTABLE)-config --libs` $(BOOST_PYTHON_LIB) -lboost_system -lboost_filesystem
+CXXFLAGS += `$(PYTHON_EXECUTABLE)-config --includes` -D WITH_PYTHON
+endif
+
 PY_WRAPPER_FILE = kernel/python_wrappers
 OBJS += $(PY_WRAPPER_FILE).o
 PY_GEN_SCRIPT= py_wrap_generator
