@@ -138,11 +138,8 @@ struct ShregmapTechXilinx7 : ShregmapTech
 
 	virtual bool analyze(vector<int> &taps, const vector<SigBit> &qbits) override
 	{
-		log("analyze() with %zu taps", taps.size());
-		for (auto t : taps) log(" %d", t);
-		log("\n");
 		if (GetSize(taps) == 1)
-			return taps[0] >= opts.minlen-1;
+			return taps[0] >= opts.minlen-1 && sigbit_to_shiftx_offset.count(qbits[0]);
 
 		if (taps.back() < opts.minlen-1)
 			return false;
@@ -150,38 +147,31 @@ struct ShregmapTechXilinx7 : ShregmapTech
 		Cell *shiftx = nullptr;
 		int group = 0;
 		for (int i = 0; i < GetSize(taps); ++i) {
+			auto it = sigbit_to_shiftx_offset.find(qbits[i]);
+			if (it == sigbit_to_shiftx_offset.end())
+				return false;
+
 			// Check taps are sequential
 			if (i != taps[i])
 				return false;
 			// Check taps are not connected to a shift register,
 			// or sequential to the same shift register
-			auto it = sigbit_to_shiftx_offset.find(qbits[i]);
 			if (i == 0) {
-				if (it == sigbit_to_shiftx_offset.end()) {
+				int offset;
+				std::tie(shiftx,offset,group) = it->second;
+				if (offset != i)
 					return false;
-				}
-				else {
-					int offset;
-					std::tie(shiftx,offset,group) = it->second;
-					if (offset != i)
-						return false;
-				}
 			}
 			else {
-				if (it == sigbit_to_shiftx_offset.end()) {
+				Cell *shiftx_ = std::get<0>(it->second);
+				if (shiftx_ != shiftx)
 					return false;
-				}
-				else {
-					Cell *shiftx_ = std::get<0>(it->second);
-					if (shiftx_ != shiftx)
-						return false;
-					int offset = std::get<1>(it->second);
-					if (offset != i)
-						return false;
-					int group_ = std::get<2>(it->second);
-					if (group_ != group)
-						return false;
-				}
+				int offset = std::get<1>(it->second);
+				if (offset != i)
+					return false;
+				int group_ = std::get<2>(it->second);
+				if (group_ != group)
+					return false;
 			}
 		}
 		log_assert(shiftx);
@@ -206,9 +196,7 @@ struct ShregmapTechXilinx7 : ShregmapTech
 		auto bit = tap.second;
 
 		auto it = sigbit_to_shiftx_offset.find(bit);
-		// If fixed-length, no fixup necessary
-		if (it == sigbit_to_shiftx_offset.end())
-			return true;
+		log_assert(it != sigbit_to_shiftx_offset.end());
 
 		auto newcell = cell->module->addCell(NEW_ID, "$__XILINX_SHREG_");
 		newcell->setParam("\\DEPTH", cell->getParam("\\DEPTH"));

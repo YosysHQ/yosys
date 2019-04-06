@@ -141,3 +141,6 @@ module \$__XILINX_SHREG_ (input C, input D, input [31:0] L, input E, output Q, o
     end
   endgenerate
 endmodule
+
+`ifndef SRL_ONLY
+`endif

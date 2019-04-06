@@ -113,22 +113,23 @@ struct SynthXilinxPass : public Pass
 		log("        dffsr2dff\n");
 		log("        dff2dffe\n");
 		log("        opt -full\n");
-		log("        simplemap t:$dff t:$dffe (without -nosrl and without -retime only)\n");
-		log("        shregmap -tech xilinx -minlen 3 (without -nosrl and without -retime only)\n");
+		log("        simplemap t:$dff t:$dffe (without '-nosrl' only)\n");
+		log("        shregmap -tech xilinx -minlen 3 (without '-nosrl' only)\n");
 		log("        techmap -map +/techmap.v -map +/xilinx/arith_map.v\n");
 		log("        opt -fast\n");
 		log("\n");
 		log("    map_cells:\n");
-		log("        techmap -map +/xilinx/cells_map.v\n");
-		log("        dffinit -ff FDRE   Q INIT -ff FDCE   Q INIT -ff FDPE   Q INIT -ff FDSE   Q INIT \\\n");
-		log("                -ff FDRE_1 Q INIT -ff FDCE_1 Q INIT -ff FDPE_1 Q INIT -ff FDSE_1 Q INIT\n");
+		log("        techmap -map +/techmap.v -map +/xilinx/cells_map.v\n");
 		log("        clean\n");
 		log("\n");
 		log("    map_luts:\n");
 		log("        techmap -map +/techmap.v -map +/xilinx/ff_map.v t:$_DFF_?N?\n");
 		log("        abc -luts 2:2,3,6:5,10,20 [-dff]\n");
 		log("        clean\n");
-		log("        techmap -map +/xilinx/lut_map.v -map +/xilinx/ff_map.v");
+		log("        shregmap -minlen 3 -init -params -enpol any_or_none (without '-nosrl' only)\n");
+		log("        techmap -map +/xilinx/lut_map.v -map +/xilinx/ff_map.v -map +/xilinx/cells_map.v");
+		log("        dffinit -ff FDRE   Q INIT -ff FDCE   Q INIT -ff FDPE   Q INIT -ff FDSE   Q INIT \\\n");
+		log("                -ff FDRE_1 Q INIT -ff FDCE_1 Q INIT -ff FDPE_1 Q INIT -ff FDSE_1 Q INIT\n");
 		log("\n");
 		log("    check:\n");
 		log("        hierarchy -check\n");
@@ -266,7 +267,7 @@ struct SynthXilinxPass : public Pass
 			Pass::call(design, "dff2dffe");
 			Pass::call(design, "opt -full");
 
-			if (!nosrl && !retime) {
+			if (!nosrl) {
 				Pass::call(design, "simplemap t:$dff t:$dffe");
 				Pass::call(design, "shregmap -tech xilinx -minlen 3");
 			}
@@ -292,7 +293,9 @@ struct SynthXilinxPass : public Pass
 			Pass::call(design, "techmap -map +/techmap.v -map +/xilinx/ff_map.v t:$_DFF_?N?");
 			Pass::call(design, "abc -luts 2:2,3,6:5,10,20" + string(retime ? " -dff" : ""));
 			Pass::call(design, "clean");
-			Pass::call(design, "techmap -map +/xilinx/lut_map.v -map +/xilinx/ff_map.v");
+			if (!nosrl)
+				Pass::call(design, "shregmap -minlen 3 -init -params -enpol any_or_none");
+			Pass::call(design, "techmap -map +/xilinx/lut_map.v -map +/xilinx/ff_map.v -map +/xilinx/cells_map.v");
 			Pass::call(design, "dffinit -ff FDRE Q INIT -ff FDCE Q INIT -ff FDPE Q INIT -ff FDSE Q INIT "
 					"-ff FDRE_1 Q INIT -ff FDCE_1 Q INIT -ff FDPE_1 Q INIT -ff FDSE_1 Q INIT");
 		}
