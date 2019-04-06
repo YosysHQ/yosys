@@ -56,11 +56,15 @@ struct ProcPass : public Pass {
 		log("        This option is passed through to proc_mux. proc_rmdead is not\n");
 		log("        executed in -ifx mode.\n");
 		log("\n");
+		log("    -shiftx\n");
+		log("        This option is passed through to proc_mux.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		std::string global_arst;
 		bool ifxmode = false;
+		bool shiftxmode = false;
 
 		log_header(design, "Executing PROC pass (convert processes to netlists).\n");
 		log_push();
@@ -76,6 +80,10 @@ struct ProcPass : public Pass {
 				ifxmode = true;
 				continue;
 			}
+			if (args[argidx] == "-shiftx") {
+				shiftxmode = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -88,7 +96,10 @@ struct ProcPass : public Pass {
 			Pass::call(design, "proc_arst");
 		else
 			Pass::call(design, "proc_arst -global_arst " + global_arst);
-		Pass::call(design, ifxmode ? "proc_mux -ifx" : "proc_mux");
+		if (shiftxmode)
+			Pass::call(design, ifxmode ? "proc_mux -ifx -shiftx" : "proc_mux -shiftx");
+		else
+			Pass::call(design, ifxmode ? "proc_mux -ifx" : "proc_mux");
 		Pass::call(design, "proc_dlatch");
 		Pass::call(design, "proc_dff");
 		Pass::call(design, "proc_clean");

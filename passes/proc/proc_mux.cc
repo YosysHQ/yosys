@@ -269,7 +269,7 @@ void append_pmux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const std::ve
 }
 
 RTLIL::SigSpec signal_to_mux_tree(RTLIL::Module *mod, SnippetSwCache &swcache, dict<RTLIL::SwitchRule*, bool, hash_ptr_ops> &swpara,
-		RTLIL::CaseRule *cs, const RTLIL::SigSpec &sig, const RTLIL::SigSpec &defval, bool ifxmode)
+		RTLIL::CaseRule *cs, const RTLIL::SigSpec &sig, const RTLIL::SigSpec &defval, bool ifxmode, bool shiftxmode)
 {
 	RTLIL::SigSpec result = defval;
 
@@ -340,11 +340,11 @@ RTLIL::SigSpec signal_to_mux_tree(RTLIL::Module *mod, SnippetSwCache &swcache, d
 		// evaluate in reverse order to give the first entry the top priority
 		RTLIL::SigSpec initial_val = result;
 		RTLIL::Cell *last_mux_cell = NULL;
-		bool shiftx = initial_val.is_fully_undef();
+		bool shiftx = shiftxmode && initial_val.is_fully_undef();
 		for (size_t i = 0; i < sw->cases.size(); i++) {
 			int case_idx = sw->cases.size() - i - 1;
 			RTLIL::CaseRule *cs2 = sw->cases[case_idx];
-			RTLIL::SigSpec value = signal_to_mux_tree(mod, swcache, swpara, cs2, sig, initial_val, ifxmode);
+			RTLIL::SigSpec value = signal_to_mux_tree(mod, swcache, swpara, cs2, sig, initial_val, ifxmode, shiftxmode);
 			if (last_mux_cell && pgroups[case_idx] == pgroups[case_idx+1])
 				append_pmux(mod, sw->signal, cs2->compare, value, last_mux_cell, sw, ifxmode);
 			else
@@ -382,7 +382,7 @@ RTLIL::SigSpec signal_to_mux_tree(RTLIL::Module *mod, SnippetSwCache &swcache, d
 	return result;
 }
 
-void proc_mux(RTLIL::Module *mod, RTLIL::Process *proc, bool ifxmode)
+void proc_mux(RTLIL::Module *mod, RTLIL::Process *proc, bool ifxmode, bool shiftxmode)
 {
 	log("Creating decoders for process `%s.%s'.\n", mod->name.c_str(), proc->name.c_str());
 
@@ -403,7 +403,7 @@ void proc_mux(RTLIL::Module *mod, RTLIL::Process *proc, bool ifxmode)
 
 		log("%6d/%d: %s\n", ++cnt, GetSize(sigsnip.snippets), log_signal(sig));
 
-		RTLIL::SigSpec value = signal_to_mux_tree(mod, swcache, swpara, &proc->root_case, sig, RTLIL::SigSpec(RTLIL::State::Sx, sig.size()), ifxmode);
+		RTLIL::SigSpec value = signal_to_mux_tree(mod, swcache, swpara, &proc->root_case, sig, RTLIL::SigSpec(RTLIL::State::Sx, sig.size()), ifxmode, shiftxmode);
 		mod->connect(RTLIL::SigSig(sig, value));
 	}
 }
@@ -423,10 +423,14 @@ struct ProcMuxPass : public Pass {
 		log("        Use Verilog simulation behavior with respect to undef values in\n");
 		log("        'case' expressions and 'if' conditions.\n");
 		log("\n");
+		log("    -shiftx\n");
+		log("        Use pmux-to-shiftx optimisation\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		bool ifxmode = false;
+		bool shiftxmode = false;
 		log_header(design, "Executing PROC_MUX pass (convert decision trees to multiplexers).\n");
 
 		size_t argidx;
@@ -434,6 +438,10 @@ struct ProcMuxPass : public Pass {
 		{
 			if (args[argidx] == "-ifx") {
 				ifxmode = true;
+				continue;
+			}
+			if (args[argidx] == "-shiftx") {
+				shiftxmode = true;
 				continue;
 			}
 			break;
@@ -444,7 +452,7 @@ struct ProcMuxPass : public Pass {
 			if (design->selected(mod))
 				for (auto &proc_it : mod->processes)
 					if (design->selected(mod, proc_it.second))
-						proc_mux(mod, proc_it.second, ifxmode);
+						proc_mux(mod, proc_it.second, ifxmode, shiftxmode);
 	}
 } ProcMuxPass;
 
