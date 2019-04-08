@@ -407,7 +407,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 
 	handle_loops(design);
 
-    Pass::call(design, stringf("write_xaiger -O -symbols %s/input.aig; ", tempdir_name.c_str()));
+	Pass::call(design, stringf("write_xaiger -O -symbols %s/input.aig; ", tempdir_name.c_str()));
 
 	design->selection_stack.pop_back();
 
@@ -1536,7 +1536,7 @@ struct Abc9Pass : public Pass {
 			}
 		}
 
-        Pass::call(design, "clean");
+		Pass::call(design, "clean");
 
 		assign_map.clear();
 		signal_map.clear();
