@@ -232,6 +232,7 @@ struct ShregmapTechXilinx7 : ShregmapTech
 		log_assert(it != sigbit_to_shiftx_offset.end());
 
 		auto newcell = cell->module->addCell(NEW_ID, "$__XILINX_SHREG_");
+		newcell->set_src_attribute(cell->get_src_attribute());
 		newcell->setParam("\\DEPTH", cell->getParam("\\DEPTH"));
 		newcell->setParam("\\INIT", cell->getParam("\\INIT"));
 		newcell->setParam("\\CLKPOL", cell->getParam("\\CLKPOL"));
