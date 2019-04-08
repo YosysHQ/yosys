@@ -805,13 +805,13 @@ struct AigerFrontend : public Frontend {
         log("        AIGER latches to be transformed into posedge DFFs clocked by wire of");
         log("        this name (default: clk)\n");
         log("\n");
-		log("    -map <filename>\n");
-		log("        read file with port and latch symbols\n");
+        log("    -map <filename>\n");
+        log("        read file with port and latch symbols\n");
         log("\n");
-		log("    -wideports\n");
-		log("        Merge ports that match the pattern 'name[int]' into a single\n");
-		log("        multi-bit port 'name'.\n");
-		log("\n");
+        log("    -wideports\n");
+        log("        Merge ports that match the pattern 'name[int]' into a single\n");
+        log("        multi-bit port 'name'.\n");
+        log("\n");
     }
     void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
     {
@@ -822,28 +822,28 @@ struct AigerFrontend : public Frontend {
         std::string map_filename;
         bool wideports = false;
 
-		size_t argidx;
-		for (argidx = 1; argidx < args.size(); argidx++) {
-			std::string arg = args[argidx];
-			if (arg == "-module_name" && argidx+1 < args.size()) {
-				module_name = RTLIL::escape_id(args[++argidx]);
-				continue;
-			}
-			if (arg == "-clk_name" && argidx+1 < args.size()) {
-				clk_name = RTLIL::escape_id(args[++argidx]);
-				continue;
-			}
-			if (map_filename.empty() && arg == "-map" && argidx+1 < args.size()) {
-				map_filename = args[++argidx];
-				continue;
-			}
-			if (arg == "-wideports") {
-				wideports = true;
-				continue;
-			}
-			break;
-		}
-		extra_args(f, filename, args, argidx);
+        size_t argidx;
+        for (argidx = 1; argidx < args.size(); argidx++) {
+                std::string arg = args[argidx];
+                if (arg == "-module_name" && argidx+1 < args.size()) {
+                        module_name = RTLIL::escape_id(args[++argidx]);
+                        continue;
+                }
+                if (arg == "-clk_name" && argidx+1 < args.size()) {
+                        clk_name = RTLIL::escape_id(args[++argidx]);
+                        continue;
+                }
+                if (map_filename.empty() && arg == "-map" && argidx+1 < args.size()) {
+                        map_filename = args[++argidx];
+                        continue;
+                }
+                if (arg == "-wideports") {
+                        wideports = true;
+                        continue;
+                }
+                break;
+        }
+        extra_args(f, filename, args, argidx);
 
         if (module_name.empty()) {
 #ifdef _WIN32
@@ -858,7 +858,7 @@ struct AigerFrontend : public Frontend {
         }
 
         AigerReader reader(design, *f, module_name, clk_name, map_filename, wideports);
-		reader.parse_aiger();
+        reader.parse_aiger();
     }
 } AigerFrontend;
 
