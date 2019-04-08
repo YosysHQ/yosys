@@ -360,23 +360,9 @@ RTLIL::SigSpec signal_to_mux_tree(RTLIL::Module *mod, SnippetSwCache &swcache, d
 			}
 		}
 
-		// Transform into a $shiftx where possible
-		if (shiftx && last_mux_cell && last_mux_cell->type == "$pmux") {
-			// Create bit-blasted $shiftx-es that shifts by the address line used in the case statement
-			auto pmux_b_port = last_mux_cell->getPort("\\B");
-			auto pmux_y_port = last_mux_cell->getPort("\\Y");
-			int width = last_mux_cell->getParam("\\WIDTH").as_int();
-			for (int i = 0; i < width; ++i) {
-				RTLIL::SigSpec a_port;
-				// Because we went in reverse order above, un-reverse $pmux's B port here
-				for (int j = pmux_b_port.size()/width-1; j >= 0; --j)
-					a_port.append(pmux_b_port.extract(j*width+i, 1));
-				// Create a $shiftx that shifts by the address line used in the case statement
-				mod->addShiftx(NEW_ID, a_port, sw->signal, pmux_y_port.extract(i, 1));
-			}
-			// Disconnect $pmux by replacing its output port with a floating wire
-			last_mux_cell->setPort("\\Y", mod->addWire(NEW_ID, width));
-		}
+		// Mark this pmux as being $shiftx compatible
+		if (shiftx && last_mux_cell && last_mux_cell->type == "$pmux")
+			last_mux_cell->set_bool_attribute("\\shiftx_compatible");
 	}
 
 	return result;
