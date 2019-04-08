@@ -63,6 +63,9 @@ struct SynthSf2Pass : public ScriptPass
 		log("    -noiobs\n");
 		log("        run synthesis in \"block mode\", i.e. do not insert IO buffers\n");
 		log("\n");
+		log("    -clkbuf\n");
+		log("        insert direct PAD->global_net buffers\n");
+		log("\n");
 		log("    -retime\n");
 		log("        run 'abc' with -dff option\n");
 		log("\n");
@@ -73,7 +76,7 @@ struct SynthSf2Pass : public ScriptPass
 	}
 
 	string top_opt, edif_file, vlog_file, json_file;
-	bool flatten, retime, iobs;
+	bool flatten, retime, iobs, clkbuf;
 
 	void clear_flags() YS_OVERRIDE
 	{
@@ -84,6 +87,7 @@ struct SynthSf2Pass : public ScriptPass
 		flatten = true;
 		retime = false;
 		iobs = true;
+		clkbuf = false;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -128,6 +132,10 @@ struct SynthSf2Pass : public ScriptPass
 			}
 			if (args[argidx] == "-noiobs") {
 				iobs = false;
+				continue;
+			}
+			if (args[argidx] == "-clkbuf") {
+				clkbuf = true;
 				continue;
 			}
 			break;
@@ -201,8 +209,10 @@ struct SynthSf2Pass : public ScriptPass
 
 		if (check_label("map_iobs"))
 		{
-			if (iobs || help_mode)
-				run("sf2_iobs", "(unless -noiobs)");
+			if (help_mode)
+				run("sf2_iobs [-clkbuf]", "(unless -noiobs)");
+			else if (iobs)
+				run(clkbuf ? "sf2_iobs -clkbuf" : "sf2_iobs");
 			run("clean");
 		}
 

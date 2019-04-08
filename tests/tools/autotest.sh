@@ -8,7 +8,7 @@ verbose=false
 keeprunning=false
 makejmode=false
 frontend="verilog"
-backend_opts="-noattr -noexpr"
+backend_opts="-noattr -noexpr -siminit"
 autotb_opts=""
 include_opts=""
 xinclude_opts=""
@@ -49,7 +49,7 @@ while getopts xmGl:wkjvref:s:p:n:S:I:-: opt; do
 		r)
 			backend_opts="$backend_opts -norename" ;;
 		e)
-			backend_opts="$( echo " $backend_opts " | sed 's, -noexpr ,,; s,^ ,,; s, $,,;'; )" ;;
+			backend_opts="$( echo " $backend_opts " | sed 's, -noexpr , ,; s,^ ,,; s, $,,;'; )" ;;
 		f)
 			frontend="$OPTARG" ;;
 		s)
@@ -181,7 +181,7 @@ do
 			if [ -n "$firrtl2verilog" ]; then
 			    if test -z "$xfirrtl" || ! grep "$fn" "$xfirrtl" ; then
 				"$toolsdir"/../../yosys -b "firrtl" -o ${bn}_ref.fir -f "$frontend $include_opts" -p "prep -nordff; proc; opt; memory; opt; fsm; opt -full -fine; pmuxtree" ${bn}_ref.v
-				$firrtl2verilog -i ${bn}_ref.fir -o ${bn}_ref.fir.v  -X verilog
+				$firrtl2verilog -i ${bn}_ref.fir -o ${bn}_ref.fir.v
 				test_passes -f "$frontend $include_opts" -p "hierarchy; proc; opt; memory; opt; fsm; opt -full -fine" ${bn}_ref.fir.v
 			    fi
 			fi

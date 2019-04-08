@@ -114,6 +114,7 @@ module BUFR (...);
     parameter SIM_DEVICE = "7SERIES";
 endmodule
 
+(* keep *)
 module CAPTUREE2 (...);
     parameter ONESHOT = "TRUE";
     input CAP;
@@ -130,6 +131,7 @@ module CFGLUT5 (...);
     input CDI, CE, CLK;
 endmodule
 
+(* keep *)
 module DCIRESET (...);
     output LOCKED;
     input RST;
@@ -2102,6 +2104,7 @@ module IBUFDS_INTERMDISABLE (...);
     input INTERMDISABLE;
 endmodule
 
+(* keep *)
 module ICAPE2 (...);
     parameter [31:0] DEVICE_ID = 32'h04244093;
     parameter ICAP_WIDTH = "X32";
@@ -2149,6 +2152,7 @@ module IDDR_2CLK (...);
     input S;
 endmodule
 
+(* keep *)
 module IDELAYCTRL (...);
     parameter SIM_DEVICE = "7SERIES";
     output RDY;
@@ -3057,6 +3061,7 @@ module PLLE2_BASE (...);
     input RST;
 endmodule
 
+(* keep *)
 module PS7 (...);
     output DMA0DAVALID;
     output DMA0DRREADY;
@@ -3688,6 +3693,17 @@ module PULLUP (...);
     output O;
 endmodule
 
+module RAM128X1D (...);
+    parameter [127:0] INIT = 128'h00000000000000000000000000000000;
+    parameter [0:0] IS_WCLK_INVERTED = 1'b0;
+    output DPO, SPO;
+    input [6:0] A;
+    input [6:0] DPRA;
+    input D;
+    input WCLK;
+    input WE;
+endmodule
+
 module RAM128X1S (...);
     parameter [127:0] INIT = 128'h00000000000000000000000000000000;
     parameter [0:0] IS_WCLK_INVERTED = 1'b0;
@@ -3778,6 +3794,13 @@ module RAM64M (...);
     input WE;
 endmodule
 
+module RAM64X1D (...);
+    parameter [63:0] INIT = 64'h0000000000000000;
+    parameter [0:0] IS_WCLK_INVERTED = 1'b0;
+    output DPO, SPO;
+    input A0, A1, A2, A3, A4, A5, D, DPRA0, DPRA1, DPRA2, DPRA3, DPRA4, DPRA5, WCLK, WE;
+endmodule
+
 module RAM64X1S (...);
     parameter [63:0] INIT = 64'h0000000000000000;
     parameter [0:0] IS_WCLK_INVERTED = 1'b0;
@@ -3840,6 +3863,7 @@ module SRLC32E (...);
     input CE, CLK, D;
 endmodule
 
+(* keep *)
 module STARTUPE2 (...);
     parameter PROG_USR = "FALSE";
     parameter real SIM_CCLK_FREQ = 0.0;

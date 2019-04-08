@@ -340,6 +340,7 @@ RTLIL::SigSpec signal_to_mux_tree(RTLIL::Module *mod, SnippetSwCache &swcache, d
 		// evaluate in reverse order to give the first entry the top priority
 		RTLIL::SigSpec initial_val = result;
 		RTLIL::Cell *last_mux_cell = NULL;
+		bool shiftx = initial_val.is_fully_undef();
 		for (size_t i = 0; i < sw->cases.size(); i++) {
 			int case_idx = sw->cases.size() - i - 1;
 			RTLIL::CaseRule *cs2 = sw->cases[case_idx];
@@ -348,6 +349,33 @@ RTLIL::SigSpec signal_to_mux_tree(RTLIL::Module *mod, SnippetSwCache &swcache, d
 				append_pmux(mod, sw->signal, cs2->compare, value, last_mux_cell, sw, ifxmode);
 			else
 				result = gen_mux(mod, sw->signal, cs2->compare, value, result, last_mux_cell, sw, ifxmode);
+
+			// Ignore output values which are entirely don't care
+			if (shiftx && !value.is_fully_undef()) {
+				// Keep checking if case condition is the same as the current case index
+				if (cs2->compare.size() == 1 && cs2->compare.front().is_fully_const())
+					shiftx = (cs2->compare.front().as_int() == case_idx);
+				else
+					shiftx = false;
+			}
+		}
+
+		// Transform into a $shiftx where possible
+		if (shiftx && last_mux_cell && last_mux_cell->type == "$pmux") {
+			// Create bit-blasted $shiftx-es that shifts by the address line used in the case statement
+			auto pmux_b_port = last_mux_cell->getPort("\\B");
+			auto pmux_y_port = last_mux_cell->getPort("\\Y");
+			int width = last_mux_cell->getParam("\\WIDTH").as_int();
+			for (int i = 0; i < width; ++i) {
+				RTLIL::SigSpec a_port;
+				// Because we went in reverse order above, un-reverse $pmux's B port here
+				for (int j = pmux_b_port.size()/width-1; j >= 0; --j)
+					a_port.append(pmux_b_port.extract(j*width+i, 1));
+				// Create a $shiftx that shifts by the address line used in the case statement
+				mod->addShiftx(NEW_ID, a_port, sw->signal, pmux_y_port.extract(i, 1));
+			}
+			// Disconnect $pmux by replacing its output port with a floating wire
+			last_mux_cell->setPort("\\Y", mod->addWire(NEW_ID, width));
 		}
 	}
 

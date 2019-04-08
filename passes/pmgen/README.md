@@ -16,7 +16,7 @@ API of Generated Matcher
 ========================
 
 When `pmgen.py` reads a `foobar.pmg` file, it writes `foobar_pm.h` containing
-a class `foobar_pm`. That class is instanciated with an RTLIL module and a
+a class `foobar_pm`. That class is instantiated with an RTLIL module and a
 list of cells from that module:
 
     foobar_pm pm(module, module->selected_cells());
@@ -142,7 +142,7 @@ The `select` lines are evaluated once for each cell when the matcher is
 initialized. A `match` block will only consider cells for which all `select`
 expressions evaluated to `true`. Note that the state variable corresponding to
 the match (in the example `mul`) is the only state variable that may be used
-`select` lines.
+in `select` lines.
 
 Index lines are using the `index <type> expr1 === expr2` syntax.  `expr1` is
 evaluated during matcher initialization and the same restrictions apply as for

@@ -111,7 +111,7 @@ struct SynthGowinPass : public ScriptPass
 			if (args[argidx] == "-noflatten") {
 				flatten = false;
 				continue;
-			}			
+			}
 			break;
 		}
 		extra_args(args, argidx, design);

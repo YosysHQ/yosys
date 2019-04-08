@@ -34,11 +34,24 @@ compatible license that is similar in terms to the MIT license
 or the 2-clause BSD license).
 
 
-Web Site
-========
+Web Site and Other Resources
+============================
 
 More information and documentation can be found on the Yosys web site:
-http://www.clifford.at/yosys/
+- http://www.clifford.at/yosys/
+
+The "Documentation" page on the web site contains links to more resources,
+including a manual that even describes some of the Yosys internals:
+- http://www.clifford.at/yosys/documentation.html
+
+The file `CodingReadme` in this directory contains additional information
+for people interested in using the Yosys C++ APIs.
+
+Users interested in formal verification might want to use the formal verification
+front-end for Yosys, SymbiYosys:
+- https://symbiyosys.readthedocs.io/en/latest/
+- https://github.com/YosysHQ/SymbiYosys
+
 
 Setup
 ======
@@ -92,11 +105,14 @@ Makefile.
 To build Yosys simply type 'make' in this directory.
 
 	$ make
-	$ make test
 	$ sudo make install
 
 Note that this also downloads, builds and installs ABC (using yosys-abc
 as executable name).
+
+Tests are located in the tests subdirectory and can be executed using the test target. Note that you need gawk as well as a recent version of iverilog (i.e. build from git). Then, execute tests via:
+
+	$ make test
 
 Getting Started
 ===============
@@ -295,6 +311,12 @@ Verilog Attributes and non-standard features
   on the internal configuration. This modules are only used by the synthesis
   passes to identify input and output ports of cells. The Verilog backend
   also does not output blackbox modules on default.
+
+- The ``dynports'' attribute is used by the Verilog front-end to mark modules
+  that have ports with a width that depends on a parameter.
+
+- The ``hdlname'' attribute is used by some passes to document the original
+  (HDL) name of a module when renaming a module.
 
 - The ``keep`` attribute on cells and wires is used to mark objects that should
   never be removed by the optimizer. This is used for example for cells that

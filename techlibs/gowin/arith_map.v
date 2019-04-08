@@ -25,24 +25,24 @@ module _80_gw1n_alu(A, B, CI, BI, X, Y, CO);
    parameter A_WIDTH = 1;
    parameter B_WIDTH = 1;
    parameter Y_WIDTH = 1;
-   
+
    input [A_WIDTH-1:0] A;
    input [B_WIDTH-1:0] B;
    output [Y_WIDTH-1:0] X, Y;
-   
+
    input 		CI, BI;
    output [Y_WIDTH-1:0] CO;
-   
+
    wire 		_TECHMAP_FAIL_ = Y_WIDTH <= 2;
-   
+
    wire [Y_WIDTH-1:0] 	A_buf, B_buf;
    \$pos #(.A_SIGNED(A_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(Y_WIDTH)) A_conv (.A(A), .Y(A_buf));
    \$pos #(.A_SIGNED(B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(Y_WIDTH)) B_conv (.A(B), .Y(B_buf));
-   
+
    wire [Y_WIDTH-1:0] 	AA = A_buf;
    wire [Y_WIDTH-1:0] 	BB = BI ? ~B_buf : B_buf;
    wire [Y_WIDTH-1:0] 	C = {CO, CI};
-   
+
    genvar 		i;
    generate for (i = 0; i < Y_WIDTH; i = i + 1) begin:slice
       ALU #(.ALU_MODE(32'b0))

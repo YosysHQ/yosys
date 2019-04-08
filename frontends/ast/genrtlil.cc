@@ -525,7 +525,16 @@ struct AST_INTERNAL::ProcessGenerator
 				}
 
 				if (last_generated_case != NULL && ast->get_bool_attribute("\\full_case") && default_case == NULL) {
+			#if 0
+					// this is a valid transformation, but as optimization it is premature.
+					// better: add a default case that assigns 'x' to everything, and let later
+					// optimizations take care of the rest
 					last_generated_case->compare.clear();
+			#else
+					default_case = new RTLIL::CaseRule;
+					addChunkActions(default_case->actions, this_case_eq_ltemp, SigSpec(State::Sx, GetSize(this_case_eq_rvalue)));
+					sw->cases.push_back(default_case);
+			#endif
 				} else {
 					if (default_case == NULL) {
 						default_case = new RTLIL::CaseRule;
@@ -544,7 +553,11 @@ struct AST_INTERNAL::ProcessGenerator
 			break;
 
 		case AST_WIRE:
-			log_file_error(ast->filename, ast->linenum, "Found wire declaration in block without label!\n");
+			log_file_error(ast->filename, ast->linenum, "Found reg declaration in block without label!\n");
+			break;
+
+		case AST_ASSIGN:
+			log_file_error(ast->filename, ast->linenum, "Found continous assignment in always/initial block!\n");
 			break;
 
 		case AST_PARAMETER:
@@ -1409,10 +1422,16 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			if (GetSize(en) != 1)
 				en = current_module->ReduceBool(NEW_ID, en);
 
-			std::stringstream sstr;
-			sstr << celltype << "$" << filename << ":" << linenum << "$" << (autoidx++);
+			IdString cellname;
+			if (str.empty()) {
+				std::stringstream sstr;
+				sstr << celltype << "$" << filename << ":" << linenum << "$" << (autoidx++);
+				cellname = sstr.str();
+			} else {
+				cellname = str;
+			}
 
-			RTLIL::Cell *cell = current_module->addCell(sstr.str(), celltype);
+			RTLIL::Cell *cell = current_module->addCell(cellname, celltype);
 			cell->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
 
 			for (auto &attr : attributes) {

@@ -1484,11 +1484,11 @@ else:  # not tempind, covermode
                             smt_assert_antecedent("(|%s_h| s%d)" % (topmod, i))
                             smt_assert_antecedent("(|%s_t| s%d s%d)" % (topmod, i-1, i))
                             smt_assert_consequent(get_constr_expr(constr_assumes, i))
-                    print_msg("Re-solving with appended steps..")
-                    if smt_check_sat() == "unsat":
-                        print("%s Cannot appended steps without violating assumptions!" % smt.timestamp())
-                        retstatus = False
-                        break
+                        print_msg("Re-solving with appended steps..")
+                        if smt_check_sat() == "unsat":
+                            print("%s Cannot appended steps without violating assumptions!" % smt.timestamp())
+                            retstatus = False
+                            break
                     print_anyconsts(step)
                     for i in range(step, last_check_step+1):
                         print_failed_asserts(i)
