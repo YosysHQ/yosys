@@ -744,7 +744,8 @@ grow_read_ports:;
 			if (clken) {
 				clock_domains[pi.clocks] = clkdom;
 				clock_polarities[pi.clkpol] = clkdom.second;
-				read_transp[pi.transp] = transp;
+				if (!pi.make_transp)
+					read_transp[pi.transp] = transp;
 				pi.sig_clock = clkdom.first;
 				pi.sig_en = rd_en[cell_port_i];
 				pi.effective_clkpol = clkdom.second;
