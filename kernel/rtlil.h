@@ -976,6 +976,7 @@ public:
 	virtual void sort();
 	virtual void check();
 	virtual void optimize();
+	virtual void makeblackbox();
 
 	void connect(const RTLIL::SigSig &conn);
 	void connect(const RTLIL::SigSpec &lhs, const RTLIL::SigSpec &rhs);
