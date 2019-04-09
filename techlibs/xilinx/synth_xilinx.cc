@@ -80,6 +80,9 @@ struct SynthXilinxPass : public Pass
 		log("    -retime\n");
 		log("        run 'abc' with -dff option\n");
 		log("\n");
+		log("    -abc9\n");
+		log("        use abc9 instead of abc\n");
+		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		log("\n");
@@ -142,6 +145,7 @@ struct SynthXilinxPass : public Pass
 		std::string edif_file;
 		std::string blif_file;
 		std::string run_from, run_to;
+		std::string abc = "abc";
 		bool flatten = false;
 		bool retime = false;
 		bool vpr = false;
@@ -189,6 +193,10 @@ struct SynthXilinxPass : public Pass
 			}
 			if (args[argidx] == "-nodram") {
 				nodram = true;
+				continue;
+			}
+			if (args[argidx] == "-abc9") {
+				abc = "abc9";
 				continue;
 			}
 			break;
@@ -267,7 +275,7 @@ struct SynthXilinxPass : public Pass
 
 		if (check_label(active, run_from, run_to, "map_luts"))
 		{
-			Pass::call(design, "abc -luts 2:2,3,6:5,10,20" + string(retime ? " -dff" : ""));
+			Pass::call(design, abc + " -luts 2:2,3,6:5,10,20" + string(retime ? " -dff" : ""));
 			Pass::call(design, "clean");
 			Pass::call(design, "techmap -map +/xilinx/lut_map.v");
 		}

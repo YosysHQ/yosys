@@ -1237,6 +1237,11 @@ struct Abc9Pass : public Pass {
 				map_mux16 = true;
 				continue;
 			}
+			if (arg == "-dress") {
+				// TODO
+				abc_dress = true;
+				continue;
+			}
 			if (arg == "-g" && argidx+1 < args.size()) {
 				for (auto g : split_tokens(args[++argidx], ",")) {
 					vector<string> gate_list;
