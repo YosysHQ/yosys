@@ -276,9 +276,9 @@ struct SynthXilinxPass : public Pass
 		if (check_label(active, run_from, run_to, "map_luts"))
 		{
 			if (abc == "abc9")
-				Pass::call(design, abc + " -luts 2:2,3,6:5,10,20 -box +/xilinx/cells.box" + string(retime ? " -dff" : ""));
+				Pass::call(design, abc + " -lut +/xilinx/cells.lut -box +/xilinx/cells.box" + string(retime ? " -dff" : ""));
 			else
-				Pass::call(design, abc + " -luts 2:2,3,6:5,10,20" + string(retime ? " -dff" : ""));
+				Pass::call(design, abc + " -lut +/xilinx/cells.lut" + string(retime ? " -dff" : ""));
 			Pass::call(design, "clean");
 			Pass::call(design, "techmap -map +/xilinx/lut_map.v");
 		}
