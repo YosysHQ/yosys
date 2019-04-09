@@ -272,7 +272,7 @@ failed:
 void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::string script_file, std::string exe_file,
 		std::string liberty_file, std::string constr_file, bool cleanup, vector<int> lut_costs, bool dff_mode, std::string clk_str,
 		bool keepff, std::string delay_target, std::string sop_inputs, std::string sop_products, std::string lutin_shared, bool fast_mode,
-		const std::vector<RTLIL::Cell*> &cells, bool show_tempdir, bool sop_mode)
+		const std::vector<RTLIL::Cell*> &cells, bool show_tempdir, bool sop_mode, std::string box_file)
 {
 	module = current_module;
 	map_autoidx = autoidx++;
@@ -329,8 +329,11 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		if (!constr_file.empty())
 			abc_script += stringf("read_constr -v %s; ", constr_file.c_str());
 	} else
-	if (!lut_costs.empty())
+	if (!lut_costs.empty()) {
 		abc_script += stringf("read_lut %s/lutdefs.txt; ", tempdir_name.c_str());
+		if (!box_file.empty())
+			abc_script += stringf("read_box -v %s; ", box_file.c_str());
+	}
 	else
 		abc_script += stringf("read_library %s/stdcells.genlib; ", tempdir_name.c_str());
 
@@ -1004,7 +1007,7 @@ struct Abc9Pass : public Pass {
 		log("        file format).\n");
 		log("\n");
 		log("    -constr <file>\n");
-		log("        pass this file with timing constraints to ABC. use with -liberty.\n");
+		log("        pass this file with timing constraints to ABC. Use with -liberty.\n");
 		log("\n");
 		log("        a constr file contains two lines:\n");
 		log("            set_driving_cell <cell_name>\n");
@@ -1094,6 +1097,9 @@ struct Abc9Pass : public Pass {
 		log("        this attribute is a unique integer for each ABC process started. This\n");
 		log("        is useful for debugging the partitioning of clock domains.\n");
 		log("\n");
+		log("    -box <file>\n");
+		log("        pass this file with box library to ABC. Use with -lut.\n");
+		log("\n");
 		log("When neither -liberty nor -lut is used, the Yosys standard cell library is\n");
 		log("loaded into ABC before the ABC script is executed.\n");
 		log("\n");
@@ -1123,7 +1129,7 @@ struct Abc9Pass : public Pass {
 #else
 		std::string exe_file = proc_self_dirname() + "yosys-abc";
 #endif
-		std::string script_file, liberty_file, constr_file, clk_str;
+		std::string script_file, liberty_file, constr_file, clk_str, box_file;
 		std::string delay_target, sop_inputs, sop_products, lutin_shared = "-S 1";
 		bool fast_mode = false, dff_mode = false, keepff = false, cleanup = true;
 		bool show_tempdir = false, sop_mode = false;
@@ -1169,8 +1175,8 @@ struct Abc9Pass : public Pass {
 				continue;
 			}
 			if (arg == "-constr" && argidx+1 < args.size()) {
-				rewrite_filename(constr_file);
 				constr_file = args[++argidx];
+				rewrite_filename(constr_file);
 				if (!constr_file.empty() && !is_absolute_path(constr_file))
 					constr_file = std::string(pwd) + "/" + constr_file;
 				continue;
@@ -1357,6 +1363,13 @@ struct Abc9Pass : public Pass {
 				markgroups = true;
 				continue;
 			}
+			if (arg == "-box" && argidx+1 < args.size()) {
+				box_file = args[++argidx];
+				rewrite_filename(box_file);
+				if (!box_file.empty() && !is_absolute_path(box_file))
+					box_file = std::string(pwd) + "/" + box_file;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -1395,7 +1408,8 @@ struct Abc9Pass : public Pass {
 
 			if (!dff_mode || !clk_str.empty()) {
 				abc9_module(design, mod, script_file, exe_file, liberty_file, constr_file, cleanup, lut_costs, dff_mode, clk_str, keepff,
-						delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, mod->selected_cells(), show_tempdir, sop_mode);
+						delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, mod->selected_cells(), show_tempdir, sop_mode,
+						box_file);
 				continue;
 			}
 
@@ -1540,7 +1554,8 @@ struct Abc9Pass : public Pass {
 				en_polarity = std::get<2>(it.first);
 				en_sig = assign_map(std::get<3>(it.first));
 				abc9_module(design, mod, script_file, exe_file, liberty_file, constr_file, cleanup, lut_costs, !clk_sig.empty(), "$",
-						keepff, delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, it.second, show_tempdir, sop_mode);
+						keepff, delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, it.second, show_tempdir, sop_mode,
+						box_file);
 				assign_map.set(mod);
 			}
 		}
