@@ -1,0 +1,15 @@
+# Max delays from https://pastebin.com/v2hrcksd 
+# from https://github.com/SymbiFlow/prjxray/pull/706#issuecomment-479380321
+
+# Since LUT delays are pushed onto the fabric as routing delays,
+# assume each input costs +100ps
+
+# K	area	delay
+1 	11	224
+2	12	224 324
+3	13	224 324 424
+4	14	224 324 424 524
+5	15	224 324 424 524 624
+6	20	224 324 424 524 624 724
+7	40	224 324 424 524 624 724 1020
+8	80	224 324 424 524 624 724 1020 1293
