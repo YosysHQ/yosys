@@ -1030,7 +1030,26 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		log_file_error(filename, linenum, "While loops are only allowed in constant functions!\n");
 
 	if (type == AST_REPEAT)
-		log_file_error(filename, linenum, "Repeat loops are only allowed in constant functions!\n");
+	{
+		AstNode *count = children[0];
+		AstNode *body = children[1];
+
+		// eval count expression
+		while (count->simplify(true, false, false, stage, 32, true, false)) { }
+
+		if (count->type != AST_CONSTANT)
+			log_file_error(filename, linenum, "Repeat loops outside must have constant repeat counts!\n");
+
+		// convert to a block with the body repeated n times
+		type = AST_BLOCK;
+		children.clear();
+		for (int i = 0; i < count->bitsAsConst().as_int(); i++)
+			children.insert(children.begin(), body->clone());
+
+		delete count;
+		delete body;
+		did_something = true;
+	}
 
 	// unroll for loops and generate-for blocks
 	if ((type == AST_GENFOR || type == AST_FOR) && children.size() != 0)
