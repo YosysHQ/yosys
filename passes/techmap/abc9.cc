@@ -403,6 +403,10 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 	RTLIL::Selection& sel = design->selection_stack.back();
 	sel.select(module);
 
+	// Adopt same behaviour as abc
+	// TODO: How to specify don't-care to abc9?
+	Pass::call(design, "setundef -zero");
+
 	Pass::call(design, "aigmap");
 
 	handle_loops(design);
