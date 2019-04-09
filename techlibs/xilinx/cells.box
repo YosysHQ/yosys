@@ -1,5 +1,13 @@
-MUXF7 1 0 2 1
-1 1
+# Max delays from https://pastebin.com/v2hrcksd
+# from https://github.com/SymbiFlow/prjxray/pull/706#issuecomment-479380321
 
-MUXF8 2 0 2 1
-1 1
+# F7BMUX slower than F7AMUX
+# Inputs: 0 1 S0
+# Outputs: OUT
+F7BMUX 1 0 3 1
+217 223 296
+
+# Inputs: 0 1 S0
+# Outputs: OUT
+MUXF8 2 0 3 1
+104 94 273
