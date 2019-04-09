@@ -1239,7 +1239,7 @@ struct Abc9Pass : public Pass {
 			}
 			if (arg == "-dress") {
 				// TODO
-				abc_dress = true;
+				//abc_dress = true;
 				continue;
 			}
 			if (arg == "-g" && argidx+1 < args.size()) {
