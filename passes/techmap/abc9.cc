@@ -272,7 +272,7 @@ failed:
 void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::string script_file, std::string exe_file,
 		std::string liberty_file, std::string constr_file, bool cleanup, vector<int> lut_costs, bool dff_mode, std::string clk_str,
 		bool keepff, std::string delay_target, std::string sop_inputs, std::string sop_products, std::string lutin_shared, bool fast_mode,
-		const std::vector<RTLIL::Cell*> &cells, bool show_tempdir, bool sop_mode, std::string box_file)
+		const std::vector<RTLIL::Cell*> &cells, bool show_tempdir, bool sop_mode, std::string box_file, std::string lut_file)
 {
 	module = current_module;
 	map_autoidx = autoidx++;
@@ -335,6 +335,12 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			abc_script += stringf("read_box -v %s; ", box_file.c_str());
 	}
 	else
+	if (!lut_file.empty()) {
+		abc_script += stringf("read_lut %s; ", lut_file.c_str());
+		if (!box_file.empty())
+			abc_script += stringf("read_box -v %s; ", box_file.c_str());
+	}
+	else
 		abc_script += stringf("read_library %s/stdcells.genlib; ", tempdir_name.c_str());
 
 	if (!script_file.empty()) {
@@ -348,11 +354,11 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 					abc_script += script_file[i];
 		} else
 			abc_script += stringf("source %s", script_file.c_str());
-	} else if (!lut_costs.empty()) {
-		bool all_luts_cost_same = true;
-		for (int this_cost : lut_costs)
-			if (this_cost != lut_costs.front())
-				all_luts_cost_same = false;
+	} else if (!lut_costs.empty() || !lut_file.empty()) {
+		//bool all_luts_cost_same = true;
+		//for (int this_cost : lut_costs)
+		//	if (this_cost != lut_costs.front())
+		//		all_luts_cost_same = false;
 		abc_script += fast_mode ? ABC_FAST_COMMAND_LUT : ABC_COMMAND_LUT;
 		//if (all_luts_cost_same && !fast_mode)
 		//	abc_script += "; lutpack {S}";
@@ -579,7 +585,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 					RTLIL::Cell *cell;
 					RTLIL::SigBit a_bit = c->getPort("\\A").as_bit();
 					RTLIL::SigBit y_bit = c->getPort("\\Y").as_bit();
-					if (!lut_costs.empty()) {
+					if (!lut_costs.empty() || !lut_file.empty()) {
 						// ABC can return NOT gates that drive POs
 						if (a_bit.wire->port_input) {
 							// If it's a NOT gate that comes from a primary input directly
@@ -1044,6 +1050,9 @@ struct Abc9Pass : public Pass {
 		log("        the area cost doubles with each additional input bit. the delay cost\n");
 		log("        is still constant for all lut widths.\n");
 		log("\n");
+		log("    -lut <file>\n");
+		log("        pass this file with lut library to ABC.\n");
+		log("\n");
 		log("    -luts <cost1>,<cost2>,<cost3>,<sizeN>:<cost4-N>,..\n");
 		log("        generate netlist using luts. Use the specified costs for luts with 1,\n");
 		log("        2, 3, .. inputs.\n");
@@ -1129,7 +1138,7 @@ struct Abc9Pass : public Pass {
 #else
 		std::string exe_file = proc_self_dirname() + "yosys-abc";
 #endif
-		std::string script_file, liberty_file, constr_file, clk_str, box_file;
+		std::string script_file, liberty_file, constr_file, clk_str, box_file, lut_file;
 		std::string delay_target, sop_inputs, sop_products, lutin_shared = "-S 1";
 		bool fast_mode = false, dff_mode = false, keepff = false, cleanup = true;
 		bool show_tempdir = false, sop_mode = false;
@@ -1205,8 +1214,17 @@ struct Abc9Pass : public Pass {
 					lut_mode = atoi(arg.substr(0, pos).c_str());
 					lut_mode2 = atoi(arg.substr(pos+1).c_str());
 				} else {
-					lut_mode = atoi(arg.c_str());
-					lut_mode2 = lut_mode;
+					pos = arg.find_first_of('.');
+					if (pos != string::npos) {
+						lut_file = arg;
+						rewrite_filename(lut_file);
+						if (!lut_file.empty() && !is_absolute_path(lut_file))
+							lut_file = std::string(pwd) + "/" + lut_file;
+					}
+					else {
+						lut_mode = atoi(arg.c_str());
+						lut_mode2 = lut_mode;
+					}
 				}
 				lut_costs.clear();
 				for (int i = 0; i < lut_mode; i++)
@@ -1374,7 +1392,7 @@ struct Abc9Pass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		if (!lut_costs.empty() && !liberty_file.empty())
+		if ((!lut_costs.empty() || !lut_file.empty()) && !liberty_file.empty())
 			log_cmd_error("Got -lut and -liberty! This two options are exclusive.\n");
 		if (!constr_file.empty() && liberty_file.empty())
 			log_cmd_error("Got -constr but no -liberty!\n");
@@ -1409,7 +1427,7 @@ struct Abc9Pass : public Pass {
 			if (!dff_mode || !clk_str.empty()) {
 				abc9_module(design, mod, script_file, exe_file, liberty_file, constr_file, cleanup, lut_costs, dff_mode, clk_str, keepff,
 						delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, mod->selected_cells(), show_tempdir, sop_mode,
-						box_file);
+						box_file, lut_file);
 				continue;
 			}
 
@@ -1555,7 +1573,7 @@ struct Abc9Pass : public Pass {
 				en_sig = assign_map(std::get<3>(it.first));
 				abc9_module(design, mod, script_file, exe_file, liberty_file, constr_file, cleanup, lut_costs, !clk_sig.empty(), "$",
 						keepff, delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, it.second, show_tempdir, sop_mode,
-						box_file);
+						box_file, lut_file);
 				assign_map.set(mod);
 			}
 		}
