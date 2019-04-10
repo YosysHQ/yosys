@@ -181,6 +181,7 @@ int main(int argc, char **argv)
 	std::string backend_command = "auto";
 	std::vector<std::string> vlog_defines;
 	std::vector<std::string> passes_commands;
+	std::vector<std::string> passes_commands_before;
 	std::vector<std::string> plugin_filenames;
 	std::string output_filename = "";
 	std::string scriptfile = "";
@@ -255,7 +256,10 @@ int main(int argc, char **argv)
 		printf("        execute the commands in the tcl script file (see 'help tcl' for details)\n");
 		printf("\n");
 		printf("    -p command\n");
-		printf("        execute the commands\n");
+		printf("        execute the commands after input file processing\n");
+		printf("\n");
+		printf("    -r command\n");
+		printf("        execute the commands before input file processing\n");
 		printf("\n");
 		printf("    -m module_file\n");
 		printf("        load the specified module (aka plugin)\n");
@@ -311,7 +315,7 @@ int main(int argc, char **argv)
 	}
 
 	int opt;
-	while ((opt = getopt(argc, argv, "MXAQTVSm:f:Hh:b:o:p:l:L:qv:tds:c:W:w:e:D:P:E:")) != -1)
+	while ((opt = getopt(argc, argv, "MXAQTVSm:f:Hh:b:o:p:r:l:L:qv:tds:c:W:w:e:D:P:E:")) != -1)
 	{
 		switch (opt)
 		{
@@ -353,6 +357,9 @@ int main(int argc, char **argv)
 			break;
 		case 'p':
 			passes_commands.push_back(optarg);
+			break;
+		case 'r':
+			passes_commands_before.push_back(optarg);
 			break;
 		case 'o':
 			output_filename = optarg;
@@ -487,6 +494,9 @@ int main(int argc, char **argv)
 		run_pass(vdef_cmd);
 	}
 
+	for (auto&& i : passes_commands_before)
+		run_pass(i);
+
 	while (optind < argc)
 		run_frontend(argv[optind++], frontend_command, output_filename == "-" ? &backend_command : NULL);
 
@@ -502,8 +512,8 @@ int main(int argc, char **argv)
 			run_frontend(scriptfile, "script", output_filename == "-" ? &backend_command : NULL);
 	}
 
-	for (auto it = passes_commands.begin(); it != passes_commands.end(); it++)
-		run_pass(*it);
+	for (auto&& i : passes_commands)
+		run_pass(i);
 
 	if (!backend_command.empty())
 		run_backend(output_filename, backend_command);
