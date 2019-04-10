@@ -264,9 +264,9 @@ struct SynthXilinxPass : public Pass
 			Pass::call(design, "opt -full");
 
 			if (vpr) {
-				Pass::call(design, "techmap -map +/xilinx/arith_map.v -map +/xilinx/ff_map.v -D _EXPLICIT_CARRY");
+				Pass::call(design, "techmap -map +/xilinx/arith_map.v -D _EXPLICIT_CARRY");
 			} else {
-				Pass::call(design, "techmap -map +/xilinx/arith_map.v -map +/xilinx/ff_map.v");
+				Pass::call(design, "techmap -map +/xilinx/arith_map.v");
 			}
 
 			Pass::call(design, "hierarchy -check");
@@ -276,8 +276,6 @@ struct SynthXilinxPass : public Pass
 		if (check_label(active, run_from, run_to, "map_cells"))
 		{
 			Pass::call(design, "techmap -map +/xilinx/cells_map.v");
-			Pass::call(design, "dffinit -ff FDRE Q INIT -ff FDCE Q INIT -ff FDPE Q INIT -ff FDSE Q INIT "
-					"-ff FDRE_1 Q INIT -ff FDCE_1 Q INIT -ff FDPE_1 Q INIT -ff FDSE_1 Q INIT");
 			Pass::call(design, "clean");
 		}
 
@@ -289,7 +287,9 @@ struct SynthXilinxPass : public Pass
 			else
 				Pass::call(design, abc + " -luts 2:2,3,6:5,10,20" + string(retime ? " -dff" : ""));
 			Pass::call(design, "clean");
-			Pass::call(design, "techmap -map +/xilinx/lut_map.v");
+			Pass::call(design, "techmap -map +/xilinx/lut_map.v -map +/xilinx/ff_map.v");
+			Pass::call(design, "dffinit -ff FDRE Q INIT -ff FDCE Q INIT -ff FDPE Q INIT -ff FDSE Q INIT "
+					"-ff FDRE_1 Q INIT -ff FDCE_1 Q INIT -ff FDPE_1 Q INIT -ff FDSE_1 Q INIT");
 		}
 
 		if (check_label(active, run_from, run_to, "check"))
