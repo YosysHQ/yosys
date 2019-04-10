@@ -158,7 +158,7 @@ struct SynthEasicPass : public ScriptPass
 			run("techmap");
 			run("opt -fast");
 			if (retime || help_mode) {
-				run("abc -dff", " (only if -retime)");
+				run("abc -dff -D 1", " (only if -retime)");
 				run("opt_clean", "(only if -retime)");
 			}
 		}

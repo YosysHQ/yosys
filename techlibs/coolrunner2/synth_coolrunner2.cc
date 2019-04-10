@@ -161,7 +161,7 @@ struct SynthCoolrunner2Pass : public ScriptPass
 
 		if (check_label("map_pla"))
 		{
-			run("abc -sop -I 40 -P 56");
+			run("abc -sop -I 40 -P 56" + string(retime ? " -dff -D 1" : ""));
 			run("clean");
 		}
 
