@@ -28,11 +28,18 @@ module \$shiftx (A, B, Y);
   input [B_WIDTH-1:0] B;
   output [Y_WIDTH-1:0] Y;
 
+  parameter [B_WIDTH-1:0] _TECHMAP_CONSTMSK_B_ = 0;
+  parameter [B_WIDTH-1:0] _TECHMAP_CONSTVAL_B_ = 0;
+
   generate
     genvar i;
     if (B_WIDTH < 3) begin
-      reg _TECHMAP_FAIL_;
+      wire _TECHMAP_FAIL_;
       assign _TECHMAP_FAIL_ = 1;
+    end
+    // Optimisation to remove B_SIGNED if sign bit of B is constant-0
+    else if (B_SIGNED && _TECHMAP_CONSTMSK_B_[B_WIDTH-1] && _TECHMAP_CONSTVAL_B_[B_WIDTH-1] == 1'b0) begin
+      \$shiftx  #(.A_SIGNED(A_SIGNED), .B_SIGNED(0), .A_WIDTH(A_WIDTH), .B_WIDTH(B_WIDTH-1), .Y_WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(A), .B(B[B_WIDTH-2:0]), .Y(Y));
     end
     else if (B_WIDTH == 3) begin
       localparam a_width0 = Y_WIDTH * (2 ** (B_WIDTH-1));
