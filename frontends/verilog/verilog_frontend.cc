@@ -393,7 +393,7 @@ struct VerilogFrontend : public Frontend {
 			}
 			break;
 		}
-		extra_args(f, filename, args, argidx);
+		extra_args(f, filename, args, argidx, include_dirs);
 
 		log("Parsing %s%s input from `%s' to AST representation.\n",
 				formal_mode ? "formal " : "", sv_mode ? "SystemVerilog" : "Verilog", filename.c_str());

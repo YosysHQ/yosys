@@ -379,7 +379,8 @@ void Frontend::execute(std::vector<std::string> args, RTLIL::Design *design)
 FILE *Frontend::current_script_file = NULL;
 std::string Frontend::last_here_document;
 
-void Frontend::extra_args(std::istream *&f, std::string &filename, std::vector<std::string> args, size_t argidx)
+void Frontend::extra_args(std::istream *&f, std::string &filename, std::vector<std::string> args, size_t argidx,
+                          const std::list<std::string> &include_dirs)
 {
 	bool called_with_fp = f != NULL;
 
@@ -428,13 +429,28 @@ void Frontend::extra_args(std::istream *&f, std::string &filename, std::vector<s
 				next_args.insert(next_args.end(), args.begin(), args.begin()+argidx);
 				next_args.insert(next_args.end(), filenames.begin()+1, filenames.end());
 			}
+
+			// try opening the file in the current working directoy first.
+			// if that fails, try prefixing it with the include directories.
 			std::ifstream *ff = new std::ifstream;
-			ff->open(filename.c_str());
-			yosys_input_files.insert(filename);
+			std::string fixed_fn = filename;
+			ff->open(fixed_fn);
 			if (ff->fail())
-				delete ff;
-			else
+				for (auto&& incdir : include_dirs)
+				{
+					fixed_fn = incdir + '/' + filename;
+					ff->open (fixed_fn);
+					if (!ff->fail())
+						break;
+				}
+
+			if (!ff->fail())
+			{
+				yosys_input_files.insert(fixed_fn);
 				f = ff;
+			}
+			else
+				delete ff;
 		}
 		if (f == NULL)
 			log_cmd_error("Can't open input file `%s' for reading: %s\n", filename.c_str(), strerror(errno));
