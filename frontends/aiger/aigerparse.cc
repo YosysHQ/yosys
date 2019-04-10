@@ -165,14 +165,8 @@ void AigerReader::parse_aiger()
         int width = wp.second + 1;
 
         RTLIL::Wire *wire = module->wire(name);
-        if (wire) {
-            RTLIL::Cell* driver = module->cell(stringf("%s$lut", wire->name.c_str()));
-
+        if (wire)
             module->rename(wire, RTLIL::escape_id(stringf("%s[%d]", name.c_str(), 0)));
-
-            if (driver)
-                module->rename(driver, stringf("%s$lut", wire->name.c_str()));
-        }
 
         // Do not make ports with a mix of input/output into
         // wide ports
@@ -210,6 +204,15 @@ void AigerReader::parse_aiger()
     design->add(module);
 
     Pass::call(design, "clean");
+
+    for (auto cell : module->cells().to_vector()) {
+        if (cell->type != "$lut") continue;
+        auto y_port = cell->getPort("\\Y").as_bit();
+        if (y_port.wire->width == 1)
+            module->rename(cell, stringf("%s$lut", y_port.wire->name.c_str()));
+        else
+            module->rename(cell, stringf("%s[%d]$lut", y_port.wire->name.c_str(), y_port.offset));
+    }
 }
 
 static uint32_t parse_xaiger_literal(std::istream &f)
@@ -357,7 +360,7 @@ void AigerReader::parse_xaiger()
                     RTLIL::Cell *output_cell = module->cell(stringf("\\__%d__$and", rootNodeID));
                     log_assert(output_cell);
                     module->remove(output_cell);
-					module->addLut(stringf("\\__%d__$lut", rootNodeID), input_sig, output_sig, std::move(lut_mask));
+                    module->addLut(stringf("\\__%d__$lut", rootNodeID), input_sig, output_sig, std::move(lut_mask));
                 }
             }
             else if (c == 'n') {
@@ -408,12 +411,8 @@ next_line:
     dict<RTLIL::IdString, int> wideports_cache;
     for (const auto &i : deferred_renames) {
         RTLIL::Wire *wire = i.first;
-        RTLIL::Cell* driver = module->cell(stringf("%s$lut", wire->name.c_str()));
 
         module->rename(wire, i.second);
-
-        if (driver)
-            module->rename(driver, stringf("%s$lut", wire->name.c_str()));
 
         if (wideports && (wire->port_input || wire->port_output)) {
             RTLIL::IdString escaped_symbol;
@@ -461,8 +460,6 @@ next_line:
                 log_assert(wire);
                 log_assert(wire->port_output);
 
-                RTLIL::Cell* driver = module->cell(stringf("%s$lut", wire->name.c_str()));
-
                 if (index == 0)
                     module->rename(wire, escaped_symbol);
                 else if (index > 0) {
@@ -470,9 +467,6 @@ next_line:
                     if (wideports)
                         wideports_cache[escaped_symbol] = std::max(wideports_cache[escaped_symbol], index);
                 }
-
-                if (driver)
-                    module->rename(driver, stringf("%s$lut", wire->name.c_str()));
             }
             else
                 log_error("Symbol type '%s' not recognised.\n", type.c_str());
@@ -484,14 +478,8 @@ next_line:
         int width = wp.second + 1;
 
         RTLIL::Wire *wire = module->wire(name);
-        if (wire) {
-            RTLIL::Cell* driver = module->cell(stringf("%s$lut", wire->name.c_str()));
-
+        if (wire)
             module->rename(wire, RTLIL::escape_id(stringf("%s[%d]", name.c_str(), 0)));
-
-            if (driver)
-                module->rename(driver, stringf("%s$lut", wire->name.c_str()));
-        }
 
         // Do not make ports with a mix of input/output into
         // wide ports
@@ -529,6 +517,15 @@ next_line:
     design->add(module);
 
     Pass::call(design, "clean");
+
+    for (auto cell : module->cells().to_vector()) {
+        if (cell->type != "$lut") continue;
+        auto y_port = cell->getPort("\\Y").as_bit();
+        if (y_port.wire->width == 1)
+            module->rename(cell, stringf("%s$lut", y_port.wire->name.c_str()));
+        else
+            module->rename(cell, stringf("%s[%d]$lut", y_port.wire->name.c_str(), y_port.offset));
+    }
 }
 
 void AigerReader::parse_aiger_ascii()
