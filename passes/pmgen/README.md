@@ -83,8 +83,8 @@ They are declared like state variables, just using the `udata` statement:
     udata <int> min_data_width max_data_width
     udata <IdString> data_port_name
 
-They are atomatically initialzed to the default constructed value of their type
-when ther pattern matcher object is constructed.
+They are automatically initialized to the default constructed value of their type
+when the pattern matcher object is constructed.
 
 Embedded C++ code
 -----------------
@@ -158,7 +158,7 @@ Finally, `filter <expression>` narrows down the remaining list of cells. For
 performance reasons `filter` statements should only be used for things that
 can't be done using `select` and `index`.
 
-The `optional` statement marks optional matches. I.e. the matcher will also
+The `optional` statement marks optional matches. That is, the matcher will also
 explore the case where `mul` is set to `nullptr`. Without the `optional`
 statement a match may only be assigned nullptr when one of the `if` expressions
 evaluates to `false`.
