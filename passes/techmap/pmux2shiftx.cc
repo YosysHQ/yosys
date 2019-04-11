@@ -73,7 +73,6 @@ struct Pmux2ShiftxPass : public Pass {
 			pmux_s.append(cell->getPort("\\S"));
 
 			RTLIL::SigSpec pmux_y = module->addWire(NEW_ID, clog2width);
-			RTLIL::SigSpec shiftx_s = module->addWire(NEW_ID, 1 << clog2width);
 			module->addPmux(NEW_ID, RTLIL::Const(RTLIL::Sx, clog2width), pmux_b, pmux_s, pmux_y);
 			module->addShiftx(NEW_ID, shiftx_a, pmux_y, cell->getPort("\\Y"));
 			module->remove(cell);
