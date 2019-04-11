@@ -65,8 +65,7 @@ struct Pmux2ShiftxPass : public Pass {
 			const int clog2width = ceil(log2(s_width));
 
 			RTLIL::SigSpec pmux_b;
-			pmux_b.append(RTLIL::Const(0, clog2width));
-			for (int i = s_width-1; i > 0; i--)
+			for (int i = s_width-1; i >= 0; i--)
 				pmux_b.append(RTLIL::Const(i, clog2width));
 			shiftx_a.append(cell->getPort("\\B"));
 			pmux_s.append(cell->getPort("\\S"));
