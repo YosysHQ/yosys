@@ -58,7 +58,7 @@ module \$shiftx (A, B, Y);
       wire T0, T1;
       \$shiftx  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(a_width0), .B_WIDTH(B_WIDTH-1),        .Y_WIDTH(Y_WIDTH)) fpga_shiftx      (.A(A[a_width0-1:0]),       .B(B[B_WIDTH-2:0]), .Y(T0));
       \$shiftx  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(a_widthN), .B_WIDTH($clog2(a_widthN)), .Y_WIDTH(Y_WIDTH)) fpga_shiftx_last (.A(A[A_WIDTH-1:a_width0]), .B(B[$clog2(a_widthN)-1:0]), .Y(T1));
-      MUXF7 fpga_mux (.I0(T0[i]), .I1(T1[i]), .S(B[B_WIDTH-1]), .O(Y[i]));
+      MUXF7 fpga_mux (.I0(T0), .I1(T1), .S(B[B_WIDTH-1]), .O(Y));
     end
     else if (B_WIDTH == 4) begin
       localparam a_width0 = 2 ** 3;
