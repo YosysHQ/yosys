@@ -229,7 +229,7 @@ struct XAigerWriter
 					}
 					if (is_output) {
 						SigBit O = sigmap(b);
-						if (!input_bits.count(O) && !output_bits.count(O))
+						if (!input_bits.count(O))
 							ci_bits.insert(O);
 					}
 				}
