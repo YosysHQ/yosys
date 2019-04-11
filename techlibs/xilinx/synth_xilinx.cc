@@ -118,7 +118,7 @@ struct SynthXilinxPass : public Pass
 		log("\n");
 		log("    map_cells:\n");
 		log("        techmap -map +/xilinx/cells_map.v\n");
-		log("        clean\n");
+		log("        opt -fast\n");
 		log("\n");
 		log("    map_luts:\n");
 		log("        techmap -map +/techmap.v\n");
@@ -258,11 +258,10 @@ struct SynthXilinxPass : public Pass
 
 		if (check_label(active, run_from, run_to, "fine"))
 		{
-			Pass::call(design, "opt -fast -full");
+			Pass::call(design, "opt -fast");
 			Pass::call(design, "memory_map");
 			Pass::call(design, "dffsr2dff");
 			Pass::call(design, "dff2dffe");
-			Pass::call(design, "opt -full");
 
 			if (vpr) {
 				Pass::call(design, "techmap -map +/xilinx/arith_map.v -D _EXPLICIT_CARRY");
@@ -282,6 +281,7 @@ struct SynthXilinxPass : public Pass
 
 		if (check_label(active, run_from, run_to, "map_luts"))
 		{
+			Pass::call(design, "opt -full");
 			Pass::call(design, "techmap -map +/techmap.v");
 			if (abc == "abc9")
 				Pass::call(design, abc + " -lut +/xilinx/cells.lut -box +/xilinx/cells.box" + string(retime ? " -dff" : ""));
