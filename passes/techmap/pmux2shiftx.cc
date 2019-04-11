@@ -62,7 +62,6 @@ struct Pmux2ShiftxPass : public Pass {
 				shiftx_a.append(cell->getPort("\\A"));
 				pmux_s.append(module->Not(NEW_ID, module->ReduceOr(NEW_ID, cell->getPort("\\S"))));
 			}
-			const int width = cell->getParam("\\WIDTH").as_int();
 			const int clog2width = ceil(log2(s_width));
 
 			RTLIL::SigSpec pmux_b;
