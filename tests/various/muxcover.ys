@@ -8,12 +8,13 @@ read_verilog -formal <<EOT
                 3'b?1?: Y = B;
                 3'b1??: Y = C;
                 3'b000: Y = D;
+                default: Y = 'bx;
             endcase
     endmodule
 EOT
 
 
-## Examle usage for "pmuxtree" and "muxcover"
+## Example usage for "pmuxtree" and "muxcover"
 
 proc
 pmuxtree
@@ -35,7 +36,7 @@ read_verilog -formal <<EOT
                 3'b010: Y = B;
                 3'b100: Y = C;
                 3'b000: Y = D;
-		default: Y = 'bx;
+                default: Y = 'bx;
             endcase
     endmodule
 EOT
