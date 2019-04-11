@@ -53,32 +53,28 @@ struct Pmux2ShiftxPass : public Pass {
 			// Create a new encoder, out of a $pmux, that takes
 			// the existing pmux's 'S' input and transforms it
 			// back into a binary value
-			const int s_width = cell->getParam("\\S_WIDTH").as_int();
+			RTLIL::SigSpec shiftx_a;
+			RTLIL::SigSpec pmux_s;
+
+			int s_width = cell->getParam("\\S_WIDTH").as_int();
+			if (!cell->getPort("\\A").is_fully_undef()) {
+				++s_width;
+				shiftx_a.append(cell->getPort("\\A"));
+				pmux_s.append(module->Not(NEW_ID, module->ReduceOr(NEW_ID, cell->getPort("\\S"))));
+			}
 			const int width = cell->getParam("\\WIDTH").as_int();
 			const int clog2width = ceil(log2(s_width));
-			RTLIL::SigSpec shiftx_a;
-			RTLIL::SigSpec pmux_a;
-			RTLIL::SigSpec pmux_b;
-            RTLIL::SigSpec b_port = cell->getPort("\\B");
-			if (!cell->getPort("\\A").is_fully_undef()) {
-                pmux_a = RTLIL::Const(RTLIL::S0, clog2width);
-                shiftx_a.append(cell->getPort("\\A"));
-                for (int i = s_width; i > 0; i--) {
-                    shiftx_a.append(b_port.extract((i-1)*width, width));
-                    pmux_b.append(RTLIL::Const(i, clog2width));
-                }
 
-            }
-            else {
-                pmux_a = RTLIL::Const(RTLIL::Sx, clog2width);
-                for (int i = s_width-1; i >= 0; i--) {
-                    shiftx_a.append(b_port.extract(i*width, width));
-                    pmux_b.append(RTLIL::Const(i, clog2width));
-                }
-            }
+			RTLIL::SigSpec pmux_b;
+			pmux_b.append(RTLIL::Const(0, clog2width));
+			for (int i = s_width-1; i > 0; i--)
+				pmux_b.append(RTLIL::Const(i, clog2width));
+			shiftx_a.append(cell->getPort("\\B"));
+			pmux_s.append(cell->getPort("\\S"));
+
 			RTLIL::SigSpec pmux_y = module->addWire(NEW_ID, clog2width);
 			RTLIL::SigSpec shiftx_s = module->addWire(NEW_ID, 1 << clog2width);
-			module->addPmux(NEW_ID, pmux_a, pmux_b, cell->getPort("\\S"), pmux_y);
+			module->addPmux(NEW_ID, RTLIL::Const(RTLIL::Sx, clog2width), pmux_b, pmux_s, pmux_y);
 			module->addShiftx(NEW_ID, shiftx_a, pmux_y, cell->getPort("\\Y"));
 			module->remove(cell);
 		}
