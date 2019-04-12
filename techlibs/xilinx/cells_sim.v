@@ -53,15 +53,15 @@ module BUFGCTRL(
     input CE0, input CE1,
     input IGNORE0, input IGNORE1);
 
-parameter INIT_OUT = 0;
-parameter PRESELECT_I0 = 0;
-parameter PRESELECT_I1 = 0;
-parameter IS_CE0_INVERTED = 0;
-parameter IS_CE1_INVERTED = 0;
-parameter IS_S0_INVERTED = 0;
-parameter IS_S1_INVERTED = 0;
-parameter IS_IGNORE0_INVERTED = 0;
-parameter IS_IGNORE1_INVERTED = 0;
+parameter [0:0] INIT_OUT = 1'b0;
+parameter PRESELECT_I0 = "FALSE";
+parameter PRESELECT_I1 = "FALSE";
+parameter [0:0] IS_CE0_INVERTED = 1'b0;
+parameter [0:0] IS_CE1_INVERTED = 1'b0;
+parameter [0:0] IS_S0_INVERTED = 1'b0;
+parameter [0:0] IS_S1_INVERTED = 1'b0;
+parameter [0:0] IS_IGNORE0_INVERTED = 1'b0;
+parameter [0:0] IS_IGNORE1_INVERTED = 1'b0;
 
 wire I0_internal = ((CE0 ^ IS_CE0_INVERTED) ? I0 : INIT_OUT);
 wire I1_internal = ((CE1 ^ IS_CE1_INVERTED) ? I1 : INIT_OUT);
@@ -74,9 +74,9 @@ endmodule
 
 module BUFHCE(output O, input I, input CE);
 
-parameter INIT_OUT = 0;
+parameter [0:0] INIT_OUT = 1'b0;
 parameter CE_TYPE = "SYNC";
-parameter IS_CE_INVERTED = 0;
+parameter [0:0] IS_CE_INVERTED = 1'b0;
 
 assign O = ((CE ^ IS_CE_INVERTED) ? I : INIT_OUT);
 
