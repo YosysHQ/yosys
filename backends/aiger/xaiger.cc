@@ -295,12 +295,12 @@ struct XAigerWriter
 		aig_map[State::S0] = 0;
 		aig_map[State::S1] = 1;
 
-		for (auto bit : ci_bits) {
+		for (auto bit : input_bits) {
 			aig_m++, aig_i++;
 			aig_map[bit] = 2*aig_m;
 		}
 
-		for (auto bit : input_bits) {
+		for (auto bit : ci_bits) {
 			aig_m++, aig_i++;
 			aig_map[bit] = 2*aig_m;
 		}
