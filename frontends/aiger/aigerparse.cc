@@ -460,12 +460,30 @@ next_line:
                 log_assert(wire);
                 log_assert(wire->port_output);
 
-                if (index == 0)
-                    module->rename(wire, escaped_symbol);
+                if (index == 0) {
+                    // Cope with the fact that a CO might be identical
+                    // to a PO (necessary due to ABC); in those cases
+                    // simply connect the latter to the former
+                    RTLIL::Wire* existing = module->wire(escaped_symbol);
+                    if (!existing)
+                        module->rename(wire, escaped_symbol);
+                    else {
+                        wire->port_output = false;
+                        module->connect(wire, existing);
+                    }
+                }
                 else if (index > 0) {
-                    module->rename(wire, stringf("%s[%d]", escaped_symbol.c_str(), index));
-                    if (wideports)
-                        wideports_cache[escaped_symbol] = std::max(wideports_cache[escaped_symbol], index);
+                    std::string indexed_name = stringf("%s[%d]", escaped_symbol.c_str(), index);
+                    RTLIL::Wire* existing = module->wire(indexed_name);
+                    if (!existing) {
+                        module->rename(wire, indexed_name);
+                        if (wideports)
+                            wideports_cache[escaped_symbol] = std::max(wideports_cache[escaped_symbol], index);
+                    }
+                    else {
+                        module->connect(wire, existing);
+                        wire->port_output = false;
+                    }
                 }
             }
             else
