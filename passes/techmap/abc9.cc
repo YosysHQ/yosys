@@ -407,7 +407,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 
 	handle_loops(design);
 
-	Pass::call(design, stringf("write_xaiger -O -symbols %s/input.aig; ", tempdir_name.c_str()));
+	Pass::call(design, stringf("write_xaiger -O -map %s/input.sym %s/input.aig; ", tempdir_name.c_str(), tempdir_name.c_str()));
 
 	design->selection_stack.pop_back();
 
@@ -523,7 +523,8 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		bool builtin_lib = liberty_file.empty();
 		RTLIL::Design *mapped_design = new RTLIL::Design;
 		//parse_blif(mapped_design, ifs, builtin_lib ? "\\DFF" : "\\_dff_", false, sop_mode);
-		AigerReader reader(mapped_design, ifs, "\\netlist", "" /* clk_name */, "" /* map_filename */, true /* wideports */);
+		buffer = stringf("%s/%s", tempdir_name.c_str(), "input.sym");
+		AigerReader reader(mapped_design, ifs, "\\netlist", "" /* clk_name */, buffer.c_str() /* map_filename */, true /* wideports */);
 		reader.parse_xaiger();
 
 		ifs.close();
