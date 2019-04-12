@@ -47,7 +47,7 @@ struct XAigerWriter
 	dict<SigBit, SigBit> not_map, ff_map, alias_map;
 	dict<SigBit, pair<SigBit, SigBit>> and_map;
 	pool<SigBit> initstate_bits;
-	pool<SigBit> ci_bits, co_bits;
+	vector<std::pair<SigBit,int>> ci_bits, co_bits;
 	dict<IdString, unsigned> type_map;
 
 	vector<pair<int, int>> aig_gates;
@@ -226,13 +226,13 @@ struct XAigerWriter
 							if (I != b)
 								alias_map[b] = I;
 							/*if (!output_bits.count(b))*/
-								co_bits.insert(b);
+								co_bits.emplace_back(b, 0);
 						}
 					}
 					if (is_output) {
 						SigBit O = sigmap(b);
 						/*if (!input_bits.count(O))*/
-							ci_bits.insert(O);
+							ci_bits.emplace_back(O, 0);
 					}
 				}
 				if (!type_map.count(cell->type))
@@ -240,7 +240,7 @@ struct XAigerWriter
 			}
 
 			box_list.emplace_back(cell);
-			log_warning("Unsupported cell type: %s (%s)\n", log_id(cell->type), log_id(cell));
+			//log_warning("Unsupported cell type: %s (%s)\n", log_id(cell->type), log_id(cell));
 		}
 
 		for (auto bit : input_bits) {
@@ -274,8 +274,8 @@ struct XAigerWriter
 		//for (auto bit : co_bits)
 		//	ci_bits.erase(bit);
 		// CIs cannot be undriven
-		for (auto bit : ci_bits)
-			undriven_bits.erase(bit);
+		for (const auto &c : ci_bits)
+			undriven_bits.erase(c.first);
 
 		for (auto bit : unused_bits)
 			undriven_bits.erase(bit);
@@ -299,9 +299,10 @@ struct XAigerWriter
 		aig_map[State::S0] = 0;
 		aig_map[State::S1] = 1;
 
-		for (auto bit : ci_bits) {
+		for (auto &c : ci_bits) {
 			aig_m++, aig_i++;
-			aig_map[bit] = 2*aig_m;
+			c.second = 2*aig_m;
+			aig_map[c.first] = c.second;
 		}
 
 		for (auto bit : input_bits) {
@@ -369,15 +370,15 @@ struct XAigerWriter
 		if (!initstate_bits.empty() || !init_inputs.empty())
 			aig_latchin.push_back(1);
 
-		for (auto bit : co_bits) {
-			aig_o++;
-			ordered_outputs[bit] = aig_o-1;
+		for (auto &c : co_bits) {
+			RTLIL::SigBit bit = c.first;
+			c.second = aig_o++;
+			ordered_outputs[bit] = c.second;
 			aig_outputs.push_back(bit2aig(bit));
 		}
 
 		for (auto bit : output_bits) {
-			aig_o++;
-			ordered_outputs[bit] = aig_o-1;
+			ordered_outputs[bit] = aig_o++;
 			aig_outputs.push_back(bit2aig(bit));
 		}
 
@@ -484,7 +485,7 @@ struct XAigerWriter
 				for (int i = 0; i < GetSize(wire); i++)
 				{
 					RTLIL::SigBit b(wire, i);
-					if (input_bits.count(b) || ci_bits.count(b)) {
+					if (input_bits.count(b)) {
 						int a = aig_map.at(sig[i]);
 						log_assert((a & 1) == 0);
 						if (GetSize(wire) != 1)
@@ -493,10 +494,9 @@ struct XAigerWriter
 							symbols[stringf("i%d", (a >> 1)-1)].push_back(stringf("%s", log_id(wire)));
 					}
 
-					if (output_bits.count(b) || co_bits.count(b)) {
+					if (output_bits.count(b)) {
 						int o = ordered_outputs.at(b);
-						if (output_seen && output_bits.count(b))
-							output_seen = !miter_mode;
+						output_seen = !miter_mode;
 						if (GetSize(wire) != 1)
 							symbols[stringf("%c%d", miter_mode ? 'b' : 'o', o)].push_back(stringf("%s[%d]", log_id(wire), i));
 						else
@@ -603,18 +603,13 @@ struct XAigerWriter
 			for (int i = 0; i < GetSize(wire); i++)
 			{
 				RTLIL::SigBit b(wire, i);
-				if (input_bits.count(b) || ci_bits.count(b)) {
+				if (input_bits.count(b)) {
 					int a = aig_map.at(sig[i]);
 					log_assert((a & 1) == 0);
 					input_lines[a] += stringf("input %d %d %s\n", (a >> 1)-1, i, log_id(wire));
-
-					// Only continue if this input is not a CO,
-					// otherwise write as CO below
-					if (!co_bits.count(b))
-						continue;
 				}
 
-				if (output_bits.count(b) || co_bits.count(b)) {
+				if (output_bits.count(b)) {
 					int o = ordered_outputs.at(b);
 					output_lines[o] += stringf("output %d %d %s\n", o, i, log_id(wire));
 					continue;
@@ -644,6 +639,21 @@ struct XAigerWriter
 					wire_lines[a] += stringf("wire %d %d %s\n", a, i, log_id(wire));
 				}
 			}
+		}
+
+		for (const auto &c : ci_bits) {
+			RTLIL::SigBit b = c.first;
+			RTLIL::Wire *wire = b.wire;
+			int i = b.offset;
+			int a = c.second;
+			log_assert((a & 1) == 0);
+			input_lines[a] += stringf("input %d %d %s\n", (a >> 1)-1, i, log_id(wire));
+		}
+
+		for (const auto &c : co_bits) {
+			RTLIL::SigBit b = c.first;
+			int o = c.second;
+			output_lines[o] += stringf("output %d %d %s\n", o, b.offset, log_id(b.wire));
 		}
 
 		input_lines.sort();
