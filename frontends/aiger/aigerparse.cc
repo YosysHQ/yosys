@@ -439,7 +439,7 @@ next_line:
         std::string type, symbol;
         int variable, index;
         while (mf >> type >> variable >> index >> symbol) {
-            RTLIL::IdString escaped_symbol = RTLIL::escape_id(symbol);
+            RTLIL::IdString escaped_s = RTLIL::escape_id(symbol);
             if (type == "input") {
                 log_assert(static_cast<unsigned>(variable) < inputs.size());
                 RTLIL::Wire* wire = inputs[variable];
@@ -450,21 +450,21 @@ next_line:
                     // Cope with the fact that a CI might be identical
                     // to a PI (necessary due to ABC); in those cases
                     // simply connect the latter to the former
-                    RTLIL::Wire* existing = module->wire(escaped_symbol);
+                    RTLIL::Wire* existing = module->wire(escaped_s);
                     if (!existing)
-                        module->rename(wire, escaped_symbol);
+                        module->rename(wire, escaped_s);
                     else {
                         wire->port_input = false;
                         module->connect(wire, existing);
                     }
                 }
                 else if (index > 0) {
-                    std::string indexed_name = stringf("%s[%d]", escaped_symbol.c_str(), index);
+                    std::string indexed_name = stringf("%s[%d]", escaped_s.c_str(), index);
                     RTLIL::Wire* existing = module->wire(indexed_name);
                     if (!existing) {
                         module->rename(wire, indexed_name);
                         if (wideports)
-                            wideports_cache[escaped_symbol] = std::max(wideports_cache[escaped_symbol], index);
+                            wideports_cache[escaped_s] = std::max(wideports_cache[escaped_s], index);
                     }
                     else {
                         module->connect(wire, existing);
@@ -482,21 +482,41 @@ next_line:
                     // Cope with the fact that a CO might be identical
                     // to a PO (necessary due to ABC); in those cases
                     // simply connect the latter to the former
-                    RTLIL::Wire* existing = module->wire(escaped_symbol);
-                    if (!existing)
-                        module->rename(wire, escaped_symbol);
+                    RTLIL::Wire* existing = module->wire(escaped_s);
+                    if (!existing) {
+                        if (escaped_s.ends_with("$inout.out")) {
+                            wire->port_output = false;
+                            RTLIL::Wire *in_wire = module->wire(escaped_s.substr(0, escaped_s.size()-10));
+                            log_assert(in_wire);
+                            log_assert(in_wire->port_input && !in_wire->port_output);
+                            in_wire->port_output = true;
+                            module->connect(in_wire, wire);
+                        }
+                        else
+                            module->rename(wire, escaped_s);
+                    }
                     else {
                         wire->port_output = false;
                         module->connect(wire, existing);
                     }
                 }
                 else if (index > 0) {
-                    std::string indexed_name = stringf("%s[%d]", escaped_symbol.c_str(), index);
+                    std::string indexed_name = stringf("%s[%d]", escaped_s.c_str(), index);
                     RTLIL::Wire* existing = module->wire(indexed_name);
                     if (!existing) {
-                        module->rename(wire, indexed_name);
-                        if (wideports)
-                            wideports_cache[escaped_symbol] = std::max(wideports_cache[escaped_symbol], index);
+                        if (escaped_s.ends_with("$inout.out")) {
+                            wire->port_output = false;
+                            RTLIL::Wire *in_wire = module->wire(stringf("%s[%d]", escaped_s.substr(0, escaped_s.size()-10).c_str(), index));
+                            log_assert(in_wire);
+                            log_assert(in_wire->port_input && !in_wire->port_output);
+                            in_wire->port_output = true;
+                            module->connect(in_wire, wire);
+                        }
+                        else {
+                            module->rename(wire, indexed_name);
+                            if (wideports)
+                                wideports_cache[escaped_s] = std::max(wideports_cache[escaped_s], index);
+                        }
                     }
                     else {
                         module->connect(wire, existing);
