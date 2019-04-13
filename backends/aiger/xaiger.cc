@@ -215,8 +215,6 @@ struct XAigerWriter
 			for (const auto &c : cell->connections()) {
 				/*if (c.second.is_fully_const()) continue;*/
 				for (auto b : c.second.bits()) {
-					Wire *w = b.wire;
-					if (!w) continue;
 					auto is_input = cell->input(c.first);
 					auto is_output = cell->output(c.first);
 					log_assert(is_input || is_output);
@@ -382,7 +380,7 @@ struct XAigerWriter
 			aig_outputs.push_back(bit2aig(bit));
 		}
 
-		if (omode && output_bits.empty() && co_bits.empty()) {
+		if (omode && output_bits.empty()) {
 			aig_o++;
 			aig_outputs.push_back(0);
 		}
@@ -561,11 +559,12 @@ struct XAigerWriter
 		int box_id = 0;
 		for (auto cell : box_list) {
 			int box_inputs = 0, box_outputs = 0;
-			for (const auto &c : cell->connections())
+			for (const auto &c : cell->connections()) {
 				if (cell->input(c.first))
 					box_inputs += c.second.size();
-				else
+				if (cell->output(c.first))
 					box_outputs += c.second.size();
+			}
 			write_h_buffer(box_inputs);
 			write_h_buffer(box_outputs);
 			write_h_buffer(box_id++);
@@ -652,8 +651,12 @@ struct XAigerWriter
 
 		for (const auto &c : co_bits) {
 			RTLIL::SigBit b = c.first;
+			RTLIL::Wire *wire = b.wire;
 			int o = c.second;
-			output_lines[o] += stringf("output %d %d %s\n", o, b.offset, log_id(b.wire));
+			if (wire)
+				output_lines[o] += stringf("output %d %d %s\n", o, b.offset, log_id(wire));
+			else
+				output_lines[o] += stringf("output %d %d __const%d__\n", o, 0, b.data);
 		}
 
 		input_lines.sort();
@@ -669,7 +672,7 @@ struct XAigerWriter
 		for (auto &it : output_lines)
 			f << it.second;
 		log_assert(output_lines.size() == output_bits.size() + co_bits.size());
-		if (omode && output_lines.empty())
+		if (omode && output_bits.empty())
 			f << "output " << output_lines.size() << " 0 __dummy_o__\n";
 
 		latch_lines.sort();
