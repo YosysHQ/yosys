@@ -439,7 +439,7 @@ next_line:
         std::string type, symbol;
         int variable, index;
         while (mf >> type >> variable >> index >> symbol) {
-            RTLIL::IdString escaped_symbol = RTLIL::escape_id(symbol);
+            RTLIL::IdString escaped_s = RTLIL::escape_id(symbol);
             if (type == "input") {
                 log_assert(static_cast<unsigned>(variable) < inputs.size());
                 RTLIL::Wire* wire = inputs[variable];
@@ -447,11 +447,11 @@ next_line:
                 log_assert(wire->port_input);
 
                 if (index == 0)
-                    module->rename(wire, escaped_symbol);
+                    module->rename(wire, escaped_s);
                 else if (index > 0) {
-                    module->rename(wire, stringf("%s[%d]", escaped_symbol.c_str(), index));
+                    module->rename(wire, stringf("%s[%d]", escaped_s.c_str(), index));
                     if (wideports)
-                        wideports_cache[escaped_symbol] = std::max(wideports_cache[escaped_symbol], index);
+                        wideports_cache[escaped_s] = std::max(wideports_cache[escaped_s], index);
                 }
             }
             else if (type == "output") {
@@ -460,12 +460,32 @@ next_line:
                 log_assert(wire);
                 log_assert(wire->port_output);
 
-                if (index == 0)
-                    module->rename(wire, escaped_symbol);
-                else if (index > 0) {
-                    module->rename(wire, stringf("%s[%d]", escaped_symbol.c_str(), index));
-                    if (wideports)
-                        wideports_cache[escaped_symbol] = std::max(wideports_cache[escaped_symbol], index);
+                if (index == 0) {
+                    if (escaped_s.ends_with("$inout.out")) {
+                        wire->port_output = false;
+                        RTLIL::Wire *in_wire = module->wire(escaped_s.substr(0, escaped_s.size()-10));
+                        log_assert(in_wire);
+                        log_assert(in_wire->port_input && !in_wire->port_output);
+                        in_wire->port_output = true;
+                        module->connect(in_wire, wire);
+                    }
+                    else
+                        module->rename(wire, escaped_s);
+                }
+                else if (index > 0)  {
+                    if (escaped_s.ends_with("$inout.out")) {
+                        wire->port_output = false;
+                        RTLIL::Wire *in_wire = module->wire(stringf("%s[%d]", escaped_s.substr(0, escaped_s.size()-10).c_str(), index));
+                        log_assert(in_wire);
+                        log_assert(in_wire->port_input && !in_wire->port_output);
+                        in_wire->port_output = true;
+                        module->connect(in_wire, wire);
+                    }
+                    else {
+                        module->rename(wire, stringf("%s[%d]", escaped_s.c_str(), index));
+                        if (wideports)
+                            wideports_cache[escaped_s] = std::max(wideports_cache[escaped_s], index);
+                    }
                 }
             }
             else
