@@ -546,11 +546,10 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 						output_bits.insert({wire, i});
 				}
 				else {
-					if (w->name.in("\\__dummy_o__", "\\__const0__", "\\__const1__")) {
-						//log("Don't call ABC as there is nothing to map.\n");
-						//goto cleanup;
-						continue;
-					}
+					//if (w->name == "\\__dummy_o__") {
+					//	log("Don't call ABC as there is nothing to map.\n");
+					//	goto cleanup;
+					//}
 
 					// Attempt another wideports_split here because there
 					// exists the possibility that different bits of a port
@@ -875,19 +874,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			RTLIL::Wire *w = it.second;
 			if (!w->port_input && !w->port_output)
 				continue;
-			if (w->name == "\\__const0__") {
-				log_assert(w->port_output);
-				module->connect(w, RTLIL::S0);
-				continue;
-			}
-			if (w->name == "\\__const1__") {
-				log_assert(w->port_output);
-				module->connect(w, RTLIL::S1);
-				continue;
-			}
-			if (w->name == "\\__dummy_o__")
-				continue;
-
 			RTLIL::Wire *wire = module->wire(w->name);
 			RTLIL::Wire *remap_wire = module->wire(remap_name(w->name));
 			RTLIL::SigSpec signal;
