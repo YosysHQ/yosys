@@ -319,10 +319,10 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 	if (!cleanup)
 		tempdir_name[0] = tempdir_name[4] = '_';
 	tempdir_name = make_temp_dir(tempdir_name);
-	log_header(design, "Extracting gate netlist of module `%s' to `%s/input.aig'..\n",
+	log_header(design, "Extracting gate netlist of module `%s' to `%s/input.xaig'..\n",
 			module->name.c_str(), replace_tempdir(tempdir_name, tempdir_name, show_tempdir).c_str());
 
-	std::string abc_script = stringf("read %s/input.aig; &get -n; ", tempdir_name.c_str());
+	std::string abc_script = stringf("&read %s/input.xaig; &ps ", tempdir_name.c_str());
 
 	if (!liberty_file.empty()) {
 		abc_script += stringf("read_lib -w %s; ", liberty_file.c_str());
@@ -407,7 +407,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 
 	handle_loops(design);
 
-	Pass::call(design, stringf("write_xaiger -O -map %s/input.sym %s/input.aig; ", tempdir_name.c_str(), tempdir_name.c_str()));
+	Pass::call(design, stringf("write_xaiger -O -map %s/input.sym %s/input.xaig; ", tempdir_name.c_str(), tempdir_name.c_str()));
 
 	design->selection_stack.pop_back();
 
@@ -546,9 +546,10 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 						output_bits.insert({wire, i});
 				}
 				else {
-					if (w->name.str() == "\\__dummy_o__") {
-						log("Don't call ABC as there is nothing to map.\n");
-						goto cleanup;
+					if (w->name.in("\\__dummy_o__", "\\__const0__", "\\__const1__")) {
+						//log("Don't call ABC as there is nothing to map.\n");
+						//goto cleanup;
+						continue;
 					}
 
 					// Attempt another wideports_split here because there
@@ -874,6 +875,19 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			RTLIL::Wire *w = it.second;
 			if (!w->port_input && !w->port_output)
 				continue;
+			if (w->name == "\\__const0__") {
+				log_assert(w->port_output);
+				module->connect(w, RTLIL::S0);
+				continue;
+			}
+			if (w->name == "\\__const1__") {
+				log_assert(w->port_output);
+				module->connect(w, RTLIL::S1);
+				continue;
+			}
+			if (w->name == "\\__dummy_o__")
+				continue;
+
 			RTLIL::Wire *wire = module->wire(w->name);
 			RTLIL::Wire *remap_wire = module->wire(remap_name(w->name));
 			RTLIL::SigSpec signal;
