@@ -212,7 +212,8 @@ struct XAigerWriter
 				continue;
 			}
 
-			bool abc_box = module->design->module(cell->type)->attributes.count("\\abc_box_id");
+			RTLIL::Module* box_module = module->design->module(cell->type);
+			bool abc_box = box_module && box_module->attributes.count("\\abc_box_id");
 
 			for (const auto &c : cell->connections()) {
 				/*if (c.second.is_fully_const()) continue;*/
@@ -552,48 +553,104 @@ struct XAigerWriter
 
 		f << "c";
 
-		std::stringstream h_buffer;
-		auto write_h_buffer = [&h_buffer](int i32) {
+		if (!box_list.empty()) {
+			std::stringstream h_buffer;
+			auto write_h_buffer = [&h_buffer](int i32) {
+				// TODO: Don't assume we're on little endian
+#ifdef _WIN32
+				int i32_be = _byteswap_ulong(i32);
+#else
+				int i32_be = __builtin_bswap32(i32);
+#endif
+				h_buffer.write(reinterpret_cast<const char*>(&i32_be), sizeof(i32_be));
+			};
+			int num_outputs = output_bits.size();
+			if (omode && num_outputs == 0)
+				num_outputs = 1;
+			write_h_buffer(1);
+			write_h_buffer(input_bits.size() + ci_bits.size());
+			write_h_buffer(num_outputs + co_bits.size());
+			write_h_buffer(input_bits.size());
+			write_h_buffer(num_outputs);
+			write_h_buffer(box_list.size());
+
+			RTLIL::Module *holes_module = nullptr;
+			holes_module = module->design->addModule("\\__holes__");
+	
+			for (auto cell : box_list) {
+				int box_inputs = 0, box_outputs = 0;
+				int box_id = module->design->module(cell->type)->attributes.at("\\abc_box_id").as_int();
+				Cell *holes_cell = nullptr;
+				if (holes_module && !holes_module->cell(stringf("\\u%d", box_id)))
+					holes_cell = holes_module->addCell(stringf("\\u%d", box_id), cell->type);
+				RTLIL::Wire *holes_wire;
+				int num_inputs = 0;
+				for (const auto &c : cell->connections()) {
+					if (cell->input(c.first)) {
+						box_inputs += c.second.size();
+						if (holes_cell) {
+							holes_wire = holes_module->wire(stringf("\\i%d", num_inputs++));
+							if (!holes_wire) {
+								holes_wire = holes_module->addWire(stringf("\\i%d", num_inputs));
+								holes_wire->port_input = true;
+							}
+							holes_cell->setPort(c.first, holes_wire);
+						}
+					}
+					if (cell->output(c.first)) {
+						box_outputs += c.second.size();
+						if (holes_cell) {
+							holes_wire = holes_module->addWire(stringf("\\%s.%s", cell->type.c_str(), c.first.c_str()));
+							holes_wire->port_output = true;
+							holes_cell->setPort(c.first, holes_wire);
+						}
+					}
+				}
+				write_h_buffer(box_inputs);
+				write_h_buffer(box_outputs);
+				write_h_buffer(box_id);
+				write_h_buffer(0 /* OldBoxNum */);
+			}
+
+			f << "h";
+			std::string buffer_str = h_buffer.str();
 			// TODO: Don't assume we're on little endian
 #ifdef _WIN32
-			int i32_be = _byteswap_ulong(i32);
+			int buffer_size_be = _byteswap_ulong(buffer_str.size());
 #else
-			int i32_be = __builtin_bswap32(i32);
+			int buffer_size_be = __builtin_bswap32(buffer_str.size());
 #endif
-			h_buffer.write(reinterpret_cast<const char*>(&i32_be), sizeof(i32_be));
-		};
-		int num_outputs = output_bits.size();
-		if (omode && num_outputs == 0)
-			num_outputs = 1;
-		write_h_buffer(1);
-		write_h_buffer(input_bits.size() + ci_bits.size());
-		write_h_buffer(num_outputs + co_bits.size());
-		write_h_buffer(input_bits.size());
-		write_h_buffer(num_outputs);
-		write_h_buffer(box_list.size());
-		for (auto cell : box_list) {
-			int box_inputs = 0, box_outputs = 0;
-			for (const auto &c : cell->connections()) {
-				if (cell->input(c.first))
-					box_inputs += c.second.size();
-				if (cell->output(c.first))
-					box_outputs += c.second.size();
-			}
-			write_h_buffer(box_inputs);
-			write_h_buffer(box_outputs);
-			write_h_buffer(module->design->module(cell->type)->attributes.at("\\abc_box_id").as_int());
-			write_h_buffer(0 /* OldBoxNum */);
-		}
-		std::string h_buffer_str = h_buffer.str();
-		// TODO: Don't assume we're on little endian
+			f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
+			f.write(buffer_str.data(), buffer_str.size());
+
+			if (holes_module) {
+				holes_module->fixup_ports();
+
+				holes_module->design->selection_stack.emplace_back(false);
+				RTLIL::Selection& sel = holes_module->design->selection_stack.back();
+				sel.select(holes_module);
+
+				Pass::call(holes_module->design, "flatten; aigmap; write_verilog -noexpr -norename holes.v");
+
+				holes_module->design->selection_stack.pop_back();
+
+				std::stringstream a_buffer;
+				XAigerWriter writer(holes_module, false /*zinit_mode*/, false /*imode*/, false /*omode*/, false /*bmode*/);
+				writer.write_aiger(a_buffer, false /*ascii_mode*/, false /*miter_mode*/, false /*symbols_mode*/, false /*omode*/);
+
+				f << "a";
+				std::string buffer_str = a_buffer.str();
+				// TODO: Don't assume we're on little endian
 #ifdef _WIN32
-		int h_buffer_size_be = _byteswap_ulong(h_buffer_str.size());
+				int buffer_size_be = _byteswap_ulong(buffer_str.size());
 #else
-		int h_buffer_size_be = __builtin_bswap32(h_buffer_str.size());
+				int buffer_size_be = __builtin_bswap32(buffer_str.size());
 #endif
-		f << "h";
-		f.write(reinterpret_cast<const char*>(&h_buffer_size_be), sizeof(h_buffer_size_be));
-		f.write(h_buffer_str.data(), h_buffer_str.size());
+				f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
+				f.write(buffer_str.data(), buffer_str.size());
+				holes_module->design->remove(holes_module);
+			}
+		}
 
 		f << stringf("Generated by %s\n", yosys_version_str);
 	}
