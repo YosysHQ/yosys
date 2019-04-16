@@ -589,11 +589,12 @@ struct XAigerWriter
 					if (cell->input(c.first)) {
 						box_inputs += c.second.size();
 						if (holes_cell) {
-							holes_wire = holes_module->wire(stringf("\\i%d", num_inputs++));
+							holes_wire = holes_module->wire(stringf("\\i%d", num_inputs));
 							if (!holes_wire) {
 								holes_wire = holes_module->addWire(stringf("\\i%d", num_inputs));
 								holes_wire->port_input = true;
 							}
+							++num_inputs;
 							holes_cell->setPort(c.first, holes_wire);
 						}
 					}
