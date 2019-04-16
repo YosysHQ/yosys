@@ -212,6 +212,8 @@ struct XAigerWriter
 				continue;
 			}
 
+			bool abc_box = module->design->module(cell->type)->attributes.count("\\abc_box_id");
+
 			for (const auto &c : cell->connections()) {
 				/*if (c.second.is_fully_const()) continue;*/
 				for (auto b : c.second.bits()) {
@@ -224,20 +226,33 @@ struct XAigerWriter
 							if (I != b)
 								alias_map[b] = I;
 							/*if (!output_bits.count(b))*/
+							if (abc_box)
 								co_bits.emplace_back(b, 0);
+							else {
+								output_bits.insert(b);
+								if (!b.wire->port_input)
+									unused_bits.erase(b);
+							}
 						}
 					}
 					if (is_output) {
 						SigBit O = sigmap(b);
 						/*if (!input_bits.count(O))*/
+						if (abc_box)
 							ci_bits.emplace_back(O, 0);
+						else {
+							input_bits.insert(O);
+							if (!O.wire->port_output)
+								undriven_bits.erase(O);
+						}
 					}
 				}
 				if (!type_map.count(cell->type))
 					type_map[cell->type] = type_map.size()+1;
 			}
 
-			box_list.emplace_back(cell);
+			if (abc_box)
+				box_list.emplace_back(cell);
 			//log_warning("Unsupported cell type: %s (%s)\n", log_id(cell->type), log_id(cell));
 		}
 
