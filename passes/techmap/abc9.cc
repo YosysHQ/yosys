@@ -319,10 +319,10 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 	if (!cleanup)
 		tempdir_name[0] = tempdir_name[4] = '_';
 	tempdir_name = make_temp_dir(tempdir_name);
-	log_header(design, "Extracting gate netlist of module `%s' to `%s/input.aig'..\n",
+	log_header(design, "Extracting gate netlist of module `%s' to `%s/input.xaig'..\n",
 			module->name.c_str(), replace_tempdir(tempdir_name, tempdir_name, show_tempdir).c_str());
 
-	std::string abc_script = stringf("read %s/input.aig; &get -n; ", tempdir_name.c_str());
+	std::string abc_script = stringf("&read %s/input.xaig; &ps ", tempdir_name.c_str());
 
 	if (!liberty_file.empty()) {
 		abc_script += stringf("read_lib -w %s; ", liberty_file.c_str());
@@ -420,7 +420,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 
 	handle_loops(design);
 
-	Pass::call(design, stringf("write_xaiger -O -symbols %s/input.aig; ", tempdir_name.c_str()));
+	Pass::call(design, stringf("write_xaiger -O -map %s/input.sym %s/input.xaig; ", tempdir_name.c_str(), tempdir_name.c_str()));
 
 	design->selection_stack.pop_back();
 
@@ -536,7 +536,8 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		bool builtin_lib = liberty_file.empty();
 		RTLIL::Design *mapped_design = new RTLIL::Design;
 		//parse_blif(mapped_design, ifs, builtin_lib ? "\\DFF" : "\\_dff_", false, sop_mode);
-		AigerReader reader(mapped_design, ifs, "\\netlist", "" /* clk_name */, "" /* map_filename */, true /* wideports */);
+		buffer = stringf("%s/%s", tempdir_name.c_str(), "input.sym");
+		AigerReader reader(mapped_design, ifs, "\\netlist", "" /* clk_name */, buffer.c_str() /* map_filename */, true /* wideports */);
 		reader.parse_xaiger();
 
 		ifs.close();
@@ -558,10 +559,10 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 						output_bits.insert({wire, i});
 				}
 				else {
-					if (w->name.str() == "\\__dummy_o__") {
-						log("Don't call ABC as there is nothing to map.\n");
-						goto cleanup;
-					}
+					//if (w->name == "\\__dummy_o__") {
+					//	log("Don't call ABC as there is nothing to map.\n");
+					//	goto cleanup;
+					//}
 
 					// Attempt another wideports_split here because there
 					// exists the possibility that different bits of a port
