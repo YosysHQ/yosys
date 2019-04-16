@@ -215,6 +215,7 @@ struct XAigerWriter
 			RTLIL::Module* box_module = module->design->module(cell->type);
 			bool abc_box = box_module && box_module->attributes.count("\\abc_box_id");
 
+			cell->connections_.sort(RTLIL::sort_by_id_str());
 			for (const auto &c : cell->connections()) {
 				/*if (c.second.is_fully_const()) continue;*/
 				for (auto b : c.second.bits()) {
@@ -313,15 +314,15 @@ struct XAigerWriter
 		aig_map[State::S0] = 0;
 		aig_map[State::S1] = 1;
 
+		for (auto bit : input_bits) {
+			aig_m++, aig_i++;
+			aig_map[bit] = 2*aig_m;
+		}
+
 		for (auto &c : ci_bits) {
 			aig_m++, aig_i++;
 			c.second = 2*aig_m;
 			aig_map[c.first] = c.second;
-		}
-
-		for (auto bit : input_bits) {
-			aig_m++, aig_i++;
-			aig_map[bit] = 2*aig_m;
 		}
 
 		if (imode && input_bits.empty()) {
@@ -585,6 +586,7 @@ struct XAigerWriter
 					holes_cell = holes_module->addCell(stringf("\\u%d", box_id), cell->type);
 				RTLIL::Wire *holes_wire;
 				int num_inputs = 0;
+				// NB: cell->connections_ already sorted from before
 				for (const auto &c : cell->connections()) {
 					if (cell->input(c.first)) {
 						box_inputs += c.second.size();
