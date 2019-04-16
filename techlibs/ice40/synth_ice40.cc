@@ -316,7 +316,14 @@ struct SynthIce40Pass : public ScriptPass
 				run("techmap -map +/gate2lut.v -D LUT_WIDTH=4", "(only if -noabc)");
 			}
 			if (!noabc) {
-				run(abc + " -dress -lut 4", "(skip if -noabc)");
+				if (abc == "abc9") {
+					run("read_verilog +/ice40/cells_box.v");
+					run("techmap -map +/techmap.v A:abc_box_id");
+					run(abc + " -dress -lut +/ice40/lut.lut -box +/ice40/cells.box", "(skip if -noabc)");
+					run("blackbox A:abc_box_id");
+				}
+				else
+					run(abc + " -lut 4", "(skip if -noabc)");
 			}
 			run("clean");
 			if (relut || help_mode) {
