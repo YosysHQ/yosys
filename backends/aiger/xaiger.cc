@@ -571,7 +571,6 @@ struct XAigerWriter
 		write_h_buffer(input_bits.size());
 		write_h_buffer(num_outputs);
 		write_h_buffer(box_list.size());
-		int box_id = 0;
 		for (auto cell : box_list) {
 			int box_inputs = 0, box_outputs = 0;
 			for (const auto &c : cell->connections()) {
@@ -582,7 +581,7 @@ struct XAigerWriter
 			}
 			write_h_buffer(box_inputs);
 			write_h_buffer(box_outputs);
-			write_h_buffer(box_id++);
+			write_h_buffer(module->design->module(cell->type)->attributes.at("\\abc_box_id").as_int());
 			write_h_buffer(0 /* OldBoxNum */);
 		}
 		std::string h_buffer_str = h_buffer.str();
