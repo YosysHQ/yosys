@@ -282,8 +282,8 @@ struct SynthXilinxPass : public Pass
 		if (check_label(active, run_from, run_to, "map_luts"))
 		{
 			Pass::call(design, "opt -full");
-			Pass::call(design, "techmap -map +/techmap.v");
 			Pass::call(design, "read_verilog +/xilinx/cells_box.v");
+			Pass::call(design, "techmap -map +/techmap.v");
 			if (abc == "abc9")
 				Pass::call(design, abc + " -lut +/xilinx/cells.lut -box +/xilinx/cells.box" + string(retime ? " -dff" : ""));
 			else
