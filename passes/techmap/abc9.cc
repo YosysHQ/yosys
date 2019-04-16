@@ -1405,6 +1405,9 @@ struct Abc9Pass : public Pass {
 				continue;
 			}
 
+			if (mod->attributes.count("\\abc_box_id"))
+				continue;
+
 			assign_map.set(mod);
 			signal_init.clear();
 
