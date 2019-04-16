@@ -576,7 +576,7 @@ struct XAigerWriter
 
 			RTLIL::Module *holes_module = nullptr;
 			holes_module = module->design->addModule("\\__holes__");
-	
+
 			for (auto cell : box_list) {
 				int box_inputs = 0, box_outputs = 0;
 				int box_id = module->design->module(cell->type)->attributes.at("\\abc_box_id").as_int();
