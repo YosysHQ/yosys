@@ -630,7 +630,7 @@ struct XAigerWriter
 				RTLIL::Selection& sel = holes_module->design->selection_stack.back();
 				sel.select(holes_module);
 
-				Pass::call(holes_module->design, "flatten; aigmap; write_verilog -noexpr -norename holes.v");
+				Pass::call(holes_module->design, "flatten; aigmap");
 
 				holes_module->design->selection_stack.pop_back();
 
