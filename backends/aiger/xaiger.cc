@@ -231,7 +231,7 @@ struct XAigerWriter
 								co_bits.emplace_back(b, 0);
 							else {
 								output_bits.insert(b);
-								if (!b.wire->port_input)
+								if (b.wire && !b.wire->port_input)
 									unused_bits.erase(b);
 							}
 						}
