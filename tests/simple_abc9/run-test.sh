@@ -18,6 +18,5 @@ if ! which iverilog > /dev/null ; then
 fi
 
 cp ../simple/*.v .
-rm partsel.v # FIXME: Contains 1'hx, thus write_xaiger fails
 DOLLAR='?'
 exec ${MAKE:-make} -f ../tools/autotest.mk $seed *.v EXTRA_FLAGS="-p 'hierarchy; synth -run coarse; techmap; opt -full; abc9 -lut 4; stat; check -assert; select -assert-none t:${DOLLAR}_NOT_ t:${DOLLAR}_AND_'"
