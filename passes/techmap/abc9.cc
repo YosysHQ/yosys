@@ -343,7 +343,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 	else
 		abc_script += stringf("read_library %s/stdcells.genlib; ", tempdir_name.c_str());
 
-	abc_script += stringf("&read %s/input.xaig; &ps ", tempdir_name.c_str());
+	abc_script += stringf("&read %s/input.xaig; &ps; ", tempdir_name.c_str());
 
 	if (!script_file.empty()) {
 		if (script_file[0] == '+') {
@@ -388,6 +388,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		abc_script = abc_script.substr(0, pos) + lutin_shared + abc_script.substr(pos+3);
 
 	abc_script += stringf("; &write %s/output.aig", tempdir_name.c_str());
+	abc_script += "; &ps -l -s";
 	abc_script = add_echos_to_abc_cmd(abc_script);
 
 	for (size_t i = 0; i+1 < abc_script.size(); i++)
