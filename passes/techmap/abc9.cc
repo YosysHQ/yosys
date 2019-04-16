@@ -322,7 +322,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 	log_header(design, "Extracting gate netlist of module `%s' to `%s/input.xaig'..\n",
 			module->name.c_str(), replace_tempdir(tempdir_name, tempdir_name, show_tempdir).c_str());
 
-	std::string abc_script = stringf("&read %s/input.xaig; &ps ", tempdir_name.c_str());
+	std::string abc_script;
 
 	if (!liberty_file.empty()) {
 		abc_script += stringf("read_lib -w %s; ", liberty_file.c_str());
@@ -342,6 +342,8 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 	}
 	else
 		abc_script += stringf("read_library %s/stdcells.genlib; ", tempdir_name.c_str());
+
+	abc_script += stringf("&read %s/input.xaig; &ps ", tempdir_name.c_str());
 
 	if (!script_file.empty()) {
 		if (script_file[0] == '+') {
