@@ -368,6 +368,13 @@ void AigerReader::parse_xaiger()
                f >> s;
                log_debug("n: '%s'\n", s.c_str());
             }
+            else if (c == 'a' || c == 'i' || c == 'o' || c == 'h') {
+                uint32_t dataSize = parse_xaiger_literal(f);
+                f.ignore(dataSize);
+            }
+            else {
+                break;
+            }
         }
         else if (c == 'i' || c == 'l' || c == 'o') {
             f.ignore(1);
