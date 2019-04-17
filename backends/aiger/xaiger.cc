@@ -20,6 +20,8 @@
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "kernel/celltypes.h"
+#include "kernel/utils.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -46,9 +48,8 @@ struct XAigerWriter
 	pool<SigBit> input_bits, output_bits;
 	dict<SigBit, SigBit> not_map, ff_map, alias_map;
 	dict<SigBit, pair<SigBit, SigBit>> and_map;
-	pool<SigBit> initstate_bits;
+	//pool<SigBit> initstate_bits;
 	vector<std::pair<SigBit,int>> ci_bits, co_bits;
-	dict<IdString, unsigned> type_map;
 
 	vector<pair<int, int>> aig_gates;
 	vector<int> aig_latchin, aig_latchinit, aig_outputs;
@@ -58,10 +59,10 @@ struct XAigerWriter
 	dict<SigBit, int> ordered_outputs;
 	dict<SigBit, int> ordered_latches;
 
-	dict<SigBit, int> init_inputs;
-	int initstate_ff = 0;
-
 	vector<Cell*> box_list;
+
+	//dict<SigBit, int> init_inputs;
+	//int initstate_ff = 0;
 
 	int mkgate(int a0, int a1)
 	{
@@ -76,10 +77,10 @@ struct XAigerWriter
 		{
 			aig_map[bit] = -1;
 
-			if (initstate_bits.count(bit)) {
-				log_assert(initstate_ff > 0);
-				aig_map[bit] = initstate_ff;
-			} else
+			//if (initstate_bits.count(bit)) {
+			//	log_assert(initstate_ff > 0);
+			//	aig_map[bit] = initstate_ff;
+			//} else
 			if (not_map.count(bit)) {
 				int a = bit2aig(not_map.at(bit)) ^ 1;
 				aig_map[bit] = a;
@@ -170,8 +171,35 @@ struct XAigerWriter
 			if (!bit.wire->port_input)
 				unused_bits.erase(bit);
 
+		dict<SigBit, pool<IdString>> bit_drivers, bit_users;
+		TopoSort<IdString, RTLIL::sort_by_id_str> toposort;
+		bool abc_box_seen = false;
+
 		for (auto cell : module->cells())
 		{
+			toposort.node(cell->name);
+			for (const auto &conn : cell->connections())
+			{
+				// HACK!!!
+				if (cell->type.in("\\SB_DFF", "\\SB_DFFE", "\\SB_DFFESR", "\\SB_DFFSR", "\\SB_DFFESS") && conn.first.in("\\Q"))
+					continue;
+
+				if (yosys_celltypes.cell_known(cell->type)) {
+					if (conn.first.in("\\Q", "\\CTRL_OUT", "\\RD_DATA"))
+						continue;
+					if (cell->type == "$memrd" && conn.first == "\\DATA")
+						continue;
+				}
+
+				if (cell->input(conn.first))
+					for (auto bit : sigmap(conn.second))
+						bit_users[bit].insert(cell->name);
+
+				if (cell->output(conn.first))
+					for (auto bit : sigmap(conn.second))
+						bit_drivers[bit].insert(cell->name);
+			}
+
 			if (cell->type == "$_NOT_")
 			{
 				SigBit A = sigmap(cell->getPort("\\A").as_bit());
@@ -204,58 +232,92 @@ struct XAigerWriter
 				continue;
 			}
 
-			if (cell->type == "$initstate")
-			{
-				SigBit Y = sigmap(cell->getPort("\\Y").as_bit());
-				undriven_bits.erase(Y);
-				initstate_bits.insert(Y);
-				continue;
-			}
+			//if (cell->type == "$initstate")
+			//{
+			//	SigBit Y = sigmap(cell->getPort("\\Y").as_bit());
+			//	undriven_bits.erase(Y);
+			//	initstate_bits.insert(Y);
+			//	continue;
+			//}
 
 			RTLIL::Module* box_module = module->design->module(cell->type);
-			bool abc_box = box_module && box_module->attributes.count("\\abc_box_id");
-
-			cell->connections_.sort(RTLIL::sort_by_id_str());
-			for (const auto &c : cell->connections()) {
-				/*if (c.second.is_fully_const()) continue;*/
-				for (auto b : c.second.bits()) {
-					auto is_input = cell->input(c.first);
-					auto is_output = cell->output(c.first);
-					log_assert(is_input || is_output);
-					if (is_input) {
-						/*if (!w->port_input)*/ {
-							SigBit I = sigmap(b);
-							if (I != b)
-								alias_map[b] = I;
-							/*if (!output_bits.count(b))*/
-							if (abc_box)
-								co_bits.emplace_back(b, 0);
-							else if (b.wire) {
+			if (!box_module || !box_module->attributes.count("\\abc_box_id")) {
+				for (const auto &c : cell->connections()) {
+					/*if (c.second.is_fully_const()) continue;*/
+					for (auto b : c.second.bits()) {
+						Wire *w = b.wire;
+						if (!w) continue;
+						auto is_input = cell->input(c.first);
+						auto is_output = cell->output(c.first);
+						log_assert(is_input || is_output);
+						if (is_input) {
+							if (!w->port_input) {
+								SigBit I = sigmap(b);
+								if (I != b)
+									alias_map[b] = I;
 								output_bits.insert(b);
-								if (!b.wire->port_input)
-									unused_bits.erase(b);
+								unused_bits.erase(b);
 							}
 						}
-					}
-					if (is_output) {
-						SigBit O = sigmap(b);
-						/*if (!input_bits.count(O))*/
-						if (abc_box)
-							ci_bits.emplace_back(O, 0);
-						else {
+						if (is_output) {
+							SigBit O = sigmap(b);
 							input_bits.insert(O);
 							if (!O.wire->port_output)
 								undriven_bits.erase(O);
 						}
 					}
 				}
-				if (!type_map.count(cell->type))
-					type_map[cell->type] = type_map.size()+1;
+			}
+			else
+				abc_box_seen = true;
+
+			//log_warning("Unsupported cell type: %s (%s)\n", log_id(cell->type), log_id(cell));
+		}
+
+		if (abc_box_seen) {
+			for (auto &it : bit_users)
+				if (bit_drivers.count(it.first))
+					for (auto driver_cell : bit_drivers.at(it.first))
+					for (auto user_cell : it.second)
+						toposort.edge(driver_cell, user_cell);
+
+			toposort.sort();
+			log_assert(!toposort.found_loops);
+
+			for (auto cell_name : toposort.sorted) {
+				RTLIL::Cell *cell = module->cell(cell_name);
+				RTLIL::Module* box_module = module->design->module(cell->type);
+				if (!box_module || !box_module->attributes.count("\\abc_box_id"))
+					continue;
+
+				cell->connections_.sort(RTLIL::sort_by_id_str());
+				for (const auto &c : cell->connections()) {
+					/*if (c.second.is_fully_const()) continue;*/
+					for (auto b : c.second.bits()) {
+						auto is_input = cell->input(c.first);
+						auto is_output = cell->output(c.first);
+						log_assert(is_input || is_output);
+						if (is_input) {
+							/*if (!w->port_input)*/ {
+								SigBit I = sigmap(b);
+								if (I != b)
+									alias_map[b] = I;
+								/*if (!output_bits.count(b))*/
+									co_bits.emplace_back(b, 0);
+							}
+						}
+						if (is_output) {
+							SigBit O = sigmap(b);
+							/*if (!input_bits.count(O))*/
+								ci_bits.emplace_back(O, 0);
+						}
+					}
+				}
+
+				box_list.emplace_back(cell);
 			}
 
-			if (abc_box)
-				box_list.emplace_back(cell);
-			//log_warning("Unsupported cell type: %s (%s)\n", log_id(cell->type), log_id(cell));
+			// TODO: Free memory from toposort, bit_drivers, bit_users
 		}
 
 		for (auto bit : input_bits) {
@@ -329,15 +391,15 @@ struct XAigerWriter
 			aig_m++, aig_i++;
 		}
 
-		if (zinit_mode)
-		{
-			for (auto it : ff_map) {
-				if (init_map.count(it.first))
-					continue;
-				aig_m++, aig_i++;
-				init_inputs[it.first] = 2*aig_m;
-			}
-		}
+		//if (zinit_mode)
+		//{
+		//	for (auto it : ff_map) {
+		//		if (init_map.count(it.first))
+		//			continue;
+		//		aig_m++, aig_i++;
+		//		init_inputs[it.first] = 2*aig_m;
+		//	}
+		//}
 
 		for (auto it : ff_map) {
 			aig_m++, aig_l++;
@@ -349,29 +411,29 @@ struct XAigerWriter
 				aig_latchinit.push_back(init_map.at(it.first) ? 1 : 0);
 		}
 
-		if (!initstate_bits.empty() || !init_inputs.empty()) {
-			aig_m++, aig_l++;
-			initstate_ff = 2*aig_m+1;
-			aig_latchinit.push_back(0);
-		}
+		//if (!initstate_bits.empty() || !init_inputs.empty()) {
+		//	aig_m++, aig_l++;
+		//	initstate_ff = 2*aig_m+1;
+		//	aig_latchinit.push_back(0);
+		//}
 
-		if (zinit_mode)
-		{
-			for (auto it : ff_map)
-			{
-				int l = ordered_latches[it.first];
+		//if (zinit_mode)
+		//{
+		//	for (auto it : ff_map)
+		//	{
+		//		int l = ordered_latches[it.first];
 
-				if (aig_latchinit.at(l) == 1)
-					aig_map[it.first] ^= 1;
+		//		if (aig_latchinit.at(l) == 1)
+		//			aig_map[it.first] ^= 1;
 
-				if (aig_latchinit.at(l) == 2)
-				{
-					int gated_ffout = mkgate(aig_map[it.first], initstate_ff^1);
-					int gated_initin = mkgate(init_inputs[it.first], initstate_ff);
-					aig_map[it.first] = mkgate(gated_ffout^1, gated_initin^1)^1;
-				}
-			}
-		}
+		//		if (aig_latchinit.at(l) == 2)
+		//		{
+		//			int gated_ffout = mkgate(aig_map[it.first], initstate_ff^1);
+		//			int gated_initin = mkgate(init_inputs[it.first], initstate_ff);
+		//			aig_map[it.first] = mkgate(gated_ffout^1, gated_initin^1)^1;
+		//		}
+		//	}
+		//}
 
 		for (auto it : ff_map) {
 			int a = bit2aig(it.second);
@@ -382,8 +444,8 @@ struct XAigerWriter
 				aig_latchin.push_back(a);
 		}
 
-		if (!initstate_bits.empty() || !init_inputs.empty())
-			aig_latchin.push_back(1);
+		//if (!initstate_bits.empty() || !init_inputs.empty())
+		//	aig_latchin.push_back(1);
 
 		for (auto &c : co_bits) {
 			RTLIL::SigBit bit = c.first;
@@ -518,14 +580,14 @@ struct XAigerWriter
 							symbols[stringf("%c%d", miter_mode ? 'b' : 'o', o)].push_back(stringf("%s", log_id(wire)));
 					}
 
-					if (init_inputs.count(sig[i])) {
-						int a = init_inputs.at(sig[i]);
-						log_assert((a & 1) == 0);
-						if (GetSize(wire) != 1)
-							symbols[stringf("i%d", (a >> 1)-1)].push_back(stringf("init:%s[%d]", log_id(wire), i));
-						else
-							symbols[stringf("i%d", (a >> 1)-1)].push_back(stringf("init:%s", log_id(wire)));
-					}
+					//if (init_inputs.count(sig[i])) {
+					//	int a = init_inputs.at(sig[i]);
+					//	log_assert((a & 1) == 0);
+					//	if (GetSize(wire) != 1)
+					//		symbols[stringf("i%d", (a >> 1)-1)].push_back(stringf("init:%s[%d]", log_id(wire), i));
+					//	else
+					//		symbols[stringf("i%d", (a >> 1)-1)].push_back(stringf("init:%s", log_id(wire)));
+					//}
 
 					if (ordered_latches.count(sig[i])) {
 						int l = ordered_latches.at(sig[i]);
@@ -687,12 +749,12 @@ struct XAigerWriter
 					continue;
 				}
 
-				if (init_inputs.count(sig[i])) {
-					int a = init_inputs.at(sig[i]);
-					log_assert((a & 1) == 0);
-					init_lines[a] += stringf("init %d %d %s\n", (a >> 1)-1, i, log_id(wire));
-					continue;
-				}
+				//if (init_inputs.count(sig[i])) {
+				//	int a = init_inputs.at(sig[i]);
+				//	log_assert((a & 1) == 0);
+				//	init_lines[a] += stringf("init %d %d %s\n", (a >> 1)-1, i, log_id(wire));
+				//	continue;
+				//}
 
 				if (ordered_latches.count(sig[i])) {
 					int l = ordered_latches.at(sig[i]);
