@@ -887,7 +887,7 @@ module SB_SPRAM256KA (
 	input [15:0] DATAIN,
 	input [3:0] MASKWREN,
 	input WREN, CHIPSELECT, CLOCK, STANDBY, SLEEP, POWEROFF,
-	output reg [15:0] DATAOUT
+	(* abc_flop_q *) output reg [15:0] DATAOUT
 );
 `ifndef BLACKBOX
 `ifndef EQUIV
