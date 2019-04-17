@@ -37,9 +37,9 @@ struct SynthIce40Pass : public ScriptPass
 		log("\n");
 		log("This command runs synthesis for iCE40 FPGAs.\n");
 		log("\n");
-		log("    -device < hx1k | lp384 | lp1k | lp8k | hx8k | u4k | up5k >\n");
+		log("    -device < hx | lp | u >\n");
 		log("        optimise the synthesis netlist for the specified device.\n");
-		log("        HX1K is the default target if no device argument specified.\n");
+		log("        HX is the default target if no device argument specified.\n");
 		log("\n");
 		log("    -top <module>\n");
 		log("        use the specified module as top module\n");
@@ -128,7 +128,7 @@ struct SynthIce40Pass : public ScriptPass
 		abc2 = false;
 		vpr = false;
 		abc = "abc";
-		device_opt = "hx1k";
+		device_opt = "hx";
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -225,7 +225,7 @@ struct SynthIce40Pass : public ScriptPass
 
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");
-		if (device_opt != "hx1k" && device_opt !="lp384" && device_opt != "lp1k" && device_opt !="lp8k" && device_opt !="hx8k" && device_opt != "u4k" && device_opt != "up5k")
+		if (device_opt != "hx" && device_opt != "lp" && device_opt !="u")
 			log_cmd_error("Invalid or no device specified: '%s'\n", device_opt.c_str());
 
 		log_header(design, "Executing SYNTH_ICE40 pass.\n");
