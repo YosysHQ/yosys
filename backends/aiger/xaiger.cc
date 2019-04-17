@@ -252,7 +252,7 @@ struct XAigerWriter
 			RTLIL::Module* box_module = module->design->module(cell->type);
 			if (!box_module || !box_module->attributes.count("\\abc_box_id")) {
 				for (const auto &c : cell->connections()) {
-					/*if (c.second.is_fully_const()) continue;*/
+					if (c.second.is_fully_const()) continue;
 					for (auto b : c.second.bits()) {
 						Wire *w = b.wire;
 						if (!w) continue;
@@ -271,8 +271,7 @@ struct XAigerWriter
 						if (is_output) {
 							SigBit O = sigmap(b);
 							input_bits.insert(O);
-							if (!O.wire->port_output)
-								undriven_bits.erase(O);
+							undriven_bits.erase(O);
 						}
 					}
 				}
@@ -312,24 +311,19 @@ struct XAigerWriter
 
 				cell->connections_.sort(RTLIL::sort_by_id_str());
 				for (const auto &c : cell->connections()) {
-					/*if (c.second.is_fully_const()) continue;*/
 					for (auto b : c.second.bits()) {
 						auto is_input = cell->input(c.first);
 						auto is_output = cell->output(c.first);
 						log_assert(is_input || is_output);
 						if (is_input) {
-							/*if (!w->port_input)*/ {
-								SigBit I = sigmap(b);
-								if (I != b)
-									alias_map[b] = I;
-								/*if (!output_bits.count(b))*/
-									co_bits.emplace_back(b, 0);
-							}
+							SigBit I = sigmap(b);
+							if (I != b)
+								alias_map[b] = I;
+							co_bits.emplace_back(b, 0);
 						}
 						if (is_output) {
 							SigBit O = sigmap(b);
-							/*if (!input_bits.count(O))*/
-								ci_bits.emplace_back(O, 0);
+							ci_bits.emplace_back(O, 0);
 						}
 					}
 				}
@@ -367,9 +361,6 @@ struct XAigerWriter
 			//co_bits.erase(bit);
 			output_bits.erase(bit);
 		}
-		// Erase all CIs that are also COs
-		//for (auto bit : co_bits)
-		//	ci_bits.erase(bit);
 		// CIs cannot be undriven
 		for (const auto &c : ci_bits)
 			undriven_bits.erase(c.first);
