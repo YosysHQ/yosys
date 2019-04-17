@@ -25,7 +25,8 @@
 #define ABC_COMMAND_LIB "strash; ifraig; scorr; dc2; dretime; strash; &get -n; &dch -f; &nf {D}; &put"
 #define ABC_COMMAND_CTR "strash; ifraig; scorr; dc2; dretime; strash; &get -n; &dch -f; &nf {D}; &put; buffer; upsize {D}; dnsize {D}; stime -p"
 //#define ABC_COMMAND_LUT "strash; ifraig; scorr; dc2; dretime; strash; dch -f; if; mfs2"
-#define ABC_COMMAND_LUT "&st; &fraig; &scorr; &dc2; &retime; &dch -f; &if; &mfs"
+//#define ABC_COMMAND_LUT "&st; &sweep; &scorr; &dc2; &retime; &dch -f; &if; &mfs; &ps"
+#define ABC_COMMAND_LUT "&st; &scorr; &dc2; &retime; &dch -f; &if; &ps -l -m -s"
 #define ABC_COMMAND_SOP "strash; ifraig; scorr; dc2; dretime; strash; dch -f; cover {I} {P}"
 #define ABC_COMMAND_DFL "strash; ifraig; scorr; dc2; dretime; strash; &get -n; &dch -f; &nf {D}; &put"
 
@@ -388,7 +389,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		abc_script = abc_script.substr(0, pos) + lutin_shared + abc_script.substr(pos+3);
 
 	abc_script += stringf("; &write %s/output.aig", tempdir_name.c_str());
-	abc_script += "; &ps -l -s";
 	abc_script = add_echos_to_abc_cmd(abc_script);
 
 	for (size_t i = 0; i+1 < abc_script.size(); i++)
