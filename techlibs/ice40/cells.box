@@ -2,12 +2,8 @@
 
 # NB: Inputs/Outputs must be ordered alphabetically
 
-# Inputs: CI I0 I1
-# Outputs: CO
-SB_CARRY 1 1 3 1
+# Inputs: CI I1 I2
+# Outputs: CO O
+ICE40_CARRY_LUT 1 1 3 2
 126 259 231
-
-# Inputs: I0 I1 I2 I3
-# Outputs: O
-SB_LUT4 2 1 4 1
-316 379 400 449
+316 400 379

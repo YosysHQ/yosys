@@ -44,25 +44,32 @@ module _80_ice40_alu (A, B, CI, BI, X, Y, CO);
 
 	genvar i;
 	generate for (i = 0; i < Y_WIDTH; i = i + 1) begin:slice
-		SB_CARRY carry (
-			.I0(AA[i]),
-			.I1(BB[i]),
-			.CI(C[i]),
-			.CO(CO[i])
-		);
-		SB_LUT4 #(
-			//         I0: 1010 1010 1010 1010
-			//         I1: 1100 1100 1100 1100
-			//         I2: 1111 0000 1111 0000
-			//         I3: 1111 1111 0000 0000
-			.LUT_INIT(16'b 0110_1001_1001_0110)
-		) adder (
-			.I0(1'b0),
+		ICE40_CARRY_LUT carry_lut (
 			.I1(AA[i]),
 			.I2(BB[i]),
-			.I3(C[i]),
+			.CI(C[i]),
+			.CO(CO[i]),
 			.O(Y[i])
 		);
+//		SB_CARRY carry (
+//			.I0(AA[i]),
+//			.I1(BB[i]),
+//			.CI(C[i]),
+//			.CO(CO[i])
+//		);
+//		SB_LUT4 #(
+//			//         I0: 1010 1010 1010 1010
+//			//         I1: 1100 1100 1100 1100
+//			//         I2: 1111 0000 1111 0000
+//			//         I3: 1111 1111 0000 0000
+//			.LUT_INIT(16'b 0110_1001_1001_0110)
+//		) adder (
+//			.I0(1'b0),
+//			.I1(AA[i]),
+//			.I2(BB[i]),
+//			.I3(C[i]),
+//			.O(Y[i])
+//		);
 	end endgenerate
 
 	assign X = AA ^ BB;
