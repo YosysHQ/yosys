@@ -226,7 +226,7 @@ struct SynthIce40Pass : public ScriptPass
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");
 		if (device_opt != "hx1k" && device_opt !="lp384" && device_opt != "lp1k" && device_opt !="lp8k" && device_opt !="hx8k" && device_opt != "u4k" && device_opt != "up5k")
-			log_cmd_error("Invalid or no family specified: '%s'\n", device_opt.c_str());
+			log_cmd_error("Invalid or no device specified: '%s'\n", device_opt.c_str());
 
 		log_header(design, "Executing SYNTH_ICE40 pass.\n");
 		log_push();
