@@ -1384,25 +1384,3 @@ module SB_MAC16 (
 	assign LCI = (BOTADDSUB_CARRYSELECT == 0) ? 1'b0 : (BOTADDSUB_CARRYSELECT == 1) ? 1'b1 : (BOTADDSUB_CARRYSELECT == 2) ? ACCUMCI : CI;
 	assign O = {Oh, Ol};
 endmodule
-
-module ICE40_CARRY_LUT (input CI, input I1, input I2, output CO, output O);
-	SB_CARRY carry (
-		.I0(I1),
-		.I1(I2),
-		.CI(CI),
-		.CO(CO),
-	);
-	SB_LUT4 #(
-		//         I0: 1010 1010 1010 1010
-		//         I1: 1100 1100 1100 1100
-		//         I2: 1111 0000 1111 0000
-		//         I3: 1111 1111 0000 0000
-		.LUT_INIT(16'b 0110_1001_1001_0110)
-	) adder (
-		.I0(1'b0),
-		.I1(I1),
-		.I2(I2),
-		.I3(CI),
-		.O(O)
-	);
-endmodule

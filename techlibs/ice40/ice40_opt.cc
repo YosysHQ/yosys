@@ -47,20 +47,16 @@ static void run_ice40_opts(Module *module)
 			continue;
 		}
 
-		if (cell->type.in("\\SB_CARRY", "\\ICE40_CARRY_LUT"))
+		if (cell->type == "\\SB_CARRY")
 		{
 			SigSpec non_const_inputs, replacement_output;
 			int count_zeros = 0, count_ones = 0;
 
 			SigBit inbit[3] = {
+				get_bit_or_zero(cell->getPort("\\I0")),
 				get_bit_or_zero(cell->getPort("\\I1")),
 				get_bit_or_zero(cell->getPort("\\CI"))
 			};
-			if (cell->type == "\\SB_CARRY")
-				inbit[2] = get_bit_or_zero(cell->getPort("\\I0"));
-			else if (cell->type == "\\ICE40_CARRY_LUT")
-				inbit[2] = get_bit_or_zero(cell->getPort("\\I2"));
-			else log_abort();
 			for (int i = 0; i < 3; i++)
 				if (inbit[i].wire == nullptr) {
 					if (inbit[i] == State::S1)
@@ -83,14 +79,6 @@ static void run_ice40_opts(Module *module)
 				module->design->scratchpad_set_bool("opt.did_something", true);
 				log("Optimized away SB_CARRY cell %s.%s: CO=%s\n",
 						log_id(module), log_id(cell), log_signal(replacement_output));
-
-				if (cell->type == "\\ICE40_CARRY_LUT")
-					module->addLut(NEW_ID,
-						{ RTLIL::S0, cell->getPort("\\I1"), cell->getPort("\\I2"), cell->getPort("\\CI") },
-						cell->getPort("\\O"),
-						RTLIL::Const("0110_1001_1001_0110"),
-						cell->get_src_attribute());
-
 				module->remove(cell);
 			}
 			continue;

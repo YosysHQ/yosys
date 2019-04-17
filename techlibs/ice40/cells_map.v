@@ -57,27 +57,3 @@ module \$lut (A, Y);
   endgenerate
 endmodule
 `endif
-
-`ifndef NO_CARRY
-module ICE40_CARRY_LUT (output CO, O, input CI, I1, I2);
-	SB_CARRY carry (
-		.I0(I1),
-		.I1(I2),
-		.CI(CI),
-		.CO(CO),
-	);
-	SB_LUT4 #(
-		//         I0: 1010 1010 1010 1010
-		//         I1: 1100 1100 1100 1100
-		//         I2: 1111 0000 1111 0000
-		//         I3: 1111 1111 0000 0000
-		.LUT_INIT(16'b 0110_1001_1001_0110)
-	) adder (
-		.I0(1'b0),
-		.I1(I1),
-		.I2(I2),
-		.I3(CI),
-		.O(O)
-	);
-endmodule
-`endif

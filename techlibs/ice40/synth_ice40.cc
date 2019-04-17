@@ -296,7 +296,7 @@ struct SynthIce40Pass : public ScriptPass
 				run("opt_merge");
 				run(stringf("dff2dffe -unmap-mince %d", min_ce_use));
 			}
-			run("techmap -D NO_LUT -D NO_CARRY -map +/ice40/cells_map.v");
+			run("techmap -D NO_LUT -map +/ice40/cells_map.v");
 			run("opt_expr -mux_undef");
 			run("simplemap");
 			run("ice40_ffinit");
