@@ -585,18 +585,17 @@ struct XAigerWriter
 				if (holes_module && !holes_module->cell(stringf("\\u%d", box_id)))
 					holes_cell = holes_module->addCell(stringf("\\u%d", box_id), cell->type);
 				RTLIL::Wire *holes_wire;
-				int num_inputs = 0;
 				// NB: cell->connections_ already sorted from before
 				for (const auto &c : cell->connections()) {
+					log_assert(c.second.size() == 1);
 					if (cell->input(c.first)) {
 						box_inputs += c.second.size();
 						if (holes_cell) {
-							holes_wire = holes_module->wire(stringf("\\i%d", num_inputs));
+							holes_wire = holes_module->wire(stringf("\\i%d", box_inputs));
 							if (!holes_wire) {
-								holes_wire = holes_module->addWire(stringf("\\i%d", num_inputs));
+								holes_wire = holes_module->addWire(stringf("\\i%d", box_inputs));
 								holes_wire->port_input = true;
 							}
-							++num_inputs;
 							holes_cell->setPort(c.first, holes_wire);
 						}
 					}
