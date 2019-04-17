@@ -180,14 +180,20 @@ struct XAigerWriter
 			toposort.node(cell->name);
 			for (const auto &conn : cell->connections())
 			{
-				// HACK!!!
-				if (cell->type.in("\\SB_DFF", "\\SB_DFFE", "\\SB_DFFESR", "\\SB_DFFSR", "\\SB_DFFESS") && conn.first.in("\\Q"))
-					continue;
+				if (!cell->type.in("$_NOT_", "$_AND_")) {
+					if (yosys_celltypes.cell_known(cell->type)) {
+						if (conn.first.in("\\Q", "\\CTRL_OUT", "\\RD_DATA"))
+							continue;
+						if (cell->type == "$memrd" && conn.first == "\\DATA")
+							continue;
+					}
 
-				if (yosys_celltypes.cell_known(cell->type)) {
-					if (conn.first.in("\\Q", "\\CTRL_OUT", "\\RD_DATA"))
-						continue;
-					if (cell->type == "$memrd" && conn.first == "\\DATA")
+					RTLIL::Module* inst_module = module->design->module(cell->type);
+					log_assert(inst_module);
+					RTLIL::Wire* inst_module_port = inst_module->wire(conn.first);
+					log_assert(inst_module_port);
+
+					if (inst_module_port->attributes.count("\\abc_flop_q"))
 						continue;
 				}
 
