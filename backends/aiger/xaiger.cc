@@ -197,9 +197,12 @@ struct XAigerWriter
 						continue;
 				}
 
-				if (cell->input(conn.first))
+				if (cell->input(conn.first)) {
+					// Ignore inout for the sake of topographical ordering
+					if (cell->output(conn.first)) continue;
 					for (auto bit : sigmap(conn.second))
 						bit_users[bit].insert(cell->name);
+				}
 
 				if (cell->output(conn.first))
 					for (auto bit : sigmap(conn.second))
@@ -287,7 +290,18 @@ struct XAigerWriter
 					for (auto user_cell : it.second)
 						toposort.edge(driver_cell, user_cell);
 
+#ifndef NDEBUG
+			toposort.analyze_loops = true;
+#endif
 			toposort.sort();
+#ifndef NDEBUG
+			for (auto &it : toposort.loops) {
+				log("  loop");
+				for (auto cell : it)
+					log(" %s", log_id(cell));
+				log("\n");
+			}
+#endif
 			log_assert(!toposort.found_loops);
 
 			for (auto cell_name : toposort.sorted) {
