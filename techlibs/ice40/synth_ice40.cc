@@ -37,6 +37,10 @@ struct SynthIce40Pass : public ScriptPass
 		log("\n");
 		log("This command runs synthesis for iCE40 FPGAs.\n");
 		log("\n");
+		log("    -device < hx1k | lp384 | lp1k | lp8k | hx8k | u4k | up5k >\n");
+		log("        optimise the synthesis netlist for the specified device.\n");
+		log("        HX1K is the default target if no device argument specified.\n");
+		log("\n");
 		log("    -top <module>\n");
 		log("        use the specified module as top module\n");
 		log("\n");
@@ -102,7 +106,7 @@ struct SynthIce40Pass : public ScriptPass
 	}
 
 
-	string top_opt, blif_file, edif_file, json_file, abc;
+	string top_opt, blif_file, edif_file, json_file, abc, device_opt;
 	bool nocarry, nodffe, nobram, dsp, flatten, retime, relut, noabc, abc2, vpr;
 	int min_ce_use;
 
@@ -124,6 +128,7 @@ struct SynthIce40Pass : public ScriptPass
 		abc2 = false;
 		vpr = false;
 		abc = "abc";
+		device_opt = "hx1k";
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -210,12 +215,18 @@ struct SynthIce40Pass : public ScriptPass
 				abc = "abc9";
 				continue;
 			}
+			if (args[argidx] == "-device" && argidx+1 < args.size()) {
+				device_opt = args[++argidx];
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");
+		if (device_opt != "hx1k" && device_opt !="lp384" && device_opt != "lp1k" && device_opt !="lp8k" && device_opt !="hx8k" && device_opt != "u4k" && device_opt != "up5k")
+			log_cmd_error("Invalid or no family specified: '%s'\n", device_opt.c_str());
 
 		log_header(design, "Executing SYNTH_ICE40 pass.\n");
 		log_push();
@@ -319,7 +330,7 @@ struct SynthIce40Pass : public ScriptPass
 				if (abc == "abc9") {
 					run("read_verilog +/ice40/abc.v");
 					run("techmap -map +/techmap.v A:abc_box_id");
-					run(abc + " -dress -lut +/ice40/abc.lut -box +/ice40/abc.box", "(skip if -noabc)");
+					run(abc + stringf(" -dress -lut +/ice40/%s.lut -box +/ice40/%s.box", device_opt.c_str(), device_opt.c_str()), "(skip if -noabc)");
 					run("blackbox A:abc_box_id");
 				}
 				else
