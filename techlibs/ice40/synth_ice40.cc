@@ -317,9 +317,9 @@ struct SynthIce40Pass : public ScriptPass
 			}
 			if (!noabc) {
 				if (abc == "abc9") {
-					run("read_verilog +/ice40/cells_box.v");
+					run("read_verilog +/ice40/abc.v");
 					run("techmap -map +/techmap.v A:abc_box_id");
-					run(abc + " -dress -lut +/ice40/lut.lut -box +/ice40/cells.box", "(skip if -noabc)");
+					run(abc + " -dress -lut +/ice40/abc.lut -box +/ice40/abc.box", "(skip if -noabc)");
 					run("blackbox A:abc_box_id");
 				}
 				else
