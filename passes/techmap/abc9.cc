@@ -1402,13 +1402,13 @@ struct Abc9Pass : public Pass {
 
 		for (auto mod : design->selected_modules())
 		{
+			if (mod->attributes.count("\\abc_box_id"))
+				continue;
+
 			if (mod->processes.size() > 0) {
 				log("Skipping module %s as it contains processes.\n", log_id(mod));
 				continue;
 			}
-
-			if (mod->attributes.count("\\abc_box_id"))
-				continue;
 
 			assign_map.set(mod);
 			signal_init.clear();
