@@ -240,7 +240,7 @@ struct SynthIce40Pass : public ScriptPass
 	{
 		if (check_label("begin"))
 		{
-			run("read_verilog -lib +/ice40/cells_sim.v");
+			run("read_verilog -wb +/ice40/cells_sim.v");
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
 			run("proc");
 		}
@@ -327,12 +327,8 @@ struct SynthIce40Pass : public ScriptPass
 				run("techmap -map +/gate2lut.v -D LUT_WIDTH=4", "(only if -noabc)");
 			}
 			if (!noabc) {
-				if (abc == "abc9") {
-					run("read_verilog +/ice40/abc.v");
-					run("techmap -map +/techmap.v A:abc_box_id");
-					run(abc + stringf(" -dress -lut +/ice40/%s.lut -box +/ice40/%s.box", device_opt.c_str(), device_opt.c_str()), "(skip if -noabc)");
-					run("blackbox A:abc_box_id");
-				}
+				if (abc == "abc9")
+					run(abc + stringf(" -dress -lut +/ice40/abc_%s.lut -box +/ice40/abc_%s.box", device_opt.c_str(), device_opt.c_str()), "(skip if -noabc)");
 				else
 					run(abc + " -lut 4", "(skip if -noabc)");
 			}

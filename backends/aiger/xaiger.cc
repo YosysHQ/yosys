@@ -103,7 +103,7 @@ struct XAigerWriter
 		return aig_map.at(bit);
 	}
 
-	XAigerWriter(Module *module, bool zinit_mode, bool imode, bool omode, bool bmode) : module(module), zinit_mode(zinit_mode), sigmap(module)
+	XAigerWriter(Module *module, bool zinit_mode, bool imode, bool omode, bool bmode, bool ignore_boxes=false) : module(module), zinit_mode(zinit_mode), sigmap(module)
 	{
 		pool<SigBit> undriven_bits;
 		pool<SigBit> unused_bits;
@@ -177,36 +177,38 @@ struct XAigerWriter
 
 		for (auto cell : module->cells())
 		{
-			toposort.node(cell->name);
-			for (const auto &conn : cell->connections())
-			{
-				if (!cell->type.in("$_NOT_", "$_AND_")) {
-					if (yosys_celltypes.cell_known(cell->type)) {
-						if (conn.first.in("\\Q", "\\CTRL_OUT", "\\RD_DATA"))
-							continue;
-						if (cell->type == "$memrd" && conn.first == "\\DATA")
+			if (!ignore_boxes) {
+				toposort.node(cell->name);
+				for (const auto &conn : cell->connections())
+				{
+					if (!cell->type.in("$_NOT_", "$_AND_")) {
+						if (yosys_celltypes.cell_known(cell->type)) {
+							if (conn.first.in("\\Q", "\\CTRL_OUT", "\\RD_DATA"))
+								continue;
+							if (cell->type == "$memrd" && conn.first == "\\DATA")
+								continue;
+						}
+
+						RTLIL::Module* inst_module = module->design->module(cell->type);
+						log_assert(inst_module);
+						RTLIL::Wire* inst_module_port = inst_module->wire(conn.first);
+						log_assert(inst_module_port);
+
+						if (inst_module_port->attributes.count("\\abc_flop_q"))
 							continue;
 					}
 
-					RTLIL::Module* inst_module = module->design->module(cell->type);
-					log_assert(inst_module);
-					RTLIL::Wire* inst_module_port = inst_module->wire(conn.first);
-					log_assert(inst_module_port);
+					if (cell->input(conn.first)) {
+						// Ignore inout for the sake of topographical ordering
+						if (cell->output(conn.first)) continue;
+						for (auto bit : sigmap(conn.second))
+							bit_users[bit].insert(cell->name);
+					}
 
-					if (inst_module_port->attributes.count("\\abc_flop_q"))
-						continue;
+					if (cell->output(conn.first))
+						for (auto bit : sigmap(conn.second))
+							bit_drivers[bit].insert(cell->name);
 				}
-
-				if (cell->input(conn.first)) {
-					// Ignore inout for the sake of topographical ordering
-					if (cell->output(conn.first)) continue;
-					for (auto bit : sigmap(conn.second))
-						bit_users[bit].insert(cell->name);
-				}
-
-				if (cell->output(conn.first))
-					for (auto bit : sigmap(conn.second))
-						bit_drivers[bit].insert(cell->name);
 			}
 
 			if (cell->type == "$_NOT_")
@@ -249,7 +251,7 @@ struct XAigerWriter
 			//	continue;
 			//}
 
-			RTLIL::Module* box_module = module->design->module(cell->type);
+			RTLIL::Module* box_module = !ignore_boxes ? module->design->module(cell->type) : nullptr;
 			if (!box_module || !box_module->attributes.count("\\abc_box_id")) {
 				for (const auto &c : cell->connections()) {
 					if (c.second.is_fully_const()) continue;
@@ -705,12 +707,12 @@ struct XAigerWriter
 				RTLIL::Selection& sel = holes_module->design->selection_stack.back();
 				sel.select(holes_module);
 
-				Pass::call(holes_module->design, "flatten; aigmap");
+				Pass::call(holes_module->design, "flatten -wb; aigmap");
 
 				holes_module->design->selection_stack.pop_back();
 
 				std::stringstream a_buffer;
-				XAigerWriter writer(holes_module, false /*zinit_mode*/, false /*imode*/, false /*omode*/, false /*bmode*/);
+				XAigerWriter writer(holes_module, false /*zinit_mode*/, false /*imode*/, false /*omode*/, false /*bmode*/, true /* ignore_boxes */);
 				writer.write_aiger(a_buffer, false /*ascii_mode*/, false /*miter_mode*/, false /*symbols_mode*/, false /*omode*/);
 
 				f << "a";
