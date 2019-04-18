@@ -75,7 +75,7 @@ struct UniquifyPass : public Pass {
 					if (tmod == nullptr)
 						continue;
 
-					if (tmod->get_bool_attribute("\\blackbox"))
+					if (tmod->get_blackbox_attribute())
 						continue;
 
 					if (tmod->get_bool_attribute("\\unique") && newname == tmod->name)
