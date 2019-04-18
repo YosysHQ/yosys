@@ -569,8 +569,8 @@ struct RTLIL::AttrObject
 	void set_bool_attribute(RTLIL::IdString id);
 	bool get_bool_attribute(RTLIL::IdString id) const;
 
-	bool get_blackbox_attribute() const {
-		return get_bool_attribute("\\blackbox") || get_bool_attribute("\\whitebox");
+	bool get_blackbox_attribute(bool ignore_wb=false) const {
+		return get_bool_attribute("\\blackbox") || (!ignore_wb && get_bool_attribute("\\whitebox"));
 	}
 
 	void set_strpool_attribute(RTLIL::IdString id, const pool<string> &data);
