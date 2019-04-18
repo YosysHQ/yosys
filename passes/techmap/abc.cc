@@ -331,19 +331,23 @@ std::string remap_name(RTLIL::IdString abc_name, RTLIL::Wire **orig_wire = nullp
 {
 	std::string abc_sname = abc_name.substr(1);
 	if (abc_sname.substr(0, 5) == "ys__n") {
-		int sid = std::stoi(abc_sname.substr(5));
 		bool inv = abc_sname.back() == 'v';
-		for (auto sig : signal_list) {
-			if (sig.id == sid && sig.bit.wire != nullptr) {
-				std::stringstream sstr;
-				sstr << "$abc$" << map_autoidx << "$" << sig.bit.wire->name.substr(1);
-				if (sig.bit.wire->width != 1)
-					sstr << "[" << sig.bit.offset << "]";
-				if (inv)
-					sstr << "_inv";
-				if (orig_wire != nullptr)
-					*orig_wire = sig.bit.wire;
-				return sstr.str();
+		if (inv) abc_sname.pop_back();
+		abc_sname.erase(0, 5);
+		if (abc_sname.find_last_not_of("012345689") == std::string::npos) {
+			int sid = std::stoi(abc_sname);
+			for (auto sig : signal_list) {
+				if (sig.id == sid && sig.bit.wire != nullptr) {
+					std::stringstream sstr;
+					sstr << "$abc$" << map_autoidx << "$" << sig.bit.wire->name.substr(1);
+					if (sig.bit.wire->width != 1)
+						sstr << "[" << sig.bit.offset << "]";
+					if (inv)
+						sstr << "_inv";
+					if (orig_wire != nullptr)
+						*orig_wire = sig.bit.wire;
+					return sstr.str();
+				}
 			}
 		}
 	}
