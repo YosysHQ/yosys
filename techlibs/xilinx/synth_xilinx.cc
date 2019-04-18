@@ -115,7 +115,7 @@ struct SynthXilinxPass : public Pass
 		log("\n");
 		log("    map_luts:\n");
 		log("        techmap -map +/techmap.v -map +/xilinx/ff_map.v t:$_DFF_?N?\n");
-		log("        abc -luts 2:2,3,6:5,10,20 [-dff -D 1]\n");
+		log("        abc -luts 2:2,3,6:5,10,20 [-dff]\n");
 		log("        clean\n");
 		log("        techmap -map +/xilinx/lut_map.v -map +/xilinx/ff_map.v");
 		log("\n");
@@ -269,7 +269,7 @@ struct SynthXilinxPass : public Pass
 		if (check_label(active, run_from, run_to, "map_luts"))
 		{
 			Pass::call(design, "techmap -map +/techmap.v -map +/xilinx/ff_map.v t:$_DFF_?N?");
-			Pass::call(design, "abc -luts 2:2,3,6:5,10,20" + string(retime ? " -dff -D 1" : ""));
+			Pass::call(design, "abc -luts 2:2,3,6:5,10,20" + string(retime ? " -dff" : ""));
 			Pass::call(design, "clean");
 			Pass::call(design, "techmap -map +/xilinx/lut_map.v -map +/xilinx/ff_map.v");
 		}

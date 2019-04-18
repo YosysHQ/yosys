@@ -210,15 +210,15 @@ struct SynthIntelPass : public ScriptPass {
         run("clean -purge");
         run("setundef -undriven -zero");
         if (retime || help_mode)
-          run("abc -markgroups -dff -D 1", "(only if -retime)");
+          run("abc -markgroups -dff", "(only if -retime)");
       }
 
     if (check_label("map_luts"))
       {
         if(family_opt=="a10gx" || family_opt=="cyclonev")
-          run("abc -luts 2:2,3,6:5" + string(retime ? " -dff -D 1" : ""));
+          run("abc -luts 2:2,3,6:5" + string(retime ? " -dff" : ""));
         else
-          run("abc -lut 4" + string(retime ? " -dff -D 1" : ""));
+          run("abc -lut 4" + string(retime ? " -dff" : ""));
         run("clean");
       }
 

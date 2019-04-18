@@ -163,7 +163,7 @@ struct SynthGowinPass : public ScriptPass
 			run("splitnets -ports");
 			run("setundef -undriven -zero");
 			if (retime || help_mode)
-				run("abc -dff -D 1", "(only if -retime)");
+				run("abc -dff", "(only if -retime)");
 		}
 
 		if (check_label("map_luts"))

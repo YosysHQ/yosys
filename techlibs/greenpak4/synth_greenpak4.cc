@@ -165,7 +165,7 @@ struct SynthGreenPAK4Pass : public ScriptPass
 			run("dfflibmap -prepare -liberty +/greenpak4/gp_dff.lib");
 			run("opt -fast");
 			if (retime || help_mode)
-				run("abc -dff -D 1", "(only if -retime)");
+				run("abc -dff", "(only if -retime)");
 		}
 
 		if (check_label("map_luts"))
