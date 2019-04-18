@@ -555,7 +555,7 @@ struct ShowWorker
 			if (!design->selected_module(module->name))
 				continue;
 			if (design->selected_whole_module(module->name)) {
-				if (module->get_bool_attribute("\\blackbox")) {
+				if (module->get_blackbox_attribute()) {
 					// log("Skipping blackbox module %s.\n", id2cstr(module->name));
 					continue;
 				} else
@@ -771,7 +771,7 @@ struct ShowPass : public Pass {
 		if (format != "ps" && format != "dot") {
 			int modcount = 0;
 			for (auto &mod_it : design->modules_) {
-				if (mod_it.second->get_bool_attribute("\\blackbox"))
+				if (mod_it.second->get_blackbox_attribute())
 					continue;
 				if (mod_it.second->cells_.empty() && mod_it.second->connections().empty())
 					continue;
