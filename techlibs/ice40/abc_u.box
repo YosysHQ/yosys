@@ -4,7 +4,7 @@
 
 # Inputs: C D
 # Outputs: Q
-SB_DFF 1 0 2 1
+SB_DFF 1 1 2 1
 - -
 
 # Inputs: C D E
