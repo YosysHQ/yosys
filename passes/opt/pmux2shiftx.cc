@@ -33,23 +33,41 @@ struct Pmux2ShiftxPass : public Pass {
 		log("\n");
 		log("This pass transforms $pmux cells to $shiftx cells.\n");
 		log("\n");
-		log("    -density non_offset_percentage offset_percentage\n");
+		log("    -min_density <non_offset_percentage> <offset_percentage>\n");
 		log("        specifies the minimum density for non_offset- and for offset-mode\n");
 		log("        default values are 30 (non-offset) and 50 (offset)\n");
+		log("\n");
+		log("    -min_choices <int>\n");
+		log("        specified the minimum number of choices for a control signal\n");
+		log("        defaukt: 3\n");
+		log("\n");
+		log("    -allow_onehot\n");
+		log("        by default, pmuxes with one-hot encoded control signals are not\n");
+		log("        converted. this option disables that check.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
-		int non_offset_percentage = 30;
-		int offset_percentage = 50;
+		int min_non_offset_percentage = 30;
+		int min_offset_percentage = 50;
+		int min_choices = 3;
+		bool allow_onehot = false;
 
 		log_header(design, "Executing PMUX2SHIFTX pass.\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
-			if (args[argidx] == "-density" && argidx+2 < args.size()) {
-				non_offset_percentage = atoi(args[++argidx].c_str());
-				offset_percentage = atoi(args[++argidx].c_str());
+			if (args[argidx] == "-min_density" && argidx+2 < args.size()) {
+				min_non_offset_percentage = atoi(args[++argidx].c_str());
+				min_offset_percentage = atoi(args[++argidx].c_str());
+				continue;
+			}
+			if (args[argidx] == "-min_choices" && argidx+1 < args.size()) {
+				min_choices = atoi(args[++argidx].c_str());
+				continue;
+			}
+			if (args[argidx] == "-allow_onehot") {
+				allow_onehot = true;
 				continue;
 			}
 			break;
@@ -163,8 +181,7 @@ struct Pmux2ShiftxPass : public Pass {
 				if (seldb.empty())
 					continue;
 
-				log("Inspecting $pmux cell %s/%s.\n", log_id(module), log_id(cell));
-				log("  data width: %d (next power-of-2 = %d, log2 = %d)\n", width, extwidth, width_bits);
+				bool printed_pmux_header = false;
 
 				SigSpec updated_S = cell->getPort("\\S");
 				SigSpec updated_B = cell->getPort("\\B");
@@ -180,16 +197,39 @@ struct Pmux2ShiftxPass : public Pass {
 							sig = it.first;
 					}
 
-					log("  checking ctrl signal %s\n", log_signal(sig));
-
 					// find the relevant choices
+					bool is_onehot = true;
 					dict<Const, int> choices;
 					for (int i : seldb.at(sig)) {
 						Const val = eqdb.at(S[i]).second;
+						int onebits = 0;
+						for (auto b : val.bits)
+							if (b == State::S1)
+								onebits++;
+						if (onebits > 1)
+							is_onehot = false;
 						choices[val] = i;
 					}
 
 					// TBD: also find choices that are using signals that are subsets of the bits in "sig"
+
+					if (is_onehot && !allow_onehot) {
+						seldb.erase(sig);
+						continue;
+					}
+
+					if (GetSize(choices) < min_choices) {
+						seldb.erase(sig);
+						continue;
+					}
+
+					if (!printed_pmux_header) {
+						printed_pmux_header = true;
+						log("Inspecting $pmux cell %s/%s.\n", log_id(module), log_id(cell));
+						log("  data width: %d (next power-of-2 = %d, log2 = %d)\n", width, extwidth, width_bits);
+					}
+
+					log("  checking ctrl signal %s\n", log_signal(sig));
 
 					// find the best permutation
 					vector<int> perm_new_from_old(GetSize(sig));
@@ -329,7 +369,7 @@ struct Pmux2ShiftxPass : public Pass {
 
 					// check density percentages
 					Const offset(State::S0, GetSize(sig));
-					if (absolute_density < non_offset_percentage && range_density >= offset_percentage)
+					if (absolute_density < min_non_offset_percentage && range_density >= min_offset_percentage)
 					{
 						offset = Const(min_choice, GetSize(sig));
 						log("    offset: %s\n", log_signal(offset));
@@ -342,7 +382,7 @@ struct Pmux2ShiftxPass : public Pass {
 							new_perm_choices[const_sub(it.first, offset, false, false, GetSize(sig))] = it.second;
 						perm_choices.swap(new_perm_choices);
 					} else
-					if (absolute_density < non_offset_percentage) {
+					if (absolute_density < min_non_offset_percentage) {
 						log("    insufficient density.\n");
 						seldb.erase(sig);
 						continue;
