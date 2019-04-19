@@ -29,17 +29,29 @@ struct Pmux2ShiftxPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    pmux2shiftx [selection]\n");
+		log("    pmux2shiftx [options] [selection]\n");
 		log("\n");
 		log("This pass transforms $pmux cells to $shiftx cells.\n");
+		log("\n");
+		log("    -density non_offset_percentage offset_percentage\n");
+		log("        specifies the minimum density for non_offset- and for offset-mode\n");
+		log("        default values are 30 (non-offset) and 50 (offset)\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
+		int non_offset_percentage = 30;
+		int offset_percentage = 50;
+
 		log_header(design, "Executing PMUX2SHIFTX pass.\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
+			if (args[argidx] == "-density" && argidx+2 < args.size()) {
+				non_offset_percentage = atoi(args[++argidx].c_str());
+				offset_percentage = atoi(args[++argidx].c_str());
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -180,34 +192,108 @@ struct Pmux2ShiftxPass : public Pass {
 
 					// find the relevant choices
 					dict<Const, int> choices;
-					vector<int> onescnt(GetSize(sig));
 					for (int i : seldb.at(sig)) {
 						Const val = eqdb.at(S[i]).second;
 						choices[val] = i;
-						for (int k = 0; k < GetSize(val); k++)
-							if (val[k] == State::S1)
-								onescnt[k] |= 1;
-							else
-								onescnt[k] |= 2;
 					}
 
 					// TBD: also find choices that are using signals that are subsets of the bits in "sig"
 
 					// find the best permutation
-					vector<pair<int, int>> perm(GetSize(sig));
-					for (int i = 0; i < GetSize(onescnt); i++)
-						perm[i] = make_pair(onescnt[i], i);
-					// TBD: this is not the best permutation
-					std::sort(perm.rbegin(), perm.rend());
+					vector<int> perm_new_from_old(GetSize(sig));
+					Const perm_xormask(State::S0, GetSize(sig));
+					{
+						vector<int> values(GetSize(choices));
+						vector<bool> used_src_columns(GetSize(sig));
+						vector<vector<bool>> columns(GetSize(sig), vector<bool>(GetSize(values)));
+
+						for (int i = 0; i < GetSize(choices); i++) {
+							Const val = choices.element(i)->first;
+							for (int k = 0; k < GetSize(val); k++)
+								if (val[k] == State::S1)
+									columns[k][i] = true;
+						}
+
+						for (int dst_col = GetSize(sig)-1; dst_col >= 0; dst_col--)
+						{
+							int best_src_col = -1;
+							bool best_inv = false;
+							int best_maxval = 0;
+							int best_delta = 0;
+
+							// find best src colum for this dst column
+							for (int src_col = 0; src_col < GetSize(sig); src_col++)
+							{
+								if (used_src_columns[src_col])
+									continue;
+
+								int this_maxval = 0;
+								int this_minval = 1 << 30;
+
+								int this_inv_maxval = 0;
+								int this_inv_minval = 1 << 30;
+
+								for (int i = 0; i < GetSize(values); i++)
+								{
+									int val = values[i];
+									int inv_val = val;
+
+									if (columns[src_col][i])
+										val |= 1 << dst_col;
+									else
+										inv_val |= 1 << dst_col;
+
+									this_maxval = std::max(this_maxval, val);
+									this_minval = std::min(this_minval, val);
+
+									this_inv_maxval = std::max(this_inv_maxval, inv_val);
+									this_inv_minval = std::min(this_inv_minval, inv_val);
+								}
+
+								int this_delta = this_maxval - this_minval;
+								int this_inv_delta = this_maxval - this_minval;
+								bool this_inv = false;
+
+								if (this_delta != this_inv_delta)
+									this_inv = this_inv_delta < this_delta;
+								else if (this_maxval != this_inv_maxval)
+									this_inv = this_inv_maxval < this_maxval;
+
+								if (this_inv) {
+									this_delta = this_inv_delta;
+									this_maxval = this_inv_maxval;
+									this_minval = this_inv_minval;
+								}
+
+								bool this_is_better = false;
+
+								if (best_src_col < 0)
+									this_is_better = true;
+								else if (this_delta != best_delta)
+									this_is_better = this_delta < best_delta;
+								else if (this_maxval != best_maxval)
+									this_is_better = this_maxval < best_maxval;
+								else
+									this_is_better = sig[best_src_col] < sig[src_col];
+
+								if (this_is_better) {
+									best_src_col = src_col;
+									best_inv = this_inv;
+									best_maxval = this_maxval;
+									best_delta = this_delta;
+								}
+							}
+
+							used_src_columns[best_src_col] = true;
+							perm_new_from_old[dst_col] = best_src_col;
+							perm_xormask[dst_col] = best_inv ? State::S1 : State::S0;
+						}
+					}
 
 					// permutated sig
-					Const perm_xormask(State::S0, GetSize(sig));
 					SigSpec perm_sig(State::S0, GetSize(sig));
-					for (int i = 0; i < GetSize(sig); i++) {
-						if (perm[i].first == 1)
-							perm_xormask[i] = State::S1;
-						perm_sig[i] = sig[perm[i].second];
-					}
+					for (int i = 0; i < GetSize(sig); i++)
+						perm_sig[i] = sig[perm_new_from_old[i]];
 
 					log("    best permutation: %s\n", log_signal(perm_sig));
 					log("    best xor mask: %s\n", log_signal(perm_xormask));
@@ -223,7 +309,7 @@ struct Pmux2ShiftxPass : public Pass {
 						Const new_c(State::S0, GetSize(old_c));
 
 						for (int i = 0; i < GetSize(old_c); i++)
-							new_c[i] = old_c[perm[i].second];
+							new_c[i] = old_c[perm_new_from_old[i]];
 
 						Const new_c_before_xor = new_c;
 						new_c = const_xor(new_c, perm_xormask, false, false, GetSize(new_c));
@@ -236,18 +322,21 @@ struct Pmux2ShiftxPass : public Pass {
 						log("      %s -> %s -> %s\n", log_signal(old_c), log_signal(new_c_before_xor), log_signal(new_c));
 					}
 
+					int range_density = 100*GetSize(choices) / (max_choice-min_choice+1);
+					int absolute_density = 100*GetSize(choices) / (max_choice+1);
+
 					log("    choices: %d\n", GetSize(choices));
 					log("    min choice: %d\n", min_choice);
 					log("    max choice: %d\n", max_choice);
-					log("    range density: %d%%\n", 100*GetSize(choices)/(max_choice-min_choice+1));
-					log("    absolute density: %d%%\n", 100*GetSize(choices)/(max_choice+1));
+					log("    range density: %d%%\n", range_density);
+					log("    absolute density: %d%%\n", absolute_density);
 
 					bool full_case = (min_choice == 0) && (max_choice == (1 << GetSize(sig))-1) && (max_choice+1 == GetSize(choices));
 					log("    full case: %s\n", full_case ? "true" : "false");
 
-					// use arithmetic offset if density is less than 30%
+					// check density percentages
 					Const offset(State::S0, GetSize(sig));
-					if (3*GetSize(choices) < max_choice && 3*GetSize(choices) >= (max_choice-min_choice))
+					if (absolute_density < non_offset_percentage && range_density >= offset_percentage)
 					{
 						log("    using offset method.\n");
 
@@ -259,10 +348,8 @@ struct Pmux2ShiftxPass : public Pass {
 						for (auto &it : perm_choices)
 							new_perm_choices[const_sub(it.first, offset, false, false, GetSize(sig))] = it.second;
 						perm_choices.swap(new_perm_choices);
-					}
-
-					// ignore cases with a absolute density of less than 30%
-					if (3*GetSize(choices) < max_choice) {
+					} else
+					if (absolute_density < non_offset_percentage) {
 						log("    insufficient density.\n");
 						seldb.erase(sig);
 						continue;
