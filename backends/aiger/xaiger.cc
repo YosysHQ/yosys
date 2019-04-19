@@ -193,12 +193,13 @@ struct XAigerWriter
 								continue;
 						}
 
-						log_assert(inst_module);
-						RTLIL::Wire* inst_module_port = inst_module->wire(conn.first);
-						log_assert(inst_module_port);
+						if (inst_module) {
+							RTLIL::Wire* inst_module_port = inst_module->wire(conn.first);
+							log_assert(inst_module_port);
 
-						if (inst_module_port->attributes.count("\\abc_flop_q"))
-							continue;
+							if (inst_module_port->attributes.count("\\abc_flop_q"))
+								continue;
+						}
 					}
 
 					if (cell->input(conn.first)) {
@@ -254,7 +255,6 @@ struct XAigerWriter
 			//	continue;
 			//}
 
-			log_assert(inst_module);
 			if (inst_flop) {
 				SigBit d, q;
 				for (const auto &c : cell->connections()) {
@@ -279,7 +279,7 @@ struct XAigerWriter
 				ff_bits.emplace_back(d, q);
 				undriven_bits.erase(q);
 			}
-			else if (!inst_module->attributes.count("\\abc_box_id")) {
+			else if (inst_module && !inst_module->attributes.count("\\abc_box_id")) {
 				for (const auto &c : cell->connections()) {
 					if (c.second.is_fully_const()) continue;
 					for (auto b : c.second.bits()) {
@@ -386,15 +386,12 @@ struct XAigerWriter
 		}
 
 		// Do some CI/CO post-processing:
-		// Erase all POs and COs that are undriven
-		for (auto bit : undriven_bits) {
-			//co_bits.erase(bit);
+		// Erase all POs that are undriven
+		for (auto bit : undriven_bits)
 			output_bits.erase(bit);
-		}
 		// CIs cannot be undriven
 		for (const auto &c : ci_bits)
 			undriven_bits.erase(c.first);
-
 		for (auto bit : unused_bits)
 			undriven_bits.erase(bit);
 
