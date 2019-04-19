@@ -143,7 +143,7 @@ module SB_DFF ((* abc_flop_q *) output `SB_DFF_REG, input C, (* abc_flop_d *) in
 	always @(posedge C)
 		Q <= D;
 `else
-    assign Q = D;
+    always @* Q = D;
 `endif
 endmodule
 
