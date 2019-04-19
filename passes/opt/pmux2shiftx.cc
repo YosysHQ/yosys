@@ -149,6 +149,7 @@ struct Pmux2ShiftxPass : public Pass {
 
 				dict<SigSpec, pool<int>> seldb;
 
+				SigSpec B = cell->getPort("\\B");
 				SigSpec S = sigmap(cell->getPort("\\S"));
 				for (int i = 0; i < GetSize(S); i++)
 				{
@@ -167,15 +168,6 @@ struct Pmux2ShiftxPass : public Pass {
 
 				SigSpec updated_S = cell->getPort("\\S");
 				SigSpec updated_B = cell->getPort("\\B");
-
-			#if 1
-				for (auto &it : seldb) {
-					string msg = stringf("seldb: %s ->", log_signal(it.first));
-					for (int i : it.second)
-						msg += stringf(" %d(%s)", i, log_signal(eqdb.at(S[i]).second));
-					log("  %s\n", msg.c_str());
-				}
-			#endif
 
 				while (!seldb.empty())
 				{
@@ -319,7 +311,8 @@ struct Pmux2ShiftxPass : public Pass {
 						min_choice = std::min(min_choice, new_c.as_int());
 						max_choice = std::max(max_choice, new_c.as_int());
 
-						log("      %s -> %s -> %s\n", log_signal(old_c), log_signal(new_c_before_xor), log_signal(new_c));
+						log("    %3d: %s -> %s -> %s: %s\n", it.second, log_signal(old_c), log_signal(new_c_before_xor),
+								log_signal(new_c), log_signal(B.extract(it.second*width, width)));
 					}
 
 					int range_density = 100*GetSize(choices) / (max_choice-min_choice+1);
@@ -338,9 +331,9 @@ struct Pmux2ShiftxPass : public Pass {
 					Const offset(State::S0, GetSize(sig));
 					if (absolute_density < non_offset_percentage && range_density >= offset_percentage)
 					{
-						log("    using offset method.\n");
-
 						offset = Const(min_choice, GetSize(sig));
+						log("    offset: %s\n", log_signal(offset));
+
 						min_choice -= offset.as_int();
 						max_choice -= offset.as_int();
 
@@ -377,7 +370,7 @@ struct Pmux2ShiftxPass : public Pass {
 					for (auto &it : perm_choices) {
 						int position = it.first.as_int()*extwidth;
 						int data_index = it.second;
-						data.replace(position, cell->getPort("\\B").extract(data_index*width, width));
+						data.replace(position, B.extract(data_index*width, width));
 						updated_S[data_index] = State::S0;
 						updated_B.replace(data_index*width, SigSpec(State::Sx, width));
 					}
