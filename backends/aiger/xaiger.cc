@@ -104,7 +104,7 @@ struct XAigerWriter
 		return aig_map.at(bit);
 	}
 
-	XAigerWriter(Module *module, bool zinit_mode, bool imode, bool omode, bool bmode, bool ignore_boxes=false) : module(module), zinit_mode(zinit_mode), sigmap(module)
+	XAigerWriter(Module *module, bool zinit_mode, bool imode, bool omode, bool bmode, bool holes_mode=false) : module(module), zinit_mode(zinit_mode), sigmap(module)
 	{
 		pool<SigBit> undriven_bits;
 		pool<SigBit> unused_bits;
@@ -181,7 +181,7 @@ struct XAigerWriter
 			RTLIL::Module* inst_module = module->design->module(cell->type);
 			bool inst_flop = inst_module ? inst_module->attributes.count("\\abc_flop") : false;
 
-			if (!ignore_boxes) {
+			if (!holes_mode) {
 				toposort.node(cell->name);
 				for (const auto &conn : cell->connections())
 				{
@@ -398,7 +398,7 @@ struct XAigerWriter
 		for (auto bit : unused_bits)
 			undriven_bits.erase(bit);
 
-		if (!undriven_bits.empty()) {
+		if (!undriven_bits.empty() && !holes_mode) {
 			undriven_bits.sort();
 			for (auto bit : undriven_bits) {
 				log_warning("Treating undriven bit %s.%s like $anyseq.\n", log_id(module), log_signal(bit));
@@ -511,7 +511,6 @@ struct XAigerWriter
 		}
 
 		for (auto &f : ff_bits) {
-			auto bit = f.second;
 			aig_o++;
 			aig_outputs.push_back(ff_aig_map.at(f.second));
 		}
@@ -779,12 +778,12 @@ struct XAigerWriter
 				RTLIL::Selection& sel = holes_module->design->selection_stack.back();
 				sel.select(holes_module);
 
-				Pass::call(holes_module->design, "flatten -wb; aigmap");
+				Pass::call(holes_module->design, "flatten -wb; aigmap; clean -purge");
 
 				holes_module->design->selection_stack.pop_back();
 
 				std::stringstream a_buffer;
-				XAigerWriter writer(holes_module, false /*zinit_mode*/, false /*imode*/, false /*omode*/, false /*bmode*/, true /* ignore_boxes */);
+				XAigerWriter writer(holes_module, false /*zinit_mode*/, false /*imode*/, false /*omode*/, false /*bmode*/, true /* holes_mode */);
 				writer.write_aiger(a_buffer, false /*ascii_mode*/, false /*miter_mode*/, false /*symbols_mode*/, false /*omode*/);
 
 				f << "a";
