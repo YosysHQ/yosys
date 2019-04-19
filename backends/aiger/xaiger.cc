@@ -180,13 +180,14 @@ struct XAigerWriter
 		{
 			RTLIL::Module* inst_module = module->design->module(cell->type);
 			bool inst_flop = inst_module ? inst_module->attributes.count("\\abc_flop") : false;
+			bool known_type = yosys_celltypes.cell_known(cell->type);
 
 			if (!holes_mode) {
 				toposort.node(cell->name);
 				for (const auto &conn : cell->connections())
 				{
 					if (!cell->type.in("$_NOT_", "$_AND_")) {
-						if (yosys_celltypes.cell_known(cell->type)) {
+						if (known_type) {
 							if (conn.first.in("\\Q", "\\CTRL_OUT", "\\RD_DATA"))
 								continue;
 							if (cell->type == "$memrd" && conn.first == "\\DATA")
@@ -279,7 +280,10 @@ struct XAigerWriter
 				ff_bits.emplace_back(d, q);
 				undriven_bits.erase(q);
 			}
-			else if (inst_module && !inst_module->attributes.count("\\abc_box_id")) {
+			else if (inst_module && inst_module->attributes.count("\\abc_box_id")) {
+				abc_box_seen = true;
+			}
+			else {
 				for (const auto &c : cell->connections()) {
 					if (c.second.is_fully_const()) continue;
 					for (auto b : c.second.bits()) {
@@ -305,8 +309,6 @@ struct XAigerWriter
 					}
 				}
 			}
-			else
-				abc_box_seen = true;
 
 			//log_warning("Unsupported cell type: %s (%s)\n", log_id(cell->type), log_id(cell));
 		}
@@ -381,6 +383,8 @@ struct XAigerWriter
 					and_map[new_bit] = and_map.at(bit);
 				else if (alias_map.count(bit))
 					alias_map[new_bit] = alias_map.at(bit);
+				else
+					alias_map[new_bit] = bit;
 				output_bits.insert(new_bit);
 			}
 		}
