@@ -118,7 +118,7 @@ endmodule
 
 // SiliconBlue Logic Cells
 
-(* abc_box_id = 22 *
+(* abc_box_id = 22 *)
 module SB_LUT4 (output O, input I0, I1, I2, I3);
 	parameter [15:0] LUT_INIT = 0;
 	wire [7:0] s3 = I3 ? LUT_INIT[15:8] : LUT_INIT[7:0];
