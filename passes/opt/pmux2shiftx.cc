@@ -39,7 +39,7 @@ struct Pmux2ShiftxPass : public Pass {
 		log("\n");
 		log("    -min_choices <int>\n");
 		log("        specified the minimum number of choices for a control signal\n");
-		log("        defaukt: 3\n");
+		log("        default: 3\n");
 		log("\n");
 		log("    -allow_onehot\n");
 		log("        by default, pmuxes with one-hot encoded control signals are not\n");
@@ -253,7 +253,7 @@ struct Pmux2ShiftxPass : public Pass {
 							int best_maxval = 0;
 							int best_delta = 0;
 
-							// find best src colum for this dst column
+							// find best src column for this dst column
 							for (int src_col = 0; src_col < GetSize(sig); src_col++)
 							{
 								if (used_src_columns[src_col])
