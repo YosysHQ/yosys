@@ -2,7 +2,7 @@ read_verilog pmux2shiftx.v
 prep
 design -save gold
 
-pmux2shiftx -min_density 70 50
+pmux2shiftx -min_density 70
 
 opt
 
