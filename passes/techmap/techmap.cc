@@ -385,7 +385,7 @@ struct TechmapWorker
 	{
 		std::string mapmsg_prefix = in_recursion ? "Recursively mapping" : "Mapping";
 
-		if (!design->selected(module) || module->get_blackbox_attribute())
+		if (!design->selected(module) || module->get_blackbox_attribute(ignore_wb))
 			return false;
 
 		bool log_continue = false;
@@ -927,6 +927,9 @@ struct TechmapPass : public Pass {
 		log("    -autoproc\n");
 		log("        Automatically call \"proc\" on implementations that contain processes.\n");
 		log("\n");
+		log("    -wb\n");
+		log("        Ignore the 'whitebox' attribute on cell implementations.\n");
+		log("\n");
 		log("    -assert\n");
 		log("        this option will cause techmap to exit with an error if it can't map\n");
 		log("        a selected cell. only cell types that end on an underscore are accepted\n");
@@ -1068,6 +1071,10 @@ struct TechmapPass : public Pass {
 			}
 			if (args[argidx] == "-autoproc") {
 				worker.autoproc_mode = true;
+				continue;
+			}
+			if (args[argidx] == "-wb") {
+				worker.ignore_wb = true;
 				continue;
 			}
 			break;
