@@ -385,7 +385,7 @@ struct TechmapWorker
 	{
 		std::string mapmsg_prefix = in_recursion ? "Recursively mapping" : "Mapping";
 
-		if (!design->selected(module))
+		if (!design->selected(module) || module->get_blackbox_attribute())
 			return false;
 
 		bool log_continue = false;
