@@ -140,7 +140,7 @@ struct BlifDumper
 			return "subckt";
 		if (!design->modules_.count(RTLIL::escape_id(cell_type)))
 			return "gate";
-		if (design->modules_.at(RTLIL::escape_id(cell_type))->get_bool_attribute("\\blackbox"))
+		if (design->modules_.at(RTLIL::escape_id(cell_type))->get_blackbox_attribute())
 			return "gate";
 		return "subckt";
 	}
@@ -196,7 +196,7 @@ struct BlifDumper
 		}
 		f << stringf("\n");
 
-		if (module->get_bool_attribute("\\blackbox")) {
+		if (module->get_blackbox_attribute()) {
 			f << stringf(".blackbox\n");
 			f << stringf(".end\n");
 			return;
@@ -640,7 +640,7 @@ struct BlifBackend : public Backend {
 		for (auto module_it : design->modules_)
 		{
 			RTLIL::Module *module = module_it.second;
-			if (module->get_bool_attribute("\\blackbox") && !config.blackbox_mode)
+			if (module->get_blackbox_attribute() && !config.blackbox_mode)
 				continue;
 
 			if (module->processes.size() != 0)

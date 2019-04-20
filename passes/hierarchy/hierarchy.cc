@@ -346,9 +346,9 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 		}
 		RTLIL::Module *mod = design->modules_[cell->type];
 
-		if (design->modules_.at(cell->type)->get_bool_attribute("\\blackbox")) {
+		if (design->modules_.at(cell->type)->get_blackbox_attribute()) {
 			if (flag_simcheck)
-				log_error("Module `%s' referenced in module `%s' in cell `%s' is a blackbox module.\n",
+				log_error("Module `%s' referenced in module `%s' in cell `%s' is a blackbox/whitebox module.\n",
 						cell->type.c_str(), module->name.c_str(), cell->name.c_str());
 			continue;
 		}
@@ -451,7 +451,7 @@ void hierarchy_worker(RTLIL::Design *design, std::set<RTLIL::Module*, IdString::
 
 	if (indent == 0)
 		log("Top module:  %s\n", mod->name.c_str());
-	else if (!mod->get_bool_attribute("\\blackbox"))
+	else if (!mod->get_blackbox_attribute())
 		log("Used module: %*s%s\n", indent, "", mod->name.c_str());
 	used.insert(mod);
 
@@ -491,7 +491,7 @@ void hierarchy_clean(RTLIL::Design *design, RTLIL::Module *top, bool purge_lib)
 
 	int del_counter = 0;
 	for (auto mod : del_modules) {
-		if (!purge_lib && mod->get_bool_attribute("\\blackbox"))
+		if (!purge_lib && mod->get_blackbox_attribute())
 			continue;
 		log("Removing unused module `%s'.\n", mod->name.c_str());
 		design->modules_.erase(mod->name);
@@ -910,7 +910,7 @@ struct HierarchyPass : public Pass {
 			if (m == nullptr)
 				continue;
 
-			if (m->get_bool_attribute("\\blackbox") && !cell->parameters.empty() && m->get_bool_attribute("\\dynports")) {
+			if (m->get_blackbox_attribute() && !cell->parameters.empty() && m->get_bool_attribute("\\dynports")) {
 				IdString new_m_name = m->derive(design, cell->parameters, true);
 				if (new_m_name.empty())
 					continue;
