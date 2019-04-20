@@ -127,7 +127,10 @@ module SB_LUT4 (output O, input I0, I1, I2, I3);
 	assign O = I0 ? s1[1] : s1[0];
 endmodule
 
-(* abc_box_id = 21, whitebox *)
+(* abc_box_id = 21 *)
+`ifdef ABC_MODEL
+    (* whitebox *)
+`endif
 module SB_CARRY (output CO, input I0, I1, CI);
 	assign CO = (I0 && I1) || ((I0 || I1) && CI);
 endmodule
@@ -135,11 +138,11 @@ endmodule
 // Positive Edge SiliconBlue FF Cells
 
 (* abc_box_id = 1, abc_flop *)
-`ifdef ABC_FLOPS
+`ifdef ABC_MODEL
     (* whitebox *)
 `endif
 module SB_DFF ((* abc_flop_q *) output `SB_DFF_REG, input C, (* abc_flop_d *) input D);
-`ifndef ABC_FLOPS
+`ifndef ABC_MODEL
 	always @(posedge C)
 		Q <= D;
 `else
