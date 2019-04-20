@@ -108,6 +108,7 @@ struct SigSnippets
 
 struct SnippetSwCache
 {
+	dict<RTLIL::SwitchRule*, pool<RTLIL::SigBit>, hash_ptr_ops> full_case_bits_cache;
 	dict<RTLIL::SwitchRule*, pool<int>, hash_ptr_ops> cache;
 	const SigSnippets *snippets;
 	int current_snippet;
@@ -268,6 +269,49 @@ void append_pmux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const std::ve
 	last_mux_cell->parameters["\\S_WIDTH"] = last_mux_cell->getPort("\\S").size();
 }
 
+const pool<SigBit> &get_full_case_bits(SnippetSwCache &swcache, RTLIL::SwitchRule *sw)
+{
+	if (!swcache.full_case_bits_cache.count(sw))
+	{
+		pool<SigBit> bits;
+
+		if (sw->get_bool_attribute("\\full_case"))
+		{
+			bool first_case = true;
+
+			for (auto cs : sw->cases)
+			{
+				pool<SigBit> case_bits;
+
+				for (auto it : cs->actions) {
+					for (auto bit : it.first)
+						case_bits.insert(bit);
+				}
+
+				for (auto it : cs->switches) {
+					for (auto bit : get_full_case_bits(swcache, it))
+						case_bits.insert(bit);
+				}
+
+				if (first_case) {
+					first_case = false;
+					bits = case_bits;
+				} else {
+					pool<SigBit> new_bits;
+					for (auto bit : bits)
+						if (case_bits.count(bit))
+							new_bits.insert(bit);
+					bits.swap(new_bits);
+				}
+			}
+		}
+
+		bits.swap(swcache.full_case_bits_cache[sw]);
+	}
+
+	return swcache.full_case_bits_cache.at(sw);
+}
+
 RTLIL::SigSpec signal_to_mux_tree(RTLIL::Module *mod, SnippetSwCache &swcache, dict<RTLIL::SwitchRule*, bool, hash_ptr_ops> &swpara,
 		RTLIL::CaseRule *cs, const RTLIL::SigSpec &sig, const RTLIL::SigSpec &defval, bool ifxmode)
 {
@@ -336,6 +380,12 @@ RTLIL::SigSpec signal_to_mux_tree(RTLIL::Module *mod, SnippetSwCache &swcache, d
 						pool.take(pat);
 			}
 		}
+
+		// mask default bits that are irrelevant because the output is driven by a full case
+		const pool<SigBit> &full_case_bits = get_full_case_bits(swcache, sw);
+		for (int i = 0; i < GetSize(sig); i++)
+			if (full_case_bits.count(sig[i]))
+				result[i] = State::Sx;
 
 		// evaluate in reverse order to give the first entry the top priority
 		RTLIL::SigSpec initial_val = result;

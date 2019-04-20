@@ -254,7 +254,7 @@ void create_miter_equiv(struct Pass *that, std::vector<std::string> args, RTLIL:
 
 	if (flag_flatten) {
 		log_push();
-		Pass::call_on_module(design, miter_module, "flatten; opt_expr -keepdc -undriven;;");
+		Pass::call_on_module(design, miter_module, "flatten -wb; opt_expr -keepdc -undriven;;");
 		log_pop();
 	}
 }
@@ -308,7 +308,7 @@ void create_miter_assert(struct Pass *that, std::vector<std::string> args, RTLIL
 
 	if (flag_flatten) {
 		log_push();
-		Pass::call_on_module(design, module, "flatten;;");
+		Pass::call_on_module(design, module, "flatten -wb;;");
 		log_pop();
 	}
 
@@ -385,7 +385,7 @@ struct MiterPass : public Pass {
 		log("        also create an 'assert' cell that checks if trigger is always low.\n");
 		log("\n");
 		log("    -flatten\n");
-		log("        call 'flatten; opt_expr -keepdc -undriven;;' on the miter circuit.\n");
+		log("        call 'flatten -wb; opt_expr -keepdc -undriven;;' on the miter circuit.\n");
 		log("\n");
 		log("\n");
 		log("    miter -assert [options] module [miter_name]\n");
@@ -399,7 +399,7 @@ struct MiterPass : public Pass {
 		log("        keep module output ports.\n");
 		log("\n");
 		log("    -flatten\n");
-		log("        call 'flatten; opt_expr -keepdc -undriven;;' on the miter circuit.\n");
+		log("        call 'flatten -wb; opt_expr -keepdc -undriven;;' on the miter circuit.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE

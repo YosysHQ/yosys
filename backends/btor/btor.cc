@@ -340,7 +340,7 @@ struct BtorWorker
 			if (cell->type == "$lt") btor_op = "lt";
 			if (cell->type == "$le") btor_op = "lte";
 			if (cell->type.in("$eq", "$eqx")) btor_op = "eq";
-			if (cell->type.in("$ne", "$nex")) btor_op = "ne";
+			if (cell->type.in("$ne", "$nex")) btor_op = "neq";
 			if (cell->type == "$ge") btor_op = "gte";
 			if (cell->type == "$gt") btor_op = "gt";
 			log_assert(!btor_op.empty());

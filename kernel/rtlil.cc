@@ -207,9 +207,12 @@ bool RTLIL::Const::is_fully_undef() const
 	return true;
 }
 
-void RTLIL::AttrObject::set_bool_attribute(RTLIL::IdString id)
+void RTLIL::AttrObject::set_bool_attribute(RTLIL::IdString id, bool value)
 {
-	attributes[id] = RTLIL::Const(1);
+	if (value)
+		attributes[id] = RTLIL::Const(1);
+	else if (attributes.count(id))
+		attributes.erase(id);
 }
 
 bool RTLIL::AttrObject::get_bool_attribute(RTLIL::IdString id) const

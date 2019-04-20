@@ -29,17 +29,17 @@
 // Kahn, Arthur B. (1962), "Topological sorting of large networks", Communications of the ACM 5 (11): 558-562, doi:10.1145/368996.369025
 // http://en.wikipedia.org/wiki/Topological_sorting
 
-#define ABC_COMMAND_LIB "strash; ifraig; scorr; dc2; dretime; strash; &get -n; &dch -f; &nf {D}; &put"
-#define ABC_COMMAND_CTR "strash; ifraig; scorr; dc2; dretime; strash; &get -n; &dch -f; &nf {D}; &put; buffer; upsize {D}; dnsize {D}; stime -p"
-#define ABC_COMMAND_LUT "strash; ifraig; scorr; dc2; dretime; strash; dch -f; if; mfs2"
-#define ABC_COMMAND_SOP "strash; ifraig; scorr; dc2; dretime; strash; dch -f; cover {I} {P}"
-#define ABC_COMMAND_DFL "strash; ifraig; scorr; dc2; dretime; strash; &get -n; &dch -f; &nf {D}; &put"
+#define ABC_COMMAND_LIB "strash; ifraig; scorr; dc2; dretime; retime {D}; strash; &get -n; &dch -f; &nf {D}; &put"
+#define ABC_COMMAND_CTR "strash; ifraig; scorr; dc2; dretime; retime {D}; strash; &get -n; &dch -f; &nf {D}; &put; buffer; upsize {D}; dnsize {D}; stime -p"
+#define ABC_COMMAND_LUT "strash; ifraig; scorr; dc2; dretime; retime {D}; strash; dch -f; if; mfs2"
+#define ABC_COMMAND_SOP "strash; ifraig; scorr; dc2; dretime; retime {D}; strash; dch -f; cover {I} {P}"
+#define ABC_COMMAND_DFL "strash; ifraig; scorr; dc2; dretime; retime {D}; strash; &get -n; &dch -f; &nf {D}; &put"
 
-#define ABC_FAST_COMMAND_LIB "strash; dretime; map {D}"
-#define ABC_FAST_COMMAND_CTR "strash; dretime; map {D}; buffer; upsize {D}; dnsize {D}; stime -p"
-#define ABC_FAST_COMMAND_LUT "strash; dretime; if"
-#define ABC_FAST_COMMAND_SOP "strash; dretime; cover -I {I} -P {P}"
-#define ABC_FAST_COMMAND_DFL "strash; dretime; map"
+#define ABC_FAST_COMMAND_LIB "strash; dretime; retime {D}; map {D}"
+#define ABC_FAST_COMMAND_CTR "strash; dretime; retime {D}; map {D}; buffer; upsize {D}; dnsize {D}; stime -p"
+#define ABC_FAST_COMMAND_LUT "strash; dretime; retime {D}; if"
+#define ABC_FAST_COMMAND_SOP "strash; dretime; retime {D}; cover -I {I} -P {P}"
+#define ABC_FAST_COMMAND_DFL "strash; dretime; retime {D}; map"
 
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
@@ -331,19 +331,23 @@ std::string remap_name(RTLIL::IdString abc_name, RTLIL::Wire **orig_wire = nullp
 {
 	std::string abc_sname = abc_name.substr(1);
 	if (abc_sname.substr(0, 5) == "ys__n") {
-		int sid = std::stoi(abc_sname.substr(5));
 		bool inv = abc_sname.back() == 'v';
-		for (auto sig : signal_list) {
-			if (sig.id == sid && sig.bit.wire != nullptr) {
-				std::stringstream sstr;
-				sstr << "$abc$" << map_autoidx << "$" << sig.bit.wire->name.substr(1);
-				if (sig.bit.wire->width != 1)
-					sstr << "[" << sig.bit.offset << "]";
-				if (inv)
-					sstr << "_inv";
-				if (orig_wire != nullptr)
-					*orig_wire = sig.bit.wire;
-				return sstr.str();
+		if (inv) abc_sname.pop_back();
+		abc_sname.erase(0, 5);
+		if (abc_sname.find_last_not_of("012345689") == std::string::npos) {
+			int sid = std::stoi(abc_sname);
+			for (auto sig : signal_list) {
+				if (sig.id == sid && sig.bit.wire != nullptr) {
+					std::stringstream sstr;
+					sstr << "$abc$" << map_autoidx << "$" << sig.bit.wire->name.substr(1);
+					if (sig.bit.wire->width != 1)
+						sstr << "[" << sig.bit.offset << "]";
+					if (inv)
+						sstr << "_inv";
+					if (orig_wire != nullptr)
+						*orig_wire = sig.bit.wire;
+					return sstr.str();
+				}
 			}
 		}
 	}
@@ -730,10 +734,6 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		abc_script += fast_mode ? ABC_FAST_COMMAND_SOP : ABC_COMMAND_SOP;
 	else
 		abc_script += fast_mode ? ABC_FAST_COMMAND_DFL : ABC_COMMAND_DFL;
-
-	if (script_file.empty() && !delay_target.empty())
-		for (size_t pos = abc_script.find("dretime;"); pos != std::string::npos; pos = abc_script.find("dretime;", pos+1))
-			abc_script = abc_script.substr(0, pos) + "dretime; retime -o {D};" + abc_script.substr(pos+8);
 
 	for (size_t pos = abc_script.find("{D}"); pos != std::string::npos; pos = abc_script.find("{D}", pos))
 		abc_script = abc_script.substr(0, pos) + delay_target + abc_script.substr(pos+3);
@@ -1726,7 +1726,7 @@ struct AbcPass : public Pass {
 								signal_init[initsig[i]] = State::S0;
 								break;
 							case State::S1:
-								signal_init[initsig[i]] = State::S0;
+								signal_init[initsig[i]] = State::S1;
 								break;
 							default:
 								break;
