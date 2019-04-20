@@ -316,6 +316,9 @@ Verilog Attributes and non-standard features
   ``blackbox``, but is for whitebox modules, i.e. library modules that
   contain a behavioral model of the cell type.
 
+- The ``lib_whitebox`` attribute overwrites ``whitebox`` when ``read_verilog``
+  is run in `-lib` mode. Otherwise it's automatically removed.
+
 - The ``dynports`` attribute is used by the Verilog front-end to mark modules
   that have ports with a width that depends on a parameter.
 

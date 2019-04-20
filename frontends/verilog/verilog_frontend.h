@@ -69,11 +69,14 @@ namespace VERILOG_FRONTEND
 	// running in -assert-assumes mode
 	extern bool assert_assumes_mode;
 
+	// running in -noblackbox mode
+	extern bool noblackbox_mode;
+
 	// running in -lib mode
 	extern bool lib_mode;
 
-	// running in -wb mode
-	extern bool wb_mode;
+	// running in -nowb mode
+	extern bool nowb_mode;
 
 	// lexer input stream
 	extern std::istream *lexin;
