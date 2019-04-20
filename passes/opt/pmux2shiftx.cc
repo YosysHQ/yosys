@@ -28,6 +28,7 @@ struct OnehotDatabase
 	Module *module;
 	const SigMap &sigmap;
 	bool verbose = false;
+	bool initialized = false;
 
 	pool<SigBit> init_ones;
 	dict<SigSpec, pool<SigSpec>> sig_sources_db;
@@ -40,6 +41,9 @@ struct OnehotDatabase
 
 	void initialize()
 	{
+		log_assert(!initialized);
+		initialized = true;
+
 		for (auto wire : module->wires())
 		{
 			auto it = wire->attributes.find("\\init");
@@ -176,6 +180,9 @@ struct OnehotDatabase
 		if (verbose)
 			log("** ONEHOT QUERY START (%s)\n", log_signal(sig));
 
+		if (!initialized)
+			initialize();
+
 		query_worker(sig, retval, cache, 3);
 
 		if (verbose)
@@ -272,9 +279,6 @@ struct Pmux2ShiftxPass : public Pass {
 			SigMap sigmap(module);
 			OnehotDatabase onehot_db(module, sigmap);
 			onehot_db.verbose = verbose_onehot;
-
-			if (optimize_onehot)
-				onehot_db.initialize();
 
 			dict<SigBit, pair<SigSpec, Const>> eqdb;
 
@@ -743,7 +747,6 @@ struct OnehotPass : public Pass {
 			SigMap sigmap(module);
 			OnehotDatabase onehot_db(module, sigmap);
 			onehot_db.verbose = verbose_onehot;
-			onehot_db.initialize();
 
 			for (auto cell : module->selected_cells())
 			{
