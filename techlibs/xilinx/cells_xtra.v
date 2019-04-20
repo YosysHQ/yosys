@@ -30,29 +30,6 @@ module BUFGCE_1 (...);
     input CE, I;
 endmodule
 
-module BUFGCTRL (...);
-    output O;
-    input CE0;
-    input CE1;
-    input I0;
-    input I1;
-    input IGNORE0;
-    input IGNORE1;
-    input S0;
-    input S1;
-    parameter integer INIT_OUT = 0;
-    parameter PRESELECT_I0 = "FALSE";
-    parameter PRESELECT_I1 = "FALSE";
-    parameter [0:0] IS_CE0_INVERTED = 1'b0;
-    parameter [0:0] IS_CE1_INVERTED = 1'b0;
-    parameter [0:0] IS_I0_INVERTED = 1'b0;
-    parameter [0:0] IS_I1_INVERTED = 1'b0;
-    parameter [0:0] IS_IGNORE0_INVERTED = 1'b0;
-    parameter [0:0] IS_IGNORE1_INVERTED = 1'b0;
-    parameter [0:0] IS_S0_INVERTED = 1'b0;
-    parameter [0:0] IS_S1_INVERTED = 1'b0;
-endmodule
-
 module BUFGMUX (...);
     parameter CLK_SEL_TYPE = "SYNC";
     output O;
@@ -74,15 +51,6 @@ endmodule
 
 module BUFH (...);
     output O;
-    input I;
-endmodule
-
-module BUFHCE (...);
-    parameter CE_TYPE = "SYNC";
-    parameter integer INIT_OUT = 0;
-    parameter [0:0] IS_CE_INVERTED = 1'b0;
-    output O;
-    input CE;
     input I;
 endmodule
 
@@ -2418,12 +2386,6 @@ module LDPE (...);
     parameter XON = "TRUE";
     output Q;
     input D, G, GE, PRE;
-endmodule
-
-module LUT6_2 (...);
-    parameter [63:0] INIT = 64'h0000000000000000;
-    input I0, I1, I2, I3, I4, I5;
-    output O5, O6;
 endmodule
 
 module MMCME2_ADV (...);

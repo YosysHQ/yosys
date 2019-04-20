@@ -71,9 +71,9 @@ struct PmuxtreePass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    pmuxtree [options] [selection]\n");
+		log("    pmuxtree [selection]\n");
 		log("\n");
-		log("This pass transforms $pmux cells to a trees of $mux cells.\n");
+		log("This pass transforms $pmux cells to trees of $mux cells.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
