@@ -1194,6 +1194,16 @@ namespace {
 				return;
 			}
 
+			if (cell->type == "$specify2") {
+				// FIXME
+				return;
+			}
+
+			if (cell->type == "$specify3") {
+				// FIXME
+				return;
+			}
+
 			if (cell->type == "$_BUF_")    { check_gate("AY"); return; }
 			if (cell->type == "$_NOT_")    { check_gate("AY"); return; }
 			if (cell->type == "$_AND_")    { check_gate("ABY"); return; }

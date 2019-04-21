@@ -148,7 +148,7 @@ YOSYS_NAMESPACE_END
 "endfunction"  { return TOK_ENDFUNCTION; }
 "task"         { return TOK_TASK; }
 "endtask"      { return TOK_ENDTASK; }
-"specify"      { return TOK_SPECIFY; }
+"specify"      { return specify_mode ? TOK_SPECIFY : TOK_IGNORED_SPECIFY; }
 "endspecify"   { return TOK_ENDSPECIFY; }
 "specparam"    { return TOK_SPECPARAM; }
 "package"      { SV_KEYWORD(TOK_PACKAGE); }
@@ -410,6 +410,11 @@ import[ \t\r\n]+\"(DPI|DPI-C)\"[ \t\r\n]+function[ \t\r\n]+ {
 
 "+:" { return TOK_POS_INDEXED; }
 "-:" { return TOK_NEG_INDEXED; }
+
+[-+]?[=*]> {
+	frontend_verilog_yylval.string = new std::string(yytext);
+	return TOK_SPECIFY_OPER;
+}
 
 "/*" { BEGIN(COMMENT); }
 <COMMENT>.    /* ignore comment body */
