@@ -412,6 +412,7 @@ import[ \t\r\n]+\"(DPI|DPI-C)\"[ \t\r\n]+function[ \t\r\n]+ {
 "-:" { return TOK_NEG_INDEXED; }
 
 [-+]?[=*]> {
+	if (!specify_mode) REJECT;
 	frontend_verilog_yylval.string = new std::string(yytext);
 	return TOK_SPECIFY_OPER;
 }
