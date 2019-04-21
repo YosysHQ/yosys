@@ -269,8 +269,15 @@ struct SynthXilinxPass : public Pass
 			Pass::call(design, "dff2dffe");
 
 			if (!nosrl) {
+				// shregmap operates on bit-level flops, not word-level,
+				//   so break those down here
 				Pass::call(design, "simplemap t:$dff t:$dffe");
+				// shregmap -tech xilinx can cope with $shiftx and $mux
+				//   cells for identifiying variable-length shift registers,
+				//   so attempt to convert $pmux-es to the former
 				Pass::call(design, "pmux2shiftx");
+				// pmux2shiftx can leave behind a $pmux with a single entry
+				//   -- need this to clean that up
 				Pass::call(design, "opt_expr -mux_undef");
 				Pass::call(design, "shregmap -tech xilinx -minlen 3");
 			}
