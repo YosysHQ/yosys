@@ -664,7 +664,7 @@ struct DfflibmapPass : public Pass {
 		logmap_all();
 
 		for (auto &it : design->modules_)
-			if (design->selected(it.second) && !it.second->get_bool_attribute("\\blackbox"))
+			if (design->selected(it.second) && !it.second->get_blackbox_attribute())
 				dfflibmap(design, it.second, prepare_mode);
 
 		cell_mappings.clear();

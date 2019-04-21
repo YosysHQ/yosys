@@ -312,6 +312,10 @@ Verilog Attributes and non-standard features
   passes to identify input and output ports of cells. The Verilog backend
   also does not output blackbox modules on default.
 
+- The ``whitebox`` attribute on modules triggers the same behavior as
+  ``blackbox``, but is for whitebox modules, i.e. library modules that
+  contain a behavioral model of the cell type.
+
 - The ``dynports`` attribute is used by the Verilog front-end to mark modules
   that have ports with a width that depends on a parameter.
 

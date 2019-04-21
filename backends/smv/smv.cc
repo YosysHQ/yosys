@@ -739,7 +739,7 @@ struct SmvBackend : public Backend {
 		pool<Module*> modules;
 
 		for (auto module : design->modules())
-			if (!module->get_bool_attribute("\\blackbox") && !module->has_memories_warn() && !module->has_processes_warn())
+			if (!module->get_blackbox_attribute() && !module->has_memories_warn() && !module->has_processes_warn())
 				modules.insert(module);
 
 		if (template_f.is_open())

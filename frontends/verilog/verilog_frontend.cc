@@ -148,6 +148,10 @@ struct VerilogFrontend : public Frontend {
 		log("    -lib\n");
 		log("        only create empty blackbox modules. This implies -DBLACKBOX.\n");
 		log("\n");
+		log("    -wb\n");
+		log("        like -lib, except do not touch modules with the whitebox\n");
+		log("        attribute set. This also implies -DBLACKBOX.\n");
+		log("\n");
 		log("    -noopt\n");
 		log("        don't perform basic optimizations (such as const folding) in the\n");
 		log("        high-level front-end.\n");
@@ -228,6 +232,7 @@ struct VerilogFrontend : public Frontend {
 		norestrict_mode = false;
 		assume_asserts_mode = false;
 		lib_mode = false;
+		wb_mode = false;
 		default_nettype_wire = true;
 
 		log_header(design, "Executing Verilog-2005 frontend.\n");
@@ -329,8 +334,13 @@ struct VerilogFrontend : public Frontend {
 				flag_nodpi = true;
 				continue;
 			}
-			if (arg == "-lib") {
+			if (arg == "-lib" && !wb_mode) {
 				lib_mode = true;
+				defines_map["BLACKBOX"] = string();
+				continue;
+			}
+			if (arg == "-wb" && !lib_mode) {
+				wb_mode = true;
 				defines_map["BLACKBOX"] = string();
 				continue;
 			}
@@ -429,7 +439,7 @@ struct VerilogFrontend : public Frontend {
 		if (flag_nodpi)
 			error_on_dpi_function(current_ast);
 
-		AST::process(design, current_ast, flag_dump_ast1, flag_dump_ast2, flag_no_dump_ptr, flag_dump_vlog1, flag_dump_vlog2, flag_dump_rtlil, flag_nolatches, flag_nomeminit, flag_nomem2reg, flag_mem2reg, lib_mode, flag_noopt, flag_icells, flag_nooverwrite, flag_overwrite, flag_defer, default_nettype_wire);
+		AST::process(design, current_ast, flag_dump_ast1, flag_dump_ast2, flag_no_dump_ptr, flag_dump_vlog1, flag_dump_vlog2, flag_dump_rtlil, flag_nolatches, flag_nomeminit, flag_nomem2reg, flag_mem2reg, lib_mode, wb_mode, flag_noopt, flag_icells, flag_nooverwrite, flag_overwrite, flag_defer, default_nettype_wire);
 
 		if (!flag_nopp)
 			delete lexin;
