@@ -127,7 +127,7 @@ struct IntersynthBackend : public Backend {
 			RTLIL::Module *module = module_it.second;
 			SigMap sigmap(module);
 
-			if (module->get_bool_attribute("\\blackbox"))
+			if (module->get_blackbox_attribute())
 				continue;
 			if (module->memories.size() == 0 && module->processes.size() == 0 && module->cells_.size() == 0)
 				continue;

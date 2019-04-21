@@ -207,9 +207,12 @@ bool RTLIL::Const::is_fully_undef() const
 	return true;
 }
 
-void RTLIL::AttrObject::set_bool_attribute(RTLIL::IdString id)
+void RTLIL::AttrObject::set_bool_attribute(RTLIL::IdString id, bool value)
 {
-	attributes[id] = RTLIL::Const(1);
+	if (value)
+		attributes[id] = RTLIL::Const(1);
+	else if (attributes.count(id))
+		attributes.erase(id);
 }
 
 bool RTLIL::AttrObject::get_bool_attribute(RTLIL::IdString id) const
@@ -589,7 +592,7 @@ std::vector<RTLIL::Module*> RTLIL::Design::selected_modules() const
 	std::vector<RTLIL::Module*> result;
 	result.reserve(modules_.size());
 	for (auto &it : modules_)
-		if (selected_module(it.first) && !it.second->get_bool_attribute("\\blackbox"))
+		if (selected_module(it.first) && !it.second->get_blackbox_attribute())
 			result.push_back(it.second);
 	return result;
 }
@@ -599,7 +602,7 @@ std::vector<RTLIL::Module*> RTLIL::Design::selected_whole_modules() const
 	std::vector<RTLIL::Module*> result;
 	result.reserve(modules_.size());
 	for (auto &it : modules_)
-		if (selected_whole_module(it.first) && !it.second->get_bool_attribute("\\blackbox"))
+		if (selected_whole_module(it.first) && !it.second->get_blackbox_attribute())
 			result.push_back(it.second);
 	return result;
 }
@@ -609,7 +612,7 @@ std::vector<RTLIL::Module*> RTLIL::Design::selected_whole_modules_warn() const
 	std::vector<RTLIL::Module*> result;
 	result.reserve(modules_.size());
 	for (auto &it : modules_)
-		if (it.second->get_bool_attribute("\\blackbox"))
+		if (it.second->get_blackbox_attribute())
 			continue;
 		else if (selected_whole_module(it.first))
 			result.push_back(it.second);
@@ -639,6 +642,30 @@ RTLIL::Module::~Module()
 		delete it->second;
 	for (auto it = processes.begin(); it != processes.end(); ++it)
 		delete it->second;
+}
+
+void RTLIL::Module::makeblackbox()
+{
+	pool<RTLIL::Wire*> delwires;
+
+	for (auto it = wires_.begin(); it != wires_.end(); ++it)
+		if (!it->second->port_input && !it->second->port_output)
+			delwires.insert(it->second);
+
+	for (auto it = memories.begin(); it != memories.end(); ++it)
+		delete it->second;
+	memories.clear();
+
+	for (auto it = cells_.begin(); it != cells_.end(); ++it)
+		delete it->second;
+	cells_.clear();
+
+	for (auto it = processes.begin(); it != processes.end(); ++it)
+		delete it->second;
+	processes.clear();
+
+	remove(delwires);
+	set_bool_attribute("\\blackbox");
 }
 
 void RTLIL::Module::reprocess_module(RTLIL::Design *, dict<RTLIL::IdString, RTLIL::Module *>)

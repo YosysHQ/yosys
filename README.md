@@ -312,10 +312,14 @@ Verilog Attributes and non-standard features
   passes to identify input and output ports of cells. The Verilog backend
   also does not output blackbox modules on default.
 
-- The ``dynports'' attribute is used by the Verilog front-end to mark modules
+- The ``whitebox`` attribute on modules triggers the same behavior as
+  ``blackbox``, but is for whitebox modules, i.e. library modules that
+  contain a behavioral model of the cell type.
+
+- The ``dynports`` attribute is used by the Verilog front-end to mark modules
   that have ports with a width that depends on a parameter.
 
-- The ``hdlname'' attribute is used by some passes to document the original
+- The ``hdlname`` attribute is used by some passes to document the original
   (HDL) name of a module when renaming a module.
 
 - The ``keep`` attribute on cells and wires is used to mark objects that should

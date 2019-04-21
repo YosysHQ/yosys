@@ -134,7 +134,7 @@ struct EquivOptPass:public ScriptPass
 				opts = " -map <filename> ...";
 			else
 				opts = techmap_opts;
-			run("techmap -D EQUIV -autoproc" + opts);
+			run("techmap -wb -D EQUIV -autoproc" + opts);
 		}
 
 		if (check_label("prove")) {
