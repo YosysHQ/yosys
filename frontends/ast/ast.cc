@@ -942,6 +942,20 @@ static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast
 
 	if (!defer)
 	{
+		bool blackbox_module = flag_lib;
+
+		if (!blackbox_module && !flag_noblackbox) {
+			blackbox_module = true;
+			for (auto child : ast->children) {
+				if (child->type == AST_WIRE && (child->is_input || child->is_output))
+					continue;
+				if (child->type == AST_PARAMETER || child->type == AST_LOCALPARAM)
+					continue;
+				blackbox_module = false;
+				break;
+			}
+		}
+
 		while (ast->simplify(!flag_noopt, false, false, 0, -1, false, false)) { }
 
 		if (flag_dump_ast2) {
@@ -976,33 +990,29 @@ static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast
 			}
 		}
 
-		bool blackbox_module = flag_lib;
-
 		if (!blackbox_module && ast->attributes.count("\\blackbox")) {
 			AstNode *n = ast->attributes.at("\\blackbox");
 			if (n->type != AST_CONSTANT)
-				log_file_error(ast->filename, ast->linenum, "Blackbox attribute with non-constant value!\n");
+				log_file_error(ast->filename, ast->linenum, "Got blackbox attribute with non-constant value!\n");
 			blackbox_module = n->asBool();
 		}
 
-		if (!blackbox_module && !flag_noblackbox)
-		{
-			for (auto child : ast->children) {
-				if (child->type == AST_WIRE && (child->is_input || child->is_output))
-					continue;
-				if (child->type == AST_PARAMETER || child->type == AST_LOCALPARAM)
-					continue;
-				goto noblackbox;
-			}
-			blackbox_module = 1;
-		}
-
-	noblackbox:
 		if (blackbox_module && ast->attributes.count("\\whitebox")) {
 			AstNode *n = ast->attributes.at("\\whitebox");
 			if (n->type != AST_CONSTANT)
-				log_file_error(ast->filename, ast->linenum, "Whitebox attribute with non-constant value!\n");
+				log_file_error(ast->filename, ast->linenum, "Got whitebox attribute with non-constant value!\n");
 			blackbox_module = !n->asBool();
+		}
+
+		if (ast->attributes.count("\\noblackbox")) {
+			if (blackbox_module) {
+				AstNode *n = ast->attributes.at("\\noblackbox");
+				if (n->type != AST_CONSTANT)
+					log_file_error(ast->filename, ast->linenum, "Got noblackbox attribute with non-constant value!\n");
+				blackbox_module = !n->asBool();
+			}
+			delete ast->attributes.at("\\noblackbox");
+			ast->attributes.erase("\\noblackbox");
 		}
 
 		if (blackbox_module)
