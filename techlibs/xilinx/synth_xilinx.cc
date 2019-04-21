@@ -116,8 +116,7 @@ struct SynthXilinxPass : public Pass
 		log("        pmux2shiftx (without '-nosrl' only)\n");
 		log("        opt_expr -mux_undef (without '-nosrl' only)\n");
 		log("        shregmap -tech xilinx -minlen 3 (without '-nosrl' only)\n");
-		log("        opt -full\n");
-		log("        techmap -map +/techmap.v -map +/xilinx/arith_map.v\n");
+		log("        techmap -map +/xilinx/arith_map.v\n");
 		log("        opt -fast\n");
 		log("\n");
 		log("    map_cells:\n");
@@ -125,7 +124,8 @@ struct SynthXilinxPass : public Pass
 		log("        clean\n");
 		log("\n");
 		log("    map_luts:\n");
-		log("        techmap -map +/techmap.v -map +/xilinx/ff_map.v t:$_DFF_?N?\n");
+		log("        opt -full\n");
+		log("        techmap -map +/techmap.v -D _NO_POS_SR -map +/xilinx/ff_map.v\n");
 		log("        abc -luts 2:2,3,6:5,10,20 [-dff]\n");
 		log("        clean\n");
 		log("        shregmap -minlen 3 -init -params -enpol any_or_none (without '-nosrl' only)\n");
@@ -282,12 +282,10 @@ struct SynthXilinxPass : public Pass
 				Pass::call(design, "shregmap -tech xilinx -minlen 3");
 			}
 
-			Pass::call(design, "opt -full");
-
 			if (vpr) {
-				Pass::call(design, "techmap -map +/techmap.v -map +/xilinx/arith_map.v -D _EXPLICIT_CARRY");
+				Pass::call(design, "techmap -map +/xilinx/arith_map.v -D _EXPLICIT_CARRY");
 			} else {
-				Pass::call(design, "techmap -map +/techmap.v -map +/xilinx/arith_map.v");
+				Pass::call(design, "techmap -map +/xilinx/arith_map.v");
 			}
 
 			Pass::call(design, "hierarchy -check");
@@ -302,7 +300,8 @@ struct SynthXilinxPass : public Pass
 
 		if (check_label(active, run_from, run_to, "map_luts"))
 		{
-			Pass::call(design, "techmap -map +/techmap.v -map +/xilinx/ff_map.v t:$_DFF_?N?");
+			Pass::call(design, "opt -full");
+			Pass::call(design, "techmap -map +/techmap.v -D _NO_POS_SR -map +/xilinx/ff_map.v");
 			Pass::call(design, "abc -luts 2:2,3,6:5,10,20" + string(retime ? " -dff" : ""));
 			Pass::call(design, "clean");
 			if (!nosrl)
