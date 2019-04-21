@@ -112,9 +112,11 @@ struct SynthXilinxPass : public Pass
 		log("        memory_map\n");
 		log("        dffsr2dff\n");
 		log("        dff2dffe\n");
-		log("        opt -full\n");
 		log("        simplemap t:$dff t:$dffe (without '-nosrl' only)\n");
+		log("        pmux2shiftx (without '-nosrl' only)\n");
+		log("        opt_expr -mux_undef (without '-nosrl' only)\n");
 		log("        shregmap -tech xilinx -minlen 3 (without '-nosrl' only)\n");
+		log("        opt -full\n");
 		log("        techmap -map +/techmap.v -map +/xilinx/arith_map.v\n");
 		log("        opt -fast\n");
 		log("\n");
@@ -261,16 +263,19 @@ struct SynthXilinxPass : public Pass
 
 		if (check_label(active, run_from, run_to, "fine"))
 		{
-			Pass::call(design, "opt -fast -full");
+			Pass::call(design, "opt -fast");
 			Pass::call(design, "memory_map");
 			Pass::call(design, "dffsr2dff");
 			Pass::call(design, "dff2dffe");
-			Pass::call(design, "opt -full");
 
 			if (!nosrl) {
 				Pass::call(design, "simplemap t:$dff t:$dffe");
+				Pass::call(design, "pmux2shiftx");
+				Pass::call(design, "opt_expr -mux_undef");
 				Pass::call(design, "shregmap -tech xilinx -minlen 3");
 			}
+
+			Pass::call(design, "opt -full");
 
 			if (vpr) {
 				Pass::call(design, "techmap -map +/techmap.v -map +/xilinx/arith_map.v -D _EXPLICIT_CARRY");

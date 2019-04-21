@@ -96,7 +96,6 @@ struct ShregmapTechGreenpak4 : ShregmapTech
 struct ShregmapTechXilinx7 : ShregmapTech
 {
 	dict<SigBit, std::tuple<Cell*,int,int>> sigbit_to_shiftx_offset;
-	dict<SigBit, SigSpec> sigbit_to_eq_input;
 	const ShregmapOptions &opts;
 
 	ShregmapTechXilinx7(const ShregmapOptions &opts) : opts(opts) {}
@@ -120,32 +119,6 @@ struct ShregmapTechXilinx7 : ShregmapTech
 				for (auto bit : sigmap(cell->getPort("\\B")))
 					sigbit_to_shiftx_offset[bit] = std::make_tuple(cell, 1, j++);
 			}
-			else if (cell->type == "$pmux") {
-				if (!cell->get_bool_attribute("\\shiftx_compatible")) continue;
-				int width = cell->getParam("\\WIDTH").as_int();
-				int j = 0;
-				for (auto bit : sigmap(cell->getPort("\\A")))
-					sigbit_to_shiftx_offset[bit] = std::make_tuple(cell, 0, j++);
-				j = cell->getParam("\\S_WIDTH").as_int();
-				int k = 0;
-				for (auto bit : sigmap(cell->getPort("\\B"))) {
-					sigbit_to_shiftx_offset[bit] = std::make_tuple(cell, j, k++);
-					if (k == width) {
-						k = 0;
-						--j;
-					}
-				}
-				log_assert(j == 0);
-			}
-			else if (cell->type == "$eq") {
-				auto b_wire = cell->getPort("\\B");
-				// Keep track of $eq cells that compare against the value 1
-				// in anticipation that they drive the select (S) port of a $pmux
-				if (b_wire.is_fully_const() && b_wire.as_int() == 1) {
-					auto y_wire = sigmap(cell->getPort("\\Y").as_bit());
-					sigbit_to_eq_input[y_wire] = cell->getPort("\\A");
-				}
-			}
 		}
 	}
 
@@ -156,8 +129,6 @@ struct ShregmapTechXilinx7 : ShregmapTech
 			return;
 		if (cell) {
 			if (cell->type == "$shiftx" && port == "\\A")
-				return;
-			if (cell->type == "$pmux" && (port == "\\A" || port == "\\B"))
 				return;
 			if (cell->type == "$mux" && (port == "\\A" || port == "\\B"))
 				return;
@@ -210,10 +181,6 @@ struct ShregmapTechXilinx7 : ShregmapTech
 			if (GetSize(taps) != shiftx->getParam("\\A_WIDTH").as_int())
 				return false;
 		}
-		else if (shiftx->type == "$pmux") {
-			if (GetSize(taps) != shiftx->getParam("\\S_WIDTH").as_int() + 1)
-				return false;
-		}
 		else if (shiftx->type == "$mux") {
 			if (GetSize(taps) != 2)
 				return false;
@@ -249,25 +216,6 @@ struct ShregmapTechXilinx7 : ShregmapTech
 			l_wire = shiftx->getPort("\\B");
 			q_wire = shiftx->getPort("\\Y");
 			shiftx->setPort("\\Y", cell->module->addWire(NEW_ID));
-		}
-		else if (shiftx->type == "$pmux") {
-			// If the 'A' port is fully undef, then opt_expr -mux_undef
-			// has not been applied, so find the second-to-last bit of
-			// the 'S' port (corresponding to $eq cell comparing for 1)
-			// otherwise use the last bit of 'S'
-			const auto& s_wire_bits = shiftx->getPort("\\S").bits();
-			SigBit s1;
-			if (shiftx->getPort("\\A").is_fully_undef())
-				s1 = s_wire_bits[s_wire_bits.size() - 2];
-			else
-				s1 = s_wire_bits[s_wire_bits.size() - 1];
-			RTLIL::SigSpec y_wire = shiftx->getPort("\\Y");
-			l_wire = sigbit_to_eq_input.at(s1);
-			log_assert(l_wire.size() == ceil(log2(taps.size())));
-			int group = std::get<2>(it->second);
-			q_wire = y_wire[group];
-			y_wire[group] = cell->module->addWire(NEW_ID);
-			shiftx->setPort("\\Y", y_wire);
 		}
 		else if (shiftx->type == "$mux") {
 			l_wire = shiftx->getPort("\\S");
