@@ -121,7 +121,7 @@ struct SynthXilinxPass : public Pass
 		log("        opt -fast\n");
 		log("\n");
 		log("    map_cells:\n");
-		log("        techmap -map +/techmap.v -map +/xilinx/cells_map.v\n");
+		log("        techmap -map +/xilinx/cells_map.v\n");
 		log("        clean\n");
 		log("\n");
 		log("    map_luts:\n");
@@ -296,7 +296,7 @@ struct SynthXilinxPass : public Pass
 
 		if (check_label(active, run_from, run_to, "map_cells"))
 		{
-			Pass::call(design, "techmap -map +/techmap.v -map +/xilinx/cells_map.v");
+			Pass::call(design, "techmap -map +/xilinx/cells_map.v");
 			Pass::call(design, "clean");
 		}
 
