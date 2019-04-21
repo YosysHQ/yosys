@@ -240,7 +240,7 @@ struct SynthIce40Pass : public ScriptPass
 	{
 		if (check_label("begin"))
 		{
-			run("read_verilog -wb -D ABC_MODEL +/ice40/cells_sim.v");
+			run("read_verilog -lib -D ABC_MODEL +/ice40/cells_sim.v");
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
 			run("proc");
 		}
