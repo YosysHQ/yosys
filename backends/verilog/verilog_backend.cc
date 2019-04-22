@@ -1252,6 +1252,53 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		return true;
 	}
 
+	if (cell->type.in("$specify2", "$specify3"))
+	{
+		f << stringf("%s" "specify\n%s  ", indent.c_str(), indent.c_str());
+
+		SigSpec en = cell->getPort("\\EN");
+		if (en != State::S1) {
+			f << stringf("if (");
+			dump_sigspec(f, cell->getPort("\\EN"));
+			f << stringf(") ");
+		}
+
+		f << "(";
+		if (cell->type == "$specify3" && cell->getParam("\\EDGE_EN").as_bool())
+			f << (cell->getParam("\\EDGE_POL").as_bool() ? "posedge ": "negedge ");
+
+		dump_sigspec(f, cell->getPort("\\SRC"));
+
+		f << " ";
+		if (cell->getParam("\\SRC_DST_PEN").as_bool())
+			f << (cell->getParam("\\SRC_DST_POL").as_bool() ? "+": "-");
+		f << (cell->getParam("\\FULL").as_bool() ? "*> ": "=> ");
+
+		if (cell->type == "$specify3") {
+			f << "(";
+			dump_sigspec(f, cell->getPort("\\DST"));
+			f << " ";
+			if (cell->getParam("\\DAT_DST_PEN").as_bool())
+				f << (cell->getParam("\\DAT_DST_POL").as_bool() ? "+": "-");
+			f << ": ";
+			dump_sigspec(f, cell->getPort("\\DAT"));
+			f << ")";
+		} else {
+			dump_sigspec(f, cell->getPort("\\DST"));
+		}
+
+		f << stringf(") = (%d:%d:%d, %d:%d:%d);\n",
+				cell->getParam("\\T_RISE_MIN").as_int(),
+				cell->getParam("\\T_RISE_AVG").as_int(),
+				cell->getParam("\\T_RISE_MAX").as_int(),
+				cell->getParam("\\T_FALL_MIN").as_int(),
+				cell->getParam("\\T_FALL_AVG").as_int(),
+				cell->getParam("\\T_FALL_MAX").as_int());
+
+		f << stringf("%s" "endspecify\n", indent.c_str());
+		return true;
+	}
+
 	// FIXME: $_SR_[PN][PN]_, $_DLATCH_[PN]_, $_DLATCHSR_[PN][PN][PN]_
 	// FIXME: $sr, $dlatch, $memrd, $memwr, $fsm
 
