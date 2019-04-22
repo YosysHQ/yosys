@@ -369,6 +369,7 @@ struct Pmux2ShiftxPass : public Pass {
 
 				dict<SigSpec, pool<int>> seldb;
 
+				SigSpec A = cell->getPort("\\A");
 				SigSpec B = cell->getPort("\\B");
 				SigSpec S = sigmap(cell->getPort("\\S"));
 				for (int i = 0; i < GetSize(S); i++)
@@ -418,6 +419,8 @@ struct Pmux2ShiftxPass : public Pass {
 							is_onehot = false;
 						choices[val] = i;
 					}
+
+					bool full_pmux = GetSize(choices) == GetSize(S);
 
 					// TBD: also find choices that are using signals that are subsets of the bits in "sig"
 
@@ -634,7 +637,21 @@ struct Pmux2ShiftxPass : public Pass {
 					log("    range density: %d%%\n", range_density);
 					log("    absolute density: %d%%\n", absolute_density);
 
-					bool full_case = (min_choice == 0) && (max_choice == (1 << GetSize(sig))-1) && (max_choice+1 == GetSize(choices));
+					if (full_pmux) {
+						int full_density = 100*GetSize(choices) / (1 << GetSize(sig));
+						log("    full density: %d%%\n", full_density);
+						if (full_density < min_density) {
+							full_pmux = false;
+						} else {
+							min_choice = 0;
+							max_choice = (1 << GetSize(sig))-1;
+							log("    update to full case.\n");
+							log("    new min choice: %d\n", min_choice);
+							log("    new max choice: %d\n", max_choice);
+						}
+					}
+
+					bool full_case = (min_choice == 0) && (max_choice == (1 << GetSize(sig))-1) && (full_pmux || max_choice+1 == GetSize(choices));
 					log("    full case: %s\n", full_case ? "true" : "false");
 
 					// check density percentages
@@ -677,6 +694,10 @@ struct Pmux2ShiftxPass : public Pass {
 
 					// create data signal
 					SigSpec data(State::Sx, (max_choice+1)*extwidth);
+					if (full_pmux) {
+						for (int i = 0; i <= max_choice; i++)
+							data.replace(i*extwidth, A);
+					}
 					for (auto &it : perm_choices) {
 						int position = it.first.as_int()*extwidth;
 						int data_index = it.second;
