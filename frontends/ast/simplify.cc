@@ -1085,7 +1085,12 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 		// eval 1st expression
 		AstNode *varbuf = init_ast->children[1]->clone();
-		while (varbuf->simplify(true, false, false, stage, 32, true, false)) { }
+		{
+			int expr_width_hint = -1;
+			bool expr_sign_hint = true;
+			varbuf->detectSignWidth(expr_width_hint, expr_sign_hint);
+			while (varbuf->simplify(true, false, false, stage, 32, true, false)) { }
+		}
 
 		if (varbuf->type != AST_CONSTANT)
 			log_file_error(filename, linenum, "Right hand side of 1st expression of generate for-loop is not constant!\n");
@@ -1107,7 +1112,12 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		{
 			// eval 2nd expression
 			AstNode *buf = while_ast->clone();
-			while (buf->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
+			{
+				int expr_width_hint = -1;
+				bool expr_sign_hint = true;
+				buf->detectSignWidth(expr_width_hint, expr_sign_hint);
+				while (buf->simplify(true, false, false, stage, expr_width_hint, expr_sign_hint, false)) { }
+			}
 
 			if (buf->type != AST_CONSTANT)
 				log_file_error(filename, linenum, "2nd expression of generate for-loop is not constant!\n");
@@ -1148,7 +1158,12 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 			// eval 3rd expression
 			buf = next_ast->children[1]->clone();
-			while (buf->simplify(true, false, false, stage, 32, true, false)) { }
+			{
+				int expr_width_hint = -1;
+				bool expr_sign_hint = true;
+				buf->detectSignWidth(expr_width_hint, expr_sign_hint);
+				while (buf->simplify(true, false, false, stage, expr_width_hint, expr_sign_hint, true)) { }
+			}
 
 			if (buf->type != AST_CONSTANT)
 				log_file_error(filename, linenum, "Right hand side of 3rd expression of generate for-loop is not constant!\n");
