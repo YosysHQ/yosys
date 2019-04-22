@@ -161,12 +161,8 @@ struct XAigerWriter
 			}
 		}
 
-		for (auto bit : input_bits) {
-			if (!bit.wire->port_output)
-				undriven_bits.erase(bit);
-			// Erase POs that are also PIs
-			output_bits.erase(bit);
-		}
+		for (auto bit : input_bits)
+			undriven_bits.erase(bit);
 
 		for (auto bit : output_bits)
 			if (!bit.wire->port_input)
@@ -275,7 +271,8 @@ struct XAigerWriter
 						}
 					}
 				}
-				if (!abc_box_seen) abc_box_seen = inst_module->attributes.count("\\abc_box_id");
+				if (!abc_box_seen)
+					abc_box_seen = inst_module->attributes.count("\\abc_box_id");
 
 				ff_bits.emplace_back(d, q);
 				undriven_bits.erase(q);
