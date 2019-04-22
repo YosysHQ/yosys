@@ -119,8 +119,8 @@ struct SynthXilinxPass : public Pass
 		log("        opt -fast\n");
 		log("\n");
 		log("    map_cells:\n");
+		log("        pmux2shiftx\n");
 		log("        simplemap t:$dff t:$dffe (without '-nosrl' only)\n");
-		log("        pmux2shiftx (without '-nosrl' only)\n");
 		log("        opt_expr -mux_undef (without '-nosrl' only)\n");
 		log("        shregmap -tech xilinx -minlen 3 (without '-nosrl' only)\n");
 		log("        techmap -map +/xilinx/cells_map.v\n");
@@ -288,14 +288,16 @@ struct SynthXilinxPass : public Pass
 
 		if (check_label(active, run_from, run_to, "map_cells"))
 		{
+			// shregmap -tech xilinx can cope with $shiftx and $mux
+			//   cells for identifying variable-length shift registers,
+			//   so attempt to convert $pmux-es to the former
+			// Also: wide multiplexers inference benefits from this too
+			Pass::call(design, "pmux2shiftx");
+
 			if (!nosrl) {
 				// shregmap operates on bit-level flops, not word-level,
 				//   so break those down here
 				Pass::call(design, "simplemap t:$dff t:$dffe");
-				// shregmap -tech xilinx can cope with $shiftx and $mux
-				//   cells for identifiying variable-length shift registers,
-				//   so attempt to convert $pmux-es to the former
-				Pass::call(design, "pmux2shiftx");
 				// pmux2shiftx can leave behind a $pmux with a single entry
 				//   -- need this to clean that up before shregmap
 				Pass::call(design, "opt_expr -mux_undef");
@@ -311,9 +313,8 @@ struct SynthXilinxPass : public Pass
 		{
 			Pass::call(design, "opt -full");
 			Pass::call(design, "techmap -map +/techmap.v -D _NO_POS_SR -map +/xilinx/ff_map.v");
-			Pass::call(design, "read_verilog +/xilinx/cells_box.v");
 			if (abc == "abc9")
-				Pass::call(design, abc + " -lut +/xilinx/cells.lut -box +/xilinx/cells.box" + string(retime ? " -dff" : ""));
+				Pass::call(design, abc + " -lut +/xilinx/abc.lut -box +/xilinx/abc.box" + string(retime ? " -dff" : ""));
 			else
 				Pass::call(design, abc + " -luts 2:2,3,6:5,10,20" + string(retime ? " -dff" : ""));
 			Pass::call(design, "clean");

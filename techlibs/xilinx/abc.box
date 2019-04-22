@@ -2,13 +2,13 @@
 # from https://github.com/SymbiFlow/prjxray/pull/706#issuecomment-479380321
 
 # F7BMUX slower than F7AMUX
-# Inputs: 0 1 S0
-# Outputs: OUT
+# Inputs: I0 I1 S0
+# Outputs: O
 F7BMUX 1 1 3 1
 217 223 296
 
-# Inputs: 0 1 S0
-# Outputs: OUT
+# Inputs: I0 I1 S0
+# Outputs: O
 MUXF8 2 1 3 1
 104 94 273
 
