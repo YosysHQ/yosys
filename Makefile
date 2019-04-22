@@ -471,7 +471,6 @@ $(eval $(call add_include_file,backends/ilang/ilang_backend.h))
 
 OBJS += kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/calc.o kernel/yosys.o
 OBJS += kernel/cellaigs.o kernel/celledges.o
-OBJS += kernel/cost.o
 
 kernel/log.o: CXXFLAGS += -DYOSYS_SRC='"$(YOSYS_SRC)"'
 kernel/yosys.o: CXXFLAGS += -DYOSYS_DATDIR='"$(DATDIR)"'
