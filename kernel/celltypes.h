@@ -85,6 +85,7 @@ struct CellTypes
 		setup_internals_eval();
 
 		IdString A = "\\A", B = "\\B", EN = "\\EN", Y = "\\Y";
+		IdString SRC = "\\SRC", DST = "\\DST", DAT = "\\DAT";
 
 		setup_type("$tribuf", {A, EN}, {Y}, true);
 
@@ -99,6 +100,8 @@ struct CellTypes
 		setup_type("$allconst", pool<RTLIL::IdString>(), {Y}, true);
 		setup_type("$allseq", pool<RTLIL::IdString>(), {Y}, true);
 		setup_type("$equiv", {A, B}, {Y}, true);
+		setup_type("$specify2", {EN, SRC, DST}, pool<RTLIL::IdString>(), true);
+		setup_type("$specify3", {EN, SRC, DST, DAT}, pool<RTLIL::IdString>(), true);
 	}
 
 	void setup_internals_eval()
