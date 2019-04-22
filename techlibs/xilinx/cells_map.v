@@ -157,32 +157,24 @@ module \$shiftx (A, B, Y);
   parameter [B_WIDTH-1:0] _TECHMAP_CONSTMSK_B_ = 0;
   parameter [B_WIDTH-1:0] _TECHMAP_CONSTVAL_B_ = 0;
 
-  function integer first_B_nonzero;
-    integer i;
-    begin
-      for (i = B_WIDTH-1; i >= 0; i--)
-        if (_TECHMAP_CONSTMSK_B_[i] == 1'b0 || _TECHMAP_CONSTVAL_B_ != 1'b0)
-          first_B_nonzero = i;
-    end
-  endfunction
-
   generate
     genvar i, j;
     if (B_SIGNED) begin
       if (_TECHMAP_CONSTMSK_B_[B_WIDTH-1] && _TECHMAP_CONSTVAL_B_[B_WIDTH-1] == 1'b0)
         // Optimisation to remove B_SIGNED if sign bit of B is constant-0
-        \$shiftx  #(.A_SIGNED(A_SIGNED), .B_SIGNED(0), .A_WIDTH(A_WIDTH), .B_WIDTH(B_WIDTH-1), .Y_WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(A), .B(B[B_WIDTH-2:0]), .Y(Y));
+        \$shiftx  #(.A_SIGNED(A_SIGNED), .B_SIGNED(0), .A_WIDTH(A_WIDTH), .B_WIDTH(B_WIDTH-1'd1), .Y_WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(A), .B(B[B_WIDTH-2:0]), .Y(Y));
       else
         wire _TECHMAP_FAIL_ = 1;
     end
     else if (Y_WIDTH > 1) begin
-      localparam inc = first_B_nonzero();
-      for (i = 0; i < Y_WIDTH; i++) begin
-        wire [A_WIDTH/Y_WIDTH-1:0] A_i;
-        for (j = 0; j*(1<<inc)+i < A_WIDTH; j++)
-          assign A_i[j] = A[j*(1<<inc)+i];
-        \$shiftx  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(A_WIDTH/Y_WIDTH), .B_WIDTH(B_WIDTH-inc), .Y_WIDTH(1'b1)) bitblast (.A(A_i), .B(B[B_WIDTH-1:inc]), .Y(Y[i]));
-      end
+      for (i = 0; i < Y_WIDTH; i++)
+        \$shiftx  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(A_WIDTH), .B_WIDTH(B_WIDTH), .Y_WIDTH(1'd1)) bitblast (.A({{i{1'bx}}, A[A_WIDTH-1:i]}), .B(B), .Y(Y[i]));
+    end
+    else if (_TECHMAP_CONSTMSK_B_[0] && !_TECHMAP_CONSTVAL_B_[0]) begin
+      wire [(A_WIDTH+1)/2-1:0] A_i;
+      for (i = 0; i < (A_WIDTH+1)/2; i++)
+        assign A_i[i] = A[i*2];
+      \$shiftx  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH((A_WIDTH+1'd1)/2'd2), .B_WIDTH(B_WIDTH-1'd1), .Y_WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(A_i), .B(B[B_WIDTH-1:1]), .Y(Y));
     end
     else if (B_WIDTH < 3) begin
       wire _TECHMAP_FAIL_ = 1;
