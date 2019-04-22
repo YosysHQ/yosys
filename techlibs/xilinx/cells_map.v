@@ -78,7 +78,7 @@ module \$__XILINX_SHREG_ (input C, input D, input [31:0] L, input E, output Q, o
     end else
     if (DEPTH > 65 && DEPTH <= 96) begin
       wire T0, T1, T2, T3, T4, T5, T6;
-      SRLC32E #(.INIT(INIT_R[32-1:0]), .IS_CLK_INVERTED(~CLKPOL[0])) fpga_srl_0 (.A(L[4:0]), .CE(CE), .CLK(C), .D(D), .Q(T0), .Q31(T1));
+      SRLC32E #(.INIT(INIT_R[32-1: 0]), .IS_CLK_INVERTED(~CLKPOL[0])) fpga_srl_0 (.A(L[4:0]), .CE(CE), .CLK(C), .D( D), .Q(T0), .Q31(T1));
       SRLC32E #(.INIT(INIT_R[64-1:32]), .IS_CLK_INVERTED(~CLKPOL[0])) fpga_srl_1 (.A(L[4:0]), .CE(CE), .CLK(C), .D(T1), .Q(T2), .Q31(T3));
       \$__XILINX_SHREG_ #(.DEPTH(DEPTH-64), .INIT(INIT[DEPTH-64-1:0]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_2 (.C(C), .D(T3), .L(L[4:0]), .E(E), .Q(T4));
       if (&_TECHMAP_CONSTMSK_L_)
@@ -91,7 +91,7 @@ module \$__XILINX_SHREG_ (input C, input D, input [31:0] L, input E, output Q, o
     end else
     if (DEPTH > 97 && DEPTH < 128) begin
       wire T0, T1, T2, T3, T4, T5, T6, T7, T8;
-      SRLC32E #(.INIT(INIT_R[32-1:0]), .IS_CLK_INVERTED(~CLKPOL[0])) fpga_srl_0 (.A(L[4:0]), .CE(CE), .CLK(C), .D(D), .Q(T0), .Q31(T1));
+      SRLC32E #(.INIT(INIT_R[32-1: 0]), .IS_CLK_INVERTED(~CLKPOL[0])) fpga_srl_0 (.A(L[4:0]), .CE(CE), .CLK(C), .D( D), .Q(T0), .Q31(T1));
       SRLC32E #(.INIT(INIT_R[64-1:32]), .IS_CLK_INVERTED(~CLKPOL[0])) fpga_srl_1 (.A(L[4:0]), .CE(CE), .CLK(C), .D(T1), .Q(T2), .Q31(T3));
       SRLC32E #(.INIT(INIT_R[96-1:64]), .IS_CLK_INVERTED(~CLKPOL[0])) fpga_srl_2 (.A(L[4:0]), .CE(CE), .CLK(C), .D(T3), .Q(T4), .Q31(T5));
       \$__XILINX_SHREG_ #(.DEPTH(DEPTH-96), .INIT(INIT[DEPTH-96-1:0]), .CLKPOL(CLKPOL), .ENPOL(ENPOL)) fpga_srl_3 (.C(C), .D(T5), .L(L[4:0]), .E(E), .Q(T6));
@@ -105,9 +105,9 @@ module \$__XILINX_SHREG_ (input C, input D, input [31:0] L, input E, output Q, o
     end
     else if (DEPTH == 128) begin
       wire T0, T1, T2, T3, T4, T5, T6;
-      SRLC32E #(.INIT(INIT_R[32-1:0]), .IS_CLK_INVERTED(~CLKPOL[0])) fpga_srl_0 (.A(L[4:0]), .CE(CE), .CLK(C), .D(D), .Q(T0), .Q31(T1));
-      SRLC32E #(.INIT(INIT_R[64-1:32]), .IS_CLK_INVERTED(~CLKPOL[0])) fpga_srl_1 (.A(L[4:0]), .CE(CE), .CLK(C), .D(T1), .Q(T2), .Q31(T3));
-      SRLC32E #(.INIT(INIT_R[96-1:64]), .IS_CLK_INVERTED(~CLKPOL[0])) fpga_srl_2 (.A(L[4:0]), .CE(CE), .CLK(C), .D(T3), .Q(T4), .Q31(T5));
+      SRLC32E #(.INIT(INIT_R[ 32-1: 0]), .IS_CLK_INVERTED(~CLKPOL[0])) fpga_srl_0 (.A(L[4:0]), .CE(CE), .CLK(C), .D( D), .Q(T0), .Q31(T1));
+      SRLC32E #(.INIT(INIT_R[ 64-1:32]), .IS_CLK_INVERTED(~CLKPOL[0])) fpga_srl_1 (.A(L[4:0]), .CE(CE), .CLK(C), .D(T1), .Q(T2), .Q31(T3));
+      SRLC32E #(.INIT(INIT_R[ 96-1:64]), .IS_CLK_INVERTED(~CLKPOL[0])) fpga_srl_2 (.A(L[4:0]), .CE(CE), .CLK(C), .D(T3), .Q(T4), .Q31(T5));
       SRLC32E #(.INIT(INIT_R[128-1:96]), .IS_CLK_INVERTED(~CLKPOL[0])) fpga_srl_3 (.A(L[4:0]), .CE(CE), .CLK(C), .D(T5), .Q(T6), .Q31(SO));
       if (&_TECHMAP_CONSTMSK_L_)
         assign Q = T6;
@@ -157,6 +157,15 @@ module \$shiftx (A, B, Y);
   parameter [B_WIDTH-1:0] _TECHMAP_CONSTMSK_B_ = 0;
   parameter [B_WIDTH-1:0] _TECHMAP_CONSTVAL_B_ = 0;
 
+  function integer first_B_nonzero;
+    integer i;
+    begin
+      for (i = B_WIDTH-1; i >= 0; i--)
+        if (_TECHMAP_CONSTMSK_B_[i] == 1'b0 || _TECHMAP_CONSTVAL_B_ != 1'b0)
+          first_B_nonzero = i;
+    end
+  endfunction
+
   generate
     genvar i, j;
     if (B_SIGNED) begin
@@ -167,12 +176,12 @@ module \$shiftx (A, B, Y);
         wire _TECHMAP_FAIL_ = 1;
     end
     else if (Y_WIDTH > 1) begin
-      wire [$clog2(A_WIDTH/Y_WIDTH)-1:0] B_bitty = B/Y_WIDTH;
+      localparam inc = first_B_nonzero();
       for (i = 0; i < Y_WIDTH; i++) begin
         wire [A_WIDTH/Y_WIDTH-1:0] A_i;
-        for (j = 0; j < A_WIDTH/Y_WIDTH; j++)
-          assign A_i[j] = A[j*Y_WIDTH+i];
-        \$shiftx  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(A_WIDTH/Y_WIDTH), .B_WIDTH($clog2(A_WIDTH/Y_WIDTH)), .Y_WIDTH(1)) bitblast (.A(A_i), .B(B_bitty), .Y(Y[i]));
+        for (j = 0; j*(1<<inc)+i < A_WIDTH; j++)
+          assign A_i[j] = A[j*(1<<inc)+i];
+        \$shiftx  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(A_WIDTH/Y_WIDTH), .B_WIDTH(B_WIDTH-inc), .Y_WIDTH(1'b1)) bitblast (.A(A_i), .B(B[B_WIDTH-1:inc]), .Y(Y[i]));
       end
     end
     else if (B_WIDTH < 3) begin
