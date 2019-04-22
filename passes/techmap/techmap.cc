@@ -1036,7 +1036,7 @@ struct TechmapPass : public Pass {
 		simplemap_get_mappers(worker.simplemap_mappers);
 
 		std::vector<std::string> map_files;
-		std::string verilog_frontend = "verilog -nooverwrite";
+		std::string verilog_frontend = "verilog -nooverwrite -noblackbox";
 		int max_iter = -1;
 
 		size_t argidx;
