@@ -124,6 +124,7 @@ struct SynthXilinxPass : public Pass
 		log("        techmap -map +/xilinx/lut_map.v -map +/xilinx/ff_map.v");
 		log("        dffinit -ff FDRE   Q INIT -ff FDCE   Q INIT -ff FDPE   Q INIT -ff FDSE   Q INIT \\\n");
 		log("                -ff FDRE_1 Q INIT -ff FDCE_1 Q INIT -ff FDPE_1 Q INIT -ff FDSE_1 Q INIT\n");
+		log("        clean\n");
 		log("\n");
 		log("    check:\n");
 		log("        hierarchy -check\n");
@@ -280,6 +281,7 @@ struct SynthXilinxPass : public Pass
 			Pass::call(design, "techmap -map +/xilinx/lut_map.v -map +/xilinx/ff_map.v");
 			Pass::call(design, "dffinit -ff FDRE Q INIT -ff FDCE Q INIT -ff FDPE Q INIT -ff FDSE Q INIT "
 					"-ff FDRE_1 Q INIT -ff FDCE_1 Q INIT -ff FDPE_1 Q INIT -ff FDSE_1 Q INIT");
+			Pass::call(design, "clean");
 		}
 
 		if (check_label(active, run_from, run_to, "check"))
