@@ -108,7 +108,7 @@ struct SynthXilinxPass : public Pass
 		log("        techmap -map +/xilinx/drams_map.v\n");
 		log("\n");
 		log("    fine:\n");
-		log("        opt -fast -full\n");
+		log("        opt -fast\n");
 		log("        memory_map\n");
 		log("        dffsr2dff\n");
 		log("        dff2dffe\n");
