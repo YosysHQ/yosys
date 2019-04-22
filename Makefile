@@ -20,7 +20,7 @@ ENABLE_LIBYOSYS := 1
 ENABLE_PROTOBUF := 0
 
 # python wrappers
-ENABLE_PYOSYS := 1
+ENABLE_PYOSYS := 0
 PYTHON_VERSION_TESTCODE := "import sys;t='{v[0]}.{v[1]}'.format(v=list(sys.version_info[:2]));print(t)"
 PYTHON_EXECUTABLE := $(shell if python3 -c ""; then echo "python3"; else echo "python"; fi)
 PYTHON_VERSION := $(shell $(PYTHON_EXECUTABLE) -c ""$(PYTHON_VERSION_TESTCODE)"")
