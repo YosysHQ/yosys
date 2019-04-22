@@ -128,6 +128,45 @@ struct SetattrPass : public Pass {
 	}
 } SetattrPass;
 
+struct WbflipPass : public Pass {
+	WbflipPass() : Pass("wbflip", "flip the whitebox attribute") { }
+	void help() YS_OVERRIDE
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    wbflip [selection]\n");
+		log("\n");
+		log("Flip the whitebox attribute on selected cells. I.e. if it's set, unset it, and\n");
+		log("vice-versa. Blackbox cells are not effected by this command.\n");
+		log("\n");
+	}
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	{
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++)
+		{
+			std::string arg = args[argidx];
+			// if (arg == "-mod") {
+			// 	flag_mod = true;
+			// 	continue;
+			// }
+			break;
+		}
+		extra_args(args, argidx, design);
+
+		for (Module *module : design->modules())
+		{
+			if (!design->selected(module))
+				continue;
+
+			if (module->get_bool_attribute("\\blackbox"))
+				continue;
+
+			module->set_bool_attribute("\\whitebox", !module->get_bool_attribute("\\whitebox"));
+		}
+	}
+} WbflipPass;
+
 struct SetparamPass : public Pass {
 	SetparamPass() : Pass("setparam", "set/unset parameters on objects") { }
 	void help() YS_OVERRIDE

@@ -599,7 +599,7 @@ struct SimplemapPass : public Pass {
 		simplemap_get_mappers(mappers);
 
 		for (auto mod : design->modules()) {
-			if (!design->selected(mod))
+			if (!design->selected(mod) || mod->get_blackbox_attribute())
 				continue;
 			std::vector<RTLIL::Cell*> cells = mod->cells();
 			for (auto cell : cells) {

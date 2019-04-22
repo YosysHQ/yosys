@@ -67,7 +67,7 @@ struct TableBackend : public Backend {
 
 		for (auto module : design->modules())
 		{
-			if (module->get_bool_attribute("\\blackbox"))
+			if (module->get_blackbox_attribute())
 				continue;
 
 			SigMap sigmap(module);

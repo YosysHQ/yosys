@@ -128,7 +128,7 @@ struct BugpointPass : public Pass {
 		{
 			for (auto &it : design_copy->modules_)
 			{
-				if (it.second->get_bool_attribute("\\blackbox"))
+				if (it.second->get_blackbox_attribute())
 					continue;
 
 				if (index++ == seed)
@@ -143,7 +143,7 @@ struct BugpointPass : public Pass {
 		{
 			for (auto mod : design_copy->modules())
 			{
-				if (mod->get_bool_attribute("\\blackbox"))
+				if (mod->get_blackbox_attribute())
 					continue;
 
 				for (auto wire : mod->wires())
@@ -168,7 +168,7 @@ struct BugpointPass : public Pass {
 		{
 			for (auto mod : design_copy->modules())
 			{
-				if (mod->get_bool_attribute("\\blackbox"))
+				if (mod->get_blackbox_attribute())
 					continue;
 
 				for (auto &it : mod->cells_)
@@ -186,7 +186,7 @@ struct BugpointPass : public Pass {
 		{
 			for (auto mod : design_copy->modules())
 			{
-				if (mod->get_bool_attribute("\\blackbox"))
+				if (mod->get_blackbox_attribute())
 					continue;
 
 				for (auto cell : mod->cells())

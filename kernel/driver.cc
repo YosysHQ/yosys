@@ -110,6 +110,10 @@ int main(int argc, char **argv)
 	log_error_stderr = true;
 	yosys_banner();
 	yosys_setup();
+#ifdef WITH_PYTHON
+	PyRun_SimpleString(("sys.path.append(\""+proc_self_dirname()+"\")").c_str());
+	PyRun_SimpleString(("sys.path.append(\""+proc_share_dirname()+"plugins\")").c_str());
+#endif
 
 	if (argc == 2)
 	{
@@ -469,6 +473,10 @@ int main(int argc, char **argv)
 #endif
 
 	yosys_setup();
+#ifdef WITH_PYTHON
+	PyRun_SimpleString(("sys.path.append(\""+proc_self_dirname()+"\")").c_str());
+	PyRun_SimpleString(("sys.path.append(\""+proc_share_dirname()+"plugins\")").c_str());
+#endif
 	log_error_atexit = yosys_atexit;
 
 	for (auto &fn : plugin_filenames)
