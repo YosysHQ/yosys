@@ -1,0 +1,28 @@
+read_verilog pmux2shiftx.v
+prep
+design -save gold
+
+pmux2shiftx -min_density 70
+
+opt
+
+stat
+# show -width
+select -assert-count 1 t:$sub
+select -assert-count 1 t:$mux
+select -assert-count 1 t:$shift
+select -assert-count 3 t:$shiftx
+
+design -stash gate
+
+design -import gold -as gold
+design -import gate -as gate
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports miter
+
+design -load gold
+stat
+
+design -load gate
+stat

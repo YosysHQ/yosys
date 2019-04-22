@@ -523,6 +523,7 @@ struct RTLIL::Const
 	Const(RTLIL::State bit, int width = 1);
 	Const(const std::vector<RTLIL::State> &bits) : bits(bits) { flags = CONST_FLAG_NONE; }
 	Const(const std::vector<bool> &bits);
+	Const(const RTLIL::Const &c);
 
 	bool operator <(const RTLIL::Const &other) const;
 	bool operator ==(const RTLIL::Const &other) const;
@@ -601,6 +602,7 @@ struct RTLIL::SigChunk
 	SigChunk(int val, int width = 32);
 	SigChunk(RTLIL::State bit, int width = 1);
 	SigChunk(RTLIL::SigBit bit);
+	SigChunk(const RTLIL::SigChunk &sigchunk);
 
 	RTLIL::SigChunk extract(int offset, int length) const;
 
@@ -625,6 +627,7 @@ struct RTLIL::SigBit
 	SigBit(const RTLIL::SigChunk &chunk);
 	SigBit(const RTLIL::SigChunk &chunk, int index);
 	SigBit(const RTLIL::SigSpec &sig);
+	SigBit(const RTLIL::SigBit &sigbit);
 
 	bool operator <(const RTLIL::SigBit &other) const;
 	bool operator ==(const RTLIL::SigBit &other) const;
@@ -946,9 +949,13 @@ struct RTLIL::Design
 		}
 	}
 
+
 	std::vector<RTLIL::Module*> selected_modules() const;
 	std::vector<RTLIL::Module*> selected_whole_modules() const;
 	std::vector<RTLIL::Module*> selected_whole_modules_warn() const;
+#ifdef WITH_PYTHON
+	static std::map<unsigned int, RTLIL::Design*> *get_all_designs(void);
+#endif
 };
 
 struct RTLIL::Module : public RTLIL::AttrObject
@@ -1205,6 +1212,10 @@ public:
 	RTLIL::SigSpec Allconst  (RTLIL::IdString name, int width = 1, const std::string &src = "");
 	RTLIL::SigSpec Allseq    (RTLIL::IdString name, int width = 1, const std::string &src = "");
 	RTLIL::SigSpec Initstate (RTLIL::IdString name, const std::string &src = "");
+
+#ifdef WITH_PYTHON
+	static std::map<unsigned int, RTLIL::Module*> *get_all_modules(void);
+#endif
 };
 
 struct RTLIL::Wire : public RTLIL::AttrObject
@@ -1216,7 +1227,7 @@ protected:
 	// use module->addWire() and module->remove() to create or destroy wires
 	friend struct RTLIL::Module;
 	Wire();
-	~Wire() { };
+	~Wire();
 
 public:
 	// do not simply copy wires
@@ -1227,6 +1238,10 @@ public:
 	RTLIL::IdString name;
 	int width, start_offset, port_id;
 	bool port_input, port_output, upto;
+
+#ifdef WITH_PYTHON
+	static std::map<unsigned int, RTLIL::Wire*> *get_all_wires(void);
+#endif
 };
 
 struct RTLIL::Memory : public RTLIL::AttrObject
@@ -1238,6 +1253,10 @@ struct RTLIL::Memory : public RTLIL::AttrObject
 
 	RTLIL::IdString name;
 	int width, start_offset, size;
+#ifdef WITH_PYTHON
+	~Memory();
+	static std::map<unsigned int, RTLIL::Memory*> *get_all_memorys(void);
+#endif
 };
 
 struct RTLIL::Cell : public RTLIL::AttrObject
@@ -1249,6 +1268,7 @@ protected:
 	// use module->addCell() and module->remove() to create or destroy cells
 	friend struct RTLIL::Module;
 	Cell();
+	~Cell();
 
 public:
 	// do not simply copy cells
@@ -1289,6 +1309,10 @@ public:
 	}
 
 	template<typename T> void rewrite_sigspecs(T &functor);
+
+#ifdef WITH_PYTHON
+	static std::map<unsigned int, RTLIL::Cell*> *get_all_cells(void);
+#endif
 };
 
 struct RTLIL::CaseRule
@@ -1349,6 +1373,7 @@ inline RTLIL::SigBit::SigBit(RTLIL::Wire *wire) : wire(wire), offset(0) { log_as
 inline RTLIL::SigBit::SigBit(RTLIL::Wire *wire, int offset) : wire(wire), offset(offset) { log_assert(wire != nullptr); }
 inline RTLIL::SigBit::SigBit(const RTLIL::SigChunk &chunk) : wire(chunk.wire) { log_assert(chunk.width == 1); if (wire) offset = chunk.offset; else data = chunk.data[0]; }
 inline RTLIL::SigBit::SigBit(const RTLIL::SigChunk &chunk, int index) : wire(chunk.wire) { if (wire) offset = chunk.offset + index; else data = chunk.data[index]; }
+inline RTLIL::SigBit::SigBit(const RTLIL::SigBit &sigbit) : wire(sigbit.wire), data(sigbit.data){if(wire) offset = sigbit.offset;}
 
 inline bool RTLIL::SigBit::operator<(const RTLIL::SigBit &other) const {
 	if (wire == other.wire)

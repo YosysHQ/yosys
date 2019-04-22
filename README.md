@@ -66,25 +66,26 @@ prerequisites for building yosys:
 
 	$ sudo apt-get install build-essential clang bison flex \
 		libreadline-dev gawk tcl-dev libffi-dev git \
-		graphviz xdot pkg-config python3
+		graphviz xdot pkg-config python3 libboost-system-dev \
+		libboost-python-dev libboost-filesystem-dev
 
 Similarily, on Mac OS X MacPorts or Homebrew can be used to install dependencies:
 
 	$ brew tap Homebrew/bundle && brew bundle
 	$ sudo port install bison flex readline gawk libffi \
-		git graphviz pkgconfig python36
+		git graphviz pkgconfig python36 boost
 
 On FreeBSD use the following command to install all prerequisites:
 
 	# pkg install bison flex readline gawk libffi\
-		git graphviz pkgconfig python3 python36 tcl-wrapper
+		git graphviz pkgconfig python3 python36 tcl-wrapper boost-libs
 
 On FreeBSD system use gmake instead of make. To run tests use:
     % MAKE=gmake CC=cc gmake test
 
 For Cygwin use the following command to install all prerequisites, or select these additional packages:
 
-	setup-x86_64.exe -q --packages=bison,flex,gcc-core,gcc-g++,git,libffi-devel,libreadline-devel,make,pkg-config,python3,tcl-devel
+	setup-x86_64.exe -q --packages=bison,flex,gcc-core,gcc-g++,git,libffi-devel,libreadline-devel,make,pkg-config,python3,tcl-devel,boost-build
 
 There are also pre-compiled Yosys binary packages for Ubuntu and Win32 as well
 as a source distribution for Visual Studio. Visit the Yosys download page for

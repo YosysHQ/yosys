@@ -76,6 +76,13 @@ RTLIL::Const::Const(const std::vector<bool> &bits)
 		this->bits.push_back(b ? RTLIL::S1 : RTLIL::S0);
 }
 
+RTLIL::Const::Const(const RTLIL::Const &c)
+{
+	flags = c.flags;
+	for (auto b : c.bits)
+		this->bits.push_back(b);
+}
+
 bool RTLIL::Const::operator <(const RTLIL::Const &other) const
 {
 	if (bits.size() != other.bits.size())
@@ -363,6 +370,10 @@ RTLIL::Design::Design()
 
 	refcount_modules_ = 0;
 	selection_stack.push_back(RTLIL::Selection());
+
+#ifdef WITH_PYTHON
+	RTLIL::Design::get_all_designs()->insert(std::pair<unsigned int, RTLIL::Design*>(hashidx_, this));
+#endif
 }
 
 RTLIL::Design::~Design()
@@ -373,7 +384,18 @@ RTLIL::Design::~Design()
 		delete n;
 	for (auto n : verilog_globals)
 		delete n;
+#ifdef WITH_PYTHON
+	RTLIL::Design::get_all_designs()->erase(hashidx_);
+#endif
 }
+
+#ifdef WITH_PYTHON
+static std::map<unsigned int, RTLIL::Design*> all_designs;
+std::map<unsigned int, RTLIL::Design*> *RTLIL::Design::get_all_designs(void)
+{
+	return &all_designs;
+}
+#endif
 
 RTLIL::ObjRange<RTLIL::Module*> RTLIL::Design::modules()
 {
@@ -630,6 +652,10 @@ RTLIL::Module::Module()
 	design = nullptr;
 	refcount_wires_ = 0;
 	refcount_cells_ = 0;
+
+#ifdef WITH_PYTHON
+	RTLIL::Module::get_all_modules()->insert(std::pair<unsigned int, RTLIL::Module*>(hashidx_, this));
+#endif
 }
 
 RTLIL::Module::~Module()
@@ -642,7 +668,18 @@ RTLIL::Module::~Module()
 		delete it->second;
 	for (auto it = processes.begin(); it != processes.end(); ++it)
 		delete it->second;
+#ifdef WITH_PYTHON
+	RTLIL::Module::get_all_modules()->erase(hashidx_);
+#endif
 }
+
+#ifdef WITH_PYTHON
+static std::map<unsigned int, RTLIL::Module*> all_modules;
+std::map<unsigned int, RTLIL::Module*> *RTLIL::Module::get_all_modules(void)
+{
+	return &all_modules;
+}
+#endif
 
 void RTLIL::Module::makeblackbox()
 {
@@ -2229,7 +2266,26 @@ RTLIL::Wire::Wire()
 	port_input = false;
 	port_output = false;
 	upto = false;
+
+#ifdef WITH_PYTHON
+	RTLIL::Wire::get_all_wires()->insert(std::pair<unsigned int, RTLIL::Wire*>(hashidx_, this));
+#endif
 }
+
+RTLIL::Wire::~Wire()
+{
+#ifdef WITH_PYTHON
+	RTLIL::Wire::get_all_wires()->erase(hashidx_);
+#endif
+}
+
+#ifdef WITH_PYTHON
+static std::map<unsigned int, RTLIL::Wire*> all_wires;
+std::map<unsigned int, RTLIL::Wire*> *RTLIL::Wire::get_all_wires(void)
+{
+	return &all_wires;
+}
+#endif
 
 RTLIL::Memory::Memory()
 {
@@ -2240,6 +2296,9 @@ RTLIL::Memory::Memory()
 	width = 1;
 	start_offset = 0;
 	size = 0;
+#ifdef WITH_PYTHON
+	RTLIL::Memory::get_all_memorys()->insert(std::pair<unsigned int, RTLIL::Memory*>(hashidx_, this));
+#endif
 }
 
 RTLIL::Cell::Cell() : module(nullptr)
@@ -2250,7 +2309,26 @@ RTLIL::Cell::Cell() : module(nullptr)
 
 	// log("#memtrace# %p\n", this);
 	memhasher();
+
+#ifdef WITH_PYTHON
+	RTLIL::Cell::get_all_cells()->insert(std::pair<unsigned int, RTLIL::Cell*>(hashidx_, this));
+#endif
 }
+
+RTLIL::Cell::~Cell()
+{
+#ifdef WITH_PYTHON
+	RTLIL::Cell::get_all_cells()->erase(hashidx_);
+#endif
+}
+
+#ifdef WITH_PYTHON
+static std::map<unsigned int, RTLIL::Cell*> all_cells;
+std::map<unsigned int, RTLIL::Cell*> *RTLIL::Cell::get_all_cells(void)
+{
+	return &all_cells;
+}
+#endif
 
 bool RTLIL::Cell::hasPort(RTLIL::IdString portname) const
 {
@@ -2509,6 +2587,14 @@ RTLIL::SigChunk::SigChunk(RTLIL::SigBit bit)
 	else
 		offset = bit.offset;
 	width = 1;
+}
+
+RTLIL::SigChunk::SigChunk(const RTLIL::SigChunk &sigchunk) : data(sigchunk.data)
+{
+	wire = sigchunk.wire;
+	data = sigchunk.data;
+	width = sigchunk.width;
+	offset = sigchunk.offset;
 }
 
 RTLIL::SigChunk RTLIL::SigChunk::extract(int offset, int length) const
@@ -3895,5 +3981,15 @@ RTLIL::Process *RTLIL::Process::clone() const
 	return new_proc;
 }
 
+#ifdef WITH_PYTHON
+RTLIL::Memory::~Memory()
+{
+	RTLIL::Memory::get_all_memorys()->erase(hashidx_);
+}
+static std::map<unsigned int, RTLIL::Memory*> all_memorys;
+std::map<unsigned int, RTLIL::Memory*> *RTLIL::Memory::get_all_memorys(void)
+{
+	return &all_memorys;
+}
+#endif
 YOSYS_NAMESPACE_END
-
