@@ -59,7 +59,7 @@ namespace VERILOG_FRONTEND {
 	std::vector<char> case_type_stack;
 	bool do_not_require_port_stubs;
 	bool default_nettype_wire;
-	bool sv_mode, formal_mode, lib_mode, wb_mode;
+	bool sv_mode, formal_mode, noblackbox_mode, lib_mode, nowb_mode;
 	bool noassert_mode, noassume_mode, norestrict_mode;
 	bool assume_asserts_mode, assert_assumes_mode;
 	bool current_wire_rand, current_wire_const;
@@ -1906,7 +1906,7 @@ basic_expr:
 		if ($4->substr(0, 1) != "'")
 			frontend_verilog_yyerror("Cast operation must be applied on sized constants e.g. (<expr>)<constval> , while %s is not a sized constant.", $4->c_str());
 		AstNode *bits = $2;
-		AstNode *val = const2ast(*$4, case_type_stack.size() == 0 ? 0 : case_type_stack.back(), !lib_mode && !wb_mode);
+		AstNode *val = const2ast(*$4, case_type_stack.size() == 0 ? 0 : case_type_stack.back(), !lib_mode);
 		if (val == NULL)
 			log_error("Value conversion failed: `%s'\n", $4->c_str());
 		$$ = new AstNode(AST_TO_BITS, bits, val);
@@ -1917,7 +1917,7 @@ basic_expr:
 			frontend_verilog_yyerror("Cast operation must be applied on sized constants, e.g. <ID>\'d0, while %s is not a sized constant.", $2->c_str());
 		AstNode *bits = new AstNode(AST_IDENTIFIER);
 		bits->str = *$1;
-		AstNode *val = const2ast(*$2, case_type_stack.size() == 0 ? 0 : case_type_stack.back(), !lib_mode && !wb_mode);
+		AstNode *val = const2ast(*$2, case_type_stack.size() == 0 ? 0 : case_type_stack.back(), !lib_mode);
 		if (val == NULL)
 			log_error("Value conversion failed: `%s'\n", $2->c_str());
 		$$ = new AstNode(AST_TO_BITS, bits, val);
@@ -1925,14 +1925,14 @@ basic_expr:
 		delete $2;
 	} |
 	TOK_CONSTVAL TOK_CONSTVAL {
-		$$ = const2ast(*$1 + *$2, case_type_stack.size() == 0 ? 0 : case_type_stack.back(), !lib_mode && !wb_mode);
+		$$ = const2ast(*$1 + *$2, case_type_stack.size() == 0 ? 0 : case_type_stack.back(), !lib_mode);
 		if ($$ == NULL || (*$2)[0] != '\'')
 			log_error("Value conversion failed: `%s%s'\n", $1->c_str(), $2->c_str());
 		delete $1;
 		delete $2;
 	} |
 	TOK_CONSTVAL {
-		$$ = const2ast(*$1, case_type_stack.size() == 0 ? 0 : case_type_stack.back(), !lib_mode && !wb_mode);
+		$$ = const2ast(*$1, case_type_stack.size() == 0 ? 0 : case_type_stack.back(), !lib_mode);
 		if ($$ == NULL)
 			log_error("Value conversion failed: `%s'\n", $1->c_str());
 		delete $1;

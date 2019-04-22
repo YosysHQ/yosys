@@ -66,6 +66,10 @@
 #include <stdio.h>
 #include <limits.h>
 
+#ifdef WITH_PYTHON
+#include <Python.h>
+#endif
+
 #ifndef _YOSYS_
 #  error It looks like you are trying to build Yosys without the config defines set. \
          When building Yosys with a custom make system, make sure you set all the \
@@ -115,6 +119,7 @@ extern const char *Tcl_GetStringResult(Tcl_Interp *interp);
 #  define PATH_MAX 4096
 #endif
 
+#define YOSYS_NAMESPACE          Yosys
 #define PRIVATE_NAMESPACE_BEGIN  namespace {
 #define PRIVATE_NAMESPACE_END    }
 #define YOSYS_NAMESPACE_BEGIN    namespace Yosys {
@@ -276,6 +281,11 @@ namespace hashlib {
 }
 
 void yosys_setup();
+
+#ifdef WITH_PYTHON
+bool yosys_already_setup();
+#endif
+
 void yosys_shutdown();
 
 #ifdef YOSYS_ENABLE_TCL
@@ -317,6 +327,9 @@ extern std::vector<RTLIL::Design*> pushed_designs;
 
 // from passes/cmds/pluginc.cc
 extern std::map<std::string, void*> loaded_plugins;
+#ifdef WITH_PYTHON
+extern std::map<std::string, void*> loaded_python_plugins;
+#endif
 extern std::map<std::string, std::string> loaded_plugin_aliases;
 void load_plugin(std::string filename, std::vector<std::string> aliases);
 
