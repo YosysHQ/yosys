@@ -310,11 +310,19 @@ Verilog Attributes and non-standard features
   that have the same ports as the real thing but do not contain information
   on the internal configuration. This modules are only used by the synthesis
   passes to identify input and output ports of cells. The Verilog backend
-  also does not output blackbox modules on default.
+  also does not output blackbox modules on default. ``read_verilog``, unless
+  called with ``-noblackbox`` will automatically set the blackbox attribute
+  on any empty module it reads.
+
+- The ``noblackbox`` attribute set on an empty module prevents ``read_verilog``
+  from automatically setting the blackbox attribute on the module.
 
 - The ``whitebox`` attribute on modules triggers the same behavior as
   ``blackbox``, but is for whitebox modules, i.e. library modules that
   contain a behavioral model of the cell type.
+
+- The ``lib_whitebox`` attribute overwrites ``whitebox`` when ``read_verilog``
+  is run in `-lib` mode. Otherwise it's automatically removed.
 
 - The ``dynports`` attribute is used by the Verilog front-end to mark modules
   that have ports with a width that depends on a parameter.

@@ -46,7 +46,7 @@ namespace AST {
 // instantiate global variables (private API)
 namespace AST_INTERNAL {
 	bool flag_dump_ast1, flag_dump_ast2, flag_no_dump_ptr, flag_dump_vlog1, flag_dump_vlog2, flag_dump_rtlil, flag_nolatches, flag_nomeminit;
-	bool flag_nomem2reg, flag_mem2reg, flag_lib, flag_wb, flag_noopt, flag_icells, flag_autowire;
+	bool flag_nomem2reg, flag_mem2reg, flag_noblackbox, flag_lib, flag_nowb, flag_noopt, flag_icells, flag_autowire;
 	AstNode *current_ast, *current_ast_mod;
 	std::map<std::string, AstNode*> current_scope;
 	const dict<RTLIL::SigBit, RTLIL::SigBit> *genRTLIL_subst_ptr = NULL;
@@ -942,6 +942,20 @@ static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast
 
 	if (!defer)
 	{
+		bool blackbox_module = flag_lib;
+
+		if (!blackbox_module && !flag_noblackbox) {
+			blackbox_module = true;
+			for (auto child : ast->children) {
+				if (child->type == AST_WIRE && (child->is_input || child->is_output))
+					continue;
+				if (child->type == AST_PARAMETER || child->type == AST_LOCALPARAM)
+					continue;
+				blackbox_module = false;
+				break;
+			}
+		}
+
 		while (ast->simplify(!flag_noopt, false, false, 0, -1, false, false)) { }
 
 		if (flag_dump_ast2) {
@@ -956,18 +970,63 @@ static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast
 			log("--- END OF AST DUMP ---\n");
 		}
 
-		if (flag_wb) {
-			if (!ast->attributes.count("\\whitebox"))
-				goto blackbox_module;
-			AstNode *n = ast->attributes.at("\\whitebox");
-			if (n->type != AST_CONSTANT)
-				log_file_error(ast->filename, ast->linenum, "Whitebox attribute with non-constant value!\n");
-			if (!n->asBool())
-				goto blackbox_module;
+		if (flag_nowb && ast->attributes.count("\\whitebox")) {
+			delete ast->attributes.at("\\whitebox");
+			ast->attributes.erase("\\whitebox");
 		}
 
-		if (flag_lib) {
-	blackbox_module:
+		if (ast->attributes.count("\\lib_whitebox")) {
+			if (!flag_lib || flag_nowb) {
+				delete ast->attributes.at("\\lib_whitebox");
+				ast->attributes.erase("\\lib_whitebox");
+			} else {
+				if (ast->attributes.count("\\whitebox")) {
+					delete ast->attributes.at("\\whitebox");
+					ast->attributes.erase("\\whitebox");
+				}
+				AstNode *n = ast->attributes.at("\\lib_whitebox");
+				ast->attributes["\\whitebox"] = n;
+				ast->attributes.erase("\\lib_whitebox");
+			}
+		}
+
+		if (!blackbox_module && ast->attributes.count("\\blackbox")) {
+			AstNode *n = ast->attributes.at("\\blackbox");
+			if (n->type != AST_CONSTANT)
+				log_file_error(ast->filename, ast->linenum, "Got blackbox attribute with non-constant value!\n");
+			blackbox_module = n->asBool();
+		}
+
+		if (blackbox_module && ast->attributes.count("\\whitebox")) {
+			AstNode *n = ast->attributes.at("\\whitebox");
+			if (n->type != AST_CONSTANT)
+				log_file_error(ast->filename, ast->linenum, "Got whitebox attribute with non-constant value!\n");
+			blackbox_module = !n->asBool();
+		}
+
+		if (ast->attributes.count("\\noblackbox")) {
+			if (blackbox_module) {
+				AstNode *n = ast->attributes.at("\\noblackbox");
+				if (n->type != AST_CONSTANT)
+					log_file_error(ast->filename, ast->linenum, "Got noblackbox attribute with non-constant value!\n");
+				blackbox_module = !n->asBool();
+			}
+			delete ast->attributes.at("\\noblackbox");
+			ast->attributes.erase("\\noblackbox");
+		}
+
+		if (blackbox_module)
+		{
+			if (ast->attributes.count("\\whitebox")) {
+				delete ast->attributes.at("\\whitebox");
+				ast->attributes.erase("\\whitebox");
+			}
+
+			if (ast->attributes.count("\\lib_whitebox")) {
+				delete ast->attributes.at("\\lib_whitebox");
+				ast->attributes.erase("\\lib_whitebox");
+			}
+
 			std::vector<AstNode*> new_children;
 			for (auto child : ast->children) {
 				if (child->type == AST_WIRE && (child->is_input || child->is_output)) {
@@ -980,12 +1039,12 @@ static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast
 					delete child;
 				}
 			}
+
 			ast->children.swap(new_children);
-			if (ast->attributes.count("\\whitebox")) {
-				delete ast->attributes.at("\\whitebox");
-				ast->attributes.erase("\\whitebox");
+
+			if (ast->attributes.count("\\blackbox") == 0) {
+				ast->attributes["\\blackbox"] = AstNode::mkconst_int(1, false);
 			}
-			ast->attributes["\\blackbox"] = AstNode::mkconst_int(1, false);
 		}
 
 		ignoreThisSignalsInInitial = RTLIL::SigSpec();
@@ -1024,8 +1083,9 @@ static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast
 	current_module->nomeminit = flag_nomeminit;
 	current_module->nomem2reg = flag_nomem2reg;
 	current_module->mem2reg = flag_mem2reg;
+	current_module->noblackbox = flag_noblackbox;
 	current_module->lib = flag_lib;
-	current_module->wb = flag_wb;
+	current_module->nowb = flag_nowb;
 	current_module->noopt = flag_noopt;
 	current_module->icells = flag_icells;
 	current_module->autowire = flag_autowire;
@@ -1042,7 +1102,7 @@ static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast
 
 // create AstModule instances for all modules in the AST tree and add them to 'design'
 void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump_ast2, bool no_dump_ptr, bool dump_vlog1, bool dump_vlog2, bool dump_rtlil,
-		bool nolatches, bool nomeminit, bool nomem2reg, bool mem2reg, bool lib, bool wb, bool noopt, bool icells, bool nooverwrite, bool overwrite, bool defer, bool autowire)
+		bool nolatches, bool nomeminit, bool nomem2reg, bool mem2reg, bool noblackbox, bool lib, bool nowb, bool noopt, bool icells, bool nooverwrite, bool overwrite, bool defer, bool autowire)
 {
 	current_ast = ast;
 	flag_dump_ast1 = dump_ast1;
@@ -1055,8 +1115,9 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 	flag_nomeminit = nomeminit;
 	flag_nomem2reg = nomem2reg;
 	flag_mem2reg = mem2reg;
+	flag_noblackbox = noblackbox;
 	flag_lib = lib;
-	flag_wb = wb;
+	flag_nowb = nowb;
 	flag_noopt = noopt;
 	flag_icells = icells;
 	flag_autowire = autowire;
@@ -1390,8 +1451,9 @@ std::string AstModule::derive_common(RTLIL::Design *design, dict<RTLIL::IdString
 	flag_nomeminit = nomeminit;
 	flag_nomem2reg = nomem2reg;
 	flag_mem2reg = mem2reg;
+	flag_noblackbox = noblackbox;
 	flag_lib = lib;
-	flag_wb = wb;
+	flag_nowb = nowb;
 	flag_noopt = noopt;
 	flag_icells = icells;
 	flag_autowire = autowire;
