@@ -72,6 +72,9 @@ struct SynthXilinxPass : public Pass
 		log("    -nosrl\n");
 		log("        disable inference of shift registers\n");
 		log("\n");
+		log("    -nomux\n");
+		log("        disable inference of wide multiplexers\n");
+		log("\n");
 		log("    -run <from_label>:<to_label>\n");
 		log("        only run the commands between the labels (see below). an empty\n");
 		log("        from label is synonymous to 'begin', and empty to label is\n");
@@ -119,7 +122,7 @@ struct SynthXilinxPass : public Pass
 		log("        opt -fast\n");
 		log("\n");
 		log("    map_cells:\n");
-		log("        pmux2shiftx\n");
+		log("        pmux2shiftx (without '-nosrl' and '-nomux' only)\n");
 		log("        simplemap t:$dff t:$dffe (without '-nosrl' only)\n");
 		log("        opt_expr -mux_undef (without '-nosrl' only)\n");
 		log("        shregmap -tech xilinx -minlen 3 (without '-nosrl' only)\n");
@@ -161,6 +164,7 @@ struct SynthXilinxPass : public Pass
 		bool nobram = false;
 		bool nodram = false;
 		bool nosrl = false;
+		bool nomux = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -209,6 +213,10 @@ struct SynthXilinxPass : public Pass
 				nosrl = true;
                 continue;
             }
+			if (args[argidx] == "-nomux") {
+				nomux = true;
+				continue;
+			}
 			if (args[argidx] == "-abc9") {
 				abc = "abc9";
 				continue;
@@ -291,8 +299,9 @@ struct SynthXilinxPass : public Pass
 			// shregmap -tech xilinx can cope with $shiftx and $mux
 			//   cells for identifying variable-length shift registers,
 			//   so attempt to convert $pmux-es to the former
-			// Also: wide multiplexers inference benefits from this too
-			Pass::call(design, "pmux2shiftx");
+			// Also: wide multiplexer inference benefits from this too
+			if (!nosrl || !nomux)
+				Pass::call(design, "pmux2shiftx");
 
 			if (!nosrl) {
 				// shregmap operates on bit-level flops, not word-level,
@@ -305,7 +314,10 @@ struct SynthXilinxPass : public Pass
 				Pass::call(design, "shregmap -tech xilinx -minlen 3");
 			}
 
-			Pass::call(design, "techmap -map +/xilinx/cells_map.v");
+			std::string define;
+			if (nomux)
+				define += " -D NO_MUXFN";
+			Pass::call(design, "techmap" + define + " -map +/xilinx/cells_map.v");
 			Pass::call(design, "clean");
 		}
 

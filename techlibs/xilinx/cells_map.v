@@ -142,6 +142,7 @@ module \$__XILINX_SHREG_ (input C, input D, input [31:0] L, input E, output Q, o
   endgenerate
 endmodule
 
+`ifndef NO_MUXFN
 module \$shiftx (A, B, Y);
   parameter A_SIGNED = 0;
   parameter B_SIGNED = 0;
@@ -219,3 +220,4 @@ module \$shiftx (A, B, Y);
     end
   endgenerate
 endmodule
+`endif // NO_MUXFN
