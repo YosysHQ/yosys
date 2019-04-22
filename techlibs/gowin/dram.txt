@@ -1,0 +1,17 @@
+bram $__GW1NR_RAM16S4
+  init 1
+  abits 4
+  dbits 4
+  groups 2
+  ports  1 1
+  wrmode 0 1
+  enable 0 1
+  transp 0 1
+  clocks 0 1
+  clkpol 0 1
+endbram
+
+match $__GW1NR_RAM16S4
+  make_outreg
+  min wports 1
+endmatch
