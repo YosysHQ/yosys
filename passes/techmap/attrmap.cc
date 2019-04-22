@@ -111,9 +111,10 @@ struct AttrmapMap : AttrmapAction {
 };
 
 struct AttrmapRemove : AttrmapAction {
+	bool has_value;
 	string name, value;
 	bool apply(IdString &id, Const &val) YS_OVERRIDE {
-		return !(match_name(name, id) && match_value(value, val));
+		return !(match_name(name, id) && (!has_value || match_value(value, val)));
 	}
 };
 
@@ -235,6 +236,7 @@ struct AttrmapPass : public Pass {
 				}
 				auto action = new AttrmapRemove;
 				action->name = arg1;
+				action->has_value = (p != string::npos);
 				action->value = val1;
 				actions.push_back(std::unique_ptr<AttrmapAction>(action));
 				continue;
