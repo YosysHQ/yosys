@@ -1521,8 +1521,22 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			}
 			for (auto &attr : attributes) {
 				if (attr.second->type != AST_CONSTANT)
-					log_file_error(filename, linenum, "Attribute `%s' with non-constant value!\n", attr.first.c_str());
+					log_file_error(filename, linenum, "Attribute `%s' with non-constant value.\n", attr.first.c_str());
 				cell->attributes[attr.first] = attr.second->asAttrConst();
+			}
+			if (cell->type.in("$specify2", "$specify3")) {
+				int src_width = GetSize(cell->getPort("\\SRC"));
+				int dst_width = GetSize(cell->getPort("\\DST"));
+				bool full = cell->getParam("\\FULL").as_bool();
+				if (!full && src_width != dst_width)
+					log_file_error(filename, linenum, "Parallel specify SRC width does not match DST width.\n");
+				if (cell->type == "$specify3") {
+					int dat_width = GetSize(cell->getPort("\\DAT"));
+					if (dat_width != dst_width)
+						log_file_error(filename, linenum, "Specify DAT width does not match DST width.\n");
+				}
+				cell->setParam("\\SRC_WIDTH", Const(src_width));
+				cell->setParam("\\DST_WIDTH", Const(dst_width));
 			}
 		}
 		break;
