@@ -25,7 +25,8 @@
 #define ABC_COMMAND_LIB "strash; ifraig; scorr; dc2; dretime; strash; &get -n; &dch -f; &nf {D}; &put"
 #define ABC_COMMAND_CTR "strash; ifraig; scorr; dc2; dretime; strash; &get -n; &dch -f; &nf {D}; &put; buffer; upsize {D}; dnsize {D}; stime -p"
 //#define ABC_COMMAND_LUT "strash; ifraig; scorr; dc2; dretime; strash; dch -f; if; mfs2"
-#define ABC_COMMAND_LUT "&st; &fraig; &scorr; &dc2; &retime; &dch -f; &if; &mfs"
+//#define ABC_COMMAND_LUT "&st; &sweep; &scorr; &dc2; &retime; &dch -f; &if; &mfs; &ps"
+#define ABC_COMMAND_LUT "&st; &scorr; &dc2; &retime; &dch -f; &if; &ps -l -m"
 #define ABC_COMMAND_SOP "strash; ifraig; scorr; dc2; dretime; strash; dch -f; cover {I} {P}"
 #define ABC_COMMAND_DFL "strash; ifraig; scorr; dc2; dretime; strash; &get -n; &dch -f; &nf {D}; &put"
 
@@ -343,7 +344,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 	else
 		abc_script += stringf("read_library %s/stdcells.genlib; ", tempdir_name.c_str());
 
-	abc_script += stringf("&read %s/input.xaig; &ps ", tempdir_name.c_str());
+	abc_script += stringf("&read %s/input.xaig; &ps; ", tempdir_name.c_str());
 
 	if (!script_file.empty()) {
 		if (script_file[0] == '+') {
@@ -1401,6 +1402,9 @@ struct Abc9Pass : public Pass {
 
 		for (auto mod : design->selected_modules())
 		{
+			if (mod->attributes.count("\\abc_box_id"))
+				continue;
+
 			if (mod->processes.size() > 0) {
 				log("Skipping module %s as it contains processes.\n", log_id(mod));
 				continue;

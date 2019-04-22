@@ -35,9 +35,6 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-//#define log_debug log
-#define log_debug(...) ;
-
 AigerReader::AigerReader(RTLIL::Design *design, std::istream &f, RTLIL::IdString module_name, RTLIL::IdString clk_name, std::string map_filename, bool wideports)
     : design(design), f(f), clk_name(clk_name), map_filename(map_filename), wideports(wideports)
 {
@@ -367,6 +364,13 @@ void AigerReader::parse_xaiger()
                parse_xaiger_literal(f);
                f >> s;
                log_debug("n: '%s'\n", s.c_str());
+            }
+            else if (c == 'a' || c == 'i' || c == 'o' || c == 'h') {
+                uint32_t dataSize = parse_xaiger_literal(f);
+                f.ignore(dataSize);
+            }
+            else {
+                break;
             }
         }
         else if (c == 'i' || c == 'l' || c == 'o') {

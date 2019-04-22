@@ -37,6 +37,10 @@ struct SynthIce40Pass : public ScriptPass
 		log("\n");
 		log("This command runs synthesis for iCE40 FPGAs.\n");
 		log("\n");
+		log("    -device < hx | lp | u >\n");
+		log("        optimise the synthesis netlist for the specified device.\n");
+		log("        HX is the default target if no device argument specified.\n");
+		log("\n");
 		log("    -top <module>\n");
 		log("        use the specified module as top module\n");
 		log("\n");
@@ -102,7 +106,7 @@ struct SynthIce40Pass : public ScriptPass
 	}
 
 
-	string top_opt, blif_file, edif_file, json_file, abc;
+	string top_opt, blif_file, edif_file, json_file, abc, device_opt;
 	bool nocarry, nodffe, nobram, dsp, flatten, retime, relut, noabc, abc2, vpr;
 	int min_ce_use;
 
@@ -124,6 +128,7 @@ struct SynthIce40Pass : public ScriptPass
 		abc2 = false;
 		vpr = false;
 		abc = "abc";
+		device_opt = "hx";
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -210,12 +215,18 @@ struct SynthIce40Pass : public ScriptPass
 				abc = "abc9";
 				continue;
 			}
+			if (args[argidx] == "-device" && argidx+1 < args.size()) {
+				device_opt = args[++argidx];
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");
+		if (device_opt != "hx" && device_opt != "lp" && device_opt !="u")
+			log_cmd_error("Invalid or no device specified: '%s'\n", device_opt.c_str());
 
 		log_header(design, "Executing SYNTH_ICE40 pass.\n");
 		log_push();
@@ -229,7 +240,7 @@ struct SynthIce40Pass : public ScriptPass
 	{
 		if (check_label("begin"))
 		{
-			run("read_verilog -lib +/ice40/cells_sim.v");
+			run("read_verilog -lib -D ABC_MODEL +/ice40/cells_sim.v");
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
 			run("proc");
 		}
@@ -282,7 +293,7 @@ struct SynthIce40Pass : public ScriptPass
 				run("techmap");
 			else
 				run("techmap -map +/techmap.v -map +/ice40/arith_map.v");
-			if (retime || help_mode)
+			if ((retime || help_mode) && abc != "abc9")
 				run(abc + " -dff", "(only if -retime)");
 			run("ice40_opt");
 		}
@@ -316,7 +327,10 @@ struct SynthIce40Pass : public ScriptPass
 				run("techmap -map +/gate2lut.v -D LUT_WIDTH=4", "(only if -noabc)");
 			}
 			if (!noabc) {
-				run(abc + " -dress -lut 4", "(skip if -noabc)");
+				if (abc == "abc9")
+					run(abc + stringf(" -dress -lut +/ice40/abc_%s.lut -box +/ice40/abc_%s.box", device_opt.c_str(), device_opt.c_str()), "(skip if -noabc)");
+				else
+					run(abc + " -lut 4", "(skip if -noabc)");
 			}
 			run("clean");
 			if (relut || help_mode) {

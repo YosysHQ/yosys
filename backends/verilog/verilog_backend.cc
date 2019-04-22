@@ -187,6 +187,10 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 {
 	if (width < 0)
 		width = data.bits.size() - offset;
+	if (width == 0) {
+		f << "\"\"";
+		return;
+	}
 	if (nostr)
 		goto dump_hex;
 	if ((data.flags & RTLIL::CONST_FLAG_STRING) == 0 || width != (int)data.bits.size()) {
@@ -340,6 +344,10 @@ void dump_sigchunk(std::ostream &f, const RTLIL::SigChunk &chunk, bool no_decima
 
 void dump_sigspec(std::ostream &f, const RTLIL::SigSpec &sig)
 {
+	if (GetSize(sig) == 0) {
+		f << "\"\"";
+		return;
+	}
 	if (sig.is_chunk()) {
 		dump_sigchunk(f, sig.as_chunk());
 	} else {
