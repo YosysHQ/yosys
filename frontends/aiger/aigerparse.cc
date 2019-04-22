@@ -360,24 +360,6 @@ void AigerReader::parse_xaiger()
                     module->addLut(stringf("\\__%d__$lut", rootNodeID), input_sig, output_sig, std::move(lut_mask));
                 }
             }
-            else if (c == 'r') {
-                uint32_t dataSize = parse_xaiger_literal(f);
-                uint32_t flopNum = parse_xaiger_literal(f);
-                f.ignore(flopNum * sizeof(uint32_t));
-                log_assert(inputs.size() >= flopNum);
-                for (auto it = inputs.end() - flopNum; it != inputs.end(); ++it) {
-                    log_assert((*it)->port_input);
-                    (*it)->port_input = false;
-                }
-                inputs.erase(inputs.end() - flopNum, inputs.end());
-                log_assert(outputs.size() >= flopNum);
-                for (auto it = outputs.end() - flopNum; it != outputs.end(); ++it) {
-                    log_assert((*it)->port_output);
-                    (*it)->port_output = false;
-                }
-                outputs.erase(outputs.end() - flopNum, outputs.end());
-                module->fixup_ports();
-            }
             else if (c == 'n') {
                parse_xaiger_literal(f);
                f >> s;
