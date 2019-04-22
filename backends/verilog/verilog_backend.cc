@@ -1242,6 +1242,16 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		return true;
 	}
 
+	if (cell->type.in("$assert", "$assume", "$cover"))
+	{
+		f << stringf("%s" "always @* if (", indent.c_str());
+		dump_sigspec(f, cell->getPort("\\EN"));
+		f << stringf(") %s(", cell->type.c_str()+1);
+		dump_sigspec(f, cell->getPort("\\A"));
+		f << stringf(");\n");
+		return true;
+	}
+
 	// FIXME: $_SR_[PN][PN]_, $_DLATCH_[PN]_, $_DLATCHSR_[PN][PN][PN]_
 	// FIXME: $sr, $dlatch, $memrd, $memwr, $fsm
 
