@@ -170,6 +170,9 @@ module \$shiftx (A, B, Y);
       for (i = 0; i < Y_WIDTH; i++)
         \$shiftx  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(A_WIDTH), .B_WIDTH(B_WIDTH), .Y_WIDTH(1'd1)) bitblast (.A({{i{1'bx}}, A[A_WIDTH-1:i]}), .B(B), .Y(Y[i]));
     end
+    // If the LSB of B is constant zero (and Y_WIDTH is 1) then
+    //   we can optimise by removing every other entry from A
+    //   and popping the constant zero from B
     else if (_TECHMAP_CONSTMSK_B_[0] && !_TECHMAP_CONSTVAL_B_[0]) begin
       wire [(A_WIDTH+1)/2-1:0] A_i;
       for (i = 0; i < (A_WIDTH+1)/2; i++)
