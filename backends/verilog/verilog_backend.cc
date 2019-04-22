@@ -1289,10 +1289,10 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 
 		f << stringf(") = (%d:%d:%d, %d:%d:%d);\n",
 				cell->getParam("\\T_RISE_MIN").as_int(),
-				cell->getParam("\\T_RISE_AVG").as_int(),
+				cell->getParam("\\T_RISE_TYP").as_int(),
 				cell->getParam("\\T_RISE_MAX").as_int(),
 				cell->getParam("\\T_FALL_MIN").as_int(),
-				cell->getParam("\\T_FALL_AVG").as_int(),
+				cell->getParam("\\T_FALL_TYP").as_int(),
 				cell->getParam("\\T_FALL_MAX").as_int());
 
 		f << stringf("%s" "endspecify\n", indent.c_str());

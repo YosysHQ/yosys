@@ -771,7 +771,7 @@ specify_item:
 		cell->children.back()->str = "\\T_RISE_MIN";
 
 		cell->children.push_back(new AstNode(AST_PARASET, timing->rise.t_avg));
-		cell->children.back()->str = "\\T_RISE_AVG";
+		cell->children.back()->str = "\\T_RISE_TYP";
 
 		cell->children.push_back(new AstNode(AST_PARASET, timing->rise.t_max));
 		cell->children.back()->str = "\\T_RISE_MAX";
@@ -780,7 +780,7 @@ specify_item:
 		cell->children.back()->str = "\\T_FALL_MIN";
 
 		cell->children.push_back(new AstNode(AST_PARASET, timing->fall.t_avg));
-		cell->children.back()->str = "\\T_FALL_AVG";
+		cell->children.back()->str = "\\T_FALL_TYP";
 
 		cell->children.push_back(new AstNode(AST_PARASET, timing->fall.t_max));
 		cell->children.back()->str = "\\T_FALL_MAX";

@@ -1199,10 +1199,10 @@ namespace {
 				param_bool("\\SRC_DST_PEN");
 				param_bool("\\SRC_DST_POL");
 				param("\\T_RISE_MIN");
-				param("\\T_RISE_AVG");
+				param("\\T_RISE_TYP");
 				param("\\T_RISE_MAX");
 				param("\\T_FALL_MIN");
-				param("\\T_FALL_AVG");
+				param("\\T_FALL_TYP");
 				param("\\T_FALL_MAX");
 				port("\\EN", 1);
 				port("\\SRC", param("\\SRC_WIDTH"));

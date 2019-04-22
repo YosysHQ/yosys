@@ -1281,11 +1281,11 @@ parameter SRC_DST_PEN = 0;
 parameter SRC_DST_POL = 0;
 
 parameter T_RISE_MIN = 0;
-parameter T_RISE_AVG = 0;
+parameter T_RISE_TYP = 0;
 parameter T_RISE_MAX = 0;
 
 parameter T_FALL_MIN = 0;
-parameter T_FALL_AVG = 0;
+parameter T_FALL_TYP = 0;
 parameter T_FALL_MAX = 0;
 
 input EN;
@@ -1296,12 +1296,12 @@ localparam SD = SRC_DST_PEN ? (SRC_DST_POL ? 1 : 2) : 0;
 
 `ifdef SIMLIB_SPECIFY
 specify
-	if (EN && SD==0 && !FULL) (SRC  => DST) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && SD==0 &&  FULL) (SRC  *> DST) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && SD==1 && !FULL) (SRC +=> DST) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && SD==1 &&  FULL) (SRC +*> DST) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && SD==2 && !FULL) (SRC -=> DST) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && SD==2 &&  FULL) (SRC -*> DST) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
+	if (EN && SD==0 && !FULL) (SRC  => DST) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && SD==0 &&  FULL) (SRC  *> DST) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && SD==1 && !FULL) (SRC +=> DST) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && SD==1 &&  FULL) (SRC +*> DST) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && SD==2 && !FULL) (SRC -=> DST) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && SD==2 &&  FULL) (SRC -*> DST) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
 endspecify
 `endif
 
@@ -1325,11 +1325,11 @@ parameter DAT_DST_PEN = 0;
 parameter DAT_DST_POL = 0;
 
 parameter T_RISE_MIN = 0;
-parameter T_RISE_AVG = 0;
+parameter T_RISE_TYP = 0;
 parameter T_RISE_MAX = 0;
 
 parameter T_FALL_MIN = 0;
-parameter T_FALL_AVG = 0;
+parameter T_FALL_TYP = 0;
 parameter T_FALL_MAX = 0;
 
 input EN;
@@ -1344,72 +1344,72 @@ localparam DD = DAT_DST_PEN ? (DAT_DST_POL ? 1 : 2) : 0;
 specify
 	// DD=0
 
-	if (EN && DD==0 && SD==0 && ED==0 && !FULL) (        SRC  => (DST  : DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && DD==0 && SD==0 && ED==0 &&  FULL) (        SRC  *> (DST  : DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && DD==0 && SD==0 && ED==1 && !FULL) (posedge SRC  => (DST  : DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && DD==0 && SD==0 && ED==1 &&  FULL) (posedge SRC  *> (DST  : DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && DD==0 && SD==0 && ED==2 && !FULL) (negedge SRC  => (DST  : DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && DD==0 && SD==0 && ED==2 &&  FULL) (negedge SRC  *> (DST  : DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
+	if (EN && DD==0 && SD==0 && ED==0 && !FULL) (        SRC  => (DST  : DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==0 && SD==0 && ED==0 &&  FULL) (        SRC  *> (DST  : DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==0 && SD==0 && ED==1 && !FULL) (posedge SRC  => (DST  : DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==0 && SD==0 && ED==1 &&  FULL) (posedge SRC  *> (DST  : DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==0 && SD==0 && ED==2 && !FULL) (negedge SRC  => (DST  : DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==0 && SD==0 && ED==2 &&  FULL) (negedge SRC  *> (DST  : DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
 
-	if (EN && DD==0 && SD==1 && ED==0 && !FULL) (        SRC +=> (DST  : DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && DD==0 && SD==1 && ED==0 &&  FULL) (        SRC +*> (DST  : DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && DD==0 && SD==1 && ED==1 && !FULL) (posedge SRC +=> (DST  : DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && DD==0 && SD==1 && ED==1 &&  FULL) (posedge SRC +*> (DST  : DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && DD==0 && SD==1 && ED==2 && !FULL) (negedge SRC +=> (DST  : DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && DD==0 && SD==1 && ED==2 &&  FULL) (negedge SRC +*> (DST  : DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
+	if (EN && DD==0 && SD==1 && ED==0 && !FULL) (        SRC +=> (DST  : DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==0 && SD==1 && ED==0 &&  FULL) (        SRC +*> (DST  : DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==0 && SD==1 && ED==1 && !FULL) (posedge SRC +=> (DST  : DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==0 && SD==1 && ED==1 &&  FULL) (posedge SRC +*> (DST  : DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==0 && SD==1 && ED==2 && !FULL) (negedge SRC +=> (DST  : DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==0 && SD==1 && ED==2 &&  FULL) (negedge SRC +*> (DST  : DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
 
-	if (EN && DD==0 && SD==2 && ED==0 && !FULL) (        SRC -=> (DST  : DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && DD==0 && SD==2 && ED==0 &&  FULL) (        SRC -*> (DST  : DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && DD==0 && SD==2 && ED==1 && !FULL) (posedge SRC -=> (DST  : DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && DD==0 && SD==2 && ED==1 &&  FULL) (posedge SRC -*> (DST  : DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && DD==0 && SD==2 && ED==2 && !FULL) (negedge SRC -=> (DST  : DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && DD==0 && SD==2 && ED==2 &&  FULL) (negedge SRC -*> (DST  : DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
+	if (EN && DD==0 && SD==2 && ED==0 && !FULL) (        SRC -=> (DST  : DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==0 && SD==2 && ED==0 &&  FULL) (        SRC -*> (DST  : DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==0 && SD==2 && ED==1 && !FULL) (posedge SRC -=> (DST  : DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==0 && SD==2 && ED==1 &&  FULL) (posedge SRC -*> (DST  : DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==0 && SD==2 && ED==2 && !FULL) (negedge SRC -=> (DST  : DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==0 && SD==2 && ED==2 &&  FULL) (negedge SRC -*> (DST  : DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
 
 	// DD=1
 
-	if (EN && DD==1 && SD==0 && ED==0 && !FULL) (        SRC  => (DST +: DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && DD==1 && SD==0 && ED==0 &&  FULL) (        SRC  *> (DST +: DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && DD==1 && SD==0 && ED==1 && !FULL) (posedge SRC  => (DST +: DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && DD==1 && SD==0 && ED==1 &&  FULL) (posedge SRC  *> (DST +: DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && DD==1 && SD==0 && ED==2 && !FULL) (negedge SRC  => (DST +: DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && DD==1 && SD==0 && ED==2 &&  FULL) (negedge SRC  *> (DST +: DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
+	if (EN && DD==1 && SD==0 && ED==0 && !FULL) (        SRC  => (DST +: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==1 && SD==0 && ED==0 &&  FULL) (        SRC  *> (DST +: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==1 && SD==0 && ED==1 && !FULL) (posedge SRC  => (DST +: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==1 && SD==0 && ED==1 &&  FULL) (posedge SRC  *> (DST +: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==1 && SD==0 && ED==2 && !FULL) (negedge SRC  => (DST +: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==1 && SD==0 && ED==2 &&  FULL) (negedge SRC  *> (DST +: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
 
-	if (EN && DD==1 && SD==1 && ED==0 && !FULL) (        SRC +=> (DST +: DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && DD==1 && SD==1 && ED==0 &&  FULL) (        SRC +*> (DST +: DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && DD==1 && SD==1 && ED==1 && !FULL) (posedge SRC +=> (DST +: DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && DD==1 && SD==1 && ED==1 &&  FULL) (posedge SRC +*> (DST +: DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && DD==1 && SD==1 && ED==2 && !FULL) (negedge SRC +=> (DST +: DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && DD==1 && SD==1 && ED==2 &&  FULL) (negedge SRC +*> (DST +: DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
+	if (EN && DD==1 && SD==1 && ED==0 && !FULL) (        SRC +=> (DST +: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==1 && SD==1 && ED==0 &&  FULL) (        SRC +*> (DST +: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==1 && SD==1 && ED==1 && !FULL) (posedge SRC +=> (DST +: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==1 && SD==1 && ED==1 &&  FULL) (posedge SRC +*> (DST +: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==1 && SD==1 && ED==2 && !FULL) (negedge SRC +=> (DST +: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==1 && SD==1 && ED==2 &&  FULL) (negedge SRC +*> (DST +: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
 
-	if (EN && DD==1 && SD==2 && ED==0 && !FULL) (        SRC -=> (DST +: DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && DD==1 && SD==2 && ED==0 &&  FULL) (        SRC -*> (DST +: DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && DD==1 && SD==2 && ED==1 && !FULL) (posedge SRC -=> (DST +: DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && DD==1 && SD==2 && ED==1 &&  FULL) (posedge SRC -*> (DST +: DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && DD==1 && SD==2 && ED==2 && !FULL) (negedge SRC -=> (DST +: DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && DD==1 && SD==2 && ED==2 &&  FULL) (negedge SRC -*> (DST +: DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
+	if (EN && DD==1 && SD==2 && ED==0 && !FULL) (        SRC -=> (DST +: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==1 && SD==2 && ED==0 &&  FULL) (        SRC -*> (DST +: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==1 && SD==2 && ED==1 && !FULL) (posedge SRC -=> (DST +: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==1 && SD==2 && ED==1 &&  FULL) (posedge SRC -*> (DST +: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==1 && SD==2 && ED==2 && !FULL) (negedge SRC -=> (DST +: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==1 && SD==2 && ED==2 &&  FULL) (negedge SRC -*> (DST +: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
 
 	// DD=2
 
-	if (EN && DD==2 && SD==0 && ED==0 && !FULL) (        SRC  => (DST -: DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && DD==2 && SD==0 && ED==0 &&  FULL) (        SRC  *> (DST -: DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && DD==2 && SD==0 && ED==1 && !FULL) (posedge SRC  => (DST -: DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && DD==2 && SD==0 && ED==1 &&  FULL) (posedge SRC  *> (DST -: DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && DD==2 && SD==0 && ED==2 && !FULL) (negedge SRC  => (DST -: DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && DD==2 && SD==0 && ED==2 &&  FULL) (negedge SRC  *> (DST -: DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
+	if (EN && DD==2 && SD==0 && ED==0 && !FULL) (        SRC  => (DST -: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==2 && SD==0 && ED==0 &&  FULL) (        SRC  *> (DST -: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==2 && SD==0 && ED==1 && !FULL) (posedge SRC  => (DST -: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==2 && SD==0 && ED==1 &&  FULL) (posedge SRC  *> (DST -: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==2 && SD==0 && ED==2 && !FULL) (negedge SRC  => (DST -: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==2 && SD==0 && ED==2 &&  FULL) (negedge SRC  *> (DST -: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
 
-	if (EN && DD==2 && SD==1 && ED==0 && !FULL) (        SRC +=> (DST -: DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && DD==2 && SD==1 && ED==0 &&  FULL) (        SRC +*> (DST -: DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && DD==2 && SD==1 && ED==1 && !FULL) (posedge SRC +=> (DST -: DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && DD==2 && SD==1 && ED==1 &&  FULL) (posedge SRC +*> (DST -: DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && DD==2 && SD==1 && ED==2 && !FULL) (negedge SRC +=> (DST -: DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && DD==2 && SD==1 && ED==2 &&  FULL) (negedge SRC +*> (DST -: DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
+	if (EN && DD==2 && SD==1 && ED==0 && !FULL) (        SRC +=> (DST -: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==2 && SD==1 && ED==0 &&  FULL) (        SRC +*> (DST -: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==2 && SD==1 && ED==1 && !FULL) (posedge SRC +=> (DST -: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==2 && SD==1 && ED==1 &&  FULL) (posedge SRC +*> (DST -: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==2 && SD==1 && ED==2 && !FULL) (negedge SRC +=> (DST -: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==2 && SD==1 && ED==2 &&  FULL) (negedge SRC +*> (DST -: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
 
-	if (EN && DD==2 && SD==2 && ED==0 && !FULL) (        SRC -=> (DST -: DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && DD==2 && SD==2 && ED==0 &&  FULL) (        SRC -*> (DST -: DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && DD==2 && SD==2 && ED==1 && !FULL) (posedge SRC -=> (DST -: DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && DD==2 && SD==2 && ED==1 &&  FULL) (posedge SRC -*> (DST -: DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && DD==2 && SD==2 && ED==2 && !FULL) (negedge SRC -=> (DST -: DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
-	if (EN && DD==2 && SD==2 && ED==2 &&  FULL) (negedge SRC -*> (DST -: DAT)) = (T_RISE_MIN:T_RISE_AVG:T_RISE_MAX, T_FALL_MIN:T_FALL_AVG:T_FALL_MAX);
+	if (EN && DD==2 && SD==2 && ED==0 && !FULL) (        SRC -=> (DST -: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==2 && SD==2 && ED==0 &&  FULL) (        SRC -*> (DST -: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==2 && SD==2 && ED==1 && !FULL) (posedge SRC -=> (DST -: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==2 && SD==2 && ED==1 &&  FULL) (posedge SRC -*> (DST -: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==2 && SD==2 && ED==2 && !FULL) (negedge SRC -=> (DST -: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==2 && SD==2 && ED==2 &&  FULL) (negedge SRC -*> (DST -: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
 endspecify
 `endif
 
