@@ -64,10 +64,13 @@ struct SynthXilinxPass : public Pass
 		log("        (this feature is experimental and incomplete)\n");
 		log("\n");
 		log("    -nobram\n");
-		log("        disable infering of block rams\n");
+		log("        disable inference of block rams\n");
 		log("\n");
 		log("    -nodram\n");
-		log("        disable infering of distributed rams\n");
+		log("        disable inference of distributed rams\n");
+		log("\n");
+		log("    -nosrl\n");
+		log("        disable inference of shift registers\n");
 		log("\n");
 		log("    -run <from_label>:<to_label>\n");
 		log("        only run the commands between the labels (see below). an empty\n");
@@ -105,23 +108,28 @@ struct SynthXilinxPass : public Pass
 		log("        techmap -map +/xilinx/drams_map.v\n");
 		log("\n");
 		log("    fine:\n");
-		log("        opt -fast -full\n");
+		log("        opt -fast\n");
 		log("        memory_map\n");
 		log("        dffsr2dff\n");
 		log("        dff2dffe\n");
-		log("        opt -full\n");
-		log("        techmap -map +/techmap.v -map +/xilinx/arith_map.v\n");
+		log("        techmap -map +/xilinx/arith_map.v\n");
 		log("        opt -fast\n");
 		log("\n");
 		log("    map_cells:\n");
+		log("        simplemap t:$dff t:$dffe (without '-nosrl' only)\n");
+		log("        pmux2shiftx (without '-nosrl' only)\n");
+		log("        opt_expr -mux_undef (without '-nosrl' only)\n");
+		log("        shregmap -tech xilinx -minlen 3 (without '-nosrl' only)\n");
 		log("        techmap -map +/xilinx/cells_map.v\n");
 		log("        clean\n");
 		log("\n");
 		log("    map_luts:\n");
-		log("        techmap -map +/techmap.v -map +/xilinx/ff_map.v t:$_DFF_?N?\n");
+		log("        opt -full\n");
+		log("        techmap -map +/techmap.v -D _NO_POS_SR -map +/xilinx/ff_map.v\n");
 		log("        abc -luts 2:2,3,6:5,10,20 [-dff]\n");
 		log("        clean\n");
-		log("        techmap -map +/xilinx/lut_map.v -map +/xilinx/ff_map.v");
+		log("        shregmap -minlen 3 -init -params -enpol any_or_none (without '-nosrl' only)\n");
+		log("        techmap -map +/xilinx/lut_map.v -map +/xilinx/ff_map.v -map +/xilinx/cells_map.v");
 		log("        dffinit -ff FDRE   Q INIT -ff FDCE   Q INIT -ff FDPE   Q INIT -ff FDSE   Q INIT \\\n");
 		log("                -ff FDRE_1 Q INIT -ff FDCE_1 Q INIT -ff FDPE_1 Q INIT -ff FDSE_1 Q INIT\n");
 		log("        clean\n");
@@ -149,6 +157,7 @@ struct SynthXilinxPass : public Pass
 		bool vpr = false;
 		bool nobram = false;
 		bool nodram = false;
+		bool nosrl = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -191,6 +200,10 @@ struct SynthXilinxPass : public Pass
 			}
 			if (args[argidx] == "-nodram") {
 				nodram = true;
+				continue;
+			}
+			if (args[argidx] == "-nosrl") {
+				nosrl = true;
 				continue;
 			}
 			break;
@@ -251,16 +264,15 @@ struct SynthXilinxPass : public Pass
 
 		if (check_label(active, run_from, run_to, "fine"))
 		{
-			Pass::call(design, "opt -fast -full");
+			Pass::call(design, "opt -fast");
 			Pass::call(design, "memory_map");
 			Pass::call(design, "dffsr2dff");
 			Pass::call(design, "dff2dffe");
-			Pass::call(design, "opt -full");
 
 			if (vpr) {
-				Pass::call(design, "techmap -map +/techmap.v -map +/xilinx/arith_map.v -D _EXPLICIT_CARRY");
+				Pass::call(design, "techmap -map +/xilinx/arith_map.v -D _EXPLICIT_CARRY");
 			} else {
-				Pass::call(design, "techmap -map +/techmap.v -map +/xilinx/arith_map.v");
+				Pass::call(design, "techmap -map +/xilinx/arith_map.v");
 			}
 
 			Pass::call(design, "hierarchy -check");
@@ -269,16 +281,36 @@ struct SynthXilinxPass : public Pass
 
 		if (check_label(active, run_from, run_to, "map_cells"))
 		{
+			if (!nosrl) {
+				// shregmap operates on bit-level flops, not word-level,
+				//   so break those down here
+				Pass::call(design, "simplemap t:$dff t:$dffe");
+				// shregmap -tech xilinx can cope with $shiftx and $mux
+				//   cells for identifiying variable-length shift registers,
+				//   so attempt to convert $pmux-es to the former
+				Pass::call(design, "pmux2shiftx");
+				// pmux2shiftx can leave behind a $pmux with a single entry
+				//   -- need this to clean that up before shregmap
+				Pass::call(design, "opt_expr -mux_undef");
+				// shregmap with '-tech xilinx' infers variable length shift regs
+				Pass::call(design, "shregmap -tech xilinx -minlen 3");
+			}
+
 			Pass::call(design, "techmap -map +/xilinx/cells_map.v");
 			Pass::call(design, "clean");
 		}
 
 		if (check_label(active, run_from, run_to, "map_luts"))
 		{
-			Pass::call(design, "techmap -map +/techmap.v -map +/xilinx/ff_map.v t:$_DFF_?N?");
+			Pass::call(design, "opt -full");
+			Pass::call(design, "techmap -map +/techmap.v -D _NO_POS_SR -map +/xilinx/ff_map.v");
 			Pass::call(design, "abc -luts 2:2,3,6:5,10,20" + string(retime ? " -dff" : ""));
 			Pass::call(design, "clean");
-			Pass::call(design, "techmap -map +/xilinx/lut_map.v -map +/xilinx/ff_map.v");
+			// This shregmap call infers fixed length shift registers after abc
+			//   has performed any necessary retiming
+			if (!nosrl)
+				Pass::call(design, "shregmap -minlen 3 -init -params -enpol any_or_none");
+			Pass::call(design, "techmap -map +/xilinx/lut_map.v -map +/xilinx/ff_map.v -map +/xilinx/cells_map.v");
 			Pass::call(design, "dffinit -ff FDRE Q INIT -ff FDCE Q INIT -ff FDPE Q INIT -ff FDSE Q INIT "
 					"-ff FDRE_1 Q INIT -ff FDCE_1 Q INIT -ff FDPE_1 Q INIT -ff FDSE_1 Q INIT");
 			Pass::call(design, "clean");
