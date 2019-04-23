@@ -179,7 +179,7 @@ module \$shiftx (A, B, Y);
         assign A_i[i] = A[i*2];
       \$shiftx  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH((A_WIDTH+1'd1)/2'd2), .B_WIDTH(B_WIDTH-1'd1), .Y_WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(A_i), .B(B[B_WIDTH-1:1]), .Y(Y));
     end
-    else if (B_WIDTH < 3 || A_WIDTH == 2**2) begin
+    else if (B_WIDTH < 3 || A_WIDTH <= 4) begin
       wire _TECHMAP_FAIL_ = 1;
     end
     else if (B_WIDTH == 3) begin
