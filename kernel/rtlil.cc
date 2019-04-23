@@ -1219,13 +1219,13 @@ namespace {
 			}
 
 			if (cell->type == "$specrule") {
+				param("\\TYPE");
 				param_bool("\\SRC_PEN");
 				param_bool("\\SRC_POL");
 				param_bool("\\DST_PEN");
 				param_bool("\\DST_POL");
-				param_bool("\\SKEW");
-				param_bool("\\HOLD");
 				param("\\T_LIMIT");
+				param("\\T_LIMIT2");
 				port("\\SRC_EN", 1);
 				port("\\DST_EN", 1);
 				port("\\SRC", param("\\SRC_WIDTH"));

@@ -153,7 +153,7 @@ struct specify_rise_fall {
 %type <specify_target_ptr> specify_target
 %type <specify_triple_ptr> specify_triple
 %type <specify_rise_fall_ptr> specify_rise_fall
-%type <ast> specify_if specify_condition
+%type <ast> specify_if specify_condition specify_opt_arg
 %type <ch> specify_edge
 
 // operator precedence from low to high
@@ -816,8 +816,9 @@ specify_item:
 		delete target;
 		delete timing;
 	} |
-	TOK_ID '(' specify_edge expr specify_condition ',' specify_edge expr specify_condition ',' expr ')' ';' {
-		if (*$1 != "$setup" && *$1 != "$hold" && *$1 != "$skew")
+	TOK_ID '(' specify_edge expr specify_condition ',' specify_edge expr specify_condition ',' expr specify_opt_arg ')' ';' {
+		if (*$1 != "$setup" && *$1 != "$hold" && *$1 != "$setuphold" && *$1 != "$removal" && *$1 != "$recovery" &&
+				*$1 != "$recrem" && *$1 != "$skew" && *$1 != "$timeskew" && *$1 != "$fullskew" && *$1 != "$nochange")
 			frontend_verilog_yyerror("Unsupported specify rule type: %s\n", $1->c_str());
 
 		AstNode *src_pen = AstNode::mkconst_int($3 != 0, false, 1);
@@ -829,6 +830,7 @@ specify_item:
 		AstNode *dst_expr = $8, *dst_en = $9 ? $9 : AstNode::mkconst_int(1, false, 1);
 
 		AstNode *limit = $11;
+		AstNode *limit2 = $12;
 
 		AstNode *cell = new AstNode(AST_CELL);
 		ast_stack.back()->children.push_back(cell);
@@ -836,14 +838,14 @@ specify_item:
 		cell->children.push_back(new AstNode(AST_CELLTYPE));
 		cell->children.back()->str = "$specrule";
 
-		cell->children.push_back(new AstNode(AST_PARASET, AstNode::mkconst_int(*$1 == "$skew", false, 1)));
-		cell->children.back()->str = "\\SKEW";
-
-		cell->children.push_back(new AstNode(AST_PARASET, AstNode::mkconst_int(*$1 == "$hold", false, 1)));
-		cell->children.back()->str = "\\HOLD";
+		cell->children.push_back(new AstNode(AST_PARASET, AstNode::mkconst_str(*$1)));
+		cell->children.back()->str = "\\TYPE";
 
 		cell->children.push_back(new AstNode(AST_PARASET, limit));
 		cell->children.back()->str = "\\T_LIMIT";
+
+		cell->children.push_back(new AstNode(AST_PARASET, limit2 ? limit2 : AstNode::mkconst_int(0, true)));
+		cell->children.back()->str = "\\T_LIMIT2";
 
 		cell->children.push_back(new AstNode(AST_PARASET, src_pen));
 		cell->children.back()->str = "\\SRC_PEN";
@@ -870,6 +872,14 @@ specify_item:
 		cell->children.back()->str = "\\DST";
 
 		delete $1;
+	};
+
+specify_opt_arg:
+	',' expr {
+		$$ = $2;
+	} |
+	/* empty */ {
+		$$ = nullptr;
 	};
 
 specify_if:

@@ -301,7 +301,7 @@ supply1 { return TOK_SUPPLY1; }
 	return TOK_ID;
 }
 
-"$"(setup|hold|skew) {
+"$"(setup|hold|setuphold|removal|recovery|recrem|skew|timeskew|fullskew|nochange) {
 	if (!specify_mode) REJECT;
 	frontend_verilog_yylval.string = new std::string(yytext);
 	return TOK_ID;

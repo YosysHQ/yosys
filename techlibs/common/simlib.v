@@ -1419,9 +1419,9 @@ endmodule
 
 module \$specrule (EN_SRC, EN_DST, SRC, DST);
 
-parameter SKEW = 0;
-parameter HOLD = 0;
+parameter TYPE = "";
 parameter T_LIMIT = 0;
+parameter T_LIMIT2 = 0;
 
 parameter SRC_WIDTH = 1;
 parameter DST_WIDTH = 1;
