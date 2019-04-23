@@ -133,6 +133,8 @@ struct XAigerWriter
 						init_map[initsig[i]] = initval[i] == State::S1;
 			}
 
+			bool keep = wire->attributes.count("\\keep");
+
 			for (int i = 0; i < GetSize(wire); i++)
 			{
 				SigBit wirebit(wire, i);
@@ -151,8 +153,10 @@ struct XAigerWriter
 
 				if (wire->port_input)
 					input_bits.insert(bit);
+				else if (keep)
+					input_bits.insert(wirebit);
 
-				if (wire->port_output) {
+				if (wire->port_output || keep) {
 					if (bit != wirebit)
 						alias_map[wirebit] = bit;
 					output_bits.insert(wirebit);
@@ -338,10 +342,12 @@ struct XAigerWriter
 
 		for (auto bit : input_bits) {
 			RTLIL::Wire *wire = bit.wire;
-			// If encountering an inout port, then create a new wire with $inout.out
-			// suffix, make it a PO driven by the existing inout, and inherit existing
-			// inout's drivers
-			if (wire->port_input && wire->port_output && !undriven_bits.count(bit)) {
+			// If encountering an inout port, or a keep-ed wire, then create a new wire
+			// with $inout.out suffix, make it a PO driven by the existing inout, and
+			// inherit existing inout's drivers
+			if ((wire->port_input && wire->port_output && !undriven_bits.count(bit))
+					|| wire->attributes.count("\\keep")) {
+				log_assert(input_bits.count(bit) && output_bits.count(bit));
 				RTLIL::Wire *new_wire = module->wire(wire->name.str() + "$inout.out");
 				if (!new_wire)
 					new_wire = module->addWire(wire->name.str() + "$inout.out", GetSize(wire));
@@ -354,7 +360,9 @@ struct XAigerWriter
 				else if (alias_map.count(bit))
 					alias_map[new_bit] = alias_map.at(bit);
 				else
+					//log_abort();
 					alias_map[new_bit] = bit;
+				output_bits.erase(bit);
 				output_bits.insert(new_bit);
 			}
 		}
@@ -750,7 +758,7 @@ struct XAigerWriter
 			{
 				RTLIL::SigBit b(wire, i);
 				if (input_bits.count(b)) {
-					int a = aig_map.at(sig[i]);
+					int a = aig_map.at(b);
 					log_assert((a & 1) == 0);
 					input_lines[a] += stringf("input %d %d %s\n", (a >> 1)-1, i, log_id(wire));
 				}

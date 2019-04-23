@@ -104,3 +104,41 @@ always @(io or oe)
 assign io[3:0] = oe ? ~latch[3:0] : 4'bz;
 assign io[7:4] = !oe ? {latch[4], latch[7:3]} : 4'bz;
 endmodule
+
+module abc9_test015(input a, output b, input c);
+assign b = ~a;
+(* keep *) wire d;
+assign d = ~c;
+endmodule
+
+module abc9_test016(input a, output b);
+assign b = ~a;
+(* keep *) reg c;
+always @* c <= ~a;
+endmodule
+
+module abc9_test017(input a, output b);
+assign b = ~a;
+(* keep *) reg c;
+always @* c = b;
+endmodule
+
+module abc9_test018(input a, output b, output c);
+assign b = ~a;
+(* keep *) wire [1:0] d;
+assign c = &d;
+endmodule
+
+module abc9_test019(input a, output b);
+assign b = ~a;
+(* keep *) reg [1:0] c;
+reg d;
+always @* d <= &c;
+endmodule
+
+module abc9_test020(input a, output b);
+assign b = ~a;
+(* keep *) reg [1:0] c;
+(* keep *) reg d;
+always @* d <= &c;
+endmodule
