@@ -548,6 +548,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		RTLIL::Module *mapped_mod = mapped_design->modules_["\\netlist"];
 		if (mapped_mod == NULL)
 			log_error("ABC output file does not contain a module `netlist'.\n");
+		Pass::call(mapped_design, "clean");
 
 		pool<RTLIL::SigBit> output_bits;
 		for (auto &it : mapped_mod->wires_) {

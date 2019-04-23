@@ -598,8 +598,6 @@ next_line:
     module->fixup_ports();
     design->add(module);
 
-    Pass::call(design, "clean");
-
     for (auto cell : module->cells().to_vector()) {
         if (cell->type != "$lut") continue;
         auto y_port = cell->getPort("\\Y").as_bit();
