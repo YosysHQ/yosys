@@ -136,7 +136,7 @@ struct specify_rise_fall {
 %token TOK_DPI_FUNCTION TOK_POSEDGE TOK_NEGEDGE TOK_OR TOK_AUTOMATIC
 %token TOK_CASE TOK_CASEX TOK_CASEZ TOK_ENDCASE TOK_DEFAULT
 %token TOK_FUNCTION TOK_ENDFUNCTION TOK_TASK TOK_ENDTASK TOK_SPECIFY
-%token TOK_IGNORED_SPECIFY TOK_ENDSPECIFY TOK_SPECPARAM
+%token TOK_IGNORED_SPECIFY TOK_ENDSPECIFY TOK_SPECPARAM TOK_SPECIFY_AND
 %token TOK_GENERATE TOK_ENDGENERATE TOK_GENVAR TOK_REAL
 %token TOK_SYNOPSYS_FULL_CASE TOK_SYNOPSYS_PARALLEL_CASE
 %token TOK_SUPPLY0 TOK_SUPPLY1 TOK_TO_SIGNED TOK_TO_UNSIGNED
@@ -153,7 +153,7 @@ struct specify_rise_fall {
 %type <specify_target_ptr> specify_target
 %type <specify_triple_ptr> specify_triple
 %type <specify_rise_fall_ptr> specify_rise_fall
-%type <ast> specify_if
+%type <ast> specify_if specify_condition
 %type <ch> specify_edge
 
 // operator precedence from low to high
@@ -815,11 +815,76 @@ specify_item:
 		delete oper;
 		delete target;
 		delete timing;
+	} |
+	TOK_ID '(' specify_edge expr specify_condition ',' specify_edge expr specify_condition ',' expr ')' ';' {
+		bool limit_gt = false;
+		if (*$1 == "$setup" || *$1 == "$hold")
+			limit_gt = true;
+		else if (*$1 == "$skew")
+			limit_gt = false;
+		else
+			frontend_verilog_yyerror("Unsupported specify rule type: %s\n", $1->c_str());
+
+		AstNode *src_pen = AstNode::mkconst_int($3 != 0, false, 1);
+		AstNode *src_pol = AstNode::mkconst_int($3 == 'p', false, 1);
+		AstNode *src_expr = $4, *src_en = $5 ? $5 : AstNode::mkconst_int(1, false, 1);
+
+		AstNode *dst_pen = AstNode::mkconst_int($7 != 0, false, 1);
+		AstNode *dst_pol = AstNode::mkconst_int($7 == 'p', false, 1);
+		AstNode *dst_expr = $8, *dst_en = $9 ? $9 : AstNode::mkconst_int(1, false, 1);
+
+		AstNode *limit = $11;
+
+		AstNode *cell = new AstNode(AST_CELL);
+		ast_stack.back()->children.push_back(cell);
+		cell->str = stringf("$specify$%d", autoidx++);
+		cell->children.push_back(new AstNode(AST_CELLTYPE));
+		cell->children.back()->str = "$specrule";
+
+		cell->children.push_back(new AstNode(AST_ARGUMENT, src_en));
+		cell->children.back()->str = "\\SRC_EN";
+
+		cell->children.push_back(new AstNode(AST_ARGUMENT, src_expr));
+		cell->children.back()->str = "\\SRC";
+
+		cell->children.push_back(new AstNode(AST_PARASET, src_pen));
+		cell->children.back()->str = "\\SRC_PEN";
+
+		cell->children.push_back(new AstNode(AST_PARASET, src_pol));
+		cell->children.back()->str = "\\SRC_POL";
+
+		cell->children.push_back(new AstNode(AST_ARGUMENT, dst_en));
+		cell->children.back()->str = "\\DST_EN";
+
+		cell->children.push_back(new AstNode(AST_ARGUMENT, dst_expr));
+		cell->children.back()->str = "\\DST";
+
+		cell->children.push_back(new AstNode(AST_PARASET, dst_pen));
+		cell->children.back()->str = "\\DST_PEN";
+
+		cell->children.push_back(new AstNode(AST_PARASET, dst_pol));
+		cell->children.back()->str = "\\DST_POL";
+
+		cell->children.push_back(new AstNode(AST_PARASET, AstNode::mkconst_int(limit_gt, false, 1)));
+		cell->children.back()->str = "\\LIMIT_GT";
+
+		cell->children.push_back(new AstNode(AST_PARASET, limit));
+		cell->children.back()->str = "\\T_LIMIT";
+
+		delete $1;
 	};
 
 specify_if:
 	TOK_IF '(' expr ')' {
 		$$ = $3;
+	} |
+	/* empty */ {
+		$$ = nullptr;
+	};
+
+specify_condition:
+	TOK_SPECIFY_AND expr {
+		$$ = $2;
 	} |
 	/* empty */ {
 		$$ = nullptr;

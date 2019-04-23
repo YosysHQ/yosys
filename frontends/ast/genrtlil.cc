@@ -1538,6 +1538,12 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				cell->setParam("\\SRC_WIDTH", Const(src_width));
 				cell->setParam("\\DST_WIDTH", Const(dst_width));
 			}
+			if (cell->type == "$specrule") {
+				int src_width = GetSize(cell->getPort("\\SRC"));
+				int dst_width = GetSize(cell->getPort("\\DST"));
+				cell->setParam("\\SRC_WIDTH", Const(src_width));
+				cell->setParam("\\DST_WIDTH", Const(dst_width));
+			}
 		}
 		break;
 

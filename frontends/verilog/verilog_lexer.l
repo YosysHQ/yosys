@@ -301,6 +301,12 @@ supply1 { return TOK_SUPPLY1; }
 	return TOK_ID;
 }
 
+"$"(setup|hold|skew) {
+	if (!specify_mode) REJECT;
+	frontend_verilog_yylval.string = new std::string(yytext);
+	return TOK_ID;
+}
+
 "$signed"   { return TOK_TO_SIGNED; }
 "$unsigned" { return TOK_TO_UNSIGNED; }
 
@@ -415,6 +421,11 @@ import[ \t\r\n]+\"(DPI|DPI-C)\"[ \t\r\n]+function[ \t\r\n]+ {
 	if (!specify_mode) REJECT;
 	frontend_verilog_yylval.string = new std::string(yytext);
 	return TOK_SPECIFY_OPER;
+}
+
+"&&&" {
+	if (!specify_mode) REJECT;
+	return TOK_SPECIFY_AND;
 }
 
 "/*" { BEGIN(COMMENT); }

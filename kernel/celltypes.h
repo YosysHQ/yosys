@@ -86,6 +86,7 @@ struct CellTypes
 
 		IdString A = "\\A", B = "\\B", EN = "\\EN", Y = "\\Y";
 		IdString SRC = "\\SRC", DST = "\\DST", DAT = "\\DAT";
+		IdString EN_SRC = "\\EN_SRC", EN_DST = "\\EN_DST";
 
 		setup_type("$tribuf", {A, EN}, {Y}, true);
 
@@ -102,6 +103,7 @@ struct CellTypes
 		setup_type("$equiv", {A, B}, {Y}, true);
 		setup_type("$specify2", {EN, SRC, DST}, pool<RTLIL::IdString>(), true);
 		setup_type("$specify3", {EN, SRC, DST, DAT}, pool<RTLIL::IdString>(), true);
+		setup_type("$specrule", {EN_SRC, EN_DST, SRC, DST}, pool<RTLIL::IdString>(), true);
 	}
 
 	void setup_internals_eval()

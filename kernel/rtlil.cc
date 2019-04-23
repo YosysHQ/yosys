@@ -1218,6 +1218,21 @@ namespace {
 				return;
 			}
 
+			if (cell->type == "$specrule") {
+				param_bool("\\SRC_PEN");
+				param_bool("\\SRC_POL");
+				param_bool("\\DST_PEN");
+				param_bool("\\DST_POL");
+				param_bool("\\LIMIT_GT");
+				param("\\T_LIMIT");
+				port("\\SRC_EN", 1);
+				port("\\DST_EN", 1);
+				port("\\SRC", param("\\SRC_WIDTH"));
+				port("\\DST", param("\\DST_WIDTH"));
+				check_expected();
+				return;
+			}
+
 			if (cell->type == "$_BUF_")    { check_gate("AY"); return; }
 			if (cell->type == "$_NOT_")    { check_gate("AY"); return; }
 			if (cell->type == "$_AND_")    { check_gate("ABY"); return; }
