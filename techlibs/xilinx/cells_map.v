@@ -168,7 +168,7 @@ module \$shiftx (A, B, Y);
     end
     else if (Y_WIDTH > 1) begin
       for (i = 0; i < Y_WIDTH; i++)
-        \$shiftx  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(A_WIDTH), .B_WIDTH(B_WIDTH), .Y_WIDTH(1'd1)) bitblast (.A({{i{1'bx}}, A[A_WIDTH-1:i]}), .B(B), .Y(Y[i]));
+        \$shiftx  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(A_WIDTH-Y_WIDTH+1), .B_WIDTH(B_WIDTH), .Y_WIDTH(1'd1)) bitblast (.A(A[A_WIDTH-Y_WIDTH+i:i]), .B(B), .Y(Y[i]));
     end
     // If the LSB of B is constant zero (and Y_WIDTH is 1) then
     //   we can optimise by removing every other entry from A
