@@ -47,6 +47,7 @@ struct AigerReader
     void parse_xaiger();
     void parse_aiger_ascii();
     void parse_aiger_binary();
+    void post_process();
 };
 
 YOSYS_NAMESPACE_END

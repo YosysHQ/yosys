@@ -113,103 +113,7 @@ void AigerReader::parse_aiger()
         std::getline(f, line); // Ignore up to start of next line
     }
 
-    dict<RTLIL::IdString, int> wideports_cache;
-
-    if (!map_filename.empty()) {
-        std::ifstream mf(map_filename);
-        std::string type, symbol;
-        int variable, index;
-        while (mf >> type >> variable >> index >> symbol) {
-            RTLIL::IdString escaped_symbol = RTLIL::escape_id(symbol);
-            if (type == "input") {
-                log_assert(static_cast<unsigned>(variable) < inputs.size());
-                RTLIL::Wire* wire = inputs[variable];
-                log_assert(wire);
-                log_assert(wire->port_input);
-
-                if (index == 0)
-                    module->rename(wire, RTLIL::escape_id(symbol));
-                else if (index > 0) {
-                    module->rename(wire, RTLIL::escape_id(stringf("%s[%d]", symbol.c_str(), index)));
-                    if (wideports)
-                        wideports_cache[escaped_symbol] = std::max(wideports_cache[escaped_symbol], index);
-                }
-            }
-            else if (type == "output") {
-                log_assert(static_cast<unsigned>(variable) < outputs.size());
-                RTLIL::Wire* wire = outputs[variable];
-                log_assert(wire);
-                // Ignore direct output -> input connections
-                if (!wire->port_output)
-                    continue;
-                log_assert(wire->port_output);
-
-                if (index == 0)
-                    module->rename(wire, RTLIL::escape_id(symbol));
-                else if (index > 0) {
-                    module->rename(wire, RTLIL::escape_id(stringf("%s[%d]", symbol.c_str(), index)));
-                    if (wideports)
-                        wideports_cache[escaped_symbol] = std::max(wideports_cache[escaped_symbol], index);
-                }
-            }
-            else
-                log_error("Symbol type '%s' not recognised.\n", type.c_str());
-        }
-    }
-
-    for (auto &wp : wideports_cache) {
-        auto name = wp.first;
-        int width = wp.second + 1;
-
-        RTLIL::Wire *wire = module->wire(name);
-        if (wire)
-            module->rename(wire, RTLIL::escape_id(stringf("%s[%d]", name.c_str(), 0)));
-
-        // Do not make ports with a mix of input/output into
-        // wide ports
-        bool port_input = false, port_output = false;
-        for (int i = 0; i < width; i++) {
-            RTLIL::IdString other_name = name.str() + stringf("[%d]", i);
-            RTLIL::Wire *other_wire = module->wire(other_name);
-            if (other_wire) {
-                port_input = port_input || other_wire->port_input;
-                port_output = port_output || other_wire->port_output;
-            }
-        }
-        if ((port_input && port_output) || (!port_input && !port_output))
-            continue;
-
-        wire = module->addWire(name, width);
-        wire->port_input = port_input;
-        wire->port_output = port_output;
-
-        for (int i = 0; i < width; i++) {
-            RTLIL::IdString other_name = name.str() + stringf("[%d]", i);
-            RTLIL::Wire *other_wire = module->wire(other_name);
-            if (other_wire) {
-                other_wire->port_input = false;
-                other_wire->port_output = false;
-                if (wire->port_input)
-                    module->connect(other_wire, SigSpec(wire, i));
-                else
-                    module->connect(SigSpec(wire, i), other_wire);
-            }
-        }
-    }
-
-    module->fixup_ports();
-    design->add(module);
-
-    Pass::call(design, "clean");
-
-    for (auto cell : module->cells().to_vector()) {
-        if (cell->type != "$lut") continue;
-        auto y_port = cell->getPort("\\Y").as_bit();
-        if (y_port.wire->width == 1)
-            module->rename(cell, stringf("%s$lut", y_port.wire->name.c_str()));
-        else
-            module->rename(cell, stringf("%s[%d]$lut", y_port.wire->name.c_str(), y_port.offset));
-    }
+    post_process();
 }
 
 static uint32_t parse_xaiger_literal(std::istream &f)
@@ -438,158 +342,7 @@ next_line:
         module->connect(wire, out_wire);
     }
 
-    if (!map_filename.empty()) {
-        std::ifstream mf(map_filename);
-        std::string type, symbol;
-        int variable, index;
-        while (mf >> type >> variable >> index >> symbol) {
-            RTLIL::IdString escaped_s = RTLIL::escape_id(symbol);
-            if (type == "input") {
-                log_assert(static_cast<unsigned>(variable) < inputs.size());
-                RTLIL::Wire* wire = inputs[variable];
-                log_assert(wire);
-                log_assert(wire->port_input);
-
-                if (index == 0) {
-                    // Cope with the fact that a CI might be identical
-                    // to a PI (necessary due to ABC); in those cases
-                    // simply connect the latter to the former
-                    RTLIL::Wire* existing = module->wire(escaped_s);
-                    if (!existing)
-                        module->rename(wire, escaped_s);
-                    else {
-                        wire->port_input = false;
-                        module->connect(wire, existing);
-                    }
-                }
-                else if (index > 0) {
-                    std::string indexed_name = stringf("%s[%d]", escaped_s.c_str(), index);
-                    RTLIL::Wire* existing = module->wire(indexed_name);
-                    if (!existing) {
-                        module->rename(wire, indexed_name);
-                        if (wideports)
-                            wideports_cache[escaped_s] = std::max(wideports_cache[escaped_s], index);
-                    }
-                    else {
-                        module->connect(wire, existing);
-                        wire->port_input = false;
-                    }
-                }
-            }
-            else if (type == "output") {
-                log_assert(static_cast<unsigned>(variable) < outputs.size());
-                RTLIL::Wire* wire = outputs[variable];
-                log_assert(wire);
-                log_assert(wire->port_output);
-                if (escaped_s.in("\\__dummy_o__", "\\__const0__", "\\__const1__")) {
-                    wire->port_output = false;
-                    continue;
-                }
-
-                if (index == 0) {
-                    // Cope with the fact that a CO might be identical
-                    // to a PO (necessary due to ABC); in those cases
-                    // simply connect the latter to the former
-                    RTLIL::Wire* existing = module->wire(escaped_s);
-                    if (!existing) {
-                        if (escaped_s.ends_with("$inout.out")) {
-                            wire->port_output = false;
-                            RTLIL::Wire *in_wire = module->wire(escaped_s.substr(0, escaped_s.size()-10));
-                            log_assert(in_wire);
-                            log_assert(in_wire->port_input && !in_wire->port_output);
-                            in_wire->port_output = true;
-                            module->connect(in_wire, wire);
-                        }
-                        else
-                            module->rename(wire, escaped_s);
-                    }
-                    else {
-                        wire->port_output = false;
-                        module->connect(wire, existing);
-                    }
-                }
-                else if (index > 0) {
-                    std::string indexed_name = stringf("%s[%d]", escaped_s.c_str(), index);
-                    RTLIL::Wire* existing = module->wire(indexed_name);
-                    if (!existing) {
-                        if (escaped_s.ends_with("$inout.out")) {
-                            wire->port_output = false;
-                            RTLIL::Wire *in_wire = module->wire(stringf("%s[%d]", escaped_s.substr(0, escaped_s.size()-10).c_str(), index));
-                            log_assert(in_wire);
-                            log_assert(in_wire->port_input && !in_wire->port_output);
-                            in_wire->port_output = true;
-                            module->connect(in_wire, wire);
-                        }
-                        else {
-                            module->rename(wire, indexed_name);
-                            if (wideports)
-                                wideports_cache[escaped_s] = std::max(wideports_cache[escaped_s], index);
-                        }
-                    }
-                    else {
-                        module->connect(wire, existing);
-                        wire->port_output = false;
-                    }
-                }
-            }
-            else
-                log_error("Symbol type '%s' not recognised.\n", type.c_str());
-        }
-    }
-
-    for (auto &wp : wideports_cache) {
-        auto name = wp.first;
-        int width = wp.second + 1;
-
-        RTLIL::Wire *wire = module->wire(name);
-        if (wire)
-            module->rename(wire, RTLIL::escape_id(stringf("%s[%d]", name.c_str(), 0)));
-
-        // Do not make ports with a mix of input/output into
-        // wide ports
-        bool port_input = false, port_output = false;
-        for (int i = 0; i < width; i++) {
-            RTLIL::IdString other_name = name.str() + stringf("[%d]", i);
-            RTLIL::Wire *other_wire = module->wire(other_name);
-            if (other_wire) {
-                port_input = port_input || other_wire->port_input;
-                port_output = port_output || other_wire->port_output;
-            }
-        }
-        if ((port_input && port_output) || (!port_input && !port_output))
-            continue;
-
-        wire = module->addWire(name, width);
-        wire->port_input = port_input;
-        wire->port_output = port_output;
-
-        for (int i = 0; i < width; i++) {
-            RTLIL::IdString other_name = name.str() + stringf("[%d]", i);
-            RTLIL::Wire *other_wire = module->wire(other_name);
-            if (other_wire) {
-                other_wire->port_input = false;
-                other_wire->port_output = false;
-                if (wire->port_input)
-                    module->connect(other_wire, SigSpec(wire, i));
-                else
-                    module->connect(SigSpec(wire, i), other_wire);
-            }
-        }
-    }
-
-    module->fixup_ports();
-    design->add(module);
-
-    Pass::call(design, "clean");
-
-    for (auto cell : module->cells().to_vector()) {
-        if (cell->type != "$lut") continue;
-        auto y_port = cell->getPort("\\Y").as_bit();
-        if (y_port.wire->width == 1)
-            module->rename(cell, stringf("%s$lut", y_port.wire->name.c_str()));
-        else
-            module->rename(cell, stringf("%s[%d]$lut", y_port.wire->name.c_str(), y_port.offset));
-    }
+    post_process();
 }
 
 void AigerReader::parse_aiger_ascii()
@@ -846,6 +599,164 @@ void AigerReader::parse_aiger_binary()
         RTLIL::Wire *i1_wire = createWireIfNotExists(module, l2);
         RTLIL::Wire *i2_wire = createWireIfNotExists(module, l3);
         module->addAndGate(o_wire->name.str() + "$and", i1_wire, i2_wire, o_wire);
+    }
+}
+
+void AigerReader::post_process()
+{
+    dict<RTLIL::IdString, int> wideports_cache;
+
+    if (!map_filename.empty()) {
+        std::ifstream mf(map_filename);
+        std::string type, symbol;
+        int variable, index;
+        while (mf >> type >> variable >> index >> symbol) {
+            RTLIL::IdString escaped_s = RTLIL::escape_id(symbol);
+            if (type == "input") {
+                log_assert(static_cast<unsigned>(variable) < inputs.size());
+                RTLIL::Wire* wire = inputs[variable];
+                log_assert(wire);
+                log_assert(wire->port_input);
+
+                if (index == 0) {
+                    // Cope with the fact that a CI might be identical
+                    // to a PI (necessary due to ABC); in those cases
+                    // simply connect the latter to the former
+                    RTLIL::Wire* existing = module->wire(escaped_s);
+                    if (!existing)
+                        module->rename(wire, escaped_s);
+                    else {
+                        wire->port_input = false;
+                        module->connect(wire, existing);
+                    }
+                }
+                else if (index > 0) {
+                    std::string indexed_name = stringf("%s[%d]", escaped_s.c_str(), index);
+                    RTLIL::Wire* existing = module->wire(indexed_name);
+                    if (!existing) {
+                        module->rename(wire, indexed_name);
+                        if (wideports)
+                            wideports_cache[escaped_s] = std::max(wideports_cache[escaped_s], index);
+                    }
+                    else {
+                        module->connect(wire, existing);
+                        wire->port_input = false;
+                    }
+                }
+            }
+            else if (type == "output") {
+                log_assert(static_cast<unsigned>(variable) < outputs.size());
+                RTLIL::Wire* wire = outputs[variable];
+                log_assert(wire);
+                log_assert(wire->port_output);
+                if (escaped_s.in("\\__dummy_o__", "\\__const0__", "\\__const1__")) {
+                    wire->port_output = false;
+                    continue;
+                }
+
+                if (index == 0) {
+                    // Cope with the fact that a CO might be identical
+                    // to a PO (necessary due to ABC); in those cases
+                    // simply connect the latter to the former
+                    RTLIL::Wire* existing = module->wire(escaped_s);
+                    if (!existing) {
+                        if (escaped_s.ends_with("$inout.out")) {
+                            wire->port_output = false;
+                            RTLIL::Wire *in_wire = module->wire(escaped_s.substr(0, escaped_s.size()-10));
+                            log_assert(in_wire);
+                            log_assert(in_wire->port_input && !in_wire->port_output);
+                            in_wire->port_output = true;
+                            module->connect(in_wire, wire);
+                        }
+                        else
+                            module->rename(wire, escaped_s);
+                    }
+                    else {
+                        wire->port_output = false;
+                        module->connect(wire, existing);
+                    }
+                }
+                else if (index > 0) {
+                    std::string indexed_name = stringf("%s[%d]", escaped_s.c_str(), index);
+                    RTLIL::Wire* existing = module->wire(indexed_name);
+                    if (!existing) {
+                        if (escaped_s.ends_with("$inout.out")) {
+                            wire->port_output = false;
+                            RTLIL::Wire *in_wire = module->wire(stringf("%s[%d]", escaped_s.substr(0, escaped_s.size()-10).c_str(), index));
+                            log_assert(in_wire);
+                            log_assert(in_wire->port_input && !in_wire->port_output);
+                            in_wire->port_output = true;
+                            module->connect(in_wire, wire);
+                        }
+                        else {
+                            module->rename(wire, indexed_name);
+                            if (wideports)
+                                wideports_cache[escaped_s] = std::max(wideports_cache[escaped_s], index);
+                        }
+                    }
+                    else {
+                        module->connect(wire, existing);
+                        wire->port_output = false;
+                    }
+                }
+            }
+            else
+                log_error("Symbol type '%s' not recognised.\n", type.c_str());
+        }
+    }
+
+    for (auto &wp : wideports_cache) {
+        auto name = wp.first;
+        int width = wp.second + 1;
+
+        RTLIL::Wire *wire = module->wire(name);
+        if (wire)
+            module->rename(wire, RTLIL::escape_id(stringf("%s[%d]", name.c_str(), 0)));
+
+        // Do not make ports with a mix of input/output into
+        // wide ports
+        bool port_input = false, port_output = false;
+        for (int i = 0; i < width; i++) {
+            RTLIL::IdString other_name = name.str() + stringf("[%d]", i);
+            RTLIL::Wire *other_wire = module->wire(other_name);
+            if (other_wire) {
+                port_input = port_input || other_wire->port_input;
+                port_output = port_output || other_wire->port_output;
+            }
+        }
+        if ((port_input && port_output) || (!port_input && !port_output))
+            continue;
+
+        wire = module->addWire(name, width);
+        wire->port_input = port_input;
+        wire->port_output = port_output;
+
+        for (int i = 0; i < width; i++) {
+            RTLIL::IdString other_name = name.str() + stringf("[%d]", i);
+            RTLIL::Wire *other_wire = module->wire(other_name);
+            if (other_wire) {
+                other_wire->port_input = false;
+                other_wire->port_output = false;
+                if (wire->port_input)
+                    module->connect(other_wire, SigSpec(wire, i));
+                else
+                    module->connect(SigSpec(wire, i), other_wire);
+            }
+        }
+    }
+
+    module->fixup_ports();
+    design->add(module);
+
+    Pass::call(design, "clean");
+
+    for (auto cell : module->cells().to_vector()) {
+        if (cell->type != "$lut") continue;
+        auto y_port = cell->getPort("\\Y").as_bit();
+        if (y_port.wire->width == 1)
+            module->rename(cell, stringf("%s$lut", y_port.wire->name.c_str()));
+        else
+            module->rename(cell, stringf("%s[%d]$lut", y_port.wire->name.c_str(), y_port.offset));
     }
 }
 
