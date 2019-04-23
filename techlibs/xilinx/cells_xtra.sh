@@ -135,8 +135,8 @@ function xtract_cell_decl()
 	xtract_cell_decl ROM256X1
 	xtract_cell_decl ROM32X1
 	xtract_cell_decl ROM64X1
-	xtract_cell_decl SRL16E
-	xtract_cell_decl SRLC32E
+	#xtract_cell_decl SRL16E
+	#xtract_cell_decl SRLC32E
 	xtract_cell_decl STARTUPE2 "(* keep *)"
 	xtract_cell_decl USR_ACCESSE2
 	xtract_cell_decl XADC
