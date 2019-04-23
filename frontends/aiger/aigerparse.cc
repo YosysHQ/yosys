@@ -361,7 +361,7 @@ void AigerReader::parse_xaiger()
                 }
             }
             else if (c == 'r') {
-                uint32_t dataSize = parse_xaiger_literal(f);
+                /*uint32_t dataSize =*/ parse_xaiger_literal(f);
                 uint32_t flopNum = parse_xaiger_literal(f);
                 f.ignore(flopNum * sizeof(uint32_t));
                 log_assert(inputs.size() >= flopNum);

@@ -561,11 +561,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 						output_bits.insert({wire, i});
 				}
 				else {
-					//if (w->name == "\\__dummy_o__") {
-					//	log("Don't call ABC as there is nothing to map.\n");
-					//	goto cleanup;
-					//}
-
 					// Attempt another wideports_split here because there
 					// exists the possibility that different bits of a port
 					// could be an input and output, therefore parse_xiager()
@@ -935,7 +930,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 	//	log("Don't call ABC as there is nothing to map.\n");
 	//}
 
-cleanup:
 	if (cleanup)
 	{
 		log("Removing temp directory.\n");
