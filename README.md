@@ -424,6 +424,11 @@ Verilog Attributes and non-standard features
   in an unconditional context (only if/case statements on parameters
   and constant values). The intended use for this is synthesis-time DRC.
 
+- There is limited support for converting specify .. endspecify statements to
+  special ``$specify2``, ``$specify3``, and ``$specrule`` cells, for use in
+  blackboxes and whiteboxes. Use ``read_verilog -specify`` to enable this
+  functionality. (By default specify .. endspecify blocks are ignored.)
+
 
 Non-standard or SystemVerilog features for formal verification
 ==============================================================
