@@ -370,7 +370,7 @@ Verilog Attributes and non-standard features
 
 - When defining a macro with `define, all text between triple double quotes
   is interpreted as macro body, even if it contains unescaped newlines. The
-  tipple double quotes are removed from the macro body. For example:
+  triple double quotes are removed from the macro body. For example:
 
       `define MY_MACRO(a, b) """
          assign a = 23;
