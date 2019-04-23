@@ -1223,7 +1223,8 @@ namespace {
 				param_bool("\\SRC_POL");
 				param_bool("\\DST_PEN");
 				param_bool("\\DST_POL");
-				param_bool("\\LIMIT_GT");
+				param_bool("\\SKEW");
+				param_bool("\\HOLD");
 				param("\\T_LIMIT");
 				port("\\SRC_EN", 1);
 				port("\\DST_EN", 1);

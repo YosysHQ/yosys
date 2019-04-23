@@ -817,12 +817,7 @@ specify_item:
 		delete timing;
 	} |
 	TOK_ID '(' specify_edge expr specify_condition ',' specify_edge expr specify_condition ',' expr ')' ';' {
-		bool limit_gt = false;
-		if (*$1 == "$setup" || *$1 == "$hold")
-			limit_gt = true;
-		else if (*$1 == "$skew")
-			limit_gt = false;
-		else
+		if (*$1 != "$setup" && *$1 != "$hold" && *$1 != "$skew")
 			frontend_verilog_yyerror("Unsupported specify rule type: %s\n", $1->c_str());
 
 		AstNode *src_pen = AstNode::mkconst_int($3 != 0, false, 1);
@@ -841,11 +836,14 @@ specify_item:
 		cell->children.push_back(new AstNode(AST_CELLTYPE));
 		cell->children.back()->str = "$specrule";
 
-		cell->children.push_back(new AstNode(AST_ARGUMENT, src_en));
-		cell->children.back()->str = "\\SRC_EN";
+		cell->children.push_back(new AstNode(AST_PARASET, AstNode::mkconst_int(*$1 == "$skew", false, 1)));
+		cell->children.back()->str = "\\SKEW";
 
-		cell->children.push_back(new AstNode(AST_ARGUMENT, src_expr));
-		cell->children.back()->str = "\\SRC";
+		cell->children.push_back(new AstNode(AST_PARASET, AstNode::mkconst_int(*$1 == "$hold", false, 1)));
+		cell->children.back()->str = "\\HOLD";
+
+		cell->children.push_back(new AstNode(AST_PARASET, limit));
+		cell->children.back()->str = "\\T_LIMIT";
 
 		cell->children.push_back(new AstNode(AST_PARASET, src_pen));
 		cell->children.back()->str = "\\SRC_PEN";
@@ -853,23 +851,23 @@ specify_item:
 		cell->children.push_back(new AstNode(AST_PARASET, src_pol));
 		cell->children.back()->str = "\\SRC_POL";
 
-		cell->children.push_back(new AstNode(AST_ARGUMENT, dst_en));
-		cell->children.back()->str = "\\DST_EN";
-
-		cell->children.push_back(new AstNode(AST_ARGUMENT, dst_expr));
-		cell->children.back()->str = "\\DST";
-
 		cell->children.push_back(new AstNode(AST_PARASET, dst_pen));
 		cell->children.back()->str = "\\DST_PEN";
 
 		cell->children.push_back(new AstNode(AST_PARASET, dst_pol));
 		cell->children.back()->str = "\\DST_POL";
 
-		cell->children.push_back(new AstNode(AST_PARASET, AstNode::mkconst_int(limit_gt, false, 1)));
-		cell->children.back()->str = "\\LIMIT_GT";
+		cell->children.push_back(new AstNode(AST_ARGUMENT, src_en));
+		cell->children.back()->str = "\\SRC_EN";
 
-		cell->children.push_back(new AstNode(AST_PARASET, limit));
-		cell->children.back()->str = "\\T_LIMIT";
+		cell->children.push_back(new AstNode(AST_ARGUMENT, src_expr));
+		cell->children.back()->str = "\\SRC";
+
+		cell->children.push_back(new AstNode(AST_ARGUMENT, dst_en));
+		cell->children.back()->str = "\\DST_EN";
+
+		cell->children.push_back(new AstNode(AST_ARGUMENT, dst_expr));
+		cell->children.back()->str = "\\DST";
 
 		delete $1;
 	};
