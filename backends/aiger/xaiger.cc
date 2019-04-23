@@ -50,6 +50,7 @@ struct XAigerWriter
 	dict<SigBit, pair<SigBit, SigBit>> and_map;
 	//pool<SigBit> initstate_bits;
 	vector<std::pair<SigBit,int>> ci_bits, co_bits;
+	vector<std::pair<SigBit,SigBit>> ff_bits;
 
 	vector<pair<int, int>> aig_gates;
 	vector<int> aig_latchin, aig_latchinit, aig_outputs;
@@ -174,6 +175,7 @@ struct XAigerWriter
 		for (auto cell : module->cells())
 		{
 			RTLIL::Module* inst_module = module->design->module(cell->type);
+			bool inst_flop = inst_module ? inst_module->attributes.count("\\abc_flop") : false;
 			bool known_type = yosys_celltypes.cell_known(cell->type);
 
 			if (!holes_mode) {
@@ -250,7 +252,32 @@ struct XAigerWriter
 			//	continue;
 			//}
 
-			if (inst_module && inst_module->attributes.count("\\abc_box_id")) {
+			if (inst_flop) {
+				SigBit d, q;
+				for (const auto &c : cell->connections()) {
+					for (auto b : c.second.bits()) {
+						auto is_input = cell->input(c.first);
+						auto is_output = cell->output(c.first);
+						log_assert(is_input || is_output);
+						if (is_input && inst_module->wire(c.first)->attributes.count("\\abc_flop_d")) {
+							SigBit I = sigmap(b);
+							if (I != b)
+								alias_map[b] = I;
+							d = b;
+						}
+						if (is_output && inst_module->wire(c.first)->attributes.count("\\abc_flop_q")) {
+						    SigBit O = sigmap(b);
+							q = O;
+						}
+					}
+				}
+				if (!abc_box_seen)
+					abc_box_seen = inst_module->attributes.count("\\abc_box_id");
+
+				ff_bits.emplace_back(d, q);
+				undriven_bits.erase(q);
+			}
+			else if (inst_module && inst_module->attributes.count("\\abc_box_id")) {
 				abc_box_seen = true;
 			}
 			else {
@@ -393,10 +420,20 @@ struct XAigerWriter
 			aig_map[bit] = 2*aig_m;
 		}
 
+		for (auto &f : ff_bits) {
+			auto bit = f.second;
+			aig_m++, aig_i++;
+			aig_map[bit] = 2*aig_m;
+		}
+
+		dict<SigBit, int> ff_aig_map;
 		for (auto &c : ci_bits) {
 			aig_m++, aig_i++;
 			c.second = 2*aig_m;
-            aig_map[c.first] = c.second;
+			auto r = aig_map.insert(std::make_pair(c.first, c.second));
+			if (!r.second) {
+				ff_aig_map[c.first] = c.second;
+			}
 		}
 
 		if (imode && input_bits.empty()) {
@@ -469,6 +506,11 @@ struct XAigerWriter
 		for (auto bit : output_bits) {
 			ordered_outputs[bit] = aig_o++;
 			aig_outputs.push_back(bit2aig(bit));
+		}
+
+		for (auto &f : ff_bits) {
+			aig_o++;
+			aig_outputs.push_back(ff_aig_map.at(f.second));
 		}
 
 		if (omode && output_bits.empty()) {
@@ -628,7 +670,7 @@ struct XAigerWriter
 
 		f << "c";
 
-		if (!box_list.empty()) {
+		if (!box_list.empty() || !ff_bits.empty()) {
 			std::stringstream h_buffer;
 			auto write_h_buffer = [&h_buffer](int i32) {
 				// TODO: Don't assume we're on little endian
@@ -643,10 +685,10 @@ struct XAigerWriter
 			if (omode && num_outputs == 0)
 				num_outputs = 1;
 			write_h_buffer(1);
-			write_h_buffer(input_bits.size() + ci_bits.size());
-			write_h_buffer(num_outputs + co_bits.size());
-			write_h_buffer(input_bits.size());
-			write_h_buffer(num_outputs);
+			write_h_buffer(input_bits.size() + ff_bits.size() + ci_bits.size());
+			write_h_buffer(num_outputs + ff_bits.size() + co_bits.size());
+			write_h_buffer(input_bits.size() + ff_bits.size());
+			write_h_buffer(num_outputs + ff_bits.size());
 			write_h_buffer(box_list.size());
 
 			RTLIL::Module *holes_module = nullptr;
@@ -698,6 +740,34 @@ struct XAigerWriter
 #endif
 			f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
 			f.write(buffer_str.data(), buffer_str.size());
+
+			if (!ff_bits.empty()) {
+				std::stringstream r_buffer;
+				auto write_r_buffer = [&r_buffer](int i32) {
+					// TODO: Don't assume we're on little endian
+#ifdef _WIN32
+					int i32_be = _byteswap_ulong(i32);
+#else
+					int i32_be = __builtin_bswap32(i32);
+#endif
+					r_buffer.write(reinterpret_cast<const char*>(&i32_be), sizeof(i32_be));
+				};
+				write_r_buffer(ff_bits.size());
+				int mergeability_class = 1;
+				for (auto cell : ff_bits)
+					write_r_buffer(mergeability_class++);
+
+				f << "r";
+				std::string buffer_str = r_buffer.str();
+				// TODO: Don't assume we're on little endian
+#ifdef _WIN32
+				int buffer_size_be = _byteswap_ulong(buffer_str.size());
+#else
+				int buffer_size_be = __builtin_bswap32(buffer_str.size());
+#endif
+				f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
+				f.write(buffer_str.data(), buffer_str.size());
+			}
 
 			if (holes_module) {
 				holes_module->fixup_ports();
