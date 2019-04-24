@@ -63,6 +63,9 @@ struct SynthXilinxPass : public Pass
 		log("        generate an output netlist (and BLIF file) suitable for VPR\n");
 		log("        (this feature is experimental and incomplete)\n");
 		log("\n");
+		log("    -nocarry\n");
+		log("        disable inference of carry chains\n");
+		log("\n");
 		log("    -nobram\n");
 		log("        disable inference of block rams\n");
 		log("\n");
@@ -118,7 +121,7 @@ struct SynthXilinxPass : public Pass
 		log("        memory_map\n");
 		log("        dffsr2dff\n");
 		log("        dff2dffe\n");
-		log("        techmap -map +/xilinx/arith_map.v\n");
+		log("        techmap -map +/xilinx/arith_map.v (without '-nocarry' only)\n");
 		log("        opt -fast\n");
 		log("\n");
 		log("    map_cells:\n");
@@ -161,6 +164,7 @@ struct SynthXilinxPass : public Pass
 		bool flatten = false;
 		bool retime = false;
 		bool vpr = false;
+		bool nocarry = false;
 		bool nobram = false;
 		bool nodram = false;
 		bool nosrl = false;
@@ -199,6 +203,10 @@ struct SynthXilinxPass : public Pass
 			}
 			if (args[argidx] == "-vpr") {
 				vpr = true;
+				continue;
+			}
+			if (args[argidx] == "-nocarry") {
+				nocarry = true;
 				continue;
 			}
 			if (args[argidx] == "-nobram") {
@@ -284,10 +292,11 @@ struct SynthXilinxPass : public Pass
 			Pass::call(design, "dffsr2dff");
 			Pass::call(design, "dff2dffe");
 
-			if (vpr) {
-				Pass::call(design, "techmap -map +/xilinx/arith_map.v -D _EXPLICIT_CARRY");
-			} else {
-				Pass::call(design, "techmap -map +/xilinx/arith_map.v");
+			if (!nocarry) {
+				if (vpr)
+					Pass::call(design, "techmap -map +/xilinx/arith_map.v -D _EXPLICIT_CARRY");
+				else
+					Pass::call(design, "techmap -map +/xilinx/arith_map.v");
 			}
 
 			Pass::call(design, "hierarchy -check");
