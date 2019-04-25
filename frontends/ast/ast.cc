@@ -157,9 +157,15 @@ std::string AST::type2str(AstNodeType type)
 	X(AST_POSEDGE)
 	X(AST_NEGEDGE)
 	X(AST_EDGE)
+	X(AST_INTERFACE)
+	X(AST_INTERFACEPORT)
+	X(AST_INTERFACEPORTTYPE)
+	X(AST_MODPORT)
+	X(AST_MODPORTMEMBER)
 	X(AST_PACKAGE)
 #undef X
 	default:
+		log_error("Unknown node type %d", type);
 		log_abort();
 	}
 }
