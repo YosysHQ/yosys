@@ -294,20 +294,7 @@ struct XAigerWriter
 					for (auto user_cell : it.second)
 						toposort.edge(driver_cell, user_cell);
 
-#ifndef NDEBUG
-			toposort.analyze_loops = true;
-#endif
 			toposort.sort();
-#ifndef NDEBUG
-			for (auto &it : toposort.loops) {
-				log("  loop");
-				for (auto cell : it)
-					log(" %s", log_id(cell));
-				log("\n");
-			}
-#endif
-			log_assert(!toposort.found_loops);
-
 			for (auto cell_name : toposort.sorted) {
 				RTLIL::Cell *cell = module->cell(cell_name);
 				RTLIL::Module* box_module = module->design->module(cell->type);
