@@ -1550,4 +1550,21 @@ void AST::use_internal_line_num()
 	get_line_num = &internal_get_line_num;
 }
 
+
+void AST::removeNestedBlock(AstNode*& node) {
+	if (node->type != AST_BLOCK && node->type != AST_GENBLOCK)
+		log_file_error(node->filename, node->linenum, "remove nested block called with non block");
+
+	if (node->children.size()!=1)
+		return;
+
+	AstNode * unneeded = node->children[0];
+
+	if (unneeded->type == node->type && unneeded->str.empty() ) {
+		node->children = unneeded->children;
+		unneeded->children.clear();
+		delete unneeded;
+	}
+}
+
 YOSYS_NAMESPACE_END
