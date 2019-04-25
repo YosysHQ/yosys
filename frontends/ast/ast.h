@@ -242,7 +242,7 @@ namespace AST
 		bool is_simple_const_expr();
 
 		// create a human-readable text representation of the AST (for debugging)
-		void dumpAst(FILE *f, std::string indent) const;
+		void dumpAst(FILE *f = NULL, std::string indent = "", bool dumpFileLine = true) const;
 		void dumpVlog(FILE *f, std::string indent) const;
 
 		// used by genRTLIL() for detecting expression width and sign

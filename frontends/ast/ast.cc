@@ -262,16 +262,19 @@ AstNode::~AstNode()
 
 // create a nice text representation of the node
 // (traverse tree by recursion, use 'other' pointer for diffing two AST trees)
-void AstNode::dumpAst(FILE *f, std::string indent) const
+void AstNode::dumpAst(FILE *f, std::string indent, bool dumpFileLine) const
 {
 	if (f == NULL) {
 		for (auto f : log_files)
-			dumpAst(f, indent);
+			dumpAst(f, indent, dumpFileLine);
 		return;
 	}
 
 	std::string type_name = type2str(type);
-	fprintf(f, "%s%s <%s:%d>", indent.c_str(), type_name.c_str(), filename.c_str(), linenum);
+    	fprintf(f, "%s%s", indent.c_str(), type_name.c_str());
+	if (dumpFileLine) {
+	    fprintf(f, " <%s:%d>", filename.c_str(), linenum);
+	}
 
 	if (!flag_no_dump_ptr) {
 		if (id2ast)
@@ -319,11 +322,11 @@ void AstNode::dumpAst(FILE *f, std::string indent) const
 
 	for (auto &it : attributes) {
 		fprintf(f, "%s  ATTR %s:\n", indent.c_str(), it.first.c_str());
-		it.second->dumpAst(f, indent + "    ");
+		it.second->dumpAst(f, indent + "    ", dumpFileLine);
 	}
 
 	for (size_t i = 0; i < children.size(); i++)
-		children[i]->dumpAst(f, indent + "  ");
+		children[i]->dumpAst(f, indent + "  ", dumpFileLine);
 
 	fflush(f);
 }
