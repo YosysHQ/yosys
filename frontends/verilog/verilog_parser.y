@@ -690,6 +690,10 @@ task_func_port:
 				astbuf2->children.push_back(AstNode::mkconst_int(astbuf1->range_right, true));
 			}
 		}
+		astbuf1->range_left = -1;
+		astbuf1->range_right = 0;
+
+
 		if (astbuf2 && astbuf2->children.size() != 2)
 			frontend_verilog_yyerror("task/function argument range must be of the form: [<expr>:<expr>], [<expr>+:<expr>], or [<expr>-:<expr>]");
 	} wire_name | wire_name;
@@ -984,6 +988,8 @@ wire_decl:
 				astbuf2->children.push_back(AstNode::mkconst_int(astbuf1->range_right, true));
 			}
 		}
+		astbuf1->range_left = -1;
+		astbuf1->range_right = 0;
 		if (astbuf2 && astbuf2->children.size() != 2)
 			frontend_verilog_yyerror("wire/reg/logic packed dimension must be of the form: [<expr>:<expr>], [<expr>+:<expr>], or [<expr>-:<expr>]");
 	} wire_name_list {
