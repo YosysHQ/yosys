@@ -1177,7 +1177,25 @@ single_cell:
 			astbuf2->str = *$1;
 		delete $1;
 		ast_stack.back()->children.push_back(new AstNode(AST_CELLARRAY, $2, astbuf2));
-	} '(' cell_port_list ')';
+	} '(' cell_port_list ')' |
+	/* interface port instantiation */
+	TOK_ID {
+		astbuf2 = new AstNode(AST_INTERFACEPORT);
+		astbuf2->str = *$1;
+		astbuf3 = new AstNode(AST_INTERFACEPORTTYPE);
+		astbuf3->str = astbuf1->children[0]->str;
+		astbuf2->children.push_back(astbuf3);
+
+		if (port_stubs.count(*$1) != 0) {
+			astbuf2->port_id = port_stubs[*$1];
+			port_stubs.erase(*$1);
+		} else {
+			frontend_verilog_yyerror("Module port `%s' is not declared in module header.", $1->c_str());
+		}
+
+		ast_stack.back()->children.push_back(astbuf2);
+		delete $1;
+	};
 
 prim_list:
 	single_prim |
