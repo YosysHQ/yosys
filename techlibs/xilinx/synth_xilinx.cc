@@ -139,7 +139,7 @@ struct SynthXilinxPass : public Pass
 		log("        abc -luts 2:2,3,6:5,10,20 [-dff]\n");
 		log("        clean\n");
 		log("        shregmap -minlen 3 -init -params -enpol any_or_none (without '-nosrl' only)\n");
-		log("        techmap -map +/xilinx/lut_map.v -map +/xilinx/ff_map.v -map +/xilinx/cells_map.v");
+		log("        techmap -map +/xilinx/lut_map.v -map +/xilinx/ff_map.v -map +/xilinx/cells_map.v\n");
 		log("        dffinit -ff FDRE   Q INIT -ff FDCE   Q INIT -ff FDPE   Q INIT -ff FDSE   Q INIT \\\n");
 		log("                -ff FDRE_1 Q INIT -ff FDCE_1 Q INIT -ff FDPE_1 Q INIT -ff FDSE_1 Q INIT\n");
 		log("\n");
