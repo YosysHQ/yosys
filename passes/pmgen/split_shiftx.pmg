@@ -5,50 +5,51 @@ match shiftx
 	select param(shiftx, \Y_WIDTH).as_int() > 1
 endmatch
 
-code shiftxB
-	shiftxB = port(shiftx, \B);
-	const int b_width = param(shiftx, \B_WIDTH).as_int();
-	if (param(shiftx, \B_SIGNED) != 0 && shiftxB[b_width-1] == RTLIL::S0)
-		shiftxB = shiftxB.extract(0, b_width-1);
-endcode
-
 match macc
 	select macc->type == $macc
 	select param(macc, \B_WIDTH).as_int() == 0
-	index <SigSpec> port(macc, \Y) === shiftxB
 	optional
 endmatch
 
 code shiftxB
 	if (macc) {
+		shiftxB = port(shiftx, \B);
+		const int b_width = param(shiftx, \B_WIDTH).as_int();
+		if (param(shiftx, \B_SIGNED) != 0 && shiftxB[b_width-1] == RTLIL::S0)
+			shiftxB = shiftxB.extract(0, b_width-1);
+		if (port(macc, \Y) != shiftxB) {
+			blacklist(shiftx);
+			reject;
+		}
+
 		Const config = param(macc, \CONFIG);
 		const int config_width = param(macc, \CONFIG_WIDTH).as_int();
 		const int num_bits = config.extract(0, 4).as_int();
 		const int num_ports = (config_width - 4) / (2 + 2*num_bits);
 		if (num_ports != 1) {
-			shiftxB = nullptr;
+			blacklist(shiftx);
 			reject;
 		}
 		// IS_SIGNED?
 		if (config[4] == 1) {
-			shiftxB = nullptr;
+			blacklist(shiftx);
 			reject;
 		}
 		// DO_SUBTRACT?
 		if (config[5] == 1) {
-			shiftxB = nullptr;
+			blacklist(shiftx);
 			reject;
 		}
 		const int port_size_A = config.extract(6, num_bits).as_int();
 		const int port_size_B = config.extract(6 + num_bits, num_bits).as_int();
 		const SigSpec port_B = port(macc, \A).extract(port_size_A, port_size_B);
 		if (!port_B.is_fully_const()) {
-			shiftxB = nullptr;
+			blacklist(shiftx);
 			reject;
 		}
 		const int multiply_factor = port_B.as_int();
 		if (multiply_factor != param(shiftx, \Y_WIDTH).as_int()) {
-			shiftxB = nullptr;
+			blacklist(shiftx);
 			reject;
 		}
 		shiftxB = port(macc, \A).extract(0, port_size_A);

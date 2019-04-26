@@ -26,9 +26,9 @@ PRIVATE_NAMESPACE_BEGIN
 
 void create_split_shiftx(split_shiftx_pm &pm)
 {
-	if (pm.st.shiftxB.empty())
-		return;
 	log_assert(pm.st.shiftx);
+	if (pm.blacklist_cells.count(pm.st.shiftx))
+		return;
 	SigSpec A = pm.st.shiftx->getPort("\\A");
 	SigSpec Y = pm.st.shiftx->getPort("\\Y");
 	const int A_WIDTH = pm.st.shiftx->getParam("\\A_WIDTH").as_int();
@@ -56,7 +56,8 @@ struct BitblastShiftxPass : public Pass {
 		log("    split_shiftx [selection]\n");
 		log("\n");
 		log("Split up $shiftx cells where Y_WIDTH > 1, with consideration for any $macc\n");
-		log("cells that may be driving their B inputs.\n");
+		log("cells -- configured as a constant multiplier equal to Y_WIDTH -- that may be\n");
+		log("driving their B inputs.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE

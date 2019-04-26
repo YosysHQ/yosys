@@ -1,0 +1,21 @@
+read_verilog -icells split_shiftx.v
+split_shiftx
+
+cd split_shiftx_test01
+select -assert-count 3 t:$shiftx
+select -assert-count 0 t: t:$shiftx %n %i
+
+cd split_shiftx_test02
+select -assert-count 1 t:$shiftx
+select -assert-count 1 t:$macc
+select -assert-count 0 t: t:$shiftx t:$macc %u %n %i
+
+cd split_shiftx_test03
+select -assert-count 1 t:$shiftx
+select -assert-count 1 t:$macc
+select -assert-count 0 t: t:$shiftx t:$macc %u %n %i
+
+cd split_shiftx_test04
+select -assert-count 1 t:$shiftx
+select -assert-count 1 t:$macc
+select -assert-count 0 t: t:$shiftx t:$macc %u %n %i
