@@ -12,11 +12,13 @@ match macc
 endmatch
 
 code shiftxB
+	shiftxB = port(shiftx, \B);
+
 	if (macc) {
-		shiftxB = port(shiftx, \B);
 		const int b_width = param(shiftx, \B_WIDTH).as_int();
 		if (param(shiftx, \B_SIGNED) != 0 && shiftxB[b_width-1] == RTLIL::S0)
 			shiftxB = shiftxB.extract(0, b_width-1);
+
 		if (port(macc, \Y) != shiftxB) {
 			blacklist(shiftx);
 			reject;

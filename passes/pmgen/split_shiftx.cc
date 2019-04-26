@@ -30,10 +30,11 @@ void create_split_shiftx(split_shiftx_pm &pm)
 	if (pm.blacklist_cells.count(pm.st.shiftx))
 		return;
 	SigSpec A = pm.st.shiftx->getPort("\\A");
-	SigSpec B = pm.st.shiftx->getPort("\\B");
+	SigSpec B = pm.st.shiftxB;
+	log_assert(!B.empty());
 	SigSpec Y = pm.st.shiftx->getPort("\\Y");
 	const int A_WIDTH = pm.st.shiftx->getParam("\\A_WIDTH").as_int();
-	const int B_WIDTH = pm.st.shiftx->getParam("\\B_WIDTH").as_int();
+	const int B_WIDTH = GetSize(pm.st.shiftxB);
 	const int Y_WIDTH = pm.st.shiftx->getParam("\\Y_WIDTH").as_int();
 	int trailing_zeroes = 0;
 	for (; B[trailing_zeroes] == RTLIL::S0; ++trailing_zeroes) ;
