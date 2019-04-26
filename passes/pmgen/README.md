@@ -220,5 +220,5 @@ But in some cases it is more natural to utilize the implicit branch statement:
         portAB = \B;
     endcode
 
-There is an implicit `code..endcode` block at the end of each `.pmg` file
+There is an implicit `code..endcode` block at the end of each `.pgm` file
 that just accepts everything that gets all the way there.

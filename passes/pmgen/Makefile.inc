@@ -1,11 +1,8 @@
-PMG_SRC = $(wildcard passes/pmgen/*.pmg)
-PMG_OBJS += $(patsubst %.pmg, %.o, $(PMG_SRC))
-OBJS += $(PMG_OBJS)
+OBJS += passes/pmgen/ice40_dsp.o
 
-$(PMG_OBJS): %.o: %_pm.h
+passes/pmgen/ice40_dsp.o: passes/pmgen/ice40_dsp_pm.h
+EXTRA_OBJS += passes/pmgen/ice40_dsp_pm.h
+.SECONDARY: passes/pmgen/ice40_dsp_pm.h
 
-EXTRA_OBJS += $(patsubst %.pmg, %_pm.h, $(PMG_SRC))
-.SECONDARY: $(EXTRA_OBJS)
-
-%_pm.h: passes/pmgen/pmgen.py %.pmg
+passes/pmgen/ice40_dsp_pm.h: passes/pmgen/pmgen.py passes/pmgen/ice40_dsp.pmg
 	$(P) mkdir -p passes/pmgen && python3 $^ $@

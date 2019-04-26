@@ -370,7 +370,7 @@ Verilog Attributes and non-standard features
 
 - When defining a macro with `define, all text between triple double quotes
   is interpreted as macro body, even if it contains unescaped newlines. The
-  triple double quotes are removed from the macro body. For example:
+  tipple double quotes are removed from the macro body. For example:
 
       `define MY_MACRO(a, b) """
          assign a = 23;
@@ -457,7 +457,7 @@ Non-standard or SystemVerilog features for formal verification
   supported in any clocked block.
 
 - The syntax ``@($global_clock)`` can be used to create FFs that have no
-  explicit clock input (``$ff`` cells). The same can be achieved by using
+  explicit clock input ($ff cells). The same can be achieved by using
   ``@(posedge <netname>)`` or ``@(negedge <netname>)`` when ``<netname>``
   is marked with the ``(* gclk *)`` Verilog attribute.
 
@@ -470,7 +470,7 @@ from SystemVerilog:
 
 - The ``assert`` statement from SystemVerilog is supported in its most basic
   form. In module context: ``assert property (<expression>);`` and within an
-  always block: ``assert(<expression>);``. It is transformed to an ``$assert`` cell.
+  always block: ``assert(<expression>);``. It is transformed to a $assert cell.
 
 - The ``assume``, ``restrict``, and ``cover`` statements from SystemVerilog are
   also supported. The same limitations as with the ``assert`` statement apply.
