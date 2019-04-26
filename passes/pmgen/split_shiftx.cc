@@ -26,9 +26,9 @@ PRIVATE_NAMESPACE_BEGIN
 
 void create_split_shiftx(split_shiftx_pm &pm)
 {
-	if (pm.st.shiftxB.empty())
-		return;
 	log_assert(pm.st.shiftx);
+	if (pm.blacklist_cells.count(pm.st.shiftx))
+		return;
 	SigSpec A = pm.st.shiftx->getPort("\\A");
 	SigSpec Y = pm.st.shiftx->getPort("\\Y");
 	const int A_WIDTH = pm.st.shiftx->getParam("\\A_WIDTH").as_int();
