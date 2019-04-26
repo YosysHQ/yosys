@@ -126,7 +126,7 @@ struct SynthXilinxPass : public Pass
 		log("\n");
 		log("    map_cells:\n");
 		log("        pmux2shiftx (without '-nosrl' and '-nomux' only)\n");
-		log("        bitblast_shiftx (without '-nosrl' and '-nomux' only)\n");
+		log("        split_shiftx (without '-nosrl' and '-nomux' only)\n");
 		log("        simplemap t:$dff t:$dffe (without '-nosrl' only)\n");
 		log("        opt_expr -mux_undef (without '-nosrl' only)\n");
 		log("        shregmap -tech xilinx -minlen 3 (without '-nosrl' only)\n");
@@ -312,7 +312,7 @@ struct SynthXilinxPass : public Pass
 			// Also: wide multiplexer inference benefits from this too
 			if (!nosrl || !nomux) {
 				Pass::call(design, "pmux2shiftx");
-				Pass::call(design, "bitblast_shiftx");
+				Pass::call(design, "split_shiftx");
 			}
 
 			if (!nosrl) {
