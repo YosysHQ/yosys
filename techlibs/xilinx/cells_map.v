@@ -167,17 +167,7 @@ module \$shiftx (A, B, Y);
         wire _TECHMAP_FAIL_ = 1;
     end
     else if (Y_WIDTH > 1) begin
-      for (i = 0; i < Y_WIDTH; i++)
-        \$shiftx  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(A_WIDTH-Y_WIDTH+1), .B_WIDTH(B_WIDTH), .Y_WIDTH(1'd1)) bitblast (.A(A[A_WIDTH-Y_WIDTH+i:i]), .B(B), .Y(Y[i]));
-    end
-    // If the LSB of B is constant zero (and Y_WIDTH is 1) then
-    //   we can optimise by removing every other entry from A
-    //   and popping the constant zero from B
-    else if (_TECHMAP_CONSTMSK_B_[0] && !_TECHMAP_CONSTVAL_B_[0]) begin
-      wire [(A_WIDTH+1)/2-1:0] A_i;
-      for (i = 0; i < (A_WIDTH+1)/2; i++)
-        assign A_i[i] = A[i*2];
-      \$shiftx  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH((A_WIDTH+1'd1)/2'd2), .B_WIDTH(B_WIDTH-1'd1), .Y_WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(A_i), .B(B[B_WIDTH-1:1]), .Y(Y));
+      wire _TECHMAP_FAIL_ = 1;
     end
     else if (B_WIDTH < 3 || A_WIDTH <= 4) begin
       wire _TECHMAP_FAIL_ = 1;
