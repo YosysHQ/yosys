@@ -56,7 +56,8 @@ struct BitblastShiftxPass : public Pass {
 		log("    split_shiftx [selection]\n");
 		log("\n");
 		log("Split up $shiftx cells where Y_WIDTH > 1, with consideration for any $macc\n");
-		log("cells that may be driving their B inputs.\n");
+		log("cells -- configured as a constant multiplier equal to Y_WIDTH -- that may be\n");
+		log("driving their B inputs.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
