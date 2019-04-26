@@ -138,6 +138,22 @@ std::string RTLIL::Const::as_string() const
 	return ret;
 }
 
+
+std::string RTLIL::Const::as_verilog_string() const
+{
+    std::string ret;
+    for (size_t i = bits.size(); i > 0; i--)
+	    switch (bits[i-1]) {
+		    case S0: ret += "0"; break;
+		    case S1: ret += "1"; break;
+		    case Sx: ret += "x"; break;
+		    case Sz: ret += "z"; break;
+		    case Sa: ret += "?"; break;
+		    case Sm: ret += "m"; break;
+	    }
+    return ret;
+}
+
 RTLIL::Const RTLIL::Const::from_string(std::string str)
 {
 	Const c;

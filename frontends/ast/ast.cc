@@ -30,6 +30,9 @@
 #include "kernel/yosys.h"
 #include "libs/sha1/sha1.h"
 #include "ast.h"
+#include <frontends/verilog/verilog_frontend.h>
+#include <sys/stat.h>
+#include <zconf.h>
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -332,106 +335,154 @@ void AstNode::dumpAst(FILE *f, std::string indent, bool dumpFileLine) const
 }
 
 // helper function for AstNode::dumpVlog()
-static std::string id2vl(std::string txt)
+static std::string id2vl(std::string txt, bool isInterfacePort = false)
 {
 	if (txt.size() > 1 && txt[0] == '\\')
 		txt = txt.substr(1);
 	for (size_t i = 0; i < txt.size(); i++) {
 		if ('A' <= txt[i] && txt[i] <= 'Z') continue;
 		if ('a' <= txt[i] && txt[i] <= 'z') continue;
-		if ('0' <= txt[i] && txt[i] <= '9') continue;
+		if ('0' <= txt[i] && txt[i] <= '9' && i>0) continue;
 		if (txt[i] == '_') continue;
-		txt = "\\" + txt + " ";
-		break;
+		if (txt[i] == '$') continue;
+		if (txt[i] == '.') continue;
+		return "\\" + txt + " ";
 	}
 	return txt;
 }
 
-// dump AST node as Verilog pseudo-code
-void AstNode::dumpVlog(FILE *f, std::string indent) const
+static bool needGenerate(AstNodeType type) {
+	return type == AST_GENFOR
+		|| type == AST_GENIF
+		|| type == AST_GENCASE
+		|| type == AST_GENBLOCK;
+}
+
+// dump AST node as Verilog code
+void AstNode::dumpVlog(FILE *f, std::string indent, bool inGenerate, AstNodeType parentType) const
 {
+
+
 	bool first = true;
 	std::string txt;
 	std::vector<AstNode*> rem_children1, rem_children2;
+	const AstNode * node;
 
 	if (f == NULL) {
 		for (auto f : log_files)
-			dumpVlog(f, indent);
+			dumpVlog(f, indent, inGenerate);
+		return;
+	}
+
+	if (needGenerate(type) && !inGenerate) {
+		fprintf(f, "%sgenerate\n", indent.c_str());
+		dumpVlog(f, indent+"  ", true);
+		fprintf(f, "%sendgenerate\n", indent.c_str());
 		return;
 	}
 
 	for (auto &it : attributes) {
 		fprintf(f, "%s" "(* %s = ", indent.c_str(), id2vl(it.first.str()).c_str());
-		it.second->dumpVlog(f, "");
+		it.second->dumpVlog(f, "", inGenerate, type);
 		fprintf(f, " *)%s", indent.empty() ? "" : "\n");
 	}
 
 	switch (type)
 	{
-	case AST_MODULE:
-		fprintf(f, "%s" "module %s(", indent.c_str(), id2vl(str).c_str());
+	if (0) { case AST_INTERFACE: txt = "interface"; }
+	if (0) { case AST_MODULE: txt = "module"; }
+		{
+		fprintf(f, "%s" "%s %s(", txt.c_str(), indent.c_str(), id2vl(str).c_str());
+
+		std::vector<AstNode *> portChildren;
+
 		for (auto child : children)
-			if (child->type == AST_WIRE && (child->is_input || child->is_output)) {
+			if (
+				(child->type == AST_WIRE && (child->is_input || child->is_output))
+				|| (child->type == AST_INTERFACEPORT)
+			) {
+				portChildren.push_back(child);
+			}
+
+		std::sort(portChildren.begin(), portChildren.end(), [](AstNode * a, AstNode * b)
+		{
+			return a->port_id < b->port_id;
+		});
+
+		for(auto child : portChildren) {
 				fprintf(f, "%s%s", first ? "" : ", ", id2vl(child->str).c_str());
 				first = false;
 			}
 		fprintf(f, ");\n");
 
 		for (auto child : children)
-			if (child->type == AST_PARAMETER || child->type == AST_LOCALPARAM || child->type == AST_DEFPARAM)
-				child->dumpVlog(f, indent + "  ");
+			child->dumpVlog(f, indent + "  ", inGenerate, type);
+		/*for (auto child : children)
+			if (child->type == AST_PARAMETER ||
+			    child->type == AST_DEFPARAM)
+				child->dumpVlog(f, indent + "  ", inGenerate, type);
 			else
 				rem_children1.push_back(child);
 
 		for (auto child : rem_children1)
 			if (child->type == AST_WIRE || child->type == AST_AUTOWIRE || child->type == AST_MEMORY)
-				child->dumpVlog(f, indent + "  ");
+				child->dumpVlog(f, indent + "  ", inGenerate, type);
 			else
 				rem_children2.push_back(child);
 		rem_children1.clear();
 
 		for (auto child : rem_children2)
 			if (child->type == AST_TASK || child->type == AST_FUNCTION)
-				child->dumpVlog(f, indent + "  ");
+				child->dumpVlog(f, indent + "  ", inGenerate, type);
 			else
 				rem_children1.push_back(child);
 		rem_children2.clear();
 
 		for (auto child : rem_children1)
-			child->dumpVlog(f, indent + "  ");
-		rem_children1.clear();
+			child->dumpVlog(f, indent + "  ", inGenerate, type);
+		rem_children1.clear();*/
 
-		fprintf(f, "%s" "endmodule\n", indent.c_str());
+		fprintf(f, "%s" "end%s\n", indent.c_str(), txt.c_str());
 		break;
+	}
 
 	case AST_WIRE:
+	case AST_MODPORTMEMBER:
+		fprintf(f, indent.c_str());
 		if (is_input && is_output)
-			fprintf(f, "%s" "inout", indent.c_str());
+			fprintf(f, "inout ");
 		else if (is_input)
-			fprintf(f, "%s" "input", indent.c_str());
+			fprintf(f, "input ");
 		else if (is_output)
-			fprintf(f, "%s" "output", indent.c_str());
-		else if (!is_reg)
-			fprintf(f, "%s" "wire", indent.c_str());
+			fprintf(f, "output ");
+		else if (!is_reg && !is_logic)
+			fprintf(f, "wire ");
+
+		if (is_logic && !is_reg)
+			fprintf(f, "logic ");
 		if (is_reg)
-			fprintf(f, "%s" "reg", (is_input || is_output) ? " " : indent.c_str());
+			fprintf(f, "reg ");
 		if (is_signed)
-			fprintf(f, " signed");
+			fprintf(f, "signed ");
 		for (auto child : children) {
+			child->dumpVlog(f, "", inGenerate, type);
 			fprintf(f, " ");
-			child->dumpVlog(f, "");
 		}
-		fprintf(f, " %s", id2vl(str).c_str());
-		fprintf(f, ";\n");
+		fprintf(f, "%s%s", id2vl(str).c_str(), (type==AST_WIRE && parentType != AST_NONE) ? ";\n" : "");
 		break;
 
 	case AST_MEMORY:
-		fprintf(f, "%s" "memory", indent.c_str());
+		if (is_logic)
+			fprintf(f, "%s" "logic", indent.c_str());
+		if (is_reg)
+			fprintf(f, "%s" "reg", indent.c_str());
+		else
+			fprintf(f, "%s" "wire", indent.c_str());
 		if (is_signed)
 			fprintf(f, " signed");
 		for (auto child : children) {
 			fprintf(f, " ");
-			child->dumpVlog(f, "");
+			child->dumpVlog(f, "", inGenerate, type);
 			if (first)
 				fprintf(f, " %s", id2vl(str).c_str());
 			first = false;
@@ -448,10 +499,16 @@ void AstNode::dumpVlog(FILE *f, std::string indent) const
 		} else {
 			for (auto child : children) {
 				fprintf(f, "%c", first ? '[' : ':');
-				child->dumpVlog(f, "");
+				child->dumpVlog(f, "", inGenerate, type);
 				first = false;
 			}
 			fprintf(f, "]");
+		}
+		break;
+
+	case AST_MULTIRANGE:
+		for (auto child : children) {
+			child->dumpVlog(f, "", inGenerate, type);
 		}
 		break;
 
@@ -461,13 +518,13 @@ void AstNode::dumpVlog(FILE *f, std::string indent) const
 			if (child->type != AST_POSEDGE && child->type != AST_NEGEDGE && child->type != AST_EDGE)
 				continue;
 			fprintf(f, first ? "(" : ", ");
-			child->dumpVlog(f, "");
+			child->dumpVlog(f, "", inGenerate);
 			first = false;
 		}
 		fprintf(f, first ? "*\n" : ")\n");
 		for (auto child : children) {
 			if (child->type != AST_POSEDGE && child->type != AST_NEGEDGE && child->type != AST_EDGE)
-				child->dumpVlog(f, indent + "  ");
+				child->dumpVlog(f, indent + "  ", inGenerate);
 		}
 		break;
 
@@ -475,7 +532,7 @@ void AstNode::dumpVlog(FILE *f, std::string indent) const
 		fprintf(f, "%s" "initial\n", indent.c_str());
 		for (auto child : children) {
 			if (child->type != AST_POSEDGE && child->type != AST_NEGEDGE && child->type != AST_EDGE)
-				child->dumpVlog(f, indent + "  ");
+				child->dumpVlog(f, indent + "  ", inGenerate);
 		}
 		break;
 
@@ -487,51 +544,76 @@ void AstNode::dumpVlog(FILE *f, std::string indent) const
 		if (type == AST_NEGEDGE)
 			fprintf(f, "negedge ");
 		for (auto child : children)
-			child->dumpVlog(f, "");
+			child->dumpVlog(f, "", inGenerate, type);
 		break;
 
 	case AST_IDENTIFIER:
 		fprintf(f, "%s", id2vl(str).c_str());
 		for (auto child : children)
-			child->dumpVlog(f, "");
+			child->dumpVlog(f, "", inGenerate, type);
 		break;
 
 	case AST_CONSTANT:
-		if (!str.empty())
-			fprintf(f, "\"%s\"", str.c_str());
-		else if (bits.size() == 32)
-			fprintf(f, "%d", RTLIL::Const(bits).as_int());
-		else
-			fprintf(f, "%d'b %s", GetSize(bits), RTLIL::Const(bits).as_string().c_str());
+		if (!str.empty() || bits.empty()) {
+			fputc('"', f);
+			for (char c : str) {
+				if (c=='"')
+					fputs("\\\"",f);
+				else
+					fputc(c, f);
+			}
+			fputc('"', f);
+		} else if (bits.size() == 32 && bits_only_01()) {
+			if (!is_signed)
+				fprintf(f, "'d");
+			fprintf(f, is_signed?"%d":"%u", RTLIL::Const(bits).as_int());
+		} else
+			fprintf(f, "%d'%sb %s", GetSize(bits), is_signed?"s":"", RTLIL::Const(bits).as_verilog_string().c_str());
 		break;
 
 	case AST_REALVALUE:
 		fprintf(f, "%e", realvalue);
 		break;
 
+
+	case AST_TO_BITS:
+		fprintf(f, "(");
+		children[0]->dumpVlog(f, "", inGenerate, type);
+		fprintf(f, " )'b%s", RTLIL::Const(children[1]->bits).as_verilog_string().c_str());
+		break;
+
 	case AST_BLOCK:
-		if (children.size() == 1) {
-			children[0]->dumpVlog(f, indent);
-		} else {
-			fprintf(f, "%s" "begin\n", indent.c_str());
+	case AST_GENBLOCK: {
+		//Only omit begin/end if we do not have nested blocks and no name
+		/*if (children.size() == 1 && str.empty() && (parentType != AST_FUNCTION) &&
+			 (parentType != AST_TASK) && (children[0]->type!=AST_GENFOR)) {
+			children[0]->dumpVlog(f, indent, inGenerate, type);
+		} else*/ {
+			fprintf(f, "%s" "begin", indent.c_str());
+			if (!str.empty()) {
+				fprintf(f, ": %s", id2vl(str).c_str());
+			}
+			fprintf(f, "\n");
 			for (auto child : children)
-				child->dumpVlog(f, indent + "  ");
+				child->dumpVlog(f, indent + "  ", inGenerate, type);
 			fprintf(f, "%s" "end\n", indent.c_str());
 		}
 		break;
+	}
 
 	case AST_CASE:
-		if (!children.empty() && children[0]->type == AST_CONDX)
+	case AST_GENCASE:
+		if (children.size()>1 && children[1]->type == AST_CONDX)
 			fprintf(f, "%s" "casex (", indent.c_str());
-		else if (!children.empty() && children[0]->type == AST_CONDZ)
+		else if (children.size()>1 && children[1]->type == AST_CONDZ)
 			fprintf(f, "%s" "casez (", indent.c_str());
 		else
 			fprintf(f, "%s" "case (", indent.c_str());
-		children[0]->dumpVlog(f, "");
+		children[0]->dumpVlog(f, "", inGenerate, type);
 		fprintf(f, ")\n");
 		for (size_t i = 1; i < children.size(); i++) {
 			AstNode *child = children[i];
-			child->dumpVlog(f, indent + "  ");
+			child->dumpVlog(f, indent + "  ", inGenerate, type);
 		}
 		fprintf(f, "%s" "endcase\n", indent.c_str());
 		break;
@@ -540,16 +622,16 @@ void AstNode::dumpVlog(FILE *f, std::string indent) const
 	case AST_CONDX:
 	case AST_CONDZ:
 		for (auto child : children) {
-			if (child->type == AST_BLOCK) {
+			if (child->type == AST_BLOCK || child->type == AST_GENBLOCK) {
 				fprintf(f, ":\n");
-				child->dumpVlog(f, indent + "  ");
+				child->dumpVlog(f, indent + "  ", inGenerate, type);
 				first = true;
 			} else {
 				fprintf(f, "%s", first ? indent.c_str() : ", ");
 				if (child->type == AST_DEFAULT)
 					fprintf(f, "default");
 				else
-					child->dumpVlog(f, "");
+					child->dumpVlog(f, "", inGenerate);
 				first = false;
 			}
 		}
@@ -557,25 +639,27 @@ void AstNode::dumpVlog(FILE *f, std::string indent) const
 
 	case AST_ASSIGN:
 		fprintf(f, "%sassign ", indent.c_str());
-		children[0]->dumpVlog(f, "");
+		children[0]->dumpVlog(f, "", inGenerate);
 		fprintf(f, " = ");
-		children[1]->dumpVlog(f, "");
+		children[1]->dumpVlog(f, "", inGenerate);
 		fprintf(f, ";\n");
 		break;
 
 	case AST_ASSIGN_EQ:
 	case AST_ASSIGN_LE:
 		fprintf(f, "%s", indent.c_str());
-		children[0]->dumpVlog(f, "");
+		children[0]->dumpVlog(f, "", inGenerate, type);
 		fprintf(f, " %s ", type == AST_ASSIGN_EQ ? "=" : "<=");
-		children[1]->dumpVlog(f, "");
-		fprintf(f, ";\n");
+		children[1]->dumpVlog(f, "", inGenerate, type);
+		if (parentType != AST_FOR && parentType != AST_GENFOR) {
+			fprintf(f, ";\n");
+		}
 		break;
 
 	case AST_CONCAT:
 		fprintf(f, "{");
-		for (int i = GetSize(children)-1; i >= 0; i--) {
-			auto child = children[i];
+		for (auto it = children.rbegin(); it!=children.rend(); it++) {
+			auto child = *it;
 			if (!first)
 				fprintf(f, ", ");
 			child->dumpVlog(f, "");
@@ -586,10 +670,9 @@ void AstNode::dumpVlog(FILE *f, std::string indent) const
 
 	case AST_REPLICATE:
 		fprintf(f, "{");
-		children[0]->dumpVlog(f, "");
-		fprintf(f, "{");
-		children[1]->dumpVlog(f, "");
-		fprintf(f, "}}");
+		children[0]->dumpVlog(f, "", inGenerate, type);
+		children[1]->dumpVlog(f, "", inGenerate, type);
+		fprintf(f, "}");
 		break;
 
 	if (0) { case AST_BIT_NOT:     txt = "~";  }
@@ -602,7 +685,7 @@ void AstNode::dumpVlog(FILE *f, std::string indent) const
 	if (0) { case AST_NEG:         txt = "-";  }
 	if (0) { case AST_LOGIC_NOT:   txt = "!";  }
 		fprintf(f, "%s(", txt.c_str());
-		children[0]->dumpVlog(f, "");
+		children[0]->dumpVlog(f, "", inGenerate);
 		fprintf(f, ")");
 		break;
 
@@ -631,26 +714,240 @@ void AstNode::dumpVlog(FILE *f, std::string indent) const
 	if (0) { case AST_LOGIC_AND:    txt = "&&";  }
 	if (0) { case AST_LOGIC_OR:     txt = "||";  }
 		fprintf(f, "(");
-		children[0]->dumpVlog(f, "");
+		children[0]->dumpVlog(f, "", inGenerate, type);
 		fprintf(f, ")%s(", txt.c_str());
-		children[1]->dumpVlog(f, "");
+		children[1]->dumpVlog(f, "", inGenerate, type);
 		fprintf(f, ")");
 		break;
 
 	case AST_TERNARY:
 		fprintf(f, "(");
-		children[0]->dumpVlog(f, "");
+		children[0]->dumpVlog(f, "", inGenerate, type);
 		fprintf(f, ") ? (");
-		children[1]->dumpVlog(f, "");
+		children[1]->dumpVlog(f, "", inGenerate, type);
 		fprintf(f, ") : (");
-		children[2]->dumpVlog(f, "");
+		children[2]->dumpVlog(f, "", inGenerate, type);
 		fprintf(f, ")");
 		break;
+
+	if (0) { case AST_PARAMETER:    txt = "parameter";  }
+	if (0) { case AST_LOCALPARAM:   txt = "localparam";  }
+
+		fprintf(f, "%s%s", indent.c_str(), txt.c_str());
+		if (is_signed) {
+			fprintf(f, " signed");
+		}
+		if (children.size()>1) {
+			if (children[1]->type==AST_RANGE) {
+				AstNode *range = children[1];
+				fprintf(f, " ");
+				range->dumpVlog(f, indent, inGenerate, type);
+			} else if (children[1]->type == AST_REALVALUE) {
+				fprintf(f, " real");
+			}
+		}
+		fprintf(f, " %s = ", id2vl(str).c_str());
+		children[0]->dumpVlog(f, "", inGenerate, type);
+		fprintf(f, ";\n");
+		break;
+
+
+	case AST_GENVAR:
+		fprintf(f, "%sgenvar %s;\n", indent.c_str(), id2vl(str).c_str());
+		break;
+
+	case AST_GENFOR:
+	case AST_FOR:
+	    	fprintf(f, "%sfor (\n", indent.c_str());
+		children[0]->dumpVlog(f, indent + "  ", inGenerate, type);
+		fprintf(f, ";\n%s  ",indent.c_str());
+		children[1]->dumpVlog(f, "", inGenerate, type);
+		fprintf(f, ";\n");
+		children[2]->dumpVlog(f, indent + "  ", inGenerate, type);
+		fprintf(f, "\n%s)\n", indent.c_str());
+	    	children[3]->dumpVlog(f, indent + "  ", inGenerate, type);
+		break;
+
+	if (0) { case AST_WHILE: txt = "while"; }
+	if (0) { case AST_REPEAT: txt = "repeat"; }
+		fprintf(f, "%s%s (", indent.c_str(), txt.c_str());
+		children[0]->dumpVlog(f, "", inGenerate, type);
+		fprintf(f, ")\n");
+		children[1]->dumpVlog(f, indent + "  ", inGenerate, type);
+		break;
+
+	case AST_GENIF:
+	    	fprintf(f, "%sif(", indent.c_str());
+		children[0]->dumpVlog(f, indent + "  ", inGenerate, type);
+		fprintf(f, ")\n");
+		children[1]->dumpVlog(f, indent + "  ", inGenerate, type);
+		if (children.size()>2) {
+		    fprintf(f, "%selse\n", indent.c_str());
+		    children[2]->dumpVlog(f, indent + "  ", inGenerate, type);
+		}
+
+	    	break;
+
+	if (0) { case AST_CELLARRAY: node = children[1]; }
+	if (0) { case AST_CELL: node = this; }
+	{
+		std::string celltype = id2vl(node->children[0]->str);
+		fprintf(f, "%s%s #(\n", indent.c_str(), celltype.c_str());
+
+		first = true;
+		for (auto child : node->children) {
+			if (child->type == AST_PARASET) {
+				if (first) {
+					first = false;
+				} else {
+					fprintf(f, ",\n  %s", indent.c_str());
+				}
+				child->dumpVlog(f, indent + "  ", inGenerate, type);
+			}
+		}
+
+		fprintf(f, "\n%s) %s ", indent.c_str(), id2vl(node->str).c_str());
+
+		if (type==AST_CELLARRAY) {
+			children[0]->dumpVlog(f, "", inGenerate, type);
+		}
+
+		fprintf(f,"(\n");
+
+		first = true;
+		for (auto child : node->children) {
+			if (child->type == AST_ARGUMENT) {
+				if (first) {
+					first = false;
+				} else {
+					fprintf(f, ",\n");
+				}
+				child->dumpVlog(f, indent + "  ", inGenerate, type);
+			}
+		}
+
+		fprintf(f, "\n%s);\n", indent.c_str());
+		break;
+	}
+
+	case AST_PRIMITIVE:
+		fprintf(f, "%s%s prim_%s_%u (\n", indent.c_str(), str.c_str(), str.c_str(), hash());
+
+		first = true;
+		for (auto child : children) {
+			if (child->type == AST_ARGUMENT) {
+				if (first) {
+					first = false;
+				} else {
+					fprintf(f, ",\n");
+				}
+				child->dumpVlog(f, indent + "  ", inGenerate, type);
+			}
+		}
+
+		fprintf(f, "\n%s);\n", indent.c_str());
+		break;
+
+	case AST_ARGUMENT:
+	case AST_PARASET: {
+		fprintf(f, indent.c_str());
+		if (!str.empty()) {
+			fprintf(f,".%s(", id2vl(str).c_str());
+		}
+		for (auto child : children) {
+			child->dumpVlog(f, indent + "  ", inGenerate, type);
+		}
+		if (!str.empty()) {
+			fprintf(f,")");
+		}
+		break;
+	}
+
+	if (0) {case AST_TO_SIGNED: txt = "$signed"; }
+	if (0) {case AST_TO_UNSIGNED: txt = "$unsigned"; }
+	if (0) {case AST_ASSERT: txt = parentType==AST_BLOCK ? "assert" : "assert property"; }
+	if (0) {
+		case AST_TCALL:
+		case AST_FCALL:
+			txt = id2vl(str);
+	}
+		fprintf(f, "%s%s(", indent.c_str(), txt.c_str());
+		for (auto child : children) {
+			if (first) {
+				first = false;
+			} else {
+				fprintf(f, ", ");
+			}
+			child->dumpVlog(f, indent + "  ", inGenerate, type);
+		}
+		fprintf(f, ")");
+		if (type==AST_TCALL || type==AST_ASSERT)
+			fprintf(f, ";\n");
+
+		break;
+
+
+	if (0) { case AST_FUNCTION: txt = "function"; }
+	if (0) { case AST_TASK: txt = "task"; }
+		fprintf(f, "%s%s", indent.c_str(), txt.c_str());
+
+		if (type == AST_FUNCTION) {
+			AstNode * returnInfo = children[0];
+			if (returnInfo->is_signed) {
+				fprintf(f, " signed");
+			}
+			if (!returnInfo->children.empty()) {
+				AstNode *range = returnInfo->children[0];
+				fprintf(f, " ");
+				range->dumpVlog(f, indent, inGenerate, type);
+			}
+		}
+		fprintf(f, " %s;\n", id2vl(str).c_str());
+		for (auto child : children) {
+			if (first && type==AST_FUNCTION) //Skip first in functions
+				first = false;
+			else
+				child->dumpVlog(f, indent + "  ", inGenerate, type);
+		}
+			fprintf(f, "%send%s\n", indent.c_str(), txt.c_str());
+		break;
+
+	case AST_MODPORT:
+		fprintf(f, "%smodport %s (\n", indent.c_str(), id2vl(str).c_str());
+		for (auto child : children) {
+			if (first)
+				first = false;
+			else
+				fprintf(f, ",\n");
+			child->dumpVlog(f, indent + "  ", inGenerate, type);
+		}
+		fprintf(f, "\n%s);\n", indent.c_str());
+		break;
+
+	case AST_INTERFACEPORT:
+		fprintf(f, "%s%s %s;\n", indent.c_str(), id2vl(children[0]->str, true).c_str(), id2vl(str).c_str());
+		break;
+
+	case AST_PREFIX:
+		fprintf(f, "%s%s[", indent.c_str(), id2vl(str).c_str());
+		children[0]->dumpVlog(f, "", inGenerate, type);
+		fprintf(f, "].");
+		children[1]->dumpVlog(f, "", inGenerate, type);
+		break;
+
+	case AST_DEFPARAM:
+		fprintf(f, "%sdefparam ", indent.c_str());
+		children[0]->dumpVlog(f, "", inGenerate, type);
+		fprintf(f, " = ");
+		children[1]->dumpVlog(f, "", inGenerate, type);
+		fprintf(f, ";\n");
+		break;
+
 
 	default:
 		std::string type_name = type2str(type);
 		fprintf(f, "%s" "/** %s **/%s", indent.c_str(), type_name.c_str(), indent.empty() ? "" : "\n");
-		// dumpAst(f, indent, NULL);
+		 dumpAst(f, indent);
 	}
 
 	fflush(f);

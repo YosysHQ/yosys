@@ -243,7 +243,7 @@ namespace AST
 
 		// create a human-readable text representation of the AST (for debugging)
 		void dumpAst(FILE *f = NULL, std::string indent = "", bool dumpFileLine = true) const;
-		void dumpVlog(FILE *f, std::string indent) const;
+		void dumpVlog(FILE *f = NULL, std::string indent = "", bool inGenerate = false, AstNodeType parentType = AST_NONE) const;
 
 		// used by genRTLIL() for detecting expression width and sign
 		void detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *found_real = NULL);

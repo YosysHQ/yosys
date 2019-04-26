@@ -526,6 +526,7 @@ struct RTLIL::Const
 	bool as_bool() const;
 	int as_int(bool is_signed = false) const;
 	std::string as_string() const;
+	std::string as_verilog_string() const;
 	static Const from_string(std::string str);
 
 	std::string decode_string() const;
