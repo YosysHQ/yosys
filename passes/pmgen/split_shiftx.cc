@@ -30,16 +30,20 @@ void create_split_shiftx(split_shiftx_pm &pm)
 	if (pm.blacklist_cells.count(pm.st.shiftx))
 		return;
 	SigSpec A = pm.st.shiftx->getPort("\\A");
+	SigSpec B = pm.st.shiftx->getPort("\\B");
 	SigSpec Y = pm.st.shiftx->getPort("\\Y");
 	const int A_WIDTH = pm.st.shiftx->getParam("\\A_WIDTH").as_int();
+	const int B_WIDTH = pm.st.shiftx->getParam("\\B_WIDTH").as_int();
 	const int Y_WIDTH = pm.st.shiftx->getParam("\\Y_WIDTH").as_int();
-	log_assert(Y_WIDTH > 1);
+	int trailing_zeroes = 0;
+	for (; B[trailing_zeroes] == RTLIL::S0; ++trailing_zeroes) ;
+	const int WIDTH = trailing_zeroes > 0 ? 1 << trailing_zeroes : Y_WIDTH;
 	std::vector<SigBit> bits;
-	bits.resize(A_WIDTH / Y_WIDTH);
+	bits.resize(A_WIDTH / WIDTH);
 	for (int i = 0; i < Y_WIDTH; ++i) {
-		for (int j = 0; j < A_WIDTH/Y_WIDTH; ++j)
-			bits[j] = A[j*Y_WIDTH + i];
-		pm.module->addShiftx(NEW_ID, bits, pm.st.shiftxB, Y[i]);
+		for (int j = 0; j < A_WIDTH/WIDTH; ++j)
+			bits[j] = A[j*WIDTH + i];
+		pm.module->addShiftx(NEW_ID, bits, B.extract(trailing_zeroes, B_WIDTH-trailing_zeroes), Y[i]);
 	}
 	pm.st.shiftx->unsetPort("\\Y");
 
