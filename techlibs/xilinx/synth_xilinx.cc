@@ -292,18 +292,6 @@ struct SynthXilinxPass : public Pass
 			Pass::call(design, "dffsr2dff");
 			Pass::call(design, "dff2dffe");
 
-			if (!nocarry) {
-				if (vpr)
-					Pass::call(design, "techmap -map +/xilinx/arith_map.v -D _EXPLICIT_CARRY");
-				else
-					Pass::call(design, "techmap -map +/xilinx/arith_map.v");
-			}
-
-			Pass::call(design, "opt -fast");
-		}
-
-		if (check_label(active, run_from, run_to, "map_cells"))
-		{
 			// shregmap -tech xilinx can cope with $shiftx and $mux
 			//   cells for identifying variable-length shift registers,
 			//   so attempt to convert $pmux-es to the former
@@ -311,17 +299,30 @@ struct SynthXilinxPass : public Pass
 			if (!nosrl || !nomux)
 				Pass::call(design, "pmux2shiftx");
 
-			if (!nosrl) {
-				// shregmap operates on bit-level flops, not word-level,
-				//   so break those down here
-				Pass::call(design, "simplemap t:$dff t:$dffe");
-				// pmux2shiftx can leave behind a $pmux with a single entry
-				//   -- need this to clean that up before shregmap
-				Pass::call(design, "opt_expr -mux_undef");
-				// shregmap with '-tech xilinx' infers variable length shift regs
-				Pass::call(design, "shregmap -tech xilinx -minlen 3");
+			Pass::call(design, "opt -full");
+			if (!nocarry) {
+				if (vpr)
+					Pass::call(design, "techmap -map +/techmap.v  -D _EXPLICIT_CARRY -map +/xilinx/arith_map.v");
+				else
+					Pass::call(design, "techmap -map +/techmap.v -map +/xilinx/arith_map.v");
 			}
+			else  {
+				Pass::call(design, "techmap");
+			}
+			Pass::call(design, "opt -fast");
 
+			// shregmap with '-tech xilinx' infers variable length shift regs
+			if (!nosrl)
+				Pass::call(design, "shregmap -tech xilinx -minlen 3");
+
+			if (!nomux)
+				Pass::call(design, "muxcover -mux8 -mux16");
+
+			Pass::call(design, "opt -fast");
+		}
+
+		if (check_label(active, run_from, run_to, "map_cells"))
+		{
 			std::string define;
 			if (nomux)
 				define += " -D NO_MUXFN";
@@ -331,7 +332,6 @@ struct SynthXilinxPass : public Pass
 
 		if (check_label(active, run_from, run_to, "map_luts"))
 		{
-			Pass::call(design, "opt -full");
 			Pass::call(design, "techmap -map +/techmap.v -D _NO_POS_SR -map +/xilinx/ff_map.v");
 			if (abc == "abc9")
 				Pass::call(design, abc + " -lut +/xilinx/abc.lut -box +/xilinx/abc.box" + string(retime ? " -dff" : ""));
