@@ -275,7 +275,6 @@ struct SynthXilinxPass : public Pass
 				Pass::call(design, "techmap -map +/xilinx/arith_map.v");
 			}
 
-			Pass::call(design, "hierarchy -check");
 			Pass::call(design, "opt -fast");
 		}
 
