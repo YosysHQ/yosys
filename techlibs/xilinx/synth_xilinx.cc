@@ -287,10 +287,17 @@ struct SynthXilinxPass : public Pass
 
 		if (check_label(active, run_from, run_to, "fine"))
 		{
-			Pass::call(design, "opt -fast");
+			Pass::call(design, "opt -fast -full");
 			Pass::call(design, "memory_map");
 			Pass::call(design, "dffsr2dff");
 			Pass::call(design, "dff2dffe");
+
+			if (!nocarry) {
+				if (vpr)
+					Pass::call(design, "techmap -D _EXPLICIT_CARRY -map +/xilinx/arith_map.v");
+				else
+					Pass::call(design, "techmap -map +/xilinx/arith_map.v");
+			}
 
 			// shregmap -tech xilinx can cope with $shiftx and $mux
 			//   cells for identifying variable-length shift registers,
@@ -300,15 +307,7 @@ struct SynthXilinxPass : public Pass
 				Pass::call(design, "pmux2shiftx");
 
 			Pass::call(design, "opt -full");
-			if (!nocarry) {
-				if (vpr)
-					Pass::call(design, "techmap -map +/techmap.v  -D _EXPLICIT_CARRY -map +/xilinx/arith_map.v");
-				else
-					Pass::call(design, "techmap -map +/techmap.v -map +/xilinx/arith_map.v");
-			}
-			else  {
-				Pass::call(design, "techmap");
-			}
+			Pass::call(design, "techmap");
 			Pass::call(design, "opt -fast");
 
 			// shregmap with '-tech xilinx' infers variable length shift regs
