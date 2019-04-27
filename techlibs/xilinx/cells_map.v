@@ -147,7 +147,7 @@ module \$_MUX8_ (A, B, C, D, E, F, G, H, S, T, U, Y);
     input A, B, C, D, E, F, G, H, S, T, U;
     output Y;
 
-	wire [1:0] Z;
+    wire [1:0] Z;
     assign Z = T ? (S ? {D,H} : {C,G}) :
                    (S ? {B,F} : {A,E});
     MUXF7 fpga_muxf7 (.I0(Z[0]), .I1(Z[1]), .S(U), .O(Y));
@@ -157,9 +157,9 @@ module \$_MUX16_ (A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, S, T, U, V, Y)
     input A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, S, T, U, V;
     output Y;
 
-	wire [1:0] Z;
-	\$_MUX8_ fpga_mux8_0 (.A(A), .B(B), .C(C), .D(D), .E(E), .F(F), .G(G), .H(H), .S(S), .T(T), .U(U), .Y(Z[0]));
-	\$_MUX8_ fpga_mux8_1 (.A(I), .B(J), .C(K), .D(L), .E(M), .F(N), .G(O), .H(P), .S(S), .T(T), .U(U), .Y(Z[1]));
+    wire [1:0] Z;
+    \$_MUX8_ fpga_mux8_0 (.A(A), .B(B), .C(C), .D(D), .E(E), .F(F), .G(G), .H(H), .S(S), .T(T), .U(U), .Y(Z[0]));
+    \$_MUX8_ fpga_mux8_1 (.A(I), .B(J), .C(K), .D(L), .E(M), .F(N), .G(O), .H(P), .S(S), .T(T), .U(U), .Y(Z[1]));
     MUXF8 fpga_muxf8 (.I0(Z[0]), .I1(Z[1]), .S(V), .O(Y));
 endmodule
 `endif // NO_MUXFN
