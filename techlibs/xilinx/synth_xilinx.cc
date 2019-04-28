@@ -113,11 +113,13 @@ struct SynthXilinxPass : public Pass
 		log("        dffsr2dff\n");
 		log("        dff2dffe\n");
 		log("        techmap -map +/xilinx/arith_map.v\n");
-		log("        pmux2shiftx (without '-nosrl' only)\n");
 		log("        opt -full\n");
-		log("        techmap\n");
-		log("        opt -fast\n");
+		log("        simplemap t:$dff t:$dffe (without '-nosrl' only)\n");
+		log("        pmux2shiftx (without '-nosrl' only)\n");
+		log("        opt_expr -mux_undef (without '-nosrl' only)\n");
 		log("        shregmap -tech xilinx -minlen 3 (without '-nosrl' only)\n");
+		log("        opt -fast\n");
+		log("        techmap\n");
 		log("        opt -fast\n");
 		log("\n");
 		log("    map_cells:\n");
@@ -262,29 +264,15 @@ struct SynthXilinxPass : public Pass
 			}
 		}
 
-		log("    fine:\n");
-		log("        opt -fast -full\n");
-		log("        memory_map\n");
-		log("        dffsr2dff\n");
-		log("        dff2dffe\n");
-		log("        techmap -map +/xilinx/arith_map.v\n");
-		log("        pmux2shiftx (without '-nosrl' only)\n");
-		log("        opt -full\n");
-		log("        techmap\n");
-		log("        opt -fast\n");
-		log("        shregmap -tech xilinx -minlen 3 (without '-nosrl' only)\n");
-		log("        opt -fast\n");
-		log("\n");
-		log("    map_cells:\n");
-		log("        techmap -map +/xilinx/cells_map.v\n");
-		log("        clean\n");
-		log("\n");
-		log("    map_luts:\n");
-		log("        techmap -map +/techmap.v -D _NO_POS_SR -map +/xilinx/ff_map.v\n");
-
-
 		if (check_label(active, run_from, run_to, "fine"))
 		{
+			if (!nosrl) {
+				// shregmap -tech xilinx can cope with $shiftx and $mux
+				//   cells for identifiying variable-length shift registers,
+				//   so attempt to convert $pmux-es to the former
+				Pass::call(design, "pmux2shiftx");
+			}
+
 			Pass::call(design, "opt -fast -full");
 			Pass::call(design, "memory_map");
 			Pass::call(design, "dffsr2dff");
@@ -297,31 +285,29 @@ struct SynthXilinxPass : public Pass
 			}
 
 			Pass::call(design, "opt -full");
+
+			if (!nosrl) {
+				// shregmap operates on bit-level flops, not word-level,
+				//   so break those down here
+				Pass::call(design, "simplemap t:$dff t:$dffe");
+				Pass::call(design, "show -format pdf -prefix show *depth=3*");
+				// shregmap with '-tech xilinx' infers variable length shift regs
+				Pass::call(design, "shregmap -tech xilinx -minlen 3");
+				Pass::call(design, "opt -fast");
+			}
+
 			Pass::call(design, "techmap");
-			Pass::call(design, "opt -fast");
-
-			// shregmap -tech xilinx can cope with $shiftx and $mux
-			//   cells for identifiying variable-length shift registers,
-			//   so attempt to convert $pmux-es to the former
-			if (!nosrl)
-				Pass::call(design, "pmux2shiftx");
-
 			Pass::call(design, "opt -fast");
 		}
 
 		if (check_label(active, run_from, run_to, "map_cells"))
 		{
-			// shregmap with '-tech xilinx' infers variable length shift regs
-			if (!nosrl)
-				Pass::call(design, "shregmap -tech xilinx -minlen 3");
-
 			Pass::call(design, "techmap -map +/xilinx/cells_map.v");
 			Pass::call(design, "clean");
 		}
 
 		if (check_label(active, run_from, run_to, "map_luts"))
 		{
-			Pass::call(design, "techmap -map +/techmap.v -D _NO_POS_SR -map +/xilinx/ff_map.v");
 			Pass::call(design, "abc -luts 2:2,3,6:5,10,20" + string(retime ? " -dff" : ""));
 			Pass::call(design, "clean");
 			// This shregmap call infers fixed length shift registers after abc
