@@ -257,7 +257,7 @@ std::string make_temp_dir(std::string template_str = "/tmp/yosys_XXXXXX");
 bool check_file_exists(std::string filename, bool is_exec = false);
 bool is_absolute_path(std::string filename);
 void remove_directory(std::string dirname);
-std::string escape_filename_spaces (const std::string& filename);
+std::string escape_filename_spaces(const std::string& filename);
 
 template<typename T> int GetSize(const T &obj) { return obj.size(); }
 int GetSize(RTLIL::Wire *wire);

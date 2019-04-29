@@ -482,18 +482,18 @@ void remove_directory(std::string dirname)
 #endif
 }
 
-std::string escape_filename_spaces (const std::string& filename)
+std::string escape_filename_spaces(const std::string& filename)
 {
-  std::string out;
-  out.reserve (filename.size ());
-  for (auto c : filename)
-  {
-    if (c == ' ')
-      out += "\\ ";
-    else
-      out.push_back (c);
-  }
-  return out;
+	std::string out;
+	out.reserve(filename.size());
+	for (auto c : filename)
+	{
+		if (c == ' ')
+			out += "\\ ";
+		else
+			out.push_back(c);
+	}
+	return out;
 }
 
 int GetSize(RTLIL::Wire *wire)
