@@ -281,13 +281,26 @@ void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 				maybe_del_wires.push_back(wire);
 			} else {
 				log_assert(GetSize(s1) == GetSize(s2));
+				Const initval;
+				if (wire->attributes.count("\\init"))
+					initval = wire->attributes.at("\\init");
+				if (GetSize(initval) != GetSize(wire))
+					initval.bits.resize(GetSize(wire), State::Sx);
 				RTLIL::SigSig new_conn;
 				for (int i = 0; i < GetSize(s1); i++)
 					if (s1[i] != s2[i]) {
+						if (s2[i] == State::Sx && (initval[i] == State::S0 || initval[i] == State::S1)) {
+							s2[i] = initval[i];
+							initval[i] = State::Sx;
+						}
 						new_conn.first.append_bit(s1[i]);
 						new_conn.second.append_bit(s2[i]);
 					}
 				if (new_conn.first.size() > 0) {
+					if (initval.is_fully_undef())
+						wire->attributes.erase("\\init");
+					else
+						wire->attributes.at("\\init") = initval;
 					used_signals.add(new_conn.first);
 					used_signals.add(new_conn.second);
 					module->connect(new_conn);
