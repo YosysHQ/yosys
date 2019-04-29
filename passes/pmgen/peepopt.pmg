@@ -1,0 +1,34 @@
+pattern shiftmul
+
+state <SigSpec> shamt
+
+match shift
+	select shift->type.in($shift, $shiftx, $shr)
+endmatch
+
+code shamt
+	shamt = port(shift, \B);
+	if (shamt[GetSize(shamt)-1] == State::S0) {
+		do {
+			shamt.remove(GetSize(shamt)-1);
+		} while (shamt[GetSize(shamt)-1] == State::S0);
+	} else
+	if (param(shift, \B_SIGNED).as_bool()) {
+		reject;
+	}
+endcode
+
+match mul
+	select mul->type.in($mul)
+	select port(mul, \A).is_fully_const() || port(mul, \B).is_fully_const()
+	index <SigSpec> port(mul, \Y) === shamt
+endmatch
+
+code
+	IdString const_factor_port = port(mul, \A).is_fully_const() ? \A : \B;
+	int const_factor = port(mul, const_factor_port).as_int();
+	if (GetSize(port(shift, \Y)) > const_factor)
+		reject;
+	log_dump(shift, shamt, mul, const_factor);
+	reject;
+endcode

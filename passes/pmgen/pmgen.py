@@ -420,6 +420,10 @@ with open(outfile, "w") as f:
         print("    run_{}([&](){{on_accept_f(st_{});}});".format(current_pattern, current_pattern), file=f)
         print("  }", file=f)
         print("", file=f)
+        print("  void run_{}() {{".format(current_pattern), file=f)
+        print("    run_{}([](){{}});".format(current_pattern, current_pattern), file=f)
+        print("  }", file=f)
+        print("", file=f)
     current_pattern = None
 
     for index in range(len(blocks)):
