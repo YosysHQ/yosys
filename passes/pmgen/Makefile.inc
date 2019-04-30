@@ -16,5 +16,7 @@ passes/pmgen/peepopt.o: passes/pmgen/peepopt_pm.h
 EXTRA_OBJS += passes/pmgen/peepopt_pm.h
 .SECONDARY: passes/pmgen/peepopt_pm.h
 
-passes/pmgen/peepopt_pm.h: passes/pmgen/pmgen.py passes/pmgen/peepopt.pmg
+PEEPOPT_PATTERN = passes/pmgen/peepopt_shiftmul.pmg
+
+passes/pmgen/peepopt_pm.h: passes/pmgen/pmgen.py $(PEEPOPT_PATTERN)
 	$(P) mkdir -p passes/pmgen && python3 $< -o $@ -p peepopt $(filter-out $<,$^)
