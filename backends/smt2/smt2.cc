@@ -1543,7 +1543,7 @@ struct Smt2Backend : public Backend {
 
 		for (auto module : sorted_modules)
 		{
-			if (module->get_bool_attribute("\\blackbox") || module->has_memories_warn() || module->has_processes_warn())
+			if (module->get_blackbox_attribute() || module->has_memories_warn() || module->has_processes_warn())
 				continue;
 
 			log("Creating SMT-LIBv2 representation of module %s.\n", log_id(module));

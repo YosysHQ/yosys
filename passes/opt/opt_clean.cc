@@ -137,7 +137,7 @@ void rmunused_module_cells(Module *module, bool verbose)
 
 	for (auto cell : unused) {
 		if (verbose)
-			log("  removing unused `%s' cell `%s'.\n", cell->type.c_str(), cell->name.c_str());
+			log_debug("  removing unused `%s' cell `%s'.\n", cell->type.c_str(), cell->name.c_str());
 		module->design->scratchpad_set_bool("opt.did_something", true);
 		module->remove(cell);
 		count_rm_cells++;
@@ -326,7 +326,7 @@ void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 	for (auto wire : maybe_del_wires)
 		if (!used_signals.check_any(RTLIL::SigSpec(wire))) {
 			if (check_public_name(wire->name) && verbose) {
-				log("  removing unused non-port wire %s.\n", wire->name.c_str());
+				log_debug("  removing unused non-port wire %s.\n", wire->name.c_str());
 			}
 			del_wires.insert(wire);
 			del_wires_count++;
@@ -336,7 +336,7 @@ void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 	count_rm_wires += del_wires.size();
 
 	if (verbose && del_wires_count > 0)
-		log("  removed %d unused temporary wires.\n", del_wires_count);
+		log_debug("  removed %d unused temporary wires.\n", del_wires_count);
 }
 
 bool rmunused_module_init(RTLIL::Module *module, bool purge_mode, bool verbose)
@@ -399,7 +399,7 @@ bool rmunused_module_init(RTLIL::Module *module, bool purge_mode, bool verbose)
 		}
 
 		if (verbose)
-			log("  removing redundant init attribute on %s.\n", log_id(wire));
+			log_debug("  removing redundant init attribute on %s.\n", log_id(wire));
 
 		wire->attributes.erase("\\init");
 		did_something = true;
@@ -426,7 +426,7 @@ void rmunused_module(RTLIL::Module *module, bool purge_mode, bool verbose, bool 
 		}
 	for (auto cell : delcells) {
 		if (verbose)
-			log("  removing buffer cell `%s': %s = %s\n", cell->name.c_str(),
+			log_debug("  removing buffer cell `%s': %s = %s\n", cell->name.c_str(),
 					log_signal(cell->getPort("\\Y")), log_signal(cell->getPort("\\A")));
 		module->remove(cell);
 	}
@@ -551,6 +551,7 @@ struct CleanPass : public Pass {
 			rmunused_module(module, purge_mode, false, false);
 		}
 
+		log_suppressed();
 		if (count_rm_cells > 0 || count_rm_wires > 0)
 			log("Removed %d unused cells and %d unused wires.\n", count_rm_cells, count_rm_wires);
 

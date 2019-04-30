@@ -33,8 +33,6 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-#define log_debug log
-
 AigerReader::AigerReader(RTLIL::Design *design, std::istream &f, RTLIL::IdString module_name, RTLIL::IdString clk_name)
     : design(design), f(f), clk_name(clk_name)
 {

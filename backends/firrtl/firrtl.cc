@@ -106,6 +106,95 @@ struct FirrtlWorker
 	RTLIL::Design *design;
 	std::string indent;
 
+	// Define read/write ports and memories.
+	// We'll collect their definitions and emit the corresponding FIRRTL definitions at the appropriate point in module construction.
+	// For the moment, we don't handle $readmemh or $readmemb.
+	// These will be part of a subsequent PR.
+	struct read_port {
+		string name;
+		bool clk_enable;
+		bool clk_parity;
+		bool transparent;
+		RTLIL::SigSpec clk;
+		RTLIL::SigSpec ena;
+		RTLIL::SigSpec addr;
+		read_port(string name, bool clk_enable, bool clk_parity, bool transparent, RTLIL::SigSpec clk, RTLIL::SigSpec ena, RTLIL::SigSpec addr) : name(name), clk_enable(clk_enable), clk_parity(clk_parity), transparent(transparent), clk(clk), ena(ena), addr(addr) {
+			// Current (3/13/2019) conventions:
+			//  generate a constant 0 for clock and a constant 1 for enable if they are undefined.
+			if (!clk.is_fully_def())
+				this->clk = SigSpec(RTLIL::Const(0, 1));
+			if (!ena.is_fully_def())
+				this->ena = SigSpec(RTLIL::Const(1, 1));
+		}
+		string gen_read(const char * indent) {
+			string addr_expr = make_expr(addr);
+			string ena_expr = make_expr(ena);
+			string clk_expr = make_expr(clk);
+			string addr_str = stringf("%s%s.addr <= %s\n", indent, name.c_str(), addr_expr.c_str());
+			string ena_str = stringf("%s%s.en <= %s\n", indent, name.c_str(), ena_expr.c_str());
+			string clk_str = stringf("%s%s.clk <= asClock(%s)\n", indent, name.c_str(), clk_expr.c_str());
+			return addr_str + ena_str + clk_str;
+		}
+	};
+	struct write_port : read_port {
+		RTLIL::SigSpec mask;
+		write_port(string name, bool clk_enable, bool clk_parity, bool transparent, RTLIL::SigSpec clk, RTLIL::SigSpec ena, RTLIL::SigSpec addr, RTLIL::SigSpec mask) : read_port(name, clk_enable, clk_parity, transparent, clk, ena, addr), mask(mask) {
+			if (!clk.is_fully_def())
+				this->clk = SigSpec(RTLIL::Const(0));
+			if (!ena.is_fully_def())
+				this->ena = SigSpec(RTLIL::Const(0));
+			if (!mask.is_fully_def())
+				this->ena = SigSpec(RTLIL::Const(1));
+		}
+	  string gen_read(const char * /* indent */) {
+			log_error("gen_read called on write_port: %s\n", name.c_str());
+			return stringf("gen_read called on write_port: %s\n", name.c_str());
+		}
+		string gen_write(const char * indent) {
+			string addr_expr = make_expr(addr);
+			string ena_expr = make_expr(ena);
+			string clk_expr = make_expr(clk);
+			string mask_expr = make_expr(mask);
+			string mask_str = stringf("%s%s.mask <= %s\n", indent, name.c_str(), mask_expr.c_str());
+			string addr_str = stringf("%s%s.addr <= %s\n", indent, name.c_str(), addr_expr.c_str());
+			string ena_str = stringf("%s%s.en <= %s\n", indent, name.c_str(), ena_expr.c_str());
+			string clk_str = stringf("%s%s.clk <= asClock(%s)\n", indent, name.c_str(), clk_expr.c_str());
+			return addr_str + ena_str + clk_str + mask_str;
+		}
+	};
+	/* Memories defined within this module. */
+	 struct memory {
+		 string name;					// memory name
+		 int abits;						// number of address bits
+		 int size;						// size (in units) of the memory
+		 int width;						// size (in bits) of each element
+		 int read_latency;
+		 int write_latency;
+		 vector<read_port> read_ports;
+		 vector<write_port> write_ports;
+		 std::string init_file;
+		 std::string init_file_srcFileSpec;
+		 memory(string name, int abits, int size, int width) : name(name), abits(abits), size(size), width(width), read_latency(0), write_latency(1), init_file(""), init_file_srcFileSpec("") {}
+		 memory() : read_latency(0), write_latency(1), init_file(""), init_file_srcFileSpec(""){}
+		 void add_memory_read_port(read_port &rp) {
+			 read_ports.push_back(rp);
+		 }
+		 void add_memory_write_port(write_port &wp) {
+			 write_ports.push_back(wp);
+		 }
+		 void add_memory_file(std::string init_file, std::string init_file_srcFileSpec) {
+			 this->init_file = init_file;
+			 this->init_file_srcFileSpec = init_file_srcFileSpec;
+		 }
+
+	 };
+	dict<string, memory> memories;
+
+	void register_memory(memory &m)
+	{
+		memories[m.name] = m;
+	}
+
 	void register_reverse_wire_map(string id, SigSpec sig)
 	{
 		for (int i = 0; i < GetSize(sig); i++)
@@ -116,7 +205,7 @@ struct FirrtlWorker
 	{
 	}
 
-	string make_expr(const SigSpec &sig)
+	static string make_expr(const SigSpec &sig)
 	{
 		string expr;
 
@@ -515,6 +604,7 @@ struct FirrtlWorker
 				int abits = cell->parameters.at("\\ABITS").as_int();
 				int width = cell->parameters.at("\\WIDTH").as_int();
 				int size = cell->parameters.at("\\SIZE").as_int();
+				memory m(mem_id, abits, size, width);
 				int rd_ports = cell->parameters.at("\\RD_PORTS").as_int();
 				int wr_ports = cell->parameters.at("\\WR_PORTS").as_int();
 
@@ -531,33 +621,24 @@ struct FirrtlWorker
 				if (offset != 0)
 					log_error("Memory with nonzero offset: %s.%s\n", log_id(module), log_id(cell));
 
-				cell_exprs.push_back(stringf("    mem %s:\n", mem_id.c_str()));
-				cell_exprs.push_back(stringf("      data-type => UInt<%d>\n", width));
-				cell_exprs.push_back(stringf("      depth => %d\n", size));
-
-				for (int i = 0; i < rd_ports; i++)
-					cell_exprs.push_back(stringf("      reader => r%d\n", i));
-
-				for (int i = 0; i < wr_ports; i++)
-					cell_exprs.push_back(stringf("      writer => w%d\n", i));
-
-				cell_exprs.push_back(stringf("      read-latency => 0\n"));
-				cell_exprs.push_back(stringf("      write-latency => 1\n"));
-				cell_exprs.push_back(stringf("      read-under-write => undefined\n"));
-
 				for (int i = 0; i < rd_ports; i++)
 				{
 					if (rd_clk_enable[i] != State::S0)
 						log_error("Clocked read port %d on memory %s.%s.\n", i, log_id(module), log_id(cell));
 
+					SigSpec addr_sig = cell->getPort("\\RD_ADDR").extract(i*abits, abits);
 					SigSpec data_sig = cell->getPort("\\RD_DATA").extract(i*width, width);
-					string addr_expr = make_expr(cell->getPort("\\RD_ADDR").extract(i*abits, abits));
-
-					cell_exprs.push_back(stringf("    %s.r%d.addr <= %s\n", mem_id.c_str(), i, addr_expr.c_str()));
-					cell_exprs.push_back(stringf("    %s.r%d.en <= UInt<1>(1)\n", mem_id.c_str(), i));
-					cell_exprs.push_back(stringf("    %s.r%d.clk <= asClock(UInt<1>(0))\n", mem_id.c_str(), i));
-
-					register_reverse_wire_map(stringf("%s.r%d.data", mem_id.c_str(), i), data_sig);
+					string addr_expr = make_expr(addr_sig);
+					string name(stringf("%s.r%d", m.name.c_str(), i));
+					bool clk_enable = false;
+					bool clk_parity = true;
+					bool transparency = false;
+					SigSpec ena_sig = RTLIL::SigSpec(RTLIL::State::S1, 1);
+					SigSpec clk_sig = RTLIL::SigSpec(RTLIL::State::S0, 1);
+					read_port rp(name, clk_enable, clk_parity, transparency, clk_sig, ena_sig, addr_sig);
+					m.add_memory_read_port(rp);
+					cell_exprs.push_back(rp.gen_read(indent.c_str()));
+					register_reverse_wire_map(stringf("%s.data", name.c_str()), data_sig);
 				}
 
 				for (int i = 0; i < wr_ports; i++)
@@ -568,9 +649,16 @@ struct FirrtlWorker
 					if (wr_clk_polarity[i] != State::S1)
 						log_error("Negedge write port %d on memory %s.%s.\n", i, log_id(module), log_id(cell));
 
-					string addr_expr = make_expr(cell->getPort("\\WR_ADDR").extract(i*abits, abits));
-					string data_expr = make_expr(cell->getPort("\\WR_DATA").extract(i*width, width));
-					string clk_expr = make_expr(cell->getPort("\\WR_CLK").extract(i));
+					string name(stringf("%s.w%d", m.name.c_str(), i));
+					bool clk_enable = true;
+					bool clk_parity = true;
+					bool transparency = false;
+					SigSpec addr_sig =cell->getPort("\\WR_ADDR").extract(i*abits, abits);
+					string addr_expr = make_expr(addr_sig);
+					SigSpec data_sig =cell->getPort("\\WR_DATA").extract(i*width, width);
+					string data_expr = make_expr(data_sig);
+					SigSpec clk_sig = cell->getPort("\\WR_CLK").extract(i);
+					string clk_expr = make_expr(clk_sig);
 
 					SigSpec wen_sig = cell->getPort("\\WR_EN").extract(i*width, width);
 					string wen_expr = make_expr(wen_sig[0]);
@@ -579,13 +667,50 @@ struct FirrtlWorker
 						if (wen_sig[0] != wen_sig[i])
 							log_error("Complex write enable on port %d on memory %s.%s.\n", i, log_id(module), log_id(cell));
 
-					cell_exprs.push_back(stringf("    %s.w%d.addr <= %s\n", mem_id.c_str(), i, addr_expr.c_str()));
-					cell_exprs.push_back(stringf("    %s.w%d.data <= %s\n", mem_id.c_str(), i, data_expr.c_str()));
-					cell_exprs.push_back(stringf("    %s.w%d.en <= %s\n", mem_id.c_str(), i, wen_expr.c_str()));
-					cell_exprs.push_back(stringf("    %s.w%d.mask <= UInt<1>(1)\n", mem_id.c_str(), i));
-					cell_exprs.push_back(stringf("    %s.w%d.clk <= asClock(%s)\n", mem_id.c_str(), i, clk_expr.c_str()));
+					SigSpec mask_sig = RTLIL::SigSpec(RTLIL::State::S1, 1);
+					write_port wp(name, clk_enable, clk_parity, transparency, clk_sig, wen_sig[0], addr_sig, mask_sig);
+					m.add_memory_write_port(wp);
+					cell_exprs.push_back(stringf("%s%s.data <= %s\n", indent.c_str(), name.c_str(), data_expr.c_str()));
+					cell_exprs.push_back(wp.gen_write(indent.c_str()));
 				}
+				register_memory(m);
+				continue;
+			}
 
+			if (cell->type.in("$memwr", "$memrd", "$meminit"))
+			{
+				std::string cell_type = fid(cell->type);
+				std::string mem_id = make_id(cell->parameters["\\MEMID"].decode_string());
+				memory *mp = nullptr;
+				if (cell->type == "$meminit" ) {
+					log_error("$meminit (%s.%s.%s) currently unsupported\n", log_id(module), log_id(cell), mem_id.c_str());
+				} else {
+					// It's a $memwr or $memrd. Remember the read/write port parameters for the eventual FIRRTL memory definition.
+					auto addrSig = cell->getPort("\\ADDR");
+					auto dataSig = cell->getPort("\\DATA");
+					auto enableSig = cell->getPort("\\EN");
+					auto clockSig = cell->getPort("\\CLK");
+					Const clk_enable = cell->parameters.at("\\CLK_ENABLE");
+					Const clk_polarity = cell->parameters.at("\\CLK_POLARITY");
+
+					mp = &memories.at(mem_id);
+					int portNum = 0;
+					bool transparency = false;
+					string data_expr = make_expr(dataSig);
+					if (cell->type.in("$memwr")) {
+						portNum = (int) mp->write_ports.size();
+						write_port wp(stringf("%s.w%d", mem_id.c_str(), portNum), clk_enable.as_bool(), clk_polarity.as_bool(),  transparency, clockSig, enableSig, addrSig, dataSig);
+						mp->add_memory_write_port(wp);
+						cell_exprs.push_back(stringf("%s%s.data <= %s\n", indent.c_str(), wp.name.c_str(), data_expr.c_str()));
+						cell_exprs.push_back(wp.gen_write(indent.c_str()));
+					} else if (cell->type.in("$memrd")) {
+						portNum = (int) mp->read_ports.size();
+						read_port rp(stringf("%s.r%d", mem_id.c_str(), portNum), clk_enable.as_bool(), clk_polarity.as_bool(),  transparency, clockSig, enableSig, addrSig);
+						mp->add_memory_read_port(rp);
+						cell_exprs.push_back(rp.gen_read(indent.c_str()));
+						register_reverse_wire_map(stringf("%s.data", rp.name.c_str()), dataSig);
+					}
+				}
 				continue;
 			}
 
@@ -761,6 +886,24 @@ struct FirrtlWorker
 		for (auto str : wire_decls)
 			f << str;
 
+		f << stringf("\n");
+
+		// If we have any memory definitions, output them.
+		for (auto kv : memories) {
+			memory m = kv.second;
+			f << stringf("    mem %s:\n", m.name.c_str());
+			f << stringf("      data-type => UInt<%d>\n", m.width);
+			f << stringf("      depth => %d\n", m.size);
+			for (int i = 0; i < (int) m.read_ports.size(); i += 1) {
+				f << stringf("      reader => r%d\n", i);
+			}
+			for (int i = 0; i < (int) m.write_ports.size(); i += 1) {
+				f << stringf("      writer => w%d\n", i);
+			}
+			f << stringf("      read-latency => %d\n", m.read_latency);
+			f << stringf("      write-latency => %d\n", m.write_latency);
+			f << stringf("      read-under-write => undefined\n");
+		}
 		f << stringf("\n");
 
 		for (auto str : cell_exprs)

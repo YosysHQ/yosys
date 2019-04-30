@@ -744,7 +744,8 @@ grow_read_ports:;
 			if (clken) {
 				clock_domains[pi.clocks] = clkdom;
 				clock_polarities[pi.clkpol] = clkdom.second;
-				read_transp[pi.transp] = transp;
+				if (!pi.make_transp)
+					read_transp[pi.transp] = transp;
 				pi.sig_clock = clkdom.first;
 				pi.sig_en = rd_en[cell_port_i];
 				pi.effective_clkpol = clkdom.second;
@@ -957,6 +958,8 @@ grow_read_ports:;
 					SigSpec addr_ok_q = addr_ok;
 					if ((pi.clocks || pi.make_outreg) && !addr_ok.empty()) {
 						addr_ok_q = module->addWire(NEW_ID);
+						if (!pi.sig_en.empty())
+							addr_ok = module->Mux(NEW_ID, addr_ok_q, addr_ok, pi.sig_en);
 						module->addDff(NEW_ID, pi.sig_clock, addr_ok, addr_ok_q, pi.effective_clkpol);
 					}
 

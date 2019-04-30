@@ -464,7 +464,7 @@ struct CellTypes
 		if (cell->type == "$_AOI4_")
 			return eval_not(const_or(const_and(arg1, arg2, false, false, 1), const_and(arg3, arg4, false, false, 1), false, false, 1));
 		if (cell->type == "$_OAI4_")
-			return eval_not(const_and(const_or(arg1, arg2, false, false, 1), const_and(arg3, arg4, false, false, 1), false, false, 1));
+			return eval_not(const_and(const_or(arg1, arg2, false, false, 1), const_or(arg3, arg4, false, false, 1), false, false, 1));
 
 		log_assert(arg4.bits.size() == 0);
 		return eval(cell, arg1, arg2, arg3, errp);
