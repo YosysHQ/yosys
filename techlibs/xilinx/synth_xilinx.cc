@@ -72,6 +72,12 @@ struct SynthXilinxPass : public Pass
 		log("    -nosrl\n");
 		log("        disable inference of shift registers\n");
 		log("\n");
+		log("    -nocarry\n");
+		log("        do not use XORCY/MUXCY cells in output netlist\n");
+		log("\n");
+		log("    -nomux\n");
+		log("        do not use MUXF[78] muxes to implement LUTs larger than LUT6s\n");
+		log("\n");
 		log("    -run <from_label>:<to_label>\n");
 		log("        only run the commands between the labels (see below). an empty\n");
 		log("        from label is synonymous to 'begin', and empty to label is\n");
@@ -154,6 +160,8 @@ struct SynthXilinxPass : public Pass
 		std::string run_from, run_to;
 		bool flatten = false;
 		bool retime = false;
+		bool nocarry = false;
+		bool nomux = false;
 		bool vpr = false;
 		bool nobram = false;
 		bool nodram = false;
@@ -188,6 +196,14 @@ struct SynthXilinxPass : public Pass
 			}
 			if (args[argidx] == "-retime") {
 				retime = true;
+				continue;
+			}
+			if (args[argidx] == "-nocarry") {
+				nocarry = true;
+				continue;
+			}
+			if (args[argidx] == "-nomux") {
+				nomux = true;
 				continue;
 			}
 			if (args[argidx] == "-vpr") {
@@ -268,13 +284,13 @@ struct SynthXilinxPass : public Pass
 			Pass::call(design, "memory_map");
 			Pass::call(design, "dffsr2dff");
 			Pass::call(design, "dff2dffe");
-
-			if (vpr) {
-				Pass::call(design, "techmap -map +/xilinx/arith_map.v -D _EXPLICIT_CARRY");
-			} else {
-				Pass::call(design, "techmap -map +/xilinx/arith_map.v");
+			if (!nocarry) {
+				if (vpr) {
+					Pass::call(design, "techmap -map +/xilinx/arith_map.v -D _EXPLICIT_CARRY");
+				} else {
+					Pass::call(design, "techmap -map +/xilinx/arith_map.v");
+				}
 			}
-
 			Pass::call(design, "opt -fast");
 		}
 
@@ -303,7 +319,10 @@ struct SynthXilinxPass : public Pass
 		{
 			Pass::call(design, "opt -full");
 			Pass::call(design, "techmap -map +/techmap.v -D _NO_POS_SR -map +/xilinx/ff_map.v");
-			Pass::call(design, "abc -luts 2:2,3,6:5,10,20" + string(retime ? " -dff" : ""));
+			if (nomux)
+				Pass::call(design, "abc -luts 2:2,3,6:5" + string(retime ? " -dff" : ""));
+			else
+				Pass::call(design, "abc -luts 2:2,3,6:5,10,20" + string(retime ? " -dff" : ""));
 			Pass::call(design, "clean");
 			// This shregmap call infers fixed length shift registers after abc
 			//   has performed any necessary retiming
