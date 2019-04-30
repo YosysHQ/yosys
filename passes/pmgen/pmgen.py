@@ -335,6 +335,8 @@ with open(outfile, "w") as f:
         print("    blacklist_dirty = false;", file=f)
         for index in range(len(blocks)):
             block = blocks[index]
+            if block["pattern"] != current_pattern:
+                continue
             if block["type"] == "match":
                 print("    if (st_{}.{} != nullptr && blacklist_cells.count(st_{}.{})) {{".format(current_pattern, block["cell"], current_pattern, block["cell"]), file=f)
                 print("      rollback = {};".format(index+1), file=f)

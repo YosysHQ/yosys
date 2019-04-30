@@ -59,6 +59,7 @@ struct PeepoptPass : public Pass {
 				did_something = false;
 				peepopt_pm pm(module, module->selected_cells());
 				pm.run_shiftmul();
+				pm.run_muldiv();
 			}
 		}
 	}
