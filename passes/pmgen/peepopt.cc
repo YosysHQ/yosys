@@ -19,10 +19,13 @@
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
-#include "passes/pmgen/peepopt_pm.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
+
+bool did_something;
+
+#include "passes/pmgen/peepopt_pm.h"
 
 struct PeepoptPass : public Pass {
 	PeepoptPass() : Pass("peepopt", "collection of peephole optimizers") { }
@@ -51,8 +54,12 @@ struct PeepoptPass : public Pass {
 		extra_args(args, argidx, design);
 
 		for (auto module : design->selected_modules()) {
-			peepopt_pm pm(module, module->selected_cells());
-			pm.run_shiftmul();
+			did_something = true;
+			while (did_something) {
+				did_something = false;
+				peepopt_pm pm(module, module->selected_cells());
+				pm.run_shiftmul();
+			}
 		}
 	}
 } PeepoptPass;

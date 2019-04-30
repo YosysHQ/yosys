@@ -19,10 +19,11 @@
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
-#include "passes/pmgen/ice40_dsp_pm.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
+
+#include "passes/pmgen/ice40_dsp_pm.h"
 
 void create_ice40_dsp(ice40_dsp_pm &pm)
 {

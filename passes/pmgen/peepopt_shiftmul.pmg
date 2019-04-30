@@ -45,6 +45,7 @@ code
 	if (GetSize(port(shift, \Y)) > const_factor)
 		reject;
 
+	did_something = true;
 	log("shiftmul pattern in %s: shift=%s, mul=%s\n", log_id(module), log_id(shift), log_id(mul));
 
 	int new_const_factor_log2 = ceil_log2(const_factor);
