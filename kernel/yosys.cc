@@ -57,6 +57,16 @@
 #  include <sys/sysctl.h>
 #endif
 
+#ifdef WITH_PYTHON
+#if PY_MAJOR_VERSION >= 3
+#   define INIT_MODULE PyInit_libyosys
+    extern "C" PyObject* INIT_MODULE();
+#else
+#   define INIT_MODULE initlibyosys
+	extern "C" void INIT_MODULE();
+#endif
+#endif
+
 #include <limits.h>
 #include <errno.h>
 
@@ -472,17 +482,42 @@ void remove_directory(std::string dirname)
 #endif
 }
 
+std::string escape_filename_spaces(const std::string& filename)
+{
+	std::string out;
+	out.reserve(filename.size());
+	for (auto c : filename)
+	{
+		if (c == ' ')
+			out += "\\ ";
+		else
+			out.push_back(c);
+	}
+	return out;
+}
+
 int GetSize(RTLIL::Wire *wire)
 {
 	return wire->width;
 }
 
+bool already_setup = false;
+
 void yosys_setup()
 {
+	if(already_setup)
+		return;
+	already_setup = true;
 	// if there are already IdString objects then we have a global initialization order bug
 	IdString empty_id;
 	log_assert(empty_id.index_ == 0);
 	IdString::get_reference(empty_id.index_);
+
+	#ifdef WITH_PYTHON
+		PyImport_AppendInittab((char*)"libyosys", INIT_MODULE);
+		Py_Initialize();
+		PyRun_SimpleString("import sys");
+	#endif
 
 	Pass::init_register();
 	yosys_design = new RTLIL::Design;
@@ -490,8 +525,18 @@ void yosys_setup()
 	log_push();
 }
 
+bool yosys_already_setup()
+{
+	return already_setup;
+}
+
+bool already_shutdown = false;
+
 void yosys_shutdown()
 {
+	if(already_shutdown)
+		return;
+	already_shutdown = true;
 	log_pop();
 
 	delete yosys_design;
@@ -519,7 +564,14 @@ void yosys_shutdown()
 		dlclose(it.second);
 
 	loaded_plugins.clear();
+#ifdef WITH_PYTHON
+	loaded_python_plugins.clear();
+#endif
 	loaded_plugin_aliases.clear();
+#endif
+
+#ifdef WITH_PYTHON
+	Py_Finalize();
 #endif
 
 	IdString empty_id;

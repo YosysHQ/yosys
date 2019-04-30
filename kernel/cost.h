@@ -26,7 +26,7 @@ YOSYS_NAMESPACE_BEGIN
 
 int get_cell_cost(RTLIL::Cell *cell, dict<RTLIL::IdString, int> *mod_cost_cache = nullptr);
 
-int get_cell_cost(RTLIL::IdString type, const dict<RTLIL::IdString, RTLIL::Const> &parameters = dict<RTLIL::IdString, RTLIL::Const>(),
+inline int get_cell_cost(RTLIL::IdString type, const dict<RTLIL::IdString, RTLIL::Const> &parameters = dict<RTLIL::IdString, RTLIL::Const>(),
 		RTLIL::Design *design = nullptr, dict<RTLIL::IdString, int> *mod_cost_cache = nullptr)
 {
 	static dict<RTLIL::IdString, int> gate_cost = {
@@ -76,7 +76,7 @@ int get_cell_cost(RTLIL::IdString type, const dict<RTLIL::IdString, RTLIL::Const
 	return 1;
 }
 
-int get_cell_cost(RTLIL::Cell *cell, dict<RTLIL::IdString, int> *mod_cost_cache)
+inline int get_cell_cost(RTLIL::Cell *cell, dict<RTLIL::IdString, int> *mod_cost_cache)
 {
 	return get_cell_cost(cell->type, cell->parameters, cell->module->design, mod_cost_cache);
 }

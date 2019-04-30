@@ -7,7 +7,7 @@ use_modelsim=false
 verbose=false
 keeprunning=false
 makejmode=false
-frontend="verilog"
+frontend="verilog -noblackbox"
 backend_opts="-noattr -noexpr -siminit"
 autotb_opts=""
 include_opts=""
@@ -137,7 +137,7 @@ do
 			egrep -v '^\s*`timescale' ../$fn > ${bn}_ref.${ext}
 		else
 			"$toolsdir"/../../yosys -f "$frontend $include_opts" -b "verilog" -o ${bn}_ref.v ../${fn}
-			frontend="verilog"
+			frontend="verilog -noblackbox"
 		fi
 
 		if [ ! -f ../${bn}_tb.v ]; then

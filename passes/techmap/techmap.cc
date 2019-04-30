@@ -72,6 +72,8 @@ struct TechmapWorker
 	pool<IdString> flatten_done_list;
 	pool<Cell*> flatten_keep_list;
 
+	pool<string> log_msg_cache;
+
 	struct TechmapWireData {
 		RTLIL::Wire *wire;
 		RTLIL::SigSpec value;
@@ -84,6 +86,7 @@ struct TechmapWorker
 	bool flatten_mode;
 	bool recursive_mode;
 	bool autoproc_mode;
+	bool ignore_wb;
 
 	TechmapWorker()
 	{
@@ -92,6 +95,7 @@ struct TechmapWorker
 		flatten_mode = false;
 		recursive_mode = false;
 		autoproc_mode = false;
+		ignore_wb = false;
 	}
 
 	std::string constmap_tpl_name(SigMap &sigmap, RTLIL::Module *tpl, RTLIL::Cell *cell, bool verbose)
@@ -383,11 +387,12 @@ struct TechmapWorker
 	{
 		std::string mapmsg_prefix = in_recursion ? "Recursively mapping" : "Mapping";
 
-		if (!design->selected(module))
+		if (!design->selected(module) || module->get_blackbox_attribute(ignore_wb))
 			return false;
 
 		bool log_continue = false;
 		bool did_something = false;
+		LogMakeDebugHdl mkdebug;
 
 		SigMap sigmap(module);
 
@@ -472,7 +477,7 @@ struct TechmapWorker
 				RTLIL::Module *tpl = map->modules_[tpl_name];
 				std::map<RTLIL::IdString, RTLIL::Const> parameters(cell->parameters.begin(), cell->parameters.end());
 
-				if (tpl->get_bool_attribute("\\blackbox"))
+				if (tpl->get_blackbox_attribute(ignore_wb))
 					continue;
 
 				if (!flatten_mode)
@@ -545,6 +550,7 @@ struct TechmapWorker
 								if (extmapper_name == "wrap") {
 									std::string cmd_string = tpl->attributes.at("\\techmap_wrap").decode_string();
 									log("Running \"%s\" on wrapper %s.\n", cmd_string.c_str(), log_id(extmapper_module));
+									mkdebug.on();
 									Pass::call_on_module(extmapper_design, extmapper_module, cmd_string);
 									log_continue = true;
 								}
@@ -558,11 +564,21 @@ struct TechmapWorker
 								goto use_wrapper_tpl;
 							}
 
-							log("%s %s.%s (%s) to %s.\n", mapmsg_prefix.c_str(), log_id(module), log_id(cell), log_id(cell->type), log_id(extmapper_module));
+							auto msg = stringf("Using extmapper %s for cells of type %s.", log_id(extmapper_module), log_id(cell->type));
+							if (!log_msg_cache.count(msg)) {
+								log_msg_cache.insert(msg);
+								log("%s\n", msg.c_str());
+							}
+							log_debug("%s %s.%s (%s) to %s.\n", mapmsg_prefix.c_str(), log_id(module), log_id(cell), log_id(cell->type), log_id(extmapper_module));
 						}
 						else
 						{
-							log("%s %s.%s (%s) with %s.\n", mapmsg_prefix.c_str(), log_id(module), log_id(cell), log_id(cell->type), extmapper_name.c_str());
+							auto msg = stringf("Using extmapper %s for cells of type %s.", extmapper_name.c_str(), log_id(cell->type));
+							if (!log_msg_cache.count(msg)) {
+								log_msg_cache.insert(msg);
+								log("%s\n", msg.c_str());
+							}
+							log_debug("%s %s.%s (%s) with %s.\n", mapmsg_prefix.c_str(), log_id(module), log_id(cell), log_id(cell->type), extmapper_name.c_str());
 
 							if (extmapper_name == "simplemap") {
 								if (simplemap_mappers.count(cell->type) == 0)
@@ -660,6 +676,7 @@ struct TechmapWorker
 						tpl = techmap_cache[key];
 					} else {
 						if (parameters.size() != 0) {
+							mkdebug.on();
 							derived_name = tpl->derive(map, dict<RTLIL::IdString, RTLIL::Const>(parameters.begin(), parameters.end()));
 							tpl = map->module(derived_name);
 							log_continue = true;
@@ -829,6 +846,7 @@ struct TechmapWorker
 						if (log_continue) {
 							log_header(design, "Continuing TECHMAP pass.\n");
 							log_continue = false;
+							mkdebug.off();
 						}
 						while (techmap_module(map, tpl, map, handled_cells, celltypeMap, true)) { }
 					}
@@ -840,6 +858,7 @@ struct TechmapWorker
 				if (log_continue) {
 					log_header(design, "Continuing TECHMAP pass.\n");
 					log_continue = false;
+					mkdebug.off();
 				}
 
 				if (extern_mode && !in_recursion)
@@ -859,13 +878,18 @@ struct TechmapWorker
 						module_queue.insert(m);
 					}
 
-					log("%s %s.%s to imported %s.\n", mapmsg_prefix.c_str(), log_id(module), log_id(cell), log_id(m_name));
+					log_debug("%s %s.%s to imported %s.\n", mapmsg_prefix.c_str(), log_id(module), log_id(cell), log_id(m_name));
 					cell->type = m_name;
 					cell->parameters.clear();
 				}
 				else
 				{
-					log("%s %s.%s using %s.\n", mapmsg_prefix.c_str(), log_id(module), log_id(cell), log_id(tpl));
+					auto msg = stringf("Using template %s for cells of type %s.", log_id(tpl), log_id(cell->type));
+					if (!log_msg_cache.count(msg)) {
+						log_msg_cache.insert(msg);
+						log("%s\n", msg.c_str());
+					}
+					log_debug("%s %s.%s (%s) using %s.\n", mapmsg_prefix.c_str(), log_id(module), log_id(cell), log_id(cell->type), log_id(tpl));
 					techmap_module_worker(design, module, cell, tpl);
 					cell = NULL;
 				}
@@ -883,6 +907,7 @@ struct TechmapWorker
 		if (log_continue) {
 			log_header(design, "Continuing TECHMAP pass.\n");
 			log_continue = false;
+			mkdebug.off();
 		}
 
 		return did_something;
@@ -924,6 +949,9 @@ struct TechmapPass : public Pass {
 		log("\n");
 		log("    -autoproc\n");
 		log("        Automatically call \"proc\" on implementations that contain processes.\n");
+		log("\n");
+		log("    -wb\n");
+		log("        Ignore the 'whitebox' attribute on cell implementations.\n");
 		log("\n");
 		log("    -assert\n");
 		log("        this option will cause techmap to exit with an error if it can't map\n");
@@ -1031,7 +1059,7 @@ struct TechmapPass : public Pass {
 		simplemap_get_mappers(worker.simplemap_mappers);
 
 		std::vector<std::string> map_files;
-		std::string verilog_frontend = "verilog -nooverwrite";
+		std::string verilog_frontend = "verilog -nooverwrite -noblackbox";
 		int max_iter = -1;
 
 		size_t argidx;
@@ -1068,6 +1096,10 @@ struct TechmapPass : public Pass {
 				worker.autoproc_mode = true;
 				continue;
 			}
+			if (args[argidx] == "-wb") {
+				worker.ignore_wb = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -1076,7 +1108,7 @@ struct TechmapPass : public Pass {
 		if (map_files.empty()) {
 			std::istringstream f(stdcells_code);
 			Frontend::frontend_call(map, &f, "<techmap.v>", verilog_frontend);
-		} else
+		} else {
 			for (auto &fn : map_files)
 				if (fn.substr(0, 1) == "%") {
 					if (!saved_designs.count(fn.substr(1))) {
@@ -1095,6 +1127,9 @@ struct TechmapPass : public Pass {
 						log_cmd_error("Can't open map file `%s'\n", fn.c_str());
 					Frontend::frontend_call(map, &f, fn, (fn.size() > 3 && fn.substr(fn.size()-3) == ".il") ? "ilang" : verilog_frontend);
 				}
+		}
+
+		log_header(design, "Continuing TECHMAP pass.\n");
 
 		std::map<RTLIL::IdString, std::set<RTLIL::IdString, RTLIL::sort_by_id_str>> celltypeMap;
 		for (auto &it : map->modules_) {
@@ -1145,7 +1180,7 @@ struct FlattenPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    flatten [selection]\n");
+		log("    flatten [options] [selection]\n");
 		log("\n");
 		log("This pass flattens the design by replacing cells by their implementation. This\n");
 		log("pass is very similar to the 'techmap' pass. The only difference is that this\n");
@@ -1154,16 +1189,28 @@ struct FlattenPass : public Pass {
 		log("Cells and/or modules with the 'keep_hierarchy' attribute set will not be\n");
 		log("flattened by this command.\n");
 		log("\n");
+		log("    -wb\n");
+		log("        Ignore the 'whitebox' attribute on cell implementations.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing FLATTEN pass (flatten design).\n");
 		log_push();
 
-		extra_args(args, 1, design);
-
 		TechmapWorker worker;
 		worker.flatten_mode = true;
+
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++) {
+			if (args[argidx] == "-wb") {
+				worker.ignore_wb = true;
+				continue;
+			}
+			break;
+		}
+		extra_args(args, argidx, design);
+
 
 		std::map<RTLIL::IdString, std::set<RTLIL::IdString, RTLIL::sort_by_id_str>> celltypeMap;
 		for (auto module : design->modules())
@@ -1190,6 +1237,7 @@ struct FlattenPass : public Pass {
 			}
 		}
 
+		log_suppressed();
 		log("No more expansions possible.\n");
 
 		if (top_mod != NULL)
@@ -1209,7 +1257,7 @@ struct FlattenPass : public Pass {
 
 			dict<RTLIL::IdString, RTLIL::Module*> new_modules;
 			for (auto mod : vector<Module*>(design->modules()))
-				if (used_modules[mod->name] || mod->get_bool_attribute("\\blackbox")) {
+				if (used_modules[mod->name] || mod->get_blackbox_attribute(worker.ignore_wb)) {
 					new_modules[mod->name] = mod;
 				} else {
 					log("Deleting now unused module %s.\n", log_id(mod));

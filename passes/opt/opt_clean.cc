@@ -137,7 +137,7 @@ void rmunused_module_cells(Module *module, bool verbose)
 
 	for (auto cell : unused) {
 		if (verbose)
-			log("  removing unused `%s' cell `%s'.\n", cell->type.c_str(), cell->name.c_str());
+			log_debug("  removing unused `%s' cell `%s'.\n", cell->type.c_str(), cell->name.c_str());
 		module->design->scratchpad_set_bool("opt.did_something", true);
 		module->remove(cell);
 		count_rm_cells++;
@@ -281,13 +281,26 @@ void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 				maybe_del_wires.push_back(wire);
 			} else {
 				log_assert(GetSize(s1) == GetSize(s2));
+				Const initval;
+				if (wire->attributes.count("\\init"))
+					initval = wire->attributes.at("\\init");
+				if (GetSize(initval) != GetSize(wire))
+					initval.bits.resize(GetSize(wire), State::Sx);
 				RTLIL::SigSig new_conn;
 				for (int i = 0; i < GetSize(s1); i++)
 					if (s1[i] != s2[i]) {
+						if (s2[i] == State::Sx && (initval[i] == State::S0 || initval[i] == State::S1)) {
+							s2[i] = initval[i];
+							initval[i] = State::Sx;
+						}
 						new_conn.first.append_bit(s1[i]);
 						new_conn.second.append_bit(s2[i]);
 					}
 				if (new_conn.first.size() > 0) {
+					if (initval.is_fully_undef())
+						wire->attributes.erase("\\init");
+					else
+						wire->attributes.at("\\init") = initval;
 					used_signals.add(new_conn.first);
 					used_signals.add(new_conn.second);
 					module->connect(new_conn);
@@ -326,7 +339,7 @@ void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 	for (auto wire : maybe_del_wires)
 		if (!used_signals.check_any(RTLIL::SigSpec(wire))) {
 			if (check_public_name(wire->name) && verbose) {
-				log("  removing unused non-port wire %s.\n", wire->name.c_str());
+				log_debug("  removing unused non-port wire %s.\n", wire->name.c_str());
 			}
 			del_wires.insert(wire);
 			del_wires_count++;
@@ -336,7 +349,7 @@ void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 	count_rm_wires += del_wires.size();
 
 	if (verbose && del_wires_count > 0)
-		log("  removed %d unused temporary wires.\n", del_wires_count);
+		log_debug("  removed %d unused temporary wires.\n", del_wires_count);
 }
 
 bool rmunused_module_init(RTLIL::Module *module, bool purge_mode, bool verbose)
@@ -399,7 +412,7 @@ bool rmunused_module_init(RTLIL::Module *module, bool purge_mode, bool verbose)
 		}
 
 		if (verbose)
-			log("  removing redundant init attribute on %s.\n", log_id(wire));
+			log_debug("  removing redundant init attribute on %s.\n", log_id(wire));
 
 		wire->attributes.erase("\\init");
 		did_something = true;
@@ -426,7 +439,7 @@ void rmunused_module(RTLIL::Module *module, bool purge_mode, bool verbose, bool 
 		}
 	for (auto cell : delcells) {
 		if (verbose)
-			log("  removing buffer cell `%s': %s = %s\n", cell->name.c_str(),
+			log_debug("  removing buffer cell `%s': %s = %s\n", cell->name.c_str(),
 					log_signal(cell->getPort("\\Y")), log_signal(cell->getPort("\\A")));
 		module->remove(cell);
 	}
@@ -551,6 +564,7 @@ struct CleanPass : public Pass {
 			rmunused_module(module, purge_mode, false, false);
 		}
 
+		log_suppressed();
 		if (count_rm_cells > 0 || count_rm_wires > 0)
 			log("Removed %d unused cells and %d unused wires.\n", count_rm_cells, count_rm_wires);
 

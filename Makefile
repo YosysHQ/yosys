@@ -19,6 +19,14 @@ ENABLE_COVER := 1
 ENABLE_LIBYOSYS := 0
 ENABLE_PROTOBUF := 0
 
+# python wrappers
+ENABLE_PYOSYS := 0
+PYTHON_VERSION_TESTCODE := "import sys;t='{v[0]}.{v[1]}'.format(v=list(sys.version_info[:2]));print(t)"
+PYTHON_EXECUTABLE := $(shell if python3 -c ""; then echo "python3"; else echo "python"; fi)
+PYTHON_VERSION := $(shell $(PYTHON_EXECUTABLE) -c ""$(PYTHON_VERSION_TESTCODE)"")
+PYTHON_MAJOR_VERSION := $(shell echo $(PYTHON_VERSION) | cut -f1 -d.)
+PYTHON_DESTDIR := `$(PYTHON_EXECUTABLE)-config --prefix`/lib/python$(PYTHON_VERSION)/dist-packages
+
 # other configuration flags
 ENABLE_GCOV := 0
 ENABLE_GPROF := 0
@@ -111,7 +119,7 @@ OBJS = kernel/version_$(GIT_REV).o
 # is just a symlink to your actual ABC working directory, as 'make mrproper'
 # will remove the 'abc' directory and you do not want to accidentally
 # delete your work on ABC..
-ABCREV = 2ddc57d
+ABCREV = 3709744
 ABCPULL = 1
 ABCURL ?= https://github.com/berkeley-abc/abc
 ABCMKARGS = CC="$(CXX)" CXX="$(CXX)" ABC_USE_LIBSTDCXX=1
@@ -259,6 +267,34 @@ endif
 
 ifeq ($(ENABLE_LIBYOSYS),1)
 TARGETS += libyosys.so
+endif
+
+ifeq ($(ENABLE_PYOSYS),1)
+
+#Detect name of boost_python library. Some distros usbe boost_python-py<version>, other boost_python<version>, some only use the major version number, some a concatenation of major and minor version numbers
+BOOST_PYTHON_LIB ?= $(shell \
+	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null `$(PYTHON_EXECUTABLE)-config --libs` -lboost_python-py$(subst .,,$(PYTHON_VERSION)) - > /dev/null 2>&1;        then echo "-lboost_python-py$(subst .,,$(PYTHON_VERSION))";       else \
+	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null `$(PYTHON_EXECUTABLE)-config --libs` -lboost_python-py$(subst .,,$(PYTHON_MAJOR_VERSION)) - > /dev/null 2>&1;  then echo "-lboost_python-py$(subst .,,$(PYTHON_MAJOR_VERSION))"; else \
+	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null `$(PYTHON_EXECUTABLE)-config --libs` -lboost_python$(subst .,,$(PYTHON_VERSION)) - > /dev/null 2>&1;           then echo "-lboost_python$(subst .,,$(PYTHON_VERSION))";          else \
+	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null `$(PYTHON_EXECUTABLE)-config --libs` -lboost_python$(subst .,,$(PYTHON_MAJOR_VERSION)) - > /dev/null 2>&1;     then echo "-lboost_python$(subst .,,$(PYTHON_MAJOR_VERSION))";    else \
+                                                                                                                                                                                        echo ""; fi; fi; fi; fi;)
+
+ifeq ($(BOOST_PYTHON_LIB),)
+$(error BOOST_PYTHON_LIB could not be detected. Please define manualy)
+endif
+
+ifeq ($(PYTHON_MAJOR_VERSION),3)
+LDLIBS += `$(PYTHON_EXECUTABLE)-config --libs` $(BOOST_PYTHON_LIB) -lboost_system -lboost_filesystem
+CXXFLAGS += `$(PYTHON_EXECUTABLE)-config --includes` -D WITH_PYTHON
+else
+LDLIBS += `$(PYTHON_EXECUTABLE)-config --libs` $(BOOST_PYTHON_LIB) -lboost_system -lboost_filesystem
+CXXFLAGS += `$(PYTHON_EXECUTABLE)-config --includes` -D WITH_PYTHON
+endif
+
+PY_WRAPPER_FILE = kernel/python_wrappers
+OBJS += $(PY_WRAPPER_FILE).o
+PY_GEN_SCRIPT= py_wrap_generator
+PY_WRAP_INCLUDES := $(shell python$(PYTHON_VERSION) -c "from misc import $(PY_GEN_SCRIPT); $(PY_GEN_SCRIPT).print_includes()")
 endif
 
 ifeq ($(ENABLE_READLINE),1)
@@ -510,6 +546,14 @@ libyosys.so: $(filter-out kernel/driver.o,$(OBJS))
 	$(Q) mkdir -p $(dir $@)
 	$(P) $(CXX) -o $@ -c $(CPPFLAGS) $(CXXFLAGS) $<
 
+%.pyh: %.h
+	$(Q) mkdir -p $(dir $@)
+	$(P) cat $< | grep -E -v "#[ ]*(include|error)" | $(LD) -x c++ -o $@ -E -P -
+
+$(PY_WRAPPER_FILE).cc: misc/$(PY_GEN_SCRIPT).py $(PY_WRAP_INCLUDES)
+	$(Q) mkdir -p $(dir $@)
+	$(P) python$(PYTHON_VERSION) -c "from misc import $(PY_GEN_SCRIPT); $(PY_GEN_SCRIPT).gen_wrappers(\"$(PY_WRAPPER_FILE).cc\")"
+
 %.o: %.cpp
 	$(Q) mkdir -p $(dir $@)
 	$(P) $(CXX) -o $@ -c $(CPPFLAGS) $(CXXFLAGS) $<
@@ -638,6 +682,11 @@ ifeq ($(ENABLE_LIBYOSYS),1)
 	$(INSTALL_SUDO) cp libyosys.so $(DESTDIR)$(LIBDIR)
 	$(INSTALL_SUDO) $(STRIP) -S $(DESTDIR)$(LIBDIR)/libyosys.so
 	$(INSTALL_SUDO) ldconfig
+ifeq ($(ENABLE_PYOSYS),1)
+	$(INSTALL_SUDO) mkdir -p $(PYTHON_DESTDIR)/pyosys
+	$(INSTALL_SUDO) cp libyosys.so $(PYTHON_DESTDIR)/pyosys
+	$(INSTALL_SUDO) cp misc/__init__.py $(PYTHON_DESTDIR)/pyosys
+endif
 endif
 
 uninstall:
@@ -645,6 +694,11 @@ uninstall:
 	$(INSTALL_SUDO) rm -rvf $(DESTDIR)$(DATDIR)
 ifeq ($(ENABLE_LIBYOSYS),1)
 	$(INSTALL_SUDO) rm -vf $(DESTDIR)$(LIBDIR)/libyosys.so
+ifeq ($(ENABLE_PYOSYS),1)
+	$(INSTALL_SUDO) rm -vf $(PYTHON_DESTDIR)/pyosys/libyosys.so
+	$(INSTALL_SUDO) rm -vf $(PYTHON_DESTDIR)/pyosys/__init__.py
+	$(INSTALL_SUDO) rmdir $(PYTHON_DESTDIR)/pyosys
+endif
 endif
 
 update-manual: $(TARGETS) $(EXTRA_TARGETS)
@@ -657,8 +711,9 @@ manual: $(TARGETS) $(EXTRA_TARGETS)
 
 clean:
 	rm -rf share
+	rm -rf kernel/*.pyh
 	if test -d manual; then cd manual && sh clean.sh; fi
-	rm -f $(OBJS) $(GENFILES) $(TARGETS) $(EXTRA_TARGETS) $(EXTRA_OBJS)
+	rm -f $(OBJS) $(GENFILES) $(TARGETS) $(EXTRA_TARGETS) $(EXTRA_OBJS) $(PY_WRAP_INCLUDES) $(PY_WRAPPER_FILE).cc
 	rm -f kernel/version_*.o kernel/version_*.cc abc/abc-[0-9a-f]* abc/libabc-[0-9a-f]*.a
 	rm -f libs/*/*.d frontends/*/*.d passes/*/*.d backends/*/*.d kernel/*.d techlibs/*/*.d
 	rm -rf tests/asicworld/*.out tests/asicworld/*.log

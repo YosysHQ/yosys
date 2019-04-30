@@ -71,7 +71,7 @@ static void add_wire(RTLIL::Design *design, RTLIL::Module *module, std::string n
 		RTLIL::Module *mod = design->modules_.at(it.second->type);
 		if (!design->selected_whole_module(mod->name))
 			continue;
-		if (mod->get_bool_attribute("\\blackbox"))
+		if (mod->get_blackbox_attribute())
 			continue;
 		if (it.second->hasPort(name))
 			continue;

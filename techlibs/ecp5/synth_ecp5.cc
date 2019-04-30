@@ -253,7 +253,7 @@ struct SynthEcp5Pass : public ScriptPass
 			if (!nodffe)
 				run("dff2dffe -direct-match $_DFF_* -direct-match $__DFFS_*");
 			run("techmap -D NO_LUT -map +/ecp5/cells_map.v");
-			run("opt_expr -mux_undef");
+			run("opt_expr -undriven -mux_undef");
 			run("simplemap");
 			run("ecp5_ffinit");
 		}
