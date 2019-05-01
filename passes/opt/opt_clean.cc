@@ -85,7 +85,14 @@ void rmunused_module_cells(Module *module, bool verbose)
 {
 	SigMap sigmap(module);
 	pool<Cell*> queue, unused;
+	pool<SigBit> used_raw_bits;
 	dict<SigBit, pool<Cell*>> wire2driver;
+	dict<SigBit, vector<string>> driver_driver_logs;
+
+	for (auto &it : module->connections_) {
+		for (auto raw_bit : it.second)
+			used_raw_bits.insert(raw_bit);
+	}
 
 	for (auto &it : module->cells_) {
 		Cell *cell = it.second;
@@ -96,11 +103,15 @@ void rmunused_module_cells(Module *module, bool verbose)
 						continue;
 					auto bit = sigmap(raw_bit);
 					if (bit.wire == nullptr)
-						log_warning("Driver-driver conflict for %s between cell %s.%s and constant %s in %s: Resolved using constant.\n",
-								log_signal(raw_bit), log_id(cell), log_id(it2.first), log_signal(bit), log_id(module));
+						driver_driver_logs[raw_bit].push_back(stringf("Driver-driver conflict "
+								"for %s between cell %s.%s and constant %s in %s: Resolved using constant.",
+								log_signal(raw_bit), log_id(cell), log_id(it2.first), log_signal(bit), log_id(module)));
 					if (bit.wire != nullptr)
 						wire2driver[bit].insert(cell);
 				}
+			if (!ct_all.cell_known(cell->type) || ct_all.cell_input(cell->type, it2.first))
+				for (auto raw_bit : it2.second)
+					used_raw_bits.insert(raw_bit);
 		}
 		if (keep_cache.query(cell))
 			queue.insert(cell);
@@ -114,7 +125,15 @@ void rmunused_module_cells(Module *module, bool verbose)
 			for (auto bit : sigmap(wire))
 			for (auto c : wire2driver[bit])
 				queue.insert(c), unused.erase(c);
+			for (auto raw_bit : SigSpec(wire))
+				used_raw_bits.insert(raw_bit);
 		}
+	}
+
+	for (auto it : driver_driver_logs) {
+		if (used_raw_bits.count(it.first))
+			for (auto msg : it.second)
+				log_warning("%s\n", msg.c_str());
 	}
 
 	while (!queue.empty())
