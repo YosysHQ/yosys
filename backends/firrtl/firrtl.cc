@@ -164,6 +164,7 @@ struct FirrtlWorker
 	};
 	/* Memories defined within this module. */
 	 struct memory {
+		 Cell *pCell;					// for error reporting
 		 string name;					// memory name
 		 int abits;						// number of address bits
 		 int size;						// size (in units) of the memory
@@ -174,8 +175,37 @@ struct FirrtlWorker
 		 vector<write_port> write_ports;
 		 std::string init_file;
 		 std::string init_file_srcFileSpec;
-		 memory(string name, int abits, int size, int width) : name(name), abits(abits), size(size), width(width), read_latency(0), write_latency(1), init_file(""), init_file_srcFileSpec("") {}
-		 memory() : read_latency(0), write_latency(1), init_file(""), init_file_srcFileSpec(""){}
+		 string srcLine;
+		 memory(Cell *pCell, string name, int abits, int size, int width) : pCell(pCell), name(name), abits(abits), size(size), width(width), read_latency(0), write_latency(1), init_file(""), init_file_srcFileSpec("") {
+			// Provide defaults for abits or size if one (but not the other) is specified.
+			if (this->abits == 0 && this->size != 0) {
+				this->abits = ceil_log2(this->size);
+			} else if (this->abits != 0 && this->size == 0) {
+				this->size = 1 << this->abits;
+			}
+			// Sanity-check this construction.
+			if (this->name == "") {
+				log_error("Nameless memory%s\n", this->atLine());
+			}
+			if (this->abits == 0 && this->size == 0) {
+				log_error("Memory %s has zero address bits and size%s\n", this->name.c_str(), this->atLine());
+			}
+			if (this->width == 0) {
+				log_error("Memory %s has zero width%s\n", this->name.c_str(), this->atLine());
+			}
+		 }
+		// We need a default constructor for the dict insert.
+	   memory() : pCell(0), read_latency(0), write_latency(1), init_file(""), init_file_srcFileSpec(""){}
+
+		const char *atLine() {
+			if (srcLine == "") {
+				if (pCell) {
+					auto p = pCell->attributes.find("\\src");
+					srcLine = " at " + p->second.decode_string();
+				}
+			}
+			return srcLine.c_str();
+		}
 		 void add_memory_read_port(read_port &rp) {
 			 read_ports.push_back(rp);
 		 }
@@ -604,7 +634,7 @@ struct FirrtlWorker
 				int abits = cell->parameters.at("\\ABITS").as_int();
 				int width = cell->parameters.at("\\WIDTH").as_int();
 				int size = cell->parameters.at("\\SIZE").as_int();
-				memory m(mem_id, abits, size, width);
+				memory m(cell, mem_id, abits, size, width);
 				int rd_ports = cell->parameters.at("\\RD_PORTS").as_int();
 				int wr_ports = cell->parameters.at("\\WR_PORTS").as_int();
 
@@ -681,6 +711,8 @@ struct FirrtlWorker
 			{
 				std::string cell_type = fid(cell->type);
 				std::string mem_id = make_id(cell->parameters["\\MEMID"].decode_string());
+				int abits = cell->parameters.at("\\ABITS").as_int();
+				int width = cell->parameters.at("\\WIDTH").as_int();
 				memory *mp = nullptr;
 				if (cell->type == "$meminit" ) {
 					log_error("$meminit (%s.%s.%s) currently unsupported\n", log_id(module), log_id(cell), mem_id.c_str());
@@ -693,6 +725,11 @@ struct FirrtlWorker
 					Const clk_enable = cell->parameters.at("\\CLK_ENABLE");
 					Const clk_polarity = cell->parameters.at("\\CLK_POLARITY");
 
+					// Do we already have an entry for this memory?
+					if (memories.count(mem_id) == 0) {
+						memory m(cell, mem_id, abits, 0, width);
+						register_memory(m);
+					}
 					mp = &memories.at(mem_id);
 					int portNum = 0;
 					bool transparency = false;
@@ -890,7 +927,7 @@ struct FirrtlWorker
 
 		// If we have any memory definitions, output them.
 		for (auto kv : memories) {
-			memory m = kv.second;
+			memory &m = kv.second;
 			f << stringf("    mem %s:\n", m.name.c_str());
 			f << stringf("      data-type => UInt<%d>\n", m.width);
 			f << stringf("      depth => %d\n", m.size);

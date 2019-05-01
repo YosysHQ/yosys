@@ -225,11 +225,13 @@ struct SynthIce40Pass : public ScriptPass
 			run("proc");
 		}
 
-		if (flatten && check_label("flatten", "(unless -noflatten)"))
+		if (check_label("flatten", "(unless -noflatten)"))
 		{
-			run("flatten");
-			run("tribuf -logic");
-			run("deminout");
+			if (flatten) {
+				run("flatten");
+				run("tribuf -logic");
+				run("deminout");
+			}
 		}
 
 		if (check_label("coarse"))

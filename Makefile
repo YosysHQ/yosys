@@ -294,7 +294,7 @@ endif
 PY_WRAPPER_FILE = kernel/python_wrappers
 OBJS += $(PY_WRAPPER_FILE).o
 PY_GEN_SCRIPT= py_wrap_generator
-PY_WRAP_INCLUDES := $(shell python$(PYTHON_VERSION) -c "import $(PY_GEN_SCRIPT); $(PY_GEN_SCRIPT).print_includes()")
+PY_WRAP_INCLUDES := $(shell python$(PYTHON_VERSION) -c "from misc import $(PY_GEN_SCRIPT); $(PY_GEN_SCRIPT).print_includes()")
 endif
 
 ifeq ($(ENABLE_READLINE),1)
@@ -550,9 +550,9 @@ libyosys.so: $(filter-out kernel/driver.o,$(OBJS))
 	$(Q) mkdir -p $(dir $@)
 	$(P) cat $< | grep -E -v "#[ ]*(include|error)" | $(LD) -x c++ -o $@ -E -P -
 
-$(PY_WRAPPER_FILE).cc: $(PY_GEN_SCRIPT).py $(PY_WRAP_INCLUDES)
+$(PY_WRAPPER_FILE).cc: misc/$(PY_GEN_SCRIPT).py $(PY_WRAP_INCLUDES)
 	$(Q) mkdir -p $(dir $@)
-	$(P) python$(PYTHON_VERSION) -c "import $(PY_GEN_SCRIPT); $(PY_GEN_SCRIPT).gen_wrappers(\"$(PY_WRAPPER_FILE).cc\")"
+	$(P) python$(PYTHON_VERSION) -c "from misc import $(PY_GEN_SCRIPT); $(PY_GEN_SCRIPT).gen_wrappers(\"$(PY_WRAPPER_FILE).cc\")"
 
 %.o: %.cpp
 	$(Q) mkdir -p $(dir $@)
@@ -685,7 +685,7 @@ ifeq ($(ENABLE_LIBYOSYS),1)
 ifeq ($(ENABLE_PYOSYS),1)
 	$(INSTALL_SUDO) mkdir -p $(PYTHON_DESTDIR)/pyosys
 	$(INSTALL_SUDO) cp libyosys.so $(PYTHON_DESTDIR)/pyosys
-	$(INSTALL_SUDO) cp __init__.py $(PYTHON_DESTDIR)/pyosys
+	$(INSTALL_SUDO) cp misc/__init__.py $(PYTHON_DESTDIR)/pyosys
 endif
 endif
 
