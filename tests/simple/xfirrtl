@@ -16,6 +16,7 @@ operators.v	$pow
 partsel.v	drops modules
 process.v	drops modules
 realexpr.v	drops modules
+retime.v	Initial value (11110101) for (retime_test.ff) not supported
 scopes.v	original verilog issues ( -x where x isn't declared signed)
 sincos.v	$adff
 specify.v	no code (empty module generates error
