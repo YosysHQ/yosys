@@ -166,6 +166,20 @@ module \$shiftx (A, B, Y);
   parameter [B_WIDTH-1:0] _TECHMAP_CONSTMSK_B_ = 0;
   parameter [B_WIDTH-1:0] _TECHMAP_CONSTVAL_B_ = 0;
 
+  function integer compute_num_leading_X_in_A;
+    integer i, c;
+  begin
+    compute_num_leading_X_in_A = 0;
+    c = 1;
+    for (i = A_WIDTH-1; i >= 0; i=i-1) begin
+      if (!_TECHMAP_CONSTMSK_A_[i] || _TECHMAP_CONSTVAL_A_[i] !== 1'bx)
+        c = 0;
+      compute_num_leading_X_in_A = compute_num_leading_X_in_A + c;
+    end
+  end
+  endfunction
+  localparam num_leading_X_in_A = compute_num_leading_X_in_A();
+
   generate
     genvar i, j;
     // TODO: Check if this opt still necessary
@@ -176,6 +190,7 @@ module \$shiftx (A, B, Y);
       else
         wire _TECHMAP_FAIL_ = 1;
     end
+    // Bit-blast
     else if (Y_WIDTH > 1) begin
       for (i = 0; i < Y_WIDTH; i++)
         \$shiftx  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(A_WIDTH-Y_WIDTH+1), .B_WIDTH(B_WIDTH), .Y_WIDTH(1'd1)) bitblast (.A(A[A_WIDTH-Y_WIDTH+i:i]), .B(B), .Y(Y[i]));
@@ -189,13 +204,11 @@ module \$shiftx (A, B, Y);
         assign A_i[i] = A[i*2];
       \$shiftx  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH((A_WIDTH+1'd1)/2'd2), .B_WIDTH(B_WIDTH-1'd1), .Y_WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(A_i), .B(B[B_WIDTH-1:1]), .Y(Y));
     end
-    // If upper half of A input is all constant 1'bx then
-    //   chop this $shiftx in half
-    else if (_TECHMAP_CONSTMSK_A_[A_WIDTH-1:2**(B_WIDTH-1)] == {A_WIDTH-2**(B_WIDTH-1){1'b1}} && _TECHMAP_CONSTVAL_A_[A_WIDTH-1:2**(B_WIDTH-1)] === {A_WIDTH-2**(B_WIDTH-1){1'bx}}) begin
-      if (B_WIDTH > 1)
-        \$shiftx  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(2**(B_WIDTH-1)), .B_WIDTH(B_WIDTH-1'd1), .Y_WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(A[2**(B_WIDTH-1)-1:0]), .B(B[B_WIDTH-2:0]), .Y(Y));
-      else
-	assign Y = A[0];
+    // Trim off any leading 1'bx -es in A, and resize B accordingly
+    else if (num_leading_X_in_A > 0) begin
+      localparam A_WIDTH_new = A_WIDTH - num_leading_X_in_A;
+      localparam B_WIDTH_new = $clog2(A_WIDTH_new);
+      \$shiftx  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(A_WIDTH_new), .B_WIDTH(B_WIDTH_new), .Y_WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(A[A_WIDTH_new-1:0]), .B(B[B_WIDTH_new-1:0]), .Y(Y));
     end
     else if (B_WIDTH < 3 || A_WIDTH <= 4) begin
       wire _TECHMAP_FAIL_ = 1;
