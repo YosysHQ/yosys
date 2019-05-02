@@ -211,6 +211,18 @@ struct SynthXilinxPass : public ScriptPass
 
 		if (check_label("coarse")) {
 			run("synth -run coarse");
+
+			// shregmap -tech xilinx can cope with $shiftx and $mux
+			//   cells for identifying variable-length shift registers,
+			//   so attempt to convert $pmux-es to the former
+			// Also: wide multiplexer inference benefits from this too
+			if ((!nosrl && !nomux) || help_mode)
+				run("pmux2shiftx", "(skip if '-nosrl' and '-nomux')");
+
+			// Run a number of peephole optimisations, including one
+			//   that optimises $mul cells driving $shiftx's B input
+			//   and that aids wide mux analysis
+			run("peepopt");
 		}
 
 		if (check_label("bram", "(skip if '-nobram')")) {
@@ -228,13 +240,6 @@ struct SynthXilinxPass : public ScriptPass
 		}
 
 		if (check_label("fine")) {
-			// shregmap -tech xilinx can cope with $shiftx and $mux
-			//   cells for identifying variable-length shift registers,
-			//   so attempt to convert $pmux-es to the former
-			// Also: wide multiplexer inference benefits from this too
-			if ((!nosrl && !nomux) || help_mode)
-				run("pmux2shiftx", "(skip if '-nosrl' and '-nomux')");
-
 			run("opt -fast -full");
 			run("memory_map");
 			run("dffsr2dff");
@@ -246,6 +251,9 @@ struct SynthXilinxPass : public ScriptPass
 			else if (!nocarry || help_mode)
 				run("techmap -map +/xilinx/arith_map.v", "(skip if '-nocarry')");
 
+			if (!nomux || help_mode)
+				run("techmap -map +/xilinx/cells_map.v");
+
 			if (!nosrl || help_mode) {
 				// shregmap operates on bit-level flops, not word-level,
 				//   so break those down here
@@ -253,9 +261,6 @@ struct SynthXilinxPass : public ScriptPass
 				// shregmap with '-tech xilinx' infers variable length shift regs
 				run("shregmap -tech xilinx -minlen 3", "(skip if '-nosrl')");
 			}
-
-			if (!nomux || help_mode)
-				run("techmap -map +/xilinx/cells_map.v");
 
 			run("techmap");
 			run("opt -fast");
