@@ -205,17 +205,16 @@ struct SynthXilinxPass : public ScriptPass
 		}
 
 		if (check_label("fine")) {
-			run("opt -fast");
-			run("memory_map");
-			run("dffsr2dff");
-			run("dff2dffe");
-
 			// shregmap -tech xilinx can cope with $shiftx and $mux
 			//   cells for identifiying variable-length shift registers,
 			//   so attempt to convert $pmux-es to the former
 			if (!nosrl || help_mode)
 				run("pmux2shiftx", "(skip if '-nosrl')");
 
+			run("opt -fast -full");
+			run("memory_map");
+			run("dffsr2dff");
+			run("dff2dffe");
 			run("opt -full");
 
 			if (!vpr || help_mode)
