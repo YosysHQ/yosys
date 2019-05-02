@@ -163,20 +163,20 @@ struct FirrtlWorker
 		}
 	};
 	/* Memories defined within this module. */
-	 struct memory {
-		 Cell *pCell;					// for error reporting
-		 string name;					// memory name
-		 int abits;						// number of address bits
-		 int size;						// size (in units) of the memory
-		 int width;						// size (in bits) of each element
-		 int read_latency;
-		 int write_latency;
-		 vector<read_port> read_ports;
-		 vector<write_port> write_ports;
-		 std::string init_file;
-		 std::string init_file_srcFileSpec;
-		 string srcLine;
-		 memory(Cell *pCell, string name, int abits, int size, int width) : pCell(pCell), name(name), abits(abits), size(size), width(width), read_latency(0), write_latency(1), init_file(""), init_file_srcFileSpec("") {
+	struct memory {
+		Cell *pCell;					// for error reporting
+		string name;					// memory name
+		int abits;						// number of address bits
+		int size;						// size (in units) of the memory
+		int width;						// size (in bits) of each element
+		int read_latency;
+		int write_latency;
+		vector<read_port> read_ports;
+		vector<write_port> write_ports;
+		std::string init_file;
+		std::string init_file_srcFileSpec;
+		string srcLine;
+		memory(Cell *pCell, string name, int abits, int size, int width) : pCell(pCell), name(name), abits(abits), size(size), width(width), read_latency(0), write_latency(1), init_file(""), init_file_srcFileSpec("") {
 			// Provide defaults for abits or size if one (but not the other) is specified.
 			if (this->abits == 0 && this->size != 0) {
 				this->abits = ceil_log2(this->size);
@@ -206,18 +206,18 @@ struct FirrtlWorker
 			}
 			return srcLine.c_str();
 		}
-		 void add_memory_read_port(read_port &rp) {
-			 read_ports.push_back(rp);
-		 }
-		 void add_memory_write_port(write_port &wp) {
-			 write_ports.push_back(wp);
-		 }
-		 void add_memory_file(std::string init_file, std::string init_file_srcFileSpec) {
-			 this->init_file = init_file;
-			 this->init_file_srcFileSpec = init_file_srcFileSpec;
-		 }
+		void add_memory_read_port(read_port &rp) {
+			read_ports.push_back(rp);
+		}
+		void add_memory_write_port(write_port &wp) {
+			write_ports.push_back(wp);
+		}
+		void add_memory_file(std::string init_file, std::string init_file_srcFileSpec) {
+			this->init_file = init_file;
+			this->init_file_srcFileSpec = init_file_srcFileSpec;
+		}
 
-	 };
+	};
 	dict<string, memory> memories;
 
 	void register_memory(memory &m)
