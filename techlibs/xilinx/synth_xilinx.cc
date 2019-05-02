@@ -232,7 +232,7 @@ struct SynthXilinxPass : public ScriptPass
 			//   cells for identifying variable-length shift registers,
 			//   so attempt to convert $pmux-es to the former
 			// Also: wide multiplexer inference benefits from this too
-			if (!nosrl || !nomux)
+			if (!nosrl || !nomux || help_mode)
 				run("pmux2shiftx", "(skip if '-nosrl' and '-nomux')");
 
 			run("opt -fast -full");
