@@ -241,10 +241,10 @@ struct SynthXilinxPass : public ScriptPass
 			run("dff2dffe");
 			run("opt -full");
 
-			if (!vpr || help_mode)
-				run("techmap -map +/xilinx/arith_map.v");
-			else
+			if (vpr && !nocarry && !help_mode)
 				run("techmap -map +/xilinx/arith_map.v -D _EXPLICIT_CARRY");
+			else if (!nocarry || help_mode)
+				run("techmap -map +/xilinx/arith_map.v", "(skip if '-nocarry')");
 
 			if (!nosrl || help_mode) {
 				// shregmap operates on bit-level flops, not word-level,
