@@ -150,24 +150,84 @@ module \$__XILINX_SHREG_ (input C, input D, input [31:0] L, input E, output Q, o
   endgenerate
 endmodule
 
-`ifndef NO_MUXFN
-module \$_MUX8_ (A, B, C, D, E, F, G, H, S, T, U, Y);
-    input A, B, C, D, E, F, G, H, S, T, U;
-    output Y;
+module \$shiftx (A, B, Y);
+  parameter A_SIGNED = 0;
+  parameter B_SIGNED = 0;
+  parameter A_WIDTH = 1;
+  parameter B_WIDTH = 1;
+  parameter Y_WIDTH = 1;
 
-    wire [1:0] Z;
-    assign Z = T ? (S ? {D,H} : {C,G}) :
-                   (S ? {B,F} : {A,E});
-    MUXF7 fpga_muxf7 (.I0(Z[0]), .I1(Z[1]), .S(U), .O(Y));
+  input [A_WIDTH-1:0] A;
+  input [B_WIDTH-1:0] B;
+  output [Y_WIDTH-1:0] Y;
+
+  parameter [B_WIDTH-1:0] _TECHMAP_CONSTMSK_B_ = 0;
+  parameter [B_WIDTH-1:0] _TECHMAP_CONSTVAL_B_ = 0;
+
+  generate
+    genvar i, j;
+    if (B_SIGNED) begin
+      if (_TECHMAP_CONSTMSK_B_[B_WIDTH-1] && _TECHMAP_CONSTVAL_B_[B_WIDTH-1] == 1'b0)
+        // Optimisation to remove B_SIGNED if sign bit of B is constant-0
+        \$shiftx  #(.A_SIGNED(A_SIGNED), .B_SIGNED(0), .A_WIDTH(A_WIDTH), .B_WIDTH(B_WIDTH-1'd1), .Y_WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(A), .B(B[B_WIDTH-2:0]), .Y(Y));
+      else
+        wire _TECHMAP_FAIL_ = 1;
+    end
+    else if (Y_WIDTH > 1) begin
+      for (i = 0; i < Y_WIDTH; i++)
+        \$shiftx  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(A_WIDTH-Y_WIDTH+1), .B_WIDTH(B_WIDTH), .Y_WIDTH(1'd1)) bitblast (.A(A[A_WIDTH-Y_WIDTH+i:i]), .B(B), .Y(Y[i]));
+    end
+    // If the LSB of B is constant zero (and Y_WIDTH is 1) then
+    //   we can optimise by removing every other entry from A
+    //   and popping the constant zero from B
+    else if (_TECHMAP_CONSTMSK_B_[0] && !_TECHMAP_CONSTVAL_B_[0]) begin
+      wire [(A_WIDTH+1)/2-1:0] A_i;
+      for (i = 0; i < (A_WIDTH+1)/2; i++)
+        assign A_i[i] = A[i*2];
+      \$shiftx  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH((A_WIDTH+1'd1)/2'd2), .B_WIDTH(B_WIDTH-1'd1), .Y_WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(A_i), .B(B[B_WIDTH-1:1]), .Y(Y));
+    end
+    else if (B_WIDTH < 3 || A_WIDTH <= 4) begin
+      wire _TECHMAP_FAIL_ = 1;
+    end
+    else if (B_WIDTH == 3) begin
+      localparam a_width0 = 2 ** 2;
+      localparam a_widthN = A_WIDTH - a_width0;
+      wire T0, T1;
+      \$shiftx  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(a_width0), .B_WIDTH(2),                .Y_WIDTH(Y_WIDTH)) fpga_shiftx      (.A(A[a_width0-1:0]),       .B(B[2-1:0]),                .Y(T0));
+      \$shiftx  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(a_widthN), .B_WIDTH($clog2(a_widthN)), .Y_WIDTH(Y_WIDTH)) fpga_shiftx_last (.A(A[A_WIDTH-1:a_width0]), .B(B[$clog2(a_widthN)-1:0]), .Y(T1));
+      MUXF7 fpga_mux (.I0(T0), .I1(T1), .S(B[B_WIDTH-1]), .O(Y));
+    end
+    else if (B_WIDTH == 4) begin
+      localparam a_width0 = 2 ** 2;
+      localparam num_mux8 = A_WIDTH / a_width0;
+      localparam a_widthN = A_WIDTH - num_mux8*a_width0;
+      wire [4-1:0] T;
+      wire T0, T1;
+      for (i = 0; i < 4; i++)
+        if (i < num_mux8)
+          \$shiftx  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(a_width0), .B_WIDTH(2),                .Y_WIDTH(Y_WIDTH)) fpga_shiftx      (.A(A[i*a_width0+:a_width0]), .B(B[2-1:0]),                .Y(T[i]));
+        else if (i == num_mux8 && a_widthN > 0)
+          \$shiftx  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(a_widthN), .B_WIDTH($clog2(a_widthN)), .Y_WIDTH(Y_WIDTH)) fpga_shiftx_last (.A(A[A_WIDTH-1:i*a_width0]), .B(B[$clog2(a_widthN)-1:0]), .Y(T[i]));
+        else
+          assign T[i] = 1'bx;
+      MUXF7 fpga_mux_0 (.I0(T[0]), .I1(T[1]), .S(B[2]), .O(T0));
+      MUXF7 fpga_mux_1 (.I0(T[2]), .I1(T[3]), .S(B[2]), .O(T1));
+      MUXF8 fpga_mux_2 (.I0(T0),   .I1(T1),   .S(B[3]), .O(Y));
+    end
+    else begin
+      localparam a_width0 = 2 ** 4;
+      localparam num_mux16 = A_WIDTH / a_width0;
+      localparam a_widthN = A_WIDTH - num_mux16*a_width0;
+      wire [(2**(B_WIDTH-4))-1:0] T;
+      for (i = 0; i < 2 ** (B_WIDTH-4); i++)
+        if (i < num_mux16)
+          \$shiftx  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(a_width0), .B_WIDTH(4),                .Y_WIDTH(Y_WIDTH)) fpga_shiftx      (.A(A[i*a_width0+:a_width0]), .B(B[4-1:0]),                .Y(T[i]));
+        else if (i == num_mux16 && a_widthN > 0) begin
+          \$shiftx  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(a_widthN), .B_WIDTH($clog2(a_widthN)), .Y_WIDTH(Y_WIDTH)) fpga_shiftx_last (.A(A[A_WIDTH-1:i*a_width0]), .B(B[$clog2(a_widthN)-1:0]), .Y(T[i]));
+        end
+        else
+          assign T[i] = 1'bx;
+      \$shiftx  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(2**(B_WIDTH-4)), .B_WIDTH(B_WIDTH-4), .Y_WIDTH(Y_WIDTH)) fpga_shiftx (.A(T), .B(B[B_WIDTH-1:4]), .Y(Y));
+    end
+  endgenerate
 endmodule
-
-module \$_MUX16_ (A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, S, T, U, V, Y);
-    input A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, S, T, U, V;
-    output Y;
-
-    wire [1:0] Z;
-    \$_MUX8_ fpga_mux8_0 (.A(A), .B(B), .C(C), .D(D), .E(E), .F(F), .G(G), .H(H), .S(S), .T(T), .U(U), .Y(Z[0]));
-    \$_MUX8_ fpga_mux8_1 (.A(I), .B(J), .C(K), .D(L), .E(M), .F(N), .G(O), .H(P), .S(S), .T(T), .U(U), .Y(Z[1]));
-    MUXF8 fpga_muxf8 (.I0(Z[0]), .I1(Z[1]), .S(V), .O(Y));
-endmodule
-`endif // NO_MUXFN

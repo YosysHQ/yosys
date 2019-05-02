@@ -232,7 +232,7 @@ struct SynthXilinxPass : public ScriptPass
 			//   cells for identifying variable-length shift registers,
 			//   so attempt to convert $pmux-es to the former
 			// Also: wide multiplexer inference benefits from this too
-			if (!nosrl || !nomux || help_mode)
+			if ((!nosrl && !nomux) || help_mode)
 				run("pmux2shiftx", "(skip if '-nosrl' and '-nomux')");
 
 			run("opt -fast -full");
@@ -254,18 +254,15 @@ struct SynthXilinxPass : public ScriptPass
 				run("shregmap -tech xilinx -minlen 3", "(skip if '-nosrl')");
 			}
 
+			if (!nomux || help_mode)
+				run("techmap -map +/xilinx/cells_map.v");
+
 			run("techmap");
 			run("opt -fast");
-
-			if (!nomux || help_mode)
-				run("muxcover -mux8 -mux16");
 		}
 
 		if (check_label("map_cells")) {
-			std::string define;
-			if (nomux)
-				define += " -D NO_MUXFN";
-			run("techmap -map +/techmap.v -map +/xilinx/cells_map.v" + define);
+			run("techmap -map +/techmap.v -map +/xilinx/cells_map.v");
 			run("clean");
 		}
 
