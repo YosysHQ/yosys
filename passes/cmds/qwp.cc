@@ -291,7 +291,7 @@ struct QwpWorker
 		// gaussian elimination
 		for (int i = 0; i < N; i++)
 		{
-			if (config.verbose && ((i+1) % (N/15)) == 0)
+			if (config.verbose && N > 15 && ((i+1) % (N/15)) == 0)
 				log("> Solved %d%%: %d/%d\n", (100*(i+1))/N, i+1, N);
 
 			// find best row

@@ -1172,6 +1172,15 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			varbuf->children[0] = buf;
 		}
 
+#if 0
+		if (type == AST_FOR) {
+			AstNode *buf = next_ast->clone();
+			delete buf->children[1];
+			buf->children[1] = varbuf->children[0]->clone();
+			current_block->children.insert(current_block->children.begin() + current_block_idx++, buf);
+		}
+#endif
+
 		current_scope[varbuf->str] = backup_scope_varbuf;
 		delete varbuf;
 		delete_children();

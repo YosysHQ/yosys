@@ -17,6 +17,14 @@
  *
  */
 
+// Convert negative-polarity reset to positive-polarity
+module  \$_DFF_NN0_ (input D, C, R, output Q); \$_DFF_NP0_  _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .R(~R)); endmodule
+module  \$_DFF_PN0_ (input D, C, R, output Q); \$_DFF_PP0_  _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .R(~R)); endmodule
+
+module  \$_DFF_NN1_ (input D, C, R, output Q); \$_DFF_NP1   _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .R(~R)); endmodule
+module  \$_DFF_PN1_ (input D, C, R, output Q); \$_DFF_PP1   _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .R(~R)); endmodule
+
+
 module \$__SHREG_ (input C, input D, input E, output Q);
   parameter DEPTH = 0;
   parameter [DEPTH-1:0] INIT = 0;

@@ -180,6 +180,8 @@ struct WreduceWorker
 			}
 
 			auto info = mi.query(sig_q[i]);
+			if (info == nullptr)
+				return;
 			if (!info->is_output && GetSize(info->ports) == 1 && !keep_bits.count(mi.sigmap(sig_q[i]))) {
 				remove_init_bits.insert(sig_q[i]);
 				sig_d.remove(i);
