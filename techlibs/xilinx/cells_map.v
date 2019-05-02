@@ -161,11 +161,14 @@ module \$shiftx (A, B, Y);
   input [B_WIDTH-1:0] B;
   output [Y_WIDTH-1:0] Y;
 
+  parameter [A_WIDTH-1:0] _TECHMAP_CONSTMSK_A_ = 0;
+  parameter [A_WIDTH-1:0] _TECHMAP_CONSTVAL_A_ = 0;
   parameter [B_WIDTH-1:0] _TECHMAP_CONSTMSK_B_ = 0;
   parameter [B_WIDTH-1:0] _TECHMAP_CONSTVAL_B_ = 0;
 
   generate
     genvar i, j;
+    // TODO: Check if this opt still necessary
     if (B_SIGNED) begin
       if (_TECHMAP_CONSTMSK_B_[B_WIDTH-1] && _TECHMAP_CONSTVAL_B_[B_WIDTH-1] == 1'b0)
         // Optimisation to remove B_SIGNED if sign bit of B is constant-0
@@ -185,6 +188,14 @@ module \$shiftx (A, B, Y);
       for (i = 0; i < (A_WIDTH+1)/2; i++)
         assign A_i[i] = A[i*2];
       \$shiftx  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH((A_WIDTH+1'd1)/2'd2), .B_WIDTH(B_WIDTH-1'd1), .Y_WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(A_i), .B(B[B_WIDTH-1:1]), .Y(Y));
+    end
+    // If upper half of A input is all constant 1'bx then
+    //   chop this $shiftx in half
+    else if (_TECHMAP_CONSTMSK_A_[A_WIDTH-1:2**(B_WIDTH-1)] == {A_WIDTH-2**(B_WIDTH-1){1'b1}} && _TECHMAP_CONSTVAL_A_[A_WIDTH-1:2**(B_WIDTH-1)] === {A_WIDTH-2**(B_WIDTH-1){1'bx}}) begin
+      if (B_WIDTH > 1)
+        \$shiftx  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(2**(B_WIDTH-1)), .B_WIDTH(B_WIDTH-1'd1), .Y_WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(A[2**(B_WIDTH-1)-1:0]), .B(B[B_WIDTH-2:0]), .Y(Y));
+      else
+	assign Y = A[0];
     end
     else if (B_WIDTH < 3 || A_WIDTH <= 4) begin
       wire _TECHMAP_FAIL_ = 1;
