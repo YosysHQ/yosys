@@ -1146,7 +1146,8 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 			if (type == AST_GENFOR) {
 				for (size_t i = 0; i < buf->children.size(); i++) {
-					buf->children[i]->simplify(false, false, false, stage, -1, false, false);
+					if (!buf->children[i]->check_elab_tasks())
+						buf->children[i]->simplify(false, false, false, stage, -1, false, false);
 					current_ast_mod->children.push_back(buf->children[i]);
 				}
 			} else {
@@ -1261,7 +1262,8 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			}
 
 			for (size_t i = 0; i < buf->children.size(); i++) {
-				buf->children[i]->simplify(false, false, false, stage, -1, false, false);
+				if (!buf->children[i]->check_elab_tasks())
+					buf->children[i]->simplify(false, false, false, stage, -1, false, false);
 				current_ast_mod->children.push_back(buf->children[i]);
 			}
 
@@ -1340,7 +1342,8 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			}
 
 			for (size_t i = 0; i < buf->children.size(); i++) {
-				buf->children[i]->simplify(false, false, false, stage, -1, false, false);
+				if (!buf->children[i]->check_elab_tasks())
+					buf->children[i]->simplify(false, false, false, stage, -1, false, false);
 				current_ast_mod->children.push_back(buf->children[i]);
 			}
 
@@ -2969,6 +2972,44 @@ static void mark_memories_assign_lhs_complex(dict<AstNode*, pool<std::string>> &
 	}
 }
 
+// handle $info(), $warning(), $error(), $fatal()
+// we don't do that in simplify() because we don't know 
+bool AstNode::check_elab_tasks(void)
+{
+	if (type == AST_TECALL) {
+		int sz = children.size();
+		if (str == "$info") {
+			if (sz > 0)
+				log_file_info(filename, linenum, "%s.\n", children[0]->str.c_str());
+			else
+				log_file_info(filename, linenum, "\n");
+		} else if (str == "$warning") {
+			if (sz > 0)
+				log_file_warning(filename, linenum, "%s.\n", children[0]->str.c_str());
+			else
+				log_file_warning(filename, linenum, "\n");
+		} else if (str == "$error") {
+			if (sz > 0)
+				log_file_error(filename, linenum, "%s.\n", children[0]->str.c_str());
+			else
+				log_file_error(filename, linenum, "\n");
+		} else if (str == "$fatal") {
+			// TODO: 1st parameter, if exists, is 0,1 or 2, and passed to $finish()
+			// if no parameter is given, default value is 1
+			// dollar_finish(sz ? children[0] : 1);
+			// perhaps create & use log_file_fatal()
+			if (sz > 0)
+				log_file_error(filename, linenum, "FATAL: %s.\n", children[0]->str.c_str());
+			else
+				log_file_error(filename, linenum, "FATAL.\n");
+		} else {
+			log_file_error(filename, linenum, "Unknown elabortoon system task '%s'.\n", str.c_str());
+		}
+		return true;
+	}
+	return false;
+
+}
 // find memories that should be replaced by registers
 void AstNode::mem2reg_as_needed_pass1(dict<AstNode*, pool<std::string>> &mem2reg_places,
 		dict<AstNode*, uint32_t> &mem2reg_candidates, dict<AstNode*, uint32_t> &proc_flags, uint32_t &flags)

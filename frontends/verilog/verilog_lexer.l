@@ -301,6 +301,11 @@ supply1 { return TOK_SUPPLY1; }
 	return TOK_ID;
 }
 
+"$"(info|warning|error|fatal) {
+	frontend_verilog_yylval.string = new std::string(yytext);
+	return TOK_ELAB_TASK;
+}
+
 "$signed"   { return TOK_TO_SIGNED; }
 "$unsigned" { return TOK_TO_UNSIGNED; }
 
