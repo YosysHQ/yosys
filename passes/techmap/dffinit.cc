@@ -135,18 +135,10 @@ struct DffinitPass : public Pass {
 							continue;
 						while (GetSize(value.bits) <= i)
 							value.bits.push_back(State::S0);
-						if (noreinit && value.bits[i] != State::Sx && value.bits[i] != init_bits.at(sig[i])) {
-							if (init_bits.at(sig[i]) != State::Sx) {
-								log_error("Trying to assign a different init value for %s.%s.%s which technically "
-										"have a conflicted init value.\n",
-										log_id(module), log_id(cell), log_id(it.second));
-							}
-							else {
-								// Trying to overwrite an existing INIT value with 1'bx,
-								//   silently ignore?
-								continue;
-							}
-						}
+						if (noreinit && value.bits[i] != State::Sx && value.bits[i] != init_bits.at(sig[i]))
+							log_error("Trying to assign a different init value for %s.%s.%s which technically "
+									"have a conflicted init value.\n",
+									log_id(module), log_id(cell), log_id(it.second));
 						value.bits[i] = init_bits.at(sig[i]);
 						cleanup_bits.insert(sig[i]);
 					}
