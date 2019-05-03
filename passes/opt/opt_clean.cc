@@ -97,21 +97,19 @@ void rmunused_module_cells(Module *module, bool verbose)
 	for (auto &it : module->cells_) {
 		Cell *cell = it.second;
 		for (auto &it2 : cell->connections()) {
-			if (!ct_all.cell_known(cell->type) || ct_all.cell_output(cell->type, it2.first))
-				for (auto raw_bit : it2.second) {
-					if (raw_bit.wire == nullptr)
-						continue;
-					auto bit = sigmap(raw_bit);
-					if (bit.wire == nullptr)
-						driver_driver_logs[raw_bit].push_back(stringf("Driver-driver conflict "
-								"for %s between cell %s.%s and constant %s in %s: Resolved using constant.",
-								log_signal(raw_bit), log_id(cell), log_id(it2.first), log_signal(bit), log_id(module)));
-					if (bit.wire != nullptr)
-						wire2driver[bit].insert(cell);
-				}
-			if (!ct_all.cell_known(cell->type) || ct_all.cell_input(cell->type, it2.first))
-				for (auto raw_bit : it2.second)
-					used_raw_bits.insert(raw_bit);
+			if (ct_all.cell_known(cell->type) && !ct_all.cell_output(cell->type, it2.first))
+				continue;
+			for (auto raw_bit : it2.second) {
+				if (raw_bit.wire == nullptr)
+					continue;
+				auto bit = sigmap(raw_bit);
+				if (bit.wire == nullptr)
+					driver_driver_logs[raw_bit].push_back(stringf("Driver-driver conflict "
+							"for %s between cell %s.%s and constant %s in %s: Resolved using constant.",
+							log_signal(raw_bit), log_id(cell), log_id(it2.first), log_signal(bit), log_id(module)));
+				if (bit.wire != nullptr)
+					wire2driver[bit].insert(cell);
+			}
 		}
 		if (keep_cache.query(cell))
 			queue.insert(cell);
@@ -128,12 +126,6 @@ void rmunused_module_cells(Module *module, bool verbose)
 			for (auto raw_bit : SigSpec(wire))
 				used_raw_bits.insert(raw_bit);
 		}
-	}
-
-	for (auto it : driver_driver_logs) {
-		if (used_raw_bits.count(it.first))
-			for (auto msg : it.second)
-				log_warning("%s\n", msg.c_str());
 	}
 
 	while (!queue.empty())
@@ -160,6 +152,22 @@ void rmunused_module_cells(Module *module, bool verbose)
 		module->design->scratchpad_set_bool("opt.did_something", true);
 		module->remove(cell);
 		count_rm_cells++;
+	}
+
+	for (auto &it : module->cells_) {
+		Cell *cell = it.second;
+		for (auto &it2 : cell->connections()) {
+			if (ct_all.cell_known(cell->type) && !ct_all.cell_input(cell->type, it2.first))
+				continue;
+			for (auto raw_bit : it2.second)
+				used_raw_bits.insert(raw_bit);
+		}
+	}
+
+	for (auto it : driver_driver_logs) {
+		if (used_raw_bits.count(it.first))
+			for (auto msg : it.second)
+				log_warning("%s\n", msg.c_str());
 	}
 }
 
