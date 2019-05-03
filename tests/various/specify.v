@@ -24,5 +24,7 @@ module test2 (
 		`define T_rise 1
 		`define T_fall 2
 		(A => Q) = (`T_rise,`T_fall);
+		//(B => Q) = (`T_rise+`T_fall)/2.0;
+		(B => Q) = 1.5;
 	endspecify
 endmodule

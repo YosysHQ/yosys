@@ -5,7 +5,7 @@ select t:$specify2 -assert-count 0
 select t:$specify3 -assert-count 1
 select t:$specrule -assert-count 2
 cd test2
-select t:$specify2 -assert-count 1
+select t:$specify2 -assert-count 2
 select t:$specify3 -assert-count 0
 select t:$specrule -assert-count 0
 write_verilog specify.out
@@ -17,9 +17,10 @@ select t:$specify2 -assert-count 0
 select t:$specify3 -assert-count 1
 select t:$specrule -assert-count 2
 cd test2
-select t:$specify2 -assert-count 1
+select t:$specify2 -assert-count 2
 select t:$specify3 -assert-count 0
 select t:$specrule -assert-count 0
 design -stash gate
 
 # TODO: How to check $specify and $specrule-s are equivalent?
+#       Otherwise, need more select statements to check parameter values are as expected?
