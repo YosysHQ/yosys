@@ -645,6 +645,8 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 			if (!id_ast->children[0]->range_valid)
 				log_file_error(filename, linenum, "Failed to detect width of memory access `%s'!\n", str.c_str());
 			this_width = id_ast->children[0]->range_left - id_ast->children[0]->range_right + 1;
+			if (children.size() > 1)
+				range = children[1];
 		} else
 			log_file_error(filename, linenum, "Failed to detect width for identifier %s!\n", str.c_str());
 		if (range) {
