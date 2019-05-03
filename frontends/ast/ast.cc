@@ -358,6 +358,14 @@ static bool needGenerate(AstNodeType type) {
 		|| type == AST_GENBLOCK;
 }
 
+static bool areChildrenMissing(FILE * f, const std::string& indent, const AstNode * node, int neededChildren) {
+	if (node->children.size() < neededChildren) {
+		fprintf(f,"%s//Invalid %s with %d children!\n", indent.c_str(), type2str(node->type).c_str(), node->children.size());
+		return true;
+	}
+	return false;
+}
+
 // dump AST node as Verilog code
 void AstNode::dumpVlog(FILE *f, std::string indent, bool inGenerate, AstNodeType parentType) const
 {
@@ -603,6 +611,10 @@ void AstNode::dumpVlog(FILE *f, std::string indent, bool inGenerate, AstNodeType
 
 	case AST_CASE:
 	case AST_GENCASE:
+		if (areChildrenMissing(f, indent, this, 1)) {
+			break;
+		}
+
 		if (children.size()>1 && children[1]->type == AST_CONDX)
 			fprintf(f, "%s" "casex (", indent.c_str());
 		else if (children.size()>1 && children[1]->type == AST_CONDZ)
@@ -758,6 +770,9 @@ void AstNode::dumpVlog(FILE *f, std::string indent, bool inGenerate, AstNodeType
 
 	case AST_GENFOR:
 	case AST_FOR:
+		if (areChildrenMissing(f, indent, this, 4)) {
+			break;
+		}
 	    	fprintf(f, "%sfor (\n", indent.c_str());
 		children[0]->dumpVlog(f, indent + "  ", inGenerate, type);
 		fprintf(f, ";\n%s  ",indent.c_str());
@@ -777,6 +792,9 @@ void AstNode::dumpVlog(FILE *f, std::string indent, bool inGenerate, AstNodeType
 		break;
 
 	case AST_GENIF:
+		if (areChildrenMissing(f, indent, this, 2)) {
+			break;
+		}
 	    	fprintf(f, "%sif(", indent.c_str());
 		children[0]->dumpVlog(f, indent + "  ", inGenerate, type);
 		fprintf(f, ")\n");
@@ -1243,7 +1261,7 @@ static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast
 	if (flag_dump_vlog1) {
 		log("Dumping Verilog AST before simplification:\n");
 		ast->dumpVlog(NULL, "    ");
-		log("--- END OF AST DUMP ---\n");
+		log("--- END OF VERILOG DUMP ---\n");
 	}
 
 	if (!defer)
@@ -1273,7 +1291,7 @@ static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast
 		if (flag_dump_vlog2) {
 			log("Dumping Verilog AST after simplification:\n");
 			ast->dumpVlog(NULL, "    ");
-			log("--- END OF AST DUMP ---\n");
+			log("--- END OF VERILOG DUMP ---\n");
 		}
 
 		if (flag_nowb && ast->attributes.count("\\whitebox")) {
