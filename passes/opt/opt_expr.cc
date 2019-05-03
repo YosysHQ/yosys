@@ -39,6 +39,9 @@ void replace_undriven(RTLIL::Design *design, RTLIL::Module *module)
 	SigPool used_signals;
 	SigPool all_signals;
 
+	dict<SigBit, pair<Wire*, State>> initbits;
+	pool<Wire*> revisit_initwires;
+
 	for (auto cell : module->cells())
 	for (auto &conn : cell->connections()) {
 		if (!ct.cell_known(cell->type) || ct.cell_output(cell->type, conn.first))
@@ -48,9 +51,17 @@ void replace_undriven(RTLIL::Design *design, RTLIL::Module *module)
 	}
 
 	for (auto wire : module->wires()) {
+		if (wire->attributes.count("\\init")) {
+			SigSpec sig = sigmap(wire);
+			Const initval = wire->attributes.at("\\init");
+			for (int i = 0; i < GetSize(initval) && i < GetSize(wire); i++) {
+				if (initval[i] == State::S0 || initval[i] == State::S1)
+					initbits[sig[i]] = make_pair(wire, initval[i]);
+			}
+		}
 		if (wire->port_input)
 			driven_signals.add(sigmap(wire));
-		if (wire->port_output)
+		if (wire->port_output || wire->get_bool_attribute("\\keep"))
 			used_signals.add(sigmap(wire));
 		all_signals.add(sigmap(wire));
 	}
@@ -67,9 +78,42 @@ void replace_undriven(RTLIL::Design *design, RTLIL::Module *module)
 		if (sig.size() == 0)
 			continue;
 
-		log_debug("Setting undriven signal in %s to undef: %s\n", RTLIL::id2cstr(module->name), log_signal(c));
-		module->connect(RTLIL::SigSig(c, RTLIL::SigSpec(RTLIL::State::Sx, c.width)));
+		Const val(RTLIL::State::Sx, GetSize(sig));
+		for (int i = 0; i < GetSize(sig); i++) {
+			SigBit bit = sigmap(sig[i]);
+			auto cursor = initbits.find(bit);
+			if (cursor != initbits.end()) {
+				revisit_initwires.insert(cursor->second.first);
+				val[i] = cursor->second.second;
+			}
+		}
+
+		log_debug("Setting undriven signal in %s to constant: %s = %s\n", log_id(module), log_signal(sig), log_signal(val));
+		module->connect(sig, val);
 		did_something = true;
+	}
+
+	if (!revisit_initwires.empty())
+	{
+		SigMap sm2(module);
+
+		for (auto wire : revisit_initwires) {
+			SigSpec sig = sm2(wire);
+			Const initval = wire->attributes.at("\\init");
+			for (int i = 0; i < GetSize(initval) && i < GetSize(wire); i++) {
+				if (SigBit(initval[i]) == sig[i])
+					initval[i] = State::Sx;
+			}
+			if (initval.is_fully_undef()) {
+				log_debug("Removing init attribute from %s/%s.\n", log_id(module), log_id(wire));
+				wire->attributes.erase("\\init");
+				did_something = true;
+			} else if (initval != wire->attributes.at("\\init")) {
+				log_debug("Updating init attribute on %s/%s: %s\n", log_id(module), log_id(wire), log_signal(initval));
+				wire->attributes["\\init"] = initval;
+				did_something = true;
+			}
+		}
 	}
 }
 

@@ -246,8 +246,6 @@ struct VerilogFrontend : public Frontend {
 		specify_mode = false;
 		default_nettype_wire = true;
 
-		log_header(design, "Executing Verilog-2005 frontend.\n");
-
 		args.insert(args.begin()+1, verilog_defaults.begin(), verilog_defaults.end());
 
 		size_t argidx;
@@ -422,6 +420,8 @@ struct VerilogFrontend : public Frontend {
 			break;
 		}
 		extra_args(f, filename, args, argidx);
+
+		log_header(design, "Executing Verilog-2005 frontend: %s\n", filename.c_str());
 
 		log("Parsing %s%s input from `%s' to AST representation.\n",
 				formal_mode ? "formal " : "", sv_mode ? "SystemVerilog" : "Verilog", filename.c_str());

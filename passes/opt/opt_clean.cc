@@ -274,37 +274,53 @@ void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 	std::vector<RTLIL::Wire*> maybe_del_wires;
 	for (auto wire : module->wires())
 	{
+		SigSpec s1 = SigSpec(wire), s2 = assign_map(s1);
+		log_assert(GetSize(s1) == GetSize(s2));
+
+		bool maybe_del = false;
 		if ((!purge_mode && check_public_name(wire->name)) || wire->port_id != 0 || wire->get_bool_attribute("\\keep") || wire->attributes.count("\\init")) {
-			RTLIL::SigSpec s1 = RTLIL::SigSpec(wire), s2 = s1;
-			assign_map.apply(s2);
-			if (!used_signals.check_any(s2) && wire->port_id == 0 && !wire->get_bool_attribute("\\keep")) {
-				maybe_del_wires.push_back(wire);
-			} else {
-				log_assert(GetSize(s1) == GetSize(s2));
-				RTLIL::SigSig new_conn;
-				for (int i = 0; i < GetSize(s1); i++)
-					if (s1[i] != s2[i]) {
-						new_conn.first.append_bit(s1[i]);
-						new_conn.second.append_bit(s2[i]);
-					}
-				if (new_conn.first.size() > 0) {
-					used_signals.add(new_conn.first);
-					used_signals.add(new_conn.second);
-					module->connect(new_conn);
-				}
-			}
+			if (!used_signals.check_any(s2) && wire->port_id == 0 && !wire->get_bool_attribute("\\keep"))
+				maybe_del = true;
 		} else {
-			if (!used_signals.check_any(RTLIL::SigSpec(wire)))
-				maybe_del_wires.push_back(wire);
+			if (!used_signals.check_any(s2))
+				maybe_del = true;
 		}
 
-		RTLIL::SigSpec sig = assign_map(RTLIL::SigSpec(wire));
-		if (!used_signals_nodrivers.check_any(sig)) {
+		if (maybe_del) {
+			maybe_del_wires.push_back(wire);
+		} else {
+			Const initval;
+			if (wire->attributes.count("\\init"))
+				initval = wire->attributes.at("\\init");
+			if (GetSize(initval) != GetSize(wire))
+				initval.bits.resize(GetSize(wire), State::Sx);
+			RTLIL::SigSig new_conn;
+			for (int i = 0; i < GetSize(s1); i++)
+				if (s1[i] != s2[i]) {
+					if (s2[i] == State::Sx && (initval[i] == State::S0 || initval[i] == State::S1)) {
+						s2[i] = initval[i];
+						initval[i] = State::Sx;
+					}
+					new_conn.first.append_bit(s1[i]);
+					new_conn.second.append_bit(s2[i]);
+				}
+			if (new_conn.first.size() > 0) {
+				if (initval.is_fully_undef())
+					wire->attributes.erase("\\init");
+				else
+					wire->attributes.at("\\init") = initval;
+				used_signals.add(new_conn.first);
+				used_signals.add(new_conn.second);
+				module->connect(new_conn);
+			}
+		}
+
+		if (!used_signals_nodrivers.check_all(s2)) {
 			std::string unused_bits;
-			for (int i = 0; i < GetSize(sig); i++) {
-				if (sig[i].wire == NULL)
+			for (int i = 0; i < GetSize(s2); i++) {
+				if (s2[i].wire == NULL)
 					continue;
-				if (!used_signals_nodrivers.check(sig[i])) {
+				if (!used_signals_nodrivers.check(s2[i])) {
 					if (!unused_bits.empty())
 						unused_bits += " ";
 					unused_bits += stringf("%d", i);
@@ -323,14 +339,40 @@ void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 	pool<RTLIL::Wire*> del_wires;
 
 	int del_wires_count = 0;
-	for (auto wire : maybe_del_wires)
-		if (!used_signals.check_any(RTLIL::SigSpec(wire))) {
-			if (check_public_name(wire->name) && verbose) {
+	for (auto wire : maybe_del_wires) {
+		SigSpec s1 = SigSpec(wire);
+		if (used_signals.check_any(s1)) {
+			SigSpec s2 = assign_map(s1);
+			Const initval;
+			if (wire->attributes.count("\\init"))
+				initval = wire->attributes.at("\\init");
+			if (GetSize(initval) != GetSize(wire))
+				initval.bits.resize(GetSize(wire), State::Sx);
+			RTLIL::SigSig new_conn;
+			for (int i = 0; i < GetSize(s1); i++)
+				if (s1[i] != s2[i]) {
+					if (s2[i] == State::Sx && (initval[i] == State::S0 || initval[i] == State::S1)) {
+						s2[i] = initval[i];
+						initval[i] = State::Sx;
+					}
+					new_conn.first.append_bit(s1[i]);
+					new_conn.second.append_bit(s2[i]);
+				}
+			if (new_conn.first.size() > 0) {
+				if (initval.is_fully_undef())
+					wire->attributes.erase("\\init");
+				else
+					wire->attributes.at("\\init") = initval;
+				module->connect(new_conn);
+			}
+		} else {
+			if (ys_debug() || (check_public_name(wire->name) && verbose)) {
 				log_debug("  removing unused non-port wire %s.\n", wire->name.c_str());
 			}
 			del_wires.insert(wire);
 			del_wires_count++;
 		}
+	}
 
 	module->remove(del_wires);
 	count_rm_wires += del_wires.size();
@@ -483,6 +525,9 @@ struct OptCleanPass : public Pass {
 
 		ct_all.setup(design);
 
+		count_rm_cells = 0;
+		count_rm_wires = 0;
+
 		for (auto module : design->selected_whole_modules_warn()) {
 			if (module->has_processes_warn())
 				continue;
@@ -548,7 +593,7 @@ struct CleanPass : public Pass {
 		for (auto module : design->selected_whole_modules()) {
 			if (module->has_processes())
 				continue;
-			rmunused_module(module, purge_mode, false, false);
+			rmunused_module(module, purge_mode, ys_debug(), false);
 		}
 
 		log_suppressed();

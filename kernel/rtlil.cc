@@ -3496,7 +3496,7 @@ bool RTLIL::SigSpec::operator ==(const RTLIL::SigSpec &other) const
 	pack();
 	other.pack();
 
-	if (chunks_.size() != chunks_.size())
+	if (chunks_.size() != other.chunks_.size())
 		return false;
 
 	updhash();

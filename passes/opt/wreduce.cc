@@ -180,6 +180,8 @@ struct WreduceWorker
 			}
 
 			auto info = mi.query(sig_q[i]);
+			if (info == nullptr)
+				return;
 			if (!info->is_output && GetSize(info->ports) == 1 && !keep_bits.count(mi.sigmap(sig_q[i]))) {
 				remove_init_bits.insert(sig_q[i]);
 				sig_d.remove(i);
@@ -529,6 +531,42 @@ struct WreducePass : public Pass {
 						module->connect(sig, Const(0, GetSize(sig)));
 					}
 				}
+
+				if (c->type.in("$div", "$mod", "$pow"))
+				{
+					SigSpec A = c->getPort("\\A");
+					int original_a_width = GetSize(A);
+					if (c->getParam("\\A_SIGNED").as_bool()) {
+						while (GetSize(A) > 1 && A[GetSize(A)-1] == State::S0 && A[GetSize(A)-2] == State::S0)
+							A.remove(GetSize(A)-1, 1);
+					} else {
+						while (GetSize(A) > 0 && A[GetSize(A)-1] == State::S0)
+							A.remove(GetSize(A)-1, 1);
+					}
+					if (original_a_width != GetSize(A)) {
+						log("Removed top %d bits (of %d) from port A of cell %s.%s (%s).\n",
+								original_a_width-GetSize(A), original_a_width, log_id(module), log_id(c), log_id(c->type));
+						c->setPort("\\A", A);
+						c->setParam("\\A_WIDTH", GetSize(A));
+					}
+
+					SigSpec B = c->getPort("\\B");
+					int original_b_width = GetSize(B);
+					if (c->getParam("\\B_SIGNED").as_bool()) {
+						while (GetSize(B) > 1 && B[GetSize(B)-1] == State::S0 && B[GetSize(B)-2] == State::S0)
+							B.remove(GetSize(B)-1, 1);
+					} else {
+						while (GetSize(B) > 0 && B[GetSize(B)-1] == State::S0)
+							B.remove(GetSize(B)-1, 1);
+					}
+					if (original_b_width != GetSize(B)) {
+						log("Removed top %d bits (of %d) from port B of cell %s.%s (%s).\n",
+								original_b_width-GetSize(B), original_b_width, log_id(module), log_id(c), log_id(c->type));
+						c->setPort("\\B", B);
+						c->setParam("\\B_WIDTH", GetSize(B));
+					}
+				}
+
 				if (!opt_memx && c->type.in("$memrd", "$memwr", "$meminit")) {
 					IdString memid = c->getParam("\\MEMID").decode_string();
 					RTLIL::Memory *mem = module->memories.at(memid);
