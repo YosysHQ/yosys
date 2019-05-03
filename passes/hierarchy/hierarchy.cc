@@ -592,8 +592,8 @@ struct HierarchyPass : public Pass {
 		log("\n");
 		log("    -nokeep_asserts\n");
 		log("        per default this pass sets the \"keep\" attribute on all modules\n");
-		log("        that directly or indirectly contain one or more $assert cells. This\n");
-		log("        option disables this behavior.\n");
+		log("        that directly or indirectly contain one or more formal properties.\n");
+		log("        This option disables this behavior.\n");
 		log("\n");
 		log("    -top <module>\n");
 		log("        use the specified top module to build the design hierarchy. Modules\n");
@@ -722,14 +722,7 @@ struct HierarchyPass : public Pass {
 			if (args[argidx] == "-top") {
 				if (++argidx >= args.size())
 					log_cmd_error("Option -top requires an additional argument!\n");
-				top_mod = design->modules_.count(RTLIL::escape_id(args[argidx])) ? design->modules_.at(RTLIL::escape_id(args[argidx])) : NULL;
-				if (top_mod == NULL && design->modules_.count("$abstract" + RTLIL::escape_id(args[argidx]))) {
-					dict<RTLIL::IdString, RTLIL::Const> empty_parameters;
-					design->modules_.at("$abstract" + RTLIL::escape_id(args[argidx]))->derive(design, empty_parameters);
-					top_mod = design->modules_.count(RTLIL::escape_id(args[argidx])) ? design->modules_.at(RTLIL::escape_id(args[argidx])) : NULL;
-				}
-				if (top_mod == NULL)
-					load_top_mod = args[argidx];
+				load_top_mod = args[argidx];
 				continue;
 			}
 			if (args[argidx] == "-auto-top") {
@@ -750,7 +743,37 @@ struct HierarchyPass : public Pass {
 		}
 		extra_args(args, argidx, design, false);
 
-		if (!load_top_mod.empty()) {
+		if (!load_top_mod.empty())
+		{
+			IdString top_name = RTLIL::escape_id(load_top_mod);
+			IdString abstract_id = "$abstract" + RTLIL::escape_id(load_top_mod);
+			top_mod = design->module(top_name);
+
+			dict<RTLIL::IdString, RTLIL::Const> top_parameters;
+			for (auto &para : parameters) {
+				SigSpec sig_value;
+				if (!RTLIL::SigSpec::parse(sig_value, NULL, para.second))
+					log_cmd_error("Can't decode value '%s'!\n", para.second.c_str());
+				top_parameters[RTLIL::escape_id(para.first)] = sig_value.as_const();
+			}
+
+			if (top_mod == nullptr && design->module(abstract_id))
+				top_mod = design->module(design->module(abstract_id)->derive(design, top_parameters));
+			else if (top_mod != nullptr && !top_parameters.empty())
+				top_mod = design->module(top_mod->derive(design, top_parameters));
+
+			if (top_mod != nullptr && top_mod->name != top_name) {
+				Module *m = top_mod->clone();
+				m->name = top_name;
+				Module *old_mod = design->module(top_name);
+				if (old_mod)
+					design->remove(old_mod);
+				design->add(m);
+				top_mod = m;
+			}
+		}
+
+		if (top_mod == nullptr && !load_top_mod.empty()) {
 #ifdef YOSYS_ENABLE_VERIFIC
 			if (verific_import_pending) {
 				verific_import(design, parameters, load_top_mod);
@@ -863,7 +886,7 @@ struct HierarchyPass : public Pass {
 			std::map<RTLIL::Module*, bool> cache;
 			for (auto mod : design->modules())
 				if (set_keep_assert(cache, mod)) {
-					log("Module %s directly or indirectly contains $assert cells -> setting \"keep\" attribute.\n", log_id(mod));
+					log("Module %s directly or indirectly contains formal properties -> setting \"keep\" attribute.\n", log_id(mod));
 					mod->set_bool_attribute("\\keep");
 				}
 		}
