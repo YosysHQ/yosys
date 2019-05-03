@@ -14,15 +14,15 @@ module test (
 endmodule
 
 module test2 (
-    input A, B,
+	input A, B,
 	output Q
 );
-    xor (Q, A, B);
+	xor (Q, A, B);
 	specify
 		//specparam T_rise = 1;
-        //specparam T_fall = 2;
-        `define T_rise 1
-        `define T_fall 2
-        (A => Q) = (`T_rise,`T_fall);
+		//specparam T_fall = 2;
+		`define T_rise 1
+		`define T_fall 2
+		(A => Q) = (`T_rise,`T_fall);
 	endspecify
 endmodule
