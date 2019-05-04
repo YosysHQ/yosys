@@ -338,12 +338,13 @@ std::string remap_name(RTLIL::IdString abc_name, RTLIL::Wire **orig_wire = nullp
 	}
 	if (abc_sname.substr(0, 5) == "ys__n")
 	{
-		bool inv = abc_sname.back() == 'v';
-		if (inv) abc_sname.pop_back();
 		abc_sname.erase(0, 5);
 		if (std::isdigit(abc_sname.at(0)))
 		{
 			int sid = std::stoi(abc_sname);
+			size_t postfix_start = abc_sname.find_first_not_of("0123456789");
+			std::string postfix = postfix_start != std::string::npos ? abc_sname.substr(postfix_start) : "";
+
 			if (sid < GetSize(signal_list))
 			{
 				auto sig = signal_list.at(sid);
@@ -355,8 +356,7 @@ std::string remap_name(RTLIL::IdString abc_name, RTLIL::Wire **orig_wire = nullp
 						sstr << "[" << sig.bit.offset << "]";
 					if (isnew)
 						sstr << "_new";
-					if (inv)
-						sstr << "_inv";
+					sstr << postfix;
 					if (orig_wire != nullptr)
 						*orig_wire = sig.bit.wire;
 					return sstr.str();
