@@ -259,11 +259,7 @@ for them:
 
 - The ``tri``, ``triand``, ``trior``, ``wand`` and ``wor`` net types
 
-- The ``config`` keyword and library map files
-
-- The ``disable``, ``primitive`` and ``specify`` statements
-
-- Latched logic (is synthesized as logic with feedback loops)
+- The ``config`` and ``disable`` keywords and library map files
 
 
 Verilog Attributes and non-standard features
