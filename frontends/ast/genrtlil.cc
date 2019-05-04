@@ -1492,10 +1492,12 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 					continue;
 				}
 				if (child->type == AST_PARASET) {
+					int extra_const_flags = 0;
 					IdString paraname = child->str.empty() ? stringf("$%d", ++para_counter) : child->str;
 					if (child->children[0]->type == AST_REALVALUE) {
 						log_file_warning(filename, linenum, "Replacing floating point parameter %s.%s = %f with string.\n",
 								log_id(cell), log_id(paraname), child->children[0]->realvalue);
+						extra_const_flags = RTLIL::CONST_FLAG_REAL;
 						auto strnode = AstNode::mkconst_str(stringf("%f", child->children[0]->realvalue));
 						strnode->cloneInto(child->children[0]);
 						delete strnode;
@@ -1504,6 +1506,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 						log_file_error(filename, linenum, "Parameter %s.%s with non-constant value!\n",
 								log_id(cell), log_id(paraname));
 					cell->parameters[paraname] = child->children[0]->asParaConst();
+					cell->parameters[paraname].flags |= extra_const_flags;
 					continue;
 				}
 				if (child->type == AST_ARGUMENT) {

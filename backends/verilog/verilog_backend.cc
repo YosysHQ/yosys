@@ -183,8 +183,9 @@ bool is_reg_wire(RTLIL::SigSpec sig, std::string &reg_name)
 	return true;
 }
 
-void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int offset = 0, bool no_decimal = false, bool set_signed = false, bool escape_comment = false)
+void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int offset = 0, bool no_decimal = false, bool escape_comment = false)
 {
+	bool set_signed = (data.flags & RTLIL::CONST_FLAG_SIGNED) != 0;
 	if (width < 0)
 		width = data.bits.size() - offset;
 	if (width == 0) {
@@ -275,7 +276,8 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 			}
 		}
 	} else {
-		f << stringf("\"");
+		if ((data.flags & RTLIL::CONST_FLAG_REAL) == 0)
+			f << stringf("\"");
 		std::string str = data.decode_string();
 		for (size_t i = 0; i < str.size(); i++) {
 			if (str[i] == '\n')
@@ -293,7 +295,8 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 			else
 				f << str[i];
 		}
-		f << stringf("\"");
+		if ((data.flags & RTLIL::CONST_FLAG_REAL) == 0)
+			f << stringf("\"");
 	}
 }
 
@@ -373,7 +376,7 @@ void dump_attributes(std::ostream &f, std::string indent, dict<RTLIL::IdString, 
 		else if (modattr && (it->second == Const(1, 1) || it->second == Const(1)))
 			f << stringf(" 1 ");
 		else
-			dump_const(f, it->second, -1, 0, false, false, attr2comment);
+			dump_const(f, it->second, -1, 0, false, attr2comment);
 		f << stringf(" %s%c", attr2comment ? "*/" : "*)", term);
 	}
 }
@@ -1287,13 +1290,68 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 			dump_sigspec(f, cell->getPort("\\DST"));
 		}
 
-		f << stringf(") = (%d:%d:%d, %d:%d:%d);\n",
-				cell->getParam("\\T_RISE_MIN").as_int(),
-				cell->getParam("\\T_RISE_TYP").as_int(),
-				cell->getParam("\\T_RISE_MAX").as_int(),
-				cell->getParam("\\T_FALL_MIN").as_int(),
-				cell->getParam("\\T_FALL_TYP").as_int(),
-				cell->getParam("\\T_FALL_MAX").as_int());
+		bool bak_decimal = decimal;
+		decimal = 1;
+
+		f << ") = (";
+		dump_const(f, cell->getParam("\\T_RISE_MIN"));
+		f << ":";
+		dump_const(f, cell->getParam("\\T_RISE_TYP"));
+		f << ":";
+		dump_const(f, cell->getParam("\\T_RISE_MAX"));
+		f << ", ";
+		dump_const(f, cell->getParam("\\T_FALL_MIN"));
+		f << ":";
+		dump_const(f, cell->getParam("\\T_FALL_TYP"));
+		f << ":";
+		dump_const(f, cell->getParam("\\T_FALL_MAX"));
+		f << ");\n";
+
+		decimal = bak_decimal;
+
+		f << stringf("%s" "endspecify\n", indent.c_str());
+		return true;
+	}
+
+	if (cell->type == "$specrule")
+	{
+		f << stringf("%s" "specify\n%s  ", indent.c_str(), indent.c_str());
+
+		string spec_type = cell->getParam("\\TYPE").decode_string();
+		f << stringf("%s(", spec_type.c_str());
+
+		if (cell->getParam("\\SRC_PEN").as_bool())
+			f << (cell->getParam("\\SRC_POL").as_bool() ? "posedge ": "negedge ");
+		dump_sigspec(f, cell->getPort("\\SRC"));
+
+		if (cell->getPort("\\SRC_EN") != State::S1) {
+			f << " &&& ";
+			dump_sigspec(f, cell->getPort("\\SRC_EN"));
+		}
+
+		f << ", ";
+		if (cell->getParam("\\DST_PEN").as_bool())
+			f << (cell->getParam("\\DST_POL").as_bool() ? "posedge ": "negedge ");
+		dump_sigspec(f, cell->getPort("\\DST"));
+
+		if (cell->getPort("\\DST_EN") != State::S1) {
+			f << " &&& ";
+			dump_sigspec(f, cell->getPort("\\DST_EN"));
+		}
+
+		bool bak_decimal = decimal;
+		decimal = 1;
+
+		f << ", ";
+		dump_const(f, cell->getParam("\\T_LIMIT"));
+
+		if (spec_type == "$setuphold" || spec_type == "$recrem" || spec_type == "$fullskew") {
+			f << ", ";
+			dump_const(f, cell->getParam("\\T_LIMIT2"));
+		}
+
+		f << ");\n";
+		decimal = bak_decimal;
 
 		f << stringf("%s" "endspecify\n", indent.c_str());
 		return true;
@@ -1321,8 +1379,7 @@ void dump_cell(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 			if (it != cell->parameters.begin())
 				f << stringf(",");
 			f << stringf("\n%s  .%s(", indent.c_str(), id(it->first).c_str());
-			bool is_signed = (it->second.flags & RTLIL::CONST_FLAG_SIGNED) != 0;
-			dump_const(f, it->second, -1, 0, false, is_signed);
+			dump_const(f, it->second);
 			f << stringf(")");
 		}
 		f << stringf("\n%s" ")", indent.c_str());
@@ -1369,8 +1426,7 @@ void dump_cell(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 	if (defparam && cell->parameters.size() > 0) {
 		for (auto it = cell->parameters.begin(); it != cell->parameters.end(); ++it) {
 			f << stringf("%sdefparam %s.%s = ", indent.c_str(), cell_name.c_str(), id(it->first).c_str());
-			bool is_signed = (it->second.flags & RTLIL::CONST_FLAG_SIGNED) != 0;
-			dump_const(f, it->second, -1, 0, false, is_signed);
+			dump_const(f, it->second);
 			f << stringf(";\n");
 		}
 	}
