@@ -206,6 +206,7 @@ YOSYS_NAMESPACE_END
 "const"      { if (formal_mode) return TOK_CONST; SV_KEYWORD(TOK_CONST); }
 "checker"    { if (formal_mode) return TOK_CHECKER; SV_KEYWORD(TOK_CHECKER); }
 "endchecker" { if (formal_mode) return TOK_ENDCHECKER; SV_KEYWORD(TOK_ENDCHECKER); }
+"final"      { SV_KEYWORD(TOK_FINAL); }
 "logic"      { SV_KEYWORD(TOK_LOGIC); }
 "bit"        { SV_KEYWORD(TOK_REG); }
 

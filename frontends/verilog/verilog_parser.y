@@ -106,7 +106,7 @@ static void free_attr(std::map<std::string, AstNode*> *al)
 }
 
 %token <string> TOK_STRING TOK_ID TOK_CONSTVAL TOK_REALVAL TOK_PRIMITIVE TOK_SVA_LABEL
-%token TOK_ASSERT TOK_ASSUME TOK_RESTRICT TOK_COVER
+%token TOK_ASSERT TOK_ASSUME TOK_RESTRICT TOK_COVER TOK_FINAL
 %token ATTR_BEGIN ATTR_END DEFATTR_BEGIN DEFATTR_END
 %token TOK_MODULE TOK_ENDMODULE TOK_PARAMETER TOK_LOCALPARAM TOK_DEFPARAM
 %token TOK_PACKAGE TOK_ENDPACKAGE TOK_PACKAGESEP
@@ -1340,6 +1340,9 @@ opt_sva_label:
 opt_property:
 	TOK_PROPERTY {
 		$$ = true;
+	} |
+	TOK_FINAL {
+		$$ = false;
 	} |
 	/* empty */ {
 		$$ = false;
