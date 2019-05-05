@@ -518,6 +518,7 @@ struct RTLIL::Const
 	Const(const std::vector<RTLIL::State> &bits) : bits(bits) { flags = CONST_FLAG_NONE; }
 	Const(const std::vector<bool> &bits);
 	Const(const RTLIL::Const &c);
+	RTLIL::Const &operator =(const RTLIL::Const &other) = default;
 
 	bool operator <(const RTLIL::Const &other) const;
 	bool operator ==(const RTLIL::Const &other) const;
@@ -597,6 +598,7 @@ struct RTLIL::SigChunk
 	SigChunk(RTLIL::State bit, int width = 1);
 	SigChunk(RTLIL::SigBit bit);
 	SigChunk(const RTLIL::SigChunk &sigchunk);
+	RTLIL::SigChunk &operator =(const RTLIL::SigChunk &other) = default;
 
 	RTLIL::SigChunk extract(int offset, int length) const;
 
@@ -622,6 +624,7 @@ struct RTLIL::SigBit
 	SigBit(const RTLIL::SigChunk &chunk, int index);
 	SigBit(const RTLIL::SigSpec &sig);
 	SigBit(const RTLIL::SigBit &sigbit);
+	RTLIL::SigBit &operator =(const RTLIL::SigBit &other) = default;
 
 	bool operator <(const RTLIL::SigBit &other) const;
 	bool operator ==(const RTLIL::SigBit &other) const;
