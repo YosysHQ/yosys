@@ -330,20 +330,33 @@ void extract_cell(RTLIL::Cell *cell, bool keepff)
 std::string remap_name(RTLIL::IdString abc_name, RTLIL::Wire **orig_wire = nullptr)
 {
 	std::string abc_sname = abc_name.substr(1);
-	if (abc_sname.substr(0, 5) == "ys__n") {
-		bool inv = abc_sname.back() == 'v';
-		if (inv) abc_sname.pop_back();
+	bool isnew = false;
+	if (abc_sname.substr(0, 4) == "new_")
+	{
+		abc_sname.erase(0, 4);
+		isnew = true;
+	}
+	if (abc_sname.substr(0, 5) == "ys__n")
+	{
 		abc_sname.erase(0, 5);
-		if (abc_sname.find_last_not_of("012345689") == std::string::npos) {
+		if (std::isdigit(abc_sname.at(0)))
+		{
 			int sid = std::stoi(abc_sname);
-			for (auto sig : signal_list) {
-				if (sig.id == sid && sig.bit.wire != nullptr) {
+			size_t postfix_start = abc_sname.find_first_not_of("0123456789");
+			std::string postfix = postfix_start != std::string::npos ? abc_sname.substr(postfix_start) : "";
+
+			if (sid < GetSize(signal_list))
+			{
+				auto sig = signal_list.at(sid);
+				if (sig.bit.wire != nullptr)
+				{
 					std::stringstream sstr;
 					sstr << "$abc$" << map_autoidx << "$" << sig.bit.wire->name.substr(1);
 					if (sig.bit.wire->width != 1)
 						sstr << "[" << sig.bit.offset << "]";
-					if (inv)
-						sstr << "_inv";
+					if (isnew)
+						sstr << "_new";
+					sstr << postfix;
 					if (orig_wire != nullptr)
 						*orig_wire = sig.bit.wire;
 					return sstr.str();

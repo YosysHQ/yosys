@@ -205,45 +205,41 @@ struct SynthXilinxPass : public ScriptPass
 		}
 
 		if (check_label("fine")) {
-			run("opt -fast");
+			// shregmap -tech xilinx can cope with $shiftx and $mux
+			//   cells for identifiying variable-length shift registers,
+			//   so attempt to convert $pmux-es to the former
+			if (!nosrl || help_mode)
+				run("pmux2shiftx", "(skip if '-nosrl')");
+
+			run("opt -fast -full");
 			run("memory_map");
 			run("dffsr2dff");
 			run("dff2dffe");
+			run("opt -full");
 
 			if (!vpr || help_mode)
 				run("techmap -map +/xilinx/arith_map.v");
 			else
 				run("techmap -map +/xilinx/arith_map.v -D _EXPLICIT_CARRY");
 
-			run("hierarchy -check");
-			run("opt -fast");
-		}
-
-		if (check_label("map_cells"))
-		{
 			if (!nosrl || help_mode) {
 				// shregmap operates on bit-level flops, not word-level,
 				//   so break those down here
 				run("simplemap t:$dff t:$dffe", "(skip if '-nosrl')");
-				// shregmap -tech xilinx can cope with $shiftx and $mux
-				//   cells for identifiying variable-length shift registers,
-				//   so attempt to convert $pmux-es to the former
-				run("pmux2shiftx", "(skip if '-nosrl')");
-				// pmux2shiftx can leave behind a $pmux with a single entry
-				//   -- need this to clean that up before shregmap
-				run("opt_expr -mux_undef", "(skip if '-nosrl')");
 				// shregmap with '-tech xilinx' infers variable length shift regs
 				run("shregmap -tech xilinx -minlen 3", "(skip if '-nosrl')");
 			}
 
-			run("techmap -map +/xilinx/cells_map.v");
+			run("techmap");
+			run("opt -fast");
+		}
+
+		if (check_label("map_cells")) {
+			run("techmap -map +/techmap.v -map +/xilinx/cells_map.v");
 			run("clean");
 		}
 
-		if (check_label("map_luts"))
-		{
-			run("opt -full");
-			run("techmap -map +/techmap.v -D _NO_POS_SR -map +/xilinx/ff_map.v");
+		if (check_label("map_luts")) {
 			if (help_mode)
 				run("abc -luts 2:2,3,6:5,10,20 [-dff]");
 			else
@@ -259,21 +255,18 @@ struct SynthXilinxPass : public ScriptPass
 			run("clean");
 		}
 
-		if (check_label("check"))
-		{
+		if (check_label("check")) {
 			run("hierarchy -check");
 			run("stat");
 			run("check -noinit");
 		}
 
-		if (check_label("edif"))
-		{
+		if (check_label("edif")) {
 			if (!edif_file.empty() || help_mode)
 				run(stringf("write_edif -pvector bra %s", edif_file.c_str()));
 		}
 
-		if (check_label("blif"))
-		{
+		if (check_label("blif")) {
 			if (!blif_file.empty() || help_mode)
 				run(stringf("write_blif %s", edif_file.c_str()));
 		}

@@ -1,3 +1,5 @@
+pattern ice40_dsp
+
 state <SigBit> clock
 state <bool> clock_pol clock_vld
 state <SigSpec> sigA sigB sigY sigS

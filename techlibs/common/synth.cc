@@ -201,6 +201,8 @@ struct SynthPass : public ScriptPass
 			run("check");
 			run("opt");
 			run("wreduce");
+			run("peepopt");
+			run("opt_clean");
 			if (help_mode)
 				run("techmap -map +/cmp2lut.v", " (if -lut)");
 			else

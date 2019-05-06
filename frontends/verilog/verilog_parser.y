@@ -96,7 +96,7 @@ static void free_attr(std::map<std::string, AstNode*> *al)
 
 %}
 
-%name-prefix "frontend_verilog_yy"
+%define api.prefix {frontend_verilog_yy}
 
 %union {
 	std::string *string;
@@ -106,11 +106,11 @@ static void free_attr(std::map<std::string, AstNode*> *al)
 }
 
 %token <string> TOK_STRING TOK_ID TOK_CONSTVAL TOK_REALVAL TOK_PRIMITIVE TOK_SVA_LABEL
-%token TOK_ASSERT TOK_ASSUME TOK_RESTRICT TOK_COVER
+%token TOK_ASSERT TOK_ASSUME TOK_RESTRICT TOK_COVER TOK_FINAL
 %token ATTR_BEGIN ATTR_END DEFATTR_BEGIN DEFATTR_END
 %token TOK_MODULE TOK_ENDMODULE TOK_PARAMETER TOK_LOCALPARAM TOK_DEFPARAM
 %token TOK_PACKAGE TOK_ENDPACKAGE TOK_PACKAGESEP
-%token TOK_INTERFACE TOK_ENDINTERFACE TOK_MODPORT
+%token TOK_INTERFACE TOK_ENDINTERFACE TOK_MODPORT TOK_VAR
 %token TOK_INPUT TOK_OUTPUT TOK_INOUT TOK_WIRE TOK_REG TOK_LOGIC
 %token TOK_INTEGER TOK_SIGNED TOK_ASSIGN TOK_ALWAYS TOK_INITIAL
 %token TOK_BEGIN TOK_END TOK_IF TOK_ELSE TOK_FOR TOK_WHILE TOK_REPEAT
@@ -454,6 +454,9 @@ wire_type_token:
 		astbuf3->is_reg = true;
 	} |
 	TOK_LOGIC {
+		astbuf3->is_logic = true;
+	} |
+	TOK_VAR {
 		astbuf3->is_logic = true;
 	} |
 	TOK_INTEGER {
@@ -1340,6 +1343,9 @@ opt_sva_label:
 opt_property:
 	TOK_PROPERTY {
 		$$ = true;
+	} |
+	TOK_FINAL {
+		$$ = false;
 	} |
 	/* empty */ {
 		$$ = false;
