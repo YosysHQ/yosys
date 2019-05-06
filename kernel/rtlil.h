@@ -50,7 +50,7 @@ namespace RTLIL
 		CONST_FLAG_NONE   = 0,
 		CONST_FLAG_STRING = 1,
 		CONST_FLAG_SIGNED = 2,  // only used for parameters
-		CONST_FLAG_REAL   = 4   // unused -- to be used for parameters
+		CONST_FLAG_REAL   = 4   // only used for parameters
 	};
 
 	struct Const;

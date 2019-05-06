@@ -1,0 +1,56 @@
+read_verilog -specify specify.v
+prep
+cd test
+select t:$specify2 -assert-count 0
+select t:$specify3 -assert-count 1
+select t:$specrule -assert-count 2
+cd test2
+select t:$specify2 -assert-count 2
+select t:$specify3 -assert-count 0
+select t:$specrule -assert-count 0
+cd
+write_verilog specify.out
+design -stash gold
+
+read_verilog -specify specify.out
+prep
+cd test
+select t:$specify2 -assert-count 0
+select t:$specify3 -assert-count 1
+select t:$specrule -assert-count 2
+cd test2
+select t:$specify2 -assert-count 2
+select t:$specify3 -assert-count 0
+select t:$specrule -assert-count 0
+cd
+design -stash gate
+
+design -copy-from gold -as gold test
+design -copy-from gate -as gate test
+rename -hide
+rename -enumerate -pattern A_% t:$specify3
+rename -enumerate -pattern B_% t:$specrule r:TYPE=$setup %i
+rename -enumerate -pattern C_% t:$specrule r:TYPE=$hold %i
+select n:A_* -assert-count 2
+select n:B_* -assert-count 2
+select n:C_* -assert-count 2
+equiv_make gold gate equiv
+hierarchy -top equiv
+equiv_struct
+equiv_induct -seq 5
+equiv_status -assert
+design -reset
+
+design -copy-from gold -as gold test2
+design -copy-from gate -as gate test2
+rename -hide
+rename -enumerate -pattern A_% t:$specify2 r:T_RISE_TYP=1 %i
+rename -enumerate -pattern B_% t:$specify2 n:A_* %d
+select n:A_* -assert-count 2
+select n:B_* -assert-count 2
+equiv_make gold gate equiv
+hierarchy -top equiv
+equiv_struct
+equiv_induct -seq 5
+equiv_status -assert
+design -reset

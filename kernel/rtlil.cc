@@ -1194,6 +1194,46 @@ namespace {
 				return;
 			}
 
+			if (cell->type.in("$specify2", "$specify3")) {
+				param_bool("\\FULL");
+				param_bool("\\SRC_DST_PEN");
+				param_bool("\\SRC_DST_POL");
+				param("\\T_RISE_MIN");
+				param("\\T_RISE_TYP");
+				param("\\T_RISE_MAX");
+				param("\\T_FALL_MIN");
+				param("\\T_FALL_TYP");
+				param("\\T_FALL_MAX");
+				port("\\EN", 1);
+				port("\\SRC", param("\\SRC_WIDTH"));
+				port("\\DST", param("\\DST_WIDTH"));
+				if (cell->type == "$specify3") {
+					param_bool("\\EDGE_EN");
+					param_bool("\\EDGE_POL");
+					param_bool("\\DAT_DST_PEN");
+					param_bool("\\DAT_DST_POL");
+					port("\\DAT", param("\\DST_WIDTH"));
+				}
+				check_expected();
+				return;
+			}
+
+			if (cell->type == "$specrule") {
+				param("\\TYPE");
+				param_bool("\\SRC_PEN");
+				param_bool("\\SRC_POL");
+				param_bool("\\DST_PEN");
+				param_bool("\\DST_POL");
+				param("\\T_LIMIT");
+				param("\\T_LIMIT2");
+				port("\\SRC_EN", 1);
+				port("\\DST_EN", 1);
+				port("\\SRC", param("\\SRC_WIDTH"));
+				port("\\DST", param("\\DST_WIDTH"));
+				check_expected();
+				return;
+			}
+
 			if (cell->type == "$_BUF_")    { check_gate("AY"); return; }
 			if (cell->type == "$_NOT_")    { check_gate("AY"); return; }
 			if (cell->type == "$_AND_")    { check_gate("ABY"); return; }
