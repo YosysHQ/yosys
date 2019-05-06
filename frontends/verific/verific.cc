@@ -46,7 +46,7 @@ USING_YOSYS_NAMESPACE
 #include "VeriModule.h"
 #include "VeriWrite.h"
 #include "VhdlUnits.h"
-#include "Message.h"
+#include "VeriLibrary.h"
 
 #ifdef __clang__
 #pragma clang diagnostic pop
@@ -776,13 +776,14 @@ void VerificImporter::merge_past_ffs(pool<RTLIL::Cell*> &candidates)
 
 void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*> &nl_todo)
 {
-	std::string module_name = nl->IsOperator() ? std::string("$verific$") + nl->Owner()->Name() : RTLIL::escape_id(nl->Owner()->Name());
+	std::string netlist_name = nl->GetAtt(" \\top") ? nl->CellBaseName() : nl->Owner()->Name();
+	std::string module_name = nl->IsOperator() ? "$verific$" + netlist_name : RTLIL::escape_id(netlist_name);
 
 	netlist = nl;
 
 	if (design->has(module_name)) {
 		if (!nl->IsOperator() && !is_blackbox(nl))
-			log_cmd_error("Re-definition of module `%s'.\n", nl->Owner()->Name());
+			log_cmd_error("Re-definition of module `%s'.\n", netlist_name.c_str());
 		return;
 	}
 
@@ -1752,31 +1753,63 @@ struct VerificExtNets
 	}
 };
 
-void verific_import(Design *design, std::string top)
+void verific_import(Design *design, const std::map<std::string,std::string> &parameters, std::string top)
 {
 	verific_sva_fsm_limit = 16;
 
 	std::set<Netlist*> nl_todo, nl_done;
 
-	{
-		VhdlLibrary *vhdl_lib = vhdl_file::GetLibrary("work", 1);
-		VeriLibrary *veri_lib = veri_file::GetLibrary("work", 1);
+	VhdlLibrary *vhdl_lib = vhdl_file::GetLibrary("work", 1);
+	VeriLibrary *veri_lib = veri_file::GetLibrary("work", 1);
+	Array *netlists = NULL;
+	Array veri_libs, vhdl_libs;
+	if (vhdl_lib) vhdl_libs.InsertLast(vhdl_lib);
+	if (veri_lib) veri_libs.InsertLast(veri_lib);
 
-		Array veri_libs, vhdl_libs;
-		if (vhdl_lib) vhdl_libs.InsertLast(vhdl_lib);
-		if (veri_lib) veri_libs.InsertLast(veri_lib);
+	Map verific_params(STRING_HASH);
+	for (const auto &i : parameters)
+		verific_params.Insert(i.first.c_str(), i.second.c_str());
 
-		Array *netlists = hier_tree::ElaborateAll(&veri_libs, &vhdl_libs);
-		Netlist *nl;
-		int i;
+	if (top.empty()) {
+		netlists = hier_tree::ElaborateAll(&veri_libs, &vhdl_libs, &verific_params);
+	}
+	else {
+		Array veri_modules, vhdl_units;
 
-		FOREACH_ARRAY_ITEM(netlists, i, nl) {
-			if (top.empty() || nl->Owner()->Name() == top)
-				nl_todo.insert(nl);
+		if (veri_lib) {
+			VeriModule *veri_module = veri_lib->GetModule(top.c_str(), 1);
+			if (veri_module) {
+				veri_modules.InsertLast(veri_module);
+			}
+
+			// Also elaborate all root modules since they may contain bind statements
+			MapIter mi;
+			FOREACH_VERILOG_MODULE_IN_LIBRARY(veri_lib, mi, veri_module) {
+				if (!veri_module->IsRootModule()) continue;
+				veri_modules.InsertLast(veri_module);
+			}
 		}
 
-		delete netlists;
+		if (vhdl_lib) {
+			VhdlDesignUnit *vhdl_unit = vhdl_lib->GetPrimUnit(top.c_str());
+			if (vhdl_unit)
+				vhdl_units.InsertLast(vhdl_unit);
+		}
+
+		netlists = hier_tree::Elaborate(&veri_modules, &vhdl_units, &verific_params);
 	}
+
+	Netlist *nl;
+	int i;
+
+	FOREACH_ARRAY_ITEM(netlists, i, nl) {
+		if (top.empty() && nl->CellBaseName() != top)
+			continue;
+		nl->AddAtt(new Att(" \\top", NULL));
+		nl_todo.insert(nl);
+	}
+
+	delete netlists;
 
 	if (!verific_error_msg.empty())
 		log_error("%s\n", verific_error_msg.c_str());
@@ -2212,8 +2245,8 @@ struct VerificPass : public Pass {
 					continue;
 				}
 				if (args[argidx] == "-chparam"  && argidx+2 < GetSize(args)) {
-                                        const std::string &key = args[++argidx];
-                                        const std::string &value = args[++argidx];
+					const std::string &key = args[++argidx];
+					const std::string &value = args[++argidx];
 					unsigned new_insertion = parameters.Insert(key.c_str(), value.c_str(),
 									           1 /* force_overwrite */);
 					if (!new_insertion)
@@ -2270,12 +2303,22 @@ struct VerificPass : public Pass {
 				for (; argidx < GetSize(args); argidx++)
 				{
 					const char *name = args[argidx].c_str();
+					VeriLibrary* veri_lib = veri_file::GetLibrary(work.c_str(), 1);
 
-					VeriModule *veri_module = veri_file::GetModule(name);
-					if (veri_module) {
-						log("Adding Verilog module '%s' to elaboration queue.\n", name);
-						veri_modules.InsertLast(veri_module);
-						continue;
+					if (veri_lib) {
+						VeriModule *veri_module = veri_lib->GetModule(name, 1);
+						if (veri_module) {
+							log("Adding Verilog module '%s' to elaboration queue.\n", name);
+							veri_modules.InsertLast(veri_module);
+							continue;
+						}
+
+						// Also elaborate all root modules since they may contain bind statements
+						MapIter mi;
+						FOREACH_VERILOG_MODULE_IN_LIBRARY(veri_lib, mi, veri_module) {
+							if (!veri_module->IsRootModule()) continue;
+							veri_modules.InsertLast(veri_module);
+						}
 					}
 
 					VhdlLibrary *vhdl_lib = vhdl_file::GetLibrary(work.c_str(), 1);
@@ -2294,8 +2337,10 @@ struct VerificPass : public Pass {
 				Netlist *nl;
 				int i;
 
-				FOREACH_ARRAY_ITEM(netlists, i, nl)
+				FOREACH_ARRAY_ITEM(netlists, i, nl) {
+					nl->AddAtt(new Att(" \\top", NULL));
 					nl_todo.insert(nl);
+				}
 				delete netlists;
 			}
 
