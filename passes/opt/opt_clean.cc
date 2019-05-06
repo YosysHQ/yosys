@@ -85,22 +85,34 @@ void rmunused_module_cells(Module *module, bool verbose)
 {
 	SigMap sigmap(module);
 	pool<Cell*> queue, unused;
+	pool<SigBit> used_raw_bits;
 	dict<SigBit, pool<Cell*>> wire2driver;
+	dict<SigBit, vector<string>> driver_driver_logs;
+
+	SigMap raw_sigmap;
+	for (auto &it : module->connections_) {
+		for (int i = 0; i < GetSize(it.second); i++) {
+			if (it.second[i].wire != nullptr)
+				raw_sigmap.add(it.first[i], it.second[i]);
+		}
+	}
 
 	for (auto &it : module->cells_) {
 		Cell *cell = it.second;
 		for (auto &it2 : cell->connections()) {
-			if (!ct_all.cell_known(cell->type) || ct_all.cell_output(cell->type, it2.first))
-				for (auto raw_bit : it2.second) {
-					if (raw_bit.wire == nullptr)
-						continue;
-					auto bit = sigmap(raw_bit);
-					if (bit.wire == nullptr)
-						log_warning("Driver-driver conflict for %s between cell %s.%s and constant %s in %s: Resolved using constant.\n",
-								log_signal(raw_bit), log_id(cell), log_id(it2.first), log_signal(bit), log_id(module));
-					if (bit.wire != nullptr)
-						wire2driver[bit].insert(cell);
-				}
+			if (ct_all.cell_known(cell->type) && !ct_all.cell_output(cell->type, it2.first))
+				continue;
+			for (auto raw_bit : it2.second) {
+				if (raw_bit.wire == nullptr)
+					continue;
+				auto bit = sigmap(raw_bit);
+				if (bit.wire == nullptr)
+					driver_driver_logs[raw_sigmap(raw_bit)].push_back(stringf("Driver-driver conflict "
+							"for %s between cell %s.%s and constant %s in %s: Resolved using constant.",
+							log_signal(raw_bit), log_id(cell), log_id(it2.first), log_signal(bit), log_id(module)));
+				if (bit.wire != nullptr)
+					wire2driver[bit].insert(cell);
+			}
 		}
 		if (keep_cache.query(cell))
 			queue.insert(cell);
@@ -114,6 +126,8 @@ void rmunused_module_cells(Module *module, bool verbose)
 			for (auto bit : sigmap(wire))
 			for (auto c : wire2driver[bit])
 				queue.insert(c), unused.erase(c);
+			for (auto raw_bit : SigSpec(wire))
+				used_raw_bits.insert(raw_sigmap(raw_bit));
 		}
 	}
 
@@ -141,6 +155,22 @@ void rmunused_module_cells(Module *module, bool verbose)
 		module->design->scratchpad_set_bool("opt.did_something", true);
 		module->remove(cell);
 		count_rm_cells++;
+	}
+
+	for (auto &it : module->cells_) {
+		Cell *cell = it.second;
+		for (auto &it2 : cell->connections()) {
+			if (ct_all.cell_known(cell->type) && !ct_all.cell_input(cell->type, it2.first))
+				continue;
+			for (auto raw_bit : raw_sigmap(it2.second))
+				used_raw_bits.insert(raw_bit);
+		}
+	}
+
+	for (auto it : driver_driver_logs) {
+		if (used_raw_bits.count(it.first))
+			for (auto msg : it.second)
+				log_warning("%s\n", msg.c_str());
 	}
 }
 
