@@ -45,7 +45,7 @@ YOSYS_NAMESPACE_END
 USING_YOSYS_NAMESPACE
 %}
 
-%name-prefix "rtlil_frontend_ilang_yy"
+%define api.prefix {rtlil_frontend_ilang_yy}
 
 %union {
 	char *string;
