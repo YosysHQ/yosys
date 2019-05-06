@@ -8,9 +8,13 @@ endmatch
 
 code shamt
 	shamt = port(shift, \B);
+	if (shamt.empty())
+		reject;
 	if (shamt[GetSize(shamt)-1] == State::S0) {
 		do {
 			shamt.remove(GetSize(shamt)-1);
+			if (shamt.empty())
+				reject;
 		} while (shamt[GetSize(shamt)-1] == State::S0);
 	} else
 	if (shift->type.in($shift, $shiftx) && param(shift, \B_SIGNED).as_bool()) {
