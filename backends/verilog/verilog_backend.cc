@@ -1618,7 +1618,8 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 			SigSpec sig = active_sigmap(wire);
 			Const val = wire->attributes.at("\\init");
 			for (int i = 0; i < GetSize(sig) && i < GetSize(val); i++)
-				active_initdata[sig[i]] = val.bits.at(i);
+				if (val[i] == State::S0 || val[i] == State::S1)
+					active_initdata[sig[i]] = val[i];
 		}
 
 	if (!module->processes.empty())
