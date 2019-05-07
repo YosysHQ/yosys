@@ -320,22 +320,32 @@ void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 		if (initval.is_fully_undef())
 			wire->attributes.erase("\\init");
 
-		bool delete_this_wire = false;
+		if (GetSize(wire) == 0) {
+			// delete zero-width wires
+			goto delete_this_wire;
+		} else
 		if (wire->port_id != 0 || wire->get_bool_attribute("\\keep") || !initval.is_fully_undef()) {
-			/* do not delete anything with "keep" or module ports or initialized wires */
+			// do not delete anything with "keep" or module ports or initialized wires
 		} else
 		if (!purge_mode && check_public_name(wire->name)) {
-			/* do not get rid of public names unless in purge mode */
-		} else {
-			if (!raw_used_signals_noaliases.check_any(s1))
-				delete_this_wire = true;
-			if (!used_signals_nodrivers.check_any(s2))
-				delete_this_wire = true;
+			// do not get rid of public names unless in purge mode
+		} else
+		if (!raw_used_signals_noaliases.check_any(s1)) {
+			// delete wires that aren't used by anything directly
+			goto delete_this_wire;
+		} else
+		if (!used_signals_nodrivers.check_any(s2)) {
+			// delete wires that aren't used by anything indirectly, even though other wires may alias it
+			goto delete_this_wire;
 		}
 
-		if (delete_this_wire) {
+		if (0)
+		{
+	delete_this_wire:
 			del_wires_queue.insert(wire);
-		} else {
+		}
+		else
+		{
 			RTLIL::SigSig new_conn;
 			for (int i = 0; i < GetSize(s1); i++)
 				if (s1[i] != s2[i]) {
@@ -355,25 +365,25 @@ void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 				used_signals.add(new_conn.second);
 				module->connect(new_conn);
 			}
-		}
 
-		if (!used_signals_nodrivers.check_all(s2)) {
-			std::string unused_bits;
-			for (int i = 0; i < GetSize(s2); i++) {
-				if (s2[i].wire == NULL)
-					continue;
-				if (!used_signals_nodrivers.check(s2[i])) {
-					if (!unused_bits.empty())
-						unused_bits += " ";
-					unused_bits += stringf("%d", i);
+			if (!used_signals_nodrivers.check_all(s2)) {
+				std::string unused_bits;
+				for (int i = 0; i < GetSize(s2); i++) {
+					if (s2[i].wire == NULL)
+						continue;
+					if (!used_signals_nodrivers.check(s2[i])) {
+						if (!unused_bits.empty())
+							unused_bits += " ";
+						unused_bits += stringf("%d", i);
+					}
 				}
-			}
-			if (unused_bits.empty() || wire->port_id != 0)
+				if (unused_bits.empty() || wire->port_id != 0)
+					wire->attributes.erase("\\unused_bits");
+				else
+					wire->attributes["\\unused_bits"] = RTLIL::Const(unused_bits);
+			} else {
 				wire->attributes.erase("\\unused_bits");
-			else
-				wire->attributes["\\unused_bits"] = RTLIL::Const(unused_bits);
-		} else {
-			wire->attributes.erase("\\unused_bits");
+			}
 		}
 	}
 
