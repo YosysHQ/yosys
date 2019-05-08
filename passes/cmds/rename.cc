@@ -24,7 +24,7 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-static void rename_in_module(RTLIL::Module *module, std::string from_name, std::string to_name)
+static void rename_in_module(RTLIL::Module *module, std::string from_name, std::string to_name, bool flag_output)
 {
 	from_name = RTLIL::escape_id(from_name);
 	to_name = RTLIL::escape_id(to_name);
@@ -37,13 +37,18 @@ static void rename_in_module(RTLIL::Module *module, std::string from_name, std::
 			Wire *w = it.second;
 			log("Renaming wire %s to %s in module %s.\n", log_id(w), log_id(to_name), log_id(module));
 			module->rename(w, to_name);
-			if (w->port_id)
+			if (w->port_id || flag_output) {
+				if (flag_output)
+					w->port_output = true;
 				module->fixup_ports();
+			}
 			return;
 		}
 
 	for (auto &it : module->cells_)
 		if (it.first == from_name) {
+			if (flag_output)
+				log_cmd_error("Called with -output but the specified object is a cell.\n");
 			log("Renaming cell %s to %s in module %s.\n", log_id(it.second), log_id(to_name), log_id(module));
 			module->rename(it.second, to_name);
 			return;
@@ -108,14 +113,25 @@ struct RenamePass : public Pass {
 		log("Rename the specified object. Note that selection patterns are not supported\n");
 		log("by this command.\n");
 		log("\n");
+		log("\n");
+		log("\n");
+		log("    rename -output old_name new_name\n");
+		log("\n");
+		log("Like above, but also make the wire an output. This will fail if the object is\n");
+		log("not a wire.\n");
+		log("\n");
+		log("\n");
 		log("    rename -src [selection]\n");
 		log("\n");
 		log("Assign names auto-generated from the src attribute to all selected wires and\n");
 		log("cells with private names.\n");
 		log("\n");
+		log("\n");
 		log("    rename -wire [selection]\n");
+		log("\n");
 		log("Assign auto-generated names based on the wires they drive to all selected\n");
 		log("cells with private names. Ignores cells driving privatly named wires.\n");
+		log("\n");
 		log("\n");
 		log("    rename -enumerate [-pattern <pattern>] [selection]\n");
 		log("\n");
@@ -124,10 +140,12 @@ struct RenamePass : public Pass {
 		log("The character %% in the pattern is replaced with a integer number. The default\n");
 		log("pattern is '_%%_'.\n");
 		log("\n");
+		log("\n");
 		log("    rename -hide [selection]\n");
 		log("\n");
 		log("Assign private names (the ones with $-prefix) to all selected wires and cells\n");
 		log("with public names. This ignores all selected ports.\n");
+		log("\n");
 		log("\n");
 		log("    rename -top new_name\n");
 		log("\n");
@@ -142,6 +160,7 @@ struct RenamePass : public Pass {
 		bool flag_enumerate = false;
 		bool flag_hide = false;
 		bool flag_top = false;
+		bool flag_output = false;
 		bool got_mode = false;
 
 		size_t argidx;
@@ -150,6 +169,11 @@ struct RenamePass : public Pass {
 			std::string arg = args[argidx];
 			if (arg == "-src" && !got_mode) {
 				flag_src = true;
+				got_mode = true;
+				continue;
+			}
+			if (arg == "-output" && !got_mode) {
+				flag_output = true;
 				got_mode = true;
 				continue;
 			}
@@ -322,10 +346,12 @@ struct RenamePass : public Pass {
 			if (!design->selected_active_module.empty())
 			{
 				if (design->modules_.count(design->selected_active_module) > 0)
-					rename_in_module(design->modules_.at(design->selected_active_module), from_name, to_name);
+					rename_in_module(design->modules_.at(design->selected_active_module), from_name, to_name, flag_output);
 			}
 			else
 			{
+				if (flag_output)
+					log_cmd_error("Mode -output requires that there is an active module selected.\n");
 				for (auto &mod : design->modules_) {
 					if (mod.first == from_name || RTLIL::unescape_id(mod.first) == from_name) {
 						to_name = RTLIL::escape_id(to_name);

@@ -214,6 +214,8 @@ namespace AST
 			MEM2REG_FL_SET_ASYNC = 0x00000800,
 			MEM2REG_FL_EQ2       = 0x00001000,
 			MEM2REG_FL_CMPLX_LHS = 0x00002000,
+			MEM2REG_FL_CONST_LHS = 0x00004000,
+			MEM2REG_FL_VAR_LHS   = 0x00008000,
 
 			/* proc flags */
 			MEM2REG_FL_EQ1       = 0x01000000,
@@ -237,6 +239,7 @@ namespace AST
 		bool has_const_only_constructs(bool &recommend_const_eval);
 		void replace_variables(std::map<std::string, varinfo_t> &variables, AstNode *fcall);
 		AstNode *eval_const_function(AstNode *fcall);
+		bool is_simple_const_expr();
 
 		// create a human-readable text representation of the AST (for debugging)
 		void dumpAst(FILE *f, std::string indent) const;
@@ -279,14 +282,14 @@ namespace AST
 	};
 
 	// process an AST tree (ast must point to an AST_DESIGN node) and generate RTLIL code
-	void process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump_ast2, bool no_dump_ptr, bool dump_vlog, bool dump_rtlil, bool nolatches, bool nomeminit,
-			bool nomem2reg, bool mem2reg, bool lib, bool noopt, bool icells, bool nooverwrite, bool overwrite, bool defer, bool autowire);
+	void process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump_ast2, bool no_dump_ptr, bool dump_vlog1, bool dump_vlog2, bool dump_rtlil, bool nolatches, bool nomeminit,
+			bool nomem2reg, bool mem2reg, bool noblackbox, bool lib, bool nowb, bool noopt, bool icells, bool nooverwrite, bool overwrite, bool defer, bool autowire);
 
 	// parametric modules are supported directly by the AST library
 	// therefore we need our own derivate of RTLIL::Module with overloaded virtual functions
 	struct AstModule : RTLIL::Module {
 		AstNode *ast;
-		bool nolatches, nomeminit, nomem2reg, mem2reg, lib, noopt, icells, autowire;
+		bool nolatches, nomeminit, nomem2reg, mem2reg, noblackbox, lib, nowb, noopt, icells, autowire;
 		~AstModule() YS_OVERRIDE;
 		RTLIL::IdString derive(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters, bool mayfail) YS_OVERRIDE;
 		RTLIL::IdString derive(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters, dict<RTLIL::IdString, RTLIL::Module*> interfaces, dict<RTLIL::IdString, RTLIL::IdString> modports, bool mayfail) YS_OVERRIDE;

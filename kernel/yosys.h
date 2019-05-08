@@ -66,6 +66,10 @@
 #include <stdio.h>
 #include <limits.h>
 
+#ifdef WITH_PYTHON
+#include <Python.h>
+#endif
+
 #ifndef _YOSYS_
 #  error It looks like you are trying to build Yosys without the config defines set. \
          When building Yosys with a custom make system, make sure you set all the \
@@ -115,6 +119,7 @@ extern const char *Tcl_GetStringResult(Tcl_Interp *interp);
 #  define PATH_MAX 4096
 #endif
 
+#define YOSYS_NAMESPACE          Yosys
 #define PRIVATE_NAMESPACE_BEGIN  namespace {
 #define PRIVATE_NAMESPACE_END    }
 #define YOSYS_NAMESPACE_BEGIN    namespace Yosys {
@@ -239,7 +244,7 @@ extern bool memhasher_active;
 inline void memhasher() { if (memhasher_active) memhasher_do(); }
 
 void yosys_banner();
-int ceil_log2(int x);
+int ceil_log2(int x) YS_ATTRIBUTE(const);
 std::string stringf(const char *fmt, ...) YS_ATTRIBUTE(format(printf, 1, 2));
 std::string vstringf(const char *fmt, va_list ap);
 int readsome(std::istream &f, char *s, int n);
@@ -252,6 +257,7 @@ std::string make_temp_dir(std::string template_str = "/tmp/yosys_XXXXXX");
 bool check_file_exists(std::string filename, bool is_exec = false);
 bool is_absolute_path(std::string filename);
 void remove_directory(std::string dirname);
+std::string escape_filename_spaces(const std::string& filename);
 
 template<typename T> int GetSize(const T &obj) { return obj.size(); }
 int GetSize(RTLIL::Wire *wire);
@@ -276,6 +282,11 @@ namespace hashlib {
 }
 
 void yosys_setup();
+
+#ifdef WITH_PYTHON
+bool yosys_already_setup();
+#endif
+
 void yosys_shutdown();
 
 #ifdef YOSYS_ENABLE_TCL
@@ -317,6 +328,9 @@ extern std::vector<RTLIL::Design*> pushed_designs;
 
 // from passes/cmds/pluginc.cc
 extern std::map<std::string, void*> loaded_plugins;
+#ifdef WITH_PYTHON
+extern std::map<std::string, void*> loaded_python_plugins;
+#endif
 extern std::map<std::string, std::string> loaded_plugin_aliases;
 void load_plugin(std::string filename, std::vector<std::string> aliases);
 

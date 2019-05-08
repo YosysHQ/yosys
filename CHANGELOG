@@ -16,6 +16,7 @@ Yosys 0.8 .. Yosys 0.8-dev
     - Added "gate2lut.v" techmap rule
     - Added "rename -src"
     - Added "equiv_opt" pass
+    - "synth_xilinx" to now infer hard shift registers, using new "shregmap -tech xilinx"
 
 
 Yosys 0.7 .. Yosys 0.8

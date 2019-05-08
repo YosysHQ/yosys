@@ -64,6 +64,10 @@ extern int log_verbose_level;
 extern string log_last_error;
 extern void (*log_error_atexit)();
 
+extern int log_make_debug;
+extern int log_force_debug;
+extern int log_debug_suppressed;
+
 void logv(const char *format, va_list ap);
 void logv_header(RTLIL::Design *design, const char *format, va_list ap);
 void logv_warning(const char *format, va_list ap);
@@ -82,6 +86,45 @@ YS_NORETURN void log_error(const char *format, ...) YS_ATTRIBUTE(format(printf, 
 void log_file_error(const string &filename, int lineno, const char *format, ...) YS_ATTRIBUTE(format(printf, 3, 4), noreturn);
 YS_NORETURN void log_cmd_error(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2), noreturn);
 
+#ifndef NDEBUG
+static inline bool ys_debug(int n = 0) { if (log_force_debug) return true; log_debug_suppressed += n; return false; }
+#  define log_debug(...) do { if (ys_debug(1)) log(__VA_ARGS__); } while (0)
+#else
+static inline bool ys_debug(int n = 0) { return false; }
+#  define log_debug(_fmt, ...) do { } while (0)
+#endif
+
+static inline void log_suppressed() {
+	if (log_debug_suppressed && !log_make_debug) {
+		log("<suppressed ~%d debug messages>\n", log_debug_suppressed);
+		log_debug_suppressed = 0;
+	}
+}
+
+struct LogMakeDebugHdl {
+	bool status = false;
+	LogMakeDebugHdl(bool start_on = false) {
+		if (start_on)
+			on();
+	}
+	~LogMakeDebugHdl() {
+		off();
+	}
+	void on() {
+		if (status) return;
+		status=true;
+		log_make_debug++;
+	}
+	void off_silent() {
+		if (!status) return;
+		status=false;
+		log_make_debug--;
+	}
+	void off() {
+		off_silent();
+	}
+};
+
 void log_spacer();
 void log_push();
 void log_pop();
@@ -94,7 +137,9 @@ const char *log_signal(const RTLIL::SigSpec &sig, bool autoint = true);
 const char *log_const(const RTLIL::Const &value, bool autoint = true);
 const char *log_id(RTLIL::IdString id);
 
-template<typename T> static inline const char *log_id(T *obj) {
+template<typename T> static inline const char *log_id(T *obj, const char *nullstr = nullptr) {
+	if (nullstr && obj == nullptr)
+		return nullstr;
 	return log_id(obj->name);
 }
 

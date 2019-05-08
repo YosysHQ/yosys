@@ -56,6 +56,10 @@ int log_verbose_level;
 string log_last_error;
 void (*log_error_atexit)() = NULL;
 
+int log_make_debug = 0;
+int log_force_debug = 0;
+int log_debug_suppressed = 0;
+
 vector<int> header_count;
 pool<RTLIL::IdString> log_id_cache;
 vector<shared_str> string_buf;
@@ -91,6 +95,9 @@ void logv(const char *format, va_list ap)
 		log("\n");
 		format++;
 	}
+
+	if (log_make_debug && !ys_debug(1))
+		return;
 
 	std::string str = vstringf(format, ap);
 
@@ -196,7 +203,11 @@ void logv_header(RTLIL::Design *design, const char *format, va_list ap)
 	if (log_hdump.count(header_id) && design != nullptr)
 		for (auto &filename : log_hdump.at(header_id)) {
 			log("Dumping current design to '%s'.\n", filename.c_str());
+			if (yosys_xtrace)
+				IdString::xtrace_db_dump();
 			Pass::call(design, {"dump", "-o", filename});
+			if (yosys_xtrace)
+				log("#X# -- end of dump --\n");
 		}
 
 	if (pop_errfile)

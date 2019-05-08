@@ -7,8 +7,8 @@ use_modelsim=false
 verbose=false
 keeprunning=false
 makejmode=false
-frontend="verilog"
-backend_opts="-noattr -noexpr"
+frontend="verilog -noblackbox"
+backend_opts="-noattr -noexpr -siminit"
 autotb_opts=""
 include_opts=""
 xinclude_opts=""
@@ -17,12 +17,18 @@ scriptfiles=""
 scriptopt=""
 toolsdir="$(cd $(dirname $0); pwd)"
 warn_iverilog_git=false
+# The following are used in verilog to firrtl regression tests.
+# Typically these will be passed as environment variables:
+#EXTRA_FLAGS="--firrtl2verilog 'java -cp /.../firrtl/utils/bin/firrtl.jar firrtl.Driver'"
+# The tests are skipped if firrtl2verilog is the empty string (the default).
+firrtl2verilog=""
+xfirrtl="../xfirrtl"
 
 if [ ! -f $toolsdir/cmp_tbdata -o $toolsdir/cmp_tbdata.c -nt $toolsdir/cmp_tbdata ]; then
 	( set -ex; ${CC:-gcc} -Wall -o $toolsdir/cmp_tbdata $toolsdir/cmp_tbdata.c; ) || exit 1
 fi
 
-while getopts xmGl:wkjvref:s:p:n:S:I: opt; do
+while getopts xmGl:wkjvref:s:p:n:S:I:-: opt; do
 	case "$opt" in
 		x)
 			use_xsim=true ;;
@@ -43,7 +49,7 @@ while getopts xmGl:wkjvref:s:p:n:S:I: opt; do
 		r)
 			backend_opts="$backend_opts -norename" ;;
 		e)
-			backend_opts="$( echo " $backend_opts " | sed 's, -noexpr ,,; s,^ ,,; s, $,,;'; )" ;;
+			backend_opts="$( echo " $backend_opts " | sed 's, -noexpr , ,; s,^ ,,; s, $,,;'; )" ;;
 		f)
 			frontend="$OPTARG" ;;
 		s)
@@ -59,8 +65,24 @@ while getopts xmGl:wkjvref:s:p:n:S:I: opt; do
 			include_opts="$include_opts -I $OPTARG"
 			xinclude_opts="$xinclude_opts -i $OPTARG"
 			minclude_opts="$minclude_opts +incdir+$OPTARG" ;;
+		-)
+			case "${OPTARG}" in
+			    xfirrtl)
+			    	xfirrtl="${!OPTIND}"
+				OPTIND=$(( $OPTIND + 1 ))
+				;;
+			    firrtl2verilog)
+			    	firrtl2verilog="${!OPTIND}"
+				OPTIND=$(( $OPTIND + 1 ))
+				;;
+			    *)
+			    	if [ "$OPTERR" == 1 ] && [ "${optspec:0:1}" != ":" ]; then
+				    echo "Unknown option --${OPTARG}" >&2
+				fi
+				;;
+			esac;;
 		*)
-			echo "Usage: $0 [-x|-m] [-G] [-w] [-k] [-j] [-v] [-r] [-e] [-l libs] [-f frontend] [-s script] [-p cmdstring] [-n iters] [-S seed] [-I incdir] verilog-files\n" >&2
+			echo "Usage: $0 [-x|-m] [-G] [-w] [-k] [-j] [-v] [-r] [-e] [-l libs] [-f frontend] [-s script] [-p cmdstring] [-n iters] [-S seed] [-I incdir] [--xfirrtl FIRRTL test exclude file] [--firrtl2verilog command to generate verilog from firrtl] verilog-files\n" >&2
 			exit 1
 	esac
 done
@@ -86,8 +108,9 @@ shift $((OPTIND - 1))
 
 for fn
 do
-	bn=${fn%.v}
-	if [ "$bn" == "$fn" ]; then
+	bn=${fn%.*}
+	ext=${fn##*.}
+	if [[ "$ext" != "v" ]] && [[ "$ext" != "aag" ]] && [[ "$ext" != "aig" ]]; then
 		echo "Invalid argument: $fn" >&2
 		exit 1
 	fi
@@ -109,7 +132,13 @@ do
 		fn=$(basename $fn)
 		bn=$(basename $bn)
 
-		egrep -v '^\s*`timescale' ../$fn > ${bn}_ref.v
+		rm -f ${bn}_ref.fir
+		if [[ "$ext" == "v" ]]; then
+			egrep -v '^\s*`timescale' ../$fn > ${bn}_ref.${ext}
+		else
+			"$toolsdir"/../../yosys -f "$frontend $include_opts" -b "verilog" -o ${bn}_ref.v ../${fn}
+			frontend="verilog -noblackbox"
+		fi
 
 		if [ ! -f ../${bn}_tb.v ]; then
 			"$toolsdir"/../../yosys -f "$frontend $include_opts" -b "test_autotb $autotb_opts" -o ${bn}_tb.v ${bn}_ref.v
@@ -117,7 +146,9 @@ do
 			cp ../${bn}_tb.v ${bn}_tb.v
 		fi
 		if $genvcd; then sed -i 's,// \$dump,$dump,g' ${bn}_tb.v; fi
-		compile_and_run ${bn}_tb_ref ${bn}_out_ref ${bn}_tb.v ${bn}_ref.v $libs
+		compile_and_run ${bn}_tb_ref ${bn}_out_ref ${bn}_tb.v ${bn}_ref.v $libs \
+					"$toolsdir"/../../techlibs/common/simlib.v \
+					"$toolsdir"/../../techlibs/common/simcells.v
 		if $genvcd; then mv testbench.vcd ${bn}_ref.vcd; fi
 
 		test_count=0
@@ -148,6 +179,13 @@ do
 		else
 			test_passes -f "$frontend $include_opts" -p "hierarchy; proc; opt; memory; opt; fsm; opt -full -fine" ${bn}_ref.v
 			test_passes -f "$frontend $include_opts" -p "hierarchy; synth -run coarse; techmap; opt; abc -dff" ${bn}_ref.v
+			if [ -n "$firrtl2verilog" ]; then
+			    if test -z "$xfirrtl" || ! grep "$fn" "$xfirrtl" ; then
+				"$toolsdir"/../../yosys -b "firrtl" -o ${bn}_ref.fir -f "$frontend $include_opts" -p "prep -nordff; proc; opt; memory; opt; fsm; opt -full -fine; pmuxtree" ${bn}_ref.v
+				$firrtl2verilog -i ${bn}_ref.fir -o ${bn}_ref.fir.v
+				test_passes -f "$frontend $include_opts" -p "hierarchy; proc; opt; memory; opt; fsm; opt -full -fine" ${bn}_ref.fir.v
+			    fi
+			fi
 		fi
 		touch ../${bn}.log
 	}
@@ -160,14 +198,18 @@ do
 		( set -ex; body; ) > ${bn}.err 2>&1
 	fi
 
+	did_firrtl=""
+	if [ -f ${bn}.out/${bn}_ref.fir ]; then
+	    did_firrtl="+FIRRTL "
+	fi
 	if [ -f ${bn}.log ]; then
 		mv ${bn}.err ${bn}.log
-		echo "${status_prefix}-> ok"
+		echo "${status_prefix}${did_firrtl}-> ok"
 	elif [ -f ${bn}.skip ]; then
 		mv ${bn}.err ${bn}.skip
 		echo "${status_prefix}-> skip"
 	else
-		echo "${status_prefix}-> ERROR!"
+		echo "${status_prefix}${did_firrtl}-> ERROR!"
 		if $warn_iverilog_git; then
 			echo "Note: Make sure that 'iverilog' is an up-to-date git checkout of Icarus Verilog."
 		fi

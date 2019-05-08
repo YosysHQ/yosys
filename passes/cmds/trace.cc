@@ -94,4 +94,38 @@ struct TracePass : public Pass {
 	}
 } TracePass;
 
+struct DebugPass : public Pass {
+	DebugPass() : Pass("debug", "run command with debug log messages enabled") { }
+	void help() YS_OVERRIDE
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    debug cmd\n");
+		log("\n");
+		log("Execute the specified command with debug log messages enabled\n");
+		log("\n");
+	}
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	{
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++)
+		{
+			// .. parse options ..
+			break;
+		}
+
+		log_force_debug++;
+
+		try {
+			std::vector<std::string> new_args(args.begin() + argidx, args.end());
+			Pass::call(design, new_args);
+		} catch (...) {
+			log_force_debug--;
+			throw;
+		}
+
+		log_force_debug--;
+	}
+} DebugPass;
+
 PRIVATE_NAMESPACE_END

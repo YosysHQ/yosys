@@ -34,11 +34,24 @@ compatible license that is similar in terms to the MIT license
 or the 2-clause BSD license).
 
 
-Web Site
-========
+Web Site and Other Resources
+============================
 
 More information and documentation can be found on the Yosys web site:
-http://www.clifford.at/yosys/
+- http://www.clifford.at/yosys/
+
+The "Documentation" page on the web site contains links to more resources,
+including a manual that even describes some of the Yosys internals:
+- http://www.clifford.at/yosys/documentation.html
+
+The file `CodingReadme` in this directory contains additional information
+for people interested in using the Yosys C++ APIs.
+
+Users interested in formal verification might want to use the formal verification
+front-end for Yosys, SymbiYosys:
+- https://symbiyosys.readthedocs.io/en/latest/
+- https://github.com/YosysHQ/SymbiYosys
+
 
 Setup
 ======
@@ -53,25 +66,26 @@ prerequisites for building yosys:
 
 	$ sudo apt-get install build-essential clang bison flex \
 		libreadline-dev gawk tcl-dev libffi-dev git \
-		graphviz xdot pkg-config python3
+		graphviz xdot pkg-config python3 libboost-system-dev \
+		libboost-python-dev libboost-filesystem-dev
 
 Similarily, on Mac OS X MacPorts or Homebrew can be used to install dependencies:
 
 	$ brew tap Homebrew/bundle && brew bundle
 	$ sudo port install bison flex readline gawk libffi \
-		git graphviz pkgconfig python36
+		git graphviz pkgconfig python36 boost
 
 On FreeBSD use the following command to install all prerequisites:
 
 	# pkg install bison flex readline gawk libffi\
-		git graphviz pkgconfig python3 python36 tcl-wrapper
+		git graphviz pkgconfig python3 python36 tcl-wrapper boost-libs
 
 On FreeBSD system use gmake instead of make. To run tests use:
     % MAKE=gmake CC=cc gmake test
 
 For Cygwin use the following command to install all prerequisites, or select these additional packages:
 
-	setup-x86_64.exe -q --packages=bison,flex,gcc-core,gcc-g++,git,libffi-devel,libreadline-devel,make,pkg-config,python3,tcl-devel
+	setup-x86_64.exe -q --packages=bison,flex,gcc-core,gcc-g++,git,libffi-devel,libreadline-devel,make,pkg-config,python3,tcl-devel,boost-build
 
 There are also pre-compiled Yosys binary packages for Ubuntu and Win32 as well
 as a source distribution for Visual Studio. Visit the Yosys download page for
@@ -92,11 +106,14 @@ Makefile.
 To build Yosys simply type 'make' in this directory.
 
 	$ make
-	$ make test
 	$ sudo make install
 
 Note that this also downloads, builds and installs ABC (using yosys-abc
 as executable name).
+
+Tests are located in the tests subdirectory and can be executed using the test target. Note that you need gawk as well as a recent version of iverilog (i.e. build from git). Then, execute tests via:
+
+	$ make test
 
 Getting Started
 ===============
@@ -242,11 +259,7 @@ for them:
 
 - The ``tri``, ``triand``, ``trior``, ``wand`` and ``wor`` net types
 
-- The ``config`` keyword and library map files
-
-- The ``disable``, ``primitive`` and ``specify`` statements
-
-- Latched logic (is synthesized as logic with feedback loops)
+- The ``config`` and ``disable`` keywords and library map files
 
 
 Verilog Attributes and non-standard features
@@ -294,7 +307,25 @@ Verilog Attributes and non-standard features
   that have the same ports as the real thing but do not contain information
   on the internal configuration. This modules are only used by the synthesis
   passes to identify input and output ports of cells. The Verilog backend
-  also does not output blackbox modules on default.
+  also does not output blackbox modules on default. ``read_verilog``, unless
+  called with ``-noblackbox`` will automatically set the blackbox attribute
+  on any empty module it reads.
+
+- The ``noblackbox`` attribute set on an empty module prevents ``read_verilog``
+  from automatically setting the blackbox attribute on the module.
+
+- The ``whitebox`` attribute on modules triggers the same behavior as
+  ``blackbox``, but is for whitebox modules, i.e. library modules that
+  contain a behavioral model of the cell type.
+
+- The ``lib_whitebox`` attribute overwrites ``whitebox`` when ``read_verilog``
+  is run in `-lib` mode. Otherwise it's automatically removed.
+
+- The ``dynports`` attribute is used by the Verilog front-end to mark modules
+  that have ports with a width that depends on a parameter.
+
+- The ``hdlname`` attribute is used by some passes to document the original
+  (HDL) name of a module when renaming a module.
 
 - The ``keep`` attribute on cells and wires is used to mark objects that should
   never be removed by the optimizer. This is used for example for cells that
@@ -335,7 +366,7 @@ Verilog Attributes and non-standard features
 
 - When defining a macro with `define, all text between triple double quotes
   is interpreted as macro body, even if it contains unescaped newlines. The
-  tipple double quotes are removed from the macro body. For example:
+  triple double quotes are removed from the macro body. For example:
 
       `define MY_MACRO(a, b) """
          assign a = 23;
@@ -389,6 +420,11 @@ Verilog Attributes and non-standard features
   in an unconditional context (only if/case statements on parameters
   and constant values). The intended use for this is synthesis-time DRC.
 
+- There is limited support for converting specify .. endspecify statements to
+  special ``$specify2``, ``$specify3``, and ``$specrule`` cells, for use in
+  blackboxes and whiteboxes. Use ``read_verilog -specify`` to enable this
+  functionality. (By default specify .. endspecify blocks are ignored.)
+
 
 Non-standard or SystemVerilog features for formal verification
 ==============================================================
@@ -422,7 +458,7 @@ Non-standard or SystemVerilog features for formal verification
   supported in any clocked block.
 
 - The syntax ``@($global_clock)`` can be used to create FFs that have no
-  explicit clock input ($ff cells). The same can be achieved by using
+  explicit clock input (``$ff`` cells). The same can be achieved by using
   ``@(posedge <netname>)`` or ``@(negedge <netname>)`` when ``<netname>``
   is marked with the ``(* gclk *)`` Verilog attribute.
 
@@ -435,7 +471,7 @@ from SystemVerilog:
 
 - The ``assert`` statement from SystemVerilog is supported in its most basic
   form. In module context: ``assert property (<expression>);`` and within an
-  always block: ``assert(<expression>);``. It is transformed to a $assert cell.
+  always block: ``assert(<expression>);``. It is transformed to an ``$assert`` cell.
 
 - The ``assume``, ``restrict``, and ``cover`` statements from SystemVerilog are
   also supported. The same limitations as with the ``assert`` statement apply.

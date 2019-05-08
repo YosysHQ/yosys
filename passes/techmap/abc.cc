@@ -29,17 +29,17 @@
 // Kahn, Arthur B. (1962), "Topological sorting of large networks", Communications of the ACM 5 (11): 558-562, doi:10.1145/368996.369025
 // http://en.wikipedia.org/wiki/Topological_sorting
 
-#define ABC_COMMAND_LIB "strash; ifraig; scorr; dc2; dretime; strash; &get -n; &dch -f; &nf {D}; &put"
-#define ABC_COMMAND_CTR "strash; ifraig; scorr; dc2; dretime; strash; &get -n; &dch -f; &nf {D}; &put; buffer; upsize {D}; dnsize {D}; stime -p"
-#define ABC_COMMAND_LUT "strash; ifraig; scorr; dc2; dretime; strash; dch -f; if; mfs2"
-#define ABC_COMMAND_SOP "strash; ifraig; scorr; dc2; dretime; strash; dch -f; cover {I} {P}"
-#define ABC_COMMAND_DFL "strash; ifraig; scorr; dc2; dretime; strash; &get -n; &dch -f; &nf {D}; &put"
+#define ABC_COMMAND_LIB "strash; ifraig; scorr; dc2; dretime; retime {D}; strash; &get -n; &dch -f; &nf {D}; &put"
+#define ABC_COMMAND_CTR "strash; ifraig; scorr; dc2; dretime; retime {D}; strash; &get -n; &dch -f; &nf {D}; &put; buffer; upsize {D}; dnsize {D}; stime -p"
+#define ABC_COMMAND_LUT "strash; ifraig; scorr; dc2; dretime; retime {D}; strash; dch -f; if; mfs2"
+#define ABC_COMMAND_SOP "strash; ifraig; scorr; dc2; dretime; retime {D}; strash; dch -f; cover {I} {P}"
+#define ABC_COMMAND_DFL "strash; ifraig; scorr; dc2; dretime; retime {D}; strash; &get -n; &dch -f; &nf {D}; &put"
 
-#define ABC_FAST_COMMAND_LIB "strash; dretime; map {D}"
-#define ABC_FAST_COMMAND_CTR "strash; dretime; map {D}; buffer; upsize {D}; dnsize {D}; stime -p"
-#define ABC_FAST_COMMAND_LUT "strash; dretime; if"
-#define ABC_FAST_COMMAND_SOP "strash; dretime; cover -I {I} -P {P}"
-#define ABC_FAST_COMMAND_DFL "strash; dretime; map"
+#define ABC_FAST_COMMAND_LIB "strash; dretime; retime {D}; map {D}"
+#define ABC_FAST_COMMAND_CTR "strash; dretime; retime {D}; map {D}; buffer; upsize {D}; dnsize {D}; stime -p"
+#define ABC_FAST_COMMAND_LUT "strash; dretime; retime {D}; if"
+#define ABC_FAST_COMMAND_SOP "strash; dretime; retime {D}; cover -I {I} -P {P}"
+#define ABC_FAST_COMMAND_DFL "strash; dretime; retime {D}; map"
 
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
@@ -327,8 +327,43 @@ void extract_cell(RTLIL::Cell *cell, bool keepff)
 	}
 }
 
-std::string remap_name(RTLIL::IdString abc_name)
+std::string remap_name(RTLIL::IdString abc_name, RTLIL::Wire **orig_wire = nullptr)
 {
+	std::string abc_sname = abc_name.substr(1);
+	bool isnew = false;
+	if (abc_sname.substr(0, 4) == "new_")
+	{
+		abc_sname.erase(0, 4);
+		isnew = true;
+	}
+	if (abc_sname.substr(0, 5) == "ys__n")
+	{
+		abc_sname.erase(0, 5);
+		if (std::isdigit(abc_sname.at(0)))
+		{
+			int sid = std::stoi(abc_sname);
+			size_t postfix_start = abc_sname.find_first_not_of("0123456789");
+			std::string postfix = postfix_start != std::string::npos ? abc_sname.substr(postfix_start) : "";
+
+			if (sid < GetSize(signal_list))
+			{
+				auto sig = signal_list.at(sid);
+				if (sig.bit.wire != nullptr)
+				{
+					std::stringstream sstr;
+					sstr << "$abc$" << map_autoidx << "$" << sig.bit.wire->name.substr(1);
+					if (sig.bit.wire->width != 1)
+						sstr << "[" << sig.bit.offset << "]";
+					if (isnew)
+						sstr << "_new";
+					sstr << postfix;
+					if (orig_wire != nullptr)
+						*orig_wire = sig.bit.wire;
+					return sstr.str();
+				}
+			}
+		}
+	}
 	std::stringstream sstr;
 	sstr << "$abc$" << map_autoidx << "$" << abc_name.substr(1);
 	return sstr.str();
@@ -353,12 +388,12 @@ void dump_loop_graph(FILE *f, int &nr, std::map<int, std::set<int>> &edges, std:
 	}
 
 	for (auto n : nodes)
-		fprintf(f, "  n%d [label=\"%s\\nid=%d, count=%d\"%s];\n", n, log_signal(signal_list[n].bit),
+		fprintf(f, "  ys__n%d [label=\"%s\\nid=%d, count=%d\"%s];\n", n, log_signal(signal_list[n].bit),
 				n, in_counts[n], workpool.count(n) ? ", shape=box" : "");
 
 	for (auto &e : edges)
 	for (auto n : e.second)
-		fprintf(f, "  n%d -> n%d;\n", e.first, n);
+		fprintf(f, "  ys__n%d -> ys__n%d;\n", e.first, n);
 
 	fprintf(f, "}\n");
 }
@@ -624,7 +659,7 @@ struct abc_output_filter
 void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::string script_file, std::string exe_file,
 		std::string liberty_file, std::string constr_file, bool cleanup, vector<int> lut_costs, bool dff_mode, std::string clk_str,
 		bool keepff, std::string delay_target, std::string sop_inputs, std::string sop_products, std::string lutin_shared, bool fast_mode,
-		const std::vector<RTLIL::Cell*> &cells, bool show_tempdir, bool sop_mode)
+		const std::vector<RTLIL::Cell*> &cells, bool show_tempdir, bool sop_mode, bool abc_dress)
 {
 	module = current_module;
 	map_autoidx = autoidx++;
@@ -713,10 +748,6 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 	else
 		abc_script += fast_mode ? ABC_FAST_COMMAND_DFL : ABC_COMMAND_DFL;
 
-	if (script_file.empty() && !delay_target.empty())
-		for (size_t pos = abc_script.find("dretime;"); pos != std::string::npos; pos = abc_script.find("dretime;", pos+1))
-			abc_script = abc_script.substr(0, pos) + "dretime; retime -o {D};" + abc_script.substr(pos+8);
-
 	for (size_t pos = abc_script.find("{D}"); pos != std::string::npos; pos = abc_script.find("{D}", pos))
 		abc_script = abc_script.substr(0, pos) + delay_target + abc_script.substr(pos+3);
 
@@ -728,7 +759,8 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 
 	for (size_t pos = abc_script.find("{S}"); pos != std::string::npos; pos = abc_script.find("{S}", pos))
 		abc_script = abc_script.substr(0, pos) + lutin_shared + abc_script.substr(pos+3);
-
+	if (abc_dress)
+		abc_script += "; dress";
 	abc_script += stringf("; write_blif %s/output.blif", tempdir_name.c_str());
 	abc_script = add_echos_to_abc_cmd(abc_script);
 
@@ -784,7 +816,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 	for (auto &si : signal_list) {
 		if (!si.is_port || si.type != G(NONE))
 			continue;
-		fprintf(f, " n%d", si.id);
+		fprintf(f, " ys__n%d", si.id);
 		pi_map[count_input++] = log_signal(si.bit);
 	}
 	if (count_input == 0)
@@ -796,17 +828,17 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 	for (auto &si : signal_list) {
 		if (!si.is_port || si.type == G(NONE))
 			continue;
-		fprintf(f, " n%d", si.id);
+		fprintf(f, " ys__n%d", si.id);
 		po_map[count_output++] = log_signal(si.bit);
 	}
 	fprintf(f, "\n");
 
 	for (auto &si : signal_list)
-		fprintf(f, "# n%-5d %s\n", si.id, log_signal(si.bit));
+		fprintf(f, "# ys__n%-5d %s\n", si.id, log_signal(si.bit));
 
 	for (auto &si : signal_list) {
 		if (si.bit.wire == NULL) {
-			fprintf(f, ".names n%d\n", si.id);
+			fprintf(f, ".names ys__n%d\n", si.id);
 			if (si.bit == RTLIL::State::S1)
 				fprintf(f, "1\n");
 		}
@@ -815,68 +847,68 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 	int count_gates = 0;
 	for (auto &si : signal_list) {
 		if (si.type == G(BUF)) {
-			fprintf(f, ".names n%d n%d\n", si.in1, si.id);
+			fprintf(f, ".names ys__n%d ys__n%d\n", si.in1, si.id);
 			fprintf(f, "1 1\n");
 		} else if (si.type == G(NOT)) {
-			fprintf(f, ".names n%d n%d\n", si.in1, si.id);
+			fprintf(f, ".names ys__n%d ys__n%d\n", si.in1, si.id);
 			fprintf(f, "0 1\n");
 		} else if (si.type == G(AND)) {
-			fprintf(f, ".names n%d n%d n%d\n", si.in1, si.in2, si.id);
+			fprintf(f, ".names ys__n%d ys__n%d ys__n%d\n", si.in1, si.in2, si.id);
 			fprintf(f, "11 1\n");
 		} else if (si.type == G(NAND)) {
-			fprintf(f, ".names n%d n%d n%d\n", si.in1, si.in2, si.id);
+			fprintf(f, ".names ys__n%d ys__n%d ys__n%d\n", si.in1, si.in2, si.id);
 			fprintf(f, "0- 1\n");
 			fprintf(f, "-0 1\n");
 		} else if (si.type == G(OR)) {
-			fprintf(f, ".names n%d n%d n%d\n", si.in1, si.in2, si.id);
+			fprintf(f, ".names ys__n%d ys__n%d ys__n%d\n", si.in1, si.in2, si.id);
 			fprintf(f, "-1 1\n");
 			fprintf(f, "1- 1\n");
 		} else if (si.type == G(NOR)) {
-			fprintf(f, ".names n%d n%d n%d\n", si.in1, si.in2, si.id);
+			fprintf(f, ".names ys__n%d ys__n%d ys__n%d\n", si.in1, si.in2, si.id);
 			fprintf(f, "00 1\n");
 		} else if (si.type == G(XOR)) {
-			fprintf(f, ".names n%d n%d n%d\n", si.in1, si.in2, si.id);
+			fprintf(f, ".names ys__n%d ys__n%d ys__n%d\n", si.in1, si.in2, si.id);
 			fprintf(f, "01 1\n");
 			fprintf(f, "10 1\n");
 		} else if (si.type == G(XNOR)) {
-			fprintf(f, ".names n%d n%d n%d\n", si.in1, si.in2, si.id);
+			fprintf(f, ".names ys__n%d ys__n%d ys__n%d\n", si.in1, si.in2, si.id);
 			fprintf(f, "00 1\n");
 			fprintf(f, "11 1\n");
 		} else if (si.type == G(ANDNOT)) {
-			fprintf(f, ".names n%d n%d n%d\n", si.in1, si.in2, si.id);
+			fprintf(f, ".names ys__n%d ys__n%d ys__n%d\n", si.in1, si.in2, si.id);
 			fprintf(f, "10 1\n");
 		} else if (si.type == G(ORNOT)) {
-			fprintf(f, ".names n%d n%d n%d\n", si.in1, si.in2, si.id);
+			fprintf(f, ".names ys__n%d ys__n%d ys__n%d\n", si.in1, si.in2, si.id);
 			fprintf(f, "1- 1\n");
 			fprintf(f, "-0 1\n");
 		} else if (si.type == G(MUX)) {
-			fprintf(f, ".names n%d n%d n%d n%d\n", si.in1, si.in2, si.in3, si.id);
+			fprintf(f, ".names ys__n%d ys__n%d ys__n%d ys__n%d\n", si.in1, si.in2, si.in3, si.id);
 			fprintf(f, "1-0 1\n");
 			fprintf(f, "-11 1\n");
 		} else if (si.type == G(AOI3)) {
-			fprintf(f, ".names n%d n%d n%d n%d\n", si.in1, si.in2, si.in3, si.id);
+			fprintf(f, ".names ys__n%d ys__n%d ys__n%d ys__n%d\n", si.in1, si.in2, si.in3, si.id);
 			fprintf(f, "-00 1\n");
 			fprintf(f, "0-0 1\n");
 		} else if (si.type == G(OAI3)) {
-			fprintf(f, ".names n%d n%d n%d n%d\n", si.in1, si.in2, si.in3, si.id);
+			fprintf(f, ".names ys__n%d ys__n%d ys__n%d ys__n%d\n", si.in1, si.in2, si.in3, si.id);
 			fprintf(f, "00- 1\n");
 			fprintf(f, "--0 1\n");
 		} else if (si.type == G(AOI4)) {
-			fprintf(f, ".names n%d n%d n%d n%d n%d\n", si.in1, si.in2, si.in3, si.in4, si.id);
+			fprintf(f, ".names ys__n%d ys__n%d ys__n%d ys__n%d ys__n%d\n", si.in1, si.in2, si.in3, si.in4, si.id);
 			fprintf(f, "-0-0 1\n");
 			fprintf(f, "-00- 1\n");
 			fprintf(f, "0--0 1\n");
 			fprintf(f, "0-0- 1\n");
 		} else if (si.type == G(OAI4)) {
-			fprintf(f, ".names n%d n%d n%d n%d n%d\n", si.in1, si.in2, si.in3, si.in4, si.id);
+			fprintf(f, ".names ys__n%d ys__n%d ys__n%d ys__n%d ys__n%d\n", si.in1, si.in2, si.in3, si.in4, si.id);
 			fprintf(f, "00-- 1\n");
 			fprintf(f, "--00 1\n");
 		} else if (si.type == G(FF)) {
 			if (si.init == State::S0 || si.init == State::S1) {
-				fprintf(f, ".latch n%d n%d %d\n", si.in1, si.id, si.init == State::S1 ? 1 : 0);
+				fprintf(f, ".latch ys__n%d ys__n%d %d\n", si.in1, si.id, si.init == State::S1 ? 1 : 0);
 				recover_init = true;
 			} else
-				fprintf(f, ".latch n%d n%d 2\n", si.in1, si.id);
+				fprintf(f, ".latch ys__n%d ys__n%d 2\n", si.in1, si.id);
 		} else if (si.type != G(NONE))
 			log_abort();
 		if (si.type != G(NONE))
@@ -889,7 +921,6 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 	log("Extracted %d gates and %d wires to a netlist network with %d inputs and %d outputs.\n",
 			count_gates, GetSize(signal_list), count_input, count_output);
 	log_push();
-
 	if (count_output > 0)
 	{
 		log_header(design, "Executing ABC.\n");
@@ -988,7 +1019,10 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 			log_error("ABC output file does not contain a module `netlist'.\n");
 		for (auto &it : mapped_mod->wires_) {
 			RTLIL::Wire *w = it.second;
-			RTLIL::Wire *wire = module->addWire(remap_name(w->name));
+			RTLIL::Wire *orig_wire = nullptr;
+			RTLIL::Wire *wire = module->addWire(remap_name(w->name, &orig_wire));
+			if (orig_wire != nullptr && orig_wire->attributes.count("\\src"))
+				wire->attributes["\\src"] = orig_wire->attributes["\\src"];
 			if (markgroups) wire->attributes["\\abcgroup"] = map_autoidx;
 			design->select(module, wire);
 		}
@@ -1213,7 +1247,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		for (auto &si : signal_list)
 			if (si.is_port) {
 				char buffer[100];
-				snprintf(buffer, 100, "\\n%d", si.id);
+				snprintf(buffer, 100, "\\ys__n%d", si.id);
 				RTLIL::SigSig conn;
 				if (si.type != G(NONE)) {
 					conn.first = si.bit;
@@ -1407,6 +1441,11 @@ struct AbcPass : public Pass {
 		log("        this attribute is a unique integer for each ABC process started. This\n");
 		log("        is useful for debugging the partitioning of clock domains.\n");
 		log("\n");
+		log("    -dress\n");
+		log("        run the 'dress' command after all other ABC commands. This aims to\n");
+		log("        preserve naming by an equivalence check between the original and post-ABC\n");
+		log("        netlists (experimental).\n");
+		log("\n");
 		log("When neither -liberty nor -lut is used, the Yosys standard cell library is\n");
 		log("loaded into ABC before the ABC script is executed.\n");
 		log("\n");
@@ -1441,6 +1480,7 @@ struct AbcPass : public Pass {
 		std::string delay_target, sop_inputs, sop_products, lutin_shared = "-S 1";
 		bool fast_mode = false, dff_mode = false, keepff = false, cleanup = true;
 		bool show_tempdir = false, sop_mode = false;
+		bool abc_dress = false;
 		vector<int> lut_costs;
 		markgroups = false;
 
@@ -1553,6 +1593,10 @@ struct AbcPass : public Pass {
 			}
 			if (arg == "-mux16") {
 				map_mux16 = true;
+				continue;
+			}
+			if (arg == "-dress") {
+				abc_dress = true;
 				continue;
 			}
 			if (arg == "-g" && argidx+1 < args.size()) {
@@ -1695,7 +1739,7 @@ struct AbcPass : public Pass {
 								signal_init[initsig[i]] = State::S0;
 								break;
 							case State::S1:
-								signal_init[initsig[i]] = State::S0;
+								signal_init[initsig[i]] = State::S1;
 								break;
 							default:
 								break;
@@ -1704,7 +1748,7 @@ struct AbcPass : public Pass {
 
 			if (!dff_mode || !clk_str.empty()) {
 				abc_module(design, mod, script_file, exe_file, liberty_file, constr_file, cleanup, lut_costs, dff_mode, clk_str, keepff,
-						delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, mod->selected_cells(), show_tempdir, sop_mode);
+						delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, mod->selected_cells(), show_tempdir, sop_mode, abc_dress);
 				continue;
 			}
 
@@ -1849,7 +1893,7 @@ struct AbcPass : public Pass {
 				en_polarity = std::get<2>(it.first);
 				en_sig = assign_map(std::get<3>(it.first));
 				abc_module(design, mod, script_file, exe_file, liberty_file, constr_file, cleanup, lut_costs, !clk_sig.empty(), "$",
-						keepff, delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, it.second, show_tempdir, sop_mode);
+						keepff, delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, it.second, show_tempdir, sop_mode, abc_dress);
 				assign_map.set(mod);
 			}
 		}

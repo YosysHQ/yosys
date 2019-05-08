@@ -106,6 +106,10 @@ struct EdifBackend : public Backend {
 		log("        if the design contains constant nets. use \"hilomap\" to map to custom\n");
 		log("        constant drivers first)\n");
 		log("\n");
+		log("    -gndvccy\n");
+		log("        create \"GND\" and \"VCC\" cells with \"Y\" outputs. (the default is \"G\"\n");
+		log("        for \"GND\" and \"P\" for \"VCC\".)\n");
+		log("\n");
 		log("    -attrprop\n");
 		log("        create EDIF properties for cell attributes\n");
 		log("\n");
@@ -126,7 +130,7 @@ struct EdifBackend : public Backend {
 		bool port_rename = false;
 		bool attr_properties = false;
 		std::map<RTLIL::IdString, std::map<RTLIL::IdString, int>> lib_cell_ports;
-		bool nogndvcc = false;
+		bool nogndvcc = false, gndvccy = false;
 		CellTypes ct(design);
 		EdifNames edif_names;
 
@@ -139,6 +143,10 @@ struct EdifBackend : public Backend {
 			}
 			if (args[argidx] == "-nogndvcc") {
 				nogndvcc = true;
+				continue;
+			}
+			if (args[argidx] == "-gndvccy") {
+				gndvccy = true;
 				continue;
 			}
 			if (args[argidx] == "-attrprop") {
@@ -170,7 +178,7 @@ struct EdifBackend : public Backend {
 		for (auto module_it : design->modules_)
 		{
 			RTLIL::Module *module = module_it.second;
-			if (module->get_bool_attribute("\\blackbox"))
+			if (module->get_blackbox_attribute())
 				continue;
 
 			if (top_module_name.empty())
@@ -184,7 +192,7 @@ struct EdifBackend : public Backend {
 			for (auto cell_it : module->cells_)
 			{
 				RTLIL::Cell *cell = cell_it.second;
-				if (!design->modules_.count(cell->type) || design->modules_.at(cell->type)->get_bool_attribute("\\blackbox")) {
+				if (!design->modules_.count(cell->type) || design->modules_.at(cell->type)->get_blackbox_attribute()) {
 					lib_cell_ports[cell->type];
 					for (auto p : cell->connections())
 						lib_cell_ports[cell->type][p.first] = GetSize(p.second);
@@ -211,7 +219,7 @@ struct EdifBackend : public Backend {
 			*f << stringf("      (cellType GENERIC)\n");
 			*f << stringf("      (view VIEW_NETLIST\n");
 			*f << stringf("        (viewType NETLIST)\n");
-			*f << stringf("        (interface (port G (direction OUTPUT)))\n");
+			*f << stringf("        (interface (port %c (direction OUTPUT)))\n", gndvccy ? 'Y' : 'G');
 			*f << stringf("      )\n");
 			*f << stringf("    )\n");
 
@@ -219,7 +227,7 @@ struct EdifBackend : public Backend {
 			*f << stringf("      (cellType GENERIC)\n");
 			*f << stringf("      (view VIEW_NETLIST\n");
 			*f << stringf("        (viewType NETLIST)\n");
-			*f << stringf("        (interface (port P (direction OUTPUT)))\n");
+			*f << stringf("        (interface (port %c (direction OUTPUT)))\n", gndvccy ? 'Y' : 'P');
 			*f << stringf("      )\n");
 			*f << stringf("    )\n");
 		}
@@ -294,7 +302,7 @@ struct EdifBackend : public Backend {
 		*f << stringf("    (technology (numberDefinition))\n");
 		for (auto module : sorted_modules)
 		{
-			if (module->get_bool_attribute("\\blackbox"))
+			if (module->get_blackbox_attribute())
 				continue;
 
 			SigMap sigmap(module);
@@ -420,9 +428,9 @@ struct EdifBackend : public Backend {
 					if (nogndvcc)
 						log_error("Design contains constant nodes (map with \"hilomap\" first).\n");
 					if (sig == RTLIL::State::S0)
-						*f << stringf("            (portRef G (instanceRef GND))\n");
+						*f << stringf("            (portRef %c (instanceRef GND))\n", gndvccy ? 'Y' : 'G');
 					if (sig == RTLIL::State::S1)
-						*f << stringf("            (portRef P (instanceRef VCC))\n");
+						*f << stringf("            (portRef %c (instanceRef VCC))\n", gndvccy ? 'Y' : 'P');
 				}
 				*f << stringf("          ))\n");
 			}

@@ -1,0 +1,162 @@
+pattern ice40_dsp
+
+state <SigBit> clock
+state <bool> clock_pol clock_vld
+state <SigSpec> sigA sigB sigY sigS
+state <Cell*> addAB muxAB
+
+match mul
+	select mul->type.in($mul)
+	select GetSize(mul->getPort(\A)) + GetSize(mul->getPort(\B)) > 10
+	select GetSize(mul->getPort(\Y)) > 10
+endmatch
+
+match ffA
+	select ffA->type.in($dff)
+	// select nusers(port(ffA, \Q)) == 2
+	index <SigSpec> port(ffA, \Q) === port(mul, \A)
+	optional
+endmatch
+
+code sigA clock clock_pol clock_vld
+	sigA = port(mul, \A);
+
+	if (ffA) {
+		sigA = port(ffA, \D);
+
+		clock = port(ffA, \CLK).as_bit();
+		clock_pol = param(ffA, \CLK_POLARITY).as_bool();
+		clock_vld = true;
+	}
+endcode
+
+match ffB
+	select ffB->type.in($dff)
+	// select nusers(port(ffB, \Q)) == 2
+	index <SigSpec> port(ffB, \Q) === port(mul, \B)
+	optional
+endmatch
+
+code sigB clock clock_pol clock_vld
+	sigB = port(mul, \B);
+
+	if (ffB) {
+		sigB = port(ffB, \D);
+		SigBit c = port(ffB, \CLK).as_bit();
+		bool cp = param(ffB, \CLK_POLARITY).as_bool();
+
+		if (clock_vld && (c != clock || cp != clock_pol))
+			reject;
+
+		clock = c;
+		clock_pol = cp;
+		clock_vld = true;
+	}
+endcode
+
+match ffY
+	select ffY->type.in($dff)
+	select nusers(port(ffY, \D)) == 2
+	index <SigSpec> port(ffY, \D) === port(mul, \Y)
+	optional
+endmatch
+
+code sigY clock clock_pol clock_vld
+	sigY = port(mul, \Y);
+
+	if (ffY) {
+		sigY = port(ffY, \Q);
+		SigBit c = port(ffY, \CLK).as_bit();
+		bool cp = param(ffY, \CLK_POLARITY).as_bool();
+
+		if (clock_vld && (c != clock || cp != clock_pol))
+			reject;
+
+		clock = c;
+		clock_pol = cp;
+		clock_vld = true;
+	}
+endcode
+
+match addA
+	select addA->type.in($add)
+	select nusers(port(addA, \A)) == 2
+	index <SigSpec> port(addA, \A) === sigY
+	optional
+endmatch
+
+match addB
+	if !addA
+	select addB->type.in($add, $sub)
+	select nusers(port(addB, \B)) == 2
+	index <SigSpec> port(addB, \B) === sigY
+	optional
+endmatch
+
+code addAB sigS
+	if (addA) {
+		addAB = addA;
+		sigS = port(addA, \B);
+	}
+	if (addB) {
+		addAB = addB;
+		sigS = port(addB, \A);
+	}
+	if (addAB) {
+		int natural_mul_width = GetSize(sigA) + GetSize(sigB);
+		int actual_mul_width = GetSize(sigY);
+		int actual_acc_width = GetSize(sigS);
+
+		if ((actual_acc_width > actual_mul_width) && (natural_mul_width > actual_mul_width))
+			reject;
+		if ((actual_acc_width != actual_mul_width) && (param(mul, \A_SIGNED).as_bool() != param(addAB, \A_SIGNED).as_bool()))
+			reject;
+	}
+endcode
+
+match muxA
+	if addAB
+	select muxA->type.in($mux)
+	select nusers(port(muxA, \A)) == 2
+	index <SigSpec> port(muxA, \A) === port(addAB, \Y)
+	optional
+endmatch
+
+match muxB
+	if addAB
+	if !muxA
+	select muxB->type.in($mux)
+	select nusers(port(muxB, \B)) == 2
+	index <SigSpec> port(muxB, \B) === port(addAB, \Y)
+	optional
+endmatch
+
+code muxAB
+	muxAB = addAB;
+	if (muxA)
+		muxAB = muxA;
+	if (muxB)
+		muxAB = muxB;
+endcode
+
+match ffS
+	if muxAB
+	select ffS->type.in($dff)
+	select nusers(port(ffS, \D)) == 2
+	index <SigSpec> port(ffS, \D) === port(muxAB, \Y)
+	index <SigSpec> port(ffS, \Q) === sigS
+endmatch
+
+code clock clock_pol clock_vld
+	if (ffS) {
+		SigBit c = port(ffS, \CLK).as_bit();
+		bool cp = param(ffS, \CLK_POLARITY).as_bool();
+
+		if (clock_vld && (c != clock || cp != clock_pol))
+			reject;
+
+		clock = c;
+		clock_pol = cp;
+		clock_vld = true;
+	}
+endcode

@@ -50,7 +50,7 @@ namespace RTLIL
 		CONST_FLAG_NONE   = 0,
 		CONST_FLAG_STRING = 1,
 		CONST_FLAG_SIGNED = 2,  // only used for parameters
-		CONST_FLAG_REAL   = 4   // unused -- to be used for parameters
+		CONST_FLAG_REAL   = 4   // only used for parameters
 	};
 
 	struct Const;
@@ -76,6 +76,9 @@ namespace RTLIL
 
 	struct IdString
 	{
+		#undef YOSYS_XTRACE_GET_PUT
+		#undef YOSYS_SORT_ID_FREE_LIST
+
 		// the global id string cache
 
 		static struct destruct_guard_t {
@@ -89,9 +92,43 @@ namespace RTLIL
 		static dict<char*, int, hash_cstr_ops> global_id_index_;
 		static std::vector<int> global_free_idx_list_;
 
+		static int last_created_idx_ptr_;
+		static int last_created_idx_[8];
+
+		static inline void xtrace_db_dump()
+		{
+		#ifdef YOSYS_XTRACE_GET_PUT
+			for (int idx = 0; idx < GetSize(global_id_storage_); idx++)
+			{
+				if (global_id_storage_.at(idx) == nullptr)
+					log("#X# DB-DUMP index %d: FREE\n", idx);
+				else
+					log("#X# DB-DUMP index %d: '%s' (ref %d)\n", idx, global_id_storage_.at(idx), global_refcount_storage_.at(idx));
+			}
+		#endif
+		}
+
+		static inline void checkpoint()
+		{
+			last_created_idx_ptr_ = 0;
+			for (int i = 0; i < 8; i++) {
+				if (last_created_idx_[i])
+					put_reference(last_created_idx_[i]);
+				last_created_idx_[i] = 0;
+			}
+		#ifdef YOSYS_SORT_ID_FREE_LIST
+			std::sort(global_free_idx_list_.begin(), global_free_idx_list_.end(), std::greater<int>());
+		#endif
+		}
+
 		static inline int get_reference(int idx)
 		{
 			global_refcount_storage_.at(idx)++;
+		#ifdef YOSYS_XTRACE_GET_PUT
+			if (yosys_xtrace) {
+				log("#X# GET-BY-INDEX '%s' (index %d, refcount %d)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
+			}
+		#endif
 			return idx;
 		}
 
@@ -107,6 +144,11 @@ namespace RTLIL
 			auto it = global_id_index_.find((char*)p);
 			if (it != global_id_index_.end()) {
 				global_refcount_storage_.at(it->second)++;
+		#ifdef YOSYS_XTRACE_GET_PUT
+				if (yosys_xtrace) {
+					log("#X# GET-BY-NAME '%s' (index %d, refcount %d)\n", global_id_storage_.at(it->second), it->second, global_refcount_storage_.at(it->second));
+				}
+		#endif
 				return it->second;
 			}
 
@@ -124,16 +166,22 @@ namespace RTLIL
 			global_refcount_storage_.at(idx)++;
 
 			// Avoid Create->Delete->Create pattern
-			static IdString last_created_id;
-			put_reference(last_created_id.index_);
-			last_created_id.index_ = idx;
-			get_reference(last_created_id.index_);
+			if (last_created_idx_[last_created_idx_ptr_])
+				put_reference(last_created_idx_[last_created_idx_ptr_]);
+			last_created_idx_[last_created_idx_ptr_] = idx;
+			get_reference(last_created_idx_[last_created_idx_ptr_]);
+			last_created_idx_ptr_ = (last_created_idx_ptr_ + 1) & 7;
 
 			if (yosys_xtrace) {
 				log("#X# New IdString '%s' with index %d.\n", p, idx);
 				log_backtrace("-X- ", yosys_xtrace-1);
 			}
 
+		#ifdef YOSYS_XTRACE_GET_PUT
+			if (yosys_xtrace) {
+				log("#X# GET-BY-NAME '%s' (index %d, refcount %d)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
+			}
+		#endif
 			return idx;
 		}
 
@@ -143,6 +191,12 @@ namespace RTLIL
 			// global_refcount_storage_ has been run. in this case we simply do nothing.
 			if (!destruct_guard.ok)
 				return;
+
+		#ifdef YOSYS_XTRACE_GET_PUT
+			if (yosys_xtrace) {
+				log("#X# PUT '%s' (index %d, refcount %d)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
+			}
+		#endif
 
 			log_assert(global_refcount_storage_.at(idx) > 0);
 
@@ -463,6 +517,8 @@ struct RTLIL::Const
 	Const(RTLIL::State bit, int width = 1);
 	Const(const std::vector<RTLIL::State> &bits) : bits(bits) { flags = CONST_FLAG_NONE; }
 	Const(const std::vector<bool> &bits);
+	Const(const RTLIL::Const &c);
+	RTLIL::Const &operator =(const RTLIL::Const &other) = default;
 
 	bool operator <(const RTLIL::Const &other) const;
 	bool operator ==(const RTLIL::Const &other) const;
@@ -492,6 +548,14 @@ struct RTLIL::Const
 		return ret;
 	}
 
+	void extu(int width) {
+		bits.resize(width, RTLIL::State::S0);
+	}
+
+	void exts(int width) {
+		bits.resize(width, bits.empty() ? RTLIL::State::Sx : bits.back());
+	}
+
 	inline unsigned int hash() const {
 		unsigned int h = mkhash_init;
 		for (auto b : bits)
@@ -504,8 +568,12 @@ struct RTLIL::AttrObject
 {
 	dict<RTLIL::IdString, RTLIL::Const> attributes;
 
-	void set_bool_attribute(RTLIL::IdString id);
+	void set_bool_attribute(RTLIL::IdString id, bool value=true);
 	bool get_bool_attribute(RTLIL::IdString id) const;
+
+	bool get_blackbox_attribute(bool ignore_wb=false) const {
+		return get_bool_attribute("\\blackbox") || (!ignore_wb && get_bool_attribute("\\whitebox"));
+	}
 
 	void set_strpool_attribute(RTLIL::IdString id, const pool<string> &data);
 	void add_strpool_attribute(RTLIL::IdString id, const pool<string> &data);
@@ -529,6 +597,8 @@ struct RTLIL::SigChunk
 	SigChunk(int val, int width = 32);
 	SigChunk(RTLIL::State bit, int width = 1);
 	SigChunk(RTLIL::SigBit bit);
+	SigChunk(const RTLIL::SigChunk &sigchunk);
+	RTLIL::SigChunk &operator =(const RTLIL::SigChunk &other) = default;
 
 	RTLIL::SigChunk extract(int offset, int length) const;
 
@@ -553,6 +623,8 @@ struct RTLIL::SigBit
 	SigBit(const RTLIL::SigChunk &chunk);
 	SigBit(const RTLIL::SigChunk &chunk, int index);
 	SigBit(const RTLIL::SigSpec &sig);
+	SigBit(const RTLIL::SigBit &sigbit);
+	RTLIL::SigBit &operator =(const RTLIL::SigBit &other) = default;
 
 	bool operator <(const RTLIL::SigBit &other) const;
 	bool operator ==(const RTLIL::SigBit &other) const;
@@ -874,9 +946,13 @@ struct RTLIL::Design
 		}
 	}
 
+
 	std::vector<RTLIL::Module*> selected_modules() const;
 	std::vector<RTLIL::Module*> selected_whole_modules() const;
 	std::vector<RTLIL::Module*> selected_whole_modules_warn() const;
+#ifdef WITH_PYTHON
+	static std::map<unsigned int, RTLIL::Design*> *get_all_designs(void);
+#endif
 };
 
 struct RTLIL::Module : public RTLIL::AttrObject
@@ -914,6 +990,7 @@ public:
 	virtual void sort();
 	virtual void check();
 	virtual void optimize();
+	virtual void makeblackbox();
 
 	void connect(const RTLIL::SigSig &conn);
 	void connect(const RTLIL::SigSpec &lhs, const RTLIL::SigSpec &rhs);
@@ -1132,6 +1209,10 @@ public:
 	RTLIL::SigSpec Allconst  (RTLIL::IdString name, int width = 1, const std::string &src = "");
 	RTLIL::SigSpec Allseq    (RTLIL::IdString name, int width = 1, const std::string &src = "");
 	RTLIL::SigSpec Initstate (RTLIL::IdString name, const std::string &src = "");
+
+#ifdef WITH_PYTHON
+	static std::map<unsigned int, RTLIL::Module*> *get_all_modules(void);
+#endif
 };
 
 struct RTLIL::Wire : public RTLIL::AttrObject
@@ -1143,7 +1224,7 @@ protected:
 	// use module->addWire() and module->remove() to create or destroy wires
 	friend struct RTLIL::Module;
 	Wire();
-	~Wire() { };
+	~Wire();
 
 public:
 	// do not simply copy wires
@@ -1154,6 +1235,10 @@ public:
 	RTLIL::IdString name;
 	int width, start_offset, port_id;
 	bool port_input, port_output, upto;
+
+#ifdef WITH_PYTHON
+	static std::map<unsigned int, RTLIL::Wire*> *get_all_wires(void);
+#endif
 };
 
 struct RTLIL::Memory : public RTLIL::AttrObject
@@ -1165,6 +1250,10 @@ struct RTLIL::Memory : public RTLIL::AttrObject
 
 	RTLIL::IdString name;
 	int width, start_offset, size;
+#ifdef WITH_PYTHON
+	~Memory();
+	static std::map<unsigned int, RTLIL::Memory*> *get_all_memorys(void);
+#endif
 };
 
 struct RTLIL::Cell : public RTLIL::AttrObject
@@ -1176,6 +1265,7 @@ protected:
 	// use module->addCell() and module->remove() to create or destroy cells
 	friend struct RTLIL::Module;
 	Cell();
+	~Cell();
 
 public:
 	// do not simply copy cells
@@ -1216,6 +1306,10 @@ public:
 	}
 
 	template<typename T> void rewrite_sigspecs(T &functor);
+
+#ifdef WITH_PYTHON
+	static std::map<unsigned int, RTLIL::Cell*> *get_all_cells(void);
+#endif
 };
 
 struct RTLIL::CaseRule
@@ -1276,13 +1370,14 @@ inline RTLIL::SigBit::SigBit(RTLIL::Wire *wire) : wire(wire), offset(0) { log_as
 inline RTLIL::SigBit::SigBit(RTLIL::Wire *wire, int offset) : wire(wire), offset(offset) { log_assert(wire != nullptr); }
 inline RTLIL::SigBit::SigBit(const RTLIL::SigChunk &chunk) : wire(chunk.wire) { log_assert(chunk.width == 1); if (wire) offset = chunk.offset; else data = chunk.data[0]; }
 inline RTLIL::SigBit::SigBit(const RTLIL::SigChunk &chunk, int index) : wire(chunk.wire) { if (wire) offset = chunk.offset + index; else data = chunk.data[index]; }
+inline RTLIL::SigBit::SigBit(const RTLIL::SigBit &sigbit) : wire(sigbit.wire), data(sigbit.data){if(wire) offset = sigbit.offset;}
 
 inline bool RTLIL::SigBit::operator<(const RTLIL::SigBit &other) const {
 	if (wire == other.wire)
 		return wire ? (offset < other.offset) : (data < other.data);
 	if (wire != nullptr && other.wire != nullptr)
 		return wire->name < other.wire->name;
-	return wire < other.wire;
+	return (wire != nullptr) < (other.wire != nullptr);
 }
 
 inline bool RTLIL::SigBit::operator==(const RTLIL::SigBit &other) const {

@@ -11,4 +11,4 @@ do
 done
 shift "$((OPTIND-1))"
 
-exec ${MAKE:-make} -f ../tools/autotest.mk $seed EXTRA_FLAGS="-e" *.v
+exec ${MAKE:-make} -f ../tools/autotest.mk $seed EXTRA_FLAGS+="-e" *.v

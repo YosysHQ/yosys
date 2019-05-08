@@ -253,12 +253,9 @@ struct SynthEcp5Pass : public ScriptPass
 			if (!nodffe)
 				run("dff2dffe -direct-match $_DFF_* -direct-match $__DFFS_*");
 			run("techmap -D NO_LUT -map +/ecp5/cells_map.v");
-			run("opt_expr -mux_undef");
+			run("opt_expr -undriven -mux_undef");
 			run("simplemap");
-			// TODO
-#if 0
 			run("ecp5_ffinit");
-#endif
 		}
 
 		if (check_label("map_luts"))
@@ -268,9 +265,9 @@ struct SynthEcp5Pass : public ScriptPass
 			}
 			run("techmap -map +/ecp5/latches_map.v");
 			if (nomux)
-				run("abc -lut 4");
+				run("abc -lut 4 -dress");
 			else
-				run("abc -lut 4:7");
+				run("abc -lut 4:7 -dress");
 			run("clean");
 		}
 

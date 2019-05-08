@@ -110,6 +110,10 @@ int main(int argc, char **argv)
 	log_error_stderr = true;
 	yosys_banner();
 	yosys_setup();
+#ifdef WITH_PYTHON
+	PyRun_SimpleString(("sys.path.append(\""+proc_self_dirname()+"\")").c_str());
+	PyRun_SimpleString(("sys.path.append(\""+proc_share_dirname()+"plugins\")").c_str());
+#endif
 
 	if (argc == 2)
 	{
@@ -179,6 +183,7 @@ int main(int argc, char **argv)
 {
 	std::string frontend_command = "auto";
 	std::string backend_command = "auto";
+	std::vector<std::string> vlog_defines;
 	std::vector<std::string> passes_commands;
 	std::vector<std::string> plugin_filenames;
 	std::string output_filename = "";
@@ -268,7 +273,10 @@ int main(int argc, char **argv)
 		printf("    -A\n");
 		printf("        will call abort() at the end of the script. for debugging\n");
 		printf("\n");
-		printf("    -D <header_id>[:<filename>]\n");
+		printf("    -D <macro>[=<value>]\n");
+		printf("        set the specified Verilog define (via \"read -define\")\n");
+		printf("\n");
+		printf("    -P <header_id>[:<filename>]\n");
 		printf("        dump the design when printing the specified log header to a file.\n");
 		printf("        yosys_dump_<header_id>.il is used as filename if none is specified.\n");
 		printf("        Use 'ALL' as <header_id> to dump at every header.\n");
@@ -286,6 +294,9 @@ int main(int argc, char **argv)
 		printf("\n");
 		printf("    -E <depsfile>\n");
 		printf("        write a Makefile dependencies file with in- and output file names\n");
+		printf("\n");
+		printf("    -g\n");
+		printf("        globally enable debug log messages\n");
 		printf("\n");
 		printf("    -V\n");
 		printf("        print version information and exit\n");
@@ -307,7 +318,7 @@ int main(int argc, char **argv)
 	}
 
 	int opt;
-	while ((opt = getopt(argc, argv, "MXAQTVSm:f:Hh:b:o:p:l:L:qv:tds:c:W:w:e:D:E:")) != -1)
+	while ((opt = getopt(argc, argv, "MXAQTVSgm:f:Hh:b:o:p:l:L:qv:tds:c:W:w:e:D:P:E:")) != -1)
 	{
 		switch (opt)
 		{
@@ -331,6 +342,9 @@ int main(int argc, char **argv)
 			exit(0);
 		case 'S':
 			passes_commands.push_back("synth");
+			break;
+		case 'g':
+			log_force_debug++;
 			break;
 		case 'm':
 			plugin_filenames.push_back(optarg);
@@ -408,6 +422,9 @@ int main(int argc, char **argv)
 					std::regex_constants::egrep));
 			break;
 		case 'D':
+			vlog_defines.push_back(optarg);
+			break;
+		case 'P':
 			{
 				auto args = split_tokens(optarg, ":");
 				if (!args.empty() && args[0] == "ALL") {
@@ -462,6 +479,10 @@ int main(int argc, char **argv)
 #endif
 
 	yosys_setup();
+#ifdef WITH_PYTHON
+	PyRun_SimpleString(("sys.path.append(\""+proc_self_dirname()+"\")").c_str());
+	PyRun_SimpleString(("sys.path.append(\""+proc_share_dirname()+"plugins\")").c_str());
+#endif
 	log_error_atexit = yosys_atexit;
 
 	for (auto &fn : plugin_filenames)
@@ -471,6 +492,13 @@ int main(int argc, char **argv)
 		if (!got_output_filename)
 			backend_command = "";
 		shell(yosys_design);
+	}
+
+	if (!vlog_defines.empty()) {
+		std::string vdef_cmd = "read -define";
+		for (auto vdef : vlog_defines)
+			vdef_cmd += " " + vdef;
+		run_pass(vdef_cmd);
 	}
 
 	while (optind < argc)
@@ -501,13 +529,13 @@ int main(int argc, char **argv)
 			log_error("Can't open dependencies file for writing: %s\n", strerror(errno));
 		bool first = true;
 		for (auto fn : yosys_output_files) {
-			fprintf(f, "%s%s", first ? "" : " ", fn.c_str());
+			fprintf(f, "%s%s", first ? "" : " ", escape_filename_spaces(fn).c_str());
 			first = false;
 		}
 		fprintf(f, ":");
 		for (auto fn : yosys_input_files) {
 			if (yosys_output_files.count(fn) == 0)
-				fprintf(f, " %s", fn.c_str());
+				fprintf(f, " %s", escape_filename_spaces(fn).c_str());
 		}
 		fprintf(f, "\n");
 	}

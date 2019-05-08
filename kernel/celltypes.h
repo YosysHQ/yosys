@@ -82,6 +82,32 @@ struct CellTypes
 
 	void setup_internals()
 	{
+		setup_internals_eval();
+
+		IdString A = "\\A", B = "\\B", EN = "\\EN", Y = "\\Y";
+		IdString SRC = "\\SRC", DST = "\\DST", DAT = "\\DAT";
+		IdString EN_SRC = "\\EN_SRC", EN_DST = "\\EN_DST";
+
+		setup_type("$tribuf", {A, EN}, {Y}, true);
+
+		setup_type("$assert", {A, EN}, pool<RTLIL::IdString>(), true);
+		setup_type("$assume", {A, EN}, pool<RTLIL::IdString>(), true);
+		setup_type("$live", {A, EN}, pool<RTLIL::IdString>(), true);
+		setup_type("$fair", {A, EN}, pool<RTLIL::IdString>(), true);
+		setup_type("$cover", {A, EN}, pool<RTLIL::IdString>(), true);
+		setup_type("$initstate", pool<RTLIL::IdString>(), {Y}, true);
+		setup_type("$anyconst", pool<RTLIL::IdString>(), {Y}, true);
+		setup_type("$anyseq", pool<RTLIL::IdString>(), {Y}, true);
+		setup_type("$allconst", pool<RTLIL::IdString>(), {Y}, true);
+		setup_type("$allseq", pool<RTLIL::IdString>(), {Y}, true);
+		setup_type("$equiv", {A, B}, {Y}, true);
+		setup_type("$specify2", {EN, SRC, DST}, pool<RTLIL::IdString>(), true);
+		setup_type("$specify3", {EN, SRC, DST, DAT}, pool<RTLIL::IdString>(), true);
+		setup_type("$specrule", {EN_SRC, EN_DST, SRC, DST}, pool<RTLIL::IdString>(), true);
+	}
+
+	void setup_internals_eval()
+	{
 		std::vector<RTLIL::IdString> unary_ops = {
 			"$not", "$pos", "$neg",
 			"$reduce_and", "$reduce_or", "$reduce_xor", "$reduce_xnor", "$reduce_bool",
@@ -111,20 +137,6 @@ struct CellTypes
 		setup_type("$lcu", {P, G, CI}, {CO}, true);
 		setup_type("$alu", {A, B, CI, BI}, {X, Y, CO}, true);
 		setup_type("$fa", {A, B, C}, {X, Y}, true);
-
-		setup_type("$tribuf", {A, EN}, {Y}, true);
-
-		setup_type("$assert", {A, EN}, pool<RTLIL::IdString>(), true);
-		setup_type("$assume", {A, EN}, pool<RTLIL::IdString>(), true);
-		setup_type("$live", {A, EN}, pool<RTLIL::IdString>(), true);
-		setup_type("$fair", {A, EN}, pool<RTLIL::IdString>(), true);
-		setup_type("$cover", {A, EN}, pool<RTLIL::IdString>(), true);
-		setup_type("$initstate", pool<RTLIL::IdString>(), {Y}, true);
-		setup_type("$anyconst", pool<RTLIL::IdString>(), {Y}, true);
-		setup_type("$anyseq", pool<RTLIL::IdString>(), {Y}, true);
-		setup_type("$allconst", pool<RTLIL::IdString>(), {Y}, true);
-		setup_type("$allseq", pool<RTLIL::IdString>(), {Y}, true);
-		setup_type("$equiv", {A, B}, {Y}, true);
 	}
 
 	void setup_internals_mem()
@@ -154,6 +166,15 @@ struct CellTypes
 
 	void setup_stdcells()
 	{
+		setup_stdcells_eval();
+
+		IdString A = "\\A", E = "\\E", Y = "\\Y";
+
+		setup_type("$_TBUF_", {A, E}, {Y}, true);
+	}
+
+	void setup_stdcells_eval()
+	{
 		IdString A = "\\A", B = "\\B", C = "\\C", D = "\\D";
 		IdString E = "\\E", F = "\\F", G = "\\G", H = "\\H";
 		IdString I = "\\I", J = "\\J", K = "\\K", L = "\\L";
@@ -179,7 +200,6 @@ struct CellTypes
 		setup_type("$_OAI3_", {A, B, C}, {Y}, true);
 		setup_type("$_AOI4_", {A, B, C, D}, {Y}, true);
 		setup_type("$_OAI4_", {A, B, C, D}, {Y}, true);
-		setup_type("$_TBUF_", {A, E}, {Y}, true);
 	}
 
 	void setup_stdcells_mem()
@@ -449,7 +469,7 @@ struct CellTypes
 		if (cell->type == "$_AOI4_")
 			return eval_not(const_or(const_and(arg1, arg2, false, false, 1), const_and(arg3, arg4, false, false, 1), false, false, 1));
 		if (cell->type == "$_OAI4_")
-			return eval_not(const_and(const_or(arg1, arg2, false, false, 1), const_and(arg3, arg4, false, false, 1), false, false, 1));
+			return eval_not(const_and(const_or(arg1, arg2, false, false, 1), const_or(arg3, arg4, false, false, 1), false, false, 1));
 
 		log_assert(arg4.bits.size() == 0);
 		return eval(cell, arg1, arg2, arg3, errp);

@@ -33,7 +33,7 @@
 #  include <dlfcn.h>
 #endif
 
-#ifdef _WIN32
+#if defined(_WIN32)
 #  include <windows.h>
 #  include <io.h>
 #elif defined(__APPLE__)
@@ -41,18 +41,30 @@
 #  include <unistd.h>
 #  include <dirent.h>
 #  include <sys/stat.h>
-#  include <glob.h>
 #else
 #  include <unistd.h>
 #  include <dirent.h>
 #  include <sys/types.h>
 #  include <sys/wait.h>
 #  include <sys/stat.h>
+#endif
+
+#if !defined(_WIN32) && defined(YOSYS_ENABLE_GLOB)
 #  include <glob.h>
 #endif
 
 #ifdef __FreeBSD__
 #  include <sys/sysctl.h>
+#endif
+
+#ifdef WITH_PYTHON
+#if PY_MAJOR_VERSION >= 3
+#   define INIT_MODULE PyInit_libyosys
+    extern "C" PyObject* INIT_MODULE();
+#else
+#   define INIT_MODULE initlibyosys
+	extern "C" void INIT_MODULE();
+#endif
 #endif
 
 #include <limits.h>
@@ -139,14 +151,16 @@ void yosys_banner()
 
 int ceil_log2(int x)
 {
+#if defined(__GNUC__)
+        return x > 1 ? (8*sizeof(int)) - __builtin_clz(x-1) : 0;
+#else
 	if (x <= 0)
 		return 0;
-
 	for (int i = 0; i < 32; i++)
 		if (((x-1) >> i) == 0)
 			return i;
-
 	log_abort();
+#endif
 }
 
 std::string stringf(const char *fmt, ...)
@@ -216,12 +230,18 @@ std::string next_token(std::string &text, const char *sep, bool long_strings)
 
 	if (long_strings && pos_begin != text.size() && text[pos_begin] == '"') {
 		string sep_string = sep;
-		for (size_t i = pos_begin+1; i < text.size(); i++)
+		for (size_t i = pos_begin+1; i < text.size(); i++) {
 			if (text[i] == '"' && (i+1 == text.size() || sep_string.find(text[i+1]) != std::string::npos)) {
 				std::string token = text.substr(pos_begin, i-pos_begin+1);
 				text = text.substr(i+1);
 				return token;
 			}
+			if (i+1 < text.size() && text[i] == '"' && text[i+1] == ';' && (i+2 == text.size() || sep_string.find(text[i+2]) != std::string::npos)) {
+				std::string token = text.substr(pos_begin, i-pos_begin+1);
+				text = text.substr(i+2);
+				return token + ";";
+			}
+		}
 	}
 
 	size_t pos_end = text.find_first_of(sep, pos_begin);
@@ -464,17 +484,42 @@ void remove_directory(std::string dirname)
 #endif
 }
 
+std::string escape_filename_spaces(const std::string& filename)
+{
+	std::string out;
+	out.reserve(filename.size());
+	for (auto c : filename)
+	{
+		if (c == ' ')
+			out += "\\ ";
+		else
+			out.push_back(c);
+	}
+	return out;
+}
+
 int GetSize(RTLIL::Wire *wire)
 {
 	return wire->width;
 }
 
+bool already_setup = false;
+
 void yosys_setup()
 {
+	if(already_setup)
+		return;
+	already_setup = true;
 	// if there are already IdString objects then we have a global initialization order bug
 	IdString empty_id;
 	log_assert(empty_id.index_ == 0);
 	IdString::get_reference(empty_id.index_);
+
+	#ifdef WITH_PYTHON
+		PyImport_AppendInittab((char*)"libyosys", INIT_MODULE);
+		Py_Initialize();
+		PyRun_SimpleString("import sys");
+	#endif
 
 	Pass::init_register();
 	yosys_design = new RTLIL::Design;
@@ -482,8 +527,18 @@ void yosys_setup()
 	log_push();
 }
 
+bool yosys_already_setup()
+{
+	return already_setup;
+}
+
+bool already_shutdown = false;
+
 void yosys_shutdown()
 {
+	if(already_shutdown)
+		return;
+	already_shutdown = true;
 	log_pop();
 
 	delete yosys_design;
@@ -511,7 +566,14 @@ void yosys_shutdown()
 		dlclose(it.second);
 
 	loaded_plugins.clear();
+#ifdef WITH_PYTHON
+	loaded_python_plugins.clear();
+#endif
 	loaded_plugin_aliases.clear();
+#endif
+
+#ifdef WITH_PYTHON
+	Py_Finalize();
 #endif
 
 	IdString empty_id;
@@ -564,7 +626,7 @@ std::vector<std::string> glob_filename(const std::string &filename_pattern)
 {
 	std::vector<std::string> results;
 
-#ifdef _WIN32
+#if defined(_WIN32) || !defined(YOSYS_ENABLE_GLOB)
 	results.push_back(filename_pattern);
 #else
 	glob_t globbuf;

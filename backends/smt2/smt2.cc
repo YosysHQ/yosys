@@ -416,6 +416,7 @@ struct Smt2Worker
 		for (char ch : expr) {
 			if (ch == 'A') processed_expr += get_bv(sig_a);
 			else if (ch == 'B') processed_expr += get_bv(sig_b);
+			else if (ch == 'P') processed_expr += get_bv(cell->getPort("\\B"));
 			else if (ch == 'L') processed_expr += is_signed ? "a" : "l";
 			else if (ch == 'U') processed_expr += is_signed ? "s" : "u";
 			else processed_expr += ch;
@@ -554,7 +555,7 @@ struct Smt2Worker
 
 			if (cell->type.in("$shift", "$shiftx")) {
 				if (cell->getParam("\\B_SIGNED").as_bool()) {
-					return export_bvop(cell, stringf("(ite (bvsge B #b%0*d) "
+					return export_bvop(cell, stringf("(ite (bvsge P #b%0*d) "
 							"(bvlshr A B) (bvlshr A (bvneg B)))",
 							GetSize(cell->getPort("\\B")), 0), 's');
 				} else {
@@ -887,8 +888,8 @@ struct Smt2Worker
 
 				string name_a = get_bool(cell->getPort("\\A"));
 				string name_en = get_bool(cell->getPort("\\EN"));
-				decls.push_back(stringf("; yosys-smt2-%s %d %s\n", cell->type.c_str() + 1, id,
-						cell->attributes.count("\\src") ? cell->attributes.at("\\src").decode_string().c_str() : get_id(cell)));
+				string infostr = (cell->name[0] == '$' && cell->attributes.count("\\src")) ? cell->attributes.at("\\src").decode_string() : get_id(cell);
+				decls.push_back(stringf("; yosys-smt2-%s %d %s\n", cell->type.c_str() + 1, id, infostr.c_str()));
 
 				if (cell->type == "$cover")
 					decls.push_back(stringf("(define-fun |%s_%c %d| ((state |%s_s|)) Bool (and %s %s)) ; %s\n",
@@ -1103,20 +1104,27 @@ struct Smt2Worker
 							break;
 
 						Const initword = init_data.extract(i*width, width, State::Sx);
+						Const initmask = initword;
 						bool gen_init_constr = false;
 
-						for (auto bit : initword.bits)
-							if (bit == State::S0 || bit == State::S1)
+						for (int k = 0; k < GetSize(initword); k++) {
+							if (initword[k] == State::S0 || initword[k] == State::S1) {
 								gen_init_constr = true;
+								initmask[k] = State::S1;
+							} else {
+								initmask[k] = State::S0;
+								initword[k] = State::S0;
+							}
+						}
 
 						if (gen_init_constr)
 						{
 							if (statebv)
 								/* FIXME */;
 							else
-								init_list.push_back(stringf("(= (select (|%s#%d#0| state) #b%s) #b%s) ; %s[%d]",
+								init_list.push_back(stringf("(= (bvand (select (|%s#%d#0| state) #b%s) #b%s) #b%s) ; %s[%d]",
 										get_id(module), arrayid, Const(i, abits).as_string().c_str(),
-										initword.as_string().c_str(), get_id(cell), i));
+										initmask.as_string().c_str(), initword.as_string().c_str(), get_id(cell), i));
 						}
 					}
 				}
@@ -1535,7 +1543,7 @@ struct Smt2Backend : public Backend {
 
 		for (auto module : sorted_modules)
 		{
-			if (module->get_bool_attribute("\\blackbox") || module->has_memories_warn() || module->has_processes_warn())
+			if (module->get_blackbox_attribute() || module->has_memories_warn() || module->has_processes_warn())
 				continue;
 
 			log("Creating SMT-LIBv2 representation of module %s.\n", log_id(module));

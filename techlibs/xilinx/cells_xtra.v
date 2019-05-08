@@ -30,29 +30,6 @@ module BUFGCE_1 (...);
     input CE, I;
 endmodule
 
-module BUFGCTRL (...);
-    output O;
-    input CE0;
-    input CE1;
-    input I0;
-    input I1;
-    input IGNORE0;
-    input IGNORE1;
-    input S0;
-    input S1;
-    parameter integer INIT_OUT = 0;
-    parameter PRESELECT_I0 = "FALSE";
-    parameter PRESELECT_I1 = "FALSE";
-    parameter [0:0] IS_CE0_INVERTED = 1'b0;
-    parameter [0:0] IS_CE1_INVERTED = 1'b0;
-    parameter [0:0] IS_I0_INVERTED = 1'b0;
-    parameter [0:0] IS_I1_INVERTED = 1'b0;
-    parameter [0:0] IS_IGNORE0_INVERTED = 1'b0;
-    parameter [0:0] IS_IGNORE1_INVERTED = 1'b0;
-    parameter [0:0] IS_S0_INVERTED = 1'b0;
-    parameter [0:0] IS_S1_INVERTED = 1'b0;
-endmodule
-
 module BUFGMUX (...);
     parameter CLK_SEL_TYPE = "SYNC";
     output O;
@@ -74,15 +51,6 @@ endmodule
 
 module BUFH (...);
     output O;
-    input I;
-endmodule
-
-module BUFHCE (...);
-    parameter CE_TYPE = "SYNC";
-    parameter integer INIT_OUT = 0;
-    parameter [0:0] IS_CE_INVERTED = 1'b0;
-    output O;
-    input CE;
     input I;
 endmodule
 
@@ -114,6 +82,7 @@ module BUFR (...);
     parameter SIM_DEVICE = "7SERIES";
 endmodule
 
+(* keep *)
 module CAPTUREE2 (...);
     parameter ONESHOT = "TRUE";
     input CAP;
@@ -130,6 +99,7 @@ module CFGLUT5 (...);
     input CDI, CE, CLK;
 endmodule
 
+(* keep *)
 module DCIRESET (...);
     output LOCKED;
     input RST;
@@ -2102,6 +2072,7 @@ module IBUFDS_INTERMDISABLE (...);
     input INTERMDISABLE;
 endmodule
 
+(* keep *)
 module ICAPE2 (...);
     parameter [31:0] DEVICE_ID = 32'h04244093;
     parameter ICAP_WIDTH = "X32";
@@ -2149,6 +2120,7 @@ module IDDR_2CLK (...);
     input S;
 endmodule
 
+(* keep *)
 module IDELAYCTRL (...);
     parameter SIM_DEVICE = "7SERIES";
     output RDY;
@@ -2414,12 +2386,6 @@ module LDPE (...);
     parameter XON = "TRUE";
     output Q;
     input D, G, GE, PRE;
-endmodule
-
-module LUT6_2 (...);
-    parameter [63:0] INIT = 64'h0000000000000000;
-    input I0, I1, I2, I3, I4, I5;
-    output O5, O6;
 endmodule
 
 module MMCME2_ADV (...);
@@ -3057,6 +3023,7 @@ module PLLE2_BASE (...);
     input RST;
 endmodule
 
+(* keep *)
 module PS7 (...);
     output DMA0DAVALID;
     output DMA0DRREADY;
@@ -3688,6 +3655,17 @@ module PULLUP (...);
     output O;
 endmodule
 
+module RAM128X1D (...);
+    parameter [127:0] INIT = 128'h00000000000000000000000000000000;
+    parameter [0:0] IS_WCLK_INVERTED = 1'b0;
+    output DPO, SPO;
+    input [6:0] A;
+    input [6:0] DPRA;
+    input D;
+    input WCLK;
+    input WE;
+endmodule
+
 module RAM128X1S (...);
     parameter [127:0] INIT = 128'h00000000000000000000000000000000;
     parameter [0:0] IS_WCLK_INVERTED = 1'b0;
@@ -3778,6 +3756,13 @@ module RAM64M (...);
     input WE;
 endmodule
 
+module RAM64X1D (...);
+    parameter [63:0] INIT = 64'h0000000000000000;
+    parameter [0:0] IS_WCLK_INVERTED = 1'b0;
+    output DPO, SPO;
+    input A0, A1, A2, A3, A4, A5, D, DPRA0, DPRA1, DPRA2, DPRA3, DPRA4, DPRA5, WCLK, WE;
+endmodule
+
 module RAM64X1S (...);
     parameter [63:0] INIT = 64'h0000000000000000;
     parameter [0:0] IS_WCLK_INVERTED = 1'b0;
@@ -3824,22 +3809,7 @@ module ROM64X1 (...);
     input A0, A1, A2, A3, A4, A5;
 endmodule
 
-module SRL16E (...);
-    parameter [15:0] INIT = 16'h0000;
-    parameter [0:0] IS_CLK_INVERTED = 1'b0;
-    output Q;
-    input A0, A1, A2, A3, CE, CLK, D;
-endmodule
-
-module SRLC32E (...);
-    parameter [31:0] INIT = 32'h00000000;
-    parameter [0:0] IS_CLK_INVERTED = 1'b0;
-    output Q;
-    output Q31;
-    input [4:0] A;
-    input CE, CLK, D;
-endmodule
-
+(* keep *)
 module STARTUPE2 (...);
     parameter PROG_USR = "FALSE";
     parameter real SIM_CCLK_FREQ = 0.0;

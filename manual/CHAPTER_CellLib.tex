@@ -119,6 +119,12 @@ than one bit from \B{S} is set the output is undefined. Cells of this type are u
 ``parallel cases'' (defined by using the {\tt parallel\_case} attribute or detected by
 an optimization).
 
+The {\tt \$tribuf} cell is used to implement tristate logic. Cells of this type have a \B{WIDTH}
+parameter and inputs \B{A} and \B{EN} and an output \B{Y}. The \B{A} input and \B{Y} output are
+\B{WIDTH} bits wide, and the \B{EN} input is one bit wide. When \B{EN} is 0, the output \B{Y}
+is not driven. When \B{EN} is 1, the value from \B{A} input is sent to the \B{Y} output. Therefore,
+the {\tt \$tribuf} cell implements the function \lstinline[language=Verilog]; Y = EN ? A : 'bz;.
+
 Behavioural code with cascaded {\tt if-then-else}- and {\tt case}-statements
 usually results in trees of multiplexer cells. Many passes (from various
 optimizations to FSM extraction) heavily depend on these multiplexer trees to
@@ -398,9 +404,15 @@ Verilog & Cell Type \\
 \hline
 \lstinline[language=Verilog]; Y = ~A;    & {\tt \$\_NOT\_} \\
 \lstinline[language=Verilog]; Y = A & B; & {\tt \$\_AND\_} \\
+\lstinline[language=Verilog]; Y = ~(A & B); & {\tt \$\_NAND\_} \\
+\lstinline[language=Verilog]; Y = A & ~B; & {\tt \$\_ANDNOT\_} \\
 \lstinline[language=Verilog]; Y = A | B; & {\tt \$\_OR\_} \\
+\lstinline[language=Verilog]; Y = ~(A | B); & {\tt \$\_NOR\_} \\
+\lstinline[language=Verilog]; Y = A | ~B; & {\tt \$\_ORNOT\_} \\
 \lstinline[language=Verilog]; Y = A ^ B; & {\tt \$\_XOR\_} \\
+\lstinline[language=Verilog]; Y = ~(A ^ B); & {\tt \$\_XNOR\_} \\
 \lstinline[language=Verilog]; Y = S ? B : A; & {\tt \$\_MUX\_} \\
+\lstinline[language=Verilog]; Y = EN ? A : 'bz; & {\tt \$\_TBUF\_} \\
 \hline
 \lstinline[language=Verilog]; always @(negedge C) Q <= D; & {\tt \$\_DFF\_N\_} \\
 \lstinline[language=Verilog]; always @(posedge C) Q <= D; & {\tt \$\_DFF\_P\_} \\
@@ -423,9 +435,10 @@ $ClkEdge$ & $RstLvl$ & $RstVal$ & Cell Type \\
 \end{table}
 
 Table~\ref{tab:CellLib_gates} lists all cell types used for gate level logic. The cell types
-{\tt \$\_NOT\_}, {\tt \$\_AND\_}, {\tt \$\_OR\_}, {\tt \$\_XOR\_} and {\tt \$\_MUX\_}
-are used to model combinatorial logic. The cell types {\tt \$\_DFF\_N\_} and {\tt \$\_DFF\_P\_}
-represent d-type flip-flops.
+{\tt \$\_NOT\_}, {\tt \$\_AND\_}, {\tt \$\_NAND\_}, {\tt \$\_ANDNOT\_}, {\tt \$\_OR\_}, {\tt \$\_NOR\_},
+{\tt \$\_ORNOT\_}, {\tt \$\_XOR\_}, {\tt \$\_XNOR\_} and {\tt \$\_MUX\_} are used to model combinatorial logic.
+The cell type {\tt \$\_TBUF\_} is used to model tristate logic.
+The cell types {\tt \$\_DFF\_N\_} and {\tt \$\_DFF\_P\_} represent d-type flip-flops.
 
 The cell types {\tt \$\_DFF\_NN0\_}, {\tt \$\_DFF\_NN1\_}, {\tt \$\_DFF\_NP0\_}, {\tt \$\_DFF\_NP1\_},
 {\tt \$\_DFF\_PN0\_}, {\tt \$\_DFF\_PN1\_}, {\tt \$\_DFF\_PP0\_} and {\tt \$\_DFF\_PP1\_} implement
@@ -453,6 +466,10 @@ Add information about {\tt \$assert}, {\tt \$assume}, {\tt \$live}, {\tt \$fair}
 \end{fixme}
 
 \begin{fixme}
+Add information about {\tt \$specify2}, {\tt \$specify3}, and {\tt \$specrule} cells.
+\end{fixme}
+
+\begin{fixme}
 Add information about {\tt \$slice} and {\tt \$concat} cells.
 \end{fixme}
 
@@ -477,7 +494,6 @@ Add information about {\tt \$\_DFFE\_??\_}, {\tt \$\_DFFSR\_???\_}, {\tt \$\_DLA
 \end{fixme}
 
 \begin{fixme}
-Add information about {\tt \$\_NAND\_}, {\tt \$\_NOR\_}, {\tt \$\_XNOR\_}, {\tt \$\_ANDNOT\_}, {\tt \$\_ORNOT\_},
-{\tt \$\_AOI3\_}, {\tt \$\_OAI3\_}, {\tt \$\_AOI4\_}, and {\tt \$\_OAI4\_} cells.
+Add information about {\tt \$\_AOI3\_}, {\tt \$\_OAI3\_}, {\tt \$\_AOI4\_}, and {\tt \$\_OAI4\_} cells.
 \end{fixme}
 

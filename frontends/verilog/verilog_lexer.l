@@ -148,7 +148,7 @@ YOSYS_NAMESPACE_END
 "endfunction"  { return TOK_ENDFUNCTION; }
 "task"         { return TOK_TASK; }
 "endtask"      { return TOK_ENDTASK; }
-"specify"      { return TOK_SPECIFY; }
+"specify"      { return specify_mode ? TOK_SPECIFY : TOK_IGNORED_SPECIFY; }
 "endspecify"   { return TOK_ENDSPECIFY; }
 "specparam"    { return TOK_SPECPARAM; }
 "package"      { SV_KEYWORD(TOK_PACKAGE); }
@@ -189,6 +189,14 @@ YOSYS_NAMESPACE_END
 "always_ff"    { SV_KEYWORD(TOK_ALWAYS); }
 "always_latch" { SV_KEYWORD(TOK_ALWAYS); }
 
+ /* use special token for labels on assert, assume, cover, and restrict because it's insanley complex
+    to fix parsing of cells otherwise. (the current cell parser forces a reduce very early to update some
+    global state.. its a mess) */
+[a-zA-Z_$][a-zA-Z0-9_$]*/[ \t\r\n]*:[ \t\r\n]*(assert|assume|cover|restrict)[^a-zA-Z0-9_$\.] {
+	frontend_verilog_yylval.string = new std::string(std::string("\\") + yytext);
+	return TOK_SVA_LABEL;
+}
+
 "assert"     { if (formal_mode) return TOK_ASSERT; SV_KEYWORD(TOK_ASSERT); }
 "assume"     { if (formal_mode) return TOK_ASSUME; SV_KEYWORD(TOK_ASSUME); }
 "cover"      { if (formal_mode) return TOK_COVER; SV_KEYWORD(TOK_COVER); }
@@ -198,7 +206,9 @@ YOSYS_NAMESPACE_END
 "const"      { if (formal_mode) return TOK_CONST; SV_KEYWORD(TOK_CONST); }
 "checker"    { if (formal_mode) return TOK_CHECKER; SV_KEYWORD(TOK_CHECKER); }
 "endchecker" { if (formal_mode) return TOK_ENDCHECKER; SV_KEYWORD(TOK_ENDCHECKER); }
+"final"      { SV_KEYWORD(TOK_FINAL); }
 "logic"      { SV_KEYWORD(TOK_LOGIC); }
+"var"        { SV_KEYWORD(TOK_VAR); }
 "bit"        { SV_KEYWORD(TOK_REG); }
 
 "eventually"   { if (formal_mode) return TOK_EVENTUALLY; SV_KEYWORD(TOK_EVENTUALLY); }
@@ -293,6 +303,12 @@ supply1 { return TOK_SUPPLY1; }
 	return TOK_ID;
 }
 
+"$"(setup|hold|setuphold|removal|recovery|recrem|skew|timeskew|fullskew|nochange) {
+	if (!specify_mode) REJECT;
+	frontend_verilog_yylval.string = new std::string(yytext);
+	return TOK_ID;
+}
+
 "$signed"   { return TOK_TO_SIGNED; }
 "$unsigned" { return TOK_TO_UNSIGNED; }
 
@@ -303,7 +319,7 @@ supply1 { return TOK_SUPPLY1; }
 
 [a-zA-Z_$][a-zA-Z0-9_$\.]* {
 	frontend_verilog_yylval.string = new std::string(std::string("\\") + yytext);
-    return TOK_ID;
+	return TOK_ID;
 }
 
 "/*"[ \t]*(synopsys|synthesis)[ \t]*translate_off[ \t]*"*/" {
@@ -402,6 +418,17 @@ import[ \t\r\n]+\"(DPI|DPI-C)\"[ \t\r\n]+function[ \t\r\n]+ {
 
 "+:" { return TOK_POS_INDEXED; }
 "-:" { return TOK_NEG_INDEXED; }
+
+[-+]?[=*]> {
+	if (!specify_mode) REJECT;
+	frontend_verilog_yylval.string = new std::string(yytext);
+	return TOK_SPECIFY_OPER;
+}
+
+"&&&" {
+	if (!specify_mode) REJECT;
+	return TOK_SPECIFY_AND;
+}
 
 "/*" { BEGIN(COMMENT); }
 <COMMENT>.    /* ignore comment body */

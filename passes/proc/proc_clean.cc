@@ -82,9 +82,15 @@ void proc_clean_switch(RTLIL::SwitchRule *sw, RTLIL::CaseRule *parent, bool &did
 		{
 			if (max_depth != 0)
 				proc_clean_case(cs, did_something, count, max_depth-1);
+			int size = 0;
 			for (auto cmp : cs->compare)
+			{
+				size += cmp.size();
 				if (!cmp.is_fully_def())
 					all_fully_def = false;
+			}
+			if (sw->signal.size() != size)
+				all_fully_def = false;
 		}
 		if (all_fully_def)
 		{

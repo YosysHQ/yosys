@@ -45,8 +45,8 @@ namespace AST {
 
 // instantiate global variables (private API)
 namespace AST_INTERNAL {
-	bool flag_dump_ast1, flag_dump_ast2, flag_no_dump_ptr, flag_dump_vlog, flag_dump_rtlil, flag_nolatches, flag_nomeminit;
-	bool flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt, flag_icells, flag_autowire;
+	bool flag_dump_ast1, flag_dump_ast2, flag_no_dump_ptr, flag_dump_vlog1, flag_dump_vlog2, flag_dump_rtlil, flag_nolatches, flag_nomeminit;
+	bool flag_nomem2reg, flag_mem2reg, flag_noblackbox, flag_lib, flag_nowb, flag_noopt, flag_icells, flag_autowire;
 	AstNode *current_ast, *current_ast_mod;
 	std::map<std::string, AstNode*> current_scope;
 	const dict<RTLIL::SigBit, RTLIL::SigBit> *genRTLIL_subst_ptr = NULL;
@@ -431,9 +431,12 @@ void AstNode::dumpVlog(FILE *f, std::string indent) const
 		break;
 
 	case AST_RANGE:
-		if (range_valid)
-			fprintf(f, "[%d:%d]", range_left, range_right);
-		else {
+		if (range_valid) {
+			if (range_swapped)
+				fprintf(f, "[%d:%d]", range_right, range_left);
+			else
+				fprintf(f, "[%d:%d]", range_left, range_right);
+		} else {
 			for (auto child : children) {
 				fprintf(f, "%c", first ? '[' : ':');
 				child->dumpVlog(f, "");
@@ -562,7 +565,8 @@ void AstNode::dumpVlog(FILE *f, std::string indent) const
 
 	case AST_CONCAT:
 		fprintf(f, "{");
-		for (auto child : children) {
+		for (int i = GetSize(children)-1; i >= 0; i--) {
+			auto child = children[i];
 			if (!first)
 				fprintf(f, ", ");
 			child->dumpVlog(f, "");
@@ -926,28 +930,106 @@ static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast
 		ast_before_simplify = ast->clone();
 
 	if (flag_dump_ast1) {
-		log("Dumping Verilog AST before simplification:\n");
+		log("Dumping AST before simplification:\n");
 		ast->dumpAst(NULL, "    ");
+		log("--- END OF AST DUMP ---\n");
+	}
+	if (flag_dump_vlog1) {
+		log("Dumping Verilog AST before simplification:\n");
+		ast->dumpVlog(NULL, "    ");
 		log("--- END OF AST DUMP ---\n");
 	}
 
 	if (!defer)
 	{
+		bool blackbox_module = flag_lib;
+
+		if (!blackbox_module && !flag_noblackbox) {
+			blackbox_module = true;
+			for (auto child : ast->children) {
+				if (child->type == AST_WIRE && (child->is_input || child->is_output))
+					continue;
+				if (child->type == AST_PARAMETER || child->type == AST_LOCALPARAM)
+					continue;
+				if (child->type == AST_CELL && child->children.size() > 0 && child->children[0]->type == AST_CELLTYPE &&
+						(child->children[0]->str == "$specify2" || child->children[0]->str == "$specify3" || child->children[0]->str == "$specrule"))
+					continue;
+				blackbox_module = false;
+				break;
+			}
+		}
+
 		while (ast->simplify(!flag_noopt, false, false, 0, -1, false, false)) { }
 
 		if (flag_dump_ast2) {
-			log("Dumping Verilog AST after simplification:\n");
+			log("Dumping AST after simplification:\n");
 			ast->dumpAst(NULL, "    ");
 			log("--- END OF AST DUMP ---\n");
 		}
 
-		if (flag_dump_vlog) {
-			log("Dumping Verilog AST (as requested by dump_vlog option):\n");
+		if (flag_dump_vlog2) {
+			log("Dumping Verilog AST after simplification:\n");
 			ast->dumpVlog(NULL, "    ");
 			log("--- END OF AST DUMP ---\n");
 		}
 
-		if (flag_lib) {
+		if (flag_nowb && ast->attributes.count("\\whitebox")) {
+			delete ast->attributes.at("\\whitebox");
+			ast->attributes.erase("\\whitebox");
+		}
+
+		if (ast->attributes.count("\\lib_whitebox")) {
+			if (!flag_lib || flag_nowb) {
+				delete ast->attributes.at("\\lib_whitebox");
+				ast->attributes.erase("\\lib_whitebox");
+			} else {
+				if (ast->attributes.count("\\whitebox")) {
+					delete ast->attributes.at("\\whitebox");
+					ast->attributes.erase("\\whitebox");
+				}
+				AstNode *n = ast->attributes.at("\\lib_whitebox");
+				ast->attributes["\\whitebox"] = n;
+				ast->attributes.erase("\\lib_whitebox");
+			}
+		}
+
+		if (!blackbox_module && ast->attributes.count("\\blackbox")) {
+			AstNode *n = ast->attributes.at("\\blackbox");
+			if (n->type != AST_CONSTANT)
+				log_file_error(ast->filename, ast->linenum, "Got blackbox attribute with non-constant value!\n");
+			blackbox_module = n->asBool();
+		}
+
+		if (blackbox_module && ast->attributes.count("\\whitebox")) {
+			AstNode *n = ast->attributes.at("\\whitebox");
+			if (n->type != AST_CONSTANT)
+				log_file_error(ast->filename, ast->linenum, "Got whitebox attribute with non-constant value!\n");
+			blackbox_module = !n->asBool();
+		}
+
+		if (ast->attributes.count("\\noblackbox")) {
+			if (blackbox_module) {
+				AstNode *n = ast->attributes.at("\\noblackbox");
+				if (n->type != AST_CONSTANT)
+					log_file_error(ast->filename, ast->linenum, "Got noblackbox attribute with non-constant value!\n");
+				blackbox_module = !n->asBool();
+			}
+			delete ast->attributes.at("\\noblackbox");
+			ast->attributes.erase("\\noblackbox");
+		}
+
+		if (blackbox_module)
+		{
+			if (ast->attributes.count("\\whitebox")) {
+				delete ast->attributes.at("\\whitebox");
+				ast->attributes.erase("\\whitebox");
+			}
+
+			if (ast->attributes.count("\\lib_whitebox")) {
+				delete ast->attributes.at("\\lib_whitebox");
+				ast->attributes.erase("\\lib_whitebox");
+			}
+
 			std::vector<AstNode*> new_children;
 			for (auto child : ast->children) {
 				if (child->type == AST_WIRE && (child->is_input || child->is_output)) {
@@ -956,12 +1038,19 @@ static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast
 					child->delete_children();
 					child->children.push_back(AstNode::mkconst_int(0, false, 0));
 					new_children.push_back(child);
+				} else if (child->type == AST_CELL && child->children.size() > 0 && child->children[0]->type == AST_CELLTYPE &&
+						(child->children[0]->str == "$specify2" || child->children[0]->str == "$specify3" || child->children[0]->str == "$specrule")) {
+					new_children.push_back(child);
 				} else {
 					delete child;
 				}
 			}
+
 			ast->children.swap(new_children);
-			ast->attributes["\\blackbox"] = AstNode::mkconst_int(1, false);
+
+			if (ast->attributes.count("\\blackbox") == 0) {
+				ast->attributes["\\blackbox"] = AstNode::mkconst_int(1, false);
+			}
 		}
 
 		ignoreThisSignalsInInitial = RTLIL::SigSpec();
@@ -1000,7 +1089,9 @@ static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast
 	current_module->nomeminit = flag_nomeminit;
 	current_module->nomem2reg = flag_nomem2reg;
 	current_module->mem2reg = flag_mem2reg;
+	current_module->noblackbox = flag_noblackbox;
 	current_module->lib = flag_lib;
+	current_module->nowb = flag_nowb;
 	current_module->noopt = flag_noopt;
 	current_module->icells = flag_icells;
 	current_module->autowire = flag_autowire;
@@ -1016,20 +1107,23 @@ static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast
 }
 
 // create AstModule instances for all modules in the AST tree and add them to 'design'
-void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump_ast2, bool no_dump_ptr, bool dump_vlog, bool dump_rtlil,
-		bool nolatches, bool nomeminit, bool nomem2reg, bool mem2reg, bool lib, bool noopt, bool icells, bool nooverwrite, bool overwrite, bool defer, bool autowire)
+void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump_ast2, bool no_dump_ptr, bool dump_vlog1, bool dump_vlog2, bool dump_rtlil,
+		bool nolatches, bool nomeminit, bool nomem2reg, bool mem2reg, bool noblackbox, bool lib, bool nowb, bool noopt, bool icells, bool nooverwrite, bool overwrite, bool defer, bool autowire)
 {
 	current_ast = ast;
 	flag_dump_ast1 = dump_ast1;
 	flag_dump_ast2 = dump_ast2;
 	flag_no_dump_ptr = no_dump_ptr;
-	flag_dump_vlog = dump_vlog;
+	flag_dump_vlog1 = dump_vlog1;
+	flag_dump_vlog2 = dump_vlog2;
 	flag_dump_rtlil = dump_rtlil;
 	flag_nolatches = nolatches;
 	flag_nomeminit = nomeminit;
 	flag_nomem2reg = nomem2reg;
 	flag_mem2reg = mem2reg;
+	flag_noblackbox = noblackbox;
 	flag_lib = lib;
+	flag_nowb = nowb;
 	flag_noopt = noopt;
 	flag_icells = icells;
 	flag_autowire = autowire;
@@ -1357,12 +1451,15 @@ std::string AstModule::derive_common(RTLIL::Design *design, dict<RTLIL::IdString
 	current_ast = NULL;
 	flag_dump_ast1 = false;
 	flag_dump_ast2 = false;
-	flag_dump_vlog = false;
+	flag_dump_vlog1 = false;
+	flag_dump_vlog2 = false;
 	flag_nolatches = nolatches;
 	flag_nomeminit = nomeminit;
 	flag_nomem2reg = nomem2reg;
 	flag_mem2reg = mem2reg;
+	flag_noblackbox = noblackbox;
 	flag_lib = lib;
+	flag_nowb = nowb;
 	flag_noopt = noopt;
 	flag_icells = icells;
 	flag_autowire = autowire;

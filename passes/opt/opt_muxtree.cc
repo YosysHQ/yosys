@@ -181,14 +181,14 @@ struct OptMuxtreeWorker
 
 		for (int mux_idx = 0; mux_idx < GetSize(root_muxes); mux_idx++)
 			if (root_muxes.at(mux_idx)) {
-				log("    Root of a mux tree: %s%s\n", log_id(mux2info[mux_idx].cell), root_enable_muxes.at(mux_idx) ? " (pure)" : "");
+				log_debug("    Root of a mux tree: %s%s\n", log_id(mux2info[mux_idx].cell), root_enable_muxes.at(mux_idx) ? " (pure)" : "");
 				root_mux_rerun.erase(mux_idx);
 				eval_root_mux(mux_idx);
 			}
 
 		while (!root_mux_rerun.empty()) {
 			int mux_idx = *root_mux_rerun.begin();
-			log("    Root of a mux tree: %s (rerun as non-pure)\n", log_id(mux2info[mux_idx].cell));
+			log_debug("    Root of a mux tree: %s (rerun as non-pure)\n", log_id(mux2info[mux_idx].cell));
 			log_assert(root_enable_muxes.at(mux_idx));
 			root_mux_rerun.erase(mux_idx);
 			eval_root_mux(mux_idx);
@@ -326,7 +326,7 @@ struct OptMuxtreeWorker
 				if (abort_count == 0) {
 					root_mux_rerun.insert(m);
 					root_enable_muxes.at(m) = true;
-					log("      Removing pure flag from root mux %s.\n", log_id(mux2info[m].cell));
+					log_debug("      Removing pure flag from root mux %s.\n", log_id(mux2info[m].cell));
 				} else
 					eval_mux(knowledge, m, false, do_enable_ports, abort_count - 1);
 			} else

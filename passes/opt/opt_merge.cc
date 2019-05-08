@@ -315,17 +315,17 @@ struct OptMergeWorker
 			{
 				if (sharemap.count(cell) > 0) {
 					did_something = true;
-					log("  Cell `%s' is identical to cell `%s'.\n", cell->name.c_str(), sharemap[cell]->name.c_str());
+					log_debug("  Cell `%s' is identical to cell `%s'.\n", cell->name.c_str(), sharemap[cell]->name.c_str());
 					for (auto &it : cell->connections()) {
 						if (cell->output(it.first)) {
 							RTLIL::SigSpec other_sig = sharemap[cell]->getPort(it.first);
-							log("    Redirecting output %s: %s = %s\n", it.first.c_str(),
+							log_debug("    Redirecting output %s: %s = %s\n", it.first.c_str(),
 									log_signal(it.second), log_signal(other_sig));
 							module->connect(RTLIL::SigSig(it.second, other_sig));
 							assign_map.add(it.second, other_sig);
 						}
 					}
-					log("    Removing %s cell `%s' from module `%s'.\n", cell->type.c_str(), cell->name.c_str(), module->name.c_str());
+					log_debug("    Removing %s cell `%s' from module `%s'.\n", cell->type.c_str(), cell->name.c_str(), module->name.c_str());
 #ifdef USE_CELL_HASH_CACHE
 					cell_hash_cache.erase(cell);
 #endif
@@ -336,6 +336,8 @@ struct OptMergeWorker
 				}
 			}
 		}
+
+		log_suppressed();
 	}
 };
 

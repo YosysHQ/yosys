@@ -24,6 +24,8 @@
 /yosys-abc.exe
 /yosys-config
 /yosys-smtbmc
+/yosys-smtbmc.exe
+/yosys-smtbmc-script.py
 /yosys-filterlib
 /yosys-filterlib.exe
 /kernel/version_*.cc

@@ -340,7 +340,7 @@ struct BtorWorker
 			if (cell->type == "$lt") btor_op = "lt";
 			if (cell->type == "$le") btor_op = "lte";
 			if (cell->type.in("$eq", "$eqx")) btor_op = "eq";
-			if (cell->type.in("$ne", "$nex")) btor_op = "ne";
+			if (cell->type.in("$ne", "$nex")) btor_op = "neq";
 			if (cell->type == "$ge") btor_op = "gte";
 			if (cell->type == "$gt") btor_op = "gt";
 			log_assert(!btor_op.empty());
@@ -615,6 +615,7 @@ struct BtorWorker
 		{
 			int abits = cell->getParam("\\ABITS").as_int();
 			int width = cell->getParam("\\WIDTH").as_int();
+			int nwords = cell->getParam("\\SIZE").as_int();
 			int rdports = cell->getParam("\\RD_PORTS").as_int();
 			int wrports = cell->getParam("\\WR_PORTS").as_int();
 
@@ -641,6 +642,52 @@ struct BtorWorker
 			int data_sid = get_bv_sid(width);
 			int bool_sid = get_bv_sid(1);
 			int sid = get_mem_sid(abits, width);
+
+			Const initdata = cell->getParam("\\INIT");
+			initdata.exts(nwords*width);
+			int nid_init_val = -1;
+
+			if (!initdata.is_fully_undef())
+			{
+				bool constword = true;
+				Const firstword = initdata.extract(0, width);
+
+				for (int i = 1; i < nwords; i++) {
+					Const thisword = initdata.extract(i*width, width);
+					if (thisword != firstword) {
+						constword = false;
+						break;
+					}
+				}
+
+				if (constword)
+				{
+					if (verbose)
+						btorf("; initval = %s\n", log_signal(firstword));
+					nid_init_val = get_sig_nid(firstword);
+				}
+				else
+				{
+					int nid_init_val = next_nid++;
+					btorf("%d state %d\n", nid_init_val, sid);
+
+					for (int i = 0; i < nwords; i++) {
+						Const thisword = initdata.extract(i*width, width);
+						if (thisword.is_fully_undef())
+							continue;
+						Const thisaddr(i, abits);
+						int nid_thisword = get_sig_nid(thisword);
+						int nid_thisaddr = get_sig_nid(thisaddr);
+						int last_nid_init_val = nid_init_val;
+						nid_init_val = next_nid++;
+						if (verbose)
+							btorf("; initval[%d] = %s\n", i, log_signal(thisword));
+						btorf("%d write %d %d %d %d\n", nid_init_val, sid, last_nid_init_val, nid_thisaddr, nid_thisword);
+					}
+				}
+			}
+
+
 			int nid = next_nid++;
 			int nid_head = nid;
 
@@ -648,6 +695,12 @@ struct BtorWorker
 				btorf("%d state %d\n", nid, sid);
 			else
 				btorf("%d state %d %s\n", nid, sid, log_id(cell));
+
+			if (nid_init_val >= 0)
+			{
+				int nid_init = next_nid++;
+				btorf("%d init %d %d %d\n", nid_init, sid, nid, nid_init_val);
+			}
 
 			if (asyncwr)
 			{
@@ -932,9 +985,8 @@ struct BtorWorker
 
 			btorf_push(stringf("output %s", log_id(wire)));
 
-			int sid = get_bv_sid(GetSize(wire));
 			int nid = get_sig_nid(wire);
-			btorf("%d output %d %d %s\n", next_nid++, sid, nid, log_id(wire));
+			btorf("%d output %d %s\n", next_nid++, nid, log_id(wire));
 
 			btorf_pop(stringf("output %s", log_id(wire)));
 		}

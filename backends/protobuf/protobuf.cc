@@ -48,7 +48,7 @@ struct ProtobufDesignSerializer
 
 	ProtobufDesignSerializer(bool use_selection, bool aig_mode) :
 			aig_mode_(aig_mode), use_selection_(use_selection) { }
-	
+
 	string get_name(IdString name)
 	{
 		return RTLIL::unescape_id(name);
@@ -60,7 +60,7 @@ struct ProtobufDesignSerializer
 	{
 		for (auto &param : parameters) {
 			std::string key = get_name(param.first);
-			
+
 
 			yosys::pb::Parameter pb_param;
 
@@ -207,7 +207,7 @@ struct ProtobufDesignSerializer
 			(*models)[aig.name] = pb_model;
 		}
 	}
-	
+
 	void serialize_design(yosys::pb::Design *pb, Design *design)
 	{
 		GOOGLE_PROTOBUF_VERIFY_VERSION;

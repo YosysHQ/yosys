@@ -72,7 +72,8 @@ struct FsmOpt
 
 			new_transition_table.swap(fsm_data.transition_table);
 			new_state_table.swap(fsm_data.state_table);
-			fsm_data.reset_state = old_to_new_state.at(fsm_data.reset_state);
+			if (fsm_data.reset_state != -1)
+				fsm_data.reset_state = old_to_new_state.at(fsm_data.reset_state);
 		}
 	}
 

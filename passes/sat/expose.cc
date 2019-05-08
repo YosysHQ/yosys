@@ -508,7 +508,7 @@ struct ExposePass : public Pass {
 				}
 
 				for (auto &conn : module->connections_)
-					conn.first = out_to_in_map(sigmap(conn.first));
+					conn.first = out_to_in_map(conn.first);
 			}
 
 			if (flag_cut)

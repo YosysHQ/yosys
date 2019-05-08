@@ -453,7 +453,7 @@ Aig::Aig(Cell *cell)
 		int B = mk.inport("\\B");
 		int C = mk.inport("\\C");
 		int D = mk.inport("\\D");
-		int Y = mk.nand_gate(mk.nor_gate(A, B), mk.nor_gate(C, D));
+		int Y = mk.nand_gate(mk.or_gate(A, B), mk.or_gate(C, D));
 		mk.outport(Y, "\\Y");
 		goto optimize;
 	}

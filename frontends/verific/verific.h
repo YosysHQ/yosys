@@ -26,7 +26,7 @@ YOSYS_NAMESPACE_BEGIN
 extern int verific_verbose;
 
 extern bool verific_import_pending;
-extern void verific_import(Design *design, std::string top = std::string());
+extern void verific_import(Design *design, const std::map<std::string,std::string> &parameters, std::string top = std::string());
 
 extern pool<int> verific_sva_prims;
 

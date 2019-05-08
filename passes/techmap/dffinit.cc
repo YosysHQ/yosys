@@ -102,7 +102,8 @@ struct DffinitPass : public Pass {
 				if (wire->attributes.count("\\init")) {
 					Const value = wire->attributes.at("\\init");
 					for (int i = 0; i < min(GetSize(value), GetSize(wire)); i++)
-						init_bits[sigmap(SigBit(wire, i))] = value[i];
+						if (value[i] != State::Sx)
+							init_bits[sigmap(SigBit(wire, i))] = value[i];
 				}
 				if (wire->port_output)
 					for (auto bit : sigmap(wire))

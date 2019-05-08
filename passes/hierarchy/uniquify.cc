@@ -75,7 +75,7 @@ struct UniquifyPass : public Pass {
 					if (tmod == nullptr)
 						continue;
 
-					if (tmod->get_bool_attribute("\\blackbox"))
+					if (tmod->get_blackbox_attribute())
 						continue;
 
 					if (tmod->get_bool_attribute("\\unique") && newname == tmod->name)
@@ -87,6 +87,8 @@ struct UniquifyPass : public Pass {
 					smod->name = newname;
 					cell->type = newname;
 					smod->set_bool_attribute("\\unique");
+					if (smod->attributes.count("\\hdlname") == 0)
+						smod->attributes["\\hdlname"] = string(log_id(tmod->name));
 					design->add(smod);
 
 					did_something = true;

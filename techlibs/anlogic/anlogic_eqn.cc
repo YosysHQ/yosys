@@ -52,13 +52,13 @@ struct AnlogicEqnPass : public Pass {
 						eqn += names[j];
 					else
 						eqn += std::string("~") + names[j];
-					
+
 					if (j!=(inputs-1)) eqn += "*";
 				}
 				eqn += ")+";
 			}
 		}
-		if (eqn.empty()) return Const("0");		
+		if (eqn.empty()) return Const("0");
 		eqn = eqn.substr(0, eqn.length()-1);
 		return Const(eqn);
 	}

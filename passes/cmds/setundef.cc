@@ -143,6 +143,9 @@ struct SetundefPass : public Pass {
 		log("    -init\n");
 		log("        also create/update init values for flip-flops\n");
 		log("\n");
+		log("    -params\n");
+		log("        replace undef in cell parameters\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
@@ -150,6 +153,7 @@ struct SetundefPass : public Pass {
 		bool undriven_mode = false;
 		bool expose_mode = false;
 		bool init_mode = false;
+		bool params_mode = false;
 		SetundefWorker worker;
 
 		log_header(design, "Executing SETUNDEF pass (replace undef values with defined constants).\n");
@@ -199,6 +203,10 @@ struct SetundefPass : public Pass {
 				init_mode = true;
 				continue;
 			}
+			if (args[argidx] == "-params") {
+				params_mode = true;
+				continue;
+			}
 			if (args[argidx] == "-random" && !got_value && argidx+1 < args.size()) {
 				got_value = true;
 				worker.next_bit_mode = MODE_RANDOM;
@@ -228,6 +236,18 @@ struct SetundefPass : public Pass {
 
 		for (auto module : design->selected_modules())
 		{
+			if (params_mode)
+			{
+				for (auto *cell : module->selected_cells()) {
+					for (auto &parameter : cell->parameters) {
+						for (auto &bit : parameter.second.bits) {
+							if (bit > RTLIL::State::S1)
+								bit = worker.next_bit();
+						}
+					}
+				}
+			}
+
 			if (undriven_mode)
 			{
 				if (!module->processes.empty())
