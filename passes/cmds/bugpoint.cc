@@ -298,7 +298,7 @@ struct BugpointPass : public Pass {
 		if (!check_logfile(grep))
 			log_cmd_error("The provided grep string is not found in the log file!\n");
 
-		int seed = 0, crashing_seed = seed;
+		int seed = 0;
 		bool found_something = false, stage2 = false;
 		while (true)
 		{
@@ -324,7 +324,6 @@ struct BugpointPass : public Pass {
 					if (crashing_design != design)
 						delete crashing_design;
 					crashing_design = simplified;
-					crashing_seed = seed;
 					found_something = true;
 				}
 				else
