@@ -94,7 +94,6 @@ public:
 };
 
 
-
 template<class T, class _Size>
 void vec<T,_Size>::capacity(Size min_cap) {
     if (cap >= min_cap) return;
