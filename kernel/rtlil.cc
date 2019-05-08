@@ -218,15 +218,19 @@ void RTLIL::AttrObject::set_bool_attribute(RTLIL::IdString id, bool value)
 {
 	if (value)
 		attributes[id] = RTLIL::Const(1);
-	else if (attributes.count(id))
-		attributes.erase(id);
+	else {
+                const auto it = attributes.find(id);
+                if (it != attributes.end())
+			attributes.erase(it);
+	}
 }
 
 bool RTLIL::AttrObject::get_bool_attribute(RTLIL::IdString id) const
 {
-	if (attributes.count(id) == 0)
+	const auto it = attributes.find(id);
+	if (it == attributes.end())
 		return false;
-	return attributes.at(id).as_bool();
+	return it->second.as_bool();
 }
 
 void RTLIL::AttrObject::set_strpool_attribute(RTLIL::IdString id, const pool<string> &data)
