@@ -397,6 +397,14 @@ void AstNode::dumpVlog(FILE *f, std::string indent, bool inGenerate, AstNodeType
 
 	switch (type)
 	{
+
+        case AST_DESIGN:
+                for (const auto &child : children) {
+                      child->dumpVlog(f, "", false, type);
+                      fprintf(f, "\n\n");
+                }
+                break;
+
 	if (0) { case AST_INTERFACE: txt = "interface"; }
 	if (0) { case AST_MODULE: txt = "module"; }
 		{
