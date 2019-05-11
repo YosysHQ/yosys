@@ -269,7 +269,7 @@ struct SynthXilinxPass : public ScriptPass
 
 		if (check_label("check")) {
 			run("hierarchy -check");
-			run("stat");
+			run("stat -tech xilinx");
 			run("check -noinit");
 		}
 
