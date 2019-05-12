@@ -184,6 +184,10 @@ struct OptMuxtreeWorker
 				log_debug("    Root of a mux tree: %s%s\n", log_id(mux2info[mux_idx].cell), root_enable_muxes.at(mux_idx) ? " (pure)" : "");
 				root_mux_rerun.erase(mux_idx);
 				eval_root_mux(mux_idx);
+				if (glob_abort_cnt == 0) {
+					log("  Giving up (too many iterations)\n");
+					return;
+				}
 			}
 
 		while (!root_mux_rerun.empty()) {
@@ -192,9 +196,14 @@ struct OptMuxtreeWorker
 			log_assert(root_enable_muxes.at(mux_idx));
 			root_mux_rerun.erase(mux_idx);
 			eval_root_mux(mux_idx);
+			if (glob_abort_cnt == 0) {
+				log("  Giving up (too many iterations)\n");
+				return;
+			}
 		}
 
 		log("  Analyzing evaluation results.\n");
+		log_assert(glob_abort_cnt > 0);
 
 		for (auto &mi : mux2info)
 		{
@@ -397,10 +406,8 @@ struct OptMuxtreeWorker
 
 	void eval_mux(knowledge_t &knowledge, int mux_idx, bool do_replace_known, bool do_enable_ports, int abort_count)
 	{
-		if (glob_abort_cnt == 0) {
-			log("  Giving up (too many iterations)\n");
+		if (glob_abort_cnt == 0)
 			return;
-		}
 		glob_abort_cnt--;
 
 		muxinfo_t &muxinfo = mux2info[mux_idx];
@@ -454,6 +461,7 @@ struct OptMuxtreeWorker
 
 	void eval_root_mux(int mux_idx)
 	{
+		log_assert(glob_abort_cnt > 0);
 		knowledge_t knowledge;
 		knowledge.known_inactive.resize(GetSize(bit2info));
 		knowledge.known_active.resize(GetSize(bit2info));
