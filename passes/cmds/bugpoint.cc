@@ -281,6 +281,9 @@ struct BugpointPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		if (script.empty())
+			log_cmd_error("Missing -script option.\n");
+
 		if (!has_part)
 		{
 			modules = true;
