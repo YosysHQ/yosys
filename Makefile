@@ -25,7 +25,8 @@ PYTHON_VERSION_TESTCODE := "import sys;t='{v[0]}.{v[1]}'.format(v=list(sys.versi
 PYTHON_EXECUTABLE := $(shell if python3 -c ""; then echo "python3"; else echo "python"; fi)
 PYTHON_VERSION := $(shell $(PYTHON_EXECUTABLE) -c ""$(PYTHON_VERSION_TESTCODE)"")
 PYTHON_MAJOR_VERSION := $(shell echo $(PYTHON_VERSION) | cut -f1 -d.)
-PYTHON_DESTDIR := `$(PYTHON_EXECUTABLE)-config --prefix`/lib/python$(PYTHON_VERSION)/dist-packages
+PYTHON_PREFIX := `$(PYTHON_EXECUTABLE)-config --prefix`
+PYTHON_DESTDIR := $(PYTHON_PREFIX)/lib/python$(PYTHON_VERSION)/site-packages
 
 # other configuration flags
 ENABLE_GCOV := 0
