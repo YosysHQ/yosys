@@ -94,7 +94,7 @@ int LibertyParser::lexer(std::string &str)
 
 	// search for identifiers, numbers, plus or minus.
 	if (('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || ('0' <= c && c <= '9') || c == '_' || c == '-' || c == '+' || c == '.') {
-		str = c;
+		str = static_cast<char>(c);
 		while (1) {
 			c = f.get();
 			if (('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || ('0' <= c && c <= '9') || c == '_' || c == '-' || c == '+' || c == '.')
