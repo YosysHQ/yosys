@@ -232,7 +232,7 @@ bool check_public_name(RTLIL::IdString id)
 	return true;
 }
 
-void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbose)
+bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbose)
 {
 	SigPool register_signals;
 	SigPool connected_signals;
@@ -272,20 +272,17 @@ void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 		}
 	}
 
-	SigPool raw_used_signals_noaliases;
-	for (auto &it : module->connections_)
-		raw_used_signals_noaliases.add(it.second);
-
 	module->connections_.clear();
 
 	SigPool used_signals;
+	SigPool raw_used_signals;
 	SigPool used_signals_nodrivers;
 	for (auto &it : module->cells_) {
 		RTLIL::Cell *cell = it.second;
 		for (auto &it2 : cell->connections_) {
 			assign_map.apply(it2.second);
+			raw_used_signals.add(it2.second);
 			used_signals.add(it2.second);
-			raw_used_signals_noaliases.add(it2.second);
 			if (!ct_all.cell_output(cell->type, it2.first))
 				used_signals_nodrivers.add(it2.second);
 		}
@@ -294,6 +291,7 @@ void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 		RTLIL::Wire *wire = it.second;
 		if (wire->port_id > 0) {
 			RTLIL::SigSpec sig = RTLIL::SigSpec(wire);
+			raw_used_signals.add(sig);
 			assign_map.apply(sig);
 			used_signals.add(sig);
 			if (!wire->port_input)
@@ -330,11 +328,11 @@ void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 		if (!purge_mode && check_public_name(wire->name)) {
 			// do not get rid of public names unless in purge mode
 		} else
-		if (!raw_used_signals_noaliases.check_any(s1)) {
+		if (!raw_used_signals.check_any(s1)) {
 			// delete wires that aren't used by anything directly
 			goto delete_this_wire;
 		} else
-		if (!used_signals_nodrivers.check_any(s2)) {
+		if (!used_signals.check_any(s2)) {
 			// delete wires that aren't used by anything indirectly, even though other wires may alias it
 			goto delete_this_wire;
 		}
@@ -400,6 +398,8 @@ void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 
 	if (verbose && del_temp_wires_count)
 		log_debug("  removed %d unused temporary wires.\n", del_temp_wires_count);
+
+	return !del_wires_queue.empty();
 }
 
 bool rmunused_module_init(RTLIL::Module *module, bool purge_mode, bool verbose)
@@ -497,10 +497,10 @@ void rmunused_module(RTLIL::Module *module, bool purge_mode, bool verbose, bool 
 		module->design->scratchpad_set_bool("opt.did_something", true);
 
 	rmunused_module_cells(module, verbose);
-	rmunused_module_signals(module, purge_mode, verbose);
+	while (rmunused_module_signals(module, purge_mode, verbose)) { }
 
 	if (rminit && rmunused_module_init(module, purge_mode, verbose))
-		rmunused_module_signals(module, purge_mode, verbose);
+		while (rmunused_module_signals(module, purge_mode, verbose)) { }
 }
 
 struct OptCleanPass : public Pass {
