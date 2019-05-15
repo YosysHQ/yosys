@@ -112,6 +112,15 @@ struct specify_rise_fall {
 
 %define api.prefix {frontend_verilog_yy}
 
+/* The union is defined in the header, so we need to provide all the
+ * includes it requires
+ */
+%code requires {
+#include <map>
+#include <string>
+#include "frontends/verilog/verilog_frontend.h"
+}
+
 %union {
 	std::string *string;
 	struct YOSYS_NAMESPACE_PREFIX AST::AstNode *ast;
@@ -2418,4 +2427,3 @@ concat_list:
 		$$ = $3;
 		$$->children.push_back($1);
 	};
-

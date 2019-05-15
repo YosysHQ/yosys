@@ -47,6 +47,15 @@ USING_YOSYS_NAMESPACE
 
 %define api.prefix {rtlil_frontend_ilang_yy}
 
+/* The union is defined in the header, so we need to provide all the
+ * includes it requires
+ */
+%code requires {
+#include <string>
+#include <vector>
+#include "frontends/ilang/ilang_frontend.h"
+}
+
 %union {
 	char *string;
 	int integer;
@@ -451,4 +460,3 @@ conn_stmt:
 		delete $2;
 		delete $3;
 	};
-
