@@ -1514,7 +1514,10 @@ void RTLIL::Module::add(RTLIL::Cell *cell)
 	cell->module = this;
 }
 
-namespace {
+void RTLIL::Module::remove(const pool<RTLIL::Wire*> &wires)
+{
+	log_assert(refcount_wires_ == 0);
+
 	struct DeleteWireWorker
 	{
 		RTLIL::Module *module;
@@ -1529,17 +1532,29 @@ namespace {
 				}
 			sig = chunks;
 		}
-	};
-}
 
-void RTLIL::Module::remove(const pool<RTLIL::Wire*> &wires)
-{
-	log_assert(refcount_wires_ == 0);
+		void operator()(RTLIL::SigSpec &lhs, RTLIL::SigSpec &rhs) {
+			log_assert(GetSize(lhs) == GetSize(rhs));
+			RTLIL::SigSpec new_lhs, new_rhs;
+			for (int i = 0; i < GetSize(lhs); i++) {
+				RTLIL::SigBit lhs_bit = lhs[i];
+				if (lhs_bit.wire != nullptr && wires_p->count(lhs_bit.wire))
+					continue;
+				RTLIL::SigBit rhs_bit = rhs[i];
+				if (rhs_bit.wire != nullptr && wires_p->count(rhs_bit.wire))
+					continue;
+				new_lhs.append(lhs_bit);
+				new_rhs.append(rhs_bit);
+			}
+			lhs = new_lhs;
+			rhs = new_rhs;
+		}
+	};
 
 	DeleteWireWorker delete_wire_worker;
 	delete_wire_worker.module = this;
 	delete_wire_worker.wires_p = &wires;
-	rewrite_sigspecs(delete_wire_worker);
+	rewrite_sigspecs2(delete_wire_worker);
 
 	for (auto &it : wires) {
 		log_assert(wires_.count(it->name) != 0);
