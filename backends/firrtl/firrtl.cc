@@ -146,7 +146,7 @@ struct FirrtlWorker
 			if (!mask.is_fully_def())
 				this->ena = SigSpec(RTLIL::Const(1));
 		}
-	  string gen_read(const char * /* indent */) {
+		string gen_read(const char * /* indent */) {
 			log_error("gen_read called on write_port: %s\n", name.c_str());
 			return stringf("gen_read called on write_port: %s\n", name.c_str());
 		}
@@ -449,8 +449,10 @@ struct FirrtlWorker
 				string primop;
 				bool always_uint = false;
 				if (cell->type == "$not") primop = "not";
-				else if (cell->type == "$neg") primop = "neg";
-				else if (cell->type == "$logic_not") {
+				else if (cell->type == "$neg") {
+					primop = "neg";
+					is_signed = true;	// Result of "neg" is signed (an SInt).
+				} else if (cell->type == "$logic_not") {
                                         primop = "eq";
                                         a_expr = stringf("%s, UInt(0)", a_expr.c_str());
                                 }
@@ -562,6 +564,7 @@ struct FirrtlWorker
 					auto b_sig = cell->getPort("\\B");
 					if (b_sig.is_fully_const()) {
 						primop = "shl";
+						b_expr = std::to_string(b_sig.as_int());
 					} else {
 						primop = "dshl";
 						// Convert from FIRRTL left shift semantics.
@@ -575,6 +578,7 @@ struct FirrtlWorker
 					auto b_sig = cell->getPort("\\B");
 					if (b_sig.is_fully_const()) {
 						primop = "shr";
+						b_expr = std::to_string(b_sig.as_int());
 					} else {
 						primop = "dshr";
 					}
