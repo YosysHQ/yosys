@@ -59,7 +59,7 @@ namespace VERILOG_FRONTEND {
 	std::vector<char> case_type_stack;
 	bool do_not_require_port_stubs;
 	bool default_nettype_wire;
-	bool sv_mode, formal_mode, noblackbox_mode, lib_mode, nowb_mode;
+	bool sv_mode, formal_mode, lib_mode, specify_mode;
 	bool noassert_mode, noassume_mode, norestrict_mode;
 	bool assume_asserts_mode, assert_assumes_mode;
 	bool current_wire_rand, current_wire_const;
@@ -94,29 +94,58 @@ static void free_attr(std::map<std::string, AstNode*> *al)
 	delete al;
 }
 
+struct specify_target {
+	char polarity_op;
+	AstNode *dst, *dat;
+};
+
+struct specify_triple {
+	AstNode *t_min, *t_avg, *t_max;
+};
+
+struct specify_rise_fall {
+	specify_triple rise;
+	specify_triple fall;
+};
+
 %}
 
-%name-prefix "frontend_verilog_yy"
+%define api.prefix {frontend_verilog_yy}
+
+/* The union is defined in the header, so we need to provide all the
+ * includes it requires
+ */
+%code requires {
+#include <map>
+#include <string>
+#include "frontends/verilog/verilog_frontend.h"
+}
 
 %union {
 	std::string *string;
 	struct YOSYS_NAMESPACE_PREFIX AST::AstNode *ast;
 	std::map<std::string, YOSYS_NAMESPACE_PREFIX AST::AstNode*> *al;
+	struct specify_target *specify_target_ptr;
+	struct specify_triple *specify_triple_ptr;
+	struct specify_rise_fall *specify_rise_fall_ptr;
 	bool boolean;
+	char ch;
 }
 
-%token <string> TOK_STRING TOK_ID TOK_CONSTVAL TOK_REALVAL TOK_PRIMITIVE TOK_SVA_LABEL
-%token TOK_ASSERT TOK_ASSUME TOK_RESTRICT TOK_COVER
+%token <string> TOK_STRING TOK_ID TOK_CONSTVAL TOK_REALVAL TOK_PRIMITIVE
+%token <string> TOK_SVA_LABEL TOK_SPECIFY_OPER
+%token TOK_ASSERT TOK_ASSUME TOK_RESTRICT TOK_COVER TOK_FINAL
 %token ATTR_BEGIN ATTR_END DEFATTR_BEGIN DEFATTR_END
 %token TOK_MODULE TOK_ENDMODULE TOK_PARAMETER TOK_LOCALPARAM TOK_DEFPARAM
 %token TOK_PACKAGE TOK_ENDPACKAGE TOK_PACKAGESEP
-%token TOK_INTERFACE TOK_ENDINTERFACE TOK_MODPORT
+%token TOK_INTERFACE TOK_ENDINTERFACE TOK_MODPORT TOK_VAR
 %token TOK_INPUT TOK_OUTPUT TOK_INOUT TOK_WIRE TOK_REG TOK_LOGIC
 %token TOK_INTEGER TOK_SIGNED TOK_ASSIGN TOK_ALWAYS TOK_INITIAL
 %token TOK_BEGIN TOK_END TOK_IF TOK_ELSE TOK_FOR TOK_WHILE TOK_REPEAT
 %token TOK_DPI_FUNCTION TOK_POSEDGE TOK_NEGEDGE TOK_OR TOK_AUTOMATIC
 %token TOK_CASE TOK_CASEX TOK_CASEZ TOK_ENDCASE TOK_DEFAULT
-%token TOK_FUNCTION TOK_ENDFUNCTION TOK_TASK TOK_ENDTASK TOK_SPECIFY TOK_ENDSPECIFY TOK_SPECPARAM
+%token TOK_FUNCTION TOK_ENDFUNCTION TOK_TASK TOK_ENDTASK TOK_SPECIFY
+%token TOK_IGNORED_SPECIFY TOK_ENDSPECIFY TOK_SPECPARAM TOK_SPECIFY_AND
 %token TOK_GENERATE TOK_ENDGENERATE TOK_GENVAR TOK_REAL
 %token TOK_SYNOPSYS_FULL_CASE TOK_SYNOPSYS_PARALLEL_CASE
 %token TOK_SUPPLY0 TOK_SUPPLY1 TOK_TO_SIGNED TOK_TO_UNSIGNED
@@ -129,6 +158,12 @@ static void free_attr(std::map<std::string, AstNode*> *al)
 %type <string> opt_label opt_sva_label tok_prim_wrapper hierarchical_id
 %type <boolean> opt_signed opt_property unique_case_attr
 %type <al> attr case_attr
+
+%type <specify_target_ptr> specify_target
+%type <specify_triple_ptr> specify_triple
+%type <specify_rise_fall_ptr> specify_rise_fall
+%type <ast> specify_if specify_condition specify_opt_arg
+%type <ch> specify_edge
 
 // operator precedence from low to high
 %left OP_LOR
@@ -456,6 +491,9 @@ wire_type_token:
 	TOK_LOGIC {
 		astbuf3->is_logic = true;
 	} |
+	TOK_VAR {
+		astbuf3->is_logic = true;
+	} |
 	TOK_INTEGER {
 		astbuf3->is_reg = true;
 		astbuf3->range_left = 31;
@@ -539,7 +577,7 @@ module_body:
 
 module_body_stmt:
 	task_func_decl | specify_block |param_decl | localparam_decl | defparam_decl | specparam_declaration | wire_decl | assign_stmt | cell_stmt |
-	always_stmt | TOK_GENERATE module_gen_body TOK_ENDGENERATE | defattr | assert_property | checker_decl;
+	always_stmt | TOK_GENERATE module_gen_body TOK_ENDGENERATE | defattr | assert_property | checker_decl | ignored_specify_block;
 
 checker_decl:
 	TOK_CHECKER TOK_ID ';' {
@@ -697,15 +735,254 @@ task_func_body:
 	task_func_body behavioral_stmt |
 	/* empty */;
 
-specify_block:
-	TOK_SPECIFY specify_item_opt TOK_ENDSPECIFY |
-	TOK_SPECIFY TOK_ENDSPECIFY ;
+/*************************** specify parser ***************************/
 
-specify_item_opt:
-	specify_item_opt specify_item |
-	specify_item ;
+specify_block:
+	TOK_SPECIFY specify_item_list TOK_ENDSPECIFY;
+
+specify_item_list:
+	specify_item specify_item_list |
+	/* empty */;
 
 specify_item:
+	specify_if '(' specify_edge expr TOK_SPECIFY_OPER specify_target ')' '=' specify_rise_fall ';' {
+		AstNode *en_expr = $1;
+		char specify_edge = $3;
+		AstNode *src_expr = $4;
+		string *oper = $5;
+		specify_target *target = $6;
+		specify_rise_fall *timing = $9;
+
+		if (specify_edge != 0 && target->dat == nullptr)
+			frontend_verilog_yyerror("Found specify edge but no data spec.\n");
+
+		AstNode *cell = new AstNode(AST_CELL);
+		ast_stack.back()->children.push_back(cell);
+		cell->str = stringf("$specify$%d", autoidx++);
+		cell->children.push_back(new AstNode(AST_CELLTYPE));
+		cell->children.back()->str = target->dat ? "$specify3" : "$specify2";
+
+		char oper_polarity = 0;
+		char oper_type = oper->at(0);
+
+		if (oper->size() == 3) {
+			oper_polarity = oper->at(0);
+			oper_type = oper->at(1);
+		}
+
+		cell->children.push_back(new AstNode(AST_PARASET, AstNode::mkconst_int(oper_type == '*', false, 1)));
+		cell->children.back()->str = "\\FULL";
+
+		cell->children.push_back(new AstNode(AST_PARASET, AstNode::mkconst_int(oper_polarity != 0, false, 1)));
+		cell->children.back()->str = "\\SRC_DST_PEN";
+
+		cell->children.push_back(new AstNode(AST_PARASET, AstNode::mkconst_int(oper_polarity == '+', false, 1)));
+		cell->children.back()->str = "\\SRC_DST_POL";
+
+		cell->children.push_back(new AstNode(AST_PARASET, timing->rise.t_min));
+		cell->children.back()->str = "\\T_RISE_MIN";
+
+		cell->children.push_back(new AstNode(AST_PARASET, timing->rise.t_avg));
+		cell->children.back()->str = "\\T_RISE_TYP";
+
+		cell->children.push_back(new AstNode(AST_PARASET, timing->rise.t_max));
+		cell->children.back()->str = "\\T_RISE_MAX";
+
+		cell->children.push_back(new AstNode(AST_PARASET, timing->fall.t_min));
+		cell->children.back()->str = "\\T_FALL_MIN";
+
+		cell->children.push_back(new AstNode(AST_PARASET, timing->fall.t_avg));
+		cell->children.back()->str = "\\T_FALL_TYP";
+
+		cell->children.push_back(new AstNode(AST_PARASET, timing->fall.t_max));
+		cell->children.back()->str = "\\T_FALL_MAX";
+
+		cell->children.push_back(new AstNode(AST_ARGUMENT, en_expr ? en_expr : AstNode::mkconst_int(1, false, 1)));
+		cell->children.back()->str = "\\EN";
+
+		cell->children.push_back(new AstNode(AST_ARGUMENT, src_expr));
+		cell->children.back()->str = "\\SRC";
+
+		cell->children.push_back(new AstNode(AST_ARGUMENT, target->dst));
+		cell->children.back()->str = "\\DST";
+
+		if (target->dat)
+		{
+			cell->children.push_back(new AstNode(AST_PARASET, AstNode::mkconst_int(specify_edge != 0, false, 1)));
+			cell->children.back()->str = "\\EDGE_EN";
+
+			cell->children.push_back(new AstNode(AST_PARASET, AstNode::mkconst_int(specify_edge == 'p', false, 1)));
+			cell->children.back()->str = "\\EDGE_POL";
+
+			cell->children.push_back(new AstNode(AST_PARASET, AstNode::mkconst_int(target->polarity_op != 0, false, 1)));
+			cell->children.back()->str = "\\DAT_DST_PEN";
+
+			cell->children.push_back(new AstNode(AST_PARASET, AstNode::mkconst_int(target->polarity_op == '+', false, 1)));
+			cell->children.back()->str = "\\DAT_DST_POL";
+
+			cell->children.push_back(new AstNode(AST_ARGUMENT, target->dat));
+			cell->children.back()->str = "\\DAT";
+		}
+
+		delete oper;
+		delete target;
+		delete timing;
+	} |
+	TOK_ID '(' specify_edge expr specify_condition ',' specify_edge expr specify_condition ',' expr specify_opt_arg ')' ';' {
+		if (*$1 != "$setup" && *$1 != "$hold" && *$1 != "$setuphold" && *$1 != "$removal" && *$1 != "$recovery" &&
+				*$1 != "$recrem" && *$1 != "$skew" && *$1 != "$timeskew" && *$1 != "$fullskew" && *$1 != "$nochange")
+			frontend_verilog_yyerror("Unsupported specify rule type: %s\n", $1->c_str());
+
+		AstNode *src_pen = AstNode::mkconst_int($3 != 0, false, 1);
+		AstNode *src_pol = AstNode::mkconst_int($3 == 'p', false, 1);
+		AstNode *src_expr = $4, *src_en = $5 ? $5 : AstNode::mkconst_int(1, false, 1);
+
+		AstNode *dst_pen = AstNode::mkconst_int($7 != 0, false, 1);
+		AstNode *dst_pol = AstNode::mkconst_int($7 == 'p', false, 1);
+		AstNode *dst_expr = $8, *dst_en = $9 ? $9 : AstNode::mkconst_int(1, false, 1);
+
+		AstNode *limit = $11;
+		AstNode *limit2 = $12;
+
+		AstNode *cell = new AstNode(AST_CELL);
+		ast_stack.back()->children.push_back(cell);
+		cell->str = stringf("$specify$%d", autoidx++);
+		cell->children.push_back(new AstNode(AST_CELLTYPE));
+		cell->children.back()->str = "$specrule";
+
+		cell->children.push_back(new AstNode(AST_PARASET, AstNode::mkconst_str(*$1)));
+		cell->children.back()->str = "\\TYPE";
+
+		cell->children.push_back(new AstNode(AST_PARASET, limit));
+		cell->children.back()->str = "\\T_LIMIT";
+
+		cell->children.push_back(new AstNode(AST_PARASET, limit2 ? limit2 : AstNode::mkconst_int(0, true)));
+		cell->children.back()->str = "\\T_LIMIT2";
+
+		cell->children.push_back(new AstNode(AST_PARASET, src_pen));
+		cell->children.back()->str = "\\SRC_PEN";
+
+		cell->children.push_back(new AstNode(AST_PARASET, src_pol));
+		cell->children.back()->str = "\\SRC_POL";
+
+		cell->children.push_back(new AstNode(AST_PARASET, dst_pen));
+		cell->children.back()->str = "\\DST_PEN";
+
+		cell->children.push_back(new AstNode(AST_PARASET, dst_pol));
+		cell->children.back()->str = "\\DST_POL";
+
+		cell->children.push_back(new AstNode(AST_ARGUMENT, src_en));
+		cell->children.back()->str = "\\SRC_EN";
+
+		cell->children.push_back(new AstNode(AST_ARGUMENT, src_expr));
+		cell->children.back()->str = "\\SRC";
+
+		cell->children.push_back(new AstNode(AST_ARGUMENT, dst_en));
+		cell->children.back()->str = "\\DST_EN";
+
+		cell->children.push_back(new AstNode(AST_ARGUMENT, dst_expr));
+		cell->children.back()->str = "\\DST";
+
+		delete $1;
+	};
+
+specify_opt_arg:
+	',' expr {
+		$$ = $2;
+	} |
+	/* empty */ {
+		$$ = nullptr;
+	};
+
+specify_if:
+	TOK_IF '(' expr ')' {
+		$$ = $3;
+	} |
+	/* empty */ {
+		$$ = nullptr;
+	};
+
+specify_condition:
+	TOK_SPECIFY_AND expr {
+		$$ = $2;
+	} |
+	/* empty */ {
+		$$ = nullptr;
+	};
+
+specify_target:
+	expr {
+		$$ = new specify_target;
+		$$->polarity_op = 0;
+		$$->dst = $1;
+		$$->dat = nullptr;
+	} |
+	'(' expr ':' expr ')'{
+		$$ = new specify_target;
+		$$->polarity_op = 0;
+		$$->dst = $2;
+		$$->dat = $4;
+	} |
+	'(' expr TOK_NEG_INDEXED expr ')'{
+		$$ = new specify_target;
+		$$->polarity_op = '-';
+		$$->dst = $2;
+		$$->dat = $4;
+	} |
+	'(' expr TOK_POS_INDEXED expr ')'{
+		$$ = new specify_target;
+		$$->polarity_op = '+';
+		$$->dst = $2;
+		$$->dat = $4;
+	};
+
+specify_edge:
+	TOK_POSEDGE { $$ = 'p'; } |
+	TOK_NEGEDGE { $$ = 'n'; } |
+	{ $$ = 0; };
+
+specify_rise_fall:
+	specify_triple {
+		$$ = new specify_rise_fall;
+		$$->rise = *$1;
+		$$->fall.t_min = $1->t_min->clone();
+		$$->fall.t_avg = $1->t_avg->clone();
+		$$->fall.t_max = $1->t_max->clone();
+		delete $1;
+	} |
+	'(' specify_triple ',' specify_triple ')' {
+		$$ = new specify_rise_fall;
+		$$->rise = *$2;
+		$$->fall = *$4;
+		delete $2;
+		delete $4;
+	};
+
+specify_triple:
+	expr {
+		$$ = new specify_triple;
+		$$->t_min = $1;
+		$$->t_avg = $1->clone();
+		$$->t_max = $1->clone();
+	} |
+	expr ':' expr ':' expr {
+		$$ = new specify_triple;
+		$$->t_min = $1;
+		$$->t_avg = $3;
+		$$->t_max = $5;
+	};
+
+/******************** ignored specify parser **************************/
+
+ignored_specify_block:
+	TOK_IGNORED_SPECIFY ignored_specify_item_opt TOK_ENDSPECIFY |
+	TOK_IGNORED_SPECIFY TOK_ENDSPECIFY ;
+
+ignored_specify_item_opt:
+	ignored_specify_item_opt ignored_specify_item |
+	ignored_specify_item ;
+
+ignored_specify_item:
 	specparam_declaration
 	// | pulsestyle_declaration
 	// | showcancelled_declaration
@@ -721,13 +998,13 @@ specparam_declaration:
 // and the 'non_opt_range' rule allows index ranges not allowed by 1364-2005
 // exxxxtending this for SV specparam would change this anyhow
 specparam_range:
-	'[' constant_expression ':' constant_expression ']' ;
+	'[' ignspec_constant_expression ':' ignspec_constant_expression ']' ;
 
 list_of_specparam_assignments:
 	specparam_assignment | list_of_specparam_assignments ',' specparam_assignment;
 
 specparam_assignment:
-	TOK_ID '=' constant_mintypmax_expression ;
+	ignspec_id '=' constant_mintypmax_expression ;
 
 /*
 pulsestyle_declaration :
@@ -802,19 +1079,19 @@ opt_polarity_operator :
 
 // Good enough for the time being
 specify_input_terminal_descriptor :
-	TOK_ID ;
+	ignspec_id ;
 
 // Good enough for the time being
 specify_output_terminal_descriptor :
-	TOK_ID ;
+	ignspec_id ;
 
 system_timing_declaration :
-	TOK_ID '(' system_timing_args ')' ';' ;
+	ignspec_id '(' system_timing_args ')' ';' ;
 
 system_timing_arg :
-	TOK_POSEDGE TOK_ID |
-	TOK_NEGEDGE TOK_ID |
-	expr ;
+	TOK_POSEDGE ignspec_id |
+	TOK_NEGEDGE ignspec_id |
+	ignspec_expr ;
 
 system_timing_args :
 	system_timing_arg |
@@ -871,19 +1148,27 @@ tzx_path_delay_expression :
 */
 
 path_delay_expression :
-	constant_expression;
+	ignspec_constant_expression;
 
 constant_mintypmax_expression :
-	constant_expression
-	| constant_expression ':' constant_expression ':' constant_expression
+	ignspec_constant_expression
+	| ignspec_constant_expression ':' ignspec_constant_expression ':' ignspec_constant_expression
 	;
 
 // for the time being this is OK, but we may write our own expr here.
 // as I'm not sure it is legal to use a full expr here (probably not)
 // On the other hand, other rules requiring constant expressions also use 'expr'
 // (such as param assignment), so we may leave this as-is, perhaps adding runtime checks for constant-ness
-constant_expression:
-	expr ;
+ignspec_constant_expression:
+	expr { delete $1; };
+
+ignspec_expr:
+	expr { delete $1; };
+
+ignspec_id:
+	TOK_ID { delete $1; };
+
+/**********************************************************************/
 
 param_signed:
 	TOK_SIGNED {
@@ -917,7 +1202,7 @@ param_range:
 	};
 
 param_decl:
-	TOK_PARAMETER {
+	attr TOK_PARAMETER {
 		astbuf1 = new AstNode(AST_PARAMETER);
 		astbuf1->children.push_back(AstNode::mkconst_int(0, true));
 	} param_signed param_integer param_real param_range param_decl_list ';' {
@@ -925,7 +1210,7 @@ param_decl:
 	};
 
 localparam_decl:
-	TOK_LOCALPARAM {
+	attr TOK_LOCALPARAM {
 		astbuf1 = new AstNode(AST_LOCALPARAM);
 		astbuf1->children.push_back(AstNode::mkconst_int(0, true));
 	} param_signed param_integer param_real param_range param_decl_list ';' {
@@ -1340,6 +1625,9 @@ opt_sva_label:
 opt_property:
 	TOK_PROPERTY {
 		$$ = true;
+	} |
+	TOK_FINAL {
+		$$ = false;
 	} |
 	/* empty */ {
 		$$ = false;
@@ -2139,4 +2427,3 @@ concat_list:
 		$$ = $3;
 		$$->children.push_back($1);
 	};
-

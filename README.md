@@ -259,11 +259,7 @@ for them:
 
 - The ``tri``, ``triand``, ``trior``, ``wand`` and ``wor`` net types
 
-- The ``config`` keyword and library map files
-
-- The ``disable``, ``primitive`` and ``specify`` statements
-
-- Latched logic (is synthesized as logic with feedback loops)
+- The ``config`` and ``disable`` keywords and library map files
 
 
 Verilog Attributes and non-standard features
@@ -420,9 +416,15 @@ Verilog Attributes and non-standard features
   expressions as <size>. If the expression is not a simple identifier, it
   must be put in parentheses. Examples: ``WIDTH'd42``, ``(4+2)'b101010``
 
-- The system tasks ``$finish`` and ``$display`` are supported in initial blocks
-  in an unconditional context (only if/case statements on parameters
-  and constant values). The intended use for this is synthesis-time DRC.
+- The system tasks ``$finish``, ``$stop`` and ``$display`` are supported in
+  initial blocks in an unconditional context (only if/case statements on
+  expressions over parameters and constant values are allowed). The intended
+  use for this is synthesis-time DRC.
+
+- There is limited support for converting specify .. endspecify statements to
+  special ``$specify2``, ``$specify3``, and ``$specrule`` cells, for use in
+  blackboxes and whiteboxes. Use ``read_verilog -specify`` to enable this
+  functionality. (By default specify .. endspecify blocks are ignored.)
 
 
 Non-standard or SystemVerilog features for formal verification

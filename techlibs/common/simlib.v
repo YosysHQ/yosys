@@ -1271,6 +1271,181 @@ endmodule
 
 // --------------------------------------------------------
 
+module \$specify2 (EN, SRC, DST);
+
+parameter FULL = 0;
+parameter SRC_WIDTH = 1;
+parameter DST_WIDTH = 1;
+
+parameter SRC_DST_PEN = 0;
+parameter SRC_DST_POL = 0;
+
+parameter T_RISE_MIN = 0;
+parameter T_RISE_TYP = 0;
+parameter T_RISE_MAX = 0;
+
+parameter T_FALL_MIN = 0;
+parameter T_FALL_TYP = 0;
+parameter T_FALL_MAX = 0;
+
+input EN;
+input [SRC_WIDTH-1:0] SRC;
+input [DST_WIDTH-1:0] DST;
+
+localparam SD = SRC_DST_PEN ? (SRC_DST_POL ? 1 : 2) : 0;
+
+`ifdef SIMLIB_SPECIFY
+specify
+	if (EN && SD==0 && !FULL) (SRC  => DST) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && SD==0 &&  FULL) (SRC  *> DST) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && SD==1 && !FULL) (SRC +=> DST) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && SD==1 &&  FULL) (SRC +*> DST) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && SD==2 && !FULL) (SRC -=> DST) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && SD==2 &&  FULL) (SRC -*> DST) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+endspecify
+`endif
+
+endmodule
+
+// --------------------------------------------------------
+
+module \$specify3 (EN, SRC, DST, DAT);
+
+parameter FULL = 0;
+parameter SRC_WIDTH = 1;
+parameter DST_WIDTH = 1;
+
+parameter EDGE_EN = 0;
+parameter EDGE_POL = 0;
+
+parameter SRC_DST_PEN = 0;
+parameter SRC_DST_POL = 0;
+
+parameter DAT_DST_PEN = 0;
+parameter DAT_DST_POL = 0;
+
+parameter T_RISE_MIN = 0;
+parameter T_RISE_TYP = 0;
+parameter T_RISE_MAX = 0;
+
+parameter T_FALL_MIN = 0;
+parameter T_FALL_TYP = 0;
+parameter T_FALL_MAX = 0;
+
+input EN;
+input [SRC_WIDTH-1:0] SRC;
+input [DST_WIDTH-1:0] DST, DAT;
+
+localparam ED = EDGE_EN     ? (EDGE_POL    ? 1 : 2) : 0;
+localparam SD = SRC_DST_PEN ? (SRC_DST_POL ? 1 : 2) : 0;
+localparam DD = DAT_DST_PEN ? (DAT_DST_POL ? 1 : 2) : 0;
+
+`ifdef SIMLIB_SPECIFY
+specify
+	// DD=0
+
+	if (EN && DD==0 && SD==0 && ED==0 && !FULL) (        SRC  => (DST  : DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==0 && SD==0 && ED==0 &&  FULL) (        SRC  *> (DST  : DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==0 && SD==0 && ED==1 && !FULL) (posedge SRC  => (DST  : DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==0 && SD==0 && ED==1 &&  FULL) (posedge SRC  *> (DST  : DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==0 && SD==0 && ED==2 && !FULL) (negedge SRC  => (DST  : DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==0 && SD==0 && ED==2 &&  FULL) (negedge SRC  *> (DST  : DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+
+	if (EN && DD==0 && SD==1 && ED==0 && !FULL) (        SRC +=> (DST  : DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==0 && SD==1 && ED==0 &&  FULL) (        SRC +*> (DST  : DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==0 && SD==1 && ED==1 && !FULL) (posedge SRC +=> (DST  : DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==0 && SD==1 && ED==1 &&  FULL) (posedge SRC +*> (DST  : DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==0 && SD==1 && ED==2 && !FULL) (negedge SRC +=> (DST  : DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==0 && SD==1 && ED==2 &&  FULL) (negedge SRC +*> (DST  : DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+
+	if (EN && DD==0 && SD==2 && ED==0 && !FULL) (        SRC -=> (DST  : DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==0 && SD==2 && ED==0 &&  FULL) (        SRC -*> (DST  : DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==0 && SD==2 && ED==1 && !FULL) (posedge SRC -=> (DST  : DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==0 && SD==2 && ED==1 &&  FULL) (posedge SRC -*> (DST  : DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==0 && SD==2 && ED==2 && !FULL) (negedge SRC -=> (DST  : DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==0 && SD==2 && ED==2 &&  FULL) (negedge SRC -*> (DST  : DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+
+	// DD=1
+
+	if (EN && DD==1 && SD==0 && ED==0 && !FULL) (        SRC  => (DST +: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==1 && SD==0 && ED==0 &&  FULL) (        SRC  *> (DST +: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==1 && SD==0 && ED==1 && !FULL) (posedge SRC  => (DST +: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==1 && SD==0 && ED==1 &&  FULL) (posedge SRC  *> (DST +: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==1 && SD==0 && ED==2 && !FULL) (negedge SRC  => (DST +: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==1 && SD==0 && ED==2 &&  FULL) (negedge SRC  *> (DST +: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+
+	if (EN && DD==1 && SD==1 && ED==0 && !FULL) (        SRC +=> (DST +: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==1 && SD==1 && ED==0 &&  FULL) (        SRC +*> (DST +: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==1 && SD==1 && ED==1 && !FULL) (posedge SRC +=> (DST +: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==1 && SD==1 && ED==1 &&  FULL) (posedge SRC +*> (DST +: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==1 && SD==1 && ED==2 && !FULL) (negedge SRC +=> (DST +: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==1 && SD==1 && ED==2 &&  FULL) (negedge SRC +*> (DST +: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+
+	if (EN && DD==1 && SD==2 && ED==0 && !FULL) (        SRC -=> (DST +: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==1 && SD==2 && ED==0 &&  FULL) (        SRC -*> (DST +: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==1 && SD==2 && ED==1 && !FULL) (posedge SRC -=> (DST +: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==1 && SD==2 && ED==1 &&  FULL) (posedge SRC -*> (DST +: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==1 && SD==2 && ED==2 && !FULL) (negedge SRC -=> (DST +: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==1 && SD==2 && ED==2 &&  FULL) (negedge SRC -*> (DST +: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+
+	// DD=2
+
+	if (EN && DD==2 && SD==0 && ED==0 && !FULL) (        SRC  => (DST -: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==2 && SD==0 && ED==0 &&  FULL) (        SRC  *> (DST -: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==2 && SD==0 && ED==1 && !FULL) (posedge SRC  => (DST -: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==2 && SD==0 && ED==1 &&  FULL) (posedge SRC  *> (DST -: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==2 && SD==0 && ED==2 && !FULL) (negedge SRC  => (DST -: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==2 && SD==0 && ED==2 &&  FULL) (negedge SRC  *> (DST -: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+
+	if (EN && DD==2 && SD==1 && ED==0 && !FULL) (        SRC +=> (DST -: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==2 && SD==1 && ED==0 &&  FULL) (        SRC +*> (DST -: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==2 && SD==1 && ED==1 && !FULL) (posedge SRC +=> (DST -: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==2 && SD==1 && ED==1 &&  FULL) (posedge SRC +*> (DST -: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==2 && SD==1 && ED==2 && !FULL) (negedge SRC +=> (DST -: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==2 && SD==1 && ED==2 &&  FULL) (negedge SRC +*> (DST -: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+
+	if (EN && DD==2 && SD==2 && ED==0 && !FULL) (        SRC -=> (DST -: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==2 && SD==2 && ED==0 &&  FULL) (        SRC -*> (DST -: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==2 && SD==2 && ED==1 && !FULL) (posedge SRC -=> (DST -: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==2 && SD==2 && ED==1 &&  FULL) (posedge SRC -*> (DST -: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==2 && SD==2 && ED==2 && !FULL) (negedge SRC -=> (DST -: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+	if (EN && DD==2 && SD==2 && ED==2 &&  FULL) (negedge SRC -*> (DST -: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
+endspecify
+`endif
+
+endmodule
+
+// --------------------------------------------------------
+
+module \$specrule (EN_SRC, EN_DST, SRC, DST);
+
+parameter TYPE = "";
+parameter T_LIMIT = 0;
+parameter T_LIMIT2 = 0;
+
+parameter SRC_WIDTH = 1;
+parameter DST_WIDTH = 1;
+
+parameter SRC_PEN = 0;
+parameter SRC_POL = 0;
+
+parameter DST_PEN = 0;
+parameter DST_POL = 0;
+
+input EN_SRC, EN_DST;
+input [SRC_WIDTH-1:0] SRC;
+input [DST_WIDTH-1:0] DST;
+
+`ifdef SIMLIB_SPECIFY
+specify
+	// TBD
+endspecify
+`endif
+
+endmodule
+
+// --------------------------------------------------------
+
 module \$assert (A, EN);
 
 input A, EN;
@@ -1863,4 +2038,5 @@ end
 endmodule
 
 `endif
+
 // --------------------------------------------------------

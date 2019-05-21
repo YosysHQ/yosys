@@ -645,6 +645,8 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 			if (!id_ast->children[0]->range_valid)
 				log_file_error(filename, linenum, "Failed to detect width of memory access `%s'!\n", str.c_str());
 			this_width = id_ast->children[0]->range_left - id_ast->children[0]->range_right + 1;
+			if (children.size() > 1)
+				range = children[1];
 		} else
 			log_file_error(filename, linenum, "Failed to detect width for identifier %s!\n", str.c_str());
 		if (range) {
@@ -1490,10 +1492,12 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 					continue;
 				}
 				if (child->type == AST_PARASET) {
+					int extra_const_flags = 0;
 					IdString paraname = child->str.empty() ? stringf("$%d", ++para_counter) : child->str;
 					if (child->children[0]->type == AST_REALVALUE) {
 						log_file_warning(filename, linenum, "Replacing floating point parameter %s.%s = %f with string.\n",
 								log_id(cell), log_id(paraname), child->children[0]->realvalue);
+						extra_const_flags = RTLIL::CONST_FLAG_REAL;
 						auto strnode = AstNode::mkconst_str(stringf("%f", child->children[0]->realvalue));
 						strnode->cloneInto(child->children[0]);
 						delete strnode;
@@ -1502,6 +1506,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 						log_file_error(filename, linenum, "Parameter %s.%s with non-constant value!\n",
 								log_id(cell), log_id(paraname));
 					cell->parameters[paraname] = child->children[0]->asParaConst();
+					cell->parameters[paraname].flags |= extra_const_flags;
 					continue;
 				}
 				if (child->type == AST_ARGUMENT) {
@@ -1521,8 +1526,28 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			}
 			for (auto &attr : attributes) {
 				if (attr.second->type != AST_CONSTANT)
-					log_file_error(filename, linenum, "Attribute `%s' with non-constant value!\n", attr.first.c_str());
+					log_file_error(filename, linenum, "Attribute `%s' with non-constant value.\n", attr.first.c_str());
 				cell->attributes[attr.first] = attr.second->asAttrConst();
+			}
+			if (cell->type.in("$specify2", "$specify3")) {
+				int src_width = GetSize(cell->getPort("\\SRC"));
+				int dst_width = GetSize(cell->getPort("\\DST"));
+				bool full = cell->getParam("\\FULL").as_bool();
+				if (!full && src_width != dst_width)
+					log_file_error(filename, linenum, "Parallel specify SRC width does not match DST width.\n");
+				if (cell->type == "$specify3") {
+					int dat_width = GetSize(cell->getPort("\\DAT"));
+					if (dat_width != dst_width)
+						log_file_error(filename, linenum, "Specify DAT width does not match DST width.\n");
+				}
+				cell->setParam("\\SRC_WIDTH", Const(src_width));
+				cell->setParam("\\DST_WIDTH", Const(dst_width));
+			}
+			if (cell->type == "$specrule") {
+				int src_width = GetSize(cell->getPort("\\SRC"));
+				int dst_width = GetSize(cell->getPort("\\DST"));
+				cell->setParam("\\SRC_WIDTH", Const(src_width));
+				cell->setParam("\\DST_WIDTH", Const(dst_width));
 			}
 		}
 		break;

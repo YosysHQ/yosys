@@ -148,7 +148,7 @@ YOSYS_NAMESPACE_END
 "endfunction"  { return TOK_ENDFUNCTION; }
 "task"         { return TOK_TASK; }
 "endtask"      { return TOK_ENDTASK; }
-"specify"      { return TOK_SPECIFY; }
+"specify"      { return specify_mode ? TOK_SPECIFY : TOK_IGNORED_SPECIFY; }
 "endspecify"   { return TOK_ENDSPECIFY; }
 "specparam"    { return TOK_SPECPARAM; }
 "package"      { SV_KEYWORD(TOK_PACKAGE); }
@@ -206,7 +206,9 @@ YOSYS_NAMESPACE_END
 "const"      { if (formal_mode) return TOK_CONST; SV_KEYWORD(TOK_CONST); }
 "checker"    { if (formal_mode) return TOK_CHECKER; SV_KEYWORD(TOK_CHECKER); }
 "endchecker" { if (formal_mode) return TOK_ENDCHECKER; SV_KEYWORD(TOK_ENDCHECKER); }
+"final"      { SV_KEYWORD(TOK_FINAL); }
 "logic"      { SV_KEYWORD(TOK_LOGIC); }
+"var"        { SV_KEYWORD(TOK_VAR); }
 "bit"        { SV_KEYWORD(TOK_REG); }
 
 "eventually"   { if (formal_mode) return TOK_EVENTUALLY; SV_KEYWORD(TOK_EVENTUALLY); }
@@ -297,6 +299,12 @@ supply0 { return TOK_SUPPLY0; }
 supply1 { return TOK_SUPPLY1; }
 
 "$"(display|write|strobe|monitor|time|stop|finish|dumpfile|dumpvars|dumpon|dumpoff|dumpall) {
+	frontend_verilog_yylval.string = new std::string(yytext);
+	return TOK_ID;
+}
+
+"$"(setup|hold|setuphold|removal|recovery|recrem|skew|timeskew|fullskew|nochange) {
+	if (!specify_mode) REJECT;
 	frontend_verilog_yylval.string = new std::string(yytext);
 	return TOK_ID;
 }
@@ -410,6 +418,17 @@ import[ \t\r\n]+\"(DPI|DPI-C)\"[ \t\r\n]+function[ \t\r\n]+ {
 
 "+:" { return TOK_POS_INDEXED; }
 "-:" { return TOK_NEG_INDEXED; }
+
+[-+]?[=*]> {
+	if (!specify_mode) REJECT;
+	frontend_verilog_yylval.string = new std::string(yytext);
+	return TOK_SPECIFY_OPER;
+}
+
+"&&&" {
+	if (!specify_mode) REJECT;
+	return TOK_SPECIFY_AND;
+}
 
 "/*" { BEGIN(COMMENT); }
 <COMMENT>.    /* ignore comment body */

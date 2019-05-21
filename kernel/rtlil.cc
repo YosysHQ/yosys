@@ -218,15 +218,19 @@ void RTLIL::AttrObject::set_bool_attribute(RTLIL::IdString id, bool value)
 {
 	if (value)
 		attributes[id] = RTLIL::Const(1);
-	else if (attributes.count(id))
-		attributes.erase(id);
+	else {
+                const auto it = attributes.find(id);
+                if (it != attributes.end())
+			attributes.erase(it);
+	}
 }
 
 bool RTLIL::AttrObject::get_bool_attribute(RTLIL::IdString id) const
 {
-	if (attributes.count(id) == 0)
+	const auto it = attributes.find(id);
+	if (it == attributes.end())
 		return false;
-	return attributes.at(id).as_bool();
+	return it->second.as_bool();
 }
 
 void RTLIL::AttrObject::set_strpool_attribute(RTLIL::IdString id, const pool<string> &data)
@@ -1194,6 +1198,46 @@ namespace {
 				return;
 			}
 
+			if (cell->type.in("$specify2", "$specify3")) {
+				param_bool("\\FULL");
+				param_bool("\\SRC_DST_PEN");
+				param_bool("\\SRC_DST_POL");
+				param("\\T_RISE_MIN");
+				param("\\T_RISE_TYP");
+				param("\\T_RISE_MAX");
+				param("\\T_FALL_MIN");
+				param("\\T_FALL_TYP");
+				param("\\T_FALL_MAX");
+				port("\\EN", 1);
+				port("\\SRC", param("\\SRC_WIDTH"));
+				port("\\DST", param("\\DST_WIDTH"));
+				if (cell->type == "$specify3") {
+					param_bool("\\EDGE_EN");
+					param_bool("\\EDGE_POL");
+					param_bool("\\DAT_DST_PEN");
+					param_bool("\\DAT_DST_POL");
+					port("\\DAT", param("\\DST_WIDTH"));
+				}
+				check_expected();
+				return;
+			}
+
+			if (cell->type == "$specrule") {
+				param("\\TYPE");
+				param_bool("\\SRC_PEN");
+				param_bool("\\SRC_POL");
+				param_bool("\\DST_PEN");
+				param_bool("\\DST_POL");
+				param("\\T_LIMIT");
+				param("\\T_LIMIT2");
+				port("\\SRC_EN", 1);
+				port("\\DST_EN", 1);
+				port("\\SRC", param("\\SRC_WIDTH"));
+				port("\\DST", param("\\DST_WIDTH"));
+				check_expected();
+				return;
+			}
+
 			if (cell->type == "$_BUF_")    { check_gate("AY"); return; }
 			if (cell->type == "$_NOT_")    { check_gate("AY"); return; }
 			if (cell->type == "$_AND_")    { check_gate("ABY"); return; }
@@ -1470,7 +1514,10 @@ void RTLIL::Module::add(RTLIL::Cell *cell)
 	cell->module = this;
 }
 
-namespace {
+void RTLIL::Module::remove(const pool<RTLIL::Wire*> &wires)
+{
+	log_assert(refcount_wires_ == 0);
+
 	struct DeleteWireWorker
 	{
 		RTLIL::Module *module;
@@ -1485,17 +1532,29 @@ namespace {
 				}
 			sig = chunks;
 		}
-	};
-}
 
-void RTLIL::Module::remove(const pool<RTLIL::Wire*> &wires)
-{
-	log_assert(refcount_wires_ == 0);
+		void operator()(RTLIL::SigSpec &lhs, RTLIL::SigSpec &rhs) {
+			log_assert(GetSize(lhs) == GetSize(rhs));
+			RTLIL::SigSpec new_lhs, new_rhs;
+			for (int i = 0; i < GetSize(lhs); i++) {
+				RTLIL::SigBit lhs_bit = lhs[i];
+				if (lhs_bit.wire != nullptr && wires_p->count(lhs_bit.wire))
+					continue;
+				RTLIL::SigBit rhs_bit = rhs[i];
+				if (rhs_bit.wire != nullptr && wires_p->count(rhs_bit.wire))
+					continue;
+				new_lhs.append(lhs_bit);
+				new_rhs.append(rhs_bit);
+			}
+			lhs = new_lhs;
+			rhs = new_rhs;
+		}
+	};
 
 	DeleteWireWorker delete_wire_worker;
 	delete_wire_worker.module = this;
 	delete_wire_worker.wires_p = &wires;
-	rewrite_sigspecs(delete_wire_worker);
+	rewrite_sigspecs2(delete_wire_worker);
 
 	for (auto &it : wires) {
 		log_assert(wires_.count(it->name) != 0);
