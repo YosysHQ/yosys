@@ -1,12 +1,11 @@
-# Max delays from https://pastebin.com/v2hrcksd
-# from https://github.com/SymbiFlow/prjxray/pull/706#issuecomment-479380321
+# Max delays from https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf
 
 # K	area	delay
-1 	11	624
-2	12	624
-3	13	624
-4	14	624
-5	15	624
-6	20	724
-7	40	1020
-8	80	1293
+1 	1	624
+2	2	624
+3	3	624
+4	3	624
+5	3	624
+6	5	724
+7	10	1020
+8	20	1293
