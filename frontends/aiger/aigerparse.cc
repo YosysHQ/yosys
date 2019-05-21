@@ -55,9 +55,8 @@ void AigerReader::parse_aiger()
 
     // Optional values
     B = C = J = F = 0;
-    for (auto &i : std::array<std::reference_wrapper<unsigned>,4>{B, C, J, F}) {
-        if (f.peek() != ' ') break;
-        if (!(f >> i))
+    if (f.peek() == ' ') {
+        if (!(f >> B >> C >> J >> F))
             log_error("Invalid AIGER header\n");
     }
 
