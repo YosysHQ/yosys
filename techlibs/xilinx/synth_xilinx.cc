@@ -42,6 +42,10 @@ struct SynthXilinxPass : public ScriptPass
 		log("    -top <module>\n");
 		log("        use the specified module as top module\n");
 		log("\n");
+		log("    -arch {xcup|xcu|xc7|xc6s}\n");
+		log("        run synthesis for the specified Xilinx architecture\n");
+		log("        default: xc7\n");
+		log("\n");
 		log("    -edif <file>\n");
 		log("        write the design to the specified edif file. writing of an output file\n");
 		log("        is omitted if this parameter is not specified.\n");
@@ -89,7 +93,7 @@ struct SynthXilinxPass : public ScriptPass
 		log("\n");
 	}
 
-	std::string top_opt, edif_file, blif_file, abc;
+	std::string top_opt, edif_file, blif_file, abc, arch;
 	bool flatten, retime, vpr, nocarry, nobram, nodram, nosrl, nomux;
 
 	void clear_flags() YS_OVERRIDE
@@ -101,10 +105,12 @@ struct SynthXilinxPass : public ScriptPass
 		flatten = false;
 		retime = false;
 		vpr = false;
+		nocarry = false;
 		nobram = false;
 		nodram = false;
 		nosrl = false;
 		nomux = false;
+		arch = "xc7";
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -117,6 +123,10 @@ struct SynthXilinxPass : public ScriptPass
 		{
 			if (args[argidx] == "-top" && argidx+1 < args.size()) {
 				top_opt = "-top " + args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-arch" && argidx+1 < args.size()) {
+				arch = args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-edif" && argidx+1 < args.size()) {
@@ -174,6 +184,9 @@ struct SynthXilinxPass : public ScriptPass
 			break;
 		}
 		extra_args(args, argidx, design);
+
+		if (arch != "xcup" && arch != "xcu" && arch != "xc7" && arch != "xc6s")
+			log_cmd_error("Invalid Xilinx -arch setting: %s\n", arch.c_str());
 
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");
@@ -291,7 +304,7 @@ struct SynthXilinxPass : public ScriptPass
 
 		if (check_label("check")) {
 			run("hierarchy -check");
-			run("stat");
+			run("stat -tech xilinx");
 			run("check -noinit");
 		}
 

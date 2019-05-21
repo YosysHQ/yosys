@@ -40,7 +40,7 @@ struct PeepoptPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
-		log_header(design, "Executing PEEOPOPT pass (run peephole optimizers).\n");
+		log_header(design, "Executing PEEPOPT pass (run peephole optimizers).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)

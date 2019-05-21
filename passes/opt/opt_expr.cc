@@ -61,7 +61,7 @@ void replace_undriven(RTLIL::Design *design, RTLIL::Module *module)
 		}
 		if (wire->port_input)
 			driven_signals.add(sigmap(wire));
-		if (wire->port_output)
+		if (wire->port_output || wire->get_bool_attribute("\\keep"))
 			used_signals.add(sigmap(wire));
 		all_signals.add(sigmap(wire));
 	}
@@ -88,7 +88,7 @@ void replace_undriven(RTLIL::Design *design, RTLIL::Module *module)
 			}
 		}
 
-		log_debug("Setting undriven signal in %s to constant: %s = %s\n", RTLIL::id2cstr(module->name), log_signal(sig), log_signal(val));
+		log_debug("Setting undriven signal in %s to constant: %s = %s\n", log_id(module), log_signal(sig), log_signal(val));
 		module->connect(sig, val);
 		did_something = true;
 	}
@@ -104,10 +104,15 @@ void replace_undriven(RTLIL::Design *design, RTLIL::Module *module)
 				if (SigBit(initval[i]) == sig[i])
 					initval[i] = State::Sx;
 			}
-			if (initval.is_fully_undef())
+			if (initval.is_fully_undef()) {
+				log_debug("Removing init attribute from %s/%s.\n", log_id(module), log_id(wire));
 				wire->attributes.erase("\\init");
-			else
+				did_something = true;
+			} else if (initval != wire->attributes.at("\\init")) {
+				log_debug("Updating init attribute on %s/%s: %s\n", log_id(module), log_id(wire), log_signal(initval));
 				wire->attributes["\\init"] = initval;
+				did_something = true;
+			}
 		}
 	}
 }
