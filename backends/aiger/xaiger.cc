@@ -301,6 +301,35 @@ struct XAigerWriter
 				if (!box_module || !box_module->attributes.count("\\abc_box_id"))
 					continue;
 
+				// Fully pad all unused input connections of this box cell with S0
+				// Fully pad all undriven output connections of thix box cell with anonymous wires
+				for (const auto w : box_module->wires()) {
+					if (w->port_input) {
+						auto it = cell->connections_.find(w->name);
+						if (it != cell->connections_.end()) {
+							if (GetSize(it->second) < GetSize(w)) {
+								RTLIL::SigSpec padded_connection(RTLIL::S0, GetSize(w)-GetSize(it->second));
+								padded_connection.append(it->second);
+								it->second = std::move(padded_connection);
+							}
+						}
+						else
+							cell->connections_[w->name] = RTLIL::SigSpec(RTLIL::S0, GetSize(w));
+					}
+					if (w->port_output) {
+						auto it = cell->connections_.find(w->name);
+						if (it != cell->connections_.end()) {
+							if (GetSize(it->second) < GetSize(w)) {
+								RTLIL::SigSpec padded_connection = module->addWire(NEW_ID, GetSize(w)-GetSize(it->second));
+								padded_connection.append(it->second);
+								it->second = std::move(padded_connection);
+							}
+						}
+						else
+							cell->connections_[w->name] = module->addWire(NEW_ID, GetSize(w));
+					}
+				}
+
 				// Box ordering is alphabetical
 				cell->connections_.sort(RTLIL::sort_by_id_str());
 				for (const auto &c : cell->connections()) {
@@ -646,37 +675,53 @@ struct XAigerWriter
 
 			RTLIL::Module *holes_module = nullptr;
 			holes_module = module->design->addModule("\\__holes__");
+			log_assert(holes_module);
+			dict<IdString, std::pair<int,int>> box_io;
 
 			for (auto cell : box_list) {
-				int box_inputs = 0, box_outputs = 0;
-				int box_id = module->design->module(cell->type)->attributes.at("\\abc_box_id").as_int();
+				RTLIL::Module* box_module = module->design->module(cell->type);
+				int box_id = box_module->attributes.at("\\abc_box_id").as_int();
 				Cell *holes_cell = nullptr;
-				if (holes_module && !holes_module->cell(stringf("\\u%d", box_id)))
+				int box_inputs = 0, box_outputs = 0;
+
+				auto it = box_io.find(cell->type);
+				if (it == box_io.end()) {
 					holes_cell = holes_module->addCell(stringf("\\u%d", box_id), cell->type);
-				RTLIL::Wire *holes_wire;
-				// NB: cell->connections_ already sorted from before
-				for (const auto &c : cell->connections()) {
-					log_assert(c.second.size() == 1);
-					if (cell->input(c.first)) {
-						box_inputs += c.second.size();
-						if (holes_cell) {
-							holes_wire = holes_module->wire(stringf("\\i%d", box_inputs));
-							if (!holes_wire) {
-								holes_wire = holes_module->addWire(stringf("\\i%d", box_inputs));
-								holes_wire->port_input = true;
+
+					RTLIL::Wire *holes_wire;
+					box_module->wires_.sort(RTLIL::sort_by_id_str());
+					for (const auto w : box_module->wires()) {
+						RTLIL::SigSpec port_wire;
+						if (w->port_input) {
+							for (int i = 0; i < GetSize(w); i++) {
+								box_inputs++;
+								holes_wire = holes_module->wire(stringf("\\i%d", box_inputs));
+								if (!holes_wire) {
+									holes_wire = holes_module->addWire(stringf("\\i%d", box_inputs));
+									holes_wire->port_input = true;
+								}
+								port_wire.append(holes_wire);
 							}
-							holes_cell->setPort(c.first, holes_wire);
+							holes_cell->setPort(w->name, holes_wire);
+						}
+						if (w->port_output) {
+							box_outputs += GetSize(w);
+							for (int i = 0; i < GetSize(w); i++) {
+								if (GetSize(w) == 1)
+									holes_wire = holes_module->addWire(stringf("%s.%s", cell->type.c_str(), w->name.c_str()));
+								else
+									holes_wire = holes_module->addWire(stringf("%s.%s[%d]", cell->type.c_str(), w->name.c_str(), i));
+								holes_wire->port_output = true;
+								port_wire.append(holes_wire);
+							}
+							holes_cell->setPort(w->name, holes_wire);
 						}
 					}
-					if (cell->output(c.first)) {
-						box_outputs += c.second.size();
-						if (holes_cell) {
-							holes_wire = holes_module->addWire(stringf("\\%s.%s", cell->type.c_str(), c.first.c_str()));
-							holes_wire->port_output = true;
-							holes_cell->setPort(c.first, holes_wire);
-						}
-					}
+					box_io[cell->type] = std::make_pair(box_inputs,box_outputs);
 				}
+				else
+					std::tie(box_inputs,box_outputs) = it->second;
+
 				write_h_buffer(box_inputs);
 				write_h_buffer(box_outputs);
 				write_h_buffer(box_id);
