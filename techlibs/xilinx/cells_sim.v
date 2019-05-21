@@ -155,7 +155,6 @@ module LUT6_2(output O6, output O5, input I0, I1, I2, I3, I4, I5);
   assign O5 = I0 ? s5_1[1] : s5_1[0];
 endmodule
 
-(* abc_box_id = 3, lib_whitebox *)
 module MUXCY(output O, input CI, DI, S);
   assign O = S ? CI : DI;
 endmodule
@@ -170,11 +169,11 @@ module MUXF8(output O, input I0, I1, S);
   assign O = S ? I1 : I0;
 endmodule
 
-(* abc_box_id = 4, lib_whitebox *)
 module XORCY(output O, input CI, LI);
   assign O = CI ^ LI;
 endmodule
 
+(* abc_box_id = 3, lib_whitebox *)
 module CARRY4(output [3:0] CO, O, input CI, CYINIT, input [3:0] DI, S);
   assign O = S ^ {CO[2:0], CI | CYINIT};
   assign CO[0] = S[0] ? CI | CYINIT : DI[0];
