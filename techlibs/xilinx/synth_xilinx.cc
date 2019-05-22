@@ -266,9 +266,6 @@ struct SynthXilinxPass : public ScriptPass
 			else if (!nocarry || help_mode)
 				run("techmap -map +/xilinx/arith_map.v", "(skip if '-nocarry')");
 
-			if (!nomux || help_mode)
-				run("techmap -map +/xilinx/cells_map.v");
-
 			if (!nosrl || help_mode) {
 				// shregmap operates on bit-level flops, not word-level,
 				//   so break those down here
@@ -276,6 +273,9 @@ struct SynthXilinxPass : public ScriptPass
 				// shregmap with '-tech xilinx' infers variable length shift regs
 				run("shregmap -tech xilinx -minlen 3", "(skip if '-nosrl')");
 			}
+
+			if (!nomux || help_mode)
+				run("techmap -map +/xilinx/cells_map.v");
 
 			run("techmap");
 			run("opt -fast");
