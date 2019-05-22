@@ -3725,6 +3725,15 @@ RTLIL::SigBit RTLIL::SigSpec::as_bit() const
 		return bits_[0];
 }
 
+bool RTLIL::SigBit::is_wire() const
+{
+	cover("kernel.rtlil.sigbit.is_wire");
+	if (this->wire != NULL)
+		return true;
+	else
+		return false;
+}
+
 bool RTLIL::SigSpec::match(std::string pattern) const
 {
 	cover("kernel.rtlil.sigspec.match");

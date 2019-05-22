@@ -630,6 +630,9 @@ struct RTLIL::SigBit
 	bool operator ==(const RTLIL::SigBit &other) const;
 	bool operator !=(const RTLIL::SigBit &other) const;
 	unsigned int hash() const;
+
+	bool is_wire() const;
+	RTLIL::State get_data() const { return data; }
 };
 
 struct RTLIL::SigSpecIterator : public std::iterator<std::input_iterator_tag, RTLIL::SigSpec>

@@ -60,6 +60,7 @@ class TestSanity(unittest.TestCase):
       # Delete tmp files
       cls.v_file.unlink()
       cls.ys_file.unlink()
+      cls.design = None
 
     def test_sigbits(self):
         """

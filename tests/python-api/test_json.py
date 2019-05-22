@@ -264,7 +264,7 @@ class JSONPass():
         """
         Generate JSON using py_api
         """
-        design = TestSanity.design
+        design = TestJSON.design
         design.sort()
         ff = "{\n"
         # TODO:
@@ -274,9 +274,8 @@ class JSONPass():
             ff += self.write_module(module)
         return ff
 
-class TestSanity(unittest.TestCase):
+class TestJSON(unittest.TestCase):
     @classmethod
-    @unittest.skip('AttributeError: SigBit object has no attribute is_wire')
     def setUpClass(cls):
         """
         Load design only once for all tests
@@ -292,6 +291,7 @@ class TestSanity(unittest.TestCase):
         write_tmp(cls.ys_file, ys_script.format(v_file=cls.v_file))
 
         # Execute .ys file
+        cls.design = None
         cls.design = ys.Design()
 
         ys.run_pass("script {t_ys}".format(t_ys=cls.ys_file), cls.design)
@@ -315,6 +315,7 @@ class TestSanity(unittest.TestCase):
         """
         Test with ref
         """
+        # print(self.json_by_python)
         self.assertEqual(self.json_by_python, json_ref)
 
     @unittest.skip("n")
