@@ -29,6 +29,7 @@ PRIVATE_NAMESPACE_BEGIN
 struct WreduceConfig
 {
 	pool<IdString> supported_cell_types;
+	bool keepdc = false;
 
 	WreduceConfig()
 	{
@@ -82,7 +83,7 @@ struct WreduceWorker
 
 			SigBit ref = sig_a[i];
 			for (int k = 0; k < GetSize(sig_s); k++) {
-				if (ref != Sx && sig_b[k*GetSize(sig_a) + i] != Sx && ref != sig_b[k*GetSize(sig_a) + i])
+				if ((config->keepdc || (ref != Sx && sig_b[k*GetSize(sig_a) + i] != Sx)) && ref != sig_b[k*GetSize(sig_a) + i])
 					goto no_match_ab;
 				if (sig_b[k*GetSize(sig_a) + i] != Sx)
 					ref = sig_b[k*GetSize(sig_a) + i];
@@ -495,6 +496,9 @@ struct WreducePass : public Pass {
 		log("        Do not change the width of memory address ports. Use this options in\n");
 		log("        flows that use the 'memory_memx' pass.\n");
 		log("\n");
+		log("    -keepdc\n");
+		log("        Do not optimize explicit don't-care values.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, Design *design) YS_OVERRIDE
 	{
@@ -507,6 +511,10 @@ struct WreducePass : public Pass {
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-memx") {
 				opt_memx = true;
+				continue;
+			}
+			if (args[argidx] == "-keepdc") {
+				config.keepdc = true;
 				continue;
 			}
 			break;
