@@ -55,11 +55,15 @@ void AigerReader::parse_aiger()
 
     // Optional values
     B = C = J = F = 0;
-    for (auto &i : std::array<std::reference_wrapper<unsigned>,4>{B, C, J, F}) {
-        if (f.peek() != ' ') break;
-        if (!(f >> i))
-            log_error("Invalid AIGER header\n");
-    }
+    if (f.peek() != ' ') goto end_of_header;
+    if (!(f >> B)) log_error("Invalid AIGER header\n");
+    if (f.peek() != ' ') goto end_of_header;
+    if (!(f >> C)) log_error("Invalid AIGER header\n");
+    if (f.peek() != ' ') goto end_of_header;
+    if (!(f >> J)) log_error("Invalid AIGER header\n");
+    if (f.peek() != ' ') goto end_of_header;
+    if (!(f >> F)) log_error("Invalid AIGER header\n");
+end_of_header:
 
     std::string line;
     std::getline(f, line); // Ignore up to start of next line, as standard
