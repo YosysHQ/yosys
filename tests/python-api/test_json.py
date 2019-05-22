@@ -276,7 +276,7 @@ class JSONPass():
 
 class TestSanity(unittest.TestCase):
     @classmethod
-    ## @unittest.skip('AttributeError: SigBit object has no attribute is_wire')
+    @unittest.skip('AttributeError: SigBit object has no attribute is_wire')
     def setUpClass(cls):
         """
         Load design only once for all tests

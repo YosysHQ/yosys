@@ -508,23 +508,19 @@ class TupleTranslator(PythonDictTranslator):
 	#Generate c++ code to translate to a boost::python::tuple
 	@classmethod
 	def translate_cpp(c, varname, types, prefix, ref):
-		text  = prefix + TupleTranslator.typename + " " + varname + "___tmp = boost::python::make_tuple(" + varname + ".first, " + varname + ".second);"
-		return text
-		tmp_name = "tmp_" + str(Translator.tmp_cntr)
-		Translator.tmp_cntr = Translator.tmp_cntr + 1
-		if ref:
-			text += prefix + "for(auto " + tmp_name + " : *" + varname + ")"
+		text  = prefix + c.typename + " " + varname + "___tmp = boost::python::make_tuple( "
+		if types[1].name in known_containers:
+			text += prefix + "\tauto " + varname + "_second = " + varname + ".second;"
+			text += known_containers[types[1].name].translate_cpp(varname + "_second", types[1].cont.args, prefix + "\t", types[1].attr_type == attr_types.star)
+		if types[1].name in classnames:
+			if types[1].attr_type == attr_types.star:
+				text += types[1].name + "::get_py_obj(" + varname + ".first), " + types[1].name + "::get_py_obj(" + varname + ".second));"
+			else:
+				text += types[1].name + "::get_py_obj(" + varname + ".first), " + types[1].name + "::get_py_obj(" + varname + ".second));"
+		elif types[1].name in known_containers:
+			text += varname + "_second___tmp;"
 		else:
-			text += prefix + "for(auto " + tmp_name + " : " + varname + ")"
-		text += prefix + "{"
-		if types[0].name.split(" ")[-1] in primitive_types or types[0].name in enum_names:
-			text += prefix + "\t" + varname + "___tmp.append(" + tmp_name + ");"
-		elif types[0].name in known_containers:
-			text += known_containers[types[0].name].translate_cpp(tmp_name, types[0].cont.args, prefix + "\t", types[1].attr_type == attr_types.star)
-			text += prefix + "\t" + varname + "___tmp.append(" + types[0].name + "::get_py_obj(" + tmp_name + "___tmp);"
-		elif types[0].name in classnames:
-			text += prefix + "\t" + varname + "___tmp.append(" + types[0].name + "::get_py_obj(" + tmp_name + "));"
-		text += prefix + "}"
+			text += varname + ".first, " + varname + ".second);"
 		return text
 
 #Associate the Translators with their c++ type

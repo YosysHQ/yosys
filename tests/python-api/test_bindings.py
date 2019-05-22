@@ -89,7 +89,6 @@ class TestSanity(unittest.TestCase):
                         for bit in dd:
                             sigbit_to_driver_index[bit] = cell
 
-    @unittest.skip("TypeError: No to_python (by-value) converter found for C++ type: Yosys::RTLIL::SigSpec")
     def test_module_connections(self):
         """
         Test print module connections
@@ -99,9 +98,10 @@ class TestSanity(unittest.TestCase):
         for module in design.selected_whole_modules_warn():
             sigmap = ys.SigMap(module)
             for conn_first, conn_second in module.connections_:
-                a = conn_first.as_string()
-                assertNotEqual(a, "????????")
-                b = conn_second.as_string()
+                # TODO: SigSpec.as_string()
+                a =  sigmap(conn_first).as_string()
+                self.assertNotEqual(a, "????????")
+                b =  sigmap(conn_second).as_string()
                 print(a, b)
 
     def test_module_wires(self):
