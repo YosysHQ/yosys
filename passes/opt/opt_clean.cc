@@ -318,12 +318,11 @@ bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 		if (initval.is_fully_undef())
 			wire->attributes.erase("\\init");
 
-		if (GetSize(wire) == 0) {
-			// delete zero-width wires
-			goto delete_this_wire;
-		} else
 		if (wire->port_id != 0 || wire->get_bool_attribute("\\keep") || !initval.is_fully_undef()) {
 			// do not delete anything with "keep" or module ports or initialized wires
+		} else if (GetSize(wire) == 0) {
+			// delete zero-width wires
+			goto delete_this_wire;
 		} else
 		if (!purge_mode && check_public_name(wire->name)) {
 			// do not get rid of public names unless in purge mode
