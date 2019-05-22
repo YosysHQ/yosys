@@ -25,7 +25,7 @@ PYTHON_VERSION_TESTCODE := "import sys;t='{v[0]}.{v[1]}'.format(v=list(sys.versi
 PYTHON_EXECUTABLE := $(shell if python3 -c ""; then echo "python3"; else echo "python"; fi)
 PYTHON_VERSION := $(shell $(PYTHON_EXECUTABLE) -c ""$(PYTHON_VERSION_TESTCODE)"")
 PYTHON_MAJOR_VERSION := $(shell echo $(PYTHON_VERSION) | cut -f1 -d.)
-PYTHON_PREFIX := `$(PYTHON_EXECUTABLE)-config --prefix`
+PYTHON_PREFIX := $(shell $(PYTHON_EXECUTABLE)-config --prefix)
 PYTHON_DESTDIR := $(PYTHON_PREFIX)/lib/python$(PYTHON_VERSION)/site-packages
 
 # other configuration flags
@@ -90,6 +90,9 @@ PLUGIN_LDFLAGS += -undefined dynamic_lookup
 # homebrew search paths
 ifneq ($(shell which brew),)
 BREW_PREFIX := $(shell brew --prefix)/opt
+$(info $$BREW_PREFIX is [${BREW_PREFIX}])
+CXXFLAGS += -I$(BREW_PREFIX)/boost/include/boost
+LDFLAGS += -L$(BREW_PREFIX)/boost/lib
 CXXFLAGS += -I$(BREW_PREFIX)/readline/include
 LDFLAGS += -L$(BREW_PREFIX)/readline/lib
 PKG_CONFIG_PATH := $(BREW_PREFIX)/libffi/lib/pkgconfig:$(PKG_CONFIG_PATH)
@@ -273,23 +276,42 @@ endif
 ifeq ($(ENABLE_PYOSYS),1)
 
 #Detect name of boost_python library. Some distros usbe boost_python-py<version>, other boost_python<version>, some only use the major version number, some a concatenation of major and minor version numbers
+ifeq ($(OS), Darwin)
+BOOST_PYTHON_LIB ?= $(shell \
+	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null $(shell $(PYTHON_EXECUTABLE)-config --ldflags) -lboost_python-py$(subst .,,$(PYTHON_VERSION)) - > /dev/null 2>&1;        then echo "-lboost_python-py$(subst .,,$(PYTHON_VERSION))";       else \
+	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null $(shell $(PYTHON_EXECUTABLE)-config --ldflags) -lboost_python-py$(subst .,,$(PYTHON_MAJOR_VERSION)) - > /dev/null 2>&1;  then echo "-lboost_python-py$(subst .,,$(PYTHON_MAJOR_VERSION))"; else \
+	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null $(shell $(PYTHON_EXECUTABLE)-config --ldflags) -lboost_python$(subst .,,$(PYTHON_VERSION)) - > /dev/null 2>&1;           then echo "-lboost_python$(subst .,,$(PYTHON_VERSION))";          else \
+	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null $(shell $(PYTHON_EXECUTABLE)-config --ldflags) -lboost_python$(subst .,,$(PYTHON_MAJOR_VERSION)) - > /dev/null 2>&1;     then echo "-lboost_python$(subst .,,$(PYTHON_MAJOR_VERSION))";    else \
+                                                                                                                                                                                        echo ""; fi; fi; fi; fi;)
+else
 BOOST_PYTHON_LIB ?= $(shell \
 	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null `$(PYTHON_EXECUTABLE)-config --libs` -lboost_python-py$(subst .,,$(PYTHON_VERSION)) - > /dev/null 2>&1;        then echo "-lboost_python-py$(subst .,,$(PYTHON_VERSION))";       else \
 	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null `$(PYTHON_EXECUTABLE)-config --libs` -lboost_python-py$(subst .,,$(PYTHON_MAJOR_VERSION)) - > /dev/null 2>&1;  then echo "-lboost_python-py$(subst .,,$(PYTHON_MAJOR_VERSION))"; else \
 	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null `$(PYTHON_EXECUTABLE)-config --libs` -lboost_python$(subst .,,$(PYTHON_VERSION)) - > /dev/null 2>&1;           then echo "-lboost_python$(subst .,,$(PYTHON_VERSION))";          else \
 	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null `$(PYTHON_EXECUTABLE)-config --libs` -lboost_python$(subst .,,$(PYTHON_MAJOR_VERSION)) - > /dev/null 2>&1;     then echo "-lboost_python$(subst .,,$(PYTHON_MAJOR_VERSION))";    else \
                                                                                                                                                                                         echo ""; fi; fi; fi; fi;)
+endif
 
 ifeq ($(BOOST_PYTHON_LIB),)
 $(error BOOST_PYTHON_LIB could not be detected. Please define manualy)
 endif
 
+ifeq ($(OS), Darwin)
 ifeq ($(PYTHON_MAJOR_VERSION),3)
-LDLIBS += `$(PYTHON_EXECUTABLE)-config --libs` $(BOOST_PYTHON_LIB) -lboost_system -lboost_filesystem
-CXXFLAGS += `$(PYTHON_EXECUTABLE)-config --includes` -D WITH_PYTHON
+LDLIBS += $(shell $(PYTHON_EXECUTABLE)-config --ldflags) $(BOOST_PYTHON_LIB) -lboost_system -lboost_filesystem
+CXXFLAGS += $(shell $(PYTHON_EXECUTABLE)-config --includes) -DWITH_PYTHON
 else
-LDLIBS += `$(PYTHON_EXECUTABLE)-config --libs` $(BOOST_PYTHON_LIB) -lboost_system -lboost_filesystem
-CXXFLAGS += `$(PYTHON_EXECUTABLE)-config --includes` -D WITH_PYTHON
+LDLIBS += $(shell $(PYTHON_EXECUTABLE)-config --ldflags) $(BOOST_PYTHON_LIB) -lboost_system -lboost_filesystem
+CXXFLAGS += $(shell $(PYTHON_EXECUTABLE)-config --includes) -DWITH_PYTHON
+endif
+else
+ifeq ($(PYTHON_MAJOR_VERSION),3)
+LDLIBS += $(shell $(PYTHON_EXECUTABLE)-config --libs) $(BOOST_PYTHON_LIB) -lboost_system -lboost_filesystem
+CXXFLAGS += $(shell $(PYTHON_EXECUTABLE)-config --includes) -DWITH_PYTHON
+else
+LDLIBS += $(shell $(PYTHON_EXECUTABLE)-config --libs) $(BOOST_PYTHON_LIB) -lboost_system -lboost_filesystem
+CXXFLAGS += $(shell $(PYTHON_EXECUTABLE)-config --includes) -DWITH_PYTHON
+endif
 endif
 
 PY_WRAPPER_FILE = kernel/python_wrappers
@@ -541,7 +563,11 @@ yosys$(EXE): $(OBJS)
 	$(P) $(LD) -o yosys$(EXE) $(LDFLAGS) $(OBJS) $(LDLIBS)
 
 libyosys.so: $(filter-out kernel/driver.o,$(OBJS))
+ifeq ($(OS), Darwin)
+	$(P) $(LD) -o libyosys.so -shared -Wl,-install_name,libyosys.so $(LDFLAGS) $^ $(LDLIBS)
+else
 	$(P) $(LD) -o libyosys.so -shared -Wl,-soname,libyosys.so $(LDFLAGS) $^ $(LDLIBS)
+endif
 
 %.o: %.cc
 	$(Q) mkdir -p $(dir $@)
