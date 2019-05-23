@@ -281,8 +281,9 @@ module FDPE_1 ((* abc_flop_q *) output reg Q, input C, CE, D, PRE);
   always @(negedge C, posedge PRE) if (PRE) Q <= 1'b1; else if (CE) Q <= D;
 endmodule
 
+(* abc_box_id = 4, lib_whitebox *)
 module RAM64X1D (
-  (* abc_flop_q *) output DPO, SPO,
+  output DPO, SPO,
   input  D, WCLK, WE,
   input  A0, A1, A2, A3, A4, A5,
   input  DPRA0, DPRA1, DPRA2, DPRA3, DPRA4, DPRA5
@@ -294,12 +295,15 @@ module RAM64X1D (
   reg [63:0] mem = INIT;
   assign SPO = mem[a];
   assign DPO = mem[dpra];
+`ifndef _ABC
   wire clk = WCLK ^ IS_WCLK_INVERTED;
   always @(posedge clk) if (WE) mem[a] <= D;
+`endif
 endmodule
 
+(* abc_box_id = 5, lib_whitebox *)
 module RAM128X1D (
-  (* abc_flop_q *) output       DPO, SPO,
+  output       DPO, SPO,
   input        D, WCLK, WE,
   input  [6:0] A, DPRA
 );
@@ -308,8 +312,10 @@ module RAM128X1D (
   reg [127:0] mem = INIT;
   assign SPO = mem[A];
   assign DPO = mem[DPRA];
+`ifndef _ABC
   wire clk = WCLK ^ IS_WCLK_INVERTED;
   always @(posedge clk) if (WE) mem[A] <= D;
+`endif
 endmodule
 
 module SRL16E (

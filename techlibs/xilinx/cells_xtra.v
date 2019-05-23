@@ -3655,17 +3655,6 @@ module PULLUP (...);
     output O;
 endmodule
 
-module RAM128X1D (...);
-    parameter [127:0] INIT = 128'h00000000000000000000000000000000;
-    parameter [0:0] IS_WCLK_INVERTED = 1'b0;
-    output DPO, SPO;
-    input [6:0] A;
-    input [6:0] DPRA;
-    input D;
-    input WCLK;
-    input WE;
-endmodule
-
 module RAM128X1S (...);
     parameter [127:0] INIT = 128'h00000000000000000000000000000000;
     parameter [0:0] IS_WCLK_INVERTED = 1'b0;
@@ -3754,13 +3743,6 @@ module RAM64M (...);
     input DID;
     input WCLK;
     input WE;
-endmodule
-
-module RAM64X1D (...);
-    parameter [63:0] INIT = 64'h0000000000000000;
-    parameter [0:0] IS_WCLK_INVERTED = 1'b0;
-    output DPO, SPO;
-    input A0, A1, A2, A3, A4, A5, D, DPRA0, DPRA1, DPRA2, DPRA3, DPRA4, DPRA5, WCLK, WE;
 endmodule
 
 module RAM64X1S (...);
