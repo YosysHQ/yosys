@@ -51,6 +51,7 @@ namespace AST_INTERNAL {
 	std::map<std::string, AstNode*> current_scope;
 	const dict<RTLIL::SigBit, RTLIL::SigBit> *genRTLIL_subst_ptr = NULL;
 	RTLIL::SigSpec ignoreThisSignalsInInitial;
+    std::map<RTLIL::SigSpec, RTLIL::Cell*> wire_logic_map;
 	AstNode *current_always, *current_top_block, *current_block, *current_block_child;
 	AstModule *current_module;
 	bool current_always_clocked;
@@ -939,6 +940,8 @@ static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast
 		ast->dumpVlog(NULL, "    ");
 		log("--- END OF AST DUMP ---\n");
 	}
+
+    wire_logic_map = std::map<RTLIL::SigSpec, RTLIL::Cell*>();
 
 	if (!defer)
 	{
