@@ -260,8 +260,8 @@ delete_dlatch:
 
 bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 {
-	RTLIL::SigSpec sig_d, sig_q, sig_c, sig_r;
-	RTLIL::Const val_cp, val_rp, val_rv;
+	RTLIL::SigSpec sig_d, sig_q, sig_c, sig_r, sig_e;
+	RTLIL::Const val_cp, val_rp, val_rv, val_ep;
 
 	if (dff->type == "$_FF_") {
 		sig_d = dff->getPort("\\D");
@@ -285,6 +285,16 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 		val_rp = RTLIL::Const(dff->type[7] == 'P', 1);
 		val_rv = RTLIL::Const(dff->type[8] == '1', 1);
 	}
+	else if (dff->type.substr(0,7) == "$_DFFE_" && dff->type.substr(9) == "_" &&
+			(dff->type[7] == 'N' || dff->type[7] == 'P') &&
+			(dff->type[8] == 'N' || dff->type[8] == 'P')) {
+		sig_d = dff->getPort("\\D");
+		sig_q = dff->getPort("\\Q");
+		sig_c = dff->getPort("\\C");
+		sig_e = dff->getPort("\\E");
+		val_cp = RTLIL::Const(dff->type[6] == 'P', 1);
+		val_ep = RTLIL::Const(dff->type[7] == 'P', 1);
+	}
 	else if (dff->type == "$ff") {
 		sig_d = dff->getPort("\\D");
 		sig_q = dff->getPort("\\Q");
@@ -294,6 +304,14 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 		sig_q = dff->getPort("\\Q");
 		sig_c = dff->getPort("\\CLK");
 		val_cp = RTLIL::Const(dff->parameters["\\CLK_POLARITY"].as_bool(), 1);
+	}
+	else if (dff->type == "$dffe") {
+		sig_e = dff->getPort("\\EN");
+		sig_d = dff->getPort("\\D");
+		sig_q = dff->getPort("\\Q");
+		sig_c = dff->getPort("\\CLK");
+		val_cp = RTLIL::Const(dff->parameters["\\CLK_POLARITY"].as_bool(), 1);
+		val_ep = RTLIL::Const(dff->parameters["\\EN_POLARITY"].as_bool(), 1);
 	}
 	else if (dff->type == "$adff") {
 		sig_d = dff->getPort("\\D");
@@ -318,6 +336,16 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 		if (bit.wire == NULL || keepdc)
 			has_init = true;
 		val_init.bits.push_back(bit.wire == NULL ? bit.data : RTLIL::State::Sx);
+	}
+
+	if (sig_e.size()) {
+		if (!sig_e.is_fully_const())
+			return false;
+		if (sig_e != val_ep) {
+			if (has_init)
+				mod->connect(sig_q, val_init);
+			goto delete_dff;
+		}
 	}
 
 	if (dff->type.in("$ff", "$dff") && mux_drivers.has(sig_d)) {
@@ -489,7 +517,8 @@ struct OptRmdffPass : public Pass {
 				if (cell->type.in("$_FF_", "$_DFF_N_", "$_DFF_P_",
 						"$_DFF_NN0_", "$_DFF_NN1_", "$_DFF_NP0_", "$_DFF_NP1_",
 						"$_DFF_PN0_", "$_DFF_PN1_", "$_DFF_PP0_", "$_DFF_PP1_",
-						"$ff", "$dff", "$adff"))
+						"$_DFFE_NN_", "$_DFFE_NP_", "$_DFFE_PN_", "$_DFFE_PP_",
+						"$ff", "$dff", "$dffe", "$adff"))
 					dff_list.push_back(cell->name);
 
 				if (cell->type.in("$dlatch", "$_DLATCH_P_", "$_DLATCH_N_"))
