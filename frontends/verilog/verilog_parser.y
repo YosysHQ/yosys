@@ -486,10 +486,10 @@ wire_type_token:
 	TOK_WIRE {
 	} |
 	TOK_WOR {
-        astbuf3->is_wor = true;
+		astbuf3->is_wor = true;
 	} |
 	TOK_WAND {
-        astbuf3->is_wand = true;
+		astbuf3->is_wand = true;
 	} |
 	TOK_REG {
 		astbuf3->is_reg = true;

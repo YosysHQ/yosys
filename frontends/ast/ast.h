@@ -327,7 +327,7 @@ namespace AST_INTERNAL
 	extern std::map<std::string, AST::AstNode*> current_scope;
 	extern const dict<RTLIL::SigBit, RTLIL::SigBit> *genRTLIL_subst_ptr;
 	extern RTLIL::SigSpec ignoreThisSignalsInInitial;
-    extern std::map<RTLIL::SigSpec, RTLIL::Cell*> wire_logic_map;
+	extern std::map<RTLIL::SigSpec, RTLIL::Cell*> wire_logic_map;
 	extern AST::AstNode *current_always, *current_top_block, *current_block, *current_block_child;
 	extern AST::AstModule *current_module;
 	extern bool current_always_clocked;

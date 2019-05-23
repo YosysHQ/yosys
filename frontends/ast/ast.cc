@@ -51,7 +51,7 @@ namespace AST_INTERNAL {
 	std::map<std::string, AstNode*> current_scope;
 	const dict<RTLIL::SigBit, RTLIL::SigBit> *genRTLIL_subst_ptr = NULL;
 	RTLIL::SigSpec ignoreThisSignalsInInitial;
-    std::map<RTLIL::SigSpec, RTLIL::Cell*> wire_logic_map;
+	std::map<RTLIL::SigSpec, RTLIL::Cell*> wire_logic_map;
 	AstNode *current_always, *current_top_block, *current_block, *current_block_child;
 	AstModule *current_module;
 	bool current_always_clocked;
@@ -195,6 +195,8 @@ AstNode::AstNode(AstNodeType type, AstNode *child1, AstNode *child2, AstNode *ch
 	is_logic = false;
 	is_signed = false;
 	is_string = false;
+	is_wand = false;
+	is_wor = false;
 	was_checked = false;
 	range_valid = false;
 	range_swapped = false;
@@ -941,7 +943,7 @@ static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast
 		log("--- END OF AST DUMP ---\n");
 	}
 
-    wire_logic_map = std::map<RTLIL::SigSpec, RTLIL::Cell*>();
+	wire_logic_map = std::map<RTLIL::SigSpec, RTLIL::Cell*>();
 
 	if (!defer)
 	{
