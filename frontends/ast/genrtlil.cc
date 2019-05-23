@@ -1500,8 +1500,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			for (int i = 0; i < GetSize(left); i++)
 				if (left[i].wire) {
 					std::map<RTLIL::SigSpec, RTLIL::Cell*>::iterator iter = wire_logic_map.find(left[i].wire);
-					if (iter == wire_logic_map.end())
-					{
+					if (iter == wire_logic_map.end()) {
 						new_left.append(left[i]);
 					} else {
 						RTLIL::Cell *reduce_cell = iter->second;
@@ -1578,21 +1577,25 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 					if (child->children.size() > 0) {
 						sig = child->children[0]->genRTLIL();
 						for (int i = 0; i < GetSize(sig); i++) {
-							std::map<RTLIL::SigSpec, RTLIL::Cell*>::iterator iter = wire_logic_map.find(sig[i].wire);
-							if (iter == wire_logic_map.end()) {
-								new_sig.append(sig[i]);
-							} else {
-								RTLIL::Cell *reduce_cell = iter->second;
-								RTLIL::SigSpec reduce_cell_in = reduce_cell->getPort("\\A");
-								int reduce_width = reduce_cell->getParam("\\A_WIDTH").as_int();
+							if (sig[i].wire) {
+								std::map<RTLIL::SigSpec, RTLIL::Cell*>::iterator iter = wire_logic_map.find(sig[i].wire);
+								if (iter == wire_logic_map.end()) {
+									new_sig.append(sig[i]);
+								} else {
+									RTLIL::Cell *reduce_cell = iter->second;
+									RTLIL::SigSpec reduce_cell_in = reduce_cell->getPort("\\A");
+									int reduce_width = reduce_cell->getParam("\\A_WIDTH").as_int();
 
-								RTLIL::Wire *new_reduce_input = current_module->addWire(
-										stringf("%s_in%d", reduce_cell->name.c_str(), reduce_width));
-								new_reduce_input->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
-								reduce_cell_in.append(new_reduce_input);
-								reduce_cell->setPort("\\A", reduce_cell_in);
-								reduce_cell->fixup_parameters();
-								new_sig.append(new_reduce_input);
+									RTLIL::Wire *new_reduce_input = current_module->addWire(
+											stringf("%s_in%d", reduce_cell->name.c_str(), reduce_width));
+									new_reduce_input->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
+									reduce_cell_in.append(new_reduce_input);
+									reduce_cell->setPort("\\A", reduce_cell_in);
+									reduce_cell->fixup_parameters();
+									new_sig.append(new_reduce_input);
+								}
+							} else {
+								new_sig.append(sig[i]);
 							}
 						}
 					}
