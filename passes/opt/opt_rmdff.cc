@@ -342,8 +342,7 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 		if (!sig_e.is_fully_const())
 			return false;
 		if (sig_e != val_ep) {
-			if (has_init)
-				mod->connect(sig_q, val_init);
+			mod->connect(sig_q, val_init);
 			goto delete_dff;
 		}
 	}
