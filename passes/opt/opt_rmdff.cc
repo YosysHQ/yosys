@@ -364,39 +364,60 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 		}
 	}
 
+	// If clock is driven by a constant and (i) no reset signal
+	//                                      (ii) Q has no initial value
+	//                                      (iii) initial value is same as reset value
 	if (!sig_c.empty() && sig_c.is_fully_const() && (!sig_r.size() || !has_init || val_init == val_rv)) {
 		if (val_rv.bits.size() == 0)
 			val_rv = val_init;
+		// Q is permanently reset value or initial value
 		mod->connect(sig_q, val_rv);
 		goto delete_dff;
 	}
 
+	// If D is fully undefined and reset signal present and (i) Q has no initial value
+	//                                                     (ii) initial value is same as reset value
 	if (sig_d.is_fully_undef() && sig_r.size() && (!has_init || val_init == val_rv)) {
+		// Q is permanently reset value
 		mod->connect(sig_q, val_rv);
 		goto delete_dff;
 	}
 
+	// If D is fully undefined and no reset signal and Q has an initial value
 	if (sig_d.is_fully_undef() && !sig_r.size() && has_init) {
+		// Q is permanently initial value
 		mod->connect(sig_q, val_init);
 		goto delete_dff;
 	}
 
+	// If D is fully constant and (i) no reset signal
+	//                            (ii) reset value is same as constant D
+	//                        and (a) has initial value
+	//                            (b) initial value same as constant D
 	if (sig_d.is_fully_const() && (!sig_r.size() || val_rv == sig_d.as_const()) && (!has_init || val_init == sig_d.as_const())) {
+		// Q is permanently D
 		mod->connect(sig_q, sig_d);
 		goto delete_dff;
 	}
 
+	// If D input is same as Q output and (i) no reset signal
+	//                                    (ii) no initial signal
+	//                                    (iii) initial value is same as reset value
 	if (sig_d == sig_q && (sig_r.empty() || !has_init || val_init == val_rv)) {
+		// Q is permanently reset value or initial value
 		if (sig_r.size())
 			mod->connect(sig_q, val_rv);
-		if (has_init)
+		else if (has_init)
 			mod->connect(sig_q, val_init);
 		goto delete_dff;
 	}
 
+	// If reset signal is present, and is fully constant
 	if (!sig_r.empty() && sig_r.is_fully_const())
 	{
+		// If reset value is permanently enable or if reset is undefined
 		if (sig_r == val_rp || sig_r.is_fully_undef()) {
+			// Q is permanently reset value
 			mod->connect(sig_q, val_rv);
 			goto delete_dff;
 		}
