@@ -409,12 +409,26 @@ struct BlifDumper
 
 			f << stringf(".%s %s", subckt_or_gate(cell->type.str()), cstr(cell->type));
 			for (auto &conn : cell->connections())
-			for (int i = 0; i < conn.second.size(); i++) {
-				if (conn.second.size() == 1)
-					f << stringf(" %s", cstr(conn.first));
-				else
-					f << stringf(" %s[%d]", cstr(conn.first), i);
-				f << stringf("=%s", cstr(conn.second.extract(i, 1)));
+			{
+				if (conn.second.size() == 1) {
+					f << stringf(" %s=%s", cstr(conn.first), cstr(conn.second[0]));
+					continue;
+				}
+
+				Module *m = design->module(cell->type);
+				Wire *w = m ? m->wire(conn.first) : nullptr;
+
+				if (w == nullptr) {
+					for (int i = 0; i < GetSize(conn.second); i++)
+						f << stringf(" %s[%d]=%s", cstr(conn.first), i, cstr(conn.second[i]));
+				} else {
+					for (int i = 0; i < std::min(GetSize(conn.second), GetSize(w)); i++) {
+						SigBit sig(w, i);
+						f << stringf(" %s[%d]=%s", cstr(conn.first), sig.wire->upto ?
+								sig.wire->start_offset+sig.wire->width-sig.offset-1 :
+								sig.wire->start_offset+sig.offset, cstr(conn.second[i]));
+					}
+				}
 			}
 			f << stringf("\n");
 
