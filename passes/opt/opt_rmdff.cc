@@ -385,9 +385,7 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 	//                            (ii) reset value is same as constant D
 	//                        and (a) has no initial value
 	//                            (b) initial value same as constant D
-	//                        and (1) has no enable signal
-	//                            (2) enable is always active
-	if (sig_d.is_fully_const() && (!sig_r.size() || val_rv == sig_d.as_const()) && (!has_init || val_init == sig_d.as_const()) && (!sig_e.size() || (sig_d.is_fully_undef() && !has_init))) {
+	if (sig_d.is_fully_const() && (!sig_r.size() || val_rv == sig_d.as_const()) && (!has_init || val_init == sig_d.as_const())) {
 		// Q is permanently D
 		mod->connect(sig_q, sig_d);
 		goto delete_dff;
