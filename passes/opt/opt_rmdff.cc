@@ -338,15 +338,6 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 		val_init.bits.push_back(bit.wire == NULL ? bit.data : RTLIL::State::Sx);
 	}
 
-	if (sig_e.size()) {
-		if (!sig_e.is_fully_const())
-			return false;
-		if (sig_e != val_ep) {
-			mod->connect(sig_q, val_init);
-			goto delete_dff;
-		}
-	}
-
 	if (dff->type.in("$ff", "$dff") && mux_drivers.has(sig_d)) {
 		std::set<RTLIL::Cell*> muxes;
 		mux_drivers.find(sig_d, muxes);
@@ -392,9 +383,11 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 
 	// If D is fully constant and (i) no reset signal
 	//                            (ii) reset value is same as constant D
-	//                        and (a) has initial value
+	//                        and (a) has no initial value
 	//                            (b) initial value same as constant D
-	if (sig_d.is_fully_const() && (!sig_r.size() || val_rv == sig_d.as_const()) && (!has_init || val_init == sig_d.as_const())) {
+	//                        and (1) has no enable signal
+	//                            (2) enable is always active
+	if (sig_d.is_fully_const() && (!sig_r.size() || val_rv == sig_d.as_const()) && (!has_init || val_init == sig_d.as_const()) && (!sig_e.size() || (sig_d.is_fully_undef() && !has_init))) {
 		// Q is permanently D
 		mod->connect(sig_q, sig_d);
 		goto delete_dff;
@@ -415,7 +408,7 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 	// If reset signal is present, and is fully constant
 	if (!sig_r.empty() && sig_r.is_fully_const())
 	{
-		// If reset value is permanently enable or if reset is undefined
+		// If reset value is permanently active or if reset is undefined
 		if (sig_r == val_rp || sig_r.is_fully_undef()) {
 			// Q is permanently reset value
 			mod->connect(sig_q, val_rv);
@@ -435,6 +428,30 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 		log_assert(dff->type.substr(0,6) == "$_DFF_");
 		dff->type = stringf("$_DFF_%c_", + dff->type[6]);
 		dff->unsetPort("\\R");
+	}
+
+	// If enable signal is present, and is fully constant
+	if (!sig_e.empty() && sig_e.is_fully_const())
+	{
+		// If enable value is permanently inactive
+		if (sig_e != val_ep) {
+			// Q is permanently initial value
+			mod->connect(sig_q, val_init);
+			goto delete_dff;
+		}
+
+		log("Removing unused enable from %s (%s) from module %s.\n", log_id(dff), log_id(dff->type), log_id(mod));
+
+		if (dff->type == "$dffe") {
+			dff->type = "$dff";
+			dff->unsetPort("\\EN");
+			dff->unsetParam("\\EN_POLARITY");
+			return true;
+		}
+
+		log_assert(dff->type.substr(0,7) == "$_DFFE_");
+		dff->type = stringf("$_DFF_%c_", + dff->type[7]);
+		dff->unsetPort("\\E");
 	}
 
 	return false;
