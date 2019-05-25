@@ -2,12 +2,12 @@ read_verilog -icells opt_rmdff.v
 prep
 design -stash gold
 read_verilog -icells opt_rmdff.v
+proc
 opt_rmdff
 
 select -assert-count 0 c:remove*
 select -assert-min 7 c:keep*
 
-prep
 design -stash gate
 
 design -import gold -as gold
