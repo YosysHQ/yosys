@@ -302,16 +302,13 @@ struct XAigerWriter
 					continue;
 
 				// Fully pad all unused input connections of this box cell with S0
-				// Fully pad all undriven output connections of thix box cell with anonymous wires
+				// Fully pad all undriven output connections of this box cell with anonymous wires
 				for (const auto w : box_module->wires()) {
 					if (w->port_input) {
 						auto it = cell->connections_.find(w->name);
 						if (it != cell->connections_.end()) {
-							if (GetSize(it->second) < GetSize(w)) {
-								RTLIL::SigSpec padded_connection(RTLIL::S0, GetSize(w)-GetSize(it->second));
-								padded_connection.append(it->second);
-								it->second = std::move(padded_connection);
-							}
+							if (GetSize(it->second) < GetSize(w))
+								it->second.append(RTLIL::SigSpec(RTLIL::S0, GetSize(w)-GetSize(it->second)));
 						}
 						else
 							cell->connections_[w->name] = RTLIL::SigSpec(RTLIL::S0, GetSize(w));
@@ -319,11 +316,8 @@ struct XAigerWriter
 					if (w->port_output) {
 						auto it = cell->connections_.find(w->name);
 						if (it != cell->connections_.end()) {
-							if (GetSize(it->second) < GetSize(w)) {
-								RTLIL::SigSpec padded_connection = module->addWire(NEW_ID, GetSize(w)-GetSize(it->second));
-								padded_connection.append(it->second);
-								it->second = std::move(padded_connection);
-							}
+							if (GetSize(it->second) < GetSize(w))
+								it->second.append(module->addWire(NEW_ID, GetSize(w)-GetSize(it->second)));
 						}
 						else
 							cell->connections_[w->name] = module->addWire(NEW_ID, GetSize(w));
@@ -384,13 +378,13 @@ struct XAigerWriter
 		}
 
 		// Do some CI/CO post-processing:
+		// CIs cannot be undriven
+		for (const auto &c : ci_bits)
+			undriven_bits.erase(c.first);
 		// Erase all POs that are undriven
 		if (!holes_mode)
 			for (auto bit : undriven_bits)
 				output_bits.erase(bit);
-		// CIs cannot be undriven
-		for (const auto &c : ci_bits)
-			undriven_bits.erase(c.first);
 		for (auto bit : unused_bits)
 			undriven_bits.erase(bit);
 
