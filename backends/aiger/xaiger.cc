@@ -385,8 +385,9 @@ struct XAigerWriter
 
 		// Do some CI/CO post-processing:
 		// Erase all POs that are undriven
-		for (auto bit : undriven_bits)
-			output_bits.erase(bit);
+		if (!holes_mode)
+			for (auto bit : undriven_bits)
+				output_bits.erase(bit);
 		// CIs cannot be undriven
 		for (const auto &c : ci_bits)
 			undriven_bits.erase(c.first);
@@ -676,55 +677,45 @@ struct XAigerWriter
 			RTLIL::Module *holes_module = nullptr;
 			holes_module = module->design->addModule("\\__holes__");
 			log_assert(holes_module);
-			dict<IdString, std::pair<int,int>> box_io;
 
 			for (auto cell : box_list) {
 				RTLIL::Module* box_module = module->design->module(cell->type);
-				int box_id = box_module->attributes.at("\\abc_box_id").as_int();
-				Cell *holes_cell = nullptr;
 				int box_inputs = 0, box_outputs = 0;
+				Cell *holes_cell = holes_module->addCell(cell->name, cell->type);
 
-				auto it = box_io.find(cell->type);
-				if (it == box_io.end()) {
-					holes_cell = holes_module->addCell(stringf("\\u%d", box_id), cell->type);
-
-					RTLIL::Wire *holes_wire;
-					box_module->wires_.sort(RTLIL::sort_by_id_str());
-					for (const auto w : box_module->wires()) {
-						RTLIL::SigSpec port_wire;
-						if (w->port_input) {
-							for (int i = 0; i < GetSize(w); i++) {
-								box_inputs++;
-								holes_wire = holes_module->wire(stringf("\\i%d", box_inputs));
-								if (!holes_wire) {
-									holes_wire = holes_module->addWire(stringf("\\i%d", box_inputs));
-									holes_wire->port_input = true;
-								}
-								port_wire.append(holes_wire);
+				RTLIL::Wire *holes_wire;
+				box_module->wires_.sort(RTLIL::sort_by_id_str());
+				for (const auto w : box_module->wires()) {
+					RTLIL::SigSpec port_wire;
+					if (w->port_input) {
+						for (int i = 0; i < GetSize(w); i++) {
+							box_inputs++;
+							holes_wire = holes_module->wire(stringf("\\i%d", box_inputs));
+							if (!holes_wire) {
+								holes_wire = holes_module->addWire(stringf("\\i%d", box_inputs));
+								holes_wire->port_input = true;
 							}
-							holes_cell->setPort(w->name, holes_wire);
+							port_wire.append(holes_wire);
 						}
-						if (w->port_output) {
-							box_outputs += GetSize(w);
-							for (int i = 0; i < GetSize(w); i++) {
-								if (GetSize(w) == 1)
-									holes_wire = holes_module->addWire(stringf("%s.%s", cell->type.c_str(), w->name.c_str()));
-								else
-									holes_wire = holes_module->addWire(stringf("%s.%s[%d]", cell->type.c_str(), w->name.c_str(), i));
-								holes_wire->port_output = true;
-								port_wire.append(holes_wire);
-							}
-							holes_cell->setPort(w->name, holes_wire);
-						}
+						holes_cell->setPort(w->name, port_wire);
 					}
-					box_io[cell->type] = std::make_pair(box_inputs,box_outputs);
+					if (w->port_output) {
+						box_outputs += GetSize(w);
+						for (int i = 0; i < GetSize(w); i++) {
+							if (GetSize(w) == 1)
+								holes_wire = holes_module->addWire(stringf("%s.%s", cell->name.c_str(), w->name.c_str()));
+							else
+								holes_wire = holes_module->addWire(stringf("%s.%s[%d]", cell->name.c_str(), w->name.c_str(), i));
+							holes_wire->port_output = true;
+							port_wire.append(holes_wire);
+						}
+						holes_cell->setPort(w->name, port_wire);
+					}
 				}
-				else
-					std::tie(box_inputs,box_outputs) = it->second;
 
 				write_h_buffer(box_inputs);
 				write_h_buffer(box_outputs);
-				write_h_buffer(box_id);
+				write_h_buffer(box_module->attributes.at("\\abc_box_id").as_int());
 				write_h_buffer(0 /* OldBoxNum */);
 			}
 
@@ -746,7 +737,16 @@ struct XAigerWriter
 				RTLIL::Selection& sel = holes_module->design->selection_stack.back();
 				sel.select(holes_module);
 
-				Pass::call(holes_module->design, "flatten -wb; aigmap; clean -purge");
+				// TODO: Should not need to opt_merge if we only instantiate
+				//       each box type once...
+				Pass::call(holes_module->design, "opt_merge -share_all");
+
+				Pass::call(holes_module->design, "flatten -wb;");
+
+				// TODO: Should techmap all lib_whitebox-es once
+				Pass::call(holes_module->design, "techmap;");
+
+				Pass::call(holes_module->design, "aigmap; clean -purge");
 
 				holes_module->design->selection_stack.pop_back();
 
@@ -766,6 +766,29 @@ struct XAigerWriter
 				f.write(buffer_str.data(), buffer_str.size());
 				holes_module->design->remove(holes_module);
 			}
+
+			std::stringstream r_buffer;
+			auto write_r_buffer = [&r_buffer](int i32) {
+				// TODO: Don't assume we're on little endian
+#ifdef _WIN32
+				int i32_be = _byteswap_ulong(i32);
+#else
+				int i32_be = __builtin_bswap32(i32);
+#endif
+				r_buffer.write(reinterpret_cast<const char*>(&i32_be), sizeof(i32_be));
+			};
+			write_r_buffer(0);
+
+			f << "r";
+			buffer_str = r_buffer.str();
+			// TODO: Don't assume we're on little endian
+#ifdef _WIN32
+			buffer_size_be = _byteswap_ulong(buffer_str.size());
+#else
+			buffer_size_be = __builtin_bswap32(buffer_str.size());
+#endif
+			f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
+			f.write(buffer_str.data(), buffer_str.size());
 		}
 
 		f << stringf("Generated by %s\n", yosys_version_str);
