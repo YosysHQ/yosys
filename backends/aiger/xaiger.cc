@@ -398,8 +398,25 @@ struct XAigerWriter
 		}
 
 		init_map.sort();
-		input_bits.sort();
-		output_bits.sort();
+		if (holes_mode) {
+#ifndef NDEBUG
+			RTLIL::SigBit last_bit;
+			for (auto bit : input_bits) {
+				log_assert(!last_bit.wire || last_bit.wire->port_id < bit.wire->port_id);
+				last_bit = bit;
+			}
+			last_bit = RTLIL::SigBit();
+			for (auto bit : output_bits) {
+				log_assert(!last_bit.wire || last_bit.wire->port_id < bit.wire->port_id);
+				last_bit = bit;
+			}
+#endif
+		}
+		else {
+			input_bits.sort();
+			output_bits.sort();
+		}
+
 		not_map.sort();
 		ff_map.sort();
 		and_map.sort();
@@ -415,7 +432,7 @@ struct XAigerWriter
 		for (auto &c : ci_bits) {
 			aig_m++, aig_i++;
 			c.second = 2*aig_m;
-            aig_map[c.first] = c.second;
+			aig_map[c.first] = c.second;
 		}
 
 		if (imode && input_bits.empty()) {
@@ -672,6 +689,7 @@ struct XAigerWriter
 			holes_module = module->design->addModule("\\__holes__");
 			log_assert(holes_module);
 
+			int port_id = 1;
 			for (auto cell : box_list) {
 				RTLIL::Module* box_module = module->design->module(cell->type);
 				int box_inputs = 0, box_outputs = 0;
@@ -691,6 +709,8 @@ struct XAigerWriter
 							if (!holes_wire) {
 								holes_wire = holes_module->addWire(stringf("\\i%d", box_inputs));
 								holes_wire->port_input = true;
+								holes_wire->port_id = port_id++;
+								holes_module->ports.push_back(holes_wire->name);
 							}
 							if (holes_cell)
 								port_wire.append(holes_wire);
@@ -706,6 +726,8 @@ struct XAigerWriter
 							else
 								holes_wire = holes_module->addWire(stringf("%s.%s[%d]", cell->name.c_str(), w->name.c_str(), i));
 							holes_wire->port_output = true;
+							holes_wire->port_id = port_id++;
+							holes_module->ports.push_back(holes_wire->name);
 							if (holes_cell)
 								port_wire.append(holes_wire);
 							else
@@ -734,7 +756,9 @@ struct XAigerWriter
 			f.write(buffer_str.data(), buffer_str.size());
 
 			if (holes_module) {
-				holes_module->fixup_ports();
+				// NB: fixup_ports() will sort ports by name
+				//holes_module->fixup_ports();
+				holes_module->check();
 
 				holes_module->design->selection_stack.emplace_back(false);
 				RTLIL::Selection& sel = holes_module->design->selection_stack.back();
@@ -750,7 +774,8 @@ struct XAigerWriter
 				//Pass::call(holes_module->design, "techmap");
 
 				Pass::call(holes_module->design, "aigmap");
-				Pass::call(holes_module->design, "clean -purge");
+				//TODO: clean will mess up port_ids
+				//Pass::call(holes_module->design, "clean -purge");
 
 				holes_module->design->selection_stack.pop_back();
 
