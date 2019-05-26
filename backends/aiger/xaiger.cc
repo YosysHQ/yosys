@@ -681,9 +681,12 @@ struct XAigerWriter
 			for (auto cell : box_list) {
 				RTLIL::Module* box_module = module->design->module(cell->type);
 				int box_inputs = 0, box_outputs = 0;
-				Cell *holes_cell = holes_module->addCell(cell->name, cell->type);
+				Cell *holes_cell = nullptr;
+				if (box_module->get_bool_attribute("\\whitebox"))
+					holes_cell = holes_module->addCell(cell->name, cell->type);
 
 				RTLIL::Wire *holes_wire;
+				// TODO: Only sort once
 				box_module->wires_.sort(RTLIL::sort_by_id_str());
 				for (const auto w : box_module->wires()) {
 					RTLIL::SigSpec port_wire;
@@ -695,9 +698,11 @@ struct XAigerWriter
 								holes_wire = holes_module->addWire(stringf("\\i%d", box_inputs));
 								holes_wire->port_input = true;
 							}
-							port_wire.append(holes_wire);
+							if (holes_cell)
+								port_wire.append(holes_wire);
 						}
-						holes_cell->setPort(w->name, port_wire);
+						if (!port_wire.empty())
+							holes_cell->setPort(w->name, port_wire);
 					}
 					if (w->port_output) {
 						box_outputs += GetSize(w);
@@ -707,9 +712,13 @@ struct XAigerWriter
 							else
 								holes_wire = holes_module->addWire(stringf("%s.%s[%d]", cell->name.c_str(), w->name.c_str(), i));
 							holes_wire->port_output = true;
-							port_wire.append(holes_wire);
+							if (holes_cell)
+								port_wire.append(holes_wire);
+							else
+								holes_module->connect(holes_wire, RTLIL::S0);
 						}
-						holes_cell->setPort(w->name, port_wire);
+						if (!port_wire.empty())
+							holes_cell->setPort(w->name, port_wire);
 					}
 				}
 
@@ -741,12 +750,13 @@ struct XAigerWriter
 				//       each box type once...
 				Pass::call(holes_module->design, "opt_merge -share_all");
 
-				Pass::call(holes_module->design, "flatten -wb;");
+				Pass::call(holes_module->design, "flatten -wb");
 
 				// TODO: Should techmap all lib_whitebox-es once
-				Pass::call(holes_module->design, "techmap;");
+				//Pass::call(holes_module->design, "techmap");
 
-				Pass::call(holes_module->design, "aigmap; clean -purge");
+				Pass::call(holes_module->design, "aigmap");
+				Pass::call(holes_module->design, "clean -purge");
 
 				holes_module->design->selection_stack.pop_back();
 
