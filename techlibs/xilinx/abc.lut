@@ -1,11 +1,11 @@
 # Max delays from https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf
 
 # K	area	delay
-1 	1	248
-2	2	248 372
-3	3	248 372 496
-4	3	248 372 496 620
-5	3	248 372 496 620 744
+1 	1	124
+2	2	124 248
+3	3	124 248 372
+4	3	124 248 372 496
+5	3	124 248 372 496 620
 6	5	124 248 372 496 620 744
                 # F7BMUX
 7	10	296 420 544 668 792 916 1040
