@@ -2,6 +2,7 @@
 CONFIG := clang
 # CONFIG := gcc
 # CONFIG := gcc-4.8
+# CONFIG := afl-gcc
 # CONFIG := emcc
 # CONFIG := mxe
 # CONFIG := msys2
@@ -188,6 +189,12 @@ endif
 else ifeq ($(CONFIG),gcc-4.8)
 CXX = gcc-4.8
 LD = gcc-4.8
+CXXFLAGS += -std=c++11 -Os
+ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H"
+
+else ifeq ($(CONFIG),afl-gcc)
+CXX = AFL_QUIET=1 AFL_HARDEN=1 afl-gcc
+LD = AFL_QUIET=1 AFL_HARDEN=1 afl-gcc
 CXXFLAGS += -std=c++11 -Os
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H"
 
