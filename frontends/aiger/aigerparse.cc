@@ -219,9 +219,6 @@ void AigerReader::parse_xaiger()
     unsigned l1;
     std::string s;
     bool comment_seen = false;
-    std::vector<std::pair<RTLIL::Wire*,RTLIL::IdString>> deferred_renames;
-    std::vector<std::pair<RTLIL::Wire*,RTLIL::IdString>> deferred_inouts;
-    deferred_renames.reserve(inputs.size() + latches.size() + outputs.size());
     for (int c = f.peek(); c != EOF; c = f.peek()) {
         if (comment_seen || c == 'c') {
             if (!comment_seen) {
@@ -281,69 +278,8 @@ void AigerReader::parse_xaiger()
                 break;
             }
         }
-        else if (c == 'i' || c == 'l' || c == 'o') {
-            f.ignore(1);
-            if (!(f >> l1 >> s))
-                log_error("Line %u cannot be interpreted as a symbol entry!\n", line_count);
-
-            if ((c == 'i' && l1 > inputs.size()) || (c == 'l' && l1 > latches.size()) || (c == 'o' && l1 > outputs.size()))
-                log_error("Line %u has invalid symbol position!\n", line_count);
-
-            RTLIL::Wire* wire;
-            if (c == 'i') wire = inputs[l1];
-            else if (c == 'l') wire = latches[l1];
-            else if (c == 'o') wire = outputs[l1];
-            else log_abort();
-
-            RTLIL::IdString escaped_s = RTLIL::escape_id(s);
-
-            if (escaped_s.ends_with("$inout.out")) {
-                deferred_inouts.emplace_back(wire, escaped_s.substr(0, escaped_s.size()-10));
-                goto next_line;
-            }
-            else if (wideports && (wire->port_input || wire->port_output)) {
-                RTLIL::IdString wide_symbol;
-                int index;
-                std::tie(wide_symbol,index) = wideports_split(escaped_s.str());
-                if (wide_symbol.ends_with("$inout.out")) {
-                    deferred_inouts.emplace_back(wire, stringf("%s[%d]", wide_symbol.substr(0, wide_symbol.size()-10).c_str(), index));
-                    goto next_line;
-                }
-            }
-            deferred_renames.emplace_back(wire, escaped_s);
-
-next_line:
-            std::getline(f, line); // Ignore up to start of next line
-            ++line_count;
-        }
         else
             log_error("Line %u: cannot interpret first character '%c'!\n", line_count, c);
-    }
-
-    dict<RTLIL::IdString, int> wideports_cache;
-    for (const auto &i : deferred_renames) {
-        RTLIL::Wire *wire = i.first;
-
-        module->rename(wire, i.second);
-
-        if (wideports && (wire->port_input || wire->port_output)) {
-            RTLIL::IdString escaped_symbol;
-            int index;
-            std::tie(escaped_symbol,index) = wideports_split(wire->name.str());
-            if (index > 0)
-                wideports_cache[escaped_symbol] = std::max(wideports_cache[escaped_symbol], index);
-        }
-    }
-
-    for (const auto &i : deferred_inouts) {
-        RTLIL::Wire *out_wire = i.first;
-        log_assert(out_wire->port_output);
-        out_wire->port_output = false;
-        RTLIL::Wire *wire = module->wire(i.second);
-        log_assert(wire);
-        log_assert(wire->port_input && !wire->port_output);
-        wire->port_output = true;
-        module->connect(wire, out_wire);
     }
 
     post_process();
