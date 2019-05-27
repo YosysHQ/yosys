@@ -4,6 +4,7 @@
 *.gch
 *.gcda
 *.gcno
+__pycache__
 /.cproject
 /.project
 /.settings
@@ -28,6 +29,8 @@
 /yosys-smtbmc-script.py
 /yosys-filterlib
 /yosys-filterlib.exe
+/kernel/*.pyh
+/kernel/python_wrappers.cc
 /kernel/version_*.cc
 /share
 /yosys-win32-mxebin-*

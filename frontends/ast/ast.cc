@@ -196,6 +196,7 @@ AstNode::AstNode(AstNodeType type, AstNode *child1, AstNode *child2, AstNode *ch
 	is_string = false;
 	is_wand = false;
 	is_wor = false;
+	is_unsized = false;
 	was_checked = false;
 	range_valid = false;
 	range_swapped = false;
@@ -724,7 +725,7 @@ AstNode *AstNode::mkconst_int(uint32_t v, bool is_signed, int width)
 }
 
 // create an AST node for a constant (using a bit vector as value)
-AstNode *AstNode::mkconst_bits(const std::vector<RTLIL::State> &v, bool is_signed)
+AstNode *AstNode::mkconst_bits(const std::vector<RTLIL::State> &v, bool is_signed, bool is_unsized)
 {
 	AstNode *node = new AstNode(AST_CONSTANT);
 	node->is_signed = is_signed;
@@ -738,7 +739,13 @@ AstNode *AstNode::mkconst_bits(const std::vector<RTLIL::State> &v, bool is_signe
 	node->range_valid = true;
 	node->range_left = node->bits.size()-1;
 	node->range_right = 0;
+	node->is_unsized = is_unsized;
 	return node;
+}
+
+AstNode *AstNode::mkconst_bits(const std::vector<RTLIL::State> &v, bool is_signed)
+{
+	return mkconst_bits(v, is_signed, false);
 }
 
 // create an AST node for a constant (using a string in bit vector form as value)
@@ -775,6 +782,14 @@ bool AstNode::bits_only_01() const
 		if (bit != RTLIL::S0 && bit != RTLIL::S1)
 			return false;
 	return true;
+}
+
+RTLIL::Const AstNode::bitsAsUnsizedConst(int width)
+{
+	RTLIL::State extbit = bits.back();
+	while (width > int(bits.size()))
+		bits.push_back(extbit);
+	return RTLIL::Const(bits);
 }
 
 RTLIL::Const AstNode::bitsAsConst(int width, bool is_signed)

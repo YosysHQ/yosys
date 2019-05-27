@@ -129,7 +129,13 @@ struct BtorWorker
 
 	void export_cell(Cell *cell)
 	{
-		log_assert(cell_recursion_guard.count(cell) == 0);
+		if (cell_recursion_guard.count(cell)) {
+			string cell_list;
+			for (auto c : cell_recursion_guard)
+				cell_list += stringf("\n    %s", log_id(c));
+			log_error("Found topological loop while processing cell %s. Active cells:%s\n", log_id(cell), cell_list.c_str());
+		}
+
 		cell_recursion_guard.insert(cell);
 		btorf_push(log_id(cell));
 
