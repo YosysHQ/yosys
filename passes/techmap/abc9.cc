@@ -535,18 +535,18 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			log_error("Can't open ABC output file `%s'.\n", buffer.c_str());
 
 		bool builtin_lib = liberty_file.empty();
-		RTLIL::Design *mapped_design = new RTLIL::Design;
 		//parse_blif(mapped_design, ifs, builtin_lib ? "\\DFF" : "\\_dff_", false, sop_mode);
 		buffer = stringf("%s/%s", tempdir_name.c_str(), "input.sym");
-		AigerReader reader(mapped_design, ifs, "\\netlist", "" /* clk_name */, buffer.c_str() /* map_filename */, true /* wideports */);
+		log_assert(!design->module("$__abc9__"));
+		AigerReader reader(design, ifs, "$__abc9__", "" /* clk_name */, buffer.c_str() /* map_filename */, true /* wideports */);
 		reader.parse_xaiger();
 
 		ifs.close();
 
 		log_header(design, "Re-integrating ABC9 results.\n");
-		RTLIL::Module *mapped_mod = mapped_design->modules_["\\netlist"];
+		RTLIL::Module *mapped_mod = design->module("$__abc9__");
 		if (mapped_mod == NULL)
-			log_error("ABC output file does not contain a module `netlist'.\n");
+			log_error("ABC output file does not contain a module `$__abc9__'.\n");
 
 		pool<RTLIL::SigBit> output_bits;
 		for (auto &it : mapped_mod->wires_) {
@@ -801,7 +801,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			else {
 				cell = module->cell(c->name);
 				log_assert(cell);
-				log_assert(c->type == "$__blackbox__");
+				log_assert(c->type == cell->type);
 			}
 
 			if (markgroups) cell->attributes["\\abcgroup"] = map_autoidx;
@@ -937,8 +937,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		//log("ABC RESULTS:        internal signals: %8d\n", int(signal_list.size()) - in_wires - out_wires);
 		log("ABC RESULTS:           input signals: %8d\n", in_wires);
 		log("ABC RESULTS:          output signals: %8d\n", out_wires);
-
-		delete mapped_design;
 	}
 	//else
 	//{

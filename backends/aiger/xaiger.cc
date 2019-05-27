@@ -879,13 +879,15 @@ struct XAigerWriter
 			int i = std::get<3>(c);
 			int a = bit2aig(b);
 			log_assert((a & 1) == 0);
-			input_lines[a] += stringf("cinput %d %d %s %s\n", (a >> 1)-1, i, log_id(std::get<1>(c)), log_id(std::get<2>(c)));
+			RTLIL::Cell* cell = std::get<1>(c);
+			input_lines[a] += stringf("cinput %d %d %s %s %s\n", (a >> 1)-1, i, log_id(cell), log_id(std::get<2>(c)), log_id(cell->type));
 		}
 
 		for (const auto &c : co_bits) {
 			int i = std::get<3>(c);
 			int o = std::get<4>(c);
-			output_lines[o] += stringf("coutput %d %d %s %s\n", o, i, log_id(std::get<1>(c)), log_id(std::get<2>(c)));
+			RTLIL::Cell* cell = std::get<1>(c);
+			output_lines[o] += stringf("coutput %d %d %s %s %s\n", o, i, log_id(cell), log_id(std::get<2>(c)), log_id(cell->type));
 		}
 
 		input_lines.sort();

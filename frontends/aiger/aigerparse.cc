@@ -720,14 +720,17 @@ void AigerReader::post_process()
                 }
                 else log_abort();
 
-                std::string port;
-                mf >> port;
+                std::string port, type;
+                mf >> port >> type;
                 RTLIL::IdString cell_name = RTLIL::escape_id(symbol);
                 RTLIL::IdString cell_port = RTLIL::escape_id(port);
+                RTLIL::IdString cell_type = RTLIL::escape_id(type);
 
                 RTLIL::Cell* cell = module->cell(cell_name);
                 if (!cell)
-                    cell = module->addCell(cell_name, "$__blackbox__");
+                    cell = module->addCell(cell_name, cell_type);
+                else
+                    log_assert(cell->type == cell_type);
                 wire->port_input = false;
                 wire->port_output = false;
                 if (cell->hasPort(cell_port)) {
