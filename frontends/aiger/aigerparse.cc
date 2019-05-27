@@ -704,6 +704,41 @@ void AigerReader::post_process()
                     }
                 }
             }
+            else if (type == "cinput" || type == "coutput") {
+                RTLIL::Wire* wire;
+                if (type == "cinput") {
+                    log_assert(static_cast<unsigned>(variable) < inputs.size());
+                    wire = inputs[variable];
+                    log_assert(wire);
+                    log_assert(wire->port_input);
+                }
+                else if (type == "coutput") {
+                    log_assert(static_cast<unsigned>(variable) < outputs.size());
+                    wire = outputs[variable];
+                    log_assert(wire);
+                    log_assert(wire->port_output);
+                }
+                else log_abort();
+
+                std::string port;
+                mf >> port;
+                RTLIL::IdString cell_name = RTLIL::escape_id(symbol);
+                RTLIL::IdString cell_port = RTLIL::escape_id(port);
+
+                RTLIL::Cell* cell = module->cell(cell_name);
+                if (!cell)
+                    cell = module->addCell(cell_name, "$__blackbox__");
+                wire->port_input = false;
+                wire->port_output = false;
+                if (cell->hasPort(cell_port)) {
+                    log_assert(index == GetSize(cell->getPort(cell_port)));
+                    cell->connections_[cell_port].append(wire);
+                }
+                else {
+                    log_assert(index == 0);
+                    cell->setPort(cell_port, wire);
+                }
+            }
             else
                 log_error("Symbol type '%s' not recognised.\n", type.c_str());
         }

@@ -786,14 +786,24 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 				continue;
 			}
 
-			if (c->type == "$lut" && GetSize(c->getPort("\\A")) == 1 && c->getParam("\\LUT").as_int() == 2) {
-				SigSpec my_a = module->wires_[remap_name(c->getPort("\\A").as_wire()->name)];
-				SigSpec my_y = module->wires_[remap_name(c->getPort("\\Y").as_wire()->name)];
-				module->connect(my_y, my_a);
-				continue;
+			RTLIL::Cell* cell;
+			if (c->type == "$lut") {
+				if (GetSize(c->getPort("\\A")) == 1 && c->getParam("\\LUT").as_int() == 2) {
+					SigSpec my_a = module->wires_[remap_name(c->getPort("\\A").as_wire()->name)];
+					SigSpec my_y = module->wires_[remap_name(c->getPort("\\Y").as_wire()->name)];
+					module->connect(my_y, my_a);
+					continue;
+				}
+				else {
+					cell = module->addCell(remap_name(c->name), c->type);
+				}
+			}
+			else {
+				cell = module->cell(c->name);
+				log_assert(cell);
+				log_assert(c->type == "$__blackbox__");
 			}
 
-			RTLIL::Cell *cell = module->addCell(remap_name(c->name), c->type);
 			if (markgroups) cell->attributes["\\abcgroup"] = map_autoidx;
 			cell->parameters = c->parameters;
 			for (auto &conn : c->connections()) {
@@ -802,7 +812,8 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 					if (c.width == 0)
 						continue;
 					//log_assert(c.width == 1);
-					c.wire = module->wires_[remap_name(c.wire->name)];
+					if (c.wire)
+						c.wire = module->wires_[remap_name(c.wire->name)];
 					newsig.append(c);
 				}
 				cell->setPort(conn.first, newsig);

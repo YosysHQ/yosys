@@ -49,7 +49,8 @@ struct XAigerWriter
 	dict<SigBit, SigBit> not_map, ff_map, alias_map;
 	dict<SigBit, pair<SigBit, SigBit>> and_map;
 	//pool<SigBit> initstate_bits;
-	vector<std::pair<SigBit,int>> ci_bits, co_bits;
+	vector<std::tuple<SigBit,RTLIL::Cell*,RTLIL::IdString,int>> ci_bits;
+	vector<std::tuple<SigBit,RTLIL::Cell*,RTLIL::IdString,int,int>> co_bits;
 
 	vector<pair<int, int>> aig_gates;
 	vector<int> aig_latchin, aig_latchinit, aig_outputs;
@@ -327,6 +328,7 @@ struct XAigerWriter
 				// Box ordering is alphabetical
 				cell->connections_.sort(RTLIL::sort_by_id_str());
 				for (const auto &c : cell->connections()) {
+					int offset = 0;
 					for (auto b : c.second.bits()) {
 						auto is_input = cell->input(c.first);
 						auto is_output = cell->output(c.first);
@@ -335,11 +337,11 @@ struct XAigerWriter
 							SigBit I = sigmap(b);
 							if (I != b)
 								alias_map[b] = I;
-							co_bits.emplace_back(b, 0);
+							co_bits.emplace_back(b, cell, c.first, offset++, 0);
 						}
 						if (is_output) {
 							SigBit O = sigmap(b);
-							ci_bits.emplace_back(O, 0);
+							ci_bits.emplace_back(O, cell, c.first, offset++);
 						}
 					}
 				}
@@ -380,7 +382,7 @@ struct XAigerWriter
 		// Do some CI/CO post-processing:
 		// CIs cannot be undriven
 		for (const auto &c : ci_bits)
-			undriven_bits.erase(c.first);
+			undriven_bits.erase(std::get<0>(c));
 		// Erase all POs that are undriven
 		if (!holes_mode)
 			for (auto bit : undriven_bits)
@@ -399,18 +401,13 @@ struct XAigerWriter
 
 		init_map.sort();
 		if (holes_mode) {
-#ifndef NDEBUG
-			RTLIL::SigBit last_bit;
-			for (auto bit : input_bits) {
-				log_assert(!last_bit.wire || last_bit.wire->port_id < bit.wire->port_id);
-				last_bit = bit;
-			}
-			last_bit = RTLIL::SigBit();
-			for (auto bit : output_bits) {
-				log_assert(!last_bit.wire || last_bit.wire->port_id < bit.wire->port_id);
-				last_bit = bit;
-			}
-#endif
+			struct sort_by_port_id {
+				bool operator()(const RTLIL::SigBit& a, const RTLIL::SigBit& b) const {
+					return a.wire->port_id < b.wire->port_id;
+				}
+			};
+			input_bits.sort(sort_by_port_id());
+			output_bits.sort(sort_by_port_id());
 		}
 		else {
 			input_bits.sort();
@@ -431,8 +428,7 @@ struct XAigerWriter
 
 		for (auto &c : ci_bits) {
 			aig_m++, aig_i++;
-			c.second = 2*aig_m;
-			aig_map[c.first] = c.second;
+			aig_map[std::get<0>(c)] = 2*aig_m;
 		}
 
 		if (imode && input_bits.empty()) {
@@ -496,9 +492,9 @@ struct XAigerWriter
 		//	aig_latchin.push_back(1);
 
 		for (auto &c : co_bits) {
-			RTLIL::SigBit bit = c.first;
-			c.second = aig_o++;
-			ordered_outputs[bit] = c.second;
+			RTLIL::SigBit bit = std::get<0>(c);
+			std::get<4>(c) = aig_o++;
+			ordered_outputs[bit] = std::get<4>(c);
 			aig_outputs.push_back(bit2aig(bit));
 		}
 
@@ -774,8 +770,7 @@ struct XAigerWriter
 				//Pass::call(holes_module->design, "techmap");
 
 				Pass::call(holes_module->design, "aigmap");
-				//TODO: clean will mess up port_ids
-				//Pass::call(holes_module->design, "clean -purge");
+				Pass::call(holes_module->design, "clean -purge");
 
 				holes_module->design->selection_stack.pop_back();
 
@@ -880,22 +875,17 @@ struct XAigerWriter
 		}
 
 		for (const auto &c : ci_bits) {
-			RTLIL::SigBit b = c.first;
-			RTLIL::Wire *wire = b.wire;
-			int i = b.offset;
+			RTLIL::SigBit b = std::get<0>(c);
+			int i = std::get<3>(c);
 			int a = bit2aig(b);
 			log_assert((a & 1) == 0);
-			input_lines[a] += stringf("input %d %d %s\n", (a >> 1)-1, i, log_id(wire));
+			input_lines[a] += stringf("cinput %d %d %s %s\n", (a >> 1)-1, i, log_id(std::get<1>(c)), log_id(std::get<2>(c)));
 		}
 
 		for (const auto &c : co_bits) {
-			RTLIL::SigBit b = c.first;
-			RTLIL::Wire *wire = b.wire;
-			int o = c.second;
-			if (wire)
-				output_lines[o] += stringf("output %d %d %s\n", o, b.offset, log_id(wire));
-			else
-				output_lines[o] += stringf("output %d %d __const%d__\n", o, 0, b.data);
+			int i = std::get<3>(c);
+			int o = std::get<4>(c);
+			output_lines[o] += stringf("coutput %d %d %s %s\n", o, i, log_id(std::get<1>(c)), log_id(std::get<2>(c)));
 		}
 
 		input_lines.sort();
