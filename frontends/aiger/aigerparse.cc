@@ -162,29 +162,6 @@ static RTLIL::Wire* createWireIfNotExists(RTLIL::Module *module, unsigned litera
     return wire;
 }
 
-static std::pair<RTLIL::IdString, int> wideports_split(std::string name)
-{
-	int pos = -1;
-
-	if (name.empty() || name.back() != ']')
-		goto failed;
-
-	for (int i = 0; i+1 < GetSize(name); i++) {
-		if (name[i] == '[')
-			pos = i;
-		else if (name[i] < '0' || name[i] > '9')
-			pos = -1;
-		else if (i == pos+1 && name[i] == '0' && name[i+1] != ']')
-			pos = -1;
-	}
-
-	if (pos >= 0)
-		return std::pair<RTLIL::IdString, int>(RTLIL::escape_id(name.substr(0, pos)), atoi(name.c_str() + pos+1));
-
-failed:
-	return std::pair<RTLIL::IdString, int>(name, 0);
-}
-
 void AigerReader::parse_xaiger()
 {
     std::string header;
