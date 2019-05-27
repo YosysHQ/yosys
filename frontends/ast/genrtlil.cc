@@ -963,8 +963,13 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				detectSignWidth(width_hint, sign_hint);
 			is_signed = sign_hint;
 
-			if (type == AST_CONSTANT)
-				return RTLIL::SigSpec(bitsAsConst());
+			if (type == AST_CONSTANT) {
+				if (is_unsized) {
+					return RTLIL::SigSpec(bitsAsUnsizedConst(width_hint));
+				} else {
+					return RTLIL::SigSpec(bitsAsConst());
+				}
+			}
 
 			RTLIL::SigSpec sig = realAsConst(width_hint);
 			log_file_warning(filename, linenum, "converting real value %e to binary %s.\n", realvalue, log_signal(sig));

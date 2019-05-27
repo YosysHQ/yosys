@@ -232,7 +232,7 @@ YOSYS_NAMESPACE_END
 	return TOK_CONSTVAL;
 }
 
-[0-9]*[ \t]*\'s?[bodhBODH][ \t\r\n]*[0-9a-fA-FzxZX?_]+ {
+[0-9]*[ \t]*\'s?[bodhBODH]*[ \t\r\n]*[0-9a-fA-FzxZX?_]+ {
 	frontend_verilog_yylval.string = new std::string(yytext);
 	return TOK_CONSTVAL;
 }
