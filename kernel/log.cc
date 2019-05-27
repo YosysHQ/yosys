@@ -230,6 +230,9 @@ static void logv_warning_with_prefix(const char *prefix,
 	}
 	else
 	{
+		int bak_log_make_debug = log_make_debug;
+		log_make_debug = 0;
+
 		for (auto &re : log_werror_regexes)
 			if (std::regex_search(message, re))
 				log_error("%s",  message.c_str());
@@ -254,6 +257,7 @@ static void logv_warning_with_prefix(const char *prefix,
 		}
 
 		log_warnings_count++;
+		log_make_debug = bak_log_make_debug;
 	}
 }
 
@@ -285,6 +289,9 @@ static void logv_error_with_prefix(const char *prefix,
 #ifdef EMSCRIPTEN
 	auto backup_log_files = log_files;
 #endif
+	int bak_log_make_debug = log_make_debug;
+	log_make_debug = 0;
+	log_suppressed();
 
 	if (log_errfile != NULL)
 		log_files.push_back(log_errfile);
@@ -297,6 +304,8 @@ static void logv_error_with_prefix(const char *prefix,
 	log_last_error = vstringf(format, ap);
 	log("%s%s", prefix, log_last_error.c_str());
 	log_flush();
+
+	log_make_debug = bak_log_make_debug;
 
 	if (log_error_atexit)
 		log_error_atexit();
