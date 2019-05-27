@@ -163,42 +163,6 @@ static RTLIL::SigSpec mux2rtlil(AstNode *that, const RTLIL::SigSpec &cond, const
 	return wire;
 }
 
-// helper function for creating RTLIL code for wand/wor declarations
-static void wandwor2rtlil(AstNode *that, RTLIL::Wire *output_wire, bool gen_attributes = true)
-{
-	std::string type;
-
-	if (that->is_wand) {
-		type = "$reduce_and";
-	} else if (that->is_wor) {
-		type = "$reduce_or";
-	} else {
-		log_file_error(that->filename, that->linenum, "Unrecognized wired logic type.\n");
-	}
-
-	std::stringstream sstr;
-	sstr << type << "$" << that->filename << ":" << that->linenum << "$" << (autoidx++);
-
-	RTLIL::Cell *cell = current_module->addCell(sstr.str(), type);
-	cell->attributes["\\src"] = stringf("%s:%d", that->filename.c_str(), that->linenum);
-
-	if (gen_attributes)
-		for (auto &attr : that->attributes) {
-			if (attr.second->type != AST_CONSTANT)
-				log_file_error(that->filename, that->linenum, "Attribute `%s' with non-constant value!\n", attr.first.c_str());
-			cell->attributes[attr.first] = attr.second->asAttrConst();
-		}
-
-	cell->parameters["\\A_SIGNED"] = RTLIL::Const(0);
-	cell->parameters["\\A_WIDTH"] = RTLIL::Const(0);
-	cell->setPort("\\A", RTLIL::SigSpec());
-
-	cell->parameters["\\Y_WIDTH"] = RTLIL::Const(1);
-	cell->setPort("\\Y", output_wire);
-
-	wire_logic_map[output_wire] = cell;
-}
-
 // helper class for converting AST always nodes to RTLIL processes
 struct AST_INTERNAL::ProcessGenerator
 {
@@ -956,11 +920,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				wire->attributes[attr.first] = attr.second->asAttrConst();
 			}
 
-			if (is_wand || is_wor) {
-				if (wire->width > 1)
-					log_file_error(filename, linenum, "Multi-bit wand/wor not supported.\n");
-				wandwor2rtlil(this, wire);
-			}
+			if (is_wand) wire->set_bool_attribute("\\wand");
+			if (is_wor)  wire->set_bool_attribute("\\wor");
 		}
 		break;
 
@@ -1492,43 +1453,23 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	// add entries to current_module->connections for assignments (outside of always blocks)
 	case AST_ASSIGN:
 		{
-			bool left_had_const = false;
 			RTLIL::SigSpec left = children[0]->genRTLIL();
 			RTLIL::SigSpec right = children[1]->genWidthRTLIL(left.size());
-
-			RTLIL::SigSpec new_left, new_right;
-			for (int i = 0; i < GetSize(left); i++)
-				if (left[i].wire) {
-					std::map<RTLIL::SigSpec, RTLIL::Cell*>::iterator iter = wire_logic_map.find(left[i].wire);
-					if (iter == wire_logic_map.end()) {
+			if (left.has_const()) {
+				RTLIL::SigSpec new_left, new_right;
+				for (int i = 0; i < GetSize(left); i++)
+					if (left[i].wire) {
 						new_left.append(left[i]);
-					} else {
-						RTLIL::Cell *reduce_cell = iter->second;
-						RTLIL::SigSpec reduce_cell_in = reduce_cell->getPort("\\A");
-						int reduce_width = reduce_cell->getParam("\\A_WIDTH").as_int();
-
-						RTLIL::Wire *new_reduce_input = current_module->addWire(
-								stringf("%s_in%d", reduce_cell->name.c_str(), reduce_width));
-						new_reduce_input->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
-						reduce_cell_in.append(new_reduce_input);
-						reduce_cell->setPort("\\A", reduce_cell_in);
-						reduce_cell->fixup_parameters();
-						new_left.append(new_reduce_input);
+						new_right.append(right[i]);
 					}
-					new_right.append(right[i]);
-				} else {
-					left_had_const = true;
-				}
-
-			left = new_left;
-			right = new_right;
-			current_module->connect(RTLIL::SigSig(left, right));
-
-			if (left_had_const)
 				log_file_warning(filename, linenum, "Ignoring assignment to constant bits:\n"
 						"    old assignment: %s = %s\n    new assignment: %s = %s.\n",
 						log_signal(left), log_signal(right),
 						log_signal(new_left), log_signal(new_right));
+				left = new_left;
+				right = new_right;
+			}
+			current_module->connect(RTLIL::SigSig(left, right));
 		}
 		break;
 
@@ -1573,38 +1514,14 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				}
 				if (child->type == AST_ARGUMENT) {
 					RTLIL::SigSpec sig;
-					RTLIL::SigSpec new_sig;
-					if (child->children.size() > 0) {
+					if (child->children.size() > 0)
 						sig = child->children[0]->genRTLIL();
-						for (int i = 0; i < GetSize(sig); i++) {
-							if (sig[i].wire) {
-								std::map<RTLIL::SigSpec, RTLIL::Cell*>::iterator iter = wire_logic_map.find(sig[i].wire);
-								if (iter == wire_logic_map.end()) {
-									new_sig.append(sig[i]);
-								} else {
-									RTLIL::Cell *reduce_cell = iter->second;
-									RTLIL::SigSpec reduce_cell_in = reduce_cell->getPort("\\A");
-									int reduce_width = reduce_cell->getParam("\\A_WIDTH").as_int();
-
-									RTLIL::Wire *new_reduce_input = current_module->addWire(
-											stringf("%s_in%d", reduce_cell->name.c_str(), reduce_width));
-									new_reduce_input->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
-									reduce_cell_in.append(new_reduce_input);
-									reduce_cell->setPort("\\A", reduce_cell_in);
-									reduce_cell->fixup_parameters();
-									new_sig.append(new_reduce_input);
-								}
-							} else {
-								new_sig.append(sig[i]);
-							}
-						}
-					}
 					if (child->str.size() == 0) {
 						char buf[100];
 						snprintf(buf, 100, "$%d", ++port_counter);
-						cell->setPort(buf, new_sig);
+						cell->setPort(buf, sig);
 					} else {
-						cell->setPort(child->str, new_sig);
+						cell->setPort(child->str, sig);
 					}
 					continue;
 				}
