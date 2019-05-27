@@ -538,7 +538,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		//parse_blif(mapped_design, ifs, builtin_lib ? "\\DFF" : "\\_dff_", false, sop_mode);
 		buffer = stringf("%s/%s", tempdir_name.c_str(), "input.sym");
 		log_assert(!design->module("$__abc9__"));
-		AigerReader reader(design, ifs, "$__abc9__", "" /* clk_name */, buffer.c_str() /* map_filename */, true /* wideports */);
+		AigerReader reader(design, ifs, "$__abc9__", "" /* clk_name */, buffer.c_str() /* map_filename */, false /* wideports */);
 		reader.parse_xaiger();
 
 		ifs.close();
