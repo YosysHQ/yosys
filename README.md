@@ -138,7 +138,7 @@ writing the design to the console in Yosys's internal format:
 
 	yosys> write_ilang
 
-elaborate design hierarchy:
+elaborate design hierarchy and convert wand/wor nets to logic:
 
 	yosys> hierarchy
 
@@ -257,7 +257,7 @@ for them:
 - Non-synthesizable language features as defined in
 	IEC 62142(E):2005 / IEEE Std. 1364.1(E):2002
 
-- The ``tri``, ``triand``, ``trior``, ``wand`` and ``wor`` net types
+- The ``tri``, ``triand`` and ``trior`` net types
 
 - The ``config`` and ``disable`` keywords and library map files
 
