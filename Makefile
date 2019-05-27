@@ -21,12 +21,14 @@ ENABLE_PROTOBUF := 0
 
 # python wrappers
 ENABLE_PYOSYS := 0
+ifeq ($(ENABLE_PYOSYS),1)
 PYTHON_VERSION_TESTCODE := "import sys;t='{v[0]}.{v[1]}'.format(v=list(sys.version_info[:2]));print(t)"
 PYTHON_EXECUTABLE := $(shell if python3 -c ""; then echo "python3"; else echo "python"; fi)
 PYTHON_VERSION := $(shell $(PYTHON_EXECUTABLE) -c ""$(PYTHON_VERSION_TESTCODE)"")
 PYTHON_MAJOR_VERSION := $(shell echo $(PYTHON_VERSION) | cut -f1 -d.)
 PYTHON_PREFIX := $(shell $(PYTHON_EXECUTABLE)-config --prefix)
 PYTHON_DESTDIR := $(PYTHON_PREFIX)/lib/python$(PYTHON_VERSION)/site-packages
+endif
 
 # other configuration flags
 ENABLE_GCOV := 0
@@ -314,10 +316,12 @@ CXXFLAGS += $(shell $(PYTHON_EXECUTABLE)-config --includes) -DWITH_PYTHON
 endif
 endif
 
+ifeq ($(ENABLE_PYOSYS),1)
 PY_WRAPPER_FILE = kernel/python_wrappers
 OBJS += $(PY_WRAPPER_FILE).o
 PY_GEN_SCRIPT= py_wrap_generator
 PY_WRAP_INCLUDES := $(shell python$(PYTHON_VERSION) -c "from misc import $(PY_GEN_SCRIPT); $(PY_GEN_SCRIPT).print_includes()")
+endif
 endif
 
 ifeq ($(ENABLE_READLINE),1)
@@ -577,9 +581,11 @@ endif
 	$(Q) mkdir -p $(dir $@)
 	$(P) cat $< | grep -E -v "#[ ]*(include|error)" | $(LD) -x c++ -o $@ -E -P -
 
+ifeq ($(ENABLE_PYOSYS),1)
 $(PY_WRAPPER_FILE).cc: misc/$(PY_GEN_SCRIPT).py $(PY_WRAP_INCLUDES)
 	$(Q) mkdir -p $(dir $@)
 	$(P) python$(PYTHON_VERSION) -c "from misc import $(PY_GEN_SCRIPT); $(PY_GEN_SCRIPT).gen_wrappers(\"$(PY_WRAPPER_FILE).cc\")"
+endif
 
 %.o: %.cpp
 	$(Q) mkdir -p $(dir $@)
