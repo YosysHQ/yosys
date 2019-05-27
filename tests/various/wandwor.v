@@ -17,7 +17,6 @@ module c;
 
 
     wand E;
-    wire E_wire = E;
     
     genvar i;
     for (i = 0; i < 3; i = i + 1)
@@ -27,7 +26,7 @@ module c;
         );
         
         b b_inst (
-            .D(E_wire)
+            .D(E)
         );
     end
 
