@@ -143,6 +143,7 @@ assign b = ~a;
 always @* d <= &c;
 endmodule
 
+// Citation: https://github.com/alexforencich/verilog-ethernet
 module abc9_test021(clk, rst, s_eth_hdr_valid, s_eth_hdr_ready, s_eth_dest_mac, s_eth_src_mac, s_eth_type, s_eth_payload_axis_tdata, s_eth_payload_axis_tkeep, s_eth_payload_axis_tvalid, s_eth_payload_axis_tready, s_eth_payload_axis_tlast, s_eth_payload_axis_tid, s_eth_payload_axis_tdest, s_eth_payload_axis_tuser, m_eth_hdr_valid, m_eth_hdr_ready, m_eth_dest_mac, m_eth_src_mac, m_eth_type, m_eth_payload_axis_tdata, m_eth_payload_axis_tkeep, m_eth_payload_axis_tvalid, m_eth_payload_axis_tready, m_eth_payload_axis_tlast, m_eth_payload_axis_tid, m_eth_payload_axis_tdest, m_eth_payload_axis_tuser);
   input clk;
   output [47:0] m_eth_dest_mac;
@@ -214,4 +215,25 @@ endmodule
 
 (* abc_box_id=1 *)
 module MUXF8(input I0, I1, S, output O);
+endmodule
+
+// Citation: https://github.com/alexforencich/verilog-ethernet
+// TODO: yosys -p "synth_xilinx -abc9 -top abc9_test022" abc9.v -q
+// returns before b4321a31
+//   Warning: Wire abc9_test022.\m_eth_payload_axis_tkeep [7] is used but has no
+//   driver.
+//   Warning: Wire abc9_test022.\m_eth_payload_axis_tkeep [3] is used but has no
+//   driver.
+module abc9_test022
+(
+    input  wire        clk,
+    input  wire        i,
+    output wire [7:0]  m_eth_payload_axis_tkeep
+);
+
+reg [7:0]  m_eth_payload_axis_tkeep_reg = 8'd0;
+assign m_eth_payload_axis_tkeep = m_eth_payload_axis_tkeep_reg;
+always @(posedge clk)
+    m_eth_payload_axis_tkeep_reg <= i ? 8'hff : 8'h0f;
+
 endmodule
