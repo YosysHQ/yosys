@@ -867,21 +867,19 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		//		module->connect(conn);
 		//	}
 
-		// Go through all AND and NOT output connections,
-		// and for those output ports driving wires
-		// also driven by mapped_mod, disconnect them
+		// Go through all AND, NOT, and ABC box instances,
+		// and disconnect their output connections in
+		// preparation for stitching mapped_mod in
 		for (auto cell : module->cells()) {
-			if (!cell->type.in("$_AND_", "$_NOT_"))
-				continue;
+			if (!cell->type.in("$_AND_", "$_NOT_")) {
+				RTLIL::Module* cell_module = design->module(cell->type);
+				if (!cell_module || !cell_module->attributes.count("\\abc_box_id"))
+					continue;
+			}
 			for (auto &it : cell->connections_) {
 				auto port_name = it.first;
 				if (!cell->output(port_name)) continue;
-				auto &signal = it.second;
-				auto bits = signal.bits();
-				for (auto &b : bits)
-					if (output_bits.count(b))
-						b = module->addWire(NEW_ID);
-				signal = std::move(bits);
+				it.second = RTLIL::SigSpec();
 			}
 		}
 		// Do the same for module connections
