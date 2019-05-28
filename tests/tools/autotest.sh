@@ -132,13 +132,13 @@ do
 		fn=$(basename $fn)
 		bn=$(basename $bn)
 
+		rm -f ${bn}_ref.fir
 		if [[ "$ext" == "v" ]]; then
 			egrep -v '^\s*`timescale' ../$fn > ${bn}_ref.${ext}
 		else
 			"$toolsdir"/../../yosys -f "$frontend $include_opts" -b "verilog" -o ${bn}_ref.v ../${fn}
 			frontend="verilog -noblackbox"
 		fi
-		rm -f ${bn}_ref.fir
 
 		if [ ! -f ../${bn}_tb.v ]; then
 			"$toolsdir"/../../yosys -f "$frontend $include_opts" -b "test_autotb $autotb_opts" -o ${bn}_tb.v ${bn}_ref.v
