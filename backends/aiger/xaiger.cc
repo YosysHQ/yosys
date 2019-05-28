@@ -277,8 +277,10 @@ struct XAigerWriter
 							}
 						}
 						if (is_output) {
+							input_bits.insert(b);
 							SigBit O = sigmap(b);
-							input_bits.insert(O);
+							if (O != b)
+								alias_map[O] = b;
 							undriven_bits.erase(O);
 						}
 					}
@@ -346,8 +348,10 @@ struct XAigerWriter
 
 						int offset = 0;
 						for (const auto &b : rhs.bits()) {
+							ci_bits.emplace_back(b, cell, port_name, offset++);
 							SigBit O = sigmap(b);
-							ci_bits.emplace_back(O, cell, port_name, offset++);
+							if (O != b)
+								alias_map[O] = b;
 							undriven_bits.erase(O);
 						}
 					}
