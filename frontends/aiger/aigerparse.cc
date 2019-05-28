@@ -192,8 +192,15 @@ void AigerReader::parse_xaiger()
     else
         log_abort();
 
+    dict<int,IdString> box_lookup;
+    for (auto m : design->modules()) {
+        auto it = m->attributes.find("\\abc_box_id");
+        if (it == m->attributes.end())
+            continue;
+        box_lookup[it->second.as_int()] = m->name;
+    }
+
     // Parse footer (symbol table, comments, etc.)
-    unsigned l1;
     std::string s;
     bool comment_seen = false;
     for (int c = f.peek(); c != EOF; c = f.peek()) {
@@ -247,7 +254,21 @@ void AigerReader::parse_xaiger()
                f >> s;
                log_debug("n: '%s'\n", s.c_str());
             }
-            else if (c == 'a' || c == 'i' || c == 'o' || c == 'h') {
+            else if (c == 'h') {
+                f.ignore(sizeof(uint32_t));
+                uint32_t version = parse_xaiger_literal(f);
+                log_assert(version == 1);
+                f.ignore(4*sizeof(uint32_t));
+                uint32_t boxNum = parse_xaiger_literal(f);
+                for (unsigned i = 0; i < boxNum; i++) {
+                    f.ignore(2*sizeof(uint32_t));
+                    uint32_t boxUniqueId = parse_xaiger_literal(f);
+                    log_assert(boxUniqueId > 0);
+                    uint32_t oldBoxNum = parse_xaiger_literal(f);
+                    module->addCell(stringf("$__box%u__", oldBoxNum), box_lookup.at(boxUniqueId));
+                }
+            }
+            else if (c == 'a' || c == 'i' || c == 'o') {
                 uint32_t dataSize = parse_xaiger_literal(f);
                 f.ignore(dataSize);
             }
@@ -471,7 +492,7 @@ void AigerReader::parse_aiger_binary()
             log_debug("%d is an output\n", l1);
             const unsigned variable = l1 >> 1;
             const bool invert = l1 & 1;
-            RTLIL::IdString wire_name(stringf("\\__%d%s__", variable, invert ? "b" : "")); // FIXME: is "_inv" the right suffix?
+            RTLIL::IdString wire_name(stringf("\\__%d%s__", variable, invert ? "b" : "")); // FIXME: is "_b" the right suffix?
             wire = module->wire(wire_name);
             if (!wire)
                 wire = createWireIfNotExists(module, l1);
@@ -527,6 +548,7 @@ void AigerReader::post_process()
         std::ifstream mf(map_filename);
         std::string type, symbol;
         int variable, index;
+        int pi_count = 0, ci_count = 0, co_count = 0;
         while (mf >> type >> variable >> index >> symbol) {
             RTLIL::IdString escaped_s = RTLIL::escape_id(symbol);
             if (type == "input") {
@@ -534,6 +556,7 @@ void AigerReader::post_process()
                 RTLIL::Wire* wire = inputs[variable];
                 log_assert(wire);
                 log_assert(wire->port_input);
+                pi_count++;
 
                 if (index == 0) {
                     // Cope with the fact that a CI might be identical
@@ -562,8 +585,8 @@ void AigerReader::post_process()
                 }
             }
             else if (type == "output") {
-                log_assert(static_cast<unsigned>(variable) < outputs.size());
-                RTLIL::Wire* wire = outputs[variable];
+                log_assert(static_cast<unsigned>(variable + co_count) < outputs.size());
+                RTLIL::Wire* wire = outputs[variable + co_count];
                 log_assert(wire);
                 log_assert(wire->port_output);
                 if (escaped_s.in("\\__dummy_o__", "\\__const0__", "\\__const1__")) {
@@ -617,42 +640,38 @@ void AigerReader::post_process()
                     }
                 }
             }
-            else if (type == "cinput" || type == "coutput") {
-                RTLIL::Wire* wire;
-                if (type == "cinput") {
-                    log_assert(static_cast<unsigned>(variable) < inputs.size());
-                    wire = inputs[variable];
-                    log_assert(wire);
-                    log_assert(wire->port_input);
-                }
-                else if (type == "coutput") {
-                    log_assert(static_cast<unsigned>(variable) < outputs.size());
-                    wire = outputs[variable];
-                    log_assert(wire);
-                    log_assert(wire->port_output);
-                }
-                else log_abort();
-
-                std::string port, type;
-                mf >> port >> type;
-                RTLIL::IdString cell_name = RTLIL::escape_id(symbol);
-                RTLIL::IdString cell_port = RTLIL::escape_id(port);
-                RTLIL::IdString cell_type = RTLIL::escape_id(type);
-
-                RTLIL::Cell* cell = module->cell(cell_name);
-                if (!cell)
-                    cell = module->addCell(cell_name, cell_type);
-                else
-                    log_assert(cell->type == cell_type);
-                wire->port_input = false;
-                wire->port_output = false;
-                if (cell->hasPort(cell_port)) {
-                    log_assert(index == GetSize(cell->getPort(cell_port)));
-                    cell->connections_[cell_port].append(wire);
-                }
-                else {
-                    log_assert(index == 0);
-                    cell->setPort(cell_port, wire);
+            else if (type == "box") {
+                RTLIL::Cell* cell = module->cell(stringf("$__box%d__", variable));
+                if (cell) {
+                    module->rename(cell, escaped_s);
+                    RTLIL::Module* box_module = design->module(cell->type);
+                    log_assert(box_module);
+                    // NB: Assume box_module->ports are sorted alphabetically
+                    //     (as RTLIL::Module::fixup_ports() would do)
+                    for (auto port_name : box_module->ports) {
+                        RTLIL::Wire* w = box_module->wire(port_name);
+                        log_assert(w);
+                        RTLIL::SigSpec rhs;
+                        for (int i = 0; i < GetSize(w); i++) {
+                            if (w->port_input) {
+                                log_assert(static_cast<unsigned>(co_count) < outputs.size());
+                                RTLIL::Wire* wire = outputs[co_count++];
+                                log_assert(wire);
+                                log_assert(wire->port_output);
+                                wire->port_output = false;
+                                rhs.append(wire);
+                            }
+                            if (w->port_output) {
+                                log_assert(static_cast<unsigned>(pi_count + ci_count) < inputs.size());
+                                RTLIL::Wire* wire = inputs[pi_count + ci_count++];
+                                log_assert(wire);
+                                log_assert(wire->port_input);
+                                wire->port_input = false;
+                                rhs.append(wire);
+                            }
+                        }
+                        cell->setPort(port_name, rhs);
+                    }
                 }
             }
             else
