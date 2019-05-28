@@ -465,12 +465,10 @@ struct WreduceWorker
 					SigSpec initsig = init_attr_sigmap(w);
 					int width = std::min(GetSize(initval), GetSize(initsig));
 					for (int i = 0; i < width; i++) {
-						log_dump(initsig[i], remove_init_bits.count(initsig[i]));
 						if (!remove_init_bits.count(initsig[i]))
 							new_initval[i] = initval[i];
 					}
 					w->attributes.at("\\init") = new_initval;
-					log_dump(w->name, initval, new_initval);
 				}
 			}
 		}

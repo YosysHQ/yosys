@@ -130,75 +130,72 @@ struct JsonWriter
 			f << stringf("        }");
 			first = false;
 		}
-		f << stringf("\n      }");
+		f << stringf("\n      },\n");
 
-		if (!module->get_blackbox_attribute()) {
-			f << stringf(",\n      \"cells\": {");
-			first = true;
-			for (auto c : module->cells()) {
-				if (use_selection && !module->selected(c))
-					continue;
-				f << stringf("%s\n", first ? "" : ",");
-				f << stringf("        %s: {\n", get_name(c->name).c_str());
-				f << stringf("          \"hide_name\": %s,\n", c->name[0] == '$' ? "1" : "0");
-				f << stringf("          \"type\": %s,\n", get_name(c->type).c_str());
-				if (aig_mode) {
-					Aig aig(c);
-					if (!aig.name.empty()) {
-						f << stringf("          \"model\": \"%s\",\n", aig.name.c_str());
-						aig_models.insert(aig);
-					}
+		f << stringf("      \"cells\": {");
+		first = true;
+		for (auto c : module->cells()) {
+			if (use_selection && !module->selected(c))
+				continue;
+			f << stringf("%s\n", first ? "" : ",");
+			f << stringf("        %s: {\n", get_name(c->name).c_str());
+			f << stringf("          \"hide_name\": %s,\n", c->name[0] == '$' ? "1" : "0");
+			f << stringf("          \"type\": %s,\n", get_name(c->type).c_str());
+			if (aig_mode) {
+				Aig aig(c);
+				if (!aig.name.empty()) {
+					f << stringf("          \"model\": \"%s\",\n", aig.name.c_str());
+					aig_models.insert(aig);
 				}
-				f << stringf("          \"parameters\": {");
-				write_parameters(c->parameters);
-				f << stringf("\n          },\n");
-				f << stringf("          \"attributes\": {");
-				write_parameters(c->attributes);
-				f << stringf("\n          },\n");
-				if (c->known()) {
-					f << stringf("          \"port_directions\": {");
-					bool first2 = true;
-					for (auto &conn : c->connections()) {
-						string direction = "output";
-						if (c->input(conn.first))
-							direction = c->output(conn.first) ? "inout" : "input";
-						f << stringf("%s\n", first2 ? "" : ",");
-						f << stringf("            %s: \"%s\"", get_name(conn.first).c_str(), direction.c_str());
-						first2 = false;
-					}
-					f << stringf("\n          },\n");
-				}
-				f << stringf("          \"connections\": {");
+			}
+			f << stringf("          \"parameters\": {");
+			write_parameters(c->parameters);
+			f << stringf("\n          },\n");
+			f << stringf("          \"attributes\": {");
+			write_parameters(c->attributes);
+			f << stringf("\n          },\n");
+			if (c->known()) {
+				f << stringf("          \"port_directions\": {");
 				bool first2 = true;
 				for (auto &conn : c->connections()) {
+					string direction = "output";
+					if (c->input(conn.first))
+						direction = c->output(conn.first) ? "inout" : "input";
 					f << stringf("%s\n", first2 ? "" : ",");
-					f << stringf("            %s: %s", get_name(conn.first).c_str(), get_bits(conn.second).c_str());
+					f << stringf("            %s: \"%s\"", get_name(conn.first).c_str(), direction.c_str());
 					first2 = false;
 				}
-				f << stringf("\n          }\n");
-				f << stringf("        }");
-				first = false;
+				f << stringf("\n          },\n");
 			}
-			f << stringf("\n      },\n");
-
-			f << stringf("      \"netnames\": {");
-			first = true;
-			for (auto w : module->wires()) {
-				if (use_selection && !module->selected(w))
-					continue;
-				f << stringf("%s\n", first ? "" : ",");
-				f << stringf("        %s: {\n", get_name(w->name).c_str());
-				f << stringf("          \"hide_name\": %s,\n", w->name[0] == '$' ? "1" : "0");
-				f << stringf("          \"bits\": %s,\n", get_bits(w).c_str());
-				f << stringf("          \"attributes\": {");
-				write_parameters(w->attributes);
-				f << stringf("\n          }\n");
-				f << stringf("        }");
-				first = false;
+			f << stringf("          \"connections\": {");
+			bool first2 = true;
+			for (auto &conn : c->connections()) {
+				f << stringf("%s\n", first2 ? "" : ",");
+				f << stringf("            %s: %s", get_name(conn.first).c_str(), get_bits(conn.second).c_str());
+				first2 = false;
 			}
-			f << stringf("\n      }");
+			f << stringf("\n          }\n");
+			f << stringf("        }");
+			first = false;
 		}
-		f << stringf("\n");
+		f << stringf("\n      },\n");
+
+		f << stringf("      \"netnames\": {");
+		first = true;
+		for (auto w : module->wires()) {
+			if (use_selection && !module->selected(w))
+				continue;
+			f << stringf("%s\n", first ? "" : ",");
+			f << stringf("        %s: {\n", get_name(w->name).c_str());
+			f << stringf("          \"hide_name\": %s,\n", w->name[0] == '$' ? "1" : "0");
+			f << stringf("          \"bits\": %s,\n", get_bits(w).c_str());
+			f << stringf("          \"attributes\": {");
+			write_parameters(w->attributes);
+			f << stringf("\n          }\n");
+			f << stringf("        }");
+			first = false;
+		}
+		f << stringf("\n      }\n");
 
 		f << stringf("    }");
 	}
