@@ -1554,12 +1554,13 @@ struct SatPass : public Pass {
 				log_error("Called with -verify and proof did fail!\n");
 			}
 
-			if (0)
+			if (0) {
 		tip_success:
 			design->scratchpad_set_bool("sat.success", true);
 			if (falsify) {
 				log("\n");
 				log_error("Called with -falsify and proof did succeed!\n");
+			}
 			}
 		}
 		else
