@@ -46,10 +46,6 @@ OS := $(shell uname -s)
 PREFIX ?= /usr/local
 INSTALL_SUDO :=
 
-BINDIR := $(PREFIX)/bin
-LIBDIR := $(PREFIX)/lib
-DATDIR := $(PREFIX)/share/yosys
-
 EXE =
 OBJS =
 GENFILES =
@@ -151,6 +147,11 @@ include Makefile.conf
 endif
 
 endif
+
+# Setting locations depending of PREFIX
+BINDIR := $(PREFIX)/bin
+LIBDIR := $(PREFIX)/lib
+DATDIR := $(PREFIX)/share/yosys
 
 ifeq ($(CONFIG),clang)
 CXX = clang
