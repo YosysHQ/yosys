@@ -588,30 +588,34 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 					RTLIL::SigBit a_bit = c->getPort("\\A").as_bit();
 					RTLIL::SigBit y_bit = c->getPort("\\Y").as_bit();
 					if (!lut_costs.empty() || !lut_file.empty()) {
+						RTLIL::Cell* driving_lut = nullptr;
 						// ABC can return NOT gates that drive POs
-						if (a_bit.wire->port_input) {
-							// If it's a NOT gate that comes from a primary input directly
-							// then implement it using a LUT
-							cell = module->addLut(remap_name(stringf("%s$lut", c->name.c_str())),
-									RTLIL::SigBit(module->wires_[remap_name(a_bit.wire->name)], a_bit.offset),
-									RTLIL::SigBit(module->wires_[remap_name(y_bit.wire->name)], y_bit.offset),
-									1);
-						}
-						else {
-							// Otherwise, clone the driving LUT to guarantee that we
-							// won't increase the max logic depth
+						if (!a_bit.wire->port_input) {
+							// If it's not a NOT gate that that comes from a PI directly,
+							// find the driving LUT and clone that to guarantee that we won't
+							// increase the max logic depth
 							// (TODO: Optimise by not cloning unless will increase depth)
 							RTLIL::IdString driver_name;
 							if (GetSize(a_bit.wire) == 1)
 								driver_name = stringf("%s$lut", a_bit.wire->name.c_str());
 							else
 								driver_name = stringf("%s[%d]$lut", a_bit.wire->name.c_str(), a_bit.offset);
-							RTLIL::Cell* driver = mapped_mod->cell(driver_name);
-							log_assert(driver);
-							auto driver_a = driver->getPort("\\A").chunks();
+							driving_lut = mapped_mod->cell(driver_name);
+						}
+
+						if (!driving_lut) {
+							// If a driver couldn't be found (could be from PI,
+							// or from a box) then implement using a LUT
+							cell = module->addLut(remap_name(stringf("%s$lut", c->name.c_str())),
+									RTLIL::SigBit(module->wires_[remap_name(a_bit.wire->name)], a_bit.offset),
+									RTLIL::SigBit(module->wires_[remap_name(y_bit.wire->name)], y_bit.offset),
+									1);
+						}
+						else {
+							auto driver_a = driving_lut->getPort("\\A").chunks();
 							for (auto &chunk : driver_a)
 								chunk.wire = module->wires_[remap_name(chunk.wire->name)];
-							RTLIL::Const driver_lut = driver->getParam("\\LUT");
+							RTLIL::Const driver_lut = driving_lut->getParam("\\LUT");
 							for (auto &b : driver_lut.bits) {
 								if (b == RTLIL::State::S0) b = RTLIL::State::S1;
 								else if (b == RTLIL::State::S1) b = RTLIL::State::S0;
@@ -867,20 +871,14 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		//		module->connect(conn);
 		//	}
 
-		// Go through all AND, NOT, and ABC box instances,
-		// and disconnect their output connections in
-		// preparation for stitching mapped_mod in
-		for (auto cell : module->cells()) {
-			if (!cell->type.in("$_AND_", "$_NOT_")) {
-				RTLIL::Module* cell_module = design->module(cell->type);
-				if (!cell_module || !cell_module->attributes.count("\\abc_box_id"))
-					continue;
-			}
-			for (auto &it : cell->connections_) {
-				auto port_name = it.first;
-				if (!cell->output(port_name)) continue;
-				it.second = RTLIL::SigSpec();
-			}
+		// Remove all AND, NOT, instances
+		// in preparation for stitching mapped_mod in
+		for (auto it = module->cells_.begin(); it != module->cells_.end(); ) {
+			RTLIL::Cell* cell = it->second;
+			if (cell->type.in("$_AND_", "$_NOT_"))
+				it = module->cells_.erase(it);
+			else
+				++it;
 		}
 		// Do the same for module connections
 		for (auto &it : module->connections_) {
