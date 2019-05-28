@@ -920,6 +920,9 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 					log_file_error(filename, linenum, "Attribute `%s' with non-constant value!\n", attr.first.c_str());
 				wire->attributes[attr.first] = attr.second->asAttrConst();
 			}
+
+			if (is_wand) wire->set_bool_attribute("\\wand");
+			if (is_wor)  wire->set_bool_attribute("\\wor");
 		}
 		break;
 

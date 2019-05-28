@@ -562,7 +562,7 @@ struct HierarchyPass : public Pass {
 		log("In parametric designs, a module might exists in several variations with\n");
 		log("different parameter values. This pass looks at all modules in the current\n");
 		log("design an re-runs the language frontends for the parametric modules as\n");
-		log("needed.\n");
+		log("needed. It also resolves assignments to wired logic data types (wand/wor).\n");
 		log("\n");
 		log("    -check\n");
 		log("        also check the design hierarchy. this generates an error when\n");
@@ -941,6 +941,61 @@ struct HierarchyPass : public Pass {
 
 		std::set<Module*> blackbox_derivatives;
 		std::vector<Module*> design_modules = design->modules();
+		std::map<Wire*, Cell*> wlogic_map;
+
+		for (auto module : design_modules)
+		for (auto wire : module->wires())
+		{
+			Cell *reduce = nullptr;
+			if (wire->get_bool_attribute("\\wand")) {
+				reduce = module->addCell(
+						stringf("$%s_reduce", wire->name.c_str()), "$reduce_and");
+			}
+			if (wire->get_bool_attribute("\\wor")) {
+				reduce = module->addCell(
+						stringf("$%s_reduce", wire->name.c_str()), "$reduce_or");
+			}
+			if (reduce) {
+				if (wire->width > 1)
+					log_error("Multi-bit wand/wor unsupported (%s)\n",
+							log_id(wire));
+
+				reduce->parameters["\\A_SIGNED"] = Const(0);
+				reduce->parameters["\\A_WIDTH"] = Const(0);
+				reduce->setPort("\\A", SigSpec());
+
+				reduce->parameters["\\Y_WIDTH"] = Const(1);
+				reduce->setPort("\\Y", wire);
+				wlogic_map[wire] = reduce;
+			}
+		}
+
+		for (auto module : design_modules) {
+			std::vector<SigSig> new_connections;
+			for (auto &conn : module->connections())
+			{
+				SigSpec sig = conn.first;
+				for (int i = 0; i < GetSize(sig); i++) {
+					Wire *sigwire = sig[i].wire;
+					if (sigwire == nullptr)
+						continue;
+
+					if (sigwire->get_bool_attribute("\\wor") || sigwire->get_bool_attribute("\\wand")) {
+						Cell *reduce = wlogic_map[sigwire];
+						SigSpec reduce_in = reduce->getPort("\\A");
+						int reduce_width = reduce->getParam("\\A_WIDTH").as_int();
+						Wire *new_reduce_input = module->addWire(
+							stringf("%s_in%d", reduce->name.c_str(), reduce_width));
+						reduce_in.append(new_reduce_input);
+						reduce->setPort("\\A", reduce_in);
+						reduce->fixup_parameters();
+						sig[i] = new_reduce_input;
+					}
+				}
+				new_connections.push_back(SigSig(sig, conn.second));
+			}
+			module->new_connections(new_connections);
+		}
 
 		for (auto module : design_modules)
 		for (auto cell : module->cells())
@@ -995,6 +1050,27 @@ struct HierarchyPass : public Pass {
 								log_id(conn.first), GetSize(conn.second), GetSize(sig));
 					cell->setPort(conn.first, sig);
 				}
+
+				for (int i = 0; i < GetSize(sig); i++) {
+					Wire *sigwire = sig[i].wire;
+					if (sigwire == nullptr)
+						continue;
+
+					if (sigwire->get_bool_attribute("\\wor") || sigwire->get_bool_attribute("\\wand")) {
+						if (w->port_output && !w->port_input) {
+							Cell *reduce = wlogic_map[sigwire];
+							SigSpec reduce_in = reduce->getPort("\\A");
+							int reduce_width = reduce->getParam("\\A_WIDTH").as_int();
+							Wire *new_reduce_input = module->addWire(
+								stringf("$%s_in%d", reduce->name.c_str(), reduce_width));
+							reduce_in.append(new_reduce_input);
+							reduce->setPort("\\A", reduce_in);
+							reduce->fixup_parameters();
+							sig[i] = new_reduce_input;
+						}
+					}
+				}
+				cell->setPort(conn.first, sig);
 
 				if (w->port_output && !w->port_input && sig.has_const())
 					log_error("Output port %s.%s.%s (%s) is connected to constants: %s\n",
