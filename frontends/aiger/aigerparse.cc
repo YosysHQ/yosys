@@ -722,7 +722,13 @@ void AigerReader::post_process()
     module->fixup_ports();
     design->add(module);
 
+    design->selection_stack.emplace_back(false);
+    RTLIL::Selection& sel = design->selection_stack.back();
+    sel.select(module);
+
     Pass::call(design, "clean");
+
+    design->selection_stack.pop_back();
 
     for (auto cell : module->cells().to_vector()) {
         if (cell->type != "$lut") continue;
