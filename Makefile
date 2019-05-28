@@ -2,6 +2,7 @@
 CONFIG := clang
 # CONFIG := gcc
 # CONFIG := gcc-4.8
+# CONFIG := afl-gcc
 # CONFIG := emcc
 # CONFIG := mxe
 # CONFIG := msys2
@@ -188,6 +189,12 @@ endif
 else ifeq ($(CONFIG),gcc-4.8)
 CXX = gcc-4.8
 LD = gcc-4.8
+CXXFLAGS += -std=c++11 -Os
+ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H"
+
+else ifeq ($(CONFIG),afl-gcc)
+CXX = AFL_QUIET=1 AFL_HARDEN=1 afl-gcc
+LD = AFL_QUIET=1 AFL_HARDEN=1 afl-gcc
 CXXFLAGS += -std=c++11 -Os
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H"
 
@@ -820,6 +827,9 @@ config-gcc-static: clean
 config-gcc-4.8: clean
 	echo 'CONFIG := gcc-4.8' > Makefile.conf
 
+config-afl-gcc: clean
+	echo 'CONFIG := afl-gcc' > Makefile.conf
+
 config-emcc: clean
 	echo 'CONFIG := emcc' > Makefile.conf
 	echo 'ENABLE_TCL := 0' >> Makefile.conf
@@ -866,5 +876,5 @@ echo-git-rev:
 -include techlibs/*/*.d
 
 .PHONY: all top-all abc test install install-abc manual clean mrproper qtcreator coverage vcxsrc mxebin
-.PHONY: config-clean config-clang config-gcc config-gcc-static config-gcc-4.8 config-gprof config-sudo
+.PHONY: config-clean config-clang config-gcc config-gcc-static config-gcc-4.8 config-afl-gcc config-gprof config-sudo
 
