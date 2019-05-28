@@ -30,6 +30,7 @@ SigMap assign_map, dff_init_map;
 SigSet<RTLIL::Cell*> mux_drivers;
 dict<SigBit, pool<SigBit>> init_attributes;
 bool keepdc;
+bool sat;
 
 void remove_init_attr(SigSpec sig)
 {
@@ -258,7 +259,7 @@ delete_dlatch:
 	return true;
 }
 
-bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
+bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff, Pass *pass)
 {
 	RTLIL::SigSpec sig_d, sig_q, sig_c, sig_r, sig_e;
 	RTLIL::Const val_cp, val_rp, val_rv, val_ep;
@@ -452,6 +453,52 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 		dff->unsetPort("\\E");
 	}
 
+	if (sat && has_init) {
+		std::vector<int> removed_sigbits;
+
+		// for (auto &sigbit : sig_q.bits()) {
+		for (int position =0; position < GetSize(sig_d); position += 1) {
+			RTLIL::SigBit q_sigbit = sig_q[position];
+			RTLIL::SigBit d_sigbit = sig_d[position];
+			RTLIL::Const  sigbit_init_val = val_init.extract(position);
+
+			if ((!q_sigbit.wire) || (!d_sigbit.wire)) {
+				continue;
+			}
+
+			char str[1024];
+			sprintf(str, "sat -ignore_unknown_cells -prove %s[%d] %s -set %s[%d] %s",
+							log_id(d_sigbit.wire),
+							d_sigbit.offset,
+							sigbit_init_val.as_string().c_str(),
+							log_id(q_sigbit.wire),
+							q_sigbit.offset,
+							sigbit_init_val.as_string().c_str()
+							);
+			log("Running: %s\n", str);
+
+			log_flush();
+
+			pass->call(mod->design, str);
+			if (mod->design->scratchpad_get_bool("sat.success", false)) {
+				sprintf(str, "connect -set %s[%d] %s",
+								log_id(q_sigbit.wire),
+								q_sigbit.offset,
+								sigbit_init_val.as_string().c_str()
+								);
+				log("Running: %s\n", str);
+				log_flush();
+				pass->call(mod->design, str);
+				// mod->connect(q_sigbit, sigbit_init_val);
+				removed_sigbits.push_back(position);
+			}
+		}
+
+		if (!removed_sigbits.empty()) {
+			return true;
+		}
+	}
+
 	return false;
 
 delete_dff:
@@ -467,7 +514,7 @@ struct OptRmdffPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    opt_rmdff [-keepdc] [selection]\n");
+		log("    opt_rmdff [-keepdc] [-sat] [selection]\n");
 		log("\n");
 		log("This pass identifies flip-flops with constant inputs and replaces them with\n");
 		log("a constant driver.\n");
@@ -479,11 +526,16 @@ struct OptRmdffPass : public Pass {
 		log_header(design, "Executing OPT_RMDFF pass (remove dff with constant values).\n");
 
 		keepdc = false;
+		sat = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-keepdc") {
 				keepdc = true;
+				continue;
+			}
+			if (args[argidx] == "-sat") {
+				sat = true;
 				continue;
 			}
 			break;
@@ -568,7 +620,7 @@ struct OptRmdffPass : public Pass {
 
 			for (auto &id : dff_list) {
 				if (module->cell(id) != nullptr &&
-						handle_dff(module, module->cells_[id]))
+						handle_dff(module, module->cells_[id], this))
 					total_count++;
 			}
 
