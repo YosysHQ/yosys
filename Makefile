@@ -147,7 +147,6 @@ PYTHON_DESTDIR := $(PYTHON_PREFIX)/lib/python$(PYTHON_VERSION)/site-packages
 
 # Reload Makefile.conf to override python specific variables if defined
 ifneq ($(wildcard Makefile.conf),)
-$(info $(subst $$--$$,$(newline),$(shell sed 's,^,[Makefile.conf] ,; s,$$,$$--$$,;' < Makefile.conf | tr -d '\n' | sed 's,\$$--\$$$$,,')))
 include Makefile.conf
 endif
 
