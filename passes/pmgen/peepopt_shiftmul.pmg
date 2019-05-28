@@ -1,4 +1,7 @@
 pattern shiftmul
+//
+// Optimize mul+shift pairs that result from expressions such as foo[s*W+:W]
+//
 
 state <SigSpec> shamt
 
@@ -49,12 +52,16 @@ code
 	if (GetSize(port(shift, \Y)) > const_factor)
 		reject;
 
+	int factor_bits = ceil_log2(const_factor);
+	SigSpec mul_din = port(mul, const_factor_port == \A ? \B : \A);
+
+	if (GetSize(shamt) < factor_bits+GetSize(mul_din))
+		reject;
+
 	did_something = true;
 	log("shiftmul pattern in %s: shift=%s, mul=%s\n", log_id(module), log_id(shift), log_id(mul));
 
-	int new_const_factor_log2 = ceil_log2(const_factor);
-	int new_const_factor = 1 << new_const_factor_log2;
-
+	int new_const_factor = 1 << factor_bits;
 	SigSpec padding(State::Sx, new_const_factor-const_factor);
 	SigSpec old_a = port(shift, \A), new_a;
 	int trunc = 0;
@@ -73,7 +80,7 @@ code
 	if (trunc > 0)
 		new_a.remove(GetSize(new_a)-trunc, trunc);
 
-	SigSpec new_b = {port(mul, const_factor_port == \A ? \B : \A), SigSpec(State::S0, new_const_factor_log2)};
+	SigSpec new_b = {mul_din, SigSpec(State::S0, factor_bits)};
 	if (param(shift, \B_SIGNED).as_bool())
 		new_b.append(State::S0);
 
