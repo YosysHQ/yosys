@@ -562,7 +562,8 @@ struct HierarchyPass : public Pass {
 		log("In parametric designs, a module might exists in several variations with\n");
 		log("different parameter values. This pass looks at all modules in the current\n");
 		log("design an re-runs the language frontends for the parametric modules as\n");
-		log("needed. It also resolves assignments to wired logic data types (wand/wor).\n");
+		log("needed. It also resolves assignments to wired logic data types (wand/wor),\n");
+		log("resolves positional module parameters, unroll array instances, and more.\n");
 		log("\n");
 		log("    -check\n");
 		log("        also check the design hierarchy. this generates an error when\n");
@@ -941,140 +942,180 @@ struct HierarchyPass : public Pass {
 
 		std::set<Module*> blackbox_derivatives;
 		std::vector<Module*> design_modules = design->modules();
-		std::map<Wire*, Cell*> wlogic_map;
 
 		for (auto module : design_modules)
-		for (auto wire : module->wires())
 		{
-			Cell *reduce = nullptr;
-			if (wire->get_bool_attribute("\\wand")) {
-				reduce = module->addCell(
-						stringf("$%s_reduce", wire->name.c_str()), "$reduce_and");
-			}
-			if (wire->get_bool_attribute("\\wor")) {
-				reduce = module->addCell(
-						stringf("$%s_reduce", wire->name.c_str()), "$reduce_or");
-			}
-			if (reduce) {
-				if (wire->width > 1)
-					log_error("Multi-bit wand/wor unsupported (%s)\n",
-							log_id(wire));
+			pool<Wire*> wand_wor_index;
+			dict<Wire*, SigSpec> wand_map, wor_map;
+			vector<SigSig> new_connections;
 
-				reduce->parameters["\\A_SIGNED"] = Const(0);
-				reduce->parameters["\\A_WIDTH"] = Const(0);
-				reduce->setPort("\\A", SigSpec());
-
-				reduce->parameters["\\Y_WIDTH"] = Const(1);
-				reduce->setPort("\\Y", wire);
-				wlogic_map[wire] = reduce;
+			for (auto wire : module->wires())
+			{
+				if (wire->get_bool_attribute("\\wand")) {
+					wand_map[wire] = SigSpec();
+					wand_wor_index.insert(wire);
+				}
+				if (wire->get_bool_attribute("\\wor")) {
+					wor_map[wire] = SigSpec();
+					wand_wor_index.insert(wire);
+				}
 			}
-		}
 
-		for (auto module : design_modules) {
-			std::vector<SigSig> new_connections;
 			for (auto &conn : module->connections())
 			{
-				SigSpec sig = conn.first;
-				for (int i = 0; i < GetSize(sig); i++) {
-					Wire *sigwire = sig[i].wire;
-					if (sigwire == nullptr)
-						continue;
+				SigSig new_conn;
+				int cursor = 0;
 
-					if (sigwire->get_bool_attribute("\\wor") || sigwire->get_bool_attribute("\\wand")) {
-						Cell *reduce = wlogic_map[sigwire];
-						SigSpec reduce_in = reduce->getPort("\\A");
-						int reduce_width = reduce->getParam("\\A_WIDTH").as_int();
-						Wire *new_reduce_input = module->addWire(
-							stringf("%s_in%d", reduce->name.c_str(), reduce_width));
-						reduce_in.append(new_reduce_input);
-						reduce->setPort("\\A", reduce_in);
-						reduce->fixup_parameters();
-						sig[i] = new_reduce_input;
-					}
-				}
-				new_connections.push_back(SigSig(sig, conn.second));
-			}
-			module->new_connections(new_connections);
-		}
-
-		for (auto module : design_modules)
-		for (auto cell : module->cells())
-		{
-			Module *m = design->module(cell->type);
-
-			if (m == nullptr)
-				continue;
-
-			if (m->get_blackbox_attribute() && !cell->parameters.empty() && m->get_bool_attribute("\\dynports")) {
-				IdString new_m_name = m->derive(design, cell->parameters, true);
-				if (new_m_name.empty())
-					continue;
-				if (new_m_name != m->name) {
-					m = design->module(new_m_name);
-					blackbox_derivatives.insert(m);
-				}
-			}
-
-			for (auto &conn : cell->connections())
-			{
-				Wire *w = m->wire(conn.first);
-
-				if (w == nullptr || w->port_id == 0)
-					continue;
-
-				if (GetSize(conn.second) == 0)
-					continue;
-
-				SigSpec sig = conn.second;
-
-				if (!keep_portwidths && GetSize(w) != GetSize(conn.second))
+				for (auto c : conn.first.chunks())
 				{
-					if (GetSize(w) < GetSize(conn.second))
-					{
-						int n = GetSize(conn.second) - GetSize(w);
-						if (!w->port_input && w->port_output)
-							module->connect(sig.extract(GetSize(w), n), Const(0, n));
-						sig.remove(GetSize(w), n);
-					}
-					else
-					{
-						int n = GetSize(w) - GetSize(conn.second);
-						if (w->port_input && !w->port_output)
-							sig.append(Const(0, n));
-						else
-							sig.append(module->addWire(NEW_ID, n));
-					}
+					Wire *w = c.wire;
+					SigSpec rhs = conn.second.extract(cursor, GetSize(c));
 
-					if (!conn.second.is_fully_const() || !w->port_input || w->port_output)
-						log_warning("Resizing cell port %s.%s.%s from %d bits to %d bits.\n", log_id(module), log_id(cell),
-								log_id(conn.first), GetSize(conn.second), GetSize(sig));
-					cell->setPort(conn.first, sig);
-				}
-
-				for (int i = 0; i < GetSize(sig); i++) {
-					Wire *sigwire = sig[i].wire;
-					if (sigwire == nullptr)
-						continue;
-
-					if (sigwire->get_bool_attribute("\\wor") || sigwire->get_bool_attribute("\\wand")) {
-						if (w->port_output && !w->port_input) {
-							Cell *reduce = wlogic_map[sigwire];
-							SigSpec reduce_in = reduce->getPort("\\A");
-							int reduce_width = reduce->getParam("\\A_WIDTH").as_int();
-							Wire *new_reduce_input = module->addWire(
-								stringf("$%s_in%d", reduce->name.c_str(), reduce_width));
-							reduce_in.append(new_reduce_input);
-							reduce->setPort("\\A", reduce_in);
-							reduce->fixup_parameters();
-							sig[i] = new_reduce_input;
+					if (wand_wor_index.count(w) == 0) {
+						new_conn.first.append(c);
+						new_conn.second.append(rhs);
+					} else {
+						if (wand_map.count(w)) {
+							SigSpec sig = SigSpec(State::S1, GetSize(w));
+							sig.replace(c.offset, rhs);
+							wand_map.at(w).append(sig);
+						} else {
+							SigSpec sig = SigSpec(State::S0, GetSize(w));
+							sig.replace(c.offset, rhs);
+							wor_map.at(w).append(sig);
 						}
 					}
+					cursor += GetSize(c);
 				}
-				cell->setPort(conn.first, sig);
+				new_connections.push_back(new_conn);
+			}
+			module->new_connections(new_connections);
 
-				if (w->port_output && !w->port_input && sig.has_const())
-					log_error("Output port %s.%s.%s (%s) is connected to constants: %s\n",
-							log_id(module), log_id(cell), log_id(conn.first), log_id(cell->type), log_signal(sig));
+			for (auto cell : module->cells())
+			{
+				if (!cell->known())
+					continue;
+
+				for (auto &conn : cell->connections())
+				{
+					if (!cell->output(conn.first))
+						continue;
+
+					SigSpec new_sig;
+					bool update_port = false;
+
+					for (auto c : conn.second.chunks())
+					{
+						Wire *w = c.wire;
+
+						if (wand_wor_index.count(w) == 0) {
+							new_sig.append(c);
+							continue;
+						}
+
+						Wire *t = module->addWire(NEW_ID, GetSize(c));
+						new_sig.append(t);
+						update_port = true;
+
+						if (wand_map.count(w)) {
+							SigSpec sig = SigSpec(State::S1, GetSize(w));
+							sig.replace(c.offset, t);
+							wand_map.at(w).append(sig);
+						} else {
+							SigSpec sig = SigSpec(State::S0, GetSize(w));
+							sig.replace(c.offset, t);
+							wor_map.at(w).append(sig);
+						}
+					}
+
+					if (update_port)
+						cell->setPort(conn.first, new_sig);
+				}
+			}
+
+			for (auto w : wand_wor_index)
+			{
+				bool wand = wand_map.count(w);
+				SigSpec sigs = wand ? wand_map.at(w) : wor_map.at(w);
+
+				if (GetSize(sigs) == 0)
+					continue;
+
+				if (GetSize(w) == 1) {
+					if (wand)
+						module->addReduceAnd(NEW_ID, sigs, w);
+					else
+						module->addReduceOr(NEW_ID, sigs, w);
+					continue;
+				}
+
+				SigSpec s = sigs.extract(0, GetSize(w));
+				for (int i = GetSize(w); i < GetSize(sigs); i += GetSize(w)) {
+					if (wand)
+						s = module->And(NEW_ID, s, sigs.extract(i, GetSize(w)));
+					else
+						s = module->Or(NEW_ID, s, sigs.extract(i, GetSize(w)));
+				}
+				module->connect(w, s);
+			}
+
+			for (auto cell : module->cells())
+			{
+				Module *m = design->module(cell->type);
+
+				if (m == nullptr)
+					continue;
+
+				if (m->get_blackbox_attribute() && !cell->parameters.empty() && m->get_bool_attribute("\\dynports")) {
+					IdString new_m_name = m->derive(design, cell->parameters, true);
+					if (new_m_name.empty())
+						continue;
+					if (new_m_name != m->name) {
+						m = design->module(new_m_name);
+						blackbox_derivatives.insert(m);
+					}
+				}
+
+				for (auto &conn : cell->connections())
+				{
+					Wire *w = m->wire(conn.first);
+
+					if (w == nullptr || w->port_id == 0)
+						continue;
+
+					if (GetSize(conn.second) == 0)
+						continue;
+
+					SigSpec sig = conn.second;
+
+					if (!keep_portwidths && GetSize(w) != GetSize(conn.second))
+					{
+						if (GetSize(w) < GetSize(conn.second))
+						{
+							int n = GetSize(conn.second) - GetSize(w);
+							if (!w->port_input && w->port_output)
+								module->connect(sig.extract(GetSize(w), n), Const(0, n));
+							sig.remove(GetSize(w), n);
+						}
+						else
+						{
+							int n = GetSize(w) - GetSize(conn.second);
+							if (w->port_input && !w->port_output)
+								sig.append(Const(0, n));
+							else
+								sig.append(module->addWire(NEW_ID, n));
+						}
+
+						if (!conn.second.is_fully_const() || !w->port_input || w->port_output)
+							log_warning("Resizing cell port %s.%s.%s from %d bits to %d bits.\n", log_id(module), log_id(cell),
+									log_id(conn.first), GetSize(conn.second), GetSize(sig));
+						cell->setPort(conn.first, sig);
+					}
+
+					if (w->port_output && !w->port_input && sig.has_const())
+						log_error("Output port %s.%s.%s (%s) is connected to constants: %s\n",
+								log_id(module), log_id(cell), log_id(conn.first), log_id(cell->type), log_signal(sig));
+				}
 			}
 		}
 

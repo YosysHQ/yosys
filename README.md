@@ -138,7 +138,7 @@ writing the design to the console in Yosys's internal format:
 
 	yosys> write_ilang
 
-elaborate design hierarchy and convert wand/wor nets to logic:
+elaborate design hierarchy:
 
 	yosys> hierarchy
 
