@@ -328,6 +328,7 @@ struct XAigerWriter
 							if (I != b)
 								alias_map[b] = I;
 							co_bits.emplace_back(b, cell, port_name, offset++, 0);
+							unused_bits.erase(b);
 						}
 					}
 					if (w->port_output) {
@@ -347,6 +348,7 @@ struct XAigerWriter
 						for (const auto &b : rhs.bits()) {
 							SigBit O = sigmap(b);
 							ci_bits.emplace_back(O, cell, port_name, offset++);
+							undriven_bits.erase(O);
 						}
 					}
 				}
@@ -383,10 +385,6 @@ struct XAigerWriter
 			}
 		}
 
-		// Do some CI/CO post-processing:
-		// CIs cannot be undriven
-		for (const auto &c : ci_bits)
-			undriven_bits.erase(std::get<0>(c));
 		// Erase all POs that are undriven
 		if (!holes_mode)
 			for (auto bit : undriven_bits)
