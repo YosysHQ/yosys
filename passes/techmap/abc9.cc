@@ -567,7 +567,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 
 					// Attempt another wideports_split here because there
 					// exists the possibility that different bits of a port
-					// could be an input and output, therefore parse_xiager()
+					// could be an input and output, therefore parse_xaiger()
 					// could not combine it into a wideport
 					auto r = wideports_split(w->name.str());
 					wire = module->wire(r.first);
