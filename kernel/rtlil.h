@@ -607,6 +607,7 @@ struct RTLIL::SigChunk
 	RTLIL::SigChunk &operator =(const RTLIL::SigChunk &other) = default;
 
 	RTLIL::SigChunk extract(int offset, int length) const;
+	inline int size() const { return width; }
 
 	bool operator <(const RTLIL::SigChunk &other) const;
 	bool operator ==(const RTLIL::SigChunk &other) const;

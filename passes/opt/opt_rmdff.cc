@@ -338,16 +338,6 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 		val_init.bits.push_back(bit.wire == NULL ? bit.data : RTLIL::State::Sx);
 	}
 
-	if (sig_e.size()) {
-		if (!sig_e.is_fully_const())
-			return false;
-		if (sig_e != val_ep) {
-			if (has_init)
-				mod->connect(sig_q, val_init);
-			goto delete_dff;
-		}
-	}
-
 	if (dff->type.in("$ff", "$dff") && mux_drivers.has(sig_d)) {
 		std::set<RTLIL::Cell*> muxes;
 		mux_drivers.find(sig_d, muxes);
@@ -365,39 +355,60 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 		}
 	}
 
+	// If clock is driven by a constant and (i) no reset signal
+	//                                      (ii) Q has no initial value
+	//                                      (iii) initial value is same as reset value
 	if (!sig_c.empty() && sig_c.is_fully_const() && (!sig_r.size() || !has_init || val_init == val_rv)) {
 		if (val_rv.bits.size() == 0)
 			val_rv = val_init;
+		// Q is permanently reset value or initial value
 		mod->connect(sig_q, val_rv);
 		goto delete_dff;
 	}
 
+	// If D is fully undefined and reset signal present and (i) Q has no initial value
+	//                                                     (ii) initial value is same as reset value
 	if (sig_d.is_fully_undef() && sig_r.size() && (!has_init || val_init == val_rv)) {
+		// Q is permanently reset value
 		mod->connect(sig_q, val_rv);
 		goto delete_dff;
 	}
 
+	// If D is fully undefined and no reset signal and Q has an initial value
 	if (sig_d.is_fully_undef() && !sig_r.size() && has_init) {
+		// Q is permanently initial value
 		mod->connect(sig_q, val_init);
 		goto delete_dff;
 	}
 
+	// If D is fully constant and (i) no reset signal
+	//                            (ii) reset value is same as constant D
+	//                        and (a) has no initial value
+	//                            (b) initial value same as constant D
 	if (sig_d.is_fully_const() && (!sig_r.size() || val_rv == sig_d.as_const()) && (!has_init || val_init == sig_d.as_const())) {
+		// Q is permanently D
 		mod->connect(sig_q, sig_d);
 		goto delete_dff;
 	}
 
+	// If D input is same as Q output and (i) no reset signal
+	//                                    (ii) no initial signal
+	//                                    (iii) initial value is same as reset value
 	if (sig_d == sig_q && (sig_r.empty() || !has_init || val_init == val_rv)) {
+		// Q is permanently reset value or initial value
 		if (sig_r.size())
 			mod->connect(sig_q, val_rv);
-		if (has_init)
+		else if (has_init)
 			mod->connect(sig_q, val_init);
 		goto delete_dff;
 	}
 
+	// If reset signal is present, and is fully constant
 	if (!sig_r.empty() && sig_r.is_fully_const())
 	{
+		// If reset value is permanently active or if reset is undefined
 		if (sig_r == val_rp || sig_r.is_fully_undef()) {
+			// Q is permanently reset value
 			mod->connect(sig_q, val_rv);
 			goto delete_dff;
 		}
@@ -415,6 +426,30 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 		log_assert(dff->type.substr(0,6) == "$_DFF_");
 		dff->type = stringf("$_DFF_%c_", + dff->type[6]);
 		dff->unsetPort("\\R");
+	}
+
+	// If enable signal is present, and is fully constant
+	if (!sig_e.empty() && sig_e.is_fully_const())
+	{
+		// If enable value is permanently inactive
+		if (sig_e != val_ep) {
+			// Q is permanently initial value
+			mod->connect(sig_q, val_init);
+			goto delete_dff;
+		}
+
+		log("Removing unused enable from %s (%s) from module %s.\n", log_id(dff), log_id(dff->type), log_id(mod));
+
+		if (dff->type == "$dffe") {
+			dff->type = "$dff";
+			dff->unsetPort("\\EN");
+			dff->unsetParam("\\EN_POLARITY");
+			return true;
+		}
+
+		log_assert(dff->type.substr(0,7) == "$_DFFE_");
+		dff->type = stringf("$_DFF_%c_", + dff->type[7]);
+		dff->unsetPort("\\E");
 	}
 
 	return false;

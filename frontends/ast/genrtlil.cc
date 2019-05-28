@@ -904,7 +904,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			if (!range_valid)
 				log_file_error(filename, linenum, "Signal `%s' with non-constant width!\n", str.c_str());
 
-			log_assert(range_left >= range_right || (range_left == -1 && range_right == 0));
+			if (!(range_left >= range_right || (range_left == -1 && range_right == 0)))
+				log_file_error(filename, linenum, "Signal `%s' with invalid width range %d!\n", str.c_str(), range_left - range_right + 1);
 
 			RTLIL::Wire *wire = current_module->addWire(str, range_left - range_right + 1);
 			wire->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
@@ -919,6 +920,9 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 					log_file_error(filename, linenum, "Attribute `%s' with non-constant value!\n", attr.first.c_str());
 				wire->attributes[attr.first] = attr.second->asAttrConst();
 			}
+
+			if (is_wand) wire->set_bool_attribute("\\wand");
+			if (is_wor)  wire->set_bool_attribute("\\wor");
 		}
 		break;
 
@@ -963,8 +967,13 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				detectSignWidth(width_hint, sign_hint);
 			is_signed = sign_hint;
 
-			if (type == AST_CONSTANT)
-				return RTLIL::SigSpec(bitsAsConst());
+			if (type == AST_CONSTANT) {
+				if (is_unsized) {
+					return RTLIL::SigSpec(bitsAsUnsizedConst(width_hint));
+				} else {
+					return RTLIL::SigSpec(bitsAsConst());
+				}
+			}
 
 			RTLIL::SigSpec sig = realAsConst(width_hint);
 			log_file_warning(filename, linenum, "converting real value %e to binary %s.\n", realvalue, log_signal(sig));
