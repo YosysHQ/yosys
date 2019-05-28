@@ -304,48 +304,52 @@ struct XAigerWriter
 
 				// Fully pad all unused input connections of this box cell with S0
 				// Fully pad all undriven output connections of this box cell with anonymous wires
-				for (const auto w : box_module->wires()) {
+				// NB: Assume box_module->ports are sorted alphabetically
+				//     (as RTLIL::Module::fixup_ports() would do)
+				for (const auto &port_name : box_module->ports) {
+					RTLIL::Wire* w = box_module->wire(port_name);
+					log_assert(w);
+					auto it = cell->connections_.find(port_name);
 					if (w->port_input) {
-						auto it = cell->connections_.find(w->name);
+						RTLIL::SigSpec rhs;
 						if (it != cell->connections_.end()) {
 							if (GetSize(it->second) < GetSize(w))
 								it->second.append(RTLIL::SigSpec(RTLIL::S0, GetSize(w)-GetSize(it->second)));
+							rhs = it->second;
 						}
-						else
-							cell->connections_[w->name] = RTLIL::SigSpec(RTLIL::S0, GetSize(w));
+						else {
+							rhs = RTLIL::SigSpec(RTLIL::S0, GetSize(w));
+							cell->setPort(port_name, rhs);
+						}
+
+						int offset = 0;
+						for (const auto &b : rhs.bits()) {
+							SigBit I = sigmap(b);
+							if (I != b)
+								alias_map[b] = I;
+							co_bits.emplace_back(b, cell, port_name, offset++, 0);
+						}
 					}
 					if (w->port_output) {
+						RTLIL::SigSpec rhs;
 						auto it = cell->connections_.find(w->name);
 						if (it != cell->connections_.end()) {
 							if (GetSize(it->second) < GetSize(w))
 								it->second.append(module->addWire(NEW_ID, GetSize(w)-GetSize(it->second)));
+							rhs = it->second;
 						}
-						else
-							cell->connections_[w->name] = module->addWire(NEW_ID, GetSize(w));
-					}
-				}
+						else {
+							rhs = module->addWire(NEW_ID, GetSize(w));
+							cell->setPort(port_name, rhs);
+						}
 
-				// Box ordering is alphabetical
-				cell->connections_.sort(RTLIL::sort_by_id_str());
-				for (const auto &c : cell->connections()) {
-					int offset = 0;
-					for (auto b : c.second.bits()) {
-						auto is_input = cell->input(c.first);
-						auto is_output = cell->output(c.first);
-						log_assert(is_input || is_output);
-						if (is_input) {
-							SigBit I = sigmap(b);
-							if (I != b)
-								alias_map[b] = I;
-							co_bits.emplace_back(b, cell, c.first, offset++, 0);
-						}
-						if (is_output) {
+						int offset = 0;
+						for (const auto &b : rhs.bits()) {
 							SigBit O = sigmap(b);
-							ci_bits.emplace_back(O, cell, c.first, offset++);
+							ci_bits.emplace_back(O, cell, port_name, offset++);
 						}
 					}
 				}
-
 				box_list.emplace_back(cell);
 			}
 
@@ -686,6 +690,7 @@ struct XAigerWriter
 			log_assert(holes_module);
 
 			int port_id = 1;
+			int box_count = 0;
 			for (auto cell : box_list) {
 				RTLIL::Module* box_module = module->design->module(cell->type);
 				int box_inputs = 0, box_outputs = 0;
@@ -737,7 +742,7 @@ struct XAigerWriter
 				write_h_buffer(box_inputs);
 				write_h_buffer(box_outputs);
 				write_h_buffer(box_module->attributes.at("\\abc_box_id").as_int());
-				write_h_buffer(0 /* OldBoxNum */);
+				write_h_buffer(box_count++);
 			}
 
 			f << "h";
@@ -844,7 +849,7 @@ struct XAigerWriter
 
 				if (output_bits.count(b)) {
 					int o = ordered_outputs.at(b);
-					output_lines[o] += stringf("output %d %d %s\n", o, i, log_id(wire));
+					output_lines[o] += stringf("output %lu %d %s\n", o - co_bits.size(), i, log_id(wire));
 					continue;
 				}
 
@@ -874,35 +879,23 @@ struct XAigerWriter
 			}
 		}
 
-		for (const auto &c : ci_bits) {
-			RTLIL::SigBit b = std::get<0>(c);
-			int i = std::get<3>(c);
-			int a = bit2aig(b);
-			log_assert((a & 1) == 0);
-			RTLIL::Cell* cell = std::get<1>(c);
-			input_lines[a] += stringf("cinput %d %d %s %s %s\n", (a >> 1)-1, i, log_id(cell), log_id(std::get<2>(c)), log_id(cell->type));
-		}
-
-		for (const auto &c : co_bits) {
-			int i = std::get<3>(c);
-			int o = std::get<4>(c);
-			RTLIL::Cell* cell = std::get<1>(c);
-			output_lines[o] += stringf("coutput %d %d %s %s %s\n", o, i, log_id(cell), log_id(std::get<2>(c)), log_id(cell->type));
-		}
-
 		input_lines.sort();
 		for (auto &it : input_lines)
 			f << it.second;
-		log_assert(input_lines.size() == input_bits.size() + ci_bits.size());
+		log_assert(input_lines.size() == input_bits.size());
 
 		init_lines.sort();
 		for (auto &it : init_lines)
 			f << it.second;
 
+		int box_count = 0;
+		for (auto cell : box_list)
+			f << stringf("box %d %d %s\n", box_count++, 0, log_id(cell->name));
+
 		output_lines.sort();
 		for (auto &it : output_lines)
 			f << it.second;
-		log_assert(output_lines.size() == output_bits.size() + co_bits.size());
+		log_assert(output_lines.size() == output_bits.size());
 		if (omode && output_bits.empty())
 			f << "output " << output_lines.size() << " 0 __dummy_o__\n";
 
