@@ -152,10 +152,11 @@ struct XAigerWriter
 				undriven_bits.insert(bit);
 				unused_bits.insert(bit);
 
-				if (wire->port_input)
-					input_bits.insert(bit);
-				else if (keep)
+				if (wire->port_input || keep) {
+					if (bit != wirebit)
+						alias_map[bit] = wirebit;
 					input_bits.insert(wirebit);
+				}
 
 				if (wire->port_output || keep) {
 					if (bit != wirebit)
@@ -166,7 +167,7 @@ struct XAigerWriter
 		}
 
 		for (auto bit : input_bits)
-			undriven_bits.erase(bit);
+			undriven_bits.erase(sigmap(bit));
 
 		for (auto bit : output_bits)
 			if (!bit.wire->port_input)
