@@ -230,10 +230,23 @@ module abc9_test022
     input  wire        i,
     output wire [7:0]  m_eth_payload_axis_tkeep
 );
+    reg [7:0]  m_eth_payload_axis_tkeep_reg = 8'd0;
+    assign m_eth_payload_axis_tkeep = m_eth_payload_axis_tkeep_reg;
+    always @(posedge clk)
+        m_eth_payload_axis_tkeep_reg <= i ? 8'hff : 8'h0f;
+endmodule
 
-reg [7:0]  m_eth_payload_axis_tkeep_reg = 8'd0;
-assign m_eth_payload_axis_tkeep = m_eth_payload_axis_tkeep_reg;
-always @(posedge clk)
-    m_eth_payload_axis_tkeep_reg <= i ? 8'hff : 8'h0f;
-
+// Citation: https://github.com/riscv/riscv-bitmanip
+// TODO: yosys -p "synth_xilinx -abc9 -top abc9_test024" abc9.v -q
+// returns before 14233843
+//   Warning: Wire abc9_test024.\dout [1] is used but has no driver.
+module abc9_test024 #(
+	parameter integer N = 2,
+	parameter integer M = 2
+) (
+	input [7:0] din,
+	output [M-1:0] dout
+);
+	wire [2*M-1:0] mask = {M{1'b1}};
+	assign dout = (mask << din[N-1:0]) >> M;
 endmodule
