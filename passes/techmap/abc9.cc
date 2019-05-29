@@ -423,6 +423,21 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 
 	Pass::call(design, stringf("write_xaiger -O -map %s/input.sym %s/input.xaig; ", tempdir_name.c_str(), tempdir_name.c_str()));
 
+#if 0
+	std::string buffer = stringf("%s/%s", tempdir_name.c_str(), "input.xaig");
+	std::ifstream ifs;
+	ifs.open(buffer);
+	if (ifs.fail())
+		log_error("Can't open ABC output file `%s'.\n", buffer.c_str());
+	buffer = stringf("%s/%s", tempdir_name.c_str(), "input.sym");
+	log_assert(!design->module("$__abc9__"));
+	AigerReader reader(design, ifs, "$__abc9__", "" /* clk_name */, buffer.c_str() /* map_filename */, false /* wideports */);
+	reader.parse_xaiger();
+	ifs.close();
+	Pass::call(design, stringf("write_verilog -noexpr -norename %s/%s", tempdir_name.c_str(), "input.v"));
+	design->remove(design->module("$__abc9__"));
+#endif
+
 	design->selection_stack.pop_back();
 
 	// Now 'unexpose' those wires by undoing
@@ -540,8 +555,11 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		log_assert(!design->module("$__abc9__"));
 		AigerReader reader(design, ifs, "$__abc9__", "" /* clk_name */, buffer.c_str() /* map_filename */, false /* wideports */);
 		reader.parse_xaiger();
-
 		ifs.close();
+
+#if 0
+		Pass::call(design, stringf("write_verilog -noexpr -norename %s/%s", tempdir_name.c_str(), "output.v"));
+#endif
 
 		log_header(design, "Re-integrating ABC9 results.\n");
 		RTLIL::Module *mapped_mod = design->module("$__abc9__");
