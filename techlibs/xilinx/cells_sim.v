@@ -173,8 +173,8 @@ module XORCY(output O, input CI, LI);
   assign O = CI ^ LI;
 endmodule
 
-(* abc_box_id = 3, lib_whitebox *)
-module CARRY4(output [3:0] CO, O, input CI, CYINIT, input [3:0] DI, S);
+(* abc_box_id = 3, lib_whitebox, abc_carry *)
+module CARRY4((* abc_carry_out *) output [3:0] CO, output [3:0] O, (* abc_carry_in *) input CI, input CYINIT, input [3:0] DI, S);
   assign O = S ^ {CO[2:0], CI | CYINIT};
   assign CO[0] = S[0] ? CI | CYINIT : DI[0];
   assign CO[1] = S[1] ? CO[0] : DI[1];

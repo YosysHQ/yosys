@@ -549,6 +549,7 @@ void AigerReader::post_process()
         std::string type, symbol;
         int variable, index;
         int pi_count = 0, ci_count = 0, co_count = 0;
+        pool<RTLIL::Module*> abc_carry_modules;
         while (mf >> type >> variable >> index >> symbol) {
             RTLIL::IdString escaped_s = RTLIL::escape_id(symbol);
             if (type == "input") {
@@ -646,6 +647,43 @@ void AigerReader::post_process()
                     module->rename(cell, escaped_s);
                     RTLIL::Module* box_module = design->module(cell->type);
                     log_assert(box_module);
+
+                    if (box_module->attributes.count("\\abc_carry") && !abc_carry_modules.count(box_module)) {
+                        RTLIL::Wire* carry_in = nullptr, *carry_out = nullptr;
+                        RTLIL::Wire* last_in = nullptr, *last_out = nullptr;
+                        for (const auto &port_name : box_module->ports) {
+                            RTLIL::Wire* w = box_module->wire(port_name);
+                            log_assert(w);
+                            if (w->port_input) {
+                                if (w->attributes.count("\\abc_carry_in")) {
+                                    log_assert(!carry_in);
+                                    carry_in = w;
+                                }
+                                log_assert(!last_in || last_in->port_id < w->port_id);
+                                last_in = w;
+                            }
+                            if (w->port_output) {
+                                if (w->attributes.count("\\abc_carry_out")) {
+                                    log_assert(!carry_out);
+                                    carry_out = w;
+                                }
+                                log_assert(!last_out || last_out->port_id < w->port_id);
+                                last_out = w;
+                            }
+                        }
+
+                        if (carry_in != last_in) {
+                            std::swap(box_module->ports[carry_in->port_id], box_module->ports[last_in->port_id]);
+                            std::swap(carry_in->port_id, last_in->port_id);
+                        }
+                        if (carry_out != last_out) {
+                            log_assert(last_out);
+                            std::swap(box_module->ports[carry_out->port_id], box_module->ports[last_out->port_id]);
+                            std::swap(carry_out->port_id, last_out->port_id);
+                        }
+                    }
+
+
                     // NB: Assume box_module->ports are sorted alphabetically
                     //     (as RTLIL::Module::fixup_ports() would do)
                     for (auto port_name : box_module->ports) {

@@ -298,12 +298,50 @@ struct XAigerWriter
 					for (auto user_cell : it.second)
 						toposort.edge(driver_cell, user_cell);
 
+			pool<RTLIL::Module*> abc_carry_modules;
+
 			toposort.sort();
 			for (auto cell_name : toposort.sorted) {
 				RTLIL::Cell *cell = module->cell(cell_name);
 				RTLIL::Module* box_module = module->design->module(cell->type);
 				if (!box_module || !box_module->attributes.count("\\abc_box_id"))
 					continue;
+
+				if (box_module->attributes.count("\\abc_carry") && !abc_carry_modules.count(box_module)) {
+					RTLIL::Wire* carry_in = nullptr, *carry_out = nullptr;
+					RTLIL::Wire* last_in = nullptr, *last_out = nullptr;
+					for (const auto &port_name : box_module->ports) {
+						RTLIL::Wire* w = box_module->wire(port_name);
+						log_assert(w);
+						if (w->port_input) {
+							if (w->attributes.count("\\abc_carry_in")) {
+								log_assert(!carry_in);
+								carry_in = w;
+							}
+							log_assert(!last_in || last_in->port_id < w->port_id);
+							last_in = w;
+						}
+						if (w->port_output) {
+							if (w->attributes.count("\\abc_carry_out")) {
+								log_assert(!carry_out);
+								carry_out = w;
+							}
+							log_assert(!last_out || last_out->port_id < w->port_id);
+							last_out = w;
+						}
+					}
+
+					if (carry_in) {
+						log_assert(last_in);
+						std::swap(box_module->ports[carry_in->port_id-1], box_module->ports[last_in->port_id-1]);
+						std::swap(carry_in->port_id, last_in->port_id);
+					}
+					if (carry_out) {
+						log_assert(last_out);
+						std::swap(box_module->ports[carry_out->port_id-1], box_module->ports[last_out->port_id-1]);
+						std::swap(carry_out->port_id, last_out->port_id);
+					}
+				}
 
 				// Fully pad all unused input connections of this box cell with S0
 				// Fully pad all undriven output connections of this box cell with anonymous wires
