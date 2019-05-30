@@ -46,6 +46,10 @@ OS := $(shell uname -s)
 PREFIX ?= /usr/local
 INSTALL_SUDO :=
 
+ifneq ($(wildcard Makefile.conf),)
+include Makefile.conf
+endif
+
 BINDIR := $(PREFIX)/bin
 LIBDIR := $(PREFIX)/lib
 DATDIR := $(PREFIX)/share/yosys
