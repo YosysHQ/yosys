@@ -596,6 +596,33 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			}
 		}
 
+		// Remove all AND, NOT, and ABC box instances
+		// in preparation for stitching mapped_mod in
+		pool<IdString> erased_boxes;
+		for (auto it = module->cells_.begin(); it != module->cells_.end(); ) {
+			RTLIL::Cell* cell = it->second;
+			if (cell->type.in("$_AND_", "$_NOT_")) {
+				it = module->cells_.erase(it);
+				continue;
+			}
+			RTLIL::Module* box_module = design->module(cell->type);
+			if (box_module && box_module->attributes.count("\\abc_box_id")) {
+				erased_boxes.insert(it->first);
+				it = module->cells_.erase(it);
+				continue;
+			}
+			++it;
+		}
+		// Do the same for module connections
+		for (auto &it : module->connections_) {
+			auto &signal = it.first;
+			auto bits = signal.bits();
+			for (auto &b : bits)
+				if (output_bits.count(b))
+					b = module->addWire(NEW_ID);
+			signal = std::move(bits);
+		}
+
 		std::map<std::string, int> cell_stats;
 		for (auto c : mapped_mod->cells())
 		{
@@ -816,16 +843,11 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 					module->connect(my_y, my_a);
 					continue;
 				}
-				else {
-					cell = module->addCell(remap_name(c->name), c->type);
-				}
 			}
-			else {
-				cell = module->cell(c->name);
-				log_assert(cell);
-				log_assert(c->type == cell->type);
-			}
+			else
+				log_assert(erased_boxes.count(c->name));
 
+			cell = module->addCell(remap_name(c->name), c->type);
 			if (markgroups) cell->attributes["\\abcgroup"] = map_autoidx;
 			cell->parameters = c->parameters;
 			for (auto &conn : c->connections()) {
@@ -888,25 +910,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		//		}
 		//		module->connect(conn);
 		//	}
-
-		// Remove all AND, NOT, instances
-		// in preparation for stitching mapped_mod in
-		for (auto it = module->cells_.begin(); it != module->cells_.end(); ) {
-			RTLIL::Cell* cell = it->second;
-			if (cell->type.in("$_AND_", "$_NOT_"))
-				it = module->cells_.erase(it);
-			else
-				++it;
-		}
-		// Do the same for module connections
-		for (auto &it : module->connections_) {
-			auto &signal = it.first;
-			auto bits = signal.bits();
-			for (auto &b : bits)
-				if (output_bits.count(b))
-					b = module->addWire(NEW_ID);
-			signal = std::move(bits);
-		}
 
 		// Stitch in mapped_mod's inputs/outputs into module
 		for (auto &it : mapped_mod->wires_) {
