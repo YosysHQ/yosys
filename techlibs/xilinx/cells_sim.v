@@ -281,7 +281,7 @@ module FDPE_1 ((* abc_flop_q *) output reg Q, input C, CE, D, PRE);
   always @(negedge C, posedge PRE) if (PRE) Q <= 1'b1; else if (CE) Q <= D;
 endmodule
 
-(* abc_box_id = 4, lib_whitebox *)
+(* abc_box_id = 4 /*, lib_whitebox*/ *)
 module RAM64X1D (
   output DPO, SPO,
   input  D, WCLK, WE,
@@ -301,7 +301,7 @@ module RAM64X1D (
 `endif
 endmodule
 
-(* abc_box_id = 5, lib_whitebox *)
+(* abc_box_id = 5 /*, lib_whitebox*/ *)
 module RAM128X1D (
   output       DPO, SPO,
   input        D, WCLK, WE,
