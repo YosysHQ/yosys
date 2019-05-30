@@ -670,7 +670,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 									RTLIL::SigBit(module->wires_[remap_name(y_bit.wire->name)], y_bit.offset),
 									driver_lut);
 						}
-						cell_stats["$lut"]++;
 					}
 					else {
 						cell = module->addCell(remap_name(c->name), "$_NOT_");
