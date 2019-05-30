@@ -739,10 +739,12 @@ struct XAigerWriter
 				if (box_module->get_bool_attribute("\\whitebox"))
 					holes_cell = holes_module->addCell(cell->name, cell->type);
 
-				RTLIL::Wire *holes_wire;
-				// TODO: Only sort once
-				box_module->wires_.sort(RTLIL::sort_by_id_str());
-				for (const auto w : box_module->wires()) {
+				// NB: Assume box_module->ports are sorted alphabetically
+				//     (as RTLIL::Module::fixup_ports() would do)
+				for (const auto &port_name : box_module->ports) {
+					RTLIL::Wire *w = box_module->wire(port_name);
+					log_assert(w);
+					RTLIL::Wire *holes_wire;
 					RTLIL::SigSpec port_wire;
 					if (w->port_input) {
 						for (int i = 0; i < GetSize(w); i++) {
