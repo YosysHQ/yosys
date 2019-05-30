@@ -25,7 +25,7 @@
 #define ABC_COMMAND_LIB "strash; ifraig; scorr; dc2; dretime; strash; &get -n; &dch -f; &nf {D}; &put"
 #define ABC_COMMAND_CTR "strash; ifraig; scorr; dc2; dretime; strash; &get -n; &dch -f; &nf {D}; &put; buffer; upsize {D}; dnsize {D}; stime -p"
 //#define ABC_COMMAND_LUT "strash; ifraig; scorr; dc2; dretime; strash; dch -f; if; mfs2"
-#define ABC_COMMAND_LUT "&st; &sweep; &scorr; "/*"&dc2; */"&retime; &dch -f; &ps -l; &if -W 250 -v; &ps -l"
+#define ABC_COMMAND_LUT "&st; &sweep; &scorr; "/*"&dc2; */"&retime; &dch -f; &ps -l; &if -W 160 -v; &ps -l"
 #define ABC_COMMAND_SOP "strash; ifraig; scorr; dc2; dretime; strash; dch -f; cover {I} {P}"
 #define ABC_COMMAND_DFL "strash; ifraig; scorr; dc2; dretime; strash; &get -n; &dch -f; &nf {D}; &put"
 
