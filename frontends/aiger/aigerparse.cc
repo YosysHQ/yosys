@@ -689,23 +689,27 @@ void AigerReader::post_process()
                         RTLIL::Wire* w = box_module->wire(port_name);
                         log_assert(w);
                         RTLIL::SigSpec rhs;
+                        RTLIL::Wire* wire = nullptr;
                         for (int i = 0; i < GetSize(w); i++) {
                             if (w->port_input) {
                                 log_assert(static_cast<unsigned>(co_count) < outputs.size());
-                                RTLIL::Wire* wire = outputs[co_count++];
+                                wire = outputs[co_count++];
                                 log_assert(wire);
                                 log_assert(wire->port_output);
                                 wire->port_output = false;
-                                rhs.append(wire);
                             }
                             if (w->port_output) {
                                 log_assert(static_cast<unsigned>(pi_count + ci_count) < inputs.size());
-                                RTLIL::Wire* wire = inputs[pi_count + ci_count++];
+                                wire = inputs[pi_count + ci_count++];
                                 log_assert(wire);
                                 log_assert(wire->port_input);
                                 wire->port_input = false;
-                                rhs.append(wire);
                             }
+                            rhs.append(wire);
+                            if (GetSize(w) == 1)
+                                module->rename(wire, RTLIL::escape_id(stringf("%s.%s", log_id(cell), log_id(port_name))));
+                            else
+                                module->rename(wire, RTLIL::escape_id(stringf("%s.%s[%d]", log_id(cell), log_id(port_name), i)));
                         }
                         cell->setPort(port_name, rhs);
                     }
