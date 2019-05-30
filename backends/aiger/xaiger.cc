@@ -392,6 +392,12 @@ struct XAigerWriter
 							if (O != b)
 								alias_map[O] = b;
 							undriven_bits.erase(O);
+
+							auto jt = input_bits.find(b);
+							if (jt != input_bits.end()) {
+								log_assert(b.wire->attributes.count("\\keep"));
+								input_bits.erase(b);
+							}
 						}
 					}
 				}
@@ -409,9 +415,10 @@ struct XAigerWriter
 			if ((wire->port_input && wire->port_output && !undriven_bits.count(bit))
 					|| wire->attributes.count("\\keep")) {
 				log_assert(input_bits.count(bit) && output_bits.count(bit));
-				RTLIL::Wire *new_wire = module->wire(wire->name.str() + "$inout.out");
+				RTLIL::IdString wire_name = wire->name.str() + "$inout.out";
+				RTLIL::Wire *new_wire = module->wire(wire_name);
 				if (!new_wire)
-					new_wire = module->addWire(wire->name.str() + "$inout.out", GetSize(wire));
+					new_wire = module->addWire(wire_name, GetSize(wire));
 				SigBit new_bit(new_wire, bit.offset);
 				module->connect(new_bit, bit);
 				if (not_map.count(bit))
@@ -468,12 +475,15 @@ struct XAigerWriter
 
 		for (auto bit : input_bits) {
 			aig_m++, aig_i++;
+			log_assert(!aig_map.count(bit));
 			aig_map[bit] = 2*aig_m;
 		}
 
 		for (auto &c : ci_bits) {
+			RTLIL::SigBit bit = std::get<0>(c);
 			aig_m++, aig_i++;
-			aig_map[std::get<0>(c)] = 2*aig_m;
+			log_assert(!aig_map.count(bit));
+			aig_map[bit] = 2*aig_m;
 		}
 
 		if (imode && input_bits.empty()) {
@@ -538,8 +548,7 @@ struct XAigerWriter
 
 		for (auto &c : co_bits) {
 			RTLIL::SigBit bit = std::get<0>(c);
-			std::get<4>(c) = aig_o++;
-			ordered_outputs[bit] = std::get<4>(c);
+			std::get<4>(c) = ordered_outputs[bit] = aig_o++;
 			aig_outputs.push_back(bit2aig(bit));
 		}
 
@@ -720,10 +729,15 @@ struct XAigerWriter
 			if (omode && num_outputs == 0)
 				num_outputs = 1;
 			write_h_buffer(1);
+			log_debug("ciNum = %zu\n", input_bits.size() + ci_bits.size());
 			write_h_buffer(input_bits.size() + ci_bits.size());
+			log_debug("coNum = %zu\n", num_outputs + co_bits.size());
 			write_h_buffer(num_outputs + co_bits.size());
+			log_debug("piNum = %zu\n", input_bits.size());
 			write_h_buffer(input_bits.size());
+			log_debug("poNum = %d\n", num_outputs);
 			write_h_buffer(num_outputs);
+			log_debug("boxNum = %zu\n", box_list.size());
 			write_h_buffer(box_list.size());
 
 			RTLIL::Module *holes_module = nullptr;
