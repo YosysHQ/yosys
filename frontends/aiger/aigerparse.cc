@@ -683,7 +683,6 @@ void AigerReader::post_process()
                         }
                     }
 
-
                     // NB: Assume box_module->ports are sorted alphabetically
                     //     (as RTLIL::Module::fixup_ports() would do)
                     for (auto port_name : box_module->ports) {
