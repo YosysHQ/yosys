@@ -294,6 +294,7 @@ struct SynthXilinxPass : public ScriptPass
 			else
 				run(abc + " -luts 2:2,3,6:5,10,20" + string(retime ? " -dff" : ""));
 			run("clean");
+
 			// This shregmap call infers fixed length shift registers after abc
 			//   has performed any necessary retiming
 			if (!nosrl || help_mode)
