@@ -38,5 +38,12 @@ module  \$_DFF_NP1_ (input D, C, R, output Q); FDPE_1 #(.INIT(|0)) _TECHMAP_REPL
 module  \$_DFF_PN1_ (input D, C, R, output Q); FDPE   #(.INIT(|0)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(1'b1), .PRE(!R)); endmodule
 module  \$_DFF_PP1_ (input D, C, R, output Q); FDPE   #(.INIT(|0)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(1'b1), .PRE( R)); endmodule
 
+`ifndef DEPRECATED
+module FDRE_1 (output reg Q, input C, CE, D, R);   parameter [0:0] INIT = 1'b0; FDRE #(.INIT(INIT), .IS_CLK_INVERTED(1'b1)) _TECHMAP_REPLACE_ (.C(C), .CE(CE), .D(D), .R(R), .Q(Q)); endmodule
+module FDSE_1 (output reg Q, input C, CE, D, S);   parameter [0:0] INIT = 1'b0; FDSE #(.INIT(INIT), .IS_CLK_INVERTED(1'b1)) _TECHMAP_REPLACE_ (.C(C), .CE(CE), .D(D), .S(S), .Q(Q)); endmodule
+module FDCE_1 (output reg Q, input C, CE, D, CLR); parameter [0:0] INIT = 1'b0; FDCE #(.INIT(INIT), .IS_CLK_INVERTED(1'b1)) _TECHMAP_REPLACE_ (.C(C), .CE(CE), .D(D), .CLR(CLR), .Q(Q)); endmodule
+module FDPE_1 (output reg Q, input C, CE, D, PRE); parameter [0:0] INIT = 1'b0; FDPE #(.INIT(INIT), .IS_CLK_INVERTED(1'b1)) _TECHMAP_REPLACE_ (.C(C), .CE(CE), .D(D), .PRE(PRE), .Q(Q)); endmodule
+`endif
+
 `endif
 

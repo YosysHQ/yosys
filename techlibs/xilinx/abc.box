@@ -40,3 +40,23 @@ RAM64X1D 4 0 15 2
 RAM128X1D 5 0 17 2
 -   -   -   -   -   -   -   - 314 314 314 314 314 314 292 - -
 347 347 347 347 347 347 296 - -   -   -   -   -   -   -   - -
+
+# Inputs: C CE D R
+# Outputs: Q
+FDRE 6 0 4 1
+- - - -
+
+# Inputs: C CE D S
+# Outputs: Q
+FDSE 7 0 4 1
+- - - -
+
+# Inputs: C CE CLR D
+# Outputs: Q
+FDCE 8 0 4 1
+- - 404 -
+
+# Inputs: C CE D PRE
+# Outputs: Q
+FDPE 9 0 4 1
+- - - 404
