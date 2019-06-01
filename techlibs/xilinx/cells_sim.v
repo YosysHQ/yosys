@@ -173,7 +173,7 @@ module XORCY(output O, input CI, LI);
   assign O = CI ^ LI;
 endmodule
 
-(* abc_box_id = 3, lib_whitebox, abc_carry *)
+(* abc_box_id = 3, abc_carry, lib_whitebox *)
 module CARRY4((* abc_carry_out *) output [3:0] CO, output [3:0] O, (* abc_carry_in *) input CI, input CYINIT, input [3:0] DI, S);
   assign O = S ^ {CO[2:0], CI | CYINIT};
   assign CO[0] = S[0] ? CI | CYINIT : DI[0];
@@ -205,56 +205,82 @@ endmodule
 
 `endif
 
-module FDRE ((* abc_flop_q *) output reg Q, input C, CE, input D, R);
+(* abc_box_id = 6, abc_flop /*, lib_whitebox */ *)
+module FDRE ((* abc_flop_q *) output reg Q, input C, CE, (* abc_flop_d *) input D, input R);
   parameter [0:0] INIT = 1'b0;
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
   parameter [0:0] IS_R_INVERTED = 1'b0;
   initial Q <= INIT;
+`ifndef _ABC
   generate case (|IS_C_INVERTED)
     1'b0: always @(posedge C) if (R == !IS_R_INVERTED) Q <= 1'b0; else if (CE) Q <= D ^ IS_D_INVERTED;
     1'b1: always @(negedge C) if (R == !IS_R_INVERTED) Q <= 1'b0; else if (CE) Q <= D ^ IS_D_INVERTED;
   endcase endgenerate
+`else
+  always @* if (R == !IS_R_INVERTED) Q <= 1'b0; else if (CE) Q <= D ^ IS_D_INVERTED;
+`endif
 endmodule
 
-module FDSE ((* abc_flop_q *) output reg Q, input C, CE, D, S);
+(* abc_box_id = 7, abc_flop /*, lib_whitebox*/ *)
+module FDSE ((* abc_flop_q *) output reg Q, input C, CE, (* abc_flop_d *) input D, input S);
   parameter [0:0] INIT = 1'b0;
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
   parameter [0:0] IS_S_INVERTED = 1'b0;
   initial Q <= INIT;
+`ifndef _ABC
   generate case (|IS_C_INVERTED)
     1'b0: always @(posedge C) if (S == !IS_S_INVERTED) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
     1'b1: always @(negedge C) if (S == !IS_S_INVERTED) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
   endcase endgenerate
+`else
+    always @* if (S == !IS_S_INVERTED) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
+`endif
 endmodule
 
-module FDCE ((* abc_flop_q *) output reg Q, input C, CE, D, CLR);
+(* abc_box_id = 8, abc_flop /*, lib_whitebox*/ *)
+module FDCE ((* abc_flop_q *) output reg Q, input C, CE, (* abc_flop_d *) input D, input CLR);
   parameter [0:0] INIT = 1'b0;
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
   parameter [0:0] IS_CLR_INVERTED = 1'b0;
   initial Q <= INIT;
   generate case ({|IS_C_INVERTED, |IS_CLR_INVERTED})
+`ifndef _ABC
     2'b00: always @(posedge C, posedge CLR) if ( CLR) Q <= 1'b0; else if (CE) Q <= D ^ IS_D_INVERTED;
     2'b01: always @(posedge C, negedge CLR) if (!CLR) Q <= 1'b0; else if (CE) Q <= D ^ IS_D_INVERTED;
     2'b10: always @(negedge C, posedge CLR) if ( CLR) Q <= 1'b0; else if (CE) Q <= D ^ IS_D_INVERTED;
     2'b11: always @(negedge C, negedge CLR) if (!CLR) Q <= 1'b0; else if (CE) Q <= D ^ IS_D_INVERTED;
   endcase endgenerate
+`else
+  generate case (|IS_CLR_INVERTED)
+    1'b0: always @* if ( CLR) Q <= 1'b0; else if (CE) Q <= D ^ IS_D_INVERTED;
+    1'b1: always @* if (!CLR) Q <= 1'b0; else if (CE) Q <= D ^ IS_D_INVERTED;
+  endcase endgenerate
+`endif
 endmodule
 
-module FDPE ((* abc_flop_q *) output reg Q, input C, CE, D, PRE);
+(* abc_box_id = 9, abc_flop /*, lib_whitebox*/ *)
+module FDPE ((* abc_flop_q *) output reg Q, input C, CE, (* abc_flop_q *) input D, input PRE);
   parameter [0:0] INIT = 1'b0;
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
   parameter [0:0] IS_PRE_INVERTED = 1'b0;
   initial Q <= INIT;
+`ifndef _ABC
   generate case ({|IS_C_INVERTED, |IS_PRE_INVERTED})
     2'b00: always @(posedge C, posedge PRE) if ( PRE) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
     2'b01: always @(posedge C, negedge PRE) if (!PRE) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
     2'b10: always @(negedge C, posedge PRE) if ( PRE) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
     2'b11: always @(negedge C, negedge PRE) if (!PRE) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
   endcase endgenerate
+`else
+  generate case (|IS_PRE_INVERTED)
+    1'b0: always @* if ( PRE) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
+    1'b1: always @* if (!PRE) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
+  endcase endgenerate
+`endif
 endmodule
 
 module FDRE_1 ((* abc_flop_q *) output reg Q, input C, CE, D, R);
