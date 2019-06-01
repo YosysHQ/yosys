@@ -37,10 +37,12 @@ struct AigerReader
     unsigned M, I, L, O, A;
     unsigned B, C, J, F; // Optional in AIGER 1.9
     unsigned line_count;
+    uint32_t piNum, flopNum;
 
     std::vector<RTLIL::Wire*> inputs;
     std::vector<RTLIL::Wire*> latches;
     std::vector<RTLIL::Wire*> outputs;
+    std::vector<RTLIL::Cell*> boxes;
 
     AigerReader(RTLIL::Design *design, std::istream &f, RTLIL::IdString module_name, RTLIL::IdString clk_name, std::string map_filename, bool wideports);
     void parse_aiger();

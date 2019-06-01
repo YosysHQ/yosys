@@ -75,6 +75,8 @@ end_of_header:
     log_debug("M=%u I=%u L=%u O=%u A=%u B=%u C=%u J=%u F=%u\n", M, I, L, O, A, B, C, J, F);
 
     line_count = 1;
+    piNum = 0;
+    flopNum = 0;
 
     if (header == "aag")
         parse_aiger_ascii();
@@ -184,6 +186,8 @@ void AigerReader::parse_xaiger()
     log_debug("M=%u I=%u L=%u O=%u A=%u\n", M, I, L, O, A);
 
     line_count = 1;
+    piNum = 0;
+    flopNum = 0;
 
     if (header == "aag")
         parse_aiger_ascii();
@@ -250,22 +254,10 @@ void AigerReader::parse_xaiger()
                 }
             }
             else if (c == 'r') {
-                /*uint32_t dataSize =*/ parse_xaiger_literal(f);
-                uint32_t flopNum = parse_xaiger_literal(f);
+                uint32_t dataSize = parse_xaiger_literal(f);
+                flopNum = parse_xaiger_literal(f);
+                log_assert(dataSize == (flopNum+1) * sizeof(uint32_t));
                 f.ignore(flopNum * sizeof(uint32_t));
-                log_assert(inputs.size() >= flopNum);
-                for (auto it = inputs.end() - flopNum; it != inputs.end(); ++it) {
-                    log_assert((*it)->port_input);
-                    (*it)->port_input = false;
-                }
-                inputs.erase(inputs.end() - flopNum, inputs.end());
-                log_assert(outputs.size() >= flopNum);
-                for (auto it = outputs.end() - flopNum; it != outputs.end(); ++it) {
-                    log_assert((*it)->port_output);
-                    (*it)->port_output = false;
-                }
-                outputs.erase(outputs.end() - flopNum, outputs.end());
-                module->fixup_ports();
             }
             else if (c == 'n') {
                parse_xaiger_literal(f);
@@ -276,14 +268,23 @@ void AigerReader::parse_xaiger()
                 f.ignore(sizeof(uint32_t));
                 uint32_t version = parse_xaiger_literal(f);
                 log_assert(version == 1);
-                f.ignore(4*sizeof(uint32_t));
+                uint32_t ciNum = parse_xaiger_literal(f);
+                log_debug("ciNum = %u\n", ciNum);
+                uint32_t coNum = parse_xaiger_literal(f);
+                log_debug("coNum = %u\n", coNum);
+                piNum = parse_xaiger_literal(f);
+                log_debug("piNum = %u\n", piNum);
+                uint32_t poNum = parse_xaiger_literal(f);
+                log_debug("poNum = %u\n", poNum);
                 uint32_t boxNum = parse_xaiger_literal(f);
+                log_debug("boxNum = %u\n", poNum);
                 for (unsigned i = 0; i < boxNum; i++) {
                     f.ignore(2*sizeof(uint32_t));
                     uint32_t boxUniqueId = parse_xaiger_literal(f);
                     log_assert(boxUniqueId > 0);
                     uint32_t oldBoxNum = parse_xaiger_literal(f);
-                    module->addCell(stringf("$__box%u__", oldBoxNum), box_lookup.at(boxUniqueId));
+                    RTLIL::Cell* cell = module->addCell(stringf("$__box%u__", oldBoxNum), box_lookup.at(boxUniqueId));
+                    boxes.emplace_back(cell);
                 }
             }
             else if (c == 'a' || c == 'i' || c == 'o') {
@@ -560,14 +561,100 @@ void AigerReader::parse_aiger_binary()
 
 void AigerReader::post_process()
 {
+    pool<RTLIL::Module*> abc_carry_modules;
+    unsigned ci_count = 0, co_count = 0, flop_count = 0;
+    for (auto cell : boxes) {
+        RTLIL::Module* box_module = design->module(cell->type);
+        log_assert(box_module);
+
+        if (box_module->attributes.count("\\abc_carry") && !abc_carry_modules.count(box_module)) {
+            RTLIL::Wire* carry_in = nullptr, *carry_out = nullptr;
+            RTLIL::Wire* last_in = nullptr, *last_out = nullptr;
+            for (const auto &port_name : box_module->ports) {
+                RTLIL::Wire* w = box_module->wire(port_name);
+                log_assert(w);
+                if (w->port_input) {
+                    if (w->attributes.count("\\abc_carry_in")) {
+                        log_assert(!carry_in);
+                        carry_in = w;
+                    }
+                    log_assert(!last_in || last_in->port_id < w->port_id);
+                    last_in = w;
+                }
+                if (w->port_output) {
+                    if (w->attributes.count("\\abc_carry_out")) {
+                        log_assert(!carry_out);
+                        carry_out = w;
+                    }
+                    log_assert(!last_out || last_out->port_id < w->port_id);
+                    last_out = w;
+                }
+            }
+
+            if (carry_in != last_in) {
+                std::swap(box_module->ports[carry_in->port_id], box_module->ports[last_in->port_id]);
+                std::swap(carry_in->port_id, last_in->port_id);
+            }
+            if (carry_out != last_out) {
+                log_assert(last_out);
+                std::swap(box_module->ports[carry_out->port_id], box_module->ports[last_out->port_id]);
+                std::swap(carry_out->port_id, last_out->port_id);
+            }
+        }
+
+        bool flop = box_module->attributes.count("\\abc_flop");
+        log_assert(!flop || flop_count < flopNum);
+
+        // NB: Assume box_module->ports are sorted alphabetically
+        //     (as RTLIL::Module::fixup_ports() would do)
+        for (auto port_name : box_module->ports) {
+            RTLIL::Wire* w = box_module->wire(port_name);
+            log_assert(w);
+            RTLIL::SigSpec rhs;
+            RTLIL::Wire* wire = nullptr;
+            for (int i = 0; i < GetSize(w); i++) {
+                if (w->port_input) {
+                    log_assert(co_count < outputs.size());
+                    wire = outputs[co_count++];
+                    log_assert(wire);
+                    log_assert(wire->port_output);
+                    wire->port_output = false;
+
+                    if (flop && w->attributes.count("\\abc_flop_d")) {
+                        RTLIL::Wire* d = outputs[outputs.size() - flopNum + flop_count];
+                        log_assert(d);
+                        log_assert(d->port_output);
+                        d->port_output = false;
+                    }
+                }
+                if (w->port_output) {
+                    log_assert((piNum + ci_count) < inputs.size());
+                    wire = inputs[piNum + ci_count++];
+                    log_assert(wire);
+                    log_assert(wire->port_input);
+                    wire->port_input = false;
+
+                    if (flop && w->attributes.count("\\abc_flop_q")) {
+                        wire = inputs[piNum - flopNum + flop_count];
+                        log_assert(wire);
+                        log_assert(wire->port_input);
+                        wire->port_input = false;
+                    }
+                }
+                rhs.append(wire);
+            }
+            cell->setPort(port_name, rhs);
+        }
+
+        if (flop) flop_count++;
+    }
+
     dict<RTLIL::IdString, int> wideports_cache;
 
     if (!map_filename.empty()) {
         std::ifstream mf(map_filename);
         std::string type, symbol;
         int variable, index;
-        int pi_count = 0, ci_count = 0, co_count = 0;
-        pool<RTLIL::Module*> abc_carry_modules;
         while (mf >> type >> variable >> index >> symbol) {
             RTLIL::IdString escaped_s = RTLIL::escape_id(symbol);
             if (type == "input") {
@@ -575,7 +662,6 @@ void AigerReader::post_process()
                 RTLIL::Wire* wire = inputs[variable];
                 log_assert(wire);
                 log_assert(wire->port_input);
-                pi_count++;
 
                 if (index == 0) {
                     // Cope with the fact that a CI might be identical
@@ -661,75 +747,27 @@ void AigerReader::post_process()
             }
             else if (type == "box") {
                 RTLIL::Cell* cell = module->cell(stringf("$__box%d__", variable));
-                if (cell) {
+                if (cell) { // ABC could have optimised this box away
                     module->rename(cell, escaped_s);
                     RTLIL::Module* box_module = design->module(cell->type);
                     log_assert(box_module);
 
-                    if (box_module->attributes.count("\\abc_carry") && !abc_carry_modules.count(box_module)) {
-                        RTLIL::Wire* carry_in = nullptr, *carry_out = nullptr;
-                        RTLIL::Wire* last_in = nullptr, *last_out = nullptr;
-                        for (const auto &port_name : box_module->ports) {
-                            RTLIL::Wire* w = box_module->wire(port_name);
-                            log_assert(w);
-                            if (w->port_input) {
-                                if (w->attributes.count("\\abc_carry_in")) {
-                                    log_assert(!carry_in);
-                                    carry_in = w;
-                                }
-                                log_assert(!last_in || last_in->port_id < w->port_id);
-                                last_in = w;
+                    for (const auto &i : cell->connections()) {
+                        RTLIL::IdString port_name = i.first;
+                        RTLIL::SigSpec rhs = i.second;
+                        int index = 0;
+                        for (auto bit : rhs.bits()) {
+                            RTLIL::Wire* wire = bit.wire;
+                            RTLIL::IdString escaped_s = RTLIL::escape_id(stringf("%s.%s", log_id(cell), log_id(port_name)));
+                            if (index == 0)
+                                module->rename(wire, escaped_s);
+                            else if (index > 0) {
+                                module->rename(wire, stringf("%s[%d]", escaped_s.c_str(), index));
+                                if (wideports)
+                                    wideports_cache[escaped_s] = std::max(wideports_cache[escaped_s], index);
                             }
-                            if (w->port_output) {
-                                if (w->attributes.count("\\abc_carry_out")) {
-                                    log_assert(!carry_out);
-                                    carry_out = w;
-                                }
-                                log_assert(!last_out || last_out->port_id < w->port_id);
-                                last_out = w;
-                            }
+                            index++;
                         }
-
-                        if (carry_in != last_in) {
-                            std::swap(box_module->ports[carry_in->port_id], box_module->ports[last_in->port_id]);
-                            std::swap(carry_in->port_id, last_in->port_id);
-                        }
-                        if (carry_out != last_out) {
-                            log_assert(last_out);
-                            std::swap(box_module->ports[carry_out->port_id], box_module->ports[last_out->port_id]);
-                            std::swap(carry_out->port_id, last_out->port_id);
-                        }
-                    }
-
-                    // NB: Assume box_module->ports are sorted alphabetically
-                    //     (as RTLIL::Module::fixup_ports() would do)
-                    for (auto port_name : box_module->ports) {
-                        RTLIL::Wire* w = box_module->wire(port_name);
-                        log_assert(w);
-                        RTLIL::SigSpec rhs;
-                        RTLIL::Wire* wire = nullptr;
-                        for (int i = 0; i < GetSize(w); i++) {
-                            if (w->port_input) {
-                                log_assert(static_cast<unsigned>(co_count) < outputs.size());
-                                wire = outputs[co_count++];
-                                log_assert(wire);
-                                log_assert(wire->port_output);
-                                wire->port_output = false;
-                            }
-                            if (w->port_output) {
-                                log_assert(static_cast<unsigned>(pi_count + ci_count) < inputs.size());
-                                wire = inputs[pi_count + ci_count++];
-                                log_assert(wire);
-                                log_assert(wire->port_input);
-                                wire->port_input = false;
-                            }
-                            rhs.append(wire);
-                            if (GetSize(w) == 1)
-                                module->rename(wire, RTLIL::escape_id(stringf("%s.%s", log_id(cell), log_id(port_name))));
-                            else
-                                module->rename(wire, RTLIL::escape_id(stringf("%s.%s[%d]", log_id(cell), log_id(port_name), i)));
-                        }
-                        cell->setPort(port_name, rhs);
                     }
                 }
             }
