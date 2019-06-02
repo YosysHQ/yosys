@@ -48,6 +48,14 @@ USING_YOSYS_NAMESPACE
 #include "VhdlUnits.h"
 #include "VeriLibrary.h"
 
+#ifndef SYMBIOTIC_VERIFIC_API_VERSION
+#  error "Only Symbiotic EDA flavored Verific is supported. Please contact office@symbioticeda.com for commercial support for Yosys+Verific."
+#endif
+
+#if SYMBIOTIC_VERIFIC_API_VERSION < 1
+#  error "Please update your version of Symbiotic EDA flavored Verific."
+#endif
+
 #ifdef __clang__
 #pragma clang diagnostic pop
 #endif
