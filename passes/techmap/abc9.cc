@@ -552,7 +552,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 
 		// Remove all AND, NOT, and ABC box instances
 		// in preparation for stitching mapped_mod in
-		pool<IdString> erased_boxes;
+		dict<IdString, decltype(RTLIL::Cell::parameters)> erased_boxes;
 		for (auto it = module->cells_.begin(); it != module->cells_.end(); ) {
 			RTLIL::Cell* cell = it->second;
 			if (cell->type.in("$_AND_", "$_NOT_")) {
@@ -561,7 +561,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			}
 			RTLIL::Module* box_module = design->module(cell->type);
 			if (box_module && box_module->attributes.count("\\abc_box_id")) {
-				erased_boxes.insert(it->first);
+				erased_boxes.insert(std::make_pair(it->first, std::move(cell->parameters)));
 				it = module->cells_.erase(it);
 				continue;
 			}
@@ -645,8 +645,11 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 					continue;
 				}
 			}
-			else
-				log_assert(erased_boxes.count(c->name));
+			else {
+                auto it = erased_boxes.find(c->name);
+                log_assert(it != erased_boxes.end());
+                c->parameters = std::move(it->second);
+            }
 
 			RTLIL::Cell* cell = module->addCell(remap_name(c->name), c->type);
 			if (markgroups) cell->attributes["\\abcgroup"] = map_autoidx;
@@ -1225,9 +1228,6 @@ struct Abc9Pass : public Pass {
 				log("Skipping module %s as it contains processes.\n", log_id(mod));
 				continue;
 			}
-
-			if (mod->attributes.count("\\abc_box_id"))
-				continue;
 
 			assign_map.set(mod);
 			signal_init.clear();
