@@ -145,7 +145,7 @@ endmodule
 
 (* abc_box_id = 1, abc_flop, lib_whitebox *)
 module SB_DFF ((* abc_flop_q *) output `SB_DFF_REG, input C, (* abc_flop_d *) input D);
-`ifndef ABC_MODEL
+`ifndef _ABC
 	always @(posedge C)
 		Q <= D;
 `else
