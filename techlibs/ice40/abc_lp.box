@@ -4,7 +4,7 @@
 
 # Inputs: C D
 # Outputs: Q
-SB_DFF 1 1 2 1
+SB_DFF 1 0 2 1
 - -
 
 # Inputs: C D E
@@ -109,5 +109,5 @@ SB_CARRY 21 1 3 1
 
 # Inputs: I0 I1 I2 I3
 # Outputs: O
-SB_LUT4 22 0 4 1
+SB_LUT4 22 1 4 1
 465 558 589 661
