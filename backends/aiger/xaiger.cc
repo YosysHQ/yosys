@@ -796,8 +796,10 @@ struct XAigerWriter
 				RTLIL::Module* box_module = module->design->module(cell->type);
 				int box_inputs = 0, box_outputs = 0;
 				Cell *holes_cell = nullptr;
-				if (box_module->get_bool_attribute("\\whitebox"))
+				if (box_module->get_bool_attribute("\\whitebox")) {
 					holes_cell = holes_module->addCell(cell->name, cell->type);
+					holes_cell->parameters = cell->parameters;
+				}
 
 				// NB: Assume box_module->ports are sorted alphabetically
 				//     (as RTLIL::Module::fixup_ports() would do)
