@@ -198,6 +198,7 @@ void AigerReader::parse_xaiger()
 
     dict<int,IdString> box_lookup;
     for (auto m : design->modules()) {
+        if (m->name[0] == '$') continue;
         auto it = m->attributes.find("\\abc_box_id");
         if (it == m->attributes.end())
             continue;
