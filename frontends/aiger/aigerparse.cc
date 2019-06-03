@@ -198,11 +198,12 @@ void AigerReader::parse_xaiger()
 
     dict<int,IdString> box_lookup;
     for (auto m : design->modules()) {
-        if (m->name[0] == '$') continue;
         auto it = m->attributes.find("\\abc_box_id");
         if (it == m->attributes.end())
             continue;
-        box_lookup[it->second.as_int()] = m->name;
+        if (m->name[0] == '$') continue;
+        auto r = box_lookup.insert(std::make_pair(it->second.as_int(), m->name));
+        log_assert(r.second);
     }
 
     // Parse footer (symbol table, comments, etc.)
