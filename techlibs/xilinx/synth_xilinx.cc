@@ -270,9 +270,11 @@ struct SynthXilinxPass : public ScriptPass
 			if (vpr && !nocarry && !help_mode)
 				run("techmap -map +/techmap.v -map +/xilinx/arith_map.v -D _EXPLICIT_CARRY");
 			else if (abc == "abc9" && !nocarry && !help_mode)
-				run("techmap -map +/techmap.v -map +/xilinx/arith_map.v -D _CLB_CARRY", "(skip if '-nocarry')");
+				run("techmap -map +/techmap.v -map +/xilinx/arith_map.v -D _CLB_CARRY");
 			else if (!nocarry || help_mode)
 				run("techmap -map +/techmap.v -map +/xilinx/arith_map.v", "(skip if '-nocarry')");
+			else
+				run("techmap -map +/techmap.v");
 
 			run("opt -fast");
 		}
