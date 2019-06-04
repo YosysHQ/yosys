@@ -267,15 +267,21 @@ struct SynthXilinxPass : public ScriptPass
 				run("shregmap -tech xilinx -minlen 3", "(skip if '-nosrl')");
 			}
 
-			if (vpr && !nocarry && !help_mode)
-				run("techmap -map +/techmap.v -map +/xilinx/arith_map.v -D _EXPLICIT_CARRY");
-			else if (abc == "abc9" && !nocarry && !help_mode)
-				run("techmap -map +/techmap.v -map +/xilinx/arith_map.v -D _CLB_CARRY");
-			else if (!nocarry || help_mode)
-				run("techmap -map +/techmap.v -map +/xilinx/arith_map.v", "(skip if '-nocarry')");
-			else
-				run("techmap -map +/techmap.v");
-
+			std::string techmap_files = " -map +/techmap.v";
+			if (help_mode)
+					techmap_files += " [-map +/xilinx/mux_map.v]";
+			else if (!nomux)
+					techmap_files += " -map +/xilinx/mux_map.v";
+			if (help_mode)
+					techmap_files += " [-map +/xilinx/arith_map.v]";
+			else if (!nocarry) {
+					techmap_files += " -map +/xilinx/arith_map.v";
+					if (vpr)
+							techmap_files += " -D _EXPLICIT_CARRY";
+					else if (abc == "abc9")
+							techmap_files += " -D _CLB_CARRY";
+			}
+			run("techmap " + techmap_files);
 			run("opt -fast");
 		}
 
