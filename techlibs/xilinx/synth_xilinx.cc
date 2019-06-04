@@ -203,9 +203,9 @@ struct SynthXilinxPass : public ScriptPass
 	{
 		if (check_label("begin")) {
 			if (vpr)
-				run("read_verilog -lib -D_ABC -D_EXPLICIT_CARRY +/xilinx/cells_sim.v");
+				run("read_verilog -lib -D _ABC -D_EXPLICIT_CARRY +/xilinx/cells_sim.v");
 			else
-				run("read_verilog -lib -D_ABC +/xilinx/cells_sim.v");
+				run("read_verilog -lib -D _ABC +/xilinx/cells_sim.v");
 
 			run("read_verilog -lib +/xilinx/cells_xtra.v");
 
