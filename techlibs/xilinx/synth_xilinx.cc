@@ -229,11 +229,6 @@ struct SynthXilinxPass : public ScriptPass
 			run("dff2dffe");
 			run("opt -full");
 
-			if (!vpr || help_mode)
-				run("techmap -map +/xilinx/arith_map.v");
-			else
-				run("techmap -map +/xilinx/arith_map.v -D _EXPLICIT_CARRY");
-
 			if (!nosrl || help_mode) {
 				// shregmap operates on bit-level flops, not word-level,
 				//   so break those down here
@@ -242,7 +237,11 @@ struct SynthXilinxPass : public ScriptPass
 				run("shregmap -tech xilinx -minlen 3", "(skip if '-nosrl')");
 			}
 
-			run("techmap");
+			if (!vpr || help_mode)
+				run("techmap -map +/techmap.v -map +/xilinx/arith_map.v");
+			else
+				run("techmap -map +/techmap.v +/xilinx/arith_map.v -D _EXPLICIT_CARRY");
+
 			run("opt -fast");
 		}
 
