@@ -154,7 +154,7 @@ struct specify_rise_fall {
 %token TOK_INCREMENT TOK_DECREMENT TOK_UNIQUE TOK_PRIORITY
 
 %type <ast> range range_or_multirange  non_opt_range non_opt_multirange range_or_signed_int
-%type <ast> wire_type expr basic_expr concat_list rvalue lvalue lvalue_concat_list
+%type <ast> wire_type expr basic_expr concat_list rvalue lvalue lvalue_concat_list named_port
 %type <string> opt_label opt_sva_label tok_prim_wrapper hierarchical_id
 %type <boolean> opt_signed opt_property unique_case_attr
 %type <al> attr case_attr
@@ -1541,18 +1541,26 @@ cell_port:
 		astbuf2->children.push_back(node);
 		node->children.push_back($1);
 	} |
-	'.' TOK_ID '(' expr ')' {
-		AstNode *node = new AstNode(AST_ARGUMENT);
-		node->str = *$2;
-		astbuf2->children.push_back(node);
-		node->children.push_back($4);
-		delete $2;
+	named_port '(' ')' | // not connected
+	named_port '(' expr ')' {
+		($1)->children.push_back($3);
 	} |
-	'.' TOK_ID '(' ')' {
+	named_port {
+		// SV implied port
+		if (!sv_mode)
+			frontend_verilog_yyerror("Implicit .name port connection in port list (%s). This is not supported unless read_verilog is called with -sv!", $1->str.c_str());
+		auto id_node = new AstNode(AST_IDENTIFIER);
+		id_node->str = ($1)->str;
+		($1)->children.push_back(id_node);
+	};
+
+named_port:
+	'.' TOK_ID {
 		AstNode *node = new AstNode(AST_ARGUMENT);
 		node->str = *$2;
-		astbuf2->children.push_back(node);
 		delete $2;
+		astbuf2->children.push_back(node);
+		$$ = node;
 	};
 
 always_stmt:

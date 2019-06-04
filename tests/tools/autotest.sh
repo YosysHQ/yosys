@@ -89,6 +89,13 @@ done
 
 compile_and_run() {
 	exe="$1"; output="$2"; shift 2
+	ext=${1##*.}
+	if [ "$ext" == "sv" ]; then
+		language_gen="-g2012"
+	else
+		language_gen="-g2005"
+	fi
+
 	if $use_modelsim; then
 		altver=$( ls -v /opt/altera/ | grep '^[0-9]' | tail -n1; )
 		/opt/altera/$altver/modelsim_ase/bin/vlib work
@@ -99,7 +106,7 @@ compile_and_run() {
 		/opt/Xilinx/Vivado/$xilver/bin/xvlog $xinclude_opts -d outfile=\"$output\" "$@"
 		/opt/Xilinx/Vivado/$xilver/bin/xelab -R work.testbench
 	else
-		iverilog $include_opts -Doutfile=\"$output\" -s testbench -o "$exe" "$@"
+		iverilog $language_gen $include_opts -Doutfile=\"$output\" -s testbench -o "$exe" "$@"
 		vvp -n "$exe"
 	fi
 }
@@ -110,7 +117,7 @@ for fn
 do
 	bn=${fn%.*}
 	ext=${fn##*.}
-	if [[ "$ext" != "v" ]] && [[ "$ext" != "aag" ]] && [[ "$ext" != "aig" ]]; then
+	if [[ "$ext" != "v" ]] && [[ "$ext" != "sv" ]] && [[ "$ext" != "aag" ]] && [[ "$ext" != "aig" ]]; then
 		echo "Invalid argument: $fn" >&2
 		exit 1
 	fi
@@ -121,6 +128,10 @@ do
 	else
 		status_prefix=""
 		echo -n "Test: $bn "
+	fi
+
+	if [ "$ext" == sv ]; then
+		frontend="$frontend -sv"
 	fi
 
 	rm -f ${bn}.{err,log,skip}
