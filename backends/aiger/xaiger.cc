@@ -181,14 +181,17 @@ struct XAigerWriter
 		for (auto cell : module->cells())
 		{
 			RTLIL::Module* inst_module = module->design->module(cell->type);
-			bool known_type = yosys_celltypes.cell_known(cell->type);
+			bool builtin_type = yosys_celltypes.cell_known(cell->type);
+			bool abc_type = inst_module && inst_module->attributes.count("\\abc_box_id");
 
 			if (!holes_mode) {
 				toposort.node(cell->name);
-				for (const auto &conn : cell->connections())
-				{
+				for (const auto &conn : cell->connections()) {
+					if (!builtin_type && !abc_type)
+						continue;
+
 					if (!cell->type.in("$_NOT_", "$_AND_")) {
-						if (known_type) {
+						if (builtin_type) {
 							if (conn.first.in("\\Q", "\\CTRL_OUT", "\\RD_DATA"))
 								continue;
 							if (cell->type == "$memrd" && conn.first == "\\DATA")
@@ -199,8 +202,8 @@ struct XAigerWriter
 							RTLIL::Wire* inst_module_port = inst_module->wire(conn.first);
 							log_assert(inst_module_port);
 
-							if (inst_module_port->attributes.count("\\abc_flop_q"))
-								continue;
+							if (inst_module_port->port_output && inst_module_port->attributes.count("\\abc_flop_q"))
+									continue;
 						}
 					}
 
