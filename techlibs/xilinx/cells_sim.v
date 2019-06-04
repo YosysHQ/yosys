@@ -262,7 +262,7 @@ module FDCE ((* abc_flop_q *) output reg Q, input C, CE, (* abc_flop_d *) input 
 endmodule
 
 (* abc_box_id = 9, abc_flop /*, lib_whitebox*/ *)
-module FDPE ((* abc_flop_q *) output reg Q, input C, CE, (* abc_flop_q *) input D, input PRE);
+module FDPE ((* abc_flop_q *) output reg Q, input C, CE, (* abc_flop_d *) input D, input PRE);
   parameter [0:0] INIT = 1'b0;
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
