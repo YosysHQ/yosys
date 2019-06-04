@@ -93,12 +93,12 @@ struct ShregmapTechGreenpak4 : ShregmapTech
 	}
 };
 
-struct ShregmapTechXilinx7 : ShregmapTech
+struct ShregmapTechXilinx7Dynamic : ShregmapTech
 {
 	dict<SigBit, std::tuple<Cell*,int,int>> sigbit_to_shiftx_offset;
 	const ShregmapOptions &opts;
 
-	ShregmapTechXilinx7(const ShregmapOptions &opts) : opts(opts) {}
+	ShregmapTechXilinx7Dynamic(const ShregmapOptions &opts) : opts(opts) {}
 
 	virtual void init(const Module* module, const SigMap &sigmap) override
 	{
@@ -660,11 +660,11 @@ struct ShregmapPass : public Pass {
 					opts.zinit = true;
 					opts.tech = new ShregmapTechGreenpak4;
 				}
-				else if (tech == "xilinx") {
+				else if (tech == "xilinx_dynamic") {
 					opts.init = true;
 					opts.params = true;
 					enpol = "any_or_none";
-					opts.tech = new ShregmapTechXilinx7(opts);
+					opts.tech = new ShregmapTechXilinx7Dynamic(opts);
 				} else {
 					argidx--;
 					break;
