@@ -277,7 +277,11 @@ struct SynthXilinxPass : public ScriptPass
 			if (!nomux || help_mode)
 				run("techmap -map +/xilinx/cells_map.v");
 
-			run("techmap");
+			if (!vpr || help_mode)
+				run("techmap -map +/techmap.v -map +/xilinx/arith_map.v");
+			else
+				run("techmap -map +/techmap.v +/xilinx/arith_map.v -D _EXPLICIT_CARRY");
+
 			run("opt -fast");
 		}
 
