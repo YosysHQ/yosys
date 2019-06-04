@@ -259,13 +259,6 @@ struct SynthXilinxPass : public ScriptPass
 			run("dff2dffe");
 			run("opt -full");
 
-			if (vpr && !nocarry && !help_mode)
-				run("techmap -map +/xilinx/arith_map.v -D _EXPLICIT_CARRY");
-			else if (abc == "abc9" && !nocarry && !help_mode)
-				run("techmap -map +/xilinx/arith_map.v -D _CLB_CARRY", "(skip if '-nocarry')");
-			else if (!nocarry || help_mode)
-				run("techmap -map +/xilinx/arith_map.v", "(skip if '-nocarry')");
-
 			if (!nosrl || help_mode) {
 				// shregmap operates on bit-level flops, not word-level,
 				//   so break those down here
@@ -274,13 +267,12 @@ struct SynthXilinxPass : public ScriptPass
 				run("shregmap -tech xilinx -minlen 3", "(skip if '-nosrl')");
 			}
 
-			if (!nomux || help_mode)
-				run("techmap -map +/xilinx/cells_map.v");
-
-			if (!vpr || help_mode)
-				run("techmap -map +/techmap.v -map +/xilinx/arith_map.v");
-			else
-				run("techmap -map +/techmap.v +/xilinx/arith_map.v -D _EXPLICIT_CARRY");
+			if (vpr && !nocarry && !help_mode)
+				run("techmap -map +/techmap.v -map +/xilinx/arith_map.v -D _EXPLICIT_CARRY");
+			else if (abc == "abc9" && !nocarry && !help_mode)
+				run("techmap -map +/techmap.v -map +/xilinx/arith_map.v -D _CLB_CARRY", "(skip if '-nocarry')");
+			else if (!nocarry || help_mode)
+				run("techmap -map +/techmap.v -map +/xilinx/arith_map.v", "(skip if '-nocarry')");
 
 			run("opt -fast");
 		}
