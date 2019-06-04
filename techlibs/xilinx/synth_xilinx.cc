@@ -242,7 +242,6 @@ struct SynthXilinxPass : public ScriptPass
 			else
 				run("techmap -map +/techmap.v +/xilinx/arith_map.v -D _EXPLICIT_CARRY");
 
-
 			run("opt -fast");
 		}
 
