@@ -334,7 +334,21 @@ struct XAigerWriter
 
 			pool<RTLIL::Module*> abc_carry_modules;
 
-			toposort.sort();
+#if 0
+			toposort.analyze_loops = true;
+#endif
+			bool no_loops = toposort.sort();
+#if 0
+			unsigned i = 0;
+			for (auto &it : toposort.loops) {
+				log("  loop %d", i++);
+				for (auto cell : it)
+					log(" %s", log_id(cell));
+				log("\n");
+			}
+#endif
+			log_assert(no_loops);
+
 			for (auto cell_name : toposort.sorted) {
 				RTLIL::Cell *cell = module->cell(cell_name);
 				RTLIL::Module* box_module = module->design->module(cell->type);
