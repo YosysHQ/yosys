@@ -56,7 +56,7 @@ struct ShregmapOptions
 
 struct ShregmapTechGreenpak4 : ShregmapTech
 {
-	bool analyze(vector<int> &taps, const vector<SigBit> &/*qbits*/)
+	virtual bool analyze(vector<int> &taps, const vector<SigBit> &/*qbits*/) override
 	{
 		if (GetSize(taps) > 2 && taps[0] == 0 && taps[2] < 17) {
 			taps.clear();
@@ -71,7 +71,7 @@ struct ShregmapTechGreenpak4 : ShregmapTech
 		return true;
 	}
 
-	bool fixup(Cell *cell, dict<int, SigBit> &taps)
+	virtual bool fixup(Cell *cell, dict<int, SigBit> &taps) override
 	{
 		auto D = cell->getPort("\\D");
 		auto C = cell->getPort("\\C");
@@ -212,8 +212,24 @@ struct ShregmapTechXilinx7Dynamic : ShregmapTech
 		newcell->set_src_attribute(cell->get_src_attribute());
 		newcell->setParam("\\DEPTH", cell->getParam("\\DEPTH"));
 		newcell->setParam("\\INIT", cell->getParam("\\INIT"));
-		newcell->setParam("\\CLKPOL", cell->getParam("\\CLKPOL"));
-		newcell->setParam("\\ENPOL", cell->getParam("\\ENPOL"));
+
+		if (cell->type.in("$__SHREG_DFF_N_", "$__SHREG_DFF_P_",
+					"$__SHREG_DFFE_NN_", "$__SHREG_DFFE_NP_", "$__SHREG_DFFE_PN_", "$__SHREG_DFFE_PP_")) {
+			int param_clkpol = -1;
+			int param_enpol = 2;
+			if (cell->type == "$__SHREG_DFF_N_") param_clkpol = 0;
+			else if (cell->type == "$__SHREG_DFF_P_") param_clkpol = 1;
+			else if (cell->type == "$__SHREG_DFFE_NN_") param_clkpol = 0, param_enpol = 0;
+			else if (cell->type == "$__SHREG_DFFE_NP_") param_clkpol = 0, param_enpol = 1;
+			else if (cell->type == "$__SHREG_DFFE_PN_") param_clkpol = 1, param_enpol = 0;
+			else if (cell->type == "$__SHREG_DFFE_PP_") param_clkpol = 1, param_enpol = 1;
+			else log_abort();
+
+			log_assert(param_clkpol >= 0);
+			cell->setParam("\\CLKPOL", param_clkpol);
+			cell->setParam("\\ENPOL", param_enpol);
+		}
+		else log_abort();
 
 		newcell->setPort("\\C", cell->getPort("\\C"));
 		newcell->setPort("\\D", cell->getPort("\\D"));
@@ -662,8 +678,12 @@ struct ShregmapPass : public Pass {
 				}
 				else if (tech == "xilinx_dynamic") {
 					opts.init = true;
-					opts.params = true;
-					enpol = "any_or_none";
+					opts.ffcells["$_DFF_P_"] = make_pair(IdString("\\D"), IdString("\\Q"));
+					opts.ffcells["$_DFF_N_"] = make_pair(IdString("\\D"), IdString("\\Q"));
+					opts.ffcells["$_DFFE_PP_"] = make_pair(IdString("\\D"), IdString("\\Q"));
+					opts.ffcells["$_DFFE_PN_"] = make_pair(IdString("\\D"), IdString("\\Q"));
+					opts.ffcells["$_DFFE_NP_"] = make_pair(IdString("\\D"), IdString("\\Q"));
+					opts.ffcells["$_DFFE_NN_"] = make_pair(IdString("\\D"), IdString("\\Q"));
 					opts.tech = new ShregmapTechXilinx7Dynamic(opts);
 				} else {
 					argidx--;
