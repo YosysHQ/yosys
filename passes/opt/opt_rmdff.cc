@@ -292,8 +292,8 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 		sig_q = dff->getPort("\\Q");
 		sig_c = dff->getPort("\\C");
 		sig_e = dff->getPort("\\E");
-		val_cp = RTLIL::Const(dff->type[6] == 'P', 1);
-		val_ep = RTLIL::Const(dff->type[7] == 'P', 1);
+		val_cp = RTLIL::Const(dff->type[7] == 'P', 1);
+		val_ep = RTLIL::Const(dff->type[8] == 'P', 1);
 	}
 	else if (dff->type == "$ff") {
 		sig_d = dff->getPort("\\D");
