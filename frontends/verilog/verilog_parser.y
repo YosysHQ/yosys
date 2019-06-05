@@ -1535,11 +1535,13 @@ cell_port:
 	attr {
 		AstNode *node = new AstNode(AST_ARGUMENT);
 		astbuf2->children.push_back(node);
+		free_attr($1);
 	} |
 	attr expr {
 		AstNode *node = new AstNode(AST_ARGUMENT);
 		astbuf2->children.push_back(node);
 		node->children.push_back($2);
+		free_attr($1);
 	} |
 	attr '.' TOK_ID '(' expr ')' {
 		AstNode *node = new AstNode(AST_ARGUMENT);
@@ -1547,12 +1549,14 @@ cell_port:
 		astbuf2->children.push_back(node);
 		node->children.push_back($5);
 		delete $3;
+		free_attr($1);
 	} |
 	attr '.' TOK_ID '(' ')' {
 		AstNode *node = new AstNode(AST_ARGUMENT);
 		node->str = *$3;
 		astbuf2->children.push_back(node);
 		delete $3;
+		free_attr($1);
 	};
 
 always_stmt:
