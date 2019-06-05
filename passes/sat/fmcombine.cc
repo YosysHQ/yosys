@@ -332,7 +332,7 @@ struct FmcombinePass : public Pass {
 
 			gate_cell = module->cell(gate_name);
 			if (gate_cell == nullptr)
-				log_cmd_error("Gold cell %s not found in module %s.\n", log_id(gate_name), log_id(module));
+				log_cmd_error("Gate cell %s not found in module %s.\n", log_id(gate_name), log_id(module));
 		}
 		else
 		{
@@ -351,7 +351,7 @@ struct FmcombinePass : public Pass {
 		if (!gold_cell->parameters.empty())
 			log_cmd_error("Gold cell has unresolved instance parameters.\n");
 		if (!gate_cell->parameters.empty())
-			log_cmd_error("Gold cell has unresolved instance parameters.\n");
+			log_cmd_error("Gate cell has unresolved instance parameters.\n");
 
 		FmcombineWorker worker(design, gold_cell->type, opts);
 		worker.generate();
