@@ -393,53 +393,112 @@ struct SetundefPass : public Pass {
 						ffbits.insert(bit);
 				}
 
-				for (auto wire : module->wires())
+				auto process_initwires = [&]()
 				{
-					if (!wire->attributes.count("\\init"))
-						continue;
+					dict<Wire*, int> wire_weights;
 
-					for (auto bit : sigmap(wire))
-						ffbits.erase(bit);
+					for (auto wire : initwires)
+					{
+						int weight = 0;
 
-					initwires.insert(wire);
-				}
+						for (auto bit : sigmap(wire))
+							weight += ffbits.count(bit) ? +1 : -1;
+
+						wire_weights[wire] = weight;
+					}
+
+					initwires.sort([&](Wire *a, Wire *b) { return wire_weights.at(a) > wire_weights.at(b); });
+
+					for (auto wire : initwires)
+					{
+						Const &initval = wire->attributes["\\init"];
+						initval.bits.resize(GetSize(wire), State::Sx);
+
+						for (int i = 0; i < GetSize(wire); i++) {
+							SigBit bit = sigmap(SigBit(wire, i));
+							if (initval[i] == State::Sx && ffbits.count(bit)) {
+								initval[i] = worker.next_bit();
+								ffbits.erase(bit);
+							}
+						}
+
+						if (initval.is_fully_undef())
+							wire->attributes.erase("\\init");
+					}
+
+					initwires.clear();
+				};
 
 				for (int wire_types = 0; wire_types < 2; wire_types++)
 				{
-					pool<SigBit> ffbitsToErase;
-					for (auto wire : module->wires())
+					// prioritize wires that already have an init attribute
+					if (!ffbits.empty())
 					{
-						if (wire->name[0] == (wire_types ? '\\' : '$')) {
-					next_wire:
+						for (auto wire : module->wires())
+						{
+							if (wire->name[0] == (wire_types ? '\\' : '$'))
+								continue;
+
+							if (!wire->attributes.count("\\init"))
+								continue;
+
+							Const &initval = wire->attributes["\\init"];
+							initval.bits.resize(GetSize(wire), State::Sx);
+
+							if (initval.is_fully_undef()) {
+								wire->attributes.erase("\\init");
+								continue;
+							}
+
+							for (int i = 0; i < GetSize(wire); i++)
+								if (initval[i] != State::Sx)
+									ffbits.erase(sigmap(SigBit(wire, i)));
+
+							initwires.insert(wire);
+						}
+
+						process_initwires();
+					}
+
+					// next consider wires that completely contain bits to be initialized
+					if (!ffbits.empty())
+					{
+						for (auto wire : module->wires())
+						{
+							if (wire->name[0] == (wire_types ? '\\' : '$'))
+								continue;
+
+							for (auto bit : sigmap(wire))
+								if (!ffbits.count(bit))
+									goto next_wire;
+
+							initwires.insert(wire);
+
+						next_wire:
 							continue;
 						}
 
-						for (auto bit : sigmap(wire))
-							if (!ffbits.count(bit)) {
-								goto next_wire;
-							}
+						process_initwires();
+					}
 
-						for (auto bit : sigmap(wire)) {
-							ffbitsToErase.insert(bit);
+					// finally use whatever wire we can find.
+					if (!ffbits.empty())
+					{
+						for (auto wire : module->wires())
+						{
+							if (wire->name[0] == (wire_types ? '\\' : '$'))
+								continue;
+
+							for (auto bit : sigmap(wire))
+								if (ffbits.count(bit))
+									initwires.insert(wire);
 						}
 
-						initwires.insert(wire);
-					}
-					for (const auto & bit : ffbitsToErase) {
-						ffbits.erase(bit);
+						process_initwires();
 					}
 				}
 
-				for (auto wire : initwires)
-				{
-					Const &initval = wire->attributes["\\init"];
-
-					for (int i = 0; i < GetSize(wire); i++)
-						if (GetSize(initval) <= i)
-							initval.bits.push_back(worker.next_bit());
-						else if (initval.bits[i] == State::Sx)
-							initval.bits[i] = worker.next_bit();
-				}
+				log_assert(ffbits.empty());
 			}
 
 			module->rewrite_sigspecs(worker);
