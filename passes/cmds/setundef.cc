@@ -404,29 +404,31 @@ struct SetundefPass : public Pass {
 					initwires.insert(wire);
 				}
 
-				for (int wire_types = 0; wire_types < 2; wire_types++) {
-                                        pool<SigBit> ffbitsToErase;
-                                        for (auto wire : module->wires()) {
-                                                if (wire->name[0] == (wire_types ? '\\' : '$')) {
-                                                        next_wire:
-                                                        continue;
-                                                }
+				for (int wire_types = 0; wire_types < 2; wire_types++)
+				{
+					pool<SigBit> ffbitsToErase;
+					for (auto wire : module->wires())
+					{
+						if (wire->name[0] == (wire_types ? '\\' : '$')) {
+					next_wire:
+							continue;
+						}
 
-                                                for (auto bit : sigmap(wire))
-                                                        if (!ffbits.count(bit)) {
-                                                                goto next_wire;
-                                                        }
+						for (auto bit : sigmap(wire))
+							if (!ffbits.count(bit)) {
+								goto next_wire;
+							}
 
-                                                for (auto bit : sigmap(wire)) {
-                                                        ffbitsToErase.insert(bit);
-                                                }
+						for (auto bit : sigmap(wire)) {
+							ffbitsToErase.insert(bit);
+						}
 
-                                                initwires.insert(wire);
-                                        }
-                                        for (const auto &bit : ffbitsToErase) {
-                                                ffbits.erase(bit);
-                                        }
-                                }
+						initwires.insert(wire);
+					}
+					for (const auto & bit : ffbitsToErase) {
+						ffbits.erase(bit);
+					}
+				}
 
 				for (auto wire : initwires)
 				{
