@@ -106,7 +106,7 @@ void rmunused_module_cells(Module *module, bool verbose)
 				if (raw_bit.wire == nullptr)
 					continue;
 				auto bit = sigmap(raw_bit);
-				if (bit.wire == nullptr)
+				if (bit.wire == nullptr && ct_all.cell_known(cell->type))
 					driver_driver_logs[raw_sigmap(raw_bit)].push_back(stringf("Driver-driver conflict "
 							"for %s between cell %s.%s and constant %s in %s: Resolved using constant.",
 							log_signal(raw_bit), log_id(cell), log_id(it2.first), log_signal(bit), log_id(module)));
