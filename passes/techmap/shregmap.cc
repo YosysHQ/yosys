@@ -30,7 +30,7 @@ struct ShregmapTech
 	virtual void non_chain_user(const SigBit &/*bit*/, const Cell* /*cell*/, IdString /*port*/) {}
 	virtual bool analyze_first(const Cell* /*first_cell*/, const SigMap &/*sigmap*/) { return true; }
 	virtual bool analyze(vector<int> &taps, const vector<SigBit> &qbits) = 0;
-	virtual Cell* fixup(Cell *cell, dict<int, SigBit> &taps) = 0;
+	virtual Cell* fixup(Cell *cell, const vector<int> &taps, const vector<SigBit> &qbits) = 0;
 };
 
 struct ShregmapOptions
@@ -72,7 +72,7 @@ struct ShregmapTechGreenpak4 : ShregmapTech
 		return true;
 	}
 
-	virtual Cell* fixup(Cell *cell, dict<int, SigBit> &taps) override
+	virtual Cell* fixup(Cell *cell, const vector<int> &taps, const vector<SigBit> &qbits) override
 	{
 		auto D = cell->getPort("\\D");
 		auto C = cell->getPort("\\C");
@@ -84,8 +84,8 @@ struct ShregmapTechGreenpak4 : ShregmapTech
 
 		int i = 0;
 		for (auto tap : taps) {
-			newcell->setPort(i ? "\\OUTB" : "\\OUTA", tap.second);
-			newcell->setParam(i ? "\\OUTB_TAP" : "\\OUTA_TAP", tap.first + 1);
+			newcell->setPort(i ? "\\OUTB" : "\\OUTA", qbits[tap]);
+			newcell->setParam(i ? "\\OUTB_TAP" : "\\OUTA_TAP", tap + 1);
 			i++;
 		}
 
@@ -96,7 +96,20 @@ struct ShregmapTechGreenpak4 : ShregmapTech
 
 struct ShregmapTechXilinx7Static : ShregmapTech
 {
+	dict<SigBit, Cell*> sigbit_to_cell;
 	const ShregmapOptions &opts;
+
+	virtual void init(const Module* module, const SigMap &sigmap) override
+	{
+		for (const auto &i : module->cells_) {
+			auto cell = i.second;
+			if (!cell->type.in("\\FDRE", "\\FDRE_1","\\FDSE", "\\FDSE_1",
+					"\\FDCE", "\\FDCE_1", "\\FDPE", "\\FDPE_1"))
+				continue;
+
+			sigbit_to_cell[sigmap(cell->getPort("\\Q"))] = cell;
+		}
+	}
 
 	ShregmapTechXilinx7Static(const ShregmapOptions &opts) : opts(opts) {}
 
@@ -154,15 +167,14 @@ struct ShregmapTechXilinx7Static : ShregmapTech
 		return GetSize(taps) == 1 && taps[0] >= opts.minlen-1;
 	}
 
-	virtual Cell* fixup(Cell *cell, dict<int, SigBit> &/*taps*/) override
+	virtual Cell* fixup(Cell *cell, const vector<int> &/*taps*/, const vector<SigBit> &qbits) override
 	{
 		auto newcell = cell->module->addCell(NEW_ID, "$__SHREG_");
 		newcell->set_src_attribute(cell->get_src_attribute());
 		newcell->setParam("\\DEPTH", cell->getParam("\\DEPTH"));
-		newcell->setParam("\\INIT", cell->getParam("\\INIT"));
 
 		if (cell->type.in("$__SHREG_DFF_N_", "$__SHREG_DFF_P_",
-					"$__SHREG_DFFE_NN_", "$__SHREG_DFFE_NP_", "$__SHREG_DFFE_PN_", "$__SHREG_DFFE_PP_")) {
+				"$__SHREG_DFFE_NN_", "$__SHREG_DFFE_NP_", "$__SHREG_DFFE_PN_", "$__SHREG_DFFE_PP_")) {
 			int param_clkpol = -1;
 			int param_enpol = 2;
 			if (cell->type == "$__SHREG_DFF_N_") param_clkpol = 0;
@@ -176,6 +188,7 @@ struct ShregmapTechXilinx7Static : ShregmapTech
 			log_assert(param_clkpol >= 0);
 			newcell->setParam("\\CLKPOL", param_clkpol);
 			newcell->setParam("\\ENPOL", param_enpol);
+			newcell->setParam("\\INIT", cell->getParam("\\INIT"));
 
 			if (cell->hasPort("\\E"))
 				newcell->setPort("\\E", cell->getPort("\\E"));
@@ -187,11 +200,12 @@ struct ShregmapTechXilinx7Static : ShregmapTech
 				param_clkpol = 0;
 			newcell->setParam("\\CLKPOL", param_clkpol);
 			newcell->setParam("\\ENPOL", 1);
-
-			newcell->setPort("\\E", cell->getPort("\\CE"));
-		}
-		else if (cell->type.in("$__SHREG_FDRE_1", "$__SHREG_FDSE_1", "$__SHREG_FDCE_1", "$__SHREG_FDPE_1")) {
-			newcell->setParam("\\CLKPOL", 0);
+			log_assert(cell->getParam("\\INIT").is_fully_undef());
+			SigSpec INIT;
+			for (auto q : qbits) {
+				Cell* reg = sigbit_to_cell.at(q);
+				INIT.append(SigBit(reg->getParam("\\INIT").as_bool()));
+			}
 
 			newcell->setPort("\\E", cell->getPort("\\CE"));
 		}
@@ -314,15 +328,14 @@ struct ShregmapTechXilinx7Dynamic : ShregmapTechXilinx7Static
 		return true;
 	}
 
-	virtual Cell* fixup(Cell *cell, dict<int, SigBit> &taps) override
+	virtual Cell* fixup(Cell *cell, const vector<int> &taps, const vector<SigBit> &qbits) override
 	{
-		const auto &tap = *taps.begin();
-		auto bit = tap.second;
+		auto bit = qbits[taps.front()];
 
 		auto it = sigbit_to_shiftx_offset.find(bit);
 		log_assert(it != sigbit_to_shiftx_offset.end());
 
-		Cell* newcell = ShregmapTechXilinx7Static::fixup(cell, taps);
+		Cell* newcell = ShregmapTechXilinx7Static::fixup(cell, taps, qbits);
 		log_assert(newcell);
 		log_assert(newcell->type == "$__SHREG_");
 		newcell->type = "$__XILINX_SHREG_";
@@ -493,7 +506,8 @@ struct ShregmapWorker
 
 			Cell *first_cell = chain[cursor];
 			IdString q_port = opts.ffcells.at(first_cell->type).second;
-			dict<int, SigBit> taps_dict;
+			vector<SigBit> qbits;
+			vector<int> taps;
 
 			if (opts.tech)
 			{
@@ -501,9 +515,6 @@ struct ShregmapWorker
 					cursor += depth;
 					continue;
 				}
-
-				vector<SigBit> qbits;
-				vector<int> taps;
 
 				for (int i = 0; i < depth; i++)
 				{
@@ -529,7 +540,6 @@ struct ShregmapWorker
 
 				depth = 0;
 				for (auto tap : taps) {
-					taps_dict[tap] = qbits.at(tap);
 					log_assert(depth < tap+1);
 					depth = tap+1;
 				}
@@ -600,7 +610,7 @@ struct ShregmapWorker
 			first_cell->setPort(q_port, last_cell->getPort(q_port));
 			first_cell->setParam("\\DEPTH", depth);
 
-			if (opts.tech != nullptr && opts.tech->fixup(first_cell, taps_dict))
+			if (opts.tech != nullptr && opts.tech->fixup(first_cell, taps, qbits))
 				remove_cells.insert(first_cell);
 
 			for (int i = 1; i < depth; i++)
