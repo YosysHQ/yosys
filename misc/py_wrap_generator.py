@@ -2060,7 +2060,6 @@ namespace YOSYS_PYTHON {
 				Yosys::log_streams.push_back(&std::cout);
 				Yosys::log_error_stderr = true;
 				Yosys::yosys_setup();
-				Yosys::yosys_banner();
 			}
 		}
 
