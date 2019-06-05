@@ -28,8 +28,9 @@ struct ShregmapTech
 	virtual ~ShregmapTech() { }
 	virtual void init(const Module * /*module*/, const SigMap &/*sigmap*/) {}
 	virtual void non_chain_user(const SigBit &/*bit*/, const Cell* /*cell*/, IdString /*port*/) {}
+	virtual bool analyze_first(const Cell* /*first_cell*/, const SigMap &/*sigmap*/) { return true; }
 	virtual bool analyze(vector<int> &taps, const vector<SigBit> &qbits) = 0;
-	virtual RTLIL::Cell* fixup(Cell *cell, dict<int, SigBit> &taps) = 0;
+	virtual Cell* fixup(Cell *cell, dict<int, SigBit> &taps) = 0;
 };
 
 struct ShregmapOptions
@@ -71,7 +72,7 @@ struct ShregmapTechGreenpak4 : ShregmapTech
 		return true;
 	}
 
-	virtual RTLIL::Cell* fixup(Cell *cell, dict<int, SigBit> &taps) override
+	virtual Cell* fixup(Cell *cell, dict<int, SigBit> &taps) override
 	{
 		auto D = cell->getPort("\\D");
 		auto C = cell->getPort("\\C");
@@ -99,18 +100,61 @@ struct ShregmapTechXilinx7Static : ShregmapTech
 
 	ShregmapTechXilinx7Static(const ShregmapOptions &opts) : opts(opts) {}
 
-	virtual bool analyze(vector<int> &taps, const vector<SigBit> &/*qbits*/) override
+	virtual bool analyze_first(const Cell* first_cell, const SigMap &sigmap) override
 	{
-		if (GetSize(taps) == 1)
-			return taps[0] >= opts.minlen-1;
-
-		if (taps.back() < opts.minlen-1)
-			return false;
-
+		if (first_cell->type.in("\\FDRE", "\\FDRE_1")) {
+			bool is_R_inverted = false;
+			if (first_cell->hasParam("\\IS_R_INVERTED"))
+				is_R_inverted = first_cell->getParam("\\IS_R_INVERTED").as_bool();
+			SigBit R = sigmap(first_cell->getPort("\\R"));
+			if (R != RTLIL::S0 && R != RTLIL::S1)
+				return false;
+			if ((!is_R_inverted && R != RTLIL::S0) || (is_R_inverted && R != RTLIL::S1))
+				return false;
+			return true;
+		}
+		if (first_cell->type.in("\\FDSE", "\\FDSE_1")) {
+			bool is_S_inverted = false;
+			if (first_cell->hasParam("\\IS_S_INVERTED"))
+				is_S_inverted = first_cell->getParam("\\IS_S_INVERTED").as_bool();
+			SigBit S = sigmap(first_cell->getPort("\\S"));
+			if (S != RTLIL::S0 && S != RTLIL::S1)
+				return false;
+			if ((!is_S_inverted && S != RTLIL::S0) || (is_S_inverted && S != RTLIL::S1))
+				return false;
+			return true;
+		}
+		if (first_cell->type.in("\\FDCE", "\\FDCE_1")) {
+			bool is_CLR_inverted = false;
+			if (first_cell->hasParam("\\IS_CLR_INVERTED"))
+				is_CLR_inverted = first_cell->getParam("\\IS_CLR_INVERTED").as_bool();
+			SigBit CLR = sigmap(first_cell->getPort("\\CLR"));
+			if (CLR != RTLIL::S0 && CLR != RTLIL::S1)
+				return false;
+			if ((!is_CLR_inverted && CLR != RTLIL::S0) || (is_CLR_inverted && CLR != RTLIL::S1))
+				return false;
+			return true;
+		}
+		if (first_cell->type.in("\\FDPE", "\\FDPE_1")) {
+			bool is_PRE_inverted = false;
+			if (first_cell->hasParam("\\IS_PRE_INVERTED"))
+				is_PRE_inverted = first_cell->getParam("\\IS_PRE_INVERTED").as_bool();
+			SigBit PRE = sigmap(first_cell->getPort("\\PRE"));
+			if (PRE != RTLIL::S0 && PRE != RTLIL::S1)
+				return false;
+			if ((!is_PRE_inverted && PRE != RTLIL::S0) || (is_PRE_inverted && PRE != RTLIL::S1))
+				return false;
+			return true;
+		}
 		return true;
 	}
 
-	virtual RTLIL::Cell* fixup(Cell *cell, dict<int, SigBit> &/*taps*/) override
+	virtual bool analyze(vector<int> &taps, const vector<SigBit> &/*qbits*/) override
+	{
+		return GetSize(taps) == 1 && taps[0] >= opts.minlen-1;
+	}
+
+	virtual Cell* fixup(Cell *cell, dict<int, SigBit> &/*taps*/) override
 	{
 		auto newcell = cell->module->addCell(NEW_ID, "$__SHREG_");
 		newcell->set_src_attribute(cell->get_src_attribute());
@@ -136,16 +180,17 @@ struct ShregmapTechXilinx7Static : ShregmapTech
 			if (cell->hasPort("\\E"))
 				newcell->setPort("\\E", cell->getPort("\\E"));
 		}
-		else if (cell->type.in("$__SHREG_FDRE_", "$__SHREG_FDSE_", "$__SHREG_FDCE_", "$__SHREG_FDPE_")) {
-			if (cell->getParam("\\IS_C_INVERTED").as_bool())
-				newcell->setParam("\\CLKPOL", 0);
-			else
-				newcell->setParam("\\CLKPOL", 1);
+		else if (cell->type.in("$__SHREG_FDRE", "$__SHREG_FDRE_1","$__SHREG_FDSE", "$__SHREG_FDSE_1",
+					"$__SHREG_FDCE", "$__SHREG_FDCE_1", "$__SHREG_FDPE", "$__SHREG_FDPE_1")) {
+			int param_clkpol = 1;
+			if (cell->hasParam("\\IS_C_INVERTED") && cell->getParam("\\IS_C_INVERTED").as_bool())
+				param_clkpol = 0;
+			newcell->setParam("\\CLKPOL", param_clkpol);
 			newcell->setParam("\\ENPOL", 1);
 
 			newcell->setPort("\\E", cell->getPort("\\CE"));
 		}
-		else if (cell->type.in("$__SHREG_FDRE_1_", "$__SHREG_FDSE_1_", "$__SHREG_FDCE_1_", "$__SHREG_FDPE_1_")) {
+		else if (cell->type.in("$__SHREG_FDRE_1", "$__SHREG_FDSE_1", "$__SHREG_FDCE_1", "$__SHREG_FDPE_1")) {
 			newcell->setParam("\\CLKPOL", 0);
 
 			newcell->setPort("\\E", cell->getPort("\\CE"));
@@ -215,13 +260,14 @@ struct ShregmapTechXilinx7Dynamic : ShregmapTechXilinx7Static
 		Cell *shiftx = nullptr;
 		int group = 0;
 		for (int i = 0; i < GetSize(taps); ++i) {
+			// Check taps are sequential
+			if (i != taps[i])
+				return false;
+
 			auto it = sigbit_to_shiftx_offset.find(qbits[i]);
 			if (it == sigbit_to_shiftx_offset.end())
 				return false;
 
-			// Check taps are sequential
-			if (i != taps[i])
-				return false;
 			// Check taps are not connected to a shift register,
 			// or sequential to the same shift register
 			if (i == 0) {
@@ -268,7 +314,7 @@ struct ShregmapTechXilinx7Dynamic : ShregmapTechXilinx7Static
 		return true;
 	}
 
-	virtual RTLIL::Cell* fixup(Cell *cell, dict<int, SigBit> &taps) override
+	virtual Cell* fixup(Cell *cell, dict<int, SigBit> &taps) override
 	{
 		const auto &tap = *taps.begin();
 		auto bit = tap.second;
@@ -276,7 +322,7 @@ struct ShregmapTechXilinx7Dynamic : ShregmapTechXilinx7Static
 		auto it = sigbit_to_shiftx_offset.find(bit);
 		log_assert(it != sigbit_to_shiftx_offset.end());
 
-		RTLIL::Cell* newcell = ShregmapTechXilinx7Static::fixup(cell, taps);
+		Cell* newcell = ShregmapTechXilinx7Static::fixup(cell, taps);
 		log_assert(newcell);
 		log_assert(newcell->type == "$__SHREG_");
 		newcell->type = "$__XILINX_SHREG_";
@@ -451,6 +497,11 @@ struct ShregmapWorker
 
 			if (opts.tech)
 			{
+				if (!opts.tech->analyze_first(first_cell, sigmap)) {
+					cursor += depth;
+					continue;
+				}
+
 				vector<SigBit> qbits;
 				vector<int> taps;
 
@@ -724,16 +775,16 @@ struct ShregmapPass : public Pass {
 					opts.ffcells["$_DFFE_PN_"] = make_pair(IdString("\\D"), IdString("\\Q"));
 					opts.ffcells["$_DFFE_NP_"] = make_pair(IdString("\\D"), IdString("\\Q"));
 					opts.ffcells["$_DFFE_NN_"] = make_pair(IdString("\\D"), IdString("\\Q"));
-					opts.ffcells["FDRE"] = make_pair(IdString("\\D"), IdString("\\Q"));
-					opts.ffcells["FDRE_1"] = make_pair(IdString("\\D"), IdString("\\Q"));
-					opts.ffcells["FDSE"] = make_pair(IdString("\\D"), IdString("\\Q"));
-					opts.ffcells["FDSE_1"] = make_pair(IdString("\\D"), IdString("\\Q"));
-					opts.ffcells["FDCE"] = make_pair(IdString("\\D"), IdString("\\Q"));
-					opts.ffcells["FDCE_1"] = make_pair(IdString("\\D"), IdString("\\Q"));
-					opts.ffcells["FDPE"] = make_pair(IdString("\\D"), IdString("\\Q"));
-					opts.ffcells["FDPE_1"] = make_pair(IdString("\\D"), IdString("\\Q"));
+					opts.ffcells["\\FDRE"] = make_pair(IdString("\\D"), IdString("\\Q"));
+					opts.ffcells["\\FDRE_1"] = make_pair(IdString("\\D"), IdString("\\Q"));
+					opts.ffcells["\\FDSE"] = make_pair(IdString("\\D"), IdString("\\Q"));
+					opts.ffcells["\\FDSE_1"] = make_pair(IdString("\\D"), IdString("\\Q"));
+					opts.ffcells["\\FDCE"] = make_pair(IdString("\\D"), IdString("\\Q"));
+					opts.ffcells["\\FDCE_1"] = make_pair(IdString("\\D"), IdString("\\Q"));
+					opts.ffcells["\\FDPE"] = make_pair(IdString("\\D"), IdString("\\Q"));
+					opts.ffcells["\\FDPE_1"] = make_pair(IdString("\\D"), IdString("\\Q"));
 					if (tech == "xilinx_static")
-						opts.tech = new ShregmapTechXilinx7Dynamic(opts);
+						opts.tech = new ShregmapTechXilinx7Static(opts);
 					else if (tech == "xilinx_dynamic")
 						opts.tech = new ShregmapTechXilinx7Dynamic(opts);
 				} else {
