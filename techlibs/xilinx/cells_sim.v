@@ -283,28 +283,48 @@ module FDPE ((* abc_flop_q *) output reg Q, input C, CE, (* abc_flop_d *) input 
 `endif
 endmodule
 
-module FDRE_1 ((* abc_flop_q *) output reg Q, input C, CE, D, R);
+(* abc_box_id = 6, abc_flop /*, lib_whitebox */ *)
+module FDRE_1 ((* abc_flop_q *) output reg Q, input C, CE, (* abc_flop_d *) input D, input R);
   parameter [0:0] INIT = 1'b0;
   initial Q <= INIT;
-  always @(negedge C) if (R) Q <= 1'b0; else if(CE) Q <= D;
+`ifndef _ABC
+  always @(negedge C) if (R) Q <= 1'b0; else if (CE) Q <= D;
+`else
+  always @* if (R) Q <= 1'b0; else if (CE) Q <= D;
+`endif
 endmodule
 
-module FDSE_1 ((* abc_flop_q *) output reg Q, input C, CE, D, S);
+(* abc_box_id = 7, abc_flop /*, lib_whitebox */ *)
+module FDSE_1 ((* abc_flop_q *) output reg Q, input C, CE, (* abc_flop_d *) input D, input S);
   parameter [0:0] INIT = 1'b1;
   initial Q <= INIT;
-  always @(negedge C) if (S) Q <= 1'b1; else if(CE) Q <= D;
+`ifndef _ABC
+  always @(negedge C) if (S) Q <= 1'b1; else if (CE) Q <= D;
+`else
+  always @* if (S) Q <= 1'b1; else if (CE) Q <= D;
+ `endif
 endmodule
 
-module FDCE_1 ((* abc_flop_q *) output reg Q, input C, CE, D, CLR);
+(* abc_box_id = 8, abc_flop /*, lib_whitebox */ *)
+module FDCE_1 ((* abc_flop_q *) output reg Q, input C, CE, (* abc_flop_d *) input D, input CLR);
   parameter [0:0] INIT = 1'b0;
   initial Q <= INIT;
+`ifndef _ABC
   always @(negedge C, posedge CLR) if (CLR) Q <= 1'b0; else if (CE) Q <= D;
+`else
+  always @* if (CLR) Q <= 1'b0; else if (CE) Q <= D;
+`endif
 endmodule
 
-module FDPE_1 ((* abc_flop_q *) output reg Q, input C, CE, D, PRE);
+(* abc_box_id = 9, abc_flop /*, lib_whitebox */ *)
+module FDPE_1 ((* abc_flop_q *) output reg Q, input C, CE, (* abc_flop_d *) input D, input PRE);
   parameter [0:0] INIT = 1'b1;
   initial Q <= INIT;
+`ifndef _ABC
   always @(negedge C, posedge PRE) if (PRE) Q <= 1'b1; else if (CE) Q <= D;
+`else
+  always @* if (PRE) Q <= 1'b1; else if (CE) Q <= D;
+`endif
 endmodule
 
 (* abc_box_id = 4 /*, lib_whitebox*/ *)
