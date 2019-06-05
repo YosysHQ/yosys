@@ -304,7 +304,7 @@ struct SynthXilinxPass : public ScriptPass
 			// This shregmap call infers fixed length shift registers after abc
 			//   has performed any necessary retiming
 			if (!nosrl || help_mode)
-				run("shregmap -minlen 3 -init -params -enpol any_or_none", "(skip if '-nosrl')");
+				run("shregmap -tech xilinx_static -minlen 3", "(skip if '-nosrl')");
 			run("techmap -map +/xilinx/lut_map.v -map +/xilinx/cells_map.v");
 			run("clean");
 		}
