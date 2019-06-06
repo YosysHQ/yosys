@@ -74,7 +74,7 @@ always @*
     else o <= {W{1'bx}};
 endmodule
 
-module mux_if_unbal_5_3_nonexcl #(parameter N=4, parameter W=1) (input [N*W-1:0] i, input [$clog2(N)-1:0] s, output reg [W-1:0] o);
+module mux_if_unbal_5_3_nonexcl #(parameter N=5, parameter W=3) (input [N*W-1:0] i, input [$clog2(N)-1:0] s, output reg [W-1:0] o);
 always @* begin
     o <= {W{1'bx}};
     if (s == 0) o <= i[0*W+:W];
@@ -86,7 +86,7 @@ always @* begin
 end
 endmodule
 
-module mux_case_unbal_7_7#(parameter N=7, parameter W=7) (input [N*W-1:0] i, input [$clog2(N)-1:0] s, output reg [W-1:0] o);
+module mux_case_unbal_8_7#(parameter N=8, parameter W=7) (input [N*W-1:0] i, input [$clog2(N)-1:0] s, output reg [W-1:0] o);
 always @* begin
     o <= {W{1'bx}};
     case (s)

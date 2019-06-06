@@ -120,7 +120,7 @@ miter -equiv -flatten -make_assert -make_outputs gold gate miter
 sat -verify -prove-asserts -show-ports miter
 
 design -load read
-hierarchy -top mux_case_unbal_7_7
+hierarchy -top mux_case_unbal_8_7
 prep
 design -save gold
 muxpack
