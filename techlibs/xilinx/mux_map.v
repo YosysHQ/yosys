@@ -38,7 +38,7 @@ module \$shiftx (A, B, Y);
     if (B_SIGNED) begin
       if (_TECHMAP_CONSTMSK_B_[B_WIDTH-1] && _TECHMAP_CONSTVAL_B_[B_WIDTH-1] == 1'b0)
         // Optimisation to remove B_SIGNED if sign bit of B is constant-0
-        \$__XILINX_MUX_  #(.A_SIGNED(A_SIGNED), .B_SIGNED(0), .A_WIDTH(A_WIDTH), .B_WIDTH(B_WIDTH-1'd1), .Y_WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(A), .B(B[B_WIDTH-2:0]), .Y(Y));
+        \$__XILINX_SHIFTX  #(.A_SIGNED(A_SIGNED), .B_SIGNED(0), .A_WIDTH(A_WIDTH), .B_WIDTH(B_WIDTH-1'd1), .Y_WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(A), .B(B[B_WIDTH-2:0]), .Y(Y));
       else
         wire _TECHMAP_FAIL_ = 1;
     end
@@ -46,7 +46,7 @@ module \$shiftx (A, B, Y);
       wire _TECHMAP_FAIL_ = 1;
     end
     else begin
-        \$__XILINX_MUX_  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(A_WIDTH), .B_WIDTH(B_WIDTH), .Y_WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(A), .B(B), .Y(Y));
+        \$__XILINX_SHIFTX  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(A_WIDTH), .B_WIDTH(B_WIDTH), .Y_WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(A), .B(B), .Y(Y));
     end
   endgenerate
 endmodule
