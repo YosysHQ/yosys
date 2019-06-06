@@ -250,3 +250,15 @@ module \$__XILINX_MUX_ (A, B, Y);
     end
   endgenerate
 endmodule
+
+module \$_MUX8_ (A, B, C, D, E, F, G, H, S, T, U, Y);
+input A, B, C, D, E, F, G, H, S, T, U;
+output Y;
+  \$__XILINX_MUX_  #(.A_SIGNED(0), .B_SIGNED(0), .A_WIDTH(8), .B_WIDTH(3), .Y_WIDTH(1)) _TECHMAP_REPLACE_ (.A({A,B,C,D,E,F,G,H}), .B({U,T,S}), .Y(Y));
+endmodule
+
+module \$_MUX16_ (A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, S, T, U, V, Y);
+input A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, S, T, U, V;
+output Y;
+  \$__XILINX_MUX_  #(.A_SIGNED(0), .B_SIGNED(0), .A_WIDTH(16), .B_WIDTH(3), .Y_WIDTH(1)) _TECHMAP_REPLACE_ (.A({A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P}), .B({V,U,T,S}), .Y(Y));
+endmodule

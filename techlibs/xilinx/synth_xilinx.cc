@@ -225,6 +225,9 @@ struct SynthXilinxPass : public ScriptPass
 		if (check_label("coarse")) {
 			run("synth -run coarse");
 
+			if (!nomux || help_mode)
+				run("muxpack", "(skip if '-nomux')");
+
 			// shregmap -tech xilinx can cope with $shiftx and $mux
 			//   cells for identifying variable-length shift registers,
 			//   so attempt to convert $pmux-es to the former
@@ -286,7 +289,9 @@ struct SynthXilinxPass : public ScriptPass
 		}
 
 		if (check_label("map_cells")) {
-			run("techmap -map +/techmap.v -map +/xilinx/cells_map.v -map +/xilinx/ff_map.v ");
+			if (!nomux || help_mode)
+				run("muxcover", "(skip if '-nomux')");
+			run("techmap -map +/techmap.v -map +/xilinx/cells_map.v -map +/xilinx/ff_map.v");
 			run("dffinit -ff FDRE Q INIT -ff FDCE Q INIT -ff FDPE Q INIT -ff FDSE Q INIT "
 					"-ff FDRE_1 Q INIT -ff FDCE_1 Q INIT -ff FDPE_1 Q INIT -ff FDSE_1 Q INIT");
 			run("clean");
