@@ -84,18 +84,16 @@ struct MuxpackWorker
 	{
 		for (auto it : sig_chain_next)
 		{
-			SigSpec next_sig;
-
-            for (auto bit : it.first.bits())
-                if (sigbit_with_non_chain_users.count(bit))
-                    goto start_cell;
-
-			next_sig = it.second->getPort("\\A");
+			SigSpec next_sig = it.second->getPort("\\A");
 			if (sig_chain_prev.count(next_sig) == 0) {
 				next_sig = it.second->getPort("\\B");
 				if (sig_chain_prev.count(next_sig) == 0)
 					next_sig = SigSpec();
 			}
+
+			for (auto bit : next_sig.bits())
+				if (sigbit_with_non_chain_users.count(bit))
+					goto start_cell;
 
 			if (!next_sig.empty())
 			{
