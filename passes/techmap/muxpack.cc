@@ -218,19 +218,20 @@ struct MuxpackWorker
 };
 
 struct MuxpackPass : public Pass {
-	MuxpackPass() : Pass("muxpack", "TODO") { }
+	MuxpackPass() : Pass("muxpack", "$mux cell cascades to $pmux") { }
 	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    muxpack [options] [selection]\n");
+		log("    muxpack [selection]\n");
 		log("\n");
-        log("TODO");
+		log("This pass converts cascaded chains of $mux cells (e.g. those created by if-else\n");
+		log("constructs) into $pmux cells.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
-		log_header(design, "Executing MUXPACK pass (TODO).\n");
+		log_header(design, "Executing MUXPACK pass ($mux cell cascades to $pmux).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
