@@ -51,10 +51,12 @@ struct MuxpackWorker
 
 		for (auto cell : module->cells())
 		{
-			if (cell->type.in("$mux") && !cell->get_bool_attribute("\\keep"))
+			if (cell->type.in("$mux", "$pmux") && !cell->get_bool_attribute("\\keep"))
 			{
 				SigSpec a_sig = sigmap(cell->getPort("\\A"));
-				SigSpec b_sig = sigmap(cell->getPort("\\B"));
+				SigSpec b_sig;
+				if (cell->type == "$mux")
+					b_sig = sigmap(cell->getPort("\\B"));
 				SigSpec y_sig = sigmap(cell->getPort("\\Y"));
    
 				if (sig_chain_next.count(a_sig))
@@ -65,12 +67,14 @@ struct MuxpackWorker
 					candidate_cells.insert(cell);
 				}
 
-				if (sig_chain_next.count(b_sig))
-					for (auto b_bit : b_sig.bits())
-						sigbit_with_non_chain_users.insert(b_bit);
-				else {
-					sig_chain_next[b_sig] = cell;
-					candidate_cells.insert(cell);
+				if (!b_sig.empty()) {
+					if (sig_chain_next.count(b_sig))
+						for (auto b_bit : b_sig.bits())
+							sigbit_with_non_chain_users.insert(b_bit);
+					else {
+						sig_chain_next[b_sig] = cell;
+						candidate_cells.insert(cell);
+					}
 				}
 
 				sig_chain_prev[y_sig] = cell;
@@ -88,10 +92,16 @@ struct MuxpackWorker
 	{
 		for (auto cell : candidate_cells)
 		{
+			log_debug("Considering %s (%s)\n", log_id(cell), log_id(cell->type));
+
 			SigSpec next_sig = cell->getPort("\\A");
 			if (sig_chain_prev.count(next_sig) == 0) {
-				next_sig = cell->getPort("\\B");
-				if (sig_chain_prev.count(next_sig) == 0)
+				if (cell->type == "$mux") {
+					next_sig = cell->getPort("\\B");
+					if (sig_chain_prev.count(next_sig) == 0)
+						goto start_cell;
+				}
+				else
 					goto start_cell;
 			}
 
@@ -103,10 +113,7 @@ struct MuxpackWorker
 				Cell *c1 = sig_chain_prev.at(next_sig);
 				Cell *c2 = cell;
 
-				if (c1->type != c2->type)
-					goto start_cell;
-
-				if (c1->parameters != c2->parameters)
+				if (c1->getParam("\\WIDTH") != c2->getParam("\\WIDTH"))
 					goto start_cell;
 			}
 
@@ -220,15 +227,16 @@ struct MuxpackWorker
 };
 
 struct MuxpackPass : public Pass {
-	MuxpackPass() : Pass("muxpack", "$mux cell cascades to $pmux") { }
+	MuxpackPass() : Pass("muxpack", "$mux/$pmux cascades to $pmux") { }
 	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
 		log("    muxpack [selection]\n");
 		log("\n");
-		log("This pass converts cascaded chains of $mux cells (e.g. those created by if-else\n");
-		log("constructs) into $pmux cells.\n");
+		log("This pass converts cascaded chains of $pmux cells (e.g. those create from case\n");
+		log("constructs) and $mux cells (e.g. those created by if-else constructs) into \n");
+		log("into $pmux cells.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
