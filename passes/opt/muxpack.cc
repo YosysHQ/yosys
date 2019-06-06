@@ -43,9 +43,8 @@ struct MuxpackWorker
 		for (auto wire : module->wires())
 		{
 			if (wire->port_output || wire->get_bool_attribute("\\keep")) {
-				for (auto bit : sigmap(wire)) {
+				for (auto bit : sigmap(wire))
 					sigbit_with_non_chain_users.insert(bit);
-                }
 			}
 		}
 
@@ -58,8 +57,8 @@ struct MuxpackWorker
 				SigSpec y_sig = sigmap(cell->getPort("\\Y"));
    
 				if (sig_chain_next.count(a_sig))
-                    for (auto a_bit : a_sig.bits())
-                        sigbit_with_non_chain_users.insert(a_bit);
+					for (auto a_bit : a_sig.bits())
+						sigbit_with_non_chain_users.insert(a_bit);
 				else
 					sig_chain_next[a_sig] = cell;
 
@@ -70,7 +69,7 @@ struct MuxpackWorker
 					sig_chain_next[b_sig] = cell;
 
 				sig_chain_prev[y_sig] = cell;
-                continue;
+				continue;
 			}
 
 			for (auto conn : cell->connections())
@@ -182,7 +181,7 @@ struct MuxpackWorker
 
 			first_cell->setPort("\\B", b_sig);
 			first_cell->setPort("\\S", s_sig);
-            first_cell->setParam("\\S_WIDTH", GetSize(s_sig));
+			first_cell->setParam("\\S_WIDTH", GetSize(s_sig));
 			first_cell->setPort("\\Y", last_cell->getPort("\\Y"));
 
 			cursor += cases;
