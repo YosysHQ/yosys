@@ -54,13 +54,20 @@ struct MuxpackWorker
 			if (cell->type.in("$mux") && !cell->get_bool_attribute("\\keep"))
 			{
 				SigSpec a_sig = sigmap(cell->getPort("\\A"));
+				SigSpec b_sig = sigmap(cell->getPort("\\B"));
 				SigSpec y_sig = sigmap(cell->getPort("\\Y"));
    
 				if (sig_chain_next.count(a_sig))
                     for (auto a_bit : a_sig.bits())
                         sigbit_with_non_chain_users.insert(a_bit);
-                else
+				else
 					sig_chain_next[a_sig] = cell;
+
+				if (sig_chain_next.count(b_sig))
+					for (auto b_bit : b_sig.bits())
+						sigbit_with_non_chain_users.insert(b_bit);
+				else
+					sig_chain_next[b_sig] = cell;
 
 				sig_chain_prev[y_sig] = cell;
                 continue;
@@ -77,13 +84,22 @@ struct MuxpackWorker
 	{
 		for (auto it : sig_chain_next)
 		{
+			SigSpec next_sig;
+
             for (auto bit : it.first.bits())
                 if (sigbit_with_non_chain_users.count(bit))
                     goto start_cell;
 
-			if (sig_chain_prev.count(it.first) != 0)
+			next_sig = it.second->getPort("\\A");
+			if (sig_chain_prev.count(next_sig) == 0) {
+				next_sig = it.second->getPort("\\B");
+				if (sig_chain_prev.count(next_sig) == 0)
+					next_sig = SigSpec();
+			}
+
+			if (!next_sig.empty())
 			{
-				Cell *c1 = sig_chain_prev.at(it.first);
+				Cell *c1 = sig_chain_prev.at(next_sig);
 				Cell *c2 = it.second;
 
 				if (c1->type != c2->type)
@@ -149,15 +165,22 @@ struct MuxpackWorker
 			pmux_count += 1;
 
 			first_cell->type = "$pmux";
-            SigSpec b_sig = first_cell->getPort("\\B");
-            SigSpec s_sig = first_cell->getPort("\\S");
+			SigSpec b_sig = first_cell->getPort("\\B");
+			SigSpec s_sig = first_cell->getPort("\\S");
 
 			for (int i = 1; i < cases; i++) {
-                Cell* cursor_cell = chain[cursor+i];
-                b_sig.append(cursor_cell->getPort("\\B"));
-                s_sig.append(cursor_cell->getPort("\\S"));
+				Cell* prev_cell = chain[cursor+i-1];
+				Cell* cursor_cell = chain[cursor+i];
+				if (sigmap(prev_cell->getPort("\\Y")) == sigmap(cursor_cell->getPort("\\A"))) {
+					b_sig.append(cursor_cell->getPort("\\B"));
+					s_sig.append(cursor_cell->getPort("\\S"));
+				}
+				else {
+					b_sig.append(cursor_cell->getPort("\\A"));
+					s_sig.append(module->LogicNot(NEW_ID, cursor_cell->getPort("\\S")));
+				}
 				remove_cells.insert(cursor_cell);
-            }
+			}
 
 			first_cell->setPort("\\B", b_sig);
 			first_cell->setPort("\\S", s_sig);
