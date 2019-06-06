@@ -94,23 +94,27 @@ struct MuxpackWorker
 		{
 			log_debug("Considering %s (%s)\n", log_id(cell), log_id(cell->type));
 
-			SigSpec next_sig = cell->getPort("\\A");
-			if (sig_chain_prev.count(next_sig) == 0) {
-				if (cell->type == "$mux") {
-					next_sig = cell->getPort("\\B");
-					if (sig_chain_prev.count(next_sig) == 0)
-						goto start_cell;
-				}
-				else
+			SigSpec a_sig = cell->getPort("\\A");
+			if (cell->type == "$mux") {
+				SigSpec b_sig = cell->getPort("\\B");
+				if (sig_chain_prev.count(a_sig) + sig_chain_prev.count(b_sig) != 1)
+					goto start_cell;
+
+				if (!sig_chain_prev.count(a_sig))
+					a_sig = b_sig;
+			}
+			else if (cell->type == "$pmux") {
+				if (!sig_chain_prev.count(a_sig))
 					goto start_cell;
 			}
+			else log_abort();
 
 			{
-				for (auto bit : next_sig.bits())
+				for (auto bit : a_sig.bits())
 					if (sigbit_with_non_chain_users.count(bit))
 						goto start_cell;
 
-				Cell *c1 = sig_chain_prev.at(next_sig);
+				Cell *c1 = sig_chain_prev.at(a_sig);
 				Cell *c2 = cell;
 
 				if (c1->getParam("\\WIDTH") != c2->getParam("\\WIDTH"))
