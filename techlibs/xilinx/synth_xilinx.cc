@@ -290,7 +290,7 @@ struct SynthXilinxPass : public ScriptPass
 
 		if (check_label("map_cells")) {
 			if (!nomux || help_mode)
-				run("muxcover", "(skip if '-nomux')");
+				run("muxcover -mux8 -mux16", "(skip if '-nomux')");
 			run("techmap -map +/techmap.v -map +/xilinx/cells_map.v -map +/xilinx/ff_map.v");
 			run("dffinit -ff FDRE Q INIT -ff FDCE Q INIT -ff FDPE Q INIT -ff FDSE Q INIT "
 					"-ff FDRE_1 Q INIT -ff FDCE_1 Q INIT -ff FDPE_1 Q INIT -ff FDSE_1 Q INIT");
