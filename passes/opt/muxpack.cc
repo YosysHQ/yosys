@@ -94,9 +94,9 @@ struct MuxpackWorker
 		{
 			log_debug("Considering %s (%s)\n", log_id(cell), log_id(cell->type));
 
-			SigSpec a_sig = cell->getPort("\\A");
+			SigSpec a_sig = sigmap(cell->getPort("\\A"));
 			if (cell->type == "$mux") {
-				SigSpec b_sig = cell->getPort("\\B");
+				SigSpec b_sig = sigmap(cell->getPort("\\B"));
 				if (sig_chain_prev.count(a_sig) + sig_chain_prev.count(b_sig) != 1)
 					goto start_cell;
 
