@@ -154,7 +154,7 @@ struct specify_rise_fall {
 %token TOK_INCREMENT TOK_DECREMENT TOK_UNIQUE TOK_PRIORITY
 
 %type <ast> range range_or_multirange  non_opt_range non_opt_multirange range_or_signed_int
-%type <ast> wire_type expr basic_expr concat_list rvalue lvalue lvalue_concat_list named_port
+%type <ast> wire_type expr basic_expr concat_list rvalue lvalue lvalue_concat_list
 %type <string> opt_label opt_sva_label tok_prim_wrapper hierarchical_id
 %type <boolean> opt_signed opt_property unique_case_attr
 %type <al> attr case_attr

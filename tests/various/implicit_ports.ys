@@ -1,8 +1,0 @@
-read_verilog -sv implicit_ports.sv
-proc; opt
-
-flatten
-select -module named_ports
-
-sat -verify -prove alu_result 6
-sat -verify -set-all-undef cout
