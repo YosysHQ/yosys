@@ -81,9 +81,9 @@ end_of_header:
     else
         log_abort();
 
-	RTLIL::Wire* n0 = module->wire("\\n0");
-	if (n0)
-		module->connect(n0, RTLIL::S0);
+    RTLIL::Wire* n0 = module->wire("\\n0");
+    if (n0)
+        module->connect(n0, RTLIL::S0);
 
     for (unsigned i = 0; i < outputs.size(); ++i) {
         RTLIL::Wire *wire = outputs[i];
