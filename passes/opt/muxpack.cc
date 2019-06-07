@@ -109,17 +109,9 @@ struct MuxpackWorker
 			}
 			else log_abort();
 
-			{
-				for (auto bit : a_sig.bits())
-					if (sigbit_with_non_chain_users.count(bit))
-						goto start_cell;
-
-				Cell *c1 = sig_chain_prev.at(a_sig);
-				Cell *c2 = cell;
-
-				if (c1->getParam("\\WIDTH") != c2->getParam("\\WIDTH"))
+			for (auto bit : a_sig.bits())
+				if (sigbit_with_non_chain_users.count(bit))
 					goto start_cell;
-			}
 
 			continue;
 
