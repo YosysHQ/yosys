@@ -133,7 +133,7 @@ struct specify_rise_fall {
 }
 
 %token <string> TOK_STRING TOK_ID TOK_CONSTVAL TOK_REALVAL TOK_PRIMITIVE
-%token <string> TOK_SVA_LABEL TOK_SPECIFY_OPER
+%token <string> TOK_SVA_LABEL TOK_SPECIFY_OPER TOK_ELAB_TASK
 %token TOK_ASSERT TOK_ASSUME TOK_RESTRICT TOK_COVER TOK_FINAL
 %token ATTR_BEGIN ATTR_END DEFATTR_BEGIN DEFATTR_END
 %token TOK_MODULE TOK_ENDMODULE TOK_PARAMETER TOK_LOCALPARAM TOK_DEFPARAM
@@ -1557,6 +1557,15 @@ cell_port:
 		astbuf2->children.push_back(node);
 		delete $3;
 		free_attr($1);
+	} |
+	attr '.' TOK_ID {
+		AstNode *node = new AstNode(AST_ARGUMENT);
+		node->str = *$3;
+		astbuf2->children.push_back(node);
+		node->children.push_back(new AstNode(AST_IDENTIFIER));
+		node->children.back()->str = *$3;
+		delete $3;
+		free_attr($1);
 	};
 
 always_stmt:
@@ -2167,6 +2176,15 @@ gen_stmt:
 		if ($6 != NULL)
 			delete $6;
 		ast_stack.pop_back();
+	} |
+	TOK_ELAB_TASK {
+		AstNode *node = new AstNode(AST_TECALL);
+		node->str = *$1;
+		delete $1;
+		ast_stack.back()->children.push_back(node);
+		ast_stack.push_back(node);
+	} opt_arg_list ';'{
+		ast_stack.pop_back();		
 	};
 
 gen_stmt_block:
