@@ -163,3 +163,18 @@ design -import gold -as gold
 design -import gate -as gate
 miter -equiv -flatten -make_assert -make_outputs gold gate miter
 sat -verify -prove-asserts -show-ports miter
+
+design -load read
+hierarchy -top cliffordwolf_nonexclusive_select
+prep
+design -save gold
+muxpack
+opt
+stat
+select -assert-count 0 t:$mux
+select -assert-count 1 t:$pmux
+design -stash gate
+design -import gold -as gold
+design -import gate -as gate
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports miter
