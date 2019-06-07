@@ -586,7 +586,11 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 					RTLIL::Cell *cell;
 					RTLIL::SigBit a_bit = c->getPort("\\A").as_bit();
 					RTLIL::SigBit y_bit = c->getPort("\\Y").as_bit();
-					if (!lut_costs.empty() || !lut_file.empty()) {
+					if (!a_bit.wire) {
+						c->setPort("\\Y", module->addWire(NEW_ID));
+						module->connect(module->wires_[remap_name(y_bit.wire->name)], RTLIL::S1);
+					}
+					else if (!lut_costs.empty() || !lut_file.empty()) {
 						RTLIL::Cell* driving_lut = nullptr;
 						// ABC can return NOT gates that drive POs
 						if (!a_bit.wire->port_input) {
