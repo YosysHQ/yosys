@@ -230,7 +230,6 @@ void AigerReader::parse_aiger_ascii()
         wire->port_output = true;
         outputs.push_back(wire);
     }
-    std::getline(f, line); // Ignore up to start of next line
 
     // Parse bad properties
     for (unsigned i = 0; i < B; ++i, ++line_count) {
@@ -242,8 +241,6 @@ void AigerReader::parse_aiger_ascii()
         wire->port_output = true;
         bad_properties.push_back(wire);
     }
-    if (B > 0)
-        std::getline(f, line); // Ignore up to start of next line
 
     // TODO: Parse invariant constraints
     for (unsigned i = 0; i < C; ++i, ++line_count)
