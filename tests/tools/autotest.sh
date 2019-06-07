@@ -146,9 +146,10 @@ do
 		rm -f ${bn}_ref.fir
 		if [[ "$ext" == "v" ]]; then
 			egrep -v '^\s*`timescale' ../$fn > ${bn}_ref.${ext}
+		elif [[ "$ext" == "aig" ]] || [[ "$ext" == "aag" ]]; then
+			"$toolsdir"/../../yosys-abc -c "read_aiger ../${fn}; write ${bn}_ref.v"
 		else
-			"$toolsdir"/../../yosys -f "$frontend $include_opts" -b "verilog" -o ${bn}_ref.v ../${fn}
-			frontend="verilog -noblackbox"
+			cp ../${fn} ${bn}_ref.${ext}
 		fi
 
 		if [ ! -f ../${bn}_tb.v ]; then

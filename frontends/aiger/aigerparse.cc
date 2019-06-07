@@ -81,11 +81,26 @@ end_of_header:
     else
         log_abort();
 
+    RTLIL::Wire* n0 = module->wire("\\n0");
+    if (n0)
+        module->connect(n0, RTLIL::S0);
+
+    for (unsigned i = 0; i < outputs.size(); ++i) {
+        RTLIL::Wire *wire = outputs[i];
+        if (wire->port_input) {
+            RTLIL::Wire *o_wire = module->addWire(wire->name.str() + "_o");
+            o_wire->port_output = true;
+            wire->port_output = false;
+            module->connect(o_wire, wire);
+            outputs[i] = o_wire;
+        }
+    }
+
     // Parse footer (symbol table, comments, etc.)
     unsigned l1;
     std::string s;
     for (int c = f.peek(); c != EOF; c = f.peek(), ++line_count) {
-        if (c == 'i' || c == 'l' || c == 'o') {
+        if (c == 'i' || c == 'l' || c == 'o' || c == 'b') {
             f.ignore(1);
             if (!(f >> l1 >> s))
                 log_error("Line %u cannot be interpreted as a symbol entry!\n", line_count);
@@ -97,11 +112,12 @@ end_of_header:
             if (c == 'i') wire = inputs[l1];
             else if (c == 'l') wire = latches[l1];
             else if (c == 'o') wire = outputs[l1];
+            else if (c == 'b') wire = bad_properties[l1];
             else log_abort();
 
             module->rename(wire, stringf("\\%s", s.c_str()));
         }
-        else if (c == 'b' || c == 'j' || c == 'f') {
+        else if (c == 'j' || c == 'f') {
             // TODO
         }
         else if (c == 'c') {
@@ -153,7 +169,7 @@ void AigerReader::parse_aiger_ascii()
     unsigned l1, l2, l3;
 
     // Parse inputs
-    for (unsigned i = 0; i < I; ++i, ++line_count) {
+    for (unsigned i = 1; i <= I; ++i, ++line_count) {
         if (!(f >> l1))
             log_error("Line %u cannot be interpreted as an input!\n", line_count);
         log_debug("%d is an input\n", l1);
@@ -187,8 +203,10 @@ void AigerReader::parse_aiger_ascii()
             if (!(f >> l3))
                 log_error("Line %u cannot be interpreted as a latch!\n", line_count);
 
-            if (l3 == 0 || l3 == 1)
-                q_wire->attributes["\\init"] = RTLIL::Const(l3);
+            if (l3 == 0)
+                q_wire->attributes["\\init"] = RTLIL::S0;
+            else if (l3 == 1)
+                q_wire->attributes["\\init"] = RTLIL::S1;
             else if (l3 == l1) {
                 //q_wire->attributes["\\init"] = RTLIL::Const(RTLIL::State::Sx);
             }
@@ -197,7 +215,7 @@ void AigerReader::parse_aiger_ascii()
         }
         else {
             // AIGER latches are assumed to be initialized to zero
-            q_wire->attributes["\\init"] = RTLIL::Const(0);
+            q_wire->attributes["\\init"] = RTLIL::S0;
         }
         latches.push_back(q_wire);
     }
@@ -212,11 +230,17 @@ void AigerReader::parse_aiger_ascii()
         wire->port_output = true;
         outputs.push_back(wire);
     }
-    std::getline(f, line); // Ignore up to start of next line
 
-    // TODO: Parse bad state properties
-    for (unsigned i = 0; i < B; ++i, ++line_count)
-        std::getline(f, line); // Ignore up to start of next line
+    // Parse bad properties
+    for (unsigned i = 0; i < B; ++i, ++line_count) {
+        if (!(f >> l1))
+            log_error("Line %u cannot be interpreted as a bad state property!\n", line_count);
+
+        log_debug("%d is a bad state property\n", l1);
+        RTLIL::Wire *wire = createWireIfNotExists(module, l1);
+        wire->port_output = true;
+        bad_properties.push_back(wire);
+    }
 
     // TODO: Parse invariant constraints
     for (unsigned i = 0; i < C; ++i, ++line_count)
@@ -290,8 +314,10 @@ void AigerReader::parse_aiger_binary()
             if (!(f >> l3))
                 log_error("Line %u cannot be interpreted as a latch!\n", line_count);
 
-            if (l3 == 0 || l3 == 1)
-                q_wire->attributes["\\init"] = RTLIL::Const(l3);
+            if (l3 == 0)
+                q_wire->attributes["\\init"] = RTLIL::S0;
+            else if (l3 == 1)
+                q_wire->attributes["\\init"] = RTLIL::S1;
             else if (l3 == l1) {
                 //q_wire->attributes["\\init"] = RTLIL::Const(RTLIL::State::Sx);
             }
@@ -300,7 +326,7 @@ void AigerReader::parse_aiger_binary()
         }
         else {
             // AIGER latches are assumed to be initialized to zero
-            q_wire->attributes["\\init"] = RTLIL::Const(0);
+            q_wire->attributes["\\init"] = RTLIL::S0;
         }
         latches.push_back(q_wire);
     }
@@ -317,8 +343,17 @@ void AigerReader::parse_aiger_binary()
     }
     std::getline(f, line); // Ignore up to start of next line
 
-    // TODO: Parse bad state properties
-    for (unsigned i = 0; i < B; ++i, ++line_count)
+    // Parse bad properties
+    for (unsigned i = 0; i < B; ++i, ++line_count) {
+        if (!(f >> l1))
+            log_error("Line %u cannot be interpreted as a bad state property!\n", line_count);
+
+        log_debug("%d is a bad state property\n", l1);
+        RTLIL::Wire *wire = createWireIfNotExists(module, l1);
+        wire->port_output = true;
+        bad_properties.push_back(wire);
+    }
+    if (B > 0)
         std::getline(f, line); // Ignore up to start of next line
 
     // TODO: Parse invariant constraints
