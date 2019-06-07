@@ -1557,6 +1557,15 @@ cell_port:
 		astbuf2->children.push_back(node);
 		delete $3;
 		free_attr($1);
+	} |
+	attr '.' TOK_ID {
+		AstNode *node = new AstNode(AST_ARGUMENT);
+		node->str = *$3;
+		astbuf2->children.push_back(node);
+		node->children.push_back(new AstNode(AST_IDENTIFIER));
+		node->children.back()->str = *$3;
+		delete $3;
+		free_attr($1);
 	};
 
 always_stmt:
