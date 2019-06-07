@@ -62,7 +62,7 @@ struct ExclusiveDatabase
 
 	bool query(const SigSpec& sig1, const SigSpec& sig2) const
 	{
-		// FIXME: O(N)
+		// FIXME: O(N^2)
 		for (auto bit1 : sig1.bits()) {
 			auto it = sig_cmp_prev.find(bit1);
 			if (it == sig_cmp_prev.end())
