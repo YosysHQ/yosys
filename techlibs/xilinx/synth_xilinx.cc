@@ -225,8 +225,8 @@ struct SynthXilinxPass : public ScriptPass
 		if (check_label("coarse")) {
 			run("synth -run coarse");
 
-			if (!nomux || help_mode)
-				run("muxpack", "(skip if '-nomux')");
+			//if (!nomux || help_mode)
+			//	run("muxpack", "(skip if '-nomux')");
 
 			// shregmap -tech xilinx can cope with $shiftx and $mux
 			//   cells for identifying variable-length shift registers,
