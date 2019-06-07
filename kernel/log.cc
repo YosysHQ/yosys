@@ -277,8 +277,19 @@ void log_file_warning(const std::string &filename, int lineno,
 	va_list ap;
 	va_start(ap, format);
 	std::string prefix = stringf("%s:%d: Warning: ",
-				     filename.c_str(), lineno);
+			filename.c_str(), lineno);
 	logv_warning_with_prefix(prefix.c_str(), format, ap);
+	va_end(ap);
+}
+
+void log_file_info(const std::string &filename, int lineno,
+                      const char *format, ...)
+{
+	va_list ap;
+	va_start(ap, format);
+	std::string fmt = stringf("%s:%d: Info: %s",
+			filename.c_str(), lineno, format);
+	logv(fmt.c_str(), ap);
 	va_end(ap);
 }
 
