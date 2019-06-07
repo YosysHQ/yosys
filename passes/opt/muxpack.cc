@@ -29,7 +29,7 @@ struct ExclusiveDatabase
 	Module *module;
 	const SigMap &sigmap;
 
-	dict<SigSpec, SigSpec> sig_cmp_prev;
+	dict<SigBit, SigSpec> sig_cmp_prev;
 	dict<SigSpec, pool<SigSpec>> sig_exclusive;
 
 	ExclusiveDatabase(Module *module, const SigMap &sigmap) : module(module), sigmap(sigmap)
@@ -62,16 +62,23 @@ struct ExclusiveDatabase
 
 	bool query(const SigSpec& sig1, const SigSpec& sig2) const
 	{
-		auto it = sig_cmp_prev.find(sig1);
-		if (it == sig_cmp_prev.end())
-			return false;
+		// FIXME: O(N)
+		for (auto bit1 : sig1.bits()) {
+			auto it = sig_cmp_prev.find(bit1);
+			if (it == sig_cmp_prev.end())
+				return false;
 
-		auto jt = sig_cmp_prev.find(sig2);
-		if (jt == sig_cmp_prev.end())
-			return false;
+			for (auto bit2 : sig2.bits()) {
+				auto jt = sig_cmp_prev.find(bit2);
+				if (jt == sig_cmp_prev.end())
+					return false;
 
-		log("query = %s %s\n", log_signal(it->second), log_signal(jt->second));
-		return it->second == jt->second;
+				if (it->second != jt->second)
+					return false;
+			}
+		}
+
+		return true;
 	}
 };
 
@@ -144,7 +151,6 @@ struct MuxpackWorker
 
 	void find_chain_start_cells()
 	{
-		Cell* first_cell = nullptr;
 		for (auto cell : candidate_cells)
 		{
 			log_debug("Considering %s (%s)\n", log_id(cell), log_id(cell->type));
@@ -157,13 +163,6 @@ struct MuxpackWorker
 
 				if (!sig_chain_prev.count(a_sig))
 					a_sig = b_sig;
-
-				if (first_cell) {
-					SigSpec s_sig = sigmap(cell->getPort("\\S"));
-					SigSpec prev_s_sig = sigmap(first_cell->getPort("\\S"));
-					if (!excl_db.query(prev_s_sig, s_sig))
-						goto start_cell;
-				}
 			}
 			else if (cell->type == "$pmux") {
 				if (!sig_chain_prev.count(a_sig))
@@ -175,11 +174,19 @@ struct MuxpackWorker
 				if (sigbit_with_non_chain_users.count(bit))
 					goto start_cell;
 
+			{
+				Cell *prev_cell = sig_chain_prev.at(a_sig);
+				log_assert(prev_cell);
+				SigSpec s_sig = sigmap(cell->getPort("\\S"));
+				SigSpec next_s_sig = sigmap(prev_cell->getPort("\\S"));
+				if (!excl_db.query(s_sig, next_s_sig))
+					goto start_cell;
+			}
+
 			continue;
 
 		start_cell:
 			chain_start_cells.insert(cell);
-			first_cell = cell;
 		}
 	}
 
@@ -243,6 +250,7 @@ struct MuxpackWorker
 					s_sig.append(cursor_cell->getPort("\\S"));
 				}
 				else {
+					log_assert(cursor_cell->type == "$mux");
 					b_sig.append(cursor_cell->getPort("\\A"));
 					s_sig.append(module->LogicNot(NEW_ID, cursor_cell->getPort("\\S")));
 				}
