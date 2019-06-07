@@ -1,5 +1,6 @@
 read_verilog muxpack.v
 design -save read
+
 hierarchy -top mux_if_unbal_4_1
 prep
 design -save gold
@@ -29,20 +30,21 @@ design -import gate -as gate
 miter -equiv -flatten -make_assert -make_outputs gold gate miter
 sat -verify -prove-asserts -show-ports miter
 
-design -load read
-hierarchy -top mux_if_unbal_5_3_invert
-prep
-design -save gold
-muxpack
-opt
-stat
-select -assert-count 0 t:$mux
-select -assert-count 1 t:$pmux
-design -stash gate
-design -import gold -as gold
-design -import gate -as gate
-miter -equiv -flatten -make_assert -make_outputs gold gate miter
-sat -verify -prove-asserts -show-ports miter
+# TODO: Currently ExclusiveDatabase only analyses $eq cells
+#design -load read
+#hierarchy -top mux_if_unbal_5_3_invert
+#prep
+#design -save gold
+#muxpack
+#opt
+#stat
+#select -assert-count 0 t:$mux
+#select -assert-count 1 t:$pmux
+#design -stash gate
+#design -import gold -as gold
+#design -import gate -as gate
+#miter -equiv -flatten -make_assert -make_outputs gold gate miter
+#sat -verify -prove-asserts -show-ports miter
 
 design -load read
 hierarchy -top mux_if_unbal_5_3_width_mismatch
@@ -156,8 +158,8 @@ design -save gold
 muxpack
 opt
 stat
-select -assert-count 2 t:$mux
-select -assert-count 1 t:$pmux
+select -assert-count 4 t:$mux
+select -assert-count 0 t:$pmux
 design -stash gate
 design -import gold -as gold
 design -import gate -as gate
@@ -171,25 +173,40 @@ design -save gold
 muxpack
 opt
 stat
-select -assert-count 0 t:$mux
-select -assert-count 1 t:$pmux
+select -assert-count 3 t:$mux
+select -assert-count 0 t:$pmux
 design -stash gate
 design -import gold -as gold
 design -import gate -as gate
 miter -equiv -flatten -make_assert -make_outputs gold gate miter
 sat -verify -prove-asserts -show-ports miter
 
+#design -load read
+#hierarchy -top cliffordwolf_freduce
+#prep
+#design -save gold
+#proc; opt; freduce; opt
+#show
+#muxpack
+#opt
+#stat
+#select -assert-count 0 t:$mux
+#select -assert-count 1 t:$pmux
+#design -stash gate
+#design -import gold -as gold
+#design -import gate -as gate
+#miter -equiv -flatten -make_assert -make_outputs gold gate miter
+#sat -verify -prove-asserts -show-ports miter
+
 design -load read
-hierarchy -top cliffordwolf_freduce
+hierarchy -top case_nonexclusive_select
 prep
 design -save gold
-proc; opt; freduce; opt
-write_verilog -noexpr -norename
 muxpack
 opt
 stat
 select -assert-count 0 t:$mux
-select -assert-count 1 t:$pmux
+select -assert-count 2 t:$pmux
 design -stash gate
 design -import gold -as gold
 design -import gate -as gate
