@@ -234,7 +234,6 @@ namespace AST
 		bool mem2reg_check(pool<AstNode*> &mem2reg_set);
 		void mem2reg_remove(pool<AstNode*> &mem2reg_set, vector<AstNode*> &delnodes);
 		void meminfo(int &mem_width, int &mem_size, int &addr_bits);
-		bool check_elab_tasks(void);
 
 		// additional functionality for evaluating constant functions
 		struct varinfo_t { RTLIL::Const val; int offset; bool is_signed; };
