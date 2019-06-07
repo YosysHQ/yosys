@@ -24,6 +24,58 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+struct ExclusiveDatabase
+{
+	Module *module;
+	const SigMap &sigmap;
+
+	dict<SigSpec, SigSpec> sig_cmp_prev;
+	dict<SigSpec, pool<SigSpec>> sig_exclusive;
+
+	ExclusiveDatabase(Module *module, const SigMap &sigmap) : module(module), sigmap(sigmap)
+	{
+		SigSpec a_port, b_port, y_port;
+		for (auto cell : module->cells()) {
+			if (cell->type == "$eq") {
+				a_port = sigmap(cell->getPort("\\A"));
+				b_port = sigmap(cell->getPort("\\B"));
+				if (!b_port.is_fully_const()) {
+					if (!a_port.is_fully_const())
+						continue;
+					std::swap(a_port, b_port);
+				}
+				y_port = sigmap(cell->getPort("\\Y"));
+			}
+			else if (cell->type == "$logic_not") {
+				a_port = sigmap(cell->getPort("\\A"));
+				b_port = Const(RTLIL::S0, GetSize(a_port));
+				y_port = sigmap(cell->getPort("\\Y"));
+			}
+			else continue;
+
+			auto r = sig_exclusive[a_port].insert(b_port.as_const());
+			if (!r.second)
+				continue;
+			sig_cmp_prev[y_port] = a_port;
+		}
+	}
+
+	bool query(const SigSpec& sig1, const SigSpec& sig2) const
+	{
+		auto it = sig_cmp_prev.find(sig1);
+		if (it == sig_cmp_prev.end())
+			return false;
+
+		auto jt = sig_cmp_prev.find(sig2);
+		if (jt == sig_cmp_prev.end())
+			return false;
+
+		log("query = %s %s\n", log_signal(it->second), log_signal(jt->second));
+		return it->second == jt->second;
+	}
+};
+
+
 struct MuxpackWorker
 {
 	Module *module;
@@ -38,6 +90,8 @@ struct MuxpackWorker
 	pool<SigBit> sigbit_with_non_chain_users;
 	pool<Cell*> chain_start_cells;
 	pool<Cell*> candidate_cells;
+
+	ExclusiveDatabase excl_db;
 
 	void make_sig_chain_next_prev()
 	{
@@ -90,6 +144,7 @@ struct MuxpackWorker
 
 	void find_chain_start_cells()
 	{
+		Cell* first_cell = nullptr;
 		for (auto cell : candidate_cells)
 		{
 			log_debug("Considering %s (%s)\n", log_id(cell), log_id(cell->type));
@@ -102,6 +157,13 @@ struct MuxpackWorker
 
 				if (!sig_chain_prev.count(a_sig))
 					a_sig = b_sig;
+
+				if (first_cell) {
+					SigSpec s_sig = sigmap(cell->getPort("\\S"));
+					SigSpec prev_s_sig = sigmap(first_cell->getPort("\\S"));
+					if (!excl_db.query(prev_s_sig, s_sig))
+						goto start_cell;
+				}
 			}
 			else if (cell->type == "$pmux") {
 				if (!sig_chain_prev.count(a_sig))
@@ -117,6 +179,7 @@ struct MuxpackWorker
 
 		start_cell:
 			chain_start_cells.insert(cell);
+			first_cell = cell;
 		}
 	}
 
@@ -208,7 +271,7 @@ struct MuxpackWorker
 	}
 
 	MuxpackWorker(Module *module) :
-			module(module), sigmap(module), mux_count(0), pmux_count(0)
+			module(module), sigmap(module), mux_count(0), pmux_count(0), excl_db(module, sigmap)
 	{
 		make_sig_chain_next_prev();
 		find_chain_start_cells();
