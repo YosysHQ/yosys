@@ -1575,6 +1575,37 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			delete always;
 		} break;
 
+	case AST_TECALL: {
+			int sz = children.size();
+			if (str == "$info") {
+				if (sz > 0)
+					log_file_info(filename, linenum, "%s.\n", children[0]->str.c_str());
+				else
+					log_file_info(filename, linenum, "\n");
+			} else if (str == "$warning") {
+				if (sz > 0)
+					log_file_warning(filename, linenum, "%s.\n", children[0]->str.c_str());
+				else
+					log_file_warning(filename, linenum, "\n");
+			} else if (str == "$error") {
+				if (sz > 0)
+					log_file_error(filename, linenum, "%s.\n", children[0]->str.c_str());
+				else
+					log_file_error(filename, linenum, "\n");
+			} else if (str == "$fatal") {
+				// TODO: 1st parameter, if exists, is 0,1 or 2, and passed to $finish()
+				// if no parameter is given, default value is 1
+				// dollar_finish(sz ? children[0] : 1);
+				// perhaps create & use log_file_fatal()
+				if (sz > 0)
+					log_file_error(filename, linenum, "FATAL: %s.\n", children[0]->str.c_str());
+				else
+					log_file_error(filename, linenum, "FATAL.\n");
+			} else {
+				log_file_error(filename, linenum, "Unknown elabortoon system task '%s'.\n", str.c_str());
+			}
+		} break;
+
 	case AST_FCALL: {
 			if (str == "\\$anyconst" || str == "\\$anyseq" || str == "\\$allconst" || str == "\\$allseq")
 			{
