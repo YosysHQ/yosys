@@ -719,7 +719,7 @@ struct ShregmapPass : public Pass {
 					opts.zinit = true;
 					opts.tech = new ShregmapTechGreenpak4;
 				}
-				else if (tech == "xilinx_static" || tech == "xilinx_dynamic") {
+				else if (tech == "xilinx_dynamic") {
 					opts.init = true;
 					opts.ffcells["$_DFF_P_"] = make_pair(IdString("\\D"), IdString("\\Q"));
 					opts.ffcells["$_DFF_N_"] = make_pair(IdString("\\D"), IdString("\\Q"));
@@ -727,18 +727,7 @@ struct ShregmapPass : public Pass {
 					opts.ffcells["$_DFFE_PN_"] = make_pair(IdString("\\D"), IdString("\\Q"));
 					opts.ffcells["$_DFFE_NP_"] = make_pair(IdString("\\D"), IdString("\\Q"));
 					opts.ffcells["$_DFFE_NN_"] = make_pair(IdString("\\D"), IdString("\\Q"));
-					opts.ffcells["FDRE"] = make_pair(IdString("\\D"), IdString("\\Q"));
-					opts.ffcells["FDRE_1"] = make_pair(IdString("\\D"), IdString("\\Q"));
-					opts.ffcells["FDSE"] = make_pair(IdString("\\D"), IdString("\\Q"));
-					opts.ffcells["FDSE_1"] = make_pair(IdString("\\D"), IdString("\\Q"));
-					opts.ffcells["FDCE"] = make_pair(IdString("\\D"), IdString("\\Q"));
-					opts.ffcells["FDCE_1"] = make_pair(IdString("\\D"), IdString("\\Q"));
-					opts.ffcells["FDPE"] = make_pair(IdString("\\D"), IdString("\\Q"));
-					opts.ffcells["FDPE_1"] = make_pair(IdString("\\D"), IdString("\\Q"));
-					if (tech == "xilinx_static")
-						opts.tech = new ShregmapTechXilinx7Dynamic(opts);
-					else if (tech == "xilinx_dynamic")
-						opts.tech = new ShregmapTechXilinx7Dynamic(opts);
+					opts.tech = new ShregmapTechXilinx7Dynamic(opts);
 				} else {
 					argidx--;
 					break;
