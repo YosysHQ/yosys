@@ -266,8 +266,8 @@ struct SynthXilinxPass : public ScriptPass
 				// shregmap operates on bit-level flops, not word-level,
 				//   so break those down here
 				run("simplemap t:$dff t:$dffe", "(skip if '-nosrl')");
-				// shregmap to infer variable length shift regs
-				run("shregmap -tech xilinx_dynamic -minlen 3", "(skip if '-nosrl')");
+				// shregmap with '-tech xilinx' infers variable length shift regs
+				run("shregmap -tech xilinx -minlen 3", "(skip if '-nosrl')");
 			}
 
 			std::string techmap_files = " -map +/techmap.v";
