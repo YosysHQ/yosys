@@ -58,12 +58,21 @@ struct MuxcoverWorker
 	bool use_mux16;
 	bool nodecode;
 
+	int cost_mux2;
+	int cost_mux4;
+	int cost_mux8;
+	int cost_mux16;
+
 	MuxcoverWorker(Module *module) : module(module), sigmap(module)
 	{
 		use_mux4 = false;
 		use_mux8 = false;
 		use_mux16 = false;
 		nodecode = false;
+		cost_mux2 = COST_MUX2;
+		cost_mux4 = COST_MUX4;
+		cost_mux8 = COST_MUX8;
+		cost_mux16 = COST_MUX16;
 		decode_mux_counter = 0;
 	}
 
@@ -157,7 +166,7 @@ struct MuxcoverWorker
 		if (std::get<2>(entry))
 			return 0;
 
-		return COST_MUX2 / GetSize(std::get<1>(entry));
+		return cost_mux2 / GetSize(std::get<1>(entry));
 	}
 
 	void implement_decode_mux(SigBit ctrl_bit)
@@ -209,7 +218,7 @@ struct MuxcoverWorker
 			mux.inputs.push_back(B);
 			mux.selects.push_back(S1);
 
-			mux.cost += COST_MUX2;
+			mux.cost += cost_mux2;
 			mux.cost += find_best_cover(tree, A);
 			mux.cost += find_best_cover(tree, B);
 
@@ -247,7 +256,7 @@ struct MuxcoverWorker
 				mux.selects.push_back(S1);
 				mux.selects.push_back(T1);
 
-				mux.cost += COST_MUX4;
+				mux.cost += cost_mux4;
 				mux.cost += find_best_cover(tree, A);
 				mux.cost += find_best_cover(tree, B);
 				mux.cost += find_best_cover(tree, C);
@@ -310,7 +319,7 @@ struct MuxcoverWorker
 				mux.selects.push_back(T1);
 				mux.selects.push_back(U1);
 
-				mux.cost += COST_MUX8;
+				mux.cost += cost_mux8;
 				mux.cost += find_best_cover(tree, A);
 				mux.cost += find_best_cover(tree, B);
 				mux.cost += find_best_cover(tree, C);
@@ -414,7 +423,7 @@ struct MuxcoverWorker
 				mux.selects.push_back(U1);
 				mux.selects.push_back(V1);
 
-				mux.cost += COST_MUX16;
+				mux.cost += cost_mux16;
 				mux.cost += find_best_cover(tree, A);
 				mux.cost += find_best_cover(tree, B);
 				mux.cost += find_best_cover(tree, C);
@@ -569,9 +578,11 @@ struct MuxcoverPass : public Pass {
 		log("\n");
 		log("Cover trees of $_MUX_ cells with $_MUX{4,8,16}_ cells\n");
 		log("\n");
-		log("    -mux4, -mux8, -mux16\n");
-		log("        Use the specified types of MUXes. If none of those options are used,\n");
-		log("        the effect is the same as if all of them where used.\n");
+		log("    -mux4[=cost], -mux8[=cost], -mux16[=cost]\n");
+		log("        Use the specified types of MUXes (with optional integer costs). If none\n");
+		log("        of these options are given, the effect is the same as if all of them are.\n");
+		log("        Default costs: $_MUX_ = %d, $_MUX4_ = %d,\n", COST_MUX2, COST_MUX4);
+		log("                       $_MUX8_ = %d, $_MUX16_ = %d\n", COST_MUX8, COST_MUX16);
 		log("\n");
 		log("    -nodecode\n");
 		log("        Do not insert decoder logic. This reduces the number of possible\n");
@@ -587,23 +598,39 @@ struct MuxcoverPass : public Pass {
 		bool use_mux8 = false;
 		bool use_mux16 = false;
 		bool nodecode = false;
+		int cost_mux4 = COST_MUX4;
+		int cost_mux8 = COST_MUX8;
+		int cost_mux16 = COST_MUX16;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
-			if (args[argidx] == "-mux4") {
+			const auto &arg = args[argidx];
+			if (arg.size() >= 5 && arg.substr(0,5) == "-mux4") {
 				use_mux4 = true;
+				if (arg.size() > 5) {
+					if (arg[5] != '=') break;
+					cost_mux4 = atoi(arg.substr(5).c_str());
+				}
 				continue;
 			}
-			if (args[argidx] == "-mux8") {
+			if (arg.size() >= 5 && arg.substr(0,5) == "-mux8") {
 				use_mux8 = true;
+				if (arg.size() > 5) {
+					if (arg[5] != '=') break;
+					cost_mux8 = atoi(arg.substr(5).c_str());
+				}
 				continue;
 			}
-			if (args[argidx] == "-mux16") {
+			if (arg.size() >= 6 && arg.substr(0,6) == "-mux16") {
 				use_mux16 = true;
+				if (arg.size() > 6) {
+					if (arg[6] != '=') break;
+					cost_mux16 = atoi(arg.substr(6).c_str());
+				}
 				continue;
 			}
-			if (args[argidx] == "-nodecode") {
+			if (arg == "-nodecode") {
 				nodecode = true;
 				continue;
 			}
@@ -623,6 +650,9 @@ struct MuxcoverPass : public Pass {
 			worker.use_mux4 = use_mux4;
 			worker.use_mux8 = use_mux8;
 			worker.use_mux16 = use_mux16;
+			worker.cost_mux4 = cost_mux4;
+			worker.cost_mux8 = cost_mux8;
+			worker.cost_mux16 = cost_mux16;
 			worker.nodecode = nodecode;
 			worker.run();
 		}
