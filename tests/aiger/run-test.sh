@@ -2,9 +2,14 @@
 
 set -e
 
+# NB: *.aag and *.aig must contain a symbol table naming the primary
+#     inputs and outputs, otherwise ABC and Yosys will name them
+#     arbitrarily (and inconsistently with each other).
+
 for aag in *.aag; do
     # Since ABC cannot read *.aag, read the *.aig instead
-    # (which would have been created by the reference aig2aig utility)
+    # (which would have been created by the reference aig2aig utility,
+    #  available from http://fmv.jku.at/aiger/)
     ../../yosys-abc -c "read -c ${aag%.*}.aig; write ${aag%.*}_ref.v"
     ../../yosys -p "
 read_verilog ${aag%.*}_ref.v
