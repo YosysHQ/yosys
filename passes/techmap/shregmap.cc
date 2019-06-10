@@ -29,7 +29,7 @@ struct ShregmapTech
 	virtual void init(const Module * /*module*/, const SigMap &/*sigmap*/) {}
 	virtual void non_chain_user(const SigBit &/*bit*/, const Cell* /*cell*/, IdString /*port*/) {}
 	virtual bool analyze(vector<int> &taps, const vector<SigBit> &qbits) = 0;
-	virtual RTLIL::Cell* fixup(Cell *cell, dict<int, SigBit> &taps) = 0;
+	virtual bool fixup(Cell *cell, dict<int, SigBit> &taps) = 0;
 };
 
 struct ShregmapOptions
@@ -71,7 +71,7 @@ struct ShregmapTechGreenpak4 : ShregmapTech
 		return true;
 	}
 
-	virtual RTLIL::Cell* fixup(Cell *cell, dict<int, SigBit> &taps) override
+	virtual bool fixup(Cell *cell, dict<int, SigBit> &taps) override
 	{
 		auto D = cell->getPort("\\D");
 		auto C = cell->getPort("\\C");
@@ -89,84 +89,16 @@ struct ShregmapTechGreenpak4 : ShregmapTech
 		}
 
 		cell->setParam("\\OUTA_INVERT", 0);
-		return newcell;
+		return false;
 	}
 };
 
-struct ShregmapTechXilinx7Static : ShregmapTech
-{
-	const ShregmapOptions &opts;
-
-	ShregmapTechXilinx7Static(const ShregmapOptions &opts) : opts(opts) {}
-
-	virtual bool analyze(vector<int> &taps, const vector<SigBit> &/*qbits*/) override
-	{
-		if (GetSize(taps) == 1)
-			return taps[0] >= opts.minlen-1;
-
-		if (taps.back() < opts.minlen-1)
-			return false;
-
-		return true;
-	}
-
-	virtual RTLIL::Cell* fixup(Cell *cell, dict<int, SigBit> &/*taps*/) override
-	{
-		auto newcell = cell->module->addCell(NEW_ID, "$__SHREG_");
-		newcell->set_src_attribute(cell->get_src_attribute());
-		newcell->setParam("\\DEPTH", cell->getParam("\\DEPTH"));
-		newcell->setParam("\\INIT", cell->getParam("\\INIT"));
-
-		if (cell->type.in("$__SHREG_DFF_N_", "$__SHREG_DFF_P_",
-					"$__SHREG_DFFE_NN_", "$__SHREG_DFFE_NP_", "$__SHREG_DFFE_PN_", "$__SHREG_DFFE_PP_")) {
-			int param_clkpol = -1;
-			int param_enpol = 2;
-			if (cell->type == "$__SHREG_DFF_N_") param_clkpol = 0;
-			else if (cell->type == "$__SHREG_DFF_P_") param_clkpol = 1;
-			else if (cell->type == "$__SHREG_DFFE_NN_") param_clkpol = 0, param_enpol = 0;
-			else if (cell->type == "$__SHREG_DFFE_NP_") param_clkpol = 0, param_enpol = 1;
-			else if (cell->type == "$__SHREG_DFFE_PN_") param_clkpol = 1, param_enpol = 0;
-			else if (cell->type == "$__SHREG_DFFE_PP_") param_clkpol = 1, param_enpol = 1;
-			else log_abort();
-
-			log_assert(param_clkpol >= 0);
-			newcell->setParam("\\CLKPOL", param_clkpol);
-			newcell->setParam("\\ENPOL", param_enpol);
-
-			if (cell->hasPort("\\E"))
-				newcell->setPort("\\E", cell->getPort("\\E"));
-		}
-		else if (cell->type.in("$__SHREG_FDRE_", "$__SHREG_FDSE_", "$__SHREG_FDCE_", "$__SHREG_FDPE_")) {
-			if (cell->getParam("\\IS_C_INVERTED").as_bool())
-				newcell->setParam("\\CLKPOL", 0);
-			else
-				newcell->setParam("\\CLKPOL", 1);
-			newcell->setParam("\\ENPOL", 1);
-
-			newcell->setPort("\\E", cell->getPort("\\CE"));
-		}
-		else if (cell->type.in("$__SHREG_FDRE_1_", "$__SHREG_FDSE_1_", "$__SHREG_FDCE_1_", "$__SHREG_FDPE_1_")) {
-			newcell->setParam("\\CLKPOL", 0);
-
-			newcell->setPort("\\E", cell->getPort("\\CE"));
-		}
-		else log_abort();
-
-		newcell->setParam("\\ENPOL", 1);
-
-		newcell->setPort("\\C", cell->getPort("\\C"));
-		newcell->setPort("\\D", cell->getPort("\\D"));
-		newcell->setPort("\\Q", cell->getPort("\\Q"));
-
-		return newcell;
-	}
-};
-
-struct ShregmapTechXilinx7Dynamic : ShregmapTechXilinx7Static
+struct ShregmapTechXilinx7Dynamic : ShregmapTech
 {
 	dict<SigBit, std::tuple<Cell*,int,int>> sigbit_to_shiftx_offset;
+	const ShregmapOptions &opts;
 
-	ShregmapTechXilinx7Dynamic(const ShregmapOptions &opts) : ShregmapTechXilinx7Static(opts) {}
+	ShregmapTechXilinx7Dynamic(const ShregmapOptions &opts) : opts(opts) {}
 
 	virtual void init(const Module* module, const SigMap &sigmap) override
 	{
@@ -268,7 +200,7 @@ struct ShregmapTechXilinx7Dynamic : ShregmapTechXilinx7Static
 		return true;
 	}
 
-	virtual RTLIL::Cell* fixup(Cell *cell, dict<int, SigBit> &taps) override
+	virtual bool fixup(Cell *cell, dict<int, SigBit> &taps) override
 	{
 		const auto &tap = *taps.begin();
 		auto bit = tap.second;
@@ -276,24 +208,52 @@ struct ShregmapTechXilinx7Dynamic : ShregmapTechXilinx7Static
 		auto it = sigbit_to_shiftx_offset.find(bit);
 		log_assert(it != sigbit_to_shiftx_offset.end());
 
-		RTLIL::Cell* newcell = ShregmapTechXilinx7Static::fixup(cell, taps);
-		log_assert(newcell);
-		log_assert(newcell->type == "$__SHREG_");
-		newcell->type = "$__XILINX_SHREG_";
+		auto newcell = cell->module->addCell(NEW_ID, "$__XILINX_SHREG_");
+		newcell->set_src_attribute(cell->get_src_attribute());
+		newcell->setParam("\\DEPTH", cell->getParam("\\DEPTH"));
+		newcell->setParam("\\INIT", cell->getParam("\\INIT"));
 
-		Cell* shiftx = std::get<0>(it->second);
-		RTLIL::SigSpec l_wire;
-		if (shiftx->type == "$shiftx")
-			l_wire = shiftx->getPort("\\B");
-		else if (shiftx->type == "$mux")
-			l_wire = shiftx->getPort("\\S");
+		if (cell->type.in("$__SHREG_DFF_N_", "$__SHREG_DFF_P_",
+					"$__SHREG_DFFE_NN_", "$__SHREG_DFFE_NP_", "$__SHREG_DFFE_PN_", "$__SHREG_DFFE_PP_")) {
+			int param_clkpol = -1;
+			int param_enpol = 2;
+			if (cell->type == "$__SHREG_DFF_N_") param_clkpol = 0;
+			else if (cell->type == "$__SHREG_DFF_P_") param_clkpol = 1;
+			else if (cell->type == "$__SHREG_DFFE_NN_") param_clkpol = 0, param_enpol = 0;
+			else if (cell->type == "$__SHREG_DFFE_NP_") param_clkpol = 0, param_enpol = 1;
+			else if (cell->type == "$__SHREG_DFFE_PN_") param_clkpol = 1, param_enpol = 0;
+			else if (cell->type == "$__SHREG_DFFE_PP_") param_clkpol = 1, param_enpol = 1;
+			else log_abort();
+
+			log_assert(param_clkpol >= 0);
+			cell->setParam("\\CLKPOL", param_clkpol);
+			cell->setParam("\\ENPOL", param_enpol);
+		}
 		else log_abort();
 
-		newcell->setPort("\\L", l_wire);
-		newcell->setPort("\\Q", shiftx->getPort("\\Y"));
-		shiftx->setPort("\\Y", cell->module->addWire(NEW_ID));
+		newcell->setPort("\\C", cell->getPort("\\C"));
+		newcell->setPort("\\D", cell->getPort("\\D"));
+		if (cell->hasPort("\\E"))
+			newcell->setPort("\\E", cell->getPort("\\E"));
 
-		return newcell;
+		Cell* shiftx = std::get<0>(it->second);
+		RTLIL::SigSpec l_wire, q_wire;
+		if (shiftx->type == "$shiftx") {
+			l_wire = shiftx->getPort("\\B");
+			q_wire = shiftx->getPort("\\Y");
+			shiftx->setPort("\\Y", cell->module->addWire(NEW_ID));
+		}
+		else if (shiftx->type == "$mux") {
+			l_wire = shiftx->getPort("\\S");
+			q_wire = shiftx->getPort("\\Y");
+			shiftx->setPort("\\Y", cell->module->addWire(NEW_ID));
+		}
+		else log_abort();
+
+		newcell->setPort("\\Q", q_wire);
+		newcell->setPort("\\L", l_wire);
+
+		return false;
 	}
 };
 
@@ -549,7 +509,7 @@ struct ShregmapWorker
 			first_cell->setPort(q_port, last_cell->getPort(q_port));
 			first_cell->setParam("\\DEPTH", depth);
 
-			if (opts.tech != nullptr && opts.tech->fixup(first_cell, taps_dict))
+			if (opts.tech != nullptr && !opts.tech->fixup(first_cell, taps_dict))
 				remove_cells.insert(first_cell);
 
 			for (int i = 1; i < depth; i++)
