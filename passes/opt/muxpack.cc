@@ -302,8 +302,12 @@ struct MuxpackPass : public Pass {
 		log("    muxpack [selection]\n");
 		log("\n");
 		log("This pass converts cascaded chains of $pmux cells (e.g. those create from case\n");
-		log("constructs) and $mux cells (e.g. those created by if-else constructs) into \n");
-		log("into $pmux cells.\n");
+		log("constructs) and $mux cells (e.g. those created by if-else constructs) into\n");
+		log("$pmux cells.\n");
+		log("\n");
+		log("This optimisation is conservative --- it will only pack $mux or $pmux cells with\n");
+		log("other such cells if it can be certain that the select lines are mutually\n");
+		log("exclusive.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
