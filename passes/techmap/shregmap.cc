@@ -294,8 +294,12 @@ struct ShregmapWorker
 				if (opts.init || sigbit_init.count(q_bit) == 0)
 				{
 					auto r = sigbit_chain_next.insert(std::make_pair(d_bit, cell));
-					if (!r.second)
+					if (!r.second) {
 						sigbit_with_non_chain_users.insert(d_bit);
+						Wire *wire = module->addWire(NEW_ID);
+						module->connect(wire, d_bit);
+						sigbit_chain_next.insert(std::make_pair(wire, cell));
+					}
 
 					sigbit_chain_prev[q_bit] = cell;
 					continue;
@@ -315,14 +319,14 @@ struct ShregmapWorker
 	{
 		for (auto it : sigbit_chain_next)
 		{
-			Cell *c1, *c2 = it.second;
-
 			if (opts.tech == nullptr && sigbit_with_non_chain_users.count(it.first))
 				goto start_cell;
 
-			c1 = sigbit_chain_prev.at(it.first, nullptr);
-			if (c1 != nullptr)
+			if (sigbit_chain_prev.count(it.first) != 0)
 			{
+				Cell *c1 = sigbit_chain_prev.at(it.first);
+				Cell *c2 = it.second;
+
 				if (c1->type != c2->type)
 					goto start_cell;
 
@@ -331,15 +335,6 @@ struct ShregmapWorker
 
 				IdString d_port = opts.ffcells.at(c1->type).first;
 				IdString q_port = opts.ffcells.at(c1->type).second;
-
-				// If the previous cell's D has other non chain users,
-				// then it is possible that this previous cell could
-				// be a start of the chain
-				SigBit d_bit = sigmap(c1->getPort(d_port).as_bit());
-				if (sigbit_with_non_chain_users.count(d_bit)) {
-					c2 = c1;
-					goto start_cell;
-				}
 
 				auto c1_conn = c1->connections();
 				auto c2_conn = c1->connections();
@@ -357,7 +352,7 @@ struct ShregmapWorker
 			}
 
 		start_cell:
-			chain_start_cells.insert(c2);
+			chain_start_cells.insert(it.second);
 		}
 	}
 
