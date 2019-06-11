@@ -295,10 +295,8 @@ module RAM64X1D (
   reg [63:0] mem = INIT;
   assign SPO = mem[a];
   assign DPO = mem[dpra];
-`ifndef _ABC
   wire clk = WCLK ^ IS_WCLK_INVERTED;
   always @(posedge clk) if (WE) mem[a] <= D;
-`endif
 endmodule
 
 (* abc_box_id = 5 /*, lib_whitebox*/ *)
@@ -312,10 +310,8 @@ module RAM128X1D (
   reg [127:0] mem = INIT;
   assign SPO = mem[A];
   assign DPO = mem[DPRA];
-`ifndef _ABC
   wire clk = WCLK ^ IS_WCLK_INVERTED;
   always @(posedge clk) if (WE) mem[A] <= D;
-`endif
 endmodule
 
 module SRL16E (
