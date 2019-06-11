@@ -100,7 +100,7 @@ struct DriverMap : public std::map<RTLIL::SigBit, std::pair<RTLIL::Cell *, std::
 
 		inline RTLIL::Cell *operator*() const
 		{
-			std::pair<RTLIL::Cell *, std::set<RTLIL::SigBit>> &drv = drvmap->at(*sig);
+			std::pair<RTLIL::Cell *, std::set<RTLIL::SigBit>> &drv = drvmap->at(*sig_iter);
 			return drv.first;
 		};
 		inline bool operator!=(const DriverMapConeCellIterator &other) const { return sig_iter != other.sig_iter; }
@@ -124,6 +124,48 @@ struct DriverMap : public std::map<RTLIL::SigBit, std::pair<RTLIL::Cell *, std::
 
 		inline DriverMapConeCellIterator begin() { return DriverMapConeCellIterator(drvmap, sig); }
 		inline DriverMapConeCellIterator end() { return DriverMapConeCellIterator(drvmap); }
+	};
+
+	struct DriverMapConeInputsIterator : public std::iterator<std::input_iterator_tag, const RTLIL::Cell *> {
+		DriverMap *drvmap;
+		const RTLIL::SigBit *sig;
+
+		DriverMapConeWireIterator sig_iter;
+
+		DriverMapConeInputsIterator(DriverMap *drvmap) : DriverMapConeInputsIterator(drvmap, NULL) {}
+
+		DriverMapConeInputsIterator(DriverMap *drvmap, const RTLIL::SigBit *sig) : drvmap(drvmap), sig(sig), sig_iter(drvmap, sig)
+		{
+			if ((sig != NULL) && (drvmap->count(*sig_iter))) {
+				++(*this);
+			}
+		}
+
+		inline const RTLIL::SigBit& operator*() const
+		{
+			return *sig_iter;
+		};
+		inline bool operator!=(const DriverMapConeInputsIterator &other) const { return sig_iter != other.sig_iter; }
+		inline bool operator==(const DriverMapConeInputsIterator &other) const { return sig_iter == other.sig_iter; }
+		inline void operator++()
+		{
+			do {
+				++sig_iter;
+				if (sig_iter.sig == NULL) {
+					return;
+				}
+			} while (drvmap->count(*sig_iter));
+		}
+	};
+
+	struct DriverMapConeInputsIterable {
+		DriverMap *drvmap;
+		const RTLIL::SigBit *sig;
+
+		DriverMapConeInputsIterable(DriverMap *drvmap, const RTLIL::SigBit *sig) : drvmap(drvmap), sig(sig) {}
+
+		inline DriverMapConeInputsIterator begin() { return DriverMapConeInputsIterator(drvmap, sig); }
+		inline DriverMapConeInputsIterator end() { return DriverMapConeInputsIterator(drvmap); }
 	};
 
 	DriverMap(RTLIL::Module *module) : module(module), sigmap(module)
@@ -150,6 +192,7 @@ struct DriverMap : public std::map<RTLIL::SigBit, std::pair<RTLIL::Cell *, std::
 	}
 
 	DriverMapConeWireIterable cone(const RTLIL::SigBit &sig) { return DriverMapConeWireIterable(this, &sig); }
+	DriverMapConeInputsIterable cone_inputs(const RTLIL::SigBit &sig) { return DriverMapConeInputsIterable(this, &sig); }
 	DriverMapConeCellIterable cell_cone(const RTLIL::SigBit &sig) { return DriverMapConeCellIterable(this, &sig); }
 };
 
