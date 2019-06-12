@@ -142,14 +142,6 @@ struct XAigerWriter
 				SigBit wirebit(wire, i);
 				SigBit bit = sigmap(wirebit);
 
-				if (bit.wire == nullptr) {
-					if (wire->port_output) {
-						aig_map[wirebit] = (bit == State::S1) ? 1 : 0;
-						output_bits.insert(wirebit);
-					}
-					continue;
-				}
-
 				undriven_bits.insert(bit);
 				unused_bits.insert(bit);
 
@@ -160,8 +152,10 @@ struct XAigerWriter
 				}
 
 				if (wire->port_output || keep) {
-					if (bit != wirebit)
+					if (bit != wirebit) {
 						alias_map[wirebit] = bit;
+						undriven_bits.insert(wirebit);
+					}
 					output_bits.insert(wirebit);
 				}
 			}
@@ -169,7 +163,6 @@ struct XAigerWriter
 
 		for (auto bit : input_bits)
 			undriven_bits.erase(sigmap(bit));
-
 		for (auto bit : output_bits)
 			if (!bit.wire->port_input)
 				unused_bits.erase(bit);
@@ -178,8 +171,7 @@ struct XAigerWriter
 		TopoSort<IdString, RTLIL::sort_by_id_str> toposort;
 		bool abc_box_seen = false;
 
-		for (auto cell : module->cells())
-		{
+		for (auto cell : module->cells()) {
 			RTLIL::Module* inst_module = module->design->module(cell->type);
 			bool builtin_type = yosys_celltypes.cell_known(cell->type);
 			bool abc_type = inst_module && inst_module->attributes.count("\\abc_box_id");
@@ -296,14 +288,15 @@ struct XAigerWriter
 			else {
 				for (const auto &c : cell->connections()) {
 					if (c.second.is_fully_const()) continue;
-					for (auto b : c.second.bits()) {
-						Wire *w = b.wire;
-						if (!w) continue;
-						auto is_input = cell->input(c.first);
-						auto is_output = cell->output(c.first);
-						log_assert(is_input || is_output);
-						if (is_input) {
-							if (!w->port_input) {
+					auto is_input = cell->input(c.first);
+					auto is_output = cell->output(c.first);
+					log_assert(is_input || is_output);
+
+					if (is_input) {
+						for (auto b : c.second.bits()) {
+							Wire *w = b.wire;
+							if (!w) continue;
+							if (!w->port_output) {
 								SigBit I = sigmap(b);
 								if (I != b)
 									alias_map[b] = I;
@@ -311,7 +304,11 @@ struct XAigerWriter
 								unused_bits.erase(b);
 							}
 						}
-						if (is_output) {
+					}
+					if (is_output) {
+						for (auto b : c.second.bits()) {
+							Wire *w = b.wire;
+							if (!w) continue;
 							input_bits.insert(b);
 							SigBit O = sigmap(b);
 							if (O != b)
