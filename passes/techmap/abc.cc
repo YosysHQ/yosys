@@ -1453,7 +1453,7 @@ struct AbcPass : public Pass {
 		log("internally. This is not going to \"run ABC on your design\". It will instead run\n");
 		log("ABC on logic snippets extracted from your design. You will not get any useful\n");
 		log("output when passing an ABC script that writes a file. Instead write your full\n");
-		log("design as BLIF file with write_blif and the load that into ABC externally if\n");
+		log("design as BLIF file with write_blif and then load that into ABC externally if\n");
 		log("you want to use ABC to convert your design into another format.\n");
 		log("\n");
 		log("[1] http://www.eecs.berkeley.edu/~alanmi/abc/\n");
