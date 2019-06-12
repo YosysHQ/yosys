@@ -143,8 +143,7 @@ endmodule
 
 // Positive Edge SiliconBlue FF Cells
 
-(* abc_box_id = 1, abc_flop, lib_whitebox *)
-module SB_DFF ((* abc_flop_q *) output `SB_DFF_REG, input C, (* abc_flop_d *) input D);
+module SB_DFF ((* abc_flop_q *) output `SB_DFF_REG, input C, D);
 `ifndef _ABC
 	always @(posedge C)
 		Q <= D;
@@ -153,15 +152,13 @@ module SB_DFF ((* abc_flop_q *) output `SB_DFF_REG, input C, (* abc_flop_d *) in
 `endif
 endmodule
 
-//(* abc_box_id = 2, abc_flop *)
-module SB_DFFE ((* abc_flop_q *) output `SB_DFF_REG, input C, E, (* abc_flop_d *) input D);
+module SB_DFFE ((* abc_flop_q *) output `SB_DFF_REG, input C, E, D);
 	always @(posedge C)
 		if (E)
 			Q <= D;
 endmodule
 
-//(* abc_box_id = 3, abc_flop *)
-module SB_DFFSR ((* abc_flop_q *) output `SB_DFF_REG, input C, R, (* abc_flop_d *) input D);
+module SB_DFFSR ((* abc_flop_q *) output `SB_DFF_REG, input C, R, D);
 	always @(posedge C)
 		if (R)
 			Q <= 0;
@@ -169,8 +166,7 @@ module SB_DFFSR ((* abc_flop_q *) output `SB_DFF_REG, input C, R, (* abc_flop_d 
 			Q <= D;
 endmodule
 
-//(* abc_box_id = 4, abc_flop *)
-module SB_DFFR ((* abc_flop_q *) output `SB_DFF_REG, input C, R, (* abc_flop_d *) input D);
+module SB_DFFR ((* abc_flop_q *) output `SB_DFF_REG, input C, R, D);
 	always @(posedge C, posedge R)
 		if (R)
 			Q <= 0;
@@ -178,8 +174,7 @@ module SB_DFFR ((* abc_flop_q *) output `SB_DFF_REG, input C, R, (* abc_flop_d *
 			Q <= D;
 endmodule
 
-//(* abc_box_id = 5, abc_flop *)
-module SB_DFFSS ((* abc_flop_q *) output `SB_DFF_REG, input C, S, (* abc_flop_d *) input D);
+module SB_DFFSS ((* abc_flop_q *) output `SB_DFF_REG, input C, S, D);
 	always @(posedge C)
 		if (S)
 			Q <= 1;
@@ -187,8 +182,7 @@ module SB_DFFSS ((* abc_flop_q *) output `SB_DFF_REG, input C, S, (* abc_flop_d 
 			Q <= D;
 endmodule
 
-//(* abc_box_id = 6, abc_flop *)
-module SB_DFFS ((* abc_flop_q *) output `SB_DFF_REG, input C, S, (* abc_flop_d *) input D);
+module SB_DFFS ((* abc_flop_q *) output `SB_DFF_REG, input C, S, D);
 	always @(posedge C, posedge S)
 		if (S)
 			Q <= 1;
@@ -196,8 +190,7 @@ module SB_DFFS ((* abc_flop_q *) output `SB_DFF_REG, input C, S, (* abc_flop_d *
 			Q <= D;
 endmodule
 
-//(* abc_box_id = 7, abc_flop *)
-module SB_DFFESR ((* abc_flop_q *) output `SB_DFF_REG, input C, E, R, (* abc_flop_d *) input D);
+module SB_DFFESR ((* abc_flop_q *) output `SB_DFF_REG, input C, E, R, D);
 	always @(posedge C)
 		if (E) begin
 			if (R)
@@ -207,8 +200,7 @@ module SB_DFFESR ((* abc_flop_q *) output `SB_DFF_REG, input C, E, R, (* abc_flo
 		end
 endmodule
 
-//(* abc_box_id = 8, abc_flop *)
-module SB_DFFER ((* abc_flop_q *) output `SB_DFF_REG, input C, E, R, (* abc_flop_d *) input D);
+module SB_DFFER ((* abc_flop_q *) output `SB_DFF_REG, input C, E, R, D);
 	always @(posedge C, posedge R)
 		if (R)
 			Q <= 0;
@@ -216,8 +208,7 @@ module SB_DFFER ((* abc_flop_q *) output `SB_DFF_REG, input C, E, R, (* abc_flop
 			Q <= D;
 endmodule
 
-//(* abc_box_id = 9, abc_flop *)
-module SB_DFFESS ((* abc_flop_q *) output `SB_DFF_REG, input C, E, S, (* abc_flop_d *) input D);
+module SB_DFFESS ((* abc_flop_q *) output `SB_DFF_REG, input C, E, S, D);
 	always @(posedge C)
 		if (E) begin
 			if (S)
@@ -227,8 +218,7 @@ module SB_DFFESS ((* abc_flop_q *) output `SB_DFF_REG, input C, E, S, (* abc_flo
 		end
 endmodule
 
-//(* abc_box_id = 10, abc_flop *)
-module SB_DFFES ((* abc_flop_q *) output `SB_DFF_REG, input C, E, S, (* abc_flop_d *) input D);
+module SB_DFFES ((* abc_flop_q *) output `SB_DFF_REG, input C, E, S, D);
 	always @(posedge C, posedge S)
 		if (S)
 			Q <= 1;
@@ -238,21 +228,18 @@ endmodule
 
 // Negative Edge SiliconBlue FF Cells
 
-//(* abc_box_id = 11, abc_flop *)
-module SB_DFFN ((* abc_flop_q *) output `SB_DFF_REG, input C, (* abc_flop_d *) input D);
+module SB_DFFN ((* abc_flop_q *) output `SB_DFF_REG, input C, D);
 	always @(negedge C)
 		Q <= D;
 endmodule
 
-//(* abc_box_id = 12, abc_flop *)
-module SB_DFFNE ((* abc_flop_q *) output `SB_DFF_REG, input C, E, (* abc_flop_d *) input D);
+module SB_DFFNE ((* abc_flop_q *) output `SB_DFF_REG, input C, E, D);
 	always @(negedge C)
 		if (E)
 			Q <= D;
 endmodule
 
-//(* abc_box_id = 13, abc_flop *)
-module SB_DFFNSR ((* abc_flop_q *) output `SB_DFF_REG, input C, R, (* abc_flop_d *) input D);
+module SB_DFFNSR ((* abc_flop_q *) output `SB_DFF_REG, input C, R, D);
 	always @(negedge C)
 		if (R)
 			Q <= 0;
@@ -260,8 +247,7 @@ module SB_DFFNSR ((* abc_flop_q *) output `SB_DFF_REG, input C, R, (* abc_flop_d
 			Q <= D;
 endmodule
 
-//(* abc_box_id = 14, abc_flop *)
-module SB_DFFNR ((* abc_flop_q *) output `SB_DFF_REG, input C, R, (* abc_flop_d *) input D);
+module SB_DFFNR ((* abc_flop_q *) output `SB_DFF_REG, input C, R, D);
 	always @(negedge C, posedge R)
 		if (R)
 			Q <= 0;
@@ -269,8 +255,7 @@ module SB_DFFNR ((* abc_flop_q *) output `SB_DFF_REG, input C, R, (* abc_flop_d 
 			Q <= D;
 endmodule
 
-//(* abc_box_id = 15, abc_flop *)
-module SB_DFFNSS ((* abc_flop_q *) output `SB_DFF_REG, input C, S, (* abc_flop_d *) input D);
+module SB_DFFNSS ((* abc_flop_q *) output `SB_DFF_REG, input C, S, D);
 	always @(negedge C)
 		if (S)
 			Q <= 1;
@@ -278,8 +263,7 @@ module SB_DFFNSS ((* abc_flop_q *) output `SB_DFF_REG, input C, S, (* abc_flop_d
 			Q <= D;
 endmodule
 
-//(* abc_box_id = 16, abc_flop *)
-module SB_DFFNS ((* abc_flop_q *) output `SB_DFF_REG, input C, S, (* abc_flop_d *) input D);
+module SB_DFFNS ((* abc_flop_q *) output `SB_DFF_REG, input C, S, D);
 	always @(negedge C, posedge S)
 		if (S)
 			Q <= 1;
@@ -287,8 +271,7 @@ module SB_DFFNS ((* abc_flop_q *) output `SB_DFF_REG, input C, S, (* abc_flop_d 
 			Q <= D;
 endmodule
 
-//(* abc_box_id = 17, abc_flop *)
-module SB_DFFNESR ((* abc_flop_q *) output `SB_DFF_REG, input C, E, R, (* abc_flop_d *) input D);
+module SB_DFFNESR ((* abc_flop_q *) output `SB_DFF_REG, input C, E, R, D);
 	always @(negedge C)
 		if (E) begin
 			if (R)
@@ -298,8 +281,7 @@ module SB_DFFNESR ((* abc_flop_q *) output `SB_DFF_REG, input C, E, R, (* abc_fl
 		end
 endmodule
 
-//(* abc_box_id = 18, abc_flop *)
-module SB_DFFNER ((* abc_flop_q *) output `SB_DFF_REG, input C, E, R, (* abc_flop_d *) input D);
+module SB_DFFNER ((* abc_flop_q *) output `SB_DFF_REG, input C, E, R, D);
 	always @(negedge C, posedge R)
 		if (R)
 			Q <= 0;
@@ -307,8 +289,7 @@ module SB_DFFNER ((* abc_flop_q *) output `SB_DFF_REG, input C, E, R, (* abc_flo
 			Q <= D;
 endmodule
 
-//(* abc_box_id = 19, abc_flop *)
-module SB_DFFNESS ((* abc_flop_q *) output `SB_DFF_REG, input C, E, S, (* abc_flop_d *) input D);
+module SB_DFFNESS ((* abc_flop_q *) output `SB_DFF_REG, input C, E, S, D);
 	always @(negedge C)
 		if (E) begin
 			if (S)
@@ -318,8 +299,7 @@ module SB_DFFNESS ((* abc_flop_q *) output `SB_DFF_REG, input C, E, S, (* abc_fl
 		end
 endmodule
 
-//(* abc_box_id = 20, abc_flop *)
-module SB_DFFNES ((* abc_flop_q *) output `SB_DFF_REG, input C, E, S, (* abc_flop_d *) input D);
+module SB_DFFNES ((* abc_flop_q *) output `SB_DFF_REG, input C, E, S, D);
 	always @(negedge C, posedge S)
 		if (S)
 			Q <= 1;
