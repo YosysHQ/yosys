@@ -425,7 +425,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 
 	handle_loops(design);
 
-	Pass::call(design, stringf("write_xaiger -O -map %s/input.sym %s/input.xaig; ", tempdir_name.c_str(), tempdir_name.c_str()));
+	Pass::call(design, stringf("write_xaiger -map %s/input.sym %s/input.xaig; ", tempdir_name.c_str(), tempdir_name.c_str()));
 
 #if 0
 	std::string buffer = stringf("%s/%s", tempdir_name.c_str(), "input.xaig");
