@@ -142,8 +142,10 @@ struct XAigerWriter
 				SigBit wirebit(wire, i);
 				SigBit bit = sigmap(wirebit);
 
-				undriven_bits.insert(bit);
-				unused_bits.insert(bit);
+				if (bit.wire) {
+					undriven_bits.insert(bit);
+					unused_bits.insert(bit);
+				}
 
 				if (wire->port_input || keep) {
 					if (bit != wirebit)
@@ -154,7 +156,8 @@ struct XAigerWriter
 				if (wire->port_output || keep) {
 					if (bit != wirebit) {
 						alias_map[wirebit] = bit;
-						undriven_bits.insert(wirebit);
+						if (!bit.wire)
+							undriven_bits.insert(wirebit);
 					}
 					output_bits.insert(wirebit);
 				}
@@ -480,10 +483,6 @@ struct XAigerWriter
 			}
 		}
 
-		// Erase all POs that are undriven
-		if (!holes_mode)
-			for (auto bit : undriven_bits)
-				output_bits.erase(bit);
 		for (auto bit : unused_bits)
 			undriven_bits.erase(bit);
 
