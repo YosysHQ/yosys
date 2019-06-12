@@ -444,16 +444,19 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 
 		Pass::call(design, stringf("write_xaiger -map %s/input.sym %s/input.xaig; ", tempdir_name.c_str(), tempdir_name.c_str()));
 
-#if 0
-		std::string buffer = stringf("%s/%s", tempdir_name.c_str(), "input.xaig");
+		std::string buffer;
 		std::ifstream ifs;
+#if 0
+		buffer = stringf("%s/%s", tempdir_name.c_str(), "input.xaig");
 		ifs.open(buffer);
 		if (ifs.fail())
 			log_error("Can't open ABC output file `%s'.\n", buffer.c_str());
 		buffer = stringf("%s/%s", tempdir_name.c_str(), "input.sym");
 		log_assert(!design->module("$__abc9__"));
-		AigerReader reader(design, ifs, "$__abc9__", "" /* clk_name */, buffer.c_str() /* map_filename */, false /* wideports */);
-		reader.parse_xaiger();
+		{
+			AigerReader reader(design, ifs, "$__abc9__", "" /* clk_name */, buffer.c_str() /* map_filename */, true /* wideports */);
+			reader.parse_xaiger();
+		}
 		ifs.close();
 		Pass::call(design, stringf("write_verilog -noexpr -norename %s/%s", tempdir_name.c_str(), "input.v"));
 		design->remove(design->module("$__abc9__"));
@@ -482,7 +485,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 
 		log_header(design, "Executing ABC9.\n");
 
-		std::string buffer;
 		if (!lut_costs.empty()) {
 			buffer = stringf("%s/lutdefs.txt", tempdir_name.c_str());
 			f = fopen(buffer.c_str(), "wt");
@@ -518,7 +520,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			log_error("ABC: execution of command \"%s\" failed: return code %d.\n", buffer.c_str(), ret);
 
 		buffer = stringf("%s/%s", tempdir_name.c_str(), "output.aig");
-		std::ifstream ifs;
 		ifs.open(buffer);
 		if (ifs.fail())
 			log_error("Can't open ABC output file `%s'.\n", buffer.c_str());
@@ -527,7 +528,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		//parse_blif(mapped_design, ifs, builtin_lib ? "\\DFF" : "\\_dff_", false, sop_mode);
 		buffer = stringf("%s/%s", tempdir_name.c_str(), "input.sym");
 		log_assert(!design->module("$__abc9__"));
-		AigerReader reader(design, ifs, "$__abc9__", "" /* clk_name */, buffer.c_str() /* map_filename */, false /* wideports */);
+		AigerReader reader(design, ifs, "$__abc9__", "" /* clk_name */, buffer.c_str() /* map_filename */, true /* wideports */);
 		reader.parse_xaiger();
 		ifs.close();
 
