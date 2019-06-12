@@ -154,11 +154,8 @@ struct XAigerWriter
 				}
 
 				if (wire->port_output || keep) {
-					if (bit != wirebit) {
+					if (bit != wirebit)
 						alias_map[wirebit] = bit;
-						if (!bit.wire)
-							undriven_bits.insert(wirebit);
-					}
 					output_bits.insert(wirebit);
 				}
 			}
