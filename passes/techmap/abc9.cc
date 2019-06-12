@@ -25,7 +25,7 @@
 #define ABC_COMMAND_LIB "strash; ifraig; scorr; dc2; dretime; strash; &get -n; &dch -f; &nf {D}; &put"
 #define ABC_COMMAND_CTR "strash; ifraig; scorr; dc2; dretime; strash; &get -n; &dch -f; &nf {D}; &put; buffer; upsize {D}; dnsize {D}; stime -p"
 //#define ABC_COMMAND_LUT "strash; ifraig; scorr; dc2; dretime; strash; dch -f; if; mfs2"
-#define ABC_COMMAND_LUT "&st; &sweep; &scorr; "/*"&dc2; */"&retime; &dch -f; &ps -l; &if -W 160 -v; &ps -l"
+#define ABC_COMMAND_LUT "&st; &sweep; &scorr; "/*"&dc2; */"&retime; &dch -f; &ps -l; &if {W} -v; &ps -l"
 #define ABC_COMMAND_SOP "strash; ifraig; scorr; dc2; dretime; strash; dch -f; cover {I} {P}"
 #define ABC_COMMAND_DFL "strash; ifraig; scorr; dc2; dretime; strash; &get -n; &dch -f; &nf {D}; &put"
 
@@ -272,7 +272,8 @@ failed:
 void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::string script_file, std::string exe_file,
 		std::string liberty_file, std::string constr_file, bool cleanup, vector<int> lut_costs, bool dff_mode, std::string clk_str,
 		bool keepff, std::string delay_target, std::string sop_inputs, std::string sop_products, std::string lutin_shared, bool fast_mode,
-		const std::vector<RTLIL::Cell*> &cells, bool show_tempdir, bool sop_mode, std::string box_file, std::string lut_file)
+		const std::vector<RTLIL::Cell*> &cells, bool show_tempdir, bool sop_mode, std::string box_file, std::string lut_file,
+		std::string wire_delay)
 {
 	module = current_module;
 	map_autoidx = autoidx++;
@@ -386,6 +387,9 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 
 	for (size_t pos = abc_script.find("{S}"); pos != std::string::npos; pos = abc_script.find("{S}", pos))
 		abc_script = abc_script.substr(0, pos) + lutin_shared + abc_script.substr(pos+3);
+
+	for (size_t pos = abc_script.find("{W}"); pos != std::string::npos; pos = abc_script.find("{W}", pos))
+		abc_script = abc_script.substr(0, pos) + wire_delay + abc_script.substr(pos+3);
 
 	abc_script += stringf("; &write %s/output.aig", tempdir_name.c_str());
 	abc_script = add_echos_to_abc_cmd(abc_script);
@@ -960,7 +964,7 @@ struct Abc9Pass : public Pass {
 		std::string exe_file = proc_self_dirname() + "yosys-abc";
 #endif
 		std::string script_file, liberty_file, constr_file, clk_str, box_file, lut_file;
-		std::string delay_target, sop_inputs, sop_products, lutin_shared = "-S 1";
+		std::string delay_target, sop_inputs, sop_products, lutin_shared = "-S 1", wire_delay;
 		bool fast_mode = false, dff_mode = false, keepff = false, cleanup = true;
 		bool show_tempdir = false, sop_mode = false;
 		vector<int> lut_costs;
@@ -1214,6 +1218,10 @@ struct Abc9Pass : public Pass {
 					box_file = std::string(pwd) + "/" + box_file;
 				continue;
 			}
+			if (arg == "-W" && argidx+1 < args.size()) {
+				wire_delay = "-S " + args[++argidx];
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -1256,7 +1264,7 @@ struct Abc9Pass : public Pass {
 			if (!dff_mode || !clk_str.empty()) {
 				abc9_module(design, mod, script_file, exe_file, liberty_file, constr_file, cleanup, lut_costs, dff_mode, clk_str, keepff,
 						delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, mod->selected_cells(), show_tempdir, sop_mode,
-						box_file, lut_file);
+						box_file, lut_file, wire_delay);
 				continue;
 			}
 
@@ -1402,7 +1410,7 @@ struct Abc9Pass : public Pass {
 				en_sig = assign_map(std::get<3>(it.first));
 				abc9_module(design, mod, script_file, exe_file, liberty_file, constr_file, cleanup, lut_costs, !clk_sig.empty(), "$",
 						keepff, delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, it.second, show_tempdir, sop_mode,
-						box_file, lut_file);
+						box_file, lut_file, wire_delay);
 				assign_map.set(mod);
 			}
 		}
