@@ -246,29 +246,6 @@ struct abc_output_filter
 	}
 };
 
-static std::pair<RTLIL::IdString, int> wideports_split(std::string name)
-{
-	int pos = -1;
-
-	if (name.empty() || name.back() != ']')
-		goto failed;
-
-	for (int i = 0; i+1 < GetSize(name); i++) {
-		if (name[i] == '[')
-			pos = i;
-		else if (name[i] < '0' || name[i] > '9')
-			pos = -1;
-		else if (i == pos+1 && name[i] == '0' && name[i+1] != ']')
-			pos = -1;
-	}
-
-	if (pos >= 0)
-		return std::pair<RTLIL::IdString, int>(RTLIL::escape_id(name.substr(0, pos)), atoi(name.c_str() + pos+1));
-
-failed:
-	return std::pair<RTLIL::IdString, int>(name, 0);
-}
-
 void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::string script_file, std::string exe_file,
 		std::string liberty_file, std::string constr_file, bool cleanup, vector<int> lut_costs, bool dff_mode, std::string clk_str,
 		bool keepff, std::string delay_target, std::string sop_inputs, std::string sop_products, std::string lutin_shared, bool fast_mode,
@@ -548,21 +525,9 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			if (markgroups) remap_wire->attributes["\\abcgroup"] = map_autoidx;
 			if (w->port_output) {
 				RTLIL::Wire *wire = module->wire(w->name);
-				if (wire) {
-					for (int i = 0; i < GetSize(wire); i++)
-						output_bits.insert({wire, i});
-				}
-				else {
-					// Attempt another wideports_split here because there
-					// exists the possibility that different bits of a port
-					// could be an input and output, therefore parse_xaiger()
-					// could not combine it into a wideport
-					auto r = wideports_split(w->name.str());
-					wire = module->wire(r.first);
-					log_assert(wire);
-					int i = r.second;
+				log_assert(wire);
+				for (int i = 0; i < GetSize(wire); i++)
 					output_bits.insert({wire, i});
-				}
 			}
 		}
 
@@ -725,22 +690,9 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			if (!w->port_input && !w->port_output)
 				continue;
 			RTLIL::Wire *wire = module->wire(w->name);
+			log_assert(wire);
 			RTLIL::Wire *remap_wire = module->wire(remap_name(w->name));
-			RTLIL::SigSpec signal;
-			if (wire) {
-				signal = RTLIL::SigSpec(wire, 0, GetSize(remap_wire));
-			}
-			else {
-				// Attempt another wideports_split here because there
-				// exists the possibility that different bits of a port
-				// could be an input and output, therefore parse_xaiger()
-				// could not combine it into a wideport
-				auto r = wideports_split(w->name.str());
-				wire = module->wire(r.first);
-				log_assert(wire);
-				int i = r.second;
-				signal = RTLIL::SigSpec(wire, i);
-			}
+			RTLIL::SigSpec signal = RTLIL::SigSpec(wire, 0, GetSize(remap_wire));
 			log_assert(GetSize(signal) >= GetSize(remap_wire));
 
 			log_assert(w->port_input || w->port_output);
