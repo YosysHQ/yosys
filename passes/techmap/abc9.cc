@@ -1219,7 +1219,7 @@ struct Abc9Pass : public Pass {
 				continue;
 			}
 			if (arg == "-W" && argidx+1 < args.size()) {
-				wire_delay = "-S " + args[++argidx];
+				wire_delay = "-W " + args[++argidx];
 				continue;
 			}
 			break;
