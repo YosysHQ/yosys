@@ -260,13 +260,13 @@ struct SynthXilinxPass : public ScriptPass
 
 			std::string techmap_files = " -map +/techmap.v";
 			if (help_mode)
-					techmap_files += " [-map +/xilinx/arith_map.v]";
+				techmap_files += " [-map +/xilinx/arith_map.v]";
 			else if (!nocarry) {
-					techmap_files += " -map +/xilinx/arith_map.v";
-					if (vpr)
-							techmap_files += " -D _EXPLICIT_CARRY";
-					else if (abc == "abc9")
-							techmap_files += " -D _CLB_CARRY";
+				techmap_files += " -map +/xilinx/arith_map.v";
+				if (vpr)
+					techmap_files += " -D _EXPLICIT_CARRY";
+				else if (abc == "abc9")
+					techmap_files += " -D _CLB_CARRY";
 			}
 			run("techmap " + techmap_files);
 			run("opt -fast");
