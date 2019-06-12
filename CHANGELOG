@@ -18,7 +18,6 @@ Yosys 0.8 .. Yosys 0.8-dev
     - Added "equiv_opt" pass
     - Added "read_aiger" frontend
     - "synth_xilinx" to now infer hard shift registers, using new "shregmap -tech xilinx"
-    - "synth_xilinx" to now infer wide multiplexers
 
 
 Yosys 0.7 .. Yosys 0.8
