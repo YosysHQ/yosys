@@ -21,7 +21,7 @@
 #include "kernel/register.h"
 #include "kernel/rtlil.h"
 #include "kernel/satgen.h"
-#include "kernel/satgen_algo.h"
+#include "kernel/algo.h"
 #include "kernel/sigtools.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -32,6 +32,7 @@ PRIVATE_NAMESPACE_BEGIN
 SigMap assign_map, dff_init_map;
 SigSet<RTLIL::Cell*> mux_drivers;
 dict<SigBit, pool<SigBit>> init_attributes;
+std::map<RTLIL::Module*, Netlist> netlists;
 bool keepdc;
 bool sat;
 
@@ -459,9 +460,12 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff, Pass *pass)
 	if (sat && has_init) {
 		std::vector<int> removed_sigbits;
 
-		DriverMap drvmap(mod);
+		if (!netlists.count(mod)) {
+			netlists.emplace(mod, Netlist(mod, comb_cells_filt()));
+		}
 
-		// for (auto &sigbit : sig_q.bits()) {
+		Netlist &net = netlists.at(mod);
+
 		for (int position = 0; position < GetSize(sig_d); position += 1) {
 			RTLIL::SigBit q_sigbit = sig_q[position];
 			RTLIL::SigBit d_sigbit = sig_d[position];
@@ -470,83 +474,27 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff, Pass *pass)
 				continue;
 			}
 
-			std::map<RTLIL::SigBit, int> sat_pi;
-
 			ezSatPtr ez;
-			SatGen satgen(ez.get(), &drvmap.sigmap);
-			std::set<RTLIL::Cell *> ez_cells;
-			std::vector<int> modelExpressions;
-			std::vector<bool> modelValues;
+			SatGen satgen(ez.get(), &net.sigmap);
 
-			log("Optimizing: %s\n", log_id(q_sigbit.wire));
-			log("    Cells:");
-			for (const auto &cell : drvmap.cell_cone(d_sigbit)) {
-				if (ez_cells.count(cell) == 0) {
-					log("        %s\n", log_id(cell));
-					if (!satgen.importCell(cell))
-						log_error("Can't create SAT model for cell %s (%s)!\n", RTLIL::id2cstr(cell->name),
-							  RTLIL::id2cstr(cell->type));
-					ez_cells.insert(cell);
-				}
+			for (const auto &cell : cell_cone(net, d_sigbit)) {
+				if (!satgen.importCell(cell))
+					log_error("Can't create SAT model for cell %s (%s)!\n", RTLIL::id2cstr(cell->name),
+						  RTLIL::id2cstr(cell->type));
 			}
 
 			RTLIL::Const sigbit_init_val = val_init.extract(position);
-			int reg_init = satgen.importSigSpec(sigbit_init_val).front();
+			int init_sat_pi = satgen.importSigSpec(sigbit_init_val).front();
 
-			int output_a = satgen.importSigSpec(d_sigbit).front();
-			modelExpressions.push_back(output_a);
+			int q_sat_pi = satgen.importSigBit(q_sigbit);
+			int d_sat_pi = satgen.importSigBit(d_sigbit);
 
-			log("    Wires:");
-			for (const auto &sig : drvmap.cone_inputs(d_sigbit)) {
-				if (sat_pi.count(sig) == 0) {
-					sat_pi[sig] = satgen.importSigSpec(sig).front();
-					modelExpressions.push_back(sat_pi[sig]);
+			// log("DFF: %s", log_id(net.sigbit_driver_map[q_sigbit]));
 
-					if (sig == q_sigbit) {
-						ez->assume(ez->IFF(sat_pi[sig], reg_init));
-					}
-
-					if (sig.wire) {
-						log("        %s\n", log_id(sig.wire));
-					}
-				}
-			}
-
-			bool success = ez->solve(modelExpressions, modelValues, ez->IFF(output_a, reg_init));
-			// bool success = ez->solve(modelExpressions, modelValues, ez->IFF(output_a, ez->NOT(reg_init)));
-			if (ez->getSolverTimoutStatus())
-				log("Timeout\n");
-
-			log("Success: %d\n", success);
-
-			// satgen.signals_eq(big_lhs, big_rhs, timestep);
-
-			// auto iterable = drvmap.cone(d_sigbit);
-
-			//   // for (const auto &sig : drvmap.cone(d_sigbit))
-			// for(auto begin=iterable.begin(); begin != iterable.end(); ++begin)
-			// {
-			// 	if (drvmap.count(*begin)) {
-			// 		if (drvmap.at(*begin).first)
-			// 			log("Running: %s\n", log_id(drvmap.at(*begin).first));
-			// 	}
-
-			// 	if ((*begin).wire) {
-			// 		log("Running: %s\n", log_id((*begin).wire));
-			// 	}
-			// }
-
+			bool counter_example_found = ez->solve(ez->IFF(q_sat_pi, init_sat_pi), ez->NOT(ez->IFF(d_sat_pi, init_sat_pi)));
 
 			char str[1024];
-			// sprintf(str, "sat -ignore_unknown_cells -prove %s[%d] %s -set %s[%d] %s", log_id(d_sigbit.wire), d_sigbit.offset,
-			// 	sigbit_init_val.as_string().c_str(), log_id(q_sigbit.wire), q_sigbit.offset, sigbit_init_val.as_string().c_str());
-			// log("Running: %s\n", str);
-
-			// log_flush();
-
-			// pass->call(mod->design, str);
-			// if (mod->design->scratchpad_get_bool("sat.success", false)) {
-			if (success) {
+			if (!counter_example_found) {
 				sprintf(str, "connect -set %s[%d] %s", log_id(q_sigbit.wire), q_sigbit.offset, sigbit_init_val.as_string().c_str());
 				log("Running: %s\n", str);
 				log_flush();
@@ -560,6 +508,7 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff, Pass *pass)
 			return true;
 		}
 	}
+
 
 	return false;
 
@@ -603,9 +552,9 @@ struct OptRmdffPass : public Pass {
 			break;
 		}
 		extra_args(args, argidx, design);
+		netlists.clear();
 
-		for (auto module : design->selected_modules())
-		{
+		for (auto module : design->selected_modules()) {
 			pool<SigBit> driven_bits;
 			dict<SigBit, State> init_bits;
 
