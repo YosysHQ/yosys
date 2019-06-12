@@ -143,6 +143,7 @@ do
 		fn=$(basename $fn)
 		bn=$(basename $bn)
 
+		rm -f ${bn}_ref.fir
 		if [[ "$ext" == "v" ]]; then
 			egrep -v '^\s*`timescale' ../$fn > ${bn}_ref.${ext}
 		elif [[ "$ext" == "aig" ]] || [[ "$ext" == "aag" ]]; then
@@ -150,7 +151,6 @@ do
 		else
 			cp ../${fn} ${bn}_ref.${ext}
 		fi
-		rm -f ${bn}_ref.fir
 
 		if [ ! -f ../${bn}_tb.v ]; then
 			"$toolsdir"/../../yosys -f "$frontend $include_opts" -b "test_autotb $autotb_opts" -o ${bn}_tb.v ${bn}_ref.v

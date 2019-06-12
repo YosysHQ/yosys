@@ -180,7 +180,7 @@ module _80_xilinx_alu (A, B, CI, BI, X, Y, CO);
 
 			// First one
 			if (i == 0) begin
-				CARRY4 #(.IS_INITIALIZED(1'd1)) carry4_1st_part
+				CARRY4 carry4_1st_part
 				(
 				.CYINIT(CI),
 				.CI    (1'd0),
@@ -207,7 +207,7 @@ module _80_xilinx_alu (A, B, CI, BI, X, Y, CO);
 
 			// First one
 			if (i == 0) begin
-				CARRY4 #(.IS_INITIALIZED(1'd1)) carry4_1st_full
+				CARRY4 carry4_1st_full
 				(
 				.CYINIT(CI),
 				.CI    (1'd0),

@@ -159,10 +159,12 @@ module MUXCY(output O, input CI, DI, S);
   assign O = S ? CI : DI;
 endmodule
 
+(* abc_box_id = 1, lib_whitebox *)
 module MUXF7(output O, input I0, I1, S);
   assign O = S ? I1 : I0;
 endmodule
 
+(* abc_box_id = 2, lib_whitebox *)
 module MUXF8(output O, input I0, I1, S);
   assign O = S ? I1 : I0;
 endmodule
@@ -171,7 +173,8 @@ module XORCY(output O, input CI, LI);
   assign O = CI ^ LI;
 endmodule
 
-module CARRY4(output [3:0] CO, O, input CI, CYINIT, input [3:0] DI, S);
+(* abc_box_id = 3, abc_carry, lib_whitebox *)
+module CARRY4((* abc_carry_out *) output [3:0] CO, output [3:0] O, (* abc_carry_in *) input CI, input CYINIT, input [3:0] DI, S);
   assign O = S ^ {CO[2:0], CI | CYINIT};
   assign CO[0] = S[0] ? CI | CYINIT : DI[0];
   assign CO[1] = S[1] ? CO[0] : DI[1];
@@ -202,7 +205,7 @@ endmodule
 
 `endif
 
-module FDRE (output reg Q, input C, CE, D, R);
+module FDRE ((* abc_flop_q *) output reg Q, input C, CE, D, R);
   parameter [0:0] INIT = 1'b0;
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
@@ -214,7 +217,7 @@ module FDRE (output reg Q, input C, CE, D, R);
   endcase endgenerate
 endmodule
 
-module FDSE (output reg Q, input C, CE, D, S);
+module FDSE ((* abc_flop_q *) output reg Q, input C, CE, D, S);
   parameter [0:0] INIT = 1'b0;
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
@@ -226,7 +229,7 @@ module FDSE (output reg Q, input C, CE, D, S);
   endcase endgenerate
 endmodule
 
-module FDCE (output reg Q, input C, CE, D, CLR);
+module FDCE ((* abc_flop_q *) output reg Q, input C, CE, D, CLR);
   parameter [0:0] INIT = 1'b0;
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
@@ -240,7 +243,7 @@ module FDCE (output reg Q, input C, CE, D, CLR);
   endcase endgenerate
 endmodule
 
-module FDPE (output reg Q, input C, CE, D, PRE);
+module FDPE ((* abc_flop_q *) output reg Q, input C, CE, D, PRE);
   parameter [0:0] INIT = 1'b0;
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
@@ -254,30 +257,31 @@ module FDPE (output reg Q, input C, CE, D, PRE);
   endcase endgenerate
 endmodule
 
-module FDRE_1 (output reg Q, input C, CE, D, R);
+module FDRE_1 ((* abc_flop_q *) output reg Q, input C, CE, D, R);
   parameter [0:0] INIT = 1'b0;
   initial Q <= INIT;
   always @(negedge C) if (R) Q <= 1'b0; else if(CE) Q <= D;
 endmodule
 
-module FDSE_1 (output reg Q, input C, CE, D, S);
+module FDSE_1 ((* abc_flop_q *) output reg Q, input C, CE, D, S);
   parameter [0:0] INIT = 1'b1;
   initial Q <= INIT;
   always @(negedge C) if (S) Q <= 1'b1; else if(CE) Q <= D;
 endmodule
 
-module FDCE_1 (output reg Q, input C, CE, D, CLR);
+module FDCE_1 ((* abc_flop_q *) output reg Q, input C, CE, D, CLR);
   parameter [0:0] INIT = 1'b0;
   initial Q <= INIT;
   always @(negedge C, posedge CLR) if (CLR) Q <= 1'b0; else if (CE) Q <= D;
 endmodule
 
-module FDPE_1 (output reg Q, input C, CE, D, PRE);
+module FDPE_1 ((* abc_flop_q *) output reg Q, input C, CE, D, PRE);
   parameter [0:0] INIT = 1'b1;
   initial Q <= INIT;
   always @(negedge C, posedge PRE) if (PRE) Q <= 1'b1; else if (CE) Q <= D;
 endmodule
 
+//(* abc_box_id = 4 /*, lib_whitebox*/ *)
 module RAM64X1D (
   output DPO, SPO,
   input  D, WCLK, WE,
@@ -295,6 +299,7 @@ module RAM64X1D (
   always @(posedge clk) if (WE) mem[a] <= D;
 endmodule
 
+//(* abc_box_id = 5 /*, lib_whitebox*/ *)
 module RAM128X1D (
   output       DPO, SPO,
   input        D, WCLK, WE,
@@ -310,7 +315,7 @@ module RAM128X1D (
 endmodule
 
 module SRL16E (
-  output Q,
+  (* abc_flop_q *) output Q,
   input A0, A1, A2, A3, CE, CLK, D
 );
   parameter [15:0] INIT = 16'h0000;
@@ -328,7 +333,7 @@ module SRL16E (
 endmodule
 
 module SRLC32E (
-  output Q,
+  (* abc_flop_q *) output Q,
   output Q31,
   input [4:0] A,
   input CE, CLK, D

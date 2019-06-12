@@ -42,7 +42,7 @@ struct dff_map_bit_info_t {
 
 bool consider_wire(RTLIL::Wire *wire, std::map<RTLIL::IdString, dff_map_info_t> &dff_dq_map)
 {
-	if (/*wire->name[0] == '$' ||*/ dff_dq_map.count(wire->name))
+	if (wire->name[0] == '$' || dff_dq_map.count(wire->name))
 		return false;
 	if (wire->port_input)
 		return false;

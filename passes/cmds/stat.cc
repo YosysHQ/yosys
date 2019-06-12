@@ -339,6 +339,9 @@ struct StatPass : public Pass {
 				if (mod->get_bool_attribute("\\top"))
 					top_mod = mod;
 
+			if (mod->attributes.count("\\abc_box_id"))
+				continue;
+
 			statdata_t data(design, mod, width_mode, cell_area, techname);
 			mod_stat[mod->name] = data;
 

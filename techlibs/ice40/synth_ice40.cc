@@ -240,7 +240,7 @@ struct SynthIce40Pass : public ScriptPass
 	{
 		if (check_label("begin"))
 		{
-			run("read_verilog -lib -D ABC_MODEL +/ice40/cells_sim.v");
+			run("read_verilog -lib -D_ABC +/ice40/cells_sim.v");
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
 			run("proc");
 		}
@@ -334,7 +334,7 @@ struct SynthIce40Pass : public ScriptPass
 				if (abc == "abc9")
 					run(abc + stringf(" -dress -lut +/ice40/abc_%s.lut -box +/ice40/abc_%s.box", device_opt.c_str(), device_opt.c_str()), "(skip if -noabc)");
 				else
-					run(abc + " -lut 4", "(skip if -noabc)");
+					run(abc + " -dress -lut 4", "(skip if -noabc)");
 			}
 			run("clean");
 			if (relut || help_mode) {

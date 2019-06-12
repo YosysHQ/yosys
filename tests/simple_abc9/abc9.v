@@ -142,3 +142,111 @@ assign b = ~a;
 (* keep *) reg d;
 always @* d <= &c;
 endmodule
+
+// Citation: https://github.com/alexforencich/verilog-ethernet
+module abc9_test021(clk, rst, s_eth_hdr_valid, s_eth_hdr_ready, s_eth_dest_mac, s_eth_src_mac, s_eth_type, s_eth_payload_axis_tdata, s_eth_payload_axis_tkeep, s_eth_payload_axis_tvalid, s_eth_payload_axis_tready, s_eth_payload_axis_tlast, s_eth_payload_axis_tid, s_eth_payload_axis_tdest, s_eth_payload_axis_tuser, m_eth_hdr_valid, m_eth_hdr_ready, m_eth_dest_mac, m_eth_src_mac, m_eth_type, m_eth_payload_axis_tdata, m_eth_payload_axis_tkeep, m_eth_payload_axis_tvalid, m_eth_payload_axis_tready, m_eth_payload_axis_tlast, m_eth_payload_axis_tid, m_eth_payload_axis_tdest, m_eth_payload_axis_tuser);
+  input clk;
+  output [47:0] m_eth_dest_mac;
+  input m_eth_hdr_ready;
+  output m_eth_hdr_valid;
+  output [7:0] m_eth_payload_axis_tdata;
+  output [7:0] m_eth_payload_axis_tdest;
+  output [7:0] m_eth_payload_axis_tid;
+  output m_eth_payload_axis_tkeep;
+  output m_eth_payload_axis_tlast;
+  input m_eth_payload_axis_tready;
+  output m_eth_payload_axis_tuser;
+  output m_eth_payload_axis_tvalid;
+  output [47:0] m_eth_src_mac;
+  output [15:0] m_eth_type;
+  input rst;
+  input [191:0] s_eth_dest_mac;
+  output [3:0] s_eth_hdr_ready;
+  input [3:0] s_eth_hdr_valid;
+  input [31:0] s_eth_payload_axis_tdata;
+  input [31:0] s_eth_payload_axis_tdest;
+  input [31:0] s_eth_payload_axis_tid;
+  input [3:0] s_eth_payload_axis_tkeep;
+  input [3:0] s_eth_payload_axis_tlast;
+  output [3:0] s_eth_payload_axis_tready;
+  input [3:0] s_eth_payload_axis_tuser;
+  input [3:0] s_eth_payload_axis_tvalid;
+  input [191:0] s_eth_src_mac;
+  input [63:0] s_eth_type;
+  (* keep *)
+  wire [0:0] grant, request;
+  wire a;
+  not u0 (
+    a,
+    grant[0]
+  );
+  and u1  (
+    request[0],
+    s_eth_hdr_valid[0],
+    a
+  );
+  (* keep *)
+  MUXF8 u2  (
+    .I0(1'bx),
+    .I1(1'bx),
+    .O(o),
+    .S(1'bx)
+  );
+  arbiter  arb_inst (
+    .acknowledge(acknowledge),
+    .clk(clk),
+    .grant(grant),
+    .grant_encoded(grant_encoded),
+    .grant_valid(grant_valid),
+    .request(request),
+    .rst(rst)
+  );
+endmodule
+
+module arbiter (clk, rst, request, acknowledge, grant, grant_valid, grant_encoded);
+  input [3:0] acknowledge;
+  input clk;
+  output [3:0] grant;
+  output [1:0] grant_encoded;
+  output grant_valid;
+  input [3:0] request;
+  input rst;
+endmodule
+
+(* abc_box_id=1 *)
+module MUXF8(input I0, I1, S, output O);
+endmodule
+
+// Citation: https://github.com/alexforencich/verilog-ethernet
+// TODO: yosys -p "synth_xilinx -abc9 -top abc9_test022" abc9.v -q
+// returns before b4321a31
+//   Warning: Wire abc9_test022.\m_eth_payload_axis_tkeep [7] is used but has no
+//   driver.
+//   Warning: Wire abc9_test022.\m_eth_payload_axis_tkeep [3] is used but has no
+//   driver.
+module abc9_test022
+(
+    input  wire        clk,
+    input  wire        i,
+    output wire [7:0]  m_eth_payload_axis_tkeep
+);
+    reg [7:0]  m_eth_payload_axis_tkeep_reg = 8'd0;
+    assign m_eth_payload_axis_tkeep = m_eth_payload_axis_tkeep_reg;
+    always @(posedge clk)
+        m_eth_payload_axis_tkeep_reg <= i ? 8'hff : 8'h0f;
+endmodule
+
+// Citation: https://github.com/riscv/riscv-bitmanip
+// TODO: yosys -p "synth_xilinx -abc9 -top abc9_test023" abc9.v -q
+// returns before 14233843
+//   Warning: Wire abc9_test023.\dout [1] is used but has no driver.
+module abc9_test023 #(
+	parameter integer N = 2,
+	parameter integer M = 2
+) (
+	input [7:0] din,
+	output [M-1:0] dout
+);
+	wire [2*M-1:0] mask = {M{1'b1}};
+	assign dout = (mask << din[N-1:0]) >> M;
+endmodule
