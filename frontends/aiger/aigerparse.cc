@@ -696,10 +696,6 @@ void AigerReader::post_process()
 				RTLIL::Wire* wire = outputs[variable + co_count];
 				log_assert(wire);
 				log_assert(wire->port_output);
-				if (escaped_s.in("\\__dummy_o__", "\\__const0__", "\\__const1__")) {
-					wire->port_output = false;
-					continue;
-				}
 
 				if (index == 0) {
 					// Cope with the fact that a CO might be identical
@@ -797,8 +793,6 @@ void AigerReader::post_process()
 				port_output = port_output || other_wire->port_output;
 			}
 		}
-		if ((port_input && port_output) || (!port_input && !port_output))
-			continue;
 
 		wire = module->addWire(name, width);
 		wire->port_input = port_input;
