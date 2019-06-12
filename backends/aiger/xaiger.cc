@@ -105,7 +105,7 @@ struct XAigerWriter
 		return aig_map.at(bit);
 	}
 
-	XAigerWriter(Module *module, bool zinit_mode, bool imode, bool omode, bool bmode, bool holes_mode=false) : module(module), zinit_mode(zinit_mode), sigmap(module)
+	XAigerWriter(Module *module, bool zinit_mode, bool imode, bool omode, bool holes_mode=false) : module(module), zinit_mode(zinit_mode), sigmap(module)
 	{
 		pool<SigBit> undriven_bits;
 		pool<SigBit> unused_bits;
@@ -624,14 +624,9 @@ struct XAigerWriter
 			aig_o++;
 			aig_outputs.push_back(0);
 		}
-
-		if (bmode) {
-			//aig_b++;
-			aig_outputs.push_back(0);
-		}
 	}
 
-	void write_aiger(std::ostream &f, bool ascii_mode, bool miter_mode, bool symbols_mode, bool omode)
+	void write_aiger(std::ostream &f, bool ascii_mode, bool omode)
 	{
 		int aig_obc = aig_o;
 		int aig_obcj = aig_obc;
@@ -705,73 +700,6 @@ struct XAigerWriter
 				int delta1 = rhs0 - rhs1;
 				aiger_encode(f, delta0);
 				aiger_encode(f, delta1);
-			}
-		}
-
-		if (symbols_mode)
-		{
-			dict<string, vector<string>> symbols;
-
-			bool output_seen = false;
-			for (auto wire : module->wires())
-			{
-				//if (wire->name[0] == '$')
-				//	continue;
-
-				SigSpec sig = sigmap(wire);
-
-				for (int i = 0; i < GetSize(wire); i++)
-				{
-					RTLIL::SigBit b(wire, i);
-					if (input_bits.count(b)) {
-						int a = aig_map.at(sig[i]);
-						log_assert((a & 1) == 0);
-						if (GetSize(wire) != 1)
-							symbols[stringf("i%d", (a >> 1)-1)].push_back(stringf("%s[%d]", log_id(wire), i));
-						else
-							symbols[stringf("i%d", (a >> 1)-1)].push_back(stringf("%s", log_id(wire)));
-					}
-
-					if (output_bits.count(b)) {
-						int o = ordered_outputs.at(b);
-						output_seen = !miter_mode;
-						if (GetSize(wire) != 1)
-							symbols[stringf("%c%d", miter_mode ? 'b' : 'o', o)].push_back(stringf("%s[%d]", log_id(wire), i));
-						else
-							symbols[stringf("%c%d", miter_mode ? 'b' : 'o', o)].push_back(stringf("%s", log_id(wire)));
-					}
-
-					//if (init_inputs.count(sig[i])) {
-					//	int a = init_inputs.at(sig[i]);
-					//	log_assert((a & 1) == 0);
-					//	if (GetSize(wire) != 1)
-					//		symbols[stringf("i%d", (a >> 1)-1)].push_back(stringf("init:%s[%d]", log_id(wire), i));
-					//	else
-					//		symbols[stringf("i%d", (a >> 1)-1)].push_back(stringf("init:%s", log_id(wire)));
-					//}
-
-					if (ordered_latches.count(sig[i])) {
-						int l = ordered_latches.at(sig[i]);
-						const char *p = (zinit_mode && (aig_latchinit.at(l) == 1)) ? "!" : "";
-						if (GetSize(wire) != 1)
-							symbols[stringf("l%d", l)].push_back(stringf("%s%s[%d]", p, log_id(wire), i));
-						else
-							symbols[stringf("l%d", l)].push_back(stringf("%s%s", p, log_id(wire)));
-					}
-				}
-			}
-
-			if (omode && !output_seen)
-				symbols["o0"].push_back("__dummy_o__");
-
-			symbols.sort();
-
-			for (auto &sym : symbols) {
-				f << sym.first;
-				std::sort(sym.second.begin(), sym.second.end());
-				for (auto &s : sym.second)
-					f << " " << s;
-				f << std::endl;
 			}
 		}
 
@@ -931,8 +859,8 @@ struct XAigerWriter
 				holes_module->design->selection_stack.pop_back();
 
 				std::stringstream a_buffer;
-				XAigerWriter writer(holes_module, false /*zinit_mode*/, false /*imode*/, false /*omode*/, false /*bmode*/, true /* holes_mode */);
-				writer.write_aiger(a_buffer, false /*ascii_mode*/, false /*miter_mode*/, false /*symbols_mode*/, false /*omode*/);
+				XAigerWriter writer(holes_module, false /*zinit_mode*/, false /*imode*/, false /*omode*/, true /* holes_mode */);
+				writer.write_aiger(a_buffer, false /*ascii_mode*/, false /* omode */);
 
 				f << "a";
 				std::string buffer_str = a_buffer.str();
@@ -1055,9 +983,6 @@ struct XAigerBackend : public Backend {
 		log("        convert FFs to zero-initialized FFs, adding additional inputs for\n");
 		log("        uninitialized FFs.\n");
 		log("\n");
-		log("    -symbols\n");
-		log("        include a symbol table in the generated AIGER file\n");
-		log("\n");
 		log("    -map <filename>\n");
 		log("        write an extra file with port and latch symbols\n");
 		log("\n");
@@ -1074,12 +999,9 @@ struct XAigerBackend : public Backend {
 	{
 		bool ascii_mode = false;
 		bool zinit_mode = false;
-		bool miter_mode = false;
-		bool symbols_mode = false;
 		bool verbose_map = false;
 		bool imode = false;
 		bool omode = false;
-		bool bmode = false;
 		std::string map_filename;
 
 		log_header(design, "Executing XAIGER backend.\n");
@@ -1093,10 +1015,6 @@ struct XAigerBackend : public Backend {
 			}
 			if (args[argidx] == "-zinit") {
 				zinit_mode = true;
-				continue;
-			}
-			if (args[argidx] == "-symbols") {
-				symbols_mode = true;
 				continue;
 			}
 			if (map_filename.empty() && args[argidx] == "-map" && argidx+1 < args.size()) {
@@ -1116,10 +1034,6 @@ struct XAigerBackend : public Backend {
 				omode = true;
 				continue;
 			}
-			if (args[argidx] == "-B") {
-				bmode = true;
-				continue;
-			}
 			break;
 		}
 		extra_args(f, filename, args, argidx);
@@ -1129,8 +1043,8 @@ struct XAigerBackend : public Backend {
 		if (top_module == nullptr)
 			log_error("Can't find top module in current design!\n");
 
-		XAigerWriter writer(top_module, zinit_mode, imode, omode, bmode);
-		writer.write_aiger(*f, ascii_mode, miter_mode, symbols_mode, omode);
+		XAigerWriter writer(top_module, zinit_mode, imode, omode);
+		writer.write_aiger(*f, ascii_mode, omode);
 
 		if (!map_filename.empty()) {
 			std::ofstream mapf;
