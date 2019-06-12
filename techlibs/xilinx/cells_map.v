@@ -17,6 +17,16 @@
  *
  */
 
+// Convert negative-polarity reset to positive-polarity
+(* techmap_celltype = "$_DFF_NN0_" *)
+module _90_dff_nn0_to_np0 (input D, C, R, output Q); \$_DFF_NP0_  _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .R(~R)); endmodule
+(* techmap_celltype = "$_DFF_PN0_" *)
+module _90_dff_pn0_to_pp0 (input D, C, R, output Q); \$_DFF_PP0_  _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .R(~R)); endmodule
+(* techmap_celltype = "$_DFF_NN1_" *)
+module _90_dff_nn1_to_np1 (input D, C, R, output Q); \$_DFF_NP1   _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .R(~R)); endmodule
+(* techmap_celltype = "$_DFF_PN1_" *)
+module _90_dff_pn1_to_pp1 (input D, C, R, output Q); \$_DFF_PP1   _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .R(~R)); endmodule
+
 module \$__SHREG_ (input C, input D, input E, output Q);
   parameter DEPTH = 0;
   parameter [DEPTH-1:0] INIT = 0;

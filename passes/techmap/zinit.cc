@@ -46,7 +46,7 @@ struct ZinitPass : public Pass {
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
-			if (args[argidx] == "-singleton") {
+			if (args[argidx] == "-all") {
 				all_mode = true;
 				continue;
 			}

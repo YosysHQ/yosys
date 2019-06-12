@@ -154,6 +154,7 @@ std::string AST::type2str(AstNodeType type)
 	X(AST_GENIF)
 	X(AST_GENCASE)
 	X(AST_GENBLOCK)
+	X(AST_TECALL)
 	X(AST_POSEDGE)
 	X(AST_NEGEDGE)
 	X(AST_EDGE)
@@ -194,6 +195,9 @@ AstNode::AstNode(AstNodeType type, AstNode *child1, AstNode *child2, AstNode *ch
 	is_logic = false;
 	is_signed = false;
 	is_string = false;
+	is_wand = false;
+	is_wor = false;
+	is_unsized = false;
 	was_checked = false;
 	range_valid = false;
 	range_swapped = false;
@@ -722,7 +726,7 @@ AstNode *AstNode::mkconst_int(uint32_t v, bool is_signed, int width)
 }
 
 // create an AST node for a constant (using a bit vector as value)
-AstNode *AstNode::mkconst_bits(const std::vector<RTLIL::State> &v, bool is_signed)
+AstNode *AstNode::mkconst_bits(const std::vector<RTLIL::State> &v, bool is_signed, bool is_unsized)
 {
 	AstNode *node = new AstNode(AST_CONSTANT);
 	node->is_signed = is_signed;
@@ -736,7 +740,13 @@ AstNode *AstNode::mkconst_bits(const std::vector<RTLIL::State> &v, bool is_signe
 	node->range_valid = true;
 	node->range_left = node->bits.size()-1;
 	node->range_right = 0;
+	node->is_unsized = is_unsized;
 	return node;
+}
+
+AstNode *AstNode::mkconst_bits(const std::vector<RTLIL::State> &v, bool is_signed)
+{
+	return mkconst_bits(v, is_signed, false);
 }
 
 // create an AST node for a constant (using a string in bit vector form as value)
@@ -773,6 +783,14 @@ bool AstNode::bits_only_01() const
 		if (bit != RTLIL::S0 && bit != RTLIL::S1)
 			return false;
 	return true;
+}
+
+RTLIL::Const AstNode::bitsAsUnsizedConst(int width)
+{
+	RTLIL::State extbit = bits.back();
+	while (width > int(bits.size()))
+		bits.push_back(extbit);
+	return RTLIL::Const(bits);
 }
 
 RTLIL::Const AstNode::bitsAsConst(int width, bool is_signed)
@@ -951,6 +969,9 @@ static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast
 					continue;
 				if (child->type == AST_PARAMETER || child->type == AST_LOCALPARAM)
 					continue;
+				if (child->type == AST_CELL && child->children.size() > 0 && child->children[0]->type == AST_CELLTYPE &&
+						(child->children[0]->str == "$specify2" || child->children[0]->str == "$specify3" || child->children[0]->str == "$specrule"))
+					continue;
 				blackbox_module = false;
 				break;
 			}
@@ -1034,6 +1055,9 @@ static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast
 				} else if (child->type == AST_PARAMETER) {
 					child->delete_children();
 					child->children.push_back(AstNode::mkconst_int(0, false, 0));
+					new_children.push_back(child);
+				} else if (child->type == AST_CELL && child->children.size() > 0 && child->children[0]->type == AST_CELLTYPE &&
+						(child->children[0]->str == "$specify2" || child->children[0]->str == "$specify3" || child->children[0]->str == "$specrule")) {
 					new_children.push_back(child);
 				} else {
 					delete child;

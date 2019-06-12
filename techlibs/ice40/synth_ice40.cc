@@ -245,11 +245,13 @@ struct SynthIce40Pass : public ScriptPass
 			run("proc");
 		}
 
-		if (flatten && check_label("flatten", "(unless -noflatten)"))
+		if (check_label("flatten", "(unless -noflatten)"))
 		{
-			run("flatten");
-			run("tribuf -logic");
-			run("deminout");
+			if (flatten) {
+				run("flatten");
+				run("tribuf -logic");
+				run("deminout");
+			}
 		}
 
 		if (check_label("coarse"))
@@ -259,6 +261,8 @@ struct SynthIce40Pass : public ScriptPass
 			run("check");
 			run("opt");
 			run("wreduce");
+			run("peepopt");
+			run("opt_clean");
 			run("share");
 			run("techmap -map +/cmp2lut.v -D LUT_WIDTH=4");
 			run("opt_expr");

@@ -178,7 +178,17 @@ struct ShregmapTechXilinx7 : ShregmapTech
 
 		// Only map if $shiftx exclusively covers the shift register
 		if (shiftx->type == "$shiftx") {
-			if (GetSize(taps) != shiftx->getParam("\\A_WIDTH").as_int())
+			if (GetSize(taps) > shiftx->getParam("\\A_WIDTH").as_int())
+				return false;
+			// Due to padding the most significant bits of A may be 1'bx,
+			//   and if so, discount them
+			if (GetSize(taps) < shiftx->getParam("\\A_WIDTH").as_int()) {
+				const SigSpec A = shiftx->getPort("\\A");
+				const int A_width = shiftx->getParam("\\A_WIDTH").as_int();
+				for (int i = GetSize(taps); i < A_width; ++i)
+					if (A[i] != RTLIL::Sx) return false;
+			}
+			else if (GetSize(taps) != shiftx->getParam("\\A_WIDTH").as_int())
 				return false;
 		}
 		else if (shiftx->type == "$mux") {
@@ -595,6 +605,9 @@ struct ShregmapPass : public Pass {
 		log("\n");
 		log("    -tech greenpak4\n");
 		log("        map to greenpak4 shift registers.\n");
+		log("\n");
+		log("    -tech xilinx\n");
+		log("        map to xilinx dynamic-length shift registers.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE

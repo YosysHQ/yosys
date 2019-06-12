@@ -244,7 +244,7 @@ extern bool memhasher_active;
 inline void memhasher() { if (memhasher_active) memhasher_do(); }
 
 void yosys_banner();
-int ceil_log2(int x);
+int ceil_log2(int x) YS_ATTRIBUTE(const);
 std::string stringf(const char *fmt, ...) YS_ATTRIBUTE(format(printf, 1, 2));
 std::string vstringf(const char *fmt, va_list ap);
 int readsome(std::istream &f, char *s, int n);
@@ -257,6 +257,7 @@ std::string make_temp_dir(std::string template_str = "/tmp/yosys_XXXXXX");
 bool check_file_exists(std::string filename, bool is_exec = false);
 bool is_absolute_path(std::string filename);
 void remove_directory(std::string dirname);
+std::string escape_filename_spaces(const std::string& filename);
 
 template<typename T> int GetSize(const T &obj) { return obj.size(); }
 int GetSize(RTLIL::Wire *wire);

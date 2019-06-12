@@ -26,11 +26,15 @@ bram $__XILINX_RAM128X1D
 endbram
 
 match $__XILINX_RAM64X1D
+  min bits 5
+  min wports 1
   make_outreg
   or_next_if_better
 endmatch
 
 match $__XILINX_RAM128X1D
+  min bits 9
+  min wports 1
   make_outreg
 endmatch
 

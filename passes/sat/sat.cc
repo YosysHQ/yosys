@@ -1169,6 +1169,7 @@ struct SatPass : public Pass {
 			if (args[argidx] == "-tempinduct-def") {
 				tempinduct = true;
 				tempinduct_def = true;
+				enable_undef = true;
 				continue;
 			}
 			if (args[argidx] == "-tempinduct-baseonly") {

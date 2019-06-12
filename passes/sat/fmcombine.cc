@@ -26,6 +26,8 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct opts_t
 {
+	bool initeq = false;
+	bool anyeq = false;
 	bool fwd = false;
 	bool bwd = false;
 	bool nop = false;
@@ -56,7 +58,7 @@ struct FmcombineWorker
 		return newsig;
 	}
 
-	void import_prim_cell(Cell *cell, const string &suffix)
+	Cell *import_prim_cell(Cell *cell, const string &suffix)
 	{
 		Cell *c = module->addCell(cell->name.str() + suffix, cell->type);
 		c->parameters = cell->parameters;
@@ -64,6 +66,8 @@ struct FmcombineWorker
 
 		for (auto &conn : cell->connections())
 			c->setPort(conn.first, import_sig(conn.second, suffix));
+
+		return c;
 	}
 
 	void import_hier_cell(Cell *cell)
@@ -102,8 +106,24 @@ struct FmcombineWorker
 
 		for (auto cell : original->cells()) {
 			if (design->module(cell->type) == nullptr) {
-				import_prim_cell(cell, "_gold");
-				import_prim_cell(cell, "_gate");
+				if (opts.anyeq && cell->type.in("$anyseq", "$anyconst")) {
+					Cell *gold = import_prim_cell(cell, "_gold");
+					for (auto &conn : cell->connections())
+						module->connect(import_sig(conn.second, "_gate"), gold->getPort(conn.first));
+				} else {
+					Cell *gold = import_prim_cell(cell, "_gold");
+					Cell *gate = import_prim_cell(cell, "_gate");
+					if (opts.initeq) {
+						if (cell->type.in("$ff", "$dff", "$dffe",
+								"$dffsr", "$adff", "$dlatch", "$dlatchsr")) {
+							SigSpec gold_q = gold->getPort("\\Q");
+							SigSpec gate_q = gate->getPort("\\Q");
+							SigSpec en = module->Initstate(NEW_ID);
+							SigSpec eq = module->Eq(NEW_ID, gold_q, gate_q);
+							module->addAssume(NEW_ID, eq, en);
+						}
+					}
+				}
 			} else {
 				import_hier_cell(cell);
 			}
@@ -229,6 +249,13 @@ struct FmcombinePass : public Pass {
 		log("This is useful for formal test benches that check what differences in behavior\n");
 		log("a slight difference in input causes in a module.\n");
 		log("\n");
+		log("    -initeq\n");
+		log("        Insert assumptions that initially all FFs in both circuits have the\n");
+		log("        same initial values.\n");
+		log("\n");
+		log("    -anyeq\n");
+		log("        Do not duplicate $anyseq/$anyconst cells.\n");
+		log("\n");
 		log("    -fwd\n");
 		log("        Insert forward hint assumptions into the combined module.\n");
 		log("\n");
@@ -261,6 +288,14 @@ struct FmcombinePass : public Pass {
 			// 	filename = args[++argidx];
 			// 	continue;
 			// }
+			if (args[argidx] == "-initeq") {
+				opts.initeq = true;
+				continue;
+			}
+			if (args[argidx] == "-anyeq") {
+				opts.anyeq = true;
+				continue;
+			}
 			if (args[argidx] == "-fwd") {
 				opts.fwd = true;
 				continue;
@@ -297,7 +332,7 @@ struct FmcombinePass : public Pass {
 
 			gate_cell = module->cell(gate_name);
 			if (gate_cell == nullptr)
-				log_cmd_error("Gold cell %s not found in module %s.\n", log_id(gate_name), log_id(module));
+				log_cmd_error("Gate cell %s not found in module %s.\n", log_id(gate_name), log_id(module));
 		}
 		else
 		{
@@ -316,7 +351,7 @@ struct FmcombinePass : public Pass {
 		if (!gold_cell->parameters.empty())
 			log_cmd_error("Gold cell has unresolved instance parameters.\n");
 		if (!gate_cell->parameters.empty())
-			log_cmd_error("Gold cell has unresolved instance parameters.\n");
+			log_cmd_error("Gate cell has unresolved instance parameters.\n");
 
 		FmcombineWorker worker(design, gold_cell->type, opts);
 		worker.generate();

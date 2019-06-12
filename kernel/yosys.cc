@@ -151,14 +151,16 @@ void yosys_banner()
 
 int ceil_log2(int x)
 {
+#if defined(__GNUC__)
+        return x > 1 ? (8*sizeof(int)) - __builtin_clz(x-1) : 0;
+#else
 	if (x <= 0)
 		return 0;
-
 	for (int i = 0; i < 32; i++)
 		if (((x-1) >> i) == 0)
 			return i;
-
 	log_abort();
+#endif
 }
 
 std::string stringf(const char *fmt, ...)
@@ -480,6 +482,20 @@ void remove_directory(std::string dirname)
 	free(namelist);
 	rmdir(dirname.c_str());
 #endif
+}
+
+std::string escape_filename_spaces(const std::string& filename)
+{
+	std::string out;
+	out.reserve(filename.size());
+	for (auto c : filename)
+	{
+		if (c == ' ')
+			out += "\\ ";
+		else
+			out.push_back(c);
+	}
+	return out;
 }
 
 int GetSize(RTLIL::Wire *wire)

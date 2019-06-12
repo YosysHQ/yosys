@@ -29,19 +29,25 @@ up in any future matches:
 
     pm.blacklist(some_cell);
 
-The `.run(callback_function)` method searches for all matches and calls the
-callback function for each found match:
+The `.run_<pattern_name>(callback_function)` method searches for all matches
+for the pattern`<pattern_name>` and calls the callback function for each found
+match:
 
-    pm.run([&](){
+    pm.run_foobar([&](){
         log("found matching 'foo' cell: %s\n", log_id(pm.st.foo));
         log("          with 'bar' cell: %s\n", log_id(pm.st.bar));
     });
 
 The `.pmg` file declares matcher state variables that are accessible via the
-`.st.<state_name>` members. (The `.st` member is of type `foobar_pm::state_t`.)
+`.st_<pattern_name>.<state_name>` members. (The `.st_<pattern_name>` member is
+of type `foobar_pm::state_<pattern_name>_t`.)
 
 Similarly the `.pmg` file declares user data variables that become members of
-`.ud`, a struct of type `foobar_pm::udata_t`.
+`.ud_<pattern_name>`, a struct of type `foobar_pm::udata_<pattern_name>_t`.
+
+There are four versions of the `run_<pattern_name>()` method: Without callback,
+callback without arguments, callback with reference to `pm`, and callback with
+reference to `pm.st_<pattern_name>`.
 
 
 The .pmg File Format
@@ -51,6 +57,12 @@ The `.pmg` file format is a simple line-based file format. For the most part
 lines consist of whitespace-separated tokens.
 
 Lines in `.pmg` files starting with `//` are comments.
+
+Declaring a pattern
+-------------------
+
+A `.pmg` file contains one or more patterns. Each pattern starts with a line
+with the `pattern` keyword followed by the name of the pattern.
 
 Declaring state variables
 -------------------------
@@ -66,7 +78,7 @@ State variables are automatically managed by the generated backtracking algorith
 and saved and restored as needed.
 
 They are automatically initialized to the default constructed value of their type
-when `.run(callback_function)` is called.
+when `.run_<pattern_name>(callback_function)` is called.
 
 Declaring udata variables
 -------------------------
@@ -220,5 +232,5 @@ But in some cases it is more natural to utilize the implicit branch statement:
         portAB = \B;
     endcode
 
-There is an implicit `code..endcode` block at the end of each `.pgm` file
+There is an implicit `code..endcode` block at the end of each `.pmg` file
 that just accepts everything that gets all the way there.

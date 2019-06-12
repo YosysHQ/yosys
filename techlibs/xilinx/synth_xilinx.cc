@@ -25,18 +25,9 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-bool check_label(bool &active, std::string run_from, std::string run_to, std::string label)
+struct SynthXilinxPass : public ScriptPass
 {
-	if (label == run_from)
-		active = true;
-	if (label == run_to)
-		active = false;
-	return active;
-}
-
-struct SynthXilinxPass : public Pass
-{
-	SynthXilinxPass() : Pass("synth_xilinx", "synthesis for Xilinx FPGAs") { }
+	SynthXilinxPass() : ScriptPass("synth_xilinx", "synthesis for Xilinx FPGAs") { }
 
 	void help() YS_OVERRIDE
 	{
@@ -51,6 +42,10 @@ struct SynthXilinxPass : public Pass
 		log("    -top <module>\n");
 		log("        use the specified module as top module\n");
 		log("\n");
+		log("    -arch {xcup|xcu|xc7|xc6s}\n");
+		log("        run synthesis for the specified Xilinx architecture\n");
+		log("        default: xc7\n");
+		log("\n");
 		log("    -edif <file>\n");
 		log("        write the design to the specified edif file. writing of an output file\n");
 		log("        is omitted if this parameter is not specified.\n");
@@ -63,6 +58,9 @@ struct SynthXilinxPass : public Pass
 		log("        generate an output netlist (and BLIF file) suitable for VPR\n");
 		log("        (this feature is experimental and incomplete)\n");
 		log("\n");
+		log("    -nocarry\n");
+		log("        disable inference of carry chains\n");
+		log("\n");
 		log("    -nobram\n");
 		log("        disable inference of block rams\n");
 		log("\n");
@@ -71,6 +69,9 @@ struct SynthXilinxPass : public Pass
 		log("\n");
 		log("    -nosrl\n");
 		log("        disable inference of shift registers\n");
+		log("\n");
+		log("    -nomux\n");
+		log("        disable inference of wide multiplexers\n");
 		log("\n");
 		log("    -run <from_label>:<to_label>\n");
 		log("        only run the commands between the labels (see below). an empty\n");
@@ -88,86 +89,44 @@ struct SynthXilinxPass : public Pass
 		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
-		log("\n");
-		log("    begin:\n");
-		log("        read_verilog -lib +/xilinx/cells_sim.v\n");
-		log("        read_verilog -lib +/xilinx/cells_xtra.v\n");
-		log("        read_verilog -lib +/xilinx/brams_bb.v\n");
-		log("        hierarchy -check -top <top>\n");
-		log("\n");
-		log("    flatten:     (only if -flatten)\n");
-		log("        proc\n");
-		log("        flatten\n");
-		log("\n");
-		log("    coarse:\n");
-		log("        synth -run coarse\n");
-		log("\n");
-		log("    bram: (only executed when '-nobram' is not given)\n");
-		log("        memory_bram -rules +/xilinx/brams.txt\n");
-		log("        techmap -map +/xilinx/brams_map.v\n");
-		log("\n");
-		log("    dram: (only executed when '-nodram' is not given)\n");
-		log("        memory_bram -rules +/xilinx/drams.txt\n");
-		log("        techmap -map +/xilinx/drams_map.v\n");
-		log("\n");
-		log("    fine:\n");
-		log("        opt -fast\n");
-		log("        memory_map\n");
-		log("        dffsr2dff\n");
-		log("        dff2dffe\n");
-		log("        techmap -map +/xilinx/arith_map.v\n");
-		log("        opt -fast\n");
-		log("\n");
-		log("    map_cells:\n");
-		log("        simplemap t:$dff t:$dffe (without '-nosrl' only)\n");
-		log("        pmux2shiftx (without '-nosrl' only)\n");
-		log("        opt_expr -mux_undef (without '-nosrl' only)\n");
-		log("        shregmap -tech xilinx -minlen 3 (without '-nosrl' only)\n");
-		log("        techmap -map +/xilinx/cells_map.v\n");
-		log("        clean\n");
-		log("\n");
-		log("    map_luts:\n");
-		log("        opt -full\n");
-		log("        techmap -map +/techmap.v -D _NO_POS_SR -map +/xilinx/ff_map.v\n");
-		log("        abc -luts 2:2,3,6:5,10,20 [-dff]\n");
-		log("        clean\n");
-		log("        shregmap -minlen 3 -init -params -enpol any_or_none (without '-nosrl' only)\n");
-		log("        techmap -map +/xilinx/lut_map.v -map +/xilinx/ff_map.v -map +/xilinx/cells_map.v");
-		log("        dffinit -ff FDRE   Q INIT -ff FDCE   Q INIT -ff FDPE   Q INIT -ff FDSE   Q INIT \\\n");
-		log("                -ff FDRE_1 Q INIT -ff FDCE_1 Q INIT -ff FDPE_1 Q INIT -ff FDSE_1 Q INIT\n");
-		log("        clean\n");
-		log("\n");
-		log("    check:\n");
-		log("        hierarchy -check\n");
-		log("        stat\n");
-		log("        check -noinit\n");
-		log("\n");
-		log("    edif:     (only if -edif)\n");
-		log("        write_edif <file-name>\n");
-		log("\n");
-		log("    blif:     (only if -blif)\n");
-		log("        write_blif <file-name>\n");
+		help_script();
 		log("\n");
 	}
+
+	std::string top_opt, edif_file, blif_file, abc, arch;
+	bool flatten, retime, vpr, nocarry, nobram, nodram, nosrl, nomux;
+
+	void clear_flags() YS_OVERRIDE
+	{
+		top_opt = "-auto-top";
+		edif_file.clear();
+		blif_file.clear();
+		abc = "abc";
+		flatten = false;
+		retime = false;
+		vpr = false;
+		nocarry = false;
+		nobram = false;
+		nodram = false;
+		nosrl = false;
+		nomux = false;
+		arch = "xc7";
+	}
+
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
-		std::string top_opt = "-auto-top";
-		std::string edif_file;
-		std::string blif_file;
 		std::string run_from, run_to;
-		std::string abc = "abc";
-		bool flatten = false;
-		bool retime = false;
-		bool vpr = false;
-		bool nobram = false;
-		bool nodram = false;
-		bool nosrl = false;
+		clear_flags();
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
 			if (args[argidx] == "-top" && argidx+1 < args.size()) {
 				top_opt = "-top " + args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-arch" && argidx+1 < args.size()) {
+				arch = args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-edif" && argidx+1 < args.size()) {
@@ -198,6 +157,10 @@ struct SynthXilinxPass : public Pass
 				vpr = true;
 				continue;
 			}
+			if (args[argidx] == "-nocarry") {
+				nocarry = true;
+				continue;
+			}
 			if (args[argidx] == "-nobram") {
 				nobram = true;
 				continue;
@@ -209,7 +172,11 @@ struct SynthXilinxPass : public Pass
 			if (args[argidx] == "-nosrl") {
 				nosrl = true;
 				continue;
-            }
+			}
+			if (args[argidx] == "-nomux") {
+				nomux = true;
+				continue;
+			}
 			if (args[argidx] == "-abc9") {
 				abc = "abc9";
 				continue;
@@ -218,131 +185,150 @@ struct SynthXilinxPass : public Pass
 		}
 		extra_args(args, argidx, design);
 
+		if (arch != "xcup" && arch != "xcu" && arch != "xc7" && arch != "xc6s")
+			log_cmd_error("Invalid Xilinx -arch setting: %s\n", arch.c_str());
+
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");
-
-		bool active = run_from.empty();
 
 		log_header(design, "Executing SYNTH_XILINX pass.\n");
 		log_push();
 
-		if (check_label(active, run_from, run_to, "begin"))
-		{
-			if (vpr) {
-				Pass::call(design, "read_verilog -lib -D_EXPLICIT_CARRY +/xilinx/cells_sim.v");
-			} else {
-				Pass::call(design, "read_verilog -lib +/xilinx/cells_sim.v");
-			}
-
-			Pass::call(design, "read_verilog -lib +/xilinx/cells_xtra.v");
-
-			if (!nobram) {
-				Pass::call(design, "read_verilog -lib +/xilinx/brams_bb.v");
-			}
-
-			Pass::call(design, stringf("hierarchy -check %s", top_opt.c_str()));
-		}
-
-		if (flatten && check_label(active, run_from, run_to, "flatten"))
-		{
-			Pass::call(design, "proc");
-			Pass::call(design, "flatten");
-		}
-
-		if (check_label(active, run_from, run_to, "coarse"))
-		{
-			Pass::call(design, "synth -run coarse");
-		}
-
-		if (check_label(active, run_from, run_to, "bram"))
-		{
-			if (!nobram) {
-				Pass::call(design, "memory_bram -rules +/xilinx/brams.txt");
-				Pass::call(design, "techmap -map +/xilinx/brams_map.v");
-			}
-		}
-
-		if (check_label(active, run_from, run_to, "dram"))
-		{
-			if (!nodram) {
-				Pass::call(design, "memory_bram -rules +/xilinx/drams.txt");
-				Pass::call(design, "techmap -map +/xilinx/drams_map.v");
-			}
-		}
-
-		if (check_label(active, run_from, run_to, "fine"))
-		{
-			Pass::call(design, "opt -fast");
-			Pass::call(design, "memory_map");
-			Pass::call(design, "dffsr2dff");
-			Pass::call(design, "dff2dffe");
-
-			if (vpr) {
-				Pass::call(design, "techmap -map +/xilinx/arith_map.v -D _EXPLICIT_CARRY");
-			} else {
-				Pass::call(design, "techmap -map +/xilinx/arith_map.v");
-			}
-
-			Pass::call(design, "hierarchy -check");
-			Pass::call(design, "opt -fast");
-		}
-
-		if (check_label(active, run_from, run_to, "map_cells"))
-		{
-			if (!nosrl) {
-				// shregmap operates on bit-level flops, not word-level,
-				//   so break those down here
-				Pass::call(design, "simplemap t:$dff t:$dffe");
-				// shregmap -tech xilinx can cope with $shiftx and $mux
-				//   cells for identifiying variable-length shift registers,
-				//   so attempt to convert $pmux-es to the former
-				Pass::call(design, "pmux2shiftx");
-				// pmux2shiftx can leave behind a $pmux with a single entry
-				//   -- need this to clean that up before shregmap
-				Pass::call(design, "opt_expr -mux_undef");
-				// shregmap with '-tech xilinx' infers variable length shift regs
-				Pass::call(design, "shregmap -tech xilinx -minlen 3");
-			}
-
-			Pass::call(design, "techmap -map +/xilinx/cells_map.v");
-			Pass::call(design, "clean");
-		}
-
-		if (check_label(active, run_from, run_to, "map_luts"))
-		{
-			Pass::call(design, "opt -full");
-			Pass::call(design, "techmap -map +/techmap.v -D _NO_POS_SR -map +/xilinx/ff_map.v");
-			Pass::call(design, abc + " -luts 2:2,3,6:5,10,20" + string(retime ? " -dff" : ""));
-			Pass::call(design, "clean");
-			// This shregmap call infers fixed length shift registers after abc
-			//   has performed any necessary retiming
-			if (!nosrl)
-				Pass::call(design, "shregmap -minlen 3 -init -params -enpol any_or_none");
-			Pass::call(design, "techmap -map +/xilinx/lut_map.v -map +/xilinx/ff_map.v -map +/xilinx/cells_map.v");
-			Pass::call(design, "dffinit -ff FDRE Q INIT -ff FDCE Q INIT -ff FDPE Q INIT -ff FDSE Q INIT "
-					"-ff FDRE_1 Q INIT -ff FDCE_1 Q INIT -ff FDPE_1 Q INIT -ff FDSE_1 Q INIT");
-			Pass::call(design, "clean");
-		}
-
-		if (check_label(active, run_from, run_to, "check"))
-		{
-			Pass::call(design, "hierarchy -check");
-			Pass::call(design, "stat");
-			Pass::call(design, "check -noinit");
-		}
-
-		if (check_label(active, run_from, run_to, "edif"))
-		{
-			if (!edif_file.empty())
-				Pass::call(design, stringf("write_edif -pvector bra %s", edif_file.c_str()));
-		}
-		if (check_label(active, run_from, run_to, "blif"))
-		{
-			if (!blif_file.empty())
-				Pass::call(design, stringf("write_blif %s", edif_file.c_str()));
-		}
+		run_script(design, run_from, run_to);
 
 		log_pop();
+	}
+
+	void script() YS_OVERRIDE
+	{
+		if (check_label("begin")) {
+			if (vpr)
+				run("read_verilog -lib -D _ABC -D_EXPLICIT_CARRY +/xilinx/cells_sim.v");
+			else
+				run("read_verilog -lib -D _ABC +/xilinx/cells_sim.v");
+
+			run("read_verilog -lib +/xilinx/cells_xtra.v");
+
+			if (!nobram || help_mode)
+				run("read_verilog -lib +/xilinx/brams_bb.v", "(skip if '-nobram')");
+
+			run(stringf("hierarchy -check %s", top_opt.c_str()));
+		}
+
+		if (check_label("flatten", "(with '-flatten' only)")) {
+			if (flatten || help_mode) {
+				run("proc");
+				run("flatten");
+			}
+		}
+
+		if (check_label("coarse")) {
+			run("synth -run coarse");
+
+			//if (!nomux || help_mode)
+			//	run("muxpack", "(skip if '-nomux')");
+
+			// shregmap -tech xilinx can cope with $shiftx and $mux
+			//   cells for identifying variable-length shift registers,
+			//   so attempt to convert $pmux-es to the former
+			// Also: wide multiplexer inference benefits from this too
+			if (!(nosrl && nomux) || help_mode)
+				run("pmux2shiftx", "(skip if '-nosrl' and '-nomux')");
+
+			// Run a number of peephole optimisations, including one
+			//   that optimises $mul cells driving $shiftx's B input
+			//   and that aids wide mux analysis
+			run("peepopt");
+		}
+
+		if (check_label("bram", "(skip if '-nobram')")) {
+			if (!nobram || help_mode) {
+				run("memory_bram -rules +/xilinx/brams.txt");
+				run("techmap -map +/xilinx/brams_map.v");
+			}
+		}
+
+		if (check_label("dram", "(skip if '-nodram')")) {
+			if (!nodram || help_mode) {
+				run("memory_bram -rules +/xilinx/drams.txt");
+				run("techmap -map +/xilinx/drams_map.v");
+			}
+		}
+
+		if (check_label("fine")) {
+			run("opt -fast -full");
+			run("memory_map");
+			run("dffsr2dff");
+			run("dff2dffe");
+			run("opt -full");
+
+			if (!nosrl || help_mode) {
+				// shregmap operates on bit-level flops, not word-level,
+				//   so break those down here
+				run("simplemap t:$dff t:$dffe", "(skip if '-nosrl')");
+				// shregmap with '-tech xilinx' infers variable length shift regs
+				run("shregmap -tech xilinx -minlen 3", "(skip if '-nosrl')");
+			}
+
+			std::string techmap_files = " -map +/techmap.v";
+			if (help_mode)
+					techmap_files += " [-map +/xilinx/mux_map.v]";
+			else if (!nomux)
+					techmap_files += " -map +/xilinx/mux_map.v";
+			if (help_mode)
+					techmap_files += " [-map +/xilinx/arith_map.v]";
+			else if (!nocarry) {
+					techmap_files += " -map +/xilinx/arith_map.v";
+					if (vpr)
+							techmap_files += " -D _EXPLICIT_CARRY";
+					else if (abc == "abc9")
+							techmap_files += " -D _CLB_CARRY";
+			}
+			run("techmap " + techmap_files);
+			run("opt -fast");
+		}
+
+		if (check_label("map_cells")) {
+			if (!nomux || help_mode)
+				run("muxcover -mux8 -mux16", "(skip if '-nomux')");
+			run("techmap -map +/techmap.v -map +/xilinx/cells_map.v");
+			run("clean");
+		}
+
+		if (check_label("map_luts")) {
+			if (abc == "abc9")
+				run(abc + " -lut +/xilinx/abc.lut -box +/xilinx/abc.box -W 160" + string(retime ? " -dff" : ""));
+			else if (help_mode)
+				run(abc + " -luts 2:2,3,6:5,10,20 [-dff]");
+			else
+				run(abc + " -luts 2:2,3,6:5,10,20" + string(retime ? " -dff" : ""));
+			run("clean");
+
+			// This shregmap call infers fixed length shift registers after abc
+			//   has performed any necessary retiming
+			if (!nosrl || help_mode)
+				run("shregmap -minlen 3 -init -params -enpol any_or_none", "(skip if '-nosrl')");
+			run("techmap -map +/xilinx/lut_map.v -map +/xilinx/cells_map.v -map +/xilinx/ff_map.v");
+			run("dffinit -ff FDRE Q INIT -ff FDCE Q INIT -ff FDPE Q INIT -ff FDSE Q INIT "
+					"-ff FDRE_1 Q INIT -ff FDCE_1 Q INIT -ff FDPE_1 Q INIT -ff FDSE_1 Q INIT");
+			run("clean");
+		}
+
+		if (check_label("check")) {
+			run("hierarchy -check");
+			run("stat -tech xilinx");
+			run("check -noinit");
+		}
+
+		if (check_label("edif")) {
+			if (!edif_file.empty() || help_mode)
+				run(stringf("write_edif -pvector bra %s", edif_file.c_str()));
+		}
+
+		if (check_label("blif")) {
+			if (!blif_file.empty() || help_mode)
+				run(stringf("write_blif %s", edif_file.c_str()));
+		}
 	}
 } SynthXilinxPass;
 

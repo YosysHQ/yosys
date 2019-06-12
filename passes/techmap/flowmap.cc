@@ -397,7 +397,6 @@ struct FlowGraph
 		pool<RTLIL::SigBit> x, xi;
 
 		NodePrime source_prime = {source, true};
-		NodePrime sink_prime = {sink, false};
 		pool<NodePrime> visited;
 		vector<NodePrime> worklist = {source_prime};
 		while (!worklist.empty())
@@ -1382,7 +1381,8 @@ struct FlowmapWorker
 
 			vector<RTLIL::SigBit> input_nodes(lut_edges_bw[node].begin(), lut_edges_bw[node].end());
 			RTLIL::Const lut_table(State::Sx, max(1 << input_nodes.size(), 1 << minlut));
-			for (unsigned i = 0; i < (1 << input_nodes.size()); i++)
+			unsigned const mask = 1 << input_nodes.size();
+			for (unsigned i = 0; i < mask; i++)
 			{
 				ce.push();
 				for (size_t n = 0; n < input_nodes.size(); n++)

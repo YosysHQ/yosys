@@ -158,6 +158,9 @@ struct VerilogFrontend : public Frontend {
 		log("        delete (* whitebox *) and (* lib_whitebox *) attributes from\n");
 		log("        all modules.\n");
 		log("\n");
+		log("    -specify\n");
+		log("        parse and import specify blocks\n");
+		log("\n");
 		log("    -noopt\n");
 		log("        don't perform basic optimizations (such as const folding) in the\n");
 		log("        high-level front-end.\n");
@@ -228,6 +231,8 @@ struct VerilogFrontend : public Frontend {
 		bool flag_nooverwrite = false;
 		bool flag_overwrite = false;
 		bool flag_defer = false;
+		bool flag_noblackbox = false;
+		bool flag_nowb = false;
 		std::map<std::string, std::string> defines_map;
 		std::list<std::string> include_dirs;
 		std::list<std::string> attributes;
@@ -237,12 +242,9 @@ struct VerilogFrontend : public Frontend {
 		formal_mode = false;
 		norestrict_mode = false;
 		assume_asserts_mode = false;
-		noblackbox_mode = false;
 		lib_mode = false;
-		nowb_mode = false;
+		specify_mode = false;
 		default_nettype_wire = true;
-
-		log_header(design, "Executing Verilog-2005 frontend.\n");
 
 		args.insert(args.begin()+1, verilog_defaults.begin(), verilog_defaults.end());
 
@@ -342,7 +344,7 @@ struct VerilogFrontend : public Frontend {
 				continue;
 			}
 			if (arg == "-noblackbox") {
-				noblackbox_mode = true;
+				flag_noblackbox = true;
 				continue;
 			}
 			if (arg == "-lib") {
@@ -351,7 +353,11 @@ struct VerilogFrontend : public Frontend {
 				continue;
 			}
 			if (arg == "-nowb") {
-				nowb_mode = true;
+				flag_nowb = true;
+				continue;
+			}
+			if (arg == "-specify") {
+				specify_mode = true;
 				continue;
 			}
 			if (arg == "-noopt") {
@@ -415,6 +421,8 @@ struct VerilogFrontend : public Frontend {
 		}
 		extra_args(f, filename, args, argidx);
 
+		log_header(design, "Executing Verilog-2005 frontend: %s\n", filename.c_str());
+
 		log("Parsing %s%s input from `%s' to AST representation.\n",
 				formal_mode ? "formal " : "", sv_mode ? "SystemVerilog" : "Verilog", filename.c_str());
 
@@ -450,7 +458,7 @@ struct VerilogFrontend : public Frontend {
 			error_on_dpi_function(current_ast);
 
 		AST::process(design, current_ast, flag_dump_ast1, flag_dump_ast2, flag_no_dump_ptr, flag_dump_vlog1, flag_dump_vlog2, flag_dump_rtlil, flag_nolatches,
-				flag_nomeminit, flag_nomem2reg, flag_mem2reg, noblackbox_mode, lib_mode, nowb_mode, flag_noopt, flag_icells, flag_nooverwrite, flag_overwrite, flag_defer, default_nettype_wire);
+				flag_nomeminit, flag_nomem2reg, flag_mem2reg, flag_noblackbox, lib_mode, flag_nowb, flag_noopt, flag_icells, flag_nooverwrite, flag_overwrite, flag_defer, default_nettype_wire);
 
 		if (!flag_nopp)
 			delete lexin;

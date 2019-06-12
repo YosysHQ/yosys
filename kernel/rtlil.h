@@ -50,7 +50,7 @@ namespace RTLIL
 		CONST_FLAG_NONE   = 0,
 		CONST_FLAG_STRING = 1,
 		CONST_FLAG_SIGNED = 2,  // only used for parameters
-		CONST_FLAG_REAL   = 4   // unused -- to be used for parameters
+		CONST_FLAG_REAL   = 4   // only used for parameters
 	};
 
 	struct Const;
@@ -524,6 +524,7 @@ struct RTLIL::Const
 	Const(const std::vector<RTLIL::State> &bits) : bits(bits) { flags = CONST_FLAG_NONE; }
 	Const(const std::vector<bool> &bits);
 	Const(const RTLIL::Const &c);
+	RTLIL::Const &operator =(const RTLIL::Const &other) = default;
 
 	bool operator <(const RTLIL::Const &other) const;
 	bool operator ==(const RTLIL::Const &other) const;
@@ -603,8 +604,10 @@ struct RTLIL::SigChunk
 	SigChunk(RTLIL::State bit, int width = 1);
 	SigChunk(RTLIL::SigBit bit);
 	SigChunk(const RTLIL::SigChunk &sigchunk);
+	RTLIL::SigChunk &operator =(const RTLIL::SigChunk &other) = default;
 
 	RTLIL::SigChunk extract(int offset, int length) const;
+	inline int size() const { return width; }
 
 	bool operator <(const RTLIL::SigChunk &other) const;
 	bool operator ==(const RTLIL::SigChunk &other) const;
@@ -628,6 +631,7 @@ struct RTLIL::SigBit
 	SigBit(const RTLIL::SigChunk &chunk, int index);
 	SigBit(const RTLIL::SigSpec &sig);
 	SigBit(const RTLIL::SigBit &sigbit);
+	RTLIL::SigBit &operator =(const RTLIL::SigBit &other) = default;
 
 	bool operator <(const RTLIL::SigBit &other) const;
 	bool operator ==(const RTLIL::SigBit &other) const;
@@ -1004,6 +1008,7 @@ public:
 	void fixup_ports();
 
 	template<typename T> void rewrite_sigspecs(T &functor);
+	template<typename T> void rewrite_sigspecs2(T &functor);
 	void cloneInto(RTLIL::Module *new_mod) const;
 	virtual RTLIL::Module *clone() const;
 
@@ -1309,6 +1314,7 @@ public:
 	}
 
 	template<typename T> void rewrite_sigspecs(T &functor);
+	template<typename T> void rewrite_sigspecs2(T &functor);
 
 #ifdef WITH_PYTHON
 	static std::map<unsigned int, RTLIL::Cell*> *get_all_cells(void);
@@ -1327,6 +1333,7 @@ struct RTLIL::CaseRule
 	bool empty() const;
 
 	template<typename T> void rewrite_sigspecs(T &functor);
+	template<typename T> void rewrite_sigspecs2(T &functor);
 	RTLIL::CaseRule *clone() const;
 };
 
@@ -1340,6 +1347,7 @@ struct RTLIL::SwitchRule : public RTLIL::AttrObject
 	bool empty() const;
 
 	template<typename T> void rewrite_sigspecs(T &functor);
+	template<typename T> void rewrite_sigspecs2(T &functor);
 	RTLIL::SwitchRule *clone() const;
 };
 
@@ -1350,6 +1358,7 @@ struct RTLIL::SyncRule
 	std::vector<RTLIL::SigSig> actions;
 
 	template<typename T> void rewrite_sigspecs(T &functor);
+	template<typename T> void rewrite_sigspecs2(T &functor);
 	RTLIL::SyncRule *clone() const;
 };
 
@@ -1362,6 +1371,7 @@ struct RTLIL::Process : public RTLIL::AttrObject
 	~Process();
 
 	template<typename T> void rewrite_sigspecs(T &functor);
+	template<typename T> void rewrite_sigspecs2(T &functor);
 	RTLIL::Process *clone() const;
 };
 
@@ -1424,7 +1434,25 @@ void RTLIL::Module::rewrite_sigspecs(T &functor)
 }
 
 template<typename T>
+void RTLIL::Module::rewrite_sigspecs2(T &functor)
+{
+	for (auto &it : cells_)
+		it.second->rewrite_sigspecs2(functor);
+	for (auto &it : processes)
+		it.second->rewrite_sigspecs2(functor);
+	for (auto &it : connections_) {
+		functor(it.first, it.second);
+	}
+}
+
+template<typename T>
 void RTLIL::Cell::rewrite_sigspecs(T &functor) {
+	for (auto &it : connections_)
+		functor(it.second);
+}
+
+template<typename T>
+void RTLIL::Cell::rewrite_sigspecs2(T &functor) {
 	for (auto &it : connections_)
 		functor(it.second);
 }
@@ -1442,11 +1470,30 @@ void RTLIL::CaseRule::rewrite_sigspecs(T &functor) {
 }
 
 template<typename T>
+void RTLIL::CaseRule::rewrite_sigspecs2(T &functor) {
+	for (auto &it : compare)
+		functor(it);
+	for (auto &it : actions) {
+		functor(it.first, it.second);
+	}
+	for (auto it : switches)
+		it->rewrite_sigspecs2(functor);
+}
+
+template<typename T>
 void RTLIL::SwitchRule::rewrite_sigspecs(T &functor)
 {
 	functor(signal);
 	for (auto it : cases)
 		it->rewrite_sigspecs(functor);
+}
+
+template<typename T>
+void RTLIL::SwitchRule::rewrite_sigspecs2(T &functor)
+{
+	functor(signal);
+	for (auto it : cases)
+		it->rewrite_sigspecs2(functor);
 }
 
 template<typename T>
@@ -1460,11 +1507,28 @@ void RTLIL::SyncRule::rewrite_sigspecs(T &functor)
 }
 
 template<typename T>
+void RTLIL::SyncRule::rewrite_sigspecs2(T &functor)
+{
+	functor(signal);
+	for (auto &it : actions) {
+		functor(it.first, it.second);
+	}
+}
+
+template<typename T>
 void RTLIL::Process::rewrite_sigspecs(T &functor)
 {
 	root_case.rewrite_sigspecs(functor);
 	for (auto it : syncs)
 		it->rewrite_sigspecs(functor);
+}
+
+template<typename T>
+void RTLIL::Process::rewrite_sigspecs2(T &functor)
+{
+	root_case.rewrite_sigspecs2(functor);
+	for (auto it : syncs)
+		it->rewrite_sigspecs2(functor);
 }
 
 YOSYS_NAMESPACE_END

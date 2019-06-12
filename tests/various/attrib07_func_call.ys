@@ -1,0 +1,2 @@
+# Read and parse Verilog file
+read_verilog attrib07_func_call.v

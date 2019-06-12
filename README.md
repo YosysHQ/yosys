@@ -257,13 +257,9 @@ for them:
 - Non-synthesizable language features as defined in
 	IEC 62142(E):2005 / IEEE Std. 1364.1(E):2002
 
-- The ``tri``, ``triand``, ``trior``, ``wand`` and ``wor`` net types
+- The ``tri``, ``triand`` and ``trior`` net types
 
-- The ``config`` keyword and library map files
-
-- The ``disable``, ``primitive`` and ``specify`` statements
-
-- Latched logic (is synthesized as logic with feedback loops)
+- The ``config`` and ``disable`` keywords and library map files
 
 
 Verilog Attributes and non-standard features
@@ -370,7 +366,7 @@ Verilog Attributes and non-standard features
 
 - When defining a macro with `define, all text between triple double quotes
   is interpreted as macro body, even if it contains unescaped newlines. The
-  tipple double quotes are removed from the macro body. For example:
+  triple double quotes are removed from the macro body. For example:
 
       `define MY_MACRO(a, b) """
          assign a = 23;
@@ -417,12 +413,18 @@ Verilog Attributes and non-standard features
       $ yosys -p 'plugin -a foo -i /lib/libm.so; read_verilog dpitest.v'
 
 - Sized constants (the syntax ``<size>'s?[bodh]<value>``) support constant
-  expressions as <size>. If the expression is not a simple identifier, it
+  expressions as ``<size>``. If the expression is not a simple identifier, it
   must be put in parentheses. Examples: ``WIDTH'd42``, ``(4+2)'b101010``
 
-- The system tasks ``$finish`` and ``$display`` are supported in initial blocks
-  in an unconditional context (only if/case statements on parameters
-  and constant values). The intended use for this is synthesis-time DRC.
+- The system tasks ``$finish``, ``$stop`` and ``$display`` are supported in
+  initial blocks in an unconditional context (only if/case statements on
+  expressions over parameters and constant values are allowed). The intended
+  use for this is synthesis-time DRC.
+
+- There is limited support for converting specify .. endspecify statements to
+  special ``$specify2``, ``$specify3``, and ``$specrule`` cells, for use in
+  blackboxes and whiteboxes. Use ``read_verilog -specify`` to enable this
+  functionality. (By default specify .. endspecify blocks are ignored.)
 
 
 Non-standard or SystemVerilog features for formal verification
@@ -457,7 +459,7 @@ Non-standard or SystemVerilog features for formal verification
   supported in any clocked block.
 
 - The syntax ``@($global_clock)`` can be used to create FFs that have no
-  explicit clock input ($ff cells). The same can be achieved by using
+  explicit clock input (``$ff`` cells). The same can be achieved by using
   ``@(posedge <netname>)`` or ``@(negedge <netname>)`` when ``<netname>``
   is marked with the ``(* gclk *)`` Verilog attribute.
 
@@ -470,7 +472,7 @@ from SystemVerilog:
 
 - The ``assert`` statement from SystemVerilog is supported in its most basic
   form. In module context: ``assert property (<expression>);`` and within an
-  always block: ``assert(<expression>);``. It is transformed to a $assert cell.
+  always block: ``assert(<expression>);``. It is transformed to an ``$assert`` cell.
 
 - The ``assume``, ``restrict``, and ``cover`` statements from SystemVerilog are
   also supported. The same limitations as with the ``assert`` statement apply.

@@ -146,7 +146,7 @@ struct FirrtlWorker
 			if (!mask.is_fully_def())
 				this->ena = SigSpec(RTLIL::Const(1));
 		}
-	  string gen_read(const char * /* indent */) {
+		string gen_read(const char * /* indent */) {
 			log_error("gen_read called on write_port: %s\n", name.c_str());
 			return stringf("gen_read called on write_port: %s\n", name.c_str());
 		}
@@ -163,31 +163,61 @@ struct FirrtlWorker
 		}
 	};
 	/* Memories defined within this module. */
-	 struct memory {
-		 string name;					// memory name
-		 int abits;						// number of address bits
-		 int size;						// size (in units) of the memory
-		 int width;						// size (in bits) of each element
-		 int read_latency;
-		 int write_latency;
-		 vector<read_port> read_ports;
-		 vector<write_port> write_ports;
-		 std::string init_file;
-		 std::string init_file_srcFileSpec;
-		 memory(string name, int abits, int size, int width) : name(name), abits(abits), size(size), width(width), read_latency(0), write_latency(1), init_file(""), init_file_srcFileSpec("") {}
-		 memory() : read_latency(0), write_latency(1), init_file(""), init_file_srcFileSpec(""){}
-		 void add_memory_read_port(read_port &rp) {
-			 read_ports.push_back(rp);
+	struct memory {
+		Cell *pCell;					// for error reporting
+		string name;					// memory name
+		int abits;						// number of address bits
+		int size;						// size (in units) of the memory
+		int width;						// size (in bits) of each element
+		int read_latency;
+		int write_latency;
+		vector<read_port> read_ports;
+		vector<write_port> write_ports;
+		std::string init_file;
+		std::string init_file_srcFileSpec;
+		string srcLine;
+		memory(Cell *pCell, string name, int abits, int size, int width) : pCell(pCell), name(name), abits(abits), size(size), width(width), read_latency(0), write_latency(1), init_file(""), init_file_srcFileSpec("") {
+			// Provide defaults for abits or size if one (but not the other) is specified.
+			if (this->abits == 0 && this->size != 0) {
+				this->abits = ceil_log2(this->size);
+			} else if (this->abits != 0 && this->size == 0) {
+				this->size = 1 << this->abits;
+			}
+			// Sanity-check this construction.
+			if (this->name == "") {
+				log_error("Nameless memory%s\n", this->atLine());
+			}
+			if (this->abits == 0 && this->size == 0) {
+				log_error("Memory %s has zero address bits and size%s\n", this->name.c_str(), this->atLine());
+			}
+			if (this->width == 0) {
+				log_error("Memory %s has zero width%s\n", this->name.c_str(), this->atLine());
+			}
 		 }
-		 void add_memory_write_port(write_port &wp) {
-			 write_ports.push_back(wp);
-		 }
-		 void add_memory_file(std::string init_file, std::string init_file_srcFileSpec) {
-			 this->init_file = init_file;
-			 this->init_file_srcFileSpec = init_file_srcFileSpec;
-		 }
+		// We need a default constructor for the dict insert.
+	   memory() : pCell(0), read_latency(0), write_latency(1), init_file(""), init_file_srcFileSpec(""){}
 
-	 };
+		const char *atLine() {
+			if (srcLine == "") {
+				if (pCell) {
+					auto p = pCell->attributes.find("\\src");
+					srcLine = " at " + p->second.decode_string();
+				}
+			}
+			return srcLine.c_str();
+		}
+		void add_memory_read_port(read_port &rp) {
+			read_ports.push_back(rp);
+		}
+		void add_memory_write_port(write_port &wp) {
+			write_ports.push_back(wp);
+		}
+		void add_memory_file(std::string init_file, std::string init_file_srcFileSpec) {
+			this->init_file = init_file;
+			this->init_file_srcFileSpec = init_file_srcFileSpec;
+		}
+
+	};
 	dict<string, memory> memories;
 
 	void register_memory(memory &m)
@@ -314,6 +344,7 @@ struct FirrtlWorker
 				switch (dir) {
 					case FD_INOUT:
 						log_warning("Instance port connection %s.%s is INOUT; treating as OUT\n", cell_type.c_str(), log_signal(it->second));
+						/* FALLTHRU */
 					case FD_OUT:
 						sourceExpr = firstName;
 						sinkExpr = secondExpr;
@@ -321,7 +352,7 @@ struct FirrtlWorker
 						break;
 					case FD_NODIRECTION:
 						log_warning("Instance port connection %s.%s is NODIRECTION; treating as IN\n", cell_type.c_str(), log_signal(it->second));
-						/* FALL_THROUGH */
+						/* FALLTHRU */
 					case FD_IN:
 						sourceExpr = secondExpr;
 						sinkExpr = firstName;
@@ -418,8 +449,10 @@ struct FirrtlWorker
 				string primop;
 				bool always_uint = false;
 				if (cell->type == "$not") primop = "not";
-				else if (cell->type == "$neg") primop = "neg";
-				else if (cell->type == "$logic_not") {
+				else if (cell->type == "$neg") {
+					primop = "neg";
+					is_signed = true;	// Result of "neg" is signed (an SInt).
+				} else if (cell->type == "$logic_not") {
                                         primop = "eq";
                                         a_expr = stringf("%s, UInt(0)", a_expr.c_str());
                                 }
@@ -531,6 +564,7 @@ struct FirrtlWorker
 					auto b_sig = cell->getPort("\\B");
 					if (b_sig.is_fully_const()) {
 						primop = "shl";
+						b_expr = std::to_string(b_sig.as_int());
 					} else {
 						primop = "dshl";
 						// Convert from FIRRTL left shift semantics.
@@ -544,6 +578,7 @@ struct FirrtlWorker
 					auto b_sig = cell->getPort("\\B");
 					if (b_sig.is_fully_const()) {
 						primop = "shr";
+						b_expr = std::to_string(b_sig.as_int());
 					} else {
 						primop = "dshr";
 					}
@@ -604,7 +639,7 @@ struct FirrtlWorker
 				int abits = cell->parameters.at("\\ABITS").as_int();
 				int width = cell->parameters.at("\\WIDTH").as_int();
 				int size = cell->parameters.at("\\SIZE").as_int();
-				memory m(mem_id, abits, size, width);
+				memory m(cell, mem_id, abits, size, width);
 				int rd_ports = cell->parameters.at("\\RD_PORTS").as_int();
 				int wr_ports = cell->parameters.at("\\WR_PORTS").as_int();
 
@@ -681,6 +716,8 @@ struct FirrtlWorker
 			{
 				std::string cell_type = fid(cell->type);
 				std::string mem_id = make_id(cell->parameters["\\MEMID"].decode_string());
+				int abits = cell->parameters.at("\\ABITS").as_int();
+				int width = cell->parameters.at("\\WIDTH").as_int();
 				memory *mp = nullptr;
 				if (cell->type == "$meminit" ) {
 					log_error("$meminit (%s.%s.%s) currently unsupported\n", log_id(module), log_id(cell), mem_id.c_str());
@@ -693,6 +730,11 @@ struct FirrtlWorker
 					Const clk_enable = cell->parameters.at("\\CLK_ENABLE");
 					Const clk_polarity = cell->parameters.at("\\CLK_POLARITY");
 
+					// Do we already have an entry for this memory?
+					if (memories.count(mem_id) == 0) {
+						memory m(cell, mem_id, abits, 0, width);
+						register_memory(m);
+					}
 					mp = &memories.at(mem_id);
 					int portNum = 0;
 					bool transparency = false;
@@ -890,7 +932,7 @@ struct FirrtlWorker
 
 		// If we have any memory definitions, output them.
 		for (auto kv : memories) {
-			memory m = kv.second;
+			memory &m = kv.second;
 			f << stringf("    mem %s:\n", m.name.c_str());
 			f << stringf("      data-type => UInt<%d>\n", m.width);
 			f << stringf("      depth => %d\n", m.size);

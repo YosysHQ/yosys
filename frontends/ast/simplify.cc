@@ -1172,6 +1172,13 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			varbuf->children[0] = buf;
 		}
 
+		if (type == AST_FOR) {
+			AstNode *buf = next_ast->clone();
+			delete buf->children[1];
+			buf->children[1] = varbuf->children[0]->clone();
+			current_block->children.insert(current_block->children.begin() + current_block_idx++, buf);
+		}
+
 		current_scope[varbuf->str] = backup_scope_varbuf;
 		delete varbuf;
 		delete_children();
@@ -1598,6 +1605,7 @@ skip_dynamic_range_lvalue_expansion:;
 			current_scope[wire_tmp->str] = wire_tmp;
 			wire_tmp->attributes["\\nosync"] = AstNode::mkconst_int(1, false);
 			while (wire_tmp->simplify(true, false, false, 1, -1, false, false)) { }
+			wire_tmp->is_logic = true;
 
 			AstNode *wire_tmp_id = new AstNode(AST_IDENTIFIER);
 			wire_tmp_id->str = wire_tmp->str;
