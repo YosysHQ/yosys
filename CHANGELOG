@@ -17,6 +17,7 @@ Yosys 0.8 .. Yosys 0.8-dev
     - Added "rename -src"
     - Added "equiv_opt" pass
     - Added "read_aiger" frontend
+    - Added "abc9" pass (experimental, accessible using synth_xilinx -abc9 and synth_ice40 -abc9)
     - "synth_xilinx" to now infer hard shift registers, using new "shregmap -tech xilinx"
 
 
