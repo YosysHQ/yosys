@@ -414,64 +414,75 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		}
 	}
 
-	design->selection_stack.emplace_back(false);
-	RTLIL::Selection& sel = design->selection_stack.back();
-	sel.select(module);
-
-	// Behave as for "abc" where BLIF writer implicitly outputs all undef as zero
-	Pass::call(design, "setundef -zero");
-
-	Pass::call(design, "aigmap");
-
-	handle_loops(design);
-
-	Pass::call(design, stringf("write_xaiger -map %s/input.sym %s/input.xaig; ", tempdir_name.c_str(), tempdir_name.c_str()));
-
-#if 0
-	std::string buffer = stringf("%s/%s", tempdir_name.c_str(), "input.xaig");
-	std::ifstream ifs;
-	ifs.open(buffer);
-	if (ifs.fail())
-		log_error("Can't open ABC output file `%s'.\n", buffer.c_str());
-	buffer = stringf("%s/%s", tempdir_name.c_str(), "input.sym");
-	log_assert(!design->module("$__abc9__"));
-	AigerReader reader(design, ifs, "$__abc9__", "" /* clk_name */, buffer.c_str() /* map_filename */, false /* wideports */);
-	reader.parse_xaiger();
-	ifs.close();
-	Pass::call(design, stringf("write_verilog -noexpr -norename %s/%s", tempdir_name.c_str(), "input.v"));
-	design->remove(design->module("$__abc9__"));
-#endif
-
-	design->selection_stack.pop_back();
-
-	// Now 'unexpose' those wires by undoing
-	// the expose operation -- remove them from PO/PI
-	// and re-connecting them back together
-	for (auto wire : module->wires()) {
-		auto it = wire->attributes.find("\\abc_scc_break");
-		if (it != wire->attributes.end()) {
-			wire->attributes.erase(it);
-			log_assert(wire->port_output);
-			wire->port_output = false;
-			RTLIL::Wire *i_wire = module->wire(wire->name.str() + ".abci");
-			log_assert(i_wire);
-			log_assert(i_wire->port_input);
-			i_wire->port_input = false;
-			module->connect(i_wire, wire);
+	bool count_output = false;
+	for (auto port_name : module->ports) {
+		RTLIL::Wire *port_wire = module->wire(port_name);
+		log_assert(port_wire);
+		if (port_wire->port_output) {
+			count_output = true;
+			break;
 		}
 	}
-	module->fixup_ports();
-
-	//log("Extracted %d gates and %d wires to a netlist network with %d inputs and %d outputs.\n",
-	//		count_gates, GetSize(signal_list), count_input, count_output);
 
 	log_push();
 
-	//if (count_output > 0)
+	if (count_output)
 	{
+		design->selection_stack.emplace_back(false);
+		RTLIL::Selection& sel = design->selection_stack.back();
+		sel.select(module);
+
+		// Behave as for "abc" where BLIF writer implicitly outputs all undef as zero
+		Pass::call(design, "setundef -zero");
+
+		Pass::call(design, "aigmap");
+
+		handle_loops(design);
+
+		//log("Extracted %d gates and %d wires to a netlist network with %d inputs and %d outputs.\n",
+		//		count_gates, GetSize(signal_list), count_input, count_output);
+
+		Pass::call(design, stringf("write_xaiger -map %s/input.sym %s/input.xaig; ", tempdir_name.c_str(), tempdir_name.c_str()));
+
+#if 0
+		std::string buffer = stringf("%s/%s", tempdir_name.c_str(), "input.xaig");
+		std::ifstream ifs;
+		ifs.open(buffer);
+		if (ifs.fail())
+			log_error("Can't open ABC output file `%s'.\n", buffer.c_str());
+		buffer = stringf("%s/%s", tempdir_name.c_str(), "input.sym");
+		log_assert(!design->module("$__abc9__"));
+		AigerReader reader(design, ifs, "$__abc9__", "" /* clk_name */, buffer.c_str() /* map_filename */, false /* wideports */);
+		reader.parse_xaiger();
+		ifs.close();
+		Pass::call(design, stringf("write_verilog -noexpr -norename %s/%s", tempdir_name.c_str(), "input.v"));
+		design->remove(design->module("$__abc9__"));
+#endif
+
+		design->selection_stack.pop_back();
+
+		// Now 'unexpose' those wires by undoing
+		// the expose operation -- remove them from PO/PI
+		// and re-connecting them back together
+		for (auto wire : module->wires()) {
+			auto it = wire->attributes.find("\\abc_scc_break");
+			if (it != wire->attributes.end()) {
+				wire->attributes.erase(it);
+				log_assert(wire->port_output);
+				wire->port_output = false;
+				RTLIL::Wire *i_wire = module->wire(wire->name.str() + ".abci");
+				log_assert(i_wire);
+				log_assert(i_wire->port_input);
+				i_wire->port_input = false;
+				module->connect(i_wire, wire);
+			}
+		}
+		module->fixup_ports();
+
+
 		log_header(design, "Executing ABC9.\n");
 
-        std::string buffer;
+		std::string buffer;
 		if (!lut_costs.empty()) {
 			buffer = stringf("%s/lutdefs.txt", tempdir_name.c_str());
 			f = fopen(buffer.c_str(), "wt");
@@ -643,7 +654,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 					continue;
 				}
 			}
-            cell_stats[RTLIL::unescape_id(c->type)]++;
+			cell_stats[RTLIL::unescape_id(c->type)]++;
 
 			if (c->type == "$lut") {
 				if (GetSize(c->getPort("\\A")) == 1 && c->getParam("\\LUT").as_int() == 2) {
@@ -654,10 +665,10 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 				}
 			}
 			else {
-                auto it = erased_boxes.find(c->name);
-                log_assert(it != erased_boxes.end());
-                c->parameters = std::move(it->second);
-            }
+				auto it = erased_boxes.find(c->name);
+				log_assert(it != erased_boxes.end());
+				c->parameters = std::move(it->second);
+			}
 
 			RTLIL::Cell* cell = module->addCell(remap_name(c->name), c->type);
 			if (markgroups) cell->attributes["\\abcgroup"] = map_autoidx;
@@ -753,10 +764,10 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 
 		design->remove(mapped_mod);
 	}
-	//else
-	//{
-	//	log("Don't call ABC as there is nothing to map.\n");
-	//}
+	else
+	{
+		log("Don't call ABC as there is nothing to map.\n");
+	}
 
 	if (cleanup)
 	{
