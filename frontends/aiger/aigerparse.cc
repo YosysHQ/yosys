@@ -35,6 +35,162 @@
 
 YOSYS_NAMESPACE_BEGIN
 
+struct ConstEvalAig
+{
+	RTLIL::Module *module;
+	dict<RTLIL::SigBit, RTLIL::Const> values_map;
+	SigSet<RTLIL::Cell*> sig2driver;
+	dict<SigBit, pool<RTLIL::SigBit>> sig2deps;
+
+	ConstEvalAig(RTLIL::Module *module) : module(module)
+	{
+		CellTypes ct;
+		ct.setup_internals();
+		ct.setup_stdcells();
+
+		for (auto &it : module->cells_) {
+			if (!ct.cell_known(it.second->type))
+				continue;
+			for (auto &it2 : it.second->connections())
+				if (ct.cell_output(it.second->type, it2.first))
+					sig2driver.insert(it2.second, it.second);
+		}
+	}
+
+	void clear()
+	{
+		values_map.clear();
+		sig2deps.clear();
+	}
+
+	void set(RTLIL::SigSpec sig, RTLIL::Const value)
+	{
+#ifndef NDEBUG
+		auto it = values_map.find(sig);
+		RTLIL::SigSpec current_val;
+		if (it != values_map.end())
+			current_val = it->second;
+		for (int i = 0; i < GetSize(current_val); i++)
+			log_assert(current_val[i].wire != NULL || current_val[i] == value.bits[i]);
+#endif
+		for (int i = 0; i < GetSize(sig); i++)
+			values_map[sig[i]] = value[i];
+	}
+
+	void set_incremental(RTLIL::SigSpec sig, RTLIL::Const value)
+	{
+		log_assert(GetSize(sig) == GetSize(value));
+
+		for (int i = 0; i < GetSize(sig); i++) {
+			auto it = values_map.find(sig[i]);
+			if (it != values_map.end()) {
+				RTLIL::SigSpec current_val = it->second;
+				if (current_val != value[i])
+					for (auto dep : sig2deps[sig[i]])
+						values_map.erase(dep);
+				it->second = value[i];
+			}
+			else
+				values_map[sig[i]] = value[i];
+		}
+	}
+
+	void compute_deps(RTLIL::SigBit output, const pool<RTLIL::SigBit> &inputs)
+	{
+		sig2deps[output].insert(output);
+
+		std::set<RTLIL::Cell*> driver_cells;
+		sig2driver.find(output, driver_cells);
+		for (auto cell : driver_cells) {
+			RTLIL::SigBit sig_a = cell->getPort("\\A");
+			sig2deps[sig_a].insert(sig2deps[output].begin(), sig2deps[output].end());
+			if (!inputs.count(sig_a))
+				compute_deps(sig_a, inputs);
+
+			if (cell->type == "$_AND_") {
+				RTLIL::SigSpec sig_b = cell->getPort("\\B");
+				sig2deps[sig_b].insert(sig2deps[output].begin(), sig2deps[output].end());
+				if (!inputs.count(sig_b))
+					compute_deps(sig_b, inputs);
+			}
+			else if (cell->type == "$_NOT_") {
+			}
+			else log_abort();
+		}
+	}
+
+	bool eval(RTLIL::Cell *cell)
+	{
+		RTLIL::SigSpec sig_y = cell->getPort("\\Y");
+		auto it = values_map.find(sig_y);
+		if (it != values_map.end())
+			sig_y = it->second;
+		if (sig_y.is_fully_const())
+			return true;
+
+		RTLIL::SigSpec sig_a = cell->getPort("\\A");
+		if (sig_a.size() > 0 && !eval(sig_a))
+			return false;
+
+		RTLIL::Const eval_ret;
+		if (cell->type == "$_NOT_") {
+			if (sig_a == RTLIL::S0) eval_ret = RTLIL::S1;
+			else if (sig_a == RTLIL::S1) eval_ret = RTLIL::S0;
+		}
+		else if (cell->type == "$_AND_") {
+			if (sig_a == RTLIL::S0) {
+				eval_ret = RTLIL::S0;
+				goto eval_end;
+			}
+
+			{
+				RTLIL::SigSpec sig_b = cell->getPort("\\B");
+				if (sig_b.size() > 0 && !eval(sig_b))
+					return false;
+				if (sig_b == RTLIL::S0) {
+					eval_ret = RTLIL::S0;
+					goto eval_end;
+				}
+
+				if (sig_a != RTLIL::State::S1 || sig_b != RTLIL::State::S1) {
+					eval_ret = RTLIL::State::Sx;
+					goto eval_end;
+				}
+
+				eval_ret = RTLIL::State::S1;
+			}
+		}
+		else log_abort();
+
+eval_end:
+		set(sig_y, eval_ret);
+		return true;
+	}
+
+	bool eval(RTLIL::SigSpec &sig)
+	{
+		auto it = values_map.find(sig);
+		if (it != values_map.end())
+			sig = it->second;
+		if (sig.is_fully_const())
+			return true;
+
+		std::set<RTLIL::Cell*> driver_cells;
+		sig2driver.find(sig, driver_cells);
+		for (auto cell : driver_cells)
+			if (!eval(cell))
+				return false;
+
+		it = values_map.find(sig);
+		if (it != values_map.end())
+			sig = it->second;
+		if (sig.is_fully_const())
+			return true;
+
+		return false;
+	}
+};
+
 AigerReader::AigerReader(RTLIL::Design *design, std::istream &f, RTLIL::IdString module_name, RTLIL::IdString clk_name, std::string map_filename, bool wideports)
 	: design(design), f(f), clk_name(clk_name), map_filename(map_filename), wideports(wideports)
 {
@@ -249,13 +405,15 @@ void AigerReader::parse_xaiger()
 						log_assert(wire);
 						input_sig.append(wire);
 					}
+					ce.clear();
+					ce.compute_deps(output_sig, input_sig.to_sigbit_pool());
 					RTLIL::Const lut_mask(RTLIL::State::Sx, 1 << input_sig.size());
 					for (int j = 0; j < (1 << cutLeavesM); ++j) {
-						ce.clear();
-						ce.set(input_sig, RTLIL::Const{j, static_cast<int>(cutLeavesM)});
+						int gray = j ^ (j >> 1);
+						ce.set_incremental(input_sig, RTLIL::Const{gray, static_cast<int>(cutLeavesM)});
 						RTLIL::SigSpec o(output_sig);
 						ce.eval(o);
-						lut_mask[j] = o.as_const()[0];
+						lut_mask[gray] = o.as_const()[0];
 					}
 					RTLIL::Cell *output_cell = module->cell(stringf("\\__%d__$and", rootNodeID));
 					log_assert(output_cell);
