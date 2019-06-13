@@ -397,8 +397,8 @@ struct ConstEvalAig
 	SigMap values_map;
 	//SigPool stop_signals;
 	SigSet<RTLIL::Cell*> sig2driver;
-	std::set<RTLIL::Cell*> busy;
-	std::vector<SigMap> stack;
+	//std::set<RTLIL::Cell*> busy;
+	//std::vector<SigMap> stack;
 	//RTLIL::State defaultval;
 
 	ConstEvalAig(RTLIL::Module *module /*, RTLIL::State defaultval = RTLIL::State::Sm*/) : module(module) /*, assign_map(module), defaultval(defaultval)*/
@@ -422,16 +422,16 @@ struct ConstEvalAig
 		//stop_signals.clear();
 	}
 
-	void push()
-	{
-		stack.push_back(values_map);
-	}
+	//void push()
+	//{
+	//	stack.push_back(values_map);
+	//}
 
-	void pop()
-	{
-		values_map.swap(stack.back());
-		stack.pop_back();
-	}
+	//void pop()
+	//{
+	//	values_map.swap(stack.back());
+	//	stack.pop_back();
+	//}
 
 	void set(RTLIL::SigSpec sig, RTLIL::Const value)
 	{
@@ -450,14 +450,14 @@ struct ConstEvalAig
 	//	stop_signals.add(sig);
 	//}
 
-	bool eval(RTLIL::Cell *cell, RTLIL::SigSpec &undef)
+	bool eval(RTLIL::Cell *cell /*, RTLIL::SigSpec &undef*/)
 	{
 		RTLIL::SigSpec sig_y = values_map(/*assign_map*/(cell->getPort("\\Y")));
 		if (sig_y.is_fully_const())
 			return true;
 
 		RTLIL::SigSpec sig_a = cell->getPort("\\A");
-		if (sig_a.size() > 0 && !eval(sig_a, undef, cell))
+		if (sig_a.size() > 0 && !eval(sig_a /*, undef, cell*/))
 			return false;
 
 		RTLIL::Const eval_ret;
@@ -473,7 +473,7 @@ struct ConstEvalAig
 
 			{
 				RTLIL::SigSpec sig_b = cell->getPort("\\B");
-				if (sig_b.size() > 0 && !eval(sig_b, undef, cell))
+				if (sig_b.size() > 0 && !eval(sig_b /*, undef, cell*/))
 					return false;
 				if (sig_b == RTLIL::S0) {
 					eval_ret = RTLIL::S0;
@@ -496,7 +496,7 @@ eval_end:
 		return true;
 	}
 
-	bool eval(RTLIL::SigSpec &sig, RTLIL::SigSpec &undef, RTLIL::Cell *busy_cell = NULL)
+	bool eval(RTLIL::SigSpec &sig /*, RTLIL::SigSpec &undef, RTLIL::Cell *busy_cell = NULL*/)
 	{
 		//assign_map.apply(sig);
 		values_map.apply(sig);
@@ -509,42 +509,42 @@ eval_end:
 		//	return false;
 		//}
 
-		if (busy_cell) {
-			if (busy.count(busy_cell) > 0) {
-				undef = sig;
-				return false;
-			}
-			busy.insert(busy_cell);
-		}
+		//if (busy_cell) {
+		//	if (busy.count(busy_cell) > 0) {
+		//		undef = sig;
+		//		return false;
+		//	}
+		//	busy.insert(busy_cell);
+		//}
 
 		std::set<RTLIL::Cell*> driver_cells;
 		sig2driver.find(sig, driver_cells);
 		for (auto cell : driver_cells) {
-			if (!eval(cell, undef)) {
-				if (busy_cell)
-					busy.erase(busy_cell);
+			if (!eval(cell /*, undef*/)) {
+				//if (busy_cell)
+				//	busy.erase(busy_cell);
 				return false;
 			}
 		}
 
-		if (busy_cell)
-			busy.erase(busy_cell);
+		//if (busy_cell)
+		//	busy.erase(busy_cell);
 
 		values_map.apply(sig);
 		if (sig.is_fully_const())
 			return true;
 
-		for (auto &c : sig.chunks())
-			if (c.wire != NULL)
-				undef.append(c);
+		//for (auto &c : sig.chunks())
+		//	if (c.wire != NULL)
+		//		undef.append(c);
 		return false;
 	}
 
-	bool eval(RTLIL::SigSpec &sig)
-	{
-		RTLIL::SigSpec undef;
-		return eval(sig, undef);
-	}
+	//bool eval(RTLIL::SigSpec &sig)
+	//{
+	//	RTLIL::SigSpec undef;
+	//	return eval(sig, undef);
+	//}
 };
 
 YOSYS_NAMESPACE_END
