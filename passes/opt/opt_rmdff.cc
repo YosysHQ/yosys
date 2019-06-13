@@ -33,6 +33,8 @@ SigMap assign_map, dff_init_map;
 SigSet<RTLIL::Cell*> mux_drivers;
 dict<SigBit, pool<SigBit>> init_attributes;
 std::map<RTLIL::Module*, Netlist> netlists;
+std::map<RTLIL::Module *, CellTypes> comb_filters;
+
 bool keepdc;
 bool sat;
 
@@ -263,7 +265,7 @@ delete_dlatch:
 	return true;
 }
 
-bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff, Pass *pass)
+bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 {
 	RTLIL::SigSpec sig_d, sig_q, sig_c, sig_r, sig_e;
 	RTLIL::Const val_cp, val_rp, val_rv, val_ep;
@@ -461,7 +463,8 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff, Pass *pass)
 		std::vector<int> removed_sigbits;
 
 		if (!netlists.count(mod)) {
-			netlists.emplace(mod, Netlist(mod, comb_cells_filt()));
+			netlists.emplace(mod, Netlist(mod));
+			comb_filters.emplace(mod, comb_cells_filt());
 		}
 
 		Netlist &net = netlists.at(mod);
@@ -477,7 +480,7 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff, Pass *pass)
 			ezSatPtr ez;
 			SatGen satgen(ez.get(), &net.sigmap);
 
-			for (const auto &cell : cell_cone(net, d_sigbit)) {
+			for (const auto &cell : cell_cone(net, d_sigbit, &comb_filters.at(mod))) {
 				if (!satgen.importCell(cell))
 					log_error("Can't create SAT model for cell %s (%s)!\n", RTLIL::id2cstr(cell->name),
 						  RTLIL::id2cstr(cell->type));
@@ -489,17 +492,25 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff, Pass *pass)
 			int q_sat_pi = satgen.importSigBit(q_sigbit);
 			int d_sat_pi = satgen.importSigBit(d_sigbit);
 
-			// log("DFF: %s", log_id(net.sigbit_driver_map[q_sigbit]));
-
 			bool counter_example_found = ez->solve(ez->IFF(q_sat_pi, init_sat_pi), ez->NOT(ez->IFF(d_sat_pi, init_sat_pi)));
 
-			char str[1024];
+			if (position == 14) {
+				counter_example_found = false;
+			}
+
 			if (!counter_example_found) {
-				sprintf(str, "connect -set %s[%d] %s", log_id(q_sigbit.wire), q_sigbit.offset, sigbit_init_val.as_string().c_str());
-				log("Running: %s\n", str);
-				log_flush();
-				pass->call(mod->design, str);
-				// mod->connect(q_sigbit, sigbit_init_val);
+
+				RTLIL::SigBit &driver_port = net.driver_port(q_sigbit);
+				RTLIL::Wire *dummy_wire = mod->addWire(NEW_ID, 1);
+
+				for (auto &conn : mod->connections_)
+					net.sigmap(conn.first).replace(driver_port, dummy_wire, &conn.first);
+
+				remove_init_attr(driver_port);
+				driver_port = dummy_wire;
+
+				mod->connect(RTLIL::SigSig(q_sigbit, sigbit_init_val));
+
 				removed_sigbits.push_back(position);
 			}
 		}
@@ -553,6 +564,7 @@ struct OptRmdffPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 		netlists.clear();
+		comb_filters.clear();
 
 		for (auto module : design->selected_modules()) {
 			pool<SigBit> driven_bits;
@@ -631,7 +643,7 @@ struct OptRmdffPass : public Pass {
 
 			for (auto &id : dff_list) {
 				if (module->cell(id) != nullptr &&
-						handle_dff(module, module->cells_[id], this))
+						handle_dff(module, module->cells_[id]))
 					total_count++;
 			}
 

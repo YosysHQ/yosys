@@ -40,16 +40,39 @@ CellTypes comb_cells_filt()
 struct Netlist {
 	RTLIL::Module *module;
 	SigMap sigmap;
+	CellTypes ct;
 	dict<RTLIL::SigBit, Cell *> sigbit_driver_map;
 	dict<RTLIL::Cell *, std::set<RTLIL::SigBit>> cell_inputs_map;
 
-	Netlist(RTLIL::Module *module) : module(module), sigmap(module)
+	Netlist(RTLIL::Module *module) : module(module), sigmap(module), ct(module->design) { setup_netlist(module, ct); }
+
+	Netlist(RTLIL::Module *module, const CellTypes &ct) : module(module), sigmap(module), ct(ct) { setup_netlist(module, ct); }
+
+	RTLIL::Cell *driver_cell(RTLIL::SigBit sig) const
 	{
-		CellTypes ct(module->design);
-		setup_netlist(module, ct);
+		sig = sigmap(sig);
+		if (!sigbit_driver_map.count(sig)) {
+			return NULL;
+		}
+
+		return sigbit_driver_map.at(sig);
 	}
 
-	Netlist(RTLIL::Module *module, const CellTypes &ct) : module(module), sigmap(module) { setup_netlist(module, ct); }
+	RTLIL::SigBit& driver_port(RTLIL::SigBit sig)
+	{
+		RTLIL::Cell *cell = driver_cell(sig);
+
+		for (auto &port : cell->connections_) {
+			if (ct.cell_output(cell->type, port.first)) {
+				RTLIL::SigSpec port_sig = sigmap(port.second);
+				for (int i = 0; i < GetSize(port_sig); i++) {
+					if (port_sig[i] == sig) {
+						return port.second[i];
+					}
+				}
+			}
+		}
+	}
 
 	void setup_netlist(RTLIL::Module *module, const CellTypes &ct)
 	{
@@ -80,13 +103,17 @@ struct NetlistConeWireIter : public std::iterator<std::input_iterator_tag, RTLIL
 	const Netlist &net;
 	RTLIL::SigBit sig;
 	bool sentinel;
+	CellTypes *cell_filter;
 
 	std::stack<std::pair<set_iter_t, set_iter_t>> dfs_path_stack;
 	std::set<RTLIL::Cell *> cells_visited;
 
-	NetlistConeWireIter(const Netlist &net) : net(net), sentinel(true) {}
+	NetlistConeWireIter(const Netlist &net) : net(net), sentinel(true), cell_filter(NULL) {}
 
-	NetlistConeWireIter(const Netlist &net, RTLIL::SigBit sig) : net(net), sig(sig), sentinel(false) {}
+	NetlistConeWireIter(const Netlist &net, RTLIL::SigBit sig, CellTypes *cell_filter = NULL)
+	    : net(net), sig(sig), sentinel(false), cell_filter(cell_filter)
+	{
+	}
 
 	const RTLIL::SigBit &operator*() const { return sig; };
 	bool operator!=(const NetlistConeWireIter &other) const
@@ -98,7 +125,8 @@ struct NetlistConeWireIter : public std::iterator<std::input_iterator_tag, RTLIL
 		}
 	}
 
-	bool operator==(const NetlistConeWireIter &other) const {
+	bool operator==(const NetlistConeWireIter &other) const
+	{
 		if (sentinel || other.sentinel) {
 			return sentinel == other.sentinel;
 		} else {
@@ -129,20 +157,27 @@ struct NetlistConeWireIter : public std::iterator<std::input_iterator_tag, RTLIL
 
 	NetlistConeWireIter &operator++()
 	{
-		if (net.sigbit_driver_map.count(sig)) {
-			auto drv = net.sigbit_driver_map.at(sig);
+		RTLIL::Cell *cell = net.driver_cell(sig);
 
-			if (!cells_visited.count(drv)) {
-				auto &inputs = net.cell_inputs_map.at(drv);
-				dfs_path_stack.push(std::make_pair(inputs.begin(), inputs.end()));
-				cells_visited.insert(drv);
-				sig = (*dfs_path_stack.top().first);
-			} else {
-				next_sig_in_dag();
-			}
-		} else {
+		if (!cell) {
 			next_sig_in_dag();
+			return *this;
 		}
+
+		if (cells_visited.count(cell)) {
+			next_sig_in_dag();
+			return *this;
+		}
+
+		if ((cell_filter) && (!cell_filter->cell_known(cell->type))) {
+			next_sig_in_dag();
+			return *this;
+		}
+
+		auto &inputs = net.cell_inputs_map.at(cell);
+		dfs_path_stack.push(std::make_pair(inputs.begin(), inputs.end()));
+		cells_visited.insert(cell);
+		sig = (*dfs_path_stack.top().first);
 		return *this;
 	}
 };
@@ -150,10 +185,13 @@ struct NetlistConeWireIter : public std::iterator<std::input_iterator_tag, RTLIL
 struct NetlistConeWireIterable {
 	const Netlist &net;
 	RTLIL::SigBit sig;
+	CellTypes *cell_filter;
 
-	NetlistConeWireIterable(const Netlist &net, RTLIL::SigBit sig) : net(net), sig(sig) {}
+	NetlistConeWireIterable(const Netlist &net, RTLIL::SigBit sig, CellTypes *cell_filter = NULL) : net(net), sig(sig), cell_filter(cell_filter)
+	{
+	}
 
-	NetlistConeWireIter begin() { return NetlistConeWireIter(net, sig); }
+	NetlistConeWireIter begin() { return NetlistConeWireIter(net, sig, cell_filter); }
 	NetlistConeWireIter end() { return NetlistConeWireIter(net); }
 };
 
@@ -164,7 +202,7 @@ struct NetlistConeCellIter : public std::iterator<std::input_iterator_tag, RTLIL
 
 	NetlistConeCellIter(const Netlist &net) : net(net), sig_iter(net) {}
 
-	NetlistConeCellIter(const Netlist &net, RTLIL::SigBit sig) : net(net), sig_iter(net, sig)
+	NetlistConeCellIter(const Netlist &net, RTLIL::SigBit sig, CellTypes *cell_filter = NULL) : net(net), sig_iter(net, sig, cell_filter)
 	{
 		if ((!sig_iter.sentinel) && (!has_driver_cell(*sig_iter))) {
 			++(*this);
@@ -185,24 +223,33 @@ struct NetlistConeCellIter : public std::iterator<std::input_iterator_tag, RTLIL
 				return *this;
 			}
 
-			if (has_driver_cell(*sig_iter)) {
-				auto cell = net.sigbit_driver_map.at(*sig_iter);
+			RTLIL::Cell* cell = net.driver_cell(*sig_iter);
 
-				if (!sig_iter.cells_visited.count(cell)) {
-					return *this;
-				}
+			if (!cell) {
+				continue;
 			}
-		};
+
+			if ((sig_iter.cell_filter) && (!sig_iter.cell_filter->cell_known(cell->type))) {
+				continue;
+			}
+
+			if (!sig_iter.cells_visited.count(cell)) {
+				return *this;
+			}
+		}
 	}
 };
 
 struct NetlistConeCellIterable {
 	const Netlist &net;
 	RTLIL::SigBit sig;
+	CellTypes *cell_filter;
 
-	NetlistConeCellIterable(const Netlist &net, RTLIL::SigBit sig) : net(net), sig(sig) {}
+	NetlistConeCellIterable(const Netlist &net, RTLIL::SigBit sig, CellTypes *cell_filter = NULL) : net(net), sig(sig), cell_filter(cell_filter)
+	{
+	}
 
-	NetlistConeCellIter begin() { return NetlistConeCellIter(net, sig); }
+	NetlistConeCellIter begin() { return NetlistConeCellIter(net, sig, cell_filter); }
 	NetlistConeCellIter end() { return NetlistConeCellIter(net); }
 };
 
@@ -248,10 +295,16 @@ struct NetlistConeCellIterable {
 // };
 } // namespace detail
 
-detail::NetlistConeWireIterable cone(const Netlist &net, RTLIL::SigBit sig) { return detail::NetlistConeWireIterable(net, net.sigmap(sig)); }
+detail::NetlistConeWireIterable cone(const Netlist &net, RTLIL::SigBit sig, CellTypes *cell_filter = NULL)
+{
+	return detail::NetlistConeWireIterable(net, net.sigmap(sig), cell_filter = cell_filter);
+}
 
 // detail::NetlistConeInputsIterable cone_inputs(RTLIL::SigBit sig) { return NetlistConeInputsIterable(this, &sig); }
-detail::NetlistConeCellIterable cell_cone(const Netlist &net, RTLIL::SigBit sig) { return detail::NetlistConeCellIterable(net, net.sigmap(sig)); }
+detail::NetlistConeCellIterable cell_cone(const Netlist &net, RTLIL::SigBit sig, CellTypes *cell_filter = NULL)
+{
+	return detail::NetlistConeCellIterable(net, net.sigmap(sig), cell_filter);
+}
 
 YOSYS_NAMESPACE_END
 
