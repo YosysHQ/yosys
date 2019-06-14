@@ -279,7 +279,7 @@ struct SynthXilinxPass : public ScriptPass
 
 		if (check_label("map_luts")) {
 			if (abc == "abc9")
-				run(abc + " -lut +/xilinx/abc.lut -box +/xilinx/abc.box -W 160" + string(retime ? " -dff" : ""));
+				run(abc + " -lut +/xilinx/abc_xc7.lut -box +/xilinx/abc_xc7.box -W 160" + string(retime ? " -dff" : ""));
 			else if (help_mode)
 				run(abc + " -luts 2:2,3,6:5,10,20 [-dff]");
 			else
