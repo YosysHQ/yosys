@@ -398,6 +398,7 @@ void AigerReader::parse_xaiger()
 						log_assert(wire);
 						input_sig.append(wire);
 					}
+					// TODO: Compute LUT mask from AIG in less than O(2 ** input_sig.size())
 					ce.clear();
 					ce.compute_deps(output_sig, input_sig.to_sigbit_pool());
 					RTLIL::Const lut_mask(RTLIL::State::Sx, 1 << input_sig.size());
