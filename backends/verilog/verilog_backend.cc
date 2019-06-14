@@ -423,6 +423,49 @@ void dump_wire(std::ostream &f, std::string indent, RTLIL::Wire *wire)
 #endif
 }
 
+void dump_wire_as_parameter(std::ostream &f, std::string indent, RTLIL::Wire *wire)
+{
+	dump_attributes(f, indent, wire->attributes);
+
+	// do not use Verilog-2k "output reg" syntax in Verilog export
+	std::string range = "";
+	if (wire->width != 1) {
+		if (wire->upto)
+			range = stringf(" [%d:%d]", wire->start_offset, wire->width - 1 + wire->start_offset);
+		else
+			range = stringf(" [%d:%d]", wire->width - 1 + wire->start_offset, wire->start_offset);
+	}
+
+	f << stringf("%s" "parameter%s %s = ", indent.c_str(), range.c_str(), wire->name.c_str());
+
+	RTLIL::Module* module = wire->module;
+	bool foundDefVal = false;
+
+	for (auto it = module->connections().begin(); it != module->connections().end(); ++it) {
+		const RTLIL::SigSpec& left  = it->first;
+		const RTLIL::SigSpec& right = it->second;
+
+		if (!left.is_wire())
+			continue;
+		if (left.as_wire()->name != wire->name)
+			continue;
+
+		log_assert(right.is_fully_const());
+
+		RTLIL::Const constVal = right.as_const();
+		dump_const(f, constVal);
+
+		foundDefVal = true;
+		break;
+	}
+
+	if (!foundDefVal) {
+		f << string("0");
+	}
+
+	f << stringf(";\n");
+}
+
 void dump_memory(std::ostream &f, std::string indent, RTLIL::Memory *memory)
 {
 	dump_attributes(f, indent, memory->attributes);
@@ -1681,7 +1724,14 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 	f << stringf(");\n");
 
 	for (auto it = module->wires_.begin(); it != module->wires_.end(); ++it)
-		dump_wire(f, indent + "  ", it->second);
+		if (module->avail_parameters.count(it->second->name)) {
+			dump_wire_as_parameter(f, indent + "  ", it->second);
+		}
+
+	for (auto it = module->wires_.begin(); it != module->wires_.end(); ++it)
+		if (!module->avail_parameters.count(it->second->name)) {
+			dump_wire(f, indent + "  ", it->second);
+		}
 
 	for (auto it = module->memories.begin(); it != module->memories.end(); ++it)
 		dump_memory(f, indent + "  ", it->second);
@@ -1692,8 +1742,19 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 	for (auto it = module->processes.begin(); it != module->processes.end(); ++it)
 		dump_process(f, indent + "  ", it->second);
 
-	for (auto it = module->connections().begin(); it != module->connections().end(); ++it)
+	for (auto it = module->connections().begin(); it != module->connections().end(); ++it) {
+
+		// Check if this is a connection to a wire that is mocking a parameter.
+		// If so then discard it here.
+		const RTLIL::SigSpec& left = it->first;
+		if (left.is_wire()) {
+			if (module->avail_parameters.count(left.as_wire()->name)) {
+				continue;
+			}
+		}
+
 		dump_conn(f, indent + "  ", it->first, it->second);
+	}
 
 	f << stringf("%s" "endmodule\n", indent.c_str());
 	active_module = NULL;
