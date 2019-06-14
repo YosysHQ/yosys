@@ -219,37 +219,37 @@ struct XAigerWriter
 			//}
 
 			RTLIL::Module* inst_module = module->design->module(cell->type);
-			bool inst_flop = inst_module ? inst_module->attributes.count("\\abc_flop") : false;
-			if (inst_flop) {
-				SigBit d, q;
-				for (const auto &c : cell->connections()) {
-					auto is_input = cell->input(c.first);
-					auto is_output = cell->output(c.first);
-					log_assert(is_input || is_output);
-					RTLIL::Wire* port = inst_module->wire(c.first);
-					for (auto b : c.second.bits()) {
-						if (is_input && port->attributes.count("\\abc_flop_d")) {
-							d = b;
-							SigBit I = sigmap(d);
-							if (I != d)
-								alias_map[I] = d;
-							unused_bits.erase(d);
-						}
-						if (is_output && port->attributes.count("\\abc_flop_q")) {
-							q = b;
-							SigBit O = sigmap(q);
-							if (O != q)
-								alias_map[O] = q;
-							undriven_bits.erase(O);
-						}
-					}
-				}
-				if (!abc_box_seen)
-					abc_box_seen = inst_module->attributes.count("\\abc_box_id");
+			//bool inst_flop = inst_module ? inst_module->attributes.count("\\abc_flop") : false;
+			//if (inst_flop) {
+			//	SigBit d, q;
+			//	for (const auto &c : cell->connections()) {
+			//		auto is_input = cell->input(c.first);
+			//		auto is_output = cell->output(c.first);
+			//		log_assert(is_input || is_output);
+			//		RTLIL::Wire* port = inst_module->wire(c.first);
+			//		for (auto b : c.second.bits()) {
+			//			if (is_input && port->attributes.count("\\abc_flop_d")) {
+			//				d = b;
+			//				SigBit I = sigmap(d);
+			//				if (I != d)
+			//					alias_map[I] = d;
+			//				unused_bits.erase(d);
+			//			}
+			//			if (is_output && port->attributes.count("\\abc_flop_q")) {
+			//				q = b;
+			//				SigBit O = sigmap(q);
+			//				if (O != q)
+			//					alias_map[O] = q;
+			//				undriven_bits.erase(O);
+			//			}
+			//		}
+			//	}
+			//	if (!abc_box_seen)
+			//		abc_box_seen = inst_module->attributes.count("\\abc_box_id");
 
-				ff_bits.emplace_back(d, q);
-			}
-			else if (inst_module && inst_module->attributes.count("\\abc_box_id")) {
+			//	ff_bits.emplace_back(d, q);
+			//}
+			/*else*/ if (inst_module && inst_module->attributes.count("\\abc_box_id")) {
 				abc_box_seen = true;
 			}
 			else {
@@ -310,8 +310,8 @@ struct XAigerWriter
 					if (cell->output(conn.first)) {
 						RTLIL::Wire* inst_module_port = inst_module->wire(conn.first);
 						log_assert(inst_module_port);
-						if (inst_module_port->attributes.count("\\abc_flop_q"))
-							continue;
+						//if (inst_module_port->attributes.count("\\abc_flop_q"))
+						//	continue;
 						for (auto bit : topomap(conn.second))
 							bit_drivers[bit].insert(cell->name);
 					}
