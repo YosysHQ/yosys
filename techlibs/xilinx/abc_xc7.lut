@@ -1,14 +1,15 @@
-# Max delays from https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf
+# Max delays from https://github.com/SymbiFlow/prjxray-db/blob/82bf5f158cd8e9a11ac4d04f1aeef48ed1a528a5/artix7/timings/CLBLL_L.sdf
+#            and  https://github.com/SymbiFlow/prjxray-db/blob/82bf5f158cd8e9a11ac4d04f1aeef48ed1a528a5/artix7/tile_type_CLBLL_L.json
 
 # K	area	delay
-1 	1	124
-2	2	124 235
-3	3	124 235 399
-4	3	124 235 399 490
-5	3	124 235 399 490 620
-6	5	124 235 399 490 620 632
-                # F7BMUX
-7	10	296 420 531 695 756 916 928
-                # F8MUX
-                    # F8MUX+F7BMUX
-8	20	273 569 693 804 968 1029 1189 1201
+1 	1	127
+2	2	127 238
+3	3	127 238 407
+4	3	127 238 407 472
+5	3	127 238 407 472 631
+6	5	127 238 407 472 631 642
+        # F7AMUX + F7BMUX / 2
+7	10	286 413 524 693 758 917 928
+        # F8MUX
+            # F8MUX+F7MUX
+8	20	273 559 686 797 966 1031 1190 1201
