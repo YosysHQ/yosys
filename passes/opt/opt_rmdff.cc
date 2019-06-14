@@ -503,7 +503,7 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 			// If the register bit cannot change, we can replace it with a constant
 			if (!counter_example_found) {
 
-				RTLIL::SigBit &driver_port = net.driver_port(q_sigbit);
+				RTLIL::SigSpec driver_port = net.driver_port(q_sigbit);
 				RTLIL::Wire *dummy_wire = mod->addWire(NEW_ID, 1);
 
 				for (auto &conn : mod->connections_)

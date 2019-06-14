@@ -58,9 +58,13 @@ struct Netlist {
 		return sigbit_driver_map.at(sig);
 	}
 
-	RTLIL::SigBit& driver_port(RTLIL::SigBit sig)
+	RTLIL::SigSpec driver_port(RTLIL::SigBit sig)
 	{
 		RTLIL::Cell *cell = driver_cell(sig);
+
+		if (!cell) {
+			return RTLIL::SigSpec();
+		}
 
 		for (auto &port : cell->connections_) {
 			if (ct.cell_output(cell->type, port.first)) {
@@ -72,6 +76,8 @@ struct Netlist {
 				}
 			}
 		}
+
+		return RTLIL::SigSpec();
 	}
 
 	void setup_netlist(RTLIL::Module *module, const CellTypes &ct)
