@@ -185,9 +185,8 @@ struct XAigerWriter
 			if (!bit.wire->port_input)
 				unused_bits.erase(bit);
 
-		SigMap topomap;
-		topomap.database = sigmap.database;
-
+		dict<SigBit, pool<IdString>> bit_drivers, bit_users;
+		TopoSort<IdString, RTLIL::sort_by_id_str> toposort;
 		bool abc_box_seen = false;
 
 		for (auto cell : module->selected_cells()) {
@@ -198,8 +197,11 @@ struct XAigerWriter
 				unused_bits.erase(A);
 				undriven_bits.erase(Y);
 				not_map[Y] = A;
-				if (!holes_mode)
-					topomap.add(Y, A);
+				if (!holes_mode) {
+					toposort.node(cell->name);
+					bit_users[A].insert(cell->name);
+					bit_drivers[Y].insert(cell->name);
+				}
 				continue;
 			}
 
@@ -223,11 +225,15 @@ struct XAigerWriter
 				undriven_bits.erase(Y);
 				and_map[Y] = make_pair(A, B);
 				if (!holes_mode) {
-					topomap.add(Y, A);
-					topomap.add(Y, B);
+					toposort.node(cell->name);
+					bit_users[A].insert(cell->name);
+					bit_users[B].insert(cell->name);
+					bit_drivers[Y].insert(cell->name);
 				}
 				continue;
 			}
+
+			log_assert(!holes_mode);
 
 			//if (cell->type == "$initstate")
 			//{
@@ -265,11 +271,26 @@ struct XAigerWriter
 			//	}
 			//	if (!abc_box_seen)
 			//		abc_box_seen = inst_module->attributes.count("\\abc_box_id");
-
 			//	ff_bits.emplace_back(d, q);
 			//}
 			/*else*/ if (inst_module && inst_module->attributes.count("\\abc_box_id")) {
 				abc_box_seen = true;
+
+				if (!holes_mode) {
+					toposort.node(cell->name);
+					for (const auto &conn : cell->connections()) {
+						if (cell->input(conn.first)) {
+							// Ignore inout for the sake of topographical ordering
+							if (cell->output(conn.first)) continue;
+							for (auto bit : sigmap(conn.second))
+								bit_users[bit].insert(cell->name);
+						}
+
+						if (cell->output(conn.first))
+							for (auto bit : sigmap(conn.second))
+								bit_drivers[bit].insert(cell->name);
+					}
+				}
 			}
 			else {
 				for (const auto &c : cell->connections()) {
@@ -309,45 +330,19 @@ struct XAigerWriter
 		}
 
 		if (abc_box_seen && !holes_mode) {
-			TopoSort<IdString, RTLIL::sort_by_id_str> toposort;
-			dict<SigBit, pool<IdString>> bit_drivers, bit_users;
-
-			for (auto cell : module->selected_cells()) {
-				RTLIL::Module* inst_module = module->design->module(cell->type);
-				if (!inst_module || !inst_module->attributes.count("\\abc_box_id"))
-					continue;
-				toposort.node(cell->name);
-				for (const auto &conn : cell->connections()) {
-					if (cell->input(conn.first)) {
-						// Ignore inout for the sake of topographical ordering
-						if (cell->output(conn.first)) continue;
-						for (auto bit : topomap(conn.second))
-							if (bit.wire)
-								bit_users[bit].insert(cell->name);
-					}
-
-					if (cell->output(conn.first)) {
-						RTLIL::Wire* inst_module_port = inst_module->wire(conn.first);
-						log_assert(inst_module_port);
-						//if (inst_module_port->attributes.count("\\abc_flop_q"))
-						//	continue;
-						for (auto bit : topomap(conn.second))
-							bit_drivers[bit].insert(cell->name);
-					}
-				}
-			}
-
 			for (auto &it : bit_users)
 				if (bit_drivers.count(it.first))
 					for (auto driver_cell : bit_drivers.at(it.first))
-						for (auto user_cell : it.second)
-							toposort.edge(driver_cell, user_cell);
+					for (auto user_cell : it.second)
+						toposort.edge(driver_cell, user_cell);
 
-#if 1
+			pool<RTLIL::Module*> abc_carry_modules;
+
+#if 0
 			toposort.analyze_loops = true;
 #endif
 			bool no_loops = toposort.sort();
-#if 1
+#if 0
 			unsigned i = 0;
 			for (auto &it : toposort.loops) {
 				log("  loop %d", i++);
@@ -358,14 +353,13 @@ struct XAigerWriter
 #endif
 			log_assert(no_loops);
 
-			pool<RTLIL::Module*> abc_carry_modules;
 			for (auto cell_name : toposort.sorted) {
 				RTLIL::Cell *cell = module->cell(cell_name);
 				RTLIL::Module* box_module = module->design->module(cell->type);
-				log_assert(box_module);
-				log_assert(box_module->attributes.count("\\abc_box_id"));
+				if (!box_module || !box_module->attributes.count("\\abc_box_id"))
+					continue;
 
-				if (!abc_carry_modules.count(box_module) && box_module->attributes.count("\\abc_carry")) {
+				if (box_module->attributes.count("\\abc_carry") && !abc_carry_modules.count(box_module)) {
 					RTLIL::Wire* carry_in = nullptr, *carry_out = nullptr;
 					RTLIL::Wire* last_in = nullptr, *last_out = nullptr;
 					for (const auto &port_name : box_module->ports) {
@@ -461,6 +455,8 @@ struct XAigerWriter
 				}
 				box_list.emplace_back(cell);
 			}
+
+			// TODO: Free memory from toposort, bit_drivers, bit_users
 		}
 
 		for (auto bit : input_bits) {
