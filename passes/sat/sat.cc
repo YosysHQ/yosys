@@ -1548,19 +1548,16 @@ struct SatPass : public Pass {
 			print_proof_failed();
 
 		tip_failed:
-			design->scratchpad_set_bool("sat.success", false);
 			if (verify) {
 				log("\n");
 				log_error("Called with -verify and proof did fail!\n");
 			}
 
-			if (0) {
+			if (0)
 		tip_success:
-			design->scratchpad_set_bool("sat.success", true);
 			if (falsify) {
 				log("\n");
 				log_error("Called with -falsify and proof did succeed!\n");
-			}
 			}
 		}
 		else
@@ -1631,7 +1628,6 @@ struct SatPass : public Pass {
 
 			if (sathelper.solve())
 			{
-				design->scratchpad_set_bool("sat.success", false);
 				if (max_undef) {
 					log("SAT model found. maximizing number of undefs.\n");
 					sathelper.maximize_undefs();
@@ -1671,7 +1667,6 @@ struct SatPass : public Pass {
 			}
 			else
 			{
-				design->scratchpad_set_bool("sat.success", true);
 				if (sathelper.gotTimeout)
 					goto timeout;
 				if (rerun_counter)

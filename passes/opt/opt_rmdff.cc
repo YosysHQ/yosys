@@ -460,15 +460,19 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 	}
 
 	if (sat && has_init) {
-		std::vector<int> removed_sigbits;
+		bool removed_sigbits = false;
 
+		// Create netlist for the module if not already available
 		if (!netlists.count(mod)) {
 			netlists.emplace(mod, Netlist(mod));
 			comb_filters.emplace(mod, comb_cells_filt());
 		}
 
+		// Load netlist for the module from the pool
 		Netlist &net = netlists.at(mod);
 
+
+		// For each register bit, try to prove that it cannot change from the initial value. If so, remove it
 		for (int position = 0; position < GetSize(sig_d); position += 1) {
 			RTLIL::SigBit q_sigbit = sig_q[position];
 			RTLIL::SigBit d_sigbit = sig_d[position];
@@ -480,6 +484,7 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 			ezSatPtr ez;
 			SatGen satgen(ez.get(), &net.sigmap);
 
+			// Create SAT instance only for the cells that influence the register bit combinatorially
 			for (const auto &cell : cell_cone(net, d_sigbit, &comb_filters.at(mod))) {
 				if (!satgen.importCell(cell))
 					log_error("Can't create SAT model for cell %s (%s)!\n", RTLIL::id2cstr(cell->name),
@@ -492,12 +497,10 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 			int q_sat_pi = satgen.importSigBit(q_sigbit);
 			int d_sat_pi = satgen.importSigBit(d_sigbit);
 
+			// Try to find out whether the register bit can change under some circumstances
 			bool counter_example_found = ez->solve(ez->IFF(q_sat_pi, init_sat_pi), ez->NOT(ez->IFF(d_sat_pi, init_sat_pi)));
 
-			if (position == 14) {
-				counter_example_found = false;
-			}
-
+			// If the register bit cannot change, we can replace it with a constant
 			if (!counter_example_found) {
 
 				RTLIL::SigBit &driver_port = net.driver_port(q_sigbit);
@@ -511,11 +514,11 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 
 				mod->connect(RTLIL::SigSig(q_sigbit, sigbit_init_val));
 
-				removed_sigbits.push_back(position);
+				removed_sigbits = true;
 			}
 		}
 
-		if (!removed_sigbits.empty()) {
+		if (removed_sigbits) {
 			return true;
 		}
 	}
