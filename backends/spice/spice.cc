@@ -121,12 +121,22 @@ static void print_spice_module(std::ostream &f, RTLIL::Module *module, RTLIL::De
 		f << stringf(" %s\n", spice_id2str(cell->type).c_str());
 	}
 
-	for (auto &conn : module->connections())
-	for (int i = 0; i < conn.first.size(); i++) {
-		f << stringf("V%d", conn_counter++);
-		print_spice_net(f, conn.first.extract(i, 1), neg, pos, ncpf, nc_counter, use_inames, inums);
-		print_spice_net(f, conn.second.extract(i, 1), neg, pos, ncpf, nc_counter, use_inames, inums);
-		f << stringf(" DC 0\n");
+	for (auto &conn : module->connections()) {
+
+		// Skip connections to wires that mock parameters.
+		const RTLIL::SigSpec& left = conn.first;
+		if (left.is_wire()) {
+			if (module->avail_parameters.count(left.as_wire()->name)) {
+				continue;
+			}
+		}
+
+		for (int i = 0; i < conn.first.size(); i++) {
+			f << stringf("V%d", conn_counter++);
+			print_spice_net(f, conn.first.extract(i, 1), neg, pos, ncpf, nc_counter, use_inames, inums);
+			print_spice_net(f, conn.second.extract(i, 1), neg, pos, ncpf, nc_counter, use_inames, inums);
+			f << stringf(" DC 0\n");
+		}
 	}
 }
 
