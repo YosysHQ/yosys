@@ -29,7 +29,7 @@
 						"&st; &if -g -K 6; &dch -f; &if {W}; &save; &load; "\
 						"&st; &if -g -K 6; &synch2; &if {W}; &save; &load"
 #else
-#define ABC_COMMAND_LUT "&st; &sweep; &scorr; "/*"&dc2; "*/"&retime; &dch -f; &ps -l; &if {W} -v; "/*"&mfs; "*/"&ps -l"
+#define ABC_COMMAND_LUT "&st; &sweep; &scorr; "/*"&dc2; "*/"&retime; &dch -f; &ps -l; &if {W} {D} -v; "/*"&mfs; "*/"&ps -l"
 #endif
 
 
@@ -335,9 +335,9 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 	} else
 		log_abort();
 
-	if (script_file.empty() && !delay_target.empty())
-		for (size_t pos = abc_script.find("dretime;"); pos != std::string::npos; pos = abc_script.find("dretime;", pos+1))
-			abc_script = abc_script.substr(0, pos) + "dretime; retime -o {D};" + abc_script.substr(pos+8);
+	//if (script_file.empty() && !delay_target.empty())
+	//	for (size_t pos = abc_script.find("dretime;"); pos != std::string::npos; pos = abc_script.find("dretime;", pos+1))
+	//		abc_script = abc_script.substr(0, pos) + "dretime; retime -o {D};" + abc_script.substr(pos+8);
 
 	for (size_t pos = abc_script.find("{D}"); pos != std::string::npos; pos = abc_script.find("{D}", pos))
 		abc_script = abc_script.substr(0, pos) + delay_target + abc_script.substr(pos+3);
@@ -750,12 +750,12 @@ struct Abc9Pass : public Pass {
 		log("        for -lut/-luts:\n");
 		log("%s\n", fold_abc_cmd(ABC_FAST_COMMAND_LUT).c_str());
 		log("\n");
-//		log("    -D <picoseconds>\n");
-//		log("        set delay target. the string {D} in the default scripts above is\n");
-//		log("        replaced by this option when used, and an empty string otherwise.\n");
-//		log("        this also replaces 'dretime' with 'dretime; retime -o {D}' in the\n");
+		log("    -D <picoseconds>\n");
+		log("        set delay target. the string {D} in the default scripts above is\n");
+		log("        replaced by this option when used, and an empty string otherwise.\n");
+//		log("        This also replaces 'dretime' with 'dretime; retime -o {D}' in the\n");
 //		log("        default scripts above.\n");
-//		log("\n");
+		log("\n");
 //		log("    -S <num>\n");
 //		log("        maximum number of LUT inputs shared.\n");
 //		log("        (replaces {S} in the default scripts above, default: -S 1)\n");
