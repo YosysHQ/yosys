@@ -190,7 +190,7 @@ struct XAigerWriter
 
 		bool abc_box_seen = false;
 
-		for (auto cell : module->cells()) {
+		for (auto cell : module->selected_cells()) {
 			if (cell->type == "$_NOT_")
 			{
 				SigBit A = sigmap(cell->getPort("\\A").as_bit());
@@ -312,7 +312,7 @@ struct XAigerWriter
 			TopoSort<IdString, RTLIL::sort_by_id_str> toposort;
 			dict<SigBit, pool<IdString>> bit_drivers, bit_users;
 
-			for (auto cell : module->cells()) {
+			for (auto cell : module->selected_cells()) {
 				RTLIL::Module* inst_module = module->design->module(cell->type);
 				if (!inst_module || !inst_module->attributes.count("\\abc_box_id"))
 					continue;
