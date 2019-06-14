@@ -18,6 +18,15 @@
  *
  */
 
+// https://stackoverflow.com/a/46137633
+#ifdef _MSC_VER
+#include <stdlib.h>
+#define __builtin_bswap32 _byteswap_ulong
+#elif defined(__APPLE__)
+#include <libkern/OSByteOrder.h>
+#define __builtin_bswap32 OSSwapInt32
+#endif
+
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 #include "kernel/utils.h"
@@ -27,11 +36,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 inline int32_t to_big_endian(int32_t i32) {
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-#ifdef _WIN32
-	return _byteswap_ulong(i32);
-#else
 	return __builtin_bswap32(i32);
-#endif
 #elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 	return i32;
 #else
