@@ -329,7 +329,7 @@ struct XAigerWriter
 			//log_warning("Unsupported cell type: %s (%s)\n", log_id(cell->type), log_id(cell));
 		}
 
-		if (abc_box_seen && !holes_mode) {
+		if (abc_box_seen) {
 			for (auto &it : bit_users)
 				if (bit_drivers.count(it.first))
 					for (auto driver_cell : bit_drivers.at(it.first))
