@@ -752,7 +752,8 @@ struct Abc9Pass : public Pass {
 		log("\n");
 		log("    -D <picoseconds>\n");
 		log("        set delay target. the string {D} in the default scripts above is\n");
-		log("        replaced by this option when used, and an empty string otherwise.\n");
+		log("        replaced by this option when used, and an empty string otherwise\n");
+		log("        (indicating best possible delay).\n");
 //		log("        This also replaces 'dretime' with 'dretime; retime -o {D}' in the\n");
 //		log("        default scripts above.\n");
 		log("\n");
