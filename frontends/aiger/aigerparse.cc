@@ -2,7 +2,7 @@
  *  yosys -- Yosys Open SYnthesis Suite
  *
  *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
- *  Copyright (C) 2019  Eddie Hung <eddie@fpgeh.com>
+ *                2019  Eddie Hung <eddie@fpgeh.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -24,16 +24,178 @@
 
 #ifdef _WIN32
 #include <libgen.h>
-#include <stdlib.h>
 #endif
-#include <array>
+// https://stackoverflow.com/a/46137633
+#ifdef _MSC_VER
+#include <stdlib.h>
+#define __builtin_bswap32 _byteswap_ulong
+#elif defined(__APPLE__)
+#include <libkern/OSByteOrder.h>
+#define __builtin_bswap32 OSSwapInt32
+#endif
+#include <inttypes.h>
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
-#include "kernel/consteval.h"
+#include "kernel/celltypes.h"
 #include "aigerparse.h"
 
 YOSYS_NAMESPACE_BEGIN
+
+inline int32_t from_big_endian(int32_t i32) {
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+	return __builtin_bswap32(i32);
+#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+	return i32;
+#else
+#error "Unknown endianness"
+#endif
+}
+
+struct ConstEvalAig
+{
+	RTLIL::Module *module;
+	dict<RTLIL::SigBit, RTLIL::State> values_map;
+	dict<RTLIL::SigBit, RTLIL::Cell*> sig2driver;
+	dict<SigBit, pool<RTLIL::SigBit>> sig2deps;
+
+	ConstEvalAig(RTLIL::Module *module) : module(module)
+	{
+		for (auto &it : module->cells_) {
+			if (!yosys_celltypes.cell_known(it.second->type))
+				continue;
+			for (auto &it2 : it.second->connections())
+				if (yosys_celltypes.cell_output(it.second->type, it2.first)) {
+					auto r = sig2driver.insert(std::make_pair(it2.second, it.second));
+					log_assert(r.second);
+				}
+		}
+	}
+
+	void clear()
+	{
+		values_map.clear();
+		sig2deps.clear();
+	}
+
+	void set(RTLIL::SigBit sig, RTLIL::State value)
+	{
+		auto it = values_map.find(sig);
+#ifndef NDEBUG
+		if (it != values_map.end()) {
+			RTLIL::State current_val = it->second;
+			log_assert(current_val == value);
+		}
+#endif
+		if (it != values_map.end())
+			it->second = value;
+		else
+			values_map[sig] = value;
+	}
+
+	void set_incremental(RTLIL::SigSpec sig, RTLIL::Const value)
+	{
+		log_assert(GetSize(sig) == GetSize(value));
+
+		for (int i = 0; i < GetSize(sig); i++) {
+			auto it = values_map.find(sig[i]);
+			if (it != values_map.end()) {
+				RTLIL::State current_val = it->second;
+				if (current_val != value[i])
+					for (auto dep : sig2deps[sig[i]])
+						values_map.erase(dep);
+				it->second = value[i];
+			}
+			else
+				values_map[sig[i]] = value[i];
+		}
+	}
+
+	void compute_deps(RTLIL::SigBit output, const pool<RTLIL::SigBit> &inputs)
+	{
+		sig2deps[output].insert(output);
+
+		RTLIL::Cell *cell = sig2driver.at(output);
+		RTLIL::SigBit sig_a = cell->getPort("\\A");
+		sig2deps[sig_a].insert(sig2deps[output].begin(), sig2deps[output].end());
+		if (!inputs.count(sig_a))
+			compute_deps(sig_a, inputs);
+
+		if (cell->type == "$_AND_") {
+			RTLIL::SigSpec sig_b = cell->getPort("\\B");
+			sig2deps[sig_b].insert(sig2deps[output].begin(), sig2deps[output].end());
+			if (!inputs.count(sig_b))
+				compute_deps(sig_b, inputs);
+		}
+		else if (cell->type == "$_NOT_") {
+		}
+		else log_abort();
+	}
+
+	bool eval(RTLIL::Cell *cell)
+	{
+		RTLIL::SigBit sig_y = cell->getPort("\\Y");
+		if (values_map.count(sig_y))
+			return true;
+
+		RTLIL::SigBit sig_a = cell->getPort("\\A");
+		if (!eval(sig_a))
+			return false;
+
+		RTLIL::State eval_ret = RTLIL::Sx;
+		if (cell->type == "$_NOT_") {
+			if (sig_a == RTLIL::S0) eval_ret = RTLIL::S1;
+			else if (sig_a == RTLIL::S1) eval_ret = RTLIL::S0;
+		}
+		else if (cell->type == "$_AND_") {
+			if (sig_a == RTLIL::S0) {
+				eval_ret = RTLIL::S0;
+				goto eval_end;
+			}
+
+			{
+				RTLIL::SigBit sig_b = cell->getPort("\\B");
+				if (!eval(sig_b))
+					return false;
+				if (sig_b == RTLIL::S0) {
+					eval_ret = RTLIL::S0;
+					goto eval_end;
+				}
+
+				if (sig_a != RTLIL::S1 || sig_b != RTLIL::S1)
+					goto eval_end;
+
+				eval_ret = RTLIL::S1;
+			}
+		}
+		else log_abort();
+
+eval_end:
+		set(sig_y, eval_ret);
+		return true;
+	}
+
+	bool eval(RTLIL::SigBit &sig)
+	{
+		auto it = values_map.find(sig);
+		if (it != values_map.end()) {
+			sig = it->second;
+			return true;
+		}
+
+		RTLIL::Cell *cell = sig2driver.at(sig);
+		if (!eval(cell))
+			return false;
+
+		it = values_map.find(sig);
+		if (it != values_map.end()) {
+			sig = it->second;
+			return true;
+		}
+
+		return false;
+	}
+};
 
 AigerReader::AigerReader(RTLIL::Design *design, std::istream &f, RTLIL::IdString module_name, RTLIL::IdString clk_name, std::string map_filename, bool wideports)
 	: design(design), f(f), clk_name(clk_name), map_filename(map_filename), wideports(wideports)
@@ -132,20 +294,15 @@ static uint32_t parse_xaiger_literal(std::istream &f)
 	uint32_t l;
 	f.read(reinterpret_cast<char*>(&l), sizeof(l));
 	if (f.gcount() != sizeof(l))
-		log_error("Offset %ld: unable to read literal!\n", static_cast<int64_t>(f.tellg()));
-	// TODO: Don't assume we're on little endian
-#ifdef _WIN32
-	return _byteswap_ulong(l);
-#else
-	return __builtin_bswap32(l);
-#endif
+		log_error("Offset %" PRId64 ": unable to read literal!\n", static_cast<int64_t>(f.tellg()));
+	return from_big_endian(l);
 }
 
 static RTLIL::Wire* createWireIfNotExists(RTLIL::Module *module, unsigned literal)
 {
 	const unsigned variable = literal >> 1;
 	const bool invert = literal & 1;
-	RTLIL::IdString wire_name(stringf("\\__%d%s__", variable, invert ? "b" : "")); // FIXME: is "b" the right suffix?
+	RTLIL::IdString wire_name(stringf("\\__%d%s__", variable, invert ? "b" : ""));
 	RTLIL::Wire *wire = module->wire(wire_name);
 	if (wire) return wire;
 	log_debug("Creating %s\n", wire_name.c_str());
@@ -164,7 +321,7 @@ static RTLIL::Wire* createWireIfNotExists(RTLIL::Module *module, unsigned litera
 	}
 
 	log_debug("Creating %s = ~%s\n", wire_name.c_str(), wire_inv_name.c_str());
-	module->addNotGate(stringf("\\__%d__$not", variable), wire_inv, wire); // FIXME: is "$not" the right suffix?
+	module->addNotGate(stringf("\\__%d__$not", variable), wire_inv, wire);
 
 	return wire;
 }
@@ -210,7 +367,8 @@ void AigerReader::parse_xaiger()
 		auto it = m->attributes.find("\\abc_box_id");
 		if (it == m->attributes.end())
 			continue;
-		if (m->name[0] == '$') continue;
+		if (m->name.begins_with("$paramod"))
+			continue;
 		auto r = box_lookup.insert(std::make_pair(it->second.as_int(), m->name));
 		log_assert(r.second);
 	}
@@ -234,7 +392,7 @@ void AigerReader::parse_xaiger()
 				uint32_t lutNum = parse_xaiger_literal(f);
 				uint32_t lutSize = parse_xaiger_literal(f);
 				log_debug("m: dataSize=%u lutNum=%u lutSize=%u\n", dataSize, lutNum, lutSize);
-				ConstEval ce(module);
+				ConstEvalAig ce(module);
 				for (unsigned i = 0; i < lutNum; ++i) {
 					uint32_t rootNodeID = parse_xaiger_literal(f);
 					uint32_t cutLeavesM = parse_xaiger_literal(f);
@@ -249,14 +407,18 @@ void AigerReader::parse_xaiger()
 						log_assert(wire);
 						input_sig.append(wire);
 					}
+					// TODO: Compute LUT mask from AIG in less than O(2 ** input_sig.size())
+					ce.clear();
+					ce.compute_deps(output_sig, input_sig.to_sigbit_pool());
 					RTLIL::Const lut_mask(RTLIL::State::Sx, 1 << input_sig.size());
 					for (int j = 0; j < (1 << cutLeavesM); ++j) {
-						ce.push();
-						ce.set(input_sig, RTLIL::Const{j, static_cast<int>(cutLeavesM)});
-						RTLIL::SigSpec o(output_sig);
-						ce.eval(o);
-						lut_mask[j] = o.as_const()[0];
-						ce.pop();
+						int gray = j ^ (j >> 1);
+						ce.set_incremental(input_sig, RTLIL::Const{gray, static_cast<int>(cutLeavesM)});
+						RTLIL::SigBit o(output_sig);
+						bool success = ce.eval(o);
+						log_assert(success);
+						log_assert(o.wire == nullptr);
+						lut_mask[gray] = o.data;
 					}
 					RTLIL::Cell *output_cell = module->cell(stringf("\\__%d__$and", rootNodeID));
 					log_assert(output_cell);
@@ -346,7 +508,7 @@ void AigerReader::parse_aiger_ascii()
 		if (!(f >> l1 >> l2))
 			log_error("Line %u cannot be interpreted as a latch!\n", line_count);
 		log_debug("%d %d is a latch\n", l1, l2);
-		log_assert(!(l1 & 1)); // TODO: Latch outputs can't be inverted?
+		log_assert(!(l1 & 1));
 		RTLIL::Wire *q_wire = createWireIfNotExists(module, l1);
 		RTLIL::Wire *d_wire = createWireIfNotExists(module, l2);
 
@@ -696,10 +858,6 @@ void AigerReader::post_process()
 				RTLIL::Wire* wire = outputs[variable + co_count];
 				log_assert(wire);
 				log_assert(wire->port_output);
-				if (escaped_s.in("\\__dummy_o__", "\\__const0__", "\\__const1__")) {
-					wire->port_output = false;
-					continue;
-				}
 
 				if (index == 0) {
 					// Cope with the fact that a CO might be identical
@@ -797,8 +955,6 @@ void AigerReader::post_process()
 				port_output = port_output || other_wire->port_output;
 			}
 		}
-		if ((port_input && port_output) || (!port_input && !port_output))
-			continue;
 
 		wire = module->addWire(name, width);
 		wire->port_input = port_input;

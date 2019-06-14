@@ -250,3 +250,15 @@ module abc9_test023 #(
 	wire [2*M-1:0] mask = {M{1'b1}};
 	assign dout = (mask << din[N-1:0]) >> M;
 endmodule
+
+module abc9_test024(input [3:0] i, output [3:0] o);
+abc9_test024_sub a(i[1:0], o[1:0]);
+endmodule
+
+module abc9_test024_sub(input [1:0] i, output [1:0] o);
+assign o = i;
+endmodule
+
+module abc9_test025(input [3:0] i, output [3:0] o);
+abc9_test024_sub a(i[2:1], o[2:1]);
+endmodule

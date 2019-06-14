@@ -205,7 +205,7 @@ endmodule
 
 `endif
 
-module FDRE ((* abc_flop_q *) output reg Q, input C, CE, D, R);
+module FDRE (output reg Q, input C, CE, D, R);
   parameter [0:0] INIT = 1'b0;
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
@@ -217,7 +217,7 @@ module FDRE ((* abc_flop_q *) output reg Q, input C, CE, D, R);
   endcase endgenerate
 endmodule
 
-module FDSE ((* abc_flop_q *) output reg Q, input C, CE, D, S);
+module FDSE (output reg Q, input C, CE, D, S);
   parameter [0:0] INIT = 1'b0;
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
@@ -229,7 +229,7 @@ module FDSE ((* abc_flop_q *) output reg Q, input C, CE, D, S);
   endcase endgenerate
 endmodule
 
-module FDCE ((* abc_flop_q *) output reg Q, input C, CE, D, CLR);
+module FDCE (output reg Q, input C, CE, D, CLR);
   parameter [0:0] INIT = 1'b0;
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
@@ -243,7 +243,7 @@ module FDCE ((* abc_flop_q *) output reg Q, input C, CE, D, CLR);
   endcase endgenerate
 endmodule
 
-module FDPE ((* abc_flop_q *) output reg Q, input C, CE, D, PRE);
+module FDPE (output reg Q, input C, CE, D, PRE);
   parameter [0:0] INIT = 1'b0;
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
@@ -257,25 +257,25 @@ module FDPE ((* abc_flop_q *) output reg Q, input C, CE, D, PRE);
   endcase endgenerate
 endmodule
 
-module FDRE_1 ((* abc_flop_q *) output reg Q, input C, CE, D, R);
+module FDRE_1 (output reg Q, input C, CE, D, R);
   parameter [0:0] INIT = 1'b0;
   initial Q <= INIT;
   always @(negedge C) if (R) Q <= 1'b0; else if(CE) Q <= D;
 endmodule
 
-module FDSE_1 ((* abc_flop_q *) output reg Q, input C, CE, D, S);
+module FDSE_1 (output reg Q, input C, CE, D, S);
   parameter [0:0] INIT = 1'b1;
   initial Q <= INIT;
   always @(negedge C) if (S) Q <= 1'b1; else if(CE) Q <= D;
 endmodule
 
-module FDCE_1 ((* abc_flop_q *) output reg Q, input C, CE, D, CLR);
+module FDCE_1 (output reg Q, input C, CE, D, CLR);
   parameter [0:0] INIT = 1'b0;
   initial Q <= INIT;
   always @(negedge C, posedge CLR) if (CLR) Q <= 1'b0; else if (CE) Q <= D;
 endmodule
 
-module FDPE_1 ((* abc_flop_q *) output reg Q, input C, CE, D, PRE);
+module FDPE_1 (output reg Q, input C, CE, D, PRE);
   parameter [0:0] INIT = 1'b1;
   initial Q <= INIT;
   always @(negedge C, posedge PRE) if (PRE) Q <= 1'b1; else if (CE) Q <= D;
@@ -315,7 +315,7 @@ module RAM128X1D (
 endmodule
 
 module SRL16E (
-  (* abc_flop_q *) output Q,
+  output Q,
   input A0, A1, A2, A3, CE, CLK, D
 );
   parameter [15:0] INIT = 16'h0000;
@@ -333,7 +333,7 @@ module SRL16E (
 endmodule
 
 module SRLC32E (
-  (* abc_flop_q *) output Q,
+  output Q,
   output Q31,
   input [4:0] A,
   input CE, CLK, D

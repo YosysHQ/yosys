@@ -25,6 +25,8 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+#define XC7_WIRE_DELAY "160"
+
 struct SynthXilinxPass : public ScriptPass
 {
 	SynthXilinxPass() : ScriptPass("synth_xilinx", "synthesis for Xilinx FPGAs") { }
@@ -70,9 +72,6 @@ struct SynthXilinxPass : public ScriptPass
 		log("    -nosrl\n");
 		log("        disable inference of shift registers\n");
 		log("\n");
-		log("    -nomux\n");
-		log("        disable inference of wide multiplexers\n");
-		log("\n");
 		log("    -run <from_label>:<to_label>\n");
 		log("        only run the commands between the labels (see below). an empty\n");
 		log("        from label is synonymous to 'begin', and empty to label is\n");
@@ -85,7 +84,7 @@ struct SynthXilinxPass : public ScriptPass
 		log("        run 'abc' with -dff option\n");
 		log("\n");
 		log("    -abc9\n");
-		log("        use abc9 instead of abc\n");
+		log("        use new ABC9 flow (EXPERIMENTAL)\n");
 		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
@@ -94,7 +93,7 @@ struct SynthXilinxPass : public ScriptPass
 	}
 
 	std::string top_opt, edif_file, blif_file, abc, arch;
-	bool flatten, retime, vpr, nocarry, nobram, nodram, nosrl, nomux;
+	bool flatten, retime, vpr, nocarry, nobram, nodram, nosrl;
 
 	void clear_flags() YS_OVERRIDE
 	{
@@ -109,7 +108,6 @@ struct SynthXilinxPass : public ScriptPass
 		nobram = false;
 		nodram = false;
 		nosrl = false;
-		nomux = false;
 		arch = "xc7";
 	}
 
@@ -173,10 +171,6 @@ struct SynthXilinxPass : public ScriptPass
 				nosrl = true;
 				continue;
 			}
-			if (args[argidx] == "-nomux") {
-				nomux = true;
-				continue;
-			}
 			if (args[argidx] == "-abc9") {
 				abc = "abc9";
 				continue;
@@ -225,15 +219,11 @@ struct SynthXilinxPass : public ScriptPass
 		if (check_label("coarse")) {
 			run("synth -run coarse");
 
-			//if (!nomux || help_mode)
-			//	run("muxpack", "(skip if '-nomux')");
-
 			// shregmap -tech xilinx can cope with $shiftx and $mux
 			//   cells for identifying variable-length shift registers,
 			//   so attempt to convert $pmux-es to the former
-			// Also: wide multiplexer inference benefits from this too
-			if (!(nosrl && nomux) || help_mode)
-				run("pmux2shiftx", "(skip if '-nosrl' and '-nomux')");
+			if (!nosrl || help_mode)
+				run("pmux2shiftx", "(skip if '-nosrl')");
 
 			// Run a number of peephole optimisations, including one
 			//   that optimises $mul cells driving $shiftx's B input
@@ -272,32 +262,26 @@ struct SynthXilinxPass : public ScriptPass
 
 			std::string techmap_files = " -map +/techmap.v";
 			if (help_mode)
-					techmap_files += " [-map +/xilinx/mux_map.v]";
-			else if (!nomux)
-					techmap_files += " -map +/xilinx/mux_map.v";
-			if (help_mode)
-					techmap_files += " [-map +/xilinx/arith_map.v]";
+				techmap_files += " [-map +/xilinx/arith_map.v]";
 			else if (!nocarry) {
-					techmap_files += " -map +/xilinx/arith_map.v";
-					if (vpr)
-							techmap_files += " -D _EXPLICIT_CARRY";
-					else if (abc == "abc9")
-							techmap_files += " -D _CLB_CARRY";
+				techmap_files += " -map +/xilinx/arith_map.v";
+				if (vpr)
+					techmap_files += " -D _EXPLICIT_CARRY";
+				else if (abc == "abc9")
+					techmap_files += " -D _CLB_CARRY";
 			}
 			run("techmap " + techmap_files);
 			run("opt -fast");
 		}
 
 		if (check_label("map_cells")) {
-			if (!nomux || help_mode)
-				run("muxcover -mux8 -mux16", "(skip if '-nomux')");
 			run("techmap -map +/techmap.v -map +/xilinx/cells_map.v");
 			run("clean");
 		}
 
 		if (check_label("map_luts")) {
 			if (abc == "abc9")
-				run(abc + " -lut +/xilinx/abc.lut -box +/xilinx/abc.box -W 160" + string(retime ? " -dff" : ""));
+				run(abc + " -lut +/xilinx/abc_xc7.lut -box +/xilinx/abc_xc7.box -W " + XC7_WIRE_DELAY + string(retime ? " -dff" : ""));
 			else if (help_mode)
 				run(abc + " -luts 2:2,3,6:5,10,20 [-dff]");
 			else
@@ -308,7 +292,7 @@ struct SynthXilinxPass : public ScriptPass
 			//   has performed any necessary retiming
 			if (!nosrl || help_mode)
 				run("shregmap -minlen 3 -init -params -enpol any_or_none", "(skip if '-nosrl')");
-			run("techmap -map +/xilinx/lut_map.v -map +/xilinx/cells_map.v -map +/xilinx/ff_map.v");
+			run("techmap -map +/xilinx/lut_map.v -map +/xilinx/ff_map.v -map +/xilinx/cells_map.v");
 			run("dffinit -ff FDRE Q INIT -ff FDCE Q INIT -ff FDPE Q INIT -ff FDSE Q INIT "
 					"-ff FDRE_1 Q INIT -ff FDCE_1 Q INIT -ff FDPE_1 Q INIT -ff FDSE_1 Q INIT");
 			run("clean");
