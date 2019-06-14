@@ -76,7 +76,7 @@ struct SynthPass : public ScriptPass
 		log("        synonymous to the end of the command list.\n");
 		log("\n");
 		log("    -abc9\n");
-		log("        use abc9 instead of abc\n");
+		log("        use new ABC9 flow (EXPERIMENTAL)\n");
 		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
@@ -173,6 +173,9 @@ struct SynthPass : public ScriptPass
 
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");
+
+		if (abc == "abc9" && !lut)
+			log_cmd_error("ABC9 flow only supported for FPGA synthesis (using '-lut' option)");
 
 		log_header(design, "Executing SYNTH pass.\n");
 		log_push();

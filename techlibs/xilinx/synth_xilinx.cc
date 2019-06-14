@@ -82,7 +82,7 @@ struct SynthXilinxPass : public ScriptPass
 		log("        run 'abc' with -dff option\n");
 		log("\n");
 		log("    -abc9\n");
-		log("        use abc9 instead of abc\n");
+		log("        use new ABC9 flow (EXPERIMENTAL)\n");
 		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
