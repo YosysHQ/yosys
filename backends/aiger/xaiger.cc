@@ -185,6 +185,8 @@ struct XAigerWriter
 			if (!bit.wire->port_input)
 				unused_bits.erase(bit);
 
+		// TODO: Speed up toposort -- ultimately we care about
+		//       box ordering, but not individual AIG cells
 		dict<SigBit, pool<IdString>> bit_drivers, bit_users;
 		TopoSort<IdString, RTLIL::sort_by_id_str> toposort;
 		bool abc_box_seen = false;
