@@ -400,6 +400,9 @@ struct FirrtlWorker
 
 		for (auto wire : module->wires())
 		{
+			if (wire->isParameter())
+				continue;
+
 			const auto wireName = make_id(wire->name);
 			// If a wire has initial data, issue a warning since FIRRTL doesn't currently support it.
 			if (wire->attributes.count("\\init")) {
@@ -851,6 +854,8 @@ struct FirrtlWorker
 		{
 			string expr;
 
+			if (wire->isParameter())
+				continue;
 			if (wire->port_input)
 				continue;
 

@@ -187,6 +187,8 @@ struct Smt2Worker
 
 		for (auto wire : module->wires())
 		{
+			if (wire->isParameter())
+				continue;
 			if (!wire->port_input || GetSize(wire) != 1)
 				continue;
 			SigBit bit = sigmap(wire);
@@ -799,6 +801,9 @@ struct Smt2Worker
 			}
 
 		for (auto wire : module->wires()) {
+			if (wire->isParameter())
+				continue;
+
 			bool is_register = false;
 			for (auto bit : SigSpec(wire))
 				if (reg_bits.count(bit))
@@ -844,7 +849,10 @@ struct Smt2Worker
 		if (verbose) log("=> export logic associated with the initial state\n");
 
 		vector<string> init_list;
-		for (auto wire : module->wires())
+		for (auto wire : module->wires()) {
+			if (wire->isParameter())
+				continue;
+
 			if (wire->attributes.count("\\init")) {
 				RTLIL::SigSpec sig = sigmap(wire);
 				Const val = wire->attributes.at("\\init");
@@ -868,6 +876,7 @@ struct Smt2Worker
 							init_list.push_back(stringf("(= %s %s) ; %s", get_bool(sig[i]).c_str(), val[i] == State::S1 ? "true" : "false", get_id(wire)));
 				}
 			}
+		}
 
 		if (verbose) log("=> export logic driving asserts\n");
 

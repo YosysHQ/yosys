@@ -364,9 +364,12 @@ struct SimplecWorker
 
 		struct_declarations.push_back("");
 		struct_declarations.push_back("  // Internal Wires");
-		for (Wire *w : mod->wires())
+		for (Wire *w : mod->wires()) {
+			if (w->isParameter())
+				continue;
 			if (!w->port_input && !w->port_output)
 				struct_declarations.push_back(stringf("  %s %s; // %s", sigtype(w->width).c_str(), cid(w->name).c_str(), log_id(w)));
+		}
 
 		for (Cell *c : mod->cells())
 			if (design->module(c->type))
@@ -597,27 +600,31 @@ struct SimplecWorker
 	{
 		Module *mod = work->module;
 
-		for (Wire *w : mod->wires())
-		for (SigBit bit : SigSpec(w))
-		{
-			SigBit canonical_bit = sigmaps.at(mod)(bit);
-
-			if (canonical_bit == bit)
+		for (Wire *w : mod->wires()) {
+			if (w->isParameter())
 				continue;
 
-			if (work->sticky_dirty_bits.count(canonical_bit) == 0)
-				continue;
+			for (SigBit bit : SigSpec(w))
+			{
+				SigBit canonical_bit = sigmaps.at(mod)(bit);
 
-			if (bit.wire == nullptr || canonical_bit.wire == nullptr)
-				continue;
+				if (canonical_bit == bit)
+					continue;
 
-			funct_declarations.push_back(util_set_bit(work->prefix + cid(bit.wire->name), bit.wire->width, bit.offset,
-					util_get_bit(work->prefix + cid(canonical_bit.wire->name), canonical_bit.wire->width, canonical_bit.offset).c_str()));
+				if (work->sticky_dirty_bits.count(canonical_bit) == 0)
+					continue;
 
-			if (verbose)
-				log("  Propagating alias %s.%s[%d] -> %s.%s[%d].\n",
-						work->log_prefix.c_str(), log_id(canonical_bit.wire), canonical_bit.offset,
-						work->log_prefix.c_str(), log_id(bit.wire), bit.offset);
+				if (bit.wire == nullptr || canonical_bit.wire == nullptr)
+					continue;
+
+				funct_declarations.push_back(util_set_bit(work->prefix + cid(bit.wire->name), bit.wire->width, bit.offset,
+						util_get_bit(work->prefix + cid(canonical_bit.wire->name), canonical_bit.wire->width, canonical_bit.offset).c_str()));
+
+				if (verbose)
+					log("  Propagating alias %s.%s[%d] -> %s.%s[%d].\n",
+							work->log_prefix.c_str(), log_id(canonical_bit.wire), canonical_bit.offset,
+							work->log_prefix.c_str(), log_id(bit.wire), bit.offset);
+			}
 		}
 
 		work->sticky_dirty_bits.clear();
@@ -651,6 +658,10 @@ struct SimplecWorker
 
 		for (Wire *w : module->wires())
 		{
+			if (w->isParameter()) {
+				continue;
+			}
+
 			if (w->attributes.count("\\init"))
 			{
 				SigSpec sig = sigmaps.at(module)(w);

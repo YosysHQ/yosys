@@ -158,6 +158,8 @@ struct ProtobufDesignSerializer
 		for (auto w : module_->wires()) {
 			if (use_selection_ && !module_->selected(w))
 				continue;
+			if (w->isParameter())
+				continue;
 
 			auto netname = out->add_netname();
 			netname->set_hide_name(w->name[0] == '$');
