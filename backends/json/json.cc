@@ -83,12 +83,14 @@ struct JsonWriter
 		return str + " ]";
 	}
 
-	void write_parameters(const dict<IdString, Const> &parameters, bool for_module=false)
+	void write_attributes(const dict<IdString, Const> &attributes, size_t indent=0)
 	{
+		std::string indent_str(indent, ' ');
+
 		bool first = true;
-		for (auto &param : parameters) {
+		for (auto &param : attributes) {
 			f << stringf("%s\n", first ? "" : ",");
-			f << stringf("        %s%s: ", for_module ? "" : "    ", get_name(param.first).c_str());
+			f << stringf("        %s%s: ", indent_str.c_str(), get_name(param.first).c_str());
 			if ((param.second.flags & RTLIL::ConstFlags::CONST_FLAG_STRING) != 0)
 				f << get_string(param.second.decode_string());
 			else if (GetSize(param.second.bits) > 32)
@@ -97,6 +99,45 @@ struct JsonWriter
 				f << stringf("%d", param.second.as_int());
 			else
 				f << stringf("%u", param.second.as_int());
+			first = false;
+		}
+	}
+
+	void write_module_parameters(RTLIL::Module* module)
+	{
+		bool first = true;
+		for (const auto &wire : module->wires()) {
+
+			if (!wire->isParameter())
+				continue;
+
+			RTLIL::Const defVal;
+			for (auto& conn : module->connections()) {
+				if (conn.first.is_wire() && conn.first.as_wire()->name == wire->name) {
+					defVal = conn.second.as_const();
+					break;
+				}
+			}
+
+			f << stringf("%s\n", first ? "" : ",");
+			f << stringf("        %s: {\n", get_name(wire->name).c_str());
+
+			f << stringf("          \"attributes\": {");
+			write_attributes(wire->attributes, 4);
+			f << stringf("\n           },\n");
+
+			f << stringf("          \"default\": ");
+			if ((defVal.flags & RTLIL::ConstFlags::CONST_FLAG_STRING) != 0)
+				f << get_string(defVal.decode_string());
+			else if (GetSize(defVal.bits) > 32)
+				f << get_string(defVal.as_string());
+			else if ((defVal.flags & RTLIL::ConstFlags::CONST_FLAG_SIGNED) != 0)
+				f << stringf("%d", defVal.as_int());
+			else
+				f << stringf("%u", defVal.as_int());
+			f << stringf(",\n");
+
+			f << stringf("        }");
 			first = false;
 		}
 	}
@@ -114,7 +155,10 @@ struct JsonWriter
 		f << stringf("    %s: {\n", get_name(module->name).c_str());
 
 		f << stringf("      \"attributes\": {");
-		write_parameters(module->attributes, /*for_module=*/true);
+		write_attributes(module->attributes);
+		f << stringf("\n      },\n");
+		f << stringf("      \"parameters\": {");
+		write_module_parameters(module);
 		f << stringf("\n      },\n");
 
 		f << stringf("      \"ports\": {");
@@ -149,10 +193,10 @@ struct JsonWriter
 				}
 			}
 			f << stringf("          \"parameters\": {");
-			write_parameters(c->parameters);
+			write_attributes(c->parameters, 4);
 			f << stringf("\n          },\n");
 			f << stringf("          \"attributes\": {");
-			write_parameters(c->attributes);
+			write_attributes(c->attributes, 4);
 			f << stringf("\n          },\n");
 			if (c->known()) {
 				f << stringf("          \"port_directions\": {");
@@ -183,6 +227,8 @@ struct JsonWriter
 		f << stringf("      \"netnames\": {");
 		first = true;
 		for (auto w : module->wires()) {
+			if (w->isParameter())
+				continue;
 			if (use_selection && !module->selected(w))
 				continue;
 			f << stringf("%s\n", first ? "" : ",");
@@ -190,7 +236,7 @@ struct JsonWriter
 			f << stringf("          \"hide_name\": %s,\n", w->name[0] == '$' ? "1" : "0");
 			f << stringf("          \"bits\": %s,\n", get_bits(w).c_str());
 			f << stringf("          \"attributes\": {");
-			write_parameters(w->attributes);
+			write_attributes(w->attributes, 4);
 			f << stringf("\n          }\n");
 			f << stringf("        }");
 			first = false;
@@ -269,6 +315,14 @@ struct JsonBackend : public Backend {
 		log("    {\n");
 		log("      \"modules\": {\n");
 		log("        <module_name>: {\n");
+		log("          \"parameters\": {\n");
+		log("            <parameter_name>: <parameter_value>,\n");
+		log("            ...\n");
+		log("          },\n");
+		log("          \"attributes\": {\n");
+		log("            <attribute_name>: <attribute_value>,\n");
+		log("            ...\n");
+		log("          },\n");
 		log("          \"ports\": {\n");
 		log("            <port_name>: <port_details>,\n");
 		log("            ...\n");
