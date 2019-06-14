@@ -833,8 +833,7 @@ struct XAigerWriter
 				Pass::call(holes_module->design, "flatten -wb");
 
 				// TODO: Should techmap all lib_whitebox-es once
-				//Pass::call(holes_module->design, "techmap");
-
+				Pass::call(holes_module->design, "techmap");
 				Pass::call(holes_module->design, "aigmap");
 				Pass::call(holes_module->design, "clean -purge");
 

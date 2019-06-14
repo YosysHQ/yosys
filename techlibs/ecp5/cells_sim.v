@@ -9,15 +9,17 @@ module LUT4(input A, B, C, D, output Z);
 endmodule
 
 // ---------------------------------------
-
+(* abc_box_id=4, lib_whitebox *)
 module L6MUX21 (input D0, D1, SD, output Z);
 	assign Z = SD ? D1 : D0;
 endmodule
 
 // ---------------------------------------
-
-module CCU2C(input CIN, A0, B0, C0, D0, A1, B1, C1, D1,
-	           output S0, S1, COUT);
+(* abc_box_id=1, abc_carry, lib_whitebox *)
+module CCU2C((* abc_carry_in *) input CIN,
+			   input A0, B0, C0, D0, A1, B1, C1, D1,
+	           output S0, S1,
+	         (* abc_carry_out *) output COUT);
 
 	parameter [15:0] INIT0 = 16'h0000;
 	parameter [15:0] INIT1 = 16'h0000;
@@ -26,9 +28,13 @@ module CCU2C(input CIN, A0, B0, C0, D0, A1, B1, C1, D1,
 
 	// First half
 	wire LUT4_0, LUT2_0;
+`ifdef _ABC
+	assign LUT4_0 = INIT0[{D0, C0, B0, A0}];
+	assign LUT2_0 = INIT0[{2'b00, B0, A0}];
+`else
 	LUT4 #(.INIT(INIT0)) lut4_0(.A(A0), .B(B0), .C(C0), .D(D0), .Z(LUT4_0));
 	LUT2 #(.INIT(INIT0[3:0])) lut2_0(.A(A0), .B(B0), .Z(LUT2_0));
-
+`endif
 	wire gated_cin_0 = (INJECT1_0 == "YES") ? 1'b0 : CIN;
 	assign S0 = LUT4_0 ^ gated_cin_0;
 
@@ -37,9 +43,13 @@ module CCU2C(input CIN, A0, B0, C0, D0, A1, B1, C1, D1,
 
 	// Second half
 	wire LUT4_1, LUT2_1;
+`ifdef _ABC
+	assign LUT4_1 = INIT1[{D1, C1, B1, A1}];
+	assign LUT2_1 = INIT1[{2'b00, B1, A1}];
+`else
 	LUT4 #(.INIT(INIT1)) lut4_1(.A(A1), .B(B1), .C(C1), .D(D1), .Z(LUT4_1));
 	LUT2 #(.INIT(INIT1[3:0])) lut2_1(.A(A1), .B(B1), .Z(LUT2_1));
-
+`endif
 	wire gated_cin_1 = (INJECT1_1 == "YES") ? 1'b0 : cout_0;
 	assign S1 = LUT4_1 ^ gated_cin_1;
 
@@ -90,13 +100,13 @@ module TRELLIS_RAM16X2 (
 endmodule
 
 // ---------------------------------------
-
+(* abc_box_id=3, lib_whitebox *)
 module PFUMX (input ALUT, BLUT, C0, output Z);
 	assign Z = C0 ? ALUT : BLUT;
 endmodule
 
 // ---------------------------------------
-
+(* abc_box_id=2 *)
 module TRELLIS_DPR16X4 (
 	input [3:0] DI,
 	input [3:0] WAD,
@@ -203,7 +213,7 @@ endmodule
 
 // ---------------------------------------
 
-module TRELLIS_FF(input CLK, LSR, CE, DI, M, output reg Q);
+module TRELLIS_FF(input CLK, LSR, CE, DI, M, (* abc_flop_q *) output reg Q);
 	parameter GSR = "ENABLED";
 	parameter [127:0] CEMUX = "1";
 	parameter CLKMUX = "CLK";
@@ -464,13 +474,13 @@ module DP16KD(
   input ADA13, ADA12, ADA11, ADA10, ADA9, ADA8, ADA7, ADA6, ADA5, ADA4, ADA3, ADA2, ADA1, ADA0,
   input CEA, OCEA, CLKA, WEA, RSTA,
   input CSA2, CSA1, CSA0,
-  output DOA17, DOA16, DOA15, DOA14, DOA13, DOA12, DOA11, DOA10, DOA9, DOA8, DOA7, DOA6, DOA5, DOA4, DOA3, DOA2, DOA1, DOA0,
+  (* abc_flop_q *)  output DOA17, DOA16, DOA15, DOA14, DOA13, DOA12, DOA11, DOA10, DOA9, DOA8, DOA7, DOA6, DOA5, DOA4, DOA3, DOA2, DOA1, DOA0,
 
   input DIB17, DIB16, DIB15, DIB14, DIB13, DIB12, DIB11, DIB10, DIB9, DIB8, DIB7, DIB6, DIB5, DIB4, DIB3, DIB2, DIB1, DIB0,
   input ADB13, ADB12, ADB11, ADB10, ADB9, ADB8, ADB7, ADB6, ADB5, ADB4, ADB3, ADB2, ADB1, ADB0,
   input CEB, OCEB, CLKB, WEB, RSTB,
   input CSB2, CSB1, CSB0,
-  output DOB17, DOB16, DOB15, DOB14, DOB13, DOB12, DOB11, DOB10, DOB9, DOB8, DOB7, DOB6, DOB5, DOB4, DOB3, DOB2, DOB1, DOB0
+  (* abc_flop_q *)  output DOB17, DOB16, DOB15, DOB14, DOB13, DOB12, DOB11, DOB10, DOB9, DOB8, DOB7, DOB6, DOB5, DOB4, DOB3, DOB2, DOB1, DOB0
 );
   parameter DATA_WIDTH_A = 18;
   parameter DATA_WIDTH_B = 18;
