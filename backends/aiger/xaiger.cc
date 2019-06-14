@@ -683,16 +683,18 @@ struct XAigerWriter
 		f << "c";
 
 		if (!box_list.empty() || !ff_bits.empty()) {
-			std::stringstream h_buffer;
-			auto write_h_buffer = [&h_buffer](int i32) {
+			auto write_buffer = [](std::stringstream &buffer, int i32) {
 				// TODO: Don't assume we're on little endian
 #ifdef _WIN32
-				int i32_be = _byteswap_ulong(i32);
+				int32_t i32_be = _byteswap_ulong(i32);
 #else
-				int i32_be = __builtin_bswap32(i32);
+				int32_t i32_be = __builtin_bswap32(i32);
 #endif
-				h_buffer.write(reinterpret_cast<const char*>(&i32_be), sizeof(i32_be));
+				buffer.write(reinterpret_cast<const char*>(&i32_be), sizeof(i32_be));
 			};
+
+			std::stringstream h_buffer;
+			auto write_h_buffer = std::bind(write_buffer, std::ref(h_buffer), std::placeholders::_1);
 			write_h_buffer(1);
 			log_debug("ciNum = %zu\n", input_bits.size() + ff_bits.size() + ci_bits.size());
 			write_h_buffer(input_bits.size() + ff_bits.size() + ci_bits.size());
@@ -782,15 +784,7 @@ struct XAigerWriter
 
 			/*if (!ff_bits.empty())*/ {
 				std::stringstream r_buffer;
-				auto write_r_buffer = [&r_buffer](int i32) {
-					// TODO: Don't assume we're on little endian
-#ifdef _WIN32
-					int i32_be = _byteswap_ulong(i32);
-#else
-					int i32_be = __builtin_bswap32(i32);
-#endif
-					r_buffer.write(reinterpret_cast<const char*>(&i32_be), sizeof(i32_be));
-				};
+				auto write_r_buffer = std::bind(write_buffer, std::ref(r_buffer), std::placeholders::_1);
 				log_debug("flopNum = %zu\n", ff_bits.size());
 				write_r_buffer(ff_bits.size());
 				int mergeability_class = 1;

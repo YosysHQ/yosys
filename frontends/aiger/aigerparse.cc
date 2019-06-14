@@ -26,7 +26,7 @@
 #include <libgen.h>
 #include <stdlib.h>
 #endif
-#include <array>
+#include <inttypes.h>
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
@@ -277,7 +277,7 @@ static uint32_t parse_xaiger_literal(std::istream &f)
 	uint32_t l;
 	f.read(reinterpret_cast<char*>(&l), sizeof(l));
 	if (f.gcount() != sizeof(l))
-		log_error("Offset %ld: unable to read literal!\n", static_cast<int64_t>(f.tellg()));
+		log_error("Offset %" PRId64 ": unable to read literal!\n", static_cast<int64_t>(f.tellg()));
 	// TODO: Don't assume we're on little endian
 #ifdef _WIN32
 	return _byteswap_ulong(l);

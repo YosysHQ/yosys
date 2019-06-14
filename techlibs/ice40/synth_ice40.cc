@@ -332,7 +332,7 @@ struct SynthIce40Pass : public ScriptPass
 			}
 			if (!noabc) {
 				if (abc == "abc9")
-					run(abc + stringf(" -dress -lut +/ice40/abc_%s.lut -box +/ice40/abc_%s.box", device_opt.c_str(), device_opt.c_str()), "(skip if -noabc)");
+					run(abc + stringf(" -lut +/ice40/abc_%s.lut -box +/ice40/abc_%s.box", device_opt.c_str(), device_opt.c_str()), "(skip if -noabc)");
 				else
 					run(abc + " -dress -lut 4", "(skip if -noabc)");
 			}
