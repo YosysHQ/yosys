@@ -2373,6 +2373,11 @@ std::map<unsigned int, RTLIL::Wire*> *RTLIL::Wire::get_all_wires(void)
 }
 #endif
 
+bool RTLIL::Wire::isParameter() const {
+	log_assert(module != nullptr);
+	return module->avail_parameters.count(name) != 0;
+}
+
 RTLIL::Memory::Memory()
 {
 	static unsigned int hashidx_count = 123456789;
