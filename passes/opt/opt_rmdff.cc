@@ -21,8 +21,8 @@
 #include "kernel/register.h"
 #include "kernel/rtlil.h"
 #include "kernel/satgen.h"
-#include "kernel/algo.h"
 #include "kernel/sigtools.h"
+#include "netlist.h"
 #include <stdio.h>
 #include <stdlib.h>
 
