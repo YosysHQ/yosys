@@ -20,7 +20,6 @@
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
-#include "kernel/celltypes.h"
 #include "kernel/utils.h"
 
 USING_YOSYS_NAMESPACE
