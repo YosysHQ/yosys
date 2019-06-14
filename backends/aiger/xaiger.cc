@@ -25,6 +25,20 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+inline int32_t to_big_endian(int32_t i32) {
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#ifdef _WIN32
+	return _byteswap_ulong(i32);
+#else
+	return __builtin_bswap32(i32);
+#endif
+#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+	return i32;
+#else
+#error "Unknown endianness"
+#endif
+}
+
 void aiger_encode(std::ostream &f, int x)
 {
 	log_assert(x >= 0);
@@ -684,12 +698,7 @@ struct XAigerWriter
 
 		if (!box_list.empty() || !ff_bits.empty()) {
 			auto write_buffer = [](std::stringstream &buffer, int i32) {
-				// TODO: Don't assume we're on little endian
-#ifdef _WIN32
-				int32_t i32_be = _byteswap_ulong(i32);
-#else
-				int32_t i32_be = __builtin_bswap32(i32);
-#endif
+				int32_t i32_be = to_big_endian(i32);
 				buffer.write(reinterpret_cast<const char*>(&i32_be), sizeof(i32_be));
 			};
 
@@ -773,12 +782,7 @@ struct XAigerWriter
 
 			f << "h";
 			std::string buffer_str = h_buffer.str();
-			// TODO: Don't assume we're on little endian
-#ifdef _WIN32
-			int buffer_size_be = _byteswap_ulong(buffer_str.size());
-#else
-			int buffer_size_be = __builtin_bswap32(buffer_str.size());
-#endif
+			int32_t buffer_size_be = to_big_endian(buffer_str.size());
 			f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
 			f.write(buffer_str.data(), buffer_str.size());
 
@@ -787,18 +791,13 @@ struct XAigerWriter
 				auto write_r_buffer = std::bind(write_buffer, std::ref(r_buffer), std::placeholders::_1);
 				log_debug("flopNum = %zu\n", ff_bits.size());
 				write_r_buffer(ff_bits.size());
-				int mergeability_class = 1;
-				for (auto cell : ff_bits)
-					write_r_buffer(mergeability_class++);
+				//int mergeability_class = 1;
+				//for (auto cell : ff_bits)
+				//	write_r_buffer(mergeability_class++);
 
 				f << "r";
 				std::string buffer_str = r_buffer.str();
-				// TODO: Don't assume we're on little endian
-#ifdef _WIN32
-				int buffer_size_be = _byteswap_ulong(buffer_str.size());
-#else
-				int buffer_size_be = __builtin_bswap32(buffer_str.size());
-#endif
+				int32_t buffer_size_be = to_big_endian(buffer_str.size());
 				f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
 				f.write(buffer_str.data(), buffer_str.size());
 			}
@@ -831,12 +830,7 @@ struct XAigerWriter
 
 				f << "a";
 				std::string buffer_str = a_buffer.str();
-				// TODO: Don't assume we're on little endian
-#ifdef _WIN32
-				int buffer_size_be = _byteswap_ulong(buffer_str.size());
-#else
-				int buffer_size_be = __builtin_bswap32(buffer_str.size());
-#endif
+				int32_t buffer_size_be = to_big_endian(buffer_str.size());
 				f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
 				f.write(buffer_str.data(), buffer_str.size());
 				holes_module->design->remove(holes_module);

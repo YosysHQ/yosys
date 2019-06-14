@@ -35,6 +35,20 @@
 
 YOSYS_NAMESPACE_BEGIN
 
+inline int32_t from_big_endian(int32_t i32) {
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#ifdef _WIN32
+	return _byteswap_ulong(i32);
+#else
+	return __builtin_bswap32(i32);
+#endif
+#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+	return i32;
+#else
+#error "Unknown endianness"
+#endif
+}
+
 struct ConstEvalAig
 {
 	RTLIL::Module *module;
@@ -278,19 +292,14 @@ static uint32_t parse_xaiger_literal(std::istream &f)
 	f.read(reinterpret_cast<char*>(&l), sizeof(l));
 	if (f.gcount() != sizeof(l))
 		log_error("Offset %" PRId64 ": unable to read literal!\n", static_cast<int64_t>(f.tellg()));
-	// TODO: Don't assume we're on little endian
-#ifdef _WIN32
-	return _byteswap_ulong(l);
-#else
-	return __builtin_bswap32(l);
-#endif
+	return from_big_endian(l);
 }
 
 static RTLIL::Wire* createWireIfNotExists(RTLIL::Module *module, unsigned literal)
 {
 	const unsigned variable = literal >> 1;
 	const bool invert = literal & 1;
-	RTLIL::IdString wire_name(stringf("\\__%d%s__", variable, invert ? "b" : "")); // FIXME: is "b" the right suffix?
+	RTLIL::IdString wire_name(stringf("\\__%d%s__", variable, invert ? "b" : ""));
 	RTLIL::Wire *wire = module->wire(wire_name);
 	if (wire) return wire;
 	log_debug("Creating %s\n", wire_name.c_str());
@@ -309,7 +318,7 @@ static RTLIL::Wire* createWireIfNotExists(RTLIL::Module *module, unsigned litera
 	}
 
 	log_debug("Creating %s = ~%s\n", wire_name.c_str(), wire_inv_name.c_str());
-	module->addNotGate(stringf("\\__%d__$not", variable), wire_inv, wire); // FIXME: is "$not" the right suffix?
+	module->addNotGate(stringf("\\__%d__$not", variable), wire_inv, wire);
 
 	return wire;
 }
@@ -355,7 +364,8 @@ void AigerReader::parse_xaiger()
 		auto it = m->attributes.find("\\abc_box_id");
 		if (it == m->attributes.end())
 			continue;
-		if (m->name[0] == '$') continue;
+		if (m->name.begins_with("$paramod"))
+			continue;
 		auto r = box_lookup.insert(std::make_pair(it->second.as_int(), m->name));
 		log_assert(r.second);
 	}
@@ -495,7 +505,7 @@ void AigerReader::parse_aiger_ascii()
 		if (!(f >> l1 >> l2))
 			log_error("Line %u cannot be interpreted as a latch!\n", line_count);
 		log_debug("%d %d is a latch\n", l1, l2);
-		log_assert(!(l1 & 1)); // TODO: Latch outputs can't be inverted?
+		log_assert(!(l1 & 1));
 		RTLIL::Wire *q_wire = createWireIfNotExists(module, l1);
 		RTLIL::Wire *d_wire = createWireIfNotExists(module, l2);
 

@@ -61,17 +61,12 @@ extern "C" int Abc_RealMain(int argc, char *argv[]);
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-bool map_mux4;
-bool map_mux8;
-bool map_mux16;
-
 bool markgroups;
 int map_autoidx;
 SigMap assign_map;
 RTLIL::Module *module;
 std::map<RTLIL::SigBit, int> signal_map;
 std::map<RTLIL::SigBit, RTLIL::State> signal_init;
-pool<std::string> enabled_gates;
 bool recover_init;
 
 bool clk_polarity, en_polarity;
@@ -847,11 +842,6 @@ struct Abc9Pass : public Pass {
 		cleanup = false;
 		show_tempdir = true;
 #endif
-
-		map_mux4 = false;
-		map_mux8 = false;
-		map_mux16 = false;
-		enabled_gates.clear();
 
 #ifdef _WIN32
 #ifndef ABCEXTERNAL
