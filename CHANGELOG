@@ -22,6 +22,7 @@ Yosys 0.8 .. Yosys 0.8-dev
     - Added "synth_ice40 -abc9" (experimental)
     - Added "synth -abc9" (experimental)
     - "synth_xilinx" to now infer hard shift registers, using new "shregmap -tech xilinx"
+    - "synth_xilinx" to now infer wide multiplexers
 
 
 Yosys 0.7 .. Yosys 0.8

@@ -72,6 +72,9 @@ struct SynthXilinxPass : public ScriptPass
 		log("    -nosrl\n");
 		log("        disable inference of shift registers\n");
 		log("\n");
+		log("    -nomux\n");
+		log("        disable inference of wide multiplexers\n");
+		log("\n");
 		log("    -run <from_label>:<to_label>\n");
 		log("        only run the commands between the labels (see below). an empty\n");
 		log("        from label is synonymous to 'begin', and empty to label is\n");
@@ -93,7 +96,7 @@ struct SynthXilinxPass : public ScriptPass
 	}
 
 	std::string top_opt, edif_file, blif_file, abc, arch;
-	bool flatten, retime, vpr, nocarry, nobram, nodram, nosrl;
+	bool flatten, retime, vpr, nocarry, nobram, nodram, nosrl, nomux;
 
 	void clear_flags() YS_OVERRIDE
 	{
@@ -108,6 +111,7 @@ struct SynthXilinxPass : public ScriptPass
 		nobram = false;
 		nodram = false;
 		nosrl = false;
+		nomux = false;
 		arch = "xc7";
 	}
 
@@ -171,6 +175,10 @@ struct SynthXilinxPass : public ScriptPass
 				nosrl = true;
 				continue;
 			}
+			if (args[argidx] == "-nomux") {
+				nomux = true;
+				continue;
+			}
 			if (args[argidx] == "-abc9") {
 				abc = "abc9";
 				continue;
@@ -219,11 +227,15 @@ struct SynthXilinxPass : public ScriptPass
 		if (check_label("coarse")) {
 			run("synth -run coarse");
 
+			//if (!nomux || help_mode)
+			//	run("muxpack", "(skip if '-nomux')");
+
 			// shregmap -tech xilinx can cope with $shiftx and $mux
 			//   cells for identifying variable-length shift registers,
 			//   so attempt to convert $pmux-es to the former
-			if (!nosrl || help_mode)
-				run("pmux2shiftx", "(skip if '-nosrl')");
+			// Also: wide multiplexer inference benefits from this too
+			if (!(nosrl && nomux) || help_mode)
+				run("pmux2shiftx", "(skip if '-nosrl' and '-nomux')");
 
 			// Run a number of peephole optimisations, including one
 			//   that optimises $mul cells driving $shiftx's B input
@@ -262,6 +274,10 @@ struct SynthXilinxPass : public ScriptPass
 
 			std::string techmap_files = " -map +/techmap.v";
 			if (help_mode)
+				techmap_files += " [-map +/xilinx/mux_map.v]";
+			else if (!nomux)
+				techmap_files += " -map +/xilinx/mux_map.v";
+			if (help_mode)
 				techmap_files += " [-map +/xilinx/arith_map.v]";
 			else if (!nocarry) {
 				techmap_files += " -map +/xilinx/arith_map.v";
@@ -275,6 +291,8 @@ struct SynthXilinxPass : public ScriptPass
 		}
 
 		if (check_label("map_cells")) {
+			if (!nomux || help_mode)
+				run("muxcover -mux8 -mux16", "(skip if '-nomux')");
 			run("techmap -map +/techmap.v -map +/xilinx/cells_map.v");
 			run("clean");
 		}

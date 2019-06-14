@@ -154,3 +154,123 @@ module \$__XILINX_SHREG_ (input C, input D, input [31:0] L, input E, output Q, o
     end
   endgenerate
 endmodule
+
+module \$__XILINX_SHIFTX (A, B, Y);
+  parameter A_SIGNED = 0;
+  parameter B_SIGNED = 0;
+  parameter A_WIDTH = 1;
+  parameter B_WIDTH = 1;
+  parameter Y_WIDTH = 1;
+
+  input [A_WIDTH-1:0] A;
+  input [B_WIDTH-1:0] B;
+  output [Y_WIDTH-1:0] Y;
+
+  parameter [A_WIDTH-1:0] _TECHMAP_CONSTMSK_A_ = 0;
+  parameter [A_WIDTH-1:0] _TECHMAP_CONSTVAL_A_ = 0;
+  parameter [B_WIDTH-1:0] _TECHMAP_CONSTMSK_B_ = 0;
+  parameter [B_WIDTH-1:0] _TECHMAP_CONSTVAL_B_ = 0;
+
+  function integer compute_num_leading_X_in_A;
+    integer i, c;
+  begin
+    compute_num_leading_X_in_A = 0;
+    c = 1;
+    for (i = A_WIDTH-1; i >= 0; i=i-1) begin
+      if (!_TECHMAP_CONSTMSK_A_[i] || _TECHMAP_CONSTVAL_A_[i] !== 1'bx)
+        c = 0;
+      compute_num_leading_X_in_A = compute_num_leading_X_in_A + c;
+    end
+  end
+  endfunction
+  localparam num_leading_X_in_A = compute_num_leading_X_in_A();
+
+  generate
+    genvar i, j;
+    // Bit-blast
+    if (Y_WIDTH > 1) begin
+      for (i = 0; i < Y_WIDTH; i++)
+        \$__XILINX_SHIFTX  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(A_WIDTH-Y_WIDTH+1), .B_WIDTH(B_WIDTH), .Y_WIDTH(1'd1)) bitblast (.A(A[A_WIDTH-Y_WIDTH+i:i]), .B(B), .Y(Y[i]));
+    end
+    // If the LSB of B is constant zero (and Y_WIDTH is 1) then
+    //   we can optimise by removing every other entry from A
+    //   and popping the constant zero from B
+    else if (_TECHMAP_CONSTMSK_B_[0] && !_TECHMAP_CONSTVAL_B_[0]) begin
+      wire [(A_WIDTH+1)/2-1:0] A_i;
+      for (i = 0; i < (A_WIDTH+1)/2; i++)
+        assign A_i[i] = A[i*2];
+      \$__XILINX_SHIFTX  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH((A_WIDTH+1'd1)/2'd2), .B_WIDTH(B_WIDTH-1'd1), .Y_WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(A_i), .B(B[B_WIDTH-1:1]), .Y(Y));
+    end
+    // Trim off any leading 1'bx -es in A, and resize B accordingly
+    else if (num_leading_X_in_A > 0) begin
+      localparam A_WIDTH_new = A_WIDTH - num_leading_X_in_A;
+      localparam B_WIDTH_new = $clog2(A_WIDTH_new);
+      \$__XILINX_SHIFTX  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(A_WIDTH_new), .B_WIDTH(B_WIDTH_new), .Y_WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(A[A_WIDTH_new-1:0]), .B(B[B_WIDTH_new-1:0]), .Y(Y));
+    end
+    else if (B_WIDTH < 3 || A_WIDTH <= 4) begin
+      \$shiftx  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(A_WIDTH), .B_WIDTH(B_WIDTH), .Y_WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(A), .B(B), .Y(Y));
+    end
+    else if (B_WIDTH == 3) begin
+      localparam a_width0 = 2 ** 2;
+      localparam a_widthN = A_WIDTH - a_width0;
+      wire T0, T1;
+      \$shiftx  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(a_width0), .B_WIDTH(2),                .Y_WIDTH(Y_WIDTH)) fpga_soft_mux      (.A(A[a_width0-1:0]),       .B(B[2-1:0]),                .Y(T0));
+      if (a_widthN > 1)
+        \$shiftx  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(a_widthN), .B_WIDTH($clog2(a_widthN)), .Y_WIDTH(Y_WIDTH)) fpga_soft_mux_last (.A(A[A_WIDTH-1:a_width0]), .B(B[$clog2(a_widthN)-1:0]), .Y(T1));
+      else
+        assign T1 = A[A_WIDTH-1];
+      MUXF7 fpga_hard_mux (.I0(T0), .I1(T1), .S(B[B_WIDTH-1]), .O(Y));
+    end
+    else if (B_WIDTH == 4) begin
+      localparam a_width0 = 2 ** 2;
+      localparam num_mux8 = A_WIDTH / a_width0;
+      localparam a_widthN = A_WIDTH - num_mux8*a_width0;
+      wire [4-1:0] T;
+      wire T0, T1;
+      for (i = 0; i < 4; i++)
+        if (i < num_mux8)
+          \$shiftx  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(a_width0), .B_WIDTH(2),                .Y_WIDTH(Y_WIDTH)) fpga_soft_mux      (.A(A[i*a_width0+:a_width0]), .B(B[2-1:0]),                .Y(T[i]));
+        else if (i == num_mux8 && a_widthN > 0) begin
+          if (a_widthN > 1)
+            \$shiftx  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(a_widthN), .B_WIDTH($clog2(a_widthN)), .Y_WIDTH(Y_WIDTH)) fpga_soft_mux_last (.A(A[A_WIDTH-1:i*a_width0]), .B(B[$clog2(a_widthN)-1:0]), .Y(T[i]));
+          else
+            assign T[i] = A[A_WIDTH-1];
+        end
+        else
+          assign T[i] = 1'bx;
+      MUXF7 fpga_hard_mux_0 (.I0(T[0]), .I1(T[1]), .S(B[2]), .O(T0));
+      MUXF7 fpga_hard_mux_1 (.I0(T[2]), .I1(T[3]), .S(B[2]), .O(T1));
+      MUXF8 fpga_hard_mux_2 (.I0(T0),   .I1(T1),   .S(B[3]), .O(Y));
+    end
+    else begin
+      localparam a_width0 = 2 ** 4;
+      localparam num_mux16 = A_WIDTH / a_width0;
+      localparam a_widthN = A_WIDTH - num_mux16*a_width0;
+      wire [(2**(B_WIDTH-4))-1:0] T;
+      for (i = 0; i < 2 ** (B_WIDTH-4); i++)
+        if (i < num_mux16)
+          \$__XILINX_SHIFTX  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(a_width0), .B_WIDTH(4),                .Y_WIDTH(Y_WIDTH)) fpga_soft_mux      (.A(A[i*a_width0+:a_width0]), .B(B[4-1:0]),                .Y(T[i]));
+        else if (i == num_mux16 && a_widthN > 0) begin
+          if (a_widthN > 1)
+            \$__XILINX_SHIFTX  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(a_widthN), .B_WIDTH($clog2(a_widthN)), .Y_WIDTH(Y_WIDTH)) fpga_soft_mux_last (.A(A[A_WIDTH-1:i*a_width0]), .B(B[$clog2(a_widthN)-1:0]), .Y(T[i]));
+          else
+            assign T[i] = A[A_WIDTH-1];
+        end
+        else
+          assign T[i] = 1'bx;
+      \$__XILINX_SHIFTX  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(2**(B_WIDTH-4)), .B_WIDTH(B_WIDTH-4), .Y_WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(T), .B(B[B_WIDTH-1:4]), .Y(Y));
+    end
+  endgenerate
+endmodule
+
+module \$_MUX8_ (A, B, C, D, E, F, G, H, S, T, U, Y);
+input A, B, C, D, E, F, G, H, S, T, U;
+output Y;
+  \$__XILINX_SHIFTX  #(.A_SIGNED(0), .B_SIGNED(0), .A_WIDTH(8), .B_WIDTH(3), .Y_WIDTH(1)) _TECHMAP_REPLACE_ (.A({H,G,F,E,D,C,B,A}), .B({U,T,S}), .Y(Y));
+endmodule
+
+module \$_MUX16_ (A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, S, T, U, V, Y);
+input A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, S, T, U, V;
+output Y;
+  \$__XILINX_SHIFTX  #(.A_SIGNED(0), .B_SIGNED(0), .A_WIDTH(16), .B_WIDTH(4), .Y_WIDTH(1)) _TECHMAP_REPLACE_ (.A({P,O,N,M,L,K,J,I,H,G,F,E,D,C,B,A}), .B({V,U,T,S}), .Y(Y));
+endmodule
