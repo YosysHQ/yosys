@@ -38,8 +38,8 @@ YOSYS_NAMESPACE_BEGIN
 struct ConstEvalAig
 {
 	RTLIL::Module *module;
-	dict<RTLIL::SigBit, RTLIL::Const> values_map;
-	SigSet<RTLIL::Cell*> sig2driver;
+	dict<RTLIL::SigBit, RTLIL::State> values_map;
+	dict<RTLIL::SigBit, RTLIL::Cell*> sig2driver;
 	dict<SigBit, pool<RTLIL::SigBit>> sig2deps;
 
 	ConstEvalAig(RTLIL::Module *module) : module(module)
@@ -52,8 +52,10 @@ struct ConstEvalAig
 			if (!ct.cell_known(it.second->type))
 				continue;
 			for (auto &it2 : it.second->connections())
-				if (ct.cell_output(it.second->type, it2.first))
-					sig2driver.insert(it2.second, it.second);
+				if (ct.cell_output(it.second->type, it2.first)) {
+					auto r = sig2driver.insert(std::make_pair(it2.second, it.second));
+					log_assert(r.second);
+				}
 		}
 	}
 
@@ -63,18 +65,19 @@ struct ConstEvalAig
 		sig2deps.clear();
 	}
 
-	void set(RTLIL::SigSpec sig, RTLIL::Const value)
+	void set(RTLIL::SigBit sig, RTLIL::State value)
 	{
-#ifndef NDEBUG
 		auto it = values_map.find(sig);
-		RTLIL::SigSpec current_val;
-		if (it != values_map.end())
-			current_val = it->second;
-		for (int i = 0; i < GetSize(current_val); i++)
-			log_assert(current_val[i].wire != NULL || current_val[i] == value.bits[i]);
+#ifndef NDEBUG
+		if (it != values_map.end()) {
+			RTLIL::State current_val = it->second;
+			log_assert(current_val == value);
+		}
 #endif
-		for (int i = 0; i < GetSize(sig); i++)
-			values_map[sig[i]] = value[i];
+		if (it != values_map.end())
+			it->second = value;
+		else
+			values_map[sig] = value;
 	}
 
 	void set_incremental(RTLIL::SigSpec sig, RTLIL::Const value)
@@ -84,7 +87,7 @@ struct ConstEvalAig
 		for (int i = 0; i < GetSize(sig); i++) {
 			auto it = values_map.find(sig[i]);
 			if (it != values_map.end()) {
-				RTLIL::SigSpec current_val = it->second;
+				RTLIL::State current_val = it->second;
 				if (current_val != value[i])
 					for (auto dep : sig2deps[sig[i]])
 						values_map.erase(dep);
@@ -99,40 +102,34 @@ struct ConstEvalAig
 	{
 		sig2deps[output].insert(output);
 
-		std::set<RTLIL::Cell*> driver_cells;
-		sig2driver.find(output, driver_cells);
-		for (auto cell : driver_cells) {
-			RTLIL::SigBit sig_a = cell->getPort("\\A");
-			sig2deps[sig_a].insert(sig2deps[output].begin(), sig2deps[output].end());
-			if (!inputs.count(sig_a))
-				compute_deps(sig_a, inputs);
+		RTLIL::Cell *cell = sig2driver.at(output);
+		RTLIL::SigBit sig_a = cell->getPort("\\A");
+		sig2deps[sig_a].insert(sig2deps[output].begin(), sig2deps[output].end());
+		if (!inputs.count(sig_a))
+			compute_deps(sig_a, inputs);
 
-			if (cell->type == "$_AND_") {
-				RTLIL::SigSpec sig_b = cell->getPort("\\B");
-				sig2deps[sig_b].insert(sig2deps[output].begin(), sig2deps[output].end());
-				if (!inputs.count(sig_b))
-					compute_deps(sig_b, inputs);
-			}
-			else if (cell->type == "$_NOT_") {
-			}
-			else log_abort();
+		if (cell->type == "$_AND_") {
+			RTLIL::SigSpec sig_b = cell->getPort("\\B");
+			sig2deps[sig_b].insert(sig2deps[output].begin(), sig2deps[output].end());
+			if (!inputs.count(sig_b))
+				compute_deps(sig_b, inputs);
 		}
+		else if (cell->type == "$_NOT_") {
+		}
+		else log_abort();
 	}
 
 	bool eval(RTLIL::Cell *cell)
 	{
-		RTLIL::SigSpec sig_y = cell->getPort("\\Y");
-		auto it = values_map.find(sig_y);
-		if (it != values_map.end())
-			sig_y = it->second;
-		if (sig_y.is_fully_const())
+		RTLIL::SigBit sig_y = cell->getPort("\\Y");
+		if (values_map.count(sig_y))
 			return true;
 
-		RTLIL::SigSpec sig_a = cell->getPort("\\A");
-		if (sig_a.size() > 0 && !eval(sig_a))
+		RTLIL::SigBit sig_a = cell->getPort("\\A");
+		if (!eval(sig_a))
 			return false;
 
-		RTLIL::Const eval_ret;
+		RTLIL::State eval_ret = RTLIL::Sx;
 		if (cell->type == "$_NOT_") {
 			if (sig_a == RTLIL::S0) eval_ret = RTLIL::S1;
 			else if (sig_a == RTLIL::S1) eval_ret = RTLIL::S0;
@@ -144,20 +141,18 @@ struct ConstEvalAig
 			}
 
 			{
-				RTLIL::SigSpec sig_b = cell->getPort("\\B");
-				if (sig_b.size() > 0 && !eval(sig_b))
+				RTLIL::SigBit sig_b = cell->getPort("\\B");
+				if (!eval(sig_b))
 					return false;
 				if (sig_b == RTLIL::S0) {
 					eval_ret = RTLIL::S0;
 					goto eval_end;
 				}
 
-				if (sig_a != RTLIL::State::S1 || sig_b != RTLIL::State::S1) {
-					eval_ret = RTLIL::State::Sx;
+				if (sig_a != RTLIL::S1 || sig_b != RTLIL::S1)
 					goto eval_end;
-				}
 
-				eval_ret = RTLIL::State::S1;
+				eval_ret = RTLIL::S1;
 			}
 		}
 		else log_abort();
@@ -167,25 +162,23 @@ eval_end:
 		return true;
 	}
 
-	bool eval(RTLIL::SigSpec &sig)
+	bool eval(RTLIL::SigBit &sig)
 	{
 		auto it = values_map.find(sig);
-		if (it != values_map.end())
+		if (it != values_map.end()) {
 			sig = it->second;
-		if (sig.is_fully_const())
 			return true;
+		}
 
-		std::set<RTLIL::Cell*> driver_cells;
-		sig2driver.find(sig, driver_cells);
-		for (auto cell : driver_cells)
-			if (!eval(cell))
-				return false;
+		RTLIL::Cell *cell = sig2driver.at(sig);
+		if (!eval(cell))
+			return false;
 
 		it = values_map.find(sig);
-		if (it != values_map.end())
+		if (it != values_map.end()) {
 			sig = it->second;
-		if (sig.is_fully_const())
 			return true;
+		}
 
 		return false;
 	}
@@ -411,9 +404,11 @@ void AigerReader::parse_xaiger()
 					for (int j = 0; j < (1 << cutLeavesM); ++j) {
 						int gray = j ^ (j >> 1);
 						ce.set_incremental(input_sig, RTLIL::Const{gray, static_cast<int>(cutLeavesM)});
-						RTLIL::SigSpec o(output_sig);
-						ce.eval(o);
-						lut_mask[gray] = o.as_const()[0];
+						RTLIL::SigBit o(output_sig);
+						bool success = ce.eval(o);
+						log_assert(success);
+						log_assert(o.wire == nullptr);
+						lut_mask[gray] = o.data;
 					}
 					RTLIL::Cell *output_cell = module->cell(stringf("\\__%d__$and", rootNodeID));
 					log_assert(output_cell);
