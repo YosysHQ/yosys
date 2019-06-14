@@ -30,7 +30,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
-#include "kernel/consteval.h"
+#include "kernel/celltypes.h"
 #include "aigerparse.h"
 
 YOSYS_NAMESPACE_BEGIN
@@ -44,15 +44,11 @@ struct ConstEvalAig
 
 	ConstEvalAig(RTLIL::Module *module) : module(module)
 	{
-		CellTypes ct;
-		ct.setup_internals();
-		ct.setup_stdcells();
-
 		for (auto &it : module->cells_) {
-			if (!ct.cell_known(it.second->type))
+			if (!yosys_celltypes.cell_known(it.second->type))
 				continue;
 			for (auto &it2 : it.second->connections())
-				if (ct.cell_output(it.second->type, it2.first)) {
+				if (yosys_celltypes.cell_output(it.second->type, it2.first)) {
 					auto r = sig2driver.insert(std::make_pair(it2.second, it.second));
 					log_assert(r.second);
 				}
