@@ -243,8 +243,8 @@ struct abc_output_filter
 
 void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::string script_file, std::string exe_file,
 		bool cleanup, vector<int> lut_costs, bool dff_mode, std::string clk_str,
-		bool keepff, std::string delay_target, std::string lutin_shared, bool fast_mode,
-		const std::vector<RTLIL::Cell*> &cells, bool show_tempdir, bool sop_mode, std::string box_file, std::string lut_file,
+		bool /*keepff*/, std::string delay_target, std::string /*lutin_shared*/, bool fast_mode,
+		bool show_tempdir, std::string box_file, std::string lut_file,
 		std::string wire_delay)
 {
 	module = current_module;
@@ -835,7 +835,7 @@ struct Abc9Pass : public Pass {
 		std::string script_file, clk_str, box_file, lut_file;
 		std::string delay_target, lutin_shared = "-S 1", wire_delay;
 		bool fast_mode = false, dff_mode = false, keepff = false, cleanup = true;
-		bool show_tempdir = false, sop_mode = false;
+		bool show_tempdir = false;
 		vector<int> lut_costs;
 		markgroups = false;
 
@@ -997,7 +997,7 @@ struct Abc9Pass : public Pass {
 
 			if (!dff_mode || !clk_str.empty()) {
 				abc9_module(design, mod, script_file, exe_file, cleanup, lut_costs, dff_mode, clk_str, keepff,
-						delay_target, lutin_shared, fast_mode, mod->selected_cells(), show_tempdir, sop_mode,
+						delay_target, lutin_shared, fast_mode, show_tempdir,
 						box_file, lut_file, wire_delay);
 				continue;
 			}
@@ -1143,7 +1143,7 @@ struct Abc9Pass : public Pass {
 				en_polarity = std::get<2>(it.first);
 				en_sig = assign_map(std::get<3>(it.first));
 				abc9_module(design, mod, script_file, exe_file, cleanup, lut_costs, !clk_sig.empty(), "$",
-						keepff, delay_target, lutin_shared, fast_mode, it.second, show_tempdir, sop_mode,
+						keepff, delay_target, lutin_shared, fast_mode, show_tempdir,
 						box_file, lut_file, wire_delay);
 				assign_map.set(mod);
 			}

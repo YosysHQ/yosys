@@ -190,7 +190,7 @@ struct XAigerWriter
 
 		bool abc_box_seen = false;
 
-		for (auto cell : module->cells()) {
+		for (auto cell : module->selected_cells()) {
 			if (cell->type == "$_NOT_")
 			{
 				SigBit A = sigmap(cell->getPort("\\A").as_bit());
@@ -312,7 +312,7 @@ struct XAigerWriter
 			TopoSort<IdString, RTLIL::sort_by_id_str> toposort;
 			dict<SigBit, pool<IdString>> bit_drivers, bit_users;
 
-			for (auto cell : module->cells()) {
+			for (auto cell : module->selected_cells()) {
 				RTLIL::Module* inst_module = module->design->module(cell->type);
 				if (!inst_module || !inst_module->attributes.count("\\abc_box_id"))
 					continue;
@@ -722,7 +722,7 @@ struct XAigerWriter
 			write_h_buffer(box_list.size());
 
 			RTLIL::Module *holes_module = nullptr;
-			holes_module = module->design->addModule("\\__holes__");
+			holes_module = module->design->addModule("$__holes__");
 			log_assert(holes_module);
 
 			int port_id = 1;
@@ -822,16 +822,21 @@ struct XAigerWriter
 
 				Pass::call(holes_module->design, "flatten -wb");
 
-				// TODO: Should techmap all lib_whitebox-es once
+				// TODO: Should techmap/aigmap/check all lib_whitebox-es just once,
+				// instead of per write_xaiger call
 				Pass::call(holes_module->design, "techmap");
 				Pass::call(holes_module->design, "aigmap");
-				Pass::call(holes_module->design, "clean -purge");
+				for (auto cell : holes_module->cells())
+					if (!cell->type.in("$_NOT_", "$_AND_"))
+						log_error("Whitebox contents cannot be represented as AIG. Please verify whiteboxes are synthesisable.\n");
 
-				holes_module->design->selection_stack.pop_back();
+				Pass::call(holes_module->design, "clean -purge");
 
 				std::stringstream a_buffer;
 				XAigerWriter writer(holes_module, false /*zinit_mode*/, true /* holes_mode */);
 				writer.write_aiger(a_buffer, false /*ascii_mode*/);
+
+				holes_module->design->selection_stack.pop_back();
 
 				f << "a";
 				std::string buffer_str = a_buffer.str();
