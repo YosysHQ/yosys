@@ -822,7 +822,8 @@ struct XAigerWriter
 
 				Pass::call(holes_module->design, "flatten -wb");
 
-				// TODO: Should techmap/AIG all lib_whitebox-es once
+				// TODO: Should techmap/aigmap/check all lib_whitebox-es just once,
+				// instead of per write_xaiger call
 				Pass::call(holes_module->design, "techmap");
 				Pass::call(holes_module->design, "aigmap");
 				for (auto cell : holes_module->cells())
