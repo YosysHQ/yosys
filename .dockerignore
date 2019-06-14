@@ -1,0 +1,13 @@
+.editorconfig
+.gitignore
+.gitmodules
+.github
+.git
+Dockerfile
+README.md
+manual
+CodingReadme
+CodeOfConduct
+.travis
+.travis.yml
+

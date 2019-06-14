@@ -2026,7 +2026,6 @@ def gen_wrappers(filename, debug_level_ = 0):
 #include <boost/python/wrapper.hpp>
 #include <boost/python/call.hpp>
 #include <boost/python.hpp>
-#include <boost/log/exceptions.hpp>
 
 USING_YOSYS_NAMESPACE
 
@@ -2060,7 +2059,6 @@ namespace YOSYS_PYTHON {
 				Yosys::log_streams.push_back(&std::cout);
 				Yosys::log_error_stderr = true;
 				Yosys::yosys_setup();
-				Yosys::yosys_banner();
 			}
 		}
 

@@ -154,6 +154,7 @@ std::string AST::type2str(AstNodeType type)
 	X(AST_GENIF)
 	X(AST_GENCASE)
 	X(AST_GENBLOCK)
+	X(AST_TECALL)
 	X(AST_POSEDGE)
 	X(AST_NEGEDGE)
 	X(AST_EDGE)
@@ -194,6 +195,8 @@ AstNode::AstNode(AstNodeType type, AstNode *child1, AstNode *child2, AstNode *ch
 	is_logic = false;
 	is_signed = false;
 	is_string = false;
+	is_wand = false;
+	is_wor = false;
 	is_unsized = false;
 	was_checked = false;
 	range_valid = false;

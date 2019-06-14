@@ -218,6 +218,8 @@ YOSYS_NAMESPACE_END
 "output"  { return TOK_OUTPUT; }
 "inout"   { return TOK_INOUT; }
 "wire"    { return TOK_WIRE; }
+"wor"     { return TOK_WOR; }
+"wand"    { return TOK_WAND; }
 "reg"     { return TOK_REG; }
 "integer" { return TOK_INTEGER; }
 "signed"  { return TOK_SIGNED; }
@@ -307,6 +309,11 @@ supply1 { return TOK_SUPPLY1; }
 	if (!specify_mode) REJECT;
 	frontend_verilog_yylval.string = new std::string(yytext);
 	return TOK_ID;
+}
+
+"$"(info|warning|error|fatal) {
+	frontend_verilog_yylval.string = new std::string(yytext);
+	return TOK_ELAB_TASK;
 }
 
 "$signed"   { return TOK_TO_SIGNED; }

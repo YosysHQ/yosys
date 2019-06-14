@@ -48,6 +48,14 @@ USING_YOSYS_NAMESPACE
 #include "VhdlUnits.h"
 #include "VeriLibrary.h"
 
+#ifndef SYMBIOTIC_VERIFIC_API_VERSION
+#  error "Only Symbiotic EDA flavored Verific is supported. Please contact office@symbioticeda.com for commercial support for Yosys+Verific."
+#endif
+
+#if SYMBIOTIC_VERIFIC_API_VERSION < 1
+#  error "Please update your version of Symbiotic EDA flavored Verific."
+#endif
+
 #ifdef __clang__
 #pragma clang diagnostic pop
 #endif
@@ -2015,6 +2023,9 @@ struct VerificPass : public Pass {
 
 			// WARNING: instantiating unknown module 'XYZ' (VERI-1063)
 			Message::SetMessageType("VERI-1063", VERIFIC_ERROR);
+
+			// https://github.com/YosysHQ/yosys/issues/1055
+			RuntimeFlags::SetVar("veri_elaborate_top_level_modules_having_interface_ports", 1) ;
 
 #ifndef DB_PRESERVE_INITIAL_VALUE
 #  warning Verific was built without DB_PRESERVE_INITIAL_VALUE.

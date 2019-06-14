@@ -133,13 +133,13 @@ struct specify_rise_fall {
 }
 
 %token <string> TOK_STRING TOK_ID TOK_CONSTVAL TOK_REALVAL TOK_PRIMITIVE
-%token <string> TOK_SVA_LABEL TOK_SPECIFY_OPER
+%token <string> TOK_SVA_LABEL TOK_SPECIFY_OPER TOK_ELAB_TASK
 %token TOK_ASSERT TOK_ASSUME TOK_RESTRICT TOK_COVER TOK_FINAL
 %token ATTR_BEGIN ATTR_END DEFATTR_BEGIN DEFATTR_END
 %token TOK_MODULE TOK_ENDMODULE TOK_PARAMETER TOK_LOCALPARAM TOK_DEFPARAM
 %token TOK_PACKAGE TOK_ENDPACKAGE TOK_PACKAGESEP
 %token TOK_INTERFACE TOK_ENDINTERFACE TOK_MODPORT TOK_VAR
-%token TOK_INPUT TOK_OUTPUT TOK_INOUT TOK_WIRE TOK_REG TOK_LOGIC
+%token TOK_INPUT TOK_OUTPUT TOK_INOUT TOK_WIRE TOK_WAND TOK_WOR TOK_REG TOK_LOGIC
 %token TOK_INTEGER TOK_SIGNED TOK_ASSIGN TOK_ALWAYS TOK_INITIAL
 %token TOK_BEGIN TOK_END TOK_IF TOK_ELSE TOK_FOR TOK_WHILE TOK_REPEAT
 %token TOK_DPI_FUNCTION TOK_POSEDGE TOK_NEGEDGE TOK_OR TOK_AUTOMATIC
@@ -484,6 +484,12 @@ wire_type_token_io:
 
 wire_type_token:
 	TOK_WIRE {
+	} |
+	TOK_WOR {
+		astbuf3->is_wor = true;
+	} |
+	TOK_WAND {
+		astbuf3->is_wand = true;
 	} |
 	TOK_REG {
 		astbuf3->is_reg = true;
@@ -1526,27 +1532,40 @@ cell_port_list_rules:
 	cell_port | cell_port_list_rules ',' cell_port;
 
 cell_port:
-	/* empty */ {
+	attr {
 		AstNode *node = new AstNode(AST_ARGUMENT);
 		astbuf2->children.push_back(node);
+		free_attr($1);
 	} |
-	expr {
+	attr expr {
 		AstNode *node = new AstNode(AST_ARGUMENT);
 		astbuf2->children.push_back(node);
-		node->children.push_back($1);
+		node->children.push_back($2);
+		free_attr($1);
 	} |
-	'.' TOK_ID '(' expr ')' {
+	attr '.' TOK_ID '(' expr ')' {
 		AstNode *node = new AstNode(AST_ARGUMENT);
-		node->str = *$2;
+		node->str = *$3;
 		astbuf2->children.push_back(node);
-		node->children.push_back($4);
-		delete $2;
+		node->children.push_back($5);
+		delete $3;
+		free_attr($1);
 	} |
-	'.' TOK_ID '(' ')' {
+	attr '.' TOK_ID '(' ')' {
 		AstNode *node = new AstNode(AST_ARGUMENT);
-		node->str = *$2;
+		node->str = *$3;
 		astbuf2->children.push_back(node);
-		delete $2;
+		delete $3;
+		free_attr($1);
+	} |
+	attr '.' TOK_ID {
+		AstNode *node = new AstNode(AST_ARGUMENT);
+		node->str = *$3;
+		astbuf2->children.push_back(node);
+		node->children.push_back(new AstNode(AST_IDENTIFIER));
+		node->children.back()->str = *$3;
+		delete $3;
+		free_attr($1);
 	};
 
 always_stmt:
@@ -2157,6 +2176,15 @@ gen_stmt:
 		if ($6 != NULL)
 			delete $6;
 		ast_stack.pop_back();
+	} |
+	TOK_ELAB_TASK {
+		AstNode *node = new AstNode(AST_TECALL);
+		node->str = *$1;
+		delete $1;
+		ast_stack.back()->children.push_back(node);
+		ast_stack.push_back(node);
+	} opt_arg_list ';'{
+		ast_stack.pop_back();		
 	};
 
 gen_stmt_block:

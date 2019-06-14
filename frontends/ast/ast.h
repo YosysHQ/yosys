@@ -137,7 +137,8 @@ namespace AST
 		AST_GENIF,
 		AST_GENCASE,
 		AST_GENBLOCK,
-
+		AST_TECALL,
+		
 		AST_POSEDGE,
 		AST_NEGEDGE,
 		AST_EDGE,
@@ -173,7 +174,7 @@ namespace AST
 		// node content - most of it is unused in most node types
 		std::string str;
 		std::vector<RTLIL::State> bits;
-		bool is_input, is_output, is_reg, is_logic, is_signed, is_string, range_valid, range_swapped, was_checked, is_unsized;
+		bool is_input, is_output, is_reg, is_logic, is_signed, is_string, is_wand, is_wor, range_valid, range_swapped, was_checked, is_unsized;
 		int port_id, range_left, range_right;
 		uint32_t integer;
 		double realvalue;

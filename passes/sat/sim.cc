@@ -88,6 +88,8 @@ struct SimInstance
 	SimInstance(SimShared *shared, Module *module, Cell *instance = nullptr, SimInstance *parent = nullptr) :
 			shared(shared), module(module), instance(instance), parent(parent), sigmap(module)
 	{
+		log_assert(module);
+
 		if (parent) {
 			log_assert(parent->children.count(instance) == 0);
 			parent->children[instance] = this;
@@ -848,6 +850,9 @@ struct SimPass : public Pass {
 
 		if (design->full_selection()) {
 			top_mod = design->top_module();
+
+			if (!top_mod)
+				log_cmd_error("Design has no top module, use the 'hierarchy' command to specify one.\n");
 		} else {
 			auto mods = design->selected_whole_modules();
 			if (GetSize(mods) != 1)
