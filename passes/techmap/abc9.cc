@@ -22,7 +22,16 @@
 // Berkeley Logic Synthesis and Verification Group, ABC: A System for Sequential Synthesis and Verification
 // http://www.eecs.berkeley.edu/~alanmi/abc/
 
+#if 0
+// Based on &flow3 - better QoR but more experimental
+#define ABC_COMMAND_LUT "&st; &ps -l; "/*"&sweep -v;"*/" &scorr; " \
+						"&st; &if {W}; &save; &st; &syn2; &if {W}; &save; &load; "\
+						"&st; &if -g -K 6; &dch -f; &if {W}; &save; &load; "\
+						"&st; &if -g -K 6; &synch2; &if {W}; &save; &load"
+#else
 #define ABC_COMMAND_LUT "&st; &sweep; &scorr; "/*"&dc2; "*/"&retime; &dch -f; &ps -l; &if {W} -v; "/*"&mfs; "*/"&ps -l"
+#endif
+
 
 #define ABC_FAST_COMMAND_LUT "&st; &retime; &if {W}"
 
