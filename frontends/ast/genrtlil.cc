@@ -853,7 +853,6 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	case AST_FUNCTION:
 	case AST_DPI_FUNCTION:
 	case AST_AUTOWIRE:
-	case AST_LOCALPARAM:
 	case AST_DEFPARAM:
 	case AST_GENVAR:
 	case AST_GENFOR:
@@ -892,9 +891,67 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	case AST_INTERFACEPORTTYPE:
 		break;
 
-	// remember the parameter, needed for example in techmap
 	case AST_PARAMETER:
-		current_module->avail_parameters.insert(str);
+	case AST_LOCALPARAM:
+		{
+			// remember the parameter, needed for example in techmap
+			// Add to available parameter list
+			if (type == AST_PARAMETER) {
+				current_module->avail_parameters.insert(str);
+			}
+
+			// Get the parameter default value
+			log_assert(children.size() >= 1);
+			log_assert(children[0]->type == AST_CONSTANT || children[0]->type == AST_REALVALUE);
+
+			if (current_module->wires_.count(str) != 0)
+				log_file_error(filename, linenum, "Re-definition of parameter `%s'!\n", str.c_str());
+
+			// If the parameter range is given then use it. Otherwise use range derived from its
+			// assigned default value.
+			int	 wire_range_left    = range_left;
+			int  wire_range_right   = range_right;
+			bool wire_range_swapped = range_swapped;
+
+			if (!range_valid) {
+				if (children[0]->range_valid) {
+					wire_range_left    = children[0]->range_left;
+					wire_range_right   = children[0]->range_right;
+					wire_range_swapped = children[0]->range_swapped;
+				}
+				else {
+					wire_range_left    = 0;
+					wire_range_right   = 0;
+					wire_range_swapped = false;
+				}
+			}
+
+			if (!(wire_range_left >= wire_range_right || (wire_range_left == -1 && wire_range_right == 0)))
+				log_file_error(filename, linenum, "Parameter `%s' with invalid width range %d!\n", str.c_str(), wire_range_left - wire_range_right + 1);
+
+			// Add a wire which mocks the parameter
+			RTLIL::Wire *wire = current_module->addWire(str, wire_range_left - wire_range_right + 1);
+			wire->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
+			wire->start_offset = wire_range_right;
+			wire->upto = wire_range_swapped;
+
+			for (auto &attr : attributes) {
+				if (attr.second->type != AST_CONSTANT)
+					log_file_error(filename, linenum, "Attribute `%s' with non-constant value!\n", attr.first.c_str());
+				wire->attributes[attr.first] = attr.second->asAttrConst();
+			}
+
+			// If the parameter is an integer constant then assign that
+			// constant to the wire.
+			if (children[0]->type == AST_CONSTANT && !children[0]->is_string) {
+
+				// Make the connection
+				RTLIL::SigSpec left  = RTLIL::SigSpec(wire);
+				RTLIL::SigSpec right = children[0]->genWidthRTLIL(left.size());
+
+				current_module->connect(RTLIL::SigSig(left, right));
+			}
+		}
 		break;
 
 	// create an RTLIL::Wire for an AST_WIRE node
