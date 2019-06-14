@@ -395,7 +395,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		//log("Extracted %d gates and %d wires to a netlist network with %d inputs and %d outputs.\n",
 		//		count_gates, GetSize(signal_list), count_input, count_output);
 
-		Pass::call(design, stringf("write_xaiger -map %s/input.sym %s/input.xaig; ", tempdir_name.c_str(), tempdir_name.c_str()));
+		Pass::call(design, stringf("write_xaiger -map %s/input.sym %s/input.xaig", tempdir_name.c_str(), tempdir_name.c_str()));
 
 		std::string buffer;
 		std::ifstream ifs;
