@@ -23,7 +23,15 @@
 `ifndef _NO_FFS
 
 module  \$_DFF_N_   (input D, C, output Q);    FDRE_1 #(.INIT(|0)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(1'b1), .R(1'b0)); endmodule
-module  \$_DFF_P_   (input D, C, output Q);    FDRE   #(.INIT(|0)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(1'b1), .R(1'b0)); endmodule
+module  \$_DFF_P_   (input D, C, output Q);
+`ifndef _ABC
+	FDRE   #(.INIT(|0)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(1'b1), .R(1'b0));
+`else
+    wire Q_next;
+	\$__ABC_FDRE #(/*.INIT(|0)*/) _TECHMAP_REPLACE_ (.D(D), .Q(Q_next), .Q_past(Q), .C(C), .CE(1'b1), .R(1'b0));
+	\$_DFF_P_ abc_dff (.D(Q_next), .Q(Q), .C(C));
+`endif
+endmodule
 
 module  \$_DFFE_NP_ (input D, C, E, output Q); FDRE_1 #(.INIT(|0)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(E),    .R(1'b0)); endmodule
 module  \$_DFFE_PP_ (input D, C, E, output Q); FDRE   #(.INIT(|0)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(E),    .R(1'b0)); endmodule
