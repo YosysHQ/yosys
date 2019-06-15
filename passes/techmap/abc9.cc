@@ -511,10 +511,18 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 
 		// Remove all AND, NOT, and ABC box instances
 		// in preparation for stitching mapped_mod in
+		// Short $_DFF_[NP]_ cells used by ABC (FIXME)
 		dict<IdString, decltype(RTLIL::Cell::parameters)> erased_boxes;
 		for (auto it = module->cells_.begin(); it != module->cells_.end(); ) {
 			RTLIL::Cell* cell = it->second;
 			if (cell->type.in("$_AND_", "$_NOT_")) {
+				it = module->cells_.erase(it);
+				continue;
+			}
+			else if (cell->type.in("$_DFF_N_", "$_DFF_P_")) {
+				SigBit D = cell->getPort("\\D");
+				SigBit Q = cell->getPort("\\Q");
+				module->connect(Q, D);
 				it = module->cells_.erase(it);
 				continue;
 			}
