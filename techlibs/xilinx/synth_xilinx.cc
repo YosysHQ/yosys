@@ -275,9 +275,10 @@ struct SynthXilinxPass : public ScriptPass
 		}
 
 		if (check_label("map_cells")) {
-			run("techmap -map +/techmap.v -map +/xilinx/cells_map.v");
 			if (abc == "abc9")
-				run("techmap -D _ABC -map +/xilinx/ff_map.v t:$_DFF*");
+				run("techmap -map +/techmap.v -map +/xilinx/cells_map.v -D _ABC -map +/xilinx/ff_map.v");
+			else
+				run("techmap -map +/techmap.v -map +/xilinx/cells_map.v");
 			run("clean");
 		}
 
@@ -286,23 +287,22 @@ struct SynthXilinxPass : public ScriptPass
 				run("read_verilog -icells -lib +/xilinx/abc_ff.v");
 				run(abc + " -lut +/xilinx/abc_xc7.lut -box +/xilinx/abc_xc7.box -W " + XC7_WIRE_DELAY + string(retime ? " -retime" : ""));
 			}
-			else if (help_mode) {
+			else if (help_mode)
 				run(abc + " -luts 2:2,3,6:5,10,20 [-dff]");
-				run("dffinit -ff FDRE Q INIT -ff FDCE Q INIT -ff FDPE Q INIT -ff FDSE Q INIT "
-						"-ff FDRE_1 Q INIT -ff FDCE_1 Q INIT -ff FDPE_1 Q INIT -ff FDSE_1 Q INIT");
-			}
-			else {
+			else
 				run(abc + " -luts 2:2,3,6:5,10,20" + string(retime ? " -dff" : ""));
-				run("dffinit -ff FDRE Q INIT -ff FDCE Q INIT -ff FDPE Q INIT -ff FDSE Q INIT "
-						"-ff FDRE_1 Q INIT -ff FDCE_1 Q INIT -ff FDPE_1 Q INIT -ff FDSE_1 Q INIT");
-			}
 			run("clean");
 
 			// This shregmap call infers fixed length shift registers after abc
 			//   has performed any necessary retiming
 			if (!nosrl || help_mode)
 				run("shregmap -minlen 3 -init -params -enpol any_or_none", "(skip if '-nosrl')");
-			run("techmap -map +/xilinx/lut_map.v -map +/xilinx/cells_map.v");
+			if (abc == "abc9")
+				run("techmap -map +/xilinx/lut_map.v -map +/xilinx/cells_map.v");
+			else
+				run("techmap -map +/xilinx/lut_map.v -map +/xilinx/cells_map.v -map +/xilinx/ff_map.v");
+			run("dffinit -ff FDRE Q INIT -ff FDCE Q INIT -ff FDPE Q INIT -ff FDSE Q INIT "
+					"-ff FDRE_1 Q INIT -ff FDCE_1 Q INIT -ff FDPE_1 Q INIT -ff FDSE_1 Q INIT");
 			run("clean");
 		}
 

@@ -520,8 +520,9 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 				continue;
 			}
 			else if (cell->type.in("$_FF_")) {
-				SigBit D = cell->getPort("\\D");
-				SigBit Q = cell->getPort("\\Q");
+				RTLIL::Wire *D = cell->getPort("\\D").as_wire();
+				RTLIL::Wire *Q = cell->getPort("\\Q").as_wire();
+				Q->attributes.swap(D->attributes);
 				module->connect(Q, D);
 				it = module->cells_.erase(it);
 				continue;
