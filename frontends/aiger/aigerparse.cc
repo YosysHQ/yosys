@@ -1025,7 +1025,7 @@ struct AigerFrontend : public Frontend {
 		log("        Name of module to be created (default: <filename>)\n");
 		log("\n");
 		log("    -clk_name <wire_name>\n");
-		log("        If specified, AIGER latches to be transformed into $_DFF_P_ cells\n"
+		log("        If specified, AIGER latches to be transformed into $_DFF_P_ cells\n");
 		log("        clocked by wire of this name. Otherwise, $_FF_ cells will be used.\n");
 		log("\n");
 		log("    -map <filename>\n");
