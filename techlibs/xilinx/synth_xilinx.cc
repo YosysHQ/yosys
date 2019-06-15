@@ -277,7 +277,7 @@ struct SynthXilinxPass : public ScriptPass
 		if (check_label("map_cells")) {
 			run("techmap -map +/techmap.v -map +/xilinx/cells_map.v");
 			if (abc == "abc9")
-				run("techmap -max_iter 1 -D _ABC -map +/xilinx/ff_map.v");
+				run("techmap -D _ABC -map +/xilinx/ff_map.v t:$_DFF*");
 			run("clean");
 		}
 

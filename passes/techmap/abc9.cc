@@ -242,7 +242,7 @@ struct abc_output_filter
 };
 
 void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::string script_file, std::string exe_file,
-		bool cleanup, vector<int> lut_costs, bool dff_mode, std::string clk_str,
+		bool cleanup, vector<int> lut_costs, bool retime_mode, std::string clk_str,
 		bool /*keepff*/, std::string delay_target, std::string /*lutin_shared*/, bool fast_mode,
 		bool show_tempdir, std::string box_file, std::string lut_file,
 		std::string wire_delay)
@@ -285,7 +285,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			clk_sig = assign_map(RTLIL::SigSpec(module->wires_.at(RTLIL::escape_id(clk_str)), 0));
 	}
 
-	if (dff_mode && clk_sig.empty())
+	if (retime_mode && clk_sig.empty())
 		log_cmd_error("Clock domain %s not found.\n", clk_str.c_str());
 
 	std::string tempdir_name = "/tmp/yosys-abc-XXXXXX";
@@ -359,7 +359,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 	fprintf(f, "%s\n", abc_script.c_str());
 	fclose(f);
 
-	if (dff_mode || !clk_str.empty())
+	if (retime_mode || !clk_str.empty())
 	{
 		if (clk_sig.size() == 0)
 			log("No%s clock domain found. Not extracting any FF cells.\n", clk_str.empty() ? "" : " matching");
@@ -511,7 +511,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 
 		// Remove all AND, NOT, and ABC box instances
 		// in preparation for stitching mapped_mod in
-		// Short $_DFF_[NP]_ cells used by ABC (FIXME)
+		// Short $_FF_ cells used by ABC (FIXME)
 		dict<IdString, decltype(RTLIL::Cell::parameters)> erased_boxes;
 		for (auto it = module->cells_.begin(); it != module->cells_.end(); ) {
 			RTLIL::Cell* cell = it->second;
@@ -519,7 +519,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 				it = module->cells_.erase(it);
 				continue;
 			}
-			else if (cell->type.in("$_DFF_N_", "$_DFF_P_")) {
+			else if (cell->type.in("$_FF_")) {
 				SigBit D = cell->getPort("\\D");
 				SigBit Q = cell->getPort("\\Q");
 				module->connect(Q, D);
@@ -842,7 +842,7 @@ struct Abc9Pass : public Pass {
 #endif
 		std::string script_file, clk_str, box_file, lut_file;
 		std::string delay_target, lutin_shared = "-S 1", wire_delay;
-		bool fast_mode = false, dff_mode = false, keepff = false, cleanup = true;
+		bool fast_mode = false, retime_mode = false, keepff = false, cleanup = true;
 		bool show_tempdir = false;
 		vector<int> lut_costs;
 		markgroups = false;
@@ -933,13 +933,13 @@ struct Abc9Pass : public Pass {
 				fast_mode = true;
 				continue;
 			}
-			//if (arg == "-dff") {
-			//	dff_mode = true;
-			//	continue;
-			//}
+			if (arg == "-retime") {
+				retime_mode = true;
+				continue;
+			}
 			//if (arg == "-clk" && argidx+1 < args.size()) {
 			//	clk_str = args[++argidx];
-			//	dff_mode = true;
+			//	retime_mode = true;
 			//	continue;
 			//}
 			//if (arg == "-keepff") {
@@ -1003,8 +1003,8 @@ struct Abc9Pass : public Pass {
 						}
 				}
 
-			if (!dff_mode || !clk_str.empty()) {
-				abc9_module(design, mod, script_file, exe_file, cleanup, lut_costs, dff_mode, clk_str, keepff,
+			if (!retime_mode || !clk_str.empty()) {
+				abc9_module(design, mod, script_file, exe_file, cleanup, lut_costs, retime_mode, clk_str, keepff,
 						delay_target, lutin_shared, fast_mode, show_tempdir,
 						box_file, lut_file, wire_delay);
 				continue;
