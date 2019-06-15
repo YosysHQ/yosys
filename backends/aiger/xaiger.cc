@@ -224,7 +224,7 @@ struct XAigerWriter
 
 			// FIXME: Should short here, rather than provide $_DFF_[NP]_
 			//        to ABC as a user cell
-			//if (cell->type.in(/*"$_FF_",*/ "$_DFF_N_", "$_DFF_P_"))
+			//if (cell->type.in("$_FF_" /*, "$_DFF_N_", "$_DFF_P_"*/))
 			//{
 			//	SigBit D = sigmap(cell->getPort("\\D").as_bit());
 			//	SigBit Q = sigmap(cell->getPort("\\Q").as_bit());
