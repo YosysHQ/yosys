@@ -66,7 +66,6 @@ struct XAigerWriter
 	pool<SigBit> input_bits, output_bits;
 	dict<SigBit, SigBit> not_map, ff_map, alias_map;
 	dict<SigBit, pair<SigBit, SigBit>> and_map;
-	//pool<SigBit> initstate_bits;
 	vector<std::tuple<SigBit,RTLIL::Cell*,RTLIL::IdString,int>> ci_bits;
 	vector<std::tuple<SigBit,RTLIL::Cell*,RTLIL::IdString,int,int>> co_bits;
 	vector<std::pair<SigBit,SigBit>> ff_bits;
@@ -97,10 +96,6 @@ struct XAigerWriter
 		{
 			aig_map[bit] = -1;
 
-			//if (initstate_bits.count(bit)) {
-			//	log_assert(initstate_ff > 0);
-			//	aig_map[bit] = initstate_ff;
-			//} else
 			if (not_map.count(bit)) {
 				int a = bit2aig(not_map.at(bit)) ^ 1;
 				aig_map[bit] = a;
@@ -207,16 +202,6 @@ struct XAigerWriter
 				continue;
 			}
 
-			//if (cell->type.in("$_FF_", "$_DFF_N_", "$_DFF_P_"))
-			//{
-			//	SigBit D = sigmap(cell->getPort("\\D").as_bit());
-			//	SigBit Q = sigmap(cell->getPort("\\Q").as_bit());
-			//	unused_bits.erase(D);
-			//	undriven_bits.erase(Q);
-			//	ff_map[Q] = D;
-			//	continue;
-			//}
-
 			if (cell->type == "$_AND_")
 			{
 				SigBit A = sigmap(cell->getPort("\\A").as_bit());
@@ -237,61 +222,62 @@ struct XAigerWriter
 
 			log_assert(!holes_mode);
 
-			//if (cell->type == "$initstate")
+			// FIXME: Should short here, rather than provide $_DFF_[NP]_
+			//        to ABC as a user cell
+			//if (cell->type.in(/*"$_FF_",*/ "$_DFF_N_", "$_DFF_P_"))
 			//{
-			//	SigBit Y = sigmap(cell->getPort("\\Y").as_bit());
-			//	undriven_bits.erase(Y);
-			//	initstate_bits.insert(Y);
+			//	SigBit D = sigmap(cell->getPort("\\D").as_bit());
+			//	SigBit Q = sigmap(cell->getPort("\\Q").as_bit());
+			//	alias_map[Q] = D;
 			//	continue;
 			//}
 
-			RTLIL::Module* inst_module = module->design->module(cell->type);
-			//bool inst_flop = inst_module ? inst_module->attributes.count("\\abc_flop") : false;
-			//if (inst_flop) {
-			//	SigBit d, q;
-			//	for (const auto &c : cell->connections()) {
-			//		auto is_input = cell->input(c.first);
-			//		auto is_output = cell->output(c.first);
-			//		log_assert(is_input || is_output);
-			//		RTLIL::Wire* port = inst_module->wire(c.first);
-			//		for (auto b : c.second.bits()) {
-			//			if (is_input && port->attributes.count("\\abc_flop_d")) {
-			//				d = b;
-			//				SigBit I = sigmap(d);
-			//				if (I != d)
-			//					alias_map[I] = d;
-			//				unused_bits.erase(d);
-			//			}
-			//			if (is_output && port->attributes.count("\\abc_flop_q")) {
-			//				q = b;
-			//				SigBit O = sigmap(q);
-			//				if (O != q)
-			//					alias_map[O] = q;
-			//				undriven_bits.erase(O);
-			//			}
-			//		}
-			//	}
-			//	if (!abc_box_seen)
-			//		abc_box_seen = inst_module->attributes.count("\\abc_box_id");
-			//	ff_bits.emplace_back(d, q);
-			//}
-			/*else*/ if (inst_module && inst_module->attributes.count("\\abc_box_id")) {
+			RTLIL::Module* inst_module = !holes_mode ? module->design->module(cell->type) : nullptr;
+			bool inst_flop = inst_module ? inst_module->attributes.count("\\abc_flop") : false;
+			if (inst_flop) {
+				toposort.node(cell->name);
+
+				SigBit d, q;
+				for (const auto &c : cell->connections()) {
+					auto is_input = cell->input(c.first);
+					auto is_output = cell->output(c.first);
+					log_assert(is_input || is_output);
+					RTLIL::Wire* port = inst_module->wire(c.first);
+					if (is_input && port->attributes.count("\\abc_flop_d")) {
+						d = c.second;
+						SigBit I = sigmap(d);
+						if (I != d)
+							alias_map[I] = d;
+						unused_bits.erase(d);
+					}
+					if (is_output && port->attributes.count("\\abc_flop_q")) {
+						q = c.second;
+						SigBit O = sigmap(q);
+						if (O != q)
+							alias_map[O] = q;
+						undriven_bits.erase(O);
+					}
+				}
+				if (!abc_box_seen)
+					abc_box_seen = inst_module->attributes.count("\\abc_box_id");
+
+				ff_bits.emplace_back(d, q);
+			}
+			else if (inst_module && inst_module->attributes.count("\\abc_box_id")) {
 				abc_box_seen = true;
 
-				if (!holes_mode) {
-					toposort.node(cell->name);
-					for (const auto &conn : cell->connections()) {
-						if (cell->input(conn.first)) {
-							// Ignore inout for the sake of topographical ordering
-							if (cell->output(conn.first)) continue;
-							for (auto bit : sigmap(conn.second))
-								bit_users[bit].insert(cell->name);
-						}
-
-						if (cell->output(conn.first))
-							for (auto bit : sigmap(conn.second))
-								bit_drivers[bit].insert(cell->name);
+				toposort.node(cell->name);
+				for (const auto &conn : cell->connections()) {
+					if (cell->input(conn.first)) {
+						// Ignore inout for the sake of topographical ordering
+						if (cell->output(conn.first)) continue;
+						for (auto bit : sigmap(conn.second))
+							bit_users[bit].insert(cell->name);
 					}
+
+					if (cell->output(conn.first))
+						for (auto bit : sigmap(conn.second))
+							bit_drivers[bit].insert(cell->name);
 				}
 			}
 			else {
@@ -555,17 +541,17 @@ struct XAigerWriter
 		//	}
 		//}
 
-		for (auto it : ff_map) {
-			aig_m++, aig_l++;
-			aig_map[it.first] = 2*aig_m;
-			ordered_latches[it.first] = aig_l-1;
-			if (init_map.count(it.first) == 0)
-				aig_latchinit.push_back(2);
-			else
-				aig_latchinit.push_back(init_map.at(it.first) ? 1 : 0);
-		}
+		//for (auto it : ff_map) {
+		//	aig_m++, aig_l++;
+		//	aig_map[it.first] = 2*aig_m;
+		//	ordered_latches[it.first] = aig_l-1;
+		//	if (init_map.count(it.first) == 0)
+		//		aig_latchinit.push_back(2);
+		//	else
+		//		aig_latchinit.push_back(init_map.at(it.first) ? 1 : 0);
+		//}
 
-		//if (!initstate_bits.empty() || !init_inputs.empty()) {
+		//if (!init_inputs.empty()) {
 		//	aig_m++, aig_l++;
 		//	initstate_ff = 2*aig_m+1;
 		//	aig_latchinit.push_back(0);
@@ -589,16 +575,16 @@ struct XAigerWriter
 		//	}
 		//}
 
-		for (auto it : ff_map) {
-			int a = bit2aig(it.second);
-			int l = ordered_latches[it.first];
-			if (zinit_mode && aig_latchinit.at(l) == 1)
-				aig_latchin.push_back(a ^ 1);
-			else
-				aig_latchin.push_back(a);
-		}
+		//for (auto it : ff_map) {
+		//	int a = bit2aig(it.second);
+		//	int l = ordered_latches[it.first];
+		//	if (zinit_mode && aig_latchinit.at(l) == 1)
+		//		aig_latchin.push_back(a ^ 1);
+		//	else
+		//		aig_latchin.push_back(a);
+		//}
 
-		//if (!initstate_bits.empty() || !init_inputs.empty())
+		//if (!init_inputs.empty())
 		//	aig_latchin.push_back(1);
 
 		for (auto &c : co_bits) {
@@ -617,7 +603,6 @@ struct XAigerWriter
 			RTLIL::SigBit bit = f.second;
 			aig_outputs.push_back(ff_aig_map.at(bit));
 		}
-
 	}
 
 	void write_aiger(std::ostream &f, bool ascii_mode)
@@ -639,14 +624,14 @@ struct XAigerWriter
 			for (int i = 0; i < aig_i; i++)
 				f << stringf("%d\n", 2*i+2);
 
-			for (int i = 0; i < aig_l; i++) {
-				if (zinit_mode || aig_latchinit.at(i) == 0)
-					f << stringf("%d %d\n", 2*(aig_i+i)+2, aig_latchin.at(i));
-				else if (aig_latchinit.at(i) == 1)
-					f << stringf("%d %d 1\n", 2*(aig_i+i)+2, aig_latchin.at(i));
-				else if (aig_latchinit.at(i) == 2)
-					f << stringf("%d %d %d\n", 2*(aig_i+i)+2, aig_latchin.at(i), 2*(aig_i+i)+2);
-			}
+			//for (int i = 0; i < aig_l; i++) {
+			//	if (zinit_mode || aig_latchinit.at(i) == 0)
+			//		f << stringf("%d %d\n", 2*(aig_i+i)+2, aig_latchin.at(i));
+			//	else if (aig_latchinit.at(i) == 1)
+			//		f << stringf("%d %d 1\n", 2*(aig_i+i)+2, aig_latchin.at(i));
+			//	else if (aig_latchinit.at(i) == 2)
+			//		f << stringf("%d %d %d\n", 2*(aig_i+i)+2, aig_latchin.at(i), 2*(aig_i+i)+2);
+			//}
 
 			for (int i = 0; i < aig_obc; i++)
 				f << stringf("%d\n", aig_outputs.at(i));
@@ -665,14 +650,14 @@ struct XAigerWriter
 		}
 		else
 		{
-			for (int i = 0; i < aig_l; i++) {
-				if (zinit_mode || aig_latchinit.at(i) == 0)
-					f << stringf("%d\n", aig_latchin.at(i));
-				else if (aig_latchinit.at(i) == 1)
-					f << stringf("%d 1\n", aig_latchin.at(i));
-				else if (aig_latchinit.at(i) == 2)
-					f << stringf("%d %d\n", aig_latchin.at(i), 2*(aig_i+i)+2);
-			}
+			//for (int i = 0; i < aig_l; i++) {
+			//	if (zinit_mode || aig_latchinit.at(i) == 0)
+			//		f << stringf("%d\n", aig_latchin.at(i));
+			//	else if (aig_latchinit.at(i) == 1)
+			//		f << stringf("%d 1\n", aig_latchin.at(i));
+			//	else if (aig_latchinit.at(i) == 2)
+			//		f << stringf("%d %d\n", aig_latchin.at(i), 2*(aig_i+i)+2);
+			//}
 
 			for (int i = 0; i < aig_obc; i++)
 				f << stringf("%d\n", aig_outputs.at(i));
@@ -789,21 +774,19 @@ struct XAigerWriter
 			f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
 			f.write(buffer_str.data(), buffer_str.size());
 
-			/*if (!ff_bits.empty())*/ {
-				std::stringstream r_buffer;
-				auto write_r_buffer = std::bind(write_buffer, std::ref(r_buffer), std::placeholders::_1);
-				log_debug("flopNum = %zu\n", ff_bits.size());
-				write_r_buffer(ff_bits.size());
-				//int mergeability_class = 1;
-				//for (auto cell : ff_bits)
-				//	write_r_buffer(mergeability_class++);
+			std::stringstream r_buffer;
+			auto write_r_buffer = std::bind(write_buffer, std::ref(r_buffer), std::placeholders::_1);
+			log_debug("flopNum = %zu\n", ff_bits.size());
+			write_r_buffer(ff_bits.size());
+			int mergeability_class = 1;
+			for (auto cell : ff_bits)
+				write_r_buffer(mergeability_class++);
 
-				f << "r";
-				std::string buffer_str = r_buffer.str();
-				int32_t buffer_size_be = to_big_endian(buffer_str.size());
-				f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
-				f.write(buffer_str.data(), buffer_str.size());
-			}
+			f << "r";
+			buffer_str = r_buffer.str();
+			buffer_size_be = to_big_endian(buffer_str.size());
+			f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
+			f.write(buffer_str.data(), buffer_str.size());
 
 			if (holes_module) {
 				// NB: fixup_ports() will sort ports by name
@@ -885,14 +868,14 @@ struct XAigerWriter
 				//	continue;
 				//}
 
-				if (ordered_latches.count(sig[i])) {
-					int l = ordered_latches.at(sig[i]);
-					if (zinit_mode && (aig_latchinit.at(l) == 1))
-						latch_lines[l] += stringf("invlatch %d %d %s\n", l, i, log_id(wire));
-					else
-						latch_lines[l] += stringf("latch %d %d %s\n", l, i, log_id(wire));
-					continue;
-				}
+				//if (ordered_latches.count(sig[i])) {
+				//	int l = ordered_latches.at(sig[i]);
+				//	if (zinit_mode && (aig_latchinit.at(l) == 1))
+				//		latch_lines[l] += stringf("invlatch %d %d %s\n", l, i, log_id(wire));
+				//	else
+				//		latch_lines[l] += stringf("latch %d %d %s\n", l, i, log_id(wire));
+				//	continue;
+				//}
 
 				if (verbose_map) {
 					if (aig_map.count(sig[i]) == 0)
