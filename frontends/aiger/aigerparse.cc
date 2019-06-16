@@ -737,11 +737,13 @@ void AigerReader::post_process()
 		log_assert(box_module);
 
 		RTLIL::Module* flop_module = nullptr;
-		if (box_module->attributes.count("\\abc_flop")) {
+		auto flop_module_name = box_module->attributes.at("\\abc_flop", RTLIL::Const());
+		RTLIL::IdString flop_past_q;
+		if (flop_module_name.size() > 0) {
 			log_assert(flop_count < flopNum);
-			log_assert(box_module->name.begins_with("$__ABC_"));
-			flop_module = design->module("\\" + box_module->name.substr(7));
+			flop_module = design->module(RTLIL::escape_id(flop_module_name.decode_string()));
 			log_assert(flop_module);
+			flop_past_q = box_module->attributes.at("\\abc_flop_past_q").decode_string();
 		}
 		else if (box_module->attributes.count("\\abc_carry") && !abc_carry_modules.count(box_module)) {
 			RTLIL::Wire* carry_in = nullptr, *carry_out = nullptr;
@@ -778,8 +780,6 @@ void AigerReader::post_process()
 			}
 		}
 
-		RTLIL::Wire *d = nullptr;
-		RTLIL::Wire *q = nullptr;
 		// NB: Assume box_module->ports are sorted alphabetically
 		//     (as RTLIL::Module::fixup_ports() would do)
 		for (auto port_name : box_module->ports) {
@@ -789,14 +789,6 @@ void AigerReader::post_process()
 			for (int i = 0; i < GetSize(port); i++) {
 				RTLIL::Wire* wire = nullptr;
 				if (port->port_input) {
-					if (flop_module && port->attributes.count("\\abc_flop_d")) {
-						log_assert(!d);
-						d = outputs[outputs.size() - flopNum + flop_count];
-						log_assert(d);
-						log_assert(d->port_output);
-						d->port_output = false;
-					}
-
 					log_assert(co_count < outputs.size());
 					wire = outputs[co_count++];
 					log_assert(wire);
@@ -804,14 +796,6 @@ void AigerReader::post_process()
 					wire->port_output = false;
 				}
 				if (port->port_output) {
-					if (flop_module && port->attributes.count("\\abc_flop_q")) {
-						log_assert(!q);
-						q = inputs[piNum - flopNum + flop_count];
-						log_assert(q);
-						log_assert(q->port_input);
-						q->port_input = false;
-					}
-
 					log_assert((piNum + ci_count) < inputs.size());
 					wire = inputs[piNum + ci_count++];
 					log_assert(wire);
@@ -820,13 +804,24 @@ void AigerReader::post_process()
 				}
 				rhs.append(wire);
 			}
-			if (!flop_module || !port->attributes.count("\\abc_discard"))
+
+			if (!flop_module || port_name != flop_past_q)
 				cell->setPort(port_name, rhs);
 		}
+
 		if (flop_module) {
+			RTLIL::Wire *d = outputs[outputs.size() - flopNum + flop_count];
+			log_assert(d);
+			log_assert(d->port_output);
+			d->port_output = false;
+
+			RTLIL::Wire *q = inputs[piNum - flopNum + flop_count];
+			log_assert(q);
+			log_assert(q->port_input);
+			q->port_input = false;
+
 			flop_count++;
 			cell->type = flop_module->name;
-			//module->addFfGate(NEW_ID, d1 q);
 			module->connect(q, d);
 		}
 	}

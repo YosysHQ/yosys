@@ -41,8 +41,8 @@ RAM128X1D 5 0 17 2
 -   -   -   -   -   -   -   - 314 314 314 314 314 314 292 - -
 347 347 347 347 347 347 296 - -   -   -   -   -   -   -   - -
 
-# Inputs: C CE D Q_past R
-# Outputs: Q_next
+# Inputs: C CE D R \$pastQ
+# Outputs: Q
 FDRE 6 1 5 1
 - - - - -
 

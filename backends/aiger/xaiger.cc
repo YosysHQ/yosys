@@ -233,49 +233,40 @@ struct XAigerWriter
 			}
 
 			RTLIL::Module* inst_module = !holes_mode ? module->design->module(cell->type) : nullptr;
-			bool inst_flop = inst_module ? inst_module->attributes.count("\\abc_flop") : false;
-			if (inst_flop) {
-				toposort.node(cell->name);
+			if (inst_module && inst_module->attributes.count("\\abc_box_id")) {
+				abc_box_seen = true;
 
-				for (const auto &c : cell->connections()) {
-					auto is_input = cell->input(c.first);
-					auto is_output = cell->output(c.first);
-					log_assert(is_input || is_output);
-					RTLIL::Wire* port = inst_module->wire(c.first);
-					if (is_input && port->attributes.count("\\abc_flop_d")) {
-						SigBit d = c.second;
-						SigBit I = sigmap(d);
-						if (I != d)
-							alias_map[I] = d;
-						unused_bits.erase(d);
-					}
-					if (is_output && port->attributes.count("\\abc_flop_q")) {
-						SigBit q = c.second;
-						SigBit O = sigmap(q);
-						if (O != q)
-							alias_map[O] = q;
-						undriven_bits.erase(O);
-						ff_bits.emplace_back(q);
+				toposort.node(cell->name);
+				auto abc_flop_d = inst_module->attributes.at("\\abc_flop_d", RTLIL::Const());
+				if (abc_flop_d.size() == 0) {
+					for (const auto &conn : cell->connections()) {
+						if (cell->input(conn.first)) {
+							// Ignore inout for the sake of topographical ordering
+							if (cell->output(conn.first)) continue;
+							for (auto bit : sigmap(conn.second))
+								bit_users[bit].insert(cell->name);
+						}
+
+						if (cell->output(conn.first))
+							for (auto bit : sigmap(conn.second))
+								bit_drivers[bit].insert(cell->name);
 					}
 				}
-				log_assert(inst_module->attributes.count("\\abc_box_id"));
-				abc_box_seen = true;
-			}
-			else if (inst_module && inst_module->attributes.count("\\abc_box_id")) {
-				abc_box_seen = true;
+				else {
+					auto abc_flop_q = inst_module->attributes.at("\\abc_flop_q");
 
-				toposort.node(cell->name);
-				for (const auto &conn : cell->connections()) {
-					if (cell->input(conn.first)) {
-						// Ignore inout for the sake of topographical ordering
-						if (cell->output(conn.first)) continue;
-						for (auto bit : sigmap(conn.second))
-							bit_users[bit].insert(cell->name);
-					}
+					SigBit d = cell->getPort(RTLIL::escape_id(abc_flop_d.decode_string()));
+					SigBit I = sigmap(d);
+					if (I != d)
+						alias_map[I] = d;
+					unused_bits.erase(d);
 
-					if (cell->output(conn.first))
-						for (auto bit : sigmap(conn.second))
-							bit_drivers[bit].insert(cell->name);
+					SigBit q = cell->getPort(RTLIL::escape_id(abc_flop_q.decode_string()));
+					SigBit O = sigmap(q);
+					if (O != q)
+						alias_map[O] = q;
+					undriven_bits.erase(O);
+					ff_bits.emplace_back(q);
 				}
 			}
 			else {

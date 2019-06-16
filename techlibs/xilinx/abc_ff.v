@@ -23,11 +23,11 @@
 module \$__ABC_FF_ (input C, D, output Q);
 endmodule
 
-(* abc_box_id = 6, lib_whitebox, abc_flop *)
-module \$__ABC_FDRE ((* abc_flop_q *) output Q, input C, CE, (* abc_flop_d *) input D, (* abc_flop_q_past, abc_discard *) input Q_past, input R);
+(* abc_box_id = 6, lib_whitebox, abc_flop = "FDRE", abc_flop_q = "Q", abc_flop_d = "D", abc_flop_past_q = "\\$pastQ" *)
+module \$__ABC_FDRE (output Q, input C, CE, D, R, \$pastQ );
   parameter [0:0] INIT = 1'b0;
   //parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
   parameter [0:0] IS_R_INVERTED = 1'b0;
-  assign Q = (R ^ IS_R_INVERTED) ? 1'b0 : (CE ? (D ^ IS_D_INVERTED) : Q_past);
+  assign Q = (R ^ IS_R_INVERTED) ? 1'b0 : (CE ? (D ^ IS_D_INVERTED) : \$pastQ );
 endmodule
