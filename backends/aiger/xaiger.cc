@@ -258,8 +258,8 @@ struct XAigerWriter
 						undriven_bits.erase(O);
 					}
 				}
-				if (!abc_box_seen)
-					abc_box_seen = inst_module->attributes.count("\\abc_box_id");
+				log_assert(inst_module->attributes.count("\\abc_box_id"));
+				abc_box_seen = true;
 
 				ff_bits.emplace_back(d, q);
 			}
@@ -696,7 +696,7 @@ struct XAigerWriter
 			log_debug("ciNum = %zu\n", input_bits.size() + ff_bits.size() + ci_bits.size());
 			write_h_buffer(input_bits.size() + ff_bits.size() + ci_bits.size());
 			log_debug("coNum = %zu\n", output_bits.size() + ff_bits.size() + co_bits.size());
-			write_h_buffer(output_bits.size() + ff_bits.size()+ co_bits.size());
+			write_h_buffer(output_bits.size() + ff_bits.size() + co_bits.size());
 			log_debug("piNum = %zu\n", input_bits.size() + ff_bits.size());
 			write_h_buffer(input_bits.size()+ ff_bits.size());
 			log_debug("poNum = %zu\n", output_bits.size() + ff_bits.size());
@@ -780,10 +780,31 @@ struct XAigerWriter
 			write_r_buffer(ff_bits.size());
 			int mergeability_class = 1;
 			for (auto cell : ff_bits)
-				write_r_buffer(mergeability_class++);
+				write_r_buffer(mergeability_class);
 
 			f << "r";
 			buffer_str = r_buffer.str();
+			buffer_size_be = to_big_endian(buffer_str.size());
+			f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
+			f.write(buffer_str.data(), buffer_str.size());
+
+			std::stringstream s_buffer;
+			auto write_s_buffer = std::bind(write_buffer, std::ref(s_buffer), std::placeholders::_1);
+			write_s_buffer(ff_bits.size());
+			for (auto &f : ff_bits) {
+				RTLIL::SigBit q = f.second;
+				auto it = q.wire->attributes.find("\\init");
+				if (it != q.wire->attributes.end()) {
+					auto init = it->second[q.offset];
+					if (init == RTLIL::S1) {
+						write_s_buffer(1);
+						continue;
+					}
+				}
+				write_s_buffer(0);
+			}
+			f << "s";
+			buffer_str = s_buffer.str();
 			buffer_size_be = to_big_endian(buffer_str.size());
 			f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
 			f.write(buffer_str.data(), buffer_str.size());
@@ -857,7 +878,11 @@ struct XAigerWriter
 
 				if (output_bits.count(b)) {
 					int o = ordered_outputs.at(b);
-					output_lines[o] += stringf("output %lu %d %s\n", o - co_bits.size(), i, log_id(wire));
+					int init = 2;
+					auto it = init_map.find(b);
+					if (it != init_map.end())
+						init = it->second ? 1 : 0;
+					output_lines[o] += stringf("output %lu %d %s %d\n", o - co_bits.size(), i, log_id(wire), init);
 					continue;
 				}
 
