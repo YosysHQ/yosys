@@ -68,7 +68,7 @@ struct XAigerWriter
 	dict<SigBit, pair<SigBit, SigBit>> and_map;
 	vector<std::tuple<SigBit,RTLIL::Cell*,RTLIL::IdString,int>> ci_bits;
 	vector<std::tuple<SigBit,RTLIL::Cell*,RTLIL::IdString,int,int>> co_bits;
-	vector<std::pair<SigBit,SigBit>> ff_bits;
+	vector<SigBit> ff_bits;
 
 	vector<pair<int, int>> aig_gates;
 	vector<int> aig_latchin, aig_latchinit, aig_outputs;
@@ -237,31 +237,29 @@ struct XAigerWriter
 			if (inst_flop) {
 				toposort.node(cell->name);
 
-				SigBit d, q;
 				for (const auto &c : cell->connections()) {
 					auto is_input = cell->input(c.first);
 					auto is_output = cell->output(c.first);
 					log_assert(is_input || is_output);
 					RTLIL::Wire* port = inst_module->wire(c.first);
 					if (is_input && port->attributes.count("\\abc_flop_d")) {
-						d = c.second;
+						SigBit d = c.second;
 						SigBit I = sigmap(d);
 						if (I != d)
 							alias_map[I] = d;
 						unused_bits.erase(d);
 					}
 					if (is_output && port->attributes.count("\\abc_flop_q")) {
-						q = c.second;
+						SigBit q = c.second;
 						SigBit O = sigmap(q);
 						if (O != q)
 							alias_map[O] = q;
 						undriven_bits.erase(O);
+						ff_bits.emplace_back(q);
 					}
 				}
 				log_assert(inst_module->attributes.count("\\abc_box_id"));
 				abc_box_seen = true;
-
-				ff_bits.emplace_back(d, q);
 			}
 			else if (inst_module && inst_module->attributes.count("\\abc_box_id")) {
 				abc_box_seen = true;
@@ -515,8 +513,7 @@ struct XAigerWriter
 			aig_map[bit] = 2*aig_m;
 		}
 
-		for (auto &f : ff_bits) {
-			RTLIL::SigBit bit = f.second;
+		for (auto bit : ff_bits) {
 			aig_m++, aig_i++;
 			log_assert(!aig_map.count(bit));
 			aig_map[bit] = 2*aig_m;
@@ -598,9 +595,8 @@ struct XAigerWriter
 			aig_outputs.push_back(bit2aig(bit));
 		}
 
-		for (auto &f : ff_bits) {
+		for (auto bit : ff_bits) {
 			aig_o++;
-			RTLIL::SigBit bit = f.second;
 			aig_outputs.push_back(ff_aig_map.at(bit));
 		}
 	}
@@ -791,11 +787,10 @@ struct XAigerWriter
 			std::stringstream s_buffer;
 			auto write_s_buffer = std::bind(write_buffer, std::ref(s_buffer), std::placeholders::_1);
 			write_s_buffer(ff_bits.size());
-			for (auto &f : ff_bits) {
-				RTLIL::SigBit q = f.second;
-				auto it = q.wire->attributes.find("\\init");
-				if (it != q.wire->attributes.end()) {
-					auto init = it->second[q.offset];
+			for (auto bit : ff_bits) {
+				auto it = bit.wire->attributes.find("\\init");
+				if (it != bit.wire->attributes.end()) {
+					auto init = it->second[bit.offset];
 					if (init == RTLIL::S1) {
 						write_s_buffer(1);
 						continue;
