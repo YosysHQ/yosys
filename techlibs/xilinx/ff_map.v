@@ -29,12 +29,20 @@ module  \$_DFF_P_   (input D, C, output Q);
 `else
     wire Q_next;
 	\$__ABC_FDRE #(.INIT(|0)) _TECHMAP_REPLACE_ (.D(D), .Q(Q_next), .Q_past(Q), .C(C), .CE(1'b1), .R(1'b0));
-	\$_FF_ abc_dff (.D(Q_next), .Q(Q));
+	\$__ABC_FF_ abc_dff (.D(Q_next), .Q(Q));
 `endif
 endmodule
 
 module  \$_DFFE_NP_ (input D, C, E, output Q); FDRE_1 #(.INIT(|0)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(E),    .R(1'b0)); endmodule
-module  \$_DFFE_PP_ (input D, C, E, output Q); FDRE   #(.INIT(|0)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(E),    .R(1'b0)); endmodule
+module  \$_DFFE_PP_ (input D, C, E, output Q);
+`ifndef _ABC
+	FDRE   #(.INIT(|0)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(E),    .R(1'b0));
+`else
+	wire Q_next;
+	\$__ABC_FDRE #(.INIT(|0)) _TECHMAP_REPLACE_ (.D(D), .Q(Q_next), .Q_past(Q), .C(C), .CE(E), .R(1'b0));
+	\$__ABC_FF_ abc_dff (.D(Q_next), .Q(Q));
+`endif
+endmodule
 
 module  \$_DFF_NN0_ (input D, C, R, output Q); FDCE_1 #(.INIT(|0)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(1'b1), .CLR(!R)); endmodule
 module  \$_DFF_NP0_ (input D, C, R, output Q); FDCE_1 #(.INIT(|0)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(1'b1), .CLR( R)); endmodule

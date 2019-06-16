@@ -222,8 +222,8 @@ struct XAigerWriter
 
 			log_assert(!holes_mode);
 
-			// FIXME: Should short here, rather than provide $_DFF_[NP]_
-			//        to ABC as a user cell
+			// FIXME: Should short here, rather than provide $__ABC_FF_
+			//        to ABC like a user cell
 			//if (cell->type.in("$_FF_" /*, "$_DFF_N_", "$_DFF_P_"*/))
 			//{
 			//	SigBit D = sigmap(cell->getPort("\\D").as_bit());

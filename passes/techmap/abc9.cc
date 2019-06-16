@@ -399,6 +399,9 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		//log("Extracted %d gates and %d wires to a netlist network with %d inputs and %d outputs.\n",
 		//		count_gates, GetSize(signal_list), count_input, count_output);
 
+#if 0
+		Pass::call(design, stringf("write_verilog -noexpr -norename %s/before.xaig", tempdir_name.c_str()));
+#endif
 		Pass::call(design, stringf("write_xaiger -map %s/input.sym %s/input.xaig", tempdir_name.c_str(), tempdir_name.c_str()));
 
 		std::string buffer;
@@ -513,25 +516,22 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		// in preparation for stitching mapped_mod in
 		// Short $_FF_ cells used by ABC (FIXME)
 		dict<IdString, decltype(RTLIL::Cell::parameters)> erased_boxes;
+		std::vector<RTLIL::Cell*> abc_dff;
 		for (auto it = module->cells_.begin(); it != module->cells_.end(); ) {
 			RTLIL::Cell* cell = it->second;
 			if (cell->type.in("$_AND_", "$_NOT_")) {
 				it = module->cells_.erase(it);
 				continue;
 			}
-			else if (cell->type.in("$_FF_")) {
-				RTLIL::Wire *D = cell->getPort("\\D").as_wire();
-				RTLIL::Wire *Q = cell->getPort("\\Q").as_wire();
-				Q->attributes.swap(D->attributes);
-				module->connect(Q, D);
-				it = module->cells_.erase(it);
-				continue;
-			}
-			RTLIL::Module* box_module = design->module(cell->type);
-			if (box_module && box_module->attributes.count("\\abc_box_id")) {
-				erased_boxes.insert(std::make_pair(it->first, std::move(cell->parameters)));
-				it = module->cells_.erase(it);
-				continue;
+			if (cell->type.in("$__ABC_FF_"))
+				abc_dff.emplace_back(cell);
+			else {
+				RTLIL::Module* box_module = design->module(cell->type);
+				if (box_module && box_module->attributes.count("\\abc_box_id")) {
+					erased_boxes.insert(std::make_pair(it->first, std::move(cell->parameters)));
+					it = module->cells_.erase(it);
+					continue;
+				}
 			}
 			++it;
 		}
@@ -671,6 +671,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		int in_wires = 0, out_wires = 0;
 
 		// Stitch in mapped_mod's inputs/outputs into module
+		// TODO: iterate using ports
 		for (auto &it : mapped_mod->wires_) {
 			RTLIL::Wire *w = it.second;
 			if (!w->port_input && !w->port_output)
@@ -695,6 +696,13 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 				out_wires++;
 				module->connect(conn);
 			}
+		}
+
+		for (auto cell : abc_dff) {
+			RTLIL::SigBit D = cell->getPort("\\D");
+			RTLIL::SigBit Q = cell->getPort("\\Q");
+			module->connect(Q, D);
+			module->remove(cell);
 		}
 
 		//log("ABC RESULTS:        internal signals: %8d\n", int(signal_list.size()) - in_wires - out_wires);
