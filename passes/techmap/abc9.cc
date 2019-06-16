@@ -512,26 +512,18 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			}
 		}
 
-		// Remove all AND, NOT, and ABC box instances
-		// in preparation for stitching mapped_mod in
-		// Short $_FF_ cells used by ABC (FIXME)
 		dict<IdString, decltype(RTLIL::Cell::parameters)> erased_boxes;
-		std::vector<RTLIL::Cell*> abc_dff;
 		for (auto it = module->cells_.begin(); it != module->cells_.end(); ) {
 			RTLIL::Cell* cell = it->second;
-			if (cell->type.in("$_AND_", "$_NOT_")) {
+			if (cell->type.in("$_AND_", "$_NOT_", "$__ABC_FF_")) {
 				it = module->cells_.erase(it);
 				continue;
 			}
-			if (cell->type.in("$__ABC_FF_"))
-				abc_dff.emplace_back(cell);
-			else {
-				RTLIL::Module* box_module = design->module(cell->type);
-				if (box_module && box_module->attributes.count("\\abc_box_id")) {
-					erased_boxes.insert(std::make_pair(it->first, std::move(cell->parameters)));
-					it = module->cells_.erase(it);
-					continue;
-				}
+			RTLIL::Module* box_module = design->module(cell->type);
+			if (box_module && box_module->attributes.count("\\abc_box_id")) {
+				erased_boxes.insert(std::make_pair(it->first, std::move(cell->parameters)));
+				it = module->cells_.erase(it);
+				continue;
 			}
 			++it;
 		}
@@ -693,13 +685,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 				out_wires++;
 				module->connect(conn);
 			}
-		}
-
-		for (auto cell : abc_dff) {
-			RTLIL::SigBit D = cell->getPort("\\D");
-			RTLIL::SigBit Q = cell->getPort("\\Q");
-			module->connect(Q, D);
-			module->remove(cell);
 		}
 
 		//log("ABC RESULTS:        internal signals: %8d\n", int(signal_list.size()) - in_wires - out_wires);

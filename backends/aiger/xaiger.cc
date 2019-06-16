@@ -222,15 +222,15 @@ struct XAigerWriter
 
 			log_assert(!holes_mode);
 
-			// FIXME: Should short here, rather than provide $__ABC_FF_
-			//        to ABC like a user cell
-			//if (cell->type == "$__ABC_FF_")
-			//{
-			//	SigBit D = sigmap(cell->getPort("\\D").as_bit());
-			//	SigBit Q = sigmap(cell->getPort("\\Q").as_bit());
-			//	alias_map[Q] = D;
-			//	continue;
-			//}
+			if (cell->type == "$__ABC_FF_")
+			{
+				SigBit D = sigmap(cell->getPort("\\D").as_bit());
+				SigBit Q = sigmap(cell->getPort("\\Q").as_bit());
+				unused_bits.erase(D);
+				undriven_bits.erase(Q);
+				alias_map[Q] = D;
+				continue;
+			}
 
 			RTLIL::Module* inst_module = !holes_mode ? module->design->module(cell->type) : nullptr;
 			bool inst_flop = inst_module ? inst_module->attributes.count("\\abc_flop") : false;
