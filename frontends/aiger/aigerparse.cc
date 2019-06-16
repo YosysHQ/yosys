@@ -726,7 +726,7 @@ void AigerReader::parse_aiger_binary()
 void AigerReader::post_process()
 {
 	pool<RTLIL::Module*> abc_carry_modules;
-	unsigned ci_count = 0, co_count = 0, flop_count = 0;
+	unsigned ci_count = 0, co_count = 0;
 	for (auto cell : boxes) {
 		RTLIL::Module* box_module = design->module(cell->type);
 		log_assert(box_module);
@@ -766,9 +766,6 @@ void AigerReader::post_process()
 			}
 		}
 
-		bool flop = box_module->attributes.count("\\abc_flop");
-		log_assert(!flop || flop_count < flopNum);
-
 		// NB: Assume box_module->ports are sorted alphabetically
 		//     (as RTLIL::Module::fixup_ports() would do)
 		for (auto port_name : box_module->ports) {
@@ -783,13 +780,6 @@ void AigerReader::post_process()
 					log_assert(wire);
 					log_assert(wire->port_output);
 					wire->port_output = false;
-
-					if (flop && w->attributes.count("\\abc_flop_d")) {
-						RTLIL::Wire* d = outputs[outputs.size() - flopNum + flop_count];
-						log_assert(d);
-						log_assert(d->port_output);
-						d->port_output = false;
-					}
 				}
 				if (w->port_output) {
 					log_assert((piNum + ci_count) < inputs.size());
@@ -797,20 +787,11 @@ void AigerReader::post_process()
 					log_assert(wire);
 					log_assert(wire->port_input);
 					wire->port_input = false;
-
-					if (flop && w->attributes.count("\\abc_flop_q")) {
-						wire = inputs[piNum - flopNum + flop_count];
-						log_assert(wire);
-						log_assert(wire->port_input);
-						wire->port_input = false;
-					}
 				}
 				rhs.append(wire);
 			}
 			cell->setPort(port_name, rhs);
 		}
-
-		if (flop) flop_count++;
 	}
 
 	dict<RTLIL::IdString, int> wideports_cache;
