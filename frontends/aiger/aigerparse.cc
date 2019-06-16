@@ -900,6 +900,7 @@ void AigerReader::post_process()
 					else {
 						wire->port_output = false;
 						module->connect(wire, existing);
+						wire = existing;
 					}
 				}
 				else if (index > 0) {
