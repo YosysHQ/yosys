@@ -27,7 +27,7 @@ module  \$_DFF_P_   (input D, C, output Q);
 `ifndef _ABC
 	FDRE   #(.INIT(|0)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(1'b1), .R(1'b0));
 `else
-    wire Q_next;
+	wire Q_next;
 	\$__ABC_FDRE #(.INIT(|0)) _TECHMAP_REPLACE_ (.D(D), .Q(Q_next), .Q_past(Q), .C(C), .CE(1'b1), .R(1'b0));
 	\$__ABC_FF_ abc_dff (.D(Q_next), .Q(Q));
 `endif
