@@ -671,26 +671,23 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		int in_wires = 0, out_wires = 0;
 
 		// Stitch in mapped_mod's inputs/outputs into module
-		// TODO: iterate using ports
-		for (auto &it : mapped_mod->wires_) {
-			RTLIL::Wire *w = it.second;
-			if (!w->port_input && !w->port_output)
-				continue;
-			RTLIL::Wire *wire = module->wire(w->name);
+		for (auto port_name : mapped_mod->ports) {
+			RTLIL::Wire *port = mapped_mod->wire(port_name);
+			log_assert(port);
+			RTLIL::Wire *wire = module->wire(port->name);
 			log_assert(wire);
-			RTLIL::Wire *remap_wire = module->wire(remap_name(w->name));
+			RTLIL::Wire *remap_wire = module->wire(remap_name(port->name));
 			RTLIL::SigSpec signal = RTLIL::SigSpec(wire, 0, GetSize(remap_wire));
 			log_assert(GetSize(signal) >= GetSize(remap_wire));
 
-			log_assert(w->port_input || w->port_output);
 			RTLIL::SigSig conn;
-			if (w->port_input) {
+			if (port->port_input) {
 				conn.first = remap_wire;
 				conn.second = signal;
 				in_wires++;
 				module->connect(conn);
 			}
-			if (w->port_output) {
+			if (port->port_output) {
 				conn.first = signal;
 				conn.second = remap_wire;
 				out_wires++;
