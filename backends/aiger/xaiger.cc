@@ -59,30 +59,22 @@ void aiger_encode(std::ostream &f, int x)
 struct XAigerWriter
 {
 	Module *module;
-	bool zinit_mode;
 	SigMap sigmap;
 
-	dict<SigBit, bool> init_map;
 	pool<SigBit> input_bits, output_bits;
-	dict<SigBit, SigBit> not_map, ff_map, alias_map;
+	dict<SigBit, SigBit> not_map, alias_map;
 	dict<SigBit, pair<SigBit, SigBit>> and_map;
-	//pool<SigBit> initstate_bits;
 	vector<std::tuple<SigBit,RTLIL::Cell*,RTLIL::IdString,int>> ci_bits;
 	vector<std::tuple<SigBit,RTLIL::Cell*,RTLIL::IdString,int,int>> co_bits;
-	vector<std::pair<SigBit,SigBit>> ff_bits;
 
 	vector<pair<int, int>> aig_gates;
-	vector<int> aig_latchin, aig_latchinit, aig_outputs;
+	vector<int> aig_outputs;
 	int aig_m = 0, aig_i = 0, aig_l = 0, aig_o = 0, aig_a = 0;
 
 	dict<SigBit, int> aig_map;
 	dict<SigBit, int> ordered_outputs;
-	dict<SigBit, int> ordered_latches;
 
 	vector<Cell*> box_list;
-
-	//dict<SigBit, int> init_inputs;
-	//int initstate_ff = 0;
 
 	int mkgate(int a0, int a1)
 	{
@@ -97,10 +89,6 @@ struct XAigerWriter
 		{
 			aig_map[bit] = -1;
 
-			//if (initstate_bits.count(bit)) {
-			//	log_assert(initstate_ff > 0);
-			//	aig_map[bit] = initstate_ff;
-			//} else
 			if (not_map.count(bit)) {
 				int a = bit2aig(not_map.at(bit)) ^ 1;
 				aig_map[bit] = a;
@@ -123,7 +111,7 @@ struct XAigerWriter
 		return aig_map.at(bit);
 	}
 
-	XAigerWriter(Module *module, bool zinit_mode, bool holes_mode=false) : module(module), zinit_mode(zinit_mode), sigmap(module)
+	XAigerWriter(Module *module, bool holes_mode=false) : module(module), sigmap(module)
 	{
 		pool<SigBit> undriven_bits;
 		pool<SigBit> unused_bits;
@@ -145,14 +133,6 @@ struct XAigerWriter
 
 		for (auto wire : module->wires())
 		{
-			if (wire->attributes.count("\\init")) {
-				SigSpec initsig = sigmap(wire);
-				Const initval = wire->attributes.at("\\init");
-				for (int i = 0; i < GetSize(wire) && i < GetSize(initval); i++)
-					if (initval[i] == State::S0 || initval[i] == State::S1)
-						init_map[initsig[i]] = initval[i] == State::S1;
-			}
-
 			bool keep = wire->attributes.count("\\keep");
 
 			for (int i = 0; i < GetSize(wire); i++)
@@ -207,16 +187,6 @@ struct XAigerWriter
 				continue;
 			}
 
-			//if (cell->type.in("$_FF_", "$_DFF_N_", "$_DFF_P_"))
-			//{
-			//	SigBit D = sigmap(cell->getPort("\\D").as_bit());
-			//	SigBit Q = sigmap(cell->getPort("\\Q").as_bit());
-			//	unused_bits.erase(D);
-			//	undriven_bits.erase(Q);
-			//	ff_map[Q] = D;
-			//	continue;
-			//}
-
 			if (cell->type == "$_AND_")
 			{
 				SigBit A = sigmap(cell->getPort("\\A").as_bit());
@@ -237,45 +207,8 @@ struct XAigerWriter
 
 			log_assert(!holes_mode);
 
-			//if (cell->type == "$initstate")
-			//{
-			//	SigBit Y = sigmap(cell->getPort("\\Y").as_bit());
-			//	undriven_bits.erase(Y);
-			//	initstate_bits.insert(Y);
-			//	continue;
-			//}
-
 			RTLIL::Module* inst_module = module->design->module(cell->type);
-			//bool inst_flop = inst_module ? inst_module->attributes.count("\\abc_flop") : false;
-			//if (inst_flop) {
-			//	SigBit d, q;
-			//	for (const auto &c : cell->connections()) {
-			//		auto is_input = cell->input(c.first);
-			//		auto is_output = cell->output(c.first);
-			//		log_assert(is_input || is_output);
-			//		RTLIL::Wire* port = inst_module->wire(c.first);
-			//		for (auto b : c.second.bits()) {
-			//			if (is_input && port->attributes.count("\\abc_flop_d")) {
-			//				d = b;
-			//				SigBit I = sigmap(d);
-			//				if (I != d)
-			//					alias_map[I] = d;
-			//				unused_bits.erase(d);
-			//			}
-			//			if (is_output && port->attributes.count("\\abc_flop_q")) {
-			//				q = b;
-			//				SigBit O = sigmap(q);
-			//				if (O != q)
-			//					alias_map[O] = q;
-			//				undriven_bits.erase(O);
-			//			}
-			//		}
-			//	}
-			//	if (!abc_box_seen)
-			//		abc_box_seen = inst_module->attributes.count("\\abc_box_id");
-			//	ff_bits.emplace_back(d, q);
-			//}
-			/*else*/ if (inst_module && inst_module->attributes.count("\\abc_box_id")) {
+		    if (inst_module && inst_module->attributes.count("\\abc_box_id")) {
 				abc_box_seen = true;
 
 				if (!holes_mode) {
@@ -501,7 +434,6 @@ struct XAigerWriter
 			log_warning("Treating a total of %d undriven bits in %s like $anyseq.\n", GetSize(undriven_bits), log_id(module));
 		}
 
-		init_map.sort();
 		if (holes_mode) {
 			struct sort_by_port_id {
 				bool operator()(const RTLIL::SigBit& a, const RTLIL::SigBit& b) const {
@@ -517,7 +449,6 @@ struct XAigerWriter
 		}
 
 		not_map.sort();
-		ff_map.sort();
 		and_map.sort();
 
 		aig_map[State::S0] = 0;
@@ -529,77 +460,11 @@ struct XAigerWriter
 			aig_map[bit] = 2*aig_m;
 		}
 
-		for (auto &f : ff_bits) {
-			RTLIL::SigBit bit = f.second;
-			aig_m++, aig_i++;
-			log_assert(!aig_map.count(bit));
-			aig_map[bit] = 2*aig_m;
-		}
-
-		dict<SigBit, int> ff_aig_map;
 		for (auto &c : ci_bits) {
 			RTLIL::SigBit bit = std::get<0>(c);
 			aig_m++, aig_i++;
-			auto r = aig_map.insert(std::make_pair(bit, 2*aig_m));
-			if (!r.second)
-				ff_aig_map[bit] = 2*aig_m;
+			aig_map[bit] = 2*aig_m;
 		}
-
-		//if (zinit_mode)
-		//{
-		//	for (auto it : ff_map) {
-		//		if (init_map.count(it.first))
-		//			continue;
-		//		aig_m++, aig_i++;
-		//		init_inputs[it.first] = 2*aig_m;
-		//	}
-		//}
-
-		for (auto it : ff_map) {
-			aig_m++, aig_l++;
-			aig_map[it.first] = 2*aig_m;
-			ordered_latches[it.first] = aig_l-1;
-			if (init_map.count(it.first) == 0)
-				aig_latchinit.push_back(2);
-			else
-				aig_latchinit.push_back(init_map.at(it.first) ? 1 : 0);
-		}
-
-		//if (!initstate_bits.empty() || !init_inputs.empty()) {
-		//	aig_m++, aig_l++;
-		//	initstate_ff = 2*aig_m+1;
-		//	aig_latchinit.push_back(0);
-		//}
-
-		//if (zinit_mode)
-		//{
-		//	for (auto it : ff_map)
-		//	{
-		//		int l = ordered_latches[it.first];
-
-		//		if (aig_latchinit.at(l) == 1)
-		//			aig_map[it.first] ^= 1;
-
-		//		if (aig_latchinit.at(l) == 2)
-		//		{
-		//			int gated_ffout = mkgate(aig_map[it.first], initstate_ff^1);
-		//			int gated_initin = mkgate(init_inputs[it.first], initstate_ff);
-		//			aig_map[it.first] = mkgate(gated_ffout^1, gated_initin^1)^1;
-		//		}
-		//	}
-		//}
-
-		for (auto it : ff_map) {
-			int a = bit2aig(it.second);
-			int l = ordered_latches[it.first];
-			if (zinit_mode && aig_latchinit.at(l) == 1)
-				aig_latchin.push_back(a ^ 1);
-			else
-				aig_latchin.push_back(a);
-		}
-
-		//if (!initstate_bits.empty() || !init_inputs.empty())
-		//	aig_latchin.push_back(1);
 
 		for (auto &c : co_bits) {
 			RTLIL::SigBit bit = std::get<0>(c);
@@ -611,13 +476,6 @@ struct XAigerWriter
 			ordered_outputs[bit] = aig_o++;
 			aig_outputs.push_back(bit2aig(bit));
 		}
-
-		for (auto &f : ff_bits) {
-			aig_o++;
-			RTLIL::SigBit bit = f.second;
-			aig_outputs.push_back(ff_aig_map.at(bit));
-		}
-
 	}
 
 	void write_aiger(std::ostream &f, bool ascii_mode)
@@ -627,8 +485,6 @@ struct XAigerWriter
 		int aig_obcjf = aig_obcj;
 
 		log_assert(aig_m == aig_i + aig_l + aig_a);
-		log_assert(aig_l == GetSize(aig_latchin));
-		log_assert(aig_l == GetSize(aig_latchinit));
 		log_assert(aig_obcjf == GetSize(aig_outputs));
 
 		f << stringf("%s %d %d %d %d %d", ascii_mode ? "aag" : "aig", aig_m, aig_i, aig_l, aig_o, aig_a);
@@ -638,15 +494,6 @@ struct XAigerWriter
 		{
 			for (int i = 0; i < aig_i; i++)
 				f << stringf("%d\n", 2*i+2);
-
-			for (int i = 0; i < aig_l; i++) {
-				if (zinit_mode || aig_latchinit.at(i) == 0)
-					f << stringf("%d %d\n", 2*(aig_i+i)+2, aig_latchin.at(i));
-				else if (aig_latchinit.at(i) == 1)
-					f << stringf("%d %d 1\n", 2*(aig_i+i)+2, aig_latchin.at(i));
-				else if (aig_latchinit.at(i) == 2)
-					f << stringf("%d %d %d\n", 2*(aig_i+i)+2, aig_latchin.at(i), 2*(aig_i+i)+2);
-			}
 
 			for (int i = 0; i < aig_obc; i++)
 				f << stringf("%d\n", aig_outputs.at(i));
@@ -665,15 +512,6 @@ struct XAigerWriter
 		}
 		else
 		{
-			for (int i = 0; i < aig_l; i++) {
-				if (zinit_mode || aig_latchinit.at(i) == 0)
-					f << stringf("%d\n", aig_latchin.at(i));
-				else if (aig_latchinit.at(i) == 1)
-					f << stringf("%d 1\n", aig_latchin.at(i));
-				else if (aig_latchinit.at(i) == 2)
-					f << stringf("%d %d\n", aig_latchin.at(i), 2*(aig_i+i)+2);
-			}
-
 			for (int i = 0; i < aig_obc; i++)
 				f << stringf("%d\n", aig_outputs.at(i));
 
@@ -699,7 +537,7 @@ struct XAigerWriter
 
 		f << "c";
 
-		if (!box_list.empty() || !ff_bits.empty()) {
+		if (!box_list.empty()) {
 			auto write_buffer = [](std::stringstream &buffer, int i32) {
 				int32_t i32_be = to_big_endian(i32);
 				buffer.write(reinterpret_cast<const char*>(&i32_be), sizeof(i32_be));
@@ -708,14 +546,14 @@ struct XAigerWriter
 			std::stringstream h_buffer;
 			auto write_h_buffer = std::bind(write_buffer, std::ref(h_buffer), std::placeholders::_1);
 			write_h_buffer(1);
-			log_debug("ciNum = %zu\n", input_bits.size() + ff_bits.size() + ci_bits.size());
-			write_h_buffer(input_bits.size() + ff_bits.size() + ci_bits.size());
-			log_debug("coNum = %zu\n", output_bits.size() + ff_bits.size() + co_bits.size());
-			write_h_buffer(output_bits.size() + ff_bits.size()+ co_bits.size());
-			log_debug("piNum = %zu\n", input_bits.size() + ff_bits.size());
-			write_h_buffer(input_bits.size()+ ff_bits.size());
-			log_debug("poNum = %zu\n", output_bits.size() + ff_bits.size());
-			write_h_buffer(output_bits.size() + ff_bits.size());
+			log_debug("ciNum = %zu\n", input_bits.size() + ci_bits.size());
+			write_h_buffer(input_bits.size() + ci_bits.size());
+			log_debug("coNum = %zu\n", output_bits.size() + co_bits.size());
+			write_h_buffer(output_bits.size() + co_bits.size());
+			log_debug("piNum = %zu\n", input_bits.size());
+			write_h_buffer(input_bits.size());
+			log_debug("poNum = %zu\n", output_bits.size());
+			write_h_buffer(output_bits.size());
 			log_debug("boxNum = %zu\n", box_list.size());
 			write_h_buffer(box_list.size());
 
@@ -789,21 +627,15 @@ struct XAigerWriter
 			f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
 			f.write(buffer_str.data(), buffer_str.size());
 
-			/*if (!ff_bits.empty())*/ {
-				std::stringstream r_buffer;
-				auto write_r_buffer = std::bind(write_buffer, std::ref(r_buffer), std::placeholders::_1);
-				log_debug("flopNum = %zu\n", ff_bits.size());
-				write_r_buffer(ff_bits.size());
-				//int mergeability_class = 1;
-				//for (auto cell : ff_bits)
-				//	write_r_buffer(mergeability_class++);
+			std::stringstream r_buffer;
+			auto write_r_buffer = std::bind(write_buffer, std::ref(r_buffer), std::placeholders::_1);
+			write_r_buffer(0);
 
-				f << "r";
-				std::string buffer_str = r_buffer.str();
-				int32_t buffer_size_be = to_big_endian(buffer_str.size());
-				f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
-				f.write(buffer_str.data(), buffer_str.size());
-			}
+			f << "r";
+			buffer_str = r_buffer.str();
+			buffer_size_be = to_big_endian(buffer_str.size());
+			f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
+			f.write(buffer_str.data(), buffer_str.size());
 
 			if (holes_module) {
 				// NB: fixup_ports() will sort ports by name
@@ -831,7 +663,7 @@ struct XAigerWriter
 				Pass::call(holes_module->design, "clean -purge");
 
 				std::stringstream a_buffer;
-				XAigerWriter writer(holes_module, false /*zinit_mode*/, true /* holes_mode */);
+				XAigerWriter writer(holes_module, true /* holes_mode */);
 				writer.write_aiger(a_buffer, false /*ascii_mode*/);
 
 				holes_module->design->selection_stack.pop_back();
@@ -851,9 +683,7 @@ struct XAigerWriter
 	void write_map(std::ostream &f, bool verbose_map)
 	{
 		dict<int, string> input_lines;
-		dict<int, string> init_lines;
 		dict<int, string> output_lines;
-		dict<int, string> latch_lines;
 		dict<int, string> wire_lines;
 
 		for (auto wire : module->wires())
@@ -878,22 +708,6 @@ struct XAigerWriter
 					continue;
 				}
 
-				//if (init_inputs.count(sig[i])) {
-				//	int a = init_inputs.at(sig[i]);
-				//	log_assert((a & 1) == 0);
-				//	init_lines[a] += stringf("init %d %d %s\n", (a >> 1)-1, i, log_id(wire));
-				//	continue;
-				//}
-
-				if (ordered_latches.count(sig[i])) {
-					int l = ordered_latches.at(sig[i]);
-					if (zinit_mode && (aig_latchinit.at(l) == 1))
-						latch_lines[l] += stringf("invlatch %d %d %s\n", l, i, log_id(wire));
-					else
-						latch_lines[l] += stringf("latch %d %d %s\n", l, i, log_id(wire));
-					continue;
-				}
-
 				if (verbose_map) {
 					if (aig_map.count(sig[i]) == 0)
 						continue;
@@ -909,10 +723,6 @@ struct XAigerWriter
 			f << it.second;
 		log_assert(input_lines.size() == input_bits.size());
 
-		init_lines.sort();
-		for (auto &it : init_lines)
-			f << it.second;
-
 		int box_count = 0;
 		for (auto cell : box_list)
 			f << stringf("box %d %d %s\n", box_count++, 0, log_id(cell->name));
@@ -921,10 +731,6 @@ struct XAigerWriter
 		for (auto &it : output_lines)
 			f << it.second;
 		log_assert(output_lines.size() == output_bits.size());
-
-		latch_lines.sort();
-		for (auto &it : latch_lines)
-			f << it.second;
 
 		wire_lines.sort();
 		for (auto &it : wire_lines)
@@ -946,10 +752,6 @@ struct XAigerBackend : public Backend {
 		log("    -ascii\n");
 		log("        write ASCII version of AIGER format\n");
 		log("\n");
-		log("    -zinit\n");
-		log("        convert FFs to zero-initialized FFs, adding additional inputs for\n");
-		log("        uninitialized FFs.\n");
-		log("\n");
 		log("    -map <filename>\n");
 		log("        write an extra file with port and latch symbols\n");
 		log("\n");
@@ -960,7 +762,6 @@ struct XAigerBackend : public Backend {
 	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		bool ascii_mode = false;
-		bool zinit_mode = false;
 		bool verbose_map = false;
 		std::string map_filename;
 
@@ -971,10 +772,6 @@ struct XAigerBackend : public Backend {
 		{
 			if (args[argidx] == "-ascii") {
 				ascii_mode = true;
-				continue;
-			}
-			if (args[argidx] == "-zinit") {
-				zinit_mode = true;
 				continue;
 			}
 			if (map_filename.empty() && args[argidx] == "-map" && argidx+1 < args.size()) {
@@ -995,7 +792,7 @@ struct XAigerBackend : public Backend {
 		if (top_module == nullptr)
 			log_error("Can't find top module in current design!\n");
 
-		XAigerWriter writer(top_module, zinit_mode);
+		XAigerWriter writer(top_module);
 		writer.write_aiger(*f, ascii_mode);
 
 		if (!map_filename.empty()) {
