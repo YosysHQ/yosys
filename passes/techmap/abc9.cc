@@ -67,7 +67,6 @@ SigMap assign_map;
 RTLIL::Module *module;
 std::map<RTLIL::SigBit, int> signal_map;
 std::map<RTLIL::SigBit, RTLIL::State> signal_init;
-bool recover_init;
 
 bool clk_polarity, en_polarity;
 RTLIL::SigSpec clk_sig, en_sig;
@@ -253,7 +252,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 	signal_map.clear();
 	pi_map.clear();
 	po_map.clear();
-	recover_init = false;
 
 	if (clk_str != "$")
 	{
@@ -510,6 +508,12 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 				for (int i = 0; i < GetSize(wire); i++)
 					output_bits.insert({wire, i});
 			}
+
+			auto jt = w->attributes.find("\\init");
+			if (jt != w->attributes.end()) {
+				auto r = remap_wire->attributes.insert(std::make_pair("\\init", jt->second));
+				log_assert(r.second);
+			}
 		}
 
 		dict<IdString, decltype(RTLIL::Cell::parameters)> erased_boxes;
@@ -648,15 +652,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			}
 			module->connect(conn);
 		}
-
-		if (recover_init)
-			for (auto wire : mapped_mod->wires()) {
-				if (wire->attributes.count("\\init")) {
-					Wire *w = module->wires_[remap_name(wire->name)];
-					log_assert(w->attributes.count("\\init") == 0);
-					w->attributes["\\init"] = wire->attributes.at("\\init");
-				}
-			}
 
 		for (auto &it : cell_stats)
 			log("ABC RESULTS:   %15s cells: %8d\n", it.first.c_str(), it.second);
