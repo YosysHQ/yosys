@@ -65,12 +65,9 @@ bool markgroups;
 int map_autoidx;
 SigMap assign_map;
 RTLIL::Module *module;
-std::map<RTLIL::SigBit, int> signal_map;
-std::map<RTLIL::SigBit, RTLIL::State> signal_init;
 
 bool clk_polarity, en_polarity;
 RTLIL::SigSpec clk_sig, en_sig;
-dict<int, std::string> pi_map, po_map;
 
 std::string remap_name(RTLIL::IdString abc_name)
 {
@@ -227,13 +224,13 @@ struct abc_output_filter
 
 	void next_line(const std::string &line)
 	{
-		int pi, po;
-		if (sscanf(line.c_str(), "Start-point = pi%d.  End-point = po%d.", &pi, &po) == 2) {
-			log("ABC: Start-point = pi%d (%s).  End-point = po%d (%s).\n",
-					pi, pi_map.count(pi) ? pi_map.at(pi).c_str() : "???",
-					po, po_map.count(po) ? po_map.at(po).c_str() : "???");
-			return;
-		}
+		//int pi, po;
+		//if (sscanf(line.c_str(), "Start-point = pi%d.  End-point = po%d.", &pi, &po) == 2) {
+		//	log("ABC: Start-point = pi%d (%s).  End-point = po%d (%s).\n",
+		//			pi, pi_map.count(pi) ? pi_map.at(pi).c_str() : "???",
+		//			po, po_map.count(po) ? po_map.at(po).c_str() : "???");
+		//	return;
+		//}
 
 		for (char ch : line)
 			next_char(ch);
@@ -248,10 +245,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 {
 	module = current_module;
 	map_autoidx = autoidx++;
-
-	signal_map.clear();
-	pi_map.clear();
-	po_map.clear();
 
 	if (clk_str != "$")
 	{
@@ -816,10 +809,6 @@ struct Abc9Pass : public Pass {
 		log_push();
 
 		assign_map.clear();
-		signal_map.clear();
-		signal_init.clear();
-		pi_map.clear();
-		po_map.clear();
 
 #ifdef ABCEXTERNAL
 		std::string exe_file = ABCEXTERNAL;
@@ -970,24 +959,6 @@ struct Abc9Pass : public Pass {
 			}
 
 			assign_map.set(mod);
-			signal_init.clear();
-
-			for (Wire *wire : mod->wires())
-				if (wire->attributes.count("\\init")) {
-					SigSpec initsig = assign_map(wire);
-					Const initval = wire->attributes.at("\\init");
-					for (int i = 0; i < GetSize(initsig) && i < GetSize(initval); i++)
-						switch (initval[i]) {
-							case State::S0:
-								signal_init[initsig[i]] = State::S0;
-								break;
-							case State::S1:
-								signal_init[initsig[i]] = State::S0;
-								break;
-							default:
-								break;
-						}
-				}
 
 			if (!retime_mode || !clk_str.empty()) {
 				abc9_module(design, mod, script_file, exe_file, cleanup, lut_costs, retime_mode, clk_str, keepff,
@@ -1146,10 +1117,6 @@ struct Abc9Pass : public Pass {
 		Pass::call(design, "clean");
 
 		assign_map.clear();
-		signal_map.clear();
-		signal_init.clear();
-		pi_map.clear();
-		po_map.clear();
 
 		log_pop();
 	}
