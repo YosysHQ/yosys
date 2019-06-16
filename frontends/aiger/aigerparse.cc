@@ -927,6 +927,10 @@ void AigerReader::post_process()
 					}
 				}
 				log_debug(" -> %s\n", log_id(wire));
+				int init;
+				mf >> init;
+				if (init < 2)
+					wire->attributes["\\init"] = init;
 			}
 			else if (type == "box") {
 				RTLIL::Cell* cell = module->cell(stringf("$__box%d__", variable));
