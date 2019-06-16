@@ -25,7 +25,8 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-#define XC7_WIRE_DELAY "160"
+#define XC7_WIRE_DELAY "300" // Number with which ABC will map a 6-input gate
+                             // to one LUT6 (instead of a LUT5 + LUT2)
 
 struct SynthXilinxPass : public ScriptPass
 {
