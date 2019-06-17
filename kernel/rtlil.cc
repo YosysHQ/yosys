@@ -1565,13 +1565,21 @@ void RTLIL::Module::remove(const pool<RTLIL::Wire*> &wires)
 
 void RTLIL::Module::remove(RTLIL::Cell *cell)
 {
+	auto it = cells_.find(cell->name);
+	log_assert(it != cells_.end());
+	remove(it);
+}
+
+dict<RTLIL::IdString, RTLIL::Cell*>::iterator RTLIL::Module::remove(dict<RTLIL::IdString, RTLIL::Cell*>::iterator it)
+{
+	RTLIL::Cell *cell = it->second;
 	while (!cell->connections_.empty())
 		cell->unsetPort(cell->connections_.begin()->first);
 
-	log_assert(cells_.count(cell->name) != 0);
 	log_assert(refcount_cells_ == 0);
-	cells_.erase(cell->name);
+	it = cells_.erase(it);
 	delete cell;
+	return it;
 }
 
 void RTLIL::Module::rename(RTLIL::Wire *wire, RTLIL::IdString new_name)

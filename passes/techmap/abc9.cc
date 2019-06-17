@@ -509,22 +509,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			}
 		}
 
-		dict<IdString, decltype(RTLIL::Cell::parameters)> erased_boxes;
-		for (auto it = module->cells_.begin(); it != module->cells_.end(); ) {
-			RTLIL::Cell* cell = it->second;
-			if (cell->type.in("$_AND_", "$_NOT_", "$__ABC_FF_")) {
-				it = module->cells_.erase(it);
-				continue;
-			}
-			RTLIL::Module* box_module = design->module(cell->type);
-			if (box_module && box_module->attributes.count("\\abc_box_id")) {
-				erased_boxes.insert(std::make_pair(it->first, std::move(cell->parameters)));
-				it = module->cells_.erase(it);
-				continue;
-			}
-			++it;
-		}
-		// Do the same for module connections
 		for (auto &it : module->connections_) {
 			auto &signal = it.first;
 			auto bits = signal.bits();
@@ -532,6 +516,19 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 				if (output_bits.count(b))
 					b = module->addWire(NEW_ID);
 			signal = std::move(bits);
+		}
+
+		vector<RTLIL::Cell*> boxes;
+		for (auto it = module->cells_.begin(); it != module->cells_.end(); ) {
+			RTLIL::Cell* cell = it->second;
+			if (cell->type.in("$_AND_", "$_NOT_", "$__ABC_FF_")) {
+				it = module->remove(it);
+				continue;
+			}
+			RTLIL::Module* box_module = design->module(cell->type);
+			if (box_module && box_module->attributes.count("\\abc_box_id"))
+				boxes.emplace_back(it->second);
+			++it;
 		}
 
 		std::map<std::string, int> cell_stats;
@@ -602,18 +599,21 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 					SigSpec my_a = module->wires_[remap_name(c->getPort("\\A").as_wire()->name)];
 					SigSpec my_y = module->wires_[remap_name(c->getPort("\\Y").as_wire()->name)];
 					module->connect(my_y, my_a);
+                                        if (markgroups) c->attributes["\\abcgroup"] = map_autoidx;
 					continue;
 				}
 			}
-			else {
-				auto it = erased_boxes.find(c->name);
-				log_assert(it != erased_boxes.end());
-				c->parameters = std::move(it->second);
-			}
 
-			RTLIL::Cell* cell = module->addCell(remap_name(c->name), c->type);
+			RTLIL::Cell *cell = module->addCell(remap_name(c->name), c->type);
 			if (markgroups) cell->attributes["\\abcgroup"] = map_autoidx;
-			cell->parameters = c->parameters;
+                        RTLIL::Cell *existing_cell = module->cell(c->name);
+                        if (existing_cell) {
+                                cell->parameters = std::move(existing_cell->parameters);
+                                cell->attributes = std::move(existing_cell->attributes);
+                        }
+                        else {
+                                cell->parameters = std::move(c->parameters);
+                        }
 			for (auto &conn : c->connections()) {
 				RTLIL::SigSpec newsig;
 				for (auto c : conn.second.chunks()) {
@@ -627,6 +627,9 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 				cell->setPort(conn.first, newsig);
 			}
 		}
+
+                for (auto cell : boxes)
+                        module->remove(cell);
 
 		// Copy connections (and rename) from mapped_mod to module
 		for (auto conn : mapped_mod->connections()) {
