@@ -599,11 +599,12 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			if (markgroups) cell->attributes["\\abcgroup"] = map_autoidx;
                         RTLIL::Cell *existing_cell = module->cell(c->name);
                         if (existing_cell) {
-                                cell->parameters = std::move(existing_cell->parameters);
-                                cell->attributes = std::move(existing_cell->attributes);
+                                cell->parameters = existing_cell->parameters;
+                                cell->attributes = existing_cell->attributes;
                         }
                         else {
-                                cell->parameters = std::move(c->parameters);
+                                cell->parameters = c->parameters;
+                                cell->attributes = c->attributes;
                         }
 			for (auto &conn : c->connections()) {
 				RTLIL::SigSpec newsig;
