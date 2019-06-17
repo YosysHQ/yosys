@@ -29,7 +29,7 @@
 						"&st; &if -g -K 6; &dch -f; &if {W}; &save; &load; "\
 						"&st; &if -g -K 6; &synch2; &if {W}; &save; &load"
 #else
-#define ABC_COMMAND_LUT "&st; &sweep; &scorr; "/*"&dc2; "*/"&retime; &dch -f; &ps -l; &if {W} {D} -v; "/*"&mfs; "*/"&ps -l"
+#define ABC_COMMAND_LUT "&st; &sweep; &scorr; &dc2; &retime; &st; &dch -f; &ps -l; &if {W} {D} -v; "/*"&mfs; "*/"&ps -l"
 #endif
 
 
