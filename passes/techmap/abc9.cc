@@ -527,7 +527,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			}
 			RTLIL::Module* box_module = design->module(cell->type);
 			if (box_module && box_module->attributes.count("\\abc_box_id"))
-				boxes.emplace_back(it->second);
+				boxes.emplace_back(cell);
 			++it;
 		}
 
@@ -629,8 +629,8 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			}
 		}
 
-                for (auto cell : boxes)
-                        module->remove(cell);
+		for (auto cell : boxes)
+			module->remove(cell);
 
 		// Copy connections (and rename) from mapped_mod to module
 		for (auto conn : mapped_mod->connections()) {
