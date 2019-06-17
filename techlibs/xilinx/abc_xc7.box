@@ -44,19 +44,19 @@ RAM128X1D 5 0 17 2
 # Inputs: C CE D R \$pastQ
 # Outputs: Q
 FDRE 6 1 5 1
-- - - - -
+- 109 -46 358 0
 
-# Inputs: C CE D S
+# Inputs: C CE D S \$pastQ
 # Outputs: Q
-FDSE 7 0 4 1
-- - - -
+FDSE 7 0 5 1
+- 109 -46 358 0
 
-# Inputs: C CE CLR D
+# Inputs: C CE CLR D \$pastQ
 # Outputs: Q
-FDCE 8 0 4 1
-- - - -
+FDCE 8 0 5 1
+- 109 - -46 0
 
-# Inputs: C CE D PRE
+# Inputs: C CE D PRE \$pastQ
 # Outputs: Q
-FDPE 9 0 4 1
-- - - -
+FDPE 9 0 5 1
+- 109 -46 - 0
