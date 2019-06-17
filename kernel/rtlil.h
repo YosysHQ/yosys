@@ -1040,6 +1040,7 @@ public:
 	// Removing wires is expensive. If you have to remove wires, remove them all at once.
 	void remove(const pool<RTLIL::Wire*> &wires);
 	void remove(RTLIL::Cell *cell);
+	dict<RTLIL::IdString, RTLIL::Cell*>::iterator remove(dict<RTLIL::IdString, RTLIL::Cell*>::iterator it);
 
 	void rename(RTLIL::Wire *wire, RTLIL::IdString new_name);
 	void rename(RTLIL::Cell *cell, RTLIL::IdString new_name);
