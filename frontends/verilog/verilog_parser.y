@@ -133,7 +133,7 @@ struct specify_rise_fall {
 }
 
 %token <string> TOK_STRING TOK_ID TOK_CONSTVAL TOK_REALVAL TOK_PRIMITIVE
-%token <string> TOK_SVA_LABEL TOK_SPECIFY_OPER TOK_ELAB_TASK
+%token <string> TOK_SVA_LABEL TOK_SPECIFY_OPER TOK_MSG_TASKS
 %token TOK_ASSERT TOK_ASSUME TOK_RESTRICT TOK_COVER TOK_FINAL
 %token ATTR_BEGIN ATTR_END DEFATTR_BEGIN DEFATTR_END
 %token TOK_MODULE TOK_ENDMODULE TOK_PARAMETER TOK_LOCALPARAM TOK_DEFPARAM
@@ -1881,6 +1881,16 @@ behavioral_stmt:
 	} opt_arg_list ';'{
 		ast_stack.pop_back();
 	} |
+	TOK_MSG_TASKS attr {
+		AstNode *node = new AstNode(AST_TCALL);
+		node->str = *$1;
+		delete $1;
+		ast_stack.back()->children.push_back(node);
+		ast_stack.push_back(node);
+		append_attr(node, $2);
+	} opt_arg_list ';'{
+		ast_stack.pop_back();
+	} |
 	attr TOK_BEGIN opt_label {
 		AstNode *node = new AstNode(AST_BLOCK);
 		ast_stack.back()->children.push_back(node);
@@ -2177,7 +2187,7 @@ gen_stmt:
 			delete $6;
 		ast_stack.pop_back();
 	} |
-	TOK_ELAB_TASK {
+	TOK_MSG_TASKS {
 		AstNode *node = new AstNode(AST_TECALL);
 		node->str = *$1;
 		delete $1;
