@@ -30,6 +30,14 @@ USING_YOSYS_NAMESPACE
 using namespace ILANG_BACKEND;
 YOSYS_NAMESPACE_BEGIN
 
+void ILANG_BACKEND::dump_attributes(std::ostream &f, std::string indent, const dict<RTLIL::IdString, RTLIL::Const>& attributes) {
+	for (auto &it : attributes) {
+		f << stringf("%s" "attribute %s ", indent.c_str(), it.first.c_str());
+		dump_const(f, it.second);
+		f << stringf("\n");
+	}
+}
+
 void ILANG_BACKEND::dump_const(std::ostream &f, const RTLIL::Const &data, int width, int offset, bool autoint)
 {
 	if (width < 0)
@@ -113,11 +121,7 @@ void ILANG_BACKEND::dump_sigspec(std::ostream &f, const RTLIL::SigSpec &sig, boo
 
 void ILANG_BACKEND::dump_wire(std::ostream &f, std::string indent, const RTLIL::Wire *wire)
 {
-	for (auto &it : wire->attributes) {
-		f << stringf("%s" "attribute %s ", indent.c_str(), it.first.c_str());
-		dump_const(f, it.second);
-		f << stringf("\n");
-	}
+	dump_attributes(f, indent, wire->attributes);
 	f << stringf("%s" "wire ", indent.c_str());
 	if (wire->width != 1)
 		f << stringf("width %d ", wire->width);
@@ -136,11 +140,7 @@ void ILANG_BACKEND::dump_wire(std::ostream &f, std::string indent, const RTLIL::
 
 void ILANG_BACKEND::dump_memory(std::ostream &f, std::string indent, const RTLIL::Memory *memory)
 {
-	for (auto &it : memory->attributes) {
-		f << stringf("%s" "attribute %s ", indent.c_str(), it.first.c_str());
-		dump_const(f, it.second);
-		f << stringf("\n");
-	}
+	dump_attributes(f, indent, memory->attributes);
 	f << stringf("%s" "memory ", indent.c_str());
 	if (memory->width != 1)
 		f << stringf("width %d ", memory->width);
@@ -153,11 +153,7 @@ void ILANG_BACKEND::dump_memory(std::ostream &f, std::string indent, const RTLIL
 
 void ILANG_BACKEND::dump_cell(std::ostream &f, std::string indent, const RTLIL::Cell *cell)
 {
-	for (auto &it : cell->attributes) {
-		f << stringf("%s" "attribute %s ", indent.c_str(), it.first.c_str());
-		dump_const(f, it.second);
-		f << stringf("\n");
-	}
+	dump_attributes(f, indent, cell->attributes);
 	f << stringf("%s" "cell %s %s\n", indent.c_str(), cell->type.c_str(), cell->name.c_str());
 	for (auto &it : cell->parameters) {
 		f << stringf("%s  parameter%s%s %s ", indent.c_str(),
@@ -192,12 +188,7 @@ void ILANG_BACKEND::dump_proc_case_body(std::ostream &f, std::string indent, con
 
 void ILANG_BACKEND::dump_proc_switch(std::ostream &f, std::string indent, const RTLIL::SwitchRule *sw)
 {
-	for (auto it = sw->attributes.begin(); it != sw->attributes.end(); ++it) {
-		f << stringf("%s" "attribute %s ", indent.c_str(), it->first.c_str());
-		dump_const(f, it->second);
-		f << stringf("\n");
-	}
-
+	dump_attributes(f, indent, sw->attributes);
 	f << stringf("%s" "switch ", indent.c_str());
 	dump_sigspec(f, sw->signal);
 	f << stringf("\n");
@@ -246,11 +237,7 @@ void ILANG_BACKEND::dump_proc_sync(std::ostream &f, std::string indent, const RT
 
 void ILANG_BACKEND::dump_proc(std::ostream &f, std::string indent, const RTLIL::Process *proc)
 {
-	for (auto it = proc->attributes.begin(); it != proc->attributes.end(); ++it) {
-		f << stringf("%s" "attribute %s ", indent.c_str(), it->first.c_str());
-		dump_const(f, it->second);
-		f << stringf("\n");
-	}
+	dump_attributes(f, indent, proc->attributes);
 	f << stringf("%s" "process %s\n", indent.c_str(), proc->name.c_str());
 	dump_proc_case_body(f, indent + "  ", &proc->root_case);
 	for (auto it = proc->syncs.begin(); it != proc->syncs.end(); ++it)
@@ -274,29 +261,46 @@ void ILANG_BACKEND::dump_module(std::ostream &f, std::string indent, RTLIL::Modu
 
 	if (print_header)
 	{
-		for (auto it = module->attributes.begin(); it != module->attributes.end(); ++it) {
-			f << stringf("%s" "attribute %s ", indent.c_str(), it->first.c_str());
-			dump_const(f, it->second);
-			f << stringf("\n");
-		}
+		dump_attributes(f, indent, module->attributes);
 
 		f << stringf("%s" "module %s\n", indent.c_str(), module->name.c_str());
 
 		if (!module->avail_parameters.empty()) {
 			if (only_selected)
 				f << stringf("\n");
-			for (auto &p : module->avail_parameters)
-				f << stringf("%s" "  parameter %s\n", indent.c_str(), p.c_str());
+			for (auto &p : module->avail_parameters) {
+				RTLIL::Wire* w = module->get_wire_for_parameter(p);
+				if (w != nullptr) {
+					dump_attributes(f, indent + std::string("  "), w->attributes);
+
+					f << stringf("%s" "  parameter %s", indent.c_str(), p.c_str());
+
+					for (auto conn : module->connections()) {
+						if (conn.first.is_wire() && conn.first.as_wire()->name == w->name) {
+							f << stringf(" ");
+							dump_const(f, conn.second.as_const());
+							break;
+						}
+					}
+
+					f << stringf("\n");
+				} else
+				{
+					f << stringf("%s" "  parameter %s\n", indent.c_str(), p.c_str());
+				}
+			}
 		}
 	}
 
 	if (print_body)
 	{
 		for (auto it : module->wires())
-			if (!only_selected || design->selected(module, it)) {
-				if (only_selected)
-					f << stringf("\n");
-				dump_wire(f, indent + "  ", it);
+			if (!it->isParameter()) {
+				if (!only_selected || design->selected(module, it)) {
+					if (only_selected)
+						f << stringf("\n");
+					dump_wire(f, indent + "  ", it);
+				}
 			}
 
 		for (auto it : module->memories)
@@ -322,6 +326,11 @@ void ILANG_BACKEND::dump_module(std::ostream &f, std::string indent, RTLIL::Modu
 
 		bool first_conn_line = true;
 		for (auto it = module->connections().begin(); it != module->connections().end(); ++it) {
+
+			if (it->first.is_wire() && it->first.as_wire()->isParameter()) {
+				continue;
+			}
+
 			bool show_conn = !only_selected;
 			if (only_selected) {
 				RTLIL::SigSpec sigs = it->first;

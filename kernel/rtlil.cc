@@ -685,6 +685,15 @@ std::map<unsigned int, RTLIL::Module*> *RTLIL::Module::get_all_modules(void)
 }
 #endif
 
+RTLIL::Wire* RTLIL::Module::get_wire_for_parameter (const RTLIL::IdString& name) {
+	for (auto wire : wires()) {
+		if (wire->name == name) {
+			return wire;
+		}
+	}
+	return nullptr;
+}
+
 void RTLIL::Module::makeblackbox()
 {
 	pool<RTLIL::Wire*> delwires;

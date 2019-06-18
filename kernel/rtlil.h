@@ -983,6 +983,9 @@ public:
 
 	Module();
 	virtual ~Module();
+
+	RTLIL::Wire* get_wire_for_parameter (const RTLIL::IdString& name);
+
 	virtual RTLIL::IdString derive(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters, bool mayfail = false);
 	virtual RTLIL::IdString derive(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters, dict<RTLIL::IdString, RTLIL::Module*> interfaces, dict<RTLIL::IdString, RTLIL::IdString> modports, bool mayfail = false);
 	virtual size_t count_id(RTLIL::IdString id);
