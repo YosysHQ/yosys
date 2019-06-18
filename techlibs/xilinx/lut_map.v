@@ -85,30 +85,30 @@ module \$lut (A, Y);
     if (WIDTH == 7) begin
       wire T0, T1;
       LUT6 #(.INIT(P_LUT[63:0])) fpga_lut_0 (.O(T0),
-        .I0(A[5]), .I1(A[4]), .I2(A[3]),
-        .I3(A[2]), .I4(A[1]), .I5(A[0]));
+        .I0(A[6]), .I1(A[5]), .I2(A[4]),
+        .I3(A[3]), .I4(A[2]), .I5(A[1]));
       LUT6 #(.INIT(P_LUT[127:64])) fpga_lut_1 (.O(T1),
-        .I0(A[5]), .I1(A[4]), .I2(A[3]),
-        .I3(A[2]), .I4(A[1]), .I5(A[0]));
-      MUXF7 fpga_mux_0 (.O(Y), .I0(T0), .I1(T1), .S(A[6]));
+        .I0(A[6]), .I1(A[5]), .I2(A[4]),
+        .I3(A[3]), .I4(A[2]), .I5(A[1]));
+      MUXF7 fpga_mux_0 (.O(Y), .I0(T0), .I1(T1), .S(A[0]));
     end else
     if (WIDTH == 8) begin
       wire T0, T1, T2, T3, T4, T5;
       LUT6 #(.INIT(P_LUT[63:0])) fpga_lut_0 (.O(T0),
-        .I0(A[5]), .I1(A[4]), .I2(A[3]),
-        .I3(A[2]), .I4(A[1]), .I5(A[0]));
+        .I0(A[7]), .I1(A[6]), .I2(A[5]),
+        .I3(A[4]), .I4(A[3]), .I5(A[2]));
       LUT6 #(.INIT(P_LUT[127:64])) fpga_lut_1 (.O(T1),
-        .I0(A[5]), .I1(A[4]), .I2(A[3]),
-        .I3(A[2]), .I4(A[1]), .I5(A[0]));
+        .I0(A[7]), .I1(A[6]), .I2(A[5]),
+        .I3(A[4]), .I4(A[3]), .I5(A[2]));
       LUT6 #(.INIT(P_LUT[191:128])) fpga_lut_2 (.O(T2),
-        .I0(A[5]), .I1(A[4]), .I2(A[3]),
-        .I3(A[2]), .I4(A[1]), .I5(A[0]));
+        .I0(A[7]), .I1(A[6]), .I2(A[5]),
+        .I3(A[4]), .I4(A[3]), .I5(A[2]));
       LUT6 #(.INIT(P_LUT[255:192])) fpga_lut_3 (.O(T3),
-        .I0(A[5]), .I1(A[4]), .I2(A[3]),
-        .I3(A[2]), .I4(A[1]), .I5(A[0]));
-      MUXF7 fpga_mux_0 (.O(T4), .I0(T0), .I1(T1), .S(A[6]));
-      MUXF7 fpga_mux_1 (.O(T5), .I0(T2), .I1(T3), .S(A[6]));
-      MUXF8 fpga_mux_2 (.O(Y), .I0(T4), .I1(T5), .S(A[7]));
+        .I0(A[7]), .I1(A[6]), .I2(A[5]),
+        .I3(A[4]), .I4(A[3]), .I5(A[2]));
+      MUXF7 fpga_mux_0 (.O(T4), .I0(T0), .I1(T1), .S(A[1]));
+      MUXF7 fpga_mux_1 (.O(T5), .I0(T2), .I1(T3), .S(A[1]));
+      MUXF8 fpga_mux_2 (.O(Y), .I0(T4), .I1(T5), .S(A[0]));
     end else begin
       wire _TECHMAP_FAIL_ = 1;
     end
