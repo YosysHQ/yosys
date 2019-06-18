@@ -70,6 +70,8 @@ module \$lut (A, Y);
     parameter WIDTH = 0;
     parameter LUT = 0;
 
+    input [WIDTH-1:0] A;
+    output Y;
 
     // Need to swap input ordering, and fix init accordingly,
     // to match ABC's expectation of LUT inputs in non-decreasing
@@ -86,19 +88,15 @@ module \$lut (A, Y);
     endfunction
 
     function [2**P_WIDTH-1:0] permute_init;
-        input [2**P_WIDTH-1:0] orig;
         integer i;
         begin
             permute_init = 0;
             for (i = 0; i < 2**P_WIDTH; i = i + 1)
-                permute_init[i] = orig[permute_index(i)];
+                permute_init[i] = LUT[permute_index(i)];
         end
     endfunction
 
-    parameter [2**P_WIDTH-1:0] P_LUT = permute_init(LUT);
-
-    input [WIDTH-1:0] A;
-    output Y;
+    parameter [2**P_WIDTH-1:0] P_LUT = permute_init();
 
     generate
         if (WIDTH == 1) begin
