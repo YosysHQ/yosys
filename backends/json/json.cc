@@ -316,7 +316,13 @@ struct JsonBackend : public Backend {
 		log("      \"modules\": {\n");
 		log("        <module_name>: {\n");
 		log("          \"parameters\": {\n");
-		log("            <parameter_name>: <parameter_value>,\n");
+		log("            <parameter_name>: {\n");
+		log("              \"default\": <parameter_value>,\n");
+		log("              \"attributes\": {\n");
+		log("                <attribute_name>: <attribute_value>,\n");
+		log("                ...\n");
+		log("              }\n");
+		log("            },\n");
 		log("            ...\n");
 		log("          },\n");
 		log("          \"attributes\": {\n");
