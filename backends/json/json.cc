@@ -108,7 +108,7 @@ struct JsonWriter
 		bool first = true;
 		for (const auto &wire : module->wires()) {
 
-			if (!wire->isParameter())
+			if (!wire->is_parameter())
 				continue;
 
 			RTLIL::Const defVal;
@@ -227,7 +227,7 @@ struct JsonWriter
 		f << stringf("      \"netnames\": {");
 		first = true;
 		for (auto w : module->wires()) {
-			if (w->isParameter())
+			if (w->is_parameter())
 				continue;
 			if (use_selection && !module->selected(w))
 				continue;

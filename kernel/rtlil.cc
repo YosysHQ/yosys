@@ -2382,7 +2382,7 @@ std::map<unsigned int, RTLIL::Wire*> *RTLIL::Wire::get_all_wires(void)
 }
 #endif
 
-bool RTLIL::Wire::isParameter() const {
+bool RTLIL::Wire::is_parameter() const {
 	log_assert(module != nullptr);
 	return module->avail_parameters.count(name) != 0;
 }

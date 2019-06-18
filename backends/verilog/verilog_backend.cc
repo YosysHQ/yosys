@@ -1724,12 +1724,12 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 	f << stringf(");\n");
 
 	for (auto it = module->wires_.begin(); it != module->wires_.end(); ++it)
-		if (it->second->isParameter()) {
+		if (it->second->is_parameter()) {
 			dump_wire_as_parameter(f, indent + "  ", it->second);
 		}
 
 	for (auto it = module->wires_.begin(); it != module->wires_.end(); ++it)
-		if (!it->second->isParameter()) {
+		if (!it->second->is_parameter()) {
 			dump_wire(f, indent + "  ", it->second);
 		}
 
@@ -1747,7 +1747,7 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 		// Check if this is a connection to a wire that is mocking a parameter.
 		// If so then discard it here.
 		const RTLIL::SigSpec& left = it->first;
-		if (left.is_wire() && left.as_wire()->isParameter()) {
+		if (left.is_wire() && left.as_wire()->is_parameter()) {
 			continue;
 		}
 

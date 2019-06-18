@@ -400,7 +400,7 @@ struct FirrtlWorker
 
 		for (auto wire : module->wires())
 		{
-			if (wire->isParameter())
+			if (wire->is_parameter())
 				continue;
 
 			const auto wireName = make_id(wire->name);
@@ -854,7 +854,7 @@ struct FirrtlWorker
 		{
 			string expr;
 
-			if (wire->isParameter())
+			if (wire->is_parameter())
 				continue;
 			if (wire->port_input)
 				continue;
