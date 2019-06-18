@@ -149,7 +149,12 @@ param_stmt:
 	TOK_PARAMETER TOK_ID EOL {
 		current_module->avail_parameters.insert($2);
 		free($2);
-	};
+	} |
+	TOK_PARAMETER TOK_ID constant EOL {
+		current_module->avail_parameters.insert($2);
+		free($2);
+		delete $3;
+	}
 
 attr_stmt:
 	TOK_ATTRIBUTE TOK_ID constant EOL {
