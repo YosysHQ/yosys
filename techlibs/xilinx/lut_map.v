@@ -32,28 +32,27 @@ module \$lut (A, Y);
   // Need to swap input ordering, and fix init accordingly,
   // to match ABC's expectation of LUT inputs in non-decreasing
   // delay order
-  localparam P_WIDTH = WIDTH < 4 ? 4 : WIDTH;
-  function [P_WIDTH-1:0] permute_index;
-      input [P_WIDTH-1:0] i;
+  function [WIDTH-1:0] permute_index;
+      input [WIDTH-1:0] i;
       integer j;
       begin
           permute_index = 0;
-          for (j = 0; j < P_WIDTH; j = j + 1)
-              permute_index[P_WIDTH-1 - j] = i[j];
+          for (j = 0; j < WIDTH; j = j + 1)
+              permute_index[WIDTH-1 - j] = i[j];
       end
   endfunction
 
-  function [2**P_WIDTH-1:0] permute_init;
-      input [2**P_WIDTH-1:0] orig;
+  function [2**WIDTH-1:0] permute_init;
+      input [2**WIDTH-1:0] orig;
       integer i;
       begin
           permute_init = 0;
-          for (i = 0; i < 2**P_WIDTH; i = i + 1)
+          for (i = 0; i < 2**WIDTH; i = i + 1)
               permute_init[i] = orig[permute_index(i)];
       end
   endfunction
 
-  parameter [2**P_WIDTH-1:0] P_LUT = permute_init(LUT);
+  parameter [2**WIDTH-1:0] P_LUT = permute_init(LUT);
 
   generate
     if (WIDTH == 1) begin
