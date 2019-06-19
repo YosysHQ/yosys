@@ -319,15 +319,17 @@ module_para_list:
 
 single_module_para:
 	/* empty */ |
-	TOK_PARAMETER {
+	attr TOK_PARAMETER {
 		if (astbuf1) delete astbuf1;
 		astbuf1 = new AstNode(AST_PARAMETER);
 		astbuf1->children.push_back(AstNode::mkconst_int(0, true));
+		append_attr(astbuf1, $1);
 	} param_signed param_integer param_range single_param_decl |
-	TOK_LOCALPARAM {
+	attr TOK_LOCALPARAM {
 		if (astbuf1) delete astbuf1;
 		astbuf1 = new AstNode(AST_LOCALPARAM);
 		astbuf1->children.push_back(AstNode::mkconst_int(0, true));
+		append_attr(astbuf1, $1);
 	} param_signed param_integer param_range single_param_decl |
 	single_param_decl;
 
@@ -1217,6 +1219,7 @@ param_decl:
 	attr TOK_PARAMETER {
 		astbuf1 = new AstNode(AST_PARAMETER);
 		astbuf1->children.push_back(AstNode::mkconst_int(0, true));
+		append_attr(astbuf1, $1);
 	} param_signed param_integer param_real param_range param_decl_list ';' {
 		delete astbuf1;
 	};
@@ -1225,6 +1228,7 @@ localparam_decl:
 	attr TOK_LOCALPARAM {
 		astbuf1 = new AstNode(AST_LOCALPARAM);
 		astbuf1->children.push_back(AstNode::mkconst_int(0, true));
+		append_attr(astbuf1, $1);
 	} param_signed param_integer param_real param_range param_decl_list ';' {
 		delete astbuf1;
 	};
