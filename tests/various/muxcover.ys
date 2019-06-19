@@ -115,6 +115,8 @@ design -save gold
 
 techmap
 muxcover -mux4=150 -mux8=200
+clean
+opt_expr -mux_bool
 select -assert-count 0 t:$_MUX_
 select -assert-count 0 t:$_MUX4_
 select -assert-count 1 t:$_MUX8_
@@ -171,6 +173,8 @@ design -save gold
 
 techmap
 muxcover -mux4=150 -mux8=200 -mux16=250
+clean
+opt_expr -mux_bool
 select -assert-count 0 t:$_MUX_
 select -assert-count 0 t:$_MUX4_
 select -assert-count 0 t:$_MUX8_
