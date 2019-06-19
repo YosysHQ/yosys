@@ -354,6 +354,10 @@ Verilog Attributes and non-standard features
   module inputs. The attribute is attached to the input wire by the HDL
   front-end when the input is declared with a default value.
 
+- The ``parameter`` and ``localparam`` attributes are used to mark wires
+  that represent module parameters or localparams (when the HDL front-end
+  is run in -pwires mode).
+
 - In addition to the ``(* ... *)`` attribute syntax, Yosys supports
   the non-standard ``{* ... *}`` attribute syntax to set default attributes
   for everything that comes after the ``{* ... *}`` statement. (Reset
