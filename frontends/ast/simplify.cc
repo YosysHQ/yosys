@@ -485,6 +485,15 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		}
 		break;
 
+	case AST_USER_TYPE:
+		if (!basic_prep) {
+			for (auto item_node : children) {
+				while (!item_node->basic_prep && item_node->simplify(false, false, false, stage, -1, false, true) == true)
+					did_something = true;
+			}
+		}
+		break;
+
 	case AST_PARAMETER:
 	case AST_LOCALPARAM:
 		while (!children[0]->basic_prep && children[0]->simplify(false, false, false, stage, -1, false, true) == true)

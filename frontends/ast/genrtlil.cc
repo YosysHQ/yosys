@@ -861,6 +861,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	case AST_GENIF:
 	case AST_GENCASE:
 	case AST_PACKAGE:
+	case AST_USER_TYPE:
 	case AST_MODPORT:
 	case AST_MODPORTMEMBER:
 		break;

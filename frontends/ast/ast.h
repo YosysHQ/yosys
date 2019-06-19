@@ -68,6 +68,7 @@ namespace AST
 		AST_LIVE,
 		AST_FAIR,
 		AST_COVER,
+		AST_USER_TYPE,
 
 		AST_FCALL,
 		AST_TO_BITS,

@@ -70,6 +70,19 @@ YOSYS_NAMESPACE_END
 #define YY_INPUT(buf,result,max_size) \
 	result = readsome(*VERILOG_FRONTEND::lexin, buf, max_size)
 
+// Check if name corresponds to a user type
+static AstNode *lookupNameAsType(const char *name)
+{
+	std::string s = std::string("\\") + name;
+	if (user_types.count(s) > 0) {
+		auto node = user_types[s];
+		if (node->type == AST_USER_TYPE) {
+			return node;
+		}
+	}
+	return nullptr;
+}
+
 %}
 
 %option yylineno
@@ -320,8 +333,14 @@ supply1 { return TOK_SUPPLY1; }
 "$unsigned" { return TOK_TO_UNSIGNED; }
 
 [a-zA-Z_$][a-zA-Z0-9_$]* {
-	frontend_verilog_yylval.string = new std::string(std::string("\\") + yytext);
-	return TOK_ID;
+	auto node = lookupNameAsType(yytext);
+	if (node) {
+		frontend_verilog_yylval.ast = node;
+		return TOK_USER_TYPE;
+	} else {
+		frontend_verilog_yylval.string = new std::string(std::string("\\") + yytext);
+		return TOK_ID;
+	}
 }
 
 [a-zA-Z_$][a-zA-Z0-9_$\.]* {

@@ -51,6 +51,7 @@ namespace VERILOG_FRONTEND {
 	std::map<std::string, AstNode*> *attr_list, default_attr_list;
 	std::stack<std::map<std::string, AstNode*> *> attr_list_stack;
 	std::map<std::string, AstNode*> *albuf;
+	std::map<std::string, AstNode*> user_types;
 	std::vector<AstNode*> ast_stack;
 	struct AstNode *astbuf1, *astbuf2, *astbuf3;
 	struct AstNode *current_function_or_task;
@@ -94,6 +95,17 @@ static void free_attr(std::map<std::string, AstNode*> *al)
 	delete al;
 }
 
+static bool addUserType(std::string prefix, std::string name, AstNode *node)
+{
+	auto base_name = prefix + name;
+	if (user_types.count(base_name) == 0) {
+		// no clash with local name
+		user_types[base_name] = node;
+		return true;
+	}
+	return false;
+}
+
 struct specify_target {
 	char polarity_op;
 	AstNode *dst, *dat;
@@ -134,6 +146,7 @@ struct specify_rise_fall {
 
 %token <string> TOK_STRING TOK_ID TOK_CONSTVAL TOK_REALVAL TOK_PRIMITIVE
 %token <string> TOK_SVA_LABEL TOK_SPECIFY_OPER TOK_MSG_TASKS
+%token <ast> TOK_USER_TYPE
 %token TOK_ASSERT TOK_ASSUME TOK_RESTRICT TOK_COVER TOK_FINAL
 %token ATTR_BEGIN ATTR_END DEFATTR_BEGIN DEFATTR_END
 %token TOK_MODULE TOK_ENDMODULE TOK_PARAMETER TOK_LOCALPARAM TOK_DEFPARAM
@@ -526,6 +539,12 @@ wire_type_token:
 	} |
 	TOK_CONST {
 		current_wire_const = true;
+	} |
+	TOK_USER_TYPE {
+		// copy from template
+		delete astbuf3;
+		astbuf3 = ($1)->clone();
+		astbuf3->type = AST_WIRE;
 	};
 
 non_opt_range:
@@ -588,7 +607,7 @@ module_body:
 	/* empty */;
 
 module_body_stmt:
-	task_func_decl | specify_block |param_decl | localparam_decl | defparam_decl | specparam_declaration | wire_decl | assign_stmt | cell_stmt |
+	task_func_decl | specify_block | typedef_decl | param_decl | localparam_decl | defparam_decl | specparam_declaration | wire_decl | assign_stmt | cell_stmt |
 	always_stmt | TOK_GENERATE module_gen_body TOK_ENDGENERATE | defattr | assert_property | checker_decl | ignored_specify_block;
 
 checker_decl:
@@ -1265,6 +1284,36 @@ single_defparam_decl:
 			node->children.push_back($1);
 		ast_stack.back()->children.push_back(node);
 	};
+
+typedef_decl:
+	TOK_TYPEDEF basic_type user_type ';';
+
+basic_type:
+	vec_type range	{
+		if ($2) astbuf1->children.push_back($2);
+	} |
+	atom_type |
+	TOK_USER_TYPE	{
+		astbuf1 = ($1)->clone();
+	};
+
+atom_type: TOK_INTEGER		{ astbuf1 = new AstNode(AST_WIRE); }
+	;
+
+vec_type: TOK_REG		{ astbuf1 = new AstNode(AST_WIRE); astbuf1->is_reg = true; }
+	;
+
+user_type: TOK_ID {
+		log_assert(astbuf1);
+		if (!addUserType("", *$1, astbuf1)) {
+			frontend_verilog_yyerror("Type already defined.");
+		}
+		ast_stack.back()->children.push_back(astbuf1);
+		astbuf1->type = AST_USER_TYPE;
+		astbuf1->str = *$1;
+		delete $1;
+	}
+	;
 
 wire_decl:
 	attr wire_type range {
