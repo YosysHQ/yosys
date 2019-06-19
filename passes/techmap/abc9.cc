@@ -510,16 +510,15 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		}
 
 		vector<RTLIL::Cell*> boxes;
-		for (auto it = module->cells_.begin(); it != module->cells_.end(); ) {
-			RTLIL::Cell* cell = it->second;
+		for (auto it = module->cells_.begin(); it != module->cells_.end(); ++it) {
+			RTLIL::Cell *cell = it->second;
 			if (cell->type.in("$_AND_", "$_NOT_", "$__ABC_FF_")) {
-				it = module->remove(it);
+				module->remove(cell);
 				continue;
 			}
 			RTLIL::Module* box_module = design->module(cell->type);
 			if (box_module && box_module->attributes.count("\\abc_box_id"))
-				boxes.emplace_back(it->second);
-			++it;
+				boxes.emplace_back(cell);
 		}
 
 		std::map<std::string, int> cell_stats;
@@ -620,8 +619,8 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			}
 		}
 
-                for (auto cell : boxes)
-                        module->remove(cell);
+		for (auto cell : boxes)
+			module->remove(cell);
 
 		// Copy connections (and rename) from mapped_mod to module
 		for (auto conn : mapped_mod->connections()) {
