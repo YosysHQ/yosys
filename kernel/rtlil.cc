@@ -2383,8 +2383,21 @@ std::map<unsigned int, RTLIL::Wire*> *RTLIL::Wire::get_all_wires(void)
 #endif
 
 bool RTLIL::Wire::is_parameter() const {
-	log_assert(module != nullptr);
-	return module->avail_parameters.count(name) != 0;
+	if (attributes.count("\\is_parameter")) {
+		return attributes.at("\\is_parameter").as_bool();
+	}
+	return false;
+}
+
+bool RTLIL::Wire::is_localparam() const {
+	if (attributes.count("\\is_localparam")) {
+		return attributes.at("\\is_localparam").as_bool();
+	}
+	return false;
+}
+
+bool RTLIL::Wire::is_mockup() const {
+	return is_parameter() || is_localparam();
 }
 
 RTLIL::Memory::Memory()

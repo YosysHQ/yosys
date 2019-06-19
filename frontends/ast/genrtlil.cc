@@ -945,6 +945,14 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 					wire->attributes[attr.first] = attr.second->asAttrConst();
 				}
 
+				// Mark the wire as either parameter or localparam
+				if (type == AST_PARAMETER) {
+					wire->set_bool_attribute("\\is_parameter", true);
+				}
+				if (type == AST_LOCALPARAM) {
+					wire->set_bool_attribute("\\is_localparam", true);
+				}
+
 				// If the parameter is an integer constant then assign that
 				// constant to the wire.
 				if (children[0]->type == AST_CONSTANT && !children[0]->is_string) {

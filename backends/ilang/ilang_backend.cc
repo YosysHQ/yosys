@@ -295,7 +295,7 @@ void ILANG_BACKEND::dump_module(std::ostream &f, std::string indent, RTLIL::Modu
 	if (print_body)
 	{
 		for (auto it : module->wires())
-			if (!it->is_parameter()) {
+			if (!it->is_mockup()) {
 				if (!only_selected || design->selected(module, it)) {
 					if (only_selected)
 						f << stringf("\n");
@@ -327,7 +327,7 @@ void ILANG_BACKEND::dump_module(std::ostream &f, std::string indent, RTLIL::Modu
 		bool first_conn_line = true;
 		for (auto it = module->connections().begin(); it != module->connections().end(); ++it) {
 
-			if (it->first.is_wire() && it->first.as_wire()->is_parameter()) {
+			if (it->first.is_wire() && it->first.as_wire()->is_mockup()) {
 				continue;
 			}
 

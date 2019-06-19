@@ -1241,7 +1241,9 @@ public:
 	int width, start_offset, port_id;
 	bool port_input, port_output, upto;
 
-	bool is_parameter () const;
+	bool is_parameter  () const;
+	bool is_localparam () const;
+	bool is_mockup     () const;
 
 #ifdef WITH_PYTHON
 	static std::map<unsigned int, RTLIL::Wire*> *get_all_wires(void);

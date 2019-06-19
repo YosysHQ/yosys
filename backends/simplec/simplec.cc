@@ -365,7 +365,7 @@ struct SimplecWorker
 		struct_declarations.push_back("");
 		struct_declarations.push_back("  // Internal Wires");
 		for (Wire *w : mod->wires()) {
-			if (w->is_parameter())
+			if (w->is_mockup())
 				continue;
 			if (!w->port_input && !w->port_output)
 				struct_declarations.push_back(stringf("  %s %s; // %s", sigtype(w->width).c_str(), cid(w->name).c_str(), log_id(w)));
@@ -601,7 +601,7 @@ struct SimplecWorker
 		Module *mod = work->module;
 
 		for (Wire *w : mod->wires()) {
-			if (w->is_parameter())
+			if (w->is_mockup())
 				continue;
 
 			for (SigBit bit : SigSpec(w))
@@ -658,7 +658,7 @@ struct SimplecWorker
 
 		for (Wire *w : module->wires())
 		{
-			if (w->is_parameter()) {
+			if (w->is_mockup()) {
 				continue;
 			}
 

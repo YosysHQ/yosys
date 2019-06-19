@@ -286,7 +286,7 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 								interface_name2 = interface_name;
 							RTLIL::Module *mod_replace_ports = interfaces_in_module.at(interface_name2);
 							for (auto &mod_wire : mod_replace_ports->wires_) { // Go over all wires in interface, and add replacements to lists.
-								if (mod_wire.second->is_parameter()) {
+								if (mod_wire.second->is_mockup()) {
 									continue;
 								}
 								std::string signal_name1 = conn.first.str() + "." + log_id(mod_wire.first);

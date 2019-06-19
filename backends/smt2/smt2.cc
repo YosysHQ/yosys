@@ -187,7 +187,7 @@ struct Smt2Worker
 
 		for (auto wire : module->wires())
 		{
-			if (wire->is_parameter())
+			if (wire->is_mockup())
 				continue;
 			if (!wire->port_input || GetSize(wire) != 1)
 				continue;
@@ -801,7 +801,7 @@ struct Smt2Worker
 			}
 
 		for (auto wire : module->wires()) {
-			if (wire->is_parameter())
+			if (wire->is_mockup())
 				continue;
 
 			bool is_register = false;
@@ -850,7 +850,7 @@ struct Smt2Worker
 
 		vector<string> init_list;
 		for (auto wire : module->wires()) {
-			if (wire->is_parameter())
+			if (wire->is_mockup())
 				continue;
 
 			if (wire->attributes.count("\\init")) {

@@ -125,7 +125,7 @@ static void print_spice_module(std::ostream &f, RTLIL::Module *module, RTLIL::De
 
 		// Skip connections to wires that mock parameters.
 		const RTLIL::SigSpec& left = conn.first;
-		if (left.is_wire() && left.as_wire()->is_parameter()) {
+		if (left.is_wire() && left.as_wire()->is_mockup()) {
 			continue;
 		}
 
