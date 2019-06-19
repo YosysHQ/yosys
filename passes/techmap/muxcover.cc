@@ -57,6 +57,7 @@ struct MuxcoverWorker
 	bool use_mux8;
 	bool use_mux16;
 	bool nodecode;
+	bool nopartial;
 
 	int cost_mux2;
 	int cost_mux4;
@@ -69,6 +70,7 @@ struct MuxcoverWorker
 		use_mux8 = false;
 		use_mux16 = false;
 		nodecode = false;
+		nopartial = false;
 		cost_mux2 = COST_MUX2;
 		cost_mux4 = COST_MUX4;
 		cost_mux8 = COST_MUX8;
@@ -133,13 +135,20 @@ struct MuxcoverWorker
 		log("    Finished treeification: Found %d trees.\n", GetSize(tree_list));
 	}
 
-	bool follow_muxtree(SigBit &ret_bit, tree_t &tree, SigBit bit, const char *path)
+	bool follow_muxtree(SigBit &ret_bit, tree_t &tree, SigBit bit, const char *path, bool first_layer = true)
 	{
 		if (*path) {
-			if (tree.muxes.count(bit) == 0)
-				return false;
+			if (tree.muxes.count(bit) == 0) {
+				if (first_layer || nopartial)
+					return false;
+				if (path[0] == 'S')
+					ret_bit = State::Sx;
+				else
+					ret_bit = bit;
+				return true;
+			}
 			char port_name[3] = {'\\', *path, 0};
-			return follow_muxtree(ret_bit, tree, sigmap(tree.muxes.at(bit)->getPort(port_name)), path+1);
+			return follow_muxtree(ret_bit, tree, sigmap(tree.muxes.at(bit)->getPort(port_name)), path+1, false);
 		} else {
 			ret_bit = bit;
 			return true;
@@ -148,7 +157,7 @@ struct MuxcoverWorker
 
 	int prepare_decode_mux(SigBit &A, SigBit B, SigBit sel, SigBit bit)
 	{
-		if (A == B)
+		if (A == B || sel == State::Sx)
 			return 0;
 
 		tuple<SigBit, SigBit, SigBit> key(A, B, sel);
@@ -164,6 +173,9 @@ struct MuxcoverWorker
 		std::get<1>(entry).insert(bit);
 
 		if (std::get<2>(entry))
+			return 0;
+
+		if (A == State::Sx || B == State::Sx)
 			return 0;
 
 		return cost_mux2 / GetSize(std::get<1>(entry));
@@ -183,9 +195,15 @@ struct MuxcoverWorker
 		implement_decode_mux(std::get<0>(key));
 		implement_decode_mux(std::get<1>(key));
 
-		module->addMuxGate(NEW_ID, std::get<0>(key), std::get<1>(key), std::get<2>(key), ctrl_bit);
+		if (std::get<0>(key) == State::Sx) {
+			module->addBufGate(NEW_ID, std::get<1>(key), ctrl_bit);
+		} else if (std::get<1>(key) == State::Sx) {
+			module->addBufGate(NEW_ID, std::get<0>(key), ctrl_bit);
+		} else {
+			module->addMuxGate(NEW_ID, std::get<0>(key), std::get<1>(key), std::get<2>(key), ctrl_bit);
+			decode_mux_counter++;
+		}
 		std::get<2>(entry) = true;
-		decode_mux_counter++;
 	}
 
 	int find_best_cover(tree_t &tree, SigBit bit)
@@ -598,6 +616,7 @@ struct MuxcoverPass : public Pass {
 		bool use_mux8 = false;
 		bool use_mux16 = false;
 		bool nodecode = false;
+		bool nopartial = false;
 		int cost_mux4 = COST_MUX4;
 		int cost_mux8 = COST_MUX8;
 		int cost_mux16 = COST_MUX16;
@@ -634,6 +653,10 @@ struct MuxcoverPass : public Pass {
 				nodecode = true;
 				continue;
 			}
+			if (arg == "-nopartial") {
+				nopartial = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -654,6 +677,7 @@ struct MuxcoverPass : public Pass {
 			worker.cost_mux8 = cost_mux8;
 			worker.cost_mux16 = cost_mux16;
 			worker.nodecode = nodecode;
+			worker.nopartial = nopartial;
 			worker.run();
 		}
 	}
