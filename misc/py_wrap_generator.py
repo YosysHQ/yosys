@@ -508,23 +508,17 @@ class TupleTranslator(PythonDictTranslator):
 	#Generate c++ code to translate to a boost::python::tuple
 	@classmethod
 	def translate_cpp(c, varname, types, prefix, ref):
-		text  = prefix + TupleTranslator.typename + " " + varname + "___tmp = boost::python::make_tuple(" + varname + ".first, " + varname + ".second);"
-		return text
-		tmp_name = "tmp_" + str(Translator.tmp_cntr)
-		Translator.tmp_cntr = Translator.tmp_cntr + 1
-		if ref:
-			text += prefix + "for(auto " + tmp_name + " : *" + varname + ")"
+		# if the tuple is a pair of SigSpecs (aka SigSig), then we need
+		# to call get_py_obj() on each item in the tuple
+		if types[0].name in classnames:
+			first_var = types[0].name + "::get_py_obj(" + varname + ".first)"
 		else:
-			text += prefix + "for(auto " + tmp_name + " : " + varname + ")"
-		text += prefix + "{"
-		if types[0].name.split(" ")[-1] in primitive_types or types[0].name in enum_names:
-			text += prefix + "\t" + varname + "___tmp.append(" + tmp_name + ");"
-		elif types[0].name in known_containers:
-			text += known_containers[types[0].name].translate_cpp(tmp_name, types[0].cont.args, prefix + "\t", types[1].attr_type == attr_types.star)
-			text += prefix + "\t" + varname + "___tmp.append(" + types[0].name + "::get_py_obj(" + tmp_name + "___tmp);"
-		elif types[0].name in classnames:
-			text += prefix + "\t" + varname + "___tmp.append(" + types[0].name + "::get_py_obj(" + tmp_name + "));"
-		text += prefix + "}"
+			first_var = varname + ".first"
+		if types[1].name in classnames:
+			second_var = types[1].name + "::get_py_obj(" + varname + ".second)"
+		else:
+			second_var = varname + ".second"
+		text  = prefix + TupleTranslator.typename + " " + varname + "___tmp = boost::python::make_tuple(" + first_var + ", " + second_var + ");"
 		return text
 
 #Associate the Translators with their c++ type
