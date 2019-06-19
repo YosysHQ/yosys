@@ -345,6 +345,12 @@ module_arg_opt_assignment:
 		if (ast_stack.back()->children.size() > 0 && ast_stack.back()->children.back()->type == AST_WIRE) {
 			AstNode *wire = new AstNode(AST_IDENTIFIER);
 			wire->str = ast_stack.back()->children.back()->str;
+			if (ast_stack.back()->children.back()->is_input) {
+				AstNode *n = ast_stack.back()->children.back();
+				if (n->attributes.count("\\defaultvalue"))
+					delete n->attributes.at("\\defaultvalue");
+				n->attributes["\\defaultvalue"] = $2;
+			} else
 			if (ast_stack.back()->children.back()->is_reg || ast_stack.back()->children.back()->is_logic)
 				ast_stack.back()->children.push_back(new AstNode(AST_INITIAL, new AstNode(AST_BLOCK, new AstNode(AST_ASSIGN_LE, wire, $2))));
 			else
@@ -1360,6 +1366,11 @@ wire_name_and_opt_assign:
 	wire_name '=' expr {
 		AstNode *wire = new AstNode(AST_IDENTIFIER);
 		wire->str = ast_stack.back()->children.back()->str;
+		if (astbuf1->is_input) {
+			if (astbuf1->attributes.count("\\defaultvalue"))
+				delete astbuf1->attributes.at("\\defaultvalue");
+			astbuf1->attributes["\\defaultvalue"] = $3;
+		} else
 		if (astbuf1->is_reg || astbuf1->is_logic)
 			ast_stack.back()->children.push_back(new AstNode(AST_INITIAL, new AstNode(AST_BLOCK, new AstNode(AST_ASSIGN_LE, wire, $3))));
 		else
