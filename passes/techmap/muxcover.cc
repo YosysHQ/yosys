@@ -610,7 +610,7 @@ struct MuxcoverPass : public Pass {
 				use_mux4 = true;
 				if (arg.size() > 5) {
 					if (arg[5] != '=') break;
-					cost_mux4 = atoi(arg.substr(5).c_str());
+					cost_mux4 = atoi(arg.substr(6).c_str());
 				}
 				continue;
 			}
@@ -618,7 +618,7 @@ struct MuxcoverPass : public Pass {
 				use_mux8 = true;
 				if (arg.size() > 5) {
 					if (arg[5] != '=') break;
-					cost_mux8 = atoi(arg.substr(5).c_str());
+					cost_mux8 = atoi(arg.substr(6).c_str());
 				}
 				continue;
 			}
@@ -626,7 +626,7 @@ struct MuxcoverPass : public Pass {
 				use_mux16 = true;
 				if (arg.size() > 6) {
 					if (arg[6] != '=') break;
-					cost_mux16 = atoi(arg.substr(6).c_str());
+					cost_mux16 = atoi(arg.substr(7).c_str());
 				}
 				continue;
 			}
