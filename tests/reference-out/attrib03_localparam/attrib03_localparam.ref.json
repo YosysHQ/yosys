@@ -1,0 +1,177 @@
+{
+  "creator": "Yosys 0.8+531 (git sha1 ec2941d4, gcc 7.4.0-1ubuntu1~18.04 -fPIC -Os)",
+  "modules": {
+    "bar": {
+      "attributes": {
+        "cells_not_processed": 1,
+        "src": "attrib03_localparam.v:1"
+      },
+      "parameters": {
+      },
+      "ports": {
+        "clk": {
+          "direction": "input",
+          "bits": [ 2 ]
+        },
+        "rst": {
+          "direction": "input",
+          "bits": [ 3 ]
+        },
+        "inp": {
+          "direction": "input",
+          "bits": [ 4 ]
+        },
+        "out": {
+          "direction": "output",
+          "bits": [ 5 ]
+        }
+      },
+      "cells": {
+        "$not$attrib03_localparam.v:22$2": {
+          "hide_name": 1,
+          "type": "$not",
+          "parameters": {
+            "A_SIGNED": 0,
+            "A_WIDTH": 1,
+            "Y_WIDTH": 1
+          },
+          "attributes": {
+            "src": "attrib03_localparam.v:22"
+          },
+          "port_directions": {
+            "A": "input",
+            "Y": "output"
+          },
+          "connections": {
+            "A": [ 4 ],
+            "Y": [ 6 ]
+          }
+        }
+      },
+      "netnames": {
+        "$0\\out[0:0]": {
+          "hide_name": 1,
+          "bits": [ 7 ],
+          "attributes": {
+            "src": "attrib03_localparam.v:20"
+          }
+        },
+        "$not$attrib03_localparam.v:22$2_Y": {
+          "hide_name": 1,
+          "bits": [ 6 ],
+          "attributes": {
+            "src": "attrib03_localparam.v:22"
+          }
+        },
+        "clk": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "attrib03_localparam.v:15"
+          }
+        },
+        "inp": {
+          "hide_name": 0,
+          "bits": [ 4 ],
+          "attributes": {
+            "src": "attrib03_localparam.v:17"
+          }
+        },
+        "out": {
+          "hide_name": 0,
+          "bits": [ 5 ],
+          "attributes": {
+            "src": "attrib03_localparam.v:18"
+          }
+        },
+        "rst": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "attrib03_localparam.v:16"
+          }
+        }
+      }
+    },
+    "foo": {
+      "attributes": {
+        "cells_not_processed": 1,
+        "src": "attrib03_localparam.v:26"
+      },
+      "parameters": {
+      },
+      "ports": {
+        "clk": {
+          "direction": "input",
+          "bits": [ 2 ]
+        },
+        "rst": {
+          "direction": "input",
+          "bits": [ 3 ]
+        },
+        "inp": {
+          "direction": "input",
+          "bits": [ 4 ]
+        },
+        "out": {
+          "direction": "output",
+          "bits": [ 5 ]
+        }
+      },
+      "cells": {
+        "bar_instance": {
+          "hide_name": 0,
+          "type": "bar",
+          "parameters": {
+          },
+          "attributes": {
+            "module_not_derived": 1,
+            "src": "attrib03_localparam.v:32"
+          },
+          "port_directions": {
+            "$1": "output",
+            "$2": "output",
+            "$3": "output",
+            "$4": "output"
+          },
+          "connections": {
+            "$1": [ 2 ],
+            "$2": [ 3 ],
+            "$3": [ 4 ],
+            "$4": [ 5 ]
+          }
+        }
+      },
+      "netnames": {
+        "clk": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "attrib03_localparam.v:27"
+          }
+        },
+        "inp": {
+          "hide_name": 0,
+          "bits": [ 4 ],
+          "attributes": {
+            "src": "attrib03_localparam.v:29"
+          }
+        },
+        "out": {
+          "hide_name": 0,
+          "bits": [ 5 ],
+          "attributes": {
+            "src": "attrib03_localparam.v:30"
+          }
+        },
+        "rst": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "attrib03_localparam.v:28"
+          }
+        }
+      }
+    }
+  }
+}

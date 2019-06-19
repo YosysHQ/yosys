@@ -667,6 +667,7 @@ SEEDOPT=""
 endif
 
 test: $(TARGETS) $(EXTRA_TARGETS)
+	+cd tests/reference-out && bash run-test.sh
 	+cd tests/simple && bash run-test.sh $(SEEDOPT)
 	+cd tests/hana && bash run-test.sh $(SEEDOPT)
 	+cd tests/asicworld && bash run-test.sh $(SEEDOPT)

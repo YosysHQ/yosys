@@ -1,0 +1,205 @@
+{
+  "creator": "Yosys 0.8+531 (git sha1 ec2941d4, gcc 7.4.0-1ubuntu1~18.04 -fPIC -Os)",
+  "modules": {
+    "bar": {
+      "attributes": {
+        "cells_not_processed": 1,
+        "src": "attrib03_parameter.v:1"
+      },
+      "parameters": {
+        "BAR_CONST_PARAM": {
+          "attributes": {
+            "src": "attrib03_parameter.v:6",
+            "this_is_bar_const_param": 1
+           },
+          "default": 11
+        },
+        "BAR_PARAM_WITH_WIDTH": {
+          "attributes": {
+            "src": "attrib03_parameter.v:15",
+            "this_is_a_param_with_width": 1
+           },
+          "default": 17
+        },
+        "BAR_REAL_PARAM": {
+          "attributes": {
+            "src": "attrib03_parameter.v:9",
+            "this_is_bar_real_param": 1
+           },
+          "default": 0
+        },
+        "BAR_STR_PARAM": {
+          "attributes": {
+            "src": "attrib03_parameter.v:12",
+            "this_is_string_param": 1
+           },
+          "default": 0
+        }
+      },
+      "ports": {
+        "clk": {
+          "direction": "input",
+          "bits": [ 2 ]
+        },
+        "rst": {
+          "direction": "input",
+          "bits": [ 3 ]
+        },
+        "inp": {
+          "direction": "input",
+          "bits": [ 4 ]
+        },
+        "out": {
+          "direction": "output",
+          "bits": [ 5 ]
+        }
+      },
+      "cells": {
+        "$not$attrib03_parameter.v:24$2": {
+          "hide_name": 1,
+          "type": "$not",
+          "parameters": {
+            "A_SIGNED": 0,
+            "A_WIDTH": 1,
+            "Y_WIDTH": 1
+          },
+          "attributes": {
+            "src": "attrib03_parameter.v:24"
+          },
+          "port_directions": {
+            "A": "input",
+            "Y": "output"
+          },
+          "connections": {
+            "A": [ 4 ],
+            "Y": [ 6 ]
+          }
+        }
+      },
+      "netnames": {
+        "$0\\out[0:0]": {
+          "hide_name": 1,
+          "bits": [ 7 ],
+          "attributes": {
+            "src": "attrib03_parameter.v:22"
+          }
+        },
+        "$not$attrib03_parameter.v:24$2_Y": {
+          "hide_name": 1,
+          "bits": [ 6 ],
+          "attributes": {
+            "src": "attrib03_parameter.v:24"
+          }
+        },
+        "clk": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "attrib03_parameter.v:17"
+          }
+        },
+        "inp": {
+          "hide_name": 0,
+          "bits": [ 4 ],
+          "attributes": {
+            "src": "attrib03_parameter.v:19"
+          }
+        },
+        "out": {
+          "hide_name": 0,
+          "bits": [ 5 ],
+          "attributes": {
+            "src": "attrib03_parameter.v:20"
+          }
+        },
+        "rst": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "attrib03_parameter.v:18"
+          }
+        }
+      }
+    },
+    "foo": {
+      "attributes": {
+        "cells_not_processed": 1,
+        "src": "attrib03_parameter.v:28"
+      },
+      "parameters": {
+      },
+      "ports": {
+        "clk": {
+          "direction": "input",
+          "bits": [ 2 ]
+        },
+        "rst": {
+          "direction": "input",
+          "bits": [ 3 ]
+        },
+        "inp": {
+          "direction": "input",
+          "bits": [ 4 ]
+        },
+        "out": {
+          "direction": "output",
+          "bits": [ 5 ]
+        }
+      },
+      "cells": {
+        "bar_instance": {
+          "hide_name": 0,
+          "type": "bar",
+          "parameters": {
+          },
+          "attributes": {
+            "module_not_derived": 1,
+            "src": "attrib03_parameter.v:34"
+          },
+          "port_directions": {
+            "$1": "output",
+            "$2": "output",
+            "$3": "output",
+            "$4": "output"
+          },
+          "connections": {
+            "$1": [ 2 ],
+            "$2": [ 3 ],
+            "$3": [ 4 ],
+            "$4": [ 5 ]
+          }
+        }
+      },
+      "netnames": {
+        "clk": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "attrib03_parameter.v:29"
+          }
+        },
+        "inp": {
+          "hide_name": 0,
+          "bits": [ 4 ],
+          "attributes": {
+            "src": "attrib03_parameter.v:31"
+          }
+        },
+        "out": {
+          "hide_name": 0,
+          "bits": [ 5 ],
+          "attributes": {
+            "src": "attrib03_parameter.v:32"
+          }
+        },
+        "rst": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "attrib03_parameter.v:30"
+          }
+        }
+      }
+    }
+  }
+}
