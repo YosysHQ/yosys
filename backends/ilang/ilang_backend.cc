@@ -268,26 +268,29 @@ void ILANG_BACKEND::dump_module(std::ostream &f, std::string indent, RTLIL::Modu
 		if (!module->avail_parameters.empty()) {
 			if (only_selected)
 				f << stringf("\n");
-			for (auto &p : module->avail_parameters) {
-				RTLIL::Wire* w = module->get_wire_for_parameter(p);
-				if (w != nullptr) {
-					dump_attributes(f, indent + std::string("  "), w->attributes);
 
-					f << stringf("%s" "  parameter %s", indent.c_str(), p.c_str());
+			for (auto wire : module->wires()) {
 
-					for (auto conn : module->connections()) {
-						if (conn.first.is_wire() && conn.first.as_wire()->name == w->name) {
-							f << stringf(" ");
-							dump_const(f, conn.second.as_const());
-							break;
-						}
-					}
-
-					f << stringf("\n");
-				} else
-				{
-					f << stringf("%s" "  parameter %s\n", indent.c_str(), p.c_str());
+				if (!wire->is_parameter()) {
+					continue;
 				}
+
+				dict<IdString, Const> attributes = wire->attributes;
+				attributes.erase("\\is_parameter");
+
+				dump_attributes(f, indent + std::string("  "), attributes);
+
+				f << stringf("%s" "  parameter %s", indent.c_str(), wire->name.c_str());
+
+				for (auto conn : module->connections()) {
+					if (conn.first.is_wire() && conn.first.as_wire()->name == wire->name) {
+						f << stringf(" ");
+						dump_const(f, conn.second.as_const());
+						break;
+					}
+				}
+
+				f << stringf("\n");
 			}
 		}
 	}

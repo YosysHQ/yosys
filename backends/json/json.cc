@@ -108,7 +108,7 @@ struct JsonWriter
 		bool first = true;
 		for (const auto &wire : module->wires()) {
 
-			if (!wire->is_mockup())
+			if (!wire->is_parameter())
 				continue;
 
 			RTLIL::Const defVal;
@@ -119,11 +119,14 @@ struct JsonWriter
 				}
 			}
 
+			dict<IdString, Const> attributes = wire->attributes;
+			attributes.erase("\\is_parameter");
+
 			f << stringf("%s\n", first ? "" : ",");
 			f << stringf("        %s: {\n", get_name(wire->name).c_str());
 
 			f << stringf("          \"attributes\": {");
-			write_attributes(wire->attributes, 4);
+			write_attributes(attributes, 4);
 			f << stringf("\n           },\n");
 
 			f << stringf("          \"default\": ");

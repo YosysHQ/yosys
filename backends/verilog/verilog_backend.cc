@@ -425,7 +425,10 @@ void dump_wire(std::ostream &f, std::string indent, RTLIL::Wire *wire)
 
 void dump_wire_as_parameter(std::ostream &f, std::string indent, RTLIL::Wire *wire)
 {
-	dump_attributes(f, indent, wire->attributes);
+	dict<IdString, Const> attributes = wire->attributes;
+	attributes.erase("\\is_parameter");
+
+	dump_attributes(f, indent, attributes);
 
 	// do not use Verilog-2k "output reg" syntax in Verilog export
 	std::string range = "";
@@ -436,7 +439,7 @@ void dump_wire_as_parameter(std::ostream &f, std::string indent, RTLIL::Wire *wi
 			range = stringf(" [%d:%d]", wire->width - 1 + wire->start_offset, wire->start_offset);
 	}
 
-	f << stringf("%s" "parameter%s %s = ", indent.c_str(), range.c_str(), wire->name.c_str());
+	f << stringf("%s" "parameter%s %s = ", indent.c_str(), range.c_str(), id(wire->name).c_str());
 
 	RTLIL::Module* module = wire->module;
 	bool foundDefVal = false;
@@ -1724,7 +1727,7 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 	f << stringf(");\n");
 
 	for (auto it = module->wires_.begin(); it != module->wires_.end(); ++it)
-		if (it->second->is_mockup()) {
+		if (it->second->is_parameter()) {
 			dump_wire_as_parameter(f, indent + "  ", it->second);
 		}
 
