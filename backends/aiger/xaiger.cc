@@ -355,10 +355,16 @@ struct XAigerWriter
 						}
 
 						int offset = 0;
-						for (const auto &b : rhs.bits()) {
+						for (auto b : rhs.bits()) {
 							SigBit I = sigmap(b);
-							if (I != b)
-								alias_map[b] = I;
+							if (b == RTLIL::Sx)
+								b = RTLIL::S0;
+							else if (I != b) {
+								if (I == RTLIL::Sx)
+									alias_map[b] = RTLIL::S0;
+								else
+									alias_map[b] = I;
+							}
 							co_bits.emplace_back(b, cell, port_name, offset++, 0);
 							unused_bits.erase(b);
 						}
