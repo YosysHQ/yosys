@@ -380,9 +380,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		RTLIL::Selection& sel = design->selection_stack.back();
 		sel.select(module);
 
-		// Behave as for "abc" where BLIF writer implicitly outputs all undef as zero
-		Pass::call(design, "setundef -zero");
-
 		Pass::call(design, "aigmap");
 
 		handle_loops(design);
@@ -406,7 +403,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			reader.parse_xaiger();
 		}
 		ifs.close();
-		Pass::call(design, stringf("write_verilog -noexpr -norename %s/%s", tempdir_name.c_str(), "input.v"));
+		Pass::call(design, stringf("write_verilog -noexpr -norename"));
 		design->remove(design->module("$__abc9__"));
 #endif
 
@@ -479,7 +476,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		ifs.close();
 
 #if 0
-		Pass::call(design, stringf("write_verilog -noexpr -norename %s/%s", tempdir_name.c_str(), "output.v"));
+		Pass::call(design, stringf("write_verilog -noexpr -norename"));
 #endif
 
 		log_header(design, "Re-integrating ABC9 results.\n");
