@@ -299,6 +299,7 @@ struct SynthXilinxPass : public ScriptPass
 		}
 
 		if (check_label("map_luts")) {
+			run("opt_expr -mux_undef");
 			if (abc == "abc9")
 				run(abc + " -lut +/xilinx/abc_xc7.lut -box +/xilinx/abc_xc7.box -W " + XC7_WIRE_DELAY + string(retime ? " -dff" : ""));
 			else if (help_mode)
