@@ -152,9 +152,13 @@ struct XAigerWriter
 				}
 
 				if (wire->port_output || keep) {
-					if (bit != wirebit)
-						alias_map[wirebit] = bit;
-					output_bits.insert(wirebit);
+					if (bit != RTLIL::Sx) {
+						if (bit != wirebit)
+							alias_map[wirebit] = bit;
+						output_bits.insert(wirebit);
+					}
+					else
+						log_debug("Skipping PO '%s' driven by 1'bx\n", log_signal(wirebit));
 				}
 			}
 		}
