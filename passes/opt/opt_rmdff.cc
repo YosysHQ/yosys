@@ -22,7 +22,6 @@
 #include "kernel/rtlil.h"
 #include "kernel/satgen.h"
 #include "kernel/sigtools.h"
-#include "netlist.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -31,9 +30,8 @@ PRIVATE_NAMESPACE_BEGIN
 
 SigMap assign_map, dff_init_map;
 SigSet<RTLIL::Cell*> mux_drivers;
+dict<SigBit, RTLIL::Cell*> bit2driver;
 dict<SigBit, pool<SigBit>> init_attributes;
-std::map<RTLIL::Module*, Netlist> netlists;
-std::map<RTLIL::Module *, CellTypes> comb_filters;
 
 bool keepdc;
 bool sat;
@@ -459,41 +457,46 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 		dff->unsetPort("\\E");
 	}
 
-	if (sat && has_init) {
+	if (sat && has_init && (!sig_r.size() || val_init == val_rv))
+	{
 		bool removed_sigbits = false;
 
-		// Create netlist for the module if not already available
-		if (!netlists.count(mod)) {
-			netlists.emplace(mod, Netlist(mod));
-			comb_filters.emplace(mod, comb_cells_filt());
-		}
+		ezSatPtr ez;
+		SatGen satgen(ez.get(), &assign_map);
+		pool<Cell*> sat_cells;
 
-		// Load netlist for the module from the pool
-		Netlist &net = netlists.at(mod);
-
+		std::function<void(Cell*)> sat_import_cell = [&](Cell *c) {
+			if (!sat_cells.insert(c).second)
+				return;
+			if (!satgen.importCell(c))
+				return;
+			for (auto &conn : c->connections()) {
+				if (!c->input(conn.first))
+					continue;
+				for (auto bit : assign_map(conn.second))
+					if (bit2driver.count(bit))
+						sat_import_cell(bit2driver.at(bit));
+			}
+		};
 
 		// For each register bit, try to prove that it cannot change from the initial value. If so, remove it
 		for (int position = 0; position < GetSize(sig_d); position += 1) {
 			RTLIL::SigBit q_sigbit = sig_q[position];
 			RTLIL::SigBit d_sigbit = sig_d[position];
 
-			if ((!q_sigbit.wire) || (!d_sigbit.wire)) {
+			if ((!q_sigbit.wire) || (!d_sigbit.wire))
 				continue;
-			}
 
-			ezSatPtr ez;
-			SatGen satgen(ez.get(), &net.sigmap);
+			if (!bit2driver.count(d_sigbit))
+				continue;
 
-			// Create SAT instance only for the cells that influence the register bit combinatorially
-			for (const auto &cell : cell_cone(net, d_sigbit, &comb_filters.at(mod))) {
-				if (!satgen.importCell(cell))
-					log_error("Can't create SAT model for cell %s (%s)!\n", RTLIL::id2cstr(cell->name),
-						  RTLIL::id2cstr(cell->type));
-			}
+			sat_import_cell(bit2driver.at(d_sigbit));
 
-			RTLIL::Const sigbit_init_val = val_init.extract(position);
+			RTLIL::State sigbit_init_val = val_init[position];
+			if (sigbit_init_val != State::S0 && sigbit_init_val != State::S1)
+				continue;
+
 			int init_sat_pi = satgen.importSigSpec(sigbit_init_val).front();
-
 			int q_sat_pi = satgen.importSigBit(q_sigbit);
 			int d_sat_pi = satgen.importSigBit(d_sigbit);
 
@@ -501,24 +504,21 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 			bool counter_example_found = ez->solve(ez->IFF(q_sat_pi, init_sat_pi), ez->NOT(ez->IFF(d_sat_pi, init_sat_pi)));
 
 			// If the register bit cannot change, we can replace it with a constant
-			if (!counter_example_found) {
+			if (!counter_example_found)
+			{
+				log("Setting constant %d-bit at position %d on %s (%s) from module %s.\n", sigbit_init_val ? 1 : 0,
+						position, log_id(dff), log_id(dff->type), log_id(mod));
 
-				RTLIL::SigSpec driver_port = net.driver_port(q_sigbit);
-				RTLIL::Wire *dummy_wire = mod->addWire(NEW_ID, 1);
-
-				for (auto &conn : mod->connections_)
-					net.sigmap(conn.first).replace(driver_port, dummy_wire, &conn.first);
-
-				remove_init_attr(driver_port);
-				driver_port = dummy_wire;
-
-				mod->connect(RTLIL::SigSig(q_sigbit, sigbit_init_val));
+				SigSpec tmp = dff->getPort("\\D");
+				tmp[position] = sigbit_init_val;
+				dff->setPort("\\D", tmp);
 
 				removed_sigbits = true;
 			}
 		}
 
 		if (removed_sigbits) {
+			handle_dff(mod, dff);
 			return true;
 		}
 	}
@@ -566,8 +566,6 @@ struct OptRmdffPass : public Pass {
 			break;
 		}
 		extra_args(args, argidx, design);
-		netlists.clear();
-		comb_filters.clear();
 
 		for (auto module : design->selected_modules()) {
 			pool<SigBit> driven_bits;
@@ -576,6 +574,7 @@ struct OptRmdffPass : public Pass {
 			assign_map.set(module);
 			dff_init_map.set(module);
 			mux_drivers.clear();
+			bit2driver.clear();
 			init_attributes.clear();
 
 			for (auto wire : module->wires())
@@ -600,17 +599,21 @@ struct OptRmdffPass : public Pass {
 						driven_bits.insert(bit);
 				}
 			}
-			mux_drivers.clear();
 
 			std::vector<RTLIL::IdString> dff_list;
 			std::vector<RTLIL::IdString> dffsr_list;
 			std::vector<RTLIL::IdString> dlatch_list;
 			for (auto cell : module->cells())
 			{
-				for (auto &conn : cell->connections())
-					if (cell->output(conn.first) || !cell->known())
-						for (auto bit : assign_map(conn.second))
+				for (auto &conn : cell->connections()) {
+					bool is_output = cell->output(conn.first);
+					if (is_output || !cell->known())
+						for (auto bit : assign_map(conn.second)) {
+							if (is_output)
+								bit2driver[bit] = cell;
 							driven_bits.insert(bit);
+						}
+				}
 
 				if (cell->type == "$mux" || cell->type == "$pmux") {
 					if (cell->getPort("\\A").size() == cell->getPort("\\B").size())
@@ -682,6 +685,7 @@ struct OptRmdffPass : public Pass {
 
 		assign_map.clear();
 		mux_drivers.clear();
+		bit2driver.clear();
 		init_attributes.clear();
 
 		if (total_count || total_initdrv)

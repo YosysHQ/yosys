@@ -1,15 +1,12 @@
-module top(
-					 input 	clk,
-					 input 	a,
-					 output b
-					 );
-  reg 						b_reg;
-  initial begin
-    b_reg <= 0;
-  end
-
-  assign b = b_reg;
-  always @(posedge clk) begin
-    b_reg <= a && b_reg;
-  end
+module top (
+	input clk,
+	output reg [7:0] cnt
+);
+	initial cnt = 0;
+	always @(posedge clk) begin
+		if (cnt < 20)
+			cnt <= cnt + 1;
+		else
+			cnt <= 0;
+	end
 endmodule
