@@ -1400,7 +1400,13 @@ wire_name:
 				node->children.push_back(rng);
 			}
 			node->type = AST_MEMORY;
-			node->children.push_back($2);
+			auto *rangeNode = $2;
+			if (rangeNode->type == AST_RANGE && rangeNode->children.size() == 1) {
+				// SV array size [n], rewrite as [n-1:0]
+				rangeNode->children[0] = new AstNode(AST_SUB, rangeNode->children[0], AstNode::mkconst_int(1, true));
+				rangeNode->children.push_back(AstNode::mkconst_int(0, false));
+			}
+			node->children.push_back(rangeNode);
 		}
 		if (current_function_or_task == NULL) {
 			if (do_not_require_port_stubs && (node->is_input || node->is_output) && port_stubs.count(*$1) == 0) {
