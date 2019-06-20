@@ -178,7 +178,7 @@ struct MuxcoverWorker
 		if (A == State::Sx || B == State::Sx)
 			return 0;
 
-		return cost_mux2 / GetSize(std::get<1>(entry));
+		return std::max((cost_mux2 / GetSize(std::get<1>(entry))) - 1, 1);
 	}
 
 	void implement_decode_mux(SigBit ctrl_bit)
@@ -204,6 +204,23 @@ struct MuxcoverWorker
 			decode_mux_counter++;
 		}
 		std::get<2>(entry) = true;
+	}
+
+	void find_best_covers(tree_t &tree, const vector<SigBit> &bits)
+	{
+		for (auto bit : bits)
+			find_best_cover(tree, bit);
+	}
+
+	int sum_best_covers(tree_t &tree, const vector<SigBit> &bits)
+	{
+		int sum = 0;
+		for (auto bit : pool<SigBit>(bits.begin(), bits.end())) {
+			int cost = tree.newmuxes.at(bit).cost;
+			log_debug("        Best cost for %s: %d\n", log_signal(bit), cost);
+			sum += cost;
+		}
+		return sum;
 	}
 
 	int find_best_cover(tree_t &tree, SigBit bit)
@@ -236,9 +253,13 @@ struct MuxcoverWorker
 			mux.inputs.push_back(B);
 			mux.selects.push_back(S1);
 
+			find_best_covers(tree, mux.inputs);
+			log_debug("        Decode cost for mux2 at %s: %d\n", log_signal(bit), mux.cost);
+
 			mux.cost += cost_mux2;
-			mux.cost += find_best_cover(tree, A);
-			mux.cost += find_best_cover(tree, B);
+			mux.cost += sum_best_covers(tree, mux.inputs);
+
+			log_debug("      Cost of mux2 at %s: %d\n", log_signal(bit), mux.cost);
 
 			best_mux = mux;
 		}
@@ -274,13 +295,15 @@ struct MuxcoverWorker
 				mux.selects.push_back(S1);
 				mux.selects.push_back(T1);
 
-				mux.cost += cost_mux4;
-				mux.cost += find_best_cover(tree, A);
-				mux.cost += find_best_cover(tree, B);
-				mux.cost += find_best_cover(tree, C);
-				mux.cost += find_best_cover(tree, D);
+				find_best_covers(tree, mux.inputs);
+				log_debug("        Decode cost for mux4 at %s: %d\n", log_signal(bit), mux.cost);
 
-				if (best_mux.cost > mux.cost)
+				mux.cost += cost_mux4;
+				mux.cost += sum_best_covers(tree, mux.inputs);
+
+				log_debug("      Cost of mux4 at %s: %d\n", log_signal(bit), mux.cost);
+
+				if (best_mux.cost >= mux.cost)
 					best_mux = mux;
 			}
 		}
@@ -337,17 +360,15 @@ struct MuxcoverWorker
 				mux.selects.push_back(T1);
 				mux.selects.push_back(U1);
 
-				mux.cost += cost_mux8;
-				mux.cost += find_best_cover(tree, A);
-				mux.cost += find_best_cover(tree, B);
-				mux.cost += find_best_cover(tree, C);
-				mux.cost += find_best_cover(tree, D);
-				mux.cost += find_best_cover(tree, E);
-				mux.cost += find_best_cover(tree, F);
-				mux.cost += find_best_cover(tree, G);
-				mux.cost += find_best_cover(tree, H);
+				find_best_covers(tree, mux.inputs);
+				log_debug("        Decode cost for mux8 at %s: %d\n", log_signal(bit), mux.cost);
 
-				if (best_mux.cost > mux.cost)
+				mux.cost += cost_mux8;
+				mux.cost += sum_best_covers(tree, mux.inputs);
+
+				log_debug("      Cost of mux8 at %s: %d\n", log_signal(bit), mux.cost);
+
+				if (best_mux.cost >= mux.cost)
 					best_mux = mux;
 			}
 		}
@@ -441,25 +462,15 @@ struct MuxcoverWorker
 				mux.selects.push_back(U1);
 				mux.selects.push_back(V1);
 
-				mux.cost += cost_mux16;
-				mux.cost += find_best_cover(tree, A);
-				mux.cost += find_best_cover(tree, B);
-				mux.cost += find_best_cover(tree, C);
-				mux.cost += find_best_cover(tree, D);
-				mux.cost += find_best_cover(tree, E);
-				mux.cost += find_best_cover(tree, F);
-				mux.cost += find_best_cover(tree, G);
-				mux.cost += find_best_cover(tree, H);
-				mux.cost += find_best_cover(tree, I);
-				mux.cost += find_best_cover(tree, J);
-				mux.cost += find_best_cover(tree, K);
-				mux.cost += find_best_cover(tree, L);
-				mux.cost += find_best_cover(tree, M);
-				mux.cost += find_best_cover(tree, N);
-				mux.cost += find_best_cover(tree, O);
-				mux.cost += find_best_cover(tree, P);
+				find_best_covers(tree, mux.inputs);
+				log_debug("        Decode cost for mux16 at %s: %d\n", log_signal(bit), mux.cost);
 
-				if (best_mux.cost > mux.cost)
+				mux.cost += cost_mux16;
+				mux.cost += sum_best_covers(tree, mux.inputs);
+
+				log_debug("      Cost of mux16 at %s: %d\n", log_signal(bit), mux.cost);
+
+				if (best_mux.cost >= mux.cost)
 					best_mux = mux;
 			}
 		}
@@ -555,6 +566,7 @@ struct MuxcoverWorker
 	void treecover(tree_t &tree)
 	{
 		int count_muxes_by_type[4] = {0, 0, 0, 0};
+		log_debug("    Searching for best cover for tree at %s.\n", log_signal(tree.root));
 		find_best_cover(tree, tree.root);
 		implement_best_cover(tree, tree.root, count_muxes_by_type);
 		log("    Replaced tree at %s: %d MUX2, %d MUX4, %d MUX8, %d MUX16\n", log_signal(tree.root),
@@ -571,12 +583,13 @@ struct MuxcoverWorker
 
 		log("  Covering trees:\n");
 
-		// pre-fill cache of decoder muxes
-		if (!nodecode)
+		if (!nodecode) {
+			log_debug("    Populating cache of decoder muxes.\n");
 			for (auto &tree : tree_list) {
 				find_best_cover(tree, tree.root);
 				tree.newmuxes.clear();
 			}
+		}
 
 		for (auto &tree : tree_list)
 			treecover(tree);
@@ -606,6 +619,10 @@ struct MuxcoverPass : public Pass {
 		log("        Do not insert decoder logic. This reduces the number of possible\n");
 		log("        substitutions, but guarantees that the resulting circuit is not\n");
 		log("        less efficient than the original circuit.\n");
+		log("\n");
+		log("    -nopartial\n");
+		log("        Do not consider mappings that use $_MUX<N>_ to select from less\n");
+		log("        than <N> different signals.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
