@@ -17,11 +17,14 @@
  *
  */
 
-#include "kernel/register.h"
-#include "kernel/sigtools.h"
 #include "kernel/log.h"
-#include <stdlib.h>
+#include "kernel/register.h"
+#include "kernel/rtlil.h"
+#include "kernel/satgen.h"
+#include "kernel/sigtools.h"
+#include "netlist.h"
 #include <stdio.h>
+#include <stdlib.h>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -29,7 +32,11 @@ PRIVATE_NAMESPACE_BEGIN
 SigMap assign_map, dff_init_map;
 SigSet<RTLIL::Cell*> mux_drivers;
 dict<SigBit, pool<SigBit>> init_attributes;
+std::map<RTLIL::Module*, Netlist> netlists;
+std::map<RTLIL::Module *, CellTypes> comb_filters;
+
 bool keepdc;
+bool sat;
 
 void remove_init_attr(SigSpec sig)
 {
@@ -452,6 +459,71 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 		dff->unsetPort("\\E");
 	}
 
+	if (sat && has_init) {
+		bool removed_sigbits = false;
+
+		// Create netlist for the module if not already available
+		if (!netlists.count(mod)) {
+			netlists.emplace(mod, Netlist(mod));
+			comb_filters.emplace(mod, comb_cells_filt());
+		}
+
+		// Load netlist for the module from the pool
+		Netlist &net = netlists.at(mod);
+
+
+		// For each register bit, try to prove that it cannot change from the initial value. If so, remove it
+		for (int position = 0; position < GetSize(sig_d); position += 1) {
+			RTLIL::SigBit q_sigbit = sig_q[position];
+			RTLIL::SigBit d_sigbit = sig_d[position];
+
+			if ((!q_sigbit.wire) || (!d_sigbit.wire)) {
+				continue;
+			}
+
+			ezSatPtr ez;
+			SatGen satgen(ez.get(), &net.sigmap);
+
+			// Create SAT instance only for the cells that influence the register bit combinatorially
+			for (const auto &cell : cell_cone(net, d_sigbit, &comb_filters.at(mod))) {
+				if (!satgen.importCell(cell))
+					log_error("Can't create SAT model for cell %s (%s)!\n", RTLIL::id2cstr(cell->name),
+						  RTLIL::id2cstr(cell->type));
+			}
+
+			RTLIL::Const sigbit_init_val = val_init.extract(position);
+			int init_sat_pi = satgen.importSigSpec(sigbit_init_val).front();
+
+			int q_sat_pi = satgen.importSigBit(q_sigbit);
+			int d_sat_pi = satgen.importSigBit(d_sigbit);
+
+			// Try to find out whether the register bit can change under some circumstances
+			bool counter_example_found = ez->solve(ez->IFF(q_sat_pi, init_sat_pi), ez->NOT(ez->IFF(d_sat_pi, init_sat_pi)));
+
+			// If the register bit cannot change, we can replace it with a constant
+			if (!counter_example_found) {
+
+				RTLIL::SigSpec driver_port = net.driver_port(q_sigbit);
+				RTLIL::Wire *dummy_wire = mod->addWire(NEW_ID, 1);
+
+				for (auto &conn : mod->connections_)
+					net.sigmap(conn.first).replace(driver_port, dummy_wire, &conn.first);
+
+				remove_init_attr(driver_port);
+				driver_port = dummy_wire;
+
+				mod->connect(RTLIL::SigSig(q_sigbit, sigbit_init_val));
+
+				removed_sigbits = true;
+			}
+		}
+
+		if (removed_sigbits) {
+			return true;
+		}
+	}
+
+
 	return false;
 
 delete_dff:
@@ -467,7 +539,7 @@ struct OptRmdffPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    opt_rmdff [-keepdc] [selection]\n");
+		log("    opt_rmdff [-keepdc] [-sat] [selection]\n");
 		log("\n");
 		log("This pass identifies flip-flops with constant inputs and replaces them with\n");
 		log("a constant driver.\n");
@@ -479,6 +551,7 @@ struct OptRmdffPass : public Pass {
 		log_header(design, "Executing OPT_RMDFF pass (remove dff with constant values).\n");
 
 		keepdc = false;
+		sat = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -486,12 +559,17 @@ struct OptRmdffPass : public Pass {
 				keepdc = true;
 				continue;
 			}
+			if (args[argidx] == "-sat") {
+				sat = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
+		netlists.clear();
+		comb_filters.clear();
 
-		for (auto module : design->selected_modules())
-		{
+		for (auto module : design->selected_modules()) {
 			pool<SigBit> driven_bits;
 			dict<SigBit, State> init_bits;
 

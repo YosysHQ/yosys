@@ -246,24 +246,24 @@ struct CellTypes
 		cell_types.clear();
 	}
 
-	bool cell_known(RTLIL::IdString type)
+	bool cell_known(RTLIL::IdString type) const
 	{
 		return cell_types.count(type) != 0;
 	}
 
-	bool cell_output(RTLIL::IdString type, RTLIL::IdString port)
+	bool cell_output(RTLIL::IdString type, RTLIL::IdString port) const
 	{
 		auto it = cell_types.find(type);
 		return it != cell_types.end() && it->second.outputs.count(port) != 0;
 	}
 
-	bool cell_input(RTLIL::IdString type, RTLIL::IdString port)
+	bool cell_input(RTLIL::IdString type, RTLIL::IdString port) const
 	{
 		auto it = cell_types.find(type);
 		return it != cell_types.end() && it->second.inputs.count(port) != 0;
 	}
 
-	bool cell_evaluable(RTLIL::IdString type)
+	bool cell_evaluable(RTLIL::IdString type) const
 	{
 		auto it = cell_types.find(type);
 		return it != cell_types.end() && it->second.is_evaluable;
@@ -482,4 +482,3 @@ extern CellTypes yosys_celltypes;
 YOSYS_NAMESPACE_END
 
 #endif
-
