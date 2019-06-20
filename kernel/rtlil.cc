@@ -3438,7 +3438,7 @@ void RTLIL::SigSpec::extend_u0(int width, bool is_signed)
 
 	if (width_ < width) {
 		RTLIL::SigBit padding = width_ > 0 ? (*this)[width_ - 1] : RTLIL::State::Sx;
-		if (padding != RTLIL::State::Sx && !is_signed)
+		if (!is_signed)
 			padding = RTLIL::State::S0;
 		while (width_ < width)
 			append(padding);

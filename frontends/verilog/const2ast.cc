@@ -204,7 +204,7 @@ AstNode *VERILOG_FRONTEND::const2ast(std::string code, char case_type, bool warn
 	{
 		std::vector<RTLIL::State> data;
 		bool is_signed = false;
-		bool is_unsized = false;
+		bool is_unsized = len_in_bits < 0;
 		if (*(endptr+1) == 's') {
 			is_signed = true;
 			endptr++;
@@ -213,25 +213,25 @@ AstNode *VERILOG_FRONTEND::const2ast(std::string code, char case_type, bool warn
 		{
 		case 'b':
 		case 'B':
-			my_strtobin(data, endptr+2, len_in_bits, 2, case_type, false);
+			my_strtobin(data, endptr+2, len_in_bits, 2, case_type, is_unsized);
 			break;
 		case 'o':
 		case 'O':
-			my_strtobin(data, endptr+2, len_in_bits, 8, case_type, false);
+			my_strtobin(data, endptr+2, len_in_bits, 8, case_type, is_unsized);
 			break;
 		case 'd':
 		case 'D':
-			my_strtobin(data, endptr+2, len_in_bits, 10, case_type, false);
+			my_strtobin(data, endptr+2, len_in_bits, 10, case_type, is_unsized);
 			break;
 		case 'h':
 		case 'H':
-			my_strtobin(data, endptr+2, len_in_bits, 16, case_type, false);
+			my_strtobin(data, endptr+2, len_in_bits, 16, case_type, is_unsized);
 			break;
 		default:
 			char next_char = char(tolower(*(endptr+1)));
 			if (next_char == '0' || next_char == '1' || next_char == 'x' || next_char == 'z') {
-				my_strtobin(data, endptr+1, 1, 2, case_type, true);
 				is_unsized = true;
+				my_strtobin(data, endptr+1, 1, 2, case_type, is_unsized);
 			} else {
 				return NULL;
 			}

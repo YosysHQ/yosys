@@ -23,6 +23,7 @@ Yosys 0.8 .. Yosys 0.8-dev
     - Added "synth_xilinx -abc9" (experimental)
     - Added "synth_ice40 -abc9" (experimental)
     - Extended "muxcover -mux{4,8,16}=<cost>"
+    - Fixed sign extension of unsized constants with 'bx and 'bz MSB
     - Added "synth -abc9" (experimental)
     - "synth_xilinx" to now infer wide multiplexers (-nomux to disable)
 
@@ -38,7 +39,7 @@ Yosys 0.7 .. Yosys 0.8
     - Added "write_verilog -decimal"
     - Added "scc -set_attr"
     - Added "verilog_defines" command
-    - Remeber defines from one read_verilog to next
+    - Remember defines from one read_verilog to next
     - Added support for hierarchical defparam
     - Added FIRRTL back-end
     - Improved ABC default scripts
