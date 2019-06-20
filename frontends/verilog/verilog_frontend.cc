@@ -168,6 +168,9 @@ struct VerilogFrontend : public Frontend {
 		log("    -icells\n");
 		log("        interpret cell types starting with '$' as internal cell types\n");
 		log("\n");
+		log("    -pwires\n");
+		log("        add a wire for each module parameter\n");
+		log("\n");
 		log("    -nooverwrite\n");
 		log("        ignore re-definitions of modules. (the default behavior is to\n");
 		log("        create an error message if the existing module is not a black box\n");
@@ -228,6 +231,7 @@ struct VerilogFrontend : public Frontend {
 		bool flag_nodpi = false;
 		bool flag_noopt = false;
 		bool flag_icells = false;
+		bool flag_pwires = false;
 		bool flag_nooverwrite = false;
 		bool flag_overwrite = false;
 		bool flag_defer = false;
@@ -368,6 +372,10 @@ struct VerilogFrontend : public Frontend {
 				flag_icells = true;
 				continue;
 			}
+			if (arg == "-pwires") {
+				flag_pwires = true;
+				continue;
+			}
 			if (arg == "-ignore_redef" || arg == "-nooverwrite") {
 				flag_nooverwrite = true;
 				flag_overwrite = false;
@@ -458,7 +466,7 @@ struct VerilogFrontend : public Frontend {
 			error_on_dpi_function(current_ast);
 
 		AST::process(design, current_ast, flag_dump_ast1, flag_dump_ast2, flag_no_dump_ptr, flag_dump_vlog1, flag_dump_vlog2, flag_dump_rtlil, flag_nolatches,
-				flag_nomeminit, flag_nomem2reg, flag_mem2reg, flag_noblackbox, lib_mode, flag_nowb, flag_noopt, flag_icells, flag_nooverwrite, flag_overwrite, flag_defer, default_nettype_wire);
+				flag_nomeminit, flag_nomem2reg, flag_mem2reg, flag_noblackbox, lib_mode, flag_nowb, flag_noopt, flag_icells, flag_pwires, flag_nooverwrite, flag_overwrite, flag_defer, default_nettype_wire);
 
 		if (!flag_nopp)
 			delete lexin;

@@ -319,15 +319,17 @@ module_para_list:
 
 single_module_para:
 	/* empty */ |
-	TOK_PARAMETER {
+	attr TOK_PARAMETER {
 		if (astbuf1) delete astbuf1;
 		astbuf1 = new AstNode(AST_PARAMETER);
 		astbuf1->children.push_back(AstNode::mkconst_int(0, true));
+		append_attr(astbuf1, $1);
 	} param_signed param_integer param_range single_param_decl |
-	TOK_LOCALPARAM {
+	attr TOK_LOCALPARAM {
 		if (astbuf1) delete astbuf1;
 		astbuf1 = new AstNode(AST_LOCALPARAM);
 		astbuf1->children.push_back(AstNode::mkconst_int(0, true));
+		append_attr(astbuf1, $1);
 	} param_signed param_integer param_range single_param_decl |
 	single_param_decl;
 
@@ -345,7 +347,13 @@ module_arg_opt_assignment:
 		if (ast_stack.back()->children.size() > 0 && ast_stack.back()->children.back()->type == AST_WIRE) {
 			AstNode *wire = new AstNode(AST_IDENTIFIER);
 			wire->str = ast_stack.back()->children.back()->str;
-			if (ast_stack.back()->children.back()->is_reg)
+			if (ast_stack.back()->children.back()->is_input) {
+				AstNode *n = ast_stack.back()->children.back();
+				if (n->attributes.count("\\defaultvalue"))
+					delete n->attributes.at("\\defaultvalue");
+				n->attributes["\\defaultvalue"] = $2;
+			} else
+			if (ast_stack.back()->children.back()->is_reg || ast_stack.back()->children.back()->is_logic)
 				ast_stack.back()->children.push_back(new AstNode(AST_INITIAL, new AstNode(AST_BLOCK, new AstNode(AST_ASSIGN_LE, wire, $2))));
 			else
 				ast_stack.back()->children.push_back(new AstNode(AST_ASSIGN, wire, $2));
@@ -1211,6 +1219,7 @@ param_decl:
 	attr TOK_PARAMETER {
 		astbuf1 = new AstNode(AST_PARAMETER);
 		astbuf1->children.push_back(AstNode::mkconst_int(0, true));
+		append_attr(astbuf1, $1);
 	} param_signed param_integer param_real param_range param_decl_list ';' {
 		delete astbuf1;
 	};
@@ -1219,6 +1228,7 @@ localparam_decl:
 	attr TOK_LOCALPARAM {
 		astbuf1 = new AstNode(AST_LOCALPARAM);
 		astbuf1->children.push_back(AstNode::mkconst_int(0, true));
+		append_attr(astbuf1, $1);
 	} param_signed param_integer param_real param_range param_decl_list ';' {
 		delete astbuf1;
 	};
@@ -1360,7 +1370,12 @@ wire_name_and_opt_assign:
 	wire_name '=' expr {
 		AstNode *wire = new AstNode(AST_IDENTIFIER);
 		wire->str = ast_stack.back()->children.back()->str;
-		if (astbuf1->is_reg)
+		if (astbuf1->is_input) {
+			if (astbuf1->attributes.count("\\defaultvalue"))
+				delete astbuf1->attributes.at("\\defaultvalue");
+			astbuf1->attributes["\\defaultvalue"] = $3;
+		} else
+		if (astbuf1->is_reg || astbuf1->is_logic)
 			ast_stack.back()->children.push_back(new AstNode(AST_INITIAL, new AstNode(AST_BLOCK, new AstNode(AST_ASSIGN_LE, wire, $3))));
 		else
 			ast_stack.back()->children.push_back(new AstNode(AST_ASSIGN, wire, $3));
@@ -1385,7 +1400,13 @@ wire_name:
 				node->children.push_back(rng);
 			}
 			node->type = AST_MEMORY;
-			node->children.push_back($2);
+			auto *rangeNode = $2;
+			if (rangeNode->type == AST_RANGE && rangeNode->children.size() == 1) {
+				// SV array size [n], rewrite as [n-1:0]
+				rangeNode->children[0] = new AstNode(AST_SUB, rangeNode->children[0], AstNode::mkconst_int(1, true));
+				rangeNode->children.push_back(AstNode::mkconst_int(0, false));
+			}
+			node->children.push_back(rangeNode);
 		}
 		if (current_function_or_task == NULL) {
 			if (do_not_require_port_stubs && (node->is_input || node->is_output) && port_stubs.count(*$1) == 0) {

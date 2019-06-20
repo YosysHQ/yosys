@@ -18,11 +18,12 @@ Yosys 0.8 .. Yosys 0.8-dev
     - Added "equiv_opt" pass
     - Added "read_aiger" frontend
     - Added "shregmap -tech xilinx"
+    - "synth_xilinx" to now infer hard shift registers (-nosrl to disable)
     - Added "abc9" pass for timing-aware techmapping (experimental, FPGA only, no FFs)
     - Added "synth_xilinx -abc9" (experimental)
     - Added "synth_ice40 -abc9" (experimental)
+    - Extended "muxcover -mux{4,8,16}=<cost>"
     - Added "synth -abc9" (experimental)
-    - "synth_xilinx" to now infer hard shift registers (-nosrl to disable)
     - "synth_xilinx" to now infer wide multiplexers (-nomux to disable)
 
 
