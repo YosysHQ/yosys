@@ -5,9 +5,6 @@ assign o = 1'bx;
 endmodule
 EOT
 
-
-## Example usage for "pmuxtree" and "muxcover"
-
 proc
 
 ## Equivalence checking
