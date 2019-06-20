@@ -1,2 +1,0 @@
-read_verilog -sv unpacked_arrays.sv
-stat
