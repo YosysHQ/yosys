@@ -1,0 +1,24 @@
+
+read_verilog -formal <<EOT
+module gate(input clk, output [1:0] o);
+assign o = 1'bx;
+endmodule
+EOT
+
+
+## Example usage for "pmuxtree" and "muxcover"
+
+proc
+
+## Equivalence checking
+
+read_verilog -formal <<EOT
+module gold(input clk, output [1:0] o);
+assign o = 2'bxx;
+endmodule
+EOT
+
+proc
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports -enable_undef miter
