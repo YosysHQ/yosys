@@ -659,6 +659,7 @@ struct SatHelper
 
 	void dump_model_to_vcd(std::string vcd_file_name)
 	{
+		rewrite_filename(vcd_file_name);
 		FILE *f = fopen(vcd_file_name.c_str(), "w");
 		if (!f)
 			log_cmd_error("Can't open output file `%s' for writing: %s\n", vcd_file_name.c_str(), strerror(errno));
@@ -761,6 +762,7 @@ struct SatHelper
 
 	void dump_model_to_json(std::string json_file_name)
 	{
+		rewrite_filename(json_file_name);
 		FILE *f = fopen(json_file_name.c_str(), "w");
 		if (!f)
 			log_cmd_error("Can't open output file `%s' for writing: %s\n", json_file_name.c_str(), strerror(errno));
@@ -1505,6 +1507,7 @@ struct SatPass : public Pass {
 					{
 						if (!cnf_file_name.empty())
 						{
+							rewrite_filename(cnf_file_name);
 							FILE *f = fopen(cnf_file_name.c_str(), "w");
 							if (!f)
 								log_cmd_error("Can't open output file `%s' for writing: %s\n", cnf_file_name.c_str(), strerror(errno));
@@ -1608,6 +1611,7 @@ struct SatPass : public Pass {
 
 			if (!cnf_file_name.empty())
 			{
+				rewrite_filename(cnf_file_name);
 				FILE *f = fopen(cnf_file_name.c_str(), "w");
 				if (!f)
 					log_cmd_error("Can't open output file `%s' for writing: %s\n", cnf_file_name.c_str(), strerror(errno));

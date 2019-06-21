@@ -545,6 +545,7 @@ void Backend::extra_args(std::ostream *&f, std::string &filename, std::vector<st
 		}
 
 		filename = arg;
+		rewrite_filename(filename);
 		std::ofstream *ff = new std::ofstream;
 		ff->open(filename.c_str(), std::ofstream::trunc);
 		yosys_output_files.insert(filename);
