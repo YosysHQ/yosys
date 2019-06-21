@@ -206,9 +206,9 @@ struct SynthXilinxPass : public ScriptPass
 	{
 		if (check_label("begin")) {
 			if (vpr)
-				run("read_verilog -lib -D _ABC -D_EXPLICIT_CARRY +/xilinx/cells_sim.v");
+				run("read_verilog -lib -icells -D _ABC -D_EXPLICIT_CARRY +/xilinx/cells_sim.v");
 			else
-				run("read_verilog -lib -D _ABC +/xilinx/cells_sim.v");
+				run("read_verilog -lib -icells -D _ABC +/xilinx/cells_sim.v");
 
 			run("read_verilog -lib +/xilinx/cells_xtra.v");
 
@@ -238,8 +238,8 @@ struct SynthXilinxPass : public ScriptPass
 			run("memory -nomap");
 			run("opt_clean");
 
-			//if (!nomux || help_mode)
-			//	run("muxpack", "(skip if '-nomux')");
+			if (!nomux || help_mode)
+				run("muxpack", "    (skip if '-nomux')");
 
 			// shregmap -tech xilinx can cope with $shiftx and $mux
 			//   cells for identifying variable-length shift registers,
@@ -308,7 +308,7 @@ struct SynthXilinxPass : public ScriptPass
 		}
 
 		if (check_label("map_cells")) {
-			run("techmap -map +/techmap.v -map +/xilinx/cells_map.v");
+			run("techmap -map +/techmap.v -D _ABC -map +/xilinx/cells_map.v");
 			run("clean");
 		}
 
