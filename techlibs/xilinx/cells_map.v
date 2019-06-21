@@ -226,7 +226,6 @@ module \$__XILINX_SHIFTX (A, B, Y);
       localparam num_mux8 = A_WIDTH / a_width0;
       localparam a_widthN = A_WIDTH - num_mux8*a_width0;
       wire [4-1:0] T;
-      wire T0, T1;
       for (i = 0; i < 4; i++)
         if (i < num_mux8)
           \$shiftx  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(a_width0), .B_WIDTH(2),                .Y_WIDTH(Y_WIDTH)) fpga_soft_mux      (.A(A[i*a_width0+:a_width0]), .B(B[2-1:0]),                .Y(T[i]));
@@ -238,9 +237,7 @@ module \$__XILINX_SHIFTX (A, B, Y);
         end
         else
           assign T[i] = 1'bx;
-      MUXF7 fpga_hard_mux_0 (.I0(T[0]), .I1(T[1]), .S(B[2]), .O(T0));
-      MUXF7 fpga_hard_mux_1 (.I0(T[2]), .I1(T[3]), .S(B[2]), .O(T1));
-      MUXF8 fpga_hard_mux_2 (.I0(T0),   .I1(T1),   .S(B[3]), .O(Y));
+      \$__XILINX_MUXF78 fpga_hard_mux (.I0(T[0]), .I1(T[1]), .I2(T[2]), .I3(T[3]), .S0(B[2]), .S1(B[3]), .O(Y));
     end
     else begin
       localparam a_width0 = 2 ** 4;
@@ -274,3 +271,14 @@ input A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, S, T, U, V;
 output Y;
   \$__XILINX_SHIFTX  #(.A_SIGNED(0), .B_SIGNED(0), .A_WIDTH(16), .B_WIDTH(4), .Y_WIDTH(1)) _TECHMAP_REPLACE_ (.A({P,O,N,M,L,K,J,I,H,G,F,E,D,C,B,A}), .B({V,U,T,S}), .Y(Y));
 endmodule
+
+`ifndef _ABC
+module \$__XILINX_MUXF78 (O, I0, I1, I2, I3, S0, S1);
+  output O;
+  input I0, I1, I2, I3, S0, S1;
+  wire T0, T1;
+  MUXF7 mux7a (.I0(I0), .I1(I1), .S(S0), .O(T0));
+  MUXF7 mux7b (.I0(I2), .I1(I3), .S(S0), .O(T1));
+  MUXF8 mux8 (.I0(T0), .I1(T1), .S(S1), .O(O));
+endmodule
+`endif

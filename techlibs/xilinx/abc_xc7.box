@@ -1,15 +1,20 @@
 # Max delays from https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf
 
-# F7BMUX slower than F7AMUX
+# Average across F7[AB]MUX
 # Inputs: I0 I1 S0
 # Outputs: O
-F7BMUX 1 1 3 1
-217 223 296
+F7MUX 1 1 3 1
+204 208 286
 
 # Inputs: I0 I1 S0
 # Outputs: O
 MUXF8 2 1 3 1
 104 94 273
+
+# Inputs: I0 I1 I2 I3 S0 S1
+# Outputs: O
+MUXF78 10 1 6 1
+190 193 217 223 296 273
 
 # CARRY4 + CARRY4_[ABCD]X
 # Inputs: S0 S1 S2 S3 CYINIT DI0 DI1 DI2 DI3 CI

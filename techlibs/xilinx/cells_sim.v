@@ -169,6 +169,14 @@ module MUXF8(output O, input I0, I1, S);
   assign O = S ? I1 : I0;
 endmodule
 
+`ifdef _ABC
+(* abc_box_id = 10, lib_whitebox *)
+module \$__XILINX_MUXF78 (output O, input I0, I1, I2, I3, S0, S1);
+  assign O = S1 ? (S0 ? I3 : I2)
+                : (S0 ? I1 : I0);
+endmodule
+`endif
+
 module XORCY(output O, input CI, LI);
   assign O = CI ^ LI;
 endmodule
