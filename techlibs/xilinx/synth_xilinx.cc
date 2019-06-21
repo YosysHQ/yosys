@@ -279,6 +279,7 @@ struct SynthXilinxPass : public ScriptPass
 					      //        otherwise it will use mux8 as mux4
 				run("muxcover -mux4=150 -mux8=200 -mux16=250 -dmux=0", "(skip if -nomux)");
 			}
+			run("wreduce"); // FIXME: Moved until after muxcover from 'coarse'
 			run("opt -full");
 
 			if (!nosrl || help_mode) {
