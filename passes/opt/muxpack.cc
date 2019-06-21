@@ -52,30 +52,30 @@ struct ExclusiveDatabase
 			}
 			else continue;
 
-                        log_assert(!nonconst_sig.empty());
-                        log_assert(!const_sig.empty());
-                        sig_cmp_prev[y_port] = std::make_pair(nonconst_sig,const_sig.as_const());
-                }
-        }
+			log_assert(!nonconst_sig.empty());
+			log_assert(!const_sig.empty());
+			sig_cmp_prev[y_port] = std::make_pair(nonconst_sig,const_sig.as_const());
+		}
+	}
 
-        bool query(const SigSpec &sig) const
-        {
-                SigSpec nonconst_sig;
-                pool<Const> const_values;
+	bool query(const SigSpec &sig) const
+	{
+		SigSpec nonconst_sig;
+		pool<Const> const_values;
 
-                for (auto bit : sig.bits()) {
-                        auto it = sig_cmp_prev.find(bit);
-                        if (it == sig_cmp_prev.end())
-                                return false;
+		for (auto bit : sig.bits()) {
+			auto it = sig_cmp_prev.find(bit);
+			if (it == sig_cmp_prev.end())
+				return false;
 
-                        if (nonconst_sig.empty())
-                                nonconst_sig = it->second.first;
-                        else if (nonconst_sig != it->second.first)
-                                return false;
+			if (nonconst_sig.empty())
+				nonconst_sig = it->second.first;
+			else if (nonconst_sig != it->second.first)
+				return false;
 
-                        if (!const_values.insert(it->second.second).second)
-                                return false;
-                }
+			if (!const_values.insert(it->second.second).second)
+				return false;
+		}
 
 		return true;
 	}
