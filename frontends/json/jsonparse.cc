@@ -373,7 +373,7 @@ void json_import(Design *design, string &modname, JsonNode *node)
 				wire = module->addWire(net_name, GetSize(bits_node->data_array));
 
 			if (net_node->data_dict.count("upto") != 0) {
-				JsonNode *val = net_node->data_dict.at("offset");
+				JsonNode *val = net_node->data_dict.at("upto");
 				if (val->type == 'N')
 					wire->upto = val->data_number != 0;
 			}
