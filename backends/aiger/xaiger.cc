@@ -75,6 +75,7 @@ struct XAigerWriter
 	dict<SigBit, int> ordered_outputs;
 
 	vector<Cell*> box_list;
+	bool omode = false;
 
 	int mkgate(int a0, int a1)
 	{
@@ -409,9 +410,9 @@ struct XAigerWriter
 			// If encountering an inout port, or a keep-ed wire, then create a new wire
 			// with $inout.out suffix, make it a PO driven by the existing inout, and
 			// inherit existing inout's drivers
-			if ((wire->port_input && wire->port_output && !undriven_bits.count(bit))
+			if ((wire->port_input && wire->port_output && output_bits.count(bit) && !undriven_bits.count(bit))
 					|| wire->attributes.count("\\keep")) {
-				log_assert(input_bits.count(bit) && output_bits.count(bit));
+				log_assert(output_bits.count(bit));
 				RTLIL::IdString wire_name = wire->name.str() + "$inout.out";
 				RTLIL::Wire *new_wire = module->wire(wire_name);
 				if (!new_wire)
@@ -485,6 +486,12 @@ struct XAigerWriter
 		for (auto bit : output_bits) {
 			ordered_outputs[bit] = aig_o++;
 			aig_outputs.push_back(bit2aig(bit));
+		}
+
+		if (output_bits.empty()) {
+			aig_o++;
+			aig_outputs.push_back(0);
+			omode = true;
 		}
 	}
 
@@ -741,6 +748,8 @@ struct XAigerWriter
 		for (auto &it : output_lines)
 			f << it.second;
 		log_assert(output_lines.size() == output_bits.size());
+		if (omode && output_bits.empty())
+			f << "output " << output_lines.size() << " 0 $__dummy__\n";
 
 		wire_lines.sort();
 		for (auto &it : wire_lines)
