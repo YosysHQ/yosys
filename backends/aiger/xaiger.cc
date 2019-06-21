@@ -101,12 +101,13 @@ struct XAigerWriter
 				aig_map[bit] = mkgate(a0, a1);
 			} else
 			if (alias_map.count(bit)) {
-				aig_map[bit] = bit2aig(alias_map.at(bit));
+				int a = bit2aig(alias_map.at(bit));
+				aig_map[bit] = a;
 			}
 
 			if (bit == State::Sx || bit == State::Sz) {
 				log_debug("Bit '%s' contains 'x' or 'z' bits. Treating as 1'b0.\n", log_signal(bit));
-				aig_map[bit] = 0;
+				aig_map[bit] = aig_map.at(State::S0);
 			}
 		}
 
