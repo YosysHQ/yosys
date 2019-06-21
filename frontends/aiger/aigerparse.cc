@@ -114,13 +114,20 @@ struct ConstEvalAig
 
 		RTLIL::Cell *cell = sig2driver.at(output);
 		RTLIL::SigBit sig_a = cell->getPort("\\A");
+		sig2deps[sig_a].reserve(sig2deps[sig_a].size() + sig2deps[output].size()); // Reserve so that any invalidation
+											   // that may occur does so here, and
+											   // not mid insertion (below)
 		sig2deps[sig_a].insert(sig2deps[output].begin(), sig2deps[output].end());
 		if (!inputs.count(sig_a))
 			compute_deps(sig_a, inputs);
 
 		if (cell->type == "$_AND_") {
 			RTLIL::SigSpec sig_b = cell->getPort("\\B");
+			sig2deps[sig_b].reserve(sig2deps[sig_b].size() + sig2deps[output].size()); // Reserve so that any invalidation
+												   // that may occur does so here, and
+												   // not mid insertion (below)
 			sig2deps[sig_b].insert(sig2deps[output].begin(), sig2deps[output].end());
+
 			if (!inputs.count(sig_b))
 				compute_deps(sig_b, inputs);
 		}

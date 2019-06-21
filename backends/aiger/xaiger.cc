@@ -86,13 +86,14 @@ struct XAigerWriter
 
 	int bit2aig(SigBit bit)
 	{
-		// NB: Cannot use iterator returned from aig_map.insert()
-		//     since this function is called recursively
 		auto it = aig_map.find(bit);
 		if (it != aig_map.end()) {
 			log_assert(it->second >= 0);
 			return it->second;
 		}
+
+		// NB: Cannot use iterator returned from aig_map.insert()
+		//     since this function is called recursively
 
 		int a = -1;
 		if (not_map.count(bit)) {
@@ -109,7 +110,7 @@ struct XAigerWriter
 		}
 
 		if (bit == State::Sx || bit == State::Sz) {
-			log_debug("Bit '%s' contains 'x' or 'z' bits. Treating as 1'b0.\n", log_signal(bit));
+			log_debug("Design contains 'x' or 'z' bits. Treating as 1'b0.\n");
 			a = aig_map.at(State::S0);
 		}
 
@@ -428,12 +429,13 @@ struct XAigerWriter
 				module->connect(new_bit, bit);
 				if (not_map.count(bit))
 					not_map[new_bit] = not_map.at(bit);
-				else if (and_map.count(bit))
-					and_map[new_bit] = and_map.at(bit);
+				else if (and_map.count(bit)) {
+				    //and_map[new_bit] = and_map.at(bit); // Breaks gcc-4.8
+				    and_map.insert(std::make_pair(new_bit, and_map.at(bit)));
+				}
 				else if (alias_map.count(bit))
 					alias_map[new_bit] = alias_map.at(bit);
 				else
-					//log_abort();
 					alias_map[new_bit] = bit;
 				output_bits.erase(bit);
 				output_bits.insert(new_bit);
