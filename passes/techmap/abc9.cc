@@ -492,7 +492,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			if (w->port_output) {
 				RTLIL::Wire *wire = module->wire(w->name);
 				log_assert(wire);
-				for (int i = 0; i < GetSize(wire); i++)
+				for (int i = 0; i < GetSize(w); i++)
 					output_bits.insert({wire, i});
 			}
 		}
