@@ -226,6 +226,7 @@ do
 		if $warn_iverilog_git; then
 			echo "Note: Make sure that 'iverilog' is an up-to-date git checkout of Icarus Verilog."
 		fi
+		cat ${bn}.err
 		$keeprunning || exit 1
 	fi
 done
