@@ -227,8 +227,6 @@ do
 			echo "Note: Make sure that 'iverilog' is an up-to-date git checkout of Icarus Verilog."
 		fi
 		cat ${bn}.err
-		cat ${bn}_ref.v
-		cat ${bn}_syn.v
 		$keeprunning || exit 1
 	fi
 done
