@@ -35,23 +35,6 @@ module \$shiftx (A, B, Y);
   parameter [B_WIDTH-1:0] _TECHMAP_CONSTVAL_B_ = 0;
 
   generate
-    genvar i;
-    wire [A_WIDTH-1:0] A_forward;
-    assign A_backward[A_WIDTH-1] = A[A_WIDTH-1];
-    for (i = A_WIDTH-2; i >= 0; i = i - 1)
-      if (_TECHMAP_CONSTMSK_A_[i] && _TECHMAP_CONSTVAL_A_[i] === 1'bx)
-        assign A_backward[i] = A_backward[i+1];
-      else
-        assign A_backward[i] = A[i];
-
-    wire [A_WIDTH-1:0] A_without_x;
-    assign A_without_x[0] = A_backward[0];
-    for (i = 1; i < A_WIDTH; i = i + 1)
-      if (_TECHMAP_CONSTMSK_A_[i] && _TECHMAP_CONSTVAL_A_[i] === 1'bx)
-        assign A_without_x[i] = A_without_x[i-1];
-      else
-        assign A_without_x[i] = A[i];
-
     if (B_SIGNED) begin
       if (B_WIDTH < 4 || A_WIDTH <= 4)
         wire _TECHMAP_FAIL_ = 1;
@@ -64,7 +47,7 @@ module \$shiftx (A, B, Y);
           .B_WIDTH(B_WIDTH-1'd1),
           .Y_WIDTH(Y_WIDTH)
         ) _TECHMAP_REPLACE_ (
-          .A(A_without_x), .B(B[B_WIDTH-2:0]), .Y(Y)
+          .A(A), .B(B[B_WIDTH-2:0]), .Y(Y)
         );
       else
         wire _TECHMAP_FAIL_ = 1;
@@ -80,7 +63,7 @@ module \$shiftx (A, B, Y);
           .B_WIDTH(B_WIDTH),
           .Y_WIDTH(Y_WIDTH)
         ) _TECHMAP_REPLACE_ (
-          .A(A_without_x), .B(B), .Y(Y)
+          .A(A), .B(B), .Y(Y)
         );
     end
   endgenerate
