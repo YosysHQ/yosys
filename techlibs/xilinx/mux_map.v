@@ -55,14 +55,13 @@ module \$shiftx (A, B, Y);
       if (B_SIGNED) begin
         if (B_WIDTH < 4 || A_WIDTH <= 4)
           wire _TECHMAP_FAIL_ = 1;
-        else
-          // Since negative indices are out of the range of A
-          // and hence return 'bx, drop the sign bit
+        else if (_TECHMAP_CONSTMSK_B_[B_WIDTH-1] && _TECHMAP_CONSTVAL_B_[B_WIDTH-1] == 1'b0)
+          // Optimisation to remove B_SIGNED if sign bit of B is constant-0
           \$__XILINX_SHIFTX #(
             .A_SIGNED(A_SIGNED),
             .B_SIGNED(0),
             .A_WIDTH(A_WIDTH),
-            .B_WIDTH($clog2(A_WIDTH*B_WIDTH)),
+            .B_WIDTH(B_WIDTH-1'd1),
             .Y_WIDTH(Y_WIDTH)
           ) _TECHMAP_REPLACE_ (
             .A(A_without_x), .B(B[B_WIDTH-2:0]), .Y(Y)
