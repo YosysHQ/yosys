@@ -29,11 +29,13 @@ struct ExclusiveDatabase
 	Module *module;
 	const SigMap &sigmap;
 
-	dict<SigBit, std::pair<SigSpec,Const>> sig_cmp_prev;
+	dict<SigBit, std::pair<SigSpec,std::vector<Const>>> sig_cmp_prev;
 
 	ExclusiveDatabase(Module *module, const SigMap &sigmap) : module(module), sigmap(sigmap)
 	{
-		SigSpec const_sig, nonconst_sig, y_port;
+		SigSpec const_sig, nonconst_sig;
+		SigBit y_port;
+		pool<Cell*> reduce_or;
 		for (auto cell : module->cells()) {
 			if (cell->type == "$eq") {
 				nonconst_sig = sigmap(cell->getPort("\\A"));
@@ -50,11 +52,40 @@ struct ExclusiveDatabase
 				const_sig = Const(RTLIL::S0, GetSize(nonconst_sig));
 				y_port = sigmap(cell->getPort("\\Y"));
 			}
+			else if (cell->type == "$reduce_or") {
+				reduce_or.insert(cell);
+				continue;
+			}
 			else continue;
 
 			log_assert(!nonconst_sig.empty());
 			log_assert(!const_sig.empty());
-			sig_cmp_prev[y_port] = std::make_pair(nonconst_sig,const_sig.as_const());
+			sig_cmp_prev[y_port] = std::make_pair(nonconst_sig,std::vector<Const>{const_sig.as_const()});
+		}
+
+		for (auto cell : reduce_or) {
+			nonconst_sig = SigSpec();
+			std::vector<Const> values;
+			SigSpec a_port = sigmap(cell->getPort("\\A"));
+			for (auto bit : a_port) {
+				auto it = sig_cmp_prev.find(bit);
+				if (it == sig_cmp_prev.end()) {
+					nonconst_sig = SigSpec();
+					break;
+				}
+				if (nonconst_sig.empty())
+					nonconst_sig = it->second.first;
+				else if (nonconst_sig != it->second.first) {
+					nonconst_sig = SigSpec();
+					break;
+				}
+				for (auto value : it->second.second)
+					values.push_back(value);
+			}
+			if (nonconst_sig.empty())
+				continue;
+			y_port = sigmap(cell->getPort("\\Y"));
+			sig_cmp_prev[y_port] = std::make_pair(nonconst_sig,std::move(values));
 		}
 	}
 
@@ -73,8 +104,9 @@ struct ExclusiveDatabase
 			else if (nonconst_sig != it->second.first)
 				return false;
 
-			if (!const_values.insert(it->second.second).second)
-				return false;
+			for (auto value : it->second.second)
+				if (!const_values.insert(value).second)
+					return false;
 		}
 
 		return true;
