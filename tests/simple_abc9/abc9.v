@@ -262,3 +262,8 @@ endmodule
 module abc9_test025(input [3:0] i, output [3:0] o);
 abc9_test024_sub a(i[2:1], o[2:1]);
 endmodule
+
+module abc9_test026(output [3:0] o, p);
+assign o = { 1'b1, 1'bx };
+assign p = { 1'b1, 1'bx, 1'b0 };
+endmodule
