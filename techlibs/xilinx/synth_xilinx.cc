@@ -218,15 +218,25 @@ struct SynthXilinxPass : public ScriptPass
 			run(stringf("hierarchy -check %s", top_opt.c_str()));
 		}
 
-		if (check_label("flatten", "(with '-flatten' only)")) {
-			if (flatten || help_mode) {
-				run("proc");
-				run("flatten");
-			}
-		}
-
 		if (check_label("coarse")) {
-			run("synth -run coarse");
+			run("proc");
+			if (flatten || help_mode)
+				run("flatten", "(with -flatten only)");
+			run("opt_expr");
+			run("opt_clean");
+			run("check");
+			run("opt");
+			// FIXME
+			//run("wreduce");
+			run("peepopt");
+			run("opt_clean");
+			run("alumacc");
+			run("share");
+			run("opt");
+			run("fsm");
+			run("opt -fast");
+			run("memory -nomap");
+			run("opt_clean");
 
 			//if (!nomux || help_mode)
 			//	run("muxpack", "(skip if '-nomux')");
@@ -259,16 +269,20 @@ struct SynthXilinxPass : public ScriptPass
 		}
 
 		if (check_label("fine")) {
-			run("opt -fast -full");
+			run("opt -fast");
 			run("memory_map");
 			run("dffsr2dff");
 			run("dff2dffe");
+			if (!nomux || help_mode) {
+				run("simplemap t:$mux", "                     (skip if -nomux)");
+				run("muxcover -mux4=150 -mux8=200 -mux16=250 -dmux=0", "(skip if -nomux)");
+			}
 			run("opt -full");
 
 			if (!nosrl || help_mode) {
 				// shregmap operates on bit-level flops, not word-level,
 				//   so break those down here
-				run("simplemap t:$dff t:$dffe", "(skip if '-nosrl')");
+				run("simplemap t:$dff t:$dffe", "       (skip if '-nosrl')");
 				// shregmap with '-tech xilinx' infers variable length shift regs
 				run("shregmap -tech xilinx -minlen 3", "(skip if '-nosrl')");
 			}
@@ -292,8 +306,6 @@ struct SynthXilinxPass : public ScriptPass
 		}
 
 		if (check_label("map_cells")) {
-			if (!nomux || help_mode)
-				run("muxcover -mux8 -mux16", "(skip if '-nomux')");
 			run("techmap -map +/techmap.v -map +/xilinx/cells_map.v");
 			run("clean");
 		}
