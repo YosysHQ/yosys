@@ -230,13 +230,14 @@ sat -verify -prove-asserts -show-ports miter
 
 design -load read
 hierarchy -top case_overlap
-prep
+#prep # Do not prep otherwise $pmux's overlapping entry will get removed
+proc
 design -save gold
 muxpack
-#opt # Do not opt otherwise $pmux's overlapping entry will get removed
+opt
 stat
 select -assert-count 0 t:$mux
-select -assert-count 1 t:$pmux
+select -assert-count 2 t:$pmux
 design -stash gate
 design -import gold -as gold
 design -import gate -as gate
