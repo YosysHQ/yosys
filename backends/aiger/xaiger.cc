@@ -406,13 +406,14 @@ struct XAigerWriter
 		}
 
 		for (auto bit : input_bits) {
+			if (!output_bits.count(bit))
+				continue;
 			RTLIL::Wire *wire = bit.wire;
 			// If encountering an inout port, or a keep-ed wire, then create a new wire
 			// with $inout.out suffix, make it a PO driven by the existing inout, and
 			// inherit existing inout's drivers
-			if ((wire->port_input && wire->port_output && output_bits.count(bit) && !undriven_bits.count(bit))
+			if ((wire->port_input && wire->port_output && !undriven_bits.count(bit))
 					|| wire->attributes.count("\\keep")) {
-				log_assert(output_bits.count(bit));
 				RTLIL::IdString wire_name = wire->name.str() + "$inout.out";
 				RTLIL::Wire *new_wire = module->wire(wire_name);
 				if (!new_wire)
