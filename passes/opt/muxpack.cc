@@ -29,54 +29,53 @@ struct ExclusiveDatabase
 	Module *module;
 	const SigMap &sigmap;
 
-	dict<SigBit, SigSpec> sig_cmp_prev;
-	dict<SigSpec, pool<SigSpec>> sig_exclusive;
+	dict<SigBit, std::pair<SigSpec,Const>> sig_cmp_prev;
 
 	ExclusiveDatabase(Module *module, const SigMap &sigmap) : module(module), sigmap(sigmap)
 	{
-		SigSpec a_port, b_port, y_port;
+		SigSpec const_sig, nonconst_sig, y_port;
 		for (auto cell : module->cells()) {
 			if (cell->type == "$eq") {
-				a_port = sigmap(cell->getPort("\\A"));
-				b_port = sigmap(cell->getPort("\\B"));
-				if (!b_port.is_fully_const()) {
-					if (!a_port.is_fully_const())
+				nonconst_sig = sigmap(cell->getPort("\\A"));
+				const_sig = sigmap(cell->getPort("\\B"));
+				if (!const_sig.is_fully_const()) {
+					if (!nonconst_sig.is_fully_const())
 						continue;
-					std::swap(a_port, b_port);
+					std::swap(nonconst_sig, const_sig);
 				}
 				y_port = sigmap(cell->getPort("\\Y"));
 			}
 			else if (cell->type == "$logic_not") {
-				a_port = sigmap(cell->getPort("\\A"));
-				b_port = Const(RTLIL::S0, GetSize(a_port));
+				nonconst_sig = sigmap(cell->getPort("\\A"));
+				const_sig = Const(RTLIL::S0, GetSize(nonconst_sig));
 				y_port = sigmap(cell->getPort("\\Y"));
 			}
 			else continue;
 
-			auto r = sig_exclusive[a_port].insert(b_port.as_const());
-			if (!r.second)
-				continue;
-			sig_cmp_prev[y_port] = a_port;
-		}
-	}
+                        log_assert(!nonconst_sig.empty());
+                        log_assert(!const_sig.empty());
+                        sig_cmp_prev[y_port] = std::make_pair(nonconst_sig,const_sig.as_const());
+                }
+        }
 
-	bool query(const SigSpec& sig1, const SigSpec& sig2) const
-	{
-		// FIXME: O(N^2)
-		for (auto bit1 : sig1.bits()) {
-			auto it = sig_cmp_prev.find(bit1);
-			if (it == sig_cmp_prev.end())
-				return false;
+        bool query(const SigSpec &sig) const
+        {
+                SigSpec nonconst_sig;
+                pool<Const> const_values;
 
-			for (auto bit2 : sig2.bits()) {
-				auto jt = sig_cmp_prev.find(bit2);
-				if (jt == sig_cmp_prev.end())
-					return false;
+                for (auto bit : sig.bits()) {
+                        auto it = sig_cmp_prev.find(bit);
+                        if (it == sig_cmp_prev.end())
+                                return false;
 
-				if (it->second != jt->second)
-					return false;
-			}
-		}
+                        if (nonconst_sig.empty())
+                                nonconst_sig = it->second.first;
+                        else if (nonconst_sig != it->second.first)
+                                return false;
+
+                        if (!const_values.insert(it->second.second).second)
+                                return false;
+                }
 
 		return true;
 	}
@@ -178,8 +177,8 @@ struct MuxpackWorker
 				Cell *prev_cell = sig_chain_prev.at(a_sig);
 				log_assert(prev_cell);
 				SigSpec s_sig = sigmap(cell->getPort("\\S"));
-				SigSpec next_s_sig = sigmap(prev_cell->getPort("\\S"));
-				if (!excl_db.query(s_sig, next_s_sig))
+				s_sig.append(sigmap(prev_cell->getPort("\\S")));
+				if (!excl_db.query(s_sig))
 					goto start_cell;
 			}
 
