@@ -226,8 +226,7 @@ struct SynthXilinxPass : public ScriptPass
 			run("opt_clean");
 			run("check");
 			run("opt");
-			// FIXME
-			//run("wreduce");
+			run("wreduce c:* t:$mux %d");
 			run("peepopt");
 			run("opt_clean");
 			run("alumacc");
@@ -247,11 +246,6 @@ struct SynthXilinxPass : public ScriptPass
 			// Also: wide multiplexer inference benefits from this too
 			if (!(nosrl && nomux) || help_mode)
 				run("pmux2shiftx", "(skip if '-nosrl' and '-nomux')");
-
-			// Run a number of peephole optimisations, including one
-			//   that optimises $mul cells driving $shiftx's B input
-			//   and that aids wide mux analysis
-			run("peepopt");
 		}
 
 		if (check_label("bram", "(skip if '-nobram')")) {
@@ -279,7 +273,6 @@ struct SynthXilinxPass : public ScriptPass
 					      //        otherwise it will use mux8 as mux4
 				run("muxcover -mux4=150 -mux8=200 -mux16=250 -dmux=0", "(skip if -nomux)");
 			}
-			run("wreduce"); // FIXME: Moved until after muxcover from 'coarse'
 			run("opt -full");
 
 			if (!nosrl || help_mode) {
