@@ -89,7 +89,8 @@ struct AigerWriter
 				aig_map[bit] = mkgate(a0, a1);
 			} else
 			if (alias_map.count(bit)) {
-				aig_map[bit] = bit2aig(alias_map.at(bit));
+                int a = bit2aig(alias_map.at(bit));
+				aig_map[bit] = a;
 			}
 
 			if (bit == State::Sx || bit == State::Sz)
@@ -776,6 +777,7 @@ struct AigerBackend : public Backend {
 		writer.write_aiger(*f, ascii_mode, miter_mode, symbols_mode);
 
 		if (!map_filename.empty()) {
+			rewrite_filename(filename);
 			std::ofstream mapf;
 			mapf.open(map_filename.c_str(), std::ofstream::trunc);
 			if (mapf.fail())

@@ -285,8 +285,8 @@ struct StatPass : public Pass {
 		log("        use cell area information from the provided liberty file\n");
 		log("\n");
 		log("    -tech <technology>\n");
-		log("        print area estemate for the specified technology. Corrently supported\n");
-		log("        calues for <technology>: xilinx\n");
+		log("        print area estemate for the specified technology. Currently supported\n");
+		log("        values for <technology>: xilinx\n");
 		log("\n");
 		log("    -width\n");
 		log("        annotate internal cell types with their word width.\n");

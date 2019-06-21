@@ -74,7 +74,7 @@ static void run_ice40_unlut(Module *module)
 }
 
 struct Ice40UnlutPass : public Pass {
-	Ice40UnlutPass() : Pass("ice40_unlut", "iCE40: perform simple optimizations") { }
+	Ice40UnlutPass() : Pass("ice40_unlut", "iCE40: transform SB_LUT4 cells to $lut cells") { }
 	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|

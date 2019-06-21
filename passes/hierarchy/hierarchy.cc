@@ -591,6 +591,9 @@ struct HierarchyPass : public Pass {
 		log("        module instances when the width does not match the module port. This\n");
 		log("        option disables this behavior.\n");
 		log("\n");
+		log("    -nodefaults\n");
+		log("        do not resolve input port default values\n");
+		log("\n");
 		log("    -nokeep_asserts\n");
 		log("        per default this pass sets the \"keep\" attribute on all modules\n");
 		log("        that directly or indirectly contain one or more formal properties.\n");
@@ -645,6 +648,7 @@ struct HierarchyPass : public Pass {
 		bool generate_mode = false;
 		bool keep_positionals = false;
 		bool keep_portwidths = false;
+		bool nodefaults = false;
 		bool nokeep_asserts = false;
 		std::vector<std::string> generate_cells;
 		std::vector<generate_port_decl_t> generate_ports;
@@ -710,6 +714,10 @@ struct HierarchyPass : public Pass {
 			}
 			if (args[argidx] == "-keep_portwidths") {
 				keep_portwidths = true;
+				continue;
+			}
+			if (args[argidx] == "-nodefaults") {
+				nodefaults = true;
 				continue;
 			}
 			if (args[argidx] == "-nokeep_asserts") {
@@ -938,6 +946,36 @@ struct HierarchyPass : public Pass {
 						new_connections[conn.first] = conn.second;
 				cell->connections_ = new_connections;
 			}
+		}
+
+		if (!nodefaults)
+		{
+			dict<IdString, dict<IdString, Const>> defaults_db;
+
+			for (auto module : design->modules())
+				for (auto wire : module->wires())
+					if (wire->port_input && wire->attributes.count("\\defaultvalue"))
+						defaults_db[module->name][wire->name] = wire->attributes.at("\\defaultvalue");
+
+			for (auto module : design->modules())
+				for (auto cell : module->cells())
+				{
+					if (defaults_db.count(cell->type) == 0)
+						continue;
+
+					if (keep_positionals) {
+						bool found_positionals = false;
+						for (auto &conn : cell->connections())
+							if (conn.first[0] == '$' && '0' <= conn.first[1] && conn.first[1] <= '9')
+								found_positionals = true;
+						if (found_positionals)
+							continue;
+					}
+
+					for (auto &it : defaults_db.at(cell->type))
+						if (!cell->hasPort(it.first))
+							cell->setPort(it.first, it.second);
+				}
 		}
 
 		std::set<Module*> blackbox_derivatives;

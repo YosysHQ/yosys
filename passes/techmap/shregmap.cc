@@ -605,9 +605,11 @@ struct ShregmapPass : public Pass {
 		log("\n");
 		log("    -tech greenpak4\n");
 		log("        map to greenpak4 shift registers.\n");
+		log("        this option also implies -clkpol pos -zinit\n");
 		log("\n");
 		log("    -tech xilinx\n");
 		log("        map to xilinx dynamic-length shift registers.\n");
+		log("        this option also implies -params -init\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
