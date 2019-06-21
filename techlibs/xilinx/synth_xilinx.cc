@@ -274,7 +274,7 @@ struct SynthXilinxPass : public ScriptPass
 			run("dffsr2dff");
 			run("dff2dffe");
 			if (!nomux || help_mode) {
-				run("simplemap t:$mux", "                     (skip if -nomux)");
+				run("simplemap t:$mux", "                               (skip if -nomux)");
 				              // FIXME: Must specify mux4, even if we don't need it,
 					      //        otherwise it will use mux8 as mux4
 				run("muxcover -mux4=150 -mux8=200 -mux16=250 -dmux=0", "(skip if -nomux)");
