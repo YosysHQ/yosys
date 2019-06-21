@@ -25,6 +25,7 @@ Yosys 0.8 .. Yosys 0.8-dev
     - Extended "muxcover -mux{4,8,16}=<cost>"
     - Fixed sign extension of unsized constants with 'bx and 'bz MSB
     - Added "synth -abc9" (experimental)
+    - Added "muxpack" pass
     - "synth_xilinx" to now infer wide multiplexers (-nomux to disable)
 
 

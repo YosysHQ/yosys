@@ -14,5 +14,6 @@ OBJS += passes/opt/opt_demorgan.o
 OBJS += passes/opt/rmports.o
 OBJS += passes/opt/opt_lut.o
 OBJS += passes/opt/pmux2shiftx.o
+OBJS += passes/opt/muxpack.o
 endif
 
