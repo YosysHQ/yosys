@@ -523,7 +523,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		for (auto c : mapped_mod->cells())
 		{
 			if (c->type == "$_NOT_") {
-				RTLIL::Cell *cell;
+				RTLIL::Cell *cell = nullptr;
 				RTLIL::SigBit a_bit = c->getPort("\\A").as_bit();
 				RTLIL::SigBit y_bit = c->getPort("\\Y").as_bit();
 				if (!a_bit.wire) {
@@ -577,7 +577,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 					cell->setPort("\\Y", RTLIL::SigBit(module->wires_[remap_name(y_bit.wire->name)], y_bit.offset));
 					cell_stats[RTLIL::unescape_id(c->type)]++;
 				}
-				if (markgroups) cell->attributes["\\abcgroup"] = map_autoidx;
+				if (cell && markgroups) cell->attributes["\\abcgroup"] = map_autoidx;
 				continue;
 			}
 			cell_stats[RTLIL::unescape_id(c->type)]++;
