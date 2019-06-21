@@ -293,10 +293,22 @@ struct ShregmapWorker
 
 				if (opts.init || sigbit_init.count(q_bit) == 0)
 				{
-					if (sigbit_chain_next.count(d_bit)) {
+					auto r = sigbit_chain_next.insert(std::make_pair(d_bit, cell));
+					if (!r.second) {
+						// Insertion not successful means that d_bit is already
+						// connected to another register, thus mark it as a
+						// non chain user ...
 						sigbit_with_non_chain_users.insert(d_bit);
-					} else
-						sigbit_chain_next[d_bit] = cell;
+						// ... and clone d_bit into another wire, and use that
+						// wire as a different key in the d_bit-to-cell dictionary
+						// so that it can be identified as another chain
+						// (omitting this common flop)
+						// Link: https://github.com/YosysHQ/yosys/pull/1085
+						Wire *wire = module->addWire(NEW_ID);
+						module->connect(wire, d_bit);
+						sigmap.add(wire, d_bit);
+						sigbit_chain_next.insert(std::make_pair(wire, cell));
+					}
 
 					sigbit_chain_prev[q_bit] = cell;
 					continue;
