@@ -110,7 +110,7 @@ struct XAigerWriter
 		}
 
 		if (bit == State::Sx || bit == State::Sz) {
-			log_debug("Bit '%s' contains 'x' or 'z' bits. Treating as 1'b0.\n", log_signal(bit));
+			log_debug("Design contains 'x' or 'z' bits. Treating as 1'b0.\n");
 			a = aig_map.at(State::S0);
 		}
 
