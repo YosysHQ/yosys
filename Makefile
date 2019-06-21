@@ -681,6 +681,7 @@ test: $(TARGETS) $(EXTRA_TARGETS)
 	+cd tests/svinterfaces && bash run-test.sh $(SEEDOPT)
 	+cd tests/opt && bash run-test.sh
 	+cd tests/aiger && bash run-test.sh
+	+cd tests/simple_abc9 && bash run-test.sh $(SEEDOPT)
 	@echo ""
 	@echo "  Passed \"make test\"."
 	@echo ""
