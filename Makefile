@@ -1,6 +1,6 @@
 
-# CONFIG := clang
-CONFIG := gcc
+CONFIG := clang
+# CONFIG := gcc
 # CONFIG := gcc-4.8
 # CONFIG := afl-gcc
 # CONFIG := emcc
