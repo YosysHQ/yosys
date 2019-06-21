@@ -244,7 +244,8 @@ struct XAigerWriter
 					if (c.second.is_fully_const()) continue;
 					auto is_input = cell->input(c.first);
 					auto is_output = cell->output(c.first);
-					log_assert(is_input || is_output);
+					if (!is_input && !is_output)
+						log_error("Connection '%s' on cell '%s' (type '%s') not recognised!\n", log_id(c.first), log_id(cell), log_id(cell->type));
 
 					if (is_input) {
 						for (auto b : c.second.bits()) {
