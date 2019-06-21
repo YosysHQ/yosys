@@ -521,8 +521,8 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		std::map<std::string, int> cell_stats;
 		for (auto c : mapped_mod->cells())
 		{
+			RTLIL::Cell *cell = nullptr;
 			if (c->type == "$_NOT_") {
-				RTLIL::Cell *cell = nullptr;
 				RTLIL::SigBit a_bit = c->getPort("\\A").as_bit();
 				RTLIL::SigBit y_bit = c->getPort("\\Y").as_bit();
 				if (!a_bit.wire) {
@@ -581,6 +581,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			}
 			cell_stats[RTLIL::unescape_id(c->type)]++;
 
+                        RTLIL::Cell *existing_cell = nullptr;
 			if (c->type == "$lut") {
 				if (GetSize(c->getPort("\\A")) == 1 && c->getParam("\\LUT").as_int() == 2) {
 					SigSpec my_a = module->wires_[remap_name(c->getPort("\\A").as_wire()->name)];
@@ -589,19 +590,23 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
                                         if (markgroups) c->attributes["\\abcgroup"] = map_autoidx;
 					continue;
 				}
+				cell = module->addCell(remap_name(c->name), c->type);
+			}
+			else {
+				existing_cell = module->cell(c->name);
+				cell = module->addCell(remap_name(c->name), c->type);
+				module->swap_names(cell, existing_cell);
 			}
 
-			RTLIL::Cell *cell = module->addCell(remap_name(c->name), c->type);
 			if (markgroups) cell->attributes["\\abcgroup"] = map_autoidx;
-                        RTLIL::Cell *existing_cell = module->cell(c->name);
-                        if (existing_cell) {
-                                cell->parameters = existing_cell->parameters;
-                                cell->attributes = existing_cell->attributes;
-                        }
-                        else {
-                                cell->parameters = c->parameters;
-                                cell->attributes = c->attributes;
-                        }
+			if (existing_cell) {
+				cell->parameters = existing_cell->parameters;
+				cell->attributes = existing_cell->attributes;
+			}
+			else {
+				cell->parameters = c->parameters;
+				cell->attributes = c->attributes;
+			}
 			for (auto &conn : c->connections()) {
 				RTLIL::SigSpec newsig;
 				for (auto c : conn.second.chunks()) {
