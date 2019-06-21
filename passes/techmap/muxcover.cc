@@ -57,6 +57,7 @@ struct MuxcoverWorker
 	bool use_mux8;
 	bool use_mux16;
 	bool nodecode;
+	bool freedecode;
 	bool nopartial;
 
 	int cost_mux2;
@@ -70,6 +71,7 @@ struct MuxcoverWorker
 		use_mux8 = false;
 		use_mux16 = false;
 		nodecode = false;
+		freedecode = false;
 		nopartial = false;
 		cost_mux2 = COST_MUX2;
 		cost_mux4 = COST_MUX4;
@@ -176,6 +178,9 @@ struct MuxcoverWorker
 			return 0;
 
 		if (A == State::Sx || B == State::Sx)
+			return 0;
+
+		if (freedecode)
 			return 0;
 
 		return std::max((cost_mux2 / GetSize(std::get<1>(entry))) - 1, 1);
@@ -620,6 +625,9 @@ struct MuxcoverPass : public Pass {
 		log("        substitutions, but guarantees that the resulting circuit is not\n");
 		log("        less efficient than the original circuit.\n");
 		log("\n");
+		log("    -freedecode\n");
+		log("        Do not count cost for generated decode logic\n");
+		log("\n");
 		log("    -nopartial\n");
 		log("        Do not consider mappings that use $_MUX<N>_ to select from less\n");
 		log("        than <N> different signals.\n");
@@ -633,6 +641,7 @@ struct MuxcoverPass : public Pass {
 		bool use_mux8 = false;
 		bool use_mux16 = false;
 		bool nodecode = false;
+		bool freedecode = false;
 		bool nopartial = false;
 		int cost_mux4 = COST_MUX4;
 		int cost_mux8 = COST_MUX8;
@@ -670,6 +679,10 @@ struct MuxcoverPass : public Pass {
 				nodecode = true;
 				continue;
 			}
+			if (arg == "-freedecode") {
+				freedecode = true;
+				continue;
+			}
 			if (arg == "-nopartial") {
 				nopartial = true;
 				continue;
@@ -694,6 +707,7 @@ struct MuxcoverPass : public Pass {
 			worker.cost_mux8 = cost_mux8;
 			worker.cost_mux16 = cost_mux16;
 			worker.nodecode = nodecode;
+			worker.freedecode = freedecode;
 			worker.nopartial = nopartial;
 			worker.run();
 		}
