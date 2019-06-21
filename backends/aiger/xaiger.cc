@@ -104,8 +104,10 @@ struct XAigerWriter
 				aig_map[bit] = bit2aig(alias_map.at(bit));
 			}
 
-			if (bit == State::Sx || bit == State::Sz)
-				log_error("Design contains 'x' or 'z' bits. Use 'setundef' to replace those constants.\n");
+			if (bit == State::Sx || bit == State::Sz) {
+				log_debug("Bit '%s' contains 'x' or 'z' bits. Treating as 1'b0.\n", log_signal(bit));
+				aig_map[bit] = 0;
+			}
 		}
 
 		log_assert(aig_map.at(bit) >= 0);
