@@ -651,6 +651,10 @@ void rewrite_filename(std::string &filename)
 		filename = filename.substr(1, GetSize(filename)-2);
 	if (filename.substr(0, 2) == "+/")
 		filename = proc_share_dirname() + filename.substr(2);
+#ifndef _WIN32
+	if (filename.substr(0, 2) == "~/")
+		filename = filename.replace(0, 1, getenv("HOME"));
+#endif
 }
 
 #ifdef YOSYS_ENABLE_TCL

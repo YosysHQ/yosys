@@ -23,7 +23,7 @@ USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct BlackboxPass : public Pass {
-	BlackboxPass() : Pass("blackbox", "change type of cells in the design") { }
+	BlackboxPass() : Pass("blackbox", "convert modules into blackbox modules") { }
 	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|

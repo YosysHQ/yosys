@@ -313,7 +313,7 @@ supply1 { return TOK_SUPPLY1; }
 
 "$"(info|warning|error|fatal) {
 	frontend_verilog_yylval.string = new std::string(yytext);
-	return TOK_ELAB_TASK;
+	return TOK_MSG_TASKS;
 }
 
 "$signed"   { return TOK_TO_SIGNED; }

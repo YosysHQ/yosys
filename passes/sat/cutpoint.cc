@@ -24,7 +24,7 @@ USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct CutpointPass : public Pass {
-	CutpointPass() : Pass("cutpoint", "add hi/lo cover cells for each wire bit") { }
+	CutpointPass() : Pass("cutpoint", "adds formal cut points to the design") { }
 	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|

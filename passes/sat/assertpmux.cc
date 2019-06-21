@@ -180,7 +180,7 @@ struct AssertpmuxWorker
 };
 
 struct AssertpmuxPass : public Pass {
-	AssertpmuxPass() : Pass("assertpmux", "convert internal signals to module ports") { }
+	AssertpmuxPass() : Pass("assertpmux", "adds asserts for parallel muxes") { }
 	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -195,8 +195,8 @@ struct AssertpmuxPass : public Pass {
 		log("\n");
 		log("    -always\n");
 		log("        usually the $pmux condition is only checked when the $pmux output\n");
-		log("        is used be the mux tree it drives. this option will deactivate this\n");
-		log("        additional constrained and check the $pmux condition always.\n");
+		log("        is used by the mux tree it drives. this option will deactivate this\n");
+		log("        additional constraint and check the $pmux condition always.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
