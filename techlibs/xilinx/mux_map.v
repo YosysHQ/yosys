@@ -37,49 +37,51 @@ module \$shiftx (A, B, Y);
   generate
     genvar i;
     wire [A_WIDTH-1:0] A_forward;
-    assign A_forward[A_WIDTH-1] = A[A_WIDTH-1];
+    assign A_backward[A_WIDTH-1] = A[A_WIDTH-1];
     for (i = A_WIDTH-2; i >= 0; i = i - 1)
       if (_TECHMAP_CONSTMSK_A_[i] && _TECHMAP_CONSTVAL_A_[i] === 1'bx)
-        assign A_forward[i] = A_forward[i+1];
+        assign A_backward[i] = A_backward[i+1];
       else
-        assign A_forward[i] = A[i];
+        assign A_backward[i] = A[i];
 
-      wire [A_WIDTH-1:0] A_without_x;
-      assign A_without_x[0] = A_forward[0];
-      for (i = 1; i < A_WIDTH; i = i + 1)
-        if (_TECHMAP_CONSTMSK_A_[i] && _TECHMAP_CONSTVAL_A_[i] === 1'bx)
-          assign A_without_x[i] = A_without_x[i-1];
-        else
-          assign A_without_x[i] = A[i];
+    wire [A_WIDTH-1:0] A_without_x;
+    assign A_without_x[0] = A_backward[0];
+    for (i = 1; i < A_WIDTH; i = i + 1)
+      if (_TECHMAP_CONSTMSK_A_[i] && _TECHMAP_CONSTVAL_A_[i] === 1'bx)
+        assign A_without_x[i] = A_without_x[i-1];
+      else
+        assign A_without_x[i] = A[i];
 
-      if (B_SIGNED) begin
-        if (B_WIDTH < 4 || A_WIDTH <= 4)
-          wire _TECHMAP_FAIL_ = 1;
-        else if (_TECHMAP_CONSTMSK_B_[B_WIDTH-1] && _TECHMAP_CONSTVAL_B_[B_WIDTH-1] == 1'b0)
-          // Optimisation to remove B_SIGNED if sign bit of B is constant-0
-          \$__XILINX_SHIFTX #(
-            .A_SIGNED(A_SIGNED),
-            .B_SIGNED(0),
-            .A_WIDTH(A_WIDTH),
-            .B_WIDTH(B_WIDTH-1'd1),
-            .Y_WIDTH(Y_WIDTH)
-          ) _TECHMAP_REPLACE_ (
-            .A(A_without_x), .B(B[B_WIDTH-2:0]), .Y(Y)
-          );
-      end
-      else begin
-        if (B_WIDTH < 3 || A_WIDTH <= 4)
-          wire _TECHMAP_FAIL_ = 1;
-        else
-          \$__XILINX_SHIFTX #(
-            .A_SIGNED(A_SIGNED),
-            .B_SIGNED(B_SIGNED),
-            .A_WIDTH(A_WIDTH),
-            .B_WIDTH(B_WIDTH),
-            .Y_WIDTH(Y_WIDTH)
-          ) _TECHMAP_REPLACE_ (
-            .A(A_without_x), .B(B), .Y(Y)
-          );
+    if (B_SIGNED) begin
+      if (B_WIDTH < 4 || A_WIDTH <= 4)
+        wire _TECHMAP_FAIL_ = 1;
+      else if (_TECHMAP_CONSTMSK_B_[B_WIDTH-1] && (_TECHMAP_CONSTVAL_B_[B_WIDTH-1] == 1'b0 || _TECHMAP_CONSTVAL_B_[B_WIDTH-1] === 1'bx))
+        // Optimisation to remove B_SIGNED if sign bit of B is constant-0
+        \$__XILINX_SHIFTX #(
+          .A_SIGNED(A_SIGNED),
+          .B_SIGNED(0),
+          .A_WIDTH(A_WIDTH),
+          .B_WIDTH(B_WIDTH-1'd1),
+          .Y_WIDTH(Y_WIDTH)
+        ) _TECHMAP_REPLACE_ (
+          .A(A_without_x), .B(B[B_WIDTH-2:0]), .Y(Y)
+        );
+      else
+        wire _TECHMAP_FAIL_ = 1;
+    end
+    else begin
+      if (B_WIDTH < 3 || A_WIDTH <= 4)
+        wire _TECHMAP_FAIL_ = 1;
+      else
+        \$__XILINX_SHIFTX #(
+          .A_SIGNED(A_SIGNED),
+          .B_SIGNED(B_SIGNED),
+          .A_WIDTH(A_WIDTH),
+          .B_WIDTH(B_WIDTH),
+          .Y_WIDTH(Y_WIDTH)
+        ) _TECHMAP_REPLACE_ (
+          .A(A_without_x), .B(B), .Y(Y)
+        );
     end
   endgenerate
 endmodule
