@@ -71,7 +71,7 @@ struct XAigerWriter
 	vector<int> aig_outputs;
 	int aig_m = 0, aig_i = 0, aig_l = 0, aig_o = 0, aig_a = 0;
 
-	std::map<SigBit, int> aig_map;
+	dict<SigBit, int> aig_map;
 	dict<SigBit, int> ordered_outputs;
 
 	vector<Cell*> box_list;
