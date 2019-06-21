@@ -86,13 +86,14 @@ struct XAigerWriter
 
 	int bit2aig(SigBit bit)
 	{
-		// NB: Cannot use iterator returned from aig_map.insert()
-		//     since this function is called recursively
 		auto it = aig_map.find(bit);
 		if (it != aig_map.end()) {
 			log_assert(it->second >= 0);
 			return it->second;
 		}
+
+		// NB: Cannot use iterator returned from aig_map.insert()
+		//     since this function is called recursively
 
 		int a = -1;
 		if (not_map.count(bit)) {
