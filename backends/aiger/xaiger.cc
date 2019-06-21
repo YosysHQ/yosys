@@ -86,33 +86,36 @@ struct XAigerWriter
 
 	int bit2aig(SigBit bit)
 	{
-		if (aig_map.count(bit) == 0)
-		{
-			aig_map[bit] = -1;
-
-			if (not_map.count(bit)) {
-				int a = bit2aig(not_map.at(bit)) ^ 1;
-				aig_map[bit] = a;
-			} else
-			if (and_map.count(bit)) {
-				auto args = and_map.at(bit);
-				int a0 = bit2aig(args.first);
-				int a1 = bit2aig(args.second);
-				aig_map[bit] = mkgate(a0, a1);
-			} else
-			if (alias_map.count(bit)) {
-				int a = bit2aig(alias_map.at(bit));
-				aig_map[bit] = a;
-			}
-
-			if (bit == State::Sx || bit == State::Sz) {
-				log_debug("Bit '%s' contains 'x' or 'z' bits. Treating as 1'b0.\n", log_signal(bit));
-				aig_map[bit] = aig_map.at(State::S0);
-			}
+		// NB: Cannot use iterator returned from aig_map.insert()
+		//     since this function is called recursively
+		auto it = aig_map.find(bit);
+		if (it != aig_map.end()) {
+			log_assert(it->second >= 0);
+			return it->second;
 		}
 
-		log_assert(aig_map.at(bit) >= 0);
-		return aig_map.at(bit);
+		int a = -1;
+		if (not_map.count(bit)) {
+			a = bit2aig(not_map.at(bit)) ^ 1;
+		} else
+		if (and_map.count(bit)) {
+			auto args = and_map.at(bit);
+			int a0 = bit2aig(args.first);
+			int a1 = bit2aig(args.second);
+			a = mkgate(a0, a1);
+		} else
+		if (alias_map.count(bit)) {
+			a = bit2aig(alias_map.at(bit));
+		}
+
+		if (bit == State::Sx || bit == State::Sz) {
+			log_debug("Bit '%s' contains 'x' or 'z' bits. Treating as 1'b0.\n", log_signal(bit));
+			a = aig_map.at(State::S0);
+		}
+
+		log_assert(a >= 0);
+		aig_map[bit] = a;
+		return a;
 	}
 
 	XAigerWriter(Module *module, bool holes_mode=false) : module(module), sigmap(module)
