@@ -836,6 +836,10 @@ void AigerReader::post_process()
 				RTLIL::Wire* wire = outputs[variable + co_count];
 				log_assert(wire);
 				log_assert(wire->port_output);
+				if (escaped_s == "$__dummy__") {
+					wire->port_output = false;
+					continue;
+				}
 
 				if (index == 0) {
 					// Cope with the fact that a CO might be identical
@@ -945,12 +949,15 @@ void AigerReader::post_process()
 				other_wire->port_input = false;
 				other_wire->port_output = false;
 			}
-			if (wire->port_input && other_wire)
-				module->connect(other_wire, SigSpec(wire, i));
-			else
+			if (wire->port_input) {
+				if (other_wire)
+					module->connect(other_wire, SigSpec(wire, i));
+			}
+			else {
 								  // Since we skip POs that are connected to Sx,
 								  // re-connect them here
 				module->connect(SigSpec(wire, i), other_wire ? other_wire : SigSpec(RTLIL::Sx));
+			}
 		}
 	}
 
