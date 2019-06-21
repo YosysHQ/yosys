@@ -89,7 +89,8 @@ struct AigerWriter
 				aig_map[bit] = mkgate(a0, a1);
 			} else
 			if (alias_map.count(bit)) {
-				aig_map[bit] = bit2aig(alias_map.at(bit));
+                int a = bit2aig(alias_map.at(bit));
+				aig_map[bit] = a;
 			}
 
 			if (bit == State::Sx || bit == State::Sz)
