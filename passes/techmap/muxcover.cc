@@ -23,6 +23,7 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+#define COST_DMUX   90
 #define COST_MUX2  100
 #define COST_MUX4  220
 #define COST_MUX8  460
@@ -57,9 +58,9 @@ struct MuxcoverWorker
 	bool use_mux8;
 	bool use_mux16;
 	bool nodecode;
-	bool freedecode;
 	bool nopartial;
 
+	int cost_dmux;
 	int cost_mux2;
 	int cost_mux4;
 	int cost_mux8;
@@ -71,8 +72,8 @@ struct MuxcoverWorker
 		use_mux8 = false;
 		use_mux16 = false;
 		nodecode = false;
-		freedecode = false;
 		nopartial = false;
+		cost_dmux = COST_DMUX;
 		cost_mux2 = COST_MUX2;
 		cost_mux4 = COST_MUX4;
 		cost_mux8 = COST_MUX8;
@@ -180,10 +181,7 @@ struct MuxcoverWorker
 		if (A == State::Sx || B == State::Sx)
 			return 0;
 
-		if (freedecode)
-			return 0;
-
-		return std::max((cost_mux2 / GetSize(std::get<1>(entry))) - 1, 1);
+		return cost_dmux / GetSize(std::get<1>(entry));
 	}
 
 	void implement_decode_mux(SigBit ctrl_bit)
@@ -620,13 +618,14 @@ struct MuxcoverPass : public Pass {
 		log("        Default costs: $_MUX_ = %d, $_MUX4_ = %d,\n", COST_MUX2, COST_MUX4);
 		log("                       $_MUX8_ = %d, $_MUX16_ = %d\n", COST_MUX8, COST_MUX16);
 		log("\n");
+		log("    -dmux=cost\n");
+		log("        Use the specified cost for $_MUX_ cells used in decoders.\n");
+		log("        Default cost: %d\n", COST_DMUX);
+		log("\n");
 		log("    -nodecode\n");
 		log("        Do not insert decoder logic. This reduces the number of possible\n");
 		log("        substitutions, but guarantees that the resulting circuit is not\n");
 		log("        less efficient than the original circuit.\n");
-		log("\n");
-		log("    -freedecode\n");
-		log("        Do not count cost for generated decode logic\n");
 		log("\n");
 		log("    -nopartial\n");
 		log("        Do not consider mappings that use $_MUX<N>_ to select from less\n");
@@ -641,8 +640,8 @@ struct MuxcoverPass : public Pass {
 		bool use_mux8 = false;
 		bool use_mux16 = false;
 		bool nodecode = false;
-		bool freedecode = false;
 		bool nopartial = false;
+		int cost_dmux = COST_DMUX;
 		int cost_mux4 = COST_MUX4;
 		int cost_mux8 = COST_MUX8;
 		int cost_mux16 = COST_MUX16;
@@ -675,12 +674,12 @@ struct MuxcoverPass : public Pass {
 				}
 				continue;
 			}
-			if (arg == "-nodecode") {
-				nodecode = true;
+			if (arg.size() >= 6 && arg.substr(0,6) == "-dmux=") {
+				cost_dmux = atoi(arg.substr(6).c_str());
 				continue;
 			}
-			if (arg == "-freedecode") {
-				freedecode = true;
+			if (arg == "-nodecode") {
+				nodecode = true;
 				continue;
 			}
 			if (arg == "-nopartial") {
@@ -703,11 +702,11 @@ struct MuxcoverPass : public Pass {
 			worker.use_mux4 = use_mux4;
 			worker.use_mux8 = use_mux8;
 			worker.use_mux16 = use_mux16;
+			worker.cost_dmux = cost_dmux;
 			worker.cost_mux4 = cost_mux4;
 			worker.cost_mux8 = cost_mux8;
 			worker.cost_mux16 = cost_mux16;
 			worker.nodecode = nodecode;
-			worker.freedecode = freedecode;
 			worker.nopartial = nopartial;
 			worker.run();
 		}
