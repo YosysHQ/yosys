@@ -1,113 +1,17 @@
 # From https://github.com/cliffordwolf/icestorm/blob/be0bca0/icefuzz/timings_lp8k.txt
 
 # NB: Inputs/Outputs must be ordered alphabetically
-
-# Inputs: C D
-# Outputs: Q
-SB_DFF 1 0 2 1
-- -
-
-# Inputs: C D E
-# Outputs: Q
-SB_DFFE 2 0 3 1
-- - -
-
-# Inputs: C D R
-# Outputs: Q
-SB_DFFSR 3 0 3 1
-- - -
-
-# Inputs: C D R
-# Outputs: Q
-SB_DFFR 4 0 3 1
-- - -
-
-# Inputs: C D S
-# Outputs: Q
-SB_DFFSS 5 0 3 1
-- - -
-
-# Inputs: C D S
-# Outputs: Q
-SB_DFFS 6 0 3 1
-- - -
-
-# Inputs: C D E R
-# Outputs: Q
-SB_DFFESR 7 0 4 1
-- - - -
-
-# Inputs: C D E R
-# Outputs: Q
-SB_DFFER 8 0 4 1
-- - - -
-
-# Inputs: C D E S
-# Outputs: Q
-SB_DFFESS 9 0 4 1
-- - - -
-
-# Inputs: C D E S
-# Outputs: Q
-SB_DFFES 10 0 4 1
-- - - -
-
-# Inputs: C D
-# Outputs: Q
-SB_DFFN 11 0 2 1
-- -
-
-# Inputs: C D E
-# Outputs: Q
-SB_DFFNE 12 0 3 1
-- - -
-
-# Inputs: C D R
-# Outputs: Q
-SB_DFFNSR 13 0 3 1
-- - -
-
-# Inputs: C D R
-# Outputs: Q
-SB_DFFNR 14 0 3 1
-- - -
-
-# Inputs: C D S
-# Outputs: Q
-SB_DFFNSS 15 0 3 1
-- - -
-
-# Inputs: C D S
-# Outputs: Q
-SB_DFFNS 16 0 3 1
-- - -
-
-# Inputs: C D E R
-# Outputs: Q
-SB_DFFNESR 17 0 4 1
-- - - -
-
-# Inputs: C D E R
-# Outputs: Q
-SB_DFFNER 18 0 4 1
-- - - -
-
-# Inputs: C D E S
-# Outputs: Q
-SB_DFFNESS 19 0 4 1
-- - - -
-
-# Inputs: C D E S
-# Outputs: Q
-SB_DFFNES 20 0 4 1
-- - - -
+#     (with exceptions for carry in/out)
 
 # Inputs: CI I0 I1
 # Outputs: CO
-SB_CARRY 21 1 3 1
-186 675 609
+#   (NB: carry chain input/output must be last
+#        input/output and have been moved there
+#        overriding the alphabetical ordering)
+SB_CARRY 1 1 3 1
+675 609 186 
 
 # Inputs: I0 I1 I2 I3
 # Outputs: O
-SB_LUT4 22 1 4 1
+SB_LUT4 2 1 4 1
 661 589 558 465
