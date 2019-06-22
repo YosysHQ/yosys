@@ -18,6 +18,11 @@
  *
  */
 
+// The purpose of these mapping rules is to allow preserve all (sufficiently
+// wide) $shiftx cells during 'techmap' so that they can be mapped to hard
+// resources, rather than being bit-blasted to gates during 'techmap'
+// execution
+
 module \$shiftx (A, B, Y);
   parameter A_SIGNED = 0;
   parameter B_SIGNED = 0;
@@ -29,18 +34,14 @@ module \$shiftx (A, B, Y);
   input [B_WIDTH-1:0] B;
   output [Y_WIDTH-1:0] Y;
 
-  parameter [A_WIDTH-1:0] _TECHMAP_CONSTMSK_A_ = 0;
-  parameter [A_WIDTH-1:0] _TECHMAP_CONSTVAL_A_ = 0;
   parameter [B_WIDTH-1:0] _TECHMAP_CONSTMSK_B_ = 0;
   parameter [B_WIDTH-1:0] _TECHMAP_CONSTVAL_B_ = 0;
 
   generate
     if (B_SIGNED) begin
-      if (B_WIDTH < 4 || A_WIDTH <= 4)
-        wire _TECHMAP_FAIL_ = 1;
-      else if (_TECHMAP_CONSTMSK_B_[B_WIDTH-1] && (_TECHMAP_CONSTVAL_B_[B_WIDTH-1] == 1'b0 || _TECHMAP_CONSTVAL_B_[B_WIDTH-1] === 1'bx))
+      if (_TECHMAP_CONSTMSK_B_[B_WIDTH-1] && (_TECHMAP_CONSTVAL_B_[B_WIDTH-1] == 1'b0 || _TECHMAP_CONSTVAL_B_[B_WIDTH-1] === 1'bx))
         // Optimisation to remove B_SIGNED if sign bit of B is constant-0
-        \$__XILINX_SHIFTX #(
+        \$shiftx #(
           .A_SIGNED(A_SIGNED),
           .B_SIGNED(0),
           .A_WIDTH(A_WIDTH),
@@ -68,6 +69,10 @@ module \$shiftx (A, B, Y);
     end
   endgenerate
 endmodule
+
+// FIXME: This rule exists only because we can't block muxcover
+//        from using MUX4s -- if we disable MUX4 it will use MUX8s
+//        instead
 
 module \$_MUX4_ (A, B, C, D, S, T, Y);
 input A, B, C, D, S, T;
