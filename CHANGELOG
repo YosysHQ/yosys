@@ -17,7 +17,9 @@ Yosys 0.8 .. Yosys 0.8-dev
     - Added "rename -src"
     - Added "equiv_opt" pass
     - Added "read_aiger" frontend
-    - Extended "muxcover -mux{4,8,16}=<cost>"
+    - Added "muxcover -mux{4,8,16}=<cost>"
+    - Added "muxcover -dmux=<cost>"
+    - Added "muxcover -nopartial"
     - "synth_xilinx" to now infer hard shift registers, using new "shregmap -tech xilinx"
     - Fixed sign extension of unsized constants with 'bx and 'bz MSB
 
