@@ -69,14 +69,3 @@ module \$shiftx (A, B, Y);
     end
   endgenerate
 endmodule
-
-// FIXME: This rule exists only because we can't block muxcover
-//        from using MUX4s -- if we disable MUX4 it will use MUX8s
-//        instead
-
-module \$_MUX4_ (A, B, C, D, S, T, Y);
-input A, B, C, D, S, T;
-output Y;
-assign Y = T ? (S ? D : C) :
-               (S ? B : A);
-endmodule
