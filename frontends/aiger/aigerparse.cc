@@ -52,6 +52,9 @@ inline int32_t from_big_endian(int32_t i32) {
 #endif
 }
 
+#define log_debug2(...) ;
+//#define log_debug2(...) log_debug(__VA_ARGS__)
+
 struct ConstEvalAig
 {
 	RTLIL::Module *module;
@@ -312,7 +315,7 @@ static RTLIL::Wire* createWireIfNotExists(RTLIL::Module *module, unsigned litera
 	RTLIL::IdString wire_name(stringf("\\__%d%s__", variable, invert ? "b" : ""));
 	RTLIL::Wire *wire = module->wire(wire_name);
 	if (wire) return wire;
-	log_debug("Creating %s\n", wire_name.c_str());
+	log_debug2("Creating %s\n", wire_name.c_str());
 	wire = module->addWire(wire_name);
 	wire->port_input = wire->port_output = false;
 	if (!invert) return wire;
@@ -322,12 +325,12 @@ static RTLIL::Wire* createWireIfNotExists(RTLIL::Module *module, unsigned litera
 		if (module->cell(wire_inv_name)) return wire;
 	}
 	else {
-		log_debug("Creating %s\n", wire_inv_name.c_str());
+		log_debug2("Creating %s\n", wire_inv_name.c_str());
 		wire_inv = module->addWire(wire_inv_name);
 		wire_inv->port_input = wire_inv->port_output = false;
 	}
 
-	log_debug("Creating %s = ~%s\n", wire_name.c_str(), wire_inv_name.c_str());
+	log_debug2("Creating %s = ~%s\n", wire_name.c_str(), wire_inv_name.c_str());
 	module->addNotGate(stringf("\\__%d__$not", variable), wire_inv, wire);
 
 	return wire;
@@ -403,13 +406,13 @@ void AigerReader::parse_xaiger()
 				for (unsigned i = 0; i < lutNum; ++i) {
 					uint32_t rootNodeID = parse_xaiger_literal(f);
 					uint32_t cutLeavesM = parse_xaiger_literal(f);
-					log_debug("rootNodeID=%d cutLeavesM=%d\n", rootNodeID, cutLeavesM);
+					log_debug2("rootNodeID=%d cutLeavesM=%d\n", rootNodeID, cutLeavesM);
 					RTLIL::Wire *output_sig = module->wire(stringf("\\__%d__", rootNodeID));
 					uint32_t nodeID;
 					RTLIL::SigSpec input_sig;
 					for (unsigned j = 0; j < cutLeavesM; ++j) {
 						nodeID = parse_xaiger_literal(f);
-						log_debug("\t%u\n", nodeID);
+						log_debug2("\t%u\n", nodeID);
 						RTLIL::Wire *wire = module->wire(stringf("\\__%d__", nodeID));
 						log_assert(wire);
 						input_sig.append(wire);
@@ -493,7 +496,7 @@ void AigerReader::parse_aiger_ascii()
 	for (unsigned i = 1; i <= I; ++i, ++line_count) {
 		if (!(f >> l1))
 			log_error("Line %u cannot be interpreted as an input!\n", line_count);
-		log_debug("%d is an input\n", l1);
+		log_debug2("%d is an input\n", l1);
 		log_assert(!(l1 & 1)); // Inputs can't be inverted
 		RTLIL::Wire *wire = createWireIfNotExists(module, l1);
 		wire->port_input = true;
@@ -506,7 +509,7 @@ void AigerReader::parse_aiger_ascii()
 		log_assert(clk_name != "");
 		clk_wire = module->wire(clk_name);
 		log_assert(!clk_wire);
-		log_debug("Creating %s\n", clk_name.c_str());
+		log_debug2("Creating %s\n", clk_name.c_str());
 		clk_wire = module->addWire(clk_name);
 		clk_wire->port_input = true;
 		clk_wire->port_output = false;
@@ -514,7 +517,7 @@ void AigerReader::parse_aiger_ascii()
 	for (unsigned i = 0; i < L; ++i, ++line_count) {
 		if (!(f >> l1 >> l2))
 			log_error("Line %u cannot be interpreted as a latch!\n", line_count);
-		log_debug("%d %d is a latch\n", l1, l2);
+		log_debug2("%d %d is a latch\n", l1, l2);
 		log_assert(!(l1 & 1));
 		RTLIL::Wire *q_wire = createWireIfNotExists(module, l1);
 		RTLIL::Wire *d_wire = createWireIfNotExists(module, l2);
@@ -548,7 +551,7 @@ void AigerReader::parse_aiger_ascii()
 		if (!(f >> l1))
 			log_error("Line %u cannot be interpreted as an output!\n", line_count);
 
-		log_debug("%d is an output\n", l1);
+		log_debug2("%d is an output\n", l1);
 		const unsigned variable = l1 >> 1;
 		const bool invert = l1 & 1;
 		RTLIL::IdString wire_name(stringf("\\__%d%s__", variable, invert ? "b" : "")); // FIXME: is "b" the right suffix?
@@ -569,7 +572,7 @@ void AigerReader::parse_aiger_ascii()
 		if (!(f >> l1))
 			log_error("Line %u cannot be interpreted as a bad state property!\n", line_count);
 
-		log_debug("%d is a bad state property\n", l1);
+		log_debug2("%d is a bad state property\n", l1);
 		RTLIL::Wire *wire = createWireIfNotExists(module, l1);
 		wire->port_output = true;
 		bad_properties.push_back(wire);
@@ -592,7 +595,7 @@ void AigerReader::parse_aiger_ascii()
 		if (!(f >> l1 >> l2 >> l3))
 			log_error("Line %u cannot be interpreted as an AND!\n", line_count);
 
-		log_debug("%d %d %d is an AND\n", l1, l2, l3);
+		log_debug2("%d %d %d is an AND\n", l1, l2, l3);
 		log_assert(!(l1 & 1));
 		RTLIL::Wire *o_wire = createWireIfNotExists(module, l1);
 		RTLIL::Wire *i1_wire = createWireIfNotExists(module, l2);
@@ -618,7 +621,7 @@ void AigerReader::parse_aiger_binary()
 
 	// Parse inputs
 	for (unsigned i = 1; i <= I; ++i) {
-		log_debug("%d is an input\n", i);
+		log_debug2("%d is an input\n", i);
 		RTLIL::Wire *wire = createWireIfNotExists(module, i << 1);
 		wire->port_input = true;
 		log_assert(!wire->port_output);
@@ -631,7 +634,7 @@ void AigerReader::parse_aiger_binary()
 		log_assert(clk_name != "");
 		clk_wire = module->wire(clk_name);
 		log_assert(!clk_wire);
-		log_debug("Creating %s\n", clk_name.c_str());
+		log_debug2("Creating %s\n", clk_name.c_str());
 		clk_wire = module->addWire(clk_name);
 		clk_wire->port_input = true;
 		clk_wire->port_output = false;
@@ -673,7 +676,7 @@ void AigerReader::parse_aiger_binary()
 		if (!(f >> l1))
 			log_error("Line %u cannot be interpreted as an output!\n", line_count);
 
-		log_debug("%d is an output\n", l1);
+		log_debug2("%d is an output\n", l1);
 		const unsigned variable = l1 >> 1;
 		const bool invert = l1 & 1;
 		RTLIL::IdString wire_name(stringf("\\__%d%s__", variable, invert ? "b" : "")); // FIXME: is "_b" the right suffix?
@@ -695,7 +698,7 @@ void AigerReader::parse_aiger_binary()
 		if (!(f >> l1))
 			log_error("Line %u cannot be interpreted as a bad state property!\n", line_count);
 
-		log_debug("%d is a bad state property\n", l1);
+		log_debug2("%d is a bad state property\n", l1);
 		RTLIL::Wire *wire = createWireIfNotExists(module, l1);
 		wire->port_output = true;
 		bad_properties.push_back(wire);
@@ -721,7 +724,7 @@ void AigerReader::parse_aiger_binary()
 		l2 = parse_next_delta_literal(f, l1);
 		l3 = parse_next_delta_literal(f, l2);
 
-		log_debug("%d %d %d is an AND\n", l1, l2, l3);
+		log_debug2("%d %d %d is an AND\n", l1, l2, l3);
 		log_assert(!(l1 & 1));
 		RTLIL::Wire *o_wire = createWireIfNotExists(module, l1);
 		RTLIL::Wire *i1_wire = createWireIfNotExists(module, l2);
