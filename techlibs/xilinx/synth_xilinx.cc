@@ -229,7 +229,7 @@ struct SynthXilinxPass : public ScriptPass
 			if (help_mode)
 				run("wreduce [c:* t:$mux %d]", "(no selection if -nomux)");
 			else
-				run("wreduce" + nomux ? "" : " c:* t:$mux %d");
+				run("wreduce" + std::string(nomux ? "" : " c:* t:$mux %d"));
 			run("peepopt");
 			run("opt_clean");
 			run("alumacc");
@@ -271,10 +271,11 @@ struct SynthXilinxPass : public ScriptPass
 			run("dffsr2dff");
 			run("dff2dffe");
 			if (!nomux || help_mode) {
-				run("simplemap t:$mux", "                               (skip if -nomux)");
-				              // FIXME: Must specify mux4, even if we don't need it,
-					      //        otherwise it will use mux8 as mux4
-				run("muxcover -mux4=150 -mux8=200 -mux16=250 -dmux=0", "(skip if -nomux)");
+				run("simplemap t:$mux", "                     (skip if -nomux)");
+				// NB: Cost of mux2 is 100; mux8 should cost between 3 and 4
+				//     of those so that 4:1 muxes and below are implemented
+				//     out of mux2s
+				run("muxcover -mux8=350 -mux16=400 -dmux=0", "(skip if -nomux)");
 			}
 			run("opt -full");
 
