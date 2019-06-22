@@ -226,7 +226,10 @@ struct SynthXilinxPass : public ScriptPass
 			run("opt_clean");
 			run("check");
 			run("opt");
-			run("wreduce c:* t:$mux %d");
+			if (help_mode)
+				run("wreduce [c:* t:$mux %d]", "(no selection if -nomux)");
+			else
+				run("wreduce" + nomux ? "" : " c:* t:$mux %d");
 			run("peepopt");
 			run("opt_clean");
 			run("alumacc");
