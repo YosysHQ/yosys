@@ -16,12 +16,14 @@ Yosys 0.8 .. Yosys 0.8-dev
     - Added "gate2lut.v" techmap rule
     - Added "rename -src"
     - Added "equiv_opt" pass
+    - Added "shregmap -tech xilinx"
     - Added "read_aiger" frontend
     - Added "abc9" pass for timing-aware techmapping (experimental, FPGA only, no FFs)
     - Added "synth_xilinx -abc9" (experimental)
     - Added "synth_ice40 -abc9" (experimental)
     - Added "synth -abc9" (experimental)
     - Extended "muxcover -mux{4,8,16}=<cost>"
+    - "synth_xilinx" to now infer hard shift registers (-nosrl to disable)
 
 
 Yosys 0.7 .. Yosys 0.8
@@ -35,7 +37,7 @@ Yosys 0.7 .. Yosys 0.8
     - Added "write_verilog -decimal"
     - Added "scc -set_attr"
     - Added "verilog_defines" command
-    - Remeber defines from one read_verilog to next
+    - Remember defines from one read_verilog to next
     - Added support for hierarchical defparam
     - Added FIRRTL back-end
     - Improved ABC default scripts
