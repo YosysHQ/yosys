@@ -517,6 +517,7 @@ wire_type_token:
 	TOK_GENVAR {
 		astbuf3->type = AST_GENVAR;
 		astbuf3->is_reg = true;
+		astbuf3->is_signed = true;
 		astbuf3->range_left = 31;
 		astbuf3->range_right = 0;
 	} |

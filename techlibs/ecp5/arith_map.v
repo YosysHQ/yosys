@@ -50,20 +50,21 @@ module _80_ecp5_alu (A, B, CI, BI, X, Y, CO);
 
 	wire [Y_WIDTH2-1:0] AA = A_buf;
 	wire [Y_WIDTH2-1:0] BB = BI ? ~B_buf : B_buf;
+	wire [Y_WIDTH2-1:0] BX = B_buf;
 	wire [Y_WIDTH2-1:0] C = {CO, CI};
 	wire [Y_WIDTH2-1:0] FCO, Y1;
 
 	genvar i;
 	generate for (i = 0; i < Y_WIDTH2; i = i + 2) begin:slice
 		CCU2C #(
-			.INIT0(16'b0110011010101010),
-			.INIT1(16'b0110011010101010),
+			.INIT0(16'b1001011010101010),
+			.INIT1(16'b1001011010101010),
 			.INJECT1_0("NO"),
 			.INJECT1_1("NO")
 	   ) ccu2c_i (
 			.CIN(C[i]),
-			.A0(AA[i]), .B0(BB[i]), .C0(1'b0), .D0(1'b1),
-			.A1(AA[i+1]), .B1(BB[i+1]), .C1(1'b0), .D1(1'b1),
+			.A0(AA[i]), .B0(BX[i]), .C0(BI), .D0(1'b1),
+			.A1(AA[i+1]), .B1(BX[i+1]), .C1(BI), .D1(1'b1),
 			.S0(Y[i]), .S1(Y1[i]),
 			.COUT(FCO[i])
 		);

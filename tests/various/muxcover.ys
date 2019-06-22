@@ -13,7 +13,7 @@ read_verilog -formal <<EOT
 EOT
 
 
-## Examle usage for "pmuxtree" and "muxcover"
+## Example usage for "pmuxtree" and "muxcover"
 
 proc
 pmuxtree
@@ -48,4 +48,143 @@ equiv_make gold gate equiv
 hierarchy -top equiv
 equiv_simple -undef
 equiv_status -assert
+
+## Partial matching MUX4
+
+design -reset
+read_verilog -formal <<EOT
+module mux_if_bal_3_1 #(parameter N=3, parameter W=1) (input [N*W-1:0] i, input [$clog2(N)-1:0] s, output reg [W-1:0] o);
+always @* begin
+    o <= {{W{{1'bx}}}};
+    if (s[0] == 1'b0)
+     if (s[1] == 1'b0)
+      o <= i[0*W+:W];
+     else
+      o <= i[1*W+:W];
+    else
+     if (s[1] == 1'b0)
+      o <= i[2*W+:W];
+end
+endmodule
+EOT
+prep
+design -save gold
+
+techmap
+muxcover -mux4=150
+select -assert-count 0 t:$_MUX_
+select -assert-count 1 t:$_MUX4_
+select -assert-count 0 t:$_MUX8_
+select -assert-count 0 t:$_MUX16_
+techmap -map +/simcells.v t:$_MUX4_
+design -stash gate
+
+design -import gold -as gold
+design -import gate -as gate
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports miter
+
+## Partial matching MUX8
+
+design -reset
+read_verilog -formal <<EOT
+module mux_if_bal_5_1 #(parameter N=5, parameter W=1) (input [N*W-1:0] i, input [$clog2(N)-1:0] s, output reg [W-1:0] o);
+always @* begin
+    o <= {{W{{1'bx}}}};
+    if (s[0] == 1'b0)
+     if (s[1] == 1'b0)
+      if (s[2] == 1'b0)
+       o <= i[0*W+:W];
+      else
+       o <= i[1*W+:W];
+     else
+      if (s[2] == 1'b0)
+       o <= i[2*W+:W];
+      else
+       o <= i[3*W+:W];
+    else
+     if (s[1] == 1'b0)
+      if (s[2] == 1'b0)
+       o <= i[4*W+:W];
+end
+endmodule
+EOT
+prep
+design -save gold
+
+techmap
+muxcover -mux4=150 -mux8=200
+clean
+opt_expr -mux_bool
+select -assert-count 0 t:$_MUX_
+select -assert-count 0 t:$_MUX4_
+select -assert-count 1 t:$_MUX8_
+select -assert-count 0 t:$_MUX16_
+techmap -map +/simcells.v t:$_MUX8_
+design -stash gate
+
+design -import gold -as gold
+design -import gate -as gate
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports miter
+
+## Partial matching MUX16
+
+design -reset
+read_verilog -formal <<EOT
+module mux_if_bal_9_1 #(parameter N=9, parameter W=1) (input [N*W-1:0] i, input [$clog2(N)-1:0] s, output reg [W-1:0] o);
+always @* begin
+    o <= {{W{{1'bx}}}};
+    if (s[0] == 1'b0)
+     if (s[1] == 1'b0)
+      if (s[2] == 1'b0)
+       if (s[3] == 1'b0)
+        o <= i[0*W+:W];
+       else
+        o <= i[1*W+:W];
+      else
+       if (s[3] == 1'b0)
+        o <= i[2*W+:W];
+       else
+        o <= i[3*W+:W];
+     else
+      if (s[2] == 1'b0)
+       if (s[3] == 1'b0)
+        o <= i[4*W+:W];
+       else
+        o <= i[5*W+:W];
+      else
+       if (s[3] == 1'b0)
+        o <= i[6*W+:W];
+       else
+        o <= i[7*W+:W];
+    else
+     if (s[1] == 1'b0)
+      if (s[2] == 1'b0)
+       if (s[3] == 1'b0)
+        o <= i[8*W+:W];
+end
+endmodule
+EOT
+prep
+design -save gold
+
+techmap
+muxcover -mux4=150 -mux8=200 -mux16=250
+clean
+opt_expr -mux_bool
+select -assert-count 0 t:$_MUX_
+select -assert-count 0 t:$_MUX4_
+select -assert-count 0 t:$_MUX8_
+select -assert-count 1 t:$_MUX16_
+techmap -map +/simcells.v t:$_MUX16_
+design -stash gate
+
+design -import gold -as gold
+design -import gate -as gate
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports miter
 
