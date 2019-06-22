@@ -372,6 +372,18 @@ void json_import(Design *design, string &modname, JsonNode *node)
 			if (wire == nullptr)
 				wire = module->addWire(net_name, GetSize(bits_node->data_array));
 
+			if (net_node->data_dict.count("upto") != 0) {
+				JsonNode *val = net_node->data_dict.at("upto");
+				if (val->type == 'N')
+					wire->upto = val->data_number != 0;
+			}
+
+			if (net_node->data_dict.count("offset") != 0) {
+				JsonNode *val = net_node->data_dict.at("offset");
+				if (val->type == 'N')
+					wire->start_offset = val->data_number;
+			}
+
 			for (int i = 0; i < GetSize(bits_node->data_array); i++)
 			{
 				JsonNode *bitval_node = bits_node->data_array.at(i);
