@@ -664,6 +664,8 @@ struct XAigerWriter
 			f.write(buffer_str.data(), buffer_str.size());
 
 			if (holes_module) {
+				log_push();
+
 				// NB: fixup_ports() will sort ports by name
 				//holes_module->fixup_ports();
 				holes_module->check();
@@ -700,6 +702,8 @@ struct XAigerWriter
 				f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
 				f.write(buffer_str.data(), buffer_str.size());
 				holes_module->design->remove(holes_module);
+
+				log_pop();
 			}
 		}
 
