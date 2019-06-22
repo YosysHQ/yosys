@@ -1,5 +1,11 @@
+# NB: Inputs/Outputs must be ordered alphabetically
+#     (with exceptions for carry in/out)
+
 # Box 1 : CCU2C (2xCARRY + 2xLUT4)
 # Outputs: S0, S1, COUT
+#   (NB: carry chain input/output must be last
+#        input/output and have been moved there
+#        overriding the alphabetical ordering)
 # name  ID   w/b   ins    outs
 CCU2C   1      1   9      3
 
