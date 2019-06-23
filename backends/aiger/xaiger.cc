@@ -309,38 +309,46 @@ struct XAigerWriter
 
 				if (box_module->attributes.count("\\abc_carry") && !abc_carry_modules.count(box_module)) {
 					RTLIL::Wire* carry_in = nullptr, *carry_out = nullptr;
-					RTLIL::Wire* last_in = nullptr, *last_out = nullptr;
-					for (const auto &port_name : box_module->ports) {
-						RTLIL::Wire* w = box_module->wire(port_name);
+					auto &ports = box_module->ports;
+					for (auto it = ports.begin(); it != ports.end(); ) {
+						RTLIL::Wire* w = box_module->wire(*it);
 						log_assert(w);
-						if (w->port_input) {
-							if (w->attributes.count("\\abc_carry_in")) {
-								log_assert(!carry_in);
-								carry_in = w;
-							}
-							log_assert(!last_in || last_in->port_id < w->port_id);
-							last_in = w;
+						if (w->port_input && w->attributes.count("\\abc_carry_in")) {
+							if (carry_in)
+								log_error("More than one port with attribute 'abc_carry_in' found in module '%s'\n", log_id(box_module));
+							carry_in = w;
+							it = ports.erase(it);
+							continue;
 						}
-						if (w->port_output) {
-							if (w->attributes.count("\\abc_carry_out")) {
-								log_assert(!carry_out);
-								carry_out = w;
-							}
-							log_assert(!last_out || last_out->port_id < w->port_id);
-							last_out = w;
+						if (w->port_output && w->attributes.count("\\abc_carry_out")) {
+							if (carry_out)
+								log_error("More than one port with attribute 'abc_carry_out' found in module '%s'\n", log_id(box_module));
+							carry_out = w;
+							it = ports.erase(it);
+							continue;
 						}
+						++it;
 					}
 
-					if (carry_in) {
-						log_assert(last_in);
-						std::swap(box_module->ports[carry_in->port_id-1], box_module->ports[last_in->port_id-1]);
-						std::swap(carry_in->port_id, last_in->port_id);
+					if (!carry_in)
+						log_error("Port with attribute 'abc_carry_in' not found in module '%s'\n", log_id(box_module));
+					if (!carry_out)
+						log_error("Port with attribute 'abc_carry_out' not found in module '%s'\n", log_id(box_module));
+
+					for (const auto port_name : ports) {
+						RTLIL::Wire* w = box_module->wire(port_name);
+						log_assert(w);
+						if (w->port_id > carry_in->port_id)
+							--w->port_id;
+						if (w->port_id > carry_out->port_id)
+							--w->port_id;
+						log_assert(w->port_input || w->port_output);
+						log_assert(ports[w->port_id-1] == w->name);
 					}
-					if (carry_out) {
-						log_assert(last_out);
-						std::swap(box_module->ports[carry_out->port_id-1], box_module->ports[last_out->port_id-1]);
-						std::swap(carry_out->port_id, last_out->port_id);
-					}
+					ports.push_back(carry_in->name);
+					carry_in->port_id = ports.size();
+					ports.push_back(carry_out->name);
+					carry_out->port_id = ports.size();
 				}
 
 				// Fully pad all unused input connections of this box cell with S0
