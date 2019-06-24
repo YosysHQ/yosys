@@ -279,11 +279,11 @@ struct SynthXilinxPass : public ScriptPass
 			if (minmuxf > 0 || help_mode) {
 				run("simplemap t:$mux", "                        ('-minmuxf' only)");
 				if (minmuxf > 0 || help_mode) {
-					// NB: Cost of mux2 is 100; mux8 should cost between 3 and 4
-					//     of those so that 4:1 muxes and below are implemented
-					//     out of mux2s
 					std::string muxcover_args = " -dmux=0";
 					switch (minmuxf) {
+						// NB: Cost of mux2 is 100; mux8 should cost between 3 and 4
+						//     of those so that 4:1 muxes and below are implemented
+						//     out of mux2s
 						case  5: muxcover_args += " -mux8=350 -mux16=400"; break;
 						case  6: muxcover_args += " -mux8=450 -mux16=500"; break;
 						case  7: muxcover_args += " -mux8=550 -mux16=600"; break;
