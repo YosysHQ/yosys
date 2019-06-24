@@ -54,7 +54,7 @@ module \$shiftx (A, B, Y);
         wire _TECHMAP_FAIL_ = 1;
     end
     else begin
-      if (B_WIDTH < 3 || A_WIDTH <= 4)
+      if (((A_WIDTH + Y_WIDTH - 1) / Y_WIDTH) < `MIN_MUX_INPUTS)
         wire _TECHMAP_FAIL_ = 1;
       else
         \$__XILINX_SHIFTX #(

@@ -73,8 +73,10 @@ struct SynthXilinxPass : public ScriptPass
 		log("    -nosrl\n");
 		log("        disable inference of shift registers\n");
 		log("\n");
-		log("    -nomux\n");
-		log("        disable inference of wide multiplexers\n");
+		log("    -minmuxf <int>\n");
+		log("        enable inference of hard multiplexer resources (MuxFx) for muxes at or\n");
+		log("        above this number of inputs (minimum value 5).\n");
+		log("        default: 0 (no inference)\n");
 		log("\n");
 		log("    -run <from_label>:<to_label>\n");
 		log("        only run the commands between the labels (see below). an empty\n");
@@ -97,7 +99,8 @@ struct SynthXilinxPass : public ScriptPass
 	}
 
 	std::string top_opt, edif_file, blif_file, abc, arch;
-	bool flatten, retime, vpr, nocarry, nobram, nodram, nosrl, nomux;
+	bool flatten, retime, vpr, nocarry, nobram, nodram, nosrl;
+	int minmuxf;
 
 	void clear_flags() YS_OVERRIDE
 	{
@@ -112,8 +115,8 @@ struct SynthXilinxPass : public ScriptPass
 		nobram = false;
 		nodram = false;
 		nosrl = false;
-		nomux = false;
 		arch = "xc7";
+		minmuxf = 0;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -176,8 +179,8 @@ struct SynthXilinxPass : public ScriptPass
 				nosrl = true;
 				continue;
 			}
-			if (args[argidx] == "-nomux") {
-				nomux = true;
+			if (args[argidx] == "-minmuxf" && argidx+1 < args.size()) {
+				minmuxf = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-abc9") {
@@ -190,6 +193,9 @@ struct SynthXilinxPass : public ScriptPass
 
 		if (arch != "xcup" && arch != "xcu" && arch != "xc7" && arch != "xc6s")
 			log_cmd_error("Invalid Xilinx -arch setting: %s\n", arch.c_str());
+
+		if (minmuxf != 0 && minmuxf < 5)
+			log_cmd_error("-minmuxf value must be 0 or >= 5.\n");
 
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");
@@ -227,9 +233,9 @@ struct SynthXilinxPass : public ScriptPass
 			run("check");
 			run("opt");
 			if (help_mode)
-				run("wreduce [c:* t:$mux %d]", "(no selection if -nomux)");
+				run("wreduce [c:* t:$mux %d]", "(selection for '-minmuxf' only)");
 			else
-				run("wreduce" + std::string(nomux ? "" : " c:* t:$mux %d"));
+				run("wreduce" + std::string(minmuxf > 0 ? " c:* t:$mux %d" : ""));
 			run("peepopt");
 			run("opt_clean");
 			run("alumacc");
@@ -240,15 +246,15 @@ struct SynthXilinxPass : public ScriptPass
 			run("memory -nomap");
 			run("opt_clean");
 
-			if (!nomux || help_mode)
-				run("muxpack", "    (skip if '-nomux')");
+			if (minmuxf > 0 || help_mode)
+				run("muxpack", "    ('-minmuxf' only)");
 
 			// shregmap -tech xilinx can cope with $shiftx and $mux
 			//   cells for identifying variable-length shift registers,
 			//   so attempt to convert $pmux-es to the former
 			// Also: wide multiplexer inference benefits from this too
-			if (!(nosrl && nomux) || help_mode)
-				run("pmux2shiftx", "(skip if '-nosrl' and '-nomux')");
+			if (!(nosrl && minmuxf == 0) || help_mode)
+				run("pmux2shiftx", "(skip if '-nosrl' and '-minmuxf' < 5)");
 		}
 
 		if (check_label("bram", "(skip if '-nobram')")) {
@@ -270,12 +276,15 @@ struct SynthXilinxPass : public ScriptPass
 			run("memory_map");
 			run("dffsr2dff");
 			run("dff2dffe");
-			if (!nomux || help_mode) {
-				run("simplemap t:$mux", "                     (skip if -nomux)");
-				// NB: Cost of mux2 is 100; mux8 should cost between 3 and 4
-				//     of those so that 4:1 muxes and below are implemented
-				//     out of mux2s
-				run("muxcover -mux8=350 -mux16=400 -dmux=0", "(skip if -nomux)");
+			if (minmuxf > 0 || help_mode) {
+				run("simplemap t:$mux", "                        ('-minmuxf' only)");
+				if (minmuxf > 0 || help_mode) {
+					// NB: Cost of mux2 is 100; mux8 should cost between 3 and 4
+					//     of those so that 4:1 muxes and below are implemented
+					//     out of mux2s
+					std::string muxcover_args = " -dmux=0 -mux8=350 -mux16=400";
+					run("muxcover " + muxcover_args, "('-minmuxf' only)");
+				}
 			}
 			run("opt -full");
 
@@ -287,26 +296,29 @@ struct SynthXilinxPass : public ScriptPass
 				run("shregmap -tech xilinx -minlen 3", "(skip if '-nosrl')");
 			}
 
-			std::string techmap_files = " -map +/techmap.v";
+			std::string techmap_args = " -map +/techmap.v";
 			if (help_mode)
-				techmap_files += " [-map +/xilinx/mux_map.v]";
-			else if (!nomux)
-				techmap_files += " -map +/xilinx/mux_map.v";
+				techmap_args += " [-map +/xilinx/mux_map.v]";
+			else if (minmuxf > 0)
+				techmap_args += stringf(" -D MIN_MUX_INPUTS=%d -map +/xilinx/mux_map.v", minmuxf);
 			if (help_mode)
-				techmap_files += " [-map +/xilinx/arith_map.v]";
+				techmap_args += " [-map +/xilinx/arith_map.v]";
 			else if (!nocarry) {
-				techmap_files += " -map +/xilinx/arith_map.v";
+				techmap_args += " -map +/xilinx/arith_map.v";
 				if (vpr)
-					techmap_files += " -D _EXPLICIT_CARRY";
+					techmap_args += " -D _EXPLICIT_CARRY";
 				else if (abc == "abc9")
-					techmap_files += " -D _CLB_CARRY";
+					techmap_args += " -D _CLB_CARRY";
 			}
-			run("techmap " + techmap_files);
+			run("techmap " + techmap_args);
 			run("opt -fast");
 		}
 
 		if (check_label("map_cells")) {
-			run("techmap -map +/techmap.v -D _ABC -map +/xilinx/cells_map.v");
+			std::string techmap_args = "-map +/techmap.v -D _ABC -map +/xilinx/cells_map.v";
+			if (minmuxf > 0)
+				techmap_args += stringf(" -D MIN_MUX_INPUTS=%d", minmuxf);
+			run("techmap " + techmap_args);
 			run("clean");
 		}
 
