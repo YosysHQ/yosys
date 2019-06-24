@@ -225,7 +225,7 @@ module \$__XILINX_SHIFTX (A, B, Y);
     else if (A_WIDTH <= 2 ** 4) begin
       localparam a_width0 = 2 ** 2;
       localparam num_mux8 = A_WIDTH / a_width0;
-      localparam a_widthN = A_WIDTH % a_width0;
+      localparam a_widthN = A_WIDTH - num_mux8*a_width0;
       wire [a_width0-1:0] T;
       for (i = 0; i < a_width0; i++)
         if (i < num_mux8)
@@ -243,9 +243,9 @@ module \$__XILINX_SHIFTX (A, B, Y);
     else begin
       localparam a_width0 = 2 ** 4;
       localparam num_mux16 = A_WIDTH / a_width0;
-      localparam a_widthN = A_WIDTH % a_width0;
-      wire [(2**(B_WIDTH-4))-1:0] T;
-      for (i = 0; i < 2 ** (B_WIDTH-4); i++)
+      localparam a_widthN = A_WIDTH - num_mux16*a_width0;
+      wire [a_width0-1:0] T;
+      for (i = 0; i < a_width0; i++)
         if (i < num_mux16)
           \$__XILINX_SHIFTX  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(a_width0), .B_WIDTH(4), .Y_WIDTH(Y_WIDTH)) fpga_soft_mux (.A(A[i*a_width0+:a_width0]), .B(B[4-1:0]), .Y(T[i]));
         else if (i == num_mux16 && a_widthN > 0) begin
