@@ -281,6 +281,7 @@ module FDPE_1 (output reg Q, input C, CE, D, PRE);
   always @(negedge C, posedge PRE) if (PRE) Q <= 1'b1; else if (CE) Q <= D;
 endmodule
 
+(* abc_box_id = 4, abc_scc_break="D" *)
 module RAM64X1D (
   output DPO, SPO,
   input  D, WCLK, WE,
@@ -298,6 +299,7 @@ module RAM64X1D (
   always @(posedge clk) if (WE) mem[a] <= D;
 endmodule
 
+(* abc_box_id = 5, abc_scc_break="D" *)
 module RAM128X1D (
   output       DPO, SPO,
   input        D, WCLK, WE,
