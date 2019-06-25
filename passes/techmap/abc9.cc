@@ -80,9 +80,6 @@ void handle_loops(RTLIL::Design *design)
 {
 	Pass::call(design, "scc -set_attr abc_scc_id {}");
 
-	design->selection_stack.emplace_back(false);
-	RTLIL::Selection& sel = design->selection_stack.back();
-
 	// For every unique SCC found, (arbitrarily) find the first
 	// cell in the component, and select (and mark) all its output
 	// wires
@@ -92,24 +89,49 @@ void handle_loops(RTLIL::Design *design)
 		if (it != cell->attributes.end()) {
 			auto r = ids_seen.insert(it->second);
 			if (r.second) {
-				for (const auto &c : cell->connections()) {
+				for (auto &c : cell->connections_) {
 					if (c.second.is_fully_const()) continue;
 					if (cell->output(c.first)) {
 						SigBit b = c.second.as_bit();
 						Wire *w = b.wire;
+						log_assert(!w->port_input);
+						w->port_input = true;
+						w = module->wire(stringf("%s.abci", log_id(w->name)));
+						if (!w)
+							w = module->addWire(stringf("%s.abci", log_id(b.wire->name)), GetSize(b.wire));
+						log_assert(b.offset < GetSize(w));
+						w->port_output = true;
 						w->set_bool_attribute("\\abc_scc_break");
-						sel.select(module, w);
+						module->swap_names(b.wire, w);
+						c.second = RTLIL::SigBit(w, b.offset);
 					}
 				}
 			}
 			cell->attributes.erase(it);
 		}
+		RTLIL::Module* box_module = design->module(cell->type);
+		if (box_module) {
+			auto jt = box_module->attributes.find("\\abc_scc_break");
+			if (jt != box_module->attributes.end()) {
+				auto it = cell->connections_.find(RTLIL::escape_id(jt->second.decode_string()));
+				log_assert(it != cell->connections_.end());
+				auto &c = *it;
+				SigBit b = cell->getPort(RTLIL::escape_id(jt->second.decode_string()));
+				Wire *w = b.wire;
+				log_assert(!w->port_output);
+				w->port_output = true;
+				w->set_bool_attribute("\\abc_scc_break");
+				w = module->wire(stringf("%s.abci", log_id(w->name)));
+				if (!w)
+					w = module->addWire(stringf("%s.abci", log_id(b.wire->name)), GetSize(b.wire));
+				log_assert(b.offset < GetSize(w));
+				w->port_input = true;
+				c.second = RTLIL::SigBit(w, b.offset);
+			}
+		}
 	}
 
-	// Then cut those selected wires to expose them as new PO/PI
-	Pass::call(design, "expose -cut -sep .abc");
-
-	design->selection_stack.pop_back();
+	module->fixup_ports();
 }
 
 std::string add_echos_to_abc_cmd(std::string str)
