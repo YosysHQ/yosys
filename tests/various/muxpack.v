@@ -187,13 +187,73 @@ module case_nonexclusive_select (
 );
         always @* begin
             case (x)
-                0, 2: o = b;
+                0: o = b;
+                2: o = b;
                 1: o = c;
                 default: begin
                     o = a;
                     if (y == 0) o = d;
                     if (y == 1) o = e;
                 end
+        endcase
+        end
+endmodule
+
+module case_nonoverlap (
+        input wire [2:0] x,
+        input wire a, b, c, d, e,
+        output reg o
+);
+        always @* begin
+            case (x)
+                0, 2: o = b; // Creates $reduce_or
+                1: o = c;
+                default:
+                    case (x)
+                        3: o = d; 4: o = d; // Creates $reduce_or
+                        5: o = e;
+                        default: o = 1'b0;
+                    endcase
+        endcase
+        end
+endmodule
+
+module case_overlap (
+        input wire [2:0] x,
+        input wire a, b, c, d, e,
+        output reg o
+);
+        always @* begin
+            case (x)
+                0, 2: o = b; // Creates $reduce_or
+                1: o = c;
+                default:
+                    case (x)
+                        0: o = 1'b1; // OVERLAP!
+                        3, 4: o = d; // Creates $reduce_or
+                        5: o = e;
+                        default: o = 1'b0;
+                    endcase
+        endcase
+        end
+endmodule
+
+module case_overlap2 (
+        input wire [2:0] x,
+        input wire a, b, c, d, e,
+        output reg o
+);
+        always @* begin
+            case (x)
+                0: o = b; 2: o = b; // Creates $reduce_or
+                1: o = c;
+                default:
+                    case (x)
+                        0: o = d; 2: o = d; // Creates $reduce_or
+                        3: o = d; 4: o = d; // Creates $reduce_or
+                        5: o = e;
+                        default: o = 1'b0;
+                    endcase
         endcase
         end
 endmodule

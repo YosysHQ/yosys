@@ -29,53 +29,84 @@ struct ExclusiveDatabase
 	Module *module;
 	const SigMap &sigmap;
 
-	dict<SigBit, SigSpec> sig_cmp_prev;
-	dict<SigSpec, pool<SigSpec>> sig_exclusive;
+	dict<SigBit, std::pair<SigSpec,std::vector<Const>>> sig_cmp_prev;
 
 	ExclusiveDatabase(Module *module, const SigMap &sigmap) : module(module), sigmap(sigmap)
 	{
-		SigSpec a_port, b_port, y_port;
+		SigSpec const_sig, nonconst_sig;
+		SigBit y_port;
+		pool<Cell*> reduce_or;
 		for (auto cell : module->cells()) {
 			if (cell->type == "$eq") {
-				a_port = sigmap(cell->getPort("\\A"));
-				b_port = sigmap(cell->getPort("\\B"));
-				if (!b_port.is_fully_const()) {
-					if (!a_port.is_fully_const())
+				nonconst_sig = sigmap(cell->getPort("\\A"));
+				const_sig = sigmap(cell->getPort("\\B"));
+				if (!const_sig.is_fully_const()) {
+					if (!nonconst_sig.is_fully_const())
 						continue;
-					std::swap(a_port, b_port);
+					std::swap(nonconst_sig, const_sig);
 				}
 				y_port = sigmap(cell->getPort("\\Y"));
 			}
 			else if (cell->type == "$logic_not") {
-				a_port = sigmap(cell->getPort("\\A"));
-				b_port = Const(RTLIL::S0, GetSize(a_port));
+				nonconst_sig = sigmap(cell->getPort("\\A"));
+				const_sig = Const(RTLIL::S0, GetSize(nonconst_sig));
 				y_port = sigmap(cell->getPort("\\Y"));
+			}
+			else if (cell->type == "$reduce_or") {
+				reduce_or.insert(cell);
+				continue;
 			}
 			else continue;
 
-			auto r = sig_exclusive[a_port].insert(b_port.as_const());
-			if (!r.second)
+			log_assert(!nonconst_sig.empty());
+			log_assert(!const_sig.empty());
+			sig_cmp_prev[y_port] = std::make_pair(nonconst_sig,std::vector<Const>{const_sig.as_const()});
+		}
+
+		for (auto cell : reduce_or) {
+			nonconst_sig = SigSpec();
+			std::vector<Const> values;
+			SigSpec a_port = sigmap(cell->getPort("\\A"));
+			for (auto bit : a_port) {
+				auto it = sig_cmp_prev.find(bit);
+				if (it == sig_cmp_prev.end()) {
+					nonconst_sig = SigSpec();
+					break;
+				}
+				if (nonconst_sig.empty())
+					nonconst_sig = it->second.first;
+				else if (nonconst_sig != it->second.first) {
+					nonconst_sig = SigSpec();
+					break;
+				}
+				for (auto value : it->second.second)
+					values.push_back(value);
+			}
+			if (nonconst_sig.empty())
 				continue;
-			sig_cmp_prev[y_port] = a_port;
+			y_port = sigmap(cell->getPort("\\Y"));
+			sig_cmp_prev[y_port] = std::make_pair(nonconst_sig,std::move(values));
 		}
 	}
 
-	bool query(const SigSpec& sig1, const SigSpec& sig2) const
+	bool query(const SigSpec &sig) const
 	{
-		// FIXME: O(N^2)
-		for (auto bit1 : sig1.bits()) {
-			auto it = sig_cmp_prev.find(bit1);
+		SigSpec nonconst_sig;
+		pool<Const> const_values;
+
+		for (auto bit : sig.bits()) {
+			auto it = sig_cmp_prev.find(bit);
 			if (it == sig_cmp_prev.end())
 				return false;
 
-			for (auto bit2 : sig2.bits()) {
-				auto jt = sig_cmp_prev.find(bit2);
-				if (jt == sig_cmp_prev.end())
-					return false;
+			if (nonconst_sig.empty())
+				nonconst_sig = it->second.first;
+			else if (nonconst_sig != it->second.first)
+				return false;
 
-				if (it->second != jt->second)
+			for (auto value : it->second.second)
+				if (!const_values.insert(value).second)
 					return false;
-			}
 		}
 
 		return true;
@@ -178,8 +209,8 @@ struct MuxpackWorker
 				Cell *prev_cell = sig_chain_prev.at(a_sig);
 				log_assert(prev_cell);
 				SigSpec s_sig = sigmap(cell->getPort("\\S"));
-				SigSpec next_s_sig = sigmap(prev_cell->getPort("\\S"));
-				if (!excl_db.query(s_sig, next_s_sig))
+				s_sig.append(sigmap(prev_cell->getPort("\\S")));
+				if (!excl_db.query(s_sig))
 					goto start_cell;
 			}
 
@@ -305,9 +336,9 @@ struct MuxpackPass : public Pass {
 		log("constructs) and $mux cells (e.g. those created by if-else constructs) into\n");
 		log("$pmux cells.\n");
 		log("\n");
-		log("This optimisation is conservative --- it will only pack $mux or $pmux cells with\n");
-		log("other such cells if it can be certain that the select lines are mutually\n");
-		log("exclusive.\n");
+		log("This optimisation is conservative --- it will only pack $mux or $pmux cells\n");
+		log("whose select lines are driven by '$eq' cells with other such cells if it can be\n");
+		log("certain that their select inputs are mutually exclusive.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
