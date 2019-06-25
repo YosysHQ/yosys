@@ -126,6 +126,10 @@ struct JsonWriter
 			f << stringf("%s\n", first ? "" : ",");
 			f << stringf("        %s: {\n", get_name(n).c_str());
 			f << stringf("          \"direction\": \"%s\",\n", w->port_input ? w->port_output ? "inout" : "input" : "output");
+			if (w->start_offset)
+				f << stringf("          \"offset\": %d,\n", w->start_offset);
+			if (w->upto)
+				f << stringf("          \"upto\": 1,\n");
 			f << stringf("          \"bits\": %s\n", get_bits(w).c_str());
 			f << stringf("        }");
 			first = false;
