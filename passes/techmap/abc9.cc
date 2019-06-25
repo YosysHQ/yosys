@@ -96,11 +96,15 @@ void handle_loops(RTLIL::Design *design)
 						Wire *w = b.wire;
 						log_assert(!w->port_input);
 						w->port_input = true;
-						w = module->wire(stringf("%s.abci", log_id(w->name)));
-						if (!w)
-							w = module->addWire(stringf("%s.abci", log_id(b.wire->name)), GetSize(b.wire));
-						log_assert(b.offset < GetSize(w));
-						w->port_output = true;
+						w = module->wire(stringf("%s.abci", w->name.c_str()));
+						if (!w) {
+							w = module->addWire(stringf("%s.abci", b.wire->name.c_str()), GetSize(b.wire));
+							w->port_output = true;
+						}
+						else {
+							log_assert(w->port_input);
+							log_assert(b.offset < GetSize(w));
+						}
 						w->set_bool_attribute("\\abc_scc_break");
 						module->swap_names(b.wire, w);
 						c.second = RTLIL::SigBit(w, b.offset);
@@ -118,14 +122,27 @@ void handle_loops(RTLIL::Design *design)
 				auto &c = *it;
 				SigBit b = cell->getPort(RTLIL::escape_id(jt->second.decode_string()));
 				Wire *w = b.wire;
-				log_assert(!w->port_output);
-				w->port_output = true;
-				w->set_bool_attribute("\\abc_scc_break");
-				w = module->wire(stringf("%s.abci", log_id(w->name)));
-				if (!w)
-					w = module->addWire(stringf("%s.abci", log_id(b.wire->name)), GetSize(b.wire));
-				log_assert(b.offset < GetSize(w));
-				w->port_input = true;
+				if (w->port_output) {
+					log_assert(w->get_bool_attribute("\\abc_scc_break"));
+					w = module->wire(stringf("%s.abci", w->name.c_str()));
+					log_assert(w);
+					log_assert(b.offset < GetSize(w));
+					log_assert(w->port_input);
+				}
+				else {
+					log_assert(!w->port_output);
+					w->port_output = true;
+					w->set_bool_attribute("\\abc_scc_break");
+					w = module->wire(stringf("%s.abci", w->name.c_str()));
+					if (!w) {
+						w = module->addWire(stringf("%s.abci", b.wire->name.c_str()), GetSize(b.wire));
+						w->port_input = true;
+					}
+					else {
+						log_assert(w->port_input);
+						log_assert(b.offset < GetSize(w));
+					}
+				}
 				c.second = RTLIL::SigBit(w, b.offset);
 			}
 		}
