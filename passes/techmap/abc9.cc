@@ -124,6 +124,7 @@ void handle_loops(RTLIL::Design *design)
 				RTLIL::SigSpec sig;
 				for (auto b : it->second) {
 					Wire *w = b.wire;
+					if (!w) continue;
 					if (w->port_output) {
 						log_assert(w->get_bool_attribute("\\abc_scc_break"));
 						w = module->wire(stringf("%s.abci", w->name.c_str()));
