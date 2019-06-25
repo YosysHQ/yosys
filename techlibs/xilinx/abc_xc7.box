@@ -34,12 +34,12 @@ CARRY4 3 1 10 8
 # Inputs: A0 A1 A2 A3 A4 A5 D DPRA0 DPRA1 DPRA2 DPRA3 DPRA4 DPRA5 WCLK WE
 # Outputs: DPO SPO
 RAM64X1D 4 0 15 2
--   -   -   -   -   -   - 124 124 124 124 124 124 - -
-124 124 124 124 124 124 - -   -   -   -   -   124 - -
+-   -   -   -   -   -   - 642 631 472 407 238 127 - -
+642 631 472 407 238 127 - -   -   -   -   -   -   - -
 
 # SLICEM/A6LUT + F7[AB]MUX
 # Inputs: A0 A1 A2 A3 A4 A5 A6 D DPRA0 DPRA1 DPRA2 DPRA3 DPRA4 DPRA5 DPRA6 WCLK WE
 # Outputs: DPO SPO
 RAM128X1D 5 0 17 2
--   -   -   -   -   -   -   - 314 314 314 314 314 314 292 - -
-347 347 347 347 347 347 296 - -   -   -   -   -   -   -   - -
+-    -    -   -   -   -   -   - 1009 998 839 774 605 494 450 - -
+1047 1036 877 812 643 532 478 - -    -   -   -   -   -   -   - -
