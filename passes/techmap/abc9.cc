@@ -121,31 +121,33 @@ void handle_loops(RTLIL::Design *design)
 				if (it == cell->connections_.end())
 					log_error("abc_scc_break attribute value '%s' does not exist as port on module '%s'\n", jt->second.decode_string().c_str(), log_id(box_module));
 				log_assert(it != cell->connections_.end());
-				auto &c = *it;
-				SigBit b = cell->getPort(RTLIL::escape_id(jt->second.decode_string()));
-				Wire *w = b.wire;
-				if (w->port_output) {
-					log_assert(w->get_bool_attribute("\\abc_scc_break"));
-					w = module->wire(stringf("%s.abci", w->name.c_str()));
-					log_assert(w);
-					log_assert(b.offset < GetSize(w));
-					log_assert(w->port_input);
-				}
-				else {
-					log_assert(!w->port_output);
-					w->port_output = true;
-					w->set_bool_attribute("\\abc_scc_break");
-					w = module->wire(stringf("%s.abci", w->name.c_str()));
-					if (!w) {
-						w = module->addWire(stringf("%s.abci", b.wire->name.c_str()), GetSize(b.wire));
-						w->port_input = true;
+				RTLIL::SigSpec sig;
+				for (auto b : it->second) {
+					Wire *w = b.wire;
+					if (w->port_output) {
+						log_assert(w->get_bool_attribute("\\abc_scc_break"));
+						w = module->wire(stringf("%s.abci", w->name.c_str()));
+						log_assert(w);
+						log_assert(b.offset < GetSize(w));
+						log_assert(w->port_input);
 					}
 					else {
-						log_assert(w->port_input);
-						log_assert(b.offset < GetSize(w));
+						log_assert(!w->port_output);
+						w->port_output = true;
+						w->set_bool_attribute("\\abc_scc_break");
+						w = module->wire(stringf("%s.abci", w->name.c_str()));
+						if (!w) {
+							w = module->addWire(stringf("%s.abci", b.wire->name.c_str()), GetSize(b.wire));
+							w->port_input = true;
+						}
+						else {
+							log_assert(w->port_input);
+							log_assert(b.offset < GetSize(w));
+						}
 					}
+					sig.append(RTLIL::SigBit(w, b.offset));
 				}
-				c.second = RTLIL::SigBit(w, b.offset);
+				it->second = sig;
 			}
 		}
 	}
