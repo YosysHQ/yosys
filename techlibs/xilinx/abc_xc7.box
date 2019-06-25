@@ -39,8 +39,8 @@ CARRY4 3 1 10 8
 # Inputs: A0 A1 A2 A3 A4 D DPRA0 DPRA1 DPRA2 DPRA3 DPRA4 WCLK WE
 # Outputs: DPO SPO
 RAM32X1D 4 0 13 2
--   -   -   -   -   - 124 124 124 124 124 - -
-124 124 124 124 124 - -   -   -   -   -   - -
+-   -   -   -   -   - 631 472 407 238 127 - -
+631 472 407 238 127 - -   -   -   -   -   - -
 
 # SLICEM/A6LUT
 # Inputs: A0 A1 A2 A3 A4 A5 D DPRA0 DPRA1 DPRA2 DPRA3 DPRA4 DPRA5 WCLK WE
