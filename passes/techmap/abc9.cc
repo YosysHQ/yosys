@@ -118,6 +118,8 @@ void handle_loops(RTLIL::Design *design)
 			auto jt = box_module->attributes.find("\\abc_scc_break");
 			if (jt != box_module->attributes.end()) {
 				auto it = cell->connections_.find(RTLIL::escape_id(jt->second.decode_string()));
+				if (it == cell->connections_.end())
+					log_error("abc_scc_break attribute value '%s' does not exist as port on module '%s'\n", jt->second.decode_string().c_str(), log_id(box_module));
 				log_assert(it != cell->connections_.end());
 				auto &c = *it;
 				SigBit b = cell->getPort(RTLIL::escape_id(jt->second.decode_string()));
