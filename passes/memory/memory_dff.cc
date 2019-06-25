@@ -193,10 +193,9 @@ struct MemoryDffWorker
 				en.append(enable_invert ? module->LogicNot(NEW_ID, mux->getPort("\\S")) : mux->getPort("\\S"));
 			} while (mux_cells_a.count(sig_data) || mux_cells_b.count(sig_data));
 
-                        for (auto bit : sig_data)
-                                if (sigbit_users_count[bit] > 1) {
-                                        goto skip_ff_after_read_merging;
-                                }
+			for (auto bit : sig_data)
+				if (sigbit_users_count[bit] > 1)
+					goto skip_ff_after_read_merging;
 
 			if (find_sig_before_dff(sig_data, clk_data, clk_polarity, true) && clk_data != RTLIL::SigSpec(RTLIL::State::Sx) && sig_data == check_q)
 			{
