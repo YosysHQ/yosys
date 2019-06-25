@@ -1,0 +1,14 @@
+read_verilog abc9.v
+proc
+design -save gold
+
+abc9 -lut 4
+check
+design -stash gate
+
+design -import gold -as gold
+design -import gate -as gate
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports miter
+
