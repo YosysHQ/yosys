@@ -104,7 +104,7 @@ struct SynthXilinxPass : public ScriptPass
 		log("\n");
 	}
 
-	std::string top_opt, edif_file, blif_file, abc, arch;
+	std::string top_opt, edif_file, blif_file, arch;
 	bool flatten, retime, vpr, nobram, nodram, nosrl, nocarry, nowidelut, abc9;
 	int widemux;
 
