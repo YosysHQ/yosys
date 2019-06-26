@@ -281,19 +281,6 @@ endmodule
 
 // ---------------------------------------
 
-module OB(input I, output O);
-assign O = I;
-endmodule
-
-// ---------------------------------------
-
-module BB(input I, T, output O, inout B);
-assign B = T ? 1'bz : I;
-assign O = B;
-endmodule
-
-// ---------------------------------------
-
 module INV(input A, output Z);
 	assign Z = !A;
 endmodule
