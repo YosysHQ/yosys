@@ -331,8 +331,16 @@ struct SynthIce40Pass : public ScriptPass
 				run("techmap -map +/gate2lut.v -D LUT_WIDTH=4", "(only if -noabc)");
 			}
 			if (!noabc) {
-				if (abc == "abc9")
-					run(abc + stringf(" -lut +/ice40/abc_%s.lut -box +/ice40/abc_%s.box", device_opt.c_str(), device_opt.c_str()), "(skip if -noabc)");
+				if (abc == "abc9") {
+					int wire_delay;
+					if (device_opt == "lp")
+						wire_delay = 400;
+					else if (device_opt == "u")
+						wire_delay = 750;
+					else
+						wire_delay = 250;
+					run(abc + stringf(" -W %d -lut +/ice40/abc_%s.lut -box +/ice40/abc_%s.box", wire_delay, device_opt.c_str(), device_opt.c_str()), "(skip if -noabc)");
+				}
 				else
 					run(abc + " -dress -lut 4", "(skip if -noabc)");
 			}
