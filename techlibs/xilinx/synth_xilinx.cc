@@ -254,11 +254,13 @@ struct SynthXilinxPass : public ScriptPass
 			}
 
 			if (help_mode)
-				run("techmap -map +/techmap.v -map +/xilinx/arith_map.v", "(skip if '-nocarry')");
-			else if (!vpr)
-				run("techmap -map +/techmap.v -map +/xilinx/arith_map.v");
-			else
-				run("techmap -map +/techmap.v -map +/xilinx/arith_map.v -D _EXPLICIT_CARRY");
+				run("techmap -map +/techmap.v [-map +/xilinx/arith_map.v]", "(skip if '-nocarry')");
+			else if (!nocarry) {
+                                if (!vpr)
+                                        run("techmap -map +/techmap.v -map +/xilinx/arith_map.v");
+                                else
+                                        run("techmap -map +/techmap.v -map +/xilinx/arith_map.v -D _EXPLICIT_CARRY");
+                        }
 
 			run("opt -fast");
 		}
