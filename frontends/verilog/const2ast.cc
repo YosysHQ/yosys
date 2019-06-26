@@ -153,7 +153,7 @@ AstNode *VERILOG_FRONTEND::const2ast(std::string code, char case_type, bool warn
 {
 	if (warn_z) {
 		AstNode *ret = const2ast(code, case_type);
-		if (std::find(ret->bits.begin(), ret->bits.end(), RTLIL::State::Sz) != ret->bits.end())
+		if (ret != nullptr && std::find(ret->bits.begin(), ret->bits.end(), RTLIL::State::Sz) != ret->bits.end())
 			log_warning("Yosys has only limited support for tri-state logic at the moment. (%s:%d)\n",
 				current_filename.c_str(), get_line_num());
 		return ret;
