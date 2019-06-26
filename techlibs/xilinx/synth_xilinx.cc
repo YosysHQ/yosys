@@ -249,9 +249,9 @@ struct SynthXilinxPass : public ScriptPass
 			run("check");
 			run("opt");
 			if (help_mode)
-				run("wreduce [c:* t:$mux %d]", "(selection for '-widemux' only)");
+				run("wreduce [-keepdc]", "('-widemux' only)");
 			else
-				run("wreduce" + std::string(widemux > 0 ? " c:* t:$mux %d" : ""));
+				run("wreduce" + std::string(widemux > 0 ? " -keepdc" : ""));
 			run("peepopt");
 			run("opt_clean");
 			run("alumacc");
