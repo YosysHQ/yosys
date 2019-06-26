@@ -153,8 +153,8 @@ struct SynthXilinxPass : public ScriptPass
 				nocarry = true;
 				continue;
 			}
-			if (args[argidx] == "-nomux") {
-				nomux = true;
+			if (args[argidx] == "-nowidelut") {
+				nowidelut = true;
 				continue;
 			}
 			if (args[argidx] == "-vpr") {
