@@ -241,26 +241,10 @@ struct SynthXilinxPass : public ScriptPass
 		}
 
 		if (check_label("coarse")) {
-			run("proc");
-			if (flatten || help_mode)
-				run("flatten", "(with -flatten only)");
-			run("opt_expr");
-			run("opt_clean");
-			run("check");
-			run("opt");
 			if (help_mode)
-				run("wreduce [-keepdc]", "('-widemux' only)");
+				run("synth -run coarse [-flatten]", "(with '-flatten')");
 			else
-				run("wreduce" + std::string(widemux > 0 ? " -keepdc" : ""));
-			run("peepopt");
-			run("opt_clean");
-			run("alumacc");
-			run("share");
-			run("opt");
-			run("fsm");
-			run("opt -fast");
-			run("memory -nomap");
-			run("opt_clean");
+				run("synth -run coarse" + std::string(flatten ? "" : " -flatten"), "(with '-flatten')");
 
 			if (widemux > 0 || help_mode)
 				run("muxpack", "    ('-widemux' only)");
@@ -288,7 +272,7 @@ struct SynthXilinxPass : public ScriptPass
 		}
 
 		if (check_label("fine")) {
-			run("opt -fast");
+			run("opt -fast -full");
 			run("memory_map");
 			run("dffsr2dff");
 			run("dff2dffe");
