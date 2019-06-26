@@ -73,6 +73,12 @@ struct SynthXilinxPass : public ScriptPass
 		log("    -nosrl\n");
 		log("        disable inference of shift registers\n");
 		log("\n");
+		log("    -nocarry\n");
+		log("        do not use XORCY/MUXCY/CARRY4 cells in output netlist\n");
+		log("\n");
+		log("    -nowidelut\n");
+		log("        do not use MUXF[78] resources to implement LUTs larger than LUT6s\n");
+		log("\n");
 		log("    -run <from_label>:<to_label>\n");
 		log("        only run the commands between the labels (see below). an empty\n");
 		log("        from label is synonymous to 'begin', and empty to label is\n");
@@ -94,7 +100,7 @@ struct SynthXilinxPass : public ScriptPass
 	}
 
 	std::string top_opt, edif_file, blif_file, abc, arch;
-	bool flatten, retime, vpr, nocarry, nobram, nodram, nosrl;
+	bool flatten, retime, vpr, nobram, nodram, nosrl, nocarry, nowidelut;
 
 	void clear_flags() YS_OVERRIDE
 	{
@@ -109,6 +115,8 @@ struct SynthXilinxPass : public ScriptPass
 		nobram = false;
 		nodram = false;
 		nosrl = false;
+		nocarry = false;
+		nowidelut = false;
 		arch = "xc7";
 	}
 
@@ -150,6 +158,14 @@ struct SynthXilinxPass : public ScriptPass
 			}
 			if (args[argidx] == "-retime") {
 				retime = true;
+				continue;
+			}
+			if (args[argidx] == "-nocarry") {
+				nocarry = true;
+				continue;
+			}
+			if (args[argidx] == "-nowidelut") {
+				nowidelut = true;
 				continue;
 			}
 			if (args[argidx] == "-vpr") {
@@ -285,7 +301,9 @@ struct SynthXilinxPass : public ScriptPass
 			if (abc == "abc9")
 				run(abc + " -lut +/xilinx/abc_xc7.lut -box +/xilinx/abc_xc7.box -W " + XC7_WIRE_DELAY + string(retime ? " -dff" : ""));
 			else if (help_mode)
-				run(abc + " -luts 2:2,3,6:5,10,20 [-dff]");
+				run("abc -luts 2:2,3,6:5[,10,20] [-dff]", "(skip if 'nowidelut', only for '-retime')");
+			else if (nowidelut)
+				run("abc -luts 2:2,3,6:5" + string(retime ? " -dff" : ""));
 			else
 				run(abc + " -luts 2:2,3,6:5,10,20" + string(retime ? " -dff" : ""));
 			run("clean");
