@@ -73,7 +73,7 @@ struct SynthXilinxPass : public ScriptPass
 		log("    -nosrl\n");
 		log("        disable inference of shift registers\n");
 		log("\n");
-		log("    -minmuxf <int>\n");
+		log("    -widemux <int>\n");
 		log("        enable inference of hard multiplexer resources (MuxFx) for muxes at or\n");
 		log("        above this number of inputs (minimum value 5).\n");
 		log("        default: 0 (no inference)\n");
@@ -100,7 +100,7 @@ struct SynthXilinxPass : public ScriptPass
 
 	std::string top_opt, edif_file, blif_file, abc, arch;
 	bool flatten, retime, vpr, nocarry, nobram, nodram, nosrl;
-	int minmuxf;
+	int widemux;
 
 	void clear_flags() YS_OVERRIDE
 	{
@@ -116,7 +116,7 @@ struct SynthXilinxPass : public ScriptPass
 		nodram = false;
 		nosrl = false;
 		arch = "xc7";
-		minmuxf = 0;
+		widemux = 0;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -179,8 +179,8 @@ struct SynthXilinxPass : public ScriptPass
 				nosrl = true;
 				continue;
 			}
-			if (args[argidx] == "-minmuxf" && argidx+1 < args.size()) {
-				minmuxf = atoi(args[++argidx].c_str());
+			if (args[argidx] == "-widemux" && argidx+1 < args.size()) {
+				widemux = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-abc9") {
@@ -194,8 +194,8 @@ struct SynthXilinxPass : public ScriptPass
 		if (arch != "xcup" && arch != "xcu" && arch != "xc7" && arch != "xc6s")
 			log_cmd_error("Invalid Xilinx -arch setting: %s\n", arch.c_str());
 
-		if (minmuxf != 0 && minmuxf < 5)
-			log_cmd_error("-minmuxf value must be 0 or >= 5.\n");
+		if (widemux != 0 && widemux < 5)
+			log_cmd_error("-widemux value must be 0 or >= 5.\n");
 
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");
@@ -233,9 +233,9 @@ struct SynthXilinxPass : public ScriptPass
 			run("check");
 			run("opt");
 			if (help_mode)
-				run("wreduce [c:* t:$mux %d]", "(selection for '-minmuxf' only)");
+				run("wreduce [c:* t:$mux %d]", "(selection for '-widemux' only)");
 			else
-				run("wreduce" + std::string(minmuxf > 0 ? " c:* t:$mux %d" : ""));
+				run("wreduce" + std::string(widemux > 0 ? " c:* t:$mux %d" : ""));
 			run("peepopt");
 			run("opt_clean");
 			run("alumacc");
@@ -246,15 +246,15 @@ struct SynthXilinxPass : public ScriptPass
 			run("memory -nomap");
 			run("opt_clean");
 
-			if (minmuxf > 0 || help_mode)
-				run("muxpack", "    ('-minmuxf' only)");
+			if (widemux > 0 || help_mode)
+				run("muxpack", "    ('-widemux' only)");
 
 			// shregmap -tech xilinx can cope with $shiftx and $mux
 			//   cells for identifying variable-length shift registers,
 			//   so attempt to convert $pmux-es to the former
 			// Also: wide multiplexer inference benefits from this too
-			if (!(nosrl && minmuxf == 0) || help_mode)
-				run("pmux2shiftx", "(skip if '-nosrl' and '-minmuxf' < 5)");
+			if (!(nosrl && widemux == 0) || help_mode)
+				run("pmux2shiftx", "(skip if '-nosrl' and '-widemux' < 5)");
 		}
 
 		if (check_label("bram", "(skip if '-nobram')")) {
@@ -272,15 +272,15 @@ struct SynthXilinxPass : public ScriptPass
 		}
 
 		if (check_label("fine")) {
-			run("opt -fast");
+			run("opt -fast -full");
 			run("memory_map");
 			run("dffsr2dff");
 			run("dff2dffe");
-			if (minmuxf > 0 || help_mode) {
-				run("simplemap t:$mux", "                        ('-minmuxf' only)");
-				if (minmuxf > 0 || help_mode) {
+			if (widemux > 0 || help_mode) {
+				run("simplemap t:$mux", "                        ('-widemux' only)");
+				if (widemux > 0 || help_mode) {
 					std::string muxcover_args = " -dmux=0";
-					switch (minmuxf) {
+					switch (widemux) {
 						// NB: Cost of mux2 is 100; mux8 should cost between 3 and 4
 						//     of those so that 4:1 muxes and below are implemented
 						//     out of mux2s
@@ -297,7 +297,7 @@ struct SynthXilinxPass : public ScriptPass
 						case 15: muxcover_args += " -mux16=1350"; break;
 						default: muxcover_args += " -mux16=1450"; break;
 					}
-					run("muxcover " + muxcover_args, "('-minmuxf' only)");
+					run("muxcover " + muxcover_args, "('-widemux' only)");
 				}
 			}
 			run("opt -full");
@@ -313,8 +313,8 @@ struct SynthXilinxPass : public ScriptPass
 			std::string techmap_args = " -map +/techmap.v";
 			if (help_mode)
 				techmap_args += " [-map +/xilinx/mux_map.v]";
-			else if (minmuxf > 0)
-				techmap_args += stringf(" -D MIN_MUX_INPUTS=%d -map +/xilinx/mux_map.v", minmuxf);
+			else if (widemux > 0)
+				techmap_args += stringf(" -D MIN_MUX_INPUTS=%d -map +/xilinx/mux_map.v", widemux);
 			if (help_mode)
 				techmap_args += " [-map +/xilinx/arith_map.v]";
 			else if (!nocarry) {
@@ -330,8 +330,8 @@ struct SynthXilinxPass : public ScriptPass
 
 		if (check_label("map_cells")) {
 			std::string techmap_args = "-map +/techmap.v -D _ABC -map +/xilinx/cells_map.v";
-			if (minmuxf > 0)
-				techmap_args += stringf(" -D MIN_MUX_INPUTS=%d", minmuxf);
+			if (widemux > 0)
+				techmap_args += stringf(" -D MIN_MUX_INPUTS=%d", widemux);
 			run("techmap " + techmap_args);
 			run("clean");
 		}
