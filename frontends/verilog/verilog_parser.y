@@ -156,8 +156,8 @@ struct specify_rise_fall {
 %type <ast> range range_or_multirange  non_opt_range non_opt_multirange range_or_signed_int
 %type <ast> wire_type expr basic_expr concat_list rvalue lvalue lvalue_concat_list
 %type <string> opt_label opt_sva_label tok_prim_wrapper hierarchical_id
-%type <boolean> opt_signed opt_property unique_case_attr
-%type <al> attr case_attr
+%type <boolean> opt_signed opt_property unique_branch_attr
+%type <al> attr branch_attr
 
 %type <specify_target_ptr> specify_target
 %type <specify_triple_ptr> specify_triple
@@ -1970,7 +1970,7 @@ behavioral_stmt:
 		ast_stack.pop_back();
 		ast_stack.pop_back();
 	} |
-	attr TOK_IF '(' expr ')' {
+	branch_attr TOK_IF '(' expr ')' {
 		AstNode *node = new AstNode(AST_CASE);
 		AstNode *block = new AstNode(AST_BLOCK);
 		AstNode *cond = new AstNode(AST_COND, AstNode::mkconst_int(1, false, 1), block);
@@ -1984,7 +1984,7 @@ behavioral_stmt:
 		ast_stack.pop_back();
 		ast_stack.pop_back();
 	} |
-	case_attr case_type '(' expr ')' {
+	branch_attr case_type '(' expr ')' {
 		AstNode *node = new AstNode(AST_CASE, $4);
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);
@@ -1994,19 +1994,19 @@ behavioral_stmt:
 		ast_stack.pop_back();
 	};
 
-unique_case_attr:
+unique_branch_attr:
 	/* empty */ {
 		$$ = false;
 	} |
-	TOK_PRIORITY case_attr {
+	TOK_PRIORITY branch_attr {
 		$$ = $2;
 	} |
-	TOK_UNIQUE case_attr {
+	TOK_UNIQUE branch_attr {
 		$$ = true;
 	};
 
-case_attr:
-	attr unique_case_attr {
+branch_attr:
+	attr unique_branch_attr {
 		if ($2) (*$1)["\\parallel_case"] = AstNode::mkconst_int(1, false);
 		$$ = $1;
 	};
