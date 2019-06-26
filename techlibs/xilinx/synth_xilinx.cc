@@ -73,6 +73,12 @@ struct SynthXilinxPass : public ScriptPass
 		log("    -nosrl\n");
 		log("        disable inference of shift registers\n");
 		log("\n");
+		log("    -nocarry\n");
+		log("        do not use XORCY/MUXCY/CARRY4 cells in output netlist\n");
+		log("\n");
+		log("    -nowidelut\n");
+		log("        do not use MUXF[78] resources to implement LUTs larger than LUT6s\n");
+		log("\n");
 		log("    -widemux <int>\n");
 		log("        enable inference of hard multiplexer resources (MuxFx) for muxes at or\n");
 		log("        above this number of inputs (minimum value 5).\n");
@@ -99,7 +105,7 @@ struct SynthXilinxPass : public ScriptPass
 	}
 
 	std::string top_opt, edif_file, blif_file, abc, arch;
-	bool flatten, retime, vpr, nocarry, nobram, nodram, nosrl;
+	bool flatten, retime, vpr, nobram, nodram, nosrl, nocarry, nowidelut, abc9;
 	int widemux;
 
 	void clear_flags() YS_OVERRIDE
@@ -107,7 +113,7 @@ struct SynthXilinxPass : public ScriptPass
 		top_opt = "-auto-top";
 		edif_file.clear();
 		blif_file.clear();
-		abc = "abc";
+		arch = "xc7";
 		flatten = false;
 		retime = false;
 		vpr = false;
@@ -115,7 +121,9 @@ struct SynthXilinxPass : public ScriptPass
 		nobram = false;
 		nodram = false;
 		nosrl = false;
-		arch = "xc7";
+		nocarry = false;
+		nowidelut = false;
+		abc9 = false;
 		widemux = 0;
 	}
 
@@ -159,6 +167,14 @@ struct SynthXilinxPass : public ScriptPass
 				retime = true;
 				continue;
 			}
+			if (args[argidx] == "-nocarry") {
+				nocarry = true;
+				continue;
+			}
+			if (args[argidx] == "-nowidelut") {
+				nowidelut = true;
+				continue;
+			}
 			if (args[argidx] == "-vpr") {
 				vpr = true;
 				continue;
@@ -184,7 +200,7 @@ struct SynthXilinxPass : public ScriptPass
 				continue;
 			}
 			if (args[argidx] == "-abc9") {
-				abc = "abc9";
+				abc9 = true;
 				continue;
 			}
 			break;
@@ -321,7 +337,7 @@ struct SynthXilinxPass : public ScriptPass
 				techmap_args += " -map +/xilinx/arith_map.v";
 				if (vpr)
 					techmap_args += " -D _EXPLICIT_CARRY";
-				else if (abc == "abc9")
+				else if (abc9)
 					techmap_args += " -D _CLB_CARRY";
 			}
 			run("techmap " + techmap_args);
@@ -338,12 +354,20 @@ struct SynthXilinxPass : public ScriptPass
 
 		if (check_label("map_luts")) {
 			run("opt_expr -mux_undef");
-			if (abc == "abc9")
-				run(abc + " -lut +/xilinx/abc_xc7.lut -box +/xilinx/abc_xc7.box -W " + XC7_WIRE_DELAY + string(retime ? " -dff" : ""));
-			else if (help_mode)
-				run(abc + " -luts 2:2,3,6:5,10,20 [-dff]");
-			else
-				run(abc + " -luts 2:2,3,6:5,10,20" + string(retime ? " -dff" : ""));
+			if (help_mode)
+				run("abc -luts 2:2,3,6:5[,10,20] [-dff]", "(skip if 'nowidelut', only for '-retime')");
+			else if (abc9) {
+				if (nowidelut)
+					run("abc9 -lut +/xilinx/abc_xc7_nowide.lut -box +/xilinx/abc_xc7.box -W " + std::string(XC7_WIRE_DELAY) + string(retime ? " -dff" : ""));
+				else
+					run("abc9 -lut +/xilinx/abc_xc7.lut -box +/xilinx/abc_xc7.box -W " + std::string(XC7_WIRE_DELAY) + string(retime ? " -dff" : ""));
+			}
+			else {
+				if (nowidelut)
+					run("abc -luts 2:2,3,6:5" + string(retime ? " -dff" : ""));
+				else
+					run("abc -luts 2:2,3,6:5,10,20" + string(retime ? " -dff" : ""));
+			}
 			run("clean");
 
 			// This shregmap call infers fixed length shift registers after abc
