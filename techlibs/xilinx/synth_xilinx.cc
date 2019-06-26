@@ -288,7 +288,7 @@ struct SynthXilinxPass : public ScriptPass
 		}
 
 		if (check_label("fine")) {
-			run("opt -fast -full");
+			run("opt -fast");
 			run("memory_map");
 			run("dffsr2dff");
 			run("dff2dffe");
