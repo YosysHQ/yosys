@@ -273,7 +273,10 @@ struct SynthEcp5Pass : public ScriptPass
 			}
 			run("techmap -map +/ecp5/latches_map.v");
 			if (abc9) {
-				run("abc9 -lut +/ecp5/abc_5g.lut -box +/ecp5/abc_5g.box -W 200");
+				if (nowidelut)
+					run("abc9 -lut +/ecp5/abc_5g_nowide.lut -box +/ecp5/abc_5g.box -W 200");
+				else
+					run("abc9 -lut +/ecp5/abc_5g.lut -box +/ecp5/abc_5g.box -W 200");
 			} else {
 				if (nowidelut)
 					run("abc -lut 4 -dress");

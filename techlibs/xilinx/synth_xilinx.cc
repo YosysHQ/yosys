@@ -100,14 +100,14 @@ struct SynthXilinxPass : public ScriptPass
 	}
 
 	std::string top_opt, edif_file, blif_file, abc, arch;
-	bool flatten, retime, vpr, nobram, nodram, nosrl, nocarry, nowidelut;
+	bool flatten, retime, vpr, nobram, nodram, nosrl, nocarry, nowidelut, abc9;
 
 	void clear_flags() YS_OVERRIDE
 	{
 		top_opt = "-auto-top";
 		edif_file.clear();
 		blif_file.clear();
-		abc = "abc";
+		arch = "xc7";
 		flatten = false;
 		retime = false;
 		vpr = false;
@@ -117,7 +117,7 @@ struct SynthXilinxPass : public ScriptPass
 		nosrl = false;
 		nocarry = false;
 		nowidelut = false;
-		arch = "xc7";
+		abc9 = false;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -189,7 +189,7 @@ struct SynthXilinxPass : public ScriptPass
 				continue;
 			}
 			if (args[argidx] == "-abc9") {
-				abc = "abc9";
+				abc9 = true;
 				continue;
 			}
 			break;
@@ -284,7 +284,7 @@ struct SynthXilinxPass : public ScriptPass
 				techmap_files += " -map +/xilinx/arith_map.v";
 				if (vpr)
 					techmap_files += " -D _EXPLICIT_CARRY";
-				else if (abc == "abc9")
+				else if (abc9)
 					techmap_files += " -D _CLB_CARRY";
 			}
 			run("techmap " + techmap_files);
@@ -298,14 +298,20 @@ struct SynthXilinxPass : public ScriptPass
 
 		if (check_label("map_luts")) {
 			run("opt_expr -mux_undef");
-			if (abc == "abc9")
-				run(abc + " -lut +/xilinx/abc_xc7.lut -box +/xilinx/abc_xc7.box -W " + XC7_WIRE_DELAY + string(retime ? " -dff" : ""));
-			else if (help_mode)
+			if (help_mode)
 				run("abc -luts 2:2,3,6:5[,10,20] [-dff]", "(skip if 'nowidelut', only for '-retime')");
-			else if (nowidelut)
-				run("abc -luts 2:2,3,6:5" + string(retime ? " -dff" : ""));
-			else
-				run(abc + " -luts 2:2,3,6:5,10,20" + string(retime ? " -dff" : ""));
+			else if (abc9) {
+				if (nowidelut)
+					run("abc9 -lut +/xilinx/abc_xc7_nowide.lut -box +/xilinx/abc_xc7.box -W " + std::string(XC7_WIRE_DELAY) + string(retime ? " -dff" : ""));
+				else
+					run("abc9 -lut +/xilinx/abc_xc7.lut -box +/xilinx/abc_xc7.box -W " + std::string(XC7_WIRE_DELAY) + string(retime ? " -dff" : ""));
+			}
+			else {
+				if (nowidelut)
+					run("abc -luts 2:2,3,6:5" + string(retime ? " -dff" : ""));
+				else
+					run("abc -luts 2:2,3,6:5,10,20" + string(retime ? " -dff" : ""));
+			}
 			run("clean");
 
 			// This shregmap call infers fixed length shift registers after abc
