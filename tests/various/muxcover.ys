@@ -200,7 +200,7 @@ prep
 design -save gold
 
 techmap
-muxcover -mux4=0 -nodecode
+muxcover -mux4=99 -nodecode
 clean
 opt_expr -mux_bool
 select -assert-count 0 t:$_MUX_
@@ -228,7 +228,7 @@ prep
 design -save gold
 
 techmap
-muxcover -mux8=0 -nodecode
+muxcover -mux8=99 -nodecode
 clean
 opt_expr -mux_bool
 select -assert-count 0 t:$_MUX_
@@ -256,7 +256,7 @@ prep
 design -save gold
 
 techmap
-muxcover -mux8=0 -nodecode
+muxcover -mux8=299 -nodecode
 clean
 opt_expr -mux_bool
 select -assert-count 0 t:$_MUX_
@@ -284,7 +284,7 @@ prep
 design -save gold
 
 techmap
-muxcover -mux16=0 -nodecode
+muxcover -mux16=99 -nodecode
 clean
 opt_expr -mux_bool
 select -assert-count 0 t:$_MUX_
@@ -312,7 +312,7 @@ prep
 design -save gold
 
 techmap
-muxcover -mux16=0 -nodecode
+muxcover -mux16=299 -nodecode
 clean
 opt_expr -mux_bool
 select -assert-count 0 t:$_MUX_
@@ -341,7 +341,7 @@ prep
 design -save gold
 
 techmap
-muxcover -mux16=0 -nodecode
+muxcover -mux16=699 -nodecode
 clean
 opt_expr -mux_bool
 select -assert-count 0 t:$_MUX_
