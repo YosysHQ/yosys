@@ -1043,7 +1043,10 @@ class MkVcd:
                         scope = scope[:-1]
 
                     while uipath[:-1] != scope:
-                        print("$scope module %s $end" % uipath[len(scope)], file=self.f)
+                        scopename = uipath[len(scope)]
+                        if scopename.startswith("$"):
+                            scopename = "\\" + scopename
+                        print("$scope module %s $end" % scopename, file=self.f)
                         scope.append(uipath[len(scope)])
 
                     if path in self.clocks and self.clocks[path][1] == "event":
