@@ -47,6 +47,28 @@ module  \$__DFFSE_NP1 (input D, C, E, R, output Q); TRELLIS_FF #(.GSR("DISABLED"
 module  \$__DFFSE_PP0 (input D, C, E, R, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("CE"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("RESET"), .SRMODE("LSR_OVER_CE"))  _TECHMAP_REPLACE_ (.CLK(C), .CE(E), .LSR(R), .DI(D), .Q(Q)); endmodule
 module  \$__DFFSE_PP1 (input D, C, E, R, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("CE"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("SET"), .SRMODE("LSR_OVER_CE"))  _TECHMAP_REPLACE_ (.CLK(C), .CE(E), .LSR(R), .DI(D), .Q(Q)); endmodule
 
+// TODO: Diamond flip-flops
+// module FD1P3AX(); endmodule
+// module FD1P3AY(); endmodule
+// module FD1P3BX(); endmodule
+// module FD1P3DX(); endmodule
+// module FD1P3IX(); endmodule
+// module FD1P3JX(); endmodule
+// module FD1S3AX(); endmodule
+// module FD1S3AY(); endmodule
+module FD1S3BX(input PD, D, CK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("SET"), .SRMODE("ASYNC"))  _TECHMAP_REPLACE_ (.CLK(CK), .LSR(PD), .DI(D), .Q(Q)); endmodule
+module FD1S3DX(input CD, D, CK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("RESET"), .SRMODE("ASYNC"))  _TECHMAP_REPLACE_ (.CLK(CK), .LSR(CD), .DI(D), .Q(Q)); endmodule
+module FD1S3IX(input CD, D, CK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("RESET"), .SRMODE("LSR_OVER_CE"))  _TECHMAP_REPLACE_ (.CLK(CK), .LSR(CD), .DI(D), .Q(Q)); endmodule
+module FD1S3JX(input PD, D, CK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("SET"), .SRMODE("LSR_OVER_CE"))  _TECHMAP_REPLACE_ (.CLK(CK), .LSR(PD), .DI(D), .Q(Q)); endmodule
+// module FL1P3AY(); endmodule
+// module FL1P3AZ(); endmodule
+// module FL1P3BX(); endmodule
+// module FL1P3DX(); endmodule
+// module FL1P3IY(); endmodule
+// module FL1P3JY(); endmodule
+// module FL1S3AX(); endmodule
+// module FL1S3AY(); endmodule
+
 // Diamond I/O buffers
 module IB   (input I, output O); (* PULLMODE="NONE" *) TRELLIS_IO #(.DIR("INPUT")) _TECHMAP_REPLACE_ (.B(I), .O(O)); endmodule
 module IBPU (input I, output O); (* PULLMODE="UP"   *) TRELLIS_IO #(.DIR("INPUT"))   _TECHMAP_REPLACE_ (.B(I), .O(O)); endmodule
@@ -62,8 +84,22 @@ module BBPD (input I, T, output O, inout B); (* PULLMODE="DOWN" *) TRELLIS_IO #(
 module ILVDS(input A, AN, output Z); TRELLIS_IO #(.DIR("INPUT"))  _TECHMAP_REPLACE_ (.B(A), .O(Z)); endmodule
 module OLVDS(input A, output Z, ZN); TRELLIS_IO #(.DIR("OUTPUT")) _TECHMAP_REPLACE_ (.B(Z), .I(A)); endmodule
 
-// For Diamond compatibility, FIXME: add all Diamond flipflop mappings
-module FD1S3BX(input PD, D, CK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("SET"), .SRMODE("ASYNC"))  _TECHMAP_REPLACE_ (.CLK(CK), .LSR(PD), .DI(D), .Q(Q)); endmodule
+// Diamond I/O registers
+module IFS1P3BX(input PD, D, SP, SCLK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("SET"), .SRMODE("ASYNC"))  _TECHMAP_REPLACE_ (.CLK(SCLK), .LSR(PD), .CE(SP), .DI(D), .Q(Q)); endmodule
+module IFS1P3DX(input CD, D, SP, SCLK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("RESET"), .SRMODE("ASYNC"))  _TECHMAP_REPLACE_ (.CLK(SCLK), .LSR(CD), .CE(SP), .DI(D), .Q(Q)); endmodule
+module IFS1P3IX(input CD, D, SP, SCLK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("RESET"), .SRMODE("LSR_OVER_CE"))  _TECHMAP_REPLACE_ (.CLK(SCLK), .LSR(CD), .CE(SP), .DI(D), .Q(Q)); endmodule
+module IFS1P3JX(input PD, D, SP, SCLK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("SET"), .SRMODE("LSR_OVER_CE"))  _TECHMAP_REPLACE_ (.CLK(SCLK), .LSR(PD), .CE(SP), .DI(D), .Q(Q)); endmodule
+
+module OFS1P3BX(input PD, D, SP, SCLK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("SET"), .SRMODE("ASYNC"))  _TECHMAP_REPLACE_ (.CLK(SCLK), .LSR(PD), .CE(SP), .DI(D), .Q(Q)); endmodule
+module OFS1P3DX(input CD, D, SP, SCLK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("RESET"), .SRMODE("ASYNC"))  _TECHMAP_REPLACE_ (.CLK(SCLK), .LSR(CD), .CE(SP), .DI(D), .Q(Q)); endmodule
+module OFS1P3IX(input CD, D, SP, SCLK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("RESET"), .SRMODE("LSR_OVER_CE"))  _TECHMAP_REPLACE_ (.CLK(SCLK), .LSR(CD), .CE(SP), .DI(D), .Q(Q)); endmodule
+module OFS1P3JX(input PD, D, SP, SCLK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("SET"), .SRMODE("LSR_OVER_CE"))  _TECHMAP_REPLACE_ (.CLK(SCLK), .LSR(PD), .CE(SP), .DI(D), .Q(Q)); endmodule
+
+// TODO: Diamond I/O latches
+// module IFS1S1B(input PD, D, SCLK, output Q); endmodule
+// module IFS1S1D(input CD, D, SCLK, output Q); endmodule
+// module IFS1S1I(input PD, D, SCLK, output Q); endmodule
+// module IFS1S1J(input CD, D, SCLK, output Q); endmodule
 
 `ifndef NO_LUT
 module \$lut (A, Y);
