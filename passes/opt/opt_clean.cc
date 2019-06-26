@@ -480,7 +480,7 @@ void rmunused_module(RTLIL::Module *module, bool purge_mode, bool verbose, bool 
 
 	std::vector<RTLIL::Cell*> delcells;
 	for (auto cell : module->cells())
-		if (cell->type.in("$pos", "$_BUF_")) {
+		if (cell->type.in("$pos", "$_BUF_") && !cell->has_keep_attr()) {
 			bool is_signed = cell->type == "$pos" && cell->getParam("\\A_SIGNED").as_bool();
 			RTLIL::SigSpec a = cell->getPort("\\A");
 			RTLIL::SigSpec y = cell->getPort("\\Y");
