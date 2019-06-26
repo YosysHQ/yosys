@@ -151,7 +151,7 @@ struct MuxcoverWorker
 				return true;
 			}
 			char port_name[3] = {'\\', *path, 0};
-			return follow_muxtree(ret_bit, tree, tree.muxes.at(bit)->getPort(port_name), path+1, false);
+			return follow_muxtree(ret_bit, tree, sigmap(tree.muxes.at(bit)->getPort(port_name)), path+1, false);
 		} else {
 			ret_bit = bit;
 			return true;
