@@ -45,8 +45,9 @@ struct SynthXilinxPass : public ScriptPass
 		log("    -top <module>\n");
 		log("        use the specified module as top module\n");
 		log("\n");
-		log("    -arch {xcup|xcu|xc7|xc6s}\n");
+		log("    -family {xcup|xcu|xc7|xc6s}\n");
 		log("        run synthesis for the specified Xilinx architecture\n");
+		log("        generate the synthesis netlist for the specified family.\n");
 		log("        default: xc7\n");
 		log("\n");
 		log("    -edif <file>\n");
@@ -99,7 +100,7 @@ struct SynthXilinxPass : public ScriptPass
 		log("\n");
 	}
 
-	std::string top_opt, edif_file, blif_file, arch;
+	std::string top_opt, edif_file, blif_file, family;
 	bool flatten, retime, vpr, nobram, nodram, nosrl, nocarry, nowidelut, abc9;
 
 	void clear_flags() YS_OVERRIDE
@@ -107,7 +108,7 @@ struct SynthXilinxPass : public ScriptPass
 		top_opt = "-auto-top";
 		edif_file.clear();
 		blif_file.clear();
-		arch = "xc7";
+		family = "xc7";
 		flatten = false;
 		retime = false;
 		vpr = false;
@@ -132,8 +133,8 @@ struct SynthXilinxPass : public ScriptPass
 				top_opt = "-top " + args[++argidx];
 				continue;
 			}
-			if (args[argidx] == "-arch" && argidx+1 < args.size()) {
-				arch = args[++argidx];
+			if ((args[argidx] == "-family" || args[argidx] == "-arch") && argidx+1 < args.size()) {
+				family = args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-edif" && argidx+1 < args.size()) {
@@ -196,8 +197,8 @@ struct SynthXilinxPass : public ScriptPass
 		}
 		extra_args(args, argidx, design);
 
-		if (arch != "xcup" && arch != "xcu" && arch != "xc7" && arch != "xc6s")
-			log_cmd_error("Invalid Xilinx -arch setting: %s\n", arch.c_str());
+		if (family != "xcup" && family != "xcu" && family != "xc7" && family != "xc6s")
+			log_cmd_error("Invalid Xilinx -family setting: %s\n", family.c_str());
 
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");

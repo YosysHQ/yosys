@@ -286,7 +286,7 @@ module RAM32X1D (
   output DPO, SPO,
   input  D, WCLK, WE,
   input  A0, A1, A2, A3, A4,
-  input  DPRA0, DPRA1, DPRA2, DPRA3, DPRA4,
+  input  DPRA0, DPRA1, DPRA2, DPRA3, DPRA4
 );
   parameter INIT = 32'h0;
   parameter IS_WCLK_INVERTED = 1'b0;
