@@ -281,6 +281,7 @@ struct SynthXilinxPass : public ScriptPass
 				run("muxcover <internal options>, ('-widemux' only)");
 			}
 			else if (widemux > 0) {
+				run("simplemap t:$mux");
 				std::string muxcover_args = " -dmux=0";
 				switch (widemux) {
 					// NB: Cost of mux2 is 100; mux8 should cost between 3 and 4
