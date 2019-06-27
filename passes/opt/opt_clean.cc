@@ -326,8 +326,8 @@ bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 		if (wire->port_id != 0 || wire->get_bool_attribute("\\keep") || !initval.is_fully_undef()) {
 			// do not delete anything with "keep" or module ports or initialized wires
 		} else
-		if (!purge_mode && check_public_name(wire->name)) {
-			// do not get rid of public names unless in purge mode
+		if (!purge_mode && check_public_name(wire->name) && (raw_used_signals.check_any(s1) || used_signals.check_any(s2) || s1 != s2)) {
+			// do not get rid of public names unless in purge mode or if the wire is entirely unused, not even aliased
 		} else
 		if (!raw_used_signals.check_any(s1)) {
 			// delete wires that aren't used by anything directly
@@ -480,7 +480,7 @@ void rmunused_module(RTLIL::Module *module, bool purge_mode, bool verbose, bool 
 
 	std::vector<RTLIL::Cell*> delcells;
 	for (auto cell : module->cells())
-		if (cell->type.in("$pos", "$_BUF_")) {
+		if (cell->type.in("$pos", "$_BUF_") && !cell->has_keep_attr()) {
 			bool is_signed = cell->type == "$pos" && cell->getParam("\\A_SIGNED").as_bool();
 			RTLIL::SigSpec a = cell->getPort("\\A");
 			RTLIL::SigSpec y = cell->getPort("\\Y");

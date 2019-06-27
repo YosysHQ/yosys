@@ -1,0 +1,33 @@
+
+read_verilog -formal <<EOT
+module gate(input clk, output [32:0] o, p, q, r, s, t, u);
+assign o = 'bx;
+assign p = 1'bx;
+assign q = 'bz;
+assign r = 1'bz;
+assign s = 1'b0;
+assign t = 'b1;
+assign u = -'sb1;
+endmodule
+EOT
+
+proc
+
+## Equivalence checking
+
+read_verilog -formal <<EOT
+module gold(input clk, output [32:0] o, p, q, r, s, t, u);
+assign o = {33{1'bx}};
+assign p = {{32{1'b0}}, 1'bx};
+assign q = {33{1'bz}};
+assign r = {{32{1'b0}}, 1'bz};
+assign s = {33{1'b0}};
+assign t = {{32{1'b0}}, 1'b1};
+assign u = {33{1'b1}};
+endmodule
+EOT
+
+proc
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports -enable_undef miter

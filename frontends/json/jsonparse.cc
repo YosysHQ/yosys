@@ -292,6 +292,18 @@ void json_import(Design *design, string &modname, JsonNode *node)
 			if (port_wire == nullptr)
 				port_wire = module->addWire(port_name, GetSize(port_bits_node->data_array));
 
+			if (port_node->data_dict.count("upto") != 0) {
+				JsonNode *val = port_node->data_dict.at("upto");
+				if (val->type == 'N')
+					port_wire->upto = val->data_number != 0;
+			}
+
+			if (port_node->data_dict.count("offset") != 0) {
+				JsonNode *val = port_node->data_dict.at("offset");
+				if (val->type == 'N')
+					port_wire->start_offset = val->data_number;
+			}
+
 			if (port_direction_node->data_string == "input") {
 				port_wire->port_input = true;
 			} else
@@ -371,6 +383,18 @@ void json_import(Design *design, string &modname, JsonNode *node)
 
 			if (wire == nullptr)
 				wire = module->addWire(net_name, GetSize(bits_node->data_array));
+
+			if (net_node->data_dict.count("upto") != 0) {
+				JsonNode *val = net_node->data_dict.at("upto");
+				if (val->type == 'N')
+					wire->upto = val->data_number != 0;
+			}
+
+			if (net_node->data_dict.count("offset") != 0) {
+				JsonNode *val = net_node->data_dict.at("offset");
+				if (val->type == 'N')
+					wire->start_offset = val->data_number;
+			}
 
 			for (int i = 0; i < GetSize(bits_node->data_array); i++)
 			{
