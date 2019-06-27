@@ -22,6 +22,7 @@ Yosys 0.8 .. Yosys 0.8-dev
     - Added "muxcover -dmux=<cost>"
     - Added "muxcover -nopartial"
     - Added "muxpack" pass
+    - Added "write_xaiger" backend
     - Added "abc9" pass for timing-aware techmapping (experimental, FPGA only, no FFs)
     - Added "synth_xilinx -abc9" (experimental)
     - Added "synth_ice40 -abc9" (experimental)
