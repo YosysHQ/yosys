@@ -81,6 +81,23 @@ struct MuxcoverWorker
 		decode_mux_counter = 0;
 	}
 
+	bool xcmp(std::initializer_list<SigBit> list)
+	{
+		auto cursor = list.begin(), end = list.end();
+		log_assert(cursor != end);
+		SigBit tmp = *(cursor++);
+		while (cursor != end) {
+			SigBit bit = *(cursor++);
+			if (bit == State::Sx)
+				continue;
+			if (tmp == State::Sx)
+				tmp = bit;
+			if (bit != tmp)
+				return false;
+		}
+		return true;
+	}
+
 	void treeify()
 	{
 		pool<SigBit> roots;
@@ -144,6 +161,8 @@ struct MuxcoverWorker
 			if (tree.muxes.count(bit) == 0) {
 				if (first_layer || nopartial)
 					return false;
+				while (path[0] && path[1])
+					path++;
 				if (path[0] == 'S')
 					ret_bit = State::Sx;
 				else
@@ -280,7 +299,7 @@ struct MuxcoverWorker
 			ok = ok && follow_muxtree(S2, tree, bit, "BS");
 
 			if (nodecode)
-				ok = ok && S1 == S2;
+				ok = ok && xcmp({S1, S2});
 
 			ok = ok && follow_muxtree(T1, tree, bit, "S");
 
@@ -330,13 +349,13 @@ struct MuxcoverWorker
 			ok = ok && follow_muxtree(S4, tree, bit, "BBS");
 
 			if (nodecode)
-				ok = ok && S1 == S2 && S2 == S3 && S3 == S4;
+				ok = ok && xcmp({S1, S2, S3, S4});
 
 			ok = ok && follow_muxtree(T1, tree, bit, "AS");
 			ok = ok && follow_muxtree(T2, tree, bit, "BS");
 
 			if (nodecode)
-				ok = ok && T1 == T2;
+				ok = ok && xcmp({T1, T2});
 
 			ok = ok && follow_muxtree(U1, tree, bit, "S");
 
@@ -407,7 +426,7 @@ struct MuxcoverWorker
 			ok = ok && follow_muxtree(S8, tree, bit, "BBBS");
 
 			if (nodecode)
-				ok = ok && S1 == S2 && S2 == S3 && S3 == S4 && S4 == S5 && S5 == S6 && S6 == S7 && S7 == S8;
+				ok = ok && xcmp({S1, S2, S3, S4, S5, S6, S7, S8});
 
 			ok = ok && follow_muxtree(T1, tree, bit, "AAS");
 			ok = ok && follow_muxtree(T2, tree, bit, "ABS");
@@ -415,13 +434,13 @@ struct MuxcoverWorker
 			ok = ok && follow_muxtree(T4, tree, bit, "BBS");
 
 			if (nodecode)
-				ok = ok && T1 == T2 && T2 == T3 && T3 == T4;
+				ok = ok && xcmp({T1, T2, T3, T4});
 
 			ok = ok && follow_muxtree(U1, tree, bit, "AS");
 			ok = ok && follow_muxtree(U2, tree, bit, "BS");
 
 			if (nodecode)
-				ok = ok && U1 == U2;
+				ok = ok && xcmp({U1, U2});
 
 			ok = ok && follow_muxtree(V1, tree, bit, "S");
 
