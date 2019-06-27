@@ -221,6 +221,9 @@ struct Pmux2ShiftxPass : public Pass {
 		log("        select strategy for one-hot encoded control signals\n");
 		log("        default: pmux\n");
 		log("\n");
+		log("    -norange\n");
+		log("        disable $sub inference for \"range decoders\"\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
@@ -230,6 +233,7 @@ struct Pmux2ShiftxPass : public Pass {
 		bool optimize_onehot = true;
 		bool verbose = false;
 		bool verbose_onehot = false;
+		bool norange = false;
 
 		log_header(design, "Executing PMUX2SHIFTX pass.\n");
 
@@ -268,6 +272,10 @@ struct Pmux2ShiftxPass : public Pass {
 			if (args[argidx] == "-vv") {
 				verbose = true;
 				verbose_onehot = true;
+				continue;
+			}
+			if (args[argidx] == "-norange") {
+				norange = true;
 				continue;
 			}
 			break;
@@ -559,7 +567,7 @@ struct Pmux2ShiftxPass : public Pass {
 								int this_inv_delta = this_maxval - this_minval;
 								bool this_inv = false;
 
-								if (this_delta != this_inv_delta)
+								if (!norange && this_delta != this_inv_delta)
 									this_inv = this_inv_delta < this_delta;
 								else if (this_maxval != this_inv_maxval)
 									this_inv = this_inv_maxval < this_maxval;
@@ -574,7 +582,7 @@ struct Pmux2ShiftxPass : public Pass {
 
 								if (best_src_col < 0)
 									this_is_better = true;
-								else if (this_delta != best_delta)
+								else if (!norange && this_delta != best_delta)
 									this_is_better = this_delta < best_delta;
 								else if (this_maxval != best_maxval)
 									this_is_better = this_maxval < best_maxval;
@@ -656,7 +664,7 @@ struct Pmux2ShiftxPass : public Pass {
 
 					// check density percentages
 					Const offset(State::S0, GetSize(sig));
-					if (absolute_density < min_density && range_density >= min_density)
+					if (!norange && absolute_density < min_density && range_density >= min_density)
 					{
 						offset = Const(min_choice, GetSize(sig));
 						log("    offset: %s\n", log_signal(offset));
