@@ -18,8 +18,9 @@ MUXF8 2 1 3 1
 # Inputs: CYINIT DI0 DI1 DI2 DI3 S0 S1 S2 S3 CI
 # Outputs:  O0 O1 O2 O3 CO0 CO1 CO2 CO3
 #   (NB: carry chain input/output must be last
-#        input/output and have been moved there
-#        overriding the alphabetical ordering)
+#        input/output and the entire bus has been
+#        moved there overriding the otherwise
+#        alphabetical ordering)
 CARRY4 3 1 10 8
 482 -   -   -   -   223 -   -   -   222
 598 407 -   -   -   400 205 -   -   334
