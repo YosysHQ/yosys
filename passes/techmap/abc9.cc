@@ -80,6 +80,8 @@ void handle_loops(RTLIL::Design *design)
 {
 	Pass::call(design, "scc -set_attr abc_scc_id {}");
 
+        dict<IdString, vector<IdString>> module_break;
+
 	// For every unique SCC found, (arbitrarily) find the first
 	// cell in the component, and select (and mark) all its output
 	// wires
@@ -113,43 +115,45 @@ void handle_loops(RTLIL::Design *design)
 			}
 			cell->attributes.erase(it);
 		}
-		RTLIL::Module* box_module = design->module(cell->type);
-		if (box_module) {
-			auto jt = box_module->attributes.find("\\abc_scc_break");
-			if (jt != box_module->attributes.end()) {
-				auto it = cell->connections_.find(RTLIL::escape_id(jt->second.decode_string()));
-				if (it == cell->connections_.end())
-					log_error("abc_scc_break attribute value '%s' does not exist as port on module '%s'\n", jt->second.decode_string().c_str(), log_id(box_module));
-				log_assert(it != cell->connections_.end());
-				RTLIL::SigSpec sig;
-				for (auto b : it->second) {
-					Wire *w = b.wire;
-					if (!w) continue;
-					if (w->port_output) {
-						log_assert(w->get_bool_attribute("\\abc_scc_break"));
-						w = module->wire(stringf("%s.abci", w->name.c_str()));
-						log_assert(w);
-						log_assert(b.offset < GetSize(w));
-						log_assert(w->port_input);
-					}
-					else {
-						log_assert(!w->port_output);
-						w->port_output = true;
-						w->set_bool_attribute("\\abc_scc_break");
-						w = module->wire(stringf("%s.abci", w->name.c_str()));
-						if (!w) {
-							w = module->addWire(stringf("%s.abci", b.wire->name.c_str()), GetSize(b.wire));
-							w->port_input = true;
-						}
-						else {
-							log_assert(w->port_input);
-							log_assert(b.offset < GetSize(w));
-						}
-					}
-					sig.append(RTLIL::SigBit(w, b.offset));
+
+		auto jt = module_break.find(cell->type);
+		if (jt == module_break.end()) {
+			std::vector<IdString> ports;
+			if (!yosys_celltypes.cell_known(cell->type)) {
+				RTLIL::Module* box_module = design->module(cell->type);
+				log_assert(box_module);
+				auto ports_csv = box_module->attributes.at("\\abc_scc_break", RTLIL::Const::from_string("")).decode_string();
+				for (const auto &port_name : split_tokens(ports_csv, ",")) {
+					auto port_id = RTLIL::escape_id(port_name);
+					auto kt = cell->connections_.find(port_id);
+					if (kt == cell->connections_.end())
+						log_error("abc_scc_break attribute value '%s' does not exist as port on module '%s'\n", port_name.c_str(), log_id(box_module));
+					ports.push_back(port_id);
 				}
-				it->second = sig;
 			}
+			jt = module_break.insert(std::make_pair(cell->type, std::move(ports))).first;
+		}
+
+		for (auto port_name : jt->second) {
+			RTLIL::SigSpec sig;
+			auto &rhs = cell->connections_.at(port_name);
+			for (auto b : rhs) {
+				Wire *w = b.wire;
+				if (!w) continue;
+				w->port_output = true;
+				w->set_bool_attribute("\\abc_scc_break");
+				w = module->wire(stringf("%s.abci", w->name.c_str()));
+				if (!w) {
+					w = module->addWire(stringf("%s.abci", b.wire->name.c_str()), GetSize(b.wire));
+					w->port_input = true;
+				}
+				else {
+					log_assert(b.offset < GetSize(w));
+					log_assert(w->port_input);
+				}
+				sig.append(RTLIL::SigBit(w, b.offset));
+			}
+			rhs = sig;
 		}
 	}
 
