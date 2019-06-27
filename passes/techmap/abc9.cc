@@ -80,7 +80,7 @@ void handle_loops(RTLIL::Design *design)
 {
 	Pass::call(design, "scc -set_attr abc_scc_id {}");
 
-        dict<IdString, vector<IdString>> module_break;
+        dict<IdString, vector<IdString>> abc_scc_break;
 
 	// For every unique SCC found, (arbitrarily) find the first
 	// cell in the component, and select (and mark) all its output
@@ -116,12 +116,11 @@ void handle_loops(RTLIL::Design *design)
 			cell->attributes.erase(it);
 		}
 
-		auto jt = module_break.find(cell->type);
-		if (jt == module_break.end()) {
+		auto jt = abc_scc_break.find(cell->type);
+		if (jt == abc_scc_break.end()) {
 			std::vector<IdString> ports;
-			if (!yosys_celltypes.cell_known(cell->type)) {
-				RTLIL::Module* box_module = design->module(cell->type);
-				log_assert(box_module);
+			RTLIL::Module* box_module = design->module(cell->type);
+			if (box_module) {
 				auto ports_csv = box_module->attributes.at("\\abc_scc_break", RTLIL::Const::from_string("")).decode_string();
 				for (const auto &port_name : split_tokens(ports_csv, ",")) {
 					auto port_id = RTLIL::escape_id(port_name);
@@ -131,7 +130,7 @@ void handle_loops(RTLIL::Design *design)
 					ports.push_back(port_id);
 				}
 			}
-			jt = module_break.insert(std::make_pair(cell->type, std::move(ports))).first;
+			jt = abc_scc_break.insert(std::make_pair(cell->type, std::move(ports))).first;
 		}
 
 		for (auto port_name : jt->second) {
@@ -554,17 +553,20 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			signal = std::move(bits);
 		}
 
+		dict<IdString, bool> abc_box;
 		vector<RTLIL::Cell*> boxes;
-		for (auto it = module->cells_.begin(); it != module->cells_.end(); ) {
-			RTLIL::Cell* cell = it->second;
-			if (cell->type.in("$_AND_", "$_NOT_", "$__ABC_FF_")) {
-				it = module->remove(it);
+		for (auto cell : module->cells()) {
+			if (cell->type.in("$_AND_", "$_NOT_")) {
+				module->remove(cell);
 				continue;
 			}
-			RTLIL::Module* box_module = design->module(cell->type);
-			if (box_module && box_module->attributes.count("\\abc_box_id"))
-				boxes.emplace_back(it->second);
-			++it;
+			auto it = abc_box.find(cell->type);
+			if (it == abc_box.end()) {
+				RTLIL::Module* box_module = design->module(cell->type);
+				it = abc_box.insert(std::make_pair(cell->type, box_module && box_module->attributes.count("\\abc_box_id"))).first;
+			}
+			if (it->second)
+				boxes.emplace_back(cell);
 		}
 
 		std::map<std::string, int> cell_stats;
