@@ -67,6 +67,12 @@ struct SynthXilinxPass : public ScriptPass
 		log("    -nosrl\n");
 		log("        disable inference of shift registers\n");
 		log("\n");
+		log("    -nocarry\n");
+		log("        do not use XORCY/MUXCY/CARRY4 cells in output netlist\n");
+		log("\n");
+		log("    -nowidelut\n");
+		log("        do not use MUXF[78] resources to implement LUTs larger than LUT6s\n");
+		log("\n");
 		log("    -run <from_label>:<to_label>\n");
 		log("        only run the commands between the labels (see below). an empty\n");
 		log("        from label is synonymous to 'begin', and empty to label is\n");
@@ -85,7 +91,7 @@ struct SynthXilinxPass : public ScriptPass
 	}
 
 	std::string top_opt, edif_file, blif_file, arch;
-	bool flatten, retime, vpr, nobram, nodram, nosrl;
+	bool flatten, retime, vpr, nobram, nodram, nosrl, nocarry, nowidelut;
 
 	void clear_flags() YS_OVERRIDE
 	{
@@ -98,6 +104,8 @@ struct SynthXilinxPass : public ScriptPass
 		nobram = false;
 		nodram = false;
 		nosrl = false;
+		nocarry = false;
+		nowidelut = false;
 		arch = "xc7";
 	}
 
@@ -139,6 +147,14 @@ struct SynthXilinxPass : public ScriptPass
 			}
 			if (args[argidx] == "-retime") {
 				retime = true;
+				continue;
+			}
+			if (args[argidx] == "-nocarry") {
+				nocarry = true;
+				continue;
+			}
+			if (args[argidx] == "-nowidelut") {
+				nowidelut = true;
 				continue;
 			}
 			if (args[argidx] == "-vpr") {
@@ -237,10 +253,14 @@ struct SynthXilinxPass : public ScriptPass
 				run("shregmap -tech xilinx -minlen 3", "(skip if '-nosrl')");
 			}
 
-			if (!vpr || help_mode)
-				run("techmap -map +/techmap.v -map +/xilinx/arith_map.v");
-			else
-				run("techmap -map +/techmap.v +/xilinx/arith_map.v -D _EXPLICIT_CARRY");
+			if (help_mode)
+				run("techmap -map +/techmap.v [-map +/xilinx/arith_map.v]", "(skip if '-nocarry')");
+			else if (!nocarry) {
+				if (!vpr)
+					run("techmap -map +/techmap.v -map +/xilinx/arith_map.v");
+				else
+					run("techmap -map +/techmap.v -map +/xilinx/arith_map.v -D _EXPLICIT_CARRY");
+			}
 
 			run("opt -fast");
 		}
@@ -252,7 +272,9 @@ struct SynthXilinxPass : public ScriptPass
 
 		if (check_label("map_luts")) {
 			if (help_mode)
-				run("abc -luts 2:2,3,6:5,10,20 [-dff]");
+				run("abc -luts 2:2,3,6:5[,10,20] [-dff]", "(skip if 'nowidelut', only for '-retime')");
+			else if (nowidelut)
+				run("abc -luts 2:2,3,6:5" + string(retime ? " -dff" : ""));
 			else
 				run("abc -luts 2:2,3,6:5,10,20" + string(retime ? " -dff" : ""));
 			run("clean");
