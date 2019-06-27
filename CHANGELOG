@@ -22,6 +22,7 @@ Yosys 0.8 .. Yosys 0.8-dev
     - Added "muxcover -dmux=<cost>"
     - Added "muxcover -nopartial"
     - Added "muxpack" pass
+    - Added "pmux2shiftx -norange"
     - Added "write_xaiger" backend
     - Added "abc9" pass for timing-aware techmapping (experimental, FPGA only, no FFs)
     - Added "synth_xilinx -abc9" (experimental)
@@ -51,7 +52,7 @@ Yosys 0.7 .. Yosys 0.8
     - Added Verilog $rtoi and $itor support
     - Added "check -initdrv"
     - Added "read_blif -wideports"
-    - Added support for systemVerilog "++" and "--" operators
+    - Added support for SystemVerilog "++" and "--" operators
     - Added support for SystemVerilog unique, unique0, and priority case
     - Added "write_edif" options for edif "flavors"
     - Added support for resetall compiler directive
