@@ -144,12 +144,8 @@ endmodule
 // Positive Edge SiliconBlue FF Cells
 
 module SB_DFF (output `SB_DFF_REG, input C, D);
-`ifndef _ABC
 	always @(posedge C)
 		Q <= D;
-`else
-    always @* Q <= D;
-`endif
 endmodule
 
 module SB_DFFE (output `SB_DFF_REG, input C, E, D);
@@ -896,7 +892,6 @@ module SB_WARMBOOT (
 );
 endmodule
 
-(* nomem2reg *)
 module SB_SPRAM256KA (
 	input [13:0] ADDRESS,
 	input [15:0] DATAIN,
