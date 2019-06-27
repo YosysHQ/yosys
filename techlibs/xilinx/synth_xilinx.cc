@@ -277,8 +277,8 @@ struct SynthXilinxPass : public ScriptPass
 			run("dffsr2dff");
 			run("dff2dffe");
 			if (help_mode) {
-				run("simplemap t:$mux", "                 ('-widemux' only)");
-				run("muxcover -dmux=0 -mux8=<cost> -mux16=<cost>, ('-widemux' only)");
+				run("simplemap t:$mux", "         ('-widemux' only)");
+				run("muxcover <internal options>, ('-widemux' only)");
 			}
 			else if (widemux > 0) {
 				std::string muxcover_args = " -dmux=0";
