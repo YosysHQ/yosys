@@ -549,6 +549,10 @@ struct OptRmdffPass : public Pass {
 		log("This pass identifies flip-flops with constant inputs and replaces them with\n");
 		log("a constant driver.\n");
 		log("\n");
+		log("    -sat\n");
+		log("        additionally invoke SAT solver to detect and remove flip-flops (with \n");
+		log("        non-constant inputs) that can also be replaced with a constant driver\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
