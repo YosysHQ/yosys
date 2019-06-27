@@ -45,8 +45,9 @@ struct SynthXilinxPass : public ScriptPass
 		log("    -top <module>\n");
 		log("        use the specified module as top module\n");
 		log("\n");
-		log("    -arch {xcup|xcu|xc7|xc6s}\n");
+		log("    -family {xcup|xcu|xc7|xc6s}\n");
 		log("        run synthesis for the specified Xilinx architecture\n");
+		log("        generate the synthesis netlist for the specified family.\n");
 		log("        default: xc7\n");
 		log("\n");
 		log("    -edif <file>\n");
@@ -104,7 +105,7 @@ struct SynthXilinxPass : public ScriptPass
 		log("\n");
 	}
 
-	std::string top_opt, edif_file, blif_file, arch;
+	std::string top_opt, edif_file, blif_file, family;
 	bool flatten, retime, vpr, nobram, nodram, nosrl, nocarry, nowidelut, abc9;
 	int widemux;
 
@@ -113,7 +114,7 @@ struct SynthXilinxPass : public ScriptPass
 		top_opt = "-auto-top";
 		edif_file.clear();
 		blif_file.clear();
-		arch = "xc7";
+		family = "xc7";
 		flatten = false;
 		retime = false;
 		vpr = false;
@@ -139,8 +140,8 @@ struct SynthXilinxPass : public ScriptPass
 				top_opt = "-top " + args[++argidx];
 				continue;
 			}
-			if (args[argidx] == "-arch" && argidx+1 < args.size()) {
-				arch = args[++argidx];
+			if ((args[argidx] == "-family" || args[argidx] == "-arch") && argidx+1 < args.size()) {
+				family = args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-edif" && argidx+1 < args.size()) {
@@ -207,8 +208,8 @@ struct SynthXilinxPass : public ScriptPass
 		}
 		extra_args(args, argidx, design);
 
-		if (arch != "xcup" && arch != "xcu" && arch != "xc7" && arch != "xc6s")
-			log_cmd_error("Invalid Xilinx -arch setting: %s\n", arch.c_str());
+		if (family != "xcup" && family != "xcu" && family != "xc7" && family != "xc6s")
+			log_cmd_error("Invalid Xilinx -family setting: %s\n", family.c_str());
 
 		if (widemux != 0 && widemux < 5)
 			log_cmd_error("-widemux value must be 0 or >= 5.\n");
@@ -343,6 +344,8 @@ struct SynthXilinxPass : public ScriptPass
 			if (help_mode)
 				run("abc -luts 2:2,3,6:5[,10,20] [-dff]", "(skip if 'nowidelut', only for '-retime')");
 			else if (abc9) {
+				if (family != "xc7")
+					log_warning("'synth_xilinx -abc9' currently supports '-family xc7' only.\n");
 				if (nowidelut)
 					run("abc9 -lut +/xilinx/abc_xc7_nowide.lut -box +/xilinx/abc_xc7.box -W " + std::string(XC7_WIRE_DELAY) + string(retime ? " -dff" : ""));
 				else
