@@ -530,6 +530,11 @@ delete_dff:
 	log("Removing %s (%s) from module %s.\n", log_id(dff), log_id(dff->type), log_id(mod));
 	remove_init_attr(dff->getPort("\\Q"));
 	mod->remove(dff);
+
+	for (auto &entry : bit2driver)
+		if (entry.second == dff)
+			bit2driver.erase(entry.first);
+
 	return true;
 }
 
