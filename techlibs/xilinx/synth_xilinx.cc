@@ -276,29 +276,30 @@ struct SynthXilinxPass : public ScriptPass
 			run("memory_map");
 			run("dffsr2dff");
 			run("dff2dffe");
-			if (widemux > 0 || help_mode) {
-				run("simplemap t:$mux", "                        ('-widemux' only)");
-				if (widemux > 0 || help_mode) {
-					std::string muxcover_args = " -dmux=0";
-					switch (widemux) {
-						// NB: Cost of mux2 is 100; mux8 should cost between 3 and 4
-						//     of those so that 4:1 muxes and below are implemented
-						//     out of mux2s
-						case  5: muxcover_args += " -mux8=350 -mux16=400"; break;
-						case  6: muxcover_args += " -mux8=450 -mux16=500"; break;
-						case  7: muxcover_args += " -mux8=550 -mux16=600"; break;
-						case  8: muxcover_args += " -mux8=650 -mux16=700"; break;
-						case  9: muxcover_args += " -mux16=750"; break;
-						case 10: muxcover_args += " -mux16=850"; break;
-						case 11: muxcover_args += " -mux16=950"; break;
-						case 12: muxcover_args += " -mux16=1050"; break;
-						case 13: muxcover_args += " -mux16=1150"; break;
-						case 14: muxcover_args += " -mux16=1250"; break;
-						case 15: muxcover_args += " -mux16=1350"; break;
-						default: muxcover_args += " -mux16=1450"; break;
-					}
-					run("muxcover " + muxcover_args, "('-widemux' only)");
+			if (help_mode) {
+				run("simplemap t:$mux", "                 ('-widemux' only)");
+				run("muxcover -dmux=0 -mux8=<cost> -mux16=<cost>, ('-widemux' only)");
+			}
+			else if (widemux > 0) {
+				std::string muxcover_args = " -dmux=0";
+				switch (widemux) {
+					// NB: Cost of mux2 is 100; mux8 should cost between 3 and 4
+					//     of those so that 4:1 muxes and below are implemented
+					//     out of mux2s
+					case  5: muxcover_args += " -mux8=350 -mux16=400"; break;
+					case  6: muxcover_args += " -mux8=450 -mux16=500"; break;
+					case  7: muxcover_args += " -mux8=550 -mux16=600"; break;
+					case  8: muxcover_args += " -mux8=650 -mux16=700"; break;
+					case  9: muxcover_args += " -mux16=750"; break;
+					case 10: muxcover_args += " -mux16=850"; break;
+					case 11: muxcover_args += " -mux16=950"; break;
+					case 12: muxcover_args += " -mux16=1050"; break;
+					case 13: muxcover_args += " -mux16=1150"; break;
+					case 14: muxcover_args += " -mux16=1250"; break;
+					case 15: muxcover_args += " -mux16=1350"; break;
+					default: muxcover_args += " -mux16=1450"; break;
 				}
+				run("muxcover " + muxcover_args);
 			}
 			run("opt -full");
 
