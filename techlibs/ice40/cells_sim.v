@@ -136,8 +136,8 @@ module SB_LUT4 (output O, input I0, I1, I2, I3);
 	assign O = I0 ? s1[1] : s1[0];
 endmodule
 
-(* abc_box_id = 1, abc_carry, lib_whitebox *)
-module SB_CARRY ((* abc_carry_out *) output CO, input I0, I1, (* abc_carry_in *) input CI);
+(* abc_box_id = 1, abc_carry="CI,CO", lib_whitebox *)
+module SB_CARRY (output CO, input I0, I1, CI);
 	assign CO = (I0 && I1) || ((I0 || I1) && CI);
 endmodule
 
