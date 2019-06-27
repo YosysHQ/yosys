@@ -160,7 +160,7 @@ struct MuxcoverWorker
 
 	int prepare_decode_mux(SigBit &A, SigBit B, SigBit sel, SigBit bit)
 	{
-		if (A == B || sel == State::Sx || A == State::Sx || B == State::Sx)
+		if (A == B || sel == State::Sx)
 			return 0;
 
 		tuple<SigBit, SigBit, SigBit> key(A, B, sel);
