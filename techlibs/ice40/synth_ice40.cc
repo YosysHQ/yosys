@@ -105,7 +105,6 @@ struct SynthIce40Pass : public ScriptPass
 		log("\n");
 	}
 
-
 	string top_opt, blif_file, edif_file, json_file, abc, device_opt;
 	bool nocarry, nodffe, nobram, dsp, flatten, retime, relut, noabc, abc2, vpr;
 	int min_ce_use;
