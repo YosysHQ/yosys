@@ -302,6 +302,8 @@ struct SynthXilinxPass : public ScriptPass
 			if (help_mode)
 				run("abc -luts 2:2,3,6:5[,10,20] [-dff]", "(skip if 'nowidelut', only for '-retime')");
 			else if (abc9) {
+				if (family != "xc7")
+					log_warning("'synth_xilinx -abc9' currently supports '-family xc7' only.\n");
 				if (nowidelut)
 					run("abc9 -lut +/xilinx/abc_xc7_nowide.lut -box +/xilinx/abc_xc7.box -W " + std::string(XC7_WIRE_DELAY) + string(retime ? " -dff" : ""));
 				else
