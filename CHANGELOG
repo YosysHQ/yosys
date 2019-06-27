@@ -23,7 +23,7 @@ Yosys 0.8 .. Yosys 0.8-dev
     - Added "muxcover -nopartial"
     - Added "muxpack" pass
     - Added "pmux2shiftx -norange"
-    - "synth_xilinx" to now infer hard shift registers, using new "shregmap -tech xilinx"
+    - "synth_xilinx" to now infer hard shift registers (-nosrl to disable)
     - Fixed sign extension of unsized constants with 'bx and 'bz MSB
 
 
