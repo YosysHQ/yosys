@@ -330,15 +330,13 @@ struct MuxcoverWorker
 			ok = ok && follow_muxtree(S4, tree, bit, "BBS");
 
 			if (nodecode)
-				ok = ok && (S1 == S2 || S1 == State::Sx || S2 == State::Sx) &&
-					/*S2 == S3 && */
-					(S3 == S4 || S3 == State::Sx || S4 == State::Sx);
+				ok = ok && S1 == S2 && S2 == S3 && S3 == S4;
 
 			ok = ok && follow_muxtree(T1, tree, bit, "AS");
 			ok = ok && follow_muxtree(T2, tree, bit, "BS");
 
 			if (nodecode)
-				ok = ok && (T1 == T2 || T1 == State::Sx || T2 == State::Sx);
+				ok = ok && T1 == T2;
 
 			ok = ok && follow_muxtree(U1, tree, bit, "S");
 
@@ -355,12 +353,11 @@ struct MuxcoverWorker
 				mux.inputs.push_back(G);
 				mux.inputs.push_back(H);
 
-				mux.cost += prepare_decode_mux(T1, T2, U1, bit);
-
 				mux.cost += prepare_decode_mux(S1, S2, T1, bit);
 				mux.cost += prepare_decode_mux(S3, S4, T2, bit);
-				if (T1 != T2 && T1 != State::Sx && T2 != State::Sx)
-					mux.cost += prepare_decode_mux(S1, S3, U1, bit);
+				mux.cost += prepare_decode_mux(S1, S3, U1, bit);
+
+				mux.cost += prepare_decode_mux(T1, T2, U1, bit);
 
 				mux.selects.push_back(S1);
 				mux.selects.push_back(T1);
@@ -410,13 +407,7 @@ struct MuxcoverWorker
 			ok = ok && follow_muxtree(S8, tree, bit, "BBBS");
 
 			if (nodecode)
-				ok = ok && (S1 == S2 || S1 == State::Sx || S2 == State::Sx) &&
-					/*S2 == S3 &&*/
-					(S3 == S4 || S3 == State::Sx || S4 == State::Sx) &&
-					/*S4 == S5 &&*/
-					(S5 == S6 || S5 == State::Sx || S6 == State::Sx) &&
-					/*S6 == S7 &&*/
-					(S7 == S8 || S7 == State::Sx || S8 == State::Sx);
+				ok = ok && S1 == S2 && S2 == S3 && S3 == S4 && S4 == S5 && S5 == S6 && S6 == S7 && S7 == S8;
 
 			ok = ok && follow_muxtree(T1, tree, bit, "AAS");
 			ok = ok && follow_muxtree(T2, tree, bit, "ABS");
@@ -424,15 +415,13 @@ struct MuxcoverWorker
 			ok = ok && follow_muxtree(T4, tree, bit, "BBS");
 
 			if (nodecode)
-				ok = ok && (T1 == T2 || T1 == State::Sx || T2 == State::Sx) &&
-					/*T2 == T3 &&*/
-					(T3 == T4 || T3 == State::Sx || T4 == State::Sx);
+				ok = ok && T1 == T2 && T2 == T3 && T3 == T4;
 
 			ok = ok && follow_muxtree(U1, tree, bit, "AS");
 			ok = ok && follow_muxtree(U2, tree, bit, "BS");
 
 			if (nodecode)
-				ok = ok && (U1 == U2 || U1 == State::Sx || U2 == State::Sx);
+				ok = ok && U1 == U2;
 
 			ok = ok && follow_muxtree(V1, tree, bit, "S");
 
@@ -457,26 +446,19 @@ struct MuxcoverWorker
 				mux.inputs.push_back(O);
 				mux.inputs.push_back(P);
 
-				mux.cost += prepare_decode_mux(U1, U2, V1, bit);
+				mux.cost += prepare_decode_mux(S1, S2, T1, bit);
+				mux.cost += prepare_decode_mux(S3, S4, T2, bit);
+				mux.cost += prepare_decode_mux(S5, S6, T3, bit);
+				mux.cost += prepare_decode_mux(S7, S8, T4, bit);
+				mux.cost += prepare_decode_mux(S1, S3, U1, bit);
+				mux.cost += prepare_decode_mux(S5, S7, U2, bit);
+				mux.cost += prepare_decode_mux(S1, S5, V1, bit);
 
 				mux.cost += prepare_decode_mux(T1, T2, U1, bit);
 				mux.cost += prepare_decode_mux(T3, T4, U2, bit);
-				if (U1 != U2 && U1 != State::Sx && U2 != State::Sx) {
-					mux.cost += prepare_decode_mux(T1, T3, V1, bit);
+				mux.cost += prepare_decode_mux(T1, T3, V1, bit);
 
-					mux.cost += prepare_decode_mux(S1, S2, T1, bit);
-					mux.cost += prepare_decode_mux(S3, S4, T2, bit);
-					if (T1 != T2 && T1 != State::Sx && T2 != State::Sx)
-						mux.cost += prepare_decode_mux(S1, S3, U1, bit);
-
-					mux.cost += prepare_decode_mux(S5, S6, T3, bit);
-					mux.cost += prepare_decode_mux(S7, S8, T4, bit);
-					if (T3 != T4 && T3 != State::Sx && T4 != State::Sx)
-						mux.cost += prepare_decode_mux(S5, S7, U2, bit);
-
-					if (T1 != T3 && T1 != State::Sx && T3 != State::Sx)
-						mux.cost += prepare_decode_mux(S1, S5, V1, bit);
-				}
+				mux.cost += prepare_decode_mux(U1, U2, V1, bit);
 
 				mux.selects.push_back(S1);
 				mux.selects.push_back(T1);
