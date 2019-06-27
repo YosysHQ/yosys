@@ -555,17 +555,18 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 
 		dict<IdString, bool> abc_box;
 		vector<RTLIL::Cell*> boxes;
-		for (auto cell : module->cells()) {
+		for (const auto &it : module->cells_) {
+			auto cell = it.second;
 			if (cell->type.in("$_AND_", "$_NOT_")) {
 				module->remove(cell);
 				continue;
 			}
-			auto it = abc_box.find(cell->type);
-			if (it == abc_box.end()) {
+			auto jt = abc_box.find(cell->type);
+			if (jt == abc_box.end()) {
 				RTLIL::Module* box_module = design->module(cell->type);
-				it = abc_box.insert(std::make_pair(cell->type, box_module && box_module->attributes.count("\\abc_box_id"))).first;
+				jt = abc_box.insert(std::make_pair(cell->type, box_module && box_module->attributes.count("\\abc_box_id"))).first;
 			}
-			if (it->second)
+			if (jt->second)
 				boxes.emplace_back(cell);
 		}
 
