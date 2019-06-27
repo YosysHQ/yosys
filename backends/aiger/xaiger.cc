@@ -293,10 +293,12 @@ struct XAigerWriter
 #if 0
 			unsigned i = 0;
 			for (auto &it : toposort.loops) {
-				log("  loop %d", i++);
-				for (auto cell : it)
-					log(" %s", log_id(cell));
-				log("\n");
+				log("  loop %d\n", i++);
+				for (auto cell_name : it) {
+					auto cell = module->cell(cell_name);
+					log_assert(cell);
+					log("\t%s (%s @ %s)\n", log_id(cell), log_id(cell->type), cell->get_src_attribute().c_str());
+				}
 			}
 #endif
 			log_assert(no_loops);
