@@ -33,7 +33,7 @@
 #endif
 
 
-#define ABC_FAST_COMMAND_LUT "&st; &retime; &if {W}"
+#define ABC_FAST_COMMAND_LUT "&st; &if {W} {D}"
 
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
