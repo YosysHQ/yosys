@@ -459,25 +459,24 @@ struct MuxcoverWorker
 
 				mux.cost += prepare_decode_mux(U1, U2, V1, bit);
 
-				if (U1 != State::Sx && U2 != State::Sx) {
-					mux.cost += prepare_decode_mux(T1, T2, U1, bit);
-					mux.cost += prepare_decode_mux(T3, T4, U2, bit);
+				mux.cost += prepare_decode_mux(T1, T2, U1, bit);
+				mux.cost += prepare_decode_mux(T3, T4, U2, bit);
+				if (U1 != U2 && U1 != State::Sx && U2 != State::Sx) {
 					mux.cost += prepare_decode_mux(T1, T3, V1, bit);
-				}
 
-				if (T1 != T2 && T1 != State::Sx && T2 != State::Sx) {
 					mux.cost += prepare_decode_mux(S1, S2, T1, bit);
 					mux.cost += prepare_decode_mux(S3, S4, T2, bit);
-					mux.cost += prepare_decode_mux(S1, S3, U1, bit);
-				}
-				if (T3 != T4 && T3 != State::Sx && T4 != State::Sx) {
+					if (T1 != T2 && T1 != State::Sx && T2 != State::Sx)
+						mux.cost += prepare_decode_mux(S1, S3, U1, bit);
+
 					mux.cost += prepare_decode_mux(S5, S6, T3, bit);
 					mux.cost += prepare_decode_mux(S7, S8, T4, bit);
-					mux.cost += prepare_decode_mux(S5, S7, U2, bit);
+					if (T3 != T4 && T3 != State::Sx && T4 != State::Sx)
+						mux.cost += prepare_decode_mux(S5, S7, U2, bit);
+
+					if (T1 != T3 && T1 != State::Sx && T3 != State::Sx)
+						mux.cost += prepare_decode_mux(S1, S5, V1, bit);
 				}
-				if (T1 != T2 && T1 != State::Sx && T2 != State::Sx &&
-						T3 != T4 && T3 != State::Sx && T4 != State::Sx)
-					mux.cost += prepare_decode_mux(S1, S5, V1, bit);
 
 				mux.selects.push_back(S1);
 				mux.selects.push_back(T1);
