@@ -436,14 +436,18 @@ struct XAigerWriter
 					new_wire = module->addWire(wire_name, GetSize(wire));
 				SigBit new_bit(new_wire, bit.offset);
 				module->connect(new_bit, bit);
-				if (not_map.count(bit))
-					not_map[new_bit] = not_map.at(bit);
-				else if (and_map.count(bit)) {
-				    //and_map[new_bit] = and_map.at(bit); // Breaks gcc-4.8
-				    and_map.insert(std::make_pair(new_bit, and_map.at(bit)));
+				if (not_map.count(bit)) {
+					auto a = not_map.at(bit);
+					not_map[new_bit] = a;
 				}
-				else if (alias_map.count(bit))
-					alias_map[new_bit] = alias_map.at(bit);
+				else if (and_map.count(bit)) {
+					auto a = and_map.at(bit);
+					and_map[new_bit] = a;
+				}
+				else if (alias_map.count(bit)) {
+					auto a = alias_map.at(bit);
+					alias_map[new_bit] = a;
+				}
 				else
 					alias_map[new_bit] = bit;
 				output_bits.erase(bit);
