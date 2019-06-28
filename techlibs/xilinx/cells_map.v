@@ -170,19 +170,14 @@ module \$__XILINX_SHIFTX (A, B, Y);
   parameter [B_WIDTH-1:0] _TECHMAP_CONSTMSK_B_ = 0;
   parameter [B_WIDTH-1:0] _TECHMAP_CONSTVAL_B_ = 0;
 
-  function integer compute_num_leading_X_in_A;
-    integer i, c;
+  function integer A_WIDTH_trimmed;
+    input integer start;
   begin
-    compute_num_leading_X_in_A = 0;
-    c = 1;
-    for (i = A_WIDTH-1; i >= 0; i=i-1) begin
-      if (!_TECHMAP_CONSTMSK_A_[i] || _TECHMAP_CONSTVAL_A_[i] !== 1'bx)
-        c = 0;
-      compute_num_leading_X_in_A = compute_num_leading_X_in_A + c;
-    end
+    A_WIDTH_trimmed = start;
+    while (A_WIDTH_trimmed > 0 && _TECHMAP_CONSTMSK_A_[A_WIDTH_trimmed-1] && _TECHMAP_CONSTVAL_A_[A_WIDTH_trimmed-1] === 1'bx)
+      A_WIDTH_trimmed = A_WIDTH_trimmed - 1;
   end
   endfunction
-  localparam num_leading_X_in_A = compute_num_leading_X_in_A();
 
   generate
     genvar i, j;
@@ -200,11 +195,10 @@ module \$__XILINX_SHIFTX (A, B, Y);
         assign A_i[i] = A[i*2];
       \$__XILINX_SHIFTX  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH((A_WIDTH+1'd1)/2'd2), .B_WIDTH(B_WIDTH-1'd1), .Y_WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(A_i), .B(B[B_WIDTH-1:1]), .Y(Y));
     end
-    // Trim off any leading 1'bx -es in A, and resize B accordingly
-    else if (num_leading_X_in_A > 0) begin
-      localparam A_WIDTH_new = A_WIDTH - num_leading_X_in_A;
-      localparam B_WIDTH_new = $clog2(A_WIDTH_new);
-      \$__XILINX_SHIFTX  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(A_WIDTH_new), .B_WIDTH(B_WIDTH_new), .Y_WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(A[A_WIDTH_new-1:0]), .B(B[B_WIDTH_new-1:0]), .Y(Y));
+    // Trim off any leading 1'bx -es in A
+    else if (_TECHMAP_CONSTMSK_A_[A_WIDTH-1] && _TECHMAP_CONSTVAL_A_[A_WIDTH-1] === 1'bx) begin
+      localparam A_WIDTH_new = A_WIDTH_trimmed(A_WIDTH-1);
+      \$__XILINX_SHIFTX  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(A_WIDTH_new), .B_WIDTH(B_WIDTH), .Y_WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(A[A_WIDTH_new-1:0]), .B(B), .Y(Y));
     end
     else if (A_WIDTH < `MIN_MUX_INPUTS) begin
       wire _TECHMAP_FAIL_ = 1;
