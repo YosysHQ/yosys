@@ -376,7 +376,11 @@ void AigerReader::parse_xaiger()
 			continue;
 		if (m->name.begins_with("$paramod"))
 			continue;
-		auto r = box_lookup.insert(std::make_pair(it->second.as_int(), m->name));
+		auto id = it->second.as_int();
+		auto r = box_lookup.insert(std::make_pair(id, m->name));
+		if (!r.second)
+			log_error("Module '%s' has the same abc_box_id = %d value as '%s'.\n",
+					log_id(m), id, log_id(r.first->second));
 		log_assert(r.second);
 	}
 
