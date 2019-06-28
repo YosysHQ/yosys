@@ -239,11 +239,6 @@ struct SynthXilinxPass : public ScriptPass
 			//   so attempt to convert $pmux-es to the former
 			if (!nosrl || help_mode)
 				run("pmux2shiftx", "(skip if '-nosrl')");
-
-			// Run a number of peephole optimisations, including one
-			//   that optimises $mul cells driving $shiftx's B input
-			//   and that aids wide mux analysis
-			run("peepopt");
 		}
 
 		if (check_label("bram", "(skip if '-nobram')")) {
