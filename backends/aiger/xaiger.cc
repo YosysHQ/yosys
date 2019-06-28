@@ -25,6 +25,21 @@
 #elif defined(__APPLE__)
 #include <libkern/OSByteOrder.h>
 #define __builtin_bswap32 OSSwapInt32
+#elif !defined(__GNUC__)
+#include <cstdint>
+inline uint32_t __builtin_bswap32(uint32_t x)
+{
+	// https://stackoverflow.com/a/27796212
+	register uint32_t value = number_to_be_reversed;
+	uint8_t lolo = (value >> 0) & 0xFF;
+	uint8_t lohi = (value >> 8) & 0xFF;
+	uint8_t hilo = (value >> 16) & 0xFF;
+	uint8_t hihi = (value >> 24) & 0xFF;
+	return (hihi << 24)
+		| (hilo << 16)
+		| (lohi << 8)
+		| (lolo << 0);
+}
 #endif
 
 #include "kernel/yosys.h"
