@@ -23,12 +23,13 @@ warn_iverilog_git=false
 # The tests are skipped if firrtl2verilog is the empty string (the default).
 firrtl2verilog=""
 xfirrtl="../xfirrtl"
+abcprog="$toolsdir/../../yosys-abc"
 
 if [ ! -f $toolsdir/cmp_tbdata -o $toolsdir/cmp_tbdata.c -nt $toolsdir/cmp_tbdata ]; then
 	( set -ex; ${CC:-gcc} -Wall -o $toolsdir/cmp_tbdata $toolsdir/cmp_tbdata.c; ) || exit 1
 fi
 
-while getopts xmGl:wkjvref:s:p:n:S:I:-: opt; do
+while getopts xmGl:wkjvref:s:p:n:S:I:A:-: opt; do
 	case "$opt" in
 		x)
 			use_xsim=true ;;
@@ -65,6 +66,8 @@ while getopts xmGl:wkjvref:s:p:n:S:I:-: opt; do
 			include_opts="$include_opts -I $OPTARG"
 			xinclude_opts="$xinclude_opts -i $OPTARG"
 			minclude_opts="$minclude_opts +incdir+$OPTARG" ;;
+		A)
+			abcprog="$OPTARG" ;;
 		-)
 			case "${OPTARG}" in
 			    xfirrtl)
@@ -147,7 +150,7 @@ do
 		if [[ "$ext" == "v" ]]; then
 			egrep -v '^\s*`timescale' ../$fn > ${bn}_ref.${ext}
 		elif [[ "$ext" == "aig" ]] || [[ "$ext" == "aag" ]]; then
-			"$toolsdir"/../../yosys-abc -c "read_aiger ../${fn}; write ${bn}_ref.${refext}"
+			$abcprog -c "read_aiger ../${fn}; write ${bn}_ref.${refext}"
 		else
 			refext=$ext
 			cp ../${fn} ${bn}_ref.${refext}
