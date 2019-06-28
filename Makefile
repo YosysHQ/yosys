@@ -666,6 +666,12 @@ else
 SEEDOPT=""
 endif
 
+ifneq ($(ABCEXTERNAL),)
+ABCOPT="-A $(ABCEXTERNAL)"
+else
+ABCOPT=""
+endif
+
 test: $(TARGETS) $(EXTRA_TARGETS)
 	+cd tests/simple && bash run-test.sh $(SEEDOPT)
 	+cd tests/hana && bash run-test.sh $(SEEDOPT)
@@ -674,13 +680,13 @@ test: $(TARGETS) $(EXTRA_TARGETS)
 	+cd tests/share && bash run-test.sh $(SEEDOPT)
 	+cd tests/fsm && bash run-test.sh $(SEEDOPT)
 	+cd tests/techmap && bash run-test.sh
-	+cd tests/memories && bash run-test.sh $(SEEDOPT)
+	+cd tests/memories && bash run-test.sh $(ABCOPT) $(SEEDOPT)
 	+cd tests/bram && bash run-test.sh $(SEEDOPT)
 	+cd tests/various && bash run-test.sh
 	+cd tests/sat && bash run-test.sh
 	+cd tests/svinterfaces && bash run-test.sh $(SEEDOPT)
 	+cd tests/opt && bash run-test.sh
-	+cd tests/aiger && bash run-test.sh
+	+cd tests/aiger && bash run-test.sh $(ABCOPT)
 	+cd tests/arch && bash run-test.sh
 	@echo ""
 	@echo "  Passed \"make test\"."

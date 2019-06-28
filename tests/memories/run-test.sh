@@ -4,15 +4,17 @@ set -e
 
 OPTIND=1
 seed=""    # default to no seed specified
-while getopts "S:" opt
+abcopt=""
+while getopts "A:S:" opt
 do
     case "$opt" in
+	A) abcopt="-A $OPTARG" ;;
 	S) seed="-S $OPTARG" ;;
     esac
 done
 shift "$((OPTIND-1))"
 
-bash ../tools/autotest.sh $seed -G *.v
+bash ../tools/autotest.sh $abcopt $seed -G *.v
 
 for f in `egrep -l 'expect-(wr-ports|rd-ports|rd-clk)' *.v`; do
 	echo -n "Testing expectations for $f .."
