@@ -1068,11 +1068,18 @@ list_of_path_delay_extra_expressions :
 	  path_delay_expression ',' path_delay_expression ',' path_delay_expression
 	;
 
+specify_edge_identifier :
+	TOK_POSEDGE | TOK_NEGEDGE ;
+
 parallel_path_description :
-	'(' specify_input_terminal_descriptor opt_polarity_operator '=' '>' specify_output_terminal_descriptor ')' ;
+	'(' specify_input_terminal_descriptor opt_polarity_operator '=' '>' specify_output_terminal_descriptor ')' |
+	'(' specify_edge_identifier specify_input_terminal_descriptor '=' '>' '(' specify_output_terminal_descriptor opt_polarity_operator ':' ignspec_expr ')' ')' |
+	'(' specify_edge_identifier specify_input_terminal_descriptor '=' '>' '(' specify_output_terminal_descriptor TOK_POS_INDEXED ignspec_expr ')' ')' ;
 
 full_path_description :
-	'(' list_of_path_inputs '*' '>' list_of_path_outputs ')' ;
+	'(' list_of_path_inputs '*' '>' list_of_path_outputs ')' |
+	'(' specify_edge_identifier list_of_path_inputs '*' '>' '(' list_of_path_outputs opt_polarity_operator ':' ignspec_expr ')' ')' |
+	'(' specify_edge_identifier list_of_path_inputs '*' '>' '(' list_of_path_outputs TOK_POS_INDEXED ignspec_expr ')' ')' ;
 
 // This was broken into 2 rules to solve shift/reduce conflicts
 list_of_path_inputs :
