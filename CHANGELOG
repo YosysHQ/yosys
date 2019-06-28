@@ -23,6 +23,9 @@ Yosys 0.8 .. Yosys 0.8-dev
     - Added "muxcover -nopartial"
     - Added "muxpack" pass
     - Added "pmux2shiftx -norange"
+    - Added "synth_xilinx -nocarry"
+    - Added "synth_xilinx -nowidelut"
+    - Added "synth_ecp5 -nowidelut"
     - Added "write_xaiger" backend
     - Added "abc9" pass for timing-aware techmapping (experimental, FPGA only, no FFs)
     - Added "synth_xilinx -abc9" (experimental)
