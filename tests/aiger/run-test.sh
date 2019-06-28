@@ -2,6 +2,16 @@
 
 set -e
 
+OPTIND=1
+abcprog="../../yosys-abc"    # default to built-in version of abc
+while getopts "A:" opt
+do
+    case "$opt" in
+	A) abcprog="$OPTARG" ;;
+    esac
+done
+shift "$((OPTIND-1))"
+
 # NB: *.aag and *.aig must contain a symbol table naming the primary
 #     inputs and outputs, otherwise ABC and Yosys will name them
 #     arbitrarily (and inconsistently with each other).
@@ -11,7 +21,7 @@ for aag in *.aag; do
     # (which would have been created by the reference aig2aig utility,
     #  available from http://fmv.jku.at/aiger/)
     echo "Checking $aag."
-    ../../yosys-abc -q "read -c ${aag%.*}.aig; write ${aag%.*}_ref.v"
+    $abcprog -q "read -c ${aag%.*}.aig; write ${aag%.*}_ref.v"
     ../../yosys -qp "
 read_verilog ${aag%.*}_ref.v
 prep
@@ -28,7 +38,7 @@ done
 
 for aig in *.aig; do
     echo "Checking $aig."
-    ../../yosys-abc -q "read -c $aig; write ${aig%.*}_ref.v"
+    $abcprog -q "read -c $aig; write ${aig%.*}_ref.v"
     ../../yosys -qp "
 read_verilog ${aig%.*}_ref.v
 prep
