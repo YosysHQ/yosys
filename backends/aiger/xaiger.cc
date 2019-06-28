@@ -25,6 +25,21 @@
 #elif defined(__APPLE__)
 #include <libkern/OSByteOrder.h>
 #define __builtin_bswap32 OSSwapInt32
+#elif !defined(__GNUC__)
+#include <cstdint>
+inline uint32_t __builtin_bswap32(uint32_t x)
+{
+	// https://stackoverflow.com/a/27796212
+	register uint32_t value = number_to_be_reversed;
+	uint8_t lolo = (value >> 0) & 0xFF;
+	uint8_t lohi = (value >> 8) & 0xFF;
+	uint8_t hilo = (value >> 16) & 0xFF;
+	uint8_t hihi = (value >> 24) & 0xFF;
+	return (hihi << 24)
+		| (hilo << 16)
+		| (lohi << 8)
+		| (lolo << 0);
+}
 #endif
 
 #include "kernel/yosys.h"
@@ -284,8 +299,6 @@ struct XAigerWriter
 					for (auto user_cell : it.second)
 						toposort.edge(driver_cell, user_cell);
 
-			pool<RTLIL::Module*> abc_carry_modules;
-
 #if 0
 			toposort.analyze_loops = true;
 #endif
@@ -303,54 +316,54 @@ struct XAigerWriter
 #endif
 			log_assert(no_loops);
 
+			pool<IdString> seen_boxes;
 			for (auto cell_name : toposort.sorted) {
 				RTLIL::Cell *cell = module->cell(cell_name);
+				log_assert(cell);
+
 				RTLIL::Module* box_module = module->design->module(cell->type);
 				if (!box_module || !box_module->attributes.count("\\abc_box_id"))
 					continue;
 
-				if (box_module->attributes.count("\\abc_carry") && !abc_carry_modules.count(box_module)) {
-					RTLIL::Wire* carry_in = nullptr, *carry_out = nullptr;
-					auto &ports = box_module->ports;
-					for (auto it = ports.begin(); it != ports.end(); ) {
-						RTLIL::Wire* w = box_module->wire(*it);
-						log_assert(w);
-						if (w->port_input && w->attributes.count("\\abc_carry_in")) {
-							if (carry_in)
-								log_error("More than one port with attribute 'abc_carry_in' found in module '%s'\n", log_id(box_module));
-							carry_in = w;
-							it = ports.erase(it);
-							continue;
-						}
-						if (w->port_output && w->attributes.count("\\abc_carry_out")) {
-							if (carry_out)
-								log_error("More than one port with attribute 'abc_carry_out' found in module '%s'\n", log_id(box_module));
-							carry_out = w;
-							it = ports.erase(it);
-							continue;
-						}
-						++it;
-					}
+				if (seen_boxes.insert(cell->type).second) {
+					auto it = box_module->attributes.find("\\abc_carry");
+					if (it != box_module->attributes.end()) {
+						RTLIL::Wire *carry_in = nullptr, *carry_out = nullptr;
+						auto carry_in_out = it->second.decode_string();
+						auto pos = carry_in_out.find(',');
+						if (pos == std::string::npos)
+							log_error("'abc_carry' attribute on module '%s' does not contain ','.\n", log_id(cell->type));
+						auto carry_in_name = RTLIL::escape_id(carry_in_out.substr(0, pos));
+						carry_in = box_module->wire(carry_in_name);
+						if (!carry_in || !carry_in->port_input)
+							log_error("'abc_carry' on module '%s' contains '%s' which does not exist or is not an input port.\n", log_id(cell->type), carry_in_name.c_str());
 
-					if (!carry_in)
-						log_error("Port with attribute 'abc_carry_in' not found in module '%s'\n", log_id(box_module));
-					if (!carry_out)
-						log_error("Port with attribute 'abc_carry_out' not found in module '%s'\n", log_id(box_module));
+						auto carry_out_name = RTLIL::escape_id(carry_in_out.substr(pos+1));
+						carry_out = box_module->wire(carry_out_name);
+						if (!carry_out || !carry_out->port_output)
+							log_error("'abc_carry' on module '%s' contains '%s' which does not exist or is not an output port.\n", log_id(cell->type), carry_out_name.c_str());
 
-					for (const auto port_name : ports) {
-						RTLIL::Wire* w = box_module->wire(port_name);
-						log_assert(w);
-						if (w->port_id > carry_in->port_id)
-							--w->port_id;
-						if (w->port_id > carry_out->port_id)
-							--w->port_id;
-						log_assert(w->port_input || w->port_output);
-						log_assert(ports[w->port_id-1] == w->name);
+						auto &ports = box_module->ports;
+						for (auto jt = ports.begin(); jt != ports.end(); ) {
+							RTLIL::Wire* w = box_module->wire(*jt);
+							log_assert(w);
+							if (w == carry_in || w == carry_out) {
+								jt = ports.erase(jt);
+								continue;
+							}
+							if (w->port_id > carry_in->port_id)
+								--w->port_id;
+							if (w->port_id > carry_out->port_id)
+								--w->port_id;
+							log_assert(w->port_input || w->port_output);
+							log_assert(ports[w->port_id-1] == w->name);
+							++jt;
+						}
+						ports.push_back(carry_in->name);
+						carry_in->port_id = ports.size();
+						ports.push_back(carry_out->name);
+						carry_out->port_id = ports.size();
 					}
-					ports.push_back(carry_in->name);
-					carry_in->port_id = ports.size();
-					ports.push_back(carry_out->name);
-					carry_out->port_id = ports.size();
 				}
 
 				// Fully pad all unused input connections of this box cell with S0
@@ -438,14 +451,18 @@ struct XAigerWriter
 					new_wire = module->addWire(wire_name, GetSize(wire));
 				SigBit new_bit(new_wire, bit.offset);
 				module->connect(new_bit, bit);
-				if (not_map.count(bit))
-					not_map[new_bit] = not_map.at(bit);
-				else if (and_map.count(bit)) {
-				    //and_map[new_bit] = and_map.at(bit); // Breaks gcc-4.8
-				    and_map.insert(std::make_pair(new_bit, and_map.at(bit)));
+				if (not_map.count(bit)) {
+					auto a = not_map.at(bit);
+					not_map[new_bit] = a;
 				}
-				else if (alias_map.count(bit))
-					alias_map[new_bit] = alias_map.at(bit);
+				else if (and_map.count(bit)) {
+					auto a = and_map.at(bit);
+					and_map[new_bit] = a;
+				}
+				else if (alias_map.count(bit)) {
+					auto a = alias_map.at(bit);
+					alias_map[new_bit] = a;
+				}
 				else
 					alias_map[new_bit] = bit;
 				output_bits.erase(bit);

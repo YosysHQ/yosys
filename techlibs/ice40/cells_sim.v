@@ -136,20 +136,16 @@ module SB_LUT4 (output O, input I0, I1, I2, I3);
 	assign O = I0 ? s1[1] : s1[0];
 endmodule
 
-(* abc_box_id = 1, abc_carry, lib_whitebox *)
-module SB_CARRY ((* abc_carry_out *) output CO, input I0, I1, (* abc_carry_in *) input CI);
+(* abc_box_id = 1, abc_carry="CI,CO", lib_whitebox *)
+module SB_CARRY (output CO, input I0, I1, CI);
 	assign CO = (I0 && I1) || ((I0 || I1) && CI);
 endmodule
 
 // Positive Edge SiliconBlue FF Cells
 
 module SB_DFF (output `SB_DFF_REG, input C, D);
-`ifndef _ABC
 	always @(posedge C)
 		Q <= D;
-`else
-    always @* Q <= D;
-`endif
 endmodule
 
 module SB_DFFE (output `SB_DFF_REG, input C, E, D);
@@ -896,7 +892,6 @@ module SB_WARMBOOT (
 );
 endmodule
 
-(* nomem2reg *)
 module SB_SPRAM256KA (
 	input [13:0] ADDRESS,
 	input [15:0] DATAIN,

@@ -62,9 +62,6 @@ struct SynthXilinxPass : public ScriptPass
 		log("        generate an output netlist (and BLIF file) suitable for VPR\n");
 		log("        (this feature is experimental and incomplete)\n");
 		log("\n");
-		log("    -nocarry\n");
-		log("        disable inference of carry chains\n");
-		log("\n");
 		log("    -nobram\n");
 		log("        disable inference of block rams\n");
 		log("\n");

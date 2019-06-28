@@ -38,8 +38,8 @@ struct SynthIce40Pass : public ScriptPass
 		log("This command runs synthesis for iCE40 FPGAs.\n");
 		log("\n");
 		log("    -device < hx | lp | u >\n");
-		log("        optimise the synthesis netlist for the specified device.\n");
-		log("        HX is the default target if no device argument specified.\n");
+		log("        relevant only for '-abc9' flow, optimise timing for the specified device.\n");
+		log("        default: hx\n");
 		log("\n");
 		log("    -top <module>\n");
 		log("        use the specified module as top module\n");
@@ -104,7 +104,6 @@ struct SynthIce40Pass : public ScriptPass
 		help_script();
 		log("\n");
 	}
-
 
 	string top_opt, blif_file, edif_file, json_file, abc, device_opt;
 	bool nocarry, nodffe, nobram, dsp, flatten, retime, relut, noabc, abc2, vpr;

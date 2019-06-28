@@ -1595,10 +1595,9 @@ void RTLIL::Module::remove(RTLIL::Cell *cell)
 	while (!cell->connections_.empty())
 		cell->unsetPort(cell->connections_.begin()->first);
 
-	auto it = cells_.find(cell->name);
-	log_assert(it != cells_.end());
+	log_assert(cells_.count(cell->name) != 0);
 	log_assert(refcount_cells_ == 0);
-	cells_.erase(it);
+	cells_.erase(cell->name);
 	delete cell;
 }
 

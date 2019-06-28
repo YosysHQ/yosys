@@ -15,11 +15,9 @@ module L6MUX21 (input D0, D1, SD, output Z);
 endmodule
 
 // ---------------------------------------
-(* abc_box_id=1, abc_carry, lib_whitebox *)
-module CCU2C((* abc_carry_in *) input CIN,
-			   input A0, B0, C0, D0, A1, B1, C1, D1,
-	           output S0, S1,
-	         (* abc_carry_out *) output COUT);
+(* abc_box_id=1, abc_carry="CIN,COUT", lib_whitebox *)
+module CCU2C(input CIN, A0, B0, C0, D0, A1, B1, C1, D1,
+	           output S0, S1, COUT);
 
 	parameter [15:0] INIT0 = 16'h0000;
 	parameter [15:0] INIT1 = 16'h0000;
@@ -106,7 +104,7 @@ module PFUMX (input ALUT, BLUT, C0, output Z);
 endmodule
 
 // ---------------------------------------
-(* abc_box_id=2, abc_scc_break="DI,WRE" *)
+//(* abc_box_id=2, abc_scc_break="DI,WAD,WRE" *)
 module TRELLIS_DPR16X4 (
 	input [3:0] DI,
 	input [3:0] WAD,
