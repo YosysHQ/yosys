@@ -29,7 +29,7 @@ Yosys 0.8 .. Yosys 0.8-dev
     - Added "synth_ice40 -abc9" (experimental)
     - Added "synth -abc9" (experimental)
     - "synth_xilinx" to now infer hard shift registers (-nosrl to disable)
-    - "synth_xilinx" to now infer wide multiplexers (-nomux to disable)
+    - "synth_xilinx" to now infer wide multiplexers (-widemux <min> to enable)
     - Fixed sign extension of unsized constants with 'bx and 'bz MSB
 
 
