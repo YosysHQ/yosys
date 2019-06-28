@@ -104,7 +104,7 @@ module PFUMX (input ALUT, BLUT, C0, output Z);
 endmodule
 
 // ---------------------------------------
-(* abc_box_id=2, abc_scc_break="DI,WAD,WRE" *)
+//(* abc_box_id=2, abc_scc_break="DI,WAD,WRE" *)
 module TRELLIS_DPR16X4 (
 	input [3:0] DI,
 	input [3:0] WAD,
