@@ -2,6 +2,12 @@
 List of major changes and improvements between releases
 =======================================================
 
+Yosys 0.9 .. Yosys 0.9-dev
+--------------------------
+
+ * Various
+    - Added "script -select"
+
 
 Yosys 0.8 .. Yosys 0.8-dev
 --------------------------
