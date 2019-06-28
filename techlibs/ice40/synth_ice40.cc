@@ -37,6 +37,10 @@ struct SynthIce40Pass : public ScriptPass
 		log("\n");
 		log("This command runs synthesis for iCE40 FPGAs.\n");
 		log("\n");
+		log("    -device < hx | lp | u >\n");
+		log("        relevant only for '-abc9' flow, optimise timing for the specified device.\n");
+		log("        default: hx\n");
+		log("\n");
 		log("    -top <module>\n");
 		log("        use the specified module as top module\n");
 		log("\n");
@@ -92,13 +96,16 @@ struct SynthIce40Pass : public ScriptPass
 		log("        generate an output netlist (and BLIF file) suitable for VPR\n");
 		log("        (this feature is experimental and incomplete)\n");
 		log("\n");
+		log("    -abc9\n");
+		log("        use new ABC9 flow (EXPERIMENTAL)\n");
+		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
 		log("\n");
 	}
 
-	string top_opt, blif_file, edif_file, json_file;
+	string top_opt, blif_file, edif_file, json_file, abc, device_opt;
 	bool nocarry, nodffe, nobram, dsp, flatten, retime, relut, noabc, abc2, vpr;
 	int min_ce_use;
 
@@ -119,6 +126,8 @@ struct SynthIce40Pass : public ScriptPass
 		noabc = false;
 		abc2 = false;
 		vpr = false;
+		abc = "abc";
+		device_opt = "hx";
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -201,12 +210,22 @@ struct SynthIce40Pass : public ScriptPass
 				vpr = true;
 				continue;
 			}
+			if (args[argidx] == "-abc9") {
+				abc = "abc9";
+				continue;
+			}
+			if (args[argidx] == "-device" && argidx+1 < args.size()) {
+				device_opt = args[++argidx];
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");
+		if (device_opt != "hx" && device_opt != "lp" && device_opt !="u")
+			log_cmd_error("Invalid or no device specified: '%s'\n", device_opt.c_str());
 
 		log_header(design, "Executing SYNTH_ICE40 pass.\n");
 		log_push();
@@ -220,7 +239,7 @@ struct SynthIce40Pass : public ScriptPass
 	{
 		if (check_label("begin"))
 		{
-			run("read_verilog -lib +/ice40/cells_sim.v");
+			run("read_verilog -lib -D_ABC +/ice40/cells_sim.v");
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
 			run("proc");
 		}
@@ -277,8 +296,8 @@ struct SynthIce40Pass : public ScriptPass
 				run("techmap");
 			else
 				run("techmap -map +/techmap.v -map +/ice40/arith_map.v");
-			if (retime || help_mode)
-				run("abc -dff", "(only if -retime)");
+			if ((retime || help_mode) && abc != "abc9")
+				run(abc + " -dff", "(only if -retime)");
 			run("ice40_opt");
 		}
 
@@ -302,7 +321,7 @@ struct SynthIce40Pass : public ScriptPass
 		if (check_label("map_luts"))
 		{
 			if (abc2 || help_mode) {
-				run("abc", "      (only if -abc2)");
+				run(abc, "      (only if -abc2)");
 				run("ice40_opt", "(only if -abc2)");
 			}
 			run("techmap -map +/ice40/latches_map.v");
@@ -311,7 +330,18 @@ struct SynthIce40Pass : public ScriptPass
 				run("techmap -map +/gate2lut.v -D LUT_WIDTH=4", "(only if -noabc)");
 			}
 			if (!noabc) {
-				run("abc -dress -lut 4", "(skip if -noabc)");
+				if (abc == "abc9") {
+					int wire_delay;
+					if (device_opt == "lp")
+						wire_delay = 400;
+					else if (device_opt == "u")
+						wire_delay = 750;
+					else
+						wire_delay = 250;
+					run(abc + stringf(" -W %d -lut +/ice40/abc_%s.lut -box +/ice40/abc_%s.box", wire_delay, device_opt.c_str(), device_opt.c_str()), "(skip if -noabc)");
+				}
+				else
+					run(abc + " -dress -lut 4", "(skip if -noabc)");
 			}
 			run("clean");
 			if (relut || help_mode) {

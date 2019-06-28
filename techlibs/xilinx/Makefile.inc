@@ -30,6 +30,8 @@ $(eval $(call add_share_file,share/xilinx,techlibs/xilinx/drams_map.v))
 $(eval $(call add_share_file,share/xilinx,techlibs/xilinx/arith_map.v))
 $(eval $(call add_share_file,share/xilinx,techlibs/xilinx/ff_map.v))
 $(eval $(call add_share_file,share/xilinx,techlibs/xilinx/lut_map.v))
+$(eval $(call add_share_file,share/xilinx,techlibs/xilinx/abc_xc7.box))
+$(eval $(call add_share_file,share/xilinx,techlibs/xilinx/abc_xc7.lut))
 
 $(eval $(call add_gen_share_file,share/xilinx,techlibs/xilinx/brams_init_36.vh))
 $(eval $(call add_gen_share_file,share/xilinx,techlibs/xilinx/brams_init_32.vh))

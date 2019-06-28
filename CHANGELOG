@@ -23,6 +23,11 @@ Yosys 0.8 .. Yosys 0.8-dev
     - Added "muxcover -nopartial"
     - Added "muxpack" pass
     - Added "pmux2shiftx -norange"
+    - Added "write_xaiger" backend
+    - Added "abc9" pass for timing-aware techmapping (experimental, FPGA only, no FFs)
+    - Added "synth_xilinx -abc9" (experimental)
+    - Added "synth_ice40 -abc9" (experimental)
+    - Added "synth -abc9" (experimental)
     - "synth_xilinx" to now infer hard shift registers (-nosrl to disable)
     - Fixed sign extension of unsized constants with 'bx and 'bz MSB
 

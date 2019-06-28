@@ -159,10 +159,12 @@ module MUXCY(output O, input CI, DI, S);
   assign O = S ? CI : DI;
 endmodule
 
+(* abc_box_id = 1, lib_whitebox *)
 module MUXF7(output O, input I0, I1, S);
   assign O = S ? I1 : I0;
 endmodule
 
+(* abc_box_id = 2, lib_whitebox *)
 module MUXF8(output O, input I0, I1, S);
   assign O = S ? I1 : I0;
 endmodule
@@ -171,6 +173,7 @@ module XORCY(output O, input CI, LI);
   assign O = CI ^ LI;
 endmodule
 
+(* abc_box_id = 3, abc_carry="CI,CO", lib_whitebox *)
 module CARRY4(output [3:0] CO, O, input CI, CYINIT, input [3:0] DI, S);
   assign O = S ^ {CO[2:0], CI | CYINIT};
   assign CO[0] = S[0] ? CI | CYINIT : DI[0];
@@ -278,6 +281,7 @@ module FDPE_1 (output reg Q, input C, CE, D, PRE);
   always @(negedge C, posedge PRE) if (PRE) Q <= 1'b1; else if (CE) Q <= D;
 endmodule
 
+(* abc_box_id = 4, abc_scc_break="D,WE" *)
 module RAM32X1D (
   output DPO, SPO,
   input  D, WCLK, WE,
@@ -295,6 +299,7 @@ module RAM32X1D (
   always @(posedge clk) if (WE) mem[a] <= D;
 endmodule
 
+(* abc_box_id = 5, abc_scc_break="D,WE" *)
 module RAM64X1D (
   output DPO, SPO,
   input  D, WCLK, WE,
@@ -312,6 +317,7 @@ module RAM64X1D (
   always @(posedge clk) if (WE) mem[a] <= D;
 endmodule
 
+(* abc_box_id = 6, abc_scc_break="D,WE" *)
 module RAM128X1D (
   output       DPO, SPO,
   input        D, WCLK, WE,

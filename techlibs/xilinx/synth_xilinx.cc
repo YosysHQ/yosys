@@ -25,6 +25,9 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+#define XC7_WIRE_DELAY "300" // Number with which ABC will map a 6-input gate
+                             // to one LUT6 (instead of a LUT5 + LUT2)
+
 struct SynthXilinxPass : public ScriptPass
 {
 	SynthXilinxPass() : ScriptPass("synth_xilinx", "synthesis for Xilinx FPGAs") { }
@@ -85,6 +88,9 @@ struct SynthXilinxPass : public ScriptPass
 		log("    -retime\n");
 		log("        run 'abc' with -dff option\n");
 		log("\n");
+		log("    -abc9\n");
+		log("        use new ABC9 flow (EXPERIMENTAL)\n");
+		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
@@ -92,22 +98,24 @@ struct SynthXilinxPass : public ScriptPass
 	}
 
 	std::string top_opt, edif_file, blif_file, family;
-	bool flatten, retime, vpr, nobram, nodram, nosrl, nocarry, nowidelut;
+	bool flatten, retime, vpr, nobram, nodram, nosrl, nocarry, nowidelut, abc9;
 
 	void clear_flags() YS_OVERRIDE
 	{
 		top_opt = "-auto-top";
 		edif_file.clear();
 		blif_file.clear();
+		family = "xc7";
 		flatten = false;
 		retime = false;
 		vpr = false;
+		nocarry = false;
 		nobram = false;
 		nodram = false;
 		nosrl = false;
 		nocarry = false;
 		nowidelut = false;
-		family = "xc7";
+		abc9 = false;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -162,6 +170,10 @@ struct SynthXilinxPass : public ScriptPass
 				vpr = true;
 				continue;
 			}
+			if (args[argidx] == "-nocarry") {
+				nocarry = true;
+				continue;
+			}
 			if (args[argidx] == "-nobram") {
 				nobram = true;
 				continue;
@@ -172,6 +184,10 @@ struct SynthXilinxPass : public ScriptPass
 			}
 			if (args[argidx] == "-nosrl") {
 				nosrl = true;
+				continue;
+			}
+			if (args[argidx] == "-abc9") {
+				abc9 = true;
 				continue;
 			}
 			break;
@@ -196,9 +212,9 @@ struct SynthXilinxPass : public ScriptPass
 	{
 		if (check_label("begin")) {
 			if (vpr)
-				run("read_verilog -lib -D_EXPLICIT_CARRY +/xilinx/cells_sim.v");
+				run("read_verilog -lib -D _ABC -D_EXPLICIT_CARRY +/xilinx/cells_sim.v");
 			else
-				run("read_verilog -lib +/xilinx/cells_sim.v");
+				run("read_verilog -lib -D _ABC +/xilinx/cells_sim.v");
 
 			run("read_verilog -lib +/xilinx/cells_xtra.v");
 
@@ -217,6 +233,17 @@ struct SynthXilinxPass : public ScriptPass
 
 		if (check_label("coarse")) {
 			run("synth -run coarse");
+
+			// shregmap -tech xilinx can cope with $shiftx and $mux
+			//   cells for identifying variable-length shift registers,
+			//   so attempt to convert $pmux-es to the former
+			if (!nosrl || help_mode)
+				run("pmux2shiftx", "(skip if '-nosrl')");
+
+			// Run a number of peephole optimisations, including one
+			//   that optimises $mul cells driving $shiftx's B input
+			//   and that aids wide mux analysis
+			run("peepopt");
 		}
 
 		if (check_label("bram", "(skip if '-nobram')")) {
@@ -234,12 +261,6 @@ struct SynthXilinxPass : public ScriptPass
 		}
 
 		if (check_label("fine")) {
-			// shregmap -tech xilinx can cope with $shiftx and $mux
-			//   cells for identifiying variable-length shift registers,
-			//   so attempt to convert $pmux-es to the former
-			if (!nosrl || help_mode)
-				run("pmux2shiftx", "(skip if '-nosrl')");
-
 			run("opt -fast -full");
 			run("memory_map");
 			run("dffsr2dff");
@@ -254,15 +275,17 @@ struct SynthXilinxPass : public ScriptPass
 				run("shregmap -tech xilinx -minlen 3", "(skip if '-nosrl')");
 			}
 
+			std::string techmap_files = " -map +/techmap.v";
 			if (help_mode)
-				run("techmap -map +/techmap.v [-map +/xilinx/arith_map.v]", "(skip if '-nocarry')");
+				techmap_files += " [-map +/xilinx/arith_map.v]";
 			else if (!nocarry) {
-				if (!vpr)
-					run("techmap -map +/techmap.v -map +/xilinx/arith_map.v");
-				else
-					run("techmap -map +/techmap.v -map +/xilinx/arith_map.v -D _EXPLICIT_CARRY");
+				techmap_files += " -map +/xilinx/arith_map.v";
+				if (vpr)
+					techmap_files += " -D _EXPLICIT_CARRY";
+				else if (abc9)
+					techmap_files += " -D _CLB_CARRY";
 			}
-
+			run("techmap " + techmap_files);
 			run("opt -fast");
 		}
 
@@ -272,13 +295,25 @@ struct SynthXilinxPass : public ScriptPass
 		}
 
 		if (check_label("map_luts")) {
+			run("opt_expr -mux_undef");
 			if (help_mode)
 				run("abc -luts 2:2,3,6:5[,10,20] [-dff]", "(skip if 'nowidelut', only for '-retime')");
-			else if (nowidelut)
-				run("abc -luts 2:2,3,6:5" + string(retime ? " -dff" : ""));
-			else
-				run("abc -luts 2:2,3,6:5,10,20" + string(retime ? " -dff" : ""));
+			else if (abc9) {
+				if (family != "xc7")
+					log_warning("'synth_xilinx -abc9' currently supports '-family xc7' only.\n");
+				if (nowidelut)
+					run("abc9 -lut +/xilinx/abc_xc7_nowide.lut -box +/xilinx/abc_xc7.box -W " + std::string(XC7_WIRE_DELAY) + string(retime ? " -dff" : ""));
+				else
+					run("abc9 -lut +/xilinx/abc_xc7.lut -box +/xilinx/abc_xc7.box -W " + std::string(XC7_WIRE_DELAY) + string(retime ? " -dff" : ""));
+			}
+			else {
+				if (nowidelut)
+					run("abc -luts 2:2,3,6:5" + string(retime ? " -dff" : ""));
+				else
+					run("abc -luts 2:2,3,6:5,10,20" + string(retime ? " -dff" : ""));
+			}
 			run("clean");
+
 			// This shregmap call infers fixed length shift registers after abc
 			//   has performed any necessary retiming
 			if (!nosrl || help_mode)

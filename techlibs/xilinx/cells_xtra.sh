@@ -125,7 +125,7 @@ function xtract_cell_decl()
 	xtract_cell_decl RAM32X1S_1
 	xtract_cell_decl RAM32X2S
 	xtract_cell_decl RAM64M
-	xtract_cell_decl RAM64X1D
+	#xtract_cell_decl RAM64X1D
 	xtract_cell_decl RAM64X1S
 	xtract_cell_decl RAM64X1S_1
 	xtract_cell_decl RAM64X2S

@@ -82,6 +82,9 @@ struct SynthEcp5Pass : public ScriptPass
 		log("    -abc2\n");
 		log("        run two passes of 'abc' for slightly improved logic density\n");
 		log("\n");
+		log("    -abc9\n");
+		log("        use new ABC9 flow (EXPERIMENTAL)\n");
+		log("\n");
 		log("    -vpr\n");
 		log("        generate an output netlist (and BLIF file) suitable for VPR\n");
 		log("        (this feature is experimental and incomplete)\n");
@@ -93,7 +96,7 @@ struct SynthEcp5Pass : public ScriptPass
 	}
 
 	string top_opt, blif_file, edif_file, json_file;
-	bool noccu2, nodffe, nobram, nodram, nowidelut, flatten, retime, abc2, vpr;
+	bool noccu2, nodffe, nobram, nodram, nowidelut, flatten, retime, abc2, abc9, vpr;
 
 	void clear_flags() YS_OVERRIDE
 	{
@@ -110,6 +113,7 @@ struct SynthEcp5Pass : public ScriptPass
 		retime = false;
 		abc2 = false;
 		vpr = false;
+		abc9 = false;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -184,6 +188,10 @@ struct SynthEcp5Pass : public ScriptPass
 				vpr = true;
 				continue;
 			}
+			if (args[argidx] == "-abc9") {
+				abc9 = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -203,7 +211,7 @@ struct SynthEcp5Pass : public ScriptPass
 	{
 		if (check_label("begin"))
 		{
-			run("read_verilog -lib +/ecp5/cells_sim.v +/ecp5/cells_bb.v");
+			run("read_verilog -D_ABC -lib +/ecp5/cells_sim.v +/ecp5/cells_bb.v");
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
 		}
 
@@ -264,10 +272,17 @@ struct SynthEcp5Pass : public ScriptPass
 				run("abc", "      (only if -abc2)");
 			}
 			run("techmap -map +/ecp5/latches_map.v");
-			if (nowidelut)
-				run("abc -lut 4 -dress");
-			else
-				run("abc -lut 4:7 -dress");
+			if (abc9) {
+				if (nowidelut)
+					run("abc9 -lut +/ecp5/abc_5g_nowide.lut -box +/ecp5/abc_5g.box -W 200");
+				else
+					run("abc9 -lut +/ecp5/abc_5g.lut -box +/ecp5/abc_5g.box -W 200");
+			} else {
+				if (nowidelut)
+					run("abc -lut 4 -dress");
+				else
+					run("abc -lut 4:7 -dress");
+			}
 			run("clean");
 		}
 
