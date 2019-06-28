@@ -157,7 +157,7 @@ do
 		fi
 
 		if [ ! -f ../${bn}_tb.v ]; then
-			"$toolsdir"/../../yosys -f "$frontend $include_opts" -b "test_autotb $autotb_opts" -o ${bn}_tb.v ${bn}_ref.${refext}
+			"$toolsdir"/../../yosys -f "$frontend $include_opts -D_AUTOTB" -b "test_autotb $autotb_opts" -o ${bn}_tb.v ${bn}_ref.${refext}
 		else
 			cp ../${bn}_tb.v ${bn}_tb.v
 		fi
