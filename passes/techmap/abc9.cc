@@ -673,8 +673,8 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			}
 		}
 
-                for (auto cell : boxes)
-                        module->remove(cell);
+		for (auto cell : boxes)
+			module->remove(cell);
 
 		// Copy connections (and rename) from mapped_mod to module
 		for (auto conn : mapped_mod->connections()) {
