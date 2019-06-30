@@ -33,9 +33,9 @@ module issue01144(input clk, d, output q);
 specify
   // Fails:
   (posedge clk => (q +: d)) = (3,1);
-  (/*posedge*/ clk => (q +: d)) = (3,1);
+  //(/*posedge*/ clk => (q +: d)) = (3,1); // Invalid syntax
   (posedge clk *> (q +: d)) = (3,1);
-  (/*posedge*/ clk *> (q +: d)) = (3,1);
+  //(/*posedge*/ clk *> (q +: d)) = (3,1); // Invalid syntax
 
   // Works:
   (/*posedge*/ clk => q) = (3,1);
