@@ -6,18 +6,12 @@ Yosys 0.9 .. Yosys 0.9-dev
 --------------------------
 
  * Various
-    - Added "script -select"
-
-
-Yosys 0.9 .. Yosys 0.9-dev
---------------------------
-
- * Various
     - Added "write_xaiger" backend
     - Added "abc9" pass for timing-aware techmapping (experimental, FPGA only, no FFs)
     - Added "synth_xilinx -abc9" (experimental)
     - Added "synth_ice40 -abc9" (experimental)
     - Added "synth -abc9" (experimental)
+    - Added "script -select"
 
 
 Yosys 0.8 .. Yosys 0.8-dev
