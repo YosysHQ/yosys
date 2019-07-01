@@ -566,7 +566,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		vector<RTLIL::Cell*> boxes;
 		for (const auto &it : module->cells_) {
 			auto cell = it.second;
-			if (cell->type.in("$_AND_", "$_NOT_")) {
+			if (cell->type.in("$_AND_", "$_NOT_", "$__ABC_FF_")) {
 				module->remove(cell);
 				continue;
 			}
