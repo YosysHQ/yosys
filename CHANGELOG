@@ -9,6 +9,17 @@ Yosys 0.9 .. Yosys 0.9-dev
     - Added "script -select"
 
 
+Yosys 0.9 .. Yosys 0.9-dev
+--------------------------
+
+ * Various
+    - Added "write_xaiger" backend
+    - Added "abc9" pass for timing-aware techmapping (experimental, FPGA only, no FFs)
+    - Added "synth_xilinx -abc9" (experimental)
+    - Added "synth_ice40 -abc9" (experimental)
+    - Added "synth -abc9" (experimental)
+
+
 Yosys 0.8 .. Yosys 0.8-dev
 --------------------------
 
@@ -32,11 +43,6 @@ Yosys 0.8 .. Yosys 0.8-dev
     - Added "synth_xilinx -nocarry"
     - Added "synth_xilinx -nowidelut"
     - Added "synth_ecp5 -nowidelut"
-    - Added "write_xaiger" backend
-    - Added "abc9" pass for timing-aware techmapping (experimental, FPGA only, no FFs)
-    - Added "synth_xilinx -abc9" (experimental)
-    - Added "synth_ice40 -abc9" (experimental)
-    - Added "synth -abc9" (experimental)
     - "synth_xilinx" to now infer hard shift registers (-nosrl to disable)
     - Fixed sign extension of unsized constants with 'bx and 'bz MSB
 
