@@ -1,8 +1,24 @@
-FROM ubuntu:18.04 as builder
-LABEL author="Abdelrahman Hosny <abdelrahman.hosny@hotmail.com>"
+ARG IMAGE="ubuntu:18.04"
+
+#---
+
+FROM $IMAGE AS base
+
 RUN apt-get update -qq \
  && DEBIAN_FRONTEND=noninteractive apt-get -y install --no-install-recommends \
     ca-certificates \
+    libreadline-dev \
+    tcl-dev \
+ && apt-get autoclean && apt-get clean && apt-get -y autoremove \
+ && update-ca-certificates \
+ && rm -rf /var/lib/apt/lists
+
+#---
+
+FROM base AS build
+
+RUN apt-get update -qq \
+ && DEBIAN_FRONTEND=noninteractive apt-get -y install --no-install-recommends \
     clang \
     bison \
     build-essential \
@@ -10,28 +26,26 @@ RUN apt-get update -qq \
     gawk \
     git \
     libffi-dev \
-    libreadline-dev \
     pkg-config \
     python3 \
-    tcl-dev \
  && apt-get autoclean && apt-get clean && apt-get -y autoremove \
- && update-ca-certificates \
  && rm -rf /var/lib/apt/lists
 
 COPY . /
+
 RUN make \
  && make install \
  && mkdir dist && cp yosys yosys-abc yosys-config yosys-filterlib yosys-smtbmc dist/
 
-FROM ubuntu:18.04
-RUN apt-get update -qq \
- && DEBIAN_FRONTEND=noninteractive apt-get -y install --no-install-recommends \
-    libreadline-dev \
-    tcl-dev
+#---
 
-COPY --from=builder /dist /build
+FROM base
 
-ENV PATH /build:$PATH
+COPY --from=build /dist /opt/yosys
+
+ENV PATH /opt/yosys:$PATH
+
 RUN useradd -m yosys
 USER yosys
-ENTRYPOINT ["yosys"]
+
+CMD ["yosys"]
