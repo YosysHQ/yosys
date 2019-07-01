@@ -19,8 +19,9 @@ RUN apt-get update -qq \
  && rm -rf /var/lib/apt/lists
 
 COPY . /
-RUN make && \
-    make install
+RUN make \
+ && make install \
+ && mkdir dist && cp yosys yosys-abc yosys-config yosys-filterlib yosys-smtbmc dist/
 
 FROM ubuntu:18.04
 RUN apt-get update -qq \
@@ -28,11 +29,7 @@ RUN apt-get update -qq \
     libreadline-dev \
     tcl-dev
 
-COPY --from=builder /yosys /build/yosys
-COPY --from=builder /yosys-abc /build/yosys-abc
-COPY --from=builder /yosys-config /build/yosys-config
-COPY --from=builder /yosys-filterlib /build/yosys-filterlib
-COPY --from=builder /yosys-smtbmc /build/yosys-smtbmc
+COPY --from=builder /dist /build
 
 ENV PATH /build:$PATH
 RUN useradd -m yosys
