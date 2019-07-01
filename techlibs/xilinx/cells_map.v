@@ -95,9 +95,7 @@ module \$__XILINX_SHREG_ (input C, input D, input [31:0] L, input E, output Q, o
       if (&_TECHMAP_CONSTMSK_L_)
         assign Q = T4;
       else
-        wire TA, TB;
-        \$__XILINX_MUXF7x2 fpga_hard_mux7 (.I0(T0), .I1(T2), .I2(T4), .I3(1'bx), .S(L[5]), .O0(TA), .O1(TB));
-        MUXF8 fpga_hard_mux8 (.I0(TA), .I1(TB), .S(L[6]), .O(Q));
+        \$__XILINX_MUXF78 fpga_hard_mux (.I0(T0), .I1(T2), .I2(T4), .I3(1'bx), .S0(L[5]), .S1(L[6]), .O(Q));
     end else
     if (DEPTH > 97 && DEPTH < 128) begin
       wire T0, T1, T2, T3, T4, T5, T6, T7, T8;
@@ -108,9 +106,7 @@ module \$__XILINX_SHREG_ (input C, input D, input [31:0] L, input E, output Q, o
       if (&_TECHMAP_CONSTMSK_L_)
         assign Q = T6;
       else
-        wire TA, TB;
-        \$__XILINX_MUXF7x2 fpga_hard_mux (.I0(T0), .I1(T2), .I2(T4), .I3(T6), .S(L[5]), .O0(TA), .O1(TB));
-        MUXF8 fpga_hard_mux8 (.I0(TA), .I1(TB), .S(L[6]), .O(Q));
+        \$__XILINX_MUXF78 fpga_hard_mux (.I0(T0), .I1(T2), .I2(T4), .I3(T6), .S0(L[5]), .S1(L[6]), .O(Q));
     end
     else if (DEPTH == 128) begin
       wire T0, T1, T2, T3, T4, T5, T6;
@@ -120,11 +116,8 @@ module \$__XILINX_SHREG_ (input C, input D, input [31:0] L, input E, output Q, o
       SRLC32E #(.INIT(INIT_R[128-1:96]), .IS_CLK_INVERTED(~CLKPOL[0])) fpga_srl_3 (.A(L[4:0]), .CE(CE), .CLK(C), .D(T5), .Q(T6), .Q31(SO));
       if (&_TECHMAP_CONSTMSK_L_)
         assign Q = T6;
-      else begin
-        wire TA, TB;
-        \$__XILINX_MUXF7x2 fpga_hard_mux (.I0(T0), .I1(T2), .I2(T4), .I3(T6), .S(L[5]), .O0(T7), .O1(T8));
-        MUXF8 fpga_hard_mux8 (.I0(TA), .I1(TB), .S(L[6]), .O(Q));
-      end
+      else
+        \$__XILINX_MUXF78 fpga_hard_mux (.I0(T0), .I1(T2), .I2(T4), .I3(T6), .S0(L[5]), .S1(L[6]), .O(Q));
     end
     else if (DEPTH <= 129 && ~&_TECHMAP_CONSTMSK_L_) begin
       // Handle cases where fixed-length depth is
@@ -223,9 +216,7 @@ module \$__XILINX_SHIFTX (A, B, Y);
           \$shiftx  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(a_widthN), .B_WIDTH($clog2(a_widthN)), .Y_WIDTH(Y_WIDTH)) fpga_mux_last (.A(A[A_WIDTH-1-:a_widthN]), .B(B[$clog2(a_widthN)-1:0]), .Y(T[i]));
         else
           assign T[i] = A[A_WIDTH-1];
-      wire TA, TB;
-      \$__XILINX_MUXF7x2 fpga_hard_mux (.I0(T[0]), .I1(T[2]), .I2(T[4]), .I3(T[6]), .S(B[2]), .O0(TA), .O1(TB));
-      MUXF8 fpga_hard_mux8 (.I0(TA), .I1(TB), .S(B[3]), .O(Q));
+      \$__XILINX_MUXF78 fpga_hard_mux (.I0(T[0]), .I1(T[1]), .I2(T[2]), .I3(T[3]), .S0(B[2]), .S1(B[3]), .O(Y));
     end
     else begin
       localparam a_width0 = 2 ** 4;
@@ -274,27 +265,36 @@ endmodule
 `endif
 
 `ifndef _ABC
-module \$__XILINX_MUXF7x2 (O0, O1, I0, I1, I2, I3, S);
-  output O0, O1;
-  input I0, I1, I2, I3, S;
+module \$__XILINX_MUXF78 (O, I0, I1, I2, I3, S0, S1);
+  output O;
+  input I0, I1, I2, I3, S0, S1;
+  wire T0, T1;
   parameter _TECHMAP_BITS_CONNMAP_ = 0;
   parameter [_TECHMAP_BITS_CONNMAP_-1:0] _TECHMAP_CONNMAP_I0_ = 0;
   parameter [_TECHMAP_BITS_CONNMAP_-1:0] _TECHMAP_CONNMAP_I1_ = 0;
   parameter [_TECHMAP_BITS_CONNMAP_-1:0] _TECHMAP_CONNMAP_I2_ = 0;
   parameter [_TECHMAP_BITS_CONNMAP_-1:0] _TECHMAP_CONNMAP_I3_ = 0;
-  parameter _TECHMAP_CONSTMSK_S_ = 0;
-  parameter _TECHMAP_CONSTVAL_S_ = 0;
-  if (_TECHMAP_CONSTMSK_S_ && _TECHMAP_CONSTVAL_S_ === 1'b1)
-    assign O0 = I1;
-  else if (_TECHMAP_CONSTMSK_S_ || _TECHMAP_CONNMAP_I0_ === _TECHMAP_CONNMAP_I1_)
-    assign O0 = I0;
+  parameter _TECHMAP_CONSTMSK_S0_ = 0;
+  parameter _TECHMAP_CONSTVAL_S0_ = 0;
+  parameter _TECHMAP_CONSTMSK_S1_ = 0;
+  parameter _TECHMAP_CONSTVAL_S1_ = 0;
+  if (_TECHMAP_CONSTMSK_S0_ && _TECHMAP_CONSTVAL_S0_ === 1'b1)
+    assign T0 = I1;
+  else if (_TECHMAP_CONSTMSK_S0_ || _TECHMAP_CONNMAP_I0_ === _TECHMAP_CONNMAP_I1_)
+    assign T0 = I0;
   else
-    MUXF7 mux7a (.I0(I0), .I1(I1), .S(S), .O(O0));
-  if (_TECHMAP_CONSTMSK_S_ && _TECHMAP_CONSTVAL_S_ === 1'b1)
-    assign O1 = I3;
-  else if (_TECHMAP_CONSTMSK_S_ || _TECHMAP_CONNMAP_I2_ === _TECHMAP_CONNMAP_I3_)
-    assign O1 = I2;
+    MUXF7 mux7a (.I0(I0), .I1(I1), .S(S0), .O(T0));
+  if (_TECHMAP_CONSTMSK_S0_ && _TECHMAP_CONSTVAL_S0_ === 1'b1)
+    assign T1 = I3;
+  else if (_TECHMAP_CONSTMSK_S0_ || _TECHMAP_CONNMAP_I2_ === _TECHMAP_CONNMAP_I3_)
+    assign T1 = I2;
   else
-    MUXF7 mux7b (.I0(I2), .I1(I3), .S(S), .O(O1));
+    MUXF7 mux7b (.I0(I2), .I1(I3), .S(S0), .O(T1));
+  if (_TECHMAP_CONSTMSK_S1_ && _TECHMAP_CONSTVAL_S1_ === 1'b1)
+    assign O = T1;
+  else if (_TECHMAP_CONSTMSK_S1_ || (_TECHMAP_CONNMAP_I0_ === _TECHMAP_CONNMAP_I1_ && _TECHMAP_CONNMAP_I1_ === _TECHMAP_CONNMAP_I2_ && _TECHMAP_CONNMAP_I2_ === _TECHMAP_CONNMAP_I3_))
+    assign O = T0;
+  else
+    MUXF8 mux8 (.I0(T0), .I1(T1), .S(S1), .O(O));
 endmodule
 `endif
