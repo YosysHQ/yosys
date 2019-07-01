@@ -171,9 +171,9 @@ endmodule
 
 `ifdef _ABC
 (* abc_box_id = 3, lib_whitebox *)
-module \$__XILINX_MUXF78 (output O, input I0, I1, I2, I3, S0, S1);
-  assign O = S1 ? (S0 ? I3 : I2)
-                : (S0 ? I1 : I0);
+module \$__XILINX_MUXF7x2 (output O0, O1, input I0, I1, I2, I3, S);
+  assign O0 = S ? I1 : I0;
+  assign O1 = S ? I3 : I2;
 endmodule
 `endif
 
