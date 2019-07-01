@@ -126,6 +126,10 @@ struct JsonWriter
 			f << stringf("%s\n", first ? "" : ",");
 			f << stringf("        %s: {\n", get_name(n).c_str());
 			f << stringf("          \"direction\": \"%s\",\n", w->port_input ? w->port_output ? "inout" : "input" : "output");
+			if (w->start_offset)
+				f << stringf("          \"offset\": %d,\n", w->start_offset);
+			if (w->upto)
+				f << stringf("          \"upto\": 1,\n");
 			f << stringf("          \"bits\": %s\n", get_bits(w).c_str());
 			f << stringf("        }");
 			first = false;
@@ -189,6 +193,10 @@ struct JsonWriter
 			f << stringf("        %s: {\n", get_name(w->name).c_str());
 			f << stringf("          \"hide_name\": %s,\n", w->name[0] == '$' ? "1" : "0");
 			f << stringf("          \"bits\": %s,\n", get_bits(w).c_str());
+			if (w->start_offset)
+				f << stringf("          \"offset\": %d,\n", w->start_offset);
+			if (w->upto)
+				f << stringf("          \"upto\": 1,\n");
 			f << stringf("          \"attributes\": {");
 			write_parameters(w->attributes);
 			f << stringf("\n          }\n");
@@ -525,6 +533,7 @@ struct JsonPass : public Pass {
 		std::stringstream buf;
 
 		if (!filename.empty()) {
+			rewrite_filename(filename);
 			std::ofstream *ff = new std::ofstream;
 			ff->open(filename.c_str(), std::ofstream::trunc);
 			if (ff->fail()) {

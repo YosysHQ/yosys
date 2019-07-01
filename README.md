@@ -350,6 +350,14 @@ Verilog Attributes and non-standard features
   through the synthesis. When entities are combined, a new |-separated
   string is created that contains all the string from the original entities.
 
+- The ``defaultvalue`` attribute is used to store default values for
+  module inputs. The attribute is attached to the input wire by the HDL
+  front-end when the input is declared with a default value.
+
+- The ``parameter`` and ``localparam`` attributes are used to mark wires
+  that represent module parameters or localparams (when the HDL front-end
+  is run in -pwires mode).
+
 - In addition to the ``(* ... *)`` attribute syntax, Yosys supports
   the non-standard ``{* ... *}`` attribute syntax to set default attributes
   for everything that comes after the ``{* ... *}`` statement. (Reset

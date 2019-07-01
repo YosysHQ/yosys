@@ -173,8 +173,8 @@ module XORCY(output O, input CI, LI);
   assign O = CI ^ LI;
 endmodule
 
-(* abc_box_id = 3, abc_carry, lib_whitebox *)
-module CARRY4((* abc_carry_out *) output [3:0] CO, output [3:0] O, (* abc_carry_in *) input CI, input CYINIT, input [3:0] DI, S);
+(* abc_box_id = 3, abc_carry="CI,CO", lib_whitebox *)
+module CARRY4(output [3:0] CO, O, input CI, CYINIT, input [3:0] DI, S);
   assign O = S ^ {CO[2:0], CI | CYINIT};
   assign CO[0] = S[0] ? CI | CYINIT : DI[0];
   assign CO[1] = S[1] ? CO[0] : DI[1];
@@ -281,7 +281,25 @@ module FDPE_1 (output reg Q, input C, CE, D, PRE);
   always @(negedge C, posedge PRE) if (PRE) Q <= 1'b1; else if (CE) Q <= D;
 endmodule
 
-//(* abc_box_id = 4 /*, lib_whitebox*/ *)
+(* abc_box_id = 4, abc_scc_break="D,WE" *)
+module RAM32X1D (
+  output DPO, SPO,
+  input  D, WCLK, WE,
+  input  A0, A1, A2, A3, A4,
+  input  DPRA0, DPRA1, DPRA2, DPRA3, DPRA4
+);
+  parameter INIT = 32'h0;
+  parameter IS_WCLK_INVERTED = 1'b0;
+  wire [4:0] a = {A4, A3, A2, A1, A0};
+  wire [4:0] dpra = {DPRA4, DPRA3, DPRA2, DPRA1, DPRA0};
+  reg [31:0] mem = INIT;
+  assign SPO = mem[a];
+  assign DPO = mem[dpra];
+  wire clk = WCLK ^ IS_WCLK_INVERTED;
+  always @(posedge clk) if (WE) mem[a] <= D;
+endmodule
+
+(* abc_box_id = 5, abc_scc_break="D,WE" *)
 module RAM64X1D (
   output DPO, SPO,
   input  D, WCLK, WE,
@@ -299,7 +317,7 @@ module RAM64X1D (
   always @(posedge clk) if (WE) mem[a] <= D;
 endmodule
 
-//(* abc_box_id = 5 /*, lib_whitebox*/ *)
+(* abc_box_id = 6, abc_scc_break="D,WE" *)
 module RAM128X1D (
   output       DPO, SPO,
   input        D, WCLK, WE,

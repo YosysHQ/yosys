@@ -1381,7 +1381,34 @@ void RTLIL::Module::check()
 	for (auto &it : processes) {
 		log_assert(it.first == it.second->name);
 		log_assert(!it.first.empty());
-		// FIXME: More checks here..
+		log_assert(it.second->root_case.compare.empty());
+		std::vector<CaseRule*> all_cases = {&it.second->root_case};
+		for (size_t i = 0; i < all_cases.size(); i++) {
+			for (auto &switch_it : all_cases[i]->switches) {
+				for (auto &case_it : switch_it->cases) {
+					for (auto &compare_it : case_it->compare) {
+						log_assert(switch_it->signal.size() == compare_it.size());
+					}
+					all_cases.push_back(case_it);
+				}
+			}
+		}
+		for (auto &sync_it : it.second->syncs) {
+			switch (sync_it->type) {
+				case SyncType::ST0:
+				case SyncType::ST1:
+				case SyncType::STp:
+				case SyncType::STn:
+				case SyncType::STe:
+					log_assert(!sync_it->signal.empty());
+					break;
+				case SyncType::STa:
+				case SyncType::STg:
+				case SyncType::STi:
+					log_assert(sync_it->signal.empty());
+					break;
+			}
+		}
 	}
 
 	for (auto &it : connections_) {
@@ -1565,21 +1592,13 @@ void RTLIL::Module::remove(const pool<RTLIL::Wire*> &wires)
 
 void RTLIL::Module::remove(RTLIL::Cell *cell)
 {
-	auto it = cells_.find(cell->name);
-	log_assert(it != cells_.end());
-	remove(it);
-}
-
-dict<RTLIL::IdString, RTLIL::Cell*>::iterator RTLIL::Module::remove(dict<RTLIL::IdString, RTLIL::Cell*>::iterator it)
-{
-	RTLIL::Cell *cell = it->second;
 	while (!cell->connections_.empty())
 		cell->unsetPort(cell->connections_.begin()->first);
 
+	log_assert(cells_.count(cell->name) != 0);
 	log_assert(refcount_cells_ == 0);
-	it = cells_.erase(it);
+	cells_.erase(cell->name);
 	delete cell;
-	return it;
 }
 
 void RTLIL::Module::rename(RTLIL::Wire *wire, RTLIL::IdString new_name)

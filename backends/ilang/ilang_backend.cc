@@ -483,6 +483,7 @@ struct DumpPass : public Pass {
 		std::stringstream buf;
 
 		if (!filename.empty()) {
+			rewrite_filename(filename);
 			std::ofstream *ff = new std::ofstream;
 			ff->open(filename.c_str(), append ? std::ofstream::app : std::ofstream::trunc);
 			if (ff->fail()) {

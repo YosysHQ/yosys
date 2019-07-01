@@ -76,7 +76,7 @@ struct SynthEcp5Pass : public ScriptPass
 		log("    -nodram\n");
 		log("        do not use distributed RAM cells in output netlist\n");
 		log("\n");
-		log("    -nomux\n");
+		log("    -nowidelut\n");
 		log("        do not use PFU muxes to implement LUTs larger than LUT4s\n");
 		log("\n");
 		log("    -abc2\n");
@@ -96,7 +96,7 @@ struct SynthEcp5Pass : public ScriptPass
 	}
 
 	string top_opt, blif_file, edif_file, json_file;
-	bool noccu2, nodffe, nobram, nodram, nomux, flatten, retime, abc2, abc9, vpr;
+	bool noccu2, nodffe, nobram, nodram, nowidelut, flatten, retime, abc2, abc9, vpr;
 
 	void clear_flags() YS_OVERRIDE
 	{
@@ -108,7 +108,7 @@ struct SynthEcp5Pass : public ScriptPass
 		nodffe = false;
 		nobram = false;
 		nodram = false;
-		nomux = false;
+		nowidelut = false;
 		flatten = true;
 		retime = false;
 		abc2 = false;
@@ -176,8 +176,8 @@ struct SynthEcp5Pass : public ScriptPass
 				nodram = true;
 				continue;
 			}
-			if (args[argidx] == "-nomux") {
-				nomux = true;
+			if (args[argidx] == "-nowidelut" || args[argidx] == "-nomux") {
+				nowidelut = true;
 				continue;
 			}
 			if (args[argidx] == "-abc2") {
@@ -273,14 +273,16 @@ struct SynthEcp5Pass : public ScriptPass
 			}
 			run("techmap -map +/ecp5/latches_map.v");
 			if (abc9) {
-				run("abc9 -lut +/ecp5/abc_5g.lut -box +/ecp5/abc_5g.box -W 200");
+				if (nowidelut)
+					run("abc9 -lut +/ecp5/abc_5g_nowide.lut -box +/ecp5/abc_5g.box -W 200");
+				else
+					run("abc9 -lut +/ecp5/abc_5g.lut -box +/ecp5/abc_5g.box -W 200");
 			} else {
-				if (nomux)
+				if (nowidelut)
 					run("abc -lut 4 -dress");
 				else
 					run("abc -lut 4:7 -dress");
 			}
-
 			run("clean");
 		}
 

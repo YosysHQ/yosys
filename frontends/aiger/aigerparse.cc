@@ -22,9 +22,6 @@
 // Armin Biere. The AIGER And-Inverter Graph (AIG) Format Version 20071012. Technical Report 07/1, October 2011, FMV Reports Series, Institute for Formal Models and Verification, Johannes Kepler University, Altenbergerstr. 69, 4040 Linz, Austria.
 // http://fmv.jku.at/papers/Biere-FMV-TR-07-1.pdf
 
-#ifdef _WIN32
-#include <libgen.h>
-#endif
 // https://stackoverflow.com/a/46137633
 #ifdef _MSC_VER
 #include <stdlib.h>
@@ -51,6 +48,9 @@ inline int32_t from_big_endian(int32_t i32) {
 #error "Unknown endianness"
 #endif
 }
+
+#define log_debug2(...) ;
+//#define log_debug2(...) log_debug(__VA_ARGS__)
 
 struct ConstEvalAig
 {
@@ -117,13 +117,20 @@ struct ConstEvalAig
 
 		RTLIL::Cell *cell = sig2driver.at(output);
 		RTLIL::SigBit sig_a = cell->getPort("\\A");
+		sig2deps[sig_a].reserve(sig2deps[sig_a].size() + sig2deps[output].size()); // Reserve so that any invalidation
+											   // that may occur does so here, and
+											   // not mid insertion (below)
 		sig2deps[sig_a].insert(sig2deps[output].begin(), sig2deps[output].end());
 		if (!inputs.count(sig_a))
 			compute_deps(sig_a, inputs);
 
 		if (cell->type == "$_AND_") {
 			RTLIL::SigSpec sig_b = cell->getPort("\\B");
+			sig2deps[sig_b].reserve(sig2deps[sig_b].size() + sig2deps[output].size()); // Reserve so that any invalidation
+												   // that may occur does so here, and
+												   // not mid insertion (below)
 			sig2deps[sig_b].insert(sig2deps[output].begin(), sig2deps[output].end());
+
 			if (!inputs.count(sig_b))
 				compute_deps(sig_b, inputs);
 		}
@@ -305,7 +312,7 @@ static RTLIL::Wire* createWireIfNotExists(RTLIL::Module *module, unsigned litera
 	RTLIL::IdString wire_name(stringf("\\__%d%s__", variable, invert ? "b" : ""));
 	RTLIL::Wire *wire = module->wire(wire_name);
 	if (wire) return wire;
-	log_debug("Creating %s\n", wire_name.c_str());
+	log_debug2("Creating %s\n", wire_name.c_str());
 	wire = module->addWire(wire_name);
 	wire->port_input = wire->port_output = false;
 	if (!invert) return wire;
@@ -315,12 +322,12 @@ static RTLIL::Wire* createWireIfNotExists(RTLIL::Module *module, unsigned litera
 		if (module->cell(wire_inv_name)) return wire;
 	}
 	else {
-		log_debug("Creating %s\n", wire_inv_name.c_str());
+		log_debug2("Creating %s\n", wire_inv_name.c_str());
 		wire_inv = module->addWire(wire_inv_name);
 		wire_inv->port_input = wire_inv->port_output = false;
 	}
 
-	log_debug("Creating %s = ~%s\n", wire_name.c_str(), wire_inv_name.c_str());
+	log_debug2("Creating %s = ~%s\n", wire_name.c_str(), wire_inv_name.c_str());
 	module->addNotGate(stringf("\\__%d__$not", variable), wire_inv, wire);
 
 	return wire;
@@ -369,7 +376,11 @@ void AigerReader::parse_xaiger()
 			continue;
 		if (m->name.begins_with("$paramod"))
 			continue;
-		auto r = box_lookup.insert(std::make_pair(it->second.as_int(), m->name));
+		auto id = it->second.as_int();
+		auto r = box_lookup.insert(std::make_pair(id, m->name));
+		if (!r.second)
+			log_error("Module '%s' has the same abc_box_id = %d value as '%s'.\n",
+					log_id(m), id, log_id(r.first->second));
 		log_assert(r.second);
 	}
 
@@ -396,13 +407,13 @@ void AigerReader::parse_xaiger()
 				for (unsigned i = 0; i < lutNum; ++i) {
 					uint32_t rootNodeID = parse_xaiger_literal(f);
 					uint32_t cutLeavesM = parse_xaiger_literal(f);
-					log_debug("rootNodeID=%d cutLeavesM=%d\n", rootNodeID, cutLeavesM);
+					log_debug2("rootNodeID=%d cutLeavesM=%d\n", rootNodeID, cutLeavesM);
 					RTLIL::Wire *output_sig = module->wire(stringf("\\__%d__", rootNodeID));
 					uint32_t nodeID;
 					RTLIL::SigSpec input_sig;
 					for (unsigned j = 0; j < cutLeavesM; ++j) {
 						nodeID = parse_xaiger_literal(f);
-						log_debug("\t%u\n", nodeID);
+						log_debug2("\t%u\n", nodeID);
 						RTLIL::Wire *wire = module->wire(stringf("\\__%d__", nodeID));
 						log_assert(wire);
 						input_sig.append(wire);
@@ -487,7 +498,7 @@ void AigerReader::parse_aiger_ascii()
 	for (unsigned i = 1; i <= I; ++i, ++line_count) {
 		if (!(f >> l1))
 			log_error("Line %u cannot be interpreted as an input!\n", line_count);
-		log_debug("%d is an input\n", l1);
+		log_debug2("%d is an input\n", l1);
 		log_assert(!(l1 & 1)); // Inputs can't be inverted
 		RTLIL::Wire *wire = createWireIfNotExists(module, l1);
 		wire->port_input = true;
@@ -499,7 +510,7 @@ void AigerReader::parse_aiger_ascii()
 	if (L > 0 && !clk_name.empty()) {
 		clk_wire = module->wire(clk_name);
 		log_assert(!clk_wire);
-		log_debug("Creating %s\n", clk_name.c_str());
+		log_debug2("Creating %s\n", clk_name.c_str());
 		clk_wire = module->addWire(clk_name);
 		clk_wire->port_input = true;
 		clk_wire->port_output = false;
@@ -507,7 +518,7 @@ void AigerReader::parse_aiger_ascii()
 	for (unsigned i = 0; i < L; ++i, ++line_count) {
 		if (!(f >> l1 >> l2))
 			log_error("Line %u cannot be interpreted as a latch!\n", line_count);
-		log_debug("%d %d is a latch\n", l1, l2);
+		log_debug2("%d %d is a latch\n", l1, l2);
 		log_assert(!(l1 & 1));
 		RTLIL::Wire *q_wire = createWireIfNotExists(module, l1);
 		RTLIL::Wire *d_wire = createWireIfNotExists(module, l2);
@@ -544,7 +555,7 @@ void AigerReader::parse_aiger_ascii()
 		if (!(f >> l1))
 			log_error("Line %u cannot be interpreted as an output!\n", line_count);
 
-		log_debug("%d is an output\n", l1);
+		log_debug2("%d is an output\n", l1);
 		const unsigned variable = l1 >> 1;
 		const bool invert = l1 & 1;
 		RTLIL::IdString wire_name(stringf("\\__%d%s__", variable, invert ? "b" : "")); // FIXME: is "b" the right suffix?
@@ -565,7 +576,7 @@ void AigerReader::parse_aiger_ascii()
 		if (!(f >> l1))
 			log_error("Line %u cannot be interpreted as a bad state property!\n", line_count);
 
-		log_debug("%d is a bad state property\n", l1);
+		log_debug2("%d is a bad state property\n", l1);
 		RTLIL::Wire *wire = createWireIfNotExists(module, l1);
 		wire->port_output = true;
 		bad_properties.push_back(wire);
@@ -588,7 +599,7 @@ void AigerReader::parse_aiger_ascii()
 		if (!(f >> l1 >> l2 >> l3))
 			log_error("Line %u cannot be interpreted as an AND!\n", line_count);
 
-		log_debug("%d %d %d is an AND\n", l1, l2, l3);
+		log_debug2("%d %d %d is an AND\n", l1, l2, l3);
 		log_assert(!(l1 & 1));
 		RTLIL::Wire *o_wire = createWireIfNotExists(module, l1);
 		RTLIL::Wire *i1_wire = createWireIfNotExists(module, l2);
@@ -614,7 +625,7 @@ void AigerReader::parse_aiger_binary()
 
 	// Parse inputs
 	for (unsigned i = 1; i <= I; ++i) {
-		log_debug("%d is an input\n", i);
+		log_debug2("%d is an input\n", i);
 		RTLIL::Wire *wire = createWireIfNotExists(module, i << 1);
 		wire->port_input = true;
 		log_assert(!wire->port_output);
@@ -626,7 +637,7 @@ void AigerReader::parse_aiger_binary()
 	if (L > 0 && !clk_name.empty()) {
 		clk_wire = module->wire(clk_name);
 		log_assert(!clk_wire);
-		log_debug("Creating %s\n", clk_name.c_str());
+		log_debug2("Creating %s\n", clk_name.c_str());
 		clk_wire = module->addWire(clk_name);
 		clk_wire->port_input = true;
 		clk_wire->port_output = false;
@@ -671,7 +682,7 @@ void AigerReader::parse_aiger_binary()
 		if (!(f >> l1))
 			log_error("Line %u cannot be interpreted as an output!\n", line_count);
 
-		log_debug("%d is an output\n", l1);
+		log_debug2("%d is an output\n", l1);
 		const unsigned variable = l1 >> 1;
 		const bool invert = l1 & 1;
 		RTLIL::IdString wire_name(stringf("\\__%d%s__", variable, invert ? "b" : "")); // FIXME: is "_b" the right suffix?
@@ -693,7 +704,7 @@ void AigerReader::parse_aiger_binary()
 		if (!(f >> l1))
 			log_error("Line %u cannot be interpreted as a bad state property!\n", line_count);
 
-		log_debug("%d is a bad state property\n", l1);
+		log_debug2("%d is a bad state property\n", l1);
 		RTLIL::Wire *wire = createWireIfNotExists(module, l1);
 		wire->port_output = true;
 		bad_properties.push_back(wire);
@@ -719,7 +730,7 @@ void AigerReader::parse_aiger_binary()
 		l2 = parse_next_delta_literal(f, l1);
 		l3 = parse_next_delta_literal(f, l2);
 
-		log_debug("%d %d %d is an AND\n", l1, l2, l3);
+		log_debug2("%d %d %d is an AND\n", l1, l2, l3);
 		log_assert(!(l1 & 1));
 		RTLIL::Wire *o_wire = createWireIfNotExists(module, l1);
 		RTLIL::Wire *i1_wire = createWireIfNotExists(module, l2);
@@ -730,7 +741,7 @@ void AigerReader::parse_aiger_binary()
 
 void AigerReader::post_process()
 {
-	pool<RTLIL::Module*> abc_carry_modules;
+	pool<IdString> seen_boxes;
 	unsigned ci_count = 0, co_count = 0, flop_count = 0;
 	for (auto cell : boxes) {
 		RTLIL::Module* box_module = design->module(cell->type);
@@ -745,38 +756,44 @@ void AigerReader::post_process()
 			log_assert(flop_module);
 			flop_past_q = box_module->attributes.at("\\abc_flop_past_q").decode_string();
 		}
-		else if (box_module->attributes.count("\\abc_carry") && !abc_carry_modules.count(box_module)) {
-			RTLIL::Wire* carry_in = nullptr, *carry_out = nullptr;
-			RTLIL::Wire* last_in = nullptr, *last_out = nullptr;
-			for (const auto &port_name : box_module->ports) {
-				RTLIL::Wire* w = box_module->wire(port_name);
-				log_assert(w);
-				if (w->port_input) {
-					if (w->attributes.count("\\abc_carry_in")) {
-						log_assert(!carry_in);
-						carry_in = w;
-					}
-					log_assert(!last_in || last_in->port_id < w->port_id);
-					last_in = w;
-				}
-				if (w->port_output) {
-					if (w->attributes.count("\\abc_carry_out")) {
-						log_assert(!carry_out);
-						carry_out = w;
-					}
-					log_assert(!last_out || last_out->port_id < w->port_id);
-					last_out = w;
-				}
-			}
+        else if (seen_boxes.insert(cell->type).second) {
+			auto it = box_module->attributes.find("\\abc_carry");
+			if (it != box_module->attributes.end()) {
+				RTLIL::Wire *carry_in = nullptr, *carry_out = nullptr;
+				auto carry_in_out = it->second.decode_string();
+				auto pos = carry_in_out.find(',');
+				if (pos == std::string::npos)
+					log_error("'abc_carry' attribute on module '%s' does not contain ','.\n", log_id(cell->type));
+				auto carry_in_name = RTLIL::escape_id(carry_in_out.substr(0, pos));
+				carry_in = box_module->wire(carry_in_name);
+				if (!carry_in || !carry_in->port_input)
+					log_error("'abc_carry' on module '%s' contains '%s' which does not exist or is not an input port.\n", log_id(cell->type), carry_in_name.c_str());
 
-			if (carry_in != last_in) {
-				std::swap(box_module->ports[carry_in->port_id], box_module->ports[last_in->port_id]);
-				std::swap(carry_in->port_id, last_in->port_id);
-			}
-			if (carry_out != last_out) {
-				log_assert(last_out);
-				std::swap(box_module->ports[carry_out->port_id], box_module->ports[last_out->port_id]);
-				std::swap(carry_out->port_id, last_out->port_id);
+				auto carry_out_name = RTLIL::escape_id(carry_in_out.substr(pos+1));
+				carry_out = box_module->wire(carry_out_name);
+				if (!carry_out || !carry_out->port_output)
+					log_error("'abc_carry' on module '%s' contains '%s' which does not exist or is not an output port.\n", log_id(cell->type), carry_out_name.c_str());
+
+				auto &ports = box_module->ports;
+				for (auto jt = ports.begin(); jt != ports.end(); ) {
+					RTLIL::Wire* w = box_module->wire(*jt);
+					log_assert(w);
+					if (w == carry_in || w == carry_out) {
+						jt = ports.erase(jt);
+						continue;
+					}
+					if (w->port_id > carry_in->port_id)
+						--w->port_id;
+					if (w->port_id > carry_out->port_id)
+						--w->port_id;
+					log_assert(w->port_input || w->port_output);
+					log_assert(ports[w->port_id-1] == w->name);
+					++jt;
+				}
+				ports.push_back(carry_in->name);
+				carry_in->port_id = ports.size();
+				ports.push_back(carry_out->name);
+				carry_out->port_id = ports.size();
 			}
 		}
 
@@ -873,7 +890,10 @@ void AigerReader::post_process()
 				RTLIL::Wire* wire = outputs[variable + co_count];
 				log_assert(wire);
 				log_assert(wire->port_output);
-				log_debug("Renaming output %s", log_id(wire));
+				if (escaped_s == "$__dummy__") {
+					wire->port_output = false;
+					continue;
+				}
 
 				if (index == 0) {
 					// Cope with the fact that a CO might be identical
@@ -988,10 +1008,15 @@ void AigerReader::post_process()
 			if (other_wire) {
 				other_wire->port_input = false;
 				other_wire->port_output = false;
-				if (wire->port_input)
+			}
+			if (wire->port_input) {
+				if (other_wire)
 					module->connect(other_wire, SigSpec(wire, i));
-				else
-					module->connect(SigSpec(wire, i), other_wire);
+			}
+			else {
+								  // Since we skip POs that are connected to Sx,
+								  // re-connect them here
+				module->connect(SigSpec(wire, i), other_wire ? other_wire : SigSpec(RTLIL::Sx));
 			}
 		}
 	}

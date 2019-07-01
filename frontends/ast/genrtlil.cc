@@ -853,7 +853,6 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	case AST_FUNCTION:
 	case AST_DPI_FUNCTION:
 	case AST_AUTOWIRE:
-	case AST_LOCALPARAM:
 	case AST_DEFPARAM:
 	case AST_GENVAR:
 	case AST_GENFOR:
@@ -895,6 +894,26 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	// remember the parameter, needed for example in techmap
 	case AST_PARAMETER:
 		current_module->avail_parameters.insert(str);
+		/* fall through */
+	case AST_LOCALPARAM:
+		if (flag_pwires)
+		{
+			if (GetSize(children) < 1 || children[0]->type != AST_CONSTANT)
+				log_file_error(filename, linenum, "Parameter `%s' with non-constant value!\n", str.c_str());
+
+			RTLIL::Const val = children[0]->bitsAsConst();
+			RTLIL::Wire *wire = current_module->addWire(str, GetSize(val));
+			current_module->connect(wire, val);
+
+			wire->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
+			wire->attributes[type == AST_PARAMETER ? "\\parameter" : "\\localparam"] = 1;
+
+			for (auto &attr : attributes) {
+				if (attr.second->type != AST_CONSTANT)
+					log_file_error(filename, linenum, "Attribute `%s' with non-constant value!\n", attr.first.c_str());
+				wire->attributes[attr.first] = attr.second->asAttrConst();
+			}
+		}
 		break;
 
 	// create an RTLIL::Wire for an AST_WIRE node
