@@ -756,7 +756,7 @@ void AigerReader::post_process()
 			log_assert(flop_module);
 			flop_past_q = box_module->attributes.at("\\abc_flop_past_q").decode_string();
 		}
-        else if (seen_boxes.insert(cell->type).second) {
+		else if (seen_boxes.insert(cell->type).second) {
 			auto it = box_module->attributes.find("\\abc_carry");
 			if (it != box_module->attributes.end()) {
 				RTLIL::Wire *carry_in = nullptr, *carry_out = nullptr;
