@@ -1,25 +1,32 @@
 FROM ubuntu:18.04 as builder
 LABEL author="Abdelrahman Hosny <abdelrahman.hosny@hotmail.com>"
-ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && apt-get install -y build-essential \
+RUN apt-get update -qq \
+ && DEBIAN_FRONTEND=noninteractive apt-get -y install --no-install-recommends \
+    ca-certificates \
     clang \
     bison \
+    build-essential \
     flex \
-    libreadline-dev \
     gawk \
-    tcl-dev \
-    libffi-dev \
     git \
+    libffi-dev \
+    libreadline-dev \
     pkg-config \
-    python3 && \
-    rm -rf /var/lib/apt/lists
+    python3 \
+    tcl-dev \
+ && apt-get autoclean && apt-get clean && apt-get -y autoremove \
+ && update-ca-certificates \
+ && rm -rf /var/lib/apt/lists
+
 COPY . /
 RUN make && \
     make install
 
 FROM ubuntu:18.04
-ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && apt-get install -y libreadline-dev tcl-dev
+RUN apt-get update -qq \
+ && DEBIAN_FRONTEND=noninteractive apt-get -y install --no-install-recommends \
+    libreadline-dev \
+    tcl-dev
 
 COPY --from=builder /yosys /build/yosys
 COPY --from=builder /yosys-abc /build/yosys-abc
