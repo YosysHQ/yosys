@@ -23,7 +23,7 @@
 module \$__ABC_FF_ (input C, D, output Q);
 endmodule
 
-(* abc_box_id = 6, lib_whitebox, abc_flop = "FDRE", abc_flop_q = "Q", abc_flop_d = "D", abc_flop_past_q = "\\$pastQ" *)
+(* abc_box_id = 7, lib_whitebox, abc_flop = "FDRE", abc_flop_q = "Q", abc_flop_d = "D", abc_flop_past_q = "\\$pastQ" *)
 module \$__ABC_FDRE (output Q, input C, CE, D, R, \$pastQ );
   parameter [0:0] INIT = 1'b0;
   //parameter [0:0] IS_C_INVERTED = 1'b0;
