@@ -211,6 +211,7 @@ struct XAigerWriter
 		//       box ordering, but not individual AIG cells
 		dict<SigBit, pool<IdString>> bit_drivers, bit_users;
 		TopoSort<IdString, RTLIL::sort_by_id_str> toposort;
+		dict<IdString, std::pair<IdString,IdString>> flop_data;
 		bool abc_box_seen = false;
 
 		for (auto cell : module->selected_cells()) {
@@ -264,8 +265,45 @@ struct XAigerWriter
 				abc_box_seen = true;
 
 				toposort.node(cell->name);
-				auto abc_flop_d = inst_module->attributes.at("\\abc_flop_d", RTLIL::Const());
-				if (abc_flop_d.size() == 0) {
+
+				auto r = flop_data.insert(std::make_pair(cell->type, std::make_pair(IdString(), IdString())));
+				if (r.second) {
+					auto it = inst_module->attributes.find("\\abc_flop");
+					if (it != inst_module->attributes.end()) {
+						std::string abc_flop = it->second.decode_string();
+						size_t start, end;
+						end = abc_flop.find(','); // Ignore original module
+						log_assert(end != std::string::npos);
+						start = end + 1;
+						end = abc_flop.find(',', start + 1);
+						log_assert(start != std::string::npos && end != std::string::npos);
+						auto abc_flop_d = RTLIL::escape_id(abc_flop.substr(start, end-start));
+						start = end + 1;
+						end = abc_flop.find(',', start + 1);
+						log_assert(start != std::string::npos && end != std::string::npos);
+						auto abc_flop_q = RTLIL::escape_id(abc_flop.substr(start, end-start));
+						r.first->second = std::make_pair(abc_flop_d, abc_flop_q);
+					}
+				}
+
+				auto abc_flop_d = r.first->second.first;
+				if (abc_flop_d != IdString()) {
+					SigBit d = cell->getPort(abc_flop_d);
+					SigBit I = sigmap(d);
+					if (I != d)
+						alias_map[I] = d;
+					unused_bits.erase(d);
+
+					auto abc_flop_q = r.first->second.second;
+					SigBit q = cell->getPort(abc_flop_q);
+					SigBit O = sigmap(q);
+					if (O != q)
+						alias_map[O] = q;
+					undriven_bits.erase(O);
+					ff_bits.emplace_back(q);
+
+				}
+				else {
 					for (const auto &conn : cell->connections()) {
 						if (cell->input(conn.first)) {
 							// Ignore inout for the sake of topographical ordering
@@ -278,22 +316,6 @@ struct XAigerWriter
 							for (auto bit : sigmap(conn.second))
 								bit_drivers[bit].insert(cell->name);
 					}
-				}
-				else {
-					auto abc_flop_q = inst_module->attributes.at("\\abc_flop_q");
-
-					SigBit d = cell->getPort(RTLIL::escape_id(abc_flop_d.decode_string()));
-					SigBit I = sigmap(d);
-					if (I != d)
-						alias_map[I] = d;
-					unused_bits.erase(d);
-
-					SigBit q = cell->getPort(RTLIL::escape_id(abc_flop_q.decode_string()));
-					SigBit O = sigmap(q);
-					if (O != q)
-						alias_map[O] = q;
-					undriven_bits.erase(O);
-					ff_bits.emplace_back(q);
 				}
 			}
 			else {

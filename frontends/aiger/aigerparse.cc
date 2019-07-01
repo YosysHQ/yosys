@@ -742,22 +742,29 @@ void AigerReader::parse_aiger_binary()
 void AigerReader::post_process()
 {
 	pool<IdString> seen_boxes;
+	dict<IdString, std::pair<RTLIL::Module*,IdString>> flop_data;
 	unsigned ci_count = 0, co_count = 0, flop_count = 0;
 	for (auto cell : boxes) {
 		RTLIL::Module* box_module = design->module(cell->type);
 		log_assert(box_module);
 
 		RTLIL::Module* flop_module = nullptr;
-		auto flop_module_name = box_module->attributes.at("\\abc_flop", RTLIL::Const());
 		RTLIL::IdString flop_past_q;
-		if (flop_module_name.size() > 0) {
-			log_assert(flop_count < flopNum);
-			flop_module = design->module(RTLIL::escape_id(flop_module_name.decode_string()));
-			log_assert(flop_module);
-			flop_past_q = box_module->attributes.at("\\abc_flop_past_q").decode_string();
-		}
-		else if (seen_boxes.insert(cell->type).second) {
-			auto it = box_module->attributes.find("\\abc_carry");
+		if (seen_boxes.insert(cell->type).second) {
+			auto it = box_module->attributes.find("\\abc_flop");
+			if (it != box_module->attributes.end()) {
+				log_assert(flop_count < flopNum);
+				std::string abc_flop = it->second.decode_string();
+				auto pos = abc_flop.find(',');
+				log_assert(pos != std::string::npos);
+				flop_module = design->module(RTLIL::escape_id(abc_flop.substr(0, pos)));
+				log_assert(flop_module);
+				pos = abc_flop.rfind(',');
+				log_assert(pos != std::string::npos);
+				flop_past_q = RTLIL::escape_id(abc_flop.substr(pos+1));
+				flop_data[cell->type] = std::make_pair(flop_module, flop_past_q);
+			}
+			it = box_module->attributes.find("\\abc_carry");
 			if (it != box_module->attributes.end()) {
 				RTLIL::Wire *carry_in = nullptr, *carry_out = nullptr;
 				auto carry_in_out = it->second.decode_string();
@@ -795,6 +802,11 @@ void AigerReader::post_process()
 				ports.push_back(carry_out->name);
 				carry_out->port_id = ports.size();
 			}
+		}
+		else {
+			auto it = flop_data.find(cell->type);
+			if (it != flop_data.end())
+				std::tie(flop_module,flop_past_q) = it->second;
 		}
 
 		// NB: Assume box_module->ports are sorted alphabetically
