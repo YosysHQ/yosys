@@ -1,11 +1,13 @@
-sudo: false
+os: linux
 language: cpp
 
 cache:
  ccache: true
- directories:
-  - ~/.local-bin
+ directories: ~/.local-bin
 
+before_install: ./.travis/setup.sh
+script: ./.travis/build-and-test.sh
+after_success: ./.travis/deploy-after-success.sh
 
 env:
   global:
@@ -14,8 +16,7 @@ env:
 matrix:
   include:
     # Latest gcc-4.8, earliest version supported by Travis
-    - os: linux
-      addons:
+    - addons:
         apt:
           packages:
             - g++-4.8
@@ -41,8 +42,7 @@ matrix:
         - MATRIX_EVAL="CONFIG=gcc && CC=gcc-4.8 && CXX=g++-4.8"
 
     # Latest gcc supported on Travis Linux
-    - os: linux
-      addons:
+    - addons:
         apt:
           sources:
             - ubuntu-toolchain-r-test
@@ -70,8 +70,7 @@ matrix:
         - MATRIX_EVAL="CONFIG=gcc && CC=gcc-9 && CXX=g++-9"
 
     # Clang which ships on Trusty Linux
-    - os: linux
-      addons:
+    - addons:
         apt:
           sources:
             - ubuntu-toolchain-r-test
@@ -100,8 +99,7 @@ matrix:
         - MATRIX_EVAL="CONFIG=clang && CC=clang-3.8 && CXX=clang++-3.8"
 
     # Latest clang supported by Travis Linux
-    - os: linux
-      addons:
+    - addons:
         apt:
           sources:
             - llvm-toolchain-xenial-8
@@ -133,12 +131,3 @@ matrix:
 #     osx_image: xcode9.4
 #     env:
 #       - MATRIX_EVAL="CONFIG=clang && CC=clang && CXX=clang++"
-
-before_install:
-  - ./.travis/setup.sh
-
-script:
-  - ./.travis/build-and-test.sh
-
-after_success:
-  - ./.travis/deploy-after-success.sh
