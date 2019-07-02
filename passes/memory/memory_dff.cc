@@ -17,6 +17,7 @@
  *
  */
 
+#include <algorithm>
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 
@@ -183,12 +184,12 @@ struct MemoryDffWorker
 		if (mux_cells_a.count(sig_data) || mux_cells_b.count(sig_data))
 		{
 			RTLIL::SigSpec en;
-			RTLIL::SigSpec check_q;
+			std::vector<RTLIL::SigSpec> check_q;
 
 			do {
 				bool enable_invert = mux_cells_a.count(sig_data) != 0;
 				Cell *mux = enable_invert ? mux_cells_a.at(sig_data) : mux_cells_b.at(sig_data);
-				check_q = sigmap(mux->getPort(enable_invert ? "\\B" : "\\A"));
+				check_q.push_back(sigmap(mux->getPort(enable_invert ? "\\B" : "\\A")));
 				sig_data = sigmap(mux->getPort("\\Y"));
 				en.append(enable_invert ? module->LogicNot(NEW_ID, mux->getPort("\\S")) : mux->getPort("\\S"));
 			} while (mux_cells_a.count(sig_data) || mux_cells_b.count(sig_data));
@@ -197,7 +198,8 @@ struct MemoryDffWorker
 				if (sigbit_users_count[bit] > 1)
 					goto skip_ff_after_read_merging;
 
-			if (find_sig_before_dff(sig_data, clk_data, clk_polarity, true) && clk_data != RTLIL::SigSpec(RTLIL::State::Sx) && sig_data == check_q)
+			if (find_sig_before_dff(sig_data, clk_data, clk_polarity, true) && clk_data != RTLIL::SigSpec(RTLIL::State::Sx) &&
+					std::all_of(check_q.begin(), check_q.end(), [&](const SigSpec &cq) {return cq == sig_data; }))
 			{
 				disconnect_dff(sig_data);
 				cell->setPort("\\CLK", clk_data);
