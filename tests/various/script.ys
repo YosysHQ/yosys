@@ -9,12 +9,12 @@ read_verilog -formal <<EOT
     endmodule
 
     module other;
-        wire [1023:0] _DELETE = "delete c:bar";
+        wire [1023:0] _DELETE = "cd; delete c:bar";
     endmodule
 EOT
 
-script -select w:_RUNME*
+script -scriptwire w:_RUNME*
 
 select w:_DELETE
-script -select
+script -scriptwire
 select -assert-count 1 t:foo
