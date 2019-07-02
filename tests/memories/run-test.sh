@@ -31,6 +31,10 @@ for f in `egrep -l 'expect-(wr-ports|rd-ports|rd-clk)' *.v`; do
 		grep -q "connect \\\\RD_CLK \\$(gawk '/expect-rd-clk/ { print $3; }' $f)\$" ${f%.v}.dmp ||
 				{ echo " ERROR: Unexpected read clock."; false; }
 	fi
+	if grep -q expect-no-rd-clk $f; then
+		grep -q "connect \\\\RD_CLK 1'x\$" ${f%.v}.dmp ||
+				{ echo " ERROR: Expected no read clock."; false; }
+	fi
 	echo " ok."
 done
 
