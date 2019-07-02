@@ -6,12 +6,15 @@ read_verilog -formal <<EOT
 
         wire [1023:0] _RUNME0 = "select -assert-count 2 t:foo";
         wire [1023:0] _RUNME1 = "select -assert-count 1 t:winnie";
-        wire [1023:0] _DELETE = "delete c:bar";
+    endmodule
+
+    module other;
+        wire [1023:0] _DELETE = "cd; delete c:bar";
     endmodule
 EOT
 
-script -select w:_RUNME*
+script -scriptwire w:_RUNME*
 
 select w:_DELETE
-script -select
+script -scriptwire
 select -assert-count 1 t:foo
