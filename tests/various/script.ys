@@ -9,7 +9,7 @@ read_verilog -formal <<EOT
     endmodule
 
     module other;
-        wire [1023:0] _DELETE = "delete c:bar";
+        wire [1023:0] _DELETE = "cd; delete c:bar";
     endmodule
 EOT
 
