@@ -193,6 +193,8 @@ YOSYS_NAMESPACE_END
     to fix parsing of cells otherwise. (the current cell parser forces a reduce very early to update some
     global state.. its a mess) */
 [a-zA-Z_$][a-zA-Z0-9_$]*/[ \t\r\n]*:[ \t\r\n]*(assert|assume|cover|restrict)[^a-zA-Z0-9_$\.] {
+	if (!strcmp(yytext, "default"))
+		return TOK_DEFAULT;
 	frontend_verilog_yylval.string = new std::string(std::string("\\") + yytext);
 	return TOK_SVA_LABEL;
 }
