@@ -843,7 +843,7 @@ struct XAigerWriter
 			write_r_buffer(ff_bits.size());
 			int mergeability_class = 1;
 			for (auto cell : ff_bits)
-				write_r_buffer(mergeability_class);
+				write_r_buffer(mergeability_class++);
 
 			f << "r";
 			buffer_str = r_buffer.str();
