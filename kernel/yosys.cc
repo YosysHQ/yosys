@@ -1259,7 +1259,7 @@ struct ScriptCmdPass : public Pass {
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
 		log("    script <filename> [<from_label>:<to_label>]\n");
-		log("    script -select [selection]\n");
+		log("    script -scriptwire [selection]\n");
 		log("\n");
 		log("This command executes the yosys commands in the specified file (default\n");
 		log("behaviour), or commands embedded in the constant text value connected to the\n");
@@ -1276,17 +1276,17 @@ struct ScriptCmdPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
-		bool select_mode = false;
+		bool scriptwire = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
-			if (args[argidx] == "-select") {
-				select_mode = true;
+			if (args[argidx] == "-scriptwire") {
+				scriptwire = true;
 				continue;
 			}
 			break;
 		}
-		if (select_mode) {
+		if (scriptwire) {
 			extra_args(args, argidx, design);
 
 			for (auto mod : design->selected_modules())
