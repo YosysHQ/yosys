@@ -13,8 +13,8 @@ read_verilog -formal <<EOT
     endmodule
 EOT
 
-script -select w:_RUNME*
+script -scriptwire w:_RUNME*
 
 select w:_DELETE
-script -select
+script -scriptwire
 select -assert-count 1 t:foo
