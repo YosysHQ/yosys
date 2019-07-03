@@ -7,9 +7,11 @@ module test (
 		if (EN) Q <= D;
 
 	specify
+`ifndef SKIP_UNSUPPORTED_IGN_PARSER_CONSTRUCTS
 		if (EN) (posedge CLK *> (Q : D)) = (1, 2:3:4);
 		$setup(D, posedge CLK &&& EN, 5);
 		$hold(posedge CLK, D &&& EN, 6);
+`endif
 	endspecify
 endmodule
 
@@ -31,14 +33,7 @@ endmodule
 
 module issue01144(input clk, d, output q);
 specify
-  // Fails:
   (posedge clk => (q +: d)) = (3,1);
-  //(/*posedge*/ clk => (q +: d)) = (3,1); // Invalid syntax
   (posedge clk *> (q +: d)) = (3,1);
-  //(/*posedge*/ clk *> (q +: d)) = (3,1); // Invalid syntax
-
-  // Works:
-  (/*posedge*/ clk => q) = (3,1);
-  (/*posedge*/ clk *> q) = (3,1);
 endspecify
 endmodule
