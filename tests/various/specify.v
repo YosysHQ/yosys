@@ -7,7 +7,7 @@ module test (
 		if (EN) Q <= D;
 
 	specify
-		if (EN) (CLK *> (Q : D)) = (1, 2:3:4);
+		if (EN) (posedge CLK *> (Q : D)) = (1, 2:3:4);
 		$setup(D, posedge CLK &&& EN, 5);
 		$hold(posedge CLK, D &&& EN, 6);
 	endspecify

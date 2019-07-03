@@ -1021,13 +1021,8 @@ list_of_specparam_assignments:
 specparam_assignment:
 	ignspec_id '=' constant_mintypmax_expression ;
 
-/*
-pulsestyle_declaration :
-	;
-
-showcancelled_declaration :
-	;
-*/
+ignspec_opt_cond:
+	TOK_IF '(' ignspec_expr ')' | /* empty */;
 
 path_declaration :
 	simple_path_declaration ';'
@@ -1036,8 +1031,8 @@ path_declaration :
 	;
 
 simple_path_declaration :
-	parallel_path_description '=' path_delay_value |
-	full_path_description '=' path_delay_value
+	ignspec_opt_cond parallel_path_description '=' path_delay_value |
+	ignspec_opt_cond full_path_description '=' path_delay_value
 	;
 
 path_delay_value :
@@ -1047,26 +1042,7 @@ path_delay_value :
 	;
 
 list_of_path_delay_extra_expressions :
-/*
-	t_path_delay_expression
-	| trise_path_delay_expression ',' tfall_path_delay_expression
-	| trise_path_delay_expression ',' tfall_path_delay_expression ',' tz_path_delay_expression
-	| t01_path_delay_expression ',' t10_path_delay_expression ',' t0z_path_delay_expression ','
-	  tz1_path_delay_expression ',' t1z_path_delay_expression ',' tz0_path_delay_expression
-	| t01_path_delay_expression ',' t10_path_delay_expression ',' t0z_path_delay_expression ','
-	  tz1_path_delay_expression ',' t1z_path_delay_expression ',' tz0_path_delay_expression ','
-	  t0x_path_delay_expression ',' tx1_path_delay_expression ',' t1x_path_delay_expression ','
-	  tx0_path_delay_expression ',' txz_path_delay_expression ',' tzx_path_delay_expression
-*/
-	',' path_delay_expression
-	|  ',' path_delay_expression ',' path_delay_expression
-	|  ',' path_delay_expression ',' path_delay_expression ','
-	  path_delay_expression ',' path_delay_expression ',' path_delay_expression
-	|  ',' path_delay_expression ',' path_delay_expression ','
-	  path_delay_expression ',' path_delay_expression ',' path_delay_expression ','
-	  path_delay_expression ',' path_delay_expression ',' path_delay_expression ','
-	  path_delay_expression ',' path_delay_expression ',' path_delay_expression
-	;
+	',' path_delay_expression | ',' path_delay_expression list_of_path_delay_extra_expressions;
 
 specify_edge_identifier :
 	TOK_POSEDGE | TOK_NEGEDGE ;
@@ -1118,56 +1094,6 @@ system_timing_arg :
 system_timing_args :
 	system_timing_arg |
 	system_timing_args ',' system_timing_arg ;
-
-/*
-t_path_delay_expression :
-	path_delay_expression;
-
-trise_path_delay_expression :
-	path_delay_expression;
-
-tfall_path_delay_expression :
-	path_delay_expression;
-
-tz_path_delay_expression :
-	path_delay_expression;
-
-t01_path_delay_expression :
-	path_delay_expression;
-
-t10_path_delay_expression :
-	path_delay_expression;
-
-t0z_path_delay_expression :
-	path_delay_expression;
-
-tz1_path_delay_expression :
-	path_delay_expression;
-
-t1z_path_delay_expression :
-	path_delay_expression;
-
-tz0_path_delay_expression :
-	path_delay_expression;
-
-t0x_path_delay_expression :
-	path_delay_expression;
-
-tx1_path_delay_expression :
-	path_delay_expression;
-
-t1x_path_delay_expression :
-	path_delay_expression;
-
-tx0_path_delay_expression :
-	path_delay_expression;
-
-txz_path_delay_expression :
-	path_delay_expression;
-
-tzx_path_delay_expression :
-	path_delay_expression;
-*/
 
 path_delay_expression :
 	ignspec_constant_expression;
