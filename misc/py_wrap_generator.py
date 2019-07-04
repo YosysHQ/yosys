@@ -779,6 +779,9 @@ class WClass:
 
 			#if self.link_type != link_types.pointer:
 			text += "\n\t\tstatic " + self.name + "* get_py_obj(" + long_name + "* ref)\n\t\t{"
+			text += "\n\t\t\tif(ref == nullptr){"
+			text += "\n\t\t\t\tthrow std::runtime_error(\"" + self.name + " does not exist.\");"
+			text += "\n\t\t\t}"
 			text += "\n\t\t\t" + self.name + "* ret = (" + self.name + "*)malloc(sizeof(" + self.name + "));"
 			if self.link_type == link_types.pointer:
 				text += "\n\t\t\tret->ref_obj = ref;"
