@@ -225,7 +225,7 @@ struct SynthEcp5Pass : public ScriptPass
 
 		if (check_label("coarse"))
 		{
-			run("synth -run coarse");
+			run("synth -run coarse -memory-zeroinit");
 		}
 
 		if (!nobram && check_label("bram", "(skip if -nobram)"))

@@ -232,7 +232,7 @@ struct SynthXilinxPass : public ScriptPass
 		}
 
 		if (check_label("coarse")) {
-			run("synth -run coarse");
+			run("synth -run coarse -memory-zeroinit");
 
 			// shregmap -tech xilinx can cope with $shiftx and $mux
 			//   cells for identifying variable-length shift registers,

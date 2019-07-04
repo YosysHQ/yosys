@@ -67,6 +67,9 @@ struct SynthPass : public ScriptPass
 		log("    -nordff\n");
 		log("        passed to 'memory'. prohibits merging of FFs into memory read ports\n");
 		log("\n");
+		log("    -memory-zeroinit\n");
+		log("        passes -zeroinit to 'memory'. assumes that memory read FFs are zero-initialized\n");
+		log("\n");
 		log("    -noshare\n");
 		log("        do not run SAT-based resource sharing\n");
 		log("\n");
@@ -157,6 +160,10 @@ struct SynthPass : public ScriptPass
 			}
 			if (args[argidx] == "-nordff") {
 				memory_opts += " -nordff";
+				continue;
+			}
+			if (args[argidx] == "-memory-zeroinit") {
+				memory_opts += " -zeroinit";
 				continue;
 			}
 			if (args[argidx] == "-noshare") {

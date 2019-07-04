@@ -34,7 +34,7 @@ struct MemoryDffWorker
 	dict<SigBit, int> sigbit_users_count;
 	dict<SigSpec, Cell*> mux_cells_a, mux_cells_b;
 	pool<Cell*> forward_merged_dffs, candidate_dffs;
-	pool<SigBit> init_bits;
+	dict<SigBit, State> init_bits;
 
 	MemoryDffWorker(Module *module) : module(module), sigmap(module)
 	{
@@ -45,11 +45,11 @@ struct MemoryDffWorker
 			Const initval = wire->attributes.at("\\init");
 			for (int i = 0; i < GetSize(sig) && i < GetSize(initval); i++)
 				if (initval[i] == State::S0 || initval[i] == State::S1)
-					init_bits.insert(sig[i]);
+					init_bits[sig[i]] = initval[i];
 		}
 	}
 
-	bool find_sig_before_dff(RTLIL::SigSpec &sig, RTLIL::SigSpec &clk, bool &clk_polarity, bool after = false)
+	bool find_sig_before_dff(RTLIL::SigSpec &sig, RTLIL::SigSpec &clk, bool &clk_polarity, bool after = false, bool zero_init = false)
 	{
 		sigmap.apply(sig);
 
@@ -88,7 +88,7 @@ struct MemoryDffWorker
 				if (d.size() != 1)
 					continue;
 
-				if (after && init_bits.count(d))
+				if (after && (init_bits.count(d) && (!zero_init || init_bits.at(d) == State::S1)))
 					return false;
 
 				bit = d;
@@ -168,7 +168,7 @@ struct MemoryDffWorker
 			}
 	}
 
-	void handle_rd_cell(RTLIL::Cell *cell)
+	void handle_rd_cell(RTLIL::Cell *cell, bool flag_zero_init)
 	{
 		log("Checking cell `%s' in module `%s': ", cell->name.c_str(), module->name.c_str());
 
@@ -198,7 +198,7 @@ struct MemoryDffWorker
 				if (sigbit_users_count[bit] > 1)
 					goto skip_ff_after_read_merging;
 
-			if (find_sig_before_dff(sig_data, clk_data, clk_polarity, true) && clk_data != RTLIL::SigSpec(RTLIL::State::Sx) &&
+			if (find_sig_before_dff(sig_data, clk_data, clk_polarity, true, flag_zero_init) && clk_data != RTLIL::SigSpec(RTLIL::State::Sx) &&
 					std::all_of(check_q.begin(), check_q.end(), [&](const SigSpec &cq) {return cq == sig_data; }))
 			{
 				disconnect_dff(sig_data);
@@ -214,7 +214,7 @@ struct MemoryDffWorker
 		}
 		else
 		{
-			if (find_sig_before_dff(sig_data, clk_data, clk_polarity, true) && clk_data != RTLIL::SigSpec(RTLIL::State::Sx))
+			if (find_sig_before_dff(sig_data, clk_data, clk_polarity, true, flag_zero_init) && clk_data != RTLIL::SigSpec(RTLIL::State::Sx))
 			{
 				disconnect_dff(sig_data);
 				cell->setPort("\\CLK", clk_data);
@@ -247,7 +247,7 @@ struct MemoryDffWorker
 		log("no (compatible) $dff found.\n");
 	}
 
-	void run(bool flag_wr_only)
+	void run(bool flag_wr_only, bool flag_zero_init)
 	{
 		for (auto wire : module->wires()) {
 			if (wire->port_output)
@@ -285,7 +285,7 @@ struct MemoryDffWorker
 		if (!flag_wr_only)
 			for (auto cell : module->selected_cells())
 				if (cell->type == "$memrd" && !cell->parameters["\\CLK_ENABLE"].as_bool())
-					handle_rd_cell(cell);
+					handle_rd_cell(cell, flag_zero_init);
 	}
 };
 
@@ -304,10 +304,13 @@ struct MemoryDffPass : public Pass {
 		log("    -nordfff\n");
 		log("        do not merge registers on read ports\n");
 		log("\n");
+		log("    -zeroinit\n");
+		log("        assume read port registers are zero-initialized\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
-		bool flag_wr_only = false;
+		bool flag_wr_only = false, flag_zero_init = false;
 
 		log_header(design, "Executing MEMORY_DFF pass (merging $dff cells to $memrd and $memwr).\n");
 
@@ -317,13 +320,17 @@ struct MemoryDffPass : public Pass {
 				flag_wr_only = true;
 				continue;
 			}
+			if (args[argidx] == "-zeroinit") {
+				flag_zero_init = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
 		for (auto mod : design->selected_modules()) {
 			MemoryDffWorker worker(mod);
-			worker.run(flag_wr_only);
+			worker.run(flag_wr_only, flag_zero_init);
 		}
 	}
 } MemoryDffPass;

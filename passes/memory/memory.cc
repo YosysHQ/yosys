@@ -31,11 +31,11 @@ struct MemoryPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    memory [-nomap] [-nordff] [-memx] [-bram <bram_rules>] [selection]\n");
+		log("    memory [-nomap] [-nordff] [-zeroinit] [-memx] [-bram <bram_rules>] [selection]\n");
 		log("\n");
 		log("This pass calls all the other memory_* passes in a useful order:\n");
 		log("\n");
-		log("    memory_dff [-nordff]                (-memx implies -nordff)\n");
+		log("    memory_dff  [-nordff] [-zeroinit]  (-memx implies -nordff)\n");
 		log("    opt_clean\n");
 		log("    memory_share\n");
 		log("    opt_clean\n");
@@ -53,6 +53,7 @@ struct MemoryPass : public Pass {
 		bool flag_nomap = false;
 		bool flag_nordff = false;
 		bool flag_memx = false;
+		bool flag_zeroinit = false;
 		string memory_bram_opts;
 
 		log_header(design, "Executing MEMORY pass.\n");
@@ -68,6 +69,10 @@ struct MemoryPass : public Pass {
 				flag_nordff = true;
 				continue;
 			}
+			if (args[argidx] == "-zeroinit") {
+				flag_zeroinit = true;
+				continue;
+			}
 			if (args[argidx] == "-memx") {
 				flag_nordff = true;
 				flag_memx = true;
@@ -81,7 +86,7 @@ struct MemoryPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		Pass::call(design, flag_nordff ? "memory_dff -nordff" : "memory_dff");
+		Pass::call(design, stringf("memory_dff%s%s", flag_nordff ? " -nordff" : "", flag_zeroinit ? " -zeroinit" : ""));
 		Pass::call(design, "opt_clean");
 		Pass::call(design, "memory_share");
 		if (flag_memx)
