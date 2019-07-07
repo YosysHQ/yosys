@@ -48,6 +48,8 @@ struct SynthIntelPass : public ScriptPass {
 		log("    -vqm <file>\n");
 		log("        write the design to the specified Verilog Quartus Mapping File. Writing of an\n");
 		log("        output file is omitted if this parameter is not specified.\n");
+		log("        Note that this backend has not been tested and is likely incompatible\n");
+		log("        with recent versions of Quartus.\n");
 		log("\n");
 		log("    -vpr <file>\n");
 		log("        write BLIF files for VPR flow experiments. The synthesized BLIF output file is not\n");
@@ -108,6 +110,7 @@ struct SynthIntelPass : public ScriptPass {
 			}
 			if (args[argidx] == "-vqm" && argidx + 1 < args.size()) {
 				vout_file = args[++argidx];
+				log_warning("The Quartus backend has not been tested recently and is likely incompatible with modern versions of Quartus.\n");
 				continue;
 			}
 			if (args[argidx] == "-vpr" && argidx + 1 < args.size()) {
