@@ -280,23 +280,21 @@ struct SynthXilinxPass : public ScriptPass
 			}
 			else if (widemux > 0) {
 				run("simplemap t:$mux");
-				std::string muxcover_args = " -nodecode";
+				constexpr int cost_mux2 = 100;
+				std::string muxcover_args = stringf(" -nodecode -mux2=%d", cost_mux2);
 				switch (widemux) {
-					// NB: Cost of mux2 is 100; mux8 should cost between 3 and 4
-					//     of those so that 4:1 muxes and below are implemented
-					//     out of mux2s
-					case  5: muxcover_args += " -mux8=350 -mux16=400"; break;
-					case  6: muxcover_args += " -mux8=450 -mux16=500"; break;
-					case  7: muxcover_args += " -mux8=550 -mux16=600"; break;
-					case  8: muxcover_args += " -mux8=650 -mux16=700"; break;
-					case  9: muxcover_args += " -mux16=750"; break;
-					case 10: muxcover_args += " -mux16=850"; break;
-					case 11: muxcover_args += " -mux16=950"; break;
-					case 12: muxcover_args += " -mux16=1050"; break;
-					case 13: muxcover_args += " -mux16=1150"; break;
-					case 14: muxcover_args += " -mux16=1250"; break;
-					case 15: muxcover_args += " -mux16=1350"; break;
-					default: muxcover_args += " -mux16=1450"; break;
+					case  5:
+					case  6:
+					case  7:
+					case  8: muxcover_args += stringf(" -mux8=%d -mux16=%d", cost_mux2*(widemux-1)-1, cost_mux2*(widemux-1)); break;
+					case  9:
+					case 10:
+					case 11:
+					case 12:
+					case 13:
+					case 14:
+					case 15:
+					default: muxcover_args += stringf(" -mux16=%d", cost_mux2*(widemux-1)-1); break;
 				}
 				run("muxcover " + muxcover_args);
 			}
