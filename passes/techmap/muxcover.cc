@@ -631,7 +631,7 @@ struct MuxcoverPass : public Pass {
 		log("\n");
 		log("Cover trees of $_MUX_ cells with $_MUX{4,8,16}_ cells\n");
 		log("\n");
-		log("    -mux4[=cost], -mux8[=cost], -mux16[=cost]\n");
+		log("    -mux2=cost, -mux4[=cost], -mux8[=cost], -mux16[=cost]\n");
 		log("        Use the specified types of MUXes (with optional integer costs). If none\n");
 		log("        of these options are given, the effect is the same as if all of them are.\n");
 		log("        Default costs: $_MUX_ = %d, $_MUX4_ = %d,\n", COST_MUX2, COST_MUX4);
@@ -661,6 +661,7 @@ struct MuxcoverPass : public Pass {
 		bool nodecode = false;
 		bool nopartial = false;
 		int cost_dmux = COST_DMUX;
+		int cost_mux2 = COST_MUX2;
 		int cost_mux4 = COST_MUX4;
 		int cost_mux8 = COST_MUX8;
 		int cost_mux16 = COST_MUX16;
@@ -669,6 +670,10 @@ struct MuxcoverPass : public Pass {
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
 			const auto &arg = args[argidx];
+			if (arg.size() >= 6 && arg.substr(0,6) == "-mux2=") {
+				cost_mux2 = atoi(arg.substr(6).c_str());
+				continue;
+			}
 			if (arg.size() >= 5 && arg.substr(0,5) == "-mux4") {
 				use_mux4 = true;
 				if (arg.size() > 5) {
@@ -722,6 +727,7 @@ struct MuxcoverPass : public Pass {
 			worker.use_mux8 = use_mux8;
 			worker.use_mux16 = use_mux16;
 			worker.cost_dmux = cost_dmux;
+			worker.cost_mux2 = cost_mux2;
 			worker.cost_mux4 = cost_mux4;
 			worker.cost_mux8 = cost_mux8;
 			worker.cost_mux16 = cost_mux16;
