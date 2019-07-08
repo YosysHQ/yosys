@@ -77,6 +77,9 @@ struct SynthXilinxPass : public ScriptPass
 		log("    -nowidelut\n");
 		log("        do not use MUXF[78] resources to implement LUTs larger than LUT6s\n");
 		log("\n");
+		log("    -nodsp\n");
+		log("        do not use DSP48E1s to implement multipliers and associated logic\n");
+		log("\n");
 		log("    -widemux <int>\n");
 		log("        enable inference of hard multiplexer resources (MuxFx) for muxes at or\n");
 		log("        above this number of inputs (minimum value 5).\n");
@@ -103,7 +106,7 @@ struct SynthXilinxPass : public ScriptPass
 	}
 
 	std::string top_opt, edif_file, blif_file, family;
-	bool flatten, retime, vpr, nobram, nodram, nosrl, nocarry, nowidelut, abc9;
+	bool flatten, retime, vpr, nobram, nodram, nosrl, nocarry, nowidelut, nodsp, abc9;
 	int widemux;
 
 	void clear_flags() YS_OVERRIDE
@@ -121,6 +124,7 @@ struct SynthXilinxPass : public ScriptPass
 		nosrl = false;
 		nocarry = false;
 		nowidelut = false;
+		nodsp = false;
 		abc9 = false;
 		widemux = 0;
 	}
@@ -201,6 +205,10 @@ struct SynthXilinxPass : public ScriptPass
 				abc9 = true;
 				continue;
 			}
+			if (args[argidx] == "-nodsp") {
+				nodsp = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -239,10 +247,31 @@ struct SynthXilinxPass : public ScriptPass
 		}
 
 		if (check_label("coarse")) {
-			if (help_mode)
-				run("synth -run coarse [-flatten]", "(with '-flatten')");
-			else
-				run("synth -run coarse" + std::string(flatten ? "" : " -flatten"), "(with '-flatten')");
+			run("proc");
+			if (flatten || help_mode)
+				run("flatten", "(with '-flatten')");
+			run("opt_expr");
+			run("opt_clean");
+			run("check");
+			run("opt");
+			run("wreduce");
+			run("peepopt");
+			run("opt_clean");
+			run("share");
+			run("techmap -map +/cmp2lut.v -D LUT_WIDTH=4");
+			run("opt_expr");
+			run("opt_clean");
+			if (!nodsp || help_mode) {
+				run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=25 -D DSP_B_MAXWIDTH=18 -D DSP_NAME=$__MUL25X18");
+				run("clean");
+				run("techmap -map +/xilinx/dsp_map.v");
+			}
+			run("alumacc");
+			run("opt");
+			run("fsm");
+			run("opt -fast");
+			run("memory -nomap");
+			run("opt_clean");
 
 			if (widemux > 0 || help_mode)
 				run("muxpack", "    ('-widemux' only)");
