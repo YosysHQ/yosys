@@ -1327,7 +1327,7 @@ public:
 #endif
 };
 
-struct RTLIL::CaseRule
+struct RTLIL::CaseRule : public RTLIL::AttrObject
 {
 	std::vector<RTLIL::SigSpec> compare;
 	std::vector<RTLIL::SigSig> actions;
