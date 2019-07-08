@@ -40,7 +40,7 @@ struct SynthIntelPass : public ScriptPass {
 		log("        generate the synthesis netlist for the specified family.\n");
 		log("        MAX10 is the default target if not family argument specified.\n");
 		log("        For Cyclone GX devices, use cycloneiv argument; For Cyclone E, use cycloneive.\n");
-		log("        Cyclone V and Arria 10 GX devices are experimental, use it with a10gx argument.\n");
+		log("        Cyclone V and Arria 10 GX devices are experimental.\n");
 		log("\n");
 		log("    -top <module>\n");
 		log("        use the specified module as top module (default='top')\n");
