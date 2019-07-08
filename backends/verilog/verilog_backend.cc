@@ -1494,6 +1494,7 @@ void dump_proc_switch(std::ostream &f, std::string indent, RTLIL::SwitchRule *sw
 		return;
 	}
 
+	dump_attributes(f, indent, sw->attributes);
 	f << stringf("%s" "casez (", indent.c_str());
 	dump_sigspec(f, sw->signal);
 	f << stringf(")\n");
