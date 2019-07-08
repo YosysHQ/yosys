@@ -227,7 +227,7 @@ module \$__mul_gen (A, B, Y);
 			if (Y_WIDTH < A_WIDTH+B_WIDTH)
 				assign Y = out[Y_WIDTH-1:0];
 			else begin
-				wire Ysign = (A_SIGNED || B_SIGNED ? out[A_WIDTH+BWIDTH-1] : 1'b0);
+				wire Ysign = (A_SIGNED || B_SIGNED ? out[A_WIDTH+B_WIDTH-1] : 1'b0);
 				assign Y = { {{Y_WIDTH-(A_WIDTH+B_WIDTH)}{Ysign}}, out[A_WIDTH+B_WIDTH-1:0] };
 			end
 		end
