@@ -10,6 +10,7 @@ $(eval $(call add_share_file,share/ecp5,techlibs/ecp5/brams_map.v))
 $(eval $(call add_share_file,share/ecp5,techlibs/ecp5/bram.txt))
 $(eval $(call add_share_file,share/ecp5,techlibs/ecp5/arith_map.v))
 $(eval $(call add_share_file,share/ecp5,techlibs/ecp5/latches_map.v))
+$(eval $(call add_share_file,share/ecp5,techlibs/ecp5/dsp_map.v))
 
 $(eval $(call add_share_file,share/ecp5,techlibs/ecp5/abc_5g.box))
 $(eval $(call add_share_file,share/ecp5,techlibs/ecp5/abc_5g.lut))

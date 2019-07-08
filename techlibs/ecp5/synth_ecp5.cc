@@ -89,6 +89,9 @@ struct SynthEcp5Pass : public ScriptPass
 		log("        generate an output netlist (and BLIF file) suitable for VPR\n");
 		log("        (this feature is experimental and incomplete)\n");
 		log("\n");
+		log("    -dsp\n");
+		log("        map multipliers to MULT18X18D (EXPERIMENTAL)\n");
+		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
@@ -96,7 +99,7 @@ struct SynthEcp5Pass : public ScriptPass
 	}
 
 	string top_opt, blif_file, edif_file, json_file;
-	bool noccu2, nodffe, nobram, nodram, nowidelut, flatten, retime, abc2, abc9, vpr;
+	bool noccu2, nodffe, nobram, nodram, nowidelut, flatten, retime, abc2, abc9, dsp, vpr;
 
 	void clear_flags() YS_OVERRIDE
 	{
@@ -114,6 +117,7 @@ struct SynthEcp5Pass : public ScriptPass
 		abc2 = false;
 		vpr = false;
 		abc9 = false;
+		dsp = false;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -192,6 +196,10 @@ struct SynthEcp5Pass : public ScriptPass
 				abc9 = true;
 				continue;
 			}
+			if (args[argidx] == "-dsp") {
+				dsp = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -225,7 +233,28 @@ struct SynthEcp5Pass : public ScriptPass
 
 		if (check_label("coarse"))
 		{
-			run("synth -run coarse");
+			run("opt_expr");
+			run("opt_clean");
+			run("check");
+			run("opt");
+			run("wreduce");
+			run("peepopt");
+			run("opt_clean");
+			run("share");
+			run("techmap -map +/cmp2lut.v -D LUT_WIDTH=4");
+			run("opt_expr");
+			run("opt_clean");
+			if (dsp) {
+				run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=18 -D DSP_B_MAXWIDTH=18 -D DSP_NAME=$__MUL18X18");
+				run("clean");
+				run("techmap -map +/ecp5/dsp_map.v");
+			}
+			run("alumacc");
+			run("opt");
+			run("fsm");
+			run("opt -fast");
+			run("memory -nomap");
+			run("opt_clean");
 		}
 
 		if (!nobram && check_label("bram", "(skip if -nobram)"))
