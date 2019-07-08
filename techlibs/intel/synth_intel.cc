@@ -166,20 +166,12 @@ struct SynthIntelPass : public ScriptPass {
 	void script() YS_OVERRIDE
 	{
 		if (check_label("begin")) {
-			if (check_label("family") && family_opt == "max10")
-				run("read_verilog -sv -lib +/intel/max10/cells_sim.v");
-			else if (check_label("family") && family_opt == "a10gx")
-				run("read_verilog -sv -lib +/intel/a10gx/cells_sim.v");
-			else if (check_label("family") && family_opt == "cyclonev")
-				run("read_verilog -sv -lib +/intel/cyclonev/cells_sim.v");
-			else if (check_label("family") && family_opt == "cyclone10")
-				run("read_verilog -sv -lib +/intel/cyclone10/cells_sim.v");
-			else if (check_label("family") && family_opt == "cycloneiv")
-				run("read_verilog -sv -lib +/intel/cycloneiv/cells_sim.v");
-			else if (check_label("family") && family_opt == "cycloneive")
-				run("read_verilog -sv -lib +/intel/cycloneive/cells_sim.v");
-			else
-				log_cmd_error("Invalid or not family specified: '%s'\n", family_opt.c_str());
+			string cmd = "read_verilog -sv -lib +/intel/FAMILY/cells_sim.v";
+			cmd.replace(cmd.find("FAMILY"), 6, family_opt);
+
+			if (check_label("family"))
+				run(cmd);
+
 			// Misc and common cells
 			run("read_verilog -sv -lib +/intel/common/m9k_bb.v");
 			run("read_verilog -sv -lib +/intel/common/altpll_bb.v");
@@ -228,20 +220,10 @@ struct SynthIntelPass : public ScriptPass {
 		if (check_label("map_cells")) {
 			if (!noiopads)
 				run("iopadmap -bits -outpad $__outpad I:O -inpad $__inpad O:I", "(unless -noiopads)");
-			if (family_opt == "max10")
-				run("techmap -map +/intel/max10/cells_map.v");
-			else if (family_opt == "a10gx")
-				run("techmap -map +/intel/a10gx/cells_map.v");
-			else if (family_opt == "cyclonev")
-				run("techmap -map +/intel/cyclonev/cells_map.v");
-			else if (family_opt == "cyclone10")
-				run("techmap -map +/intel/cyclone10/cells_map.v");
-			else if (family_opt == "cycloneiv")
-				run("techmap -map +/intel/cycloneiv/cells_map.v");
-			else if (family_opt == "cycloneive")
-				run("techmap -map +/intel/cycloneive/cells_map.v");
-			else
-				log_cmd_error("Invalid or not family specified: '%s'\n", family_opt.c_str());
+			string cmd = "techmap -map +/intel/FAMILY/cells_map.v";
+			cmd.replace(cmd.find("FAMILY"), 6, family_opt);
+			run(cmd);
+
 			run("dffinit -highlow -ff dffeas q power_up");
 			run("clean -purge");
 		}
