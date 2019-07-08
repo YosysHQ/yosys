@@ -147,8 +147,12 @@ struct SynthIntelPass : public ScriptPass {
 
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");
-		if (family_opt != "max10" && family_opt != "a10gx" && family_opt != "cyclonev" && family_opt != "cycloneiv" &&
-		    family_opt != "cycloneive" && family_opt != "cyclone10")
+		if (family_opt != "max10" &&
+		    family_opt != "a10gx" &&
+		    family_opt != "cyclonev" &&
+		    family_opt != "cycloneiv" &&
+		    family_opt != "cycloneive" &&
+		    family_opt != "cyclone10")
 			log_cmd_error("Invalid or not family specified: '%s'\n", family_opt.c_str());
 
 		log_header(design, "Executing SYNTH_INTEL pass.\n");
