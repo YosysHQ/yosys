@@ -79,7 +79,7 @@ struct SynthXilinxPass : public ScriptPass
 		log("\n");
 		log("    -widemux <int>\n");
 		log("        enable inference of hard multiplexer resources (MuxFx) for muxes at or\n");
-		log("        above this number of inputs (minimum value 5).\n");
+		log("        above this number of inputs (minimum value 2).\n");
 		log("        default: 0 (no inference)\n");
 		log("\n");
 		log("    -run <from_label>:<to_label>\n");
@@ -208,8 +208,8 @@ struct SynthXilinxPass : public ScriptPass
 		if (family != "xcup" && family != "xcu" && family != "xc7" && family != "xc6s")
 			log_cmd_error("Invalid Xilinx -family setting: %s\n", family.c_str());
 
-		if (widemux != 0 && widemux < 5)
-			log_cmd_error("-widemux value must be 0 or >= 5.\n");
+		if (widemux != 0 && widemux < 2)
+			log_cmd_error("-widemux value must be 0 or >= 2.\n");
 
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");
@@ -252,7 +252,7 @@ struct SynthXilinxPass : public ScriptPass
 			//   so attempt to convert $pmux-es to the former
 			// Also: wide multiplexer inference benefits from this too
 			if (!(nosrl && widemux == 0) || help_mode)
-				run("pmux2shiftx", "(skip if '-nosrl' and '-widemux' < 5)");
+				run("pmux2shiftx", "(skip if '-nosrl' and '-widemux=0')");
 		}
 
 		if (check_label("bram", "(skip if '-nobram')")) {
@@ -283,6 +283,9 @@ struct SynthXilinxPass : public ScriptPass
 				constexpr int cost_mux2 = 100;
 				std::string muxcover_args = stringf(" -nodecode -mux2=%d", cost_mux2);
 				switch (widemux) {
+				        case  2:
+					case  3:
+					case  4: muxcover_args += stringf(" -mux4=%d -mux8=%d -mux16=%d", cost_mux2*(widemux-1)-2, cost_mux2*(widemux-1)-1, cost_mux2*(widemux-1)); break;
 					case  5:
 					case  6:
 					case  7:
