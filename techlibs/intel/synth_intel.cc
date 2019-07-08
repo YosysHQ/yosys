@@ -176,8 +176,10 @@ struct SynthIntelPass : public ScriptPass {
 				run("read_verilog -sv -lib +/intel/cyclone10/cells_sim.v");
 			else if (check_label("family") && family_opt == "cycloneiv")
 				run("read_verilog -sv -lib +/intel/cycloneiv/cells_sim.v");
-			else
+			else if (check_label("family") && family_opt == "cycloneive")
 				run("read_verilog -sv -lib +/intel/cycloneive/cells_sim.v");
+			else
+				log_cmd_error("Invalid or not family specified: '%s'\n", family_opt.c_str());
 			// Misc and common cells
 			run("read_verilog -sv -lib +/intel/common/m9k_bb.v");
 			run("read_verilog -sv -lib +/intel/common/altpll_bb.v");
@@ -236,8 +238,10 @@ struct SynthIntelPass : public ScriptPass {
 				run("techmap -map +/intel/cyclone10/cells_map.v");
 			else if (family_opt == "cycloneiv")
 				run("techmap -map +/intel/cycloneiv/cells_map.v");
-			else
+			else if (family_opt == "cycloneive")
 				run("techmap -map +/intel/cycloneive/cells_map.v");
+			else
+				log_cmd_error("Invalid or not family specified: '%s'\n", family_opt.c_str());
 			run("dffinit -highlow -ff dffeas q power_up");
 			run("clean -purge");
 		}
