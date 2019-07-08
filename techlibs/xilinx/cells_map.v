@@ -193,6 +193,14 @@ module \$__XILINX_SHIFTX (A, B, Y);
     else if (A_WIDTH < `MIN_MUX_INPUTS) begin
       wire _TECHMAP_FAIL_ = 1;
     end
+    else if (A_WIDTH == 2) begin
+      MUXF7 fpga_hard_mux (.I0(A[0]), .I1(A[1]), .S(B[0]), .O(Y));
+    end
+    else if (A_WIDTH <= 2 ** 2) begin
+      wire [4-1:0] T;
+      assign T = {{(4-A_WIDTH){1'bx}}, A};
+      \$__XILINX_MUXF78 fpga_hard_mux (.I0(T[0]), .I1(T[1]), .I2(T[2]), .I3(T[3]), .S0(B[0]), .S1(B[1]), .O(Y));
+    end
     else if (A_WIDTH <= 2 ** 3) begin
       localparam a_width0 = 2 ** 2;
       localparam a_widthN = A_WIDTH - a_width0;
@@ -251,15 +259,32 @@ module _90__XILINX_SHIFTX (A, B, Y);
   \$shiftx  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(A_WIDTH), .B_WIDTH(B_WIDTH), .Y_WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(A), .B(B), .Y(Y));
 endmodule
 
+module \$_MUX_ (A, B, S, Y);
+  input A, B, S;
+  output Y;
+  generate
+    if (`MIN_MUX_INPUTS == 2)
+      \$__XILINX_SHIFTX  #(.A_SIGNED(0), .B_SIGNED(0), .A_WIDTH(2), .B_WIDTH(1), .Y_WIDTH(1)) _TECHMAP_REPLACE_ (.A({B,A}), .B(S), .Y(Y));
+    else
+      wire _TECHMAP_FAIL_ = 1;
+  endgenerate
+endmodule
+
+module \$_MUX4_ (A, B, C, D, S, T, Y);
+  input A, B, C, D, S, T;
+  output Y;
+  \$__XILINX_SHIFTX  #(.A_SIGNED(0), .B_SIGNED(0), .A_WIDTH(4), .B_WIDTH(2), .Y_WIDTH(1)) _TECHMAP_REPLACE_ (.A({D,C,B,A}), .B({T,S}), .Y(Y));
+endmodule
+
 module \$_MUX8_ (A, B, C, D, E, F, G, H, S, T, U, Y);
-input A, B, C, D, E, F, G, H, S, T, U;
-output Y;
+  input A, B, C, D, E, F, G, H, S, T, U;
+  output Y;
   \$__XILINX_SHIFTX  #(.A_SIGNED(0), .B_SIGNED(0), .A_WIDTH(8), .B_WIDTH(3), .Y_WIDTH(1)) _TECHMAP_REPLACE_ (.A({H,G,F,E,D,C,B,A}), .B({U,T,S}), .Y(Y));
 endmodule
 
 module \$_MUX16_ (A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, S, T, U, V, Y);
-input A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, S, T, U, V;
-output Y;
+  input A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, S, T, U, V;
+  output Y;
   \$__XILINX_SHIFTX  #(.A_SIGNED(0), .B_SIGNED(0), .A_WIDTH(16), .B_WIDTH(4), .Y_WIDTH(1)) _TECHMAP_REPLACE_ (.A({P,O,N,M,L,K,J,I,H,G,F,E,D,C,B,A}), .B({V,U,T,S}), .Y(Y));
 endmodule
 `endif
