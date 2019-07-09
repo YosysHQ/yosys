@@ -253,6 +253,13 @@ struct Clk2fflogicPass : public Pass {
 						SigSpec qval = module->Mux(NEW_ID, past_q, past_d, clock_edge);
 						Const rstval = cell->parameters["\\ARST_VALUE"];
 
+						Wire *past_arst = module->addWire(NEW_ID);
+						module->addFf(NEW_ID, arst, past_arst);
+						if (cell->parameters["\\ARST_POLARITY"].as_bool())
+							arst = module->LogicOr(NEW_ID, arst, past_arst);
+						else
+							arst = module->LogicAnd(NEW_ID, arst, past_arst);
+
 						if (cell->parameters["\\ARST_POLARITY"].as_bool())
 							module->addMux(NEW_ID, qval, rstval, arst, sig_q);
 						else

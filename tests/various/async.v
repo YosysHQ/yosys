@@ -74,7 +74,7 @@ module testbench;
 			if (q_uut !== q_syn) msg = "SYN";
 			if (q_uut !== q_prp) msg = "PRP";
 			if (q_uut !== q_a2s) msg = "A2S";
-			// if (q_uut !== q_ffl) msg = "FFL";
+			if (q_uut !== q_ffl) msg = "FFL";
 			$display("%6t %b %b %b %b %b %s", $time, q_uut, q_syn, q_prp, q_a2s, q_ffl, msg);
 			if (msg != "OK") $finish;
 		end
