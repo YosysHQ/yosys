@@ -79,7 +79,7 @@ struct SynthXilinxPass : public ScriptPass
 		log("\n");
 		log("    -widemux <int>\n");
 		log("        enable inference of hard multiplexer resources (MuxFx) for muxes at or\n");
-		log("        above this number of inputs (minimum value 2).\n");
+		log("        above this number of inputs (minimum value 2, recommended value >= 5).\n");
 		log("        default: 0 (no inference)\n");
 		log("\n");
 		log("    -run <from_label>:<to_label>\n");
