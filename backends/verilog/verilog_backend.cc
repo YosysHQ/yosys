@@ -1501,6 +1501,7 @@ void dump_proc_switch(std::ostream &f, std::string indent, RTLIL::SwitchRule *sw
 
 	bool got_default = false;
 	for (auto it = sw->cases.begin(); it != sw->cases.end(); ++it) {
+		dump_attributes(f, indent + "  ", (*it)->attributes, '\n', /*modattr=*/false, /*as_comment=*/true);
 		if ((*it)->compare.size() == 0) {
 			if (got_default)
 				continue;
@@ -1514,9 +1515,7 @@ void dump_proc_switch(std::ostream &f, std::string indent, RTLIL::SwitchRule *sw
 				dump_sigspec(f, (*it)->compare[i]);
 			}
 		}
-		f << stringf(":");
-		dump_attributes(f, indent, (*it)->attributes, ' ', /*modattr=*/false, /*as_comment=*/true);
-		f << stringf("\n");
+		f << stringf(":\n");
 		dump_case_body(f, indent + "    ", *it);
 	}
 
