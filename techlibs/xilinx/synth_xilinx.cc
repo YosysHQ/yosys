@@ -270,7 +270,11 @@ struct SynthXilinxPass : public ScriptPass
 		}
 
 		if (check_label("fine")) {
-			run("opt -fast -full");
+		        if (widemux > 0)
+				run("opt -fast -mux_bool -undriven -fine"); // Necessary to omit -mux_undef otherwise muxcover
+									    // performs less efficiently
+			else
+				run("opt -fast -full");
 			run("memory_map");
 			run("dffsr2dff");
 			run("dff2dffe");
