@@ -28,6 +28,7 @@ Yosys 0.8 .. Yosys 0.8-dev
     - Added "synth_ecp5 -nowidelut"
     - "synth_xilinx" to now infer hard shift registers (-nosrl to disable)
     - Fixed sign extension of unsized constants with 'bx and 'bz MSB
+    - Added support for attributes on case rules
 
 
 Yosys 0.7 .. Yosys 0.8
