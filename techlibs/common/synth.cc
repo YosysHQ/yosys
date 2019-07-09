@@ -78,9 +78,6 @@ struct SynthPass : public ScriptPass
 		log("    -abc9\n");
 		log("        use new ABC9 flow (EXPERIMENTAL)\n");
 		log("\n");
-		log("    -keepdc\n");
-		log("        do not optimize explicit don't-care values on $mux cells.\n");
-		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
@@ -88,7 +85,7 @@ struct SynthPass : public ScriptPass
 	}
 
 	string top_module, fsm_opts, memory_opts, abc;
-	bool autotop, flatten, noalumacc, nofsm, noabc, noshare, keepdc;
+	bool autotop, flatten, noalumacc, nofsm, noabc, noshare;
 	int lut;
 
 	void clear_flags() YS_OVERRIDE
@@ -105,7 +102,6 @@ struct SynthPass : public ScriptPass
 		noabc = false;
 		noshare = false;
 		abc = "abc";
-		keepdc = false;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -171,10 +167,6 @@ struct SynthPass : public ScriptPass
 				abc = "abc9";
 				continue;
 			}
-			if (args[argidx] == "-keepdc") {
-				keepdc = true;
-				continue;
-			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -219,10 +211,7 @@ struct SynthPass : public ScriptPass
 			run("opt_clean");
 			run("check");
 			run("opt");
-			if (help_mode)
-				run("wreduce [-keepdc]");
-			else
-				run("wreduce" + std::string(keepdc ? " -keepdc" : ""));
+			run("wreduce");
 			run("peepopt");
 			run("opt_clean");
 			if (help_mode)
