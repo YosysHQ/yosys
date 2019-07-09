@@ -504,6 +504,7 @@ struct AST_INTERNAL::ProcessGenerator
 
 					RTLIL::CaseRule *backup_case = current_case;
 					current_case = new RTLIL::CaseRule;
+					current_case->attributes["\\src"] = stringf("%s:%d", child->filename.c_str(), child->linenum);
 					last_generated_case = current_case;
 					addChunkActions(current_case->actions, this_case_eq_ltemp, this_case_eq_rvalue);
 					for (auto node : child->children) {
