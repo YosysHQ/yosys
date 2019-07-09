@@ -203,7 +203,15 @@ module \$__XILINX_SHIFTX (A, B, Y);
       MUXF7 fpga_hard_mux (.I0(A[0]), .I1(A[1]), .S(B[0]), .O(Y));
     end
     else if (A_WIDTH <= 4) begin
-      wire [4-1:0] Ax = {{{4-A_WIDTH}{1'bx}}, A};
+      wire [4-1:0] Ax;
+      if (A_WIDTH == 4)
+        assign Ax = A;
+      else
+        // Rather than extend with 1'bx which gets flattened to 1'b0
+        // causing the "don't care" status to get lost, extend with
+        // the same driver of F7B.I0 so that we can optimise F7B away
+        // later
+        assign Ax = {A[1], A};
       \$__XILINX_MUXF78 fpga_hard_mux (.I0(Ax[0]), .I1(Ax[2]), .I2(Ax[1]), .I3(Ax[3]), .S0(B[1]), .S1(B[0]), .O(Y));
     end
     else if (A_WIDTH <= 8) begin
