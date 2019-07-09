@@ -78,7 +78,7 @@ struct SynthXilinxPass : public ScriptPass
 		log("        do not use MUXF[78] resources to implement LUTs larger than LUT6s\n");
 		log("\n");
 		log("    -widemux <int>\n");
-		log("        enable inference of hard multiplexer resources (MuxFx) for muxes at or\n");
+		log("        enable inference of hard multiplexer resources (MUXF[78]) for muxes at or\n");
 		log("        above this number of inputs (minimum value 2, recommended value >= 5).\n");
 		log("        default: 0 (no inference)\n");
 		log("\n");
