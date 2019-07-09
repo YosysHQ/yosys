@@ -196,11 +196,11 @@ module \$__XILINX_SHIFTX (A, B, Y);
     else if (A_WIDTH == 2) begin
       MUXF7 fpga_hard_mux (.I0(A[0]), .I1(A[1]), .S(B[0]), .O(Y));
     end
-    else if (A_WIDTH <= 2 ** 2) begin
+    else if (A_WIDTH <= 4) begin
       wire [4-1:0] Ax = {{(4-A_WIDTH){A[A_WIDTH-1]}}, A};
       \$__XILINX_MUXF78 fpga_hard_mux (.I0(Ax[0]), .I1(Ax[1]), .I2(Ax[2]), .I3(Ax[3]), .S0(B[0]), .S1(B[1]), .O(Y));
     end
-    else if (A_WIDTH <= 2 ** 3) begin
+    else if (A_WIDTH <= 8) begin
       // Rather than extend with 1'bx which gets flattened to 1'b0
       // causing the "don't care" status to get lost, extend with MSB
       // so that we can recognise again later when mapping MUXF78
@@ -211,7 +211,7 @@ module \$__XILINX_SHIFTX (A, B, Y);
       wire T3 = B[0] ? Ax[7] : Ax[6];
       \$__XILINX_MUXF78 fpga_hard_mux (.I0(T0), .I1(T1), .I2(T2), .I3(T3), .S0(B[1]), .S1(B[2]), .O(Y));
     end
-    else if (A_WIDTH <= 2 ** 4) begin
+    else if (A_WIDTH <= 16) begin
       // Rather than extend with 1'bx which gets flattened to 1'b0
       // causing the "don't care" status to get lost, extend with MSB
       // so that we can recognise again later when mapping MUXF78
