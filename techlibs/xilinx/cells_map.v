@@ -197,6 +197,9 @@ module \$__XILINX_SHIFTX (A, B, Y);
       MUXF7 fpga_hard_mux (.I0(A[0]), .I1(A[1]), .S(B[0]), .O(Y));
     end
     else if (A_WIDTH <= 4) begin
+      // Rather than extend with 1'bx which gets flattened to 1'b0
+      // causing the "don't care" status to get lost, extend with MSB
+      // so that we can recognise again later when mapping MUXF78
       wire [4-1:0] Ax = {{(4-A_WIDTH){A[A_WIDTH-1]}}, A};
       \$__XILINX_MUXF78 fpga_hard_mux (.I0(Ax[0]), .I1(Ax[1]), .I2(Ax[2]), .I3(Ax[3]), .S0(B[0]), .S1(B[1]), .O(Y));
     end
