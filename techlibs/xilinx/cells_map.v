@@ -202,7 +202,7 @@ module \$__XILINX_SHIFTX (A, B, Y);
     end
     else if (A_WIDTH <= 2 ** 3) begin
       // Rather than extend with 1'bx which gets flattened to 1'b0
-      // causing the "don't care" state to get lost, extend with MSB
+      // causing the "don't care" status to get lost, extend with MSB
       // so that we can recognise again later when mapping MUXF78
       wire [8-1:0] Ax = {{(8-A_WIDTH){A[A_WIDTH-1]}}, A};
       wire T0 = B[0] ? Ax[1] : Ax[0];
@@ -213,7 +213,7 @@ module \$__XILINX_SHIFTX (A, B, Y);
     end
     else if (A_WIDTH <= 2 ** 4) begin
       // Rather than extend with 1'bx which gets flattened to 1'b0
-      // causing the "don't care" state to get lost, extend with MSB
+      // causing the "don't care" status to get lost, extend with MSB
       // so that we can recognise again later when mapping MUXF78
       wire [16-1:0] Ax = {{(16-A_WIDTH){A[A_WIDTH-1]}}, A};
       wire T0 = B[1] ? B[0] ? Ax[ 3] : Ax[ 2]
