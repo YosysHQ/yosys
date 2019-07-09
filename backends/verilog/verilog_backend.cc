@@ -364,20 +364,22 @@ void dump_sigspec(std::ostream &f, const RTLIL::SigSpec &sig)
 	}
 }
 
-void dump_attributes(std::ostream &f, std::string indent, dict<RTLIL::IdString, RTLIL::Const> &attributes, char term = '\n', bool modattr = false)
+void dump_attributes(std::ostream &f, std::string indent, dict<RTLIL::IdString, RTLIL::Const> &attributes, char term = '\n', bool modattr = false, bool as_comment = false)
 {
 	if (noattr)
 		return;
+	if (attr2comment)
+		as_comment = true;
 	for (auto it = attributes.begin(); it != attributes.end(); ++it) {
-		f << stringf("%s" "%s %s", indent.c_str(), attr2comment ? "/*" : "(*", id(it->first).c_str());
+		f << stringf("%s" "%s %s", indent.c_str(), as_comment ? "/*" : "(*", id(it->first).c_str());
 		f << stringf(" = ");
 		if (modattr && (it->second == Const(0, 1) || it->second == Const(0)))
 			f << stringf(" 0 ");
 		else if (modattr && (it->second == Const(1, 1) || it->second == Const(1)))
 			f << stringf(" 1 ");
 		else
-			dump_const(f, it->second, -1, 0, false, attr2comment);
-		f << stringf(" %s%c", attr2comment ? "*/" : "*)", term);
+			dump_const(f, it->second, -1, 0, false, as_comment);
+		f << stringf(" %s%c", as_comment ? "*/" : "*)", term);
 	}
 }
 
@@ -1492,6 +1494,7 @@ void dump_proc_switch(std::ostream &f, std::string indent, RTLIL::SwitchRule *sw
 		return;
 	}
 
+	dump_attributes(f, indent, sw->attributes);
 	f << stringf("%s" "casez (", indent.c_str());
 	dump_sigspec(f, sw->signal);
 	f << stringf(")\n");
@@ -1511,7 +1514,9 @@ void dump_proc_switch(std::ostream &f, std::string indent, RTLIL::SwitchRule *sw
 				dump_sigspec(f, (*it)->compare[i]);
 			}
 		}
-		f << stringf(":\n");
+		f << stringf(":");
+		dump_attributes(f, indent, (*it)->attributes, ' ', /*modattr=*/false, /*as_comment=*/true);
+		f << stringf("\n");
 		dump_case_body(f, indent + "    ", *it);
 	}
 
@@ -1662,7 +1667,7 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 		}
 	}
 
-	dump_attributes(f, indent, module->attributes, '\n', true);
+	dump_attributes(f, indent, module->attributes, '\n', /*attr2comment=*/true);
 	f << stringf("%s" "module %s(", indent.c_str(), id(module->name, false).c_str());
 	bool keep_running = true;
 	for (int port_id = 1; keep_running; port_id++) {

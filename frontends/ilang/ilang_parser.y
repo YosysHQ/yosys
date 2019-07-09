@@ -282,14 +282,14 @@ proc_stmt:
 	} case_body sync_list TOK_END EOL;
 
 switch_stmt:
-	attr_list TOK_SWITCH sigspec EOL {
+	TOK_SWITCH sigspec EOL {
 		RTLIL::SwitchRule *rule = new RTLIL::SwitchRule;
-		rule->signal = *$3;
+		rule->signal = *$2;
 		rule->attributes = attrbuf;
 		switch_stack.back()->push_back(rule);
 		attrbuf.clear();
-		delete $3;
-	} switch_body TOK_END EOL;
+		delete $2;
+	} attr_list switch_body TOK_END EOL;
 
 attr_list:
 	/* empty */ |
@@ -298,9 +298,11 @@ attr_list:
 switch_body:
 	switch_body TOK_CASE {
 		RTLIL::CaseRule *rule = new RTLIL::CaseRule;
+		rule->attributes = attrbuf;
 		switch_stack.back()->back()->cases.push_back(rule);
 		switch_stack.push_back(&rule->switches);
 		case_stack.push_back(rule);
+		attrbuf.clear();
 	} compare_list EOL case_body {
 		switch_stack.pop_back();
 		case_stack.pop_back();
@@ -319,12 +321,15 @@ compare_list:
 	/* empty */;
 
 case_body:
+	case_body attr_stmt |
 	case_body switch_stmt |
 	case_body assign_stmt |
 	/* empty */;
 
 assign_stmt:
 	TOK_ASSIGN sigspec sigspec EOL {
+		if (attrbuf.size() != 0)
+			rtlil_frontend_ilang_yyerror("dangling attribute");
 		case_stack.back()->actions.push_back(RTLIL::SigSig(*$2, *$3));
 		delete $2;
 		delete $3;

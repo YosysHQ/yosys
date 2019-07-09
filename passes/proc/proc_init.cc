@@ -26,21 +26,7 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-void proc_get_const(RTLIL::SigSpec &sig, RTLIL::CaseRule &rule)
-{
-	log_assert(rule.compare.size() == 0);
-
-	while (1) {
-		RTLIL::SigSpec tmp = sig;
-		for (auto &it : rule.actions)
-			tmp.replace(it.first, it.second);
-		if (tmp == sig)
-			break;
-		sig = tmp;
-	}
-}
-
-void proc_init(RTLIL::Module *mod, RTLIL::Process *proc)
+void proc_init(RTLIL::Module *mod, SigMap &sigmap, RTLIL::Process *proc)
 {
 	bool found_init = false;
 
@@ -53,9 +39,7 @@ void proc_init(RTLIL::Module *mod, RTLIL::Process *proc)
 			for (auto &action : sync->actions)
 			{
 				RTLIL::SigSpec lhs = action.first;
-				RTLIL::SigSpec rhs = action.second;
-
-				proc_get_const(rhs, proc->root_case);
+				RTLIL::SigSpec rhs = sigmap(action.second);
 
 				if (!rhs.is_fully_const())
 					log_cmd_error("Failed to get a constant init value for %s: %s\n", log_signal(lhs), log_signal(rhs));
@@ -120,10 +104,12 @@ struct ProcInitPass : public Pass {
 		extra_args(args, 1, design);
 
 		for (auto mod : design->modules())
-			if (design->selected(mod))
+			if (design->selected(mod)) {
+				SigMap sigmap(mod);
 				for (auto &proc_it : mod->processes)
 					if (design->selected(mod, proc_it.second))
-						proc_init(mod, proc_it.second);
+						proc_init(mod, sigmap, proc_it.second);
+			}
 	}
 } ProcInitPass;
 

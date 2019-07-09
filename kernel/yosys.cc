@@ -1273,6 +1273,10 @@ struct ScriptCmdPass : public Pass {
 		log("If only one label is specified (without ':') then only the block\n");
 		log("marked with that label (until the next label) is executed.\n");
 		log("\n");
+		log("In \"-scriptwire\" mode, the commands on the selected wire(s) will be executed\n");
+		log("in the scope of (and thus, relative to) the wires' owning module(s). This\n");
+		log("'-module' mode can be exited by using the 'cd' command.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
