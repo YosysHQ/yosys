@@ -287,7 +287,7 @@ struct SynthXilinxPass : public ScriptPass
 				constexpr int cost_mux2 = 100;
 				std::string muxcover_args = stringf(" -nodecode -mux2=%d", cost_mux2);
 				switch (widemux) {
-				        case  2: muxcover_args += stringf(" -mux4=%d -mux8=%d -mux16=%d", cost_mux2+1, cost_mux2+2, cost_mux2+3); break;
+					case  2: muxcover_args += stringf(" -mux4=%d -mux8=%d -mux16=%d", cost_mux2+1, cost_mux2+2, cost_mux2+3); break;
 					case  3:
 					case  4: muxcover_args += stringf(" -mux4=%d -mux8=%d -mux16=%d", cost_mux2*(widemux-1)-2, cost_mux2*(widemux-1)-1, cost_mux2*(widemux-1)); break;
 					case  5:
