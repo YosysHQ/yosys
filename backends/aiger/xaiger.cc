@@ -21,13 +21,15 @@
 // https://stackoverflow.com/a/46137633
 #ifdef _MSC_VER
 #include <stdlib.h>
-#define __builtin_bswap32 _byteswap_ulong
+#define bswap32 _byteswap_ulong
 #elif defined(__APPLE__)
 #include <libkern/OSByteOrder.h>
-#define __builtin_bswap32 OSSwapInt32
-#elif !defined(__GNUC__)
+#define bswap32 OSSwapInt32
+#elif defined(__GNUC__)
+#define bswap32 __builtin_bswap32
+#else
 #include <cstdint>
-inline uint32_t __builtin_bswap32(uint32_t x)
+inline static uint32_t bswap32(uint32_t x)
 {
 	// https://stackoverflow.com/a/27796212
 	register uint32_t value = number_to_be_reversed;
