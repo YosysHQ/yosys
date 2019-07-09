@@ -239,10 +239,25 @@ struct SynthXilinxPass : public ScriptPass
 		}
 
 		if (check_label("coarse")) {
+			run("proc");
+			if (help_mode || flatten)
+				run("flatten", "(if -flatten)");
+			run("opt_expr");
+			run("opt_clean");
+			run("check");
+			run("opt");
 			if (help_mode)
-				run("synth -run coarse [-flatten]", "(with '-flatten')");
+				run("wreduce [-keepdc]", "(option for '-widemux')");
 			else
-				run("synth -run coarse" + std::string(flatten ? "" : " -flatten"), "(with '-flatten')");
+				run("wreduce" + std::string(widemux > 0 ? " -keepdc" : ""));
+			run("peepopt");
+			run("opt_clean");
+			run("alumacc");
+			run("share");
+			run("opt");
+			run("fsm");
+			run("opt -fast");
+			run("memory -nomap");
 
 			if (widemux > 0 || help_mode)
 				run("muxpack", "    ('-widemux' only)");
@@ -253,6 +268,8 @@ struct SynthXilinxPass : public ScriptPass
 			// Also: wide multiplexer inference benefits from this too
 			if (!(nosrl && widemux == 0) || help_mode)
 				run("pmux2shiftx", "(skip if '-nosrl' and '-widemux=0')");
+
+			run("opt_clean");
 		}
 
 		if (check_label("bram", "(skip if '-nobram')")) {
@@ -344,7 +361,7 @@ struct SynthXilinxPass : public ScriptPass
 		if (check_label("map_luts")) {
 			run("opt_expr -mux_undef");
 			if (help_mode)
-				run("abc -luts 2:2,3,6:5[,10,20] [-dff]", "(skip if 'nowidelut', only for '-retime')");
+				run("abc -luts 2:2,3,6:5[,10,20] [-dff]", "(option for 'nowidelut', option for '-retime')");
 			else if (abc9) {
 				if (family != "xc7")
 					log_warning("'synth_xilinx -abc9' currently supports '-family xc7' only.\n");
