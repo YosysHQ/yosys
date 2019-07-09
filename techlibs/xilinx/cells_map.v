@@ -200,34 +200,46 @@ module \$__XILINX_SHIFTX (A, B, Y);
       // Rather than extend with 1'bx which gets flattened to 1'b0
       // causing the "don't care" status to get lost, extend with MSB
       // so that we can recognise again later when mapping MUXF78
-      wire [4-1:0] Ax = {{(4-A_WIDTH){A[A_WIDTH-1]}}, A};
-      \$__XILINX_MUXF78 fpga_hard_mux (.I0(Ax[0]), .I1(Ax[1]), .I2(Ax[2]), .I3(Ax[3]), .S0(B[0]), .S1(B[1]), .O(Y));
+      wire [4-1:0] Ax;
+      if (A_WIDTH == 4)
+        assign Ax = A;
+      else
+        assign Ax = {A[1-:4-A_WIDTH], A};
+      \$__XILINX_MUXF78 fpga_hard_mux (.I0(Ax[0]), .I1(Ax[2]), .I2(Ax[1]), .I3(Ax[3]), .S0(B[1]), .S1(B[0]), .O(Y));
     end
     else if (A_WIDTH <= 8) begin
       // Rather than extend with 1'bx which gets flattened to 1'b0
       // causing the "don't care" status to get lost, extend with MSB
       // so that we can recognise again later when mapping MUXF78
-      wire [8-1:0] Ax = {{(8-A_WIDTH){A[A_WIDTH-1]}}, A};
-      wire T0 = B[0] ? Ax[1] : Ax[0];
-      wire T1 = B[0] ? Ax[3] : Ax[2];
-      wire T2 = B[0] ? Ax[5] : Ax[4];
-      wire T3 = B[0] ? Ax[7] : Ax[6];
-      \$__XILINX_MUXF78 fpga_hard_mux (.I0(T0), .I1(T1), .I2(T2), .I3(T3), .S0(B[1]), .S1(B[2]), .O(Y));
+      wire [8-1:0] Ax;
+      if (A_WIDTH == 8)
+        assign Ax = A;
+      else
+        assign Ax = {A[3-:8-A_WIDTH], A};
+      wire T0 = B[2] ? Ax[4] : Ax[0];
+      wire T1 = B[2] ? Ax[5] : Ax[1];
+      wire T2 = B[2] ? Ax[6] : Ax[2];
+      wire T3 = B[2] ? Ax[7] : Ax[3];
+      \$__XILINX_MUXF78 fpga_hard_mux (.I0(T0), .I1(T2), .I2(T1), .I3(T3), .S0(B[1]), .S1(B[0]), .O(Y));
     end
     else if (A_WIDTH <= 16) begin
       // Rather than extend with 1'bx which gets flattened to 1'b0
       // causing the "don't care" status to get lost, extend with MSB
       // so that we can recognise again later when mapping MUXF78
-      wire [16-1:0] Ax = {{(16-A_WIDTH){A[A_WIDTH-1]}}, A};
-      wire T0 = B[1] ? B[0] ? Ax[ 3] : Ax[ 2]
-                     : B[0] ? Ax[ 1] : Ax[ 0];
-      wire T1 = B[1] ? B[0] ? Ax[ 7] : Ax[ 6]
-                     : B[0] ? Ax[ 5] : Ax[ 4];
-      wire T2 = B[1] ? B[0] ? Ax[11] : Ax[10]
-                     : B[0] ? Ax[ 9] : Ax[ 8];
-      wire T3 = B[1] ? B[0] ? Ax[15] : Ax[14]
-                     : B[0] ? Ax[13] : Ax[12];
-      \$__XILINX_MUXF78 fpga_hard_mux (.I0(T0), .I1(T1), .I2(T2), .I3(T3), .S0(B[2]), .S1(B[3]), .O(Y));
+      wire [16-1:0] Ax;
+      if (A_WIDTH == 16)
+        assign Ax = A;
+      else
+        assign Ax = {A[7-:8-A_WIDTH], A};
+      wire T0 = B[2] ? B[3] ? Ax[12] : Ax[4]
+                     : B[3] ? Ax[ 8] : Ax[0];
+      wire T1 = B[2] ? B[3] ? Ax[13] : Ax[5]
+                     : B[3] ? Ax[ 9] : Ax[1];
+      wire T2 = B[2] ? B[3] ? Ax[14] : Ax[6]
+                     : B[3] ? Ax[10] : Ax[2];
+      wire T3 = B[2] ? B[3] ? Ax[15] : Ax[7]
+                     : B[3] ? Ax[11] : Ax[3];
+      \$__XILINX_MUXF78 fpga_hard_mux (.I0(T0), .I1(T2), .I2(T1), .I3(T3), .S0(B[1]), .S1(B[0]), .O(Y));
     end
     else begin
       localparam num_mux16 = (A_WIDTH+15) / 16;
