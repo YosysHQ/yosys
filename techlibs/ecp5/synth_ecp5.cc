@@ -2,7 +2,7 @@
  *  yosys -- Yosys Open SYnthesis Suite
  *
  *  Copyright (C) 2012 Clifford Wolf <clifford@clifford.at>
- *  Copyright (C) 2018 Clifford Wolf <dave@ds0.me>
+ *  Copyright (C) 2018 David Shah <dave@ds0.me>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
