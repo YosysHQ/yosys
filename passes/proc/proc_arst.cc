@@ -172,7 +172,7 @@ restart_proc_arst:
 					sync->type = sync->type == RTLIL::SyncType::STp ? RTLIL::SyncType::ST1 : RTLIL::SyncType::ST0;
 				}
 				for (auto &action : sync->actions) {
-					RTLIL::SigSpec rspec = action.second;
+					RTLIL::SigSpec rspec = assign_map(action.second);
 					RTLIL::SigSpec rval = RTLIL::SigSpec(RTLIL::State::Sm, rspec.size());
 					for (int i = 0; i < GetSize(rspec); i++)
 						if (rspec[i].wire == NULL)

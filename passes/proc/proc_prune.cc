@@ -31,11 +31,11 @@ struct PruneWorker
 	RTLIL::Module *module;
 	SigMap sigmap;
 
-	int count = 0;
+	int removed_count = 0, promoted_count = 0;
 
 	PruneWorker(RTLIL::Module *mod) : module(mod), sigmap(mod) {}
 
-	pool<RTLIL::SigBit> do_switch(RTLIL::SwitchRule *sw, pool<RTLIL::SigBit> assigned)
+	pool<RTLIL::SigBit> do_switch(RTLIL::SwitchRule *sw, pool<RTLIL::SigBit> assigned, pool<RTLIL::SigBit> &affected)
 	{
 		pool<RTLIL::SigBit> all_assigned;
 		bool full_case = sw->get_bool_attribute("\\full_case");
@@ -43,7 +43,7 @@ struct PruneWorker
 		for (auto it : sw->cases) {
 			if (it->compare.empty())
 				full_case = true;
-			pool<RTLIL::SigBit> case_assigned = do_case(it, assigned);
+			pool<RTLIL::SigBit> case_assigned = do_case(it, assigned, affected);
 			if (first) {
 				first = false;
 				all_assigned = case_assigned;
@@ -58,10 +58,11 @@ struct PruneWorker
 		return assigned;
 	}
 
-	pool<RTLIL::SigBit> do_case(RTLIL::CaseRule *cs, pool<RTLIL::SigBit> assigned)
+	pool<RTLIL::SigBit> do_case(RTLIL::CaseRule *cs, pool<RTLIL::SigBit> assigned, pool<RTLIL::SigBit> &affected,
+	                            bool root = false)
 	{
 		for (auto it = cs->switches.rbegin(); it != cs->switches.rend(); ++it) {
-			pool<RTLIL::SigBit> sw_assigned = do_switch((*it), assigned);
+			pool<RTLIL::SigBit> sw_assigned = do_switch((*it), assigned, affected);
 			assigned.insert(sw_assigned.begin(), sw_assigned.end());
 		}
 		pool<RTLIL::SigSig> remove;
@@ -74,18 +75,35 @@ struct PruneWorker
 					break;
 				}
 			}
-			if (redundant)
+			if (redundant) {
+				removed_count++;
 				remove.insert(*it);
-			else {
+			} else {
+				if (root) {
+					bool promotable = true;
+					for (auto &bit : lhs) {
+						if (bit.wire && affected[bit]) {
+							promotable = false;
+							break;
+						}
+					}
+					if (promotable) {
+						promoted_count++;
+						module->connect(*it);
+						remove.insert(*it);
+					}
+				}
 				for (auto &bit : lhs)
 					if (bit.wire)
 						assigned.insert(bit);
+				for (auto &bit : lhs)
+					if (bit.wire)
+						affected.insert(bit);
 			}
 		}
 		for (auto it = cs->actions.begin(); it != cs->actions.end(); ) {
 			if (remove[*it]) {
 				it = cs->actions.erase(it);
-				count++;
 			} else it++;
 		}
 		return assigned;
@@ -93,7 +111,8 @@ struct PruneWorker
 
 	void do_process(RTLIL::Process *pr)
 	{
-		do_case(&pr->root_case, {});
+		pool<RTLIL::SigBit> affected;
+		do_case(&pr->root_case, {}, affected, /*root=*/true);
 	}
 };
 
@@ -111,7 +130,7 @@ struct ProcPrunePass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
-		int total_count = 0;
+		int total_removed_count = 0, total_promoted_count = 0;
 		log_header(design, "Executing PROC_PRUNE pass (remove redundant assignments in processes).\n");
 
 		extra_args(args, 1, design);
@@ -125,10 +144,14 @@ struct ProcPrunePass : public Pass {
 					continue;
 				worker.do_process(proc_it.second);
 			}
-			total_count += worker.count;
+			total_removed_count += worker.removed_count;
+			total_promoted_count += worker.promoted_count;
 		}
 
-		log("Removed %d redundant assignment%s.\n", total_count, total_count == 1 ? "" : "s");
+		log("Removed %d redundant assignment%s.\n",
+		    total_removed_count, total_removed_count == 1 ? "" : "s");
+		log("Promoted %d assignment%s to connection%s.\n",
+		    total_promoted_count, total_promoted_count == 1 ? "" : "s", total_promoted_count == 1 ? "" : "s");
 	}
 } ProcPrunePass;
 
