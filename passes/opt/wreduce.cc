@@ -497,7 +497,7 @@ struct WreducePass : public Pass {
 		log("        flows that use the 'memory_memx' pass.\n");
 		log("\n");
 		log("    -keepdc\n");
-		log("        Do not optimize explicit don't-care values.\n");
+		log("        Do not optimize explicit don't-care values on $mux cells.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, Design *design) YS_OVERRIDE
