@@ -260,6 +260,7 @@ struct SynthXilinxPass : public ScriptPass
 			run("fsm");
 			run("opt -fast");
 			run("memory -nomap");
+			run("opt_clean");
 
 			if (widemux > 0 || help_mode)
 				run("muxpack", "    ('-widemux' only)");
@@ -270,8 +271,6 @@ struct SynthXilinxPass : public ScriptPass
 			// Also: wide multiplexer inference benefits from this too
 			if (!(nosrl && widemux == 0) || help_mode)
 				run("pmux2shiftx", "(skip if '-nosrl' and '-widemux=0')");
-
-			run("opt_clean");
 		}
 
 		if (check_label("bram", "(skip if '-nobram')")) {
