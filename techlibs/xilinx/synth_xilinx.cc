@@ -240,9 +240,9 @@ struct SynthXilinxPass : public ScriptPass
 
 		if (check_label("coarse")) {
 			if (help_mode)
-				run("synth -keepdc -run coarse [-flatten]", "(with '-flatten')");
+				run("synth -run coarse [-flatten]", "(with '-flatten')");
 			else
-				run("synth -keepdc -run coarse" + std::string(flatten ? "" : " -flatten"), "(with '-flatten')");
+				run("synth -run coarse" + std::string(flatten ? "" : " -flatten"), "(with '-flatten')");
 
 			if (widemux > 0 || help_mode)
 				run("muxpack", "    ('-widemux' only)");
