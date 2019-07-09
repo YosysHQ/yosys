@@ -32,9 +32,23 @@ module uut (
 endmodule
 
 `ifdef TESTBENCH
+module \$ff #(
+	parameter integer WIDTH = 1
+) (
+	input [WIDTH-1:0] D,
+	output reg [WIDTH-1:0] Q
+);
+	wire sysclk = testbench.sysclk;
+	always @(posedge sysclk)
+		Q <= D;
+endmodule
+
 module testbench;
+	reg sysclk;
+	always #5 sysclk = (sysclk === 1'b0);
+
 	reg clk;
-	always #5 clk = (clk === 1'b0);
+	always @(posedge sysclk) clk = (clk === 1'b0);
 
 	reg d, r, e;
 
@@ -44,13 +58,25 @@ module testbench;
 	wire [`MAXQ:0] q_syn;
 	syn syn (.clk(clk), .d(d), .r(r), .e(e), .q(q_syn));
 
+	wire [`MAXQ:0] q_prp;
+	prp prp (.clk(clk), .d(d), .r(r), .e(e), .q(q_prp));
+
+	wire [`MAXQ:0] q_a2s;
+	a2s a2s (.clk(clk), .d(d), .r(r), .e(e), .q(q_a2s));
+
+	wire [`MAXQ:0] q_ffl;
+	ffl ffl (.clk(clk), .d(d), .r(r), .e(e), .q(q_ffl));
+
 	task printq;
 		reg [5*8-1:0] msg;
 		begin
 			msg = "OK";
-			if (q_uut != q_syn) msg = "SYN";
-			$display("%6t %b %b %s", $time, q_uut, q_syn, msg);
-			if (msg != "OK") $stop;
+			if (q_uut !== q_syn) msg = "SYN";
+			if (q_uut !== q_prp) msg = "PRP";
+			if (q_uut !== q_a2s) msg = "A2S";
+			// if (q_uut !== q_ffl) msg = "FFL";
+			$display("%6t %b %b %b %b %b %s", $time, q_uut, q_syn, q_prp, q_a2s, q_ffl, msg);
+			if (msg != "OK") $finish;
 		end
 	endtask
 
@@ -75,7 +101,7 @@ module testbench;
 			r <= $random;
 			e <= $random;
 		end
-		$display("OK");
+		$display("PASS");
 		$finish;
 	end
 endmodule
