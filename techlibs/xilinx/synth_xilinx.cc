@@ -2,6 +2,7 @@
  *  yosys -- Yosys Open SYnthesis Suite
  *
  *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *            (C) 2019  Eddie Hung    <eddie@fpgeh.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -252,6 +253,7 @@ struct SynthXilinxPass : public ScriptPass
 				run("wreduce" + std::string(widemux > 0 ? " -keepdc" : ""));
 			run("peepopt");
 			run("opt_clean");
+			run("techmap -map +/cmp2lut.v -D LUT_WIDTH=6");
 			run("alumacc");
 			run("share");
 			run("opt");
