@@ -214,6 +214,27 @@ module \$__XILINX_SHIFTX (A, B, Y);
         assign Ax = {A[1], A};
       \$__XILINX_MUXF78 fpga_hard_mux (.I0(Ax[0]), .I1(Ax[2]), .I2(Ax[1]), .I3(Ax[3]), .S0(B[1]), .S1(B[0]), .O(Y));
     end
+    // Note that the following decompositions are 'backwards' in that
+    // the LSBs are placed on the hard resources, and the soft resources
+    // are used for MSBs.
+    // This has the effect of more effectively utilising the hard mux;
+    // take for example a 5:1 multiplexer, currently this would map as:
+    //
+    // A[0] \___  __                       A[0] \__  __
+    // A[4] /   \|  \     whereas the more A[1] /  \|  \
+    // A[1] _____|   |    obvious mapping  A[2] \___|   |
+    // A[2] _____|   |--  of MSBs to hard  A[3] /   |   |__
+    // A[3]______|   |    resources would  A[4] ____|   |
+    //           |__/     lead to:         1'bx ____|   |
+    //            ||                                |__/
+    //            ||                                 ||
+    //          B[1:0]                             B[1:2]
+    //
+    // Expectation would be that the 'forward' mapping (right) is more
+    // area efficient (consider a 9:1 multiplexer using 2x4:1 multiplexers
+    // on its I0 and I1 inputs, and A[8] and 1'bx on its I2 and I3 inputs)
+    // but that the 'backwards' mapping (left) is more delay efficient
+    // since smaller LUTs are faster than wider ones.
     else if (A_WIDTH <= 8) begin
       wire [8-1:0] Ax = {{{8-A_WIDTH}{1'bx}}, A};
       wire T0 = B[2] ? Ax[4] : Ax[0];
