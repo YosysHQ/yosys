@@ -26,7 +26,7 @@ endmodule
 (* abc_box_id = 8, lib_whitebox, abc_flop = "FDRE,D,Q,\\$pastQ" *)
 module \$__ABC_FDRE (output Q, input C, CE, D, R, \$pastQ );
   parameter [0:0] INIT = 1'b0;
-  //parameter [0:0] IS_C_INVERTED = 1'b0;
+  parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
   parameter [0:0] IS_R_INVERTED = 1'b0;
   assign Q = (R ^ IS_R_INVERTED) ? 1'b0 : (CE ? (D ^ IS_D_INVERTED) : \$pastQ );
