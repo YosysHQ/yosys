@@ -253,14 +253,6 @@ struct SynthXilinxPass : public ScriptPass
 				run("wreduce" + std::string(widemux > 0 ? " -keepdc" : ""));
 			run("peepopt");
 			run("opt_clean");
-			run("techmap -map +/cmp2lut.v -D LUT_WIDTH=6");
-			run("alumacc");
-			run("share");
-			run("opt");
-			run("fsm");
-			run("opt -fast");
-			run("memory -nomap");
-			run("opt_clean");
 
 			if (widemux > 0 || help_mode)
 				run("muxpack", "    ('-widemux' only)");
@@ -269,8 +261,19 @@ struct SynthXilinxPass : public ScriptPass
 			//   cells for identifying variable-length shift registers,
 			//   so attempt to convert $pmux-es to the former
 			// Also: wide multiplexer inference benefits from this too
-			if (!(nosrl && widemux == 0) || help_mode)
+			if (!(nosrl && widemux == 0) || help_mode) {
 				run("pmux2shiftx", "(skip if '-nosrl' and '-widemux=0')");
+				run("clean", "      (skip if '-nosrl' and '-widemux=0')");
+			}
+
+			run("techmap -map +/cmp2lut.v -D LUT_WIDTH=6");
+			run("alumacc");
+			run("share");
+			run("opt");
+			run("fsm");
+			run("opt -fast");
+			run("memory -nomap");
+			run("opt_clean");
 		}
 
 		if (check_label("bram", "(skip if '-nobram')")) {
