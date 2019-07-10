@@ -199,6 +199,9 @@ struct SynthEcp5Pass : public ScriptPass
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");
 
+		if (abc9 && retime)
+				log_cmd_error("-retime option not currently compatible with -abc9!\n");
+
 		log_header(design, "Executing SYNTH_ECP5 pass.\n");
 		log_push();
 
