@@ -220,15 +220,15 @@ module \$__XILINX_SHIFTX (A, B, Y);
     // This has the effect of more effectively utilising the hard mux;
     // take for example a 5:1 multiplexer, currently this would map as:
     //
-    // A[0] \___  __                       A[0] \__  __
-    // A[4] /   \|  \     whereas the more A[1] /  \|  \
-    // A[1] _____|   |    obvious mapping  A[2] \___|   |
-    // A[2] _____|   |--  of MSBs to hard  A[3] /   |   |__
-    // A[3]______|   |    resources would  A[4] ____|   |
-    //           |__/     lead to:         1'bx ____|   |
-    //            ||                                |__/
-    //            ||                                 ||
-    //          B[1:0]                             B[1:2]
+    //     A[0] \___  __                             A[0] \__  __
+    //     A[4] /   \|  \       whereas the more     A[1] /  \|  \
+    //     A[1] _____|   |      obvious mapping      A[2] \___|   |
+    //     A[2] _____|   |--    of MSBs to hard      A[3] /   |   |__
+    //     A[3]______|   |      resources would      A[4] ____|   |
+    //               |__/       lead to:             1'bx ____|   |
+    //                ||                                      |__/
+    //                ||                                       ||
+    //              B[1:0]                                   B[1:2]
     //
     // Expectation would be that the 'forward' mapping (right) is more
     // area efficient (consider a 9:1 multiplexer using 2x4:1 multiplexers
