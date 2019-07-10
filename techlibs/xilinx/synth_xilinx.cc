@@ -25,8 +25,8 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-#define XC7_WIRE_DELAY "300" // Number with which ABC will map a 6-input gate
-                             // to one LUT6 (instead of a LUT5 + LUT2)
+#define XC7_WIRE_DELAY 300 // Number with which ABC will map a 6-input gate
+                           // to one LUT6 (instead of a LUT5 + LUT2)
 
 struct SynthXilinxPass : public ScriptPass
 {
@@ -195,10 +195,13 @@ struct SynthXilinxPass : public ScriptPass
 		extra_args(args, argidx, design);
 
 		if (family != "xcup" && family != "xcu" && family != "xc7" && family != "xc6s")
-			log_cmd_error("Invalid Xilinx -family setting: %s\n", family.c_str());
+			log_cmd_error("Invalid Xilinx -family setting: '%s'.\n", family.c_str());
 
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");
+
+		if (abc9 && retime)
+			log_cmd_error("-retime option not currently compatible with -abc9!\n");
 
 		log_header(design, "Executing SYNTH_XILINX pass.\n");
 		log_push();
@@ -297,9 +300,9 @@ struct SynthXilinxPass : public ScriptPass
 				if (family != "xc7")
 					log_warning("'synth_xilinx -abc9' currently supports '-family xc7' only.\n");
 				if (nowidelut)
-					run("abc9 -lut +/xilinx/abc_xc7_nowide.lut -box +/xilinx/abc_xc7.box -W " + std::string(XC7_WIRE_DELAY) + string(retime ? " -dff" : ""));
+					run("abc9 -lut +/xilinx/abc_xc7_nowide.lut -box +/xilinx/abc_xc7.box -W " + std::to_string(XC7_WIRE_DELAY));
 				else
-					run("abc9 -lut +/xilinx/abc_xc7.lut -box +/xilinx/abc_xc7.box -W " + std::string(XC7_WIRE_DELAY) + string(retime ? " -dff" : ""));
+					run("abc9 -lut +/xilinx/abc_xc7.lut -box +/xilinx/abc_xc7.box -W " + std::to_string(XC7_WIRE_DELAY));
 			}
 			else {
 				if (nowidelut)
