@@ -263,6 +263,25 @@ struct AttrmapPass : public Pass {
 
 				for (auto cell : module->selected_cells())
 					attrmap_apply(stringf("%s.%s", log_id(module), log_id(cell)), actions, cell->attributes);
+
+				for (auto proc : module->processes)
+				{
+					if (!design->selected(module, proc.second))
+						continue;
+					attrmap_apply(stringf("%s.%s", log_id(module), log_id(proc.first)), actions, proc.second->attributes);
+
+					std::vector<RTLIL::CaseRule*> all_cases = {&proc.second->root_case};
+					while (!all_cases.empty()) {
+						RTLIL::CaseRule *cs = all_cases.back();
+						all_cases.pop_back();
+						attrmap_apply(stringf("%s.%s (case)", log_id(module), log_id(proc.first)), actions, cs->attributes);
+
+						for (auto &sw : cs->switches) {
+							attrmap_apply(stringf("%s.%s (switch)", log_id(module), log_id(proc.first)), actions, sw->attributes);
+							all_cases.insert(all_cases.end(), sw->cases.begin(), sw->cases.end());
+						}
+					}
+				}
 			}
 		}
 	}
