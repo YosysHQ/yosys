@@ -279,11 +279,8 @@ struct SynthXilinxPass : public ScriptPass
 
 			run("techmap -map +/cmp2lut.v -D LUT_WIDTH=6");
 
-			if (!nodsp || help_mode) {
+			if (!nodsp || help_mode)
 				run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=25 -D DSP_B_MAXWIDTH=18 -D DSP_NAME=$__MUL25X18");
-				run("clean");
-				run("techmap -map +/xilinx/dsp_map.v");
-			}
 
 			run("alumacc");
 			run("share");

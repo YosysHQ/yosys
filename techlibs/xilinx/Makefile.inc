@@ -31,7 +31,6 @@ $(eval $(call add_share_file,share/xilinx,techlibs/xilinx/arith_map.v))
 $(eval $(call add_share_file,share/xilinx,techlibs/xilinx/ff_map.v))
 $(eval $(call add_share_file,share/xilinx,techlibs/xilinx/lut_map.v))
 $(eval $(call add_share_file,share/xilinx,techlibs/xilinx/mux_map.v))
-$(eval $(call add_share_file,share/xilinx,techlibs/xilinx/dsp_map.v))
 
 $(eval $(call add_share_file,share/xilinx,techlibs/xilinx/abc_xc7.box))
 $(eval $(call add_share_file,share/xilinx,techlibs/xilinx/abc_xc7.lut))
