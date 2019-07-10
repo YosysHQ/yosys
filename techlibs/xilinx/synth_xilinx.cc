@@ -361,6 +361,8 @@ struct SynthXilinxPass : public ScriptPass
 			std::string techmap_args = "-map +/techmap.v -D _ABC -map +/xilinx/cells_map.v";
 			if (widemux > 0)
 				techmap_args += stringf(" -D MIN_MUX_INPUTS=%d", widemux);
+			if (abc9)
+				techmap_args += " -map +/xilinx/ff_map.v";
 			run("techmap " + techmap_args);
 			run("clean");
 		}
