@@ -2,7 +2,7 @@
  *  yosys -- Yosys Open SYnthesis Suite
  *
  *  Copyright (C) 2012 Clifford Wolf <clifford@clifford.at>
- *  Copyright (C) 2018 Clifford Wolf <dave@ds0.me>
+ *  Copyright (C) 2018 David Shah <dave@ds0.me>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -198,6 +198,9 @@ struct SynthEcp5Pass : public ScriptPass
 
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");
+
+		if (abc9 && retime)
+				log_cmd_error("-retime option not currently compatible with -abc9!\n");
 
 		log_header(design, "Executing SYNTH_ECP5 pass.\n");
 		log_push();
