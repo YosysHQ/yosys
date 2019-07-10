@@ -2,6 +2,7 @@
  *  yosys -- Yosys Open SYnthesis Suite
  *
  *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *            (C) 2019  Eddie Hung    <eddie@fpgeh.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -25,8 +26,8 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-#define XC7_WIRE_DELAY "300" // Number with which ABC will map a 6-input gate
-                             // to one LUT6 (instead of a LUT5 + LUT2)
+#define XC7_WIRE_DELAY 300 // Number with which ABC will map a 6-input gate
+                           // to one LUT6 (instead of a LUT5 + LUT2)
 
 struct SynthXilinxPass : public ScriptPass
 {
@@ -81,8 +82,8 @@ struct SynthXilinxPass : public ScriptPass
 		log("        do not use DSP48E1s to implement multipliers and associated logic\n");
 		log("\n");
 		log("    -widemux <int>\n");
-		log("        enable inference of hard multiplexer resources (MuxFx) for muxes at or\n");
-		log("        above this number of inputs (minimum value 5).\n");
+		log("        enable inference of hard multiplexer resources (MUXF[78]) for muxes at or\n");
+		log("        above this number of inputs (minimum value 2, recommended value >= 5).\n");
 		log("        default: 0 (no inference)\n");
 		log("\n");
 		log("    -run <from_label>:<to_label>\n");
@@ -198,7 +199,7 @@ struct SynthXilinxPass : public ScriptPass
 				continue;
 			}
 			if (args[argidx] == "-widemux" && argidx+1 < args.size()) {
-				widemux = atoi(args[++argidx].c_str());
+				widemux = std::stoi(args[++argidx]);
 				continue;
 			}
 			if (args[argidx] == "-abc9") {
@@ -214,13 +215,16 @@ struct SynthXilinxPass : public ScriptPass
 		extra_args(args, argidx, design);
 
 		if (family != "xcup" && family != "xcu" && family != "xc7" && family != "xc6s")
-			log_cmd_error("Invalid Xilinx -family setting: %s\n", family.c_str());
+			log_cmd_error("Invalid Xilinx -family setting: '%s'.\n", family.c_str());
 
-		if (widemux != 0 && widemux < 5)
-			log_cmd_error("-widemux value must be 0 or >= 5.\n");
+		if (widemux != 0 && widemux < 2)
+			log_cmd_error("-widemux value must be 0 or >= 2.\n");
 
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");
+
+		if (abc9 && retime)
+			log_cmd_error("-retime option not currently compatible with -abc9!\n");
 
 		log_header(design, "Executing SYNTH_XILINX pass.\n");
 		log_push();
@@ -254,23 +258,11 @@ struct SynthXilinxPass : public ScriptPass
 			run("opt_clean");
 			run("check");
 			run("opt");
-			run("wreduce");
+			if (help_mode)
+				run("wreduce [-keepdc]", "(option for '-widemux')");
+			else
+				run("wreduce" + std::string(widemux > 0 ? " -keepdc" : ""));
 			run("peepopt");
-			run("opt_clean");
-			run("share");
-			run("techmap -map +/cmp2lut.v -D LUT_WIDTH=4");
-			run("opt_expr");
-			run("opt_clean");
-			if (!nodsp || help_mode) {
-				run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=25 -D DSP_B_MAXWIDTH=18 -D DSP_NAME=$__MUL25X18");
-				run("clean");
-				run("techmap -map +/xilinx/dsp_map.v");
-			}
-			run("alumacc");
-			run("opt");
-			run("fsm");
-			run("opt -fast");
-			run("memory -nomap");
 			run("opt_clean");
 
 			if (widemux > 0 || help_mode)
@@ -280,8 +272,26 @@ struct SynthXilinxPass : public ScriptPass
 			//   cells for identifying variable-length shift registers,
 			//   so attempt to convert $pmux-es to the former
 			// Also: wide multiplexer inference benefits from this too
-			if (!(nosrl && widemux == 0) || help_mode)
-				run("pmux2shiftx", "(skip if '-nosrl' and '-widemux' < 5)");
+			if (!(nosrl && widemux == 0) || help_mode) {
+				run("pmux2shiftx", "(skip if '-nosrl' and '-widemux=0')");
+				run("clean", "      (skip if '-nosrl' and '-widemux=0')");
+			}
+
+			run("techmap -map +/cmp2lut.v -D LUT_WIDTH=6");
+
+			if (!nodsp || help_mode) {
+				run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=25 -D DSP_B_MAXWIDTH=18 -D DSP_NAME=$__MUL25X18");
+				run("clean");
+				run("techmap -map +/xilinx/dsp_map.v");
+			}
+
+			run("alumacc");
+			run("share");
+			run("opt");
+			run("fsm");
+			run("opt -fast");
+			run("memory -nomap");
+			run("opt_clean");
 		}
 
 		if (check_label("bram", "(skip if '-nobram')")) {
@@ -299,7 +309,11 @@ struct SynthXilinxPass : public ScriptPass
 		}
 
 		if (check_label("fine")) {
-			run("opt -fast -full");
+			if (widemux > 0)
+				run("opt -fast -mux_bool -undriven -fine"); // Necessary to omit -mux_undef otherwise muxcover
+									    // performs less efficiently
+			else
+				run("opt -fast -full");
 			run("memory_map");
 			run("dffsr2dff");
 			run("dff2dffe");
@@ -309,23 +323,24 @@ struct SynthXilinxPass : public ScriptPass
 			}
 			else if (widemux > 0) {
 				run("simplemap t:$mux");
-				std::string muxcover_args = " -nodecode";
+				constexpr int cost_mux2 = 100;
+				std::string muxcover_args = stringf(" -nodecode -mux2=%d", cost_mux2);
 				switch (widemux) {
-					// NB: Cost of mux2 is 100; mux8 should cost between 3 and 4
-					//     of those so that 4:1 muxes and below are implemented
-					//     out of mux2s
-					case  5: muxcover_args += " -mux8=350 -mux16=400"; break;
-					case  6: muxcover_args += " -mux8=450 -mux16=500"; break;
-					case  7: muxcover_args += " -mux8=550 -mux16=600"; break;
-					case  8: muxcover_args += " -mux8=650 -mux16=700"; break;
-					case  9: muxcover_args += " -mux16=750"; break;
-					case 10: muxcover_args += " -mux16=850"; break;
-					case 11: muxcover_args += " -mux16=950"; break;
-					case 12: muxcover_args += " -mux16=1050"; break;
-					case 13: muxcover_args += " -mux16=1150"; break;
-					case 14: muxcover_args += " -mux16=1250"; break;
-					case 15: muxcover_args += " -mux16=1350"; break;
-					default: muxcover_args += " -mux16=1450"; break;
+					case  2: muxcover_args += stringf(" -mux4=%d -mux8=%d -mux16=%d", cost_mux2+1, cost_mux2+2, cost_mux2+3); break;
+					case  3:
+					case  4: muxcover_args += stringf(" -mux4=%d -mux8=%d -mux16=%d", cost_mux2*(widemux-1)-2, cost_mux2*(widemux-1)-1, cost_mux2*(widemux-1)); break;
+					case  5:
+					case  6:
+					case  7:
+					case  8: muxcover_args += stringf(" -mux8=%d -mux16=%d", cost_mux2*(widemux-1)-1, cost_mux2*(widemux-1)); break;
+					case  9:
+					case 10:
+					case 11:
+					case 12:
+					case 13:
+					case 14:
+					case 15:
+					default: muxcover_args += stringf(" -mux16=%d", cost_mux2*(widemux-1)-1); break;
 				}
 				run("muxcover " + muxcover_args);
 			}
@@ -368,14 +383,14 @@ struct SynthXilinxPass : public ScriptPass
 		if (check_label("map_luts")) {
 			run("opt_expr -mux_undef");
 			if (help_mode)
-				run("abc -luts 2:2,3,6:5[,10,20] [-dff]", "(skip if 'nowidelut', only for '-retime')");
+				run("abc -luts 2:2,3,6:5[,10,20] [-dff]", "(option for 'nowidelut', option for '-retime')");
 			else if (abc9) {
 				if (family != "xc7")
 					log_warning("'synth_xilinx -abc9' currently supports '-family xc7' only.\n");
 				if (nowidelut)
-					run("abc9 -lut +/xilinx/abc_xc7_nowide.lut -box +/xilinx/abc_xc7.box -W " + std::string(XC7_WIRE_DELAY) + string(retime ? " -dff" : ""));
+					run("abc9 -lut +/xilinx/abc_xc7_nowide.lut -box +/xilinx/abc_xc7.box -W " + std::to_string(XC7_WIRE_DELAY));
 				else
-					run("abc9 -lut +/xilinx/abc_xc7.lut -box +/xilinx/abc_xc7.box -W " + std::string(XC7_WIRE_DELAY) + string(retime ? " -dff" : ""));
+					run("abc9 -lut +/xilinx/abc_xc7.lut -box +/xilinx/abc_xc7.box -W " + std::to_string(XC7_WIRE_DELAY));
 			}
 			else {
 				if (nowidelut)

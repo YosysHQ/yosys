@@ -21,13 +21,15 @@
 // https://stackoverflow.com/a/46137633
 #ifdef _MSC_VER
 #include <stdlib.h>
-#define __builtin_bswap32 _byteswap_ulong
+#define bswap32 _byteswap_ulong
 #elif defined(__APPLE__)
 #include <libkern/OSByteOrder.h>
-#define __builtin_bswap32 OSSwapInt32
-#elif !defined(__GNUC__)
+#define bswap32 OSSwapInt32
+#elif defined(__GNUC__)
+#define bswap32 __builtin_bswap32
+#else
 #include <cstdint>
-inline uint32_t __builtin_bswap32(uint32_t x)
+inline static uint32_t bswap32(uint32_t x)
 {
 	// https://stackoverflow.com/a/27796212
 	register uint32_t value = number_to_be_reversed;
@@ -138,6 +140,7 @@ struct XAigerWriter
 	{
 		pool<SigBit> undriven_bits;
 		pool<SigBit> unused_bits;
+		pool<SigBit> keep_bits;
 
 		// promote public wires
 		for (auto wire : module->wires())
@@ -167,6 +170,9 @@ struct XAigerWriter
 					undriven_bits.insert(bit);
 					unused_bits.insert(bit);
 				}
+
+				if (keep)
+					keep_bits.insert(bit);
 
 				if (wire->port_input || keep) {
 					if (bit != wirebit)
@@ -235,7 +241,7 @@ struct XAigerWriter
 			log_assert(!holes_mode);
 
 			RTLIL::Module* inst_module = module->design->module(cell->type);
-		    if (inst_module && inst_module->attributes.count("\\abc_box_id")) {
+			if (inst_module && inst_module->attributes.count("\\abc_box_id")) {
 				abc_box_seen = true;
 
 				if (!holes_mode) {
@@ -255,10 +261,11 @@ struct XAigerWriter
 				}
 			}
 			else {
+				bool cell_known = cell->known();
 				for (const auto &c : cell->connections()) {
 					if (c.second.is_fully_const()) continue;
-					auto is_input = cell->input(c.first);
-					auto is_output = cell->output(c.first);
+					auto is_input = !cell_known || cell->input(c.first);
+					auto is_output = !cell_known || cell->output(c.first);
 					if (!is_input && !is_output)
 						log_error("Connection '%s' on cell '%s' (type '%s') not recognised!\n", log_id(c.first), log_id(cell), log_id(cell->type));
 
@@ -266,12 +273,15 @@ struct XAigerWriter
 						for (auto b : c.second.bits()) {
 							Wire *w = b.wire;
 							if (!w) continue;
-							if (!w->port_output) {
+							if (!w->port_output || !cell_known) {
 								SigBit I = sigmap(b);
 								if (I != b)
 									alias_map[b] = I;
 								output_bits.insert(b);
 								unused_bits.erase(b);
+
+								if (!cell_known)
+									keep_bits.insert(b);
 							}
 						}
 					}
@@ -424,7 +434,7 @@ struct XAigerWriter
 
 							auto jt = input_bits.find(b);
 							if (jt != input_bits.end()) {
-								log_assert(b.wire->attributes.count("\\keep"));
+								log_assert(keep_bits.count(O));
 								input_bits.erase(b);
 							}
 						}
@@ -444,7 +454,7 @@ struct XAigerWriter
 			// with $inout.out suffix, make it a PO driven by the existing inout, and
 			// inherit existing inout's drivers
 			if ((wire->port_input && wire->port_output && !undriven_bits.count(bit))
-					|| wire->attributes.count("\\keep")) {
+					|| keep_bits.count(bit)) {
 				RTLIL::IdString wire_name = wire->name.str() + "$inout.out";
 				RTLIL::Wire *new_wire = module->wire(wire_name);
 				if (!new_wire)

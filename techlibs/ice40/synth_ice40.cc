@@ -227,6 +227,9 @@ struct SynthIce40Pass : public ScriptPass
 		if (device_opt != "hx" && device_opt != "lp" && device_opt !="u")
 			log_cmd_error("Invalid or no device specified: '%s'\n", device_opt.c_str());
 
+		if (abc == "abc9" && retime)
+			log_cmd_error("-retime option not currently compatible with -abc9!\n");
+
 		log_header(design, "Executing SYNTH_ICE40 pass.\n");
 		log_push();
 
@@ -296,7 +299,7 @@ struct SynthIce40Pass : public ScriptPass
 				run("techmap");
 			else
 				run("techmap -map +/techmap.v -map +/ice40/arith_map.v");
-			if ((retime || help_mode) && abc != "abc9")
+			if (retime || help_mode)
 				run(abc + " -dff", "(only if -retime)");
 			run("ice40_opt");
 		}
