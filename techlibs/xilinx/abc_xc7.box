@@ -62,32 +62,32 @@ RAM128X1D 7 0 17 2
 $__ABC_ASYNC 1000 0 2 1
 0 764
 
-# Inputs: C CE D R \$pastQ
+# Inputs: $pastQ C CE D R
 # Outputs: Q
 FDRE 1001 1 5 1
-- 109 -46 358 0
+0 - 0 0 0
 
-# Inputs: C CE D R \$pastQ
+# Inputs: $pastQ C CE D R
 # Outputs: Q
 FDRE_1 1002 1 5 1
-- 109 -46 358 0
+0 - 109 -46 358
 
-# Inputs: C CE CLR D \$pastQ
+# Inputs: $pastQ C CE CLR D
 # Outputs: Q
 FDCE 1003 1 5 1
-- 109 - -46 0
+0 - 109 - -46
 
-# Inputs: C CE CLR D \$pastQ
+# Inputs: $pastQ C CE CLR D
 # Outputs: Q
-FDCE_1004 1 1 5 1
-- 109 - -46 0
+FDCE_1 1004 1 5 1
+0 - 109 - -46
 
-# Inputs: C CE D PRE \$pastQ
+# Inputs: $pastQ C CE D PRE
 # Outputs: Q
 FDPE 1005 1 5 1
-- 109 -46 - 0
+0 - 109 -46 -
 
-# Inputs: C CE D PRE \$pastQ
+# Inputs: $pastQ C CE D PRE
 # Outputs: Q
 FDPE_1 1006 1 5 1
-- 109 -46 - 0
+0 - 109 -46 -
