@@ -362,7 +362,7 @@ struct SynthXilinxPass : public ScriptPass
 			if (widemux > 0)
 				techmap_args += stringf(" -D MIN_MUX_INPUTS=%d", widemux);
 			if (abc9)
-				techmap_args += " -map +/xilinx/ff_map.v";
+				techmap_args += " -map +/xilinx/ff_map.v -D _ABC -map +/xilinx/abc_ff.v";
 			run("techmap " + techmap_args);
 			run("clean");
 		}

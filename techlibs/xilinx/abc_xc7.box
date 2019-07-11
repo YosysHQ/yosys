@@ -57,22 +57,37 @@ RAM128X1D 7 0 17 2
 -    -    -   -   -   -   -   - 1009 998 839 774 605 494 450 - -
 1047 1036 877 812 643 532 478 - -    -   -   -   -   -   -   - -
 
+# Inputs: A B S
+# Outputs: Y
+$__ABC_FD_ASYNC_MUX_ 1000 0 3 1
+0 0 764
+
 # Inputs: C CE D R \$pastQ
 # Outputs: Q
-FDRE 8 1 5 1
+FDRE 1001 1 5 1
 - 109 -46 358 0
 
-# Inputs: C CE D S \$pastQ
+# Inputs: C CE D R \$pastQ
 # Outputs: Q
-FDSE 9 0 5 1
+FDRE_1 1002 1 5 1
 - 109 -46 358 0
 
 # Inputs: C CE CLR D \$pastQ
 # Outputs: Q
-FDCE 10 0 5 1
+FDCE 1003 1 5 1
+- 109 - -46 0
+
+# Inputs: C CE CLR D \$pastQ
+# Outputs: Q
+FDCE_1004 11 1 5 1
 - 109 - -46 0
 
 # Inputs: C CE D PRE \$pastQ
 # Outputs: Q
-FDPE 11 0 5 1
+FDPE 1005 1 5 1
+- 109 -46 - 0
+
+# Inputs: C CE D PRE \$pastQ
+# Outputs: Q
+FDPE_1 1006 1 5 1
 - 109 -46 - 0
