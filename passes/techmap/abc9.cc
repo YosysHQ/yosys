@@ -285,7 +285,7 @@ struct abc_output_filter
 };
 
 void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::string script_file, std::string exe_file,
-		bool cleanup, vector<int> lut_costs, bool retime_mode, std::string clk_str,
+		bool cleanup, vector<int> lut_costs, bool /*retime_mode*/, std::string clk_str,
 		bool /*keepff*/, std::string delay_target, std::string /*lutin_shared*/, bool fast_mode,
 		bool show_tempdir, std::string box_file, std::string lut_file,
 		std::string wire_delay)
@@ -323,8 +323,8 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			clk_sig = assign_map(RTLIL::SigSpec(module->wires_.at(RTLIL::escape_id(clk_str)), 0));
 	}
 
-	if (retime_mode && clk_sig.empty())
-		log_cmd_error("Clock domain %s not found.\n", clk_str.c_str());
+	//if (retime_mode && clk_sig.empty())
+	//	log_cmd_error("Clock domain %s not found.\n", clk_str.c_str());
 
 	std::string tempdir_name = "/tmp/yosys-abc-XXXXXX";
 	if (!cleanup)
@@ -397,7 +397,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 	fprintf(f, "%s\n", abc_script.c_str());
 	fclose(f);
 
-	if (retime_mode || !clk_str.empty())
+	if (/*retime_mode ||*/ !clk_str.empty())
 	{
 		if (clk_sig.size() == 0)
 			log("No%s clock domain found. Not extracting any FF cells.\n", clk_str.empty() ? "" : " matching");
@@ -874,7 +874,7 @@ struct Abc9Pass : public Pass {
 #endif
 		std::string script_file, clk_str, box_file, lut_file;
 		std::string delay_target, lutin_shared = "-S 1", wire_delay;
-		bool fast_mode = false, retime_mode = false, keepff = false, cleanup = true;
+		bool fast_mode = false, /*retime_mode = false,*/ keepff = false, cleanup = true;
 		bool show_tempdir = false;
 		vector<int> lut_costs;
 		markgroups = false;
@@ -965,10 +965,10 @@ struct Abc9Pass : public Pass {
 				fast_mode = true;
 				continue;
 			}
-			if (arg == "-retime") {
-				retime_mode = true;
-				continue;
-			}
+			//if (arg == "-retime") {
+			//	retime_mode = true;
+			//	continue;
+			//}
 			//if (arg == "-clk" && argidx+1 < args.size()) {
 			//	clk_str = args[++argidx];
 			//	retime_mode = true;
@@ -1017,13 +1017,6 @@ struct Abc9Pass : public Pass {
 
 			assign_map.set(mod);
 
-			if (!retime_mode || !clk_str.empty()) {
-				abc9_module(design, mod, script_file, exe_file, cleanup, lut_costs, retime_mode, clk_str, keepff,
-						delay_target, lutin_shared, fast_mode, show_tempdir,
-						box_file, lut_file, wire_delay);
-				continue;
-			}
-
 			CellTypes ct(design);
 
 			std::vector<RTLIL::Cell*> all_cells = mod->selected_cells();
@@ -1040,8 +1033,10 @@ struct Abc9Pass : public Pass {
 			std::map<RTLIL::Cell*, std::set<RTLIL::SigBit>> cell_to_bit, cell_to_bit_up, cell_to_bit_down;
 			std::map<RTLIL::SigBit, std::set<RTLIL::Cell*>> bit_to_cell, bit_to_cell_up, bit_to_cell_down;
 
-			for (auto cell : all_cells)
-			{
+			pool<IdString> seen_cells;
+			dict<IdString, std::pair<RTLIL::IdString,RTLIL::IdString>> flop_data;
+
+			for (auto cell : all_cells) {
 				clkdomain_t key;
 
 				for (auto &conn : cell->connections())
@@ -1061,19 +1056,56 @@ struct Abc9Pass : public Pass {
 					}
 				}
 
-				if (cell->type == "$_DFF_N_" || cell->type == "$_DFF_P_")
-				{
-					key = clkdomain_t(cell->type == "$_DFF_P_", assign_map(cell->getPort("\\C")), true, RTLIL::SigSpec());
+				decltype(flop_data)::iterator it;
+				if (seen_cells.insert(cell->type).second) {
+					RTLIL::Module* inst_module = design->module(cell->type);
+					if (!inst_module)
+						continue;
+
+					if (!inst_module->attributes.count("\\abc_flop"))
+						continue;
+
+					IdString abc_flop_clk, abc_flop_en;
+					for (auto port_name : inst_module->ports) {
+						auto wire = inst_module->wire(port_name);
+						log_assert(wire);
+						if (wire->attributes.count("\\abc_flop_clk")) {
+							if (abc_flop_clk != IdString())
+								log_error("More than one port has the 'abc_flop_clk' attribute set on module '%s'.\n", log_id(cell->type));
+							abc_flop_clk = port_name;
+						}
+						if (wire->attributes.count("\\abc_flop_en")) {
+							if (abc_flop_en != IdString())
+								log_error("More than one port has the 'abc_flop_en' attribute set on module '%s'.\n", log_id(cell->type));
+							abc_flop_en = port_name;
+						}
+					}
+
+					if (abc_flop_clk == IdString())
+						log_error("'abc_flop_clk' attribute not found on any ports on module '%s'.\n", log_id(cell->type));
+					if (abc_flop_en == IdString())
+						log_error("'abc_flop_en' attribute not found on any ports on module '%s'.\n", log_id(cell->type));
+					it = flop_data.insert(std::make_pair(cell->type, std::make_pair(abc_flop_clk, abc_flop_en))).first;
 				}
-				else
-				if (cell->type == "$_DFFE_NN_" || cell->type == "$_DFFE_NP_" || cell->type == "$_DFFE_PN_" || cell->type == "$_DFFE_PP_")
-				{
-					bool this_clk_pol = cell->type == "$_DFFE_PN_" || cell->type == "$_DFFE_PP_";
-					bool this_en_pol = cell->type == "$_DFFE_NP_" || cell->type == "$_DFFE_PP_";
-					key = clkdomain_t(this_clk_pol, assign_map(cell->getPort("\\C")), this_en_pol, assign_map(cell->getPort("\\E")));
+				else {
+					it = flop_data.find(cell->type);
+					if (it == flop_data.end())
+						continue;
 				}
-				else
-					continue;
+
+				auto jt = cell->parameters.find("\\$abc_flop_clk_pol");
+				if (jt == cell->parameters.end())
+					log_error("'$abc_flop_clk_pol' parameter not found on module '%s'.\n", log_id(cell->type));
+				cell->parameters.erase(jt);
+				bool this_clk_pol = jt->second.as_bool();
+				jt = cell->parameters.find("\\$abc_flop_en_pol");
+				if (jt == cell->parameters.end())
+					log_error("'$abc_flop_en_pol' parameter not found on module '%s'.\n", log_id(cell->type));
+				bool this_en_pol = jt->second.as_bool();
+				cell->parameters.erase(jt);
+
+				const auto &data = it->second;
+				key = clkdomain_t(this_clk_pol, assign_map(cell->getPort(data.first)), this_en_pol, assign_map(cell->getPort(data.second)));
 
 				unassigned_cells.erase(cell);
 				expand_queue.insert(cell);
