@@ -584,7 +584,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 					log_assert(wire);
 					module->connect(RTLIL::SigBit(wire, y_bit.offset), RTLIL::S1);
 				}
-				else if (!lut_costs.empty() || !lut_file.empty()) {
+				else {
 					RTLIL::Cell* driving_lut = nullptr;
 					// ABC can return NOT gates that drive POs
 					if (!a_bit.wire->port_input) {
@@ -622,12 +622,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 								RTLIL::SigBit(module->wires_[remap_name(y_bit.wire->name)], y_bit.offset),
 								driver_lut);
 					}
-				}
-				else {
-					cell = module->addCell(remap_name(c->name), "$_NOT_");
-					cell->setPort("\\A", RTLIL::SigBit(module->wires_[remap_name(a_bit.wire->name)], a_bit.offset));
-					cell->setPort("\\Y", RTLIL::SigBit(module->wires_[remap_name(y_bit.wire->name)], y_bit.offset));
-					cell_stats[RTLIL::unescape_id(c->type)]++;
+					cell_stats["$lut"]++;
 				}
 				if (cell && markgroups) cell->attributes["\\abcgroup"] = map_autoidx;
 				continue;
