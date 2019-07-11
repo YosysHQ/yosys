@@ -901,6 +901,7 @@ void AigerReader::post_process()
 					wire->port_output = false;
 					continue;
 				}
+				log_debug("Renaming output %s", log_id(wire));
 
 				if (index == 0) {
 					// Cope with the fact that a CO might be identical
