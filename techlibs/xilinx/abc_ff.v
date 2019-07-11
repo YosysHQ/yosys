@@ -157,7 +157,7 @@ module \$__ABC_FDRE_1 ((* abc_flop_q *)   output Q,
                        (* abc_flop_d *)   input D,
                        input R, \$pastQ );
   parameter [0:0] INIT = 1'b0;
-  parameter \$abc_flop_clk_pol = 1'b1;
+  parameter \$abc_flop_clk_pol = 1'b0;
   parameter \$abc_flop_en_pol = 1'b1;
   assign Q = R ? 1'b0 : (CE ? D : \$pastQ );
 endmodule
@@ -184,7 +184,7 @@ module \$__ABC_FDCE_1 ((* abc_flop_q *)   output Q,
                        (* abc_flop_d *)   input D,
                        input CLR, \$pastQ );
   parameter [0:0] INIT = 1'b0;
-  parameter \$abc_flop_clk_pol = 1'b1;
+  parameter \$abc_flop_clk_pol = 1'b0;
   parameter \$abc_flop_en_inv = 1'b1;
   assign Q = (CE && !CLR) ? D : \$pastQ ;
 endmodule
@@ -211,7 +211,7 @@ module \$__ABC_FDPE_1 ((* abc_flop_q *)   output Q,
                        (* abc_flop_d *)   input D,
                        input PRE, \$pastQ );
   parameter [0:0] INIT = 1'b0;
-  parameter \$abc_flop_clk_pol = ~IS_C_INVERTED;
+  parameter \$abc_flop_clk_pol = 1'b0;
   parameter \$abc_flop_en_pol = 1'b1;
   assign Q = (CE && !PRE) ? D : \$pastQ ;
 endmodule

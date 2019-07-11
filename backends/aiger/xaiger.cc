@@ -311,7 +311,6 @@ struct XAigerWriter
 						alias_map[O] = q;
 					undriven_bits.erase(O);
 					ff_bits.emplace_back(q);
-
 				}
 				else {
 					for (const auto &conn : cell->connections()) {
