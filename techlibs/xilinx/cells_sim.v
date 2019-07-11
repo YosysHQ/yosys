@@ -226,7 +226,7 @@ module FDRE (output reg Q, input C, CE, D, R);
 endmodule
 
 module FDSE (output reg Q, input C, CE, D, S);
-  parameter [0:0] INIT = 1'b0;
+  parameter [0:0] INIT = 1'b1;
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
   parameter [0:0] IS_S_INVERTED = 1'b0;
@@ -252,7 +252,7 @@ module FDCE (output reg Q, input C, CE, D, CLR);
 endmodule
 
 module FDPE (output reg Q, input C, CE, D, PRE);
-  parameter [0:0] INIT = 1'b0;
+  parameter [0:0] INIT = 1'b1;
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
   parameter [0:0] IS_PRE_INVERTED = 1'b0;
