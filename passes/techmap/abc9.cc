@@ -86,7 +86,7 @@ void handle_loops(RTLIL::Design *design)
 	// cell in the component, and select (and mark) all its output
 	// wires
 	pool<RTLIL::Const> ids_seen;
-	for (auto cell : module->cells()) {
+	for (auto cell : module->selected_cells()) {
 		auto it = cell->attributes.find("\\abc_scc_id");
 		if (it != cell->attributes.end()) {
 			auto r = ids_seen.insert(it->second);
@@ -423,10 +423,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 
 	if (count_output)
 	{
-		design->selection_stack.emplace_back(false);
-		RTLIL::Selection& sel = design->selection_stack.back();
-		sel.select(module);
-
 		Pass::call(design, "aigmap");
 
 		handle_loops(design);
@@ -457,8 +453,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		design->remove(design->module("$__abc9__"));
 #endif
 
-		design->selection_stack.pop_back();
-
 		// Now 'unexpose' those wires by undoing
 		// the expose operation -- remove them from PO/PI
 		// and re-connecting them back together
@@ -476,7 +470,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			}
 		}
 		module->fixup_ports();
-
 
 		log_header(design, "Executing ABC9.\n");
 
@@ -564,8 +557,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 
 		dict<IdString, bool> abc_box;
 		vector<RTLIL::Cell*> boxes;
-		for (const auto &it : module->cells_) {
-			auto cell = it.second;
+		for (auto cell : module->selected_cells()) {
 			if (cell->type.in("$_AND_", "$_NOT_", "$__ABC_FF_")) {
 				module->remove(cell);
 				continue;
@@ -663,6 +655,13 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			if (existing_cell) {
 				cell->parameters = existing_cell->parameters;
 				cell->attributes = existing_cell->attributes;
+
+				auto it = cell->parameters.find("\\$abc_flop_clk_pol");
+				if (it != cell->parameters.end())
+					cell->parameters.erase(it);
+				it = cell->parameters.find("\\$abc_flop_en_pol");
+				if (it != cell->parameters.end())
+					cell->parameters.erase(it);
 			}
 			else {
 				cell->parameters = c->parameters;
@@ -1017,6 +1016,20 @@ struct Abc9Pass : public Pass {
 
 			assign_map.set(mod);
 
+			if (true || /*!dff_mode ||*/ !clk_str.empty()) {
+
+				design->selection_stack.emplace_back(false);
+				RTLIL::Selection& sel = design->selection_stack.back();
+				sel.select(mod);
+
+				abc9_module(design, mod, script_file, exe_file, cleanup, lut_costs, false, clk_str, keepff,
+						delay_target, lutin_shared, fast_mode, show_tempdir,
+						box_file, lut_file, wire_delay);
+
+				design->selection_stack.pop_back();
+				continue;
+			}
+
 			CellTypes ct(design);
 
 			std::vector<RTLIL::Cell*> all_cells = mod->selected_cells();
@@ -1096,13 +1109,11 @@ struct Abc9Pass : public Pass {
 				auto jt = cell->parameters.find("\\$abc_flop_clk_pol");
 				if (jt == cell->parameters.end())
 					log_error("'$abc_flop_clk_pol' parameter not found on module '%s'.\n", log_id(cell->type));
-				cell->parameters.erase(jt);
 				bool this_clk_pol = jt->second.as_bool();
 				jt = cell->parameters.find("\\$abc_flop_en_pol");
 				if (jt == cell->parameters.end())
 					log_error("'$abc_flop_en_pol' parameter not found on module '%s'.\n", log_id(cell->type));
 				bool this_en_pol = jt->second.as_bool();
-				cell->parameters.erase(jt);
 
 				const auto &data = it->second;
 				key = clkdomain_t(this_clk_pol, assign_map(cell->getPort(data.first)), this_en_pol, assign_map(cell->getPort(data.second)));
@@ -1191,16 +1202,27 @@ struct Abc9Pass : public Pass {
 						std::get<0>(it.first) ? "" : "!", log_signal(std::get<1>(it.first)),
 						std::get<2>(it.first) ? "" : "!", log_signal(std::get<3>(it.first)));
 
+			design->selection_stack.emplace_back(false);
+			RTLIL::Selection& sel = design->selection_stack.back();
+
 			for (auto &it : assigned_cells) {
 				clk_polarity = std::get<0>(it.first);
 				clk_sig = assign_map(std::get<1>(it.first));
 				en_polarity = std::get<2>(it.first);
 				en_sig = assign_map(std::get<3>(it.first));
+
+				pool<RTLIL::IdString> assigned_names;
+				for (auto i : it.second)
+					assigned_names.insert(i->name);
+				sel.selected_members[mod->name] = std::move(assigned_names);
+
 				abc9_module(design, mod, script_file, exe_file, cleanup, lut_costs, !clk_sig.empty(), "$",
 						keepff, delay_target, lutin_shared, fast_mode, show_tempdir,
 						box_file, lut_file, wire_delay);
 				assign_map.set(mod);
 			}
+
+			design->selection_stack.pop_back();
 		}
 
 		Pass::call(design, "clean");
