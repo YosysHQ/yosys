@@ -98,10 +98,7 @@ endmodule
 (* abc_box_id = 1002, lib_whitebox, abc_flop = "FDRE_1,D,Q,\\$pastQ" *)
 module \$__ABC_FDRE_1 (output Q, input C, CE, D, R, \$pastQ );
   parameter [0:0] INIT = 1'b0;
-  //parameter [0:0] IS_C_INVERTED = 1'b0;
-  parameter [0:0] IS_D_INVERTED = 1'b0;
-  parameter [0:0] IS_R_INVERTED = 1'b0;
-  assign Q = (R ^ IS_R_INVERTED) ? 1'b0 : (CE ? (D ^ IS_D_INVERTED) : \$pastQ );
+  assign Q = R ? 1'b0 : (CE ? D : \$pastQ );
 endmodule
 
 (* abc_box_id = 1003, lib_whitebox, abc_flop = "FDCE,D,Q,\\$pastQ" *)
@@ -116,10 +113,7 @@ endmodule
 (* abc_box_id = 1004, lib_whitebox, abc_flop = "FDCE_1,D,Q,\\$pastQ" *)
 module \$__ABC_FDCE_1 (output Q, input C, CE, D, CLR, \$pastQ );
   parameter [0:0] INIT = 1'b0;
-  //parameter [0:0] IS_C_INVERTED = 1'b0;
-  parameter [0:0] IS_D_INVERTED = 1'b0;
-  parameter [0:0] IS_CLR_INVERTED = 1'b0;
-  assign Q = (CE && !(CLR ^ IS_CLR_INVERTED)) ? (D ^ IS_D_INVERTED) : \$pastQ ;
+  assign Q = (CE && !CLR) ? D : \$pastQ ;
 endmodule
 
 (* abc_box_id = 1005, lib_whitebox, abc_flop = "FDPE,D,Q,\\$pastQ" *)
@@ -134,10 +128,7 @@ endmodule
 (* abc_box_id = 1006, lib_whitebox, abc_flop = "FDPE_1,D,Q,\\$pastQ" *)
 module \$__ABC_FDPE_1 (output Q, input C, CE, D, PRE, \$pastQ );
   parameter [0:0] INIT = 1'b0;
-  //parameter [0:0] IS_C_INVERTED = 1'b0;
-  parameter [0:0] IS_D_INVERTED = 1'b0;
-  parameter [0:0] IS_PRE_INVERTED = 1'b0;
-  assign Q = (CE && !(PRE ^ IS_PRE_INVERTED)) ? (D ^ IS_D_INVERTED) : \$pastQ ;
+  assign Q = (CE && !PRE) ? D : \$pastQ ;
 endmodule
 
 `endif
