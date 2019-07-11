@@ -68,7 +68,7 @@ module FDCE (output reg Q, input C, CE, D, CLR);
   );
   \$__ABC_FF_ abc_dff (.D(\$nextQ ), .Q(\$currQ ));
   generate
-    if (IS_PRE_INVERTED)
+    if (IS_CLR_INVERTED)
       \$__ABC_FD_ASYNC_MUX abc_async_mux (.A(\$currQ ), .B(1'b0), .S(CLR), .Y(Q));
     else
       \$__ABC_FD_ASYNC_MUX abc_async_mux (.A(1'b0), .B(\$currQ ), .S(CLR), .Y(Q));
