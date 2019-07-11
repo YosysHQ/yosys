@@ -231,23 +231,27 @@ struct SynthEcp5Pass : public ScriptPass
 			run("synth -run coarse");
 		}
 
-		if (!nobram && check_label("bram", "(skip if -nobram)"))
+		if (!nobram && check_label("map_bram", "(skip if -nobram)"))
 		{
 			run("memory_bram -rules +/ecp5/bram.txt");
 			run("techmap -map +/ecp5/brams_map.v");
 		}
 
-		if (!nodram && check_label("dram", "(skip if -nodram)"))
+		if (!nodram && check_label("map_dram", "(skip if -nodram)"))
 		{
 			run("memory_bram -rules +/ecp5/dram.txt");
 			run("techmap -map +/ecp5/drams_map.v");
 		}
 
-		if (check_label("fine"))
+		if (check_label("map_ffram"))
 		{
 			run("opt -fast -mux_undef -undriven -fine");
 			run("memory_map");
 			run("opt -undriven -fine");
+		}
+
+		if (check_label("map_gates"))
+		{
 			if (noccu2)
 				run("techmap");
 			else
