@@ -312,19 +312,18 @@ struct XAigerWriter
 					undriven_bits.erase(O);
 					ff_bits.emplace_back(q);
 				}
-				else {
-					for (const auto &conn : cell->connections()) {
-						if (cell->input(conn.first)) {
-							// Ignore inout for the sake of topographical ordering
-							if (cell->output(conn.first)) continue;
-							for (auto bit : sigmap(conn.second))
-								bit_users[bit].insert(cell->name);
-						}
 
-						if (cell->output(conn.first))
-							for (auto bit : sigmap(conn.second))
-								bit_drivers[bit].insert(cell->name);
+				for (const auto &conn : cell->connections()) {
+					if (cell->input(conn.first)) {
+						// Ignore inout for the sake of topographical ordering
+						if (cell->output(conn.first)) continue;
+						for (auto bit : sigmap(conn.second))
+							bit_users[bit].insert(cell->name);
 					}
+
+					if (cell->output(conn.first))
+						for (auto bit : sigmap(conn.second))
+							bit_drivers[bit].insert(cell->name);
 				}
 			}
 			else {
