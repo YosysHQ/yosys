@@ -67,12 +67,7 @@ module FDCE (output reg Q, input C, CE, D, CLR);
     .D(D), .Q(\$nextQ ), .\$pastQ (Q), .C(C), .CE(CE), .CLR(CLR)
   );
   \$__ABC_FF_ abc_dff (.D(\$nextQ ), .Q(\$currQ ));
-  generate
-    if (IS_CLR_INVERTED)
-      \$__ABC_FD_ASYNC_MUX abc_async_mux (.A(\$currQ ), .B(1'b0), .S(CLR), .Y(Q));
-    else
-      \$__ABC_FD_ASYNC_MUX abc_async_mux (.A(1'b0), .B(\$currQ ), .S(CLR), .Y(Q));
-  endgenerate
+  \$__ABC_ASYNC abc_async (.A(\$currQ ), .S(CLR), .Y(Q));
 endmodule
 module FDCE_1 (output reg Q, input C, CE, D, CLR);
   parameter [0:0] INIT = 1'b0;
@@ -85,7 +80,7 @@ module FDCE_1 (output reg Q, input C, CE, D, CLR);
     .D(D), .Q(\$nextQ ), .\$pastQ (Q), .C(C), .CE(CE), .CLR(CLR)
   );
   \$__ABC_FF_ abc_dff (.D(\$nextQ ), .Q(\$currQ ));
-  \$__ABC_FD_ASYNC_MUX abc_async_mux (.A(\$currQ ), .B(1'b0), .S(CLR), .Y(Q));
+  \$__ABC_ASYNC abc_async (.A(\$currQ ), .S(CLR), .Y(Q));
 endmodule
 
 module FDPE (output reg Q, input C, CE, D, PRE);
@@ -105,12 +100,7 @@ module FDPE (output reg Q, input C, CE, D, PRE);
     .D(D), .Q(\$nextQ ), .\$pastQ (Q), .C(C), .CE(CE), .PRE(PRE)
   );
   \$__ABC_FF_ abc_dff (.D(\$nextQ ), .Q(\$currQ ));
-  generate
-    if (IS_PRE_INVERTED)
-      \$__ABC_FD_ASYNC_MUX abc_async_mux (.A(\$currQ ), .B(1'b1), .S(PRE), .Y(Q));
-    else
-      \$__ABC_FD_ASYNC_MUX abc_async_mux (.A(1'b1), .B(\$currQ ), .S(PRE), .Y(Q));
-  endgenerate
+  \$__ABC_ASYNC abc_async (.A(\$currQ ), .S(PRE), .Y(Q));
 endmodule
 module FDPE_1 (output reg Q, input C, CE, D, PRE);
   parameter [0:0] INIT = 1'b0;
@@ -123,7 +113,7 @@ module FDPE_1 (output reg Q, input C, CE, D, PRE);
     .D(D), .Q(\$nextQ ), .\$pastQ (Q), .C(C), .CE(CE), .PRE(PRE)
   );
   \$__ABC_FF_ abc_dff (.D(\$nextQ ), .Q(\$currQ ));
-  \$__ABC_FD_ASYNC_MUX abc_async_mux (.A(\$currQ ), .B(1'b1), .S(PRE), .Y(Q));
+  \$__ABC_ASYNC abc_async (.A(\$currQ ), .S(PRE), .Y(Q));
 endmodule
 
 `ifndef _ABC
@@ -131,8 +121,7 @@ module \$__ABC_FF_ (input C, D, output Q);
 endmodule
 
 (* abc_box_id = 1000 *)
-module \$__ABC_FD_ASYNC_MUX (input A, B, S, output Y);
-//  assign Q = S ? B : A;
+module \$__ABC_ASYNC (input A, S, output Y);
 endmodule
 
 (* abc_box_id = 1001, lib_whitebox, abc_flop = "FDRE" *)

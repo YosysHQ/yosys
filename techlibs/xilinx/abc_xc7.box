@@ -57,10 +57,10 @@ RAM128X1D 7 0 17 2
 -    -    -   -   -   -   -   - 1009 998 839 774 605 494 450 - -
 1047 1036 877 812 643 532 478 - -    -   -   -   -   -   -   - -
 
-# Inputs: A B S
+# Inputs: A S
 # Outputs: Y
-$__ABC_FD_ASYNC_MUX_ 1000 0 3 1
-0 0 764
+$__ABC_ASYNC 1000 0 2 1
+0 764
 
 # Inputs: C CE D R \$pastQ
 # Outputs: Q
