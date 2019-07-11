@@ -999,6 +999,9 @@ struct Abc9Pass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		if (lut_costs.empty() && lut_file.empty())
+			log_cmd_error("abc9 must be called with '-lut' or '-luts'\n");
+
 		for (auto mod : design->selected_modules())
 		{
 			if (mod->attributes.count("\\abc_box_id"))
