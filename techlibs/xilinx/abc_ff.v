@@ -44,14 +44,14 @@ module FDCE (output reg Q, input C, CE, D, CLR);
   wire \$nextQ , \$currQ ;
   \$__ABC_FDCE #(.INIT(|0)) _TECHMAP_REPLACE_ (.D(D), .Q(\$nextQ ), .\$pastQ (Q), .C(C), .CE(CE), .CLR(CLR));
   \$__ABC_FF_ abc_dff (.D(\$nextQ ), .Q(Q));
-  \$__ABC_MUX_ abc_async_mux (.A(\$currQ ), .B(1'b0), .S(CLR), .Y(Q));
+  \$__ABC_FD_ASYNC_MUX abc_async_mux (.A(\$currQ ), .B(1'b0), .S(CLR), .Y(Q));
 endmodule
 module FDCE_1 (output reg Q, input C, CE, D, CLR);
   parameter [0:0] INIT = 1'b0;
   wire \$nextQ , \$currQ ;
   \$__ABC_FDCE_1 #(.INIT(|0)) _TECHMAP_REPLACE_ (.D(D), .Q(\$nextQ ), .\$pastQ (Q), .C(C), .CE(CE), .CLR(CLR));
   \$__ABC_FF_ abc_dff (.D(\$nextQ ), .Q(\$currQ ));
-  \$__ABC_MUX_ abc_async_mux (.A(\$currQ ), .B(1'b0), .S(CLR), .Y(Q));
+  \$__ABC_FD_ASYNC_MUX abc_async_mux (.A(\$currQ ), .B(1'b0), .S(CLR), .Y(Q));
 endmodule
 
 module FDPE (output reg Q, input C, CE, D, PRE);
@@ -64,9 +64,9 @@ module FDPE (output reg Q, input C, CE, D, PRE);
   \$__ABC_FF_ abc_dff (.D(\$nextQ ), .Q(Q));
   generate
     if (IS_PRE_INVERTED)
-      \$__ABC_MUX_ abc_async_mux (.A(\$currQ ), .B(1'b1), .S(PRE), .Y(Q));
+      \$__ABC_FD_ASYNC_MUX abc_async_mux (.A(\$currQ ), .B(1'b1), .S(PRE), .Y(Q));
     else
-      \$__ABC_MUX_ abc_async_mux (.A(1'b1), .B(\$currQ ), .S(PRE), .Y(Q));
+      \$__ABC_FD_ASYNC_MUX abc_async_mux (.A(1'b1), .B(\$currQ ), .S(PRE), .Y(Q));
   endgenerate
 endmodule
 module FDPE_1 (output reg Q, input C, CE, D, CLR);
@@ -74,7 +74,7 @@ module FDPE_1 (output reg Q, input C, CE, D, CLR);
   wire \$nextQ , \$currQ ;
   \$__ABC_FDCE_1 #(.INIT(|0)) _TECHMAP_REPLACE_ (.D(D), .Q(\$nextQ ), .\$pastQ (Q), .C(C), .CE(CE), .PRE(PRE));
   \$__ABC_FF_ abc_dff (.D(\$nextQ ), .Q(Q));
-  \$__ABC_MUX_ abc_async_mux (.A(\$currQ ), .B(1'b1), .S(PRE), .Y(Q));
+  \$__ABC_FD_ASYNC_MUX abc_async_mux (.A(\$currQ ), .B(1'b1), .S(PRE), .Y(Q));
 endmodule
 
 `ifndef _ABC
@@ -82,7 +82,7 @@ module \$__ABC_FF_ (input C, D, output Q);
 endmodule
 
 (* abc_box_id = 1000 *)
-module \$__ABC_FD_ASYNC_MUX_ (input A, B, S, output Q);
+module \$__ABC_FD_ASYNC_MUX (input A, B, S, output Q);
 //  assign Q = S ? B : A;
 endmodule
 
@@ -109,8 +109,8 @@ module \$__ABC_FDCE (output Q, input C, CE, D, CLR, \$pastQ );
   parameter [0:0] INIT = 1'b0;
   //parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
-  //parameter [0:0] IS_CLR_INVERTED = 1'b0;
-  assign Q = CE ? (D ^ IS_D_INVERTED) : \$pastQ ;
+  parameter [0:0] IS_CLR_INVERTED = 1'b0;
+  assign Q = (CE && !(CLR ^ IS_CLR_INVERTED)) ? (D ^ IS_D_INVERTED) : \$pastQ ;
 endmodule
 
 (* abc_box_id = 1004, lib_whitebox, abc_flop = "FDCE_1,D,Q,\\$pastQ" *)
@@ -118,8 +118,8 @@ module \$__ABC_FDCE_1 (output Q, input C, CE, D, CLR, \$pastQ );
   parameter [0:0] INIT = 1'b0;
   //parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
-  //parameter [0:0] IS_CLR_INVERTED = 1'b0;
-  assign Q = CE ? (D ^ IS_D_INVERTED) : \$pastQ ;
+  parameter [0:0] IS_CLR_INVERTED = 1'b0;
+  assign Q = (CE && !(CLR ^ IS_CLR_INVERTED)) ? (D ^ IS_D_INVERTED) : \$pastQ ;
 endmodule
 
 (* abc_box_id = 1005, lib_whitebox, abc_flop = "FDPE,D,Q,\\$pastQ" *)
@@ -127,8 +127,8 @@ module \$__ABC_FDPE (output Q, input C, CE, D, PRE, \$pastQ );
   parameter [0:0] INIT = 1'b0;
   //parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
-  //parameter [0:0] IS_PRE_INVERTED = 1'b0;
-  assign Q = CE ? (D ^ IS_D_INVERTED) : \$pastQ ;
+  parameter [0:0] IS_PRE_INVERTED = 1'b0;
+  assign Q = (CE && !(PRE ^ IS_PRE_INVERTED)) ? (D ^ IS_D_INVERTED) : \$pastQ ;
 endmodule
 
 (* abc_box_id = 1006, lib_whitebox, abc_flop = "FDPE_1,D,Q,\\$pastQ" *)
@@ -136,8 +136,8 @@ module \$__ABC_FDPE_1 (output Q, input C, CE, D, PRE, \$pastQ );
   parameter [0:0] INIT = 1'b0;
   //parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
-  //parameter [0:0] IS_PRE_INVERTED = 1'b0;
-  assign Q = CE ? (D ^ IS_D_INVERTED) : \$pastQ ;
+  parameter [0:0] IS_PRE_INVERTED = 1'b0;
+  assign Q = (CE && !(PRE ^ IS_PRE_INVERTED)) ? (D ^ IS_D_INVERTED) : \$pastQ ;
 endmodule
 
 `endif
