@@ -749,7 +749,6 @@ void AigerReader::post_process()
 		log_assert(box_module);
 
 		RTLIL::Module* flop_module = nullptr;
-		const RTLIL::IdString flop_past_q = RTLIL::escape_id("\\$pastQ");
 		if (seen_boxes.insert(cell->type).second) {
 			auto it = box_module->attributes.find("\\abc_flop");
 			if (it != box_module->attributes.end()) {
@@ -830,7 +829,7 @@ void AigerReader::post_process()
 				rhs.append(wire);
 			}
 
-			if (!flop_module || port_name != flop_past_q)
+			if (!flop_module || port_name != "\\$pastQ")
 				cell->setPort(port_name, rhs);
 		}
 
