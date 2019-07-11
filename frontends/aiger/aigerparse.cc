@@ -742,27 +742,23 @@ void AigerReader::parse_aiger_binary()
 void AigerReader::post_process()
 {
 	pool<IdString> seen_boxes;
-	dict<IdString, std::pair<RTLIL::Module*,IdString>> flop_data;
+	dict<IdString, RTLIL::Module*> flop_data;
 	unsigned ci_count = 0, co_count = 0, flop_count = 0;
 	for (auto cell : boxes) {
 		RTLIL::Module* box_module = design->module(cell->type);
 		log_assert(box_module);
 
 		RTLIL::Module* flop_module = nullptr;
-		RTLIL::IdString flop_past_q;
+		const RTLIL::IdString flop_past_q = RTLIL::escape_id("\\$pastQ");
 		if (seen_boxes.insert(cell->type).second) {
 			auto it = box_module->attributes.find("\\abc_flop");
 			if (it != box_module->attributes.end()) {
 				log_assert(flop_count < flopNum);
 				auto abc_flop = it->second.decode_string();
-				auto tokens = split_tokens(abc_flop, ",");
-				if (tokens.size() != 4)
-					log_error("'abc_flop' attribute on module '%s' does not contain exactly four comma-separated tokens.\n", log_id(cell->type));
-				flop_module = design->module(RTLIL::escape_id(tokens[0]));
+				flop_module = design->module(RTLIL::escape_id(abc_flop));
 				if (!flop_module)
-					log_error("First token '%s' in 'abc_flop' attribute on module '%s' is not a valid module.\n", tokens[0].c_str(), log_id(cell->type));
-				flop_past_q = RTLIL::escape_id(tokens[3]);
-				flop_data[cell->type] = std::make_pair(flop_module, flop_past_q);
+					log_error("'abc_flop' attribute value '%s' on module '%s' is not a valid module.\n", abc_flop.c_str(), log_id(cell->type));
+				flop_data[cell->type] = flop_module;
 			}
 			it = box_module->attributes.find("\\abc_carry");
 			if (it != box_module->attributes.end()) {
@@ -806,7 +802,7 @@ void AigerReader::post_process()
 		else {
 			auto it = flop_data.find(cell->type);
 			if (it != flop_data.end())
-				std::tie(flop_module,flop_past_q) = it->second;
+				flop_module = it->second;
 		}
 
 		// NB: Assume box_module->ports are sorted alphabetically

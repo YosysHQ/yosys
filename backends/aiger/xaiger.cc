@@ -273,17 +273,27 @@ struct XAigerWriter
 				toposort.node(cell->name);
 
 				auto r = flop_data.insert(std::make_pair(cell->type, std::make_pair(IdString(), IdString())));
-				if (r.second) {
-					auto it = inst_module->attributes.find("\\abc_flop");
-					if (it != inst_module->attributes.end()) {
-						auto abc_flop = it->second.decode_string();
-						auto tokens = split_tokens(abc_flop, ",");
-						if (tokens.size() != 4)
-							log_error("'abc_flop' attribute on module '%s' does not contain exactly four comma-separated tokens.\n", log_id(cell->type));
-						auto abc_flop_d = RTLIL::escape_id(tokens[1]);
-						auto abc_flop_q = RTLIL::escape_id(tokens[2]);
-						r.first->second = std::make_pair(abc_flop_d, abc_flop_q);
+				if (r.second && inst_module->attributes.count("\\abc_flop")) {
+					IdString abc_flop_d, abc_flop_q;
+					for (auto port_name : inst_module->ports) {
+						auto wire = inst_module->wire(port_name);
+						log_assert(wire);
+						if (wire->attributes.count("\\abc_flop_d")) {
+							if (abc_flop_d != IdString())
+								log_error("More than one port has the 'abc_flop_d' attribute set on module '%s'.\n", log_id(cell->type));
+							abc_flop_d = port_name;
+						}
+						if (wire->attributes.count("\\abc_flop_q")) {
+							if (abc_flop_q != IdString())
+								log_error("More than one port has the 'abc_flop_q' attribute set on module '%s'.\n", log_id(cell->type));
+							abc_flop_q = port_name;
+						}
 					}
+					if (abc_flop_d == IdString())
+						log_error("'abc_flop_d' attribute not found on any ports on module '%s'.\n", log_id(cell->type));
+					if (abc_flop_q == IdString())
+						log_error("'abc_flop_q' attribute not found on any ports on module '%s'.\n", log_id(cell->type));
+					r.first->second = std::make_pair(abc_flop_d, abc_flop_q);
 				}
 
 				auto abc_flop_d = r.first->second.first;
