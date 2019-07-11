@@ -94,7 +94,7 @@ module FDPE (output reg Q, input C, CE, D, PRE);
   parameter [0:0] IS_D_INVERTED = 1'b0;
   parameter [0:0] IS_PRE_INVERTED = 1'b0;
   wire \$nextQ , \$currQ ;
-  \$__ABC_FDCE #(
+  \$__ABC_FDPE #(
     .INIT(|0),
     .IS_C_INVERTED(IS_C_INVERTED),
     .IS_D_INVERTED(IS_D_INVERTED),
