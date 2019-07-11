@@ -754,14 +754,14 @@ void AigerReader::post_process()
 			auto it = box_module->attributes.find("\\abc_flop");
 			if (it != box_module->attributes.end()) {
 				log_assert(flop_count < flopNum);
-				std::string abc_flop = it->second.decode_string();
-				auto pos = abc_flop.find(',');
-				log_assert(pos != std::string::npos);
-				flop_module = design->module(RTLIL::escape_id(abc_flop.substr(0, pos)));
-				log_assert(flop_module);
-				pos = abc_flop.rfind(',');
-				log_assert(pos != std::string::npos);
-				flop_past_q = RTLIL::escape_id(abc_flop.substr(pos+1));
+				auto abc_flop = it->second.decode_string();
+				auto tokens = split_tokens(abc_flop, ",");
+				if (tokens.size() != 4)
+					log_error("'abc_flop' attribute on module '%s' does not contain exactly four comma-separated tokens.\n", log_id(cell->type));
+				flop_module = design->module(RTLIL::escape_id(tokens[0]));
+				if (!flop_module)
+					log_error("First token '%s' in 'abc_flop' attribute on module '%s' is not a valid module.\n", tokens[0].c_str(), log_id(cell->type));
+				flop_past_q = RTLIL::escape_id(tokens[3]);
 				flop_data[cell->type] = std::make_pair(flop_module, flop_past_q);
 			}
 			it = box_module->attributes.find("\\abc_carry");

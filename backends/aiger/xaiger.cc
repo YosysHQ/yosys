@@ -276,18 +276,12 @@ struct XAigerWriter
 				if (r.second) {
 					auto it = inst_module->attributes.find("\\abc_flop");
 					if (it != inst_module->attributes.end()) {
-						std::string abc_flop = it->second.decode_string();
-						size_t start, end;
-						end = abc_flop.find(','); // Ignore original module
-						log_assert(end != std::string::npos);
-						start = end + 1;
-						end = abc_flop.find(',', start + 1);
-						log_assert(start != std::string::npos && end != std::string::npos);
-						auto abc_flop_d = RTLIL::escape_id(abc_flop.substr(start, end-start));
-						start = end + 1;
-						end = abc_flop.find(',', start + 1);
-						log_assert(start != std::string::npos && end != std::string::npos);
-						auto abc_flop_q = RTLIL::escape_id(abc_flop.substr(start, end-start));
+						auto abc_flop = it->second.decode_string();
+						auto tokens = split_tokens(abc_flop, ",");
+						if (tokens.size() != 4)
+							log_error("'abc_flop' attribute on module '%s' does not contain exactly four comma-separated tokens.\n", log_id(cell->type));
+						auto abc_flop_d = RTLIL::escape_id(tokens[1]);
+						auto abc_flop_q = RTLIL::escape_id(tokens[2]);
 						r.first->second = std::make_pair(abc_flop_d, abc_flop_q);
 					}
 				}
@@ -404,15 +398,15 @@ struct XAigerWriter
 					if (it != box_module->attributes.end()) {
 						RTLIL::Wire *carry_in = nullptr, *carry_out = nullptr;
 						auto carry_in_out = it->second.decode_string();
-						auto pos = carry_in_out.find(',');
-						if (pos == std::string::npos)
-							log_error("'abc_carry' attribute on module '%s' does not contain ','.\n", log_id(cell->type));
-						auto carry_in_name = RTLIL::escape_id(carry_in_out.substr(0, pos));
+						auto tokens = split_tokens(carry_in_out, ",");
+						if (tokens.size() != 2)
+							log_error("'abc_carry' attribute on module '%s' does not contain exactly two comma-separated tokens.\n", log_id(cell->type));
+						auto carry_in_name = RTLIL::escape_id(tokens[0]);
 						carry_in = box_module->wire(carry_in_name);
 						if (!carry_in || !carry_in->port_input)
 							log_error("'abc_carry' on module '%s' contains '%s' which does not exist or is not an input port.\n", log_id(cell->type), carry_in_name.c_str());
 
-						auto carry_out_name = RTLIL::escape_id(carry_in_out.substr(pos+1));
+						auto carry_out_name = RTLIL::escape_id(tokens[1]);
 						carry_out = box_module->wire(carry_out_name);
 						if (!carry_out || !carry_out->port_output)
 							log_error("'abc_carry' on module '%s' contains '%s' which does not exist or is not an output port.\n", log_id(cell->type), carry_out_name.c_str());
