@@ -741,6 +741,9 @@ void AigerReader::parse_aiger_binary()
 
 void AigerReader::post_process()
 {
+	const RTLIL::Wire* n0 = module->wire("\\__0__");
+	const RTLIL::Wire* n1 = module->wire("\\__1__");
+
 	pool<IdString> seen_boxes;
 	dict<IdString, RTLIL::Module*> flop_data;
 	unsigned ci_count = 0, co_count = 0, flop_count = 0;
@@ -847,6 +850,17 @@ void AigerReader::post_process()
 			flop_count++;
 			cell->type = flop_module->name;
 			module->connect(q, d);
+			continue;
+		}
+
+		// Remove the async mux by shorting out its input and output
+		if (cell->type == "$__ABC_ASYNC") {
+			RTLIL::Wire* A = cell->getPort("\\A").as_wire();
+			if (A == n0 || A == n1) A = nullptr;
+			auto it = cell->connections_.find("\\Y");
+			log_assert(it != cell->connections_.end());
+			module->connect(it->second, A);
+			cell->connections_.erase(it);
 		}
 	}
 
