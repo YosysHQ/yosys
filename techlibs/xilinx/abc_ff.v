@@ -112,7 +112,7 @@ module FDPE (output reg Q, input C, CE, D, PRE);
       \$__ABC_FD_ASYNC_MUX abc_async_mux (.A(1'b1), .B(\$currQ ), .S(PRE), .Y(Q));
   endgenerate
 endmodule
-module FDPE_1 (output reg Q, input C, CE, D, CLR);
+module FDPE_1 (output reg Q, input C, CE, D, PRE);
   parameter [0:0] INIT = 1'b0;
   wire \$nextQ , \$currQ ;
   \$__ABC_FDPE_1 #(
