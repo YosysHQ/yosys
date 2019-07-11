@@ -131,7 +131,7 @@ module \$__ABC_FF_ (input C, D, output Q);
 endmodule
 
 (* abc_box_id = 1000 *)
-module \$__ABC_FD_ASYNC_MUX (input A, B, S, output Q);
+module \$__ABC_FD_ASYNC_MUX (input A, B, S, output Y);
 //  assign Q = S ? B : A;
 endmodule
 
