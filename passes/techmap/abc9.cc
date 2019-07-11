@@ -435,7 +435,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		//		count_gates, GetSize(signal_list), count_input, count_output);
 
 #if 0
-		Pass::call(design, stringf("write_verilog -noexpr -norename %s/before.xaig", tempdir_name.c_str()));
+		Pass::call(design, stringf("write_verilog -noexpr -norename %s/before.v", tempdir_name.c_str()));
 #endif
 		Pass::call(design, stringf("write_xaiger -map %s/input.sym %s/input.xaig", tempdir_name.c_str(), tempdir_name.c_str()));
 
