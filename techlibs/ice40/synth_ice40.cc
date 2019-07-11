@@ -78,7 +78,7 @@ struct SynthIce40Pass : public ScriptPass
 		log("\n");
 		log("    -dffe_min_ce_use <min_ce_use>\n");
 		log("        do not use SB_DFFE* cells if the resulting CE line would go to less\n");
-		log("        than min_ce_use SB_DFFE*in output netlist\n");
+		log("        than min_ce_use SB_DFFE* in output netlist\n");
 		log("\n");
 		log("    -nobram\n");
 		log("        do not use SB_RAM40_4K* cells in output netlist\n");
