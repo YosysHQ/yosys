@@ -66,8 +66,13 @@ module FDCE (output reg Q, input C, CE, D, CLR);
   ) _TECHMAP_REPLACE_ (
     .D(D), .Q(\$nextQ ), .\$pastQ (Q), .C(C), .CE(CE), .CLR(CLR)
   );
-  \$__ABC_FF_ abc_dff (.D(\$nextQ ), .Q(Q));
-  \$__ABC_FD_ASYNC_MUX abc_async_mux (.A(\$currQ ), .B(1'b0), .S(CLR), .Y(Q));
+  \$__ABC_FF_ abc_dff (.D(\$nextQ ), .Q(\$currQ ));
+  generate
+    if (IS_PRE_INVERTED)
+      \$__ABC_FD_ASYNC_MUX abc_async_mux (.A(\$currQ ), .B(1'b0), .S(CLR), .Y(Q));
+    else
+      \$__ABC_FD_ASYNC_MUX abc_async_mux (.A(1'b0), .B(\$currQ ), .S(CLR), .Y(Q));
+  endgenerate
 endmodule
 module FDCE_1 (output reg Q, input C, CE, D, CLR);
   parameter [0:0] INIT = 1'b0;
@@ -99,7 +104,7 @@ module FDPE (output reg Q, input C, CE, D, PRE);
   ) _TECHMAP_REPLACE_ (
     .D(D), .Q(\$nextQ ), .\$pastQ (Q), .C(C), .CE(CE), .PRE(PRE)
   );
-  \$__ABC_FF_ abc_dff (.D(\$nextQ ), .Q(Q));
+  \$__ABC_FF_ abc_dff (.D(\$nextQ ), .Q(\$currQ ));
   generate
     if (IS_PRE_INVERTED)
       \$__ABC_FD_ASYNC_MUX abc_async_mux (.A(\$currQ ), .B(1'b1), .S(PRE), .Y(Q));
@@ -117,7 +122,7 @@ module FDPE_1 (output reg Q, input C, CE, D, CLR);
   ) _TECHMAP_REPLACE_ (
     .D(D), .Q(\$nextQ ), .\$pastQ (Q), .C(C), .CE(CE), .PRE(PRE)
   );
-  \$__ABC_FF_ abc_dff (.D(\$nextQ ), .Q(Q));
+  \$__ABC_FF_ abc_dff (.D(\$nextQ ), .Q(\$currQ ));
   \$__ABC_FD_ASYNC_MUX abc_async_mux (.A(\$currQ ), .B(1'b1), .S(PRE), .Y(Q));
 endmodule
 
