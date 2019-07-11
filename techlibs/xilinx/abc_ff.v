@@ -27,7 +27,7 @@ module FDRE (output reg Q, input C, CE, D, R);
   parameter [0:0] IS_R_INVERTED = 1'b0;
   wire \$nextQ ;
   \$__ABC_FDRE #(
-    .INIT(|0),
+    .INIT(INIT),
     .IS_C_INVERTED(IS_C_INVERTED),
     .IS_D_INVERTED(IS_D_INVERTED),
     .IS_R_INVERTED(IS_R_INVERTED),
@@ -57,7 +57,7 @@ module FDCE (output reg Q, input C, CE, D, CLR);
   parameter [0:0] IS_CLR_INVERTED = 1'b0;
   wire \$nextQ , \$currQ ;
   \$__ABC_FDCE #(
-    .INIT(|0),
+    .INIT(INIT),
     .IS_C_INVERTED(IS_C_INVERTED),
     .IS_D_INVERTED(IS_D_INVERTED),
     .IS_CLR_INVERTED(IS_CLR_INVERTED),
@@ -73,7 +73,7 @@ module FDCE_1 (output reg Q, input C, CE, D, CLR);
   parameter [0:0] INIT = 1'b0;
   wire \$nextQ , \$currQ ;
   \$__ABC_FDCE_1 #(
-    .INIT(|0),
+    .INIT(INIT),
     .\$abc_flop_clk_pol (1'b1),
     .\$abc_flop_en_pol (1'b1)
   ) _TECHMAP_REPLACE_ (
@@ -90,7 +90,7 @@ module FDPE (output reg Q, input C, CE, D, PRE);
   parameter [0:0] IS_PRE_INVERTED = 1'b0;
   wire \$nextQ , \$currQ ;
   \$__ABC_FDPE #(
-    .INIT(|0),
+    .INIT(INIT),
     .IS_C_INVERTED(IS_C_INVERTED),
     .IS_D_INVERTED(IS_D_INVERTED),
     .IS_PRE_INVERTED(IS_PRE_INVERTED),
@@ -106,7 +106,7 @@ module FDPE_1 (output reg Q, input C, CE, D, PRE);
   parameter [0:0] INIT = 1'b0;
   wire \$nextQ , \$currQ ;
   \$__ABC_FDPE_1 #(
-    .INIT(|0),
+    .INIT(INIT),
     .\$abc_flop_clk_pol (1'b1),
     .\$abc_flop_en_pol (1'b1)
   ) _TECHMAP_REPLACE_ (
