@@ -679,7 +679,7 @@ struct XAigerWriter
 			aig_o++;
 			aig_outputs.push_back(0);
 			omode = true;
-        }
+		}
 	}
 
 	void write_aiger(std::ostream &f, bool ascii_mode)
