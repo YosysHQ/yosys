@@ -117,7 +117,6 @@ static void run_ice40_opts(Module *module)
 				log("Optimized SB_CARRY from $__ICE40_CARRY_LUT4 cell (leaving behind SB_LUT4) %s.%s: CO=%s\n",
 						log_id(module), log_id(cell), log_signal(replacement_output));
 				cell->type = "\\SB_LUT4";
-				sb_lut_cells.push_back(cell);
 				cell->setPort("\\I0", RTLIL::S0);
 				cell->setPort("\\I1", inbit[0]);
 				cell->setPort("\\I2", inbit[1]);
