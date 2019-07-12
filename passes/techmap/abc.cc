@@ -1172,8 +1172,8 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 					continue;
 				}
 			}
-
-			cell_stats[RTLIL::unescape_id(c->type)]++;
+			else
+				cell_stats[RTLIL::unescape_id(c->type)]++;
 
 			if (c->type == "\\_const0_" || c->type == "\\_const1_") {
 				RTLIL::SigSig conn;
