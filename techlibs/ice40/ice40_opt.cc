@@ -83,6 +83,54 @@ static void run_ice40_opts(Module *module)
 			}
 			continue;
 		}
+
+		if (cell->type == "$__ICE40_CARRY_LUT4")
+		{
+			SigSpec non_const_inputs, replacement_output;
+			int count_zeros = 0, count_ones = 0;
+
+			SigBit inbit[3] = {
+				cell->getPort("\\A"),
+				cell->getPort("\\B"),
+				cell->getPort("\\CI")
+			};
+			for (int i = 0; i < 3; i++)
+				if (inbit[i].wire == nullptr) {
+					if (inbit[i] == State::S1)
+						count_ones++;
+					else
+						count_zeros++;
+				} else
+					non_const_inputs.append(inbit[i]);
+
+			if (count_zeros >= 2)
+				replacement_output = State::S0;
+			else if (count_ones >= 2)
+				replacement_output = State::S1;
+			else if (GetSize(non_const_inputs) == 1)
+				replacement_output = non_const_inputs;
+
+			if (GetSize(replacement_output)) {
+				optimized_co.insert(sigmap(cell->getPort("\\CO")[0]));
+				module->connect(cell->getPort("\\CO")[0], replacement_output);
+				module->design->scratchpad_set_bool("opt.did_something", true);
+				log("Optimized SB_CARRY from $__ICE40_CARRY_LUT4 cell (leaving behind SB_LUT4) %s.%s: CO=%s\n",
+						log_id(module), log_id(cell), log_signal(replacement_output));
+				cell->type = "\\SB_LUT4";
+				sb_lut_cells.push_back(cell);
+				cell->setPort("\\I0", RTLIL::S0);
+				cell->setPort("\\I1", inbit[0]);
+				cell->setPort("\\I2", inbit[1]);
+				cell->setPort("\\I3", inbit[2]);
+				cell->unsetPort("\\A");
+				cell->unsetPort("\\B");
+				cell->unsetPort("\\CI");
+				cell->unsetPort("\\CO");
+				cell->setParam("\\LUT_INIT", std::string("0110100110010110"));
+				sb_lut_cells.push_back(cell);
+			}
+			continue;
+		}
 	}
 
 	for (auto cell : sb_lut_cells)
