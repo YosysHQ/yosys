@@ -607,8 +607,8 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 						// If a driver couldn't be found (could be from PI or box CI)
 						// then implement using a LUT
 						cell = module->addLut(remap_name(stringf("%s$lut", c->name.c_str())),
-								RTLIL::SigBit(module->wires_[remap_name(a_bit.wire->name)], a_bit.offset),
-								RTLIL::SigBit(module->wires_[remap_name(y_bit.wire->name)], y_bit.offset),
+								RTLIL::SigBit(module->wires_.at(remap_name(a_bit.wire->name)), a_bit.offset),
+								RTLIL::SigBit(module->wires_.at(remap_name(y_bit.wire->name)), y_bit.offset),
 								RTLIL::Const::from_string("01"));
 						bit2sinks[cell->getPort("\\A")].push_back(cell);
 					}
@@ -619,8 +619,8 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 				}
 				else {
 					cell = module->addCell(remap_name(c->name), "$_NOT_");
-					cell->setPort("\\A", RTLIL::SigBit(module->wires_[remap_name(a_bit.wire->name)], a_bit.offset));
-					cell->setPort("\\Y", RTLIL::SigBit(module->wires_[remap_name(y_bit.wire->name)], y_bit.offset));
+					cell->setPort("\\A", RTLIL::SigBit(module->wires_.at(remap_name(a_bit.wire->name)), a_bit.offset));
+					cell->setPort("\\Y", RTLIL::SigBit(module->wires_.at(remap_name(y_bit.wire->name)), y_bit.offset));
 					cell_stats[RTLIL::unescape_id(c->type)]++;
 					log_abort();
 				}
@@ -633,8 +633,8 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			RTLIL::Cell *existing_cell = nullptr;
 			if (c->type == "$lut") {
 				if (GetSize(c->getPort("\\A")) == 1 && c->getParam("\\LUT") == RTLIL::Const::from_string("01")) {
-					SigSpec my_a = module->wires_[remap_name(c->getPort("\\A").as_wire()->name)];
-					SigSpec my_y = module->wires_[remap_name(c->getPort("\\Y").as_wire()->name)];
+					SigSpec my_a = module->wires_.at(remap_name(c->getPort("\\A").as_wire()->name));
+					SigSpec my_y = module->wires_.at(remap_name(c->getPort("\\Y").as_wire()->name));
 					module->connect(my_y, my_a);
 					if (markgroups) c->attributes["\\abcgroup"] = map_autoidx;
 					log_abort();
@@ -664,7 +664,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 						continue;
 					//log_assert(c.width == 1);
 					if (c.wire)
-						c.wire = module->wires_[remap_name(c.wire->name)];
+						c.wire = module->wires_.at(remap_name(c.wire->name));
 					newsig.append(c);
 				}
 				cell->setPort(conn.first, newsig);
@@ -683,14 +683,14 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			if (!conn.first.is_fully_const()) {
 				auto chunks = conn.first.chunks();
 				for (auto &c : chunks)
-					c.wire = module->wires_[remap_name(c.wire->name)];
+					c.wire = module->wires_.at(remap_name(c.wire->name));
 				conn.first = std::move(chunks);
 			}
 			if (!conn.second.is_fully_const()) {
 				auto chunks = conn.second.chunks();
 				for (auto &c : chunks)
 					if (c.wire)
-						c.wire = module->wires_[remap_name(c.wire->name)];
+						c.wire = module->wires_.at(remap_name(c.wire->name));
 				conn.second = std::move(chunks);
 			}
 			module->connect(conn);
@@ -777,12 +777,11 @@ duplicate_lut:
 			}
 			auto driver_a = driving_lut->getPort("\\A").chunks();
 			for (auto &chunk : driver_a)
-				chunk.wire = module->wires_[remap_name(chunk.wire->name)];
+				chunk.wire = module->wires_.at(remap_name(chunk.wire->name));
 			module->addLut(remap_name(not_cell->name),
 					driver_a,
 					y_bit,
 					driver_lut);
-			//mapped_mod->remove(not_cell);
 		}
 
 		//log("ABC RESULTS:        internal signals: %8d\n", int(signal_list.size()) - in_wires - out_wires);
