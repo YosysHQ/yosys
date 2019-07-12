@@ -50,7 +50,7 @@ module _80_ice40_alu (A, B, CI, BI, X, Y, CO);
 			.B(BB[i]),
 			.CI(C[i]),
 			.CO(CO[i]),
-            .O(Y[i])
+			.O(Y[i])
 		);
 `else
 		SB_CARRY carry (
