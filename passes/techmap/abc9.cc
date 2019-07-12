@@ -756,7 +756,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			log_assert(driving_lut);
 			RTLIL::SigBit a_bit = not_cell->getPort("\\A");
 			RTLIL::SigBit y_bit = not_cell->getPort("\\Y");
-			driving_lut = module->cell(remap_name(driving_lut->name));
 			log_assert(driving_lut);
 			RTLIL::Const driver_lut = driving_lut->getParam("\\LUT");
 			for (auto &b : driver_lut.bits) {
@@ -771,11 +770,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			for (auto sink_cell : it->second)
 				if (sink_cell->type != "$lut")
 					goto duplicate_lut;
-
-			//static int count = 0;
-			//log_warning("%d\n", count);
-			//if (count++ >= 41)
-			//	goto duplicate_lut;
 
 			for (auto sink_cell : it->second) {
 				SigSpec A = sink_cell->getPort("\\A");
@@ -805,7 +799,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 duplicate_lut:
 			auto not_cell_name = not_cell->name;
 			module->remove(not_cell);
-#if 0
+#if 1
 			auto driver_a = driving_lut->getPort("\\A").chunks();
 			for (auto &chunk : driver_a)
 				chunk.wire = module->wires_[remap_name(chunk.wire->name)];
