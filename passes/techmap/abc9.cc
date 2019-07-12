@@ -572,7 +572,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 				boxes.emplace_back(cell);
 		}
 
-		std::vector<std::pair<RTLIL::Cell*,RTLIL::Cell*>> not_gates;
+		std::vector<std::pair<RTLIL::Cell*,RTLIL::Cell*>> push_inverters;
 		dict<SigBit, std::vector<RTLIL::Cell*>> bit2sinks;
 		std::map<std::string, int> cell_stats;
 		for (auto c : mapped_mod->cells())
@@ -613,32 +613,8 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 						bit2sinks[cell->getPort("\\A")].push_back(cell);
 					}
 					else {
-#if 0
-						auto driver_a = driving_lut->getPort("\\A").chunks();
-						for (auto &chunk : driver_a)
-							chunk.wire = module->wires_[remap_name(chunk.wire->name)];
-						RTLIL::Const driver_lut = driving_lut->getParam("\\LUT");
-						for (auto &b : driver_lut.bits) {
-							if (b == RTLIL::State::S0) b = RTLIL::State::S1;
-							else if (b == RTLIL::State::S1) b = RTLIL::State::S0;
-						}
-						cell = module->addLut(remap_name(stringf("%s$lut", c->name.c_str())),
-								driver_a,
-								RTLIL::SigBit(module->wires_[remap_name(y_bit.wire->name)], y_bit.offset),
-								driver_lut);
-#elif 0
-						cell = module->addLut(remap_name(stringf("%s$lut", c->name.c_str())),
-								RTLIL::SigBit(module->wires_[remap_name(a_bit.wire->name)], a_bit.offset),
-								RTLIL::SigBit(module->wires_[remap_name(y_bit.wire->name)], y_bit.offset),
-								RTLIL::Const::from_string("01"));
-
-#else
-						cell = module->addCell(remap_name(c->name), "$_NOT_");
-						cell->setPort("\\A", RTLIL::SigBit(module->wires_[remap_name(a_bit.wire->name)], a_bit.offset));
-						cell->setPort("\\Y", RTLIL::SigBit(module->wires_[remap_name(y_bit.wire->name)], y_bit.offset));
-						not_gates.emplace_back(cell, driving_lut);
-#endif
-						cell_stats[RTLIL::unescape_id(c->type)]++;
+						push_inverters.emplace_back(c, driving_lut);
+						continue;
 					}
 				}
 				else {
@@ -649,6 +625,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 					log_abort();
 				}
 				if (cell && markgroups) cell->attributes["\\abcgroup"] = map_autoidx;
+				cell_stats[RTLIL::unescape_id(c->type)]++;
 				continue;
 			}
 			cell_stats[RTLIL::unescape_id(c->type)]++;
@@ -750,18 +727,14 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			}
 		}
 
-		for (auto i : not_gates) {
+		for (auto i : push_inverters) {
 			RTLIL::Cell *not_cell = i.first;
-			auto driving_lut = i.second;
-			log_assert(driving_lut);
+			RTLIL::Cell *driving_lut = i.second;
 			RTLIL::SigBit a_bit = not_cell->getPort("\\A");
 			RTLIL::SigBit y_bit = not_cell->getPort("\\Y");
-			log_assert(driving_lut);
-			RTLIL::Const driver_lut = driving_lut->getParam("\\LUT");
-			for (auto &b : driver_lut.bits) {
-				if (b == RTLIL::State::S0) b = RTLIL::State::S1;
-				else if (b == RTLIL::State::S1) b = RTLIL::State::S0;
-			}
+
+			a_bit.wire = module->wires_.at(remap_name(a_bit.wire->name));
+			y_bit.wire = module->wires_.at(remap_name(y_bit.wire->name));
 
 			auto it = bit2sinks.find(a_bit);
 			if (it == bit2sinks.end())
@@ -797,22 +770,19 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			//continue;
 
 duplicate_lut:
-			auto not_cell_name = not_cell->name;
-			module->remove(not_cell);
-#if 1
+			RTLIL::Const driver_lut = driving_lut->getParam("\\LUT");
+			for (auto &b : driver_lut.bits) {
+				if (b == RTLIL::State::S0) b = RTLIL::State::S1;
+				else if (b == RTLIL::State::S1) b = RTLIL::State::S0;
+			}
 			auto driver_a = driving_lut->getPort("\\A").chunks();
 			for (auto &chunk : driver_a)
 				chunk.wire = module->wires_[remap_name(chunk.wire->name)];
-			module->addLut(not_cell_name,
+			module->addLut(remap_name(not_cell->name),
 					driver_a,
 					y_bit,
 					driver_lut);
-#else
-			module->addLut(not_cell_name,
-					a_bit,
-					y_bit,
-					RTLIL::Const::from_string("01"));
-#endif
+			//mapped_mod->remove(not_cell);
 		}
 
 		//log("ABC RESULTS:        internal signals: %8d\n", int(signal_list.size()) - in_wires - out_wires);
