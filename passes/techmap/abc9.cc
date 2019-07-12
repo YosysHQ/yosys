@@ -611,21 +611,15 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 								RTLIL::SigBit(module->wires_.at(remap_name(y_bit.wire->name)), y_bit.offset),
 								RTLIL::Const::from_string("01"));
 						bit2sinks[cell->getPort("\\A")].push_back(cell);
+						cell_stats["$lut"]++;
 					}
-					else {
+					else
 						push_inverters.emplace_back(c, driver_lut);
-						continue;
-					}
+					continue;
 				}
-				else {
-					cell = module->addCell(remap_name(c->name), "$_NOT_");
-					cell->setPort("\\A", RTLIL::SigBit(module->wires_.at(remap_name(a_bit.wire->name)), a_bit.offset));
-					cell->setPort("\\Y", RTLIL::SigBit(module->wires_.at(remap_name(y_bit.wire->name)), y_bit.offset));
-					cell_stats[RTLIL::unescape_id(c->type)]++;
+				else
 					log_abort();
-				}
 				if (cell && markgroups) cell->attributes["\\abcgroup"] = map_autoidx;
-				cell_stats[RTLIL::unescape_id(c->type)]++;
 				continue;
 			}
 			cell_stats[RTLIL::unescape_id(c->type)]++;
