@@ -3,15 +3,11 @@
 # NB: Inputs/Outputs must be ordered alphabetically
 #     (with exceptions for carry in/out)
 
-# Inputs: I0 I1 CI
-# Outputs: CO
+# Inputs: A B CI
+# Outputs: O CO
 #   (NB: carry chain input/output must be last
 #        input/output and have been moved there
 #        overriding the alphabetical ordering)
-SB_CARRY 1 1 3 1
-675 609 278
-
-# Inputs: I0 I1 I2 I3
-# Outputs: O
-SB_LUT4 2 1 4 1
-1285 1231 1205 874
+$__ICE40_CARRY_LUT4 1 1 3 2
+1231 1205 875
+675  609  278
