@@ -125,7 +125,7 @@ static void run_ice40_opts(Module *module)
 				cell->unsetPort("\\B");
 				cell->unsetPort("\\CI");
 				cell->unsetPort("\\CO");
-				cell->setParam("\\LUT_INIT", std::string("0110100110010110"));
+				cell->setParam("\\LUT_INIT", RTLIL::Const::from_string("0110100110010110"));
 				sb_lut_cells.push_back(cell);
 			}
 			continue;
