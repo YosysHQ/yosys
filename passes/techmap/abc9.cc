@@ -588,11 +588,11 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 					module->connect(RTLIL::SigBit(wire, y_bit.offset), RTLIL::S1);
 				}
 				else if (!lut_costs.empty() || !lut_file.empty()) {
-					RTLIL::Cell* driving_lut = nullptr;
+					RTLIL::Cell* driver_lut = nullptr;
 					// ABC can return NOT gates that drive POs
 					if (!a_bit.wire->port_input) {
 						// If it's not a NOT gate that that comes from a PI directly,
-						// find the driving LUT and clone that to guarantee that we won't
+						// find the driver LUT and clone that to guarantee that we won't
 						// increase the max logic depth
 						// (TODO: Optimise by not cloning unless will increase depth)
 						RTLIL::IdString driver_name;
@@ -600,10 +600,10 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 							driver_name = stringf("%s$lut", a_bit.wire->name.c_str());
 						else
 							driver_name = stringf("%s[%d]$lut", a_bit.wire->name.c_str(), a_bit.offset);
-						driving_lut = mapped_mod->cell(driver_name);
+						driver_lut = mapped_mod->cell(driver_name);
 					}
 
-					if (!driving_lut) {
+					if (!driver_lut) {
 						// If a driver couldn't be found (could be from PI or box CI)
 						// then implement using a LUT
 						cell = module->addLut(remap_name(stringf("%s$lut", c->name.c_str())),
@@ -613,7 +613,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 						bit2sinks[cell->getPort("\\A")].push_back(cell);
 					}
 					else {
-						push_inverters.emplace_back(c, driving_lut);
+						push_inverters.emplace_back(c, driver_lut);
 						continue;
 					}
 				}
@@ -729,12 +729,18 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 
 		for (auto i : push_inverters) {
 			RTLIL::Cell *not_cell = i.first;
-			RTLIL::Cell *driving_lut = i.second;
+			RTLIL::Cell *driver_lut = i.second;
 			RTLIL::SigBit a_bit = not_cell->getPort("\\A");
 			RTLIL::SigBit y_bit = not_cell->getPort("\\Y");
+			RTLIL::Const driver_mask = driver_lut->getParam("\\LUT");
 
 			a_bit.wire = module->wires_.at(remap_name(a_bit.wire->name));
 			y_bit.wire = module->wires_.at(remap_name(y_bit.wire->name));
+
+			for (auto &b : driver_mask.bits) {
+				if (b == RTLIL::State::S0) b = RTLIL::State::S1;
+				else if (b == RTLIL::State::S1) b = RTLIL::State::S0;
+			}
 
 			auto it = bit2sinks.find(a_bit);
 			if (it == bit2sinks.end())
@@ -744,6 +750,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 				if (sink_cell->type != "$lut")
 					goto duplicate_lut;
 
+			// Push downstream LUTs past inverter
 			for (auto sink_cell : it->second) {
 				SigSpec A = sink_cell->getPort("\\A");
 				RTLIL::Const mask = sink_cell->getParam("\\LUT");
@@ -763,25 +770,27 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 				sink_cell->setParam("\\LUT", mask);
 			}
 
-			// FIXME: Since we have rewritten all sink_LUTs,
-			//        we should be able to continue here
-			//        and expect the $_NOT_ gate to be optimised
-			//        away as it will have no sinks...
+			// FIXME: Since we have rewritten all sinks
+			//        (which we know to be only LUTs)
+			//        to be after the inverter, we can now
+			//        merge the inverter into the driving LUT
+			//        and let the (now dangling) $_NOT_ cell
+			//        from mapped_mod get cleaned away
+			//driver_lut->setParam("\\INIT", driver_mask);
+			//driver_lut->setPort("\\Y", y_bit);
 			//continue;
-
 duplicate_lut:
-			RTLIL::Const driver_lut = driving_lut->getParam("\\LUT");
-			for (auto &b : driver_lut.bits) {
+			for (auto &b : driver_mask.bits) {
 				if (b == RTLIL::State::S0) b = RTLIL::State::S1;
 				else if (b == RTLIL::State::S1) b = RTLIL::State::S0;
 			}
-			auto driver_a = driving_lut->getPort("\\A").chunks();
+			auto driver_a = driver_lut->getPort("\\A").chunks();
 			for (auto &chunk : driver_a)
 				chunk.wire = module->wires_.at(remap_name(chunk.wire->name));
 			module->addLut(remap_name(not_cell->name),
 					driver_a,
 					y_bit,
-					driver_lut);
+					driver_mask);
 		}
 
 		//log("ABC RESULTS:        internal signals: %8d\n", int(signal_list.size()) - in_wires - out_wires);
