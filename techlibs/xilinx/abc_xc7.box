@@ -14,6 +14,7 @@ F7MUX 1 1 3 1
 MUXF8 2 1 3 1
 104 94 273
 
+# Box containing MUXF7.[AB] + MUXF8
 # Inputs: I0 I1 I2 I3 S0 S1
 # Outputs: O
 $__MUXF78 3 1 6 1
@@ -57,37 +58,41 @@ RAM128X1D 7 0 17 2
 -    -    -   -   -   -   -   - 1009 998 839 774 605 494 450 - -
 1047 1036 877 812 643 532 478 - -    -   -   -   -   -   -   - -
 
+# Box to emulate async behaviour of FD[CP]*
 # Inputs: A S
 # Outputs: Y
 $__ABC_ASYNC 1000 0 2 1
 0 764
 
+# The following FD*.{CE,R,CLR,PRE) are offset by 46ps to
+# reflect the -46ps Tsu
+
 # Inputs: C CE D R \$pastQ
 # Outputs: Q
 FDRE 1001 1 5 1
-0 109 0 358 0
+0 155 0 404 0
 
 # Inputs: C CE D R \$pastQ
 # Outputs: Q
 FDRE_1 1002 1 5 1
-0 109 0 358 0
+0 155 0 404 0
 
 # Inputs: C CE CLR D \$pastQ
 # Outputs: Q
 FDCE 1003 1 5 1
-0 109 764 0 0
+0 155 810 0 0
 
 # Inputs: C CE CLR D \$pastQ
 # Outputs: Q
 FDCE_1 1004 1 5 1
-0 109 764 0 0
+0 155 810 0 0
 
 # Inputs: C CE D PRE \$pastQ
 # Outputs: Q
 FDPE 1005 1 5 1
-0 109 0 764 0
+0 155 0 810 0
 
 # Inputs: C CE D PRE \$pastQ
 # Outputs: Q
 FDPE_1 1006 1 5 1
-0 109 0 764 0
+0 155 0 810 0
