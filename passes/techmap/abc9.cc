@@ -761,11 +761,11 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 
 			auto jt = bit2sinks.find(a_bit);
 			if (jt == bit2sinks.end())
-				goto duplicate_lut;
+				goto clone_lut;
 
 			for (auto sink_cell : jt->second)
 				if (sink_cell->type != "$lut")
-					goto duplicate_lut;
+					goto clone_lut;
 
 			// Push downstream LUTs past inverter
 			for (auto sink_cell : jt->second) {
@@ -787,7 +787,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 				sink_cell->setParam("\\LUT", mask);
 			}
 
-duplicate_lut:
+clone_lut:
 			driver_mask = driver_lut->getParam("\\LUT");
 			for (auto &b : driver_mask.bits) {
 				if (b == RTLIL::State::S0) b = RTLIL::State::S1;
