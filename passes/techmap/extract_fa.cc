@@ -174,8 +174,10 @@ struct ExtractFaWorker
 
 				SigSpec sig = root;
 
-				if (!ce.eval(sig))
-					log_abort();
+				if (ce.eval(sig)) {
+					ce.pop();
+					return;
+				}
 
 				if (sig == State::S1)
 					func |= 1 << i;
@@ -214,8 +216,10 @@ struct ExtractFaWorker
 
 				SigSpec sig = root;
 
-				if (!ce.eval(sig))
-					log_abort();
+				if (ce.eval(sig)) {
+					ce.pop();
+					return;
+				}
 
 				if (sig == State::S1)
 					func |= 1 << i;
