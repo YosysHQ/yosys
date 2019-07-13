@@ -30,8 +30,7 @@
 						"&st; &if -g -K 6; &synch2; &if {W} -v; &save; &load; "\
 						"&mfs; &ps -l"
 #else
-#define ABC_COMMAND_LUT "&st; &scorr; &sweep; &dc2; &st; &dch -f; &ps; &if {W} {D} -v; &mfs -b; &ps -l"
-//#define ABC_COMMAND_LUT "&st; &scorr; &sweep; &dc2; &st; &put -v; dch -f; if {W} {D} -vo; mfs2; &get -vm; &ps -l"
+#define ABC_COMMAND_LUT "&st; &scorr; &sweep; &dc2; &st; &dch -f; &ps; &if {W} {D} -v; &mfs; &ps -l"
 #endif
 
 
@@ -756,16 +755,11 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			RTLIL::SigBit a_bit = not_cell->getPort("\\A");
 			RTLIL::SigBit y_bit = not_cell->getPort("\\Y");
 			RTLIL::Const driver_mask;
-			RTLIL::Wire *orig_a_bit_wire = a_bit.wire;
-			decltype(bit2sinks)::const_iterator jt;
 
 			a_bit.wire = module->wires_.at(remap_name(a_bit.wire->name));
 			y_bit.wire = module->wires_.at(remap_name(y_bit.wire->name));
 
-			if (orig_a_bit_wire->port_output)
-				goto duplicate_lut;
-
-			jt = bit2sinks.find(a_bit);
+			auto jt = bit2sinks.find(a_bit);
 			if (jt == bit2sinks.end())
 				goto duplicate_lut;
 
