@@ -114,19 +114,17 @@ static void run_ice40_opts(Module *module)
 				optimized_co.insert(sigmap(cell->getPort("\\CO")[0]));
 				module->connect(cell->getPort("\\CO")[0], replacement_output);
 				module->design->scratchpad_set_bool("opt.did_something", true);
-				log("Optimized SB_CARRY from $__ICE40_CARRY_LUT4 cell (leaving behind SB_LUT4) %s.%s: CO=%s\n",
+				log("Optimized $__ICE40_CARRY_LUT4 cell into $lut (without SB_CARRY) %s.%s: CO=%s\n",
 						log_id(module), log_id(cell), log_signal(replacement_output));
-				cell->type = "\\SB_LUT4";
-				cell->setPort("\\I0", RTLIL::S0);
-				cell->setPort("\\I1", inbit[0]);
-				cell->setPort("\\I2", inbit[1]);
-				cell->setPort("\\I3", inbit[2]);
-				cell->unsetPort("\\A");
+				cell->type = "$lut";
+				cell->setPort("\\A", { RTLIL::S0, inbit[0], inbit[1], inbit[2] });
+				cell->setPort("\\Y", cell->getPort("\\O"));
 				cell->unsetPort("\\B");
 				cell->unsetPort("\\CI");
 				cell->unsetPort("\\CO");
-				cell->setParam("\\LUT_INIT", RTLIL::Const::from_string("0110100110010110"));
-				sb_lut_cells.push_back(cell);
+				cell->unsetPort("\\O");
+				cell->setParam("\\LUT", RTLIL::Const::from_string("0110100110010110"));
+				cell->setParam("\\WIDTH", 4);
 			}
 			continue;
 		}
