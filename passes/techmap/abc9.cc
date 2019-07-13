@@ -787,6 +787,11 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 				sink_cell->setParam("\\LUT", mask);
 			}
 
+			// Since we have rewritten all sinks (which we know
+			// to be only LUTs) to be after the inverter, we can
+			// go ahead and clone the LUT with the expectation
+			// that the original driving LUT will become dangling
+			// and get cleaned away
 clone_lut:
 			driver_mask = driver_lut->getParam("\\LUT");
 			for (auto &b : driver_mask.bits) {
