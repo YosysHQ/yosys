@@ -1062,8 +1062,8 @@ struct AigerFrontend : public Frontend {
 		if (module_name.empty()) {
 #ifdef _WIN32
 			char fname[_MAX_FNAME];
-			_splitpath(filename.c_str(), NULL /* drive */, NULL /* dir */, fname, NULL /* ext */)
-				module_name = fname;
+			_splitpath(filename.c_str(), NULL /* drive */, NULL /* dir */, fname, NULL /* ext */);
+			module_name = fname;
 #else
 			char* bn = strdup(filename.c_str());
 			module_name = RTLIL::escape_id(bn);
