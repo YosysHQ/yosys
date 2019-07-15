@@ -204,7 +204,6 @@ struct OptMuxtreeWorker
 
 		log("  Analyzing evaluation results.\n");
 		log_assert(glob_abort_cnt > 0);
-		log_checkpoint();
 
 		for (auto &mi : mux2info)
 		{

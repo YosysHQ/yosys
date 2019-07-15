@@ -130,7 +130,6 @@ void log_spacer();
 void log_push();
 void log_pop();
 
-void log_checkpoint();
 void log_backtrace(const char *prefix, int levels);
 void log_reset_stack();
 void log_flush();
