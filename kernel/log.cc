@@ -420,6 +420,13 @@ void log_pop()
 	log_flush();
 }
 
+void log_checkpoint()
+{
+	log_id_cache.clear();
+	IdString::checkpoint();
+	log_flush();
+}
+
 #if (defined(__linux__) || defined(__FreeBSD__)) && defined(YOSYS_ENABLE_PLUGINS)
 void log_backtrace(const char *prefix, int levels)
 {
