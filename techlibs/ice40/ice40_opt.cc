@@ -84,7 +84,7 @@ static void run_ice40_opts(Module *module)
 			continue;
 		}
 
-		if (cell->type == "$__ICE40_CARRY_LUT4")
+		if (cell->type == "$__ICE40_FULL_ADDER")
 		{
 			SigSpec non_const_inputs, replacement_output;
 			int count_zeros = 0, count_ones = 0;
@@ -114,7 +114,7 @@ static void run_ice40_opts(Module *module)
 				optimized_co.insert(sigmap(cell->getPort("\\CO")[0]));
 				module->connect(cell->getPort("\\CO")[0], replacement_output);
 				module->design->scratchpad_set_bool("opt.did_something", true);
-				log("Optimized $__ICE40_CARRY_LUT4 cell into $lut (without SB_CARRY) %s.%s: CO=%s\n",
+				log("Optimized $__ICE40_FULL_ADDER cell back to logic (without SB_CARRY) %s.%s: CO=%s\n",
 						log_id(module), log_id(cell), log_signal(replacement_output));
 				cell->type = "$lut";
 				cell->setPort("\\A", { RTLIL::S0, inbit[0], inbit[1], inbit[2] });

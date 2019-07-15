@@ -63,7 +63,7 @@ endmodule
 `endif
 
 `ifdef _ABC
-module \$__ICE40_CARRY_LUT4 (output CO, O, input A, B, CI);
+module \$__ICE40_FULL_ADDER (output CO, O, input A, B, CI);
   SB_CARRY carry (
     .I0(A),
     .I1(B),

@@ -142,7 +142,7 @@ module SB_CARRY (output CO, input I0, I1, CI);
 endmodule
 
 (* abc_box_id = 1, abc_carry="CI,CO", lib_whitebox *)
-module \$__ICE40_CARRY_LUT4 (output CO, O, input A, B, CI);
+module \$__ICE40_FULL_ADDER (output CO, O, input A, B, CI);
 	SB_CARRY carry (
 		.I0(A),
 		.I1(B),
