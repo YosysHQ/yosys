@@ -33,7 +33,7 @@ module \$mul (A, B, Y);
 	output [Y_WIDTH-1:0] Y;
 
 	generate
-		if (A_WIDTH < B_WIDTH)
+		if (B_WIDTH < A_WIDTH)
 			\$__mul_gen #(
 				.A_SIGNED(A_SIGNED),
 				.B_SIGNED(B_SIGNED),
