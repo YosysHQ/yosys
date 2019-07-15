@@ -378,3 +378,134 @@ module SRLC32E (
       always @(posedge CLK) if (CE) r <= { r[30:0], D };
   endgenerate
 endmodule
+
+module DSP48E1 (
+    output [29:0] ACOUT,
+    output [17:0] BCOUT,
+    output CARRYCASCOUT,
+    output [3:0] CARRYOUT,
+    output MULTSIGNOUT,
+    output OVERFLOW,
+    output reg [47:0] P,
+    output PATTERNBDETECT,
+    output PATTERNDETECT,
+    output [47:0] PCOUT,
+    output UNDERFLOW,
+    input [29:0] A,
+    input [29:0] ACIN,
+    input [3:0] ALUMODE,
+    input [17:0] B,
+    input [17:0] BCIN,
+    input [47:0] C,
+    input CARRYCASCIN,
+    input CARRYIN,
+    input [2:0] CARRYINSEL,
+    input CEA1,
+    input CEA2,
+    input CEAD,
+    input CEALUMODE,
+    input CEB1,
+    input CEB2,
+    input CEC,
+    input CECARRYIN,
+    input CECTRL,
+    input CED,
+    input CEINMODE,
+    input CEM,
+    input CEP,
+    input CLK,
+    input [24:0] D,
+    input [4:0] INMODE,
+    input MULTSIGNIN,
+    input [6:0] OPMODE,
+    input [47:0] PCIN,
+    input RSTA,
+    input RSTALLCARRYIN,
+    input RSTALUMODE,
+    input RSTB,
+    input RSTC,
+    input RSTCTRL,
+    input RSTD,
+    input RSTINMODE,
+    input RSTM,
+    input RSTP
+);
+    parameter integer ACASCREG = 1;
+    parameter integer ADREG = 1;
+    parameter integer ALUMODEREG = 1;
+    parameter integer AREG = 1;
+    parameter AUTORESET_PATDET = "NO_RESET";
+    parameter A_INPUT = "DIRECT";
+    parameter integer BCASCREG = 1;
+    parameter integer BREG = 1;
+    parameter B_INPUT = "DIRECT";
+    parameter integer CARRYINREG = 1;
+    parameter integer CARRYINSELREG = 1;
+    parameter integer CREG = 1;
+    parameter integer DREG = 1;
+    parameter integer INMODEREG = 1;
+    parameter integer MREG = 1;
+    parameter integer OPMODEREG = 1;
+    parameter integer PREG = 1;
+    parameter SEL_MASK = "MASK";
+    parameter SEL_PATTERN = "PATTERN";
+    parameter USE_DPORT = "FALSE";
+    parameter USE_MULT = "MULTIPLY";
+    parameter USE_PATTERN_DETECT = "NO_PATDET";
+    parameter USE_SIMD = "ONE48";
+    parameter [47:0] MASK = 48'h3FFFFFFFFFFF;
+    parameter [47:0] PATTERN = 48'h000000000000;
+    parameter [3:0] IS_ALUMODE_INVERTED = 4'b0;
+    parameter [0:0] IS_CARRYIN_INVERTED = 1'b0;
+    parameter [0:0] IS_CLK_INVERTED = 1'b0;
+    parameter [4:0] IS_INMODE_INVERTED = 5'b0;
+    parameter [6:0] IS_OPMODE_INVERTED = 7'b0;
+
+    initial begin
+`ifdef __ICARUS__
+        if (ACASCREG != 0)          $fatal(1, "Unsupported ACASCREG value");
+        if (ADREG != 0)             $fatal(1, "Unsupported ADREG value");
+        if (ALUMODEREG != 0)        $fatal(1, "Unsupported ALUMODEREG value");
+        if (AREG != 0)              $fatal(1, "Unsupported AREG value");
+        if (AUTORESET_PATDET != "NO_RESET") $fatal(1, "Unsupported AUTORESET_PATDET value");
+        if (A_INPUT != "DIRECT")    $fatal(1, "Unsupported A_INPUT value");
+        if (BCASCREG != 0)          $fatal(1, "Unsupported BCASCREG value");
+        if (BREG != 0)              $fatal(1, "Unsupported BREG value");
+        if (B_INPUT != "DIRECT")    $fatal(1, "Unsupported B_INPUT value");
+        if (CARRYINREG != 0)        $fatal(1, "Unsupported CARRYINREG value");
+        if (CARRYINSELREG != 0)     $fatal(1, "Unsupported CARRYINSELREG value");
+        if (CREG != 0)              $fatal(1, "Unsupported CREG value");
+        if (DREG != 0)              $fatal(1, "Unsupported DREG value");
+        if (INMODEREG != 0)         $fatal(1, "Unsupported INMODEREG value");
+        if (MREG != 0)              $fatal(1, "Unsupported MREG value");
+        if (OPMODEREG != 0)         $fatal(1, "Unsupported OPMODEREG value");
+        if (PREG != 0)              $fatal(1, "Unsupported PREG value");
+        if (SEL_MASK != "MASK")     $fatal(1, "Unsupported SEL_MASK value");
+        if (SEL_PATTERN != "PATTERN") $fatal(1, "Unsupported SEL_PATTERN value");
+        if (USE_DPORT != "FALSE")   $fatal(1, "Unsupported USE_DPORT value");
+        if (USE_MULT != "MULTIPLY") $fatal(1, "Unsupported USE_MULT value");
+        if (USE_PATTERN_DETECT != "NO_PATDET") $fatal(1, "Unsupported USE_PATTERN_DETECT value");
+        if (USE_SIMD != "ONE48")    $fatal(1, "Unsupported USE_SIMD value");
+        if (IS_ALUMODE_INVERTED != 4'b0) $fatal(1, "Unsupported IS_ALUMODE_INVERTED value");
+        if (IS_CARRYIN_INVERTED != 1'b0) $fatal(1, "Unsupported IS_CARRYIN_INVERTED value");
+        if (IS_CLK_INVERTED != 1'b0) $fatal(1, "Unsupported IS_CLK_INVERTED value");
+        if (IS_INMODE_INVERTED != 5'b0) $fatal(1, "Unsupported IS_INMODE_INVERTED value");
+        if (IS_OPMODE_INVERTED != 7'b0) $fatal(1, "Unsupported IS_OPMODE_INVERTED value");
+`endif
+    end
+
+    always @* begin
+        P <= {48{1'bx}};
+`ifdef __ICARUS__
+        if (INMODE != 4'b0000)      $fatal(1, "Unsupported INMODE value");
+        if (ALUMODE != 4'b0000)     $fatal(1, "Unsupported ALUMODE value");
+        if (OPMODE != 7'b000101)    $fatal(1, "Unsupported OPMODE value");
+        if (CARRYINSEL != 3'b000)   $fatal(1, "Unsupported CARRYINSEL value");
+        if (ACIN != 30'b0)          $fatal(1, "Unsupported ACIN value");
+        if (BCIN != 18'b0)          $fatal(1, "Unsupported BCIN value");
+        if (PCIN != 48'b0)          $fatal(1, "Unsupported PCIN value");
+        if (CARRYIN != 1'b0)        $fatal(1, "Unsupported CARRYIN value");
+`endif
+        P[42:0] <= A[24:0] * B;
+    end
+endmodule
