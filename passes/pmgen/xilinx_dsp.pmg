@@ -1,0 +1,71 @@
+pattern xilinx_dsp
+
+state <SigBit> clock
+state <SigSpec> sigA sigB sigY sigS
+state <Cell*> addAB muxAB
+
+match mul
+	select mul->type.in($__MUL25X18)
+endmatch
+
+match ffA
+	select ffA->type.in($dff) /* TODO: $dffe */
+	// select nusers(port(ffA, \Q)) == 2
+	index <SigSpec> port(ffA, \Q) === port(mul, \A)
+	// DSP48E1 does not support clock inversion
+	index <SigBit> port(ffA, \CLK_POLARITY) === State::S1
+	optional
+endmatch
+
+code sigA clock
+	sigA = port(mul, \A);
+
+	if (ffA) {
+		sigA = port(ffA, \D);
+		clock = port(ffA, \CLK).as_bit();
+	}
+endcode
+
+match ffB
+	select ffB->type.in($dff)
+	// select nusers(port(ffB, \Q)) == 2
+	index <SigSpec> port(ffB, \Q) === port(mul, \B)
+	index <SigBit> port(ffB, \CLK_POLARITY) === State::S1
+	optional
+endmatch
+
+code sigB clock 
+	sigB = port(mul, \B);
+
+	if (ffB) {
+		sigB = port(ffB, \D);
+		SigBit c = port(ffB, \CLK).as_bit();
+
+		if (clock != SigBit() && c != clock)
+			reject;
+
+		clock = c;
+	}
+endcode
+
+match ffY
+	select ffY->type.in($dff)
+	select nusers(port(ffY, \D)) == 2
+	index <SigSpec> port(ffY, \D) === port(mul, \Y)
+	index <SigBit> port(ffY, \CLK_POLARITY) === State::S1
+	optional
+endmatch
+
+code sigY clock
+	sigY = port(mul, \Y);
+
+	if (ffY) {
+		sigY = port(ffY, \Q);
+		SigBit c = port(ffY, \CLK).as_bit();
+
+		if (clock != SigBit() && c != clock)
+			reject;
+
+		clock = c;
+	}
+endcode
