@@ -32,40 +32,32 @@ module \$mul (A, B, Y);
 	input [B_WIDTH-1:0] B;
 	output [Y_WIDTH-1:0] Y;
 
-	wire [1023:0] _TECHMAP_DO_ = "proc; clean";
-
-  generate
-    if (A_WIDTH<B_WIDTH) begin
 	generate
-		\$__mul_gen #(
-			.A_SIGNED(A_SIGNED),
-			.B_SIGNED(B_SIGNED),
-			.A_WIDTH(A_WIDTH),
-			.B_WIDTH(B_WIDTH),
-			.Y_WIDTH(Y_WIDTH)
-		) mul_slice (
-			.A(A),
-			.B(B),
-			.Y(Y[Y_WIDTH-1:0])
-		);
+		if (A_WIDTH < B_WIDTH)
+			\$__mul_gen #(
+				.A_SIGNED(A_SIGNED),
+				.B_SIGNED(B_SIGNED),
+				.A_WIDTH(A_WIDTH),
+				.B_WIDTH(B_WIDTH),
+				.Y_WIDTH(Y_WIDTH)
+			) mul_slice (
+				.A(A),
+				.B(B),
+				.Y(Y)
+			);
+		else
+			\$__mul_gen #(
+				.A_SIGNED(B_SIGNED),
+				.B_SIGNED(A_SIGNED),
+				.A_WIDTH(B_WIDTH),
+				.B_WIDTH(A_WIDTH),
+				.Y_WIDTH(Y_WIDTH)
+			) mul_slice (
+				.A(B),
+				.B(A),
+				.Y(Y)
+			);
 	endgenerate
-	end
-    else begin
-	generate
-		\$__mul_gen #(
-			.A_SIGNED(B_SIGNED),
-			.B_SIGNED(A_SIGNED),
-			.A_WIDTH(B_WIDTH),
-			.B_WIDTH(A_WIDTH),
-			.Y_WIDTH(Y_WIDTH)
-		) mul_slice (
-			.A(B),
-			.B(A),
-			.Y(Y[Y_WIDTH-1:0])
-		);
-	endgenerate
-     end
-   endgenerate	
 endmodule
 
 module \$__mul_gen (A, B, Y);
@@ -81,8 +73,9 @@ module \$__mul_gen (A, B, Y);
 
 	wire [1023:0] _TECHMAP_DO_ = "proc; clean";
 
+	genvar i;
 	generate
-	if (A_WIDTH > `DSP_A_MAXWIDTH) begin
+		if (A_WIDTH > `DSP_A_MAXWIDTH) begin
 			localparam n_floored = A_WIDTH/`DSP_A_MAXWIDTH;
 			localparam n = n_floored + (n_floored*`DSP_A_MAXWIDTH < A_WIDTH ? 1 : 0);
 			wire [`DSP_A_MAXWIDTH+B_WIDTH-1:0] partial [n-1:1];
@@ -101,8 +94,6 @@ module \$__mul_gen (A, B, Y);
 			);
                         assign partial_sum[0][Y_WIDTH-1:B_WIDTH+`DSP_A_MAXWIDTH]=0;
 
-			genvar i;
-			generate
 			for (i = 1; i < n-1; i=i+1) begin:slice
 				\$__mul_gen #(
 					.A_SIGNED(A_SIGNED),
@@ -122,7 +113,6 @@ module \$__mul_gen (A, B, Y);
 					partial_sum[i-1][(i*`DSP_A_MAXWIDTH)-1:0]
 				};
 			end
-			endgenerate
 
 			\$__mul_gen #(
 				.A_SIGNED(A_SIGNED),
@@ -161,8 +151,6 @@ module \$__mul_gen (A, B, Y);
 			);
                         assign partial_sum[0][Y_WIDTH-1:A_WIDTH+`DSP_B_MAXWIDTH]=0;
 
-			genvar i;
-			generate
 			for (i = 1; i < n-1; i=i+1) begin:slice
 				\$__mul_gen #(
 					.A_SIGNED(A_SIGNED),
@@ -187,7 +175,6 @@ module \$__mul_gen (A, B, Y);
 					partial_sum[i-1][(i*`DSP_B_MAXWIDTH)-1:0] 
 				};
 			end
-			endgenerate
 
 			\$__mul_gen #(
 				.A_SIGNED(A_SIGNED),
