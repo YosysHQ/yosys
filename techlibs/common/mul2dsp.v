@@ -209,7 +209,7 @@ module \$__mul_gen (A, B, Y);
 			`DSP_NAME _TECHMAP_REPLACE_ (
 				.A({ {{`DSP_A_MAXWIDTH-A_WIDTH}{Asign}}, A }),
 				.B({ {{`DSP_B_MAXWIDTH-B_WIDTH}{Bsign}}, B }),
-				.OUT({dummy, out})
+				.Y({dummy, out})
 			);
 			if (Y_WIDTH < A_WIDTH+B_WIDTH)
 				assign Y = out[Y_WIDTH-1:0];
