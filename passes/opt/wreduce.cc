@@ -430,7 +430,6 @@ struct WreduceWorker
 		for (auto w : module->wires())
 			complete_wires.insert(mi.sigmap(w));
 
-		std::vector<std::pair<Wire*,Wire*>> swap_wire_names;
 		for (auto w : module->selected_wires())
 		{
 			int unused_top_bits = 0;
@@ -455,11 +454,8 @@ struct WreduceWorker
 			log("Removed top %d bits (of %d) from wire %s.%s.\n", unused_top_bits, GetSize(w), log_id(module), log_id(w));
 			Wire *nw = module->addWire(NEW_ID, GetSize(w) - unused_top_bits);
 			module->connect(nw, SigSpec(w).extract(0, GetSize(nw)));
-			swap_wire_names.emplace_back(w, nw);
+			module->swap_names(w, nw);
 		}
-
-		for (const auto &i : swap_wire_names)
-			module->swap_names(i.first, i.second);
 
 		if (!remove_init_bits.empty()) {
 			for (auto w : module->wires()) {
