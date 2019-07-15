@@ -3426,7 +3426,7 @@ void RTLIL::SigSpec::append_bit(const RTLIL::SigBit &bit)
 	check();
 }
 
-void RTLIL::SigSpec::extend_u0(int width, bool is_signed)
+RTLIL::SigSpec& RTLIL::SigSpec::extend_u0(int width, bool is_signed)
 {
 	cover("kernel.rtlil.sigspec.extend_u0");
 
@@ -3443,6 +3443,7 @@ void RTLIL::SigSpec::extend_u0(int width, bool is_signed)
 			append(padding);
 	}
 
+	return *this;
 }
 
 RTLIL::SigSpec RTLIL::SigSpec::repeat(int num) const

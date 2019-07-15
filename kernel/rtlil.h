@@ -776,7 +776,7 @@ public:
 	void append(const RTLIL::SigSpec &signal);
 	void append_bit(const RTLIL::SigBit &bit);
 
-	void extend_u0(int width, bool is_signed = false);
+	RTLIL::SigSpec& extend_u0(int width, bool is_signed = false);
 
 	RTLIL::SigSpec repeat(int num) const;
 
