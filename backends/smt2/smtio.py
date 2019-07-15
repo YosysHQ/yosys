@@ -43,7 +43,11 @@ if os.name == "posix":
         if current_rlimit_stack[1] != resource.RLIM_INFINITY:
             smtio_stacksize = min(smtio_stacksize, current_rlimit_stack[1])
         if current_rlimit_stack[0] < smtio_stacksize:
-            resource.setrlimit(resource.RLIMIT_STACK, (smtio_stacksize, current_rlimit_stack[1]))
+            try:
+                resource.setrlimit(resource.RLIMIT_STACK, (smtio_stacksize, current_rlimit_stack[1]))
+            except ValueError:
+                # couldn't get more stack, just run with what we have
+                pass
 
 
 # currently running solvers (so we can kill them)
