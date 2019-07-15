@@ -244,8 +244,13 @@ struct SynthXilinxPass : public ScriptPass
 
 			run("read_verilog -lib +/xilinx/cells_xtra.v");
 
-			if (!nobram || help_mode)
-				run("read_verilog -lib +/xilinx/brams_bb.v", "(skip if '-nobram')");
+			if (help_mode) {
+				run("read_verilog -lib +/xilinx/{family}_brams_bb.v");
+			} else if (family == "xc6s") {
+				run("read_verilog -lib +/xilinx/xc6s_brams_bb.v");
+			} else if (family == "xc7") {
+				run("read_verilog -lib +/xilinx/xc7_brams_bb.v");
+			}
 
 			run(stringf("hierarchy -check %s", top_opt.c_str()));
 		}
@@ -292,9 +297,19 @@ struct SynthXilinxPass : public ScriptPass
 		}
 
 		if (check_label("bram", "(skip if '-nobram')")) {
-			if (!nobram || help_mode) {
-				run("memory_bram -rules +/xilinx/brams.txt");
-				run("techmap -map +/xilinx/brams_map.v");
+			if (help_mode) {
+				run("memory_bram -rules +/xilinx/{family}_brams.txt");
+				run("techmap -map +/xilinx/{family}_brams_map.v");
+			} else if (!nobram) {
+				if (family == "xc6s") {
+					run("memory_bram -rules +/xilinx/xc6s_brams.txt");
+					run("techmap -map +/xilinx/xc6s_brams_map.v");
+				} else if (family == "xc7") {
+					run("memory_bram -rules +/xilinx/xc7_brams.txt");
+					run("techmap -map +/xilinx/xc7_brams_map.v");
+				} else {
+					log_warning("Block RAM inference not yet supported for family %s.\n", family.c_str());
+				}
 			}
 		}
 

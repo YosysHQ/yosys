@@ -222,7 +222,7 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 				case RTLIL::S1: bin_digits.push_back('1'); break;
 				case RTLIL::Sx: bin_digits.push_back('x'); break;
 				case RTLIL::Sz: bin_digits.push_back('z'); break;
-				case RTLIL::Sa: bin_digits.push_back('z'); break;
+				case RTLIL::Sa: bin_digits.push_back('?'); break;
 				case RTLIL::Sm: log_error("Found marker state in final netlist.");
 				}
 			}
@@ -251,6 +251,12 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 					hex_digits.push_back('z');
 					continue;
 				}
+				if (bit_3 == '?' || bit_2 == '?' || bit_1 == '?' || bit_0 == '?') {
+					if (bit_3 != '?' || bit_2 != '?' || bit_1 != '?' || bit_0 != '?')
+						goto dump_bin;
+					hex_digits.push_back('?');
+					continue;
+				}
 				int val = 8*(bit_3 - '0') + 4*(bit_2 - '0') + 2*(bit_1 - '0') + (bit_0 - '0');
 				hex_digits.push_back(val < 10 ? '0' + val : 'a' + val - 10);
 			}
@@ -270,7 +276,7 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 				case RTLIL::S1: f << stringf("1"); break;
 				case RTLIL::Sx: f << stringf("x"); break;
 				case RTLIL::Sz: f << stringf("z"); break;
-				case RTLIL::Sa: f << stringf("z"); break;
+				case RTLIL::Sa: f << stringf("?"); break;
 				case RTLIL::Sm: log_error("Found marker state in final netlist.");
 				}
 			}
