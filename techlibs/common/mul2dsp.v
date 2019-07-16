@@ -92,7 +92,7 @@ module \$__mul_gen (A, B, Y);
 				.B(B),
 				.Y(partial_sum[0][B_WIDTH+`DSP_A_MAXWIDTH-1:0])
 			);
-                        assign partial_sum[0][Y_WIDTH-1:B_WIDTH+`DSP_A_MAXWIDTH]=0;
+			assign partial_sum[0][Y_WIDTH-1:B_WIDTH+`DSP_A_MAXWIDTH]=0;
 
 			for (i = 1; i < n-1; i=i+1) begin:slice
 				\$__mul_gen #(
@@ -149,7 +149,7 @@ module \$__mul_gen (A, B, Y);
 				.B(B[`DSP_B_MAXWIDTH-1:0]),
 				.Y(partial_sum[0][A_WIDTH+`DSP_B_MAXWIDTH-1:0])
 			);
-                        assign partial_sum[0][Y_WIDTH-1:A_WIDTH+`DSP_B_MAXWIDTH]=0;
+			assign partial_sum[0][Y_WIDTH-1:A_WIDTH+`DSP_B_MAXWIDTH]=0;
 
 			for (i = 1; i < n-1; i=i+1) begin:slice
 				\$__mul_gen #(
@@ -157,14 +157,14 @@ module \$__mul_gen (A, B, Y);
 					.B_SIGNED(B_SIGNED),
 					.A_WIDTH(A_WIDTH),
 					.B_WIDTH(`DSP_B_MAXWIDTH),
-				        .Y_WIDTH(A_WIDTH+`DSP_B_MAXWIDTH)
+						.Y_WIDTH(A_WIDTH+`DSP_B_MAXWIDTH)
 				) mul (
 					.A(A),
 					.B(B[(i+1)*`DSP_B_MAXWIDTH-1:i*`DSP_B_MAXWIDTH]),
 					.Y(partial[i][A_WIDTH+`DSP_B_MAXWIDTH-1:0])
 				);
 				//assign partial_sum[i] = (partial[i] << i*`DSP_B_MAXWIDTH) + partial_sum[i-1];
-                                // was:
+				// was:
 				//assign partial_sum[i] = {
 				//  partial[i][A_WIDTH+`DSP_B_MAXWIDTH-1:`DSP_B_MAXWIDTH], 
 				//	partial[i][`DSP_B_MAXWIDTH-1:0] + partial_sum[i-1][A_WIDTH+(i*`DSP_B_MAXWIDTH)-1:A_WIDTH+((i-1)*`DSP_B_MAXWIDTH)],
@@ -187,14 +187,14 @@ module \$__mul_gen (A, B, Y);
 				.B(B[B_WIDTH-1:(n-1)*`DSP_B_MAXWIDTH]),
 				.Y(partial[n-1][A_WIDTH+B_WIDTH-(n-1)*`DSP_B_MAXWIDTH-1:0])
 			);
-                        // AMD: this came comment out -- looks closer to right answer
+			// AMD: this came comment out -- looks closer to right answer
 			//assign Y = (partial[n-1] << (n-1)*`DSP_B_MAXWIDTH) + partial_sum[n-2];
-                        // was (looks broken)
+			// was (looks broken)
 			//assign Y = {
 			//	partial[n-1][A_WIDTH+`DSP_B_MAXWIDTH-1:`DSP_B_MAXWIDTH],
 			//	partial[n-1][`DSP_B_MAXWIDTH-1:0] + partial_sum[n-2][A_WIDTH+((n-1)*`DSP_B_MAXWIDTH)-1:A_WIDTH+((n-2)*`DSP_B_MAXWIDTH)],
 			//	partial_sum[n-2][A_WIDTH+((n-2)*`DSP_B_MAXWIDTH):0]
-                       assign Y = {
+			assign Y = {
 				partial[n-1][A_WIDTH+B_WIDTH-(n-1)*`DSP_B_MAXWIDTH-1:0]
 				+ partial_sum[n-2][Y_WIDTH-1:((n-1)*`DSP_B_MAXWIDTH)],
 				partial_sum[n-2][((n-1)*`DSP_B_MAXWIDTH)-1:0]
