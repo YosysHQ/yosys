@@ -3,24 +3,25 @@
 // revised by Andre DeHon
 // further revised by David Shah
 `ifndef DSP_A_MAXWIDTH
-`define DSP_A_MAXWIDTH 18
+$error("Macro DSP_A_MAXWIDTH must be defined");
 `endif
-`ifndef DSP_A_MAXWIDTH
-`define DSP_B_MAXWIDTH 25
+`ifndef DSP_A_SIGNEDONLY
+`define DSP_A_SIGNEDONLY 0
 `endif
-
-`ifndef ADDER_MINWIDTH
-`define ADDER_MINWIDTH AAA
+`ifndef DSP_B_MAXWIDTH
+$error("Macro DSP_B_MAXWIDTH must be defined");
+`endif
+`ifndef DSP_B_SIGNEDONLY
+`define DSP_B_SIGNEDONLY 0
 `endif
 
 `ifndef DSP_NAME
-`define DSP_NAME M18x25
+$error("Macro DSP_NAME must be defined");
 `endif
 
 `define MAX(a,b) (a > b ? a : b)
 `define MIN(a,b) (a < b ? a : b)
 
-(* techmap_celltype = "$mul" *)
 module \$mul (A, B, Y); 
 	parameter A_SIGNED = 0;
 	parameter B_SIGNED = 0;
@@ -33,14 +34,42 @@ module \$mul (A, B, Y);
 	output [Y_WIDTH-1:0] Y;
 
 	generate
-		if (A_WIDTH >= B_WIDTH)
+        if (`DSP_A_SIGNEDONLY && !A_SIGNED) begin
+            wire dummy;
+			\$mul #(
+				.A_SIGNED(1),
+				.B_SIGNED(B_SIGNED),
+				.A_WIDTH(A_WIDTH+1),
+				.B_WIDTH(B_WIDTH),
+				.Y_WIDTH(Y_WIDTH+1)
+			) _TECHMAP_REPLACE_ (
+				.A({1'b0, A}),
+				.B(B),
+				.Y({dummy, Y})
+			);
+        end
+        else if (`DSP_B_SIGNEDONLY && !B_SIGNED) begin
+            wire dummy;
+			\$mul #(
+				.A_SIGNED(A_SIGNED),
+				.B_SIGNED(1),
+				.A_WIDTH(A_WIDTH),
+				.B_WIDTH(B_WIDTH+1),
+				.Y_WIDTH(Y_WIDTH+1)
+			) _TECHMAP_REPLACE_ (
+				.A(A),
+				.B({1'b0, B}),
+				.Y({dummy, Y})
+			);
+        end
+		else if (A_WIDTH >= B_WIDTH)
 			\$__mul_gen #(
 				.A_SIGNED(A_SIGNED),
 				.B_SIGNED(B_SIGNED),
 				.A_WIDTH(A_WIDTH),
 				.B_WIDTH(B_WIDTH),
 				.Y_WIDTH(Y_WIDTH)
-			) mul_slice (
+			) _TECHMAP_REPLACE_ (
 				.A(A),
 				.B(B),
 				.Y(Y)
@@ -52,7 +81,7 @@ module \$mul (A, B, Y);
 				.A_WIDTH(B_WIDTH),
 				.B_WIDTH(A_WIDTH),
 				.Y_WIDTH(Y_WIDTH)
-			) mul_slice (
+			) _TECHMAP_REPLACE_ (
 				.A(B),
 				.B(A),
 				.Y(Y)
