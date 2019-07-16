@@ -174,7 +174,7 @@ struct ExtractFaWorker
 
 				SigSpec sig = root;
 
-				if (ce.eval(sig)) {
+				if (!ce.eval(sig)) {
 					ce.pop();
 					return;
 				}
@@ -216,7 +216,7 @@ struct ExtractFaWorker
 
 				SigSpec sig = root;
 
-				if (ce.eval(sig)) {
+				if (!ce.eval(sig)) {
 					ce.pop();
 					return;
 				}
