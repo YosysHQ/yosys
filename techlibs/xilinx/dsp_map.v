@@ -1,4 +1,4 @@
-module \$__MUL25X18 (input [23:0] A, input [16:0] B, output [40:0] Y);
+module \$__MUL25X18 (input [24:0] A, input [17:0] B, output [42:0] Y);
 	wire [47:0] P_48;
 	DSP48E1 #(
 		// Disable all registers
@@ -20,8 +20,8 @@ module \$__MUL25X18 (input [23:0] A, input [16:0] B, output [40:0] Y);
 		.PREG(0)
 	) _TECHMAP_REPLACE_ (
 		//Data path
-		.A({6'b0, A}),
-		.B({1'b0, B}),
+		.A({5'b0, A}),
+		.B(B),
 		.C(48'b0),
 		.D(24'b0),
 		.P(P_48),
