@@ -20,7 +20,7 @@ module \$__MUL25X18 (input [24:0] A, input [17:0] B, output [42:0] Y);
 		.PREG(0)
 	) _TECHMAP_REPLACE_ (
 		//Data path
-		.A({5'b0, A}),
+		.A({{5{A[24]}}, A}),
 		.B(B),
 		.C(48'b0),
 		.D(24'b0),

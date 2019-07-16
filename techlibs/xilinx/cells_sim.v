@@ -386,15 +386,15 @@ module DSP48E1 (
     output [3:0] CARRYOUT,
     output MULTSIGNOUT,
     output OVERFLOW,
-    output reg [47:0] P,
+    output reg signed [47:0] P,
     output PATTERNBDETECT,
     output PATTERNDETECT,
     output [47:0] PCOUT,
     output UNDERFLOW,
-    input [29:0] A,
+    input signed [29:0] A,
     input [29:0] ACIN,
     input [3:0] ALUMODE,
-    input [17:0] B,
+    input signed [17:0] B,
     input [17:0] BCIN,
     input [47:0] C,
     input CARRYCASCIN,
@@ -494,9 +494,9 @@ module DSP48E1 (
 `endif
     end
 
-    reg [29:0] Ar;
-    reg [17:0] Br;
-    reg [47:0] Pr;
+    reg signed [29:0] Ar;
+    reg signed [17:0] Br;
+    reg signed [47:0] Pr;
     generate
         if (AREG == 1) begin always @(posedge CLK) if (CEA2) Ar <= A; end
         else           always @* Ar <= A;
@@ -516,7 +516,7 @@ module DSP48E1 (
         if (PCIN != 48'b0)          $fatal(1, "Unsupported PCIN value");
         if (CARRYIN != 1'b0)        $fatal(1, "Unsupported CARRYIN value");
 `endif
-        Pr[42:0] <= $signed(Ar[24:0]) * $signed(Br);
+        Pr[42:0] <= $signed(Ar[24:0]) * Br;
     end
 
     generate
