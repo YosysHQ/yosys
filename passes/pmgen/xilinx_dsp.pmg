@@ -1,44 +1,36 @@
 pattern xilinx_dsp
 
 state <SigBit> clock
-state <SigSpec> sigA sigB sigY sigS
-state <Cell*> addAB muxAB
+state <int> P_WIDTH
 
-match mul
-	select mul->type.in($__MUL25X18)
+match dsp
+	select dsp->type.in(\DSP48E1)
 endmatch
 
 match ffA
-	select ffA->type.in($dff) /* TODO: $dffe */
+	select ffA->type.in($dff, $dffe)
 	// select nusers(port(ffA, \Q)) == 2
-	index <SigSpec> port(ffA, \Q) === port(mul, \A)
+	index <SigSpec> port(ffA, \Q).extend_u0(30) === port(dsp, \A)
 	// DSP48E1 does not support clock inversion
-	index <SigBit> port(ffA, \CLK_POLARITY) === State::S1
+	index <Const> param(ffA, \CLK_POLARITY).as_bool() === true
 	optional
 endmatch
 
-code sigA clock
-	sigA = port(mul, \A);
-
-	if (ffA) {
-		sigA = port(ffA, \D);
+code clock
+	if (ffA)
 		clock = port(ffA, \CLK).as_bit();
-	}
 endcode
 
 match ffB
-	select ffB->type.in($dff)
+	select ffB->type.in($dff, $dffe)
 	// select nusers(port(ffB, \Q)) == 2
-	index <SigSpec> port(ffB, \Q) === port(mul, \B)
-	index <SigBit> port(ffB, \CLK_POLARITY) === State::S1
+	index <SigSpec> port(ffB, \Q).extend_u0(18) === port(dsp, \B)
+	index <Const> param(ffB, \CLK_POLARITY).as_bool() === true
 	optional
 endmatch
 
-code sigB clock 
-	sigB = port(mul, \B);
-
+code clock
 	if (ffB) {
-		sigB = port(ffB, \D);
 		SigBit c = port(ffB, \CLK).as_bit();
 
 		if (clock != SigBit() && c != clock)
@@ -48,20 +40,51 @@ code sigB clock
 	}
 endcode
 
-match ffY
-	select ffY->type.in($dff)
-	select nusers(port(ffY, \D)) == 2
-	index <SigSpec> port(ffY, \D) === port(mul, \Y)
-	index <SigBit> port(ffY, \CLK_POLARITY) === State::S1
+code P_WIDTH
+	SigSpec P = port(dsp, \P);
+	int i;
+	for (i = GetSize(P); i > 0; i--)
+		if (nusers(P[i-1]) > 1)
+			break;
+	P_WIDTH = i;
+endcode
+
+match ffP
+	select ffP->type.in($dff, $dffe)
+	select nusers(port(ffP, \D)) == 2
+	filter param(ffP, \WIDTH).as_int() == P_WIDTH
+	filter port(ffP, \D) == port(dsp, \P).extract(0, P_WIDTH)
+	index <Const> param(ffP, \CLK_POLARITY) === State::S1
 	optional
 endmatch
 
-code sigY clock
-	sigY = port(mul, \Y);
+// $mux cell left behind by dff2dffe
+//   would prefer not to run 'opt_expr -mux_undef'
+//   since that would lose information helpful for
+//   efficient wide-mux inference
+match muxP
+	if !ffP
+	select muxP->type.in($mux)
+	select port(muxP, \A).is_fully_undef()
+	filter param(muxP, \WIDTH).as_int() == P_WIDTH
+	filter port(muxP, \B) == port(dsp, \P).extract(0, P_WIDTH)
+	select nusers(port(muxP, \B)) == 2
+	optional
+endmatch
 
-	if (ffY) {
-		sigY = port(ffY, \Q);
-		SigBit c = port(ffY, \CLK).as_bit();
+match ffY
+	if muxP
+	select ffY->type.in($dff, $dffe)
+	select nusers(port(ffY, \D)) == 2
+	index <SigSpec> port(ffY, \D) === port(muxP, \Y)
+endmatch
+
+code ffP clock
+	if (ffY)
+		ffP = ffY;
+
+	if (ffP) {
+		SigBit c = port(ffP, \CLK).as_bit();
 
 		if (clock != SigBit() && c != clock)
 			reject;

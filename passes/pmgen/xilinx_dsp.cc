@@ -25,46 +25,60 @@ PRIVATE_NAMESPACE_BEGIN
 
 #include "passes/pmgen/xilinx_dsp_pm.h"
 
-void create_xilinx_dsp(xilinx_dsp_pm &pm)
+void pack_xilinx_dsp(xilinx_dsp_pm &pm)
 {
 	auto &st = pm.st_xilinx_dsp;
 
-#if 0
+#if 1
 	log("\n");
 	log("ffA:   %s\n", log_id(st.ffA, "--"));
 	log("ffB:   %s\n", log_id(st.ffB, "--"));
-	log("mul:   %s\n", log_id(st.mul, "--"));
-	log("ffY:   %s\n", log_id(st.ffY, "--"));
+	log("dsp:   %s\n", log_id(st.dsp, "--"));
+	log("ffP:   %s\n", log_id(st.ffP, "--"));
+	log("muxP:  %s\n", log_id(st.muxP, "--"));
+	log("P_WIDTH:  %d\n", st.P_WIDTH);
 #endif
 
-	log("Analysing %s.%s for Xilinx DSP register packing.\n", log_id(pm.module), log_id(st.mul));
+	log("Analysing %s.%s for Xilinx DSP register packing.\n", log_id(pm.module), log_id(st.dsp));
 
-	Cell *cell = st.mul;
+	Cell *cell = st.dsp;
 	log_assert(cell);
-
-	// Input Interface
-
-	cell->setPort("\\A", st.sigA);
-	cell->setPort("\\B", st.sigB);
-
-	cell->setParam("\\AREG", st.ffA ? State::S1 : State::S0);
-	cell->setParam("\\BREG", st.ffB ? State::S1 : State::S0);
 
 	if (st.clock != SigBit())
 	{
 		cell->setPort("\\CLK", st.clock);
 
 		if (st.ffA) {
+			SigSpec D = st.ffA->getPort("\\D");
+			cell->setPort("\\A", D.extend_u0(30));
 			cell->setParam("\\AREG", State::S1);
-			cell->setPort("\\CEA2", State::S1);
+			if (st.ffA->type == "$dff")
+				cell->setPort("\\CEA2", State::S1);
+			else if (st.ffA->type == "$dffe")
+				cell->setPort("\\CEA2", st.ffA->getPort("\\EN"));
+			else log_abort();
 		}
 		if (st.ffB) {
+			SigSpec D = st.ffB->getPort("\\D");
+			cell->setPort("\\B", D.extend_u0(18));
 			cell->setParam("\\BREG", State::S1);
-			cell->setPort("\\CEA2", State::S1);
+			if (st.ffB->type == "$dff")
+				cell->setPort("\\CEB2", State::S1);
+			else if (st.ffB->type == "$dffe")
+				cell->setPort("\\CEB2", st.ffB->getPort("\\EN"));
+			else log_abort();
 		}
-		if (st.ffY) {
-			cell->setPort("\\PREG", State::S1);
-			cell->setPort("\\CEP", State::S1);
+		if (st.ffP) {
+			SigSpec P = cell->getPort("\\P");
+			SigSpec Q = st.ffP->getPort("\\Q");
+			Q.append(P.extract(GetSize(Q), -1));
+			cell->setPort("\\P", Q);
+			cell->setParam("\\PREG", State::S1);
+			if (st.ffP->type == "$dff")
+				cell->setPort("\\CEP", State::S1);
+			else if (st.ffP->type == "$dffe")
+				cell->setPort("\\CEP", st.ffP->getPort("\\EN"));
+			else log_abort();
 		}
 
 		log("  clock: %s (%s)", log_signal(st.clock), "posedge");
@@ -75,15 +89,17 @@ void create_xilinx_dsp(xilinx_dsp_pm &pm)
 		if (st.ffB)
 			log(" ffB:%s", log_id(st.ffB));
 
-		if (st.ffY)
-			log(" ffY:%s", log_id(st.ffY));
+		if (st.ffP)
+			log(" ffY:%s", log_id(st.ffP));
 
 		log("\n");
 	}
 
-	// Output Interface
-
-	pm.autoremove(st.ffY);
+	pm.autoremove(st.ffA);
+	pm.autoremove(st.ffB);
+	pm.autoremove(st.ffP);
+	pm.autoremove(st.muxP);
+	pm.blacklist(cell);
 }
 
 struct Ice40DspPass : public Pass {
@@ -99,7 +115,7 @@ struct Ice40DspPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
-		log_header(design, "Executing ICE40_DSP pass (map multipliers).\n");
+		log_header(design, "Executing XILINX_DSP pass (pack DSPs).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -113,7 +129,7 @@ struct Ice40DspPass : public Pass {
 		extra_args(args, argidx, design);
 
 		for (auto module : design->selected_modules())
-			xilinx_dsp_pm(module, module->selected_cells()).run_xilinx_dsp(create_xilinx_dsp);
+			xilinx_dsp_pm(module, module->selected_cells()).run_xilinx_dsp(pack_xilinx_dsp);
 	}
 } Ice40DspPass;
 
