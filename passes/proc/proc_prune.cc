@@ -26,14 +26,14 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-struct PruneWorker
+struct ProcPruneWorker
 {
 	RTLIL::Module *module;
 	SigMap sigmap;
 
 	int removed_count = 0, promoted_count = 0;
 
-	PruneWorker(RTLIL::Module *mod) : module(mod), sigmap(mod) {}
+	ProcPruneWorker(RTLIL::Module *mod) : module(mod), sigmap(mod) {}
 
 	pool<RTLIL::SigBit> do_switch(RTLIL::SwitchRule *sw, pool<RTLIL::SigBit> assigned, pool<RTLIL::SigBit> &affected)
 	{
@@ -138,7 +138,7 @@ struct ProcPrunePass : public Pass {
 		for (auto mod : design->modules()) {
 			if (!design->selected(mod))
 				continue;
-			PruneWorker worker(mod);
+			ProcPruneWorker worker(mod);
 			for (auto &proc_it : mod->processes) {
 				if (!design->selected(mod, proc_it.second))
 					continue;

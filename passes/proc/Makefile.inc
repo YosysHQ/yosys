@@ -1,5 +1,6 @@
 
 OBJS += passes/proc/proc.o
+OBJS += passes/proc/proc_group.o
 OBJS += passes/proc/proc_prune.o
 OBJS += passes/proc/proc_clean.o
 OBJS += passes/proc/proc_rmdead.o
