@@ -516,7 +516,7 @@ module DSP48E1 (
         if (PCIN != 48'b0)          $fatal(1, "Unsupported PCIN value");
         if (CARRYIN != 1'b0)        $fatal(1, "Unsupported CARRYIN value");
 `endif
-        Pr[42:0] <= Ar[24:0] * Br;
+        Pr[42:0] <= $signed(Ar[24:0]) * $signed(Br);
     end
 
     generate

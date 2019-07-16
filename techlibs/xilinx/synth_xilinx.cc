@@ -284,8 +284,12 @@ struct SynthXilinxPass : public ScriptPass
 
 			run("techmap -map +/cmp2lut.v -D LUT_WIDTH=6");
 
+			// The actual behaviour of the Xilinx DSP is a signed 25x18 multiply
+			// Due to current limitations of mul2dsp, we are actually mapping as a 24x17
+			// unsigned multiply with MSBs set to 1'b0
+
 			if (!nodsp || help_mode)
-				run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=25 -D DSP_B_MAXWIDTH=18 -D DSP_NAME=$__MUL25X18");
+				run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=24 -D DSP_B_MAXWIDTH=17 -D DSP_NAME=$__MUL25X18");
 
 			run("alumacc");
 			run("share");
