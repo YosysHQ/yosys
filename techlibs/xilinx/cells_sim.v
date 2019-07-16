@@ -466,11 +466,11 @@ module DSP48E1 (
         if (ACASCREG != 0)          $fatal(1, "Unsupported ACASCREG value");
         if (ADREG != 0)             $fatal(1, "Unsupported ADREG value");
         if (ALUMODEREG != 0)        $fatal(1, "Unsupported ALUMODEREG value");
-        if (AREG != 0)              $fatal(1, "Unsupported AREG value");
+        if (AREG == 2)              $fatal(1, "Unsupported AREG value");
         if (AUTORESET_PATDET != "NO_RESET") $fatal(1, "Unsupported AUTORESET_PATDET value");
         if (A_INPUT != "DIRECT")    $fatal(1, "Unsupported A_INPUT value");
         if (BCASCREG != 0)          $fatal(1, "Unsupported BCASCREG value");
-        if (BREG != 0)              $fatal(1, "Unsupported BREG value");
+        if (BREG == 2)              $fatal(1, "Unsupported BREG value");
         if (B_INPUT != "DIRECT")    $fatal(1, "Unsupported B_INPUT value");
         if (CARRYINREG != 0)        $fatal(1, "Unsupported CARRYINREG value");
         if (CARRYINSELREG != 0)     $fatal(1, "Unsupported CARRYINSELREG value");
@@ -479,7 +479,7 @@ module DSP48E1 (
         if (INMODEREG != 0)         $fatal(1, "Unsupported INMODEREG value");
         if (MREG != 0)              $fatal(1, "Unsupported MREG value");
         if (OPMODEREG != 0)         $fatal(1, "Unsupported OPMODEREG value");
-        if (PREG != 0)              $fatal(1, "Unsupported PREG value");
+        //if (PREG != 0)              $fatal(1, "Unsupported PREG value");
         if (SEL_MASK != "MASK")     $fatal(1, "Unsupported SEL_MASK value");
         if (SEL_PATTERN != "PATTERN") $fatal(1, "Unsupported SEL_PATTERN value");
         if (USE_DPORT != "FALSE")   $fatal(1, "Unsupported USE_DPORT value");
@@ -494,8 +494,18 @@ module DSP48E1 (
 `endif
     end
 
+    reg [29:0] Ar;
+    reg [17:0] Br;
+    reg [47:0] Pr;
+    generate
+        if (AREG == 1) begin always @(posedge CLK) if (CEA2) Ar <= A; end
+        else           always @* Ar <= A;
+        if (BREG == 1) begin always @(posedge CLK) if (CEB2) Br <= B; end
+        else           always @* Br <= B;
+    endgenerate
+
     always @* begin
-        P <= {48{1'bx}};
+        Pr <= {48{1'bx}};
 `ifdef __ICARUS__
         if (INMODE != 4'b0000)      $fatal(1, "Unsupported INMODE value");
         if (ALUMODE != 4'b0000)     $fatal(1, "Unsupported ALUMODE value");
@@ -506,6 +516,12 @@ module DSP48E1 (
         if (PCIN != 48'b0)          $fatal(1, "Unsupported PCIN value");
         if (CARRYIN != 1'b0)        $fatal(1, "Unsupported CARRYIN value");
 `endif
-        P[42:0] <= A[24:0] * B;
+        Pr[42:0] <= Ar[24:0] * Br;
     end
+
+    generate
+        if (PREG == 1) begin always @(posedge CLK) if (CEP) P <= Pr; end
+        else           always @* P <= Pr;
+    endgenerate
+
 endmodule
