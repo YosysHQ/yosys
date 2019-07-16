@@ -345,7 +345,7 @@ struct SynthIce40Pass : public ScriptPass
 			}
 			run("clean");
 			run("ice40_unlut");
-			run("opt_lut -dlogic SB_CARRY:I0=1:I1=2:CI=3");
+			run("opt_lut -dlogic SB_CARRY:I0=2:I1=1:CI=0");
 		}
 
 		if (check_label("map_cells"))
