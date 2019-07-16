@@ -44,6 +44,15 @@ module _80_ice40_alu (A, B, CI, BI, X, Y, CO);
 
 	genvar i;
 	generate for (i = 0; i < Y_WIDTH; i = i + 1) begin:slice
+`ifdef _ABC
+		\$__ICE40_FULL_ADDER carry (
+			.A(AA[i]),
+			.B(BB[i]),
+			.CI(C[i]),
+			.CO(CO[i]),
+			.O(Y[i])
+		);
+`else
 		SB_CARRY carry (
 			.I0(AA[i]),
 			.I1(BB[i]),
@@ -63,6 +72,7 @@ module _80_ice40_alu (A, B, CI, BI, X, Y, CO);
 			.I3(C[i]),
 			.O(Y[i])
 		);
+`endif
 	end endgenerate
 
 	assign X = AA ^ BB;
