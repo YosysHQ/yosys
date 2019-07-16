@@ -50,7 +50,7 @@ void pack_xilinx_dsp(xilinx_dsp_pm &pm)
 
 		if (st.ffA) {
 			SigSpec D = st.ffA->getPort("\\D");
-			cell->setPort("\\A", D.extend_u0(30));
+			cell->setPort("\\A", D.extend_u0(30, true));
 			cell->setParam("\\AREG", State::S1);
 			if (st.ffA->type == "$dff")
 				cell->setPort("\\CEA2", State::S1);
@@ -60,7 +60,7 @@ void pack_xilinx_dsp(xilinx_dsp_pm &pm)
 		}
 		if (st.ffB) {
 			SigSpec D = st.ffB->getPort("\\D");
-			cell->setPort("\\B", D.extend_u0(18));
+			cell->setPort("\\B", D.extend_u0(18, true));
 			cell->setParam("\\BREG", State::S1);
 			if (st.ffB->type == "$dff")
 				cell->setPort("\\CEB2", State::S1);
