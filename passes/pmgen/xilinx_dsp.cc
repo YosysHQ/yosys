@@ -49,8 +49,11 @@ void pack_xilinx_dsp(xilinx_dsp_pm &pm)
 		cell->setPort("\\CLK", st.clock);
 
 		if (st.ffA) {
+			SigSpec A = cell->getPort("\\A");
 			SigSpec D = st.ffA->getPort("\\D");
-			cell->setPort("\\A", D.extend_u0(30, true));
+			SigSpec Q = st.ffA->getPort("\\Q");
+			A.replace(Q, D);
+			cell->setPort("\\A", A);
 			cell->setParam("\\AREG", State::S1);
 			if (st.ffA->type == "$dff")
 				cell->setPort("\\CEA2", State::S1);
@@ -59,8 +62,11 @@ void pack_xilinx_dsp(xilinx_dsp_pm &pm)
 			else log_abort();
 		}
 		if (st.ffB) {
+			SigSpec B = cell->getPort("\\B");
 			SigSpec D = st.ffB->getPort("\\D");
-			cell->setPort("\\B", D.extend_u0(18, true));
+			SigSpec Q = st.ffB->getPort("\\Q");
+			B.replace(Q, D);
+			cell->setPort("\\B", B);
 			cell->setParam("\\BREG", State::S1);
 			if (st.ffB->type == "$dff")
 				cell->setPort("\\CEB2", State::S1);
@@ -71,7 +77,7 @@ void pack_xilinx_dsp(xilinx_dsp_pm &pm)
 		if (st.ffP) {
 			SigSpec P = cell->getPort("\\P");
 			SigSpec Q = st.ffP->getPort("\\Q");
-			Q.append(P.extract(GetSize(Q), -1));
+			P.replace(Q, P.extract(0, GetSize(Q)));
 			cell->setPort("\\P", Q);
 			cell->setParam("\\PREG", State::S1);
 			if (st.ffP->type == "$dff")

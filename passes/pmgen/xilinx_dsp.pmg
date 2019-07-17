@@ -11,7 +11,7 @@ match ffA
 	select ffA->type.in($dff, $dffe)
 	select param(ffA, \CLK_POLARITY).as_bool()
 	// select nusers(port(ffA, \Q)) == 2
-	index <SigSpec> port(ffA, \Q).extend_u0(25, true) === port(dsp, \A).extract(0, 25)
+	index <SigSpec> port(ffA, \Q).to_sigbit_pool() === port(dsp, \A).remove_const().to_sigbit_pool()
 	// DSP48E1 does not support clock inversion
 	optional
 endmatch
@@ -25,7 +25,7 @@ match ffB
 	select ffB->type.in($dff, $dffe)
 	select param(ffB, \CLK_POLARITY).as_bool()
 	// select nusers(port(ffB, \Q)) == 2
-	index <SigSpec> port(ffB, \Q).extend_u0(18, true) === port(dsp, \B)
+	index <SigSpec> port(ffB, \Q).to_sigbit_pool() === port(dsp, \B).remove_const().to_sigbit_pool()
 	optional
 endmatch
 
