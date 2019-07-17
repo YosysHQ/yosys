@@ -34,31 +34,22 @@ module \$mul (A, B, Y);
 	output [Y_WIDTH-1:0] Y;
 
 	generate
-        if (`DSP_A_SIGNEDONLY && !A_SIGNED) begin
-            wire dummy;
+        localparam add_sign_A = `DSP_A_SIGNEDONLY && !A_SIGNED;
+        localparam add_sign_B = `DSP_B_SIGNEDONLY && !B_SIGNED;
+        if (add_sign_A || add_sign_B) begin
+            if (add_sign_A && add_sign_B)
+                wire [1:0] dummy;
+            else
+                wire dummy;
 			\$mul #(
 				.A_SIGNED(1),
-				.B_SIGNED(B_SIGNED),
-				.A_WIDTH(A_WIDTH+1),
-				.B_WIDTH(B_WIDTH),
-				.Y_WIDTH(Y_WIDTH+1)
-			) _TECHMAP_REPLACE_ (
-				.A({1'b0, A}),
-				.B(B),
-				.Y({dummy, Y})
-			);
-        end
-        else if (`DSP_B_SIGNEDONLY && !B_SIGNED) begin
-            wire dummy;
-			\$mul #(
-				.A_SIGNED(A_SIGNED),
 				.B_SIGNED(1),
-				.A_WIDTH(A_WIDTH),
-				.B_WIDTH(B_WIDTH+1),
-				.Y_WIDTH(Y_WIDTH+1)
+				.A_WIDTH(A_WIDTH + (add_sign_A ? 1 : 0)),
+				.B_WIDTH(B_WIDTH + (add_sign_B ? 1 : 0)),
+				.Y_WIDTH(Y_WIDTH + (add_sign_A ? 1 : 0) + (add_sign_B ? 1 : 0))
 			) _TECHMAP_REPLACE_ (
-				.A(A),
-				.B({1'b0, B}),
+				.A(add_sign_A ? {1'b0, A} : A),
+				.B(add_sign_B ? {1'b0, B} : B),
 				.Y({dummy, Y})
 			);
         end
