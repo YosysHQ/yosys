@@ -1,4 +1,4 @@
-module \$__MUL25X18 (input [24:0] A, input [17:0] B, output [42:0] Y);
+module \$__MUL25X18 (input signed [24:0] A, input signed [17:0] B, output signed [42:0] Y);
 	wire [47:0] P_48;
 	DSP48E1 #(
 		// Disable all registers
