@@ -3297,7 +3297,7 @@ void RTLIL::SigSpec::replace(int offset, const RTLIL::SigSpec &with)
 	check();
 }
 
-void RTLIL::SigSpec::remove_const()
+RTLIL::SigSpec& RTLIL::SigSpec::remove_const()
 {
 	if (packed())
 	{
@@ -3331,6 +3331,7 @@ void RTLIL::SigSpec::remove_const()
 	}
 
 	check();
+	return *this;
 }
 
 void RTLIL::SigSpec::remove(int offset, int length)

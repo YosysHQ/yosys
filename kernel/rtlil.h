@@ -767,7 +767,7 @@ public:
 	void remove2(const std::set<RTLIL::SigBit> &pattern, RTLIL::SigSpec *other);
 
 	void remove(int offset, int length = 1);
-	void remove_const();
+	RTLIL::SigSpec& remove_const();
 
 	RTLIL::SigSpec extract(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec *other = NULL) const;
 	RTLIL::SigSpec extract(const pool<RTLIL::SigBit> &pattern, const RTLIL::SigSpec *other = NULL) const;
