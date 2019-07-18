@@ -56,10 +56,10 @@ static void run_ice40_unlut(Module *module)
 			cell->unsetParam("\\LUT_INIT");
 
 			cell->setPort("\\A", SigSpec({
-				get_bit_or_zero(cell->getPort("\\I3")),
-				get_bit_or_zero(cell->getPort("\\I2")),
+				get_bit_or_zero(cell->getPort("\\I0")),
 				get_bit_or_zero(cell->getPort("\\I1")),
-				get_bit_or_zero(cell->getPort("\\I0"))
+				get_bit_or_zero(cell->getPort("\\I2")),
+				get_bit_or_zero(cell->getPort("\\I3"))
 			}));
 			cell->setPort("\\Y", cell->getPort("\\O")[0]);
 			cell->unsetPort("\\I0");

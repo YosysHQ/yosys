@@ -551,7 +551,7 @@ struct LibertyFrontend : public Frontend {
 			if (design->has(cell_name)) {
 				Module *existing_mod = design->module(cell_name);
 				if (!flag_nooverwrite && !flag_overwrite && !existing_mod->get_bool_attribute("\\blackbox")) {
-					log_error("Re-definition of of cell/module %s!\n", log_id(cell_name));
+					log_error("Re-definition of cell/module %s!\n", log_id(cell_name));
 				} else if (flag_nooverwrite) {
 					log("Ignoring re-definition of module %s.\n", log_id(cell_name));
 					continue;

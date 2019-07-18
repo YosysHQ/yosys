@@ -238,7 +238,7 @@ struct SynthIce40Pass : public ScriptPass
 	{
 		if (check_label("begin"))
 		{
-			run("read_verilog -lib -D_ABC +/ice40/cells_sim.v");
+			run("read_verilog -icells -lib -D_ABC +/ice40/cells_sim.v");
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
 			run("proc");
 		}
@@ -277,14 +277,14 @@ struct SynthIce40Pass : public ScriptPass
 			run("opt_clean");
 		}
 
-		if (!nobram && check_label("bram", "(skip if -nobram)"))
+		if (!nobram && check_label("map_bram", "(skip if -nobram)"))
 		{
 			run("memory_bram -rules +/ice40/brams.txt");
 			run("techmap -map +/ice40/brams_map.v");
 			run("ice40_braminit");
 		}
 
-		if (check_label("map"))
+		if (check_label("map_ffram"))
 		{
 			run("opt -fast -mux_undef -undriven -fine");
 			run("memory_map");
@@ -296,7 +296,7 @@ struct SynthIce40Pass : public ScriptPass
 			if (nocarry)
 				run("techmap");
 			else
-				run("techmap -map +/techmap.v -map +/ice40/arith_map.v");
+				run("techmap -map +/techmap.v -map +/ice40/arith_map.v" + std::string(abc == "abc9" ? " -D _ABC" : ""));
 			if (retime || help_mode)
 				run(abc + " -dff", "(only if -retime)");
 			run("ice40_opt");
@@ -340,13 +340,14 @@ struct SynthIce40Pass : public ScriptPass
 					else
 						wire_delay = 250;
 					run(abc + stringf(" -W %d -lut +/ice40/abc_%s.lut -box +/ice40/abc_%s.box", wire_delay, device_opt.c_str(), device_opt.c_str()), "(skip if -noabc)");
+					run("techmap -D NO_LUT -D _ABC -map +/ice40/cells_map.v");
 				}
 				else
 					run(abc + " -dress -lut 4", "(skip if -noabc)");
 			}
 			run("clean");
 			run("ice40_unlut");
-			run("opt_lut -dlogic SB_CARRY:I0=1:I1=2:CI=3");
+			run("opt_lut -dlogic SB_CARRY:I0=2:I1=1:CI=0");
 		}
 
 		if (check_label("map_cells"))

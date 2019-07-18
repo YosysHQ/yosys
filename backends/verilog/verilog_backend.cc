@@ -189,7 +189,8 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 	if (width < 0)
 		width = data.bits.size() - offset;
 	if (width == 0) {
-		f << "\"\"";
+		// See IEEE 1364-2005 Clause 5.1.14.
+		f << "{0{1'b0}}";
 		return;
 	}
 	if (nostr)
@@ -788,7 +789,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		return true;
 	}
 
-	if (cell->type == "$pmux" || cell->type == "$pmux_safe")
+	if (cell->type == "$pmux")
 	{
 		int width = cell->parameters["\\WIDTH"].as_int();
 		int s_width = cell->getPort("\\S").size();
@@ -800,18 +801,17 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		f << stringf("%s" "  input [%d:0] s;\n", indent.c_str(), s_width-1);
 
 		dump_attributes(f, indent + "  ", cell->attributes);
-		if (cell->type != "$pmux_safe" && !noattr)
+		if (!noattr)
 			f << stringf("%s" "  (* parallel_case *)\n", indent.c_str());
 		f << stringf("%s" "  casez (s)", indent.c_str());
-		if (cell->type != "$pmux_safe")
-			f << stringf(noattr ? " // synopsys parallel_case\n" : "\n");
+		f << stringf(noattr ? " // synopsys parallel_case\n" : "\n");
 
 		for (int i = 0; i < s_width; i++)
 		{
 			f << stringf("%s" "    %d'b", indent.c_str(), s_width);
 
 			for (int j = s_width-1; j >= 0; j--)
-				f << stringf("%c", j == i ? '1' : cell->type == "$pmux_safe" ? '0' : '?');
+				f << stringf("%c", j == i ? '1' : '?');
 
 			f << stringf(":\n");
 			f << stringf("%s" "      %s = b[%d:%d];\n", indent.c_str(), func_name.c_str(), (i+1)*width-1, i*width);

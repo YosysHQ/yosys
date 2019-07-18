@@ -71,10 +71,10 @@ struct SynthEcp5Pass : public ScriptPass
 		log("        do not use flipflops with CE in output netlist\n");
 		log("\n");
 		log("    -nobram\n");
-		log("        do not use BRAM cells in output netlist\n");
+		log("        do not use block RAM cells in output netlist\n");
 		log("\n");
-		log("    -nodram\n");
-		log("        do not use distributed RAM cells in output netlist\n");
+		log("    -nolutram\n");
+		log("        do not use LUT RAM cells in output netlist\n");
 		log("\n");
 		log("    -nowidelut\n");
 		log("        do not use PFU muxes to implement LUTs larger than LUT4s\n");
@@ -99,7 +99,7 @@ struct SynthEcp5Pass : public ScriptPass
 	}
 
 	string top_opt, blif_file, edif_file, json_file;
-	bool noccu2, nodffe, nobram, nodram, nowidelut, flatten, retime, abc2, abc9, dsp, vpr;
+	bool noccu2, nodffe, nobram, nolutram, nowidelut, flatten, retime, abc2, abc9, dsp, vpr;
 
 	void clear_flags() YS_OVERRIDE
 	{
@@ -110,7 +110,7 @@ struct SynthEcp5Pass : public ScriptPass
 		noccu2 = false;
 		nodffe = false;
 		nobram = false;
-		nodram = false;
+		nolutram = false;
 		nowidelut = false;
 		flatten = true;
 		retime = false;
@@ -176,11 +176,11 @@ struct SynthEcp5Pass : public ScriptPass
 				nobram = true;
 				continue;
 			}
-			if (args[argidx] == "-nodram") {
-				nodram = true;
+			if (args[argidx] == "-nolutram" || /*deprecated alias*/ args[argidx] == "-nodram") {
+				nolutram = true;
 				continue;
 			}
-			if (args[argidx] == "-nowidelut" || args[argidx] == "-nomux") {
+			if (args[argidx] == "-nowidelut" || /*deprecated alias*/ args[argidx] == "-nomux") {
 				nowidelut = true;
 				continue;
 			}
@@ -260,23 +260,27 @@ struct SynthEcp5Pass : public ScriptPass
 			run("opt_clean");
 		}
 
-		if (!nobram && check_label("bram", "(skip if -nobram)"))
+		if (!nobram && check_label("map_bram", "(skip if -nobram)"))
 		{
 			run("memory_bram -rules +/ecp5/bram.txt");
 			run("techmap -map +/ecp5/brams_map.v");
 		}
 
-		if (!nodram && check_label("dram", "(skip if -nodram)"))
+		if (!nolutram && check_label("map_lutram", "(skip if -nolutram)"))
 		{
-			run("memory_bram -rules +/ecp5/dram.txt");
-			run("techmap -map +/ecp5/drams_map.v");
+			run("memory_bram -rules +/ecp5/lutram.txt");
+			run("techmap -map +/ecp5/lutrams_map.v");
 		}
 
-		if (check_label("fine"))
+		if (check_label("map_ffram"))
 		{
 			run("opt -fast -mux_undef -undriven -fine");
 			run("memory_map");
 			run("opt -undriven -fine");
+		}
+
+		if (check_label("map_gates"))
+		{
 			if (noccu2)
 				run("techmap");
 			else
