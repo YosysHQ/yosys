@@ -6,7 +6,7 @@ state <SigSpec> sigA sigB sigY sigS
 state <Cell*> addAB muxAB
 
 match mul
-	select mul->type.in($mul)
+	select mul->type.in($mul, $__MUL16X16)
 	select GetSize(mul->getPort(\A)) + GetSize(mul->getPort(\B)) > 10
 	select GetSize(mul->getPort(\Y)) > 10
 endmatch
