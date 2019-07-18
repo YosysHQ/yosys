@@ -166,11 +166,8 @@ struct SynthIntelPass : public ScriptPass {
 	void script() YS_OVERRIDE
 	{
 		if (check_label("begin")) {
-			string cmd = "read_verilog -sv -lib +/intel/FAMILY/cells_sim.v";
-			cmd.replace(cmd.find("FAMILY"), 6, family_opt);
-
 			if (check_label("family"))
-				run(cmd);
+				run(stringf("read_verilog -sv -lib +/intel/%s/cells_sim.v", family_opt.c_str()));
 
 			// Misc and common cells
 			run("read_verilog -sv -lib +/intel/common/m9k_bb.v");
@@ -220,9 +217,7 @@ struct SynthIntelPass : public ScriptPass {
 		if (check_label("map_cells")) {
 			if (!noiopads)
 				run("iopadmap -bits -outpad $__outpad I:O -inpad $__inpad O:I", "(unless -noiopads)");
-			string cmd = "techmap -map +/intel/FAMILY/cells_map.v";
-			cmd.replace(cmd.find("FAMILY"), 6, family_opt);
-			run(cmd);
+                        run(stringf("techmap -map +/intel/%s/cells_map.v", family_opt.c_str()));
 
 			run("dffinit -highlow -ff dffeas q power_up");
 			run("clean -purge");
