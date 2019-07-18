@@ -11,6 +11,7 @@ match ffA
 	select ffA->type.in($dff, $dffe)
 	// DSP48E1 does not support clock inversion
 	select param(ffA, \CLK_POLARITY).as_bool()
+	filter !port(dsp, \A).remove_const().empty()
 	filter includes(port(ffA, \Q).to_sigbit_set(), port(dsp, \A).remove_const().to_sigbit_set())
 	optional
 endmatch
@@ -24,6 +25,7 @@ match ffB
 	select ffB->type.in($dff, $dffe)
 	// DSP48E1 does not support clock inversion
 	select param(ffB, \CLK_POLARITY).as_bool()
+	filter !port(dsp, \B).remove_const().empty()
 	filter includes(port(ffB, \Q).to_sigbit_set(), port(dsp, \B).remove_const().to_sigbit_set())
 	optional
 endmatch
