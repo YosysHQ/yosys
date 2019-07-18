@@ -286,7 +286,7 @@ struct SynthXilinxPass : public ScriptPass
 
 			if (!nodsp || help_mode) {
 				// NB: Xilinx multipliers are signed only
-				run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=25 -D DSP_A_SIGNEDONLY=1 -D DSP_B_MAXWIDTH=18 -D DSP_B_SIGNEDONLY=1 -D DSP_NAME=$__MUL25X18");
+				run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=25 -D DSP_B_MAXWIDTH=18 -D DSP_SIGNEDONLY=1 -D DSP_NAME=$__MUL25X18");
 			}
 
 			run("alumacc");
