@@ -34,7 +34,7 @@ module \$mul (A, B, Y);
 	output [Y_WIDTH-1:0] Y;
 
 	generate
-        if (`DSP_A_SIGNEDONLY && `DSP_B_SIGNEDONLY && !A_SIGNED) begin
+        if (`DSP_SIGNEDONLY && !A_SIGNED) begin
 		wire [1:0] dummy;
 		\$mul #(
 			.A_SIGNED(1),
@@ -89,22 +89,23 @@ module \$__mul_gen (A, B, Y);
 
 	wire [1023:0] _TECHMAP_DO_ = "proc; clean";
 
+`ifdef DSP_SIGNEDONLY
+	localparam sign_headroom = 1;
+`else
+	localparam sign_headroom = 0;
+`endif
+
 	genvar i;
 	generate
 		if (A_WIDTH > `DSP_A_MAXWIDTH) begin
-`ifdef DSP_A_SIGNEDONLY
-			localparam sign_headroom = 1;
-`else 	
-			localparam sign_headroom = 0;
-`endif
 			localparam n = (A_WIDTH + `DSP_A_MAXWIDTH - sign_headroom - 1)/(`DSP_A_MAXWIDTH - sign_headroom);
 			localparam partial_Y_WIDTH = `MIN(Y_WIDTH, B_WIDTH+`DSP_A_MAXWIDTH);
 			wire [partial_Y_WIDTH-1:0] partial [n-1:1];
-			wire [Y_WIDTH-1:0] partial_sum [n-2:0];
+			wire [Y_WIDTH-1:0] partial_sum [n-1:0];
 
 			\$__mul_gen #(
 				.A_SIGNED(0),
-				.B_SIGNED(B_SIGNED),
+				.B_SIGNED(0),
 				.A_WIDTH(`DSP_A_MAXWIDTH),
 				.B_WIDTH(B_WIDTH),
 				.Y_WIDTH(partial_Y_WIDTH)
@@ -118,7 +119,7 @@ module \$__mul_gen (A, B, Y);
 			for (i = 1; i < n-1; i=i+1) begin:slice
 				\$__mul_gen #(
 					.A_SIGNED(0),
-					.B_SIGNED(B_SIGNED),
+					.B_SIGNED(0),
 					.A_WIDTH(`DSP_A_MAXWIDTH),
 					.B_WIDTH(B_WIDTH),
 					.Y_WIDTH(partial_Y_WIDTH)
@@ -128,11 +129,6 @@ module \$__mul_gen (A, B, Y);
 					.Y(partial[i])
 				);
 				assign partial_sum[i] = (partial[i] << i*(`DSP_A_MAXWIDTH-sign_headroom)) + partial_sum[i-1];
-				//assign partial_sum[i] = {
-				//	partial[i][partial_Y_WIDTH-1:0]
-				//	+ partial_sum[i-1][Y_WIDTH-1:(i*(`DSP_A_MAXWIDTH-sign_headroom))],
-				//	partial_sum[i-1][(i*(`DSP_A_MAXWIDTH-sign_headroom))-1:0]
-				//};
 			end
 
 			\$__mul_gen #(
@@ -140,18 +136,13 @@ module \$__mul_gen (A, B, Y);
 				.B_SIGNED(B_SIGNED),
 				.A_WIDTH(A_WIDTH-(n-1)*(`DSP_A_MAXWIDTH-sign_headroom)),
 				.B_WIDTH(B_WIDTH),
-				.Y_WIDTH(`MIN(Y_WIDTH, A_WIDTH-(n-1)*(`DSP_A_MAXWIDTH-sign_headroom)+B_WIDTH)),
+				.Y_WIDTH(A_WIDTH-(n-1)*(`DSP_A_MAXWIDTH-sign_headroom) + B_WIDTH),
 			) mul_slice_last (
 				.A(A[A_WIDTH-1:(n-1)*(`DSP_A_MAXWIDTH-sign_headroom)]),
 				.B(B),
-				.Y(partial[n-1][`MIN(Y_WIDTH, A_WIDTH-(n-1)*(`DSP_A_MAXWIDTH-sign_headroom)+B_WIDTH)-1:0])
+				.Y(partial[n-1])
 			);
 			assign Y = (partial[n-1] << (n-1)*(`DSP_A_MAXWIDTH-sign_headroom)) + partial_sum[n-2];
-			//assign Y = {
-			//	partial[n-1][`MIN(Y_WIDTH, A_WIDTH-(n-1)*(`DSP_A_MAXWIDTH-sign_headroom)+B_WIDTH):0]
-			//	+ partial_sum[n-2][Y_WIDTH-1:((n-1)*(`DSP_A_MAXWIDTH-sign_headroom))],
-			//	partial_sum[n-2][((n-1)*(`DSP_A_MAXWIDTH-sign_headroom))-1:0]
-			//};
 		end
 		else if (B_WIDTH > `DSP_B_MAXWIDTH) begin
 `ifdef DSP_B_SIGNEDONLY
@@ -162,7 +153,7 @@ module \$__mul_gen (A, B, Y);
 			localparam n = (B_WIDTH + `DSP_B_MAXWIDTH - sign_headroom - 1)/(`DSP_B_MAXWIDTH - sign_headroom);
 			localparam partial_Y_WIDTH = `MIN(Y_WIDTH, A_WIDTH+`DSP_B_MAXWIDTH);
 			wire [partial_Y_WIDTH-1:0] partial [n-1:1];
-			wire [Y_WIDTH-1:0] partial_sum [n-2:0];
+			wire [Y_WIDTH-1:0] partial_sum [n-1:0];
 
 			\$__mul_gen #(
 				.A_SIGNED(A_SIGNED),
@@ -189,17 +180,7 @@ module \$__mul_gen (A, B, Y);
 					.B({{sign_headroom{1'b0}}, B[i*(`DSP_B_MAXWIDTH-sign_headroom) +: `DSP_B_MAXWIDTH-sign_headroom]}),
 					.Y(partial[i])
 				);
-				assign partial_sum[i] = (partial[i] <<< i*(`DSP_B_MAXWIDTH - sign_headroom)) + partial_sum[i-1];
-				//// was:
-				////assign partial_sum[i] = {
-				////  partial[i][A_WIDTH+`DSP_B_MAXWIDTH-1:`DSP_B_MAXWIDTH], 
-				////	partial[i][`DSP_B_MAXWIDTH-1:0] + partial_sum[i-1][A_WIDTH+(i*`DSP_B_MAXWIDTH)-1:A_WIDTH+((i-1)*`DSP_B_MAXWIDTH)],
-				////	partial_sum[i-1][A_WIDTH+((i-1)*`DSP_B_MAXWIDTH):0]
-				//assign partial_sum[i] = {
-				//	partial[i][partial_Y_WIDTH-1:0]
-				//	+ partial_sum[i-1][Y_WIDTH-1:(i*(`DSP_B_MAXWIDTH - sign_headroom))],
-				//	partial_sum[i-1][(i*(`DSP_B_MAXWIDTH - sign_headroom))-1:0] 
-				//};
+				assign partial_sum[i] = (partial[i] << i*(`DSP_B_MAXWIDTH - sign_headroom)) + partial_sum[i-1];
 			end
 
 			\$__mul_gen #(
@@ -207,34 +188,29 @@ module \$__mul_gen (A, B, Y);
 				.B_SIGNED(B_SIGNED),
 				.A_WIDTH(A_WIDTH),
 				.B_WIDTH(B_WIDTH-(n-1)*(`DSP_B_MAXWIDTH - sign_headroom)),
-				.Y_WIDTH(`MIN(Y_WIDTH, A_WIDTH+B_WIDTH-(n-1)*(`DSP_B_MAXWIDTH - sign_headroom)))
+				.Y_WIDTH(A_WIDTH + B_WIDTH-(n-1)*(`DSP_B_MAXWIDTH - sign_headroom))
 			) mul_last (
 				.A(A),
 				.B(B[B_WIDTH-1:(n-1)*(`DSP_B_MAXWIDTH - sign_headroom)]),
-				.Y(partial[n-1][`MIN(Y_WIDTH, A_WIDTH+B_WIDTH-(n-1)*(`DSP_B_MAXWIDTH - sign_headroom))-1:0])
+				.Y(partial[n-1])
 			);
 			assign Y = (partial[n-1] << (n-1)*(`DSP_B_MAXWIDTH - sign_headroom)) + partial_sum[n-2];
-			//// was (looks broken)
-			////assign Y = {
-			////	partial[n-1][A_WIDTH+`DSP_B_MAXWIDTH-1:`DSP_B_MAXWIDTH],
-			////	partial[n-1][`DSP_B_MAXWIDTH-1:0] + partial_sum[n-2][A_WIDTH+((n-1)*`DSP_B_MAXWIDTH)-1:A_WIDTH+((n-2)*`DSP_B_MAXWIDTH)],
-			////	partial_sum[n-2][A_WIDTH+((n-2)*`DSP_B_MAXWIDTH):0]
-			//assign Y = {
-			//	partial[n-1][`MIN(Y_WIDTH, A_WIDTH+B_WIDTH-(n-1)*(`DSP_B_MAXWIDTH - sign_headroom))-1:0]
-			//	+ partial_sum[n-2][Y_WIDTH-1:((n-1)*(`DSP_B_MAXWIDTH - sign_headroom))],
-			//	partial_sum[n-2][((n-1)*(`DSP_B_MAXWIDTH - sign_headroom))-1:0]
-			//};
 		end
 		else begin 
-			(* keep *) wire [Y_WIDTH-1:0] Yunsigned;
-			wire signed [`DSP_A_MAXWIDTH-1:0] Asigned = $signed(A);
-			wire signed [`DSP_A_MAXWIDTH-1:0] Bsigned = $signed(B);
+			if (A_SIGNED)
+				wire signed [`DSP_A_MAXWIDTH-1:0] Aext = $signed(A);
+			else
+				wire [`DSP_A_MAXWIDTH-1:0] Aext = A;
+			if (B_SIGNED)
+				wire signed [`DSP_B_MAXWIDTH-1:0] Bext = $signed(B);
+			else
+				wire [`DSP_B_MAXWIDTH-1:0] Bext = B;
+
 			`DSP_NAME _TECHMAP_REPLACE_ (
-				.A(Asigned),
-				.B(Bsigned),
-				.Y(Yunsigned)
+				.A(Aext),
+				.B(Bext),
+				.Y(Y)
 			);
-			assign Y = $signed(Yunsigned[A_WIDTH+B_WIDTH-1:0]);
 		end
 	endgenerate
 endmodule
