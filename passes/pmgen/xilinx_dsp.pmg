@@ -9,10 +9,9 @@ endmatch
 
 match ffA
 	select ffA->type.in($dff, $dffe)
-	select param(ffA, \CLK_POLARITY).as_bool()
-	// select nusers(port(ffA, \Q)) == 2
-	index <pool<SigBit>> port(ffA, \Q).to_sigbit_pool() === port(dsp, \A).remove_const().to_sigbit_pool()
 	// DSP48E1 does not support clock inversion
+	select param(ffA, \CLK_POLARITY).as_bool()
+	filter includes(port(ffA, \Q).to_sigbit_set(), port(dsp, \A).remove_const().to_sigbit_set())
 	optional
 endmatch
 
@@ -23,9 +22,9 @@ endcode
 
 match ffB
 	select ffB->type.in($dff, $dffe)
+	// DSP48E1 does not support clock inversion
 	select param(ffB, \CLK_POLARITY).as_bool()
-	// select nusers(port(ffB, \Q)) == 2
-	index <pool<SigBit>> port(ffB, \Q).to_sigbit_pool() === port(dsp, \B).remove_const().to_sigbit_pool()
+	filter includes(port(ffB, \Q).to_sigbit_set(), port(dsp, \B).remove_const().to_sigbit_set())
 	optional
 endmatch
 
@@ -52,9 +51,10 @@ endcode
 match ffP
 	select ffP->type.in($dff, $dffe)
 	select nusers(port(ffP, \D)) == 2
+	// DSP48E1 does not support clock inversion
+	select param(ffP, \CLK_POLARITY).as_bool()
 	filter param(ffP, \WIDTH).as_int() == P_WIDTH
 	filter port(ffP, \D) == port(dsp, \P).extract(0, P_WIDTH)
-	index <Const> param(ffP, \CLK_POLARITY) === State::S1
 	optional
 endmatch
 
@@ -76,6 +76,8 @@ match ffY
 	if muxP
 	select ffY->type.in($dff, $dffe)
 	select nusers(port(ffY, \D)) == 2
+	// DSP48E1 does not support clock inversion
+	select param(ffY, \CLK_POLARITY).as_bool()
 	index <SigSpec> port(ffY, \D) === port(muxP, \Y)
 endmatch
 
