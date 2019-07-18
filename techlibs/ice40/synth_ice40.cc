@@ -265,8 +265,10 @@ struct SynthIce40Pass : public ScriptPass
 			run("techmap -map +/cmp2lut.v -D LUT_WIDTH=4");
 			run("opt_expr");
 			run("opt_clean");
-			if (help_mode || dsp)
+			if (help_mode || dsp) {
+				run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=16 -D DSP_B_MAXWIDTH=16 -D DSP_NAME=$__MUL16X16");
 				run("ice40_dsp", "(if -dsp)");
+			}
 			run("alumacc");
 			run("opt");
 			run("fsm");
