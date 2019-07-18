@@ -39,7 +39,8 @@ void pack_xilinx_dsp(xilinx_dsp_pm &pm)
 	log("dsp:   %s\n", log_id(st.dsp, "--"));
 	log("ffP:   %s\n", log_id(st.ffP, "--"));
 	log("muxP:  %s\n", log_id(st.muxP, "--"));
-	log("P_WIDTH:  %d\n", st.P_WIDTH);
+	log("P_used: %s\n", log_signal(st.P_used));
+	log_module(pm.module);
 #endif
 
 	log("Analysing %s.%s for Xilinx DSP register packing.\n", log_id(pm.module), log_id(st.dsp));
@@ -79,8 +80,13 @@ void pack_xilinx_dsp(xilinx_dsp_pm &pm)
 		}
 		if (st.ffP) {
 			SigSpec P = cell->getPort("\\P");
+			SigSpec D;
+			if (st.muxP)
+				D = st.muxP->getPort("\\B");
+			else
+				D = st.ffP->getPort("\\D");
 			SigSpec Q = st.ffP->getPort("\\Q");
-			P.replace(Q, P.extract(0, GetSize(Q)));
+			P.replace(D, Q);
 			cell->setPort("\\P", Q);
 			cell->setParam("\\PREG", State::S1);
 			if (st.ffP->type == "$dff")

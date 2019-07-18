@@ -1,7 +1,7 @@
 pattern xilinx_dsp
 
 state <SigBit> clock
-state <int> P_WIDTH
+state <SigSpec> P_used
 
 match dsp
 	select dsp->type.in(\DSP48E1)
@@ -39,22 +39,25 @@ code clock
 	}
 endcode
 
-code P_WIDTH
+// Extract the bits of P that actually have a consumer
+// (as opposed to being a sign extension)
+code P_used
 	SigSpec P = port(dsp, \P);
 	int i;
 	for (i = GetSize(P); i > 0; i--)
 		if (nusers(P[i-1]) > 1)
 			break;
-	P_WIDTH = i;
+	P_used = P.extract(0, i).remove_const();
 endcode
 
 match ffP
+	if !P_used.empty()
 	select ffP->type.in($dff, $dffe)
 	select nusers(port(ffP, \D)) == 2
 	// DSP48E1 does not support clock inversion
 	select param(ffP, \CLK_POLARITY).as_bool()
-	filter param(ffP, \WIDTH).as_int() == P_WIDTH
-	filter port(ffP, \D) == port(dsp, \P).extract(0, P_WIDTH)
+	filter param(ffP, \WIDTH).as_int() >= GetSize(P_used)
+	filter includes(port(ffP, \D).to_sigbit_set(), P_used.to_sigbit_set())
 	optional
 endmatch
 
@@ -63,12 +66,12 @@ endmatch
 //   since that would lose information helpful for
 //   efficient wide-mux inference
 match muxP
-	if !ffP
+	if !P_used.empty() && !ffP
 	select muxP->type.in($mux)
-	select port(muxP, \A).is_fully_undef()
-	filter param(muxP, \WIDTH).as_int() == P_WIDTH
-	filter port(muxP, \B) == port(dsp, \P).extract(0, P_WIDTH)
 	select nusers(port(muxP, \B)) == 2
+	select port(muxP, \A).is_fully_undef()
+	filter param(muxP, \WIDTH).as_int() >= GetSize(P_used)
+	filter includes(port(muxP, \B).to_sigbit_set(), P_used.to_sigbit_set())
 	optional
 endmatch
 
@@ -78,7 +81,8 @@ match ffY
 	select nusers(port(ffY, \D)) == 2
 	// DSP48E1 does not support clock inversion
 	select param(ffY, \CLK_POLARITY).as_bool()
-	index <SigSpec> port(ffY, \D) === port(muxP, \Y)
+	filter param(ffY, \WIDTH).as_int() >= GetSize(P_used)
+	filter includes(port(ffY, \D).to_sigbit_set(), port(muxP, \Y).to_sigbit_set())
 endmatch
 
 code ffP clock
