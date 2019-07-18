@@ -62,10 +62,10 @@ struct SynthIntelPass : public ScriptPass {
 		log("        synonymous to the end of the command list.\n");
 		log("\n");
 		log("    -noiopads\n");
-		log("        do not use altsyncram cells in output netlist\n");
+		log("        do not use IO pad cells in output netlist\n");
 		log("\n");
 		log("    -nobram\n");
-		log("        do not use altsyncram cells in output netlist\n");
+		log("        do not use block RAM cells in output netlist\n");
 		log("\n");
 		log("    -noflatten\n");
 		log("        do not flatten design before synthesis\n");
@@ -191,12 +191,12 @@ struct SynthIntelPass : public ScriptPass {
 			run("synth -run coarse");
 		}
 
-		if (!nobram && check_label("bram", "(skip if -nobram)")) {
+		if (!nobram && check_label("map_bram", "(skip if -nobram)")) {
 			run("memory_bram -rules +/intel/common/brams.txt");
 			run("techmap -map +/intel/common/brams_map.v");
 		}
 
-		if (check_label("fine")) {
+		if (check_label("map_ffram")) {
 			run("opt -fast -mux_undef -undriven -fine -full");
 			run("memory_map");
 			run("opt -undriven -fine");
