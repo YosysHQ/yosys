@@ -101,8 +101,6 @@ void pack_xilinx_dsp(xilinx_dsp_pm &pm)
 		log("\n");
 	}
 
-	pm.autoremove(st.ffA);
-	pm.autoremove(st.ffB);
 	pm.autoremove(st.ffP);
 	pm.autoremove(st.muxP);
 	pm.blacklist(cell);
