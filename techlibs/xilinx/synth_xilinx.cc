@@ -64,13 +64,13 @@ struct SynthXilinxPass : public ScriptPass
 		log("        (this feature is experimental and incomplete)\n");
 		log("\n");
 		log("    -nobram\n");
-		log("        disable inference of block rams\n");
+		log("        do not use block RAM cells in output netlist\n");
 		log("\n");
-		log("    -nodram\n");
-		log("        disable inference of distributed rams\n");
+		log("    -nolutram\n");
+		log("        do not use distributed RAM cells in output netlist\n");
 		log("\n");
 		log("    -nosrl\n");
-		log("        disable inference of shift registers\n");
+		log("        do not use distributed SRL cells in output netlist\n");
 		log("\n");
 		log("    -nocarry\n");
 		log("        do not use XORCY/MUXCY/CARRY4 cells in output netlist\n");
@@ -104,7 +104,7 @@ struct SynthXilinxPass : public ScriptPass
 	}
 
 	std::string top_opt, edif_file, blif_file, family;
-	bool flatten, retime, vpr, nobram, nodram, nosrl, nocarry, nowidelut, abc9;
+	bool flatten, retime, vpr, nobram, nolutram, nosrl, nocarry, nowidelut, abc9;
 	int widemux;
 
 	void clear_flags() YS_OVERRIDE
@@ -118,7 +118,7 @@ struct SynthXilinxPass : public ScriptPass
 		vpr = false;
 		nocarry = false;
 		nobram = false;
-		nodram = false;
+		nolutram = false;
 		nosrl = false;
 		nocarry = false;
 		nowidelut = false;
@@ -186,8 +186,8 @@ struct SynthXilinxPass : public ScriptPass
 				nobram = true;
 				continue;
 			}
-			if (args[argidx] == "-nodram") {
-				nodram = true;
+			if (args[argidx] == "-nolutram" || /*deprecated alias*/ args[argidx] == "-nodram") {
+				nolutram = true;
 				continue;
 			}
 			if (args[argidx] == "-nosrl") {
@@ -284,7 +284,7 @@ struct SynthXilinxPass : public ScriptPass
 			run("opt_clean");
 		}
 
-		if (check_label("bram", "(skip if '-nobram')")) {
+		if (check_label("map_bram", "(skip if '-nobram')")) {
 			if (help_mode) {
 				run("memory_bram -rules +/xilinx/{family}_brams.txt");
 				run("techmap -map +/xilinx/{family}_brams_map.v");
@@ -301,20 +301,23 @@ struct SynthXilinxPass : public ScriptPass
 			}
 		}
 
-		if (check_label("dram", "(skip if '-nodram')")) {
-			if (!nodram || help_mode) {
-				run("memory_bram -rules +/xilinx/drams.txt");
-				run("techmap -map +/xilinx/drams_map.v");
+		if (check_label("map_lutram", "(skip if '-nolutram')")) {
+			if (!nolutram || help_mode) {
+				run("memory_bram -rules +/xilinx/lutrams.txt");
+				run("techmap -map +/xilinx/lutrams_map.v");
 			}
 		}
 
-		if (check_label("fine")) {
+		if (check_label("map_ffram")) {
 			if (widemux > 0)
 				run("opt -fast -mux_bool -undriven -fine"); // Necessary to omit -mux_undef otherwise muxcover
 									    // performs less efficiently
 			else
 				run("opt -fast -full");
 			run("memory_map");
+		}
+
+		if (check_label("fine")) {
 			run("dffsr2dff");
 			run("dff2dffe");
 			if (help_mode) {
