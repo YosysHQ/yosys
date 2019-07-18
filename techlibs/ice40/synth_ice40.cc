@@ -275,14 +275,14 @@ struct SynthIce40Pass : public ScriptPass
 			run("opt_clean");
 		}
 
-		if (!nobram && check_label("bram", "(skip if -nobram)"))
+		if (!nobram && check_label("map_bram", "(skip if -nobram)"))
 		{
 			run("memory_bram -rules +/ice40/brams.txt");
 			run("techmap -map +/ice40/brams_map.v");
 			run("ice40_braminit");
 		}
 
-		if (check_label("map"))
+		if (check_label("map_ffram"))
 		{
 			run("opt -fast -mux_undef -undriven -fine");
 			run("memory_map");
