@@ -214,7 +214,13 @@ module \$__mul_gen (A, B, Y);
 			else
 				wire [`DSP_B_MAXWIDTH-1:0] Bext = B;
 
-			`DSP_NAME _TECHMAP_REPLACE_ (
+			`DSP_NAME #(
+				.A_SIGNED(A_SIGNED),
+				.B_SIGNED(B_SIGNED),
+				.A_WIDTH(`DSP_A_MAXWIDTH),
+				.B_WIDTH(`DSP_B_MAXWIDTH),
+				.Y_WIDTH(`DSP_A_MAXWIDTH+`DSP_B_MAXWIDTH),
+			) _TECHMAP_REPLACE_ (
 				.A(Aext),
 				.B(Bext),
 				.Y(Y)
