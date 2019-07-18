@@ -8,9 +8,6 @@ $error("Macro DSP_A_MAXWIDTH must be defined");
 `ifndef DSP_B_MAXWIDTH
 $error("Macro DSP_B_MAXWIDTH must be defined");
 `endif
-`ifndef DSP_SIGNEDONLY
-`define DSP_SIGNEDONLY 0
-`endif
 
 `ifndef DSP_NAME
 $error("Macro DSP_NAME must be defined");
@@ -33,7 +30,8 @@ module \$mul (A, B, Y);
 	generate
 	if (A_SIGNED != B_SIGNED)
 		wire _TECHMAP_FAIL_ = 1;
-        else if (`DSP_SIGNEDONLY && !A_SIGNED) begin
+`ifdef DSP_SIGNEDONLY
+        else if (!A_SIGNED) begin
 		wire [1:0] dummy;
 		\$mul #(
 			.A_SIGNED(1),
@@ -47,6 +45,7 @@ module \$mul (A, B, Y);
 			.Y({dummy, Y})
 		);
         end
+`endif
 	// NB: A_SIGNED == B_SIGNED == 0 from here
 	else if (A_WIDTH >= B_WIDTH)
 		\$__mul_gen #(
