@@ -189,7 +189,8 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 	if (width < 0)
 		width = data.bits.size() - offset;
 	if (width == 0) {
-		f << "\"\"";
+		// See IEEE 1364-2005 Clause 5.1.14.
+		f << "{0{1'b0}}";
 		return;
 	}
 	if (nostr)
