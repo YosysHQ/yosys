@@ -23,13 +23,16 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+template<class T> bool includes(const T &lhs, const T &rhs) {
+	return std::includes(lhs.begin(), lhs.end(), rhs.begin(), rhs.end());
+}
 #include "passes/pmgen/ice40_dsp_pm.h"
 
 void create_ice40_dsp(ice40_dsp_pm &pm)
 {
 	auto &st = pm.st_ice40_dsp;
 
-#if 0
+#if 1
 	log("\n");
 	log("ffA:   %s\n", log_id(st.ffA, "--"));
 	log("ffB:   %s\n", log_id(st.ffB, "--"));
@@ -100,7 +103,7 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 	cell->setPort("\\IRSTTOP", State::S0);
 	cell->setPort("\\IRSTBOT", State::S0);
 
-	if (st.clock_vld)
+	if (st.clock != SigBit())
 	{
 		cell->setPort("\\CLK", st.clock);
 		cell->setPort("\\CE", State::S1);

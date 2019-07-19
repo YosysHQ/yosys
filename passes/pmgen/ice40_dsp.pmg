@@ -1,8 +1,9 @@
 pattern ice40_dsp
 
 state <SigBit> clock
-state <bool> clock_pol clock_vld
+state <bool> clock_pol
 state <SigSpec> sigA sigB sigY sigS
+state <SigSpec> sigYused
 state <Cell*> addAB muxAB
 
 match mul
@@ -13,68 +14,77 @@ endmatch
 
 match ffA
 	select ffA->type.in($dff)
-	// select nusers(port(ffA, \Q)) == 2
-	index <SigSpec> port(ffA, \Q) === port(mul, \A)
+	filter !port(mul, \A).remove_const().empty()
+	filter includes(port(ffA, \Q).to_sigbit_set(), port(mul, \A).remove_const().to_sigbit_set())
 	optional
 endmatch
 
-code sigA clock clock_pol clock_vld
+code sigA clock clock_pol
 	sigA = port(mul, \A);
 
 	if (ffA) {
-		sigA = port(ffA, \D);
+		sigA.replace(port(ffA, \Q), port(ffA, \D));
 
 		clock = port(ffA, \CLK).as_bit();
 		clock_pol = param(ffA, \CLK_POLARITY).as_bool();
-		clock_vld = true;
 	}
 endcode
 
 match ffB
 	select ffB->type.in($dff)
-	// select nusers(port(ffB, \Q)) == 2
-	index <SigSpec> port(ffB, \Q) === port(mul, \B)
+	filter !port(mul, \B).remove_const().empty()
+	filter includes(port(ffB, \Q).to_sigbit_set(), port(mul, \B).remove_const().to_sigbit_set())
 	optional
 endmatch
 
-code sigB clock clock_pol clock_vld
+code sigB clock clock_pol
 	sigB = port(mul, \B);
 
 	if (ffB) {
-		sigB = port(ffB, \D);
+		sigB.replace(port(ffB, \Q), port(ffB, \D));
+		
 		SigBit c = port(ffB, \CLK).as_bit();
 		bool cp = param(ffB, \CLK_POLARITY).as_bool();
 
-		if (clock_vld && (c != clock || cp != clock_pol))
+		if (clock != SigBit() && (c != clock || cp != clock_pol))
 			reject;
 
 		clock = c;
 		clock_pol = cp;
-		clock_vld = true;
 	}
+endcode
+
+// Extract the bits of Y that actually have a consumer
+// (as opposed to being a sign extension)
+code sigY sigYused
+	sigY = port(mul, \Y);
+	int i;
+	for (i = GetSize(sigY); i > 0; i--)
+		if (nusers(sigY[i-1]) > 1)
+			break;
+	sigYused = sigY.extract(0, i).remove_const();
 endcode
 
 match ffY
 	select ffY->type.in($dff)
 	select nusers(port(ffY, \D)) == 2
-	index <SigSpec> port(ffY, \D) === port(mul, \Y)
+	filter param(ffY, \WIDTH).as_int() >= GetSize(sigYused)
+	filter includes(port(ffY, \D).to_sigbit_set(), sigYused.to_sigbit_set())
 	optional
 endmatch
 
-code sigY clock clock_pol clock_vld
-	sigY = port(mul, \Y);
-
+code clock clock_pol sigY
 	if (ffY) {
-		sigY = port(ffY, \Q);
+		sigY.replace(port(ffY, \D), port(ffY, \Q));
+
 		SigBit c = port(ffY, \CLK).as_bit();
 		bool cp = param(ffY, \CLK_POLARITY).as_bool();
 
-		if (clock_vld && (c != clock || cp != clock_pol))
+		if (clock != SigBit() && (c != clock || cp != clock_pol))
 			reject;
 
 		clock = c;
 		clock_pol = cp;
-		clock_vld = true;
 	}
 endcode
 
@@ -147,16 +157,15 @@ match ffS
 	index <SigSpec> port(ffS, \Q) === sigS
 endmatch
 
-code clock clock_pol clock_vld
+code clock clock_pol
 	if (ffS) {
 		SigBit c = port(ffS, \CLK).as_bit();
 		bool cp = param(ffS, \CLK_POLARITY).as_bool();
 
-		if (clock_vld && (c != clock || cp != clock_pol))
+		if (clock != SigBit() && (c != clock || cp != clock_pol))
 			reject;
 
 		clock = c;
 		clock_pol = cp;
-		clock_vld = true;
 	}
 endcode

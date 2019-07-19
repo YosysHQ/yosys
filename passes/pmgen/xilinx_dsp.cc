@@ -39,7 +39,7 @@ void pack_xilinx_dsp(xilinx_dsp_pm &pm)
 	log("dsp:   %s\n", log_id(st.dsp, "--"));
 	log("ffP:   %s\n", log_id(st.ffP, "--"));
 	log("muxP:  %s\n", log_id(st.muxP, "--"));
-	log("P_used: %s\n", log_signal(st.P_used));
+	log("sigPused: %s\n", log_signal(st.sigPused));
 	log_module(pm.module);
 #endif
 
