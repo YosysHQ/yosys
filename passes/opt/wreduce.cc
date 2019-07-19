@@ -365,6 +365,29 @@ struct WreduceWorker
 			}
 		}
 
+		if (cell->type.in("$add", "$sub")) {
+			SigSpec A = cell->getPort("\\A");
+			SigSpec B = cell->getPort("\\B");
+			bool sub = cell->type == "$sub";
+
+			int i;
+			for (i = 0; i < GetSize(sig); i++) {
+				if (B[i] != S0 && (sub || A[i] != S0))
+					break;
+				if (B[i] == S0)
+					module->connect(sig[i], A[i]);
+				else if (A[i] == S0)
+					module->connect(sig[i], B[i]);
+				else log_abort();
+			}
+			if (i > 0) {
+				cell->setPort("\\A", A.extract(i, -1));
+				cell->setPort("\\B", B.extract(i, -1));
+				sig.remove(0, i);
+				bits_removed += i;
+			}
+		}
+
 		if (GetSize(sig) == 0) {
 			log("Removed cell %s.%s (%s).\n", log_id(module), log_id(cell), log_id(cell->type));
 			module->remove(cell);
