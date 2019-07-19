@@ -83,8 +83,31 @@ design -save gold
 
 prep # calls wreduce
 
-dump
 select -assert-count 1 t:$sub r:A_WIDTH=4 r:B_WIDTH=4 r:Y_WIDTH=5 %i %i %i
+
+design -stash gate
+
+design -import gold -as gold
+design -import gate -as gate
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports miter
+
+##########
+
+read_verilog <<EOT
+module wreduce_sub_test4(input [3:0] i, output [8:0] o);
+    assign o = 5'b00010 - i;
+endmodule
+EOT
+
+hierarchy -auto-top
+proc
+design -save gold
+
+prep # calls wreduce
+
+select -assert-count 1 t:$sub r:A_WIDTH=2 r:B_WIDTH=4 r:Y_WIDTH=5 %i %i %i
 
 design -stash gate
 
