@@ -200,7 +200,7 @@ module \$__mul_gen (A, B, Y);
 				.B(B[B_WIDTH-1 : (n-1)*(`DSP_B_MAXWIDTH-sign_headroom)]),
 				.Y(partial[n-1])
 			);
-			assign partial_sum[n-1] = (partial[n-1] << (n-1)*(`DSP_A_MAXWIDTH-sign_headroom)) + partial_sum[n-2];
+			assign partial_sum[n-1] = (partial[n-1] << (n-1)*(`DSP_B_MAXWIDTH-sign_headroom)) + partial_sum[n-2];
 			assign Y = partial_sum[n-1];
 		end
 		else begin 
