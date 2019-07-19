@@ -196,24 +196,15 @@ module \$__mul (A, B, Y);
 			assign Y = partial_sum[n-1];
 		end
 		else begin 
-			if (A_SIGNED)
-				wire signed [`DSP_A_MAXWIDTH-1:0] Aext = $signed(A);
-			else
-				wire [`DSP_A_MAXWIDTH-1:0] Aext = A;
-			if (B_SIGNED)
-				wire signed [`DSP_B_MAXWIDTH-1:0] Bext = $signed(B);
-			else
-				wire [`DSP_B_MAXWIDTH-1:0] Bext = B;
-
 			`DSP_NAME #(
 				.A_SIGNED(A_SIGNED),
 				.B_SIGNED(B_SIGNED),
-				.A_WIDTH(`DSP_A_MAXWIDTH),
-				.B_WIDTH(`DSP_B_MAXWIDTH),
-				.Y_WIDTH(`MIN(Y_WIDTH,`DSP_A_MAXWIDTH+`DSP_B_MAXWIDTH)),
+				.A_WIDTH(A_WIDTH),
+				.B_WIDTH(B_WIDTH),
+				.Y_WIDTH(`MIN(Y_WIDTH,A_WIDTH+B_WIDTH)),
 			) _TECHMAP_REPLACE_ (
-				.A(Aext),
-				.B(Bext),
+				.A(A),
+				.B(B),
 				.Y(Y)
 			);
 		end
