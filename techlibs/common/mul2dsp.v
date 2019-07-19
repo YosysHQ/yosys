@@ -28,7 +28,9 @@ module \$mul (A, B, Y);
 	output [Y_WIDTH-1:0] Y;
 
 	generate
-	if (A_SIGNED != B_SIGNED || A_WIDTH <= 1 || B_WIDTH <= 1)
+	if (A_SIGNED != B_SIGNED)
+		wire _TECHMAP_FAIL_ = 1;
+	else if (A_WIDTH <= `DSP_A_MAXWIDTH && B_WIDTH <= `DSP_B_MAXWIDTH)
 		wire _TECHMAP_FAIL_ = 1;
 	// NB: A_SIGNED == B_SIGNED == 0 from here
 	else if (A_WIDTH >= B_WIDTH)
