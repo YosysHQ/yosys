@@ -108,7 +108,7 @@ module \$__mul_gen (A, B, Y);
 			end
 
 			\$__mul_gen #(
-				.A_SIGNED(0),
+				.A_SIGNED(sign_headroom),
 				.B_SIGNED(B_SIGNED),
 				.A_WIDTH(`DSP_A_MAXWIDTH),
 				.B_WIDTH(B_WIDTH),
@@ -122,7 +122,7 @@ module \$__mul_gen (A, B, Y);
 
 			for (i = 1; i < n-1; i=i+1) begin:slice
 				\$__mul_gen #(
-					.A_SIGNED(0),
+					.A_SIGNED(sign_headroom),
 					.B_SIGNED(B_SIGNED),
 					.A_WIDTH(`DSP_A_MAXWIDTH),
 					.B_WIDTH(B_WIDTH),
@@ -163,7 +163,7 @@ module \$__mul_gen (A, B, Y);
 
 			\$__mul_gen #(
 				.A_SIGNED(A_SIGNED),
-				.B_SIGNED(0),
+				.B_SIGNED(sign_headroom),
 				.A_WIDTH(A_WIDTH),
 				.B_WIDTH(`DSP_B_MAXWIDTH),
 				.Y_WIDTH(partial_Y_WIDTH)
@@ -177,7 +177,7 @@ module \$__mul_gen (A, B, Y);
 			for (i = 1; i < n-1; i=i+1) begin:slice
 				\$__mul_gen #(
 					.A_SIGNED(A_SIGNED),
-					.B_SIGNED(0),
+					.B_SIGNED(sign_headroom),
 					.A_WIDTH(A_WIDTH),
 					.B_WIDTH(`DSP_B_MAXWIDTH),
 					.Y_WIDTH(partial_Y_WIDTH)
