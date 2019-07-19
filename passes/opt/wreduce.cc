@@ -366,8 +366,8 @@ struct WreduceWorker
 		}
 
 		if (cell->type.in("$add", "$sub")) {
-			SigSpec A = cell->getPort("\\A");
-			SigSpec B = cell->getPort("\\B");
+			SigSpec A = mi.sigmap(cell->getPort("\\A"));
+			SigSpec B = mi.sigmap(cell->getPort("\\B"));
 			bool sub = cell->type == "$sub";
 
 			int i;
