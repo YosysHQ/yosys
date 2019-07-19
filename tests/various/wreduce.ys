@@ -5,13 +5,60 @@ module wreduce_add_test(input [3:0] i, input [7:0] j, output [7:0] o);
 endmodule
 EOT
 
-hierarchy -top wreduce_add_test
+hierarchy -auto-top
 proc
 design -save gold
 
 prep
 
 select -assert-count 1 t:$add r:A_WIDTH=4 r:B_WIDTH=4 %i %i
+
+design -stash gate
+
+design -import gold -as gold
+design -import gate -as gate
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports miter
+
+
+### X - 0
+read_verilog <<EOT
+module wreduce_sub_test1(input [3:0] i, input [7:0] j, output [7:0] o);
+    assign o = j - (i << 4);
+endmodule
+EOT
+
+hierarchy -auto-top
+proc
+design -save gold
+
+prep
+
+select -assert-count 1 t:$sub r:A_WIDTH=4 r:B_WIDTH=4 %i %i
+
+design -stash gate
+
+design -import gold -as gold
+design -import gate -as gate
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports miter
+
+### 0 - X
+read_verilog <<EOT
+module wreduce_sub_test1(input [3:0] i, input [7:0] j, output [7:0] o);
+    assign o = (i << 4) - j;
+endmodule
+EOT
+
+hierarchy -auto-top
+proc
+design -save gold
+
+prep
+
+select -assert-count 1 t:$sub r:A_WIDTH=8 r:B_WIDTH=8 %i %i
 
 design -stash gate
 
