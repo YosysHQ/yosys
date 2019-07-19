@@ -78,7 +78,7 @@ Similarily, on Mac OS X MacPorts or Homebrew can be used to install dependencies
 On FreeBSD use the following command to install all prerequisites:
 
 	# pkg install bison flex readline gawk libffi\
-		git graphviz pkgconfig python3 python36 tcl-wrapper boost-libs
+		git graphviz pkgconf python3 python36 tcl-wrapper boost-libs
 
 On FreeBSD system use gmake instead of make. To run tests use:
     % MAKE=gmake CC=cc gmake test
