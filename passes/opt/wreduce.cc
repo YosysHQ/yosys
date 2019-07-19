@@ -395,7 +395,7 @@ struct WreduceWorker
 		}
 
 		if (bits_removed) {
-			log("Removed top %d bits (of %d) from port Y of cell %s.%s (%s).\n",
+			log("Removed %d bits (of %d) from port Y of cell %s.%s (%s).\n",
 					bits_removed, GetSize(sig) + bits_removed, log_id(module), log_id(cell), log_id(cell->type));
 			cell->setPort("\\Y", sig);
 			did_something = true;
