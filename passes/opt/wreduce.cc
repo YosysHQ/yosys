@@ -372,13 +372,12 @@ struct WreduceWorker
 
 			int i;
 			for (i = 0; i < GetSize(sig); i++) {
-				if (B.at(i, Sx) != S0 && (sub || A.at(i, Sx) != S0))
-					break;
-				if (B[i] == S0)
+				if (B.at(i, Sx) == S0 && A.at(i, Sx) != Sx)
 					module->connect(sig[i], A[i]);
-				else if (A[i] == S0)
+				else if (!sub && A.at(i, Sx) == S0 && B.at(i, Sx) != Sx)
 					module->connect(sig[i], B[i]);
-				else log_abort();
+				else
+					break;
 			}
 			if (i > 0) {
 				cell->setPort("\\A", A.extract(i, -1));
