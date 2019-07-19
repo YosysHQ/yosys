@@ -9,7 +9,7 @@ for tb in testbench \
 		testbench_seq_16x16_A testbench_seq_16x16_B \
 		testbench_comb_8x8_A_signedA testbench_comb_8x8_A_signedB testbench_comb_8x8_A_signedAB \
 		testbench_comb_8x8_B_signedA testbench_comb_8x8_B_signedB testbench_comb_8x8_B_signedAB \
-		testbench_comb_16x16_B_signedA testbench_comb_16x16_B_signedB testbench_comb_16x16_B_signedAB
+		testbench_comb_16x16_signedA testbench_comb_16x16_signedB testbench_comb_16x16_signedAB
 do
 	iverilog -s $tb -o test_dsp_model test_dsp_model.v test_dsp_model_uut.v test_dsp_model_ref.v
 	vvp -N ./test_dsp_model
