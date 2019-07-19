@@ -818,6 +818,7 @@ public:
 
 	operator std::vector<RTLIL::SigChunk>() const { return chunks(); }
 	operator std::vector<RTLIL::SigBit>() const { return bits(); }
+	RTLIL::SigBit at(int offset, const RTLIL::SigBit &defval) { return offset < width_ ? (*this)[offset] : defval; }
 
 	unsigned int hash() const { if (!hash_) updhash(); return hash_; };
 
