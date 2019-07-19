@@ -372,7 +372,7 @@ struct WreduceWorker
 
 			int i;
 			for (i = 0; i < GetSize(sig); i++) {
-				if (B[i] != S0 && (sub || A[i] != S0))
+				if (B.at(i, Sx) != S0 && (sub || A.at(i, Sx) != S0))
 					break;
 				if (B[i] == S0)
 					module->connect(sig[i], A[i]);
