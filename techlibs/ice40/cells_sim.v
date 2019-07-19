@@ -1363,9 +1363,9 @@ module SB_MAC16 (
 	wire [15:0] p_Ah_Bh, p_Al_Bh, p_Ah_Bl, p_Al_Bl;
 	wire [15:0] Ah, Al, Bh, Bl;
 	assign Ah = {A_SIGNED ? {8{iA[15]}} : 8'b0, iA[15: 8]};
-	assign Al = {A_SIGNED ? {8{iA[ 7]}} : 8'b0, iA[ 7: 0]};
+	assign Al = {A_SIGNED && MODE_8x8 ? {8{iA[ 7]}} : 8'b0, iA[ 7: 0]};
 	assign Bh = {B_SIGNED ? {8{iB[15]}} : 8'b0, iB[15: 8]};
-	assign Bl = {B_SIGNED ? {8{iB[ 7]}} : 8'b0, iB[ 7: 0]};
+	assign Bl = {B_SIGNED && MODE_8x8 ? {8{iB[ 7]}} : 8'b0, iB[ 7: 0]};
 	assign p_Ah_Bh = Ah * Bh;
 	assign p_Al_Bh = Al * Bh;
 	assign p_Ah_Bl = Ah * Bl;
