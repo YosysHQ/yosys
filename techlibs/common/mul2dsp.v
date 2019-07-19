@@ -28,27 +28,11 @@ module \$mul (A, B, Y);
 	output [Y_WIDTH-1:0] Y;
 
 	generate
-	if (A_SIGNED != B_SIGNED)
+	if (A_SIGNED != B_SIGNED || A_WIDTH <= 1 || B_WIDTH <= 1)
 		wire _TECHMAP_FAIL_ = 1;
-`ifdef DSP_SIGNEDONLY
-        else if (!A_SIGNED) begin
-		wire [1:0] dummy;
-		\$mul #(
-			.A_SIGNED(1),
-			.B_SIGNED(1),
-			.A_WIDTH(A_WIDTH + 1),
-			.B_WIDTH(B_WIDTH + 1),
-			.Y_WIDTH(Y_WIDTH + 2)
-		) _TECHMAP_REPLACE_ (
-			.A({1'b0, A}),
-			.B({1'b0, B}),
-			.Y({dummy, Y})
-		);
-        end
-`endif
 	// NB: A_SIGNED == B_SIGNED == 0 from here
 	else if (A_WIDTH >= B_WIDTH)
-		\$__mul_gen #(
+		\$__mul #(
 			.A_SIGNED(A_SIGNED),
 			.B_SIGNED(B_SIGNED),
 			.A_WIDTH(A_WIDTH),
@@ -60,7 +44,7 @@ module \$mul (A, B, Y);
 			.Y(Y)
 		);
 	else
-		\$__mul_gen #(
+		\$__mul #(
 			.A_SIGNED(B_SIGNED),
 			.B_SIGNED(A_SIGNED),
 			.A_WIDTH(B_WIDTH),
@@ -74,7 +58,7 @@ module \$mul (A, B, Y);
 	endgenerate
 endmodule
 
-module \$__mul_gen (A, B, Y);
+module \$__mul (A, B, Y);
 	parameter A_SIGNED = 0;
 	parameter B_SIGNED = 0;
 	parameter A_WIDTH = 1;
@@ -95,7 +79,13 @@ module \$__mul_gen (A, B, Y);
 
 	genvar i;
 	generate
-		if (A_WIDTH > `DSP_A_MAXWIDTH) begin
+		if (A_WIDTH <= 1 || B_WIDTH <= 1)
+			wire _TECHMAP_FAIL_ = 1;
+`ifdef DSP_MINWIDTH
+		else if (A_WIDTH+B_WIDTH < `DSP_MINWIDTH || Y_WIDTH < `DSP_MINWIDTH)
+			wire _TECHMAP_FAIL_ = 1;
+`endif
+		else if (A_WIDTH > `DSP_A_MAXWIDTH) begin
 			localparam n = (A_WIDTH+`DSP_A_MAXWIDTH-sign_headroom-1) / (`DSP_A_MAXWIDTH-sign_headroom);
 			localparam partial_Y_WIDTH = `MIN(Y_WIDTH, B_WIDTH+`DSP_A_MAXWIDTH);
 			if (A_SIGNED && B_SIGNED) begin
@@ -107,7 +97,7 @@ module \$__mul_gen (A, B, Y);
 				wire [Y_WIDTH-1:0] partial_sum [n-1:0];
 			end
 
-			\$__mul_gen #(
+			\$__mul #(
 				.A_SIGNED(sign_headroom),
 				.B_SIGNED(B_SIGNED),
 				.A_WIDTH(`DSP_A_MAXWIDTH),
@@ -121,7 +111,7 @@ module \$__mul_gen (A, B, Y);
 			assign partial_sum[0] = partial[0];
 
 			for (i = 1; i < n-1; i=i+1) begin:slice
-				\$__mul_gen #(
+				\$__mul #(
 					.A_SIGNED(sign_headroom),
 					.B_SIGNED(B_SIGNED),
 					.A_WIDTH(`DSP_A_MAXWIDTH),
@@ -135,7 +125,7 @@ module \$__mul_gen (A, B, Y);
 				assign partial_sum[i] = (partial[i] << i*(`DSP_A_MAXWIDTH-sign_headroom)) + partial_sum[i-1];
 			end
 
-			\$__mul_gen #(
+			\$__mul #(
 				.A_SIGNED(A_SIGNED),
 				.B_SIGNED(B_SIGNED),
 				.A_WIDTH(A_WIDTH-(n-1)*(`DSP_A_MAXWIDTH-sign_headroom)),
@@ -161,7 +151,7 @@ module \$__mul_gen (A, B, Y);
 				wire [Y_WIDTH-1:0] partial_sum [n-1:0];
 			end
 
-			\$__mul_gen #(
+			\$__mul #(
 				.A_SIGNED(A_SIGNED),
 				.B_SIGNED(sign_headroom),
 				.A_WIDTH(A_WIDTH),
@@ -175,7 +165,7 @@ module \$__mul_gen (A, B, Y);
 			assign partial_sum[0] = partial[0];
 
 			for (i = 1; i < n-1; i=i+1) begin:slice
-				\$__mul_gen #(
+				\$__mul #(
 					.A_SIGNED(A_SIGNED),
 					.B_SIGNED(sign_headroom),
 					.A_WIDTH(A_WIDTH),
@@ -189,7 +179,7 @@ module \$__mul_gen (A, B, Y);
 				assign partial_sum[i] = (partial[i] << i*(`DSP_B_MAXWIDTH-sign_headroom)) + partial_sum[i-1];
 			end
 
-			\$__mul_gen #(
+			\$__mul #(
 				.A_SIGNED(A_SIGNED),
 				.B_SIGNED(B_SIGNED),
 				.A_WIDTH(A_WIDTH),
@@ -218,7 +208,7 @@ module \$__mul_gen (A, B, Y);
 				.B_SIGNED(B_SIGNED),
 				.A_WIDTH(`DSP_A_MAXWIDTH),
 				.B_WIDTH(`DSP_B_MAXWIDTH),
-				.Y_WIDTH(`DSP_A_MAXWIDTH+`DSP_B_MAXWIDTH),
+				.Y_WIDTH(`MIN(Y_WIDTH,`DSP_A_MAXWIDTH+`DSP_B_MAXWIDTH)),
 			) _TECHMAP_REPLACE_ (
 				.A(Aext),
 				.B(Bext),
@@ -228,4 +218,54 @@ module \$__mul_gen (A, B, Y);
 	endgenerate
 endmodule
 
+(* techmap_celltype = "$__mul" *)
+module _90_internal_mul_to_external (A, B, Y); 
+	parameter A_SIGNED = 0;
+	parameter B_SIGNED = 0;
+	parameter A_WIDTH = 1;
+	parameter B_WIDTH = 1;
+	parameter Y_WIDTH = 1;
 
+	input [A_WIDTH-1:0] A;
+	input [B_WIDTH-1:0] B;
+	output [Y_WIDTH-1:0] Y;
+
+	generate
+		if (A_SIGNED && !B_SIGNED)
+			\$mul #(
+				.A_SIGNED(A_SIGNED),
+				.B_SIGNED(1),
+				.A_WIDTH(A_WIDTH),
+				.B_WIDTH(B_WIDTH+1),
+				.Y_WIDTH(Y_WIDTH)
+			) _TECHMAP_REPLACE_ (
+				.A(A),
+				.B({1'b0, B}),
+				.Y(Y)
+			);
+		else if (!A_SIGNED && B_SIGNED)
+			\$mul #(
+				.A_SIGNED(1),
+				.B_SIGNED(B_SIGNED),
+				.A_WIDTH(A_WIDTH+1),
+				.B_WIDTH(B_WIDTH),
+				.Y_WIDTH(Y_WIDTH)
+			) _TECHMAP_REPLACE_ (
+				.A({1'b0, A}),
+				.B(B),
+				.Y(Y)
+			);
+		else
+			\$mul #(
+				.A_SIGNED(A_SIGNED),
+				.B_SIGNED(B_SIGNED),
+				.A_WIDTH(A_WIDTH),
+				.B_WIDTH(B_WIDTH),
+				.Y_WIDTH(Y_WIDTH)
+			) _TECHMAP_REPLACE_ (
+				.A(A),
+				.B(B),
+				.Y(Y)
+			);
+	endgenerate
+endmodule
