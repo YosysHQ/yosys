@@ -342,9 +342,9 @@ struct WreduceWorker
 			}
 		}
 
-		if (cell->type.in("$pos", "$add", "$mul", "$and", "$or", "$xor"))
+		if (cell->type.in("$pos", "$add", "$mul", "$and", "$or", "$xor", "$sub"))
 		{
-			bool is_signed = cell->getParam("\\A_SIGNED").as_bool();
+			bool is_signed = cell->getParam("\\A_SIGNED").as_bool() || cell->type == "$sub";
 
 			int a_size = 0, b_size = 0;
 			if (cell->hasPort("\\A")) a_size = GetSize(cell->getPort("\\A"));
@@ -352,7 +352,7 @@ struct WreduceWorker
 
 			int max_y_size = max(a_size, b_size);
 
-			if (cell->type == "$add")
+			if (cell->type.in("$add", "$sub"))
 				max_y_size++;
 
 			if (cell->type == "$mul")
