@@ -62,32 +62,27 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 		return;
 	}
 
-	bool mul_signed = st.mul->getParam("\\A_SIGNED").as_bool();
-
-	if (mul_signed) {
-		log("  inference of signed iCE40 DSP arithmetic is currently not supported.\n");
-		return;
-	}
-
-	log("  replacing $mul with SB_MAC16 cell.\n");
+	log("  replacing %s with SB_MAC16 cell.\n", log_id(st.mul->type));
 
 	Cell *cell = pm.module->addCell(NEW_ID, "\\SB_MAC16");
 	pm.module->swap_names(cell, st.mul);
 
 	// SB_MAC16 Input Interface
+	bool a_signed = st.mul->getParam("\\A_SIGNED").as_bool();
+	bool b_signed = st.mul->getParam("\\B_SIGNED").as_bool();
 
 	SigSpec A = st.sigA;
-	A.extend_u0(16, mul_signed);
+	A.extend_u0(16, a_signed);
 
 	SigSpec B = st.sigB;
-	B.extend_u0(16, mul_signed);
+	B.extend_u0(16, b_signed);
 
 	SigSpec CD;
 	if (st.muxA)
 		CD = st.muxA->getPort("\\B");
 	if (st.muxB)
 		CD = st.muxB->getPort("\\A");
-	CD.extend_u0(32, mul_signed);
+	CD.extend_u0(32, a_signed && b_signed);
 
 	cell->setPort("\\A", A);
 	cell->setPort("\\B", B);
@@ -198,8 +193,8 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 	cell->setParam("\\BOTADDSUB_CARRYSELECT", Const(0, 2));
 
 	cell->setParam("\\MODE_8x8", State::S0);
-	cell->setParam("\\A_SIGNED", mul_signed ? State::S1 : State::S0);
-	cell->setParam("\\B_SIGNED", mul_signed ? State::S1 : State::S0);
+	cell->setParam("\\A_SIGNED", a_signed);
+	cell->setParam("\\B_SIGNED", b_signed);
 
 	pm.autoremove(st.mul);
 	pm.autoremove(st.ffY);
