@@ -3,7 +3,6 @@ pattern ice40_dsp
 state <SigBit> clock
 state <bool> clock_pol
 state <SigSpec> sigA sigB sigY sigS
-state <SigSpec> sigYused
 state <Cell*> addAB muxAB
 
 match mul
@@ -54,28 +53,18 @@ code sigB clock clock_pol
 	}
 endcode
 
-// Extract the bits of Y that actually have a consumer
-// (as opposed to being a sign extension)
-code sigY sigYused
-	sigY = port(mul, \Y);
-	int i;
-	for (i = GetSize(sigY); i > 0; i--)
-		if (nusers(sigY[i-1]) > 1)
-			break;
-	sigYused = sigY.extract(0, i);
-endcode
-
 match ffY
 	select ffY->type.in($dff)
 	select nusers(port(ffY, \D)) == 2
-	filter param(ffY, \WIDTH).as_int() >= GetSize(sigYused)
-	filter includes(port(ffY, \D).to_sigbit_set(), sigYused.to_sigbit_set())
+	index <SigSpec> port(ffY, \D) === port(mul, \Y)
 	optional
 endmatch
 
-code clock clock_pol sigY
+code sigY clock clock_pol
+	sigY = port(mul, \Y);
+
 	if (ffY) {
-		sigY.replace(port(ffY, \D), port(ffY, \Q));
+		sigY = port(ffY, \Q);
 
 		SigBit c = port(ffY, \CLK).as_bit();
 		bool cp = param(ffY, \CLK_POLARITY).as_bool();
