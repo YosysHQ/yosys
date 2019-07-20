@@ -28,9 +28,7 @@ module \$mul (A, B, Y);
 	output [Y_WIDTH-1:0] Y;
 
 	generate
-	if (A_SIGNED != B_SIGNED)
-		wire _TECHMAP_FAIL_ = 1;
-	else if (A_WIDTH <= `DSP_A_MAXWIDTH && B_WIDTH <= `DSP_B_MAXWIDTH)
+	if (A_SIGNED != B_SIGNED || A_WIDTH <= 1 || B_WIDTH <= 1)
 		wire _TECHMAP_FAIL_ = 1;
 	// NB: A_SIGNED == B_SIGNED == 0 from here
 	else if (A_WIDTH >= B_WIDTH)
@@ -212,7 +210,7 @@ module \$__mul (A, B, Y);
 endmodule
 
 (* techmap_celltype = "$__mul" *)
-module _90_internal_mul_to_external (A, B, Y); 
+module $__soft_mul (A, B, Y); 
 	parameter A_SIGNED = 0;
 	parameter B_SIGNED = 0;
 	parameter A_WIDTH = 1;
@@ -223,9 +221,11 @@ module _90_internal_mul_to_external (A, B, Y);
 	input [B_WIDTH-1:0] B;
 	output [Y_WIDTH-1:0] Y;
 
+	// Indirection necessary since mapping
+	//   back to $mul will cause recursion
 	generate
 		if (A_SIGNED && !B_SIGNED)
-			\$mul #(
+			\$__soft__mul #(
 				.A_SIGNED(A_SIGNED),
 				.B_SIGNED(1),
 				.A_WIDTH(A_WIDTH),
@@ -233,23 +233,23 @@ module _90_internal_mul_to_external (A, B, Y);
 				.Y_WIDTH(Y_WIDTH)
 			) _TECHMAP_REPLACE_ (
 				.A(A),
-				.B({1'b0, B}),
+				.B({1'b0,B}),
 				.Y(Y)
 			);
 		else if (!A_SIGNED && B_SIGNED)
-			\$mul #(
+			\$__soft_mul #(
 				.A_SIGNED(1),
 				.B_SIGNED(B_SIGNED),
 				.A_WIDTH(A_WIDTH+1),
 				.B_WIDTH(B_WIDTH),
 				.Y_WIDTH(Y_WIDTH)
 			) _TECHMAP_REPLACE_ (
-				.A({1'b0, A}),
+				.A({1'b0,A}),
 				.B(B),
 				.Y(Y)
 			);
 		else
-			\$mul #(
+			\$__soft_mul #(
 				.A_SIGNED(A_SIGNED),
 				.B_SIGNED(B_SIGNED),
 				.A_WIDTH(A_WIDTH),
