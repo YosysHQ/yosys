@@ -23,10 +23,10 @@ code sigA clock clock_pol
 	sigA = port(mul, \A);
 
 	if (ffA) {
-		sigA.replace(port(ffA, \Q), port(ffA, \D));
-
 		clock = port(ffA, \CLK).as_bit();
 		clock_pol = param(ffA, \CLK_POLARITY).as_bool();
+
+		sigA.replace(port(ffA, \Q), port(ffA, \D));
 	}
 endcode
 
@@ -41,8 +41,6 @@ code sigB clock clock_pol
 	sigB = port(mul, \B);
 
 	if (ffB) {
-		sigB.replace(port(ffB, \Q), port(ffB, \D));
-		
 		SigBit c = port(ffB, \CLK).as_bit();
 		bool cp = param(ffB, \CLK_POLARITY).as_bool();
 
@@ -51,6 +49,8 @@ code sigB clock clock_pol
 
 		clock = c;
 		clock_pol = cp;
+
+		sigB.replace(port(ffB, \Q), port(ffB, \D));
 	}
 endcode
 
@@ -62,7 +62,7 @@ code sigY sigYused
 	for (i = GetSize(sigY); i > 0; i--)
 		if (nusers(sigY[i-1]) > 1)
 			break;
-	sigYused = sigY.extract(0, i).remove_const();
+	sigYused = sigY.extract(0, i);
 endcode
 
 match ffY
