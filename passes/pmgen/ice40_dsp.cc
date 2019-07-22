@@ -80,17 +80,25 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 	SigSpec B = st.sigB;
 	B.extend_u0(16, b_signed);
 
+        // MAC only if ffS exists and adder's other input (sigS)
+        //   is output of ffS
+        bool accum = (st.ffS && st.sigS == st.ffS->getPort("\\Q"));
+
 	SigSpec CD;
-	if (st.muxA)
-		CD = st.muxA->getPort("\\B");
-	if (st.muxB)
-		CD = st.muxB->getPort("\\A");
+        if (st.ffS) {
+                if (st.muxA)
+                        CD = st.muxA->getPort("\\B");
+                else if (st.muxB)
+                        CD = st.muxB->getPort("\\A");
+        }
+        else if (!accum)
+                CD = st.sigS.extend_u0(32, st.sigS_signed);
 	CD.extend_u0(32, a_signed && b_signed);
 
 	cell->setPort("\\A", A);
 	cell->setPort("\\B", B);
-	cell->setPort("\\C", CD.extract(0, 16));
-	cell->setPort("\\D", CD.extract(16, 16));
+	cell->setPort("\\C", CD.extract(16, 16));
+	cell->setPort("\\D", CD.extract(0, 16));
 
 	cell->setParam("\\A_REG", st.ffA ? State::S1 : State::S0);
 	cell->setParam("\\B_REG", st.ffB ? State::S1 : State::S0);
@@ -145,14 +153,19 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 
 	// SB_MAC16 Output Interface
 
-	SigSpec O = st.ffS ? st.sigS : st.sigY;
+        if (st.addAB) log_cell(st.addAB);
+	SigSpec O = st.ffS ? st.sigS : (st.addAB ? st.addAB->getPort("\\Y") : st.sigY);
 	if (GetSize(O) < 32)
 		O.append(pm.module->addWire(NEW_ID, 32-GetSize(O)));
 
 	cell->setPort("\\O", O);
 
 	if (st.addAB) {
-		log("  accumulator %s (%s)\n", log_id(st.addAB), log_id(st.addAB->type));
+                log_warning("sigS = %s\n", log_signal(st.sigS));
+                if (accum)
+                        log("  accumulator %s (%s)\n", log_id(st.addAB), log_id(st.addAB->type));
+                else
+                        log("  adder %s (%s)\n", log_id(st.addAB), log_id(st.addAB->type));
 		cell->setPort("\\ADDSUBTOP", st.addAB->type == "$add" ? State::S0 : State::S1);
 		cell->setPort("\\ADDSUBBOT", st.addAB->type == "$add" ? State::S0 : State::S1);
 	} else {
@@ -185,14 +198,14 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 	cell->setParam("\\PIPELINE_16x16_MULT_REG1", st.ffY ? State::S1 : State::S0);
 	cell->setParam("\\PIPELINE_16x16_MULT_REG2", State::S0);
 
-	cell->setParam("\\TOPOUTPUT_SELECT", Const(st.ffS ? 1 : 3, 2));
+	cell->setParam("\\TOPOUTPUT_SELECT", Const(st.ffS ? 1 : (st.addAB ? 0 : 3), 2));
 	cell->setParam("\\TOPADDSUB_LOWERINPUT", Const(2, 2));
-	cell->setParam("\\TOPADDSUB_UPPERINPUT", State::S0);
+	cell->setParam("\\TOPADDSUB_UPPERINPUT", st.ffS ? State::S0 : State::S1);
 	cell->setParam("\\TOPADDSUB_CARRYSELECT", Const(3, 2));
 
-	cell->setParam("\\BOTOUTPUT_SELECT", Const(st.ffS ? 1 : 3, 2));
+	cell->setParam("\\BOTOUTPUT_SELECT", Const(st.ffS ? 1 : (st.addAB ? 0 : 3), 2));
 	cell->setParam("\\BOTADDSUB_LOWERINPUT", Const(2, 2));
-	cell->setParam("\\BOTADDSUB_UPPERINPUT", State::S0);
+	cell->setParam("\\BOTADDSUB_UPPERINPUT", st.ffS ? State::S0 : State::S1);
 	cell->setParam("\\BOTADDSUB_CARRYSELECT", Const(0, 2));
 
 	cell->setParam("\\MODE_8x8", State::S0);
@@ -201,6 +214,7 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 
 	pm.autoremove(st.mul);
 	pm.autoremove(st.ffY);
+	pm.autoremove(st.addAB);
 	pm.autoremove(st.ffS);
 }
 
