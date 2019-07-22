@@ -174,9 +174,9 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 	bool accum = false;
 	if (st.addAB) {
                 if (st.addA)
-                      accum = (st.ffO_lo && st.ffO_hi && st.addAB->getPort("\\B") == O);
+			accum = (st.ffO_lo && st.ffO_hi && st.addAB->getPort("\\B") == O);
                 else if (st.addB)
-                      accum = (st.ffO_lo && st.ffO_hi && st.addAB->getPort("\\A") == O);
+			accum = (st.ffO_lo && st.ffO_hi && st.addAB->getPort("\\A") == O);
                 else log_abort();
                 if (accum)
                         log("  accumulator %s (%s)\n", log_id(st.addAB), log_id(st.addAB->type));
