@@ -143,16 +143,20 @@ endcode
 match ffS
 	if muxAB
 	select ffS->type.in($dff)
-	select nusers(port(ffS, \D)) == 2
-	index <SigSpec> port(ffS, \D) === port(muxAB, \Y)
-	index <SigSpec> port(ffS, \Q) === sigS
+	filter nusers(port(muxAB, \Y)) == 2
+	filter includes(port(ffS, \D).to_sigbit_set(), port(muxAB, \Y).to_sigbit_set())
 	optional
 endmatch
 
-code clock clock_pol
+code clock clock_pol sigS
 	if (ffS) {
 		SigBit c = port(ffS, \CLK).as_bit();
 		bool cp = param(ffS, \CLK_POLARITY).as_bool();
+
+		if (port(ffS, \Q) != sigS) {
+			sigS = port(muxAB, \Y);
+			sigS.replace(port(ffS, \D), port(ffS, \Q));
+		}
 
 		if (clock != SigBit() && (c != clock || cp != clock_pol))
 			reject;
