@@ -1,8 +1,8 @@
 pattern ice40_dsp
 
 state <SigBit> clock
-state <bool> clock_pol sigS_signed
-state <SigSpec> sigA sigB sigY sigS
+state <bool> clock_pol sigO_signed
+state <SigSpec> sigA sigB sigH sigO
 state <Cell*> addAB muxAB
 
 match mul
@@ -53,21 +53,21 @@ code sigB clock clock_pol
 	}
 endcode
 
-match ffY
-	select ffY->type.in($dff)
-	select nusers(port(ffY, \D)) == 2
-	index <SigSpec> port(ffY, \D) === port(mul, \Y)
+match ffH
+	select ffH->type.in($dff)
+	select nusers(port(ffH, \D)) == 2
+	index <SigSpec> port(ffH, \D) === port(mul, \Y)
 	optional
 endmatch
 
-code sigY clock clock_pol
-	sigY = port(mul, \Y);
+code sigH clock clock_pol
+	sigH = port(mul, \Y);
 
-	if (ffY) {
-		sigY = port(ffY, \Q);
+	if (ffH) {
+		sigH = port(ffH, \Q);
 
-		SigBit c = port(ffY, \CLK).as_bit();
-		bool cp = param(ffY, \CLK_POLARITY).as_bool();
+		SigBit c = port(ffH, \CLK).as_bit();
+		bool cp = param(ffH, \CLK_POLARITY).as_bool();
 
 		if (clock != SigBit() && (c != clock || cp != clock_pol))
 			reject;
@@ -80,7 +80,7 @@ endcode
 match addA
 	select addA->type.in($add)
 	select nusers(port(addA, \A)) == 2
-	index <SigSpec> port(addA, \A) === sigY
+	index <SigSpec> port(addA, \A) === sigH
 	optional
 endmatch
 
@@ -88,25 +88,25 @@ match addB
 	if !addA
 	select addB->type.in($add, $sub)
 	select nusers(port(addB, \B)) == 2
-	index <SigSpec> port(addB, \B) === sigY
+	index <SigSpec> port(addB, \B) === sigH
 	optional
 endmatch
 
-code addAB sigS sigS_signed
+code addAB sigO sigO_signed
 	if (addA) {
 		addAB = addA;
-		sigS = port(addAB, \B);
-		sigS_signed = param(addAB, \B_SIGNED).as_bool();
+		sigO = port(addAB, \B);
+		sigO_signed = param(addAB, \B_SIGNED).as_bool();
 	}
 	if (addB) {
 		addAB = addB;
-		sigS = port(addAB, \A);
-		sigS_signed = param(addAB, \A_SIGNED).as_bool();
+		sigO = port(addAB, \A);
+		sigO_signed = param(addAB, \A_SIGNED).as_bool();
 	}
 	if (addAB) {
 		int natural_mul_width = GetSize(sigA) + GetSize(sigB);
-		int actual_mul_width = GetSize(sigY);
-		int actual_acc_width = GetSize(sigS);
+		int actual_mul_width = GetSize(sigH);
+		int actual_acc_width = GetSize(sigO);
 
 		if ((actual_acc_width > actual_mul_width) && (natural_mul_width > actual_mul_width))
 			reject;
@@ -140,22 +140,22 @@ code muxAB
 		muxAB = muxB;
 endcode
 
-match ffS
+match ffO
 	if muxAB
-	select ffS->type.in($dff)
+	select ffO->type.in($dff)
 	filter nusers(port(muxAB, \Y)) == 2
-	filter includes(port(ffS, \D).to_sigbit_set(), port(muxAB, \Y).to_sigbit_set())
+	filter includes(port(ffO, \D).to_sigbit_set(), port(muxAB, \Y).to_sigbit_set())
 	optional
 endmatch
 
-code clock clock_pol sigS
-	if (ffS) {
-		SigBit c = port(ffS, \CLK).as_bit();
-		bool cp = param(ffS, \CLK_POLARITY).as_bool();
+code clock clock_pol sigO
+	if (ffO) {
+		SigBit c = port(ffO, \CLK).as_bit();
+		bool cp = param(ffO, \CLK_POLARITY).as_bool();
 
-		if (port(ffS, \Q) != sigS) {
-			sigS = port(muxAB, \Y);
-			sigS.replace(port(ffS, \D), port(ffS, \Q));
+		if (port(ffO, \Q) != sigO) {
+			sigO = port(muxAB, \Y);
+			sigO.replace(port(ffO, \D), port(ffO, \Q));
 		}
 
 		if (clock != SigBit() && (c != clock || cp != clock_pol))

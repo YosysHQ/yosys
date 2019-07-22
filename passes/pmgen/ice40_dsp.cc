@@ -37,10 +37,10 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 	log("ffA:   %s\n", log_id(st.ffA, "--"));
 	log("ffB:   %s\n", log_id(st.ffB, "--"));
 	log("mul:   %s\n", log_id(st.mul, "--"));
-	log("ffY:   %s\n", log_id(st.ffY, "--"));
+	log("ffH:   %s\n", log_id(st.ffH, "--"));
 	log("addAB: %s\n", log_id(st.addAB, "--"));
 	log("muxAB: %s\n", log_id(st.muxAB, "--"));
-	log("ffS:   %s\n", log_id(st.ffS, "--"));
+	log("ffO:   %s\n", log_id(st.ffO, "--"));
 #endif
 
 	log("Checking %s.%s for iCE40 DSP inference.\n", log_id(pm.module), log_id(st.mul));
@@ -55,13 +55,13 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 		return;
 	}
 
-	if (GetSize(st.sigS) > 32) {
-		log("  accumulator (%s) is too large (%d > 32).\n", log_signal(st.sigS), GetSize(st.sigS));
+	if (GetSize(st.sigO) > 32) {
+		log("  accumulator (%s) is too large (%d > 32).\n", log_signal(st.sigO), GetSize(st.sigO));
 		return;
 	}
 
-	if (GetSize(st.sigY) > 32) {
-		log("  output (%s) is too large (%d > 32).\n", log_signal(st.sigY), GetSize(st.sigY));
+	if (GetSize(st.sigH) > 32) {
+		log("  output (%s) is too large (%d > 32).\n", log_signal(st.sigH), GetSize(st.sigH));
 		return;
 	}
 
@@ -96,7 +96,7 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 		else if (st.addB)
 			CD = st.addAB->getPort("\\A");
 		else log_abort();
-		CD_signed = st.sigS_signed;
+		CD_signed = st.sigO_signed;
 	}
 	CD.extend_u0(32, CD_signed);
 
@@ -130,11 +130,11 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 		if (st.ffB)
 			log(" ffB:%s", log_id(st.ffB));
 
-		if (st.ffY)
-			log(" ffY:%s", log_id(st.ffY));
+		if (st.ffH)
+			log(" ffH:%s", log_id(st.ffH));
 
-		if (st.ffS)
-			log(" ffS:%s", log_id(st.ffS));
+		if (st.ffO)
+			log(" ffO:%s", log_id(st.ffO));
 
 		log("\n");
 	}
@@ -158,20 +158,20 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 
 	// SB_MAC16 Output Interface
 
-	SigSpec O = st.ffS ? st.sigS : (st.addAB ? st.addAB->getPort("\\Y") : st.sigY);
+	SigSpec O = st.ffO ? st.sigO : (st.addAB ? st.addAB->getPort("\\Y") : st.sigH);
 	if (GetSize(O) < 32)
 		O.append(pm.module->addWire(NEW_ID, 32-GetSize(O)));
 
 	cell->setPort("\\O", O);
 
-	// MAC only if ffS exists and adder's other input (sigS)
-	//   is output of ffS
+	// MAC only if ffO exists and adder's other input (sigO)
+	//   is output of ffO
 	bool accum = false;
 	if (st.addAB) {
                 if (st.addA)
-                      accum = (st.ffS && st.addAB->getPort("\\B") == st.ffS->getPort("\\Q"));
+                      accum = (st.ffO && st.addAB->getPort("\\B") == st.ffO->getPort("\\Q"));
                 else if (st.addB)
-                      accum = (st.ffS && st.addAB->getPort("\\A") == st.ffS->getPort("\\Q"));
+                      accum = (st.ffO && st.addAB->getPort("\\A") == st.ffO->getPort("\\Q"));
                 else log_abort();
                 if (accum)
                         log("  accumulator %s (%s)\n", log_id(st.addAB), log_id(st.addAB->type));
@@ -204,17 +204,17 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 	cell->setParam("\\C_REG", State::S0);
 	cell->setParam("\\D_REG", State::S0);
 
-	cell->setParam("\\TOP_8x8_MULT_REG", st.ffY ? State::S1 : State::S0);
-	cell->setParam("\\BOT_8x8_MULT_REG", st.ffY ? State::S1 : State::S0);
-	cell->setParam("\\PIPELINE_16x16_MULT_REG1", st.ffY ? State::S1 : State::S0);
+	cell->setParam("\\TOP_8x8_MULT_REG", st.ffH ? State::S1 : State::S0);
+	cell->setParam("\\BOT_8x8_MULT_REG", st.ffH ? State::S1 : State::S0);
+	cell->setParam("\\PIPELINE_16x16_MULT_REG1", st.ffH ? State::S1 : State::S0);
 	cell->setParam("\\PIPELINE_16x16_MULT_REG2", State::S0);
 
-	cell->setParam("\\TOPOUTPUT_SELECT", Const(st.ffS ? 1 : (st.addAB ? 0 : 3), 2));
+	cell->setParam("\\TOPOUTPUT_SELECT", Const(st.ffO ? 1 : (st.addAB ? 0 : 3), 2));
 	cell->setParam("\\TOPADDSUB_LOWERINPUT", Const(2, 2));
 	cell->setParam("\\TOPADDSUB_UPPERINPUT", accum ? State::S0 : State::S1);
 	cell->setParam("\\TOPADDSUB_CARRYSELECT", Const(3, 2));
 
-	cell->setParam("\\BOTOUTPUT_SELECT", Const(st.ffS ? 1 : (st.addAB ? 0 : 3), 2));
+	cell->setParam("\\BOTOUTPUT_SELECT", Const(st.ffO ? 1 : (st.addAB ? 0 : 3), 2));
 	cell->setParam("\\BOTADDSUB_LOWERINPUT", Const(2, 2));
 	cell->setParam("\\BOTADDSUB_UPPERINPUT", accum ? State::S0 : State::S1);
 	cell->setParam("\\BOTADDSUB_CARRYSELECT", Const(0, 2));
@@ -224,10 +224,10 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 	cell->setParam("\\B_SIGNED", b_signed);
 
 	pm.autoremove(st.mul);
-	pm.autoremove(st.ffY);
+	pm.autoremove(st.ffH);
 	pm.autoremove(st.addAB);
-        if (st.ffS)
-                st.ffS->connections_.at("\\Q").replace(st.sigS, pm.module->addWire(NEW_ID, GetSize(st.sigS)));
+        if (st.ffO)
+                st.ffO->connections_.at("\\Q").replace(st.sigO, pm.module->addWire(NEW_ID, GetSize(st.sigO)));
 }
 
 struct Ice40DspPass : public Pass {

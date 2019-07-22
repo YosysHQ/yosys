@@ -271,6 +271,7 @@ struct SynthIce40Pass : public ScriptPass
 				run("wreduce", "                      (if -dsp)");
 				run("ice40_dsp", "                    (if -dsp)");
 				run("chtype -set $mul t:$__soft_mul","(if -dsp)");
+				run("dump A:top");
 			}
 			run("alumacc");
 			run("opt");
