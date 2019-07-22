@@ -3354,7 +3354,13 @@ RTLIL::SigSpec RTLIL::SigSpec::extract(int offset, int length) const
 {
 	unpack();
 	cover("kernel.rtlil.sigspec.extract_pos");
-	return std::vector<RTLIL::SigBit>(bits_.begin() + offset, length >= 0 ? bits_.begin() + offset + length : bits_.end() + length + 1);
+	auto it = bits_.begin() + std::min<int>(offset, width_);
+	decltype(it) ie;
+	if (length >= 0)
+		ie = bits_.begin() + std::min<int>(offset + length, width_);
+	else
+		ie = bits_.end() + std::max<int>(length + 1, offset - width_);
+	return std::vector<RTLIL::SigBit>(it, ie);
 }
 
 void RTLIL::SigSpec::append(const RTLIL::SigSpec &signal)
