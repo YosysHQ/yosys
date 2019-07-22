@@ -88,12 +88,15 @@ module \$__mul (A, B, Y);
 		else if (A_WIDTH > `DSP_A_MAXWIDTH) begin
 			localparam n = (A_WIDTH+`DSP_A_MAXWIDTH-sign_headroom-1) / (`DSP_A_MAXWIDTH-sign_headroom);
 			localparam partial_Y_WIDTH = `MIN(Y_WIDTH, B_WIDTH+`DSP_A_MAXWIDTH);
+			localparam last_Y_WIDTH = `MIN(partial_Y_WIDTH, B_WIDTH+A_WIDTH-(n-1)*(`DSP_A_MAXWIDTH-sign_headroom));
 			if (A_SIGNED && B_SIGNED) begin
-				wire signed [partial_Y_WIDTH-1:0] partial [n-1:0];
+				wire signed [partial_Y_WIDTH-1:0] partial [n-2:0];
+				wire signed [last_Y_WIDTH-1:0] last_partial;
 				wire signed [Y_WIDTH-1:0] partial_sum [n-1:0];
 			end
 			else begin
 				wire [partial_Y_WIDTH-1:0] partial [n-1:0];
+				wire [last_Y_WIDTH-1:0] last_partial;
 				wire [Y_WIDTH-1:0] partial_sum [n-1:0];
 			end
 
@@ -130,24 +133,27 @@ module \$__mul (A, B, Y);
 				.B_SIGNED(B_SIGNED),
 				.A_WIDTH(A_WIDTH-(n-1)*(`DSP_A_MAXWIDTH-sign_headroom)),
 				.B_WIDTH(B_WIDTH),
-				.Y_WIDTH(partial_Y_WIDTH)
+				.Y_WIDTH(last_Y_WIDTH)
 			) mul_slice_last (
 				.A(A[A_WIDTH-1 : (n-1)*(`DSP_A_MAXWIDTH-sign_headroom)]),
 				.B(B),
-				.Y(partial[n-1])
+				.Y(last_partial)
 			);
-			assign partial_sum[n-1] = (partial[n-1] << (n-1)*(`DSP_A_MAXWIDTH-sign_headroom)) + partial_sum[n-2];
+			assign partial_sum[n-1] = (last_partial << (n-1)*(`DSP_A_MAXWIDTH-sign_headroom)) + partial_sum[n-2];
 			assign Y = partial_sum[n-1];
 		end
 		else if (B_WIDTH > `DSP_B_MAXWIDTH) begin
 			localparam n = (B_WIDTH+`DSP_B_MAXWIDTH-sign_headroom-1) / (`DSP_B_MAXWIDTH-sign_headroom);
 			localparam partial_Y_WIDTH = `MIN(Y_WIDTH, A_WIDTH+`DSP_B_MAXWIDTH);
+			localparam last_Y_WIDTH = `MIN(partial_Y_WIDTH, A_WIDTH+B_WIDTH-(n-1)*(`DSP_B_MAXWIDTH-sign_headroom));
 			if (A_SIGNED && B_SIGNED) begin
-				wire signed [partial_Y_WIDTH-1:0] partial [n-1:0];
+				wire signed [partial_Y_WIDTH-1:0] partial [n-2:0];
+				wire signed [last_Y_WIDTH-1:0] last_partial;
 				wire signed [Y_WIDTH-1:0] partial_sum [n-1:0];
 			end
 			else begin
 				wire [partial_Y_WIDTH-1:0] partial [n-1:0];
+				wire [last_Y_WIDTH-1:0] last_partial;
 				wire [Y_WIDTH-1:0] partial_sum [n-1:0];
 			end
 
@@ -188,9 +194,9 @@ module \$__mul (A, B, Y);
 			) mul_last (
 				.A(A),
 				.B(B[B_WIDTH-1 : (n-1)*(`DSP_B_MAXWIDTH-sign_headroom)]),
-				.Y(partial[n-1])
+				.Y(last_partial)
 			);
-			assign partial_sum[n-1] = (partial[n-1] << (n-1)*(`DSP_B_MAXWIDTH-sign_headroom)) + partial_sum[n-2];
+			assign partial_sum[n-1] = (last_partial << (n-1)*(`DSP_B_MAXWIDTH-sign_headroom)) + partial_sum[n-2];
 			assign Y = partial_sum[n-1];
 		end
 		else begin 
