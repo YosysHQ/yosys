@@ -81,25 +81,8 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 	SigSpec B = st.sigB;
 	B.extend_u0(16, b_signed);
 
-	SigSpec CD;
-	bool CD_signed = false;
-	if (st.muxAB != st.addAB) {
-		if (st.muxA)
-			CD = st.muxA->getPort("\\B");
-		else if (st.muxB)
-			CD = st.muxB->getPort("\\A");
-		else log_abort();
-		CD_signed = a_signed && b_signed; // TODO: Do muxes have [AB]_SIGNED?
-	}
-	else if (st.addAB) {
-		if (st.addA)
-			CD = st.addAB->getPort("\\B");
-		else if (st.addB)
-			CD = st.addAB->getPort("\\A");
-		else log_abort();
-		CD_signed = st.sigO_signed;
-	}
-	CD.extend_u0(32, CD_signed);
+	SigSpec CD = st.sigCD;
+	CD.extend_u0(32, st.sigCD_signed);
 
 	cell->setPort("\\A", A);
 	cell->setPort("\\B", B);
@@ -161,27 +144,19 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 
 	// SB_MAC16 Output Interface
 
-	SigSpec O_lo = (st.ffO_lo ? st.sigO : (st.addAB ? st.addAB->getPort("\\Y") : st.sigH)).extract(0,16);
-	if (GetSize(O_lo) < 16)
-		O_lo.append(pm.module->addWire(NEW_ID, 16-GetSize(O_lo)));
-	SigSpec O_hi = (st.ffO_hi ? st.sigO : (st.addAB ? st.addAB->getPort("\\Y") : st.sigH)).extract(16,16);
-	if (GetSize(O_hi) < 16)
-		O_hi.append(pm.module->addWire(NEW_ID, 16-GetSize(O_hi)));
-
-	SigSpec O{O_hi,O_lo};
-	cell->setPort("\\O", O);
+	cell->setPort("\\O", st.sigO);
 
 	bool accum = false;
 	if (st.addAB) {
-                if (st.addA)
-			accum = (st.ffO_lo && st.ffO_hi && st.addAB->getPort("\\B") == O);
-                else if (st.addB)
-			accum = (st.ffO_lo && st.ffO_hi && st.addAB->getPort("\\A") == O);
-                else log_abort();
-                if (accum)
-                        log("  accumulator %s (%s)\n", log_id(st.addAB), log_id(st.addAB->type));
-                else
-                        log("  adder %s (%s)\n", log_id(st.addAB), log_id(st.addAB->type));
+		if (st.addA)
+			accum = (st.ffO_lo && st.ffO_hi && st.addAB->getPort("\\B") == st.sigO);
+		else if (st.addB)
+			accum = (st.ffO_lo && st.ffO_hi && st.addAB->getPort("\\A") == st.sigO);
+		else log_abort();
+		if (accum)
+			log("  accumulator %s (%s)\n", log_id(st.addAB), log_id(st.addAB->type));
+		else
+			log("  adder %s (%s)\n", log_id(st.addAB), log_id(st.addAB->type));
 		cell->setPort("\\ADDSUBTOP", st.addAB->type == "$add" ? State::S0 : State::S1);
 		cell->setPort("\\ADDSUBBOT", st.addAB->type == "$add" ? State::S0 : State::S1);
 	} else {
@@ -231,10 +206,14 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 	pm.autoremove(st.mul);
 	pm.autoremove(st.ffH);
 	pm.autoremove(st.addAB);
-        if (st.ffO_lo)
-                st.ffO_lo->connections_.at("\\Q").replace(O.extract(0,16), pm.module->addWire(NEW_ID, 16));
-        if (st.ffO_hi)
-                st.ffO_hi->connections_.at("\\Q").replace(O.extract(16,16), pm.module->addWire(NEW_ID, 16));
+	if (st.ffO_lo) {
+			SigSpec O = st.sigO.extract(0,16);
+			st.ffO_lo->connections_.at("\\Q").replace(O, pm.module->addWire(NEW_ID, GetSize(O)));
+	}
+	if (st.ffO_hi) {
+			SigSpec O = st.sigO.extract(16,16);
+			st.ffO_hi->connections_.at("\\Q").replace(O, pm.module->addWire(NEW_ID, GetSize(O)));
+	}
 }
 
 struct Ice40DspPass : public Pass {

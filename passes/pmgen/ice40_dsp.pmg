@@ -120,7 +120,6 @@ code addAB sigCD sigCD_signed sigO
 endcode
 
 match muxA
-	if sigCD.empty()
 	select muxA->type.in($mux)
 	select nusers(port(muxA, \A)) == 2
 	index <SigSpec> port(muxA, \A) === sigO
@@ -128,7 +127,6 @@ match muxA
 endmatch
 
 match muxB
-	if sigCD.empty()
 	if !muxA
 	select muxB->type.in($mux)
 	select nusers(port(muxB, \B)) == 2
@@ -136,20 +134,11 @@ match muxB
 	optional
 endmatch
 
-code muxAB sigCD sigCD_signed sigO
-	muxAB = addAB;
-	if (muxA) {
+code muxAB
+	if (muxA)
 		muxAB = muxA;
-		sigCD = port(muxAB, \B);
-	}
-	if (muxB) {
+	else if (muxB)
 		muxAB = muxB;
-		sigCD = port(muxAB, \A);
-	}
-	if (muxA || muxB) {
-		sigO = port(muxAB, \Y);
-		sigCD_signed = addAB && param(addAB, \A_SIGNED).as_bool() && param(addAB, \B_SIGNED).as_bool();
-	}
 endcode
 
 match ffO_lo
@@ -166,7 +155,7 @@ match ffO_hi
 	optional
 endmatch
 
-code clock clock_pol sigO
+code clock clock_pol sigO sigCD sigCD_signed
 	if (ffO_lo || ffO_hi) {
 		if (ffO_lo) {
 			SigBit c = port(ffO_lo, \CLK).as_bit();
@@ -194,6 +183,20 @@ code clock clock_pol sigO
 
 			if (port(ffO_hi, \Q) != sigO.extract(16,16))
 				sigO.replace(port(ffO_hi, \D), port(ffO_hi, \Q));
+		}
+
+		// Loading value into output register is not
+		//   supported unless using accumulator
+		if (muxAB && sigCD != sigO) {
+			if (muxAB != addAB)
+				reject;
+
+			if (muxA)
+				sigCD = port(muxAB, \B);
+			else if (muxB)
+				sigCD = port(muxAB, \A);
+			else log_abort();
+			sigCD_signed = addAB && param(addAB, \A_SIGNED).as_bool() && param(addAB, \B_SIGNED).as_bool();
 		}
 	}
 endcode
