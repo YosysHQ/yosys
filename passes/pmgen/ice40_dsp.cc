@@ -32,7 +32,7 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 {
 	auto &st = pm.st_ice40_dsp;
 
-#if 1
+#if 0
 	log("\n");
 	log("ffA:    %s\n", log_id(st.ffA, "--"));
 	log("ffB:    %s\n", log_id(st.ffB, "--"));
