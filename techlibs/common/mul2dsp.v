@@ -190,7 +190,7 @@ module \$__mul (A, B, Y);
 				.B_SIGNED(B_SIGNED),
 				.A_WIDTH(A_WIDTH),
 				.B_WIDTH(B_WIDTH-(n-1)*(`DSP_B_MAXWIDTH-sign_headroom)),
-				.Y_WIDTH(partial_Y_WIDTH)
+				.Y_WIDTH(last_Y_WIDTH)
 			) mul_last (
 				.A(A),
 				.B(B[B_WIDTH-1 : (n-1)*(`DSP_B_MAXWIDTH-sign_headroom)]),
