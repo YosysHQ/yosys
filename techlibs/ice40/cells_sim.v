@@ -1363,13 +1363,13 @@ module SB_MAC16 (
 	wire [15:0] p_Ah_Bh, p_Al_Bh, p_Ah_Bl, p_Al_Bl;
 	wire [15:0] Ah, Al, Bh, Bl;
 	assign Ah = {A_SIGNED ? {8{iA[15]}} : 8'b0, iA[15: 8]};
-	assign Al = {A_SIGNED ? {8{iA[ 7]}} : 8'b0, iA[ 7: 0]};
+	assign Al = {A_SIGNED && MODE_8x8 ? {8{iA[ 7]}} : 8'b0, iA[ 7: 0]};
 	assign Bh = {B_SIGNED ? {8{iB[15]}} : 8'b0, iB[15: 8]};
-	assign Bl = {B_SIGNED ? {8{iB[ 7]}} : 8'b0, iB[ 7: 0]};
-	assign p_Ah_Bh = Ah * Bh;
-	assign p_Al_Bh = Al * Bh;
-	assign p_Ah_Bl = Ah * Bl;
-	assign p_Al_Bl = Al * Bl;
+	assign Bl = {B_SIGNED && MODE_8x8 ? {8{iB[ 7]}} : 8'b0, iB[ 7: 0]};
+	assign p_Ah_Bh = Ah * Bh; // F
+	assign p_Al_Bh = {8'b0, Al[7:0]} * Bh; // J
+	assign p_Ah_Bl = Ah * {8'b0, Bl[7:0]}; // K
+	assign p_Al_Bl = Al * Bl; // G
 
 	// Regs F and J
 	reg [15:0] rF, rJ;
@@ -1400,7 +1400,9 @@ module SB_MAC16 (
 	assign iG = BOT_8x8_MULT_REG ? rG : p_Al_Bl;
 
 	// Adder Stage
-	assign iL = iG + (iK << 8) + (iJ << 8) + (iF << 16);
+	wire [23:0] iK_e = {A_SIGNED ? {8{iK[15]}} : 8'b0, iK};
+	wire [23:0] iJ_e = {B_SIGNED ? {8{iJ[15]}} : 8'b0, iJ};
+	assign iL = iG + (iK_e << 8) + (iJ_e << 8) + (iF << 16);
 
 	// Reg H
 	reg [31:0] rH;
