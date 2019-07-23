@@ -187,10 +187,9 @@ code clock clock_pol sigO sigCD sigCD_signed
 
 		// Loading value into output register is not
 		//   supported unless using accumulator
-		if (muxAB && sigCD != sigO) {
-			if (muxAB != addAB)
+		if (muxAB) {
+			if (sigCD != sigO)
 				reject;
-
 			if (muxA)
 				sigCD = port(muxAB, \B);
 			else if (muxB)
