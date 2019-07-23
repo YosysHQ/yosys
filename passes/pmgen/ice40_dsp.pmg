@@ -1,8 +1,8 @@
 pattern ice40_dsp
 
 state <SigBit> clock
-state <bool> clock_pol sigO_signed
-state <SigSpec> sigA sigB sigH sigO
+state <bool> clock_pol sigCD_signed
+state <SigSpec> sigA sigB sigCD sigH sigO
 state <Cell*> addAB muxAB
 
 match mul
@@ -94,14 +94,16 @@ match addB
 	optional
 endmatch
 
-code addAB sigO sigO_signed
+code addAB sigCD sigCD_signed sigO
 	if (addA) {
 		addAB = addA;
-		sigO_signed = param(addAB, \B_SIGNED).as_bool();
+		sigCD = port(addAB, \B);
+		sigCD_signed = param(addAB, \B_SIGNED).as_bool();
 	}
 	if (addB) {
 		addAB = addB;
-		sigO_signed = param(addAB, \A_SIGNED).as_bool();
+		sigCD = port(addAB, \A);
+		sigCD_signed = param(addAB, \A_SIGNED).as_bool();
 	}
 	if (addAB) {
 		int natural_mul_width = GetSize(sigA) + GetSize(sigB);
@@ -118,30 +120,36 @@ code addAB sigO sigO_signed
 endcode
 
 match muxA
-	if addAB
+	if sigCD.empty()
 	select muxA->type.in($mux)
 	select nusers(port(muxA, \A)) == 2
-	index <SigSpec> port(muxA, \A) === port(addAB, \Y)
+	index <SigSpec> port(muxA, \A) === sigO
 	optional
 endmatch
 
 match muxB
-	if addAB
+	if sigCD.empty()
 	if !muxA
 	select muxB->type.in($mux)
 	select nusers(port(muxB, \B)) == 2
-	index <SigSpec> port(muxB, \B) === port(addAB, \Y)
+	index <SigSpec> port(muxB, \B) === sigO
 	optional
 endmatch
 
-code muxAB sigO
+code muxAB sigCD sigCD_signed sigO
 	muxAB = addAB;
-	if (muxA)
+	if (muxA) {
 		muxAB = muxA;
-	if (muxB)
+		sigCD = port(muxAB, \B);
+	}
+	if (muxB) {
 		muxAB = muxB;
-	if (muxA || muxB)
+		sigCD = port(muxAB, \A);
+	}
+	if (muxA || muxB) {
 		sigO = port(muxAB, \Y);
+		sigCD_signed = addAB && param(addAB, \A_SIGNED).as_bool() && param(addAB, \B_SIGNED).as_bool();
+	}
 endcode
 
 match ffO_lo
