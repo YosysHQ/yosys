@@ -144,7 +144,11 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 
 	// SB_MAC16 Output Interface
 
-	cell->setPort("\\O", st.sigO);
+	SigSpec O = st.sigO;
+	if (GetSize(O) < 32)
+		O.append(pm.module->addWire(NEW_ID, 32-GetSize(O)));
+
+	cell->setPort("\\O", O);
 
 	bool accum = false;
 	if (st.addAB) {
