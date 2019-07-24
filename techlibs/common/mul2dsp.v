@@ -1,7 +1,31 @@
-// From Eddie Hung
-// extracted from: https://github.com/eddiehung/vtr-with-yosys/blob/vtr7-with-yosys/vtr_flow/misc/yosys_models.v#L220
-// revised by Andre DeHon
-// further revised by David Shah
+/*
+ *  yosys -- Yosys Open SYnthesis Suite
+ *
+ *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *                2019  Eddie Hung    <eddie@fpgeh.com>
+ *                2019  David Shah    <dave@ds0.me>
+ *
+ *  Permission to use, copy, modify, and/or distribute this software for any
+ *  purpose with or without fee is hereby granted, provided that the above
+ *  copyright notice and this permission notice appear in all copies.
+ *
+ *  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ *  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ *  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ *  ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ *  WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ *  ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
+ *  ---
+ *
+ *  Tech-mapping rules for decomposing arbitrarily-sized $mul cells
+ *  into an equivalent collection of smaller `DSP_NAME cells (with the 
+ *  same interface as $mul) no larger than `DSP_[AB]_MAXWIDTH, attached 
+ *  to $shl and $add cells.
+ *
+ */
+
 `ifndef DSP_A_MAXWIDTH
 $error("Macro DSP_A_MAXWIDTH must be defined");
 `endif
@@ -125,6 +149,9 @@ module \$__mul (A, B, Y);
 					.B(B),
 					.Y(partial[i])
 				);
+                // TODO: Currently a 'cascade' approach to summing the partial 
+                //       products is taken here, but a more efficient 'binary
+                //       reduction' approach also exists...
 				assign partial_sum[i] = (partial[i] << i*(`DSP_A_MAXWIDTH-sign_headroom)) + partial_sum[i-1];
 			end
 
@@ -182,6 +209,9 @@ module \$__mul (A, B, Y);
 					.B({{sign_headroom{1'b0}}, B[i*(`DSP_B_MAXWIDTH-sign_headroom) +: `DSP_B_MAXWIDTH-sign_headroom]}),
 					.Y(partial[i])
 				);
+                // TODO: Currently a 'cascade' approach to summing the partial 
+                //       products is taken here, but a more efficient 'binary
+                //       reduction' approach also exists...
 				assign partial_sum[i] = (partial[i] << i*(`DSP_B_MAXWIDTH-sign_headroom)) + partial_sum[i-1];
 			end
 
