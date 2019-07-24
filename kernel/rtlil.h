@@ -420,7 +420,11 @@ namespace RTLIL
 	// It maintains a reference counter that is used to make sure that the container is not modified while being iterated over.
 
 	template<typename T>
-	struct ObjIterator
+	struct ObjIterator : public std::iterator<std::forward_iterator_tag,
+		T,
+		ptrdiff_t,
+		T *,
+		T &>
 	{
 		typename dict<RTLIL::IdString, T>::iterator it;
 		dict<RTLIL::IdString, T> *list_p;
@@ -474,13 +478,25 @@ namespace RTLIL
 			return it != other.it;
 		}
 
-		inline void operator++() {
+
+		inline bool operator==(const RTLIL::ObjIterator<T> &other) const {
+			return !(*this != other);
+		}
+
+		inline ObjIterator<T>& operator++() {
 			log_assert(list_p != nullptr);
 			if (++it == list_p->end()) {
 				(*refcount_p)--;
 				list_p = nullptr;
 				refcount_p = nullptr;
 			}
+			return *this;
+		}
+
+		inline const ObjIterator<T> operator++(int) {
+			ObjIterator<T> result(*this);
+			++(*this);
+			return result;
 		}
 	};
 
