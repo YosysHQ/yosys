@@ -241,6 +241,81 @@ module testbench_comb_8x8_A;
 	) testbench ();
 endmodule
 
+module testbench_comb_8x8_A_signedA;
+	testbench #(
+		.NEG_TRIGGER               (0),
+		.C_REG                     (0),
+		.A_REG                     (0),
+		.B_REG                     (0),
+		.D_REG                     (0),
+		.TOP_8x8_MULT_REG          (0),
+		.BOT_8x8_MULT_REG          (0),
+		.PIPELINE_16x16_MULT_REG1  (0),
+		.PIPELINE_16x16_MULT_REG2  (0),
+		.TOPOUTPUT_SELECT          (2),   // 0=P, 1=Q, 2=8x8, 3=16x16
+		.TOPADDSUB_LOWERINPUT      (0),   // 0=A, 1=8x8, 2=16x16, 3=S-EXT
+		.TOPADDSUB_UPPERINPUT      (0),   // 0=Q, 1=C
+		.TOPADDSUB_CARRYSELECT     (0),   // 0=0, 1=1, 2=ACI, 3=CI
+		.BOTOUTPUT_SELECT          (2),   // 0=R, 1=S, 2=8x8, 3=16x16
+		.BOTADDSUB_LOWERINPUT      (0),   // 0=B, 1=8x8, 2=16x16, 3=S-EXT
+		.BOTADDSUB_UPPERINPUT      (0),   // 0=S, 1=D
+		.BOTADDSUB_CARRYSELECT     (0),   // 0=0, 1=1, 2=ACI, 3=CI
+		.MODE_8x8                  (0),
+		.A_SIGNED                  (1),
+		.B_SIGNED                  (0)
+	) testbench ();
+endmodule
+
+module testbench_comb_8x8_A_signedB;
+	testbench #(
+		.NEG_TRIGGER               (0),
+		.C_REG                     (0),
+		.A_REG                     (0),
+		.B_REG                     (0),
+		.D_REG                     (0),
+		.TOP_8x8_MULT_REG          (0),
+		.BOT_8x8_MULT_REG          (0),
+		.PIPELINE_16x16_MULT_REG1  (0),
+		.PIPELINE_16x16_MULT_REG2  (0),
+		.TOPOUTPUT_SELECT          (2),   // 0=P, 1=Q, 2=8x8, 3=16x16
+		.TOPADDSUB_LOWERINPUT      (0),   // 0=A, 1=8x8, 2=16x16, 3=S-EXT
+		.TOPADDSUB_UPPERINPUT      (0),   // 0=Q, 1=C
+		.TOPADDSUB_CARRYSELECT     (0),   // 0=0, 1=1, 2=ACI, 3=CI
+		.BOTOUTPUT_SELECT          (2),   // 0=R, 1=S, 2=8x8, 3=16x16
+		.BOTADDSUB_LOWERINPUT      (0),   // 0=B, 1=8x8, 2=16x16, 3=S-EXT
+		.BOTADDSUB_UPPERINPUT      (0),   // 0=S, 1=D
+		.BOTADDSUB_CARRYSELECT     (0),   // 0=0, 1=1, 2=ACI, 3=CI
+		.MODE_8x8                  (0),
+		.A_SIGNED                  (0),
+		.B_SIGNED                  (1)
+	) testbench ();
+endmodule
+
+module testbench_comb_8x8_A_signedAB;
+	testbench #(
+		.NEG_TRIGGER               (0),
+		.C_REG                     (0),
+		.A_REG                     (0),
+		.B_REG                     (0),
+		.D_REG                     (0),
+		.TOP_8x8_MULT_REG          (0),
+		.BOT_8x8_MULT_REG          (0),
+		.PIPELINE_16x16_MULT_REG1  (0),
+		.PIPELINE_16x16_MULT_REG2  (0),
+		.TOPOUTPUT_SELECT          (2),   // 0=P, 1=Q, 2=8x8, 3=16x16
+		.TOPADDSUB_LOWERINPUT      (0),   // 0=A, 1=8x8, 2=16x16, 3=S-EXT
+		.TOPADDSUB_UPPERINPUT      (0),   // 0=Q, 1=C
+		.TOPADDSUB_CARRYSELECT     (0),   // 0=0, 1=1, 2=ACI, 3=CI
+		.BOTOUTPUT_SELECT          (2),   // 0=R, 1=S, 2=8x8, 3=16x16
+		.BOTADDSUB_LOWERINPUT      (0),   // 0=B, 1=8x8, 2=16x16, 3=S-EXT
+		.BOTADDSUB_UPPERINPUT      (0),   // 0=S, 1=D
+		.BOTADDSUB_CARRYSELECT     (0),   // 0=0, 1=1, 2=ACI, 3=CI
+		.MODE_8x8                  (0),
+		.A_SIGNED                  (1),
+		.B_SIGNED                  (1)
+	) testbench ();
+endmodule
+
 module testbench_comb_8x8_B;
 	testbench #(
 		.NEG_TRIGGER               (0),
@@ -266,6 +341,81 @@ module testbench_comb_8x8_B;
 	) testbench ();
 endmodule
 
+module testbench_comb_8x8_B_signedA;
+	testbench #(
+		.NEG_TRIGGER               (0),
+		.C_REG                     (0),
+		.A_REG                     (0),
+		.B_REG                     (0),
+		.D_REG                     (0),
+		.TOP_8x8_MULT_REG          (0),
+		.BOT_8x8_MULT_REG          (0),
+		.PIPELINE_16x16_MULT_REG1  (0),
+		.PIPELINE_16x16_MULT_REG2  (0),
+		.TOPOUTPUT_SELECT          (0),   // 0=P, 1=Q, 2=8x8, 3=16x16
+		.TOPADDSUB_LOWERINPUT      (1),   // 0=A, 1=8x8, 2=16x16, 3=S-EXT
+		.TOPADDSUB_UPPERINPUT      (1),   // 0=Q, 1=C
+		.TOPADDSUB_CARRYSELECT     (0),   // 0=0, 1=1, 2=ACI, 3=CI
+		.BOTOUTPUT_SELECT          (0),   // 0=R, 1=S, 2=8x8, 3=16x16
+		.BOTADDSUB_LOWERINPUT      (1),   // 0=B, 1=8x8, 2=16x16, 3=S-EXT
+		.BOTADDSUB_UPPERINPUT      (1),   // 0=S, 1=D
+		.BOTADDSUB_CARRYSELECT     (0),   // 0=0, 1=1, 2=ACI, 3=CI
+		.MODE_8x8                  (0),
+		.A_SIGNED                  (1),
+		.B_SIGNED                  (0)
+	) testbench ();
+endmodule
+
+module testbench_comb_8x8_B_signedB;
+	testbench #(
+		.NEG_TRIGGER               (0),
+		.C_REG                     (0),
+		.A_REG                     (0),
+		.B_REG                     (0),
+		.D_REG                     (0),
+		.TOP_8x8_MULT_REG          (0),
+		.BOT_8x8_MULT_REG          (0),
+		.PIPELINE_16x16_MULT_REG1  (0),
+		.PIPELINE_16x16_MULT_REG2  (0),
+		.TOPOUTPUT_SELECT          (0),   // 0=P, 1=Q, 2=8x8, 3=16x16
+		.TOPADDSUB_LOWERINPUT      (1),   // 0=A, 1=8x8, 2=16x16, 3=S-EXT
+		.TOPADDSUB_UPPERINPUT      (1),   // 0=Q, 1=C
+		.TOPADDSUB_CARRYSELECT     (0),   // 0=0, 1=1, 2=ACI, 3=CI
+		.BOTOUTPUT_SELECT          (0),   // 0=R, 1=S, 2=8x8, 3=16x16
+		.BOTADDSUB_LOWERINPUT      (1),   // 0=B, 1=8x8, 2=16x16, 3=S-EXT
+		.BOTADDSUB_UPPERINPUT      (1),   // 0=S, 1=D
+		.BOTADDSUB_CARRYSELECT     (0),   // 0=0, 1=1, 2=ACI, 3=CI
+		.MODE_8x8                  (0),
+		.A_SIGNED                  (0),
+		.B_SIGNED                  (1)
+	) testbench ();
+endmodule
+
+module testbench_comb_8x8_B_signedAB;
+	testbench #(
+		.NEG_TRIGGER               (0),
+		.C_REG                     (0),
+		.A_REG                     (0),
+		.B_REG                     (0),
+		.D_REG                     (0),
+		.TOP_8x8_MULT_REG          (0),
+		.BOT_8x8_MULT_REG          (0),
+		.PIPELINE_16x16_MULT_REG1  (0),
+		.PIPELINE_16x16_MULT_REG2  (0),
+		.TOPOUTPUT_SELECT          (0),   // 0=P, 1=Q, 2=8x8, 3=16x16
+		.TOPADDSUB_LOWERINPUT      (1),   // 0=A, 1=8x8, 2=16x16, 3=S-EXT
+		.TOPADDSUB_UPPERINPUT      (1),   // 0=Q, 1=C
+		.TOPADDSUB_CARRYSELECT     (0),   // 0=0, 1=1, 2=ACI, 3=CI
+		.BOTOUTPUT_SELECT          (0),   // 0=R, 1=S, 2=8x8, 3=16x16
+		.BOTADDSUB_LOWERINPUT      (1),   // 0=B, 1=8x8, 2=16x16, 3=S-EXT
+		.BOTADDSUB_UPPERINPUT      (1),   // 0=S, 1=D
+		.BOTADDSUB_CARRYSELECT     (0),   // 0=0, 1=1, 2=ACI, 3=CI
+		.MODE_8x8                  (0),
+		.A_SIGNED                  (1),
+		.B_SIGNED                  (1)
+	) testbench ();
+endmodule
+
 module testbench_comb_16x16;
 	testbench #(
 		.NEG_TRIGGER               (0),
@@ -288,6 +438,81 @@ module testbench_comb_16x16;
 		.MODE_8x8                  (0),
 		.A_SIGNED                  (0),
 		.B_SIGNED                  (0)
+	) testbench ();
+endmodule
+
+module testbench_comb_16x16_signedA;
+	testbench #(
+		.NEG_TRIGGER               (0),
+		.C_REG                     (0),
+		.A_REG                     (0),
+		.B_REG                     (0),
+		.D_REG                     (0),
+		.TOP_8x8_MULT_REG          (0),
+		.BOT_8x8_MULT_REG          (0),
+		.PIPELINE_16x16_MULT_REG1  (0),
+		.PIPELINE_16x16_MULT_REG2  (0),
+		.TOPOUTPUT_SELECT          (0),   // 0=P, 1=Q, 2=8x8, 3=16x16
+		.TOPADDSUB_LOWERINPUT      (2),   // 0=A, 1=8x8, 2=16x16, 3=S-EXT
+		.TOPADDSUB_UPPERINPUT      (1),   // 0=Q, 1=C
+		.TOPADDSUB_CARRYSELECT     (2),   // 0=0, 1=1, 2=ACI, 3=CI
+		.BOTOUTPUT_SELECT          (0),   // 0=R, 1=S, 2=8x8, 3=16x16
+		.BOTADDSUB_LOWERINPUT      (2),   // 0=B, 1=8x8, 2=16x16, 3=S-EXT
+		.BOTADDSUB_UPPERINPUT      (1),   // 0=S, 1=D
+		.BOTADDSUB_CARRYSELECT     (2),   // 0=0, 1=1, 2=ACI, 3=CI
+		.MODE_8x8                  (0),
+		.A_SIGNED                  (1),
+		.B_SIGNED                  (0)
+	) testbench ();
+endmodule
+
+module testbench_comb_16x16_signedB;
+	testbench #(
+		.NEG_TRIGGER               (0),
+		.C_REG                     (0),
+		.A_REG                     (0),
+		.B_REG                     (0),
+		.D_REG                     (0),
+		.TOP_8x8_MULT_REG          (0),
+		.BOT_8x8_MULT_REG          (0),
+		.PIPELINE_16x16_MULT_REG1  (0),
+		.PIPELINE_16x16_MULT_REG2  (0),
+		.TOPOUTPUT_SELECT          (0),   // 0=P, 1=Q, 2=8x8, 3=16x16
+		.TOPADDSUB_LOWERINPUT      (2),   // 0=A, 1=8x8, 2=16x16, 3=S-EXT
+		.TOPADDSUB_UPPERINPUT      (1),   // 0=Q, 1=C
+		.TOPADDSUB_CARRYSELECT     (2),   // 0=0, 1=1, 2=ACI, 3=CI
+		.BOTOUTPUT_SELECT          (0),   // 0=R, 1=S, 2=8x8, 3=16x16
+		.BOTADDSUB_LOWERINPUT      (2),   // 0=B, 1=8x8, 2=16x16, 3=S-EXT
+		.BOTADDSUB_UPPERINPUT      (1),   // 0=S, 1=D
+		.BOTADDSUB_CARRYSELECT     (2),   // 0=0, 1=1, 2=ACI, 3=CI
+		.MODE_8x8                  (0),
+		.A_SIGNED                  (0),
+		.B_SIGNED                  (1)
+	) testbench ();
+endmodule
+
+module testbench_comb_16x16_signedAB;
+	testbench #(
+		.NEG_TRIGGER               (0),
+		.C_REG                     (0),
+		.A_REG                     (0),
+		.B_REG                     (0),
+		.D_REG                     (0),
+		.TOP_8x8_MULT_REG          (0),
+		.BOT_8x8_MULT_REG          (0),
+		.PIPELINE_16x16_MULT_REG1  (0),
+		.PIPELINE_16x16_MULT_REG2  (0),
+		.TOPOUTPUT_SELECT          (0),   // 0=P, 1=Q, 2=8x8, 3=16x16
+		.TOPADDSUB_LOWERINPUT      (2),   // 0=A, 1=8x8, 2=16x16, 3=S-EXT
+		.TOPADDSUB_UPPERINPUT      (1),   // 0=Q, 1=C
+		.TOPADDSUB_CARRYSELECT     (2),   // 0=0, 1=1, 2=ACI, 3=CI
+		.BOTOUTPUT_SELECT          (0),   // 0=R, 1=S, 2=8x8, 3=16x16
+		.BOTADDSUB_LOWERINPUT      (2),   // 0=B, 1=8x8, 2=16x16, 3=S-EXT
+		.BOTADDSUB_UPPERINPUT      (1),   // 0=S, 1=D
+		.BOTADDSUB_CARRYSELECT     (2),   // 0=0, 1=1, 2=ACI, 3=CI
+		.MODE_8x8                  (0),
+		.A_SIGNED                  (1),
+		.B_SIGNED                  (1)
 	) testbench ();
 endmodule
 

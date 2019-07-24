@@ -204,6 +204,11 @@ void ILANG_BACKEND::dump_proc_switch(std::ostream &f, std::string indent, const 
 
 	for (auto it = sw->cases.begin(); it != sw->cases.end(); ++it)
 	{
+		for (auto ait = (*it)->attributes.begin(); ait != (*it)->attributes.end(); ++ait) {
+			f << stringf("%s  attribute %s ", indent.c_str(), ait->first.c_str());
+			dump_const(f, ait->second);
+			f << stringf("\n");
+		}
 		f << stringf("%s  case ", indent.c_str());
 		for (size_t i = 0; i < (*it)->compare.size(); i++) {
 			if (i > 0)
@@ -483,6 +488,7 @@ struct DumpPass : public Pass {
 		std::stringstream buf;
 
 		if (!filename.empty()) {
+			rewrite_filename(filename);
 			std::ofstream *ff = new std::ofstream;
 			ff->open(filename.c_str(), append ? std::ofstream::app : std::ofstream::trunc);
 			if (ff->fail()) {

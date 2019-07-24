@@ -2,7 +2,7 @@
  *  yosys -- Yosys Open SYnthesis Suite
  *
  *  Copyright (C) 2012 Clifford Wolf <clifford@clifford.at>
- *  Copyright (C) 2018 Clifford Wolf <dave@ds0.me>
+ *  Copyright (C) 2018 David Shah <dave@ds0.me>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -71,16 +71,19 @@ struct SynthEcp5Pass : public ScriptPass
 		log("        do not use flipflops with CE in output netlist\n");
 		log("\n");
 		log("    -nobram\n");
-		log("        do not use BRAM cells in output netlist\n");
+		log("        do not use block RAM cells in output netlist\n");
 		log("\n");
-		log("    -nodram\n");
-		log("        do not use distributed RAM cells in output netlist\n");
+		log("    -nolutram\n");
+		log("        do not use LUT RAM cells in output netlist\n");
 		log("\n");
-		log("    -nomux\n");
+		log("    -nowidelut\n");
 		log("        do not use PFU muxes to implement LUTs larger than LUT4s\n");
 		log("\n");
 		log("    -abc2\n");
 		log("        run two passes of 'abc' for slightly improved logic density\n");
+		log("\n");
+		log("    -abc9\n");
+		log("        use new ABC9 flow (EXPERIMENTAL)\n");
 		log("\n");
 		log("    -vpr\n");
 		log("        generate an output netlist (and BLIF file) suitable for VPR\n");
@@ -93,7 +96,7 @@ struct SynthEcp5Pass : public ScriptPass
 	}
 
 	string top_opt, blif_file, edif_file, json_file;
-	bool noccu2, nodffe, nobram, nodram, nomux, flatten, retime, abc2, vpr;
+	bool noccu2, nodffe, nobram, nolutram, nowidelut, flatten, retime, abc2, abc9, vpr;
 
 	void clear_flags() YS_OVERRIDE
 	{
@@ -104,12 +107,13 @@ struct SynthEcp5Pass : public ScriptPass
 		noccu2 = false;
 		nodffe = false;
 		nobram = false;
-		nodram = false;
-		nomux = false;
+		nolutram = false;
+		nowidelut = false;
 		flatten = true;
 		retime = false;
 		abc2 = false;
 		vpr = false;
+		abc9 = false;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -168,12 +172,12 @@ struct SynthEcp5Pass : public ScriptPass
 				nobram = true;
 				continue;
 			}
-			if (args[argidx] == "-nodram") {
-				nodram = true;
+			if (args[argidx] == "-nolutram" || /*deprecated alias*/ args[argidx] == "-nodram") {
+				nolutram = true;
 				continue;
 			}
-			if (args[argidx] == "-nomux") {
-				nomux = true;
+			if (args[argidx] == "-nowidelut" || /*deprecated alias*/ args[argidx] == "-nomux") {
+				nowidelut = true;
 				continue;
 			}
 			if (args[argidx] == "-abc2") {
@@ -184,12 +188,19 @@ struct SynthEcp5Pass : public ScriptPass
 				vpr = true;
 				continue;
 			}
+			if (args[argidx] == "-abc9") {
+				abc9 = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");
+
+		if (abc9 && retime)
+				log_cmd_error("-retime option not currently compatible with -abc9!\n");
 
 		log_header(design, "Executing SYNTH_ECP5 pass.\n");
 		log_push();
@@ -203,7 +214,7 @@ struct SynthEcp5Pass : public ScriptPass
 	{
 		if (check_label("begin"))
 		{
-			run("read_verilog -lib +/ecp5/cells_sim.v +/ecp5/cells_bb.v");
+			run("read_verilog -D_ABC -lib +/ecp5/cells_sim.v +/ecp5/cells_bb.v");
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
 		}
 
@@ -220,23 +231,27 @@ struct SynthEcp5Pass : public ScriptPass
 			run("synth -run coarse");
 		}
 
-		if (!nobram && check_label("bram", "(skip if -nobram)"))
+		if (!nobram && check_label("map_bram", "(skip if -nobram)"))
 		{
 			run("memory_bram -rules +/ecp5/bram.txt");
 			run("techmap -map +/ecp5/brams_map.v");
 		}
 
-		if (!nodram && check_label("dram", "(skip if -nodram)"))
+		if (!nolutram && check_label("map_lutram", "(skip if -nolutram)"))
 		{
-			run("memory_bram -rules +/ecp5/dram.txt");
-			run("techmap -map +/ecp5/drams_map.v");
+			run("memory_bram -rules +/ecp5/lutram.txt");
+			run("techmap -map +/ecp5/lutrams_map.v");
 		}
 
-		if (check_label("fine"))
+		if (check_label("map_ffram"))
 		{
 			run("opt -fast -mux_undef -undriven -fine");
 			run("memory_map");
 			run("opt -undriven -fine");
+		}
+
+		if (check_label("map_gates"))
+		{
 			if (noccu2)
 				run("techmap");
 			else
@@ -264,10 +279,17 @@ struct SynthEcp5Pass : public ScriptPass
 				run("abc", "      (only if -abc2)");
 			}
 			run("techmap -map +/ecp5/latches_map.v");
-			if (nomux)
-				run("abc -lut 4 -dress");
-			else
-				run("abc -lut 4:7 -dress");
+			if (abc9) {
+				if (nowidelut)
+					run("abc9 -lut +/ecp5/abc_5g_nowide.lut -box +/ecp5/abc_5g.box -W 200");
+				else
+					run("abc9 -lut +/ecp5/abc_5g.lut -box +/ecp5/abc_5g.box -W 200");
+			} else {
+				if (nowidelut)
+					run("abc -lut 4 -dress");
+				else
+					run("abc -lut 4:7 -dress");
+			}
 			run("clean");
 		}
 

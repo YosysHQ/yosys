@@ -46,6 +46,10 @@ OS := $(shell uname -s)
 PREFIX ?= /usr/local
 INSTALL_SUDO :=
 
+ifneq ($(wildcard Makefile.conf),)
+include Makefile.conf
+endif
+
 BINDIR := $(PREFIX)/bin
 LIBDIR := $(PREFIX)/lib
 DATDIR := $(PREFIX)/share/yosys
@@ -118,7 +122,7 @@ OBJS = kernel/version_$(GIT_REV).o
 # is just a symlink to your actual ABC working directory, as 'make mrproper'
 # will remove the 'abc' directory and you do not want to accidentally
 # delete your work on ABC..
-ABCREV = 3709744
+ABCREV = 62487de
 ABCPULL = 1
 ABCURL ?= https://github.com/berkeley-abc/abc
 ABCMKARGS = CC="$(CXX)" CXX="$(CXX)" ABC_USE_LIBSTDCXX=1
@@ -662,6 +666,12 @@ else
 SEEDOPT=""
 endif
 
+ifneq ($(ABCEXTERNAL),)
+ABCOPT="-A $(ABCEXTERNAL)"
+else
+ABCOPT=""
+endif
+
 test: $(TARGETS) $(EXTRA_TARGETS)
 	+cd tests/simple && bash run-test.sh $(SEEDOPT)
 	+cd tests/hana && bash run-test.sh $(SEEDOPT)
@@ -670,13 +680,15 @@ test: $(TARGETS) $(EXTRA_TARGETS)
 	+cd tests/share && bash run-test.sh $(SEEDOPT)
 	+cd tests/fsm && bash run-test.sh $(SEEDOPT)
 	+cd tests/techmap && bash run-test.sh
-	+cd tests/memories && bash run-test.sh $(SEEDOPT)
+	+cd tests/memories && bash run-test.sh $(ABCOPT) $(SEEDOPT)
 	+cd tests/bram && bash run-test.sh $(SEEDOPT)
 	+cd tests/various && bash run-test.sh
 	+cd tests/sat && bash run-test.sh
 	+cd tests/svinterfaces && bash run-test.sh $(SEEDOPT)
 	+cd tests/opt && bash run-test.sh
-	+cd tests/aiger && bash run-test.sh
+	+cd tests/aiger && bash run-test.sh $(ABCOPT)
+	+cd tests/arch && bash run-test.sh
+	+cd tests/simple_abc9 && bash run-test.sh $(SEEDOPT)
 	@echo ""
 	@echo "  Passed \"make test\"."
 	@echo ""

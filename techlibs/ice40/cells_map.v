@@ -37,23 +37,51 @@ module \$lut (A, Y);
 
   generate
     if (WIDTH == 1) begin
-      SB_LUT4 #(.LUT_INIT(LUT)) _TECHMAP_REPLACE_ (.O(Y),
-        .I0(A[0]), .I1(1'b0), .I2(1'b0), .I3(1'b0));
+      localparam [15:0] INIT = {{8{LUT[1]}}, {8{LUT[0]}}};
+      SB_LUT4 #(.LUT_INIT(INIT)) _TECHMAP_REPLACE_ (.O(Y),
+        .I0(1'b0), .I1(1'b0), .I2(1'b0), .I3(A[0]));
     end else
     if (WIDTH == 2) begin
-      SB_LUT4 #(.LUT_INIT(LUT)) _TECHMAP_REPLACE_ (.O(Y),
-        .I0(A[0]), .I1(A[1]), .I2(1'b0), .I3(1'b0));
+      localparam [15:0] INIT = {{4{LUT[3]}}, {4{LUT[1]}}, {4{LUT[2]}}, {4{LUT[0]}}};
+      SB_LUT4 #(.LUT_INIT(INIT)) _TECHMAP_REPLACE_ (.O(Y),
+        .I0(1'b0), .I1(1'b0), .I2(A[1]), .I3(A[0]));
     end else
     if (WIDTH == 3) begin
-      SB_LUT4 #(.LUT_INIT(LUT)) _TECHMAP_REPLACE_ (.O(Y),
-        .I0(A[0]), .I1(A[1]), .I2(A[2]), .I3(1'b0));
+      localparam [15:0] INIT = {{2{LUT[7]}}, {2{LUT[3]}}, {2{LUT[5]}}, {2{LUT[1]}}, {2{LUT[6]}}, {2{LUT[2]}}, {2{LUT[4]}}, {2{LUT[0]}}};
+      SB_LUT4 #(.LUT_INIT(INIT)) _TECHMAP_REPLACE_ (.O(Y),
+        .I0(1'b0), .I1(A[2]), .I2(A[1]), .I3(A[0]));
     end else
     if (WIDTH == 4) begin
-      SB_LUT4 #(.LUT_INIT(LUT)) _TECHMAP_REPLACE_ (.O(Y),
-        .I0(A[0]), .I1(A[1]), .I2(A[2]), .I3(A[3]));
+      localparam [15:0] INIT = {LUT[15], LUT[7], LUT[11], LUT[3], LUT[13], LUT[5], LUT[9], LUT[1], LUT[14], LUT[6], LUT[10], LUT[2], LUT[12], LUT[4], LUT[8], LUT[0]};
+      SB_LUT4 #(.LUT_INIT(INIT)) _TECHMAP_REPLACE_ (.O(Y),
+        .I0(A[3]), .I1(A[2]), .I2(A[1]), .I3(A[0]));
     end else begin
       wire _TECHMAP_FAIL_ = 1;
     end
   endgenerate
+endmodule
+`endif
+
+`ifdef _ABC
+module \$__ICE40_FULL_ADDER (output CO, O, input A, B, CI);
+  SB_CARRY carry (
+    .I0(A),
+    .I1(B),
+    .CI(CI),
+    .CO(CO)
+  );
+  SB_LUT4 #(
+    //         I0: 1010 1010 1010 1010
+    //         I1: 1100 1100 1100 1100
+    //         I2: 1111 0000 1111 0000
+    //         I3: 1111 1111 0000 0000
+    .LUT_INIT(16'b 0110_1001_1001_0110)
+  ) adder (
+    .I0(1'b0),
+    .I1(A),
+    .I2(B),
+    .I3(CI),
+    .O(O)
+  );
 endmodule
 `endif

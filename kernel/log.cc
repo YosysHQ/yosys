@@ -61,13 +61,20 @@ int log_force_debug = 0;
 int log_debug_suppressed = 0;
 
 vector<int> header_count;
-pool<RTLIL::IdString> log_id_cache;
+vector<char*> log_id_cache;
 vector<shared_str> string_buf;
 int string_buf_index = -1;
 
 static struct timeval initial_tv = { 0, 0 };
 static bool next_print_log = false;
 static int log_newline_count = 0;
+
+static void log_id_cache_clear()
+{
+	for (auto p : log_id_cache)
+		free(p);
+	log_id_cache.clear();
+}
 
 #if defined(_WIN32) && !defined(__MINGW32__)
 // this will get time information and return it in timeval, simulating gettimeofday()
@@ -277,8 +284,19 @@ void log_file_warning(const std::string &filename, int lineno,
 	va_list ap;
 	va_start(ap, format);
 	std::string prefix = stringf("%s:%d: Warning: ",
-				     filename.c_str(), lineno);
+			filename.c_str(), lineno);
 	logv_warning_with_prefix(prefix.c_str(), format, ap);
+	va_end(ap);
+}
+
+void log_file_info(const std::string &filename, int lineno,
+                      const char *format, ...)
+{
+	va_list ap;
+	va_start(ap, format);
+	std::string fmt = stringf("%s:%d: Info: %s",
+			filename.c_str(), lineno, format);
+	logv(fmt.c_str(), ap);
 	va_end(ap);
 }
 
@@ -403,7 +421,7 @@ void log_push()
 void log_pop()
 {
 	header_count.pop_back();
-	log_id_cache.clear();
+	log_id_cache_clear();
 	string_buf.clear();
 	string_buf_index = -1;
 	log_flush();
@@ -510,7 +528,7 @@ void log_reset_stack()
 {
 	while (header_count.size() > 1)
 		header_count.pop_back();
-	log_id_cache.clear();
+	log_id_cache_clear();
 	string_buf.clear();
 	string_buf_index = -1;
 	log_flush();
@@ -569,8 +587,8 @@ const char *log_const(const RTLIL::Const &value, bool autoint)
 
 const char *log_id(RTLIL::IdString str)
 {
-	log_id_cache.insert(str);
-	const char *p = str.c_str();
+	log_id_cache.push_back(strdup(str.c_str()));
+	const char *p = log_id_cache.back();
 	if (p[0] != '\\')
 		return p;
 	if (p[1] == '$' || p[1] == '\\' || p[1] == 0)

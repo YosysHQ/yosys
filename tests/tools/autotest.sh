@@ -23,12 +23,13 @@ warn_iverilog_git=false
 # The tests are skipped if firrtl2verilog is the empty string (the default).
 firrtl2verilog=""
 xfirrtl="../xfirrtl"
+abcprog="$toolsdir/../../yosys-abc"
 
 if [ ! -f $toolsdir/cmp_tbdata -o $toolsdir/cmp_tbdata.c -nt $toolsdir/cmp_tbdata ]; then
 	( set -ex; ${CC:-gcc} -Wall -o $toolsdir/cmp_tbdata $toolsdir/cmp_tbdata.c; ) || exit 1
 fi
 
-while getopts xmGl:wkjvref:s:p:n:S:I:-: opt; do
+while getopts xmGl:wkjvref:s:p:n:S:I:A:-: opt; do
 	case "$opt" in
 		x)
 			use_xsim=true ;;
@@ -65,6 +66,8 @@ while getopts xmGl:wkjvref:s:p:n:S:I:-: opt; do
 			include_opts="$include_opts -I $OPTARG"
 			xinclude_opts="$xinclude_opts -i $OPTARG"
 			minclude_opts="$minclude_opts +incdir+$OPTARG" ;;
+		A)
+			abcprog="$OPTARG" ;;
 		-)
 			case "${OPTARG}" in
 			    xfirrtl)
@@ -89,6 +92,12 @@ done
 
 compile_and_run() {
 	exe="$1"; output="$2"; shift 2
+	if [ "${2##*.}" == "sv" ]; then
+		language_gen="-g2012"
+	else
+		language_gen="-g2005"
+	fi
+
 	if $use_modelsim; then
 		altver=$( ls -v /opt/altera/ | grep '^[0-9]' | tail -n1; )
 		/opt/altera/$altver/modelsim_ase/bin/vlib work
@@ -99,7 +108,7 @@ compile_and_run() {
 		/opt/Xilinx/Vivado/$xilver/bin/xvlog $xinclude_opts -d outfile=\"$output\" "$@"
 		/opt/Xilinx/Vivado/$xilver/bin/xelab -R work.testbench
 	else
-		iverilog $include_opts -Doutfile=\"$output\" -s testbench -o "$exe" "$@"
+		iverilog $language_gen $include_opts -Doutfile=\"$output\" -s testbench -o "$exe" "$@"
 		vvp -n "$exe"
 	fi
 }
@@ -110,7 +119,7 @@ for fn
 do
 	bn=${fn%.*}
 	ext=${fn##*.}
-	if [[ "$ext" != "v" ]] && [[ "$ext" != "aag" ]] && [[ "$ext" != "aig" ]]; then
+	if [[ "$ext" != "v" ]] && [[ "$ext" != "sv" ]] && [[ "$ext" != "aag" ]] && [[ "$ext" != "aig" ]]; then
 		echo "Invalid argument: $fn" >&2
 		exit 1
 	fi
@@ -123,6 +132,10 @@ do
 		echo -n "Test: $bn "
 	fi
 
+	if [ "$ext" == sv ]; then
+		frontend="$frontend -sv"
+	fi
+
 	rm -f ${bn}.{err,log,skip}
 	mkdir -p ${bn}.out
 	rm -rf ${bn}.out/*
@@ -131,22 +144,25 @@ do
 		cd ${bn}.out
 		fn=$(basename $fn)
 		bn=$(basename $bn)
+		refext=v
 
 		rm -f ${bn}_ref.fir
 		if [[ "$ext" == "v" ]]; then
 			egrep -v '^\s*`timescale' ../$fn > ${bn}_ref.${ext}
+		elif [[ "$ext" == "aig" ]] || [[ "$ext" == "aag" ]]; then
+			$abcprog -c "read_aiger ../${fn}; write ${bn}_ref.${refext}"
 		else
-			"$toolsdir"/../../yosys -f "$frontend $include_opts" -b "verilog" -o ${bn}_ref.v ../${fn}
-			frontend="verilog -noblackbox"
+			refext=$ext
+			cp ../${fn} ${bn}_ref.${refext}
 		fi
 
 		if [ ! -f ../${bn}_tb.v ]; then
-			"$toolsdir"/../../yosys -f "$frontend $include_opts" -b "test_autotb $autotb_opts" -o ${bn}_tb.v ${bn}_ref.v
+			"$toolsdir"/../../yosys -f "$frontend $include_opts -D_AUTOTB" -b "test_autotb $autotb_opts" -o ${bn}_tb.v ${bn}_ref.${refext}
 		else
 			cp ../${bn}_tb.v ${bn}_tb.v
 		fi
 		if $genvcd; then sed -i 's,// \$dump,$dump,g' ${bn}_tb.v; fi
-		compile_and_run ${bn}_tb_ref ${bn}_out_ref ${bn}_tb.v ${bn}_ref.v $libs \
+		compile_and_run ${bn}_tb_ref ${bn}_out_ref ${bn}_tb.v ${bn}_ref.${refext} $libs \
 					"$toolsdir"/../../techlibs/common/simlib.v \
 					"$toolsdir"/../../techlibs/common/simcells.v
 		if $genvcd; then mv testbench.vcd ${bn}_ref.vcd; fi
@@ -163,25 +179,25 @@ do
 			test_count=$(( test_count + 1 ))
 		}
 
-		if [ "$frontend" = "verific" -o "$frontend" = "verific_gates" ] && grep -q VERIFIC-SKIP ${bn}_ref.v; then
+		if [ "$frontend" = "verific" -o "$frontend" = "verific_gates" ] && grep -q VERIFIC-SKIP ${bn}_ref.${refext}; then
 			touch ../${bn}.skip
 			return
 		fi
 
 		if [ -n "$scriptfiles" ]; then
-			test_passes -f "$frontend $include_opts" ${bn}_ref.v $scriptfiles
+			test_passes -f "$frontend $include_opts" ${bn}_ref.${refext} $scriptfiles
 		elif [ -n "$scriptopt" ]; then
-			test_passes -f "$frontend $include_opts" -p "$scriptopt" ${bn}_ref.v
+			test_passes -f "$frontend $include_opts" -p "$scriptopt" ${bn}_ref.${refext}
 		elif [ "$frontend" = "verific" ]; then
-			test_passes -p "verific -vlog2k ${bn}_ref.v; verific -import -all; opt; memory;;"
+			test_passes -p "verific -vlog2k ${bn}_ref.${refext}; verific -import -all; opt; memory;;"
 		elif [ "$frontend" = "verific_gates" ]; then
-			test_passes -p "verific -vlog2k ${bn}_ref.v; verific -import -gates -all; opt; memory;;"
+			test_passes -p "verific -vlog2k ${bn}_ref.${refext}; verific -import -gates -all; opt; memory;;"
 		else
-			test_passes -f "$frontend $include_opts" -p "hierarchy; proc; opt; memory; opt; fsm; opt -full -fine" ${bn}_ref.v
-			test_passes -f "$frontend $include_opts" -p "hierarchy; synth -run coarse; techmap; opt; abc -dff" ${bn}_ref.v
+			test_passes -f "$frontend $include_opts" -p "hierarchy; proc; opt; memory; opt; fsm; opt -full -fine" ${bn}_ref.${refext}
+			test_passes -f "$frontend $include_opts" -p "hierarchy; synth -run coarse; techmap; opt; abc -dff" ${bn}_ref.${refext}
 			if [ -n "$firrtl2verilog" ]; then
 			    if test -z "$xfirrtl" || ! grep "$fn" "$xfirrtl" ; then
-				"$toolsdir"/../../yosys -b "firrtl" -o ${bn}_ref.fir -f "$frontend $include_opts" -p "prep -nordff; proc; opt; memory; opt; fsm; opt -full -fine; pmuxtree" ${bn}_ref.v
+				"$toolsdir"/../../yosys -b "firrtl" -o ${bn}_ref.fir -f "$frontend $include_opts" -p "prep -nordff; proc; opt; memory; opt; fsm; opt -full -fine; pmuxtree" ${bn}_ref.${refext}
 				$firrtl2verilog -i ${bn}_ref.fir -o ${bn}_ref.fir.v
 				test_passes -f "$frontend $include_opts" -p "hierarchy; proc; opt; memory; opt; fsm; opt -full -fine" ${bn}_ref.fir.v
 			    fi

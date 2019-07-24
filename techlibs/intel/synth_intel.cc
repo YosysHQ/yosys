@@ -38,9 +38,9 @@ struct SynthIntelPass : public ScriptPass {
 		log("\n");
 		log("    -family < max10 | a10gx | cyclone10 | cyclonev | cycloneiv | cycloneive>\n");
 		log("        generate the synthesis netlist for the specified family.\n");
-		log("        MAX10 is the default target if not family argument specified.\n");
+		log("        MAX10 is the default target if no family argument specified.\n");
 		log("        For Cyclone GX devices, use cycloneiv argument; For Cyclone E, use cycloneive.\n");
-		log("        Cyclone V and Arria 10 GX devices are experimental, use it with a10gx argument.\n");
+		log("        Cyclone V and Arria 10 GX devices are experimental.\n");
 		log("\n");
 		log("    -top <module>\n");
 		log("        use the specified module as top module (default='top')\n");
@@ -48,6 +48,8 @@ struct SynthIntelPass : public ScriptPass {
 		log("    -vqm <file>\n");
 		log("        write the design to the specified Verilog Quartus Mapping File. Writing of an\n");
 		log("        output file is omitted if this parameter is not specified.\n");
+		log("        Note that this backend has not been tested and is likely incompatible\n");
+		log("        with recent versions of Quartus.\n");
 		log("\n");
 		log("    -vpr <file>\n");
 		log("        write BLIF files for VPR flow experiments. The synthesized BLIF output file is not\n");
@@ -60,10 +62,10 @@ struct SynthIntelPass : public ScriptPass {
 		log("        synonymous to the end of the command list.\n");
 		log("\n");
 		log("    -noiopads\n");
-		log("        do not use altsyncram cells in output netlist\n");
+		log("        do not use IO pad cells in output netlist\n");
 		log("\n");
 		log("    -nobram\n");
-		log("        do not use altsyncram cells in output netlist\n");
+		log("        do not use block RAM cells in output netlist\n");
 		log("\n");
 		log("    -noflatten\n");
 		log("        do not flatten design before synthesis\n");
@@ -108,6 +110,7 @@ struct SynthIntelPass : public ScriptPass {
 			}
 			if (args[argidx] == "-vqm" && argidx + 1 < args.size()) {
 				vout_file = args[++argidx];
+				log_warning("The Quartus backend has not been tested recently and is likely incompatible with modern versions of Quartus.\n");
 				continue;
 			}
 			if (args[argidx] == "-vpr" && argidx + 1 < args.size()) {
@@ -144,9 +147,13 @@ struct SynthIntelPass : public ScriptPass {
 
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");
-		if (family_opt != "max10" && family_opt != "a10gx" && family_opt != "cyclonev" && family_opt != "cycloneiv" &&
-		    family_opt != "cycloneive" && family_opt != "cyclone10")
-			log_cmd_error("Invalid or not family specified: '%s'\n", family_opt.c_str());
+		if (family_opt != "max10" &&
+		    family_opt != "a10gx" &&
+		    family_opt != "cyclonev" &&
+		    family_opt != "cycloneiv" &&
+		    family_opt != "cycloneive" &&
+		    family_opt != "cyclone10")
+			log_cmd_error("Invalid or no family specified: '%s'\n", family_opt.c_str());
 
 		log_header(design, "Executing SYNTH_INTEL pass.\n");
 		log_push();
@@ -159,18 +166,9 @@ struct SynthIntelPass : public ScriptPass {
 	void script() YS_OVERRIDE
 	{
 		if (check_label("begin")) {
-			if (check_label("family") && family_opt == "max10")
-				run("read_verilog -sv -lib +/intel/max10/cells_sim.v");
-			else if (check_label("family") && family_opt == "a10gx")
-				run("read_verilog -sv -lib +/intel/a10gx/cells_sim.v");
-			else if (check_label("family") && family_opt == "cyclonev")
-				run("read_verilog -sv -lib +/intel/cyclonev/cells_sim.v");
-			else if (check_label("family") && family_opt == "cyclone10")
-				run("read_verilog -sv -lib +/intel/cyclone10/cells_sim.v");
-			else if (check_label("family") && family_opt == "cycloneiv")
-				run("read_verilog -sv -lib +/intel/cycloneiv/cells_sim.v");
-			else
-				run("read_verilog -sv -lib +/intel/cycloneive/cells_sim.v");
+			if (check_label("family"))
+				run(stringf("read_verilog -sv -lib +/intel/%s/cells_sim.v", family_opt.c_str()));
+
 			// Misc and common cells
 			run("read_verilog -sv -lib +/intel/common/m9k_bb.v");
 			run("read_verilog -sv -lib +/intel/common/altpll_bb.v");
@@ -188,12 +186,12 @@ struct SynthIntelPass : public ScriptPass {
 			run("synth -run coarse");
 		}
 
-		if (!nobram && check_label("bram", "(skip if -nobram)")) {
+		if (!nobram && check_label("map_bram", "(skip if -nobram)")) {
 			run("memory_bram -rules +/intel/common/brams.txt");
 			run("techmap -map +/intel/common/brams_map.v");
 		}
 
-		if (check_label("fine")) {
+		if (check_label("map_ffram")) {
 			run("opt -fast -mux_undef -undriven -fine -full");
 			run("memory_map");
 			run("opt -undriven -fine");
@@ -219,18 +217,8 @@ struct SynthIntelPass : public ScriptPass {
 		if (check_label("map_cells")) {
 			if (!noiopads)
 				run("iopadmap -bits -outpad $__outpad I:O -inpad $__inpad O:I", "(unless -noiopads)");
-			if (family_opt == "max10")
-				run("techmap -map +/intel/max10/cells_map.v");
-			else if (family_opt == "a10gx")
-				run("techmap -map +/intel/a10gx/cells_map.v");
-			else if (family_opt == "cyclonev")
-				run("techmap -map +/intel/cyclonev/cells_map.v");
-			else if (family_opt == "cyclone10")
-				run("techmap -map +/intel/cyclone10/cells_map.v");
-			else if (family_opt == "cycloneiv")
-				run("techmap -map +/intel/cycloneiv/cells_map.v");
-			else
-				run("techmap -map +/intel/cycloneive/cells_map.v");
+                        run(stringf("techmap -map +/intel/%s/cells_map.v", family_opt.c_str()));
+
 			run("dffinit -highlow -ff dffeas q power_up");
 			run("clean -purge");
 		}

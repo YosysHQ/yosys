@@ -56,10 +56,10 @@ static void run_ice40_unlut(Module *module)
 			cell->unsetParam("\\LUT_INIT");
 
 			cell->setPort("\\A", SigSpec({
-				get_bit_or_zero(cell->getPort("\\I3")),
-				get_bit_or_zero(cell->getPort("\\I2")),
+				get_bit_or_zero(cell->getPort("\\I0")),
 				get_bit_or_zero(cell->getPort("\\I1")),
-				get_bit_or_zero(cell->getPort("\\I0"))
+				get_bit_or_zero(cell->getPort("\\I2")),
+				get_bit_or_zero(cell->getPort("\\I3"))
 			}));
 			cell->setPort("\\Y", cell->getPort("\\O")[0]);
 			cell->unsetPort("\\I0");
@@ -74,7 +74,7 @@ static void run_ice40_unlut(Module *module)
 }
 
 struct Ice40UnlutPass : public Pass {
-	Ice40UnlutPass() : Pass("ice40_unlut", "iCE40: perform simple optimizations") { }
+	Ice40UnlutPass() : Pass("ice40_unlut", "iCE40: transform SB_LUT4 cells to $lut cells") { }
 	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|

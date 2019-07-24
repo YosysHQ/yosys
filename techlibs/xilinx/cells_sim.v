@@ -159,18 +159,29 @@ module MUXCY(output O, input CI, DI, S);
   assign O = S ? CI : DI;
 endmodule
 
+(* abc_box_id = 1, lib_whitebox *)
 module MUXF7(output O, input I0, I1, S);
   assign O = S ? I1 : I0;
 endmodule
 
+(* abc_box_id = 2, lib_whitebox *)
 module MUXF8(output O, input I0, I1, S);
   assign O = S ? I1 : I0;
 endmodule
+
+`ifdef _ABC
+(* abc_box_id = 3, lib_whitebox *)
+module \$__XILINX_MUXF78 (output O, input I0, I1, I2, I3, S0, S1);
+  assign O = S1 ? (S0 ? I3 : I2)
+                : (S0 ? I1 : I0);
+endmodule
+`endif
 
 module XORCY(output O, input CI, LI);
   assign O = CI ^ LI;
 endmodule
 
+(* abc_box_id = 4, abc_carry="CI,CO", lib_whitebox *)
 module CARRY4(output [3:0] CO, O, input CI, CYINIT, input [3:0] DI, S);
   assign O = S ^ {CO[2:0], CI | CYINIT};
   assign CO[0] = S[0] ? CI | CYINIT : DI[0];
@@ -215,7 +226,7 @@ module FDRE (output reg Q, input C, CE, D, R);
 endmodule
 
 module FDSE (output reg Q, input C, CE, D, S);
-  parameter [0:0] INIT = 1'b0;
+  parameter [0:0] INIT = 1'b1;
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
   parameter [0:0] IS_S_INVERTED = 1'b0;
@@ -241,7 +252,7 @@ module FDCE (output reg Q, input C, CE, D, CLR);
 endmodule
 
 module FDPE (output reg Q, input C, CE, D, PRE);
-  parameter [0:0] INIT = 1'b0;
+  parameter [0:0] INIT = 1'b1;
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
   parameter [0:0] IS_PRE_INVERTED = 1'b0;
@@ -278,6 +289,25 @@ module FDPE_1 (output reg Q, input C, CE, D, PRE);
   always @(negedge C, posedge PRE) if (PRE) Q <= 1'b1; else if (CE) Q <= D;
 endmodule
 
+(* abc_box_id = 5, abc_scc_break="D,WE" *)
+module RAM32X1D (
+  output DPO, SPO,
+  input  D, WCLK, WE,
+  input  A0, A1, A2, A3, A4,
+  input  DPRA0, DPRA1, DPRA2, DPRA3, DPRA4
+);
+  parameter INIT = 32'h0;
+  parameter IS_WCLK_INVERTED = 1'b0;
+  wire [4:0] a = {A4, A3, A2, A1, A0};
+  wire [4:0] dpra = {DPRA4, DPRA3, DPRA2, DPRA1, DPRA0};
+  reg [31:0] mem = INIT;
+  assign SPO = mem[a];
+  assign DPO = mem[dpra];
+  wire clk = WCLK ^ IS_WCLK_INVERTED;
+  always @(posedge clk) if (WE) mem[a] <= D;
+endmodule
+
+(* abc_box_id = 6, abc_scc_break="D,WE" *)
 module RAM64X1D (
   output DPO, SPO,
   input  D, WCLK, WE,
@@ -295,6 +325,7 @@ module RAM64X1D (
   always @(posedge clk) if (WE) mem[a] <= D;
 endmodule
 
+(* abc_box_id = 7, abc_scc_break="D,WE" *)
 module RAM128X1D (
   output       DPO, SPO,
   input        D, WCLK, WE,

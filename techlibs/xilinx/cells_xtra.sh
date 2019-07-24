@@ -116,16 +116,16 @@ function xtract_cell_decl()
 	xtract_cell_decl PS7 "(* keep *)"
 	xtract_cell_decl PULLDOWN
 	xtract_cell_decl PULLUP
-	xtract_cell_decl RAM128X1D
+	#xtract_cell_decl RAM128X1D
 	xtract_cell_decl RAM128X1S
 	xtract_cell_decl RAM256X1S
 	xtract_cell_decl RAM32M
-	xtract_cell_decl RAM32X1D
+	#xtract_cell_decl RAM32X1D
 	xtract_cell_decl RAM32X1S
 	xtract_cell_decl RAM32X1S_1
 	xtract_cell_decl RAM32X2S
 	xtract_cell_decl RAM64M
-	xtract_cell_decl RAM64X1D
+	#xtract_cell_decl RAM64X1D
 	xtract_cell_decl RAM64X1S
 	xtract_cell_decl RAM64X1S_1
 	xtract_cell_decl RAM64X2S

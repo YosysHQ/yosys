@@ -649,10 +649,13 @@ struct TechmapWorker
 									unique_bit_id[bit] = unique_bit_id_counter++;
 						}
 
+					// Find highest bit set
 					int bits = 0;
 					for (int i = 0; i < 32; i++)
 						if (((unique_bit_id_counter-1) & (1 << i)) != 0)
 							bits = i;
+					// Increment index by one to get number of bits
+					bits++;
 					if (tpl->avail_parameters.count("\\_TECHMAP_BITS_CONNMAP_"))
 						parameters["\\_TECHMAP_BITS_CONNMAP_"] = bits;
 

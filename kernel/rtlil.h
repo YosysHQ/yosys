@@ -276,6 +276,18 @@ namespace RTLIL
 				return std::string(c_str() + pos, len);
 		}
 
+		bool begins_with(const char* prefix) const {
+			size_t len = strlen(prefix);
+			if (size() < len) return false;
+			return substr(0, len) == prefix;
+		}
+
+		bool ends_with(const char* suffix) const {
+			size_t len = strlen(suffix);
+			if (size() < len) return false;
+			return substr(size()-len) == suffix;
+		}
+
 		size_t size() const {
 			return str().size();
 		}
@@ -1315,7 +1327,7 @@ public:
 #endif
 };
 
-struct RTLIL::CaseRule
+struct RTLIL::CaseRule : public RTLIL::AttrObject
 {
 	std::vector<RTLIL::SigSpec> compare;
 	std::vector<RTLIL::SigSig> actions;

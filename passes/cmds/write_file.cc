@@ -62,7 +62,7 @@ struct WriteFileFrontend : public Frontend {
 		if (argidx < args.size() && args[argidx].rfind("-", 0) != 0)
 			output_filename = args[argidx++];
 		else
-			log_cmd_error("Missing putput filename.\n");
+			log_cmd_error("Missing output filename.\n");
 
 		extra_args(f, filename, args, argidx);
 

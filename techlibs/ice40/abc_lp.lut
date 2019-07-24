@@ -1,0 +1,6 @@
+# From https://github.com/cliffordwolf/icestorm/blob/be0bca0/icefuzz/timings_lp8k.txt
+#       I3  I2  I1  I0
+1   1   465
+2   1   465 558
+3   1   465 558 589
+4   1   465 558 589 661

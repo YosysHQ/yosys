@@ -779,6 +779,9 @@ class WClass:
 
 			#if self.link_type != link_types.pointer:
 			text += "\n\t\tstatic " + self.name + "* get_py_obj(" + long_name + "* ref)\n\t\t{"
+			text += "\n\t\t\tif(ref == nullptr){"
+			text += "\n\t\t\t\tthrow std::runtime_error(\"" + self.name + " does not exist.\");"
+			text += "\n\t\t\t}"
 			text += "\n\t\t\t" + self.name + "* ret = (" + self.name + "*)malloc(sizeof(" + self.name + "));"
 			if self.link_type == link_types.pointer:
 				text += "\n\t\t\tret->ref_obj = ref;"
@@ -2026,7 +2029,6 @@ def gen_wrappers(filename, debug_level_ = 0):
 #include <boost/python/wrapper.hpp>
 #include <boost/python/call.hpp>
 #include <boost/python.hpp>
-#include <boost/log/exceptions.hpp>
 
 USING_YOSYS_NAMESPACE
 
@@ -2060,7 +2062,6 @@ namespace YOSYS_PYTHON {
 				Yosys::log_streams.push_back(&std::cout);
 				Yosys::log_error_stderr = true;
 				Yosys::yosys_setup();
-				Yosys::yosys_banner();
 			}
 		}
 

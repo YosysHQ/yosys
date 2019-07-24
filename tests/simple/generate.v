@@ -148,3 +148,14 @@ generate
 endgenerate
 assign out = steps[WIDTH].outer[0].val;
 endmodule
+
+// ------------------------------------------
+
+module gen_test6(output [3:0] o);
+generate
+    genvar i;
+    for (i = 3; i >= 0; i = i-1) begin
+        assign o[i] = 1'b0;
+    end
+endgenerate
+endmodule

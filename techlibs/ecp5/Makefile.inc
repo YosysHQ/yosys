@@ -4,12 +4,16 @@ OBJS += techlibs/ecp5/synth_ecp5.o techlibs/ecp5/ecp5_ffinit.o
 $(eval $(call add_share_file,share/ecp5,techlibs/ecp5/cells_map.v))
 $(eval $(call add_share_file,share/ecp5,techlibs/ecp5/cells_sim.v))
 $(eval $(call add_share_file,share/ecp5,techlibs/ecp5/cells_bb.v))
-$(eval $(call add_share_file,share/ecp5,techlibs/ecp5/drams_map.v))
-$(eval $(call add_share_file,share/ecp5,techlibs/ecp5/dram.txt))
+$(eval $(call add_share_file,share/ecp5,techlibs/ecp5/lutrams_map.v))
+$(eval $(call add_share_file,share/ecp5,techlibs/ecp5/lutram.txt))
 $(eval $(call add_share_file,share/ecp5,techlibs/ecp5/brams_map.v))
 $(eval $(call add_share_file,share/ecp5,techlibs/ecp5/bram.txt))
 $(eval $(call add_share_file,share/ecp5,techlibs/ecp5/arith_map.v))
 $(eval $(call add_share_file,share/ecp5,techlibs/ecp5/latches_map.v))
+
+$(eval $(call add_share_file,share/ecp5,techlibs/ecp5/abc_5g.box))
+$(eval $(call add_share_file,share/ecp5,techlibs/ecp5/abc_5g.lut))
+$(eval $(call add_share_file,share/ecp5,techlibs/ecp5/abc_5g_nowide.lut))
 
 EXTRA_OBJS += techlibs/ecp5/brams_init.mk techlibs/ecp5/brams_connect.mk
 .SECONDARY: techlibs/ecp5/brams_init.mk techlibs/ecp5/brams_connect.mk

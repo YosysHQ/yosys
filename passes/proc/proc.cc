@@ -37,6 +37,7 @@ struct ProcPass : public Pass {
 		log("\n");
 		log("    proc_clean\n");
 		log("    proc_rmdead\n");
+		log("    proc_prune\n");
 		log("    proc_init\n");
 		log("    proc_arst\n");
 		log("    proc_mux\n");
@@ -83,6 +84,7 @@ struct ProcPass : public Pass {
 		Pass::call(design, "proc_clean");
 		if (!ifxmode)
 			Pass::call(design, "proc_rmdead");
+		Pass::call(design, "proc_prune");
 		Pass::call(design, "proc_init");
 		if (global_arst.empty())
 			Pass::call(design, "proc_arst");

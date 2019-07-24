@@ -78,7 +78,7 @@ Similarily, on Mac OS X MacPorts or Homebrew can be used to install dependencies
 On FreeBSD use the following command to install all prerequisites:
 
 	# pkg install bison flex readline gawk libffi\
-		git graphviz pkgconfig python3 python36 tcl-wrapper boost-libs
+		git graphviz pkgconf python3 python36 tcl-wrapper boost-libs
 
 On FreeBSD system use gmake instead of make. To run tests use:
     % MAKE=gmake CC=cc gmake test
@@ -350,6 +350,14 @@ Verilog Attributes and non-standard features
   through the synthesis. When entities are combined, a new |-separated
   string is created that contains all the string from the original entities.
 
+- The ``defaultvalue`` attribute is used to store default values for
+  module inputs. The attribute is attached to the input wire by the HDL
+  front-end when the input is declared with a default value.
+
+- The ``parameter`` and ``localparam`` attributes are used to mark wires
+  that represent module parameters or localparams (when the HDL front-end
+  is run in -pwires mode).
+
 - In addition to the ``(* ... *)`` attribute syntax, Yosys supports
   the non-standard ``{* ... *}`` attribute syntax to set default attributes
   for everything that comes after the ``{* ... *}`` statement. (Reset
@@ -413,7 +421,7 @@ Verilog Attributes and non-standard features
       $ yosys -p 'plugin -a foo -i /lib/libm.so; read_verilog dpitest.v'
 
 - Sized constants (the syntax ``<size>'s?[bodh]<value>``) support constant
-  expressions as <size>. If the expression is not a simple identifier, it
+  expressions as ``<size>``. If the expression is not a simple identifier, it
   must be put in parentheses. Examples: ``WIDTH'd42``, ``(4+2)'b101010``
 
 - The system tasks ``$finish``, ``$stop`` and ``$display`` are supported in

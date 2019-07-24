@@ -13,7 +13,7 @@ read_verilog -formal <<EOT
 EOT
 
 
-## Examle usage for "pmuxtree" and "muxcover"
+## Example usage for "pmuxtree" and "muxcover"
 
 proc
 pmuxtree
@@ -49,3 +49,462 @@ hierarchy -top equiv
 equiv_simple -undef
 equiv_status -assert
 
+## Partial matching MUX4
+
+design -reset
+read_verilog -formal <<EOT
+module mux_if_bal_3_1 #(parameter N=3, parameter W=1) (input [N*W-1:0] i, input [$clog2(N)-1:0] s, output reg [W-1:0] o);
+always @* begin
+    o <= {{W{{1'bx}}}};
+    if (s[0] == 1'b0)
+     if (s[1] == 1'b0)
+      o <= i[0*W+:W];
+     else
+      o <= i[1*W+:W];
+    else
+     if (s[1] == 1'b0)
+      o <= i[2*W+:W];
+end
+endmodule
+EOT
+prep
+design -save gold
+
+techmap
+muxcover -mux4=150
+select -assert-count 0 t:$_MUX_
+select -assert-count 1 t:$_MUX4_
+select -assert-count 0 t:$_MUX8_
+select -assert-count 0 t:$_MUX16_
+techmap -map +/simcells.v t:$_MUX4_
+design -stash gate
+
+design -import gold -as gold
+design -import gate -as gate
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports miter
+
+## Partial matching MUX8
+
+design -reset
+read_verilog -formal <<EOT
+module mux_if_bal_5_1 #(parameter N=5, parameter W=1) (input [N*W-1:0] i, input [$clog2(N)-1:0] s, output reg [W-1:0] o);
+always @* begin
+    o <= {{W{{1'bx}}}};
+    if (s[0] == 1'b0)
+     if (s[1] == 1'b0)
+      if (s[2] == 1'b0)
+       o <= i[0*W+:W];
+      else
+       o <= i[1*W+:W];
+     else
+      if (s[2] == 1'b0)
+       o <= i[2*W+:W];
+      else
+       o <= i[3*W+:W];
+    else
+     if (s[1] == 1'b0)
+      if (s[2] == 1'b0)
+       o <= i[4*W+:W];
+end
+endmodule
+EOT
+prep
+design -save gold
+
+techmap
+muxcover -mux4=150 -mux8=200
+clean
+opt_expr -mux_bool
+select -assert-count 0 t:$_MUX_
+select -assert-count 0 t:$_MUX4_
+select -assert-count 1 t:$_MUX8_
+select -assert-count 0 t:$_MUX16_
+techmap -map +/simcells.v t:$_MUX8_
+design -stash gate
+
+design -import gold -as gold
+design -import gate -as gate
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports miter
+
+## Partial matching MUX16
+
+design -reset
+read_verilog -formal <<EOT
+module mux_if_bal_9_1 #(parameter N=9, parameter W=1) (input [N*W-1:0] i, input [$clog2(N)-1:0] s, output reg [W-1:0] o);
+always @* begin
+    o <= {{W{{1'bx}}}};
+    if (s[0] == 1'b0)
+     if (s[1] == 1'b0)
+      if (s[2] == 1'b0)
+       if (s[3] == 1'b0)
+        o <= i[0*W+:W];
+       else
+        o <= i[1*W+:W];
+      else
+       if (s[3] == 1'b0)
+        o <= i[2*W+:W];
+       else
+        o <= i[3*W+:W];
+     else
+      if (s[2] == 1'b0)
+       if (s[3] == 1'b0)
+        o <= i[4*W+:W];
+       else
+        o <= i[5*W+:W];
+      else
+       if (s[3] == 1'b0)
+        o <= i[6*W+:W];
+       else
+        o <= i[7*W+:W];
+    else
+     if (s[1] == 1'b0)
+      if (s[2] == 1'b0)
+       if (s[3] == 1'b0)
+        o <= i[8*W+:W];
+end
+endmodule
+EOT
+prep
+design -save gold
+
+techmap
+muxcover -mux4=150 -mux8=200 -mux16=250
+clean
+opt_expr -mux_bool
+select -assert-count 0 t:$_MUX_
+select -assert-count 0 t:$_MUX4_
+select -assert-count 0 t:$_MUX8_
+select -assert-count 1 t:$_MUX16_
+techmap -map +/simcells.v t:$_MUX16_
+design -stash gate
+
+design -import gold -as gold
+design -import gate -as gate
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports miter
+
+## MUX2 in MUX4 :: https://github.com/YosysHQ/yosys/issues/1132
+
+design -reset
+read_verilog -formal <<EOT
+module mux2in4(input [1:0] i, input s, output o);
+    assign o = s ? i[1] : i[0];
+endmodule
+EOT
+prep
+design -save gold
+
+techmap
+muxcover -mux4=99 -nodecode
+clean
+opt_expr -mux_bool
+select -assert-count 0 t:$_MUX_
+select -assert-count 1 t:$_MUX4_
+select -assert-count 0 t:$_MUX8_
+select -assert-count 0 t:$_MUX16_
+techmap -map +/simcells.v t:$_MUX4_
+design -stash gate
+
+design -import gold -as gold
+design -import gate -as gate
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports miter
+
+## MUX2 in MUX8 :: https://github.com/YosysHQ/yosys/issues/1132
+
+design -reset
+read_verilog -formal <<EOT
+module mux2in8(input [1:0] i, input s, output o);
+    assign o = s ? i[1] : i[0];
+endmodule
+EOT
+prep
+design -save gold
+
+techmap
+muxcover -mux8=99 -nodecode
+clean
+opt_expr -mux_bool
+select -assert-count 0 t:$_MUX_
+select -assert-count 0 t:$_MUX4_
+select -assert-count 1 t:$_MUX8_
+select -assert-count 0 t:$_MUX16_
+techmap -map +/simcells.v t:$_MUX8_
+design -stash gate
+
+design -import gold -as gold
+design -import gate -as gate
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports miter
+
+## MUX4 in MUX8 :: https://github.com/YosysHQ/yosys/issues/1132
+
+design -reset
+read_verilog -formal <<EOT
+module mux4in8(input [3:0] i, input [1:0] s, output o);
+    assign o = s[1] ? (s[0] ? i[3] : i[2]) : (s[0] ? i[1] : i[0]);
+endmodule
+EOT
+prep
+design -save gold
+
+techmap
+muxcover -mux8=299 -nodecode
+clean
+opt_expr -mux_bool
+select -assert-count 0 t:$_MUX_
+select -assert-count 0 t:$_MUX4_
+select -assert-count 1 t:$_MUX8_
+select -assert-count 0 t:$_MUX16_
+techmap -map +/simcells.v t:$_MUX8_
+design -stash gate
+
+design -import gold -as gold
+design -import gate -as gate
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports miter
+
+## MUX2 in MUX16 :: https://github.com/YosysHQ/yosys/issues/1132
+
+design -reset
+read_verilog -formal <<EOT
+module mux2in16(input [1:0] i, input s, output o);
+    assign o = s ? i[1] : i[0];
+endmodule
+EOT
+prep
+design -save gold
+
+techmap
+muxcover -mux16=99 -nodecode
+clean
+opt_expr -mux_bool
+select -assert-count 0 t:$_MUX_
+select -assert-count 0 t:$_MUX4_
+select -assert-count 0 t:$_MUX8_
+select -assert-count 1 t:$_MUX16_
+techmap -map +/simcells.v t:$_MUX16_
+design -stash gate
+
+design -import gold -as gold
+design -import gate -as gate
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports miter
+
+## MUX4 in MUX16 :: https://github.com/YosysHQ/yosys/issues/1132
+
+design -reset
+read_verilog -formal <<EOT
+module mux4in16(input [3:0] i, input [1:0] s, output o);
+    assign o = s[1] ? (s[0] ? i[3] : i[2]) : (s[0] ? i[1] : i[0]);
+endmodule
+EOT
+prep
+design -save gold
+
+techmap
+muxcover -mux16=299 -nodecode
+clean
+opt_expr -mux_bool
+select -assert-count 0 t:$_MUX_
+select -assert-count 0 t:$_MUX4_
+select -assert-count 0 t:$_MUX8_
+select -assert-count 1 t:$_MUX16_
+techmap -map +/simcells.v t:$_MUX16_
+design -stash gate
+
+design -import gold -as gold
+design -import gate -as gate
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports miter
+
+## MUX8 in MUX16 :: https://github.com/YosysHQ/yosys/issues/1132
+
+design -reset
+read_verilog -formal <<EOT
+module mux4in16(input [7:0] i, input [2:0] s, output o);
+    assign o = s[2] ? s[1] ? (s[0] ? i[3] : i[2]) : (s[0] ? i[1] : i[0])
+                    : s[1] ? (s[0] ? i[7] : i[6]) : (s[0] ? i[5] : i[4]);
+endmodule
+EOT
+prep
+design -save gold
+
+techmap
+muxcover -mux16=699 -nodecode
+clean
+opt_expr -mux_bool
+select -assert-count 0 t:$_MUX_
+select -assert-count 0 t:$_MUX4_
+select -assert-count 0 t:$_MUX8_
+select -assert-count 1 t:$_MUX16_
+techmap -map +/simcells.v t:$_MUX16_
+design -stash gate
+
+design -import gold -as gold
+design -import gate -as gate
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports miter
+
+## mux_if_bal_5_1 :: https://github.com/YosysHQ/yosys/issues/1132
+
+design -reset
+read_verilog -formal <<EOT
+module mux_if_bal_5_1 #(parameter N=5, parameter W=1) (input [N*W-1:0] i, input [$clog2(N)-1:0] s, output reg [W-1:0] o);
+always @* begin
+    o <= {{W{{1'bx}}}};
+    if (s[0] == 1'b0)
+     if (s[1] == 1'b0)
+      if (s[2] == 1'b0)
+       o <= i[0*W+:W];
+      else
+       o <= i[1*W+:W];
+     else
+      if (s[2] == 1'b0)
+       o <= i[2*W+:W];
+      else
+       o <= i[3*W+:W];
+    else
+     if (s[1] == 1'b0)
+      if (s[2] == 1'b0)
+       o <= i[4*W+:W];
+end
+endmodule
+EOT
+prep
+design -save gold
+
+wreduce
+opt -full
+techmap
+muxcover -mux8=350
+clean
+opt_expr -mux_bool
+select -assert-count 0 t:$_MUX_
+select -assert-count 0 t:$_MUX4_
+select -assert-count 1 t:$_MUX8_
+select -assert-count 0 t:$_MUX16_
+techmap -map +/simcells.v t:$_MUX8_
+design -stash gate
+
+design -import gold -as gold
+design -import gate -as gate
+
+miter -equiv -flatten -make_assert -make_outputs -ignore_gold_x gold gate miter
+sat -verify -prove-asserts -show-ports miter
+
+## mux_if_bal_5_1 (nodecode) :: https://github.com/YosysHQ/yosys/issues/1132
+design -load gold
+
+wreduce
+opt -full
+techmap
+muxcover -mux8=350 -nodecode
+clean
+opt_expr -mux_bool
+select -assert-count 0 t:$_MUX_
+select -assert-count 0 t:$_MUX4_
+select -assert-count 1 t:$_MUX8_
+select -assert-count 0 t:$_MUX16_
+techmap -map +/simcells.v t:$_MUX8_
+design -stash gate
+
+design -import gold -as gold
+design -import gate -as gate
+
+miter -equiv -flatten -make_assert -make_outputs -ignore_gold_x gold gate miter
+sat -verify -prove-asserts -show-ports miter
+
+## mux_if_bal_9_1 :: https://github.com/YosysHQ/yosys/issues/1132
+
+design -reset
+read_verilog -formal <<EOT
+module mux_if_bal_9_1 #(parameter N=9, parameter W=1) (input [N*W-1:0] i, input [$clog2(N)-1:0] s, output reg [W-1:0] o);
+always @* begin
+    o <= {{W{{1'bx}}}};
+    if (s[3] == 1'b0)
+     if (s[2] == 1'b0)
+      if (s[1] == 1'b0)
+       if (s[0] == 1'b0)
+        o <= i[0*W+:W];
+       else
+        o <= i[1*W+:W];
+      else
+       if (s[0] == 1'b0)
+        o <= i[2*W+:W];
+       else
+        o <= i[3*W+:W];
+     else
+      if (s[1] == 1'b0)
+       if (s[0] == 1'b0)
+        o <= i[4*W+:W];
+       else
+        o <= i[5*W+:W];
+      else
+       if (s[0] == 1'b0)
+        o <= i[6*W+:W];
+       else
+        o <= i[7*W+:W];
+    else
+     if (s[2] == 1'b0)
+      if (s[1] == 1'b0)
+       if (s[0] == 1'b0)
+        o <= i[8*W+:W];
+end
+endmodule
+EOT
+prep
+design -save gold
+
+wreduce
+opt -full
+techmap
+muxcover -mux16=750
+clean
+opt_expr -mux_bool
+select -assert-count 0 t:$_MUX_
+select -assert-count 0 t:$_MUX4_
+select -assert-count 0 t:$_MUX8_
+select -assert-count 1 t:$_MUX16_
+techmap -map +/simcells.v t:$_MUX16_
+design -stash gate
+
+design -import gold -as gold
+design -import gate -as gate
+
+miter -equiv -flatten -make_assert -make_outputs -ignore_gold_x gold gate miter
+sat -verify -prove-asserts -show-ports miter
+
+## mux_if_bal_9_1 (nodecode) :: https://github.com/YosysHQ/yosys/issues/1132
+
+design -load gold
+
+wreduce
+opt -full
+techmap
+muxcover -mux16=750 -nodecode
+clean
+opt_expr -mux_bool
+select -assert-count 0 t:$_MUX_
+select -assert-count 0 t:$_MUX4_
+select -assert-count 0 t:$_MUX8_
+select -assert-count 1 t:$_MUX16_
+techmap -map +/simcells.v t:$_MUX16_
+design -stash gate
+
+design -import gold -as gold
+design -import gate -as gate
+
+miter -equiv -flatten -make_assert -make_outputs -ignore_gold_x gold gate miter
+sat -verify -prove-asserts -show-ports miter

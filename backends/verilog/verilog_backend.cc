@@ -189,7 +189,8 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 	if (width < 0)
 		width = data.bits.size() - offset;
 	if (width == 0) {
-		f << "\"\"";
+		// See IEEE 1364-2005 Clause 5.1.14.
+		f << "{0{1'b0}}";
 		return;
 	}
 	if (nostr)
@@ -222,7 +223,7 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 				case RTLIL::S1: bin_digits.push_back('1'); break;
 				case RTLIL::Sx: bin_digits.push_back('x'); break;
 				case RTLIL::Sz: bin_digits.push_back('z'); break;
-				case RTLIL::Sa: bin_digits.push_back('z'); break;
+				case RTLIL::Sa: bin_digits.push_back('?'); break;
 				case RTLIL::Sm: log_error("Found marker state in final netlist.");
 				}
 			}
@@ -251,6 +252,12 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 					hex_digits.push_back('z');
 					continue;
 				}
+				if (bit_3 == '?' || bit_2 == '?' || bit_1 == '?' || bit_0 == '?') {
+					if (bit_3 != '?' || bit_2 != '?' || bit_1 != '?' || bit_0 != '?')
+						goto dump_bin;
+					hex_digits.push_back('?');
+					continue;
+				}
 				int val = 8*(bit_3 - '0') + 4*(bit_2 - '0') + 2*(bit_1 - '0') + (bit_0 - '0');
 				hex_digits.push_back(val < 10 ? '0' + val : 'a' + val - 10);
 			}
@@ -270,7 +277,7 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 				case RTLIL::S1: f << stringf("1"); break;
 				case RTLIL::Sx: f << stringf("x"); break;
 				case RTLIL::Sz: f << stringf("z"); break;
-				case RTLIL::Sa: f << stringf("z"); break;
+				case RTLIL::Sa: f << stringf("?"); break;
 				case RTLIL::Sm: log_error("Found marker state in final netlist.");
 				}
 			}
@@ -364,20 +371,22 @@ void dump_sigspec(std::ostream &f, const RTLIL::SigSpec &sig)
 	}
 }
 
-void dump_attributes(std::ostream &f, std::string indent, dict<RTLIL::IdString, RTLIL::Const> &attributes, char term = '\n', bool modattr = false)
+void dump_attributes(std::ostream &f, std::string indent, dict<RTLIL::IdString, RTLIL::Const> &attributes, char term = '\n', bool modattr = false, bool as_comment = false)
 {
 	if (noattr)
 		return;
+	if (attr2comment)
+		as_comment = true;
 	for (auto it = attributes.begin(); it != attributes.end(); ++it) {
-		f << stringf("%s" "%s %s", indent.c_str(), attr2comment ? "/*" : "(*", id(it->first).c_str());
+		f << stringf("%s" "%s %s", indent.c_str(), as_comment ? "/*" : "(*", id(it->first).c_str());
 		f << stringf(" = ");
 		if (modattr && (it->second == Const(0, 1) || it->second == Const(0)))
 			f << stringf(" 0 ");
 		else if (modattr && (it->second == Const(1, 1) || it->second == Const(1)))
 			f << stringf(" 1 ");
 		else
-			dump_const(f, it->second, -1, 0, false, attr2comment);
-		f << stringf(" %s%c", attr2comment ? "*/" : "*)", term);
+			dump_const(f, it->second, -1, 0, false, as_comment);
+		f << stringf(" %s%c", as_comment ? "*/" : "*)", term);
 	}
 }
 
@@ -780,7 +789,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		return true;
 	}
 
-	if (cell->type == "$pmux" || cell->type == "$pmux_safe")
+	if (cell->type == "$pmux")
 	{
 		int width = cell->parameters["\\WIDTH"].as_int();
 		int s_width = cell->getPort("\\S").size();
@@ -792,18 +801,17 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		f << stringf("%s" "  input [%d:0] s;\n", indent.c_str(), s_width-1);
 
 		dump_attributes(f, indent + "  ", cell->attributes);
-		if (cell->type != "$pmux_safe" && !noattr)
+		if (!noattr)
 			f << stringf("%s" "  (* parallel_case *)\n", indent.c_str());
 		f << stringf("%s" "  casez (s)", indent.c_str());
-		if (cell->type != "$pmux_safe")
-			f << stringf(noattr ? " // synopsys parallel_case\n" : "\n");
+		f << stringf(noattr ? " // synopsys parallel_case\n" : "\n");
 
 		for (int i = 0; i < s_width; i++)
 		{
 			f << stringf("%s" "    %d'b", indent.c_str(), s_width);
 
 			for (int j = s_width-1; j >= 0; j--)
-				f << stringf("%c", j == i ? '1' : cell->type == "$pmux_safe" ? '0' : '?');
+				f << stringf("%c", j == i ? '1' : '?');
 
 			f << stringf(":\n");
 			f << stringf("%s" "      %s = b[%d:%d];\n", indent.c_str(), func_name.c_str(), (i+1)*width-1, i*width);
@@ -1492,12 +1500,14 @@ void dump_proc_switch(std::ostream &f, std::string indent, RTLIL::SwitchRule *sw
 		return;
 	}
 
+	dump_attributes(f, indent, sw->attributes);
 	f << stringf("%s" "casez (", indent.c_str());
 	dump_sigspec(f, sw->signal);
 	f << stringf(")\n");
 
 	bool got_default = false;
 	for (auto it = sw->cases.begin(); it != sw->cases.end(); ++it) {
+		dump_attributes(f, indent + "  ", (*it)->attributes, '\n', /*modattr=*/false, /*as_comment=*/true);
 		if ((*it)->compare.size() == 0) {
 			if (got_default)
 				continue;
@@ -1662,7 +1672,7 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 		}
 	}
 
-	dump_attributes(f, indent, module->attributes, '\n', true);
+	dump_attributes(f, indent, module->attributes, '\n', /*attr2comment=*/true);
 	f << stringf("%s" "module %s(", indent.c_str(), id(module->name, false).c_str());
 	bool keep_running = true;
 	for (int port_id = 1; keep_running; port_id++) {

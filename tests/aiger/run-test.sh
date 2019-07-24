@@ -1,24 +1,54 @@
 #!/bin/bash
 
+set -e
+
 OPTIND=1
-seed=""    # default to no seed specified
-while getopts "S:" opt
+abcprog="../../yosys-abc"    # default to built-in version of abc
+while getopts "A:" opt
 do
     case "$opt" in
-	S) arg="${OPTARG#"${OPTARG%%[![:space:]]*}"}" # remove leading space
-	   seed="SEED=$arg" ;;
+	A) abcprog="$OPTARG" ;;
     esac
 done
 shift "$((OPTIND-1))"
 
-# check for Icarus Verilog
-if ! which iverilog > /dev/null ; then
-  echo "$0: Error: Icarus Verilog 'iverilog' not found."
-  exit 1
-fi
+# NB: *.aag and *.aig must contain a symbol table naming the primary
+#     inputs and outputs, otherwise ABC and Yosys will name them
+#     arbitrarily (and inconsistently with each other).
 
-echo "===== AAG ======"
-${MAKE:-make} -f ../tools/autotest.mk $seed *.aag EXTRA_FLAGS="-f aiger"
+for aag in *.aag; do
+    # Since ABC cannot read *.aag, read the *.aig instead
+    # (which would have been created by the reference aig2aig utility,
+    #  available from http://fmv.jku.at/aiger/)
+    echo "Checking $aag."
+    $abcprog -q "read -c ${aag%.*}.aig; write ${aag%.*}_ref.v"
+    ../../yosys -qp "
+read_verilog ${aag%.*}_ref.v
+prep
+design -stash gold
+read_aiger -clk_name clock $aag
+prep
+design -stash gate
+design -import gold -as gold
+design -import gate -as gate
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports -seq 16 miter
+"
+done
 
-echo "===== AIG ======"
-exec ${MAKE:-make} -f ../tools/autotest.mk $seed *.aig EXTRA_FLAGS="-f aiger"
+for aig in *.aig; do
+    echo "Checking $aig."
+    $abcprog -q "read -c $aig; write ${aig%.*}_ref.v"
+    ../../yosys -qp "
+read_verilog ${aig%.*}_ref.v
+prep
+design -stash gold
+read_aiger -clk_name clock $aig
+prep
+design -stash gate
+design -import gold -as gold
+design -import gate -as gate
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports -seq 16 miter
+"
+done

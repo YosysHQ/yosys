@@ -651,6 +651,10 @@ void rewrite_filename(std::string &filename)
 		filename = filename.substr(1, GetSize(filename)-2);
 	if (filename.substr(0, 2) == "+/")
 		filename = proc_share_dirname() + filename.substr(2);
+#ifndef _WIN32
+	if (filename.substr(0, 2) == "~/")
+		filename = filename.replace(0, 1, getenv("HOME"));
+#endif
 }
 
 #ifdef YOSYS_ENABLE_TCL
@@ -1250,24 +1254,59 @@ struct HistoryPass : public Pass {
 #endif
 
 struct ScriptCmdPass : public Pass {
-	ScriptCmdPass() : Pass("script", "execute commands from script file") { }
+	ScriptCmdPass() : Pass("script", "execute commands from file or wire") { }
 	void help() YS_OVERRIDE {
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
 		log("    script <filename> [<from_label>:<to_label>]\n");
+		log("    script -scriptwire [selection]\n");
 		log("\n");
-		log("This command executes the yosys commands in the specified file.\n");
+		log("This command executes the yosys commands in the specified file (default\n");
+		log("behaviour), or commands embedded in the constant text value connected to the\n");
+		log("selected wires.\n");
 		log("\n");
-		log("The 2nd argument can be used to only execute the section of the\n");
-		log("file between the specified labels. An empty from label is synonymous\n");
-		log("for the beginning of the file and an empty to label is synonymous\n");
-		log("for the end of the file.\n");
+		log("In the default (file) case, the 2nd argument can be used to only execute the\n");
+		log("section of the file between the specified labels. An empty from label is\n");
+		log("synonymous with the beginning of the file and an empty to label is synonymous\n");
+		log("with the end of the file.\n");
 		log("\n");
 		log("If only one label is specified (without ':') then only the block\n");
 		log("marked with that label (until the next label) is executed.\n");
 		log("\n");
+		log("In \"-scriptwire\" mode, the commands on the selected wire(s) will be executed\n");
+		log("in the scope of (and thus, relative to) the wires' owning module(s). This\n");
+		log("'-module' mode can be exited by using the 'cd' command.\n");
+		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE {
-		if (args.size() < 2)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	{
+		bool scriptwire = false;
+
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++) {
+			if (args[argidx] == "-scriptwire") {
+				scriptwire = true;
+				continue;
+			}
+			break;
+		}
+		if (scriptwire) {
+			extra_args(args, argidx, design);
+
+			for (auto mod : design->selected_modules())
+				for (auto &c : mod->connections()) {
+					if (!c.first.is_wire())
+						continue;
+					auto w = c.first.as_wire();
+					if (!mod->selected(w))
+						continue;
+					if (!c.second.is_fully_const())
+						log_error("RHS of selected wire %s.%s is not constant.\n", log_id(mod), log_id(w));
+					auto v = c.second.as_const();
+					Pass::call_on_module(design, mod, v.decode_string());
+				}
+		}
+		else if (args.size() < 2)
 			log_cmd_error("Missing script file.\n");
 		else if (args.size() == 2)
 			run_frontend(args[1], "script", design);

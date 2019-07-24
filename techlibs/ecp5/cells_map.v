@@ -47,8 +47,59 @@ module  \$__DFFSE_NP1 (input D, C, E, R, output Q); TRELLIS_FF #(.GSR("DISABLED"
 module  \$__DFFSE_PP0 (input D, C, E, R, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("CE"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("RESET"), .SRMODE("LSR_OVER_CE"))  _TECHMAP_REPLACE_ (.CLK(C), .CE(E), .LSR(R), .DI(D), .Q(Q)); endmodule
 module  \$__DFFSE_PP1 (input D, C, E, R, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("CE"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("SET"), .SRMODE("LSR_OVER_CE"))  _TECHMAP_REPLACE_ (.CLK(C), .CE(E), .LSR(R), .DI(D), .Q(Q)); endmodule
 
-// For Diamond compatibility, FIXME: add all Diamond flipflop mappings
+// TODO: Diamond flip-flops
+// module FD1P3AX(); endmodule
+// module FD1P3AY(); endmodule
+// module FD1P3BX(); endmodule
+// module FD1P3DX(); endmodule
+// module FD1P3IX(); endmodule
+// module FD1P3JX(); endmodule
+// module FD1S3AX(); endmodule
+// module FD1S3AY(); endmodule
 module FD1S3BX(input PD, D, CK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("SET"), .SRMODE("ASYNC"))  _TECHMAP_REPLACE_ (.CLK(CK), .LSR(PD), .DI(D), .Q(Q)); endmodule
+module FD1S3DX(input CD, D, CK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("RESET"), .SRMODE("ASYNC"))  _TECHMAP_REPLACE_ (.CLK(CK), .LSR(CD), .DI(D), .Q(Q)); endmodule
+module FD1S3IX(input CD, D, CK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("RESET"), .SRMODE("LSR_OVER_CE"))  _TECHMAP_REPLACE_ (.CLK(CK), .LSR(CD), .DI(D), .Q(Q)); endmodule
+module FD1S3JX(input PD, D, CK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("SET"), .SRMODE("LSR_OVER_CE"))  _TECHMAP_REPLACE_ (.CLK(CK), .LSR(PD), .DI(D), .Q(Q)); endmodule
+// module FL1P3AY(); endmodule
+// module FL1P3AZ(); endmodule
+// module FL1P3BX(); endmodule
+// module FL1P3DX(); endmodule
+// module FL1P3IY(); endmodule
+// module FL1P3JY(); endmodule
+// module FL1S3AX(); endmodule
+// module FL1S3AY(); endmodule
+
+// Diamond I/O buffers
+module IB   (input I, output O); (* PULLMODE="NONE" *) TRELLIS_IO #(.DIR("INPUT")) _TECHMAP_REPLACE_ (.B(I), .O(O)); endmodule
+module IBPU (input I, output O); (* PULLMODE="UP"   *) TRELLIS_IO #(.DIR("INPUT"))   _TECHMAP_REPLACE_ (.B(I), .O(O)); endmodule
+module IBPD (input I, output O); (* PULLMODE="DOWN" *) TRELLIS_IO #(.DIR("INPUT")) _TECHMAP_REPLACE_ (.B(I), .O(O)); endmodule
+module OB   (input I, output O); (* PULLMODE="NONE" *) TRELLIS_IO #(.DIR("OUTPUT")) _TECHMAP_REPLACE_ (.B(O), .I(I)); endmodule
+module OBZ  (input I, T, output O); (* PULLMODE="NONE" *) TRELLIS_IO #(.DIR("OUTPUT")) _TECHMAP_REPLACE_ (.B(O), .I(I), .T(T)); endmodule
+module OBZPU(input I, T, output O); (* PULLMODE="UP"   *) TRELLIS_IO #(.DIR("OUTPUT"))   _TECHMAP_REPLACE_ (.B(O), .I(I), .T(T)); endmodule
+module OBZPD(input I, T, output O); (* PULLMODE="DOWN" *) TRELLIS_IO #(.DIR("OUTPUT")) _TECHMAP_REPLACE_ (.B(O), .I(I), .T(T)); endmodule
+module OBCO (input I, output OT, OC); OLVDS _TECHMAP_REPLACE_ (.A(I), .Z(OT), .ZN(OC)); endmodule
+module BB   (input I, T, output O, inout B); (* PULLMODE="NONE" *) TRELLIS_IO #(.DIR("BIDIR")) _TECHMAP_REPLACE_ (.B(B), .I(I), .O(O), .T(T)); endmodule
+module BBPU (input I, T, output O, inout B); (* PULLMODE="UP"   *) TRELLIS_IO #(.DIR("BIDIR"))   _TECHMAP_REPLACE_ (.B(B), .I(I), .O(O), .T(T)); endmodule
+module BBPD (input I, T, output O, inout B); (* PULLMODE="DOWN" *) TRELLIS_IO #(.DIR("BIDIR")) _TECHMAP_REPLACE_ (.B(B), .I(I), .O(O), .T(T)); endmodule
+module ILVDS(input A, AN, output Z); TRELLIS_IO #(.DIR("INPUT"))  _TECHMAP_REPLACE_ (.B(A), .O(Z)); endmodule
+module OLVDS(input A, output Z, ZN); TRELLIS_IO #(.DIR("OUTPUT")) _TECHMAP_REPLACE_ (.B(Z), .I(A)); endmodule
+
+// Diamond I/O registers
+module IFS1P3BX(input PD, D, SP, SCLK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("SET"), .SRMODE("ASYNC"))  _TECHMAP_REPLACE_ (.CLK(SCLK), .LSR(PD), .CE(SP), .DI(D), .Q(Q)); endmodule
+module IFS1P3DX(input CD, D, SP, SCLK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("RESET"), .SRMODE("ASYNC"))  _TECHMAP_REPLACE_ (.CLK(SCLK), .LSR(CD), .CE(SP), .DI(D), .Q(Q)); endmodule
+module IFS1P3IX(input CD, D, SP, SCLK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("RESET"), .SRMODE("LSR_OVER_CE"))  _TECHMAP_REPLACE_ (.CLK(SCLK), .LSR(CD), .CE(SP), .DI(D), .Q(Q)); endmodule
+module IFS1P3JX(input PD, D, SP, SCLK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("SET"), .SRMODE("LSR_OVER_CE"))  _TECHMAP_REPLACE_ (.CLK(SCLK), .LSR(PD), .CE(SP), .DI(D), .Q(Q)); endmodule
+
+module OFS1P3BX(input PD, D, SP, SCLK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("SET"), .SRMODE("ASYNC"))  _TECHMAP_REPLACE_ (.CLK(SCLK), .LSR(PD), .CE(SP), .DI(D), .Q(Q)); endmodule
+module OFS1P3DX(input CD, D, SP, SCLK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("RESET"), .SRMODE("ASYNC"))  _TECHMAP_REPLACE_ (.CLK(SCLK), .LSR(CD), .CE(SP), .DI(D), .Q(Q)); endmodule
+module OFS1P3IX(input CD, D, SP, SCLK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("RESET"), .SRMODE("LSR_OVER_CE"))  _TECHMAP_REPLACE_ (.CLK(SCLK), .LSR(CD), .CE(SP), .DI(D), .Q(Q)); endmodule
+module OFS1P3JX(input PD, D, SP, SCLK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("SET"), .SRMODE("LSR_OVER_CE"))  _TECHMAP_REPLACE_ (.CLK(SCLK), .LSR(PD), .CE(SP), .DI(D), .Q(Q)); endmodule
+
+// TODO: Diamond I/O latches
+// module IFS1S1B(input PD, D, SCLK, output Q); endmodule
+// module IFS1S1D(input CD, D, SCLK, output Q); endmodule
+// module IFS1S1I(input PD, D, SCLK, output Q); endmodule
+// module IFS1S1J(input CD, D, SCLK, output Q); endmodule
 
 `ifndef NO_LUT
 module \$lut (A, Y);
@@ -58,77 +109,102 @@ module \$lut (A, Y);
     input [WIDTH-1:0] A;
     output Y;
 
+    // Need to swap input ordering, and fix init accordingly,
+    // to match ABC's expectation of LUT inputs in non-decreasing
+    // delay order
+    localparam P_WIDTH = WIDTH < 4 ? 4 : WIDTH;
+    function [P_WIDTH-1:0] permute_index;
+        input [P_WIDTH-1:0] i;
+        integer j;
+        begin
+            permute_index = 0;
+            for (j = 0; j < P_WIDTH; j = j + 1)
+                permute_index[P_WIDTH-1 - j] = i[j];
+        end
+    endfunction
+
+    function [2**P_WIDTH-1:0] permute_init;
+        integer i;
+        begin
+            permute_init = 0;
+            for (i = 0; i < 2**P_WIDTH; i = i + 1)
+                permute_init[i] = LUT[permute_index(i)];
+        end
+    endfunction
+
+    parameter [2**P_WIDTH-1:0] P_LUT = permute_init();
+
     generate
         if (WIDTH == 1) begin
-            LUT4 #(.INIT(LUT)) _TECHMAP_REPLACE_ (.Z(Y),
-                .A(A[0]), .B(1'b0), .C(1'b0), .D(1'b0));
+            LUT4 #(.INIT(P_LUT)) _TECHMAP_REPLACE_ (.Z(Y),
+                .A(1'b0), .B(1'b0), .C(1'b0), .D(A[0]));
         end else
         if (WIDTH == 2) begin
-            LUT4 #(.INIT(LUT)) _TECHMAP_REPLACE_ (.Z(Y),
-                .A(A[0]), .B(A[1]), .C(1'b0), .D(1'b0));
+            LUT4 #(.INIT(P_LUT)) _TECHMAP_REPLACE_ (.Z(Y),
+                .A(1'b0), .B(1'b0), .C(A[1]), .D(A[0]));
         end else
         if (WIDTH == 3) begin
-            LUT4 #(.INIT(LUT)) _TECHMAP_REPLACE_ (.Z(Y),
-                .A(A[0]), .B(A[1]), .C(A[2]), .D(1'b0));
+            LUT4 #(.INIT(P_LUT)) _TECHMAP_REPLACE_ (.Z(Y),
+                .A(1'b0), .B(A[2]), .C(A[1]), .D(A[0]));
         end else
         if (WIDTH == 4) begin
-            LUT4 #(.INIT(LUT)) _TECHMAP_REPLACE_ (.Z(Y),
-                .A(A[0]), .B(A[1]), .C(A[2]), .D(A[3]));
+            LUT4 #(.INIT(P_LUT)) _TECHMAP_REPLACE_ (.Z(Y),
+                .A(A[3]), .B(A[2]), .C(A[1]), .D(A[0]));
         `ifndef NO_PFUMUX
         end else
         if (WIDTH == 5) begin
             wire f0, f1;
-            LUT4 #(.INIT(LUT[15: 0])) lut0 (.Z(f0),
-                .A(A[0]), .B(A[1]), .C(A[2]), .D(A[3]));
-            LUT4 #(.INIT(LUT[31:16])) lut1 (.Z(f1),
-                .A(A[0]), .B(A[1]), .C(A[2]), .D(A[3]));
-            PFUMX mux5(.ALUT(f1), .BLUT(f0), .C0(A[4]), .Z(Y));
+            LUT4 #(.INIT(P_LUT[15: 0])) lut0 (.Z(f0),
+                .A(A[4]), .B(A[3]), .C(A[2]), .D(A[1]));
+            LUT4 #(.INIT(P_LUT[31:16])) lut1 (.Z(f1),
+                .A(A[4]), .B(A[3]), .C(A[2]), .D(A[1]));
+            PFUMX mux5(.ALUT(f1), .BLUT(f0), .C0(A[0]), .Z(Y));
         end else
         if (WIDTH == 6) begin
             wire f0, f1, f2, f3, g0, g1;
-            LUT4 #(.INIT(LUT[15: 0])) lut0 (.Z(f0),
-                .A(A[0]), .B(A[1]), .C(A[2]), .D(A[3]));
-            LUT4 #(.INIT(LUT[31:16])) lut1 (.Z(f1),
-                .A(A[0]), .B(A[1]), .C(A[2]), .D(A[3]));
+            LUT4 #(.INIT(P_LUT[15: 0])) lut0 (.Z(f0),
+                .A(A[5]), .B(A[4]), .C(A[3]), .D(A[2]));
+            LUT4 #(.INIT(P_LUT[31:16])) lut1 (.Z(f1),
+                .A(A[5]), .B(A[4]), .C(A[3]), .D(A[2]));
 
-            LUT4 #(.INIT(LUT[47:32])) lut2 (.Z(f2),
-                .A(A[0]), .B(A[1]), .C(A[2]), .D(A[3]));
-            LUT4 #(.INIT(LUT[63:48])) lut3 (.Z(f3),
-                .A(A[0]), .B(A[1]), .C(A[2]), .D(A[3]));
+            LUT4 #(.INIT(P_LUT[47:32])) lut2 (.Z(f2),
+                .A(A[5]), .B(A[4]), .C(A[3]), .D(A[2]));
+            LUT4 #(.INIT(P_LUT[63:48])) lut3 (.Z(f3),
+                .A(A[5]), .B(A[4]), .C(A[3]), .D(A[2]));
 
-            PFUMX mux50(.ALUT(f1), .BLUT(f0), .C0(A[4]), .Z(g0));
-            PFUMX mux51(.ALUT(f3), .BLUT(f2), .C0(A[4]), .Z(g1));
-            L6MUX21 mux6 (.D0(g0), .D1(g1), .SD(A[5]), .Z(Y));
+            PFUMX mux50(.ALUT(f1), .BLUT(f0), .C0(A[1]), .Z(g0));
+            PFUMX mux51(.ALUT(f3), .BLUT(f2), .C0(A[1]), .Z(g1));
+            L6MUX21 mux6 (.D0(g0), .D1(g1), .SD(A[0]), .Z(Y));
         end else
         if (WIDTH == 7) begin
             wire f0, f1, f2, f3, f4, f5, f6, f7, g0, g1, g2, g3, h0, h1;
-            LUT4 #(.INIT(LUT[15: 0])) lut0 (.Z(f0),
-                .A(A[0]), .B(A[1]), .C(A[2]), .D(A[3]));
-            LUT4 #(.INIT(LUT[31:16])) lut1 (.Z(f1),
-                .A(A[0]), .B(A[1]), .C(A[2]), .D(A[3]));
+            LUT4 #(.INIT(P_LUT[15: 0])) lut0 (.Z(f0),
+                .A(A[6]), .B(A[5]), .C(A[4]), .D(A[3]));
+            LUT4 #(.INIT(P_LUT[31:16])) lut1 (.Z(f1),
+                .A(A[6]), .B(A[5]), .C(A[4]), .D(A[3]));
 
-            LUT4 #(.INIT(LUT[47:32])) lut2 (.Z(f2),
-                .A(A[0]), .B(A[1]), .C(A[2]), .D(A[3]));
-            LUT4 #(.INIT(LUT[63:48])) lut3 (.Z(f3),
-                .A(A[0]), .B(A[1]), .C(A[2]), .D(A[3]));
+            LUT4 #(.INIT(P_LUT[47:32])) lut2 (.Z(f2),
+                .A(A[6]), .B(A[5]), .C(A[4]), .D(A[3]));
+            LUT4 #(.INIT(P_LUT[63:48])) lut3 (.Z(f3),
+                .A(A[6]), .B(A[5]), .C(A[4]), .D(A[3]));
 
-            LUT4 #(.INIT(LUT[79:64])) lut4 (.Z(f4),
-                .A(A[0]), .B(A[1]), .C(A[2]), .D(A[3]));
-            LUT4 #(.INIT(LUT[95:80])) lut5 (.Z(f5),
-                .A(A[0]), .B(A[1]), .C(A[2]), .D(A[3]));
+            LUT4 #(.INIT(P_LUT[79:64])) lut4 (.Z(f4),
+                .A(A[6]), .B(A[5]), .C(A[4]), .D(A[3]));
+            LUT4 #(.INIT(P_LUT[95:80])) lut5 (.Z(f5),
+                .A(A[6]), .B(A[5]), .C(A[4]), .D(A[3]));
 
-            LUT4 #(.INIT(LUT[111: 96])) lut6 (.Z(f6),
-                .A(A[0]), .B(A[1]), .C(A[2]), .D(A[3]));
-            LUT4 #(.INIT(LUT[127:112])) lut7 (.Z(f7),
-                .A(A[0]), .B(A[1]), .C(A[2]), .D(A[3]));
+            LUT4 #(.INIT(P_LUT[111: 96])) lut6 (.Z(f6),
+                .A(A[6]), .B(A[5]), .C(A[4]), .D(A[3]));
+            LUT4 #(.INIT(P_LUT[127:112])) lut7 (.Z(f7),
+                .A(A[6]), .B(A[5]), .C(A[4]), .D(A[3]));
 
-            PFUMX mux50(.ALUT(f1), .BLUT(f0), .C0(A[4]), .Z(g0));
-            PFUMX mux51(.ALUT(f3), .BLUT(f2), .C0(A[4]), .Z(g1));
-            PFUMX mux52(.ALUT(f5), .BLUT(f4), .C0(A[4]), .Z(g2));
-            PFUMX mux53(.ALUT(f7), .BLUT(f6), .C0(A[4]), .Z(g3));
-            L6MUX21 mux60 (.D0(g0), .D1(g1), .SD(A[5]), .Z(h0));
-            L6MUX21 mux61 (.D0(g2), .D1(g3), .SD(A[5]), .Z(h1));
-            L6MUX21 mux7  (.D0(h0), .D1(h1), .SD(A[6]), .Z(Y));
+            PFUMX mux50(.ALUT(f1), .BLUT(f0), .C0(A[2]), .Z(g0));
+            PFUMX mux51(.ALUT(f3), .BLUT(f2), .C0(A[2]), .Z(g1));
+            PFUMX mux52(.ALUT(f5), .BLUT(f4), .C0(A[2]), .Z(g2));
+            PFUMX mux53(.ALUT(f7), .BLUT(f6), .C0(A[2]), .Z(g3));
+            L6MUX21 mux60 (.D0(g0), .D1(g1), .SD(A[1]), .Z(h0));
+            L6MUX21 mux61 (.D0(g2), .D1(g3), .SD(A[1]), .Z(h1));
+            L6MUX21 mux7  (.D0(h0), .D1(h1), .SD(A[0]), .Z(Y));
         `endif
         end else begin
             wire _TECHMAP_FAIL_ = 1;

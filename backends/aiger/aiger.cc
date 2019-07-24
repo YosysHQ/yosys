@@ -70,34 +70,35 @@ struct AigerWriter
 
 	int bit2aig(SigBit bit)
 	{
-		if (aig_map.count(bit) == 0)
-		{
-			aig_map[bit] = -1;
-
-			if (initstate_bits.count(bit)) {
-				log_assert(initstate_ff > 0);
-				aig_map[bit] = initstate_ff;
-			} else
-			if (not_map.count(bit)) {
-				int a = bit2aig(not_map.at(bit)) ^ 1;
-				aig_map[bit] = a;
-			} else
-			if (and_map.count(bit)) {
-				auto args = and_map.at(bit);
-				int a0 = bit2aig(args.first);
-				int a1 = bit2aig(args.second);
-				aig_map[bit] = mkgate(a0, a1);
-			} else
-			if (alias_map.count(bit)) {
-				aig_map[bit] = bit2aig(alias_map.at(bit));
-			}
-
-			if (bit == State::Sx || bit == State::Sz)
-				log_error("Design contains 'x' or 'z' bits. Use 'setundef' to replace those constants.\n");
+		auto it = aig_map.find(bit);
+		if (it != aig_map.end()) {
+			log_assert(it->second >= 0);
+			return it->second;
 		}
 
-		log_assert(aig_map.at(bit) >= 0);
-		return aig_map.at(bit);
+		// NB: Cannot use iterator returned from aig_map.insert()
+		//     since this function is called recursively
+
+		int a = -1;
+		if (not_map.count(bit)) {
+			a = bit2aig(not_map.at(bit)) ^ 1;
+		} else
+		if (and_map.count(bit)) {
+			auto args = and_map.at(bit);
+			int a0 = bit2aig(args.first);
+			int a1 = bit2aig(args.second);
+			a = mkgate(a0, a1);
+		} else
+		if (alias_map.count(bit)) {
+			a = bit2aig(alias_map.at(bit));
+		}
+
+		if (bit == State::Sx || bit == State::Sz)
+			log_error("Design contains 'x' or 'z' bits. Use 'setundef' to replace those constants.\n");
+
+		log_assert(a >= 0);
+		aig_map[bit] = a;
+		return a;
 	}
 
 	AigerWriter(Module *module, bool zinit_mode, bool imode, bool omode, bool bmode) : module(module), zinit_mode(zinit_mode), sigmap(module)
@@ -685,7 +686,7 @@ struct AigerBackend : public Backend {
 		log("invariant constraints.\n");
 		log("\n");
 		log("    -ascii\n");
-		log("        write ASCII version of AGIER format\n");
+		log("        write ASCII version of AIGER format\n");
 		log("\n");
 		log("    -zinit\n");
 		log("        convert FFs to zero-initialized FFs, adding additional inputs for\n");
@@ -776,6 +777,7 @@ struct AigerBackend : public Backend {
 		writer.write_aiger(*f, ascii_mode, miter_mode, symbols_mode);
 
 		if (!map_filename.empty()) {
+			rewrite_filename(filename);
 			std::ofstream mapf;
 			mapf.open(map_filename.c_str(), std::ofstream::trunc);
 			if (mapf.fail())
