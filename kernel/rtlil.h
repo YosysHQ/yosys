@@ -420,12 +420,12 @@ namespace RTLIL
 	// It maintains a reference counter that is used to make sure that the container is not modified while being iterated over.
 
 	template<typename T>
-	struct ObjIterator : public std::iterator<std::forward_iterator_tag,
-		T,
-		ptrdiff_t,
-		T *,
-		T &>
-	{
+	struct ObjIterator {
+		using iterator_category = std::forward_iterator_tag;
+		using value_type = T;
+		using difference_type = ptrdiff_t;
+		using pointer = T*;
+		using reference = T&;
 		typename dict<RTLIL::IdString, T>::iterator it;
 		dict<RTLIL::IdString, T> *list_p;
 		int *refcount_p;
