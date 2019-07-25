@@ -52,6 +52,7 @@
 #include <stdexcept>
 #include <memory>
 #include <cmath>
+#include <cstddef>
 
 #include <sstream>
 #include <fstream>
