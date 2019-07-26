@@ -144,8 +144,10 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 	// SB_MAC16 Output Interface
 
 	SigSpec O = st.sigO;
-	if (GetSize(O) == 33)
+	if (GetSize(O) == 33) {
 		cell->setPort("\\CO", st.sigO[32]);
+		O.remove(32);
+	}
 	else {
 		log_assert(GetSize(O) <= 32);
 		cell->setPort("\\CO", pm.module->addWire(NEW_ID));
