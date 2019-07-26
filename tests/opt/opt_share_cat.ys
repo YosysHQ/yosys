@@ -1,0 +1,9 @@
+read_verilog opt_share_cat.v
+prep -flatten
+opt
+pmuxtree
+opt_share
+opt_clean
+
+select -assert-count 2 t:$sub
+select -assert-count 0 t:$add

@@ -1,0 +1,10 @@
+read_verilog opt_share_mux_tree.v
+prep -flatten
+opt
+pmuxtree
+opt_share;
+opt_share;
+opt_clean
+
+select -assert-count 1 t:$add
+select -assert-count 0 t:$sub
