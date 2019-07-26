@@ -56,8 +56,8 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 		return;
 	}
 
-	if (GetSize(st.sigO) > 32) {
-		log("  accumulator (%s) is too large (%d > 32).\n", log_signal(st.sigO), GetSize(st.sigO));
+	if (GetSize(st.sigO) > 33) {
+		log("  adder/accumulator (%s) is too large (%d > 33).\n", log_signal(st.sigO), GetSize(st.sigO));
 		return;
 	}
 
@@ -137,7 +137,6 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 	cell->setPort("\\SIGNEXTOUT", pm.module->addWire(NEW_ID));
 
 	cell->setPort("\\CI", State::Sx);
-	cell->setPort("\\CO", pm.module->addWire(NEW_ID));
 
 	cell->setPort("\\ACCUMCI", State::Sx);
 	cell->setPort("\\ACCUMCO", pm.module->addWire(NEW_ID));
@@ -145,6 +144,12 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 	// SB_MAC16 Output Interface
 
 	SigSpec O = st.sigO;
+	if (GetSize(O) == 33)
+		cell->setPort("\\CO", st.sigO[32]);
+	else {
+		log_assert(GetSize(O) <= 32);
+		cell->setPort("\\CO", pm.module->addWire(NEW_ID));
+	}
 	if (GetSize(O) < 32)
 		O.append(pm.module->addWire(NEW_ID, 32-GetSize(O)));
 
