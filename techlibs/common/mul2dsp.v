@@ -149,9 +149,9 @@ module \$__mul (A, B, Y);
 					.B(B),
 					.Y(partial[i])
 				);
-                // TODO: Currently a 'cascade' approach to summing the partial 
-                //       products is taken here, but a more efficient 'binary
-                //       reduction' approach also exists...
+				// TODO: Currently a 'cascade' approach to summing the partial
+				//       products is taken here, but a more efficient 'binary
+				//       reduction' approach also exists...
 				assign partial_sum[i] = (partial[i] << i*(`DSP_A_MAXWIDTH-sign_headroom)) + partial_sum[i-1];
 			end
 
