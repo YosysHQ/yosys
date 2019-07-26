@@ -19,6 +19,7 @@ ENABLE_VERIFIC := 0
 ENABLE_COVER := 1
 ENABLE_LIBYOSYS := 0
 ENABLE_PROTOBUF := 0
+ENABLE_ZLIB := 1
 
 # python wrappers
 ENABLE_PYOSYS := 0
@@ -383,6 +384,12 @@ endif
 ifeq ($(ENABLE_GLOB),1)
 CXXFLAGS += -DYOSYS_ENABLE_GLOB
 endif
+
+ifeq ($(ENABLE_ZLIB),1)
+CXXFLAGS += -DYOSYS_ENABLE_ZLIB
+LDLIBS += -lz
+endif
+
 
 ifeq ($(ENABLE_TCL),1)
 TCL_VERSION ?= tcl$(shell bash -c "tclsh <(echo 'puts [info tclversion]')")
