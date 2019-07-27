@@ -894,23 +894,26 @@ void run_frontend(std::string filename, std::string command, std::string *backen
 		design = yosys_design;
 
 	if (command == "auto") {
-		if (filename.size() > 2 && filename.substr(filename.size()-2) == ".v")
+		std::string filename_trim = filename;
+		if (filename_trim.size() > 3 && filename_trim.substr(filename_trim.size()-3) == ".gz")
+			filename_trim.erase(filename_trim.size()-3);
+		if (filename_trim.size() > 2 && filename_trim.substr(filename_trim.size()-2) == ".v")
 			command = "verilog";
-		else if (filename.size() > 2 && filename.substr(filename.size()-3) == ".sv")
+		else if (filename_trim.size() > 2 && filename_trim.substr(filename_trim.size()-3) == ".sv")
 			command = "verilog -sv";
-		else if (filename.size() > 3 && filename.substr(filename.size()-4) == ".vhd")
+		else if (filename_trim.size() > 3 && filename_trim.substr(filename_trim.size()-4) == ".vhd")
 			command = "vhdl";
-		else if (filename.size() > 4 && filename.substr(filename.size()-5) == ".blif")
+		else if (filename_trim.size() > 4 && filename_trim.substr(filename_trim.size()-5) == ".blif")
 			command = "blif";
-		else if (filename.size() > 5 && filename.substr(filename.size()-6) == ".eblif")
+		else if (filename_trim.size() > 5 && filename_trim.substr(filename_trim.size()-6) == ".eblif")
 			command = "blif";
-		else if (filename.size() > 4 && filename.substr(filename.size()-5) == ".json")
+		else if (filename_trim.size() > 4 && filename_trim.substr(filename_trim.size()-5) == ".json")
 			command = "json";
-		else if (filename.size() > 3 && filename.substr(filename.size()-3) == ".il")
+		else if (filename_trim.size() > 3 && filename_trim.substr(filename_trim.size()-3) == ".il")
 			command = "ilang";
-		else if (filename.size() > 3 && filename.substr(filename.size()-3) == ".ys")
+		else if (filename_trim.size() > 3 && filename_trim.substr(filename_trim.size()-3) == ".ys")
 			command = "script";
-		else if (filename.size() > 3 && filename.substr(filename.size()-4) == ".tcl")
+		else if (filename_trim.size() > 3 && filename_trim.substr(filename_trim.size()-4) == ".tcl")
 			command = "tcl";
 		else if (filename == "-")
 			command = "script";
