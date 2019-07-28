@@ -1,4 +1,4 @@
-module add_sub(
+module opt_share_test(
                input [15:0] 		 a,
                input [15:0] 		 b,
                input [15:0] 		 c,

@@ -1,4 +1,4 @@
-read_verilog opt_share_mux_tree.v
+read_verilog opt_share_cat_multiuser.v
 proc;;
 copy opt_share_test merged
 
@@ -10,4 +10,4 @@ opt_clean merged
 miter -equiv -flatten -ignore_gold_x -make_outputs -make_outcmp opt_share_test merged miter
 sat -set-def-inputs -verify -prove trigger 0 -show-inputs -show-outputs miter
 
-select -assert-count 1 -module merged t:$alu
+select -assert-count 3 -module merged t:$alu

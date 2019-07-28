@@ -1,4 +1,4 @@
-read_verilog opt_share_mux_tree.v
+read_verilog opt_share_add_sub.v
 proc;;
 copy opt_share_test merged
 

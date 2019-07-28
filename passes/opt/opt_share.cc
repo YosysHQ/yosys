@@ -31,12 +31,21 @@ PRIVATE_NAMESPACE_BEGIN
 
 SigMap assign_map;
 
+struct InPort {
+	RTLIL::SigSpec sig;
+	RTLIL::Cell *pmux;
+	int port_id;
+	RTLIL::Cell *alu;
+
+	InPort(RTLIL::SigSpec s, RTLIL::Cell *c, int p, RTLIL::Cell *a = NULL) : sig(s), pmux(c), port_id(p), alu(a) {}
+};
+
 // Helper class that to track whether a SigSpec is signed and whether it is
 // connected to the \\B port of the $sub cell, which makes its sign prefix
 // negative.
 struct ExtSigSpec {
 	RTLIL::SigSpec sig;
-	bool sign;
+	RTLIL::SigSpec sign;
 	bool is_signed;
 
 	ExtSigSpec() {}
@@ -45,7 +54,7 @@ struct ExtSigSpec {
 
 	ExtSigSpec(RTLIL::Cell *cell, RTLIL::IdString port_name, SigMap *sigmap)
 	{
-		sign = (cell->type == "$sub") && (port_name == "\\B");
+		sign = (port_name == "\\B") ? cell->getPort("\\BI") : RTLIL::Const(0, 1);
 		sig = (*sigmap)(cell->getPort(port_name));
 
 		is_signed = false;
@@ -67,23 +76,22 @@ struct ExtSigSpec {
 		return is_signed < other.is_signed;
 	}
 
-	bool operator==(const RTLIL::SigSpec &other) const { return sign ? false : sig == other; }
+	bool operator==(const RTLIL::SigSpec &other) const { return (sign != RTLIL::Const(0, 1)) ? false : sig == other; }
 	bool operator==(const ExtSigSpec &other) const { return is_signed == other.is_signed && sign == other.sign && sig == other.sig; }
 };
 
-void merge_operators(RTLIL::Module *module, RTLIL::Cell *mux, const std::vector<RTLIL::Cell *> &operators, int offset, int width,
+void merge_operators(RTLIL::Module *module, RTLIL::Cell *mux, const std::vector<InPort> &ports, int offset, int width,
 		     const ExtSigSpec &operand)
 {
 
 	std::vector<ExtSigSpec> muxed_operands;
 	int max_width = 0;
-	for (auto op : operators) {
-		for (auto &conn : op->connections()) {
-			if (op->output(conn.first))
-				continue;
+	for (const auto& p : ports) {
+		auto op = p.alu;
 
-			if (conn.second != operand.sig) {
-				auto operand = ExtSigSpec(op, conn.first, &assign_map);
+		for (RTLIL::IdString port_name : {"\\A", "\\B"}) {
+			if (op->getPort(port_name) != operand.sig) {
+				auto operand = ExtSigSpec(op, port_name, &assign_map);
 				if (operand.sig.size() > max_width) {
 					max_width = operand.sig.size();
 				}
@@ -97,29 +105,60 @@ void merge_operators(RTLIL::Module *module, RTLIL::Cell *mux, const std::vector<
 		operand.sig.extend_u0(max_width, operand.is_signed);
 	}
 
-	auto shared_op = operators[0];
+	auto shared_op = ports[0].alu;
 
-	for (auto op : operators) {
+	for (const auto& p : ports) {
+		auto op = p.alu;
 		if (op == shared_op)
 			continue;
 		module->remove(op);
 	}
 
-	RTLIL::SigSpec mux_out = mux->getPort("\\Y");
-
-	if (muxed_operands[0].sign != muxed_operands[1].sign) {
-		muxed_operands[1] = ExtSigSpec(module->Neg(NEW_ID, muxed_operands[1].sig, muxed_operands[1].is_signed));
+	for (auto &muxed_op : muxed_operands) {
+		if (muxed_op.sign != muxed_operands[0].sign) {
+			muxed_op = ExtSigSpec(module->Neg(NEW_ID, muxed_op.sig, muxed_op.is_signed));
+		}
 	}
 
-	auto mux_to_oper = module->Mux(NEW_ID, muxed_operands[0].sig, muxed_operands[1].sig, mux->getPort("\\S"));
+	RTLIL::SigSpec mux_y = mux->getPort("\\Y");
+	RTLIL::SigSpec mux_a = mux->getPort("\\A");
+	RTLIL::SigSpec mux_b = mux->getPort("\\B");
+	RTLIL::SigSpec mux_s = mux->getPort("\\S");
 
-	shared_op->setPort("\\Y", mux_out.extract(offset, width));
+	RTLIL::SigSpec alu_x = shared_op->getPort("\\X");
+	RTLIL::SigSpec alu_co = shared_op->getPort("\\CO");
+
+	RTLIL::SigSpec shared_pmux_a = RTLIL::Const(RTLIL::State::Sx, max_width);
+	RTLIL::SigSpec shared_pmux_b;
+	RTLIL::SigSpec shared_pmux_s;
+
+	shared_op->setPort("\\Y", shared_op->getPort("\\Y").extract(0, width));
+
+	if (mux->type == "$pmux") {
+		shared_pmux_s = RTLIL::SigSpec();
+
+		for (const auto&p: ports) {
+			shared_pmux_s.append(mux_s[p.port_id]);
+			mux_b.replace(p.port_id * mux_a.size() + offset, shared_op->getPort("\\Y"));
+		}
+	} else {
+		shared_pmux_s = RTLIL::SigSpec{mux_s, module->Not(NEW_ID, mux_s)};
+		mux_a.replace(offset, shared_op->getPort("\\Y"));
+		mux_b.replace(offset, shared_op->getPort("\\Y"));
+	}
+
+	mux->setPort("\\Y", mux_y);
+	mux->setPort("\\S", mux_s);
+	mux->setPort("\\B", mux_b);
+
+	for (const auto &op : muxed_operands)
+		shared_pmux_b.append(op.sig);
+
+	auto mux_to_oper = module->Pmux(NEW_ID, shared_pmux_a, shared_pmux_b, shared_pmux_s);
+
+	shared_op->setPort("\\X", alu_x.extract(0, width));
+	shared_op->setPort("\\CO", alu_co.extract(0, width));
 	shared_op->setParam("\\Y_WIDTH", width);
-
-	auto dummy = module->addWire(NEW_ID, width);
-
-	mux_out.replace(offset, dummy);
-	mux->setPort("\\Y", mux_out);
 
 	if (shared_op->getPort("\\A") == operand.sig) {
 		shared_op->setPort("\\B", mux_to_oper);
@@ -128,81 +167,132 @@ void merge_operators(RTLIL::Module *module, RTLIL::Cell *mux, const std::vector<
 		shared_op->setPort("\\A", mux_to_oper);
 		shared_op->setParam("\\A_WIDTH", max_width);
 	}
+
 }
 
 typedef struct {
 	RTLIL::Cell *mux;
-	std::vector<RTLIL::Cell *> operators;
+	std::vector<InPort> ports;
 	int offset;
 	int width;
 	ExtSigSpec shared_operand;
 } shared_op_t;
 
-bool find_op_res_width(int offset, int &width, RTLIL::SigSpec porta, RTLIL::SigSpec portb,
-		       const dict<RTLIL::SigBit, RTLIL::SigSpec> &op_outbit_to_outsig, const dict<RTLIL::SigBit, int> &op_outbit_user_cnt)
+
+template <typename T> void remove_val(std::vector<T> &v, const std::vector<T> &vals)
+{
+	auto val_iter = vals.rbegin();
+	for (auto i = v.rbegin(); i != v.rend(); ++i)
+		if ((val_iter != vals.rend()) && (*i == *val_iter)) {
+			v.erase(i.base() - 1);
+			++val_iter;
+		}
+}
+
+bool find_op_res_width(int offset, int &width, std::vector<InPort*>& ports, const dict<RTLIL::SigBit, RTLIL::SigSpec> &op_outbit_to_outsig)
 {
 
-	std::array<RTLIL::SigSpec, 2> op_outsigs{op_outbit_to_outsig.at(porta[offset]), op_outbit_to_outsig.at(portb[offset])};
+	std::vector<RTLIL::SigSpec> op_outsigs;
+	dict<int, std::set<InPort*>> op_outsig_span;
+
+	std::transform(ports.begin(), ports.end(), std::back_inserter(op_outsigs), [&](InPort *p) { return op_outbit_to_outsig.at(p->sig[offset]); });
+
+	std::vector<bool> finished(ports.size(), false);
 
 	width = 0;
-	bool multi_user = false;
 
-	while (true) {
-		for (const auto &op_outsig : op_outsigs)
-			if (op_outbit_user_cnt.at(op_outsig[width]) > 1)
-				multi_user = true;
+	std::function<bool()> all_finished = [&] { return std::find(std::begin(finished), std::end(finished), false) == end(finished);};
 
+	while (!all_finished())
+	{
 		++offset;
 		++width;
 
-		if ((offset >= porta.size()) || (width >= op_outsigs[0].size()) || (width >= op_outsigs[1].size()))
-			break;
+		if (offset >= ports[0]->sig.size()) {
+			for (size_t i = 0; i < op_outsigs.size(); ++i) {
+				if (finished[i])
+					continue;
 
-		if ((porta[offset] != op_outsigs[0][width]) || (portb[offset] != op_outsigs[1][width]))
+				op_outsig_span[width].insert(ports[i]);
+				finished[i] = true;
+			}
+
 			break;
+		}
+
+		for (size_t i = 0; i < op_outsigs.size(); ++i) {
+			if (finished[i])
+				continue;
+
+			if ((width >= op_outsigs[i].size()) || (ports[i]->sig[offset] != op_outsigs[i][width])) {
+				op_outsig_span[width].insert(ports[i]);
+				finished[i] = true;
+			}
+		}
 	}
 
-	if (multi_user)
-		return false;
+	for (auto w: op_outsig_span) {
+		if (w.second.size() > 1) {
+			width = w.first;
 
-	for (const auto &outsig : op_outsigs)
-		for (int i = width; i < outsig.size(); i++)
-			if (op_outbit_user_cnt.count(outsig[i]))
-				return false;
+			ports.erase(std::remove_if(ports.begin(), ports.end(), [&](InPort *p) { return !w.second.count(p); }), ports.end());
 
-	return true;
+			return true;
+		}
+	}
+
+	return false;
 }
 
-ExtSigSpec find_shared_operand(const std::vector<RTLIL::Cell *> &operators, const std::map<ExtSigSpec, std::set<RTLIL::Cell *>> &operand_to_users)
+ExtSigSpec find_shared_operand(InPort* seed, std::vector<InPort *> &ports, const std::map<ExtSigSpec, std::set<RTLIL::Cell *>> &operand_to_users)
 {
+	std::set<RTLIL::Cell *> alus_using_operand;
+	std::set<RTLIL::Cell *> alus_set;
+	for(const auto& p: ports)
+		alus_set.insert(p->alu);
 
-	std::set<RTLIL::Cell *> operators_set(operators.begin(), operators.end());
 	ExtSigSpec oper;
 
-	auto op_a = operators[0];
-	for (auto &conn : op_a->connections()) {
-		if (op_a->output(conn.first))
+	auto op_a = seed->alu;
+
+	for (RTLIL::IdString port_name : {"\\A", "\\B"}) {
+		oper = ExtSigSpec(op_a, port_name, &assign_map);
+		auto operand_users = operand_to_users.at(oper);
+
+		if (operand_users.size() == 1)
 			continue;
 
-		oper = ExtSigSpec(op_a, conn.first, &assign_map);
-		auto bundle = operand_to_users.at(oper);
+		alus_using_operand.clear();
+		std::set_intersection(operand_users.begin(), operand_users.end(), alus_set.begin(), alus_set.end(),
+				      std::inserter(alus_using_operand, alus_using_operand.begin()));
 
-		if (std::includes(bundle.begin(), bundle.end(), operators_set.begin(), operators_set.end()))
-			break;
+		if (alus_using_operand.size() > 1) {
+			ports.erase(std::remove_if(ports.begin(), ports.end(), [&](InPort *p) { return !alus_using_operand.count(p->alu); }),
+				    ports.end());
+			return oper;
+		}
 	}
 
-	return oper;
+	return ExtSigSpec();
 }
 
-dict<RTLIL::SigBit, int> find_op_outbit_user_cnt(RTLIL::Module *module, const dict<RTLIL::SigBit, RTLIL::SigSpec> &op_outbit_to_outsig)
+void remove_multi_user_outbits(RTLIL::Module *module, dict<RTLIL::SigBit, RTLIL::SigSpec> &op_outbit_to_outsig)
 {
 	dict<RTLIL::SigBit, int> op_outbit_user_cnt;
 
 	std::function<void(SigSpec)> update_op_outbit_user_cnt = [&](SigSpec sig) {
 		auto outsig = assign_map(sig);
-		for (auto outbit : outsig)
-			if (op_outbit_to_outsig.count(outbit))
-				op_outbit_user_cnt[outbit]++;
+		for (auto outbit : outsig) {
+			if (!op_outbit_to_outsig.count(outbit))
+				continue;
+
+			if (++op_outbit_user_cnt[outbit] > 1) {
+				auto alu_outsig = op_outbit_to_outsig.at(outbit);
+
+				for (auto outbit : alu_outsig)
+					op_outbit_to_outsig.erase(outbit);
+			}
+		}
 	};
 
 	for (auto cell : module->cells())
@@ -216,8 +306,6 @@ dict<RTLIL::SigBit, int> find_op_outbit_user_cnt(RTLIL::Module *module, const di
 
 		update_op_outbit_user_cnt(w);
 	}
-
-	return op_outbit_user_cnt;
 }
 
 struct OptRmdffPass : public Pass {
@@ -246,24 +334,31 @@ struct OptRmdffPass : public Pass {
 			dict<RTLIL::SigSpec, RTLIL::Cell *> outsig_to_operator;
 			dict<RTLIL::SigBit, RTLIL::SigSpec> op_outbit_to_outsig;
 			bool any_shared_operands = false;
+			std::vector<ExtSigSpec> op_insigs;
 
 			for (auto cell : module->cells()) {
-				if (!cell->type.in("$add", "$sub"))
+				if (!cell->type.in("$alu"))
 					continue;
 
-				for (auto &conn : cell->connections()) {
-					if (cell->output(conn.first)) {
-						auto outsig = assign_map(conn.second);
-						for (auto outbit : outsig)
-							op_outbit_to_outsig[outbit] = outsig;
+				RTLIL::SigSpec sig_bi = cell->getPort("\\BI");
+				RTLIL::SigSpec sig_ci = cell->getPort("\\CI");
 
-						outsig_to_operator[outsig] = cell;
-					} else {
-						auto op_insig = ExtSigSpec(cell, conn.first, &assign_map);
-						operand_to_users[op_insig].insert(cell);
-						if (operand_to_users[op_insig].size() > 1)
-							any_shared_operands = true;
-					}
+				if ((!sig_bi.is_fully_const()) || (!sig_ci.is_fully_const()) || (sig_bi != sig_ci))
+					continue;
+
+				RTLIL::SigSpec sig_y = cell->getPort("\\A");
+
+				auto outsig = assign_map(cell->getPort("\\Y"));
+				outsig_to_operator[outsig] = cell;
+				for (auto outbit : outsig)
+					op_outbit_to_outsig[outbit] = outsig;
+
+				for (RTLIL::IdString port_name : {"\\A", "\\B"}) {
+					auto op_insig = ExtSigSpec(cell, port_name, &assign_map);
+					op_insigs.push_back(op_insig);
+					operand_to_users[op_insig].insert(cell);
+					if (operand_to_users[op_insig].size() > 1)
+						any_shared_operands = true;
 				}
 			}
 
@@ -272,42 +367,77 @@ struct OptRmdffPass : public Pass {
 
 			// Operator outputs need to be exclusively connected to the $mux inputs in order to be mergeable. Hence we count to
 			// how many points are operator output bits connected.
-			dict<RTLIL::SigBit, int> op_outbit_user_cnt = find_op_outbit_user_cnt(module, op_outbit_to_outsig);
+			remove_multi_user_outbits(module, op_outbit_to_outsig);
+
 			std::vector<shared_op_t> shared_ops;
 			for (auto cell : module->cells()) {
-				if (!cell->type.in("$mux", "$_MUX_"))
+				if (!cell->type.in("$mux", "$_MUX_", "$pmux"))
 					continue;
 
-				auto porta = assign_map(cell->getPort("\\A"));
-				auto portb = assign_map(cell->getPort("\\B"));
+				RTLIL::SigSpec sig_a = cell->getPort("\\A");
+				RTLIL::SigSpec sig_b = cell->getPort("\\B");
+				RTLIL::SigSpec sig_s = cell->getPort("\\S");
+
+				std::vector<InPort> ports;
+
+				if (cell->type.in("$mux", "$_MUX_")) {
+					ports.push_back(InPort(assign_map(sig_a), cell, 0));
+					ports.push_back(InPort(assign_map(sig_b), cell, 1));
+				} else {
+					RTLIL::SigSpec sig_s = cell->getPort("\\S");
+					for (int i = 0; i < sig_s.size(); i++) {
+						auto inp = sig_b.extract(i * sig_a.size(), sig_a.size());
+						ports.push_back(InPort(assign_map(inp), cell, i));
+					}
+				}
 
 				// Look through the bits of the $mux inputs and see which of them are connected to the operator
 				// results. Operator results can be concatenated with other signals before led to the $mux.
-				for (int i = 0; i < porta.size(); ++i) {
-					std::array<RTLIL::SigBit, 2> mux_inbits{porta[i], portb[i]};
+				for (int i = 0; i < sig_a.size(); ++i) {
+					std::vector<InPort*> alu_ports;
+					for (auto& p: ports)
+						if (op_outbit_to_outsig.count(p.sig[i])) {
+							p.alu = outsig_to_operator.at(op_outbit_to_outsig.at(p.sig[i]));
+							alu_ports.push_back(&p);
+						}
 
-					// Are the results of an $add or $sub operators connected to both of this $mux inputs?
-					if (!op_outbit_to_outsig.count(mux_inbits[0]) or !op_outbit_to_outsig.count(mux_inbits[1]))
-						continue;
+					int alu_port_width = 0;
 
-					std::vector<RTLIL::Cell *> operators;
-					for (const auto &b : mux_inbits)
-						operators.push_back(outsig_to_operator.at(op_outbit_to_outsig.at(b)));
+					while (alu_ports.size() > 1) {
+						std::vector<InPort*> shared_ports(alu_ports);
 
-					// Do these operators share an operand?
-					auto shared_operand = find_shared_operand(operators, operand_to_users);
-					if (shared_operand.empty())
-						continue;
+						auto seed = alu_ports[0];
+						alu_ports.erase(alu_ports.begin());
 
-					// Some bits of the operator results might be unconnected. Calculate the number of conneted
-					// bits.
-					int width;
+						// Find ports whose $alu-s share an operand with $alu connected to the seed port
+						auto shared_operand = find_shared_operand(seed, shared_ports, operand_to_users);
 
-					if (find_op_res_width(i, width, porta, portb, op_outbit_to_outsig, op_outbit_user_cnt))
-						shared_ops.push_back(shared_op_t{cell, operators, i, width, shared_operand});
+						if (shared_operand.empty())
+							continue;
 
-					i += width - 1;
+						// Some bits of the operator results might be unconnected. Calculate the number of conneted
+						// bits.
+						if (!find_op_res_width(i, alu_port_width, shared_ports, op_outbit_to_outsig))
+							break;
+
+						if (shared_ports.size() < 2)
+							break;
+
+						// Remember the combination for the merger
+						std::vector<InPort> shared_p;
+						for (auto p: shared_ports)
+							shared_p.push_back(*p);
+
+						shared_ops.push_back(shared_op_t{cell, shared_p, i, alu_port_width, shared_operand});
+
+						// Remove merged ports from the list and try to find other mergers for the mux
+						remove_val(alu_ports, shared_ports);
+					}
+
+					if (alu_port_width)
+						i += alu_port_width - 1;
 				}
+
 			}
 
 			for (auto &shared : shared_ops) {
@@ -315,11 +445,11 @@ struct OptRmdffPass : public Pass {
 				    "of "
 				    "them:\n",
 				    log_id(shared.mux->type), log_id(shared.mux));
-				for (auto op : shared.operators)
-					log("        %s\n", log_id(op));
+				for (const auto& op : shared.ports)
+					log("        %s\n", log_id(op.alu));
 				log("\n");
 
-				merge_operators(module, shared.mux, shared.operators, shared.offset, shared.width, shared.shared_operand);
+				merge_operators(module, shared.mux, shared.ports, shared.offset, shared.width, shared.shared_operand);
 			}
 		}
 	}
