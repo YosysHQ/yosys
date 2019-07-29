@@ -456,25 +456,27 @@ void Frontend::extra_args(std::istream *&f, std::string &filename, std::vector<s
 				delete ff;
 			else
 				f = ff;
-			// Check for gzip magic
-			unsigned char magic[3];
-			int n = readsome(*ff, reinterpret_cast<char*>(magic), 3);
-			if (n == 3 && magic[0] == 0x1f && magic[1] == 0x8b) {
-#ifdef YOSYS_ENABLE_ZLIB
-				log("Found gzip magic in file `%s', decompressing using zlib.\n", filename.c_str());
-				if (magic[2] != 8)
-					log_cmd_error("gzip file `%s' uses unsupported compression type %02x\n",
-						filename.c_str(), unsigned(magic[2]));
-				delete ff;
-				std::stringstream *df = new std::stringstream();
-				decompress_gzip(filename, *df);
-				f = df;
-#else
-				log_cmd_error("File `%s' is a gzip file, but Yosys is compiled without zlib.\n", filename.c_str());
-#endif
-			} else {
-				ff->clear();
-				ff->seekg(0, std::ios::beg);
+			if (f != NULL) {
+				// Check for gzip magic
+				unsigned char magic[3];
+				int n = readsome(*ff, reinterpret_cast<char*>(magic), 3);
+				if (n == 3 && magic[0] == 0x1f && magic[1] == 0x8b) {
+	#ifdef YOSYS_ENABLE_ZLIB
+					log("Found gzip magic in file `%s', decompressing using zlib.\n", filename.c_str());
+					if (magic[2] != 8)
+						log_cmd_error("gzip file `%s' uses unsupported compression type %02x\n",
+							filename.c_str(), unsigned(magic[2]));
+					delete ff;
+					std::stringstream *df = new std::stringstream();
+					decompress_gzip(filename, *df);
+					f = df;
+	#else
+					log_cmd_error("File `%s' is a gzip file, but Yosys is compiled without zlib.\n", filename.c_str());
+	#endif
+				} else {
+					ff->clear();
+					ff->seekg(0, std::ios::beg);
+				}
 			}
 		}
 		if (f == NULL)
