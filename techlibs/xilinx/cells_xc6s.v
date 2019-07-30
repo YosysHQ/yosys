@@ -72,6 +72,10 @@ module PLL_ADV (...);
 endmodule
 
 module BUFIO2 (...);
+    parameter integer DIVIDE = 1;
+    parameter DIVIDE_BYPASS = "TRUE";
+    parameter I_INVERT = "FALSE";
+    parameter USE_DOUBLER = "FALSE";
     output DIVCLK;
     input I;
     output IOCLK;
