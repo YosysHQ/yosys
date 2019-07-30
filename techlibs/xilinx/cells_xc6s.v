@@ -34,7 +34,7 @@ module PLL_ADV (...);
     parameter integer DIVCLK_DIVIDE = 1;
     parameter EN_REL = "FALSE";
     parameter PLL_PMCD_MODE = "FALSE";
-    parameter real REF_JITTER1 = 0.100;
+    parameter real REF_JITTER = 0.100;
     parameter RESET_ON_LOSS_OF_LOCK = "FALSE";
     parameter RST_DEASSERT_CLK = "CLKIN1";
     parameter SIM_DEVICE = "SPARTAN6";
