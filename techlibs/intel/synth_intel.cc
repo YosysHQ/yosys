@@ -61,8 +61,8 @@ struct SynthIntelPass : public ScriptPass {
 		log("        from label is synonymous to 'begin', and empty to label is\n");
 		log("        synonymous to the end of the command list.\n");
 		log("\n");
-		log("    -noiopads\n");
-		log("        do not use IO pad cells in output netlist\n");
+		log("    -iopads\n");
+		log("        use IO pad cells in output netlist\n");
 		log("\n");
 		log("    -nobram\n");
 		log("        do not use block RAM cells in output netlist\n");
@@ -79,7 +79,7 @@ struct SynthIntelPass : public ScriptPass {
 	}
 
 	string top_opt, family_opt, vout_file, blif_file;
-	bool retime, flatten, nobram, noiopads;
+	bool retime, flatten, nobram, iopads;
 
 	void clear_flags() YS_OVERRIDE
 	{
@@ -90,7 +90,7 @@ struct SynthIntelPass : public ScriptPass {
 		retime = false;
 		flatten = true;
 		nobram = false;
-		noiopads = false;
+		iopads = false;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -125,8 +125,8 @@ struct SynthIntelPass : public ScriptPass {
 				run_to = args[argidx].substr(pos + 1);
 				continue;
 			}
-			if (args[argidx] == "-noiopads") {
-				noiopads = true;
+			if (args[argidx] == "-iopads") {
+				iopads = true;
 				continue;
 			}
 			if (args[argidx] == "-nobram") {
@@ -187,8 +187,15 @@ struct SynthIntelPass : public ScriptPass {
 		}
 
 		if (!nobram && check_label("map_bram", "(skip if -nobram)")) {
-			run("memory_bram -rules +/intel/common/brams.txt");
-			run("techmap -map +/intel/common/brams_map.v");
+                        if (family_opt == "cycloneiv" ||
+                            family_opt == "cycloneive" ||
+                            family_opt == "max10" ||
+                            help_mode) {
+				run("memory_bram -rules +/intel/common/brams_m9k.txt", "(if applicable for family)");
+				run("techmap -map +/intel/common/brams_map_m9k.v", "(if applicable for family)");
+			} else {
+				log_warning("BRAM mapping is not currently supported for %s.\n", family_opt.c_str());
+			}
 		}
 
 		if (check_label("map_ffram")) {
@@ -215,10 +222,9 @@ struct SynthIntelPass : public ScriptPass {
 		}
 
 		if (check_label("map_cells")) {
-			if (!noiopads)
-				run("iopadmap -bits -outpad $__outpad I:O -inpad $__inpad O:I", "(unless -noiopads)");
+			if (iopads || help_mode)
+				run("iopadmap -bits -outpad $__outpad I:O -inpad $__inpad O:I", "(if -iopads)");
                         run(stringf("techmap -map +/intel/%s/cells_map.v", family_opt.c_str()));
-
 			run("dffinit -highlow -ff dffeas q power_up");
 			run("clean -purge");
 		}
