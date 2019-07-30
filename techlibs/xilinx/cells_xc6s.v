@@ -1,3 +1,6 @@
+// UG615
+//   https://www.xilinx.com/support/documentation/sw_manuals/xilinx14_7/spartan6_hdl.pdf
+
 module PLL_ADV (...);
     parameter BANDWIDTH = "OPTIMIZED";
     parameter CLKFBOUT_DESKEW_ADJUST = "NONE";
@@ -67,3 +70,12 @@ module PLL_ADV (...);
     input REL;
     input RST;
 endmodule
+
+module BUFIO2 (...);
+    output DIVCLK;
+    input I;
+    output IOCLK;
+    output SERDESSTROBE;
+endmodule
+
+
