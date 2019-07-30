@@ -82,4 +82,8 @@ module BUFIO2 (...);
     output SERDESSTROBE;
 endmodule
 
-
+module IBUFG (...);
+    parameter IOSTANDARD = "DEFAULT";
+    output O;
+    input I;
+endmodule
