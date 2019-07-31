@@ -69,7 +69,6 @@ module \$mul (A, B, Y);
 		);
 	else if (A_SIGNED && (A_WIDTH > `DSP_A_MAXWIDTH || B_WIDTH > `DSP_B_MAXWIDTH)) begin
 		wire _;
-		assign Y[Y_WIDTH-1] = A[A_WIDTH-1] ^ B[B_WIDTH-1];
 		\$__mul #(
 			.A_SIGNED(A_SIGNED),
 			.B_SIGNED(B_SIGNED),
@@ -81,6 +80,8 @@ module \$mul (A, B, Y);
 			.B(B),
 			.Y({_,Y[Y_WIDTH-2:0]})
 		);
+		// For non-zero results, recompute sign bit
+		assign Y[Y_WIDTH-1] = (|Y[Y_WIDTH-2:0]) & (A[A_WIDTH-1] ^ B[B_WIDTH-1]);
 	end
 	else
 		\$__mul #(
