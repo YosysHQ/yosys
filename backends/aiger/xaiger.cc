@@ -610,15 +610,15 @@ struct XAigerWriter
 			std::stringstream h_buffer;
 			auto write_h_buffer = std::bind(write_buffer, std::ref(h_buffer), std::placeholders::_1);
 			write_h_buffer(1);
-			log_debug("ciNum = %zu\n", input_bits.size() + ci_bits.size());
+			log_debug("ciNum = %d\n", GetSize(input_bits) + GetSize(ci_bits));
 			write_h_buffer(input_bits.size() + ci_bits.size());
-			log_debug("coNum = %zu\n", output_bits.size() + co_bits.size());
+			log_debug("coNum = %d\n", GetSize(output_bits) + GetSize(co_bits));
 			write_h_buffer(output_bits.size() + co_bits.size());
-			log_debug("piNum = %zu\n", input_bits.size());
+			log_debug("piNum = %d\n", GetSize(input_bits));
 			write_h_buffer(input_bits.size());
-			log_debug("poNum = %zu\n", output_bits.size());
+			log_debug("poNum = %d\n", GetSize(output_bits));
 			write_h_buffer(output_bits.size());
-			log_debug("boxNum = %zu\n", box_list.size());
+			log_debug("boxNum = %d\n", GetSize(box_list));
 			write_h_buffer(box_list.size());
 
 			RTLIL::Module *holes_module = nullptr;
@@ -772,7 +772,7 @@ struct XAigerWriter
 
 				if (output_bits.count(b)) {
 					int o = ordered_outputs.at(b);
-					output_lines[o] += stringf("output %lu %d %s\n", o - co_bits.size(), i, log_id(wire));
+					output_lines[o] += stringf("output %d %d %s\n", o - GetSize(co_bits), i, log_id(wire));
 					continue;
 				}
 

@@ -869,9 +869,11 @@ config-mxe: clean
 
 config-msys2: clean
 	echo 'CONFIG := msys2' > Makefile.conf
+	echo 'ENABLE_PLUGINS := 0' >> Makefile.conf
 
 config-msys2-64: clean
 	echo 'CONFIG := msys2-64' > Makefile.conf
+	echo 'ENABLE_PLUGINS := 0' >> Makefile.conf
 
 config-cygwin: clean
 	echo 'CONFIG := cygwin' > Makefile.conf
