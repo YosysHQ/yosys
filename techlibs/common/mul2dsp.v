@@ -54,8 +54,22 @@ module \$mul (A, B, Y);
 	generate
 	if (A_SIGNED != B_SIGNED || A_WIDTH <= 1 || B_WIDTH <= 1)
 		wire _TECHMAP_FAIL_ = 1;
-	// NB: A_SIGNED == B_SIGNED == 0 from here
-	else if (A_WIDTH >= B_WIDTH)
+	// NB: A_SIGNED == B_SIGNED from here
+	else if (A_WIDTH < B_WIDTH)
+		\$mul #(
+			.A_SIGNED(B_SIGNED),
+			.B_SIGNED(A_SIGNED),
+			.A_WIDTH(B_WIDTH),
+			.B_WIDTH(A_WIDTH),
+			.Y_WIDTH(Y_WIDTH)
+		) _TECHMAP_REPLACE_ (
+			.A(B),
+			.B(A),
+			.Y(Y)
+		);
+	else if (A_SIGNED && (A_WIDTH > `DSP_A_MAXWIDTH || B_WIDTH > `DSP_B_MAXWIDTH)) begin
+		wire _;
+		assign Y[Y_WIDTH-1] = A[A_WIDTH-1] ^ B[B_WIDTH-1];
 		\$__mul #(
 			.A_SIGNED(A_SIGNED),
 			.B_SIGNED(B_SIGNED),
@@ -65,18 +79,19 @@ module \$mul (A, B, Y);
 		) _TECHMAP_REPLACE_ (
 			.A(A),
 			.B(B),
-			.Y(Y)
+			.Y({_,Y[Y_WIDTH-2:0]})
 		);
+	end
 	else
 		\$__mul #(
-			.A_SIGNED(B_SIGNED),
-			.B_SIGNED(A_SIGNED),
-			.A_WIDTH(B_WIDTH),
-			.B_WIDTH(A_WIDTH),
+			.A_SIGNED(A_SIGNED),
+			.B_SIGNED(B_SIGNED),
+			.A_WIDTH(A_WIDTH),
+			.B_WIDTH(B_WIDTH),
 			.Y_WIDTH(Y_WIDTH)
 		) _TECHMAP_REPLACE_ (
-			.A(B),
-			.B(A),
+			.A(A),
+			.B(B),
 			.Y(Y)
 		);
 	endgenerate
@@ -209,23 +224,27 @@ module \$__mul (A, B, Y);
 					.B({{sign_headroom{1'b0}}, B[i*(`DSP_B_MAXWIDTH-sign_headroom) +: `DSP_B_MAXWIDTH-sign_headroom]}),
 					.Y(partial[i])
 				);
-                // TODO: Currently a 'cascade' approach to summing the partial 
-                //       products is taken here, but a more efficient 'binary
-                //       reduction' approach also exists...
+				// TODO: Currently a 'cascade' approach to summing the partial 
+				//       products is taken here, but a more efficient 'binary
+				//       reduction' approach also exists...
 				assign partial_sum[i] = (partial[i] << i*(`DSP_B_MAXWIDTH-sign_headroom)) + partial_sum[i-1];
 			end
 
-			\$__mul #(
-				.A_SIGNED(A_SIGNED),
-				.B_SIGNED(B_SIGNED),
-				.A_WIDTH(A_WIDTH),
-				.B_WIDTH(B_WIDTH-(n-1)*(`DSP_B_MAXWIDTH-sign_headroom)),
-				.Y_WIDTH(last_Y_WIDTH)
-			) mul_last (
-				.A(A),
-				.B(B[B_WIDTH-1 : (n-1)*(`DSP_B_MAXWIDTH-sign_headroom)]),
-				.Y(last_partial)
-			);
+			localparam last_B_WIDTH = B_WIDTH-(n-1)*(`DSP_B_MAXWIDTH-sign_headroom);
+			if (A_SIGNED && B_SIGNED && last_B_WIDTH == 1)
+				assign last_partial = 0;
+			else
+				\$__mul #(
+					.A_SIGNED(A_SIGNED),
+					.B_SIGNED(B_SIGNED),
+					.A_WIDTH(A_WIDTH),
+					.B_WIDTH(last_B_WIDTH),
+					.Y_WIDTH(last_Y_WIDTH)
+				) mul_last (
+					.A(A),
+					.B(B[B_WIDTH-1 -: last_B_WIDTH]),
+					.Y(last_partial)
+				);
 			assign partial_sum[n-1] = (last_partial << (n-1)*(`DSP_B_MAXWIDTH-sign_headroom)) + partial_sum[n-2];
 			assign Y = partial_sum[n-1];
 		end
