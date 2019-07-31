@@ -130,17 +130,14 @@ commands and ``help <command>`` to print details on the specified command:
 
 	yosys> help help
 
-reading the design using the Verilog frontend:
+reading and elaborating the design using the Verilog frontend:
 
-	yosys> read_verilog tests/simple/fiedler-cooley.v
+	yosys> read -sv tests/simple/fiedler-cooley.v
+	yosys> hierarchy -top up3down5
 
 writing the design to the console in Yosys's internal format:
 
 	yosys> write_ilang
-
-elaborate design hierarchy:
-
-	yosys> hierarchy
 
 convert processes (``always`` blocks) to netlist elements and perform
 some simple optimizations:
@@ -163,51 +160,26 @@ write design netlist to a new Verilog file:
 
 	yosys> write_verilog synth.v
 
-a similar synthesis can be performed using yosys command line options only:
-
-	$ ./yosys -o synth.v -p hierarchy -p proc -p opt \
-	                     -p techmap -p opt tests/simple/fiedler-cooley.v
-
 or using a simple synthesis script:
 
 	$ cat synth.ys
-	read_verilog tests/simple/fiedler-cooley.v
-	hierarchy; proc; opt; techmap; opt
+	read -sv tests/simple/fiedler-cooley.v
+	hierarchy -top up3down5
+	proc; opt; techmap; opt
 	write_verilog synth.v
 
 	$ ./yosys synth.ys
-
-It is also possible to only have the synthesis commands but not the read/write
-commands in the synthesis script:
-
-	$ cat synth.ys
-	hierarchy; proc; opt; techmap; opt
-
-	$ ./yosys -o synth.v tests/simple/fiedler-cooley.v synth.ys
-
-The following very basic synthesis script should work well with all designs:
-
-	# check design hierarchy
-	hierarchy
-
-	# translate processes (always blocks)
-	proc; opt
-
-	# detect and optimize FSM encodings
-	fsm; opt
-
-	# implement memories (arrays)
-	memory; opt
-
-	# convert to gate logic
-	techmap; opt
 
 If ABC is enabled in the Yosys build configuration and a cell library is given
 in the liberty file ``mycells.lib``, the following synthesis script will
 synthesize for the given cell library:
 
+	# read design
+	read -sv tests/simple/fiedler-cooley.v
+	hierarchy -top up3down5
+
 	# the high-level stuff
-	hierarchy; proc; fsm; opt; memory; opt
+	proc; fsm; opt; memory; opt
 
 	# mapping to internal cell library
 	techmap; opt
@@ -222,7 +194,8 @@ synthesize for the given cell library:
 	clean
 
 If you do not have a liberty file but want to test this synthesis script,
-you can use the file ``examples/cmos/cmos_cells.lib`` from the yosys sources.
+you can use the file ``examples/cmos/cmos_cells.lib`` from the yosys sources
+as simple example.
 
 Liberty file downloads for and information about free and open ASIC standard
 cell libraries can be found here:
@@ -231,20 +204,18 @@ cell libraries can be found here:
 - http://www.vlsitechnology.org/synopsys/vsclib013.lib
 
 The command ``synth`` provides a good default synthesis script (see
-``help synth``).  If possible a synthesis script should borrow from ``synth``.
-For example:
+``help synth``):
 
-	# the high-level stuff
-	hierarchy
-	synth -run coarse
+	read -sv tests/simple/fiedler-cooley.v
+	synth -top up3down5
 
-	# mapping to internal cells
-	techmap; opt -fast
+	# mapping to target cells
 	dfflibmap -liberty mycells.lib
 	abc -liberty mycells.lib
 	clean
 
-Yosys is under construction. A more detailed documentation will follow.
+The command ``prep`` provides a good default word-level synthesis script, as
+used in SMT-based formal verification.
 
 
 Unsupported Verilog-2005 Features

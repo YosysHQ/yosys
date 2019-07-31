@@ -2484,7 +2484,7 @@ struct ReadPass : public Pass {
 				args[0] = "verific";
 			} else {
 				args[0] = "read_verilog";
-				args.erase(args.begin()+1, args.begin()+2);
+				args[1] = "-defer";
 			}
 			Pass::call(design, args);
 			return;
@@ -2498,6 +2498,7 @@ struct ReadPass : public Pass {
 				if (args[1] == "-formal")
 					args.insert(args.begin()+1, std::string());
 				args[1] = "-sv";
+				args.insert(args.begin()+1, "-defer");
 			}
 			Pass::call(design, args);
 			return;
