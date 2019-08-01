@@ -25,6 +25,26 @@
 #include <stdio.h>
 #include <errno.h>
 
+#ifdef YOSYS_ENABLE_ZLIB
+#include <zlib.h>
+
+PRIVATE_NAMESPACE_BEGIN
+#define GZ_BUFFER_SIZE 8192
+void decompress_gzip(const std::string &filename, std::stringstream &out)
+{
+	char buffer[GZ_BUFFER_SIZE];
+	int bytes_read;
+	gzFile gzf = gzopen(filename.c_str(), "rb");
+	while(!gzeof(gzf)) {
+		bytes_read = gzread(gzf, reinterpret_cast<void *>(buffer), GZ_BUFFER_SIZE);
+		out.write(buffer, bytes_read);
+	}
+	gzclose(gzf);
+}
+PRIVATE_NAMESPACE_END
+
+#endif
+
 YOSYS_NAMESPACE_BEGIN
 
 #define MAX_REG_COUNT 1000
@@ -436,6 +456,28 @@ void Frontend::extra_args(std::istream *&f, std::string &filename, std::vector<s
 				delete ff;
 			else
 				f = ff;
+			if (f != NULL) {
+				// Check for gzip magic
+				unsigned char magic[3];
+				int n = readsome(*ff, reinterpret_cast<char*>(magic), 3);
+				if (n == 3 && magic[0] == 0x1f && magic[1] == 0x8b) {
+	#ifdef YOSYS_ENABLE_ZLIB
+					log("Found gzip magic in file `%s', decompressing using zlib.\n", filename.c_str());
+					if (magic[2] != 8)
+						log_cmd_error("gzip file `%s' uses unsupported compression type %02x\n",
+							filename.c_str(), unsigned(magic[2]));
+					delete ff;
+					std::stringstream *df = new std::stringstream();
+					decompress_gzip(filename, *df);
+					f = df;
+	#else
+					log_cmd_error("File `%s' is a gzip file, but Yosys is compiled without zlib.\n", filename.c_str());
+	#endif
+				} else {
+					ff->clear();
+					ff->seekg(0, std::ios::beg);
+				}
+			}
 		}
 		if (f == NULL)
 			log_cmd_error("Can't open input file `%s' for reading: %s\n", filename.c_str(), strerror(errno));

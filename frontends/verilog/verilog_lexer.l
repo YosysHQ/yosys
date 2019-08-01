@@ -70,6 +70,9 @@ YOSYS_NAMESPACE_END
 #define YY_INPUT(buf,result,max_size) \
 	result = readsome(*VERILOG_FRONTEND::lexin, buf, max_size)
 
+#undef YY_BUF_SIZE
+#define YY_BUF_SIZE 65536
+
 %}
 
 %option yylineno

@@ -36,6 +36,7 @@ matrix:
             - libboost-system-dev
             - libboost-python-dev
             - libboost-filesystem-dev
+            - zlib1g-dev
       env:
         - MATRIX_EVAL="CONFIG=gcc && CC=gcc-4.8 && CXX=g++-4.8"
 
@@ -64,6 +65,7 @@ matrix:
             - libboost-system-dev
             - libboost-python-dev
             - libboost-filesystem-dev
+            - zlib1g-dev
       env:
         - MATRIX_EVAL="CONFIG=gcc && CC=gcc-6 && CXX=g++-6"
 
@@ -92,6 +94,7 @@ matrix:
             - libboost-system-dev
             - libboost-python-dev
             - libboost-filesystem-dev
+            - zlib1g-dev
       env:
         - MATRIX_EVAL="CONFIG=gcc && CC=gcc-7 && CXX=g++-7"
 
@@ -121,6 +124,7 @@ matrix:
             - libboost-system-dev
             - libboost-python-dev
             - libboost-filesystem-dev
+            - zlib1g-dev
       env:
         - MATRIX_EVAL="CONFIG=clang && CC=clang-3.8 && CXX=clang++-3.8"
 
@@ -149,6 +153,7 @@ matrix:
             - libboost-system-dev
             - libboost-python-dev
             - libboost-filesystem-dev
+            - zlib1g-dev
       env:
         - MATRIX_EVAL="CONFIG=clang && CC=clang-5.0 && CXX=clang++-5.0"
 
