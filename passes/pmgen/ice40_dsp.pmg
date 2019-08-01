@@ -112,7 +112,7 @@ code addAB sigCD sigCD_signed sigO
 
 		if ((actual_acc_width > actual_mul_width) && (natural_mul_width > actual_mul_width))
 			reject;
-		if ((actual_acc_width != actual_mul_width) && (param(mul, \A_SIGNED).as_bool() != param(addAB, \A_SIGNED).as_bool()))
+		if ((actual_acc_width != actual_mul_width) && (param(mul, \A_SIGNED).as_bool() != param(addAB, \B_SIGNED).as_bool()))
 			reject;
 
 		sigO = port(addAB, \Y);
