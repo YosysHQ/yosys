@@ -52,7 +52,7 @@ module \$mul (A, B, Y);
 	output [Y_WIDTH-1:0] Y;
 
 	generate
-	if (A_SIGNED != B_SIGNED || A_WIDTH <= 1 || B_WIDTH <= 1)
+	if (A_SIGNED != B_SIGNED)
 		wire _TECHMAP_FAIL_ = 1;
 	// NB: A_SIGNED == B_SIGNED from here
 	else if (A_WIDTH < B_WIDTH)
@@ -103,10 +103,17 @@ module \$__mul (A, B, Y);
 
 	genvar i;
 	generate
-		if (A_WIDTH <= 1 || B_WIDTH <= 1)
+        if (0) begin end
+`ifdef DSP_A_MINWIDTH
+		else if (A_WIDTH < `DSP_A_MINWIDTH)
 			wire _TECHMAP_FAIL_ = 1;
-`ifdef DSP_MINWIDTH
-		else if (A_WIDTH+B_WIDTH < `DSP_MINWIDTH || Y_WIDTH < `DSP_MINWIDTH)
+`endif
+`ifdef DSP_B_MINWIDTH
+		else if (B_WIDTH < `DSP_B_MINWIDTH)
+			wire _TECHMAP_FAIL_ = 1;
+`endif
+`ifdef DSP_Y_MINWIDTH
+		else if (Y_WIDTH < `DSP_Y_MINWIDTH)
 			wire _TECHMAP_FAIL_ = 1;
 `endif
 		else if (A_WIDTH > `DSP_A_MAXWIDTH) begin

@@ -266,7 +266,7 @@ struct SynthIce40Pass : public ScriptPass
 			run("opt_expr");
 			run("opt_clean");
 			if (help_mode || dsp) {
-				run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=16 -D DSP_B_MAXWIDTH=16 -D DSP_MINWIDTH=11 -D DSP_NAME=$__MUL16X16", "(if -dsp)");
+				run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=16 -D DSP_B_MAXWIDTH=16 -D DSP_A_MINWIDTH=2 -D DSP_B_MINWIDTH=2 -D DSP_Y_MINWIDTH=11 -D DSP_NAME=$__MUL16X16", "(if -dsp)");
 				run("opt_expr", "                     (if -dsp)");
 				run("wreduce", "                      (if -dsp)");
 				run("ice40_dsp", "                    (if -dsp)");
