@@ -67,22 +67,6 @@ module \$mul (A, B, Y);
 			.B(A),
 			.Y(Y)
 		);
-	else if (A_SIGNED && (A_WIDTH > `DSP_A_MAXWIDTH || B_WIDTH > `DSP_B_MAXWIDTH)) begin
-		wire _;
-		\$__mul #(
-			.A_SIGNED(A_SIGNED),
-			.B_SIGNED(B_SIGNED),
-			.A_WIDTH(A_WIDTH),
-			.B_WIDTH(B_WIDTH),
-			.Y_WIDTH(Y_WIDTH)
-		) _TECHMAP_REPLACE_ (
-			.A(A),
-			.B(B),
-			.Y({_,Y[Y_WIDTH-2:0]})
-		);
-		// For non-zero results, recompute sign bit
-		assign Y[Y_WIDTH-1] = (|Y[Y_WIDTH-2:0]) & (A[A_WIDTH-1] ^ B[B_WIDTH-1]);
-	end
 	else
 		\$__mul #(
 			.A_SIGNED(A_SIGNED),
@@ -171,14 +155,15 @@ module \$__mul (A, B, Y);
 				assign partial_sum[i] = (partial[i] << i*(`DSP_A_MAXWIDTH-sign_headroom)) + partial_sum[i-1];
 			end
 
+			localparam last_A_WIDTH = A_WIDTH-(n-1)*(`DSP_A_MAXWIDTH-sign_headroom);
 			\$__mul #(
 				.A_SIGNED(A_SIGNED),
 				.B_SIGNED(B_SIGNED),
-				.A_WIDTH(A_WIDTH-(n-1)*(`DSP_A_MAXWIDTH-sign_headroom)),
+				.A_WIDTH(last_A_WIDTH),
 				.B_WIDTH(B_WIDTH),
 				.Y_WIDTH(last_Y_WIDTH)
 			) mul_slice_last (
-				.A(A[A_WIDTH-1 : (n-1)*(`DSP_A_MAXWIDTH-sign_headroom)]),
+				.A(A[A_WIDTH-1 -: last_A_WIDTH]),
 				.B(B),
 				.Y(last_partial)
 			);
@@ -232,20 +217,17 @@ module \$__mul (A, B, Y);
 			end
 
 			localparam last_B_WIDTH = B_WIDTH-(n-1)*(`DSP_B_MAXWIDTH-sign_headroom);
-			if (A_SIGNED && B_SIGNED && last_B_WIDTH == 1)
-				assign last_partial = 0;
-			else
-				\$__mul #(
-					.A_SIGNED(A_SIGNED),
-					.B_SIGNED(B_SIGNED),
-					.A_WIDTH(A_WIDTH),
-					.B_WIDTH(last_B_WIDTH),
-					.Y_WIDTH(last_Y_WIDTH)
-				) mul_last (
-					.A(A),
-					.B(B[B_WIDTH-1 -: last_B_WIDTH]),
-					.Y(last_partial)
-				);
+			\$__mul #(
+				.A_SIGNED(A_SIGNED),
+				.B_SIGNED(B_SIGNED),
+				.A_WIDTH(A_WIDTH),
+				.B_WIDTH(last_B_WIDTH),
+				.Y_WIDTH(last_Y_WIDTH)
+			) mul_last (
+				.A(A),
+				.B(B[B_WIDTH-1 -: last_B_WIDTH]),
+				.Y(last_partial)
+			);
 			assign partial_sum[n-1] = (last_partial << (n-1)*(`DSP_B_MAXWIDTH-sign_headroom)) + partial_sum[n-2];
 			assign Y = partial_sum[n-1];
 		end
