@@ -86,14 +86,16 @@ void pack_xilinx_dsp(xilinx_dsp_pm &pm)
 			else
 				D = st.ffP->getPort("\\D");
 			SigSpec Q = st.ffP->getPort("\\Q");
-			P.replace(D, Q);
-			cell->setPort("\\P", Q);
+			P.replace(pm.sigmap(D), Q);
+			cell->setPort("\\P", P);
 			cell->setParam("\\PREG", State::S1);
 			if (st.ffP->type == "$dff")
 				cell->setPort("\\CEP", State::S1);
 			else if (st.ffP->type == "$dffe")
 				cell->setPort("\\CEP", st.ffP->getPort("\\EN"));
 			else log_abort();
+
+			st.ffP->connections_.at("\\Q").replace(P, pm.module->addWire(NEW_ID, GetSize(P)));
 		}
 
 		log("  clock: %s (%s)", log_signal(st.clock), "posedge");
