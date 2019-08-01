@@ -12,6 +12,7 @@ match mul
 endmatch
 
 match ffA
+			    // TODO: Support $dffe too by checking if all enable signals are identical
 	select ffA->type.in($dff)
 	filter !port(mul, \A).remove_const().empty()
 	filter includes(port(ffA, \Q).to_sigbit_set(), port(mul, \A).remove_const().to_sigbit_set())
