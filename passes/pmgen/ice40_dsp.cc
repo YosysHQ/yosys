@@ -72,17 +72,17 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 	pm.module->swap_names(cell, st.mul);
 
 	// SB_MAC16 Input Interface
-	bool a_signed = st.mul->getParam("\\A_SIGNED").as_bool();
-	bool b_signed = st.mul->getParam("\\B_SIGNED").as_bool();
-
 	SigSpec A = st.sigA;
-	A.extend_u0(16, a_signed);
+	log_assert(GetSize(A) == 16);
 
 	SigSpec B = st.sigB;
-	B.extend_u0(16, b_signed);
+	log_assert(GetSize(B) == 16);
 
 	SigSpec CD = st.sigCD;
-	CD.extend_u0(32, st.sigCD_signed);
+	if (CD.empty())
+		CD = RTLIL::Const(0, 32);
+	else
+		log_assert(GetSize(CD) == 32);
 
 	cell->setPort("\\A", A);
 	cell->setPort("\\B", B);
@@ -217,8 +217,8 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 	cell->setParam("\\BOTADDSUB_CARRYSELECT", Const(0, 2));
 
 	cell->setParam("\\MODE_8x8", State::S0);
-	cell->setParam("\\A_SIGNED", a_signed);
-	cell->setParam("\\B_SIGNED", b_signed);
+	cell->setParam("\\A_SIGNED", st.mul->getParam("\\A_SIGNED").as_bool());
+	cell->setParam("\\B_SIGNED", st.mul->getParam("\\B_SIGNED").as_bool());
 
 	pm.autoremove(st.mul);
 	pm.autoremove(st.ffH);

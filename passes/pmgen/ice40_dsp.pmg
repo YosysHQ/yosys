@@ -1,7 +1,7 @@
 pattern ice40_dsp
 
 state <SigBit> clock
-state <bool> clock_pol sigCD_signed
+state <bool> clock_pol
 state <SigSpec> sigA sigB sigCD sigH sigO
 state <Cell*> addAB muxAB
 
@@ -94,16 +94,16 @@ match addB
 	optional
 endmatch
 
-code addAB sigCD sigCD_signed sigO
+code addAB sigCD sigO
 	if (addA) {
 		addAB = addA;
 		sigCD = port(addAB, \B);
-		sigCD_signed = param(addAB, \B_SIGNED).as_bool();
+                sigCD.extend_u0(32, param(addAB, \B_SIGNED).as_bool());
 	}
 	if (addB) {
 		addAB = addB;
 		sigCD = port(addAB, \A);
-		sigCD_signed = param(addAB, \A_SIGNED).as_bool();
+                sigCD.extend_u0(32, param(addAB, \A_SIGNED).as_bool());
 	}
 	if (addAB) {
 		int natural_mul_width = GetSize(sigA) + GetSize(sigB);
@@ -155,7 +155,7 @@ match ffO_hi
 	optional
 endmatch
 
-code clock clock_pol sigO sigCD sigCD_signed
+code clock clock_pol sigO sigCD
 	if (ffO_lo || ffO_hi) {
 		if (ffO_lo) {
 			SigBit c = port(ffO_lo, \CLK).as_bit();
@@ -195,7 +195,7 @@ code clock clock_pol sigO sigCD sigCD_signed
 			else if (muxB)
 				sigCD = port(muxAB, \A);
 			else log_abort();
-			sigCD_signed = addAB && param(addAB, \A_SIGNED).as_bool() && param(addAB, \B_SIGNED).as_bool();
+                        sigCD.extend_u0(32, addAB && param(addAB, \A_SIGNED).as_bool() && param(addAB, \B_SIGNED).as_bool());
 		}
 	}
 endcode
