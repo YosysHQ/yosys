@@ -55,6 +55,22 @@ module \$mul (A, B, Y);
 	if (A_SIGNED != B_SIGNED)
 		wire _TECHMAP_FAIL_ = 1;
 	// NB: A_SIGNED == B_SIGNED from here
+`ifdef DSP_SIGNEDONLY
+	else if (!A_SIGNED) begin
+		wire [1:0] _;
+		\$mul #(
+			.A_SIGNED(1),
+			.B_SIGNED(1),
+			.A_WIDTH(A_WIDTH + 1),
+			.B_WIDTH(B_WIDTH + 1),
+			.Y_WIDTH(Y_WIDTH + 2)
+		) _TECHMAP_REPLACE_ (
+			.A({1'b0, A}),
+			.B({1'b0, B}),
+			.Y({_, Y})
+		);
+	end
+`endif
 	else if (A_WIDTH < B_WIDTH)
 		\$mul #(
 			.A_SIGNED(B_SIGNED),
