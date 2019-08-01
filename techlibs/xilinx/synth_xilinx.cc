@@ -334,6 +334,7 @@ struct SynthXilinxPass : public ScriptPass
 			if (help_mode || !nodsp) {
 				run("techmap -map +/xilinx/dsp_map.v", "(skip if '-nodsp')");
 				run("xilinx_dsp", "                     (skip if '-nodsp')");
+				run("chtype -set $mul t:$__soft_mul","  (skip if '-nodsp')");
 			}
 			if (help_mode) {
 				run("simplemap t:$mux", "         ('-widemux' only)");
