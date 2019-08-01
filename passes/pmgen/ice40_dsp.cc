@@ -147,7 +147,12 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 	int O_width = GetSize(O);
 	if (O_width == 33) {
 		log_assert(st.addAB);
-		cell->setPort("\\CO", O[-1]);
+		// If we have a signed multiply-add, then perform sign extension
+		// TODO: Need to check CD[31:16] is sign extension of CD[15:0]?
+		if (st.addAB->getParam("\\A_SIGNED").as_bool() && st.addAB->getParam("\\B_SIGNED").as_bool())
+			pm.module->connect(O[-1], O[-2]);
+		else
+			cell->setPort("\\CO", O[-1]);
 		O.remove(O_width-1);
 	}
 	else
