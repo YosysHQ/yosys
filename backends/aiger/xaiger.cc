@@ -53,7 +53,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 inline int32_t to_big_endian(int32_t i32) {
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-	return __builtin_bswap32(i32);
+	return bswap32(i32);
 #elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 	return i32;
 #else

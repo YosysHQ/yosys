@@ -49,6 +49,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <cctype>
 #include <cerrno>
 #include <sstream>
 #include <climits>
