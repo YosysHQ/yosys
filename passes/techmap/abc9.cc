@@ -82,7 +82,7 @@ void handle_loops(RTLIL::Design *design)
 {
 	Pass::call(design, "scc -set_attr abc_scc_id {}");
 
-        dict<IdString, vector<IdString>> abc_scc_break;
+	dict<IdString, vector<IdString>> abc_scc_break;
 
 	// For every unique SCC found, (arbitrarily) find the first
 	// cell in the component, and select (and mark) all its output
@@ -290,7 +290,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		bool cleanup, vector<int> lut_costs, bool dff_mode, std::string clk_str,
 		bool /*keepff*/, std::string delay_target, std::string /*lutin_shared*/, bool fast_mode,
 		bool show_tempdir, std::string box_file, std::string lut_file,
-		std::string wire_delay)
+		std::string wire_delay, const dict<int,IdString> &box_lookup)
 {
 	module = current_module;
 	map_autoidx = autoidx++;
@@ -429,9 +429,9 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		RTLIL::Selection& sel = design->selection_stack.back();
 		sel.select(module);
 
-		Pass::call(design, "aigmap");
-
 		handle_loops(design);
+
+		Pass::call(design, "aigmap");
 
 		//log("Extracted %d gates and %d wires to a netlist network with %d inputs and %d outputs.\n",
 		//		count_gates, GetSize(signal_list), count_input, count_output);
@@ -476,7 +476,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		}
 		module->fixup_ports();
 
-
 		log_header(design, "Executing ABC9.\n");
 
 		if (!lut_costs.empty()) {
@@ -520,8 +519,9 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 
 		buffer = stringf("%s/%s", tempdir_name.c_str(), "input.sym");
 		log_assert(!design->module("$__abc9__"));
+
 		AigerReader reader(design, ifs, "$__abc9__", "" /* clk_name */, buffer.c_str() /* map_filename */, true /* wideports */);
-		reader.parse_xaiger();
+		reader.parse_xaiger(box_lookup);
 		ifs.close();
 
 #if 0
@@ -646,6 +646,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			}
 			else {
 				existing_cell = module->cell(c->name);
+				log_assert(existing_cell);
 				cell = module->addCell(remap_name(c->name), c->type);
 				module->swap_names(cell, existing_cell);
 			}
@@ -1081,6 +1082,21 @@ struct Abc9Pass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		dict<int,IdString> box_lookup;
+		for (auto m : design->modules()) {
+			auto it = m->attributes.find("\\abc_box_id");
+			if (it == m->attributes.end())
+				continue;
+			if (m->name.begins_with("$paramod"))
+				continue;
+			auto id = it->second.as_int();
+			auto r = box_lookup.insert(std::make_pair(id, m->name));
+			if (!r.second)
+				log_error("Module '%s' has the same abc_box_id = %d value as '%s'.\n",
+						log_id(m), id, log_id(r.first->second));
+			log_assert(r.second);
+		}
+
 		for (auto mod : design->selected_modules())
 		{
 			if (mod->attributes.count("\\abc_box_id"))
@@ -1096,7 +1112,7 @@ struct Abc9Pass : public Pass {
 			if (!dff_mode || !clk_str.empty()) {
 				abc9_module(design, mod, script_file, exe_file, cleanup, lut_costs, dff_mode, clk_str, keepff,
 						delay_target, lutin_shared, fast_mode, show_tempdir,
-						box_file, lut_file, wire_delay);
+						box_file, lut_file, wire_delay, box_lookup);
 				continue;
 			}
 
@@ -1242,7 +1258,7 @@ struct Abc9Pass : public Pass {
 				en_sig = assign_map(std::get<3>(it.first));
 				abc9_module(design, mod, script_file, exe_file, cleanup, lut_costs, !clk_sig.empty(), "$",
 						keepff, delay_target, lutin_shared, fast_mode, show_tempdir,
-						box_file, lut_file, wire_delay);
+						box_file, lut_file, wire_delay, box_lookup);
 				assign_map.set(mod);
 			}
 		}
