@@ -783,7 +783,7 @@ struct FlowmapWorker
 		int depth = 0;
 		for (auto label : labels)
 			depth = max(depth, label.second);
-		log("Mapped to %zu LUTs with maximum depth %d.\n", lut_nodes.size(), depth);
+		log("Mapped to %d LUTs with maximum depth %d.\n", GetSize(lut_nodes), depth);
 
 		if (debug)
 		{
@@ -1195,7 +1195,7 @@ struct FlowmapWorker
 
 	bool relax_depth_for_bound(bool first, int depth_bound, dict<RTLIL::SigBit, pool<RTLIL::SigBit>> &lut_critical_outputs)
 	{
-		size_t initial_count = lut_nodes.size();
+		int initial_count = GetSize(lut_nodes);
 
 		for (auto node : lut_nodes)
 		{
@@ -1215,7 +1215,7 @@ struct FlowmapWorker
 
 			if (potentials.empty())
 			{
-				log("  Relaxed to %zu (+%zu) LUTs.\n", lut_nodes.size(), lut_nodes.size() - initial_count);
+				log("  Relaxed to %d (+%d) LUTs.\n", GetSize(lut_nodes), GetSize(lut_nodes) - initial_count);
 				if (!first && break_num == 1)
 				{
 					log("  Design fully relaxed.\n");
@@ -1419,9 +1419,9 @@ struct FlowmapWorker
 			lut_area += lut_table.size();
 
 			if ((int)input_nodes.size() >= minlut)
-				log("  Packed into a %zu-LUT %s.%s.\n", input_nodes.size(), log_id(module), log_id(lut));
+				log("  Packed into a %d-LUT %s.%s.\n", GetSize(input_nodes), log_id(module), log_id(lut));
 			else
-				log("  Packed into a %zu-LUT %s.%s (implemented as %d-LUT).\n", input_nodes.size(), log_id(module), log_id(lut), minlut);
+				log("  Packed into a %d-LUT %s.%s (implemented as %d-LUT).\n", GetSize(input_nodes), log_id(module), log_id(lut), minlut);
 		}
 
 		for (auto node : mapped_nodes)

@@ -261,7 +261,8 @@ CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
 LDFLAGS := $(filter-out -rdynamic,$(LDFLAGS)) -s
 LDLIBS := $(filter-out -lrt,$(LDLIBS))
 ABCMKARGS += ARCHFLAGS="-DWIN32_NO_DLL -DHAVE_STRUCT_TIMESPEC -fpermissive -w"
-ABCMKARGS += LIBS="lib/x86/pthreadVC2.lib -s" ABC_USE_NO_READLINE=1 CC="/usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-gcc"
+# TODO: Try to solve pthread linking issue in more appropriate way
+ABCMKARGS += LIBS="lib/x86/pthreadVC2.lib -s" LDFLAGS="-Wl,--allow-multiple-definition" ABC_USE_NO_READLINE=1 CC="/usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-gcc"
 EXE = .exe
 
 else ifeq ($(CONFIG),msys2)
@@ -401,7 +402,7 @@ endif
 
 ifeq ($(CONFIG),mxe)
 CXXFLAGS += -DYOSYS_ENABLE_TCL
-LDLIBS += -ltcl86 -lwsock32 -lws2_32 -lnetapi32 -lz
+LDLIBS += -ltcl86 -lwsock32 -lws2_32 -lnetapi32 -lz -luserenv
 else
 CXXFLAGS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKG_CONFIG) --silence-errors --cflags tcl || echo -I$(TCL_INCLUDE)) -DYOSYS_ENABLE_TCL
 ifeq ($(OS), FreeBSD)
@@ -869,9 +870,11 @@ config-mxe: clean
 
 config-msys2: clean
 	echo 'CONFIG := msys2' > Makefile.conf
+	echo 'ENABLE_PLUGINS := 0' >> Makefile.conf
 
 config-msys2-64: clean
 	echo 'CONFIG := msys2-64' > Makefile.conf
+	echo 'ENABLE_PLUGINS := 0' >> Makefile.conf
 
 config-cygwin: clean
 	echo 'CONFIG := cygwin' > Makefile.conf

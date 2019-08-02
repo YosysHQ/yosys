@@ -69,7 +69,7 @@ struct AnlogicEqnPass : public Pass {
 
 		extra_args(args, args.size(), design);
 
-		size_t cnt = 0;
+		int cnt = 0;
 		for (auto module : design->selected_modules())
 		{
 			for (auto cell : module->selected_cells())
@@ -106,7 +106,7 @@ struct AnlogicEqnPass : public Pass {
 				}
 			}
 		}
-		log_header(design, "Updated %lu of AL_MAP_LUT* elements with equation.\n", cnt);
+		log_header(design, "Updated %d of AL_MAP_LUT* elements with equation.\n", cnt);
 	}
 } AnlogicEqnPass;
 
