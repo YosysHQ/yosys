@@ -736,6 +736,8 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			}
 		}
 
+		// TODO: Move this optimisation into parse_xaiger, so that we
+		//       can get save on the "clean" call at the end of this function
 		for (auto &it : bit_users)
 			if (bit_drivers.count(it.first))
 				for (auto driver_cell : bit_drivers.at(it.first))
