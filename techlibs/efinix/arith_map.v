@@ -1,0 +1,78 @@
+/*
+ *  yosys -- Yosys Open SYnthesis Suite
+ *
+ *  Copyright (C) 2018  Miodrag Milanovic <miodrag@symbioticeda.com>
+ *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *
+ *  Permission to use, copy, modify, and/or distribute this software for any
+ *  purpose with or without fee is hereby granted, provided that the above
+ *  copyright notice and this permission notice appear in all copies.
+ *
+ *  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ *  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ *  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ *  ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ *  WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ *  ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
+ */
+
+(* techmap_celltype = "$alu" *)
+module _80_efinix_alu (A, B, CI, BI, X, Y, CO);
+	parameter A_SIGNED = 0;
+	parameter B_SIGNED = 0;
+	parameter A_WIDTH  = 1;
+	parameter B_WIDTH  = 1;
+	parameter Y_WIDTH  = 1;
+
+	input [A_WIDTH-1:0] A;
+	input [B_WIDTH-1:0] B;
+	output [Y_WIDTH-1:0] X, Y;
+
+	input CI, BI;
+	output CO;
+
+	wire _TECHMAP_FAIL_ = Y_WIDTH <= 2;
+
+	wire [Y_WIDTH-1:0] A_buf, B_buf;
+	\$pos #(.A_SIGNED(A_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(Y_WIDTH)) A_conv (.A(A), .Y(A_buf));
+	\$pos #(.A_SIGNED(B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(Y_WIDTH)) B_conv (.A(B), .Y(B_buf));
+
+	wire [Y_WIDTH-1:0] AA = A_buf;
+	wire [Y_WIDTH-1:0] BB = BI ? ~B_buf : B_buf;
+	wire [Y_WIDTH+1:0] COx;
+	wire [Y_WIDTH+2:0] C = {COx, CI};
+
+   EFX_ADD #(.I0_POLARITY(1'b1),.I1_POLARITY(1'b1))
+   adder_cin  (
+        .I0(C[0]),
+        .I1(1'b1),
+        .CI(1'b0),
+        .CO(COx[0])
+	);
+
+	genvar i;
+	generate for (i = 0; i < Y_WIDTH; i = i + 1) begin: slice
+      EFX_ADD #(.I0_POLARITY(1'b1),.I1_POLARITY(1'b1))
+      adder_i (
+            .I0(AA[i]),
+            .I1(BB[i]),
+            .CI(C[i+1]),
+            .O(Y[i]),
+            .CO(COx[i+1])
+        );
+	  end: slice
+	endgenerate
+
+   EFX_ADD #(.I0_POLARITY(1'b1),.I1_POLARITY(1'b1))				
+   adder_cout  (
+      .I0(1'b0),
+      .I1(1'b0),
+      .CI(C[Y_WIDTH+1]),
+      .O(COx[Y_WIDTH+1])
+   );
+   assign CO = COx[Y_WIDTH+1];
+	/* End implementation */
+	assign X = AA ^ BB;
+endmodule
