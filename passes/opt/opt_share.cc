@@ -2,6 +2,7 @@
  *  yosys -- Yosys Open SYnthesis Suite
  *
  *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *                2019  Bogdan Vukobratovic <bogdan.vukobratovic@gmail.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -308,17 +309,20 @@ void remove_multi_user_outbits(RTLIL::Module *module, dict<RTLIL::SigBit, RTLIL:
 	}
 }
 
-struct OptRmdffPass : public Pass {
-	OptRmdffPass() : Pass("opt_share", "merge arithmetic operators that share an operand") {}
+struct OptSharePass : public Pass {
+	OptSharePass() : Pass("opt_share", "merge arithmetic operators that share an operand") {}
 	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
 		log("    opt_share [selection]\n");
 		log("\n");
-		log("This pass identifies arithmetic operators that share an operand and whose\n");
-		log("results are used in mutually exclusive cases controlled by a multiplexer,\n");
-		log("and merges them together by multiplexing the other operands.\n");
+
+		log("This pass identifies mutually exclusive $alu arithmetic cells that:\n");
+		log("    (a) share an input operand\n");
+		log("    (b) drive the same $mux, $_MUX_, or $pmux multiplexing cell allowing\n");
+		log("        the $alu cell to be merged and the multiplexer to be moved from\n");
+		log("        multiplexing its output to multiplexing the non-shared input operands.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string>, RTLIL::Design *design) YS_OVERRIDE
@@ -454,6 +458,6 @@ struct OptRmdffPass : public Pass {
 		}
 	}
 
-} OptRmdffPass;
+} OptSharePass;
 
 PRIVATE_NAMESPACE_END
