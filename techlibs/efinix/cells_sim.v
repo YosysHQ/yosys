@@ -34,3 +34,11 @@ module EFX_FF(
    parameter SR_SYNC_PRIORITY = 0;
    parameter D_POLARITY = 1;
 endmodule
+
+module EFX_GBUFCE (
+   input CE,
+   input I,
+   output O
+);
+   parameter CE_POLARITY = 1'b1;
+endmodule

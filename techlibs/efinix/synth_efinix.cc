@@ -181,6 +181,12 @@ struct SynthEfinixPass : public ScriptPass
 			run("clean");
 		}
 
+		if (check_label("map_gbuf"))
+		{
+			run("efinix_gbuf");
+			run("clean");
+		}
+		
 		if (check_label("check"))
 		{
 			run("hierarchy -check");
