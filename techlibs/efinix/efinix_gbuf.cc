@@ -38,6 +38,12 @@ static void handle_gbufs(Module *module)
 			for (auto bit : sigmap(cell->getPort("\\CLK")))
 				clk_bits.insert(bit);
 		}
+		if (cell->type == "\\EFX_RAM_5K") {
+			for (auto bit : sigmap(cell->getPort("\\RCLK")))
+				clk_bits.insert(bit);
+			for (auto bit : sigmap(cell->getPort("\\WCLK")))
+				clk_bits.insert(bit);
+		}
 	}
 
 	for (auto wire : vector<Wire*>(module->wires()))
