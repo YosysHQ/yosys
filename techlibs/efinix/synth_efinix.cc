@@ -150,6 +150,13 @@ struct SynthEfinixPass : public ScriptPass
 			run("synth -run coarse");
 		}
 
+		if (check_label("map_bram", "(skip if -nobram)"))
+		{
+			run("memory_bram -rules +/efinix/bram.txt");
+			run("techmap -map +/efinix/brams_map.v");
+			run("efinix_determine_init");
+		}
+
 		if (check_label("fine"))
 		{
 			run("opt -fast -mux_undef -undriven -fine");
