@@ -91,7 +91,7 @@ YS_NORETURN void log_cmd_error(const char *format, ...) YS_ATTRIBUTE(format(prin
 static inline bool ys_debug(int n = 0) { if (log_force_debug) return true; log_debug_suppressed += n; return false; }
 #  define log_debug(...) do { if (ys_debug(1)) log(__VA_ARGS__); } while (0)
 #else
-static inline bool ys_debug(int n = 0) { return false; }
+static inline bool ys_debug(int n = 0) { (void) n; return false; }
 #  define log_debug(_fmt, ...) do { } while (0)
 #endif
 
@@ -154,7 +154,7 @@ static inline void log_assert_worker(bool cond, const char *expr, const char *fi
 }
 #  define log_assert(_assert_expr_) YOSYS_NAMESPACE_PREFIX log_assert_worker(_assert_expr_, #_assert_expr_, __FILE__, __LINE__)
 #else
-#  define log_assert(_assert_expr_)
+#  define log_assert(_assert_expr_) (void)(_assert_expr_);
 #endif
 
 #define log_abort() YOSYS_NAMESPACE_PREFIX log_error("Abort in %s:%d.\n", __FILE__, __LINE__)
