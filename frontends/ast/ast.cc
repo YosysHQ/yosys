@@ -1551,7 +1551,9 @@ RTLIL::Module *AstModule::clone() const
 	new_mod->nomeminit = nomeminit;
 	new_mod->nomem2reg = nomem2reg;
 	new_mod->mem2reg = mem2reg;
+	new_mod->noblackbox = noblackbox;
 	new_mod->lib = lib;
+	new_mod->nowb = nowb;
 	new_mod->noopt = noopt;
 	new_mod->icells = icells;
 	new_mod->pwires = pwires;

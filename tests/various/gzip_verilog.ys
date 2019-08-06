@@ -1,0 +1,2 @@
+read_verilog gzip_verilog.v.gz
+select -assert-any top

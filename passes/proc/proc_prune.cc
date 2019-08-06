@@ -82,14 +82,23 @@ struct PruneWorker
 				if (root) {
 					bool promotable = true;
 					for (auto &bit : lhs) {
-						if (bit.wire && affected[bit]) {
+						if (bit.wire && affected[bit] && !assigned[bit]) {
 							promotable = false;
 							break;
 						}
 					}
 					if (promotable) {
+						RTLIL::SigSpec rhs = sigmap(it->second);
+						RTLIL::SigSig conn;
+						for (int i = 0; i < GetSize(lhs); i++) {
+							RTLIL::SigBit lhs_bit = lhs[i];
+							if (lhs_bit.wire && !assigned[lhs_bit]) {
+								conn.first.append_bit(lhs_bit);
+								conn.second.append(rhs.extract(i));
+							}
+						}
 						promoted_count++;
-						module->connect(*it);
+						module->connect(conn);
 						remove.insert(*it);
 					}
 				}

@@ -61,6 +61,7 @@ SOFTWARE. */
 #include <windows.h>
 #include <tchar.h>
 #include <fcntl.h>
+#include <unistd.h>
 
 int child_pid=0;
 
@@ -338,7 +339,7 @@ int run(int argc, char **argv, int is_gui) {
 
     if (is_gui) {
         /* Use exec, we don't need to wait for the GUI to finish */
-        execv(ptr, (const char * const *)(newargs));
+        execv(ptr, (char * const *)(newargs));
         return fail("Could not exec %s", ptr);   /* shouldn't get here! */
     }
 

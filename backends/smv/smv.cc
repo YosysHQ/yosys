@@ -537,6 +537,13 @@ struct SmvWorker
 				continue;
 			}
 
+			if (cell->type == "$_NMUX_")
+			{
+				definitions.push_back(stringf("%s := !(bool(%s) ? %s : %s);", lvalue(cell->getPort("\\Y")),
+						rvalue(cell->getPort("\\S")), rvalue(cell->getPort("\\B")), rvalue(cell->getPort("\\A"))));
+				continue;
+			}
+
 			if (cell->type == "$_AOI3_")
 			{
 				definitions.push_back(stringf("%s := !((%s & %s) | %s);", lvalue(cell->getPort("\\Y")),
