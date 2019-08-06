@@ -276,20 +276,24 @@ namespace RTLIL
 				return std::string(c_str() + pos, len);
 		}
 
+		int compare(size_t pos, size_t len, const char* s) const {
+			return strncmp(c_str()+pos, s, len);
+		}
+
 		bool begins_with(const char* prefix) const {
 			size_t len = strlen(prefix);
 			if (size() < len) return false;
-			return substr(0, len) == prefix;
+			return compare(0, len, prefix);
 		}
 
 		bool ends_with(const char* suffix) const {
 			size_t len = strlen(suffix);
 			if (size() < len) return false;
-			return substr(size()-len) == suffix;
+			return compare(size()-len, len, suffix);
 		}
 
 		size_t size() const {
-			return str().size();
+			return strlen(c_str());
 		}
 
 		bool empty() const {

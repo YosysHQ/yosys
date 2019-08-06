@@ -828,8 +828,8 @@ namespace {
 
 		void check()
 		{
-			if (cell->type.substr(0, 1) != "$" || cell->type.substr(0, 3) == "$__" || cell->type.substr(0, 8) == "$paramod" || cell->type.substr(0,10) == "$fmcombine" ||
-					cell->type.substr(0, 9) == "$verific$" || cell->type.substr(0, 7) == "$array:" || cell->type.substr(0, 8) == "$extern:")
+			if (cell->type.begins_with("$") || cell->type.begins_with("$__") || cell->type.begins_with("$paramod") || cell->type.begins_with("$fmcombine") ||
+					cell->type.begins_with("$verific$") || cell->type.begins_with("$array:") || cell->type.begins_with("$extern:"))
 				return;
 
 			if (cell->type.in("$not", "$pos", "$neg")) {
@@ -2553,8 +2553,8 @@ void RTLIL::Cell::check()
 
 void RTLIL::Cell::fixup_parameters(bool set_a_signed, bool set_b_signed)
 {
-	if (type.substr(0, 1) != "$" || type.substr(0, 2) == "$_" || type.substr(0, 8) == "$paramod" || type.substr(0,10) == "$fmcombine" ||
-			type.substr(0, 9) == "$verific$" || type.substr(0, 7) == "$array:" || type.substr(0, 8) == "$extern:")
+	if (type.begins_with("$") || type.begins_with("$_") || type.begins_with("$paramod") || type.begins_with("$fmcombine") ||
+			type.begins_with("$verific$") || type.begins_with("$array:") || type.begins_with("$extern:"))
 		return;
 
 	if (type == "$mux" || type == "$pmux") {

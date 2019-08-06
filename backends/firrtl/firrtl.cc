@@ -297,7 +297,7 @@ struct FirrtlWorker
 		std::string cell_type = fid(cell->type);
 		std::string instanceOf;
 		// If this is a parameterized module, its parent module is encoded in the cell type
-		if (cell->type.substr(0, 8) == "$paramod")
+		if (cell->type.begins_with("$paramod"))
 		{
 			std::string::iterator it;
 			for (it = cell_type.begin(); it < cell_type.end(); it++)
@@ -776,7 +776,7 @@ struct FirrtlWorker
 			}
 
 			// This may be a parameterized module - paramod.
-			if (cell->type.substr(0, 8) == "$paramod")
+			if (cell->type.begins_with("$paramod"))
 			{
 				process_instance(cell, wire_exprs);
 				continue;

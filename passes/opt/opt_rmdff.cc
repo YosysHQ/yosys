@@ -63,11 +63,11 @@ bool handle_dffsr(RTLIL::Module *mod, RTLIL::Cell *cell)
 
 	log_assert(GetSize(sig_set) == GetSize(sig_clr));
 
-	if (cell->type.substr(0,8) == "$_DFFSR_") {
+	if (cell->type.begins_with("$_DFFSR_")) {
 		pol_set = cell->type[9] == 'P' ? State::S1 : State::S0;
 		pol_clr = cell->type[10] == 'P' ? State::S1 : State::S0;
 	} else
-	if (cell->type.substr(0,11) == "$_DLATCHSR_") {
+	if (cell->type.begins_with("$_DLATCHSR_")) {
 		pol_set = cell->type[12] == 'P' ? State::S1 : State::S0;
 		pol_clr = cell->type[13] == 'P' ? State::S1 : State::S0;
 	} else
@@ -198,9 +198,9 @@ bool handle_dffsr(RTLIL::Module *mod, RTLIL::Cell *cell)
 	{
 		IdString new_type;
 
-		if (cell->type.substr(0,8) == "$_DFFSR_")
+		if (cell->type.begins_with("$_DFFSR_"))
 			new_type = stringf("$_DFF_%c_", cell->type[8]);
-		else if (cell->type.substr(0,11) == "$_DLATCHSR_")
+		else if (cell->type.begins_with("$_DLATCHSR_"))
 			new_type = stringf("$_DLATCH_%c_", cell->type[11]);
 		else
 			log_abort();
@@ -278,7 +278,7 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 		sig_c = dff->getPort("\\C");
 		val_cp = RTLIL::Const(dff->type == "$_DFF_P_", 1);
 	}
-	else if (dff->type.substr(0,6) == "$_DFF_" && dff->type.substr(9) == "_" &&
+	else if (dff->type.begins_with("$_DFF_") && dff->type.substr(9) == "_" &&
 			(dff->type[6] == 'N' || dff->type[6] == 'P') &&
 			(dff->type[7] == 'N' || dff->type[7] == 'P') &&
 			(dff->type[8] == '0' || dff->type[8] == '1')) {
@@ -290,7 +290,7 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 		val_rp = RTLIL::Const(dff->type[7] == 'P', 1);
 		val_rv = RTLIL::Const(dff->type[8] == '1', 1);
 	}
-	else if (dff->type.substr(0,7) == "$_DFFE_" && dff->type.substr(9) == "_" &&
+	else if (dff->type.begins_with("$_DFFE_") && dff->type.substr(9) == "_" &&
 			(dff->type[7] == 'N' || dff->type[7] == 'P') &&
 			(dff->type[8] == 'N' || dff->type[8] == 'P')) {
 		sig_d = dff->getPort("\\D");
@@ -428,7 +428,7 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 			return true;
 		}
 
-		log_assert(dff->type.substr(0,6) == "$_DFF_");
+		log_assert(dff->type.begins_with("$_DFF_"));
 		dff->type = stringf("$_DFF_%c_", + dff->type[6]);
 		dff->unsetPort("\\R");
 	}
@@ -452,7 +452,7 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 			return true;
 		}
 
-		log_assert(dff->type.substr(0,7) == "$_DFFE_");
+		log_assert(dff->type.begins_with("$_DFFE_"));
 		dff->type = stringf("$_DFF_%c_", + dff->type[7]);
 		dff->unsetPort("\\E");
 	}
