@@ -1263,9 +1263,10 @@ struct Abc9Pass : public Pass {
 			}
 		}
 
-		Pass::call(design, "clean");
-
 		assign_map.clear();
+
+		// The "clean" pass also contains a design->check() call
+		Pass::call(design, "clean");
 
 		log_pop();
 	}
