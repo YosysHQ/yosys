@@ -151,12 +151,12 @@ struct ConstEvalAig
 
 		RTLIL::State eval_ret = RTLIL::Sx;
 		if (cell->type == "$_NOT_") {
-			if (sig_a == RTLIL::S0) eval_ret = RTLIL::S1;
-			else if (sig_a == RTLIL::S1) eval_ret = RTLIL::S0;
+			if (sig_a == State::S0) eval_ret = State::S1;
+			else if (sig_a == State::S1) eval_ret = State::S0;
 		}
 		else if (cell->type == "$_AND_") {
-			if (sig_a == RTLIL::S0) {
-				eval_ret = RTLIL::S0;
+			if (sig_a == State::S0) {
+				eval_ret = State::S0;
 				goto eval_end;
 			}
 
@@ -164,15 +164,15 @@ struct ConstEvalAig
 				RTLIL::SigBit sig_b = cell->getPort("\\B");
 				if (!eval(sig_b))
 					return false;
-				if (sig_b == RTLIL::S0) {
-					eval_ret = RTLIL::S0;
+				if (sig_b == State::S0) {
+					eval_ret = State::S0;
 					goto eval_end;
 				}
 
-				if (sig_a != RTLIL::S1 || sig_b != RTLIL::S1)
+				if (sig_a != State::S1 || sig_b != State::S1)
 					goto eval_end;
 
-				eval_ret = RTLIL::S1;
+				eval_ret = State::S1;
 			}
 		}
 		else log_abort();
@@ -256,7 +256,7 @@ end_of_header:
 
 	RTLIL::Wire* n0 = module->wire("\\__0__");
 	if (n0)
-		module->connect(n0, RTLIL::S0);
+		module->connect(n0, State::S0);
 
 	// Parse footer (symbol table, comments, etc.)
 	unsigned l1;
@@ -371,7 +371,7 @@ void AigerReader::parse_xaiger()
 
 	RTLIL::Wire* n0 = module->wire("\\__0__");
 	if (n0)
-		module->connect(n0, RTLIL::S0);
+		module->connect(n0, State::S0);
 
 	dict<int,IdString> box_lookup;
 	for (auto m : design->modules()) {
@@ -535,9 +535,9 @@ void AigerReader::parse_aiger_ascii()
 				log_error("Line %u cannot be interpreted as a latch!\n", line_count);
 
 			if (l3 == 0)
-				q_wire->attributes["\\init"] = RTLIL::S0;
+				q_wire->attributes["\\init"] = State::S0;
 			else if (l3 == 1)
-				q_wire->attributes["\\init"] = RTLIL::S1;
+				q_wire->attributes["\\init"] = State::S1;
 			else if (l3 == l1) {
 				//q_wire->attributes["\\init"] = RTLIL::Sx;
 			}
@@ -546,7 +546,7 @@ void AigerReader::parse_aiger_ascii()
 		}
 		else {
 			// AIGER latches are assumed to be initialized to zero
-			q_wire->attributes["\\init"] = RTLIL::S0;
+			q_wire->attributes["\\init"] = State::S0;
 		}
 		latches.push_back(q_wire);
 	}
@@ -660,9 +660,9 @@ void AigerReader::parse_aiger_binary()
 				log_error("Line %u cannot be interpreted as a latch!\n", line_count);
 
 			if (l3 == 0)
-				q_wire->attributes["\\init"] = RTLIL::S0;
+				q_wire->attributes["\\init"] = State::S0;
 			else if (l3 == 1)
-				q_wire->attributes["\\init"] = RTLIL::S1;
+				q_wire->attributes["\\init"] = State::S1;
 			else if (l3 == l1) {
 				//q_wire->attributes["\\init"] = RTLIL::Sx;
 			}
@@ -671,7 +671,7 @@ void AigerReader::parse_aiger_binary()
 		}
 		else {
 			// AIGER latches are assumed to be initialized to zero
-			q_wire->attributes["\\init"] = RTLIL::S0;
+			q_wire->attributes["\\init"] = State::S0;
 		}
 		latches.push_back(q_wire);
 	}
