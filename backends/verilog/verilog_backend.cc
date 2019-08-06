@@ -949,7 +949,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		return true;
 	}
 
-	if (cell->type == "$dff" || cell->type == "$adff" || cell->type == "$dffe")
+	if (cell->type.in("$dff", "$adff", "$dffe"))
 	{
 		RTLIL::SigSpec sig_clk, sig_arst, sig_en, val_arst;
 		bool pol_clk, pol_arst = false, pol_en = false;

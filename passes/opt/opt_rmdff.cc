@@ -71,7 +71,7 @@ bool handle_dffsr(RTLIL::Module *mod, RTLIL::Cell *cell)
 		pol_set = cell->type[12] == 'P' ? State::S1 : State::S0;
 		pol_clr = cell->type[13] == 'P' ? State::S1 : State::S0;
 	} else
-	if (cell->type == "$dffsr" || cell->type == "$dlatchsr") {
+	if (cell->type.in("$dffsr", "$dlatchsr")) {
 		pol_set = cell->parameters["\\SET_POLARITY"].as_bool() ? State::S1 : State::S0;
 		pol_clr = cell->parameters["\\CLR_POLARITY"].as_bool() ? State::S1 : State::S0;
 	} else
@@ -137,7 +137,7 @@ bool handle_dffsr(RTLIL::Module *mod, RTLIL::Cell *cell)
 		return true;
 	}
 
-	if (cell->type == "$dffsr" || cell->type == "$dlatchsr")
+	if (cell->type.in("$dffsr", "$dlatchsr"))
 	{
 		cell->setParam("\\WIDTH", GetSize(sig_d));
 		cell->setPort("\\SET", sig_set);
@@ -624,7 +624,7 @@ struct OptRmdffPass : public Pass {
 						}
 				}
 
-				if (cell->type == "$mux" || cell->type == "$pmux") {
+				if (cell->type.in("$mux", "$pmux")) {
 					if (cell->getPort("\\A").size() == cell->getPort("\\B").size())
 						mux_drivers.insert(assign_map(cell->getPort("\\Y")), cell);
 					continue;

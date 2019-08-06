@@ -262,7 +262,7 @@ struct MemoryDffWorker
 				mux_cells_a[sigmap(cell->getPort("\\A"))] = cell;
 				mux_cells_b[sigmap(cell->getPort("\\B"))] = cell;
 			}
-			if (cell->type == "$not" || cell->type == "$_NOT_" || (cell->type == "$logic_not" && GetSize(cell->getPort("\\A")) == 1)) {
+			if (cell->type.in("$not", "$_NOT_") || (cell->type == "$logic_not" && GetSize(cell->getPort("\\A")) == 1)) {
 				SigSpec sig_a = cell->getPort("\\A");
 				SigSpec sig_y = cell->getPort("\\Y");
 				if (cell->type == "$not")

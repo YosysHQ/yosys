@@ -940,7 +940,7 @@ namespace {
 				return;
 			}
 
-			if (cell->type == "$logic_and" || cell->type == "$logic_or") {
+			if (cell->type.in("$logic_and", "$logic_or")) {
 				param_bool("\\A_SIGNED");
 				param_bool("\\B_SIGNED");
 				port("\\A", param("\\A_WIDTH"));

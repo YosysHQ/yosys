@@ -50,7 +50,7 @@ struct FsmExpand
 		if (full_mode || cell->type == "$_MUX_")
 			return true;
 
-		if (cell->type == "$mux" || cell->type == "$pmux")
+		if (cell->type.in("$mux", "$pmux"))
 			if (cell->getPort("\\A").size() < 2)
 				return true;
 

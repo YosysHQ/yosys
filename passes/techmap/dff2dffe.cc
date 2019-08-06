@@ -52,13 +52,13 @@ struct Dff2dffeWorker
 		}
 
 		for (auto cell : module->cells()) {
-			if (cell->type == "$mux" || cell->type == "$pmux" || cell->type == "$_MUX_") {
+			if (cell->type.in("$mux", "$pmux", "$_MUX_")) {
 				RTLIL::SigSpec sig_y = sigmap(cell->getPort("\\Y"));
 				for (int i = 0; i < GetSize(sig_y); i++)
 					bit2mux[sig_y[i]] = cell_int_t(cell, i);
 			}
 			if (direct_dict.empty()) {
-				if (cell->type == "$dff" || cell->type == "$_DFF_N_" || cell->type == "$_DFF_P_")
+				if (cell->type.in("$dff", "$_DFF_N_", "$_DFF_P_"))
 					dff_cells.push_back(cell);
 			} else {
 				if (direct_dict.count(cell->type))

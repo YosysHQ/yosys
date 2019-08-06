@@ -94,8 +94,8 @@ struct OptMergeWorker
 		const dict<RTLIL::IdString, RTLIL::SigSpec> *conn = &cell->connections();
 		dict<RTLIL::IdString, RTLIL::SigSpec> alt_conn;
 
-		if (cell->type == "$and" || cell->type == "$or" || cell->type == "$xor" || cell->type == "$xnor" || cell->type == "$add" || cell->type == "$mul" ||
-				cell->type == "$logic_and" || cell->type == "$logic_or" || cell->type == "$_AND_" || cell->type == "$_OR_" || cell->type == "$_XOR_") {
+		if (cell->type.in("$and", "$or", "$xor", "$xnor", "$add", "$mul",
+				"$logic_and", "$logic_or", "$_AND_", "$_OR_", "$_XOR_")) {
 			alt_conn = *conn;
 			if (assign_map(alt_conn.at("\\A")) < assign_map(alt_conn.at("\\B"))) {
 				alt_conn["\\A"] = conn->at("\\B");
@@ -103,13 +103,13 @@ struct OptMergeWorker
 			}
 			conn = &alt_conn;
 		} else
-		if (cell->type == "$reduce_xor" || cell->type == "$reduce_xnor") {
+		if (cell->type.in("$reduce_xor", "$reduce_xnor")) {
 			alt_conn = *conn;
 			assign_map.apply(alt_conn.at("\\A"));
 			alt_conn.at("\\A").sort();
 			conn = &alt_conn;
 		} else
-		if (cell->type == "$reduce_and" || cell->type == "$reduce_or" || cell->type == "$reduce_bool") {
+		if (cell->type.in("$reduce_and", "$reduce_or", "$reduce_bool")) {
 			alt_conn = *conn;
 			assign_map.apply(alt_conn.at("\\A"));
 			alt_conn.at("\\A").sort_and_unify();

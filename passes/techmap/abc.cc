@@ -166,7 +166,7 @@ void mark_port(RTLIL::SigSpec sig)
 
 void extract_cell(RTLIL::Cell *cell, bool keepff)
 {
-	if (cell->type == "$_DFF_N_" || cell->type == "$_DFF_P_")
+	if (cell->type.in("$_DFF_N_", "$_DFF_P_"))
 	{
 		if (clk_polarity != (cell->type == "$_DFF_P_"))
 			return;
@@ -177,11 +177,11 @@ void extract_cell(RTLIL::Cell *cell, bool keepff)
 		goto matching_dff;
 	}
 
-	if (cell->type == "$_DFFE_NN_" || cell->type == "$_DFFE_NP_" || cell->type == "$_DFFE_PN_" || cell->type == "$_DFFE_PP_")
+	if (cell->type.in("$_DFFE_NN_", "$_DFFE_NP_", "$_DFFE_PN_", "$_DFFE_PP_"))
 	{
-		if (clk_polarity != (cell->type == "$_DFFE_PN_" || cell->type == "$_DFFE_PP_"))
+		if (clk_polarity != cell->type.in("$_DFFE_PN_", "$_DFFE_PP_"))
 			return;
-		if (en_polarity != (cell->type == "$_DFFE_NP_" || cell->type == "$_DFFE_PP_"))
+		if (en_polarity != cell->type.in("$_DFFE_NP_", "$_DFFE_PP_"))
 			return;
 		if (clk_sig != assign_map(cell->getPort("\\C")))
 			return;
@@ -1824,15 +1824,15 @@ struct AbcPass : public Pass {
 					}
 				}
 
-				if (cell->type == "$_DFF_N_" || cell->type == "$_DFF_P_")
+				if (cell->type.in("$_DFF_N_", "$_DFF_P_"))
 				{
 					key = clkdomain_t(cell->type == "$_DFF_P_", assign_map(cell->getPort("\\C")), true, RTLIL::SigSpec());
 				}
 				else
-				if (cell->type == "$_DFFE_NN_" || cell->type == "$_DFFE_NP_" || cell->type == "$_DFFE_PN_" || cell->type == "$_DFFE_PP_")
+				if (cell->type.in("$_DFFE_NN_", "$_DFFE_NP_" "$_DFFE_PN_", "$_DFFE_PP_"))
 				{
-					bool this_clk_pol = cell->type == "$_DFFE_PN_" || cell->type == "$_DFFE_PP_";
-					bool this_en_pol = cell->type == "$_DFFE_NP_" || cell->type == "$_DFFE_PP_";
+					bool this_clk_pol = cell->type.in("$_DFFE_PN_", "$_DFFE_PP_");
+					bool this_en_pol = cell->type.in("$_DFFE_NP_", "$_DFFE_PP_");
 					key = clkdomain_t(this_clk_pol, assign_map(cell->getPort("\\C")), this_en_pol, assign_map(cell->getPort("\\E")));
 				}
 				else
