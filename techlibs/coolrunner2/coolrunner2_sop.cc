@@ -61,7 +61,7 @@ struct Coolrunner2SopPass : public Pass {
 			for (auto cell : module->selected_cells())
 			{
 				if (cell->type.in("\\FDCP", "\\FDCP_N", "\\FDDCP", "\\FTCP", "\\FTCP_N", "\\FTDCP",
-                            "\\FDCPE", "\\FDCPE_N", "\\FDDCPE", "\\LDCP", "\\LDCP_N"))
+							"\\FDCPE", "\\FDCPE_N", "\\FDDCPE", "\\LDCP", "\\LDCP_N"))
 				{
 					if (cell->hasPort("\\PRE"))
 						special_pterms_no_inv[sigmap(cell->getPort("\\PRE")[0])].insert(
@@ -256,7 +256,7 @@ struct Coolrunner2SopPass : public Pass {
 			for (auto cell : module->selected_cells())
 			{
 				if (cell->type.in("\\FDCP", "\\FDCP_N", "\\FDDCP", "\\LDCP", "\\LDCP_N",
-                            "\\FTCP", "\\FTCP_N", "\\FTDCP", "\\FDCPE", "\\FDCPE_N", "\\FDDCPE"))
+							"\\FTCP", "\\FTCP_N", "\\FTDCP", "\\FDCPE", "\\FDCPE_N", "\\FDDCPE"))
 				{
 					auto output = sigmap(cell->getPort("\\Q")[0]);
 					sig_fed_by_ff.insert(output);
@@ -267,7 +267,7 @@ struct Coolrunner2SopPass : public Pass {
 			for (auto cell : module->selected_cells())
 			{
 				if (cell->type.in("\\FDCP", "\\FDCP_N", "\\FDDCP", "\\LDCP", "\\LDCP_N",
-                            "\\FTCP", "\\FTCP_N", "\\FTDCP", "\\FDCPE", "\\FDCPE_N", "\\FDDCPE"))
+							"\\FTCP", "\\FTCP_N", "\\FTDCP", "\\FDCPE", "\\FDCPE_N", "\\FDDCPE"))
 				{
 					SigBit input;
 					if (cell->type.in("\\FTCP", "\\FTCP_N", "\\FTDCP"))
