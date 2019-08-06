@@ -82,6 +82,7 @@ enum class gate_type_t {
 	G_ANDNOT,
 	G_ORNOT,
 	G_MUX,
+	G_NMUX,
 	G_AOI3,
 	G_OAI3,
 	G_AOI4,
@@ -112,7 +113,7 @@ std::vector<gate_t> signal_list;
 std::map<RTLIL::SigBit, int> signal_map;
 std::map<RTLIL::SigBit, RTLIL::State> signal_init;
 pool<std::string> enabled_gates;
-bool recover_init;
+bool recover_init, cmos_cost;
 
 bool clk_polarity, en_polarity;
 RTLIL::SigSpec clk_sig, en_sig;
@@ -258,7 +259,7 @@ void extract_cell(RTLIL::Cell *cell, bool keepff)
 		return;
 	}
 
-	if (cell->type == "$_MUX_")
+	if (cell->type.in("$_MUX_", "$_NMUX_"))
 	{
 		RTLIL::SigSpec sig_a = cell->getPort("\\A");
 		RTLIL::SigSpec sig_b = cell->getPort("\\B");
@@ -274,7 +275,7 @@ void extract_cell(RTLIL::Cell *cell, bool keepff)
 		int mapped_b = map_signal(sig_b);
 		int mapped_s = map_signal(sig_s);
 
-		map_signal(sig_y, G(MUX), mapped_a, mapped_b, mapped_s);
+		map_signal(sig_y, cell->type == "$_MUX_" ? G(MUX) : G(NMUX), mapped_a, mapped_b, mapped_s);
 
 		module->remove(cell);
 		return;
@@ -886,6 +887,10 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 			fprintf(f, ".names ys__n%d ys__n%d ys__n%d ys__n%d\n", si.in1, si.in2, si.in3, si.id);
 			fprintf(f, "1-0 1\n");
 			fprintf(f, "-11 1\n");
+		} else if (si.type == G(NMUX)) {
+			fprintf(f, ".names ys__n%d ys__n%d ys__n%d ys__n%d\n", si.in1, si.in2, si.in3, si.id);
+			fprintf(f, "0-0 1\n");
+			fprintf(f, "-01 1\n");
 		} else if (si.type == G(AOI3)) {
 			fprintf(f, ".names ys__n%d ys__n%d ys__n%d ys__n%d\n", si.in1, si.in2, si.in3, si.id);
 			fprintf(f, "-00 1\n");
@@ -926,46 +931,52 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 	{
 		log_header(design, "Executing ABC.\n");
 
+		auto cell_cost = [](IdString cell_type) {
+			return get_cell_cost(cell_type, dict<RTLIL::IdString, RTLIL::Const>(), nullptr, nullptr, cmos_cost);
+		};
+
 		buffer = stringf("%s/stdcells.genlib", tempdir_name.c_str());
 		f = fopen(buffer.c_str(), "wt");
 		if (f == NULL)
 			log_error("Opening %s for writing failed: %s\n", buffer.c_str(), strerror(errno));
 		fprintf(f, "GATE ZERO    1 Y=CONST0;\n");
 		fprintf(f, "GATE ONE     1 Y=CONST1;\n");
-		fprintf(f, "GATE BUF    %d Y=A;                  PIN * NONINV  1 999 1 0 1 0\n", get_cell_cost("$_BUF_"));
-		fprintf(f, "GATE NOT    %d Y=!A;                 PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_NOT_"));
+		fprintf(f, "GATE BUF    %d Y=A;                  PIN * NONINV  1 999 1 0 1 0\n", cell_cost("$_BUF_"));
+		fprintf(f, "GATE NOT    %d Y=!A;                 PIN * INV     1 999 1 0 1 0\n", cell_cost("$_NOT_"));
 		if (enabled_gates.empty() || enabled_gates.count("AND"))
-			fprintf(f, "GATE AND    %d Y=A*B;                PIN * NONINV  1 999 1 0 1 0\n", get_cell_cost("$_AND_"));
+			fprintf(f, "GATE AND    %d Y=A*B;                PIN * NONINV  1 999 1 0 1 0\n", cell_cost("$_AND_"));
 		if (enabled_gates.empty() || enabled_gates.count("NAND"))
-			fprintf(f, "GATE NAND   %d Y=!(A*B);             PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_NAND_"));
+			fprintf(f, "GATE NAND   %d Y=!(A*B);             PIN * INV     1 999 1 0 1 0\n", cell_cost("$_NAND_"));
 		if (enabled_gates.empty() || enabled_gates.count("OR"))
-			fprintf(f, "GATE OR     %d Y=A+B;                PIN * NONINV  1 999 1 0 1 0\n", get_cell_cost("$_OR_"));
+			fprintf(f, "GATE OR     %d Y=A+B;                PIN * NONINV  1 999 1 0 1 0\n", cell_cost("$_OR_"));
 		if (enabled_gates.empty() || enabled_gates.count("NOR"))
-			fprintf(f, "GATE NOR    %d Y=!(A+B);             PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_NOR_"));
+			fprintf(f, "GATE NOR    %d Y=!(A+B);             PIN * INV     1 999 1 0 1 0\n", cell_cost("$_NOR_"));
 		if (enabled_gates.empty() || enabled_gates.count("XOR"))
-			fprintf(f, "GATE XOR    %d Y=(A*!B)+(!A*B);      PIN * UNKNOWN 1 999 1 0 1 0\n", get_cell_cost("$_XOR_"));
+			fprintf(f, "GATE XOR    %d Y=(A*!B)+(!A*B);      PIN * UNKNOWN 1 999 1 0 1 0\n", cell_cost("$_XOR_"));
 		if (enabled_gates.empty() || enabled_gates.count("XNOR"))
-			fprintf(f, "GATE XNOR   %d Y=(A*B)+(!A*!B);      PIN * UNKNOWN 1 999 1 0 1 0\n", get_cell_cost("$_XNOR_"));
+			fprintf(f, "GATE XNOR   %d Y=(A*B)+(!A*!B);      PIN * UNKNOWN 1 999 1 0 1 0\n", cell_cost("$_XNOR_"));
 		if (enabled_gates.empty() || enabled_gates.count("ANDNOT"))
-			fprintf(f, "GATE ANDNOT %d Y=A*!B;               PIN * UNKNOWN 1 999 1 0 1 0\n", get_cell_cost("$_ANDNOT_"));
+			fprintf(f, "GATE ANDNOT %d Y=A*!B;               PIN * UNKNOWN 1 999 1 0 1 0\n", cell_cost("$_ANDNOT_"));
 		if (enabled_gates.empty() || enabled_gates.count("ORNOT"))
-			fprintf(f, "GATE ORNOT  %d Y=A+!B;               PIN * UNKNOWN 1 999 1 0 1 0\n", get_cell_cost("$_ORNOT_"));
+			fprintf(f, "GATE ORNOT  %d Y=A+!B;               PIN * UNKNOWN 1 999 1 0 1 0\n", cell_cost("$_ORNOT_"));
 		if (enabled_gates.empty() || enabled_gates.count("AOI3"))
-			fprintf(f, "GATE AOI3   %d Y=!((A*B)+C);         PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_AOI3_"));
+			fprintf(f, "GATE AOI3   %d Y=!((A*B)+C);         PIN * INV     1 999 1 0 1 0\n", cell_cost("$_AOI3_"));
 		if (enabled_gates.empty() || enabled_gates.count("OAI3"))
-			fprintf(f, "GATE OAI3   %d Y=!((A+B)*C);         PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_OAI3_"));
+			fprintf(f, "GATE OAI3   %d Y=!((A+B)*C);         PIN * INV     1 999 1 0 1 0\n", cell_cost("$_OAI3_"));
 		if (enabled_gates.empty() || enabled_gates.count("AOI4"))
-			fprintf(f, "GATE AOI4   %d Y=!((A*B)+(C*D));     PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_AOI4_"));
+			fprintf(f, "GATE AOI4   %d Y=!((A*B)+(C*D));     PIN * INV     1 999 1 0 1 0\n", cell_cost("$_AOI4_"));
 		if (enabled_gates.empty() || enabled_gates.count("OAI4"))
-			fprintf(f, "GATE OAI4   %d Y=!((A+B)*(C+D));     PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_OAI4_"));
+			fprintf(f, "GATE OAI4   %d Y=!((A+B)*(C+D));     PIN * INV     1 999 1 0 1 0\n", cell_cost("$_OAI4_"));
 		if (enabled_gates.empty() || enabled_gates.count("MUX"))
-			fprintf(f, "GATE MUX    %d Y=(A*B)+(S*B)+(!S*A); PIN * UNKNOWN 1 999 1 0 1 0\n", get_cell_cost("$_MUX_"));
+			fprintf(f, "GATE MUX    %d Y=(A*B)+(S*B)+(!S*A); PIN * UNKNOWN 1 999 1 0 1 0\n", cell_cost("$_MUX_"));
+		if (enabled_gates.empty() || enabled_gates.count("NMUX"))
+			fprintf(f, "GATE NMUX   %d Y=!((A*B)+(S*B)+(!S*A)); PIN * UNKNOWN 1 999 1 0 1 0\n", cell_cost("$_NMUX_"));
 		if (map_mux4)
-			fprintf(f, "GATE MUX4   %d Y=(!S*!T*A)+(S*!T*B)+(!S*T*C)+(S*T*D); PIN * UNKNOWN 1 999 1 0 1 0\n", 2*get_cell_cost("$_MUX_"));
+			fprintf(f, "GATE MUX4   %d Y=(!S*!T*A)+(S*!T*B)+(!S*T*C)+(S*T*D); PIN * UNKNOWN 1 999 1 0 1 0\n", 2*cell_cost("$_MUX_"));
 		if (map_mux8)
-			fprintf(f, "GATE MUX8   %d Y=(!S*!T*!U*A)+(S*!T*!U*B)+(!S*T*!U*C)+(S*T*!U*D)+(!S*!T*U*E)+(S*!T*U*F)+(!S*T*U*G)+(S*T*U*H); PIN * UNKNOWN 1 999 1 0 1 0\n", 4*get_cell_cost("$_MUX_"));
+			fprintf(f, "GATE MUX8   %d Y=(!S*!T*!U*A)+(S*!T*!U*B)+(!S*T*!U*C)+(S*T*!U*D)+(!S*!T*U*E)+(S*!T*U*F)+(!S*T*U*G)+(S*T*U*H); PIN * UNKNOWN 1 999 1 0 1 0\n", 4*cell_cost("$_MUX_"));
 		if (map_mux16)
-			fprintf(f, "GATE MUX16  %d Y=(!S*!T*!U*!V*A)+(S*!T*!U*!V*B)+(!S*T*!U*!V*C)+(S*T*!U*!V*D)+(!S*!T*U*!V*E)+(S*!T*U*!V*F)+(!S*T*U*!V*G)+(S*T*U*!V*H)+(!S*!T*!U*V*I)+(S*!T*!U*V*J)+(!S*T*!U*V*K)+(S*T*!U*V*L)+(!S*!T*U*V*M)+(S*!T*U*V*N)+(!S*T*U*V*O)+(S*T*U*V*P); PIN * UNKNOWN 1 999 1 0 1 0\n", 8*get_cell_cost("$_MUX_"));
+			fprintf(f, "GATE MUX16  %d Y=(!S*!T*!U*!V*A)+(S*!T*!U*!V*B)+(!S*T*!U*!V*C)+(S*T*!U*!V*D)+(!S*!T*U*!V*E)+(S*!T*U*!V*F)+(!S*T*U*!V*G)+(S*T*U*!V*H)+(!S*!T*!U*V*I)+(S*!T*!U*V*J)+(!S*T*!U*V*K)+(S*T*!U*V*L)+(!S*!T*U*V*M)+(S*!T*U*V*N)+(!S*T*U*V*O)+(S*T*U*V*P); PIN * UNKNOWN 1 999 1 0 1 0\n", 8*cell_cost("$_MUX_"));
 		fclose(f);
 
 		if (!lut_costs.empty()) {
@@ -1066,8 +1077,8 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 					design->select(module, cell);
 					continue;
 				}
-				if (c->type == "\\MUX") {
-					RTLIL::Cell *cell = module->addCell(remap_name(c->name), "$_MUX_");
+				if (c->type == "\\MUX" || c->type == "\\NMUX") {
+					RTLIL::Cell *cell = module->addCell(remap_name(c->name), "$_" + c->type.substr(1) + "_");
 					if (markgroups) cell->attributes["\\abcgroup"] = map_autoidx;
 					cell->setPort("\\A", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\A").as_wire()->name)]));
 					cell->setPort("\\B", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\B").as_wire()->name)]));
@@ -1407,11 +1418,12 @@ struct AbcPass : public Pass {
 		log("\n");
 		log("        The following aliases can be used to reference common sets of gate types:\n");
 		log("          simple: AND OR XOR MUX\n");
-		log("          cmos2: NAND NOR\n");
-		log("          cmos3: NAND NOR AOI3 OAI3\n");
-		log("          cmos4: NAND NOR AOI3 OAI3 AOI4 OAI4\n");
-		log("          gates: AND NAND OR NOR XOR XNOR ANDNOT ORNOT\n");
-		log("          aig: AND NAND OR NOR ANDNOT ORNOT\n");
+		log("          cmos2:  NAND NOR\n");
+		log("          cmos3:  NAND NOR AOI3 OAI3\n");
+		log("          cmos4:  NAND NOR AOI3 OAI3 AOI4 OAI4\n");
+		log("          cmos:   NAND NOR AOI3 OAI3 AOI4 OAI4 NMUX MUX XOR XNOR\n");
+		log("          gates:  AND NAND OR NOR XOR XNOR ANDNOT ORNOT\n");
+		log("          aig:    AND NAND OR NOR ANDNOT ORNOT\n");
 		log("\n");
 		log("        Prefix a gate type with a '-' to remove it from the list. For example\n");
 		log("        the arguments 'AND,OR,XOR' and 'simple,-MUX' are equivalent.\n");
@@ -1489,6 +1501,7 @@ struct AbcPass : public Pass {
 		map_mux8 = false;
 		map_mux16 = false;
 		enabled_gates.clear();
+		cmos_cost = false;
 
 #ifdef _WIN32
 #ifndef ABCEXTERNAL
@@ -1629,11 +1642,15 @@ struct AbcPass : public Pass {
 						goto ok_alias;
 					}
 					if (g == "cmos2") {
+						if (!remove_gates)
+							cmos_cost = true;
 						gate_list.push_back("NAND");
 						gate_list.push_back("NOR");
 						goto ok_alias;
 					}
 					if (g == "cmos3") {
+						if (!remove_gates)
+							cmos_cost = true;
 						gate_list.push_back("NAND");
 						gate_list.push_back("NOR");
 						gate_list.push_back("AOI3");
@@ -1641,12 +1658,29 @@ struct AbcPass : public Pass {
 						goto ok_alias;
 					}
 					if (g == "cmos4") {
+						if (!remove_gates)
+							cmos_cost = true;
 						gate_list.push_back("NAND");
 						gate_list.push_back("NOR");
 						gate_list.push_back("AOI3");
 						gate_list.push_back("OAI3");
 						gate_list.push_back("AOI4");
 						gate_list.push_back("OAI4");
+						goto ok_alias;
+					}
+					if (g == "cmos") {
+						if (!remove_gates)
+							cmos_cost = true;
+						gate_list.push_back("NAND");
+						gate_list.push_back("NOR");
+						gate_list.push_back("AOI3");
+						gate_list.push_back("OAI3");
+						gate_list.push_back("AOI4");
+						gate_list.push_back("OAI4");
+						gate_list.push_back("NMUX");
+						gate_list.push_back("MUX");
+						gate_list.push_back("XOR");
+						gate_list.push_back("XNOR");
 						goto ok_alias;
 					}
 					if (g == "gates") {

@@ -241,6 +241,10 @@ struct statdata_t
 					tran_cnt += 6*cnum;
 				else if (ctype.in("$_AOI4_", "$_OAI4_"))
 					tran_cnt += 8*cnum;
+				else if (ctype.in("$_NMUX_"))
+					tran_cnt += 10*cnum;
+				else if (ctype.in("$_MUX_", "$_XOR_", "$_XNOR_"))
+					tran_cnt += 12*cnum;
 				else if (ctype.in("$_DFF_P_", "$_DFF_N_"))
 					tran_cnt += 16*cnum;
 				else
