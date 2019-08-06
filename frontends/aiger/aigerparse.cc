@@ -49,8 +49,8 @@ inline int32_t from_big_endian(int32_t i32) {
 #endif
 }
 
-#define log_debug2(...) ;
-//#define log_debug2(...) log_debug(__VA_ARGS__)
+//#define log_debug2(...) do { log_debug(__VA_ARGS__); } while (0)
+#define log_debug2(...) do { if (0) log_debug(__VA_ARGS__); } while (0)
 
 struct ConstEvalAig
 {
