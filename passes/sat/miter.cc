@@ -236,7 +236,7 @@ void create_miter_equiv(struct Pass *that, std::vector<std::string> args, RTLIL:
 	if (flag_make_assert) {
 		RTLIL::Cell *assert_cell = miter_module->addCell(NEW_ID, "$assert");
 		assert_cell->setPort("\\A", all_conditions);
-		assert_cell->setPort("\\EN", RTLIL::SigSpec(1, 1));
+		assert_cell->setPort("\\EN", State::S1);
 	}
 
 	RTLIL::Wire *w_trigger = miter_module->addWire("\\trigger");

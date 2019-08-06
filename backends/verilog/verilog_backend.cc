@@ -380,9 +380,9 @@ void dump_attributes(std::ostream &f, std::string indent, dict<RTLIL::IdString, 
 	for (auto it = attributes.begin(); it != attributes.end(); ++it) {
 		f << stringf("%s" "%s %s", indent.c_str(), as_comment ? "/*" : "(*", id(it->first).c_str());
 		f << stringf(" = ");
-		if (modattr && (it->second == Const(0, 1) || it->second == Const(0)))
+		if (modattr && (it->second == State::S0 || it->second == Const(0)))
 			f << stringf(" 0 ");
-		else if (modattr && (it->second == Const(1, 1) || it->second == Const(1)))
+		else if (modattr && (it->second == State::S1 || it->second == Const(1)))
 			f << stringf(" 1 ");
 		else
 			dump_const(f, it->second, -1, 0, false, as_comment);

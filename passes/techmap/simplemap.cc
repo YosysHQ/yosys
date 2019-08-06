@@ -185,7 +185,7 @@ static void logic_reduce(RTLIL::Module *module, RTLIL::SigSpec &sig, RTLIL::Cell
 	}
 
 	if (sig.size() == 0)
-		sig = RTLIL::SigSpec(0, 1);
+		sig = State::S0;
 }
 
 void simplemap_lognot(RTLIL::Module *module, RTLIL::Cell *cell)

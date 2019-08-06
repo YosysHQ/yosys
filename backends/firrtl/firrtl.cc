@@ -122,9 +122,9 @@ struct FirrtlWorker
 			// Current (3/13/2019) conventions:
 			//  generate a constant 0 for clock and a constant 1 for enable if they are undefined.
 			if (!clk.is_fully_def())
-				this->clk = SigSpec(RTLIL::Const(0, 1));
+				this->clk = SigSpec(State::S0);
 			if (!ena.is_fully_def())
-				this->ena = SigSpec(RTLIL::Const(1, 1));
+				this->ena = SigSpec(State::S1);
 		}
 		string gen_read(const char * indent) {
 			string addr_expr = make_expr(addr);
