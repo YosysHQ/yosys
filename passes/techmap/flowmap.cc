@@ -1525,12 +1525,12 @@ struct FlowmapPass : public Pass {
 		{
 			if (args[argidx] == "-maxlut" && argidx + 1 < args.size())
 			{
-				order = atoi(args[++argidx].c_str());
+				order = std::stoi(args[++argidx]);
 				continue;
 			}
 			if (args[argidx] == "-minlut" && argidx + 1 < args.size())
 			{
-				minlut = atoi(args[++argidx].c_str());
+				minlut = std::stoi(args[++argidx]);
 				continue;
 			}
 			if (args[argidx] == "-cells" && argidx + 1 < args.size())
@@ -1545,23 +1545,23 @@ struct FlowmapPass : public Pass {
 			}
 			if (args[argidx] == "-r-alpha" && argidx + 1 < args.size())
 			{
-				r_alpha = atoi(args[++argidx].c_str());
+				r_alpha = std::stoi(args[++argidx]);
 				continue;
 			}
 			if (args[argidx] == "-r-beta" && argidx + 1 < args.size())
 			{
-				r_beta = atoi(args[++argidx].c_str());
+				r_beta = std::stoi(args[++argidx]);
 				continue;
 			}
 			if (args[argidx] == "-r-gamma" && argidx + 1 < args.size())
 			{
-				r_gamma = atoi(args[++argidx].c_str());
+				r_gamma = std::stoi(args[++argidx]);
 				continue;
 			}
 			if (args[argidx] == "-optarea" && argidx + 1 < args.size())
 			{
 				relax = true;
-				optarea = atoi(args[++argidx].c_str());
+				optarea = std::stoi(args[++argidx]);
 				continue;
 			}
 			if (args[argidx] == "-debug")

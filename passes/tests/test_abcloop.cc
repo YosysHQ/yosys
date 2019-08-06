@@ -268,11 +268,11 @@ struct TestAbcloopPass : public Pass {
 		for (argidx = 1; argidx < GetSize(args); argidx++)
 		{
 			if (args[argidx] == "-n" && argidx+1 < GetSize(args)) {
-				num_iter = atoi(args[++argidx].c_str());
+				num_iter = std::stoi(args[++argidx]);
 				continue;
 			}
 			if (args[argidx] == "-s" && argidx+1 < GetSize(args)) {
-				xorshift32_state = atoi(args[++argidx].c_str());
+				xorshift32_state = std::stoi(args[++argidx]);
 				continue;
 			}
 			break;

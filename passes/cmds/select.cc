@@ -517,7 +517,7 @@ static void select_op_expand(RTLIL::Design *design, std::string arg, char mode, 
 		size_t endpos = arg.find_first_not_of("0123456789", pos);
 		if (endpos == std::string::npos)
 			endpos = arg.size();
-		levels = atoi(arg.substr(pos, endpos-pos).c_str());
+		levels = std::stoi(arg.substr(pos, endpos-pos));
 		pos = endpos;
 	}
 
@@ -526,7 +526,7 @@ static void select_op_expand(RTLIL::Design *design, std::string arg, char mode, 
 		if (endpos == std::string::npos)
 			endpos = arg.size();
 		if (int(endpos) > pos)
-			rem_objects = atoi(arg.substr(pos, endpos-pos).c_str());
+			rem_objects = std::stoi(arg.substr(pos, endpos-pos));
 		pos = endpos;
 	}
 
@@ -823,15 +823,15 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 		if (arg_memb.substr(0, 2) == "s:") {
 			size_t delim = arg_memb.substr(2).find(':');
 			if (delim == std::string::npos) {
-				int width = atoi(arg_memb.substr(2).c_str());
+				int width = std::stoi(arg_memb.substr(2));
 				for (auto &it : mod->wires_)
 					if (it.second->width == width)
 						sel.selected_members[mod->name].insert(it.first);
 			} else {
 				std::string min_str = arg_memb.substr(2, delim);
 				std::string max_str = arg_memb.substr(2+delim+1);
-				int min_width = min_str.empty() ? 0 : atoi(min_str.c_str());
-				int max_width = max_str.empty() ? -1 : atoi(max_str.c_str());
+				int min_width = min_str.empty() ? 0 : std::stoi(min_str);
+				int max_width = max_str.empty() ? -1 : std::stoi(max_str);
 				for (auto &it : mod->wires_)
 					if (min_width <= it.second->width && (it.second->width <= max_width || max_width == -1))
 						sel.selected_members[mod->name].insert(it.first);
@@ -1230,15 +1230,15 @@ struct SelectPass : public Pass {
 				continue;
 			}
 			if (arg == "-assert-count" && argidx+1 < args.size()) {
-				assert_count = atoi(args[++argidx].c_str());
+				assert_count = std::stoi(args[++argidx]);
 				continue;
 			}
 			if (arg == "-assert-max" && argidx+1 < args.size()) {
-				assert_max = atoi(args[++argidx].c_str());
+				assert_max = std::stoi(args[++argidx]);
 				continue;
 			}
 			if (arg == "-assert-min" && argidx+1 < args.size()) {
-				assert_min = atoi(args[++argidx].c_str());
+				assert_min = std::stoi(args[++argidx]);
 				continue;
 			}
 			if (arg == "-clear") {

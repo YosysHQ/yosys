@@ -210,7 +210,7 @@ struct SetundefPass : public Pass {
 			if (args[argidx] == "-random" && !got_value && argidx+1 < args.size()) {
 				got_value = true;
 				worker.next_bit_mode = MODE_RANDOM;
-				worker.next_bit_state = atoi(args[++argidx].c_str()) + 1;
+				worker.next_bit_state = std::stoi(args[++argidx]) + 1;
 				for (int i = 0; i < 10; i++)
 					worker.next_bit();
 				continue;

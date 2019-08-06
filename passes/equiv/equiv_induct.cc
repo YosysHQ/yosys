@@ -207,7 +207,7 @@ struct EquivInductPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-seq" && argidx+1 < args.size()) {
-				max_seq = atoi(args[++argidx].c_str());
+				max_seq = std::stoi(args[++argidx]);
 				continue;
 			}
 			break;

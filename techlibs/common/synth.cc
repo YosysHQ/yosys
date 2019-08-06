@@ -140,7 +140,7 @@ struct SynthPass : public ScriptPass
 				continue;
 			}
 			if (args[argidx] == "-lut") {
-				lut = atoi(args[++argidx].c_str());
+				lut = std::stoi(args[++argidx]);
 				continue;
 			}
 			if (args[argidx] == "-nofsm") {

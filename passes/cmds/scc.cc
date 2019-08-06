@@ -269,11 +269,11 @@ struct SccPass : public Pass {
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-max_depth" && argidx+1 < args.size()) {
-				maxDepth = atoi(args[++argidx].c_str());
+				maxDepth = std::stoi(args[++argidx]);
 				continue;
 			}
 			if (args[argidx] == "-expect" && argidx+1 < args.size()) {
-				expect = atoi(args[++argidx].c_str());
+				expect = std::stoi(args[++argidx]);
 				continue;
 			}
 			if (args[argidx] == "-nofeedback") {

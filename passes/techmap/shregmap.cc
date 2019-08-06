@@ -655,19 +655,19 @@ struct ShregmapPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-minlen" && argidx+1 < args.size()) {
-				opts.minlen = atoi(args[++argidx].c_str());
+				opts.minlen = std::stoi(args[++argidx]);
 				continue;
 			}
 			if (args[argidx] == "-maxlen" && argidx+1 < args.size()) {
-				opts.maxlen = atoi(args[++argidx].c_str());
+				opts.maxlen = std::stoi(args[++argidx]);
 				continue;
 			}
 			if (args[argidx] == "-keep_before" && argidx+1 < args.size()) {
-				opts.keep_before = atoi(args[++argidx].c_str());
+				opts.keep_before = std::stoi(args[++argidx]);
 				continue;
 			}
 			if (args[argidx] == "-keep_after" && argidx+1 < args.size()) {
-				opts.keep_after = atoi(args[++argidx].c_str());
+				opts.keep_after = std::stoi(args[++argidx]);
 				continue;
 			}
 			if (args[argidx] == "-tech" && argidx+1 < args.size() && opts.tech == nullptr) {

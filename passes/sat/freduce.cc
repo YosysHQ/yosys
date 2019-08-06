@@ -816,7 +816,7 @@ struct FreducePass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-stop" && argidx+1 < args.size()) {
-				reduce_stop_at = atoi(args[++argidx].c_str());
+				reduce_stop_at = std::stoi(args[++argidx]);
 				continue;
 			}
 			if (args[argidx] == "-dump" && argidx+1 < args.size()) {

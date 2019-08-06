@@ -176,7 +176,7 @@ struct rules_t
 	bool parse_single_int(const char *stmt, int &value)
 	{
 		if (GetSize(tokens) == 2 && tokens[0] == stmt) {
-			value = atoi(tokens[1].c_str());
+			value = std::stoi(tokens[1]);
 			return true;
 		}
 		return false;
@@ -187,7 +187,7 @@ struct rules_t
 		if (GetSize(tokens) >= 2 && tokens[0] == stmt) {
 			value.resize(GetSize(tokens)-1);
 			for (int i = 1; i < GetSize(tokens); i++)
-				value[i-1] = atoi(tokens[i].c_str());
+				value[i-1] = std::stoi(tokens[i]);
 			return true;
 		}
 		return false;
@@ -297,12 +297,12 @@ struct rules_t
 			}
 
 			if (GetSize(tokens) == 3 && tokens[0] == "min") {
-				data.min_limits[tokens[1]] = atoi(tokens[2].c_str());
+				data.min_limits[tokens[1]] = std::stoi(tokens[2]);
 				continue;
 			}
 
 			if (GetSize(tokens) == 3 && tokens[0] == "max") {
-				data.max_limits[tokens[1]] = atoi(tokens[2].c_str());
+				data.max_limits[tokens[1]] = std::stoi(tokens[2]);
 				continue;
 			}
 

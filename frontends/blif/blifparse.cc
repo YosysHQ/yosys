@@ -103,7 +103,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name, bo
 
 				if (len > 0) {
 					string num_str = wire_name.substr(i+1, len);
-					int num = atoi(num_str.c_str()) & 0x0fffffff;
+					int num = std::stoi(num_str) & 0x0fffffff;
 					blif_maxnum = std::max(blif_maxnum, num);
 				}
 			}

@@ -555,14 +555,14 @@ struct OptLutPass : public Pass {
 					if (conn_tokens.size() != 2)
 						log_cmd_error("Invalid format of -dlogic signal mapping.\n");
 					IdString logic_port = "\\" + conn_tokens[0];
-					int lut_input = atoi(conn_tokens[1].c_str());
+					int lut_input = std::stoi(conn_tokens[1]);
 					dlogic[type][lut_input] = logic_port;
 				}
 				continue;
 			}
 			if (args[argidx] == "-limit" && argidx + 1 < args.size())
 			{
-				limit = atoi(args[++argidx].c_str());
+				limit = std::stoi(args[++argidx]);
 				continue;
 			}
 			break;

@@ -360,11 +360,11 @@ struct TestAutotbBackend : public Backend {
 		for (argidx = 1; argidx < GetSize(args); argidx++)
 		{
 			if (args[argidx] == "-n" && argidx+1 < GetSize(args)) {
-				num_iter = atoi(args[++argidx].c_str());
+				num_iter = std::stoi(args[++argidx]);
 				continue;
 			}
 			if (args[argidx] == "-seed" && argidx+1 < GetSize(args)) {
-				seed = atoi(args[++argidx].c_str());
+				seed = std::stoi(args[++argidx]);
 				continue;
 			}
 			break;

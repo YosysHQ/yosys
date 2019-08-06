@@ -1072,7 +1072,7 @@ struct TechmapPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-max_iter" && argidx+1 < args.size()) {
-				max_iter = atoi(args[++argidx].c_str());
+				max_iter = std::stoi(args[++argidx]);
 				continue;
 			}
 			if (args[argidx] == "-D" && argidx+1 < args.size()) {

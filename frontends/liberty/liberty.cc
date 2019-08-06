@@ -430,13 +430,13 @@ void parse_type_map(std::map<std::string, std::tuple<int, int, bool>> &type_map,
 				goto next_type;
 
 			if (child->id == "bit_width")
-				bit_width = atoi(child->value.c_str());
+				bit_width = std::stoi(child->value);
 
 			if (child->id == "bit_from")
-				bit_from = atoi(child->value.c_str());
+				bit_from = std::stoi(child->value);
 
 			if (child->id == "bit_to")
-				bit_to = atoi(child->value.c_str());
+				bit_to = std::stoi(child->value);
 
 			if (child->id == "downto" && (child->value == "0" || child->value == "false" || child->value == "FALSE"))
 				upto = true;
