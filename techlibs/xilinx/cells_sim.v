@@ -494,14 +494,81 @@ module DSP48E1 (
 `endif
     end
 
-    reg signed [29:0] Ar;
-    reg signed [17:0] Br;
+    reg signed [29:0] Ar1, Ar2;
+    reg signed [24:0] Dr;
+    reg signed [17:0] Br1, Br2;
     reg signed [47:0] Pr;
+    reg        [4:0]  INMODEr;
     generate
-        if (AREG == 1) begin always @(posedge CLK) if (CEA2) Ar <= A; end
-        else           always @* Ar <= A;
-        if (BREG == 1) begin always @(posedge CLK) if (CEB2) Br <= B; end
-        else           always @* Br <= B;
+        if (AREG == 2) begin
+            always @(posedge CLK)
+                if (RSTA) begin
+                    Ar1 <= 30'b0;
+                    Ar2 <= 30'b0;
+                end else begin
+                    if (CEA1) Ar1 <= A;
+                    if (CEA2) Ar2 <= Ar1;
+                end
+        end else if (AREG == 1) begin
+            always @(posedge CLK)
+                if (RSTA) begin
+                    Ar1 <= 30'b0;
+                    Ar2 <= 30'b0;
+                end else begin
+                    if (CEA1) Ar1 <= A;
+                    if (CEA2) Ar2 <= A;
+                end
+        end else begin
+            always @* Ar1 <= A;
+            always @* Ar2 <= A;
+        end
+
+        if (BREG == 2) begin
+            always @(posedge CLK)
+                if (RSTB) begin
+                    Br1 <= 18'b0;
+                    Br2 <= 18'b0;
+                end else begin
+                    if (CEB1) Br1 <= B;
+                    if (CEB2) Br2 <= Br1;
+                end
+        end else if (AREG == 1) begin
+            always @(posedge CLK)
+                if (RSTB) begin
+                    Br1 <= 18'b0;
+                    Br2 <= 18'b0;
+                end else begin
+                    if (CEB1) Br1 <= B;
+                    if (CEB2) Br2 <= B;
+                end
+        end else begin
+            always @* Br1 <= B;
+            always @* Br2 <= B;
+        end
+
+        if (DREG == 1) begin always @(posedge CLK) if (RSTD) Dr <= 25'b0; else if (CED) Dr <= D; end
+        else           always @* Dr <= D;
+
+        if (INMODEREG == 1) begin always @(posedge CLK) if (RSTINMODE) INMODEr <= 5'b0; else if (CEINMODE) INMODEr <= INMODE; end
+        else           always @* INMODEr <= INMODE;
+    endgenerate
+
+    wire signed [29:0] Ar12_muxed = INMODEr[0] ? Ar1 : Ar2;
+    wire signed [24:0] Ar12_gated = INMODEr[1] ? 25'b0 : Ar12_muxed;
+    wire signed [24:0] Dr_gated   = INMODEr[2] ? Dr : 25'b0;
+    wire signed [24:0] AD_result  = INMODEr[3] ? (Dr_gated - Ar12_gated) : (Dr_gated + Ar12_gated);
+    reg  signed [24:0] ADr;
+
+    generate
+        if (ADREG == 1) begin always @(posedge CLK) if (RSTD) ADr <= 25'b0; else if (CEAD) ADr <= AD_result; end
+        else            always @* ADr <= AD_result;
+    endgenerate
+
+    wire signed [24:0] A_MULT;
+    wire signed [24:0] B_MULT = INMODEr[4] ? Br1 : Br2;
+    generate
+        if (USE_DPORT == "TRUE") assign A_MULT = ADr;
+        else assign A_MULT = Ar12_gated;
     endgenerate
 
     always @* begin
@@ -516,11 +583,11 @@ module DSP48E1 (
         if (PCIN != 48'b0)          $fatal(1, "Unsupported PCIN value");
         if (CARRYIN != 1'b0)        $fatal(1, "Unsupported CARRYIN value");
 `endif
-        Pr[42:0] <= $signed(Ar[24:0]) * Br;
+        Pr[42:0] <= A_MULT * B_MULT;
     end
 
     generate
-        if (PREG == 1) begin always @(posedge CLK) if (CEP) P <= Pr; end
+        if (PREG == 1) begin always @(posedge CLK) if (RSTP) P <= 48'b0; else if (CEP) P <= Pr; end
         else           always @* P <= Pr;
     endgenerate
 
