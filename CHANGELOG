@@ -15,6 +15,7 @@ Yosys 0.9 .. Yosys 0.9-dev
     - Added "script -scriptwire
     - "synth_xilinx" to now infer wide multiplexers (-widemux <min> to enable)
     - Added automatic gzip decompression for frontends
+    - Added $_NMUX_ cell type
 
 Yosys 0.8 .. Yosys 0.8-dev
 --------------------------

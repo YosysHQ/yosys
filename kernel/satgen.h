@@ -475,7 +475,7 @@ struct SatGen
 			return true;
 		}
 
-		if (cell->type == "$_MUX_" || cell->type == "$mux")
+		if (cell->type == "$_MUX_" || cell->type == "$mux" || cell->type == "$_NMUX_")
 		{
 			std::vector<int> a = importDefSigSpec(cell->getPort("\\A"), timestep);
 			std::vector<int> b = importDefSigSpec(cell->getPort("\\B"), timestep);
@@ -483,7 +483,10 @@ struct SatGen
 			std::vector<int> y = importDefSigSpec(cell->getPort("\\Y"), timestep);
 
 			std::vector<int> yy = model_undef ? ez->vec_var(y.size()) : y;
-			ez->assume(ez->vec_eq(ez->vec_ite(s.at(0), b, a), yy));
+			if (cell->type == "$_NMUX_")
+				ez->assume(ez->vec_eq(ez->vec_not(ez->vec_ite(s.at(0), b, a)), yy));
+			else
+				ez->assume(ez->vec_eq(ez->vec_ite(s.at(0), b, a), yy));
 
 			if (model_undef)
 			{

@@ -24,10 +24,10 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-int get_cell_cost(RTLIL::Cell *cell, dict<RTLIL::IdString, int> *mod_cost_cache = nullptr);
+int get_cell_cost(RTLIL::Cell *cell, dict<RTLIL::IdString, int> *mod_cost_cache = nullptr, bool cmos_cost = false);
 
 inline int get_cell_cost(RTLIL::IdString type, const dict<RTLIL::IdString, RTLIL::Const> &parameters = dict<RTLIL::IdString, RTLIL::Const>(),
-		RTLIL::Design *design = nullptr, dict<RTLIL::IdString, int> *mod_cost_cache = nullptr)
+		RTLIL::Design *design = nullptr, dict<RTLIL::IdString, int> *mod_cost_cache = nullptr, bool cmos_cost = false)
 {
 	static dict<RTLIL::IdString, int> gate_cost = {
 		{ "$_BUF_",    1 },
@@ -44,8 +44,32 @@ inline int get_cell_cost(RTLIL::IdString type, const dict<RTLIL::IdString, RTLIL
 		{ "$_OAI3_",   6 },
 		{ "$_AOI4_",   8 },
 		{ "$_OAI4_",   8 },
-		{ "$_MUX_",    4 }
+		{ "$_MUX_",    4 },
+		{ "$_NMUX_",   4 }
 	};
+
+	// match costs in "stat -tech cmos"
+	static dict<RTLIL::IdString, int> cmos_gate_cost = {
+		{ "$_BUF_",     1 },
+		{ "$_NOT_",     2 },
+		{ "$_AND_",     6 },
+		{ "$_NAND_",    4 },
+		{ "$_OR_",      6 },
+		{ "$_NOR_",     4 },
+		{ "$_ANDNOT_",  6 },
+		{ "$_ORNOT_",   6 },
+		{ "$_XOR_",    12 },
+		{ "$_XNOR_",   12 },
+		{ "$_AOI3_",    6 },
+		{ "$_OAI3_",    6 },
+		{ "$_AOI4_",    8 },
+		{ "$_OAI4_",    8 },
+		{ "$_MUX_",    12 },
+		{ "$_NMUX_",   10 }
+	};
+
+	if (cmos_cost && cmos_gate_cost.count(type))
+		return cmos_gate_cost.at(type);
 
 	if (gate_cost.count(type))
 		return gate_cost.at(type);
@@ -76,9 +100,9 @@ inline int get_cell_cost(RTLIL::IdString type, const dict<RTLIL::IdString, RTLIL
 	return 1;
 }
 
-inline int get_cell_cost(RTLIL::Cell *cell, dict<RTLIL::IdString, int> *mod_cost_cache)
+inline int get_cell_cost(RTLIL::Cell *cell, dict<RTLIL::IdString, int> *mod_cost_cache, bool cmos_cost)
 {
-	return get_cell_cost(cell->type, cell->parameters, cell->module->design, mod_cost_cache);
+	return get_cell_cost(cell->type, cell->parameters, cell->module->design, mod_cost_cache, cmos_cost);
 }
 
 YOSYS_NAMESPACE_END
