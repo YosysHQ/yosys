@@ -494,19 +494,35 @@ module DSP48E1 (
 `endif
     end
 
+    wire signed [29:0] A_muxed;
+    wire signed [17:0] B_muxed;
+
+    generate
+        if (A_INPUT == "CASCADE") assign A_muxed = ACIN;
+        else assign A_muxed = A;
+
+        if (B_INPUT == "CASCADE") assign B_muxed = BCIN;
+        else assign B_muxed = B;
+    endgenerate
+
     reg signed [29:0] Ar1, Ar2;
     reg signed [24:0] Dr;
     reg signed [17:0] Br1, Br2;
-    reg signed [47:0] Pr;
+    reg signed [47:0] Cr;
     reg        [4:0]  INMODEr;
+    reg        [6:0]  OPMODEr;
+    reg        [3:0]  ALUMODEr;
+    reg        [2:0]  CARRYINSELr;
+
     generate
+        // Configurable A register
         if (AREG == 2) begin
             always @(posedge CLK)
                 if (RSTA) begin
                     Ar1 <= 30'b0;
                     Ar2 <= 30'b0;
                 end else begin
-                    if (CEA1) Ar1 <= A;
+                    if (CEA1) Ar1 <= A_muxed;
                     if (CEA2) Ar2 <= Ar1;
                 end
         end else if (AREG == 1) begin
@@ -515,21 +531,22 @@ module DSP48E1 (
                     Ar1 <= 30'b0;
                     Ar2 <= 30'b0;
                 end else begin
-                    if (CEA1) Ar1 <= A;
-                    if (CEA2) Ar2 <= A;
+                    if (CEA1) Ar1 <= A_muxed;
+                    if (CEA2) Ar2 <= A_muxed;
                 end
         end else begin
-            always @* Ar1 <= A;
-            always @* Ar2 <= A;
+            always @* Ar1 <= A_muxed;
+            always @* Ar2 <= A_muxed;
         end
 
+        // Configurable A register
         if (BREG == 2) begin
             always @(posedge CLK)
                 if (RSTB) begin
                     Br1 <= 18'b0;
                     Br2 <= 18'b0;
                 end else begin
-                    if (CEB1) Br1 <= B;
+                    if (CEB1) Br1 <= B_muxed;
                     if (CEB2) Br2 <= Br1;
                 end
         end else if (AREG == 1) begin
@@ -538,21 +555,41 @@ module DSP48E1 (
                     Br1 <= 18'b0;
                     Br2 <= 18'b0;
                 end else begin
-                    if (CEB1) Br1 <= B;
-                    if (CEB2) Br2 <= B;
+                    if (CEB1) Br1 <= B_muxed;
+                    if (CEB2) Br2 <= B_muxed;
                 end
         end else begin
-            always @* Br1 <= B;
-            always @* Br2 <= B;
+            always @* Br1 <= B_muxed;
+            always @* Br2 <= B_muxed;
         end
+
+        // C and D registers
+        if (CREG == 1) begin always @(posedge CLK) if (RSTC) Cr <= 48'b0; else if (CEC) Cr <= D; end
+        else           always @* Cr <= C;
 
         if (DREG == 1) begin always @(posedge CLK) if (RSTD) Dr <= 25'b0; else if (CED) Dr <= D; end
         else           always @* Dr <= D;
 
+        // Control registers
         if (INMODEREG == 1) begin always @(posedge CLK) if (RSTINMODE) INMODEr <= 5'b0; else if (CEINMODE) INMODEr <= INMODE; end
         else           always @* INMODEr <= INMODE;
+        if (OPMODEREG == 1) begin always @(posedge CLK) if (RSTCTRL) OPMODEr <= 7'b0; else if (CECTRL) OPMODEr <= OPMODE; end
+        else           always @* OPMODEr <= OPMODE;
+        if (ALUMODEREG == 1) begin always @(posedge CLK) if (RSTALUMODE) ALUMODEr <= 4'b0; else if (CEALUMODE) ALUMODEr <= ALUMODE; end
+        else           always @* ALUMODEr <= ALUMODE;
+        if (CARRYINSELREG == 1) begin always @(posedge CLK) if (RSTCTRL) CARRYINSELr <= 3'b0; else if (CECTRL) CARRYINSELr <= CARRYINSEL; end
+        else           always @* CARRYINSELr <= CARRYINSEL;
     endgenerate
 
+    // A and B cascsde
+    generate
+        if (ACASCREG == 1 && AREG == 2) assign ACOUT = Ar1;
+        else assign ACOUT = Ar2;
+        if (BCASCREG == 1 && BREG == 2) assign BCOUT = Br1;
+        else assign BCOUT = Br2;
+    endgenerate
+
+    // A/D input selection and pre-adder
     wire signed [29:0] Ar12_muxed = INMODEr[0] ? Ar1 : Ar2;
     wire signed [24:0] Ar12_gated = INMODEr[1] ? 25'b0 : Ar12_muxed;
     wire signed [24:0] Dr_gated   = INMODEr[2] ? Dr : 25'b0;
@@ -564,31 +601,91 @@ module DSP48E1 (
         else            always @* ADr <= AD_result;
     endgenerate
 
+    // 25x18 multiplier
     wire signed [24:0] A_MULT;
-    wire signed [24:0] B_MULT = INMODEr[4] ? Br1 : Br2;
+    wire signed [17:0] B_MULT = INMODEr[4] ? Br1 : Br2;
     generate
         if (USE_DPORT == "TRUE") assign A_MULT = ADr;
         else assign A_MULT = Ar12_gated;
     endgenerate
 
+    wire signed [42:0] M = A_MULT * B_MULT;
+    reg  signed [42:0] Mr;
+
+    // Multiplier result register
+    generate
+        if (MREG == 1) begin always @(posedge CLK) if (RSTM) Mr <= 43'b0; else if (CEM) Mr <= M; end
+        else           always @* Mr <= M;
+    endgenerate
+
+    // X, Y and Z ALU inputs
+    reg signed [47:0] X, Y, Z;
+
     always @* begin
-        Pr <= {48{1'bx}};
+        // X multiplexer
+        case (OPMODEr[1:0])
+            2'b00: X = 48'b0;
+            2'b01: X = $signed(M);
 `ifdef __ICARUS__
-        if (INMODE != 4'b0000)      $fatal(1, "Unsupported INMODE value");
-        if (ALUMODE != 4'b0000)     $fatal(1, "Unsupported ALUMODE value");
-        if (OPMODE != 7'b000101)    $fatal(1, "Unsupported OPMODE value");
-        if (CARRYINSEL != 3'b000)   $fatal(1, "Unsupported CARRYINSEL value");
-        if (ACIN != 30'b0)          $fatal(1, "Unsupported ACIN value");
-        if (BCIN != 18'b0)          $fatal(1, "Unsupported BCIN value");
-        if (PCIN != 48'b0)          $fatal(1, "Unsupported PCIN value");
-        if (CARRYIN != 1'b0)        $fatal(1, "Unsupported CARRYIN value");
+                if (OPMODEr[3:2] != 2'b01) $fatal(1, "OPMODEr[3:2] must be 2'b01 when OPMODEr[1:0] is 2'b01");
 `endif
-        Pr[42:0] <= A_MULT * B_MULT;
+            2'b10: X = P;
+`ifdef __ICARUS__
+                if (PREG != 1) $fatal(1, "PREG must be 1 when OPMODEr[1:0] is 2'b10");
+`endif
+            2'b11: X = $signed({Ar2, Br2});
+            default: X = 48'bx;
+        endcase
+
+        // Y multiplexer
+        case (OPMODEr[3:2])
+            2'b00: Y = 48'b0;
+            2'b01: Y = 48'b0; // FIXME: more accurate partial product modelling?
+`ifdef __ICARUS__
+                if (OPMODEr[1:0] != 2'b01) $fatal(1, "OPMODEr[1:0] must be 2'b01 when OPMODEr[3:2] is 2'b01");
+`endif
+            2'b10: Y = {48{1'b1}};
+            2'b11: Y = C;
+            default: Y = 48'bx;
+        endcase
+
+        // Z multiplexer
+        case (OPMODEr[6:4])
+            3'b000: Z = 48'b0;
+            3'b001: Z = PCIN;
+            3'b010: Z = P;
+`ifdef __ICARUS__
+                if (PREG != 1) $fatal(1, "PREG must be 1 when OPMODEr[6:4] i0s 3'b010");
+`endif
+            3'b011: Z = C;
+            3'b100: Z = P;
+`ifdef __ICARUS__
+                if (PREG != 1) $fatal(1, "PREG must be 1 when OPMODEr[6:4] is 3'b100");
+                if (OPMODEr[3:0] != 4'b1000) $fatal(1, "OPMODEr[3:0] must be 4'b1000 when OPMODEr[6:4] i0s 3'b100");
+`endif
+            3'b101: Z = $signed(PCIN[47:17]);
+            3'b110: Z = $signed(P[47:17]);
+            default: Z = 48'bx;
+        endcase
+    end
+
+    wire alu_cin = 1'b0; // FIXME*
+
+    wire [47:0] Z_muxinv = ALUMODEr[0] ? ~Z : Z;
+    wire [47:0] xor_xyz = X ^ Y ^ Z_muxinv;
+    wire [47:0] maj_xyz = (X & Y) | (X & Z) | (X & Y);
+
+    
+
+    always @* begin
+`ifdef __ICARUS__
+        if (CARRYINSEL != 3'b000)   $fatal(1, "Unsupported CARRYINSEL value");
+`endif
     end
 
     generate
-        if (PREG == 1) begin always @(posedge CLK) if (RSTP) P <= 48'b0; else if (CEP) P <= Pr; end
-        else           always @* P <= Pr;
+        if (PREG == 1) begin always @(posedge CLK) if (RSTP) P <= 48'b0; else if (CEP) P <= Mr; end
+        else           always @* P <= Mr;
     endgenerate
 
 endmodule
