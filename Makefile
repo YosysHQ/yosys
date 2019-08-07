@@ -781,7 +781,7 @@ clean:
 	rm -rf kernel/*.pyh
 	if test -d manual; then cd manual && sh clean.sh; fi
 	rm -f $(OBJS) $(GENFILES) $(TARGETS) $(EXTRA_TARGETS) $(EXTRA_OBJS) $(PY_WRAP_INCLUDES) $(PY_WRAPPER_FILE).cc
-	rm -f kernel/version_*.o kernel/version_*.cc abc/abc-[0-9a-f]* abc/libabc-[0-9a-f]*.a
+	rm -f kernel/version_*.o kernel/version_*.cc
 	rm -f libs/*/*.d frontends/*/*.d passes/*/*.d backends/*/*.d kernel/*.d techlibs/*/*.d
 	rm -rf tests/asicworld/*.out tests/asicworld/*.log
 	rm -rf tests/hana/*.out tests/hana/*.log
