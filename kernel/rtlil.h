@@ -1408,7 +1408,7 @@ struct RTLIL::Process : public RTLIL::AttrObject
 
 inline RTLIL::SigBit::SigBit() : wire(NULL), data(RTLIL::State::S0) { }
 inline RTLIL::SigBit::SigBit(RTLIL::State bit) : wire(NULL), data(bit) { }
-inline RTLIL::SigBit::SigBit(bool bit) : wire(NULL), data(bit ? RTLIL::S1 : RTLIL::S0) { }
+inline RTLIL::SigBit::SigBit(bool bit) : wire(NULL), data(bit ? State::S1 : State::S0) { }
 inline RTLIL::SigBit::SigBit(RTLIL::Wire *wire) : wire(wire), offset(0) { log_assert(wire && wire->width == 1); }
 inline RTLIL::SigBit::SigBit(RTLIL::Wire *wire, int offset) : wire(wire), offset(offset) { log_assert(wire != nullptr); }
 inline RTLIL::SigBit::SigBit(const RTLIL::SigChunk &chunk) : wire(chunk.wire) { log_assert(chunk.width == 1); if (wire) offset = chunk.offset; else data = chunk.data[0]; }
