@@ -72,9 +72,9 @@ struct VerificImporter
 	pool<Verific::Net*, hash_ptr_ops> any_all_nets;
 
 	bool mode_gates, mode_keep, mode_nosva, mode_names, mode_verific;
-	bool mode_autocover;
+	bool mode_autocover, mode_fullinit;
 
-	VerificImporter(bool mode_gates, bool mode_keep, bool mode_nosva, bool mode_names, bool mode_verific, bool mode_autocover);
+	VerificImporter(bool mode_gates, bool mode_keep, bool mode_nosva, bool mode_names, bool mode_verific, bool mode_autocover, bool mode_fullinit);
 
 	RTLIL::SigBit net_map_at(Verific::Net *net);
 
