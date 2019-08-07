@@ -62,7 +62,7 @@ module \$lut (A, Y);
 endmodule
 `endif
 
-`ifdef _ABC
+`ifndef NO_ADDER
 module \$__ICE40_FULL_ADDER (output CO, O, input A, B, CI);
   SB_CARRY carry (
     .I0(A),
@@ -70,18 +70,16 @@ module \$__ICE40_FULL_ADDER (output CO, O, input A, B, CI);
     .CI(CI),
     .CO(CO)
   );
-  SB_LUT4 #(
-    //         I0: 1010 1010 1010 1010
-    //         I1: 1100 1100 1100 1100
-    //         I2: 1111 0000 1111 0000
-    //         I3: 1111 1111 0000 0000
-    .LUT_INIT(16'b 0110_1001_1001_0110)
+  \$lut #(
+    .WIDTH(4),
+    //    A[0]: 1010 1010 1010 1010
+    //    A[1]: 1100 1100 1100 1100
+    //    A[2]: 1111 0000 1111 0000
+    //    A[3]: 1111 1111 0000 0000
+    .LUT(16'b 0110_1001_1001_0110)
   ) adder (
-    .I0(1'b0),
-    .I1(A),
-    .I2(B),
-    .I3(CI),
-    .O(O)
+    .A({CI,B,A,1'b0}),
+    .Y(O)
   );
 endmodule
 `endif
