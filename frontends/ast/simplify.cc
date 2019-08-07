@@ -3439,19 +3439,11 @@ AstNode *AstNode::eval_const_function(AstNode *fcall)
 {
 	std::map<std::string, AstNode*> backup_scope;
 	std::map<std::string, AstNode::varinfo_t> variables;
-	bool delete_temp_block = false;
-	AstNode *block = NULL;
+	AstNode *block = new AstNode(AST_BLOCK);
 
 	size_t argidx = 0;
 	for (auto child : children)
 	{
-		if (child->type == AST_BLOCK)
-		{
-			log_assert(block == NULL);
-			block = child;
-			continue;
-		}
-
 		if (child->type == AST_WIRE)
 		{
 			while (child->simplify(true, false, false, 1, -1, false, true)) { }
@@ -3468,13 +3460,9 @@ AstNode *AstNode::eval_const_function(AstNode *fcall)
 			continue;
 		}
 
-		log_assert(block == NULL);
-		delete_temp_block = true;
-		block = new AstNode(AST_BLOCK);
 		block->children.push_back(child->clone());
 	}
 
-	log_assert(block != NULL);
 	log_assert(variables.count(str) != 0);
 
 	while (!block->children.empty())
@@ -3642,8 +3630,7 @@ AstNode *AstNode::eval_const_function(AstNode *fcall)
 		log_abort();
 	}
 
-	if (delete_temp_block)
-		delete block;
+	delete block;
 
 	for (auto &it : backup_scope)
 		if (it.second == NULL)

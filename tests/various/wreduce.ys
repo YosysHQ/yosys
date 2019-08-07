@@ -1,0 +1,48 @@
+read_verilog <<EOT
+module wreduce_sub_test(input [3:0] i, input [7:0] j, output [8:0] o);
+    assign o = (j >> 4) - i;
+endmodule
+EOT
+
+hierarchy -auto-top
+proc
+design -save gold
+
+opt_expr
+wreduce
+
+select -assert-count 1 t:$sub r:A_WIDTH=4 r:B_WIDTH=4 r:Y_WIDTH=5 %i %i %i
+
+design -stash gate
+
+design -import gold -as gold
+design -import gate -as gate
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports miter
+
+##########
+
+read_verilog <<EOT
+module wreduce_sub_signed_test(input signed [3:0] i, input signed [7:0] j, output signed [8:0] o);
+    assign o = (j >>> 4) - i;
+endmodule
+EOT
+
+hierarchy -auto-top
+proc
+design -save gold
+
+opt_expr
+wreduce
+
+dump
+select -assert-count 1 t:$sub r:A_WIDTH=4 r:B_WIDTH=4 r:Y_WIDTH=5 %i %i %i
+
+design -stash gate
+
+design -import gold -as gold
+design -import gate -as gate
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports miter

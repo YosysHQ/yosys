@@ -295,8 +295,6 @@ void Pass::call(RTLIL::Design *design, std::vector<std::string> args)
 	pass_register[args[0]]->post_execute(state);
 	while (design->selection_stack.size() > orig_sel_stack_pos)
 		design->selection_stack.pop_back();
-
-	design->check();
 }
 
 void Pass::call_on_selection(RTLIL::Design *design, const RTLIL::Selection &selection, std::string command)
@@ -378,8 +376,10 @@ void ScriptPass::run(std::string command, std::string info)
 			log("        %s\n", command.c_str());
 		else
 			log("        %s    %s\n", command.c_str(), info.c_str());
-	} else
+	} else {
 		Pass::call(active_design, command);
+		active_design->check();
+	}
 }
 
 void ScriptPass::run_script(RTLIL::Design *design, std::string run_from, std::string run_to)
@@ -573,8 +573,6 @@ void Frontend::frontend_call(RTLIL::Design *design, std::istream *f, std::string
 			args.push_back(filename);
 		frontend_register[args[0]]->execute(args, design);
 	}
-
-	design->check();
 }
 
 Backend::Backend(std::string name, std::string short_help) :
@@ -698,8 +696,6 @@ void Backend::backend_call(RTLIL::Design *design, std::ostream *f, std::string f
 
 	while (design->selection_stack.size() > orig_sel_stack_pos)
 		design->selection_stack.pop_back();
-
-	design->check();
 }
 
 static struct CellHelpMessages {
