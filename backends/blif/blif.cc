@@ -327,6 +327,13 @@ struct BlifDumper
 				goto internal_cell;
 			}
 
+			if (!config->icells_mode && cell->type == "$_NMUX_") {
+				f << stringf(".names %s %s %s %s\n0-0 1\n-01 1\n",
+						cstr(cell->getPort("\\A")), cstr(cell->getPort("\\B")),
+						cstr(cell->getPort("\\S")), cstr(cell->getPort("\\Y")));
+				goto internal_cell;
+			}
+
 			if (!config->icells_mode && cell->type == "$_FF_") {
 				f << stringf(".latch %s %s%s\n", cstr(cell->getPort("\\D")), cstr(cell->getPort("\\Q")),
 						cstr_init(cell->getPort("\\Q")));

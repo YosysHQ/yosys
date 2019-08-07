@@ -301,7 +301,11 @@ static uint32_t parse_xaiger_literal(std::istream &f)
 	uint32_t l;
 	f.read(reinterpret_cast<char*>(&l), sizeof(l));
 	if (f.gcount() != sizeof(l))
+#if defined(_WIN32) && defined(__MINGW32__)
+		log_error("Offset %I64d: unable to read literal!\n", static_cast<int64_t>(f.tellg()));
+#else
 		log_error("Offset %" PRId64 ": unable to read literal!\n", static_cast<int64_t>(f.tellg()));
+#endif
 	return from_big_endian(l);
 }
 
@@ -333,7 +337,7 @@ static RTLIL::Wire* createWireIfNotExists(RTLIL::Module *module, unsigned litera
 	return wire;
 }
 
-void AigerReader::parse_xaiger()
+void AigerReader::parse_xaiger(const dict<int,IdString> &box_lookup)
 {
 	std::string header;
 	f >> header;
@@ -368,21 +372,6 @@ void AigerReader::parse_xaiger()
 	RTLIL::Wire* n0 = module->wire("\\__0__");
 	if (n0)
 		module->connect(n0, RTLIL::S0);
-
-	dict<int,IdString> box_lookup;
-	for (auto m : design->modules()) {
-		auto it = m->attributes.find("\\abc_box_id");
-		if (it == m->attributes.end())
-			continue;
-		if (m->name.begins_with("$paramod"))
-			continue;
-		auto id = it->second.as_int();
-		auto r = box_lookup.insert(std::make_pair(id, m->name));
-		if (!r.second)
-			log_error("Module '%s' has the same abc_box_id = %d value as '%s'.\n",
-					log_id(m), id, log_id(r.first->second));
-		log_assert(r.second);
-	}
 
 	// Parse footer (symbol table, comments, etc.)
 	std::string s;
@@ -982,15 +971,16 @@ void AigerReader::post_process()
 	}
 
 	module->fixup_ports();
+
+	// Insert into a new (temporary) design so that "clean" will only
+	// operate (and run checks on) this one module
+	RTLIL::Design *mapped_design = new RTLIL::Design;
+	mapped_design->add(module);
+	Pass::call(mapped_design, "clean");
+	mapped_design->modules_.erase(module->name);
+	delete mapped_design;
+
 	design->add(module);
-
-	design->selection_stack.emplace_back(false);
-	RTLIL::Selection& sel = design->selection_stack.back();
-	sel.select(module);
-
-	Pass::call(design, "clean");
-
-	design->selection_stack.pop_back();
 
 	for (auto cell : module->cells().to_vector()) {
 		if (cell->type != "$lut") continue;

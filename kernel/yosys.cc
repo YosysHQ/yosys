@@ -964,14 +964,18 @@ void run_frontend(std::string filename, std::string command, std::string *backen
 					command += next_line;
 				}
 				handle_label(command, from_to_active, run_from, run_to);
-				if (from_to_active)
+				if (from_to_active) {
 					Pass::call(design, command);
+					design->check();
+				}
 			}
 
 			if (!command.empty()) {
 				handle_label(command, from_to_active, run_from, run_to);
-				if (from_to_active)
+				if (from_to_active) {
 					Pass::call(design, command);
+					design->check();
+				}
 			}
 		}
 		catch (...) {
@@ -1000,6 +1004,7 @@ void run_frontend(std::string filename, std::string command, std::string *backen
 		Pass::call(design, vector<string>({command, filename}));
 	else
 		Frontend::frontend_call(design, NULL, filename, command);
+	design->check();
 }
 
 void run_frontend(std::string filename, std::string command, RTLIL::Design *design)
@@ -1183,6 +1188,7 @@ void shell(RTLIL::Design *design)
 				design->selection_stack.pop_back();
 			log_reset_stack();
 		}
+		design->check();
 	}
 	if (command == NULL)
 		printf("exit\n");
