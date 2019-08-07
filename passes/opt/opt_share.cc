@@ -138,7 +138,7 @@ RTLIL::SigSpec decode_port_sign(RTLIL::Cell *cell, RTLIL::IdString port_name) {
 
 	if (cell->type == "$alu" && port_name == "\\B")
 		return cell->getPort("\\BI");
-	else if	(cell->type == "$sub" && port_name == "\\B")
+	else if (cell->type == "$sub" && port_name == "\\B")
 		return RTLIL::Const(1, 1);
 
 	return RTLIL::Const(0, 1);
@@ -177,14 +177,12 @@ void merge_operators(RTLIL::Module *module, RTLIL::Cell *mux, const std::vector<
 		auto op = p.op;
 
 		RTLIL::IdString muxed_port_name = "\\A";
-		if (op->getPort("\\A") == operand.sig) {
+		if (decode_port(op, "\\A", &assign_map) == operand)
 			muxed_port_name = "\\B";
-		}
 
 		auto operand = decode_port(op, muxed_port_name, &assign_map);
-		if (operand.sig.size() > max_width) {
+		if (operand.sig.size() > max_width)
 			max_width = operand.sig.size();
-		}
 
 		muxed_operands.push_back(operand);
 	}
@@ -196,10 +194,8 @@ void merge_operators(RTLIL::Module *module, RTLIL::Cell *mux, const std::vector<
 			max_width = shared_op->getParam("\\Y_WIDTH").as_int();
 
 
-	for (auto &operand : muxed_operands) {
+	for (auto &operand : muxed_operands)
 		operand.sig.extend_u0(max_width, operand.is_signed);
-	}
-
 
 	for (const auto& p : ports) {
 		auto op = p.op;
@@ -208,11 +204,10 @@ void merge_operators(RTLIL::Module *module, RTLIL::Cell *mux, const std::vector<
 		module->remove(op);
 	}
 
-	for (auto &muxed_op : muxed_operands) {
-		if (muxed_op.sign != muxed_operands[0].sign) {
+	for (auto &muxed_op : muxed_operands)
+		if (muxed_op.sign != muxed_operands[0].sign)
 			muxed_op = ExtSigSpec(module->Neg(NEW_ID, muxed_op.sig, muxed_op.is_signed));
-		}
-	}
+
 
 	RTLIL::SigSpec mux_y = mux->getPort("\\Y");
 	RTLIL::SigSpec mux_a = mux->getPort("\\A");
@@ -261,7 +256,7 @@ void merge_operators(RTLIL::Module *module, RTLIL::Cell *mux, const std::vector<
 
 	shared_op->setParam("\\Y_WIDTH", conn_width);
 
-	if (shared_op->getPort("\\A") == operand.sig) {
+	if (decode_port(shared_op, "\\A", &assign_map) == operand) {
 		shared_op->setPort("\\B", mux_to_oper);
 		shared_op->setParam("\\B_WIDTH", max_width);
 	} else {
@@ -299,7 +294,7 @@ void check_muxed_operands(std::vector<const OpMuxConn *> &ports, const ExtSigSpe
 		auto op = p->op;
 
 		RTLIL::IdString muxed_port_name = "\\A";
-		if (op->getPort("\\A") == shared_operand.sig) {
+		if (decode_port(op, "\\A", &assign_map) == shared_operand) {
 			muxed_port_name = "\\B";
 		}
 
@@ -486,10 +481,11 @@ struct OptSharePass : public Pass {
 		log("\n");
 
 		log("This pass identifies mutually exclusive cells of the same type that:\n");
-		log("    (a) share an input signal\n");
-		log("    (b) drive the same $mux, $_MUX_, or $pmux multiplexing cell allowing\n");
-		log("        the cell to be merged and the multiplexer to be moved from\n");
-		log("        multiplexing its output to multiplexing the non-shared input signals.\n");
+		log("    (a) share an input signal,\n");
+		log("    (b) drive the same $mux, $_MUX_, or $pmux multiplexing cell,\n");
+		log("\n");
+		log("allowing the cell to be merged and the multiplexer to be moved from\n");
+		log("multiplexing its output to multiplexing the non-shared input signals.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE

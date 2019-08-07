@@ -7,7 +7,6 @@ opt merged
 
 opt_share merged
 opt_clean merged
-opt -full
 
 miter -equiv -flatten -ignore_gold_x -make_outputs -make_outcmp opt_share_test merged miter
 sat -set-def-inputs -verify -prove trigger 0 -show-inputs -show-outputs miter
