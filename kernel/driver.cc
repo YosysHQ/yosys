@@ -522,6 +522,12 @@ int main(int argc, char **argv)
 	if (!backend_command.empty())
 		run_backend(output_filename, backend_command);
 
+	yosys_design->check();
+	for (auto it : saved_designs)
+		it.second->check();
+	for (auto it : pushed_designs)
+		it->check();
+
 	if (!depsfile.empty())
 	{
 		FILE *f = fopen(depsfile.c_str(), "wt");
