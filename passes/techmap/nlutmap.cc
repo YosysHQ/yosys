@@ -163,7 +163,7 @@ struct NlutmapPass : public Pass {
 				vector<string> tokens = split_tokens(args[++argidx], ",");
 				config.luts.clear();
 				for (auto &token : tokens)
-					config.luts.push_back(std::stoi(token));
+					config.luts.push_back(atoi(token.c_str()));
 				continue;
 			}
 			if (args[argidx] == "-assert") {

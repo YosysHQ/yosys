@@ -1102,23 +1102,23 @@ struct SatPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-timeout" && argidx+1 < args.size()) {
-				timeout = std::stoi(args[++argidx]);
+				timeout = std::atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-max" && argidx+1 < args.size()) {
-				loopcount = std::stoi(args[++argidx]);
+				loopcount = std::atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-maxsteps" && argidx+1 < args.size()) {
-				maxsteps = std::stoi(args[++argidx]);
+				maxsteps = std::atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-initsteps" && argidx+1 < args.size()) {
-				initsteps = std::stoi(args[++argidx]);
+				initsteps = std::atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-stepsize" && argidx+1 < args.size()) {
-				stepsize = max(1, std::stoi(args[++argidx]));
+				stepsize = max(1, std::atoi(args[++argidx].c_str()));
 				continue;
 			}
 			if (args[argidx] == "-ignore_div_by_zero") {
@@ -1185,7 +1185,7 @@ struct SatPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-tempinduct-skip" && argidx+1 < args.size()) {
-				tempinduct_skip = std::stoi(args[++argidx]);
+				tempinduct_skip = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-prove" && argidx+2 < args.size()) {
@@ -1206,39 +1206,39 @@ struct SatPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-prove-skip" && argidx+1 < args.size()) {
-				prove_skip = std::stoi(args[++argidx]);
+				prove_skip = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-seq" && argidx+1 < args.size()) {
-				seq_len = std::stoi(args[++argidx]);
+				seq_len = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-set-at" && argidx+3 < args.size()) {
-				int timestep = std::stoi(args[++argidx]);
+				int timestep = atoi(args[++argidx].c_str());
 				std::string lhs = args[++argidx];
 				std::string rhs = args[++argidx];
 				sets_at[timestep].push_back(std::pair<std::string, std::string>(lhs, rhs));
 				continue;
 			}
 			if (args[argidx] == "-unset-at" && argidx+2 < args.size()) {
-				int timestep = std::stoi(args[++argidx]);
+				int timestep = atoi(args[++argidx].c_str());
 				unsets_at[timestep].push_back(args[++argidx]);
 				continue;
 			}
 			if (args[argidx] == "-set-def-at" && argidx+2 < args.size()) {
-				int timestep = std::stoi(args[++argidx]);
+				int timestep = atoi(args[++argidx].c_str());
 				sets_def_at[timestep].push_back(args[++argidx]);
 				enable_undef = true;
 				continue;
 			}
 			if (args[argidx] == "-set-any-undef-at" && argidx+2 < args.size()) {
-				int timestep = std::stoi(args[++argidx]);
+				int timestep = atoi(args[++argidx].c_str());
 				sets_any_undef_at[timestep].push_back(args[++argidx]);
 				enable_undef = true;
 				continue;
 			}
 			if (args[argidx] == "-set-all-undef-at" && argidx+2 < args.size()) {
-				int timestep = std::stoi(args[++argidx]);
+				int timestep = atoi(args[++argidx].c_str());
 				sets_all_undef_at[timestep].push_back(args[++argidx]);
 				enable_undef = true;
 				continue;

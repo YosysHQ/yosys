@@ -79,7 +79,7 @@ struct TeePass : public Pass {
 				continue;
 			}
 			if (GetSize(args[argidx]) >= 2 && (args[argidx][0] == '-' || args[argidx][0] == '+') && args[argidx][1] >= '0' && args[argidx][1] <= '9') {
-				log_verbose_level += std::stoi(args[argidx]);
+				log_verbose_level += atoi(args[argidx].c_str());
 				continue;
 			}
 			break;

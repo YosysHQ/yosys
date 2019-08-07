@@ -830,7 +830,7 @@ struct QwpPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-grid" && argidx+1 < args.size()) {
-				config.grid = 1.0 / std::stoi(args[++argidx]);
+				config.grid = 1.0 / atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-dump" && argidx+1 < args.size()) {

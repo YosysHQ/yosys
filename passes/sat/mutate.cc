@@ -803,7 +803,7 @@ struct MutatePass : public Pass {
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
 			if (args[argidx] == "-list" && argidx+1 < args.size()) {
-				N = std::stoi(args[++argidx]);
+				N = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-o" && argidx+1 < args.size()) {
@@ -815,7 +815,7 @@ struct MutatePass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-seed" && argidx+1 < args.size()) {
-				opts.seed = std::stoi(args[++argidx]);
+				opts.seed = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-none") {
@@ -828,8 +828,8 @@ struct MutatePass : public Pass {
 			}
 			if (args[argidx] == "-ctrl" && argidx+3 < args.size()) {
 				opts.ctrl_name = RTLIL::escape_id(args[++argidx]);
-				opts.ctrl_width = std::stoi(args[++argidx]);
-				opts.ctrl_value = std::stoi(args[++argidx]);
+				opts.ctrl_width = atoi(args[++argidx].c_str());
+				opts.ctrl_value = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-module" && argidx+1 < args.size()) {
@@ -845,11 +845,11 @@ struct MutatePass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-portbit" && argidx+1 < args.size()) {
-				opts.portbit = std::stoi(args[++argidx]);
+				opts.portbit = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-ctrlbit" && argidx+1 < args.size()) {
-				opts.ctrlbit = std::stoi(args[++argidx]);
+				opts.ctrlbit = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-wire" && argidx+1 < args.size()) {
@@ -857,7 +857,7 @@ struct MutatePass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-wirebit" && argidx+1 < args.size()) {
-				opts.wirebit = std::stoi(args[++argidx]);
+				opts.wirebit = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-src" && argidx+1 < args.size()) {
@@ -866,52 +866,52 @@ struct MutatePass : public Pass {
 			}
 			if (args[argidx] == "-cfg" && argidx+2 < args.size()) {
 				if (args[argidx+1] == "pick_cover_prcnt") {
-					opts.pick_cover_prcnt = std::stoi(args[argidx+2]);
+					opts.pick_cover_prcnt = atoi(args[argidx+2].c_str());
 					argidx += 2;
 					continue;
 				}
 				if (args[argidx+1] == "weight_cover") {
-					opts.weight_cover = std::stoi(args[argidx+2]);
+					opts.weight_cover = atoi(args[argidx+2].c_str());
 					argidx += 2;
 					continue;
 				}
 				if (args[argidx+1] == "weight_pq_w") {
-					opts.weight_pq_w = std::stoi(args[argidx+2]);
+					opts.weight_pq_w = atoi(args[argidx+2].c_str());
 					argidx += 2;
 					continue;
 				}
 				if (args[argidx+1] == "weight_pq_b") {
-					opts.weight_pq_b = std::stoi(args[argidx+2]);
+					opts.weight_pq_b = atoi(args[argidx+2].c_str());
 					argidx += 2;
 					continue;
 				}
 				if (args[argidx+1] == "weight_pq_c") {
-					opts.weight_pq_c = std::stoi(args[argidx+2]);
+					opts.weight_pq_c = atoi(args[argidx+2].c_str());
 					argidx += 2;
 					continue;
 				}
 				if (args[argidx+1] == "weight_pq_s") {
-					opts.weight_pq_s = std::stoi(args[argidx+2]);
+					opts.weight_pq_s = atoi(args[argidx+2].c_str());
 					argidx += 2;
 					continue;
 				}
 				if (args[argidx+1] == "weight_pq_mw") {
-					opts.weight_pq_mw = std::stoi(args[argidx+2]);
+					opts.weight_pq_mw = atoi(args[argidx+2].c_str());
 					argidx += 2;
 					continue;
 				}
 				if (args[argidx+1] == "weight_pq_mb") {
-					opts.weight_pq_mb = std::stoi(args[argidx+2]);
+					opts.weight_pq_mb = atoi(args[argidx+2].c_str());
 					argidx += 2;
 					continue;
 				}
 				if (args[argidx+1] == "weight_pq_mc") {
-					opts.weight_pq_mc = std::stoi(args[argidx+2]);
+					opts.weight_pq_mc = atoi(args[argidx+2].c_str());
 					argidx += 2;
 					continue;
 				}
 				if (args[argidx+1] == "weight_pq_ms") {
-					opts.weight_pq_ms = std::stoi(args[argidx+2]);
+					opts.weight_pq_ms = atoi(args[argidx+2].c_str());
 					argidx += 2;
 					continue;
 				}

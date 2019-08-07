@@ -338,7 +338,7 @@ struct EquivStructPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-maxiter" && argidx+1 < args.size()) {
-				max_iter = std::stoi(args[++argidx]);
+				max_iter = atoi(args[++argidx].c_str());
 				continue;
 			}
 			break;

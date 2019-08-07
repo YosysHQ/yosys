@@ -3921,14 +3921,14 @@ bool RTLIL::SigSpec::parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::stri
 			sigspec_parse_split(index_tokens, indices.substr(1, indices.size()-2), ':');
 			if (index_tokens.size() == 1) {
 				cover("kernel.rtlil.sigspec.parse.bit_sel");
-				int a = std::stoi(index_tokens.at(0));
+				int a = atoi(index_tokens.at(0).c_str());
 				if (a < 0 || a >= wire->width)
 					return false;
 				sig.append(RTLIL::SigSpec(wire, a));
 			} else {
 				cover("kernel.rtlil.sigspec.parse.part_sel");
-				int a = std::stoi(index_tokens.at(0));
-				int b = std::stoi(index_tokens.at(1));
+				int a = atoi(index_tokens.at(0).c_str());
+				int b = atoi(index_tokens.at(1).c_str());
 				if (a > b) {
 					int tmp = a;
 					a = b, b = tmp;

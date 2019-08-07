@@ -740,7 +740,7 @@ struct ShowPass : public Pass {
 				continue;
 			}
 			if (arg == "-colors" && argidx+1 < args.size()) {
-				colorSeed = std::stoi(args[++argidx]);
+				colorSeed = atoi(args[++argidx].c_str());
 				for (int i = 0; i < 100; i++)
 					colorSeed = ShowWorker::xorshift32(colorSeed);
 				continue;

@@ -200,8 +200,8 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 			int pos_idx = pos[0];
 			int pos_num = pos[1];
 			int pos_type = pos[2];
-			int idx = std::stoi(cell->type.substr(pos_idx + 1, pos_num));
-			int num = std::stoi(cell->type.substr(pos_num + 1, pos_type));
+			int idx = atoi(cell->type.substr(pos_idx + 1, pos_num).c_str());
+			int num = atoi(cell->type.substr(pos_num + 1, pos_type).c_str());
 			array_cells[cell] = std::pair<int, int>(idx, num);
 			cell->type = cell->type.substr(pos_type + 1);
 		}
@@ -423,7 +423,7 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 			int conn_size = conn.second.size();
 			RTLIL::IdString portname = conn.first;
 			if (portname.begins_with("$")) {
-				int port_id = std::stoi(portname.substr(1));
+				int port_id = atoi(portname.substr(1).c_str());
 				for (auto &wire_it : mod->wires_)
 					if (wire_it.second->port_id == port_id) {
 						portname = wire_it.first;

@@ -130,7 +130,7 @@ struct AddPass : public Pass {
 				if (arg == "-global_input")
 					arg_flag_global = true;
 				arg_name = args[++argidx];
-				arg_width = std::stoi(args[++argidx]);
+				arg_width = atoi(args[++argidx].c_str());
 				continue;
 			}
 			break;

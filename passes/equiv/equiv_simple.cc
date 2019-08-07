@@ -325,7 +325,7 @@ struct EquivSimplePass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-seq" && argidx+1 < args.size()) {
-				max_seq = std::stoi(args[++argidx]);
+				max_seq = atoi(args[++argidx].c_str());
 				continue;
 			}
 			break;

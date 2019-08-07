@@ -304,7 +304,7 @@ struct Dff2dffePass : public Pass {
 			}
 			if (args[argidx] == "-unmap-mince" && argidx + 1 < args.size()) {
 				unmap_mode = true;
-				min_ce_use = std::stoi(args[++argidx]);
+				min_ce_use = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-direct" && argidx + 2 < args.size()) {

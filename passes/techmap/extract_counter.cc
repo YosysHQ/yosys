@@ -613,7 +613,7 @@ struct ExtractCounterPass : public Pass {
 
 			if (args[argidx] == "-maxwidth" && argidx+1 < args.size())
 			{
-				maxwidth = std::stoi(args[++argidx]);
+				maxwidth = atoi(args[++argidx].c_str());
 				continue;
 			}
 		}

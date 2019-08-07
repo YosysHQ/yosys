@@ -580,11 +580,11 @@ struct ExtractFaPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-d" && argidx+2 < args.size()) {
-				config.maxdepth = std::stoi(args[++argidx]);
+				config.maxdepth = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-b" && argidx+2 < args.size()) {
-				config.maxbreadth = std::stoi(args[++argidx]);
+				config.maxbreadth = atoi(args[++argidx].c_str());
 				continue;
 			}
 			break;

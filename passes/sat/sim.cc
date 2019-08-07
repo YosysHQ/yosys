@@ -803,11 +803,11 @@ struct SimPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-n" && argidx+1 < args.size()) {
-				numcycles = std::stoi(args[++argidx]);
+				numcycles = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-rstlen" && argidx+1 < args.size()) {
-				worker.rstlen = std::stoi(args[++argidx]);
+				worker.rstlen = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-clock" && argidx+1 < args.size()) {

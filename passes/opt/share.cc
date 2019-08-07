@@ -1521,7 +1521,7 @@ struct SharePass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-limit" && argidx+1 < args.size()) {
-				config.limit = std::stoi(args[++argidx]);
+				config.limit = atoi(args[++argidx].c_str());
 				continue;
 			}
 			break;

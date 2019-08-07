@@ -106,12 +106,12 @@ struct ChformalPass : public Pass {
 			}
 			if (mode == 0 && args[argidx] == "-delay" && argidx+1 < args.size()) {
 				mode = 'd';
-				mode_arg = std::stoi(args[++argidx]);
+				mode_arg = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (mode == 0 && args[argidx] == "-skip" && argidx+1 < args.size()) {
 				mode = 's';
-				mode_arg = std::stoi(args[++argidx]);
+				mode_arg = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if ((mode == 0 || mode == 'c') && args[argidx] == "-assert2assume") {

@@ -476,16 +476,16 @@ struct ExtractPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-mine_cells_span" && argidx+2 < args.size()) {
-				mine_cells_min = std::stoi(args[++argidx]);
-				mine_cells_max = std::stoi(args[++argidx]);
+				mine_cells_min = atoi(args[++argidx].c_str());
+				mine_cells_max = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-mine_min_freq" && argidx+1 < args.size()) {
-				mine_min_freq = std::stoi(args[++argidx]);
+				mine_min_freq = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-mine_limit_matches_per_module" && argidx+1 < args.size()) {
-				mine_limit_mod = std::stoi(args[++argidx]);
+				mine_limit_mod = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-mine_split" && argidx+2 < args.size()) {
@@ -494,7 +494,7 @@ struct ExtractPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-mine_max_fanout" && argidx+1 < args.size()) {
-				mine_max_fanout = std::stoi(args[++argidx]);
+				mine_max_fanout = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-verbose") {

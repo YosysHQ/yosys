@@ -343,7 +343,7 @@ std::string remap_name(RTLIL::IdString abc_name, RTLIL::Wire **orig_wire = nullp
 		abc_sname.erase(0, 5);
 		if (std::isdigit(abc_sname.at(0)))
 		{
-			int sid = std::stoi(abc_sname);
+			int sid = std::atoi(abc_sname.c_str());
 			size_t postfix_start = abc_sname.find_first_not_of("0123456789");
 			std::string postfix = postfix_start != std::string::npos ? abc_sname.substr(postfix_start) : "";
 
@@ -1564,10 +1564,10 @@ struct AbcPass : public Pass {
 				size_t pos = arg.find_first_of(':');
 				int lut_mode = 0, lut_mode2 = 0;
 				if (pos != string::npos) {
-					lut_mode = std::stoi(arg.substr(0, pos));
-					lut_mode2 = std::stoi(arg.substr(pos+1));
+					lut_mode = std::atoi(arg.substr(0, pos).c_str());
+					lut_mode2 = std::atoi(arg.substr(pos+1).c_str());
 				} else {
-					lut_mode = std::stoi(arg);
+					lut_mode = std::atoi(arg.c_str());
 					lut_mode2 = lut_mode;
 				}
 				lut_costs.clear();
@@ -1584,10 +1584,10 @@ struct AbcPass : public Pass {
 					if (GetSize(parts) == 0 && !lut_costs.empty())
 						lut_costs.push_back(lut_costs.back());
 					else if (GetSize(parts) == 1)
-						lut_costs.push_back(std::stoi(parts.at(0)));
+						lut_costs.push_back(atoi(parts.at(0).c_str()));
 					else if (GetSize(parts) == 2)
-						while (GetSize(lut_costs) < std::stoi(parts.at(0)))
-							lut_costs.push_back(std::stoi(parts.at(1)));
+						while (GetSize(lut_costs) < std::atoi(parts.at(0).c_str()))
+							lut_costs.push_back(atoi(parts.at(1).c_str()));
 					else
 						log_cmd_error("Invalid -luts syntax.\n");
 				}

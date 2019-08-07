@@ -2244,7 +2244,7 @@ struct VerificPass : public Pass {
 					continue;
 				}
 				if (args[argidx] == "-L" && argidx+1 < GetSize(args)) {
-					verific_sva_fsm_limit = std::stoi(args[++argidx]);
+					verific_sva_fsm_limit = atoi(args[++argidx].c_str());
 					continue;
 				}
 				if (args[argidx] == "-n") {

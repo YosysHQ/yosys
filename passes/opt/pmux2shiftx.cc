@@ -240,11 +240,11 @@ struct Pmux2ShiftxPass : public Pass {
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-min_density" && argidx+1 < args.size()) {
-				min_density = std::stoi(args[++argidx]);
+				min_density = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-min_choices" && argidx+1 < args.size()) {
-				min_choices = std::stoi(args[++argidx]);
+				min_choices = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-onehot" && argidx+1 < args.size() && args[argidx+1] == "ignore") {
