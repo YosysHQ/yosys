@@ -183,7 +183,7 @@ struct IntersynthBackend : public Backend {
 					if (param.second.bits.size() != 32) {
 						node_code += stringf(" %s '", RTLIL::id2cstr(param.first));
 						for (int i = param.second.bits.size()-1; i >= 0; i--)
-							node_code += param.second.bits[i] == RTLIL::S1 ? "1" : "0";
+							node_code += param.second.bits[i] == State::S1 ? "1" : "0";
 					} else
 						node_code += stringf(" %s 0x%x", RTLIL::id2cstr(param.first), param.second.as_int());
 				}

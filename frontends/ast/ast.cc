@@ -283,8 +283,8 @@ void AstNode::dumpAst(FILE *f, std::string indent) const
 	if (!bits.empty()) {
 		fprintf(f, " bits='");
 		for (size_t i = bits.size(); i > 0; i--)
-			fprintf(f, "%c", bits[i-1] == RTLIL::S0 ? '0' :
-					bits[i-1] == RTLIL::S1 ? '1' :
+			fprintf(f, "%c", bits[i-1] == State::S0 ? '0' :
+					bits[i-1] == State::S1 ? '1' :
 					bits[i-1] == RTLIL::Sx ? 'x' :
 					bits[i-1] == RTLIL::Sz ? 'z' : '?');
 		fprintf(f, "'(%d)", GetSize(bits));
@@ -716,7 +716,7 @@ AstNode *AstNode::mkconst_int(uint32_t v, bool is_signed, int width)
 	node->integer = v;
 	node->is_signed = is_signed;
 	for (int i = 0; i < width; i++) {
-		node->bits.push_back((v & 1) ? RTLIL::S1 : RTLIL::S0);
+		node->bits.push_back((v & 1) ? State::S1 : State::S0);
 		v = v >> 1;
 	}
 	node->range_valid = true;
@@ -733,9 +733,9 @@ AstNode *AstNode::mkconst_bits(const std::vector<RTLIL::State> &v, bool is_signe
 	node->bits = v;
 	for (size_t i = 0; i < 32; i++) {
 		if (i < node->bits.size())
-			node->integer |= (node->bits[i] == RTLIL::S1) << i;
+			node->integer |= (node->bits[i] == State::S1) << i;
 		else if (is_signed && !node->bits.empty())
-			node->integer |= (node->bits.back() == RTLIL::S1) << i;
+			node->integer |= (node->bits.back() == State::S1) << i;
 	}
 	node->range_valid = true;
 	node->range_left = node->bits.size()-1;
@@ -767,7 +767,7 @@ AstNode *AstNode::mkconst_str(const std::string &str)
 	for (size_t i = 0; i < str.size(); i++) {
 		unsigned char ch = str[str.size() - i - 1];
 		for (int j = 0; j < 8; j++) {
-			data.push_back((ch & 1) ? RTLIL::S1 : RTLIL::S0);
+			data.push_back((ch & 1) ? State::S1 : State::S0);
 			ch = ch >> 1;
 		}
 	}
@@ -780,7 +780,7 @@ AstNode *AstNode::mkconst_str(const std::string &str)
 bool AstNode::bits_only_01() const
 {
 	for (auto bit : bits)
-		if (bit != RTLIL::S0 && bit != RTLIL::S1)
+		if (bit != State::S0 && bit != State::S1)
 			return false;
 	return true;
 }

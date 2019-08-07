@@ -200,9 +200,9 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 			int32_t val = 0;
 			for (int i = offset+width-1; i >= offset; i--) {
 				log_assert(i < (int)data.bits.size());
-				if (data.bits[i] != RTLIL::S0 && data.bits[i] != RTLIL::S1)
+				if (data.bits[i] != State::S0 && data.bits[i] != State::S1)
 					goto dump_hex;
-				if (data.bits[i] == RTLIL::S1)
+				if (data.bits[i] == State::S1)
 					val |= 1 << (i - offset);
 			}
 			if (decimal)
@@ -219,8 +219,8 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 			for (int i = offset; i < offset+width; i++) {
 				log_assert(i < (int)data.bits.size());
 				switch (data.bits[i]) {
-				case RTLIL::S0: bin_digits.push_back('0'); break;
-				case RTLIL::S1: bin_digits.push_back('1'); break;
+				case State::S0: bin_digits.push_back('0'); break;
+				case State::S1: bin_digits.push_back('1'); break;
 				case RTLIL::Sx: bin_digits.push_back('x'); break;
 				case RTLIL::Sz: bin_digits.push_back('z'); break;
 				case RTLIL::Sa: bin_digits.push_back('?'); break;
@@ -273,8 +273,8 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 			for (int i = offset+width-1; i >= offset; i--) {
 				log_assert(i < (int)data.bits.size());
 				switch (data.bits[i]) {
-				case RTLIL::S0: f << stringf("0"); break;
-				case RTLIL::S1: f << stringf("1"); break;
+				case State::S0: f << stringf("0"); break;
+				case State::S1: f << stringf("1"); break;
 				case RTLIL::Sx: f << stringf("x"); break;
 				case RTLIL::Sz: f << stringf("z"); break;
 				case RTLIL::Sa: f << stringf("?"); break;

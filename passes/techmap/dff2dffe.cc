@@ -167,7 +167,7 @@ struct Dff2dffeWorker
 		}
 
 		if (GetSize(or_input) == 0)
-			return RTLIL::S1;
+			return State::S1;
 
 		if (GetSize(or_input) == 1)
 			return or_input;

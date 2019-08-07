@@ -47,7 +47,7 @@ RTLIL::Const::Const(std::string str)
 	for (int i = str.size()-1; i >= 0; i--) {
 		unsigned char ch = str[i];
 		for (int j = 0; j < 8; j++) {
-			bits.push_back((ch & 1) != 0 ? RTLIL::S1 : RTLIL::S0);
+			bits.push_back((ch & 1) != 0 ? State::S1 : State::S0);
 			ch = ch >> 1;
 		}
 	}
@@ -57,7 +57,7 @@ RTLIL::Const::Const(int val, int width)
 {
 	flags = RTLIL::CONST_FLAG_NONE;
 	for (int i = 0; i < width; i++) {
-		bits.push_back((val & 1) != 0 ? RTLIL::S1 : RTLIL::S0);
+		bits.push_back((val & 1) != 0 ? State::S1 : State::S0);
 		val = val >> 1;
 	}
 }
@@ -73,7 +73,7 @@ RTLIL::Const::Const(const std::vector<bool> &bits)
 {
 	flags = RTLIL::CONST_FLAG_NONE;
 	for (auto b : bits)
-		this->bits.push_back(b ? RTLIL::S1 : RTLIL::S0);
+		this->bits.push_back(b ? State::S1 : State::S0);
 }
 
 RTLIL::Const::Const(const RTLIL::Const &c)
@@ -106,7 +106,7 @@ bool RTLIL::Const::operator !=(const RTLIL::Const &other) const
 bool RTLIL::Const::as_bool() const
 {
 	for (size_t i = 0; i < bits.size(); i++)
-		if (bits[i] == RTLIL::S1)
+		if (bits[i] == State::S1)
 			return true;
 	return false;
 }
@@ -115,9 +115,9 @@ int RTLIL::Const::as_int(bool is_signed) const
 {
 	int32_t ret = 0;
 	for (size_t i = 0; i < bits.size() && i < 32; i++)
-		if (bits[i] == RTLIL::S1)
+		if (bits[i] == State::S1)
 			ret |= 1 << i;
-	if (is_signed && bits.back() == RTLIL::S1)
+	if (is_signed && bits.back() == State::S1)
 		for (size_t i = bits.size(); i < 32; i++)
 			ret |= 1 << i;
 	return ret;

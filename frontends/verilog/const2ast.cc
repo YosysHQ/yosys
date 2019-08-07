@@ -99,7 +99,7 @@ static void my_strtobin(std::vector<RTLIL::State> &data, const char *str, int le
 
 	if (base == 10) {
 		while (!digits.empty())
-			data.push_back(my_decimal_div_by_two(digits) ? RTLIL::S1 : RTLIL::S0);
+			data.push_back(my_decimal_div_by_two(digits) ? State::S1 : State::S0);
 	} else {
 		int bits_per_digit = my_ilog2(base-1);
 		for (auto it = digits.rbegin(), e = digits.rend(); it != e; it++) {
@@ -115,17 +115,17 @@ static void my_strtobin(std::vector<RTLIL::State> &data, const char *str, int le
 				else if (*it == 0xf2)
 					data.push_back(RTLIL::Sa);
 				else
-					data.push_back((*it & bitmask) ? RTLIL::S1 : RTLIL::S0);
+					data.push_back((*it & bitmask) ? State::S1 : State::S0);
 			}
 		}
 	}
 
 	int len = GetSize(data);
-	RTLIL::State msb = data.empty() ? RTLIL::S0 : data.back();
+	RTLIL::State msb = data.empty() ? State::S0 : data.back();
 
 	if (len_in_bits < 0) {
 		if (len < 32)
-			data.resize(32, msb == RTLIL::S0 || msb == RTLIL::S1 ? RTLIL::S0 : msb);
+			data.resize(32, msb == State::S0 || msb == State::S1 ? RTLIL::S0 : msb);
 		return;
 	}
 
@@ -133,11 +133,11 @@ static void my_strtobin(std::vector<RTLIL::State> &data, const char *str, int le
 		log_file_error(current_filename, get_line_num(), "Unsized constant must have width of 1 bit, but have %d bits!\n", len);
 
 	for (len = len - 1; len >= 0; len--)
-		if (data[len] == RTLIL::S1)
+		if (data[len] == State::S1)
 			break;
-	if (msb == RTLIL::S0 || msb == RTLIL::S1) {
+	if (msb == State::S0 || msb == State::S1) {
 		len += 1;
-		data.resize(len_in_bits, RTLIL::S0);
+		data.resize(len_in_bits, State::S0);
 	} else {
 		len += 2;
 		data.resize(len_in_bits, msb);
@@ -169,7 +169,7 @@ AstNode *VERILOG_FRONTEND::const2ast(std::string code, char case_type, bool warn
 		for (int i = 0; i < len; i++) {
 			unsigned char ch = str[len - i];
 			for (int j = 0; j < 8; j++) {
-				data.push_back((ch & 1) ? RTLIL::S1 : RTLIL::S0);
+				data.push_back((ch & 1) ? State::S1 : State::S0);
 				ch = ch >> 1;
 			}
 		}
@@ -190,8 +190,8 @@ AstNode *VERILOG_FRONTEND::const2ast(std::string code, char case_type, bool warn
 	if (*endptr == 0) {
 		std::vector<RTLIL::State> data;
 		my_strtobin(data, str, -1, 10, case_type, false);
-		if (data.back() == RTLIL::S1)
-			data.push_back(RTLIL::S0);
+		if (data.back() == State::S1)
+			data.push_back(State::S0);
 		return AstNode::mkconst_bits(data, true);
 	}
 
@@ -237,8 +237,8 @@ AstNode *VERILOG_FRONTEND::const2ast(std::string code, char case_type, bool warn
 			}
 		}
 		if (len_in_bits < 0) {
-			if (is_signed && data.back() == RTLIL::S1)
-				data.push_back(RTLIL::S0);
+			if (is_signed && data.back() == State::S1)
+				data.push_back(State::S0);
 		}
 		return AstNode::mkconst_bits(data, is_signed, is_unsized);
 	}

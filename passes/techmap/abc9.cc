@@ -593,7 +593,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 					c->setPort("\\Y", module->addWire(NEW_ID));
 					RTLIL::Wire *wire = module->wire(remap_name(y_bit.wire->name));
 					log_assert(wire);
-					module->connect(RTLIL::SigBit(wire, y_bit.offset), RTLIL::S1);
+					module->connect(RTLIL::SigBit(wire, y_bit.offset), State::S1);
 				}
 				else if (!lut_costs.empty() || !lut_file.empty()) {
 					RTLIL::Cell* driver_lut = nullptr;

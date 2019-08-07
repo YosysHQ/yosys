@@ -377,7 +377,7 @@ struct BlifDumper
 				f << stringf("\n");
 				RTLIL::SigSpec mask = cell->parameters.at("\\LUT");
 				for (int i = 0; i < (1 << width); i++)
-					if (mask[i] == RTLIL::S1) {
+					if (mask[i] == State::S1) {
 						for (int j = width-1; j >= 0; j--) {
 							f << ((i>>j)&1 ? '1' : '0');
 						}
