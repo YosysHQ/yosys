@@ -224,11 +224,11 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 	pm.autoremove(st.ffH);
 	pm.autoremove(st.addAB);
 	if (st.ffO_lo) {
-			SigSpec O = st.sigO.extract(0,16);
+			SigSpec O = st.sigO.extract(0,GetSize(st.ffO_lo));
 			st.ffO_lo->connections_.at("\\Q").replace(O, pm.module->addWire(NEW_ID, GetSize(O)));
 	}
 	if (st.ffO_hi) {
-			SigSpec O = st.sigO.extract(16,16);
+			SigSpec O = st.sigO.extract(16,GetSize(st.ffo_hi));
 			st.ffO_hi->connections_.at("\\Q").replace(O, pm.module->addWire(NEW_ID, GetSize(O)));
 	}
 }
