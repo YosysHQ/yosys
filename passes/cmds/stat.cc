@@ -17,11 +17,10 @@
  *
  */
 
-#include "kernel/register.h"
+#include "kernel/yosys.h"
 #include "kernel/celltypes.h"
 #include "passes/techmap/libparse.h"
-
-#include "kernel/log.h"
+#include "kernel/cost.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -228,21 +227,16 @@ struct statdata_t
 		{
 			int tran_cnt = 0;
 			bool tran_cnt_exact = true;
+			auto &gate_costs = CellCosts::cmos_gate_cost();
 
 			for (auto it : num_cells_by_type) {
 				auto ctype = it.first;
 				auto cnum = it.second;
 
-				if (ctype == "$_NOT_")
-					tran_cnt += 2*cnum;
-				else if (ctype.in("$_NAND_", "$_NOR_"))
-					tran_cnt += 4*cnum;
-				else if (ctype.in("$_AOI3_", "$_OAI3_"))
-					tran_cnt += 6*cnum;
-				else if (ctype.in("$_AOI4_", "$_OAI4_"))
-					tran_cnt += 8*cnum;
+				if (gate_costs.count(ctype))
+					tran_cnt += cnum * gate_costs.at(ctype);
 				else if (ctype.in("$_DFF_P_", "$_DFF_N_"))
-					tran_cnt += 16*cnum;
+					tran_cnt += cnum * 16;
 				else
 					tran_cnt_exact = false;
 			}

@@ -301,7 +301,11 @@ static uint32_t parse_xaiger_literal(std::istream &f)
 	uint32_t l;
 	f.read(reinterpret_cast<char*>(&l), sizeof(l));
 	if (f.gcount() != sizeof(l))
+#if defined(_WIN32) && defined(__MINGW32__)
+		log_error("Offset %I64d: unable to read literal!\n", static_cast<int64_t>(f.tellg()));
+#else
 		log_error("Offset %" PRId64 ": unable to read literal!\n", static_cast<int64_t>(f.tellg()));
+#endif
 	return from_big_endian(l);
 }
 

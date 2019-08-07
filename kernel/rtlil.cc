@@ -1249,6 +1249,7 @@ namespace {
 			if (cell->type == "$_ANDNOT_") { check_gate("ABY"); return; }
 			if (cell->type == "$_ORNOT_")  { check_gate("ABY"); return; }
 			if (cell->type == "$_MUX_")    { check_gate("ABSY"); return; }
+			if (cell->type == "$_NMUX_")   { check_gate("ABSY"); return; }
 			if (cell->type == "$_AOI3_")   { check_gate("ABCY"); return; }
 			if (cell->type == "$_OAI3_")   { check_gate("ABCY"); return; }
 			if (cell->type == "$_AOI4_")   { check_gate("ABCDY"); return; }
@@ -1976,6 +1977,7 @@ DEF_METHOD_3(XnorGate,   "$_XNOR_",   A, B, Y)
 DEF_METHOD_3(AndnotGate, "$_ANDNOT_", A, B, Y)
 DEF_METHOD_3(OrnotGate,  "$_ORNOT_",  A, B, Y)
 DEF_METHOD_4(MuxGate,    "$_MUX_",    A, B, S, Y)
+DEF_METHOD_4(NmuxGate,   "$_NMUX_",   A, B, S, Y)
 DEF_METHOD_4(Aoi3Gate,   "$_AOI3_",   A, B, C, Y)
 DEF_METHOD_4(Oai3Gate,   "$_OAI3_",   A, B, C, Y)
 DEF_METHOD_5(Aoi4Gate,   "$_AOI4_",   A, B, C, D, Y)

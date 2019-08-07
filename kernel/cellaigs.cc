@@ -325,6 +325,8 @@ Aig::Aig(Cell *cell)
 			int A = mk.inport("\\A", i);
 			int B = mk.inport("\\B", i);
 			int Y = mk.mux_gate(A, B, S);
+			if (cell->type == "$_NMUX_")
+				Y = mk.not_gate(Y);
 			mk.outport(Y, "\\Y", i);
 		}
 		goto optimize;
