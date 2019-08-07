@@ -2319,7 +2319,7 @@ skip_dynamic_range_lvalue_expansion:;
 				if (attr.first.str().rfind("\\via_celltype_defparam_", 0) == 0)
 				{
 					AstNode *cell_arg = new AstNode(AST_PARASET, attr.second->clone());
-					cell_arg->str = RTLIL::escape_id(attr.first.str().substr(strlen("\\via_celltype_defparam_")));
+					cell_arg->str = RTLIL::escape_id(attr.first.substr(strlen("\\via_celltype_defparam_")));
 					cell->children.push_back(cell_arg);
 				}
 

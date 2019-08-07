@@ -203,7 +203,7 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 			int idx = std::stoi(cell->type.substr(pos_idx + 1, pos_num));
 			int num = std::stoi(cell->type.substr(pos_num + 1, pos_type));
 			array_cells[cell] = std::pair<int, int>(idx, num);
-			cell->type = cell->type.str().substr(pos_type + 1);
+			cell->type = cell->type.substr(pos_type + 1);
 		}
 		dict<RTLIL::IdString, RTLIL::Module*> interfaces_to_add_to_submodule;
 		dict<RTLIL::IdString, RTLIL::IdString> modports_used_in_submodule;
