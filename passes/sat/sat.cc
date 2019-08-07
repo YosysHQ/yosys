@@ -1102,23 +1102,23 @@ struct SatPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-timeout" && argidx+1 < args.size()) {
-				timeout = std::atoi(args[++argidx].c_str());
+				timeout = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-max" && argidx+1 < args.size()) {
-				loopcount = std::atoi(args[++argidx].c_str());
+				loopcount = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-maxsteps" && argidx+1 < args.size()) {
-				maxsteps = std::atoi(args[++argidx].c_str());
+				maxsteps = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-initsteps" && argidx+1 < args.size()) {
-				initsteps = std::atoi(args[++argidx].c_str());
+				initsteps = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-stepsize" && argidx+1 < args.size()) {
-				stepsize = max(1, std::atoi(args[++argidx].c_str()));
+				stepsize = max(1, atoi(args[++argidx].c_str()));
 				continue;
 			}
 			if (args[argidx] == "-ignore_div_by_zero") {
