@@ -788,6 +788,7 @@ public:
 	RTLIL::SigSpec extract(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec *other = NULL) const;
 	RTLIL::SigSpec extract(const pool<RTLIL::SigBit> &pattern, const RTLIL::SigSpec *other = NULL) const;
 	RTLIL::SigSpec extract(int offset, int length = 1) const;
+	RTLIL::SigSpec extract_end(int offset) const { return extract(offset, width_ - offset); }
 
 	void append(const RTLIL::SigSpec &signal);
 	void append_bit(const RTLIL::SigBit &bit);
@@ -834,6 +835,7 @@ public:
 
 	operator std::vector<RTLIL::SigChunk>() const { return chunks(); }
 	operator std::vector<RTLIL::SigBit>() const { return bits(); }
+	RTLIL::SigBit at(int offset, const RTLIL::SigBit &defval) { return offset < width_ ? (*this)[offset] : defval; }
 
 	unsigned int hash() const { if (!hash_) updhash(); return hash_; };
 
