@@ -283,13 +283,13 @@ namespace RTLIL
 		bool begins_with(const char* prefix) const {
 			size_t len = strlen(prefix);
 			if (size() < len) return false;
-			return compare(0, len, prefix);
+			return compare(0, len, prefix) == 0;
 		}
 
 		bool ends_with(const char* suffix) const {
 			size_t len = strlen(suffix);
 			if (size() < len) return false;
-			return compare(size()-len, len, suffix);
+			return compare(size()-len, len, suffix) == 0;
 		}
 
 		size_t size() const {

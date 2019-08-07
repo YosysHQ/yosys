@@ -143,7 +143,7 @@ void generate(RTLIL::Design *design, const std::vector<std::string> &celltypes, 
 // Return the "basic" type for an array item.
 std::string basic_cell_type(const std::string celltype, int pos[3] = nullptr) {
 	std::string basicType = celltype;
-	if (celltype.compare(0, strlen("$array:"), "$array:")) {
+	if (celltype.compare(0, strlen("$array:"), "$array:") == 0) {
 		int pos_idx = celltype.find_first_of(':');
 		int pos_num = celltype.find_first_of(':', pos_idx + 1);
 		int pos_type = celltype.find_first_of(':', pos_num + 1);
@@ -200,8 +200,8 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 			int pos_idx = pos[0];
 			int pos_num = pos[1];
 			int pos_type = pos[2];
-			int idx = std::stoi(cell->type.str().substr(pos_idx + 1, pos_num));
-			int num = std::stoi(cell->type.str().substr(pos_num + 1, pos_type));
+			int idx = std::stoi(cell->type.substr(pos_idx + 1, pos_num));
+			int num = std::stoi(cell->type.substr(pos_num + 1, pos_type));
 			array_cells[cell] = std::pair<int, int>(idx, num);
 			cell->type = cell->type.str().substr(pos_type + 1);
 		}
@@ -457,7 +457,7 @@ void hierarchy_worker(RTLIL::Design *design, std::set<RTLIL::Module*, IdString::
 
 	for (auto cell : mod->cells()) {
 		std::string celltype = cell->type.str();
-		if (celltype.compare(0, strlen("$array:"), "$array:"))
+		if (celltype.compare(0, strlen("$array:"), "$array:") == 0)
 			celltype = basic_cell_type(celltype);
 		if (design->module(celltype))
 			hierarchy_worker(design, used, design->module(celltype), indent+4);
@@ -520,7 +520,7 @@ int find_top_mod_score(Design *design, Module *module, dict<Module*, int> &db)
 		for (auto cell : module->cells()) {
 			std::string celltype = cell->type.str();
 			// Is this an array instance
-			if (celltype.compare(0, strlen("$array:"), "$array:"))
+			if (celltype.compare(0, strlen("$array:"), "$array:") == 0)
 				celltype = basic_cell_type(celltype);
 			// Is this cell a module instance?
 			auto instModule = design->module(celltype);
