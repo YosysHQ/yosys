@@ -377,7 +377,7 @@ struct Dff2dffePass : public Pass {
 							mod->remove(cell);
 							continue;
 						}
-						if (cell->type.substr(0, 7) == "$_DFFE_") {
+						if (cell->type.begins_with("$_DFFE_")) {
 							if (min_ce_use >= 0) {
 								int ce_use = 0;
 								for (auto cell_other : mod->selected_cells()) {
@@ -390,8 +390,8 @@ struct Dff2dffePass : public Pass {
 									continue;
 							}
 
-							bool clk_pol = cell->type.substr(7, 1) == "P";
-							bool en_pol = cell->type.substr(8, 1) == "P";
+							bool clk_pol = cell->type.compare(7, 1, "P") == 0;
+							bool en_pol = cell->type.compare(8, 1, "P") == 0;
 							RTLIL::SigSpec tmp = mod->addWire(NEW_ID);
 							mod->addDff(NEW_ID, cell->getPort("\\C"), tmp, cell->getPort("\\Q"), clk_pol);
 							if (en_pol)

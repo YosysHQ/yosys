@@ -604,7 +604,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		return true;
 	}
 
-	if (cell->type.substr(0, 6) == "$_DFF_")
+	if (cell->type.begins_with("$_DFF_"))
 	{
 		std::string reg_name = cellname(cell);
 		bool out_is_reg_wire = is_reg_wire(cell->getPort("\\Q"), reg_name);
@@ -645,7 +645,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		return true;
 	}
 
-	if (cell->type.substr(0, 8) == "$_DFFSR_")
+	if (cell->type.begins_with("$_DFFSR_"))
 	{
 		char pol_c = cell->type[8], pol_s = cell->type[9], pol_r = cell->type[10];
 

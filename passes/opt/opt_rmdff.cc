@@ -278,7 +278,7 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 		sig_c = dff->getPort("\\C");
 		val_cp = RTLIL::Const(dff->type == "$_DFF_P_", 1);
 	}
-	else if (dff->type.begins_with("$_DFF_") && dff->type.substr(9) == "_" &&
+	else if (dff->type.begins_with("$_DFF_") && dff->type.compare(9, 1, "_") == 0 &&
 			(dff->type[6] == 'N' || dff->type[6] == 'P') &&
 			(dff->type[7] == 'N' || dff->type[7] == 'P') &&
 			(dff->type[8] == '0' || dff->type[8] == '1')) {
@@ -290,7 +290,7 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 		val_rp = RTLIL::Const(dff->type[7] == 'P', 1);
 		val_rv = RTLIL::Const(dff->type[8] == '1', 1);
 	}
-	else if (dff->type.begins_with("$_DFFE_") && dff->type.substr(9) == "_" &&
+	else if (dff->type.begins_with("$_DFFE_") && dff->type.compare(9, 1, "_") == 0 &&
 			(dff->type[7] == 'N' || dff->type[7] == 'P') &&
 			(dff->type[8] == 'N' || dff->type[8] == 'P')) {
 		sig_d = dff->getPort("\\D");

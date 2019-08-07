@@ -108,7 +108,7 @@ struct IntersynthBackend : public Backend {
 			if (f.fail())
 				log_error("Can't open lib file `%s'.\n", filename.c_str());
 			RTLIL::Design *lib = new RTLIL::Design;
-			Frontend::frontend_call(lib, &f, filename, (filename.size() > 3 && filename.substr(filename.size()-3) == ".il") ? "ilang" : "verilog");
+			Frontend::frontend_call(lib, &f, filename, (filename.size() > 3 && filename.compare(filename.size()-3, std::string::npos, ".il") == 0 ? "ilang" : "verilog"));
 			libs.push_back(lib);
 		}
 

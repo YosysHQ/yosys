@@ -1476,7 +1476,7 @@ struct Smt2Backend : public Backend {
 				int indent = 0;
 				while (indent < GetSize(line) && (line[indent] == ' ' || line[indent] == '\t'))
 					indent++;
-				if (line.substr(indent, 2) == "%%")
+				if (line.compare(indent, 2, "%%") == 0)
 					break;
 				*f << line << std::endl;
 			}

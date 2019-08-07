@@ -333,12 +333,12 @@ std::string remap_name(RTLIL::IdString abc_name, RTLIL::Wire **orig_wire = nullp
 {
 	std::string abc_sname = abc_name.substr(1);
 	bool isnew = false;
-	if (abc_sname.substr(0, 4) == "new_")
+	if (abc_sname.compare(0, 4, "new_") == 0)
 	{
 		abc_sname.erase(0, 4);
 		isnew = true;
 	}
-	if (abc_sname.substr(0, 5) == "ys__n")
+	if (abc_sname.compare(0, 5, "ys__n") == 0)
 	{
 		abc_sname.erase(0, 5);
 		if (std::isdigit(abc_sname.at(0)))
@@ -1562,10 +1562,10 @@ struct AbcPass : public Pass {
 				size_t pos = arg.find_first_of(':');
 				int lut_mode = 0, lut_mode2 = 0;
 				if (pos != string::npos) {
-					lut_mode = std::atoi(arg.substr(0, pos).c_str());
-					lut_mode2 = std::atoi(arg.substr(pos+1).c_str());
+					lut_mode = atoi(arg.substr(0, pos).c_str());
+					lut_mode2 = atoi(arg.substr(pos+1).c_str());
 				} else {
-					lut_mode = std::atoi(arg.c_str());
+					lut_mode = atoi(arg.c_str());
 					lut_mode2 = lut_mode;
 				}
 				lut_costs.clear();

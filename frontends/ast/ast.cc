@@ -1164,7 +1164,7 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 				}
 			}
 
-			if (flag_icells && (*it)->str.substr(0, 2) == "\\$")
+			if (flag_icells && (*it)->str.compare(0, 2, "\\$") == 0)
 				(*it)->str = (*it)->str.substr(1);
 
 			if (defer)
@@ -1463,7 +1463,7 @@ std::string AstModule::derive_common(RTLIL::Design *design, dict<RTLIL::IdString
 {
 	std::string stripped_name = name.str();
 
-	if (stripped_name.substr(0, 9) == "$abstract")
+	if (stripped_name.compare(0, 9, "$abstract") == 0)
 		stripped_name = stripped_name.substr(9);
 
 	log_header(design, "Executing AST frontend in derive mode using pre-parsed AST for module `%s'.\n", stripped_name.c_str());

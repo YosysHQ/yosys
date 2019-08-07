@@ -243,7 +243,7 @@ struct TechmapWorker
 			if (positional_ports.count(portname) > 0)
 				portname = positional_ports.at(portname);
 			if (tpl->wires_.count(portname) == 0 || tpl->wires_.at(portname)->port_id == 0) {
-				if (portname.substr(0, 1) == "$")
+				if (portname.begins_with("$"))
 					log_error("Can't map port `%s' of cell `%s' to template `%s'!\n", portname.c_str(), cell->name.c_str(), tpl->name.c_str());
 				continue;
 			}
@@ -341,7 +341,7 @@ struct TechmapWorker
 			RTLIL::Cell *c = module->addCell(c_name, it.second);
 			design->select(module, c);
 
-			if (!flatten_mode && c->type.substr(0, 2) == "\\$")
+			if (!flatten_mode && c->type.begins_with("\\$"))
 				c->type = c->type.substr(1);
 
 			for (auto &it2 : c->connections_) {
@@ -406,7 +406,7 @@ struct TechmapWorker
 				continue;
 
 			std::string cell_type = cell->type.str();
-			if (in_recursion && cell_type.substr(0, 2) == "\\$")
+			if (in_recursion && cell->type.begins_with("\\$"))
 				cell_type = cell_type.substr(1);
 
 			if (celltypeMap.count(cell_type) == 0) {
@@ -468,7 +468,7 @@ struct TechmapWorker
 
 			std::string cell_type = cell->type.str();
 
-			if (in_recursion && cell_type.substr(0, 2) == "\\$")
+			if (in_recursion && cell->type.begins_with("\\$"))
 				cell_type = cell_type.substr(1);
 
 			for (auto &tpl_name : celltypeMap.at(cell_type))
@@ -602,7 +602,7 @@ struct TechmapWorker
 					}
 
 					for (auto conn : cell->connections()) {
-						if (conn.first.substr(0, 1) == "$")
+						if (conn.first.begins_with("$"))
 							continue;
 						if (tpl->wires_.count(conn.first) > 0 && tpl->wires_.at(conn.first)->port_id > 0)
 							continue;
@@ -725,7 +725,7 @@ struct TechmapWorker
 
 						for (auto &it : twd)
 						{
-							if (it.first.substr(0, 12) != "_TECHMAP_DO_" || it.second.empty())
+							if (it.first.compare(0, 12, "_TECHMAP_DO_") != 0 || it.second.empty())
 								continue;
 
 							auto &data = it.second.front();
@@ -874,7 +874,7 @@ struct TechmapWorker
 						tpl->cloneInto(m);
 
 						for (auto cell : m->cells()) {
-							if (cell->type.substr(0, 2) == "\\$")
+							if (cell->type.begins_with("\\$"))
 								cell->type = cell->type.substr(1);
 						}
 
@@ -1113,7 +1113,7 @@ struct TechmapPass : public Pass {
 			Frontend::frontend_call(map, &f, "<techmap.v>", verilog_frontend);
 		} else {
 			for (auto &fn : map_files)
-				if (fn.substr(0, 1) == "%") {
+				if (fn.compare(0, 1, "%") == 0) {
 					if (!saved_designs.count(fn.substr(1))) {
 						delete map;
 						log_cmd_error("Can't saved design `%s'.\n", fn.c_str()+1);
@@ -1128,7 +1128,7 @@ struct TechmapPass : public Pass {
 					yosys_input_files.insert(fn);
 					if (f.fail())
 						log_cmd_error("Can't open map file `%s'\n", fn.c_str());
-					Frontend::frontend_call(map, &f, fn, (fn.size() > 3 && fn.substr(fn.size()-3) == ".il") ? "ilang" : verilog_frontend);
+					Frontend::frontend_call(map, &f, fn, (fn.size() > 3 && fn.compare(fn.size()-3, std::string::npos, ".il") == 0 ? "ilang" : verilog_frontend));
 				}
 		}
 
@@ -1143,7 +1143,7 @@ struct TechmapPass : public Pass {
 				free(p);
 			} else {
 				string module_name = it.first.str();
-				if (module_name.substr(0, 2) == "\\$")
+				if (it.first.begins_with("\\$"))
 					module_name = module_name.substr(1);
 				celltypeMap[module_name].insert(it.first);
 			}

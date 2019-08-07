@@ -872,7 +872,7 @@ struct TestCellPass : public Pass {
 				continue;
 			}
 
-			if (args[argidx].substr(0, 1) == "/") {
+			if (args[argidx].compare(0, 1, "/") == 0) {
 				std::vector<std::string> new_selected_cell_types;
 				for (auto it : selected_cell_types)
 					if (it != args[argidx].substr(1))

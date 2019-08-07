@@ -2140,7 +2140,7 @@ struct VerificPass : public Pass {
 			veri_file::DefineMacro("VERIFIC");
 			veri_file::DefineMacro(args[argidx] == "-formal" ? "FORMAL" : "SYNTHESIS");
 
-			for (argidx++; argidx < GetSize(args) && GetSize(args[argidx]) >= 2 && args[argidx].substr(0, 2) == "-D"; argidx++) {
+			for (argidx++; argidx < GetSize(args) && GetSize(args[argidx]) >= 2 && args[argidx].compare(0, 2, "-D") == 0; argidx++) {
 				std::string name = args[argidx].substr(2);
 				if (args[argidx] == "-D") {
 					if (++argidx >= GetSize(args))
@@ -2283,7 +2283,7 @@ struct VerificPass : public Pass {
 				break;
 			}
 
-			if (argidx > GetSize(args) && args[argidx].substr(0, 1) == "-")
+			if (argidx > GetSize(args) && args[argidx].compare(0, 1, "-") == 0)
 				cmd_error(args, argidx, "unknown option");
 
 			if (mode_all)

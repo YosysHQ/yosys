@@ -222,7 +222,7 @@ struct OptMergeWorker
 			return true;
 		}
 
-		if (cell1->type.substr(0, 1) == "$" && conn1.count("\\Q") != 0) {
+		if (cell1->type.begins_with("$") && conn1.count("\\Q") != 0) {
 			std::vector<RTLIL::SigBit> q1 = dff_init_map(cell1->getPort("\\Q")).to_sigbit_vector();
 			std::vector<RTLIL::SigBit> q2 = dff_init_map(cell2->getPort("\\Q")).to_sigbit_vector();
 			for (size_t i = 0; i < q1.size(); i++)

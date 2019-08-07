@@ -363,7 +363,7 @@ struct FirrtlWorker
 				}
 				// Check for subfield assignment.
 				std::string bitsString = "bits(";
-				if (sinkExpr.substr(0, bitsString.length()) == bitsString ) {
+				if (sinkExpr.compare(0, bitsString.length(), bitsString) == 0) {
 					if (sinkSig == nullptr)
 						log_error("Unknown subfield %s.%s\n", cell_type.c_str(), sinkExpr.c_str());
 					// Don't generate the assignment here.

@@ -121,7 +121,7 @@ struct CoverPass : public Pass {
 			}
 			break;
 		}
-		while (argidx < args.size() && args[argidx].substr(0, 1) != "-")
+		while (argidx < args.size() && args[argidx].compare(0, 1, "-") != 0)
 			patterns.push_back(args[argidx++]);
 		extra_args(args, argidx, design);
 
