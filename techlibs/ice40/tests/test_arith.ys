@@ -8,8 +8,6 @@ rename test gold
 miter -equiv -flatten -make_outputs gold gate miter
 sat -verify -prove trigger 0 -show-ports miter
 
-delete A:whitebox # Necessary since whiteboxes cannot
-                  # be overwritten...
 synth_ice40 -top gate
 
 read_verilog test_arith.v
