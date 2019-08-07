@@ -382,9 +382,9 @@ endmodule
 module DSP48E1 (
     output [29:0] ACOUT,
     output [17:0] BCOUT,
-    output CARRYCASCOUT,
-    output [3:0] CARRYOUT,
-    output MULTSIGNOUT,
+    output reg CARRYCASCOUT,
+    output reg [3:0] CARRYOUT,
+    output reg MULTSIGNOUT,
     output OVERFLOW,
     output reg signed [47:0] P,
     output PATTERNBDETECT,
@@ -669,13 +669,70 @@ module DSP48E1 (
         endcase
     end
 
+    // ALU core
+
     wire alu_cin = 1'b0; // FIXME*
 
     wire [47:0] Z_muxinv = ALUMODEr[0] ? ~Z : Z;
     wire [47:0] xor_xyz = X ^ Y ^ Z_muxinv;
     wire [47:0] maj_xyz = (X & Y) | (X & Z) | (X & Y);
 
-    
+    wire [47:0] xor_xyz_muxed = ALUMODEr[3] ? maj_xyz : xor_xyz;
+    wire [47:0] maj_xyz_gated = ALUMODEr[2] ? 48'b0 :  maj_xyz;
+
+    wire [48:0] maj_xyz_simd_gated;
+    wire [3:0] int_carry_in, int_carry_out, ext_carry_out;
+    wire [47:0] alu_sum;
+    assign int_carry_in[0] = 1'b0;
+
+    generate
+        if (USE_SIMD == "FOUR12") begin
+            assign maj_xyz_simd_gated = {
+                    maj_xyz_gated[47:36],
+                    1'b0, maj_xyz_gated[34:24],
+                    1'b0, maj_xyz_gated[22:12],
+                    1'b0, maj_xyz_gated[10:0],
+                    alu_cin
+                };
+            assign int_carry_in[3:1] = 3'b000;
+            assign ext_carry_out = {
+                    int_carry_out[3],
+                    maj_xyz_gated[35] ^ int_carry_out[2],
+                    maj_xyz_gated[23] ^ int_carry_out[1],
+                    maj_xyz_gated[11] ^ int_carry_out[0]
+                };
+        end else if (USE_SIMD == "TWO24") begin
+            assign maj_xyz_simd_gated = {
+                    maj_xyz_gated[47:24],
+                    1'b0, maj_xyz_gated[22:0],
+                    alu_cin
+                };
+            assign int_carry_in[3:1] = {int_carry_out[2], 1'b0, int_carry_out[0]};
+            assign ext_carry_out = {
+                    int_carry_out[3],
+                    1'bx,
+                    maj_xyz_gated[23] ^ int_carry_out[1],
+                    1'bx
+                };
+        end else if (USE_SIMD == "FOUR48") begin
+            assign maj_xyz_simd_gated = {maj_xyz_gated, alu_cin};
+            assign int_carry_in[3:1] = int_carry_out[2:0];
+            assign ext_carry_out = {
+                    int_carry_out[3],
+                    3'bxxx
+                };
+        end
+
+        genvar i;
+        for (i = 0; i < 4; i++)
+            assign {int_carry_out[i], alu_sum[i*12 +: 12]} = {1'b0, maj_xyz_simd_gated[i*12 +: ((i == 3) ? 13 : 12)]}
+                                                              + xor_xyz_muxed[i*12 +: 12] + int_carry_in[i];
+    endgenerate
+
+    wire signed [47:0] Pd = ALUMODEr[1] ? ~alu_sum : alu_sum;
+    wire [3:0] CARRYOUTd = (ALUMODEr[0] & ALUMODEr[1]) ? ~ext_carry_out : ext_carry_out;
+    wire CARRYCASCOUTd = ext_carry_out[3];
+    wire MULTSIGNOUTd = Mr[42];
 
     always @* begin
 `ifdef __ICARUS__
@@ -684,8 +741,27 @@ module DSP48E1 (
     end
 
     generate
-        if (PREG == 1) begin always @(posedge CLK) if (RSTP) P <= 48'b0; else if (CEP) P <= Mr; end
-        else           always @* P <= Mr;
+        if (PREG == 1) begin
+            always @(posedge CLK)
+                if (RSTP) begin
+                    P <= 48'b0;
+                    CARRYOUT <= 4'b0;
+                    CARRYCASCOUT <= 1'b0;
+                    MULTSIGNOUT <= 1'b0;
+                end else if (CEP) begin
+                    P <= Pd;
+                    CARRYOUT <= CARRYOUTd;
+                    CARRYCASCOUT <= CARRYCASCOUTd;
+                    MULTSIGNOUT <= MULTSIGNOUTd;
+                end
+        end else begin
+            always @* begin
+                P = Pd;
+                CARRYOUT = CARRYOUTd;
+                CARRYCASCOUT = CARRYCASCOUTd;
+                MULTSIGNOUT = MULTSIGNOUTd;
+            end
+        end
     endgenerate
 
 endmodule
