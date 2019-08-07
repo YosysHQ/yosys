@@ -1,4 +1,4 @@
-ARG IMAGE="ubuntu:18.04"
+ARG IMAGE="python:3-slim-buster"
 
 #---
 
@@ -7,8 +7,13 @@ FROM $IMAGE AS base
 RUN apt-get update -qq \
  && DEBIAN_FRONTEND=noninteractive apt-get -y install --no-install-recommends \
     ca-certificates \
+    clang \
+    curl \
+    libffi-dev \
     libreadline-dev \
     tcl-dev \
+    graphviz \
+    xdot \
  && apt-get autoclean && apt-get clean && apt-get -y autoremove \
  && update-ca-certificates \
  && rm -rf /var/lib/apt/lists
@@ -19,15 +24,13 @@ FROM base AS build
 
 RUN apt-get update -qq \
  && DEBIAN_FRONTEND=noninteractive apt-get -y install --no-install-recommends \
-    clang \
     bison \
-    build-essential \
     flex \
     gawk \
+    gcc \
     git \
-    libffi-dev \
+    iverilog \
     pkg-config \
-    python3 \
  && apt-get autoclean && apt-get clean && apt-get -y autoremove \
  && rm -rf /var/lib/apt/lists
 
