@@ -293,8 +293,10 @@ struct SynthIce40Pass : public ScriptPass
 		{
 			if (nocarry)
 				run("techmap");
-			else
+			else {
+				run("ice40_wrapcarry");
 				run("techmap -map +/techmap.v -map +/ice40/arith_map.v");
+			}
 			if (retime || help_mode)
 				run(abc + " -dff", "(only if -retime)");
 			run("ice40_opt");

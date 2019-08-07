@@ -44,10 +44,18 @@ module _80_ice40_alu (A, B, CI, BI, X, Y, CO);
 
 	genvar i;
 	generate for (i = 0; i < Y_WIDTH; i = i + 1) begin:slice
-		\$__ICE40_FULL_ADDER carry (
+		\$__ICE40_CARRY_WRAPPER #(
+			//    A[0]: 1010 1010 1010 1010
+			//    A[1]: 1100 1100 1100 1100
+			//    A[2]: 1111 0000 1111 0000
+			//    A[3]: 1111 1111 0000 0000
+			.LUT(16'b 0110_1001_1001_0110)
+		) fadd (
 			.A(AA[i]),
 			.B(BB[i]),
 			.CI(C[i]),
+			.I0(1'b0),
+			.I3(C[i]),
 			.CO(CO[i]),
 			.O(Y[i])
 		);
