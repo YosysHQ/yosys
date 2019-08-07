@@ -31,19 +31,22 @@ RUN apt-get update -qq \
  && apt-get autoclean && apt-get clean && apt-get -y autoremove \
  && rm -rf /var/lib/apt/lists
 
-COPY . /
+COPY . /yosys
 
-RUN make \
+ENV PREFIX /opt/yosys
+
+RUN cd /yosys \
+ && make \
  && make install \
- && mkdir dist && cp yosys yosys-abc yosys-config yosys-filterlib yosys-smtbmc dist/
+ && make test
 
 #---
 
 FROM base
 
-COPY --from=build /dist /opt/yosys
+COPY --from=build /opt/yosys /opt/yosys
 
-ENV PATH /opt/yosys:$PATH
+ENV PATH /opt/yosys/bin:$PATH
 
 RUN useradd -m yosys
 USER yosys
