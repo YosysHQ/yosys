@@ -94,7 +94,7 @@ module testbench;
 			if (OPMODE[1:0] == 2'b10 && PREG != 1) config_valid = 0;
 			if ((OPMODE[3:2] == 2'b01) ^ (OPMODE[1:0] == 2'b01) == 1'b1) config_valid = 0;
 			if ((OPMODE[6:4] == 3'b010 || OPMODE[6:4] == 3'b110) && PREG != 1) config_valid = 0;
-			if ((OPMODE[6:4] == 3'b100) && (PREG != 1 || OPMODE[3:0] != 4'b1000)) config_valid = 0;
+			if ((OPMODE[6:4] == 3'b100) && (PREG != 1 || OPMODE[3:0] != 4'b1000 || ALUMODE[3:2] == 2'b01 || ALUMODE[3:2] == 2'b11)) config_valid = 0;
 			if ((CARRYINSEL == 3'b100 || CARRYINSEL == 3'b101 || CARRYINSEL == 3'b111) && (PREG != 1)) config_valid = 0;
 			if (OPMODE[6:4] == 3'b111) config_valid = 0;
 			if ((ALUMODE[3:2] == 2'b01 || ALUMODE[3:2] == 2'b11) && OPMODE[3:2] != 2'b00 && OPMODE[3:2] != 2'b10) config_valid = 0;
@@ -119,14 +119,16 @@ module testbench;
 		{OPMODE, CARRYCASCIN, CARRYIN, MULTSIGNIN} = 0;
 
 		{RSTA, RSTALLCARRYIN, RSTALUMODE, RSTB, RSTC, RSTCTRL, RSTD, RSTINMODE, RSTM, RSTP} = ~0;
-		#5;
-		CLK = 1'b1;
-		#10;
-		CLK = 1'b0;
-		#5;
-		CLK = 1'b1;
-		#10;
-		CLK = 1'b0;
+		repeat (10) begin
+			#10;
+			CLK = 1'b1;
+			#10;
+			CLK = 1'b0;
+			#10;
+			CLK = 1'b1;
+			#10;
+			CLK = 1'b0;
+		end
 		{RSTA, RSTALLCARRYIN, RSTALUMODE, RSTB, RSTC, RSTCTRL, RSTD, RSTINMODE, RSTM, RSTP} = 0;
 
 		repeat (300) begin
@@ -344,6 +346,41 @@ module mult_noreg_nopreadd_nocasc;
 		.MREG               (0),
 		.OPMODEREG          (0),
 		.PREG               (0),
+		.SEL_MASK           ("MASK"),
+		.SEL_PATTERN        ("PATTERN"),
+		.USE_DPORT          ("FALSE"),
+		.USE_MULT           ("DYNAMIC"),
+		.USE_PATTERN_DETECT ("NO_PATDET"),
+		.USE_SIMD           ("ONE48"),
+		.MASK               (48'h3FFFFFFFFFFF),
+		.PATTERN            (48'h000000000000),
+		.IS_ALUMODE_INVERTED(4'b0),
+		.IS_CARRYIN_INVERTED(1'b0),
+		.IS_CLK_INVERTED    (1'b0),
+		.IS_INMODE_INVERTED (5'b0),
+		.IS_OPMODE_INVERTED (7'b0)
+	) testbench ();
+endmodule
+
+module mult_allreg_nopreadd_nocasc;
+	testbench #(
+		.ACASCREG           (1),
+		.ADREG              (1),
+		.ALUMODEREG         (1),
+		.AREG               (2),
+		.AUTORESET_PATDET   ("NO_RESET"),
+		.A_INPUT            ("DIRECT"),
+		.BCASCREG           (1),
+		.BREG               (2),
+		.B_INPUT            ("DIRECT"),
+		.CARRYINREG         (1),
+		.CARRYINSELREG      (1),
+		.CREG               (1),
+		.DREG               (1),
+		.INMODEREG          (1),
+		.MREG               (1),
+		.OPMODEREG          (1),
+		.PREG               (1),
 		.SEL_MASK           ("MASK"),
 		.SEL_PATTERN        ("PATTERN"),
 		.USE_DPORT          ("FALSE"),

@@ -547,7 +547,7 @@ module DSP48E1 (
         end
 
         // C and D registers
-        if (CREG == 1) begin always @(posedge CLK) if (RSTC) Cr <= 48'b0; else if (CEC) Cr <= D; end
+        if (CREG == 1) begin always @(posedge CLK) if (RSTC) Cr <= 48'b0; else if (CEC) Cr <= C; end
         else           always @* Cr <= C;
 
         if (DREG == 1) begin always @(posedge CLK) if (RSTD) Dr <= 25'b0; else if (CED) Dr <= D; end
@@ -608,7 +608,7 @@ module DSP48E1 (
         // X multiplexer
         case (OPMODEr[1:0])
             2'b00: X = 48'b0;
-            2'b01: begin X = $signed(M);
+            2'b01: begin X = $signed(Mr);
 `ifdef __ICARUS__
                 if (OPMODEr[3:2] != 2'b01) $fatal(1, "OPMODEr[3:2] must be 2'b01 when OPMODEr[1:0] is 2'b01");
 `endif
@@ -631,7 +631,7 @@ module DSP48E1 (
 `endif
             end
             2'b10: Y = {48{1'b1}};
-            2'b11: Y = C;
+            2'b11: Y = Cr;
             default: Y = 48'bx;
         endcase
 
@@ -644,7 +644,7 @@ module DSP48E1 (
                 if (PREG != 1) $fatal(1, "PREG must be 1 when OPMODEr[6:4] i0s 3'b010");
 `endif
             end
-            3'b011: Z = C;
+            3'b011: Z = Cr;
             3'b100: begin Z = P;
 `ifdef __ICARUS__
                 if (PREG != 1) $fatal(1, "PREG must be 1 when OPMODEr[6:4] is 3'b100");
@@ -659,7 +659,7 @@ module DSP48E1 (
 
     // Carry in
     wire A24_xnor_B17d = A_MULT[24] ~^ B_MULT[17];
-    reg CARRYINr, A24_xnor_B17;
+    reg CARRYINr = 1'b0, A24_xnor_B17 = 1'b0;
     generate
         if (CARRYINREG == 1) begin always @(posedge CLK) if (RSTALLCARRYIN) CARRYINr <= 1'b0; else if (CECARRYIN) CARRYINr <= CARRYIN; end
         else                 always @* CARRYINr = CARRYIN;
@@ -698,6 +698,7 @@ module DSP48E1 (
     wire [3:0] int_carry_in, int_carry_out, ext_carry_out;
     wire [47:0] alu_sum;
     assign int_carry_in[0] = 1'b0;
+    wire [3:0] carryout_reset;
 
     generate
         if (USE_SIMD == "FOUR12") begin
@@ -715,6 +716,7 @@ module DSP48E1 (
                     maj_xyz_gated[23] ^ int_carry_out[1],
                     maj_xyz_gated[11] ^ int_carry_out[0]
                 };
+            assign carryout_reset = 4'b0000;
         end else if (USE_SIMD == "TWO24") begin
             assign maj_xyz_simd_gated = {
                     maj_xyz_gated[47:24],
@@ -728,6 +730,7 @@ module DSP48E1 (
                     maj_xyz_gated[23] ^ int_carry_out[1],
                     1'bx
                 };
+            assign carryout_reset = 4'b0x0x;
         end else begin
             assign maj_xyz_simd_gated = {maj_xyz_gated, alu_cin};
             assign int_carry_in[3:1] = int_carry_out[2:0];
@@ -735,6 +738,7 @@ module DSP48E1 (
                     int_carry_out[3],
                     3'bxxx
                 };
+            assign carryout_reset = 4'b0xxx;
         end
 
         genvar i;
@@ -745,6 +749,9 @@ module DSP48E1 (
 
     wire signed [47:0] Pd = ALUMODEr[1] ? ~alu_sum : alu_sum;
     initial P = 48'b0;
+    initial CARRYOUT = carryout_reset;
+    initial CARRYCASCOUT = 1'b0;
+    initial MULTSIGNOUT = 1'b0;
     wire [3:0] CARRYOUTd = (OPMODEr[3:0] == 4'b0101 || ALUMODEr[3:2] != 2'b00) ? 4'bxxxx :
                            ((ALUMODEr[0] & ALUMODEr[1]) ? ~ext_carry_out : ext_carry_out);
     wire CARRYCASCOUTd = ext_carry_out[3];
@@ -755,7 +762,7 @@ module DSP48E1 (
             always @(posedge CLK)
                 if (RSTP) begin
                     P <= 48'b0;
-                    CARRYOUT <= 4'b0;
+                    CARRYOUT <= carryout_reset;
                     CARRYCASCOUT <= 1'b0;
                     MULTSIGNOUT <= 1'b0;
                 end else if (CEP) begin
