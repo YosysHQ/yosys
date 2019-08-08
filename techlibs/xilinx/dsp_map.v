@@ -32,7 +32,7 @@ module \$__MUL25X18 (input signed [24:0] A, input signed [17:0] B, output signed
 		.D(24'b0),
 		.P(P_48),
 
-		.INMODE(4'b0000),
+		.INMODE(5'b00000),
 		.ALUMODE(4'b0000),
 		.OPMODE(7'b000101),
 		.CARRYINSEL(3'b000),
