@@ -92,6 +92,8 @@ module testbench;
 			if (AREG != 2 && INMODE[0]) config_valid = 0;
 			if (BREG != 2 && INMODE[4]) config_valid = 0;
 
+			if (USE_SIMD != "ONE48" && OPMODE[3:0] == 4'b0101) config_valid = 0;
+
 			if (OPMODE[1:0] == 2'b10 && PREG != 1) config_valid = 0;
 			if ((OPMODE[3:2] == 2'b01) ^ (OPMODE[1:0] == 2'b01) == 1'b1) config_valid = 0;
 			if ((OPMODE[6:4] == 3'b010 || OPMODE[6:4] == 3'b110) && PREG != 1) config_valid = 0;
@@ -478,6 +480,112 @@ module mult_allreg_preadd_nocasc;
 		.USE_MULT           ("DYNAMIC"),
 		.USE_PATTERN_DETECT ("NO_PATDET"),
 		.USE_SIMD           ("ONE48"),
+		.MASK               (48'h3FFFFFFFFFFF),
+		.PATTERN            (48'h000000000000),
+		.IS_ALUMODE_INVERTED(4'b0),
+		.IS_CARRYIN_INVERTED(1'b0),
+		.IS_CLK_INVERTED    (1'b0),
+		.IS_INMODE_INVERTED (5'b0),
+		.IS_OPMODE_INVERTED (7'b0)
+	) testbench ();
+endmodule
+
+module mult_inreg_preadd_nocasc;
+	testbench #(
+		.ACASCREG           (1),
+		.ADREG              (0),
+		.ALUMODEREG         (0),
+		.AREG               (1),
+		.AUTORESET_PATDET   ("NO_RESET"),
+		.A_INPUT            ("DIRECT"),
+		.BCASCREG           (1),
+		.BREG               (1),
+		.B_INPUT            ("DIRECT"),
+		.CARRYINREG         (0),
+		.CARRYINSELREG      (0),
+		.CREG               (1),
+		.DREG               (1),
+		.INMODEREG          (0),
+		.MREG               (0),
+		.OPMODEREG          (0),
+		.PREG               (0),
+		.SEL_MASK           ("MASK"),
+		.SEL_PATTERN        ("PATTERN"),
+		.USE_DPORT          ("TRUE"),
+		.USE_MULT           ("DYNAMIC"),
+		.USE_PATTERN_DETECT ("NO_PATDET"),
+		.USE_SIMD           ("ONE48"),
+		.MASK               (48'h3FFFFFFFFFFF),
+		.PATTERN            (48'h000000000000),
+		.IS_ALUMODE_INVERTED(4'b0),
+		.IS_CARRYIN_INVERTED(1'b0),
+		.IS_CLK_INVERTED    (1'b0),
+		.IS_INMODE_INVERTED (5'b0),
+		.IS_OPMODE_INVERTED (7'b0)
+	) testbench ();
+endmodule
+
+module simd12_preadd_noreg_nocasc;
+	testbench #(
+		.ACASCREG           (0),
+		.ADREG              (0),
+		.ALUMODEREG         (0),
+		.AREG               (0),
+		.AUTORESET_PATDET   ("NO_RESET"),
+		.A_INPUT            ("DIRECT"),
+		.BCASCREG           (0),
+		.BREG               (0),
+		.B_INPUT            ("DIRECT"),
+		.CARRYINREG         (0),
+		.CARRYINSELREG      (0),
+		.CREG               (0),
+		.DREG               (0),
+		.INMODEREG          (0),
+		.MREG               (0),
+		.OPMODEREG          (0),
+		.PREG               (0),
+		.SEL_MASK           ("MASK"),
+		.SEL_PATTERN        ("PATTERN"),
+		.USE_DPORT          ("TRUE"),
+		.USE_MULT           ("DYNAMIC"),
+		.USE_PATTERN_DETECT ("NO_PATDET"),
+		.USE_SIMD           ("FOUR12"),
+		.MASK               (48'h3FFFFFFFFFFF),
+		.PATTERN            (48'h000000000000),
+		.IS_ALUMODE_INVERTED(4'b0),
+		.IS_CARRYIN_INVERTED(1'b0),
+		.IS_CLK_INVERTED    (1'b0),
+		.IS_INMODE_INVERTED (5'b0),
+		.IS_OPMODE_INVERTED (7'b0)
+	) testbench ();
+endmodule
+
+
+module simd24_preadd_noreg_nocasc;
+	testbench #(
+		.ACASCREG           (0),
+		.ADREG              (0),
+		.ALUMODEREG         (0),
+		.AREG               (0),
+		.AUTORESET_PATDET   ("NO_RESET"),
+		.A_INPUT            ("DIRECT"),
+		.BCASCREG           (0),
+		.BREG               (0),
+		.B_INPUT            ("DIRECT"),
+		.CARRYINREG         (0),
+		.CARRYINSELREG      (0),
+		.CREG               (0),
+		.DREG               (0),
+		.INMODEREG          (0),
+		.MREG               (0),
+		.OPMODEREG          (0),
+		.PREG               (0),
+		.SEL_MASK           ("MASK"),
+		.SEL_PATTERN        ("PATTERN"),
+		.USE_DPORT          ("TRUE"),
+		.USE_MULT           ("DYNAMIC"),
+		.USE_PATTERN_DETECT ("NO_PATDET"),
+		.USE_SIMD           ("TWO24"),
 		.MASK               (48'h3FFFFFFFFFFF),
 		.PATTERN            (48'h000000000000),
 		.IS_ALUMODE_INVERTED(4'b0),

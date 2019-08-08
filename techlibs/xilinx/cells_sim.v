@@ -468,7 +468,7 @@ module DSP48E1 (
         if (SEL_MASK != "MASK")     $fatal(1, "Unsupported SEL_MASK value");
         if (SEL_PATTERN != "PATTERN") $fatal(1, "Unsupported SEL_PATTERN value");
         if (USE_PATTERN_DETECT != "NO_PATDET") $fatal(1, "Unsupported USE_PATTERN_DETECT value");
-        if (USE_SIMD != "ONE48")    $fatal(1, "Unsupported USE_SIMD value");
+        if (USE_SIMD != "ONE48" && USE_SIMD != "TWO24" && USE_SIMD != "FOUR12")    $fatal(1, "Unsupported USE_SIMD value");
         if (IS_ALUMODE_INVERTED != 4'b0) $fatal(1, "Unsupported IS_ALUMODE_INVERTED value");
         if (IS_CARRYIN_INVERTED != 1'b0) $fatal(1, "Unsupported IS_CARRYIN_INVERTED value");
         if (IS_CLK_INVERTED != 1'b0) $fatal(1, "Unsupported IS_CLK_INVERTED value");
