@@ -1,4 +1,5 @@
 OBJS += passes/pmgen/ice40_dsp.o
+OBJS += passes/pmgen/ice40_wrapcarry.o
 OBJS += passes/pmgen/peepopt.o
 
 # --------------------------------------
@@ -9,6 +10,15 @@ EXTRA_OBJS += passes/pmgen/ice40_dsp_pm.h
 
 passes/pmgen/ice40_dsp_pm.h: passes/pmgen/pmgen.py passes/pmgen/ice40_dsp.pmg
 	$(P) mkdir -p passes/pmgen && python3 $< -o $@ -p ice40_dsp $(filter-out $<,$^)
+
+# --------------------------------------
+
+passes/pmgen/ice40_wrapcarry.o: passes/pmgen/ice40_wrapcarry_pm.h
+EXTRA_OBJS += passes/pmgen/ice40_wrapcarry_pm.h
+.SECONDARY: passes/pmgen/ice40_wrapcarry_pm.h
+
+passes/pmgen/ice40_wrapcarry_pm.h: passes/pmgen/pmgen.py passes/pmgen/ice40_wrapcarry.pmg
+	$(P) mkdir -p passes/pmgen && python3 $< -o $@ -p ice40_wrapcarry $(filter-out $<,$^)
 
 # --------------------------------------
 
