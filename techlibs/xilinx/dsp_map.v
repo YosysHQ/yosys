@@ -1,4 +1,4 @@
-module \$__MUL25X18 (input signed [24:0] A, input signed [17:0] B, output signed [42:0] Y);
+module \$__MUL25X18 (input [24:0] A, input [17:0] B, output [42:0] Y);
 	parameter A_SIGNED = 0;
 	parameter B_SIGNED = 0;
 	parameter A_WIDTH = 0;
