@@ -532,14 +532,15 @@ endmodule
 
 // --------------------------------------------------------
 
-module \$lcu (P, G, CI, CO);
+module \$lcu (P, G, CI, CO); // Lookahead carry unit
 
 parameter WIDTH = 1;
 
-input [WIDTH-1:0] P, G;
-input CI;
+input [WIDTH-1:0] P;	// Propagate
+input [WIDTH-1:0] G;	// Generate
+input CI;		// Carry-in
 
-output reg [WIDTH-1:0] CO;
+output reg [WIDTH-1:0] CO; // Carry-out
 
 integer i;
 always @* begin
@@ -563,12 +564,14 @@ parameter A_WIDTH = 1;
 parameter B_WIDTH = 1;
 parameter Y_WIDTH = 1;
 
-input [A_WIDTH-1:0] A;
-input [B_WIDTH-1:0] B;
-output [Y_WIDTH-1:0] X, Y;
+input [A_WIDTH-1:0] A;		// Input operand
+input [B_WIDTH-1:0] B;		// Input operand
+output [Y_WIDTH-1:0] X;		// A xor B (sign-extended, optional B inversion)
+output [Y_WIDTH-1:0] Y;		// Sum
 
-input CI, BI;
-output [Y_WIDTH-1:0] CO;
+input CI;			// Carry-in
+input BI;			// Invert-B
+output [Y_WIDTH-1:0] CO;	// Carry-out
 
 wire [Y_WIDTH-1:0] AA, BB;
 
