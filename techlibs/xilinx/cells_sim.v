@@ -522,7 +522,7 @@ module DSP48E1 (
             always @* Ar2 <= A_muxed;
         end
 
-        // Configurable A register
+        // Configurable B register
         if (BREG == 2) begin
             always @(posedge CLK)
                 if (RSTB) begin
@@ -532,7 +532,7 @@ module DSP48E1 (
                     if (CEB1) Br1 <= B_muxed;
                     if (CEB2) Br2 <= Br1;
                 end
-        end else if (AREG == 1) begin
+        end else if (BREG == 1) begin
             always @(posedge CLK)
                 if (RSTB) begin
                     Br1 <= 18'b0;
