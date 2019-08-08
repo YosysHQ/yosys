@@ -32,7 +32,7 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 {
 	auto &st = pm.st_ice40_dsp;
 
-#if 0
+#if 1
 	log("\n");
 	log("ffA:    %s\n", log_id(st.ffA, "--"));
 	log("ffB:    %s\n", log_id(st.ffB, "--"));
@@ -66,10 +66,14 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 		return;
 	}
 
-	log("  replacing %s with SB_MAC16 cell.\n", log_id(st.mul->type));
+	Cell *cell = st.mul;
+	if (cell->type == "$mul") {
+		log("  replacing %s with SB_MAC16 cell.\n", log_id(st.mul->type));
 
-	Cell *cell = pm.module->addCell(NEW_ID, "\\SB_MAC16");
-	pm.module->swap_names(cell, st.mul);
+		cell = pm.module->addCell(NEW_ID, "\\SB_MAC16");
+		pm.module->swap_names(cell, st.mul);
+	}
+	else log_assert(cell->type == "\\SB_MAC16");
 
 	// SB_MAC16 Input Interface
 	SigSpec A = st.sigA;
@@ -220,15 +224,18 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 	cell->setParam("\\A_SIGNED", st.mul->getParam("\\A_SIGNED").as_bool());
 	cell->setParam("\\B_SIGNED", st.mul->getParam("\\B_SIGNED").as_bool());
 
-	pm.autoremove(st.mul);
+	if (cell != st.mul)
+		pm.autoremove(st.mul);
+	else
+		pm.blacklist(st.mul);
 	pm.autoremove(st.ffH);
 	pm.autoremove(st.addAB);
 	if (st.ffO_lo) {
-			SigSpec O = st.sigO.extract(0,st.ffO_lo->getParam("\\WIDTH").as_int());
+			SigSpec O = st.sigO.extract(0,std::min(16,st.ffO_lo->getParam("\\WIDTH").as_int()));
 			st.ffO_lo->connections_.at("\\Q").replace(O, pm.module->addWire(NEW_ID, GetSize(O)));
 	}
 	if (st.ffO_hi) {
-			SigSpec O = st.sigO.extract(16,st.ffO_hi->getParam("\\WIDTH").as_int());
+			SigSpec O = st.sigO.extract_end(16);
 			st.ffO_hi->connections_.at("\\Q").replace(O, pm.module->addWire(NEW_ID, GetSize(O)));
 	}
 }

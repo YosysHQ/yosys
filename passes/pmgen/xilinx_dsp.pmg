@@ -44,7 +44,7 @@ code clock
 endcode
 
 // Extract the bits of P that actually have a consumer
-// (as opposed to being a sign extension)
+// (as opposed to being a dummy)
 code sigPused
 	SigSpec P = port(dsp, \P);
 	int i;
