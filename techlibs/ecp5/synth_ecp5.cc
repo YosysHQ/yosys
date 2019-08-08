@@ -248,9 +248,10 @@ struct SynthEcp5Pass : public ScriptPass
 			run("opt_expr");
 			run("opt_clean");
 			if (dsp) {
-				run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=18 -D DSP_B_MAXWIDTH=18 -D DSP_NAME=$__MUL18X18");
+				run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=18 -D DSP_B_MAXWIDTH=18  -D DSP_A_MINWIDTH=2 -D DSP_B_MINWIDTH=2  -D DSP_NAME=$__MUL18X18");
 				run("clean");
 				run("techmap -map +/ecp5/dsp_map.v");
+				run("chtype -set $mul t:$__soft_mul","(if -dsp)");
 			}
 			run("alumacc");
 			run("opt");
