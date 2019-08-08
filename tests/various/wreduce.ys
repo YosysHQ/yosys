@@ -36,7 +36,6 @@ design -save gold
 opt_expr
 wreduce
 
-dump
 select -assert-count 1 t:$sub r:A_WIDTH=4 r:B_WIDTH=4 r:Y_WIDTH=5 %i %i %i
 
 design -stash gate
