@@ -689,7 +689,7 @@ module DSP48E1 (
     // ALU core
     wire [47:0] Z_muxinv = ALUMODEr[0] ? ~Z : Z;
     wire [47:0] xor_xyz = X ^ Y ^ Z_muxinv;
-    wire [47:0] maj_xyz = (X & Y) | (X & Z) | (X & Y);
+    wire [47:0] maj_xyz = (X & Y) | (X & Z_muxinv) | (Y & Z_muxinv);
 
     wire [47:0] xor_xyz_muxed = ALUMODEr[3] ? maj_xyz : xor_xyz;
     wire [47:0] maj_xyz_gated = ALUMODEr[2] ? 48'b0 :  maj_xyz;
@@ -745,7 +745,8 @@ module DSP48E1 (
 
     wire signed [47:0] Pd = ALUMODEr[1] ? ~alu_sum : alu_sum;
     initial P = 48'b0;
-    wire [3:0] CARRYOUTd = (ALUMODEr[0] & ALUMODEr[1]) ? ~ext_carry_out : ext_carry_out;
+    wire [3:0] CARRYOUTd = (OPMODEr[3:0] == 4'b0101 || ALUMODEr[3:2] != 2'b00) ? 4'bxxxx :
+                           ((ALUMODEr[0] & ALUMODEr[1]) ? ~ext_carry_out : ext_carry_out);
     wire CARRYCASCOUTd = ext_carry_out[3];
     wire MULTSIGNOUTd = Mr[42];
 

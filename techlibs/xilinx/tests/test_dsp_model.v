@@ -35,7 +35,7 @@ module testbench;
 	reg CLK;
 	reg CEA1, CEA2, CEAD, CEALUMODE, CEB1, CEB2, CEC, CECARRYIN, CECTRL;
 	reg CED, CEINMODE, CEM, CEP;
-	reg RSTA, RSTALLCARRYIN, RSTALUMODE, RSTB, RSTC, RSTD, RSTINMODE, RSTM, RSTP;
+	reg RSTA, RSTALLCARRYIN, RSTALUMODE, RSTB, RSTC, RSTCTRL, RSTD, RSTINMODE, RSTM, RSTP;
 	reg [29:0] A, ACIN;
 	reg [17:0] B, BCIN;
 	reg [47:0] C;
@@ -61,6 +61,8 @@ module testbench;
 
 	integer errcount = 0;
 
+	reg ERROR_FLAG = 0;
+
 	task clkcycle;
 		begin
 			#5;
@@ -68,14 +70,16 @@ module testbench;
 			#10;
 			CLK = ~CLK;
 			#2;
-
+			ERROR_FLAG = 0;
 			if (REF_P !== P) begin
 				$display("ERROR at %1t: REF_P=%b UUT_P=%b DIFF=%b", $time, REF_P, P, REF_P ^ P);
 				errcount = errcount + 1;
+				ERROR_FLAG = 1;
 			end
 			if (REF_CARRYOUT !== CARRYOUT) begin
 				$display("ERROR at %1t: REF_CARRYOUT=%b UUT_CARRYOUT=%b", $time, REF_CARRYOUT, CARRYOUT);
 				errcount = errcount + 1;
+				ERROR_FLAG = 1;
 			end
 			#3;
 		end
@@ -114,7 +118,7 @@ module testbench;
 		{ALUMODE, CARRYINSEL, INMODE} = 0;
 		{OPMODE, CARRYCASCIN, CARRYIN, MULTSIGNIN} = 0;
 
-		{RSTA, RSTALLCARRYIN, RSTALUMODE, RSTB, RSTC, RSTD, RSTINMODE, RSTM, RSTP} = ~0;
+		{RSTA, RSTALLCARRYIN, RSTALUMODE, RSTB, RSTC, RSTCTRL, RSTD, RSTINMODE, RSTM, RSTP} = ~0;
 		#5;
 		CLK = 1'b1;
 		#10;
@@ -123,7 +127,7 @@ module testbench;
 		CLK = 1'b1;
 		#10;
 		CLK = 1'b0;
-		{RSTA, RSTALLCARRYIN, RSTALUMODE, RSTB, RSTC, RSTD, RSTINMODE, RSTM, RSTP} = 0;
+		{RSTA, RSTALLCARRYIN, RSTALUMODE, RSTB, RSTC, RSTCTRL, RSTD, RSTINMODE, RSTM, RSTP} = 0;
 
 		repeat (300) begin
 			clkcycle;
@@ -137,8 +141,8 @@ module testbench;
 				D = $urandom;
 				PCIN = {$urandom, $urandom};
 
-				{RSTA, RSTALLCARRYIN, RSTALUMODE, RSTB, RSTC, RSTD, RSTINMODE, RSTM, RSTP} = $urandom & $urandom & $urandom;
-				{ALUMODE, CARRYINSEL, INMODE} = $urandom & $urandom & $urandom;
+				{RSTA, RSTALLCARRYIN, RSTALUMODE, RSTB, RSTC, RSTCTRL, RSTD, RSTINMODE, RSTM, RSTP} = $urandom & $urandom & $urandom & $urandom & $urandom & $urandom;
+				{ALUMODE, CARRYINSEL, INMODE} = $urandom;
 				OPMODE = $urandom; 
 				if ($urandom & 1'b1)
 					OPMODE[3:0] = 4'b0101; // test multiply more than other modes
