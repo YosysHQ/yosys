@@ -8,9 +8,10 @@ match dsp
 endmatch
 
 match ffA
-	select ffA->type.in($dff, $dffe)
+	select ffA->type.in($dff)
 	// DSP48E1 does not support clock inversion
 	select param(ffA, \CLK_POLARITY).as_bool()
+	filter param(dsp, \AREG).as_int() == 0
 	filter !port(dsp, \A).remove_const().empty()
 	filter includes(port(ffA, \Q).to_sigbit_set(), port(dsp, \A).remove_const().to_sigbit_set())
 	optional
@@ -22,9 +23,10 @@ code clock
 endcode
 
 match ffB
-	select ffB->type.in($dff, $dffe)
+	select ffB->type.in($dff)
 	// DSP48E1 does not support clock inversion
 	select param(ffB, \CLK_POLARITY).as_bool()
+	filter param(dsp, \BREG).as_int() == 0
 	filter !port(dsp, \B).remove_const().empty()
 	filter includes(port(ffB, \Q).to_sigbit_set(), port(dsp, \B).remove_const().to_sigbit_set())
 	optional
@@ -54,10 +56,11 @@ endcode
 
 match ffP
 	if !sigPused.empty()
-	select ffP->type.in($dff, $dffe)
+	select ffP->type.in($dff)
 	select nusers(port(ffP, \D)) == 2
 	// DSP48E1 does not support clock inversion
 	select param(ffP, \CLK_POLARITY).as_bool()
+	filter param(dsp, \PREG).as_int() == 0
 	filter param(ffP, \WIDTH).as_int() >= GetSize(sigPused)
 	filter includes(port(ffP, \D).to_sigbit_set(), sigPused.to_sigbit_set())
 	optional
