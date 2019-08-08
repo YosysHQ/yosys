@@ -286,8 +286,7 @@ struct SynthXilinxPass : public ScriptPass
 
 			if (!nodsp || help_mode) {
 				// NB: Xilinx multipliers are signed only
-				run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=25 -D DSP_B_MAXWIDTH=18 -D DSP_SIGNEDONLY=1 -D DSP_NAME=$__MUL25X18", "(skip if '-nodsp')");
-				run("techmap -map +/xilinx/dsp_map.v", "(skip if '-nodsp')"); // TODO: fold into xilinx_dsp
+				run("techmap -map +/mul2dsp.v -map +/xilinx/dsp_map.v -D DSP_A_MAXWIDTH=25 -D DSP_B_MAXWIDTH=18 -D DSP_SIGNEDONLY=1 -D DSP_NAME=$__MUL25X18", "(skip if '-nodsp')");
 				run("xilinx_dsp", "                     (skip if '-nodsp')");
 				run("chtype -set $mul t:$__soft_mul","  (skip if '-nodsp')");
 			}
