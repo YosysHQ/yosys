@@ -47,11 +47,9 @@ endcode
 // (as opposed to being a dummy)
 code sigPused
 	SigSpec P = port(dsp, \P);
-	int i;
-	for (i = GetSize(P); i > 0; i--)
-		if (nusers(P[i-1]) > 1)
-			break;
-	sigPused = P.extract(0, i).remove_const();
+	for (int i = 0; i < GetSize(P); i++)
+		if (P[i].wire && nusers(P[i]) > 1)
+			sigPused.append(P[i]);
 endcode
 
 match ffP
@@ -66,33 +64,33 @@ match ffP
 	optional
 endmatch
 
-// $mux cell left behind by dff2dffe
-//   would prefer not to run 'opt_expr -mux_undef'
-//   since that would lose information helpful for
-//   efficient wide-mux inference
-match muxP
-	if !sigPused.empty() && !ffP
-	select muxP->type.in($mux)
-	select nusers(port(muxP, \B)) == 2
-	select port(muxP, \A).is_fully_undef()
-	filter param(muxP, \WIDTH).as_int() >= GetSize(sigPused)
-	filter includes(port(muxP, \B).to_sigbit_set(), sigPused.to_sigbit_set())
-	optional
-endmatch
-
-match ffY
-	if muxP
-	select ffY->type.in($dff, $dffe)
-	select nusers(port(ffY, \D)) == 2
-	// DSP48E1 does not support clock inversion
-	select param(ffY, \CLK_POLARITY).as_bool()
-	filter param(ffY, \WIDTH).as_int() >= GetSize(sigPused)
-	filter includes(port(ffY, \D).to_sigbit_set(), port(muxP, \Y).to_sigbit_set())
-endmatch
+//// $mux cell left behind by dff2dffe
+////   would prefer not to run 'opt_expr -mux_undef'
+////   since that would lose information helpful for
+////   efficient wide-mux inference
+//match muxP
+//	if !sigPused.empty() && !ffP
+//	select muxP->type.in($mux)
+//	select nusers(port(muxP, \B)) == 2
+//	select port(muxP, \A).is_fully_undef()
+//	filter param(muxP, \WIDTH).as_int() >= GetSize(sigPused)
+//	filter includes(port(muxP, \B).to_sigbit_set(), sigPused.to_sigbit_set())
+//	optional
+//endmatch
+//
+//match ffY
+//	if muxP
+//	select ffY->type.in($dff, $dffe)
+//	select nusers(port(ffY, \D)) == 2
+//	// DSP48E1 does not support clock inversion
+//	select param(ffY, \CLK_POLARITY).as_bool()
+//	filter param(ffY, \WIDTH).as_int() >= GetSize(sigPused)
+//	filter includes(port(ffY, \D).to_sigbit_set(), port(muxP, \Y).to_sigbit_set())
+//endmatch
 
 code ffP clock
-	if (ffY)
-		ffP = ffY;
+//	if (ffY)
+//		ffP = ffY;
 
 	if (ffP) {
 		SigBit c = port(ffP, \CLK).as_bit();

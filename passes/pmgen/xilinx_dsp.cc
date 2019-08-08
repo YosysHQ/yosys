@@ -38,7 +38,7 @@ void pack_xilinx_dsp(xilinx_dsp_pm &pm)
 	log("ffB:   %s\n", log_id(st.ffB, "--"));
 	log("dsp:   %s\n", log_id(st.dsp, "--"));
 	log("ffP:   %s\n", log_id(st.ffP, "--"));
-	log("muxP:  %s\n", log_id(st.muxP, "--"));
+	//log("muxP:  %s\n", log_id(st.muxP, "--"));
 	log("sigPused: %s\n", log_signal(st.sigPused));
 	log_module(pm.module);
 #endif
@@ -81,9 +81,9 @@ void pack_xilinx_dsp(xilinx_dsp_pm &pm)
 		if (st.ffP) {
 			SigSpec P = cell->getPort("\\P");
 			SigSpec D;
-			if (st.muxP)
-				D = st.muxP->getPort("\\B");
-			else
+			//if (st.muxP)
+			//	D = st.muxP->getPort("\\B");
+			//else
 				D = st.ffP->getPort("\\D");
 			SigSpec Q = st.ffP->getPort("\\Q");
 			P.replace(pm.sigmap(D), Q);
@@ -107,7 +107,7 @@ void pack_xilinx_dsp(xilinx_dsp_pm &pm)
 			log(" ffB:%s", log_id(st.ffB));
 
 		if (st.ffP)
-			log(" ffY:%s", log_id(st.ffP));
+			log(" ffP:%s", log_id(st.ffP));
 
 		log("\n");
 	}
