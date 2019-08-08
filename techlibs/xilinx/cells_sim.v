@@ -728,7 +728,7 @@ module DSP48E1 (
                     maj_xyz_gated[23] ^ int_carry_out[1],
                     1'bx
                 };
-        end else if (USE_SIMD == "FOUR48") begin
+        end else begin
             assign maj_xyz_simd_gated = {maj_xyz_gated, alu_cin};
             assign int_carry_in[3:1] = int_carry_out[2:0];
             assign ext_carry_out = {
@@ -738,7 +738,7 @@ module DSP48E1 (
         end
 
         genvar i;
-        for (i = 0; i < 4; i++)
+        for (i = 0; i < 4; i = i + 1)
             assign {int_carry_out[i], alu_sum[i*12 +: 12]} = {1'b0, maj_xyz_simd_gated[i*12 +: ((i == 3) ? 13 : 12)]}
                                                               + xor_xyz_muxed[i*12 +: 12] + int_carry_in[i];
     endgenerate
