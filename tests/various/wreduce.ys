@@ -46,3 +46,35 @@ design -import gate -as gate
 
 miter -equiv -flatten -make_assert -make_outputs gold gate miter
 sat -verify -prove-asserts -show-ports miter
+
+##########
+
+# Testcase from: https://github.com/YosysHQ/yosys/commit/25680f6a078bb32f157bd580705656496717bafb
+design -reset
+read_verilog <<EOT
+module top(
+    input clk,
+    input rst,
+    input [2:0] a,
+    output [1:0] b
+);
+    reg [2:0] b_reg;
+    initial begin
+        b_reg <= 3'b0;
+    end
+
+    assign b = b_reg[1:0];
+    always @(posedge clk or posedge rst) begin
+        if(rst) begin
+            b_reg <= 3'b0;
+        end else begin
+            b_reg <= a;
+        end
+    end
+endmodule
+EOT
+
+proc
+wreduce
+
+select -assert-count 1 t:$adff r:ARST_VALUE=2'b00 %i
