@@ -58,11 +58,11 @@ void pack_xilinx_dsp(xilinx_dsp_pm &pm)
 			SigSpec Q = st.ffA->getPort("\\Q");
 			A.replace(Q, D);
 			cell->setPort("\\A", A);
-			cell->setParam("\\AREG", State::S1);
+			cell->setParam("\\AREG", 1);
 			if (st.ffA->type == "$dff")
 				cell->setPort("\\CEA2", State::S1);
-			else if (st.ffA->type == "$dffe")
-				cell->setPort("\\CEA2", st.ffA->getPort("\\EN"));
+			//else if (st.ffA->type == "$dffe")
+			//	cell->setPort("\\CEA2", st.ffA->getPort("\\EN"));
 			else log_abort();
 		}
 		if (st.ffB) {
@@ -71,11 +71,11 @@ void pack_xilinx_dsp(xilinx_dsp_pm &pm)
 			SigSpec Q = st.ffB->getPort("\\Q");
 			B.replace(Q, D);
 			cell->setPort("\\B", B);
-			cell->setParam("\\BREG", State::S1);
+			cell->setParam("\\BREG", 1);
 			if (st.ffB->type == "$dff")
 				cell->setPort("\\CEB2", State::S1);
-			else if (st.ffB->type == "$dffe")
-				cell->setPort("\\CEB2", st.ffB->getPort("\\EN"));
+			//else if (st.ffB->type == "$dffe")
+			//	cell->setPort("\\CEB2", st.ffB->getPort("\\EN"));
 			else log_abort();
 		}
 		if (st.ffP) {
@@ -91,8 +91,8 @@ void pack_xilinx_dsp(xilinx_dsp_pm &pm)
 			cell->setParam("\\PREG", State::S1);
 			if (st.ffP->type == "$dff")
 				cell->setPort("\\CEP", State::S1);
-			else if (st.ffP->type == "$dffe")
-				cell->setPort("\\CEP", st.ffP->getPort("\\EN"));
+			//else if (st.ffP->type == "$dffe")
+			//	cell->setPort("\\CEP", st.ffP->getPort("\\EN"));
 			else log_abort();
 
 			st.ffP->connections_.at("\\Q").replace(P, pm.module->addWire(NEW_ID, GetSize(P)));
