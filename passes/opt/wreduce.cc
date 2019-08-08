@@ -365,29 +365,6 @@ struct WreduceWorker
 			}
 		}
 
-		if (cell->type.in("$add", "$sub")) {
-			SigSpec A = mi.sigmap(cell->getPort("\\A"));
-			SigSpec B = mi.sigmap(cell->getPort("\\B"));
-			bool sub = cell->type == "$sub";
-
-			int i;
-			for (i = 0; i < GetSize(sig); i++) {
-				if (B.at(i, Sx) != S0 && (sub || A.at(i, Sx) != S0))
-					break;
-				if (B[i] == S0)
-					module->connect(sig[i], A[i]);
-				else if (A[i] == S0)
-					module->connect(sig[i], B[i]);
-				else log_abort();
-			}
-			if (i > 0) {
-				cell->setPort("\\A", A.extract(i, -1));
-				cell->setPort("\\B", B.extract(i, -1));
-				sig.remove(0, i);
-				bits_removed += i;
-			}
-		}
-
 		if (GetSize(sig) == 0) {
 			log("Removed cell %s.%s (%s).\n", log_id(module), log_id(cell), log_id(cell->type));
 			module->remove(cell);
@@ -395,7 +372,7 @@ struct WreduceWorker
 		}
 
 		if (bits_removed) {
-			log("Removed %d bits (of %d) from port Y of cell %s.%s (%s).\n",
+			log("Removed top %d bits (of %d) from port Y of cell %s.%s (%s).\n",
 					bits_removed, GetSize(sig) + bits_removed, log_id(module), log_id(cell), log_id(cell->type));
 			cell->setPort("\\Y", sig);
 			did_something = true;

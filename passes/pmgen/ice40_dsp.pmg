@@ -23,6 +23,10 @@ code sigA clock clock_pol
 	sigA = port(mul, \A);
 
 	if (ffA) {
+        for (auto b : port(ffA, \Q))
+            if (b.wire->get_bool_attribute(\keep))
+                reject;
+
 		clock = port(ffA, \CLK).as_bit();
 		clock_pol = param(ffA, \CLK_POLARITY).as_bool();
 
@@ -41,6 +45,10 @@ code sigB clock clock_pol
 	sigB = port(mul, \B);
 
 	if (ffB) {
+        for (auto b : port(ffB, \Q))
+            if (b.wire->get_bool_attribute(\keep))
+                reject;
+
 		SigBit c = port(ffB, \CLK).as_bit();
 		bool cp = param(ffB, \CLK_POLARITY).as_bool();
 
@@ -67,6 +75,10 @@ code sigH sigO clock clock_pol
 
 	if (ffH) {
 		sigH = port(ffH, \Q);
+        for (auto b : sigH)
+            if (b.wire->get_bool_attribute(\keep))
+                reject;
+
 		sigO = sigH;
 
 		SigBit c = port(ffH, \CLK).as_bit();
@@ -144,21 +156,27 @@ endcode
 
 match ffO_lo
 	select ffO_lo->type.in($dff)
-	filter nusers(sigO.extract(0,16)) == 2
-	filter includes(port(ffO_lo, \D).to_sigbit_set(), sigO.extract(0,16).to_sigbit_set())
+	filter GetSize(sigO) >= param(ffO_lo, \WIDTH).as_int()
+	filter nusers(sigO.extract(0,param(ffO_lo, \WIDTH).as_int())) == 2
+	filter includes(port(ffO_lo, \D).to_sigbit_set(), sigO.extract(0,param(ffO_lo, \WIDTH).as_int()).to_sigbit_set())
 	optional
 endmatch
 
 match ffO_hi
 	select ffO_hi->type.in($dff)
-	filter nusers(sigO.extract(16,16)) == 2
-	filter includes(port(ffO_hi, \D).to_sigbit_set(), sigO.extract(16,16).to_sigbit_set())
+	filter GetSize(sigO) >= 16+param(ffO_hi, \WIDTH).as_int()
+	filter nusers(sigO.extract(16,param(ffO_hi, \WIDTH).as_int())) == 2
+	filter includes(port(ffO_hi, \D).to_sigbit_set(), sigO.extract(16,param(ffO_hi, \WIDTH).as_int()).to_sigbit_set())
 	optional
 endmatch
 
 code clock clock_pol sigO sigCD
 	if (ffO_lo || ffO_hi) {
 		if (ffO_lo) {
+            for (auto b : port(ffO_lo, \Q))
+                if (b.wire->get_bool_attribute(\keep))
+                    reject;
+
 			SigBit c = port(ffO_lo, \CLK).as_bit();
 			bool cp = param(ffO_lo, \CLK_POLARITY).as_bool();
 
@@ -168,11 +186,15 @@ code clock clock_pol sigO sigCD
 			clock = c;
 			clock_pol = cp;
 
-			if (port(ffO_lo, \Q) != sigO.extract(0,16))
+			if (port(ffO_lo, \Q) != sigO.extract(0,param(ffO_lo, \WIDTH).as_int()))
 				sigO.replace(port(ffO_lo, \D), port(ffO_lo, \Q));
 		}
 
 		if (ffO_hi) {
+            for (auto b : port(ffO_hi, \Q))
+                if (b.wire->get_bool_attribute(\keep))
+                    reject;
+
 			SigBit c = port(ffO_hi, \CLK).as_bit();
 			bool cp = param(ffO_hi, \CLK_POLARITY).as_bool();
 
@@ -182,7 +204,7 @@ code clock clock_pol sigO sigCD
 			clock = c;
 			clock_pol = cp;
 
-			if (port(ffO_hi, \Q) != sigO.extract(16,16))
+			if (port(ffO_hi, \Q) != sigO.extract(16,param(ffO_hi, \WIDTH).as_int()))
 				sigO.replace(port(ffO_hi, \D), port(ffO_hi, \Q));
 		}
 

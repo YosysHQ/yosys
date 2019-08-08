@@ -641,6 +641,31 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 					did_something = true;
 				}
 			}
+
+			if (cell->type.in("$add", "$sub")) {
+				RTLIL::SigSpec sig_a = assign_map(cell->getPort("\\A"));
+				RTLIL::SigSpec sig_b = assign_map(cell->getPort("\\B"));
+				RTLIL::SigSpec sig_y = cell->getPort("\\Y");
+				bool sub = cell->type == "$sub";
+
+				int i;
+				for (i = 0; i < GetSize(sig_y); i++) {
+					if (sig_b.at(i, State::Sx) == State::S0 && sig_a.at(i, State::Sx) != State::Sx)
+						module->connect(sig_y[i], sig_a[i]);
+					else if (!sub && sig_a.at(i, State::Sx) == State::S0 && sig_b.at(i, State::Sx) != State::Sx)
+						module->connect(sig_y[i], sig_b[i]);
+					else
+						break;
+				}
+				if (i > 0) {
+					cover_list("opt.opt_expr.fine", "$add", "$sub", cell->type.str());
+					cell->setPort("\\A", sig_a.extract_end(i));
+					cell->setPort("\\B", sig_b.extract_end(i));
+					cell->setPort("\\Y", sig_y.extract_end(i));
+					cell->fixup_parameters();
+					did_something = true;
+				}
+			}
 		}
 
 		if (cell->type == "$reduce_xor" || cell->type == "$reduce_xnor" || cell->type == "$shift" || cell->type == "$shiftx" ||

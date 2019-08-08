@@ -558,6 +558,20 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		return true;
 	}
 
+	if (cell->type == "$_NMUX_") {
+		f << stringf("%s" "assign ", indent.c_str());
+		dump_sigspec(f, cell->getPort("\\Y"));
+		f << stringf(" = !(");
+		dump_cell_expr_port(f, cell, "S", false);
+		f << stringf(" ? ");
+		dump_attributes(f, "", cell->attributes, ' ');
+		dump_cell_expr_port(f, cell, "B", false);
+		f << stringf(" : ");
+		dump_cell_expr_port(f, cell, "A", false);
+		f << stringf(");\n");
+		return true;
+	}
+
 	if (cell->type.in("$_AOI3_", "$_OAI3_")) {
 		f << stringf("%s" "assign ", indent.c_str());
 		dump_sigspec(f, cell->getPort("\\Y"));
