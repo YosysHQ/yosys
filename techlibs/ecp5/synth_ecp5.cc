@@ -89,8 +89,8 @@ struct SynthEcp5Pass : public ScriptPass
 		log("        generate an output netlist (and BLIF file) suitable for VPR\n");
 		log("        (this feature is experimental and incomplete)\n");
 		log("\n");
-		log("    -dsp\n");
-		log("        map multipliers to MULT18X18D (EXPERIMENTAL)\n");
+		log("    -nodsp\n");
+		log("        do not map multipliers to MULT18X18D\n");
 		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
@@ -99,7 +99,7 @@ struct SynthEcp5Pass : public ScriptPass
 	}
 
 	string top_opt, blif_file, edif_file, json_file;
-	bool noccu2, nodffe, nobram, nolutram, nowidelut, flatten, retime, abc2, abc9, dsp, vpr;
+	bool noccu2, nodffe, nobram, nolutram, nowidelut, flatten, retime, abc2, abc9, nodsp, vpr;
 
 	void clear_flags() YS_OVERRIDE
 	{
@@ -117,7 +117,7 @@ struct SynthEcp5Pass : public ScriptPass
 		abc2 = false;
 		vpr = false;
 		abc9 = false;
-		dsp = false;
+		nodsp = false;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -196,8 +196,8 @@ struct SynthEcp5Pass : public ScriptPass
 				abc9 = true;
 				continue;
 			}
-			if (args[argidx] == "-dsp") {
-				dsp = true;
+			if (args[argidx] == "-nodsp") {
+				nodsp = true;
 				continue;
 			}
 			break;
@@ -247,11 +247,11 @@ struct SynthEcp5Pass : public ScriptPass
 			run("techmap -map +/cmp2lut.v -D LUT_WIDTH=4");
 			run("opt_expr");
 			run("opt_clean");
-			if (dsp) {
-				run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=18 -D DSP_B_MAXWIDTH=18  -D DSP_A_MINWIDTH=2 -D DSP_B_MINWIDTH=2  -D DSP_NAME=$__MUL18X18");
-				run("clean");
-				run("techmap -map +/ecp5/dsp_map.v");
-				run("chtype -set $mul t:$__soft_mul","(if -dsp)");
+			if (!nodsp) {
+				run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=18 -D DSP_B_MAXWIDTH=18  -D DSP_A_MINWIDTH=2 -D DSP_B_MINWIDTH=2  -D DSP_NAME=$__MUL18X18", "(unless -nodsp)");
+				run("clean", "(unless -nodsp)");
+				run("techmap -map +/ecp5/dsp_map.v", "(unless -nodsp)");
+				run("chtype -set $mul t:$__soft_mul", "(unless -nodsp)");
 			}
 			run("alumacc");
 			run("opt");
