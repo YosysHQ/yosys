@@ -463,27 +463,10 @@ module DSP48E1 (
 
     initial begin
 `ifdef __ICARUS__
-        if (ACASCREG != 0)          $fatal(1, "Unsupported ACASCREG value");
-        if (ADREG != 0)             $fatal(1, "Unsupported ADREG value");
-        if (ALUMODEREG != 0)        $fatal(1, "Unsupported ALUMODEREG value");
-        if (AREG == 2)              $fatal(1, "Unsupported AREG value");
         if (AUTORESET_PATDET != "NO_RESET") $fatal(1, "Unsupported AUTORESET_PATDET value");
-        if (A_INPUT != "DIRECT")    $fatal(1, "Unsupported A_INPUT value");
-        if (BCASCREG != 0)          $fatal(1, "Unsupported BCASCREG value");
-        if (BREG == 2)              $fatal(1, "Unsupported BREG value");
-        if (B_INPUT != "DIRECT")    $fatal(1, "Unsupported B_INPUT value");
-        if (CARRYINREG != 0)        $fatal(1, "Unsupported CARRYINREG value");
-        if (CARRYINSELREG != 0)     $fatal(1, "Unsupported CARRYINSELREG value");
-        if (CREG != 0)              $fatal(1, "Unsupported CREG value");
-        if (DREG != 0)              $fatal(1, "Unsupported DREG value");
-        if (INMODEREG != 0)         $fatal(1, "Unsupported INMODEREG value");
-        if (MREG != 0)              $fatal(1, "Unsupported MREG value");
-        if (OPMODEREG != 0)         $fatal(1, "Unsupported OPMODEREG value");
         //if (PREG != 0)              $fatal(1, "Unsupported PREG value");
         if (SEL_MASK != "MASK")     $fatal(1, "Unsupported SEL_MASK value");
         if (SEL_PATTERN != "PATTERN") $fatal(1, "Unsupported SEL_PATTERN value");
-        if (USE_DPORT != "FALSE")   $fatal(1, "Unsupported USE_DPORT value");
-        if (USE_MULT != "MULTIPLY") $fatal(1, "Unsupported USE_MULT value");
         if (USE_PATTERN_DETECT != "NO_PATDET") $fatal(1, "Unsupported USE_PATTERN_DETECT value");
         if (USE_SIMD != "ONE48")    $fatal(1, "Unsupported USE_SIMD value");
         if (IS_ALUMODE_INVERTED != 4'b0) $fatal(1, "Unsupported IS_ALUMODE_INVERTED value");
@@ -505,14 +488,14 @@ module DSP48E1 (
         else assign B_muxed = B;
     endgenerate
 
-    reg signed [29:0] Ar1, Ar2;
-    reg signed [24:0] Dr;
-    reg signed [17:0] Br1, Br2;
-    reg signed [47:0] Cr;
-    reg        [4:0]  INMODEr;
-    reg        [6:0]  OPMODEr;
-    reg        [3:0]  ALUMODEr;
-    reg        [2:0]  CARRYINSELr;
+    reg signed [29:0] Ar1 = 30'b0, Ar2 = 30'b0;
+    reg signed [24:0] Dr = 25'b0;
+    reg signed [17:0] Br1 = 18'b0, Br2 = 18'b0;
+    reg signed [47:0] Cr = 48'b0;
+    reg        [4:0]  INMODEr = 5'b0;
+    reg        [6:0]  OPMODEr = 7'b0;
+    reg        [3:0]  ALUMODEr = 4'b0;
+    reg        [2:0]  CARRYINSELr = 3'b0;
 
     generate
         // Configurable A register
@@ -594,7 +577,7 @@ module DSP48E1 (
     wire signed [24:0] Ar12_gated = INMODEr[1] ? 25'b0 : Ar12_muxed;
     wire signed [24:0] Dr_gated   = INMODEr[2] ? Dr : 25'b0;
     wire signed [24:0] AD_result  = INMODEr[3] ? (Dr_gated - Ar12_gated) : (Dr_gated + Ar12_gated);
-    reg  signed [24:0] ADr;
+    reg  signed [24:0] ADr = 25'b0;
 
     generate
         if (ADREG == 1) begin always @(posedge CLK) if (RSTD) ADr <= 25'b0; else if (CEAD) ADr <= AD_result; end
@@ -610,7 +593,7 @@ module DSP48E1 (
     endgenerate
 
     wire signed [42:0] M = A_MULT * B_MULT;
-    reg  signed [42:0] Mr;
+    reg  signed [42:0] Mr = 43'b0;
 
     // Multiplier result register
     generate
@@ -625,14 +608,16 @@ module DSP48E1 (
         // X multiplexer
         case (OPMODEr[1:0])
             2'b00: X = 48'b0;
-            2'b01: X = $signed(M);
+            2'b01: begin X = $signed(M);
 `ifdef __ICARUS__
                 if (OPMODEr[3:2] != 2'b01) $fatal(1, "OPMODEr[3:2] must be 2'b01 when OPMODEr[1:0] is 2'b01");
 `endif
-            2'b10: X = P;
+            end
+            2'b10: begin X = P;
 `ifdef __ICARUS__
                 if (PREG != 1) $fatal(1, "PREG must be 1 when OPMODEr[1:0] is 2'b10");
 `endif
+            end
             2'b11: X = $signed({Ar2, Br2});
             default: X = 48'bx;
         endcase
@@ -640,10 +625,11 @@ module DSP48E1 (
         // Y multiplexer
         case (OPMODEr[3:2])
             2'b00: Y = 48'b0;
-            2'b01: Y = 48'b0; // FIXME: more accurate partial product modelling?
+            2'b01: begin Y = 48'b0; // FIXME: more accurate partial product modelling?
 `ifdef __ICARUS__
                 if (OPMODEr[1:0] != 2'b01) $fatal(1, "OPMODEr[1:0] must be 2'b01 when OPMODEr[3:2] is 2'b01");
 `endif
+            end
             2'b10: Y = {48{1'b1}};
             2'b11: Y = C;
             default: Y = 48'bx;
@@ -653,26 +639,54 @@ module DSP48E1 (
         case (OPMODEr[6:4])
             3'b000: Z = 48'b0;
             3'b001: Z = PCIN;
-            3'b010: Z = P;
+            3'b010: begin Z = P;
 `ifdef __ICARUS__
                 if (PREG != 1) $fatal(1, "PREG must be 1 when OPMODEr[6:4] i0s 3'b010");
 `endif
+            end
             3'b011: Z = C;
-            3'b100: Z = P;
+            3'b100: begin Z = P;
 `ifdef __ICARUS__
                 if (PREG != 1) $fatal(1, "PREG must be 1 when OPMODEr[6:4] is 3'b100");
                 if (OPMODEr[3:0] != 4'b1000) $fatal(1, "OPMODEr[3:0] must be 4'b1000 when OPMODEr[6:4] i0s 3'b100");
 `endif
+            end
             3'b101: Z = $signed(PCIN[47:17]);
             3'b110: Z = $signed(P[47:17]);
             default: Z = 48'bx;
         endcase
     end
 
+    // Carry in
+    wire A24_xnor_B17d = A_MULT[24] ~^ B_MULT[17];
+    reg CARRYINr, A24_xnor_B17;
+    generate
+        if (CARRYINREG == 1) begin always @(posedge CLK) if (RSTALLCARRYIN) CARRYINr <= 1'b0; else if (CECARRYIN) CARRYINr <= CARRYIN; end
+        else                 always @* CARRYINr = CARRYIN;
+
+        if (MREG == 1) begin always @(posedge CLK) if (RSTALLCARRYIN) A24_xnor_B17 <= 1'b0; else if (CECARRYIN) A24_xnor_B17 <= A24_xnor_B17d; end
+        else                 always @* A24_xnor_B17 = A24_xnor_B17d;
+    endgenerate
+
+    reg cin_muxed;
+
+    always @(*) begin
+        case (CARRYINSELr)
+            3'b000: cin_muxed = CARRYINr;
+            3'b001: cin_muxed = ~PCIN[47];
+            3'b010: cin_muxed = CARRYCASCIN;
+            3'b011: cin_muxed = PCIN[47];
+            3'b100: cin_muxed = CARRYCASCOUT;
+            3'b101: cin_muxed = ~P[47];
+            3'b110: cin_muxed = A24_xnor_B17;
+            3'b111: cin_muxed = P[47];
+            default: cin_muxed = 1'bx;
+        endcase
+    end
+
+    wire alu_cin = (ALUMODEr[3] || ALUMODEr[2]) ? 1'b0 : cin_muxed;
+
     // ALU core
-
-    wire alu_cin = 1'b0; // FIXME*
-
     wire [47:0] Z_muxinv = ALUMODEr[0] ? ~Z : Z;
     wire [47:0] xor_xyz = X ^ Y ^ Z_muxinv;
     wire [47:0] maj_xyz = (X & Y) | (X & Z) | (X & Y);
@@ -730,15 +744,10 @@ module DSP48E1 (
     endgenerate
 
     wire signed [47:0] Pd = ALUMODEr[1] ? ~alu_sum : alu_sum;
+    initial P = 48'b0;
     wire [3:0] CARRYOUTd = (ALUMODEr[0] & ALUMODEr[1]) ? ~ext_carry_out : ext_carry_out;
     wire CARRYCASCOUTd = ext_carry_out[3];
     wire MULTSIGNOUTd = Mr[42];
-
-    always @* begin
-`ifdef __ICARUS__
-        if (CARRYINSEL != 3'b000)   $fatal(1, "Unsupported CARRYINSEL value");
-`endif
-    end
 
     generate
         if (PREG == 1) begin
