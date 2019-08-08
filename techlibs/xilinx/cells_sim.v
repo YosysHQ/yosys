@@ -593,13 +593,16 @@ module DSP48E1 (
     endgenerate
 
     wire signed [42:0] M = A_MULT * B_MULT;
+    wire signed [42:0] Mx = (CARRYINSEL == 3'b010) ? 43'bx : M;
     reg  signed [42:0] Mr = 43'b0;
 
     // Multiplier result register
     generate
-        if (MREG == 1) begin always @(posedge CLK) if (RSTM) Mr <= 43'b0; else if (CEM) Mr <= M; end
-        else           always @* Mr <= M;
+        if (MREG == 1) begin always @(posedge CLK) if (RSTM) Mr <= 43'b0; else if (CEM) Mr <= Mx; end
+        else           always @* Mr <= Mx;
     endgenerate
+
+    wire signed [42:0] Mrx = (CARRYINSELr == 3'b010) ? 43'bx : Mr;
 
     // X, Y and Z ALU inputs
     reg signed [47:0] X, Y, Z;
@@ -608,7 +611,7 @@ module DSP48E1 (
         // X multiplexer
         case (OPMODEr[1:0])
             2'b00: X = 48'b0;
-            2'b01: begin X = $signed(Mr);
+            2'b01: begin X = $signed(Mrx);
 `ifdef __ICARUS__
                 if (OPMODEr[3:2] != 2'b01) $fatal(1, "OPMODEr[3:2] must be 2'b01 when OPMODEr[1:0] is 2'b01");
 `endif
@@ -664,7 +667,7 @@ module DSP48E1 (
         if (CARRYINREG == 1) begin always @(posedge CLK) if (RSTALLCARRYIN) CARRYINr <= 1'b0; else if (CECARRYIN) CARRYINr <= CARRYIN; end
         else                 always @* CARRYINr = CARRYIN;
 
-        if (MREG == 1) begin always @(posedge CLK) if (RSTALLCARRYIN) A24_xnor_B17 <= 1'b0; else if (CECARRYIN) A24_xnor_B17 <= A24_xnor_B17d; end
+        if (MREG == 1) begin always @(posedge CLK) if (RSTALLCARRYIN) A24_xnor_B17 <= 1'b0; else if (CEM) A24_xnor_B17 <= A24_xnor_B17d; end
         else                 always @* A24_xnor_B17 = A24_xnor_B17d;
     endgenerate
 
@@ -755,7 +758,7 @@ module DSP48E1 (
     wire [3:0] CARRYOUTd = (OPMODEr[3:0] == 4'b0101 || ALUMODEr[3:2] != 2'b00) ? 4'bxxxx :
                            ((ALUMODEr[0] & ALUMODEr[1]) ? ~ext_carry_out : ext_carry_out);
     wire CARRYCASCOUTd = ext_carry_out[3];
-    wire MULTSIGNOUTd = Mr[42];
+    wire MULTSIGNOUTd = Mrx[42];
 
     generate
         if (PREG == 1) begin

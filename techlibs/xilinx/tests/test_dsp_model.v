@@ -134,7 +134,7 @@ module testbench;
 		end
 		{RSTA, RSTALLCARRYIN, RSTALUMODE, RSTB, RSTC, RSTCTRL, RSTD, RSTINMODE, RSTM, RSTP} = 0;
 
-		repeat (5000) begin
+		repeat (10000) begin
 			clkcycle;
 			config_valid = 0;
 			while (!config_valid) begin
@@ -145,6 +145,13 @@ module testbench;
 				C = {$urandom, $urandom};
 				D = $urandom;
 				PCIN = {$urandom, $urandom};
+
+				{CEA1, CEA2, CEAD, CEALUMODE, CEB1, CEB2, CEC, CECARRYIN, CECTRL} = $urandom | $urandom | $urandom;
+				{CED, CEINMODE, CEM, CEP} = $urandom | $urandom | $urandom | $urandom;
+
+				// Otherwise we can accidentally create illegal configs
+				CEINMODE = CECTRL;
+				CEALUMODE = CECTRL;
 
 				{RSTA, RSTALLCARRYIN, RSTALUMODE, RSTB, RSTC, RSTCTRL, RSTD, RSTINMODE, RSTM, RSTP} = $urandom & $urandom & $urandom & $urandom & $urandom & $urandom;
 				{ALUMODE, INMODE} = $urandom;
@@ -162,7 +169,7 @@ module testbench;
 				if (CARRYINSEL == 3'b101) OPMODE = 7'b0011010;
 				if (CARRYINSEL == 3'b110) OPMODE = 7'b0010101;
 				if (CARRYINSEL == 3'b111) OPMODE = 7'b0100011;
-					
+
 				drc;
 			end
 		end
