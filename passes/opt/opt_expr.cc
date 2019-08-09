@@ -684,7 +684,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				bool sub = (sig_ci == State::S1 && sig_bi == State::S1);
 
 				// If not a subtraction, yet there is a carry or B is inverted
-				//   then no optimisation is possible as carry is not constant
+				//   then no optimisation is possible as carry will not be constant
 				if (!sub && (sig_ci != State::S0 || sig_bi != State::S0))
 					goto next_cell;
 
