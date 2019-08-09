@@ -5,8 +5,6 @@ module opt_expr_add_test(input [3:0] i, input [7:0] j, output [8:0] o);
 endmodule
 EOT
 
-hierarchy -auto-top
-
 equiv_opt -assert opt_expr -fine
 design -load postopt
 
@@ -21,8 +19,6 @@ module opt_expr_add_signed_test(input signed [3:0] i, input signed [7:0] j, outp
     assign o = (i << 4) + j;
 endmodule
 EOT
-
-hierarchy -auto-top
 
 equiv_opt -assert opt_expr -fine
 design -load postopt
@@ -39,8 +35,6 @@ module opt_expr_sub_test1(input [3:0] i, input [7:0] j, output [8:0] o);
 endmodule
 EOT
 
-hierarchy -auto-top
-
 equiv_opt -assert opt_expr -fine
 design -load postopt
 
@@ -55,8 +49,6 @@ module opt_expr_sub_signed_test1(input signed [3:0] i, input signed [7:0] j, out
     assign o = j - (i << 4);
 endmodule
 EOT
-
-hierarchy -auto-top
 
 equiv_opt -assert opt_expr -fine
 design -load postopt
@@ -73,8 +65,6 @@ module opt_expr_sub_test2(input [3:0] i, input [7:0] j, output [8:0] o);
 endmodule
 EOT
 
-hierarchy -auto-top
-
 equiv_opt -assert opt_expr -fine
 design -load postopt
 
@@ -89,8 +79,6 @@ module opt_expr_sub_test4(input [3:0] i, output [8:0] o);
     assign o = 5'b00010 - i;
 endmodule
 EOT
-
-hierarchy -auto-top
 
 equiv_opt -assert opt_expr -fine
 design -load postopt
