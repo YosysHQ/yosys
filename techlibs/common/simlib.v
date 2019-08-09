@@ -532,7 +532,12 @@ endmodule
 
 // --------------------------------------------------------
 
-module \$lcu (P, G, CI, CO); // Lookahead carry unit
+// Lookahead carry unit
+//   A building block dedicated to fast computation of carry-bits
+//   used in binary arithmetic operations. By replacing the ripple
+//   carry structure used in full-adder blocks, the more significant
+//   bits of the sum can be expected to be computed more quickly.
+module \$lcu (P, G, CI, CO);
 
 parameter WIDTH = 1;
 
@@ -556,6 +561,12 @@ endmodule
 
 // --------------------------------------------------------
 
+// Arithmetic logic unit
+//   A building block supporting both binary addition/subtraction
+//   operations, and indirectly, comparison operations.
+//   Typically created by the `alumacc` pass, which transforms
+//   $add, $sub, $lt, $le, $ge, $gt, $eq, $eqx, $ne, $nex
+//   cells into this $alu cell.
 module \$alu (A, B, CI, BI, X, Y, CO);
 
 parameter A_SIGNED = 0;
@@ -566,11 +577,13 @@ parameter Y_WIDTH = 1;
 
 input [A_WIDTH-1:0] A;		// Input operand
 input [B_WIDTH-1:0] B;		// Input operand
-output [Y_WIDTH-1:0] X;		// A xor B (sign-extended, optional B inversion)
+output [Y_WIDTH-1:0] X;		// A xor B (sign-extended, optional B inversion,
+				//          used in combination with
+				//          reduction-AND for $eq/$ne ops)
 output [Y_WIDTH-1:0] Y;		// Sum
 
-input CI;			// Carry-in
-input BI;			// Invert-B
+input CI;			// Carry-in (set for $sub)
+input BI;			// Invert-B (set for $sub)
 output [Y_WIDTH-1:0] CO;	// Carry-out
 
 wire [Y_WIDTH-1:0] AA, BB;
@@ -587,6 +600,7 @@ endgenerate
 wire y_co_undef = ^{A, A, B, B, CI, CI, BI, BI};
 
 assign X = AA ^ BB;
+// Full adder
 assign Y = (AA + BB + CI) ^ {Y_WIDTH{y_co_undef}};
 
 function get_carry;
