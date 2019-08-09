@@ -179,3 +179,45 @@ equiv_opt -assert opt_expr -fine
 design -load postopt
 
 select -assert-count 1 t:$alu r:A_WIDTH=2 r:B_WIDTH=4 r:Y_WIDTH=5 %i %i %i
+
+###########
+
+design -reset
+read_verilog -icells <<EOT
+module opt_expr_alu_test_ci0_bi0(input [7:0] a, input [3:0] b, output [8:0] x, y, co);
+    \$alu #(.A_SIGNED(0), .B_SIGNED(0), .A_WIDTH(8), .B_WIDTH(8), .Y_WIDTH(9)) alu (.A(a), .B({b, 4'b0000}), .CI(1'b0), .BI(1'b0), .X(x), .Y(y), .CO(co));
+endmodule
+EOT
+check
+
+equiv_opt -assert opt_expr -fine
+design -load postopt
+select -assert-count 1 t:$alu r:A_WIDTH=4 r:B_WIDTH=4 r:Y_WIDTH=5 %i %i %i
+
+###########
+
+design -reset
+read_verilog -icells <<EOT
+module opt_expr_alu_test_ci1_bi1(input [7:0] a, input [3:0] b, output [8:0] x, y, co);
+    \$alu #(.A_SIGNED(0), .B_SIGNED(0), .A_WIDTH(8), .B_WIDTH(8), .Y_WIDTH(9)) alu (.A(a), .B({b, 4'b0000}), .CI(1'b1), .BI(1'b1), .X(x), .Y(y), .CO(co));
+endmodule
+EOT
+check
+
+equiv_opt opt_expr -fine
+design -load postopt
+select -assert-count 1 t:$alu r:A_WIDTH=4 r:B_WIDTH=4 r:Y_WIDTH=5 %i %i %i
+
+###########
+
+design -reset
+read_verilog -icells <<EOT
+module opt_expr_alu_test_ci0_bi1(input [7:0] a, input [3:0] b, output [8:0] x, y, co);
+    \$alu #(.A_SIGNED(0), .B_SIGNED(0), .A_WIDTH(8), .B_WIDTH(8), .Y_WIDTH(9)) alu (.A(a), .B({b, 4'b0000}), .CI(1'b0), .BI(1'b1), .X(x), .Y(y), .CO(co));
+endmodule
+EOT
+check
+
+equiv_opt opt_expr -fine
+design -load postopt
+select -assert-count 1 t:$alu r:A_WIDTH=8 r:B_WIDTH=8 r:Y_WIDTH=9 %i %i %i
