@@ -37,16 +37,26 @@ void pack_xilinx_dsp(xilinx_dsp_pm &pm)
 	log("ffA:   %s\n", log_id(st.ffA, "--"));
 	log("ffB:   %s\n", log_id(st.ffB, "--"));
 	log("dsp:   %s\n", log_id(st.dsp, "--"));
+	log("addAB: %s\n", log_id(st.addAB, "--"));
 	log("ffP:   %s\n", log_id(st.ffP, "--"));
 	//log("muxP:  %s\n", log_id(st.muxP, "--"));
 	log("sigPused: %s\n", log_signal(st.sigPused));
-	log_module(pm.module);
 #endif
 
-	log("Analysing %s.%s for Xilinx DSP register packing.\n", log_id(pm.module), log_id(st.dsp));
+	log("Analysing %s.%s for Xilinx DSP packing.\n", log_id(pm.module), log_id(st.dsp));
 
 	Cell *cell = st.dsp;
-	log_assert(cell);
+	SigSpec P = st.sigP;
+
+	if (st.addAB) {
+		log("  adder %s (%s)\n", log_id(st.addAB), log_id(st.addAB->type));
+		cell->setPort("\\C", st.sigC.extend_u0(48, true));
+		SigSpec &opmode = cell->connections_.at("\\OPMODE");
+		opmode[6] = State::S0;
+		opmode[5] = State::S1;
+		opmode[4] = State::S1;
+		pm.autoremove(st.addAB);
+	}
 
 	if (st.clock != SigBit())
 	{
@@ -79,7 +89,6 @@ void pack_xilinx_dsp(xilinx_dsp_pm &pm)
 			else log_abort();
 		}
 		if (st.ffP) {
-			SigSpec P = cell->getPort("\\P");
 			SigSpec D;
 			//if (st.muxP)
 			//	D = st.muxP->getPort("\\B");
@@ -87,7 +96,6 @@ void pack_xilinx_dsp(xilinx_dsp_pm &pm)
 				D = st.ffP->getPort("\\D");
 			SigSpec Q = st.ffP->getPort("\\Q");
 			P.replace(pm.sigmap(D), Q);
-			cell->setPort("\\P", P);
 			cell->setParam("\\PREG", State::S1);
 			if (st.ffP->type == "$dff")
 				cell->setPort("\\CEP", State::S1);
@@ -111,6 +119,10 @@ void pack_xilinx_dsp(xilinx_dsp_pm &pm)
 
 		log("\n");
 	}
+
+	if (GetSize(P) < 48)
+		P.append(pm.module->addWire(NEW_ID, 48-GetSize(P)));
+	cell->setPort("\\P", P);
 
 	pm.blacklist(cell);
 }

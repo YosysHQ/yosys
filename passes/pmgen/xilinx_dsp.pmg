@@ -1,7 +1,8 @@
 pattern xilinx_dsp
 
 state <SigBit> clock
-state <SigSpec> sigPused
+state <SigSpec> sigC sigP sigPused
+state <Cell*> addAB
 
 match dsp
 	select dsp->type.in(\DSP48E1)
@@ -43,13 +44,69 @@ code clock
 	}
 endcode
 
+code sigP
+	sigP = port(dsp, \P);
+endcode
+
+match addA
+	select addA->type.in($add)
+	select param(addA, \A_SIGNED).as_bool() && param(addA, \B_SIGNED).as_bool()
+	select nusers(port(addA, \A)) == 2
+	//index <SigSpec> port(addA, \A) === sigP.extract(0, param(addA, \A_WIDTH).as_int())
+	filter GetSize(sigP) >= param(addA, \A_WIDTH).as_int()
+	filter port(addA, \A) == sigP.extract(0, param(addA, \A_WIDTH).as_int())
+	optional
+endmatch
+
+match addB
+	if !addA
+	select addB->type.in($add, $sub)
+	select param(addB, \A_SIGNED).as_bool() && param(addB, \B_SIGNED).as_bool()
+	select nusers(port(addB, \B)) == 2
+	//index <SigSpec> port(addB, \B) === sigP.extract(0, param(addB, \B_WIDTH).as_int())
+	filter GetSize(sigP) >= param(addB, \B_WIDTH).as_int()
+	filter port(addB, \B) ==  sigP.extract(0, param(addB, \B_WIDTH).as_int())
+	optional
+endmatch
+
+code addAB sigC sigP
+	bool C_SIGNED = false;
+	if (addA) {
+		addAB = addA;
+		sigC = port(addAB, \B);
+		C_SIGNED = param(addAB, \B_SIGNED).as_bool();
+	}
+	if (addB) {
+		addAB = addB;
+		sigC = port(addAB, \A);
+		C_SIGNED = param(addAB, \B_SIGNED).as_bool();
+	}
+	if (addAB) {
+		// Ensure that adder is not used
+		SigSpec opmodeZ = port(dsp, \OPMODE).extract(4,3);
+		if (!opmodeZ.is_fully_zero())
+			reject;
+
+		int natural_mul_width = GetSize(port(dsp, \A)) + GetSize(port(dsp, \B));
+		int actual_mul_width = GetSize(sigP);
+		int actual_acc_width = GetSize(sigC);
+
+		if ((actual_acc_width > actual_mul_width) && (natural_mul_width > actual_mul_width))
+			reject;
+		//if ((actual_acc_width != actual_mul_width) && (param(dsp, \A_SIGNED).as_bool() != param(addAB, \A_SIGNED).as_bool()))
+		//	reject;
+
+		sigP = port(addAB, \Y);
+                sigC.extend_u0(32, C_SIGNED);
+	}
+endcode
+
 // Extract the bits of P that actually have a consumer
 // (as opposed to being a dummy)
 code sigPused
-	SigSpec P = port(dsp, \P);
-	for (int i = 0; i < GetSize(P); i++)
-		if (P[i].wire && nusers(P[i]) > 1)
-			sigPused.append(P[i]);
+	for (int i = 0; i < GetSize(sigP); i++)
+		if (sigP[i].wire && nusers(sigP[i]) > 1)
+			sigPused.append(sigP[i]);
 endcode
 
 match ffP
