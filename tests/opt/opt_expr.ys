@@ -8,8 +8,22 @@ EOT
 equiv_opt -assert opt_expr -fine
 design -load postopt
 
-wreduce
-select -assert-count 1 t:$add r:A_WIDTH=4 r:B_WIDTH=4 r:Y_WIDTH=5 %i %i %i
+select -assert-count 1 t:$add r:A_WIDTH=5 r:B_WIDTH=4 r:Y_WIDTH=5 %i %i %i
+
+##########
+
+design -reset
+read_verilog <<EOT
+module opt_expr_add_test(input [3:0] i, input [7:0] j, output [8:0] o);
+    assign o = (i << 4) + j;
+endmodule
+EOT
+
+alumacc
+equiv_opt -assert opt_expr -fine
+design -load postopt
+
+select -assert-count 1 t:$alu r:A_WIDTH=4 r:B_WIDTH=5 r:Y_WIDTH=5 %i %i %i
 
 ##########
 
@@ -23,8 +37,7 @@ EOT
 equiv_opt -assert opt_expr -fine
 design -load postopt
 
-wreduce
-select -assert-count 1 t:$add r:A_WIDTH=4 r:B_WIDTH=4 r:Y_WIDTH=5 %i %i %i
+select -assert-count 1 t:$add r:A_WIDTH=5 r:B_WIDTH=4 r:Y_WIDTH=5 %i %i %i
 
 ##########
 
@@ -38,8 +51,7 @@ EOT
 equiv_opt -assert opt_expr -fine
 design -load postopt
 
-wreduce
-select -assert-count 1 t:$sub r:A_WIDTH=4 r:B_WIDTH=4 r:Y_WIDTH=5 %i %i %i
+select -assert-count 1 t:$sub r:A_WIDTH=4 r:B_WIDTH=5 r:Y_WIDTH=5 %i %i %i
 
 ##########
 
@@ -53,8 +65,7 @@ EOT
 equiv_opt -assert opt_expr -fine
 design -load postopt
 
-wreduce
-select -assert-count 1 t:$sub r:A_WIDTH=4 r:B_WIDTH=4 r:Y_WIDTH=5 %i %i %i
+select -assert-count 1 t:$sub r:A_WIDTH=4 r:B_WIDTH=5 r:Y_WIDTH=5 %i %i %i
 
 ##########
 
@@ -68,8 +79,7 @@ EOT
 equiv_opt -assert opt_expr -fine
 design -load postopt
 
-wreduce
-select -assert-count 1 t:$sub r:A_WIDTH=8 r:B_WIDTH=8 r:Y_WIDTH=9 %i %i %i
+select -assert-count 1 t:$sub r:A_WIDTH=9 r:B_WIDTH=8 r:Y_WIDTH=9 %i %i %i
 
 ##########
 
@@ -80,8 +90,8 @@ module opt_expr_sub_test4(input [3:0] i, output [8:0] o);
 endmodule
 EOT
 
+wreduce
 equiv_opt -assert opt_expr -fine
 design -load postopt
 
-wreduce
 select -assert-count 1 t:$sub r:A_WIDTH=2 r:B_WIDTH=4 r:Y_WIDTH=5 %i %i %i
