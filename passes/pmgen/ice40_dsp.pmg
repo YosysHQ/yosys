@@ -119,15 +119,16 @@ match addB
 endmatch
 
 code addAB sigCD sigO
+	bool CD_SIGNED = false;
 	if (addA) {
 		addAB = addA;
 		sigCD = port(addAB, \B);
-                sigCD.extend_u0(32, param(addAB, \B_SIGNED).as_bool());
+		CD_SIGNED = param(addAB, \B_SIGNED).as_bool();
 	}
 	if (addB) {
 		addAB = addB;
 		sigCD = port(addAB, \A);
-                sigCD.extend_u0(32, param(addAB, \A_SIGNED).as_bool());
+		CD_SIGNED = param(addAB, \A_SIGNED).as_bool();
 	}
 	if (addAB) {
 		if (mul->type == \SB_MAC16) {
@@ -139,7 +140,7 @@ code addAB sigCD sigO
 
 		int natural_mul_width = GetSize(sigA) + GetSize(sigB);
 		int actual_mul_width = GetSize(sigH);
-		int actual_acc_width = GetSize(sigO);
+		int actual_acc_width = GetSize(sigCD);
 
 		if ((actual_acc_width > actual_mul_width) && (natural_mul_width > actual_mul_width))
 			reject;
@@ -147,6 +148,7 @@ code addAB sigCD sigO
 			reject;
 
 		sigO = port(addAB, \Y);
+		sigCD.extend_u0(32, CD_SIGNED);
 	}
 endcode
 
@@ -255,7 +257,7 @@ code clock clock_pol sigO sigCD
 			else if (muxB)
 				sigCD = port(muxAB, \A);
 			else log_abort();
-                        sigCD.extend_u0(32, addAB && param(addAB, \A_SIGNED).as_bool() && param(addAB, \B_SIGNED).as_bool());
+			sigCD.extend_u0(32, addAB && param(addAB, \A_SIGNED).as_bool() && param(addAB, \B_SIGNED).as_bool());
 		}
 	}
 endcode
