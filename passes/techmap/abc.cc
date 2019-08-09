@@ -941,33 +941,33 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		fprintf(f, "GATE ONE     1 Y=CONST1;\n");
 		fprintf(f, "GATE BUF    %d Y=A;                  PIN * NONINV  1 999 1 0 1 0\n", cell_cost.at("$_BUF_"));
 		fprintf(f, "GATE NOT    %d Y=!A;                 PIN * INV     1 999 1 0 1 0\n", cell_cost.at("$_NOT_"));
-		if (enabled_gates.empty() || enabled_gates.count("AND"))
+		if (enabled_gates.count("AND"))
 			fprintf(f, "GATE AND    %d Y=A*B;                PIN * NONINV  1 999 1 0 1 0\n", cell_cost.at("$_AND_"));
-		if (enabled_gates.empty() || enabled_gates.count("NAND"))
+		if (enabled_gates.count("NAND"))
 			fprintf(f, "GATE NAND   %d Y=!(A*B);             PIN * INV     1 999 1 0 1 0\n", cell_cost.at("$_NAND_"));
-		if (enabled_gates.empty() || enabled_gates.count("OR"))
+		if (enabled_gates.count("OR"))
 			fprintf(f, "GATE OR     %d Y=A+B;                PIN * NONINV  1 999 1 0 1 0\n", cell_cost.at("$_OR_"));
-		if (enabled_gates.empty() || enabled_gates.count("NOR"))
+		if (enabled_gates.count("NOR"))
 			fprintf(f, "GATE NOR    %d Y=!(A+B);             PIN * INV     1 999 1 0 1 0\n", cell_cost.at("$_NOR_"));
-		if (enabled_gates.empty() || enabled_gates.count("XOR"))
+		if (enabled_gates.count("XOR"))
 			fprintf(f, "GATE XOR    %d Y=(A*!B)+(!A*B);      PIN * UNKNOWN 1 999 1 0 1 0\n", cell_cost.at("$_XOR_"));
-		if (enabled_gates.empty() || enabled_gates.count("XNOR"))
+		if (enabled_gates.count("XNOR"))
 			fprintf(f, "GATE XNOR   %d Y=(A*B)+(!A*!B);      PIN * UNKNOWN 1 999 1 0 1 0\n", cell_cost.at("$_XNOR_"));
-		if (enabled_gates.empty() || enabled_gates.count("ANDNOT"))
+		if (enabled_gates.count("ANDNOT"))
 			fprintf(f, "GATE ANDNOT %d Y=A*!B;               PIN * UNKNOWN 1 999 1 0 1 0\n", cell_cost.at("$_ANDNOT_"));
-		if (enabled_gates.empty() || enabled_gates.count("ORNOT"))
+		if (enabled_gates.count("ORNOT"))
 			fprintf(f, "GATE ORNOT  %d Y=A+!B;               PIN * UNKNOWN 1 999 1 0 1 0\n", cell_cost.at("$_ORNOT_"));
-		if (enabled_gates.empty() || enabled_gates.count("AOI3"))
+		if (enabled_gates.count("AOI3"))
 			fprintf(f, "GATE AOI3   %d Y=!((A*B)+C);         PIN * INV     1 999 1 0 1 0\n", cell_cost.at("$_AOI3_"));
-		if (enabled_gates.empty() || enabled_gates.count("OAI3"))
+		if (enabled_gates.count("OAI3"))
 			fprintf(f, "GATE OAI3   %d Y=!((A+B)*C);         PIN * INV     1 999 1 0 1 0\n", cell_cost.at("$_OAI3_"));
-		if (enabled_gates.empty() || enabled_gates.count("AOI4"))
+		if (enabled_gates.count("AOI4"))
 			fprintf(f, "GATE AOI4   %d Y=!((A*B)+(C*D));     PIN * INV     1 999 1 0 1 0\n", cell_cost.at("$_AOI4_"));
-		if (enabled_gates.empty() || enabled_gates.count("OAI4"))
+		if (enabled_gates.count("OAI4"))
 			fprintf(f, "GATE OAI4   %d Y=!((A+B)*(C+D));     PIN * INV     1 999 1 0 1 0\n", cell_cost.at("$_OAI4_"));
-		if (enabled_gates.empty() || enabled_gates.count("MUX"))
+		if (enabled_gates.count("MUX"))
 			fprintf(f, "GATE MUX    %d Y=(A*B)+(S*B)+(!S*A); PIN * UNKNOWN 1 999 1 0 1 0\n", cell_cost.at("$_MUX_"));
-		if (enabled_gates.empty() || enabled_gates.count("NMUX"))
+		if (enabled_gates.count("NMUX"))
 			fprintf(f, "GATE NMUX   %d Y=!((A*B)+(S*B)+(!S*A)); PIN * UNKNOWN 1 999 1 0 1 0\n", cell_cost.at("$_NMUX_"));
 		if (map_mux4)
 			fprintf(f, "GATE MUX4   %d Y=(!S*!T*A)+(S*!T*B)+(!S*T*C)+(S*T*D); PIN * UNKNOWN 1 999 1 0 1 0\n", 2*cell_cost.at("$_MUX_"));
@@ -1411,7 +1411,9 @@ struct AbcPass : public Pass {
 		// log("\n");
 		log("    -g type1,type2,...\n");
 		log("        Map to the specified list of gate types. Supported gates types are:\n");
-		log("        AND, NAND, OR, NOR, XOR, XNOR, ANDNOT, ORNOT, MUX, AOI3, OAI3, AOI4, OAI4.\n");
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("           AND, NAND, OR, NOR, XOR, XNOR, ANDNOT, ORNOT, MUX,\n");
+		log("           NMUX, AOI3, OAI3, AOI4, OAI4.\n");
 		log("        (The NOT gate is always added to this list automatically.)\n");
 		log("\n");
 		log("        The following aliases can be used to reference common sets of gate types:\n");
@@ -1423,8 +1425,12 @@ struct AbcPass : public Pass {
 		log("          gates:  AND NAND OR NOR XOR XNOR ANDNOT ORNOT\n");
 		log("          aig:    AND NAND OR NOR ANDNOT ORNOT\n");
 		log("\n");
+		log("        The alias 'all' represent the full set of all gate types.\n");
+		log("\n");
 		log("        Prefix a gate type with a '-' to remove it from the list. For example\n");
 		log("        the arguments 'AND,OR,XOR' and 'simple,-MUX' are equivalent.\n");
+		log("\n");
+		log("        The default is 'all,-NMUX,-AOI3,-OAI3,-AOI4,-OAI4'.\n");
 		log("\n");
 		log("    -dff\n");
 		log("        also pass $_DFF_?_ and $_DFFE_??_ cells through ABC. modules with many\n");
@@ -1701,6 +1707,22 @@ struct AbcPass : public Pass {
 						gate_list.push_back("ORNOT");
 						goto ok_alias;
 					}
+					if (g == "all") {
+						gate_list.push_back("AND");
+						gate_list.push_back("NAND");
+						gate_list.push_back("OR");
+						gate_list.push_back("NOR");
+						gate_list.push_back("XOR");
+						gate_list.push_back("XNOR");
+						gate_list.push_back("ANDNOT");
+						gate_list.push_back("ORNOT");
+						gate_list.push_back("AOI3");
+						gate_list.push_back("OAI3");
+						gate_list.push_back("AOI4");
+						gate_list.push_back("OAI4");
+						gate_list.push_back("MUX");
+						gate_list.push_back("NMUX");
+					}
 					cmd_error(args, argidx, stringf("Unsupported gate type: %s", g.c_str()));
 				ok_gate:
 					gate_list.push_back(g);
@@ -1751,6 +1773,23 @@ struct AbcPass : public Pass {
 			log_cmd_error("Got -lut and -liberty! This two options are exclusive.\n");
 		if (!constr_file.empty() && liberty_file.empty())
 			log_cmd_error("Got -constr but no -liberty!\n");
+
+		if (enabled_gates.empty()) {
+			enabled_gates.insert("AND");
+			enabled_gates.insert("NAND");
+			enabled_gates.insert("OR");
+			enabled_gates.insert("NOR");
+			enabled_gates.insert("XOR");
+			enabled_gates.insert("XNOR");
+			enabled_gates.insert("ANDNOT");
+			enabled_gates.insert("ORNOT");
+			// enabled_gates.insert("AOI3");
+			// enabled_gates.insert("OAI3");
+			// enabled_gates.insert("AOI4");
+			// enabled_gates.insert("OAI4");
+			enabled_gates.insert("MUX");
+			// enabled_gates.insert("NMUX");
+		}
 
 		for (auto mod : design->selected_modules())
 		{
