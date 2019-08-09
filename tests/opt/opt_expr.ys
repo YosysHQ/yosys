@@ -12,6 +12,7 @@ select -assert-count 1 t:$add r:A_WIDTH=5 r:B_WIDTH=4 r:Y_WIDTH=5 %i %i %i
 
 ##########
 
+# alumacc version of above
 design -reset
 read_verilog <<EOT
 module opt_expr_add_test(input [3:0] i, input [7:0] j, output [8:0] o);
@@ -41,6 +42,22 @@ select -assert-count 1 t:$add r:A_WIDTH=5 r:B_WIDTH=4 r:Y_WIDTH=5 %i %i %i
 
 ##########
 
+# alumacc version of above
+design -reset
+read_verilog <<EOT
+module opt_expr_add_signed_test(input signed [3:0] i, input signed [7:0] j, output signed [8:0] o);
+    assign o = (i << 4) + j;
+endmodule
+EOT
+
+alumacc
+equiv_opt -assert opt_expr -fine
+design -load postopt
+
+select -assert-count 1 t:$alu r:A_WIDTH=4 r:B_WIDTH=5 r:Y_WIDTH=5 %i %i %i
+
+##########
+
 design -reset
 read_verilog <<EOT
 module opt_expr_sub_test1(input [3:0] i, input [7:0] j, output [8:0] o);
@@ -52,6 +69,23 @@ equiv_opt -assert opt_expr -fine
 design -load postopt
 
 select -assert-count 1 t:$sub r:A_WIDTH=4 r:B_WIDTH=5 r:Y_WIDTH=5 %i %i %i
+
+##########
+
+# alumacc version of above
+design -reset
+read_verilog <<EOT
+module opt_expr_sub_test1(input [3:0] i, input [7:0] j, output [8:0] o);
+    assign o = j - (i << 4);
+endmodule
+EOT
+
+alumacc
+equiv_opt -assert opt_expr -fine
+design -load postopt
+
+dump
+select -assert-count 1 t:$alu r:A_WIDTH=4 r:B_WIDTH=5 r:Y_WIDTH=5 %i %i %i
 
 ##########
 
@@ -69,6 +103,22 @@ select -assert-count 1 t:$sub r:A_WIDTH=4 r:B_WIDTH=5 r:Y_WIDTH=5 %i %i %i
 
 ##########
 
+# alumacc version of above
+design -reset
+read_verilog <<EOT
+module opt_expr_sub_signed_test1(input signed [3:0] i, input signed [7:0] j, output signed [8:0] o);
+    assign o = j - (i << 4);
+endmodule
+EOT
+
+alumacc
+equiv_opt -assert opt_expr -fine
+design -load postopt
+
+select -assert-count 1 t:$alu r:A_WIDTH=4 r:B_WIDTH=5 r:Y_WIDTH=5 %i %i %i
+
+##########
+
 design -reset
 read_verilog <<EOT
 module opt_expr_sub_test2(input [3:0] i, input [7:0] j, output [8:0] o);
@@ -80,6 +130,23 @@ equiv_opt -assert opt_expr -fine
 design -load postopt
 
 select -assert-count 1 t:$sub r:A_WIDTH=9 r:B_WIDTH=8 r:Y_WIDTH=9 %i %i %i
+
+##########
+
+# alumacc version of above
+design -reset
+read_verilog <<EOT
+module opt_expr_sub_test2(input [3:0] i, input [7:0] j, output [8:0] o);
+    assign o = (i << 4) - j;
+endmodule
+EOT
+
+alumacc
+opt_expr -fine
+equiv_opt -assert opt_expr -fine
+design -load postopt
+
+select -assert-count 1 t:$alu r:A_WIDTH=9 r:B_WIDTH=8 r:Y_WIDTH=9 %i %i %i
 
 ##########
 
@@ -95,3 +162,20 @@ equiv_opt -assert opt_expr -fine
 design -load postopt
 
 select -assert-count 1 t:$sub r:A_WIDTH=2 r:B_WIDTH=4 r:Y_WIDTH=5 %i %i %i
+
+##########
+
+# alumacc version of above
+design -reset
+read_verilog <<EOT
+module opt_expr_sub_test4(input [3:0] i, output [8:0] o);
+    assign o = 5'b00010 - i;
+endmodule
+EOT
+
+wreduce
+alumacc
+equiv_opt -assert opt_expr -fine
+design -load postopt
+
+select -assert-count 1 t:$alu r:A_WIDTH=2 r:B_WIDTH=4 r:Y_WIDTH=5 %i %i %i
