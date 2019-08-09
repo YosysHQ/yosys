@@ -1,0 +1,79 @@
+read_verilog <<EOT
+module wreduce_sub_test(input [3:0] i, input [7:0] j, output [8:0] o);
+    assign o = (j >> 4) - i;
+endmodule
+EOT
+
+hierarchy -auto-top
+proc
+design -save gold
+
+opt_expr
+wreduce
+
+select -assert-count 1 t:$sub r:A_WIDTH=4 r:B_WIDTH=4 r:Y_WIDTH=5 %i %i %i
+
+design -stash gate
+
+design -import gold -as gold
+design -import gate -as gate
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports miter
+
+##########
+
+read_verilog <<EOT
+module wreduce_sub_signed_test(input signed [3:0] i, input signed [7:0] j, output signed [8:0] o);
+    assign o = (j >>> 4) - i;
+endmodule
+EOT
+
+hierarchy -auto-top
+proc
+design -save gold
+
+opt_expr
+wreduce
+
+select -assert-count 1 t:$sub r:A_WIDTH=4 r:B_WIDTH=4 r:Y_WIDTH=5 %i %i %i
+
+design -stash gate
+
+design -import gold -as gold
+design -import gate -as gate
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports miter
+
+##########
+
+# Testcase from: https://github.com/YosysHQ/yosys/commit/25680f6a078bb32f157bd580705656496717bafb
+design -reset
+read_verilog <<EOT
+module top(
+    input clk,
+    input rst,
+    input [2:0] a,
+    output [1:0] b
+);
+    reg [2:0] b_reg;
+    initial begin
+        b_reg <= 3'b0;
+    end
+
+    assign b = b_reg[1:0];
+    always @(posedge clk or posedge rst) begin
+        if(rst) begin
+            b_reg <= 3'b0;
+        end else begin
+            b_reg <= a;
+        end
+    end
+endmodule
+EOT
+
+proc
+wreduce
+
+select -assert-count 1 t:$adff r:ARST_VALUE=2'b00 %i

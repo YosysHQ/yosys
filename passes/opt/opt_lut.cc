@@ -101,6 +101,12 @@ struct OptLutWorker
 		{
 			if (cell->type == "$lut")
 			{
+				if (cell->has_keep_attr())
+					continue;
+				SigBit lut_output = cell->getPort("\\Y");
+				if (lut_output.wire->get_bool_attribute("\\keep"))
+					continue;
+
 				int lut_width = cell->getParam("\\WIDTH").as_int();
 				SigSpec lut_input = cell->getPort("\\A");
 				int lut_arity = 0;

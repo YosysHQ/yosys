@@ -86,7 +86,7 @@ struct ExtractFaWorker
 		for (auto cell : module->selected_cells())
 		{
 			if (cell->type.in( "$_BUF_", "$_NOT_", "$_AND_", "$_NAND_", "$_OR_", "$_NOR_",
-					"$_XOR_", "$_XNOR_", "$_ANDNOT_", "$_ORNOT_", "$_MUX_",
+					"$_XOR_", "$_XNOR_", "$_ANDNOT_", "$_ORNOT_", "$_MUX_", "$_NMUX_",
 					"$_AOI3_", "$_OAI3_", "$_AOI4_", "$_OAI4_"))
 			{
 				SigBit y = sigmap(SigBit(cell->getPort("\\Y")));
