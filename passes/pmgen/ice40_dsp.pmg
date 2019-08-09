@@ -22,8 +22,8 @@ endcode
 
 match ffA
 	if mul->type != \SB_MAC16 || !param(mul, \A_REG).as_bool()
+	if !port(mul, \A).remove_const().empty()
 	select ffA->type.in($dff)
-	filter !port(mul, \A).remove_const().empty()
 	filter includes(port(ffA, \Q).to_sigbit_set(), port(mul, \A).remove_const().to_sigbit_set())
 	optional
 endmatch
@@ -45,8 +45,8 @@ endcode
 
 match ffB
 	if mul->type != \SB_MAC16 || !param(mul, \B_REG).as_bool()
+	if !port(mul, \B).remove_const().empty()
 	select ffB->type.in($dff)
-	filter !port(mul, \B).remove_const().empty()
 	filter includes(port(ffB, \Q).to_sigbit_set(), port(mul, \B).remove_const().to_sigbit_set())
 	optional
 endmatch
