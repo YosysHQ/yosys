@@ -46,7 +46,7 @@ struct OnehotDatabase
 
 		for (auto wire : module->wires())
 		{
-			auto it = wire->attributes.find("\\init");
+			auto it = wire->attributes.find(ID(init));
 			if (it == wire->attributes.end())
 				continue;
 
@@ -63,19 +63,19 @@ struct OnehotDatabase
 			vector<SigSpec> inputs;
 			SigSpec output;
 
-			if (cell->type.in("$adff", "$dff", "$dffe", "$dlatch", "$ff"))
+			if (cell->type.in(ID($adff), ID($dff), ID($dffe), ID($dlatch), ID($ff)))
 			{
-				output = cell->getPort("\\Q");
-				if (cell->type == "$adff")
-					inputs.push_back(cell->getParam("\\ARST_VALUE"));
-				inputs.push_back(cell->getPort("\\D"));
+				output = cell->getPort(ID(Q));
+				if (cell->type == ID($adff))
+					inputs.push_back(cell->getParam(ID(ARST_VALUE)));
+				inputs.push_back(cell->getPort(ID(D)));
 			}
 
-			if (cell->type.in("$mux", "$pmux"))
+			if (cell->type.in(ID($mux), ID($pmux)))
 			{
-				output = cell->getPort("\\Y");
-				inputs.push_back(cell->getPort("\\A"));
-				SigSpec B = cell->getPort("\\B");
+				output = cell->getPort(ID(Y));
+				inputs.push_back(cell->getPort(ID(A)));
+				SigSpec B = cell->getPort(ID(B));
 				for (int i = 0; i < GetSize(B); i += GetSize(output))
 					inputs.push_back(B.extract(i, GetSize(output)));
 			}
@@ -292,23 +292,23 @@ struct Pmux2ShiftxPass : public Pass {
 
 			for (auto cell : module->cells())
 			{
-				if (cell->type == "$eq")
+				if (cell->type == ID($eq))
 				{
 					dict<SigBit, State> bits;
 
-					SigSpec A = sigmap(cell->getPort("\\A"));
-					SigSpec B = sigmap(cell->getPort("\\B"));
+					SigSpec A = sigmap(cell->getPort(ID(A)));
+					SigSpec B = sigmap(cell->getPort(ID(B)));
 
-					int a_width = cell->getParam("\\A_WIDTH").as_int();
-					int b_width = cell->getParam("\\B_WIDTH").as_int();
+					int a_width = cell->getParam(ID(A_WIDTH)).as_int();
+					int b_width = cell->getParam(ID(B_WIDTH)).as_int();
 
 					if (a_width < b_width) {
-						bool a_signed = cell->getParam("\\A_SIGNED").as_int();
+						bool a_signed = cell->getParam(ID(A_SIGNED)).as_int();
 						A.extend_u0(b_width, a_signed);
 					}
 
 					if (b_width < a_width) {
-						bool b_signed = cell->getParam("\\B_SIGNED").as_int();
+						bool b_signed = cell->getParam(ID(B_SIGNED)).as_int();
 						B.extend_u0(a_width, b_signed);
 					}
 
@@ -335,15 +335,15 @@ struct Pmux2ShiftxPass : public Pass {
 						entry.second.bits.push_back(it.second);
 					}
 
-					eqdb[sigmap(cell->getPort("\\Y")[0])] = entry;
+					eqdb[sigmap(cell->getPort(ID(Y))[0])] = entry;
 					goto next_cell;
 				}
 
-				if (cell->type == "$logic_not")
+				if (cell->type == ID($logic_not))
 				{
 					dict<SigBit, State> bits;
 
-					SigSpec A = sigmap(cell->getPort("\\A"));
+					SigSpec A = sigmap(cell->getPort(ID(A)));
 
 					for (int i = 0; i < GetSize(A); i++)
 						bits[A[i]] = State::S0;
@@ -356,7 +356,7 @@ struct Pmux2ShiftxPass : public Pass {
 						entry.second.bits.push_back(it.second);
 					}
 
-					eqdb[sigmap(cell->getPort("\\Y")[0])] = entry;
+					eqdb[sigmap(cell->getPort(ID(Y))[0])] = entry;
 					goto next_cell;
 				}
 		next_cell:;
@@ -364,11 +364,11 @@ struct Pmux2ShiftxPass : public Pass {
 
 			for (auto cell : module->selected_cells())
 			{
-				if (cell->type != "$pmux")
+				if (cell->type != ID($pmux))
 					continue;
 
 				string src = cell->get_src_attribute();
-				int width = cell->getParam("\\WIDTH").as_int();
+				int width = cell->getParam(ID(WIDTH)).as_int();
 				int width_bits = ceil_log2(width);
 				int extwidth = width;
 
@@ -377,9 +377,9 @@ struct Pmux2ShiftxPass : public Pass {
 
 				dict<SigSpec, pool<int>> seldb;
 
-				SigSpec A = cell->getPort("\\A");
-				SigSpec B = cell->getPort("\\B");
-				SigSpec S = sigmap(cell->getPort("\\S"));
+				SigSpec A = cell->getPort(ID(A));
+				SigSpec B = cell->getPort(ID(B));
+				SigSpec S = sigmap(cell->getPort(ID(S)));
 				for (int i = 0; i < GetSize(S); i++)
 				{
 					if (!eqdb.count(S[i]))
@@ -400,8 +400,8 @@ struct Pmux2ShiftxPass : public Pass {
 					log("  data width: %d (next power-of-2 = %d, log2 = %d)\n", width, extwidth, width_bits);
 				}
 
-				SigSpec updated_S = cell->getPort("\\S");
-				SigSpec updated_B = cell->getPort("\\B");
+				SigSpec updated_S = cell->getPort(ID(S));
+				SigSpec updated_B = cell->getPort(ID(B));
 
 				while (!seldb.empty())
 				{
@@ -727,9 +727,9 @@ struct Pmux2ShiftxPass : public Pass {
 				}
 
 				// update $pmux cell
-				cell->setPort("\\S", updated_S);
-				cell->setPort("\\B", updated_B);
-				cell->setParam("\\S_WIDTH", GetSize(updated_S));
+				cell->setPort(ID(S), updated_S);
+				cell->setPort(ID(B), updated_B);
+				cell->setParam(ID(S_WIDTH), GetSize(updated_S));
 			}
 		}
 	}
@@ -779,22 +779,22 @@ struct OnehotPass : public Pass {
 
 			for (auto cell : module->selected_cells())
 			{
-				if (cell->type != "$eq")
+				if (cell->type != ID($eq))
 					continue;
 
-				SigSpec A = sigmap(cell->getPort("\\A"));
-				SigSpec B = sigmap(cell->getPort("\\B"));
+				SigSpec A = sigmap(cell->getPort(ID(A)));
+				SigSpec B = sigmap(cell->getPort(ID(B)));
 
-				int a_width = cell->getParam("\\A_WIDTH").as_int();
-				int b_width = cell->getParam("\\B_WIDTH").as_int();
+				int a_width = cell->getParam(ID(A_WIDTH)).as_int();
+				int b_width = cell->getParam(ID(B_WIDTH)).as_int();
 
 				if (a_width < b_width) {
-					bool a_signed = cell->getParam("\\A_SIGNED").as_int();
+					bool a_signed = cell->getParam(ID(A_SIGNED)).as_int();
 					A.extend_u0(b_width, a_signed);
 				}
 
 				if (b_width < a_width) {
-					bool b_signed = cell->getParam("\\B_SIGNED").as_int();
+					bool b_signed = cell->getParam(ID(B_SIGNED)).as_int();
 					B.extend_u0(a_width, b_signed);
 				}
 
@@ -830,7 +830,7 @@ struct OnehotPass : public Pass {
 					continue;
 				}
 
-				SigSpec Y = cell->getPort("\\Y");
+				SigSpec Y = cell->getPort(ID(Y));
 
 				if (not_onehot)
 				{
