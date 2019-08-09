@@ -642,31 +642,74 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				}
 			}
 
-			if (cell->type.in("$add", "$sub", "$alu"))
+			if (cell->type.in("$add", "$sub"))
 			{
 				RTLIL::SigSpec sig_a = assign_map(cell->getPort("\\A"));
 				RTLIL::SigSpec sig_b = assign_map(cell->getPort("\\B"));
 				RTLIL::SigSpec sig_y = cell->getPort("\\Y");
-				bool ignore_a = cell->type == "$sub" || (cell->type == "$alu" && !cell->getPort("\\BI").is_fully_zero());
+				bool sub = cell->type == "$sub";
 
 				int i;
 				for (i = 0; i < GetSize(sig_y); i++) {
 					if (sig_b.at(i, State::Sx) == State::S0 && sig_a.at(i, State::Sx) != State::Sx)
 						module->connect(sig_y[i], sig_a[i]);
-					else if (!ignore_a && sig_a.at(i, State::Sx) == State::S0 && sig_b.at(i, State::Sx) != State::Sx)
+					else if (!sub && sig_a.at(i, State::Sx) == State::S0 && sig_b.at(i, State::Sx) != State::Sx)
 						module->connect(sig_y[i], sig_b[i]);
 					else
 						break;
 				}
 				if (i > 0) {
-					cover_list("opt.opt_expr.fine", "$add", "$sub", "$alu", cell->type.str());
+					cover_list("opt.opt_expr.fine", "$add", "$sub", cell->type.str());
 					cell->setPort("\\A", sig_a.extract_end(i));
 					cell->setPort("\\B", sig_b.extract_end(i));
 					cell->setPort("\\Y", sig_y.extract_end(i));
-					if (cell->type == "$alu") {
-						cell->setPort("\\X", cell->getPort("\\X").extract_end(i));
-						cell->setPort("\\CO", cell->getPort("\\CO").extract_end(i));
+					cell->fixup_parameters();
+					did_something = true;
+				}
+			}
+
+			if (cell->type == "$alu")
+			{
+				RTLIL::SigSpec sig_a = assign_map(cell->getPort("\\A"));
+				RTLIL::SigSpec sig_b = assign_map(cell->getPort("\\B"));
+				RTLIL::SigBit sig_ci = assign_map(cell->getPort("\\CI"));
+				RTLIL::SigBit sig_bi = assign_map(cell->getPort("\\BI"));
+				RTLIL::SigSpec sig_x = cell->getPort("\\X");
+				RTLIL::SigSpec sig_y = cell->getPort("\\Y");
+				RTLIL::SigSpec sig_co = cell->getPort("\\CO");
+
+				if (sig_ci.wire || sig_bi.wire)
+					goto next_cell;
+
+				bool sub = (sig_ci == State::S1 && sig_bi == State::S1);
+
+				// If not a subtraction, yet there is a carry or B is inverted
+				//   then no optimisation is possible as carry is not constant
+				if (!sub && (sig_ci != State::S0 || sig_bi != State::S0))
+					goto next_cell;
+
+				int i;
+				for (i = 0; i < GetSize(sig_y); i++) {
+					if (sig_b.at(i, State::Sx) == State::S0 && sig_a.at(i, State::Sx) != State::Sx) {
+						module->connect(sig_x[i], sub ? module->Not(NEW_ID, sig_a[i]).as_bit() : sig_a[i]);
+						module->connect(sig_y[i], sig_a[i]);
+						module->connect(sig_co[i], sub ? State::S1 : State::S0);
 					}
+					else if (!sub && sig_a.at(i, State::Sx) == State::S0 && sig_b.at(i, State::Sx) != State::Sx) {
+						module->connect(sig_x[i], sig_b[i]);
+						module->connect(sig_y[i], sig_b[i]);
+						module->connect(sig_co[i], State::S0);
+					}
+					else
+						break;
+				}
+				if (i > 0) {
+					cover_list("opt.opt_expr.fine", "$alu", cell->type.str());
+					cell->setPort("\\A", sig_a.extract_end(i));
+					cell->setPort("\\B", sig_b.extract_end(i));
+					cell->setPort("\\X", sig_x.extract_end(i));
+					cell->setPort("\\Y", sig_y.extract_end(i));
+					cell->setPort("\\CO", sig_co.extract_end(i));
 					cell->fixup_parameters();
 					did_something = true;
 				}
