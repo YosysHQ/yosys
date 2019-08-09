@@ -21,8 +21,8 @@ code sigH
 endcode
 
 match ffA
+	if mul->type != \SB_MAC16 || !param(mul, \A_REG).as_bool()
 	select ffA->type.in($dff)
-	filter mul->type != \SB_MAC16 || !param(mul, \A_REG).as_bool()
 	filter !port(mul, \A).remove_const().empty()
 	filter includes(port(ffA, \Q).to_sigbit_set(), port(mul, \A).remove_const().to_sigbit_set())
 	optional
@@ -44,8 +44,8 @@ code sigA clock clock_pol
 endcode
 
 match ffB
+	if mul->type != \SB_MAC16 || !param(mul, \B_REG).as_bool()
 	select ffB->type.in($dff)
-	filter mul->type != \SB_MAC16 || !param(mul, \B_REG).as_bool()
 	filter !port(mul, \B).remove_const().empty()
 	filter includes(port(ffB, \Q).to_sigbit_set(), port(mul, \B).remove_const().to_sigbit_set())
 	optional
@@ -73,11 +73,11 @@ code sigB clock clock_pol
 endcode
 
 match ffH
+	if mul->type != \SB_MAC16 || (!param(mul, \TOP_8x8_MULT_REG).as_bool() && !param(mul, \BOT_8x8_MULT_REG).as_bool() && !param(mul, \PIPELINE_16x16_MULT_REG1).as_bool() && !param(mul, \PIPELINE_16x16_MULT_REG2).as_bool())
 	select ffH->type.in($dff)
 	select nusers(port(ffH, \D)) == 2
 	index <SigSpec> port(ffH, \D) === sigH
 	// Ensure pipeline register is not already used
-	filter mul->type != \SB_MAC16 || (!param(mul, \TOP_8x8_MULT_REG).as_bool() && !param(mul, \BOT_8x8_MULT_REG).as_bool() && !param(mul, \PIPELINE_16x16_MULT_REG1).as_bool() && !param(mul, \PIPELINE_16x16_MULT_REG2).as_bool())
 	optional
 endmatch
 
@@ -154,7 +154,7 @@ endcode
 
 match muxA
 	select muxA->type.in($mux)
-	select nusers(port(muxA, \A)) == 2
+	index <int> nusers(port(muxA, \A)) === 2
 	index <SigSpec> port(muxA, \A) === sigO
 	optional
 endmatch
@@ -162,7 +162,7 @@ endmatch
 match muxB
 	if !muxA
 	select muxB->type.in($mux)
-	select nusers(port(muxB, \B)) == 2
+	index <int> nusers(port(muxB, \B)) === 2
 	index <SigSpec> port(muxB, \B) === sigO
 	optional
 endmatch
@@ -185,16 +185,16 @@ code sigOused
 endcode
 
 match ffO_lo
+	if nusers(sigOused.extract(0,std::min(16,GetSize(sigOused)))) == 2
 	select ffO_lo->type.in($dff)
-	filter nusers(sigOused.extract(0,std::min(16,param(ffO_lo, \WIDTH).as_int()))) == 2
 	filter includes(port(ffO_lo, \D).to_sigbit_set(), sigOused.extract(0,std::min(16,param(ffO_lo, \WIDTH).as_int())).remove_const().to_sigbit_set())
 	optional
 endmatch
 
 match ffO_hi
+	if GetSize(sigOused) > 16
+	if nusers(sigOused.extract_end(16)) == 2
 	select ffO_hi->type.in($dff)
-	filter GetSize(sigOused) > 16
-	filter nusers(sigOused.extract_end(16)) == 2
 	filter includes(port(ffO_hi, \D).to_sigbit_set(), sigOused.extract_end(16).remove_const().to_sigbit_set())
 	optional
 endmatch
