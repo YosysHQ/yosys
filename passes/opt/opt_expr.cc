@@ -642,26 +642,31 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				}
 			}
 
-			if (cell->type.in("$add", "$sub")) {
+			if (cell->type.in("$add", "$sub", "$alu"))
+			{
 				RTLIL::SigSpec sig_a = assign_map(cell->getPort("\\A"));
 				RTLIL::SigSpec sig_b = assign_map(cell->getPort("\\B"));
 				RTLIL::SigSpec sig_y = cell->getPort("\\Y");
-				bool sub = cell->type == "$sub";
+				bool ignore_a = cell->type == "$sub" || (cell->type == "$alu" && !cell->getPort("\\BI").is_fully_zero());
 
 				int i;
 				for (i = 0; i < GetSize(sig_y); i++) {
 					if (sig_b.at(i, State::Sx) == State::S0 && sig_a.at(i, State::Sx) != State::Sx)
 						module->connect(sig_y[i], sig_a[i]);
-					else if (!sub && sig_a.at(i, State::Sx) == State::S0 && sig_b.at(i, State::Sx) != State::Sx)
+					else if (!ignore_a && sig_a.at(i, State::Sx) == State::S0 && sig_b.at(i, State::Sx) != State::Sx)
 						module->connect(sig_y[i], sig_b[i]);
 					else
 						break;
 				}
 				if (i > 0) {
-					cover_list("opt.opt_expr.fine", "$add", "$sub", cell->type.str());
+					cover_list("opt.opt_expr.fine", "$add", "$sub", "$alu", cell->type.str());
 					cell->setPort("\\A", sig_a.extract_end(i));
 					cell->setPort("\\B", sig_b.extract_end(i));
 					cell->setPort("\\Y", sig_y.extract_end(i));
+					if (cell->type == "$alu") {
+						cell->setPort("\\X", cell->getPort("\\X").extract_end(i));
+						cell->setPort("\\CO", cell->getPort("\\CO").extract_end(i));
+					}
 					cell->fixup_parameters();
 					did_something = true;
 				}
