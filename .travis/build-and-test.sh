@@ -28,7 +28,7 @@ echo
 echo 'Building...' && echo -en 'travis_fold:start:script.build\\r'
 echo
 
-make CC=$CC CXX=$CXX LD=$CXX
+make CC=$CC CXX=$CC LD=$CC
 
 echo
 echo -en 'travis_fold:end:script.build\\r'
