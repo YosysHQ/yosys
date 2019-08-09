@@ -537,6 +537,8 @@ endmodule
 //   used in binary arithmetic operations. By replacing the ripple
 //   carry structure used in full-adder blocks, the more significant
 //   bits of the sum can be expected to be computed more quickly.
+//   Typically created during `techmap` of $alu cells
+//   (see the "_90_alu" rule in +/techmap.v)
 module \$lcu (P, G, CI, CO);
 
 parameter WIDTH = 1;
