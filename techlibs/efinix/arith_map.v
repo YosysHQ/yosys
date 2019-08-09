@@ -31,7 +31,7 @@ module _80_efinix_alu (A, B, CI, BI, X, Y, CO);
 	output [Y_WIDTH-1:0] X, Y;
 
 	input CI, BI;
-	output CO;
+	output [Y_WIDTH-1:0] CO;
 
 	wire _TECHMAP_FAIL_ = Y_WIDTH <= 2;
 
@@ -41,38 +41,36 @@ module _80_efinix_alu (A, B, CI, BI, X, Y, CO);
 
 	wire [Y_WIDTH-1:0] AA = A_buf;
 	wire [Y_WIDTH-1:0] BB = BI ? ~B_buf : B_buf;
-	wire [Y_WIDTH+1:0] COx;
-	wire [Y_WIDTH+2:0] C = {COx, CI};
+	wire [Y_WIDTH:0] C;
 
-   EFX_ADD #(.I0_POLARITY(1'b1),.I1_POLARITY(1'b1))
-   adder_cin  (
-        .I0(C[0]),
+    EFX_ADD #(.I0_POLARITY(1'b1),.I1_POLARITY(1'b1))
+    adder_cin  (
+        .I0(CI),
         .I1(1'b1),
         .CI(1'b0),
-        .CO(COx[0])
+        .CO(C[0])
 	);
 
 	genvar i;
 	generate for (i = 0; i < Y_WIDTH; i = i + 1) begin: slice
-      EFX_ADD #(.I0_POLARITY(1'b1),.I1_POLARITY(1'b1))
-      adder_i (
-            .I0(AA[i]),
-            .I1(BB[i]),
-            .CI(C[i+1]),
-            .O(Y[i]),
-            .CO(COx[i+1])
-        );
-	  end: slice
+		EFX_ADD #(.I0_POLARITY(1'b1),.I1_POLARITY(1'b1))
+		adder_i (
+			.I0(AA[i]),
+			.I1(BB[i]),
+			.CI(C[i]),
+			.O(Y[i]),
+			.CO(C[i+1])
+		);
+		EFX_ADD #(.I0_POLARITY(1'b1),.I1_POLARITY(1'b1))				
+		adder_cout  (
+			.I0(1'b0),
+			.I1(1'b0),
+			.CI(C[i+1]),
+			.O(CO[i])
+		);
+	  end: slice	  
 	endgenerate
 
-   EFX_ADD #(.I0_POLARITY(1'b1),.I1_POLARITY(1'b1))				
-   adder_cout  (
-      .I0(1'b0),
-      .I1(1'b0),
-      .CI(C[Y_WIDTH+1]),
-      .O(COx[Y_WIDTH+1])
-   );
-   assign CO = COx[Y_WIDTH+1];
-	/* End implementation */
-	assign X = AA ^ BB;
+   /* End implementation */
+   assign X = AA ^ BB;
 endmodule
