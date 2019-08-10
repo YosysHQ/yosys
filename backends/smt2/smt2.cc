@@ -601,7 +601,7 @@ struct Smt2Worker
 			if (cell->type == "$logic_and") return export_reduce(cell, "(and (or A) (or B))", false);
 			if (cell->type == "$logic_or") return export_reduce(cell, "(or A B)", false);
 
-			if (cell->type == "$mux" || cell->type == "$pmux")
+			if (cell->type.in("$mux", "$pmux"))
 			{
 				int width = GetSize(cell->getPort("\\Y"));
 				std::string processed_expr = get_bv(cell->getPort("\\A"));
@@ -1476,7 +1476,7 @@ struct Smt2Backend : public Backend {
 				int indent = 0;
 				while (indent < GetSize(line) && (line[indent] == ' ' || line[indent] == '\t'))
 					indent++;
-				if (line.substr(indent, 2) == "%%")
+				if (line.compare(indent, 2, "%%") == 0)
 					break;
 				*f << line << std::endl;
 			}

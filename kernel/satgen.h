@@ -1023,7 +1023,7 @@ struct SatGen
 
 			std::vector<int> lut;
 			for (auto bit : cell->getParam("\\LUT").bits)
-				lut.push_back(bit == RTLIL::S1 ? ez->CONST_TRUE : ez->CONST_FALSE);
+				lut.push_back(bit == State::S1 ? ez->CONST_TRUE : ez->CONST_FALSE);
 			while (GetSize(lut) < (1 << GetSize(a)))
 				lut.push_back(ez->CONST_FALSE);
 			lut.resize(1 << GetSize(a));

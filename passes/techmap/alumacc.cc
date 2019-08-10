@@ -315,7 +315,7 @@ struct AlumaccWorker
 			}
 
 			if (subtract_b)
-				C.append(RTLIL::S1);
+				C.append(State::S1);
 
 			if (GetSize(C) > 1)
 				goto next_macc;
@@ -402,7 +402,7 @@ struct AlumaccWorker
 			alunode_t *n = nullptr;
 
 			for (auto node : sig_alu[RTLIL::SigSig(A, B)])
-				if (node->is_signed == is_signed && node->invert_b && node->c == RTLIL::S1) {
+				if (node->is_signed == is_signed && node->invert_b && node->c == State::S1) {
 					n = node;
 					break;
 				}
@@ -411,7 +411,7 @@ struct AlumaccWorker
 				n = new alunode_t;
 				n->a = A;
 				n->b = B;
-				n->c = RTLIL::S1;
+				n->c = State::S1;
 				n->y = module->addWire(NEW_ID, max(GetSize(A), GetSize(B)));
 				n->is_signed = is_signed;
 				n->invert_b = true;
@@ -440,7 +440,7 @@ struct AlumaccWorker
 			alunode_t *n = nullptr;
 
 			for (auto node : sig_alu[RTLIL::SigSig(A, B)])
-				if (node->is_signed == is_signed && node->invert_b && node->c == RTLIL::S1) {
+				if (node->is_signed == is_signed && node->invert_b && node->c == State::S1) {
 					n = node;
 					break;
 				}
@@ -484,8 +484,8 @@ struct AlumaccWorker
 
 			n->alu_cell->setPort("\\A", n->a);
 			n->alu_cell->setPort("\\B", n->b);
-			n->alu_cell->setPort("\\CI", GetSize(n->c) ? n->c : RTLIL::S0);
-			n->alu_cell->setPort("\\BI", n->invert_b ? RTLIL::S1 : RTLIL::S0);
+			n->alu_cell->setPort("\\CI", GetSize(n->c) ? n->c : State::S0);
+			n->alu_cell->setPort("\\BI", n->invert_b ? State::S1 : State::S0);
 			n->alu_cell->setPort("\\Y", n->y);
 			n->alu_cell->setPort("\\X", module->addWire(NEW_ID, GetSize(n->y)));
 			n->alu_cell->setPort("\\CO", module->addWire(NEW_ID, GetSize(n->y)));

@@ -593,7 +593,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 					c->setPort("\\Y", module->addWire(NEW_ID));
 					RTLIL::Wire *wire = module->wire(remap_name(y_bit.wire->name));
 					log_assert(wire);
-					module->connect(RTLIL::SigBit(wire, y_bit.offset), RTLIL::S1);
+					module->connect(RTLIL::SigBit(wire, y_bit.offset), State::S1);
 				}
 				else if (!lut_costs.empty() || !lut_file.empty()) {
 					RTLIL::Cell* driver_lut = nullptr;
@@ -1153,15 +1153,15 @@ struct Abc9Pass : public Pass {
 					}
 				}
 
-				if (cell->type == "$_DFF_N_" || cell->type == "$_DFF_P_")
+				if (cell->type.in("$_DFF_N_", "$_DFF_P_"))
 				{
 					key = clkdomain_t(cell->type == "$_DFF_P_", assign_map(cell->getPort("\\C")), true, RTLIL::SigSpec());
 				}
 				else
-				if (cell->type == "$_DFFE_NN_" || cell->type == "$_DFFE_NP_" || cell->type == "$_DFFE_PN_" || cell->type == "$_DFFE_PP_")
+				if (cell->type.in("$_DFFE_NN_", "$_DFFE_NP_", "$_DFFE_PN_", "$_DFFE_PP_"))
 				{
-					bool this_clk_pol = cell->type == "$_DFFE_PN_" || cell->type == "$_DFFE_PP_";
-					bool this_en_pol = cell->type == "$_DFFE_NP_" || cell->type == "$_DFFE_PP_";
+					bool this_clk_pol = cell->type.in("$_DFFE_PN_", "$_DFFE_PP_");
+					bool this_en_pol = cell->type.in("$_DFFE_NP_", "$_DFFE_PP_");
 					key = clkdomain_t(this_clk_pol, assign_map(cell->getPort("\\C")), this_en_pol, assign_map(cell->getPort("\\E")));
 				}
 				else

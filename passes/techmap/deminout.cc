@@ -85,7 +85,7 @@ struct DeminoutPass : public Pass {
 
 					if (conn.first == "\\Y" && cell->type.in("$mux", "$pmux", "$_MUX_", "$_TBUF_", "$tribuf"))
 					{
-						bool tribuf = (cell->type == "$_TBUF_" || cell->type == "$tribuf");
+						bool tribuf = cell->type.in("$_TBUF_", "$tribuf");
 
 						if (!tribuf) {
 							for (auto &c : cell->connections()) {

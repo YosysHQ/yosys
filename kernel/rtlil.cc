@@ -47,7 +47,7 @@ RTLIL::Const::Const(std::string str)
 	for (int i = str.size()-1; i >= 0; i--) {
 		unsigned char ch = str[i];
 		for (int j = 0; j < 8; j++) {
-			bits.push_back((ch & 1) != 0 ? RTLIL::S1 : RTLIL::S0);
+			bits.push_back((ch & 1) != 0 ? State::S1 : State::S0);
 			ch = ch >> 1;
 		}
 	}
@@ -57,7 +57,7 @@ RTLIL::Const::Const(int val, int width)
 {
 	flags = RTLIL::CONST_FLAG_NONE;
 	for (int i = 0; i < width; i++) {
-		bits.push_back((val & 1) != 0 ? RTLIL::S1 : RTLIL::S0);
+		bits.push_back((val & 1) != 0 ? State::S1 : State::S0);
 		val = val >> 1;
 	}
 }
@@ -73,7 +73,7 @@ RTLIL::Const::Const(const std::vector<bool> &bits)
 {
 	flags = RTLIL::CONST_FLAG_NONE;
 	for (auto b : bits)
-		this->bits.push_back(b ? RTLIL::S1 : RTLIL::S0);
+		this->bits.push_back(b ? State::S1 : State::S0);
 }
 
 RTLIL::Const::Const(const RTLIL::Const &c)
@@ -106,7 +106,7 @@ bool RTLIL::Const::operator !=(const RTLIL::Const &other) const
 bool RTLIL::Const::as_bool() const
 {
 	for (size_t i = 0; i < bits.size(); i++)
-		if (bits[i] == RTLIL::S1)
+		if (bits[i] == State::S1)
 			return true;
 	return false;
 }
@@ -115,9 +115,9 @@ int RTLIL::Const::as_int(bool is_signed) const
 {
 	int32_t ret = 0;
 	for (size_t i = 0; i < bits.size() && i < 32; i++)
-		if (bits[i] == RTLIL::S1)
+		if (bits[i] == State::S1)
 			ret |= 1 << i;
-	if (is_signed && bits.back() == RTLIL::S1)
+	if (is_signed && bits.back() == State::S1)
 		for (size_t i = bits.size(); i < 32; i++)
 			ret |= 1 << i;
 	return ret;
@@ -828,8 +828,8 @@ namespace {
 
 		void check()
 		{
-			if (cell->type.substr(0, 1) != "$" || cell->type.substr(0, 3) == "$__" || cell->type.substr(0, 8) == "$paramod" || cell->type.substr(0,10) == "$fmcombine" ||
-					cell->type.substr(0, 9) == "$verific$" || cell->type.substr(0, 7) == "$array:" || cell->type.substr(0, 8) == "$extern:")
+			if (!cell->type.begins_with("$") || cell->type.begins_with("$__") || cell->type.begins_with("$paramod") || cell->type.begins_with("$fmcombine") ||
+					cell->type.begins_with("$verific$") || cell->type.begins_with("$array:") || cell->type.begins_with("$extern:"))
 				return;
 
 			if (cell->type.in("$not", "$pos", "$neg")) {
@@ -940,7 +940,7 @@ namespace {
 				return;
 			}
 
-			if (cell->type == "$logic_and" || cell->type == "$logic_or") {
+			if (cell->type.in("$logic_and", "$logic_or")) {
 				param_bool("\\A_SIGNED");
 				param_bool("\\B_SIGNED");
 				port("\\A", param("\\A_WIDTH"));
@@ -2553,8 +2553,8 @@ void RTLIL::Cell::check()
 
 void RTLIL::Cell::fixup_parameters(bool set_a_signed, bool set_b_signed)
 {
-	if (type.substr(0, 1) != "$" || type.substr(0, 2) == "$_" || type.substr(0, 8) == "$paramod" || type.substr(0,10) == "$fmcombine" ||
-			type.substr(0, 9) == "$verific$" || type.substr(0, 7) == "$array:" || type.substr(0, 8) == "$extern:")
+	if (!type.begins_with("$") || type.begins_with("$_") || type.begins_with("$paramod") || type.begins_with("$fmcombine") ||
+			type.begins_with("$verific$") || type.begins_with("$array:") || type.begins_with("$extern:"))
 		return;
 
 	if (type == "$mux" || type == "$pmux") {

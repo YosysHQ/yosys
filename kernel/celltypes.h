@@ -282,8 +282,8 @@ struct CellTypes
 	static RTLIL::Const eval_not(RTLIL::Const v)
 	{
 		for (auto &bit : v.bits)
-			if (bit == RTLIL::S0) bit = RTLIL::S1;
-			else if (bit == RTLIL::S1) bit = RTLIL::S0;
+			if (bit == State::S0) bit = State::S1;
+			else if (bit == State::S1) bit = State::S0;
 		return v;
 	}
 
@@ -389,15 +389,15 @@ struct CellTypes
 
 			std::vector<RTLIL::State> t = cell->parameters.at("\\LUT").bits;
 			while (GetSize(t) < (1 << width))
-				t.push_back(RTLIL::S0);
+				t.push_back(State::S0);
 			t.resize(1 << width);
 
 			for (int i = width-1; i >= 0; i--) {
 				RTLIL::State sel = arg1.bits.at(i);
 				std::vector<RTLIL::State> new_t;
-				if (sel == RTLIL::S0)
+				if (sel == State::S0)
 					new_t = std::vector<RTLIL::State>(t.begin(), t.begin() + GetSize(t)/2);
-				else if (sel == RTLIL::S1)
+				else if (sel == State::S1)
 					new_t = std::vector<RTLIL::State>(t.begin() + GetSize(t)/2, t.end());
 				else
 					for (int j = 0; j < GetSize(t)/2; j++)
@@ -416,7 +416,7 @@ struct CellTypes
 			std::vector<RTLIL::State> t = cell->parameters.at("\\TABLE").bits;
 
 			while (GetSize(t) < width*depth*2)
-				t.push_back(RTLIL::S0);
+				t.push_back(State::S0);
 
 			RTLIL::State default_ret = State::S0;
 

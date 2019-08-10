@@ -357,7 +357,7 @@ struct SvaFsm
 		for (int i = 0; i < GetSize(nodes); i++)
 		{
 			if (next_state_sig[i] != State::S0) {
-				clocking.addDff(NEW_ID, next_state_sig[i], state_wire[i], Const(0, 1));
+				clocking.addDff(NEW_ID, next_state_sig[i], state_wire[i], State::S0);
 			} else {
 				module->connect(state_wire[i], State::S0);
 			}

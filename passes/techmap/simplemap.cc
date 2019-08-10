@@ -185,7 +185,7 @@ static void logic_reduce(RTLIL::Module *module, RTLIL::SigSpec &sig, RTLIL::Cell
 	}
 
 	if (sig.size() == 0)
-		sig = RTLIL::SigSpec(0, 1);
+		sig = State::S0;
 }
 
 void simplemap_lognot(RTLIL::Module *module, RTLIL::Cell *cell)
@@ -245,7 +245,7 @@ void simplemap_eqne(RTLIL::Module *module, RTLIL::Cell *cell)
 	RTLIL::SigSpec sig_b = cell->getPort("\\B");
 	RTLIL::SigSpec sig_y = cell->getPort("\\Y");
 	bool is_signed = cell->parameters.at("\\A_SIGNED").as_bool();
-	bool is_ne = cell->type == "$ne" || cell->type == "$nex";
+	bool is_ne = cell->type.in("$ne", "$nex");
 
 	RTLIL::SigSpec xor_out = module->addWire(NEW_ID, max(GetSize(sig_a), GetSize(sig_b)));
 	RTLIL::Cell *xor_cell = module->addXor(NEW_ID, sig_a, sig_b, xor_out, is_signed);

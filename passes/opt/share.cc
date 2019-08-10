@@ -376,13 +376,13 @@ struct ShareWorker
 				continue;
 			}
 
-			if (cell->type == "$mul" || cell->type == "$div" || cell->type == "$mod") {
+			if (cell->type.in("$mul", "$div", "$mod")) {
 				if (config.opt_aggressive || cell->parameters.at("\\Y_WIDTH").as_int() >= 4)
 					shareable_cells.insert(cell);
 				continue;
 			}
 
-			if (cell->type == "$shl" || cell->type == "$shr" || cell->type == "$sshl" || cell->type == "$sshr") {
+			if (cell->type.in("$shl", "$shr", "$sshl", "$sshr")) {
 				if (config.opt_aggressive || cell->parameters.at("\\Y_WIDTH").as_int() >= 8)
 					shareable_cells.insert(cell);
 				continue;

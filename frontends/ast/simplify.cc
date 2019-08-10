@@ -2319,7 +2319,7 @@ skip_dynamic_range_lvalue_expansion:;
 				if (attr.first.str().rfind("\\via_celltype_defparam_", 0) == 0)
 				{
 					AstNode *cell_arg = new AstNode(AST_PARASET, attr.second->clone());
-					cell_arg->str = RTLIL::escape_id(attr.first.str().substr(strlen("\\via_celltype_defparam_")));
+					cell_arg->str = RTLIL::escape_id(attr.first.substr(strlen("\\via_celltype_defparam_")));
 					cell->children.push_back(cell_arg);
 				}
 
@@ -2793,13 +2793,13 @@ AstNode *AstNode::readmem(bool is_readmemh, std::string mem_filename, AstNode *m
 		std::getline(f, line);
 
 		for (int i = 0; i < GetSize(line); i++) {
-			if (in_comment && line.substr(i, 2) == "*/") {
+			if (in_comment && line.compare(i, 2, "*/") == 0) {
 				line[i] = ' ';
 				line[i+1] = ' ';
 				in_comment = false;
 				continue;
 			}
-			if (!in_comment && line.substr(i, 2) == "/*")
+			if (!in_comment && line.compare(i, 2, "/*") == 0)
 				in_comment = true;
 			if (in_comment)
 				line[i] = ' ';
@@ -2808,7 +2808,7 @@ AstNode *AstNode::readmem(bool is_readmemh, std::string mem_filename, AstNode *m
 		while (1)
 		{
 			token = next_token(line, " \t\r\n");
-			if (token.empty() || token.substr(0, 2) == "//")
+			if (token.empty() || token.compare(0, 2, "//") == 0)
 				break;
 
 			if (token[0] == '@') {

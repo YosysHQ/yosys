@@ -195,7 +195,7 @@ struct SynthXilinxPass : public ScriptPass
 				continue;
 			}
 			if (args[argidx] == "-widemux" && argidx+1 < args.size()) {
-				widemux = std::stoi(args[++argidx]);
+				widemux = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-abc9") {

@@ -55,7 +55,7 @@ bool check_signal(RTLIL::Module *mod, RTLIL::SigSpec signal, RTLIL::SigSpec ref,
 			return check_signal(mod, cell->getPort("\\A"), ref, polarity);
 		}
 
-		if ((cell->type == "$eq" || cell->type == "$eqx") && cell->getPort("\\Y") == signal) {
+		if (cell->type.in("$eq", "$eqx") && cell->getPort("\\Y") == signal) {
 			if (cell->getPort("\\A").is_fully_const()) {
 				if (!cell->getPort("\\A").as_bool())
 					polarity = !polarity;
@@ -68,7 +68,7 @@ bool check_signal(RTLIL::Module *mod, RTLIL::SigSpec signal, RTLIL::SigSpec ref,
 			}
 		}
 
-		if ((cell->type == "$ne" || cell->type == "$nex") && cell->getPort("\\Y") == signal) {
+		if (cell->type.in("$ne", "$nex") && cell->getPort("\\Y") == signal) {
 			if (cell->getPort("\\A").is_fully_const()) {
 				if (cell->getPort("\\A").as_bool())
 					polarity = !polarity;

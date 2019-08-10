@@ -52,13 +52,13 @@ struct Dff2dffeWorker
 		}
 
 		for (auto cell : module->cells()) {
-			if (cell->type == "$mux" || cell->type == "$pmux" || cell->type == "$_MUX_") {
+			if (cell->type.in("$mux", "$pmux", "$_MUX_")) {
 				RTLIL::SigSpec sig_y = sigmap(cell->getPort("\\Y"));
 				for (int i = 0; i < GetSize(sig_y); i++)
 					bit2mux[sig_y[i]] = cell_int_t(cell, i);
 			}
 			if (direct_dict.empty()) {
-				if (cell->type == "$dff" || cell->type == "$_DFF_N_" || cell->type == "$_DFF_P_")
+				if (cell->type.in("$dff", "$_DFF_N_", "$_DFF_P_"))
 					dff_cells.push_back(cell);
 			} else {
 				if (direct_dict.count(cell->type))
@@ -167,7 +167,7 @@ struct Dff2dffeWorker
 		}
 
 		if (GetSize(or_input) == 0)
-			return RTLIL::S1;
+			return State::S1;
 
 		if (GetSize(or_input) == 1)
 			return or_input;
@@ -304,7 +304,7 @@ struct Dff2dffePass : public Pass {
 			}
 			if (args[argidx] == "-unmap-mince" && argidx + 1 < args.size()) {
 				unmap_mode = true;
-				min_ce_use = std::stoi(args[++argidx]);
+				min_ce_use = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-direct" && argidx + 2 < args.size()) {
@@ -377,7 +377,7 @@ struct Dff2dffePass : public Pass {
 							mod->remove(cell);
 							continue;
 						}
-						if (cell->type.substr(0, 7) == "$_DFFE_") {
+						if (cell->type.begins_with("$_DFFE_")) {
 							if (min_ce_use >= 0) {
 								int ce_use = 0;
 								for (auto cell_other : mod->selected_cells()) {
@@ -390,8 +390,8 @@ struct Dff2dffePass : public Pass {
 									continue;
 							}
 
-							bool clk_pol = cell->type.substr(7, 1) == "P";
-							bool en_pol = cell->type.substr(8, 1) == "P";
+							bool clk_pol = cell->type.compare(7, 1, "P") == 0;
+							bool en_pol = cell->type.compare(8, 1, "P") == 0;
 							RTLIL::SigSpec tmp = mod->addWire(NEW_ID);
 							mod->addDff(NEW_ID, cell->getPort("\\C"), tmp, cell->getPort("\\Q"), clk_pol);
 							if (en_pol)

@@ -166,7 +166,7 @@ void mark_port(RTLIL::SigSpec sig)
 
 void extract_cell(RTLIL::Cell *cell, bool keepff)
 {
-	if (cell->type == "$_DFF_N_" || cell->type == "$_DFF_P_")
+	if (cell->type.in("$_DFF_N_", "$_DFF_P_"))
 	{
 		if (clk_polarity != (cell->type == "$_DFF_P_"))
 			return;
@@ -177,11 +177,11 @@ void extract_cell(RTLIL::Cell *cell, bool keepff)
 		goto matching_dff;
 	}
 
-	if (cell->type == "$_DFFE_NN_" || cell->type == "$_DFFE_NP_" || cell->type == "$_DFFE_PN_" || cell->type == "$_DFFE_PP_")
+	if (cell->type.in("$_DFFE_NN_", "$_DFFE_NP_", "$_DFFE_PN_", "$_DFFE_PP_"))
 	{
-		if (clk_polarity != (cell->type == "$_DFFE_PN_" || cell->type == "$_DFFE_PP_"))
+		if (clk_polarity != cell->type.in("$_DFFE_PN_", "$_DFFE_PP_"))
 			return;
-		if (en_polarity != (cell->type == "$_DFFE_NP_" || cell->type == "$_DFFE_PP_"))
+		if (en_polarity != cell->type.in("$_DFFE_NP_", "$_DFFE_PP_"))
 			return;
 		if (clk_sig != assign_map(cell->getPort("\\C")))
 			return;
@@ -333,17 +333,17 @@ std::string remap_name(RTLIL::IdString abc_name, RTLIL::Wire **orig_wire = nullp
 {
 	std::string abc_sname = abc_name.substr(1);
 	bool isnew = false;
-	if (abc_sname.substr(0, 4) == "new_")
+	if (abc_sname.compare(0, 4, "new_") == 0)
 	{
 		abc_sname.erase(0, 4);
 		isnew = true;
 	}
-	if (abc_sname.substr(0, 5) == "ys__n")
+	if (abc_sname.compare(0, 5, "ys__n") == 0)
 	{
 		abc_sname.erase(0, 5);
 		if (std::isdigit(abc_sname.at(0)))
 		{
-			int sid = std::stoi(abc_sname);
+			int sid = std::atoi(abc_sname.c_str());
 			size_t postfix_start = abc_sname.find_first_not_of("0123456789");
 			std::string postfix = postfix_start != std::string::npos ? abc_sname.substr(postfix_start) : "";
 
@@ -1590,7 +1590,7 @@ struct AbcPass : public Pass {
 					else if (GetSize(parts) == 1)
 						lut_costs.push_back(atoi(parts.at(0).c_str()));
 					else if (GetSize(parts) == 2)
-						while (GetSize(lut_costs) < atoi(parts.at(0).c_str()))
+						while (GetSize(lut_costs) < std::atoi(parts.at(0).c_str()))
 							lut_costs.push_back(atoi(parts.at(1).c_str()));
 					else
 						log_cmd_error("Invalid -luts syntax.\n");
@@ -1861,15 +1861,15 @@ struct AbcPass : public Pass {
 					}
 				}
 
-				if (cell->type == "$_DFF_N_" || cell->type == "$_DFF_P_")
+				if (cell->type.in("$_DFF_N_", "$_DFF_P_"))
 				{
 					key = clkdomain_t(cell->type == "$_DFF_P_", assign_map(cell->getPort("\\C")), true, RTLIL::SigSpec());
 				}
 				else
-				if (cell->type == "$_DFFE_NN_" || cell->type == "$_DFFE_NP_" || cell->type == "$_DFFE_PN_" || cell->type == "$_DFFE_PP_")
+				if (cell->type.in("$_DFFE_NN_", "$_DFFE_NP_" "$_DFFE_PN_", "$_DFFE_PP_"))
 				{
-					bool this_clk_pol = cell->type == "$_DFFE_PN_" || cell->type == "$_DFFE_PP_";
-					bool this_en_pol = cell->type == "$_DFFE_NP_" || cell->type == "$_DFFE_PP_";
+					bool this_clk_pol = cell->type.in("$_DFFE_PN_", "$_DFFE_PP_");
+					bool this_en_pol = cell->type.in("$_DFFE_NP_", "$_DFFE_PP_");
 					key = clkdomain_t(this_clk_pol, assign_map(cell->getPort("\\C")), this_en_pol, assign_map(cell->getPort("\\E")));
 				}
 				else
