@@ -659,7 +659,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 						break;
 				}
 				if (i > 0) {
-					cover_list("opt.opt_expr.fine", "$add", "$sub", cell->type.str());
+					cover("opt.opt_expr.fine", "$add", "$sub", cell->type.str());
 					cell->setPort("\\A", sig_a.extract_end(i));
 					cell->setPort("\\B", sig_b.extract_end(i));
 					cell->setPort("\\Y", sig_y.extract_end(i));
@@ -704,7 +704,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 						break;
 				}
 				if (i > 0) {
-					cover_list("opt.opt_expr.fine", "$alu", cell->type.str());
+					cover_list("opt.opt_expr.fine.$alu");
 					cell->setPort("\\A", sig_a.extract_end(i));
 					cell->setPort("\\B", sig_b.extract_end(i));
 					cell->setPort("\\X", sig_x.extract_end(i));
