@@ -112,8 +112,8 @@ endcode
 match ffP
 	if param(dsp, \PREG).as_int() == 0
 	if !sigPused.empty()
+	if nusers(sigPused) == 2
 	select ffP->type.in($dff)
-	index <int> nusers(port(ffP, \D)) === 2
 	// DSP48E1 does not support clock inversion
 	select param(ffP, \CLK_POLARITY).as_bool()
 	filter param(ffP, \WIDTH).as_int() >= GetSize(sigPused)
