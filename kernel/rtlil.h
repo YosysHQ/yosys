@@ -78,6 +78,7 @@ namespace RTLIL
 	{
 		#undef YOSYS_XTRACE_GET_PUT
 		#undef YOSYS_SORT_ID_FREE_LIST
+		#undef YOSYS_USE_STICKY_IDS
 
 		// the global id string cache
 
@@ -92,8 +93,10 @@ namespace RTLIL
 		static dict<char*, int, hash_cstr_ops> global_id_index_;
 		static std::vector<int> global_free_idx_list_;
 
+	#ifdef YOSYS_USE_STICKY_IDS
 		static int last_created_idx_ptr_;
 		static int last_created_idx_[8];
+	#endif
 
 		static inline void xtrace_db_dump()
 		{
@@ -110,12 +113,14 @@ namespace RTLIL
 
 		static inline void checkpoint()
 		{
+		#ifdef YOSYS_USE_STICKY_IDS
 			last_created_idx_ptr_ = 0;
 			for (int i = 0; i < 8; i++) {
 				if (last_created_idx_[i])
 					put_reference(last_created_idx_[i]);
 				last_created_idx_[i] = 0;
 			}
+		#endif
 		#ifdef YOSYS_SORT_ID_FREE_LIST
 			std::sort(global_free_idx_list_.begin(), global_free_idx_list_.end(), std::greater<int>());
 		#endif
@@ -123,36 +128,42 @@ namespace RTLIL
 
 		static inline int get_reference(int idx)
 		{
-			global_refcount_storage_.at(idx)++;
+			if (idx) {
+				global_refcount_storage_[idx]++;
 		#ifdef YOSYS_XTRACE_GET_PUT
-			if (yosys_xtrace) {
-				log("#X# GET-BY-INDEX '%s' (index %d, refcount %d)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
-			}
+				if (yosys_xtrace)
+					log("#X# GET-BY-INDEX '%s' (index %d, refcount %d)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
 		#endif
+			}
 			return idx;
 		}
 
-		static inline int get_reference(const char *p)
+		static int get_reference(const char *p)
 		{
 			log_assert(destruct_guard.ok);
 
-			if (p[0]) {
-				log_assert(p[1] != 0);
-				log_assert(p[0] == '$' || p[0] == '\\');
-			}
+			if (!p[0])
+				return 0;
+
+			log_assert(p[0] == '$' || p[0] == '\\');
+			log_assert(p[1] != 0);
 
 			auto it = global_id_index_.find((char*)p);
 			if (it != global_id_index_.end()) {
 				global_refcount_storage_.at(it->second)++;
 		#ifdef YOSYS_XTRACE_GET_PUT
-				if (yosys_xtrace) {
+				if (yosys_xtrace)
 					log("#X# GET-BY-NAME '%s' (index %d, refcount %d)\n", global_id_storage_.at(it->second), it->second, global_refcount_storage_.at(it->second));
-				}
 		#endif
 				return it->second;
 			}
 
 			if (global_free_idx_list_.empty()) {
+				if (global_id_storage_.empty()) {
+					global_refcount_storage_.push_back(0);
+					global_id_storage_.push_back((char*)"");
+					global_id_index_[global_id_storage_.back()] = 0;
+				}
 				log_assert(global_id_storage_.size() < 0x40000000);
 				global_free_idx_list_.push_back(global_id_storage_.size());
 				global_id_storage_.push_back(nullptr);
@@ -165,23 +176,25 @@ namespace RTLIL
 			global_id_index_[global_id_storage_.at(idx)] = idx;
 			global_refcount_storage_.at(idx)++;
 
-			// Avoid Create->Delete->Create pattern
-			if (last_created_idx_[last_created_idx_ptr_])
-				put_reference(last_created_idx_[last_created_idx_ptr_]);
-			last_created_idx_[last_created_idx_ptr_] = idx;
-			get_reference(last_created_idx_[last_created_idx_ptr_]);
-			last_created_idx_ptr_ = (last_created_idx_ptr_ + 1) & 7;
-
 			if (yosys_xtrace) {
 				log("#X# New IdString '%s' with index %d.\n", p, idx);
 				log_backtrace("-X- ", yosys_xtrace-1);
 			}
 
 		#ifdef YOSYS_XTRACE_GET_PUT
-			if (yosys_xtrace) {
+			if (yosys_xtrace)
 				log("#X# GET-BY-NAME '%s' (index %d, refcount %d)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
-			}
 		#endif
+
+		#ifdef YOSYS_USE_STICKY_IDS
+			// Avoid Create->Delete->Create pattern
+			if (last_created_idx_[last_created_idx_ptr_])
+				put_reference(last_created_idx_[last_created_idx_ptr_]);
+			last_created_idx_[last_created_idx_ptr_] = idx;
+			get_reference(last_created_idx_[last_created_idx_ptr_]);
+			last_created_idx_ptr_ = (last_created_idx_ptr_ + 1) & 7;
+		#endif
+
 			return idx;
 		}
 
@@ -189,7 +202,7 @@ namespace RTLIL
 		{
 			// put_reference() may be called from destructors after the destructor of
 			// global_refcount_storage_ has been run. in this case we simply do nothing.
-			if (!destruct_guard.ok)
+			if (!destruct_guard.ok || !idx)
 				return;
 
 		#ifdef YOSYS_XTRACE_GET_PUT
@@ -198,10 +211,12 @@ namespace RTLIL
 			}
 		#endif
 
-			log_assert(global_refcount_storage_.at(idx) > 0);
+			int &refcount = global_refcount_storage_[idx];
 
-			if (--global_refcount_storage_.at(idx) != 0)
+			if (--refcount > 0)
 				return;
+
+			log_assert(refcount == 0);
 
 			if (yosys_xtrace) {
 				log("#X# Removed IdString '%s' with index %d.\n", global_id_storage_.at(idx), idx);
@@ -218,41 +233,42 @@ namespace RTLIL
 
 		int index_;
 
-		IdString() : index_(get_reference("")) { }
-		IdString(const char *str) : index_(get_reference(str)) { }
-		IdString(const IdString &str) : index_(get_reference(str.index_)) { }
-		IdString(const std::string &str) : index_(get_reference(str.c_str())) { }
-		~IdString() { put_reference(index_); }
+		inline IdString() : index_(0) { }
+		inline IdString(const char *str) : index_(get_reference(str)) { }
+		inline IdString(const IdString &str) : index_(get_reference(str.index_)) { }
+		inline IdString(IdString &&str) : index_(str.index_) { str.index_ = 0; }
+		inline IdString(const std::string &str) : index_(get_reference(str.c_str())) { }
+		inline ~IdString() { put_reference(index_); }
 
-		void operator=(const IdString &rhs) {
+		inline void operator=(const IdString &rhs) {
 			put_reference(index_);
 			index_ = get_reference(rhs.index_);
 		}
 
-		void operator=(const char *rhs) {
+		inline void operator=(const char *rhs) {
 			IdString id(rhs);
 			*this = id;
 		}
 
-		void operator=(const std::string &rhs) {
+		inline void operator=(const std::string &rhs) {
 			IdString id(rhs);
 			*this = id;
 		}
 
-		const char *c_str() const {
+		inline const char *c_str() const {
 			return global_id_storage_.at(index_);
 		}
 
-		std::string str() const {
+		inline std::string str() const {
 			return std::string(global_id_storage_.at(index_));
 		}
 
-		bool operator<(const IdString &rhs) const {
+		inline bool operator<(const IdString &rhs) const {
 			return index_ < rhs.index_;
 		}
 
-		bool operator==(const IdString &rhs) const { return index_ == rhs.index_; }
-		bool operator!=(const IdString &rhs) const { return index_ != rhs.index_; }
+		inline bool operator==(const IdString &rhs) const { return index_ == rhs.index_; }
+		inline bool operator!=(const IdString &rhs) const { return index_ != rhs.index_; }
 
 		// The methods below are just convenience functions for better compatibility with std::string.
 
