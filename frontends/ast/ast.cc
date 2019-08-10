@@ -1172,7 +1172,7 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 
 			if (design->has((*it)->str)) {
 				RTLIL::Module *existing_mod = design->module((*it)->str);
-				if (!nooverwrite && !overwrite && !existing_mod->get_blackbox_attribute()) {
+				if (!nooverwrite && !overwrite && !existing_mod->get_bool_attribute("\\blackbox")) {
 					log_file_error((*it)->filename, (*it)->linenum, "Re-definition of module `%s'!\n", (*it)->str.c_str());
 				} else if (nooverwrite) {
 					log("Ignoring re-definition of module `%s' at %s:%d.\n",
