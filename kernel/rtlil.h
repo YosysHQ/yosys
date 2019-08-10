@@ -348,6 +348,14 @@ namespace RTLIL
 		bool in(const pool<IdString> &rhs) const { return rhs.count(*this) != 0; }
 	};
 
+	namespace ID {
+		// defined in rtlil.cc, initialized in yosys.cc
+		extern IdString A, B, Y;
+		extern IdString keep;
+		extern IdString whitebox;
+		extern IdString blackbox;
+	};
+
 	static inline std::string escape_id(std::string str) {
 		if (str.size() > 0 && str[0] != '\\' && str[0] != '$')
 			return "\\" + str;
@@ -620,7 +628,7 @@ struct RTLIL::AttrObject
 	bool get_bool_attribute(RTLIL::IdString id) const;
 
 	bool get_blackbox_attribute(bool ignore_wb=false) const {
-		return get_bool_attribute("\\blackbox") || (!ignore_wb && get_bool_attribute("\\whitebox"));
+		return get_bool_attribute(ID::blackbox) || (!ignore_wb && get_bool_attribute(ID::whitebox));
 	}
 
 	void set_strpool_attribute(RTLIL::IdString id, const pool<string> &data);
@@ -1355,8 +1363,8 @@ public:
 	void fixup_parameters(bool set_a_signed = false, bool set_b_signed = false);
 
 	bool has_keep_attr() const {
-		return get_bool_attribute("\\keep") || (module && module->design && module->design->module(type) &&
-				module->design->module(type)->get_bool_attribute("\\keep"));
+		return get_bool_attribute(ID::keep) || (module && module->design && module->design->module(type) &&
+				module->design->module(type)->get_bool_attribute(ID::keep));
 	}
 
 	template<typename T> void rewrite_sigspecs(T &functor);
