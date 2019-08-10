@@ -943,7 +943,7 @@ struct FirrtlWorker
 				register_reverse_wire_map(y_id, cell->getPort("\\Y"));
 				continue;
 			}
-			log_warning("Cell type not supported: %s (%s.%s)\n", log_id(cell->type), log_id(module), log_id(cell));
+			log_error("Cell type not supported: %s (%s.%s)\n", log_id(cell->type), log_id(module), log_id(cell));
 		}
 
 		for (auto conn : module->connections())
