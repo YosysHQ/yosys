@@ -106,7 +106,9 @@ endcode
 match addA
 	select addA->type.in($add)
 	select nusers(port(addA, \A)) == 2
-	index <SigSpec> port(addA, \A) === sigH
+	filter param(addA, \A_WIDTH).as_int() <= GetSize(sigH)
+	//index <SigSpec> port(addA, \A) === sigH.extract(0, param(addA, \A_WIDTH).as_int())
+	filter port(addA, \A) ==  sigH.extract(0, param(addA, \A_WIDTH).as_int())
 	optional
 endmatch
 
@@ -114,7 +116,9 @@ match addB
 	if !addA
 	select addB->type.in($add, $sub)
 	select nusers(port(addB, \B)) == 2
-	index <SigSpec> port(addB, \B) === sigH
+	filter param(addB, \B_WIDTH).as_int() <= GetSize(sigH)
+	//index <SigSpec> port(addB, \B) === sigH.extract(0, param(addB, \B_WIDTH).as_int())
+	filter port(addB, \B) ==  sigH.extract(0, param(addB, \B_WIDTH).as_int())
 	optional
 endmatch
 
@@ -144,7 +148,8 @@ code addAB sigCD sigO
 
 		if ((actual_acc_width > actual_mul_width) && (natural_mul_width > actual_mul_width))
 			reject;
-		if ((actual_acc_width != actual_mul_width) && (param(mul, \A_SIGNED).as_bool() != param(addAB, \A_SIGNED).as_bool()))
+		// If accumulator, check adder width and signedness
+		if (sigCD == sigH && (actual_acc_width != actual_mul_width) && (param(mul, \A_SIGNED).as_bool() != param(addAB, \A_SIGNED).as_bool()))
 			reject;
 
 		sigO = port(addAB, \Y);
