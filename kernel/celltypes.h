@@ -139,13 +139,10 @@ struct CellTypes
 		setup_type("$fa", {A, B, C}, {X, Y}, true);
 	}
 
-	void setup_internals_mem()
+	void setup_internals_ff()
 	{
 		IdString SET = "\\SET", CLR = "\\CLR", CLK = "\\CLK", ARST = "\\ARST", EN = "\\EN";
-		IdString Q = "\\Q", D = "\\D", ADDR = "\\ADDR", DATA = "\\DATA", RD_EN = "\\RD_EN";
-		IdString RD_CLK = "\\RD_CLK", RD_ADDR = "\\RD_ADDR", WR_CLK = "\\WR_CLK", WR_EN = "\\WR_EN";
-		IdString WR_ADDR = "\\WR_ADDR", WR_DATA = "\\WR_DATA", RD_DATA = "\\RD_DATA";
-		IdString CTRL_IN = "\\CTRL_IN", CTRL_OUT = "\\CTRL_OUT";
+		IdString Q = "\\Q", D = "\\D";
 
 		setup_type("$sr", {SET, CLR}, {Q});
 		setup_type("$ff", {D}, {Q});
@@ -155,6 +152,18 @@ struct CellTypes
 		setup_type("$adff", {CLK, ARST, D}, {Q});
 		setup_type("$dlatch", {EN, D}, {Q});
 		setup_type("$dlatchsr", {EN, SET, CLR, D}, {Q});
+
+	}
+
+	void setup_internals_mem()
+	{
+		setup_internals_ff();
+
+		IdString CLK = "\\CLK", ARST = "\\ARST", EN = "\\EN";
+		IdString ADDR = "\\ADDR", DATA = "\\DATA", RD_EN = "\\RD_EN";
+		IdString RD_CLK = "\\RD_CLK", RD_ADDR = "\\RD_ADDR", WR_CLK = "\\WR_CLK", WR_EN = "\\WR_EN";
+		IdString WR_ADDR = "\\WR_ADDR", WR_DATA = "\\WR_DATA", RD_DATA = "\\RD_DATA";
+		IdString CTRL_IN = "\\CTRL_IN", CTRL_OUT = "\\CTRL_OUT";
 
 		setup_type("$memrd", {CLK, EN, ADDR}, {DATA});
 		setup_type("$memwr", {CLK, EN, ADDR, DATA}, pool<RTLIL::IdString>());
