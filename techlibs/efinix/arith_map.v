@@ -32,6 +32,9 @@ module _80_efinix_alu (A, B, CI, BI, X, Y, CO);
 
 	input CI, BI;
 	output [Y_WIDTH-1:0] CO;
+   
+   wire CIx;
+   wire [Y_WIDTH-1:0] COx;
 
 	wire _TECHMAP_FAIL_ = Y_WIDTH <= 2;
 
@@ -41,14 +44,14 @@ module _80_efinix_alu (A, B, CI, BI, X, Y, CO);
 
 	wire [Y_WIDTH-1:0] AA = A_buf;
 	wire [Y_WIDTH-1:0] BB = BI ? ~B_buf : B_buf;
-	wire [Y_WIDTH:0] C;
+	wire [Y_WIDTH-1:0] C = { COx, CIx };
 
     EFX_ADD #(.I0_POLARITY(1'b1),.I1_POLARITY(1'b1))
     adder_cin  (
         .I0(CI),
         .I1(1'b1),
         .CI(1'b0),
-        .CO(C[0])
+        .CO(CIx)
 	);
 
 	genvar i;
@@ -59,13 +62,13 @@ module _80_efinix_alu (A, B, CI, BI, X, Y, CO);
 			.I1(BB[i]),
 			.CI(C[i]),
 			.O(Y[i]),
-			.CO(C[i+1])
+			.CO(COx[i])
 		);
 		EFX_ADD #(.I0_POLARITY(1'b1),.I1_POLARITY(1'b1))				
 		adder_cout  (
 			.I0(1'b0),
 			.I1(1'b0),
-			.CI(C[i+1]),
+			.CI(COx[i]),
 			.O(CO[i])
 		);
 	  end: slice	  
