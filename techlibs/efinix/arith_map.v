@@ -33,8 +33,8 @@ module _80_efinix_alu (A, B, CI, BI, X, Y, CO);
 	input CI, BI;
 	output [Y_WIDTH-1:0] CO;
    
-   wire CIx;
-   wire [Y_WIDTH-1:0] COx;
+    wire CIx;
+    wire [Y_WIDTH-1:0] COx;
 
 	wire _TECHMAP_FAIL_ = Y_WIDTH <= 2;
 
