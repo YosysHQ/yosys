@@ -154,7 +154,7 @@ struct SynthEfinixPass : public ScriptPass
 		{
 			run("memory_bram -rules +/efinix/bram.txt");
 			run("techmap -map +/efinix/brams_map.v");
-			run("efinix_determine_init");
+			run("setundef -zero -params t:EFX_RAM_5K");
 		}
 
 		if (check_label("fine"))

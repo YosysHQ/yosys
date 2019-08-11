@@ -1,7 +1,6 @@
 
 OBJS += techlibs/efinix/synth_efinix.o
 OBJS += techlibs/efinix/efinix_gbuf.o
-OBJS += techlibs/efinix/efinix_determine_init.o
 OBJS += techlibs/efinix/efinix_fixcarry.o
 
 $(eval $(call add_share_file,share/efinix,techlibs/efinix/cells_map.v))
