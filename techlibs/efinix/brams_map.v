@@ -1,7 +1,7 @@
 module \$__EFINIX_5K (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1EN);
 	parameter CFG_ABITS = 8;
 	parameter CFG_DBITS = 20;
-	parameter CFG_ENABLE_A = 2;
+	parameter CFG_ENABLE_A = 1;
 
 	parameter CLKPOL2 = 1;
 	parameter CLKPOL3 = 1;
