@@ -1789,8 +1789,10 @@ struct VerificExtNets
 				new_net = new Net(name.c_str());
 				nl->Add(new_net);
 
+			#ifndef NDEBUG
 				Net *n = route_up(new_net, port->IsOutput(), ca_nl, ca_net);
 				log_assert(n == ca_net);
+			#endif
 			}
 
 			if (verific_verbose)

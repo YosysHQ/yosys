@@ -741,7 +741,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 				for (auto driver_cell : bit_drivers.at(it.first))
 				for (auto user_cell : it.second)
 					toposort.edge(driver_cell, user_cell);
-		bool no_loops = toposort.sort();
+		bool no_loops YS_ATTRIBUTE(unused) = toposort.sort();
 		log_assert(no_loops);
 
 		for (auto ii = toposort.sorted.rbegin(); ii != toposort.sorted.rend(); ii++) {

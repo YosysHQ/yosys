@@ -117,7 +117,8 @@ void replace_undriven(RTLIL::Design *design, RTLIL::Module *module)
 	}
 }
 
-void replace_cell(SigMap &assign_map, RTLIL::Module *module, RTLIL::Cell *cell, std::string info, std::string out_port, RTLIL::SigSpec out_val)
+void replace_cell(SigMap &assign_map, RTLIL::Module *module, RTLIL::Cell *cell,
+		const std::string &info YS_ATTRIBUTE(unused), IdString out_port, RTLIL::SigSpec out_val)
 {
 	RTLIL::SigSpec Y = cell->getPort(out_port);
 	out_val.extend_u0(Y.size(), false);
