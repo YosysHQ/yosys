@@ -8,14 +8,14 @@ module  \$_DFFE_PN_ (input D, C, E, output Q); EFX_FF #(.CLK_POLARITY(1'b1), .CE
 module  \$_DFFE_PP_ (input D, C, E, output Q); EFX_FF #(.CLK_POLARITY(1'b1), .CE_POLARITY(1'b1), .SR_POLARITY(1'b1), .D_POLARITY(1'b1), .SR_SYNC(1'b1), .SR_VALUE(1'b0), .SR_SYNC_PRIORITY(1'b1)) _TECHMAP_REPLACE_ (.D(D), .CE(E), .CLK(C), .SR(1'b0), .Q(Q)); endmodule
 
 module  \$_DFF_NN0_ (input D, C, R, output Q); EFX_FF #(.CLK_POLARITY(1'b0), .CE_POLARITY(1'b1), .SR_POLARITY(1'b0), .D_POLARITY(1'b1), .SR_SYNC(1'b0), .SR_VALUE(1'b0), .SR_SYNC_PRIORITY(1'b1)) _TECHMAP_REPLACE_ (.D(D), .CE(1'b1), .CLK(C), .SR(R), .Q(Q)); endmodule
-module  \$_DFF_NN1_ (input D, C, R, output Q); EFX_FF #(.CLK_POLARITY(1'b0), .CE_POLARITY(1'b1), .SR_POLARITY(1'b0), .D_POLARITY(1'b1), .SR_SYNC(1'b1), .SR_VALUE(1'b0), .SR_SYNC_PRIORITY(1'b1)) _TECHMAP_REPLACE_ (.D(D), .CE(1'b1), .CLK(C), .SR(R), .Q(Q)); endmodule
+module  \$_DFF_NN1_ (input D, C, R, output Q); EFX_FF #(.CLK_POLARITY(1'b0), .CE_POLARITY(1'b1), .SR_POLARITY(1'b0), .D_POLARITY(1'b1), .SR_SYNC(1'b0), .SR_VALUE(1'b1), .SR_SYNC_PRIORITY(1'b1)) _TECHMAP_REPLACE_ (.D(D), .CE(1'b1), .CLK(C), .SR(R), .Q(Q)); endmodule
 module  \$_DFF_PN0_ (input D, C, R, output Q); EFX_FF #(.CLK_POLARITY(1'b1), .CE_POLARITY(1'b1), .SR_POLARITY(1'b0), .D_POLARITY(1'b1), .SR_SYNC(1'b0), .SR_VALUE(1'b0), .SR_SYNC_PRIORITY(1'b1)) _TECHMAP_REPLACE_ (.D(D), .CE(1'b1), .CLK(C), .SR(R), .Q(Q)); endmodule
-module  \$_DFF_PN1_ (input D, C, R, output Q); EFX_FF #(.CLK_POLARITY(1'b1), .CE_POLARITY(1'b1), .SR_POLARITY(1'b0), .D_POLARITY(1'b1), .SR_SYNC(1'b1), .SR_VALUE(1'b0), .SR_SYNC_PRIORITY(1'b1)) _TECHMAP_REPLACE_ (.D(D), .CE(1'b1), .CLK(C), .SR(R), .Q(Q)); endmodule
+module  \$_DFF_PN1_ (input D, C, R, output Q); EFX_FF #(.CLK_POLARITY(1'b1), .CE_POLARITY(1'b1), .SR_POLARITY(1'b0), .D_POLARITY(1'b1), .SR_SYNC(1'b0), .SR_VALUE(1'b1), .SR_SYNC_PRIORITY(1'b1)) _TECHMAP_REPLACE_ (.D(D), .CE(1'b1), .CLK(C), .SR(R), .Q(Q)); endmodule
 
 module  \$_DFF_NP0_ (input D, C, R, output Q); EFX_FF #(.CLK_POLARITY(1'b0), .CE_POLARITY(1'b1), .SR_POLARITY(1'b1), .D_POLARITY(1'b1), .SR_SYNC(1'b0), .SR_VALUE(1'b0), .SR_SYNC_PRIORITY(1'b1)) _TECHMAP_REPLACE_ (.D(D), .CE(1'b1), .CLK(C), .SR(R), .Q(Q)); endmodule
-module  \$_DFF_NP1_ (input D, C, R, output Q); EFX_FF #(.CLK_POLARITY(1'b0), .CE_POLARITY(1'b1), .SR_POLARITY(1'b1), .D_POLARITY(1'b1), .SR_SYNC(1'b1), .SR_VALUE(1'b0), .SR_SYNC_PRIORITY(1'b1)) _TECHMAP_REPLACE_ (.D(D), .CE(1'b1), .CLK(C), .SR(R), .Q(Q)); endmodule
+module  \$_DFF_NP1_ (input D, C, R, output Q); EFX_FF #(.CLK_POLARITY(1'b0), .CE_POLARITY(1'b1), .SR_POLARITY(1'b1), .D_POLARITY(1'b1), .SR_SYNC(1'b0), .SR_VALUE(1'b1), .SR_SYNC_PRIORITY(1'b1)) _TECHMAP_REPLACE_ (.D(D), .CE(1'b1), .CLK(C), .SR(R), .Q(Q)); endmodule
 module  \$_DFF_PP0_ (input D, C, R, output Q); EFX_FF #(.CLK_POLARITY(1'b1), .CE_POLARITY(1'b1), .SR_POLARITY(1'b1), .D_POLARITY(1'b1), .SR_SYNC(1'b0), .SR_VALUE(1'b0), .SR_SYNC_PRIORITY(1'b1)) _TECHMAP_REPLACE_ (.D(D), .CE(1'b1), .CLK(C), .SR(R), .Q(Q)); endmodule
-module  \$_DFF_PP1_ (input D, C, R, output Q); EFX_FF #(.CLK_POLARITY(1'b1), .CE_POLARITY(1'b1), .SR_POLARITY(1'b1), .D_POLARITY(1'b1), .SR_SYNC(1'b1), .SR_VALUE(1'b0), .SR_SYNC_PRIORITY(1'b1)) _TECHMAP_REPLACE_ (.D(D), .CE(1'b1), .CLK(C), .SR(R), .Q(Q)); endmodule
+module  \$_DFF_PP1_ (input D, C, R, output Q); EFX_FF #(.CLK_POLARITY(1'b1), .CE_POLARITY(1'b1), .SR_POLARITY(1'b1), .D_POLARITY(1'b1), .SR_SYNC(1'b0), .SR_VALUE(1'b1), .SR_SYNC_PRIORITY(1'b1)) _TECHMAP_REPLACE_ (.D(D), .CE(1'b1), .CLK(C), .SR(R), .Q(Q)); endmodule
 
 `ifndef NO_LUT
 module \$lut (A, Y);
