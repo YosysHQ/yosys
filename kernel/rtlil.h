@@ -79,6 +79,7 @@ namespace RTLIL
 		#undef YOSYS_XTRACE_GET_PUT
 		#undef YOSYS_SORT_ID_FREE_LIST
 		#undef YOSYS_USE_STICKY_IDS
+		#undef YOSYS_NO_IDS_REFCNT
 
 		// the global id string cache
 
@@ -88,10 +89,12 @@ namespace RTLIL
 			~destruct_guard_t() { ok = false; }
 		} destruct_guard;
 
-		static std::vector<int> global_refcount_storage_;
 		static std::vector<char*> global_id_storage_;
 		static dict<char*, int, hash_cstr_ops> global_id_index_;
+	#ifndef YOSYS_NO_IDS_REFCNT
+		static std::vector<int> global_refcount_storage_;
 		static std::vector<int> global_free_idx_list_;
+	#endif
 
 	#ifdef YOSYS_USE_STICKY_IDS
 		static int last_created_idx_ptr_;
@@ -129,7 +132,9 @@ namespace RTLIL
 		static inline int get_reference(int idx)
 		{
 			if (idx) {
+		#ifndef YOSYS_NO_IDS_REFCNT
 				global_refcount_storage_[idx]++;
+		#endif
 		#ifdef YOSYS_XTRACE_GET_PUT
 				if (yosys_xtrace)
 					log("#X# GET-BY-INDEX '%s' (index %d, refcount %d)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
@@ -150,7 +155,9 @@ namespace RTLIL
 
 			auto it = global_id_index_.find((char*)p);
 			if (it != global_id_index_.end()) {
+		#ifndef YOSYS_NO_IDS_REFCNT
 				global_refcount_storage_.at(it->second)++;
+		#endif
 		#ifdef YOSYS_XTRACE_GET_PUT
 				if (yosys_xtrace)
 					log("#X# GET-BY-NAME '%s' (index %d, refcount %d)\n", global_id_storage_.at(it->second), it->second, global_refcount_storage_.at(it->second));
@@ -158,6 +165,7 @@ namespace RTLIL
 				return it->second;
 			}
 
+		#ifndef YOSYS_NO_IDS_REFCNT
 			if (global_free_idx_list_.empty()) {
 				if (global_id_storage_.empty()) {
 					global_refcount_storage_.push_back(0);
@@ -175,6 +183,15 @@ namespace RTLIL
 			global_id_storage_.at(idx) = strdup(p);
 			global_id_index_[global_id_storage_.at(idx)] = idx;
 			global_refcount_storage_.at(idx)++;
+		#else
+			if (global_id_storage_.empty()) {
+				global_id_storage_.push_back((char*)"");
+				global_id_index_[global_id_storage_.back()] = 0;
+			}
+			int idx = global_id_storage_.size();
+			global_id_storage_.push_back(strdup(p));
+			global_id_index_[global_id_storage_.back()] = idx;
+		#endif
 
 			if (yosys_xtrace) {
 				log("#X# New IdString '%s' with index %d.\n", p, idx);
@@ -198,6 +215,7 @@ namespace RTLIL
 			return idx;
 		}
 
+	#ifndef YOSYS_NO_IDS_REFCNT
 		static inline void put_reference(int idx)
 		{
 			// put_reference() may be called from destructors after the destructor of
@@ -228,6 +246,9 @@ namespace RTLIL
 			global_id_storage_.at(idx) = nullptr;
 			global_free_idx_list_.push_back(idx);
 		}
+	#else
+		static inline void put_reference(int) { }
+	#endif
 
 		// the actual IdString object is just is a single int
 
