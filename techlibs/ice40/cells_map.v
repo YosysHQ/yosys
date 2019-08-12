@@ -75,7 +75,7 @@ module \$__ICE40_CARRY_WRAPPER (output CO, O, input A, B, CI, I0, I3);
     .WIDTH(4),
     .LUT(LUT)
   ) lut (
-    .A({I3,B,A,I0}),
+    .A({I0,A,B,I3}),
     .Y(O)
   );
 endmodule
