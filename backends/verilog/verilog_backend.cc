@@ -200,9 +200,9 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 			int32_t val = 0;
 			for (int i = offset+width-1; i >= offset; i--) {
 				log_assert(i < (int)data.bits.size());
-				if (data.bits[i] != RTLIL::S0 && data.bits[i] != RTLIL::S1)
+				if (data.bits[i] != State::S0 && data.bits[i] != State::S1)
 					goto dump_hex;
-				if (data.bits[i] == RTLIL::S1)
+				if (data.bits[i] == State::S1)
 					val |= 1 << (i - offset);
 			}
 			if (decimal)
@@ -219,8 +219,8 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 			for (int i = offset; i < offset+width; i++) {
 				log_assert(i < (int)data.bits.size());
 				switch (data.bits[i]) {
-				case RTLIL::S0: bin_digits.push_back('0'); break;
-				case RTLIL::S1: bin_digits.push_back('1'); break;
+				case State::S0: bin_digits.push_back('0'); break;
+				case State::S1: bin_digits.push_back('1'); break;
 				case RTLIL::Sx: bin_digits.push_back('x'); break;
 				case RTLIL::Sz: bin_digits.push_back('z'); break;
 				case RTLIL::Sa: bin_digits.push_back('?'); break;
@@ -273,8 +273,8 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 			for (int i = offset+width-1; i >= offset; i--) {
 				log_assert(i < (int)data.bits.size());
 				switch (data.bits[i]) {
-				case RTLIL::S0: f << stringf("0"); break;
-				case RTLIL::S1: f << stringf("1"); break;
+				case State::S0: f << stringf("0"); break;
+				case State::S1: f << stringf("1"); break;
 				case RTLIL::Sx: f << stringf("x"); break;
 				case RTLIL::Sz: f << stringf("z"); break;
 				case RTLIL::Sa: f << stringf("?"); break;
@@ -380,9 +380,9 @@ void dump_attributes(std::ostream &f, std::string indent, dict<RTLIL::IdString, 
 	for (auto it = attributes.begin(); it != attributes.end(); ++it) {
 		f << stringf("%s" "%s %s", indent.c_str(), as_comment ? "/*" : "(*", id(it->first).c_str());
 		f << stringf(" = ");
-		if (modattr && (it->second == Const(0, 1) || it->second == Const(0)))
+		if (modattr && (it->second == State::S0 || it->second == Const(0)))
 			f << stringf(" 0 ");
-		else if (modattr && (it->second == Const(1, 1) || it->second == Const(1)))
+		else if (modattr && (it->second == State::S1 || it->second == Const(1)))
 			f << stringf(" 1 ");
 		else
 			dump_const(f, it->second, -1, 0, false, as_comment);
@@ -604,7 +604,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		return true;
 	}
 
-	if (cell->type.substr(0, 6) == "$_DFF_")
+	if (cell->type.begins_with("$_DFF_"))
 	{
 		std::string reg_name = cellname(cell);
 		bool out_is_reg_wire = is_reg_wire(cell->getPort("\\Q"), reg_name);
@@ -645,7 +645,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		return true;
 	}
 
-	if (cell->type.substr(0, 8) == "$_DFFSR_")
+	if (cell->type.begins_with("$_DFFSR_"))
 	{
 		char pol_c = cell->type[8], pol_s = cell->type[9], pol_r = cell->type[10];
 
@@ -949,7 +949,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		return true;
 	}
 
-	if (cell->type == "$dff" || cell->type == "$adff" || cell->type == "$dffe")
+	if (cell->type.in("$dff", "$adff", "$dffe"))
 	{
 		RTLIL::SigSpec sig_clk, sig_arst, sig_en, val_arst;
 		bool pol_clk, pol_arst = false, pol_en = false;

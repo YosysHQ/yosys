@@ -133,7 +133,7 @@ static void implement_pattern_cache(RTLIL::Module *module, std::map<RTLIL::Const
 			cases_vector.append(and_sig);
 			break;
 		case 0:
-			cases_vector.append(RTLIL::SigSpec(1, 1));
+			cases_vector.append(State::S1);
 			break;
 		default:
 			log_abort();
@@ -150,7 +150,7 @@ static void implement_pattern_cache(RTLIL::Module *module, std::map<RTLIL::Const
 	} else if (cases_vector.size() == 1) {
 		module->connect(RTLIL::SigSig(output, cases_vector));
 	} else {
-		module->connect(RTLIL::SigSig(output, RTLIL::SigSpec(0, 1)));
+		module->connect(RTLIL::SigSig(output, State::S0));
 	}
 }
 

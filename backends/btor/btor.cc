@@ -616,8 +616,8 @@ struct BtorWorker
 			if (initstate_nid < 0)
 			{
 				int sid = get_bv_sid(1);
-				int one_nid = get_sig_nid(Const(1, 1));
-				int zero_nid = get_sig_nid(Const(0, 1));
+				int one_nid = get_sig_nid(State::S1);
+				int zero_nid = get_sig_nid(State::S0);
 				initstate_nid = next_nid++;
 				btorf("%d state %d\n", initstate_nid, sid);
 				btorf("%d init %d %d %d\n", next_nid++, sid, initstate_nid, one_nid);

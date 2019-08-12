@@ -122,9 +122,9 @@ struct FirrtlWorker
 			// Current (3/13/2019) conventions:
 			//  generate a constant 0 for clock and a constant 1 for enable if they are undefined.
 			if (!clk.is_fully_def())
-				this->clk = SigSpec(RTLIL::Const(0, 1));
+				this->clk = SigSpec(State::S0);
 			if (!ena.is_fully_def())
-				this->ena = SigSpec(RTLIL::Const(1, 1));
+				this->ena = SigSpec(State::S1);
 		}
 		string gen_read(const char * indent) {
 			string addr_expr = make_expr(addr);
@@ -297,7 +297,7 @@ struct FirrtlWorker
 		std::string cell_type = fid(cell->type);
 		std::string instanceOf;
 		// If this is a parameterized module, its parent module is encoded in the cell type
-		if (cell->type.substr(0, 8) == "$paramod")
+		if (cell->type.begins_with("$paramod"))
 		{
 			std::string::iterator it;
 			for (it = cell_type.begin(); it < cell_type.end(); it++)
@@ -363,7 +363,7 @@ struct FirrtlWorker
 				}
 				// Check for subfield assignment.
 				std::string bitsString = "bits(";
-				if (sinkExpr.substr(0, bitsString.length()) == bitsString ) {
+				if (sinkExpr.compare(0, bitsString.length(), bitsString) == 0) {
 					if (sinkSig == nullptr)
 						log_error("Unknown subfield %s.%s\n", cell_type.c_str(), sinkExpr.c_str());
 					// Don't generate the assignment here.
@@ -877,7 +877,7 @@ struct FirrtlWorker
 			}
 
 			// This may be a parameterized module - paramod.
-			if (cell->type.substr(0, 8) == "$paramod")
+			if (cell->type.begins_with("$paramod"))
 			{
 				process_instance(cell, wire_exprs);
 				continue;
@@ -943,7 +943,7 @@ struct FirrtlWorker
 				register_reverse_wire_map(y_id, cell->getPort("\\Y"));
 				continue;
 			}
-			log_warning("Cell type not supported: %s (%s.%s)\n", log_id(cell->type), log_id(module), log_id(cell));
+			log_error("Cell type not supported: %s (%s.%s)\n", log_id(cell->type), log_id(module), log_id(cell));
 		}
 
 		for (auto conn : module->connections())

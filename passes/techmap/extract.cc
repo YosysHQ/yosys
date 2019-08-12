@@ -54,7 +54,7 @@ public:
 
 	RTLIL::Const unified_param(RTLIL::IdString cell_type, RTLIL::IdString param, RTLIL::Const value)
 	{
-		if (cell_type.substr(0, 1) != "$" || cell_type.substr(0, 2) == "$_")
+		if (!cell_type.begins_with("$") || cell_type.begins_with("$_"))
 			return value;
 
 	#define param_bool(_n) if (param == _n) return value.as_bool();
@@ -203,7 +203,7 @@ bool module2graph(SubCircuit::Graph &graph, RTLIL::Module *mod, bool constports,
 			continue;
 
 		std::string type = cell->type.str();
-		if (sel == NULL && type.substr(0, 2) == "\\$")
+		if (sel == NULL && type.compare(0, 2, "\\$") == 0)
 			type = type.substr(1);
 		graph.createNode(cell->name.str(), type, (void*)cell);
 
@@ -594,7 +594,7 @@ struct ExtractPass : public Pass {
 			map = new RTLIL::Design;
 			for (auto &filename : map_filenames)
 			{
-				if (filename.substr(0, 1) == "%")
+				if (filename.compare(0, 1, "%") == 0)
 				{
 					if (!saved_designs.count(filename.substr(1))) {
 						delete map;
@@ -613,10 +613,10 @@ struct ExtractPass : public Pass {
 						delete map;
 						log_cmd_error("Can't open map file `%s'.\n", filename.c_str());
 					}
-					Frontend::frontend_call(map, &f, filename, (filename.size() > 3 && filename.substr(filename.size()-3) == ".il") ? "ilang" : "verilog");
+					Frontend::frontend_call(map, &f, filename, (filename.size() > 3 && filename.compare(filename.size()-3, std::string::npos, ".il") == 0 ? "ilang" : "verilog"));
 					f.close();
 
-					if (filename.size() <= 3 || filename.substr(filename.size()-3) != ".il") {
+					if (filename.size() <= 3 || filename.compare(filename.size()-3, std::string::npos, ".il") != 0) {
 						Pass::call(map, "proc");
 						Pass::call(map, "opt_clean");
 					}

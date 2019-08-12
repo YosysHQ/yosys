@@ -222,10 +222,10 @@ bool compare_signals(RTLIL::SigBit &s1, RTLIL::SigBit &s2, SigPool &regs, SigPoo
 
 bool check_public_name(RTLIL::IdString id)
 {
-	const std::string &id_str = id.str();
-	if (id_str[0] == '$')
+	if (id.begins_with("$"))
 		return false;
-	if (id_str.substr(0, 2) == "\\_" && (id_str[id_str.size()-1] == '_' || id_str.find("_[") != std::string::npos))
+	const std::string &id_str = id.str();
+	if (id.begins_with("\\_") && (id.ends_with("_") || id_str.find("_[") != std::string::npos))
 		return false;
 	if (id_str.find(".$") != std::string::npos)
 		return false;

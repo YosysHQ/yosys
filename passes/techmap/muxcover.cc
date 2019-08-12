@@ -675,36 +675,36 @@ struct MuxcoverPass : public Pass {
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
 			const auto &arg = args[argidx];
-			if (arg.size() >= 6 && arg.substr(0,6) == "-mux2=") {
-				cost_mux2 = std::stoi(arg.substr(6));
+			if (arg.size() >= 6 && arg.compare(0,6,"-mux2=") == 0) {
+				cost_mux2 = atoi(arg.substr(6).c_str());
 				continue;
 			}
-			if (arg.size() >= 5 && arg.substr(0,5) == "-mux4") {
+			if (arg.size() >= 5 && arg.compare(0,5,"-mux4") == 0) {
 				use_mux4 = true;
 				if (arg.size() > 5) {
 					if (arg[5] != '=') break;
-					cost_mux4 = std::stoi(arg.substr(6));
+					cost_mux4 = atoi(arg.substr(6).c_str());
 				}
 				continue;
 			}
-			if (arg.size() >= 5 && arg.substr(0,5) == "-mux8") {
+			if (arg.size() >= 5 && arg.compare(0,5,"-mux8") == 0) {
 				use_mux8 = true;
 				if (arg.size() > 5) {
 					if (arg[5] != '=') break;
-					cost_mux8 = std::stoi(arg.substr(6));
+					cost_mux8 = atoi(arg.substr(6).c_str());
 				}
 				continue;
 			}
-			if (arg.size() >= 6 && arg.substr(0,6) == "-mux16") {
+			if (arg.size() >= 6 && arg.compare(0,6,"-mux16") == 0) {
 				use_mux16 = true;
 				if (arg.size() > 6) {
 					if (arg[6] != '=') break;
-					cost_mux16 = std::stoi(arg.substr(7));
+					cost_mux16 = atoi(arg.substr(7).c_str());
 				}
 				continue;
 			}
-			if (arg.size() >= 6 && arg.substr(0,6) == "-dmux=") {
-				cost_dmux = std::stoi(arg.substr(6));
+			if (arg.size() >= 6 && arg.compare(0,6,"-dmux=") == 0) {
+				cost_dmux = atoi(arg.substr(6).c_str());
 				continue;
 			}
 			if (arg == "-nodecode") {
