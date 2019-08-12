@@ -276,20 +276,24 @@ namespace RTLIL
 				return std::string(c_str() + pos, len);
 		}
 
+		int compare(size_t pos, size_t len, const char* s) const {
+			return strncmp(c_str()+pos, s, len);
+		}
+
 		bool begins_with(const char* prefix) const {
 			size_t len = strlen(prefix);
 			if (size() < len) return false;
-			return substr(0, len) == prefix;
+			return compare(0, len, prefix) == 0;
 		}
 
 		bool ends_with(const char* suffix) const {
 			size_t len = strlen(suffix);
 			if (size() < len) return false;
-			return substr(size()-len) == suffix;
+			return compare(size()-len, len, suffix) == 0;
 		}
 
 		size_t size() const {
-			return str().size();
+			return strlen(c_str());
 		}
 
 		bool empty() const {
@@ -1404,7 +1408,7 @@ struct RTLIL::Process : public RTLIL::AttrObject
 
 inline RTLIL::SigBit::SigBit() : wire(NULL), data(RTLIL::State::S0) { }
 inline RTLIL::SigBit::SigBit(RTLIL::State bit) : wire(NULL), data(bit) { }
-inline RTLIL::SigBit::SigBit(bool bit) : wire(NULL), data(bit ? RTLIL::S1 : RTLIL::S0) { }
+inline RTLIL::SigBit::SigBit(bool bit) : wire(NULL), data(bit ? State::S1 : State::S0) { }
 inline RTLIL::SigBit::SigBit(RTLIL::Wire *wire) : wire(wire), offset(0) { log_assert(wire && wire->width == 1); }
 inline RTLIL::SigBit::SigBit(RTLIL::Wire *wire, int offset) : wire(wire), offset(offset) { log_assert(wire != nullptr); }
 inline RTLIL::SigBit::SigBit(const RTLIL::SigChunk &chunk) : wire(chunk.wire) { log_assert(chunk.width == 1); if (wire) offset = chunk.offset; else data = chunk.data[0]; }

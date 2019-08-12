@@ -274,7 +274,7 @@ hierarchical_id:
 		$$ = $1;
 	} |
 	hierarchical_id TOK_PACKAGESEP TOK_ID {
-		if ($3->substr(0, 1) == "\\")
+		if ($3->compare(0, 1, "\\") == 0)
 			*$1 += "::" + $3->substr(1);
 		else
 			*$1 += "::" + *$3;
@@ -282,7 +282,7 @@ hierarchical_id:
 		$$ = $1;
 	} |
 	hierarchical_id '.' TOK_ID {
-		if ($3->substr(0, 1) == "\\")
+		if ($3->compare(0, 1, "\\") == 0)
 			*$1 += "." + $3->substr(1);
 		else
 			*$1 += "." + *$3;
@@ -2184,7 +2184,7 @@ basic_expr:
 		$$ = $1;
 	} |
 	'(' expr ')' TOK_CONSTVAL {
-		if ($4->substr(0, 1) != "'")
+		if ($4->compare(0, 1, "'") != 0)
 			frontend_verilog_yyerror("Cast operation must be applied on sized constants e.g. (<expr>)<constval> , while %s is not a sized constant.", $4->c_str());
 		AstNode *bits = $2;
 		AstNode *val = const2ast(*$4, case_type_stack.size() == 0 ? 0 : case_type_stack.back(), !lib_mode);
@@ -2194,7 +2194,7 @@ basic_expr:
 		delete $4;
 	} |
 	hierarchical_id TOK_CONSTVAL {
-		if ($2->substr(0, 1) != "'")
+		if ($2->compare(0, 1, "'") != 0)
 			frontend_verilog_yyerror("Cast operation must be applied on sized constants, e.g. <ID>\'d0, while %s is not a sized constant.", $2->c_str());
 		AstNode *bits = new AstNode(AST_IDENTIFIER);
 		bits->str = *$1;

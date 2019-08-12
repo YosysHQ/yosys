@@ -388,11 +388,11 @@ struct XAigerWriter
 						RTLIL::SigSpec rhs;
 						if (it != cell->connections_.end()) {
 							if (GetSize(it->second) < GetSize(w))
-								it->second.append(RTLIL::SigSpec(RTLIL::S0, GetSize(w)-GetSize(it->second)));
+								it->second.append(RTLIL::SigSpec(State::S0, GetSize(w)-GetSize(it->second)));
 							rhs = it->second;
 						}
 						else {
-							rhs = RTLIL::SigSpec(RTLIL::S0, GetSize(w));
+							rhs = RTLIL::SigSpec(State::S0, GetSize(w));
 							cell->setPort(port_name, rhs);
 						}
 
@@ -400,10 +400,10 @@ struct XAigerWriter
 						for (auto b : rhs.bits()) {
 							SigBit I = sigmap(b);
 							if (b == RTLIL::Sx)
-								b = RTLIL::S0;
+								b = State::S0;
 							else if (I != b) {
 								if (I == RTLIL::Sx)
-									alias_map[b] = RTLIL::S0;
+									alias_map[b] = State::S0;
 								else
 									alias_map[b] = I;
 							}
@@ -671,7 +671,7 @@ struct XAigerWriter
 							if (holes_cell)
 								port_wire.append(holes_wire);
 							else
-								holes_module->connect(holes_wire, RTLIL::S0);
+								holes_module->connect(holes_wire, State::S0);
 						}
 						if (!port_wire.empty())
 							holes_cell->setPort(w->name, port_wire);

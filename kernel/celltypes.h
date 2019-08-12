@@ -139,13 +139,10 @@ struct CellTypes
 		setup_type("$fa", {A, B, C}, {X, Y}, true);
 	}
 
-	void setup_internals_mem()
+	void setup_internals_ff()
 	{
 		IdString SET = "\\SET", CLR = "\\CLR", CLK = "\\CLK", ARST = "\\ARST", EN = "\\EN";
-		IdString Q = "\\Q", D = "\\D", ADDR = "\\ADDR", DATA = "\\DATA", RD_EN = "\\RD_EN";
-		IdString RD_CLK = "\\RD_CLK", RD_ADDR = "\\RD_ADDR", WR_CLK = "\\WR_CLK", WR_EN = "\\WR_EN";
-		IdString WR_ADDR = "\\WR_ADDR", WR_DATA = "\\WR_DATA", RD_DATA = "\\RD_DATA";
-		IdString CTRL_IN = "\\CTRL_IN", CTRL_OUT = "\\CTRL_OUT";
+		IdString Q = "\\Q", D = "\\D";
 
 		setup_type("$sr", {SET, CLR}, {Q});
 		setup_type("$ff", {D}, {Q});
@@ -155,6 +152,18 @@ struct CellTypes
 		setup_type("$adff", {CLK, ARST, D}, {Q});
 		setup_type("$dlatch", {EN, D}, {Q});
 		setup_type("$dlatchsr", {EN, SET, CLR, D}, {Q});
+
+	}
+
+	void setup_internals_mem()
+	{
+		setup_internals_ff();
+
+		IdString CLK = "\\CLK", ARST = "\\ARST", EN = "\\EN";
+		IdString ADDR = "\\ADDR", DATA = "\\DATA", RD_EN = "\\RD_EN";
+		IdString RD_CLK = "\\RD_CLK", RD_ADDR = "\\RD_ADDR", WR_CLK = "\\WR_CLK", WR_EN = "\\WR_EN";
+		IdString WR_ADDR = "\\WR_ADDR", WR_DATA = "\\WR_DATA", RD_DATA = "\\RD_DATA";
+		IdString CTRL_IN = "\\CTRL_IN", CTRL_OUT = "\\CTRL_OUT";
 
 		setup_type("$memrd", {CLK, EN, ADDR}, {DATA});
 		setup_type("$memwr", {CLK, EN, ADDR, DATA}, pool<RTLIL::IdString>());
@@ -273,8 +282,8 @@ struct CellTypes
 	static RTLIL::Const eval_not(RTLIL::Const v)
 	{
 		for (auto &bit : v.bits)
-			if (bit == RTLIL::S0) bit = RTLIL::S1;
-			else if (bit == RTLIL::S1) bit = RTLIL::S0;
+			if (bit == State::S0) bit = State::S1;
+			else if (bit == State::S1) bit = State::S0;
 		return v;
 	}
 
@@ -380,15 +389,15 @@ struct CellTypes
 
 			std::vector<RTLIL::State> t = cell->parameters.at("\\LUT").bits;
 			while (GetSize(t) < (1 << width))
-				t.push_back(RTLIL::S0);
+				t.push_back(State::S0);
 			t.resize(1 << width);
 
 			for (int i = width-1; i >= 0; i--) {
 				RTLIL::State sel = arg1.bits.at(i);
 				std::vector<RTLIL::State> new_t;
-				if (sel == RTLIL::S0)
+				if (sel == State::S0)
 					new_t = std::vector<RTLIL::State>(t.begin(), t.begin() + GetSize(t)/2);
-				else if (sel == RTLIL::S1)
+				else if (sel == State::S1)
 					new_t = std::vector<RTLIL::State>(t.begin() + GetSize(t)/2, t.end());
 				else
 					for (int j = 0; j < GetSize(t)/2; j++)
@@ -407,7 +416,7 @@ struct CellTypes
 			std::vector<RTLIL::State> t = cell->parameters.at("\\TABLE").bits;
 
 			while (GetSize(t) < width*depth*2)
-				t.push_back(RTLIL::S0);
+				t.push_back(State::S0);
 
 			RTLIL::State default_ret = State::S0;
 

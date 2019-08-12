@@ -65,8 +65,7 @@ struct PruneWorker
 			pool<RTLIL::SigBit> sw_assigned = do_switch((*it), assigned, affected);
 			assigned.insert(sw_assigned.begin(), sw_assigned.end());
 		}
-		pool<RTLIL::SigSig> remove;
-		for (auto it = cs->actions.rbegin(); it != cs->actions.rend(); ++it) {
+		for (auto it = cs->actions.rbegin(); it != cs->actions.rend(); ) {
 			RTLIL::SigSpec lhs = sigmap(it->first);
 			bool redundant = true;
 			for (auto &bit : lhs) {
@@ -75,9 +74,10 @@ struct PruneWorker
 					break;
 				}
 			}
+			bool remove = false;
 			if (redundant) {
 				removed_count++;
-				remove.insert(*it);
+				remove = true;
 			} else {
 				if (root) {
 					bool promotable = true;
@@ -99,7 +99,7 @@ struct PruneWorker
 						}
 						promoted_count++;
 						module->connect(conn);
-						remove.insert(*it);
+						remove = true;
 					}
 				}
 				for (auto &bit : lhs)
@@ -109,11 +109,9 @@ struct PruneWorker
 					if (bit.wire)
 						affected.insert(bit);
 			}
-		}
-		for (auto it = cs->actions.begin(); it != cs->actions.end(); ) {
-			if (remove[*it]) {
-				it = cs->actions.erase(it);
-			} else it++;
+			if (remove)
+				cs->actions.erase((it++).base() - 1);
+			else it++;
 		}
 		return assigned;
 	}

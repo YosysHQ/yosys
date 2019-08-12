@@ -49,7 +49,7 @@ struct ExclusiveDatabase
 			}
 			else if (cell->type == "$logic_not") {
 				nonconst_sig = sigmap(cell->getPort("\\A"));
-				const_sig = Const(RTLIL::S0, GetSize(nonconst_sig));
+				const_sig = Const(State::S0, GetSize(nonconst_sig));
 				y_port = sigmap(cell->getPort("\\Y"));
 			}
 			else if (cell->type == "$reduce_or") {

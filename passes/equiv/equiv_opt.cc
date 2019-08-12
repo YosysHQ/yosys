@@ -97,7 +97,7 @@ struct EquivOptPass:public ScriptPass
 
 		for (; argidx < args.size(); argidx++) {
 			if (command.empty()) {
-				if (args[argidx].substr(0, 1) == "-")
+				if (args[argidx].compare(0, 1, "-") == 0)
 					cmd_error(args, argidx, "Unknown option.");
 			} else {
 				command += " ";

@@ -117,7 +117,7 @@ static void run_ice40_opts(Module *module)
 				log("Optimized $__ICE40_FULL_ADDER cell back to logic (without SB_CARRY) %s.%s: CO=%s\n",
 						log_id(module), log_id(cell), log_signal(replacement_output));
 				cell->type = "$lut";
-				cell->setPort("\\A", { RTLIL::S0, inbit[0], inbit[1], inbit[2] });
+				cell->setPort("\\A", { State::S0, inbit[0], inbit[1], inbit[2] });
 				cell->setPort("\\Y", cell->getPort("\\O"));
 				cell->unsetPort("\\B");
 				cell->unsetPort("\\CI");

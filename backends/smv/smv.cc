@@ -61,7 +61,7 @@ struct SmvWorker
 		{
 			string name = stringf("_%s", id.c_str());
 
-			if (name.substr(0, 2) == "_\\")
+			if (name.compare(0, 2, "_\\") == 0)
 				name = "_" + name.substr(2);
 
 			for (auto &c : name) {

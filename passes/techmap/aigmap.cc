@@ -66,7 +66,7 @@ struct AigmapPass : public Pass {
 			{
 				Aig aig(cell);
 
-				if (cell->type == "$_AND_" || cell->type == "$_NOT_")
+				if (cell->type.in("$_AND_", "$_NOT_"))
 					aig.name.clear();
 
 				if (nand_mode && cell->type == "$_NAND_")

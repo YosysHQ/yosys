@@ -183,7 +183,7 @@ struct SynthIce40Pass : public ScriptPass
 				continue;
 			}
 			if (args[argidx] == "-dffe_min_ce_use" && argidx+1 < args.size()) {
-				min_ce_use = std::stoi(args[++argidx]);
+				min_ce_use = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-nobram") {
