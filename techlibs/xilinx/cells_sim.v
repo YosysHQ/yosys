@@ -42,10 +42,12 @@ module OBUF(output O, input I);
   assign O = I;
 endmodule
 
+(* clkbuf_driver = "O" *)
 module BUFG(output O, input I);
   assign O = I;
 endmodule
 
+(* clkbuf_driver = "O" *)
 module BUFGCTRL(
     output O,
     input I0, input I1,
@@ -72,6 +74,7 @@ assign O = S0_true ? I0_internal : (S1_true ? I1_internal : INIT_OUT);
 
 endmodule
 
+(* clkbuf_driver = "O" *)
 module BUFHCE(output O, input I, input CE);
 
 parameter [0:0] INIT_OUT = 1'b0;
@@ -213,6 +216,7 @@ endmodule
 
 `endif
 
+(* clkbuf_sink = "C" *)
 module FDRE (output reg Q, input C, CE, D, R);
   parameter [0:0] INIT = 1'b0;
   parameter [0:0] IS_C_INVERTED = 1'b0;
@@ -225,6 +229,7 @@ module FDRE (output reg Q, input C, CE, D, R);
   endcase endgenerate
 endmodule
 
+(* clkbuf_sink = "C" *)
 module FDSE (output reg Q, input C, CE, D, S);
   parameter [0:0] INIT = 1'b1;
   parameter [0:0] IS_C_INVERTED = 1'b0;
@@ -237,6 +242,7 @@ module FDSE (output reg Q, input C, CE, D, S);
   endcase endgenerate
 endmodule
 
+(* clkbuf_sink = "C" *)
 module FDCE (output reg Q, input C, CE, D, CLR);
   parameter [0:0] INIT = 1'b0;
   parameter [0:0] IS_C_INVERTED = 1'b0;
@@ -251,6 +257,7 @@ module FDCE (output reg Q, input C, CE, D, CLR);
   endcase endgenerate
 endmodule
 
+(* clkbuf_sink = "C" *)
 module FDPE (output reg Q, input C, CE, D, PRE);
   parameter [0:0] INIT = 1'b1;
   parameter [0:0] IS_C_INVERTED = 1'b0;
@@ -265,30 +272,35 @@ module FDPE (output reg Q, input C, CE, D, PRE);
   endcase endgenerate
 endmodule
 
+(* clkbuf_sink = "C" *)
 module FDRE_1 (output reg Q, input C, CE, D, R);
   parameter [0:0] INIT = 1'b0;
   initial Q <= INIT;
   always @(negedge C) if (R) Q <= 1'b0; else if(CE) Q <= D;
 endmodule
 
+(* clkbuf_sink = "C" *)
 module FDSE_1 (output reg Q, input C, CE, D, S);
   parameter [0:0] INIT = 1'b1;
   initial Q <= INIT;
   always @(negedge C) if (S) Q <= 1'b1; else if(CE) Q <= D;
 endmodule
 
+(* clkbuf_sink = "C" *)
 module FDCE_1 (output reg Q, input C, CE, D, CLR);
   parameter [0:0] INIT = 1'b0;
   initial Q <= INIT;
   always @(negedge C, posedge CLR) if (CLR) Q <= 1'b0; else if (CE) Q <= D;
 endmodule
 
+(* clkbuf_sink = "C" *)
 module FDPE_1 (output reg Q, input C, CE, D, PRE);
   parameter [0:0] INIT = 1'b1;
   initial Q <= INIT;
   always @(negedge C, posedge PRE) if (PRE) Q <= 1'b1; else if (CE) Q <= D;
 endmodule
 
+(* clkbuf_sink = "WCLK" *)
 (* abc_box_id = 5, abc_scc_break="D,WE" *)
 module RAM32X1D (
   output DPO, SPO,
@@ -307,6 +319,7 @@ module RAM32X1D (
   always @(posedge clk) if (WE) mem[a] <= D;
 endmodule
 
+(* clkbuf_sink = "WCLK" *)
 (* abc_box_id = 6, abc_scc_break="D,WE" *)
 module RAM64X1D (
   output DPO, SPO,
@@ -325,6 +338,7 @@ module RAM64X1D (
   always @(posedge clk) if (WE) mem[a] <= D;
 endmodule
 
+(* clkbuf_sink = "WCLK" *)
 (* abc_box_id = 7, abc_scc_break="D,WE" *)
 module RAM128X1D (
   output       DPO, SPO,
@@ -340,6 +354,7 @@ module RAM128X1D (
   always @(posedge clk) if (WE) mem[A] <= D;
 endmodule
 
+(* clkbuf_sink = "CLK" *)
 module SRL16E (
   output Q,
   input A0, A1, A2, A3, CE, CLK, D
@@ -358,6 +373,7 @@ module SRL16E (
   endgenerate
 endmodule
 
+(* clkbuf_sink = "CLK" *)
 module SRLC32E (
   output Q,
   output Q31,

@@ -1,3 +1,4 @@
+(* clkbuf_sink = "CLKAWRCLK,CLKBRDCLK" *)
 module RAMB8BWER (
 	input CLKAWRCLK,
 	input CLKBRDCLK,
@@ -86,6 +87,7 @@ module RAMB8BWER (
 	parameter SIM_COLLISION_CHECK = "ALL";
 endmodule
 
+(* clkbuf_sink = "CLKA,CLKB" *)
 module RAMB16BWER (
 	input CLKA,
 	input CLKB,

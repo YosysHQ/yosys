@@ -32,6 +32,19 @@ void split_portname_pair(std::string &port1, std::string &port2)
 	}
 }
 
+std::vector<std::string> split(std::string text, const char *delim)
+{
+	std::vector<std::string> list;
+	char *p = strdup(text.c_str());
+	char *t = strtok(p, delim);
+	while (t != NULL) {
+		list.push_back(t);
+		t = strtok(NULL, delim);
+	}
+	free(p);
+	return list;
+}
+
 struct IopadmapPass : public Pass {
 	IopadmapPass() : Pass("iopadmap", "technology mapping of i/o pads (or buffers)") { }
 	void help() YS_OVERRIDE
@@ -64,6 +77,11 @@ struct IopadmapPass : public Pass {
 		log("        of the tristate driver and the 2nd portname is the internal output\n");
 		log("        buffering the external signal.\n");
 		log("\n");
+		log("    -ignore <celltype> <portname>[:<portname>]*\n");
+		log("        Skips mapping inputs/outputs that are already connected to given\n");
+		log("        ports of the given cell.  Can be used multiple times.  This is in\n");
+		log("        addition to the cells specified as mapping targets.\n");
+		log("\n");
 		log("    -widthparam <param_name>\n");
 		log("        Use the specified parameter name to set the port width.\n");
 		log("\n");
@@ -88,6 +106,7 @@ struct IopadmapPass : public Pass {
 		std::string toutpad_celltype, toutpad_portname, toutpad_portname2, toutpad_portname3;
 		std::string tinoutpad_celltype, tinoutpad_portname, tinoutpad_portname2, tinoutpad_portname3, tinoutpad_portname4;
 		std::string widthparam, nameparam;
+		pool<pair<IdString, IdString>> ignore;
 		bool flag_bits = false;
 
 		size_t argidx;
@@ -127,6 +146,18 @@ struct IopadmapPass : public Pass {
 				split_portname_pair(tinoutpad_portname3, tinoutpad_portname4);
 				continue;
 			}
+			if (arg == "-ignore" && argidx+2 < args.size()) {
+				std::string ignore_celltype = args[++argidx];
+				std::string ignore_portname = args[++argidx];
+				std::string ignore_portname2;
+				while (!ignore_portname.empty()) {
+					split_portname_pair(ignore_portname, ignore_portname2);
+					ignore.insert(make_pair(RTLIL::escape_id(ignore_celltype), RTLIL::escape_id(ignore_portname)));
+
+					ignore_portname = ignore_portname2;
+				}
+				continue;
+			}
 			if (arg == "-widthparam" && argidx+1 < args.size()) {
 				widthparam = args[++argidx];
 				continue;
@@ -143,6 +174,28 @@ struct IopadmapPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		if (!inpad_portname2.empty())
+			ignore.insert(make_pair(RTLIL::escape_id(inpad_celltype), RTLIL::escape_id(inpad_portname2)));
+		if (!outpad_portname2.empty())
+			ignore.insert(make_pair(RTLIL::escape_id(outpad_celltype), RTLIL::escape_id(outpad_portname2)));
+		if (!inoutpad_portname2.empty())
+			ignore.insert(make_pair(RTLIL::escape_id(inoutpad_celltype), RTLIL::escape_id(inoutpad_portname2)));
+		if (!toutpad_portname3.empty())
+			ignore.insert(make_pair(RTLIL::escape_id(toutpad_celltype), RTLIL::escape_id(toutpad_portname3)));
+		if (!tinoutpad_portname4.empty())
+			ignore.insert(make_pair(RTLIL::escape_id(tinoutpad_celltype), RTLIL::escape_id(tinoutpad_portname4)));
+
+		for (auto module : design->modules())
+		{
+			auto it = module->attributes.find("\\iopad_external_pin");
+			if (it != module->attributes.end()) {
+				auto value = it->second.decode_string();
+				for (auto name : split(value, ",")) {
+					ignore.insert(make_pair(module->name, RTLIL::escape_id(name)));
+				}
+			}
+		}
+
 		for (auto module : design->selected_modules())
 		{
 			dict<IdString, pool<int>> skip_wires;
@@ -150,27 +203,10 @@ struct IopadmapPass : public Pass {
 			SigMap sigmap(module);
 
 			for (auto cell : module->cells())
-			{
-				if (cell->type == RTLIL::escape_id(inpad_celltype) && cell->hasPort(RTLIL::escape_id(inpad_portname2)))
-					for (auto bit : sigmap(cell->getPort(RTLIL::escape_id(inpad_portname2))))
+			for (auto port : cell->connections())
+				if (ignore.count(make_pair(cell->type, port.first)))
+					for (auto bit : sigmap(port.second))
 						skip_wire_bits.insert(bit);
-
-				if (cell->type == RTLIL::escape_id(outpad_celltype) && cell->hasPort(RTLIL::escape_id(outpad_portname2)))
-					for (auto bit : sigmap(cell->getPort(RTLIL::escape_id(outpad_portname2))))
-						skip_wire_bits.insert(bit);
-
-				if (cell->type == RTLIL::escape_id(inoutpad_celltype) && cell->hasPort(RTLIL::escape_id(inoutpad_portname2)))
-					for (auto bit : sigmap(cell->getPort(RTLIL::escape_id(inoutpad_portname2))))
-						skip_wire_bits.insert(bit);
-
-				if (cell->type == RTLIL::escape_id(toutpad_celltype) && cell->hasPort(RTLIL::escape_id(toutpad_portname3)))
-					for (auto bit : sigmap(cell->getPort(RTLIL::escape_id(toutpad_portname3))))
-						skip_wire_bits.insert(bit);
-
-				if (cell->type == RTLIL::escape_id(tinoutpad_celltype) && cell->hasPort(RTLIL::escape_id(tinoutpad_portname4)))
-					for (auto bit : sigmap(cell->getPort(RTLIL::escape_id(tinoutpad_portname4))))
-						skip_wire_bits.insert(bit);
-			}
 
 			if (!toutpad_celltype.empty() || !tinoutpad_celltype.empty())
 			{

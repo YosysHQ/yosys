@@ -1,7 +1,12 @@
 #!/bin/bash
 
 set -e
-libdir="/opt/Xilinx/Vivado/2018.1/data/verilog/src"
+if [ -z "$1" ]
+then
+	libdir="/opt/Xilinx/Vivado/2018.1/data/verilog/src"
+else
+	libdir=$1
+fi
 
 function xtract_cell_decl()
 {
@@ -24,33 +29,33 @@ function xtract_cell_decl()
 	echo
 
 	# Design elements types listed in Xilinx UG953
-	xtract_cell_decl BSCANE2
-	# xtract_cell_decl BUFG
-	xtract_cell_decl BUFGCE
-	xtract_cell_decl BUFGCE_1
-	#xtract_cell_decl BUFGCTRL
-	xtract_cell_decl BUFGMUX
-	xtract_cell_decl BUFGMUX_1
-	xtract_cell_decl BUFGMUX_CTRL
-	xtract_cell_decl BUFH
-	#xtract_cell_decl BUFHCE
-	xtract_cell_decl BUFIO
-	xtract_cell_decl BUFMR
-	xtract_cell_decl BUFMRCE
-	xtract_cell_decl BUFR
+	xtract_cell_decl BSCANE2 "(* keep *)"
+	# xtract_cell_decl BUFG "(* clkbuf_driver = \"O\" *)"
+	xtract_cell_decl BUFGCE "(* clkbuf_driver = \"O\" *)"
+	xtract_cell_decl BUFGCE_1 "(* clkbuf_driver = \"O\" *)"
+	#xtract_cell_decl BUFGCTRL "(* clkbuf_driver = \"O\" *)"
+	xtract_cell_decl BUFGMUX "(* clkbuf_driver = \"O\" *)"
+	xtract_cell_decl BUFGMUX_1 "(* clkbuf_driver = \"O\" *)"
+	xtract_cell_decl BUFGMUX_CTRL "(* clkbuf_driver = \"O\" *)"
+	xtract_cell_decl BUFH "(* clkbuf_driver = \"O\" *)"
+	#xtract_cell_decl BUFHCE "(* clkbuf_driver = \"O\" *)"
+	xtract_cell_decl BUFIO "(* clkbuf_driver = \"O\" *)"
+	xtract_cell_decl BUFMR "(* clkbuf_driver = \"O\" *)"
+	xtract_cell_decl BUFMRCE "(* clkbuf_driver = \"O\" *)"
+	xtract_cell_decl BUFR "(* clkbuf_driver = \"O\" *)"
 	xtract_cell_decl CAPTUREE2 "(* keep *)"
 	# xtract_cell_decl CARRY4
-	xtract_cell_decl CFGLUT5
+	xtract_cell_decl CFGLUT5 "(* clkbuf_sink = \"CLK\" *)"
 	xtract_cell_decl DCIRESET "(* keep *)"
 	xtract_cell_decl DNA_PORT
-	xtract_cell_decl DSP48E1
+	xtract_cell_decl DSP48E1 "(* clkbuf_sink = \"CLK\" *)"
 	xtract_cell_decl EFUSE_USR
 	# xtract_cell_decl FDCE
 	# xtract_cell_decl FDPE
 	# xtract_cell_decl FDRE
 	# xtract_cell_decl FDSE
-	xtract_cell_decl FIFO18E1
-	xtract_cell_decl FIFO36E1
+	xtract_cell_decl FIFO18E1 "(* clkbuf_sink = \"RDCLK,WRCLK\" *)"
+	xtract_cell_decl FIFO36E1 "(* clkbuf_sink = \"RDCLK,WRCLK\" *)"
 	xtract_cell_decl FRAME_ECCE2
 	xtract_cell_decl GTHE2_CHANNEL
 	xtract_cell_decl GTHE2_COMMON
@@ -58,31 +63,34 @@ function xtract_cell_decl()
 	xtract_cell_decl GTPE2_COMMON
 	xtract_cell_decl GTXE2_CHANNEL
 	xtract_cell_decl GTXE2_COMMON
-	# xtract_cell_decl IBUF
-	xtract_cell_decl IBUF_IBUFDISABLE
-	xtract_cell_decl IBUF_INTERMDISABLE
-	xtract_cell_decl IBUFDS
-	xtract_cell_decl IBUFDS_DIFF_OUT
-	xtract_cell_decl IBUFDS_DIFF_OUT_IBUFDISABLE
-	xtract_cell_decl IBUFDS_DIFF_OUT_INTERMDISABLE
-	xtract_cell_decl IBUFDS_GTE2
-	xtract_cell_decl IBUFDS_IBUFDISABLE
-	xtract_cell_decl IBUFDS_INTERMDISABLE
+	# xtract_cell_decl IBUF "(* iopad_external_pin = \"I\" *)"
+	xtract_cell_decl IBUF_IBUFDISABLE "(* iopad_external_pin = \"I\" *)"
+	xtract_cell_decl IBUF_INTERMDISABLE "(* iopad_external_pin = \"I\" *)"
+	xtract_cell_decl IBUFDS "(* iopad_external_pin = \"I,IB\" *)"
+	xtract_cell_decl IBUFDS_DIFF_OUT "(* iopad_external_pin = \"I,IB\" *)"
+	xtract_cell_decl IBUFDS_DIFF_OUT_IBUFDISABLE "(* iopad_external_pin = \"I,IB\" *)"
+	xtract_cell_decl IBUFDS_DIFF_OUT_INTERMDISABLE "(* iopad_external_pin = \"I,IB\" *)"
+	xtract_cell_decl IBUFDS_GTE2 "(* iopad_external_pin = \"I,IB\" *)"
+	xtract_cell_decl IBUFDS_IBUFDISABLE "(* iopad_external_pin = \"I,IB\" *)"
+	xtract_cell_decl IBUFDS_INTERMDISABLE "(* iopad_external_pin = \"I,IB\" *)"
+	xtract_cell_decl IBUFG "(* iopad_external_pin = \"I\" *)"
+	xtract_cell_decl IBUFGDS "(* iopad_external_pin = \"I,IB\" *)"
+	xtract_cell_decl IBUFGDS_DIFF_OUT "(* iopad_external_pin = \"I,IB\" *)"
 	xtract_cell_decl ICAPE2 "(* keep *)"
-	xtract_cell_decl IDDR
-	xtract_cell_decl IDDR_2CLK
-	xtract_cell_decl IDELAYCTRL "(* keep *)"
-	xtract_cell_decl IDELAYE2
-	xtract_cell_decl IN_FIFO
-	xtract_cell_decl IOBUF
-	xtract_cell_decl IOBUF_DCIEN
-	xtract_cell_decl IOBUF_INTERMDISABLE
-	xtract_cell_decl IOBUFDS
-	xtract_cell_decl IOBUFDS_DCIEN
-	xtract_cell_decl IOBUFDS_DIFF_OUT
-	xtract_cell_decl IOBUFDS_DIFF_OUT_DCIEN
-	xtract_cell_decl IOBUFDS_DIFF_OUT_INTERMDISABLE
-	xtract_cell_decl ISERDESE2
+	xtract_cell_decl IDDR "(* clkbuf_sink = \"C\" *)"
+	xtract_cell_decl IDDR_2CLK "(* clkbuf_sink = \"C,CB\" *)"
+	xtract_cell_decl IDELAYCTRL "(* keep *) (* clkbuf_sink = \"REFCLK\" *)"
+	xtract_cell_decl IDELAYE2 "(* clkbuf_sink = \"C\" *)"
+	xtract_cell_decl IN_FIFO "(* clkbuf_sink = \"RDCLK,WRCLK\" *)"
+	xtract_cell_decl IOBUF "(* iopad_external_pin = \"IO\" *)"
+	xtract_cell_decl IOBUF_DCIEN "(* iopad_external_pin = \"IO\" *)"
+	xtract_cell_decl IOBUF_INTERMDISABLE "(* iopad_external_pin = \"IO\" *)"
+	xtract_cell_decl IOBUFDS "(* iopad_external_pin = \"IO\" *)"
+	xtract_cell_decl IOBUFDS_DCIEN "(* iopad_external_pin = \"IO,IOB\" *)"
+	xtract_cell_decl IOBUFDS_DIFF_OUT "(* iopad_external_pin = \"IO,IOB\" *)"
+	xtract_cell_decl IOBUFDS_DIFF_OUT_DCIEN "(* iopad_external_pin = \"IO,IOB\" *)"
+	xtract_cell_decl IOBUFDS_DIFF_OUT_INTERMDISABLE "(* iopad_external_pin = \"IO,IOB\" *)"
+	xtract_cell_decl ISERDESE2 "(* clkbuf_sink = \"CLK,CLKB,CLKDIV,CLKDIVP,OCLK,OCLKB\" *)"
 	xtract_cell_decl KEEPER
 	xtract_cell_decl LDCE
 	xtract_cell_decl LDPE
@@ -97,14 +105,14 @@ function xtract_cell_decl()
 	xtract_cell_decl MMCME2_BASE
 	# xtract_cell_decl MUXF7
 	# xtract_cell_decl MUXF8
-	# xtract_cell_decl OBUF
-	xtract_cell_decl OBUFDS
-	xtract_cell_decl OBUFT
-	xtract_cell_decl OBUFTDS
-	xtract_cell_decl ODDR
-	xtract_cell_decl ODELAYE2
-	xtract_cell_decl OSERDESE2
-	xtract_cell_decl OUT_FIFO
+	# xtract_cell_decl OBUF "(* iopad_external_pin = \"O\" *)"
+	xtract_cell_decl OBUFDS "(* iopad_external_pin = \"O,OB\" *)"
+	xtract_cell_decl OBUFT "(* iopad_external_pin = \"O\" *)"
+	xtract_cell_decl OBUFTDS "(* iopad_external_pin = \"O,OB\" *)"
+	xtract_cell_decl ODDR "(* clkbuf_sink = \"C\" *)"
+	xtract_cell_decl ODELAYE2 "(* clkbuf_sink = \"C\" *)"
+	xtract_cell_decl OSERDESE2 "(* clkbuf_sink = \"CLK,CLKDIV\" *)"
+	xtract_cell_decl OUT_FIFO "(* clkbuf_sink = \"RDCLK,WRCLK\" *)"
 	xtract_cell_decl PHASER_IN
 	xtract_cell_decl PHASER_IN_PHY
 	xtract_cell_decl PHASER_OUT
@@ -116,27 +124,27 @@ function xtract_cell_decl()
 	xtract_cell_decl PS7 "(* keep *)"
 	xtract_cell_decl PULLDOWN
 	xtract_cell_decl PULLUP
-	#xtract_cell_decl RAM128X1D
-	xtract_cell_decl RAM128X1S
-	xtract_cell_decl RAM256X1S
-	xtract_cell_decl RAM32M
-	#xtract_cell_decl RAM32X1D
-	xtract_cell_decl RAM32X1S
-	xtract_cell_decl RAM32X1S_1
-	xtract_cell_decl RAM32X2S
-	xtract_cell_decl RAM64M
-	#xtract_cell_decl RAM64X1D
-	xtract_cell_decl RAM64X1S
-	xtract_cell_decl RAM64X1S_1
-	xtract_cell_decl RAM64X2S
-	# xtract_cell_decl RAMB18E1
-	# xtract_cell_decl RAMB36E1
+	#xtract_cell_decl RAM128X1D "(* clkbuf_sink = \"WCLK\" *)"
+	xtract_cell_decl RAM128X1S "(* clkbuf_sink = \"WCLK\" *)"
+	xtract_cell_decl RAM256X1S "(* clkbuf_sink = \"WCLK\" *)"
+	xtract_cell_decl RAM32M "(* clkbuf_sink = \"WCLK\" *)"
+	#xtract_cell_decl RAM32X1D "(* clkbuf_sink = \"WCLK\" *)"
+	xtract_cell_decl RAM32X1S "(* clkbuf_sink = \"WCLK\" *)"
+	xtract_cell_decl RAM32X1S_1 "(* clkbuf_sink = \"WCLK\" *)"
+	xtract_cell_decl RAM32X2S "(* clkbuf_sink = \"WCLK\" *)"
+	xtract_cell_decl RAM64M "(* clkbuf_sink = \"WCLK\" *)"
+	#xtract_cell_decl RAM64X1D "(* clkbuf_sink = \"WCLK\" *)"
+	xtract_cell_decl RAM64X1S "(* clkbuf_sink = \"WCLK\" *)"
+	xtract_cell_decl RAM64X1S_1 "(* clkbuf_sink = \"WCLK\" *)"
+	xtract_cell_decl RAM64X2S "(* clkbuf_sink = \"WCLK\" *)"
+	# xtract_cell_decl RAMB18E1 "(* clkbuf_sink = \"CLKARDCLK,CLKBWRCLK\" *)"
+	# xtract_cell_decl RAMB36E1 "(* clkbuf_sink = \"CLKARDCLK,CLKBWRCLK\" *)"
 	xtract_cell_decl ROM128X1
 	xtract_cell_decl ROM256X1
 	xtract_cell_decl ROM32X1
 	xtract_cell_decl ROM64X1
-	#xtract_cell_decl SRL16E
-	#xtract_cell_decl SRLC32E
+	#xtract_cell_decl SRL16E "(* clkbuf_sink = \"CLK\" *)"
+	#xtract_cell_decl SRLC32E "(* clkbuf_sink = \"CLK\" *)"
 	xtract_cell_decl STARTUPE2 "(* keep *)"
 	xtract_cell_decl USR_ACCESSE2
 	xtract_cell_decl XADC

@@ -1,3 +1,4 @@
+(* clkbuf_sink = "CLKARDCLK,CLKBWRCLK" *)
 module RAMB18E1 (
 	input CLKARDCLK,
 	input CLKBWRCLK,
@@ -122,6 +123,7 @@ module RAMB18E1 (
 	parameter SIM_DEVICE = "VIRTEX6";
 endmodule
 
+(* clkbuf_sink = "CLKARDCLK,CLKBWRCLK" *)
 module RAMB36E1 (
 	input CLKARDCLK,
 	input CLKBWRCLK,
