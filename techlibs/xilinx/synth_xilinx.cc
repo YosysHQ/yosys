@@ -64,7 +64,7 @@ struct SynthXilinxPass : public ScriptPass
 		log("        (this feature is experimental and incomplete)\n");
 		log("\n");
 		log("    -ise\n");
-		log("        generate an output netlist suitable for ISE\n");
+		log("        generate an output netlist suitable for ISE (enables -iopad)\n");
 		log("\n");
 		log("    -nobram\n");
 		log("        disable inference of block rams\n");

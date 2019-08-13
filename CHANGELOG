@@ -20,8 +20,10 @@ Yosys 0.9 .. Yosys 0.9-dev
     - Improve attribute and parameter encoding in JSON to avoid ambiguities between
       bit vectors and strings containing [01xz]*
     - Added "clkbufmap" pass
-    - Added "synth_xilinx -ise" for Spartan 6 (experimental)
-    - "synth_xilinx" now automatically inserts clock buffers
+    - Added "synth_xilinx -family xc6s" for Spartan 6 support (experimental)
+    - Added "synth_xilinx -ise" (experimental)
+    - Added "synth_xilinx -iopad"
+    - "synth_xilinx" now automatically inserts clock buffers (add -noclkbuf to disable)
 
 Yosys 0.8 .. Yosys 0.8-dev
 --------------------------
