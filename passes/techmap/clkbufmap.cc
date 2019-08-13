@@ -112,27 +112,13 @@ struct ClkbufmapPass : public Pass {
 		for (auto module : modules_sorted)
 		{
 			if (module->get_blackbox_attribute()) {
-				auto it = module->attributes.find("\\clkbuf_driver");
-				if (it != module->attributes.end()) {
-					auto value = it->second.decode_string();
-					for (auto name : split_tokens(value, ",")) {
-						auto wire = module->wire(RTLIL::escape_id(name));
-						if (!wire)
-							log_error("Module %s does not have port %s.\n", log_id(module), log_id(name));
+				for (auto wire : module->wires()) {
+					if (wire->get_bool_attribute("\\clkbuf_driver"))
 						for (int i = 0; i < GetSize(wire); i++)
-							buf_ports.insert(make_pair(module->name, make_pair(RTLIL::escape_id(name), i)));
-					}
-				}
-				it = module->attributes.find("\\clkbuf_sink");
-				if (it != module->attributes.end()) {
-					auto value = it->second.decode_string();
-					for (auto name : split_tokens(value, ",")) {
-						auto wire = module->wire(RTLIL::escape_id(name));
-						if (!wire)
-							log_error("Module %s does not have port %s.\n", log_id(module), log_id(name));
+							buf_ports.insert(make_pair(module->name, make_pair(wire->name, i)));
+					if (wire->get_bool_attribute("\\clkbuf_sink"))
 						for (int i = 0; i < GetSize(wire); i++)
-							sink_ports.insert(make_pair(module->name, make_pair(RTLIL::escape_id(name), i)));
-					}
+							sink_ports.insert(make_pair(module->name, make_pair(wire->name, i)));
 				}
 				continue;
 			}

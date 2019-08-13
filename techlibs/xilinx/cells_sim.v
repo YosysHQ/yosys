@@ -29,26 +29,35 @@ module GND(output G);
   assign G = 0;
 endmodule
 
-module IBUF(output O, input I);
+module IBUF(
+    output O,
+    (* iopad_external_pin *)
+    input I);
   parameter IOSTANDARD = "default";
   parameter IBUF_LOW_PWR = 0;
   assign O = I;
 endmodule
 
-module OBUF(output O, input I);
+module OBUF(
+    (* iopad_external_pin *)
+    output O,
+    input I);
   parameter IOSTANDARD = "default";
   parameter DRIVE = 12;
   parameter SLEW = "SLOW";
   assign O = I;
 endmodule
 
-(* clkbuf_driver = "O" *)
-module BUFG(output O, input I);
+module BUFG(
+    (* clkbuf_driver *)
+    output O,
+    input I);
+
   assign O = I;
 endmodule
 
-(* clkbuf_driver = "O" *)
 module BUFGCTRL(
+    (* clkbuf_driver *)
     output O,
     input I0, input I1,
     input S0, input S1,
@@ -74,8 +83,11 @@ assign O = S0_true ? I0_internal : (S1_true ? I1_internal : INIT_OUT);
 
 endmodule
 
-(* clkbuf_driver = "O" *)
-module BUFHCE(output O, input I, input CE);
+module BUFHCE(
+    (* clkbuf_driver *)
+    output O,
+    input I,
+    input CE);
 
 parameter [0:0] INIT_OUT = 1'b0;
 parameter CE_TYPE = "SYNC";
@@ -216,8 +228,7 @@ endmodule
 
 `endif
 
-(* clkbuf_sink = "C" *)
-module FDRE (output reg Q, input C, CE, D, R);
+module FDRE (output reg Q, (* clkbuf_sink *) input C, input CE, D, R);
   parameter [0:0] INIT = 1'b0;
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
@@ -229,8 +240,7 @@ module FDRE (output reg Q, input C, CE, D, R);
   endcase endgenerate
 endmodule
 
-(* clkbuf_sink = "C" *)
-module FDSE (output reg Q, input C, CE, D, S);
+module FDSE (output reg Q, (* clkbuf_sink *) input C, input CE, D, S);
   parameter [0:0] INIT = 1'b1;
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
@@ -242,8 +252,7 @@ module FDSE (output reg Q, input C, CE, D, S);
   endcase endgenerate
 endmodule
 
-(* clkbuf_sink = "C" *)
-module FDCE (output reg Q, input C, CE, D, CLR);
+module FDCE (output reg Q, (* clkbuf_sink *) input C, input CE, D, CLR);
   parameter [0:0] INIT = 1'b0;
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
@@ -257,8 +266,7 @@ module FDCE (output reg Q, input C, CE, D, CLR);
   endcase endgenerate
 endmodule
 
-(* clkbuf_sink = "C" *)
-module FDPE (output reg Q, input C, CE, D, PRE);
+module FDPE (output reg Q, (* clkbuf_sink *) input C, input CE, D, PRE);
   parameter [0:0] INIT = 1'b1;
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
@@ -272,39 +280,36 @@ module FDPE (output reg Q, input C, CE, D, PRE);
   endcase endgenerate
 endmodule
 
-(* clkbuf_sink = "C" *)
-module FDRE_1 (output reg Q, input C, CE, D, R);
+module FDRE_1 (output reg Q, (* clkbuf_sink *) input C, input CE, D, R);
   parameter [0:0] INIT = 1'b0;
   initial Q <= INIT;
   always @(negedge C) if (R) Q <= 1'b0; else if(CE) Q <= D;
 endmodule
 
-(* clkbuf_sink = "C" *)
-module FDSE_1 (output reg Q, input C, CE, D, S);
+module FDSE_1 (output reg Q, (* clkbuf_sink *) input C, input CE, D, S);
   parameter [0:0] INIT = 1'b1;
   initial Q <= INIT;
   always @(negedge C) if (S) Q <= 1'b1; else if(CE) Q <= D;
 endmodule
 
-(* clkbuf_sink = "C" *)
-module FDCE_1 (output reg Q, input C, CE, D, CLR);
+module FDCE_1 (output reg Q, (* clkbuf_sink *) input C, input CE, D, CLR);
   parameter [0:0] INIT = 1'b0;
   initial Q <= INIT;
   always @(negedge C, posedge CLR) if (CLR) Q <= 1'b0; else if (CE) Q <= D;
 endmodule
 
-(* clkbuf_sink = "C" *)
-module FDPE_1 (output reg Q, input C, CE, D, PRE);
+module FDPE_1 (output reg Q, (* clkbuf_sink *) input C, input CE, D, PRE);
   parameter [0:0] INIT = 1'b1;
   initial Q <= INIT;
   always @(negedge C, posedge PRE) if (PRE) Q <= 1'b1; else if (CE) Q <= D;
 endmodule
 
-(* clkbuf_sink = "WCLK" *)
 (* abc_box_id = 5, abc_scc_break="D,WE" *)
 module RAM32X1D (
   output DPO, SPO,
-  input  D, WCLK, WE,
+  (* clkbuf_sink *)
+  input  WCLK,
+  input  D, WE,
   input  A0, A1, A2, A3, A4,
   input  DPRA0, DPRA1, DPRA2, DPRA3, DPRA4
 );
@@ -319,11 +324,12 @@ module RAM32X1D (
   always @(posedge clk) if (WE) mem[a] <= D;
 endmodule
 
-(* clkbuf_sink = "WCLK" *)
 (* abc_box_id = 6, abc_scc_break="D,WE" *)
 module RAM64X1D (
   output DPO, SPO,
-  input  D, WCLK, WE,
+  (* clkbuf_sink *)
+  input  WCLK,
+  input  D, WE,
   input  A0, A1, A2, A3, A4, A5,
   input  DPRA0, DPRA1, DPRA2, DPRA3, DPRA4, DPRA5
 );
@@ -338,11 +344,12 @@ module RAM64X1D (
   always @(posedge clk) if (WE) mem[a] <= D;
 endmodule
 
-(* clkbuf_sink = "WCLK" *)
 (* abc_box_id = 7, abc_scc_break="D,WE" *)
 module RAM128X1D (
   output       DPO, SPO,
-  input        D, WCLK, WE,
+  input        D, WE,
+  (* clkbuf_sink *)
+  input        WCLK,
   input  [6:0] A, DPRA
 );
   parameter INIT = 128'h0;
@@ -354,10 +361,11 @@ module RAM128X1D (
   always @(posedge clk) if (WE) mem[A] <= D;
 endmodule
 
-(* clkbuf_sink = "CLK" *)
 module SRL16E (
   output Q,
-  input A0, A1, A2, A3, CE, CLK, D
+  (* clkbuf_sink *)
+  input CLK,
+  input A0, A1, A2, A3, CE, D
 );
   parameter [15:0] INIT = 16'h0000;
   parameter [0:0] IS_CLK_INVERTED = 1'b0;
@@ -373,12 +381,13 @@ module SRL16E (
   endgenerate
 endmodule
 
-(* clkbuf_sink = "CLK" *)
 module SRLC32E (
   output Q,
   output Q31,
   input [4:0] A,
-  input CE, CLK, D
+  (* clkbuf_sink *)
+  input CLK,
+  input CE, D
 );
   parameter [31:0] INIT = 32'h00000000;
   parameter [0:0] IS_CLK_INVERTED = 1'b0;

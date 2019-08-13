@@ -1,4 +1,4 @@
-// Created by cells_xtra.sh from Xilinx models
+// Created by cells_xtra.py from Xilinx models
 
 (* keep *)
 module BSCANE2 (...);
@@ -17,75 +17,79 @@ module BSCANE2 (...);
     input TDO;
 endmodule
 
-(* clkbuf_driver = "O" *)
 module BUFGCE (...);
     parameter CE_TYPE = "SYNC";
     parameter [0:0] IS_CE_INVERTED = 1'b0;
     parameter [0:0] IS_I_INVERTED = 1'b0;
+    (* clkbuf_driver *)
     output O;
     input CE;
     input I;
 endmodule
 
-(* clkbuf_driver = "O" *)
 module BUFGCE_1 (...);
+    (* clkbuf_driver *)
     output O;
     input CE;
     input I;
 endmodule
 
-(* clkbuf_driver = "O" *)
 module BUFGMUX (...);
     parameter CLK_SEL_TYPE = "SYNC";
-    output O;
-    input I0, I1, S;
-endmodule
-
-(* clkbuf_driver = "O" *)
-module BUFGMUX_1 (...);
-    parameter CLK_SEL_TYPE = "SYNC";
-    output O;
-    input I0, I1, S;
-endmodule
-
-(* clkbuf_driver = "O" *)
-module BUFGMUX_CTRL (...);
+    (* clkbuf_driver *)
     output O;
     input I0;
     input I1;
     input S;
 endmodule
 
-(* clkbuf_driver = "O" *)
+module BUFGMUX_1 (...);
+    parameter CLK_SEL_TYPE = "SYNC";
+    (* clkbuf_driver *)
+    output O;
+    input I0;
+    input I1;
+    input S;
+endmodule
+
+module BUFGMUX_CTRL (...);
+    (* clkbuf_driver *)
+    output O;
+    input I0;
+    input I1;
+    input S;
+endmodule
+
 module BUFH (...);
+    (* clkbuf_driver *)
     output O;
     input I;
 endmodule
 
-(* clkbuf_driver = "O" *)
 module BUFIO (...);
+    (* clkbuf_driver *)
     output O;
     input I;
 endmodule
 
-(* clkbuf_driver = "O" *)
 module BUFMR (...);
+    (* clkbuf_driver *)
     output O;
     input I;
 endmodule
 
-(* clkbuf_driver = "O" *)
 module BUFMRCE (...);
     parameter CE_TYPE = "SYNC";
     parameter integer INIT_OUT = 0;
     parameter [0:0] IS_CE_INVERTED = 1'b0;
+    (* clkbuf_driver *)
     output O;
     input CE;
     input I;
 endmodule
 
-(* clkbuf_driver = "O" *)
 module BUFR (...);
+    (* clkbuf_driver *)
     output O;
     input CE;
     input CLR;
@@ -101,15 +105,21 @@ module CAPTUREE2 (...);
     input CLK;
 endmodule
 
-(* clkbuf_sink = "CLK" *)
 module CFGLUT5 (...);
     parameter [31:0] INIT = 32'h00000000;
     parameter [0:0] IS_CLK_INVERTED = 1'b0;
     output CDO;
     output O5;
     output O6;
-    input I4, I3, I2, I1, I0;
-    input CDI, CE, CLK;
+    input I4;
+    input I3;
+    input I2;
+    input I1;
+    input I0;
+    input CDI;
+    input CE;
+    (* clkbuf_sink *)
+    input CLK;
 endmodule
 
 (* keep *)
@@ -121,10 +131,12 @@ endmodule
 module DNA_PORT (...);
     parameter [56:0] SIM_DNA_VALUE = 57'h0;
     output DOUT;
-    input CLK, DIN, READ, SHIFT;
+    input CLK;
+    input DIN;
+    input READ;
+    input SHIFT;
 endmodule
 
-(* clkbuf_sink = "CLK" *)
 module DSP48E1 (...);
     parameter integer ACASCREG = 1;
     parameter integer ADREG = 1;
@@ -189,6 +201,7 @@ module DSP48E1 (...);
     input CEINMODE;
     input CEM;
     input CEP;
+    (* clkbuf_sink *)
     input CLK;
     input [24:0] D;
     input [4:0] INMODE;
@@ -212,7 +225,6 @@ module EFUSE_USR (...);
     output [31:0] EFUSEUSR;
 endmodule
 
-(* clkbuf_sink = "RDCLK,WRCLK" *)
 module FIFO18E1 (...);
     parameter ALMOST_EMPTY_OFFSET = 13'h0080;
     parameter ALMOST_FULL_OFFSET = 13'h0080;
@@ -242,16 +254,17 @@ module FIFO18E1 (...);
     output WRERR;
     input [31:0] DI;
     input [3:0] DIP;
+    (* clkbuf_sink *)
     input RDCLK;
     input RDEN;
     input REGCE;
     input RST;
     input RSTREG;
+    (* clkbuf_sink *)
     input WRCLK;
     input WREN;
 endmodule
 
-(* clkbuf_sink = "RDCLK,WRCLK" *)
 module FIFO36E1 (...);
     parameter ALMOST_EMPTY_OFFSET = 13'h0080;
     parameter ALMOST_FULL_OFFSET = 13'h0080;
@@ -288,11 +301,13 @@ module FIFO36E1 (...);
     input [7:0] DIP;
     input INJECTDBITERR;
     input INJECTSBITERR;
+    (* clkbuf_sink *)
     input RDCLK;
     input RDEN;
     input REGCE;
     input RST;
     input RSTREG;
+    (* clkbuf_sink *)
     input WRCLK;
     input WREN;
 endmodule
@@ -1979,30 +1994,29 @@ module GTXE2_COMMON (...);
     input [7:0] PMARSVD;
 endmodule
 
-(* iopad_external_pin = "I" *)
 module IBUF_IBUFDISABLE (...);
     parameter IBUF_LOW_PWR = "TRUE";
     parameter IOSTANDARD = "DEFAULT";
     parameter SIM_DEVICE = "7SERIES";
     parameter USE_IBUFDISABLE = "TRUE";
     output O;
+    (* iopad_external_pin *)
     input I;
     input IBUFDISABLE;
 endmodule
 
-(* iopad_external_pin = "I" *)
 module IBUF_INTERMDISABLE (...);
     parameter IBUF_LOW_PWR = "TRUE";
     parameter IOSTANDARD = "DEFAULT";
     parameter SIM_DEVICE = "7SERIES";
     parameter USE_IBUFDISABLE = "TRUE";
     output O;
+    (* iopad_external_pin *)
     input I;
     input IBUFDISABLE;
     input INTERMDISABLE;
 endmodule
 
-(* iopad_external_pin = "I,IB" *)
 module IBUFDS (...);
     parameter CAPACITANCE = "DONT_CARE";
     parameter DIFF_TERM = "FALSE";
@@ -2012,20 +2026,25 @@ module IBUFDS (...);
     parameter IFD_DELAY_VALUE = "AUTO";
     parameter IOSTANDARD = "DEFAULT";
     output O;
-    input I, IB;
+    (* iopad_external_pin *)
+    input I;
+    (* iopad_external_pin *)
+    input IB;
 endmodule
 
-(* iopad_external_pin = "I,IB" *)
 module IBUFDS_DIFF_OUT (...);
     parameter DIFF_TERM = "FALSE";
     parameter DQS_BIAS = "FALSE";
     parameter IBUF_LOW_PWR = "TRUE";
     parameter IOSTANDARD = "DEFAULT";
-    output O, OB;
-    input I, IB;
+    output O;
+    output OB;
+    (* iopad_external_pin *)
+    input I;
+    (* iopad_external_pin *)
+    input IB;
 endmodule
 
-(* iopad_external_pin = "I,IB" *)
 module IBUFDS_DIFF_OUT_IBUFDISABLE (...);
     parameter DIFF_TERM = "FALSE";
     parameter DQS_BIAS = "FALSE";
@@ -2035,12 +2054,13 @@ module IBUFDS_DIFF_OUT_IBUFDISABLE (...);
     parameter USE_IBUFDISABLE = "TRUE";
     output O;
     output OB;
+    (* iopad_external_pin *)
     input I;
+    (* iopad_external_pin *)
     input IB;
     input IBUFDISABLE;
 endmodule
 
-(* iopad_external_pin = "I,IB" *)
 module IBUFDS_DIFF_OUT_INTERMDISABLE (...);
     parameter DIFF_TERM = "FALSE";
     parameter DQS_BIAS = "FALSE";
@@ -2050,13 +2070,14 @@ module IBUFDS_DIFF_OUT_INTERMDISABLE (...);
     parameter USE_IBUFDISABLE = "TRUE";
     output O;
     output OB;
+    (* iopad_external_pin *)
     input I;
+    (* iopad_external_pin *)
     input IB;
     input IBUFDISABLE;
     input INTERMDISABLE;
 endmodule
 
-(* iopad_external_pin = "I,IB" *)
 module IBUFDS_GTE2 (...);
     parameter CLKCM_CFG = "TRUE";
     parameter CLKRCV_TRST = "TRUE";
@@ -2064,11 +2085,12 @@ module IBUFDS_GTE2 (...);
     output O;
     output ODIV2;
     input CEB;
+    (* iopad_external_pin *)
     input I;
+    (* iopad_external_pin *)
     input IB;
 endmodule
 
-(* iopad_external_pin = "I,IB" *)
 module IBUFDS_IBUFDISABLE (...);
     parameter DIFF_TERM = "FALSE";
     parameter DQS_BIAS = "FALSE";
@@ -2077,12 +2099,13 @@ module IBUFDS_IBUFDISABLE (...);
     parameter SIM_DEVICE = "7SERIES";
     parameter USE_IBUFDISABLE = "TRUE";
     output O;
+    (* iopad_external_pin *)
     input I;
+    (* iopad_external_pin *)
     input IB;
     input IBUFDISABLE;
 endmodule
 
-(* iopad_external_pin = "I,IB" *)
 module IBUFDS_INTERMDISABLE (...);
     parameter DIFF_TERM = "FALSE";
     parameter DQS_BIAS = "FALSE";
@@ -2091,23 +2114,24 @@ module IBUFDS_INTERMDISABLE (...);
     parameter SIM_DEVICE = "7SERIES";
     parameter USE_IBUFDISABLE = "TRUE";
     output O;
+    (* iopad_external_pin *)
     input I;
+    (* iopad_external_pin *)
     input IB;
     input IBUFDISABLE;
     input INTERMDISABLE;
 endmodule
 
-(* iopad_external_pin = "I" *)
 module IBUFG (...);
     parameter CAPACITANCE = "DONT_CARE";
     parameter IBUF_DELAY_VALUE = "0";
     parameter IBUF_LOW_PWR = "TRUE";
     parameter IOSTANDARD = "DEFAULT";
     output O;
+    (* iopad_external_pin *)
     input I;
 endmodule
 
-(* iopad_external_pin = "I,IB" *)
 module IBUFGDS (...);
     parameter CAPACITANCE = "DONT_CARE";
     parameter DIFF_TERM = "FALSE";
@@ -2115,17 +2139,23 @@ module IBUFGDS (...);
     parameter IBUF_LOW_PWR = "TRUE";
     parameter IOSTANDARD = "DEFAULT";
     output O;
-    input I, IB;
+    (* iopad_external_pin *)
+    input I;
+    (* iopad_external_pin *)
+    input IB;
 endmodule
 
-(* iopad_external_pin = "I,IB" *)
 module IBUFGDS_DIFF_OUT (...);
     parameter DIFF_TERM = "FALSE";
     parameter DQS_BIAS = "FALSE";
     parameter IBUF_LOW_PWR = "TRUE";
     parameter IOSTANDARD = "DEFAULT";
-    output O, OB;
-    input I, IB;
+    output O;
+    output OB;
+    (* iopad_external_pin *)
+    input I;
+    (* iopad_external_pin *)
+    input IB;
 endmodule
 
 (* keep *)
@@ -2140,7 +2170,6 @@ module ICAPE2 (...);
     input [31:0] I;
 endmodule
 
-(* clkbuf_sink = "C" *)
 module IDDR (...);
     parameter DDR_CLK_EDGE = "OPPOSITE_EDGE";
     parameter INIT_Q1 = 1'b0;
@@ -2152,6 +2181,7 @@ module IDDR (...);
     parameter XON = "TRUE";
     output Q1;
     output Q2;
+    (* clkbuf_sink *)
     input C;
     input CE;
     input D;
@@ -2159,7 +2189,6 @@ module IDDR (...);
     input S;
 endmodule
 
-(* clkbuf_sink = "C,CB" *)
 module IDDR_2CLK (...);
     parameter DDR_CLK_EDGE = "OPPOSITE_EDGE";
     parameter INIT_Q1 = 1'b0;
@@ -2170,7 +2199,9 @@ module IDDR_2CLK (...);
     parameter SRTYPE = "SYNC";
     output Q1;
     output Q2;
+    (* clkbuf_sink *)
     input C;
+    (* clkbuf_sink *)
     input CB;
     input CE;
     input D;
@@ -2178,15 +2209,15 @@ module IDDR_2CLK (...);
     input S;
 endmodule
 
-(* keep *) (* clkbuf_sink = "REFCLK" *)
+(* keep *)
 module IDELAYCTRL (...);
     parameter SIM_DEVICE = "7SERIES";
     output RDY;
+    (* clkbuf_sink *)
     input REFCLK;
     input RST;
 endmodule
 
-(* clkbuf_sink = "C" *)
 module IDELAYE2 (...);
     parameter CINVCTRL_SEL = "FALSE";
     parameter DELAY_SRC = "IDATAIN";
@@ -2202,6 +2233,7 @@ module IDELAYE2 (...);
     parameter integer SIM_DELAY_D = 0;
     output [4:0] CNTVALUEOUT;
     output DATAOUT;
+    (* clkbuf_sink *)
     input C;
     input CE;
     input CINVCTRL;
@@ -2214,7 +2246,6 @@ module IDELAYE2 (...);
     input REGRST;
 endmodule
 
-(* clkbuf_sink = "RDCLK,WRCLK" *)
 module IN_FIFO (...);
     parameter integer ALMOST_EMPTY_VALUE = 1;
     parameter integer ALMOST_FULL_VALUE = 1;
@@ -2234,9 +2265,11 @@ module IN_FIFO (...);
     output [7:0] Q7;
     output [7:0] Q8;
     output [7:0] Q9;
+    (* clkbuf_sink *)
     input RDCLK;
     input RDEN;
     input RESET;
+    (* clkbuf_sink *)
     input WRCLK;
     input WREN;
     input [3:0] D0;
@@ -2251,18 +2284,18 @@ module IN_FIFO (...);
     input [7:0] D6;
 endmodule
 
-(* iopad_external_pin = "IO" *)
 module IOBUF (...);
     parameter integer DRIVE = 12;
     parameter IBUF_LOW_PWR = "TRUE";
     parameter IOSTANDARD = "DEFAULT";
     parameter SLEW = "SLOW";
     output O;
+    (* iopad_external_pin *)
     inout IO;
-    input I, T;
+    input I;
+    input T;
 endmodule
 
-(* iopad_external_pin = "IO" *)
 module IOBUF_DCIEN (...);
     parameter integer DRIVE = 12;
     parameter IBUF_LOW_PWR = "TRUE";
@@ -2271,6 +2304,7 @@ module IOBUF_DCIEN (...);
     parameter SLEW = "SLOW";
     parameter USE_IBUFDISABLE = "TRUE";
     output O;
+    (* iopad_external_pin *)
     inout IO;
     input DCITERMDISABLE;
     input I;
@@ -2278,7 +2312,6 @@ module IOBUF_DCIEN (...);
     input T;
 endmodule
 
-(* iopad_external_pin = "IO" *)
 module IOBUF_INTERMDISABLE (...);
     parameter integer DRIVE = 12;
     parameter IBUF_LOW_PWR = "TRUE";
@@ -2287,6 +2320,7 @@ module IOBUF_INTERMDISABLE (...);
     parameter SLEW = "SLOW";
     parameter USE_IBUFDISABLE = "TRUE";
     output O;
+    (* iopad_external_pin *)
     inout IO;
     input I;
     input IBUFDISABLE;
@@ -2294,7 +2328,6 @@ module IOBUF_INTERMDISABLE (...);
     input T;
 endmodule
 
-(* iopad_external_pin = "IO" *)
 module IOBUFDS (...);
     parameter DIFF_TERM = "FALSE";
     parameter DQS_BIAS = "FALSE";
@@ -2302,11 +2335,13 @@ module IOBUFDS (...);
     parameter IOSTANDARD = "DEFAULT";
     parameter SLEW = "SLOW";
     output O;
-    inout IO, IOB;
-    input I, T;
+    (* iopad_external_pin *)
+    inout IO;
+    inout IOB;
+    input I;
+    input T;
 endmodule
 
-(* iopad_external_pin = "IO,IOB" *)
 module IOBUFDS_DCIEN (...);
     parameter DIFF_TERM = "FALSE";
     parameter DQS_BIAS = "FALSE";
@@ -2316,7 +2351,9 @@ module IOBUFDS_DCIEN (...);
     parameter SLEW = "SLOW";
     parameter USE_IBUFDISABLE = "TRUE";
     output O;
+    (* iopad_external_pin *)
     inout IO;
+    (* iopad_external_pin *)
     inout IOB;
     input DCITERMDISABLE;
     input I;
@@ -2324,7 +2361,6 @@ module IOBUFDS_DCIEN (...);
     input T;
 endmodule
 
-(* iopad_external_pin = "IO,IOB" *)
 module IOBUFDS_DIFF_OUT (...);
     parameter DIFF_TERM = "FALSE";
     parameter DQS_BIAS = "FALSE";
@@ -2332,14 +2368,15 @@ module IOBUFDS_DIFF_OUT (...);
     parameter IOSTANDARD = "DEFAULT";
     output O;
     output OB;
+    (* iopad_external_pin *)
     inout IO;
+    (* iopad_external_pin *)
     inout IOB;
     input I;
     input TM;
     input TS;
 endmodule
 
-(* iopad_external_pin = "IO,IOB" *)
 module IOBUFDS_DIFF_OUT_DCIEN (...);
     parameter DIFF_TERM = "FALSE";
     parameter DQS_BIAS = "FALSE";
@@ -2349,7 +2386,9 @@ module IOBUFDS_DIFF_OUT_DCIEN (...);
     parameter USE_IBUFDISABLE = "TRUE";
     output O;
     output OB;
+    (* iopad_external_pin *)
     inout IO;
+    (* iopad_external_pin *)
     inout IOB;
     input DCITERMDISABLE;
     input I;
@@ -2358,7 +2397,6 @@ module IOBUFDS_DIFF_OUT_DCIEN (...);
     input TS;
 endmodule
 
-(* iopad_external_pin = "IO,IOB" *)
 module IOBUFDS_DIFF_OUT_INTERMDISABLE (...);
     parameter DIFF_TERM = "FALSE";
     parameter DQS_BIAS = "FALSE";
@@ -2368,7 +2406,9 @@ module IOBUFDS_DIFF_OUT_INTERMDISABLE (...);
     parameter USE_IBUFDISABLE = "TRUE";
     output O;
     output OB;
+    (* iopad_external_pin *)
     inout IO;
+    (* iopad_external_pin *)
     inout IOB;
     input I;
     input IBUFDISABLE;
@@ -2377,7 +2417,6 @@ module IOBUFDS_DIFF_OUT_INTERMDISABLE (...);
     input TS;
 endmodule
 
-(* clkbuf_sink = "CLK,CLKB,CLKDIV,CLKDIVP,OCLK,OCLKB" *)
 module ISERDESE2 (...);
     parameter DATA_RATE = "DDR";
     parameter integer DATA_WIDTH = 4;
@@ -2417,15 +2456,21 @@ module ISERDESE2 (...);
     input BITSLIP;
     input CE1;
     input CE2;
+    (* clkbuf_sink *)
     input CLK;
+    (* clkbuf_sink *)
     input CLKB;
+    (* clkbuf_sink *)
     input CLKDIV;
+    (* clkbuf_sink *)
     input CLKDIVP;
     input D;
     input DDLY;
     input DYNCLKDIVSEL;
     input DYNCLKSEL;
+    (* clkbuf_sink *)
     input OCLK;
+    (* clkbuf_sink *)
     input OCLKB;
     input OFB;
     input RST;
@@ -2444,7 +2489,10 @@ module LDCE (...);
     parameter MSGON = "TRUE";
     parameter XON = "TRUE";
     output Q;
-    input CLR, D, G, GE;
+    input CLR;
+    input D;
+    input G;
+    input GE;
 endmodule
 
 module LDPE (...);
@@ -2454,7 +2502,10 @@ module LDPE (...);
     parameter MSGON = "TRUE";
     parameter XON = "TRUE";
     output Q;
-    input D, G, GE, PRE;
+    input D;
+    input G;
+    input GE;
+    input PRE;
 endmodule
 
 module MMCME2_ADV (...);
@@ -2598,37 +2649,43 @@ module MMCME2_BASE (...);
     input RST;
 endmodule
 
-(* iopad_external_pin = "O,OB" *)
 module OBUFDS (...);
     parameter CAPACITANCE = "DONT_CARE";
     parameter IOSTANDARD = "DEFAULT";
     parameter SLEW = "SLOW";
-    output O, OB;
+    (* iopad_external_pin *)
+    output O;
+    (* iopad_external_pin *)
+    output OB;
     input I;
 endmodule
 
-(* iopad_external_pin = "O" *)
 module OBUFT (...);
     parameter CAPACITANCE = "DONT_CARE";
     parameter integer DRIVE = 12;
     parameter IOSTANDARD = "DEFAULT";
     parameter SLEW = "SLOW";
+    (* iopad_external_pin *)
     output O;
-    input I, T;
+    input I;
+    input T;
 endmodule
 
-(* iopad_external_pin = "O,OB" *)
 module OBUFTDS (...);
     parameter CAPACITANCE = "DONT_CARE";
     parameter IOSTANDARD = "DEFAULT";
     parameter SLEW = "SLOW";
-    output O, OB;
-    input I, T;
+    (* iopad_external_pin *)
+    output O;
+    (* iopad_external_pin *)
+    output OB;
+    input I;
+    input T;
 endmodule
 
-(* clkbuf_sink = "C" *)
 module ODDR (...);
     output Q;
+    (* clkbuf_sink *)
     input C;
     input CE;
     input D1;
@@ -2645,7 +2702,6 @@ module ODDR (...);
     parameter XON = "TRUE";
 endmodule
 
-(* clkbuf_sink = "C" *)
 module ODELAYE2 (...);
     parameter CINVCTRL_SEL = "FALSE";
     parameter DELAY_SRC = "ODATAIN";
@@ -2660,6 +2716,7 @@ module ODELAYE2 (...);
     parameter integer SIM_DELAY_D = 0;
     output [4:0] CNTVALUEOUT;
     output DATAOUT;
+    (* clkbuf_sink *)
     input C;
     input CE;
     input CINVCTRL;
@@ -2672,7 +2729,6 @@ module ODELAYE2 (...);
     input REGRST;
 endmodule
 
-(* clkbuf_sink = "CLK,CLKDIV" *)
 module OSERDESE2 (...);
     parameter DATA_RATE_OQ = "DDR";
     parameter DATA_RATE_TQ = "DDR";
@@ -2706,7 +2762,9 @@ module OSERDESE2 (...);
     output TBYTEOUT;
     output TFB;
     output TQ;
+    (* clkbuf_sink *)
     input CLK;
+    (* clkbuf_sink *)
     input CLKDIV;
     input D1;
     input D2;
@@ -2728,7 +2786,6 @@ module OSERDESE2 (...);
     input TCE;
 endmodule
 
-(* clkbuf_sink = "RDCLK,WRCLK" *)
 module OUT_FIFO (...);
     parameter integer ALMOST_EMPTY_VALUE = 1;
     parameter integer ALMOST_FULL_VALUE = 1;
@@ -2749,9 +2806,11 @@ module OUT_FIFO (...);
     output [3:0] Q9;
     output [7:0] Q5;
     output [7:0] Q6;
+    (* clkbuf_sink *)
     input RDCLK;
     input RDEN;
     input RESET;
+    (* clkbuf_sink *)
     input WRCLK;
     input WREN;
     input [7:0] D0;
@@ -3731,26 +3790,34 @@ module PULLUP (...);
     output O;
 endmodule
 
-(* clkbuf_sink = "WCLK" *)
 module RAM128X1S (...);
     parameter [127:0] INIT = 128'h00000000000000000000000000000000;
     parameter [0:0] IS_WCLK_INVERTED = 1'b0;
     output O;
-    input A0, A1, A2, A3, A4, A5, A6, D, WCLK, WE;
+    input A0;
+    input A1;
+    input A2;
+    input A3;
+    input A4;
+    input A5;
+    input A6;
+    input D;
+    (* clkbuf_sink *)
+    input WCLK;
+    input WE;
 endmodule
 
-(* clkbuf_sink = "WCLK" *)
 module RAM256X1S (...);
     parameter [255:0] INIT = 256'h0;
     parameter [0:0] IS_WCLK_INVERTED = 1'b0;
     output O;
     input [7:0] A;
     input D;
+    (* clkbuf_sink *)
     input WCLK;
     input WE;
 endmodule
 
-(* clkbuf_sink = "WCLK" *)
 module RAM32M (...);
     parameter [63:0] INIT_A = 64'h0000000000000000;
     parameter [63:0] INIT_B = 64'h0000000000000000;
@@ -3769,36 +3836,59 @@ module RAM32M (...);
     input [1:0] DIB;
     input [1:0] DIC;
     input [1:0] DID;
+    (* clkbuf_sink *)
     input WCLK;
     input WE;
 endmodule
 
-(* clkbuf_sink = "WCLK" *)
 module RAM32X1S (...);
     parameter [31:0] INIT = 32'h00000000;
     parameter [0:0] IS_WCLK_INVERTED = 1'b0;
     output O;
-    input A0, A1, A2, A3, A4, D, WCLK, WE;
+    input A0;
+    input A1;
+    input A2;
+    input A3;
+    input A4;
+    input D;
+    (* clkbuf_sink *)
+    input WCLK;
+    input WE;
 endmodule
 
-(* clkbuf_sink = "WCLK" *)
 module RAM32X1S_1 (...);
     parameter [31:0] INIT = 32'h00000000;
     parameter [0:0] IS_WCLK_INVERTED = 1'b0;
     output O;
-    input A0, A1, A2, A3, A4, D, WCLK, WE;
+    input A0;
+    input A1;
+    input A2;
+    input A3;
+    input A4;
+    input D;
+    (* clkbuf_sink *)
+    input WCLK;
+    input WE;
 endmodule
 
-(* clkbuf_sink = "WCLK" *)
 module RAM32X2S (...);
     parameter [31:0] INIT_00 = 32'h00000000;
     parameter [31:0] INIT_01 = 32'h00000000;
     parameter [0:0] IS_WCLK_INVERTED = 1'b0;
-    output O0, O1;
-    input A0, A1, A2, A3, A4, D0, D1, WCLK, WE;
+    output O0;
+    output O1;
+    input A0;
+    input A1;
+    input A2;
+    input A3;
+    input A4;
+    input D0;
+    input D1;
+    (* clkbuf_sink *)
+    input WCLK;
+    input WE;
 endmodule
 
-(* clkbuf_sink = "WCLK" *)
 module RAM64M (...);
     parameter [63:0] INIT_A = 64'h0000000000000000;
     parameter [63:0] INIT_B = 64'h0000000000000000;
@@ -3817,57 +3907,106 @@ module RAM64M (...);
     input DIB;
     input DIC;
     input DID;
+    (* clkbuf_sink *)
     input WCLK;
     input WE;
 endmodule
 
-(* clkbuf_sink = "WCLK" *)
 module RAM64X1S (...);
     parameter [63:0] INIT = 64'h0000000000000000;
     parameter [0:0] IS_WCLK_INVERTED = 1'b0;
     output O;
-    input A0, A1, A2, A3, A4, A5, D, WCLK, WE;
+    input A0;
+    input A1;
+    input A2;
+    input A3;
+    input A4;
+    input A5;
+    input D;
+    (* clkbuf_sink *)
+    input WCLK;
+    input WE;
 endmodule
 
-(* clkbuf_sink = "WCLK" *)
 module RAM64X1S_1 (...);
     parameter [63:0] INIT = 64'h0000000000000000;
     parameter [0:0] IS_WCLK_INVERTED = 1'b0;
     output O;
-    input A0, A1, A2, A3, A4, A5, D, WCLK, WE;
+    input A0;
+    input A1;
+    input A2;
+    input A3;
+    input A4;
+    input A5;
+    input D;
+    (* clkbuf_sink *)
+    input WCLK;
+    input WE;
 endmodule
 
-(* clkbuf_sink = "WCLK" *)
 module RAM64X2S (...);
     parameter [63:0] INIT_00 = 64'h0000000000000000;
     parameter [63:0] INIT_01 = 64'h0000000000000000;
     parameter [0:0] IS_WCLK_INVERTED = 1'b0;
-    output O0, O1;
-    input A0, A1, A2, A3, A4, A5, D0, D1, WCLK, WE;
+    output O0;
+    output O1;
+    input A0;
+    input A1;
+    input A2;
+    input A3;
+    input A4;
+    input A5;
+    input D0;
+    input D1;
+    (* clkbuf_sink *)
+    input WCLK;
+    input WE;
 endmodule
 
 module ROM128X1 (...);
     parameter [127:0] INIT = 128'h00000000000000000000000000000000;
     output O;
-    input A0, A1, A2, A3, A4, A5, A6;
+    input A0;
+    input A1;
+    input A2;
+    input A3;
+    input A4;
+    input A5;
+    input A6;
 endmodule
 
 module ROM256X1 (...);
     parameter [255:0] INIT = 256'h0000000000000000000000000000000000000000000000000000000000000000;
     output O;
-    input A0, A1, A2, A3, A4, A5, A6, A7;
+    input A0;
+    input A1;
+    input A2;
+    input A3;
+    input A4;
+    input A5;
+    input A6;
+    input A7;
 endmodule
 
 module ROM32X1 (...);
     parameter [31:0] INIT = 32'h00000000;
     output O;
-    input A0, A1, A2, A3, A4;
+    input A0;
+    input A1;
+    input A2;
+    input A3;
+    input A4;
 endmodule
 
 module ROM64X1 (...);
     parameter [63:0] INIT = 64'h0000000000000000;
     output O;
-    input A0, A1, A2, A3, A4, A5;
+    input A0;
+    input A1;
+    input A2;
+    input A3;
+    input A4;
+    input A5;
 endmodule
 
 (* keep *)

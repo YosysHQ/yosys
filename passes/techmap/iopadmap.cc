@@ -173,15 +173,10 @@ struct IopadmapPass : public Pass {
 			ignore.insert(make_pair(RTLIL::escape_id(tinoutpad_celltype), RTLIL::escape_id(tinoutpad_portname4)));
 
 		for (auto module : design->modules())
-		{
-			auto it = module->attributes.find("\\iopad_external_pin");
-			if (it != module->attributes.end()) {
-				auto value = it->second.decode_string();
-				for (auto name : split_tokens(value, ",")) {
-					ignore.insert(make_pair(module->name, RTLIL::escape_id(name)));
-				}
-			}
-		}
+			if (module->get_blackbox_attribute())
+				for (auto wire : module->wires())
+					if (wire->get_bool_attribute("\\iopad_external_pin"))
+						ignore.insert(make_pair(module->name, wire->name));
 
 		for (auto module : design->selected_modules())
 		{
