@@ -784,4 +784,6 @@ module DSP48E1 (
         end
     endgenerate
 
+    assign PCOUT = P;
+
 endmodule
