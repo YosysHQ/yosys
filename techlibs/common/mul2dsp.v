@@ -93,7 +93,7 @@ module _80_mul (A, B, Y);
 			.Y(Y)
 		);
 `endif
-	else if (A_WIDTH < B_WIDTH)
+	else if (_TECHMAP_CELLTYPE_ == "$mul" && A_WIDTH < B_WIDTH)
 		\$mul #(
 			.A_SIGNED(B_SIGNED),
 			.B_SIGNED(A_SIGNED),
