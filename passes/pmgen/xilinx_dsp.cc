@@ -127,8 +127,8 @@ void pack_xilinx_dsp(xilinx_dsp_pm &pm)
 	pm.blacklist(cell);
 }
 
-struct Ice40DspPass : public Pass {
-	Ice40DspPass() : Pass("xilinx_dsp", "Xilinx: pack DSP registers") { }
+struct XilinxDspPass : public Pass {
+	XilinxDspPass() : Pass("xilinx_dsp", "Xilinx: pack DSP registers") { }
 	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -156,6 +156,6 @@ struct Ice40DspPass : public Pass {
 		for (auto module : design->selected_modules())
 			xilinx_dsp_pm(module, module->selected_cells()).run_xilinx_dsp(pack_xilinx_dsp);
 	}
-} Ice40DspPass;
+} XilinxDspPass;
 
 PRIVATE_NAMESPACE_END
