@@ -2,6 +2,7 @@
  *  yosys -- Yosys Open SYnthesis Suite
  *
  *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2019  Marcin Kościelnicki <mwk@0x04.net>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -30,19 +31,6 @@ void split_portname_pair(std::string &port1, std::string &port2)
 		port2 = port1.substr(pos+1);
 		port1 = port1.substr(0, pos);
 	}
-}
-
-std::vector<std::string> split(std::string text, const char *delim)
-{
-	std::vector<std::string> list;
-	char *p = strdup(text.c_str());
-	char *t = strtok(p, delim);
-	while (t != NULL) {
-		list.push_back(t);
-		t = strtok(NULL, delim);
-	}
-	free(p);
-	return list;
 }
 
 struct ClkbufmapPass : public Pass {
@@ -127,7 +115,7 @@ struct ClkbufmapPass : public Pass {
 				auto it = module->attributes.find("\\clkbuf_driver");
 				if (it != module->attributes.end()) {
 					auto value = it->second.decode_string();
-					for (auto name : split(value, ",")) {
+					for (auto name : split_tokens(value, ",")) {
 						auto wire = module->wire(RTLIL::escape_id(name));
 						if (!wire)
 							log_error("Module %s does not have port %s.\n", log_id(module), log_id(name));
@@ -138,7 +126,7 @@ struct ClkbufmapPass : public Pass {
 				it = module->attributes.find("\\clkbuf_sink");
 				if (it != module->attributes.end()) {
 					auto value = it->second.decode_string();
-					for (auto name : split(value, ",")) {
+					for (auto name : split_tokens(value, ",")) {
 						auto wire = module->wire(RTLIL::escape_id(name));
 						if (!wire)
 							log_error("Module %s does not have port %s.\n", log_id(module), log_id(name));

@@ -19,6 +19,9 @@ Yosys 0.9 .. Yosys 0.9-dev
     - Added automatic gzip compression (based on filename extension) for backends
     - Improve attribute and parameter encoding in JSON to avoid ambiguities between
       bit vectors and strings containing [01xz]*
+    - Added "clkbufmap" pass
+    - Added "synth_xilinx -ise" for Spartan 6 (experimental)
+    - "synth_xilinx" now automatically inserts clock buffers
 
 Yosys 0.8 .. Yosys 0.8-dev
 --------------------------

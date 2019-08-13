@@ -32,19 +32,6 @@ void split_portname_pair(std::string &port1, std::string &port2)
 	}
 }
 
-std::vector<std::string> split(std::string text, const char *delim)
-{
-	std::vector<std::string> list;
-	char *p = strdup(text.c_str());
-	char *t = strtok(p, delim);
-	while (t != NULL) {
-		list.push_back(t);
-		t = strtok(NULL, delim);
-	}
-	free(p);
-	return list;
-}
-
 struct IopadmapPass : public Pass {
 	IopadmapPass() : Pass("iopadmap", "technology mapping of i/o pads (or buffers)") { }
 	void help() YS_OVERRIDE
@@ -190,7 +177,7 @@ struct IopadmapPass : public Pass {
 			auto it = module->attributes.find("\\iopad_external_pin");
 			if (it != module->attributes.end()) {
 				auto value = it->second.decode_string();
-				for (auto name : split(value, ",")) {
+				for (auto name : split_tokens(value, ",")) {
 					ignore.insert(make_pair(module->name, RTLIL::escape_id(name)));
 				}
 			}

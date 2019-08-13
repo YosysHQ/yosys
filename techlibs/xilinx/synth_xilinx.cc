@@ -81,11 +81,14 @@ struct SynthXilinxPass : public ScriptPass
 		log("    -nowidelut\n");
 		log("        do not use MUXF[78] resources to implement LUTs larger than LUT6s\n");
 		log("\n");
-		log("    -iopads\n");
-		log("        perform I/O buffer insertion (selected automatically by -ise)\n");
+		log("    -iopad\n");
+		log("        enable I/O buffer insertion (selected automatically by -ise)\n");
 		log("\n");
-		log("    -noiopads\n");
+		log("    -noiopad\n");
 		log("        disable I/O buffer insertion (only useful with -ise)\n");
+		log("\n");
+		log("    -noclkbuf\n");
+		log("        disable automatic clock buffer insertion\n");
 		log("\n");
 		log("    -widemux <int>\n");
 		log("        enable inference of hard multiplexer resources (MUXF[78]) for muxes at or\n");
@@ -113,7 +116,7 @@ struct SynthXilinxPass : public ScriptPass
 	}
 
 	std::string top_opt, edif_file, blif_file, family;
-	bool flatten, retime, vpr, ise, iopads, noiopads, nobram, nodram, nosrl, nocarry, nowidelut, abc9;
+	bool flatten, retime, vpr, ise, iopad, noiopad, noclkbuf, nobram, nodram, nosrl, nocarry, nowidelut, abc9;
 	int widemux;
 
 	void clear_flags() YS_OVERRIDE
@@ -126,8 +129,9 @@ struct SynthXilinxPass : public ScriptPass
 		retime = false;
 		vpr = false;
 		ise = false;
-		iopads = false;
-		noiopads = false;
+		iopad = false;
+		noiopad = false;
+		noclkbuf = false;
 		nocarry = false;
 		nobram = false;
 		nodram = false;
@@ -194,12 +198,16 @@ struct SynthXilinxPass : public ScriptPass
 				ise = true;
 				continue;
 			}
-			if (args[argidx] == "-iopads") {
-				iopads = true;
+			if (args[argidx] == "-iopad") {
+				iopad = true;
 				continue;
 			}
-			if (args[argidx] == "-noiopads") {
-				noiopads = true;
+			if (args[argidx] == "-noiopad") {
+				noiopad = true;
+				continue;
+			}
+			if (args[argidx] == "-noclkbuf") {
+				noclkbuf = true;
 				continue;
 			}
 			if (args[argidx] == "-nocarry") {
@@ -435,14 +443,15 @@ struct SynthXilinxPass : public ScriptPass
 		}
 
 		if (check_label("finalize")) {
-			bool do_iopads = iopads || (ise && !noiopads);
-			if (help_mode || do_iopads)
-				run("clkbufmap -buf BUFG O:I -inpad IBUFG O:I", "(-inpad passed if '-iopads' or '-ise' and not '-noiopads')");
-			else
-				run("clkbufmap -buf BUFG O:I");
-
-			if (do_iopads)
-				run("iopadmap -bits -outpad OBUF I:O -inpad IBUF O:I A:top", "(only if '-iopads' or '-ise' and not '-noiopads')");
+			bool do_iopad = iopad || (ise && !noiopad);
+			if (help_mode || !noclkbuf) {
+				if (help_mode || do_iopad)
+					run("clkbufmap -buf BUFG O:I -inpad IBUFG O:I", "(skip if '-noclkbuf', '-inpad' passed if '-iopad' or '-ise' and not '-noiopad')");
+				else
+					run("clkbufmap -buf BUFG O:I");
+			}
+			if (do_iopad)
+				run("iopadmap -bits -outpad OBUF I:O -inpad IBUF O:I A:top", "(only if '-iopad' or '-ise' and not '-noiopad')");
 		}
 
 		if (check_label("check")) {
