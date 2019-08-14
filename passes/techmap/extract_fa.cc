@@ -153,10 +153,12 @@ struct ExtractFaWorker
 		}
 	}
 
-	void check_partition(SigBit root, const pool<SigBit> &leaves)
+	void check_partition(SigBit root, pool<SigBit> &leaves)
 	{
 		if (config.enable_ha && GetSize(leaves) == 2)
 		{
+			leaves.sort();
+
 			SigBit A = SigSpec(leaves)[0];
 			SigBit B = SigSpec(leaves)[1];
 
@@ -194,6 +196,8 @@ struct ExtractFaWorker
 
 		if (config.enable_fa && GetSize(leaves) == 3)
 		{
+			leaves.sort();
+
 			SigBit A = SigSpec(leaves)[0];
 			SigBit B = SigSpec(leaves)[1];
 			SigBit C = SigSpec(leaves)[2];
@@ -233,7 +237,7 @@ struct ExtractFaWorker
 		}
 	}
 
-	void find_partitions(SigBit root, const pool<SigBit> &leaves, pool<const pool<SigBit>> &cache, int maxdepth, int maxbreadth)
+	void find_partitions(SigBit root, pool<SigBit> &leaves, pool<pool<SigBit>> &cache, int maxdepth, int maxbreadth)
 	{
 		if (cache.count(leaves))
 			return;
@@ -289,8 +293,8 @@ struct ExtractFaWorker
 				continue;
 
 			SigBit root = it.first;
-			const pool<SigBit> leaves = { root };
-			pool<const pool<SigBit>> cache;
+			pool<SigBit> leaves = { root };
+			pool<pool<SigBit>> cache;
 
 			if (config.verbose)
 				log("  checking %s\n", log_signal(it.first));
