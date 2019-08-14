@@ -13,12 +13,14 @@ env:
 
 matrix:
   include:
-    # Latest gcc-4.8, earliest version supported by Travis
+    # Earliest gcc version that works
+    #   4.8 and 4.9 fails to compile iverilog giving:
+    #   "undefined reference to `__warn_memset_zero_len'"
     - os: linux
       addons:
         apt:
           packages:
-            - g++-4.9
+            - g++-5
             - gperf
             - build-essential
             - bison
@@ -38,7 +40,7 @@ matrix:
             - libboost-filesystem-dev
             - zlib1g-dev
       env:
-        - MATRIX_EVAL="CONFIG=gcc && CC=gcc-4.9 && CXX=g++-4.9"
+        - MATRIX_EVAL="CONFIG=gcc && CC=gcc-5 && CXX=g++-5"
 
     # Latest gcc supported on Travis Linux
     - os: linux
