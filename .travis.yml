@@ -108,7 +108,7 @@ matrix:
           sources:
             - llvm-toolchain-xenial-8
           packages:
-            - clang-8.0
+            - clang-8
             - gperf
             - build-essential
             - bison
@@ -128,7 +128,7 @@ matrix:
             - libboost-filesystem-dev
             - zlib1g-dev
       env:
-        - MATRIX_EVAL="CONFIG=clang && CC=clang-8.0 && CXX=clang++-8.0"
+        - MATRIX_EVAL="CONFIG=clang && CC=clang-8 && CXX=clang++-8"
 
 #   # Latest clang on Mac OS X
 #   - os: osx
