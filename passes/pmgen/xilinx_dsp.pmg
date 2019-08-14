@@ -1,6 +1,7 @@
 pattern xilinx_dsp
 
 state <SigBit> clock
+state <std::set<SigBit>> sigAset sigBset
 state <SigSpec> sigC sigP sigPused
 state <Cell*> addAB
 
@@ -8,13 +9,22 @@ match dsp
 	select dsp->type.in(\DSP48E1)
 endmatch
 
+code sigAset sigBset
+	SigSpec A = port(dsp, \A);
+	A.remove_const();
+	sigAset = A.to_sigbit_set();
+	SigSpec B = port(dsp, \B);
+	B.remove_const();
+	sigBset = B.to_sigbit_set();
+endcode
+
 match ffA
 	if param(dsp, \AREG).as_int() == 0
-	if !port(dsp, \A).remove_const().empty()
+	if !sigAset.empty()
 	select ffA->type.in($dff)
 	// DSP48E1 does not support clock inversion
 	select param(ffA, \CLK_POLARITY).as_bool()
-	filter includes(port(ffA, \Q).to_sigbit_set(), port(dsp, \A).remove_const().to_sigbit_set())
+	filter includes(port(ffA, \Q).to_sigbit_set(), sigAset)
 	optional
 endmatch
 
@@ -25,11 +35,11 @@ endcode
 
 match ffB
 	if param(dsp, \BREG).as_int() == 0
-	if !port(dsp, \B).remove_const().empty()
+	if !sigBset.empty()
 	select ffB->type.in($dff)
 	// DSP48E1 does not support clock inversion
 	select param(ffB, \CLK_POLARITY).as_bool()
-	filter includes(port(ffB, \Q).to_sigbit_set(), port(dsp, \B).remove_const().to_sigbit_set())
+	filter includes(port(ffB, \Q).to_sigbit_set(), sigBset)
 	optional
 endmatch
 
@@ -65,21 +75,18 @@ match addB
 	index <int> nusers(port(addB, \B)) === 2
 	//index <SigSpec> port(addB, \B) === sigP.extract(0, param(addB, \B_WIDTH).as_int())
 	filter param(addB, \B_WIDTH).as_int() <= GetSize(sigP)
-	filter port(addB, \B) ==  sigP.extract(0, param(addB, \B_WIDTH).as_int())
+	filter port(addB, \B) == sigP.extract(0, param(addB, \B_WIDTH).as_int())
 	optional
 endmatch
 
 code addAB sigC sigP
-	bool C_SIGNED = false;
 	if (addA) {
 		addAB = addA;
 		sigC = port(addAB, \B);
-		C_SIGNED = param(addAB, \B_SIGNED).as_bool();
 	}
 	if (addB) {
 		addAB = addB;
 		sigC = port(addAB, \A);
-		C_SIGNED = param(addAB, \B_SIGNED).as_bool();
 	}
 	if (addAB) {
 		// Ensure that adder is not used
@@ -97,7 +104,6 @@ code addAB sigC sigP
 		//	reject;
 
 		sigP = port(addAB, \Y);
-                sigC.extend_u0(32, C_SIGNED);
 	}
 endcode
 

@@ -23,22 +23,23 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-template<class T> bool includes(const T &lhs, const T &rhs) {
+template<class T> inline bool includes(const T &lhs, const T &rhs) {
 	return std::includes(lhs.begin(), lhs.end(), rhs.begin(), rhs.end());
 }
+#include <set>
 #include "passes/pmgen/xilinx_dsp_pm.h"
 
-void pack_xilinx_dsp(xilinx_dsp_pm &pm)
+void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 {
 	auto &st = pm.st_xilinx_dsp;
 
 #if 1
 	log("\n");
-	log("ffA:   %s\n", log_id(st.ffA, "--"));
-	log("ffB:   %s\n", log_id(st.ffB, "--"));
-	log("dsp:   %s\n", log_id(st.dsp, "--"));
-	log("addAB: %s\n", log_id(st.addAB, "--"));
-	log("ffP:   %s\n", log_id(st.ffP, "--"));
+	log("ffA:     %s\n", log_id(st.ffA, "--"));
+	log("ffB:     %s\n", log_id(st.ffB, "--"));
+	log("dsp:     %s\n", log_id(st.dsp, "--"));
+	log("addAB:   %s\n", log_id(st.addAB, "--"));
+	log("ffP:     %s\n", log_id(st.ffP, "--"));
 	//log("muxP:  %s\n", log_id(st.muxP, "--"));
 	log("sigPused: %s\n", log_signal(st.sigPused));
 #endif
@@ -46,11 +47,17 @@ void pack_xilinx_dsp(xilinx_dsp_pm &pm)
 	log("Analysing %s.%s for Xilinx DSP packing.\n", log_id(pm.module), log_id(st.dsp));
 
 	Cell *cell = st.dsp;
+	bit_to_driver.insert(std::make_pair(cell->getPort("\\P")[17], cell));
 	SigSpec P = st.sigP;
 
 	if (st.addAB) {
+		log_assert(st.addAB->getParam("\\A_SIGNED").as_bool());
+		log_assert(st.addAB->getParam("\\B_SIGNED").as_bool());
 		log("  adder %s (%s)\n", log_id(st.addAB), log_id(st.addAB->type));
-		cell->setPort("\\C", st.sigC.extend_u0(48, true));
+
+		SigSpec C = st.sigC;
+		C.extend_u0(48, true);
+		cell->setPort("\\C", C);
 		SigSpec &opmode = cell->connections_.at("\\OPMODE");
 		opmode[6] = State::S0;
 		opmode[5] = State::S1;
@@ -153,8 +160,48 @@ struct XilinxDspPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto module : design->selected_modules())
-			xilinx_dsp_pm(module, module->selected_cells()).run_xilinx_dsp(pack_xilinx_dsp);
+		for (auto module : design->selected_modules()) {
+			xilinx_dsp_pm pm(module, module->selected_cells());
+			dict<SigBit, Cell*> bit_to_driver;
+			auto f = [&bit_to_driver](xilinx_dsp_pm &pm){ pack_xilinx_dsp(bit_to_driver, pm); };
+			pm.run_xilinx_dsp(f);
+
+			// Look for ability to convert C input from another DSP into PCIN
+			//   NB: Needs to be done after pattern matcher has folded all
+			//       $add cells into the DSP
+			for (auto cell : module->cells()) {
+				if (cell->type != "\\DSP48E1")
+					continue;
+				SigSpec &opmode = cell->connections_.at("\\OPMODE");
+				if (opmode.extract(4,3) != Const::from_string("011"))
+					continue;
+				SigSpec C = pm.sigmap(cell->getPort("\\C"));
+				if (C.has_const())
+					continue;
+				auto it = bit_to_driver.find(C[0]);
+				if (it == bit_to_driver.end())
+					continue;
+				auto driver = it->second;
+
+				// Unextend C
+				int i;
+				for (i = GetSize(C)-1; i > 0; i--)
+					if (C[i] != C[i-1])
+						break;
+				if (i > 48-17)
+					continue;
+				if (driver->getPort("\\P").extract(17, i) == C.extract(0, i)) {
+					cell->setPort("\\C", Const(0, 48));
+					Wire *cascade = module->addWire(NEW_ID, 48);
+					driver->setPort("\\PCOUT", cascade);
+					cell->setPort("\\PCIN", cascade);
+					opmode[6] = State::S1;
+					opmode[5] = State::S0;
+					opmode[4] = State::S1;
+					bit_to_driver.erase(it);
+				}
+			}
+		}
 	}
 } XilinxDspPass;
 
