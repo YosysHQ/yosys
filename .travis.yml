@@ -104,7 +104,7 @@ matrix:
       addons:
         apt:
           sources:
-            - llvm-toolchain-bionic-8.0
+            - llvm-toolchain-xenial-8
           packages:
             - clang-8.0
             - gperf
