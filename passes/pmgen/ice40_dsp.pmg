@@ -206,10 +206,12 @@ match ffO_lo
 endmatch
 
 code
-	SigSpec O = sigOused.extract(0,std::min(16,param(ffO_lo, \WIDTH).as_int()));
-	O.remove_const();
-	if (!includes(port(ffO_lo, \D).to_sigbit_set(), O.to_sigbit_set()))
-		reject;
+	if (ffO_lo) {
+		SigSpec O = sigOused.extract(0,std::min(16,param(ffO_lo, \WIDTH).as_int()));
+		O.remove_const();
+		if (!includes(port(ffO_lo, \D).to_sigbit_set(), O.to_sigbit_set()))
+			reject;
+	}
 endcode
 
 match ffO_hi
@@ -220,10 +222,12 @@ match ffO_hi
 endmatch
 
 code
-	SigSpec O = sigOused.extract_end(16);
-	O.remove_const();
-	if (!includes(port(ffO_hi, \D).to_sigbit_set(), O.to_sigbit_set()))
-		reject;
+	if (ffO_hi) {
+		SigSpec O = sigOused.extract_end(16);
+		O.remove_const();
+		if (!includes(port(ffO_hi, \D).to_sigbit_set(), O.to_sigbit_set()))
+			reject;
+	}
 endcode
 
 code clock clock_pol sigO sigCD
