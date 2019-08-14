@@ -153,12 +153,11 @@ struct ExtractFaWorker
 		}
 	}
 
-	void check_partition(SigBit root, pool<SigBit> &leaves, IdString cell_type)
+	void check_partition(SigBit root, pool<SigBit> &leaves)
 	{
 		if (config.enable_ha && GetSize(leaves) == 2)
 		{
-			if (!cell_type.in("$_ANDNOT_", "$_ORNOT_"))
-				leaves.sort();
+			leaves.sort();
 
 			SigBit A = SigSpec(leaves)[0];
 			SigBit B = SigSpec(leaves)[1];
@@ -238,7 +237,7 @@ struct ExtractFaWorker
 		}
 	}
 
-	void find_partitions(SigBit root, pool<SigBit> &leaves, pool<pool<SigBit>> &cache, int maxdepth, int maxbreadth, IdString cell_type)
+	void find_partitions(SigBit root, pool<SigBit> &leaves, pool<pool<SigBit>> &cache, int maxdepth, int maxbreadth)
 	{
 		if (cache.count(leaves))
 			return;
@@ -249,7 +248,7 @@ struct ExtractFaWorker
 		// log("\n");
 
 		cache.insert(leaves);
-		check_partition(root, leaves, cell_type);
+		check_partition(root, leaves);
 
 		if (maxdepth == 0)
 			return;
@@ -271,7 +270,7 @@ struct ExtractFaWorker
 			if (GetSize(new_leaves) > maxbreadth)
 				continue;
 
-			find_partitions(root, new_leaves, cache, maxdepth-1, maxbreadth, cell_type);
+			find_partitions(root, new_leaves, cache, maxdepth-1, maxbreadth);
 		}
 	}
 
@@ -303,7 +302,7 @@ struct ExtractFaWorker
 			count_func2 = 0;
 			count_func3 = 0;
 
-			find_partitions(root, leaves, cache, config.maxdepth, config.maxbreadth, it.second->type);
+			find_partitions(root, leaves, cache, config.maxdepth, config.maxbreadth);
 
 			if (config.verbose && count_func2 > 0)
 				log("    extracted %d two-input functions\n", count_func2);
