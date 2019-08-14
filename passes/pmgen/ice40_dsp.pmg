@@ -2,6 +2,7 @@ pattern ice40_dsp
 
 state <SigBit> clock
 state <bool> clock_pol
+state <std::set<SigBit>> sigAset sigBset
 state <SigSpec> sigA sigB sigCD sigH sigO sigOused
 state <Cell*> addAB muxAB
 
@@ -9,6 +10,15 @@ match mul
 	select mul->type.in($mul, \SB_MAC16)
 	select GetSize(mul->getPort(\A)) + GetSize(mul->getPort(\B)) > 10
 endmatch
+
+code sigAset sigBset
+	SigSpec A = port(mul, \A);
+	A.remove_const();
+	sigAset = A.to_sigbit_set();
+	SigSpec B = port(mul, \B);
+	B.remove_const();
+	sigBset = B.to_sigbit_set();
+endcode
 
 code sigH
 	if (mul->type == $mul)
@@ -22,9 +32,9 @@ endcode
 
 match ffA
 	if mul->type != \SB_MAC16 || !param(mul, \A_REG).as_bool()
-	if !port(mul, \A).remove_const().empty()
+	if !sigAset.empty()
 	select ffA->type.in($dff)
-	filter includes(port(ffA, \Q).to_sigbit_set(), port(mul, \A).remove_const().to_sigbit_set())
+	filter includes(port(ffA, \Q).to_sigbit_set(), sigAset)
 	optional
 endmatch
 
@@ -45,9 +55,9 @@ endcode
 
 match ffB
 	if mul->type != \SB_MAC16 || !param(mul, \B_REG).as_bool()
-	if !port(mul, \B).remove_const().empty()
+	if !sigBset.empty()
 	select ffB->type.in($dff)
-	filter includes(port(ffB, \Q).to_sigbit_set(), port(mul, \B).remove_const().to_sigbit_set())
+	filter includes(port(ffB, \Q).to_sigbit_set(), sigBset)
 	optional
 endmatch
 
@@ -192,17 +202,29 @@ endcode
 match ffO_lo
 	if nusers(sigOused.extract(0,std::min(16,GetSize(sigOused)))) == 2
 	select ffO_lo->type.in($dff)
-	filter includes(port(ffO_lo, \D).to_sigbit_set(), sigOused.extract(0,std::min(16,param(ffO_lo, \WIDTH).as_int())).remove_const().to_sigbit_set())
 	optional
 endmatch
+
+code
+	SigSpec O = sigOused.extract(0,std::min(16,param(ffO_lo, \WIDTH).as_int()));
+	O.remove_const();
+	if (!includes(port(ffO_lo, \D).to_sigbit_set(), O.to_sigbit_set()))
+		reject;
+endcode
 
 match ffO_hi
 	if GetSize(sigOused) > 16
 	if nusers(sigOused.extract_end(16)) == 2
 	select ffO_hi->type.in($dff)
-	filter includes(port(ffO_hi, \D).to_sigbit_set(), sigOused.extract_end(16).remove_const().to_sigbit_set())
 	optional
 endmatch
+
+code
+	SigSpec O = sigOused.extract_end(16);
+	O.remove_const();
+	if (!includes(port(ffO_hi, \D).to_sigbit_set(), O.to_sigbit_set()))
+		reject;
+endcode
 
 code clock clock_pol sigO sigCD
 	if (ffO_lo || ffO_hi) {

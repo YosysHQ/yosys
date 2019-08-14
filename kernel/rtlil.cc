@@ -3299,7 +3299,7 @@ void RTLIL::SigSpec::replace(int offset, const RTLIL::SigSpec &with)
 	check();
 }
 
-RTLIL::SigSpec& RTLIL::SigSpec::remove_const()
+void RTLIL::SigSpec::remove_const()
 {
 	if (packed())
 	{
@@ -3333,7 +3333,6 @@ RTLIL::SigSpec& RTLIL::SigSpec::remove_const()
 	}
 
 	check();
-	return *this;
 }
 
 void RTLIL::SigSpec::remove(int offset, int length)
@@ -3429,7 +3428,7 @@ void RTLIL::SigSpec::append_bit(const RTLIL::SigBit &bit)
 	check();
 }
 
-RTLIL::SigSpec& RTLIL::SigSpec::extend_u0(int width, bool is_signed)
+void RTLIL::SigSpec::extend_u0(int width, bool is_signed)
 {
 	cover("kernel.rtlil.sigspec.extend_u0");
 
@@ -3446,7 +3445,6 @@ RTLIL::SigSpec& RTLIL::SigSpec::extend_u0(int width, bool is_signed)
 			append(padding);
 	}
 
-	return *this;
 }
 
 RTLIL::SigSpec RTLIL::SigSpec::repeat(int num) const

@@ -754,8 +754,8 @@ public:
 	inline int size() const { return width_; }
 	inline bool empty() const { return width_ == 0; }
 
-	inline RTLIL::SigBit &operator[](int index) { inline_unpack(); return index >= 0 ? bits_.at(index) : bits_.at(width_ + index); }
-	inline const RTLIL::SigBit &operator[](int index) const { inline_unpack(); return index >= 0 ? bits_.at(index) : bits_.at(width_ + index); }
+	inline RTLIL::SigBit &operator[](int index) { inline_unpack(); return bits_.at(index); }
+	inline const RTLIL::SigBit &operator[](int index) const { inline_unpack(); return bits_.at(index); }
 
 	inline RTLIL::SigSpecIterator begin() { RTLIL::SigSpecIterator it; it.sig_p = this; it.index = 0; return it; }
 	inline RTLIL::SigSpecIterator end() { RTLIL::SigSpecIterator it; it.sig_p = this; it.index = width_; return it; }
@@ -787,7 +787,7 @@ public:
 	void remove2(const std::set<RTLIL::SigBit> &pattern, RTLIL::SigSpec *other);
 
 	void remove(int offset, int length = 1);
-	RTLIL::SigSpec& remove_const();
+	void remove_const();
 
 	RTLIL::SigSpec extract(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec *other = NULL) const;
 	RTLIL::SigSpec extract(const pool<RTLIL::SigBit> &pattern, const RTLIL::SigSpec *other = NULL) const;
@@ -797,7 +797,7 @@ public:
 	void append(const RTLIL::SigSpec &signal);
 	void append_bit(const RTLIL::SigBit &bit);
 
-	RTLIL::SigSpec& extend_u0(int width, bool is_signed = false);
+	void extend_u0(int width, bool is_signed = false);
 
 	RTLIL::SigSpec repeat(int num) const;
 
