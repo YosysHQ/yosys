@@ -513,13 +513,13 @@ struct ExtractFaWorker
 				}
 
 				if (func2.at(key).count(xor2_func)) {
-					SigBit YY = invert_xy ? module->NotGate(NEW_ID, Y) : Y;
+					SigBit YY = invert_xy || (f2i.inv_a && !f2i.inv_b) || (!f2i.inv_a && f2i.inv_b) ? module->NotGate(NEW_ID, Y) : Y;
 					for (auto bit : func2.at(key).at(xor2_func))
 						assign_new_driver(bit, YY);
 				}
 
 				if (func2.at(key).count(xnor2_func)) {
-					SigBit YY = invert_xy ? Y : module->NotGate(NEW_ID, Y);
+					SigBit YY = invert_xy || (f2i.inv_a && !f2i.inv_b) || (!f2i.inv_a && f2i.inv_b) ? Y : module->NotGate(NEW_ID, Y);
 					for (auto bit : func2.at(key).at(xnor2_func))
 						assign_new_driver(bit, YY);
 				}
