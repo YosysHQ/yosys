@@ -191,7 +191,7 @@ struct SynthIntelPass : public ScriptPass {
                             family_opt == "cycloneive" ||
                             family_opt == "max10" ||
                             help_mode) {
-				run("memory_bram -rules +/intel/common/brams_m9k.txt", "(if applicable for family)");
+				run("memory_bram -rules +/intel/common/brams.txt", "(if applicable for family)");
 				run("techmap -map +/intel/common/brams_map_m9k.v", "(if applicable for family)");
 			} else {
 				log_warning("BRAM mapping is not currently supported for %s.\n", family_opt.c_str());

@@ -1,0 +1,33 @@
+bram $__ALTSYNCRAM_SDP
+  init   1
+  abits  13 @M1
+  dbits  1  @M1
+  abits  12 @M2
+  dbits  2  @M2
+  abits  11 @M3
+  dbits  4  @M3
+  abits  10 @M4
+  dbits  8  @M4
+  abits  10 @M5
+  dbits  9  @M5
+  abits  9  @M6
+  dbits  16 @M6
+  abits  9  @M7
+  dbits  18 @M7
+  abits  8  @M8
+  dbits  32 @M8
+  abits  8  @M9
+  dbits  36 @M9
+  groups 2
+  ports  1 1
+  wrmode 1 0
+  enable 1 1
+  transp 0 0
+  clocks 1 1
+  clkpol 1 1
+endbram
+
+match $__ALTSYNCRAM_SDP
+  min efficiency 2
+  make_transp
+endmatch
