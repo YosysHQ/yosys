@@ -210,7 +210,7 @@ namespace RTLIL {
 	struct Module;
 	struct Design;
 	struct Monitor;
-    namespace ID {}
+	namespace ID {}
 }
 
 namespace AST {
