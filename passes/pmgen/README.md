@@ -232,5 +232,28 @@ But in some cases it is more natural to utilize the implicit branch statement:
         portAB = \B;
     endcode
 
-There is an implicit `code..endcode` block at the end of each `.pmg` file
+There is an implicit `code..endcode` block at the end of each (sub)pattern
 that just accepts everything that gets all the way there.
+
+A `code..finally..endcode` block executes the code after `finally` during
+back-tracking. This is useful for maintaining user data state or printing
+debug messages. For example:
+
+    udata <vector<Cell*>> stack
+
+    code
+        stack.push_back(addAB);
+    finally
+        stack.pop_back();
+    endcode
+
+Declaring a subpattern
+----------------------
+
+A subpattern starts with a line containing the `subpattern` keyword followed
+by the name of the subpattern. Subpatterns can be called from a `code` block
+using a `subpattern(<subpattern_name>);` C statement.
+
+Arguments may be passed to subpattern via state variables. The `subpattern`
+line must be followed by a `arg <arg1> <arg2> ...` line that lists the
+state variables used to pass arguments. Subpatterns allow recursion.
