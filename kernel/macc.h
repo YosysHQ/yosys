@@ -99,16 +99,16 @@ struct Macc
 
 	void from_cell(RTLIL::Cell *cell)
 	{
-		RTLIL::SigSpec port_a = cell->getPort("\\A");
+		RTLIL::SigSpec port_a = cell->getPort(ID(A));
 
 		ports.clear();
-		bit_ports = cell->getPort("\\B");
+		bit_ports = cell->getPort(ID(B));
 
-		std::vector<RTLIL::State> config_bits = cell->getParam("\\CONFIG").bits;
+		std::vector<RTLIL::State> config_bits = cell->getParam(ID(CONFIG)).bits;
 		int config_cursor = 0;
 
 #ifndef NDEBUG
-		int config_width = cell->getParam("\\CONFIG_WIDTH").as_int();
+		int config_width = cell->getParam(ID(CONFIG_WIDTH)).as_int();
 		log_assert(GetSize(config_bits) >= config_width);
 #endif
 
@@ -191,12 +191,12 @@ struct Macc
 			port_a.append(port.in_b);
 		}
 
-		cell->setPort("\\A", port_a);
-		cell->setPort("\\B", bit_ports);
-		cell->setParam("\\CONFIG", config_bits);
-		cell->setParam("\\CONFIG_WIDTH", GetSize(config_bits));
-		cell->setParam("\\A_WIDTH", GetSize(port_a));
-		cell->setParam("\\B_WIDTH", GetSize(bit_ports));
+		cell->setPort(ID(A), port_a);
+		cell->setPort(ID(B), bit_ports);
+		cell->setParam(ID(CONFIG), config_bits);
+		cell->setParam(ID(CONFIG_WIDTH), GetSize(config_bits));
+		cell->setParam(ID(A_WIDTH), GetSize(port_a));
+		cell->setParam(ID(B_WIDTH), GetSize(bit_ports));
 	}
 
 	bool eval(RTLIL::Const &result) const

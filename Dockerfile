@@ -1,33 +1,57 @@
-FROM ubuntu:18.04 as builder
-LABEL author="Abdelrahman Hosny <abdelrahman.hosny@hotmail.com>"
-ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && apt-get install -y build-essential \
+ARG IMAGE="python:3-slim-buster"
+
+#---
+
+FROM $IMAGE AS base
+
+RUN apt-get update -qq \
+ && DEBIAN_FRONTEND=noninteractive apt-get -y install --no-install-recommends \
+    ca-certificates \
     clang \
+    curl \
+    libffi-dev \
+    libreadline-dev \
+    tcl-dev \
+    graphviz \
+    xdot \
+ && apt-get autoclean && apt-get clean && apt-get -y autoremove \
+ && update-ca-certificates \
+ && rm -rf /var/lib/apt/lists
+
+#---
+
+FROM base AS build
+
+RUN apt-get update -qq \
+ && DEBIAN_FRONTEND=noninteractive apt-get -y install --no-install-recommends \
     bison \
     flex \
-    libreadline-dev \
     gawk \
-    tcl-dev \
-    libffi-dev \
+    gcc \
     git \
+    iverilog \
     pkg-config \
-    python3 && \
-    rm -rf /var/lib/apt/lists
-COPY . /
-RUN make && \
-    make install
+ && apt-get autoclean && apt-get clean && apt-get -y autoremove \
+ && rm -rf /var/lib/apt/lists
 
-FROM ubuntu:18.04
-ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && apt-get install -y libreadline-dev tcl-dev
+COPY . /yosys
 
-COPY --from=builder /yosys /build/yosys
-COPY --from=builder /yosys-abc /build/yosys-abc
-COPY --from=builder /yosys-config /build/yosys-config
-COPY --from=builder /yosys-filterlib /build/yosys-filterlib
-COPY --from=builder /yosys-smtbmc /build/yosys-smtbmc
+ENV PREFIX /opt/yosys
 
-ENV PATH /build:$PATH
+RUN cd /yosys \
+ && make \
+ && make install \
+ && make test
+
+#---
+
+FROM base
+
+COPY --from=build /opt/yosys /opt/yosys
+
+ENV PATH /opt/yosys/bin:$PATH
+
 RUN useradd -m yosys
 USER yosys
-ENTRYPOINT ["yosys"]
+
+CMD ["yosys"]
