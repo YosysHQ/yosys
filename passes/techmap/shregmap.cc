@@ -130,7 +130,7 @@ struct ShregmapTechXilinx7 : ShregmapTech
 		if (cell) {
 			if (cell->type == "$shiftx" && port == "\\A")
 				return;
-			if (cell->type == "$mux" && (port == "\\A" || port == "\\B"))
+			if (cell->type == "$mux" && port.in("\\A", "\\B"))
 				return;
 		}
 		sigbit_to_shiftx_offset.erase(it);

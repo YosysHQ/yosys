@@ -1043,7 +1043,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 			if (builtin_lib)
 			{
 				cell_stats[RTLIL::unescape_id(c->type)]++;
-				if (c->type == "\\ZERO" || c->type == "\\ONE") {
+				if (c->type.in("\\ZERO", "\\ONE")) {
 					RTLIL::SigSig conn;
 					conn.first = RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\Y").as_wire()->name)]);
 					conn.second = RTLIL::SigSpec(c->type == "\\ZERO" ? 0 : 1, 1);
@@ -1065,8 +1065,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 					design->select(module, cell);
 					continue;
 				}
-				if (c->type == "\\AND" || c->type == "\\OR" || c->type == "\\XOR" || c->type == "\\NAND" || c->type == "\\NOR" ||
-						c->type == "\\XNOR" || c->type == "\\ANDNOT" || c->type == "\\ORNOT") {
+				if (c->type.in("\\AND", "\\OR", "\\XOR", "\\NAND", "\\NOR", "\\XNOR", "\\ANDNOT", "\\ORNOT")) {
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), "$_" + c->type.substr(1) + "_");
 					if (markgroups) cell->attributes["\\abcgroup"] = map_autoidx;
 					cell->setPort("\\A", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\A").as_wire()->name)]));
@@ -1075,7 +1074,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 					design->select(module, cell);
 					continue;
 				}
-				if (c->type == "\\MUX" || c->type == "\\NMUX") {
+				if (c->type.in("\\MUX", "\\NMUX")) {
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), "$_" + c->type.substr(1) + "_");
 					if (markgroups) cell->attributes["\\abcgroup"] = map_autoidx;
 					cell->setPort("\\A", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\A").as_wire()->name)]));
@@ -1143,7 +1142,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 					design->select(module, cell);
 					continue;
 				}
-				if (c->type == "\\AOI3" || c->type == "\\OAI3") {
+				if (c->type.in("\\AOI3", "\\OAI3")) {
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), "$_" + c->type.substr(1) + "_");
 					if (markgroups) cell->attributes["\\abcgroup"] = map_autoidx;
 					cell->setPort("\\A", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\A").as_wire()->name)]));
@@ -1153,7 +1152,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 					design->select(module, cell);
 					continue;
 				}
-				if (c->type == "\\AOI4" || c->type == "\\OAI4") {
+				if (c->type.in("\\AOI4", "\\OAI4")) {
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), "$_" + c->type.substr(1) + "_");
 					if (markgroups) cell->attributes["\\abcgroup"] = map_autoidx;
 					cell->setPort("\\A", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\A").as_wire()->name)]));
@@ -1185,7 +1184,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 			else
 				cell_stats[RTLIL::unescape_id(c->type)]++;
 
-			if (c->type == "\\_const0_" || c->type == "\\_const1_") {
+			if (c->type.in("\\_const0_", "\\_const1_")) {
 				RTLIL::SigSig conn;
 				conn.first = RTLIL::SigSpec(module->wires_[remap_name(c->connections().begin()->second.as_wire()->name)]);
 				conn.second = RTLIL::SigSpec(c->type == "\\_const0_" ? 0 : 1, 1);

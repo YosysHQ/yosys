@@ -349,7 +349,7 @@ struct TechmapWorker
 				port_signal_map.apply(it2.second);
 			}
 
-			if (c->type == "$memrd" || c->type == "$memwr" || c->type == "$meminit") {
+			if (c->type.in("$memrd", "$memwr", "$meminit")) {
 				IdString memid = c->getParam("\\MEMID").decode_string();
 				log_assert(memory_renames.count(memid) != 0);
 				c->setParam("\\MEMID", Const(memory_renames[memid].str()));
@@ -520,7 +520,7 @@ struct TechmapWorker
 								int port_counter = 1;
 								for (auto &c : extmapper_cell->connections_) {
 									RTLIL::Wire *w = extmapper_module->addWire(c.first, GetSize(c.second));
-									if (w->name == "\\Y" || w->name == "\\Q")
+									if (w->name.in("\\Y", "\\Q"))
 										w->port_output = true;
 									else
 										w->port_input = true;
