@@ -116,12 +116,12 @@ struct MuxcoverWorker
 				if (!cell->input(conn.first))
 					continue;
 				for (auto bit : sigmap(conn.second)) {
-					if (used_once.count(bit) || cell->type != "$_MUX_" || conn.first == "\\S")
+					if (used_once.count(bit) || cell->type != ID($_MUX_) || conn.first == "\\S")
 						roots.insert(bit);
 					used_once.insert(bit);
 				}
 			}
-			if (cell->type == "$_MUX_")
+			if (cell->type == ID($_MUX_))
 				sig_to_mux[sigmap(cell->getPort("\\Y"))] = cell;
 		}
 
@@ -516,7 +516,7 @@ struct MuxcoverWorker
 
 		if (GetSize(mux.inputs) == 2) {
 			count_muxes_by_type[0]++;
-			Cell *cell = module->addCell(NEW_ID, "$_MUX_");
+			Cell *cell = module->addCell(NEW_ID, ID($_MUX_));
 			cell->setPort("\\A", mux.inputs[0]);
 			cell->setPort("\\B", mux.inputs[1]);
 			cell->setPort("\\S", mux.selects[0]);
@@ -526,7 +526,7 @@ struct MuxcoverWorker
 
 		if (GetSize(mux.inputs) == 4) {
 			count_muxes_by_type[1]++;
-			Cell *cell = module->addCell(NEW_ID, "$_MUX4_");
+			Cell *cell = module->addCell(NEW_ID, ID($_MUX4_));
 			cell->setPort("\\A", mux.inputs[0]);
 			cell->setPort("\\B", mux.inputs[1]);
 			cell->setPort("\\C", mux.inputs[2]);
@@ -539,7 +539,7 @@ struct MuxcoverWorker
 
 		if (GetSize(mux.inputs) == 8) {
 			count_muxes_by_type[2]++;
-			Cell *cell = module->addCell(NEW_ID, "$_MUX8_");
+			Cell *cell = module->addCell(NEW_ID, ID($_MUX8_));
 			cell->setPort("\\A", mux.inputs[0]);
 			cell->setPort("\\B", mux.inputs[1]);
 			cell->setPort("\\C", mux.inputs[2]);
@@ -557,7 +557,7 @@ struct MuxcoverWorker
 
 		if (GetSize(mux.inputs) == 16) {
 			count_muxes_by_type[3]++;
-			Cell *cell = module->addCell(NEW_ID, "$_MUX16_");
+			Cell *cell = module->addCell(NEW_ID, ID($_MUX16_));
 			cell->setPort("\\A", mux.inputs[0]);
 			cell->setPort("\\B", mux.inputs[1]);
 			cell->setPort("\\C", mux.inputs[2]);

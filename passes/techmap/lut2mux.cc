@@ -81,7 +81,7 @@ struct Lut2muxPass : public Pass {
 
 		for (auto module : design->selected_modules())
 		for (auto cell : module->selected_cells()) {
-			if (cell->type == "$lut") {
+			if (cell->type == ID($lut)) {
 				IdString cell_name = cell->name;
 				int count = lut2mux(cell);
 				log("Converted %s.%s to %d MUX cells.\n", log_id(module), log_id(cell_name), count);

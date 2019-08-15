@@ -51,8 +51,8 @@ struct Dff2dffsPass : public Pass {
 		extra_args(args, argidx, design);
 
 		pool<IdString> dff_types;
-		dff_types.insert("$_DFF_N_");
-		dff_types.insert("$_DFF_P_");
+		dff_types.insert(ID($_DFF_N_));
+		dff_types.insert(ID($_DFF_P_));
 
 		for (auto module : design->selected_modules())
 		{
@@ -69,7 +69,7 @@ struct Dff2dffsPass : public Pass {
 					continue;
 				}
 
-				if (cell->type != "$_MUX_")
+				if (cell->type != ID($_MUX_))
 					continue;
 
 				SigBit bit_a = sigmap(cell->getPort("\\A"));
@@ -114,22 +114,22 @@ struct Dff2dffsPass : public Pass {
 				}
 
 				if (sr_val == State::S1) {
-					if (cell->type == "$_DFF_N_") {
-						if (invert_sr) cell->type = "$__DFFS_NN1_";
-						else cell->type = "$__DFFS_NP1_";
+					if (cell->type == ID($_DFF_N_)) {
+						if (invert_sr) cell->type = ID($__DFFS_NN1_);
+						else cell->type = ID($__DFFS_NP1_);
 					} else {
-						log_assert(cell->type == "$_DFF_P_");
-						if (invert_sr) cell->type = "$__DFFS_PN1_";
-						else cell->type = "$__DFFS_PP1_";
+						log_assert(cell->type == ID($_DFF_P_));
+						if (invert_sr) cell->type = ID($__DFFS_PN1_);
+						else cell->type = ID($__DFFS_PP1_);
 					}
 				} else {
-					if (cell->type == "$_DFF_N_") {
-						if (invert_sr) cell->type = "$__DFFS_NN0_";
-						else cell->type = "$__DFFS_NP0_";
+					if (cell->type == ID($_DFF_N_)) {
+						if (invert_sr) cell->type = ID($__DFFS_NN0_);
+						else cell->type = ID($__DFFS_NP0_);
 					} else {
-						log_assert(cell->type == "$_DFF_P_");
-						if (invert_sr) cell->type = "$__DFFS_PN0_";
-						else cell->type = "$__DFFS_PP0_";
+						log_assert(cell->type == ID($_DFF_P_));
+						if (invert_sr) cell->type = ID($__DFFS_PN0_);
+						else cell->type = ID($__DFFS_PP0_);
 					}
 				}
 				cell->setPort("\\R", sr_sig);

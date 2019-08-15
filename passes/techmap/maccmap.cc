@@ -111,7 +111,7 @@ struct MaccmapWorker
 			RTLIL::Wire *w1 = module->addWire(NEW_ID, width);
 			RTLIL::Wire *w2 = module->addWire(NEW_ID, width);
 
-			RTLIL::Cell *cell = module->addCell(NEW_ID, "$fa");
+			RTLIL::Cell *cell = module->addCell(NEW_ID, ID($fa));
 			cell->setParam("\\WIDTH", width);
 			cell->setPort("\\A", in1);
 			cell->setPort("\\B", in2);
@@ -237,7 +237,7 @@ struct MaccmapWorker
 		}
 
 
-		RTLIL::Cell *c = module->addCell(NEW_ID, "$alu");
+		RTLIL::Cell *c = module->addCell(NEW_ID, ID($alu));
 		c->setPort("\\A", summands.front());
 		c->setPort("\\B", summands.back());
 		c->setPort("\\CI", State::S0);
@@ -393,7 +393,7 @@ struct MaccmapPass : public Pass {
 
 		for (auto mod : design->selected_modules())
 		for (auto cell : mod->selected_cells())
-			if (cell->type == "$macc") {
+			if (cell->type == ID($macc)) {
 				log("Mapping %s.%s (%s).\n", log_id(mod), log_id(cell), log_id(cell->type));
 				maccmap(mod, cell, unmap_mode);
 				mod->remove(cell);

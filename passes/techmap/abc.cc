@@ -166,9 +166,9 @@ void mark_port(RTLIL::SigSpec sig)
 
 void extract_cell(RTLIL::Cell *cell, bool keepff)
 {
-	if (cell->type.in("$_DFF_N_", "$_DFF_P_"))
+	if (cell->type.in(ID($_DFF_N_), ID($_DFF_P_)))
 	{
-		if (clk_polarity != (cell->type == "$_DFF_P_"))
+		if (clk_polarity != (cell->type == ID($_DFF_P_)))
 			return;
 		if (clk_sig != assign_map(cell->getPort("\\C")))
 			return;
@@ -177,11 +177,11 @@ void extract_cell(RTLIL::Cell *cell, bool keepff)
 		goto matching_dff;
 	}
 
-	if (cell->type.in("$_DFFE_NN_", "$_DFFE_NP_", "$_DFFE_PN_", "$_DFFE_PP_"))
+	if (cell->type.in(ID($_DFFE_NN_), ID($_DFFE_NP_), ID($_DFFE_PN_), ID($_DFFE_PP_)))
 	{
-		if (clk_polarity != cell->type.in("$_DFFE_PN_", "$_DFFE_PP_"))
+		if (clk_polarity != cell->type.in(ID($_DFFE_PN_), ID($_DFFE_PP_)))
 			return;
-		if (en_polarity != cell->type.in("$_DFFE_NP_", "$_DFFE_PP_"))
+		if (en_polarity != cell->type.in(ID($_DFFE_NP_), ID($_DFFE_PP_)))
 			return;
 		if (clk_sig != assign_map(cell->getPort("\\C")))
 			return;
@@ -209,7 +209,7 @@ void extract_cell(RTLIL::Cell *cell, bool keepff)
 		return;
 	}
 
-	if (cell->type.in("$_BUF_", "$_NOT_"))
+	if (cell->type.in(ID($_BUF_), ID($_NOT_)))
 	{
 		RTLIL::SigSpec sig_a = cell->getPort("\\A");
 		RTLIL::SigSpec sig_y = cell->getPort("\\Y");
@@ -217,13 +217,13 @@ void extract_cell(RTLIL::Cell *cell, bool keepff)
 		assign_map.apply(sig_a);
 		assign_map.apply(sig_y);
 
-		map_signal(sig_y, cell->type == "$_BUF_" ? G(BUF) : G(NOT), map_signal(sig_a));
+		map_signal(sig_y, cell->type == ID($_BUF_) ? G(BUF) : G(NOT), map_signal(sig_a));
 
 		module->remove(cell);
 		return;
 	}
 
-	if (cell->type.in("$_AND_", "$_NAND_", "$_OR_", "$_NOR_", "$_XOR_", "$_XNOR_", "$_ANDNOT_", "$_ORNOT_"))
+	if (cell->type.in(ID($_AND_), ID($_NAND_), ID($_OR_), ID($_NOR_), ID($_XOR_), ID($_XNOR_), ID($_ANDNOT_), ID($_ORNOT_)))
 	{
 		RTLIL::SigSpec sig_a = cell->getPort("\\A");
 		RTLIL::SigSpec sig_b = cell->getPort("\\B");
@@ -236,21 +236,21 @@ void extract_cell(RTLIL::Cell *cell, bool keepff)
 		int mapped_a = map_signal(sig_a);
 		int mapped_b = map_signal(sig_b);
 
-		if (cell->type == "$_AND_")
+		if (cell->type == ID($_AND_))
 			map_signal(sig_y, G(AND), mapped_a, mapped_b);
-		else if (cell->type == "$_NAND_")
+		else if (cell->type == ID($_NAND_))
 			map_signal(sig_y, G(NAND), mapped_a, mapped_b);
-		else if (cell->type == "$_OR_")
+		else if (cell->type == ID($_OR_))
 			map_signal(sig_y, G(OR), mapped_a, mapped_b);
-		else if (cell->type == "$_NOR_")
+		else if (cell->type == ID($_NOR_))
 			map_signal(sig_y, G(NOR), mapped_a, mapped_b);
-		else if (cell->type == "$_XOR_")
+		else if (cell->type == ID($_XOR_))
 			map_signal(sig_y, G(XOR), mapped_a, mapped_b);
-		else if (cell->type == "$_XNOR_")
+		else if (cell->type == ID($_XNOR_))
 			map_signal(sig_y, G(XNOR), mapped_a, mapped_b);
-		else if (cell->type == "$_ANDNOT_")
+		else if (cell->type == ID($_ANDNOT_))
 			map_signal(sig_y, G(ANDNOT), mapped_a, mapped_b);
-		else if (cell->type == "$_ORNOT_")
+		else if (cell->type == ID($_ORNOT_))
 			map_signal(sig_y, G(ORNOT), mapped_a, mapped_b);
 		else
 			log_abort();
@@ -259,7 +259,7 @@ void extract_cell(RTLIL::Cell *cell, bool keepff)
 		return;
 	}
 
-	if (cell->type.in("$_MUX_", "$_NMUX_"))
+	if (cell->type.in(ID($_MUX_), ID($_NMUX_)))
 	{
 		RTLIL::SigSpec sig_a = cell->getPort("\\A");
 		RTLIL::SigSpec sig_b = cell->getPort("\\B");
@@ -275,13 +275,13 @@ void extract_cell(RTLIL::Cell *cell, bool keepff)
 		int mapped_b = map_signal(sig_b);
 		int mapped_s = map_signal(sig_s);
 
-		map_signal(sig_y, cell->type == "$_MUX_" ? G(MUX) : G(NMUX), mapped_a, mapped_b, mapped_s);
+		map_signal(sig_y, cell->type == ID($_MUX_) ? G(MUX) : G(NMUX), mapped_a, mapped_b, mapped_s);
 
 		module->remove(cell);
 		return;
 	}
 
-	if (cell->type.in("$_AOI3_", "$_OAI3_"))
+	if (cell->type.in(ID($_AOI3_), ID($_OAI3_)))
 	{
 		RTLIL::SigSpec sig_a = cell->getPort("\\A");
 		RTLIL::SigSpec sig_b = cell->getPort("\\B");
@@ -297,13 +297,13 @@ void extract_cell(RTLIL::Cell *cell, bool keepff)
 		int mapped_b = map_signal(sig_b);
 		int mapped_c = map_signal(sig_c);
 
-		map_signal(sig_y, cell->type == "$_AOI3_" ? G(AOI3) : G(OAI3), mapped_a, mapped_b, mapped_c);
+		map_signal(sig_y, cell->type == ID($_AOI3_) ? G(AOI3) : G(OAI3), mapped_a, mapped_b, mapped_c);
 
 		module->remove(cell);
 		return;
 	}
 
-	if (cell->type.in("$_AOI4_", "$_OAI4_"))
+	if (cell->type.in(ID($_AOI4_), ID($_OAI4_)))
 	{
 		RTLIL::SigSpec sig_a = cell->getPort("\\A");
 		RTLIL::SigSpec sig_b = cell->getPort("\\B");
@@ -322,7 +322,7 @@ void extract_cell(RTLIL::Cell *cell, bool keepff)
 		int mapped_c = map_signal(sig_c);
 		int mapped_d = map_signal(sig_d);
 
-		map_signal(sig_y, cell->type == "$_AOI4_" ? G(AOI4) : G(OAI4), mapped_a, mapped_b, mapped_c, mapped_d);
+		map_signal(sig_y, cell->type == ID($_AOI4_) ? G(AOI4) : G(OAI4), mapped_a, mapped_b, mapped_c, mapped_d);
 
 		module->remove(cell);
 		return;
@@ -352,23 +352,20 @@ std::string remap_name(RTLIL::IdString abc_name, RTLIL::Wire **orig_wire = nullp
 				auto sig = signal_list.at(sid);
 				if (sig.bit.wire != nullptr)
 				{
-					std::stringstream sstr;
-					sstr << "$abc$" << map_autoidx << "$" << sig.bit.wire->name.substr(1);
+					std::string s = stringf("$abc$%d$%s", map_autoidx, sig.bit.wire->name.c_str()+1);
 					if (sig.bit.wire->width != 1)
-						sstr << "[" << sig.bit.offset << "]";
+						s += stringf("[%d]", sig.bit.offset);
 					if (isnew)
-						sstr << "_new";
-					sstr << postfix;
+						s += "_new";
+					s += postfix;
 					if (orig_wire != nullptr)
 						*orig_wire = sig.bit.wire;
-					return sstr.str();
+					return s;
 				}
 			}
 		}
 	}
-	std::stringstream sstr;
-	sstr << "$abc$" << map_autoidx << "$" << abc_name.substr(1);
-	return sstr.str();
+	return stringf("$abc$%d$%s", map_autoidx, abc_name.c_str()+1);
 }
 
 void dump_loop_graph(FILE *f, int &nr, std::map<int, std::set<int>> &edges, std::set<int> &workpool, std::vector<int> &in_counts)
@@ -939,42 +936,42 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 			log_error("Opening %s for writing failed: %s\n", buffer.c_str(), strerror(errno));
 		fprintf(f, "GATE ZERO    1 Y=CONST0;\n");
 		fprintf(f, "GATE ONE     1 Y=CONST1;\n");
-		fprintf(f, "GATE BUF    %d Y=A;                  PIN * NONINV  1 999 1 0 1 0\n", cell_cost.at("$_BUF_"));
-		fprintf(f, "GATE NOT    %d Y=!A;                 PIN * INV     1 999 1 0 1 0\n", cell_cost.at("$_NOT_"));
+		fprintf(f, "GATE BUF    %d Y=A;                  PIN * NONINV  1 999 1 0 1 0\n", cell_cost.at(ID($_BUF_)));
+		fprintf(f, "GATE NOT    %d Y=!A;                 PIN * INV     1 999 1 0 1 0\n", cell_cost.at(ID($_NOT_)));
 		if (enabled_gates.count("AND"))
-			fprintf(f, "GATE AND    %d Y=A*B;                PIN * NONINV  1 999 1 0 1 0\n", cell_cost.at("$_AND_"));
+			fprintf(f, "GATE AND    %d Y=A*B;                PIN * NONINV  1 999 1 0 1 0\n", cell_cost.at(ID($_AND_)));
 		if (enabled_gates.count("NAND"))
-			fprintf(f, "GATE NAND   %d Y=!(A*B);             PIN * INV     1 999 1 0 1 0\n", cell_cost.at("$_NAND_"));
+			fprintf(f, "GATE NAND   %d Y=!(A*B);             PIN * INV     1 999 1 0 1 0\n", cell_cost.at(ID($_NAND_)));
 		if (enabled_gates.count("OR"))
-			fprintf(f, "GATE OR     %d Y=A+B;                PIN * NONINV  1 999 1 0 1 0\n", cell_cost.at("$_OR_"));
+			fprintf(f, "GATE OR     %d Y=A+B;                PIN * NONINV  1 999 1 0 1 0\n", cell_cost.at(ID($_OR_)));
 		if (enabled_gates.count("NOR"))
-			fprintf(f, "GATE NOR    %d Y=!(A+B);             PIN * INV     1 999 1 0 1 0\n", cell_cost.at("$_NOR_"));
+			fprintf(f, "GATE NOR    %d Y=!(A+B);             PIN * INV     1 999 1 0 1 0\n", cell_cost.at(ID($_NOR_)));
 		if (enabled_gates.count("XOR"))
-			fprintf(f, "GATE XOR    %d Y=(A*!B)+(!A*B);      PIN * UNKNOWN 1 999 1 0 1 0\n", cell_cost.at("$_XOR_"));
+			fprintf(f, "GATE XOR    %d Y=(A*!B)+(!A*B);      PIN * UNKNOWN 1 999 1 0 1 0\n", cell_cost.at(ID($_XOR_)));
 		if (enabled_gates.count("XNOR"))
-			fprintf(f, "GATE XNOR   %d Y=(A*B)+(!A*!B);      PIN * UNKNOWN 1 999 1 0 1 0\n", cell_cost.at("$_XNOR_"));
+			fprintf(f, "GATE XNOR   %d Y=(A*B)+(!A*!B);      PIN * UNKNOWN 1 999 1 0 1 0\n", cell_cost.at(ID($_XNOR_)));
 		if (enabled_gates.count("ANDNOT"))
-			fprintf(f, "GATE ANDNOT %d Y=A*!B;               PIN * UNKNOWN 1 999 1 0 1 0\n", cell_cost.at("$_ANDNOT_"));
+			fprintf(f, "GATE ANDNOT %d Y=A*!B;               PIN * UNKNOWN 1 999 1 0 1 0\n", cell_cost.at(ID($_ANDNOT_)));
 		if (enabled_gates.count("ORNOT"))
-			fprintf(f, "GATE ORNOT  %d Y=A+!B;               PIN * UNKNOWN 1 999 1 0 1 0\n", cell_cost.at("$_ORNOT_"));
+			fprintf(f, "GATE ORNOT  %d Y=A+!B;               PIN * UNKNOWN 1 999 1 0 1 0\n", cell_cost.at(ID($_ORNOT_)));
 		if (enabled_gates.count("AOI3"))
-			fprintf(f, "GATE AOI3   %d Y=!((A*B)+C);         PIN * INV     1 999 1 0 1 0\n", cell_cost.at("$_AOI3_"));
+			fprintf(f, "GATE AOI3   %d Y=!((A*B)+C);         PIN * INV     1 999 1 0 1 0\n", cell_cost.at(ID($_AOI3_)));
 		if (enabled_gates.count("OAI3"))
-			fprintf(f, "GATE OAI3   %d Y=!((A+B)*C);         PIN * INV     1 999 1 0 1 0\n", cell_cost.at("$_OAI3_"));
+			fprintf(f, "GATE OAI3   %d Y=!((A+B)*C);         PIN * INV     1 999 1 0 1 0\n", cell_cost.at(ID($_OAI3_)));
 		if (enabled_gates.count("AOI4"))
-			fprintf(f, "GATE AOI4   %d Y=!((A*B)+(C*D));     PIN * INV     1 999 1 0 1 0\n", cell_cost.at("$_AOI4_"));
+			fprintf(f, "GATE AOI4   %d Y=!((A*B)+(C*D));     PIN * INV     1 999 1 0 1 0\n", cell_cost.at(ID($_AOI4_)));
 		if (enabled_gates.count("OAI4"))
-			fprintf(f, "GATE OAI4   %d Y=!((A+B)*(C+D));     PIN * INV     1 999 1 0 1 0\n", cell_cost.at("$_OAI4_"));
+			fprintf(f, "GATE OAI4   %d Y=!((A+B)*(C+D));     PIN * INV     1 999 1 0 1 0\n", cell_cost.at(ID($_OAI4_)));
 		if (enabled_gates.count("MUX"))
-			fprintf(f, "GATE MUX    %d Y=(A*B)+(S*B)+(!S*A); PIN * UNKNOWN 1 999 1 0 1 0\n", cell_cost.at("$_MUX_"));
+			fprintf(f, "GATE MUX    %d Y=(A*B)+(S*B)+(!S*A); PIN * UNKNOWN 1 999 1 0 1 0\n", cell_cost.at(ID($_MUX_)));
 		if (enabled_gates.count("NMUX"))
-			fprintf(f, "GATE NMUX   %d Y=!((A*B)+(S*B)+(!S*A)); PIN * UNKNOWN 1 999 1 0 1 0\n", cell_cost.at("$_NMUX_"));
+			fprintf(f, "GATE NMUX   %d Y=!((A*B)+(S*B)+(!S*A)); PIN * UNKNOWN 1 999 1 0 1 0\n", cell_cost.at(ID($_NMUX_)));
 		if (map_mux4)
-			fprintf(f, "GATE MUX4   %d Y=(!S*!T*A)+(S*!T*B)+(!S*T*C)+(S*T*D); PIN * UNKNOWN 1 999 1 0 1 0\n", 2*cell_cost.at("$_MUX_"));
+			fprintf(f, "GATE MUX4   %d Y=(!S*!T*A)+(S*!T*B)+(!S*T*C)+(S*T*D); PIN * UNKNOWN 1 999 1 0 1 0\n", 2*cell_cost.at(ID($_MUX_)));
 		if (map_mux8)
-			fprintf(f, "GATE MUX8   %d Y=(!S*!T*!U*A)+(S*!T*!U*B)+(!S*T*!U*C)+(S*T*!U*D)+(!S*!T*U*E)+(S*!T*U*F)+(!S*T*U*G)+(S*T*U*H); PIN * UNKNOWN 1 999 1 0 1 0\n", 4*cell_cost.at("$_MUX_"));
+			fprintf(f, "GATE MUX8   %d Y=(!S*!T*!U*A)+(S*!T*!U*B)+(!S*T*!U*C)+(S*T*!U*D)+(!S*!T*U*E)+(S*!T*U*F)+(!S*T*U*G)+(S*T*U*H); PIN * UNKNOWN 1 999 1 0 1 0\n", 4*cell_cost.at(ID($_MUX_)));
 		if (map_mux16)
-			fprintf(f, "GATE MUX16  %d Y=(!S*!T*!U*!V*A)+(S*!T*!U*!V*B)+(!S*T*!U*!V*C)+(S*T*!U*!V*D)+(!S*!T*U*!V*E)+(S*!T*U*!V*F)+(!S*T*U*!V*G)+(S*T*U*!V*H)+(!S*!T*!U*V*I)+(S*!T*!U*V*J)+(!S*T*!U*V*K)+(S*T*!U*V*L)+(!S*!T*U*V*M)+(S*!T*U*V*N)+(!S*T*U*V*O)+(S*T*U*V*P); PIN * UNKNOWN 1 999 1 0 1 0\n", 8*cell_cost.at("$_MUX_"));
+			fprintf(f, "GATE MUX16  %d Y=(!S*!T*!U*!V*A)+(S*!T*!U*!V*B)+(!S*T*!U*!V*C)+(S*T*!U*!V*D)+(!S*!T*U*!V*E)+(S*!T*U*!V*F)+(!S*T*U*!V*G)+(S*T*U*!V*H)+(!S*!T*!U*V*I)+(S*!T*!U*V*J)+(!S*T*!U*V*K)+(S*T*!U*V*L)+(!S*!T*U*V*M)+(S*!T*U*V*N)+(!S*T*U*V*O)+(S*T*U*V*P); PIN * UNKNOWN 1 999 1 0 1 0\n", 8*cell_cost.at(ID($_MUX_)));
 		fclose(f);
 
 		if (!lut_costs.empty()) {
@@ -1058,7 +1055,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 					continue;
 				}
 				if (c->type == "\\NOT") {
-					RTLIL::Cell *cell = module->addCell(remap_name(c->name), "$_NOT_");
+					RTLIL::Cell *cell = module->addCell(remap_name(c->name), ID($_NOT_));
 					if (markgroups) cell->attributes["\\abcgroup"] = map_autoidx;
 					cell->setPort("\\A", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\A").as_wire()->name)]));
 					cell->setPort("\\Y", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\Y").as_wire()->name)]));
@@ -1066,7 +1063,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 					continue;
 				}
 				if (c->type.in("\\AND", "\\OR", "\\XOR", "\\NAND", "\\NOR", "\\XNOR", "\\ANDNOT", "\\ORNOT")) {
-					RTLIL::Cell *cell = module->addCell(remap_name(c->name), "$_" + c->type.substr(1) + "_");
+					RTLIL::Cell *cell = module->addCell(remap_name(c->name), stringf("$_%s_", c->type.c_str()+1));
 					if (markgroups) cell->attributes["\\abcgroup"] = map_autoidx;
 					cell->setPort("\\A", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\A").as_wire()->name)]));
 					cell->setPort("\\B", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\B").as_wire()->name)]));
@@ -1075,7 +1072,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 					continue;
 				}
 				if (c->type.in("\\MUX", "\\NMUX")) {
-					RTLIL::Cell *cell = module->addCell(remap_name(c->name), "$_" + c->type.substr(1) + "_");
+					RTLIL::Cell *cell = module->addCell(remap_name(c->name), stringf("$_%s_", c->type.c_str()+1));
 					if (markgroups) cell->attributes["\\abcgroup"] = map_autoidx;
 					cell->setPort("\\A", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\A").as_wire()->name)]));
 					cell->setPort("\\B", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\B").as_wire()->name)]));
@@ -1085,7 +1082,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 					continue;
 				}
 				if (c->type == "\\MUX4") {
-					RTLIL::Cell *cell = module->addCell(remap_name(c->name), "$_MUX4_");
+					RTLIL::Cell *cell = module->addCell(remap_name(c->name), ID($_MUX4_));
 					if (markgroups) cell->attributes["\\abcgroup"] = map_autoidx;
 					cell->setPort("\\A", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\A").as_wire()->name)]));
 					cell->setPort("\\B", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\B").as_wire()->name)]));
@@ -1098,7 +1095,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 					continue;
 				}
 				if (c->type == "\\MUX8") {
-					RTLIL::Cell *cell = module->addCell(remap_name(c->name), "$_MUX8_");
+					RTLIL::Cell *cell = module->addCell(remap_name(c->name), ID($_MUX8_));
 					if (markgroups) cell->attributes["\\abcgroup"] = map_autoidx;
 					cell->setPort("\\A", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\A").as_wire()->name)]));
 					cell->setPort("\\B", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\B").as_wire()->name)]));
@@ -1116,7 +1113,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 					continue;
 				}
 				if (c->type == "\\MUX16") {
-					RTLIL::Cell *cell = module->addCell(remap_name(c->name), "$_MUX16_");
+					RTLIL::Cell *cell = module->addCell(remap_name(c->name), ID($_MUX16_));
 					if (markgroups) cell->attributes["\\abcgroup"] = map_autoidx;
 					cell->setPort("\\A", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\A").as_wire()->name)]));
 					cell->setPort("\\B", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\B").as_wire()->name)]));
@@ -1143,7 +1140,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 					continue;
 				}
 				if (c->type.in("\\AOI3", "\\OAI3")) {
-					RTLIL::Cell *cell = module->addCell(remap_name(c->name), "$_" + c->type.substr(1) + "_");
+					RTLIL::Cell *cell = module->addCell(remap_name(c->name), stringf("$_%s_", c->type.c_str()+1));
 					if (markgroups) cell->attributes["\\abcgroup"] = map_autoidx;
 					cell->setPort("\\A", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\A").as_wire()->name)]));
 					cell->setPort("\\B", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\B").as_wire()->name)]));
@@ -1153,7 +1150,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 					continue;
 				}
 				if (c->type.in("\\AOI4", "\\OAI4")) {
-					RTLIL::Cell *cell = module->addCell(remap_name(c->name), "$_" + c->type.substr(1) + "_");
+					RTLIL::Cell *cell = module->addCell(remap_name(c->name), stringf("$_%s_", c->type.c_str()+1));
 					if (markgroups) cell->attributes["\\abcgroup"] = map_autoidx;
 					cell->setPort("\\A", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\A").as_wire()->name)]));
 					cell->setPort("\\B", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\B").as_wire()->name)]));
@@ -1167,7 +1164,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 					log_assert(clk_sig.size() == 1);
 					RTLIL::Cell *cell;
 					if (en_sig.size() == 0) {
-						cell = module->addCell(remap_name(c->name), clk_polarity ? "$_DFF_P_" : "$_DFF_N_");
+						cell = module->addCell(remap_name(c->name), clk_polarity ? ID($_DFF_P_) : ID($_DFF_N_));
 					} else {
 						log_assert(en_sig.size() == 1);
 						cell = module->addCell(remap_name(c->name), stringf("$_DFFE_%c%c_", clk_polarity ? 'P' : 'N', en_polarity ? 'P' : 'N'));
@@ -1196,7 +1193,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 				log_assert(clk_sig.size() == 1);
 				RTLIL::Cell *cell;
 				if (en_sig.size() == 0) {
-					cell = module->addCell(remap_name(c->name), clk_polarity ? "$_DFF_P_" : "$_DFF_N_");
+					cell = module->addCell(remap_name(c->name), clk_polarity ? ID($_DFF_P_) : ID($_DFF_N_));
 				} else {
 					log_assert(en_sig.size() == 1);
 					cell = module->addCell(remap_name(c->name), stringf("$_DFFE_%c%c_", clk_polarity ? 'P' : 'N', en_polarity ? 'P' : 'N'));
@@ -1210,7 +1207,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 				continue;
 			}
 
-			if (c->type == "$lut" && GetSize(c->getPort("\\A")) == 1 && c->getParam("\\LUT").as_int() == 2) {
+			if (c->type == ID($lut) && GetSize(c->getPort("\\A")) == 1 && c->getParam("\\LUT").as_int() == 2) {
 				SigSpec my_a = module->wires_[remap_name(c->getPort("\\A").as_wire()->name)];
 				SigSpec my_y = module->wires_[remap_name(c->getPort("\\Y").as_wire()->name)];
 				module->connect(my_y, my_a);
@@ -1860,15 +1857,15 @@ struct AbcPass : public Pass {
 					}
 				}
 
-				if (cell->type.in("$_DFF_N_", "$_DFF_P_"))
+				if (cell->type.in(ID($_DFF_N_), ID($_DFF_P_)))
 				{
-					key = clkdomain_t(cell->type == "$_DFF_P_", assign_map(cell->getPort("\\C")), true, RTLIL::SigSpec());
+					key = clkdomain_t(cell->type == ID($_DFF_P_), assign_map(cell->getPort("\\C")), true, RTLIL::SigSpec());
 				}
 				else
-				if (cell->type.in("$_DFFE_NN_", "$_DFFE_NP_" "$_DFFE_PN_", "$_DFFE_PP_"))
+				if (cell->type.in(ID($_DFFE_NN_), ID($_DFFE_NP_), ID($_DFFE_PN_), ID($_DFFE_PP_)))
 				{
-					bool this_clk_pol = cell->type.in("$_DFFE_PN_", "$_DFFE_PP_");
-					bool this_en_pol = cell->type.in("$_DFFE_NP_", "$_DFFE_PP_");
+					bool this_clk_pol = cell->type.in(ID($_DFFE_PN_), ID($_DFFE_PP_));
+					bool this_en_pol = cell->type.in(ID($_DFFE_NP_), ID($_DFFE_PP_));
 					key = clkdomain_t(this_clk_pol, assign_map(cell->getPort("\\C")), this_en_pol, assign_map(cell->getPort("\\E")));
 				}
 				else

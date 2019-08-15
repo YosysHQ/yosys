@@ -89,7 +89,7 @@ struct PmuxtreePass : public Pass {
 		for (auto module : design->selected_modules())
 		for (auto cell : module->selected_cells())
 		{
-			if (cell->type != "$pmux")
+			if (cell->type != ID($pmux))
 				continue;
 
 			SigSpec sig_data = cell->getPort("\\B");

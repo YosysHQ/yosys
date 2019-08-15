@@ -52,13 +52,13 @@ struct Dff2dffeWorker
 		}
 
 		for (auto cell : module->cells()) {
-			if (cell->type.in("$mux", "$pmux", "$_MUX_")) {
+			if (cell->type.in(ID($mux), ID($pmux), ID($_MUX_))) {
 				RTLIL::SigSpec sig_y = sigmap(cell->getPort("\\Y"));
 				for (int i = 0; i < GetSize(sig_y); i++)
 					bit2mux[sig_y[i]] = cell_int_t(cell, i);
 			}
 			if (direct_dict.empty()) {
-				if (cell->type.in("$dff", "$_DFF_N_", "$_DFF_P_"))
+				if (cell->type.in(ID($dff), ID($_DFF_N_), ID($_DFF_P_)))
 					dff_cells.push_back(cell);
 			} else {
 				if (direct_dict.count(cell->type))
@@ -211,13 +211,13 @@ struct Dff2dffeWorker
 				dff_cell->setPort("\\E", make_patterns_logic(it.first, true));
 				dff_cell->type = direct_dict.at(dff_cell->type);
 			} else
-			if (dff_cell->type == "$dff") {
+			if (dff_cell->type == ID($dff)) {
 				RTLIL::Cell *new_cell = module->addDffe(NEW_ID, dff_cell->getPort("\\CLK"), make_patterns_logic(it.first, false),
 						new_sig_d, new_sig_q, dff_cell->getParam("\\CLK_POLARITY").as_bool(), true);
 				log("  created $dffe cell %s for %s -> %s.\n", log_id(new_cell), log_signal(new_sig_d), log_signal(new_sig_q));
 			} else {
 				RTLIL::Cell *new_cell = module->addDffeGate(NEW_ID, dff_cell->getPort("\\C"), make_patterns_logic(it.first, true),
-						new_sig_d, new_sig_q, dff_cell->type == "$_DFF_P_", true);
+						new_sig_d, new_sig_q, dff_cell->type == ID($_DFF_P_), true);
 				log("  created %s cell %s for %s -> %s.\n", log_id(new_cell->type), log_id(new_cell), log_signal(new_sig_d), log_signal(new_sig_q));
 			}
 		}
@@ -316,25 +316,25 @@ struct Dff2dffePass : public Pass {
 			if (args[argidx] == "-direct-match" && argidx + 1 < args.size()) {
 				bool found_match = false;
 				const char *pattern = args[++argidx].c_str();
-				if (patmatch(pattern, "$_DFF_P_"  )) found_match = true, direct_dict["$_DFF_P_"  ] = "$_DFFE_PP_";
-				if (patmatch(pattern, "$_DFF_N_"  )) found_match = true, direct_dict["$_DFF_N_"  ] = "$_DFFE_NP_";
-				if (patmatch(pattern, "$_DFF_NN0_")) found_match = true, direct_dict["$_DFF_NN0_"] = "$__DFFE_NN0";
-				if (patmatch(pattern, "$_DFF_NN1_")) found_match = true, direct_dict["$_DFF_NN1_"] = "$__DFFE_NN1";
-				if (patmatch(pattern, "$_DFF_NP0_")) found_match = true, direct_dict["$_DFF_NP0_"] = "$__DFFE_NP0";
-				if (patmatch(pattern, "$_DFF_NP1_")) found_match = true, direct_dict["$_DFF_NP1_"] = "$__DFFE_NP1";
-				if (patmatch(pattern, "$_DFF_PN0_")) found_match = true, direct_dict["$_DFF_PN0_"] = "$__DFFE_PN0";
-				if (patmatch(pattern, "$_DFF_PN1_")) found_match = true, direct_dict["$_DFF_PN1_"] = "$__DFFE_PN1";
-				if (patmatch(pattern, "$_DFF_PP0_")) found_match = true, direct_dict["$_DFF_PP0_"] = "$__DFFE_PP0";
-				if (patmatch(pattern, "$_DFF_PP1_")) found_match = true, direct_dict["$_DFF_PP1_"] = "$__DFFE_PP1";
+				if (patmatch(pattern, "$_DFF_P_"  )) found_match = true, direct_dict[ID($_DFF_P_)  ] = ID($_DFFE_PP_);
+				if (patmatch(pattern, "$_DFF_N_"  )) found_match = true, direct_dict[ID($_DFF_N_)  ] = ID($_DFFE_NP_);
+				if (patmatch(pattern, "$_DFF_NN0_")) found_match = true, direct_dict[ID($_DFF_NN0_)] = ID($__DFFE_NN0);
+				if (patmatch(pattern, "$_DFF_NN1_")) found_match = true, direct_dict[ID($_DFF_NN1_)] = ID($__DFFE_NN1);
+				if (patmatch(pattern, "$_DFF_NP0_")) found_match = true, direct_dict[ID($_DFF_NP0_)] = ID($__DFFE_NP0);
+				if (patmatch(pattern, "$_DFF_NP1_")) found_match = true, direct_dict[ID($_DFF_NP1_)] = ID($__DFFE_NP1);
+				if (patmatch(pattern, "$_DFF_PN0_")) found_match = true, direct_dict[ID($_DFF_PN0_)] = ID($__DFFE_PN0);
+				if (patmatch(pattern, "$_DFF_PN1_")) found_match = true, direct_dict[ID($_DFF_PN1_)] = ID($__DFFE_PN1);
+				if (patmatch(pattern, "$_DFF_PP0_")) found_match = true, direct_dict[ID($_DFF_PP0_)] = ID($__DFFE_PP0);
+				if (patmatch(pattern, "$_DFF_PP1_")) found_match = true, direct_dict[ID($_DFF_PP1_)] = ID($__DFFE_PP1);
 
-				if (patmatch(pattern, "$__DFFS_NN0_")) found_match = true, direct_dict["$__DFFS_NN0_"] = "$__DFFSE_NN0";
-				if (patmatch(pattern, "$__DFFS_NN1_")) found_match = true, direct_dict["$__DFFS_NN1_"] = "$__DFFSE_NN1";
-				if (patmatch(pattern, "$__DFFS_NP0_")) found_match = true, direct_dict["$__DFFS_NP0_"] = "$__DFFSE_NP0";
-				if (patmatch(pattern, "$__DFFS_NP1_")) found_match = true, direct_dict["$__DFFS_NP1_"] = "$__DFFSE_NP1";
-				if (patmatch(pattern, "$__DFFS_PN0_")) found_match = true, direct_dict["$__DFFS_PN0_"] = "$__DFFSE_PN0";
-				if (patmatch(pattern, "$__DFFS_PN1_")) found_match = true, direct_dict["$__DFFS_PN1_"] = "$__DFFSE_PN1";
-				if (patmatch(pattern, "$__DFFS_PP0_")) found_match = true, direct_dict["$__DFFS_PP0_"] = "$__DFFSE_PP0";
-				if (patmatch(pattern, "$__DFFS_PP1_")) found_match = true, direct_dict["$__DFFS_PP1_"] = "$__DFFSE_PP1";
+				if (patmatch(pattern, "$__DFFS_NN0_")) found_match = true, direct_dict[ID($__DFFS_NN0_)] = ID($__DFFSE_NN0);
+				if (patmatch(pattern, "$__DFFS_NN1_")) found_match = true, direct_dict[ID($__DFFS_NN1_)] = ID($__DFFSE_NN1);
+				if (patmatch(pattern, "$__DFFS_NP0_")) found_match = true, direct_dict[ID($__DFFS_NP0_)] = ID($__DFFSE_NP0);
+				if (patmatch(pattern, "$__DFFS_NP1_")) found_match = true, direct_dict[ID($__DFFS_NP1_)] = ID($__DFFSE_NP1);
+				if (patmatch(pattern, "$__DFFS_PN0_")) found_match = true, direct_dict[ID($__DFFS_PN0_)] = ID($__DFFSE_PN0);
+				if (patmatch(pattern, "$__DFFS_PN1_")) found_match = true, direct_dict[ID($__DFFS_PN1_)] = ID($__DFFSE_PN1);
+				if (patmatch(pattern, "$__DFFS_PP0_")) found_match = true, direct_dict[ID($__DFFS_PP0_)] = ID($__DFFSE_PP0);
+				if (patmatch(pattern, "$__DFFS_PP1_")) found_match = true, direct_dict[ID($__DFFS_PP1_)] = ID($__DFFSE_PP1);
 				if (!found_match)
 					log_cmd_error("No cell types matched pattern '%s'.\n", pattern);
 				continue;
@@ -355,7 +355,7 @@ struct Dff2dffePass : public Pass {
 				if (unmap_mode) {
 					SigMap sigmap(mod);
 					for (auto cell : mod->selected_cells()) {
-						if (cell->type == "$dffe") {
+						if (cell->type == ID($dffe)) {
 							if (min_ce_use >= 0) {
 								int ce_use = 0;
 								for (auto cell_other : mod->selected_cells()) {

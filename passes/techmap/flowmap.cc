@@ -1586,7 +1586,7 @@ struct FlowmapPass : public Pass {
 		}
 		else
 		{
-			cell_types = {"$_NOT_", "$_AND_", "$_OR_", "$_XOR_", "$_MUX_"};
+			cell_types = {ID($_NOT_), ID($_AND_), ID($_OR_), ID($_XOR_), ID($_MUX_)};
 		}
 
 		const char *algo_r = relax ? "-r" : "";

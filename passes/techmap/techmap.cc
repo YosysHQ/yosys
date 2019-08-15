@@ -349,13 +349,13 @@ struct TechmapWorker
 				port_signal_map.apply(it2.second);
 			}
 
-			if (c->type.in("$memrd", "$memwr", "$meminit")) {
+			if (c->type.in(ID($memrd), ID($memwr), ID($meminit))) {
 				IdString memid = c->getParam("\\MEMID").decode_string();
 				log_assert(memory_renames.count(memid) != 0);
 				c->setParam("\\MEMID", Const(memory_renames[memid].str()));
 			}
 
-			if (c->type == "$mem") {
+			if (c->type == ID($mem)) {
 				string memid = c->getParam("\\MEMID").decode_string();
 				apply_prefix(cell->name.str(), memid);
 				c->setParam("\\MEMID", Const(memid));
@@ -541,7 +541,7 @@ struct TechmapWorker
 
 								if (extmapper_name == "maccmap") {
 									log("Creating %s with maccmap.\n", log_id(extmapper_module));
-									if (extmapper_cell->type != "$macc")
+									if (extmapper_cell->type != ID($macc))
 										log_error("The maccmap mapper can only map $macc (not %s) cells!\n", log_id(extmapper_cell->type));
 									maccmap(extmapper_module, extmapper_cell);
 									extmapper_module->remove(extmapper_cell);
@@ -587,7 +587,7 @@ struct TechmapWorker
 							}
 
 							if (extmapper_name == "maccmap") {
-								if (cell->type != "$macc")
+								if (cell->type != ID($macc))
 									log_error("The maccmap mapper can only map $macc (not %s) cells!\n", log_id(cell->type));
 								maccmap(module, cell);
 							}

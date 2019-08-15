@@ -25,7 +25,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 void dffsr_worker(SigMap &sigmap, Module *module, Cell *cell)
 {
-	if (cell->type == "$dffsr")
+	if (cell->type == ID($dffsr))
 	{
 		int width = cell->getParam("\\WIDTH").as_int();
 		bool setpol = cell->getParam("\\SET_POLARITY").as_bool();
@@ -85,7 +85,7 @@ void dffsr_worker(SigMap &sigmap, Module *module, Cell *cell)
 			cell->setParam("\\ARST_POLARITY", clrpol);
 		}
 
-		cell->type = "$adff";
+		cell->type = ID($adff);
 		cell->unsetPort("\\SET");
 		cell->unsetPort("\\CLR");
 		cell->setParam("\\ARST_VALUE", reset_val);
@@ -95,8 +95,8 @@ void dffsr_worker(SigMap &sigmap, Module *module, Cell *cell)
 		return;
 	}
 
-	if (cell->type.in("$_DFFSR_NNN_", "$_DFFSR_NNP_", "$_DFFSR_NPN_", "$_DFFSR_NPP_",
-			"$_DFFSR_PNN_", "$_DFFSR_PNP_", "$_DFFSR_PPN_", "$_DFFSR_PPP_"))
+	if (cell->type.in(ID($_DFFSR_NNN_), ID($_DFFSR_NNP_), ID($_DFFSR_NPN_), ID($_DFFSR_NPP_),
+			ID($_DFFSR_PNN_), ID($_DFFSR_PNP_), ID($_DFFSR_PPN_), ID($_DFFSR_PPP_)))
 	{
 		char clkpol = cell->type.c_str()[8];
 		char setpol = cell->type.c_str()[9];
@@ -133,7 +133,7 @@ void dffsr_worker(SigMap &sigmap, Module *module, Cell *cell)
 
 void adff_worker(SigMap &sigmap, Module *module, Cell *cell)
 {
-	if (cell->type == "$adff")
+	if (cell->type == ID($adff))
 	{
 		bool rstpol = cell->getParam("\\ARST_POLARITY").as_bool();
 		SigBit rstunused = rstpol ? State::S0 : State::S1;
@@ -144,7 +144,7 @@ void adff_worker(SigMap &sigmap, Module *module, Cell *cell)
 
 		log("Converting %s cell %s.%s to $dff.\n", log_id(cell->type), log_id(module), log_id(cell));
 
-		cell->type = "$dff";
+		cell->type = ID($dff);
 		cell->unsetPort("\\ARST");
 		cell->unsetParam("\\ARST_VALUE");
 		cell->unsetParam("\\ARST_POLARITY");
@@ -152,8 +152,8 @@ void adff_worker(SigMap &sigmap, Module *module, Cell *cell)
 		return;
 	}
 
-	if (cell->type.in("$_DFF_NN0_", "$_DFF_NN1_", "$_DFF_NP0_", "$_DFF_NP1_",
-			"$_DFF_PN0_", "$_DFF_PN1_", "$_DFF_PP0_", "$_DFF_PP1_"))
+	if (cell->type.in(ID($_DFF_NN0_), ID($_DFF_NN1_), ID($_DFF_NP0_), ID($_DFF_NP1_),
+			ID($_DFF_PN0_), ID($_DFF_PN1_), ID($_DFF_PP0_), ID($_DFF_PP1_)))
 	{
 		char clkpol = cell->type.c_str()[6];
 		char rstpol = cell->type.c_str()[7];

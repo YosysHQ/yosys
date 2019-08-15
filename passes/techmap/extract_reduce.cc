@@ -58,9 +58,9 @@ struct ExtractReducePass : public Pass
 
 	inline bool IsRightType(Cell* cell, GateType gt)
 	{
-		return (cell->type == "$_AND_" && gt == GateType::And) ||
-				(cell->type == "$_OR_" && gt == GateType::Or) ||
-				(cell->type == "$_XOR_" && gt == GateType::Xor);
+		return (cell->type == ID($_AND_) && gt == GateType::And) ||
+				(cell->type == ID($_OR_) && gt == GateType::Or) ||
+				(cell->type == ID($_XOR_) && gt == GateType::Xor);
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -124,11 +124,11 @@ struct ExtractReducePass : public Pass
 
 				GateType gt;
 
-				if (cell->type == "$_AND_")
+				if (cell->type == ID($_AND_))
 					gt = GateType::And;
-				else if (cell->type == "$_OR_")
+				else if (cell->type == ID($_OR_))
 					gt = GateType::Or;
-				else if (cell->type == "$_XOR_")
+				else if (cell->type == ID($_XOR_))
 					gt = GateType::Xor;
 				else
 					continue;
@@ -291,9 +291,9 @@ struct ExtractReducePass : public Pass
 						SigBit output = sigmap(head_cell->getPort("\\Y")[0]);
 
 						auto new_reduce_cell = module->addCell(NEW_ID,
-							gt == GateType::And ? "$reduce_and" :
-							gt == GateType::Or ? "$reduce_or" :
-							gt == GateType::Xor ? "$reduce_xor" : "");
+							gt == GateType::And ? ID($reduce_and) :
+							gt == GateType::Or ? ID($reduce_or) :
+							gt == GateType::Xor ? ID($reduce_xor) : "");
 						new_reduce_cell->setParam("\\A_SIGNED", 0);
 						new_reduce_cell->setParam("\\A_WIDTH", input.size());
 						new_reduce_cell->setParam("\\Y_WIDTH", 1);

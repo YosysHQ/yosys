@@ -63,16 +63,16 @@ struct TribufWorker {
 
 		for (auto cell : module->selected_cells())
 		{
-			if (cell->type == "$tribuf")
+			if (cell->type == ID($tribuf))
 				tribuf_cells[sigmap(cell->getPort("\\Y"))].push_back(cell);
 
-			if (cell->type == "$_TBUF_")
+			if (cell->type == ID($_TBUF_))
 				tribuf_cells[sigmap(cell->getPort("\\Y"))].push_back(cell);
 
-			if (cell->type.in("$mux", "$_MUX_"))
+			if (cell->type.in(ID($mux), ID($_MUX_)))
 			{
-				IdString en_port = cell->type == "$mux" ? "\\EN" : "\\E";
-				IdString tri_type = cell->type == "$mux" ? "$tribuf" : "$_TBUF_";
+				IdString en_port = cell->type == ID($mux) ? "\\EN" : "\\E";
+				IdString tri_type = cell->type == ID($mux) ? ID($tribuf) : ID($_TBUF_);
 
 				if (is_all_z(cell->getPort("\\A")) && is_all_z(cell->getPort("\\B"))) {
 					module->remove(cell);
@@ -118,7 +118,7 @@ struct TribufWorker {
 
 				SigSpec pmux_b, pmux_s;
 				for (auto cell : it.second) {
-					if (cell->type == "$tribuf")
+					if (cell->type == ID($tribuf))
 						pmux_s.append(cell->getPort("\\EN"));
 					else
 						pmux_s.append(cell->getPort("\\E"));

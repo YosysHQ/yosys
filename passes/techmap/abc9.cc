@@ -71,11 +71,9 @@ RTLIL::Module *module;
 bool clk_polarity, en_polarity;
 RTLIL::SigSpec clk_sig, en_sig;
 
-std::string remap_name(RTLIL::IdString abc_name)
+inline std::string remap_name(RTLIL::IdString abc_name)
 {
-	std::stringstream sstr;
-	sstr << "$abc$" << map_autoidx << "$" << abc_name.substr(1);
-	return sstr.str();
+	return stringf("$abc$%d$%s", map_autoidx, abc_name.c_str()+1);
 }
 
 void handle_loops(RTLIL::Design *design)
@@ -446,14 +444,14 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		if (ifs.fail())
 			log_error("Can't open ABC output file `%s'.\n", buffer.c_str());
 		buffer = stringf("%s/%s", tempdir_name.c_str(), "input.sym");
-		log_assert(!design->module("$__abc9__"));
+		log_assert(!design->module(ID($__abc9__)));
 		{
-			AigerReader reader(design, ifs, "$__abc9__", "" /* clk_name */, buffer.c_str() /* map_filename */, true /* wideports */);
+			AigerReader reader(design, ifs, ID($__abc9__), "" /* clk_name */, buffer.c_str() /* map_filename */, true /* wideports */);
 			reader.parse_xaiger();
 		}
 		ifs.close();
 		Pass::call(design, stringf("write_verilog -noexpr -norename"));
-		design->remove(design->module("$__abc9__"));
+		design->remove(design->module(ID($__abc9__)));
 #endif
 
 		design->selection_stack.pop_back();
@@ -518,9 +516,9 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			log_error("Can't open ABC output file `%s'.\n", buffer.c_str());
 
 		buffer = stringf("%s/%s", tempdir_name.c_str(), "input.sym");
-		log_assert(!design->module("$__abc9__"));
+		log_assert(!design->module(ID($__abc9__)));
 
-		AigerReader reader(design, ifs, "$__abc9__", "" /* clk_name */, buffer.c_str() /* map_filename */, true /* wideports */);
+		AigerReader reader(design, ifs, ID($__abc9__), "" /* clk_name */, buffer.c_str() /* map_filename */, true /* wideports */);
 		reader.parse_xaiger(box_lookup);
 		ifs.close();
 
@@ -529,7 +527,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 #endif
 
 		log_header(design, "Re-integrating ABC9 results.\n");
-		RTLIL::Module *mapped_mod = design->module("$__abc9__");
+		RTLIL::Module *mapped_mod = design->module(ID($__abc9__));
 		if (mapped_mod == NULL)
 			log_error("ABC output file does not contain a module `$__abc9__'.\n");
 
@@ -559,7 +557,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		vector<RTLIL::Cell*> boxes;
 		for (const auto &it : module->cells_) {
 			auto cell = it.second;
-			if (cell->type.in("$_AND_", "$_NOT_")) {
+			if (cell->type.in(ID($_AND_), ID($_NOT_))) {
 				module->remove(cell);
 				continue;
 			}
@@ -577,13 +575,13 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		dict<RTLIL::Cell*,RTLIL::Cell*> not2drivers;
 		dict<SigBit, std::vector<RTLIL::Cell*>> bit2sinks;
 
-		std::map<std::string, int> cell_stats;
+		std::map<IdString, int> cell_stats;
 		for (auto c : mapped_mod->cells())
 		{
 			toposort.node(c->name);
 
 			RTLIL::Cell *cell = nullptr;
-			if (c->type == "$_NOT_") {
+			if (c->type == ID($_NOT_)) {
 				RTLIL::SigBit a_bit = c->getPort("\\A");
 				RTLIL::SigBit y_bit = c->getPort("\\Y");
 				bit_users[a_bit].insert(c->name);
@@ -619,7 +617,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 								RTLIL::SigBit(module->wires_.at(remap_name(y_bit.wire->name)), y_bit.offset),
 								RTLIL::Const::from_string("01"));
 						bit2sinks[cell->getPort("\\A")].push_back(cell);
-						cell_stats["$lut"]++;
+						cell_stats[ID($lut)]++;
 					}
 					else
 						not2drivers[c] = driver_lut;
@@ -633,7 +631,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			cell_stats[RTLIL::unescape_id(c->type)]++;
 
 			RTLIL::Cell *existing_cell = nullptr;
-			if (c->type == "$lut") {
+			if (c->type == ID($lut)) {
 				if (GetSize(c->getPort("\\A")) == 1 && c->getParam("\\LUT") == RTLIL::Const::from_string("01")) {
 					SigSpec my_a = module->wires_.at(remap_name(c->getPort("\\A").as_wire()->name));
 					SigSpec my_y = module->wires_.at(remap_name(c->getPort("\\Y").as_wire()->name));
@@ -747,7 +745,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		for (auto ii = toposort.sorted.rbegin(); ii != toposort.sorted.rend(); ii++) {
 			RTLIL::Cell *not_cell = mapped_mod->cell(*ii);
 			log_assert(not_cell);
-			if (not_cell->type != "$_NOT_")
+			if (not_cell->type != ID($_NOT_))
 				continue;
 			auto it = not2drivers.find(not_cell);
 			if (it == not2drivers.end())
@@ -765,7 +763,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 				goto clone_lut;
 
 			for (auto sink_cell : jt->second)
-				if (sink_cell->type != "$lut")
+				if (sink_cell->type != ID($lut))
 					goto clone_lut;
 
 			// Push downstream LUTs past inverter
@@ -1153,15 +1151,15 @@ struct Abc9Pass : public Pass {
 					}
 				}
 
-				if (cell->type.in("$_DFF_N_", "$_DFF_P_"))
+				if (cell->type.in(ID($_DFF_N_), ID($_DFF_P_)))
 				{
-					key = clkdomain_t(cell->type == "$_DFF_P_", assign_map(cell->getPort("\\C")), true, RTLIL::SigSpec());
+					key = clkdomain_t(cell->type == ID($_DFF_P_), assign_map(cell->getPort("\\C")), true, RTLIL::SigSpec());
 				}
 				else
-				if (cell->type.in("$_DFFE_NN_", "$_DFFE_NP_", "$_DFFE_PN_", "$_DFFE_PP_"))
+				if (cell->type.in(ID($_DFFE_NN_), ID($_DFFE_NP_), ID($_DFFE_PN_), ID($_DFFE_PP_)))
 				{
-					bool this_clk_pol = cell->type.in("$_DFFE_PN_", "$_DFFE_PP_");
-					bool this_en_pol = cell->type.in("$_DFFE_NP_", "$_DFFE_PP_");
+					bool this_clk_pol = cell->type.in(ID($_DFFE_PN_), ID($_DFFE_PP_));
+					bool this_en_pol = cell->type.in(ID($_DFFE_NP_), ID($_DFFE_PP_));
 					key = clkdomain_t(this_clk_pol, assign_map(cell->getPort("\\C")), this_en_pol, assign_map(cell->getPort("\\E")));
 				}
 				else

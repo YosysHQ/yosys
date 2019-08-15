@@ -164,7 +164,7 @@ int counter_tryextract(
 		return 9;
 	Cell* count_mux = *y_loads.begin();
 	extract.count_mux = count_mux;
-	if(count_mux->type != "$mux")
+	if(count_mux->type != ID($mux))
 		return 10;
 	if(!is_full_bus(aluy, index, cell, "\\Y", count_mux, "\\A"))
 		return 11;
@@ -182,7 +182,7 @@ int counter_tryextract(
 	Cell* underflow_inv = NULL;
 	for(auto c : muxsel_conns)
 	{
-		if(c->type != "$logic_not")
+		if(c->type != ID($logic_not))
 			continue;
 		if(!is_full_bus(muxsel, index, c, "\\Y", count_mux, "\\S", true))
 			continue;
@@ -204,7 +204,7 @@ int counter_tryextract(
 	Cell* count_reg = muxload;
 	Cell* cemux = NULL;
 	RTLIL::SigSpec cey;
-	if(muxload->type == "$mux")
+	if(muxload->type == ID($mux))
 	{
 		//This mux is probably a clock enable mux.
 		//Find our count register (should be our only load)
@@ -232,9 +232,9 @@ int counter_tryextract(
 		extract.has_ce = false;
 
 	extract.count_reg = count_reg;
-	if(count_reg->type == "$dff")
+	if(count_reg->type == ID($dff))
 		extract.has_reset = false;
-	else if(count_reg->type == "$adff")
+	else if(count_reg->type == ID($adff))
 	{
 		extract.has_reset = true;
 
@@ -343,7 +343,7 @@ void counter_worker(
 	SigMap& sigmap = index.sigmap;
 
 	//Core of the counter must be an ALU
-	if (cell->type != "$alu")
+	if (cell->type != ID($alu))
 		return;
 
 	//A input is the count value. Check if it has COUNT_EXTRACT set.
@@ -448,7 +448,7 @@ void counter_worker(
 	cell->unsetParam("\\Y_WIDTH");
 
 	//Change the cell type
-	cell->type = "$__COUNT_";
+	cell->type = ID($__COUNT_);
 
 	//Hook up resets
 	if(extract.has_reset)

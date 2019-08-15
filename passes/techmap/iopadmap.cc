@@ -179,7 +179,7 @@ struct IopadmapPass : public Pass {
 				SigMap rewrites;
 
 				for (auto cell : module->cells())
-					if (cell->type == "$_TBUF_") {
+					if (cell->type == ID($_TBUF_)) {
 						SigBit bit = sigmap(cell->getPort("\\Y").as_bit());
 						tbuf_bits[bit].first = cell->name;
 					}
