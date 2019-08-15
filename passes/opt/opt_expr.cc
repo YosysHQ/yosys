@@ -61,7 +61,7 @@ void replace_undriven(RTLIL::Design *design, RTLIL::Module *module)
 		}
 		if (wire->port_input)
 			driven_signals.add(sigmap(wire));
-		if (wire->port_output || wire->get_bool_attribute(ID(keep)))
+		if (wire->port_output || wire->get_bool_attribute(ID::keep))
 			used_signals.add(sigmap(wire));
 		all_signals.add(sigmap(wire));
 	}

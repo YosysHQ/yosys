@@ -145,7 +145,7 @@ struct TechmapWorker
 				record.wire = it.second;
 				record.value = it.second;
 				result[p].push_back(record);
-				it.second->attributes[ID(keep)] = RTLIL::Const(1);
+				it.second->attributes[ID::keep] = RTLIL::Const(1);
 				it.second->attributes[ID(_techmap_special_)] = RTLIL::Const(1);
 			}
 		}

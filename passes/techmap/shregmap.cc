@@ -263,7 +263,7 @@ struct ShregmapWorker
 	{
 		for (auto wire : module->wires())
 		{
-			if (wire->port_output || wire->get_bool_attribute(ID(keep))) {
+			if (wire->port_output || wire->get_bool_attribute(ID::keep)) {
 				for (auto bit : sigmap(wire)) {
 					sigbit_with_non_chain_users.insert(bit);
 					if (opts.tech) opts.tech->non_chain_user(bit, nullptr, {});
@@ -283,7 +283,7 @@ struct ShregmapWorker
 
 		for (auto cell : module->cells())
 		{
-			if (opts.ffcells.count(cell->type) && !cell->get_bool_attribute(ID(keep)))
+			if (opts.ffcells.count(cell->type) && !cell->get_bool_attribute(ID::keep))
 			{
 				IdString d_port = opts.ffcells.at(cell->type).first;
 				IdString q_port = opts.ffcells.at(cell->type).second;

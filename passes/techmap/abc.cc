@@ -198,7 +198,7 @@ void extract_cell(RTLIL::Cell *cell, bool keepff)
 		if (keepff)
 			for (auto &c : sig_q.chunks())
 				if (c.wire != NULL)
-					c.wire->attributes[ID(keep)] = 1;
+					c.wire->attributes[ID::keep] = 1;
 
 		assign_map.apply(sig_d);
 		assign_map.apply(sig_q);
@@ -787,7 +787,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		extract_cell(c, keepff);
 
 	for (auto &wire_it : module->wires_) {
-		if (wire_it.second->port_id > 0 || wire_it.second->get_bool_attribute(ID(keep)))
+		if (wire_it.second->port_id > 0 || wire_it.second->get_bool_attribute(ID::keep))
 			mark_port(RTLIL::SigSpec(wire_it.second));
 	}
 

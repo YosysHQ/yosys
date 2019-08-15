@@ -398,7 +398,7 @@ struct WreduceWorker
 		SigMap init_attr_sigmap = mi.sigmap;
 
 		for (auto w : module->wires()) {
-			if (w->get_bool_attribute(ID(keep)))
+			if (w->get_bool_attribute(ID::keep))
 				for (auto bit : mi.sigmap(w))
 					keep_bits.insert(bit);
 			if (w->attributes.count(ID(init))) {

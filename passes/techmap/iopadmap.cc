@@ -226,7 +226,7 @@ struct IopadmapPass : public Pass {
 							cell->setPort(RTLIL::escape_id(tinoutpad_portname2), owire);
 							cell->setPort(RTLIL::escape_id(tinoutpad_portname3), data_sig);
 							cell->setPort(RTLIL::escape_id(tinoutpad_portname4), wire_bit);
-							cell->attributes[ID(keep)] = RTLIL::Const(1);
+							cell->attributes[ID::keep] = RTLIL::Const(1);
 
 							for (auto cn : tbuf_cache.second) {
 								auto c = module->cell(cn);
@@ -263,7 +263,7 @@ struct IopadmapPass : public Pass {
 							cell->setPort(RTLIL::escape_id(toutpad_portname), en_sig);
 							cell->setPort(RTLIL::escape_id(toutpad_portname2), data_sig);
 							cell->setPort(RTLIL::escape_id(toutpad_portname3), wire_bit);
-							cell->attributes[ID(keep)] = RTLIL::Const(1);
+							cell->attributes[ID::keep] = RTLIL::Const(1);
 
 							for (auto cn : tbuf_cache.second) {
 								auto c = module->cell(cn);
@@ -390,7 +390,7 @@ struct IopadmapPass : public Pass {
 							cell->parameters[RTLIL::escape_id(widthparam)] = RTLIL::Const(1);
 						if (!nameparam.empty())
 							cell->parameters[RTLIL::escape_id(nameparam)] = RTLIL::Const(stringf("%s[%d]", RTLIL::id2cstr(wire->name), i));
-						cell->attributes[ID(keep)] = RTLIL::Const(1);
+						cell->attributes[ID::keep] = RTLIL::Const(1);
 					}
 				}
 				else
@@ -403,7 +403,7 @@ struct IopadmapPass : public Pass {
 						cell->parameters[RTLIL::escape_id(widthparam)] = RTLIL::Const(wire->width);
 					if (!nameparam.empty())
 						cell->parameters[RTLIL::escape_id(nameparam)] = RTLIL::Const(RTLIL::id2cstr(wire->name));
-					cell->attributes[ID(keep)] = RTLIL::Const(1);
+					cell->attributes[ID::keep] = RTLIL::Const(1);
 				}
 
 				wire->port_id = 0;

@@ -137,7 +137,7 @@ struct OptMuxtreeWorker
 			}
 		}
 		for (auto wire : module->wires()) {
-			if (wire->port_output || wire->get_bool_attribute(ID(keep)))
+			if (wire->port_output || wire->get_bool_attribute(ID::keep))
 				for (int idx : sig2bits(RTLIL::SigSpec(wire)))
 					bit2info[idx].seen_non_mux = true;
 		}

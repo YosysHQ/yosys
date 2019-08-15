@@ -104,7 +104,7 @@ struct OptLutWorker
 				if (cell->has_keep_attr())
 					continue;
 				SigBit lut_output = cell->getPort(ID::Y);
-				if (lut_output.wire->get_bool_attribute(ID(keep)))
+				if (lut_output.wire->get_bool_attribute(ID::keep))
 					continue;
 
 				int lut_width = cell->getParam(ID(WIDTH)).as_int();
