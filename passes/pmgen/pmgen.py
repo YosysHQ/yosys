@@ -494,8 +494,6 @@ with open(outfile, "w") as f:
         current_pattern, current_subpattern = block["pattern"]
 
         if block["type"] == "final":
-            print("    on_accept();", file=f)
-            print("    check_blacklist_{}();".format(current_pattern), file=f)
             print("  }", file=f)
             if index+1 != len(blocks):
                 print("", file=f)
@@ -556,7 +554,7 @@ with open(outfile, "w") as f:
             print("#define reject do {{ check_blacklist_{}(); goto rollback_label; }} while(0)".format(current_pattern), file=f)
             print("#define accept do {{ on_accept(); check_blacklist_{}(); if (rollback) goto rollback_label; }} while(0)".format(current_pattern), file=f)
             print("#define branch do {{ block_{}(); if (rollback) goto rollback_label; }} while(0)".format(index+1), file=f)
-            print("#define subpattern(pattern_name) block_subpattern_{}_ ## pattern_name ()".format(current_pattern), file=f)
+            print("#define subpattern(pattern_name) do {{ block_subpattern_{}_ ## pattern_name (); if (rollback) goto rollback_label; }} while(0)".format(current_pattern), file=f)
 
             for line in block["code"]:
                 print("  " + line, file=f)

@@ -23,6 +23,7 @@ code
 finally
 	chain.pop_back();
 	log_assert(chain.empty());
+	accept;
 endcode
 
 // ------------------------------------------------------------------
@@ -48,7 +49,6 @@ endmatch
 
 code
 	non_first_cells.insert(next);
-	reject;
 endcode
 
 // ------------------------------------------------------------------
@@ -74,7 +74,6 @@ code
 		if (GetSize(chain) > GetSize(longest_chain))
 			longest_chain = chain;
 	}
-	reject;
 finally
 	if (next)
 		chain.pop_back();

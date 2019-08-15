@@ -32,5 +32,5 @@ code
 	log("muldiv pattern in %s: mul=%s, div=%s\n", log_id(module), log_id(mul), log_id(div));
 	module->connect(div_y, val_y);
 	autoremove(div);
-	reject;
+	accept;
 endcode

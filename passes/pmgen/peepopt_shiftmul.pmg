@@ -91,6 +91,6 @@ code
 	shift->setParam(\B_WIDTH, GetSize(new_b));
 
 	blacklist(shift);
-	reject;
+	accept;
 }
 endcode
