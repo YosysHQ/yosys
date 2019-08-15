@@ -29,8 +29,13 @@ match ffA
 endmatch
 
 code clock
-	if (ffA)
+	if (ffA) {
 		clock = port(ffA, \CLK).as_bit();
+
+		for (auto b : port(ffA, \Q))
+			if (b.wire->get_bool_attribute(\keep))
+				reject;
+	}
 endcode
 
 match ffB
@@ -45,6 +50,10 @@ endmatch
 
 code clock
 	if (ffB) {
+		for (auto b : port(ffB, \Q))
+			if (b.wire->get_bool_attribute(\keep))
+				reject;
+
 		SigBit c = port(ffB, \CLK).as_bit();
 
 		if (clock != SigBit() && c != clock)
@@ -156,6 +165,10 @@ code ffP clock
 //		ffP = ffY;
 
 	if (ffP) {
+		for (auto b : port(ffP, \Q))
+			if (b.wire->get_bool_attribute(\keep))
+				reject;
+
 		SigBit c = port(ffP, \CLK).as_bit();
 
 		if (clock != SigBit() && c != clock)
