@@ -72,16 +72,16 @@ struct Dff2dffsPass : public Pass {
 				if (cell->type != ID($_MUX_))
 					continue;
 
-				SigBit bit_a = sigmap(cell->getPort(ID(\\A)));
-				SigBit bit_b = sigmap(cell->getPort(ID(\\B)));
+				SigBit bit_a = sigmap(cell->getPort(ID(A)));
+				SigBit bit_b = sigmap(cell->getPort(ID(B)));
 
 				if (bit_a.wire == nullptr || bit_b.wire == nullptr)
-					sr_muxes[sigmap(cell->getPort(ID(\\Y)))] = cell;
+					sr_muxes[sigmap(cell->getPort(ID(Y)))] = cell;
 			}
 
 			for (auto cell : ff_cells)
 			{
-				SigSpec sig_d = cell->getPort(ID(\\D));
+				SigSpec sig_d = cell->getPort(ID(D));
 
 				if (GetSize(sig_d) < 1)
 					continue;
@@ -92,9 +92,9 @@ struct Dff2dffsPass : public Pass {
 					continue;
 
 				Cell *mux_cell = sr_muxes.at(bit_d);
-				SigBit bit_a = sigmap(mux_cell->getPort(ID(\\A)));
-				SigBit bit_b = sigmap(mux_cell->getPort(ID(\\B)));
-				SigBit bit_s = sigmap(mux_cell->getPort(ID(\\S)));
+				SigBit bit_a = sigmap(mux_cell->getPort(ID(A)));
+				SigBit bit_b = sigmap(mux_cell->getPort(ID(B)));
+				SigBit bit_s = sigmap(mux_cell->getPort(ID(S)));
 
 				log("  Merging %s (A=%s, B=%s, S=%s) into %s (%s).\n", log_id(mux_cell),
 						log_signal(bit_a), log_signal(bit_b), log_signal(bit_s), log_id(cell), log_id(cell->type));
@@ -132,8 +132,8 @@ struct Dff2dffsPass : public Pass {
 						else cell->type = ID($__DFFS_PP0_);
 					}
 				}
-				cell->setPort(ID(\\R), sr_sig);
-				cell->setPort(ID(\\D), bit_d);
+				cell->setPort(ID(R), sr_sig);
+				cell->setPort(ID(D), bit_d);
 			}
 		}
 	}

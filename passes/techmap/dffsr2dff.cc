@@ -27,15 +27,15 @@ void dffsr_worker(SigMap &sigmap, Module *module, Cell *cell)
 {
 	if (cell->type == ID($dffsr))
 	{
-		int width = cell->getParam(ID(\\WIDTH)).as_int();
-		bool setpol = cell->getParam(ID(\\SET_POLARITY)).as_bool();
-		bool clrpol = cell->getParam(ID(\\CLR_POLARITY)).as_bool();
+		int width = cell->getParam(ID(WIDTH)).as_int();
+		bool setpol = cell->getParam(ID(SET_POLARITY)).as_bool();
+		bool clrpol = cell->getParam(ID(CLR_POLARITY)).as_bool();
 
 		SigBit setunused = setpol ? State::S0 : State::S1;
 		SigBit clrunused = clrpol ? State::S0 : State::S1;
 
-		SigSpec setsig = sigmap(cell->getPort(ID(\\SET)));
-		SigSpec clrsig = sigmap(cell->getPort(ID(\\CLR)));
+		SigSpec setsig = sigmap(cell->getPort(ID(SET)));
+		SigSpec clrsig = sigmap(cell->getPort(ID(CLR)));
 
 		Const reset_val;
 		SigSpec setctrl, clrctrl;
@@ -78,19 +78,19 @@ void dffsr_worker(SigMap &sigmap, Module *module, Cell *cell)
 		log("Converting %s cell %s.%s to $adff.\n", log_id(cell->type), log_id(module), log_id(cell));
 
 		if (GetSize(setctrl) == 1) {
-			cell->setPort(ID(\\ARST), setctrl);
-			cell->setParam(ID(\\ARST_POLARITY), setpol);
+			cell->setPort(ID(ARST), setctrl);
+			cell->setParam(ID(ARST_POLARITY), setpol);
 		} else {
-			cell->setPort(ID(\\ARST), clrctrl);
-			cell->setParam(ID(\\ARST_POLARITY), clrpol);
+			cell->setPort(ID(ARST), clrctrl);
+			cell->setParam(ID(ARST_POLARITY), clrpol);
 		}
 
 		cell->type = ID($adff);
-		cell->unsetPort(ID(\\SET));
-		cell->unsetPort(ID(\\CLR));
-		cell->setParam(ID(\\ARST_VALUE), reset_val);
-		cell->unsetParam(ID(\\SET_POLARITY));
-		cell->unsetParam(ID(\\CLR_POLARITY));
+		cell->unsetPort(ID(SET));
+		cell->unsetPort(ID(CLR));
+		cell->setParam(ID(ARST_VALUE), reset_val);
+		cell->unsetParam(ID(SET_POLARITY));
+		cell->unsetParam(ID(CLR_POLARITY));
 
 		return;
 	}
@@ -102,8 +102,8 @@ void dffsr_worker(SigMap &sigmap, Module *module, Cell *cell)
 		char setpol = cell->type.c_str()[9];
 		char clrpol = cell->type.c_str()[10];
 
-		SigBit setbit = sigmap(cell->getPort(ID(\\S)));
-		SigBit clrbit = sigmap(cell->getPort(ID(\\R)));
+		SigBit setbit = sigmap(cell->getPort(ID(S)));
+		SigBit clrbit = sigmap(cell->getPort(ID(R)));
 
 		SigBit setunused = setpol == 'P' ? State::S0 : State::S1;
 		SigBit clrunused = clrpol == 'P' ? State::S0 : State::S1;
@@ -112,14 +112,14 @@ void dffsr_worker(SigMap &sigmap, Module *module, Cell *cell)
 
 		if (setbit == setunused) {
 			cell->type = stringf("$_DFF_%c%c0_", clkpol, clrpol);
-			cell->unsetPort(ID(\\S));
+			cell->unsetPort(ID(S));
 			goto converted_gate;
 		}
 
 		if (clrbit == clrunused) {
 			cell->type = stringf("$_DFF_%c%c1_", clkpol, setpol);
-			cell->setPort(ID(\\R), cell->getPort(ID(\\S)));
-			cell->unsetPort(ID(\\S));
+			cell->setPort(ID(R), cell->getPort(ID(S)));
+			cell->unsetPort(ID(S));
 			goto converted_gate;
 		}
 
@@ -135,9 +135,9 @@ void adff_worker(SigMap &sigmap, Module *module, Cell *cell)
 {
 	if (cell->type == ID($adff))
 	{
-		bool rstpol = cell->getParam(ID(\\ARST_POLARITY)).as_bool();
+		bool rstpol = cell->getParam(ID(ARST_POLARITY)).as_bool();
 		SigBit rstunused = rstpol ? State::S0 : State::S1;
-		SigSpec rstsig = sigmap(cell->getPort(ID(\\ARST)));
+		SigSpec rstsig = sigmap(cell->getPort(ID(ARST)));
 
 		if (rstsig != rstunused)
 			return;
@@ -145,9 +145,9 @@ void adff_worker(SigMap &sigmap, Module *module, Cell *cell)
 		log("Converting %s cell %s.%s to $dff.\n", log_id(cell->type), log_id(module), log_id(cell));
 
 		cell->type = ID($dff);
-		cell->unsetPort(ID(\\ARST));
-		cell->unsetParam(ID(\\ARST_VALUE));
-		cell->unsetParam(ID(\\ARST_POLARITY));
+		cell->unsetPort(ID(ARST));
+		cell->unsetParam(ID(ARST_VALUE));
+		cell->unsetParam(ID(ARST_POLARITY));
 
 		return;
 	}
@@ -158,7 +158,7 @@ void adff_worker(SigMap &sigmap, Module *module, Cell *cell)
 		char clkpol = cell->type.c_str()[6];
 		char rstpol = cell->type.c_str()[7];
 
-		SigBit rstbit = sigmap(cell->getPort(ID(\\R)));
+		SigBit rstbit = sigmap(cell->getPort(ID(R)));
 		SigBit rstunused = rstpol == 'P' ? State::S0 : State::S1;
 
 		if (rstbit != rstunused)
@@ -168,7 +168,7 @@ void adff_worker(SigMap &sigmap, Module *module, Cell *cell)
 		log("Converting %s cell %s.%s to %s.\n", log_id(cell->type), log_id(module), log_id(cell), log_id(newtype));
 
 		cell->type = newtype;
-		cell->unsetPort(ID(\\R));
+		cell->unsetPort(ID(R));
 
 		return;
 	}
