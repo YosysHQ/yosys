@@ -82,11 +82,11 @@ code sigB clock clock_pol
 	}
 endcode
 
-match ffH
+match ffFJKG
 	if mul->type != \SB_MAC16 || (!param(mul, \TOP_8x8_MULT_REG).as_bool() && !param(mul, \BOT_8x8_MULT_REG).as_bool() && !param(mul, \PIPELINE_16x16_MULT_REG1).as_bool() && !param(mul, \PIPELINE_16x16_MULT_REG2).as_bool())
-	select ffH->type.in($dff)
-	select nusers(port(ffH, \D)) == 2
-	index <SigSpec> port(ffH, \D) === sigH
+	select ffFJKG->type.in($dff)
+	select nusers(port(ffFJKG, \D)) == 2
+	index <SigSpec> port(ffFJKG, \D) === sigH
 	// Ensure pipeline register is not already used
 	optional
 endmatch
@@ -94,16 +94,16 @@ endmatch
 code sigH sigO clock clock_pol
 	sigO = sigH;
 
-	if (ffH) {
-		sigH = port(ffH, \Q);
+	if (ffFJKG) {
+		sigH = port(ffFJKG, \Q);
 		for (auto b : sigH)
 			if (b.wire->get_bool_attribute(\keep))
 				reject;
 
 		sigO = sigH;
 
-		SigBit c = port(ffH, \CLK).as_bit();
-		bool cp = param(ffH, \CLK_POLARITY).as_bool();
+		SigBit c = port(ffFJKG, \CLK).as_bit();
+		bool cp = param(ffFJKG, \CLK_POLARITY).as_bool();
 
 		if (clock != SigBit() && (c != clock || cp != clock_pol))
 			reject;

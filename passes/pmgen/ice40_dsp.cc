@@ -38,7 +38,7 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 	log("ffA:    %s\n", log_id(st.ffA, "--"));
 	log("ffB:    %s\n", log_id(st.ffB, "--"));
 	log("mul:    %s\n", log_id(st.mul, "--"));
-	log("ffH:    %s\n", log_id(st.ffH, "--"));
+	log("ffFJKG: %s\n", log_id(st.ffFJKG, "--"));
 	log("addAB:  %s\n", log_id(st.addAB, "--"));
 	log("muxAB:  %s\n", log_id(st.muxAB, "--"));
 	log("ffO_lo: %s\n", log_id(st.ffO_lo, "--"));
@@ -119,8 +119,8 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 		if (st.ffB)
 			log(" ffB:%s", log_id(st.ffB));
 
-		if (st.ffH)
-			log(" ffH:%s", log_id(st.ffH));
+		if (st.ffFJKG)
+			log(" ffFJKG:%s", log_id(st.ffFJKG));
 
 		if (st.ffO_lo)
 			log(" ffO_lo:%s", log_id(st.ffO_lo));
@@ -206,9 +206,9 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 	cell->setParam("\\C_REG", State::S0);
 	cell->setParam("\\D_REG", State::S0);
 
-	cell->setParam("\\TOP_8x8_MULT_REG", st.ffH ? State::S1 : State::S0);
-	cell->setParam("\\BOT_8x8_MULT_REG", st.ffH ? State::S1 : State::S0);
-	cell->setParam("\\PIPELINE_16x16_MULT_REG1", st.ffH ? State::S1 : State::S0);
+	cell->setParam("\\TOP_8x8_MULT_REG", st.ffFJKG ? State::S1 : State::S0);
+	cell->setParam("\\BOT_8x8_MULT_REG", st.ffFJKG ? State::S1 : State::S0);
+	cell->setParam("\\PIPELINE_16x16_MULT_REG1", st.ffFJKG ? State::S1 : State::S0);
 	cell->setParam("\\PIPELINE_16x16_MULT_REG2", State::S0);
 
 	cell->setParam("\\TOPOUTPUT_SELECT", Const(st.ffO_hi ? 1 : (st.addAB ? 0 : 3), 2));
@@ -229,7 +229,7 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 		pm.autoremove(st.mul);
 	else
 		pm.blacklist(st.mul);
-	pm.autoremove(st.ffH);
+	pm.autoremove(st.ffFJKG);
 	pm.autoremove(st.addAB);
 	if (st.ffO_lo) {
 			SigSpec O = st.sigO.extract(0,std::min(16,st.ffO_lo->getParam("\\WIDTH").as_int()));
