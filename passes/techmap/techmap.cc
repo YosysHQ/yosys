@@ -520,7 +520,7 @@ struct TechmapWorker
 								int port_counter = 1;
 								for (auto &c : extmapper_cell->connections_) {
 									RTLIL::Wire *w = extmapper_module->addWire(c.first, GetSize(c.second));
-									if (w->name.in(ID(Y), ID(Q)))
+									if (w->name.in(ID::Y, ID(Q)))
 										w->port_output = true;
 									else
 										w->port_input = true;

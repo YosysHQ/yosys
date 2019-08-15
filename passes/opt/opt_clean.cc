@@ -482,8 +482,8 @@ void rmunused_module(RTLIL::Module *module, bool purge_mode, bool verbose, bool 
 	for (auto cell : module->cells())
 		if (cell->type.in(ID($pos), ID($_BUF_)) && !cell->has_keep_attr()) {
 			bool is_signed = cell->type == ID($pos) && cell->getParam(ID(A_SIGNED)).as_bool();
-			RTLIL::SigSpec a = cell->getPort(ID(A));
-			RTLIL::SigSpec y = cell->getPort(ID(Y));
+			RTLIL::SigSpec a = cell->getPort(ID::A);
+			RTLIL::SigSpec y = cell->getPort(ID::Y);
 			a.extend_u0(GetSize(y), is_signed);
 			module->connect(y, a);
 			delcells.push_back(cell);
@@ -491,7 +491,7 @@ void rmunused_module(RTLIL::Module *module, bool purge_mode, bool verbose, bool 
 	for (auto cell : delcells) {
 		if (verbose)
 			log_debug("  removing buffer cell `%s': %s = %s\n", cell->name.c_str(),
-					log_signal(cell->getPort(ID(Y))), log_signal(cell->getPort(ID(A))));
+					log_signal(cell->getPort(ID::Y)), log_signal(cell->getPort(ID::A)));
 		module->remove(cell);
 	}
 	if (!delcells.empty())

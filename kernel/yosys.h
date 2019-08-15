@@ -210,6 +210,7 @@ namespace RTLIL {
 	struct Module;
 	struct Design;
 	struct Monitor;
+    namespace ID {}
 }
 
 namespace AST {
@@ -224,6 +225,7 @@ using RTLIL::Wire;
 using RTLIL::Cell;
 using RTLIL::Module;
 using RTLIL::Design;
+namespace ID = RTLIL::ID;
 
 namespace hashlib {
 	template<> struct hash_ops<RTLIL::Wire*> : hash_obj_ops {};

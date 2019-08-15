@@ -180,7 +180,7 @@ struct IopadmapPass : public Pass {
 
 				for (auto cell : module->cells())
 					if (cell->type == ID($_TBUF_)) {
-						SigBit bit = sigmap(cell->getPort(ID(Y)).as_bit());
+						SigBit bit = sigmap(cell->getPort(ID::Y).as_bit());
 						tbuf_bits[bit].first = cell->name;
 					}
 
@@ -213,7 +213,7 @@ struct IopadmapPass : public Pass {
 							continue;
 
 						SigBit en_sig = tbuf_cell->getPort(ID(E)).as_bit();
-						SigBit data_sig = tbuf_cell->getPort(ID(A)).as_bit();
+						SigBit data_sig = tbuf_cell->getPort(ID::A).as_bit();
 
 						if (wire->port_input && !tinoutpad_celltype.empty())
 						{

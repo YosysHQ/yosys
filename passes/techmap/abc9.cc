@@ -582,13 +582,13 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 
 			RTLIL::Cell *cell = nullptr;
 			if (c->type == ID($_NOT_)) {
-				RTLIL::SigBit a_bit = c->getPort(ID(A));
-				RTLIL::SigBit y_bit = c->getPort(ID(Y));
+				RTLIL::SigBit a_bit = c->getPort(ID::A);
+				RTLIL::SigBit y_bit = c->getPort(ID::Y);
 				bit_users[a_bit].insert(c->name);
 				bit_drivers[y_bit].insert(c->name);
 
 				if (!a_bit.wire) {
-					c->setPort(ID(Y), module->addWire(NEW_ID));
+					c->setPort(ID::Y, module->addWire(NEW_ID));
 					RTLIL::Wire *wire = module->wire(remap_name(y_bit.wire->name));
 					log_assert(wire);
 					module->connect(RTLIL::SigBit(wire, y_bit.offset), State::S1);
@@ -616,7 +616,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 								RTLIL::SigBit(module->wires_.at(remap_name(a_bit.wire->name)), a_bit.offset),
 								RTLIL::SigBit(module->wires_.at(remap_name(y_bit.wire->name)), y_bit.offset),
 								RTLIL::Const::from_string("01"));
-						bit2sinks[cell->getPort(ID(A))].push_back(cell);
+						bit2sinks[cell->getPort(ID::A)].push_back(cell);
 						cell_stats[ID($lut)]++;
 					}
 					else
@@ -632,9 +632,9 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 
 			RTLIL::Cell *existing_cell = nullptr;
 			if (c->type == ID($lut)) {
-				if (GetSize(c->getPort(ID(A))) == 1 && c->getParam(ID(LUT)) == RTLIL::Const::from_string("01")) {
-					SigSpec my_a = module->wires_.at(remap_name(c->getPort(ID(A)).as_wire()->name));
-					SigSpec my_y = module->wires_.at(remap_name(c->getPort(ID(Y)).as_wire()->name));
+				if (GetSize(c->getPort(ID::A)) == 1 && c->getParam(ID(LUT)) == RTLIL::Const::from_string("01")) {
+					SigSpec my_a = module->wires_.at(remap_name(c->getPort(ID::A).as_wire()->name));
+					SigSpec my_y = module->wires_.at(remap_name(c->getPort(ID::Y).as_wire()->name));
 					module->connect(my_y, my_a);
 					if (markgroups) c->attributes[ID(abcgroup)] = map_autoidx;
 					log_abort();
@@ -751,8 +751,8 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			if (it == not2drivers.end())
 				continue;
 			RTLIL::Cell *driver_lut = it->second;
-			RTLIL::SigBit a_bit = not_cell->getPort(ID(A));
-			RTLIL::SigBit y_bit = not_cell->getPort(ID(Y));
+			RTLIL::SigBit a_bit = not_cell->getPort(ID::A);
+			RTLIL::SigBit y_bit = not_cell->getPort(ID::Y);
 			RTLIL::Const driver_mask;
 
 			a_bit.wire = module->wires_.at(remap_name(a_bit.wire->name));
@@ -768,7 +768,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 
 			// Push downstream LUTs past inverter
 			for (auto sink_cell : jt->second) {
-				SigSpec A = sink_cell->getPort(ID(A));
+				SigSpec A = sink_cell->getPort(ID::A);
 				RTLIL::Const mask = sink_cell->getParam(ID(LUT));
 				int index = 0;
 				for (; index < GetSize(A); index++)
@@ -782,7 +782,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 					i += 1 << (index+1);
 				}
 				A[index] = y_bit;
-				sink_cell->setPort(ID(A), A);
+				sink_cell->setPort(ID::A, A);
 				sink_cell->setParam(ID(LUT), mask);
 			}
 
@@ -798,10 +798,10 @@ clone_lut:
 				else if (b == RTLIL::State::S1) b = RTLIL::State::S0;
 			}
 			auto cell = module->addLut(NEW_ID,
-					driver_lut->getPort(ID(A)),
+					driver_lut->getPort(ID::A),
 					y_bit,
 					driver_mask);
-			for (auto &bit : cell->connections_.at(ID(A))) {
+			for (auto &bit : cell->connections_.at(ID::A)) {
 				bit.wire = module->wires_.at(remap_name(bit.wire->name));
 				bit2sinks[bit].push_back(cell);
 			}

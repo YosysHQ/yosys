@@ -72,11 +72,11 @@ struct Dff2dffsPass : public Pass {
 				if (cell->type != ID($_MUX_))
 					continue;
 
-				SigBit bit_a = sigmap(cell->getPort(ID(A)));
-				SigBit bit_b = sigmap(cell->getPort(ID(B)));
+				SigBit bit_a = sigmap(cell->getPort(ID::A));
+				SigBit bit_b = sigmap(cell->getPort(ID::B));
 
 				if (bit_a.wire == nullptr || bit_b.wire == nullptr)
-					sr_muxes[sigmap(cell->getPort(ID(Y)))] = cell;
+					sr_muxes[sigmap(cell->getPort(ID::Y))] = cell;
 			}
 
 			for (auto cell : ff_cells)
@@ -92,8 +92,8 @@ struct Dff2dffsPass : public Pass {
 					continue;
 
 				Cell *mux_cell = sr_muxes.at(bit_d);
-				SigBit bit_a = sigmap(mux_cell->getPort(ID(A)));
-				SigBit bit_b = sigmap(mux_cell->getPort(ID(B)));
+				SigBit bit_a = sigmap(mux_cell->getPort(ID::A));
+				SigBit bit_b = sigmap(mux_cell->getPort(ID::B));
 				SigBit bit_s = sigmap(mux_cell->getPort(ID(S)));
 
 				log("  Merging %s (A=%s, B=%s, S=%s) into %s (%s).\n", log_id(mux_cell),
