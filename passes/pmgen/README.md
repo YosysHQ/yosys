@@ -175,6 +175,9 @@ explore the case where `mul` is set to `nullptr`. Without the `optional`
 statement a match may only be assigned nullptr when one of the `if` expressions
 evaluates to `false`.
 
+The `semioptional` statement marks matches that must match if at least one
+matching cell exists, but if no matching cell exists it is set to `nullptr`.
+
 Additional code
 ---------------
 
