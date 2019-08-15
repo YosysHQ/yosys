@@ -92,15 +92,11 @@ match ffFJKG
 endmatch
 
 code sigH sigO clock clock_pol
-	sigO = sigH;
-
 	if (ffFJKG) {
 		sigH = port(ffFJKG, \Q);
 		for (auto b : sigH)
 			if (b.wire->get_bool_attribute(\keep))
 				reject;
-
-		sigO = sigH;
 
 		SigBit c = port(ffFJKG, \CLK).as_bit();
 		bool cp = param(ffFJKG, \CLK_POLARITY).as_bool();
@@ -111,6 +107,8 @@ code sigH sigO clock clock_pol
 		clock = c;
 		clock_pol = cp;
 	}
+
+	sigO = sigH;
 endcode
 
 match addA
