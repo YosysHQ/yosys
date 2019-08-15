@@ -9,6 +9,12 @@ $(eval $(call add_extra_objs,passes/pmgen/ice40_dsp_pm.h))
 
 # --------------------------------------
 
+OBJS += passes/pmgen/demo_reduce.o
+passes/pmgen/demo_reduce.o: passes/pmgen/demo_reduce_pm.h
+$(eval $(call add_extra_objs,passes/pmgen/demo_reduce_pm.h))
+
+# --------------------------------------
+
 OBJS += passes/pmgen/peepopt.o
 passes/pmgen/peepopt.o: passes/pmgen/peepopt_pm.h
 $(eval $(call add_extra_objs,passes/pmgen/peepopt_pm.h))

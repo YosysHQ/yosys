@@ -1,0 +1,81 @@
+pattern reduce
+
+state <IdString> portname
+udata <vector<pair<Cell*, IdString>>> chain longest_chain
+udata <pool<Cell*>> non_first_cells
+
+code
+	non_first_cells.clear();
+	subpattern(setup);
+endcode
+
+match first
+	select first->type.in($_AND_, $_OR_, $_XOR_)
+	filter !non_first_cells.count(first)
+endmatch
+
+code
+	longest_chain.clear();
+	chain.push_back(make_pair(first, \A));
+	subpattern(tail);
+	chain.back().second = \B;
+	subpattern(tail);
+finally
+	chain.pop_back();
+	log_assert(chain.empty());
+endcode
+
+// ------------------------------------------------------------------
+
+subpattern setup
+
+match first
+	select first->type.in($_AND_, $_OR_, $_XOR_)
+endmatch
+
+code portname
+	portname = \A;
+	branch;
+	portname = \B;
+endcode
+
+match next
+	select nusers(port(next, \Y)) == 2
+	select next->type.in($_AND_, $_OR_, $_XOR_)
+	index <IdString> next->type === first->type
+	index <SigSpec> port(next, \Y) === port(first, portname)
+endmatch
+
+code
+	non_first_cells.insert(next);
+	reject;
+endcode
+
+// ------------------------------------------------------------------
+
+subpattern tail
+arg first
+
+match next
+	semioptional
+	select nusers(port(next, \Y)) == 2
+	select next->type.in($_AND_, $_OR_, $_XOR_)
+	index <IdString> next->type === chain.back().first->type
+	index <SigSpec> port(next, \Y) === port(chain.back().first, chain.back().second)
+endmatch
+
+code
+	if (next) {
+		chain.push_back(make_pair(next, \A));
+		subpattern(tail);
+		chain.back().second = \B;
+		subpattern(tail);
+	} else {
+		if (GetSize(chain) > GetSize(longest_chain))
+			longest_chain = chain;
+	}
+	reject;
+finally
+	if (next)
+		chain.pop_back();
+endcode
