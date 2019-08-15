@@ -62,12 +62,12 @@ struct ZinitPass : public Pass {
 
 			for (auto wire : module->selected_wires())
 			{
-				if (wire->attributes.count("\\init") == 0)
+				if (wire->attributes.count(ID(\\init)) == 0)
 					continue;
 
 				SigSpec wirebits = sigmap(wire);
-				Const initval = wire->attributes.at("\\init");
-				wire->attributes.erase("\\init");
+				Const initval = wire->attributes.at(ID(\\init));
+				wire->attributes.erase(ID(\\init));
 
 				for (int i = 0; i < GetSize(wirebits) && i < GetSize(initval); i++)
 				{
@@ -103,8 +103,8 @@ struct ZinitPass : public Pass {
 				if (!dff_types.count(cell->type))
 					continue;
 
-				SigSpec sig_d = sigmap(cell->getPort("\\D"));
-				SigSpec sig_q = sigmap(cell->getPort("\\Q"));
+				SigSpec sig_d = sigmap(cell->getPort(ID(\\D)));
+				SigSpec sig_q = sigmap(cell->getPort(ID(\\Q)));
 
 				if (GetSize(sig_d) < 1 || GetSize(sig_q) < 1)
 					continue;
@@ -120,14 +120,14 @@ struct ZinitPass : public Pass {
 				}
 
 				Wire *initwire = module->addWire(NEW_ID, GetSize(initval));
-				initwire->attributes["\\init"] = initval;
+				initwire->attributes[ID(\\init)] = initval;
 
 				for (int i = 0; i < GetSize(initwire); i++)
 					if (initval.bits.at(i) == State::S1)
 					{
 						sig_d[i] = module->NotGate(NEW_ID, sig_d[i]);
 						module->addNotGate(NEW_ID, SigSpec(initwire, i), sig_q[i]);
-						initwire->attributes["\\init"].bits.at(i) = State::S0;
+						initwire->attributes[ID(\\init)].bits.at(i) = State::S0;
 					}
 					else
 					{
@@ -137,8 +137,8 @@ struct ZinitPass : public Pass {
 				log("FF init value for cell %s (%s): %s = %s\n", log_id(cell), log_id(cell->type),
 						log_signal(sig_q), log_signal(initval));
 
-				cell->setPort("\\D", sig_d);
-				cell->setPort("\\Q", initwire);
+				cell->setPort(ID(\\D), sig_d);
+				cell->setPort(ID(\\Q), initwire);
 			}
 
 			for (auto &it : initbits)

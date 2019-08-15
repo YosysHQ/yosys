@@ -89,7 +89,7 @@ struct ExtractFaWorker
 					ID($_XOR_), ID($_XNOR_), ID($_ANDNOT_), ID($_ORNOT_), ID($_MUX_), ID($_NMUX_),
 					ID($_AOI3_), ID($_OAI3_), ID($_AOI4_), ID($_OAI4_)))
 			{
-				SigBit y = sigmap(SigBit(cell->getPort("\\Y")));
+				SigBit y = sigmap(SigBit(cell->getPort(ID(\\Y))));
 				log_assert(driver.count(y) == 0);
 				driver[y] = cell;
 			}
@@ -262,10 +262,10 @@ struct ExtractFaWorker
 			pool<SigBit> new_leaves = leaves;
 
 			new_leaves.erase(bit);
-			if (cell->hasPort("\\A")) new_leaves.insert(sigmap(SigBit(cell->getPort("\\A"))));
-			if (cell->hasPort("\\B")) new_leaves.insert(sigmap(SigBit(cell->getPort("\\B"))));
-			if (cell->hasPort("\\C")) new_leaves.insert(sigmap(SigBit(cell->getPort("\\C"))));
-			if (cell->hasPort("\\D")) new_leaves.insert(sigmap(SigBit(cell->getPort("\\D"))));
+			if (cell->hasPort(ID(\\A))) new_leaves.insert(sigmap(SigBit(cell->getPort(ID(\\A)))));
+			if (cell->hasPort(ID(\\B))) new_leaves.insert(sigmap(SigBit(cell->getPort(ID(\\B)))));
+			if (cell->hasPort(ID(\\C))) new_leaves.insert(sigmap(SigBit(cell->getPort(ID(\\C)))));
+			if (cell->hasPort(ID(\\D))) new_leaves.insert(sigmap(SigBit(cell->getPort(ID(\\D)))));
 
 			if (GetSize(new_leaves) > maxbreadth)
 				continue;
@@ -277,8 +277,8 @@ struct ExtractFaWorker
 	void assign_new_driver(SigBit bit, SigBit new_driver)
 	{
 		Cell *cell = driver.at(bit);
-		if (sigmap(cell->getPort("\\Y")) == bit) {
-			cell->setPort("\\Y", module->addWire(NEW_ID));
+		if (sigmap(cell->getPort(ID(\\Y))) == bit) {
+			cell->setPort(ID(\\Y), module->addWire(NEW_ID));
 			module->connect(bit, new_driver);
 		}
 	}
@@ -391,19 +391,19 @@ struct ExtractFaWorker
 				else
 				{
 					Cell *cell = module->addCell(NEW_ID, ID($fa));
-					cell->setParam("\\WIDTH", 1);
+					cell->setParam(ID(\\WIDTH), 1);
 
 					log("      Created $fa cell %s.\n", log_id(cell));
 
-					cell->setPort("\\A", f3i.inv_a ? module->NotGate(NEW_ID, A) : A);
-					cell->setPort("\\B", f3i.inv_b ? module->NotGate(NEW_ID, B) : B);
-					cell->setPort("\\C", f3i.inv_c ? module->NotGate(NEW_ID, C) : C);
+					cell->setPort(ID(\\A), f3i.inv_a ? module->NotGate(NEW_ID, A) : A);
+					cell->setPort(ID(\\B), f3i.inv_b ? module->NotGate(NEW_ID, B) : B);
+					cell->setPort(ID(\\C), f3i.inv_c ? module->NotGate(NEW_ID, C) : C);
 
 					X = module->addWire(NEW_ID);
 					Y = module->addWire(NEW_ID);
 
-					cell->setPort("\\X", X);
-					cell->setPort("\\Y", Y);
+					cell->setPort(ID(\\X), X);
+					cell->setPort(ID(\\Y), Y);
 
 					facache[fakey] = make_tuple(X, Y, cell);
 				}
@@ -497,19 +497,19 @@ struct ExtractFaWorker
 				else
 				{
 					Cell *cell = module->addCell(NEW_ID, ID($fa));
-					cell->setParam("\\WIDTH", 1);
+					cell->setParam(ID(\\WIDTH), 1);
 
 					log("      Created $fa cell %s.\n", log_id(cell));
 
-					cell->setPort("\\A", f2i.inv_a ? module->NotGate(NEW_ID, A) : A);
-					cell->setPort("\\B", f2i.inv_b ? module->NotGate(NEW_ID, B) : B);
-					cell->setPort("\\C", State::S0);
+					cell->setPort(ID(\\A), f2i.inv_a ? module->NotGate(NEW_ID, A) : A);
+					cell->setPort(ID(\\B), f2i.inv_b ? module->NotGate(NEW_ID, B) : B);
+					cell->setPort(ID(\\C), State::S0);
 
 					X = module->addWire(NEW_ID);
 					Y = module->addWire(NEW_ID);
 
-					cell->setPort("\\X", X);
-					cell->setPort("\\Y", Y);
+					cell->setPort(ID(\\X), X);
+					cell->setPort(ID(\\Y), Y);
 				}
 
 				if (func2.at(key).count(xor2_func)) {

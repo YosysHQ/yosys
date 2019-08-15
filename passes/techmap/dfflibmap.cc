@@ -485,7 +485,7 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module, bool prepare
 		if (design->selected(module, it.second) && cell_mappings.count(it.second->type) > 0)
 			cell_list.push_back(it.second);
 		if (it.second->type == ID($_NOT_))
-			notmap[sigmap(it.second->getPort("\\A"))].insert(it.second);
+			notmap[sigmap(it.second->getPort(ID(\\A)))].insert(it.second);
 	}
 
 	std::map<std::string, int> stats;
@@ -519,8 +519,8 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module, bool prepare
 				sig = module->addWire(NEW_ID, GetSize(old_sig));
 				if (has_q && has_qn) {
 					for (auto &it : notmap[sigmap(old_sig)]) {
-						module->connect(it->getPort("\\Y"), sig);
-						it->setPort("\\Y", module->addWire(NEW_ID, GetSize(old_sig)));
+						module->connect(it->getPort(ID(\\Y)), sig);
+						it->setPort(ID(\\Y), module->addWire(NEW_ID, GetSize(old_sig)));
 					}
 				} else {
 					module->addNotGate(NEW_ID, sig, old_sig);

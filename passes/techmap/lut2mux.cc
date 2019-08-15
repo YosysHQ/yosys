@@ -25,9 +25,9 @@ PRIVATE_NAMESPACE_BEGIN
 
 int lut2mux(Cell *cell)
 {
-	SigSpec sig_a = cell->getPort("\\A");
-	SigSpec sig_y = cell->getPort("\\Y");
-	Const lut = cell->getParam("\\LUT");
+	SigSpec sig_a = cell->getPort(ID(\\A));
+	SigSpec sig_y = cell->getPort(ID(\\Y));
+	Const lut = cell->getParam(ID(\\LUT));
 	int count = 1;
 
 	if (GetSize(sig_a) == 1)

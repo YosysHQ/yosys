@@ -85,7 +85,7 @@ struct NlutmapWorker
 				if (cell->type != ID($lut) || mapped_cells.count(cell))
 					continue;
 
-				if (GetSize(cell->getPort("\\A")) == lut_size || lut_size == 2)
+				if (GetSize(cell->getPort(ID(\\A))) == lut_size || lut_size == 2)
 					candidate_ratings[cell] = 0;
 
 				for (auto &conn : cell->connections())
