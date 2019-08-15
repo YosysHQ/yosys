@@ -506,7 +506,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				did_something = true;
 			} else {
 				cover("opt.opt_expr.unary_buffer");
-				replace_cell(assign_map, module, cell, "unary_buffer", "\\Y", cell->getPort(ID(A)));
+				replace_cell(assign_map, module, cell, "unary_buffer", ID(Y), cell->getPort(ID(A)));
 			}
 			goto next_cell;
 		}
@@ -747,7 +747,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 		if (cell->type.in(ID($_NOT_), ID($not), ID($logic_not)) && cell->getPort(ID(Y)).size() == 1 &&
 				invert_map.count(assign_map(cell->getPort(ID(A)))) != 0) {
 			cover_list("opt.opt_expr.invert.double", "$_NOT_", "$not", "$logic_not", cell->type.str());
-			replace_cell(assign_map, module, cell, "double_invert", ID(Y), invert_map.at(assign_map(cell->getPort(ID("A")))));
+			replace_cell(assign_map, module, cell, "double_invert", ID(Y), invert_map.at(assign_map(cell->getPort(ID(A)))));
 			goto next_cell;
 		}
 
