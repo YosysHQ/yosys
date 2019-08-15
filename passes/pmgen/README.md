@@ -118,8 +118,8 @@ write matchers:
   connected to any of the given signal bits, plus one if any of the signal
   bits is also a primary input or primary output.
 
-- In `code..endcode` blocks there exist `accept`, `reject`, and `branch`
-  statements.
+- In `code..endcode` blocks there exist `accept`, `reject`, `branch`, and
+  `subpattern` statements.
 
 - In `index` statements there is a special `===` operator for the index
   lookup.
@@ -233,7 +233,7 @@ But in some cases it is more natural to utilize the implicit branch statement:
     endcode
 
 There is an implicit `code..endcode` block at the end of each (sub)pattern
-that just accepts everything that gets all the way there.
+that just rejects.
 
 A `code..finally..endcode` block executes the code after `finally` during
 back-tracking. This is useful for maintaining user data state or printing
@@ -243,9 +243,13 @@ debug messages. For example:
 
     code
         stack.push_back(addAB);
+	...
     finally
         stack.pop_back();
     endcode
+
+`accept` statements can be used inside the `finally` section, but not
+`reject`, `branch`, or `subpattern`.
 
 Declaring a subpattern
 ----------------------
@@ -256,4 +260,54 @@ using a `subpattern(<subpattern_name>);` C statement.
 
 Arguments may be passed to subpattern via state variables. The `subpattern`
 line must be followed by a `arg <arg1> <arg2> ...` line that lists the
-state variables used to pass arguments. Subpatterns allow recursion.
+state variables used to pass arguments.
+
+	state <IdString> foobar_type
+	state <bool> foobar_state
+
+	code foobar_type foobar_state
+		foobar_state = false;
+		foobar_type = $add;
+		subpattern(foo);
+		foobar_type = $sub;
+		subpattern(bar);
+	endcode
+
+	subpattern foo
+	arg foobar_type foobar_state
+
+	match addsub
+		index <IdString> addsub->type === foobar_type
+		...
+	endmatch
+
+	code
+		if (foobar_state) {
+			subpattern(tail);
+		} else {
+			foobar_state = true;
+			subpattern(bar);
+		}
+	endcode
+
+	subpattern bar
+	arg foobar_type foobar_state
+
+	match addsub
+		index <IdString> addsub->type === foobar_type
+		...
+	endmatch
+
+	code
+		if (foobar_state) {
+			subpattern(tail);
+		} else {
+			foobar_state = true;
+			subpattern(foo);
+		}
+	endcode
+
+	subpattern tail
+	...
+
+Subpatterns cann be called recursively.
