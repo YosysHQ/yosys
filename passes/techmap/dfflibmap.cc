@@ -28,7 +28,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct cell_mapping {
 	IdString cell_name;
-	std::map<IdString, char> ports;
+	std::map<std::string, char> ports;
 };
 static std::map<RTLIL::IdString, cell_mapping> cell_mappings;
 
@@ -118,7 +118,7 @@ static bool parse_pin(LibertyAst *cell, LibertyAst *attr, std::string &pin_name,
 static void find_cell(LibertyAst *ast, IdString cell_type, bool clkpol, bool has_reset, bool rstpol, bool rstval, bool prepare_mode)
 {
 	LibertyAst *best_cell = NULL;
-	std::map<IdString, char> best_cell_ports;
+	std::map<std::string, char> best_cell_ports;
 	int best_cell_pins = 0;
 	bool best_cell_noninv = false;
 	double best_cell_area = 0;
@@ -155,7 +155,7 @@ static void find_cell(LibertyAst *ast, IdString cell_type, bool clkpol, bool has
 				continue;
 		}
 
-		std::map<IdString, char> this_cell_ports;
+		std::map<std::string, char> this_cell_ports;
 		this_cell_ports[cell_clk_pin] = 'C';
 		if (has_reset)
 			this_cell_ports[cell_rst_pin] = 'R';
@@ -230,7 +230,7 @@ static void find_cell(LibertyAst *ast, IdString cell_type, bool clkpol, bool has
 			cell_mappings[cell_type].ports["D"] = 'D';
 			cell_mappings[cell_type].ports["Q"] = 'Q';
 		} else {
-			cell_mappings[cell_type].cell_name = best_cell->args[0];
+			cell_mappings[cell_type].cell_name = RTLIL::escape_id(best_cell->args[0]);
 			cell_mappings[cell_type].ports = best_cell_ports;
 		}
 	}
@@ -239,7 +239,7 @@ static void find_cell(LibertyAst *ast, IdString cell_type, bool clkpol, bool has
 static void find_cell_sr(LibertyAst *ast, IdString cell_type, bool clkpol, bool setpol, bool clrpol, bool prepare_mode)
 {
 	LibertyAst *best_cell = NULL;
-	std::map<IdString, char> best_cell_ports;
+	std::map<std::string, char> best_cell_ports;
 	int best_cell_pins = 0;
 	bool best_cell_noninv = false;
 	double best_cell_area = 0;
@@ -272,7 +272,7 @@ static void find_cell_sr(LibertyAst *ast, IdString cell_type, bool clkpol, bool 
 		if (!parse_pin(cell, ff->find("clear"), cell_clr_pin, cell_clr_pol) || cell_clr_pol != clrpol)
 			continue;
 
-		std::map<IdString, char> this_cell_ports;
+		std::map<std::string, char> this_cell_ports;
 		this_cell_ports[cell_clk_pin] = 'C';
 		this_cell_ports[cell_set_pin] = 'S';
 		this_cell_ports[cell_clr_pin] = 'R';
@@ -347,7 +347,7 @@ static void find_cell_sr(LibertyAst *ast, IdString cell_type, bool clkpol, bool 
 			cell_mappings[cell_type].ports["D"] = 'D';
 			cell_mappings[cell_type].ports["Q"] = 'Q';
 		} else {
-			cell_mappings[cell_type].cell_name = best_cell->args[0];
+			cell_mappings[cell_type].cell_name = RTLIL::escape_id(best_cell->args[0]);
 			cell_mappings[cell_type].ports = best_cell_ports;
 		}
 	}
@@ -499,7 +499,7 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module, bool prepare
 		module->remove(cell);
 
 		cell_mapping &cm = cell_mappings[cell_type];
-		RTLIL::Cell *new_cell = module->addCell(cell_name, prepare_mode ? cm.cell_name : "\\" + cm.cell_name.str());
+		RTLIL::Cell *new_cell = module->addCell(cell_name, prepare_mode ? cm.cell_name : cm.cell_name);
 
 		new_cell->set_src_attribute(src);
 
@@ -537,7 +537,7 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module, bool prepare
 				sig = module->addWire(NEW_ID);
 			} else
 				log_abort();
-			new_cell->setPort("\\" + port.first.str(), sig);
+			new_cell->setPort("\\" + port.first, sig);
 		}
 
 		stats[stringf("  mapped %%d %s cells to %s cells.\n", cell_type.c_str(), new_cell->type.c_str())]++;
