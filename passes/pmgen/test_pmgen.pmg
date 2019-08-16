@@ -3,6 +3,7 @@ pattern reduce
 state <IdString> portname
 udata <vector<pair<Cell*, IdString>>> chain longest_chain
 udata <pool<Cell*>> non_first_cells
+udata <SigSpec> leaves
 
 code
 	non_first_cells.clear();
@@ -15,6 +16,7 @@ match first
 endmatch
 
 code
+	leaves = SigSpec();
 	longest_chain.clear();
 	chain.push_back(make_pair(first, \A));
 	subpattern(tail);
@@ -73,6 +75,7 @@ code
 	} else {
 		if (GetSize(chain) > GetSize(longest_chain))
 			longest_chain = chain;
+		leaves.append(port(chain.back().first, chain.back().second));
 	}
 finally
 	if (next)

@@ -23,9 +23,9 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-#include "passes/pmgen/demo_reduce_pm.h"
+#include "passes/pmgen/test_pmgen_pm.h"
 
-void create_reduce(demo_reduce_pm &pm)
+void reduce_chain(test_pmgen_pm &pm)
 {
 	auto &st = pm.st_reduce;
 	auto &ud = pm.ud_reduce;
@@ -65,23 +65,58 @@ void create_reduce(demo_reduce_pm &pm)
 	log("    -> %s (%s)\n", log_id(c), log_id(c->type));
 }
 
-struct DemoReducePass : public Pass {
-	DemoReducePass() : Pass("demo_reduce", "map chains of AND/OR/XOR") { }
+void reduce_tree(test_pmgen_pm &pm)
+{
+	auto &st = pm.st_reduce;
+	auto &ud = pm.ud_reduce;
+
+	if (ud.longest_chain.empty())
+		return;
+
+	SigSpec A = ud.leaves;
+	SigSpec Y = st.first->getPort(ID(Y));
+	pm.autoremove(st.first);
+
+	log("Found %s tree with %d leaves for %s (%s).\n", log_id(st.first->type),
+			GetSize(A), log_signal(Y), log_id(st.first));
+
+	Cell *c;
+
+	if (st.first->type == ID($_AND_))
+		c = pm.module->addReduceAnd(NEW_ID, A, Y);
+	else if (st.first->type == ID($_OR_))
+		c = pm.module->addReduceOr(NEW_ID, A, Y);
+	else if (st.first->type == ID($_XOR_))
+		c = pm.module->addReduceXor(NEW_ID, A, Y);
+	else
+		log_abort();
+
+	log("    -> %s (%s)\n", log_id(c), log_id(c->type));
+}
+
+struct TestPmgenPass : public Pass {
+	TestPmgenPass() : Pass("test_pmgen", "test pass for pmgen") { }
 	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    demo_reduce [options] [selection]\n");
+		log("    test_pmgen -reduce_chain [options] [selection]\n");
 		log("\n");
 		log("Demo for recursive pmgen patterns. Map chains of AND/OR/XOR to $reduce_*.\n");
 		log("\n");
+		log("\n");
+		log("    test_pmgen -reduce_tree [options] [selection]\n");
+		log("\n");
+		log("Demo for recursive pmgen patterns. Map trees of AND/OR/XOR to $reduce_*.\n");
+		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+
+	void execute_reduce_chain(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header(design, "Executing DEMO_REDUCE pass.\n");
+		log_header(design, "Executing TEST_PMGEN pass (-reduce_chain).\n");
 
 		size_t argidx;
-		for (argidx = 1; argidx < args.size(); argidx++)
+		for (argidx = 2; argidx < args.size(); argidx++)
 		{
 			// if (args[argidx] == "-singleton") {
 			// 	singleton_mode = true;
@@ -92,8 +127,39 @@ struct DemoReducePass : public Pass {
 		extra_args(args, argidx, design);
 
 		for (auto module : design->selected_modules())
-			demo_reduce_pm(module, module->selected_cells()).run_reduce(create_reduce);
+			test_pmgen_pm(module, module->selected_cells()).run_reduce(reduce_chain);
 	}
-} DemoReducePass;
+
+	void execute_reduce_tree(std::vector<std::string> args, RTLIL::Design *design)
+	{
+		log_header(design, "Executing TEST_PMGEN pass (-reduce_tree).\n");
+
+		size_t argidx;
+		for (argidx = 2; argidx < args.size(); argidx++)
+		{
+			// if (args[argidx] == "-singleton") {
+			// 	singleton_mode = true;
+			// 	continue;
+			// }
+			break;
+		}
+		extra_args(args, argidx, design);
+
+		for (auto module : design->selected_modules())
+			test_pmgen_pm(module, module->selected_cells()).run_reduce(reduce_tree);
+	}
+
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	{
+		if (GetSize(args) > 1)
+		{
+			if (args[1] == "-reduce_chain")
+				return execute_reduce_chain(args, design);
+			if (args[1] == "-reduce_tree")
+				return execute_reduce_tree(args, design);
+		}
+		log_cmd_error("Missing or unsupported mode parameter.\n");
+	}
+} TestPmgenPass;
 
 PRIVATE_NAMESPACE_END
