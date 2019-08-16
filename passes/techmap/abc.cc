@@ -1630,6 +1630,7 @@ struct AbcPass : public Pass {
 					if (g == "ANDNOT") goto ok_gate;
 					if (g == "ORNOT") goto ok_gate;
 					if (g == "MUX") goto ok_gate;
+					if (g == "NMUX") goto ok_gate;
 					if (g == "AOI3") goto ok_gate;
 					if (g == "OAI3") goto ok_gate;
 					if (g == "AOI4") goto ok_gate;
