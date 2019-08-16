@@ -68,6 +68,10 @@ struct rules_t
 			if (groups != GetSize(transp)) log_error("Bram %s variant %d has %d groups but only %d entries in 'transp'.\n", log_id(name), variant, groups, GetSize(transp));
 			if (groups != GetSize(clocks)) log_error("Bram %s variant %d has %d groups but only %d entries in 'clocks'.\n", log_id(name), variant, groups, GetSize(clocks));
 			if (groups != GetSize(clkpol)) log_error("Bram %s variant %d has %d groups but only %d entries in 'clkpol'.\n", log_id(name), variant, groups, GetSize(clkpol));
+
+			int group = 0;
+			for (auto e : enable)
+				if (e > dbits) log_error("Bram %s variant %d group %d has %d enable bits but only %d dbits.\n", log_id(name), variant, group, e, dbits);
 		}
 
 		vector<portinfo_t> make_portinfos() const

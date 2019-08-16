@@ -61,7 +61,7 @@ struct SmvWorker
 		{
 			string name = stringf("_%s", id.c_str());
 
-			if (name.substr(0, 2) == "_\\")
+			if (name.compare(0, 2, "_\\") == 0)
 				name = "_" + name.substr(2);
 
 			for (auto &c : name) {
@@ -533,6 +533,13 @@ struct SmvWorker
 			if (cell->type == "$_MUX_")
 			{
 				definitions.push_back(stringf("%s := bool(%s) ? %s : %s;", lvalue(cell->getPort("\\Y")),
+						rvalue(cell->getPort("\\S")), rvalue(cell->getPort("\\B")), rvalue(cell->getPort("\\A"))));
+				continue;
+			}
+
+			if (cell->type == "$_NMUX_")
+			{
+				definitions.push_back(stringf("%s := !(bool(%s) ? %s : %s);", lvalue(cell->getPort("\\Y")),
 						rvalue(cell->getPort("\\S")), rvalue(cell->getPort("\\B")), rvalue(cell->getPort("\\A"))));
 				continue;
 			}

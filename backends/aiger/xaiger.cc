@@ -53,7 +53,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 inline int32_t to_big_endian(int32_t i32) {
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-	return __builtin_bswap32(i32);
+	return bswap32(i32);
 #elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 	return i32;
 #else
@@ -392,7 +392,6 @@ struct XAigerWriter
 #endif
 			log_assert(no_loops);
 
-			pool<IdString> seen_boxes;
 			for (auto cell_name : toposort.sorted) {
 				RTLIL::Cell *cell = module->cell(cell_name);
 				log_assert(cell);
@@ -400,47 +399,6 @@ struct XAigerWriter
 				RTLIL::Module* box_module = module->design->module(cell->type);
 				if (!box_module || !box_module->attributes.count("\\abc_box_id"))
 					continue;
-
-				if (seen_boxes.insert(cell->type).second) {
-					auto it = box_module->attributes.find("\\abc_carry");
-					if (it != box_module->attributes.end()) {
-						RTLIL::Wire *carry_in = nullptr, *carry_out = nullptr;
-						auto carry_in_out = it->second.decode_string();
-						auto tokens = split_tokens(carry_in_out, ",");
-						if (tokens.size() != 2)
-							log_error("'abc_carry' attribute on module '%s' does not contain exactly two comma-separated tokens.\n", log_id(cell->type));
-						auto carry_in_name = RTLIL::escape_id(tokens[0]);
-						carry_in = box_module->wire(carry_in_name);
-						if (!carry_in || !carry_in->port_input)
-							log_error("'abc_carry' on module '%s' contains '%s' which does not exist or is not an input port.\n", log_id(cell->type), carry_in_name.c_str());
-
-						auto carry_out_name = RTLIL::escape_id(tokens[1]);
-						carry_out = box_module->wire(carry_out_name);
-						if (!carry_out || !carry_out->port_output)
-							log_error("'abc_carry' on module '%s' contains '%s' which does not exist or is not an output port.\n", log_id(cell->type), carry_out_name.c_str());
-
-						auto &ports = box_module->ports;
-						for (auto jt = ports.begin(); jt != ports.end(); ) {
-							RTLIL::Wire* w = box_module->wire(*jt);
-							log_assert(w);
-							if (w == carry_in || w == carry_out) {
-								jt = ports.erase(jt);
-								continue;
-							}
-							if (w->port_id > carry_in->port_id)
-								--w->port_id;
-							if (w->port_id > carry_out->port_id)
-								--w->port_id;
-							log_assert(w->port_input || w->port_output);
-							log_assert(ports[w->port_id-1] == w->name);
-							++jt;
-						}
-						ports.push_back(carry_in->name);
-						carry_in->port_id = ports.size();
-						ports.push_back(carry_out->name);
-						carry_out->port_id = ports.size();
-					}
-				}
 
 				// Fully pad all unused input connections of this box cell with S0
 				// Fully pad all undriven output connections of this box cell with anonymous wires
@@ -454,11 +412,11 @@ struct XAigerWriter
 						RTLIL::SigSpec rhs;
 						if (it != cell->connections_.end()) {
 							if (GetSize(it->second) < GetSize(w))
-								it->second.append(RTLIL::SigSpec(RTLIL::S0, GetSize(w)-GetSize(it->second)));
+								it->second.append(RTLIL::SigSpec(State::S0, GetSize(w)-GetSize(it->second)));
 							rhs = it->second;
 						}
 						else {
-							rhs = RTLIL::SigSpec(RTLIL::S0, GetSize(w));
+							rhs = RTLIL::SigSpec(State::S0, GetSize(w));
 							cell->setPort(port_name, rhs);
 						}
 
@@ -466,10 +424,10 @@ struct XAigerWriter
 						for (auto b : rhs.bits()) {
 							SigBit I = sigmap(b);
 							if (b == RTLIL::Sx)
-								b = RTLIL::S0;
+								b = State::S0;
 							else if (I != b) {
 								if (I == RTLIL::Sx)
-									alias_map[b] = RTLIL::S0;
+									alias_map[b] = State::S0;
 								else
 									alias_map[b] = I;
 							}
@@ -768,19 +726,18 @@ struct XAigerWriter
 			std::stringstream h_buffer;
 			auto write_h_buffer = std::bind(write_buffer, std::ref(h_buffer), std::placeholders::_1);
 			write_h_buffer(1);
-			log_debug("ciNum = %zu\n", input_bits.size() + ff_bits.size() + ci_bits.size());
+			log_debug("ciNum = %d\n", GetSize(input_bits) + GetSize(ff_bits) + GetSize(ci_bits));
 			write_h_buffer(input_bits.size() + ff_bits.size() + ci_bits.size());
-			log_debug("coNum = %zu\n", output_bits.size() + ff_bits.size() + co_bits.size());
-			write_h_buffer(output_bits.size() + ff_bits.size() + co_bits.size());
-			log_debug("piNum = %zu\n", input_bits.size() + ff_bits.size());
-			write_h_buffer(input_bits.size()+ ff_bits.size());
-			log_debug("poNum = %zu\n", output_bits.size() + ff_bits.size());
+			log_debug("coNum = %d\n", GetSize(output_bits) + GetSize(ff_bits) + GetSize(co_bits));
+			write_h_buffer(output_bits.size() + GetSize(ff_bits) + GetSize(co_bits));
+			log_debug("piNum = %d\n", GetSize(input_bits) + GetSize(ff_bits));
+			write_h_buffer(input_bits.size() + ff_bits.size());
+			log_debug("poNum = %d\n", GetSize(output_bits) + GetSize(ff_bits));
 			write_h_buffer(output_bits.size() + ff_bits.size());
-			log_debug("boxNum = %zu\n", box_list.size());
+			log_debug("boxNum = %d\n", GetSize(box_list));
 			write_h_buffer(box_list.size());
 
-			RTLIL::Module *holes_module = nullptr;
-			holes_module = module->design->addModule("$__holes__");
+			RTLIL::Module *holes_module = module->design->addModule("$__holes__");
 			log_assert(holes_module);
 
 			int port_id = 1;
@@ -830,7 +787,7 @@ struct XAigerWriter
 							if (holes_cell)
 								port_wire.append(holes_wire);
 							else
-								holes_module->connect(holes_wire, RTLIL::S0);
+								holes_module->connect(holes_wire, State::S0);
 						}
 						if (!port_wire.empty())
 							holes_cell->setPort(w->name, port_wire);
@@ -901,27 +858,33 @@ struct XAigerWriter
 				Pass::call(holes_module->design, "flatten -wb");
 
 				// TODO: Should techmap/aigmap/check all lib_whitebox-es just once,
-				// instead of per write_xaiger call
+				//       instead of per write_xaiger call
 				Pass::call(holes_module->design, "techmap");
 				Pass::call(holes_module->design, "aigmap");
 				for (auto cell : holes_module->cells())
 					if (!cell->type.in("$_NOT_", "$_AND_"))
 						log_error("Whitebox contents cannot be represented as AIG. Please verify whiteboxes are synthesisable.\n");
 
-				Pass::call(holes_module->design, "clean -purge");
+				holes_module->design->selection_stack.pop_back();
+
+				// Move into a new (temporary) design so that "clean" will only
+				// operate (and run checks on) this one module
+				RTLIL::Design *holes_design = new RTLIL::Design;
+				holes_module->design->modules_.erase(holes_module->name);
+				holes_design->add(holes_module);
+				Pass::call(holes_design, "clean -purge");
 
 				std::stringstream a_buffer;
 				XAigerWriter writer(holes_module, false /*zinit_mode*/, true /* holes_mode */);
 				writer.write_aiger(a_buffer, false /*ascii_mode*/);
 
-				holes_module->design->selection_stack.pop_back();
+				delete holes_design;
 
 				f << "a";
 				std::string buffer_str = a_buffer.str();
 				int32_t buffer_size_be = to_big_endian(buffer_str.size());
 				f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
 				f.write(buffer_str.data(), buffer_str.size());
-				holes_module->design->remove(holes_module);
 
 				log_pop();
 			}
@@ -960,7 +923,7 @@ struct XAigerWriter
 					auto it = init_map.find(b);
 					if (it != init_map.end())
 						init = it->second ? 1 : 0;
-					output_lines[o] += stringf("output %lu %d %s %d\n", o - co_bits.size(), i, log_id(wire), init);
+					output_lines[o] += stringf("output %d %d %s %d\n", o - GetSize(co_bits), i, log_id(wire), init);
 					continue;
 				}
 

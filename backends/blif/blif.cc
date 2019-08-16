@@ -327,6 +327,13 @@ struct BlifDumper
 				goto internal_cell;
 			}
 
+			if (!config->icells_mode && cell->type == "$_NMUX_") {
+				f << stringf(".names %s %s %s %s\n0-0 1\n-01 1\n",
+						cstr(cell->getPort("\\A")), cstr(cell->getPort("\\B")),
+						cstr(cell->getPort("\\S")), cstr(cell->getPort("\\Y")));
+				goto internal_cell;
+			}
+
 			if (!config->icells_mode && cell->type == "$_FF_") {
 				f << stringf(".latch %s %s%s\n", cstr(cell->getPort("\\D")), cstr(cell->getPort("\\Q")),
 						cstr_init(cell->getPort("\\Q")));
@@ -370,7 +377,7 @@ struct BlifDumper
 				f << stringf("\n");
 				RTLIL::SigSpec mask = cell->parameters.at("\\LUT");
 				for (int i = 0; i < (1 << width); i++)
-					if (mask[i] == RTLIL::S1) {
+					if (mask[i] == State::S1) {
 						for (int j = width-1; j >= 0; j--) {
 							f << ((i>>j)&1 ? '1' : '0');
 						}

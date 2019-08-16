@@ -19,6 +19,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "kernel/celltypes.h"
 #include "kernel/log.h"
 #include <stdlib.h>
 #include <stdio.h>
@@ -111,9 +112,10 @@ string get_full_netlist_name(Netlist *nl)
 
 // ==================================================================
 
-VerificImporter::VerificImporter(bool mode_gates, bool mode_keep, bool mode_nosva, bool mode_names, bool mode_verific, bool mode_autocover) :
+VerificImporter::VerificImporter(bool mode_gates, bool mode_keep, bool mode_nosva, bool mode_names, bool mode_verific, bool mode_autocover, bool mode_fullinit) :
 		mode_gates(mode_gates), mode_keep(mode_keep), mode_nosva(mode_nosva),
-		mode_names(mode_names), mode_verific(mode_verific), mode_autocover(mode_autocover)
+		mode_names(mode_names), mode_verific(mode_verific), mode_autocover(mode_autocover),
+		mode_fullinit(mode_fullinit)
 {
 }
 
@@ -1454,6 +1456,50 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 
 		merge_past_ffs(past_ffs);
 	}
+
+	if (!mode_fullinit)
+	{
+		pool<SigBit> non_ff_bits;
+		CellTypes ff_types;
+
+		ff_types.setup_internals_ff();
+		ff_types.setup_stdcells_mem();
+
+		for (auto cell : module->cells())
+		{
+			if (ff_types.cell_known(cell->type))
+				continue;
+
+			for (auto conn : cell->connections())
+			{
+				if (!cell->output(conn.first))
+					continue;
+
+				for (auto bit : conn.second)
+					if (bit.wire != nullptr)
+						non_ff_bits.insert(bit);
+			}
+		}
+
+		for (auto wire : module->wires())
+		{
+			if (!wire->attributes.count("\\init"))
+				continue;
+
+			Const &initval = wire->attributes.at("\\init");
+			for (int i = 0; i < GetSize(initval); i++)
+			{
+				if (initval[i] != State::S0 && initval[i] != State::S1)
+					continue;
+
+				if (non_ff_bits.count(SigBit(wire, i)))
+					initval[i] = State::Sx;
+			}
+
+			if (initval.is_fully_undef())
+				wire->attributes.erase("\\init");
+		}
+	}
 }
 
 // ==================================================================
@@ -1829,7 +1875,7 @@ void verific_import(Design *design, const std::map<std::string,std::string> &par
 	while (!nl_todo.empty()) {
 		Netlist *nl = *nl_todo.begin();
 		if (nl_done.count(nl) == 0) {
-			VerificImporter importer(false, false, false, false, false, false);
+			VerificImporter importer(false, false, false, false, false, false, false);
 			importer.import_netlist(design, nl, nl_todo);
 		}
 		nl_todo.erase(nl);
@@ -1951,6 +1997,9 @@ struct VerificPass : public Pass {
 		log("\n");
 		log("  -autocover\n");
 		log("    Generate automatic cover statements for all asserts\n");
+		log("\n");
+		log("  -fullinit\n");
+		log("    Keep all register initializations, even those for non-FF registers.\n");
 		log("\n");
 		log("  -chparam name value \n");
 		log("    Elaborate the specified top modules (all modules when -all given) using\n");
@@ -2140,7 +2189,7 @@ struct VerificPass : public Pass {
 			veri_file::DefineMacro("VERIFIC");
 			veri_file::DefineMacro(args[argidx] == "-formal" ? "FORMAL" : "SYNTHESIS");
 
-			for (argidx++; argidx < GetSize(args) && GetSize(args[argidx]) >= 2 && args[argidx].substr(0, 2) == "-D"; argidx++) {
+			for (argidx++; argidx < GetSize(args) && GetSize(args[argidx]) >= 2 && args[argidx].compare(0, 2, "-D") == 0; argidx++) {
 				std::string name = args[argidx].substr(2);
 				if (args[argidx] == "-D") {
 					if (++argidx >= GetSize(args))
@@ -2213,7 +2262,7 @@ struct VerificPass : public Pass {
 			std::set<Netlist*> nl_todo, nl_done;
 			bool mode_all = false, mode_gates = false, mode_keep = false;
 			bool mode_nosva = false, mode_names = false, mode_verific = false;
-			bool mode_autocover = false;
+			bool mode_autocover = false, mode_fullinit = false;
 			bool flatten = false, extnets = false;
 			string dumpfile;
 			Map parameters(STRING_HASH);
@@ -2255,6 +2304,10 @@ struct VerificPass : public Pass {
 					mode_autocover = true;
 					continue;
 				}
+				if (args[argidx] == "-fullinit") {
+					mode_fullinit = true;
+					continue;
+				}
 				if (args[argidx] == "-chparam"  && argidx+2 < GetSize(args)) {
 					const std::string &key = args[++argidx];
 					const std::string &value = args[++argidx];
@@ -2283,7 +2336,7 @@ struct VerificPass : public Pass {
 				break;
 			}
 
-			if (argidx > GetSize(args) && args[argidx].substr(0, 1) == "-")
+			if (argidx > GetSize(args) && args[argidx].compare(0, 1, "-") == 0)
 				cmd_error(args, argidx, "unknown option");
 
 			if (mode_all)
@@ -2378,7 +2431,7 @@ struct VerificPass : public Pass {
 				Netlist *nl = *nl_todo.begin();
 				if (nl_done.count(nl) == 0) {
 					VerificImporter importer(mode_gates, mode_keep, mode_nosva,
-							mode_names, mode_verific, mode_autocover);
+							mode_names, mode_verific, mode_autocover, mode_fullinit);
 					importer.import_netlist(design, nl, nl_todo);
 				}
 				nl_todo.erase(nl);
@@ -2484,7 +2537,7 @@ struct ReadPass : public Pass {
 				args[0] = "verific";
 			} else {
 				args[0] = "read_verilog";
-				args.erase(args.begin()+1, args.begin()+2);
+				args[1] = "-defer";
 			}
 			Pass::call(design, args);
 			return;
@@ -2498,6 +2551,7 @@ struct ReadPass : public Pass {
 				if (args[1] == "-formal")
 					args.insert(args.begin()+1, std::string());
 				args[1] = "-sv";
+				args.insert(args.begin()+1, "-defer");
 			}
 			Pass::call(design, args);
 			return;

@@ -14,7 +14,11 @@ Yosys 0.9 .. Yosys 0.9-dev
     - Added "synth -abc9" (experimental)
     - Added "script -scriptwire
     - "synth_xilinx" to now infer wide multiplexers (-widemux <min> to enable)
-
+    - Added automatic gzip decompression for frontends
+    - Added $_NMUX_ cell type
+    - Added automatic gzip compression (based on filename extension) for backends
+    - Improve attribute and parameter encoding in JSON to avoid ambiguities between
+      bit vectors and strings containing [01xz]*
 
 Yosys 0.8 .. Yosys 0.8-dev
 --------------------------

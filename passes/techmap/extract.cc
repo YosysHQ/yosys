@@ -54,40 +54,40 @@ public:
 
 	RTLIL::Const unified_param(RTLIL::IdString cell_type, RTLIL::IdString param, RTLIL::Const value)
 	{
-		if (cell_type.substr(0, 1) != "$" || cell_type.substr(0, 2) == "$_")
+		if (!cell_type.begins_with("$") || cell_type.begins_with("$_"))
 			return value;
 
 	#define param_bool(_n) if (param == _n) return value.as_bool();
-		param_bool("\\ARST_POLARITY");
-		param_bool("\\A_SIGNED");
-		param_bool("\\B_SIGNED");
-		param_bool("\\CLK_ENABLE");
-		param_bool("\\CLK_POLARITY");
-		param_bool("\\CLR_POLARITY");
-		param_bool("\\EN_POLARITY");
-		param_bool("\\SET_POLARITY");
-		param_bool("\\TRANSPARENT");
+		param_bool(ID(ARST_POLARITY));
+		param_bool(ID(A_SIGNED));
+		param_bool(ID(B_SIGNED));
+		param_bool(ID(CLK_ENABLE));
+		param_bool(ID(CLK_POLARITY));
+		param_bool(ID(CLR_POLARITY));
+		param_bool(ID(EN_POLARITY));
+		param_bool(ID(SET_POLARITY));
+		param_bool(ID(TRANSPARENT));
 	#undef param_bool
 
 	#define param_int(_n) if (param == _n) return value.as_int();
-		param_int("\\ABITS")
-		param_int("\\A_WIDTH")
-		param_int("\\B_WIDTH")
-		param_int("\\CTRL_IN_WIDTH")
-		param_int("\\CTRL_OUT_WIDTH")
-		param_int("\\OFFSET")
-		param_int("\\PRIORITY")
-		param_int("\\RD_PORTS")
-		param_int("\\SIZE")
-		param_int("\\STATE_BITS")
-		param_int("\\STATE_NUM")
-		param_int("\\STATE_NUM_LOG2")
-		param_int("\\STATE_RST")
-		param_int("\\S_WIDTH")
-		param_int("\\TRANS_NUM")
-		param_int("\\WIDTH")
-		param_int("\\WR_PORTS")
-		param_int("\\Y_WIDTH")
+		param_int(ID(ABITS))
+		param_int(ID(A_WIDTH))
+		param_int(ID(B_WIDTH))
+		param_int(ID(CTRL_IN_WIDTH))
+		param_int(ID(CTRL_OUT_WIDTH))
+		param_int(ID(OFFSET))
+		param_int(ID(PRIORITY))
+		param_int(ID(RD_PORTS))
+		param_int(ID(SIZE))
+		param_int(ID(STATE_BITS))
+		param_int(ID(STATE_NUM))
+		param_int(ID(STATE_NUM_LOG2))
+		param_int(ID(STATE_RST))
+		param_int(ID(S_WIDTH))
+		param_int(ID(TRANS_NUM))
+		param_int(ID(WIDTH))
+		param_int(ID(WR_PORTS))
+		param_int(ID(Y_WIDTH))
 	#undef param_int
 
 		return value;
@@ -203,7 +203,7 @@ bool module2graph(SubCircuit::Graph &graph, RTLIL::Module *mod, bool constports,
 			continue;
 
 		std::string type = cell->type.str();
-		if (sel == NULL && type.substr(0, 2) == "\\$")
+		if (sel == NULL && type.compare(0, 2, "\\$") == 0)
 			type = type.substr(1);
 		graph.createNode(cell->name.str(), type, (void*)cell);
 
@@ -341,10 +341,10 @@ RTLIL::Cell *replace(RTLIL::Module *needle, RTLIL::Module *haystack, SubCircuit:
 bool compareSortNeedleList(RTLIL::Module *left, RTLIL::Module *right)
 {
 	int left_idx = 0, right_idx = 0;
-	if (left->attributes.count("\\extract_order") > 0)
-		left_idx = left->attributes.at("\\extract_order").as_int();
-	if (right->attributes.count("\\extract_order") > 0)
-		right_idx = right->attributes.at("\\extract_order").as_int();
+	if (left->attributes.count(ID(extract_order)) > 0)
+		left_idx = left->attributes.at(ID(extract_order)).as_int();
+	if (right->attributes.count(ID(extract_order)) > 0)
+		right_idx = right->attributes.at(ID(extract_order)).as_int();
 	if (left_idx != right_idx)
 		return left_idx < right_idx;
 	return left->name < right->name;
@@ -594,7 +594,7 @@ struct ExtractPass : public Pass {
 			map = new RTLIL::Design;
 			for (auto &filename : map_filenames)
 			{
-				if (filename.substr(0, 1) == "%")
+				if (filename.compare(0, 1, "%") == 0)
 				{
 					if (!saved_designs.count(filename.substr(1))) {
 						delete map;
@@ -613,10 +613,10 @@ struct ExtractPass : public Pass {
 						delete map;
 						log_cmd_error("Can't open map file `%s'.\n", filename.c_str());
 					}
-					Frontend::frontend_call(map, &f, filename, (filename.size() > 3 && filename.substr(filename.size()-3) == ".il") ? "ilang" : "verilog");
+					Frontend::frontend_call(map, &f, filename, (filename.size() > 3 && filename.compare(filename.size()-3, std::string::npos, ".il") == 0 ? "ilang" : "verilog"));
 					f.close();
 
-					if (filename.size() <= 3 || filename.substr(filename.size()-3) != ".il") {
+					if (filename.size() <= 3 || filename.compare(filename.size()-3, std::string::npos, ".il") != 0) {
 						Pass::call(map, "proc");
 						Pass::call(map, "opt_clean");
 					}

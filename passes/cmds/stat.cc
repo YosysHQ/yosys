@@ -17,11 +17,10 @@
  *
  */
 
-#include "kernel/register.h"
+#include "kernel/yosys.h"
 #include "kernel/celltypes.h"
 #include "passes/techmap/libparse.h"
-
-#include "kernel/log.h"
+#include "kernel/cost.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -223,6 +222,28 @@ struct statdata_t
 			log("\n");
 			log("   Estimated number of LCs: %10d\n", lc_cnt);
 		}
+
+		if (tech == "cmos")
+		{
+			int tran_cnt = 0;
+			bool tran_cnt_exact = true;
+			auto &gate_costs = CellCosts::cmos_gate_cost();
+
+			for (auto it : num_cells_by_type) {
+				auto ctype = it.first;
+				auto cnum = it.second;
+
+				if (gate_costs.count(ctype))
+					tran_cnt += cnum * gate_costs.at(ctype);
+				else if (ctype.in("$_DFF_P_", "$_DFF_N_"))
+					tran_cnt += cnum * 16;
+				else
+					tran_cnt_exact = false;
+			}
+
+			log("\n");
+			log("   Estimated number of transistors: %10d%s\n", tran_cnt, tran_cnt_exact ? "" : "+");
+		}
 	}
 };
 
@@ -286,7 +307,7 @@ struct StatPass : public Pass {
 		log("\n");
 		log("    -tech <technology>\n");
 		log("        print area estemate for the specified technology. Currently supported\n");
-		log("        values for <technology>: xilinx\n");
+		log("        values for <technology>: xilinx, cmos\n");
 		log("\n");
 		log("    -width\n");
 		log("        annotate internal cell types with their word width.\n");
@@ -330,7 +351,7 @@ struct StatPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		if (techname != "" && techname != "xilinx")
+		if (techname != "" && techname != "xilinx" && techname != "cmos")
 			log_cmd_error("Unsupported technology: '%s'\n", techname.c_str());
 
 		for (auto mod : design->selected_modules())

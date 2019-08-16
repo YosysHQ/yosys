@@ -24,12 +24,13 @@
 
 #if 0
 // Based on &flow3 - better QoR but more experimental
-#define ABC_COMMAND_LUT "&st; &ps -l; "/*"&sweep -v;"*/" &scorr; " \
-						"&st; &if {W}; &save; &st; &syn2; &if {W}; &save; &load; "\
-						"&st; &if -g -K 6; &dch -f; &if {W}; &save; &load; "\
-						"&st; &if -g -K 6; &synch2; &if {W}; &save; &load"
+#define ABC_COMMAND_LUT "&st; &ps -l; &sweep -v; &scorr; " \
+						"&st; &if {W}; &save; &st; &syn2; &if {W} -v; &save; &load; "\
+						"&st; &if -g -K 6; &dch -f; &if {W} -v; &save; &load; "\
+						"&st; &if -g -K 6; &synch2; &if {W} -v; &save; &load; "\
+						"&mfs; &ps -l"
 #else
-#define ABC_COMMAND_LUT "&st; &scorr; &sweep; &dc2; &st; &dch -f; &ps -l; &if {W} {D} -v; "/*"&mfs; "*/"&ps -l"
+#define ABC_COMMAND_LUT "&st; &scorr; &sweep; &dc2; &st; &dch -f; &ps; &if {W} {D} -v; &mfs; &ps -l"
 #endif
 
 
@@ -53,6 +54,7 @@
 #endif
 
 #include "frontends/aiger/aigerparse.h"
+#include "kernel/utils.h"
 
 #ifdef YOSYS_LINK_ABC
 extern "C" int Abc_RealMain(int argc, char *argv[]);
@@ -69,25 +71,22 @@ RTLIL::Module *module;
 bool clk_polarity, en_polarity;
 RTLIL::SigSpec clk_sig, en_sig;
 
-std::string remap_name(RTLIL::IdString abc_name)
+inline std::string remap_name(RTLIL::IdString abc_name)
 {
-	std::stringstream sstr;
-	sstr << "$abc$" << map_autoidx << "$" << abc_name.substr(1);
-	return sstr.str();
+	return stringf("$abc$%d$%s", map_autoidx, abc_name.c_str()+1);
 }
 
-void handle_loops(RTLIL::Design *design)
+void handle_loops(RTLIL::Design *design,
+		const dict<IdString,pool<IdString>> &scc_break_inputs)
 {
 	Pass::call(design, "scc -set_attr abc_scc_id {}");
-
-        dict<IdString, vector<IdString>> abc_scc_break;
 
 	// For every unique SCC found, (arbitrarily) find the first
 	// cell in the component, and select (and mark) all its output
 	// wires
 	pool<RTLIL::Const> ids_seen;
 	for (auto cell : module->selected_cells()) {
-		auto it = cell->attributes.find("\\abc_scc_id");
+		auto it = cell->attributes.find(ID(abc_scc_id));
 		if (it != cell->attributes.end()) {
 			auto r = ids_seen.insert(it->second);
 			if (r.second) {
@@ -107,7 +106,7 @@ void handle_loops(RTLIL::Design *design)
 							log_assert(w->port_input);
 							log_assert(b.offset < GetSize(w));
 						}
-						w->set_bool_attribute("\\abc_scc_break");
+						w->set_bool_attribute(ID(abc_scc_break));
 						module->swap_names(b.wire, w);
 						c.second = RTLIL::SigBit(w, b.offset);
 					}
@@ -116,44 +115,29 @@ void handle_loops(RTLIL::Design *design)
 			cell->attributes.erase(it);
 		}
 
-		auto jt = abc_scc_break.find(cell->type);
-		if (jt == abc_scc_break.end()) {
-			std::vector<IdString> ports;
-			RTLIL::Module* box_module = design->module(cell->type);
-			if (box_module) {
-				auto ports_csv = box_module->attributes.at("\\abc_scc_break", RTLIL::Const::from_string("")).decode_string();
-				for (const auto &port_name : split_tokens(ports_csv, ",")) {
-					auto port_id = RTLIL::escape_id(port_name);
-					auto kt = cell->connections_.find(port_id);
-					if (kt == cell->connections_.end())
-						log_error("abc_scc_break attribute value '%s' does not exist as port on module '%s'\n", port_name.c_str(), log_id(box_module));
-					ports.push_back(port_id);
+		auto jt = scc_break_inputs.find(cell->type);
+		if (jt != scc_break_inputs.end())
+			for (auto port_name : jt->second) {
+				RTLIL::SigSpec sig;
+				auto &rhs = cell->connections_.at(port_name);
+				for (auto b : rhs) {
+					Wire *w = b.wire;
+					if (!w) continue;
+					w->port_output = true;
+					w->set_bool_attribute(ID(abc_scc_break));
+					w = module->wire(stringf("%s.abci", w->name.c_str()));
+					if (!w) {
+						w = module->addWire(stringf("%s.abci", b.wire->name.c_str()), GetSize(b.wire));
+						w->port_input = true;
+					}
+					else {
+						log_assert(b.offset < GetSize(w));
+						log_assert(w->port_input);
+					}
+					sig.append(RTLIL::SigBit(w, b.offset));
 				}
+				rhs = sig;
 			}
-			jt = abc_scc_break.insert(std::make_pair(cell->type, std::move(ports))).first;
-		}
-
-		for (auto port_name : jt->second) {
-			RTLIL::SigSpec sig;
-			auto &rhs = cell->connections_.at(port_name);
-			for (auto b : rhs) {
-				Wire *w = b.wire;
-				if (!w) continue;
-				w->port_output = true;
-				w->set_bool_attribute("\\abc_scc_break");
-				w = module->wire(stringf("%s.abci", w->name.c_str()));
-				if (!w) {
-					w = module->addWire(stringf("%s.abci", b.wire->name.c_str()), GetSize(b.wire));
-					w->port_input = true;
-				}
-				else {
-					log_assert(b.offset < GetSize(w));
-					log_assert(w->port_input);
-				}
-				sig.append(RTLIL::SigBit(w, b.offset));
-			}
-			rhs = sig;
-		}
 	}
 
 	module->fixup_ports();
@@ -288,7 +272,9 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		bool cleanup, vector<int> lut_costs, bool /*retime_mode*/, std::string clk_str,
 		bool /*keepff*/, std::string delay_target, std::string /*lutin_shared*/, bool fast_mode,
 		bool show_tempdir, std::string box_file, std::string lut_file,
-		std::string wire_delay)
+		std::string wire_delay, const dict<int,IdString> &box_lookup,
+		const dict<IdString,pool<IdString>> &scc_break_inputs
+)
 {
 	module = current_module;
 	map_autoidx = autoidx++;
@@ -423,9 +409,13 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 
 	if (count_output)
 	{
-		Pass::call(design, "aigmap");
+		design->selection_stack.emplace_back(false);
+		RTLIL::Selection& sel = design->selection_stack.back();
+		sel.select(module);
 
-		handle_loops(design);
+		handle_loops(design, scc_break_inputs);
+
+		Pass::call(design, "aigmap");
 
 		//log("Extracted %d gates and %d wires to a netlist network with %d inputs and %d outputs.\n",
 		//		count_gates, GetSize(signal_list), count_input, count_output);
@@ -443,21 +433,21 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		if (ifs.fail())
 			log_error("Can't open ABC output file `%s'.\n", buffer.c_str());
 		buffer = stringf("%s/%s", tempdir_name.c_str(), "input.sym");
-		log_assert(!design->module("$__abc9__"));
+		log_assert(!design->module(ID($__abc9__)));
 		{
-			AigerReader reader(design, ifs, "$__abc9__", "" /* clk_name */, buffer.c_str() /* map_filename */, true /* wideports */);
+			AigerReader reader(design, ifs, ID($__abc9__), "" /* clk_name */, buffer.c_str() /* map_filename */, true /* wideports */);
 			reader.parse_xaiger();
 		}
 		ifs.close();
 		Pass::call(design, stringf("write_verilog -noexpr -norename"));
-		design->remove(design->module("$__abc9__"));
+		design->remove(design->module(ID($__abc9__)));
 #endif
 
 		// Now 'unexpose' those wires by undoing
 		// the expose operation -- remove them from PO/PI
 		// and re-connecting them back together
 		for (auto wire : module->wires()) {
-			auto it = wire->attributes.find("\\abc_scc_break");
+			auto it = wire->attributes.find(ID(abc_scc_break));
 			if (it != wire->attributes.end()) {
 				wire->attributes.erase(it);
 				log_assert(wire->port_output);
@@ -513,9 +503,10 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			log_error("Can't open ABC output file `%s'.\n", buffer.c_str());
 
 		buffer = stringf("%s/%s", tempdir_name.c_str(), "input.sym");
-		log_assert(!design->module("$__abc9__"));
-		AigerReader reader(design, ifs, "$__abc9__", "" /* clk_name */, buffer.c_str() /* map_filename */, true /* wideports */);
-		reader.parse_xaiger();
+		log_assert(!design->module(ID($__abc9__)));
+
+		AigerReader reader(design, ifs, ID($__abc9__), "" /* clk_name */, buffer.c_str() /* map_filename */, true /* wideports */);
+		reader.parse_xaiger(box_lookup);
 		ifs.close();
 
 #if 0
@@ -523,7 +514,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 #endif
 
 		log_header(design, "Re-integrating ABC9 results.\n");
-		RTLIL::Module *mapped_mod = design->module("$__abc9__");
+		RTLIL::Module *mapped_mod = design->module(ID($__abc9__));
 		if (mapped_mod == NULL)
 			log_error("ABC output file does not contain a module `$__abc9__'.\n");
 
@@ -531,7 +522,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		for (auto &it : mapped_mod->wires_) {
 			RTLIL::Wire *w = it.second;
 			RTLIL::Wire *remap_wire = module->addWire(remap_name(w->name), GetSize(w));
-			if (markgroups) remap_wire->attributes["\\abcgroup"] = map_autoidx;
+			if (markgroups) remap_wire->attributes[ID(abcgroup)] = map_autoidx;
 			if (w->port_output) {
 				RTLIL::Wire *wire = module->wire(w->name);
 				log_assert(wire);
@@ -558,38 +549,48 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		dict<IdString, bool> abc_box;
 		vector<RTLIL::Cell*> boxes;
 		for (auto cell : module->selected_cells()) {
-			if (cell->type.in("$_AND_", "$_NOT_", "$__ABC_FF_")) {
+			if (cell->type.in(ID($_AND_), ID($_NOT_), ID($__ABC_FF_))) {
 				module->remove(cell);
 				continue;
 			}
 			auto jt = abc_box.find(cell->type);
 			if (jt == abc_box.end()) {
 				RTLIL::Module* box_module = design->module(cell->type);
-				jt = abc_box.insert(std::make_pair(cell->type, box_module && box_module->attributes.count("\\abc_box_id"))).first;
+				jt = abc_box.insert(std::make_pair(cell->type, box_module && box_module->attributes.count(ID(abc_box_id)))).first;
 			}
 			if (jt->second)
 				boxes.emplace_back(cell);
 		}
 
-		std::map<std::string, int> cell_stats;
+		dict<SigBit, pool<IdString>> bit_drivers, bit_users;
+		TopoSort<IdString, RTLIL::sort_by_id_str> toposort;
+		dict<RTLIL::Cell*,RTLIL::Cell*> not2drivers;
+		dict<SigBit, std::vector<RTLIL::Cell*>> bit2sinks;
+
+		std::map<IdString, int> cell_stats;
 		for (auto c : mapped_mod->cells())
 		{
+			toposort.node(c->name);
+
 			RTLIL::Cell *cell = nullptr;
-			if (c->type == "$_NOT_") {
-				RTLIL::SigBit a_bit = c->getPort("\\A").as_bit();
-				RTLIL::SigBit y_bit = c->getPort("\\Y").as_bit();
+			if (c->type == ID($_NOT_)) {
+				RTLIL::SigBit a_bit = c->getPort(ID(A));
+				RTLIL::SigBit y_bit = c->getPort(ID(Y));
+				bit_users[a_bit].insert(c->name);
+				bit_drivers[y_bit].insert(c->name);
+
 				if (!a_bit.wire) {
-					c->setPort("\\Y", module->addWire(NEW_ID));
+					c->setPort(ID(Y), module->addWire(NEW_ID));
 					RTLIL::Wire *wire = module->wire(remap_name(y_bit.wire->name));
 					log_assert(wire);
-					module->connect(RTLIL::SigBit(wire, y_bit.offset), RTLIL::S1);
+					module->connect(RTLIL::SigBit(wire, y_bit.offset), State::S1);
 				}
 				else {
 					RTLIL::Cell* driving_lut = nullptr;
 					// ABC can return NOT gates that drive POs
 					if (!a_bit.wire->port_input) {
 						// If it's not a NOT gate that that comes from a PI directly,
-						// find the driving LUT and clone that to guarantee that we won't
+						// find the driver LUT and clone that to guarantee that we won't
 						// increase the max logic depth
 						// (TODO: Optimise by not cloning unless will increase depth)
 						RTLIL::IdString driver_name;
@@ -601,52 +602,44 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 					}
 
 					if (!driving_lut) {
-						// If a driver couldn't be found (could be from PI,
-						// or from a box) then implement using a LUT
+						// If a driver couldn't be found (could be from PI or box CI)
+						// then implement using a LUT
 						cell = module->addLut(remap_name(stringf("%s$lut", c->name.c_str())),
-								RTLIL::SigBit(module->wires_[remap_name(a_bit.wire->name)], a_bit.offset),
-								RTLIL::SigBit(module->wires_[remap_name(y_bit.wire->name)], y_bit.offset),
-								1);
+								RTLIL::SigBit(module->wires_.at(remap_name(a_bit.wire->name)), a_bit.offset),
+								RTLIL::SigBit(module->wires_.at(remap_name(y_bit.wire->name)), y_bit.offset),
+								RTLIL::Const::from_string("01"));
+						bit2sinks[cell->getPort(ID(A))].push_back(cell);
+						cell_stats[ID($lut)]++;
 					}
-					else {
-						auto driver_a = driving_lut->getPort("\\A").chunks();
-						for (auto &chunk : driver_a)
-							chunk.wire = module->wires_[remap_name(chunk.wire->name)];
-						RTLIL::Const driver_lut = driving_lut->getParam("\\LUT");
-						for (auto &b : driver_lut.bits) {
-							if (b == RTLIL::State::S0) b = RTLIL::State::S1;
-							else if (b == RTLIL::State::S1) b = RTLIL::State::S0;
-						}
-						cell = module->addLut(remap_name(stringf("%s$lut", c->name.c_str())),
-								driver_a,
-								RTLIL::SigBit(module->wires_[remap_name(y_bit.wire->name)], y_bit.offset),
-								driver_lut);
-					}
-					cell_stats["$lut"]++;
+					else
+						not2drivers[c] = driving_lut;
+					continue;
 				}
-				if (cell && markgroups) cell->attributes["\\abcgroup"] = map_autoidx;
+				if (cell && markgroups) cell->attributes[ID(abcgroup)] = map_autoidx;
 				continue;
 			}
-			cell_stats[RTLIL::unescape_id(c->type)]++;
+			cell_stats[c->type]++;
 
-                        RTLIL::Cell *existing_cell = nullptr;
-			if (c->type == "$lut") {
-				if (GetSize(c->getPort("\\A")) == 1 && c->getParam("\\LUT").as_int() == 2) {
-					SigSpec my_a = module->wires_[remap_name(c->getPort("\\A").as_wire()->name)];
-					SigSpec my_y = module->wires_[remap_name(c->getPort("\\Y").as_wire()->name)];
+			RTLIL::Cell *existing_cell = nullptr;
+			if (c->type == ID($lut)) {
+				if (GetSize(c->getPort(ID(A))) == 1 && c->getParam(ID(LUT)) == RTLIL::Const::from_string("01")) {
+					SigSpec my_a = module->wires_.at(remap_name(c->getPort(ID(A)).as_wire()->name));
+					SigSpec my_y = module->wires_.at(remap_name(c->getPort(ID(Y)).as_wire()->name));
 					module->connect(my_y, my_a);
-                                        if (markgroups) c->attributes["\\abcgroup"] = map_autoidx;
+					if (markgroups) c->attributes[ID(abcgroup)] = map_autoidx;
+					log_abort();
 					continue;
 				}
 				cell = module->addCell(remap_name(c->name), c->type);
 			}
 			else {
 				existing_cell = module->cell(c->name);
+				log_assert(existing_cell);
 				cell = module->addCell(remap_name(c->name), c->type);
 				module->swap_names(cell, existing_cell);
 			}
 
-			if (markgroups) cell->attributes["\\abcgroup"] = map_autoidx;
+			if (markgroups) cell->attributes[ID(abcgroup)] = map_autoidx;
 			if (existing_cell) {
 				cell->parameters = existing_cell->parameters;
 				cell->attributes = existing_cell->attributes;
@@ -669,10 +662,20 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 						continue;
 					//log_assert(c.width == 1);
 					if (c.wire)
-						c.wire = module->wires_[remap_name(c.wire->name)];
+						c.wire = module->wires_.at(remap_name(c.wire->name));
 					newsig.append(c);
 				}
 				cell->setPort(conn.first, newsig);
+
+				if (cell->input(conn.first)) {
+					for (auto i : newsig)
+						bit2sinks[i].push_back(cell);
+					for (auto i : conn.second)
+						bit_users[i].insert(c->name);
+				}
+				if (cell->output(conn.first))
+					for (auto i : conn.second)
+						bit_drivers[i].insert(c->name);
 			}
 		}
 
@@ -684,14 +687,14 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			if (!conn.first.is_fully_const()) {
 				auto chunks = conn.first.chunks();
 				for (auto &c : chunks)
-					c.wire = module->wires_[remap_name(c.wire->name)];
+					c.wire = module->wires_.at(remap_name(c.wire->name));
 				conn.first = std::move(chunks);
 			}
 			if (!conn.second.is_fully_const()) {
 				auto chunks = conn.second.chunks();
 				for (auto &c : chunks)
 					if (c.wire)
-						c.wire = module->wires_[remap_name(c.wire->name)];
+						c.wire = module->wires_.at(remap_name(c.wire->name));
 				conn.second = std::move(chunks);
 			}
 			module->connect(conn);
@@ -723,6 +726,79 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 				conn.second = remap_wire;
 				out_wires++;
 				module->connect(conn);
+			}
+		}
+
+		for (auto &it : bit_users)
+			if (bit_drivers.count(it.first))
+				for (auto driver_cell : bit_drivers.at(it.first))
+				for (auto user_cell : it.second)
+					toposort.edge(driver_cell, user_cell);
+		bool no_loops = toposort.sort();
+		log_assert(no_loops);
+
+		for (auto ii = toposort.sorted.rbegin(); ii != toposort.sorted.rend(); ii++) {
+			RTLIL::Cell *not_cell = mapped_mod->cell(*ii);
+			log_assert(not_cell);
+			if (not_cell->type != ID($_NOT_))
+				continue;
+			auto it = not2drivers.find(not_cell);
+			if (it == not2drivers.end())
+				continue;
+			RTLIL::Cell *driver_lut = it->second;
+			RTLIL::SigBit a_bit = not_cell->getPort(ID(A));
+			RTLIL::SigBit y_bit = not_cell->getPort(ID(Y));
+			RTLIL::Const driver_mask;
+
+			a_bit.wire = module->wires_.at(remap_name(a_bit.wire->name));
+			y_bit.wire = module->wires_.at(remap_name(y_bit.wire->name));
+
+			auto jt = bit2sinks.find(a_bit);
+			if (jt == bit2sinks.end())
+				goto clone_lut;
+
+			for (auto sink_cell : jt->second)
+				if (sink_cell->type != ID($lut))
+					goto clone_lut;
+
+			// Push downstream LUTs past inverter
+			for (auto sink_cell : jt->second) {
+				SigSpec A = sink_cell->getPort(ID(A));
+				RTLIL::Const mask = sink_cell->getParam(ID(LUT));
+				int index = 0;
+				for (; index < GetSize(A); index++)
+					if (A[index] == a_bit)
+						break;
+				log_assert(index < GetSize(A));
+				int i = 0;
+				while (i < GetSize(mask)) {
+					for (int j = 0; j < (1 << index); j++)
+						std::swap(mask[i+j], mask[i+j+(1 << index)]);
+					i += 1 << (index+1);
+				}
+				A[index] = y_bit;
+				sink_cell->setPort(ID(A), A);
+				sink_cell->setParam(ID(LUT), mask);
+			}
+
+			// Since we have rewritten all sinks (which we know
+			// to be only LUTs) to be after the inverter, we can
+			// go ahead and clone the LUT with the expectation
+			// that the original driving LUT will become dangling
+			// and get cleaned away
+clone_lut:
+			driver_mask = driver_lut->getParam(ID(LUT));
+			for (auto &b : driver_mask.bits) {
+				if (b == RTLIL::State::S0) b = RTLIL::State::S1;
+				else if (b == RTLIL::State::S1) b = RTLIL::State::S0;
+			}
+			auto cell = module->addLut(NEW_ID,
+					driver_lut->getPort(ID(A)),
+					y_bit,
+					driver_mask);
+			for (auto &bit : cell->connections_.at(ID(A))) {
+				bit.wire = module->wires_.at(remap_name(bit.wire->name));
+				bit2sinks[bit].push_back(cell);
 			}
 		}
 
@@ -1002,9 +1078,75 @@ struct Abc9Pass : public Pass {
 		if (lut_costs.empty() && lut_file.empty())
 			log_cmd_error("abc9 must be called with '-lut' or '-luts'\n");
 
+		dict<int,IdString> box_lookup;
+		dict<IdString,pool<IdString>> scc_break_inputs;
+		for (auto m : design->modules()) {
+			auto it = m->attributes.find(ID(abc_box_id));
+			if (it == m->attributes.end())
+				continue;
+			if (m->name.begins_with("$paramod"))
+				continue;
+			auto id = it->second.as_int();
+			auto r = box_lookup.insert(std::make_pair(id, m->name));
+			if (!r.second)
+				log_error("Module '%s' has the same abc_box_id = %d value as '%s'.\n",
+						log_id(m), id, log_id(r.first->second));
+			log_assert(r.second);
+
+			RTLIL::Wire *carry_in = nullptr, *carry_out = nullptr;
+			for (auto p : m->ports) {
+				auto w = m->wire(p);
+				log_assert(w);
+				if (w->port_input) {
+					if (w->attributes.count(ID(abc_scc_break)))
+						scc_break_inputs[m->name].insert(p);
+					if (w->attributes.count(ID(abc_carry_in))) {
+						if (carry_in)
+							log_error("Module '%s' contains more than one 'abc_carry_in' port.\n", log_id(m));
+						carry_in = w;
+					}
+				}
+				if (w->port_output) {
+					if (w->attributes.count(ID(abc_carry_out))) {
+						if (carry_out)
+							log_error("Module '%s' contains more than one 'abc_carry_out' port.\n", log_id(m));
+						carry_out = w;
+					}
+				}
+			}
+			if (carry_in || carry_out) {
+				if (carry_in && !carry_out)
+					log_error("Module '%s' contains an 'abc_carry_in' port but no 'abc_carry_out' port.\n", log_id(m));
+				if (!carry_in && carry_out)
+					log_error("Module '%s' contains an 'abc_carry_out' port but no 'abc_carry_in' port.\n", log_id(m));
+				// Make carry_in the last PI, and carry_out the last PO
+				//   since ABC requires it this way
+				auto &ports = m->ports;
+				for (auto it = ports.begin(); it != ports.end(); ) {
+					RTLIL::Wire* w = m->wire(*it);
+					log_assert(w);
+					if (w == carry_in || w == carry_out) {
+						it = ports.erase(it);
+						continue;
+					}
+					if (w->port_id > carry_in->port_id)
+						--w->port_id;
+					if (w->port_id > carry_out->port_id)
+						--w->port_id;
+					log_assert(w->port_input || w->port_output);
+					log_assert(ports[w->port_id-1] == w->name);
+					++it;
+				}
+				ports.push_back(carry_in->name);
+				carry_in->port_id = ports.size();
+				ports.push_back(carry_out->name);
+				carry_out->port_id = ports.size();
+			}
+		}
+
 		for (auto mod : design->selected_modules())
 		{
-			if (mod->attributes.count("\\abc_box_id"))
+			if (mod->attributes.count(ID(abc_box_id)))
 				continue;
 
 			if (mod->processes.size() > 0) {
@@ -1022,8 +1164,7 @@ struct Abc9Pass : public Pass {
 
 				abc9_module(design, mod, script_file, exe_file, cleanup, lut_costs, false, clk_str, keepff,
 						delay_target, lutin_shared, fast_mode, show_tempdir,
-						box_file, lut_file, wire_delay);
-
+						box_file, lut_file, wire_delay, box_lookup, scc_break_inputs);
 				design->selection_stack.pop_back();
 				continue;
 			}
@@ -1216,16 +1357,17 @@ struct Abc9Pass : public Pass {
 
 				abc9_module(design, mod, script_file, exe_file, cleanup, lut_costs, !clk_sig.empty(), "$",
 						keepff, delay_target, lutin_shared, fast_mode, show_tempdir,
-						box_file, lut_file, wire_delay);
+						box_file, lut_file, wire_delay, box_lookup, scc_break_inputs);
 				assign_map.set(mod);
 			}
 
 			design->selection_stack.pop_back();
 		}
 
-		Pass::call(design, "clean");
-
 		assign_map.clear();
+
+		// The "clean" pass also contains a design->check() call
+		Pass::call(design, "clean");
 
 		log_pop();
 	}

@@ -48,7 +48,7 @@ void generate(RTLIL::Design *design, const std::vector<std::string> &celltypes, 
 		RTLIL::Cell *cell = i2.second;
 		if (design->has(cell->type))
 			continue;
-		if (cell->type.substr(0, 1) == "$" && cell->type.substr(0, 3) != "$__")
+		if (cell->type.begins_with("$__"))
 			continue;
 		for (auto &pattern : celltypes)
 			if (patmatch(pattern.c_str(), RTLIL::unescape_id(cell->type).c_str()))
@@ -143,7 +143,7 @@ void generate(RTLIL::Design *design, const std::vector<std::string> &celltypes, 
 // Return the "basic" type for an array item.
 std::string basic_cell_type(const std::string celltype, int pos[3] = nullptr) {
 	std::string basicType = celltype;
-	if (celltype.substr(0, 7) == "$array:") {
+	if (celltype.compare(0, strlen("$array:"), "$array:") == 0) {
 		int pos_idx = celltype.find_first_of(':');
 		int pos_num = celltype.find_first_of(':', pos_idx + 1);
 		int pos_type = celltype.find_first_of(':', pos_num + 1);
@@ -194,16 +194,16 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 		std::vector<RTLIL::IdString> connections_to_add_name;
 		std::vector<RTLIL::SigSpec> connections_to_add_signal;
 
-		if (cell->type.substr(0, 7) == "$array:") {
+		if (cell->type.begins_with("$array:")) {
 			int pos[3];
 			basic_cell_type(cell->type.str(), pos);
 			int pos_idx = pos[0];
 			int pos_num = pos[1];
 			int pos_type = pos[2];
-			int idx = atoi(cell->type.str().substr(pos_idx + 1, pos_num).c_str());
-			int num = atoi(cell->type.str().substr(pos_num + 1, pos_type).c_str());
+			int idx = atoi(cell->type.substr(pos_idx + 1, pos_num).c_str());
+			int num = atoi(cell->type.substr(pos_num + 1, pos_type).c_str());
 			array_cells[cell] = std::pair<int, int>(idx, num);
-			cell->type = cell->type.str().substr(pos_type + 1);
+			cell->type = cell->type.substr(pos_type + 1);
 		}
 		dict<RTLIL::IdString, RTLIL::Module*> interfaces_to_add_to_submodule;
 		dict<RTLIL::IdString, RTLIL::IdString> modports_used_in_submodule;
@@ -422,7 +422,7 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 		for (auto &conn : cell->connections_) {
 			int conn_size = conn.second.size();
 			RTLIL::IdString portname = conn.first;
-			if (portname.substr(0, 1) == "$") {
+			if (portname.begins_with("$")) {
 				int port_id = atoi(portname.substr(1).c_str());
 				for (auto &wire_it : mod->wires_)
 					if (wire_it.second->port_id == port_id) {
@@ -457,9 +457,8 @@ void hierarchy_worker(RTLIL::Design *design, std::set<RTLIL::Module*, IdString::
 
 	for (auto cell : mod->cells()) {
 		std::string celltype = cell->type.str();
-		if (celltype.substr(0, 7) == "$array:") {
+		if (celltype.compare(0, strlen("$array:"), "$array:") == 0)
 			celltype = basic_cell_type(celltype);
-		}
 		if (design->module(celltype))
 			hierarchy_worker(design, used, design->module(celltype), indent+4);
 	}
@@ -521,9 +520,8 @@ int find_top_mod_score(Design *design, Module *module, dict<Module*, int> &db)
 		for (auto cell : module->cells()) {
 			std::string celltype = cell->type.str();
 			// Is this an array instance
-			if (celltype.substr(0, 7) == "$array:") {
+			if (celltype.compare(0, strlen("$array:"), "$array:") == 0)
 				celltype = basic_cell_type(celltype);
-			}
 			// Is this cell a module instance?
 			auto instModule = design->module(celltype);
 			// If there is no instance for this, issue a warning.

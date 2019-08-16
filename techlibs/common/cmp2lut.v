@@ -27,7 +27,7 @@ parameter _TECHMAP_CONSTVAL_A_ = 0;
 parameter _TECHMAP_CONSTMSK_B_ = 0;
 parameter _TECHMAP_CONSTVAL_B_ = 0;
 
-function automatic integer gen_lut;
+function automatic [(1 << `LUT_WIDTH)-1:0] gen_lut;
 	input integer width;
 	input integer operation;
 	input integer swap;

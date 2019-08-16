@@ -189,7 +189,8 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 	if (width < 0)
 		width = data.bits.size() - offset;
 	if (width == 0) {
-		f << "\"\"";
+		// See IEEE 1364-2005 Clause 5.1.14.
+		f << "{0{1'b0}}";
 		return;
 	}
 	if (nostr)
@@ -199,9 +200,9 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 			int32_t val = 0;
 			for (int i = offset+width-1; i >= offset; i--) {
 				log_assert(i < (int)data.bits.size());
-				if (data.bits[i] != RTLIL::S0 && data.bits[i] != RTLIL::S1)
+				if (data.bits[i] != State::S0 && data.bits[i] != State::S1)
 					goto dump_hex;
-				if (data.bits[i] == RTLIL::S1)
+				if (data.bits[i] == State::S1)
 					val |= 1 << (i - offset);
 			}
 			if (decimal)
@@ -218,11 +219,11 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 			for (int i = offset; i < offset+width; i++) {
 				log_assert(i < (int)data.bits.size());
 				switch (data.bits[i]) {
-				case RTLIL::S0: bin_digits.push_back('0'); break;
-				case RTLIL::S1: bin_digits.push_back('1'); break;
+				case State::S0: bin_digits.push_back('0'); break;
+				case State::S1: bin_digits.push_back('1'); break;
 				case RTLIL::Sx: bin_digits.push_back('x'); break;
 				case RTLIL::Sz: bin_digits.push_back('z'); break;
-				case RTLIL::Sa: bin_digits.push_back('z'); break;
+				case RTLIL::Sa: bin_digits.push_back('?'); break;
 				case RTLIL::Sm: log_error("Found marker state in final netlist.");
 				}
 			}
@@ -251,6 +252,12 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 					hex_digits.push_back('z');
 					continue;
 				}
+				if (bit_3 == '?' || bit_2 == '?' || bit_1 == '?' || bit_0 == '?') {
+					if (bit_3 != '?' || bit_2 != '?' || bit_1 != '?' || bit_0 != '?')
+						goto dump_bin;
+					hex_digits.push_back('?');
+					continue;
+				}
 				int val = 8*(bit_3 - '0') + 4*(bit_2 - '0') + 2*(bit_1 - '0') + (bit_0 - '0');
 				hex_digits.push_back(val < 10 ? '0' + val : 'a' + val - 10);
 			}
@@ -266,11 +273,11 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 			for (int i = offset+width-1; i >= offset; i--) {
 				log_assert(i < (int)data.bits.size());
 				switch (data.bits[i]) {
-				case RTLIL::S0: f << stringf("0"); break;
-				case RTLIL::S1: f << stringf("1"); break;
+				case State::S0: f << stringf("0"); break;
+				case State::S1: f << stringf("1"); break;
 				case RTLIL::Sx: f << stringf("x"); break;
 				case RTLIL::Sz: f << stringf("z"); break;
-				case RTLIL::Sa: f << stringf("z"); break;
+				case RTLIL::Sa: f << stringf("?"); break;
 				case RTLIL::Sm: log_error("Found marker state in final netlist.");
 				}
 			}
@@ -373,9 +380,9 @@ void dump_attributes(std::ostream &f, std::string indent, dict<RTLIL::IdString, 
 	for (auto it = attributes.begin(); it != attributes.end(); ++it) {
 		f << stringf("%s" "%s %s", indent.c_str(), as_comment ? "/*" : "(*", id(it->first).c_str());
 		f << stringf(" = ");
-		if (modattr && (it->second == Const(0, 1) || it->second == Const(0)))
+		if (modattr && (it->second == State::S0 || it->second == Const(0)))
 			f << stringf(" 0 ");
-		else if (modattr && (it->second == Const(1, 1) || it->second == Const(1)))
+		else if (modattr && (it->second == State::S1 || it->second == Const(1)))
 			f << stringf(" 1 ");
 		else
 			dump_const(f, it->second, -1, 0, false, as_comment);
@@ -551,6 +558,20 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		return true;
 	}
 
+	if (cell->type == "$_NMUX_") {
+		f << stringf("%s" "assign ", indent.c_str());
+		dump_sigspec(f, cell->getPort("\\Y"));
+		f << stringf(" = !(");
+		dump_cell_expr_port(f, cell, "S", false);
+		f << stringf(" ? ");
+		dump_attributes(f, "", cell->attributes, ' ');
+		dump_cell_expr_port(f, cell, "B", false);
+		f << stringf(" : ");
+		dump_cell_expr_port(f, cell, "A", false);
+		f << stringf(");\n");
+		return true;
+	}
+
 	if (cell->type.in("$_AOI3_", "$_OAI3_")) {
 		f << stringf("%s" "assign ", indent.c_str());
 		dump_sigspec(f, cell->getPort("\\Y"));
@@ -583,7 +604,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		return true;
 	}
 
-	if (cell->type.substr(0, 6) == "$_DFF_")
+	if (cell->type.begins_with("$_DFF_"))
 	{
 		std::string reg_name = cellname(cell);
 		bool out_is_reg_wire = is_reg_wire(cell->getPort("\\Q"), reg_name);
@@ -624,7 +645,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		return true;
 	}
 
-	if (cell->type.substr(0, 8) == "$_DFFSR_")
+	if (cell->type.begins_with("$_DFFSR_"))
 	{
 		char pol_c = cell->type[8], pol_s = cell->type[9], pol_r = cell->type[10];
 
@@ -782,7 +803,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		return true;
 	}
 
-	if (cell->type == "$pmux" || cell->type == "$pmux_safe")
+	if (cell->type == "$pmux")
 	{
 		int width = cell->parameters["\\WIDTH"].as_int();
 		int s_width = cell->getPort("\\S").size();
@@ -794,18 +815,17 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		f << stringf("%s" "  input [%d:0] s;\n", indent.c_str(), s_width-1);
 
 		dump_attributes(f, indent + "  ", cell->attributes);
-		if (cell->type != "$pmux_safe" && !noattr)
+		if (!noattr)
 			f << stringf("%s" "  (* parallel_case *)\n", indent.c_str());
 		f << stringf("%s" "  casez (s)", indent.c_str());
-		if (cell->type != "$pmux_safe")
-			f << stringf(noattr ? " // synopsys parallel_case\n" : "\n");
+		f << stringf(noattr ? " // synopsys parallel_case\n" : "\n");
 
 		for (int i = 0; i < s_width; i++)
 		{
 			f << stringf("%s" "    %d'b", indent.c_str(), s_width);
 
 			for (int j = s_width-1; j >= 0; j--)
-				f << stringf("%c", j == i ? '1' : cell->type == "$pmux_safe" ? '0' : '?');
+				f << stringf("%c", j == i ? '1' : '?');
 
 			f << stringf(":\n");
 			f << stringf("%s" "      %s = b[%d:%d];\n", indent.c_str(), func_name.c_str(), (i+1)*width-1, i*width);
@@ -929,7 +949,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		return true;
 	}
 
-	if (cell->type == "$dff" || cell->type == "$adff" || cell->type == "$dffe")
+	if (cell->type.in("$dff", "$adff", "$dffe"))
 	{
 		RTLIL::SigSpec sig_clk, sig_arst, sig_en, val_arst;
 		bool pol_clk, pol_arst = false, pol_en = false;

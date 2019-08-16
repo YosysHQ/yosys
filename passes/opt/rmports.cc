@@ -171,7 +171,7 @@ struct RmportsPassPass : public Pass {
 			wire->port_output = false;
 			wire->port_id = 0;
 		}
-		log("Removed %zu unused ports.\n", unused_ports.size());
+		log("Removed %d unused ports.\n", GetSize(unused_ports));
 
 		// Re-number all of the wires that DO have ports still on them
 		for(size_t i=0; i<module->ports.size(); i++)

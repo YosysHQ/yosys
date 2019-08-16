@@ -67,9 +67,6 @@ struct SynthIce40Pass : public ScriptPass
 		log("    -retime\n");
 		log("        run 'abc' with -dff option\n");
 		log("\n");
-		log("    -relut\n");
-		log("        combine LUTs after synthesis\n");
-		log("\n");
 		log("    -nocarry\n");
 		log("        do not use SB_CARRY cells in output netlist\n");
 		log("\n");
@@ -78,7 +75,7 @@ struct SynthIce40Pass : public ScriptPass
 		log("\n");
 		log("    -dffe_min_ce_use <min_ce_use>\n");
 		log("        do not use SB_DFFE* cells if the resulting CE line would go to less\n");
-		log("        than min_ce_use SB_DFFE*in output netlist\n");
+		log("        than min_ce_use SB_DFFE* in output netlist\n");
 		log("\n");
 		log("    -nobram\n");
 		log("        do not use SB_RAM40_4K* cells in output netlist\n");
@@ -106,7 +103,7 @@ struct SynthIce40Pass : public ScriptPass
 	}
 
 	string top_opt, blif_file, edif_file, json_file, abc, device_opt;
-	bool nocarry, nodffe, nobram, dsp, flatten, retime, relut, noabc, abc2, vpr;
+	bool nocarry, nodffe, nobram, dsp, flatten, retime, noabc, abc2, vpr;
 	int min_ce_use;
 
 	void clear_flags() YS_OVERRIDE
@@ -122,7 +119,6 @@ struct SynthIce40Pass : public ScriptPass
 		dsp = false;
 		flatten = true;
 		retime = false;
-		relut = false;
 		noabc = false;
 		abc2 = false;
 		vpr = false;
@@ -175,7 +171,7 @@ struct SynthIce40Pass : public ScriptPass
 				continue;
 			}
 			if (args[argidx] == "-relut") {
-				relut = true;
+				// removed, opt_lut is always run
 				continue;
 			}
 			if (args[argidx] == "-nocarry") {
@@ -187,7 +183,7 @@ struct SynthIce40Pass : public ScriptPass
 				continue;
 			}
 			if (args[argidx] == "-dffe_min_ce_use" && argidx+1 < args.size()) {
-				min_ce_use = std::stoi(args[++argidx]);
+				min_ce_use = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-nobram") {
@@ -242,7 +238,7 @@ struct SynthIce40Pass : public ScriptPass
 	{
 		if (check_label("begin"))
 		{
-			run("read_verilog -lib -D_ABC +/ice40/cells_sim.v");
+			run("read_verilog -icells -lib -D_ABC +/ice40/cells_sim.v");
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
 			run("proc");
 		}
@@ -279,14 +275,14 @@ struct SynthIce40Pass : public ScriptPass
 			run("opt_clean");
 		}
 
-		if (!nobram && check_label("bram", "(skip if -nobram)"))
+		if (!nobram && check_label("map_bram", "(skip if -nobram)"))
 		{
 			run("memory_bram -rules +/ice40/brams.txt");
 			run("techmap -map +/ice40/brams_map.v");
 			run("ice40_braminit");
 		}
 
-		if (check_label("map"))
+		if (check_label("map_ffram"))
 		{
 			run("opt -fast -mux_undef -undriven -fine");
 			run("memory_map");
@@ -298,7 +294,7 @@ struct SynthIce40Pass : public ScriptPass
 			if (nocarry)
 				run("techmap");
 			else
-				run("techmap -map +/techmap.v -map +/ice40/arith_map.v");
+				run("techmap -map +/techmap.v -map +/ice40/arith_map.v" + std::string(abc == "abc9" ? " -D _ABC" : ""));
 			if (retime || help_mode)
 				run(abc + " -dff", "(only if -retime)");
 			run("ice40_opt");
@@ -342,15 +338,14 @@ struct SynthIce40Pass : public ScriptPass
 					else
 						wire_delay = 250;
 					run(abc + stringf(" -W %d -lut +/ice40/abc_%s.lut -box +/ice40/abc_%s.box", wire_delay, device_opt.c_str(), device_opt.c_str()), "(skip if -noabc)");
+					run("techmap -D NO_LUT -D _ABC -map +/ice40/cells_map.v");
 				}
 				else
 					run(abc + " -dress -lut 4", "(skip if -noabc)");
 			}
 			run("clean");
-			if (relut || help_mode) {
-				run("ice40_unlut", "                            (only if -relut)");
-				run("opt_lut -dlogic SB_CARRY:I0=1:I1=2:CI=3", "(only if -relut)");
-			}
+			run("ice40_unlut");
+			run("opt_lut -dlogic SB_CARRY:I0=2:I1=1:CI=0");
 		}
 
 		if (check_label("map_cells"))

@@ -181,8 +181,14 @@ module XORCY(output O, input CI, LI);
   assign O = CI ^ LI;
 endmodule
 
-(* abc_box_id = 4, abc_carry="CI,CO", lib_whitebox *)
-module CARRY4(output [3:0] CO, O, input CI, CYINIT, input [3:0] DI, S);
+(* abc_box_id = 4, lib_whitebox *)
+module CARRY4(
+  (* abc_carry_out *) output [3:0] CO,
+  output [3:0] O,
+  (* abc_carry_in *) input CI,
+  input        CYINIT,
+  input  [3:0] DI, S
+);
   assign O = S ^ {CO[2:0], CI | CYINIT};
   assign CO[0] = S[0] ? CI | CYINIT : DI[0];
   assign CO[1] = S[1] ? CO[0] : DI[1];
@@ -226,7 +232,7 @@ module FDRE (output reg Q, input C, CE, D, R);
 endmodule
 
 module FDSE (output reg Q, input C, CE, D, S);
-  parameter [0:0] INIT = 1'b0;
+  parameter [0:0] INIT = 1'b1;
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
   parameter [0:0] IS_S_INVERTED = 1'b0;
@@ -252,7 +258,7 @@ module FDCE (output reg Q, input C, CE, D, CLR);
 endmodule
 
 module FDPE (output reg Q, input C, CE, D, PRE);
-  parameter [0:0] INIT = 1'b0;
+  parameter [0:0] INIT = 1'b1;
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
   parameter [0:0] IS_PRE_INVERTED = 1'b0;
@@ -289,10 +295,12 @@ module FDPE_1 (output reg Q, input C, CE, D, PRE);
   always @(negedge C, posedge PRE) if (PRE) Q <= 1'b1; else if (CE) Q <= D;
 endmodule
 
-(* abc_box_id = 5, abc_scc_break="D,WE" *)
+(* abc_box_id = 5 *)
 module RAM32X1D (
   output DPO, SPO,
-  input  D, WCLK, WE,
+  (* abc_scc_break *) input D,
+  input  WCLK,
+  (* abc_scc_break *) input WE,
   input  A0, A1, A2, A3, A4,
   input  DPRA0, DPRA1, DPRA2, DPRA3, DPRA4
 );
@@ -307,10 +315,12 @@ module RAM32X1D (
   always @(posedge clk) if (WE) mem[a] <= D;
 endmodule
 
-(* abc_box_id = 6, abc_scc_break="D,WE" *)
+(* abc_box_id = 6 *)
 module RAM64X1D (
   output DPO, SPO,
-  input  D, WCLK, WE,
+  (* abc_scc_break *) input D,
+  input  WCLK,
+  (* abc_scc_break *) input WE,
   input  A0, A1, A2, A3, A4, A5,
   input  DPRA0, DPRA1, DPRA2, DPRA3, DPRA4, DPRA5
 );
@@ -325,10 +335,12 @@ module RAM64X1D (
   always @(posedge clk) if (WE) mem[a] <= D;
 endmodule
 
-(* abc_box_id = 7, abc_scc_break="D,WE" *)
+(* abc_box_id = 7 *)
 module RAM128X1D (
   output       DPO, SPO,
-  input        D, WCLK, WE,
+  (* abc_scc_break *) input D,
+  input        WCLK,
+  (* abc_scc_break *) input WE,
   input  [6:0] A, DPRA
 );
   parameter INIT = 128'h0;
