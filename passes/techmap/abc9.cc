@@ -628,7 +628,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 				if (cell && markgroups) cell->attributes[ID(abcgroup)] = map_autoidx;
 				continue;
 			}
-			cell_stats[RTLIL::unescape_id(c->type)]++;
+			cell_stats[c->type]++;
 
 			RTLIL::Cell *existing_cell = nullptr;
 			if (c->type == ID($lut)) {
