@@ -210,7 +210,6 @@ namespace RTLIL {
 	struct Module;
 	struct Design;
 	struct Monitor;
-	namespace ID {}
 }
 
 namespace AST {
@@ -225,7 +224,6 @@ using RTLIL::Wire;
 using RTLIL::Cell;
 using RTLIL::Module;
 using RTLIL::Design;
-namespace ID = ::YOSYS_NAMESPACE::RTLIL::ID;
 
 namespace hashlib {
 	template<> struct hash_ops<RTLIL::Wire*> : hash_obj_ops {};
@@ -317,6 +315,7 @@ RTLIL::IdString new_id(std::string file, int line, std::string func);
 //
 #define ID(_id) ([]() { const char *p = "\\" #_id, *q = p[1] == '$' ? p+1 : p; \
         static const YOSYS_NAMESPACE_PREFIX RTLIL::IdString id(q); return id; })()
+namespace ID = RTLIL::ID;
 
 RTLIL::Design *yosys_get_design();
 std::string proc_self_dirname();
