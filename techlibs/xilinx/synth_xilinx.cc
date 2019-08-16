@@ -266,6 +266,14 @@ struct SynthXilinxPass : public ScriptPass
 
 	void script() YS_OVERRIDE
 	{
+		std::string ff_map_file;
+		if (help_mode)
+			ff_map_file = "+/xilinx/xc6s_ff_map.v";
+		else if (family == "xc6s")
+			ff_map_file = "+/xilinx/xc6s_ff_map.v";
+		else
+			ff_map_file = "+/xilinx/xc7_ff_map.v";
+
 		if (check_label("begin")) {
 			if (vpr)
 				run("read_verilog -lib -D_EXPLICIT_CARRY +/xilinx/cells_sim.v");
@@ -416,11 +424,9 @@ struct SynthXilinxPass : public ScriptPass
 		}
 
 		if (check_label("map_ffs")) {
-				if (abc9 || help_mode) {
-						run("techmap -map +/xilinx/ff_map.v", "('-abc9' only)");
-						run("dffinit -ff FDRE Q INIT -ff FDCE Q INIT -ff FDPE Q INIT -ff FDSE Q INIT "
-										"-ff FDRE_1 Q INIT -ff FDCE_1 Q INIT -ff FDPE_1 Q INIT -ff FDSE_1 Q INIT", "('-abc9' only)");
-				}
+			if (abc9 || help_mode) {
+				run("techmap -map " + ff_map_file, "('-abc9' only)");
+			}
 		}
 
 		if (check_label("map_luts")) {
@@ -453,15 +459,12 @@ struct SynthXilinxPass : public ScriptPass
 				run("xilinx_srl -fixed -minlen 3", "(skip if '-nosrl')");
 			std::string techmap_args = "-map +/xilinx/lut_map.v -map +/xilinx/cells_map.v";
 			if (help_mode)
-				techmap_args += " [-map +/xilinx/ff_map.v]";
+				techmap_args += " [-map " + ff_map_file + "]";
 			else if (abc9)
 				techmap_args += " -map +/xilinx/abc_unmap.v";
 			else
-				techmap_args += " -map +/xilinx/ff_map.v";
+				techmap_args += " -map " + ff_map_file;
 			run("techmap " + techmap_args);
-			if (!abc9 || help_mode)
-				run("dffinit -ff FDRE Q INIT -ff FDCE Q INIT -ff FDPE Q INIT -ff FDSE Q INIT "
-						"-ff FDRE_1 Q INIT -ff FDCE_1 Q INIT -ff FDPE_1 Q INIT -ff FDSE_1 Q INIT", "(without '-abc9' only)");
 			run("clean");
 		}
 
