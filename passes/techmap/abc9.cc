@@ -1086,16 +1086,16 @@ struct Abc9Pass : public Pass {
 				auto w = m->wire(p);
 				log_assert(w);
 				if (w->port_input) {
-					if (w->attributes.count("\\abc_scc_break"))
+					if (w->attributes.count(ID(abc_scc_break)))
 						scc_break_inputs[m->name].insert(p);
-					if (w->attributes.count("\\abc_carry_in")) {
+					if (w->attributes.count(ID(abc_carry_in))) {
 						if (carry_in)
 							log_error("Module '%s' contains more than one 'abc_carry_in' port.\n", log_id(m));
 						carry_in = w;
 					}
 				}
 				if (w->port_output) {
-					if (w->attributes.count("\\abc_carry_out")) {
+					if (w->attributes.count(ID(abc_carry_out))) {
 						if (carry_out)
 							log_error("Module '%s' contains more than one 'abc_carry_out' port.\n", log_id(m));
 						carry_out = w;
