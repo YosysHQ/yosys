@@ -15,10 +15,13 @@ module L6MUX21 (input D0, D1, SD, output Z);
 endmodule
 
 // ---------------------------------------
-(* abc_box_id=1, abc_carry="CIN,COUT", lib_whitebox *)
-module CCU2C(input CIN, A0, B0, C0, D0, A1, B1, C1, D1,
-	           output S0, S1, COUT);
-
+(* abc_box_id=1, lib_whitebox *)
+module CCU2C(
+	(* abc_carry_in *) input CIN,
+	input  A0, B0, C0, D0, A1, B1, C1, D1,
+	output S0, S1,
+	(* abc_carry_out *) output COUT
+);
 	parameter [15:0] INIT0 = 16'h0000;
 	parameter [15:0] INIT1 = 16'h0000;
 	parameter INJECT1_0 = "YES";
@@ -104,12 +107,13 @@ module PFUMX (input ALUT, BLUT, C0, output Z);
 endmodule
 
 // ---------------------------------------
-//(* abc_box_id=2, abc_scc_break="DI,WAD,WRE" *)
+//(* abc_box_id=2 *)
 module TRELLIS_DPR16X4 (
-	input [3:0] DI,
-	input [3:0] WAD,
-	input WRE, WCK,
-	input [3:0] RAD,
+	(* abc_scc_break *) input [3:0] DI,
+	(* abc_scc_break *) input [3:0] WAD,
+	(* abc_scc_break *) input       WRE,
+	input        WCK,
+	input  [3:0] RAD,
 	output [3:0] DO
 );
 	parameter WCKMUX = "WCK";
