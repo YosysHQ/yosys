@@ -156,7 +156,7 @@ void generate_pattern(std::function<void(pm&,std::function<void()>)> run, const 
 		int submodcnt = 0, itercnt = 0, cellcnt = 0;
 		Module *mod = design->addModule(NEW_ID);
 
-		while (submodcnt < maxsubcnt && itercnt++ < 1000)
+		while (modcnt < 100 && submodcnt < maxsubcnt && itercnt++ < 1000)
 		{
 			pm matcher(mod, mod->cells());
 
