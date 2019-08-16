@@ -13,6 +13,22 @@ endcode
 match first
 	select first->type.in($_AND_, $_OR_, $_XOR_)
 	filter !non_first_cells.count(first)
+generate
+	SigSpec A = module->addWire(NEW_ID);
+	SigSpec B = module->addWire(NEW_ID);
+	SigSpec Y = module->addWire(NEW_ID);
+	switch (rng(3))
+	{
+	case 0:
+		module->addAndGate(NEW_ID, A, B, Y);
+		break;
+	case 1:
+		module->addOrGate(NEW_ID, A, B, Y);
+		break;
+	case 2:
+		module->addXorGate(NEW_ID, A, B, Y);
+		break;
+	}
 endmatch
 
 code
@@ -64,6 +80,12 @@ match next
 	select next->type.in($_AND_, $_OR_, $_XOR_)
 	index <IdString> next->type === chain.back().first->type
 	index <SigSpec> port(next, \Y) === port(chain.back().first, chain.back().second)
+generate 50
+	SigSpec A = module->addWire(NEW_ID);
+	SigSpec B = module->addWire(NEW_ID);
+	SigSpec Y = port(chain.back().first, chain.back().second);
+	Cell *c = module->addAndGate(NEW_ID, A, B, Y);
+	c->type = chain.back().first->type;
 endmatch
 
 code

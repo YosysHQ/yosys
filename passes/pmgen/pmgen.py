@@ -186,6 +186,9 @@ def process_pmgfile(f, filename):
             block["src"] = "%s:%d" % (filename, linenr)
             block["pattern"] = (current_pattern, current_subpattern)
 
+            block["genargs"] = None
+            block["gencode"] = None
+
             line = line.split()
             assert len(line) == 2
             assert (line[1] not in state_types[current_pattern]) or (state_types[current_pattern][line[1]] == "Cell*")
@@ -235,6 +238,19 @@ def process_pmgfile(f, filename):
                 if a[0] == "semioptional":
                     block["semioptional"] = True
                     continue
+
+                if a[0] == "generate":
+                    block["genargs"] = list([int(s) for s in a[1:]])
+                    block["gencode"] = list()
+                    assert len(block["genargs"]) < 2
+                    while True:
+                        linenr += 1
+                        l = f.readline()
+                        assert l != ""
+                        a = l.split()
+                        if a[0] == "endmatch": break
+                        block["gencode"].append(rewrite_cpp(l.rstrip()))
+                    break
 
                 assert False
 
@@ -310,7 +326,17 @@ with open(outfile, "w") as f:
     print("struct {}_pm {{".format(prefix), file=f)
     print("  Module *module;", file=f)
     print("  SigMap sigmap;", file=f)
-    print("  std::function<void()> on_accept;".format(prefix), file=f)
+    print("  std::function<void()> on_accept;", file=f)
+    print("  bool generate_mode;", file=f)
+    print("", file=f)
+
+    print("  uint32_t rngseed;", file=f)
+    print("  int rng(unsigned int n) {", file=f)
+    print("    rngseed ^= rngseed << 13;", file=f)
+    print("    rngseed ^= rngseed >> 17;", file=f)
+    print("    rngseed ^= rngseed << 5;", file=f)
+    print("    return rngseed % n;", file=f)
+    print("  }", file=f)
     print("", file=f)
 
     for index in range(len(blocks)):
@@ -415,7 +441,7 @@ with open(outfile, "w") as f:
     print("", file=f)
 
     print("  {}_pm(Module *module, const vector<Cell*> &cells) :".format(prefix), file=f)
-    print("      module(module), sigmap(module) {", file=f)
+    print("      module(module), sigmap(module), generate_mode(false), rngseed(12345678) {", file=f)
     for current_pattern in sorted(patterns.keys()):
         for s, t in sorted(udata_types[current_pattern].items()):
             if t.endswith("*"):
@@ -469,17 +495,15 @@ with open(outfile, "w") as f:
         print("    run_{}([&](){{on_accept_f(*this);}});".format(current_pattern), file=f)
         print("  }", file=f)
         print("", file=f)
-        print("  void run_{}(std::function<void(state_{}_t&)> on_accept_f) {{".format(current_pattern, current_pattern), file=f)
-        print("    run_{}([&](){{on_accept_f(st_{});}});".format(current_pattern, current_pattern), file=f)
-        print("  }", file=f)
-        print("", file=f)
         print("  void run_{}() {{".format(current_pattern), file=f)
         print("    run_{}([](){{}});".format(current_pattern, current_pattern), file=f)
         print("  }", file=f)
         print("", file=f)
 
-    for p, s in sorted(subpatterns.keys()):
-        print("  void block_subpattern_{}_{}() {{ block_{}(); }}".format(p, s, subpatterns[(p, s)]), file=f)
+    if len(subpatterns):
+        for p, s in sorted(subpatterns.keys()):
+            print("  void block_subpattern_{}_{}() {{ block_{}(); }}".format(p, s, subpatterns[(p, s)]), file=f)
+        print("", file=f)
 
     current_pattern = None
     current_subpattern = None
@@ -611,8 +635,8 @@ with open(outfile, "w") as f:
                 print("    std::get<{}>(key) = {};".format(field, entry[2]), file=f)
             print("    const vector<Cell*> &cells = index_{}[key];".format(index), file=f)
 
-            if block["semioptional"]:
-                print("    bool found_semioptional_match = false;", file=f)
+            if block["semioptional"] or block["genargs"] is not None:
+                print("    bool found_any_match = false;", file=f)
 
             print("", file=f)
             print("    for (int idx = 0; idx < GetSize(cells); idx++) {", file=f)
@@ -620,8 +644,8 @@ with open(outfile, "w") as f:
             print("      if (blacklist_cells.count({})) continue;".format(block["cell"]), file=f)
             for expr in block["filter"]:
                 print("      if (!({})) continue;".format(expr), file=f)
-            if block["semioptional"]:
-                print("      found_semioptional_match = true;", file=f)
+            if block["semioptional"] or block["genargs"] is not None:
+                print("      found_any_match = true;", file=f)
             print("      block_{}();".format(index+1), file=f)
             print("      if (rollback) {", file=f)
             print("        if (rollback != {}) {{".format(index+1), file=f)
@@ -639,10 +663,17 @@ with open(outfile, "w") as f:
                 print("    block_{}();".format(index+1), file=f)
 
             if block["semioptional"]:
-                print("    if (!found_semioptional_match) block_{}();".format(index+1), file=f)
+                print("    if (!found_any_match) block_{}();".format(index+1), file=f)
 
             print("    {} = backup_{};".format(block["cell"], block["cell"]), file=f)
 
+            if block["genargs"] is not None:
+                print("    if (generate_mode && !found_any_match) {", file=f)
+                if len(block["genargs"]) == 1:
+                    print("    if (rng(100) >= {}) return;".format(block["genargs"][0]), file=f)
+                for line in block["gencode"]:
+                    print("      " + line, file=f)
+                print("    }", file=f)
         else:
             assert False
 
