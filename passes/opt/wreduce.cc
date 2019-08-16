@@ -22,7 +22,6 @@
 #include "kernel/modtools.h"
 
 USING_YOSYS_NAMESPACE
-using namespace RTLIL;
 
 PRIVATE_NAMESPACE_BEGIN
 
@@ -77,15 +76,15 @@ struct WreduceWorker
 		{
 			auto info = mi.query(sig_y[i]);
 			if (!info->is_output && GetSize(info->ports) <= 1 && !keep_bits.count(mi.sigmap(sig_y[i]))) {
-				bits_removed.push_back(Sx);
+				bits_removed.push_back(State::Sx);
 				continue;
 			}
 
 			SigBit ref = sig_a[i];
 			for (int k = 0; k < GetSize(sig_s); k++) {
-				if ((config->keepdc || (ref != Sx && sig_b[k*GetSize(sig_a) + i] != Sx)) && ref != sig_b[k*GetSize(sig_a) + i])
+				if ((config->keepdc || (ref != State::Sx && sig_b[k*GetSize(sig_a) + i] != State::Sx)) && ref != sig_b[k*GetSize(sig_a) + i])
 					goto no_match_ab;
-				if (sig_b[k*GetSize(sig_a) + i] != Sx)
+				if (sig_b[k*GetSize(sig_a) + i] != State::Sx)
 					ref = sig_b[k*GetSize(sig_a) + i];
 			}
 			if (0)
@@ -245,7 +244,7 @@ struct WreduceWorker
 			while (GetSize(sig) > 1 && sig[GetSize(sig)-1] == sig[GetSize(sig)-2])
 				work_queue_bits.insert(sig[GetSize(sig)-1]), sig.remove(GetSize(sig)-1), bits_removed++;
 		} else {
-			while (GetSize(sig) > 1 && sig[GetSize(sig)-1] == S0)
+			while (GetSize(sig) > 1 && sig[GetSize(sig)-1] == State::S0)
 				work_queue_bits.insert(sig[GetSize(sig)-1]), sig.remove(GetSize(sig)-1), bits_removed++;
 		}
 
@@ -359,7 +358,7 @@ struct WreduceWorker
 				max_y_size = a_size + b_size;
 
 			while (GetSize(sig) > 1 && GetSize(sig) > max_y_size) {
-				module->connect(sig[GetSize(sig)-1], is_signed ? sig[GetSize(sig)-2] : S0);
+				module->connect(sig[GetSize(sig)-1], is_signed ? sig[GetSize(sig)-2] : State::S0);
 				sig.remove(GetSize(sig)-1);
 				bits_removed++;
 			}
