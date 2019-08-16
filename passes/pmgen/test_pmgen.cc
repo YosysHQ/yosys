@@ -149,13 +149,14 @@ void generate_pattern(std::function<void(pm&,std::function<void()>)> run, const 
 	log("Generating \"%s\" patterns for pattern matcher \"%s\".\n", pattern, pmclass);
 
 	int modcnt = 0;
+	int maxsubcnt = 4;
 
 	while (modcnt < 100)
 	{
 		int submodcnt = 0, itercnt = 0, cellcnt = 0;
 		Module *mod = design->addModule(NEW_ID);
 
-		while (submodcnt < 10 && itercnt++ < 1000)
+		while (submodcnt < maxsubcnt && itercnt++ < 1000)
 		{
 			pm matcher(mod, mod->cells());
 
@@ -190,6 +191,7 @@ void generate_pattern(std::function<void(pm&,std::function<void()>)> run, const 
 		}
 
 		design->remove(mod);
+		maxsubcnt *= 2;
 	}
 }
 
