@@ -302,6 +302,7 @@ struct TestPmgenPass : public Pass {
 			if (args[1] == "-generate")
 				return execute_generate(args, design);
 		}
+		help();
 		log_cmd_error("Missing or unsupported mode parameter.\n");
 	}
 } TestPmgenPass;
