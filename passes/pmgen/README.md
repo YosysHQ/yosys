@@ -45,9 +45,9 @@ of type `foobar_pm::state_<pattern_name>_t`.)
 Similarly the `.pmg` file declares user data variables that become members of
 `.ud_<pattern_name>`, a struct of type `foobar_pm::udata_<pattern_name>_t`.
 
-There are four versions of the `run_<pattern_name>()` method: Without callback,
-callback without arguments, callback with reference to `pm`, and callback with
-reference to `pm.st_<pattern_name>`.
+There are three versions of the `run_<pattern_name>()` method: Without callback,
+callback without arguments, and callback with reference to `pm`. All versions
+of the `run_<pattern_name>()` method return the number of found matches.
 
 
 The .pmg File Format
@@ -118,8 +118,8 @@ write matchers:
   connected to any of the given signal bits, plus one if any of the signal
   bits is also a primary input or primary output.
 
-- In `code..endcode` blocks there exist `accept`, `reject`, `branch`, and
-  `subpattern` statements.
+- In `code..endcode` blocks there exist `accept`, `reject`, `branch`,
+  `finish`, and `subpattern` statements.
 
 - In `index` statements there is a special `===` operator for the index
   lookup.
@@ -246,13 +246,13 @@ debug messages. For example:
 
     code
         stack.push_back(addAB);
-	...
+        ...
     finally
         stack.pop_back();
     endcode
 
-`accept` statements can be used inside the `finally` section, but not
-`reject`, `branch`, or `subpattern`.
+`accept` and `finish` statements can be used inside the `finally` section,
+but not `reject`, `branch`, or `subpattern`.
 
 Declaring a subpattern
 ----------------------
@@ -265,52 +265,75 @@ Arguments may be passed to subpattern via state variables. The `subpattern`
 line must be followed by a `arg <arg1> <arg2> ...` line that lists the
 state variables used to pass arguments.
 
-	state <IdString> foobar_type
-	state <bool> foobar_state
+    state <IdString> foobar_type
+    state <bool> foobar_state
 
-	code foobar_type foobar_state
-		foobar_state = false;
-		foobar_type = $add;
-		subpattern(foo);
-		foobar_type = $sub;
-		subpattern(bar);
-	endcode
+    code foobar_type foobar_state
+        foobar_state = false;
+        foobar_type = $add;
+        subpattern(foo);
+        foobar_type = $sub;
+        subpattern(bar);
+    endcode
 
-	subpattern foo
-	arg foobar_type foobar_state
+    subpattern foo
+    arg foobar_type foobar_state
 
-	match addsub
-		index <IdString> addsub->type === foobar_type
-		...
-	endmatch
+    match addsub
+        index <IdString> addsub->type === foobar_type
+        ...
+    endmatch
 
-	code
-		if (foobar_state) {
-			subpattern(tail);
-		} else {
-			foobar_state = true;
-			subpattern(bar);
-		}
-	endcode
+    code
+        if (foobar_state) {
+            subpattern(tail);
+        } else {
+            foobar_state = true;
+            subpattern(bar);
+        }
+    endcode
 
-	subpattern bar
-	arg foobar_type foobar_state
+    subpattern bar
+    arg foobar_type foobar_state
 
-	match addsub
-		index <IdString> addsub->type === foobar_type
-		...
-	endmatch
+    match addsub
+        index <IdString> addsub->type === foobar_type
+        ...
+    endmatch
 
-	code
-		if (foobar_state) {
-			subpattern(tail);
-		} else {
-			foobar_state = true;
-			subpattern(foo);
-		}
-	endcode
+    code
+        if (foobar_state) {
+            subpattern(tail);
+        } else {
+            foobar_state = true;
+            subpattern(foo);
+        }
+    endcode
 
-	subpattern tail
-	...
+    subpattern tail
+    ...
 
 Subpatterns cann be called recursively.
+
+Generate Blocks
+---------------
+
+Match blocks may contain an optional `generate` section that is used for automatic
+test-case generation. For example:
+
+    match mul
+        ...
+    generate 10
+        SigSpec Y = port(ff, \D);
+        SigSpec A = module->addWire(NEW_ID, GetSize(Y) - rng(GetSize(Y)/2));
+        SigSpec B = module->addWire(NEW_ID, GetSize(Y) - rng(GetSize(Y)/2));
+        module->addMul(NEW_ID, A, B, Y, rng(2));
+    endmatch
+
+The expression `rng(n)` returns a non-negative integer less than `n`.
+
+The argument to `generate` is the chance of this generate block being executed
+when the match block did not match anything, in percent.
+
+The special statement `finish` can be used within generate blocks to terminate
+the current pattern matcher run.

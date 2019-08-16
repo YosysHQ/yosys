@@ -328,6 +328,7 @@ with open(outfile, "w") as f:
     print("  SigMap sigmap;", file=f)
     print("  std::function<void()> on_accept;", file=f)
     print("  bool generate_mode;", file=f)
+    print("  int accept_cnt;", file=f)
     print("", file=f)
 
     print("  uint32_t rngseed;", file=f)
@@ -476,7 +477,8 @@ with open(outfile, "w") as f:
     print("", file=f)
 
     for current_pattern in sorted(patterns.keys()):
-        print("  void run_{}(std::function<void()> on_accept_f) {{".format(current_pattern), file=f)
+        print("  int run_{}(std::function<void()> on_accept_f) {{".format(current_pattern), file=f)
+        print("    accept_cnt = 0;", file=f)
         print("    on_accept = on_accept_f;", file=f)
         print("    rollback = 0;", file=f)
         print("    blacklist_dirty = false;", file=f)
@@ -487,14 +489,15 @@ with open(outfile, "w") as f:
                 print("    st_{}.{} = {}();".format(current_pattern, s, t), file=f)
         print("    block_{}(1);".format(patterns[current_pattern]), file=f)
         print("    log_assert(rollback_stack.empty());", file=f)
+        print("    return accept_cnt;", file=f)
         print("  }", file=f)
         print("", file=f)
-        print("  void run_{}(std::function<void({}_pm&)> on_accept_f) {{".format(current_pattern, prefix), file=f)
-        print("    run_{}([&](){{on_accept_f(*this);}});".format(current_pattern), file=f)
+        print("  int run_{}(std::function<void({}_pm&)> on_accept_f) {{".format(current_pattern, prefix), file=f)
+        print("    return run_{}([&](){{on_accept_f(*this);}});".format(current_pattern), file=f)
         print("  }", file=f)
         print("", file=f)
-        print("  void run_{}() {{".format(current_pattern), file=f)
-        print("    run_{}([](){{}});".format(current_pattern, current_pattern), file=f)
+        print("  int run_{}() {{".format(current_pattern), file=f)
+        print("    return run_{}([](){{}});".format(current_pattern, current_pattern), file=f)
         print("  }", file=f)
         print("", file=f)
 
@@ -574,7 +577,8 @@ with open(outfile, "w") as f:
         if block["type"] == "code":
             print("", file=f)
             print("#define reject do { check_blacklist(); goto rollback_label; } while(0)", file=f)
-            print("#define accept do { on_accept(); check_blacklist(); if (rollback) goto rollback_label; } while(0)", file=f)
+            print("#define accept do { accept_cnt++; on_accept(); check_blacklist(); if (rollback) goto rollback_label; } while(0)", file=f)
+            print("#define finish do { rollback = -1; rollback_stack.clean(); goto rollback_label; } while(0)", file=f)
             print("#define branch do {{ block_{}(recursion+1); if (rollback) goto rollback_label; }} while(0)".format(index+1), file=f)
             print("#define subpattern(pattern_name) do {{ block_subpattern_{}_ ## pattern_name (recursion+1); if (rollback) goto rollback_label; }} while(0)".format(current_pattern), file=f)
 
@@ -586,6 +590,7 @@ with open(outfile, "w") as f:
 
             print("#undef reject", file=f)
             print("#undef accept", file=f)
+            print("#undef finish", file=f)
             print("#undef branch", file=f)
             print("#undef subpattern", file=f)
 
@@ -594,10 +599,12 @@ with open(outfile, "w") as f:
             print("    YS_ATTRIBUTE(unused);", file=f)
 
             if len(block["fcode"]):
-                print("#define accept do { on_accept(); check_blacklist(); } while(0)", file=f)
+                print("#define accept do { accept_cnt++; on_accept(); check_blacklist(); } while(0)", file=f)
+                print("#define finish do { rollback = -1; rollback_stack.clean(); return; } while(0)", file=f)
                 for line in block["fcode"]:
                     print("  " + line, file=f)
                 print("#undef accept", file=f)
+                print("#undef finish", file=f)
 
             if len(restore_st) or len(nonconst_st):
                 print("", file=f)
@@ -631,29 +638,32 @@ with open(outfile, "w") as f:
             print("    index_{}_key_type key;".format(index), file=f)
             for field, entry in enumerate(block["index"]):
                 print("    std::get<{}>(key) = {};".format(field, entry[2]), file=f)
-            print("    const vector<Cell*> &cells = index_{}[key];".format(index), file=f)
+            print("    auto cells_ptr = index_{}.find(key);".format(index), file=f)
 
             if block["semioptional"] or block["genargs"] is not None:
                 print("    bool found_any_match = false;", file=f)
 
             print("", file=f)
-            print("    for (int idx = 0; idx < GetSize(cells); idx++) {", file=f)
-            print("      {} = cells[idx];".format(block["cell"]), file=f)
-            print("      if (blacklist_cells.count({})) continue;".format(block["cell"]), file=f)
+            print("    if (cells_ptr != index_{}.end()) {{".format(index), file=f)
+            print("      const vector<Cell*> &cells = cells_ptr->second;".format(index), file=f)
+            print("      for (int idx = 0; idx < GetSize(cells); idx++) {", file=f)
+            print("        {} = cells[idx];".format(block["cell"]), file=f)
+            print("        if (blacklist_cells.count({})) continue;".format(block["cell"]), file=f)
             for expr in block["filter"]:
-                print("      if (!({})) continue;".format(expr), file=f)
+                print("        if (!({})) continue;".format(expr), file=f)
             if block["semioptional"] or block["genargs"] is not None:
-                print("      found_any_match = true;", file=f)
-            print("      rollback_stack.push_back(make_pair(cells[idx], recursion));", file=f)
-            print("      block_{}(recursion+1);".format(index+1), file=f)
-            print("      if (rollback == 0) {", file=f)
-            print("        rollback_stack.pop_back();", file=f)
-            print("      } else {", file=f)
-            print("        if (rollback != recursion) {{".format(index+1), file=f)
-            print("          {} = backup_{};".format(block["cell"], block["cell"]), file=f)
-            print("          return;", file=f)
+                print("        found_any_match = true;", file=f)
+            print("        rollback_stack.push_back(make_pair(cells[idx], recursion));", file=f)
+            print("        block_{}(recursion+1);".format(index+1), file=f)
+            print("        if (rollback == 0) {", file=f)
+            print("          rollback_stack.pop_back();", file=f)
+            print("        } else {", file=f)
+            print("          if (rollback != recursion) {{".format(index+1), file=f)
+            print("            {} = backup_{};".format(block["cell"], block["cell"]), file=f)
+            print("            return;", file=f)
+            print("          }", file=f)
+            print("          rollback = 0;", file=f)
             print("        }", file=f)
-            print("        rollback = 0;", file=f)
             print("      }", file=f)
             print("    }", file=f)
 
@@ -669,14 +679,14 @@ with open(outfile, "w") as f:
             print("    {} = backup_{};".format(block["cell"], block["cell"]), file=f)
 
             if block["genargs"] is not None:
+                print("#define finish do { rollback = -1; rollback_stack.clean(); return; } while(0)", file=f)
                 print("    if (generate_mode && !found_any_match) {", file=f)
                 if len(block["genargs"]) == 1:
                     print("    if (rng(100) >= {}) return;".format(block["genargs"][0]), file=f)
                 for line in block["gencode"]:
                     print("      " + line, file=f)
-                print("      rollback_stack.clear();", file=f)
-                print("      rollback = -1;", file=f)
                 print("    }", file=f)
+                print("#undef finish", file=f)
         else:
             assert False
 

@@ -235,7 +235,7 @@ struct TestPmgenPass : public Pass {
 		extra_args(args, argidx, design);
 
 		for (auto module : design->selected_modules())
-			test_pmgen_pm(module, module->selected_cells()).run_reduce(reduce_chain);
+			while (test_pmgen_pm(module, module->selected_cells()).run_reduce(reduce_chain)) {}
 	}
 
 	void execute_reduce_tree(std::vector<std::string> args, RTLIL::Design *design)

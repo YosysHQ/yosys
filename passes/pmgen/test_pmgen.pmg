@@ -41,7 +41,8 @@ code
 finally
 	chain.pop_back();
 	log_assert(chain.empty());
-	accept;
+	if (GetSize(longest_chain) > 1)
+		accept;
 endcode
 
 // ------------------------------------------------------------------
@@ -80,7 +81,7 @@ match next
 	select next->type.in($_AND_, $_OR_, $_XOR_)
 	index <IdString> next->type === chain.back().first->type
 	index <SigSpec> port(next, \Y) === port(chain.back().first, chain.back().second)
-generate 50
+generate 10
 	SigSpec A = module->addWire(NEW_ID);
 	SigSpec B = module->addWire(NEW_ID);
 	SigSpec Y = port(chain.back().first, chain.back().second);
