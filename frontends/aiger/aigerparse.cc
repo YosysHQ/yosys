@@ -901,11 +901,6 @@ void AigerReader::post_process()
 				RTLIL::Cell* cell = module->cell(stringf("$__box%d__", variable));
 				if (cell) { // ABC could have optimised this box away
 					module->rename(cell, escaped_s);
-				#ifndef NDEBUG
-					RTLIL::Module* box_module = design->module(cell->type);
-					log_assert(box_module);
-				#endif
-
 					for (const auto &i : cell->connections()) {
 						RTLIL::IdString port_name = i.first;
 						RTLIL::SigSpec rhs = i.second;
