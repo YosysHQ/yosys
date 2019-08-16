@@ -76,11 +76,10 @@ inline std::string remap_name(RTLIL::IdString abc_name)
 	return stringf("$abc$%d$%s", map_autoidx, abc_name.c_str()+1);
 }
 
-void handle_loops(RTLIL::Design *design)
+void handle_loops(RTLIL::Design *design,
+		const dict<IdString,pool<IdString>> &scc_break_inputs)
 {
 	Pass::call(design, "scc -set_attr abc_scc_id {}");
-
-	dict<IdString, vector<IdString>> abc_scc_break;
 
 	// For every unique SCC found, (arbitrarily) find the first
 	// cell in the component, and select (and mark) all its output
@@ -116,44 +115,29 @@ void handle_loops(RTLIL::Design *design)
 			cell->attributes.erase(it);
 		}
 
-		auto jt = abc_scc_break.find(cell->type);
-		if (jt == abc_scc_break.end()) {
-			std::vector<IdString> ports;
-			RTLIL::Module* box_module = design->module(cell->type);
-			if (box_module) {
-				auto ports_csv = box_module->attributes.at(ID(abc_scc_break), RTLIL::Const::from_string("")).decode_string();
-				for (const auto &port_name : split_tokens(ports_csv, ",")) {
-					auto port_id = RTLIL::escape_id(port_name);
-					auto kt = cell->connections_.find(port_id);
-					if (kt == cell->connections_.end())
-						log_error("abc_scc_break attribute value '%s' does not exist as port on module '%s'\n", port_name.c_str(), log_id(box_module));
-					ports.push_back(port_id);
+		auto jt = scc_break_inputs.find(cell->type);
+		if (jt != scc_break_inputs.end())
+			for (auto port_name : jt->second) {
+				RTLIL::SigSpec sig;
+				auto &rhs = cell->connections_.at(port_name);
+				for (auto b : rhs) {
+					Wire *w = b.wire;
+					if (!w) continue;
+					w->port_output = true;
+					w->set_bool_attribute(ID(abc_scc_break));
+					w = module->wire(stringf("%s.abci", w->name.c_str()));
+					if (!w) {
+						w = module->addWire(stringf("%s.abci", b.wire->name.c_str()), GetSize(b.wire));
+						w->port_input = true;
+					}
+					else {
+						log_assert(b.offset < GetSize(w));
+						log_assert(w->port_input);
+					}
+					sig.append(RTLIL::SigBit(w, b.offset));
 				}
+				rhs = sig;
 			}
-			jt = abc_scc_break.insert(std::make_pair(cell->type, std::move(ports))).first;
-		}
-
-		for (auto port_name : jt->second) {
-			RTLIL::SigSpec sig;
-			auto &rhs = cell->connections_.at(port_name);
-			for (auto b : rhs) {
-				Wire *w = b.wire;
-				if (!w) continue;
-				w->port_output = true;
-				w->set_bool_attribute(ID(abc_scc_break));
-				w = module->wire(stringf("%s.abci", w->name.c_str()));
-				if (!w) {
-					w = module->addWire(stringf("%s.abci", b.wire->name.c_str()), GetSize(b.wire));
-					w->port_input = true;
-				}
-				else {
-					log_assert(b.offset < GetSize(w));
-					log_assert(w->port_input);
-				}
-				sig.append(RTLIL::SigBit(w, b.offset));
-			}
-			rhs = sig;
-		}
 	}
 
 	module->fixup_ports();
@@ -288,7 +272,9 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		bool cleanup, vector<int> lut_costs, bool dff_mode, std::string clk_str,
 		bool /*keepff*/, std::string delay_target, std::string /*lutin_shared*/, bool fast_mode,
 		bool show_tempdir, std::string box_file, std::string lut_file,
-		std::string wire_delay, const dict<int,IdString> &box_lookup)
+		std::string wire_delay, const dict<int,IdString> &box_lookup,
+		const dict<IdString,pool<IdString>> &scc_break_inputs
+)
 {
 	module = current_module;
 	map_autoidx = autoidx++;
@@ -427,7 +413,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		RTLIL::Selection& sel = design->selection_stack.back();
 		sel.select(module);
 
-		handle_loops(design);
+		handle_loops(design, scc_break_inputs);
 
 		Pass::call(design, "aigmap");
 
@@ -1081,6 +1067,7 @@ struct Abc9Pass : public Pass {
 		extra_args(args, argidx, design);
 
 		dict<int,IdString> box_lookup;
+		dict<IdString,pool<IdString>> scc_break_inputs;
 		for (auto m : design->modules()) {
 			auto it = m->attributes.find(ID(abc_box_id));
 			if (it == m->attributes.end())
@@ -1093,6 +1080,56 @@ struct Abc9Pass : public Pass {
 				log_error("Module '%s' has the same abc_box_id = %d value as '%s'.\n",
 						log_id(m), id, log_id(r.first->second));
 			log_assert(r.second);
+
+			RTLIL::Wire *carry_in = nullptr, *carry_out = nullptr;
+			for (auto p : m->ports) {
+				auto w = m->wire(p);
+				log_assert(w);
+				if (w->port_input) {
+					if (w->attributes.count("\\abc_scc_break"))
+						scc_break_inputs[m->name].insert(p);
+					if (w->attributes.count("\\abc_carry_in")) {
+						if (carry_in)
+							log_error("Module '%s' contains more than one 'abc_carry_in' port.\n", log_id(m));
+						carry_in = w;
+					}
+				}
+				if (w->port_output) {
+					if (w->attributes.count("\\abc_carry_out")) {
+						if (carry_out)
+							log_error("Module '%s' contains more than one 'abc_carry_out' port.\n", log_id(m));
+						carry_out = w;
+					}
+				}
+			}
+			if (carry_in || carry_out) {
+				if (carry_in && !carry_out)
+					log_error("Module '%s' contains an 'abc_carry_in' port but no 'abc_carry_out' port.\n", log_id(m));
+				if (!carry_in && carry_out)
+					log_error("Module '%s' contains an 'abc_carry_out' port but no 'abc_carry_in' port.\n", log_id(m));
+				// Make carry_in the last PI, and carry_out the last PO
+				//   since ABC requires it this way
+				auto &ports = m->ports;
+				for (auto it = ports.begin(); it != ports.end(); ) {
+					RTLIL::Wire* w = m->wire(*it);
+					log_assert(w);
+					if (w == carry_in || w == carry_out) {
+						it = ports.erase(it);
+						continue;
+					}
+					if (w->port_id > carry_in->port_id)
+						--w->port_id;
+					if (w->port_id > carry_out->port_id)
+						--w->port_id;
+					log_assert(w->port_input || w->port_output);
+					log_assert(ports[w->port_id-1] == w->name);
+					++it;
+				}
+				ports.push_back(carry_in->name);
+				carry_in->port_id = ports.size();
+				ports.push_back(carry_out->name);
+				carry_out->port_id = ports.size();
+			}
 		}
 
 		for (auto mod : design->selected_modules())
@@ -1110,7 +1147,7 @@ struct Abc9Pass : public Pass {
 			if (!dff_mode || !clk_str.empty()) {
 				abc9_module(design, mod, script_file, exe_file, cleanup, lut_costs, dff_mode, clk_str, keepff,
 						delay_target, lutin_shared, fast_mode, show_tempdir,
-						box_file, lut_file, wire_delay, box_lookup);
+						box_file, lut_file, wire_delay, box_lookup, scc_break_inputs);
 				continue;
 			}
 
@@ -1256,7 +1293,7 @@ struct Abc9Pass : public Pass {
 				en_sig = assign_map(std::get<3>(it.first));
 				abc9_module(design, mod, script_file, exe_file, cleanup, lut_costs, !clk_sig.empty(), "$",
 						keepff, delay_target, lutin_shared, fast_mode, show_tempdir,
-						box_file, lut_file, wire_delay, box_lookup);
+						box_file, lut_file, wire_delay, box_lookup, scc_break_inputs);
 				assign_map.set(mod);
 			}
 		}

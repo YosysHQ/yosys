@@ -326,7 +326,6 @@ struct XAigerWriter
 #endif
 			log_assert(no_loops);
 
-			pool<IdString> seen_boxes;
 			for (auto cell_name : toposort.sorted) {
 				RTLIL::Cell *cell = module->cell(cell_name);
 				log_assert(cell);
@@ -334,47 +333,6 @@ struct XAigerWriter
 				RTLIL::Module* box_module = module->design->module(cell->type);
 				if (!box_module || !box_module->attributes.count("\\abc_box_id"))
 					continue;
-
-				if (seen_boxes.insert(cell->type).second) {
-					auto it = box_module->attributes.find("\\abc_carry");
-					if (it != box_module->attributes.end()) {
-						RTLIL::Wire *carry_in = nullptr, *carry_out = nullptr;
-						auto carry_in_out = it->second.decode_string();
-						auto pos = carry_in_out.find(',');
-						if (pos == std::string::npos)
-							log_error("'abc_carry' attribute on module '%s' does not contain ','.\n", log_id(cell->type));
-						auto carry_in_name = RTLIL::escape_id(carry_in_out.substr(0, pos));
-						carry_in = box_module->wire(carry_in_name);
-						if (!carry_in || !carry_in->port_input)
-							log_error("'abc_carry' on module '%s' contains '%s' which does not exist or is not an input port.\n", log_id(cell->type), carry_in_name.c_str());
-
-						auto carry_out_name = RTLIL::escape_id(carry_in_out.substr(pos+1));
-						carry_out = box_module->wire(carry_out_name);
-						if (!carry_out || !carry_out->port_output)
-							log_error("'abc_carry' on module '%s' contains '%s' which does not exist or is not an output port.\n", log_id(cell->type), carry_out_name.c_str());
-
-						auto &ports = box_module->ports;
-						for (auto jt = ports.begin(); jt != ports.end(); ) {
-							RTLIL::Wire* w = box_module->wire(*jt);
-							log_assert(w);
-							if (w == carry_in || w == carry_out) {
-								jt = ports.erase(jt);
-								continue;
-							}
-							if (w->port_id > carry_in->port_id)
-								--w->port_id;
-							if (w->port_id > carry_out->port_id)
-								--w->port_id;
-							log_assert(w->port_input || w->port_output);
-							log_assert(ports[w->port_id-1] == w->name);
-							++jt;
-						}
-						ports.push_back(carry_in->name);
-						carry_in->port_id = ports.size();
-						ports.push_back(carry_out->name);
-						carry_out->port_id = ports.size();
-					}
-				}
 
 				// Fully pad all unused input connections of this box cell with S0
 				// Fully pad all undriven output connections of this box cell with anonymous wires
