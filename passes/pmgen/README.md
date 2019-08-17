@@ -315,6 +315,9 @@ state variables used to pass arguments.
 
 Subpatterns cann be called recursively.
 
+If a `subpattern` statement is preceded by a `fallthrough` statement, this is
+equivalent to calling the subpattern at the end of the preceding block.
+
 Generate Blocks
 ---------------
 

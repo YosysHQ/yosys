@@ -141,11 +141,22 @@ def process_pmgfile(f, filename):
 
         assert current_pattern is not None
 
-        if cmd == "subpattern":
+        if cmd == "fallthrough":
             block = dict()
-            block["type"] = "final"
-            block["pattern"] = (current_pattern, current_subpattern)
+            block["type"] = "fallthrough"
             blocks.append(block)
+            line = line.split()
+            assert len(line) == 1
+            continue
+
+        if cmd == "subpattern":
+            if len(blocks) == 0 or blocks[-1]["type"] != "fallthrough":
+                block = dict()
+                block["type"] = "final"
+                block["pattern"] = (current_pattern, current_subpattern)
+                blocks.append(block)
+            elif len(blocks) and blocks[-1]["type"] == "fallthrough":
+                del blocks[-1]
             line = line.split()
             assert len(line) == 2
             current_subpattern = line[1]
