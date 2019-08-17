@@ -38,7 +38,7 @@ void demorgan_worker(
 	if( (cell->type != ID($reduce_and)) && (cell->type != ID($reduce_or)) )
 		return;
 
-	auto insig = sigmap(cell->getPort(ID(A)));
+	auto insig = sigmap(cell->getPort(ID::A));
 	log("Inspecting %s cell %s (%d inputs)\n", log_id(cell->type), log_id(cell->name), GetSize(insig));
 	int num_inverted = 0;
 	for(int i=0; i<GetSize(insig); i++)
@@ -51,7 +51,7 @@ void demorgan_worker(
 		bool inverted = false;
 		for(auto x : ports)
 		{
-			if(x.port == ID(Y) && x.cell->type == ID($_NOT_))
+			if(x.port == ID::Y && x.cell->type == ID($_NOT_))
 			{
 				inverted = true;
 				break;
@@ -85,7 +85,7 @@ void demorgan_worker(
 		RTLIL::Cell* srcinv = NULL;
 		for(auto x : ports)
 		{
-			if(x.port == ID(Y) && x.cell->type == ID($_NOT_))
+			if(x.port == ID::Y && x.cell->type == ID($_NOT_))
 			{
 				srcinv = x.cell;
 				break;
@@ -103,7 +103,7 @@ void demorgan_worker(
 		//We ARE inverted - bypass it
 		//Don't automatically delete the inverter since other stuff might still use it
 		else
-			insig[i] = srcinv->getPort(ID(A));
+			insig[i] = srcinv->getPort(ID::A);
 	}
 
 	//Cosmetic fixup: If our input is just a scrambled version of one bus, rearrange it
@@ -151,7 +151,7 @@ void demorgan_worker(
 	}
 
 	//Push the new input signal back to the reduction (after bypassing/adding inverters)
-	cell->setPort(ID(A), insig);
+	cell->setPort(ID::A, insig);
 
 	//Change the cell type
 	if(cell->type == ID($reduce_and))
@@ -161,10 +161,10 @@ void demorgan_worker(
 	//don't change XOR
 
 	//Add an inverter to the output
-	auto inverted_output = cell->getPort(ID(Y));
+	auto inverted_output = cell->getPort(ID::Y);
 	auto uninverted_output = m->addWire(NEW_ID);
 	m->addNot(NEW_ID, RTLIL::SigSpec(uninverted_output), inverted_output);
-	cell->setPort(ID(Y), uninverted_output);
+	cell->setPort(ID::Y, uninverted_output);
 }
 
 struct OptDemorganPass : public Pass {

@@ -64,37 +64,37 @@ struct TribufWorker {
 		for (auto cell : module->selected_cells())
 		{
 			if (cell->type == ID($tribuf))
-				tribuf_cells[sigmap(cell->getPort(ID(Y)))].push_back(cell);
+				tribuf_cells[sigmap(cell->getPort(ID::Y))].push_back(cell);
 
 			if (cell->type == ID($_TBUF_))
-				tribuf_cells[sigmap(cell->getPort(ID(Y)))].push_back(cell);
+				tribuf_cells[sigmap(cell->getPort(ID::Y))].push_back(cell);
 
 			if (cell->type.in(ID($mux), ID($_MUX_)))
 			{
 				IdString en_port = cell->type == ID($mux) ? ID(EN) : ID(E);
 				IdString tri_type = cell->type == ID($mux) ? ID($tribuf) : ID($_TBUF_);
 
-				if (is_all_z(cell->getPort(ID(A))) && is_all_z(cell->getPort(ID(B)))) {
+				if (is_all_z(cell->getPort(ID::A)) && is_all_z(cell->getPort(ID::B))) {
 					module->remove(cell);
 					continue;
 				}
 
-				if (is_all_z(cell->getPort(ID(A)))) {
-					cell->setPort(ID(A), cell->getPort(ID(B)));
+				if (is_all_z(cell->getPort(ID::A))) {
+					cell->setPort(ID::A, cell->getPort(ID::B));
 					cell->setPort(en_port, cell->getPort(ID(S)));
-					cell->unsetPort(ID(B));
+					cell->unsetPort(ID::B);
 					cell->unsetPort(ID(S));
 					cell->type = tri_type;
-					tribuf_cells[sigmap(cell->getPort(ID(Y)))].push_back(cell);
+					tribuf_cells[sigmap(cell->getPort(ID::Y))].push_back(cell);
 					continue;
 				}
 
-				if (is_all_z(cell->getPort(ID(B)))) {
+				if (is_all_z(cell->getPort(ID::B))) {
 					cell->setPort(en_port, module->Not(NEW_ID, cell->getPort(ID(S))));
-					cell->unsetPort(ID(B));
+					cell->unsetPort(ID::B);
 					cell->unsetPort(ID(S));
 					cell->type = tri_type;
-					tribuf_cells[sigmap(cell->getPort(ID(Y)))].push_back(cell);
+					tribuf_cells[sigmap(cell->getPort(ID::Y))].push_back(cell);
 					continue;
 				}
 			}
@@ -122,7 +122,7 @@ struct TribufWorker {
 						pmux_s.append(cell->getPort(ID(EN)));
 					else
 						pmux_s.append(cell->getPort(ID(E)));
-					pmux_b.append(cell->getPort(ID(A)));
+					pmux_b.append(cell->getPort(ID::A));
 					module->remove(cell);
 				}
 
