@@ -150,6 +150,8 @@ void generate_pattern(std::function<void(pm&,std::function<void()>)> run, const 
 
 	int modcnt = 0;
 	int maxsubcnt = 4;
+	int timeout = 0;
+	vector<Module*> mods;
 
 	while (modcnt < 100)
 	{
@@ -158,6 +160,9 @@ void generate_pattern(std::function<void(pm&,std::function<void()>)> run, const 
 
 		while (modcnt < 100 && submodcnt < maxsubcnt && itercnt++ < 1000)
 		{
+			if (timeout++ > 10000)
+				log_error("pmgen generator is stuck: 10000 iterations an no matching module generated.\n");
+
 			pm matcher(mod, mod->cells());
 
 			matcher.rng(1);
@@ -174,25 +179,40 @@ void generate_pattern(std::function<void(pm&,std::function<void()>)> run, const 
 			{
 				bool found_match = false;
 				run(matcher, [&](){ found_match = true; });
+				cellcnt = GetSize(mod->cells());
 
 				if (found_match) {
 					Module *m = design->addModule(stringf("\\pmtest_%s_%s_%05d",
 							pmclass, pattern, modcnt++));
+					log("Creating module %s with %d cells.\n", log_id(m), cellcnt);
 					mod->cloneInto(m);
 					pmtest_addports(m);
+					mods.push_back(m);
 					submodcnt++;
+					timeout = 0;
 				}
-
-				cellcnt = GetSize(mod->cells());
 			}
 
 			matcher.generate_mode = true;
 			run(matcher, [](){});
 		}
 
+		if (submodcnt)
+			maxsubcnt *= 2;
+
 		design->remove(mod);
-		maxsubcnt *= 2;
 	}
+
+	Module *m = design->addModule(stringf("\\pmtest_%s_%s", pmclass, pattern));
+	log("Creating module %s with %d cells.\n", log_id(m), GetSize(mods));
+	for (auto mod : mods) {
+		Cell *c = m->addCell(mod->name, mod->name);
+		for (auto port : mod->ports) {
+			Wire *w = m->addWire(NEW_ID, GetSize(mod->wire(port)));
+			c->setPort(port, w);
+		}
+	}
+	pmtest_addports(m);
 }
 
 struct TestPmgenPass : public Pass {
