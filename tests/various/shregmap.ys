@@ -45,7 +45,7 @@ shregmap -tech xilinx
 
 stat
 # show -width
-write_verilog -noexpr -norename
+# write_verilog -noexpr -norename
 select -assert-count 1 t:$_DFF_P_
 select -assert-count 2 t:$__XILINX_SHREG_
 
@@ -59,8 +59,8 @@ prep
 miter -equiv -flatten -make_assert -make_outputs gold gate miter
 sat -verify -prove-asserts -show-ports -seq 5 miter
 
-design -load gold
-stat
+# design -load gold
+# stat
 
-design -load gate
-stat
+# design -load gate
+# stat
