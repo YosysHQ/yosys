@@ -43,7 +43,7 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 	RTLIL::Cell *cell = module->addCell("\\UUT", cell_type);
 	RTLIL::Wire *wire;
 
-	if (cell_type == "$mux" || cell_type == "$pmux")
+	if (cell_type.in("$mux", "$pmux"))
 	{
 		int width = 1 + xorshift32(8);
 		int swidth = cell_type == "$mux" ? 1 : 1 + xorshift32(8);
@@ -264,7 +264,7 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 		cell->setPort("\\Y", wire);
 	}
 
-	if (muxdiv && (cell_type == "$div" || cell_type == "$mod")) {
+	if (muxdiv && cell_type.in("$div", "$mod")) {
 		auto b_not_zero = module->ReduceBool(NEW_ID, cell->getPort("\\B"));
 		auto div_out = module->addWire(NEW_ID, GetSize(cell->getPort("\\Y")));
 		module->addMux(NEW_ID, RTLIL::SigSpec(0, GetSize(div_out)), div_out, b_not_zero, cell->getPort("\\Y"));

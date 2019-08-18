@@ -1,4 +1,4 @@
-read -vlog2k <<EOT
+read_verilog <<EOT
 module top(input a, output y);
 assign y = !a;
 endmodule
@@ -10,7 +10,7 @@ design -reset
 
 ! rm -f write_gzip.v
 ! gunzip write_gzip.v.gz
-read -vlog2k write_gzip.v
+read_verilog write_gzip.v
 ! rm -f write_gzip.v
 hierarchy -top top
 select -assert-any top

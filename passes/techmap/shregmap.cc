@@ -73,22 +73,22 @@ struct ShregmapTechGreenpak4 : ShregmapTech
 
 	bool fixup(Cell *cell, dict<int, SigBit> &taps)
 	{
-		auto D = cell->getPort("\\D");
-		auto C = cell->getPort("\\C");
+		auto D = cell->getPort(ID(D));
+		auto C = cell->getPort(ID(C));
 
-		auto newcell = cell->module->addCell(NEW_ID, "\\GP_SHREG");
-		newcell->setPort("\\nRST", State::S1);
-		newcell->setPort("\\CLK", C);
-		newcell->setPort("\\IN", D);
+		auto newcell = cell->module->addCell(NEW_ID, ID(GP_SHREG));
+		newcell->setPort(ID(nRST), State::S1);
+		newcell->setPort(ID(CLK), C);
+		newcell->setPort(ID(IN), D);
 
 		int i = 0;
 		for (auto tap : taps) {
-			newcell->setPort(i ? "\\OUTB" : "\\OUTA", tap.second);
-			newcell->setParam(i ? "\\OUTB_TAP" : "\\OUTA_TAP", tap.first + 1);
+			newcell->setPort(i ? ID(OUTB) : ID(OUTA), tap.second);
+			newcell->setParam(i ? ID(OUTB_TAP) : ID(OUTA_TAP), tap.first + 1);
 			i++;
 		}
 
-		cell->setParam("\\OUTA_INVERT", 0);
+		cell->setParam(ID(OUTA_INVERT), 0);
 		return false;
 	}
 };
@@ -104,19 +104,19 @@ struct ShregmapTechXilinx7 : ShregmapTech
 	{
 		for (const auto &i : module->cells_) {
 			auto cell = i.second;
-			if (cell->type == "$shiftx") {
-				if (cell->getParam("\\Y_WIDTH") != 1) continue;
+			if (cell->type == ID($shiftx)) {
+				if (cell->getParam(ID(Y_WIDTH)) != 1) continue;
 				int j = 0;
-				for (auto bit : sigmap(cell->getPort("\\A")))
+				for (auto bit : sigmap(cell->getPort(ID::A)))
 					sigbit_to_shiftx_offset[bit] = std::make_tuple(cell, j++, 0);
-				log_assert(j == cell->getParam("\\A_WIDTH").as_int());
+				log_assert(j == cell->getParam(ID(A_WIDTH)).as_int());
 			}
-			else if (cell->type == "$mux") {
+			else if (cell->type == ID($mux)) {
 				int j = 0;
-				for (auto bit : sigmap(cell->getPort("\\A")))
+				for (auto bit : sigmap(cell->getPort(ID::A)))
 					sigbit_to_shiftx_offset[bit] = std::make_tuple(cell, 0, j++);
 				j = 0;
-				for (auto bit : sigmap(cell->getPort("\\B")))
+				for (auto bit : sigmap(cell->getPort(ID::B)))
 					sigbit_to_shiftx_offset[bit] = std::make_tuple(cell, 1, j++);
 			}
 		}
@@ -128,9 +128,9 @@ struct ShregmapTechXilinx7 : ShregmapTech
 		if (it == sigbit_to_shiftx_offset.end())
 			return;
 		if (cell) {
-			if (cell->type == "$shiftx" && port == "\\A")
+			if (cell->type == ID($shiftx) && port == ID::A)
 				return;
-			if (cell->type == "$mux" && (port == "\\A" || port == "\\B"))
+			if (cell->type == ID($mux) && port.in(ID::A, ID::B))
 				return;
 		}
 		sigbit_to_shiftx_offset.erase(it);
@@ -177,21 +177,21 @@ struct ShregmapTechXilinx7 : ShregmapTech
 		log_assert(shiftx);
 
 		// Only map if $shiftx exclusively covers the shift register
-		if (shiftx->type == "$shiftx") {
-			if (GetSize(taps) > shiftx->getParam("\\A_WIDTH").as_int())
+		if (shiftx->type == ID($shiftx)) {
+			if (GetSize(taps) > shiftx->getParam(ID(A_WIDTH)).as_int())
 				return false;
 			// Due to padding the most significant bits of A may be 1'bx,
 			//   and if so, discount them
-			if (GetSize(taps) < shiftx->getParam("\\A_WIDTH").as_int()) {
-				const SigSpec A = shiftx->getPort("\\A");
-				const int A_width = shiftx->getParam("\\A_WIDTH").as_int();
+			if (GetSize(taps) < shiftx->getParam(ID(A_WIDTH)).as_int()) {
+				const SigSpec A = shiftx->getPort(ID::A);
+				const int A_width = shiftx->getParam(ID(A_WIDTH)).as_int();
 				for (int i = GetSize(taps); i < A_width; ++i)
 					if (A[i] != RTLIL::Sx) return false;
 			}
-			else if (GetSize(taps) != shiftx->getParam("\\A_WIDTH").as_int())
+			else if (GetSize(taps) != shiftx->getParam(ID(A_WIDTH)).as_int())
 				return false;
 		}
-		else if (shiftx->type == "$mux") {
+		else if (shiftx->type == ID($mux)) {
 			if (GetSize(taps) != 2)
 				return false;
 		}
@@ -208,34 +208,34 @@ struct ShregmapTechXilinx7 : ShregmapTech
 		auto it = sigbit_to_shiftx_offset.find(bit);
 		log_assert(it != sigbit_to_shiftx_offset.end());
 
-		auto newcell = cell->module->addCell(NEW_ID, "$__XILINX_SHREG_");
+		auto newcell = cell->module->addCell(NEW_ID, ID($__XILINX_SHREG_));
 		newcell->set_src_attribute(cell->get_src_attribute());
-		newcell->setParam("\\DEPTH", cell->getParam("\\DEPTH"));
-		newcell->setParam("\\INIT", cell->getParam("\\INIT"));
-		newcell->setParam("\\CLKPOL", cell->getParam("\\CLKPOL"));
-		newcell->setParam("\\ENPOL", cell->getParam("\\ENPOL"));
+		newcell->setParam(ID(DEPTH), cell->getParam(ID(DEPTH)));
+		newcell->setParam(ID(INIT), cell->getParam(ID(INIT)));
+		newcell->setParam(ID(CLKPOL), cell->getParam(ID(CLKPOL)));
+		newcell->setParam(ID(ENPOL), cell->getParam(ID(ENPOL)));
 
-		newcell->setPort("\\C", cell->getPort("\\C"));
-		newcell->setPort("\\D", cell->getPort("\\D"));
-		if (cell->hasPort("\\E"))
-			newcell->setPort("\\E", cell->getPort("\\E"));
+		newcell->setPort(ID(C), cell->getPort(ID(C)));
+		newcell->setPort(ID(D), cell->getPort(ID(D)));
+		if (cell->hasPort(ID(E)))
+			newcell->setPort(ID(E), cell->getPort(ID(E)));
 
 		Cell* shiftx = std::get<0>(it->second);
 		RTLIL::SigSpec l_wire, q_wire;
-		if (shiftx->type == "$shiftx") {
-			l_wire = shiftx->getPort("\\B");
-			q_wire = shiftx->getPort("\\Y");
-			shiftx->setPort("\\Y", cell->module->addWire(NEW_ID));
+		if (shiftx->type == ID($shiftx)) {
+			l_wire = shiftx->getPort(ID::B);
+			q_wire = shiftx->getPort(ID::Y);
+			shiftx->setPort(ID::Y, cell->module->addWire(NEW_ID));
 		}
-		else if (shiftx->type == "$mux") {
-			l_wire = shiftx->getPort("\\S");
-			q_wire = shiftx->getPort("\\Y");
-			shiftx->setPort("\\Y", cell->module->addWire(NEW_ID));
+		else if (shiftx->type == ID($mux)) {
+			l_wire = shiftx->getPort(ID(S));
+			q_wire = shiftx->getPort(ID::Y);
+			shiftx->setPort(ID::Y, cell->module->addWire(NEW_ID));
 		}
 		else log_abort();
 
-		newcell->setPort("\\Q", q_wire);
-		newcell->setPort("\\L", l_wire);
+		newcell->setPort(ID(Q), q_wire);
+		newcell->setPort(ID(L), l_wire);
 
 		return false;
 	}
@@ -263,16 +263,16 @@ struct ShregmapWorker
 	{
 		for (auto wire : module->wires())
 		{
-			if (wire->port_output || wire->get_bool_attribute("\\keep")) {
+			if (wire->port_output || wire->get_bool_attribute(ID::keep)) {
 				for (auto bit : sigmap(wire)) {
 					sigbit_with_non_chain_users.insert(bit);
 					if (opts.tech) opts.tech->non_chain_user(bit, nullptr, {});
 				}
 			}
 
-			if (wire->attributes.count("\\init")) {
+			if (wire->attributes.count(ID(init))) {
 				SigSpec initsig = sigmap(wire);
-				Const initval = wire->attributes.at("\\init");
+				Const initval = wire->attributes.at(ID(init));
 				for (int i = 0; i < GetSize(initsig) && i < GetSize(initval); i++)
 					if (initval[i] == State::S0 && !opts.zinit)
 						sigbit_init[initsig[i]] = false;
@@ -283,7 +283,7 @@ struct ShregmapWorker
 
 		for (auto cell : module->cells())
 		{
-			if (opts.ffcells.count(cell->type) && !cell->get_bool_attribute("\\keep"))
+			if (opts.ffcells.count(cell->type) && !cell->get_bool_attribute(ID::keep))
 			{
 				IdString d_port = opts.ffcells.at(cell->type).first;
 				IdString q_port = opts.ffcells.at(cell->type).second;
@@ -474,7 +474,7 @@ struct ShregmapWorker
 						initval.push_back(State::S0);
 					remove_init.insert(bit);
 				}
-				first_cell->setParam("\\INIT", initval);
+				first_cell->setParam(ID(INIT), initval);
 			}
 
 			if (opts.zinit)
@@ -488,22 +488,22 @@ struct ShregmapWorker
 				int param_clkpol = -1;
 				int param_enpol = 2;
 
-				if (first_cell->type == "$_DFF_N_") param_clkpol = 0;
-				if (first_cell->type == "$_DFF_P_") param_clkpol = 1;
+				if (first_cell->type == ID($_DFF_N_)) param_clkpol = 0;
+				if (first_cell->type == ID($_DFF_P_)) param_clkpol = 1;
 
-				if (first_cell->type == "$_DFFE_NN_") param_clkpol = 0, param_enpol = 0;
-				if (first_cell->type == "$_DFFE_NP_") param_clkpol = 0, param_enpol = 1;
-				if (first_cell->type == "$_DFFE_PN_") param_clkpol = 1, param_enpol = 0;
-				if (first_cell->type == "$_DFFE_PP_") param_clkpol = 1, param_enpol = 1;
+				if (first_cell->type == ID($_DFFE_NN_)) param_clkpol = 0, param_enpol = 0;
+				if (first_cell->type == ID($_DFFE_NP_)) param_clkpol = 0, param_enpol = 1;
+				if (first_cell->type == ID($_DFFE_PN_)) param_clkpol = 1, param_enpol = 0;
+				if (first_cell->type == ID($_DFFE_PP_)) param_clkpol = 1, param_enpol = 1;
 
 				log_assert(param_clkpol >= 0);
-				first_cell->setParam("\\CLKPOL", param_clkpol);
-				if (opts.ffe) first_cell->setParam("\\ENPOL", param_enpol);
+				first_cell->setParam(ID(CLKPOL), param_clkpol);
+				if (opts.ffe) first_cell->setParam(ID(ENPOL), param_enpol);
 			}
 
 			first_cell->type = shreg_cell_type_str;
 			first_cell->setPort(q_port, last_cell->getPort(q_port));
-			first_cell->setParam("\\DEPTH", depth);
+			first_cell->setParam(ID(DEPTH), depth);
 
 			if (opts.tech != nullptr && !opts.tech->fixup(first_cell, taps_dict))
 				remove_cells.insert(first_cell);
@@ -521,18 +521,18 @@ struct ShregmapWorker
 
 		for (auto wire : module->wires())
 		{
-			if (wire->attributes.count("\\init") == 0)
+			if (wire->attributes.count(ID(init)) == 0)
 				continue;
 
 			SigSpec initsig = sigmap(wire);
-			Const &initval = wire->attributes.at("\\init");
+			Const &initval = wire->attributes.at(ID(init));
 
 			for (int i = 0; i < GetSize(initsig) && i < GetSize(initval); i++)
 				if (remove_init.count(initsig[i]))
 					initval[i] = State::Sx;
 
 			if (SigSpec(initval).is_fully_undef())
-				wire->attributes.erase("\\init");
+				wire->attributes.erase(ID(init));
 		}
 
 		remove_cells.clear();
@@ -717,19 +717,19 @@ struct ShregmapPass : public Pass {
 			bool en_neg = enpol == "neg" || enpol == "any" || enpol == "any_or_none";
 
 			if (clk_pos && en_none)
-				opts.ffcells["$_DFF_P_"] = make_pair(IdString("\\D"), IdString("\\Q"));
+				opts.ffcells[ID($_DFF_P_)] = make_pair(IdString(ID(D)), IdString(ID(Q)));
 			if (clk_neg && en_none)
-				opts.ffcells["$_DFF_N_"] = make_pair(IdString("\\D"), IdString("\\Q"));
+				opts.ffcells[ID($_DFF_N_)] = make_pair(IdString(ID(D)), IdString(ID(Q)));
 
 			if (clk_pos && en_pos)
-				opts.ffcells["$_DFFE_PP_"] = make_pair(IdString("\\D"), IdString("\\Q"));
+				opts.ffcells[ID($_DFFE_PP_)] = make_pair(IdString(ID(D)), IdString(ID(Q)));
 			if (clk_pos && en_neg)
-				opts.ffcells["$_DFFE_PN_"] = make_pair(IdString("\\D"), IdString("\\Q"));
+				opts.ffcells[ID($_DFFE_PN_)] = make_pair(IdString(ID(D)), IdString(ID(Q)));
 
 			if (clk_neg && en_pos)
-				opts.ffcells["$_DFFE_NP_"] = make_pair(IdString("\\D"), IdString("\\Q"));
+				opts.ffcells[ID($_DFFE_NP_)] = make_pair(IdString(ID(D)), IdString(ID(Q)));
 			if (clk_neg && en_neg)
-				opts.ffcells["$_DFFE_NN_"] = make_pair(IdString("\\D"), IdString("\\Q"));
+				opts.ffcells[ID($_DFFE_NN_)] = make_pair(IdString(ID(D)), IdString(ID(Q)));
 
 			if (en_pos || en_neg)
 				opts.ffe = true;
