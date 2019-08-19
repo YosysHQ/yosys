@@ -1,4 +1,5 @@
 # Max delays from https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf
+#                 https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf
 
 # NB: Inputs/Outputs must be ordered alphabetically
 #     (with exceptions for carry in/out)
@@ -66,33 +67,35 @@ $__ABC_ASYNC 1000 0 2 1
 
 # The following FD*.{CE,R,CLR,PRE) are offset by 46ps to
 # reflect the -46ps Tsu
+# https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L237-L251
+# https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L265-L277
 
 # Inputs: C CE D R \$pastQ
 # Outputs: Q
 FDRE 1001 1 5 1
-0 155 0 404 0
+0 151 0 446 0
 
 # Inputs: C CE D R \$pastQ
 # Outputs: Q
 FDRE_1 1002 1 5 1
-0 155 0 404 0
+0 151 0 446 0
 
 # Inputs: C CE CLR D \$pastQ
 # Outputs: Q
 FDCE 1003 1 5 1
-0 155 810 0 0
+0 151 806 0 0
 
 # Inputs: C CE CLR D \$pastQ
 # Outputs: Q
 FDCE_1 1004 1 5 1
-0 155 810 0 0
+0 151 806 0 0
 
 # Inputs: C CE D PRE \$pastQ
 # Outputs: Q
 FDPE 1005 1 5 1
-0 155 0 810 0
+0 151 0 806 0
 
 # Inputs: C CE D PRE \$pastQ
 # Outputs: Q
 FDPE_1 1006 1 5 1
-0 155 0 810 0
+0 151 0 806 0
