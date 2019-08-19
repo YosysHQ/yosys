@@ -965,7 +965,7 @@ struct Abc9Pass : public Pass {
 		vector<int> lut_costs;
 		markgroups = false;
 
-#if 1
+#if 0
 		cleanup = false;
 		show_tempdir = true;
 #endif
