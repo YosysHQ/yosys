@@ -1,3 +1,0 @@
-read_verilog opt_ff.v
-synth_ice40
-ice40_unlut

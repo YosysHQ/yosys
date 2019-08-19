@@ -51,7 +51,7 @@ fi
 		git clone git://github.com/steveicarus/iverilog.git
 		cd iverilog
 		autoconf
-		./configure --prefix=$HOME/.local-bin
+		CC=gcc CXX=g++ ./configure --prefix=$HOME/.local-bin
 		make
 		make install
 		echo
