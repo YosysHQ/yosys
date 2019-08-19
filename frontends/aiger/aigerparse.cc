@@ -840,6 +840,7 @@ void AigerReader::post_process()
 			flop_count++;
 			cell->type = flop_module->name;
 			module->connect(q, d);
+			cell->set_bool_attribute("\\abc_flop");
 			continue;
 		}
 

@@ -443,6 +443,8 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		design->remove(design->module(ID($__abc9__)));
 #endif
 
+		design->selection_stack.pop_back();
+
 		// Now 'unexpose' those wires by undoing
 		// the expose operation -- remove them from PO/PI
 		// and re-connecting them back together
@@ -568,19 +570,17 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		dict<SigBit, std::vector<RTLIL::Cell*>> bit2sinks;
 
 		std::map<IdString, int> cell_stats;
-		for (auto c : mapped_mod->cells())
+		for (auto mapped_cell : mapped_mod->cells())
 		{
-			toposort.node(c->name);
+			toposort.node(mapped_cell->name);
 
 			RTLIL::Cell *cell = nullptr;
-			if (c->type == ID($_NOT_)) {
-				RTLIL::SigBit a_bit = c->getPort(ID(A));
-				RTLIL::SigBit y_bit = c->getPort(ID(Y));
-				bit_users[a_bit].insert(c->name);
-				bit_drivers[y_bit].insert(c->name);
+			if (mapped_cell->type == ID($_NOT_)) {
+				RTLIL::SigBit a_bit = mapped_cell->getPort(ID(A));
+				RTLIL::SigBit y_bit = mapped_cell->getPort(ID(Y));
 
 				if (!a_bit.wire) {
-					c->setPort(ID(Y), module->addWire(NEW_ID));
+					mapped_cell->setPort(ID(Y), module->addWire(NEW_ID));
 					RTLIL::Wire *wire = module->wire(remap_name(y_bit.wire->name));
 					log_assert(wire);
 					module->connect(RTLIL::SigBit(wire, y_bit.offset), State::S1);
@@ -604,38 +604,40 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 					if (!driving_lut) {
 						// If a driver couldn't be found (could be from PI or box CI)
 						// then implement using a LUT
-						cell = module->addLut(remap_name(stringf("%s$lut", c->name.c_str())),
+						cell = module->addLut(remap_name(stringf("%s$lut", mapped_cell->name.c_str())),
 								RTLIL::SigBit(module->wires_.at(remap_name(a_bit.wire->name)), a_bit.offset),
 								RTLIL::SigBit(module->wires_.at(remap_name(y_bit.wire->name)), y_bit.offset),
 								RTLIL::Const::from_string("01"));
 						bit2sinks[cell->getPort(ID(A))].push_back(cell);
 						cell_stats[ID($lut)]++;
+						bit_users[a_bit].insert(mapped_cell->name);
+						bit_drivers[y_bit].insert(mapped_cell->name);
 					}
 					else
-						not2drivers[c] = driving_lut;
+						not2drivers[mapped_cell] = driving_lut;
 					continue;
 				}
 				if (cell && markgroups) cell->attributes[ID(abcgroup)] = map_autoidx;
 				continue;
 			}
-			cell_stats[c->type]++;
+			cell_stats[mapped_cell->type]++;
 
 			RTLIL::Cell *existing_cell = nullptr;
-			if (c->type == ID($lut)) {
-				if (GetSize(c->getPort(ID(A))) == 1 && c->getParam(ID(LUT)) == RTLIL::Const::from_string("01")) {
-					SigSpec my_a = module->wires_.at(remap_name(c->getPort(ID(A)).as_wire()->name));
-					SigSpec my_y = module->wires_.at(remap_name(c->getPort(ID(Y)).as_wire()->name));
+			if (mapped_cell->type == ID($lut)) {
+				if (GetSize(mapped_cell->getPort(ID(A))) == 1 && mapped_cell->getParam(ID(LUT)) == RTLIL::Const::from_string("01")) {
+					SigSpec my_a = module->wires_.at(remap_name(mapped_cell->getPort(ID(A)).as_wire()->name));
+					SigSpec my_y = module->wires_.at(remap_name(mapped_cell->getPort(ID(Y)).as_wire()->name));
 					module->connect(my_y, my_a);
-					if (markgroups) c->attributes[ID(abcgroup)] = map_autoidx;
+					if (markgroups) mapped_cell->attributes[ID(abcgroup)] = map_autoidx;
 					log_abort();
 					continue;
 				}
-				cell = module->addCell(remap_name(c->name), c->type);
+				cell = module->addCell(remap_name(mapped_cell->name), mapped_cell->type);
 			}
 			else {
-				existing_cell = module->cell(c->name);
+				existing_cell = module->cell(mapped_cell->name);
 				log_assert(existing_cell);
-				cell = module->addCell(remap_name(c->name), c->type);
+				cell = module->addCell(remap_name(mapped_cell->name), mapped_cell->type);
 				module->swap_names(cell, existing_cell);
 			}
 
@@ -652,10 +654,12 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 					cell->parameters.erase(it);
 			}
 			else {
-				cell->parameters = c->parameters;
-				cell->attributes = c->attributes;
+				cell->parameters = mapped_cell->parameters;
+				cell->attributes = mapped_cell->attributes;
 			}
-			for (auto &conn : c->connections()) {
+
+			auto abc_flop = mapped_cell->attributes.count("\\abc_flop");
+			for (auto &conn : mapped_cell->connections()) {
 				RTLIL::SigSpec newsig;
 				for (auto c : conn.second.chunks()) {
 					if (c.width == 0)
@@ -667,15 +671,17 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 				}
 				cell->setPort(conn.first, newsig);
 
-				if (cell->input(conn.first)) {
-					for (auto i : newsig)
-						bit2sinks[i].push_back(cell);
-					for (auto i : conn.second)
-						bit_users[i].insert(c->name);
+				if (!abc_flop) {
+					if (cell->input(conn.first)) {
+						for (auto i : newsig)
+							bit2sinks[i].push_back(cell);
+						for (auto i : conn.second)
+							bit_users[i].insert(mapped_cell->name);
+					}
+					if (cell->output(conn.first))
+						for (auto i : conn.second)
+							bit_drivers[i].insert(mapped_cell->name);
 				}
-				if (cell->output(conn.first))
-					for (auto i : conn.second)
-						bit_drivers[i].insert(c->name);
 			}
 		}
 
@@ -701,7 +707,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		}
 
 		for (auto &it : cell_stats)
-			log("ABC RESULTS:   %15s cells: %8d\n", it.first.c_str(), it.second);
+			log("ABC RESULTS:   %15s cells: %8d\n", log_id(it.first), it.second);
 		int in_wires = 0, out_wires = 0;
 
 		// Stitch in mapped_mod's inputs/outputs into module
@@ -734,7 +740,21 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 				for (auto driver_cell : bit_drivers.at(it.first))
 				for (auto user_cell : it.second)
 					toposort.edge(driver_cell, user_cell);
+#if 0
+		toposort.analyze_loops = true;
+#endif
 		bool no_loops = toposort.sort();
+#if 0
+		unsigned i = 0;
+		for (auto &it : toposort.loops) {
+			log("  loop %d\n", i++);
+			for (auto cell_name : it) {
+				auto cell = mapped_mod->cell(cell_name);
+				log_assert(cell);
+				log("\t%s (%s @ %s)\n", log_id(cell), log_id(cell->type), cell->get_src_attribute().c_str());
+			}
+		}
+#endif
 		log_assert(no_loops);
 
 		for (auto ii = toposort.sorted.rbegin(); ii != toposort.sorted.rend(); ii++) {
