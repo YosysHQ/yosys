@@ -86,6 +86,7 @@ struct XAigerWriter
 	vector<std::tuple<SigBit,RTLIL::Cell*,RTLIL::IdString,int>> ci_bits;
 	vector<std::tuple<SigBit,RTLIL::Cell*,RTLIL::IdString,int,int>> co_bits;
 	vector<SigBit> ff_bits;
+	dict<SigBit, float> arrival_times;
 
 	vector<pair<int, int>> aig_gates;
 	vector<int> aig_latchin, aig_latchinit, aig_outputs;
@@ -217,7 +218,12 @@ struct XAigerWriter
 		//       box ordering, but not individual AIG cells
 		dict<SigBit, pool<IdString>> bit_drivers, bit_users;
 		TopoSort<IdString, RTLIL::sort_by_id_str> toposort;
-		dict<IdString, std::pair<IdString,IdString>> flop_data;
+		struct flop_data_t {
+			IdString d_port;
+			IdString q_port;
+			int q_arrival;
+		};
+		dict<IdString, flop_data_t> flop_data;
 		bool abc_box_seen = false;
 
 		for (auto cell : module->selected_cells()) {
@@ -272,9 +278,10 @@ struct XAigerWriter
 
 				toposort.node(cell->name);
 
-				auto r = flop_data.insert(std::make_pair(cell->type, std::make_pair(IdString(), IdString())));
+				auto r = flop_data.insert(std::make_pair(cell->type, flop_data_t{IdString(), IdString(), 0}));
 				if (r.second && inst_module->attributes.count("\\abc_flop")) {
-					IdString abc_flop_d, abc_flop_q;
+					IdString &abc_flop_d = r.first->second.d_port;
+					IdString &abc_flop_q = r.first->second.q_port;
 					for (auto port_name : inst_module->ports) {
 						auto wire = inst_module->wire(port_name);
 						log_assert(wire);
@@ -287,16 +294,22 @@ struct XAigerWriter
 							if (abc_flop_q != IdString())
 								log_error("More than one port has the 'abc_flop_q' attribute set on module '%s'.\n", log_id(cell->type));
 							abc_flop_q = port_name;
+
+							auto it = wire->attributes.find("\\abc_arrival");
+							if (it != wire->attributes.end()) {
+								if (it->second.flags != 0)
+									log_error("Attribute 'abc_arrival' on port '%s' of module '%s' is not an integer.\n", log_id(wire), log_id(cell->type));
+								 r.first->second.q_arrival = it->second.as_int();
+							}
 						}
 					}
 					if (abc_flop_d == IdString())
 						log_error("'abc_flop_d' attribute not found on any ports on module '%s'.\n", log_id(cell->type));
 					if (abc_flop_q == IdString())
 						log_error("'abc_flop_q' attribute not found on any ports on module '%s'.\n", log_id(cell->type));
-					r.first->second = std::make_pair(abc_flop_d, abc_flop_q);
 				}
 
-				auto abc_flop_d = r.first->second.first;
+				auto abc_flop_d = r.first->second.d_port;
 				if (abc_flop_d != IdString()) {
 					SigBit d = cell->getPort(abc_flop_d);
 					SigBit I = sigmap(d);
@@ -304,13 +317,17 @@ struct XAigerWriter
 						alias_map[I] = d;
 					unused_bits.erase(d);
 
-					auto abc_flop_q = r.first->second.second;
+					auto abc_flop_q = r.first->second.q_port;
 					SigBit q = cell->getPort(abc_flop_q);
 					SigBit O = sigmap(q);
 					if (O != q)
 						alias_map[O] = q;
 					undriven_bits.erase(O);
 					ff_bits.emplace_back(q);
+
+					auto arrival = r.first->second.q_arrival;
+					if (arrival)
+						arrival_times[q] = arrival;
 				}
 
 				for (const auto &conn : cell->connections()) {
@@ -330,12 +347,22 @@ struct XAigerWriter
 				bool cell_known = cell->known();
 				for (const auto &c : cell->connections()) {
 					if (c.second.is_fully_const()) continue;
-					auto is_input = !cell_known || cell->input(c.first);
-					auto is_output = !cell_known || cell->output(c.first);
+					auto port_wire = inst_module->wire(c.first);
+					log_assert(port_wire);
+					auto is_input = !cell_known || port_wire->port_input;
+					auto is_output = !cell_known || port_wire->port_output;
 					if (!is_input && !is_output)
 						log_error("Connection '%s' on cell '%s' (type '%s') not recognised!\n", log_id(c.first), log_id(cell), log_id(cell->type));
 
 					if (is_input) {
+						int arrival = 0;
+						auto it = port_wire->attributes.find("\\abc_arrival");
+						if (it != port_wire->attributes.end()) {
+							if (it->second.flags != 0)
+								log_error("Attribute 'abc_arrival' on port '%s' of module '%s' is not an integer.\n", log_id(port_wire), log_id(cell->type));
+							arrival = it->second.as_int();
+						}
+
 						for (auto b : c.second.bits()) {
 							Wire *w = b.wire;
 							if (!w) continue;
@@ -349,6 +376,8 @@ struct XAigerWriter
 								if (!cell_known)
 									keep_bits.insert(b);
 							}
+							if (arrival)
+								arrival_times[b] = arrival;
 						}
 					}
 					if (is_output) {
@@ -362,6 +391,8 @@ struct XAigerWriter
 							undriven_bits.erase(O);
 						}
 					}
+
+
 				}
 			}
 
@@ -722,6 +753,9 @@ struct XAigerWriter
 				int32_t i32_be = to_big_endian(i32);
 				buffer.write(reinterpret_cast<const char*>(&i32_be), sizeof(i32_be));
 			};
+			auto write_buffer_float = [](std::stringstream &buffer, float f32) {
+				buffer.write(reinterpret_cast<const char*>(&f32), sizeof(f32));
+			};
 
 			std::stringstream h_buffer;
 			auto write_h_buffer = std::bind(write_buffer, std::ref(h_buffer), std::placeholders::_1);
@@ -806,19 +840,42 @@ struct XAigerWriter
 			f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
 			f.write(buffer_str.data(), buffer_str.size());
 
+			std::stringstream i_buffer;
+			auto write_i_buffer = std::bind(write_buffer_float, std::ref(i_buffer), std::placeholders::_1);
+			for (auto i : input_bits)
+				write_i_buffer(arrival_times.at(i, 0));
+			//std::stringstream o_buffer;
+			//auto write_o_buffer = std::bind(write_buffer_float, std::ref(o_buffer), std::placeholders::_1);
+			//for (auto o : output_bits)
+			//	write_o_buffer(0);
+
 			std::stringstream r_buffer;
 			auto write_r_buffer = std::bind(write_buffer, std::ref(r_buffer), std::placeholders::_1);
 			log_debug("flopNum = %d\n", GetSize(ff_bits));
 			write_r_buffer(ff_bits.size());
 			int mergeability_class = 1;
-			for (auto cell : ff_bits)
+			for (auto i : ff_bits) {
 				write_r_buffer(mergeability_class++);
+				write_i_buffer(arrival_times.at(i, 0));
+				//write_o_buffer(0);
+			}
 
 			f << "r";
 			buffer_str = r_buffer.str();
 			buffer_size_be = to_big_endian(buffer_str.size());
 			f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
 			f.write(buffer_str.data(), buffer_str.size());
+
+			f << "i";
+			buffer_str = i_buffer.str();
+			buffer_size_be = to_big_endian(buffer_str.size());
+			f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
+			f.write(buffer_str.data(), buffer_str.size());
+			//f << "o";
+			//buffer_str = o_buffer.str();
+			//buffer_size_be = to_big_endian(buffer_str.size());
+			//f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
+			//f.write(buffer_str.data(), buffer_str.size());
 
 			std::stringstream s_buffer;
 			auto write_s_buffer = std::bind(write_buffer, std::ref(s_buffer), std::placeholders::_1);
