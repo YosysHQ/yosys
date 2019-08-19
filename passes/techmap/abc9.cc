@@ -1088,25 +1088,25 @@ struct Abc9Pass : public Pass {
 				if (w->port_input) {
 					if (w->attributes.count(ID(abc_scc_break)))
 						scc_break_inputs[m->name].insert(p);
-					if (w->attributes.count(ID(abc_carry_in))) {
+					if (w->attributes.count(ID(abc_carry))) {
 						if (carry_in)
-							log_error("Module '%s' contains more than one 'abc_carry_in' port.\n", log_id(m));
+							log_error("Module '%s' contains more than one 'abc_carry' input port.\n", log_id(m));
 						carry_in = w;
 					}
 				}
 				if (w->port_output) {
-					if (w->attributes.count(ID(abc_carry_out))) {
+					if (w->attributes.count(ID(abc_carry))) {
 						if (carry_out)
-							log_error("Module '%s' contains more than one 'abc_carry_out' port.\n", log_id(m));
+							log_error("Module '%s' contains more than one 'abc_carry' input port.\n", log_id(m));
 						carry_out = w;
 					}
 				}
 			}
 			if (carry_in || carry_out) {
 				if (carry_in && !carry_out)
-					log_error("Module '%s' contains an 'abc_carry_in' port but no 'abc_carry_out' port.\n", log_id(m));
+					log_error("Module '%s' contains an 'abc_carry' input port but no output port.\n", log_id(m));
 				if (!carry_in && carry_out)
-					log_error("Module '%s' contains an 'abc_carry_out' port but no 'abc_carry_in' port.\n", log_id(m));
+					log_error("Module '%s' contains an 'abc_carry' output port but no input port.\n", log_id(m));
 				// Make carry_in the last PI, and carry_out the last PO
 				//   since ABC requires it this way
 				auto &ports = m->ports;

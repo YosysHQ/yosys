@@ -183,9 +183,9 @@ endmodule
 
 (* abc_box_id = 4, lib_whitebox *)
 module CARRY4(
-  (* abc_carry_out *) output [3:0] CO,
+  (* abc_carry *) output [3:0] CO,
   output [3:0] O,
-  (* abc_carry_in *) input CI,
+  (* abc_carry *) input CI,
   input        CYINIT,
   input  [3:0] DI, S
 );
