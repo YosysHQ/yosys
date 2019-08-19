@@ -344,25 +344,16 @@ struct XAigerWriter
 				}
 			}
 			else {
-				bool cell_known = cell->known();
+				bool cell_known = inst_module;
 				for (const auto &c : cell->connections()) {
 					if (c.second.is_fully_const()) continue;
-					auto port_wire = inst_module->wire(c.first);
-					log_assert(port_wire);
+					auto port_wire = inst_module ? inst_module->wire(c.first) : nullptr;
 					auto is_input = !cell_known || port_wire->port_input;
 					auto is_output = !cell_known || port_wire->port_output;
 					if (!is_input && !is_output)
 						log_error("Connection '%s' on cell '%s' (type '%s') not recognised!\n", log_id(c.first), log_id(cell), log_id(cell->type));
 
 					if (is_input) {
-						int arrival = 0;
-						auto it = port_wire->attributes.find("\\abc_arrival");
-						if (it != port_wire->attributes.end()) {
-							if (it->second.flags != 0)
-								log_error("Attribute 'abc_arrival' on port '%s' of module '%s' is not an integer.\n", log_id(port_wire), log_id(cell->type));
-							arrival = it->second.as_int();
-						}
-
 						for (auto b : c.second.bits()) {
 							Wire *w = b.wire;
 							if (!w) continue;
@@ -376,11 +367,19 @@ struct XAigerWriter
 								if (!cell_known)
 									keep_bits.insert(b);
 							}
-							if (arrival)
-								arrival_times[b] = arrival;
 						}
 					}
 					if (is_output) {
+						int arrival = 0;
+						if (port_wire) {
+							auto it = port_wire->attributes.find("\\abc_arrival");
+							if (it != port_wire->attributes.end()) {
+								if (it->second.flags != 0)
+									log_error("Attribute 'abc_arrival' on port '%s' of module '%s' is not an integer.\n", log_id(port_wire), log_id(cell->type));
+								arrival = it->second.as_int();
+							}
+						}
+
 						for (auto b : c.second.bits()) {
 							Wire *w = b.wire;
 							if (!w) continue;
@@ -389,6 +388,9 @@ struct XAigerWriter
 							if (O != b)
 								alias_map[O] = b;
 							undriven_bits.erase(O);
+
+							if (arrival)
+								arrival_times[b] = arrival;
 						}
 					}
 
@@ -748,29 +750,37 @@ struct XAigerWriter
 
 		f << "c";
 
+		auto write_buffer = [](std::stringstream &buffer, int i32) {
+			int32_t i32_be = to_big_endian(i32);
+			buffer.write(reinterpret_cast<const char*>(&i32_be), sizeof(i32_be));
+		};
+		std::stringstream h_buffer;
+		auto write_h_buffer = std::bind(write_buffer, std::ref(h_buffer), std::placeholders::_1);
+		write_h_buffer(1);
+		log_debug("ciNum = %d\n", GetSize(input_bits) + GetSize(ff_bits) + GetSize(ci_bits));
+		write_h_buffer(input_bits.size() + ff_bits.size() + ci_bits.size());
+		log_debug("coNum = %d\n", GetSize(output_bits) + GetSize(ff_bits) + GetSize(co_bits));
+		write_h_buffer(output_bits.size() + GetSize(ff_bits) + GetSize(co_bits));
+		log_debug("piNum = %d\n", GetSize(input_bits) + GetSize(ff_bits));
+		write_h_buffer(input_bits.size() + ff_bits.size());
+		log_debug("poNum = %d\n", GetSize(output_bits) + GetSize(ff_bits));
+		write_h_buffer(output_bits.size() + ff_bits.size());
+		log_debug("boxNum = %d\n", GetSize(box_list));
+		write_h_buffer(box_list.size());
+
+		auto write_buffer_float = [](std::stringstream &buffer, float f32) {
+			buffer.write(reinterpret_cast<const char*>(&f32), sizeof(f32));
+		};
+		std::stringstream i_buffer;
+		auto write_i_buffer = std::bind(write_buffer_float, std::ref(i_buffer), std::placeholders::_1);
+		for (auto bit : input_bits)
+			write_i_buffer(arrival_times.at(bit, 0));
+		//std::stringstream o_buffer;
+		//auto write_o_buffer = std::bind(write_buffer_float, std::ref(o_buffer), std::placeholders::_1);
+		//for (auto bit : output_bits)
+		//	write_o_buffer(0);
+
 		if (!box_list.empty() || !ff_bits.empty()) {
-			auto write_buffer = [](std::stringstream &buffer, int i32) {
-				int32_t i32_be = to_big_endian(i32);
-				buffer.write(reinterpret_cast<const char*>(&i32_be), sizeof(i32_be));
-			};
-			auto write_buffer_float = [](std::stringstream &buffer, float f32) {
-				buffer.write(reinterpret_cast<const char*>(&f32), sizeof(f32));
-			};
-
-			std::stringstream h_buffer;
-			auto write_h_buffer = std::bind(write_buffer, std::ref(h_buffer), std::placeholders::_1);
-			write_h_buffer(1);
-			log_debug("ciNum = %d\n", GetSize(input_bits) + GetSize(ff_bits) + GetSize(ci_bits));
-			write_h_buffer(input_bits.size() + ff_bits.size() + ci_bits.size());
-			log_debug("coNum = %d\n", GetSize(output_bits) + GetSize(ff_bits) + GetSize(co_bits));
-			write_h_buffer(output_bits.size() + GetSize(ff_bits) + GetSize(co_bits));
-			log_debug("piNum = %d\n", GetSize(input_bits) + GetSize(ff_bits));
-			write_h_buffer(input_bits.size() + ff_bits.size());
-			log_debug("poNum = %d\n", GetSize(output_bits) + GetSize(ff_bits));
-			write_h_buffer(output_bits.size() + ff_bits.size());
-			log_debug("boxNum = %d\n", GetSize(box_list));
-			write_h_buffer(box_list.size());
-
 			RTLIL::Module *holes_module = module->design->addModule("$__holes__");
 			log_assert(holes_module);
 
@@ -834,48 +844,22 @@ struct XAigerWriter
 				write_h_buffer(box_count++);
 			}
 
-			f << "h";
-			std::string buffer_str = h_buffer.str();
-			int32_t buffer_size_be = to_big_endian(buffer_str.size());
-			f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
-			f.write(buffer_str.data(), buffer_str.size());
-
-			std::stringstream i_buffer;
-			auto write_i_buffer = std::bind(write_buffer_float, std::ref(i_buffer), std::placeholders::_1);
-			for (auto i : input_bits)
-				write_i_buffer(arrival_times.at(i, 0));
-			//std::stringstream o_buffer;
-			//auto write_o_buffer = std::bind(write_buffer_float, std::ref(o_buffer), std::placeholders::_1);
-			//for (auto o : output_bits)
-			//	write_o_buffer(0);
-
 			std::stringstream r_buffer;
 			auto write_r_buffer = std::bind(write_buffer, std::ref(r_buffer), std::placeholders::_1);
 			log_debug("flopNum = %d\n", GetSize(ff_bits));
 			write_r_buffer(ff_bits.size());
 			int mergeability_class = 1;
-			for (auto i : ff_bits) {
+			for (auto bit : ff_bits) {
 				write_r_buffer(mergeability_class++);
-				write_i_buffer(arrival_times.at(i, 0));
+				write_i_buffer(arrival_times.at(bit, 0));
 				//write_o_buffer(0);
 			}
 
 			f << "r";
-			buffer_str = r_buffer.str();
-			buffer_size_be = to_big_endian(buffer_str.size());
+			std::string buffer_str = r_buffer.str();
+			int32_t buffer_size_be = to_big_endian(buffer_str.size());
 			f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
 			f.write(buffer_str.data(), buffer_str.size());
-
-			f << "i";
-			buffer_str = i_buffer.str();
-			buffer_size_be = to_big_endian(buffer_str.size());
-			f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
-			f.write(buffer_str.data(), buffer_str.size());
-			//f << "o";
-			//buffer_str = o_buffer.str();
-			//buffer_size_be = to_big_endian(buffer_str.size());
-			//f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
-			//f.write(buffer_str.data(), buffer_str.size());
 
 			std::stringstream s_buffer;
 			auto write_s_buffer = std::bind(write_buffer, std::ref(s_buffer), std::placeholders::_1);
@@ -946,6 +930,23 @@ struct XAigerWriter
 				log_pop();
 			}
 		}
+
+		f << "h";
+		std::string buffer_str = h_buffer.str();
+		int32_t buffer_size_be = to_big_endian(buffer_str.size());
+		f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
+		f.write(buffer_str.data(), buffer_str.size());
+
+		f << "i";
+		buffer_str = i_buffer.str();
+		buffer_size_be = to_big_endian(buffer_str.size());
+		f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
+		f.write(buffer_str.data(), buffer_str.size());
+		//f << "o";
+		//buffer_str = o_buffer.str();
+		//buffer_size_be = to_big_endian(buffer_str.size());
+		//f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
+		//f.write(buffer_str.data(), buffer_str.size());
 
 		f << stringf("Generated by %s\n", yosys_version_str);
 	}
