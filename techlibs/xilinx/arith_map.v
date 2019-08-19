@@ -35,13 +35,7 @@ module _80_xilinx_lcu (P, G, CI, CO);
 
 	genvar i;
 
-`ifdef _EXPLICIT_CARRY
-	localparam EXPLICIT_CARRY = 1'b1;
-`else
-	localparam EXPLICIT_CARRY = 1'b0;
-`endif
-
-generate if (EXPLICIT_CARRY || `LUT_SIZE == 4) begin
+generate if (`LUT_SIZE == 4) begin
 
 	(* force_downto *)
 	wire [WIDTH-1:0] C = {CO, CI};
@@ -135,12 +129,6 @@ module _80_xilinx_alu (A, B, CI, BI, X, Y, CO);
 
 	genvar i;
 
-`ifdef _EXPLICIT_CARRY
-	localparam EXPLICIT_CARRY = 1'b1;
-`else
-	localparam EXPLICIT_CARRY = 1'b0;
-`endif
-
 generate if (`LUT_SIZE == 4) begin
 
 	(* force_downto *)
@@ -161,106 +149,6 @@ generate if (`LUT_SIZE == 4) begin
 			.LI(S[i]),
 			.O(Y[i])
 		);
-	end endgenerate
-
-end else if (EXPLICIT_CARRY) begin
-
-	(* force_downto *)
-	wire [Y_WIDTH-1:0] S = AA ^ BB;
-
-	wire CINIT;
-	// Carry chain.
-	//
-	// VPR requires that the carry chain never hit the fabric.	The CO input
-	// to this techmap is the carry outputs for synthesis, e.g. might hit the
-	// fabric.
-	//
-	// So we maintain two wire sets, CO_CHAIN is the carry that is for VPR,
-	// e.g. off fabric dedicated chain.  CO is the carry outputs that are
-	// available to the fabric.
-	(* force_downto *)
-	wire [Y_WIDTH-1:0] CO_CHAIN;
-	(* force_downto *)
-	wire [Y_WIDTH-1:0] C = {CO_CHAIN, CINIT};
-
-	// If carry chain is being initialized to a constant, techmap the constant
-	// source.	Otherwise techmap the fabric source.
-	generate for (i = 0; i < 1; i = i + 1) begin:slice
-		CARRY0 #(.CYINIT_FABRIC(1)) carry(
-			.CI_INIT(CI),
-			.DI(AA[0]),
-			.S(S[0]),
-			.CO_CHAIN(CO_CHAIN[0]),
-			.CO_FABRIC(CO[0]),
-			.O(Y[0])
-		);
-	end endgenerate
-
-	generate for (i = 1; i < Y_WIDTH-1; i = i + 1) begin:slice
-		if(i % 4 == 0) begin
-			CARRY0 carry (
-				.CI(C[i]),
-				.DI(AA[i]),
-				.S(S[i]),
-				.CO_CHAIN(CO_CHAIN[i]),
-				.CO_FABRIC(CO[i]),
-				.O(Y[i])
-			);
-		end
-		else
-		begin
-			CARRY carry (
-				.CI(C[i]),
-				.DI(AA[i]),
-				.S(S[i]),
-				.CO_CHAIN(CO_CHAIN[i]),
-				.CO_FABRIC(CO[i]),
-				.O(Y[i])
-			);
-		end
-	end endgenerate
-
-	generate for (i = Y_WIDTH-1; i < Y_WIDTH; i = i + 1) begin:slice
-		if(i % 4 == 0) begin
-			CARRY0 top_of_carry (
-				.CI(C[i]),
-				.DI(AA[i]),
-				.S(S[i]),
-				.CO_CHAIN(CO_CHAIN[i]),
-				.O(Y[i])
-			);
-		end
-		else
-		begin
-			CARRY top_of_carry (
-				.CI(C[i]),
-				.DI(AA[i]),
-				.S(S[i]),
-				.CO_CHAIN(CO_CHAIN[i]),
-				.O(Y[i])
-			);
-		end
-		// Turns out CO_FABRIC and O both use [ABCD]MUX, so provide
-		// a non-congested path to output the top of the carry chain.
-		// Registering the output of the CARRY block would solve this, but not
-		// all designs do that.
-		if((i+1) % 4 == 0) begin
-			CARRY0 carry_output (
-				.CI(CO_CHAIN[i]),
-				.DI(0),
-				.S(0),
-				.O(CO[i])
-			);
-		end
-		else
-		begin
-			CARRY carry_output (
-				.CI(CO_CHAIN[i]),
-				.DI(0),
-				.S(0),
-				.O(CO[i])
-			);
-		end
 	end endgenerate
 
 end else begin
