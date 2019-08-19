@@ -36,15 +36,15 @@ module \$__ALTSYNCRAM_SDP (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1E
                  .init_type                      ("unused"      ),
                  .ram_block_type                 ("AUTO"        ),
                  .lpm_hint                       ("ENABLE_RUNTIME_MOD=NO"), // Forced value
-                 .power_up_uninitialized         ("FALSE"),
+                 .power_up_uninitialized         ("FALSE"       ),
                  .read_during_write_mode_port_a  ("NEW_DATA_NO_NBE_READ"), // Forced value
-                 .width_byteena_a                (1), // Forced value
-                 .numwords_b                     ( ABITS        ),
-                 .numwords_a                     ( ABITS        ),
-                 .widthad_b                      ( CFG_DBITS    ),
-                 .width_b                        ( CFG_ABITS    ),
-                 .widthad_a                      ( CFG_DBITS    ),
-                 .width_a                        ( CFG_ABITS    )
+                 .width_byteena_a                (   1          ), // Forced value
+                 .numwords_b                     ( 2**CFG_ABITS ),
+                 .numwords_a                     ( 2**CFG_ABITS ),
+                 .widthad_b                      ( CFG_ABITS    ),
+                 .width_b                        ( CFG_DBITS    ),
+                 .widthad_a                      ( CFG_ABITS    ),
+                 .width_a                        ( CFG_DBITS    )
                  ) _TECHMAP_REPLACE_ (
                                       .data_a(A1DATA),
                                       .address_a(A1ADDR),
