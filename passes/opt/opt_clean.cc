@@ -52,7 +52,7 @@ struct keep_cache_t
 			return cache.at(module);
 
 		cache[module] = true;
-		if (!module->get_bool_attribute(ID(keep))) {
+		if (!module->get_bool_attribute(ID::keep)) {
 			bool found_keep = false;
 			for (auto cell : module->cells())
 				if (query(cell)) found_keep = true;
@@ -122,7 +122,7 @@ void rmunused_module_cells(Module *module, bool verbose)
 
 	for (auto &it : module->wires_) {
 		Wire *wire = it.second;
-		if (wire->port_output || wire->get_bool_attribute(ID(keep))) {
+		if (wire->port_output || wire->get_bool_attribute(ID::keep)) {
 			for (auto bit : sigmap(wire))
 			for (auto c : wire2driver[bit])
 				queue.insert(c), unused.erase(c);
@@ -297,7 +297,7 @@ bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 			if (!wire->port_input)
 				used_signals_nodrivers.add(sig);
 		}
-		if (wire->get_bool_attribute(ID(keep))) {
+		if (wire->get_bool_attribute(ID::keep)) {
 			RTLIL::SigSpec sig = RTLIL::SigSpec(wire);
 			assign_map.apply(sig);
 			used_signals.add(sig);
@@ -323,7 +323,7 @@ bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 			if (wire->port_id == 0)
 				goto delete_this_wire;
 		} else
-		if (wire->port_id != 0 || wire->get_bool_attribute(ID(keep)) || !initval.is_fully_undef()) {
+		if (wire->port_id != 0 || wire->get_bool_attribute(ID::keep) || !initval.is_fully_undef()) {
 			// do not delete anything with "keep" or module ports or initialized wires
 		} else
 		if (!purge_mode && check_public_name(wire->name) && (raw_used_signals.check_any(s1) || used_signals.check_any(s2) || s1 != s2)) {
@@ -482,8 +482,8 @@ void rmunused_module(RTLIL::Module *module, bool purge_mode, bool verbose, bool 
 	for (auto cell : module->cells())
 		if (cell->type.in(ID($pos), ID($_BUF_)) && !cell->has_keep_attr()) {
 			bool is_signed = cell->type == ID($pos) && cell->getParam(ID(A_SIGNED)).as_bool();
-			RTLIL::SigSpec a = cell->getPort(ID(A));
-			RTLIL::SigSpec y = cell->getPort(ID(Y));
+			RTLIL::SigSpec a = cell->getPort(ID::A);
+			RTLIL::SigSpec y = cell->getPort(ID::Y);
 			a.extend_u0(GetSize(y), is_signed);
 			module->connect(y, a);
 			delcells.push_back(cell);
@@ -491,7 +491,7 @@ void rmunused_module(RTLIL::Module *module, bool purge_mode, bool verbose, bool 
 	for (auto cell : delcells) {
 		if (verbose)
 			log_debug("  removing buffer cell `%s': %s = %s\n", cell->name.c_str(),
-					log_signal(cell->getPort(ID(Y))), log_signal(cell->getPort(ID(A))));
+					log_signal(cell->getPort(ID::Y)), log_signal(cell->getPort(ID::A)));
 		module->remove(cell);
 	}
 	if (!delcells.empty())

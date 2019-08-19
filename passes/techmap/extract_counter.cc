@@ -138,7 +138,7 @@ int counter_tryextract(
 
 	//To be a counter, one input of the ALU must be a constant 1
 	//TODO: can A or B be swapped in synthesized RTL or is B always the 1?
-	const RTLIL::SigSpec b_port = sigmap(cell->getPort(ID(B)));
+	const RTLIL::SigSpec b_port = sigmap(cell->getPort(ID::B));
 	if(!b_port.is_fully_const() || (b_port.as_int() != 1) )
 		return 4;
 
@@ -158,7 +158,7 @@ int counter_tryextract(
 
 	//Y must have exactly one connection, and it has to be a $mux cell.
 	//We must have a direct bus connection from our Y to their A.
-	const RTLIL::SigSpec aluy = sigmap(cell->getPort(ID(Y)));
+	const RTLIL::SigSpec aluy = sigmap(cell->getPort(ID::Y));
 	pool<Cell*> y_loads = get_other_cells(aluy, index, cell);
 	if(y_loads.size() != 1)
 		return 9;
@@ -166,11 +166,11 @@ int counter_tryextract(
 	extract.count_mux = count_mux;
 	if(count_mux->type != ID($mux))
 		return 10;
-	if(!is_full_bus(aluy, index, cell, ID(Y), count_mux, ID(A)))
+	if(!is_full_bus(aluy, index, cell, ID::Y, count_mux, ID::A))
 		return 11;
 
 	//B connection of the mux is our underflow value
-	const RTLIL::SigSpec underflow = sigmap(count_mux->getPort(ID(B)));
+	const RTLIL::SigSpec underflow = sigmap(count_mux->getPort(ID::B));
 	if(!underflow.is_fully_const())
 		return 12;
 	extract.count_value = underflow.as_int();
@@ -184,7 +184,7 @@ int counter_tryextract(
 	{
 		if(c->type != ID($logic_not))
 			continue;
-		if(!is_full_bus(muxsel, index, c, ID(Y), count_mux, ID(S), true))
+		if(!is_full_bus(muxsel, index, c, ID::Y, count_mux, ID(S), true))
 			continue;
 
 		underflow_inv = c;
@@ -196,7 +196,7 @@ int counter_tryextract(
 
 	//Y connection of the mux must have exactly one load, the counter's internal register, if there's no clock enable
 	//If we have a clock enable, Y drives the B input of a mux. A of that mux must come from our register
-	const RTLIL::SigSpec muxy = sigmap(count_mux->getPort(ID(Y)));
+	const RTLIL::SigSpec muxy = sigmap(count_mux->getPort(ID::Y));
 	pool<Cell*> muxy_loads = get_other_cells(muxy, index, count_mux);
 	if(muxy_loads.size() != 1)
 		return 14;
@@ -209,7 +209,7 @@ int counter_tryextract(
 		//This mux is probably a clock enable mux.
 		//Find our count register (should be our only load)
 		cemux = muxload;
-		cey = sigmap(cemux->getPort(ID(Y)));
+		cey = sigmap(cemux->getPort(ID::Y));
 		pool<Cell*> cey_loads = get_other_cells(cey, index, cemux);
 		if(cey_loads.size() != 1)
 			return 24;
@@ -217,11 +217,11 @@ int counter_tryextract(
 
 		//Mux should have A driven by count Q, and B by muxy
 		//TODO: if A and B are swapped, CE polarity is inverted
-		if(sigmap(cemux->getPort(ID(B))) != muxy)
+		if(sigmap(cemux->getPort(ID::B)) != muxy)
 			return 24;
-		if(sigmap(cemux->getPort(ID(A))) != sigmap(count_reg->getPort(ID(Q))))
+		if(sigmap(cemux->getPort(ID::A)) != sigmap(count_reg->getPort(ID(Q))))
 			return 24;
-		if(sigmap(cemux->getPort(ID(Y))) != sigmap(count_reg->getPort(ID(D))))
+		if(sigmap(cemux->getPort(ID::Y)) != sigmap(count_reg->getPort(ID(D))))
 			return 24;
 
 		//Select of the mux is our clock enable
@@ -260,12 +260,12 @@ int counter_tryextract(
 	//Sanity check that we use the ALU output properly
 	if(extract.has_ce)
 	{
-		if(!is_full_bus(muxy, index, count_mux, ID(Y), cemux, ID(B)))
+		if(!is_full_bus(muxy, index, count_mux, ID::Y, cemux, ID::B))
 			return 16;
-		if(!is_full_bus(cey, index, cemux, ID(Y), count_reg, ID(D)))
+		if(!is_full_bus(cey, index, cemux, ID::Y, count_reg, ID(D)))
 			return 16;
 	}
-	else if(!is_full_bus(muxy, index, count_mux, ID(Y), count_reg, ID(D)))
+	else if(!is_full_bus(muxy, index, count_mux, ID::Y, count_reg, ID(D)))
 		return 16;
 
 	//TODO: Verify count_reg CLK_POLARITY is 1
@@ -312,9 +312,9 @@ int counter_tryextract(
 			}
 		}
 	}
-	if(!is_full_bus(cnout, index, count_reg, ID(Q), underflow_inv, ID(A), true))
+	if(!is_full_bus(cnout, index, count_reg, ID(Q), underflow_inv, ID::A, true))
 		return 18;
-	if(!is_full_bus(cnout, index, count_reg, ID(Q), cell, ID(A), true))
+	if(!is_full_bus(cnout, index, count_reg, ID(Q), cell, ID::A, true))
 		return 19;
 
 	//Look up the clock from the register
@@ -348,7 +348,7 @@ void counter_worker(
 
 	//A input is the count value. Check if it has COUNT_EXTRACT set.
 	//If it's not a wire, don't even try
-	auto port = sigmap(cell->getPort(ID(A)));
+	auto port = sigmap(cell->getPort(ID::A));
 	if(!port.is_wire())
 		return;
 	RTLIL::Wire* a_wire = port.as_wire();
@@ -434,13 +434,13 @@ void counter_worker(
 	string countname = string("$COUNTx$") + log_id(extract.rwire->name.str());
 
 	//Wipe all of the old connections to the ALU
-	cell->unsetPort(ID(A));
-	cell->unsetPort(ID(B));
+	cell->unsetPort(ID::A);
+	cell->unsetPort(ID::B);
 	cell->unsetPort(ID(BI));
 	cell->unsetPort(ID(CI));
 	cell->unsetPort(ID(CO));
 	cell->unsetPort(ID(X));
-	cell->unsetPort(ID(Y));
+	cell->unsetPort(ID::Y);
 	cell->unsetParam(ID(A_SIGNED));
 	cell->unsetParam(ID(A_WIDTH));
 	cell->unsetParam(ID(B_SIGNED));

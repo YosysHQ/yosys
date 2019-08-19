@@ -687,6 +687,7 @@ test: $(TARGETS) $(EXTRA_TARGETS)
 	+cd tests/asicworld && bash run-test.sh $(SEEDOPT)
 	# +cd tests/realmath && bash run-test.sh $(SEEDOPT)
 	+cd tests/share && bash run-test.sh $(SEEDOPT)
+	+cd tests/opt_share && bash run-test.sh $(SEEDOPT)
 	+cd tests/fsm && bash run-test.sh $(SEEDOPT)
 	+cd tests/techmap && bash run-test.sh
 	+cd tests/memories && bash run-test.sh $(ABCOPT) $(SEEDOPT)

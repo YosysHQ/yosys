@@ -107,16 +107,16 @@ struct ShregmapTechXilinx7 : ShregmapTech
 			if (cell->type == ID($shiftx)) {
 				if (cell->getParam(ID(Y_WIDTH)) != 1) continue;
 				int j = 0;
-				for (auto bit : sigmap(cell->getPort(ID(A))))
+				for (auto bit : sigmap(cell->getPort(ID::A)))
 					sigbit_to_shiftx_offset[bit] = std::make_tuple(cell, j++, 0);
 				log_assert(j == cell->getParam(ID(A_WIDTH)).as_int());
 			}
 			else if (cell->type == ID($mux)) {
 				int j = 0;
-				for (auto bit : sigmap(cell->getPort(ID(A))))
+				for (auto bit : sigmap(cell->getPort(ID::A)))
 					sigbit_to_shiftx_offset[bit] = std::make_tuple(cell, 0, j++);
 				j = 0;
-				for (auto bit : sigmap(cell->getPort(ID(B))))
+				for (auto bit : sigmap(cell->getPort(ID::B)))
 					sigbit_to_shiftx_offset[bit] = std::make_tuple(cell, 1, j++);
 			}
 		}
@@ -128,9 +128,9 @@ struct ShregmapTechXilinx7 : ShregmapTech
 		if (it == sigbit_to_shiftx_offset.end())
 			return;
 		if (cell) {
-			if (cell->type == ID($shiftx) && port == ID(A))
+			if (cell->type == ID($shiftx) && port == ID::A)
 				return;
-			if (cell->type == ID($mux) && port.in(ID(A), ID(B)))
+			if (cell->type == ID($mux) && port.in(ID::A, ID::B))
 				return;
 		}
 		sigbit_to_shiftx_offset.erase(it);
@@ -183,7 +183,7 @@ struct ShregmapTechXilinx7 : ShregmapTech
 			// Due to padding the most significant bits of A may be 1'bx,
 			//   and if so, discount them
 			if (GetSize(taps) < shiftx->getParam(ID(A_WIDTH)).as_int()) {
-				const SigSpec A = shiftx->getPort(ID(A));
+				const SigSpec A = shiftx->getPort(ID::A);
 				const int A_width = shiftx->getParam(ID(A_WIDTH)).as_int();
 				for (int i = GetSize(taps); i < A_width; ++i)
 					if (A[i] != RTLIL::Sx) return false;
@@ -223,14 +223,14 @@ struct ShregmapTechXilinx7 : ShregmapTech
 		Cell* shiftx = std::get<0>(it->second);
 		RTLIL::SigSpec l_wire, q_wire;
 		if (shiftx->type == ID($shiftx)) {
-			l_wire = shiftx->getPort(ID(B));
-			q_wire = shiftx->getPort(ID(Y));
-			shiftx->setPort(ID(Y), cell->module->addWire(NEW_ID));
+			l_wire = shiftx->getPort(ID::B);
+			q_wire = shiftx->getPort(ID::Y);
+			shiftx->setPort(ID::Y, cell->module->addWire(NEW_ID));
 		}
 		else if (shiftx->type == ID($mux)) {
 			l_wire = shiftx->getPort(ID(S));
-			q_wire = shiftx->getPort(ID(Y));
-			shiftx->setPort(ID(Y), cell->module->addWire(NEW_ID));
+			q_wire = shiftx->getPort(ID::Y);
+			shiftx->setPort(ID::Y, cell->module->addWire(NEW_ID));
 		}
 		else log_abort();
 
@@ -263,7 +263,7 @@ struct ShregmapWorker
 	{
 		for (auto wire : module->wires())
 		{
-			if (wire->port_output || wire->get_bool_attribute(ID(keep))) {
+			if (wire->port_output || wire->get_bool_attribute(ID::keep)) {
 				for (auto bit : sigmap(wire)) {
 					sigbit_with_non_chain_users.insert(bit);
 					if (opts.tech) opts.tech->non_chain_user(bit, nullptr, {});
@@ -283,7 +283,7 @@ struct ShregmapWorker
 
 		for (auto cell : module->cells())
 		{
-			if (opts.ffcells.count(cell->type) && !cell->get_bool_attribute(ID(keep)))
+			if (opts.ffcells.count(cell->type) && !cell->get_bool_attribute(ID::keep))
 			{
 				IdString d_port = opts.ffcells.at(cell->type).first;
 				IdString q_port = opts.ffcells.at(cell->type).second;

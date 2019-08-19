@@ -84,7 +84,7 @@ struct CellTypes
 	{
 		setup_internals_eval();
 
-		IdString A = ID(A), B = ID(B), EN = ID(EN), Y = ID(Y);
+		IdString A = ID::A, B = ID::B, EN = ID(EN), Y = ID::Y;
 		IdString SRC = ID(SRC), DST = ID(DST), DAT = ID(DAT);
 		IdString EN_SRC = ID(EN_SRC), EN_DST = ID(EN_DST);
 
@@ -121,7 +121,7 @@ struct CellTypes
 			ID($add), ID($sub), ID($mul), ID($div), ID($mod), ID($pow),
 			ID($logic_and), ID($logic_or), ID($concat), ID($macc)
 		};
-		IdString A = ID(A), B = ID(B), S = ID(S), Y = ID(Y);
+		IdString A = ID::A, B = ID::B, S = ID(S), Y = ID::Y;
 		IdString P = ID(P), G = ID(G), C = ID(C), X = ID(X);
 		IdString BI = ID(BI), CI = ID(CI), CO = ID(CO), EN = ID(EN);
 
@@ -177,19 +177,19 @@ struct CellTypes
 	{
 		setup_stdcells_eval();
 
-		IdString A = ID(A), E = ID(E), Y = ID(Y);
+		IdString A = ID::A, E = ID(E), Y = ID::Y;
 
 		setup_type(ID($_TBUF_), {A, E}, {Y}, true);
 	}
 
 	void setup_stdcells_eval()
 	{
-		IdString A = ID(A), B = ID(B), C = ID(C), D = ID(D);
+		IdString A = ID::A, B = ID::B, C = ID(C), D = ID(D);
 		IdString E = ID(E), F = ID(F), G = ID(G), H = ID(H);
 		IdString I = ID(I), J = ID(J), K = ID(K), L = ID(L);
 		IdString M = ID(M), N = ID(N), O = ID(O), P = ID(P);
 		IdString S = ID(S), T = ID(T), U = ID(U), V = ID(V);
-		IdString Y = ID(Y);
+		IdString Y = ID::Y;
 
 		setup_type(ID($_BUF_), {A}, {Y}, true);
 		setup_type(ID($_NOT_), {A}, {Y}, true);
