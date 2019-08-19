@@ -417,9 +417,10 @@ Verilog Attributes and non-standard features
   port of a LUTRAM cell prevents `abc9` from interpreting any `Q` -> `D` paths
   as a combinatorial loop.
 
-- The port attribute ``abc_carry_in`` and ``abc_carry_out`` attributes mark
-  the carry-in and carry-out ports of a box. This information is necessary for
-  `abc9` to preserve the integrity of carry-chains.
+- The port attribute ``abc_carry`` marks the carry-in (if an input port) and
+  carry-out (if output port) ports of a box. This information is necessary for
+  `abc9` to preserve the integrity of carry-chains. Specifying this attribute
+  onto a bus port will affect its most significant bit.
 
 
 Non-standard or SystemVerilog features for formal verification
