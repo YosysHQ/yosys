@@ -73,9 +73,9 @@ struct OnehotDatabase
 
 			if (cell->type.in(ID($mux), ID($pmux)))
 			{
-				output = cell->getPort(ID(Y));
-				inputs.push_back(cell->getPort(ID(A)));
-				SigSpec B = cell->getPort(ID(B));
+				output = cell->getPort(ID::Y);
+				inputs.push_back(cell->getPort(ID::A));
+				SigSpec B = cell->getPort(ID::B);
 				for (int i = 0; i < GetSize(B); i += GetSize(output))
 					inputs.push_back(B.extract(i, GetSize(output)));
 			}
@@ -296,8 +296,8 @@ struct Pmux2ShiftxPass : public Pass {
 				{
 					dict<SigBit, State> bits;
 
-					SigSpec A = sigmap(cell->getPort(ID(A)));
-					SigSpec B = sigmap(cell->getPort(ID(B)));
+					SigSpec A = sigmap(cell->getPort(ID::A));
+					SigSpec B = sigmap(cell->getPort(ID::B));
 
 					int a_width = cell->getParam(ID(A_WIDTH)).as_int();
 					int b_width = cell->getParam(ID(B_WIDTH)).as_int();
@@ -335,7 +335,7 @@ struct Pmux2ShiftxPass : public Pass {
 						entry.second.bits.push_back(it.second);
 					}
 
-					eqdb[sigmap(cell->getPort(ID(Y))[0])] = entry;
+					eqdb[sigmap(cell->getPort(ID::Y)[0])] = entry;
 					goto next_cell;
 				}
 
@@ -343,7 +343,7 @@ struct Pmux2ShiftxPass : public Pass {
 				{
 					dict<SigBit, State> bits;
 
-					SigSpec A = sigmap(cell->getPort(ID(A)));
+					SigSpec A = sigmap(cell->getPort(ID::A));
 
 					for (int i = 0; i < GetSize(A); i++)
 						bits[A[i]] = State::S0;
@@ -356,7 +356,7 @@ struct Pmux2ShiftxPass : public Pass {
 						entry.second.bits.push_back(it.second);
 					}
 
-					eqdb[sigmap(cell->getPort(ID(Y))[0])] = entry;
+					eqdb[sigmap(cell->getPort(ID::Y)[0])] = entry;
 					goto next_cell;
 				}
 		next_cell:;
@@ -377,8 +377,8 @@ struct Pmux2ShiftxPass : public Pass {
 
 				dict<SigSpec, pool<int>> seldb;
 
-				SigSpec A = cell->getPort(ID(A));
-				SigSpec B = cell->getPort(ID(B));
+				SigSpec A = cell->getPort(ID::A);
+				SigSpec B = cell->getPort(ID::B);
 				SigSpec S = sigmap(cell->getPort(ID(S)));
 				for (int i = 0; i < GetSize(S); i++)
 				{
@@ -401,7 +401,7 @@ struct Pmux2ShiftxPass : public Pass {
 				}
 
 				SigSpec updated_S = cell->getPort(ID(S));
-				SigSpec updated_B = cell->getPort(ID(B));
+				SigSpec updated_B = cell->getPort(ID::B);
 
 				while (!seldb.empty())
 				{
@@ -728,7 +728,7 @@ struct Pmux2ShiftxPass : public Pass {
 
 				// update $pmux cell
 				cell->setPort(ID(S), updated_S);
-				cell->setPort(ID(B), updated_B);
+				cell->setPort(ID::B, updated_B);
 				cell->setParam(ID(S_WIDTH), GetSize(updated_S));
 			}
 		}
@@ -782,8 +782,8 @@ struct OnehotPass : public Pass {
 				if (cell->type != ID($eq))
 					continue;
 
-				SigSpec A = sigmap(cell->getPort(ID(A)));
-				SigSpec B = sigmap(cell->getPort(ID(B)));
+				SigSpec A = sigmap(cell->getPort(ID::A));
+				SigSpec B = sigmap(cell->getPort(ID::B));
 
 				int a_width = cell->getParam(ID(A_WIDTH)).as_int();
 				int b_width = cell->getParam(ID(B_WIDTH)).as_int();
@@ -830,7 +830,7 @@ struct OnehotPass : public Pass {
 					continue;
 				}
 
-				SigSpec Y = cell->getPort(ID(Y));
+				SigSpec Y = cell->getPort(ID::Y);
 
 				if (not_onehot)
 				{

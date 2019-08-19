@@ -3,14 +3,20 @@
 
 # --------------------------------------
 
+OBJS += passes/pmgen/test_pmgen.o
+passes/pmgen/test_pmgen.o: passes/pmgen/test_pmgen_pm.h
+$(eval $(call add_extra_objs,passes/pmgen/test_pmgen_pm.h))
+
+# --------------------------------------
+
 OBJS += passes/pmgen/ice40_dsp.o
 passes/pmgen/ice40_dsp.o: passes/pmgen/ice40_dsp_pm.h
 $(eval $(call add_extra_objs,passes/pmgen/ice40_dsp_pm.h))
 
 # --------------------------------------
 
-OBJS += passes/pmgen/test_pmgen.o
-passes/pmgen/test_pmgen.o: passes/pmgen/test_pmgen_pm.h
+OBJS += passes/pmgen/ice40_wrapcarry.o
+passes/pmgen/ice40_wrapcarry.o: passes/pmgen/ice40_wrapcarry_pm.h
 $(eval $(call add_extra_objs,passes/pmgen/test_pmgen_pm.h))
 
 # --------------------------------------

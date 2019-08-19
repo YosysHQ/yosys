@@ -315,6 +315,7 @@ RTLIL::IdString new_id(std::string file, int line, std::string func);
 //
 #define ID(_id) ([]() { const char *p = "\\" #_id, *q = p[1] == '$' ? p+1 : p; \
         static const YOSYS_NAMESPACE_PREFIX RTLIL::IdString id(q); return id; })()
+namespace ID = RTLIL::ID;
 
 RTLIL::Design *yosys_get_design();
 std::string proc_self_dirname();

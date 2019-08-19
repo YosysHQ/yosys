@@ -19,8 +19,8 @@ hierarchy -top equiv
 equiv_simple -undef
 equiv_status -assert
 
-design -load gold
-stat
-
-design -load gate
-stat
+#design -load gold
+#stat
+#
+#design -load gate
+#stat

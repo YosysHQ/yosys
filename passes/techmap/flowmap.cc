@@ -671,8 +671,8 @@ struct FlowmapWorker
 			labels[node] = -1;
 		for (auto input : inputs)
 		{
-			if (input.wire->attributes.count("\\$flowmap_level"))
-				labels[input] = input.wire->attributes["\\$flowmap_level"].as_int();
+			if (input.wire->attributes.count(ID($flowmap_level)))
+				labels[input] = input.wire->attributes[ID($flowmap_level)].as_int();
 			else
 				labels[input] = 0;
 		}
@@ -1412,7 +1412,7 @@ struct FlowmapWorker
 			for (auto gate_node : lut_gates[node])
 			{
 				auto gate_origin = node_origins[gate_node];
-				lut->add_strpool_attribute("\\src", gate_origin.cell->get_strpool_attribute("\\src"));
+				lut->add_strpool_attribute(ID(src), gate_origin.cell->get_strpool_attribute(ID(src)));
 				packed_count++;
 			}
 			lut_count++;
@@ -1586,7 +1586,7 @@ struct FlowmapPass : public Pass {
 		}
 		else
 		{
-			cell_types = {"$_NOT_", "$_AND_", "$_OR_", "$_XOR_", "$_MUX_"};
+			cell_types = {ID($_NOT_), ID($_AND_), ID($_OR_), ID($_XOR_), ID($_MUX_)};
 		}
 
 		const char *algo_r = relax ? "-r" : "";

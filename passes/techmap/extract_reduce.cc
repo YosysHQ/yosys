@@ -58,9 +58,9 @@ struct ExtractReducePass : public Pass
 
 	inline bool IsRightType(Cell* cell, GateType gt)
 	{
-		return (cell->type == "$_AND_" && gt == GateType::And) ||
-				(cell->type == "$_OR_" && gt == GateType::Or) ||
-				(cell->type == "$_XOR_" && gt == GateType::Xor);
+		return (cell->type == ID($_AND_) && gt == GateType::And) ||
+				(cell->type == ID($_OR_) && gt == GateType::Or) ||
+				(cell->type == ID($_XOR_) && gt == GateType::Xor);
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -124,11 +124,11 @@ struct ExtractReducePass : public Pass
 
 				GateType gt;
 
-				if (cell->type == "$_AND_")
+				if (cell->type == ID($_AND_))
 					gt = GateType::And;
-				else if (cell->type == "$_OR_")
+				else if (cell->type == ID($_OR_))
 					gt = GateType::Or;
-				else if (cell->type == "$_XOR_")
+				else if (cell->type == ID($_XOR_))
 					gt = GateType::Xor;
 				else
 					continue;
@@ -148,7 +148,7 @@ struct ExtractReducePass : public Pass
 
 						head_cell = x;
 
-						auto y = sigmap(x->getPort("\\Y"));
+						auto y = sigmap(x->getPort(ID::Y));
 						log_assert(y.size() == 1);
 
 						// Should only continue if there is one fanout back into a cell (not to a port)
@@ -166,7 +166,7 @@ struct ExtractReducePass : public Pass
 				{
 					//BFS, following all chains until they hit a cell of a different type
 					//Pick the longest one
-					auto y = sigmap(cell->getPort("\\Y"));
+					auto y = sigmap(cell->getPort(ID::Y));
 					pool<Cell*> current_loads = sig_to_sink[y];
 					pool<Cell*> next_loads;
 
@@ -233,7 +233,7 @@ struct ExtractReducePass : public Pass
 
 						cur_supercell.insert(x);
 
-						auto a = sigmap(x->getPort("\\A"));
+						auto a = sigmap(x->getPort(ID::A));
 						log_assert(a.size() == 1);
 
 						// Must have only one sink unless we're going off chain
@@ -249,7 +249,7 @@ struct ExtractReducePass : public Pass
 							}
 						}
 
-						auto b = sigmap(x->getPort("\\B"));
+						auto b = sigmap(x->getPort(ID::B));
 						log_assert(b.size() == 1);
 
 						// Must have only one sink
@@ -279,26 +279,26 @@ struct ExtractReducePass : public Pass
 						pool<SigBit> input_pool_intermed;
 						for (auto x : cur_supercell)
 						{
-							input_pool.insert(sigmap(x->getPort("\\A"))[0]);
-							input_pool.insert(sigmap(x->getPort("\\B"))[0]);
-							input_pool_intermed.insert(sigmap(x->getPort("\\Y"))[0]);
+							input_pool.insert(sigmap(x->getPort(ID::A))[0]);
+							input_pool.insert(sigmap(x->getPort(ID::B))[0]);
+							input_pool_intermed.insert(sigmap(x->getPort(ID::Y))[0]);
 						}
 						SigSpec input;
 						for (auto b : input_pool)
 							if (input_pool_intermed.count(b) == 0)
 								input.append_bit(b);
 
-						SigBit output = sigmap(head_cell->getPort("\\Y")[0]);
+						SigBit output = sigmap(head_cell->getPort(ID::Y)[0]);
 
 						auto new_reduce_cell = module->addCell(NEW_ID,
-							gt == GateType::And ? "$reduce_and" :
-							gt == GateType::Or ? "$reduce_or" :
-							gt == GateType::Xor ? "$reduce_xor" : "");
-						new_reduce_cell->setParam("\\A_SIGNED", 0);
-						new_reduce_cell->setParam("\\A_WIDTH", input.size());
-						new_reduce_cell->setParam("\\Y_WIDTH", 1);
-						new_reduce_cell->setPort("\\A", input);
-						new_reduce_cell->setPort("\\Y", output);
+							gt == GateType::And ? ID($reduce_and) :
+							gt == GateType::Or ? ID($reduce_or) :
+							gt == GateType::Xor ? ID($reduce_xor) : "");
+						new_reduce_cell->setParam(ID(A_SIGNED), 0);
+						new_reduce_cell->setParam(ID(A_WIDTH), input.size());
+						new_reduce_cell->setParam(ID(Y_WIDTH), 1);
+						new_reduce_cell->setPort(ID::A, input);
+						new_reduce_cell->setPort(ID::Y, output);
 
 						if(allow_off_chain)
 							consumed_cells.insert(head_cell);

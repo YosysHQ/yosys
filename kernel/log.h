@@ -91,7 +91,7 @@ YS_NORETURN void log_cmd_error(const char *format, ...) YS_ATTRIBUTE(format(prin
 static inline bool ys_debug(int n = 0) { if (log_force_debug) return true; log_debug_suppressed += n; return false; }
 #  define log_debug(...) do { if (ys_debug(1)) log(__VA_ARGS__); } while (0)
 #else
-static inline bool ys_debug(int n = 0) { return false; }
+static inline bool ys_debug(int = 0) { return false; }
 #  define log_debug(_fmt, ...) do { } while (0)
 #endif
 
