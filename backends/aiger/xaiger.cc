@@ -808,7 +808,7 @@ struct XAigerWriter
 
 			std::stringstream r_buffer;
 			auto write_r_buffer = std::bind(write_buffer, std::ref(r_buffer), std::placeholders::_1);
-			log_debug("flopNum = %zu\n", ff_bits.size());
+			log_debug("flopNum = %d\n", GetSize(ff_bits));
 			write_r_buffer(ff_bits.size());
 			int mergeability_class = 1;
 			for (auto cell : ff_bits)
