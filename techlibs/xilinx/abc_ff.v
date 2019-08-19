@@ -113,7 +113,7 @@ module \$__ABC_ASYNC (input A, S, output Y);
 endmodule
 
 (* abc_box_id=1001, lib_whitebox, abc_flop="FDRE", abc_flop_clk_pol="!IS_C_INVERTED", abc_flop_en_pol=1 *)
-module \$__ABC_FDRE ((* abc_flop_q *)   output Q,
+module \$__ABC_FDRE ((* abc_flop_q, abc_arrival=303 *) output Q,
                      (* abc_flop_clk *) input C,
                      (* abc_flop_en *)  input CE,
                      (* abc_flop_d *)   input D,
@@ -126,7 +126,7 @@ module \$__ABC_FDRE ((* abc_flop_q *)   output Q,
 endmodule
 
 (* abc_box_id = 1002, lib_whitebox, abc_flop = "FDRE_1", abc_flop_clk_pol=1, abc_flop_en_pol=1 *)
-module \$__ABC_FDRE_1 ((* abc_flop_q *)   output Q,
+module \$__ABC_FDRE_1 ((* abc_flop_q, abc_arrival=303 *) output Q,
                        (* abc_flop_clk *) input C,
                        (* abc_flop_en *)  input CE,
                        (* abc_flop_d *)   input D,
@@ -136,7 +136,7 @@ module \$__ABC_FDRE_1 ((* abc_flop_q *)   output Q,
 endmodule
 
 (* abc_box_id = 1003, lib_whitebox, abc_flop = "FDCE", abc_flop_clk_pol="!IS_C_INVERTED", abc_flop_en_pol=1 *)
-module \$__ABC_FDCE ((* abc_flop_q *)   output Q,
+module \$__ABC_FDCE ((* abc_flop_q, abc_arrival=303 *) output Q,
                      (* abc_flop_clk *) input C,
                      (* abc_flop_en *)  input CE,
                      (* abc_flop_d *)   input D,
@@ -149,7 +149,7 @@ module \$__ABC_FDCE ((* abc_flop_q *)   output Q,
 endmodule
 
 (* abc_box_id = 1004, lib_whitebox, abc_flop = "FDCE_1", abc_flop_clk_pol=1, abc_flop_en_pol=1 *)
-module \$__ABC_FDCE_1 ((* abc_flop_q *)   output Q,
+module \$__ABC_FDCE_1 ((* abc_flop_q, abc_arrival=303 *) output Q,
                        (* abc_flop_clk *) input C,
                        (* abc_flop_en *)  input CE,
                        (* abc_flop_d *)   input D,
@@ -159,7 +159,7 @@ module \$__ABC_FDCE_1 ((* abc_flop_q *)   output Q,
 endmodule
 
 (* abc_box_id=1005, lib_whitebox, abc_flop="FDPE", abc_flop_clk_pol="!IS_C_INVERTED", abc_flop_en_pol=1 *)
-module \$__ABC_FDPE ((* abc_flop_q *)   output Q,
+module \$__ABC_FDPE ((* abc_flop_q, abc_arrival=303 *) output Q,
                      (* abc_flop_clk *) input C,
                      (* abc_flop_en *)  input CE,
                      (* abc_flop_d *)   input D,
@@ -172,7 +172,7 @@ module \$__ABC_FDPE ((* abc_flop_q *)   output Q,
 endmodule
 
 (* abc_box_id=1006, lib_whitebox, abc_flop="FDPE_1", abc_flop_clk_pol=1, abc_flop_en_pol=1 *)
-module \$__ABC_FDPE_1 ((* abc_flop_q *)   output Q,
+module \$__ABC_FDPE_1 ((* abc_flop_q, abc_arrival=303 *) output Q,
                        (* abc_flop_clk *) input C,
                        (* abc_flop_en *)  input CE,
                        (* abc_flop_d *)   input D,
