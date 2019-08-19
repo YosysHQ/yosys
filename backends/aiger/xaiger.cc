@@ -378,7 +378,7 @@ struct XAigerWriter
 #if 0
 			toposort.analyze_loops = true;
 #endif
-			bool no_loops = toposort.sort();
+			bool no_loops YS_ATTRIBUTE(unused) = toposort.sort();
 #if 0
 			unsigned i = 0;
 			for (auto &it : toposort.loops) {

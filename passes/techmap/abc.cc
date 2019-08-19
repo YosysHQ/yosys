@@ -198,7 +198,7 @@ void extract_cell(RTLIL::Cell *cell, bool keepff)
 		if (keepff)
 			for (auto &c : sig_q.chunks())
 				if (c.wire != NULL)
-					c.wire->attributes[ID(keep)] = 1;
+					c.wire->attributes[ID::keep] = 1;
 
 		assign_map.apply(sig_d);
 		assign_map.apply(sig_q);
@@ -211,8 +211,8 @@ void extract_cell(RTLIL::Cell *cell, bool keepff)
 
 	if (cell->type.in(ID($_BUF_), ID($_NOT_)))
 	{
-		RTLIL::SigSpec sig_a = cell->getPort(ID(A));
-		RTLIL::SigSpec sig_y = cell->getPort(ID(Y));
+		RTLIL::SigSpec sig_a = cell->getPort(ID::A);
+		RTLIL::SigSpec sig_y = cell->getPort(ID::Y);
 
 		assign_map.apply(sig_a);
 		assign_map.apply(sig_y);
@@ -225,9 +225,9 @@ void extract_cell(RTLIL::Cell *cell, bool keepff)
 
 	if (cell->type.in(ID($_AND_), ID($_NAND_), ID($_OR_), ID($_NOR_), ID($_XOR_), ID($_XNOR_), ID($_ANDNOT_), ID($_ORNOT_)))
 	{
-		RTLIL::SigSpec sig_a = cell->getPort(ID(A));
-		RTLIL::SigSpec sig_b = cell->getPort(ID(B));
-		RTLIL::SigSpec sig_y = cell->getPort(ID(Y));
+		RTLIL::SigSpec sig_a = cell->getPort(ID::A);
+		RTLIL::SigSpec sig_b = cell->getPort(ID::B);
+		RTLIL::SigSpec sig_y = cell->getPort(ID::Y);
 
 		assign_map.apply(sig_a);
 		assign_map.apply(sig_b);
@@ -261,10 +261,10 @@ void extract_cell(RTLIL::Cell *cell, bool keepff)
 
 	if (cell->type.in(ID($_MUX_), ID($_NMUX_)))
 	{
-		RTLIL::SigSpec sig_a = cell->getPort(ID(A));
-		RTLIL::SigSpec sig_b = cell->getPort(ID(B));
+		RTLIL::SigSpec sig_a = cell->getPort(ID::A);
+		RTLIL::SigSpec sig_b = cell->getPort(ID::B);
 		RTLIL::SigSpec sig_s = cell->getPort(ID(S));
-		RTLIL::SigSpec sig_y = cell->getPort(ID(Y));
+		RTLIL::SigSpec sig_y = cell->getPort(ID::Y);
 
 		assign_map.apply(sig_a);
 		assign_map.apply(sig_b);
@@ -283,10 +283,10 @@ void extract_cell(RTLIL::Cell *cell, bool keepff)
 
 	if (cell->type.in(ID($_AOI3_), ID($_OAI3_)))
 	{
-		RTLIL::SigSpec sig_a = cell->getPort(ID(A));
-		RTLIL::SigSpec sig_b = cell->getPort(ID(B));
+		RTLIL::SigSpec sig_a = cell->getPort(ID::A);
+		RTLIL::SigSpec sig_b = cell->getPort(ID::B);
 		RTLIL::SigSpec sig_c = cell->getPort(ID(C));
-		RTLIL::SigSpec sig_y = cell->getPort(ID(Y));
+		RTLIL::SigSpec sig_y = cell->getPort(ID::Y);
 
 		assign_map.apply(sig_a);
 		assign_map.apply(sig_b);
@@ -305,11 +305,11 @@ void extract_cell(RTLIL::Cell *cell, bool keepff)
 
 	if (cell->type.in(ID($_AOI4_), ID($_OAI4_)))
 	{
-		RTLIL::SigSpec sig_a = cell->getPort(ID(A));
-		RTLIL::SigSpec sig_b = cell->getPort(ID(B));
+		RTLIL::SigSpec sig_a = cell->getPort(ID::A);
+		RTLIL::SigSpec sig_b = cell->getPort(ID::B);
 		RTLIL::SigSpec sig_c = cell->getPort(ID(C));
 		RTLIL::SigSpec sig_d = cell->getPort(ID(D));
-		RTLIL::SigSpec sig_y = cell->getPort(ID(Y));
+		RTLIL::SigSpec sig_y = cell->getPort(ID::Y);
 
 		assign_map.apply(sig_a);
 		assign_map.apply(sig_b);
@@ -787,7 +787,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		extract_cell(c, keepff);
 
 	for (auto &wire_it : module->wires_) {
-		if (wire_it.second->port_id > 0 || wire_it.second->get_bool_attribute(ID(keep)))
+		if (wire_it.second->port_id > 0 || wire_it.second->get_bool_attribute(ID::keep))
 			mark_port(RTLIL::SigSpec(wire_it.second));
 	}
 
@@ -1042,63 +1042,63 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 				cell_stats[RTLIL::unescape_id(c->type)]++;
 				if (c->type.in(ID(ZERO), ID(ONE))) {
 					RTLIL::SigSig conn;
-					conn.first = RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID(Y)).as_wire()->name)]);
+					conn.first = RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID::Y).as_wire()->name)]);
 					conn.second = RTLIL::SigSpec(c->type == ID(ZERO) ? 0 : 1, 1);
 					module->connect(conn);
 					continue;
 				}
 				if (c->type == ID(BUF)) {
 					RTLIL::SigSig conn;
-					conn.first = RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID(Y)).as_wire()->name)]);
-					conn.second = RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID(A)).as_wire()->name)]);
+					conn.first = RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID::Y).as_wire()->name)]);
+					conn.second = RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID::A).as_wire()->name)]);
 					module->connect(conn);
 					continue;
 				}
 				if (c->type == ID(NOT)) {
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), ID($_NOT_));
 					if (markgroups) cell->attributes[ID(abcgroup)] = map_autoidx;
-					cell->setPort(ID(A), RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID(A)).as_wire()->name)]));
-					cell->setPort(ID(Y), RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID(Y)).as_wire()->name)]));
+					cell->setPort(ID::A, RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID::A).as_wire()->name)]));
+					cell->setPort(ID::Y, RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID::Y).as_wire()->name)]));
 					design->select(module, cell);
 					continue;
 				}
 				if (c->type.in(ID(AND), ID(OR), ID(XOR), ID(NAND), ID(NOR), ID(XNOR), ID(ANDNOT), ID(ORNOT))) {
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), stringf("$_%s_", c->type.c_str()+1));
 					if (markgroups) cell->attributes[ID(abcgroup)] = map_autoidx;
-					cell->setPort(ID(A), RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID(A)).as_wire()->name)]));
-					cell->setPort(ID(B), RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID(B)).as_wire()->name)]));
-					cell->setPort(ID(Y), RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID(Y)).as_wire()->name)]));
+					cell->setPort(ID::A, RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID::A).as_wire()->name)]));
+					cell->setPort(ID::B, RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID::B).as_wire()->name)]));
+					cell->setPort(ID::Y, RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID::Y).as_wire()->name)]));
 					design->select(module, cell);
 					continue;
 				}
 				if (c->type.in(ID(MUX), ID(NMUX))) {
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), stringf("$_%s_", c->type.c_str()+1));
 					if (markgroups) cell->attributes[ID(abcgroup)] = map_autoidx;
-					cell->setPort(ID(A), RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID(A)).as_wire()->name)]));
-					cell->setPort(ID(B), RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID(B)).as_wire()->name)]));
+					cell->setPort(ID::A, RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID::A).as_wire()->name)]));
+					cell->setPort(ID::B, RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID::B).as_wire()->name)]));
 					cell->setPort(ID(S), RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID(S)).as_wire()->name)]));
-					cell->setPort(ID(Y), RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID(Y)).as_wire()->name)]));
+					cell->setPort(ID::Y, RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID::Y).as_wire()->name)]));
 					design->select(module, cell);
 					continue;
 				}
 				if (c->type == ID(MUX4)) {
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), ID($_MUX4_));
 					if (markgroups) cell->attributes[ID(abcgroup)] = map_autoidx;
-					cell->setPort(ID(A), RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID(A)).as_wire()->name)]));
-					cell->setPort(ID(B), RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID(B)).as_wire()->name)]));
+					cell->setPort(ID::A, RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID::A).as_wire()->name)]));
+					cell->setPort(ID::B, RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID::B).as_wire()->name)]));
 					cell->setPort(ID(C), RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID(C)).as_wire()->name)]));
 					cell->setPort(ID(D), RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID(D)).as_wire()->name)]));
 					cell->setPort(ID(S), RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID(S)).as_wire()->name)]));
 					cell->setPort(ID(T), RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID(T)).as_wire()->name)]));
-					cell->setPort(ID(Y), RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID(Y)).as_wire()->name)]));
+					cell->setPort(ID::Y, RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID::Y).as_wire()->name)]));
 					design->select(module, cell);
 					continue;
 				}
 				if (c->type == ID(MUX8)) {
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), ID($_MUX8_));
 					if (markgroups) cell->attributes[ID(abcgroup)] = map_autoidx;
-					cell->setPort(ID(A), RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID(A)).as_wire()->name)]));
-					cell->setPort(ID(B), RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID(B)).as_wire()->name)]));
+					cell->setPort(ID::A, RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID::A).as_wire()->name)]));
+					cell->setPort(ID::B, RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID::B).as_wire()->name)]));
 					cell->setPort(ID(C), RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID(C)).as_wire()->name)]));
 					cell->setPort(ID(D), RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID(D)).as_wire()->name)]));
 					cell->setPort(ID(E), RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID(E)).as_wire()->name)]));
@@ -1108,15 +1108,15 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 					cell->setPort(ID(S), RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID(S)).as_wire()->name)]));
 					cell->setPort(ID(T), RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID(T)).as_wire()->name)]));
 					cell->setPort(ID(U), RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID(U)).as_wire()->name)]));
-					cell->setPort(ID(Y), RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID(Y)).as_wire()->name)]));
+					cell->setPort(ID::Y, RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID::Y).as_wire()->name)]));
 					design->select(module, cell);
 					continue;
 				}
 				if (c->type == ID(MUX16)) {
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), ID($_MUX16_));
 					if (markgroups) cell->attributes[ID(abcgroup)] = map_autoidx;
-					cell->setPort(ID(A), RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID(A)).as_wire()->name)]));
-					cell->setPort(ID(B), RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID(B)).as_wire()->name)]));
+					cell->setPort(ID::A, RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID::A).as_wire()->name)]));
+					cell->setPort(ID::B, RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID::B).as_wire()->name)]));
 					cell->setPort(ID(C), RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID(C)).as_wire()->name)]));
 					cell->setPort(ID(D), RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID(D)).as_wire()->name)]));
 					cell->setPort(ID(E), RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID(E)).as_wire()->name)]));
@@ -1135,28 +1135,28 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 					cell->setPort(ID(T), RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID(T)).as_wire()->name)]));
 					cell->setPort(ID(U), RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID(U)).as_wire()->name)]));
 					cell->setPort(ID(V), RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID(V)).as_wire()->name)]));
-					cell->setPort(ID(Y), RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID(Y)).as_wire()->name)]));
+					cell->setPort(ID::Y, RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID::Y).as_wire()->name)]));
 					design->select(module, cell);
 					continue;
 				}
 				if (c->type.in(ID(AOI3), ID(OAI3))) {
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), stringf("$_%s_", c->type.c_str()+1));
 					if (markgroups) cell->attributes[ID(abcgroup)] = map_autoidx;
-					cell->setPort(ID(A), RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID(A)).as_wire()->name)]));
-					cell->setPort(ID(B), RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID(B)).as_wire()->name)]));
+					cell->setPort(ID::A, RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID::A).as_wire()->name)]));
+					cell->setPort(ID::B, RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID::B).as_wire()->name)]));
 					cell->setPort(ID(C), RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID(C)).as_wire()->name)]));
-					cell->setPort(ID(Y), RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID(Y)).as_wire()->name)]));
+					cell->setPort(ID::Y, RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID::Y).as_wire()->name)]));
 					design->select(module, cell);
 					continue;
 				}
 				if (c->type.in(ID(AOI4), ID(OAI4))) {
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), stringf("$_%s_", c->type.c_str()+1));
 					if (markgroups) cell->attributes[ID(abcgroup)] = map_autoidx;
-					cell->setPort(ID(A), RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID(A)).as_wire()->name)]));
-					cell->setPort(ID(B), RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID(B)).as_wire()->name)]));
+					cell->setPort(ID::A, RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID::A).as_wire()->name)]));
+					cell->setPort(ID::B, RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID::B).as_wire()->name)]));
 					cell->setPort(ID(C), RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID(C)).as_wire()->name)]));
 					cell->setPort(ID(D), RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID(D)).as_wire()->name)]));
-					cell->setPort(ID(Y), RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID(Y)).as_wire()->name)]));
+					cell->setPort(ID::Y, RTLIL::SigSpec(module->wires_[remap_name(c->getPort(ID::Y).as_wire()->name)]));
 					design->select(module, cell);
 					continue;
 				}
@@ -1207,9 +1207,9 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 				continue;
 			}
 
-			if (c->type == ID($lut) && GetSize(c->getPort(ID(A))) == 1 && c->getParam(ID(LUT)).as_int() == 2) {
-				SigSpec my_a = module->wires_[remap_name(c->getPort(ID(A)).as_wire()->name)];
-				SigSpec my_y = module->wires_[remap_name(c->getPort(ID(Y)).as_wire()->name)];
+			if (c->type == ID($lut) && GetSize(c->getPort(ID::A)) == 1 && c->getParam(ID(LUT)).as_int() == 2) {
+				SigSpec my_a = module->wires_[remap_name(c->getPort(ID::A).as_wire()->name)];
+				SigSpec my_y = module->wires_[remap_name(c->getPort(ID::Y).as_wire()->name)];
 				module->connect(my_y, my_a);
 				continue;
 			}
