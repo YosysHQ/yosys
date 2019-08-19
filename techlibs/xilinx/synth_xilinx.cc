@@ -77,10 +77,6 @@ struct SynthXilinxPass : public ScriptPass
 		log("        write the design to the specified BLIF file. writing of an output file\n");
 		log("        is omitted if this parameter is not specified.\n");
 		log("\n");
-		log("    -vpr\n");
-		log("        generate an output netlist (and BLIF file) suitable for VPR\n");
-		log("        (this feature is experimental and incomplete)\n");
-		log("\n");
 		log("    -ise\n");
 		log("        generate an output netlist suitable for ISE\n");
 		log("\n");
@@ -142,7 +138,7 @@ struct SynthXilinxPass : public ScriptPass
 	}
 
 	std::string top_opt, edif_file, blif_file, family;
-	bool flatten, retime, vpr, ise, noiopad, noclkbuf, nobram, nolutram, nosrl, nocarry, nowidelut, nodsp, uram;
+	bool flatten, retime, ise, noiopad, noclkbuf, nobram, nolutram, nosrl, nocarry, nowidelut, nodsp, uram;
 	bool abc9, dff;
 	bool flatten_before_abc;
 	int widemux;
@@ -157,7 +153,6 @@ struct SynthXilinxPass : public ScriptPass
 		family = "xc7";
 		flatten = false;
 		retime = false;
-		vpr = false;
 		ise = false;
 		noiopad = false;
 		noclkbuf = false;
@@ -227,10 +222,6 @@ struct SynthXilinxPass : public ScriptPass
 			}
 			if (args[argidx] == "-nowidelut") {
 				nowidelut = true;
-				continue;
-			}
-			if (args[argidx] == "-vpr") {
-				vpr = true;
 				continue;
 			}
 			if (args[argidx] == "-ise") {
@@ -352,8 +343,6 @@ struct SynthXilinxPass : public ScriptPass
 
 		if (check_label("begin")) {
 			std::string read_args;
-			if (vpr)
-				read_args += " -D_EXPLICIT_CARRY";
 			read_args += " -lib -specify +/xilinx/cells_sim.v";
 			run("read_verilog" + read_args);
 
@@ -577,8 +566,6 @@ struct SynthXilinxPass : public ScriptPass
 				techmap_args += stringf(" -D MIN_MUX_INPUTS=%d -map +/xilinx/mux_map.v", widemux);
 			if (!nocarry) {
 				techmap_args += " -map +/xilinx/arith_map.v";
-				if (vpr)
-					techmap_args += " -D _EXPLICIT_CARRY";
 			}
 			run("techmap " + techmap_args);
 			run("opt -fast");
