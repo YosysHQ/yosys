@@ -420,7 +420,7 @@ Verilog Attributes and non-standard features
 - The port attribute ``abc_carry`` marks the carry-in (if an input port) and
   carry-out (if output port) ports of a box. This information is necessary for
   `abc9` to preserve the integrity of carry-chains. Specifying this attribute
-  onto a bus port will affect its most significant bit.
+  onto a bus port will affect only its most significant bit.
 
 
 Non-standard or SystemVerilog features for formal verification
