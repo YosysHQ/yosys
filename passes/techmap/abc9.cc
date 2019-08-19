@@ -646,12 +646,8 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 				cell->parameters = existing_cell->parameters;
 				cell->attributes = existing_cell->attributes;
 
-				auto it = cell->parameters.find("\\$abc_flop_clk_pol");
-				if (it != cell->parameters.end())
-					cell->parameters.erase(it);
-				it = cell->parameters.find("\\$abc_flop_en_pol");
-				if (it != cell->parameters.end())
-					cell->parameters.erase(it);
+				cell->attributes.erase("\\abc_flop_clk_pol");
+				cell->attributes.erase("\\abc_flop_en_pol");
 			}
 			else {
 				cell->parameters = mapped_cell->parameters;
@@ -1265,14 +1261,32 @@ struct Abc9Pass : public Pass {
 						continue;
 				}
 
-				auto jt = cell->parameters.find("\\$abc_flop_clk_pol");
+				auto jt = cell->attributes.find("\\abc_flop_clk_pol");
 				if (jt == cell->parameters.end())
-					log_error("'$abc_flop_clk_pol' parameter not found on module '%s'.\n", log_id(cell->type));
-				bool this_clk_pol = jt->second.as_bool();
+					log_error("'abc_flop_clk_pol' attribute not found on module '%s'.\n", log_id(cell->type));
+				bool this_clk_pol;
+				if (jt->second.flags == RTLIL::ConstFlags::CONST_FLAG_STRING) {
+					auto param = jt->second.decode_string();
+					auto kt = cell->parameters.find(param);
+					if (kt == cell->parameters.end())
+						log_error("'abc_flop_clk_pol' value '%s' is not a parameter on module '%s'.\n", param.c_str(), log_id(cell->type));
+					this_clk_pol = kt->second.as_bool();
+				}
+				else
+					this_clk_pol = jt->second.as_bool();
 				jt = cell->parameters.find("\\$abc_flop_en_pol");
 				if (jt == cell->parameters.end())
-					log_error("'$abc_flop_en_pol' parameter not found on module '%s'.\n", log_id(cell->type));
-				bool this_en_pol = jt->second.as_bool();
+					log_error("'abc_flop_en_pol' attribute not found on module '%s'.\n", log_id(cell->type));
+				bool this_en_pol;
+				if (jt->second.flags == RTLIL::ConstFlags::CONST_FLAG_STRING) {
+					auto param = jt->second.decode_string();
+					auto kt = cell->parameters.find(param);
+					if (kt == cell->parameters.end())
+						log_error("'abc_flop_en_pol' value '%s' is not a parameter on module '%s'.\n", param.c_str(), log_id(cell->type));
+					this_en_pol = kt->second.as_bool();
+				}
+				else
+					this_en_pol = jt->second.as_bool();
 
 				const auto &data = it->second;
 				key = clkdomain_t(this_clk_pol, assign_map(cell->getPort(data.first)), this_en_pol, assign_map(cell->getPort(data.second)));
