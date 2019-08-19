@@ -73,20 +73,15 @@ bram $__XILINX_RAMB18_TDP
   clkpol 2 3
 endbram
 
-# The "min bits" value were taken from:
-# [[CITE]] 7 Series FPGAs Memory Resources User Guide (UG473),
-# v1.14 ed., p 29-30, July, 2019.
-# https://www.xilinx.com/support/documentation/user_guides/ug473_7Series_Memory_Resources.pdf
-
-match $__XILINX_RAMB36_SDP
-  attribute !ram_style
-  attribute !logic_block
-  min bits 1024
-  min efficiency 5
-  shuffle_enable B
-  make_transp
-  or_next_if_better
-endmatch
+# Disable RAMB36 synthesis until https://github.com/SymbiFlow/symbiflow-arch-defs/issues/438
+# is solved.
+#match $__XILINX_RAMB36_SDP
+#  min bits 4096
+#  min efficiency 5
+#  shuffle_enable B
+#  make_transp
+#  or_next_if_better
+#endmatch
 
 match $__XILINX_RAMB36_SDP
   attribute ram_style=block ram_block
@@ -106,23 +101,13 @@ match $__XILINX_RAMB18_SDP
   or_next_if_better
 endmatch
 
-match $__XILINX_RAMB18_SDP
-  attribute ram_style=block ram_block
-  attribute !logic_block
-  shuffle_enable B
-  make_transp
-  or_next_if_better
-endmatch
-
-match $__XILINX_RAMB36_TDP
-  attribute !ram_style
-  attribute !logic_block
-  min bits 1024
-  min efficiency 5
-  shuffle_enable B
-  make_transp
-  or_next_if_better
-endmatch
+#match $__XILINX_RAMB36_TDP
+#  min bits 4096
+#  min efficiency 5
+#  shuffle_enable B
+#  make_transp
+#  or_next_if_better
+#endmatch
 
 match $__XILINX_RAMB36_TDP
   attribute ram_style=block ram_block
