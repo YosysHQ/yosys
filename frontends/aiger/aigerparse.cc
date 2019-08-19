@@ -451,7 +451,7 @@ void AigerReader::parse_xaiger(const dict<int,IdString> &box_lookup)
 				uint32_t poNum YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
 				log_debug("poNum = %u\n", poNum);
 				uint32_t boxNum = parse_xaiger_literal(f);
-				log_debug("boxNum = %u\n", poNum);
+				log_debug("boxNum = %u\n", boxNum);
 				for (unsigned i = 0; i < boxNum; i++) {
 					f.ignore(2*sizeof(uint32_t));
 					uint32_t boxUniqueId = parse_xaiger_literal(f);
