@@ -645,9 +645,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			if (existing_cell) {
 				cell->parameters = existing_cell->parameters;
 				cell->attributes = existing_cell->attributes;
-
-				cell->attributes.erase("\\abc_flop_clk_pol");
-				cell->attributes.erase("\\abc_flop_en_pol");
 			}
 			else {
 				cell->parameters = mapped_cell->parameters;
@@ -1204,11 +1201,7 @@ struct Abc9Pass : public Pass {
 			pool<IdString> seen_cells;
 			struct flop_data_t {
 				IdString clk_port;
-				IdString clk_pol_param;
-				bool clk_pol;
 				IdString en_port;
-				IdString en_pol_param;
-				bool en_pol;
 			};
 			dict<IdString, flop_data_t> flop_data;
 
@@ -1262,39 +1255,7 @@ struct Abc9Pass : public Pass {
 					if (abc_flop_en == IdString())
 						log_error("'abc_flop_en' attribute not found on any ports on module '%s'.\n", log_id(cell->type));
 
-					auto jt = inst_module->attributes.find("\\abc_flop_clk_pol");
-					if (jt == inst_module->attributes.end())
-						log_error("'abc_flop_clk_pol' attribute not found on module '%s'.\n", log_id(inst_module));
-					IdString abc_flop_clk_pol_param;
-					bool abc_flop_clk_pol;
-					if (jt->second.flags == RTLIL::ConstFlags::CONST_FLAG_STRING) {
-						auto param = jt->second.decode_string();
-						abc_flop_clk_pol = (param[0] == '!');
-						if (abc_flop_clk_pol)
-							abc_flop_clk_pol_param = RTLIL::escape_id(param.substr(1));
-						else
-							abc_flop_clk_pol_param = RTLIL::escape_id(param);
-					}
-					else
-						abc_flop_clk_pol = !jt->second.as_bool();
-					jt = inst_module->attributes.find("\\abc_flop_en_pol");
-					if (jt == inst_module->attributes.end())
-						log_error("'abc_flop_en_pol' attribute not found on module '%s'.\n", log_id(inst_module));
-					IdString abc_flop_en_pol_param;
-					bool abc_flop_en_pol;
-					if (jt->second.flags == RTLIL::ConstFlags::CONST_FLAG_STRING) {
-						auto param = jt->second.decode_string();
-						abc_flop_en_pol = (param[0] == '!');
-						if (abc_flop_en_pol)
-							abc_flop_en_pol_param = RTLIL::escape_id(param.substr(1));
-						else
-							abc_flop_en_pol_param = RTLIL::escape_id(param);
-					}
-					else
-						abc_flop_en_pol = !jt->second.as_bool();
-
-					it = flop_data.insert(std::make_pair(cell->type, flop_data_t{abc_flop_clk, abc_flop_clk_pol_param, abc_flop_clk_pol,
-								abc_flop_en, abc_flop_en_pol_param, abc_flop_en_pol})).first;
+					it = flop_data.insert(std::make_pair(cell->type, flop_data_t{abc_flop_clk, abc_flop_en})).first;
 				}
 				else {
 					it = flop_data.find(cell->type);
@@ -1304,30 +1265,15 @@ struct Abc9Pass : public Pass {
 
 				const auto &data = it->second;
 
-				bool this_clk_pol;
-				if (data.clk_pol_param == IdString())
-					this_clk_pol = data.clk_pol;
-				else {
-					auto param = data.clk_pol_param;
-					auto jt = cell->parameters.find(param);
-					if (jt == cell->parameters.end())
-						log_error("'abc_flop_clk_pol' value '%s' is not a parameter on module '%s'.\n", param.c_str(), log_id(cell->type));
-					this_clk_pol = jt->second.as_bool();
-					if (data.clk_pol)
-						this_clk_pol = !this_clk_pol;
-				}
-				bool this_en_pol;
-				if (data.en_pol_param == IdString())
-					this_en_pol = data.en_pol;
-				else {
-					auto param = data.en_pol_param;
-					auto jt = cell->parameters.find(param);
-					if (jt == cell->parameters.end())
-						log_error("'abc_flop_en_pol' value '%s' is not a parameter on module '%s'.\n", param.c_str(), log_id(cell->type));
-					this_en_pol = jt->second.as_bool();
-					if (data.en_pol)
-						this_en_pol = !this_en_pol;
-				}
+				auto jt = cell->parameters.find("\\CLK_POLARITY");
+				if (jt == cell->parameters.end())
+					log_error("'CLK_POLARITY' is not a parameter on module '%s'.\n", log_id(cell->type));
+				bool this_clk_pol = jt->second.as_bool();
+
+				jt = cell->parameters.find("\\EN_POLARITY");
+				if (jt == cell->parameters.end())
+					log_error("'EN_POLARITY' is not a parameter on module '%s'.\n", log_id(cell->type));
+				bool this_en_pol = jt->second.as_bool();
 
 				key = clkdomain_t(this_clk_pol, assign_map(cell->getPort(data.clk_port)), this_en_pol, assign_map(cell->getPort(data.en_port)));
 
@@ -1416,9 +1362,10 @@ struct Abc9Pass : public Pass {
 						std::get<2>(it.first) ? "" : "!", log_signal(std::get<3>(it.first)));
 
 			design->selection_stack.emplace_back(false);
-			RTLIL::Selection& sel = design->selection_stack.back();
 
 			for (auto &it : assigned_cells) {
+				// FIXME: abc9_module calls below can delete cells,
+				//        leaving a dangling pointer here...
 				clk_polarity = std::get<0>(it.first);
 				clk_sig = assign_map(std::get<1>(it.first));
 				en_polarity = std::get<2>(it.first);
@@ -1427,6 +1374,7 @@ struct Abc9Pass : public Pass {
 				pool<RTLIL::IdString> assigned_names;
 				for (auto i : it.second)
 					assigned_names.insert(i->name);
+				RTLIL::Selection& sel = design->selection_stack.back();
 				sel.selected_members[mod->name] = std::move(assigned_names);
 
 				abc9_module(design, mod, script_file, exe_file, cleanup, lut_costs, !clk_sig.empty(), "$",
