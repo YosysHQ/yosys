@@ -78,7 +78,7 @@ failed:
 	return std::pair<RTLIL::IdString, int>("\\" + name, 0);
 }
 
-void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name, bool run_clean, bool sop_mode, bool wideports)
+void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool run_clean, bool sop_mode, bool wideports)
 {
 	RTLIL::Module *module = nullptr;
 	RTLIL::Const *lutptr = NULL;

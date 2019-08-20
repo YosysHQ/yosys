@@ -43,7 +43,7 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 	RTLIL::Cell *cell = module->addCell("\\UUT", cell_type);
 	RTLIL::Wire *wire;
 
-	if (cell_type == "$mux" || cell_type == "$pmux")
+	if (cell_type.in("$mux", "$pmux"))
 	{
 		int width = 1 + xorshift32(8);
 		int swidth = cell_type == "$mux" ? 1 : 1 + xorshift32(8);
@@ -186,7 +186,7 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 
 		RTLIL::SigSpec config;
 		for (int i = 0; i < (1 << width); i++)
-			config.append(xorshift32(2) ? RTLIL::S1 : RTLIL::S0);
+			config.append(xorshift32(2) ? State::S1 : State::S0);
 
 		cell->setParam("\\LUT", config.as_const());
 	}
@@ -209,16 +209,16 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 		for (int i = 0; i < width*depth; i++)
 			switch (xorshift32(3)) {
 				case 0:
-					config.append(RTLIL::S1);
-					config.append(RTLIL::S0);
+					config.append(State::S1);
+					config.append(State::S0);
 					break;
 				case 1:
-					config.append(RTLIL::S0);
-					config.append(RTLIL::S1);
+					config.append(State::S0);
+					config.append(State::S1);
 					break;
 				case 2:
-					config.append(RTLIL::S0);
-					config.append(RTLIL::S0);
+					config.append(State::S0);
+					config.append(State::S0);
 					break;
 			}
 
@@ -264,7 +264,7 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 		cell->setPort("\\Y", wire);
 	}
 
-	if (muxdiv && (cell_type == "$div" || cell_type == "$mod")) {
+	if (muxdiv && cell_type.in("$div", "$mod")) {
 		auto b_not_zero = module->ReduceBool(NEW_ID, cell->getPort("\\B"));
 		auto div_out = module->addWire(NEW_ID, GetSize(cell->getPort("\\Y")));
 		module->addMux(NEW_ID, RTLIL::SigSpec(0, GetSize(div_out)), div_out, b_not_zero, cell->getPort("\\Y"));
@@ -308,18 +308,18 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 			case 0:
 				n = xorshift32(GetSize(sig) + 1);
 				for (int i = 0; i < n; i++)
-					sig[i] = xorshift32(2) == 1 ? RTLIL::S1 : RTLIL::S0;
+					sig[i] = xorshift32(2) == 1 ? State::S1 : State::S0;
 				break;
 			case 1:
 				n = xorshift32(GetSize(sig) + 1);
 				for (int i = n; i < GetSize(sig); i++)
-					sig[i] = xorshift32(2) == 1 ? RTLIL::S1 : RTLIL::S0;
+					sig[i] = xorshift32(2) == 1 ? State::S1 : State::S0;
 				break;
 			case 2:
 				n = xorshift32(GetSize(sig));
 				m = xorshift32(GetSize(sig));
 				for (int i = min(n, m); i < max(n, m); i++)
-					sig[i] = xorshift32(2) == 1 ? RTLIL::S1 : RTLIL::S0;
+					sig[i] = xorshift32(2) == 1 ? State::S1 : State::S0;
 				break;
 			}
 
@@ -491,7 +491,7 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 
 			RTLIL::Const in_value;
 			for (int i = 0; i < GetSize(gold_wire); i++)
-				in_value.bits.push_back(xorshift32(2) ? RTLIL::S1 : RTLIL::S0);
+				in_value.bits.push_back(xorshift32(2) ? State::S1 : State::S0);
 
 			if (xorshift32(4) == 0) {
 				int inv_chance = 1 + xorshift32(8);
@@ -591,11 +591,11 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 			}
 
 			for (int i = 0; i < GetSize(out_sig); i++) {
-				if (out_val[i] != RTLIL::S0 && out_val[i] != RTLIL::S1)
+				if (out_val[i] != State::S0 && out_val[i] != State::S1)
 					continue;
-				if (out_val[i] == RTLIL::S0 && sat1_model_value.at(i) == false)
+				if (out_val[i] == State::S0 && sat1_model_value.at(i) == false)
 					continue;
-				if (out_val[i] == RTLIL::S1 && sat1_model_value.at(i) == true)
+				if (out_val[i] == State::S1 && sat1_model_value.at(i) == true)
 					continue;
 				log_error("Mismatch in sat model 1 (no undef modeling) output!\n");
 			}
@@ -627,12 +627,12 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 
 			for (int i = 0; i < GetSize(out_sig); i++) {
 				if (sat2_model_value.at(GetSize(out_sig) + i)) {
-					if (out_val[i] != RTLIL::S0 && out_val[i] != RTLIL::S1)
+					if (out_val[i] != State::S0 && out_val[i] != State::S1)
 						continue;
 				} else {
-					if (out_val[i] == RTLIL::S0 && sat2_model_value.at(i) == false)
+					if (out_val[i] == State::S0 && sat2_model_value.at(i) == false)
 						continue;
-					if (out_val[i] == RTLIL::S1 && sat2_model_value.at(i) == true)
+					if (out_val[i] == State::S1 && sat2_model_value.at(i) == true)
 						continue;
 				}
 				log_error("Mismatch in sat model 2 (undef modeling) output!\n");
@@ -872,7 +872,7 @@ struct TestCellPass : public Pass {
 				continue;
 			}
 
-			if (args[argidx].substr(0, 1) == "/") {
+			if (args[argidx].compare(0, 1, "/") == 0) {
 				std::vector<std::string> new_selected_cell_types;
 				for (auto it : selected_cell_types)
 					if (it != args[argidx].substr(1))

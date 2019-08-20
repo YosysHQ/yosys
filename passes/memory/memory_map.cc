@@ -301,7 +301,7 @@ struct MemoryMapWorker
 
 					RTLIL::Wire *w = w_seladdr;
 
-					if (wr_bit != RTLIL::SigSpec(1, 1))
+					if (wr_bit != State::S1)
 					{
 						RTLIL::Cell *c = module->addCell(genid(cell->name, "$wren", i, "", j, "", wr_offset), "$and");
 						c->parameters["\\A_SIGNED"] = RTLIL::Const(0);

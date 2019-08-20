@@ -78,6 +78,8 @@ namespace RTLIL
 	{
 		#undef YOSYS_XTRACE_GET_PUT
 		#undef YOSYS_SORT_ID_FREE_LIST
+		#undef YOSYS_USE_STICKY_IDS
+		#undef YOSYS_NO_IDS_REFCNT
 
 		// the global id string cache
 
@@ -87,13 +89,17 @@ namespace RTLIL
 			~destruct_guard_t() { ok = false; }
 		} destruct_guard;
 
-		static std::vector<int> global_refcount_storage_;
 		static std::vector<char*> global_id_storage_;
 		static dict<char*, int, hash_cstr_ops> global_id_index_;
+	#ifndef YOSYS_NO_IDS_REFCNT
+		static std::vector<int> global_refcount_storage_;
 		static std::vector<int> global_free_idx_list_;
+	#endif
 
+	#ifdef YOSYS_USE_STICKY_IDS
 		static int last_created_idx_ptr_;
 		static int last_created_idx_[8];
+	#endif
 
 		static inline void xtrace_db_dump()
 		{
@@ -110,12 +116,14 @@ namespace RTLIL
 
 		static inline void checkpoint()
 		{
+		#ifdef YOSYS_USE_STICKY_IDS
 			last_created_idx_ptr_ = 0;
 			for (int i = 0; i < 8; i++) {
 				if (last_created_idx_[i])
 					put_reference(last_created_idx_[i]);
 				last_created_idx_[i] = 0;
 			}
+		#endif
 		#ifdef YOSYS_SORT_ID_FREE_LIST
 			std::sort(global_free_idx_list_.begin(), global_free_idx_list_.end(), std::greater<int>());
 		#endif
@@ -123,36 +131,47 @@ namespace RTLIL
 
 		static inline int get_reference(int idx)
 		{
-			global_refcount_storage_.at(idx)++;
-		#ifdef YOSYS_XTRACE_GET_PUT
-			if (yosys_xtrace) {
-				log("#X# GET-BY-INDEX '%s' (index %d, refcount %d)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
-			}
+			if (idx) {
+		#ifndef YOSYS_NO_IDS_REFCNT
+				global_refcount_storage_[idx]++;
 		#endif
+		#ifdef YOSYS_XTRACE_GET_PUT
+				if (yosys_xtrace)
+					log("#X# GET-BY-INDEX '%s' (index %d, refcount %d)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
+		#endif
+			}
 			return idx;
 		}
 
-		static inline int get_reference(const char *p)
+		static int get_reference(const char *p)
 		{
 			log_assert(destruct_guard.ok);
 
-			if (p[0]) {
-				log_assert(p[1] != 0);
-				log_assert(p[0] == '$' || p[0] == '\\');
-			}
+			if (!p[0])
+				return 0;
+
+			log_assert(p[0] == '$' || p[0] == '\\');
+			log_assert(p[1] != 0);
 
 			auto it = global_id_index_.find((char*)p);
 			if (it != global_id_index_.end()) {
+		#ifndef YOSYS_NO_IDS_REFCNT
 				global_refcount_storage_.at(it->second)++;
+		#endif
 		#ifdef YOSYS_XTRACE_GET_PUT
-				if (yosys_xtrace) {
+				if (yosys_xtrace)
 					log("#X# GET-BY-NAME '%s' (index %d, refcount %d)\n", global_id_storage_.at(it->second), it->second, global_refcount_storage_.at(it->second));
-				}
 		#endif
 				return it->second;
 			}
 
+		#ifndef YOSYS_NO_IDS_REFCNT
 			if (global_free_idx_list_.empty()) {
+				if (global_id_storage_.empty()) {
+					global_refcount_storage_.push_back(0);
+					global_id_storage_.push_back((char*)"");
+					global_id_index_[global_id_storage_.back()] = 0;
+				}
 				log_assert(global_id_storage_.size() < 0x40000000);
 				global_free_idx_list_.push_back(global_id_storage_.size());
 				global_id_storage_.push_back(nullptr);
@@ -164,13 +183,15 @@ namespace RTLIL
 			global_id_storage_.at(idx) = strdup(p);
 			global_id_index_[global_id_storage_.at(idx)] = idx;
 			global_refcount_storage_.at(idx)++;
-
-			// Avoid Create->Delete->Create pattern
-			if (last_created_idx_[last_created_idx_ptr_])
-				put_reference(last_created_idx_[last_created_idx_ptr_]);
-			last_created_idx_[last_created_idx_ptr_] = idx;
-			get_reference(last_created_idx_[last_created_idx_ptr_]);
-			last_created_idx_ptr_ = (last_created_idx_ptr_ + 1) & 7;
+		#else
+			if (global_id_storage_.empty()) {
+				global_id_storage_.push_back((char*)"");
+				global_id_index_[global_id_storage_.back()] = 0;
+			}
+			int idx = global_id_storage_.size();
+			global_id_storage_.push_back(strdup(p));
+			global_id_index_[global_id_storage_.back()] = idx;
+		#endif
 
 			if (yosys_xtrace) {
 				log("#X# New IdString '%s' with index %d.\n", p, idx);
@@ -178,18 +199,28 @@ namespace RTLIL
 			}
 
 		#ifdef YOSYS_XTRACE_GET_PUT
-			if (yosys_xtrace) {
+			if (yosys_xtrace)
 				log("#X# GET-BY-NAME '%s' (index %d, refcount %d)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
-			}
 		#endif
+
+		#ifdef YOSYS_USE_STICKY_IDS
+			// Avoid Create->Delete->Create pattern
+			if (last_created_idx_[last_created_idx_ptr_])
+				put_reference(last_created_idx_[last_created_idx_ptr_]);
+			last_created_idx_[last_created_idx_ptr_] = idx;
+			get_reference(last_created_idx_[last_created_idx_ptr_]);
+			last_created_idx_ptr_ = (last_created_idx_ptr_ + 1) & 7;
+		#endif
+
 			return idx;
 		}
 
+	#ifndef YOSYS_NO_IDS_REFCNT
 		static inline void put_reference(int idx)
 		{
 			// put_reference() may be called from destructors after the destructor of
 			// global_refcount_storage_ has been run. in this case we simply do nothing.
-			if (!destruct_guard.ok)
+			if (!destruct_guard.ok || !idx)
 				return;
 
 		#ifdef YOSYS_XTRACE_GET_PUT
@@ -198,10 +229,12 @@ namespace RTLIL
 			}
 		#endif
 
-			log_assert(global_refcount_storage_.at(idx) > 0);
+			int &refcount = global_refcount_storage_[idx];
 
-			if (--global_refcount_storage_.at(idx) != 0)
+			if (--refcount > 0)
 				return;
+
+			log_assert(refcount == 0);
 
 			if (yosys_xtrace) {
 				log("#X# Removed IdString '%s' with index %d.\n", global_id_storage_.at(idx), idx);
@@ -213,46 +246,50 @@ namespace RTLIL
 			global_id_storage_.at(idx) = nullptr;
 			global_free_idx_list_.push_back(idx);
 		}
+	#else
+		static inline void put_reference(int) { }
+	#endif
 
 		// the actual IdString object is just is a single int
 
 		int index_;
 
-		IdString() : index_(get_reference("")) { }
-		IdString(const char *str) : index_(get_reference(str)) { }
-		IdString(const IdString &str) : index_(get_reference(str.index_)) { }
-		IdString(const std::string &str) : index_(get_reference(str.c_str())) { }
-		~IdString() { put_reference(index_); }
+		inline IdString() : index_(0) { }
+		inline IdString(const char *str) : index_(get_reference(str)) { }
+		inline IdString(const IdString &str) : index_(get_reference(str.index_)) { }
+		inline IdString(IdString &&str) : index_(str.index_) { str.index_ = 0; }
+		inline IdString(const std::string &str) : index_(get_reference(str.c_str())) { }
+		inline ~IdString() { put_reference(index_); }
 
-		void operator=(const IdString &rhs) {
+		inline void operator=(const IdString &rhs) {
 			put_reference(index_);
 			index_ = get_reference(rhs.index_);
 		}
 
-		void operator=(const char *rhs) {
+		inline void operator=(const char *rhs) {
 			IdString id(rhs);
 			*this = id;
 		}
 
-		void operator=(const std::string &rhs) {
+		inline void operator=(const std::string &rhs) {
 			IdString id(rhs);
 			*this = id;
 		}
 
-		const char *c_str() const {
+		inline const char *c_str() const {
 			return global_id_storage_.at(index_);
 		}
 
-		std::string str() const {
+		inline std::string str() const {
 			return std::string(global_id_storage_.at(index_));
 		}
 
-		bool operator<(const IdString &rhs) const {
+		inline bool operator<(const IdString &rhs) const {
 			return index_ < rhs.index_;
 		}
 
-		bool operator==(const IdString &rhs) const { return index_ == rhs.index_; }
-		bool operator!=(const IdString &rhs) const { return index_ != rhs.index_; }
+		inline bool operator==(const IdString &rhs) const { return index_ == rhs.index_; }
+		inline bool operator!=(const IdString &rhs) const { return index_ != rhs.index_; }
 
 		// The methods below are just convenience functions for better compatibility with std::string.
 
@@ -276,20 +313,24 @@ namespace RTLIL
 				return std::string(c_str() + pos, len);
 		}
 
+		int compare(size_t pos, size_t len, const char* s) const {
+			return strncmp(c_str()+pos, s, len);
+		}
+
 		bool begins_with(const char* prefix) const {
 			size_t len = strlen(prefix);
 			if (size() < len) return false;
-			return substr(0, len) == prefix;
+			return compare(0, len, prefix) == 0;
 		}
 
 		bool ends_with(const char* suffix) const {
 			size_t len = strlen(suffix);
 			if (size() < len) return false;
-			return substr(size()-len) == suffix;
+			return compare(size()-len, len, suffix) == 0;
 		}
 
 		size_t size() const {
-			return str().size();
+			return strlen(c_str());
 		}
 
 		bool empty() const {
@@ -326,6 +367,14 @@ namespace RTLIL
 		bool in(const char *rhs) const { return *this == rhs; }
 		bool in(const std::string &rhs) const { return *this == rhs; }
 		bool in(const pool<IdString> &rhs) const { return rhs.count(*this) != 0; }
+	};
+
+	namespace ID {
+		// defined in rtlil.cc, initialized in yosys.cc
+		extern IdString A, B, Y;
+		extern IdString keep;
+		extern IdString whitebox;
+		extern IdString blackbox;
 	};
 
 	static inline std::string escape_id(std::string str) {
@@ -420,8 +469,12 @@ namespace RTLIL
 	// It maintains a reference counter that is used to make sure that the container is not modified while being iterated over.
 
 	template<typename T>
-	struct ObjIterator
-	{
+	struct ObjIterator {
+		using iterator_category = std::forward_iterator_tag;
+		using value_type = T;
+		using difference_type = ptrdiff_t;
+		using pointer = T*;
+		using reference = T&;
 		typename dict<RTLIL::IdString, T>::iterator it;
 		dict<RTLIL::IdString, T> *list_p;
 		int *refcount_p;
@@ -474,13 +527,25 @@ namespace RTLIL
 			return it != other.it;
 		}
 
-		inline void operator++() {
+
+		inline bool operator==(const RTLIL::ObjIterator<T> &other) const {
+			return !(*this != other);
+		}
+
+		inline ObjIterator<T>& operator++() {
 			log_assert(list_p != nullptr);
 			if (++it == list_p->end()) {
 				(*refcount_p)--;
 				list_p = nullptr;
 				refcount_p = nullptr;
 			}
+			return *this;
+		}
+
+		inline const ObjIterator<T> operator++(int) {
+			ObjIterator<T> result(*this);
+			++(*this);
+			return result;
 		}
 	};
 
@@ -584,7 +649,7 @@ struct RTLIL::AttrObject
 	bool get_bool_attribute(RTLIL::IdString id) const;
 
 	bool get_blackbox_attribute(bool ignore_wb=false) const {
-		return get_bool_attribute("\\blackbox") || (!ignore_wb && get_bool_attribute("\\whitebox"));
+		return get_bool_attribute(ID::blackbox) || (!ignore_wb && get_bool_attribute(ID::whitebox));
 	}
 
 	void set_strpool_attribute(RTLIL::IdString id, const pool<string> &data);
@@ -772,6 +837,7 @@ public:
 	RTLIL::SigSpec extract(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec *other = NULL) const;
 	RTLIL::SigSpec extract(const pool<RTLIL::SigBit> &pattern, const RTLIL::SigSpec *other = NULL) const;
 	RTLIL::SigSpec extract(int offset, int length = 1) const;
+	RTLIL::SigSpec extract_end(int offset) const { return extract(offset, width_ - offset); }
 
 	void append(const RTLIL::SigSpec &signal);
 	void append_bit(const RTLIL::SigBit &bit);
@@ -818,6 +884,7 @@ public:
 
 	operator std::vector<RTLIL::SigChunk>() const { return chunks(); }
 	operator std::vector<RTLIL::SigBit>() const { return bits(); }
+	RTLIL::SigBit at(int offset, const RTLIL::SigBit &defval) { return offset < width_ ? (*this)[offset] : defval; }
 
 	unsigned int hash() const { if (!hash_) updhash(); return hash_; };
 
@@ -1138,6 +1205,7 @@ public:
 	RTLIL::Cell* addAndnotGate (RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_y, const std::string &src = "");
 	RTLIL::Cell* addOrnotGate  (RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_y, const std::string &src = "");
 	RTLIL::Cell* addMuxGate    (RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_s, RTLIL::SigBit sig_y, const std::string &src = "");
+	RTLIL::Cell* addNmuxGate   (RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_s, RTLIL::SigBit sig_y, const std::string &src = "");
 	RTLIL::Cell* addAoi3Gate   (RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_c, RTLIL::SigBit sig_y, const std::string &src = "");
 	RTLIL::Cell* addOai3Gate   (RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_c, RTLIL::SigBit sig_y, const std::string &src = "");
 	RTLIL::Cell* addAoi4Gate   (RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_c, RTLIL::SigBit sig_d, RTLIL::SigBit sig_y, const std::string &src = "");
@@ -1213,6 +1281,7 @@ public:
 	RTLIL::SigBit AndnotGate (RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, const std::string &src = "");
 	RTLIL::SigBit OrnotGate  (RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, const std::string &src = "");
 	RTLIL::SigBit MuxGate    (RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_s, const std::string &src = "");
+	RTLIL::SigBit NmuxGate   (RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_s, const std::string &src = "");
 	RTLIL::SigBit Aoi3Gate   (RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_c, const std::string &src = "");
 	RTLIL::SigBit Oai3Gate   (RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_c, const std::string &src = "");
 	RTLIL::SigBit Aoi4Gate   (RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_c, RTLIL::SigBit sig_d, const std::string &src = "");
@@ -1315,8 +1384,8 @@ public:
 	void fixup_parameters(bool set_a_signed = false, bool set_b_signed = false);
 
 	bool has_keep_attr() const {
-		return get_bool_attribute("\\keep") || (module && module->design && module->design->module(type) &&
-				module->design->module(type)->get_bool_attribute("\\keep"));
+		return get_bool_attribute(ID::keep) || (module && module->design && module->design->module(type) &&
+				module->design->module(type)->get_bool_attribute(ID::keep));
 	}
 
 	template<typename T> void rewrite_sigspecs(T &functor);
@@ -1384,7 +1453,7 @@ struct RTLIL::Process : public RTLIL::AttrObject
 
 inline RTLIL::SigBit::SigBit() : wire(NULL), data(RTLIL::State::S0) { }
 inline RTLIL::SigBit::SigBit(RTLIL::State bit) : wire(NULL), data(bit) { }
-inline RTLIL::SigBit::SigBit(bool bit) : wire(NULL), data(bit ? RTLIL::S1 : RTLIL::S0) { }
+inline RTLIL::SigBit::SigBit(bool bit) : wire(NULL), data(bit ? State::S1 : State::S0) { }
 inline RTLIL::SigBit::SigBit(RTLIL::Wire *wire) : wire(wire), offset(0) { log_assert(wire && wire->width == 1); }
 inline RTLIL::SigBit::SigBit(RTLIL::Wire *wire, int offset) : wire(wire), offset(offset) { log_assert(wire != nullptr); }
 inline RTLIL::SigBit::SigBit(const RTLIL::SigChunk &chunk) : wire(chunk.wire) { log_assert(chunk.width == 1); if (wire) offset = chunk.offset; else data = chunk.data[0]; }

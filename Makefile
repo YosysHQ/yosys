@@ -19,6 +19,7 @@ ENABLE_VERIFIC := 0
 ENABLE_COVER := 1
 ENABLE_LIBYOSYS := 0
 ENABLE_PROTOBUF := 0
+ENABLE_ZLIB := 1
 
 # python wrappers
 ENABLE_PYOSYS := 0
@@ -260,7 +261,8 @@ CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
 LDFLAGS := $(filter-out -rdynamic,$(LDFLAGS)) -s
 LDLIBS := $(filter-out -lrt,$(LDLIBS))
 ABCMKARGS += ARCHFLAGS="-DWIN32_NO_DLL -DHAVE_STRUCT_TIMESPEC -fpermissive -w"
-ABCMKARGS += LIBS="lib/x86/pthreadVC2.lib -s" ABC_USE_NO_READLINE=1 CC="/usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-gcc"
+# TODO: Try to solve pthread linking issue in more appropriate way
+ABCMKARGS += LIBS="lib/x86/pthreadVC2.lib -s" LDFLAGS="-Wl,--allow-multiple-definition" ABC_USE_NO_READLINE=1 CC="/usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-gcc"
 EXE = .exe
 
 else ifeq ($(CONFIG),msys2)
@@ -384,6 +386,12 @@ ifeq ($(ENABLE_GLOB),1)
 CXXFLAGS += -DYOSYS_ENABLE_GLOB
 endif
 
+ifeq ($(ENABLE_ZLIB),1)
+CXXFLAGS += -DYOSYS_ENABLE_ZLIB
+LDLIBS += -lz
+endif
+
+
 ifeq ($(ENABLE_TCL),1)
 TCL_VERSION ?= tcl$(shell bash -c "tclsh <(echo 'puts [info tclversion]')")
 ifeq ($(OS), FreeBSD)
@@ -394,7 +402,7 @@ endif
 
 ifeq ($(CONFIG),mxe)
 CXXFLAGS += -DYOSYS_ENABLE_TCL
-LDLIBS += -ltcl86 -lwsock32 -lws2_32 -lnetapi32 -lz
+LDLIBS += -ltcl86 -lwsock32 -lws2_32 -lnetapi32 -lz -luserenv
 else
 CXXFLAGS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKG_CONFIG) --silence-errors --cflags tcl || echo -I$(TCL_INCLUDE)) -DYOSYS_ENABLE_TCL
 ifeq ($(OS), FreeBSD)
@@ -674,10 +682,12 @@ endif
 
 test: $(TARGETS) $(EXTRA_TARGETS)
 	+cd tests/simple && bash run-test.sh $(SEEDOPT)
+	+cd tests/simple_abc9 && bash run-test.sh $(SEEDOPT)
 	+cd tests/hana && bash run-test.sh $(SEEDOPT)
 	+cd tests/asicworld && bash run-test.sh $(SEEDOPT)
 	# +cd tests/realmath && bash run-test.sh $(SEEDOPT)
 	+cd tests/share && bash run-test.sh $(SEEDOPT)
+	+cd tests/opt_share && bash run-test.sh $(SEEDOPT)
 	+cd tests/fsm && bash run-test.sh $(SEEDOPT)
 	+cd tests/techmap && bash run-test.sh
 	+cd tests/memories && bash run-test.sh $(ABCOPT) $(SEEDOPT)
@@ -688,7 +698,6 @@ test: $(TARGETS) $(EXTRA_TARGETS)
 	+cd tests/opt && bash run-test.sh
 	+cd tests/aiger && bash run-test.sh $(ABCOPT)
 	+cd tests/arch && bash run-test.sh
-	+cd tests/simple_abc9 && bash run-test.sh $(SEEDOPT)
 	@echo ""
 	@echo "  Passed \"make test\"."
 	@echo ""
@@ -773,7 +782,7 @@ clean:
 	rm -rf kernel/*.pyh
 	if test -d manual; then cd manual && sh clean.sh; fi
 	rm -f $(OBJS) $(GENFILES) $(TARGETS) $(EXTRA_TARGETS) $(EXTRA_OBJS) $(PY_WRAP_INCLUDES) $(PY_WRAPPER_FILE).cc
-	rm -f kernel/version_*.o kernel/version_*.cc abc/abc-[0-9a-f]* abc/libabc-[0-9a-f]*.a
+	rm -f kernel/version_*.o kernel/version_*.cc
 	rm -f libs/*/*.d frontends/*/*.d passes/*/*.d backends/*/*.d kernel/*.d techlibs/*/*.d
 	rm -rf tests/asicworld/*.out tests/asicworld/*.log
 	rm -rf tests/hana/*.out tests/hana/*.log
@@ -862,9 +871,11 @@ config-mxe: clean
 
 config-msys2: clean
 	echo 'CONFIG := msys2' > Makefile.conf
+	echo 'ENABLE_PLUGINS := 0' >> Makefile.conf
 
 config-msys2-64: clean
 	echo 'CONFIG := msys2-64' > Makefile.conf
+	echo 'ENABLE_PLUGINS := 0' >> Makefile.conf
 
 config-cygwin: clean
 	echo 'CONFIG := cygwin' > Makefile.conf

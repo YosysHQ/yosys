@@ -1,0 +1,13 @@
+CONFIG VCCAUX = "3.3" ;
+
+
+NET "CLK"                   LOC = D9      | IOSTANDARD = LVCMOS33 | PERIOD = 12MHz ;
+
+NET "LED[7]"                     LOC = P15     | IOSTANDARD = LVCMOS33 | DRIVE = 8 | SLEW = SLOW ;
+NET "LED[6]"                     LOC = P16     | IOSTANDARD = LVCMOS33 | DRIVE = 8 | SLEW = SLOW ;
+NET "LED[5]"                     LOC = N15     | IOSTANDARD = LVCMOS33 | DRIVE = 8 | SLEW = SLOW ;
+NET "LED[4]"                     LOC = N16     | IOSTANDARD = LVCMOS33 | DRIVE = 8 | SLEW = SLOW ;
+NET "LED[3]"                     LOC = U17     | IOSTANDARD = LVCMOS33 | DRIVE = 8 | SLEW = SLOW ;
+NET "LED[2]"                     LOC = U18     | IOSTANDARD = LVCMOS33 | DRIVE = 8 | SLEW = SLOW ;
+NET "LED[1]"                     LOC = T17     | IOSTANDARD = LVCMOS33 | DRIVE = 8 | SLEW = SLOW ;
+NET "LED[0]"                     LOC = T18     | IOSTANDARD = LVCMOS33 | DRIVE = 8 | SLEW = SLOW ;

@@ -47,8 +47,8 @@ struct BruteForceEquivChecker
 	{
 		if (inputs.size() < mod1_inputs.size()) {
 			RTLIL::SigSpec inputs0 = inputs, inputs1 = inputs;
-			inputs0.append(RTLIL::Const(0, 1));
-			inputs1.append(RTLIL::Const(1, 1));
+			inputs0.append(State::S0);
+			inputs1.append(State::S1);
 			run_checker(inputs0);
 			run_checker(inputs1);
 			return;

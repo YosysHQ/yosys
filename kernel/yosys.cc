@@ -510,10 +510,13 @@ void yosys_setup()
 	if(already_setup)
 		return;
 	already_setup = true;
-	// if there are already IdString objects then we have a global initialization order bug
-	IdString empty_id;
-	log_assert(empty_id.index_ == 0);
-	IdString::get_reference(empty_id.index_);
+
+	RTLIL::ID::A = "\\A";
+	RTLIL::ID::B = "\\B";
+	RTLIL::ID::Y = "\\Y";
+	RTLIL::ID::keep = "\\keep";
+	RTLIL::ID::whitebox = "\\whitebox";
+	RTLIL::ID::blackbox = "\\blackbox";
 
 	#ifdef WITH_PYTHON
 		PyImport_AppendInittab((char*)"libyosys", INIT_MODULE);
@@ -575,9 +578,6 @@ void yosys_shutdown()
 #ifdef WITH_PYTHON
 	Py_Finalize();
 #endif
-
-	IdString empty_id;
-	IdString::put_reference(empty_id.index_);
 }
 
 RTLIL::IdString new_id(std::string file, int line, std::string func)
@@ -647,12 +647,12 @@ std::vector<std::string> glob_filename(const std::string &filename_pattern)
 
 void rewrite_filename(std::string &filename)
 {
-	if (filename.substr(0, 1) == "\"" && filename.substr(GetSize(filename)-1) == "\"")
+	if (filename.compare(0, 1, "\"") == 0 && filename.compare(GetSize(filename)-1, std::string::npos, "\"") == 0)
 		filename = filename.substr(1, GetSize(filename)-2);
-	if (filename.substr(0, 2) == "+/")
+	if (filename.compare(0, 2, "+/") == 0)
 		filename = proc_share_dirname() + filename.substr(2);
 #ifndef _WIN32
-	if (filename.substr(0, 2) == "~/")
+	if (filename.compare(0, 2, "~/") == 0)
 		filename = filename.replace(0, 1, getenv("HOME"));
 #endif
 }
@@ -894,23 +894,26 @@ void run_frontend(std::string filename, std::string command, std::string *backen
 		design = yosys_design;
 
 	if (command == "auto") {
-		if (filename.size() > 2 && filename.substr(filename.size()-2) == ".v")
+		std::string filename_trim = filename;
+		if (filename_trim.size() > 3 && filename_trim.compare(filename_trim.size()-3, std::string::npos, ".gz") == 0)
+			filename_trim.erase(filename_trim.size()-3);
+		if (filename_trim.size() > 2 && filename_trim.compare(filename_trim.size()-2, std::string::npos, ".v") == 0)
 			command = "verilog";
-		else if (filename.size() > 2 && filename.substr(filename.size()-3) == ".sv")
+		else if (filename_trim.size() > 2 && filename_trim.compare(filename_trim.size()-3, std::string::npos, ".sv") == 0)
 			command = "verilog -sv";
-		else if (filename.size() > 3 && filename.substr(filename.size()-4) == ".vhd")
+		else if (filename_trim.size() > 3 && filename_trim.compare(filename_trim.size()-4, std::string::npos, ".vhd") == 0)
 			command = "vhdl";
-		else if (filename.size() > 4 && filename.substr(filename.size()-5) == ".blif")
+		else if (filename_trim.size() > 4 && filename_trim.compare(filename_trim.size()-5, std::string::npos, ".blif") == 0)
 			command = "blif";
-		else if (filename.size() > 5 && filename.substr(filename.size()-6) == ".eblif")
+		else if (filename_trim.size() > 5 && filename_trim.compare(filename_trim.size()-6, std::string::npos, ".eblif") == 0)
 			command = "blif";
-		else if (filename.size() > 4 && filename.substr(filename.size()-5) == ".json")
+		else if (filename_trim.size() > 4 && filename_trim.compare(filename_trim.size()-5, std::string::npos, ".json") == 0)
 			command = "json";
-		else if (filename.size() > 3 && filename.substr(filename.size()-3) == ".il")
+		else if (filename_trim.size() > 3 && filename_trim.compare(filename_trim.size()-3, std::string::npos, ".il") == 0)
 			command = "ilang";
-		else if (filename.size() > 3 && filename.substr(filename.size()-3) == ".ys")
+		else if (filename_trim.size() > 3 && filename_trim.compare(filename_trim.size()-3, std::string::npos, ".ys") == 0)
 			command = "script";
-		else if (filename.size() > 3 && filename.substr(filename.size()-4) == ".tcl")
+		else if (filename_trim.size() > 3 && filename_trim.compare(filename_trim.size()-4, std::string::npos, ".tcl") == 0)
 			command = "tcl";
 		else if (filename == "-")
 			command = "script";
@@ -961,14 +964,18 @@ void run_frontend(std::string filename, std::string command, std::string *backen
 					command += next_line;
 				}
 				handle_label(command, from_to_active, run_from, run_to);
-				if (from_to_active)
+				if (from_to_active) {
 					Pass::call(design, command);
+					design->check();
+				}
 			}
 
 			if (!command.empty()) {
 				handle_label(command, from_to_active, run_from, run_to);
-				if (from_to_active)
+				if (from_to_active) {
 					Pass::call(design, command);
+					design->check();
+				}
 			}
 		}
 		catch (...) {
@@ -997,6 +1004,7 @@ void run_frontend(std::string filename, std::string command, std::string *backen
 		Pass::call(design, vector<string>({command, filename}));
 	else
 		Frontend::frontend_call(design, NULL, filename, command);
+	design->check();
 }
 
 void run_frontend(std::string filename, std::string command, RTLIL::Design *design)
@@ -1020,17 +1028,17 @@ void run_backend(std::string filename, std::string command, RTLIL::Design *desig
 		design = yosys_design;
 
 	if (command == "auto") {
-		if (filename.size() > 2 && filename.substr(filename.size()-2) == ".v")
+		if (filename.size() > 2 && filename.compare(filename.size()-2, std::string::npos, ".v") == 0)
 			command = "verilog";
-		else if (filename.size() > 3 && filename.substr(filename.size()-3) == ".il")
+		else if (filename.size() > 3 && filename.compare(filename.size()-3, std::string::npos, ".il") == 0)
 			command = "ilang";
-		else if (filename.size() > 4 && filename.substr(filename.size()-4) == ".aig")
+		else if (filename.size() > 4 && filename.compare(filename.size()-4, std::string::npos, ".aig") == 0)
 			command = "aiger";
-		else if (filename.size() > 5 && filename.substr(filename.size()-5) == ".blif")
+		else if (filename.size() > 5 && filename.compare(filename.size()-5, std::string::npos, ".blif") == 0)
 			command = "blif";
-		else if (filename.size() > 5 && filename.substr(filename.size()-5) == ".edif")
+		else if (filename.size() > 5 && filename.compare(filename.size()-5, std::string::npos, ".edif") == 0)
 			command = "edif";
-		else if (filename.size() > 5 && filename.substr(filename.size()-5) == ".json")
+		else if (filename.size() > 5 && filename.compare(filename.size()-5, std::string::npos, ".json") == 0)
 			command = "json";
 		else if (filename == "-")
 			command = "ilang";
@@ -1064,7 +1072,7 @@ static char *readline_cmd_generator(const char *text, int state)
 	}
 
 	for (; it != pass_register.end(); it++) {
-		if (it->first.substr(0, len) == text)
+		if (it->first.compare(0, len, text) == 0)
 			return strdup((it++)->first.c_str());
 	}
 	return NULL;
@@ -1086,7 +1094,7 @@ static char *readline_obj_generator(const char *text, int state)
 		if (design->selected_active_module.empty())
 		{
 			for (auto &it : design->modules_)
-				if (RTLIL::unescape_id(it.first).substr(0, len) == text)
+				if (RTLIL::unescape_id(it.first).compare(0, len, text) == 0)
 					obj_names.push_back(strdup(RTLIL::id2cstr(it.first)));
 		}
 		else
@@ -1095,19 +1103,19 @@ static char *readline_obj_generator(const char *text, int state)
 			RTLIL::Module *module = design->modules_.at(design->selected_active_module);
 
 			for (auto &it : module->wires_)
-				if (RTLIL::unescape_id(it.first).substr(0, len) == text)
+				if (RTLIL::unescape_id(it.first).compare(0, len, text) == 0)
 					obj_names.push_back(strdup(RTLIL::id2cstr(it.first)));
 
 			for (auto &it : module->memories)
-				if (RTLIL::unescape_id(it.first).substr(0, len) == text)
+				if (RTLIL::unescape_id(it.first).compare(0, len, text) == 0)
 					obj_names.push_back(strdup(RTLIL::id2cstr(it.first)));
 
 			for (auto &it : module->cells_)
-				if (RTLIL::unescape_id(it.first).substr(0, len) == text)
+				if (RTLIL::unescape_id(it.first).compare(0, len, text) == 0)
 					obj_names.push_back(strdup(RTLIL::id2cstr(it.first)));
 
 			for (auto &it : module->processes)
-				if (RTLIL::unescape_id(it.first).substr(0, len) == text)
+				if (RTLIL::unescape_id(it.first).compare(0, len, text) == 0)
 					obj_names.push_back(strdup(RTLIL::id2cstr(it.first)));
 		}
 
@@ -1180,6 +1188,7 @@ void shell(RTLIL::Design *design)
 				design->selection_stack.pop_back();
 			log_reset_stack();
 		}
+		design->check();
 	}
 	if (command == NULL)
 		printf("exit\n");

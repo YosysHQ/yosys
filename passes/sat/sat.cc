@@ -519,7 +519,7 @@ struct SatHelper
 					for (auto &p : d->connections()) {
 						if (d->type == "$dff" && p.first == "\\CLK")
 							continue;
-						if (d->type.substr(0, 6) == "$_DFF_" && p.first == "\\C")
+						if (d->type.begins_with("$_DFF_") && p.first == "\\C")
 							continue;
 						queued_signals.add(handled_signals.remove(sigmap(p.second)));
 					}
@@ -797,7 +797,7 @@ struct SatHelper
 
 			vector<string> data;
 			string name = wd.first.c_str();
-			while (name.substr(0, 1) == "\\")
+			while (name.compare(0, 1, "\\") == 0)
 				name = name.substr(1);
 
 			fprintf(f, "    { \"name\": \"%s\", \"wave\": \"", name.c_str());
@@ -1353,7 +1353,7 @@ struct SatPass : public Pass {
 		if (show_regs) {
 			pool<Wire*> reg_wires;
 			for (auto cell : module->cells()) {
-				if (cell->type == "$dff" || cell->type.substr(0, 6) == "$_DFF_")
+				if (cell->type == "$dff" || cell->type.begins_with("$_DFF_"))
 					for (auto bit : cell->getPort("\\Q"))
 						if (bit.wire)
 							reg_wires.insert(bit.wire);

@@ -18,7 +18,14 @@ Yosys 0.9 .. Yosys 0.9-dev
     - Renamed labels/options in synth_ecp5 (e.g. dram -> map_lutram; -nodram -> -nolutram)
     - Renamed labels in synth_intel (e.g. bram -> map_bram)
     - Renamed labels/options in synth_xilinx (e.g. dram -> map_lutram; -nodram -> -nolutram)
-
+    - Added automatic gzip decompression for frontends
+    - Added $_NMUX_ cell type
+    - Added automatic gzip compression (based on filename extension) for backends
+    - Improve attribute and parameter encoding in JSON to avoid ambiguities between
+      bit vectors and strings containing [01xz]*
+    - Added "opt_share" pass, run as part of "opt -full"
+    - Added "ice40_wrapcarry" to encapsulate SB_LUT+SB_CARRY pairs for techmapping
+    - Removed "ice40_unlut"
 
 Yosys 0.8 .. Yosys 0.8-dev
 --------------------------

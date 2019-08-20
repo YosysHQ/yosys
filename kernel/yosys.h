@@ -52,6 +52,7 @@
 #include <stdexcept>
 #include <memory>
 #include <cmath>
+#include <cstddef>
 
 #include <sstream>
 #include <fstream>
@@ -87,6 +88,10 @@ extern int Tcl_EvalFile(Tcl_Interp *interp, const char *fileName);
 extern void Tcl_Finalize(void);
 extern int Tcl_GetCommandInfo(Tcl_Interp *interp, const char *cmdName, Tcl_CmdInfo *infoPtr);
 extern const char *Tcl_GetStringResult(Tcl_Interp *interp);
+extern Tcl_Obj *Tcl_NewStringObj(const char *bytes, int length);
+extern Tcl_Obj *Tcl_NewIntObj(int intValue);
+extern Tcl_Obj *Tcl_NewListObj(int objc, Tcl_Obj *const objv[]);
+extern Tcl_Obj *Tcl_ObjSetVar2(Tcl_Interp *interp, Tcl_Obj *part1Ptr, Tcl_Obj *part2Ptr, Tcl_Obj *newValuePtr, int flags);
 #  endif
 #endif
 
@@ -300,8 +305,17 @@ RTLIL::IdString new_id(std::string file, int line, std::string func);
 #define NEW_ID \
 	YOSYS_NAMESPACE_PREFIX new_id(__FILE__, __LINE__, __FUNCTION__)
 
-#define ID(_str) \
-	([]() { static YOSYS_NAMESPACE_PREFIX RTLIL::IdString _id(_str); return _id; })()
+// Create a statically allocated IdString object, using for example ID(A) or ID($add).
+//
+// Recipe for Converting old code that is using conversion of strings like "\\A" and
+// "$add" for creating IdStrings: Run below SED command on the .cc file and then use for
+// example "meld foo.cc foo.cc.orig" to manually compile errors, if necessary.
+//
+//  sed -i.orig -r 's/"\\\\([a-zA-Z0-9_]+)"/ID(\1)/g; s/"(\$[a-zA-Z0-9_]+)"/ID(\1)/g;' <filename>
+//
+#define ID(_id) ([]() { const char *p = "\\" #_id, *q = p[1] == '$' ? p+1 : p; \
+        static const YOSYS_NAMESPACE_PREFIX RTLIL::IdString id(q); return id; })()
+namespace ID = RTLIL::ID;
 
 RTLIL::Design *yosys_get_design();
 std::string proc_self_dirname();
