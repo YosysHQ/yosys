@@ -1502,7 +1502,10 @@ std::string AstModule::derive_common(RTLIL::Design *design, dict<RTLIL::IdString
 	rewrite_parameter:
 			para_info += stringf("%s=%s", child->str.c_str(), log_signal(RTLIL::SigSpec(parameters[para_id])));
 			delete child->children.at(0);
-			if ((parameters[para_id].flags & RTLIL::CONST_FLAG_STRING) != 0)
+			if ((parameters[para_id].flags & RTLIL::CONST_FLAG_REAL) != 0) {
+				child->children[0] = new AstNode(AST_REALVALUE);
+				child->children[0]->realvalue = std::stod(parameters[para_id].decode_string());
+			} else if ((parameters[para_id].flags & RTLIL::CONST_FLAG_STRING) != 0)
 				child->children[0] = AstNode::mkconst_str(parameters[para_id].decode_string());
 			else
 				child->children[0] = AstNode::mkconst_bits(parameters[para_id].bits, (parameters[para_id].flags & RTLIL::CONST_FLAG_SIGNED) != 0);
