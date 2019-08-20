@@ -1,0 +1,7 @@
+equiv_opt -map ../../techlibs/ice40/cells_sim.v synth_ice40
+synth_ice40
+select -assert-count 12 t:SB_LUT4
+select -assert-count 7 t:SB_CARRY
+select -assert-count 2 t:$logic_and
+select -assert-count 2 t:$logic_or
+write_verilog ./temp/add_sub_synth.v

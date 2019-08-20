@@ -1,0 +1,5 @@
+equiv_opt -map ../../techlibs/ice40/cells_sim.v synth_ice40
+synth_ice40
+select -assert-count 2 t:SB_DFFR
+select -assert-count 1 t:SB_DFFE
+write_verilog ./temp/dffs_synth.v

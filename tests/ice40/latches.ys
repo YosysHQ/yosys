@@ -1,0 +1,5 @@
+synth_ice40
+equiv_opt -map ../../techlibs/ice40/cells_sim.v synth_ice40
+proc
+select -assert-count 5 t:SB_LUT4
+write_verilog ./temp/latches_synth.v
