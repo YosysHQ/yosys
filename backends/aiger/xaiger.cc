@@ -331,14 +331,15 @@ struct XAigerWriter
 				}
 
 				for (const auto &conn : cell->connections()) {
-					if (cell->input(conn.first)) {
+					auto port_wire = inst_module->wire(conn.first);
+					if (port_wire->port_input) {
 						// Ignore inout for the sake of topographical ordering
-						if (cell->output(conn.first)) continue;
+						if (port_wire->port_output) continue;
 						for (auto bit : sigmap(conn.second))
 							bit_users[bit].insert(cell->name);
 					}
 
-					if (cell->output(conn.first))
+					if (port_wire->port_output)
 						for (auto bit : sigmap(conn.second))
 							bit_drivers[bit].insert(cell->name);
 				}
@@ -354,7 +355,7 @@ struct XAigerWriter
 						log_error("Connection '%s' on cell '%s' (type '%s') not recognised!\n", log_id(c.first), log_id(cell), log_id(cell->type));
 
 					if (is_input) {
-						for (auto b : c.second.bits()) {
+						for (auto b : sigmap(c.second)) {
 							Wire *w = b.wire;
 							if (!w) continue;
 							if (!w->port_output || !cell_known) {
@@ -380,7 +381,7 @@ struct XAigerWriter
 							}
 						}
 
-						for (auto b : c.second.bits()) {
+						for (auto b : sigmap(c.second)) {
 							Wire *w = b.wire;
 							if (!w) continue;
 							input_bits.insert(b);
@@ -393,8 +394,6 @@ struct XAigerWriter
 								arrival_times[b] = arrival;
 						}
 					}
-
-
 				}
 			}
 
