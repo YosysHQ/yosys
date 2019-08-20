@@ -14,6 +14,10 @@ Yosys 0.9 .. Yosys 0.9-dev
     - Added "synth -abc9" (experimental)
     - Added "script -scriptwire
     - "synth_xilinx" to now infer wide multiplexers (-widemux <min> to enable)
+    - Renamed labels/options in synth_ice40 (e.g. dram -> map_lutram; -nodram -> -nolutram)
+    - Renamed labels/options in synth_ecp5 (e.g. dram -> map_lutram; -nodram -> -nolutram)
+    - Renamed labels in synth_intel (e.g. bram -> map_bram)
+    - Renamed labels/options in synth_xilinx (e.g. dram -> map_lutram; -nodram -> -nolutram)
     - Added automatic gzip decompression for frontends
     - Added $_NMUX_ cell type
     - Added automatic gzip compression (based on filename extension) for backends
