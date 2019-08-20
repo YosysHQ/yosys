@@ -289,7 +289,8 @@ endmodule
 
 (* abc_box_id = 5 *)
 module RAM32X1D (
-  output DPO, SPO,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L904-L905
+  (* abc_arrival=1472 *) output DPO, SPO,
   (* abc_scc_break *) input D,
   input  WCLK,
   (* abc_scc_break *) input WE,
@@ -309,7 +310,8 @@ endmodule
 
 (* abc_box_id = 6 *)
 module RAM64X1D (
-  output DPO, SPO,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L904-L905
+  (* abc_arrival=1472 *) output DPO, SPO,
   (* abc_scc_break *) input D,
   input  WCLK,
   (* abc_scc_break *) input WE,
@@ -329,7 +331,8 @@ endmodule
 
 (* abc_box_id = 7 *)
 module RAM128X1D (
-  output       DPO, SPO,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L904-L905
+  (* abc_arrival=1472 *) output DPO, SPO,
   (* abc_scc_break *) input D,
   input        WCLK,
   (* abc_scc_break *) input WE,
