@@ -139,7 +139,10 @@ module \$__ABC_FDPE_1 (output Q,
   );
 endmodule
 
-module \$__ABC_LUTMUX (input A, input [5:0] S, output Y);
+module \$__ABC_LUTMUX6 (input A, input [5:0] S, output Y);
+  assign Y = A;
+endmodule
+module \$__ABC_LUTMUX7 (input A, input [6:0] S, output Y);
   assign Y = A;
 endmodule
 
@@ -200,5 +203,37 @@ module \$__ABC_RAM128X1D (
     .D(D), .WCLK(WCLK), .WE(WE),
     .A(A),
     .DPRA(DPRA)
+  );
+endmodule
+
+module \$__ABC_SRL16E (
+  output Q,
+  input A0, A1, A2, A3, CE, CLK, D
+);
+  parameter [15:0] INIT = 16'h0000;
+  parameter [0:0] IS_CLK_INVERTED = 1'b0;
+
+  SRL16E #(
+    .INIT(INIT), .IS_CLK_INVERTED(IS_CLK_INVERTED)
+  ) _TECHMAP_REPLACE_ (
+    .Q(Q),
+    .A0(A0), .A1(A1), .A2(A2), .A3(A3), .CE(CE), .CLK(CLK), .D(D)
+  );
+endmodule
+
+module \$__ABC_SRLC32E (
+  output Q,
+  output Q31,
+  input [4:0] A,
+  input CE, CLK, D
+);
+  parameter [31:0] INIT = 32'h00000000;
+  parameter [0:0] IS_CLK_INVERTED = 1'b0;
+
+  SRLC32E #(
+    .INIT(INIT), .IS_CLK_INVERTED(IS_CLK_INVERTED)
+  ) _TECHMAP_REPLACE_ (
+    .Q(Q), .Q31(Q31),
+    .A(A), .CE(CE), .CLK(CLK), .D(D)
   );
 endmodule

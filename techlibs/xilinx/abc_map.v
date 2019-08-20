@@ -185,5 +185,41 @@ module \$__ABC_RAM128X1D (
   );
   \$__ABC_LUTMUX7 dpo (.A(\$DPO ), .S(A), .Y(DPO));
   \$__ABC_LUTMUX7 spo (.A(\$SPO ), .S(A), .Y(SPO));
+endmodule
 
+module SRL16E (
+  output Q,
+  input A0, A1, A2, A3, CE, CLK, D
+);
+  parameter [15:0] INIT = 16'h0000;
+  parameter [0:0] IS_CLK_INVERTED = 1'b0;
+  wire \$Q ;
+  \$__ABC_SRL16E #(
+    .INIT(INIT), .IS_CLK_INVERTED(IS_CLK_INVERTED)
+  ) _TECHMAP_REPLACE_ (
+    .Q(\$Q ),
+    .A0(A0), .A1(A1), .A2(A2), .A3(A3), .CE(CE), .CLK(CLK), .D(D)
+  );
+  // TODO: Check if SRL uses fast inputs or slow inputs
+  \$__ABC_LUTMUX6 q (.A(\$Q ), .S({A0, A1, A2, A3, 1'b0, 1'b0}), .Y(Q));
+endmodule
+
+module SRLC32E (
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L904-L905
+  (* abc_arrival=1472 *) output Q,
+  (* abc_arrival=1114 *) output Q31,
+  input [4:0] A,
+  input CE, CLK, D
+);
+  parameter [31:0] INIT = 32'h00000000;
+  parameter [0:0] IS_CLK_INVERTED = 1'b0;
+  wire \$Q ;
+  \$__ABC_SRLC32E #(
+    .INIT(INIT), .IS_CLK_INVERTED(IS_CLK_INVERTED)
+  ) _TECHMAP_REPLACE_ (
+    .Q(\$Q ), .Q31(Q31),
+    .A(A), .CE(CE), .CLK(CLK), .D(D)
+  );
+  // TODO: Check if SRL uses fast inputs or slow inputs
+  \$__ABC_LUTMUX6 q (.A(\$Q ), .S({A, 1'b0}), .Y(Q));
 endmodule

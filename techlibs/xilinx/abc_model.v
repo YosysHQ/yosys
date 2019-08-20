@@ -123,8 +123,8 @@ endmodule
 
 
 module \$__ABC_RAM32X1D (
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L904-L905
-  (* abc_arrival=1472 *) output DPO, SPO,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
+  (* abc_arrival=1153 *) output DPO, SPO,
   input  D,
   input  WCLK,
   input  WE,
@@ -134,8 +134,8 @@ module \$__ABC_RAM32X1D (
 endmodule
 
 module \$__ABC_RAM64X1D (
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L904-L905
-  (* abc_arrival=1472 *) output DPO, SPO,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
+  (* abc_arrival=1153 *) output DPO, SPO,
   input  D,
   input  WCLK,
   input  WE,
@@ -147,8 +147,8 @@ module \$__ABC_RAM64X1D (
 endmodule
 
 module \$__ABC_RAM128X1D (
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L904-L905
-  (* abc_arrival=1472 *) output DPO, SPO,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
+  (* abc_arrival=1153 *) output DPO, SPO,
   input        D,
   input        WCLK,
   input        WE,
@@ -156,4 +156,24 @@ module \$__ABC_RAM128X1D (
 );
   parameter INIT = 128'h0;
   parameter IS_WCLK_INVERTED = 1'b0;
+endmodule
+
+module SRL16E (
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L904-L905
+  (* abc_arrival=1472 *) output Q,
+  input A0, A1, A2, A3, CE, CLK, D
+);
+  parameter [15:0] INIT = 16'h0000;
+  parameter [0:0] IS_CLK_INVERTED = 1'b0;
+endmodule
+
+module SRLC32E (
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L904-L905
+  (* abc_arrival=1472 *) output Q,
+  (* abc_arrival=1114 *) output Q31,
+  input [4:0] A,
+  input CE, CLK, D
+);
+  parameter [31:0] INIT = 32'h00000000;
+  parameter [0:0] IS_CLK_INVERTED = 1'b0;
 endmodule
