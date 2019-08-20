@@ -230,9 +230,9 @@ struct SynthXilinxPass : public ScriptPass
 	{
 		if (check_label("begin")) {
 			if (vpr)
-				run("read_verilog -lib -icells -D _ABC -D_EXPLICIT_CARRY +/xilinx/cells_sim.v");
+				run("read_verilog -lib -icells -D_EXPLICIT_CARRY +/xilinx/cells_sim.v");
 			else
-				run("read_verilog -lib -icells -D _ABC +/xilinx/cells_sim.v");
+				run("read_verilog -lib -icells +/xilinx/cells_sim.v");
 
 			run("read_verilog -lib +/xilinx/cells_xtra.v");
 
@@ -373,11 +373,11 @@ struct SynthXilinxPass : public ScriptPass
 		}
 
 		if (check_label("map_cells")) {
-			std::string techmap_args = "-map +/techmap.v -D _ABC -map +/xilinx/cells_map.v";
+			std::string techmap_args = "-map +/techmap.v -map +/xilinx/cells_map.v";
 			if (widemux > 0)
 				techmap_args += stringf(" -D MIN_MUX_INPUTS=%d", widemux);
 			if (abc9)
-				techmap_args += " -map +/xilinx/ff_map.v -D _ABC -map +/xilinx/abc_ff.v";
+				techmap_args += " -map +/xilinx/ff_map.v -map +/xilinx/abc_map.v";
 			run("techmap " + techmap_args);
 			run("clean");
 		}
@@ -389,7 +389,7 @@ struct SynthXilinxPass : public ScriptPass
 			else if (abc9) {
 				if (family != "xc7")
 					log_warning("'synth_xilinx -abc9' currently supports '-family xc7' only.\n");
-				run("read_verilog -icells -lib +/xilinx/abc_ff.v");
+				run("read_verilog -icells -lib +/xilinx/abc_model.v");
 				if (nowidelut)
 					run("abc9 -lut +/xilinx/abc_xc7_nowide.lut -box +/xilinx/abc_xc7.box -W " + std::to_string(XC7_WIRE_DELAY));
 				else
@@ -408,7 +408,7 @@ struct SynthXilinxPass : public ScriptPass
 			if (!nosrl || help_mode)
 				run("shregmap -minlen 3 -init -params -enpol any_or_none", "(skip if '-nosrl')");
 			if (abc9)
-				run("techmap -map +/xilinx/lut_map.v -map +/xilinx/cells_map.v");
+				run("techmap -map +/xilinx/lut_map.v -map +/xilinx/abc_unmap.v");
 			else
 				run("techmap -map +/xilinx/lut_map.v -map +/xilinx/cells_map.v -map +/xilinx/ff_map.v");
 			run("dffinit -ff FDRE Q INIT -ff FDCE Q INIT -ff FDPE Q INIT -ff FDSE Q INIT "

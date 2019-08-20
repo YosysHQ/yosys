@@ -731,28 +731,21 @@ void AigerReader::parse_aiger_binary()
 
 void AigerReader::post_process()
 {
-	const RTLIL::Wire* n0 = module->wire("\\__0__");
-	const RTLIL::Wire* n1 = module->wire("\\__1__");
-
 	pool<IdString> seen_boxes;
-	dict<IdString, RTLIL::Module*> flop_data;
+	pool<IdString> flops;
 	unsigned ci_count = 0, co_count = 0, flop_count = 0;
 	for (auto cell : boxes) {
 		RTLIL::Module* box_module = design->module(cell->type);
 		log_assert(box_module);
 
-		RTLIL::Module* flop_module = nullptr;
+		bool is_flop = false;
 		if (seen_boxes.insert(cell->type).second) {
-			auto it = box_module->attributes.find("\\abc_flop");
-			if (it != box_module->attributes.end()) {
+			if (box_module->attributes.count("\\abc_flop")) {
 				log_assert(flop_count < flopNum);
-				auto abc_flop = it->second.decode_string();
-				flop_module = design->module(RTLIL::escape_id(abc_flop));
-				if (!flop_module)
-					log_error("'abc_flop' attribute value '%s' on module '%s' is not a valid module.\n", abc_flop.c_str(), log_id(cell->type));
-				flop_data[cell->type] = flop_module;
+				flops.insert(cell->type);
+				is_flop = true;
 			}
-			it = box_module->attributes.find("\\abc_carry");
+			auto it = box_module->attributes.find("\\abc_carry");
 			if (it != box_module->attributes.end()) {
 				RTLIL::Wire *carry_in = nullptr, *carry_out = nullptr;
 				auto carry_in_out = it->second.decode_string();
@@ -791,11 +784,8 @@ void AigerReader::post_process()
 				carry_out->port_id = ports.size();
 			}
 		}
-		else {
-			auto it = flop_data.find(cell->type);
-			if (it != flop_data.end())
-				flop_module = it->second;
-		}
+		else
+			is_flop = flops.count(cell->type);
 
 		// NB: Assume box_module->ports are sorted alphabetically
 		//     (as RTLIL::Module::fixup_ports() would do)
@@ -822,11 +812,11 @@ void AigerReader::post_process()
 				rhs.append(wire);
 			}
 
-			if (!flop_module || port_name != "\\$pastQ")
+			if (!is_flop || port_name != "\\$pastQ")
 				cell->setPort(port_name, rhs);
 		}
 
-		if (flop_module) {
+		if (is_flop) {
 			RTLIL::Wire *d = outputs[outputs.size() - flopNum + flop_count];
 			log_assert(d);
 			log_assert(d->port_output);
@@ -838,20 +828,9 @@ void AigerReader::post_process()
 			q->port_input = false;
 
 			flop_count++;
-			cell->type = flop_module->name;
 			module->connect(q, d);
 			cell->set_bool_attribute("\\abc_flop");
 			continue;
-		}
-
-		// Remove the async mux by shorting out its input and output
-		if (cell->type == "$__ABC_ASYNC") {
-			RTLIL::Wire* A = cell->getPort("\\A").as_wire();
-			if (A == n0 || A == n1) A = nullptr;
-			auto it = cell->connections_.find("\\Y");
-			log_assert(it != cell->connections_.end());
-			module->connect(it->second, A);
-			cell->connections_.erase(it);
 		}
 	}
 

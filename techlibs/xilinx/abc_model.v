@@ -20,93 +20,12 @@
 
 // ============================================================================
 
-// Max delays from https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L237-L251
-
-module FDRE (output reg Q, input C, CE, D, R);
-  parameter [0:0] INIT = 1'b0;
-  parameter [0:0] IS_C_INVERTED = 1'b0;
-  parameter [0:0] IS_D_INVERTED = 1'b0;
-  parameter [0:0] IS_R_INVERTED = 1'b0;
-  wire \$nextQ ;
-  \$__ABC_FDRE #(
-    .INIT(INIT),
-    .IS_C_INVERTED(IS_C_INVERTED),
-    .IS_D_INVERTED(IS_D_INVERTED),
-    .IS_R_INVERTED(IS_R_INVERTED)
-  ) _TECHMAP_REPLACE_ (
-    .D(D), .Q(\$nextQ ), .\$pastQ (Q), .C(C), .CE(CE), .R(R)
-  );
-  \$__ABC_FF_ abc_dff (.D(\$nextQ ), .Q(Q));
-endmodule
-module FDRE_1 (output reg Q, input C, CE, D, R);
-  parameter [0:0] INIT = 1'b0;
-  wire \$nextQ ;
-  \$__ABC_FDRE_1 #(.INIT(|0)
-  ) _TECHMAP_REPLACE_ (
-    .D(D), .Q(\$nextQ ), .\$pastQ (Q), .C(C), .CE(CE), .R(R)
-  );
-  \$__ABC_FF_ abc_dff (.D(\$nextQ ), .Q(Q));
+(* abc_box_id = 3, lib_whitebox *)
+module \$__XILINX_MUXF78 (output O, input I0, I1, I2, I3, S0, S1);
+  assign O = S1 ? (S0 ? I3 : I2)
+                : (S0 ? I1 : I0);
 endmodule
 
-module FDCE (output reg Q, input C, CE, D, CLR);
-  parameter [0:0] INIT = 1'b0;
-  parameter [0:0] IS_C_INVERTED = 1'b0;
-  parameter [0:0] IS_D_INVERTED = 1'b0;
-  parameter [0:0] IS_CLR_INVERTED = 1'b0;
-  wire \$nextQ , \$currQ ;
-  \$__ABC_FDCE #(
-    .INIT(INIT),
-    .IS_C_INVERTED(IS_C_INVERTED),
-    .IS_D_INVERTED(IS_D_INVERTED),
-    .IS_CLR_INVERTED(IS_CLR_INVERTED)
-  ) _TECHMAP_REPLACE_ (
-    .D(D), .Q(\$nextQ ), .\$pastQ (Q), .C(C), .CE(CE), .CLR(CLR)
-  );
-  \$__ABC_FF_ abc_dff (.D(\$nextQ ), .Q(\$currQ ));
-  \$__ABC_ASYNC abc_async (.A(\$currQ ), .S(CLR), .Y(Q));
-endmodule
-module FDCE_1 (output reg Q, input C, CE, D, CLR);
-  parameter [0:0] INIT = 1'b0;
-  wire \$nextQ , \$currQ ;
-  \$__ABC_FDCE_1 #(
-    .INIT(INIT)
-  ) _TECHMAP_REPLACE_ (
-    .D(D), .Q(\$nextQ ), .\$pastQ (Q), .C(C), .CE(CE), .CLR(CLR)
-  );
-  \$__ABC_FF_ abc_dff (.D(\$nextQ ), .Q(\$currQ ));
-  \$__ABC_ASYNC abc_async (.A(\$currQ ), .S(CLR), .Y(Q));
-endmodule
-
-module FDPE (output reg Q, input C, CE, D, PRE);
-  parameter [0:0] INIT = 1'b0;
-  parameter [0:0] IS_C_INVERTED = 1'b0;
-  parameter [0:0] IS_D_INVERTED = 1'b0;
-  parameter [0:0] IS_PRE_INVERTED = 1'b0;
-  wire \$nextQ , \$currQ ;
-  \$__ABC_FDPE #(
-    .INIT(INIT),
-    .IS_C_INVERTED(IS_C_INVERTED),
-    .IS_D_INVERTED(IS_D_INVERTED),
-    .IS_PRE_INVERTED(IS_PRE_INVERTED)
-  ) _TECHMAP_REPLACE_ (
-    .D(D), .Q(\$nextQ ), .\$pastQ (Q), .C(C), .CE(CE), .PRE(PRE)
-  );
-  \$__ABC_FF_ abc_dff (.D(\$nextQ ), .Q(\$currQ ));
-  \$__ABC_ASYNC abc_async (.A(\$currQ ), .S(PRE), .Y(Q));
-endmodule
-module FDPE_1 (output reg Q, input C, CE, D, PRE);
-  parameter [0:0] INIT = 1'b0;
-  wire \$nextQ , \$currQ ;
-  \$__ABC_FDPE_1 #(
-    .INIT(INIT)
-  ) _TECHMAP_REPLACE_ (
-    .D(D), .Q(\$nextQ ), .\$pastQ (Q), .C(C), .CE(CE), .PRE(PRE)
-  );
-  \$__ABC_FF_ abc_dff (.D(\$nextQ ), .Q(\$currQ ));
-  \$__ABC_ASYNC abc_async (.A(\$currQ ), .S(PRE), .Y(Q));
-endmodule
-
-`ifndef _ABC
 module \$__ABC_FF_ (input C, D, output Q);
 endmodule
 
@@ -114,7 +33,7 @@ endmodule
 module \$__ABC_ASYNC (input A, S, output Y);
 endmodule
 
-(* abc_box_id=1001, lib_whitebox, abc_flop="FDRE", abc_flop_clk_pol="!IS_C_INVERTED", abc_flop_en_pol=1 *)
+(* abc_box_id=1001, lib_whitebox, abc_flop *)
 module \$__ABC_FDRE ((* abc_flop_q, abc_arrival=303 *) output Q,
                      (* abc_flop_clk *) input C,
                      (* abc_flop_en *)  input CE,
@@ -124,20 +43,24 @@ module \$__ABC_FDRE ((* abc_flop_q, abc_arrival=303 *) output Q,
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
   parameter [0:0] IS_R_INVERTED = 1'b0;
+  parameter CLK_POLARITY = !IS_C_INVERTED;
+  parameter EN_POLARITY = 1'b1;
   assign Q = (R ^ IS_R_INVERTED) ? 1'b0 : (CE ? (D ^ IS_D_INVERTED) : \$pastQ );
 endmodule
 
-(* abc_box_id = 1002, lib_whitebox, abc_flop = "FDRE_1", abc_flop_clk_pol=1, abc_flop_en_pol=1 *)
+(* abc_box_id=1002, lib_whitebox, abc_flop *)
 module \$__ABC_FDRE_1 ((* abc_flop_q, abc_arrival=303 *) output Q,
                        (* abc_flop_clk *) input C,
                        (* abc_flop_en *)  input CE,
                        (* abc_flop_d *)   input D,
                        input R, \$pastQ );
   parameter [0:0] INIT = 1'b0;
+  parameter CLK_POLARITY = 1'b0;
+  parameter EN_POLARITY = 1'b1;
   assign Q = R ? 1'b0 : (CE ? D : \$pastQ );
 endmodule
 
-(* abc_box_id = 1003, lib_whitebox, abc_flop = "FDCE", abc_flop_clk_pol="!IS_C_INVERTED", abc_flop_en_pol=1 *)
+(* abc_box_id=1003, lib_whitebox, abc_flop *)
 module \$__ABC_FDCE ((* abc_flop_q, abc_arrival=303 *) output Q,
                      (* abc_flop_clk *) input C,
                      (* abc_flop_en *)  input CE,
@@ -147,20 +70,24 @@ module \$__ABC_FDCE ((* abc_flop_q, abc_arrival=303 *) output Q,
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
   parameter [0:0] IS_CLR_INVERTED = 1'b0;
+  parameter CLK_POLARITY = !IS_C_INVERTED;
+  parameter EN_POLARITY = 1'b1;
   assign Q = (CE && !(CLR ^ IS_CLR_INVERTED)) ? (D ^ IS_D_INVERTED) : \$pastQ ;
 endmodule
 
-(* abc_box_id = 1004, lib_whitebox, abc_flop = "FDCE_1", abc_flop_clk_pol=1, abc_flop_en_pol=1 *)
+(* abc_box_id=1004, lib_whitebox, abc_flop *)
 module \$__ABC_FDCE_1 ((* abc_flop_q, abc_arrival=303 *) output Q,
                        (* abc_flop_clk *) input C,
                        (* abc_flop_en *)  input CE,
                        (* abc_flop_d *)   input D,
                        input CLR, \$pastQ );
   parameter [0:0] INIT = 1'b0;
+  parameter CLK_POLARITY = 1'b0;
+  parameter EN_POLARITY = 1'b1;
   assign Q = (CE && !CLR) ? D : \$pastQ ;
 endmodule
 
-(* abc_box_id=1005, lib_whitebox, abc_flop="FDPE", abc_flop_clk_pol="!IS_C_INVERTED", abc_flop_en_pol=1 *)
+(* abc_box_id=1005, lib_whitebox, abc_flop *)
 module \$__ABC_FDPE ((* abc_flop_q, abc_arrival=303 *) output Q,
                      (* abc_flop_clk *) input C,
                      (* abc_flop_en *)  input CE,
@@ -170,17 +97,52 @@ module \$__ABC_FDPE ((* abc_flop_q, abc_arrival=303 *) output Q,
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
   parameter [0:0] IS_PRE_INVERTED = 1'b0;
+  parameter CLK_POLARITY = !IS_C_INVERTED;
+  parameter EN_POLARITY = 1'b1;
   assign Q = (CE && !(PRE ^ IS_PRE_INVERTED)) ? (D ^ IS_D_INVERTED) : \$pastQ ;
 endmodule
 
-(* abc_box_id=1006, lib_whitebox, abc_flop="FDPE_1", abc_flop_clk_pol=1, abc_flop_en_pol=1 *)
+(* abc_box_id=1006, lib_whitebox, abc_flop *)
 module \$__ABC_FDPE_1 ((* abc_flop_q, abc_arrival=303 *) output Q,
                        (* abc_flop_clk *) input C,
                        (* abc_flop_en *)  input CE,
                        (* abc_flop_d *)   input D,
                        input PRE, \$pastQ );
-  parameter [0:0] INIT = 1'b0;
+  parameter [0:0] INIT = 1'b0; 
+  parameter CLK_POLARITY = 1'b0;
+  parameter EN_POLARITY = 1'b1;
   assign Q = (CE && !PRE) ? D : \$pastQ ;
 endmodule
 
-`endif
+module \$__XILINX_MUXF78 (O, I0, I1, I2, I3, S0, S1);
+  output O;
+  input I0, I1, I2, I3, S0, S1;
+  wire T0, T1;
+  parameter _TECHMAP_BITS_CONNMAP_ = 0;
+  parameter [_TECHMAP_BITS_CONNMAP_-1:0] _TECHMAP_CONNMAP_I0_ = 0;
+  parameter [_TECHMAP_BITS_CONNMAP_-1:0] _TECHMAP_CONNMAP_I1_ = 0;
+  parameter [_TECHMAP_BITS_CONNMAP_-1:0] _TECHMAP_CONNMAP_I2_ = 0;
+  parameter [_TECHMAP_BITS_CONNMAP_-1:0] _TECHMAP_CONNMAP_I3_ = 0;
+  parameter _TECHMAP_CONSTMSK_S0_ = 0;
+  parameter _TECHMAP_CONSTVAL_S0_ = 0;
+  parameter _TECHMAP_CONSTMSK_S1_ = 0;
+  parameter _TECHMAP_CONSTVAL_S1_ = 0;
+  if (_TECHMAP_CONSTMSK_S0_ && _TECHMAP_CONSTVAL_S0_ === 1'b1)
+    assign T0 = I1;
+  else if (_TECHMAP_CONSTMSK_S0_ || _TECHMAP_CONNMAP_I0_ === _TECHMAP_CONNMAP_I1_)
+    assign T0 = I0;
+  else
+    MUXF7 mux7a (.I0(I0), .I1(I1), .S(S0), .O(T0));
+  if (_TECHMAP_CONSTMSK_S0_ && _TECHMAP_CONSTVAL_S0_ === 1'b1)
+    assign T1 = I3;
+  else if (_TECHMAP_CONSTMSK_S0_ || _TECHMAP_CONNMAP_I2_ === _TECHMAP_CONNMAP_I3_)
+    assign T1 = I2;
+  else
+    MUXF7 mux7b (.I0(I2), .I1(I3), .S(S0), .O(T1));
+  if (_TECHMAP_CONSTMSK_S1_ && _TECHMAP_CONSTVAL_S1_ === 1'b1)
+    assign O = T1;
+  else if (_TECHMAP_CONSTMSK_S1_ || (_TECHMAP_CONNMAP_I0_ === _TECHMAP_CONNMAP_I1_ && _TECHMAP_CONNMAP_I1_ === _TECHMAP_CONNMAP_I2_ && _TECHMAP_CONNMAP_I2_ === _TECHMAP_CONNMAP_I3_))
+    assign O = T0;
+  else
+    MUXF8 mux8 (.I0(T0), .I1(T1), .S(S1), .O(O));
+endmodule
