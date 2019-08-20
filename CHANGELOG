@@ -19,6 +19,7 @@ Yosys 0.9 .. Yosys 0.9-dev
     - Added automatic gzip compression (based on filename extension) for backends
     - Improve attribute and parameter encoding in JSON to avoid ambiguities between
       bit vectors and strings containing [01xz]*
+    - Improvements in pmgen: subpattern and recursive matches
     - Added "opt_share" pass, run as part of "opt -full"
     - Added "ice40_wrapcarry" to encapsulate SB_LUT+SB_CARRY pairs for techmapping
     - Removed "ice40_unlut"
