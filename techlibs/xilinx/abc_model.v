@@ -113,3 +113,47 @@ module \$__ABC_FDPE_1 ((* abc_flop_q, abc_arrival=303 *) output Q,
   parameter EN_POLARITY = 1'b1;
   assign Q = (CE && !PRE) ? D : \$pastQ ;
 endmodule
+
+(* abc_box_id=2000 *)
+module \$__ABC_LUTMUX6 (input A, input [5:0] S, output Y);
+endmodule
+(* abc_box_id=2001 *)
+module \$__ABC_LUTMUX7 (input A, input [6:0] S, output Y);
+endmodule
+
+
+module \$__ABC_RAM32X1D (
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L904-L905
+  (* abc_arrival=1472 *) output DPO, SPO,
+  input  D,
+  input  WCLK,
+  input  WE,
+  input  A0, A1, A2, A3, A4,
+  input  DPRA0, DPRA1, DPRA2, DPRA3, DPRA4
+);
+endmodule
+
+module \$__ABC_RAM64X1D (
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L904-L905
+  (* abc_arrival=1472 *) output DPO, SPO,
+  input  D,
+  input  WCLK,
+  input  WE,
+  input  A0, A1, A2, A3, A4, A5,
+  input  DPRA0, DPRA1, DPRA2, DPRA3, DPRA4, DPRA5
+);
+  parameter INIT = 64'h0;
+  parameter IS_WCLK_INVERTED = 1'b0;
+endmodule
+
+module \$__ABC_RAM128X1D (
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L904-L905
+  (* abc_arrival=1472 *) output DPO, SPO,
+  input        D,
+  input        WCLK,
+  input        WE,
+  input  [6:0] A, DPRA
+);
+  parameter INIT = 128'h0;
+  parameter IS_WCLK_INVERTED = 1'b0;
+endmodule

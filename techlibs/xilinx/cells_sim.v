@@ -287,13 +287,11 @@ module FDPE_1 (output reg Q, input C, CE, D, PRE);
   always @(negedge C, posedge PRE) if (PRE) Q <= 1'b1; else if (CE) Q <= D;
 endmodule
 
-(* abc_box_id = 5 *)
 module RAM32X1D (
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L904-L905
-  (* abc_arrival=1472 *) output DPO, SPO,
-  (* abc_scc_break *) input D,
+  output DPO, SPO,
+  input  D,
   input  WCLK,
-  (* abc_scc_break *) input WE,
+  input  WE,
   input  A0, A1, A2, A3, A4,
   input  DPRA0, DPRA1, DPRA2, DPRA3, DPRA4
 );
@@ -308,13 +306,11 @@ module RAM32X1D (
   always @(posedge clk) if (WE) mem[a] <= D;
 endmodule
 
-(* abc_box_id = 6 *)
 module RAM64X1D (
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L904-L905
-  (* abc_arrival=1472 *) output DPO, SPO,
-  (* abc_scc_break *) input D,
+  output DPO, SPO,
+  input  D,
   input  WCLK,
-  (* abc_scc_break *) input WE,
+  input  WE,
   input  A0, A1, A2, A3, A4, A5,
   input  DPRA0, DPRA1, DPRA2, DPRA3, DPRA4, DPRA5
 );
@@ -329,13 +325,11 @@ module RAM64X1D (
   always @(posedge clk) if (WE) mem[a] <= D;
 endmodule
 
-(* abc_box_id = 7 *)
 module RAM128X1D (
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L904-L905
-  (* abc_arrival=1472 *) output DPO, SPO,
-  (* abc_scc_break *) input D,
+  output       DPO, SPO,
+  input        D,
   input        WCLK,
-  (* abc_scc_break *) input WE,
+  input        WE,
   input  [6:0] A, DPRA
 );
   parameter INIT = 128'h0;

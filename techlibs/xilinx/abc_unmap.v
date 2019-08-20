@@ -138,3 +138,67 @@ module \$__ABC_FDPE_1 (output Q,
     .D(D), .Q(Q), .C(C), .CE(CE), .PRE(PRE)
   );
 endmodule
+
+module \$__ABC_LUTMUX (input A, input [5:0] S, output Y);
+  assign Y = A;
+endmodule
+
+module \$__ABC_RAM32X1D (
+  output DPO, SPO,
+  input  D,
+  input  WCLK,
+  input  WE,
+  input  A0, A1, A2, A3, A4,
+  input  DPRA0, DPRA1, DPRA2, DPRA3, DPRA4
+);
+  parameter INIT = 32'h0;
+  parameter IS_WCLK_INVERTED = 1'b0;
+  RAM32X1D #(
+    .INIT(INIT), .IS_WCLK_INVERTED(IS_WCLK_INVERTED)
+  ) _TECHMAP_REPLACE_ (
+    .DPO(DPO), .SPO(SPO),
+    .D(D), .WCLK(WCLK), .WE(WE),
+    .A0(A0), .A1(A1), .A2(A2), .A3(A3), .A4(A4),
+    .DPRA0(DPRA0), .DPRA1(DPRA1), .DPRA2(DPRA2), .DPRA3(DPRA3), .DPRA4(DPRA4)
+  );
+endmodule
+
+module \$__ABC_RAM64X1D (
+  output DPO, SPO,
+  input  D,
+  input  WCLK,
+  input  WE,
+  input  A0, A1, A2, A3, A4, A5,
+  input  DPRA0, DPRA1, DPRA2, DPRA3, DPRA4, DPRA5
+);
+  parameter INIT = 64'h0;
+  parameter IS_WCLK_INVERTED = 1'b0;
+  RAM64X1D #(
+    .INIT(INIT), .IS_WCLK_INVERTED(IS_WCLK_INVERTED)
+  ) _TECHMAP_REPLACE_ (
+    .DPO(DPO), .SPO(SPO),
+    .D(D), .WCLK(WCLK), .WE(WE),
+    .A0(A0), .A1(A1), .A2(A2), .A3(A3), .A4(A4), .A5(A5),
+    .DPRA0(DPRA0), .DPRA1(DPRA1), .DPRA2(DPRA2), .DPRA3(DPRA3), .DPRA4(DPRA4), .DPRA5(DPRA5)
+  );
+endmodule
+
+module \$__ABC_RAM128X1D (
+  output DPO, SPO,
+  input  D,
+  input  WCLK,
+  input  WE,
+  input  A,
+  input  DPRA,
+);
+  parameter INIT = 128'h0;
+  parameter IS_WCLK_INVERTED = 1'b0;
+  RAM128X1D #(
+    .INIT(INIT), .IS_WCLK_INVERTED(IS_WCLK_INVERTED)
+  ) _TECHMAP_REPLACE_ (
+    .DPO(DPO), .SPO(SPO),
+    .D(D), .WCLK(WCLK), .WE(WE),
+    .A(A),
+    .DPRA(DPRA)
+  );
+endmodule

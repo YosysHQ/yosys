@@ -38,27 +38,6 @@ CARRY4 4 1 10 8
 592 540 520 356 -   512 548 292 -   228
 580 526 507 398 385 508 528 378 380 114
 
-# SLICEM/A6LUT
-# Inputs: A0 A1 A2 A3 A4 D DPRA0 DPRA1 DPRA2 DPRA3 DPRA4 WCLK WE
-# Outputs: DPO SPO
-RAM32X1D 5 0 13 2
--   -   -   -   -   - 631 472 407 238 127 - -
-631 472 407 238 127 - -   -   -   -   -   - -
-
-# SLICEM/A6LUT
-# Inputs: A0 A1 A2 A3 A4 A5 D DPRA0 DPRA1 DPRA2 DPRA3 DPRA4 DPRA5 WCLK WE
-# Outputs: DPO SPO
-RAM64X1D 6 0 15 2
--   -   -   -   -   -   - 642 631 472 407 238 127 - -
-642 631 472 407 238 127 - -   -   -   -   -   -   - -
-
-# SLICEM/A6LUT + F7[AB]MUX
-# Inputs: A0 A1 A2 A3 A4 A5 A6 D DPRA0 DPRA1 DPRA2 DPRA3 DPRA4 DPRA5 DPRA6 WCLK WE
-# Outputs: DPO SPO
-RAM128X1D 7 0 17 2
--    -    -   -   -   -   -   - 1009 998 839 774 605 494 450 - -
-1047 1036 877 812 643 532 478 - -    -   -   -   -   -   -   - -
-
 # Box to emulate async behaviour of FD[CP]*
 # Inputs: A S
 # Outputs: Y
@@ -99,3 +78,17 @@ FDPE 1005 1 5 1
 # Outputs: Q
 FDPE_1 1006 1 5 1
 0 151 0 806 0
+
+# SLICEM/A6LUT
+# Box to emulate comb/seq behaviour of RAMD{32,64} and SRL{16,32}
+# Inputs: A S0 S1 S2 S3 S4 S5
+# Outputs: Y
+$__ABC_LUTRAM6 2000 0 7 1
+0 642 631 472 407 238 127
+
+# SLICEM/A6LUT + F7BMUX
+# Box to emulate comb/seq behaviour of RAMD128
+# Inputs: A S0 S1 S2 S3 S4 S5 S6
+# Outputs: DPO SPO
+$__ABC_LUTRAM7 2001 0 8 1
+0 1047 1036 877 812 643 532 478
