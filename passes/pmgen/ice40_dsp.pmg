@@ -159,4 +159,5 @@ code clock clock_pol clock_vld
 		clock_pol = cp;
 		clock_vld = true;
 	}
+	accept;
 endcode

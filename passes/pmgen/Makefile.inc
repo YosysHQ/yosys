@@ -1,30 +1,29 @@
+%_pm.h: passes/pmgen/pmgen.py %.pmg
+	$(P) mkdir -p passes/pmgen && python3 $< -o $@ -p $(subst _pm.h,,$(notdir $@)) $(filter-out $<,$^)
+
+# --------------------------------------
+
+OBJS += passes/pmgen/test_pmgen.o
+passes/pmgen/test_pmgen.o: passes/pmgen/test_pmgen_pm.h
+$(eval $(call add_extra_objs,passes/pmgen/test_pmgen_pm.h))
+
+# --------------------------------------
+
 OBJS += passes/pmgen/ice40_dsp.o
-OBJS += passes/pmgen/ice40_wrapcarry.o
-OBJS += passes/pmgen/peepopt.o
-
-# --------------------------------------
-
 passes/pmgen/ice40_dsp.o: passes/pmgen/ice40_dsp_pm.h
-EXTRA_OBJS += passes/pmgen/ice40_dsp_pm.h
-.SECONDARY: passes/pmgen/ice40_dsp_pm.h
-
-passes/pmgen/ice40_dsp_pm.h: passes/pmgen/pmgen.py passes/pmgen/ice40_dsp.pmg
-	$(P) mkdir -p passes/pmgen && python3 $< -o $@ -p ice40_dsp $(filter-out $<,$^)
+$(eval $(call add_extra_objs,passes/pmgen/ice40_dsp_pm.h))
 
 # --------------------------------------
 
+OBJS += passes/pmgen/ice40_wrapcarry.o
 passes/pmgen/ice40_wrapcarry.o: passes/pmgen/ice40_wrapcarry_pm.h
-EXTRA_OBJS += passes/pmgen/ice40_wrapcarry_pm.h
-.SECONDARY: passes/pmgen/ice40_wrapcarry_pm.h
-
-passes/pmgen/ice40_wrapcarry_pm.h: passes/pmgen/pmgen.py passes/pmgen/ice40_wrapcarry.pmg
-	$(P) mkdir -p passes/pmgen && python3 $< -o $@ -p ice40_wrapcarry $(filter-out $<,$^)
+$(eval $(call add_extra_objs,passes/pmgen/test_pmgen_pm.h))
 
 # --------------------------------------
 
+OBJS += passes/pmgen/peepopt.o
 passes/pmgen/peepopt.o: passes/pmgen/peepopt_pm.h
-EXTRA_OBJS += passes/pmgen/peepopt_pm.h
-.SECONDARY: passes/pmgen/peepopt_pm.h
+$(eval $(call add_extra_objs,passes/pmgen/peepopt_pm.h))
 
 PEEPOPT_PATTERN  = passes/pmgen/peepopt_shiftmul.pmg
 PEEPOPT_PATTERN += passes/pmgen/peepopt_muldiv.pmg
