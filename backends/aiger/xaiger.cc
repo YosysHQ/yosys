@@ -355,7 +355,7 @@ struct XAigerWriter
 						log_error("Connection '%s' on cell '%s' (type '%s') not recognised!\n", log_id(c.first), log_id(cell), log_id(cell->type));
 
 					if (is_input) {
-						for (auto b : sigmap(c.second)) {
+						for (auto b : c.second) {
 							Wire *w = b.wire;
 							if (!w) continue;
 							if (!w->port_output || !cell_known) {
@@ -381,7 +381,7 @@ struct XAigerWriter
 							}
 						}
 
-						for (auto b : sigmap(c.second)) {
+						for (auto b : c.second) {
 							Wire *w = b.wire;
 							if (!w) continue;
 							input_bits.insert(b);
