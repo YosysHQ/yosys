@@ -69,8 +69,7 @@ void proc_clean_switch(RTLIL::SwitchRule *sw, RTLIL::CaseRule *parent, bool &did
 		did_something = true;
 		for (auto &action : sw->cases[0]->actions)
 			parent->actions.push_back(action);
-		for (auto sw2 : sw->cases[0]->switches)
-			parent->switches.push_back(sw2);
+		parent->switches.insert(parent->switches.begin(), sw->cases[0]->switches.begin(), sw->cases[0]->switches.end());
 		sw->cases[0]->switches.clear();
 		delete sw->cases[0];
 		sw->cases.clear();
