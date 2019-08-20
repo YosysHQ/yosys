@@ -1,7 +1,8 @@
 proc
 memory
-equiv_opt -map ../../techlibs/ice40/cells_sim.v synth_ice40
 synth_ice40
+equiv_opt -assert -map +/ice40/cells_sim.v synth_ice40
+design -load postopt
+
 select -assert-count 8 t:SB_DFF
 select -assert-count 512 t:SB_DFFE
-write_verilog ./temp/memory_synth.v

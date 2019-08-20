@@ -1,5 +1,12 @@
-equiv_opt -map ../../techlibs/ice40/cells_sim.v synth_ice40
+proc
+flatten
+dff2dffe
 synth_ice40
+#equiv_opt -assert -map +/ice40/cells_sim.v  -map +/simcells.v synth_ice40
+equiv_opt -map +/ice40/cells_sim.v  -map +/simcells.v synth_ice40
+design -load postopt
 select -assert-count 2 t:SB_DFFR
 select -assert-count 1 t:SB_DFFE
-write_verilog ./temp/dffs_synth.v
+select -assert-count 4 t:SB_LUT4
+select -assert-count 1 t:$_DFFSR_PPP_
+select -assert-count 1 t:$_DFFSR_NPP_
