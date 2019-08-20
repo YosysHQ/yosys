@@ -127,7 +127,7 @@ bool mergeable(RTLIL::Cell *a, RTLIL::Cell *b)
 
 RTLIL::IdString decode_port_semantics(RTLIL::Cell *cell, RTLIL::IdString port_name)
 {
-	if (cell->type.in(ID($lt), ID($le), ID($ge), ID($gt), ID($div), ID($mod), ID($concat), SHIFT_OPS) && port_name == ID(B))
+	if (cell->type.in(ID($lt), ID($le), ID($ge), ID($gt), ID($div), ID($mod), ID($concat), SHIFT_OPS) && port_name == ID::B)
 		return port_name;
 
 	return "";
@@ -135,9 +135,9 @@ RTLIL::IdString decode_port_semantics(RTLIL::Cell *cell, RTLIL::IdString port_na
 
 RTLIL::SigSpec decode_port_sign(RTLIL::Cell *cell, RTLIL::IdString port_name) {
 
-	if (cell->type == ID($alu) && port_name == ID(B))
+	if (cell->type == ID($alu) && port_name == ID::B)
 		return cell->getPort(ID(BI));
-	else if (cell->type == ID($sub) && port_name == ID(B))
+	else if (cell->type == ID($sub) && port_name == ID::B)
 		return RTLIL::Const(1, 1);
 
 	return RTLIL::Const(0, 1);
@@ -173,9 +173,9 @@ void merge_operators(RTLIL::Module *module, RTLIL::Cell *mux, const std::vector<
 	for (const auto& p : ports) {
 		auto op = p.op;
 
-		RTLIL::IdString muxed_port_name = ID(A);
-		if (decode_port(op, ID(A), &assign_map) == operand)
-			muxed_port_name = ID(B);
+		RTLIL::IdString muxed_port_name = ID::A;
+		if (decode_port(op, ID::A, &assign_map) == operand)
+			muxed_port_name = ID::B;
 
 		auto operand = decode_port(op, muxed_port_name, &assign_map);
 		if (operand.sig.size() > max_width)
@@ -204,9 +204,9 @@ void merge_operators(RTLIL::Module *module, RTLIL::Cell *mux, const std::vector<
 		if (muxed_op.sign != muxed_operands[0].sign)
 			muxed_op = ExtSigSpec(module->Neg(NEW_ID, muxed_op.sig, muxed_op.is_signed));
 
-	RTLIL::SigSpec mux_y = mux->getPort(ID(Y));
-	RTLIL::SigSpec mux_a = mux->getPort(ID(A));
-	RTLIL::SigSpec mux_b = mux->getPort(ID(B));
+	RTLIL::SigSpec mux_y = mux->getPort(ID::Y);
+	RTLIL::SigSpec mux_a = mux->getPort(ID::A);
+	RTLIL::SigSpec mux_b = mux->getPort(ID::B);
 	RTLIL::SigSpec mux_s = mux->getPort(ID(S));
 
 	RTLIL::SigSpec shared_pmux_a = RTLIL::Const(RTLIL::State::Sx, max_width);
@@ -216,24 +216,24 @@ void merge_operators(RTLIL::Module *module, RTLIL::Cell *mux, const std::vector<
 	int conn_width = ports[0].sig.size();
 	int conn_offset = ports[0].mux_port_offset;
 
-	shared_op->setPort(ID(Y), shared_op->getPort(ID(Y)).extract(0, conn_width));
+	shared_op->setPort(ID::Y, shared_op->getPort(ID::Y).extract(0, conn_width));
 
 	if (mux->type == ID($pmux)) {
 		shared_pmux_s = RTLIL::SigSpec();
 
 		for (const auto &p : ports) {
 			shared_pmux_s.append(mux_s[p.mux_port_id]);
-			mux_b.replace(p.mux_port_id * mux_a.size() + conn_offset, shared_op->getPort(ID(Y)));
+			mux_b.replace(p.mux_port_id * mux_a.size() + conn_offset, shared_op->getPort(ID::Y));
 		}
 	} else {
 		shared_pmux_s = RTLIL::SigSpec{mux_s, module->Not(NEW_ID, mux_s)};
-		mux_a.replace(conn_offset, shared_op->getPort(ID(Y)));
-		mux_b.replace(conn_offset, shared_op->getPort(ID(Y)));
+		mux_a.replace(conn_offset, shared_op->getPort(ID::Y));
+		mux_b.replace(conn_offset, shared_op->getPort(ID::Y));
 	}
 
-	mux->setPort(ID(A), mux_a);
-	mux->setPort(ID(B), mux_b);
-	mux->setPort(ID(Y), mux_y);
+	mux->setPort(ID::A, mux_a);
+	mux->setPort(ID::B, mux_b);
+	mux->setPort(ID::Y, mux_y);
 	mux->setPort(ID(S), mux_s);
 
 	for (const auto &op : muxed_operands)
@@ -251,11 +251,11 @@ void merge_operators(RTLIL::Module *module, RTLIL::Cell *mux, const std::vector<
 
 	shared_op->setParam(ID(Y_WIDTH), conn_width);
 
-	if (decode_port(shared_op, ID(A), &assign_map) == operand) {
-		shared_op->setPort(ID(B), mux_to_oper);
+	if (decode_port(shared_op, ID::A, &assign_map) == operand) {
+		shared_op->setPort(ID::B, mux_to_oper);
 		shared_op->setParam(ID(B_WIDTH), max_width);
 	} else {
-		shared_op->setPort(ID(A), mux_to_oper);
+		shared_op->setPort(ID::A, mux_to_oper);
 		shared_op->setParam(ID(A_WIDTH), max_width);
 	}
 }
@@ -286,9 +286,9 @@ void check_muxed_operands(std::vector<const OpMuxConn *> &ports, const ExtSigSpe
 		auto p = *it;
 		auto op = p->op;
 
-		RTLIL::IdString muxed_port_name = ID(A);
-		if (decode_port(op, ID(A), &assign_map) == shared_operand) {
-			muxed_port_name = ID(B);
+		RTLIL::IdString muxed_port_name = ID::A;
+		if (decode_port(op, ID::A, &assign_map) == shared_operand) {
+			muxed_port_name = ID::B;
 		}
 
 		auto operand = decode_port(op, muxed_port_name, &assign_map);
@@ -315,7 +315,7 @@ ExtSigSpec find_shared_operand(const OpMuxConn* seed, std::vector<const OpMuxCon
 
 	auto op_a = seed->op;
 
-	for (RTLIL::IdString port_name : {ID(A), ID(B)}) {
+	for (RTLIL::IdString port_name : {ID::A, ID::B}) {
 		oper = decode_port(op_a, port_name, &assign_map);
 		auto operand_users = operand_to_users.at(oper);
 
@@ -355,7 +355,7 @@ dict<RTLIL::SigSpec, OpMuxConn> find_valid_op_mux_conns(RTLIL::Module *module, d
 	std::function<void(RTLIL::SigBit)> remove_outsig_from_aux_bit = [&](RTLIL::SigBit auxbit) {
 		auto aux_outsig = op_aux_to_outsig.at(auxbit);
 		auto op = outsig_to_operator.at(aux_outsig);
-		auto op_outsig = assign_map(op->getPort(ID(Y)));
+		auto op_outsig = assign_map(op->getPort(ID::Y));
 		remove_outsig(op_outsig);
 
 		for (auto aux_outbit : aux_outsig)
@@ -367,11 +367,11 @@ dict<RTLIL::SigSpec, OpMuxConn> find_valid_op_mux_conns(RTLIL::Module *module, d
 		int mux_port_size;
 
 		if (mux->type.in(ID($mux), ID($_MUX_))) {
-			mux_port_size = mux->getPort(ID(A)).size();
-			sig = RTLIL::SigSpec{mux->getPort(ID(B)), mux->getPort(ID(A))};
+			mux_port_size = mux->getPort(ID::A).size();
+			sig = RTLIL::SigSpec{mux->getPort(ID::B), mux->getPort(ID::A)};
 		} else {
-			mux_port_size = mux->getPort(ID(A)).size();
-			sig = mux->getPort(ID(B));
+			mux_port_size = mux->getPort(ID::A).size();
+			sig = mux->getPort(ID::B);
 		}
 
 		auto mux_insig = assign_map(sig);
@@ -510,12 +510,12 @@ struct OptSharePass : public Pass {
 					}
 				}
 
-				auto mux_insig = assign_map(cell->getPort(ID(Y)));
+				auto mux_insig = assign_map(cell->getPort(ID::Y));
 				outsig_to_operator[mux_insig] = cell;
 				for (auto outbit : mux_insig)
 					op_outbit_to_outsig[outbit] = mux_insig;
 
-				for (RTLIL::IdString port_name : {ID(A), ID(B)}) {
+				for (RTLIL::IdString port_name : {ID::A, ID::B}) {
 					auto op_insig = decode_port(cell, port_name, &assign_map);
 					op_insigs.push_back(op_insig);
 					operand_to_users[op_insig].insert(cell);

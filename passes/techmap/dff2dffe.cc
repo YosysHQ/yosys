@@ -265,7 +265,7 @@ struct Dff2dffePass : public Pass {
 		log("\n");
 		log("    -unmap\n");
 		log("        operate in the opposite direction: replace $dffe cells with combinations\n");
-		log("        of $dff and $mux cells. the options below are ignore in unmap mode.\n");
+		log("        of $dff and $mux cells. the options below are ignored in unmap mode.\n");
 		log("\n");
 		log("    -unmap-mince N\n");
 		log("        Same as -unmap but only unmap $dffe where the clock enable port\n");
