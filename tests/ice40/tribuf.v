@@ -1,10 +1,10 @@
 module tristate (en, i, o);
     input en;
     input i;
-    output reg o;
+    output o;
 
-    always @(en or i)
-		o <= (en)? i : 1'bZ;
+	assign o = en ? i : 1'bz;
+
 endmodule
 
 

@@ -1,6 +1,5 @@
+read_verilog latches.v
 synth_ice40
-#equiv_opt -assert -map +/ice40/cells_sim.v synth_ice40
-equiv_opt -map +/ice40/cells_sim.v synth_ice40
-design -load postopt
-proc
 select -assert-count 5 t:SB_LUT4
+#select -assert-none t:SB_LUT4 %% t:* %D
+write_verilog latches_synth.v

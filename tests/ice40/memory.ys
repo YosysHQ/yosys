@@ -1,8 +1,4 @@
-proc
-memory
+read_verilog memory.v
 synth_ice40
-equiv_opt -assert -map +/ice40/cells_sim.v synth_ice40
-design -load postopt
-
-select -assert-count 8 t:SB_DFF
-select -assert-count 512 t:SB_DFFE
+select -assert-count 1 t:SB_RAM40_4K
+write_verilog memory_synth.v

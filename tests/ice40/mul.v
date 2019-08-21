@@ -8,6 +8,5 @@ module top
  );
 
 assign A =  x * y;
-assign B =  x ** y;
 
 endmodule
