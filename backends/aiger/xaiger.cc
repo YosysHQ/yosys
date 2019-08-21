@@ -504,16 +504,16 @@ struct XAigerWriter
 			aig_outputs.push_back(bit2aig(bit));
 		}
 
+		if (output_bits.empty()) {
+			output_bits.insert(State::S0);
+			omode = true;
+		}
+
 		for (auto bit : output_bits) {
 			ordered_outputs[bit] = aig_o++;
 			aig_outputs.push_back(bit2aig(bit));
 		}
 
-		if (output_bits.empty()) {
-			aig_o++;
-			aig_outputs.push_back(0);
-			omode = true;
-		}
 	}
 
 	void write_aiger(std::ostream &f, bool ascii_mode)
@@ -575,6 +575,7 @@ struct XAigerWriter
 
 		f << "c";
 
+		log_assert(!output_bits.empty());
 		auto write_buffer = [](std::stringstream &buffer, int i32) {
 			int32_t i32_be = to_big_endian(i32);
 			buffer.write(reinterpret_cast<const char*>(&i32_be), sizeof(i32_be));
@@ -796,11 +797,11 @@ struct XAigerWriter
 			f << stringf("box %d %d %s\n", box_count++, 0, log_id(cell->name));
 
 		output_lines.sort();
+		if (omode)
+			output_lines[State::S0] = "output 0 0 $__dummy__\n";
 		for (auto &it : output_lines)
 			f << it.second;
 		log_assert(output_lines.size() == output_bits.size());
-		if (omode && output_bits.empty())
-			f << "output " << output_lines.size() << " 0 $__dummy__\n";
 
 		wire_lines.sort();
 		for (auto &it : wire_lines)
