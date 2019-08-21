@@ -30,10 +30,10 @@ bool did_something;
 #include "passes/pmgen/ice40_dsp_pm.h"
 #include "passes/pmgen/peepopt_pm.h"
 
-void reduce_chain(xilinx_srl_pm &pm)
+void fixed(xilinx_srl_pm &pm)
 {
-	auto &st = pm.st_reduce;
-	auto &ud = pm.ud_reduce;
+	auto &st = pm.st_fixed;
+	auto &ud = pm.ud_fixed;
 	auto param_def = [&ud](Cell *cell, IdString param) {
 		auto def = ud.default_params.at(std::make_pair(cell->type,param));
 		return cell->parameters.at(param, def);
@@ -130,13 +130,13 @@ struct XilinxSrlPass : public Pass {
 			bool did_something = false;
 			do {
 				auto pm = xilinx_srl_pm(module, module->selected_cells());
-				pm.ud_reduce.minlen = minlen;
+				pm.ud_fixed.minlen = minlen;
 				// TODO: How to get these automatically?
-				pm.ud_reduce.default_params[std::make_pair(ID(FDRE),ID(INIT))] = State::S0;
-				pm.ud_reduce.default_params[std::make_pair(ID(FDRE),ID(IS_C_INVERTED))] = State::S0;
-				pm.ud_reduce.default_params[std::make_pair(ID(FDRE),ID(IS_D_INVERTED))] = State::S0;
-				pm.ud_reduce.default_params[std::make_pair(ID(FDRE),ID(IS_R_INVERTED))] = State::S0;
-				did_something = pm.run_reduce(reduce_chain);
+				pm.ud_fixed.default_params[std::make_pair(ID(FDRE),ID(INIT))] = State::S0;
+				pm.ud_fixed.default_params[std::make_pair(ID(FDRE),ID(IS_C_INVERTED))] = State::S0;
+				pm.ud_fixed.default_params[std::make_pair(ID(FDRE),ID(IS_D_INVERTED))] = State::S0;
+				pm.ud_fixed.default_params[std::make_pair(ID(FDRE),ID(IS_R_INVERTED))] = State::S0;
+				did_something = pm.run_fixed(fixed);
 			} while (did_something);
 		}
 	}

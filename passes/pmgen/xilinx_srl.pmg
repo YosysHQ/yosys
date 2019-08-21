@@ -1,4 +1,4 @@
-pattern reduce
+pattern fixed
 
 udata <vector<Cell*>> chain longest_chain
 udata <pool<Cell*>> non_first_cells
