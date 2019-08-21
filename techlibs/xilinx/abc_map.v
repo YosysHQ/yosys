@@ -165,7 +165,7 @@ module RAM64X1D (
   \$__ABC_LUTMUX6 spo (.A(\$SPO ), .S({A0, A1, A2, A3, A4, A5}), .Y(SPO));
 endmodule
 
-module \$__ABC_RAM128X1D (
+module RAM128X1D (
   output       DPO, SPO,
   input        D,
   input        WCLK,
