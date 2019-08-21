@@ -1,0 +1,92 @@
+pattern reduce
+
+udata <vector<Cell*>> chain longest_chain
+udata <pool<Cell*>> non_first_cells
+
+code
+	non_first_cells.clear();
+	subpattern(setup);
+endcode
+
+match first
+	select first->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_, \FDRE, \FDRE_1)
+	filter !non_first_cells.count(first)
+//generate
+//	SigSpec A = module->addWire(NEW_ID);
+//	SigSpec B = module->addWire(NEW_ID);
+//	SigSpec Y = module->addWire(NEW_ID);
+//	switch (rng(3))
+//	{
+//	case 0:
+//		module->addAndGate(NEW_ID, A, B, Y);
+//		break;
+//	case 1:
+//		module->addOrGate(NEW_ID, A, B, Y);
+//		break;
+//	case 2:
+//		module->addXorGate(NEW_ID, A, B, Y);
+//		break;
+//	}
+endmatch
+
+code
+	longest_chain.clear();
+	chain.push_back(first);
+	subpattern(tail);
+finally
+	chain.pop_back();
+	log_assert(chain.empty());
+	if (GetSize(longest_chain) > 1)
+		accept;
+endcode
+
+// ------------------------------------------------------------------
+
+subpattern setup
+
+match first
+	select first->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_, \FDRE, \FDRE_1)
+endmatch
+
+match next
+	select nusers(port(next, \Q)) == 2
+	select next->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_, \FDRE, \FDRE_1)
+	index <IdString> next->type === first->type
+	index <SigSpec> port(next, \Q) === port(first, \D)
+endmatch
+
+code
+	non_first_cells.insert(next);
+endcode
+
+// ------------------------------------------------------------------
+
+subpattern tail
+arg first
+
+match next
+	semioptional
+	select nusers(port(next, \Q)) == 2
+	select next->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_, \FDRE, \FDRE_1)
+	index <IdString> next->type === chain.back()->type
+	index <SigSpec> port(next, \Q) === port(chain.back(), \D)
+//generate 10
+//	SigSpec A = module->addWire(NEW_ID);
+//	SigSpec B = module->addWire(NEW_ID);
+//	SigSpec Y = port(chain.back().first, chain.back().second);
+//	Cell *c = module->addAndGate(NEW_ID, A, B, Y);
+//	c->type = chain.back().first->type;
+endmatch
+
+code
+	if (next) {
+		chain.push_back(next);
+		subpattern(tail);
+	} else {
+		if (GetSize(chain) > GetSize(longest_chain))
+			longest_chain = chain;
+	}
+finally
+	if (next)
+		chain.pop_back();
+endcode
