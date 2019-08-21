@@ -973,7 +973,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		string tmp_script_name = stringf("%s/abc.script", tempdir_name.c_str());
 		abc_argv[0] = strdup(exe_file.c_str());
 		abc_argv[1] = strdup("-s");
-		abc_argv[2] = strdup("-f");
+		abc_argv[2] = strdup("-F");
 		abc_argv[3] = strdup(tmp_script_name.c_str());
 		abc_argv[4] = 0;
 		int ret = Abc_RealMain(4, abc_argv);
