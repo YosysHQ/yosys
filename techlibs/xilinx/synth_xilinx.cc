@@ -393,7 +393,7 @@ struct SynthXilinxPass : public ScriptPass
 				if (family != "xc7")
 					log_warning("'synth_xilinx -abc9' currently supports '-family xc7' only.\n");
 				run("read_verilog -icells -lib +/xilinx/abc_model.v");
-				run("techmap -map +/xilinx/abc_map.v";
+				run("techmap -map +/xilinx/abc_map.v");
 				if (nowidelut)
 					run("abc9 -lut +/xilinx/abc_xc7_nowide.lut -box +/xilinx/abc_xc7.box -W " + std::to_string(XC7_WIRE_DELAY));
 				else
@@ -411,10 +411,12 @@ struct SynthXilinxPass : public ScriptPass
 			//   has performed any necessary retiming
 			if (!nosrl || help_mode)
 				run("shregmap -minlen 3 -init -params -enpol any_or_none", "(skip if '-nosrl')");
+			std::string techmap_args = "-map +/xilinx/lut_map.v";
 			if (abc9)
-				run("techmap -map +/xilinx/lut_map.v -map +/xilinx/abc_unmap.v");
+				techmap_args += " -map +/xilinx/abc_unmap.v";
 			else
-				run("techmap -map +/xilinx/lut_map.v -map +/xilinx/cells_map.v -map +/xilinx/ff_map.v");
+				techmap_args += " -map +/xilinx/ff_map.v";
+			run("techmap " + techmap_args);
 			run("dffinit -ff FDRE Q INIT -ff FDCE Q INIT -ff FDPE Q INIT -ff FDSE Q INIT "
 					"-ff FDRE_1 Q INIT -ff FDCE_1 Q INIT -ff FDPE_1 Q INIT -ff FDSE_1 Q INIT");
 			run("clean");
