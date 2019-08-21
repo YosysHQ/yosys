@@ -31,7 +31,7 @@ module RAM32X1D (
   parameter INIT = 32'h0;
   parameter IS_WCLK_INVERTED = 1'b0;
   wire \$DPO , \$SPO ;
-  \$__ABC_RAM32X1D #(
+  RAM32X1D #(
     .INIT(INIT), .IS_WCLK_INVERTED(IS_WCLK_INVERTED)
   ) _TECHMAP_REPLACE_ (
     .DPO(\$DPO ), .SPO(\$SPO ),
@@ -39,8 +39,8 @@ module RAM32X1D (
     .A0(A0), .A1(A1), .A2(A2), .A3(A3), .A4(A4),
     .DPRA0(DPRA0), .DPRA1(DPRA1), .DPRA2(DPRA2), .DPRA3(DPRA3), .DPRA4(DPRA4)
   );
-  \$__ABC_LUTMUX6 dpo (.A(\$DPO ), .S({1'b0, A0, A1, A2, A3, A4}), .Y(DPO));
-  \$__ABC_LUTMUX6 spo (.A(\$SPO ), .S({1'b0, A0, A1, A2, A3, A4}), .Y(SPO));
+  \$__ABC_LUT6 dpo (.A(\$DPO ), .S({1'b0, A0, A1, A2, A3, A4}), .Y(DPO));
+  \$__ABC_LUT6 spo (.A(\$SPO ), .S({1'b0, A0, A1, A2, A3, A4}), .Y(SPO));
 endmodule
 
 module RAM64X1D (
@@ -54,7 +54,7 @@ module RAM64X1D (
   parameter INIT = 64'h0;
   parameter IS_WCLK_INVERTED = 1'b0;
   wire \$DPO , \$SPO ;
-  \$__ABC_RAM64X1D #(
+  RAM64X1D #(
     .INIT(INIT), .IS_WCLK_INVERTED(IS_WCLK_INVERTED)
   ) _TECHMAP_REPLACE_ (
     .DPO(\$DPO ), .SPO(\$SPO ),
@@ -62,8 +62,8 @@ module RAM64X1D (
     .A0(A0), .A1(A1), .A2(A2), .A3(A3), .A4(A4), .A5(A5),
     .DPRA0(DPRA0), .DPRA1(DPRA1), .DPRA2(DPRA2), .DPRA3(DPRA3), .DPRA4(DPRA4), .DPRA5(DPRA5)
   );
-  \$__ABC_LUTMUX6 dpo (.A(\$DPO ), .S({A0, A1, A2, A3, A4, A5}), .Y(DPO));
-  \$__ABC_LUTMUX6 spo (.A(\$SPO ), .S({A0, A1, A2, A3, A4, A5}), .Y(SPO));
+  \$__ABC_LUT6 dpo (.A(\$DPO ), .S({A0, A1, A2, A3, A4, A5}), .Y(DPO));
+  \$__ABC_LUT6 spo (.A(\$SPO ), .S({A0, A1, A2, A3, A4, A5}), .Y(SPO));
 endmodule
 
 module RAM128X1D (
@@ -76,7 +76,7 @@ module RAM128X1D (
   parameter INIT = 128'h0;
   parameter IS_WCLK_INVERTED = 1'b0;
   wire \$DPO , \$SPO ;
-  \$__ABC_RAM128X1D #(
+  RAM128X1D #(
     .INIT(INIT), .IS_WCLK_INVERTED(IS_WCLK_INVERTED)
   ) _TECHMAP_REPLACE_ (
     .DPO(\$DPO ), .SPO(\$SPO ),
@@ -84,8 +84,8 @@ module RAM128X1D (
     .A(A),
     .DPRA(DPRA)
   );
-  \$__ABC_LUTMUX7 dpo (.A(\$DPO ), .S(A), .Y(DPO));
-  \$__ABC_LUTMUX7 spo (.A(\$SPO ), .S(A), .Y(SPO));
+  \$__ABC_LUT7 dpo (.A(\$DPO ), .S(A), .Y(DPO));
+  \$__ABC_LUT7 spo (.A(\$SPO ), .S(A), .Y(SPO));
 endmodule
 
 module SRL16E (
@@ -95,14 +95,14 @@ module SRL16E (
   parameter [15:0] INIT = 16'h0000;
   parameter [0:0] IS_CLK_INVERTED = 1'b0;
   wire \$Q ;
-  \$__ABC_SRL16E #(
+  SRL16E #(
     .INIT(INIT), .IS_CLK_INVERTED(IS_CLK_INVERTED)
   ) _TECHMAP_REPLACE_ (
     .Q(\$Q ),
     .A0(A0), .A1(A1), .A2(A2), .A3(A3), .CE(CE), .CLK(CLK), .D(D)
   );
   // TODO: Check if SRL uses fast inputs or slow inputs
-  \$__ABC_LUTMUX6 q (.A(\$Q ), .S({A0, A1, A2, A3, 1'b0, 1'b0}), .Y(Q));
+  \$__ABC_LUT6 q (.A(\$Q ), .S({A0, A1, A2, A3, 1'b0, 1'b0}), .Y(Q));
 endmodule
 
 module SRLC32E (
@@ -114,12 +114,12 @@ module SRLC32E (
   parameter [31:0] INIT = 32'h00000000;
   parameter [0:0] IS_CLK_INVERTED = 1'b0;
   wire \$Q ;
-  \$__ABC_SRLC32E #(
+  SRLC32E #(
     .INIT(INIT), .IS_CLK_INVERTED(IS_CLK_INVERTED)
   ) _TECHMAP_REPLACE_ (
     .Q(\$Q ), .Q31(Q31),
     .A(A), .CE(CE), .CLK(CLK), .D(D)
   );
   // TODO: Check if SRL uses fast inputs or slow inputs
-  \$__ABC_LUTMUX6 q (.A(\$Q ), .S({A, 1'b0}), .Y(Q));
+  \$__ABC_LUT6 q (.A(\$Q ), .S({A, 1'b0}), .Y(Q));
 endmodule

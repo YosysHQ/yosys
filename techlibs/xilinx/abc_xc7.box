@@ -42,12 +42,12 @@ CARRY4 4 1 10 8
 # Box to emulate comb/seq behaviour of RAMD{32,64} and SRL{16,32}
 # Inputs: A S0 S1 S2 S3 S4 S5
 # Outputs: Y
-$__ABC_LUTRAM6 2000 0 7 1
+$__ABC_LUT6 2000 0 7 1
 0 642 631 472 407 238 127
 
 # SLICEM/A6LUT + F7BMUX
 # Box to emulate comb/seq behaviour of RAMD128
 # Inputs: A S0 S1 S2 S3 S4 S5 S6
 # Outputs: DPO SPO
-$__ABC_LUTRAM7 2001 0 8 1
+$__ABC_LUT7 2001 0 8 1
 0 1047 1036 877 812 643 532 478

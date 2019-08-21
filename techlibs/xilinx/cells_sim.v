@@ -298,7 +298,8 @@ module FDPE_1 ((* abc_arrival=303 *) output reg Q,
 endmodule
 
 module RAM32X1D (
-  output DPO, SPO,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
+  (* abc_arrival=11530 *) output DPO, SPO,
   input  D,
   input  WCLK,
   input  WE,
@@ -317,7 +318,8 @@ module RAM32X1D (
 endmodule
 
 module RAM64X1D (
-  output DPO, SPO,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
+  (* abc_arrival=1153 *) output DPO, SPO,
   input  D,
   input  WCLK,
   input  WE,
@@ -336,7 +338,8 @@ module RAM64X1D (
 endmodule
 
 module RAM128X1D (
-  output       DPO, SPO,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
+  (* abc_arrival=1153 *) output DPO, SPO,
   input        D,
   input        WCLK,
   input        WE,
