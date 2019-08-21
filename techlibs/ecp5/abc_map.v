@@ -13,7 +13,7 @@ module TRELLIS_DPR16X4 (
 	parameter [63:0] INITVAL = 64'h0000000000000000;
     wire [3:0] \$DO ;
 
-    \$__ABC_DPR16X4_SEQ #(
+    TRELLIS_DPR16X4 #(
       .WCKMUX(WCKMUX), .WREMUX(WREMUX), .INITVAL(INITVAL)
     ) _TECHMAP_REPLACE_ (
       .DI(DI), .WAD(WAD), .WRE(WRE), .WCK(WCK),

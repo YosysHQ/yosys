@@ -113,7 +113,7 @@ module TRELLIS_DPR16X4 (
 	input        WRE,
 	input        WCK,
 	input  [3:0] RAD,
-	output [3:0] DO
+	/* (* abc_arrival=<TODO> *) */ output [3:0] DO
 );
 	parameter WCKMUX = "WCK";
 	parameter WREMUX = "WRE";
