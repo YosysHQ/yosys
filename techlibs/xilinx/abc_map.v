@@ -20,8 +20,6 @@
 
 // ============================================================================
 
-// Max delays from https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L237-L251
-
 module FDRE (output reg Q, input C, CE, D, R);
   parameter [0:0] INIT = 1'b0;
   parameter [0:0] IS_C_INVERTED = 1'b0;
@@ -205,9 +203,8 @@ module SRL16E (
 endmodule
 
 module SRLC32E (
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L904-L905
-  (* abc_arrival=1472 *) output Q,
-  (* abc_arrival=1114 *) output Q31,
+  output Q,
+  output Q31,
   input [4:0] A,
   input CE, CLK, D
 );
