@@ -269,7 +269,7 @@ struct abc_output_filter
 };
 
 void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::string script_file, std::string exe_file,
-		bool cleanup, vector<int> lut_costs, bool /*retime_mode*/, std::string clk_str,
+		bool cleanup, vector<int> lut_costs, bool /*dff_mode*/, std::string clk_str,
 		bool /*keepff*/, std::string delay_target, std::string /*lutin_shared*/, bool fast_mode,
 		bool show_tempdir, std::string box_file, std::string lut_file,
 		std::string wire_delay, const dict<int,IdString> &box_lookup,
@@ -309,7 +309,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			clk_sig = assign_map(RTLIL::SigSpec(module->wires_.at(RTLIL::escape_id(clk_str)), 0));
 	}
 
-	//if (retime_mode && clk_sig.empty())
+	//if (dff_mode && clk_sig.empty())
 	//	log_cmd_error("Clock domain %s not found.\n", clk_str.c_str());
 
 	std::string tempdir_name = "/tmp/yosys-abc-XXXXXX";
@@ -383,7 +383,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 	fprintf(f, "%s\n", abc_script.c_str());
 	fclose(f);
 
-	if (/*retime_mode ||*/ !clk_str.empty())
+	if (/*dff_mode ||*/ !clk_str.empty())
 	{
 		if (clk_sig.size() == 0)
 			log("No%s clock domain found. Not extracting any FF cells.\n", clk_str.empty() ? "" : " matching");
@@ -957,7 +957,7 @@ struct Abc9Pass : public Pass {
 #endif
 		std::string script_file, clk_str, box_file, lut_file;
 		std::string delay_target, lutin_shared = "-S 1", wire_delay;
-		bool fast_mode = false, /*retime_mode = false,*/ keepff = false, cleanup = true;
+		bool fast_mode = false, dff_mode = false, keepff = false, cleanup = true;
 		bool show_tempdir = false;
 		vector<int> lut_costs;
 		markgroups = false;
@@ -1049,12 +1049,12 @@ struct Abc9Pass : public Pass {
 				continue;
 			}
 			//if (arg == "-retime") {
-			//	retime_mode = true;
+			//	dff_mode = true;
 			//	continue;
 			//}
 			//if (arg == "-clk" && argidx+1 < args.size()) {
 			//	clk_str = args[++argidx];
-			//	retime_mode = true;
+			//	dff_mode = true;
 			//	continue;
 			//}
 			//if (arg == "-keepff") {
@@ -1169,7 +1169,7 @@ struct Abc9Pass : public Pass {
 
 			assign_map.set(mod);
 
-			if (true || /*!dff_mode ||*/ !clk_str.empty()) {
+			if (!dff_mode || !clk_str.empty()) {
 
 				design->selection_stack.emplace_back(false);
 				RTLIL::Selection& sel = design->selection_stack.back();
