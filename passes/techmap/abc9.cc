@@ -551,7 +551,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		dict<IdString, bool> abc_box;
 		vector<RTLIL::Cell*> boxes;
 		for (auto cell : module->selected_cells()) {
-			if (cell->type.in(ID($_AND_), ID($_NOT_))) {
+			if (cell->type.in(ID($_AND_), ID($_NOT_), ID($__ABC_FF_))) {
 				module->remove(cell);
 				continue;
 			}
@@ -651,6 +651,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 				cell->attributes = mapped_cell->attributes;
 			}
 
+			auto abc_flop = mapped_cell->attributes.count("\\abc_flop");
 			for (auto &conn : mapped_cell->connections()) {
 				RTLIL::SigSpec newsig;
 				for (auto c : conn.second.chunks()) {
@@ -663,15 +664,17 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 				}
 				cell->setPort(conn.first, newsig);
 
-				if (cell->input(conn.first)) {
-					for (auto i : newsig)
-						bit2sinks[i].push_back(cell);
-					for (auto i : conn.second)
-						bit_users[i].insert(mapped_cell->name);
+				if (!abc_flop) {
+					if (cell->input(conn.first)) {
+						for (auto i : newsig)
+							bit2sinks[i].push_back(cell);
+						for (auto i : conn.second)
+							bit_users[i].insert(mapped_cell->name);
+					}
+					if (cell->output(conn.first))
+						for (auto i : conn.second)
+							bit_drivers[i].insert(mapped_cell->name);
 				}
-				if (cell->output(conn.first))
-					for (auto i : conn.second)
-						bit_drivers[i].insert(mapped_cell->name);
 			}
 		}
 
@@ -1167,6 +1170,7 @@ struct Abc9Pass : public Pass {
 			assign_map.set(mod);
 
 			if (!dff_mode || !clk_str.empty()) {
+
 				design->selection_stack.emplace_back(false);
 				RTLIL::Selection& sel = design->selection_stack.back();
 				sel.select(mod);
@@ -1194,6 +1198,13 @@ struct Abc9Pass : public Pass {
 			std::map<RTLIL::Cell*, std::set<RTLIL::SigBit>> cell_to_bit, cell_to_bit_up, cell_to_bit_down;
 			std::map<RTLIL::SigBit, std::set<RTLIL::Cell*>> bit_to_cell, bit_to_cell_up, bit_to_cell_down;
 
+			pool<IdString> seen_cells;
+			struct flop_data_t {
+				IdString clk_port;
+				IdString en_port;
+			};
+			dict<IdString, flop_data_t> flop_data;
+
 			for (auto cell : all_cells) {
 				clkdomain_t key;
 
@@ -1214,20 +1225,57 @@ struct Abc9Pass : public Pass {
 					}
 				}
 
-				if (cell->type.in(ID($_DFF_N_), ID($_DFF_P_)))
-				{
-					key = clkdomain_t(cell->type == ID($_DFF_P_), assign_map(cell->getPort(ID(C))), true, RTLIL::SigSpec());
-				}
-				else
-				if (cell->type.in(ID($_DFFE_NN_), ID($_DFFE_NP_), ID($_DFFE_PN_), ID($_DFFE_PP_)))
-				{
-					bool this_clk_pol = cell->type.in(ID($_DFFE_PN_), ID($_DFFE_PP_));
-					bool this_en_pol = cell->type.in(ID($_DFFE_NP_), ID($_DFFE_PP_));
-					key = clkdomain_t(this_clk_pol, assign_map(cell->getPort(ID(C))), this_en_pol, assign_map(cell->getPort(ID(E))));
-				}
-				else
-					continue;
+				decltype(flop_data)::iterator it;
+				if (seen_cells.insert(cell->type).second) {
+					RTLIL::Module* inst_module = design->module(cell->type);
+					if (!inst_module)
+						continue;
 
+					if (!inst_module->attributes.count("\\abc_flop"))
+						continue;
+
+					IdString abc_flop_clk, abc_flop_en;
+					for (auto port_name : inst_module->ports) {
+						auto wire = inst_module->wire(port_name);
+						log_assert(wire);
+						if (wire->attributes.count("\\abc_flop_clk")) {
+							if (abc_flop_clk != IdString())
+								log_error("More than one port has the 'abc_flop_clk' attribute set on module '%s'.\n", log_id(cell->type));
+							abc_flop_clk = port_name;
+						}
+						if (wire->attributes.count("\\abc_flop_en")) {
+							if (abc_flop_en != IdString())
+								log_error("More than one port has the 'abc_flop_en' attribute set on module '%s'.\n", log_id(cell->type));
+							abc_flop_en = port_name;
+						}
+					}
+
+					if (abc_flop_clk == IdString())
+						log_error("'abc_flop_clk' attribute not found on any ports on module '%s'.\n", log_id(cell->type));
+					if (abc_flop_en == IdString())
+						log_error("'abc_flop_en' attribute not found on any ports on module '%s'.\n", log_id(cell->type));
+
+					it = flop_data.insert(std::make_pair(cell->type, flop_data_t{abc_flop_clk, abc_flop_en})).first;
+				}
+				else {
+					it = flop_data.find(cell->type);
+					if (it == flop_data.end())
+						continue;
+				}
+
+				const auto &data = it->second;
+
+				auto jt = cell->parameters.find("\\CLK_POLARITY");
+				if (jt == cell->parameters.end())
+					log_error("'CLK_POLARITY' is not a parameter on module '%s'.\n", log_id(cell->type));
+				bool this_clk_pol = jt->second.as_bool();
+
+				jt = cell->parameters.find("\\EN_POLARITY");
+				if (jt == cell->parameters.end())
+					log_error("'EN_POLARITY' is not a parameter on module '%s'.\n", log_id(cell->type));
+				bool this_en_pol = jt->second.as_bool();
+
+				key = clkdomain_t(this_clk_pol, assign_map(cell->getPort(data.clk_port)), this_en_pol, assign_map(cell->getPort(data.en_port)));
 
 				unassigned_cells.erase(cell);
 				expand_queue.insert(cell);
