@@ -943,7 +943,7 @@ struct TechmapPass : public Pass {
 		log("        instead of inlining them.\n");
 		log("\n");
 		log("    -max_iter <number>\n");
-		log("        only run the specified number of iterations for each module.\n");
+		log("        only run the specified number of iterations on each module.\n");
 		log("        default: unlimited\n");
 		log("\n");
 		log("    -recursive\n");
