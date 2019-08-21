@@ -379,8 +379,6 @@ struct SynthXilinxPass : public ScriptPass
 			std::string techmap_args = "-map +/techmap.v -map +/xilinx/cells_map.v";
 			if (widemux > 0)
 				techmap_args += stringf(" -D MIN_MUX_INPUTS=%d", widemux);
-			if (abc9)
-				techmap_args += " -map +/xilinx/ff_map.v";
 			run("techmap " + techmap_args);
 			run("clean");
 		}
@@ -411,11 +409,9 @@ struct SynthXilinxPass : public ScriptPass
 			//   has performed any necessary retiming
 			if (!nosrl || help_mode)
 				run("shregmap -minlen 3 -init -params -enpol any_or_none", "(skip if '-nosrl')");
-			std::string techmap_args = "-map +/xilinx/lut_map.v";
+			std::string techmap_args = "-map +/xilinx/lut_map.v -map +/xilinx/ff_map.v";
 			if (abc9)
 				techmap_args += " -map +/xilinx/abc_unmap.v";
-			else
-				techmap_args += " -map +/xilinx/ff_map.v";
 			run("techmap " + techmap_args);
 			run("dffinit -ff FDRE Q INIT -ff FDCE Q INIT -ff FDPE Q INIT -ff FDSE Q INIT "
 					"-ff FDRE_1 Q INIT -ff FDCE_1 Q INIT -ff FDPE_1 Q INIT -ff FDSE_1 Q INIT");
