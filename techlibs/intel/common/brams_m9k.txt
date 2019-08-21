@@ -16,24 +16,24 @@ bram $__ALTSYNCRAM_SDP
   abits  10 
   dbits  9  
   # 512d x 16w 
-  abits  9  @M1 
-  dbits  16 @M1
+  abits  9 
+  dbits  16
   # 512d x 18w
-  abits  9  @M2
-  dbits  18 @M2
+  abits  9
+  dbits  18
   # 256d x 32w
-  abits  8  @M3
-  dbits  32 @M3
+  abits  8
+  dbits  32
   # 256d x 36w 
-  abits  8  @M4
-  dbits  36 @M4
+  abits  8
+  dbits  36
   
   #      wr rd
   groups 2
   ports  1 1
   wrmode 1 0
   enable 1 1
-  transp 0 1
+  transp 0 2
   clocks 1 1
   clkpol 1 1
 endbram
