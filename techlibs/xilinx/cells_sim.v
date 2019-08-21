@@ -299,7 +299,7 @@ endmodule
 
 module RAM32X1D (
   // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
-  (* abc_arrival=11530 *) output DPO, SPO,
+  (* abc_arrival=1153 *) output DPO, SPO,
   input  D,
   input  WCLK,
   input  WE,
