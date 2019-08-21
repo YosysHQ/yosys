@@ -380,7 +380,7 @@ struct SynthXilinxPass : public ScriptPass
 			if (widemux > 0)
 				techmap_args += stringf(" -D MIN_MUX_INPUTS=%d", widemux);
 			if (abc9)
-				techmap_args += " -map +/xilinx/ff_map.v -map +/xilinx/abc_map.v";
+				techmap_args += " -map +/xilinx/ff_map.v";
 			run("techmap " + techmap_args);
 			run("clean");
 		}
@@ -393,6 +393,7 @@ struct SynthXilinxPass : public ScriptPass
 				if (family != "xc7")
 					log_warning("'synth_xilinx -abc9' currently supports '-family xc7' only.\n");
 				run("read_verilog -icells -lib +/xilinx/abc_model.v");
+				run("techmap -map +/xilinx/abc_map.v";
 				if (nowidelut)
 					run("abc9 -lut +/xilinx/abc_xc7_nowide.lut -box +/xilinx/abc_xc7.box -W " + std::to_string(XC7_WIRE_DELAY));
 				else
