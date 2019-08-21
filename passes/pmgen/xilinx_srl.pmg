@@ -3,6 +3,7 @@ pattern reduce
 udata <vector<Cell*>> chain longest_chain
 udata <pool<Cell*>> non_first_cells
 udata <int> minlen
+udata <dict<std::pair<IdString,IdString>,Const>> default_params
 
 code
 	non_first_cells.clear();
@@ -12,7 +13,6 @@ endcode
 match first
 	select first->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_, \FDRE, \FDRE_1)
 	select !first->get_bool_attribute(\keep)
-	select !port(first, \Q)[0].wire->get_bool_attribute(\keep)
 	filter !non_first_cells.count(first)
 //generate
 //	SigSpec A = module->addWire(NEW_ID);
@@ -50,19 +50,50 @@ subpattern setup
 match first
 	select first->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_, \FDRE, \FDRE_1)
 	select !first->get_bool_attribute(\keep)
-	select !port(first, \Q)[0].wire->get_bool_attribute(\keep)
 endmatch
+
+code
+	if (first->type.in(\FDRE, \FDRE_1)) {
+		SigBit R = port(first, \R);
+		if (first->type == \FDRE) {
+			auto inverted = first->parameters.at(\IS_R_INVERTED, default_params.at(std::make_pair(first->type,\IS_R_INVERTED))).as_bool();
+			if (!inverted && R != State::S0)
+				reject;
+			if (inverted && R != State::S1)
+				reject;
+		}
+		else if (first->type == \FDRE_1) {
+			if (R == State::S0)
+				reject;
+		}
+		else log_abort();
+	}
+endcode
 
 match next
 	select next->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_, \FDRE, \FDRE_1)
 	select !next->get_bool_attribute(\keep)
-	select !port(next, \Q)[0].wire->get_bool_attribute(\keep)
+	select !port(next, \D)[0].wire->get_bool_attribute(\keep)
 	select nusers(port(next, \Q)) == 2
 	index <IdString> next->type === first->type
 	index <SigSpec> port(next, \Q) === port(first, \D)
 endmatch
 
 code
+	if (next->type.in(\FDRE, \FDRE_1)) {
+		for (auto p : { \R })
+			if (port(next, p) != port(first, p))
+				reject;
+
+		if (next->type == \FDRE) {
+			for (auto p : { \IS_C_INVERTED, \IS_D_INVERTED, \IS_R_INVERTED }) {
+				auto n = next->parameters.at(p, default_params.at(std::make_pair(next->type,p)));
+				auto f = first->parameters.at(p, default_params.at(std::make_pair(first->type,p)));
+				if (n != f)
+					reject;
+			}
+		}
+	}
 	non_first_cells.insert(next);
 endcode
 
@@ -75,7 +106,7 @@ match next
 	semioptional
 	select next->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_, \FDRE, \FDRE_1)
 	select !next->get_bool_attribute(\keep)
-	select !port(next, \Q)[0].wire->get_bool_attribute(\keep)
+	select !port(next, \D)[0].wire->get_bool_attribute(\keep)
 	select nusers(port(next, \Q)) == 2
 	index <IdString> next->type === chain.back()->type
 	index <SigSpec> port(next, \Q) === port(chain.back(), \D)
@@ -89,6 +120,21 @@ endmatch
 
 code
 	if (next) {
+		if (next->type.in(\FDRE, \FDRE_1)) {
+			for (auto p : { \R })
+				if (port(next, p) != port(first, p))
+					reject;
+
+			if (next->type == \FDRE) {
+				for (auto p : { \IS_C_INVERTED, \IS_D_INVERTED, \IS_R_INVERTED }) {
+					auto n = next->parameters.at(p, default_params.at(std::make_pair(next->type,p)));
+					auto f = first->parameters.at(p, default_params.at(std::make_pair(first->type,p)));
+					if (n != f)
+						reject;
+				}
+			}
+		}
+
 		chain.push_back(next);
 		subpattern(tail);
 	} else {

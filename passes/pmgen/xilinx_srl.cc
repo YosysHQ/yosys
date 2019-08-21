@@ -34,6 +34,10 @@ void reduce_chain(xilinx_srl_pm &pm)
 {
 	auto &st = pm.st_reduce;
 	auto &ud = pm.ud_reduce;
+	auto param_def = [&ud](Cell *cell, IdString param) {
+		auto def = ud.default_params.at(std::make_pair(cell->type,param));
+		return cell->parameters.at(param, def);
+	};
 
 	log("Found chain of length %d (%s):\n", GetSize(ud.longest_chain), log_id(st.first->type));
 
@@ -42,14 +46,20 @@ void reduce_chain(xilinx_srl_pm &pm)
 	SigSpec initval;
 	for (auto cell : ud.longest_chain) {
 		log_debug("    %s\n", log_id(cell));
-		SigBit Q = cell->getPort(ID(Q));
-		log_assert(Q.wire);
-		auto it = Q.wire->attributes.find(ID(init));
-		if (it != Q.wire->attributes.end()) {
-			initval.append(it->second[Q.offset]);
+		if (cell->type.in(ID($_DFF_N_), ID($_DFF_P_), ID($_DFFE_NN_), ID($_DFFE_NP_), ID($_DFFE_PN_), ID($_DFFE_PP_))) {
+			SigBit Q = cell->getPort(ID(Q));
+			log_assert(Q.wire);
+			auto it = Q.wire->attributes.find(ID(init));
+			if (it != Q.wire->attributes.end()) {
+				initval.append(it->second[Q.offset]);
+			}
+			else
+				initval.append(State::Sx);
 		}
+		else if (cell->type.in(ID(FDRE), ID(FDRE_1)))
+			initval.append(param_def(cell, ID(INIT)));
 		else
-			initval.append(State::Sx);
+			log_abort();
 		if (cell != last_cell)
 			pm.autoremove(cell);
 	}
@@ -66,6 +76,8 @@ void reduce_chain(xilinx_srl_pm &pm)
 			c->setParam(ID(CLKPOL), 1);
 		else if (c->type.in(ID($_DFF_N_), ID($DFFE_NN_), ID($_DFFE_NP_), ID(FDRE_1)))
 			c->setParam(ID(CLKPOL), 0);
+		else if (c->type.in(ID(FDRE)))
+			c->setParam(ID(CLKPOL), param_def(c, ID(IS_C_INVERTED)).as_bool() ? 0 : 1);
 		else
 			log_abort();
 		if (c->type.in(ID($_DFFE_NP_), ID($_DFFE_PP_)))
@@ -119,6 +131,11 @@ struct XilinxSrlPass : public Pass {
 			do {
 				auto pm = xilinx_srl_pm(module, module->selected_cells());
 				pm.ud_reduce.minlen = minlen;
+				// TODO: How to get these automatically?
+				pm.ud_reduce.default_params[std::make_pair(ID(FDRE),ID(INIT))] = State::S0;
+				pm.ud_reduce.default_params[std::make_pair(ID(FDRE),ID(IS_C_INVERTED))] = State::S0;
+				pm.ud_reduce.default_params[std::make_pair(ID(FDRE),ID(IS_D_INVERTED))] = State::S0;
+				pm.ud_reduce.default_params[std::make_pair(ID(FDRE),ID(IS_R_INVERTED))] = State::S0;
 				did_something = pm.run_reduce(reduce_chain);
 			} while (did_something);
 		}
