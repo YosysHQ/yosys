@@ -530,28 +530,6 @@ void handle_loops()
 		fclose(dot_f);
 }
 
-std::string add_echos_to_abc_cmd(std::string str)
-{
-	std::string new_str, token;
-	for (size_t i = 0; i < str.size(); i++) {
-		token += str[i];
-		if (str[i] == ';') {
-			while (i+1 < str.size() && str[i+1] == ' ')
-				i++;
-			new_str += "echo + " + token + " " + token + " ";
-			token.clear();
-		}
-	}
-
-	if (!token.empty()) {
-		if (!new_str.empty())
-			new_str += "echo + " + token + "; ";
-		new_str += token;
-	}
-
-	return new_str;
-}
-
 std::string fold_abc_cmd(std::string str)
 {
 	std::string token, new_str = "          ";
@@ -761,7 +739,6 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 	if (abc_dress)
 		abc_script += "; dress";
 	abc_script += stringf("; write_blif %s/output.blif", tempdir_name.c_str());
-	abc_script = add_echos_to_abc_cmd(abc_script);
 
 	for (size_t i = 0; i+1 < abc_script.size(); i++)
 		if (abc_script[i] == ';' && abc_script[i+1] == ' ')
@@ -984,7 +961,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 			fclose(f);
 		}
 
-		buffer = stringf("%s -s -f %s/abc.script 2>&1", exe_file.c_str(), tempdir_name.c_str());
+		buffer = stringf("%s -s -F %s/abc.script 2>&1", exe_file.c_str(), tempdir_name.c_str());
 		log("Running ABC command: %s\n", replace_tempdir(buffer, tempdir_name, show_tempdir).c_str());
 
 #ifndef YOSYS_LINK_ABC
