@@ -11,7 +11,7 @@ endcode
 match first
 	select first->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_, \FDRE, \FDRE_1)
 	select !first->get_bool_attribute(\keep)
-	select !port(first, \Q).as_wire()->get_bool_attribute(\keep)
+	select !port(first, \Q)[0].wire->get_bool_attribute(\keep)
 	filter !non_first_cells.count(first)
 //generate
 //	SigSpec A = module->addWire(NEW_ID);
@@ -49,13 +49,13 @@ subpattern setup
 match first
 	select first->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_, \FDRE, \FDRE_1)
 	select !first->get_bool_attribute(\keep)
-	select !port(first, \Q).as_wire()->get_bool_attribute(\keep)
+	select !port(first, \Q)[0].wire->get_bool_attribute(\keep)
 endmatch
 
 match next
 	select next->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_, \FDRE, \FDRE_1)
 	select !next->get_bool_attribute(\keep)
-	select !port(next, \Q).as_wire()->get_bool_attribute(\keep)
+	select !port(next, \Q)[0].wire->get_bool_attribute(\keep)
 	select nusers(port(next, \Q)) == 2
 	index <IdString> next->type === first->type
 	index <SigSpec> port(next, \Q) === port(first, \D)
@@ -74,7 +74,7 @@ match next
 	semioptional
 	select next->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_, \FDRE, \FDRE_1)
 	select !next->get_bool_attribute(\keep)
-	select !port(next, \Q).as_wire()->get_bool_attribute(\keep)
+	select !port(next, \Q)[0].wire->get_bool_attribute(\keep)
 	select nusers(port(next, \Q)) == 2
 	index <IdString> next->type === chain.back()->type
 	index <SigSpec> port(next, \Q) === port(chain.back(), \D)
