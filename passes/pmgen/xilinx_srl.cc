@@ -42,20 +42,29 @@ void reduce_chain(xilinx_srl_pm &pm, int minlen)
 
 	auto last_cell = ud.longest_chain.back();
 
+	SigSpec initval;
 	for (auto cell : ud.longest_chain) {
 		log_debug("    %s\n", log_id(cell));
+		SigBit Q = cell->getPort(ID(Q));
+		log_assert(Q.wire);
+		auto it = Q.wire->attributes.find(ID(init));
+		if (it != Q.wire->attributes.end()) {
+			initval.append(it->second[Q.offset]);
+		}
+		else
+			initval.append(State::Sx);
 		if (cell != last_cell)
 			pm.autoremove(cell);
 	}
 
 	Cell *c = last_cell;
-	SigSpec Q = st.first->getPort(ID(Q));
+	SigBit Q = st.first->getPort(ID(Q));
 	c->setPort(ID(Q), Q);
 
 	if (c->type.in(ID($_DFF_N_), ID($_DFF_P_), ID($_DFFE_NN_), ID($_DFFE_NP_), ID($_DFFE_PN_), ID($_DFFE_PP_), ID(FDRE), ID(FDRE_1))) {
 		c->parameters.clear();
 		c->setParam(ID(DEPTH), GetSize(ud.longest_chain));
-		// TODO c->setParam(ID(INIT), init);
+		c->setParam(ID(INIT), initval.as_const());
 		if (c->type.in(ID($_DFF_P_), ID($_DFFE_PN_), ID($_DFFE_PP_)))
 			c->setParam(ID(CLKPOL), 1);
 		else
