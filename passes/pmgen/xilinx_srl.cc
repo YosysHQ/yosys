@@ -93,7 +93,7 @@ struct XilinxSrlPass : public Pass {
 	{
 		log_header(design, "Executing XILINX_SRL pass (Xilinx shift register extraction).\n");
 
-        int minlen = 3;
+		int minlen = 3;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -106,7 +106,7 @@ struct XilinxSrlPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-        auto f = std::bind(reduce_chain, std::placeholders::_1, minlen);
+		auto f = std::bind(reduce_chain, std::placeholders::_1, minlen);
 		for (auto module : design->selected_modules())
 			while (xilinx_srl_pm(module, module->selected_cells()).run_reduce(f)) {}
 	}
