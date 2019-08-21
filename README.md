@@ -414,6 +414,11 @@ Verilog Attributes and non-standard features
   `abc9` to preserve the integrity of carry-chains. Specifying this attribute
   onto a bus port will affect only its most significant bit.
 
+- The port attribute ``abc_arrival`` specifies an integer (for output ports
+  only) to be used as the arrival time of this sequential port. It can be used,
+  for example, to specify the clk-to-Q delay of a flip-flop for consideration
+  during techmapping.
+
 
 Non-standard or SystemVerilog features for formal verification
 ==============================================================
