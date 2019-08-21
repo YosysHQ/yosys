@@ -347,8 +347,8 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 		std::set<RTLIL::Cell*> muxes;
 		mux_drivers.find(sig_d, muxes);
 		for (auto mux : muxes) {
-			RTLIL::SigSpec sig_a = assign_map(mux->getPort(ID(A)));
-			RTLIL::SigSpec sig_b = assign_map(mux->getPort(ID(B)));
+			RTLIL::SigSpec sig_a = assign_map(mux->getPort(ID::A));
+			RTLIL::SigSpec sig_b = assign_map(mux->getPort(ID::B));
 			if (sig_a == sig_q && sig_b.is_fully_const() && (!has_init || val_init == sig_b.as_const())) {
 				mod->connect(sig_q, sig_b);
 				goto delete_dff;
@@ -625,8 +625,8 @@ struct OptRmdffPass : public Pass {
 				}
 
 				if (cell->type.in(ID($mux), ID($pmux))) {
-					if (cell->getPort(ID(A)).size() == cell->getPort(ID(B)).size())
-						mux_drivers.insert(assign_map(cell->getPort(ID(Y))), cell);
+					if (cell->getPort(ID::A).size() == cell->getPort(ID::B).size())
+						mux_drivers.insert(assign_map(cell->getPort(ID::Y)), cell);
 					continue;
 				}
 

@@ -128,8 +128,8 @@ struct ConstEval
 
 		RTLIL::SigSpec sig_a, sig_b, sig_s, sig_y;
 
-		log_assert(cell->hasPort(ID(Y)));
-		sig_y = values_map(assign_map(cell->getPort(ID(Y))));
+		log_assert(cell->hasPort(ID::Y));
+		sig_y = values_map(assign_map(cell->getPort(ID::Y)));
 		if (sig_y.is_fully_const())
 			return true;
 
@@ -139,11 +139,11 @@ struct ConstEval
 				return false;
 		}
 
-		if (cell->hasPort(ID(A)))
-			sig_a = cell->getPort(ID(A));
+		if (cell->hasPort(ID::A))
+			sig_a = cell->getPort(ID::A);
 
-		if (cell->hasPort(ID(B)))
-			sig_b = cell->getPort(ID(B));
+		if (cell->hasPort(ID::B))
+			sig_b = cell->getPort(ID::B);
 
 		if (cell->type.in(ID($mux), ID($pmux), ID($_MUX_), ID($_NMUX_)))
 		{
@@ -298,11 +298,11 @@ struct ConstEval
 					return false;
 			}
 
-			RTLIL::Const result(0, GetSize(cell->getPort(ID(Y))));
+			RTLIL::Const result(0, GetSize(cell->getPort(ID::Y)));
 			if (!macc.eval(result))
 				log_abort();
 
-			set(cell->getPort(ID(Y)), result);
+			set(cell->getPort(ID::Y), result);
 		}
 		else
 		{

@@ -25,9 +25,9 @@ PRIVATE_NAMESPACE_BEGIN
 
 int lut2mux(Cell *cell)
 {
-	SigSpec sig_a = cell->getPort("\\A");
-	SigSpec sig_y = cell->getPort("\\Y");
-	Const lut = cell->getParam("\\LUT");
+	SigSpec sig_a = cell->getPort(ID::A);
+	SigSpec sig_y = cell->getPort(ID::Y);
+	Const lut = cell->getParam(ID(LUT));
 	int count = 1;
 
 	if (GetSize(sig_a) == 1)
@@ -81,7 +81,7 @@ struct Lut2muxPass : public Pass {
 
 		for (auto module : design->selected_modules())
 		for (auto cell : module->selected_cells()) {
-			if (cell->type == "$lut") {
+			if (cell->type == ID($lut)) {
 				IdString cell_name = cell->name;
 				int count = lut2mux(cell);
 				log("Converted %s.%s to %d MUX cells.\n", log_id(module), log_id(cell_name), count);

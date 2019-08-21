@@ -487,6 +487,11 @@ define add_include_file
 $(eval $(call add_share_file,$(dir share/include/$(1)),$(1)))
 endef
 
+define add_extra_objs
+EXTRA_OBJS += $(1)
+.SECONDARY: $(1)
+endef
+
 ifeq ($(PRETTY), 1)
 P_STATUS = 0
 P_OFFSET = 0
@@ -682,10 +687,12 @@ endif
 
 test: $(TARGETS) $(EXTRA_TARGETS)
 	+cd tests/simple && bash run-test.sh $(SEEDOPT)
+	+cd tests/simple_abc9 && bash run-test.sh $(SEEDOPT)
 	+cd tests/hana && bash run-test.sh $(SEEDOPT)
 	+cd tests/asicworld && bash run-test.sh $(SEEDOPT)
 	# +cd tests/realmath && bash run-test.sh $(SEEDOPT)
 	+cd tests/share && bash run-test.sh $(SEEDOPT)
+	+cd tests/opt_share && bash run-test.sh $(SEEDOPT)
 	+cd tests/fsm && bash run-test.sh $(SEEDOPT)
 	+cd tests/techmap && bash run-test.sh
 	+cd tests/memories && bash run-test.sh $(ABCOPT) $(SEEDOPT)
@@ -693,10 +700,10 @@ test: $(TARGETS) $(EXTRA_TARGETS)
 	+cd tests/various && bash run-test.sh
 	+cd tests/sat && bash run-test.sh
 	+cd tests/svinterfaces && bash run-test.sh $(SEEDOPT)
+	+cd tests/proc && bash run-test.sh
 	+cd tests/opt && bash run-test.sh
 	+cd tests/aiger && bash run-test.sh $(ABCOPT)
 	+cd tests/arch && bash run-test.sh
-	+cd tests/simple_abc9 && bash run-test.sh $(SEEDOPT)
 	@echo ""
 	@echo "  Passed \"make test\"."
 	@echo ""

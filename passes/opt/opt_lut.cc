@@ -40,7 +40,7 @@ struct OptLutWorker
 
 	bool evaluate_lut(RTLIL::Cell *lut, dict<SigBit, bool> inputs)
 	{
-		SigSpec lut_input = sigmap(lut->getPort(ID(A)));
+		SigSpec lut_input = sigmap(lut->getPort(ID::A));
 		int lut_width = lut->getParam(ID(WIDTH)).as_int();
 		Const lut_table = lut->getParam(ID(LUT));
 		int lut_index = 0;
@@ -103,12 +103,12 @@ struct OptLutWorker
 			{
 				if (cell->has_keep_attr())
 					continue;
-				SigBit lut_output = cell->getPort(ID(Y));
-				if (lut_output.wire->get_bool_attribute(ID(keep)))
+				SigBit lut_output = cell->getPort(ID::Y);
+				if (lut_output.wire->get_bool_attribute(ID::keep))
 					continue;
 
 				int lut_width = cell->getParam(ID(WIDTH)).as_int();
-				SigSpec lut_input = cell->getPort(ID(A));
+				SigSpec lut_input = cell->getPort(ID::A);
 				int lut_arity = 0;
 
 				log_debug("Found $lut\\WIDTH=%d cell %s.%s.\n", lut_width, log_id(module), log_id(cell));
@@ -205,7 +205,7 @@ struct OptLutWorker
 			}
 
 			auto lut = worklist.pop();
-			SigSpec lut_input = sigmap(lut->getPort(ID(A)));
+			SigSpec lut_input = sigmap(lut->getPort(ID::A));
 			pool<int> &lut_dlogic_inputs = luts_dlogic_inputs[lut];
 
 			vector<SigBit> lut_inputs;
@@ -267,7 +267,7 @@ struct OptLutWorker
 					log_debug("  Not eliminating cell (connected to dedicated logic).\n");
 				else
 				{
-					SigSpec lut_output = lut->getPort(ID(Y));
+					SigSpec lut_output = lut->getPort(ID::Y);
 					for (auto &port : index.query_ports(lut_output))
 					{
 						if (port.cell != lut && luts.count(port.cell))
@@ -303,13 +303,13 @@ struct OptLutWorker
 			}
 
 			auto lutA = worklist.pop();
-			SigSpec lutA_input = sigmap(lutA->getPort(ID(A)));
-			SigSpec lutA_output = sigmap(lutA->getPort(ID(Y))[0]);
+			SigSpec lutA_input = sigmap(lutA->getPort(ID::A));
+			SigSpec lutA_output = sigmap(lutA->getPort(ID::Y)[0]);
 			int lutA_width = lutA->getParam(ID(WIDTH)).as_int();
 			int lutA_arity = luts_arity[lutA];
 			pool<int> &lutA_dlogic_inputs = luts_dlogic_inputs[lutA];
 
-			auto lutA_output_ports = index.query_ports(lutA->getPort(ID(Y)));
+			auto lutA_output_ports = index.query_ports(lutA->getPort(ID::Y));
 			if (lutA_output_ports.size() != 2)
 				continue;
 
@@ -321,15 +321,15 @@ struct OptLutWorker
 				if (luts.count(port.cell))
 				{
 					auto lutB = port.cell;
-					SigSpec lutB_input = sigmap(lutB->getPort(ID(A)));
-					SigSpec lutB_output = sigmap(lutB->getPort(ID(Y))[0]);
+					SigSpec lutB_input = sigmap(lutB->getPort(ID::A));
+					SigSpec lutB_output = sigmap(lutB->getPort(ID::Y)[0]);
 					int lutB_width = lutB->getParam(ID(WIDTH)).as_int();
 					int lutB_arity = luts_arity[lutB];
 					pool<int> &lutB_dlogic_inputs = luts_dlogic_inputs[lutB];
 
 					log_debug("Found %s.%s (cell A) feeding %s.%s (cell B).\n", log_id(module), log_id(lutA), log_id(module), log_id(lutB));
 
-					if (index.query_is_output(lutA->getPort(ID(Y))))
+					if (index.query_is_output(lutA->getPort(ID::Y)))
 					{
 						log_debug("  Not combining LUTs (cascade connection feeds module output).\n");
 						continue;
@@ -441,7 +441,7 @@ struct OptLutWorker
 					}
 
 					int lutM_width = lutM->getParam(ID(WIDTH)).as_int();
-					SigSpec lutM_input = sigmap(lutM->getPort(ID(A)));
+					SigSpec lutM_input = sigmap(lutM->getPort(ID::A));
 					std::vector<SigBit> lutM_new_inputs;
 					for (int i = 0; i < lutM_width; i++)
 					{
@@ -487,8 +487,8 @@ struct OptLutWorker
 					log_debug("  Merged truth table: %s.\n", lutM_new_table.as_string().c_str());
 
 					lutM->setParam(ID(LUT), lutM_new_table);
-					lutM->setPort(ID(A), lutM_new_inputs);
-					lutM->setPort(ID(Y), lutB_output);
+					lutM->setPort(ID::A, lutM_new_inputs);
+					lutM->setPort(ID::Y, lutB_output);
 
 					luts_arity[lutM] = lutM_arity;
 					luts.erase(lutR);
