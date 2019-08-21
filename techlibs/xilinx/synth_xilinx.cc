@@ -390,8 +390,8 @@ struct SynthXilinxPass : public ScriptPass
 			else if (abc9) {
 				if (family != "xc7")
 					log_warning("'synth_xilinx -abc9' currently supports '-family xc7' only.\n");
-				run("read_verilog -icells -lib +/xilinx/abc_model.v");
 				run("techmap -map +/xilinx/abc_map.v -max_iter 1");
+				run("read_verilog -icells -lib +/xilinx/abc_model.v");
 				if (nowidelut)
 					run("abc9 -lut +/xilinx/abc_xc7_nowide.lut -box +/xilinx/abc_xc7.box -W " + std::to_string(XC7_WIRE_DELAY));
 				else
