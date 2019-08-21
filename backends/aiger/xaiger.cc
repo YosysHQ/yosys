@@ -575,175 +575,177 @@ struct XAigerWriter
 
 		f << "c";
 
-		auto write_buffer = [](std::stringstream &buffer, int i32) {
-			int32_t i32_be = to_big_endian(i32);
-			buffer.write(reinterpret_cast<const char*>(&i32_be), sizeof(i32_be));
-		};
-		std::stringstream h_buffer;
-		auto write_h_buffer = std::bind(write_buffer, std::ref(h_buffer), std::placeholders::_1);
-		write_h_buffer(1);
-		log_debug("ciNum = %d\n", GetSize(input_bits) + GetSize(ci_bits));
-		write_h_buffer(input_bits.size() + ci_bits.size());
-		log_debug("coNum = %d\n", GetSize(output_bits) + GetSize(co_bits));
-		write_h_buffer(output_bits.size() + GetSize(co_bits));
-		log_debug("piNum = %d\n", GetSize(input_bits));
-		write_h_buffer(input_bits.size());
-		log_debug("poNum = %d\n", GetSize(output_bits));
-		write_h_buffer(output_bits.size());
-		log_debug("boxNum = %d\n", GetSize(box_list));
-		write_h_buffer(box_list.size());
+		if (GetSize(output_bits) > 0) {
+			auto write_buffer = [](std::stringstream &buffer, int i32) {
+				int32_t i32_be = to_big_endian(i32);
+				buffer.write(reinterpret_cast<const char*>(&i32_be), sizeof(i32_be));
+			};
+			std::stringstream h_buffer;
+			auto write_h_buffer = std::bind(write_buffer, std::ref(h_buffer), std::placeholders::_1);
+			write_h_buffer(1);
+			log_debug("ciNum = %d\n", GetSize(input_bits) + GetSize(ci_bits));
+			write_h_buffer(input_bits.size() + ci_bits.size());
+			log_debug("coNum = %d\n", GetSize(output_bits) + GetSize(co_bits));
+			write_h_buffer(output_bits.size() + GetSize(co_bits));
+			log_debug("piNum = %d\n", GetSize(input_bits));
+			write_h_buffer(input_bits.size());
+			log_debug("poNum = %d\n", GetSize(output_bits));
+			write_h_buffer(output_bits.size());
+			log_debug("boxNum = %d\n", GetSize(box_list));
+			write_h_buffer(box_list.size());
 
-		auto write_buffer_float = [](std::stringstream &buffer, float f32) {
-			buffer.write(reinterpret_cast<const char*>(&f32), sizeof(f32));
-		};
-		std::stringstream i_buffer;
-		auto write_i_buffer = std::bind(write_buffer_float, std::ref(i_buffer), std::placeholders::_1);
-		for (auto bit : input_bits)
-			write_i_buffer(arrival_times.at(bit, 0));
-		//std::stringstream o_buffer;
-		//auto write_o_buffer = std::bind(write_buffer_float, std::ref(o_buffer), std::placeholders::_1);
-		//for (auto bit : output_bits)
-		//	write_o_buffer(0);
+			auto write_buffer_float = [](std::stringstream &buffer, float f32) {
+				buffer.write(reinterpret_cast<const char*>(&f32), sizeof(f32));
+			};
+			std::stringstream i_buffer;
+			auto write_i_buffer = std::bind(write_buffer_float, std::ref(i_buffer), std::placeholders::_1);
+			for (auto bit : input_bits)
+				write_i_buffer(arrival_times.at(bit, 0));
+			//std::stringstream o_buffer;
+			//auto write_o_buffer = std::bind(write_buffer_float, std::ref(o_buffer), std::placeholders::_1);
+			//for (auto bit : output_bits)
+			//	write_o_buffer(0);
 
-		if (!box_list.empty()) {
-			RTLIL::Module *holes_module = module->design->addModule("$__holes__");
-			log_assert(holes_module);
+			if (!box_list.empty()) {
+				RTLIL::Module *holes_module = module->design->addModule("$__holes__");
+				log_assert(holes_module);
 
-			int port_id = 1;
-			int box_count = 0;
-			for (auto cell : box_list) {
-				RTLIL::Module* box_module = module->design->module(cell->type);
-				int box_inputs = 0, box_outputs = 0;
-				Cell *holes_cell = nullptr;
-				if (box_module->get_bool_attribute("\\whitebox")) {
-					holes_cell = holes_module->addCell(cell->name, cell->type);
-					holes_cell->parameters = cell->parameters;
-				}
+				int port_id = 1;
+				int box_count = 0;
+				for (auto cell : box_list) {
+					RTLIL::Module* box_module = module->design->module(cell->type);
+					int box_inputs = 0, box_outputs = 0;
+					Cell *holes_cell = nullptr;
+					if (box_module->get_bool_attribute("\\whitebox")) {
+						holes_cell = holes_module->addCell(cell->name, cell->type);
+						holes_cell->parameters = cell->parameters;
+					}
 
-				// NB: Assume box_module->ports are sorted alphabetically
-				//     (as RTLIL::Module::fixup_ports() would do)
-				for (const auto &port_name : box_module->ports) {
-					RTLIL::Wire *w = box_module->wire(port_name);
-					log_assert(w);
-					RTLIL::Wire *holes_wire;
-					RTLIL::SigSpec port_wire;
-					if (w->port_input) {
-						for (int i = 0; i < GetSize(w); i++) {
-							box_inputs++;
-							holes_wire = holes_module->wire(stringf("\\i%d", box_inputs));
-							if (!holes_wire) {
-								holes_wire = holes_module->addWire(stringf("\\i%d", box_inputs));
-								holes_wire->port_input = true;
+					// NB: Assume box_module->ports are sorted alphabetically
+					//     (as RTLIL::Module::fixup_ports() would do)
+					for (const auto &port_name : box_module->ports) {
+						RTLIL::Wire *w = box_module->wire(port_name);
+						log_assert(w);
+						RTLIL::Wire *holes_wire;
+						RTLIL::SigSpec port_wire;
+						if (w->port_input) {
+							for (int i = 0; i < GetSize(w); i++) {
+								box_inputs++;
+								holes_wire = holes_module->wire(stringf("\\i%d", box_inputs));
+								if (!holes_wire) {
+									holes_wire = holes_module->addWire(stringf("\\i%d", box_inputs));
+									holes_wire->port_input = true;
+									holes_wire->port_id = port_id++;
+									holes_module->ports.push_back(holes_wire->name);
+								}
+								if (holes_cell)
+									port_wire.append(holes_wire);
+							}
+							if (!port_wire.empty())
+								holes_cell->setPort(w->name, port_wire);
+						}
+						if (w->port_output) {
+							box_outputs += GetSize(w);
+							for (int i = 0; i < GetSize(w); i++) {
+								if (GetSize(w) == 1)
+									holes_wire = holes_module->addWire(stringf("%s.%s", cell->name.c_str(), w->name.c_str()));
+								else
+									holes_wire = holes_module->addWire(stringf("%s.%s[%d]", cell->name.c_str(), w->name.c_str(), i));
+								holes_wire->port_output = true;
 								holes_wire->port_id = port_id++;
 								holes_module->ports.push_back(holes_wire->name);
+								if (holes_cell)
+									port_wire.append(holes_wire);
+								else
+									holes_module->connect(holes_wire, State::S0);
 							}
-							if (holes_cell)
-								port_wire.append(holes_wire);
+							if (!port_wire.empty())
+								holes_cell->setPort(w->name, port_wire);
 						}
-						if (!port_wire.empty())
-							holes_cell->setPort(w->name, port_wire);
 					}
-					if (w->port_output) {
-						box_outputs += GetSize(w);
-						for (int i = 0; i < GetSize(w); i++) {
-							if (GetSize(w) == 1)
-								holes_wire = holes_module->addWire(stringf("%s.%s", cell->name.c_str(), w->name.c_str()));
-							else
-								holes_wire = holes_module->addWire(stringf("%s.%s[%d]", cell->name.c_str(), w->name.c_str(), i));
-							holes_wire->port_output = true;
-							holes_wire->port_id = port_id++;
-							holes_module->ports.push_back(holes_wire->name);
-							if (holes_cell)
-								port_wire.append(holes_wire);
-							else
-								holes_module->connect(holes_wire, State::S0);
-						}
-						if (!port_wire.empty())
-							holes_cell->setPort(w->name, port_wire);
-					}
+
+					write_h_buffer(box_inputs);
+					write_h_buffer(box_outputs);
+					write_h_buffer(box_module->attributes.at("\\abc_box_id").as_int());
+					write_h_buffer(box_count++);
 				}
 
-				write_h_buffer(box_inputs);
-				write_h_buffer(box_outputs);
-				write_h_buffer(box_module->attributes.at("\\abc_box_id").as_int());
-				write_h_buffer(box_count++);
-			}
-
-			std::stringstream r_buffer;
-			auto write_r_buffer = std::bind(write_buffer, std::ref(r_buffer), std::placeholders::_1);
-			write_r_buffer(0);
-			f << "r";
-			std::string buffer_str = r_buffer.str();
-			int32_t buffer_size_be = to_big_endian(buffer_str.size());
-			f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
-			f.write(buffer_str.data(), buffer_str.size());
-
-			if (holes_module) {
-				log_push();
-
-				// NB: fixup_ports() will sort ports by name
-				//holes_module->fixup_ports();
-				holes_module->check();
-
-				holes_module->design->selection_stack.emplace_back(false);
-				RTLIL::Selection& sel = holes_module->design->selection_stack.back();
-				sel.select(holes_module);
-
-				// TODO: Should not need to opt_merge if we only instantiate
-				//       each box type once...
-				Pass::call(holes_module->design, "opt_merge -share_all");
-
-				Pass::call(holes_module->design, "flatten -wb");
-
-				// TODO: Should techmap/aigmap/check all lib_whitebox-es just once,
-				//       instead of per write_xaiger call
-				Pass::call(holes_module->design, "techmap");
-				Pass::call(holes_module->design, "aigmap");
-				for (auto cell : holes_module->cells())
-					if (!cell->type.in("$_NOT_", "$_AND_"))
-						log_error("Whitebox contents cannot be represented as AIG. Please verify whiteboxes are synthesisable.\n");
-
-				holes_module->design->selection_stack.pop_back();
-
-				// Move into a new (temporary) design so that "clean" will only
-				// operate (and run checks on) this one module
-				RTLIL::Design *holes_design = new RTLIL::Design;
-				holes_module->design->modules_.erase(holes_module->name);
-				holes_design->add(holes_module);
-				Pass::call(holes_design, "clean -purge");
-
-				std::stringstream a_buffer;
-				XAigerWriter writer(holes_module, true /* holes_mode */);
-				writer.write_aiger(a_buffer, false /*ascii_mode*/);
-
-				delete holes_design;
-
-				f << "a";
-				std::string buffer_str = a_buffer.str();
+				std::stringstream r_buffer;
+				auto write_r_buffer = std::bind(write_buffer, std::ref(r_buffer), std::placeholders::_1);
+				write_r_buffer(0);
+				f << "r";
+				std::string buffer_str = r_buffer.str();
 				int32_t buffer_size_be = to_big_endian(buffer_str.size());
 				f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
 				f.write(buffer_str.data(), buffer_str.size());
 
-				log_pop();
+				if (holes_module) {
+					log_push();
+
+					// NB: fixup_ports() will sort ports by name
+					//holes_module->fixup_ports();
+					holes_module->check();
+
+					holes_module->design->selection_stack.emplace_back(false);
+					RTLIL::Selection& sel = holes_module->design->selection_stack.back();
+					sel.select(holes_module);
+
+					// TODO: Should not need to opt_merge if we only instantiate
+					//       each box type once...
+					Pass::call(holes_module->design, "opt_merge -share_all");
+
+					Pass::call(holes_module->design, "flatten -wb");
+
+					// TODO: Should techmap/aigmap/check all lib_whitebox-es just once,
+					//       instead of per write_xaiger call
+					Pass::call(holes_module->design, "techmap");
+					Pass::call(holes_module->design, "aigmap");
+					for (auto cell : holes_module->cells())
+						if (!cell->type.in("$_NOT_", "$_AND_"))
+							log_error("Whitebox contents cannot be represented as AIG. Please verify whiteboxes are synthesisable.\n");
+
+					holes_module->design->selection_stack.pop_back();
+
+					// Move into a new (temporary) design so that "clean" will only
+					// operate (and run checks on) this one module
+					RTLIL::Design *holes_design = new RTLIL::Design;
+					holes_module->design->modules_.erase(holes_module->name);
+					holes_design->add(holes_module);
+					Pass::call(holes_design, "clean -purge");
+
+					std::stringstream a_buffer;
+					XAigerWriter writer(holes_module, true /* holes_mode */);
+					writer.write_aiger(a_buffer, false /*ascii_mode*/);
+
+					delete holes_design;
+
+					f << "a";
+					std::string buffer_str = a_buffer.str();
+					int32_t buffer_size_be = to_big_endian(buffer_str.size());
+					f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
+					f.write(buffer_str.data(), buffer_str.size());
+
+					log_pop();
+				}
 			}
+
+			f << "h";
+			std::string buffer_str = h_buffer.str();
+			int32_t buffer_size_be = to_big_endian(buffer_str.size());
+			f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
+			f.write(buffer_str.data(), buffer_str.size());
+
+			f << "i";
+			buffer_str = i_buffer.str();
+			buffer_size_be = to_big_endian(buffer_str.size());
+			f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
+			f.write(buffer_str.data(), buffer_str.size());
+			//f << "o";
+			//buffer_str = o_buffer.str();
+			//buffer_size_be = to_big_endian(buffer_str.size());
+			//f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
+			//f.write(buffer_str.data(), buffer_str.size());
 		}
-
-		f << "h";
-		std::string buffer_str = h_buffer.str();
-		int32_t buffer_size_be = to_big_endian(buffer_str.size());
-		f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
-		f.write(buffer_str.data(), buffer_str.size());
-
-		f << "i";
-		buffer_str = i_buffer.str();
-		buffer_size_be = to_big_endian(buffer_str.size());
-		f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
-		f.write(buffer_str.data(), buffer_str.size());
-		//f << "o";
-		//buffer_str = o_buffer.str();
-		//buffer_size_be = to_big_endian(buffer_str.size());
-		//f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
-		//f.write(buffer_str.data(), buffer_str.size());
 
 		f << stringf("Generated by %s\n", yosys_version_str);
 	}
