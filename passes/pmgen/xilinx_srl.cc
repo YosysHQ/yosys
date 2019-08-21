@@ -30,13 +30,10 @@ bool did_something;
 #include "passes/pmgen/ice40_dsp_pm.h"
 #include "passes/pmgen/peepopt_pm.h"
 
-void reduce_chain(xilinx_srl_pm &pm, int minlen)
+void reduce_chain(xilinx_srl_pm &pm)
 {
 	auto &st = pm.st_reduce;
 	auto &ud = pm.ud_reduce;
-
-	if (GetSize(ud.longest_chain) < minlen)
-		return;
 
 	log("Found chain of length %d (%s):\n", GetSize(ud.longest_chain), log_id(st.first->type));
 
@@ -115,9 +112,14 @@ struct XilinxSrlPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		auto f = std::bind(reduce_chain, std::placeholders::_1, minlen);
-		for (auto module : design->selected_modules())
-			while (xilinx_srl_pm(module, module->selected_cells()).run_reduce(f)) {}
+		for (auto module : design->selected_modules()) {
+			bool did_something = false;
+			do {
+				auto pm = xilinx_srl_pm(module, module->selected_cells());
+				pm.ud_reduce.minlen = minlen;
+				did_something = pm.run_reduce(reduce_chain);
+			} while (did_something);
+		}
 	}
 } XilinxSrlPass;
 
