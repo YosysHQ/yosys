@@ -34,7 +34,6 @@ match ffA
 	if mul->type != \SB_MAC16 || !param(mul, \A_REG).as_bool()
 	if !sigAset.empty()
 	select ffA->type.in($dff)
-	filter includes(port(ffA, \Q).to_sigbit_set(), sigAset)
 	optional
 endmatch
 
@@ -42,6 +41,10 @@ code sigA clock clock_pol
 	sigA = port(mul, \A);
 
 	if (ffA) {
+		auto ffAset = port(ffA, \Q).to_sigbit_set();
+		if (!std::includes(ffAset.begin(), ffAset.end(), sigAset.begin(), sigAset.end()))
+			reject;
+
 		for (auto b : port(ffA, \Q))
 			if (b.wire->get_bool_attribute(\keep))
 				reject;
@@ -57,7 +60,6 @@ match ffB
 	if mul->type != \SB_MAC16 || !param(mul, \B_REG).as_bool()
 	if !sigBset.empty()
 	select ffB->type.in($dff)
-	filter includes(port(ffB, \Q).to_sigbit_set(), sigBset)
 	optional
 endmatch
 
@@ -65,6 +67,10 @@ code sigB clock clock_pol
 	sigB = port(mul, \B);
 
 	if (ffB) {
+		auto ffBset = port(ffB, \Q).to_sigbit_set();
+		if (!std::includes(ffBset.begin(), ffBset.end(), sigBset.begin(), sigBset.end()))
+			reject;
+
 		for (auto b : port(ffB, \Q))
 			if (b.wire->get_bool_attribute(\keep))
 				reject;
@@ -207,7 +213,9 @@ code
 	if (ffO_lo) {
 		SigSpec O = sigOused.extract(0,std::min(16,param(ffO_lo, \WIDTH).as_int()));
 		O.remove_const();
-		if (!includes(port(ffO_lo, \D).to_sigbit_set(), O.to_sigbit_set()))
+		auto ffO_loSet = port(ffO_lo, \D).to_sigbit_set();
+		auto Oset = O.to_sigbit_set();
+		if (!std::includes(ffO_loSet.begin(), ffO_loSet.end(), Oset.begin(), Oset.end()))
 			reject;
 	}
 endcode
@@ -223,7 +231,9 @@ code
 	if (ffO_hi) {
 		SigSpec O = sigOused.extract_end(16);
 		O.remove_const();
-		if (!includes(port(ffO_hi, \D).to_sigbit_set(), O.to_sigbit_set()))
+		auto ffO_hiSet = port(ffO_hi, \D).to_sigbit_set();
+		auto Oset = O.to_sigbit_set();
+		if (!std::includes(ffO_hiSet.begin(), ffO_hiSet.end(), Oset.begin(), Oset.end()))
 			reject;
 	}
 endcode

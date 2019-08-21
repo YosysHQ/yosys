@@ -23,10 +23,6 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-template<class T> inline bool includes(const T &lhs, const T &rhs) {
-	return std::includes(lhs.begin(), lhs.end(), rhs.begin(), rhs.end());
-}
-#include <set>
 #include "passes/pmgen/ice40_dsp_pm.h"
 
 void create_ice40_dsp(ice40_dsp_pm &pm)
