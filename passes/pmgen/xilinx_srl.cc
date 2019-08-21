@@ -64,6 +64,8 @@ void reduce_chain(xilinx_srl_pm &pm)
 		c->setParam(ID(INIT), initval.as_const());
 		if (c->type.in(ID($_DFF_P_), ID($_DFFE_PN_), ID($_DFFE_PP_)))
 			c->setParam(ID(CLKPOL), 1);
+		else if (c->type.in(ID($_DFF_N_), ID($DFFE_NN_), ID($_DFFE_NP_), ID(FDRE_1)))
+			c->setParam(ID(CLKPOL), 0);
 		else
 			log_abort();
 		if (c->type.in(ID($_DFFE_NN_), ID($_DFFE_PN_)))
