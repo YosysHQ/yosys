@@ -211,6 +211,8 @@ endmodule
 
 `endif
 
+// Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf#L238-L250
+
 module FDRE ((* abc_arrival=303 *) output reg Q,
              input C, CE, D, R);
   parameter [0:0] INIT = 1'b0;
