@@ -175,7 +175,7 @@ struct SynthPass : public ScriptPass
 			log_cmd_error("This command only operates on fully selected designs!\n");
 
 		if (abc == "abc9" && !lut)
-			log_cmd_error("ABC9 flow only supported for FPGA synthesis (using '-lut' option)");
+			log_cmd_error("ABC9 flow only supported for FPGA synthesis (using '-lut' option)\n");
 
 		log_header(design, "Executing SYNTH pass.\n");
 		log_push();
