@@ -383,6 +383,14 @@ struct SynthXilinxPass : public ScriptPass
 			run("clean");
 		}
 
+		if (check_label("map_ffs")) {
+				if (abc9 || help_mode) {
+						run("techmap -map +/xilinx/ff_map.v", "('-abc9' only)");
+						run("dffinit -ff FDRE Q INIT -ff FDCE Q INIT -ff FDPE Q INIT -ff FDSE Q INIT "
+										"-ff FDRE_1 Q INIT -ff FDCE_1 Q INIT -ff FDPE_1 Q INIT -ff FDSE_1 Q INIT", "('-abc9' only)");
+				}
+		}
+
 		if (check_label("map_luts")) {
 			run("opt_expr -mux_undef");
 			if (help_mode)
@@ -407,9 +415,16 @@ struct SynthXilinxPass : public ScriptPass
 			//   has performed any necessary retiming
 			if (!nosrl || help_mode)
 				run("xilinx_srl -minlen 3", "(skip if '-nosrl')");
-			run("techmap -map +/xilinx/lut_map.v -map +/xilinx/ff_map.v -map +/xilinx/cells_map.v");
-			run("dffinit -ff FDRE Q INIT -ff FDCE Q INIT -ff FDPE Q INIT -ff FDSE Q INIT "
-					"-ff FDRE_1 Q INIT -ff FDCE_1 Q INIT -ff FDPE_1 Q INIT -ff FDSE_1 Q INIT");
+
+			std::string techmap_args = "-map +/xilinx/lut_map.v -map +/xilinx/cells_map.v";
+			if (help_mode)
+					techmap_args += " [-map +/xilinx/ff_map.v]";
+			else if (!abc9)
+					techmap_args += " -map +/xilinx/ff_map.v";
+			run("techmap " + techmap_args);
+			if (!abc9)
+				run("dffinit -ff FDRE Q INIT -ff FDCE Q INIT -ff FDPE Q INIT -ff FDSE Q INIT "
+						"-ff FDRE_1 Q INIT -ff FDCE_1 Q INIT -ff FDPE_1 Q INIT -ff FDSE_1 Q INIT", "(without '-abc9' only)");
 			run("clean");
 		}
 
