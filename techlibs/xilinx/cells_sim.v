@@ -342,8 +342,7 @@ module RAM128X1D (
 endmodule
 
 module SRL16E (
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L904-L905
-  (* abc_arrival=1472 *) output Q,
+  output Q,
   input A0, A1, A2, A3, CE, CLK, D
 );
   parameter [15:0] INIT = 16'h0000;
@@ -361,9 +360,8 @@ module SRL16E (
 endmodule
 
 module SRLC32E (
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L904-L905
-  (* abc_arrival=1472 *) output Q,
-  (* abc_arrival=1114 *) output Q31,
+  output Q,
+  output Q31,
   input [4:0] A,
   input CE, CLK, D
 );
