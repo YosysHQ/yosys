@@ -204,6 +204,7 @@ struct XilinxSrlPass : public Pass {
 		for (auto module : design->selected_modules()) {
 			auto pm = xilinx_srl_pm(module, module->selected_cells());
 			pm.ud_fixed.minlen = minlen;
+			pm.ud_variable.minlen = minlen;
 
 			if (fixed) {
 				// TODO: How to get these automatically?
