@@ -745,16 +745,20 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			}
 		}
 
-		if (cell->type == ID($shiftx) && GetSize(cell->getPort(ID::Y)) == 1) {
+		if (cell->type.in(ID($shiftx), ID($shift))) {
 			SigSpec sig_a = assign_map(cell->getPort(ID::A));
 			int width;
+			bool trim_x = true;
+			bool trim_0 = cell->type == ID($shift);
 			for (width = GetSize(sig_a); width > 1; width--) {
-				if (sig_a[width-1] != State::Sx)
-					break;
+				if ((trim_x && sig_a[width-1] == State::Sx) ||
+					(trim_0 && sig_a[width-1] == State::S0))
+					continue;
+				break;
 			}
 
 			if (width < GetSize(sig_a)) {
-				cover("opt.opt_expr.trim_shiftx");
+				cover_list("opt.opt_expr.xbit", "$shiftx", "$shift", cell->type.str());
 				sig_a.remove(width, GetSize(sig_a)-width);
 				cell->setPort(ID::A, sig_a);
 				cell->setParam(ID(A_WIDTH), width);
