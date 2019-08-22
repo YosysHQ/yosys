@@ -218,6 +218,10 @@ struct XilinxSrlPass : public Pass {
 				do {
 					auto pm = xilinx_srl_pm(module, module->selected_cells());
 					pm.ud_variable.minlen = minlen;
+					// Since `nusers` does not count module ports as a user,
+					//   and since `sigmap` does not always make such ports
+					//   the canonical signal.. need to maintain a pool these
+					//   ourselves
 					for (auto p : module->ports) {
 						auto w = module->wire(p);
 						if (w->port_output)
