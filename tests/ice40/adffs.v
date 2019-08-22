@@ -55,7 +55,7 @@ input clk,
 input clr,
 input pre,
 input a,
-output b,b1,b2,b3,b4
+output b,b1,b2,b3
 );
 
 dffsr u_dffsr (
