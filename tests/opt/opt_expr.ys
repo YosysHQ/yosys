@@ -221,3 +221,17 @@ check
 equiv_opt opt_expr -fine
 design -load postopt
 select -assert-count 1 t:$alu r:A_WIDTH=8 r:B_WIDTH=8 r:Y_WIDTH=9 %i %i %i
+
+###########
+
+design -reset
+read_verilog -icells <<EOT
+module opt_expr_shiftx(input [2:0] a, input [1:0] b, output y);
+    \$shiftx #(.A_SIGNED(0), .B_SIGNED(0), .A_WIDTH(4), .B_WIDTH(2), .Y_WIDTH(1)) shiftx (.A({1'bx,a}), .B(b), .Y(y));
+endmodule
+EOT
+check
+
+equiv_opt opt_expr
+design -load postopt
+select -assert-count 1 t:$shiftx r:A_WIDTH=3 %i
