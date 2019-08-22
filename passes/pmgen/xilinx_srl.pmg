@@ -177,7 +177,7 @@ code
 	chain.push_back(first);
 	subpattern(tail);
 finally
-	if (GetSize(chain) == param(shiftx, \A_WIDTH).as_int())
+	if (GetSize(chain) == shiftx_width)
 		accept;
 	chain.clear();
 endcode
