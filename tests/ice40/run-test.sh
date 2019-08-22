@@ -12,7 +12,7 @@ for x in *.ys; do
 	echo "all:: run-$x"
 	echo "run-$x:"
 	echo "	@echo 'Running $x..'"
-	echo "	@../../yosys -ql ${x%.ys}.log $x"
+	echo "	@../../yosys -ql ${x%.ys}.log $x -w 'Yosys has only limited support for tri-state logic at the moment.'"
 done
 for t in *_tb.v; do
 	echo "all:: run-$t"
