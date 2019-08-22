@@ -390,8 +390,6 @@ with open(outfile, "w") as f:
     print("  void add_siguser(const SigSpec &sig, Cell *cell) {", file=f)
     print("    for (auto bit : sigmap(sig)) {", file=f)
     print("      if (bit.wire == nullptr) continue;", file=f)
-    print("      if (sigusers.count(bit) == 0 && bit.wire->port_id)", file=f)
-    print("        sigusers[bit].insert(nullptr);", file=f)
     print("      sigusers[bit].insert(cell);", file=f)
     print("    }", file=f)
     print("  }", file=f)
@@ -450,6 +448,10 @@ with open(outfile, "w") as f:
     print("      for (auto &conn : cell->connections())", file=f)
     print("        add_siguser(conn.second, cell);", file=f)
     print("    }", file=f)
+    print("    for (auto port : module->ports)", file=f)
+    print("      add_siguser(module->wire(port), nullptr);", file=f)
+    print("    ", file=f)
+
     print("    for (auto cell : cells) {", file=f)
 
     for index in range(len(blocks)):
