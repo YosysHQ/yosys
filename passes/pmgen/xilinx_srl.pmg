@@ -164,6 +164,11 @@ endmatch
 
 code shiftx_width
 	shiftx_width = param(shiftx, \A_WIDTH).as_int();
+	while (shiftx_width > 1) {
+		if (port(shiftx, \A)[shiftx_width-1] != State::Sx)
+			break;
+		--shiftx_width;
+	}
 endcode
 
 match first
@@ -177,7 +182,7 @@ code
 	chain.push_back(first);
 	subpattern(tail);
 finally
-	if (GetSize(chain) == param(shiftx, \A_WIDTH).as_int())
+	if (GetSize(chain) == shiftx_width)
 		accept;
 	chain.clear();
 endcode
