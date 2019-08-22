@@ -1,50 +1,48 @@
 bram $__ALTSYNCRAM_SDP
   init   1
   # 8192d x 1w 
-  abits  13 
-  dbits  1  
+  abits  13 @a13d1
+  dbits  1  @a13d1
   # 4092d x 2w
-  abits  12
-  dbits  2 
+  abits  12 @a12d2
+  dbits  2  @a12d2
   # 2049d x 4w
-  abits  11 
-  dbits  4 
+  abits  11 @a11d4
+  dbits  4  @a11d4
   # 1024d x 8w
-  abits  10
-  dbits  8 
+  abits  10 @a10d8
+  dbits  8  @a10d8
   # 1024d x 9w
-  abits  10 
-  dbits  9  
+  abits  10 @a10d9
+  dbits  9  @a10d9
   # 512d x 16w 
-  abits  9 
-  dbits  16
+  abits  9  @a9d16
+  dbits  16 @a9d16
   # 512d x 18w
-  abits  9
-  dbits  18
+  abits  9  @a9d18
+  dbits  18 @a9d18
   # 256d x 32w
-  abits  8
-  dbits  32
+  abits  8  @a8d32
+  dbits  32 @a8d32
   # 256d x 36w 
-  abits  8
-  dbits  36
-  
+  abits  8  @a8d36
+  dbits  36 @a8d36
   #      wr rd
   groups 2
   ports  1 1
   wrmode 1 0
   enable 1 1
   transp 0 2
-  clocks 1 1
-  clkpol 1 1
+  clocks 2 3
+  clkpol 2 3
 endbram
 
 match $__ALTSYNCRAM_SDP
   min efficiency 5
-  make_transp
+  shuffle_enable B
 endmatch
 
 
-# notes to delete:
-# M9K blocks support byte
-# enables when the write port has a data width of ×16, ×18, ×32, or ×36 bits.
+# Notes:
+# M9K blocks support byte enables when the write port has a data width of ×16, ×18, ×32, or ×36 bits.
 # https://www.intel.com/content/dam/www/programmable/us/en/pdfs/literature/hb/cyclone-iv/cyiv-51003.pdf

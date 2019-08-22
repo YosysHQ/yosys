@@ -28,7 +28,15 @@ module altsyncram(data_a, address_a, wren_a, rden_a, q_a, data_b, address_b,  wr
    parameter wrcontrol_aclr_a              = "NONE";
    parameter indata_aclr_a                 = "NONE";
    parameter address_aclr_a                = "NONE";
+   parameter address_aclr_b                = "NONE";
    parameter outdata_aclr_a                = "NONE";
+   parameter address_reg_b                 = "NONE";
+   parameter indata_aclr_b                 = "NONE";
+   parameter indata_reg_b                  = "NONE";
+   parameter outdata_aclr_b                = "NONE";
+   parameter rdcontrol_aclr_b              = "NONE";
+   parameter rdcontrol_reg_b               = "NONE";
+   parameter wrcontrol_aclr_b              = "NONE";
    parameter outdata_reg_a                 = "UNREGISTERED";
    parameter operation_mode                = "SINGLE_PORT";
    parameter intended_device_family        = "MAX 10 FPGA";
@@ -39,6 +47,8 @@ module altsyncram(data_a, address_a, wren_a, rden_a, q_a, data_b, address_b,  wr
    parameter lpm_hint                      = "ENABLE_RUNTIME_MOD=NO";
    parameter power_up_uninitialized        = "FALSE";
    parameter read_during_write_mode_port_a = "NEW_DATA_NO_NBE_READ";
+   parameter read_during_write_mode_mixed_ports = "DONT_CARE";
+   parameter wrcontrol_wraddress_reg_b     = "NONE";
    parameter width_byteena_a               = 1;
    parameter numwords_b                    = 0;
    parameter numwords_a                    = 0;
