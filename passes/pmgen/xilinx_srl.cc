@@ -202,34 +202,30 @@ struct XilinxSrlPass : public Pass {
 			log_cmd_error("'-fixed' and/or '-variable' must be specified.\n");
 
 		for (auto module : design->selected_modules()) {
-			bool did_something = false;
-			if (fixed)
-				do {
-					auto pm = xilinx_srl_pm(module, module->selected_cells());
-					pm.ud_fixed.minlen = minlen;
-					// TODO: How to get these automatically?
-					pm.ud_fixed.default_params[std::make_pair(ID(FDRE),ID(INIT))] = State::S0;
-					pm.ud_fixed.default_params[std::make_pair(ID(FDRE),ID(IS_C_INVERTED))] = State::S0;
-					pm.ud_fixed.default_params[std::make_pair(ID(FDRE),ID(IS_D_INVERTED))] = State::S0;
-					pm.ud_fixed.default_params[std::make_pair(ID(FDRE),ID(IS_R_INVERTED))] = State::S0;
-					did_something = pm.run_fixed(run_fixed);
-				} while (did_something);
-			if (variable)
-				do {
-					auto pm = xilinx_srl_pm(module, module->selected_cells());
-					pm.ud_variable.minlen = minlen;
-					// Since `nusers` does not count module ports as a user,
-					//   and since `sigmap` does not always make such ports
-					//   the canonical signal.. need to maintain a pool these
-					//   ourselves
-					for (auto p : module->ports) {
-						auto w = module->wire(p);
-						if (w->port_output)
-							for (auto b : pm.sigmap(w))
-								pm.ud_variable.output_bits.insert(b);
-					}
-					did_something = pm.run_variable(run_variable);
-				} while (did_something);
+			auto pm = xilinx_srl_pm(module, module->selected_cells());
+			pm.ud_fixed.minlen = minlen;
+
+			if (fixed) {
+				// TODO: How to get these automatically?
+				pm.ud_fixed.default_params[std::make_pair(ID(FDRE),ID(INIT))] = State::S0;
+				pm.ud_fixed.default_params[std::make_pair(ID(FDRE),ID(IS_C_INVERTED))] = State::S0;
+				pm.ud_fixed.default_params[std::make_pair(ID(FDRE),ID(IS_D_INVERTED))] = State::S0;
+				pm.ud_fixed.default_params[std::make_pair(ID(FDRE),ID(IS_R_INVERTED))] = State::S0;
+				pm.run_fixed(run_fixed);
+			}
+			if (variable) {
+				// Since `nusers` does not count module ports as a user,
+				//   and since `sigmap` does not always make such ports
+				//   the canonical signal.. need to maintain a pool these
+				//   ourselves
+				for (auto p : module->ports) {
+					auto w = module->wire(p);
+					if (w->port_output)
+						for (auto b : pm.sigmap(w))
+							pm.ud_variable.output_bits.insert(b);
+				}
+				pm.run_variable(run_variable);
+			}
 		}
 	}
 } XilinxSrlPass;
