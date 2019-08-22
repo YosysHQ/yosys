@@ -352,9 +352,8 @@ struct SynthXilinxPass : public ScriptPass
 			if (!nosrl || help_mode) {
 				// shregmap operates on bit-level flops, not word-level,
 				//   so break those down here
-				run("simplemap t:$dff t:$dffe", "       (skip if '-nosrl')");
-				// shregmap with '-tech xilinx' infers variable length shift regs
-				run("shregmap -tech xilinx -minlen 3", "(skip if '-nosrl')");
+				run("simplemap t:$dff t:$dffe", "      (skip if '-nosrl')");
+				run("xilinx_srl -variable -minlen 3", "(skip if '-nosrl')");
 			}
 
 			std::string techmap_args = " -map +/techmap.v";
@@ -414,7 +413,7 @@ struct SynthXilinxPass : public ScriptPass
 			// This shregmap call infers fixed length shift registers after abc
 			//   has performed any necessary retiming
 			if (!nosrl || help_mode)
-				run("xilinx_srl -minlen 3", "(skip if '-nosrl')");
+				run("xilinx_srl -fixed -minlen 3", "(skip if '-nosrl')");
 
 			std::string techmap_args = "-map +/xilinx/lut_map.v -map +/xilinx/cells_map.v";
 			if (help_mode)
