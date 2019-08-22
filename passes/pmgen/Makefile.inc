@@ -4,7 +4,7 @@
 # --------------------------------------
 
 OBJS += passes/pmgen/test_pmgen.o
-passes/pmgen/test_pmgen.o: passes/pmgen/test_pmgen_pm.h
+passes/pmgen/test_pmgen.o: passes/pmgen/test_pmgen_pm.h passes/pmgen/ice40_dsp_pm.h passes/pmgen/peepopt_pm.h
 $(eval $(call add_extra_objs,passes/pmgen/test_pmgen_pm.h))
 
 # --------------------------------------
