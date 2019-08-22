@@ -168,7 +168,20 @@ struct XilinxSrlPass : public Pass {
 		log("\n");
 		log("    xilinx_srl [options] [selection]\n");
 		log("\n");
-		log("TODO.\n");
+		log("This pass converts chains of built-in flops ($_DFF_[NP]_, $_DFFE_*) as well as\n");
+		log("Xilinx flops (FDRE, FDRE_1) into a $__XILINX_SHREG cell. Chains must be of the\n");
+		log("same type, clock, clock polarity, enable, enable polarity (when relevant).\n");
+		log("Flops with resets cannot be mapped to Xilinx devices and will not be inferred.");
+		log("\n");
+		log("    -minlen N\n");
+		log("        min length of shift register (default = 3)\n");
+		log("\n");
+		log("    -fixed\n");
+		log("        infer fixed-length shift registers.\n");
+		log("\n");
+		log("    -variable\n");
+		log("        infer variable-length shift registers (i.e. fixed-length shifts where\n");
+		log("        each element also fans-out to a $shiftx cell.\n");
 		log("\n");
 	}
 
