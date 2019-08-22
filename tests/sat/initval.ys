@@ -1,4 +1,4 @@
 read_verilog -sv initval.v
-proc;;
+proc;
 
 sat -seq 10 -prove-asserts
