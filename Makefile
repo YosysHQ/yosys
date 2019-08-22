@@ -90,8 +90,10 @@ PLUGIN_LDFLAGS += -undefined dynamic_lookup
 ifneq ($(shell which brew),)
 BREW_PREFIX := $(shell brew --prefix)/opt
 $(info $$BREW_PREFIX is [${BREW_PREFIX}])
+ifeq ($(ENABLE_PYOSYS),1)
 CXXFLAGS += -I$(BREW_PREFIX)/boost/include/boost
 LDFLAGS += -L$(BREW_PREFIX)/boost/lib
+endif
 CXXFLAGS += -I$(BREW_PREFIX)/readline/include
 LDFLAGS += -L$(BREW_PREFIX)/readline/lib
 PKG_CONFIG_PATH := $(BREW_PREFIX)/libffi/lib/pkgconfig:$(PKG_CONFIG_PATH)
