@@ -754,6 +754,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			}
 
 			if (width < GetSize(sig_a)) {
+				cover("opt.opt_expr.trim_shiftx");
 				sig_a.remove(width, GetSize(sig_a)-width);
 				cell->setPort(ID::A, sig_a);
 				cell->setParam(ID(A_WIDTH), width);
