@@ -1,5 +1,6 @@
 read_verilog latches.v
 synth_ice40
-select -assert-count 5 t:SB_LUT4
-#select -assert-none t:SB_LUT4 %% t:* %D
+cd top
+select -assert-count 4 t:SB_LUT4
+select -assert-none t:SB_LUT4 %% t:* %D
 write_verilog latches_synth.v

@@ -1,4 +1,5 @@
 read_verilog memory.v
 synth_ice40
+cd top
 select -assert-count 1 t:SB_RAM40_4K
 write_verilog memory_synth.v

@@ -1,6 +1,7 @@
 read_verilog dffs.v
 hierarchy -top top
-synth -flatten -run coarse # technology-independent coarse grained synthesis
+proc
+flatten
 equiv_opt -assert -map +/ice40/cells_sim.v synth_ice40 # equivalency check same as technology-dependent fine-grained synthesis
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd top # Constrain all select calls below inside the top module
