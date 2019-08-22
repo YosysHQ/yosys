@@ -1,6 +1,6 @@
 read_verilog add_sub.v
 hierarchy -top top
-equiv_opt -assert -map +/ice40/cells_sim.v synth_ice40 # equivalency check same as technology-dependent fine-grained synthesis
+equiv_opt -assert -map +/ice40/cells_sim.v synth_ice40 # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd top # Constrain all select calls below inside the top module
 select -assert-count 11 t:SB_LUT4
