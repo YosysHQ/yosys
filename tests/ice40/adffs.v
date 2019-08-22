@@ -88,11 +88,4 @@ adffn u_adffn (
         .q (b3 )
     );
 
-dffe u_dffe (
-        .clk (clk ),
-        .en (clr),
-        .d (a ),
-        .q (b4 )
-    );
-
 endmodule
