@@ -745,6 +745,23 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			}
 		}
 
+		if (cell->type == ID($shiftx) && cell->getPort(ID::Y).size() == 1) {
+			SigSpec sig_a = assign_map(cell->getPort(ID::A));
+			int width;
+			for (width = GetSize(sig_a); width > 1; width--) {
+				if (sig_a[width-1] != State::Sx)
+					break;
+			}
+
+			if (width < GetSize(sig_a)) {
+				sig_a.remove(width, GetSize(sig_a)-width);
+				cell->setPort(ID::A, sig_a);
+				cell->setParam(ID(A_WIDTH), width);
+				did_something = true;
+				goto next_cell;
+			}
+		}
+
 		if (cell->type.in(ID($_NOT_), ID($not), ID($logic_not)) && cell->getPort(ID::Y).size() == 1 &&
 				invert_map.count(assign_map(cell->getPort(ID::A))) != 0) {
 			cover_list("opt.opt_expr.invert.double", "$_NOT_", "$not", "$logic_not", cell->type.str());
