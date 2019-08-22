@@ -1,8 +1,8 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2018  Miodrag Milanovic <miodrag@symbioticeda.com>
- *  Copyright (C) 2018  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2019  Miodrag Milanovic <miodrag@symbioticeda.com>
+ *  Copyright (C) 2019  Clifford Wolf <clifford@clifford.at>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -26,17 +26,17 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-struct SynthAnlogicPass : public ScriptPass
+struct SynthEfinixPass : public ScriptPass
 {
-	SynthAnlogicPass() : ScriptPass("synth_anlogic", "synthesis for Anlogic FPGAs") { }
+	SynthEfinixPass() : ScriptPass("synth_efinix", "synthesis for Efinix FPGAs") { }
 
 	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    synth_anlogic [options]\n");
+		log("    synth_efinix [options]\n");
 		log("\n");
-		log("This command runs synthesis for Anlogic FPGAs.\n");
+		log("This command runs synthesis for Efinix FPGAs.\n");
 		log("\n");
 		log("    -top <module>\n");
 		log("        use the specified module as top module\n");
@@ -121,7 +121,7 @@ struct SynthAnlogicPass : public ScriptPass
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");
 
-		log_header(design, "Executing SYNTH_ANLOGIC pass.\n");
+		log_header(design, "Executing SYNTH_EFINIX pass.\n");
 		log_push();
 
 		run_script(design, run_from, run_to);
@@ -133,7 +133,7 @@ struct SynthAnlogicPass : public ScriptPass
 	{
 		if (check_label("begin"))
 		{
-			run("read_verilog -lib +/anlogic/cells_sim.v +/anlogic/eagle_bb.v");
+			run("read_verilog -lib +/efinix/cells_sim.v");
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
 		}
 
@@ -150,11 +150,11 @@ struct SynthAnlogicPass : public ScriptPass
 			run("synth -run coarse");
 		}
 
-		if (check_label("dram"))
+		if (check_label("map_bram", "(skip if -nobram)"))
 		{
-			run("memory_bram -rules +/anlogic/drams.txt");
-			run("techmap -map +/anlogic/drams_map.v");
-			run("setundef -zero -params t:EG_LOGIC_DRAM16X4");
+			run("memory_bram -rules +/efinix/bram.txt");
+			run("techmap -map +/efinix/brams_map.v");
+			run("setundef -zero -params t:EFX_RAM_5K");
 		}
 
 		if (check_label("fine"))
@@ -162,7 +162,7 @@ struct SynthAnlogicPass : public ScriptPass
 			run("opt -fast -mux_undef -undriven -fine");
 			run("memory_map");
 			run("opt -undriven -fine");
-			run("techmap -map +/techmap.v -map +/anlogic/arith_map.v");
+			run("techmap -map +/techmap.v -map +/efinix/arith_map.v");
 			if (retime || help_mode)
 				run("abc -dff", "(only if -retime)");
 		}
@@ -170,7 +170,7 @@ struct SynthAnlogicPass : public ScriptPass
 		if (check_label("map_ffs"))
 		{
 			run("dffsr2dff");
-			run("techmap -D NO_LUT -map +/anlogic/cells_map.v");
+			run("techmap -D NO_LUT -map +/efinix/cells_map.v");
 			run("dffinit -strinit SET RESET -ff AL_MAP_SEQ q REGSET -noreinit");
 			run("opt_expr -mux_undef");
 			run("simplemap");
@@ -178,22 +178,23 @@ struct SynthAnlogicPass : public ScriptPass
 
 		if (check_label("map_luts"))
 		{
-			run("abc -lut 4:6");
+			run("abc -lut 4");
 			run("clean");
 		}
 
 		if (check_label("map_cells"))
 		{
-			run("techmap -map +/anlogic/cells_map.v");
+			run("techmap -map +/efinix/cells_map.v");
+			run("clean");
+		}
+
+		if (check_label("map_gbuf"))
+		{
+			run("efinix_gbuf");
+			run("efinix_fixcarry");
 			run("clean");
 		}
 		
-		if (check_label("map_anlogic"))
-		{
-			run("anlogic_fixcarry");
-			run("anlogic_eqn");
-		}
-
 		if (check_label("check"))
 		{
 			run("hierarchy -check");
@@ -213,6 +214,6 @@ struct SynthAnlogicPass : public ScriptPass
 				run(stringf("write_json %s", help_mode ? "<file-name>" : json_file.c_str()));
 		}
 	}
-} SynthAnlogicPass;
+} SynthEfinixPass;
 
 PRIVATE_NAMESPACE_END
