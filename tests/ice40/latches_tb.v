@@ -10,8 +10,6 @@ module testbench;
             #5 clk = 1;
             #5 clk = 0;
         end
-
-        $display("OKAY");
     end
 
 
