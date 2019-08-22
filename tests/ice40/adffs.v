@@ -22,16 +22,6 @@ module adffn
             q <= d;
 endmodule
 
-module dffe
-    ( input d, clk, en, output reg q );
-    initial begin
-      q = 0;
-    end
-	always @( posedge clk )
-		if ( en )
-			q <= d;
-endmodule
-
 module dffsr
     ( input d, clk, pre, clr, output reg q );
     initial begin
