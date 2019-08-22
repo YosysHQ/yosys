@@ -277,3 +277,17 @@ check
 equiv_opt opt_expr
 design -load postopt
 select -assert-count 1 t:$shift r:A_WIDTH=10 %i
+
+###########
+
+design -reset
+read_verilog -icells <<EOT
+module opt_expr_shift_3bit_keepdc(input [9:0] a, input [3:0] b, output [2:0] y);
+    \$shift #(.A_SIGNED(0), .B_SIGNED(0), .A_WIDTH(14), .B_WIDTH(4), .Y_WIDTH(3)) shift (.A({4'b0x0x,a}), .B(b), .Y(y));
+endmodule
+EOT
+check
+
+equiv_opt opt_expr -keepdc
+design -load postopt
+select -assert-count 1 t:$shift r:A_WIDTH=13 %i

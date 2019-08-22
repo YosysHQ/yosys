@@ -748,7 +748,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 		if (cell->type.in(ID($shiftx), ID($shift))) {
 			SigSpec sig_a = assign_map(cell->getPort(ID::A));
 			int width;
-			bool trim_x = true;
+			bool trim_x = cell->type == ID($shiftx) || !keepdc;
 			bool trim_0 = cell->type == ID($shift);
 			for (width = GetSize(sig_a); width > 1; width--) {
 				if ((trim_x && sig_a[width-1] == State::Sx) ||
