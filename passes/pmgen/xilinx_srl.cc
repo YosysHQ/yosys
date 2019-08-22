@@ -214,19 +214,8 @@ struct XilinxSrlPass : public Pass {
 				pm.ud_fixed.default_params[std::make_pair(ID(FDRE),ID(IS_R_INVERTED))] = State::S0;
 				pm.run_fixed(run_fixed);
 			}
-			if (variable) {
-				// Since `nusers` does not count module ports as a user,
-				//   and since `sigmap` does not always make such ports
-				//   the canonical signal.. need to maintain a pool these
-				//   ourselves
-				for (auto p : module->ports) {
-					auto w = module->wire(p);
-					if (w->port_output)
-						for (auto b : pm.sigmap(w))
-							pm.ud_variable.output_bits.insert(b);
-				}
+			if (variable)
 				pm.run_variable(run_variable);
-			}
 		}
 	}
 } XilinxSrlPass;

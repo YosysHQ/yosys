@@ -152,13 +152,12 @@ pattern variable
 
 state <int> shiftx_width
 udata <int> minlen
-udata <pool<SigBit>> output_bits
 udata <vector<Cell*>> chain
 
 match shiftx
 	select shiftx->type.in($shiftx)
 	select !shiftx->has_keep_attr()
-	select param(shiftx, \Y_WIDTH) == 1
+	select param(shiftx, \Y_WIDTH).as_int() == 1
 	filter param(shiftx, \A_WIDTH).as_int() >= minlen
 endmatch
 
@@ -170,7 +169,6 @@ match first
 	select first->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_)
 	select nusers(port(first, \Q)) == 2
 	index <SigBit> port(first, \Q) === port(shiftx, \A)[shiftx_width-1]
-	filter !output_bits.count(port(first, \Q))
 endmatch
 
 code
@@ -194,7 +192,6 @@ match next
 	select !next->has_keep_attr()
 	select !port(next, \D)[0].wire->get_bool_attribute(\keep)
 	select nusers(port(next, \Q)) == 3
-	filter !output_bits.count(port(next, \Q))
 	index <IdString> next->type === chain.back()->type
 	index <SigBit> port(next, \Q) === port(chain.back(), \D)
 	index <SigBit> port(next, \Q) === port(shiftx, \A)[shiftx_width-1-GetSize(chain)]
@@ -202,6 +199,11 @@ endmatch
 
 code
 	if (next) {
+		auto sig = port(next, \Q);
+		log_warning("nusers of '%s'\n", log_signal(sig));
+		for (auto bit : sigmap(sig))
+			for (auto user : sigusers[bit])
+				log_warning("\t%s\n", log_id(user));
 		chain.push_back(next);
 		if (GetSize(chain) < shiftx_width)
 			subpattern(tail);
