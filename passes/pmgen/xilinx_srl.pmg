@@ -1,5 +1,6 @@
 pattern fixed
 
+state <IdString> clk_port
 udata <vector<Cell*>> chain longest_chain
 udata <pool<Cell*>> non_first_cells
 udata <int> minlen
@@ -32,7 +33,10 @@ match first
 //	}
 endmatch
 
-code
+code clk_port
+	if (first->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_, \FDRE, \FDRE_1))
+		clk_port = \C;
+	else log_abort();
 	longest_chain.clear();
 	chain.push_back(first);
 	subpattern(tail);
@@ -46,13 +50,17 @@ endcode
 // ------------------------------------------------------------------
 
 subpattern setup
+arg clk_port
 
 match first
 	select first->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_, \FDRE, \FDRE_1)
 	select !first->has_keep_attr()
 endmatch
 
-code
+code clk_port
+	if (first->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_, \FDRE, \FDRE_1))
+		clk_port = \C;
+	else log_abort();
 	if (first->type.in(\FDRE, \FDRE_1)) {
 		SigBit R = port(first, \R);
 		if (first->type == \FDRE) {
@@ -77,6 +85,7 @@ match next
 	select nusers(port(next, \Q)) == 2
 	index <IdString> next->type === first->type
 	index <SigBit> port(next, \Q) === port(first, \D)
+	filter port(next, clk_port) == port(first, clk_port)
 endmatch
 
 code
@@ -101,6 +110,7 @@ endcode
 
 subpattern tail
 arg first
+arg clk_port
 
 match next
 	semioptional
@@ -110,6 +120,7 @@ match next
 	select nusers(port(next, \Q)) == 2
 	index <IdString> next->type === chain.back()->type
 	index <SigBit> port(next, \Q) === port(chain.back(), \D)
+	filter port(next, clk_port) == port(first, clk_port)
 //generate 10
 //	SigSpec A = module->addWire(NEW_ID);
 //	SigSpec B = module->addWire(NEW_ID);
@@ -150,6 +161,7 @@ endcode
 
 pattern variable
 
+state <IdString> clk_port
 state <int> shiftx_width
 state <int> slice
 udata <int> minlen
@@ -170,12 +182,17 @@ match first
 	select first->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_, $dff, $dffe)
 	select !first->has_keep_attr()
 	slice idx GetSize(port(first, \Q))
-	select nusers(port(first, \Q)[idx], false /* unique */) == 2
+	select nusers(port(first, \Q)[idx]) <= 2
 	index <SigBit> port(first, \Q)[idx] === port(shiftx, \A)[shiftx_width-1]
 	set slice idx
 endmatch
 
-code
+code clk_port
+	if (first->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_))
+		clk_port = \C;
+	else if (first->type.in($dff, $dffe))
+		clk_port = \CLK;
+	else log_abort();
 	chain.emplace_back(first, slice);
 	subpattern(tail);
 finally
@@ -187,9 +204,11 @@ endcode
 // ------------------------------------------------------------------
 
 subpattern tail
+arg first
 arg shiftx
 arg shiftx_width
 arg slice
+arg clk_port
 
 match next
 	semioptional
@@ -197,10 +216,11 @@ match next
 	select !next->has_keep_attr()
 	select !port(next, \D)[0].wire->get_bool_attribute(\keep)
 	slice idx GetSize(port(next, \Q))
-	select nusers(port(next, \Q)[idx], false /* unique */) == 3
+	select nusers(port(next, \Q)[idx]) <= 3
 	index <IdString> next->type === chain.back().first->type
 	index <SigBit> port(next, \Q)[idx] === port(chain.back().first, \D)[chain.back().second]
 	index <SigBit> port(next, \Q)[idx] === port(shiftx, \A)[shiftx_width-1-GetSize(chain)]
+	filter port(next, clk_port) == port(first, clk_port)
 	set slice idx
 endmatch
 
