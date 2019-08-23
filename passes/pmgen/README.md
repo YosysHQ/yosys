@@ -195,7 +195,7 @@ create matches for different sections of a cell. For example:
 
 The first argument to `slice` is the local variable name used to identify the
 slice. The second argument is the number of slices that should be created for
-this cell. The `set` statement can be used to copy that index indo a state
+this cell. The `set` statement can be used to copy that index into a state
 variable so that later matches and/or code blocks can refer to it.
 
 A similar mechanism is "choices", where a list of options is given as
