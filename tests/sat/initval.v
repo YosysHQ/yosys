@@ -13,7 +13,7 @@ module test(input clk, input [3:0] bar, output [3:0] foo);
     last_bar <= bar;
 
   always @*
-    asdf[2:0] <= 3'b111;
+    asdf[2:0] = 3'b111;
 
   assert property (foo == {last_bar[3:2], bar[1:0]});
 endmodule
