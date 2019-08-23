@@ -183,9 +183,11 @@ endmodule
 
 (* abc_box_id = 4, lib_whitebox *)
 module CARRY4(
-  (* abc_carry *) output [3:0] CO,
+  (* abc_carry *)
+  output [3:0] CO,
   output [3:0] O,
-  (* abc_carry *) input CI,
+  (* abc_carry *)
+  input        CI,
   input        CYINIT,
   input  [3:0] DI, S
 );
@@ -298,9 +300,11 @@ endmodule
 (* abc_box_id = 5 *)
 module RAM32X1D (
   output DPO, SPO,
-  (* abc_scc_break *) input D,
+  (* abc_scc_break *)
+  input  D,
   input  WCLK,
-  (* abc_scc_break *) input WE,
+  (* abc_scc_break *)
+  input  WE,
   input  A0, A1, A2, A3, A4,
   input  DPRA0, DPRA1, DPRA2, DPRA3, DPRA4
 );
@@ -318,7 +322,8 @@ endmodule
 (* abc_box_id = 6 *)
 module RAM64X1D (
   output DPO, SPO,
-  (* abc_scc_break *) input D,
+  (* abc_scc_break *)
+  input  D,
   input  WCLK,
   (* abc_scc_break *) input WE,
   input  A0, A1, A2, A3, A4, A5,
@@ -338,9 +343,11 @@ endmodule
 (* abc_box_id = 7 *)
 module RAM128X1D (
   output       DPO, SPO,
-  (* abc_scc_break *) input D,
+  (* abc_scc_break *)
+  input        D,
   input        WCLK,
-  (* abc_scc_break *) input WE,
+  (* abc_scc_break *)
+  input        WE,
   input  [6:0] A, DPRA
 );
   parameter INIT = 128'h0;
