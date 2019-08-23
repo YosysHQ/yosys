@@ -1,7 +1,7 @@
 set -e
-if [ -f "../../../../../techlibs/common/simcells.v" ]; then
-	COMMON_PREFIX=../../../../../techlibs/common
-	TECHLIBS_PREFIX=../../../../../techlibs
+if [ -f "../../techlibs/common/simcells.v" ]; then
+	COMMON_PREFIX=../../techlibs/common
+	TECHLIBS_PREFIX=../../techlibs
 else
 	COMMON_PREFIX=/usr/local/share/yosys
 	TECHLIBS_PREFIX=/usr/local/share/yosys
