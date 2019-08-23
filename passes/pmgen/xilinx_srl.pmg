@@ -181,7 +181,7 @@ endcode
 
 pattern variable
 
-state <IdString> clk_port
+state <IdString> clk_port en_port
 state <int> shiftx_width
 state <int> slice
 udata <int> minlen
@@ -207,12 +207,18 @@ match first
 	set slice idx
 endmatch
 
-code clk_port
+code clk_port en_port
 	if (first->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_))
 		clk_port = \C;
 	else if (first->type.in($dff, $dffe))
 		clk_port = \CLK;
 	else log_abort();
+	if (first->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_))
+		en_port = \E;
+	else if (first->type.in($dff, $dffe))
+		en_port = \EN;
+	else log_abort();
+
 	chain.emplace_back(first, slice);
 	subpattern(tail);
 finally
@@ -229,6 +235,7 @@ arg shiftx
 arg shiftx_width
 arg slice
 arg clk_port
+arg en_port
 
 match next
 	semioptional
@@ -241,6 +248,7 @@ match next
 	index <SigBit> port(next, \Q)[idx] === port(chain.back().first, \D)[chain.back().second]
 	index <SigBit> port(next, \Q)[idx] === port(shiftx, \A)[shiftx_width-1-GetSize(chain)]
 	filter port(next, clk_port) == port(first, clk_port)
+	filter en_port == IdString() || port(next, en_port) == port(first, en_port)
 	set slice idx
 endmatch
 
