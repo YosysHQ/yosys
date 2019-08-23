@@ -141,8 +141,7 @@ void run_variable(xilinx_srl_pm &pm)
 	if (c->type.in(ID($dff), ID($dffe))) {
 		auto &Q = last_cell->connections_.at(ID(Q));
 		Q = Q[last_slice];
-		auto &D = first_cell->connections_.at(ID(D));
-		D = D[first_slice];
+		last_cell->setPort(ID(D), first_cell->getPort(ID(D))[first_slice]);
 	}
 
 	if (c->type.in(ID($_DFF_N_), ID($_DFF_P_), ID($_DFFE_NN_), ID($_DFFE_NP_), ID($_DFFE_PN_), ID($_DFFE_PP_), ID($dff), ID($dffe))) {
