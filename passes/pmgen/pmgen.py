@@ -458,12 +458,16 @@ with open(outfile, "w") as f:
     print("  }", file=f)
     print("", file=f)
 
-    print("  int nusers(const SigSpec &sig) {", file=f)
+    print("  int nusers(const SigSpec &sig, bool unique=true) {", file=f)
+    print("    int i = 0;", file=f)
     print("    pool<Cell*> users;", file=f)
     print("    for (auto bit : sigmap(sig))", file=f)
-    print("      for (auto user : sigusers[bit])", file=f)
-    print("        users.insert(user);", file=f)
-    print("    return GetSize(users);", file=f)
+    print("      if (unique)", file=f);
+    print("        i += GetSize(sigusers[bit]);", file=f);
+    print("      else", file=f);
+    print("        for (auto user : sigusers[bit])", file=f)
+    print("          users.insert(user);", file=f)
+    print("    return unique ? GetSize(users) : i;", file=f)
     print("  }", file=f)
     print("", file=f)
 
