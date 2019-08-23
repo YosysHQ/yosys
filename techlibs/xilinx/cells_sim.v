@@ -175,9 +175,11 @@ endmodule
 
 (* abc_box_id = 4, lib_whitebox *)
 module CARRY4(
-  (* abc_carry *) output [3:0] CO,
+  (* abc_carry *)
+  output [3:0] CO,
   output [3:0] O,
-  (* abc_carry *) input CI,
+  (* abc_carry *)
+  input        CI,
   input        CYINIT,
   input  [3:0] DI, S
 );
@@ -299,7 +301,8 @@ endmodule
 
 module RAM32X1D (
   // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
-  (* abc_arrival=1153 *) output DPO, SPO,
+  (* abc_arrival=1153 *)
+  output DPO, SPO,
   input  D,
   input  WCLK,
   input  WE,
@@ -319,7 +322,8 @@ endmodule
 
 module RAM64X1D (
   // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
-  (* abc_arrival=1153 *) output DPO, SPO,
+  (* abc_arrival=1153 *)
+  output DPO, SPO,
   input  D,
   input  WCLK,
   input  WE,
@@ -339,7 +343,8 @@ endmodule
 
 module RAM128X1D (
   // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
-  (* abc_arrival=1153 *) output DPO, SPO,
+  (* abc_arrival=1153 *)
+  output DPO, SPO,
   input        D,
   input        WCLK,
   input        WE,

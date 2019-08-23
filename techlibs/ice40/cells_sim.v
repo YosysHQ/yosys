@@ -143,11 +143,13 @@ endmodule
 
 (* abc_box_id = 1, lib_whitebox *)
 module \$__ICE40_FULL_ADDER (
-	(* abc_carry *) output CO,
+	(* abc_carry *)
+	output CO,
 	output O,
 	input A,
 	input B,
-	(* abc_carry *) input CI
+	(* abc_carry *)
+	input CI
 );
 	SB_CARRY carry (
 		.I0(A),

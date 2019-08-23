@@ -1,7 +1,7 @@
 ```
 yosys -- Yosys Open SYnthesis Suite
 
-Copyright (C) 2012 - 2018  Clifford Wolf <clifford@clifford.at>
+Copyright (C) 2012 - 2019  Clifford Wolf <clifford@clifford.at>
 
 Permission to use, copy, modify, and/or distribute this software for any
 purpose with or without fee is hereby granted, provided that the above
@@ -69,11 +69,14 @@ prerequisites for building yosys:
 		graphviz xdot pkg-config python3 libboost-system-dev \
 		libboost-python-dev libboost-filesystem-dev zlib1g-dev
 
-Similarily, on Mac OS X MacPorts or Homebrew can be used to install dependencies:
+Similarily, on Mac OS X Homebrew can be used to install dependencies:
 
 	$ brew tap Homebrew/bundle && brew bundle
+
+or MacPorts:
+
 	$ sudo port install bison flex readline gawk libffi \
-		git graphviz pkgconfig python36 boost zlib
+		git graphviz pkgconfig python36 boost zlib tcl
 
 On FreeBSD use the following command to install all prerequisites:
 
