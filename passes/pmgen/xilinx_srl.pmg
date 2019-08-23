@@ -267,9 +267,4 @@ code
 		if (GetSize(chain) < shiftx_width)
 			subpattern(tail);
 	}
-finally
-	if (next) {
-		chain_bits.erase(port(next, \Q)[slice]);
-		chain.pop_back();
-	}
 endcode
