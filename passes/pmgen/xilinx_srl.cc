@@ -42,7 +42,7 @@ void run_fixed(xilinx_srl_pm &pm)
 
 	log("Found fixed chain of length %d (%s):\n", GetSize(ud.longest_chain), log_id(st.first->type));
 
-	auto last_cell = ud.longest_chain.back();
+	auto first_cell = ud.longest_chain.back();
 
 	SigSpec initval;
 	for (auto cell : ud.longest_chain) {
@@ -63,11 +63,11 @@ void run_fixed(xilinx_srl_pm &pm)
 			initval.append(param_def(cell, ID(INIT)));
 		else
 			log_abort();
-		if (cell != last_cell)
+		if (cell != first_cell)
 			pm.autoremove(cell);
 	}
 
-	Cell *c = last_cell;
+	Cell *c = first_cell;
 	SigBit Q = st.first->getPort(ID(Q));
 	c->setPort(ID(Q), Q);
 
@@ -107,8 +107,8 @@ void run_variable(xilinx_srl_pm &pm)
 
 	log("Found variable chain of length %d (%s):\n", GetSize(ud.chain), log_id(st.first->type));
 
-	auto last_cell = ud.chain.back().first;
-	auto last_slice = ud.chain.back().second;
+	auto first_cell = ud.chain.back().first;
+	auto first_slice = ud.chain.back().second;
 
 	SigSpec initval;
 	for (const auto &i : ud.chain) {
@@ -129,14 +129,21 @@ void run_variable(xilinx_srl_pm &pm)
 		}
 		else
 			log_abort();
-		if (cell != last_cell)
+		if (cell != first_cell)
 			cell->connections_.at(ID(Q))[slice] = pm.module->addWire(NEW_ID);
 	}
 	pm.autoremove(st.shiftx);
 
+	auto last_cell = ud.chain.front().first;
+	auto last_slice = ud.chain.front().second;
+
 	Cell *c = last_cell;
-	SigBit Q = st.first->getPort(ID(Q))[last_slice];
-	c->setPort(ID(Q), Q);
+	if (c->type.in(ID($dff), ID($dffe))) {
+		auto &Q = last_cell->connections_.at(ID(Q));
+		Q = Q[last_slice];
+		auto &D = first_cell->connections_.at(ID(D));
+		D = D[first_slice];
+	}
 
 	if (c->type.in(ID($_DFF_N_), ID($_DFF_P_), ID($_DFFE_NN_), ID($_DFFE_NP_), ID($_DFFE_PN_), ID($_DFFE_PP_), ID($dff), ID($dffe))) {
 		Const clkpol, enpol;
@@ -177,7 +184,6 @@ void run_variable(xilinx_srl_pm &pm)
 		log_abort();
 
 	log("    -> %s (%s)\n", log_id(c), log_id(c->type));
-
 }
 
 struct XilinxSrlPass : public Pass {
@@ -188,9 +194,10 @@ struct XilinxSrlPass : public Pass {
 		log("\n");
 		log("    xilinx_srl [options] [selection]\n");
 		log("\n");
-		log("This pass converts chains of built-in flops ($_DFF_[NP]_, $_DFFE_*) as well as\n");
-		log("Xilinx flops (FDRE, FDRE_1) into a $__XILINX_SHREG cell. Chains must be of the\n");
-		log("same type, clock, clock polarity, enable, enable polarity (when relevant).\n");
+		log("This pass converts chains of built-in flops (bit-level: $_DFF_[NP]_, $_DFFE_*\n");
+		log("and word-level: $dff, $dffe) as well as Xilinx flops (FDRE, FDRE_1) into a\n");
+		log("$__XILINX_SHREG cell. Chains must be of the same cell type, clock, clock polarity,\n");
+		log("enable, and enable polarity (where relevant).\n");
 		log("Flops with resets cannot be mapped to Xilinx devices and will not be inferred.");
 		log("\n");
 		log("    -minlen N\n");
