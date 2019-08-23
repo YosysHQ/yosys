@@ -186,6 +186,11 @@ state <int> shiftx_width
 state <int> slice
 udata <int> minlen
 udata <vector<pair<Cell*,int>>> chain
+udata <pool<SigBit>> chain_bits
+
+code
+	chain_bits.clear();
+endcode
 
 match shiftx
 	select shiftx->type.in($shiftx)
@@ -251,13 +256,20 @@ match next
 	index <SigBit> port(next, \Q)[idx] === port(shiftx, \A)[shiftx_width-1-GetSize(chain)]
 	filter port(next, clk_port) == port(first, clk_port)
 	filter en_port == IdString() || port(next, en_port) == port(first, en_port)
+	filter !chain_bits.count(port(next, \D)[idx])
 	set slice idx
 endmatch
 
 code
 	if (next) {
+		chain_bits.insert(port(next, \Q)[slice]);
 		chain.emplace_back(next, slice);
 		if (GetSize(chain) < shiftx_width)
 			subpattern(tail);
+	}
+finally
+	if (next) {
+		chain_bits.erase(port(next, \Q)[slice]);
+		chain.pop_back();
 	}
 endcode
