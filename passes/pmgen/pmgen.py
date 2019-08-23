@@ -207,9 +207,10 @@ def process_pmgfile(f, filename):
             state_types[current_pattern][line[1]] = "Cell*";
 
             block["if"] = list()
-            block["select"] = list()
+            block["setup"] = list()
             block["index"] = list()
             block["filter"] = list()
+            block["sets"] = list()
             block["optional"] = False
             block["semioptional"] = False
 
@@ -228,7 +229,22 @@ def process_pmgfile(f, filename):
 
                 if a[0] == "select":
                     b = l.lstrip()[6:]
-                    block["select"].append(rewrite_cpp(b.strip()))
+                    block["setup"].append(("select", rewrite_cpp(b.strip())))
+                    continue
+
+                if a[0] == "slice":
+                    m = re.match(r"^\s*slice\s+(\S+)\s+(.*?)\s*$", l)
+                    block["setup"].append(("slice", m.group(1), rewrite_cpp(m.group(2))))
+                    continue
+
+                if a[0] == "choice":
+                    m = re.match(r"^\s*choice\s+<(.*?)>\s+(\S+)\s+(.*?)\s*$", l)
+                    block["setup"].append(("choice", m.group(1), m.group(2), rewrite_cpp(m.group(3))))
+                    continue
+
+                if a[0] == "define":
+                    m = re.match(r"^\s*define\s+<(.*?)>\s+(\S+)\s+(.*?)\s*$", l)
+                    block["setup"].append(("define", m.group(1), m.group(2), rewrite_cpp(m.group(3))))
                     continue
 
                 if a[0] == "index":
@@ -242,6 +258,11 @@ def process_pmgfile(f, filename):
                     block["filter"].append(rewrite_cpp(b.strip()))
                     continue
 
+                if a[0] == "set":
+                    m = re.match(r"^\s*set\s+(\S+)\s+(.*?)\s*$", l)
+                    block["sets"].append((m.group(1), rewrite_cpp(m.group(2))))
+                    continue
+
                 if a[0] == "optional":
                     block["optional"] = True
                     continue
@@ -252,14 +273,16 @@ def process_pmgfile(f, filename):
 
                 if a[0] == "generate":
                     block["genargs"] = list([int(s) for s in a[1:]])
+                    if len(block["genargs"]) == 0: block["genargs"].append(100)
+                    if len(block["genargs"]) == 1: block["genargs"].append(0)
+                    assert len(block["genargs"]) == 2
                     block["gencode"] = list()
-                    assert len(block["genargs"]) < 2
                     while True:
                         linenr += 1
                         l = f.readline()
                         assert l != ""
                         a = l.split()
-                        if a[0] == "endmatch": break
+                        if len(a) == 1 and a[0] == "endmatch": break
                         block["gencode"].append(rewrite_cpp(l.rstrip()))
                     break
 
@@ -357,8 +380,17 @@ with open(outfile, "w") as f:
             index_types = list()
             for entry in block["index"]:
                 index_types.append(entry[0])
+            value_types = ["Cell*"]
+            for entry in block["setup"]:
+                if entry[0] == "slice":
+                    value_types.append("int")
+                if entry[0] == "choice":
+                    value_types.append(entry[1])
+                if entry[0] == "define":
+                    value_types.append(entry[1])
             print("  typedef std::tuple<{}> index_{}_key_type;".format(", ".join(index_types), index), file=f)
-            print("  dict<index_{}_key_type, vector<Cell*>> index_{};".format(index, index), file=f)
+            print("  typedef std::tuple<{}> index_{}_value_type;".format(", ".join(value_types), index), file=f)
+            print("  dict<index_{}_key_type, vector<index_{}_value_type>> index_{};".format(index, index, index), file=f)
     print("  dict<SigBit, pool<Cell*>> sigusers;", file=f)
     print("  pool<Cell*> blacklist_cells;", file=f)
     print("  pool<Cell*> autoremove_cells;", file=f)
@@ -457,12 +489,34 @@ with open(outfile, "w") as f:
         if block["type"] == "match":
             print("      do {", file=f)
             print("        Cell *{} = cell;".format(block["cell"]), file=f)
-            for expr in block["select"]:
-                print("        if (!({})) break;".format(expr), file=f)
+            print("        index_{}_value_type value;".format(index), file=f)
+            print("        std::get<0>(value) = cell;", file=f)
+            loopcnt = 0
+            valueidx = 1
+            for item in block["setup"]:
+                if item[0] == "select":
+                    print("        if (!({})) continue;".format(item[1]), file=f)
+                if item[0] == "slice":
+                    print("        int &{} = std::get<{}>(value);".format(item[1], valueidx), file=f)
+                    print("        for ({} = 0; {} < {}; {}++) {{".format(item[1], item[1], item[2], item[1]), file=f)
+                    valueidx += 1
+                    loopcnt += 1
+                if item[0] == "choice":
+                    print("        vector<{}> _pmg_choices_{} = {};".format(item[1], item[2], item[3]), file=f)
+                    print("        for (const {} &{} : _pmg_choices_{}) {{".format(item[1], item[2], item[2]), file=f)
+                    print("        std::get<{}>(value) = {};".format(valueidx, item[2]), file=f)
+                    valueidx += 1
+                    loopcnt += 1
+                if item[0] == "define":
+                    print("        {} &{} = std::get<{}>(value);".format(item[1], item[2], valueidx), file=f)
+                    print("        {} = {};".format(item[2], item[3]), file=f)
+                    valueidx += 1
             print("        index_{}_key_type key;".format(index), file=f)
             for field, entry in enumerate(block["index"]):
                 print("        std::get<{}>(key) = {};".format(field, entry[1]), file=f)
-            print("        index_{}[key].push_back(cell);".format(index), file=f)
+            print("        index_{}[key].push_back(value);".format(index), file=f)
+            for i in range(loopcnt):
+                print("        }", file=f)
             print("      } while (0);", file=f)
 
     print("    }", file=f)
@@ -535,6 +589,8 @@ with open(outfile, "w") as f:
                     const_st.add(s)
             elif blocks[i]["type"] == "match":
                 const_st.add(blocks[i]["cell"])
+                for item in blocks[i]["sets"]:
+                    const_st.add(item[0])
             else:
                 assert False
 
@@ -548,6 +604,10 @@ with open(outfile, "w") as f:
             s = block["cell"]
             assert s not in const_st
             nonconst_st.add(s)
+            for item in block["sets"]:
+                if item[0] in const_st:
+                    const_st.remove(item[0])
+                nonconst_st.add(item[0])
         else:
             assert False
 
@@ -570,7 +630,7 @@ with open(outfile, "w") as f:
             print("", file=f)
             for s in sorted(restore_st):
                 t = state_types[current_pattern][s]
-                print("    {} backup_{} = {};".format(t, s, s), file=f)
+                print("    {} _pmg_backup_{} = {};".format(t, s, s), file=f)
 
         if block["type"] == "code":
             print("", file=f)
@@ -610,7 +670,7 @@ with open(outfile, "w") as f:
                 print("", file=f)
                 for s in sorted(restore_st):
                     t = state_types[current_pattern][s]
-                    print("    {} = backup_{};".format(s, s), file=f)
+                    print("    {} = _pmg_backup_{};".format(s, s), file=f)
                 for s in sorted(nonconst_st):
                     if s not in restore_st:
                         t = state_types[current_pattern][s]
@@ -622,7 +682,7 @@ with open(outfile, "w") as f:
         elif block["type"] == "match":
             assert len(restore_st) == 0
 
-            print("    Cell* backup_{} = {};".format(block["cell"], block["cell"]), file=f)
+            print("    Cell* _pmg_backup_{} = {};".format(block["cell"], block["cell"]), file=f)
 
             if len(block["if"]):
                 for expr in block["if"]:
@@ -630,7 +690,7 @@ with open(outfile, "w") as f:
                     print("    if (!({})) {{".format(expr), file=f)
                     print("      {} = nullptr;".format(block["cell"]), file=f)
                     print("      block_{}(recursion+1);".format(index+1), file=f)
-                    print("      {} = backup_{};".format(block["cell"], block["cell"]), file=f)
+                    print("      {} = _pmg_backup_{};".format(block["cell"], block["cell"]), file=f)
                     print("      return;", file=f)
                     print("    }", file=f)
 
@@ -645,21 +705,37 @@ with open(outfile, "w") as f:
 
             print("", file=f)
             print("    if (cells_ptr != index_{}.end()) {{".format(index), file=f)
-            print("      const vector<Cell*> &cells = cells_ptr->second;".format(index), file=f)
-            print("      for (int idx = 0; idx < GetSize(cells); idx++) {", file=f)
-            print("        {} = cells[idx];".format(block["cell"]), file=f)
+            print("      const vector<index_{}_value_type> &cells = cells_ptr->second;".format(index), file=f)
+            print("      for (int _pmg_idx = 0; _pmg_idx < GetSize(cells); _pmg_idx++) {", file=f)
+            print("        {} = std::get<0>(cells[_pmg_idx]);".format(block["cell"]), file=f)
+            valueidx = 1
+            for item in block["setup"]:
+                if item[0] == "slice":
+                    print("        const int &{} YS_ATTRIBUTE(unused) = std::get<{}>(cells[_pmg_idx]);".format(item[1], valueidx), file=f)
+                    valueidx += 1
+                if item[0] == "choice":
+                    print("        const {} &{} YS_ATTRIBUTE(unused) = std::get<{}>(cells[_pmg_idx]);".format(item[1], item[2], valueidx), file=f)
+                    valueidx += 1
+                if item[0] == "define":
+                    print("        const {} &{} YS_ATTRIBUTE(unused) = std::get<{}>(cells[_pmg_idx]);".format(item[1], item[2], valueidx), file=f)
+                    valueidx += 1
             print("        if (blacklist_cells.count({})) continue;".format(block["cell"]), file=f)
             for expr in block["filter"]:
                 print("        if (!({})) continue;".format(expr), file=f)
             if block["semioptional"] or block["genargs"] is not None:
                 print("        found_any_match = true;", file=f)
-            print("        auto rollback_ptr = rollback_cache.insert(make_pair(cells[idx], recursion));", file=f)
+            for item in block["sets"]:
+                print("        auto _pmg_backup_{} = {};".format(item[0], item[0]), file=f)
+                print("        {} = {};".format(item[0], item[1]), file=f)
+            print("        auto rollback_ptr = rollback_cache.insert(make_pair(std::get<0>(cells[_pmg_idx]), recursion));", file=f)
             print("        block_{}(recursion+1);".format(index+1), file=f)
+            for item in block["sets"]:
+                print("        {} = _pmg_backup_{};".format(item[0], item[0]), file=f)
             print("        if (rollback_ptr.second)", file=f)
             print("          rollback_cache.erase(rollback_ptr.first);", file=f)
             print("        if (rollback) {", file=f)
             print("          if (rollback != recursion) {{".format(index+1), file=f)
-            print("            {} = backup_{};".format(block["cell"], block["cell"]), file=f)
+            print("            {} = _pmg_backup_{};".format(block["cell"], block["cell"]), file=f)
             print("            return;", file=f)
             print("          }", file=f)
             print("          rollback = 0;", file=f)
@@ -676,13 +752,11 @@ with open(outfile, "w") as f:
             if block["semioptional"]:
                 print("    if (!found_any_match) block_{}(recursion+1);".format(index+1), file=f)
 
-            print("    {} = backup_{};".format(block["cell"], block["cell"]), file=f)
+            print("    {} = _pmg_backup_{};".format(block["cell"], block["cell"]), file=f)
 
             if block["genargs"] is not None:
                 print("#define finish do { rollback = -1; return; } while(0)", file=f)
-                print("    if (generate_mode && !found_any_match) {", file=f)
-                if len(block["genargs"]) == 1:
-                    print("    if (rng(100) >= {}) return;".format(block["genargs"][0]), file=f)
+                print("    if (generate_mode && rng(100) < (found_any_match ? {} : {})) {{".format(block["genargs"][1], block["genargs"][0]), file=f)
                 for line in block["gencode"]:
                     print("      " + line, file=f)
                 print("    }", file=f)
