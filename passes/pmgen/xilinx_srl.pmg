@@ -1,6 +1,6 @@
 pattern fixed
 
-state <IdString> clk_port
+state <IdString> clk_port en_port
 udata <vector<Cell*>> chain longest_chain
 udata <pool<Cell*>> non_first_cells
 udata <int> minlen
@@ -33,10 +33,18 @@ match first
 //	}
 endmatch
 
-code clk_port
+code clk_port en_port
 	if (first->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_, \FDRE, \FDRE_1))
 		clk_port = \C;
 	else log_abort();
+	if (first->type.in($_DFF_N_, $_DFF_P_))
+		en_port = IdString();
+	else if (first->type.in($_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_))
+		en_port = \E;
+	else if (first->type.in(\FDRE, \FDRE_1))
+		en_port = \CE;
+	else log_abort();
+
 	longest_chain.clear();
 	chain.push_back(first);
 	subpattern(tail);
@@ -51,15 +59,23 @@ endcode
 
 subpattern setup
 arg clk_port
+arg en_port
 
 match first
 	select first->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_, \FDRE, \FDRE_1)
 	select !first->has_keep_attr()
 endmatch
 
-code clk_port
+code clk_port en_port
 	if (first->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_, \FDRE, \FDRE_1))
 		clk_port = \C;
+	else log_abort();
+	if (first->type.in($_DFF_N_, $_DFF_P_))
+		en_port = IdString();
+	else if (first->type.in($_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_))
+		en_port = \E;
+	else if (first->type.in(\FDRE, \FDRE_1))
+		en_port = \CE;
 	else log_abort();
 	if (first->type.in(\FDRE, \FDRE_1)) {
 		SigBit R = port(first, \R);
@@ -86,6 +102,7 @@ match next
 	index <IdString> next->type === first->type
 	index <SigBit> port(next, \Q) === port(first, \D)
 	filter port(next, clk_port) == port(first, clk_port)
+	filter en_port == IdString() || port(next, en_port) == port(first, en_port)
 endmatch
 
 code
@@ -111,6 +128,7 @@ endcode
 subpattern tail
 arg first
 arg clk_port
+arg en_port
 
 match next
 	semioptional
@@ -121,6 +139,7 @@ match next
 	index <IdString> next->type === chain.back()->type
 	index <SigBit> port(next, \Q) === port(chain.back(), \D)
 	filter port(next, clk_port) == port(first, clk_port)
+	filter en_port == IdString() || port(next, en_port) == port(first, en_port)
 //generate 10
 //	SigSpec A = module->addWire(NEW_ID);
 //	SigSpec B = module->addWire(NEW_ID);
@@ -131,6 +150,8 @@ endmatch
 
 code
 	if (next) {
+		chain.push_back(next);
+
 		if (next->type.in(\FDRE, \FDRE_1)) {
 			for (auto p : { \R })
 				if (port(next, p) != port(first, p))
@@ -146,7 +167,6 @@ code
 			}
 		}
 
-		chain.push_back(next);
 		subpattern(tail);
 	} else {
 		if (GetSize(chain) > GetSize(longest_chain))
