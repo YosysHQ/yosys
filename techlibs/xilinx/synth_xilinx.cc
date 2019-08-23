@@ -265,9 +265,8 @@ struct SynthXilinxPass : public ScriptPass
 			if (widemux > 0 || help_mode)
 				run("muxpack", "    ('-widemux' only)");
 
-			// shregmap -tech xilinx can cope with $shiftx and $mux
-			//   cells for identifying variable-length shift registers,
-			//   so attempt to convert $pmux-es to the former
+			// xilinx_srl looks for $shiftx cells for identifying variable-length
+			//   shift registers, so attempt to convert $pmux-es to this
 			// Also: wide multiplexer inference benefits from this too
 			if (!(nosrl && widemux == 0) || help_mode) {
 				run("pmux2shiftx", "(skip if '-nosrl' and '-widemux=0')");
@@ -349,12 +348,8 @@ struct SynthXilinxPass : public ScriptPass
 			}
 			run("opt -full");
 
-			if (!nosrl || help_mode) {
-				// shregmap operates on bit-level flops, not word-level,
-				//   so break those down here
-				run("simplemap t:$dff t:$dffe", "      (skip if '-nosrl')");
+			if (!nosrl || help_mode)
 				run("xilinx_srl -variable -minlen 3", "(skip if '-nosrl')");
-			}
 
 			std::string techmap_args = " -map +/techmap.v";
 			if (help_mode)
