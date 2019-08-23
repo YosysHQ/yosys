@@ -1,10 +1,9 @@
 module top
 (
- input [3:0] x,
- input [3:0] y,
+ input [5:0] x,
+ input [5:0] y,
 
- output [3:0] A,
- output [3:0] B
+ output [11:0] A,
  );
 
 assign A =  x * y;
