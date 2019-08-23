@@ -52,7 +52,9 @@ void run_fixed(xilinx_srl_pm &pm)
 			log_assert(Q.wire);
 			auto it = Q.wire->attributes.find(ID(init));
 			if (it != Q.wire->attributes.end()) {
-				initval.append(it->second[Q.offset]);
+				auto &i = it->second[Q.offset];
+				initval.append(i);
+				i = State::Sx;
 			}
 			else
 				initval.append(State::Sx);
@@ -118,7 +120,9 @@ void run_variable(xilinx_srl_pm &pm)
 			log_assert(Q.wire);
 			auto it = Q.wire->attributes.find(ID(init));
 			if (it != Q.wire->attributes.end()) {
-				initval.append(it->second[Q.offset]);
+				auto &i = it->second[Q.offset];
+				initval.append(i);
+				i = State::Sx;
 			}
 			else
 				initval.append(State::Sx);
