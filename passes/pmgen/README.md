@@ -45,9 +45,9 @@ of type `foobar_pm::state_<pattern_name>_t`.)
 Similarly the `.pmg` file declares user data variables that become members of
 `.ud_<pattern_name>`, a struct of type `foobar_pm::udata_<pattern_name>_t`.
 
-There are four versions of the `run_<pattern_name>()` method: Without callback,
-callback without arguments, callback with reference to `pm`, and callback with
-reference to `pm.st_<pattern_name>`.
+There are three versions of the `run_<pattern_name>()` method: Without callback,
+callback without arguments, and callback with reference to `pm`. All versions
+of the `run_<pattern_name>()` method return the number of found matches.
 
 
 The .pmg File Format
@@ -118,8 +118,8 @@ write matchers:
   connected to any of the given signal bits, plus one if any of the signal
   bits is also a primary input or primary output.
 
-- In `code..endcode` blocks there exist `accept`, `reject`, and `branch`
-  statements.
+- In `code..endcode` blocks there exist `accept`, `reject`, `branch`,
+  `finish`, and `subpattern` statements.
 
 - In `index` statements there is a special `===` operator for the index
   lookup.
@@ -174,6 +174,9 @@ The `optional` statement marks optional matches. That is, the matcher will also
 explore the case where `mul` is set to `nullptr`. Without the `optional`
 statement a match may only be assigned nullptr when one of the `if` expressions
 evaluates to `false`.
+
+The `semioptional` statement marks matches that must match if at least one
+matching cell exists, but if no matching cell exists it is set to `nullptr`.
 
 Additional code
 ---------------
@@ -232,5 +235,108 @@ But in some cases it is more natural to utilize the implicit branch statement:
         portAB = \B;
     endcode
 
-There is an implicit `code..endcode` block at the end of each `.pmg` file
-that just accepts everything that gets all the way there.
+There is an implicit `code..endcode` block at the end of each (sub)pattern
+that just rejects.
+
+A `code..finally..endcode` block executes the code after `finally` during
+back-tracking. This is useful for maintaining user data state or printing
+debug messages. For example:
+
+    udata <vector<Cell*>> stack
+
+    code
+        stack.push_back(addAB);
+        ...
+    finally
+        stack.pop_back();
+    endcode
+
+`accept` and `finish` statements can be used inside the `finally` section,
+but not `reject`, `branch`, or `subpattern`.
+
+Declaring a subpattern
+----------------------
+
+A subpattern starts with a line containing the `subpattern` keyword followed
+by the name of the subpattern. Subpatterns can be called from a `code` block
+using a `subpattern(<subpattern_name>);` C statement.
+
+Arguments may be passed to subpattern via state variables. The `subpattern`
+line must be followed by a `arg <arg1> <arg2> ...` line that lists the
+state variables used to pass arguments.
+
+    state <IdString> foobar_type
+    state <bool> foobar_state
+
+    code foobar_type foobar_state
+        foobar_state = false;
+        foobar_type = $add;
+        subpattern(foo);
+        foobar_type = $sub;
+        subpattern(bar);
+    endcode
+
+    subpattern foo
+    arg foobar_type foobar_state
+
+    match addsub
+        index <IdString> addsub->type === foobar_type
+        ...
+    endmatch
+
+    code
+        if (foobar_state) {
+            subpattern(tail);
+        } else {
+            foobar_state = true;
+            subpattern(bar);
+        }
+    endcode
+
+    subpattern bar
+    arg foobar_type foobar_state
+
+    match addsub
+        index <IdString> addsub->type === foobar_type
+        ...
+    endmatch
+
+    code
+        if (foobar_state) {
+            subpattern(tail);
+        } else {
+            foobar_state = true;
+            subpattern(foo);
+        }
+    endcode
+
+    subpattern tail
+    ...
+
+Subpatterns cann be called recursively.
+
+If a `subpattern` statement is preceded by a `fallthrough` statement, this is
+equivalent to calling the subpattern at the end of the preceding block.
+
+Generate Blocks
+---------------
+
+Match blocks may contain an optional `generate` section that is used for automatic
+test-case generation. For example:
+
+    match mul
+        ...
+    generate 10
+        SigSpec Y = port(ff, \D);
+        SigSpec A = module->addWire(NEW_ID, GetSize(Y) - rng(GetSize(Y)/2));
+        SigSpec B = module->addWire(NEW_ID, GetSize(Y) - rng(GetSize(Y)/2));
+        module->addMul(NEW_ID, A, B, Y, rng(2));
+    endmatch
+
+The expression `rng(n)` returns a non-negative integer less than `n`.
+
+The argument to `generate` is the chance of this generate block being executed
+when the match block did not match anything, in percent.
+
+The special statement `finish` can be used within generate blocks to terminate
+the current pattern matcher run.

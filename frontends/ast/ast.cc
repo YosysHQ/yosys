@@ -1172,7 +1172,7 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 
 			if (design->has((*it)->str)) {
 				RTLIL::Module *existing_mod = design->module((*it)->str);
-				if (!nooverwrite && !overwrite && !existing_mod->get_bool_attribute("\\blackbox")) {
+				if (!nooverwrite && !overwrite && !existing_mod->get_blackbox_attribute()) {
 					log_file_error((*it)->filename, (*it)->linenum, "Re-definition of module `%s'!\n", (*it)->str.c_str());
 				} else if (nooverwrite) {
 					log("Ignoring re-definition of module `%s' at %s:%d.\n",
@@ -1502,7 +1502,10 @@ std::string AstModule::derive_common(RTLIL::Design *design, dict<RTLIL::IdString
 	rewrite_parameter:
 			para_info += stringf("%s=%s", child->str.c_str(), log_signal(RTLIL::SigSpec(parameters[para_id])));
 			delete child->children.at(0);
-			if ((parameters[para_id].flags & RTLIL::CONST_FLAG_STRING) != 0)
+			if ((parameters[para_id].flags & RTLIL::CONST_FLAG_REAL) != 0) {
+				child->children[0] = new AstNode(AST_REALVALUE);
+				child->children[0]->realvalue = std::stod(parameters[para_id].decode_string());
+			} else if ((parameters[para_id].flags & RTLIL::CONST_FLAG_STRING) != 0)
 				child->children[0] = AstNode::mkconst_str(parameters[para_id].decode_string());
 			else
 				child->children[0] = AstNode::mkconst_bits(parameters[para_id].bits, (parameters[para_id].flags & RTLIL::CONST_FLAG_SIGNED) != 0);

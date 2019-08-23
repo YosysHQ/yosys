@@ -53,7 +53,7 @@ struct Dff2dffeWorker
 
 		for (auto cell : module->cells()) {
 			if (cell->type.in(ID($mux), ID($pmux), ID($_MUX_))) {
-				RTLIL::SigSpec sig_y = sigmap(cell->getPort(ID(Y)));
+				RTLIL::SigSpec sig_y = sigmap(cell->getPort(ID::Y));
 				for (int i = 0; i < GetSize(sig_y); i++)
 					bit2mux[sig_y[i]] = cell_int_t(cell, i);
 			}
@@ -86,8 +86,8 @@ struct Dff2dffeWorker
 			return ret;
 
 		cell_int_t mux_cell_int = bit2mux.at(d);
-		RTLIL::SigSpec sig_a = sigmap(mux_cell_int.first->getPort(ID(A)));
-		RTLIL::SigSpec sig_b = sigmap(mux_cell_int.first->getPort(ID(B)));
+		RTLIL::SigSpec sig_a = sigmap(mux_cell_int.first->getPort(ID::A));
+		RTLIL::SigSpec sig_b = sigmap(mux_cell_int.first->getPort(ID::B));
 		RTLIL::SigSpec sig_s = sigmap(mux_cell_int.first->getPort(ID(S)));
 		int width = GetSize(sig_a), index = mux_cell_int.second;
 
@@ -97,9 +97,9 @@ struct Dff2dffeWorker
 				ret = find_muxtree_feedback_patterns(sig_b[i*width + index], q, path);
 
 				if (sig_b[i*width + index] == q) {
-					RTLIL::SigSpec s = mux_cell_int.first->getPort(ID(B));
+					RTLIL::SigSpec s = mux_cell_int.first->getPort(ID::B);
 					s[i*width + index] = RTLIL::Sx;
-					mux_cell_int.first->setPort(ID(B), s);
+					mux_cell_int.first->setPort(ID::B, s);
 				}
 
 				return ret;
@@ -120,9 +120,9 @@ struct Dff2dffeWorker
 				ret.insert(pat);
 
 			if (sig_b[i*width + index] == q) {
-				RTLIL::SigSpec s = mux_cell_int.first->getPort(ID(B));
+				RTLIL::SigSpec s = mux_cell_int.first->getPort(ID::B);
 				s[i*width + index] = RTLIL::Sx;
-				mux_cell_int.first->setPort(ID(B), s);
+				mux_cell_int.first->setPort(ID::B, s);
 			}
 		}
 
@@ -130,9 +130,9 @@ struct Dff2dffeWorker
 			ret.insert(pat);
 
 		if (sig_a[index] == q) {
-			RTLIL::SigSpec s = mux_cell_int.first->getPort(ID(A));
+			RTLIL::SigSpec s = mux_cell_int.first->getPort(ID::A);
 			s[index] = RTLIL::Sx;
-			mux_cell_int.first->setPort(ID(A), s);
+			mux_cell_int.first->setPort(ID::A, s);
 		}
 
 		return ret;
@@ -265,7 +265,7 @@ struct Dff2dffePass : public Pass {
 		log("\n");
 		log("    -unmap\n");
 		log("        operate in the opposite direction: replace $dffe cells with combinations\n");
-		log("        of $dff and $mux cells. the options below are ignore in unmap mode.\n");
+		log("        of $dff and $mux cells. the options below are ignored in unmap mode.\n");
 		log("\n");
 		log("    -unmap-mince N\n");
 		log("        Same as -unmap but only unmap $dffe where the clock enable port\n");

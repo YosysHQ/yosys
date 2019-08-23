@@ -196,8 +196,14 @@ module XORCY(output O, input CI, LI);
   assign O = CI ^ LI;
 endmodule
 
-(* abc_box_id = 4, abc_carry="CI,CO", lib_whitebox *)
-module CARRY4(output [3:0] CO, O, input CI, CYINIT, input [3:0] DI, S);
+(* abc_box_id = 4, lib_whitebox *)
+module CARRY4(
+  (* abc_carry *) output [3:0] CO,
+  output [3:0] O,
+  (* abc_carry *) input CI,
+  input        CYINIT,
+  input  [3:0] DI, S
+);
   assign O = S ^ {CO[2:0], CI | CYINIT};
   assign CO[0] = S[0] ? CI | CYINIT : DI[0];
   assign CO[1] = S[1] ? CO[0] : DI[1];
@@ -304,12 +310,12 @@ module FDPE_1 (output reg Q, (* clkbuf_sink *) input C, input CE, D, PRE);
   always @(negedge C, posedge PRE) if (PRE) Q <= 1'b1; else if (CE) Q <= D;
 endmodule
 
-(* abc_box_id = 5, abc_scc_break="D,WE" *)
+(* abc_box_id = 5 *)
 module RAM32X1D (
   output DPO, SPO,
-  (* clkbuf_sink *)
-  input  WCLK,
-  input  D, WE,
+  (* abc_scc_break *) input D,
+  (* clkbuf_sink *) input  WCLK,
+  (* abc_scc_break *) input WE,
   input  A0, A1, A2, A3, A4,
   input  DPRA0, DPRA1, DPRA2, DPRA3, DPRA4
 );
@@ -324,12 +330,12 @@ module RAM32X1D (
   always @(posedge clk) if (WE) mem[a] <= D;
 endmodule
 
-(* abc_box_id = 6, abc_scc_break="D,WE" *)
+(* abc_box_id = 6 *)
 module RAM64X1D (
   output DPO, SPO,
-  (* clkbuf_sink *)
-  input  WCLK,
-  input  D, WE,
+  (* abc_scc_break *) input D,
+  (* clkbuf_sink *) input  WCLK,
+  (* abc_scc_break *) input WE,
   input  A0, A1, A2, A3, A4, A5,
   input  DPRA0, DPRA1, DPRA2, DPRA3, DPRA4, DPRA5
 );
@@ -344,12 +350,12 @@ module RAM64X1D (
   always @(posedge clk) if (WE) mem[a] <= D;
 endmodule
 
-(* abc_box_id = 7, abc_scc_break="D,WE" *)
+(* abc_box_id = 7 *)
 module RAM128X1D (
   output       DPO, SPO,
-  input        D, WE,
-  (* clkbuf_sink *)
-  input        WCLK,
+  (* abc_scc_break *) input D,
+  (* clkbuf_sink *) input WCLK,
+  (* abc_scc_break *) input WE,
   input  [6:0] A, DPRA
 );
   parameter INIT = 128'h0;

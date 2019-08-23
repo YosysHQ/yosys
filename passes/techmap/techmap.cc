@@ -145,7 +145,7 @@ struct TechmapWorker
 				record.wire = it.second;
 				record.value = it.second;
 				result[p].push_back(record);
-				it.second->attributes[ID(keep)] = RTLIL::Const(1);
+				it.second->attributes[ID::keep] = RTLIL::Const(1);
 				it.second->attributes[ID(_techmap_special_)] = RTLIL::Const(1);
 			}
 		}
@@ -520,7 +520,7 @@ struct TechmapWorker
 								int port_counter = 1;
 								for (auto &c : extmapper_cell->connections_) {
 									RTLIL::Wire *w = extmapper_module->addWire(c.first, GetSize(c.second));
-									if (w->name.in(ID(Y), ID(Q)))
+									if (w->name.in(ID::Y, ID(Q)))
 										w->port_output = true;
 									else
 										w->port_input = true;
@@ -943,7 +943,8 @@ struct TechmapPass : public Pass {
 		log("        instead of inlining them.\n");
 		log("\n");
 		log("    -max_iter <number>\n");
-		log("        only run the specified number of iterations.\n");
+		log("        only run the specified number of iterations on each module.\n");
+		log("        default: unlimited\n");
 		log("\n");
 		log("    -recursive\n");
 		log("        instead of the iterative breadth-first algorithm use a recursive\n");
@@ -1157,15 +1158,16 @@ struct TechmapPass : public Pass {
 			RTLIL::Module *module = *worker.module_queue.begin();
 			worker.module_queue.erase(module);
 
+			int module_max_iter = max_iter;
 			bool did_something = true;
 			std::set<RTLIL::Cell*> handled_cells;
 			while (did_something) {
 				did_something = false;
-					if (worker.techmap_module(design, module, map, handled_cells, celltypeMap, false))
-						did_something = true;
+				if (worker.techmap_module(design, module, map, handled_cells, celltypeMap, false))
+					did_something = true;
 				if (did_something)
 					module->check();
-				if (max_iter > 0 && --max_iter == 0)
+				if (module_max_iter > 0 && --module_max_iter == 0)
 					break;
 			}
 		}
