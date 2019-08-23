@@ -213,9 +213,11 @@ code clk_port en_port
 	else if (first->type.in($dff, $dffe))
 		clk_port = \CLK;
 	else log_abort();
-	if (first->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_))
+	if (first->type.in($_DFF_N_, $_DFF_P_, $dff))
+		en_port = IdString();
+	else if (first->type.in($_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_))
 		en_port = \E;
-	else if (first->type.in($dff, $dffe))
+	else if (first->type.in($dffe))
 		en_port = \EN;
 	else log_abort();
 
