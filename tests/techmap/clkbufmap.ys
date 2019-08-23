@@ -35,6 +35,7 @@ select -assert-count 1 t:clkbuf
 # ----------------------
 
 design -load ref
+setattr -set clkbuf_inhibit 1 w:clk1
 setattr -set buffer_type "bufg" w:clk2
 clkbufmap -buf clkbuf o:i w:* a:buffer_type=none a:buffer_type=bufr %u %d
 select -assert-count 1 w:clk1 %a %co t:clkbuf %i
