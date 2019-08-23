@@ -462,7 +462,7 @@ with open(outfile, "w") as f:
     print("    int i = 0;", file=f)
     print("    pool<Cell*> users;", file=f)
     print("    for (auto bit : sigmap(sig))", file=f)
-    print("      if (!unique)", file=f);
+    print("      if (unique)", file=f);
     print("        i += GetSize(sigusers[bit]);", file=f);
     print("      else", file=f);
     print("        for (auto user : sigusers[bit])", file=f)
