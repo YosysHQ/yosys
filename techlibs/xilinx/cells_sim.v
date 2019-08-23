@@ -215,8 +215,11 @@ endmodule
 
 // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf#L238-L250
 
-module FDRE ((* abc_arrival=303 *) output reg Q,
-             input C, CE, D, R);
+module FDRE (
+  (* abc_arrival=303 *)
+  output reg Q,
+  input C, CE, D, R
+);
   parameter [0:0] INIT = 1'b0;
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
@@ -228,8 +231,11 @@ module FDRE ((* abc_arrival=303 *) output reg Q,
   endcase endgenerate
 endmodule
 
-module FDSE ((* abc_arrival=303 *) output reg Q,
-             input C, CE, D, S);
+module FDSE (
+  (* abc_arrival=303 *)
+  output reg Q,
+  input C, CE, D, S
+);
   parameter [0:0] INIT = 1'b1;
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
@@ -241,8 +247,11 @@ module FDSE ((* abc_arrival=303 *) output reg Q,
   endcase endgenerate
 endmodule
 
-module FDCE ((* abc_arrival=303 *) output reg Q,
-             input C, CE, D, CLR);
+module FDCE (
+  (* abc_arrival=303 *)
+  output reg Q,
+  input C, CE, D, CLR
+);
   parameter [0:0] INIT = 1'b0;
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
@@ -256,8 +265,11 @@ module FDCE ((* abc_arrival=303 *) output reg Q,
   endcase endgenerate
 endmodule
 
-module FDPE ((* abc_arrival=303 *) output reg Q,
-             input C, CE, D, PRE);
+module FDPE (
+  (* abc_arrival=303 *)
+  output reg Q,
+  input C, CE, D, PRE
+);
   parameter [0:0] INIT = 1'b1;
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
@@ -271,29 +283,41 @@ module FDPE ((* abc_arrival=303 *) output reg Q,
   endcase endgenerate
 endmodule
 
-module FDRE_1 ((* abc_arrival=303 *) output reg Q,
-               input C, CE, D, R);
+module FDRE_1 (
+  (* abc_arrival=303 *)
+  output reg Q,
+  input C, CE, D, R
+);
   parameter [0:0] INIT = 1'b0;
   initial Q <= INIT;
   always @(negedge C) if (R) Q <= 1'b0; else if(CE) Q <= D;
 endmodule
 
-module FDSE_1 ((* abc_arrival=303 *) output reg Q,
-               input C, CE, D, S);
+module FDSE_1 (
+  (* abc_arrival=303 *)
+  output reg Q,
+  input C, CE, D, S
+);
   parameter [0:0] INIT = 1'b1;
   initial Q <= INIT;
   always @(negedge C) if (S) Q <= 1'b1; else if(CE) Q <= D;
 endmodule
 
-module FDCE_1 ((* abc_arrival=303 *) output reg Q,
-               input C, CE, D, CLR);
+module FDCE_1 (
+  (* abc_arrival=303 *)
+  output reg Q,
+  input C, CE, D, CLR
+);
   parameter [0:0] INIT = 1'b0;
   initial Q <= INIT;
   always @(negedge C, posedge CLR) if (CLR) Q <= 1'b0; else if (CE) Q <= D;
 endmodule
 
-module FDPE_1 ((* abc_arrival=303 *) output reg Q,
-               input C, CE, D, PRE);
+module FDPE_1 (
+  (* abc_arrival=303 *)
+  output reg Q,
+  input C, CE, D, PRE
+);
   parameter [0:0] INIT = 1'b1;
   initial Q <= INIT;
   always @(negedge C, posedge PRE) if (PRE) Q <= 1'b1; else if (CE) Q <= D;
@@ -361,7 +385,8 @@ endmodule
 
 module SRL16E (
   // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L904-L905
-  (* abc_arrival=1472 *) output Q,
+  (* abc_arrival=1472 *)
+  output Q,
   input A0, A1, A2, A3, CE, CLK, D
 );
   parameter [15:0] INIT = 16'h0000;
@@ -380,8 +405,10 @@ endmodule
 
 module SRLC32E (
   // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L904-L905
-  (* abc_arrival=1472 *) output Q,
-  (* abc_arrival=1114 *) output Q31,
+  (* abc_arrival=1472 *)
+  output Q,
+  (* abc_arrival=1114 *)
+  output Q31,
   input [4:0] A,
   input CE, CLK, D
 );

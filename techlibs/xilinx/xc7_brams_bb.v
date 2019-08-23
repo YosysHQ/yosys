@@ -21,10 +21,14 @@ module RAMB18E1 (
 	input [1:0] WEA,
 	input [3:0] WEBWE,
 
-	(* abc_arrival=2454 *) output [15:0] DOADO,
-	(* abc_arrival=2454 *) output [15:0] DOBDO,
-	(* abc_arrival=2454 *) output [1:0] DOPADOP,
-	(* abc_arrival=2454 *) output [1:0] DOPBDOP
+	(* abc_arrival=2454 *)
+	output [15:0] DOADO,
+	(* abc_arrival=2454 *)
+	output [15:0] DOBDO,
+	(* abc_arrival=2454 *)
+	output [1:0] DOPADOP,
+	(* abc_arrival=2454 *)
+	output [1:0] DOPBDOP
 );
 	parameter INITP_00 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
 	parameter INITP_01 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
@@ -145,10 +149,14 @@ module RAMB36E1 (
 	input [3:0] WEA,
 	input [7:0] WEBWE,
 
-	(* abc_arrival=2454 *) output [31:0] DOADO,
-	(* abc_arrival=2454 *) output [31:0] DOBDO,
-	(* abc_arrival=2454 *) output [3:0] DOPADOP,
-	(* abc_arrival=2454 *) output [3:0] DOPBDOP
+	(* abc_arrival=2454 *)
+	output [31:0] DOADO,
+	(* abc_arrival=2454 *)
+	output [31:0] DOBDO,
+	(* abc_arrival=2454 *)
+	output [3:0] DOPADOP,
+	(* abc_arrival=2454 *)
+	output [3:0] DOPBDOP
 );
 	parameter INITP_00 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
 	parameter INITP_01 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
