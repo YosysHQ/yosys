@@ -197,7 +197,7 @@ match next
 	select !next->has_keep_attr()
 	select !port(next, \D)[0].wire->get_bool_attribute(\keep)
 	slice idx GetSize(port(next, \Q))
-	select nusers(port(next, \Q)[idx]) == 3
+	select nusers(port(next, \Q)[idx]) <= 3
 	index <IdString> next->type === chain.back().first->type
 	index <SigBit> port(next, \Q)[idx] === port(chain.back().first, \D)[chain.back().second]
 	index <SigBit> port(next, \Q)[idx] === port(shiftx, \A)[shiftx_width-1-GetSize(chain)]
