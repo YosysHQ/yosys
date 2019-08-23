@@ -105,13 +105,15 @@ void run_variable(xilinx_srl_pm &pm)
 
 	log("Found variable chain of length %d (%s):\n", GetSize(ud.chain), log_id(st.first->type));
 
-	auto last_cell = ud.chain.back();
+	auto last_cell = ud.chain.back().first;
 
 	SigSpec initval;
-	for (auto cell : ud.chain) {
+	for (const auto &i : ud.chain) {
+		auto cell = i.first;
+		auto slice = i.second;
 		log_debug("    %s\n", log_id(cell));
-		if (cell->type.in(ID($_DFF_N_), ID($_DFF_P_), ID($_DFFE_NN_), ID($_DFFE_NP_), ID($_DFFE_PN_), ID($_DFFE_PP_))) {
-			SigBit Q = cell->getPort(ID(Q));
+		if (cell->type.in(ID($_DFF_N_), ID($_DFF_P_), ID($_DFFE_NN_), ID($_DFFE_NP_), ID($_DFFE_PN_), ID($_DFFE_PP_), ID($dff), ID($dffe))) {
+			SigBit Q = cell->getPort(ID(Q))[slice];
 			log_assert(Q.wire);
 			auto it = Q.wire->attributes.find(ID(init));
 			if (it != Q.wire->attributes.end()) {
@@ -123,7 +125,7 @@ void run_variable(xilinx_srl_pm &pm)
 		else
 			log_abort();
 		if (cell != last_cell)
-			pm.autoremove(cell);
+			cell->connections_.at(ID(Q))[slice] = pm.module->addWire(NEW_ID);
 	}
 	pm.autoremove(st.shiftx);
 
@@ -131,23 +133,36 @@ void run_variable(xilinx_srl_pm &pm)
 	SigBit Q = st.first->getPort(ID(Q));
 	c->setPort(ID(Q), Q);
 
-	if (c->type.in(ID($_DFF_N_), ID($_DFF_P_), ID($_DFFE_NN_), ID($_DFFE_NP_), ID($_DFFE_PN_), ID($_DFFE_PP_))) {
-		c->parameters.clear();
-		c->setParam(ID(DEPTH), GetSize(ud.chain));
-		c->setParam(ID(INIT), initval.as_const());
+	if (c->type.in(ID($_DFF_N_), ID($_DFF_P_), ID($_DFFE_NN_), ID($_DFFE_NP_), ID($_DFFE_PN_), ID($_DFFE_PP_), ID($dff), ID($dffe))) {
+		Const clkpol, enpol;
 		if (c->type.in(ID($_DFF_P_), ID($_DFFE_PN_), ID($_DFFE_PP_)))
-			c->setParam(ID(CLKPOL), 1);
-		else if (c->type.in(ID($_DFF_N_), ID($DFFE_NN_), ID($_DFFE_NP_), ID(FDRE_1)))
-			c->setParam(ID(CLKPOL), 0);
+			clkpol = 1;
+		else if (c->type.in(ID($_DFF_N_), ID($DFFE_NN_), ID($_DFFE_NP_)))
+			clkpol = 0;
+		else if (c->type.in(ID($dff), ID($dffe))) {
+			clkpol = c->getParam(ID(CLK_POLARITY));
+			c->setPort(ID(C), c->getPort(ID(CLK)));
+			c->unsetPort(ID(CLK));
+		}
 		else
 			log_abort();
 		if (c->type.in(ID($_DFFE_NP_), ID($_DFFE_PP_)))
-			c->setParam(ID(ENPOL), 1);
+			enpol = 1;
 		else if (c->type.in(ID($_DFFE_NN_), ID($_DFFE_PN_)))
-			c->setParam(ID(ENPOL), 0);
+			enpol = 0;
+		else if (c->type.in(ID($dffe))) {
+			enpol = c->getParam(ID(EN_POLARITY));
+			c->setPort(ID(E), c->getPort(ID(EN)));
+			c->unsetPort(ID(EN));
+		}
 		else
-			c->setParam(ID(ENPOL), 2);
-		if (c->type.in(ID($_DFF_N_), ID($_DFF_P_)))
+			enpol = 2;
+		c->parameters.clear();
+		c->setParam(ID(DEPTH), GetSize(ud.chain));
+		c->setParam(ID(INIT), initval.as_const());
+		c->setParam(ID(CLKPOL), clkpol);
+		c->setParam(ID(ENPOL), enpol);
+		if (c->type.in(ID($_DFF_N_), ID($_DFF_P_), ID($dff)))
 			c->setPort(ID(E), State::S1);
 		c->setPort(ID(L), st.shiftx->getPort(ID(B)));
 		c->setPort(ID(Q), st.shiftx->getPort(ID(Y)));

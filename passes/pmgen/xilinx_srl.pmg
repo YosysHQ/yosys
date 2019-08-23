@@ -151,8 +151,9 @@ endcode
 pattern variable
 
 state <int> shiftx_width
+state <int> slice
 udata <int> minlen
-udata <vector<Cell*>> chain
+udata <vector<pair<Cell*,int>>> chain
 
 match shiftx
 	select shiftx->type.in($shiftx)
@@ -166,13 +167,16 @@ code shiftx_width
 endcode
 
 match first
-	select first->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_)
-	select nusers(port(first, \Q)) == 2
-	index <SigBit> port(first, \Q) === port(shiftx, \A)[shiftx_width-1]
+	select first->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_, $dff, $dffe)
+	select !first->has_keep_attr()
+	slice idx GetSize(port(first, \Q))
+	select nusers(port(first, \Q)[idx]) == 2
+	index <SigBit> port(first, \Q)[idx] === port(shiftx, \A)[shiftx_width-1]
+	set slice idx
 endmatch
 
 code
-	chain.push_back(first);
+	chain.emplace_back(first, slice);
 	subpattern(tail);
 finally
 	if (GetSize(chain) == shiftx_width)
@@ -185,26 +189,24 @@ endcode
 subpattern tail
 arg shiftx
 arg shiftx_width
+arg slice
 
 match next
 	semioptional
-	select next->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_)
+	select next->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_, $dff, $dffe)
 	select !next->has_keep_attr()
 	select !port(next, \D)[0].wire->get_bool_attribute(\keep)
-	select nusers(port(next, \Q)) == 3
-	index <IdString> next->type === chain.back()->type
-	index <SigBit> port(next, \Q) === port(chain.back(), \D)
-	index <SigBit> port(next, \Q) === port(shiftx, \A)[shiftx_width-1-GetSize(chain)]
+	slice idx GetSize(port(next, \Q))
+	select nusers(port(next, \Q)[idx]) == 3
+	index <IdString> next->type === chain.back().first->type
+	index <SigBit> port(next, \Q)[idx] === port(chain.back().first, \D)[chain.back().second]
+	index <SigBit> port(next, \Q)[idx] === port(shiftx, \A)[shiftx_width-1-GetSize(chain)]
+	set slice idx
 endmatch
 
 code
 	if (next) {
-		auto sig = port(next, \Q);
-		log_warning("nusers of '%s'\n", log_signal(sig));
-		for (auto bit : sigmap(sig))
-			for (auto user : sigusers[bit])
-				log_warning("\t%s\n", log_id(user));
-		chain.push_back(next);
+		chain.emplace_back(next, slice);
 		if (GetSize(chain) < shiftx_width)
 			subpattern(tail);
 	}
