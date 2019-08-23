@@ -151,7 +151,8 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 					reg->is_reg = true;
 					reg->is_signed = node->is_signed;
 					for (auto &it : node->attributes)
-						reg->attributes.emplace(it.first, it.second->clone());
+						if (it.first != ID(mem2reg))
+							reg->attributes.emplace(it.first, it.second->clone());
 					reg->filename = node->filename;
 					reg->linenum = node->linenum;
 					children.push_back(reg);
