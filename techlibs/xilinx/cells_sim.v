@@ -343,7 +343,7 @@ module RAM64X1D (
   (* clkbuf_sink *)
   input  WCLK,
   (* abc_scc_break *)
-  input WE,
+  input  WE,
   input  A0, A1, A2, A3, A4, A5,
   input  DPRA0, DPRA1, DPRA2, DPRA3, DPRA4, DPRA5
 );
