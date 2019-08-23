@@ -1194,7 +1194,8 @@ struct Abc9Pass : public Pass {
 			std::map<RTLIL::Cell*, std::set<RTLIL::SigBit>> cell_to_bit, cell_to_bit_up, cell_to_bit_down;
 			std::map<RTLIL::SigBit, std::set<RTLIL::Cell*>> bit_to_cell, bit_to_cell_up, bit_to_cell_down;
 
-			for (auto cell : all_cells) {
+			for (auto cell : all_cells)
+			{
 				clkdomain_t key;
 
 				for (auto &conn : cell->connections())
@@ -1227,7 +1228,6 @@ struct Abc9Pass : public Pass {
 				}
 				else
 					continue;
-
 
 				unassigned_cells.erase(cell);
 				expand_queue.insert(cell);
