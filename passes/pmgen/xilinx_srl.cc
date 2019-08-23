@@ -106,6 +106,7 @@ void run_variable(xilinx_srl_pm &pm)
 	log("Found variable chain of length %d (%s):\n", GetSize(ud.chain), log_id(st.first->type));
 
 	auto last_cell = ud.chain.back().first;
+	auto last_slice = ud.chain.back().second;
 
 	SigSpec initval;
 	for (const auto &i : ud.chain) {
@@ -130,7 +131,7 @@ void run_variable(xilinx_srl_pm &pm)
 	pm.autoremove(st.shiftx);
 
 	Cell *c = last_cell;
-	SigBit Q = st.first->getPort(ID(Q));
+	SigBit Q = st.first->getPort(ID(Q))[last_slice];
 	c->setPort(ID(Q), Q);
 
 	if (c->type.in(ID($_DFF_N_), ID($_DFF_P_), ID($_DFFE_NN_), ID($_DFFE_NP_), ID($_DFFE_PN_), ID($_DFFE_PP_), ID($dff), ID($dffe))) {
