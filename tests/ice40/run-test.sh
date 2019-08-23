@@ -16,7 +16,7 @@ for x in *.ys; do
 done
 for t in *_tb.v; do
 	echo "all:: run-$t"
-	echo "run-$t:"
+	echo "run-$t: ${t%_tb.v}_synth.v"
 	echo "	@echo 'Running $t..'"
 	echo "	@iverilog -o ${t%_tb.v}_testbench  $t ${t%_tb.v}_synth.v common.v $TECHLIBS_PREFIX/ice40/cells_sim.v"
 	echo "	@vvp -N ${t%_tb.v}_testbench"
