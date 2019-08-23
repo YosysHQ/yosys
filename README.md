@@ -332,17 +332,18 @@ Verilog Attributes and non-standard features
   that represent module parameters or localparams (when the HDL front-end
   is run in -pwires mode).
 
-- The ``clkbuf_inhibit`` attribute can be set on a wire to prevent
-  automatic clock buffer insertion by ``clkbufmap``.
-
-- The ``clkbuf_sink`` attribute can be set on an input port of a blackbox
-  module to request clock buffer insertion by the ``clkbufmap`` pass.
-
 - The ``clkbuf_driver`` attribute can be set on an output port of a blackbox
   module to mark it as a clock buffer output, and thus prevent ``clkbufmap``
   from inserting another clock buffer on a net driven by such output.
 
-- The ``iopad_external_pin`` attribute on a blacbox module's port marks
+- The ``clkbuf_sink`` attribute can be set on an input port of a module to
+  request clock buffer insertion by the ``clkbufmap`` pass.
+
+- The ``clkbuf_inhibit`` is the default attribute to set on a wire to prevent
+  automatic clock buffer insertion by ``clkbufmap``. This behaviour can be
+  overridden by providing a custom selection to ``clkbufmap``.
+
+- The ``iopad_external_pin`` attribute on a blackbox module's port marks
   it as the external-facing pin of an I/O pad, and prevents ``iopadmap``
   from inserting another pad cell on it.
 
