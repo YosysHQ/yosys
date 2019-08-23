@@ -37,11 +37,18 @@ struct ClkbufmapPass : public Pass {
 	ClkbufmapPass() : Pass("clkbufmap", "insert global buffers on clock networks") { }
 	void help() YS_OVERRIDE
 	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
 		log("    clkbufmap [options] [selection]\n");
 		log("\n");
-		log("Inserts global buffers between nets connected to clock inputs and their\n");
-		log("drivers.\n");
+		log("Inserts global buffers between nets connected to clock inputs and their drivers.\n");
+		log("\n");
+		log("In the absence of any selection, all wires without the 'clkbuf_inhibit'\n");
+		log("attribute will be considered for global buffer insertion.\n");
+		log("Alternatively, to consider all wires without the 'buffer_type' attribute set to\n");
+		log("'none' or 'bufr' one would specify:\n");
+		log("  'w:* a:buffer_type=none a:buffer_type=bufr %%u %%d'\n");
+		log("as the selection.\n");
 		log("\n");
 		log("    -buf <celltype> <portname_out>:<portname_in>\n");
 		log("        Specifies the cell type to use for the global buffers\n");
@@ -94,10 +101,16 @@ struct ClkbufmapPass : public Pass {
 			}
 			break;
 		}
-		extra_args(args, argidx, design);
+
+		bool select = false;
+		if (argidx < args.size()) {
+			if (args[argidx].compare(0, 1, "-") != 0)
+				select = true;
+			extra_args(args, argidx, design);
+		}
 
 		if (buf_celltype.empty())
-			log_error("The -buf option is required.");
+			log_error("The -buf option is required.\n");
 
 		// Cell type, port name, bit index.
 		pool<pair<IdString, pair<IdString, int>>> sink_ports;
@@ -158,7 +171,7 @@ struct ClkbufmapPass : public Pass {
 				// Should not happen.
 				if (wire->port_input && wire->port_output)
 					continue;
-				if (wire->get_bool_attribute("\\clkbuf_inhibit"))
+				if (!select && wire->get_bool_attribute("\\clkbuf_inhibit"))
 					continue;
 
 				pool<int> input_bits;
