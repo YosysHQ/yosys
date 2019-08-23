@@ -112,7 +112,8 @@ struct ClkbufmapPass : public Pass {
 		for (auto module : modules_sorted)
 		{
 			if (module->get_blackbox_attribute()) {
-				for (auto wire : module->wires()) {
+				for (auto port : module->ports) {
+					auto wire = module->wire(port);
 					if (wire->get_bool_attribute("\\clkbuf_driver"))
 						for (int i = 0; i < GetSize(wire); i++)
 							buf_ports.insert(make_pair(module->name, make_pair(wire->name, i)));
