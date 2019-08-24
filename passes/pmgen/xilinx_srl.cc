@@ -67,32 +67,40 @@ void run_fixed(xilinx_srl_pm &pm)
 			pm.autoremove(cell);
 	}
 
-	Cell *c = first_cell;
-	SigBit Q = st.first->getPort(ID(Q));
-	c->setPort(ID(Q), Q);
+	auto last_cell = ud.longest_chain.front();
+	Cell *c = pm.module->addCell(NEW_ID, ID($__XILINX_SHREG_));
+	pm.module->swap_names(c, first_cell);
 
-	if (c->type.in(ID($_DFF_N_), ID($_DFF_P_), ID($_DFFE_NN_), ID($_DFFE_NP_), ID($_DFFE_PN_), ID($_DFFE_PP_), ID(FDRE), ID(FDRE_1))) {
-		c->parameters.clear();
+	if (first_cell->type.in(ID($_DFF_N_), ID($_DFF_P_), ID($_DFFE_NN_), ID($_DFFE_NP_), ID($_DFFE_PN_), ID($_DFFE_PP_), ID(FDRE), ID(FDRE_1))) {
 		c->setParam(ID(DEPTH), GetSize(ud.longest_chain));
 		c->setParam(ID(INIT), initval.as_const());
-		if (c->type.in(ID($_DFF_P_), ID($_DFFE_PN_), ID($_DFFE_PP_)))
+		if (first_cell->type.in(ID($_DFF_P_), ID($_DFFE_PN_), ID($_DFFE_PP_)))
 			c->setParam(ID(CLKPOL), 1);
-		else if (c->type.in(ID($_DFF_N_), ID($DFFE_NN_), ID($_DFFE_NP_), ID(FDRE_1)))
+		else if (first_cell->type.in(ID($_DFF_N_), ID($DFFE_NN_), ID($_DFFE_NP_), ID(FDRE_1)))
 			c->setParam(ID(CLKPOL), 0);
-		else if (c->type.in(ID(FDRE)))
-			c->setParam(ID(CLKPOL), param_def(c, ID(IS_C_INVERTED)).as_bool() ? 0 : 1);
+		else if (first_cell->type.in(ID(FDRE)))
+			c->setParam(ID(CLKPOL), param_def(first_cell, ID(IS_C_INVERTED)).as_bool() ? 0 : 1);
 		else
 			log_abort();
-		if (c->type.in(ID($_DFFE_NP_), ID($_DFFE_PP_)))
+		if (first_cell->type.in(ID($_DFFE_NP_), ID($_DFFE_PP_)))
 			c->setParam(ID(ENPOL), 1);
-		else if (c->type.in(ID($_DFFE_NN_), ID($_DFFE_PN_)))
+		else if (first_cell->type.in(ID($_DFFE_NN_), ID($_DFFE_PN_)))
 			c->setParam(ID(ENPOL), 0);
 		else
 			c->setParam(ID(ENPOL), 2);
-		if (c->type.in(ID($_DFF_N_), ID($_DFF_P_)))
-			c->setPort(ID(E), State::S1);
+
+		c->setPort(ID(C), first_cell->getPort(ID(C)));
+		c->setPort(ID(D), first_cell->getPort(ID(D)));
+		c->setPort(ID(Q), last_cell->getPort(ID(Q)));
 		c->setPort(ID(L), GetSize(ud.longest_chain)-1);
-		c->type = ID($__XILINX_SHREG_);
+		if (first_cell->type.in(ID($_DFF_N_), ID($_DFF_P_)))
+			c->setPort(ID(E), State::S1);
+		else if (first_cell->type.in(ID($_DFFE_NN_), ID($_DFFE_NP_), ID($_DFFE_PN_), ID($_DFFE_PP_)))
+			c->setPort(ID(E), first_cell->getPort(ID(E)));
+		else if (first_cell->type.in(ID(FDRE), ID(FDRE_1)))
+			c->setPort(ID(E), first_cell->getPort(ID(CE)));
+		else
+			log_abort();
 	}
 	else
 		log_abort();
