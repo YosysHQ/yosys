@@ -142,50 +142,49 @@ void run_variable(xilinx_srl_pm &pm)
 	}
 	pm.autoremove(st.shiftx);
 
-	auto last_cell = ud.chain.front().first;
-	auto last_slice = ud.chain.front().second;
+	Cell *c = pm.module->addCell(NEW_ID, ID($__XILINX_SHREG_));
+	pm.module->swap_names(c, first_cell);
 
-	Cell *c = last_cell;
-	if (c->type.in(ID($dff), ID($dffe))) {
-		auto &Q = last_cell->connections_.at(ID(Q));
-		Q = Q[last_slice];
-		last_cell->setPort(ID(D), first_cell->getPort(ID(D))[first_slice]);
-	}
-
-	if (c->type.in(ID($_DFF_N_), ID($_DFF_P_), ID($_DFFE_NN_), ID($_DFFE_NP_), ID($_DFFE_PN_), ID($_DFFE_PP_), ID($dff), ID($dffe))) {
-		Const clkpol, enpol;
-		if (c->type.in(ID($_DFF_P_), ID($_DFFE_PN_), ID($_DFFE_PP_)))
-			clkpol = 1;
-		else if (c->type.in(ID($_DFF_N_), ID($DFFE_NN_), ID($_DFFE_NP_)))
-			clkpol = 0;
-		else if (c->type.in(ID($dff), ID($dffe))) {
-			clkpol = c->getParam(ID(CLK_POLARITY));
-			c->setPort(ID(C), c->getPort(ID(CLK)));
-			c->unsetPort(ID(CLK));
-		}
-		else
-			log_abort();
-		if (c->type.in(ID($_DFFE_NP_), ID($_DFFE_PP_)))
-			enpol = 1;
-		else if (c->type.in(ID($_DFFE_NN_), ID($_DFFE_PN_)))
-			enpol = 0;
-		else if (c->type.in(ID($dffe))) {
-			enpol = c->getParam(ID(EN_POLARITY));
-			c->setPort(ID(E), c->getPort(ID(EN)));
-			c->unsetPort(ID(EN));
-		}
-		else
-			enpol = 2;
-		c->parameters.clear();
+	if (first_cell->type.in(ID($_DFF_N_), ID($_DFF_P_), ID($_DFFE_NN_), ID($_DFFE_NP_), ID($_DFFE_PN_), ID($_DFFE_PP_), ID($dff), ID($dffe))) {
 		c->setParam(ID(DEPTH), GetSize(ud.chain));
 		c->setParam(ID(INIT), initval.as_const());
+		Const clkpol, enpol;
+		if (first_cell->type.in(ID($_DFF_P_), ID($_DFFE_PN_), ID($_DFFE_PP_)))
+			clkpol = 1;
+		else if (first_cell->type.in(ID($_DFF_N_), ID($DFFE_NN_), ID($_DFFE_NP_)))
+			clkpol = 0;
+		else if (first_cell->type.in(ID($dff), ID($dffe)))
+			clkpol = first_cell->getParam(ID(CLK_POLARITY));
+		else
+			log_abort();
+		if (first_cell->type.in(ID($_DFFE_NP_), ID($_DFFE_PP_)))
+			enpol = 1;
+		else if (first_cell->type.in(ID($_DFFE_NN_), ID($_DFFE_PN_)))
+			enpol = 0;
+		else if (first_cell->type.in(ID($dffe)))
+			enpol = first_cell->getParam(ID(EN_POLARITY));
+		else
+			enpol = 2;
 		c->setParam(ID(CLKPOL), clkpol);
 		c->setParam(ID(ENPOL), enpol);
-		if (c->type.in(ID($_DFF_N_), ID($_DFF_P_), ID($dff)))
-			c->setPort(ID(E), State::S1);
-		c->setPort(ID(L), st.shiftx->getPort(ID(B)));
+
+		if (first_cell->type.in(ID($_DFF_N_), ID($_DFF_P_), ID($_DFFE_NN_), ID($_DFFE_NP_), ID($_DFFE_PN_), ID($_DFFE_PP_)))
+			c->setPort(ID(C), first_cell->getPort(ID(C)));
+		else if (first_cell->type.in(ID($dff), ID($dffe)))
+			c->setPort(ID(C), first_cell->getPort(ID(CLK)));
+		else
+			log_abort();
+		c->setPort(ID(D), first_cell->getPort(ID(D))[first_slice]);
 		c->setPort(ID(Q), st.shiftx->getPort(ID(Y)));
-		c->type = ID($__XILINX_SHREG_);
+		c->setPort(ID(L), st.shiftx->getPort(ID(B)));
+		if (first_cell->type.in(ID($_DFF_N_), ID($_DFF_P_), ID($dff)))
+			c->setPort(ID(E), State::S1);
+		else if (first_cell->type.in(ID($_DFFE_NN_), ID($_DFFE_NP_), ID($_DFFE_PN_), ID($_DFFE_PP_)))
+			c->setPort(ID(E), first_cell->getPort(ID(E)));
+		else if (first_cell->type.in(ID($dffe)))
+			c->setPort(ID(E), first_cell->getPort(ID(EN)));
+		else
+			log_abort();
 	}
 	else
 		log_abort();
