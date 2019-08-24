@@ -176,6 +176,7 @@ endcode
 match first
 	select first->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_, $dff, $dffe)
 	select !first->has_keep_attr()
+	select !port(first, \Q)[0].wire->get_bool_attribute(\keep)
 	slice idx GetSize(port(first, \Q))
 	select nusers(port(first, \Q)[idx]) <= 2
 	index <SigBit> port(first, \Q)[idx] === port(shiftx, \A)[shiftx_width-1]
