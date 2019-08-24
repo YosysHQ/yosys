@@ -176,7 +176,6 @@ endcode
 match first
 	select first->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_, $dff, $dffe)
 	select !first->has_keep_attr()
-	select !first->type.in($dffe) || !param(first, \EN_POLARITY).as_bool()
 	slice idx GetSize(port(first, \Q))
 	select nusers(port(first, \Q)[idx]) <= 2
 	index <SigBit> port(first, \Q)[idx] === port(shiftx, \A)[shiftx_width-1]
@@ -220,7 +219,6 @@ match next
 	select next->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_, $dff, $dffe)
 	select !next->has_keep_attr()
 	select !port(next, \D)[0].wire->get_bool_attribute(\keep)
-	select !next->type.in($dffe) || !param(next, \EN_POLARITY).as_bool()
 	slice idx GetSize(port(next, \Q))
 	select nusers(port(next, \Q)[idx]) <= 3
 	index <IdString> next->type === chain.back().first->type
