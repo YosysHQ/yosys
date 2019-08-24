@@ -1,4 +1,4 @@
-module test(input clk, input [3:0] bar, output [3:0] foo);
+module test(input clk, input [3:0] bar, output [3:0] foo, asdf);
   reg [3:0] foo = 0;
   reg [3:0] last_bar = 0;
   reg [3:0] asdf = 4'b1xxx;
@@ -12,6 +12,8 @@ module test(input clk, input [3:0] bar, output [3:0] foo);
   always @(posedge clk)
     last_bar <= bar;
 
+  always @(posedge clk)
+    asdf[3] <= bar[3];
   always @*
     asdf[2:0] = 3'b111;
 
