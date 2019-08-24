@@ -14,6 +14,9 @@ endcode
 match first
 	select first->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_, \FDRE, \FDRE_1)
 	select !first->has_keep_attr()
+	select !first->type.in(\FDRE) || !first->hasParam(\IS_R_INVERTED) || !param(first, \IS_R_INVERTED).as_bool()
+	select !first->type.in(\FDRE) || !first->hasParam(\IS_D_INVERTED) || !param(first, \IS_D_INVERTED).as_bool()
+	select !first->type.in(\FDRE, \FDRE_1) || port(first, \R) == State::S0
 	filter !non_first_cells.count(first)
 //generate
 //	SigSpec A = module->addWire(NEW_ID);
@@ -64,6 +67,9 @@ arg en_port
 match first
 	select first->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_, \FDRE, \FDRE_1)
 	select !first->has_keep_attr()
+	select !first->type.in(\FDRE) || !first->hasParam(\IS_R_INVERTED) || !param(first, \IS_R_INVERTED).as_bool()
+	select !first->type.in(\FDRE) || !first->hasParam(\IS_D_INVERTED) || !param(first, \IS_D_INVERTED).as_bool()
+	select !first->type.in(\FDRE, \FDRE_1) || port(first, \R) == State::S0
 endmatch
 
 code clk_port en_port
@@ -77,21 +83,6 @@ code clk_port en_port
 	else if (first->type.in(\FDRE, \FDRE_1))
 		en_port = \CE;
 	else log_abort();
-	if (first->type.in(\FDRE, \FDRE_1)) {
-		SigBit R = port(first, \R);
-		if (first->type == \FDRE) {
-			auto inverted = first->parameters.at(\IS_R_INVERTED, default_params.at(std::make_pair(first->type,\IS_R_INVERTED))).as_bool();
-			if (!inverted && R != State::S0)
-				reject;
-			if (inverted && R != State::S1)
-				reject;
-		}
-		else if (first->type == \FDRE_1) {
-			if (R == State::S0)
-				reject;
-		}
-		else log_abort();
-	}
 endcode
 
 match next
@@ -99,27 +90,18 @@ match next
 	select !next->has_keep_attr()
 	select !port(next, \D)[0].wire->get_bool_attribute(\keep)
 	select nusers(port(next, \Q)) == 2
+	select !next->type.in(\FDRE, \FDRE_1) || port(next, \R) == State::S0
 	index <IdString> next->type === first->type
 	index <SigBit> port(next, \Q) === port(first, \D)
 	filter port(next, clk_port) == port(first, clk_port)
 	filter en_port == IdString() || port(next, en_port) == port(first, en_port)
+	filter !next->type.in(\FDRE) || !first->hasParam(\IS_C_INVERTED) || (next->hasParam(\IS_C_INVERTED) && param(next, \IS_C_INVERTED).as_bool() == param(first, \IS_C_INVERTED).as_bool())
+	filter !next->type.in(\FDRE) || !first->hasParam(\IS_D_INVERTED) || (next->hasParam(\IS_D_INVERTED) && param(next, \IS_D_INVERTED).as_bool() == param(first, \IS_D_INVERTED).as_bool())
+	filter !next->type.in(\FDRE) || !first->hasParam(\IS_R_INVERTED) || (next->hasParam(\IS_R_INVERTED) && param(next, \IS_R_INVERTED).as_bool() == param(first, \IS_R_INVERTED).as_bool())
+	filter !next->type.in(\FDRE, \FDRE_1) || port(next, \R) == port(first, \R)
 endmatch
 
 code
-	if (next->type.in(\FDRE, \FDRE_1)) {
-		for (auto p : { \R })
-			if (port(next, p) != port(first, p))
-				reject;
-
-		if (next->type == \FDRE) {
-			for (auto p : { \IS_C_INVERTED, \IS_D_INVERTED, \IS_R_INVERTED }) {
-				auto n = next->parameters.at(p, default_params.at(std::make_pair(next->type,p)));
-				auto f = first->parameters.at(p, default_params.at(std::make_pair(first->type,p)));
-				if (n != f)
-					reject;
-			}
-		}
-	}
 	non_first_cells.insert(next);
 endcode
 
@@ -140,6 +122,10 @@ match next
 	index <SigBit> port(next, \Q) === port(chain.back(), \D)
 	filter port(next, clk_port) == port(first, clk_port)
 	filter en_port == IdString() || port(next, en_port) == port(first, en_port)
+	filter !next->type.in(\FDRE) || !first->hasParam(\IS_C_INVERTED) || (next->hasParam(\IS_C_INVERTED) && param(next, \IS_C_INVERTED).as_bool() == param(first, \IS_C_INVERTED).as_bool())
+	filter !next->type.in(\FDRE) || !first->hasParam(\IS_D_INVERTED) || (next->hasParam(\IS_D_INVERTED) && param(next, \IS_D_INVERTED).as_bool() == param(first, \IS_D_INVERTED).as_bool())
+	filter !next->type.in(\FDRE) || !first->hasParam(\IS_R_INVERTED) || (next->hasParam(\IS_R_INVERTED) && param(next, \IS_R_INVERTED).as_bool() == param(first, \IS_R_INVERTED).as_bool())
+	filter !next->type.in(\FDRE, \FDRE_1) || port(next, \R) == port(first, \R)
 //generate 10
 //	SigSpec A = module->addWire(NEW_ID);
 //	SigSpec B = module->addWire(NEW_ID);
@@ -151,22 +137,6 @@ endmatch
 code
 	if (next) {
 		chain.push_back(next);
-
-		if (next->type.in(\FDRE, \FDRE_1)) {
-			for (auto p : { \R })
-				if (port(next, p) != port(first, p))
-					reject;
-
-			if (next->type == \FDRE) {
-				for (auto p : { \IS_C_INVERTED, \IS_D_INVERTED, \IS_R_INVERTED }) {
-					auto n = next->parameters.at(p, default_params.at(std::make_pair(next->type,p)));
-					auto f = first->parameters.at(p, default_params.at(std::make_pair(first->type,p)));
-					if (n != f)
-						reject;
-				}
-			}
-		}
-
 		subpattern(tail);
 	} else {
 		if (GetSize(chain) > GetSize(longest_chain))
@@ -206,6 +176,7 @@ endcode
 match first
 	select first->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_, $dff, $dffe)
 	select !first->has_keep_attr()
+	select !first->type.in($dffe) || !param(first, \EN_POLARITY).as_bool()
 	slice idx GetSize(port(first, \Q))
 	select nusers(port(first, \Q)[idx]) <= 2
 	index <SigBit> port(first, \Q)[idx] === port(shiftx, \A)[shiftx_width-1]
@@ -249,6 +220,7 @@ match next
 	select next->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_, $dff, $dffe)
 	select !next->has_keep_attr()
 	select !port(next, \D)[0].wire->get_bool_attribute(\keep)
+	select !next->type.in($dffe) || !param(next, \EN_POLARITY).as_bool()
 	slice idx GetSize(port(next, \Q))
 	select nusers(port(next, \Q)[idx]) <= 3
 	index <IdString> next->type === chain.back().first->type
@@ -256,6 +228,8 @@ match next
 	index <SigBit> port(next, \Q)[idx] === port(shiftx, \A)[shiftx_width-1-GetSize(chain)]
 	filter port(next, clk_port) == port(first, clk_port)
 	filter en_port == IdString() || port(next, en_port) == port(first, en_port)
+	filter !next->type.in($dff, $dffe) || param(next, \CLK_POLARITY).as_bool() == param(first, \CLK_POLARITY).as_bool()
+	filter !next->type.in($dffe) || param(next, \EN_POLARITY).as_bool() == param(first, \EN_POLARITY).as_bool()
 	filter !chain_bits.count(port(next, \D)[idx])
 	set slice idx
 endmatch
