@@ -196,6 +196,7 @@ code clk_port en_port
 		en_port = \EN;
 	else log_abort();
 
+	chain_bits.insert(port(first, \Q)[slice]);
 	chain.emplace_back(first, slice);
 	subpattern(tail);
 finally
