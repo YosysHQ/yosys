@@ -18,9 +18,15 @@ design -save ref
 
 design -load ref
 clkbufmap -buf clkbuf o:i
-select -assert-count 1 w:clk1 %a %co t:clkbuf %i
-select -assert-count 1 w:clk2 %a %co t:clkbuf %i
 select -assert-count 2 t:clkbuf
+select -set clk1 w:clk1 %a %co t:clkbuf %i          # Find 'clk1' fanouts that are 'clkbuf'
+select -assert-count 1 @clk1                        # Check there is one such fanout
+select -assert-count 1 @clk1 %x:+[o] %co c:s* %i    # Check that the 'o' of that clkbuf drives one fanout
+select -assert-count 1 @clk1 %x:+[o] %co c:s0 %i    # And that one fanout is 's0'
+select -set clk2 w:clk2 %a %co t:clkbuf %i
+select -assert-count 1 @clk2
+select -assert-count 1 @clk2 %x:+[o] %co c:s* %i
+select -assert-count 1 @clk2 %x:+[o] %co c:s1 %i
 
 # ----------------------
 
@@ -28,9 +34,12 @@ design -load ref
 setattr -set clkbuf_inhibit 0 w:clk1
 setattr -set clkbuf_inhibit 1 w:clk2
 clkbufmap -buf clkbuf o:i
-select -assert-count 1 w:clk1 %a %co t:clkbuf %i
-select -assert-count 0 w:clk2 %a %co t:clkbuf %i
 select -assert-count 1 t:clkbuf
+select -set clk1 w:clk1 %a %co t:clkbuf %i          # Find 'clk1' fanouts that are 'clkbuf'
+select -assert-count 1 @clk1                        # Check there is one such fanout
+select -assert-count 1 @clk1 %x:+[o] %co c:s* %i    # Check that the 'o' of that clkbuf drives one fanout
+select -assert-count 1 @clk1 %x:+[o] %co c:s0 %i    # And that one fanout is 's0'
+select -assert-count 0 w:clk2 %a %co t:clkbuf %i
 
 # ----------------------
 
@@ -38,9 +47,15 @@ design -load ref
 setattr -set clkbuf_inhibit 1 w:clk1
 setattr -set buffer_type "bufg" w:clk2
 clkbufmap -buf clkbuf o:i w:* a:buffer_type=none a:buffer_type=bufr %u %d
-select -assert-count 1 w:clk1 %a %co t:clkbuf %i
-select -assert-count 1 w:clk2 %a %co t:clkbuf %i
 select -assert-count 2 t:clkbuf
+select -set clk1 w:clk1 %a %co t:clkbuf %i          # Find 'clk1' fanouts that are 'clkbuf'
+select -assert-count 1 @clk1                        # Check there is one such fanout
+select -assert-count 1 @clk1 %x:+[o] %co c:s* %i    # Check that the 'o' of that clkbuf drives one fanout
+select -assert-count 1 @clk1 %x:+[o] %co c:s0 %i    # And that one fanout is 's0'
+select -set clk2 w:clk2 %a %co t:clkbuf %i          # Find 'clk1' fanouts that are 'clkbuf'
+select -assert-count 1 @clk2                        # Check there is one such fanout
+select -assert-count 1 @clk2 %x:+[o] %co c:s* %i    # Check that the 'o' of that clkbuf drives one fanout
+select -assert-count 1 @clk2 %x:+[o] %co c:s1 %i    # And that one fanout is 's0'
 
 # ----------------------
 
