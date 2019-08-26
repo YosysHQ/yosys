@@ -12,11 +12,10 @@ Yosys 0.9 .. Yosys 0.9-dev
     - Added "synth_xilinx -abc9" (experimental)
     - Added "synth_ice40 -abc9" (experimental)
     - Added "synth -abc9" (experimental)
-    - Added "script -scriptwire
+    - Added "script -scriptwire"
     - Added "synth_xilinx -nocarry"
     - Added "synth_xilinx -nowidelut"
     - Added "synth_ecp5 -nowidelut"
-    - "synth_xilinx" to now infer hard shift registers (-nosrl to disable)
     - "synth_xilinx" to now infer wide multiplexers (-widemux <min> to enable)
     - Renamed labels/options in synth_ice40 (e.g. dram -> map_lutram; -nodram -> -nolutram)
     - Renamed labels/options in synth_ecp5 (e.g. dram -> map_lutram; -nodram -> -nolutram)
