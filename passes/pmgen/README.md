@@ -178,6 +178,45 @@ evaluates to `false`.
 The `semioptional` statement marks matches that must match if at least one
 matching cell exists, but if no matching cell exists it is set to `nullptr`.
 
+Slices and choices
+------------------
+
+Cell matches can contain "slices" and "choices". Slices can be used to
+create matches for different sections of a cell. For example:
+
+    state <int> pmux_slice
+
+    match pmux
+        select pmux->type == $pmux
+        slice idx GetSize(port(pmux, \S))
+        index <SigBit> port(pmux, \S)[idx] === port(eq, \Y)
+	set pmux_slice idx
+    endmatch
+
+The first argument to `slice` is the local variable name used to identify the
+slice. The second argument is the number of slices that should be created for
+this cell. The `set` statement can be used to copy that index into a state
+variable so that later matches and/or code blocks can refer to it.
+
+A similar mechanism is "choices", where a list of options is given as
+second argument, and the matcher will iterate over those options:
+
+    state <SigSpec> foo bar
+    state <IdString> eq_ab eq_ba
+
+    match eq
+        select eq->type == $eq
+        choice <IdString> AB {\A, \B}
+        define <IdString> BA (AB == \A ? \B : \A)
+        index <SigSpec> port(eq, AB) === foo
+        index <SigSpec> port(eq, BA) === bar
+        set eq_ab AB
+        set eq_ba BA
+    generate
+
+Notice how `define` can be used to define additional local variables similar
+to the loop variables defined by `slice` and `choice`.
+
 Additional code
 ---------------
 
@@ -326,7 +365,7 @@ test-case generation. For example:
 
     match mul
         ...
-    generate 10
+    generate 10 0
         SigSpec Y = port(ff, \D);
         SigSpec A = module->addWire(NEW_ID, GetSize(Y) - rng(GetSize(Y)/2));
         SigSpec B = module->addWire(NEW_ID, GetSize(Y) - rng(GetSize(Y)/2));
@@ -335,8 +374,11 @@ test-case generation. For example:
 
 The expression `rng(n)` returns a non-negative integer less than `n`.
 
-The argument to `generate` is the chance of this generate block being executed
-when the match block did not match anything, in percent.
+The first argument to `generate` is the chance of this generate block being
+executed when the match block did not match anything, in percent.
+
+The second argument to `generate` is the chance of this generate block being
+executed when the match block did match something, in percent.
 
 The special statement `finish` can be used within generate blocks to terminate
 the current pattern matcher run.

@@ -117,6 +117,7 @@ struct SynthXilinxPass : public ScriptPass
 
 	std::string top_opt, edif_file, blif_file, family;
 	bool flatten, retime, vpr, ise, iopad, noiopad, noclkbuf, nobram, nolutram, nosrl, nocarry, nowidelut, abc9;
+	bool flatten_before_abc;
 	int widemux;
 
 	void clear_flags() YS_OVERRIDE
@@ -139,6 +140,7 @@ struct SynthXilinxPass : public ScriptPass
 		nocarry = false;
 		nowidelut = false;
 		abc9 = false;
+		flatten_before_abc = false;
 		widemux = 0;
 	}
 
@@ -176,6 +178,10 @@ struct SynthXilinxPass : public ScriptPass
 			}
 			if (args[argidx] == "-flatten") {
 				flatten = true;
+				continue;
+			}
+			if (args[argidx] == "-flatten_before_abc") {
+				flatten_before_abc = true;
 				continue;
 			}
 			if (args[argidx] == "-retime") {
@@ -417,6 +423,8 @@ struct SynthXilinxPass : public ScriptPass
 
 		if (check_label("map_luts")) {
 			run("opt_expr -mux_undef");
+			if (flatten_before_abc)
+				run("flatten");
 			if (help_mode)
 				run("abc -luts 2:2,3,6:5[,10,20] [-dff]", "(option for 'nowidelut', option for '-retime')");
 			else if (abc9) {
