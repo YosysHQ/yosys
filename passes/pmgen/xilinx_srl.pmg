@@ -18,22 +18,46 @@ match first
 	select !first->type.in(\FDRE) || !first->hasParam(\IS_D_INVERTED) || !param(first, \IS_D_INVERTED).as_bool()
 	select !first->type.in(\FDRE, \FDRE_1) || port(first, \R) == State::S0
 	filter !non_first_cells.count(first)
-//generate
-//	SigSpec A = module->addWire(NEW_ID);
-//	SigSpec B = module->addWire(NEW_ID);
-//	SigSpec Y = module->addWire(NEW_ID);
-//	switch (rng(3))
-//	{
-//	case 0:
-//		module->addAndGate(NEW_ID, A, B, Y);
-//		break;
-//	case 1:
-//		module->addOrGate(NEW_ID, A, B, Y);
-//		break;
-//	case 2:
-//		module->addXorGate(NEW_ID, A, B, Y);
-//		break;
-//	}
+generate
+	SigSpec C = module->addWire(NEW_ID);
+	SigSpec D = module->addWire(NEW_ID);
+	SigSpec Q = module->addWire(NEW_ID);
+	auto r = rng(8);
+	Cell* cell;
+	switch (r)
+	{
+	case 0:
+	case 1:
+	case 2:
+	case 3:
+		cell = module->addCell(NEW_ID, \FDRE);
+		if (r & 1)
+			cell->setPort(\R, State::S1);
+		else
+			cell->setPort(\R, State::S0);
+		if (r & 2)
+			cell->setPort(\CE, State::S1);
+		else
+			cell->setPort(\CE, State::S0);
+		break;
+	case 4:
+		cell = module->addCell(NEW_ID, $_DFF_N_);
+		break;
+	case 5:
+	case 6:
+		cell = module->addCell(NEW_ID, $_DFFE_PP_);
+		if (r & 1)
+			cell->setPort(\E, State::S1);
+		else
+			cell->setPort(\E, State::S0);
+		break;
+	case 7:
+		cell = module->addCell(NEW_ID, \foobar);
+		break;
+	}
+	cell->setPort(\C, C);
+	cell->setPort(\D, D);
+	cell->setPort(\Q, Q);
 endmatch
 
 code clk_port en_port
@@ -126,12 +150,20 @@ match next
 	filter !next->type.in(\FDRE) || !first->hasParam(\IS_D_INVERTED) || (next->hasParam(\IS_D_INVERTED) && param(next, \IS_D_INVERTED).as_bool() == param(first, \IS_D_INVERTED).as_bool())
 	filter !next->type.in(\FDRE) || !first->hasParam(\IS_R_INVERTED) || (next->hasParam(\IS_R_INVERTED) && param(next, \IS_R_INVERTED).as_bool() == param(first, \IS_R_INVERTED).as_bool())
 	filter !next->type.in(\FDRE, \FDRE_1) || port(next, \R) == port(first, \R)
-//generate 10
-//	SigSpec A = module->addWire(NEW_ID);
-//	SigSpec B = module->addWire(NEW_ID);
-//	SigSpec Y = port(chain.back().first, chain.back().second);
-//	Cell *c = module->addAndGate(NEW_ID, A, B, Y);
-//	c->type = chain.back().first->type;
+generate 10
+	SigSpec C = chain.back()->getPort(\C);
+	SigSpec D = module->addWire(NEW_ID);
+	SigSpec Q = chain.back()->getPort(\D);
+	Cell *cell = module->addCell(NEW_ID, chain.back()->type);
+	cell->setPort(\C, C);
+	cell->setPort(\D, D);
+	cell->setPort(\Q, Q);
+	if (cell->type == \FDRE) {
+		cell->setPort(\R, chain.back()->getPort(\R));
+		cell->setPort(\CE, chain.back()->getPort(\CE));
+	}
+	else if (cell->type == $_DFFE_PP_)
+		cell->setPort(\E, chain.back()->getPort(\E));
 endmatch
 
 code
