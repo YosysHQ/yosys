@@ -211,14 +211,26 @@ struct TechmapWorker
 				positional_ports[stringf("$%d", it.second->port_id)] = it.first;
 			IdString w_name = it.second->name;
 			apply_prefix(cell->name, w_name);
-			RTLIL::Wire *w = module->addWire(w_name, it.second);
-			w->port_input = false;
-			w->port_output = false;
-			w->port_id = 0;
-			if (it.second->get_bool_attribute(ID(_techmap_special_)))
-				w->attributes.clear();
-			if (w->attributes.count(ID(src)))
-				w->add_strpool_attribute(ID(src), extra_src_attrs);
+			RTLIL::Wire *w = module->wire(w_name);
+			if (w != nullptr) {
+				if (!flatten_mode)
+					log_error("Signal %s.%s conflicts with %s.%s (via %s.%s).\n", log_id(module), log_id(w),
+							log_id(tpl), log_id(it.second), log_id(module), log_id(cell));
+				if (GetSize(w) < GetSize(it.second)) {
+					log_warning("Widening signal %s.%s to match size of %s.%s (via %s.%s).\n", log_id(module), log_id(w),
+							log_id(tpl), log_id(it.second), log_id(module), log_id(cell));
+					w->width = GetSize(it.second);
+				}
+			} else {
+				w = module->addWire(w_name, it.second);
+				w->port_input = false;
+				w->port_output = false;
+				w->port_id = 0;
+				if (it.second->get_bool_attribute(ID(_techmap_special_)))
+					w->attributes.clear();
+				if (w->attributes.count(ID(src)))
+					w->add_strpool_attribute(ID(src), extra_src_attrs);
+			}
 			design->select(module, w);
 		}
 
