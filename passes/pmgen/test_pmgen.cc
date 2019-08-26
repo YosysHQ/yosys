@@ -28,6 +28,7 @@ bool did_something;
 
 #include "passes/pmgen/test_pmgen_pm.h"
 #include "passes/pmgen/ice40_dsp_pm.h"
+#include "passes/pmgen/xilinx_srl_pm.h"
 #include "passes/pmgen/peepopt_pm.h"
 
 void reduce_chain(test_pmgen_pm &pm)
@@ -180,7 +181,7 @@ void generate_pattern(std::function<void(pm&,std::function<void()>)> run, const 
 		while (modcnt < maxmodcnt && submodcnt < maxsubcnt && itercnt++ < 1000)
 		{
 			if (timeout++ > 10000)
-				log_error("pmgen generator is stuck: 10000 iterations an no matching module generated.\n");
+				log_error("pmgen generator is stuck: 10000 iterations with no matching module generated.\n");
 
 			pm matcher(mod, mod->cells());
 
@@ -349,13 +350,16 @@ struct TestPmgenPass : public Pass {
 		if (pattern == "ice40_dsp")
 			return GENERATE_PATTERN(ice40_dsp_pm, ice40_dsp);
 
+		if (pattern == "xilinx_srl_fixed")
+			return GENERATE_PATTERN(xilinx_srl_pm, fixed);
+
 		if (pattern == "peepopt-muldiv")
 			return GENERATE_PATTERN(peepopt_pm, muldiv);
 
 		if (pattern == "peepopt-shiftmul")
 			return GENERATE_PATTERN(peepopt_pm, shiftmul);
 
-		log_cmd_error("Unkown pattern: %s\n", pattern.c_str());
+		log_cmd_error("Unknown pattern: %s\n", pattern.c_str());
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
