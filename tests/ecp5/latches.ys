@@ -1,7 +1,0 @@
-read_verilog latches.v
-synth_ecp5
-cd top
-select -assert-count 4 t:LUT4
-select -assert-count 1 t:PFUMX
-select -assert-none t:LUT4 t:PFUMX %% t:* %D
-write_verilog latches_synth.v
