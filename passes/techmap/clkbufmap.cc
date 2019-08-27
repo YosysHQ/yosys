@@ -166,13 +166,24 @@ struct ClkbufmapPass : public Pass {
 
 			// Insert buffers.
 			std::vector<pair<Wire *, Wire *>> input_queue;
-			for (auto wire : module->selected_wires())
+			// Copy current wire list, as we will be adding new ones during iteration.
+			std::vector<Wire *> wires(module->wires());
+			for (auto wire : wires)
 			{
 				// Should not happen.
 				if (wire->port_input && wire->port_output)
 					continue;
+				bool process_wire = module->selected(wire);
 				if (!select && wire->get_bool_attribute("\\clkbuf_inhibit"))
+					process_wire = false;
+				if (!process_wire) {
+					// This wire is supposed to be bypassed, so make sure we don't buffer it in
+					// some buffer higher up in the hierarchy.
+					if (wire->port_output)
+						for (int i = 0; i < GetSize(wire); i++)
+							buf_ports.insert(make_pair(module->name, make_pair(wire->name, i)));
 					continue;
+				}
 
 				pool<int> input_bits;
 
