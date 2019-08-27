@@ -213,7 +213,7 @@ struct XilinxSrlPass : public Pass {
 		log("\n");
 		log("    -variable\n");
 		log("        infer variable-length shift registers (i.e. fixed-length shifts where\n");
-		log("        each element also fans-out to a $shiftx cell.\n");
+		log("        each element also fans-out to a $shiftx cell).\n");
 		log("\n");
 	}
 
