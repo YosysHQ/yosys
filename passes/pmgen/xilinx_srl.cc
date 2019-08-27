@@ -28,7 +28,6 @@ PRIVATE_NAMESPACE_BEGIN
 bool did_something;
 
 #include "passes/pmgen/xilinx_srl_pm.h"
-#include "passes/pmgen/ice40_dsp_pm.h"
 #include "passes/pmgen/peepopt_pm.h"
 
 void run_fixed(xilinx_srl_pm &pm)
