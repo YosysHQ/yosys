@@ -28,36 +28,28 @@ generate
 	{
 	case 0:
 	case 1:
-	case 2:
-	case 3:
 		cell = module->addCell(NEW_ID, \FDRE);
+		cell->setPort(\C, C);
+		cell->setPort(\D, D);
+		cell->setPort(\Q, Q);
+		cell->setPort(\CE, module->addWire(NEW_ID));
 		if (r & 1)
-			cell->setPort(\R, State::S1);
+			cell->setPort(\R, module->addWire(NEW_ID));
 		else
 			cell->setPort(\R, State::S0);
-		if (r & 2)
-			cell->setPort(\CE, State::S1);
-		else
-			cell->setPort(\CE, State::S0);
+		break;
+	case 2:
+	case 3:
+		cell = module->addDffGate(NEW_ID, C, D, Q, r & 1);
 		break;
 	case 4:
-		cell = module->addCell(NEW_ID, $_DFF_N_);
-		break;
 	case 5:
 	case 6:
-		cell = module->addCell(NEW_ID, $_DFFE_PP_);
-		if (r & 1)
-			cell->setPort(\E, State::S1);
-		else
-			cell->setPort(\E, State::S0);
-		break;
 	case 7:
-		cell = module->addCell(NEW_ID, \foobar);
+		cell = module->addDffeGate(NEW_ID, C, module->addWire(NEW_ID), D, Q, r & 1, r & 2);
 		break;
+	default: log_abort();
 	}
-	cell->setPort(\C, C);
-	cell->setPort(\D, D);
-	cell->setPort(\Q, Q);
 endmatch
 
 code clk_port en_port
@@ -151,18 +143,15 @@ match next
 	filter !next->type.in(\FDRE) || !first->hasParam(\IS_R_INVERTED) || (next->hasParam(\IS_R_INVERTED) && param(next, \IS_R_INVERTED).as_bool() == param(first, \IS_R_INVERTED).as_bool())
 	filter !next->type.in(\FDRE, \FDRE_1) || port(next, \R) == port(first, \R)
 generate 10
-	SigSpec C = chain.back()->getPort(\C);
-	SigSpec D = module->addWire(NEW_ID);
-	SigSpec Q = chain.back()->getPort(\D);
 	Cell *cell = module->addCell(NEW_ID, chain.back()->type);
-	cell->setPort(\C, C);
-	cell->setPort(\D, D);
-	cell->setPort(\Q, Q);
+	cell->setPort(\C, chain.back()->getPort(\C));
+	cell->setPort(\D, module->addWire(NEW_ID));
+	cell->setPort(\Q, chain.back()->getPort(\D));
 	if (cell->type == \FDRE) {
 		cell->setPort(\R, chain.back()->getPort(\R));
 		cell->setPort(\CE, chain.back()->getPort(\CE));
 	}
-	else if (cell->type == $_DFFE_PP_)
+	else if (cell->type.begins_with("$_DFFE_"))
 		cell->setPort(\E, chain.back()->getPort(\E));
 endmatch
 
@@ -199,6 +188,9 @@ match shiftx
 	select !shiftx->has_keep_attr()
 	select param(shiftx, \Y_WIDTH).as_int() == 1
 	filter param(shiftx, \A_WIDTH).as_int() >= minlen
+generate
+	minlen = 3;
+	module->addShiftx(NEW_ID, module->addWire(NEW_ID, rng(6)+minlen), module->addWire(NEW_ID, 3), module->addWire(NEW_ID));
 endmatch
 
 code shiftx_width
@@ -213,6 +205,33 @@ match first
 	select nusers(port(first, \Q)[idx]) <= 2
 	index <SigBit> port(first, \Q)[idx] === port(shiftx, \A)[shiftx_width-1]
 	set slice idx
+generate
+	SigSpec C = module->addWire(NEW_ID);
+	auto WIDTH = rng(3)+1;
+	SigSpec D = module->addWire(NEW_ID, WIDTH);
+	SigSpec Q = module->addWire(NEW_ID, WIDTH);
+	auto r = rng(8);
+	Cell *cell = nullptr;
+	switch (r)
+	{
+	case 0:
+	case 1:
+		cell = module->addDff(NEW_ID, C, D, Q, r & 1);
+		break;
+	case 2:
+	case 3:
+	case 4:
+	case 5:
+		//cell = module->addDffe(NEW_ID, C, module->addWire(NEW_ID), D, Q, r & 1, r & 4);
+		//break;
+	case 6:
+	case 7:
+		WIDTH = 1;
+		cell = module->addDffGate(NEW_ID, C, D[0], Q[0], r & 1);
+		break;
+	default: log_abort();
+	}
+	shiftx->connections_.at(\A)[shiftx_width-1] = port(cell, \Q)[rng(WIDTH)];
 endmatch
 
 code clk_port en_port
@@ -264,6 +283,36 @@ match next
 	filter !next->type.in($dffe) || param(next, \EN_POLARITY).as_bool() == param(first, \EN_POLARITY).as_bool()
 	filter !chain_bits.count(port(next, \D)[idx])
 	set slice idx
+generate
+	if (GetSize(chain) < shiftx_width) {
+		auto back = chain.back().first;
+		auto slice = chain.back().second;
+		if (back->type.in($dff, $dffe)) {
+			auto WIDTH = GetSize(port(back, \D));
+			if (rng(2) == 0 && slice < WIDTH-1) {
+				auto new_slice = slice + rng(WIDTH-1-slice);
+				back->connections_.at(\D)[slice] = port(back, \Q)[new_slice];
+			}
+			else {
+				auto D = module->addWire(NEW_ID, WIDTH);
+				if (back->type == $dff)
+					module->addDff(NEW_ID, port(back, \CLK), D, port(back, \D), param(back, \CLK_POLARITY).as_bool());
+				else if (back->type == $dffe)
+					module->addDffe(NEW_ID, port(back, \CLK), port(back, \EN), D, port(back, \D), param(back, \CLK_POLARITY).as_bool(), param(back, \EN_POLARITY).as_bool());
+				else
+					log_abort();
+			}
+		}
+		else if (back->type.begins_with("$_DFF_")) {
+			Cell *cell = module->addCell(NEW_ID, back->type);
+			cell->setPort(\C, back->getPort(\C));
+			cell->setPort(\D, module->addWire(NEW_ID));
+			cell->setPort(\Q, back->getPort(\D));
+		}
+		else
+			log_abort();
+		shiftx->connections_.at(\A)[shiftx_width-1-GetSize(chain)] = port(back, \D)[slice];
+	}
 endmatch
 
 code
