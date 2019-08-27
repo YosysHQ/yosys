@@ -217,7 +217,7 @@ void generate_pattern(std::function<void(pm&,std::function<void()>)> run, const 
 			run(matcher, [](){});
 		}
 
-		if (submodcnt)
+		if (submodcnt && maxsubcnt < (1 << 16))
 			maxsubcnt *= 2;
 
 		design->remove(mod);
