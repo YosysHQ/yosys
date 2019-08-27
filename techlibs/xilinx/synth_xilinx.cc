@@ -63,6 +63,9 @@ struct SynthXilinxPass : public ScriptPass
 		log("        generate an output netlist (and BLIF file) suitable for VPR\n");
 		log("        (this feature is experimental and incomplete)\n");
 		log("\n");
+		log("    -ise\n");
+		log("        generate an output netlist suitable for ISE (enables -iopad)\n");
+		log("\n");
 		log("    -nobram\n");
 		log("        do not use block RAM cells in output netlist\n");
 		log("\n");
@@ -77,6 +80,15 @@ struct SynthXilinxPass : public ScriptPass
 		log("\n");
 		log("    -nowidelut\n");
 		log("        do not use MUXF[78] resources to implement LUTs larger than LUT6s\n");
+		log("\n");
+		log("    -iopad\n");
+		log("        enable I/O buffer insertion (selected automatically by -ise)\n");
+		log("\n");
+		log("    -noiopad\n");
+		log("        disable I/O buffer insertion (only useful with -ise)\n");
+		log("\n");
+		log("    -noclkbuf\n");
+		log("        disable automatic clock buffer insertion\n");
 		log("\n");
 		log("    -widemux <int>\n");
 		log("        enable inference of hard multiplexer resources (MUXF[78]) for muxes at or\n");
@@ -104,7 +116,7 @@ struct SynthXilinxPass : public ScriptPass
 	}
 
 	std::string top_opt, edif_file, blif_file, family;
-	bool flatten, retime, vpr, nobram, nolutram, nosrl, nocarry, nowidelut, abc9;
+	bool flatten, retime, vpr, ise, iopad, noiopad, noclkbuf, nobram, nolutram, nosrl, nocarry, nowidelut, abc9;
 	bool flatten_before_abc;
 	int widemux;
 
@@ -117,6 +129,10 @@ struct SynthXilinxPass : public ScriptPass
 		flatten = false;
 		retime = false;
 		vpr = false;
+		ise = false;
+		iopad = false;
+		noiopad = false;
+		noclkbuf = false;
 		nocarry = false;
 		nobram = false;
 		nolutram = false;
@@ -182,6 +198,22 @@ struct SynthXilinxPass : public ScriptPass
 			}
 			if (args[argidx] == "-vpr") {
 				vpr = true;
+				continue;
+			}
+			if (args[argidx] == "-ise") {
+				ise = true;
+				continue;
+			}
+			if (args[argidx] == "-iopad") {
+				iopad = true;
+				continue;
+			}
+			if (args[argidx] == "-noiopad") {
+				noiopad = true;
+				continue;
+			}
+			if (args[argidx] == "-noclkbuf") {
+				noclkbuf = true;
 				continue;
 			}
 			if (args[argidx] == "-nocarry") {
@@ -419,6 +451,18 @@ struct SynthXilinxPass : public ScriptPass
 			run("dffinit -ff FDRE Q INIT -ff FDCE Q INIT -ff FDPE Q INIT -ff FDSE Q INIT "
 					"-ff FDRE_1 Q INIT -ff FDCE_1 Q INIT -ff FDPE_1 Q INIT -ff FDSE_1 Q INIT");
 			run("clean");
+		}
+
+		if (check_label("finalize")) {
+			bool do_iopad = iopad || (ise && !noiopad);
+			if (help_mode || !noclkbuf) {
+				if (help_mode || do_iopad)
+					run("clkbufmap -buf BUFG O:I -inpad IBUFG O:I", "(skip if '-noclkbuf', '-inpad' passed if '-iopad' or '-ise' and not '-noiopad')");
+				else
+					run("clkbufmap -buf BUFG O:I");
+			}
+			if (do_iopad)
+				run("iopadmap -bits -outpad OBUF I:O -inpad IBUF O:I A:top", "(only if '-iopad' or '-ise' and not '-noiopad')");
 		}
 
 		if (check_label("check")) {
