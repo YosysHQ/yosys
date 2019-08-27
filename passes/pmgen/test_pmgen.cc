@@ -352,6 +352,8 @@ struct TestPmgenPass : public Pass {
 
 		if (pattern == "xilinx_srl_fixed")
 			return GENERATE_PATTERN(xilinx_srl_pm, fixed);
+		if (pattern == "xilinx_srl_variable")
+			return GENERATE_PATTERN(xilinx_srl_pm, variable);
 
 		if (pattern == "peepopt-muldiv")
 			return GENERATE_PATTERN(peepopt_pm, muldiv);
