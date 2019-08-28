@@ -227,7 +227,7 @@ struct AttrmapPass : public Pass {
 		log("\n");
 		log("    attrmap [options] [selection]\n");
 		log("\n");
-		log("This command renames attributes and/or mapps key/value pairs to\n");
+		log("This command renames attributes and/or maps key/value pairs to\n");
 		log("other key/value pairs.\n");
 		log("\n");
 		log_attrmap_paramap_options();
@@ -307,7 +307,7 @@ struct ParamapPass : public Pass {
 		log("\n");
 		log("    paramap [options] [selection]\n");
 		log("\n");
-		log("This command renames cell parameters and/or mapps key/value pairs to\n");
+		log("This command renames cell parameters and/or maps key/value pairs to\n");
 		log("other key/value pairs.\n");
 		log("\n");
 		log_attrmap_paramap_options();
