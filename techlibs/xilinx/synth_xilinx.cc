@@ -303,9 +303,8 @@ struct SynthXilinxPass : public ScriptPass
 			if (widemux > 0 || help_mode)
 				run("muxpack", "    ('-widemux' only)");
 
-			// shregmap -tech xilinx can cope with $shiftx and $mux
-			//   cells for identifying variable-length shift registers,
-			//   so attempt to convert $pmux-es to the former
+			// xilinx_srl looks for $shiftx cells for identifying variable-length
+			//   shift registers, so attempt to convert $pmux-es to this
 			// Also: wide multiplexer inference benefits from this too
 			if (!(nosrl && widemux == 0) || help_mode) {
 				run("pmux2shiftx", "(skip if '-nosrl' and '-widemux=0')");
@@ -387,13 +386,8 @@ struct SynthXilinxPass : public ScriptPass
 			}
 			run("opt -full");
 
-			if (!nosrl || help_mode) {
-				// shregmap operates on bit-level flops, not word-level,
-				//   so break those down here
-				run("simplemap t:$dff t:$dffe", "       (skip if '-nosrl')");
-				// shregmap with '-tech xilinx' infers variable length shift regs
-				run("shregmap -tech xilinx -minlen 3", "(skip if '-nosrl')");
-			}
+			if (!nosrl || help_mode)
+				run("xilinx_srl -variable -minlen 3", "(skip if '-nosrl')");
 
 			std::string techmap_args = " -map +/techmap.v";
 			if (help_mode)
@@ -419,6 +413,14 @@ struct SynthXilinxPass : public ScriptPass
 				techmap_args += stringf(" -D MIN_MUX_INPUTS=%d", widemux);
 			run("techmap " + techmap_args);
 			run("clean");
+		}
+
+		if (check_label("map_ffs")) {
+				if (abc9 || help_mode) {
+						run("techmap -map +/xilinx/ff_map.v", "('-abc9' only)");
+						run("dffinit -ff FDRE Q INIT -ff FDCE Q INIT -ff FDPE Q INIT -ff FDSE Q INIT "
+										"-ff FDRE_1 Q INIT -ff FDCE_1 Q INIT -ff FDPE_1 Q INIT -ff FDSE_1 Q INIT", "('-abc9' only)");
+				}
 		}
 
 		if (check_label("map_luts")) {
@@ -448,13 +450,18 @@ struct SynthXilinxPass : public ScriptPass
 			// This shregmap call infers fixed length shift registers after abc
 			//   has performed any necessary retiming
 			if (!nosrl || help_mode)
-				run("shregmap -minlen 3 -init -params -enpol any_or_none", "(skip if '-nosrl')");
-			std::string techmap_args = "-map +/xilinx/lut_map.v -map +/xilinx/ff_map.v";
-			if (abc9)
+				run("xilinx_srl -fixed -minlen 3", "(skip if '-nosrl')");
+			std::string techmap_args = "-map +/xilinx/lut_map.v -map +/xilinx/cells_map.v";
+			if (help_mode)
+				techmap_args += " [-map +/xilinx/ff_map.v]";
+			else if (abc9)
 				techmap_args += " -map +/xilinx/abc_unmap.v";
+			else
+				techmap_args += " -map +/xilinx/ff_map.v";
 			run("techmap " + techmap_args);
-			run("dffinit -ff FDRE Q INIT -ff FDCE Q INIT -ff FDPE Q INIT -ff FDSE Q INIT "
-					"-ff FDRE_1 Q INIT -ff FDCE_1 Q INIT -ff FDPE_1 Q INIT -ff FDSE_1 Q INIT");
+			if (!abc9 || help_mode)
+				run("dffinit -ff FDRE Q INIT -ff FDCE Q INIT -ff FDPE Q INIT -ff FDSE Q INIT "
+						"-ff FDRE_1 Q INIT -ff FDCE_1 Q INIT -ff FDPE_1 Q INIT -ff FDSE_1 Q INIT", "(without '-abc9' only)");
 			run("clean");
 		}
 

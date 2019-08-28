@@ -26,9 +26,7 @@ PRIVATE_NAMESPACE_BEGIN
 struct ShregmapTech
 {
 	virtual ~ShregmapTech() { }
-	virtual void init(const Module * /*module*/, const SigMap &/*sigmap*/) {}
-	virtual void non_chain_user(const SigBit &/*bit*/, const Cell* /*cell*/, IdString /*port*/) {}
-	virtual bool analyze(vector<int> &taps, const vector<SigBit> &qbits) = 0;
+	virtual bool analyze(vector<int> &taps) = 0;
 	virtual bool fixup(Cell *cell, dict<int, SigBit> &taps) = 0;
 };
 
@@ -56,7 +54,7 @@ struct ShregmapOptions
 
 struct ShregmapTechGreenpak4 : ShregmapTech
 {
-	bool analyze(vector<int> &taps, const vector<SigBit> &/*qbits*/)
+	bool analyze(vector<int> &taps)
 	{
 		if (GetSize(taps) > 2 && taps[0] == 0 && taps[2] < 17) {
 			taps.clear();
@@ -93,155 +91,6 @@ struct ShregmapTechGreenpak4 : ShregmapTech
 	}
 };
 
-struct ShregmapTechXilinx7 : ShregmapTech
-{
-	dict<SigBit, std::tuple<Cell*,int,int>> sigbit_to_shiftx_offset;
-	const ShregmapOptions &opts;
-
-	ShregmapTechXilinx7(const ShregmapOptions &opts) : opts(opts) {}
-
-	virtual void init(const Module* module, const SigMap &sigmap) override
-	{
-		for (const auto &i : module->cells_) {
-			auto cell = i.second;
-			if (cell->type == ID($shiftx)) {
-				if (cell->getParam(ID(Y_WIDTH)) != 1) continue;
-				int j = 0;
-				for (auto bit : sigmap(cell->getPort(ID::A)))
-					sigbit_to_shiftx_offset[bit] = std::make_tuple(cell, j++, 0);
-				log_assert(j == cell->getParam(ID(A_WIDTH)).as_int());
-			}
-			else if (cell->type == ID($mux)) {
-				int j = 0;
-				for (auto bit : sigmap(cell->getPort(ID::A)))
-					sigbit_to_shiftx_offset[bit] = std::make_tuple(cell, 0, j++);
-				j = 0;
-				for (auto bit : sigmap(cell->getPort(ID::B)))
-					sigbit_to_shiftx_offset[bit] = std::make_tuple(cell, 1, j++);
-			}
-		}
-	}
-
-	virtual void non_chain_user(const SigBit &bit, const Cell *cell, IdString port) override
-	{
-		auto it = sigbit_to_shiftx_offset.find(bit);
-		if (it == sigbit_to_shiftx_offset.end())
-			return;
-		if (cell) {
-			if (cell->type == ID($shiftx) && port == ID::A)
-				return;
-			if (cell->type == ID($mux) && port.in(ID::A, ID::B))
-				return;
-		}
-		sigbit_to_shiftx_offset.erase(it);
-	}
-
-	virtual bool analyze(vector<int> &taps, const vector<SigBit> &qbits) override
-	{
-		if (GetSize(taps) == 1)
-			return taps[0] >= opts.minlen-1 && sigbit_to_shiftx_offset.count(qbits[0]);
-
-		if (taps.back() < opts.minlen-1)
-			return false;
-
-		Cell *shiftx = nullptr;
-		int group = 0;
-		for (int i = 0; i < GetSize(taps); ++i) {
-			auto it = sigbit_to_shiftx_offset.find(qbits[i]);
-			if (it == sigbit_to_shiftx_offset.end())
-				return false;
-
-			// Check taps are sequential
-			if (i != taps[i])
-				return false;
-			// Check taps are not connected to a shift register,
-			// or sequential to the same shift register
-			if (i == 0) {
-				int offset;
-				std::tie(shiftx,offset,group) = it->second;
-				if (offset != i)
-					return false;
-			}
-			else {
-				Cell *shiftx_ = std::get<0>(it->second);
-				if (shiftx_ != shiftx)
-					return false;
-				int offset = std::get<1>(it->second);
-				if (offset != i)
-					return false;
-				int group_ = std::get<2>(it->second);
-				if (group_ != group)
-					return false;
-			}
-		}
-		log_assert(shiftx);
-
-		// Only map if $shiftx exclusively covers the shift register
-		if (shiftx->type == ID($shiftx)) {
-			if (GetSize(taps) > shiftx->getParam(ID(A_WIDTH)).as_int())
-				return false;
-			// Due to padding the most significant bits of A may be 1'bx,
-			//   and if so, discount them
-			if (GetSize(taps) < shiftx->getParam(ID(A_WIDTH)).as_int()) {
-				const SigSpec A = shiftx->getPort(ID::A);
-				const int A_width = shiftx->getParam(ID(A_WIDTH)).as_int();
-				for (int i = GetSize(taps); i < A_width; ++i)
-					if (A[i] != RTLIL::Sx) return false;
-			}
-			else if (GetSize(taps) != shiftx->getParam(ID(A_WIDTH)).as_int())
-				return false;
-		}
-		else if (shiftx->type == ID($mux)) {
-			if (GetSize(taps) != 2)
-				return false;
-		}
-		else log_abort();
-
-		return true;
-	}
-
-	virtual bool fixup(Cell *cell, dict<int, SigBit> &taps) override
-	{
-		const auto &tap = *taps.begin();
-		auto bit = tap.second;
-
-		auto it = sigbit_to_shiftx_offset.find(bit);
-		log_assert(it != sigbit_to_shiftx_offset.end());
-
-		auto newcell = cell->module->addCell(NEW_ID, ID($__XILINX_SHREG_));
-		newcell->set_src_attribute(cell->get_src_attribute());
-		newcell->setParam(ID(DEPTH), cell->getParam(ID(DEPTH)));
-		newcell->setParam(ID(INIT), cell->getParam(ID(INIT)));
-		newcell->setParam(ID(CLKPOL), cell->getParam(ID(CLKPOL)));
-		newcell->setParam(ID(ENPOL), cell->getParam(ID(ENPOL)));
-
-		newcell->setPort(ID(C), cell->getPort(ID(C)));
-		newcell->setPort(ID(D), cell->getPort(ID(D)));
-		if (cell->hasPort(ID(E)))
-			newcell->setPort(ID(E), cell->getPort(ID(E)));
-
-		Cell* shiftx = std::get<0>(it->second);
-		RTLIL::SigSpec l_wire, q_wire;
-		if (shiftx->type == ID($shiftx)) {
-			l_wire = shiftx->getPort(ID::B);
-			q_wire = shiftx->getPort(ID::Y);
-			shiftx->setPort(ID::Y, cell->module->addWire(NEW_ID));
-		}
-		else if (shiftx->type == ID($mux)) {
-			l_wire = shiftx->getPort(ID(S));
-			q_wire = shiftx->getPort(ID::Y);
-			shiftx->setPort(ID::Y, cell->module->addWire(NEW_ID));
-		}
-		else log_abort();
-
-		newcell->setPort(ID(Q), q_wire);
-		newcell->setPort(ID(L), l_wire);
-
-		return false;
-	}
-};
-
-
 struct ShregmapWorker
 {
 	Module *module;
@@ -264,10 +113,8 @@ struct ShregmapWorker
 		for (auto wire : module->wires())
 		{
 			if (wire->port_output || wire->get_bool_attribute(ID::keep)) {
-				for (auto bit : sigmap(wire)) {
+				for (auto bit : sigmap(wire))
 					sigbit_with_non_chain_users.insert(bit);
-					if (opts.tech) opts.tech->non_chain_user(bit, nullptr, {});
-				}
 			}
 
 			if (wire->attributes.count(ID(init))) {
@@ -317,10 +164,8 @@ struct ShregmapWorker
 
 			for (auto conn : cell->connections())
 				if (cell->input(conn.first))
-					for (auto bit : sigmap(conn.second)) {
+					for (auto bit : sigmap(conn.second))
 						sigbit_with_non_chain_users.insert(bit);
-						if (opts.tech) opts.tech->non_chain_user(bit, cell, conn.first);
-					}
 		}
 	}
 
@@ -425,7 +270,7 @@ struct ShregmapWorker
 					if (taps.empty() || taps.back() < depth-1)
 						taps.push_back(depth-1);
 
-					if (opts.tech->analyze(taps, qbits))
+					if (opts.tech->analyze(taps))
 						break;
 
 					taps.pop_back();
@@ -544,9 +389,6 @@ struct ShregmapWorker
 	ShregmapWorker(Module *module, const ShregmapOptions &opts) :
 			module(module), sigmap(module), opts(opts), dff_count(0), shreg_count(0)
 	{
-		if (opts.tech)
-			opts.tech->init(module, sigmap);
-
 		make_sigbit_chain_next_prev();
 		find_chain_start_cells();
 
@@ -617,11 +459,6 @@ struct ShregmapPass : public Pass {
 		log("\n");
 		log("    -tech greenpak4\n");
 		log("        map to greenpak4 shift registers.\n");
-		log("        this option also implies -clkpol pos -zinit\n");
-		log("\n");
-		log("    -tech xilinx\n");
-		log("        map to xilinx dynamic-length shift registers.\n");
-		log("        this option also implies -params -init\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -676,12 +513,6 @@ struct ShregmapPass : public Pass {
 					clkpol = "pos";
 					opts.zinit = true;
 					opts.tech = new ShregmapTechGreenpak4;
-				}
-				else if (tech == "xilinx") {
-					opts.init = true;
-					opts.params = true;
-					enpol = "any_or_none";
-					opts.tech = new ShregmapTechXilinx7(opts);
 				} else {
 					argidx--;
 					break;
