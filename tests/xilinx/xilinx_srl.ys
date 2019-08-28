@@ -40,14 +40,14 @@ hierarchy -top xilinx_srl_variable_test
 prep
 design -save gold
 
-simplemap t:$dff t:$dffe
 xilinx_srl -variable
 opt
 
 #stat
 # show -width
 # write_verilog -noexpr -norename
-select -assert-count 1 t:$_DFF_P_
+select -assert-count 1 t:$dff
+select -assert-count 1 t:$dff r:WIDTH=1 %i
 select -assert-count 2 t:$__XILINX_SHREG_
 
 design -stash gate
