@@ -105,7 +105,7 @@ endcode
 match next
 	select next->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_, \FDRE, \FDRE_1)
 	select !next->has_keep_attr()
-	select !port(next, \D)[0].wire->get_bool_attribute(\keep)
+	select port(next, \D)[0].wire && !port(next, \D)[0].wire->get_bool_attribute(\keep)
 	select nusers(port(next, \Q)) == 2
 	index <IdString> next->type === first->type
 	index <SigBit> port(next, \Q) === port(first, \D)
@@ -132,7 +132,7 @@ match next
 	semioptional
 	select next->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_, \FDRE, \FDRE_1)
 	select !next->has_keep_attr()
-	select !port(next, \D)[0].wire->get_bool_attribute(\keep)
+	select port(next, \D)[0].wire && !port(next, \D)[0].wire->get_bool_attribute(\keep)
 	select nusers(port(next, \Q)) == 2
 	index <IdString> next->type === chain.back()->type
 	index <SigBit> port(next, \Q) === port(chain.back(), \D)
@@ -201,7 +201,7 @@ endcode
 match first
 	select first->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_, $dff, $dffe)
 	select !first->has_keep_attr()
-	select !port(first, \Q)[0].wire->get_bool_attribute(\keep)
+	select port(first, \Q)[0].wire && !port(first, \Q)[0].wire->get_bool_attribute(\keep)
 	slice idx GetSize(port(first, \Q))
 	select nusers(port(first, \Q)[idx]) <= 2
 	index <SigBit> port(first, \Q)[idx] === port(shiftx, \A)[shiftx_width-1]
@@ -272,7 +272,7 @@ match next
 	semioptional
 	select next->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_, $dff, $dffe)
 	select !next->has_keep_attr()
-	select !port(next, \D)[0].wire->get_bool_attribute(\keep)
+	select port(next, \D)[0].wire && !port(next, \D)[0].wire->get_bool_attribute(\keep)
 	slice idx GetSize(port(next, \Q))
 	select nusers(port(next, \Q)[idx]) <= 3
 	index <IdString> next->type === chain.back().first->type
