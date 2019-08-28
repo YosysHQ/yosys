@@ -36,8 +36,6 @@ void run_fixed(xilinx_srl_pm &pm)
 	auto &ud = pm.ud_fixed;
 	log("Found fixed chain of length %d (%s):\n", GetSize(ud.longest_chain), log_id(st.first->type));
 
-	auto first_cell = ud.longest_chain.back();
-
 	SigSpec initval;
 	for (auto cell : ud.longest_chain) {
 		log_debug("    %s\n", log_id(cell));
@@ -61,10 +59,10 @@ void run_fixed(xilinx_srl_pm &pm)
 		}
 		else
 			log_abort();
-		if (cell != first_cell)
-			pm.autoremove(cell);
+		pm.autoremove(cell);
 	}
 
+	auto first_cell = ud.longest_chain.back();
 	auto last_cell = ud.longest_chain.front();
 	Cell *c = pm.module->addCell(NEW_ID, ID($__XILINX_SHREG_));
 	pm.module->swap_names(c, first_cell);
@@ -117,9 +115,6 @@ void run_variable(xilinx_srl_pm &pm)
 
 	log("Found variable chain of length %d (%s):\n", GetSize(ud.chain), log_id(st.first->type));
 
-	auto first_cell = ud.chain.back().first;
-	auto first_slice = ud.chain.back().second;
-
 	SigSpec initval;
 	for (const auto &i : ud.chain) {
 		auto cell = i.first;
@@ -139,10 +134,12 @@ void run_variable(xilinx_srl_pm &pm)
 		}
 		else
 			log_abort();
-		if (cell != first_cell)
-			cell->connections_.at(ID(Q))[slice] = pm.module->addWire(NEW_ID);
+		cell->connections_.at(ID(Q))[slice] = pm.module->addWire(NEW_ID);
 	}
 	pm.autoremove(st.shiftx);
+
+	auto first_cell = ud.chain.back().first;
+	auto first_slice = ud.chain.back().second;
 
 	Cell *c = pm.module->addCell(NEW_ID, ID($__XILINX_SHREG_));
 	pm.module->swap_names(c, first_cell);
