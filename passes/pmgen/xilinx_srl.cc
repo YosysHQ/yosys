@@ -34,11 +34,6 @@ void run_fixed(xilinx_srl_pm &pm)
 {
 	auto &st = pm.st_fixed;
 	auto &ud = pm.ud_fixed;
-	auto param_def = [&ud](Cell *cell, IdString param) {
-		auto def = ud.default_params.at(std::make_pair(cell->type,param));
-		return cell->parameters.at(param, def);
-	};
-
 	log("Found fixed chain of length %d (%s):\n", GetSize(ud.longest_chain), log_id(st.first->type));
 
 	auto first_cell = ud.longest_chain.back();
@@ -58,8 +53,12 @@ void run_fixed(xilinx_srl_pm &pm)
 			else
 				initval.append(State::Sx);
 		}
-		else if (cell->type.in(ID(FDRE), ID(FDRE_1)))
-			initval.append(param_def(cell, ID(INIT)));
+		else if (cell->type.in(ID(FDRE), ID(FDRE_1))) {
+			if (cell->parameters.at(ID(INIT), State::S0).as_bool())
+				initval.append(State::S1);
+			else
+				initval.append(State::S0);
+		}
 		else
 			log_abort();
 		if (cell != first_cell)
@@ -77,8 +76,12 @@ void run_fixed(xilinx_srl_pm &pm)
 			c->setParam(ID(CLKPOL), 1);
 		else if (first_cell->type.in(ID($_DFF_N_), ID($DFFE_NN_), ID($_DFFE_NP_), ID(FDRE_1)))
 			c->setParam(ID(CLKPOL), 0);
-		else if (first_cell->type.in(ID(FDRE)))
-			c->setParam(ID(CLKPOL), param_def(first_cell, ID(IS_C_INVERTED)).as_bool() ? 0 : 1);
+		else if (first_cell->type.in(ID(FDRE))) {
+			if (!first_cell->parameters.at(ID(IS_C_INVERTED), State::S0).as_bool())
+				c->setParam(ID(CLKPOL), 1);
+			else
+				c->setParam(ID(CLKPOL), 0);
+		}
 		else
 			log_abort();
 		if (first_cell->type.in(ID($_DFFE_NP_), ID($_DFFE_PP_)))
@@ -252,14 +255,8 @@ struct XilinxSrlPass : public Pass {
 			pm.ud_fixed.minlen = minlen;
 			pm.ud_variable.minlen = minlen;
 
-			if (fixed) {
-				// TODO: How to get these automatically?
-				pm.ud_fixed.default_params[std::make_pair(ID(FDRE),ID(INIT))] = State::S0;
-				pm.ud_fixed.default_params[std::make_pair(ID(FDRE),ID(IS_C_INVERTED))] = State::S0;
-				pm.ud_fixed.default_params[std::make_pair(ID(FDRE),ID(IS_D_INVERTED))] = State::S0;
-				pm.ud_fixed.default_params[std::make_pair(ID(FDRE),ID(IS_R_INVERTED))] = State::S0;
+			if (fixed)
 				pm.run_fixed(run_fixed);
-			}
 			if (variable)
 				pm.run_variable(run_variable);
 		}

@@ -4,7 +4,6 @@ state <IdString> clk_port en_port
 udata <vector<Cell*>> chain longest_chain
 udata <pool<Cell*>> non_first_cells
 udata <int> minlen
-udata <dict<std::pair<IdString,IdString>,Const>> default_params
 
 code
 	non_first_cells.clear();
@@ -111,10 +110,10 @@ match next
 	index <SigBit> port(next, \Q) === port(first, \D)
 	filter port(next, clk_port) == port(first, clk_port)
 	filter en_port == IdString() || port(next, en_port) == port(first, en_port)
-	filter !next->type.in(\FDRE) || !first->hasParam(\IS_C_INVERTED) || (next->hasParam(\IS_C_INVERTED) && param(next, \IS_C_INVERTED).as_bool() == param(first, \IS_C_INVERTED).as_bool())
-	filter !next->type.in(\FDRE) || !first->hasParam(\IS_D_INVERTED) || (next->hasParam(\IS_D_INVERTED) && param(next, \IS_D_INVERTED).as_bool() == param(first, \IS_D_INVERTED).as_bool())
-	filter !next->type.in(\FDRE) || !first->hasParam(\IS_R_INVERTED) || (next->hasParam(\IS_R_INVERTED) && param(next, \IS_R_INVERTED).as_bool() == param(first, \IS_R_INVERTED).as_bool())
-	filter !next->type.in(\FDRE, \FDRE_1) || port(next, \R) == port(first, \R)
+	filter !first->type.in(\FDRE) || next->parameters.at(\IS_C_INVERTED, State::S0).as_bool() == first->parameters.at(\IS_C_INVERTED, State::S0).as_bool()
+	filter !first->type.in(\FDRE) || next->parameters.at(\IS_D_INVERTED, State::S0).as_bool() == first->parameters.at(\IS_D_INVERTED, State::S0).as_bool()
+	filter !first->type.in(\FDRE) || next->parameters.at(\IS_R_INVERTED, State::S0).as_bool() == first->parameters.at(\IS_R_INVERTED, State::S0).as_bool()
+	filter !first->type.in(\FDRE, \FDRE_1) || port(next, \R) == port(first, \R)
 endmatch
 
 code
@@ -138,10 +137,10 @@ match next
 	index <SigBit> port(next, \Q) === port(chain.back(), \D)
 	filter port(next, clk_port) == port(first, clk_port)
 	filter en_port == IdString() || port(next, en_port) == port(first, en_port)
-	filter !next->type.in(\FDRE) || !first->hasParam(\IS_C_INVERTED) || (next->hasParam(\IS_C_INVERTED) && param(next, \IS_C_INVERTED).as_bool() == param(first, \IS_C_INVERTED).as_bool())
-	filter !next->type.in(\FDRE) || !first->hasParam(\IS_D_INVERTED) || (next->hasParam(\IS_D_INVERTED) && param(next, \IS_D_INVERTED).as_bool() == param(first, \IS_D_INVERTED).as_bool())
-	filter !next->type.in(\FDRE) || !first->hasParam(\IS_R_INVERTED) || (next->hasParam(\IS_R_INVERTED) && param(next, \IS_R_INVERTED).as_bool() == param(first, \IS_R_INVERTED).as_bool())
-	filter !next->type.in(\FDRE, \FDRE_1) || port(next, \R) == port(first, \R)
+	filter !first->type.in(\FDRE) || next->parameters.at(\IS_C_INVERTED, State::S0).as_bool() == first->parameters.at(\IS_C_INVERTED, State::S0).as_bool()
+	filter !first->type.in(\FDRE) || next->parameters.at(\IS_D_INVERTED, State::S0).as_bool() == first->parameters.at(\IS_D_INVERTED, State::S0).as_bool()
+	filter !first->type.in(\FDRE) || next->parameters.at(\IS_R_INVERTED, State::S0).as_bool() == first->parameters.at(\IS_R_INVERTED, State::S0).as_bool()
+	filter !first->type.in(\FDRE, \FDRE_1) || port(next, \R) == port(first, \R)
 generate
 	Cell *cell = module->addCell(NEW_ID, chain.back()->type);
 	cell->setPort(\C, chain.back()->getPort(\C));
