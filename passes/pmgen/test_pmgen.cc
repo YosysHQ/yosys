@@ -350,9 +350,9 @@ struct TestPmgenPass : public Pass {
 		if (pattern == "ice40_dsp")
 			return GENERATE_PATTERN(ice40_dsp_pm, ice40_dsp);
 
-		if (pattern == "xilinx_srl_fixed")
+		if (pattern == "xilinx_srl.fixed")
 			return GENERATE_PATTERN(xilinx_srl_pm, fixed);
-		if (pattern == "xilinx_srl_variable")
+		if (pattern == "xilinx_srl.variable")
 			return GENERATE_PATTERN(xilinx_srl_pm, variable);
 
 		if (pattern == "peepopt-muldiv")
