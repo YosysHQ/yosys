@@ -60,9 +60,18 @@ module BUFGCTRL(
     (* clkbuf_driver *)
     output O,
     input I0, input I1,
-    input S0, input S1,
-    input CE0, input CE1,
-    input IGNORE0, input IGNORE1);
+    (* invertible_pin = "IS_S0_INVERTED" *)
+    input S0,
+    (* invertible_pin = "IS_S1_INVERTED" *)
+    input S1,
+    (* invertible_pin = "IS_CE0_INVERTED" *)
+    input CE0,
+    (* invertible_pin = "IS_CE1_INVERTED" *)
+    input CE1,
+    (* invertible_pin = "IS_IGNORE0_INVERTED" *)
+    input IGNORE0,
+    (* invertible_pin = "IS_IGNORE1_INVERTED" *)
+    input IGNORE1);
 
 parameter [0:0] INIT_OUT = 1'b0;
 parameter PRESELECT_I0 = "FALSE";
@@ -87,6 +96,7 @@ module BUFHCE(
     (* clkbuf_driver *)
     output O,
     input I,
+    (* invertible_pin = "IS_CE_INVERTED" *)
     input CE);
 
 parameter [0:0] INIT_OUT = 1'b0;
@@ -234,8 +244,13 @@ module FDRE (
   (* abc_arrival=303 *)
   output reg Q,
   (* clkbuf_sink *)
-  input C, 
-  input CE, D, R
+  (* invertible_pin = "IS_C_INVERTED" *)
+  input C,
+  input CE,
+  (* invertible_pin = "IS_D_INVERTED" *)
+  input D,
+  (* invertible_pin = "IS_R_INVERTED" *)
+  input R
 );
   parameter [0:0] INIT = 1'b0;
   parameter [0:0] IS_C_INVERTED = 1'b0;
@@ -252,8 +267,13 @@ module FDSE (
   (* abc_arrival=303 *)
   output reg Q,
   (* clkbuf_sink *)
+  (* invertible_pin = "IS_C_INVERTED" *)
   input C,
-  input CE, D, S
+  input CE,
+  (* invertible_pin = "IS_D_INVERTED" *)
+  input D,
+  (* invertible_pin = "IS_S_INVERTED" *)
+  input S
 );
   parameter [0:0] INIT = 1'b1;
   parameter [0:0] IS_C_INVERTED = 1'b0;
@@ -270,8 +290,13 @@ module FDCE (
   (* abc_arrival=303 *)
   output reg Q,
   (* clkbuf_sink *)
+  (* invertible_pin = "IS_C_INVERTED" *)
   input C,
-  input CE, D, CLR
+  input CE,
+  (* invertible_pin = "IS_D_INVERTED" *)
+  input D,
+  (* invertible_pin = "IS_CLR_INVERTED" *)
+  input CLR
 );
   parameter [0:0] INIT = 1'b0;
   parameter [0:0] IS_C_INVERTED = 1'b0;
@@ -290,8 +315,13 @@ module FDPE (
   (* abc_arrival=303 *)
   output reg Q,
   (* clkbuf_sink *)
+  (* invertible_pin = "IS_C_INVERTED" *)
   input C,
-  input CE, D, PRE
+  input CE,
+  (* invertible_pin = "IS_D_INVERTED" *)
+  input D,
+  (* invertible_pin = "IS_PRE_INVERTED" *)
+  input PRE
 );
   parameter [0:0] INIT = 1'b1;
   parameter [0:0] IS_C_INVERTED = 1'b0;
@@ -360,6 +390,7 @@ module RAM32X1D (
   output DPO, SPO,
   input  D,
   (* clkbuf_sink *)
+  (* invertible_pin = "IS_WCLK_INVERTED" *)
   input  WCLK,
   input  WE,
   input  A0, A1, A2, A3, A4,
@@ -382,6 +413,7 @@ module RAM64X1D (
   output DPO, SPO,
   input  D,
   (* clkbuf_sink *)
+  (* invertible_pin = "IS_WCLK_INVERTED" *)
   input  WCLK,
   input  WE,
   input  A0, A1, A2, A3, A4, A5,
@@ -404,6 +436,7 @@ module RAM128X1D (
   output DPO, SPO,
   input        D,
   (* clkbuf_sink *)
+  (* invertible_pin = "IS_WCLK_INVERTED" *)
   input        WCLK,
   input        WE,
   input  [6:0] A, DPRA
@@ -423,6 +456,7 @@ module SRL16E (
   output Q,
   input A0, A1, A2, A3, CE,
   (* clkbuf_sink *)
+  (* invertible_pin = "IS_CLK_INVERTED" *)
   input CLK,
   input D
 );
@@ -445,6 +479,7 @@ module SRLC16E (
   output Q15,
   input A0, A1, A2, A3, CE,
   (* clkbuf_sink *)
+  (* invertible_pin = "IS_CLK_INVERTED" *)
   input CLK,
   input D
 );
@@ -472,6 +507,7 @@ module SRLC32E (
   input [4:0] A,
   input CE,
   (* clkbuf_sink *)
+  (* invertible_pin = "IS_CLK_INVERTED" *)
   input CLK,
   input D
 );

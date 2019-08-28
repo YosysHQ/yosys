@@ -485,8 +485,10 @@ struct SynthXilinxPass : public ScriptPass
 				else
 					run("clkbufmap -buf BUFG O:I");
 			}
-			if (do_iopad)
+			if (help_mode || do_iopad)
 				run("iopadmap -bits -outpad OBUF I:O -inpad IBUF O:I A:top", "(only if '-iopad' or '-ise' and not '-noiopad')");
+			if (help_mode || ise)
+				run("extractinv -inv INV O:I", "(only if '-ise')");
 		}
 
 		if (check_label("check")) {
