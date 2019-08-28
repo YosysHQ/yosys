@@ -134,7 +134,6 @@ void run_variable(xilinx_srl_pm &pm)
 		}
 		else
 			log_abort();
-		cell->connections_.at(ID(Q))[slice] = pm.module->addWire(NEW_ID);
 	}
 	pm.autoremove(st.shiftx);
 
