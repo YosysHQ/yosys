@@ -142,7 +142,7 @@ match next
 	filter !next->type.in(\FDRE) || !first->hasParam(\IS_D_INVERTED) || (next->hasParam(\IS_D_INVERTED) && param(next, \IS_D_INVERTED).as_bool() == param(first, \IS_D_INVERTED).as_bool())
 	filter !next->type.in(\FDRE) || !first->hasParam(\IS_R_INVERTED) || (next->hasParam(\IS_R_INVERTED) && param(next, \IS_R_INVERTED).as_bool() == param(first, \IS_R_INVERTED).as_bool())
 	filter !next->type.in(\FDRE, \FDRE_1) || port(next, \R) == port(first, \R)
-generate 10
+generate
 	Cell *cell = module->addCell(NEW_ID, chain.back()->type);
 	cell->setPort(\C, chain.back()->getPort(\C));
 	cell->setPort(\D, module->addWire(NEW_ID));
