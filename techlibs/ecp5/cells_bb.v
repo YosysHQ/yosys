@@ -664,3 +664,23 @@ module PCSCLKDIV (
 );
 	parameter GSR = "DISABLED";
 endmodule
+
+// Note: this module is not marked keep as we want it swept away in synth (sim use only)
+(* blackbox *)
+module PUR (
+	input PUR
+);
+	parameter RST_PULSE = 1;
+endmodule
+
+(* blackbox, keep *)
+module GSR (
+	input GSR
+);
+endmodule
+
+(* blackbox, keep *)
+module SGSR (
+	input GSR, CLK
+);
+endmodule

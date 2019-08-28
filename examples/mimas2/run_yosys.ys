@@ -1,4 +1,3 @@
 read_verilog example.v
-synth_xilinx -top example -family xc6s
-iopadmap -bits -outpad OBUF I:O -inpad IBUF O:I
+synth_xilinx -top example -family xc6s -ise
 write_edif -pvector bra example.edif

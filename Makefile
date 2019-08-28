@@ -119,6 +119,9 @@ YOSYS_VER := 0.9+1
 GIT_REV := $(shell cd $(YOSYS_SRC) && git rev-parse --short HEAD 2> /dev/null || echo UNKNOWN)
 OBJS = kernel/version_$(GIT_REV).o
 
+bumpversion:
+	sed -i "/^YOSYS_VER := / s/+[0-9][0-9]*$$/+`git log --oneline 8a4c6e6.. | wc -l`/;" Makefile
+
 # set 'ABCREV = default' to use abc/ as it is
 #
 # Note: If you do ABC development, make sure that 'abc' in this directory
