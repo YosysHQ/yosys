@@ -16,6 +16,7 @@ endif
 
 ifneq ($(SMALL),1)
 OBJS += passes/techmap/iopadmap.o
+OBJS += passes/techmap/clkbufmap.o
 OBJS += passes/techmap/hilomap.o
 OBJS += passes/techmap/extract.o
 OBJS += passes/techmap/extract_fa.o

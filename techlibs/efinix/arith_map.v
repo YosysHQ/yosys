@@ -19,7 +19,7 @@
  */
 
 (* techmap_celltype = "$alu" *)
-module _80_anlogic_alu (A, B, CI, BI, X, Y, CO);
+module _80_efinix_alu (A, B, CI, BI, X, Y, CO);
 	parameter A_SIGNED = 0;
 	parameter B_SIGNED = 0;
 	parameter A_WIDTH  = 1;
@@ -33,8 +33,8 @@ module _80_anlogic_alu (A, B, CI, BI, X, Y, CO);
 	input CI, BI;
 	output [Y_WIDTH-1:0] CO;
    
-	wire CIx;
-	wire [Y_WIDTH-1:0] COx;
+    wire CIx;
+    wire [Y_WIDTH-1:0] COx;
 
 	wire _TECHMAP_FAIL_ = Y_WIDTH <= 2;
 
@@ -46,35 +46,30 @@ module _80_anlogic_alu (A, B, CI, BI, X, Y, CO);
 	wire [Y_WIDTH-1:0] BB = BI ? ~B_buf : B_buf;
 	wire [Y_WIDTH-1:0] C = { COx, CIx };
 
-    wire dummy;
-    AL_MAP_ADDER #(
-    	.ALUTYPE("ADD_CARRY"))
+    EFX_ADD #(.I0_POLARITY(1'b1),.I1_POLARITY(1'b1))
     adder_cin  (
-        .a(CI),
-		.b(1'b0),
-		.c(1'b0),
-        .o({CIx, dummy})
+        .I0(CI),
+        .I1(1'b1),
+        .CI(1'b0),
+        .CO(CIx)
 	);
 
 	genvar i;
 	generate for (i = 0; i < Y_WIDTH; i = i + 1) begin: slice
-	    AL_MAP_ADDER #(
-            .ALUTYPE("ADD")
-        ) adder_i (
-            .a(AA[i]),
-            .b(BB[i]),
-            .c(C[i]),
-            .o({COx[i],Y[i]})
-        );
-
-		wire cout;
-		AL_MAP_ADDER #(
-			.ALUTYPE("ADD"))
+		EFX_ADD #(.I0_POLARITY(1'b1),.I1_POLARITY(1'b1))
+		adder_i (
+			.I0(AA[i]),
+			.I1(BB[i]),
+			.CI(C[i]),
+			.O(Y[i]),
+			.CO(COx[i])
+		);
+		EFX_ADD #(.I0_POLARITY(1'b1),.I1_POLARITY(1'b1))				
 		adder_cout  (
-			.a(1'b0),
-			.b(1'b0),
-			.c(COx[i]),
-			.o({cout, CO[i]})
+			.I0(1'b0),
+			.I1(1'b0),
+			.CI(COx[i]),
+			.O(CO[i])
 		);
 	  end: slice	  
 	endgenerate

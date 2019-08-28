@@ -369,7 +369,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 	for (auto cell : module->cells())
 		if (design->selected(module, cell) && cell->type[0] == '$') {
 			if (cell->type.in(ID($_NOT_), ID($not), ID($logic_not)) &&
-					cell->getPort(ID::A).size() == 1 && cell->getPort(ID::Y).size() == 1)
+					GetSize(cell->getPort(ID::A)) == 1 && GetSize(cell->getPort(ID::Y)) == 1)
 				invert_map[assign_map(cell->getPort(ID::Y))] = assign_map(cell->getPort(ID::A));
 			if (cell->type.in(ID($mux), ID($_MUX_)) &&
 					cell->getPort(ID::A) == SigSpec(State::S1) && cell->getPort(ID::B) == SigSpec(State::S0))
@@ -740,12 +740,34 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				if (cell->type.in(ID($reduce_xor), ID($reduce_xnor), ID($lt), ID($le), ID($ge), ID($gt)))
 					replace_cell(assign_map, module, cell, "x-bit in input", ID::Y, RTLIL::State::Sx);
 				else
-					replace_cell(assign_map, module, cell, "x-bit in input", ID::Y, RTLIL::SigSpec(RTLIL::State::Sx, cell->getPort(ID::Y).size()));
+					replace_cell(assign_map, module, cell, "x-bit in input", ID::Y, RTLIL::SigSpec(RTLIL::State::Sx, GetSize(cell->getPort(ID::Y))));
 				goto next_cell;
 			}
 		}
 
-		if (cell->type.in(ID($_NOT_), ID($not), ID($logic_not)) && cell->getPort(ID::Y).size() == 1 &&
+		if (cell->type.in(ID($shiftx), ID($shift))) {
+			SigSpec sig_a = assign_map(cell->getPort(ID::A));
+			int width;
+			bool trim_x = cell->type == ID($shiftx) || !keepdc;
+			bool trim_0 = cell->type == ID($shift);
+			for (width = GetSize(sig_a); width > 1; width--) {
+				if ((trim_x && sig_a[width-1] == State::Sx) ||
+					(trim_0 && sig_a[width-1] == State::S0))
+					continue;
+				break;
+			}
+
+			if (width < GetSize(sig_a)) {
+				cover_list("opt.opt_expr.trim", "$shiftx", "$shift", cell->type.str());
+				sig_a.remove(width, GetSize(sig_a)-width);
+				cell->setPort(ID::A, sig_a);
+				cell->setParam(ID(A_WIDTH), width);
+				did_something = true;
+				goto next_cell;
+			}
+		}
+
+		if (cell->type.in(ID($_NOT_), ID($not), ID($logic_not)) && GetSize(cell->getPort(ID::Y)) == 1 &&
 				invert_map.count(assign_map(cell->getPort(ID::A))) != 0) {
 			cover_list("opt.opt_expr.invert.double", "$_NOT_", "$not", "$logic_not", cell->type.str());
 			replace_cell(assign_map, module, cell, "double_invert", ID::Y, invert_map.at(assign_map(cell->getPort(ID::A))));
@@ -1142,7 +1164,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 
 		if (mux_undef && cell->type.in(ID($mux), ID($pmux))) {
 			RTLIL::SigSpec new_a, new_b, new_s;
-			int width = cell->getPort(ID::A).size();
+			int width = GetSize(cell->getPort(ID::A));
 			if ((cell->getPort(ID::A).is_fully_undef() && cell->getPort(ID::B).is_fully_undef()) ||
 					cell->getPort(ID(S)).is_fully_undef()) {
 				cover_list("opt.opt_expr.mux_undef", "$mux", "$pmux", cell->type.str());
