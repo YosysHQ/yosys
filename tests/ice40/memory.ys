@@ -6,13 +6,10 @@ equiv_opt -run :prove -map +/ice40/cells_sim.v synth_ice40
 memory
 opt -full
 
-# TODO
-#equiv_opt -run prove: -assert null
 miter -equiv -flatten -make_assert -make_outputs gold gate miter
-#sat -verify -prove-asserts -tempinduct -show-inputs -show-outputs miter
+sat -verify -prove-asserts -seq 5 -set-init-zero -show-inputs -show-outputs miter
 
 design -load postopt
 cd top
 select -assert-count 1 t:SB_RAM40_4K
 select -assert-none t:SB_RAM40_4K %% t:* %D
-write_verilog memory_synth.v
