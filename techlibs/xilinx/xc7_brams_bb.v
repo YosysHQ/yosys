@@ -1,7 +1,9 @@
 // Max delays from https://github.com/SymbiFlow/prjxray-db/blob/f8e0364116b2983ac72a3dc8c509ea1cc79e2e3d/artix7/timings/BRAM_L.sdf#L138-L147
 
 module RAMB18E1 (
+	(* clkbuf_sink *)
 	input CLKARDCLK,
+	(* clkbuf_sink *)
 	input CLKBWRCLK,
 	input ENARDEN,
 	input ENBWREN,
@@ -129,7 +131,9 @@ module RAMB18E1 (
 endmodule
 
 module RAMB36E1 (
+	(* clkbuf_sink *)
 	input CLKARDCLK,
+	(* clkbuf_sink *)
 	input CLKBWRCLK,
 	input ENARDEN,
 	input ENBWREN,
