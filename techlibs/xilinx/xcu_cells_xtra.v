@@ -7948,8 +7948,10 @@ module SYSMONE1 (...);
     output [4:0] MUXADDR;
     output OT;
     input CONVST;
+    (* invertible_pin = "IS_CONVSTCLK_INVERTED" *)
     input CONVSTCLK;
     input [7:0] DADDR;
+    (* invertible_pin = "IS_DCLK_INVERTED" *)
     input DCLK;
     input DEN;
     input [15:0] DI;
@@ -8058,8 +8060,10 @@ module SYSMONE4 (...);
     output OT;
     output SMBALERT_TS;
     input CONVST;
+    (* invertible_pin = "IS_CONVSTCLK_INVERTED" *)
     input CONVSTCLK;
     input [7:0] DADDR;
+    (* invertible_pin = "IS_DCLK_INVERTED" *)
     input DCLK;
     input DEN;
     input [15:0] DI;
@@ -8134,11 +8138,13 @@ module DSP48E2 (...);
     output [7:0] XOROUT;
     input [29:0] A;
     input [29:0] ACIN;
+    (* invertible_pin = "IS_ALUMODE_INVERTED" *)
     input [3:0] ALUMODE;
     input [17:0] B;
     input [17:0] BCIN;
     input [47:0] C;
     input CARRYCASCIN;
+    (* invertible_pin = "IS_CARRYIN_INVERTED" *)
     input CARRYIN;
     input [2:0] CARRYINSEL;
     input CEA1;
@@ -8155,21 +8161,34 @@ module DSP48E2 (...);
     input CEM;
     input CEP;
     (* clkbuf_sink *)
+    (* invertible_pin = "IS_CLK_INVERTED" *)
     input CLK;
     input [26:0] D;
+    (* invertible_pin = "IS_INMODE_INVERTED" *)
     input [4:0] INMODE;
     input MULTSIGNIN;
+    (* invertible_pin = "IS_OPMODE_INVERTED" *)
     input [8:0] OPMODE;
     input [47:0] PCIN;
+    (* invertible_pin = "IS_RSTA_INVERTED" *)
     input RSTA;
+    (* invertible_pin = "IS_RSTALLCARRYIN_INVERTED" *)
     input RSTALLCARRYIN;
+    (* invertible_pin = "IS_RSTALUMODE_INVERTED" *)
     input RSTALUMODE;
+    (* invertible_pin = "IS_RSTB_INVERTED" *)
     input RSTB;
+    (* invertible_pin = "IS_RSTC_INVERTED" *)
     input RSTC;
+    (* invertible_pin = "IS_RSTCTRL_INVERTED" *)
     input RSTCTRL;
+    (* invertible_pin = "IS_RSTD_INVERTED" *)
     input RSTD;
+    (* invertible_pin = "IS_RSTINMODE_INVERTED" *)
     input RSTINMODE;
+    (* invertible_pin = "IS_RSTM_INVERTED" *)
     input RSTM;
+    (* invertible_pin = "IS_RSTP_INVERTED" *)
     input RSTP;
 endmodule
 
@@ -8221,14 +8240,20 @@ module FIFO18E2 (...);
     input [31:0] DIN;
     input [3:0] DINP;
     (* clkbuf_sink *)
+    (* invertible_pin = "IS_RDCLK_INVERTED" *)
     input RDCLK;
+    (* invertible_pin = "IS_RDEN_INVERTED" *)
     input RDEN;
     input REGCE;
+    (* invertible_pin = "IS_RST_INVERTED" *)
     input RST;
+    (* invertible_pin = "IS_RSTREG_INVERTED" *)
     input RSTREG;
     input SLEEP;
     (* clkbuf_sink *)
+    (* invertible_pin = "IS_WRCLK_INVERTED" *)
     input WRCLK;
+    (* invertible_pin = "IS_WREN_INVERTED" *)
     input WREN;
 endmodule
 
@@ -8288,14 +8313,20 @@ module FIFO36E2 (...);
     input INJECTDBITERR;
     input INJECTSBITERR;
     (* clkbuf_sink *)
+    (* invertible_pin = "IS_RDCLK_INVERTED" *)
     input RDCLK;
+    (* invertible_pin = "IS_RDEN_INVERTED" *)
     input RDEN;
     input REGCE;
+    (* invertible_pin = "IS_RST_INVERTED" *)
     input RST;
+    (* invertible_pin = "IS_RSTREG_INVERTED" *)
     input RSTREG;
     input SLEEP;
     (* clkbuf_sink *)
+    (* invertible_pin = "IS_WRCLK_INVERTED" *)
     input WRCLK;
+    (* invertible_pin = "IS_WREN_INVERTED" *)
     input WREN;
 endmodule
 
@@ -8431,20 +8462,28 @@ module RAMB18E2 (...);
     input CASOREGIMUXEN_A;
     input CASOREGIMUXEN_B;
     (* clkbuf_sink *)
+    (* invertible_pin = "IS_CLKARDCLK_INVERTED" *)
     input CLKARDCLK;
     (* clkbuf_sink *)
+    (* invertible_pin = "IS_CLKBWRCLK_INVERTED" *)
     input CLKBWRCLK;
     input [15:0] DINADIN;
     input [15:0] DINBDIN;
     input [1:0] DINPADINP;
     input [1:0] DINPBDINP;
+    (* invertible_pin = "IS_ENARDEN_INVERTED" *)
     input ENARDEN;
+    (* invertible_pin = "IS_ENBWREN_INVERTED" *)
     input ENBWREN;
     input REGCEAREGCE;
     input REGCEB;
+    (* invertible_pin = "IS_RSTRAMARSTRAM_INVERTED" *)
     input RSTRAMARSTRAM;
+    (* invertible_pin = "IS_RSTRAMB_INVERTED" *)
     input RSTRAMB;
+    (* invertible_pin = "IS_RSTREGARSTREG_INVERTED" *)
     input RSTREGARSTREG;
+    (* invertible_pin = "IS_RSTREGB_INVERTED" *)
     input RSTREGB;
     input SLEEP;
     input [1:0] WEA;
@@ -8666,23 +8705,31 @@ module RAMB36E2 (...);
     input CASOREGIMUXEN_A;
     input CASOREGIMUXEN_B;
     (* clkbuf_sink *)
+    (* invertible_pin = "IS_CLKARDCLK_INVERTED" *)
     input CLKARDCLK;
     (* clkbuf_sink *)
+    (* invertible_pin = "IS_CLKBWRCLK_INVERTED" *)
     input CLKBWRCLK;
     input [31:0] DINADIN;
     input [31:0] DINBDIN;
     input [3:0] DINPADINP;
     input [3:0] DINPBDINP;
     input ECCPIPECE;
+    (* invertible_pin = "IS_ENARDEN_INVERTED" *)
     input ENARDEN;
+    (* invertible_pin = "IS_ENBWREN_INVERTED" *)
     input ENBWREN;
     input INJECTDBITERR;
     input INJECTSBITERR;
     input REGCEAREGCE;
     input REGCEB;
+    (* invertible_pin = "IS_RSTRAMARSTRAM_INVERTED" *)
     input RSTRAMARSTRAM;
+    (* invertible_pin = "IS_RSTRAMB_INVERTED" *)
     input RSTRAMB;
+    (* invertible_pin = "IS_RSTREGARSTREG_INVERTED" *)
     input RSTREGARSTREG;
+    (* invertible_pin = "IS_RSTREGB_INVERTED" *)
     input RSTREGB;
     input SLEEP;
     input [3:0] WEA;
@@ -8777,10 +8824,13 @@ module URAM288 (...);
     input CAS_IN_SBITERR_A;
     input CAS_IN_SBITERR_B;
     (* clkbuf_sink *)
+    (* invertible_pin = "IS_CLK_INVERTED" *)
     input CLK;
     input [71:0] DIN_A;
     input [71:0] DIN_B;
+    (* invertible_pin = "IS_EN_A_INVERTED" *)
     input EN_A;
+    (* invertible_pin = "IS_EN_B_INVERTED" *)
     input EN_B;
     input INJECT_DBITERR_A;
     input INJECT_DBITERR_B;
@@ -8790,9 +8840,13 @@ module URAM288 (...);
     input OREG_CE_B;
     input OREG_ECC_CE_A;
     input OREG_ECC_CE_B;
+    (* invertible_pin = "IS_RDB_WR_A_INVERTED" *)
     input RDB_WR_A;
+    (* invertible_pin = "IS_RDB_WR_B_INVERTED" *)
     input RDB_WR_B;
+    (* invertible_pin = "IS_RST_A_INVERTED" *)
     input RST_A;
+    (* invertible_pin = "IS_RST_B_INVERTED" *)
     input RST_B;
     input SLEEP;
 endmodule
@@ -8835,10 +8889,13 @@ module URAM288_BASE (...);
     input [8:0] BWE_A;
     input [8:0] BWE_B;
     (* clkbuf_sink *)
+    (* invertible_pin = "IS_CLK_INVERTED" *)
     input CLK;
     input [71:0] DIN_A;
     input [71:0] DIN_B;
+    (* invertible_pin = "IS_EN_A_INVERTED" *)
     input EN_A;
+    (* invertible_pin = "IS_EN_B_INVERTED" *)
     input EN_B;
     input INJECT_DBITERR_A;
     input INJECT_DBITERR_B;
@@ -8848,9 +8905,13 @@ module URAM288_BASE (...);
     input OREG_CE_B;
     input OREG_ECC_CE_A;
     input OREG_ECC_CE_B;
+    (* invertible_pin = "IS_RDB_WR_A_INVERTED" *)
     input RDB_WR_A;
+    (* invertible_pin = "IS_RDB_WR_B_INVERTED" *)
     input RDB_WR_B;
+    (* invertible_pin = "IS_RST_A_INVERTED" *)
     input RST_A;
+    (* invertible_pin = "IS_RST_B_INVERTED" *)
     input RST_B;
     input SLEEP;
 endmodule
@@ -8868,6 +8929,7 @@ module RAM128X1S (...);
     input A6;
     input D;
     (* clkbuf_sink *)
+    (* invertible_pin = "IS_WCLK_INVERTED" *)
     input WCLK;
     input WE;
 endmodule
@@ -8881,6 +8943,7 @@ module RAM256X1D (...);
     input D;
     input [7:0] DPRA;
     (* clkbuf_sink *)
+    (* invertible_pin = "IS_WCLK_INVERTED" *)
     input WCLK;
     input WE;
 endmodule
@@ -8892,6 +8955,7 @@ module RAM256X1S (...);
     input [7:0] A;
     input D;
     (* clkbuf_sink *)
+    (* invertible_pin = "IS_WCLK_INVERTED" *)
     input WCLK;
     input WE;
 endmodule
@@ -8915,6 +8979,7 @@ module RAM32M (...);
     input [1:0] DIC;
     input [1:0] DID;
     (* clkbuf_sink *)
+    (* invertible_pin = "IS_WCLK_INVERTED" *)
     input WCLK;
     input WE;
 endmodule
@@ -8954,6 +9019,7 @@ module RAM32M16 (...);
     input [1:0] DIG;
     input [1:0] DIH;
     (* clkbuf_sink *)
+    (* invertible_pin = "IS_WCLK_INVERTED" *)
     input WCLK;
     input WE;
 endmodule
@@ -8969,6 +9035,7 @@ module RAM32X1S (...);
     input A4;
     input D;
     (* clkbuf_sink *)
+    (* invertible_pin = "IS_WCLK_INVERTED" *)
     input WCLK;
     input WE;
 endmodule
@@ -8980,6 +9047,7 @@ module RAM512X1S (...);
     input [8:0] A;
     input D;
     (* clkbuf_sink *)
+    (* invertible_pin = "IS_WCLK_INVERTED" *)
     input WCLK;
     input WE;
 endmodule
@@ -9003,6 +9071,7 @@ module RAM64M (...);
     input DIC;
     input DID;
     (* clkbuf_sink *)
+    (* invertible_pin = "IS_WCLK_INVERTED" *)
     input WCLK;
     input WE;
 endmodule
@@ -9042,6 +9111,7 @@ module RAM64M8 (...);
     input DIG;
     input DIH;
     (* clkbuf_sink *)
+    (* invertible_pin = "IS_WCLK_INVERTED" *)
     input WCLK;
     input WE;
 endmodule
@@ -9058,6 +9128,7 @@ module RAM64X1S (...);
     input A5;
     input D;
     (* clkbuf_sink *)
+    (* invertible_pin = "IS_WCLK_INVERTED" *)
     input WCLK;
     input WE;
 endmodule
@@ -9066,6 +9137,7 @@ module AND2B1L (...);
     parameter [0:0] IS_SRI_INVERTED = 1'b0;
     output O;
     input DI;
+    (* invertible_pin = "IS_SRI_INVERTED" *)
     input SRI;
 endmodule
 
@@ -9093,6 +9165,7 @@ module CFGLUT5 (...);
     input CDI;
     input CE;
     (* clkbuf_sink *)
+    (* invertible_pin = "IS_CLK_INVERTED" *)
     input CLK;
 endmodule
 
@@ -9107,6 +9180,7 @@ module OR2L (...);
     parameter [0:0] IS_SRI_INVERTED = 1'b0;
     output O;
     input DI;
+    (* invertible_pin = "IS_SRI_INVERTED" *)
     input SRI;
 endmodule
 
@@ -9141,7 +9215,9 @@ module BUFGCE (...);
     parameter [0:0] IS_I_INVERTED = 1'b0;
     (* clkbuf_driver *)
     output O;
+    (* invertible_pin = "IS_CE_INVERTED" *)
     input CE;
+    (* invertible_pin = "IS_I_INVERTED" *)
     input I;
 endmodule
 
@@ -9159,8 +9235,11 @@ module BUFGCE_DIV (...);
     parameter [0:0] IS_I_INVERTED = 1'b0;
     (* clkbuf_driver *)
     output O;
+    (* invertible_pin = "IS_CE_INVERTED" *)
     input CE;
+    (* invertible_pin = "IS_CLR_INVERTED" *)
     input CLR;
+    (* invertible_pin = "IS_I_INVERTED" *)
     input I;
 endmodule
 
@@ -9270,9 +9349,13 @@ module MMCME3_ADV (...);
     output LOCKED;
     output PSDONE;
     input CDDCREQ;
+    (* invertible_pin = "IS_CLKFBIN_INVERTED" *)
     input CLKFBIN;
+    (* invertible_pin = "IS_CLKIN1_INVERTED" *)
     input CLKIN1;
+    (* invertible_pin = "IS_CLKIN2_INVERTED" *)
     input CLKIN2;
+    (* invertible_pin = "IS_CLKINSEL_INVERTED" *)
     input CLKINSEL;
     input [6:0] DADDR;
     input DCLK;
@@ -9280,9 +9363,13 @@ module MMCME3_ADV (...);
     input [15:0] DI;
     input DWE;
     input PSCLK;
+    (* invertible_pin = "IS_PSEN_INVERTED" *)
     input PSEN;
+    (* invertible_pin = "IS_PSINCDEC_INVERTED" *)
     input PSINCDEC;
+    (* invertible_pin = "IS_PWRDWN_INVERTED" *)
     input PWRDWN;
+    (* invertible_pin = "IS_RST_INVERTED" *)
     input RST;
 endmodule
 
@@ -9334,9 +9421,13 @@ module MMCME3_BASE (...);
     output CLKOUT5;
     output CLKOUT6;
     output LOCKED;
+    (* invertible_pin = "IS_CLKFBIN_INVERTED" *)
     input CLKFBIN;
+    (* invertible_pin = "IS_CLKIN1_INVERTED" *)
     input CLKIN1;
+    (* invertible_pin = "IS_PWRDWN_INVERTED" *)
     input PWRDWN;
+    (* invertible_pin = "IS_RST_INVERTED" *)
     input RST;
 endmodule
 
@@ -9420,9 +9511,13 @@ module MMCME4_ADV (...);
     output LOCKED;
     output PSDONE;
     input CDDCREQ;
+    (* invertible_pin = "IS_CLKFBIN_INVERTED" *)
     input CLKFBIN;
+    (* invertible_pin = "IS_CLKIN1_INVERTED" *)
     input CLKIN1;
+    (* invertible_pin = "IS_CLKIN2_INVERTED" *)
     input CLKIN2;
+    (* invertible_pin = "IS_CLKINSEL_INVERTED" *)
     input CLKINSEL;
     input [6:0] DADDR;
     input DCLK;
@@ -9430,9 +9525,13 @@ module MMCME4_ADV (...);
     input [15:0] DI;
     input DWE;
     input PSCLK;
+    (* invertible_pin = "IS_PSEN_INVERTED" *)
     input PSEN;
+    (* invertible_pin = "IS_PSINCDEC_INVERTED" *)
     input PSINCDEC;
+    (* invertible_pin = "IS_PWRDWN_INVERTED" *)
     input PWRDWN;
+    (* invertible_pin = "IS_RST_INVERTED" *)
     input RST;
 endmodule
 
@@ -9484,9 +9583,13 @@ module MMCME4_BASE (...);
     output CLKOUT5;
     output CLKOUT6;
     output LOCKED;
+    (* invertible_pin = "IS_CLKFBIN_INVERTED" *)
     input CLKFBIN;
+    (* invertible_pin = "IS_CLKIN1_INVERTED" *)
     input CLKIN1;
+    (* invertible_pin = "IS_PWRDWN_INVERTED" *)
     input PWRDWN;
+    (* invertible_pin = "IS_RST_INVERTED" *)
     input RST;
 endmodule
 
@@ -9525,7 +9628,9 @@ module PLLE3_ADV (...);
     output [15:0] DO;
     output DRDY;
     output LOCKED;
+    (* invertible_pin = "IS_CLKFBIN_INVERTED" *)
     input CLKFBIN;
+    (* invertible_pin = "IS_CLKIN_INVERTED" *)
     input CLKIN;
     input CLKOUTPHYEN;
     input [6:0] DADDR;
@@ -9533,7 +9638,9 @@ module PLLE3_ADV (...);
     input DEN;
     input [15:0] DI;
     input DWE;
+    (* invertible_pin = "IS_PWRDWN_INVERTED" *)
     input PWRDWN;
+    (* invertible_pin = "IS_RST_INVERTED" *)
     input RST;
 endmodule
 
@@ -9562,10 +9669,14 @@ module PLLE3_BASE (...);
     output CLKOUT1B;
     output CLKOUTPHY;
     output LOCKED;
+    (* invertible_pin = "IS_CLKFBIN_INVERTED" *)
     input CLKFBIN;
+    (* invertible_pin = "IS_CLKIN_INVERTED" *)
     input CLKIN;
     input CLKOUTPHYEN;
+    (* invertible_pin = "IS_PWRDWN_INVERTED" *)
     input PWRDWN;
+    (* invertible_pin = "IS_RST_INVERTED" *)
     input RST;
 endmodule
 
@@ -9604,7 +9715,9 @@ module PLLE4_ADV (...);
     output [15:0] DO;
     output DRDY;
     output LOCKED;
+    (* invertible_pin = "IS_CLKFBIN_INVERTED" *)
     input CLKFBIN;
+    (* invertible_pin = "IS_CLKIN_INVERTED" *)
     input CLKIN;
     input CLKOUTPHYEN;
     input [6:0] DADDR;
@@ -9612,7 +9725,9 @@ module PLLE4_ADV (...);
     input DEN;
     input [15:0] DI;
     input DWE;
+    (* invertible_pin = "IS_PWRDWN_INVERTED" *)
     input PWRDWN;
+    (* invertible_pin = "IS_RST_INVERTED" *)
     input RST;
 endmodule
 
@@ -9641,10 +9756,14 @@ module PLLE4_BASE (...);
     output CLKOUT1B;
     output CLKOUTPHY;
     output LOCKED;
+    (* invertible_pin = "IS_CLKFBIN_INVERTED" *)
     input CLKFBIN;
+    (* invertible_pin = "IS_CLKIN_INVERTED" *)
     input CLKIN;
     input CLKOUTPHYEN;
+    (* invertible_pin = "IS_PWRDWN_INVERTED" *)
     input PWRDWN;
+    (* invertible_pin = "IS_RST_INVERTED" *)
     input RST;
 endmodule
 
@@ -10035,6 +10154,7 @@ module IDELAYE3 (...);
     input CASC_RETURN;
     input CE;
     (* clkbuf_sink *)
+    (* invertible_pin = "IS_CLK_INVERTED" *)
     input CLK;
     input [8:0] CNTVALUEIN;
     input DATAIN;
@@ -10042,6 +10162,7 @@ module IDELAYE3 (...);
     input IDATAIN;
     input INC;
     input LOAD;
+    (* invertible_pin = "IS_RST_INVERTED" *)
     input RST;
 endmodule
 
@@ -10249,15 +10370,18 @@ module ISERDESE3 (...);
     output INTERNAL_DIVCLK;
     output [7:0] Q;
     (* clkbuf_sink *)
+    (* invertible_pin = "IS_CLK_INVERTED" *)
     input CLK;
     (* clkbuf_sink *)
     input CLKDIV;
     (* clkbuf_sink *)
+    (* invertible_pin = "IS_CLK_B_INVERTED" *)
     input CLK_B;
     input D;
     (* clkbuf_sink *)
     input FIFO_RD_CLK;
     input FIFO_RD_EN;
+    (* invertible_pin = "IS_RST_INVERTED" *)
     input RST;
 endmodule
 
@@ -10330,12 +10454,14 @@ module ODELAYE3 (...);
     input CASC_RETURN;
     input CE;
     (* clkbuf_sink *)
+    (* invertible_pin = "IS_CLK_INVERTED" *)
     input CLK;
     input [8:0] CNTVALUEIN;
     input EN_VTC;
     input INC;
     input LOAD;
     input ODATAIN;
+    (* invertible_pin = "IS_RST_INVERTED" *)
     input RST;
 endmodule
 
@@ -10353,10 +10479,13 @@ module OSERDESE3 (...);
     output OQ;
     output T_OUT;
     (* clkbuf_sink *)
+    (* invertible_pin = "IS_CLK_INVERTED" *)
     input CLK;
     (* clkbuf_sink *)
+    (* invertible_pin = "IS_CLKDIV_INVERTED" *)
     input CLKDIV;
     input [7:0] D;
+    (* invertible_pin = "IS_RST_INVERTED" *)
     input RST;
     input T;
 endmodule
@@ -10408,7 +10537,9 @@ module RX_BITSLICE (...);
     output [39:0] TX_BIT_CTRL_OUT;
     input CE;
     input CE_EXT;
+    (* invertible_pin = "IS_CLK_INVERTED" *)
     input CLK;
+    (* invertible_pin = "IS_CLK_EXT_INVERTED" *)
     input CLK_EXT;
     input [8:0] CNTVALUEIN;
     input [8:0] CNTVALUEIN_EXT;
@@ -10421,8 +10552,11 @@ module RX_BITSLICE (...);
     input INC_EXT;
     input LOAD;
     input LOAD_EXT;
+    (* invertible_pin = "IS_RST_INVERTED" *)
     input RST;
+    (* invertible_pin = "IS_RST_DLY_INVERTED" *)
     input RST_DLY;
+    (* invertible_pin = "IS_RST_DLY_EXT_INVERTED" *)
     input RST_DLY_EXT;
     input [39:0] RX_BIT_CTRL_IN;
     input [39:0] TX_BIT_CTRL_IN;
@@ -10472,23 +10606,29 @@ module RXTX_BITSLICE (...);
     input FIFO_RD_EN;
     input [39:0] RX_BIT_CTRL_IN;
     input RX_CE;
+    (* invertible_pin = "IS_RX_CLK_INVERTED" *)
     input RX_CLK;
     input [8:0] RX_CNTVALUEIN;
     input RX_EN_VTC;
     input RX_INC;
     input RX_LOAD;
+    (* invertible_pin = "IS_RX_RST_INVERTED" *)
     input RX_RST;
+    (* invertible_pin = "IS_RX_RST_DLY_INVERTED" *)
     input RX_RST_DLY;
     input T;
     input TBYTE_IN;
     input [39:0] TX_BIT_CTRL_IN;
     input TX_CE;
+    (* invertible_pin = "IS_TX_CLK_INVERTED" *)
     input TX_CLK;
     input [8:0] TX_CNTVALUEIN;
     input TX_EN_VTC;
     input TX_INC;
     input TX_LOAD;
+    (* invertible_pin = "IS_TX_RST_INVERTED" *)
     input TX_RST;
+    (* invertible_pin = "IS_TX_RST_DLY_INVERTED" *)
     input TX_RST_DLY;
 endmodule
 
@@ -10515,13 +10655,16 @@ module TX_BITSLICE (...);
     output [39:0] TX_BIT_CTRL_OUT;
     output T_OUT;
     input CE;
+    (* invertible_pin = "IS_CLK_INVERTED" *)
     input CLK;
     input [8:0] CNTVALUEIN;
     input [7:0] D;
     input EN_VTC;
     input INC;
     input LOAD;
+    (* invertible_pin = "IS_RST_INVERTED" *)
     input RST;
+    (* invertible_pin = "IS_RST_DLY_INVERTED" *)
     input RST_DLY;
     input [39:0] RX_BIT_CTRL_IN;
     input T;
@@ -10549,12 +10692,15 @@ module TX_BITSLICE_TRI (...);
     output TRI_OUT;
     input [39:0] BIT_CTRL_IN;
     input CE;
+    (* invertible_pin = "IS_CLK_INVERTED" *)
     input CLK;
     input [8:0] CNTVALUEIN;
     input EN_VTC;
     input INC;
     input LOAD;
+    (* invertible_pin = "IS_RST_INVERTED" *)
     input RST;
+    (* invertible_pin = "IS_RST_DLY_INVERTED" *)
     input RST_DLY;
 endmodule
 
@@ -10564,6 +10710,7 @@ module HARD_SYNC (...);
     parameter integer LATENCY = 2;
     output DOUT;
     (* clkbuf_sink *)
+    (* invertible_pin = "IS_CLK_INVERTED" *)
     input CLK;
     input DIN;
 endmodule
@@ -10575,8 +10722,10 @@ module IDDRE1 (...);
     output Q1;
     output Q2;
     (* clkbuf_sink *)
+    (* invertible_pin = "IS_C_INVERTED" *)
     input C;
     (* clkbuf_sink *)
+    (* invertible_pin = "IS_CB_INVERTED" *)
     input CB;
     input D;
     input R;
@@ -10589,8 +10738,10 @@ module LDCE (...);
     parameter MSGON = "TRUE";
     parameter XON = "TRUE";
     output Q;
+    (* invertible_pin = "IS_CLR_INVERTED" *)
     input CLR;
     input D;
+    (* invertible_pin = "IS_G_INVERTED" *)
     input G;
     input GE;
 endmodule
@@ -10603,8 +10754,10 @@ module LDPE (...);
     parameter XON = "TRUE";
     output Q;
     input D;
+    (* invertible_pin = "IS_G_INVERTED" *)
     input G;
     input GE;
+    (* invertible_pin = "IS_PRE_INVERTED" *)
     input PRE;
 endmodule
 
@@ -10615,8 +10768,11 @@ module ODDRE1 (...);
     parameter [0:0] SRVAL = 1'b0;
     output Q;
     (* clkbuf_sink *)
+    (* invertible_pin = "IS_C_INVERTED" *)
     input C;
+    (* invertible_pin = "IS_D1_INVERTED" *)
     input D1;
+    (* invertible_pin = "IS_D2_INVERTED" *)
     input D2;
     input SR;
 endmodule

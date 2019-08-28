@@ -559,7 +559,9 @@ module BUFGCE (...);
     parameter [0:0] IS_I_INVERTED = 1'b0;
     (* clkbuf_driver *)
     output O;
+    (* invertible_pin = "IS_CE_INVERTED" *)
     input CE;
+    (* invertible_pin = "IS_I_INVERTED" *)
     input I;
 endmodule
 
@@ -743,6 +745,7 @@ endmodule
 
 (* keep *)
 module BSCAN_SPARTAN6 (...);
+    parameter integer JTAG_CHAIN = 1;
     output CAPTURE;
     output DRCK;
     output RESET;
@@ -754,7 +757,6 @@ module BSCAN_SPARTAN6 (...);
     output TMS;
     output UPDATE;
     input TDO;
-    parameter integer JTAG_CHAIN = 1;
 endmodule
 
 module DNA_PORT (...);
@@ -1558,6 +1560,7 @@ module RAM128X1S (...);
     input A6;
     input D;
     (* clkbuf_sink *)
+    (* invertible_pin = "IS_WCLK_INVERTED" *)
     input WCLK;
     input WE;
 endmodule
@@ -1569,6 +1572,7 @@ module RAM256X1S (...);
     input [7:0] A;
     input D;
     (* clkbuf_sink *)
+    (* invertible_pin = "IS_WCLK_INVERTED" *)
     input WCLK;
     input WE;
 endmodule
@@ -1592,6 +1596,7 @@ module RAM32M (...);
     input [1:0] DIC;
     input [1:0] DID;
     (* clkbuf_sink *)
+    (* invertible_pin = "IS_WCLK_INVERTED" *)
     input WCLK;
     input WE;
 endmodule
@@ -1607,6 +1612,7 @@ module RAM32X1S (...);
     input A4;
     input D;
     (* clkbuf_sink *)
+    (* invertible_pin = "IS_WCLK_INVERTED" *)
     input WCLK;
     input WE;
 endmodule
@@ -1622,6 +1628,7 @@ module RAM32X1S_1 (...);
     input A4;
     input D;
     (* clkbuf_sink *)
+    (* invertible_pin = "IS_WCLK_INVERTED" *)
     input WCLK;
     input WE;
 endmodule
@@ -1640,6 +1647,7 @@ module RAM32X2S (...);
     input D0;
     input D1;
     (* clkbuf_sink *)
+    (* invertible_pin = "IS_WCLK_INVERTED" *)
     input WCLK;
     input WE;
 endmodule
@@ -1663,6 +1671,7 @@ module RAM64M (...);
     input DIC;
     input DID;
     (* clkbuf_sink *)
+    (* invertible_pin = "IS_WCLK_INVERTED" *)
     input WCLK;
     input WE;
 endmodule
@@ -1679,6 +1688,7 @@ module RAM64X1S (...);
     input A5;
     input D;
     (* clkbuf_sink *)
+    (* invertible_pin = "IS_WCLK_INVERTED" *)
     input WCLK;
     input WE;
 endmodule
@@ -1695,6 +1705,7 @@ module RAM64X1S_1 (...);
     input A5;
     input D;
     (* clkbuf_sink *)
+    (* invertible_pin = "IS_WCLK_INVERTED" *)
     input WCLK;
     input WE;
 endmodule
@@ -1714,6 +1725,7 @@ module RAM64X2S (...);
     input D0;
     input D1;
     (* clkbuf_sink *)
+    (* invertible_pin = "IS_WCLK_INVERTED" *)
     input WCLK;
     input WE;
 endmodule
@@ -1765,6 +1777,10 @@ module ROM64X1 (...);
 endmodule
 
 module IDDR2 (...);
+    parameter DDR_ALIGNMENT = "NONE";
+    parameter [0:0] INIT_Q0 = 1'b0;
+    parameter [0:0] INIT_Q1 = 1'b0;
+    parameter SRTYPE = "SYNC";
     output Q0;
     output Q1;
     (* clkbuf_sink *)
@@ -1775,10 +1791,6 @@ module IDDR2 (...);
     input D;
     input R;
     input S;
-    parameter DDR_ALIGNMENT = "NONE";
-    parameter [0:0] INIT_Q0 = 1'b0;
-    parameter [0:0] INIT_Q1 = 1'b0;
-    parameter SRTYPE = "SYNC";
 endmodule
 
 module LDCE (...);
@@ -1788,8 +1800,10 @@ module LDCE (...);
     parameter MSGON = "TRUE";
     parameter XON = "TRUE";
     output Q;
+    (* invertible_pin = "IS_CLR_INVERTED" *)
     input CLR;
     input D;
+    (* invertible_pin = "IS_G_INVERTED" *)
     input G;
     input GE;
 endmodule
@@ -1802,12 +1816,17 @@ module LDPE (...);
     parameter XON = "TRUE";
     output Q;
     input D;
+    (* invertible_pin = "IS_G_INVERTED" *)
     input G;
     input GE;
+    (* invertible_pin = "IS_PRE_INVERTED" *)
     input PRE;
 endmodule
 
 module ODDR2 (...);
+    parameter DDR_ALIGNMENT = "NONE";
+    parameter [0:0] INIT = 1'b0;
+    parameter SRTYPE = "SYNC";
     output Q;
     (* clkbuf_sink *)
     input C0;
@@ -1818,9 +1837,6 @@ module ODDR2 (...);
     input D1;
     input R;
     input S;
-    parameter DDR_ALIGNMENT = "NONE";
-    parameter [0:0] INIT = 1'b0;
-    parameter SRTYPE = "SYNC";
 endmodule
 
 module CFGLUT5 (...);
@@ -1837,6 +1853,7 @@ module CFGLUT5 (...);
     input CDI;
     input CE;
     (* clkbuf_sink *)
+    (* invertible_pin = "IS_CLK_INVERTED" *)
     input CLK;
 endmodule
 

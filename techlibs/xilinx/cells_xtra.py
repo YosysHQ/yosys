@@ -5,6 +5,7 @@ from io import StringIO
 from enum import Enum, auto
 import os.path
 import sys
+import re
 
 
 class Cell:
@@ -585,6 +586,8 @@ def xtract_cell_decl(cell, dirs, outf):
                 state = State.OUTSIDE
                 found = False
                 # Probably the most horrible Verilog "parser" ever written.
+                module_ports = []
+                invertible_ports = set()
                 for l in f:
                     l = l.partition('//')[0]
                     l = l.strip()
@@ -619,6 +622,15 @@ def xtract_cell_decl(cell, dirs, outf):
                             state = State.IN_MODULE
                     elif l == 'endmodule':
                         if state == State.IN_MODULE:
+                            for kind, rng, port in module_ports:
+                                for attr in cell.port_attrs.get(port, []):
+                                    outf.write('    (* {} *)\n'.format(attr))
+                                if port in invertible_ports:
+                                    outf.write('    (* invertible_pin = "IS_{}_INVERTED" *)\n'.format(port))
+                                if rng is None:
+                                    outf.write('    {} {};\n'.format(kind, port))
+                                else:
+                                    outf.write('    {} {} {};\n'.format(kind, rng, port))
                             outf.write(l + '\n')
                             outf.write('\n')
                         elif state != State.IN_OTHER_MODULE:
@@ -634,9 +646,11 @@ def xtract_cell_decl(cell, dirs, outf):
                         kind, _, ports = l.partition(' ')
                         for port in ports.split(','):
                             port = port.strip()
-                            for attr in cell.port_attrs.get(port, []):
-                                outf.write('    (* {} *)\n'.format(attr))
-                            outf.write('    {} {};\n'.format(kind, port))
+                            if port.startswith('['):
+                                rng, port = port.split()
+                            else:
+                                rng = None
+                            module_ports.append((kind, rng, port))
                     elif l.startswith('parameter ') and state == State.IN_MODULE:
                         if 'UNPLACED' in l:
                             continue
@@ -648,6 +662,9 @@ def xtract_cell_decl(cell, dirs, outf):
                             print('Weird parameter line in {} [{}].'.format(fname, l))
                             sys.exit(1)
                         outf.write('    {};\n'.format(l))
+                        match = re.search('IS_([a-zA-Z0-9_]+)_INVERTED', l)
+                        if match:
+                            invertible_ports.add(match[1])
                 if state != State.OUTSIDE:
                     print('endmodule not found in {}.'.format(fname))
                     sys.exit(1)

@@ -2,16 +2,24 @@
 
 module RAMB18E1 (
 	(* clkbuf_sink *)
+	(* invertible_pin = "IS_CLKARDCLK_INVERTED" *)
 	input CLKARDCLK,
 	(* clkbuf_sink *)
+	(* invertible_pin = "IS_CLKBWRCLK_INVERTED" *)
 	input CLKBWRCLK,
+	(* invertible_pin = "IS_ENARDEN_INVERTED" *)
 	input ENARDEN,
+	(* invertible_pin = "IS_ENBWREN_INVERTED" *)
 	input ENBWREN,
 	input REGCEAREGCE,
 	input REGCEB,
+	(* invertible_pin = "IS_RSTRAMARSTRAM_INVERTED" *)
 	input RSTRAMARSTRAM,
+	(* invertible_pin = "IS_RSTRAMB_INVERTED" *)
 	input RSTRAMB,
+	(* invertible_pin = "IS_RSTREGARSTREG_INVERTED" *)
 	input RSTREGARSTREG,
+	(* invertible_pin = "IS_RSTREGB_INVERTED" *)
 	input RSTREGB,
 
 	input [13:0] ADDRARDADDR,
@@ -132,16 +140,24 @@ endmodule
 
 module RAMB36E1 (
 	(* clkbuf_sink *)
+	(* invertible_pin = "IS_CLKARDCLK_INVERTED" *)
 	input CLKARDCLK,
 	(* clkbuf_sink *)
+	(* invertible_pin = "IS_CLKBWRCLK_INVERTED" *)
 	input CLKBWRCLK,
+	(* invertible_pin = "IS_ENARDEN_INVERTED" *)
 	input ENARDEN,
+	(* invertible_pin = "IS_ENBWREN_INVERTED" *)
 	input ENBWREN,
 	input REGCEAREGCE,
 	input REGCEB,
+	(* invertible_pin = "IS_RSTRAMARSTRAM_INVERTED" *)
 	input RSTRAMARSTRAM,
+	(* invertible_pin = "IS_RSTRAMB_INVERTED" *)
 	input RSTRAMB,
+	(* invertible_pin = "IS_RSTREGARSTREG_INVERTED" *)
 	input RSTREGARSTREG,
+	(* invertible_pin = "IS_RSTREGB_INVERTED" *)
 	input RSTREGB,
 
 	input [15:0] ADDRARDADDR,
