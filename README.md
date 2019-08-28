@@ -347,6 +347,12 @@ Verilog Attributes and non-standard features
   automatic clock buffer insertion by ``clkbufmap``. This behaviour can be
   overridden by providing a custom selection to ``clkbufmap``.
 
+- The ``invertible_pin`` attribute can be set on a port to mark it as
+  invertible via a cell parameter.  The name of the inversion parameter
+  is specified as the value of this attribute.  The value of the inversion
+  parameter must be of the same width as the port, with 1 indicating
+  an inverted bit and 0 indicating a non-inverted bit.
+
 - The ``iopad_external_pin`` attribute on a blackbox module's port marks
   it as the external-facing pin of an I/O pad, and prevents ``iopadmap``
   from inserting another pad cell on it.
