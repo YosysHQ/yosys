@@ -240,7 +240,7 @@ struct SynthIce40Pass : public ScriptPass
 		{
 			std::string define;
 			if (device_opt == "lp")
-				define = "-D ICE40_LX";
+				define = "-D ICE40_LP";
 			else if (device_opt == "u")
 				define = "-D ICE40_U";
 			else
