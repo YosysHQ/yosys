@@ -1027,9 +1027,6 @@ struct Abc9Pass : public Pass {
 			}
 			if (arg == "-box" && argidx+1 < args.size()) {
 				box_file = args[++argidx];
-				rewrite_filename(box_file);
-				if (!box_file.empty() && !is_absolute_path(box_file))
-					box_file = std::string(pwd) + "/" + box_file;
 				continue;
 			}
 			if (arg == "-W" && argidx+1 < args.size()) {
@@ -1039,6 +1036,14 @@ struct Abc9Pass : public Pass {
 			break;
 		}
 		extra_args(args, argidx, design);
+
+		// ABC expects a box file for XAIG
+		if (box_file.empty())
+		    box_file = "+/dummy.box";
+
+		rewrite_filename(box_file);
+		if (!box_file.empty() && !is_absolute_path(box_file))
+		    box_file = std::string(pwd) + "/" + box_file;
 
 		dict<int,IdString> box_lookup;
 		for (auto m : design->modules()) {
