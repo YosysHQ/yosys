@@ -238,7 +238,14 @@ struct SynthIce40Pass : public ScriptPass
 	{
 		if (check_label("begin"))
 		{
-			run("read_verilog -icells -lib +/ice40/cells_sim.v");
+			std::string define;
+			if (device_opt == "lp")
+				define = "-D ICE40_LX";
+			else if (device_opt == "u")
+				define = "-D ICE40_U";
+			else
+				define = "-D ICE40_HX";
+			run("read_verilog -icells " + define + " -lib +/ice40/cells_sim.v");
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
 			run("proc");
 		}
