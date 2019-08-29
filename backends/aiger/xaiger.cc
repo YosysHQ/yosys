@@ -575,6 +575,24 @@ struct XAigerWriter
 
 		f << "c";
 
+		auto write_buffer = [](std::stringstream &buffer, int i32) {
+			int32_t i32_be = to_big_endian(i32);
+			buffer.write(reinterpret_cast<const char*>(&i32_be), sizeof(i32_be));
+		};
+		std::stringstream h_buffer;
+		auto write_h_buffer = std::bind(write_buffer, std::ref(h_buffer), std::placeholders::_1);
+		write_h_buffer(1);
+		log_debug("ciNum = %d\n", GetSize(input_bits) + GetSize(ci_bits));
+		write_h_buffer(input_bits.size() + ci_bits.size());
+		log_debug("coNum = %d\n", GetSize(output_bits) + GetSize(co_bits));
+		write_h_buffer(output_bits.size() + GetSize(co_bits));
+		log_debug("piNum = %d\n", GetSize(input_bits));
+		write_h_buffer(input_bits.size());
+		log_debug("poNum = %d\n", GetSize(output_bits));
+		write_h_buffer(output_bits.size());
+		log_debug("boxNum = %d\n", GetSize(box_list));
+		write_h_buffer(box_list.size());
+
 		auto write_buffer_float = [](std::stringstream &buffer, float f32) {
 			buffer.write(reinterpret_cast<const char*>(&f32), sizeof(f32));
 		};
@@ -588,24 +606,6 @@ struct XAigerWriter
 		//	write_o_buffer(0);
 
 		if (!box_list.empty()) {
-			auto write_buffer = [](std::stringstream &buffer, int i32) {
-				int32_t i32_be = to_big_endian(i32);
-				buffer.write(reinterpret_cast<const char*>(&i32_be), sizeof(i32_be));
-			};
-			std::stringstream h_buffer;
-			auto write_h_buffer = std::bind(write_buffer, std::ref(h_buffer), std::placeholders::_1);
-			write_h_buffer(1);
-			log_debug("ciNum = %d\n", GetSize(input_bits) + GetSize(ci_bits));
-			write_h_buffer(input_bits.size() + ci_bits.size());
-			log_debug("coNum = %d\n", GetSize(output_bits) + GetSize(co_bits));
-			write_h_buffer(output_bits.size() + GetSize(co_bits));
-			log_debug("piNum = %d\n", GetSize(input_bits));
-			write_h_buffer(input_bits.size());
-			log_debug("poNum = %d\n", GetSize(output_bits));
-			write_h_buffer(output_bits.size());
-			log_debug("boxNum = %d\n", GetSize(box_list));
-			write_h_buffer(box_list.size());
-
 			RTLIL::Module *holes_module = module->design->addModule("$__holes__");
 			log_assert(holes_module);
 
@@ -669,18 +669,12 @@ struct XAigerWriter
 				write_h_buffer(box_count++);
 			}
 
-			f << "h";
-			std::string buffer_str = h_buffer.str();
-			int32_t buffer_size_be = to_big_endian(buffer_str.size());
-			f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
-			f.write(buffer_str.data(), buffer_str.size());
-
 			std::stringstream r_buffer;
 			auto write_r_buffer = std::bind(write_buffer, std::ref(r_buffer), std::placeholders::_1);
 			write_r_buffer(0);
 			f << "r";
-			buffer_str = r_buffer.str();
-			buffer_size_be = to_big_endian(buffer_str.size());
+			std::string buffer_str = r_buffer.str();
+			int32_t buffer_size_be = to_big_endian(buffer_str.size());
 			f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
 			f.write(buffer_str.data(), buffer_str.size());
 
@@ -733,14 +727,16 @@ struct XAigerWriter
 				log_pop();
 			}
 		}
-		else {
-			log_debug("piNum = %d\n", GetSize(input_bits));
-			log_debug("poNum = %d\n", GetSize(output_bits));
-		}
+
+		f << "h";
+		std::string buffer_str = h_buffer.str();
+		int32_t buffer_size_be = to_big_endian(buffer_str.size());
+		f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
+		f.write(buffer_str.data(), buffer_str.size());
 
 		f << "i";
-		std::string buffer_str = i_buffer.str();
-		int32_t buffer_size_be = to_big_endian(buffer_str.size());
+		buffer_str = i_buffer.str();
+		buffer_size_be = to_big_endian(buffer_str.size());
 		f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
 		f.write(buffer_str.data(), buffer_str.size());
 		//f << "o";
