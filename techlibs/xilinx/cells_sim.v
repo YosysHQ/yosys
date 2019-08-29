@@ -50,6 +50,16 @@ module OBUF(
   assign O = I;
 endmodule
 
+module IBUFG (
+    (* iopad_external_pin *)
+    output O,
+    input I
+);
+  parameter IOSTANDARD = "DEFAULT";
+  parameter IBUF_LOW_PWR = 0;
+  assign O = I;
+endmodule
+
 module BUFG(
     (* clkbuf_driver *)
     output O,
@@ -528,11 +538,5 @@ module BUFIO2 (...);
     input I;
     output IOCLK;
     output SERDESSTROBE;
-endmodule
-
-module IBUFG (...);
-    parameter IOSTANDARD = "DEFAULT";
-    output O;
-    input I;
 endmodule
 `endif
