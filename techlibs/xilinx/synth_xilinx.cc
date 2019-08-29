@@ -267,11 +267,13 @@ struct SynthXilinxPass : public ScriptPass
 	void script() YS_OVERRIDE
 	{
 		if (check_label("begin")) {
+			std::string read_args;
+			read_args += "-lib -icells -D _ABC";
 			if (vpr)
-				run("read_verilog -lib -icells -D _ABC -D_EXPLICIT_CARRY +/xilinx/cells_sim.v");
-			else
-				run("read_verilog -lib -icells -D _ABC +/xilinx/cells_sim.v");
-
+				read_args += " -D_EXPLICIT_CARRY";
+			if (family == "xc6s")
+				read_args += " -D XILINX_XC6S";
+			run("read_verilog " + read_args + " +/xilinx/cells_sim.v");
 			run("read_verilog -lib +/xilinx/cells_xtra.v");
 
 			if (help_mode) {
