@@ -3,7 +3,7 @@
 // `define SB_DFF_REG reg Q
 
 `define ABC_ARRIVAL_HX(TIME) `ifdef ICE40_HX (* abc_arrival=TIME *) `endif
-`define ABC_ARRIVAL_LX(TIME) `ifdef ICE40_LX (* abc_arrival=TIME *) `endif
+`define ABC_ARRIVAL_LP(TIME) `ifdef ICE40_LP (* abc_arrival=TIME *) `endif
 `define ABC_ARRIVAL_U(TIME)  `ifdef ICE40_U (* abc_arrival=TIME *) `endif
 
 // SiliconBlue IO Cells
