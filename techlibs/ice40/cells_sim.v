@@ -1445,7 +1445,7 @@ module SB_MAC16 (
 	input ADDSUBTOP, ADDSUBBOT,
 	input OHOLDTOP, OHOLDBOT,
 	input CI, ACCUMCI, SIGNEXTIN,
-	`ABC_ARRIVAL_U(1984)  // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L587
+	//`ABC_ARRIVAL_U(1984)  // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13026
 	output [31:0] O,
 	output CO, ACCUMCO, SIGNEXTOUT
 );
