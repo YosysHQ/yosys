@@ -1300,9 +1300,6 @@ struct Abc9Pass : public Pass {
 
 		assign_map.clear();
 
-		// The "clean" pass also contains a design->check() call
-		Pass::call(design, "clean");
-
 		log_pop();
 	}
 } Abc9Pass;
