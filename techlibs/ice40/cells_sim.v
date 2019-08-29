@@ -142,15 +142,16 @@ module SB_CARRY (output CO, input I0, I1, CI);
 endmodule
 
 (* abc_box_id = 1, lib_whitebox *)
-module \$__ICE40_FULL_ADDER (
+module \$__ICE40_CARRY_WRAPPER (
 	(* abc_carry *)
 	output CO,
 	output O,
-	input A,
-	input B,
+	input A, B,
 	(* abc_carry *)
-	input CI
+	input CI,
+	input I0, I3,
 );
+	parameter LUT = 0;
 	SB_CARRY carry (
 		.I0(A),
 		.I1(B),
@@ -158,16 +159,12 @@ module \$__ICE40_FULL_ADDER (
 		.CO(CO)
 	);
 	SB_LUT4 #(
-		//         I0: 1010 1010 1010 1010
-		//         I1: 1100 1100 1100 1100
-		//         I2: 1111 0000 1111 0000
-		//         I3: 1111 1111 0000 0000
-		.LUT_INIT(16'b 0110_1001_1001_0110)
+		.LUT_INIT(LUT)
 	) adder (
-		.I0(1'b0),
+		.I0(I0),
 		.I1(A),
 		.I2(B),
-		.I3(CI),
+		.I3(I3),
 		.O(O)
 	);
 endmodule
