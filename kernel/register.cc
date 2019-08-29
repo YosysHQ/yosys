@@ -41,6 +41,45 @@ void decompress_gzip(const std::string &filename, std::stringstream &out)
 	}
 	gzclose(gzf);
 }
+
+/*
+An output stream that uses a stringbuf to buffer data internally,
+using zlib to write gzip-compressed data every time the stream is flushed.
+*/
+class gzip_ostream : public std::ostream  {
+public:
+	gzip_ostream()
+	{
+		rdbuf(&outbuf);
+	}
+	bool open(const std::string &filename)
+	{
+		return outbuf.open(filename);
+	}
+private:
+	class gzip_streambuf : public std::stringbuf {
+	public:
+		gzip_streambuf() { };
+		bool open(const std::string &filename)
+		{
+			gzf = gzopen(filename.c_str(), "wb");
+			return gzf != nullptr;
+		}
+		virtual int sync() override
+		{
+			gzwrite(gzf, reinterpret_cast<const void *>(str().c_str()), unsigned(str().size()));
+			str("");
+			return 0;
+		}
+		~gzip_streambuf()
+		{
+			sync();
+			gzclose(gzf);
+		}
+	private:
+		gzFile gzf = nullptr;
+	} outbuf;
+};
 PRIVATE_NAMESPACE_END
 
 #endif
@@ -161,7 +200,7 @@ void Pass::extra_args(std::vector<std::string> args, size_t argidx, RTLIL::Desig
 	{
 		std::string arg = args[argidx];
 
-		if (arg.substr(0, 1) == "-")
+		if (arg.compare(0, 1, "-") == 0)
 			cmd_error(args, argidx, "Unknown option or option in arguments.");
 
 		if (!select)
@@ -256,8 +295,6 @@ void Pass::call(RTLIL::Design *design, std::vector<std::string> args)
 	pass_register[args[0]]->post_execute(state);
 	while (design->selection_stack.size() > orig_sel_stack_pos)
 		design->selection_stack.pop_back();
-
-	design->check();
 }
 
 void Pass::call_on_selection(RTLIL::Design *design, const RTLIL::Selection &selection, std::string command)
@@ -339,8 +376,10 @@ void ScriptPass::run(std::string command, std::string info)
 			log("        %s\n", command.c_str());
 		else
 			log("        %s    %s\n", command.c_str(), info.c_str());
-	} else
+	} else {
 		Pass::call(active_design, command);
+		active_design->check();
+	}
 }
 
 void ScriptPass::run_script(RTLIL::Design *design, std::string run_from, std::string run_to)
@@ -410,7 +449,7 @@ void Frontend::extra_args(std::istream *&f, std::string &filename, std::vector<s
 	{
 		std::string arg = args[argidx];
 
-		if (arg.substr(0, 1) == "-")
+		if (arg.compare(0, 1, "-") == 0)
 			cmd_error(args, argidx, "Unknown option or option in arguments.");
 		if (f != NULL)
 			cmd_error(args, argidx, "Extra filename argument in direct file mode.");
@@ -418,7 +457,7 @@ void Frontend::extra_args(std::istream *&f, std::string &filename, std::vector<s
 		filename = arg;
 		if (filename == "<<" && argidx+1 < args.size())
 			filename += args[++argidx];
-		if (filename.substr(0, 2) == "<<") {
+		if (filename.compare(0, 2, "<<") == 0) {
 			if (Frontend::current_script_file == NULL)
 				log_error("Unexpected here document '%s' outside of script!\n", filename.c_str());
 			if (filename.size() <= 2)
@@ -436,7 +475,7 @@ void Frontend::extra_args(std::istream *&f, std::string &filename, std::vector<s
 						break;
 				}
 				size_t indent = buffer.find_first_not_of(" \t\r\n");
-				if (indent != std::string::npos && buffer.substr(indent, eot_marker.size()) == eot_marker)
+				if (indent != std::string::npos && buffer.compare(indent, eot_marker.size(), eot_marker) == 0)
 					break;
 				last_here_document += buffer;
 			}
@@ -483,7 +522,7 @@ void Frontend::extra_args(std::istream *&f, std::string &filename, std::vector<s
 			log_cmd_error("Can't open input file `%s' for reading: %s\n", filename.c_str(), strerror(errno));
 
 		for (size_t i = argidx+1; i < args.size(); i++)
-			if (args[i].substr(0, 1) == "-")
+			if (args[i].compare(0, 1, "-") == 0)
 				cmd_error(args, i, "Found option, expected arguments.");
 
 		if (argidx+1 < args.size()) {
@@ -534,8 +573,6 @@ void Frontend::frontend_call(RTLIL::Design *design, std::istream *f, std::string
 			args.push_back(filename);
 		frontend_register[args[0]]->execute(args, design);
 	}
-
-	design->check();
 }
 
 Backend::Backend(std::string name, std::string short_help) :
@@ -575,7 +612,7 @@ void Backend::extra_args(std::ostream *&f, std::string &filename, std::vector<st
 	{
 		std::string arg = args[argidx];
 
-		if (arg.substr(0, 1) == "-" && arg != "-")
+		if (arg.compare(0, 1, "-") == 0 && arg != "-")
 			cmd_error(args, argidx, "Unknown option or option in arguments.");
 		if (f != NULL)
 			cmd_error(args, argidx, "Extra filename argument in direct file mode.");
@@ -588,14 +625,28 @@ void Backend::extra_args(std::ostream *&f, std::string &filename, std::vector<st
 
 		filename = arg;
 		rewrite_filename(filename);
-		std::ofstream *ff = new std::ofstream;
-		ff->open(filename.c_str(), std::ofstream::trunc);
-		yosys_output_files.insert(filename);
-		if (ff->fail()) {
-			delete ff;
-			log_cmd_error("Can't open output file `%s' for writing: %s\n", filename.c_str(), strerror(errno));
+		if (filename.size() > 3 && filename.compare(filename.size()-3, std::string::npos, ".gz") == 0) {
+#ifdef YOSYS_ENABLE_ZLIB
+			gzip_ostream *gf = new gzip_ostream;
+			if (!gf->open(filename)) {
+				delete gf;
+				log_cmd_error("Can't open output file `%s' for writing: %s\n", filename.c_str(), strerror(errno));
+			}
+			yosys_output_files.insert(filename);
+			f = gf;
+#else
+			log_cmd_error("Yosys is compiled without zlib support, unable to write gzip output.\n");
+#endif
+		} else {
+			std::ofstream *ff = new std::ofstream;
+			ff->open(filename.c_str(), std::ofstream::trunc);
+			yosys_output_files.insert(filename);
+			if (ff->fail()) {
+				delete ff;
+				log_cmd_error("Can't open output file `%s' for writing: %s\n", filename.c_str(), strerror(errno));
+			}
+			f = ff;
 		}
-		f = ff;
 	}
 
 	if (called_with_fp)
@@ -645,8 +696,6 @@ void Backend::backend_call(RTLIL::Design *design, std::ostream *f, std::string f
 
 	while (design->selection_stack.size() > orig_sel_stack_pos)
 		design->selection_stack.pop_back();
-
-	design->check();
 }
 
 static struct CellHelpMessages {

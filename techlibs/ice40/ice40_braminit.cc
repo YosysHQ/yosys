@@ -69,13 +69,13 @@ static void run_ice40_braminit(Module *module)
 
 			for (int i = 0; i < GetSize(line); i++)
 			{
-				if (in_comment && line.substr(i, 2) == "*/") {
+				if (in_comment && line.compare(i, 2, "*/") == 0) {
 					line[i] = ' ';
 					line[i+1] = ' ';
 					in_comment = false;
 					continue;
 				}
-				if (!in_comment && line.substr(i, 2) == "/*")
+				if (!in_comment && line.compare(i, 2, "/*") == 0)
 					in_comment = true;
 				if (in_comment)
 					line[i] = ' ';
@@ -87,7 +87,7 @@ static void run_ice40_braminit(Module *module)
 				long value;
 
 				token = next_token(line, " \t\r\n");
-				if (token.empty() || token.substr(0, 2) == "//")
+				if (token.empty() || token.compare(0, 2, "//") == 0)
 					break;
 
 				if (token[0] == '@') {

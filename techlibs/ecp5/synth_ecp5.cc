@@ -271,6 +271,8 @@ struct SynthEcp5Pass : public ScriptPass
 			run("opt_expr -undriven -mux_undef");
 			run("simplemap");
 			run("ecp5_ffinit");
+			run("ecp5_gsr");
+			run("opt_clean");
 		}
 
 		if (check_label("map_luts"))

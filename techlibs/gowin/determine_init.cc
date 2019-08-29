@@ -50,7 +50,7 @@ struct DetermineInitPass : public Pass {
 
 		extra_args(args, args.size(), design);
 
-		size_t cnt = 0;
+		int cnt = 0;
 		for (auto module : design->selected_modules())
 		{
 			for (auto cell : module->selected_cells())
@@ -65,7 +65,7 @@ struct DetermineInitPass : public Pass {
 				}
 			}
 		}
-		log_header(design, "Updated %lu cells with determined init value.\n", cnt);
+		log_header(design, "Updated %d cells with determined init value.\n", cnt);
 	}
 } DetermineInitPass;
 

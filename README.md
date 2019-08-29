@@ -1,7 +1,7 @@
 ```
 yosys -- Yosys Open SYnthesis Suite
 
-Copyright (C) 2012 - 2018  Clifford Wolf <clifford@clifford.at>
+Copyright (C) 2012 - 2019  Clifford Wolf <clifford@clifford.at>
 
 Permission to use, copy, modify, and/or distribute this software for any
 purpose with or without fee is hereby granted, provided that the above
@@ -69,11 +69,14 @@ prerequisites for building yosys:
 		graphviz xdot pkg-config python3 libboost-system-dev \
 		libboost-python-dev libboost-filesystem-dev zlib1g-dev
 
-Similarily, on Mac OS X MacPorts or Homebrew can be used to install dependencies:
+Similarily, on Mac OS X Homebrew can be used to install dependencies:
 
 	$ brew tap Homebrew/bundle && brew bundle
+
+or MacPorts:
+
 	$ sudo port install bison flex readline gawk libffi \
-		git graphviz pkgconfig python36 boost zlib
+		git graphviz pkgconfig python36 boost zlib tcl
 
 On FreeBSD use the following command to install all prerequisites:
 
@@ -130,17 +133,14 @@ commands and ``help <command>`` to print details on the specified command:
 
 	yosys> help help
 
-reading the design using the Verilog frontend:
+reading and elaborating the design using the Verilog frontend:
 
-	yosys> read_verilog tests/simple/fiedler-cooley.v
+	yosys> read -sv tests/simple/fiedler-cooley.v
+	yosys> hierarchy -top up3down5
 
 writing the design to the console in Yosys's internal format:
 
 	yosys> write_ilang
-
-elaborate design hierarchy:
-
-	yosys> hierarchy
 
 convert processes (``always`` blocks) to netlist elements and perform
 some simple optimizations:
@@ -163,51 +163,26 @@ write design netlist to a new Verilog file:
 
 	yosys> write_verilog synth.v
 
-a similar synthesis can be performed using yosys command line options only:
-
-	$ ./yosys -o synth.v -p hierarchy -p proc -p opt \
-	                     -p techmap -p opt tests/simple/fiedler-cooley.v
-
 or using a simple synthesis script:
 
 	$ cat synth.ys
-	read_verilog tests/simple/fiedler-cooley.v
-	hierarchy; proc; opt; techmap; opt
+	read -sv tests/simple/fiedler-cooley.v
+	hierarchy -top up3down5
+	proc; opt; techmap; opt
 	write_verilog synth.v
 
 	$ ./yosys synth.ys
-
-It is also possible to only have the synthesis commands but not the read/write
-commands in the synthesis script:
-
-	$ cat synth.ys
-	hierarchy; proc; opt; techmap; opt
-
-	$ ./yosys -o synth.v tests/simple/fiedler-cooley.v synth.ys
-
-The following very basic synthesis script should work well with all designs:
-
-	# check design hierarchy
-	hierarchy
-
-	# translate processes (always blocks)
-	proc; opt
-
-	# detect and optimize FSM encodings
-	fsm; opt
-
-	# implement memories (arrays)
-	memory; opt
-
-	# convert to gate logic
-	techmap; opt
 
 If ABC is enabled in the Yosys build configuration and a cell library is given
 in the liberty file ``mycells.lib``, the following synthesis script will
 synthesize for the given cell library:
 
+	# read design
+	read -sv tests/simple/fiedler-cooley.v
+	hierarchy -top up3down5
+
 	# the high-level stuff
-	hierarchy; proc; fsm; opt; memory; opt
+	proc; fsm; opt; memory; opt
 
 	# mapping to internal cell library
 	techmap; opt
@@ -222,7 +197,8 @@ synthesize for the given cell library:
 	clean
 
 If you do not have a liberty file but want to test this synthesis script,
-you can use the file ``examples/cmos/cmos_cells.lib`` from the yosys sources.
+you can use the file ``examples/cmos/cmos_cells.lib`` from the yosys sources
+as simple example.
 
 Liberty file downloads for and information about free and open ASIC standard
 cell libraries can be found here:
@@ -231,20 +207,18 @@ cell libraries can be found here:
 - http://www.vlsitechnology.org/synopsys/vsclib013.lib
 
 The command ``synth`` provides a good default synthesis script (see
-``help synth``).  If possible a synthesis script should borrow from ``synth``.
-For example:
+``help synth``):
 
-	# the high-level stuff
-	hierarchy
-	synth -run coarse
+	read -sv tests/simple/fiedler-cooley.v
+	synth -top up3down5
 
-	# mapping to internal cells
-	techmap; opt -fast
+	# mapping to target cells
 	dfflibmap -liberty mycells.lib
 	abc -liberty mycells.lib
 	clean
 
-Yosys is under construction. A more detailed documentation will follow.
+The command ``prep`` provides a good default word-level synthesis script, as
+used in SMT-based formal verification.
 
 
 Unsupported Verilog-2005 Features
@@ -358,6 +332,21 @@ Verilog Attributes and non-standard features
   that represent module parameters or localparams (when the HDL front-end
   is run in -pwires mode).
 
+- The ``clkbuf_driver`` attribute can be set on an output port of a blackbox
+  module to mark it as a clock buffer output, and thus prevent ``clkbufmap``
+  from inserting another clock buffer on a net driven by such output.
+
+- The ``clkbuf_sink`` attribute can be set on an input port of a module to
+  request clock buffer insertion by the ``clkbufmap`` pass.
+
+- The ``clkbuf_inhibit`` is the default attribute to set on a wire to prevent
+  automatic clock buffer insertion by ``clkbufmap``. This behaviour can be
+  overridden by providing a custom selection to ``clkbufmap``.
+
+- The ``iopad_external_pin`` attribute on a blackbox module's port marks
+  it as the external-facing pin of an I/O pad, and prevents ``iopadmap``
+  from inserting another pad cell on it.
+
 - In addition to the ``(* ... *)`` attribute syntax, Yosys supports
   the non-standard ``{* ... *}`` attribute syntax to set default attributes
   for everything that comes after the ``{* ... *}`` statement. (Reset
@@ -433,6 +422,23 @@ Verilog Attributes and non-standard features
   special ``$specify2``, ``$specify3``, and ``$specrule`` cells, for use in
   blackboxes and whiteboxes. Use ``read_verilog -specify`` to enable this
   functionality. (By default specify .. endspecify blocks are ignored.)
+
+- The module attribute ``abc_box_id`` specifies a positive integer linking a
+  blackbox or whitebox definition to a corresponding entry in a `abc9`
+  box-file.
+
+- The port attribute ``abc_scc_break`` indicates a module input port that will
+  be treated as a primary output during `abc9` techmapping. Doing so eliminates
+  the possibility of a strongly-connected component (i.e. a combinatorial loop)
+  existing. Typically, this is specified for sequential inputs on otherwise
+  combinatorial boxes -- for example, applying ``abc_scc_break`` onto the `D`
+  port of a LUTRAM cell prevents `abc9` from interpreting any `Q` -> `D` paths
+  as a combinatorial loop.
+
+- The port attribute ``abc_carry`` marks the carry-in (if an input port) and
+  carry-out (if output port) ports of a box. This information is necessary for
+  `abc9` to preserve the integrity of carry-chains. Specifying this attribute
+  onto a bus port will affect only its most significant bit.
 
 
 Non-standard or SystemVerilog features for formal verification

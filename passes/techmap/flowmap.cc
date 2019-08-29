@@ -671,8 +671,8 @@ struct FlowmapWorker
 			labels[node] = -1;
 		for (auto input : inputs)
 		{
-			if (input.wire->attributes.count("\\$flowmap_level"))
-				labels[input] = input.wire->attributes["\\$flowmap_level"].as_int();
+			if (input.wire->attributes.count(ID($flowmap_level)))
+				labels[input] = input.wire->attributes[ID($flowmap_level)].as_int();
 			else
 				labels[input] = 0;
 		}
@@ -783,7 +783,7 @@ struct FlowmapWorker
 		int depth = 0;
 		for (auto label : labels)
 			depth = max(depth, label.second);
-		log("Mapped to %zu LUTs with maximum depth %d.\n", lut_nodes.size(), depth);
+		log("Mapped to %d LUTs with maximum depth %d.\n", GetSize(lut_nodes), depth);
 
 		if (debug)
 		{
@@ -1195,7 +1195,7 @@ struct FlowmapWorker
 
 	bool relax_depth_for_bound(bool first, int depth_bound, dict<RTLIL::SigBit, pool<RTLIL::SigBit>> &lut_critical_outputs)
 	{
-		size_t initial_count = lut_nodes.size();
+		int initial_count = GetSize(lut_nodes);
 
 		for (auto node : lut_nodes)
 		{
@@ -1215,7 +1215,7 @@ struct FlowmapWorker
 
 			if (potentials.empty())
 			{
-				log("  Relaxed to %zu (+%zu) LUTs.\n", lut_nodes.size(), lut_nodes.size() - initial_count);
+				log("  Relaxed to %d (+%d) LUTs.\n", GetSize(lut_nodes), GetSize(lut_nodes) - initial_count);
 				if (!first && break_num == 1)
 				{
 					log("  Design fully relaxed.\n");
@@ -1412,16 +1412,16 @@ struct FlowmapWorker
 			for (auto gate_node : lut_gates[node])
 			{
 				auto gate_origin = node_origins[gate_node];
-				lut->add_strpool_attribute("\\src", gate_origin.cell->get_strpool_attribute("\\src"));
+				lut->add_strpool_attribute(ID(src), gate_origin.cell->get_strpool_attribute(ID(src)));
 				packed_count++;
 			}
 			lut_count++;
 			lut_area += lut_table.size();
 
 			if ((int)input_nodes.size() >= minlut)
-				log("  Packed into a %zu-LUT %s.%s.\n", input_nodes.size(), log_id(module), log_id(lut));
+				log("  Packed into a %d-LUT %s.%s.\n", GetSize(input_nodes), log_id(module), log_id(lut));
 			else
-				log("  Packed into a %zu-LUT %s.%s (implemented as %d-LUT).\n", input_nodes.size(), log_id(module), log_id(lut), minlut);
+				log("  Packed into a %d-LUT %s.%s (implemented as %d-LUT).\n", GetSize(input_nodes), log_id(module), log_id(lut), minlut);
 		}
 
 		for (auto node : mapped_nodes)
@@ -1586,7 +1586,7 @@ struct FlowmapPass : public Pass {
 		}
 		else
 		{
-			cell_types = {"$_NOT_", "$_AND_", "$_OR_", "$_XOR_", "$_MUX_"};
+			cell_types = {ID($_NOT_), ID($_AND_), ID($_OR_), ID($_XOR_), ID($_MUX_)};
 		}
 
 		const char *algo_r = relax ? "-r" : "";

@@ -283,8 +283,8 @@ void AstNode::dumpAst(FILE *f, std::string indent) const
 	if (!bits.empty()) {
 		fprintf(f, " bits='");
 		for (size_t i = bits.size(); i > 0; i--)
-			fprintf(f, "%c", bits[i-1] == RTLIL::S0 ? '0' :
-					bits[i-1] == RTLIL::S1 ? '1' :
+			fprintf(f, "%c", bits[i-1] == State::S0 ? '0' :
+					bits[i-1] == State::S1 ? '1' :
 					bits[i-1] == RTLIL::Sx ? 'x' :
 					bits[i-1] == RTLIL::Sz ? 'z' : '?');
 		fprintf(f, "'(%d)", GetSize(bits));
@@ -716,7 +716,7 @@ AstNode *AstNode::mkconst_int(uint32_t v, bool is_signed, int width)
 	node->integer = v;
 	node->is_signed = is_signed;
 	for (int i = 0; i < width; i++) {
-		node->bits.push_back((v & 1) ? RTLIL::S1 : RTLIL::S0);
+		node->bits.push_back((v & 1) ? State::S1 : State::S0);
 		v = v >> 1;
 	}
 	node->range_valid = true;
@@ -733,9 +733,9 @@ AstNode *AstNode::mkconst_bits(const std::vector<RTLIL::State> &v, bool is_signe
 	node->bits = v;
 	for (size_t i = 0; i < 32; i++) {
 		if (i < node->bits.size())
-			node->integer |= (node->bits[i] == RTLIL::S1) << i;
+			node->integer |= (node->bits[i] == State::S1) << i;
 		else if (is_signed && !node->bits.empty())
-			node->integer |= (node->bits.back() == RTLIL::S1) << i;
+			node->integer |= (node->bits.back() == State::S1) << i;
 	}
 	node->range_valid = true;
 	node->range_left = node->bits.size()-1;
@@ -767,7 +767,7 @@ AstNode *AstNode::mkconst_str(const std::string &str)
 	for (size_t i = 0; i < str.size(); i++) {
 		unsigned char ch = str[str.size() - i - 1];
 		for (int j = 0; j < 8; j++) {
-			data.push_back((ch & 1) ? RTLIL::S1 : RTLIL::S0);
+			data.push_back((ch & 1) ? State::S1 : State::S0);
 			ch = ch >> 1;
 		}
 	}
@@ -780,7 +780,7 @@ AstNode *AstNode::mkconst_str(const std::string &str)
 bool AstNode::bits_only_01() const
 {
 	for (auto bit : bits)
-		if (bit != RTLIL::S0 && bit != RTLIL::S1)
+		if (bit != State::S0 && bit != State::S1)
 			return false;
 	return true;
 }
@@ -1164,7 +1164,7 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 				}
 			}
 
-			if (flag_icells && (*it)->str.substr(0, 2) == "\\$")
+			if (flag_icells && (*it)->str.compare(0, 2, "\\$") == 0)
 				(*it)->str = (*it)->str.substr(1);
 
 			if (defer)
@@ -1172,7 +1172,7 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 
 			if (design->has((*it)->str)) {
 				RTLIL::Module *existing_mod = design->module((*it)->str);
-				if (!nooverwrite && !overwrite && !existing_mod->get_bool_attribute("\\blackbox")) {
+				if (!nooverwrite && !overwrite && !existing_mod->get_blackbox_attribute()) {
 					log_file_error((*it)->filename, (*it)->linenum, "Re-definition of module `%s'!\n", (*it)->str.c_str());
 				} else if (nooverwrite) {
 					log("Ignoring re-definition of module `%s' at %s:%d.\n",
@@ -1463,7 +1463,7 @@ std::string AstModule::derive_common(RTLIL::Design *design, dict<RTLIL::IdString
 {
 	std::string stripped_name = name.str();
 
-	if (stripped_name.substr(0, 9) == "$abstract")
+	if (stripped_name.compare(0, 9, "$abstract") == 0)
 		stripped_name = stripped_name.substr(9);
 
 	log_header(design, "Executing AST frontend in derive mode using pre-parsed AST for module `%s'.\n", stripped_name.c_str());
@@ -1502,7 +1502,10 @@ std::string AstModule::derive_common(RTLIL::Design *design, dict<RTLIL::IdString
 	rewrite_parameter:
 			para_info += stringf("%s=%s", child->str.c_str(), log_signal(RTLIL::SigSpec(parameters[para_id])));
 			delete child->children.at(0);
-			if ((parameters[para_id].flags & RTLIL::CONST_FLAG_STRING) != 0)
+			if ((parameters[para_id].flags & RTLIL::CONST_FLAG_REAL) != 0) {
+				child->children[0] = new AstNode(AST_REALVALUE);
+				child->children[0]->realvalue = std::stod(parameters[para_id].decode_string());
+			} else if ((parameters[para_id].flags & RTLIL::CONST_FLAG_STRING) != 0)
 				child->children[0] = AstNode::mkconst_str(parameters[para_id].decode_string());
 			else
 				child->children[0] = AstNode::mkconst_bits(parameters[para_id].bits, (parameters[para_id].flags & RTLIL::CONST_FLAG_SIGNED) != 0);

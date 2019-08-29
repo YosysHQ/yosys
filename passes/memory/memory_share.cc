@@ -155,7 +155,7 @@ struct MemoryShareWorker
 		{
 			bool ignore_data_port = false;
 
-			if (cell->type == "$mux" || cell->type == "$pmux")
+			if (cell->type.in("$mux", "$pmux"))
 			{
 				std::vector<RTLIL::SigBit> sig_a = sigmap(cell->getPort("\\A"));
 				std::vector<RTLIL::SigBit> sig_b = sigmap(cell->getPort("\\B"));
@@ -173,7 +173,7 @@ struct MemoryShareWorker
 				continue;
 			}
 
-			if ((cell->type == "$memwr" || cell->type == "$memrd") &&
+			if (cell->type.in("$memwr", "$memrd") &&
 					cell->parameters.at("\\MEMID").decode_string() == memid)
 				ignore_data_port = true;
 
@@ -690,7 +690,7 @@ struct MemoryShareWorker
 					sigmap_xmux.add(cell->getPort("\\Y"), sig_a);
 			}
 
-			if (cell->type == "$mux" || cell->type == "$pmux")
+			if (cell->type.in("$mux", "$pmux"))
 			{
 				std::vector<RTLIL::SigBit> sig_y = sigmap(cell->getPort("\\Y"));
 				for (int i = 0; i < int(sig_y.size()); i++)

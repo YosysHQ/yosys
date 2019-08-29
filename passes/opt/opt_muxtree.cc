@@ -84,12 +84,12 @@ struct OptMuxtreeWorker
 		//	.const_deactivated
 		for (auto cell : module->cells())
 		{
-			if (cell->type == "$mux" || cell->type == "$pmux")
+			if (cell->type.in(ID($mux), ID($pmux)))
 			{
-				RTLIL::SigSpec sig_a = cell->getPort("\\A");
-				RTLIL::SigSpec sig_b = cell->getPort("\\B");
-				RTLIL::SigSpec sig_s = cell->getPort("\\S");
-				RTLIL::SigSpec sig_y = cell->getPort("\\Y");
+				RTLIL::SigSpec sig_a = cell->getPort(ID::A);
+				RTLIL::SigSpec sig_b = cell->getPort(ID::B);
+				RTLIL::SigSpec sig_s = cell->getPort(ID(S));
+				RTLIL::SigSpec sig_y = cell->getPort(ID::Y);
 
 				muxinfo_t muxinfo;
 				muxinfo.cell = cell;
@@ -137,7 +137,7 @@ struct OptMuxtreeWorker
 			}
 		}
 		for (auto wire : module->wires()) {
-			if (wire->port_output || wire->get_bool_attribute("\\keep"))
+			if (wire->port_output || wire->get_bool_attribute(ID::keep))
 				for (int idx : sig2bits(RTLIL::SigSpec(wire)))
 					bit2info[idx].seen_non_mux = true;
 		}
@@ -227,10 +227,10 @@ struct OptMuxtreeWorker
 				continue;
 			}
 
-			RTLIL::SigSpec sig_a = mi.cell->getPort("\\A");
-			RTLIL::SigSpec sig_b = mi.cell->getPort("\\B");
-			RTLIL::SigSpec sig_s = mi.cell->getPort("\\S");
-			RTLIL::SigSpec sig_y = mi.cell->getPort("\\Y");
+			RTLIL::SigSpec sig_a = mi.cell->getPort(ID::A);
+			RTLIL::SigSpec sig_b = mi.cell->getPort(ID::B);
+			RTLIL::SigSpec sig_s = mi.cell->getPort(ID(S));
+			RTLIL::SigSpec sig_y = mi.cell->getPort(ID::Y);
 
 			RTLIL::SigSpec sig_ports = sig_b;
 			sig_ports.append(sig_a);
@@ -255,14 +255,14 @@ struct OptMuxtreeWorker
 					}
 				}
 
-				mi.cell->setPort("\\A", new_sig_a);
-				mi.cell->setPort("\\B", new_sig_b);
-				mi.cell->setPort("\\S", new_sig_s);
+				mi.cell->setPort(ID::A, new_sig_a);
+				mi.cell->setPort(ID::B, new_sig_b);
+				mi.cell->setPort(ID(S), new_sig_s);
 				if (GetSize(new_sig_s) == 1) {
-					mi.cell->type = "$mux";
-					mi.cell->parameters.erase("\\S_WIDTH");
+					mi.cell->type = ID($mux);
+					mi.cell->parameters.erase(ID(S_WIDTH));
 				} else {
-					mi.cell->parameters["\\S_WIDTH"] = RTLIL::Const(GetSize(new_sig_s));
+					mi.cell->parameters[ID(S_WIDTH)] = RTLIL::Const(GetSize(new_sig_s));
 				}
 			}
 		}
@@ -364,9 +364,9 @@ struct OptMuxtreeWorker
 
 		int width = 0;
 		idict<int> ctrl_bits;
-		if (portname == "\\B")
-			width = GetSize(muxinfo.cell->getPort("\\A"));
-		for (int bit : sig2bits(muxinfo.cell->getPort("\\S"), false))
+		if (portname == ID::B)
+			width = GetSize(muxinfo.cell->getPort(ID::A));
+		for (int bit : sig2bits(muxinfo.cell->getPort(ID(S)), false))
 			ctrl_bits(bit);
 
 		int port_idx = 0, port_off = 0;
@@ -414,8 +414,8 @@ struct OptMuxtreeWorker
 
 		// set input ports to constants if we find known active or inactive signals
 		if (do_replace_known) {
-			replace_known(knowledge, muxinfo, "\\A");
-			replace_known(knowledge, muxinfo, "\\B");
+			replace_known(knowledge, muxinfo, ID::A);
+			replace_known(knowledge, muxinfo, ID::B);
 		}
 
 		// if there is a constant activated port we just use it

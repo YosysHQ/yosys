@@ -29,12 +29,23 @@
 YOSYS_NAMESPACE_BEGIN
 
 RTLIL::IdString::destruct_guard_t RTLIL::IdString::destruct_guard;
-std::vector<int> RTLIL::IdString::global_refcount_storage_;
 std::vector<char*> RTLIL::IdString::global_id_storage_;
 dict<char*, int, hash_cstr_ops> RTLIL::IdString::global_id_index_;
+#ifndef YOSYS_NO_IDS_REFCNT
+std::vector<int> RTLIL::IdString::global_refcount_storage_;
 std::vector<int> RTLIL::IdString::global_free_idx_list_;
+#endif
+#ifdef YOSYS_USE_STICKY_IDS
 int RTLIL::IdString::last_created_idx_[8];
 int RTLIL::IdString::last_created_idx_ptr_;
+#endif
+
+IdString RTLIL::ID::A;
+IdString RTLIL::ID::B;
+IdString RTLIL::ID::Y;
+IdString RTLIL::ID::keep;
+IdString RTLIL::ID::whitebox;
+IdString RTLIL::ID::blackbox;
 
 RTLIL::Const::Const()
 {
@@ -47,7 +58,7 @@ RTLIL::Const::Const(std::string str)
 	for (int i = str.size()-1; i >= 0; i--) {
 		unsigned char ch = str[i];
 		for (int j = 0; j < 8; j++) {
-			bits.push_back((ch & 1) != 0 ? RTLIL::S1 : RTLIL::S0);
+			bits.push_back((ch & 1) != 0 ? State::S1 : State::S0);
 			ch = ch >> 1;
 		}
 	}
@@ -57,7 +68,7 @@ RTLIL::Const::Const(int val, int width)
 {
 	flags = RTLIL::CONST_FLAG_NONE;
 	for (int i = 0; i < width; i++) {
-		bits.push_back((val & 1) != 0 ? RTLIL::S1 : RTLIL::S0);
+		bits.push_back((val & 1) != 0 ? State::S1 : State::S0);
 		val = val >> 1;
 	}
 }
@@ -73,7 +84,7 @@ RTLIL::Const::Const(const std::vector<bool> &bits)
 {
 	flags = RTLIL::CONST_FLAG_NONE;
 	for (auto b : bits)
-		this->bits.push_back(b ? RTLIL::S1 : RTLIL::S0);
+		this->bits.push_back(b ? State::S1 : State::S0);
 }
 
 RTLIL::Const::Const(const RTLIL::Const &c)
@@ -106,7 +117,7 @@ bool RTLIL::Const::operator !=(const RTLIL::Const &other) const
 bool RTLIL::Const::as_bool() const
 {
 	for (size_t i = 0; i < bits.size(); i++)
-		if (bits[i] == RTLIL::S1)
+		if (bits[i] == State::S1)
 			return true;
 	return false;
 }
@@ -115,9 +126,9 @@ int RTLIL::Const::as_int(bool is_signed) const
 {
 	int32_t ret = 0;
 	for (size_t i = 0; i < bits.size() && i < 32; i++)
-		if (bits[i] == RTLIL::S1)
+		if (bits[i] == State::S1)
 			ret |= 1 << i;
-	if (is_signed && bits.back() == RTLIL::S1)
+	if (is_signed && bits.back() == State::S1)
 		for (size_t i = bits.size(); i < 32; i++)
 			ret |= 1 << i;
 	return ret;
@@ -264,16 +275,16 @@ pool<string> RTLIL::AttrObject::get_strpool_attribute(RTLIL::IdString id) const
 void RTLIL::AttrObject::set_src_attribute(const std::string &src)
 {
 	if (src.empty())
-		attributes.erase("\\src");
+		attributes.erase(ID(src));
 	else
-		attributes["\\src"] = src;
+		attributes[ID(src)] = src;
 }
 
 std::string RTLIL::AttrObject::get_src_attribute() const
 {
 	std::string src;
-	if (attributes.count("\\src"))
-		src = attributes.at("\\src").decode_string();
+	if (attributes.count(ID(src)))
+		src = attributes.at(ID(src)).decode_string();
 	return src;
 }
 
@@ -417,7 +428,7 @@ RTLIL::Module *RTLIL::Design::top_module()
 	int module_count = 0;
 
 	for (auto mod : selected_modules()) {
-		if (mod->get_bool_attribute("\\top"))
+		if (mod->get_bool_attribute(ID(top)))
 			return mod;
 		module_count++;
 		module = mod;
@@ -706,7 +717,7 @@ void RTLIL::Module::makeblackbox()
 	processes.clear();
 
 	remove(delwires);
-	set_bool_attribute("\\blackbox");
+	set_bool_attribute(ID::blackbox);
 }
 
 void RTLIL::Module::reprocess_module(RTLIL::Design *, dict<RTLIL::IdString, RTLIL::Module *>)
@@ -754,7 +765,7 @@ namespace {
 					cell->name.c_str(), cell->type.c_str(), __FILE__, linenr, buf.str().c_str());
 		}
 
-		int param(const char *name)
+		int param(RTLIL::IdString name)
 		{
 			if (cell->parameters.count(name) == 0)
 				error(__LINE__);
@@ -762,7 +773,7 @@ namespace {
 			return cell->parameters.at(name).as_int();
 		}
 
-		int param_bool(const char *name)
+		int param_bool(RTLIL::IdString name)
 		{
 			int v = param(name);
 			if (cell->parameters.at(name).bits.size() > 32)
@@ -772,14 +783,14 @@ namespace {
 			return v;
 		}
 
-		void param_bits(const char *name, int width)
+		void param_bits(RTLIL::IdString name, int width)
 		{
 			param(name);
 			if (int(cell->parameters.at(name).bits.size()) != width)
 				error(__LINE__);
 		}
 
-		void port(const char *name, int width)
+		void port(RTLIL::IdString name, int width)
 		{
 			if (!cell->hasPort(name))
 				error(__LINE__);
@@ -797,9 +808,9 @@ namespace {
 				if (expected_ports.count(conn.first) == 0)
 					error(__LINE__);
 
-			if (expected_params.count("\\A_SIGNED") != 0 && expected_params.count("\\B_SIGNED") && check_matched_sign) {
-				bool a_is_signed = param("\\A_SIGNED") != 0;
-				bool b_is_signed = param("\\B_SIGNED") != 0;
+			if (expected_params.count(ID(A_SIGNED)) != 0 && expected_params.count(ID(B_SIGNED)) && check_matched_sign) {
+				bool a_is_signed = param(ID(A_SIGNED)) != 0;
+				bool b_is_signed = param(ID(B_SIGNED)) != 0;
 				if (a_is_signed != b_is_signed)
 					error(__LINE__);
 			}
@@ -828,481 +839,482 @@ namespace {
 
 		void check()
 		{
-			if (cell->type.substr(0, 1) != "$" || cell->type.substr(0, 3) == "$__" || cell->type.substr(0, 8) == "$paramod" || cell->type.substr(0,10) == "$fmcombine" ||
-					cell->type.substr(0, 9) == "$verific$" || cell->type.substr(0, 7) == "$array:" || cell->type.substr(0, 8) == "$extern:")
+			if (!cell->type.begins_with("$") || cell->type.begins_with("$__") || cell->type.begins_with("$paramod") || cell->type.begins_with("$fmcombine") ||
+					cell->type.begins_with("$verific$") || cell->type.begins_with("$array:") || cell->type.begins_with("$extern:"))
 				return;
 
-			if (cell->type.in("$not", "$pos", "$neg")) {
-				param_bool("\\A_SIGNED");
-				port("\\A", param("\\A_WIDTH"));
-				port("\\Y", param("\\Y_WIDTH"));
+			if (cell->type.in(ID($not), ID($pos), ID($neg))) {
+				param_bool(ID(A_SIGNED));
+				port(ID::A, param(ID(A_WIDTH)));
+				port(ID::Y, param(ID(Y_WIDTH)));
 				check_expected();
 				return;
 			}
 
-			if (cell->type.in("$and", "$or", "$xor", "$xnor")) {
-				param_bool("\\A_SIGNED");
-				param_bool("\\B_SIGNED");
-				port("\\A", param("\\A_WIDTH"));
-				port("\\B", param("\\B_WIDTH"));
-				port("\\Y", param("\\Y_WIDTH"));
+			if (cell->type.in(ID($and), ID($or), ID($xor), ID($xnor))) {
+				param_bool(ID(A_SIGNED));
+				param_bool(ID(B_SIGNED));
+				port(ID::A, param(ID(A_WIDTH)));
+				port(ID::B, param(ID(B_WIDTH)));
+				port(ID::Y, param(ID(Y_WIDTH)));
 				check_expected();
 				return;
 			}
 
-			if (cell->type.in("$reduce_and", "$reduce_or", "$reduce_xor", "$reduce_xnor", "$reduce_bool")) {
-				param_bool("\\A_SIGNED");
-				port("\\A", param("\\A_WIDTH"));
-				port("\\Y", param("\\Y_WIDTH"));
+			if (cell->type.in(ID($reduce_and), ID($reduce_or), ID($reduce_xor), ID($reduce_xnor), ID($reduce_bool))) {
+				param_bool(ID(A_SIGNED));
+				port(ID::A, param(ID(A_WIDTH)));
+				port(ID::Y, param(ID(Y_WIDTH)));
 				check_expected();
 				return;
 			}
 
-			if (cell->type.in("$shl", "$shr", "$sshl", "$sshr", "$shift", "$shiftx")) {
-				param_bool("\\A_SIGNED");
-				param_bool("\\B_SIGNED");
-				port("\\A", param("\\A_WIDTH"));
-				port("\\B", param("\\B_WIDTH"));
-				port("\\Y", param("\\Y_WIDTH"));
+			if (cell->type.in(ID($shl), ID($shr), ID($sshl), ID($sshr), ID($shift), ID($shiftx))) {
+				param_bool(ID(A_SIGNED));
+				param_bool(ID(B_SIGNED));
+				port(ID::A, param(ID(A_WIDTH)));
+				port(ID::B, param(ID(B_WIDTH)));
+				port(ID::Y, param(ID(Y_WIDTH)));
 				check_expected(false);
 				return;
 			}
 
-			if (cell->type.in("$lt", "$le", "$eq", "$ne", "$eqx", "$nex", "$ge", "$gt")) {
-				param_bool("\\A_SIGNED");
-				param_bool("\\B_SIGNED");
-				port("\\A", param("\\A_WIDTH"));
-				port("\\B", param("\\B_WIDTH"));
-				port("\\Y", param("\\Y_WIDTH"));
+			if (cell->type.in(ID($lt), ID($le), ID($eq), ID($ne), ID($eqx), ID($nex), ID($ge), ID($gt))) {
+				param_bool(ID(A_SIGNED));
+				param_bool(ID(B_SIGNED));
+				port(ID::A, param(ID(A_WIDTH)));
+				port(ID::B, param(ID(B_WIDTH)));
+				port(ID::Y, param(ID(Y_WIDTH)));
 				check_expected();
 				return;
 			}
 
-			if (cell->type.in("$add", "$sub", "$mul", "$div", "$mod", "$pow")) {
-				param_bool("\\A_SIGNED");
-				param_bool("\\B_SIGNED");
-				port("\\A", param("\\A_WIDTH"));
-				port("\\B", param("\\B_WIDTH"));
-				port("\\Y", param("\\Y_WIDTH"));
-				check_expected(cell->type != "$pow");
+			if (cell->type.in(ID($add), ID($sub), ID($mul), ID($div), ID($mod), ID($pow))) {
+				param_bool(ID(A_SIGNED));
+				param_bool(ID(B_SIGNED));
+				port(ID::A, param(ID(A_WIDTH)));
+				port(ID::B, param(ID(B_WIDTH)));
+				port(ID::Y, param(ID(Y_WIDTH)));
+				check_expected(cell->type != ID($pow));
 				return;
 			}
 
-			if (cell->type == "$fa") {
-				port("\\A", param("\\WIDTH"));
-				port("\\B", param("\\WIDTH"));
-				port("\\C", param("\\WIDTH"));
-				port("\\X", param("\\WIDTH"));
-				port("\\Y", param("\\WIDTH"));
+			if (cell->type == ID($fa)) {
+				port(ID::A, param(ID(WIDTH)));
+				port(ID::B, param(ID(WIDTH)));
+				port(ID(C), param(ID(WIDTH)));
+				port(ID(X), param(ID(WIDTH)));
+				port(ID::Y, param(ID(WIDTH)));
 				check_expected();
 				return;
 			}
 
-			if (cell->type == "$lcu") {
-				port("\\P", param("\\WIDTH"));
-				port("\\G", param("\\WIDTH"));
-				port("\\CI", 1);
-				port("\\CO", param("\\WIDTH"));
+			if (cell->type == ID($lcu)) {
+				port(ID(P), param(ID(WIDTH)));
+				port(ID(G), param(ID(WIDTH)));
+				port(ID(CI), 1);
+				port(ID(CO), param(ID(WIDTH)));
 				check_expected();
 				return;
 			}
 
-			if (cell->type == "$alu") {
-				param_bool("\\A_SIGNED");
-				param_bool("\\B_SIGNED");
-				port("\\A", param("\\A_WIDTH"));
-				port("\\B", param("\\B_WIDTH"));
-				port("\\CI", 1);
-				port("\\BI", 1);
-				port("\\X", param("\\Y_WIDTH"));
-				port("\\Y", param("\\Y_WIDTH"));
-				port("\\CO", param("\\Y_WIDTH"));
+			if (cell->type == ID($alu)) {
+				param_bool(ID(A_SIGNED));
+				param_bool(ID(B_SIGNED));
+				port(ID::A, param(ID(A_WIDTH)));
+				port(ID::B, param(ID(B_WIDTH)));
+				port(ID(CI), 1);
+				port(ID(BI), 1);
+				port(ID(X), param(ID(Y_WIDTH)));
+				port(ID::Y, param(ID(Y_WIDTH)));
+				port(ID(CO), param(ID(Y_WIDTH)));
 				check_expected();
 				return;
 			}
 
-			if (cell->type == "$macc") {
-				param("\\CONFIG");
-				param("\\CONFIG_WIDTH");
-				port("\\A", param("\\A_WIDTH"));
-				port("\\B", param("\\B_WIDTH"));
-				port("\\Y", param("\\Y_WIDTH"));
+			if (cell->type == ID($macc)) {
+				param(ID(CONFIG));
+				param(ID(CONFIG_WIDTH));
+				port(ID::A, param(ID(A_WIDTH)));
+				port(ID::B, param(ID(B_WIDTH)));
+				port(ID::Y, param(ID(Y_WIDTH)));
 				check_expected();
 				Macc().from_cell(cell);
 				return;
 			}
 
-			if (cell->type == "$logic_not") {
-				param_bool("\\A_SIGNED");
-				port("\\A", param("\\A_WIDTH"));
-				port("\\Y", param("\\Y_WIDTH"));
+			if (cell->type == ID($logic_not)) {
+				param_bool(ID(A_SIGNED));
+				port(ID::A, param(ID(A_WIDTH)));
+				port(ID::Y, param(ID(Y_WIDTH)));
 				check_expected();
 				return;
 			}
 
-			if (cell->type == "$logic_and" || cell->type == "$logic_or") {
-				param_bool("\\A_SIGNED");
-				param_bool("\\B_SIGNED");
-				port("\\A", param("\\A_WIDTH"));
-				port("\\B", param("\\B_WIDTH"));
-				port("\\Y", param("\\Y_WIDTH"));
+			if (cell->type.in(ID($logic_and), ID($logic_or))) {
+				param_bool(ID(A_SIGNED));
+				param_bool(ID(B_SIGNED));
+				port(ID::A, param(ID(A_WIDTH)));
+				port(ID::B, param(ID(B_WIDTH)));
+				port(ID::Y, param(ID(Y_WIDTH)));
 				check_expected(false);
 				return;
 			}
 
-			if (cell->type == "$slice") {
-				param("\\OFFSET");
-				port("\\A", param("\\A_WIDTH"));
-				port("\\Y", param("\\Y_WIDTH"));
-				if (param("\\OFFSET") + param("\\Y_WIDTH") > param("\\A_WIDTH"))
+			if (cell->type == ID($slice)) {
+				param(ID(OFFSET));
+				port(ID::A, param(ID(A_WIDTH)));
+				port(ID::Y, param(ID(Y_WIDTH)));
+				if (param(ID(OFFSET)) + param(ID(Y_WIDTH)) > param(ID(A_WIDTH)))
 					error(__LINE__);
 				check_expected();
 				return;
 			}
 
-			if (cell->type == "$concat") {
-				port("\\A", param("\\A_WIDTH"));
-				port("\\B", param("\\B_WIDTH"));
-				port("\\Y", param("\\A_WIDTH") + param("\\B_WIDTH"));
+			if (cell->type == ID($concat)) {
+				port(ID::A, param(ID(A_WIDTH)));
+				port(ID::B, param(ID(B_WIDTH)));
+				port(ID::Y, param(ID(A_WIDTH)) + param(ID(B_WIDTH)));
 				check_expected();
 				return;
 			}
 
-			if (cell->type == "$mux") {
-				port("\\A", param("\\WIDTH"));
-				port("\\B", param("\\WIDTH"));
-				port("\\S", 1);
-				port("\\Y", param("\\WIDTH"));
+			if (cell->type == ID($mux)) {
+				port(ID::A, param(ID(WIDTH)));
+				port(ID::B, param(ID(WIDTH)));
+				port(ID(S), 1);
+				port(ID::Y, param(ID(WIDTH)));
 				check_expected();
 				return;
 			}
 
-			if (cell->type == "$pmux") {
-				port("\\A", param("\\WIDTH"));
-				port("\\B", param("\\WIDTH") * param("\\S_WIDTH"));
-				port("\\S", param("\\S_WIDTH"));
-				port("\\Y", param("\\WIDTH"));
+			if (cell->type == ID($pmux)) {
+				port(ID::A, param(ID(WIDTH)));
+				port(ID::B, param(ID(WIDTH)) * param(ID(S_WIDTH)));
+				port(ID(S), param(ID(S_WIDTH)));
+				port(ID::Y, param(ID(WIDTH)));
 				check_expected();
 				return;
 			}
 
-			if (cell->type == "$lut") {
-				param("\\LUT");
-				port("\\A", param("\\WIDTH"));
-				port("\\Y", 1);
+			if (cell->type == ID($lut)) {
+				param(ID(LUT));
+				port(ID::A, param(ID(WIDTH)));
+				port(ID::Y, 1);
 				check_expected();
 				return;
 			}
 
-			if (cell->type == "$sop") {
-				param("\\DEPTH");
-				param("\\TABLE");
-				port("\\A", param("\\WIDTH"));
-				port("\\Y", 1);
+			if (cell->type == ID($sop)) {
+				param(ID(DEPTH));
+				param(ID(TABLE));
+				port(ID::A, param(ID(WIDTH)));
+				port(ID::Y, 1);
 				check_expected();
 				return;
 			}
 
-			if (cell->type == "$sr") {
-				param_bool("\\SET_POLARITY");
-				param_bool("\\CLR_POLARITY");
-				port("\\SET", param("\\WIDTH"));
-				port("\\CLR", param("\\WIDTH"));
-				port("\\Q",   param("\\WIDTH"));
+			if (cell->type == ID($sr)) {
+				param_bool(ID(SET_POLARITY));
+				param_bool(ID(CLR_POLARITY));
+				port(ID(SET), param(ID(WIDTH)));
+				port(ID(CLR), param(ID(WIDTH)));
+				port(ID(Q),   param(ID(WIDTH)));
 				check_expected();
 				return;
 			}
 
-			if (cell->type == "$ff") {
-				port("\\D", param("\\WIDTH"));
-				port("\\Q", param("\\WIDTH"));
+			if (cell->type == ID($ff)) {
+				port(ID(D), param(ID(WIDTH)));
+				port(ID(Q), param(ID(WIDTH)));
 				check_expected();
 				return;
 			}
 
-			if (cell->type == "$dff") {
-				param_bool("\\CLK_POLARITY");
-				port("\\CLK", 1);
-				port("\\D", param("\\WIDTH"));
-				port("\\Q", param("\\WIDTH"));
+			if (cell->type == ID($dff)) {
+				param_bool(ID(CLK_POLARITY));
+				port(ID(CLK), 1);
+				port(ID(D), param(ID(WIDTH)));
+				port(ID(Q), param(ID(WIDTH)));
 				check_expected();
 				return;
 			}
 
-			if (cell->type == "$dffe") {
-				param_bool("\\CLK_POLARITY");
-				param_bool("\\EN_POLARITY");
-				port("\\CLK", 1);
-				port("\\EN", 1);
-				port("\\D", param("\\WIDTH"));
-				port("\\Q", param("\\WIDTH"));
+			if (cell->type == ID($dffe)) {
+				param_bool(ID(CLK_POLARITY));
+				param_bool(ID(EN_POLARITY));
+				port(ID(CLK), 1);
+				port(ID(EN), 1);
+				port(ID(D), param(ID(WIDTH)));
+				port(ID(Q), param(ID(WIDTH)));
 				check_expected();
 				return;
 			}
 
-			if (cell->type == "$dffsr") {
-				param_bool("\\CLK_POLARITY");
-				param_bool("\\SET_POLARITY");
-				param_bool("\\CLR_POLARITY");
-				port("\\CLK", 1);
-				port("\\SET", param("\\WIDTH"));
-				port("\\CLR", param("\\WIDTH"));
-				port("\\D", param("\\WIDTH"));
-				port("\\Q", param("\\WIDTH"));
+			if (cell->type == ID($dffsr)) {
+				param_bool(ID(CLK_POLARITY));
+				param_bool(ID(SET_POLARITY));
+				param_bool(ID(CLR_POLARITY));
+				port(ID(CLK), 1);
+				port(ID(SET), param(ID(WIDTH)));
+				port(ID(CLR), param(ID(WIDTH)));
+				port(ID(D), param(ID(WIDTH)));
+				port(ID(Q), param(ID(WIDTH)));
 				check_expected();
 				return;
 			}
 
-			if (cell->type == "$adff") {
-				param_bool("\\CLK_POLARITY");
-				param_bool("\\ARST_POLARITY");
-				param_bits("\\ARST_VALUE", param("\\WIDTH"));
-				port("\\CLK", 1);
-				port("\\ARST", 1);
-				port("\\D", param("\\WIDTH"));
-				port("\\Q", param("\\WIDTH"));
+			if (cell->type == ID($adff)) {
+				param_bool(ID(CLK_POLARITY));
+				param_bool(ID(ARST_POLARITY));
+				param_bits(ID(ARST_VALUE), param(ID(WIDTH)));
+				port(ID(CLK), 1);
+				port(ID(ARST), 1);
+				port(ID(D), param(ID(WIDTH)));
+				port(ID(Q), param(ID(WIDTH)));
 				check_expected();
 				return;
 			}
 
-			if (cell->type == "$dlatch") {
-				param_bool("\\EN_POLARITY");
-				port("\\EN", 1);
-				port("\\D", param("\\WIDTH"));
-				port("\\Q", param("\\WIDTH"));
+			if (cell->type == ID($dlatch)) {
+				param_bool(ID(EN_POLARITY));
+				port(ID(EN), 1);
+				port(ID(D), param(ID(WIDTH)));
+				port(ID(Q), param(ID(WIDTH)));
 				check_expected();
 				return;
 			}
 
-			if (cell->type == "$dlatchsr") {
-				param_bool("\\EN_POLARITY");
-				param_bool("\\SET_POLARITY");
-				param_bool("\\CLR_POLARITY");
-				port("\\EN", 1);
-				port("\\SET", param("\\WIDTH"));
-				port("\\CLR", param("\\WIDTH"));
-				port("\\D", param("\\WIDTH"));
-				port("\\Q", param("\\WIDTH"));
+			if (cell->type == ID($dlatchsr)) {
+				param_bool(ID(EN_POLARITY));
+				param_bool(ID(SET_POLARITY));
+				param_bool(ID(CLR_POLARITY));
+				port(ID(EN), 1);
+				port(ID(SET), param(ID(WIDTH)));
+				port(ID(CLR), param(ID(WIDTH)));
+				port(ID(D), param(ID(WIDTH)));
+				port(ID(Q), param(ID(WIDTH)));
 				check_expected();
 				return;
 			}
 
-			if (cell->type == "$fsm") {
-				param("\\NAME");
-				param_bool("\\CLK_POLARITY");
-				param_bool("\\ARST_POLARITY");
-				param("\\STATE_BITS");
-				param("\\STATE_NUM");
-				param("\\STATE_NUM_LOG2");
-				param("\\STATE_RST");
-				param_bits("\\STATE_TABLE", param("\\STATE_BITS") * param("\\STATE_NUM"));
-				param("\\TRANS_NUM");
-				param_bits("\\TRANS_TABLE", param("\\TRANS_NUM") * (2*param("\\STATE_NUM_LOG2") + param("\\CTRL_IN_WIDTH") + param("\\CTRL_OUT_WIDTH")));
-				port("\\CLK", 1);
-				port("\\ARST", 1);
-				port("\\CTRL_IN", param("\\CTRL_IN_WIDTH"));
-				port("\\CTRL_OUT", param("\\CTRL_OUT_WIDTH"));
+			if (cell->type == ID($fsm)) {
+				param(ID(NAME));
+				param_bool(ID(CLK_POLARITY));
+				param_bool(ID(ARST_POLARITY));
+				param(ID(STATE_BITS));
+				param(ID(STATE_NUM));
+				param(ID(STATE_NUM_LOG2));
+				param(ID(STATE_RST));
+				param_bits(ID(STATE_TABLE), param(ID(STATE_BITS)) * param(ID(STATE_NUM)));
+				param(ID(TRANS_NUM));
+				param_bits(ID(TRANS_TABLE), param(ID(TRANS_NUM)) * (2*param(ID(STATE_NUM_LOG2)) + param(ID(CTRL_IN_WIDTH)) + param(ID(CTRL_OUT_WIDTH))));
+				port(ID(CLK), 1);
+				port(ID(ARST), 1);
+				port(ID(CTRL_IN), param(ID(CTRL_IN_WIDTH)));
+				port(ID(CTRL_OUT), param(ID(CTRL_OUT_WIDTH)));
 				check_expected();
 				return;
 			}
 
-			if (cell->type == "$memrd") {
-				param("\\MEMID");
-				param_bool("\\CLK_ENABLE");
-				param_bool("\\CLK_POLARITY");
-				param_bool("\\TRANSPARENT");
-				port("\\CLK", 1);
-				port("\\EN", 1);
-				port("\\ADDR", param("\\ABITS"));
-				port("\\DATA", param("\\WIDTH"));
+			if (cell->type == ID($memrd)) {
+				param(ID(MEMID));
+				param_bool(ID(CLK_ENABLE));
+				param_bool(ID(CLK_POLARITY));
+				param_bool(ID(TRANSPARENT));
+				port(ID(CLK), 1);
+				port(ID(EN), 1);
+				port(ID(ADDR), param(ID(ABITS)));
+				port(ID(DATA), param(ID(WIDTH)));
 				check_expected();
 				return;
 			}
 
-			if (cell->type == "$memwr") {
-				param("\\MEMID");
-				param_bool("\\CLK_ENABLE");
-				param_bool("\\CLK_POLARITY");
-				param("\\PRIORITY");
-				port("\\CLK", 1);
-				port("\\EN", param("\\WIDTH"));
-				port("\\ADDR", param("\\ABITS"));
-				port("\\DATA", param("\\WIDTH"));
+			if (cell->type == ID($memwr)) {
+				param(ID(MEMID));
+				param_bool(ID(CLK_ENABLE));
+				param_bool(ID(CLK_POLARITY));
+				param(ID(PRIORITY));
+				port(ID(CLK), 1);
+				port(ID(EN), param(ID(WIDTH)));
+				port(ID(ADDR), param(ID(ABITS)));
+				port(ID(DATA), param(ID(WIDTH)));
 				check_expected();
 				return;
 			}
 
-			if (cell->type == "$meminit") {
-				param("\\MEMID");
-				param("\\PRIORITY");
-				port("\\ADDR", param("\\ABITS"));
-				port("\\DATA", param("\\WIDTH") * param("\\WORDS"));
+			if (cell->type == ID($meminit)) {
+				param(ID(MEMID));
+				param(ID(PRIORITY));
+				port(ID(ADDR), param(ID(ABITS)));
+				port(ID(DATA), param(ID(WIDTH)) * param(ID(WORDS)));
 				check_expected();
 				return;
 			}
 
-			if (cell->type == "$mem") {
-				param("\\MEMID");
-				param("\\SIZE");
-				param("\\OFFSET");
-				param("\\INIT");
-				param_bits("\\RD_CLK_ENABLE", max(1, param("\\RD_PORTS")));
-				param_bits("\\RD_CLK_POLARITY", max(1, param("\\RD_PORTS")));
-				param_bits("\\RD_TRANSPARENT", max(1, param("\\RD_PORTS")));
-				param_bits("\\WR_CLK_ENABLE", max(1, param("\\WR_PORTS")));
-				param_bits("\\WR_CLK_POLARITY", max(1, param("\\WR_PORTS")));
-				port("\\RD_CLK", param("\\RD_PORTS"));
-				port("\\RD_EN", param("\\RD_PORTS"));
-				port("\\RD_ADDR", param("\\RD_PORTS") * param("\\ABITS"));
-				port("\\RD_DATA", param("\\RD_PORTS") * param("\\WIDTH"));
-				port("\\WR_CLK", param("\\WR_PORTS"));
-				port("\\WR_EN", param("\\WR_PORTS") * param("\\WIDTH"));
-				port("\\WR_ADDR", param("\\WR_PORTS") * param("\\ABITS"));
-				port("\\WR_DATA", param("\\WR_PORTS") * param("\\WIDTH"));
+			if (cell->type == ID($mem)) {
+				param(ID(MEMID));
+				param(ID(SIZE));
+				param(ID(OFFSET));
+				param(ID(INIT));
+				param_bits(ID(RD_CLK_ENABLE), max(1, param(ID(RD_PORTS))));
+				param_bits(ID(RD_CLK_POLARITY), max(1, param(ID(RD_PORTS))));
+				param_bits(ID(RD_TRANSPARENT), max(1, param(ID(RD_PORTS))));
+				param_bits(ID(WR_CLK_ENABLE), max(1, param(ID(WR_PORTS))));
+				param_bits(ID(WR_CLK_POLARITY), max(1, param(ID(WR_PORTS))));
+				port(ID(RD_CLK), param(ID(RD_PORTS)));
+				port(ID(RD_EN), param(ID(RD_PORTS)));
+				port(ID(RD_ADDR), param(ID(RD_PORTS)) * param(ID(ABITS)));
+				port(ID(RD_DATA), param(ID(RD_PORTS)) * param(ID(WIDTH)));
+				port(ID(WR_CLK), param(ID(WR_PORTS)));
+				port(ID(WR_EN), param(ID(WR_PORTS)) * param(ID(WIDTH)));
+				port(ID(WR_ADDR), param(ID(WR_PORTS)) * param(ID(ABITS)));
+				port(ID(WR_DATA), param(ID(WR_PORTS)) * param(ID(WIDTH)));
 				check_expected();
 				return;
 			}
 
-			if (cell->type == "$tribuf") {
-				port("\\A", param("\\WIDTH"));
-				port("\\Y", param("\\WIDTH"));
-				port("\\EN", 1);
+			if (cell->type == ID($tribuf)) {
+				port(ID::A, param(ID(WIDTH)));
+				port(ID::Y, param(ID(WIDTH)));
+				port(ID(EN), 1);
 				check_expected();
 				return;
 			}
 
-			if (cell->type.in("$assert", "$assume", "$live", "$fair", "$cover")) {
-				port("\\A", 1);
-				port("\\EN", 1);
+			if (cell->type.in(ID($assert), ID($assume), ID($live), ID($fair), ID($cover))) {
+				port(ID::A, 1);
+				port(ID(EN), 1);
 				check_expected();
 				return;
 			}
 
-			if (cell->type == "$initstate") {
-				port("\\Y", 1);
+			if (cell->type == ID($initstate)) {
+				port(ID::Y, 1);
 				check_expected();
 				return;
 			}
 
-			if (cell->type.in("$anyconst", "$anyseq", "$allconst", "$allseq")) {
-				port("\\Y", param("\\WIDTH"));
+			if (cell->type.in(ID($anyconst), ID($anyseq), ID($allconst), ID($allseq))) {
+				port(ID::Y, param(ID(WIDTH)));
 				check_expected();
 				return;
 			}
 
-			if (cell->type == "$equiv") {
-				port("\\A", 1);
-				port("\\B", 1);
-				port("\\Y", 1);
+			if (cell->type == ID($equiv)) {
+				port(ID::A, 1);
+				port(ID::B, 1);
+				port(ID::Y, 1);
 				check_expected();
 				return;
 			}
 
-			if (cell->type.in("$specify2", "$specify3")) {
-				param_bool("\\FULL");
-				param_bool("\\SRC_DST_PEN");
-				param_bool("\\SRC_DST_POL");
-				param("\\T_RISE_MIN");
-				param("\\T_RISE_TYP");
-				param("\\T_RISE_MAX");
-				param("\\T_FALL_MIN");
-				param("\\T_FALL_TYP");
-				param("\\T_FALL_MAX");
-				port("\\EN", 1);
-				port("\\SRC", param("\\SRC_WIDTH"));
-				port("\\DST", param("\\DST_WIDTH"));
-				if (cell->type == "$specify3") {
-					param_bool("\\EDGE_EN");
-					param_bool("\\EDGE_POL");
-					param_bool("\\DAT_DST_PEN");
-					param_bool("\\DAT_DST_POL");
-					port("\\DAT", param("\\DST_WIDTH"));
+			if (cell->type.in(ID($specify2), ID($specify3))) {
+				param_bool(ID(FULL));
+				param_bool(ID(SRC_DST_PEN));
+				param_bool(ID(SRC_DST_POL));
+				param(ID(T_RISE_MIN));
+				param(ID(T_RISE_TYP));
+				param(ID(T_RISE_MAX));
+				param(ID(T_FALL_MIN));
+				param(ID(T_FALL_TYP));
+				param(ID(T_FALL_MAX));
+				port(ID(EN), 1);
+				port(ID(SRC), param(ID(SRC_WIDTH)));
+				port(ID(DST), param(ID(DST_WIDTH)));
+				if (cell->type == ID($specify3)) {
+					param_bool(ID(EDGE_EN));
+					param_bool(ID(EDGE_POL));
+					param_bool(ID(DAT_DST_PEN));
+					param_bool(ID(DAT_DST_POL));
+					port(ID(DAT), param(ID(DST_WIDTH)));
 				}
 				check_expected();
 				return;
 			}
 
-			if (cell->type == "$specrule") {
-				param("\\TYPE");
-				param_bool("\\SRC_PEN");
-				param_bool("\\SRC_POL");
-				param_bool("\\DST_PEN");
-				param_bool("\\DST_POL");
-				param("\\T_LIMIT");
-				param("\\T_LIMIT2");
-				port("\\SRC_EN", 1);
-				port("\\DST_EN", 1);
-				port("\\SRC", param("\\SRC_WIDTH"));
-				port("\\DST", param("\\DST_WIDTH"));
+			if (cell->type == ID($specrule)) {
+				param(ID(TYPE));
+				param_bool(ID(SRC_PEN));
+				param_bool(ID(SRC_POL));
+				param_bool(ID(DST_PEN));
+				param_bool(ID(DST_POL));
+				param(ID(T_LIMIT));
+				param(ID(T_LIMIT2));
+				port(ID(SRC_EN), 1);
+				port(ID(DST_EN), 1);
+				port(ID(SRC), param(ID(SRC_WIDTH)));
+				port(ID(DST), param(ID(DST_WIDTH)));
 				check_expected();
 				return;
 			}
 
-			if (cell->type == "$_BUF_")    { check_gate("AY"); return; }
-			if (cell->type == "$_NOT_")    { check_gate("AY"); return; }
-			if (cell->type == "$_AND_")    { check_gate("ABY"); return; }
-			if (cell->type == "$_NAND_")   { check_gate("ABY"); return; }
-			if (cell->type == "$_OR_")     { check_gate("ABY"); return; }
-			if (cell->type == "$_NOR_")    { check_gate("ABY"); return; }
-			if (cell->type == "$_XOR_")    { check_gate("ABY"); return; }
-			if (cell->type == "$_XNOR_")   { check_gate("ABY"); return; }
-			if (cell->type == "$_ANDNOT_") { check_gate("ABY"); return; }
-			if (cell->type == "$_ORNOT_")  { check_gate("ABY"); return; }
-			if (cell->type == "$_MUX_")    { check_gate("ABSY"); return; }
-			if (cell->type == "$_AOI3_")   { check_gate("ABCY"); return; }
-			if (cell->type == "$_OAI3_")   { check_gate("ABCY"); return; }
-			if (cell->type == "$_AOI4_")   { check_gate("ABCDY"); return; }
-			if (cell->type == "$_OAI4_")   { check_gate("ABCDY"); return; }
+			if (cell->type == ID($_BUF_))    { check_gate("AY"); return; }
+			if (cell->type == ID($_NOT_))    { check_gate("AY"); return; }
+			if (cell->type == ID($_AND_))    { check_gate("ABY"); return; }
+			if (cell->type == ID($_NAND_))   { check_gate("ABY"); return; }
+			if (cell->type == ID($_OR_))     { check_gate("ABY"); return; }
+			if (cell->type == ID($_NOR_))    { check_gate("ABY"); return; }
+			if (cell->type == ID($_XOR_))    { check_gate("ABY"); return; }
+			if (cell->type == ID($_XNOR_))   { check_gate("ABY"); return; }
+			if (cell->type == ID($_ANDNOT_)) { check_gate("ABY"); return; }
+			if (cell->type == ID($_ORNOT_))  { check_gate("ABY"); return; }
+			if (cell->type == ID($_MUX_))    { check_gate("ABSY"); return; }
+			if (cell->type == ID($_NMUX_))   { check_gate("ABSY"); return; }
+			if (cell->type == ID($_AOI3_))   { check_gate("ABCY"); return; }
+			if (cell->type == ID($_OAI3_))   { check_gate("ABCY"); return; }
+			if (cell->type == ID($_AOI4_))   { check_gate("ABCDY"); return; }
+			if (cell->type == ID($_OAI4_))   { check_gate("ABCDY"); return; }
 
-			if (cell->type == "$_TBUF_")  { check_gate("AYE"); return; }
+			if (cell->type == ID($_TBUF_))  { check_gate("AYE"); return; }
 
-			if (cell->type == "$_MUX4_")  { check_gate("ABCDSTY"); return; }
-			if (cell->type == "$_MUX8_")  { check_gate("ABCDEFGHSTUY"); return; }
-			if (cell->type == "$_MUX16_") { check_gate("ABCDEFGHIJKLMNOPSTUVY"); return; }
+			if (cell->type == ID($_MUX4_))  { check_gate("ABCDSTY"); return; }
+			if (cell->type == ID($_MUX8_))  { check_gate("ABCDEFGHSTUY"); return; }
+			if (cell->type == ID($_MUX16_)) { check_gate("ABCDEFGHIJKLMNOPSTUVY"); return; }
 
-			if (cell->type == "$_SR_NN_") { check_gate("SRQ"); return; }
-			if (cell->type == "$_SR_NP_") { check_gate("SRQ"); return; }
-			if (cell->type == "$_SR_PN_") { check_gate("SRQ"); return; }
-			if (cell->type == "$_SR_PP_") { check_gate("SRQ"); return; }
+			if (cell->type == ID($_SR_NN_)) { check_gate("SRQ"); return; }
+			if (cell->type == ID($_SR_NP_)) { check_gate("SRQ"); return; }
+			if (cell->type == ID($_SR_PN_)) { check_gate("SRQ"); return; }
+			if (cell->type == ID($_SR_PP_)) { check_gate("SRQ"); return; }
 
-			if (cell->type == "$_FF_")    { check_gate("DQ");  return; }
-			if (cell->type == "$_DFF_N_") { check_gate("DQC"); return; }
-			if (cell->type == "$_DFF_P_") { check_gate("DQC"); return; }
+			if (cell->type == ID($_FF_))    { check_gate("DQ");  return; }
+			if (cell->type == ID($_DFF_N_)) { check_gate("DQC"); return; }
+			if (cell->type == ID($_DFF_P_)) { check_gate("DQC"); return; }
 
-			if (cell->type == "$_DFFE_NN_") { check_gate("DQCE"); return; }
-			if (cell->type == "$_DFFE_NP_") { check_gate("DQCE"); return; }
-			if (cell->type == "$_DFFE_PN_") { check_gate("DQCE"); return; }
-			if (cell->type == "$_DFFE_PP_") { check_gate("DQCE"); return; }
+			if (cell->type == ID($_DFFE_NN_)) { check_gate("DQCE"); return; }
+			if (cell->type == ID($_DFFE_NP_)) { check_gate("DQCE"); return; }
+			if (cell->type == ID($_DFFE_PN_)) { check_gate("DQCE"); return; }
+			if (cell->type == ID($_DFFE_PP_)) { check_gate("DQCE"); return; }
 
-			if (cell->type == "$_DFF_NN0_") { check_gate("DQCR"); return; }
-			if (cell->type == "$_DFF_NN1_") { check_gate("DQCR"); return; }
-			if (cell->type == "$_DFF_NP0_") { check_gate("DQCR"); return; }
-			if (cell->type == "$_DFF_NP1_") { check_gate("DQCR"); return; }
-			if (cell->type == "$_DFF_PN0_") { check_gate("DQCR"); return; }
-			if (cell->type == "$_DFF_PN1_") { check_gate("DQCR"); return; }
-			if (cell->type == "$_DFF_PP0_") { check_gate("DQCR"); return; }
-			if (cell->type == "$_DFF_PP1_") { check_gate("DQCR"); return; }
+			if (cell->type == ID($_DFF_NN0_)) { check_gate("DQCR"); return; }
+			if (cell->type == ID($_DFF_NN1_)) { check_gate("DQCR"); return; }
+			if (cell->type == ID($_DFF_NP0_)) { check_gate("DQCR"); return; }
+			if (cell->type == ID($_DFF_NP1_)) { check_gate("DQCR"); return; }
+			if (cell->type == ID($_DFF_PN0_)) { check_gate("DQCR"); return; }
+			if (cell->type == ID($_DFF_PN1_)) { check_gate("DQCR"); return; }
+			if (cell->type == ID($_DFF_PP0_)) { check_gate("DQCR"); return; }
+			if (cell->type == ID($_DFF_PP1_)) { check_gate("DQCR"); return; }
 
-			if (cell->type == "$_DFFSR_NNN_") { check_gate("CSRDQ"); return; }
-			if (cell->type == "$_DFFSR_NNP_") { check_gate("CSRDQ"); return; }
-			if (cell->type == "$_DFFSR_NPN_") { check_gate("CSRDQ"); return; }
-			if (cell->type == "$_DFFSR_NPP_") { check_gate("CSRDQ"); return; }
-			if (cell->type == "$_DFFSR_PNN_") { check_gate("CSRDQ"); return; }
-			if (cell->type == "$_DFFSR_PNP_") { check_gate("CSRDQ"); return; }
-			if (cell->type == "$_DFFSR_PPN_") { check_gate("CSRDQ"); return; }
-			if (cell->type == "$_DFFSR_PPP_") { check_gate("CSRDQ"); return; }
+			if (cell->type == ID($_DFFSR_NNN_)) { check_gate("CSRDQ"); return; }
+			if (cell->type == ID($_DFFSR_NNP_)) { check_gate("CSRDQ"); return; }
+			if (cell->type == ID($_DFFSR_NPN_)) { check_gate("CSRDQ"); return; }
+			if (cell->type == ID($_DFFSR_NPP_)) { check_gate("CSRDQ"); return; }
+			if (cell->type == ID($_DFFSR_PNN_)) { check_gate("CSRDQ"); return; }
+			if (cell->type == ID($_DFFSR_PNP_)) { check_gate("CSRDQ"); return; }
+			if (cell->type == ID($_DFFSR_PPN_)) { check_gate("CSRDQ"); return; }
+			if (cell->type == ID($_DFFSR_PPP_)) { check_gate("CSRDQ"); return; }
 
-			if (cell->type == "$_DLATCH_N_") { check_gate("EDQ"); return; }
-			if (cell->type == "$_DLATCH_P_") { check_gate("EDQ"); return; }
+			if (cell->type == ID($_DLATCH_N_)) { check_gate("EDQ"); return; }
+			if (cell->type == ID($_DLATCH_P_)) { check_gate("EDQ"); return; }
 
-			if (cell->type == "$_DLATCHSR_NNN_") { check_gate("ESRDQ"); return; }
-			if (cell->type == "$_DLATCHSR_NNP_") { check_gate("ESRDQ"); return; }
-			if (cell->type == "$_DLATCHSR_NPN_") { check_gate("ESRDQ"); return; }
-			if (cell->type == "$_DLATCHSR_NPP_") { check_gate("ESRDQ"); return; }
-			if (cell->type == "$_DLATCHSR_PNN_") { check_gate("ESRDQ"); return; }
-			if (cell->type == "$_DLATCHSR_PNP_") { check_gate("ESRDQ"); return; }
-			if (cell->type == "$_DLATCHSR_PPN_") { check_gate("ESRDQ"); return; }
-			if (cell->type == "$_DLATCHSR_PPP_") { check_gate("ESRDQ"); return; }
+			if (cell->type == ID($_DLATCHSR_NNN_)) { check_gate("ESRDQ"); return; }
+			if (cell->type == ID($_DLATCHSR_NNP_)) { check_gate("ESRDQ"); return; }
+			if (cell->type == ID($_DLATCHSR_NPN_)) { check_gate("ESRDQ"); return; }
+			if (cell->type == ID($_DLATCHSR_NPP_)) { check_gate("ESRDQ"); return; }
+			if (cell->type == ID($_DLATCHSR_PNN_)) { check_gate("ESRDQ"); return; }
+			if (cell->type == ID($_DLATCHSR_PNP_)) { check_gate("ESRDQ"); return; }
+			if (cell->type == ID($_DLATCHSR_PPN_)) { check_gate("ESRDQ"); return; }
+			if (cell->type == ID($_DLATCHSR_PPP_)) { check_gate("ESRDQ"); return; }
 
 			error(__LINE__);
 		}
@@ -1816,11 +1828,11 @@ RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, const RTLIL::Cell *oth
 #define DEF_METHOD(_func, _y_size, _type) \
 	RTLIL::Cell* RTLIL::Module::add ## _func(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_y, bool is_signed, const std::string &src) { \
 		RTLIL::Cell *cell = addCell(name, _type);           \
-		cell->parameters["\\A_SIGNED"] = is_signed;         \
-		cell->parameters["\\A_WIDTH"] = sig_a.size();       \
-		cell->parameters["\\Y_WIDTH"] = sig_y.size();       \
-		cell->setPort("\\A", sig_a);                        \
-		cell->setPort("\\Y", sig_y);                        \
+		cell->parameters[ID(A_SIGNED)] = is_signed;         \
+		cell->parameters[ID(A_WIDTH)] = sig_a.size();       \
+		cell->parameters[ID(Y_WIDTH)] = sig_y.size();       \
+		cell->setPort(ID::A, sig_a);                        \
+		cell->setPort(ID::Y, sig_y);                        \
 		cell->set_src_attribute(src);                       \
 		return cell;                                        \
 	} \
@@ -1829,28 +1841,28 @@ RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, const RTLIL::Cell *oth
 		add ## _func(name, sig_a, sig_y, is_signed, src);   \
 		return sig_y;                                       \
 	}
-DEF_METHOD(Not,        sig_a.size(), "$not")
-DEF_METHOD(Pos,        sig_a.size(), "$pos")
-DEF_METHOD(Neg,        sig_a.size(), "$neg")
-DEF_METHOD(ReduceAnd,  1, "$reduce_and")
-DEF_METHOD(ReduceOr,   1, "$reduce_or")
-DEF_METHOD(ReduceXor,  1, "$reduce_xor")
-DEF_METHOD(ReduceXnor, 1, "$reduce_xnor")
-DEF_METHOD(ReduceBool, 1, "$reduce_bool")
-DEF_METHOD(LogicNot,   1, "$logic_not")
+DEF_METHOD(Not,        sig_a.size(), ID($not))
+DEF_METHOD(Pos,        sig_a.size(), ID($pos))
+DEF_METHOD(Neg,        sig_a.size(), ID($neg))
+DEF_METHOD(ReduceAnd,  1, ID($reduce_and))
+DEF_METHOD(ReduceOr,   1, ID($reduce_or))
+DEF_METHOD(ReduceXor,  1, ID($reduce_xor))
+DEF_METHOD(ReduceXnor, 1, ID($reduce_xnor))
+DEF_METHOD(ReduceBool, 1, ID($reduce_bool))
+DEF_METHOD(LogicNot,   1, ID($logic_not))
 #undef DEF_METHOD
 
 #define DEF_METHOD(_func, _y_size, _type) \
 	RTLIL::Cell* RTLIL::Module::add ## _func(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed, const std::string &src) { \
 		RTLIL::Cell *cell = addCell(name, _type);           \
-		cell->parameters["\\A_SIGNED"] = is_signed;         \
-		cell->parameters["\\B_SIGNED"] = is_signed;         \
-		cell->parameters["\\A_WIDTH"] = sig_a.size();       \
-		cell->parameters["\\B_WIDTH"] = sig_b.size();       \
-		cell->parameters["\\Y_WIDTH"] = sig_y.size();       \
-		cell->setPort("\\A", sig_a);                        \
-		cell->setPort("\\B", sig_b);                        \
-		cell->setPort("\\Y", sig_y);                        \
+		cell->parameters[ID(A_SIGNED)] = is_signed;         \
+		cell->parameters[ID(B_SIGNED)] = is_signed;         \
+		cell->parameters[ID(A_WIDTH)] = sig_a.size();       \
+		cell->parameters[ID(B_WIDTH)] = sig_b.size();       \
+		cell->parameters[ID(Y_WIDTH)] = sig_y.size();       \
+		cell->setPort(ID::A, sig_a);                        \
+		cell->setPort(ID::B, sig_b);                        \
+		cell->setPort(ID::Y, sig_y);                        \
 		cell->set_src_attribute(src);                       \
 		return cell;                                        \
 	} \
@@ -1859,42 +1871,42 @@ DEF_METHOD(LogicNot,   1, "$logic_not")
 		add ## _func(name, sig_a, sig_b, sig_y, is_signed, src); \
 		return sig_y;                                            \
 	}
-DEF_METHOD(And,      max(sig_a.size(), sig_b.size()), "$and")
-DEF_METHOD(Or,       max(sig_a.size(), sig_b.size()), "$or")
-DEF_METHOD(Xor,      max(sig_a.size(), sig_b.size()), "$xor")
-DEF_METHOD(Xnor,     max(sig_a.size(), sig_b.size()), "$xnor")
-DEF_METHOD(Shl,      sig_a.size(), "$shl")
-DEF_METHOD(Shr,      sig_a.size(), "$shr")
-DEF_METHOD(Sshl,     sig_a.size(), "$sshl")
-DEF_METHOD(Sshr,     sig_a.size(), "$sshr")
-DEF_METHOD(Shift,    sig_a.size(), "$shift")
-DEF_METHOD(Shiftx,   sig_a.size(), "$shiftx")
-DEF_METHOD(Lt,       1, "$lt")
-DEF_METHOD(Le,       1, "$le")
-DEF_METHOD(Eq,       1, "$eq")
-DEF_METHOD(Ne,       1, "$ne")
-DEF_METHOD(Eqx,      1, "$eqx")
-DEF_METHOD(Nex,      1, "$nex")
-DEF_METHOD(Ge,       1, "$ge")
-DEF_METHOD(Gt,       1, "$gt")
-DEF_METHOD(Add,      max(sig_a.size(), sig_b.size()), "$add")
-DEF_METHOD(Sub,      max(sig_a.size(), sig_b.size()), "$sub")
-DEF_METHOD(Mul,      max(sig_a.size(), sig_b.size()), "$mul")
-DEF_METHOD(Div,      max(sig_a.size(), sig_b.size()), "$div")
-DEF_METHOD(Mod,      max(sig_a.size(), sig_b.size()), "$mod")
-DEF_METHOD(LogicAnd, 1, "$logic_and")
-DEF_METHOD(LogicOr,  1, "$logic_or")
+DEF_METHOD(And,      max(sig_a.size(), sig_b.size()), ID($and))
+DEF_METHOD(Or,       max(sig_a.size(), sig_b.size()), ID($or))
+DEF_METHOD(Xor,      max(sig_a.size(), sig_b.size()), ID($xor))
+DEF_METHOD(Xnor,     max(sig_a.size(), sig_b.size()), ID($xnor))
+DEF_METHOD(Shl,      sig_a.size(), ID($shl))
+DEF_METHOD(Shr,      sig_a.size(), ID($shr))
+DEF_METHOD(Sshl,     sig_a.size(), ID($sshl))
+DEF_METHOD(Sshr,     sig_a.size(), ID($sshr))
+DEF_METHOD(Shift,    sig_a.size(), ID($shift))
+DEF_METHOD(Shiftx,   sig_a.size(), ID($shiftx))
+DEF_METHOD(Lt,       1, ID($lt))
+DEF_METHOD(Le,       1, ID($le))
+DEF_METHOD(Eq,       1, ID($eq))
+DEF_METHOD(Ne,       1, ID($ne))
+DEF_METHOD(Eqx,      1, ID($eqx))
+DEF_METHOD(Nex,      1, ID($nex))
+DEF_METHOD(Ge,       1, ID($ge))
+DEF_METHOD(Gt,       1, ID($gt))
+DEF_METHOD(Add,      max(sig_a.size(), sig_b.size()), ID($add))
+DEF_METHOD(Sub,      max(sig_a.size(), sig_b.size()), ID($sub))
+DEF_METHOD(Mul,      max(sig_a.size(), sig_b.size()), ID($mul))
+DEF_METHOD(Div,      max(sig_a.size(), sig_b.size()), ID($div))
+DEF_METHOD(Mod,      max(sig_a.size(), sig_b.size()), ID($mod))
+DEF_METHOD(LogicAnd, 1, ID($logic_and))
+DEF_METHOD(LogicOr,  1, ID($logic_or))
 #undef DEF_METHOD
 
 #define DEF_METHOD(_func, _type, _pmux) \
 	RTLIL::Cell* RTLIL::Module::add ## _func(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_s, RTLIL::SigSpec sig_y, const std::string &src) { \
 		RTLIL::Cell *cell = addCell(name, _type);                 \
-		cell->parameters["\\WIDTH"] = sig_a.size();               \
-		if (_pmux) cell->parameters["\\S_WIDTH"] = sig_s.size();  \
-		cell->setPort("\\A", sig_a);                              \
-		cell->setPort("\\B", sig_b);                              \
-		cell->setPort("\\S", sig_s);                              \
-		cell->setPort("\\Y", sig_y);                              \
+		cell->parameters[ID(WIDTH)] = sig_a.size();               \
+		if (_pmux) cell->parameters[ID(S_WIDTH)] = sig_s.size();  \
+		cell->setPort(ID::A, sig_a);                              \
+		cell->setPort(ID::B, sig_b);                              \
+		cell->setPort(ID(S), sig_s);                              \
+		cell->setPort(ID::Y, sig_y);                              \
 		cell->set_src_attribute(src);                             \
 		return cell;                                              \
 	} \
@@ -1903,8 +1915,8 @@ DEF_METHOD(LogicOr,  1, "$logic_or")
 		add ## _func(name, sig_a, sig_b, sig_s, sig_y, src);      \
 		return sig_y;                                             \
 	}
-DEF_METHOD(Mux,      "$mux",        0)
-DEF_METHOD(Pmux,     "$pmux",       1)
+DEF_METHOD(Mux,      ID($mux),        0)
+DEF_METHOD(Pmux,     ID($pmux),       1)
 #undef DEF_METHOD
 
 #define DEF_METHOD_2(_func, _type, _P1, _P2) \
@@ -1965,21 +1977,22 @@ DEF_METHOD(Pmux,     "$pmux",       1)
 		add ## _func(name, sig1, sig2, sig3, sig4, sig5, src); \
 		return sig5;                                           \
 	}
-DEF_METHOD_2(BufGate,    "$_BUF_",    A, Y)
-DEF_METHOD_2(NotGate,    "$_NOT_",    A, Y)
-DEF_METHOD_3(AndGate,    "$_AND_",    A, B, Y)
-DEF_METHOD_3(NandGate,   "$_NAND_",   A, B, Y)
-DEF_METHOD_3(OrGate,     "$_OR_",     A, B, Y)
-DEF_METHOD_3(NorGate,    "$_NOR_",    A, B, Y)
-DEF_METHOD_3(XorGate,    "$_XOR_",    A, B, Y)
-DEF_METHOD_3(XnorGate,   "$_XNOR_",   A, B, Y)
-DEF_METHOD_3(AndnotGate, "$_ANDNOT_", A, B, Y)
-DEF_METHOD_3(OrnotGate,  "$_ORNOT_",  A, B, Y)
-DEF_METHOD_4(MuxGate,    "$_MUX_",    A, B, S, Y)
-DEF_METHOD_4(Aoi3Gate,   "$_AOI3_",   A, B, C, Y)
-DEF_METHOD_4(Oai3Gate,   "$_OAI3_",   A, B, C, Y)
-DEF_METHOD_5(Aoi4Gate,   "$_AOI4_",   A, B, C, D, Y)
-DEF_METHOD_5(Oai4Gate,   "$_OAI4_",   A, B, C, D, Y)
+DEF_METHOD_2(BufGate,    ID($_BUF_),    A, Y)
+DEF_METHOD_2(NotGate,    ID($_NOT_),    A, Y)
+DEF_METHOD_3(AndGate,    ID($_AND_),    A, B, Y)
+DEF_METHOD_3(NandGate,   ID($_NAND_),   A, B, Y)
+DEF_METHOD_3(OrGate,     ID($_OR_),     A, B, Y)
+DEF_METHOD_3(NorGate,    ID($_NOR_),    A, B, Y)
+DEF_METHOD_3(XorGate,    ID($_XOR_),    A, B, Y)
+DEF_METHOD_3(XnorGate,   ID($_XNOR_),   A, B, Y)
+DEF_METHOD_3(AndnotGate, ID($_ANDNOT_), A, B, Y)
+DEF_METHOD_3(OrnotGate,  ID($_ORNOT_),  A, B, Y)
+DEF_METHOD_4(MuxGate,    ID($_MUX_),    A, B, S, Y)
+DEF_METHOD_4(NmuxGate,   ID($_NMUX_),   A, B, S, Y)
+DEF_METHOD_4(Aoi3Gate,   ID($_AOI3_),   A, B, C, Y)
+DEF_METHOD_4(Oai3Gate,   ID($_OAI3_),   A, B, C, Y)
+DEF_METHOD_5(Aoi4Gate,   ID($_AOI4_),   A, B, C, D, Y)
+DEF_METHOD_5(Oai4Gate,   ID($_OAI4_),   A, B, C, D, Y)
 #undef DEF_METHOD_2
 #undef DEF_METHOD_3
 #undef DEF_METHOD_4
@@ -1987,165 +2000,165 @@ DEF_METHOD_5(Oai4Gate,   "$_OAI4_",   A, B, C, D, Y)
 
 RTLIL::Cell* RTLIL::Module::addPow(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool a_signed, bool b_signed, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, "$pow");
-	cell->parameters["\\A_SIGNED"] = a_signed;
-	cell->parameters["\\B_SIGNED"] = b_signed;
-	cell->parameters["\\A_WIDTH"] = sig_a.size();
-	cell->parameters["\\B_WIDTH"] = sig_b.size();
-	cell->parameters["\\Y_WIDTH"] = sig_y.size();
-	cell->setPort("\\A", sig_a);
-	cell->setPort("\\B", sig_b);
-	cell->setPort("\\Y", sig_y);
+	RTLIL::Cell *cell = addCell(name, ID($pow));
+	cell->parameters[ID(A_SIGNED)] = a_signed;
+	cell->parameters[ID(B_SIGNED)] = b_signed;
+	cell->parameters[ID(A_WIDTH)] = sig_a.size();
+	cell->parameters[ID(B_WIDTH)] = sig_b.size();
+	cell->parameters[ID(Y_WIDTH)] = sig_y.size();
+	cell->setPort(ID::A, sig_a);
+	cell->setPort(ID::B, sig_b);
+	cell->setPort(ID::Y, sig_y);
 	cell->set_src_attribute(src);
 	return cell;
 }
 
 RTLIL::Cell* RTLIL::Module::addSlice(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_y, RTLIL::Const offset, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, "$slice");
-	cell->parameters["\\A_WIDTH"] = sig_a.size();
-	cell->parameters["\\Y_WIDTH"] = sig_y.size();
-	cell->parameters["\\OFFSET"] = offset;
-	cell->setPort("\\A", sig_a);
-	cell->setPort("\\Y", sig_y);
+	RTLIL::Cell *cell = addCell(name, ID($slice));
+	cell->parameters[ID(A_WIDTH)] = sig_a.size();
+	cell->parameters[ID(Y_WIDTH)] = sig_y.size();
+	cell->parameters[ID(OFFSET)] = offset;
+	cell->setPort(ID::A, sig_a);
+	cell->setPort(ID::Y, sig_y);
 	cell->set_src_attribute(src);
 	return cell;
 }
 
 RTLIL::Cell* RTLIL::Module::addConcat(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, "$concat");
-	cell->parameters["\\A_WIDTH"] = sig_a.size();
-	cell->parameters["\\B_WIDTH"] = sig_b.size();
-	cell->setPort("\\A", sig_a);
-	cell->setPort("\\B", sig_b);
-	cell->setPort("\\Y", sig_y);
+	RTLIL::Cell *cell = addCell(name, ID($concat));
+	cell->parameters[ID(A_WIDTH)] = sig_a.size();
+	cell->parameters[ID(B_WIDTH)] = sig_b.size();
+	cell->setPort(ID::A, sig_a);
+	cell->setPort(ID::B, sig_b);
+	cell->setPort(ID::Y, sig_y);
 	cell->set_src_attribute(src);
 	return cell;
 }
 
 RTLIL::Cell* RTLIL::Module::addLut(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_y, RTLIL::Const lut, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, "$lut");
-	cell->parameters["\\LUT"] = lut;
-	cell->parameters["\\WIDTH"] = sig_a.size();
-	cell->setPort("\\A", sig_a);
-	cell->setPort("\\Y", sig_y);
+	RTLIL::Cell *cell = addCell(name, ID($lut));
+	cell->parameters[ID(LUT)] = lut;
+	cell->parameters[ID(WIDTH)] = sig_a.size();
+	cell->setPort(ID::A, sig_a);
+	cell->setPort(ID::Y, sig_y);
 	cell->set_src_attribute(src);
 	return cell;
 }
 
 RTLIL::Cell* RTLIL::Module::addTribuf(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_en, RTLIL::SigSpec sig_y, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, "$tribuf");
-	cell->parameters["\\WIDTH"] = sig_a.size();
-	cell->setPort("\\A", sig_a);
-	cell->setPort("\\EN", sig_en);
-	cell->setPort("\\Y", sig_y);
+	RTLIL::Cell *cell = addCell(name, ID($tribuf));
+	cell->parameters[ID(WIDTH)] = sig_a.size();
+	cell->setPort(ID::A, sig_a);
+	cell->setPort(ID(EN), sig_en);
+	cell->setPort(ID::Y, sig_y);
 	cell->set_src_attribute(src);
 	return cell;
 }
 
 RTLIL::Cell* RTLIL::Module::addAssert(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_en, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, "$assert");
-	cell->setPort("\\A", sig_a);
-	cell->setPort("\\EN", sig_en);
+	RTLIL::Cell *cell = addCell(name, ID($assert));
+	cell->setPort(ID::A, sig_a);
+	cell->setPort(ID(EN), sig_en);
 	cell->set_src_attribute(src);
 	return cell;
 }
 
 RTLIL::Cell* RTLIL::Module::addAssume(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_en, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, "$assume");
-	cell->setPort("\\A", sig_a);
-	cell->setPort("\\EN", sig_en);
+	RTLIL::Cell *cell = addCell(name, ID($assume));
+	cell->setPort(ID::A, sig_a);
+	cell->setPort(ID(EN), sig_en);
 	cell->set_src_attribute(src);
 	return cell;
 }
 
 RTLIL::Cell* RTLIL::Module::addLive(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_en, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, "$live");
-	cell->setPort("\\A", sig_a);
-	cell->setPort("\\EN", sig_en);
+	RTLIL::Cell *cell = addCell(name, ID($live));
+	cell->setPort(ID::A, sig_a);
+	cell->setPort(ID(EN), sig_en);
 	cell->set_src_attribute(src);
 	return cell;
 }
 
 RTLIL::Cell* RTLIL::Module::addFair(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_en, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, "$fair");
-	cell->setPort("\\A", sig_a);
-	cell->setPort("\\EN", sig_en);
+	RTLIL::Cell *cell = addCell(name, ID($fair));
+	cell->setPort(ID::A, sig_a);
+	cell->setPort(ID(EN), sig_en);
 	cell->set_src_attribute(src);
 	return cell;
 }
 
 RTLIL::Cell* RTLIL::Module::addCover(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_en, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, "$cover");
-	cell->setPort("\\A", sig_a);
-	cell->setPort("\\EN", sig_en);
+	RTLIL::Cell *cell = addCell(name, ID($cover));
+	cell->setPort(ID::A, sig_a);
+	cell->setPort(ID(EN), sig_en);
 	cell->set_src_attribute(src);
 	return cell;
 }
 
 RTLIL::Cell* RTLIL::Module::addEquiv(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, "$equiv");
-	cell->setPort("\\A", sig_a);
-	cell->setPort("\\B", sig_b);
-	cell->setPort("\\Y", sig_y);
+	RTLIL::Cell *cell = addCell(name, ID($equiv));
+	cell->setPort(ID::A, sig_a);
+	cell->setPort(ID::B, sig_b);
+	cell->setPort(ID::Y, sig_y);
 	cell->set_src_attribute(src);
 	return cell;
 }
 
 RTLIL::Cell* RTLIL::Module::addSr(RTLIL::IdString name, RTLIL::SigSpec sig_set, RTLIL::SigSpec sig_clr, RTLIL::SigSpec sig_q, bool set_polarity, bool clr_polarity, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, "$sr");
-	cell->parameters["\\SET_POLARITY"] = set_polarity;
-	cell->parameters["\\CLR_POLARITY"] = clr_polarity;
-	cell->parameters["\\WIDTH"] = sig_q.size();
-	cell->setPort("\\SET", sig_set);
-	cell->setPort("\\CLR", sig_clr);
-	cell->setPort("\\Q", sig_q);
+	RTLIL::Cell *cell = addCell(name, ID($sr));
+	cell->parameters[ID(SET_POLARITY)] = set_polarity;
+	cell->parameters[ID(CLR_POLARITY)] = clr_polarity;
+	cell->parameters[ID(WIDTH)] = sig_q.size();
+	cell->setPort(ID(SET), sig_set);
+	cell->setPort(ID(CLR), sig_clr);
+	cell->setPort(ID(Q), sig_q);
 	cell->set_src_attribute(src);
 	return cell;
 }
 
 RTLIL::Cell* RTLIL::Module::addFf(RTLIL::IdString name, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, "$ff");
-	cell->parameters["\\WIDTH"] = sig_q.size();
-	cell->setPort("\\D", sig_d);
-	cell->setPort("\\Q", sig_q);
+	RTLIL::Cell *cell = addCell(name, ID($ff));
+	cell->parameters[ID(WIDTH)] = sig_q.size();
+	cell->setPort(ID(D), sig_d);
+	cell->setPort(ID(Q), sig_q);
 	cell->set_src_attribute(src);
 	return cell;
 }
 
 RTLIL::Cell* RTLIL::Module::addDff(RTLIL::IdString name, RTLIL::SigSpec sig_clk, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool clk_polarity, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, "$dff");
-	cell->parameters["\\CLK_POLARITY"] = clk_polarity;
-	cell->parameters["\\WIDTH"] = sig_q.size();
-	cell->setPort("\\CLK", sig_clk);
-	cell->setPort("\\D", sig_d);
-	cell->setPort("\\Q", sig_q);
+	RTLIL::Cell *cell = addCell(name, ID($dff));
+	cell->parameters[ID(CLK_POLARITY)] = clk_polarity;
+	cell->parameters[ID(WIDTH)] = sig_q.size();
+	cell->setPort(ID(CLK), sig_clk);
+	cell->setPort(ID(D), sig_d);
+	cell->setPort(ID(Q), sig_q);
 	cell->set_src_attribute(src);
 	return cell;
 }
 
 RTLIL::Cell* RTLIL::Module::addDffe(RTLIL::IdString name, RTLIL::SigSpec sig_clk, RTLIL::SigSpec sig_en, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool clk_polarity, bool en_polarity, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, "$dffe");
-	cell->parameters["\\CLK_POLARITY"] = clk_polarity;
-	cell->parameters["\\EN_POLARITY"] = en_polarity;
-	cell->parameters["\\WIDTH"] = sig_q.size();
-	cell->setPort("\\CLK", sig_clk);
-	cell->setPort("\\EN", sig_en);
-	cell->setPort("\\D", sig_d);
-	cell->setPort("\\Q", sig_q);
+	RTLIL::Cell *cell = addCell(name, ID($dffe));
+	cell->parameters[ID(CLK_POLARITY)] = clk_polarity;
+	cell->parameters[ID(EN_POLARITY)] = en_polarity;
+	cell->parameters[ID(WIDTH)] = sig_q.size();
+	cell->setPort(ID(CLK), sig_clk);
+	cell->setPort(ID(EN), sig_en);
+	cell->setPort(ID(D), sig_d);
+	cell->setPort(ID(Q), sig_q);
 	cell->set_src_attribute(src);
 	return cell;
 }
@@ -2153,16 +2166,16 @@ RTLIL::Cell* RTLIL::Module::addDffe(RTLIL::IdString name, RTLIL::SigSpec sig_clk
 RTLIL::Cell* RTLIL::Module::addDffsr(RTLIL::IdString name, RTLIL::SigSpec sig_clk, RTLIL::SigSpec sig_set, RTLIL::SigSpec sig_clr,
 		RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool clk_polarity, bool set_polarity, bool clr_polarity, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, "$dffsr");
-	cell->parameters["\\CLK_POLARITY"] = clk_polarity;
-	cell->parameters["\\SET_POLARITY"] = set_polarity;
-	cell->parameters["\\CLR_POLARITY"] = clr_polarity;
-	cell->parameters["\\WIDTH"] = sig_q.size();
-	cell->setPort("\\CLK", sig_clk);
-	cell->setPort("\\SET", sig_set);
-	cell->setPort("\\CLR", sig_clr);
-	cell->setPort("\\D", sig_d);
-	cell->setPort("\\Q", sig_q);
+	RTLIL::Cell *cell = addCell(name, ID($dffsr));
+	cell->parameters[ID(CLK_POLARITY)] = clk_polarity;
+	cell->parameters[ID(SET_POLARITY)] = set_polarity;
+	cell->parameters[ID(CLR_POLARITY)] = clr_polarity;
+	cell->parameters[ID(WIDTH)] = sig_q.size();
+	cell->setPort(ID(CLK), sig_clk);
+	cell->setPort(ID(SET), sig_set);
+	cell->setPort(ID(CLR), sig_clr);
+	cell->setPort(ID(D), sig_d);
+	cell->setPort(ID(Q), sig_q);
 	cell->set_src_attribute(src);
 	return cell;
 }
@@ -2170,27 +2183,27 @@ RTLIL::Cell* RTLIL::Module::addDffsr(RTLIL::IdString name, RTLIL::SigSpec sig_cl
 RTLIL::Cell* RTLIL::Module::addAdff(RTLIL::IdString name, RTLIL::SigSpec sig_clk, RTLIL::SigSpec sig_arst, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q,
 		RTLIL::Const arst_value, bool clk_polarity, bool arst_polarity, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, "$adff");
-	cell->parameters["\\CLK_POLARITY"] = clk_polarity;
-	cell->parameters["\\ARST_POLARITY"] = arst_polarity;
-	cell->parameters["\\ARST_VALUE"] = arst_value;
-	cell->parameters["\\WIDTH"] = sig_q.size();
-	cell->setPort("\\CLK", sig_clk);
-	cell->setPort("\\ARST", sig_arst);
-	cell->setPort("\\D", sig_d);
-	cell->setPort("\\Q", sig_q);
+	RTLIL::Cell *cell = addCell(name, ID($adff));
+	cell->parameters[ID(CLK_POLARITY)] = clk_polarity;
+	cell->parameters[ID(ARST_POLARITY)] = arst_polarity;
+	cell->parameters[ID(ARST_VALUE)] = arst_value;
+	cell->parameters[ID(WIDTH)] = sig_q.size();
+	cell->setPort(ID(CLK), sig_clk);
+	cell->setPort(ID(ARST), sig_arst);
+	cell->setPort(ID(D), sig_d);
+	cell->setPort(ID(Q), sig_q);
 	cell->set_src_attribute(src);
 	return cell;
 }
 
 RTLIL::Cell* RTLIL::Module::addDlatch(RTLIL::IdString name, RTLIL::SigSpec sig_en, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool en_polarity, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, "$dlatch");
-	cell->parameters["\\EN_POLARITY"] = en_polarity;
-	cell->parameters["\\WIDTH"] = sig_q.size();
-	cell->setPort("\\EN", sig_en);
-	cell->setPort("\\D", sig_d);
-	cell->setPort("\\Q", sig_q);
+	RTLIL::Cell *cell = addCell(name, ID($dlatch));
+	cell->parameters[ID(EN_POLARITY)] = en_polarity;
+	cell->parameters[ID(WIDTH)] = sig_q.size();
+	cell->setPort(ID(EN), sig_en);
+	cell->setPort(ID(D), sig_d);
+	cell->setPort(ID(Q), sig_q);
 	cell->set_src_attribute(src);
 	return cell;
 }
@@ -2198,25 +2211,25 @@ RTLIL::Cell* RTLIL::Module::addDlatch(RTLIL::IdString name, RTLIL::SigSpec sig_e
 RTLIL::Cell* RTLIL::Module::addDlatchsr(RTLIL::IdString name, RTLIL::SigSpec sig_en, RTLIL::SigSpec sig_set, RTLIL::SigSpec sig_clr,
 		RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool en_polarity, bool set_polarity, bool clr_polarity, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, "$dlatchsr");
-	cell->parameters["\\EN_POLARITY"] = en_polarity;
-	cell->parameters["\\SET_POLARITY"] = set_polarity;
-	cell->parameters["\\CLR_POLARITY"] = clr_polarity;
-	cell->parameters["\\WIDTH"] = sig_q.size();
-	cell->setPort("\\EN", sig_en);
-	cell->setPort("\\SET", sig_set);
-	cell->setPort("\\CLR", sig_clr);
-	cell->setPort("\\D", sig_d);
-	cell->setPort("\\Q", sig_q);
+	RTLIL::Cell *cell = addCell(name, ID($dlatchsr));
+	cell->parameters[ID(EN_POLARITY)] = en_polarity;
+	cell->parameters[ID(SET_POLARITY)] = set_polarity;
+	cell->parameters[ID(CLR_POLARITY)] = clr_polarity;
+	cell->parameters[ID(WIDTH)] = sig_q.size();
+	cell->setPort(ID(EN), sig_en);
+	cell->setPort(ID(SET), sig_set);
+	cell->setPort(ID(CLR), sig_clr);
+	cell->setPort(ID(D), sig_d);
+	cell->setPort(ID(Q), sig_q);
 	cell->set_src_attribute(src);
 	return cell;
 }
 
 RTLIL::Cell* RTLIL::Module::addFfGate(RTLIL::IdString name, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, "$_FF_");
-	cell->setPort("\\D", sig_d);
-	cell->setPort("\\Q", sig_q);
+	RTLIL::Cell *cell = addCell(name, ID($_FF_));
+	cell->setPort(ID(D), sig_d);
+	cell->setPort(ID(Q), sig_q);
 	cell->set_src_attribute(src);
 	return cell;
 }
@@ -2224,9 +2237,9 @@ RTLIL::Cell* RTLIL::Module::addFfGate(RTLIL::IdString name, RTLIL::SigSpec sig_d
 RTLIL::Cell* RTLIL::Module::addDffGate(RTLIL::IdString name, RTLIL::SigSpec sig_clk, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool clk_polarity, const std::string &src)
 {
 	RTLIL::Cell *cell = addCell(name, stringf("$_DFF_%c_", clk_polarity ? 'P' : 'N'));
-	cell->setPort("\\C", sig_clk);
-	cell->setPort("\\D", sig_d);
-	cell->setPort("\\Q", sig_q);
+	cell->setPort(ID(C), sig_clk);
+	cell->setPort(ID(D), sig_d);
+	cell->setPort(ID(Q), sig_q);
 	cell->set_src_attribute(src);
 	return cell;
 }
@@ -2234,10 +2247,10 @@ RTLIL::Cell* RTLIL::Module::addDffGate(RTLIL::IdString name, RTLIL::SigSpec sig_
 RTLIL::Cell* RTLIL::Module::addDffeGate(RTLIL::IdString name, RTLIL::SigSpec sig_clk, RTLIL::SigSpec sig_en, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool clk_polarity, bool en_polarity, const std::string &src)
 {
 	RTLIL::Cell *cell = addCell(name, stringf("$_DFFE_%c%c_", clk_polarity ? 'P' : 'N', en_polarity ? 'P' : 'N'));
-	cell->setPort("\\C", sig_clk);
-	cell->setPort("\\E", sig_en);
-	cell->setPort("\\D", sig_d);
-	cell->setPort("\\Q", sig_q);
+	cell->setPort(ID(C), sig_clk);
+	cell->setPort(ID(E), sig_en);
+	cell->setPort(ID(D), sig_d);
+	cell->setPort(ID(Q), sig_q);
 	cell->set_src_attribute(src);
 	return cell;
 }
@@ -2246,11 +2259,11 @@ RTLIL::Cell* RTLIL::Module::addDffsrGate(RTLIL::IdString name, RTLIL::SigSpec si
 		RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool clk_polarity, bool set_polarity, bool clr_polarity, const std::string &src)
 {
 	RTLIL::Cell *cell = addCell(name, stringf("$_DFFSR_%c%c%c_", clk_polarity ? 'P' : 'N', set_polarity ? 'P' : 'N', clr_polarity ? 'P' : 'N'));
-	cell->setPort("\\C", sig_clk);
-	cell->setPort("\\S", sig_set);
-	cell->setPort("\\R", sig_clr);
-	cell->setPort("\\D", sig_d);
-	cell->setPort("\\Q", sig_q);
+	cell->setPort(ID(C), sig_clk);
+	cell->setPort(ID(S), sig_set);
+	cell->setPort(ID(R), sig_clr);
+	cell->setPort(ID(D), sig_d);
+	cell->setPort(ID(Q), sig_q);
 	cell->set_src_attribute(src);
 	return cell;
 }
@@ -2259,10 +2272,10 @@ RTLIL::Cell* RTLIL::Module::addAdffGate(RTLIL::IdString name, RTLIL::SigSpec sig
 		bool arst_value, bool clk_polarity, bool arst_polarity, const std::string &src)
 {
 	RTLIL::Cell *cell = addCell(name, stringf("$_DFF_%c%c%c_", clk_polarity ? 'P' : 'N', arst_polarity ? 'P' : 'N', arst_value ? '1' : '0'));
-	cell->setPort("\\C", sig_clk);
-	cell->setPort("\\R", sig_arst);
-	cell->setPort("\\D", sig_d);
-	cell->setPort("\\Q", sig_q);
+	cell->setPort(ID(C), sig_clk);
+	cell->setPort(ID(R), sig_arst);
+	cell->setPort(ID(D), sig_d);
+	cell->setPort(ID(Q), sig_q);
 	cell->set_src_attribute(src);
 	return cell;
 }
@@ -2270,9 +2283,9 @@ RTLIL::Cell* RTLIL::Module::addAdffGate(RTLIL::IdString name, RTLIL::SigSpec sig
 RTLIL::Cell* RTLIL::Module::addDlatchGate(RTLIL::IdString name, RTLIL::SigSpec sig_en, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool en_polarity, const std::string &src)
 {
 	RTLIL::Cell *cell = addCell(name, stringf("$_DLATCH_%c_", en_polarity ? 'P' : 'N'));
-	cell->setPort("\\E", sig_en);
-	cell->setPort("\\D", sig_d);
-	cell->setPort("\\Q", sig_q);
+	cell->setPort(ID(E), sig_en);
+	cell->setPort(ID(D), sig_d);
+	cell->setPort(ID(Q), sig_q);
 	cell->set_src_attribute(src);
 	return cell;
 }
@@ -2281,11 +2294,11 @@ RTLIL::Cell* RTLIL::Module::addDlatchsrGate(RTLIL::IdString name, RTLIL::SigSpec
 		RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool en_polarity, bool set_polarity, bool clr_polarity, const std::string &src)
 {
 	RTLIL::Cell *cell = addCell(name, stringf("$_DLATCHSR_%c%c%c_", en_polarity ? 'P' : 'N', set_polarity ? 'P' : 'N', clr_polarity ? 'P' : 'N'));
-	cell->setPort("\\E", sig_en);
-	cell->setPort("\\S", sig_set);
-	cell->setPort("\\R", sig_clr);
-	cell->setPort("\\D", sig_d);
-	cell->setPort("\\Q", sig_q);
+	cell->setPort(ID(E), sig_en);
+	cell->setPort(ID(S), sig_set);
+	cell->setPort(ID(R), sig_clr);
+	cell->setPort(ID(D), sig_d);
+	cell->setPort(ID(Q), sig_q);
 	cell->set_src_attribute(src);
 	return cell;
 }
@@ -2293,9 +2306,9 @@ RTLIL::Cell* RTLIL::Module::addDlatchsrGate(RTLIL::IdString name, RTLIL::SigSpec
 RTLIL::SigSpec RTLIL::Module::Anyconst(RTLIL::IdString name, int width, const std::string &src)
 {
 	RTLIL::SigSpec sig = addWire(NEW_ID, width);
-	Cell *cell = addCell(name, "$anyconst");
-	cell->setParam("\\WIDTH", width);
-	cell->setPort("\\Y", sig);
+	Cell *cell = addCell(name, ID($anyconst));
+	cell->setParam(ID(WIDTH), width);
+	cell->setPort(ID::Y, sig);
 	cell->set_src_attribute(src);
 	return sig;
 }
@@ -2303,9 +2316,9 @@ RTLIL::SigSpec RTLIL::Module::Anyconst(RTLIL::IdString name, int width, const st
 RTLIL::SigSpec RTLIL::Module::Anyseq(RTLIL::IdString name, int width, const std::string &src)
 {
 	RTLIL::SigSpec sig = addWire(NEW_ID, width);
-	Cell *cell = addCell(name, "$anyseq");
-	cell->setParam("\\WIDTH", width);
-	cell->setPort("\\Y", sig);
+	Cell *cell = addCell(name, ID($anyseq));
+	cell->setParam(ID(WIDTH), width);
+	cell->setPort(ID::Y, sig);
 	cell->set_src_attribute(src);
 	return sig;
 }
@@ -2313,9 +2326,9 @@ RTLIL::SigSpec RTLIL::Module::Anyseq(RTLIL::IdString name, int width, const std:
 RTLIL::SigSpec RTLIL::Module::Allconst(RTLIL::IdString name, int width, const std::string &src)
 {
 	RTLIL::SigSpec sig = addWire(NEW_ID, width);
-	Cell *cell = addCell(name, "$allconst");
-	cell->setParam("\\WIDTH", width);
-	cell->setPort("\\Y", sig);
+	Cell *cell = addCell(name, ID($allconst));
+	cell->setParam(ID(WIDTH), width);
+	cell->setPort(ID::Y, sig);
 	cell->set_src_attribute(src);
 	return sig;
 }
@@ -2323,9 +2336,9 @@ RTLIL::SigSpec RTLIL::Module::Allconst(RTLIL::IdString name, int width, const st
 RTLIL::SigSpec RTLIL::Module::Allseq(RTLIL::IdString name, int width, const std::string &src)
 {
 	RTLIL::SigSpec sig = addWire(NEW_ID, width);
-	Cell *cell = addCell(name, "$allseq");
-	cell->setParam("\\WIDTH", width);
-	cell->setPort("\\Y", sig);
+	Cell *cell = addCell(name, ID($allseq));
+	cell->setParam(ID(WIDTH), width);
+	cell->setPort(ID::Y, sig);
 	cell->set_src_attribute(src);
 	return sig;
 }
@@ -2333,8 +2346,8 @@ RTLIL::SigSpec RTLIL::Module::Allseq(RTLIL::IdString name, int width, const std:
 RTLIL::SigSpec RTLIL::Module::Initstate(RTLIL::IdString name, const std::string &src)
 {
 	RTLIL::SigSpec sig = addWire(NEW_ID);
-	Cell *cell = addCell(name, "$initstate");
-	cell->setPort("\\Y", sig);
+	Cell *cell = addCell(name, ID($initstate));
+	cell->setPort(ID::Y, sig);
 	cell->set_src_attribute(src);
 	return sig;
 }
@@ -2551,60 +2564,60 @@ void RTLIL::Cell::check()
 
 void RTLIL::Cell::fixup_parameters(bool set_a_signed, bool set_b_signed)
 {
-	if (type.substr(0, 1) != "$" || type.substr(0, 2) == "$_" || type.substr(0, 8) == "$paramod" || type.substr(0,10) == "$fmcombine" ||
-			type.substr(0, 9) == "$verific$" || type.substr(0, 7) == "$array:" || type.substr(0, 8) == "$extern:")
+	if (!type.begins_with("$") || type.begins_with("$_") || type.begins_with("$paramod") || type.begins_with("$fmcombine") ||
+			type.begins_with("$verific$") || type.begins_with("$array:") || type.begins_with("$extern:"))
 		return;
 
-	if (type == "$mux" || type == "$pmux") {
-		parameters["\\WIDTH"] = GetSize(connections_["\\Y"]);
-		if (type == "$pmux")
-			parameters["\\S_WIDTH"] = GetSize(connections_["\\S"]);
+	if (type == ID($mux) || type == ID($pmux)) {
+		parameters[ID(WIDTH)] = GetSize(connections_[ID::Y]);
+		if (type == ID($pmux))
+			parameters[ID(S_WIDTH)] = GetSize(connections_[ID(S)]);
 		check();
 		return;
 	}
 
-	if (type == "$lut" || type == "$sop") {
-		parameters["\\WIDTH"] = GetSize(connections_["\\A"]);
+	if (type == ID($lut) || type == ID($sop)) {
+		parameters[ID(WIDTH)] = GetSize(connections_[ID::A]);
 		return;
 	}
 
-	if (type == "$fa") {
-		parameters["\\WIDTH"] = GetSize(connections_["\\Y"]);
+	if (type == ID($fa)) {
+		parameters[ID(WIDTH)] = GetSize(connections_[ID::Y]);
 		return;
 	}
 
-	if (type == "$lcu") {
-		parameters["\\WIDTH"] = GetSize(connections_["\\CO"]);
+	if (type == ID($lcu)) {
+		parameters[ID(WIDTH)] = GetSize(connections_[ID(CO)]);
 		return;
 	}
 
-	bool signedness_ab = !type.in("$slice", "$concat", "$macc");
+	bool signedness_ab = !type.in(ID($slice), ID($concat), ID($macc));
 
-	if (connections_.count("\\A")) {
+	if (connections_.count(ID::A)) {
 		if (signedness_ab) {
 			if (set_a_signed)
-				parameters["\\A_SIGNED"] = true;
-			else if (parameters.count("\\A_SIGNED") == 0)
-				parameters["\\A_SIGNED"] = false;
+				parameters[ID(A_SIGNED)] = true;
+			else if (parameters.count(ID(A_SIGNED)) == 0)
+				parameters[ID(A_SIGNED)] = false;
 		}
-		parameters["\\A_WIDTH"] = GetSize(connections_["\\A"]);
+		parameters[ID(A_WIDTH)] = GetSize(connections_[ID::A]);
 	}
 
-	if (connections_.count("\\B")) {
+	if (connections_.count(ID::B)) {
 		if (signedness_ab) {
 			if (set_b_signed)
-				parameters["\\B_SIGNED"] = true;
-			else if (parameters.count("\\B_SIGNED") == 0)
-				parameters["\\B_SIGNED"] = false;
+				parameters[ID(B_SIGNED)] = true;
+			else if (parameters.count(ID(B_SIGNED)) == 0)
+				parameters[ID(B_SIGNED)] = false;
 		}
-		parameters["\\B_WIDTH"] = GetSize(connections_["\\B"]);
+		parameters[ID(B_WIDTH)] = GetSize(connections_[ID::B]);
 	}
 
-	if (connections_.count("\\Y"))
-		parameters["\\Y_WIDTH"] = GetSize(connections_["\\Y"]);
+	if (connections_.count(ID::Y))
+		parameters[ID(Y_WIDTH)] = GetSize(connections_[ID::Y]);
 
-	if (connections_.count("\\Q"))
-		parameters["\\WIDTH"] = GetSize(connections_["\\Q"]);
+	if (connections_.count(ID(Q)))
+		parameters[ID(WIDTH)] = GetSize(connections_[ID(Q)]);
 
 	check();
 }

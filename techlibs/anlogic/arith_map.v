@@ -31,7 +31,10 @@ module _80_anlogic_alu (A, B, CI, BI, X, Y, CO);
 	output [Y_WIDTH-1:0] X, Y;
 
 	input CI, BI;
-	output CO;
+	output [Y_WIDTH-1:0] CO;
+   
+	wire CIx;
+	wire [Y_WIDTH-1:0] COx;
 
 	wire _TECHMAP_FAIL_ = Y_WIDTH <= 2;
 
@@ -41,44 +44,41 @@ module _80_anlogic_alu (A, B, CI, BI, X, Y, CO);
 
 	wire [Y_WIDTH-1:0] AA = A_buf;
 	wire [Y_WIDTH-1:0] BB = BI ? ~B_buf : B_buf;
-	wire [Y_WIDTH+1:0] COx;
-	wire [Y_WIDTH+1:0] C = {COx, CI};
+	wire [Y_WIDTH-1:0] C = { COx, CIx };
 
     wire dummy;
-	(* keep *)
     AL_MAP_ADDER #(
     	.ALUTYPE("ADD_CARRY"))
     adder_cin  (
-        .a(C[0]),
-        .o({COx[0], dummy})
+        .a(CI),
+		.b(1'b0),
+		.c(1'b0),
+        .o({CIx, dummy})
 	);
 
 	genvar i;
 	generate for (i = 0; i < Y_WIDTH; i = i + 1) begin: slice
-	  if(i==Y_WIDTH-1) begin
-	  		(* keep *)
-			AL_MAP_ADDER #(
-				.ALUTYPE("ADD"))
-			adder_cout  (
-				.c(C[Y_WIDTH]),
-				.o(COx[Y_WIDTH])
-			);				
-            assign CO = COx[Y_WIDTH];
-          end
-	  else
-	  begin
-	  	(* keep *)
 	    AL_MAP_ADDER #(
             .ALUTYPE("ADD")
         ) adder_i (
             .a(AA[i]),
             .b(BB[i]),
-            .c(C[i+1]),
-            .o({COx[i+1],Y[i]})
+            .c(C[i]),
+            .o({COx[i],Y[i]})
         );
-		end		
-	  end: slice
+
+		wire cout;
+		AL_MAP_ADDER #(
+			.ALUTYPE("ADD"))
+		adder_cout  (
+			.a(1'b0),
+			.b(1'b0),
+			.c(COx[i]),
+			.o({cout, CO[i]})
+		);
+	  end: slice	  
 	endgenerate
-	/* End implementation */
-	assign X = AA ^ BB;
+
+   /* End implementation */
+   assign X = AA ^ BB;
 endmodule

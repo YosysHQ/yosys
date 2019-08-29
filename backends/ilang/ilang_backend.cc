@@ -40,8 +40,8 @@ void ILANG_BACKEND::dump_const(std::ostream &f, const RTLIL::Const &data, int wi
 			for (int i = 0; i < width; i++) {
 				log_assert(offset+i < (int)data.bits.size());
 				switch (data.bits[offset+i]) {
-				case RTLIL::S0: break;
-				case RTLIL::S1: val |= 1 << i; break;
+				case State::S0: break;
+				case State::S1: val |= 1 << i; break;
 				default: val = -1; break;
 				}
 			}
@@ -54,8 +54,8 @@ void ILANG_BACKEND::dump_const(std::ostream &f, const RTLIL::Const &data, int wi
 		for (int i = offset+width-1; i >= offset; i--) {
 			log_assert(i < (int)data.bits.size());
 			switch (data.bits[i]) {
-			case RTLIL::S0: f << stringf("0"); break;
-			case RTLIL::S1: f << stringf("1"); break;
+			case State::S0: f << stringf("0"); break;
+			case State::S1: f << stringf("1"); break;
 			case RTLIL::Sx: f << stringf("x"); break;
 			case RTLIL::Sz: f << stringf("z"); break;
 			case RTLIL::Sa: f << stringf("-"); break;

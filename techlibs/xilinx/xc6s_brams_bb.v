@@ -1,5 +1,7 @@
 module RAMB8BWER (
+	(* clkbuf_sink *)
 	input CLKAWRCLK,
+	(* clkbuf_sink *)
 	input CLKBRDCLK,
 	input ENAWREN,
 	input ENBRDEN,
@@ -87,7 +89,9 @@ module RAMB8BWER (
 endmodule
 
 module RAMB16BWER (
+	(* clkbuf_sink *)
 	input CLKA,
+	(* clkbuf_sink *)
 	input CLKB,
 	input ENA,
 	input ENB,

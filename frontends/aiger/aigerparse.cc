@@ -30,6 +30,7 @@
 #include <libkern/OSByteOrder.h>
 #define __builtin_bswap32 OSSwapInt32
 #endif
+#define __STDC_FORMAT_MACROS
 #include <inttypes.h>
 
 #include "kernel/yosys.h"
@@ -66,7 +67,7 @@ struct ConstEvalAig
 				continue;
 			for (auto &it2 : it.second->connections())
 				if (yosys_celltypes.cell_output(it.second->type, it2.first)) {
-					auto r = sig2driver.insert(std::make_pair(it2.second, it.second));
+					auto r YS_ATTRIBUTE(unused) = sig2driver.insert(std::make_pair(it2.second, it.second));
 					log_assert(r.second);
 				}
 		}
@@ -151,12 +152,12 @@ struct ConstEvalAig
 
 		RTLIL::State eval_ret = RTLIL::Sx;
 		if (cell->type == "$_NOT_") {
-			if (sig_a == RTLIL::S0) eval_ret = RTLIL::S1;
-			else if (sig_a == RTLIL::S1) eval_ret = RTLIL::S0;
+			if (sig_a == State::S0) eval_ret = State::S1;
+			else if (sig_a == State::S1) eval_ret = State::S0;
 		}
 		else if (cell->type == "$_AND_") {
-			if (sig_a == RTLIL::S0) {
-				eval_ret = RTLIL::S0;
+			if (sig_a == State::S0) {
+				eval_ret = State::S0;
 				goto eval_end;
 			}
 
@@ -164,15 +165,15 @@ struct ConstEvalAig
 				RTLIL::SigBit sig_b = cell->getPort("\\B");
 				if (!eval(sig_b))
 					return false;
-				if (sig_b == RTLIL::S0) {
-					eval_ret = RTLIL::S0;
+				if (sig_b == State::S0) {
+					eval_ret = State::S0;
 					goto eval_end;
 				}
 
-				if (sig_a != RTLIL::S1 || sig_b != RTLIL::S1)
+				if (sig_a != State::S1 || sig_b != State::S1)
 					goto eval_end;
 
-				eval_ret = RTLIL::S1;
+				eval_ret = State::S1;
 			}
 		}
 		else log_abort();
@@ -256,7 +257,7 @@ end_of_header:
 
 	RTLIL::Wire* n0 = module->wire("\\__0__");
 	if (n0)
-		module->connect(n0, RTLIL::S0);
+		module->connect(n0, State::S0);
 
 	// Parse footer (symbol table, comments, etc.)
 	unsigned l1;
@@ -301,7 +302,11 @@ static uint32_t parse_xaiger_literal(std::istream &f)
 	uint32_t l;
 	f.read(reinterpret_cast<char*>(&l), sizeof(l));
 	if (f.gcount() != sizeof(l))
+#if defined(_WIN32) && defined(__MINGW32__)
+		log_error("Offset %I64d: unable to read literal!\n", static_cast<int64_t>(f.tellg()));
+#else
 		log_error("Offset %" PRId64 ": unable to read literal!\n", static_cast<int64_t>(f.tellg()));
+#endif
 	return from_big_endian(l);
 }
 
@@ -333,7 +338,7 @@ static RTLIL::Wire* createWireIfNotExists(RTLIL::Module *module, unsigned litera
 	return wire;
 }
 
-void AigerReader::parse_xaiger()
+void AigerReader::parse_xaiger(const dict<int,IdString> &box_lookup)
 {
 	std::string header;
 	f >> header;
@@ -367,22 +372,7 @@ void AigerReader::parse_xaiger()
 
 	RTLIL::Wire* n0 = module->wire("\\__0__");
 	if (n0)
-		module->connect(n0, RTLIL::S0);
-
-	dict<int,IdString> box_lookup;
-	for (auto m : design->modules()) {
-		auto it = m->attributes.find("\\abc_box_id");
-		if (it == m->attributes.end())
-			continue;
-		if (m->name.begins_with("$paramod"))
-			continue;
-		auto id = it->second.as_int();
-		auto r = box_lookup.insert(std::make_pair(id, m->name));
-		if (!r.second)
-			log_error("Module '%s' has the same abc_box_id = %d value as '%s'.\n",
-					log_id(m), id, log_id(r.first->second));
-		log_assert(r.second);
-	}
+		module->connect(n0, State::S0);
 
 	// Parse footer (symbol table, comments, etc.)
 	std::string s;
@@ -399,9 +389,9 @@ void AigerReader::parse_xaiger()
 			f.ignore(1);
 			// XAIGER extensions
 			if (c == 'm') {
-				uint32_t dataSize = parse_xaiger_literal(f);
+				uint32_t dataSize YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
 				uint32_t lutNum = parse_xaiger_literal(f);
-				uint32_t lutSize = parse_xaiger_literal(f);
+				uint32_t lutSize YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
 				log_debug("m: dataSize=%u lutNum=%u lutSize=%u\n", dataSize, lutNum, lutSize);
 				ConstEvalAig ce(module);
 				for (unsigned i = 0; i < lutNum; ++i) {
@@ -426,7 +416,7 @@ void AigerReader::parse_xaiger()
 						int gray = j ^ (j >> 1);
 						ce.set_incremental(input_sig, RTLIL::Const{gray, static_cast<int>(cutLeavesM)});
 						RTLIL::SigBit o(output_sig);
-						bool success = ce.eval(o);
+						bool success YS_ATTRIBUTE(unused) = ce.eval(o);
 						log_assert(success);
 						log_assert(o.wire == nullptr);
 						lut_mask[gray] = o.data;
@@ -438,7 +428,7 @@ void AigerReader::parse_xaiger()
 				}
 			}
 			else if (c == 'r') {
-				uint32_t dataSize = parse_xaiger_literal(f);
+				uint32_t dataSize YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
 				flopNum = parse_xaiger_literal(f);
 				log_assert(dataSize == (flopNum+1) * sizeof(uint32_t));
 				f.ignore(flopNum * sizeof(uint32_t));
@@ -450,18 +440,18 @@ void AigerReader::parse_xaiger()
 			}
 			else if (c == 'h') {
 				f.ignore(sizeof(uint32_t));
-				uint32_t version = parse_xaiger_literal(f);
+				uint32_t version YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
 				log_assert(version == 1);
-				uint32_t ciNum = parse_xaiger_literal(f);
+				uint32_t ciNum YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
 				log_debug("ciNum = %u\n", ciNum);
-				uint32_t coNum = parse_xaiger_literal(f);
+				uint32_t coNum YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
 				log_debug("coNum = %u\n", coNum);
 				piNum = parse_xaiger_literal(f);
 				log_debug("piNum = %u\n", piNum);
-				uint32_t poNum = parse_xaiger_literal(f);
+				uint32_t poNum YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
 				log_debug("poNum = %u\n", poNum);
 				uint32_t boxNum = parse_xaiger_literal(f);
-				log_debug("boxNum = %u\n", poNum);
+				log_debug("boxNum = %u\n", boxNum);
 				for (unsigned i = 0; i < boxNum; i++) {
 					f.ignore(2*sizeof(uint32_t));
 					uint32_t boxUniqueId = parse_xaiger_literal(f);
@@ -531,9 +521,9 @@ void AigerReader::parse_aiger_ascii()
 				log_error("Line %u cannot be interpreted as a latch!\n", line_count);
 
 			if (l3 == 0)
-				q_wire->attributes["\\init"] = RTLIL::S0;
+				q_wire->attributes["\\init"] = State::S0;
 			else if (l3 == 1)
-				q_wire->attributes["\\init"] = RTLIL::S1;
+				q_wire->attributes["\\init"] = State::S1;
 			else if (l3 == l1) {
 				//q_wire->attributes["\\init"] = RTLIL::Sx;
 			}
@@ -542,7 +532,7 @@ void AigerReader::parse_aiger_ascii()
 		}
 		else {
 			// AIGER latches are assumed to be initialized to zero
-			q_wire->attributes["\\init"] = RTLIL::S0;
+			q_wire->attributes["\\init"] = State::S0;
 		}
 		latches.push_back(q_wire);
 	}
@@ -656,9 +646,9 @@ void AigerReader::parse_aiger_binary()
 				log_error("Line %u cannot be interpreted as a latch!\n", line_count);
 
 			if (l3 == 0)
-				q_wire->attributes["\\init"] = RTLIL::S0;
+				q_wire->attributes["\\init"] = State::S0;
 			else if (l3 == 1)
-				q_wire->attributes["\\init"] = RTLIL::S1;
+				q_wire->attributes["\\init"] = State::S1;
 			else if (l3 == l1) {
 				//q_wire->attributes["\\init"] = RTLIL::Sx;
 			}
@@ -667,7 +657,7 @@ void AigerReader::parse_aiger_binary()
 		}
 		else {
 			// AIGER latches are assumed to be initialized to zero
-			q_wire->attributes["\\init"] = RTLIL::S0;
+			q_wire->attributes["\\init"] = State::S0;
 		}
 		latches.push_back(q_wire);
 	}
@@ -911,9 +901,6 @@ void AigerReader::post_process()
 				RTLIL::Cell* cell = module->cell(stringf("$__box%d__", variable));
 				if (cell) { // ABC could have optimised this box away
 					module->rename(cell, escaped_s);
-					RTLIL::Module* box_module = design->module(cell->type);
-					log_assert(box_module);
-
 					for (const auto &i : cell->connections()) {
 						RTLIL::IdString port_name = i.first;
 						RTLIL::SigSpec rhs = i.second;
@@ -982,15 +969,16 @@ void AigerReader::post_process()
 	}
 
 	module->fixup_ports();
+
+	// Insert into a new (temporary) design so that "clean" will only
+	// operate (and run checks on) this one module
+	RTLIL::Design *mapped_design = new RTLIL::Design;
+	mapped_design->add(module);
+	Pass::call(mapped_design, "clean");
+	mapped_design->modules_.erase(module->name);
+	delete mapped_design;
+
 	design->add(module);
-
-	design->selection_stack.emplace_back(false);
-	RTLIL::Selection& sel = design->selection_stack.back();
-	sel.select(module);
-
-	Pass::call(design, "clean");
-
-	design->selection_stack.pop_back();
 
 	for (auto cell : module->cells().to_vector()) {
 		if (cell->type != "$lut") continue;

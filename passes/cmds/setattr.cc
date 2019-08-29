@@ -34,7 +34,7 @@ struct setunset_t
 
 	setunset_t(std::string set_name, std::string set_value) : name(RTLIL::escape_id(set_name)), value(), unset(false)
 	{
-		if (set_value.substr(0, 1) == "\"" && set_value.substr(GetSize(set_value)-1) == "\"") {
+		if (set_value.compare(0, 1, "\"") == 0 && set_value.compare(GetSize(set_value)-1, std::string::npos, "\"") == 0) {
 			value = RTLIL::Const(set_value.substr(1, GetSize(set_value)-2));
 		} else {
 			RTLIL::SigSpec sig_value;

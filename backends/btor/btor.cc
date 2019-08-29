@@ -496,7 +496,7 @@ struct BtorWorker
 			goto okay;
 		}
 
-		if (cell->type.in("$mux", "$_MUX_"))
+		if (cell->type.in("$mux", "$_MUX_", "$_NMUX_"))
 		{
 			SigSpec sig_a = sigmap(cell->getPort("\\A"));
 			SigSpec sig_b = sigmap(cell->getPort("\\B"));
@@ -510,6 +510,12 @@ struct BtorWorker
 			int sid = get_bv_sid(GetSize(sig_y));
 			int nid = next_nid++;
 			btorf("%d ite %d %d %d %d\n", nid, sid, nid_s, nid_b, nid_a);
+
+			if (cell->type == "$_NMUX_") {
+				int tmp = nid;
+				nid = next_nid++;
+				btorf("%d not %d %d\n", nid, sid, tmp);
+			}
 
 			add_nid_sig(nid, sig_y);
 			goto okay;
@@ -610,8 +616,8 @@ struct BtorWorker
 			if (initstate_nid < 0)
 			{
 				int sid = get_bv_sid(1);
-				int one_nid = get_sig_nid(Const(1, 1));
-				int zero_nid = get_sig_nid(Const(0, 1));
+				int one_nid = get_sig_nid(State::S1);
+				int zero_nid = get_sig_nid(State::S0);
 				initstate_nid = next_nid++;
 				btorf("%d state %d\n", initstate_nid, sid);
 				btorf("%d init %d %d %d\n", next_nid++, sid, initstate_nid, one_nid);

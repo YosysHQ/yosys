@@ -1,0 +1,189 @@
+pattern reduce
+
+state <IdString> portname
+udata <vector<pair<Cell*, IdString>>> chain longest_chain
+udata <pool<Cell*>> non_first_cells
+udata <SigSpec> leaves
+
+code
+	non_first_cells.clear();
+	subpattern(setup);
+endcode
+
+match first
+	select first->type.in($_AND_, $_OR_, $_XOR_)
+	filter !non_first_cells.count(first)
+generate
+	SigSpec A = module->addWire(NEW_ID);
+	SigSpec B = module->addWire(NEW_ID);
+	SigSpec Y = module->addWire(NEW_ID);
+	switch (rng(3))
+	{
+	case 0:
+		module->addAndGate(NEW_ID, A, B, Y);
+		break;
+	case 1:
+		module->addOrGate(NEW_ID, A, B, Y);
+		break;
+	case 2:
+		module->addXorGate(NEW_ID, A, B, Y);
+		break;
+	}
+endmatch
+
+code
+	leaves = SigSpec();
+	longest_chain.clear();
+	chain.push_back(make_pair(first, \A));
+	subpattern(tail);
+	chain.back().second = \B;
+	subpattern(tail);
+finally
+	chain.pop_back();
+	log_assert(chain.empty());
+	if (GetSize(longest_chain) > 1)
+		accept;
+endcode
+
+// ------------------------------------------------------------------
+
+subpattern setup
+
+match first
+	select first->type.in($_AND_, $_OR_, $_XOR_)
+endmatch
+
+code portname
+	portname = \A;
+	branch;
+	portname = \B;
+endcode
+
+match next
+	select next->type.in($_AND_, $_OR_, $_XOR_)
+	select nusers(port(next, \Y)) == 2
+	index <IdString> next->type === first->type
+	index <SigSpec> port(next, \Y) === port(first, portname)
+endmatch
+
+code
+	non_first_cells.insert(next);
+endcode
+
+// ------------------------------------------------------------------
+
+subpattern tail
+arg first
+
+match next
+	semioptional
+	select next->type.in($_AND_, $_OR_, $_XOR_)
+	select nusers(port(next, \Y)) == 2
+	index <IdString> next->type === chain.back().first->type
+	index <SigSpec> port(next, \Y) === port(chain.back().first, chain.back().second)
+generate 10
+	SigSpec A = module->addWire(NEW_ID);
+	SigSpec B = module->addWire(NEW_ID);
+	SigSpec Y = port(chain.back().first, chain.back().second);
+	Cell *c = module->addAndGate(NEW_ID, A, B, Y);
+	c->type = chain.back().first->type;
+endmatch
+
+code
+	if (next) {
+		chain.push_back(make_pair(next, \A));
+		subpattern(tail);
+		chain.back().second = \B;
+		subpattern(tail);
+	} else {
+		if (GetSize(chain) > GetSize(longest_chain))
+			longest_chain = chain;
+		leaves.append(port(chain.back().first, chain.back().second));
+	}
+finally
+	if (next)
+		chain.pop_back();
+endcode
+
+// ==================================================================
+
+pattern eqpmux
+
+state <bool> eq_ne_signed
+state <SigSpec> eq_inA eq_inB
+state <int> pmux_slice_eq pmux_slice_ne
+
+match eq
+	select eq->type == $eq
+	choice <IdString> AB {\A, \B}
+	define <IdString> BA AB == \A ? \B : \A
+	set eq_inA port(eq, \A)
+	set eq_inB port(eq, \B)
+	set eq_ne_signed param(eq, \A_SIGNED).as_bool()
+generate 100 10
+	SigSpec A = module->addWire(NEW_ID, rng(7)+1);
+	SigSpec B = module->addWire(NEW_ID, rng(7)+1);
+	SigSpec Y = module->addWire(NEW_ID);
+	module->addEq(NEW_ID, A, B, Y, rng(2));
+endmatch
+
+match pmux
+	select pmux->type == $pmux
+	slice idx GetSize(port(pmux, \S))
+	index <SigBit> port(pmux, \S)[idx] === port(eq, \Y)
+	set pmux_slice_eq idx
+generate 100 10
+	int width = rng(7) + 1;
+	int numsel = rng(4) + 1;
+	int idx = rng(numsel);
+
+	SigSpec A = module->addWire(NEW_ID, width);
+	SigSpec Y = module->addWire(NEW_ID, width);
+
+	SigSpec B, S;
+	for (int i = 0; i < numsel; i++) {
+		B.append(module->addWire(NEW_ID, width));
+		S.append(i == idx ? port(eq, \Y) : module->addWire(NEW_ID));
+	}
+
+	module->addPmux(NEW_ID, A, B, S, Y);
+endmatch
+
+match ne
+	select ne->type == $ne
+	choice <IdString> AB {\A, \B}
+	define <IdString> BA (AB == \A ? \B : \A)
+	index <SigSpec> port(ne, AB) === eq_inA
+	index <SigSpec> port(ne, BA) === eq_inB
+	index <int> param(ne, \A_SIGNED).as_bool() === eq_ne_signed
+generate 100 10
+	SigSpec A = eq_inA, B = eq_inB, Y;
+	if (rng(2)) {
+		std::swap(A, B);
+	}
+	if (rng(2)) {
+		for (auto bit : port(pmux, \S)) {
+			if (nusers(bit) < 2)
+				Y.append(bit);
+		}
+		if (GetSize(Y))
+			Y = Y[rng(GetSize(Y))];
+		else
+			Y = module->addWire(NEW_ID);
+	} else {
+		Y = module->addWire(NEW_ID);
+	}
+	module->addNe(NEW_ID, A, B, Y, rng(2));
+endmatch
+
+match pmux2
+	select pmux2->type == $pmux
+	slice idx GetSize(port(pmux2, \S))
+	index <Cell*> pmux2 === pmux
+	index <SigBit> port(pmux2, \S)[idx] === port(ne, \Y)
+	set pmux_slice_ne idx
+endmatch
+
+code
+	accept;
+endcode

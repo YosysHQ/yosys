@@ -141,8 +141,16 @@ module SB_CARRY (output CO, input I0, I1, CI);
 	assign CO = (I0 && I1) || ((I0 || I1) && CI);
 endmodule
 
-(* abc_box_id = 1, abc_carry="CI,CO", lib_whitebox *)
-module \$__ICE40_FULL_ADDER (output CO, O, input A, B, CI);
+(* abc_box_id = 1, lib_whitebox *)
+module \$__ICE40_FULL_ADDER (
+	(* abc_carry *)
+	output CO,
+	output O,
+	input A,
+	input B,
+	(* abc_carry *)
+	input CI
+);
 	SB_CARRY carry (
 		.I0(A),
 		.I1(B),
