@@ -99,7 +99,7 @@ struct JsonWriter
 				} else if (state == 1 && c != ' ')
 					state = 2;
 			}
-			if (state < 2)
+			if (state == 1)
 				str += " ";
 			f << get_string(str);
 		} else
