@@ -1,3 +1,6 @@
+/*
+Example from: https://www.latticesemi.com/-/media/LatticeSemi/Documents/UserManuals/EI/iCEcube201701UserGuide.ashx?document_id=52071 [p. 72].
+*/
 module top (din, write_en, waddr, wclk, raddr, rclk, dout);
 parameter addr_width = 8;
 parameter data_width = 8;
