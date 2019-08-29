@@ -149,7 +149,7 @@ module \$__ICE40_CARRY_WRAPPER (
 	input A, B,
 	(* abc_carry *)
 	input CI,
-	input I0, I3,
+	input I0, I3
 );
 	parameter LUT = 0;
 	SB_CARRY carry (
