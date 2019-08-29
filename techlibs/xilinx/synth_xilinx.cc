@@ -280,7 +280,6 @@ struct SynthXilinxPass : public ScriptPass
 				run("read_verilog -lib +/xilinx/{family}_brams_bb.v");
 			} else if (family == "xc6s") {
 				run("read_verilog -lib +/xilinx/xc6s_brams_bb.v");
-				run("read_verilog -lib +/xilinx/cells_xc6s.v");
 			} else if (family == "xc7") {
 				run("read_verilog -lib +/xilinx/xc7_brams_bb.v");
 			}
