@@ -390,6 +390,7 @@ Finally run all tests with "make config-{clang,gcc,gcc-4.8}":
 Release:
 
 	- set YOSYS_VER to x.y.z in Makefile
+	- remove "bumpversion" target from Makefile
 	- update version string in CHANGELOG
 	git commit -am "Yosys x.y.z"
 

@@ -21,13 +21,13 @@ for x in *.ys; do
 	fi
 done
 
-for s in *.sh; do
-	if [ "$s" != "run-test.sh" ]; then
-		echo "all:: run-$s"
-		echo "run-$s:"
-		echo "	@echo 'Running $s..'"
-		echo "	@bash $s"
-	fi
-done
+#for s in *.sh; do
+#	if [ "$s" != "run-test.sh" ]; then
+#		echo "all:: run-$s"
+#		echo "run-$s:"
+#		echo "	@echo 'Running $s..'"
+#		echo "	@bash $s"
+#	fi
+#done
 } > run-test.mk
 exec ${MAKE:-make} -f run-test.mk

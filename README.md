@@ -1,7 +1,7 @@
 ```
 yosys -- Yosys Open SYnthesis Suite
 
-Copyright (C) 2012 - 2018  Clifford Wolf <clifford@clifford.at>
+Copyright (C) 2012 - 2019  Clifford Wolf <clifford@clifford.at>
 
 Permission to use, copy, modify, and/or distribute this software for any
 purpose with or without fee is hereby granted, provided that the above
@@ -69,11 +69,14 @@ prerequisites for building yosys:
 		graphviz xdot pkg-config python3 libboost-system-dev \
 		libboost-python-dev libboost-filesystem-dev zlib1g-dev
 
-Similarily, on Mac OS X MacPorts or Homebrew can be used to install dependencies:
+Similarily, on Mac OS X Homebrew can be used to install dependencies:
 
 	$ brew tap Homebrew/bundle && brew bundle
+
+or MacPorts:
+
 	$ sudo port install bison flex readline gawk libffi \
-		git graphviz pkgconfig python36 boost zlib
+		git graphviz pkgconfig python36 boost zlib tcl
 
 On FreeBSD use the following command to install all prerequisites:
 
@@ -329,6 +332,21 @@ Verilog Attributes and non-standard features
   that represent module parameters or localparams (when the HDL front-end
   is run in -pwires mode).
 
+- The ``clkbuf_driver`` attribute can be set on an output port of a blackbox
+  module to mark it as a clock buffer output, and thus prevent ``clkbufmap``
+  from inserting another clock buffer on a net driven by such output.
+
+- The ``clkbuf_sink`` attribute can be set on an input port of a module to
+  request clock buffer insertion by the ``clkbufmap`` pass.
+
+- The ``clkbuf_inhibit`` is the default attribute to set on a wire to prevent
+  automatic clock buffer insertion by ``clkbufmap``. This behaviour can be
+  overridden by providing a custom selection to ``clkbufmap``.
+
+- The ``iopad_external_pin`` attribute on a blackbox module's port marks
+  it as the external-facing pin of an I/O pad, and prevents ``iopadmap``
+  from inserting another pad cell on it.
+
 - In addition to the ``(* ... *)`` attribute syntax, Yosys supports
   the non-standard ``{* ... *}`` attribute syntax to set default attributes
   for everything that comes after the ``{* ... *}`` statement. (Reset
@@ -404,6 +422,23 @@ Verilog Attributes and non-standard features
   special ``$specify2``, ``$specify3``, and ``$specrule`` cells, for use in
   blackboxes and whiteboxes. Use ``read_verilog -specify`` to enable this
   functionality. (By default specify .. endspecify blocks are ignored.)
+
+- The module attribute ``abc_box_id`` specifies a positive integer linking a
+  blackbox or whitebox definition to a corresponding entry in a `abc9`
+  box-file.
+
+- The port attribute ``abc_scc_break`` indicates a module input port that will
+  be treated as a primary output during `abc9` techmapping. Doing so eliminates
+  the possibility of a strongly-connected component (i.e. a combinatorial loop)
+  existing. Typically, this is specified for sequential inputs on otherwise
+  combinatorial boxes -- for example, applying ``abc_scc_break`` onto the `D`
+  port of a LUTRAM cell prevents `abc9` from interpreting any `Q` -> `D` paths
+  as a combinatorial loop.
+
+- The port attribute ``abc_carry`` marks the carry-in (if an input port) and
+  carry-out (if output port) ports of a box. This information is necessary for
+  `abc9` to preserve the integrity of carry-chains. Specifying this attribute
+  onto a bus port will affect only its most significant bit.
 
 
 Non-standard or SystemVerilog features for formal verification

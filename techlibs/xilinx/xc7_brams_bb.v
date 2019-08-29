@@ -1,5 +1,7 @@
 module RAMB18E1 (
+	(* clkbuf_sink *)
 	input CLKARDCLK,
+	(* clkbuf_sink *)
 	input CLKBWRCLK,
 	input ENARDEN,
 	input ENBWREN,
@@ -123,7 +125,9 @@ module RAMB18E1 (
 endmodule
 
 module RAMB36E1 (
+	(* clkbuf_sink *)
 	input CLKARDCLK,
+	(* clkbuf_sink *)
 	input CLKBWRCLK,
 	input ENARDEN,
 	input ENBWREN,
