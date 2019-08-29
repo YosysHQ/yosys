@@ -84,7 +84,7 @@ static void run_ice40_opts(Module *module)
 			continue;
 		}
 
-		if (cell->type == "$__ICE40_FULL_ADDER")
+		if (cell->type == "$__ICE40_CARRY_WRAPPER")
 		{
 			SigSpec non_const_inputs, replacement_output;
 			int count_zeros = 0, count_ones = 0;
@@ -114,13 +114,15 @@ static void run_ice40_opts(Module *module)
 				optimized_co.insert(sigmap(cell->getPort("\\CO")[0]));
 				module->connect(cell->getPort("\\CO")[0], replacement_output);
 				module->design->scratchpad_set_bool("opt.did_something", true);
-				log("Optimized $__ICE40_FULL_ADDER cell back to logic (without SB_CARRY) %s.%s: CO=%s\n",
+				log("Optimized $__ICE40_CARRY_WRAPPER cell back to logic (without SB_CARRY) %s.%s: CO=%s\n",
 						log_id(module), log_id(cell), log_signal(replacement_output));
 				cell->type = "$lut";
-				cell->setPort("\\A", { State::S0, inbit[0], inbit[1], inbit[2] });
+				cell->setPort("\\A", { cell->getPort("\\I0"), inbit[0], inbit[1], cell->getPort("\\I3") });
 				cell->setPort("\\Y", cell->getPort("\\O"));
 				cell->unsetPort("\\B");
 				cell->unsetPort("\\CI");
+				cell->unsetPort("\\I0");
+				cell->unsetPort("\\I3");
 				cell->unsetPort("\\CO");
 				cell->unsetPort("\\O");
 				cell->setParam("\\LUT", RTLIL::Const::from_string("0110100110010110"));
