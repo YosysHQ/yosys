@@ -24,11 +24,7 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-// for peepopt_pm
-bool did_something;
-
 #include "passes/pmgen/xilinx_srl_pm.h"
-#include "passes/pmgen/peepopt_pm.h"
 
 void run_fixed(xilinx_srl_pm &pm)
 {
