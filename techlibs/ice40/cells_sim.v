@@ -174,11 +174,13 @@ module \$__ICE40_CARRY_WRAPPER (
 endmodule
 
 // Max delay from: https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
+//                 https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
 
 // Positive Edge SiliconBlue FF Cells
 
 module SB_DFF (
 	`ABC_ARRIVAL_HX(540)
+	`ABC_ARRIVAL_LP(795)
 	output `SB_DFF_REG,
 	input C, D
 );
@@ -188,6 +190,7 @@ endmodule
 
 module SB_DFFE (
 	`ABC_ARRIVAL_HX(540)
+	`ABC_ARRIVAL_LP(795)
 	output `SB_DFF_REG,
 	input C, E, D
 );
@@ -198,6 +201,7 @@ endmodule
 
 module SB_DFFSR (
 	`ABC_ARRIVAL_HX(540)
+	`ABC_ARRIVAL_LP(795)
 	output `SB_DFF_REG,
 	input C, R, D
 );
@@ -210,6 +214,7 @@ endmodule
 
 module SB_DFFR (
 	`ABC_ARRIVAL_HX(540)
+	`ABC_ARRIVAL_LP(795)
 	output `SB_DFF_REG,
 	input C, R, D
 );
@@ -222,6 +227,7 @@ endmodule
 
 module SB_DFFSS (
 	`ABC_ARRIVAL_HX(540)
+	`ABC_ARRIVAL_LP(795)
 	output `SB_DFF_REG,
 	input C, S, D
 );
@@ -234,6 +240,7 @@ endmodule
 
 module SB_DFFS (
 	`ABC_ARRIVAL_HX(540)
+	`ABC_ARRIVAL_LP(795)
 	output `SB_DFF_REG,
 	input C, S, D
 );
@@ -246,6 +253,7 @@ endmodule
 
 module SB_DFFESR (
 	`ABC_ARRIVAL_HX(540)
+	`ABC_ARRIVAL_LP(795)
 	output `SB_DFF_REG,
 	input C, E, R, D
 );
@@ -260,6 +268,7 @@ endmodule
 
 module SB_DFFER (
 	`ABC_ARRIVAL_HX(540)
+	`ABC_ARRIVAL_LP(795)
 	output `SB_DFF_REG,
 	input C, E, R, D
 );
@@ -272,6 +281,7 @@ endmodule
 
 module SB_DFFESS (
 	`ABC_ARRIVAL_HX(540)
+	`ABC_ARRIVAL_LP(795)
 	output `SB_DFF_REG,
 	input C, E, S, D
 );
@@ -286,6 +296,7 @@ endmodule
 
 module SB_DFFES (
 	`ABC_ARRIVAL_HX(540)
+	`ABC_ARRIVAL_LP(795)
 	output `SB_DFF_REG,
 	input C, E, S, D
 );
@@ -300,6 +311,7 @@ endmodule
 
 module SB_DFFN (
 	`ABC_ARRIVAL_HX(540)
+	`ABC_ARRIVAL_LP(795)
 	output `SB_DFF_REG,
 	input C, D
 );
@@ -309,6 +321,7 @@ endmodule
 
 module SB_DFFNE (
 	`ABC_ARRIVAL_HX(540)
+	`ABC_ARRIVAL_LP(795)
 	output `SB_DFF_REG,
 	input C, E, D
 );
@@ -319,6 +332,7 @@ endmodule
 
 module SB_DFFNSR (
 	`ABC_ARRIVAL_HX(540)
+	`ABC_ARRIVAL_LP(795)
 	output `SB_DFF_REG,
 	input C, R, D
 );
@@ -331,6 +345,7 @@ endmodule
 
 module SB_DFFNR (
 	`ABC_ARRIVAL_HX(540)
+	`ABC_ARRIVAL_LP(795)
 	output `SB_DFF_REG,
 	input C, R, D
 );
@@ -343,6 +358,7 @@ endmodule
 
 module SB_DFFNSS (
 	`ABC_ARRIVAL_HX(540)
+	`ABC_ARRIVAL_LP(795)
 	output `SB_DFF_REG,
 	input C, S, D
 );
@@ -355,6 +371,7 @@ endmodule
 
 module SB_DFFNS (
 	`ABC_ARRIVAL_HX(540)
+	`ABC_ARRIVAL_LP(795)
 	output `SB_DFF_REG,
 	input C, S, D
 );
@@ -367,6 +384,7 @@ endmodule
 
 module SB_DFFNESR (
 	`ABC_ARRIVAL_HX(540)
+	`ABC_ARRIVAL_LP(795)
 	output `SB_DFF_REG,
 	input C, E, R, D
 );
@@ -381,6 +399,7 @@ endmodule
 
 module SB_DFFNER (
 	`ABC_ARRIVAL_HX(540)
+	`ABC_ARRIVAL_LP(795)
 	output `SB_DFF_REG,
 	input C, E, R, D
 );
@@ -393,6 +412,7 @@ endmodule
 
 module SB_DFFNESS (
 	`ABC_ARRIVAL_HX(540)
+	`ABC_ARRIVAL_LP(795)
 	output `SB_DFF_REG,
 	input C, E, S, D
 );
@@ -407,6 +427,7 @@ endmodule
 
 module SB_DFFNES (
 	`ABC_ARRIVAL_HX(540)
+	`ABC_ARRIVAL_LP(795)
 	output `SB_DFF_REG,
 	input C, E, S, D
 );
@@ -421,6 +442,7 @@ endmodule
 
 module SB_RAM40_4K (
 	`ABC_ARRIVAL_HX(2146) // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L401
+	`ABC_ARRIVAL_LP(3163) // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L401
 	output [15:0] RDATA,
 	input         RCLK, RCLKE, RE,
 	input  [10:0] RADDR,
@@ -590,6 +612,7 @@ endmodule
 
 module SB_RAM40_4KNR (
 	`ABC_ARRIVAL_HX(2146) // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L401
+	`ABC_ARRIVAL_LP(3163) // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L401
 	output [15:0] RDATA,
 	input         RCLKN, RCLKE, RE,
 	input  [10:0] RADDR,
@@ -656,6 +679,7 @@ endmodule
 
 module SB_RAM40_4KNW (
 	`ABC_ARRIVAL_HX(2146) // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L401
+	`ABC_ARRIVAL_LP(3163) // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L401
 	output [15:0] RDATA,
 	input         RCLK, RCLKE, RE,
 	input  [10:0] RADDR,
@@ -722,6 +746,7 @@ endmodule
 
 module SB_RAM40_4KNRNW (
 	`ABC_ARRIVAL_HX(2146) // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L401
+	`ABC_ARRIVAL_LP(3163) // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L401
 	output [15:0] RDATA,
 	input         RCLKN, RCLKE, RE,
 	input  [10:0] RADDR,
@@ -792,6 +817,7 @@ module ICESTORM_LC (
 	input I0, I1, I2, I3, CIN, CLK, CEN, SR,
 	output LO,
 	`ABC_ARRIVAL_HX(540)
+	`ABC_ARRIVAL_LP(795)
 	output O,
 	output COUT
 );
