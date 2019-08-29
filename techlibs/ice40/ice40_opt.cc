@@ -125,7 +125,6 @@ static void run_ice40_opts(Module *module)
 				cell->unsetPort("\\I3");
 				cell->unsetPort("\\CO");
 				cell->unsetPort("\\O");
-				cell->setParam("\\LUT", RTLIL::Const::from_string("0110100110010110"));
 				cell->setParam("\\WIDTH", 4);
 			}
 			continue;
