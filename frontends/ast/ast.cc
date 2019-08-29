@@ -1073,6 +1073,12 @@ static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast
 
 		ignoreThisSignalsInInitial = RTLIL::SigSpec();
 
+		for (auto &attr : ast->attributes) {
+			if (attr.second->type != AST_CONSTANT)
+				log_file_error(ast->filename, ast->linenum, "Attribute `%s' with non-constant value!\n", attr.first.c_str());
+			current_module->attributes[attr.first] = attr.second->asAttrConst();
+		}
+
 		for (size_t i = 0; i < ast->children.size(); i++) {
 			AstNode *node = ast->children[i];
 			if (node->type == AST_WIRE || node->type == AST_MEMORY)
@@ -1094,11 +1100,12 @@ static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast
 
 		ignoreThisSignalsInInitial = RTLIL::SigSpec();
 	}
-
-	for (auto &attr : ast->attributes) {
-		if (attr.second->type != AST_CONSTANT)
-			log_file_error(ast->filename, ast->linenum, "Attribute `%s' with non-constant value!\n", attr.first.c_str());
-		current_module->attributes[attr.first] = attr.second->asAttrConst();
+	else {
+		for (auto &attr : ast->attributes) {
+			if (attr.second->type != AST_CONSTANT)
+				continue;
+			current_module->attributes[attr.first] = attr.second->asAttrConst();
+		}
 	}
 
 	if (ast->type == AST_INTERFACE)
