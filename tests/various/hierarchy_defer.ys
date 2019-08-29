@@ -1,0 +1,18 @@
+read -vlog2k <<EOT
+module first;
+endmodule
+
+(* top *)
+module top(input i, output o);
+sub s0(i, o);
+endmodule
+
+module sub(input i, output o);
+assign o = ~i;
+endmodule
+EOT
+
+hierarchy -auto-top
+select -assert-any top
+select -assert-any sub
+select -assert-none foo
