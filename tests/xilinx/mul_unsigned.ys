@@ -7,5 +7,5 @@ cd mul_unsigned # Constrain all select calls below inside the top module
 stat
 select -assert-count 1 t:BUFG
 select -assert-count 1 t:DSP48E1
-select -assert-count 15 t:SRL16E
-select -assert-none t:DSP48E1 t:SRL16E t:BUFG %% t:* %D
+select -assert-count 30 t:FDRE
+select -assert-none t:DSP48E1 t:FDRE t:BUFG %% t:* %D
