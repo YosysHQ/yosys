@@ -101,7 +101,7 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 			SigSpec Q = st.ffM->getPort("\\Q");
 			P.replace(pm.sigmap(D), Q);
 			cell->setParam("\\MREG", State::S1);
-			if (st.ffP->type == "$dff")
+			if (st.ffM->type == "$dff")
 				cell->setPort("\\CEM", State::S1);
 			//else if (st.ffP->type == "$dffe")
 			//	cell->setPort("\\CEM", st.ffM->getPort("\\EN"));
