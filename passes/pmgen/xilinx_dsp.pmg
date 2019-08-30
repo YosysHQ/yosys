@@ -2,7 +2,7 @@ pattern xilinx_dsp
 
 state <SigBit> clock
 state <std::set<SigBit>> sigAset sigBset
-state <SigSpec> sigC sigP sigPused
+state <SigSpec> sigC sigM sigMused sigP sigPused
 state <Cell*> addAB
 
 match dsp
@@ -16,6 +16,12 @@ code sigAset sigBset
 	SigSpec B = port(dsp, \B);
 	B.remove_const();
 	sigBset = B.to_sigbit_set();
+endcode
+
+code sigM
+	sigM = port(dsp, \P);
+	//if (GetSize(sigH) <= 10)
+	//	reject;
 endcode
 
 match ffA
@@ -63,8 +69,35 @@ code clock
 	}
 endcode
 
-code sigP
-	sigP = port(dsp, \P);
+match ffM
+	if param(dsp, \MREG).as_int() == 0
+	select ffM->type.in($dff)
+	// DSP48E1 does not support clock inversion
+	select param(ffM, \CLK_POLARITY).as_bool()
+	select nusers(port(ffM, \D)) == 2
+	//index <SigSpec> port(ffM, \D) === sigM.extract(0, GetSize(port(ffM, \D))) // TODO: Why doesn't this work!?!
+	filter port(ffM, \D) == sigM.extract(0, GetSize(port(ffM, \D)))
+    filter nusers(sigM.extract_end(param(ffM, \WIDTH).as_int())) == 1
+	optional
+endmatch
+
+code clock sigM sigP
+	if (ffM) {
+        log_warning("M FOUND!\n");
+		sigM = port(ffM, \Q);
+		for (auto b : sigM)
+			if (b.wire->get_bool_attribute(\keep))
+				reject;
+
+		SigBit c = port(ffB, \CLK).as_bit();
+
+		if (clock != SigBit() && c != clock)
+			reject;
+
+		clock = c;
+	}
+
+	sigP = sigM;
 endcode
 
 match addA
