@@ -89,11 +89,11 @@ code sigB clock clock_pol
 endcode
 
 match ffFJKG
+	// Ensure pipeline register is not already used
 	if mul->type != \SB_MAC16 || (!param(mul, \TOP_8x8_MULT_REG).as_bool() && !param(mul, \BOT_8x8_MULT_REG).as_bool() && !param(mul, \PIPELINE_16x16_MULT_REG1).as_bool() && !param(mul, \PIPELINE_16x16_MULT_REG2).as_bool())
 	select ffFJKG->type.in($dff)
 	select nusers(port(ffFJKG, \D)) == 2
 	index <SigSpec> port(ffFJKG, \D) === sigH
-	// Ensure pipeline register is not already used
 	optional
 endmatch
 
