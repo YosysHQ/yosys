@@ -191,7 +191,7 @@ struct ShregmapWorker
 				IdString q_port = opts.ffcells.at(c1->type).second;
 
 				auto c1_conn = c1->connections();
-				auto c2_conn = c1->connections();
+				auto c2_conn = c2->connections();
 
 				c1_conn.erase(d_port);
 				c1_conn.erase(q_port);
