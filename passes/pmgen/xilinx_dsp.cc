@@ -106,6 +106,7 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 			//else if (st.ffP->type == "$dffe")
 			//	cell->setPort("\\CEM", st.ffM->getPort("\\EN"));
 			else log_abort();
+			pm.autoremove(st.ffM);
 		}
 		if (st.ffP) {
 			SigSpec D;
