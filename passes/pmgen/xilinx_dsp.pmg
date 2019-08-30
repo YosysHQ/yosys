@@ -176,4 +176,6 @@ code ffP clock
 
 		clock = c;
 	}
+
+	accept;
 endcode
