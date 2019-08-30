@@ -330,7 +330,7 @@ Verilog Attributes and non-standard features
 
 - The ``parameter`` and ``localparam`` attributes are used to mark wires
   that represent module parameters or localparams (when the HDL front-end
-  is run in -pwires mode).
+  is run in ``-pwires`` mode).
 
 - The ``clkbuf_driver`` attribute can be set on an output port of a blackbox
   module to mark it as a clock buffer output, and thus prevent ``clkbufmap``
