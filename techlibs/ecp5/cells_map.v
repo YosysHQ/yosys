@@ -85,15 +85,15 @@ module ILVDS(input A, AN, output Z); TRELLIS_IO #(.DIR("INPUT"))  _TECHMAP_REPLA
 module OLVDS(input A, output Z, ZN); TRELLIS_IO #(.DIR("OUTPUT")) _TECHMAP_REPLACE_ (.B(Z), .I(A)); endmodule
 
 // Diamond I/O registers
-module IFS1P3BX(input PD, D, SP, SCLK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("SET"), .SRMODE("ASYNC"))  _TECHMAP_REPLACE_ (.CLK(SCLK), .LSR(PD), .CE(SP), .DI(D), .Q(Q)); endmodule
-module IFS1P3DX(input CD, D, SP, SCLK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("RESET"), .SRMODE("ASYNC"))  _TECHMAP_REPLACE_ (.CLK(SCLK), .LSR(CD), .CE(SP), .DI(D), .Q(Q)); endmodule
-module IFS1P3IX(input CD, D, SP, SCLK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("RESET"), .SRMODE("LSR_OVER_CE"))  _TECHMAP_REPLACE_ (.CLK(SCLK), .LSR(CD), .CE(SP), .DI(D), .Q(Q)); endmodule
-module IFS1P3JX(input PD, D, SP, SCLK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("SET"), .SRMODE("LSR_OVER_CE"))  _TECHMAP_REPLACE_ (.CLK(SCLK), .LSR(PD), .CE(SP), .DI(D), .Q(Q)); endmodule
+module IFS1P3BX(input PD, D, SP, SCLK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("CE"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("SET"), .SRMODE("ASYNC"))  _TECHMAP_REPLACE_ (.CLK(SCLK), .LSR(PD), .CE(SP), .DI(D), .Q(Q)); endmodule
+module IFS1P3DX(input CD, D, SP, SCLK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("CE"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("RESET"), .SRMODE("ASYNC"))  _TECHMAP_REPLACE_ (.CLK(SCLK), .LSR(CD), .CE(SP), .DI(D), .Q(Q)); endmodule
+module IFS1P3IX(input CD, D, SP, SCLK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("CE"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("RESET"), .SRMODE("LSR_OVER_CE"))  _TECHMAP_REPLACE_ (.CLK(SCLK), .LSR(CD), .CE(SP), .DI(D), .Q(Q)); endmodule
+module IFS1P3JX(input PD, D, SP, SCLK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("CE"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("SET"), .SRMODE("LSR_OVER_CE"))  _TECHMAP_REPLACE_ (.CLK(SCLK), .LSR(PD), .CE(SP), .DI(D), .Q(Q)); endmodule
 
-module OFS1P3BX(input PD, D, SP, SCLK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("SET"), .SRMODE("ASYNC"))  _TECHMAP_REPLACE_ (.CLK(SCLK), .LSR(PD), .CE(SP), .DI(D), .Q(Q)); endmodule
-module OFS1P3DX(input CD, D, SP, SCLK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("RESET"), .SRMODE("ASYNC"))  _TECHMAP_REPLACE_ (.CLK(SCLK), .LSR(CD), .CE(SP), .DI(D), .Q(Q)); endmodule
-module OFS1P3IX(input CD, D, SP, SCLK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("RESET"), .SRMODE("LSR_OVER_CE"))  _TECHMAP_REPLACE_ (.CLK(SCLK), .LSR(CD), .CE(SP), .DI(D), .Q(Q)); endmodule
-module OFS1P3JX(input PD, D, SP, SCLK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("SET"), .SRMODE("LSR_OVER_CE"))  _TECHMAP_REPLACE_ (.CLK(SCLK), .LSR(PD), .CE(SP), .DI(D), .Q(Q)); endmodule
+module OFS1P3BX(input PD, D, SP, SCLK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("CE"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("SET"), .SRMODE("ASYNC"))  _TECHMAP_REPLACE_ (.CLK(SCLK), .LSR(PD), .CE(SP), .DI(D), .Q(Q)); endmodule
+module OFS1P3DX(input CD, D, SP, SCLK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("CE"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("RESET"), .SRMODE("ASYNC"))  _TECHMAP_REPLACE_ (.CLK(SCLK), .LSR(CD), .CE(SP), .DI(D), .Q(Q)); endmodule
+module OFS1P3IX(input CD, D, SP, SCLK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("CE"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("RESET"), .SRMODE("LSR_OVER_CE"))  _TECHMAP_REPLACE_ (.CLK(SCLK), .LSR(CD), .CE(SP), .DI(D), .Q(Q)); endmodule
+module OFS1P3JX(input PD, D, SP, SCLK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("CE"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("SET"), .SRMODE("LSR_OVER_CE"))  _TECHMAP_REPLACE_ (.CLK(SCLK), .LSR(PD), .CE(SP), .DI(D), .Q(Q)); endmodule
 
 // TODO: Diamond I/O latches
 // module IFS1S1B(input PD, D, SCLK, output Q); endmodule
