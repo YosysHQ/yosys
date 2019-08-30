@@ -39,7 +39,7 @@ struct Async2syncPass : public Pass {
 		log("reset value in the next cycle regardless of the data-in value at the time of\n");
 		log("the clock edge.\n");
 		log("\n");
-		log("Currently only $adff and $dffsr cells are supported by this pass.\n");
+		log("Currently only $adff, $dffsr, and $dlatch cells are supported by this pass.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -167,6 +167,41 @@ struct Async2syncPass : public Pass {
 					cell->unsetParam("\\SET_POLARITY");
 					cell->unsetParam("\\CLR_POLARITY");
 					cell->type = "$dff";
+					continue;
+				}
+
+				if (cell->type.in("$dlatch"))
+				{
+					bool en_pol = cell->parameters["\\EN_POLARITY"].as_bool();
+
+					SigSpec sig_en = cell->getPort("\\EN");
+					SigSpec sig_d = cell->getPort("\\D");
+					SigSpec sig_q = cell->getPort("\\Q");
+
+					log("Replacing %s.%s (%s): EN=%s, D=%s, Q=%s\n",
+							log_id(module), log_id(cell), log_id(cell->type),
+							log_signal(sig_en), log_signal(sig_d), log_signal(sig_q));
+
+					Const init_val;
+					for (int i = 0; i < GetSize(sig_q); i++) {
+						SigBit bit = sigmap(sig_q[i]);
+						init_val.bits.push_back(initbits.count(bit) ? initbits.at(bit) : State::Sx);
+						del_initbits.insert(bit);
+					}
+
+					Wire *new_q = module->addWire(NEW_ID, GetSize(sig_q));
+					new_q->attributes["\\init"] = init_val;
+
+					if (en_pol) {
+						module->addMux(NEW_ID, new_q, sig_d, sig_en, sig_q);
+					} else {
+						module->addMux(NEW_ID, sig_d, new_q, sig_en, sig_q);
+					}
+
+					cell->setPort("\\Q", new_q);
+					cell->unsetPort("\\EN");
+					cell->unsetParam("\\EN_POLARITY");
+					cell->type = "$ff";
 					continue;
 				}
 			}
