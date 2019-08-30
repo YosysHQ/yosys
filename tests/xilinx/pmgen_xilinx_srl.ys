@@ -1,0 +1,57 @@
+read_verilog -icells <<EOT
+module \$__XILINX_SHREG_ (input C, input D, input [31:0] L, input E, output Q, output SO);
+  parameter DEPTH = 1;
+  parameter [DEPTH-1:0] INIT = 0;
+  parameter CLKPOL = 1;
+  parameter ENPOL = 2;
+
+  wire pos_clk = C == CLKPOL;
+  reg pos_en;
+  always @(E)
+    if (ENPOL == 2) pos_en = 1'b1;
+    else pos_en = (E == ENPOL[0]);
+
+  reg [DEPTH-1:0] r;
+  always @(posedge pos_clk)
+    if (pos_en)
+      r <= {r[DEPTH-2:0], D};
+
+  assign Q = r[L];
+  assign SO = r[DEPTH-1];
+endmodule
+EOT
+read_verilog +/xilinx/cells_sim.v
+proc
+design -save model
+
+test_pmgen -generate xilinx_srl.fixed
+hierarchy -top pmtest_xilinx_srl_pm_fixed
+flatten; opt_clean
+
+design -save gold
+xilinx_srl -fixed
+techmap -autoproc -map %model
+design -stash gate
+
+design -copy-from gold -as gold pmtest_xilinx_srl_pm_fixed
+design -copy-from gate -as gate pmtest_xilinx_srl_pm_fixed
+dff2dffe -unmap # sat does not support flops-with-enable yet
+miter -equiv -flatten -make_assert gold gate miter
+sat -set-init-zero -seq 5 -verify -prove-asserts miter
+
+design -load model
+
+test_pmgen -generate xilinx_srl.variable
+hierarchy -top pmtest_xilinx_srl_pm_variable
+flatten; opt_clean
+
+design -save gold
+xilinx_srl -variable
+techmap -autoproc -map %model
+design -stash gate
+
+design -copy-from gold -as gold pmtest_xilinx_srl_pm_variable
+design -copy-from gate -as gate pmtest_xilinx_srl_pm_variable
+dff2dffe -unmap # sat does not support flops-with-enable yet
+miter -equiv -flatten -make_assert gold gate miter
+sat -set-init-zero -seq 5 -verify -prove-asserts miter
