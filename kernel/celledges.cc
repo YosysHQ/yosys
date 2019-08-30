@@ -24,9 +24,9 @@ PRIVATE_NAMESPACE_BEGIN
 
 void bitwise_unary_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 {
-	IdString A = "\\A", Y = "\\Y";
+	IdString A = ID::A, Y = ID::Y;
 
-	bool is_signed = cell->getParam("\\A_SIGNED").as_bool();
+	bool is_signed = cell->getParam(ID(A_SIGNED)).as_bool();
 	int a_width = GetSize(cell->getPort(A));
 	int y_width = GetSize(cell->getPort(Y));
 
@@ -41,14 +41,14 @@ void bitwise_unary_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 
 void bitwise_binary_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 {
-	IdString A = "\\A", B = "\\B", Y = "\\Y";
+	IdString A = ID::A, B = ID::B, Y = ID::Y;
 
-	bool is_signed = cell->getParam("\\A_SIGNED").as_bool();
+	bool is_signed = cell->getParam(ID(A_SIGNED)).as_bool();
 	int a_width = GetSize(cell->getPort(A));
 	int b_width = GetSize(cell->getPort(B));
 	int y_width = GetSize(cell->getPort(Y));
 
-	if (cell->type == "$and" && !is_signed) {
+	if (cell->type == ID($and) && !is_signed) {
 		if (a_width > b_width)
 			a_width = b_width;
 		else
@@ -71,9 +71,9 @@ void bitwise_binary_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 
 void arith_neg_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 {
-	IdString A = "\\A", Y = "\\Y";
+	IdString A = ID::A, Y = ID::Y;
 
-	bool is_signed = cell->getParam("\\A_SIGNED").as_bool();
+	bool is_signed = cell->getParam(ID(A_SIGNED)).as_bool();
 	int a_width = GetSize(cell->getPort(A));
 	int y_width = GetSize(cell->getPort(Y));
 
@@ -87,14 +87,14 @@ void arith_neg_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 
 void arith_binary_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 {
-	IdString A = "\\A", B = "\\B", Y = "\\Y";
+	IdString A = ID::A, B = ID::B, Y = ID::Y;
 
-	bool is_signed = cell->getParam("\\A_SIGNED").as_bool();
+	bool is_signed = cell->getParam(ID(A_SIGNED)).as_bool();
 	int a_width = GetSize(cell->getPort(A));
 	int b_width = GetSize(cell->getPort(B));
 	int y_width = GetSize(cell->getPort(Y));
 
-	if (!is_signed && cell->type != "$sub") {
+	if (!is_signed && cell->type != ID($sub)) {
 		int ab_width = std::max(a_width, b_width);
 		y_width = std::min(y_width, ab_width+1);
 	}
@@ -114,7 +114,7 @@ void arith_binary_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 
 void reduce_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 {
-	IdString A = "\\A", Y = "\\Y";
+	IdString A = ID::A, Y = ID::Y;
 
 	int a_width = GetSize(cell->getPort(A));
 
@@ -124,7 +124,7 @@ void reduce_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 
 void compare_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 {
-	IdString A = "\\A", B = "\\B", Y = "\\Y";
+	IdString A = ID::A, B = ID::B, Y = ID::Y;
 
 	int a_width = GetSize(cell->getPort(A));
 	int b_width = GetSize(cell->getPort(B));
@@ -138,7 +138,7 @@ void compare_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 
 void mux_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 {
-	IdString A = "\\A", B = "\\B", S = "\\S", Y = "\\Y";
+	IdString A = ID::A, B = ID::B, S = ID(S), Y = ID::Y;
 
 	int a_width = GetSize(cell->getPort(A));
 	int b_width = GetSize(cell->getPort(B));
@@ -160,43 +160,43 @@ PRIVATE_NAMESPACE_END
 
 bool YOSYS_NAMESPACE_PREFIX AbstractCellEdgesDatabase::add_edges_from_cell(RTLIL::Cell *cell)
 {
-	if (cell->type.in("$not", "$pos")) {
+	if (cell->type.in(ID($not), ID($pos))) {
 		bitwise_unary_op(this, cell);
 		return true;
 	}
 
-	if (cell->type.in("$and", "$or", "$xor", "$xnor")) {
+	if (cell->type.in(ID($and), ID($or), ID($xor), ID($xnor))) {
 		bitwise_binary_op(this, cell);
 		return true;
 	}
 
-	if (cell->type == "$neg") {
+	if (cell->type == ID($neg)) {
 		arith_neg_op(this, cell);
 		return true;
 	}
 
-	if (cell->type.in("$add", "$sub")) {
+	if (cell->type.in(ID($add), ID($sub))) {
 		arith_binary_op(this, cell);
 		return true;
 	}
 
-	if (cell->type.in("$reduce_and", "$reduce_or", "$reduce_xor", "$reduce_xnor", "$reduce_bool", "$logic_not")) {
+	if (cell->type.in(ID($reduce_and), ID($reduce_or), ID($reduce_xor), ID($reduce_xnor), ID($reduce_bool), ID($logic_not))) {
 		reduce_op(this, cell);
 		return true;
 	}
 
 	// FIXME:
-	// if (cell->type.in("$shl", "$shr", "$sshl", "$sshr", "$shift", "$shiftx")) {
+	// if (cell->type.in(ID($shl), ID($shr), ID($sshl), ID($sshr), ID($shift), ID($shiftx))) {
 	// 	shift_op(this, cell);
 	// 	return true;
 	// }
 
-	if (cell->type.in("$lt", "$le", "$eq", "$ne", "$eqx", "$nex", "$ge", "$gt")) {
+	if (cell->type.in(ID($lt), ID($le), ID($eq), ID($ne), ID($eqx), ID($nex), ID($ge), ID($gt))) {
 		compare_op(this, cell);
 		return true;
 	}
 
-	if (cell->type.in("$mux", "$pmux")) {
+	if (cell->type.in(ID($mux), ID($pmux))) {
 		mux_op(this, cell);
 		return true;
 	}

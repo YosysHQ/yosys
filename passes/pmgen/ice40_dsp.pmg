@@ -265,4 +265,5 @@ code clock clock_pol sigO sigCD
 			sigCD.extend_u0(32, addAB && param(addAB, \A_SIGNED).as_bool() && param(addAB, \B_SIGNED).as_bool());
 		}
 	}
+	accept;
 endcode

@@ -143,7 +143,7 @@ void create_dff_dq_map(std::map<RTLIL::IdString, dff_map_info_t> &map, RTLIL::De
 			continue;
 		}
 
-		if (info.cell->type == "$_DFF_N_" || info.cell->type == "$_DFF_P_") {
+		if (info.cell->type.in("$_DFF_N_", "$_DFF_P_")) {
 			info.bit_clk = sigmap(info.cell->getPort("\\C")).as_bit();
 			info.clk_polarity = info.cell->type == "$_DFF_P_";
 			info.bit_d = sigmap(info.cell->getPort("\\D")).as_bit();

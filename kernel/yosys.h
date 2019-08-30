@@ -305,8 +305,17 @@ RTLIL::IdString new_id(std::string file, int line, std::string func);
 #define NEW_ID \
 	YOSYS_NAMESPACE_PREFIX new_id(__FILE__, __LINE__, __FUNCTION__)
 
-#define ID(_str) \
-	([]() { static YOSYS_NAMESPACE_PREFIX RTLIL::IdString _id(_str); return _id; })()
+// Create a statically allocated IdString object, using for example ID(A) or ID($add).
+//
+// Recipe for Converting old code that is using conversion of strings like "\\A" and
+// "$add" for creating IdStrings: Run below SED command on the .cc file and then use for
+// example "meld foo.cc foo.cc.orig" to manually compile errors, if necessary.
+//
+//  sed -i.orig -r 's/"\\\\([a-zA-Z0-9_]+)"/ID(\1)/g; s/"(\$[a-zA-Z0-9_]+)"/ID(\1)/g;' <filename>
+//
+#define ID(_id) ([]() { const char *p = "\\" #_id, *q = p[1] == '$' ? p+1 : p; \
+        static const YOSYS_NAMESPACE_PREFIX RTLIL::IdString id(q); return id; })()
+namespace ID = RTLIL::ID;
 
 RTLIL::Design *yosys_get_design();
 std::string proc_self_dirname();

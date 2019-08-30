@@ -28,44 +28,44 @@ struct CellCosts
 {
 	static const dict<RTLIL::IdString, int>& default_gate_cost() {
 		static const dict<RTLIL::IdString, int> db = {
-			{ "$_BUF_",    1 },
-			{ "$_NOT_",    2 },
-			{ "$_AND_",    4 },
-			{ "$_NAND_",   4 },
-			{ "$_OR_",     4 },
-			{ "$_NOR_",    4 },
-			{ "$_ANDNOT_", 4 },
-			{ "$_ORNOT_",  4 },
-			{ "$_XOR_",    5 },
-			{ "$_XNOR_",   5 },
-			{ "$_AOI3_",   6 },
-			{ "$_OAI3_",   6 },
-			{ "$_AOI4_",   7 },
-			{ "$_OAI4_",   7 },
-			{ "$_MUX_",    4 },
-			{ "$_NMUX_",   4 }
+			{ ID($_BUF_),    1 },
+			{ ID($_NOT_),    2 },
+			{ ID($_AND_),    4 },
+			{ ID($_NAND_),   4 },
+			{ ID($_OR_),     4 },
+			{ ID($_NOR_),    4 },
+			{ ID($_ANDNOT_), 4 },
+			{ ID($_ORNOT_),  4 },
+			{ ID($_XOR_),    5 },
+			{ ID($_XNOR_),   5 },
+			{ ID($_AOI3_),   6 },
+			{ ID($_OAI3_),   6 },
+			{ ID($_AOI4_),   7 },
+			{ ID($_OAI4_),   7 },
+			{ ID($_MUX_),    4 },
+			{ ID($_NMUX_),   4 }
 		};
 		return db;
 	}
 
 	static const dict<RTLIL::IdString, int>& cmos_gate_cost() {
 		static const dict<RTLIL::IdString, int> db = {
-			{ "$_BUF_",     1 },
-			{ "$_NOT_",     2 },
-			{ "$_AND_",     6 },
-			{ "$_NAND_",    4 },
-			{ "$_OR_",      6 },
-			{ "$_NOR_",     4 },
-			{ "$_ANDNOT_",  6 },
-			{ "$_ORNOT_",   6 },
-			{ "$_XOR_",    12 },
-			{ "$_XNOR_",   12 },
-			{ "$_AOI3_",    6 },
-			{ "$_OAI3_",    6 },
-			{ "$_AOI4_",    8 },
-			{ "$_OAI4_",    8 },
-			{ "$_MUX_",    12 },
-			{ "$_NMUX_",   10 }
+			{ ID($_BUF_),     1 },
+			{ ID($_NOT_),     2 },
+			{ ID($_AND_),     6 },
+			{ ID($_NAND_),    4 },
+			{ ID($_OR_),      6 },
+			{ ID($_NOR_),     4 },
+			{ ID($_ANDNOT_),  6 },
+			{ ID($_ORNOT_),   6 },
+			{ ID($_XOR_),    12 },
+			{ ID($_XNOR_),   12 },
+			{ ID($_AOI3_),    6 },
+			{ ID($_OAI3_),    6 },
+			{ ID($_AOI4_),    8 },
+			{ ID($_OAI4_),    8 },
+			{ ID($_MUX_),    12 },
+			{ ID($_NMUX_),   10 }
 		};
 		return db;
 	}
@@ -92,8 +92,8 @@ struct CellCosts
 		{
 			RTLIL::Module *mod = design->module(cell->type);
 
-			if (mod->attributes.count("\\cost"))
-				return mod->attributes.at("\\cost").as_int();
+			if (mod->attributes.count(ID(cost)))
+				return mod->attributes.at(ID(cost)).as_int();
 
 			if (mod_cost_cache.count(mod->name))
 				return mod_cost_cache.at(mod->name);
