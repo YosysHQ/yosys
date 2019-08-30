@@ -38,8 +38,8 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 	log("ffA:     %s\n", log_id(st.ffA, "--"));
 	log("ffB:     %s\n", log_id(st.ffB, "--"));
 	log("dsp:     %s\n", log_id(st.dsp, "--"));
-	log("addAB:   %s\n", log_id(st.addAB, "--"));
 	log("ffM:     %s\n", log_id(st.ffM, "--"));
+	log("addAB:   %s\n", log_id(st.addAB, "--"));
 	log("ffP:     %s\n", log_id(st.ffP, "--"));
 	//log("muxP:  %s\n", log_id(st.muxP, "--"));
 	log("sigPused: %s\n", log_signal(st.sigPused));
