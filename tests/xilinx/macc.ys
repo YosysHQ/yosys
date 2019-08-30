@@ -1,0 +1,17 @@
+read_verilog macc.v
+proc
+hierarchy -top macc
+equiv_opt -run :restore -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
+
+#equiv_miter -trigger miter equiv
+#sat -verify -prove-asserts -tempinduct -show-inputs -show-outputs miter
+
+#equiv_opt -assert -run :prove -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
+#miter -equiv -flatten -make_assert -make_outputs gold gate miter
+#sat -set-init-zero -verify -prove-asserts -seq 10 -show-inputs -show-outputs miter
+
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd macc # Constrain all select calls below inside the top module
+select -assert-count 1 t:BUFG
+select -assert-count 1 t:DSP48E1
+select -assert-none t:BUFG t:DSP48E1 %% t:* %D
