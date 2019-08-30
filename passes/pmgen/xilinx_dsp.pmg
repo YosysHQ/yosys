@@ -83,7 +83,6 @@ endmatch
 
 code clock sigM sigP
 	if (ffM) {
-        log_warning("M FOUND!\n");
 		sigM = port(ffM, \Q);
 		for (auto b : sigM)
 			if (b.wire->get_bool_attribute(\keep))
