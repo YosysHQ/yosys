@@ -985,7 +985,7 @@ void AigerReader::post_process()
 	// operate (and run checks on) this one module
 	RTLIL::Design *mapped_design = new RTLIL::Design;
 	mapped_design->add(module);
-	Pass::call(mapped_design, "clean");
+	Pass::call(mapped_design, "clean -purge");
 	mapped_design->modules_.erase(module->name);
 	delete mapped_design;
 

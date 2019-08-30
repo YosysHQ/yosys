@@ -1,0 +1,4 @@
+*.log
+/run-test.mk
++*_synth.v
++*_testbench

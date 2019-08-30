@@ -1,0 +1,9 @@
+read_verilog tribuf.v
+hierarchy -top top
+proc
+flatten
+equiv_opt -assert -map +/ice40/cells_sim.v -map +/simcells.v synth_ice40 # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd top # Constrain all select calls below inside the top module
+select -assert-count 1 t:$_TBUF_
+select -assert-none t:$_TBUF_ %% t:* %D

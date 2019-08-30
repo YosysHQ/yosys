@@ -347,6 +347,20 @@ Verilog Attributes and non-standard features
   it as the external-facing pin of an I/O pad, and prevents ``iopadmap``
   from inserting another pad cell on it.
 
+- The module attribute ``abc_box_id`` specifies a positive integer linking a
+  blackbox or whitebox definition to a corresponding entry in a `abc9`
+  box-file.
+
+- The port attribute ``abc_carry`` marks the carry-in (if an input port) and
+  carry-out (if output port) ports of a box. This information is necessary for
+  `abc9` to preserve the integrity of carry-chains. Specifying this attribute
+  onto a bus port will affect only its most significant bit.
+
+- The port attribute ``abc_arrival`` specifies an integer (for output ports
+  only) to be used as the arrival time of this sequential port. It can be used,
+  for example, to specify the clk-to-Q delay of a flip-flop for consideration
+  during techmapping.
+
 - In addition to the ``(* ... *)`` attribute syntax, Yosys supports
   the non-standard ``{* ... *}`` attribute syntax to set default attributes
   for everything that comes after the ``{* ... *}`` statement. (Reset
@@ -422,20 +436,6 @@ Verilog Attributes and non-standard features
   special ``$specify2``, ``$specify3``, and ``$specrule`` cells, for use in
   blackboxes and whiteboxes. Use ``read_verilog -specify`` to enable this
   functionality. (By default specify .. endspecify blocks are ignored.)
-
-- The module attribute ``abc_box_id`` specifies a positive integer linking a
-  blackbox or whitebox definition to a corresponding entry in a `abc9`
-  box-file.
-
-- The port attribute ``abc_carry`` marks the carry-in (if an input port) and
-  carry-out (if output port) ports of a box. This information is necessary for
-  `abc9` to preserve the integrity of carry-chains. Specifying this attribute
-  onto a bus port will affect only its most significant bit.
-
-- The port attribute ``abc_arrival`` specifies an integer (for output ports
-  only) to be used as the arrival time of this sequential port. It can be used,
-  for example, to specify the clk-to-Q delay of a flip-flop for consideration
-  during techmapping.
 
 
 Non-standard or SystemVerilog features for formal verification
