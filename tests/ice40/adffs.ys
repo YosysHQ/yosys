@@ -1,0 +1,12 @@
+read_verilog adffs.v
+proc
+async2sync # converts async flops to a 'sync' variant clocked by a 'super'-clock
+flatten
+equiv_opt -assert -map +/ice40/cells_sim.v synth_ice40 # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd top # Constrain all select calls below inside the top module
+select -assert-count 1 t:SB_DFF
+select -assert-count 1 t:SB_DFFN
+select -assert-count 2 t:SB_DFFSR
+select -assert-count 7 t:SB_LUT4
+select -assert-none t:SB_DFF t:SB_DFFN t:SB_DFFSR t:SB_LUT4 %% t:* %D

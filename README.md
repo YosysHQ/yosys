@@ -330,7 +330,7 @@ Verilog Attributes and non-standard features
 
 - The ``parameter`` and ``localparam`` attributes are used to mark wires
   that represent module parameters or localparams (when the HDL front-end
-  is run in -pwires mode).
+  is run in ``-pwires`` mode).
 
 - The ``clkbuf_driver`` attribute can be set on an output port of a blackbox
   module to mark it as a clock buffer output, and thus prevent ``clkbufmap``
@@ -346,6 +346,23 @@ Verilog Attributes and non-standard features
 - The ``iopad_external_pin`` attribute on a blackbox module's port marks
   it as the external-facing pin of an I/O pad, and prevents ``iopadmap``
   from inserting another pad cell on it.
+
+- The module attribute ``abc_box_id`` specifies a positive integer linking a
+  blackbox or whitebox definition to a corresponding entry in a `abc9`
+  box-file.
+
+- The port attribute ``abc_scc_break`` indicates a module input port that will
+  be treated as a primary output during `abc9` techmapping. Doing so eliminates
+  the possibility of a strongly-connected component (i.e. a combinatorial loop)
+  existing. Typically, this is specified for sequential inputs on otherwise
+  combinatorial boxes -- for example, applying ``abc_scc_break`` onto the `D`
+  port of a LUTRAM cell prevents `abc9` from interpreting any `Q` -> `D` paths
+  as a combinatorial loop.
+
+- The port attribute ``abc_carry`` marks the carry-in (if an input port) and
+  carry-out (if output port) ports of a box. This information is necessary for
+  `abc9` to preserve the integrity of carry-chains. Specifying this attribute
+  onto a bus port will affect only its most significant bit.
 
 - In addition to the ``(* ... *)`` attribute syntax, Yosys supports
   the non-standard ``{* ... *}`` attribute syntax to set default attributes
@@ -422,23 +439,6 @@ Verilog Attributes and non-standard features
   special ``$specify2``, ``$specify3``, and ``$specrule`` cells, for use in
   blackboxes and whiteboxes. Use ``read_verilog -specify`` to enable this
   functionality. (By default specify .. endspecify blocks are ignored.)
-
-- The module attribute ``abc_box_id`` specifies a positive integer linking a
-  blackbox or whitebox definition to a corresponding entry in a `abc9`
-  box-file.
-
-- The port attribute ``abc_scc_break`` indicates a module input port that will
-  be treated as a primary output during `abc9` techmapping. Doing so eliminates
-  the possibility of a strongly-connected component (i.e. a combinatorial loop)
-  existing. Typically, this is specified for sequential inputs on otherwise
-  combinatorial boxes -- for example, applying ``abc_scc_break`` onto the `D`
-  port of a LUTRAM cell prevents `abc9` from interpreting any `Q` -> `D` paths
-  as a combinatorial loop.
-
-- The port attribute ``abc_carry`` marks the carry-in (if an input port) and
-  carry-out (if output port) ports of a box. This information is necessary for
-  `abc9` to preserve the integrity of carry-chains. Specifying this attribute
-  onto a bus port will affect only its most significant bit.
 
 
 Non-standard or SystemVerilog features for formal verification

@@ -36,6 +36,8 @@ Yosys 0.9 .. Yosys 0.9-dev
     - Added "ice40_wrapcarry" to encapsulate SB_LUT+SB_CARRY pairs for techmapping
     - Removed "ice40_unlut"
     - Improvements in pmgen: slices, choices, define, generate
+    - Added "xilinx_srl" for Xilinx shift register extraction
+    - Removed "shregmap -tech xilinx" (superseded by "xilinx_srl")
 
 Yosys 0.8 .. Yosys 0.9
 ----------------------

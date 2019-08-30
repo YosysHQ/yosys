@@ -36,3 +36,9 @@ PEEPOPT_PATTERN += passes/pmgen/peepopt_muldiv.pmg
 
 passes/pmgen/peepopt_pm.h: passes/pmgen/pmgen.py $(PEEPOPT_PATTERN)
 	$(P) mkdir -p passes/pmgen && python3 $< -o $@ -p peepopt $(filter-out $<,$^)
+
+# --------------------------------------
+
+OBJS += passes/pmgen/xilinx_srl.o
+passes/pmgen/xilinx_srl.o: passes/pmgen/xilinx_srl_pm.h
+$(eval $(call add_extra_objs,passes/pmgen/xilinx_srl_pm.h))
