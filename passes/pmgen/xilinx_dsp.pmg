@@ -76,8 +76,9 @@ match ffM
 	select param(ffM, \CLK_POLARITY).as_bool()
 	select nusers(port(ffM, \D)) == 2
 	//index <SigSpec> port(ffM, \D) === sigM.extract(0, GetSize(port(ffM, \D))) // TODO: Why doesn't this work!?!
+	filter GetSize(port(ffM, \D)) <= GetSize(sigM)
 	filter port(ffM, \D) == sigM.extract(0, GetSize(port(ffM, \D)))
-    filter nusers(sigM.extract_end(param(ffM, \WIDTH).as_int())) == 1
+	filter nusers(sigM.extract_end(GetSize(port(ffM, \D)))) <= 1
 	optional
 endmatch
 
@@ -88,7 +89,7 @@ code clock sigM sigP
 			if (b.wire->get_bool_attribute(\keep))
 				reject;
 
-		SigBit c = port(ffB, \CLK).as_bit();
+		SigBit c = port(ffM, \CLK).as_bit();
 
 		if (clock != SigBit() && c != clock)
 			reject;
@@ -102,10 +103,11 @@ endcode
 match addA
 	select addA->type.in($add)
 	select param(addA, \A_SIGNED).as_bool() && param(addA, \B_SIGNED).as_bool()
-	index <int> nusers(port(addA, \A)) === 2
-	//index <SigSpec> port(addA, \A) === sigP.extract(0, param(addA, \A_WIDTH).as_int())
-	filter param(addA, \A_WIDTH).as_int() <= GetSize(sigP)
-	filter port(addA, \A) == sigP.extract(0, param(addA, \A_WIDTH).as_int())
+	select nusers(port(addA, \A)) == 2
+	//index <SigSpec> port(addA, \A) === sigP.extract(0, param(addA, \A_WIDTH).as_int()) // TODO: Why doesn't this work!?!
+	filter GetSize(port(addA, \A)) <= GetSize(sigP)
+	filter port(addA, \A) == sigP.extract(0, GetSize(port(addA, \A)))
+	filter nusers(sigP.extract_end(GetSize(port(addA, \A)))) <= 1
 	optional
 endmatch
 
@@ -114,9 +116,10 @@ match addB
 	select addB->type.in($add, $sub)
 	select param(addB, \A_SIGNED).as_bool() && param(addB, \B_SIGNED).as_bool()
 	index <int> nusers(port(addB, \B)) === 2
-	//index <SigSpec> port(addB, \B) === sigP.extract(0, param(addB, \B_WIDTH).as_int())
-	filter param(addB, \B_WIDTH).as_int() <= GetSize(sigP)
-	filter port(addB, \B) == sigP.extract(0, param(addB, \B_WIDTH).as_int())
+	//index <SigSpec> port(addB, \B) === sigP.extract(0, param(addB, \B_WIDTH).as_int()) // TODO: Why doesn't this work!?!
+	filter GetSize(port(addB, \B)) <= GetSize(sigP)
+	filter port(addB, \B) == sigP.extract(0, GetSize(port(addB, \B)))
+	filter nusers(sigP.extract_end(GetSize(port(addB, \B)))) <= 1
 	optional
 endmatch
 
@@ -135,12 +138,13 @@ code addAB sigC sigP
 		if (!opmodeZ.is_fully_zero())
 			reject;
 
-		int natural_mul_width = GetSize(port(dsp, \A)) + GetSize(port(dsp, \B));
-		int actual_mul_width = GetSize(sigP);
-		int actual_acc_width = GetSize(sigC);
+		// TODO for DSP48E1, which will have sign extended inputs/outputs
+		//int natural_mul_width = GetSize(port(dsp, \A)) + GetSize(port(dsp, \B));
+		//int actual_mul_width = GetSize(sigP);
+		//int actual_acc_width = GetSize(sigC);
 
-		if ((actual_acc_width > actual_mul_width) && (natural_mul_width > actual_mul_width))
-			reject;
+		//if ((actual_acc_width > actual_mul_width) && (natural_mul_width > actual_mul_width))
+		//	reject;
 		//if ((actual_acc_width != actual_mul_width) && (param(dsp, \A_SIGNED).as_bool() != param(addAB, \A_SIGNED).as_bool()))
 		//	reject;
 
