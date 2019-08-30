@@ -13,12 +13,6 @@ for x in *.ys; do
 	echo "run-$x:"
 	echo "	@echo 'Running $x..'"
 	echo "	@../../yosys -ql ${x%.ys}.log $x -w 'Yosys has only limited support for tri-state logic at the moment.'"
-
-	if [ -f "${x%.ys}_tb.v" ]; then
-		echo "	@echo 'Running ${x%.ys}_tb.v..'"
-		echo "	@iverilog -o ${x%.ys}_testbench $t ${x%.ys}_synth.v common.v $TECHLIBS_PREFIX/ice40/cells_sim.v"
-		echo "	@vvp -N ${x%.ys}_testbench"
-	fi
 done
 
 #for s in *.sh; do
