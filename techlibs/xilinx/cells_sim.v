@@ -269,7 +269,7 @@ endmodule
 module FDCE (
   (* abc_arrival=303 *)
   output reg Q,
-  (* clkbuf_sink *) 
+  (* clkbuf_sink *)
   input C,
   input CE, D, CLR
 );
@@ -289,7 +289,7 @@ endmodule
 module FDPE (
   (* abc_arrival=303 *)
   output reg Q,
-  (* clkbuf_sink *) 
+  (* clkbuf_sink *)
   input C,
   input CE, D, PRE
 );
