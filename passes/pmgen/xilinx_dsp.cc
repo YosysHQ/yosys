@@ -104,7 +104,7 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 			if (st.ffP->type == "$dff")
 				cell->setPort("\\CEM", State::S1);
 			//else if (st.ffP->type == "$dffe")
-			//	cell->setPort("\\CEP", st.ffP->getPort("\\EN"));
+			//	cell->setPort("\\CEM", st.ffM->getPort("\\EN"));
 			else log_abort();
 		}
 		if (st.ffP) {
