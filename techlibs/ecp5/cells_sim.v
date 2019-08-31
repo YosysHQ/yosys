@@ -229,14 +229,15 @@ module TRELLIS_FF(input CLK, LSR, CE, DI, M, output reg Q);
 	parameter REGSET = "RESET";
 	parameter [127:0] LSRMODE = "LSR";
 
-	reg muxce;
-	always @(*)
+	wire muxce;
+	generate
 		case (CEMUX)
-			"1": muxce = 1'b1;
-			"0": muxce = 1'b0;
-			"INV": muxce = ~CE;
-			default: muxce = CE;
+			"1": assign muxce = 1'b1;
+			"0": assign muxce = 1'b0;
+			"INV": assign muxce = ~CE;
+			default: assign muxce = CE;
 		endcase
+	endgenerate
 
 	wire muxlsr = (LSRMUX == "INV") ? ~LSR : LSR;
 	wire muxclk = (CLKMUX == "INV") ? ~CLK : CLK;
