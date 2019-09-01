@@ -1258,10 +1258,13 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			if (buf->type != AST_GENBLOCK)
 				buf = new AstNode(AST_GENBLOCK, buf);
 
-			if (!buf->str.empty()) {
-				std::map<std::string, std::string> name_map;
-				buf->expand_genblock(std::string(), buf->str + ".", name_map);
+			if (buf->str.empty()) {
+				std::stringstream sstr;
+				sstr << "$genblock$" << filename << ":" << linenum << "$" << (autoidx++);
+				buf->str = sstr.str();
 			}
+			std::map<std::string, std::string> name_map;
+			buf->expand_genblock(std::string(), buf->str + ".", name_map);
 
 			for (size_t i = 0; i < buf->children.size(); i++) {
 				buf->children[i]->simplify(false, false, false, stage, -1, false, false);
@@ -1337,10 +1340,13 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			log_assert(selected_case->type == AST_GENBLOCK);
 			buf = selected_case->clone();
 
-			if (!buf->str.empty()) {
-				std::map<std::string, std::string> name_map;
-				buf->expand_genblock(std::string(), buf->str + ".", name_map);
+			if (buf->str.empty()) {
+				std::stringstream sstr;
+				sstr << "$genblock$" << filename << ":" << linenum << "$" << (autoidx++);
+				buf->str = sstr.str();
 			}
+			std::map<std::string, std::string> name_map;
+			buf->expand_genblock(std::string(), buf->str + ".", name_map);
 
 			for (size_t i = 0; i < buf->children.size(); i++) {
 				buf->children[i]->simplify(false, false, false, stage, -1, false, false);
