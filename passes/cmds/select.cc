@@ -664,7 +664,7 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 		} else
 		if (arg == "%D") {
 			if (work_stack.size() < 2)
-				log_cmd_error("Must have at least two elements on the stack for operator %%d.\n");
+				log_cmd_error("Must have at least two elements on the stack for operator %%D.\n");
 			select_op_diff(design, work_stack[work_stack.size()-1], work_stack[work_stack.size()-2]);
 			work_stack[work_stack.size()-2] = work_stack[work_stack.size()-1];
 			work_stack.pop_back();
@@ -693,7 +693,7 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 		} else
 		if (arg == "%C") {
 			if (work_stack.size() < 1)
-				log_cmd_error("Must have at least one element on the stack for operator %%M.\n");
+				log_cmd_error("Must have at least one element on the stack for operator %%C.\n");
 			select_op_module_to_cells(design, work_stack[work_stack.size()-1]);
 		} else
 		if (arg == "%c") {
