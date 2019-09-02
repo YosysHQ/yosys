@@ -45,7 +45,7 @@ module _80_gw1n_alu(A, B, CI, BI, X, Y, CO);
 
    genvar 		i;
    generate for (i = 0; i < Y_WIDTH; i = i + 1) begin:slice
-      ALU #(.ALU_MODE(32'b0))
+      ALU #(.ALU_MODE(0))
       alu(.I0(AA[i]),
 	  .I1(BB[i]),
 	  .I3(1'b0),
