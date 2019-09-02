@@ -2,8 +2,8 @@
 Example from: https://www.latticesemi.com/-/media/LatticeSemi/Documents/UserManuals/EI/iCEcube201701UserGuide.ashx?document_id=52071 [p. 77].
 */
 module top(clk,a,b,c,set);
-parameter A_WIDTH = 4;
-parameter B_WIDTH = 3;
+parameter A_WIDTH = 6 /*4*/;
+parameter B_WIDTH = 6 /*3*/;
 input set;
 input clk;
 input signed [(A_WIDTH - 1):0] a;
