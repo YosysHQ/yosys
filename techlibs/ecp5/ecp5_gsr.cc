@@ -124,7 +124,7 @@ struct Ecp5GsrPass : public Pass {
 				SigBit lsr = sigmap(sig_lsr[0]);
 				if (!inverted_gsr.count(lsr))
 					continue;
-				cell->setParam(ID(SRMODE), Const("SYNC"));
+				cell->setParam(ID(SRMODE), Const("LSR_OVER_CE"));
 				cell->unsetPort(ID(LSR));
 			}
 
