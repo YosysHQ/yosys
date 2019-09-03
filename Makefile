@@ -115,7 +115,7 @@ LDFLAGS += -rdynamic
 LDLIBS += -lrt
 endif
 
-YOSYS_VER := 0.9+1
+YOSYS_VER := 0.9+36
 GIT_REV := $(shell cd $(YOSYS_SRC) && git rev-parse --short HEAD 2> /dev/null || echo UNKNOWN)
 OBJS = kernel/version_$(GIT_REV).o
 
@@ -709,6 +709,7 @@ test: $(TARGETS) $(EXTRA_TARGETS)
 	+cd tests/opt && bash run-test.sh
 	+cd tests/aiger && bash run-test.sh $(ABCOPT)
 	+cd tests/arch && bash run-test.sh
+	+cd tests/ice40 && bash run-test.sh $(SEEDOPT)
 	@echo ""
 	@echo "  Passed \"make test\"."
 	@echo ""

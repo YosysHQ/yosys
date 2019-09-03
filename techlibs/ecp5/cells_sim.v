@@ -229,14 +229,15 @@ module TRELLIS_FF(input CLK, LSR, CE, DI, M, output reg Q);
 	parameter REGSET = "RESET";
 	parameter [127:0] LSRMODE = "LSR";
 
-	reg muxce;
-	always @(*)
+	wire muxce;
+	generate
 		case (CEMUX)
-			"1": muxce = 1'b1;
-			"0": muxce = 1'b0;
-			"INV": muxce = ~CE;
-			default: muxce = CE;
+			"1": assign muxce = 1'b1;
+			"0": assign muxce = 1'b0;
+			"INV": assign muxce = ~CE;
+			default: assign muxce = CE;
 		endcase
+	endgenerate
 
 	wire muxlsr = (LSRMUX == "INV") ? ~LSR : LSR;
 	wire muxclk = (CLKMUX == "INV") ? ~CLK : CLK;
@@ -693,56 +694,9 @@ module DP16KD(
 	parameter INITVAL_3F = 320'h00000000000000000000000000000000000000000000000000000000000000000000000000000000;
 endmodule
 
-// TODO: Diamond flip-flops
-// module FD1P3AX(); endmodule
-// module FD1P3AY(); endmodule
-// module FD1P3BX(); endmodule
-// module FD1P3DX(); endmodule
-// module FD1P3IX(); endmodule
-// module FD1P3JX(); endmodule
-// module FD1S3AX(); endmodule
-// module FD1S3AY(); endmodule
-module FD1S3BX(input PD, D, CK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("SET"), .SRMODE("ASYNC"))  tff (.CLK(CK), .LSR(PD), .DI(D), .Q(Q)); endmodule
-module FD1S3DX(input CD, D, CK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("RESET"), .SRMODE("ASYNC"))  tff (.CLK(CK), .LSR(CD), .DI(D), .Q(Q)); endmodule
-module FD1S3IX(input CD, D, CK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("RESET"), .SRMODE("LSR_OVER_CE"))  tff (.CLK(CK), .LSR(CD), .DI(D), .Q(Q)); endmodule
-module FD1S3JX(input PD, D, CK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("SET"), .SRMODE("LSR_OVER_CE"))  tff (.CLK(CK), .LSR(PD), .DI(D), .Q(Q)); endmodule
-// module FL1P3AY(); endmodule
-// module FL1P3AZ(); endmodule
-// module FL1P3BX(); endmodule
-// module FL1P3DX(); endmodule
-// module FL1P3IY(); endmodule
-// module FL1P3JY(); endmodule
-// module FL1S3AX(); endmodule
-// module FL1S3AY(); endmodule
+`ifndef NO_INCLUDES
 
-// Diamond I/O buffers
-module IB   (input I, output O); (* PULLMODE="NONE" *) TRELLIS_IO #(.DIR("INPUT")) tio (.B(I), .O(O)); endmodule
-module IBPU (input I, output O); (* PULLMODE="UP"   *) TRELLIS_IO #(.DIR("INPUT"))   tio (.B(I), .O(O)); endmodule
-module IBPD (input I, output O); (* PULLMODE="DOWN" *) TRELLIS_IO #(.DIR("INPUT")) tio (.B(I), .O(O)); endmodule
-module OB   (input I, output O); (* PULLMODE="NONE" *) TRELLIS_IO #(.DIR("OUTPUT")) tio (.B(O), .I(I)); endmodule
-module OBZ  (input I, T, output O); (* PULLMODE="NONE" *) TRELLIS_IO #(.DIR("OUTPUT")) tio (.B(O), .I(I), .T(T)); endmodule
-module OBZPU(input I, T, output O); (* PULLMODE="UP"   *) TRELLIS_IO #(.DIR("OUTPUT"))   tio (.B(O), .I(I), .T(T)); endmodule
-module OBZPD(input I, T, output O); (* PULLMODE="DOWN" *) TRELLIS_IO #(.DIR("OUTPUT")) tio (.B(O), .I(I), .T(T)); endmodule
-module OBCO (input I, output OT, OC); OLVDS olvds (.A(I), .Z(OT), .ZN(OC)); endmodule
-module BB   (input I, T, output O, inout B); (* PULLMODE="NONE" *) TRELLIS_IO #(.DIR("BIDIR")) tio (.B(B), .I(I), .O(O), .T(T)); endmodule
-module BBPU (input I, T, output O, inout B); (* PULLMODE="UP"   *) TRELLIS_IO #(.DIR("BIDIR"))   tio (.B(B), .I(I), .O(O), .T(T)); endmodule
-module BBPD (input I, T, output O, inout B); (* PULLMODE="DOWN" *) TRELLIS_IO #(.DIR("BIDIR")) tio (.B(B), .I(I), .O(O), .T(T)); endmodule
-module ILVDS(input A, AN, output Z); TRELLIS_IO #(.DIR("INPUT"))  tio (.B(A), .O(Z)); endmodule
-module OLVDS(input A, output Z, ZN); TRELLIS_IO #(.DIR("OUTPUT")) tio (.B(Z), .I(A)); endmodule
+`include "cells_ff.vh"
+`include "cells_io.vh"
 
-// Diamond I/O registers
-module IFS1P3BX(input PD, D, SP, SCLK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("SET"), .SRMODE("ASYNC"))  tff (.CLK(SCLK), .LSR(PD), .CE(SP), .DI(D), .Q(Q)); endmodule
-module IFS1P3DX(input CD, D, SP, SCLK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("RESET"), .SRMODE("ASYNC"))  tff (.CLK(SCLK), .LSR(CD), .CE(SP), .DI(D), .Q(Q)); endmodule
-module IFS1P3IX(input CD, D, SP, SCLK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("RESET"), .SRMODE("LSR_OVER_CE"))  tff (.CLK(SCLK), .LSR(CD), .CE(SP), .DI(D), .Q(Q)); endmodule
-module IFS1P3JX(input PD, D, SP, SCLK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("SET"), .SRMODE("LSR_OVER_CE"))  tff (.CLK(SCLK), .LSR(PD), .CE(SP), .DI(D), .Q(Q)); endmodule
-
-module OFS1P3BX(input PD, D, SP, SCLK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("SET"), .SRMODE("ASYNC"))  tff (.CLK(SCLK), .LSR(PD), .CE(SP), .DI(D), .Q(Q)); endmodule
-module OFS1P3DX(input CD, D, SP, SCLK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("RESET"), .SRMODE("ASYNC"))  tff (.CLK(SCLK), .LSR(CD), .CE(SP), .DI(D), .Q(Q)); endmodule
-module OFS1P3IX(input CD, D, SP, SCLK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("RESET"), .SRMODE("LSR_OVER_CE"))  tff (.CLK(SCLK), .LSR(CD), .CE(SP), .DI(D), .Q(Q)); endmodule
-module OFS1P3JX(input PD, D, SP, SCLK, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("SET"), .SRMODE("LSR_OVER_CE"))  tff (.CLK(SCLK), .LSR(PD), .CE(SP), .DI(D), .Q(Q)); endmodule
-
-// TODO: Diamond I/O latches
-// module IFS1S1B(input PD, D, SCLK, output Q); endmodule
-// module IFS1S1D(input CD, D, SCLK, output Q); endmodule
-// module IFS1S1I(input PD, D, SCLK, output Q); endmodule
-// module IFS1S1J(input CD, D, SCLK, output Q); endmodule
+`endif

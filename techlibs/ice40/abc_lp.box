@@ -3,11 +3,11 @@
 # NB: Inputs/Outputs must be ordered alphabetically
 #     (with exceptions for carry in/out)
 
-# Inputs: A B CI
+# Inputs: A B I0 I3 CI
 # Outputs: O CO
 #   (NB: carry chain input/output must be last
 #        input/output and have been moved there
 #        overriding the alphabetical ordering)
-$__ICE40_FULL_ADDER 1 1 3 2
-589 558 465
-675 609 186 
+$__ICE40_CARRY_WRAPPER 1 1 5 2
+589 558 661 465 465
+675 609 -   -   186
