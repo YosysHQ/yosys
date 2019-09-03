@@ -7,8 +7,7 @@ memory
 opt -full
 
 miter -equiv -flatten -make_assert -make_outputs gold gate miter
-#ERROR: Called with -verify and proof did fail!
-#sat -verify -prove-asserts -seq 5 -set-init-zero -show-inputs -show-outputs miter
+sat -verify -prove-asserts -seq 5 -set-init-zero -show-inputs -show-outputs miter
 
 design -load postopt
 cd top
