@@ -40,6 +40,7 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 	log("dsp:     %s\n", log_id(st.dsp, "--"));
 	log("ffM:     %s\n", log_id(st.ffM, "--"));
 	log("addAB:   %s\n", log_id(st.addAB, "--"));
+	log("muxAB:   %s\n", log_id(st.muxAB, "--"));
 	log("ffP:     %s\n", log_id(st.ffP, "--"));
 	//log("muxP:  %s\n", log_id(st.muxP, "--"));
 	log("sigPused: %s\n", log_signal(st.sigPused));
@@ -58,7 +59,11 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 		log("  adder %s (%s)\n", log_id(st.addAB), log_id(st.addAB->type));
 
 		SigSpec &opmode = cell->connections_.at("\\OPMODE");
-		if (st.ffP && C == P) {
+		if (st.ffP && st.muxAB) {
+			opmode[4] = st.muxAB->getPort("\\S");
+			pm.autoremove(st.muxAB);
+		}
+		else if (st.ffP && C == P) {
 			C = SigSpec();
 			opmode[4] = State::S0;
 		}
