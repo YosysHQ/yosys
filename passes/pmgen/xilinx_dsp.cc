@@ -51,21 +51,6 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 	bit_to_driver.insert(std::make_pair(cell->getPort("\\P")[17], cell));
 	SigSpec P = st.sigP;
 
-	if (st.addAB) {
-		log_assert(st.addAB->getParam("\\A_SIGNED").as_bool());
-		log_assert(st.addAB->getParam("\\B_SIGNED").as_bool());
-		log("  adder %s (%s)\n", log_id(st.addAB), log_id(st.addAB->type));
-
-		SigSpec C = st.sigC;
-		C.extend_u0(48, true);
-		cell->setPort("\\C", C);
-		SigSpec &opmode = cell->connections_.at("\\OPMODE");
-		opmode[6] = State::S0;
-		opmode[5] = State::S1;
-		opmode[4] = State::S1;
-		pm.autoremove(st.addAB);
-	}
-
 	if (st.clock != SigBit())
 	{
 		cell->setPort("\\CLK", st.clock);
@@ -138,6 +123,27 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 			log(" ffP:%s", log_id(st.ffP));
 
 		log("\n");
+	}
+
+	if (st.addAB) {
+		log_assert(st.addAB->getParam("\\A_SIGNED").as_bool());
+		log_assert(st.addAB->getParam("\\B_SIGNED").as_bool());
+		log("  adder %s (%s)\n", log_id(st.addAB), log_id(st.addAB->type));
+
+		SigSpec C = st.sigC;
+		SigSpec &opmode = cell->connections_.at("\\OPMODE");
+		if (cell->getParam("\\PREG").as_bool() && C == P) {
+			opmode[4] = State::S0;
+		}
+		else {
+			C.extend_u0(48, true);
+			cell->setPort("\\C", C);
+			opmode[4] = State::S1;
+		}
+		opmode[6] = State::S0;
+		opmode[5] = State::S1;
+
+		pm.autoremove(st.addAB);
 	}
 
 	if (GetSize(P) < 48)
