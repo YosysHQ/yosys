@@ -13,8 +13,15 @@ module sub(input i, output o);
 assign o = ~i;
 endmodule
 EOT
+design -save read
 
 hierarchy -auto-top
+select -assert-any top
+select -assert-any sub
+select -assert-none foo
+
+design -load read
+hierarchy
 select -assert-any top
 select -assert-any sub
 select -assert-none foo
