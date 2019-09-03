@@ -35,15 +35,15 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 
 #if 1
 	log("\n");
-	log("ffA:     %s\n", log_id(st.ffA, "--"));
-	log("ffB:     %s\n", log_id(st.ffB, "--"));
-	log("dsp:     %s\n", log_id(st.dsp, "--"));
-	log("ffM:     %s\n", log_id(st.ffM, "--"));
-	log("postAdd: %s\n", log_id(st.postAdd, "--"));
-	log("muxAB:   %s\n", log_id(st.muxAB, "--"));
-	log("ffP:     %s\n", log_id(st.ffP, "--"));
+	log("ffA:        %s\n", log_id(st.ffA, "--"));
+	log("ffB:        %s\n", log_id(st.ffB, "--"));
+	log("dsp:        %s\n", log_id(st.dsp, "--"));
+	log("ffM:        %s\n", log_id(st.ffM, "--"));
+	log("postAdd:    %s\n", log_id(st.postAdd, "--"));
+	log("postAddMux: %s\n", log_id(st.postAddMux, "--"));
+	log("ffP:        %s\n", log_id(st.ffP, "--"));
 	//log("muxP:  %s\n", log_id(st.muxP, "--"));
-	log("sigPused: %s\n", log_signal(st.sigPused));
+	log("sigPused:   %s\n", log_signal(st.sigPused));
 #endif
 
 	log("Analysing %s.%s for Xilinx DSP packing.\n", log_id(pm.module), log_id(st.dsp));
@@ -59,9 +59,9 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 		log("  adder %s (%s)\n", log_id(st.postAdd), log_id(st.postAdd->type));
 
 		SigSpec &opmode = cell->connections_.at("\\OPMODE");
-		if (st.ffP && st.muxAB) {
-			opmode[4] = st.muxAB->getPort("\\S");
-			pm.autoremove(st.muxAB);
+		if (st.ffP && st.postAddMux) {
+			opmode[4] = st.postAddMux->getPort("\\S");
+			pm.autoremove(st.postAddMux);
 		}
 		else if (st.ffP && C == P) {
 			C = SigSpec();

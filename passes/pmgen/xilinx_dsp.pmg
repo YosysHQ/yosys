@@ -3,8 +3,8 @@ pattern xilinx_dsp
 state <SigBit> clock
 state <std::set<SigBit>> sigAset sigBset
 state <SigSpec> sigC sigM sigMused sigP sigPused
-state <Cell*> postAdd muxAB
-state <IdString> postAddAB
+state <Cell*> postAdd postAddMux
+state <IdString> postAddAB postAddMuxAB
 
 match dsp
 	select dsp->type.in(\DSP48E1)
@@ -105,10 +105,9 @@ match postAdd
 	// Ensure that Z mux is not already used
 	if port(dsp, \OPMODE).extract(4,3).is_fully_zero()
 
-	select postAdd->type.in($postAdd)
+	select postAdd->type.in($add)
 	select param(postAdd, \A_SIGNED).as_bool() && param(postAdd, \B_SIGNED).as_bool()
 	choice <IdString> AB {\A, \B}
-	define <IdString> AB_WIDTH (AB == \A ? \A_WIDTH : \B_WIDTH)
 	select nusers(port(postAdd, AB)) == 2
 	filter GetSize(port(postAdd, AB)) <= GetSize(sigP)
 	filter port(postAdd, AB) == sigP.extract(0, GetSize(port(postAdd, AB)))
@@ -172,39 +171,21 @@ code ffP sigP clock
 	}
 endcode
 
-match muxA
+match postAddMux
 	if postAdd
-	select muxA->type.in($mux)
-	select nusers(port(muxA, \Y)) == 2
-	index <SigSpec> port(muxA, \A) === sigP
-	index <SigSpec> port(muxA, \Y) === sigC
+	if ffP
+	select postAddMux->type.in($mux)
+	select nusers(port(postAddMux, \Y)) == 2
+	choice <IdString> AB {\A, \B}
+	index <SigSpec> port(postAddMux, AB) === sigP
+	index <SigSpec> port(postAddMux, \Y) === sigC
+	set postAddMuxAB AB
 	optional
 endmatch
 
-match muxB
-	if postAdd
-	select muxB->type.in($mux)
-	select nusers(port(muxB, \Y)) == 2
-	index <SigSpec> port(muxB, \B) === sigP
-	index <SigSpec> port(muxB, \Y) === sigC
-	optional
-endmatch
-
-code sigC muxAB
-	if (muxA) {
-		muxAB = muxA;
-		sigC = port(muxAB, \B);
-	}
-	if (muxB) {
-		muxAB = muxB;
-		sigC = port(muxAB, \A);
-	}
-	if (muxAB) {
-		// Ensure that postAdder is not used
-		SigSpec opmodeZ = port(dsp, \OPMODE).extract(4,3);
-		if (!opmodeZ.is_fully_zero())
-			reject;
-	}
+code sigC
+	if (postAddMux)
+		sigC = port(postAddMux, postAddMuxAB == \A ? \B : \A);
 endcode
 
 code
