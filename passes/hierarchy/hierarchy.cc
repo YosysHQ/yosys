@@ -808,12 +808,8 @@ struct HierarchyPass : public Pass {
 				if (mod_it.second->get_bool_attribute("\\top"))
 					top_mod = mod_it.second;
 
-		if (top_mod != nullptr && auto_top_mode) {
-			IdString abstract_id = top_mod->name;
-			IdString top_name = abstract_id;
-			if (top_name.begins_with("$abstract"))
-				top_name = top_name.substr(strlen("$abstract"));
-			top_mod = design->module(top_name);
+		if (top_mod != nullptr && top_mod->name.begins_with("$abstract")) {
+			IdString top_name = top_mod->name.substr(strlen("$abstract"));
 
 			dict<RTLIL::IdString, RTLIL::Const> top_parameters;
 			for (auto &para : parameters) {
@@ -823,10 +819,7 @@ struct HierarchyPass : public Pass {
 				top_parameters[RTLIL::escape_id(para.first)] = sig_value.as_const();
 			}
 
-			if (top_mod == nullptr && design->module(abstract_id))
-				top_mod = design->module(design->module(abstract_id)->derive(design, top_parameters));
-			else if (top_mod != nullptr && !top_parameters.empty())
-				top_mod = design->module(top_mod->derive(design, top_parameters));
+			top_mod = design->module(top_mod->derive(design, top_parameters));
 
 			if (top_mod != nullptr && top_mod->name != top_name) {
 				Module *m = top_mod->clone();
