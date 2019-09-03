@@ -1,0 +1,12 @@
+read_verilog div_mod.v
+hierarchy -top top
+flatten
+equiv_opt -assert -map +/ecp5/cells_sim.v synth_ecp5 # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd top # Constrain all select calls below inside the top module
+
+select -assert-count 28 t:CCU2C
+select -assert-count 48 t:L6MUX21
+select -assert-count 194 t:LUT4
+select -assert-count 84 t:PFUMX
+select -assert-none t:LUT4 t:CCU2C t:L6MUX21 t:PFUMX %% t:* %D

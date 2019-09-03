@@ -1,0 +1,17 @@
+read_verilog latches.v
+design -save read
+
+proc
+async2sync # converts latches to a 'sync' variant clocked by a 'super'-clock
+flatten
+synth_ecp5
+equiv_opt -assert -map +/ecp5/cells_sim.v synth_ecp5 # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+
+design -load read
+synth_ecp5
+cd top
+select -assert-count 4 t:LUT4
+select -assert-count 1 t:PFUMX
+select -assert-none t:LUT4 t:PFUMX %% t:* %D
+write_verilog latches_synth.v
