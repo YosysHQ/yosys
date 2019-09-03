@@ -39,7 +39,7 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 	log("ffB:     %s\n", log_id(st.ffB, "--"));
 	log("dsp:     %s\n", log_id(st.dsp, "--"));
 	log("ffM:     %s\n", log_id(st.ffM, "--"));
-	log("addAB:   %s\n", log_id(st.addAB, "--"));
+	log("postAdd: %s\n", log_id(st.postAdd, "--"));
 	log("muxAB:   %s\n", log_id(st.muxAB, "--"));
 	log("ffP:     %s\n", log_id(st.ffP, "--"));
 	//log("muxP:  %s\n", log_id(st.muxP, "--"));
@@ -53,10 +53,10 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 	SigSpec C = st.sigC;
 	SigSpec P = st.sigP;
 
-	if (st.addAB) {
-		log_assert(st.addAB->getParam("\\A_SIGNED").as_bool());
-		log_assert(st.addAB->getParam("\\B_SIGNED").as_bool());
-		log("  adder %s (%s)\n", log_id(st.addAB), log_id(st.addAB->type));
+	if (st.postAdd) {
+		log_assert(st.postAdd->getParam("\\A_SIGNED").as_bool());
+		log_assert(st.postAdd->getParam("\\B_SIGNED").as_bool());
+		log("  adder %s (%s)\n", log_id(st.postAdd), log_id(st.postAdd->type));
 
 		SigSpec &opmode = cell->connections_.at("\\OPMODE");
 		if (st.ffP && st.muxAB) {
@@ -72,7 +72,7 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 		opmode[6] = State::S0;
 		opmode[5] = State::S1;
 
-		pm.autoremove(st.addAB);
+		pm.autoremove(st.postAdd);
 	}
 
 	if (st.clock != SigBit())
