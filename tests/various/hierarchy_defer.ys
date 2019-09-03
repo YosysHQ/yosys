@@ -1,3 +1,4 @@
+read -noverific
 read -vlog2k <<EOT
 module first;
 endmodule
