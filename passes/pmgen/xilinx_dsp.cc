@@ -59,7 +59,8 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 		log("  adder %s (%s)\n", log_id(st.postAdd), log_id(st.postAdd->type));
 
 		SigSpec &opmode = cell->connections_.at("\\OPMODE");
-		if (st.ffP && st.postAddMux) {
+		if (st.postAddMux) {
+			log_assert(st.ffP);
 			opmode[4] = st.postAddMux->getPort("\\S");
 			pm.autoremove(st.postAddMux);
 		}
