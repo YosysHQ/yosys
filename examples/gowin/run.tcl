@@ -4,7 +4,6 @@ add_file -cst demo.cst
 add_file -sdc demo.sdc
 add_file -vm demo_syn.v
 add_file -cfg device.cfg
-add_setting -pnr pnr.cfg
 set_option -device GW1NR-9-QFN88-6
 set_option -pn GW1NR-LV9QN88C6/I5
-run_pnr
+run_pnr -opt pnr.cfg
