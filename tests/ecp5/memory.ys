@@ -17,4 +17,3 @@ select -assert-count 32 t:PFUMX
 select -assert-count 8 t:TRELLIS_DPR16X4
 select -assert-count 35 t:TRELLIS_FF
 select -assert-none t:L6MUX21 t:LUT4 t:PFUMX t:TRELLIS_DPR16X4 t:TRELLIS_FF %% t:* %D
-write_verilog memory_synth.v

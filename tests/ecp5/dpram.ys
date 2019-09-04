@@ -15,4 +15,3 @@ design -load postopt
 cd top
 select -assert-count 1 t:DP16KD
 select -assert-none t:DP16KD %% t:* %D
-write_verilog dpram_synth.v
