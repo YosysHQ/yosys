@@ -39,6 +39,7 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 	log("ffB:        %s\n", log_id(st.ffB, "--"));
 	log("dsp:        %s\n", log_id(st.dsp, "--"));
 	log("ffM:        %s\n", log_id(st.ffM, "--"));
+	log("ffMmux:     %s\n", log_id(st.ffMmux, "--"));
 	log("postAdd:    %s\n", log_id(st.postAdd, "--"));
 	log("postAddMux: %s\n", log_id(st.postAddMux, "--"));
 	log("ffP:        %s\n", log_id(st.ffP, "--"));
@@ -111,11 +112,12 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 			SigSpec Q = st.ffM->getPort("\\Q");
 			P.replace(pm.sigmap(D), Q);
 			cell->setParam("\\MREG", State::S1);
-			if (st.ffM->type == "$dff")
+			if (st.ffMmux) {
+				cell->setPort("\\CEM", st.ffMmux->getPort("\\S"));
+				pm.autoremove(st.ffMmux);
+			}
+			else
 				cell->setPort("\\CEM", State::S1);
-			//else if (st.ffP->type == "$dffe")
-			//	cell->setPort("\\CEM", st.ffM->getPort("\\EN"));
-			else log_abort();
 			pm.autoremove(st.ffM);
 		}
 		if (st.ffP) {

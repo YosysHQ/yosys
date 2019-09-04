@@ -2,9 +2,8 @@ pattern xilinx_dsp
 
 state <SigBit> clock
 state <std::set<SigBit>> sigAset sigBset
-state <SigSpec> sigC sigM sigMused sigP sigPused
-state <Cell*> postAdd postAddMux
-state <IdString> postAddAB postAddMuxAB
+state <SigSpec> sigC sigM sigP sigPused
+state <IdString> ffMmuxAB postAddAB postAddMuxAB
 
 match dsp
 	select dsp->type.in(\DSP48E1)
@@ -70,22 +69,40 @@ code clock
 	}
 endcode
 
+match ffMmux
+	select ffMmux->type.in($mux)
+	select nusers(port(ffMmux, \Y)) == 2
+	filter GetSize(port(ffMmux, \Y)) <= GetSize(sigM)
+	choice <IdString> AB {\A, \B}
+	filter port(ffMmux, AB) == sigM.extract(0, GetSize(port(ffMmux, \Y)))
+	filter nusers(sigM.extract_end(GetSize(port(ffMmux, AB)))) <= 1
+	set ffMmuxAB AB
+	optional
+endmatch
+
+code sigM
+	if (ffMmux)
+		sigM = port(ffMmux, \Y);
+endcode
+
 match ffM
 	if param(dsp, \MREG).as_int() == 0
 	select ffM->type.in($dff)
 	// DSP48E1 does not support clock inversion
 	select param(ffM, \CLK_POLARITY).as_bool()
 	select nusers(port(ffM, \D)) == 2
-	//index <SigSpec> port(ffM, \D) === sigM.extract(0, GetSize(port(ffM, \D))) // TODO: Why doesn't this work!?!
 	filter GetSize(port(ffM, \D)) <= GetSize(sigM)
 	filter port(ffM, \D) == sigM.extract(0, GetSize(port(ffM, \D)))
 	filter nusers(sigM.extract_end(GetSize(port(ffM, \D)))) <= 1
+	// Check ffMmux (when present) is a $dff enable mux
+	filter !ffMmux || port(ffM, \Q) == port(ffMmux, ffMmuxAB == \A ? \B : \A)
 	optional
 endmatch
 
 code clock sigM sigP
 	if (ffM) {
 		sigM = port(ffM, \Q);
+
 		for (auto b : sigM)
 			if (b.wire->get_bool_attribute(\keep))
 				reject;
@@ -97,6 +114,9 @@ code clock sigM sigP
 
 		clock = c;
 	}
+	// Cannot have ffMmux enable mux without ffM
+	else if (ffMmux)
+		reject;
 
 	sigP = sigM;
 endcode
@@ -108,7 +128,9 @@ match postAdd
 	select postAdd->type.in($add)
 	select param(postAdd, \A_SIGNED).as_bool() && param(postAdd, \B_SIGNED).as_bool()
 	choice <IdString> AB {\A, \B}
-	select nusers(port(postAdd, AB)) == 2
+	select nusers(port(postAdd, AB)) <= 3
+	filter ffMmux || nusers(port(postAdd, AB)) == 2
+	filter !ffMmux || nusers(port(postAdd, AB)) == 3
 	filter GetSize(port(postAdd, AB)) <= GetSize(sigP)
 	filter port(postAdd, AB) == sigP.extract(0, GetSize(port(postAdd, AB)))
 	filter nusers(sigP.extract_end(GetSize(port(postAdd, AB)))) <= 1
