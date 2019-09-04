@@ -88,7 +88,7 @@ ifeq ($(OS), Darwin)
 PLUGIN_LDFLAGS += -undefined dynamic_lookup
 
 # homebrew search paths
-ifneq ($(shell command -v brew),)
+ifneq ($(shell :; command -v brew),)
 BREW_PREFIX := $(shell brew --prefix)/opt
 $(info $$BREW_PREFIX is [${BREW_PREFIX}])
 ifeq ($(ENABLE_PYOSYS),1)
@@ -102,8 +102,8 @@ PKG_CONFIG_PATH := $(BREW_PREFIX)/tcl-tk/lib/pkgconfig:$(PKG_CONFIG_PATH)
 export PATH := $(BREW_PREFIX)/bison/bin:$(BREW_PREFIX)/gettext/bin:$(BREW_PREFIX)/flex/bin:$(PATH)
 
 # macports search paths
-else ifneq ($(shell command -v port),)
-PORT_PREFIX := $(patsubst %/bin/port,%,$(shell command -v port))
+else ifneq ($(shell :; command -v port),)
+PORT_PREFIX := $(patsubst %/bin/port,%,$(shell :; command -v port))
 CXXFLAGS += -I$(PORT_PREFIX)/include
 LDFLAGS += -L$(PORT_PREFIX)/lib
 PKG_CONFIG_PATH := $(PORT_PREFIX)/lib/pkgconfig:$(PKG_CONFIG_PATH)
