@@ -210,6 +210,7 @@ struct SynthGowinPass : public ScriptPass
 		if (check_label("map_cells"))
 		{
 			run("techmap -map +/gowin/cells_map.v");
+			run("setundef -undriven -zero");
 			run("hilomap -hicell VCC V -locell GND G");
 			run("iopadmap -bits -inpad IBUF O:I -outpad OBUF I:O", "(unless -noiopads)");
 			run("dffinit  -ff DFF Q INIT");

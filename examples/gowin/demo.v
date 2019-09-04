@@ -1,7 +1,7 @@
 module demo (
 	input clk,
-	output [15:0] leds
-	//,output unused
+	output [15:0] leds,
+	output unused
 );
 	localparam PRESCALE = 20;
 	reg [PRESCALE+3:0] counter = 0;
