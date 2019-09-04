@@ -261,11 +261,12 @@ struct XAigerWriter
 				}
 			}
 			else {
-				bool cell_known = cell->known();
+				bool cell_known = inst_module || cell->known();
 				for (const auto &c : cell->connections()) {
 					if (c.second.is_fully_const()) continue;
-					auto is_input = !cell_known || cell->input(c.first);
-					auto is_output = !cell_known || cell->output(c.first);
+					auto port_wire = inst_module ? inst_module->wire(c.first) : nullptr;
+					auto is_input = (port_wire && port_wire->port_input) || !cell_known || cell->input(c.first);
+					auto is_output = (port_wire && port_wire->port_output) || !cell_known || cell->output(c.first);
 					if (!is_input && !is_output)
 						log_error("Connection '%s' on cell '%s' (type '%s') not recognised!\n", log_id(c.first), log_id(cell), log_id(cell->type));
 
