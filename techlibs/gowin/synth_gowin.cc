@@ -186,6 +186,7 @@ struct SynthGowinPass : public ScriptPass
 			run("techmap -map +/techmap.v");
 			if (retime || help_mode)
 				run("abc -dff", "(only if -retime)");
+			run("splitnets");
 		}
 
 		if (check_label("map_ffs"))
