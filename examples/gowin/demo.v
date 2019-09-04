@@ -1,9 +1,6 @@
 module demo (
 	input clk,
-	input [3:0] sw,
-	output [15:0] leds,
-	output [7:0] seg7dig,
-	output [3:0] seg7sel
+	output [15:0] leds
 );
 	localparam PRESCALE = 20;
 	reg [PRESCALE+3:0] counter = 0;
