@@ -12,7 +12,7 @@ done
 shift "$((OPTIND-1))"
 
 # check for Icarus Verilog
-if ! which iverilog > /dev/null ; then
+if ! command -v iverilog > /dev/null ; then
   echo "$0: Error: Icarus Verilog 'iverilog' not found."
   exit 1
 fi
