@@ -101,8 +101,7 @@ module SRL16E (
     .Q(\$Q ),
     .A0(A0), .A1(A1), .A2(A2), .A3(A3), .CE(CE), .CLK(CLK), .D(D)
   );
-  // TODO: Check if SRL uses fast inputs or slow inputs
-  \$__ABC_LUT6 q (.A(\$Q ), .S({A0, A1, A2, A3, 1'b0, 1'b0}), .Y(Q));
+  \$__ABC_LUT6 q (.A(\$Q ), .S({1'b1, A0, A1, A2, A3, 1'b1}), .Y(Q));
 endmodule
 
 module SRLC32E (
@@ -120,6 +119,5 @@ module SRLC32E (
     .Q(\$Q ), .Q31(Q31),
     .A(A), .CE(CE), .CLK(CLK), .D(D)
   );
-  // TODO: Check if SRL uses fast inputs or slow inputs
-  \$__ABC_LUT6 q (.A(\$Q ), .S({A, 1'b0}), .Y(Q));
+  \$__ABC_LUT6 q (.A(\$Q ), .S({1'b1, A}), .Y(Q));
 endmodule
