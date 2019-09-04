@@ -22,9 +22,6 @@ endmatch
 code
 	did_something = true;
 
-	log_cell(dff);
-	log_cell(mux);
-
 	SigSpec &D = mux->connections_.at(muxAB);
 	SigSpec &Q = dff->connections_.at(\Q);
 	int width = GetSize(D);
