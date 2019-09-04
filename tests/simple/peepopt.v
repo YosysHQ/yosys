@@ -11,3 +11,11 @@ wire [3:0] t;
 assign t = i * 3;
 assign o = t / 3;
 endmodule
+
+module peepopt_dffmuxext_signed(input clk, ce, input signed [1:0] i, output reg signed [3:0] o);
+    always @(posedge clk) if (ce) o <= i;
+endmodule
+
+module peepopt_dffmuxext_unsigned(input clk, ce, input [1:0] i, output reg [3:0] o);
+    always @(posedge clk) if (ce) o <= i;
+endmodule
