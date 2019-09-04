@@ -189,7 +189,7 @@ code ffP sigP clock
 
 		clock = c;
 
-		sigP = port(ffP, \Q);
+		sigP.replace(port(ffP, \D), port(ffP, \Q));
 	}
 endcode
 
