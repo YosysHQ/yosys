@@ -1099,6 +1099,13 @@ static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast
 
 		ignoreThisSignalsInInitial = RTLIL::SigSpec();
 	}
+	else {
+		for (auto &attr : ast->attributes) {
+			if (attr.second->type != AST_CONSTANT)
+				continue;
+			current_module->attributes[attr.first] = attr.second->asAttrConst();
+		}
+	}
 
 	if (ast->type == AST_INTERFACE)
 		current_module->set_bool_attribute("\\is_interface");
