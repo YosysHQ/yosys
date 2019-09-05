@@ -2,7 +2,7 @@ pattern xilinx_dsp
 
 state <SigBit> clock
 state <SigSpec> sigA sigffAmux sigB sigffBmux sigC sigM sigP
-state <IdString> ffAmuxAB ffBmuxAB ffMmuxAB postAddAB postAddMuxAB
+state <IdString> ffAmuxAB ffBmuxAB ffMmuxAB ffPmuxAB postAddAB postAddMuxAB
 
 match dsp
 	select dsp->type.in(\DSP48E1)
@@ -120,7 +120,7 @@ match ffMmux
 	filter port(ffMmux, AB) == sigM.extract(0, GetSize(port(ffMmux, \Y)))
 	filter nusers(sigM.extract_end(GetSize(port(ffMmux, AB)))) <= 1
 	set ffMmuxAB AB
-	optional
+	semioptional
 endmatch
 
 code sigM
@@ -199,6 +199,22 @@ code sigC sigP
 	}
 endcode
 
+match ffPmux
+	select ffPmux->type.in($mux)
+	select nusers(port(ffPmux, \Y)) == 2
+	filter GetSize(port(ffPmux, \Y)) <= GetSize(sigP)
+	choice <IdString> AB {\A, \B}
+	filter port(ffPmux, AB) == sigP.extract(0, GetSize(port(ffPmux, \Y)))
+	filter nusers(sigP.extract_end(GetSize(port(ffPmux, AB)))) <= 1
+	set ffPmuxAB AB
+	semioptional
+endmatch
+
+code sigP
+	if (ffPmux)
+		sigP = port(ffPmux, \Y);
+endcode
+
 match ffP
 	if param(dsp, \PREG).as_int() == 0
 	select ffP->type.in($dff)
@@ -207,6 +223,8 @@ match ffP
 	filter GetSize(port(ffP, \D)) >= GetSize(sigP)
 	slice offset GetSize(port(ffP, \D))
 	filter offset+GetSize(sigP) <= GetSize(port(ffP, \D)) && port(ffP, \D).extract(offset, GetSize(sigP)) == sigP
+	// Check ffPmux (when present) is a $dff enable mux
+	filter !ffPmux || port(ffP, \Q) == port(ffPmux, ffPmuxAB == \A ? \B : \A)
 	optional
 endmatch
 

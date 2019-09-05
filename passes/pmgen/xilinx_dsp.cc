@@ -41,6 +41,7 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 	log("postAdd:    %s\n", log_id(st.postAdd, "--"));
 	log("postAddMux: %s\n", log_id(st.postAddMux, "--"));
 	log("ffP:        %s\n", log_id(st.ffP, "--"));
+	log("ffPmux:     %s\n", log_id(st.ffPmux, "--"));
 #endif
 
 	log("Analysing %s.%s for Xilinx DSP packing.\n", log_id(pm.module), log_id(st.dsp));
@@ -112,34 +113,32 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 			cell->setParam("\\BREG", 1);
 		}
 		if (st.ffM) {
-			SigSpec D = st.ffM->getPort("\\D");
-			SigSpec Q = st.ffM->getPort("\\Q");
-			P.replace(pm.sigmap(D), Q);
-			cell->setParam("\\MREG", State::S1);
 			if (st.ffMmux) {
 				cell->setPort("\\CEM", st.ffMmux->getPort("\\S"));
 				pm.autoremove(st.ffMmux);
 			}
 			else
 				cell->setPort("\\CEM", State::S1);
+			SigSpec D = st.ffM->getPort("\\D");
+			SigSpec Q = st.ffM->getPort("\\Q");
+			P.replace(/*pm.sigmap*/(D), Q);
+
+			cell->setParam("\\MREG", State::S1);
 			pm.autoremove(st.ffM);
 		}
 		if (st.ffP) {
-			SigSpec D;
-			//if (st.muxP)
-			//	D = st.muxP->getPort("\\B");
-			//else
-				D = st.ffP->getPort("\\D");
-			SigSpec Q = st.ffP->getPort("\\Q");
-			P.replace(pm.sigmap(D), Q);
-			cell->setParam("\\PREG", State::S1);
-			if (st.ffP->type == "$dff")
+			if (st.ffPmux) {
+				cell->setPort("\\CEP", st.ffPmux->getPort("\\S"));
+				st.ffPmux->connections_.at("\\Y").replace(P, pm.module->addWire(NEW_ID, GetSize(P)));
+			}
+			else
 				cell->setPort("\\CEP", State::S1);
-			//else if (st.ffP->type == "$dffe")
-			//	cell->setPort("\\CEP", st.ffP->getPort("\\EN"));
-			else log_abort();
-
+			SigSpec D = st.ffP->getPort("\\D");
+			SigSpec Q = st.ffP->getPort("\\Q");
+			P.replace(/*pm.sigmap*/(D), Q);
 			st.ffP->connections_.at("\\Q").replace(P, pm.module->addWire(NEW_ID, GetSize(P)));
+
+			cell->setParam("\\PREG", State::S1);
 		}
 
 		log("  clock: %s (%s)", log_signal(st.clock), "posedge");
