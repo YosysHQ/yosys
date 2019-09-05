@@ -205,20 +205,38 @@ struct TechmapWorker
 		}
 
 		std::map<RTLIL::IdString, RTLIL::IdString> positional_ports;
+		dict<Wire*, IdString> temp_renamed_wires;
 
 		for (auto &it : tpl->wires_) {
 			if (it.second->port_id > 0)
 				positional_ports[stringf("$%d", it.second->port_id)] = it.first;
 			IdString w_name = it.second->name;
 			apply_prefix(cell->name, w_name);
-			RTLIL::Wire *w = module->addWire(w_name, it.second);
-			w->port_input = false;
-			w->port_output = false;
-			w->port_id = 0;
-			if (it.second->get_bool_attribute(ID(_techmap_special_)))
-				w->attributes.clear();
-			if (w->attributes.count(ID(src)))
-				w->add_strpool_attribute(ID(src), extra_src_attrs);
+			RTLIL::Wire *w = module->wire(w_name);
+			if (w != nullptr) {
+				if (!flatten_mode || !w->get_bool_attribute(ID(hierconn))) {
+					temp_renamed_wires[w] = w->name;
+					module->rename(w, NEW_ID);
+					w = nullptr;
+				} else {
+					w->attributes.erase(ID(hierconn));
+					if (GetSize(w) < GetSize(it.second)) {
+						log_warning("Widening signal %s.%s to match size of %s.%s (via %s.%s).\n", log_id(module), log_id(w),
+								log_id(tpl), log_id(it.second), log_id(module), log_id(cell));
+						w->width = GetSize(it.second);
+					}
+				}
+			}
+			if (w == nullptr) {
+				w = module->addWire(w_name, it.second);
+				w->port_input = false;
+				w->port_output = false;
+				w->port_id = 0;
+				if (it.second->get_bool_attribute(ID(_techmap_special_)))
+					w->attributes.clear();
+				if (w->attributes.count(ID(src)))
+					w->add_strpool_attribute(ID(src), extra_src_attrs);
+			}
 			design->select(module, w);
 		}
 
@@ -380,6 +398,16 @@ struct TechmapWorker
 		}
 
 		module->remove(cell);
+
+		for (auto &it : temp_renamed_wires)
+		{
+			Wire *w = it.first;
+			IdString name = it.second;
+			IdString altname = module->uniquify(name);
+			Wire *other_w = module->wire(name);
+			module->rename(other_w, altname);
+			module->rename(w, name);
+		}
 	}
 
 	bool techmap_module(RTLIL::Design *design, RTLIL::Module *module, RTLIL::Design *map, std::set<RTLIL::Cell*> &handled_cells,
