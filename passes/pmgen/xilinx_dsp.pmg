@@ -173,7 +173,6 @@ match postAdd
 	if port(dsp, \OPMODE).extract(4,3).is_fully_zero()
 
 	select postAdd->type.in($add)
-	select param(postAdd, \A_SIGNED).as_bool() && param(postAdd, \B_SIGNED).as_bool()
 	choice <IdString> AB {\A, \B}
 	select nusers(port(postAdd, AB)) <= 3
 	filter ffMmux || nusers(port(postAdd, AB)) == 2

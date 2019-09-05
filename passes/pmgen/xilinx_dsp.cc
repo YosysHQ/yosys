@@ -52,8 +52,6 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 	SigSpec P = st.sigP;
 
 	if (st.postAdd) {
-		log_assert(st.postAdd->getParam("\\A_SIGNED").as_bool());
-		log_assert(st.postAdd->getParam("\\B_SIGNED").as_bool());
 		log("  adder %s (%s)\n", log_id(st.postAdd), log_id(st.postAdd->type));
 
 		SigSpec &opmode = cell->connections_.at("\\OPMODE");
