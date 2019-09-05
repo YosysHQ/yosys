@@ -62,6 +62,8 @@ module DFFR (output reg Q, input D, CLK, RESET);
 	end
 endmodule // DFFR (positive clock edge; synchronous reset)
 
+// TODO add more DFF sim cells
+
 module VCC(output V);
 	assign V = 1;
 endmodule
