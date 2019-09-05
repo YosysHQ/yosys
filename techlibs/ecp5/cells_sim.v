@@ -109,16 +109,13 @@ module PFUMX (input ALUT, BLUT, C0, output Z);
 endmodule
 
 // ---------------------------------------
-//(* abc_box_id=2 *)
 module TRELLIS_DPR16X4 (
-	(* abc_scc_break *)
 	input  [3:0] DI,
-	(* abc_scc_break *)
 	input  [3:0] WAD,
-	(* abc_scc_break *)
 	input        WRE,
 	input        WCK,
 	input  [3:0] RAD,
+	/* (* abc_arrival=<TODO> *) */
 	output [3:0] DO
 );
 	parameter WCKMUX = "WCK";
