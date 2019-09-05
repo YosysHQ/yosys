@@ -5,6 +5,9 @@ module  \$__DFFS_PN0_ (input D, C, R, output Q); DFFR _TECHMAP_REPLACE_ (.D(D), 
 module  \$__DFFS_PP0_ (input D, C, R, output Q); DFFR _TECHMAP_REPLACE_ (.D(D), .Q(Q), .CLK(C), .RESET(R)); endmodule
 module  \$__DFFS_PP1_ (input D, C, R, output Q); DFFR  _TECHMAP_REPLACE_ (.D(D), .Q(Q), .CLK(C), .RESET(R)); endmodule
 
+module  \$_MUX_ (input A, B, S, output Y); MUX2  _TECHMAP_REPLACE_ (.I0(A), .I1(B), .S0(S), .O(Y)); endmodule
+module  \$_MUX4_ (input A, B, C, D, S, T, output Y); MUX4  _TECHMAP_REPLACE_ (.I0(A), .I1(B), .I2(C), .I3(D), .S0(S), .S1(T), .O(Y)); endmodule
+
 module \$lut (A, Y);
   parameter WIDTH = 0;
   parameter LUT = 0;

@@ -24,6 +24,19 @@ module LUT4(output F, input I0, I1, I2, I3);
 	assign F = I0 ? s1[1] : s1[0];
 endmodule
 
+module MUX2 (I0, I1, S0, O);
+input I0, I1, S0;
+output O;
+assign O = S0 ? I1 : I0;
+endmodule
+
+module MUX4 (I0, I1, I2, I3, S0, S1, O);
+input I0, I1, I2, I3, S0, S1;
+output O;
+assign O = S1 ? (S0 ? I3 : I2) :
+                (S0 ? I1 : I0);
+endmodule
+
 module DFF (output reg Q, input CLK, D);
 	parameter [0:0] INIT = 1'b0;
 	initial Q = INIT;
