@@ -1,14 +1,14 @@
 pattern xilinx_dsp
 
 state <SigBit> clock
-state <SigSpec> sigA sigffAmux sigB sigC sigM sigP sigPused
+state <SigSpec> sigA sigffAmux sigB sigC sigM sigP
 state <IdString> ffAmuxAB ffMmuxAB postAddAB postAddMuxAB
 
 match dsp
 	select dsp->type.in(\DSP48E1)
 endmatch
 
-code sigA sigB
+code sigA sigffAmux sigB sigM
 	sigA = port(dsp, \A);
 	int i;
 	for (i = GetSize(sigA)-1; i > 0; i--)
@@ -26,12 +26,9 @@ code sigA sigB
 	if (sigB[i].wire)
 		++i;
 	sigB.remove(i, GetSize(sigB)-i);
-endcode
 
-code sigM
 	SigSpec P = port(dsp, \P);
 	// Only care about those bits that are used
-	int i;
 	for (i = 0; i < GetSize(P); i++) {
 		if (nusers(P[i]) <= 1)
 			break;
