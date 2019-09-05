@@ -120,7 +120,7 @@ match ffMmux
 	filter port(ffMmux, AB) == sigM.extract(0, GetSize(port(ffMmux, \Y)))
 	filter nusers(sigM.extract_end(GetSize(port(ffMmux, AB)))) <= 1
 	set ffMmuxAB AB
-	semioptional
+	optional
 endmatch
 
 code sigM
@@ -207,12 +207,12 @@ match ffPmux
 	filter port(ffPmux, AB) == sigP.extract(0, GetSize(port(ffPmux, \Y)))
 	filter nusers(sigP.extract_end(GetSize(port(ffPmux, AB)))) <= 1
 	set ffPmuxAB AB
-	semioptional
+	optional
 endmatch
 
 code sigP
 	if (ffPmux)
-		sigP = port(ffPmux, \Y);
+		sigP.replace(port(ffPmux, ffPmuxAB), port(ffPmux, \Y));
 endcode
 
 match ffP
@@ -243,6 +243,9 @@ code ffP sigP clock
 
 		sigP.replace(port(ffP, \D), port(ffP, \Q));
 	}
+	// Cannot have ffPmux enable mux without ffP
+	else if (ffPmux)
+		reject;
 endcode
 
 match postAddMux

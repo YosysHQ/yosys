@@ -121,7 +121,7 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 				cell->setPort("\\CEM", State::S1);
 			SigSpec D = st.ffM->getPort("\\D");
 			SigSpec Q = st.ffM->getPort("\\Q");
-			P.replace(/*pm.sigmap*/(D), Q);
+			P.replace(pm.sigmap(D), Q);
 
 			cell->setParam("\\MREG", State::S1);
 			pm.autoremove(st.ffM);
@@ -135,7 +135,7 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 				cell->setPort("\\CEP", State::S1);
 			SigSpec D = st.ffP->getPort("\\D");
 			SigSpec Q = st.ffP->getPort("\\Q");
-			P.replace(/*pm.sigmap*/(D), Q);
+			P.replace(pm.sigmap(D), Q);
 			st.ffP->connections_.at("\\Q").replace(P, pm.module->addWire(NEW_ID, GetSize(P)));
 
 			cell->setParam("\\PREG", State::S1);
@@ -148,6 +148,9 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 
 		if (st.ffB)
 			log(" ffB:%s", log_id(st.ffB));
+
+		if (st.ffM)
+			log(" ffM:%s", log_id(st.ffM));
 
 		if (st.ffP)
 			log(" ffP:%s", log_id(st.ffP));
