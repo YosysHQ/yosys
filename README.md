@@ -333,7 +333,8 @@ Verilog Attributes and non-standard features
   is run in ``-pwires`` mode).
 
 - Wires marked with the ``hierconn`` attribute are connected to wires with the
-  same name when they are imported from sub-modules by ``flatten``.
+  same name (format ``cell_name.identifier``) when they are imported from
+  sub-modules by ``flatten``.
 
 - The ``clkbuf_driver`` attribute can be set on an output port of a blackbox
   module to mark it as a clock buffer output, and thus prevent ``clkbufmap``
