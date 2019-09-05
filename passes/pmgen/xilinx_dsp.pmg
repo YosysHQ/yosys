@@ -19,8 +19,16 @@ code sigAset sigBset
 endcode
 
 code sigM
-	sigM = port(dsp, \P);
-	//if (GetSize(sigH) <= 10)
+	SigSpec P = port(dsp, \P);
+	// Only care about those bits that are used
+	int i;
+	for (i = 0; i < GetSize(P); i++) {
+		if (nusers(P[i]) <= 1)
+			break;
+		sigM.append(P[i]);
+	}
+	log_assert(nusers(P.extract_end(i)) <= 1);
+	//if (GetSize(sigM) <= 10)
 	//	reject;
 endcode
 
@@ -156,23 +164,14 @@ code sigC sigP
 	}
 endcode
 
-// Extract the bits of P that actually have a consumer
-// (as opposed to being a dummy)
-code sigPused
-	for (int i = 0; i < GetSize(sigP); i++)
-		if (sigP[i].wire && nusers(sigP[i]) > 1)
-			sigPused.append(sigP[i]);
-endcode
-
 match ffP
 	if param(dsp, \PREG).as_int() == 0
-	if !sigPused.empty()
-	if nusers(sigPused) == 2
 	select ffP->type.in($dff)
 	// DSP48E1 does not support clock inversion
 	select param(ffP, \CLK_POLARITY).as_bool()
-	filter param(ffP, \WIDTH).as_int() >= GetSize(sigPused)
-	filter includes(port(ffP, \D).to_sigbit_set(), sigPused.to_sigbit_set())
+	filter GetSize(port(ffP, \D)) >= GetSize(sigP)
+	slice offset GetSize(port(ffP, \D))
+	filter offset+GetSize(sigP) <= GetSize(port(ffP, \D)) && port(ffP, \D).extract(offset, GetSize(sigP)) == sigP
 	optional
 endmatch
 

@@ -43,8 +43,6 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 	log("postAdd:    %s\n", log_id(st.postAdd, "--"));
 	log("postAddMux: %s\n", log_id(st.postAddMux, "--"));
 	log("ffP:        %s\n", log_id(st.ffP, "--"));
-	//log("muxP:  %s\n", log_id(st.muxP, "--"));
-	log("sigPused:   %s\n", log_signal(st.sigPused));
 #endif
 
 	log("Analysing %s.%s for Xilinx DSP packing.\n", log_id(pm.module), log_id(st.dsp));
