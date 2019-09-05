@@ -32,6 +32,7 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 #if 1
 	log("\n");
 	log("ffA:        %s\n", log_id(st.ffA, "--"));
+	log("ffAmux:     %s\n", log_id(st.ffAmux, "--"));
 	log("ffB:        %s\n", log_id(st.ffB, "--"));
 	log("dsp:        %s\n", log_id(st.dsp, "--"));
 	log("ffM:        %s\n", log_id(st.ffM, "--"));
@@ -78,15 +79,19 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 		if (st.ffA) {
 			SigSpec A = cell->getPort("\\A");
 			SigSpec D = st.ffA->getPort("\\D");
-			SigSpec Q = st.ffA->getPort("\\Q");
+			SigSpec Q = pm.sigmap(st.ffA->getPort("\\Q"));
 			A.replace(Q, D);
-			cell->setPort("\\A", A);
+
 			cell->setParam("\\AREG", 1);
-			if (st.ffA->type == "$dff")
+			if (st.ffAmux) {
+				SigSpec Y = st.ffAmux->getPort("\\Y");
+				SigSpec AB = st.ffAmux->getPort(st.ffAmuxAB == "\\A" ? "\\B" : "\\A");
+				A.replace(Y, AB);
+				cell->setPort("\\CEA2", st.ffAmux->getPort("\\S"));
+			}
+			else
 				cell->setPort("\\CEA2", State::S1);
-			//else if (st.ffA->type == "$dffe")
-			//	cell->setPort("\\CEA2", st.ffA->getPort("\\EN"));
-			else log_abort();
+			cell->setPort("\\A", A);
 		}
 		if (st.ffB) {
 			SigSpec B = cell->getPort("\\B");
