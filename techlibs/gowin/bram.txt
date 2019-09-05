@@ -1,6 +1,5 @@
 bram $__GW1NR_SDP
-# uncomment when done
-#  init 1
+  init 1
   abits 10 @a10d18
   dbits 16 @a10d18
   abits 11 @a11d9

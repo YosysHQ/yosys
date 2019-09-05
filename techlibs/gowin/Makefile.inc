@@ -15,3 +15,13 @@ $(eval $(call add_share_file,share/gowin,techlibs/gowin/dram.txt))
 
 $(eval $(call add_share_file,share/gowin,techlibs/gowin/brams_init3.vh))
 
+EXTRA_OBJS += techlibs/gowin/brams_init.mk
+.SECONDARY: techlibs/gowin/brams_init.mk
+
+techlibs/gowin/brams_init.mk: techlibs/gowin/brams_init.py
+	$(Q) mkdir -p techlibs/gowin
+	$(P) python3 $<
+	$(Q) touch $@
+
+techlibs/gowin/bram_init_16.vh: techlibs/gowin/brams_init.mk
+$(eval $(call add_gen_share_file,share/gowin,techlibs/gowin/bram_init_16.vh))

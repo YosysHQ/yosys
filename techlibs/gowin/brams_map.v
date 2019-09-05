@@ -28,6 +28,7 @@ module \$__GW1NR_SDP (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1EN);
 	
 	generate if (CFG_DBITS == 1) begin
 		SDP   #(
+      `include "bram_init_16.vh"
 			.READ_MODE(0),
 			.BIT_WIDTH_0(1),
 			.BIT_WIDTH_1(1),
@@ -42,6 +43,7 @@ module \$__GW1NR_SDP (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1EN);
 		);
 	end else if (CFG_DBITS == 2) begin
 		SDP    #(
+      `include "bram_init_16.vh"
 			.READ_MODE(0),
 			.BIT_WIDTH_0(2),
 			.BIT_WIDTH_1(2),
@@ -56,6 +58,7 @@ module \$__GW1NR_SDP (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1EN);
 		);
 	end else if (CFG_DBITS <= 4) begin
 		SDP    #(
+      `include "bram_init_16.vh"
 			.READ_MODE(0),
 			.BIT_WIDTH_0(4),
 			.BIT_WIDTH_1(4),
@@ -70,6 +73,7 @@ module \$__GW1NR_SDP (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1EN);
 		);
 	end else if (CFG_DBITS <= 8) begin
 		SDP    #(
+      `include "bram_init_16.vh"
 			.READ_MODE(0),
 			.BIT_WIDTH_0(8),
 			.BIT_WIDTH_1(8),
@@ -84,6 +88,7 @@ module \$__GW1NR_SDP (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1EN);
 		);
 	end else if (CFG_DBITS <= 16) begin
 		SDP    #(
+      `include "bram_init_16.vh"
 			.READ_MODE(0),
 			.BIT_WIDTH_0(16),
 			.BIT_WIDTH_1(16),
