@@ -66,9 +66,11 @@ endcode
 match ffAmux
 	if ffA
 	select ffAmux->type.in($mux)
+	filter GetSize(port(ffAmux, \Y)) >= GetSize(sigA)
+	slice offset GetSize(port(ffAmux, \Y))
+	filter offset+GetSize(sigA) <= GetSize(port(ffAmux, \Y)) && port(ffAmux, \Y).extract(offset, GetSize(sigA)) == sigA
 	choice <IdString> AB {\A, \B}
-	index <SigSpec> port(ffAmux, \Y) === sigA
-	index <SigSpec> port(ffAmux, AB) === sigffAmux
+	filter offset+GetSize(sigffAmux) <= GetSize(port(ffAmux, \Y)) && port(ffAmux, AB).extract(offset, GetSize(sigffAmux)) == sigffAmux
 	set ffAmuxAB AB
 	semioptional
 endmatch
@@ -105,9 +107,11 @@ endcode
 match ffBmux
 	if ffB
 	select ffBmux->type.in($mux)
+	filter GetSize(port(ffBmux, \Y)) >= GetSize(sigB)
+	slice offset GetSize(port(ffBmux, \Y))
+	filter offset+GetSize(sigB) <= GetSize(port(ffBmux, \Y)) && port(ffBmux, \Y).extract(offset, GetSize(sigB)) == sigB
 	choice <IdString> AB {\A, \B}
-	index <SigSpec> port(ffBmux, \Y) === sigB
-	index <SigSpec> port(ffBmux, AB) === sigffBmux
+	filter offset+GetSize(sigffBmux) <= GetSize(port(ffBmux, \Y)) && port(ffBmux, AB).extract(offset, GetSize(sigffBmux)) == sigffBmux
 	set ffBmuxAB AB
 	semioptional
 endmatch
