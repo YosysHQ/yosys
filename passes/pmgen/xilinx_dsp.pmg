@@ -1,18 +1,21 @@
 pattern xilinx_dsp
 
 state <SigBit> clock
-state <std::set<SigBit>> sigAset sigBset
-state <SigSpec> sigC sigM sigP sigPused
+state <std::set<SigBit>> sigBset
+state <SigSpec> sigA sigC sigM sigP sigPused
 state <IdString> ffMmuxAB postAddAB postAddMuxAB
 
 match dsp
 	select dsp->type.in(\DSP48E1)
 endmatch
 
-code sigAset sigBset
-	SigSpec A = port(dsp, \A);
-	A.remove_const();
-	sigAset = A.to_sigbit_set();
+code sigA sigBset
+	sigA = port(dsp, \A);
+	int i;
+	for (i = GetSize(sigA)-1; i > 0; i--)
+		if (sigA[i] != sigA[i-1])
+			break;
+	sigA.remove(i, GetSize(sigA)-i);
 	SigSpec B = port(dsp, \B);
 	B.remove_const();
 	sigBset = B.to_sigbit_set();
@@ -34,21 +37,22 @@ endcode
 
 match ffA
 	if param(dsp, \AREG).as_int() == 0
-	if !sigAset.empty()
 	select ffA->type.in($dff)
 	// DSP48E1 does not support clock inversion
 	select param(ffA, \CLK_POLARITY).as_bool()
-	filter includes(port(ffA, \Q).to_sigbit_set(), sigAset)
+	filter GetSize(port(ffA, \Q)) >= GetSize(sigA)
+	slice offset GetSize(port(ffA, \Q))
+	filter offset+GetSize(sigA) <= GetSize(port(ffA, \Q)) && port(ffA, \Q).extract(offset, GetSize(sigA)) == sigA
 	optional
 endmatch
 
 code clock
 	if (ffA) {
-		clock = port(ffA, \CLK).as_bit();
-
 		for (auto b : port(ffA, \Q))
 			if (b.wire->get_bool_attribute(\keep))
 				reject;
+
+		clock = port(ffA, \CLK).as_bit();
 	}
 endcode
 
