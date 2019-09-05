@@ -23,10 +23,6 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-template<class T> inline bool includes(const T &lhs, const T &rhs) {
-	return std::includes(lhs.begin(), lhs.end(), rhs.begin(), rhs.end());
-}
-#include <set>
 #include "passes/pmgen/xilinx_dsp_pm.h"
 
 void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
