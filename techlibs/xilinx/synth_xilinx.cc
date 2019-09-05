@@ -275,9 +275,9 @@ struct SynthXilinxPass : public ScriptPass
 	{
 		if (check_label("begin")) {
 			if (vpr)
-				run("read_verilog -lib -icells -D _ABC -D_EXPLICIT_CARRY +/xilinx/cells_sim.v");
+				run("read_verilog -lib -D_EXPLICIT_CARRY +/xilinx/cells_sim.v");
 			else
-				run("read_verilog -lib -icells -D _ABC +/xilinx/cells_sim.v");
+				run("read_verilog -lib +/xilinx/cells_sim.v");
 
 			run("read_verilog -lib +/xilinx/cells_xtra.v");
 
@@ -429,7 +429,7 @@ struct SynthXilinxPass : public ScriptPass
 		}
 
 		if (check_label("map_cells")) {
-			std::string techmap_args = "-map +/techmap.v -D _ABC -map +/xilinx/cells_map.v";
+			std::string techmap_args = "-map +/techmap.v -map +/xilinx/cells_map.v";
 			if (widemux > 0)
 				techmap_args += stringf(" -D MIN_MUX_INPUTS=%d", widemux);
 			run("techmap " + techmap_args);
@@ -449,10 +449,12 @@ struct SynthXilinxPass : public ScriptPass
 			if (flatten_before_abc)
 				run("flatten");
 			if (help_mode)
-				run("abc -luts 2:2,3,6:5[,10,20] [-dff]", "(option for 'nowidelut', option for '-retime')");
+				run("abc -luts 2:2,3,6:5[,10,20] [-dff]", "(option for 'nowidelut'; option for '-retime')");
 			else if (abc9) {
 				if (family != "xc7")
 					log_warning("'synth_xilinx -abc9' currently supports '-family xc7' only.\n");
+				run("techmap -map +/xilinx/abc_map.v -max_iter 1");
+				run("read_verilog -icells -lib +/xilinx/abc_model.v");
 				if (nowidelut)
 					run("abc9 -lut +/xilinx/abc_xc7_nowide.lut -box +/xilinx/abc_xc7.box -W " + std::to_string(XC7_WIRE_DELAY));
 				else
@@ -470,14 +472,15 @@ struct SynthXilinxPass : public ScriptPass
 			//   has performed any necessary retiming
 			if (!nosrl || help_mode)
 				run("xilinx_srl -fixed -minlen 3", "(skip if '-nosrl')");
-
 			std::string techmap_args = "-map +/xilinx/lut_map.v -map +/xilinx/cells_map.v";
 			if (help_mode)
-					techmap_args += " [-map +/xilinx/ff_map.v]";
-			else if (!abc9)
-					techmap_args += " -map +/xilinx/ff_map.v";
+				techmap_args += " [-map +/xilinx/ff_map.v]";
+			else if (abc9)
+				techmap_args += " -map +/xilinx/abc_unmap.v";
+			else
+				techmap_args += " -map +/xilinx/ff_map.v";
 			run("techmap " + techmap_args);
-			if (!abc9)
+			if (!abc9 || help_mode)
 				run("dffinit -ff FDRE Q INIT -ff FDCE Q INIT -ff FDPE Q INIT -ff FDSE Q INIT "
 						"-ff FDRE_1 Q INIT -ff FDCE_1 Q INIT -ff FDPE_1 Q INIT -ff FDSE_1 Q INIT", "(without '-abc9' only)");
 			run("clean");

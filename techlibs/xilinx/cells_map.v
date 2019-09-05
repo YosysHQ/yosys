@@ -331,7 +331,6 @@ module \$_MUX16_ (A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, S, T, U, V, Y)
 endmodule
 `endif
 
-`ifndef _ABC
 module \$__XILINX_MUXF78 (O, I0, I1, I2, I3, S0, S1);
   output O;
   input I0, I1, I2, I3, S0, S1;
@@ -364,4 +363,3 @@ module \$__XILINX_MUXF78 (O, I0, I1, I2, I3, S0, S1);
   else
     MUXF8 mux8 (.I0(T0), .I1(T1), .S(S1), .O(O));
 endmodule
-`endif

@@ -430,6 +430,7 @@ void AigerReader::parse_xaiger(const dict<int,IdString> &box_lookup)
 			else if (c == 'r') {
 				uint32_t dataSize YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
 				flopNum = parse_xaiger_literal(f);
+				log_debug("flopNum: %u\n", flopNum);
 				log_assert(dataSize == (flopNum+1) * sizeof(uint32_t));
 				f.ignore(flopNum * sizeof(uint32_t));
 			}
@@ -496,8 +497,7 @@ void AigerReader::parse_aiger_ascii()
 
 	// Parse latches
 	RTLIL::Wire *clk_wire = nullptr;
-	if (L > 0) {
-		log_assert(clk_name != "");
+	if (L > 0 && !clk_name.empty()) {
 		clk_wire = module->wire(clk_name);
 		log_assert(!clk_wire);
 		log_debug2("Creating %s\n", clk_name.c_str());
@@ -513,7 +513,10 @@ void AigerReader::parse_aiger_ascii()
 		RTLIL::Wire *q_wire = createWireIfNotExists(module, l1);
 		RTLIL::Wire *d_wire = createWireIfNotExists(module, l2);
 
-		module->addDffGate(NEW_ID, clk_wire, d_wire, q_wire);
+		if (clk_wire)
+			module->addDffGate(NEW_ID, clk_wire, d_wire, q_wire);
+		else
+			module->addFfGate(NEW_ID, d_wire, q_wire);
 
 		// Reset logic is optional in AIGER 1.9
 		if (f.peek() == ' ') {
@@ -621,8 +624,7 @@ void AigerReader::parse_aiger_binary()
 
 	// Parse latches
 	RTLIL::Wire *clk_wire = nullptr;
-	if (L > 0) {
-		log_assert(clk_name != "");
+	if (L > 0 && !clk_name.empty()) {
 		clk_wire = module->wire(clk_name);
 		log_assert(!clk_wire);
 		log_debug2("Creating %s\n", clk_name.c_str());
@@ -638,7 +640,10 @@ void AigerReader::parse_aiger_binary()
 		RTLIL::Wire *q_wire = createWireIfNotExists(module, l1);
 		RTLIL::Wire *d_wire = createWireIfNotExists(module, l2);
 
-		module->addDff(NEW_ID, clk_wire, d_wire, q_wire);
+		if (clk_wire)
+			module->addDff(NEW_ID, clk_wire, d_wire, q_wire);
+		else
+			module->addFf(NEW_ID, d_wire, q_wire);
 
 		// Reset logic is optional in AIGER 1.9
 		if (f.peek() == ' ') {
@@ -776,19 +781,19 @@ void AigerReader::post_process()
 		// NB: Assume box_module->ports are sorted alphabetically
 		//     (as RTLIL::Module::fixup_ports() would do)
 		for (auto port_name : box_module->ports) {
-			RTLIL::Wire* w = box_module->wire(port_name);
-			log_assert(w);
+			RTLIL::Wire* port = box_module->wire(port_name);
+			log_assert(port);
 			RTLIL::SigSpec rhs;
-			RTLIL::Wire* wire = nullptr;
-			for (int i = 0; i < GetSize(w); i++) {
-				if (w->port_input) {
+			for (int i = 0; i < GetSize(port); i++) {
+				RTLIL::Wire* wire = nullptr;
+				if (port->port_input) {
 					log_assert(co_count < outputs.size());
 					wire = outputs[co_count++];
 					log_assert(wire);
 					log_assert(wire->port_output);
 					wire->port_output = false;
 				}
-				if (w->port_output) {
+				if (port->port_output) {
 					log_assert((piNum + ci_count) < inputs.size());
 					wire = inputs[piNum + ci_count++];
 					log_assert(wire);
@@ -797,6 +802,7 @@ void AigerReader::post_process()
 				}
 				rhs.append(wire);
 			}
+
 			cell->setPort(port_name, rhs);
 		}
 	}
@@ -814,6 +820,7 @@ void AigerReader::post_process()
 				RTLIL::Wire* wire = inputs[variable];
 				log_assert(wire);
 				log_assert(wire->port_input);
+				log_debug("Renaming input %s", log_id(wire));
 
 				if (index == 0) {
 					// Cope with the fact that a CI might be identical
@@ -840,6 +847,7 @@ void AigerReader::post_process()
 						wire->port_input = false;
 					}
 				}
+				log_debug(" -> %s\n", log_id(wire));
 			}
 			else if (type == "output") {
 				log_assert(static_cast<unsigned>(variable + co_count) < outputs.size());
@@ -850,6 +858,7 @@ void AigerReader::post_process()
 					wire->port_output = false;
 					continue;
 				}
+				log_debug("Renaming output %s", log_id(wire));
 
 				if (index == 0) {
 					// Cope with the fact that a CO might be identical
@@ -871,6 +880,7 @@ void AigerReader::post_process()
 					else {
 						wire->port_output = false;
 						module->connect(wire, existing);
+						wire = existing;
 					}
 				}
 				else if (index > 0) {
@@ -896,6 +906,7 @@ void AigerReader::post_process()
 						wire->port_output = false;
 					}
 				}
+				log_debug(" -> %s\n", log_id(wire));
 			}
 			else if (type == "box") {
 				RTLIL::Cell* cell = module->cell(stringf("$__box%d__", variable));
@@ -1004,8 +1015,8 @@ struct AigerFrontend : public Frontend {
 		log("        Name of module to be created (default: <filename>)\n");
 		log("\n");
 		log("    -clk_name <wire_name>\n");
-		log("        AIGER latches to be transformed into posedge DFFs clocked by wire of");
-		log("        this name (default: clk)\n");
+		log("        If specified, AIGER latches to be transformed into $_DFF_P_ cells\n");
+		log("        clocked by wire of this name. Otherwise, $_FF_ cells will be used.\n");
 		log("\n");
 		log("    -map <filename>\n");
 		log("        read file with port and latch symbols\n");

@@ -5,5 +5,7 @@ always @*
 endmodule
 
 module abc9_test028(input i, output o);
-unknown u(~i, o);
+wire w;
+unknown u(~i, w);
+unknown2 u2(w, o);
 endmodule
