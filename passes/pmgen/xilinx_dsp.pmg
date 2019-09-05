@@ -1,14 +1,14 @@
 pattern xilinx_dsp
 
 state <SigBit> clock
-state <SigSpec> sigA sigffAmux sigB sigC sigM sigP
-state <IdString> ffAmuxAB ffMmuxAB postAddAB postAddMuxAB
+state <SigSpec> sigA sigffAmux sigB sigffBmux sigC sigM sigP
+state <IdString> ffAmuxAB ffBmuxAB ffMmuxAB postAddAB postAddMuxAB
 
 match dsp
 	select dsp->type.in(\DSP48E1)
 endmatch
 
-code sigA sigffAmux sigB sigM
+code sigA sigffAmux sigB sigffBmux sigM
 	sigA = port(dsp, \A);
 	int i;
 	for (i = GetSize(sigA)-1; i > 0; i--)
@@ -46,7 +46,6 @@ match ffA
 	select param(ffA, \CLK_POLARITY).as_bool()
 	filter GetSize(port(ffA, \Q)) >= GetSize(sigA)
 	slice offset GetSize(port(ffA, \Q))
-	filter offset+GetSize(sigA) <= GetSize(port(ffA, \Q)) && nusers(port(ffA, \Q).extract(offset, GetSize(sigA))) <= 3
 	filter offset+GetSize(sigA) <= GetSize(port(ffA, \Q)) && port(ffA, \Q).extract(offset, GetSize(sigA)) == sigA
 	optional
 endmatch
@@ -59,19 +58,19 @@ code sigA sigffAmux clock
 
 		clock = port(ffA, \CLK).as_bit();
 
-		if (nusers(sigA) == 3)
-			sigffAmux = sigA;
+		sigffAmux = sigA;
 		sigA.replace(port(ffA, \Q), port(ffA, \D));
 	}
 endcode
 
 match ffAmux
-	if sigffAmux != SigSpec()
+	if ffA
 	select ffAmux->type.in($mux)
 	choice <IdString> AB {\A, \B}
 	index <SigSpec> port(ffAmux, \Y) === sigA
 	index <SigSpec> port(ffAmux, AB) === sigffAmux
 	set ffAmuxAB AB
+	semioptional
 endmatch
 
 match ffB
@@ -85,7 +84,7 @@ match ffB
 	optional
 endmatch
 
-code clock
+code sigB sigffBmux clock
 	if (ffB) {
 		for (auto b : port(ffB, \Q))
 			if (b.wire->get_bool_attribute(\keep))
@@ -97,8 +96,21 @@ code clock
 			reject;
 
 		clock = c;
+
+		sigffBmux = sigB;
+		sigB.replace(port(ffB, \Q), port(ffB, \D));
 	}
 endcode
+
+match ffBmux
+	if ffB
+	select ffBmux->type.in($mux)
+	choice <IdString> AB {\A, \B}
+	index <SigSpec> port(ffBmux, \Y) === sigB
+	index <SigSpec> port(ffBmux, AB) === sigffBmux
+	set ffBmuxAB AB
+	semioptional
+endmatch
 
 match ffMmux
 	select ffMmux->type.in($mux)
