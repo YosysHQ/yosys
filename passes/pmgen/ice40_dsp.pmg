@@ -1,7 +1,7 @@
 pattern ice40_dsp
 
 state <SigBit> clock
-state <bool> clock_pol
+state <bool> clock_pol cd_signed
 state <std::set<SigBit>> sigAset sigBset
 state <SigSpec> sigA sigB sigCD sigH sigO sigOused
 state <Cell*> addAB muxAB
@@ -21,13 +21,22 @@ code sigAset sigBset
 endcode
 
 code sigH
+	SigSpec O;
 	if (mul->type == $mul)
-		sigH = mul->getPort(\Y);
+		O = mul->getPort(\Y);
 	else if (mul->type == \SB_MAC16)
-		sigH = mul->getPort(\O);
+		O = mul->getPort(\O);
 	else log_abort();
-	if (GetSize(sigH) <= 10)
+	if (GetSize(O) <= 10)
 		reject;
+	// Only care about those bits that are used
+	int i;
+	for (i = 0; i < GetSize(O); i++) {
+		if (nusers(O[i]) <= 1)
+			break;
+		sigH.append(O[i]);
+	}
+	log_assert(nusers(O.extract_end(i)) <= 1);
 endcode
 
 match ffA
@@ -136,17 +145,16 @@ match addB
 	optional
 endmatch
 
-code addAB sigCD sigO
-	bool CD_SIGNED = false;
+code addAB sigCD sigO cd_signed
 	if (addA) {
 		addAB = addA;
 		sigCD = port(addAB, \B);
-		CD_SIGNED = param(addAB, \B_SIGNED).as_bool();
+		cd_signed = param(addAB, \B_SIGNED).as_bool();
 	}
-	if (addB) {
+	else if (addB) {
 		addAB = addB;
 		sigCD = port(addAB, \A);
-		CD_SIGNED = param(addAB, \A_SIGNED).as_bool();
+		cd_signed = param(addAB, \A_SIGNED).as_bool();
 	}
 	if (addAB) {
 		if (mul->type == \SB_MAC16) {
@@ -167,7 +175,6 @@ code addAB sigCD sigO
 			reject;
 
 		sigO = port(addAB, \Y);
-		sigCD.extend_u0(32, CD_SIGNED);
 	}
 endcode
 
@@ -186,105 +193,63 @@ match muxB
 	optional
 endmatch
 
-code muxAB
+code muxAB sigO
 	if (muxA)
 		muxAB = muxA;
 	else if (muxB)
 		muxAB = muxB;
+	if (muxAB)
+		sigO = port(muxAB, \Y);
 endcode
 
-// Extract the bits of P that actually have a consumer
-// (as opposed to being a dummy)
-code sigOused
-	for (int i = 0; i < GetSize(sigO); i++)
-		if (!sigO[i].wire || nusers(sigO[i]) == 1)
-			sigOused.append(State::Sx);
-		else
-			sigOused.append(sigO[i]);
-endcode
+match ffO
+	// Ensure that register is not already used
+	if mul->type != \SB_MAC16 || (mul->parameters.at(\TOPOUTPUT_SELECT, 0).as_int() != 1 && mul->parameters.at(\BOTOUTPUT_SELECT, 0).as_int() != 1)
+	// Ensure that OLOADTOP/OLOADBOT is unused or zero
+	if mul->type != \SB_MAC16 || (mul->connections_.at(\OLOADTOP, State::S0).is_fully_zero() && mul->connections_.at(\OLOADBOT, State::S0).is_fully_zero())
+	if nusers(sigO) == 2
+	select ffO->type.in($dff)
+	filter GetSize(port(ffO, \D)) >= GetSize(sigO)
+	slice offset GetSize(port(ffO, \D))
+	filter offset+GetSize(sigO) <= GetSize(port(ffO, \D)) && port(ffO, \D).extract(offset, GetSize(sigO)) == sigO
+	optional
+endmatch
 
 match ffO_lo
-	if nusers(sigOused.extract(0,std::min(16,GetSize(sigOused)))) == 2
+	if !ffO && GetSize(sigO) > 16
+	// Ensure that register is not already used
+	if mul->type != \SB_MAC16 || (mul->parameters.at(\TOPOUTPUT_SELECT, 0).as_int() != 1 && mul->parameters.at(\BOTOUTPUT_SELECT, 0).as_int() != 1)
+	// Ensure that OLOADTOP/OLOADBOT is unused or zero
+	if mul->type != \SB_MAC16 || (mul->connections_.at(\OLOADTOP, State::S0).is_fully_zero() && mul->connections_.at(\OLOADBOT, State::S0).is_fully_zero())
+	if nusers(sigO.extract(0, 16)) == 2
 	select ffO_lo->type.in($dff)
+	filter GetSize(port(ffO_lo, \D)) >= 16
+	slice offset GetSize(port(ffO_lo, \D))
+	filter offset+GetSize(sigO) <= GetSize(port(ffO_lo, \D)) && port(ffO_lo, \D).extract(offset, 16) == sigO.extract(0, 16)
 	optional
 endmatch
 
-code
-	if (ffO_lo) {
-		SigSpec O = sigOused.extract(0,std::min(16,param(ffO_lo, \WIDTH).as_int()));
-		O.remove_const();
-		auto ffO_loSet = port(ffO_lo, \D).to_sigbit_set();
-		auto Oset = O.to_sigbit_set();
-		if (!std::includes(ffO_loSet.begin(), ffO_loSet.end(), Oset.begin(), Oset.end()))
+code clock clock_pol sigO sigCD cd_signed
+	Cell* ff = nullptr;
+	if (ffO)
+		ff = ffO;
+	else if (ffO_lo)
+		ff = ffO_lo;
+	if (ff) {
+		for (auto b : port(ff, \Q))
+			if (b.wire->get_bool_attribute(\keep))
+				reject;
+
+		SigBit c = port(ff, \CLK).as_bit();
+		bool cp = param(ff, \CLK_POLARITY).as_bool();
+
+		if (clock != SigBit() && (c != clock || cp != clock_pol))
 			reject;
-	}
-endcode
 
-match ffO_hi
-	if GetSize(sigOused) > 16
-	if nusers(sigOused.extract_end(16)) == 2
-	select ffO_hi->type.in($dff)
-	optional
-endmatch
+		clock = c;
+		clock_pol = cp;
 
-code
-	if (ffO_hi) {
-		SigSpec O = sigOused.extract_end(16);
-		O.remove_const();
-		auto ffO_hiSet = port(ffO_hi, \D).to_sigbit_set();
-		auto Oset = O.to_sigbit_set();
-		if (!std::includes(ffO_hiSet.begin(), ffO_hiSet.end(), Oset.begin(), Oset.end()))
-			reject;
-	}
-endcode
-
-code clock clock_pol sigO sigCD
-	if (ffO_lo || ffO_hi) {
-		if (mul->type == \SB_MAC16) {
-			// Ensure that register is not already used
-			if (param(mul, \TOPOUTPUT_SELECT).as_int() == 1 ||
-					param(mul, \BOTOUTPUT_SELECT).as_int() == 1)
-				reject;
-
-			// Ensure that OLOADTOP/OLOADBOT is unused or zero
-			if ((mul->hasPort(\OLOADTOP) && !port(mul, \OLOADTOP).is_fully_zero())
-				|| (mul->hasPort(\OLOADBOT) && !port(mul, \OLOADBOT).is_fully_zero()))
-				reject;
-		}
-
-		if (ffO_lo) {
-			for (auto b : port(ffO_lo, \Q))
-				if (b.wire->get_bool_attribute(\keep))
-					reject;
-
-			SigBit c = port(ffO_lo, \CLK).as_bit();
-			bool cp = param(ffO_lo, \CLK_POLARITY).as_bool();
-
-			if (clock != SigBit() && (c != clock || cp != clock_pol))
-				reject;
-
-			clock = c;
-			clock_pol = cp;
-
-			sigO.replace(port(ffO_lo, \D), port(ffO_lo, \Q));
-		}
-
-		if (ffO_hi) {
-			for (auto b : port(ffO_hi, \Q))
-				if (b.wire->get_bool_attribute(\keep))
-					reject;
-
-			SigBit c = port(ffO_hi, \CLK).as_bit();
-			bool cp = param(ffO_hi, \CLK_POLARITY).as_bool();
-
-			if (clock != SigBit() && (c != clock || cp != clock_pol))
-				reject;
-
-			clock = c;
-			clock_pol = cp;
-
-			sigO.replace(port(ffO_hi, \D), port(ffO_hi, \Q));
-		}
+		sigO.replace(port(ff, \D), port(ff, \Q));
 
 		// Loading value into output register is not
 		//   supported unless using accumulator
@@ -296,8 +261,13 @@ code clock clock_pol sigO sigCD
 			else if (muxB)
 				sigCD = port(muxAB, \A);
 			else log_abort();
-			sigCD.extend_u0(32, addAB && param(addAB, \A_SIGNED).as_bool() && param(addAB, \B_SIGNED).as_bool());
+
+			cd_signed = addAB && param(addAB, \A_SIGNED).as_bool() && param(addAB, \B_SIGNED).as_bool();
 		}
 	}
+	sigCD.extend_u0(32, cd_signed);
+endcode
+
+code
 	accept;
 endcode
