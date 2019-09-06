@@ -2,8 +2,7 @@ pattern ice40_dsp
 
 state <SigBit> clock
 state <bool> clock_pol cd_signed
-state <std::set<SigBit>> sigAset sigBset
-state <SigSpec> sigA sigB sigCD sigH sigO sigOused
+state <SigSpec> sigA sigB sigCD sigH sigO
 state <Cell*> addAB muxAB
 
 match mul
@@ -11,16 +10,7 @@ match mul
 	select GetSize(mul->getPort(\A)) + GetSize(mul->getPort(\B)) > 10
 endmatch
 
-code sigAset sigBset
-	SigSpec A = port(mul, \A);
-	A.remove_const();
-	sigAset = A.to_sigbit_set();
-	SigSpec B = port(mul, \B);
-	B.remove_const();
-	sigBset = B.to_sigbit_set();
-endcode
-
-code sigH
+code sigA sigB sigH
 	SigSpec O;
 	if (mul->type == $mul)
 		O = mul->getPort(\Y);
@@ -29,8 +19,26 @@ code sigH
 	else log_abort();
 	if (GetSize(O) <= 10)
 		reject;
-	// Only care about those bits that are used
+
+	sigA = port(mul, \A);
 	int i;
+	for (i = GetSize(sigA)-1; i > 0; i--)
+		if (sigA[i] != sigA[i-1])
+			break;
+	// Do not remove non-const sign bit
+	if (sigA[i].wire)
+		++i;
+	sigA.remove(i, GetSize(sigA)-i);
+	sigB = port(mul, \B);
+	for (i = GetSize(sigB)-1; i > 0; i--)
+		if (sigB[i] != sigB[i-1])
+			break;
+	// Do not remove non-const sign bit
+	if (sigB[i].wire)
+		++i;
+	sigB.remove(i, GetSize(sigB)-i);
+
+	// Only care about those bits that are used
 	for (i = 0; i < GetSize(O); i++) {
 		if (nusers(O[i]) <= 1)
 			break;
@@ -41,19 +49,15 @@ endcode
 
 match ffA
 	if mul->type != \SB_MAC16 || !param(mul, \A_REG).as_bool()
-	if !sigAset.empty()
 	select ffA->type.in($dff)
+	filter GetSize(port(ffA, \Q)) >= GetSize(sigA)
+	slice offset GetSize(port(ffA, \Q))
+	filter offset+GetSize(sigA) <= GetSize(port(ffA, \Q)) && port(ffA, \Q).extract(offset, GetSize(sigA)) == sigA
 	optional
 endmatch
 
 code sigA clock clock_pol
-	sigA = port(mul, \A);
-
 	if (ffA) {
-		auto ffAset = port(ffA, \Q).to_sigbit_set();
-		if (!std::includes(ffAset.begin(), ffAset.end(), sigAset.begin(), sigAset.end()))
-			reject;
-
 		for (auto b : port(ffA, \Q))
 			if (b.wire->get_bool_attribute(\keep))
 				reject;
@@ -67,19 +71,15 @@ endcode
 
 match ffB
 	if mul->type != \SB_MAC16 || !param(mul, \B_REG).as_bool()
-	if !sigBset.empty()
 	select ffB->type.in($dff)
+	filter GetSize(port(ffB, \Q)) >= GetSize(sigB)
+	slice offset GetSize(port(ffB, \Q))
+	filter offset+GetSize(sigB) <= GetSize(port(ffB, \Q)) && port(ffB, \Q).extract(offset, GetSize(sigB)) == sigB
 	optional
 endmatch
 
 code sigB clock clock_pol
-	sigB = port(mul, \B);
-
 	if (ffB) {
-		auto ffBset = port(ffB, \Q).to_sigbit_set();
-		if (!std::includes(ffBset.begin(), ffBset.end(), sigBset.begin(), sigBset.end()))
-			reject;
-
 		for (auto b : port(ffB, \Q))
 			if (b.wire->get_bool_attribute(\keep))
 				reject;
