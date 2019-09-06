@@ -134,10 +134,17 @@ endmatch
 
 match ffMmux
 	select ffMmux->type.in($mux)
+	choice <IdString> BA {\B, \A}
+	// new-value net must have exactly two users: dsp and ffM
+	select nusers(port(ffMmux, BA)) == 2
+	define <IdString> AB (BA == \B ? \A : \B)
+	// keep-last-value net must have at least three users: ffMmux, ffM, downstream sink(s)
+	select nusers(port(ffMmux, AB)) >= 3
+	// ffMmux output must have two users: ffMmux and ffM.D
 	select nusers(port(ffMmux, \Y)) == 2
 	filter GetSize(port(ffMmux, \Y)) <= GetSize(sigM)
-	choice <IdString> BA {\B, \A}
 	filter port(ffMmux, BA) == sigM.extract(0, GetSize(port(ffMmux, \Y)))
+	// Remaining bits on sigM must not have any other users
 	filter nusers(sigM.extract_end(GetSize(port(ffMmux, BA)))) <= 1
 	define <bool> pol (BA == \B)
 	set ffMenpol pol
@@ -157,6 +164,7 @@ match ffM
 	select nusers(port(ffM, \D)) == 2
 	filter GetSize(port(ffM, \D)) <= GetSize(sigM)
 	filter port(ffM, \D) == sigM.extract(0, GetSize(port(ffM, \D)))
+	// Remaining bits on sigM must not have any other users
 	filter nusers(sigM.extract_end(GetSize(port(ffM, \D)))) <= 1
 	// Check ffMmux (when present) is a $dff enable mux
 	filter !ffMmux || port(ffM, \Q) == port(ffMmux, ffMenpol ? \A : \B)
@@ -221,10 +229,17 @@ endcode
 
 match ffPmux
 	select ffPmux->type.in($mux)
+	choice <IdString> BA {\B, \A}
+	// new-value net must have exactly two users: dsp and ffP
+	select nusers(port(ffPmux, BA)) == 2
+	define <IdString> AB (BA == \B ? \A : \B)
+	// keep-last-value net must have at least three users: ffPmux, ffP, downstream sink(s)
+	select nusers(port(ffPmux, AB)) >= 3
+	// ffPmux output must have two users: ffPmux and ffP.D
 	select nusers(port(ffPmux, \Y)) == 2
 	filter GetSize(port(ffPmux, \Y)) <= GetSize(sigP)
-	choice <IdString> BA {\B, \A}
 	filter port(ffPmux, BA) == sigP.extract(0, GetSize(port(ffPmux, \Y)))
+	// Remaining bits on sigP must not have any other users
 	filter nusers(sigP.extract_end(GetSize(port(ffPmux, BA)))) <= 1
 	define <bool> pol (BA == \B)
 	set ffPenpol pol
