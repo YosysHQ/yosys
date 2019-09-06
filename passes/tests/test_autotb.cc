@@ -345,6 +345,9 @@ struct TestAutotbBackend : public Backend {
 		log("value after initialization. This can e.g. be used to force a reset signal\n");
 		log("low in order to explore more inner states in a state machine.\n");
 		log("\n");
+		log("The attribute 'gentb_skip' can be attached to modules to suppress testbench\n");
+		log("generation.\n");
+		log("\n");
 		log("    -n <int>\n");
 		log("        number of iterations the test bench should run (default = 1000)\n");
 		log("\n");
