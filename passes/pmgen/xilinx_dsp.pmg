@@ -345,10 +345,10 @@ endcode
 
 match ffPmux
 	if param(dsp, \PREG).as_int() == 0
-	// If ffMmux, new-value net must have exactly three users: ffMmux, ffM and ffPmux
-	if !ffMmux || nusers(sigP) == 3
+	// If ffMmux and no postAdd new-value net must have exactly three users: ffMmux, ffM and ffPmux
+	if !ffMmux || postAdd || nusers(sigP) == 3
 	// Otherwise new-value net must have exactly two users: dsp and ffPmux
-	if ffMmux || nusers(sigP) == 2
+	if (ffMmux && !postAdd) || nusers(sigP) == 2
 
 	select ffPmux->type.in($mux)
 	// ffPmux output must have two users: ffPmux and ffP.D
