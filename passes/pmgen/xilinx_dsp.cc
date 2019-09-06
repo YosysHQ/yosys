@@ -177,6 +177,9 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 		if (st.ffA)
 			log(" ffA:%s", log_id(st.ffA));
 
+		if (st.ffAD)
+			log(" ffAD:%s", log_id(st.ffAD));
+
 		if (st.ffB)
 			log(" ffB:%s", log_id(st.ffB));
 
