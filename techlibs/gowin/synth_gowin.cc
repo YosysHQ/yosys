@@ -196,7 +196,6 @@ struct SynthGowinPass : public ScriptPass
 			run("opt_clean");
 			if (!nodffe)
 				run("dff2dffe -direct-match $_DFF_* -direct-match $__DFFS_*");
-			run("muxcover -mux4");
 			run("techmap -map +/gowin/cells_map.v");
 			run("opt_expr -mux_undef");
 			run("simplemap");
