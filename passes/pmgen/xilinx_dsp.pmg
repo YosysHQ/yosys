@@ -228,6 +228,8 @@ code sigC sigP
 endcode
 
 match ffPmux
+	if param(dsp, \PREG).as_int() == 0
+	if nusers(sigP) == 2
 	select ffPmux->type.in($mux)
 	choice <IdString> BA {\B, \A}
 	// new-value net must have exactly two users: dsp and ffP
@@ -253,13 +255,14 @@ endcode
 
 match ffP
 	if param(dsp, \PREG).as_int() == 0
+	if nusers(sigP) == 2
 	select ffP->type.in($dff)
 	// DSP48E1 does not support clock inversion
 	select param(ffP, \CLK_POLARITY).as_bool()
-	select nusers(port(ffP, \D)) == 2
 	filter GetSize(port(ffP, \D)) >= GetSize(sigP)
 	slice offset GetSize(port(ffP, \D))
-	filter offset+GetSize(sigP) <= GetSize(port(ffP, \D)) && port(ffP, \D).extract(offset, GetSize(sigP)) == sigP
+	filter offset+GetSize(sigP) <= GetSize(port(ffP, \D))
+	filter port(ffP, \D).extract(offset, GetSize(sigP)) == sigP
 	// Check ffPmux (when present) is a $dff enable mux
 	filter !ffPmux || port(ffP, \Q) == port(ffPmux, ffPenpol ? \A : \B)
 	optional
