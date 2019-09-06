@@ -440,10 +440,10 @@ endmatch
 match ffP
 	if !ffP_enable
 	if param(dsp, \PREG).as_int() == 0
-	// If ffMmux, input net must have exactly three users: ffMmux, ffM and ffP
-	if !ffMmux || nusers(sigP) == 3
-	// Otherwise input net must have exactly two users: dsp and ffP
-	if ffMmux || nusers(sigP) == 2
+	// If ffMmux and no postAdd new-value net must have exactly three users: ffMmux, ffM and ffPmux
+	if !ffMmux || postAdd || nusers(sigP) == 3
+	// Otherwise new-value net must have exactly two users: dsp and ffPmux
+	if (ffMmux && !postAdd) || nusers(sigP) == 2
 
 	select ffP->type.in($dff)
 	// DSP48E1 does not support clock inversion
