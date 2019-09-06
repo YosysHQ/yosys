@@ -85,10 +85,10 @@ match ffADmux
 	slice offset GetSize(port(ffADmux, \Y))
 	filter offset+GetSize(sigA) <= GetSize(port(ffADmux, \Y))
 	filter port(ffADmux, \Y).extract(offset, GetSize(sigA)) == sigA
-	choice <IdString> BA {\B, \A}
+	choice <IdString> AB {\A, \B}
 	filter offset+GetSize(sigffAmuxY) <= GetSize(port(ffADmux, \Y))
-	filter port(ffADmux, BA).extract(offset, GetSize(sigffAmuxY)) == sigffAmuxY
-	define <bool> pol (BA == \B)
+	filter port(ffADmux, AB).extract(offset, GetSize(sigffAmuxY)) == sigffAmuxY
+	define <bool> pol (AB == \A)
 	set ffADenpol pol
 	optional
 endmatch
@@ -166,10 +166,10 @@ match ffAmux
 	slice offset GetSize(port(ffAmux, \Y))
 	filter offset+GetSize(sigA) <= GetSize(port(ffAmux, \Y))
 	filter port(ffAmux, \Y).extract(offset, GetSize(sigA)) == sigA
-	choice <IdString> BA {\B, \A}
+	choice <IdString> AB {\A, \B}
 	filter offset+GetSize(sigffAmuxY) <= GetSize(port(ffAmux, \Y))
-	filter port(ffAmux, BA).extract(offset, GetSize(sigffAmuxY)) == sigffAmuxY
-	define <bool> pol (BA == \B)
+	filter port(ffAmux, AB).extract(offset, GetSize(sigffAmuxY)) == sigffAmuxY
+	define <bool> pol (AB == \A)
 	set ffAenpol pol
 	optional
 endmatch
@@ -228,10 +228,10 @@ match ffBmux
 	slice offset GetSize(port(ffBmux, \Y))
 	filter offset+GetSize(sigB) <= GetSize(port(ffBmux, \Y))
 	filter port(ffBmux, \Y).extract(offset, GetSize(sigB)) == sigB
-	choice <IdString> BA {\B, \A}
+	choice <IdString> AB {\A, \B}
 	filter offset+GetSize(sigffBmuxY) <= GetSize(port(ffBmux, \Y))
-	filter port(ffBmux, BA).extract(offset, GetSize(sigffBmuxY)) == sigffBmuxY
-	define <bool> pol (BA == \B)
+	filter port(ffBmux, AB).extract(offset, GetSize(sigffBmuxY)) == sigffBmuxY
+	define <bool> pol (AB == \A)
 	set ffBenpol pol
 	optional
 endmatch
@@ -252,7 +252,7 @@ match ffMmux
 	filter port(ffMmux, BA) == sigM.extract(0, GetSize(port(ffMmux, \Y)))
 	// Remaining bits on sigM must not have any other users
 	filter nusers(sigM.extract_end(GetSize(port(ffMmux, BA)))) <= 1
-	define <bool> pol (BA == \B)
+	define <bool> pol (AB == \A)
 	set ffMenpol pol
 	optional
 endmatch
@@ -348,15 +348,15 @@ match ffPmux
 	select nusers(port(ffPmux, \Y)) == 2
 	filter GetSize(port(ffPmux, \Y)) >= GetSize(sigP)
 
-	choice <IdString> BA {\B, \A}
 	slice offset GetSize(port(ffPmux, \Y))
 	filter offset+GetSize(sigP) <= GetSize(port(ffPmux, \Y))
+	choice <IdString> BA {\B, \A}
 	filter port(ffPmux, BA).extract(offset, GetSize(sigP)) == sigP
 
 	define <IdString> AB (BA == \B ? \A : \B)
 	// keep-last-value net must have at least three users: ffPmux, ffP, downstream sink(s)
 	filter nusers(port(ffPmux, AB)) >= 3
-	define <bool> pol (BA == \B)
+	define <bool> pol (AB == \A)
 	set ffPenpol pol
 	set ffPoffset offset
 	optional
