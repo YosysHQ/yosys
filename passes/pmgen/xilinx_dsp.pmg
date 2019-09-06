@@ -1,16 +1,16 @@
 pattern xilinx_dsp
 
 state <SigBit> clock
-state <SigSpec> sigA sigffAmuxY sigB sigffBmuxY sigC sigM sigP
+state <SigSpec> sigA sigffAmuxY sigB sigffBmuxY sigC sigD sigM sigP
 state <IdString> postAddAB postAddMuxAB
-state <bool> ffAenpol ffBenpol ffMenpol ffPenpol
+state <bool> ffAenpol ffADenpol ffBenpol ffMenpol ffPenpol
 state <int> ffPoffset
 
 match dsp
 	select dsp->type.in(\DSP48E1)
 endmatch
 
-code sigA sigffAmuxY sigB sigffBmuxY sigM
+code sigA sigffAmuxY sigB sigffBmuxY sigD sigM
 	sigA = port(dsp, \A);
 	int i;
 	for (i = GetSize(sigA)-1; i > 0; i--)
@@ -29,6 +29,8 @@ code sigA sigffAmuxY sigB sigffBmuxY sigM
 		++i;
 	sigB.remove(i, GetSize(sigB)-i);
 
+	sigD = dsp->connections_.at(\D, SigSpec());
+
 	SigSpec P = port(dsp, \P);
 	// Only care about those bits that are used
 	for (i = 0; i < GetSize(P); i++) {
@@ -44,7 +46,85 @@ code sigA sigffAmuxY sigB sigffBmuxY sigM
 	sigffBmuxY = SigSpec();
 endcode
 
+match ffAD
+	if param(dsp, \ADREG).as_int() == 0
+	select ffAD->type.in($dff)
+	// DSP48E1 does not support clock inversion
+	select param(ffAD, \CLK_POLARITY).as_bool()
+	filter GetSize(port(ffAD, \Q)) >= GetSize(sigA)
+	slice offset GetSize(port(ffAD, \Q))
+	filter offset+GetSize(sigA) <= GetSize(port(ffAD, \Q))
+	filter port(ffAD, \Q).extract(offset, GetSize(sigA)) == sigA
+	optional
+endmatch
+
+code sigA sigffAmuxY clock
+	if (ffAD) {
+		for (auto b : port(ffAD, \Q))
+			if (b.wire->get_bool_attribute(\keep))
+				reject;
+
+		clock = port(ffAD, \CLK).as_bit();
+
+		SigSpec A = sigA;
+		A.replace(port(ffAD, \Q), port(ffAD, \D));
+		// Only search for ffAmux if ffA.Q has at
+		//   least 3 users (ffA, dsp, ffAmux) and
+		//   its ffA.D only has two (ffA, ffAmux)
+		if (nusers(sigA) >= 3 && nusers(A) == 2)
+			sigffAmuxY = sigA;
+		sigA = std::move(A);
+	}
+endcode
+
+match ffADmux
+	if !sigffAmuxY.empty()
+	select ffADmux->type.in($mux)
+	index <SigSpec> port(ffADmux, \Y) === port(ffAD, \D)
+	filter GetSize(port(ffADmux, \Y)) >= GetSize(sigA)
+	slice offset GetSize(port(ffADmux, \Y))
+	filter offset+GetSize(sigA) <= GetSize(port(ffADmux, \Y))
+	filter port(ffADmux, \Y).extract(offset, GetSize(sigA)) == sigA
+	choice <IdString> BA {\B, \A}
+	filter offset+GetSize(sigffAmuxY) <= GetSize(port(ffADmux, \Y))
+	filter port(ffADmux, BA).extract(offset, GetSize(sigffAmuxY)) == sigffAmuxY
+	define <bool> pol (BA == \B)
+	set ffADenpol pol
+	optional
+endmatch
+
+match preAdd
+	if sigD.empty() || sigD.is_fully_zero()
+	// Ensure that preAdder not already used
+	if dsp->parameters.at(\USE_DPORT, Const("FALSE")).decode_string() == "FALSE"
+	if dsp->connections_.at(\INMODE, Const(0, 5)).is_fully_zero()
+
+	select preAdd->type.in($add)
+	// Output has to be 25 bits or less
+	select GetSize(port(preAdd, \Y)) <= 25
+	select nusers(port(preAdd, \Y)) == 2
+	choice <IdString> AB {\A, \B}
+	// A port has to be 30 bits or less
+	select GetSize(port(preAdd, AB)) <= 30
+	define <IdString> BA (AB == \A ? \B : \A)
+	// D port has to be 25 bits or less
+	select GetSize(port(preAdd, BA)) <= 25
+	index <SigSpec> port(preAdd, \Y) === sigA
+
+	optional
+endmatch
+
+code sigA sigD
+	if (preAdd) {
+		sigA = port(preAdd, \A);
+		sigD = port(preAdd, \B);
+		if (GetSize(sigA) < GetSize(sigD))
+			std::swap(sigA, sigD);
+	}
+endcode
+
 match ffA
+	if !preAdd
 	if param(dsp, \AREG).as_int() == 0
 	select ffA->type.in($dff)
 	// DSP48E1 does not support clock inversion
@@ -73,6 +153,9 @@ code sigA sigffAmuxY clock
 			sigffAmuxY = sigA;
 		sigA = std::move(A);
 	}
+	else if (!preAdd) {
+		sigffAmuxY = SigSpec();
+	}
 endcode
 
 match ffAmux
@@ -90,6 +173,18 @@ match ffAmux
 	set ffAenpol pol
 	optional
 endmatch
+
+code ffA ffAmux ffAenpol ffAD ffADmux
+	// Move AD register to A if no pre-adder
+	if (!ffA && !preAdd && ffAD) {
+		ffA = ffAD;
+		ffAmux = ffADmux;
+		ffAenpol = ffADenpol;
+
+		ffAD = nullptr;
+		ffADmux = nullptr;
+	}
+endcode
 
 match ffB
 	if param(dsp, \BREG).as_int() == 0

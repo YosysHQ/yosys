@@ -31,6 +31,9 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 
 #if 1
 	log("\n");
+	log("preAdd:     %s\n", log_id(st.preAdd, "--"));
+	log("ffAD:       %s\n", log_id(st.ffAD, "--"));
+	log("ffADmux:    %s\n", log_id(st.ffADmux, "--"));
 	log("ffA:        %s\n", log_id(st.ffA, "--"));
 	log("ffAmux:     %s\n", log_id(st.ffAmux, "--"));
 	log("ffB:        %s\n", log_id(st.ffB, "--"));
@@ -51,8 +54,34 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 	SigSpec C = st.sigC;
 	SigSpec P = st.sigP;
 
+	if (st.preAdd) {
+		log("  preadder %s (%s)\n", log_id(st.preAdd), log_id(st.preAdd->type));
+		bool A_SIGNED = st.preAdd->getParam("\\A_SIGNED").as_bool();
+		bool D_SIGNED = st.preAdd->getParam("\\B_SIGNED").as_bool();
+		if (st.sigA == st.preAdd->getPort("\\B"))
+			std::swap(A_SIGNED, D_SIGNED);
+		st.sigA.extend_u0(30, A_SIGNED);
+		st.sigD.extend_u0(25, D_SIGNED);
+		cell->setPort("\\A", st.sigA);
+		cell->setPort("\\D", st.sigD);
+		cell->connections_.at("\\INMODE") = Const::from_string("00100");
+
+		if (st.ffAD) {
+			if (st.ffADmux) {
+				SigSpec S = st.ffADmux->getPort("\\S");
+				cell->setPort("\\CEAD", st.ffADenpol ? S : pm.module->Not(NEW_ID, S));
+			}
+			else
+				cell->setPort("\\CEAD", State::S1);
+			cell->setParam("\\ADREG", 1);
+		}
+
+		cell->setParam("\\USE_DPORT", Const("TRUE"));
+
+		pm.autoremove(st.preAdd);
+	}
 	if (st.postAdd) {
-		log("  adder %s (%s)\n", log_id(st.postAdd), log_id(st.postAdd->type));
+		log("  postadder %s (%s)\n", log_id(st.postAdd), log_id(st.postAdd->type));
 
 		SigSpec &opmode = cell->connections_.at("\\OPMODE");
 		if (st.postAddMux) {
