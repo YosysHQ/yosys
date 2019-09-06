@@ -1,9 +1,9 @@
 pattern xilinx_dsp
 
 state <SigBit> clock
-state <SigSpec> sigA sigffAmuxY sigB sigffBmuxY sigC sigD sigM sigP
+state <SigSpec> sigA sigffAmuxY sigB sigffBmuxY sigC sigD sigffDmuxY sigM sigP
 state <IdString> postAddAB postAddMuxAB
-state <bool> ffAenpol ffADenpol ffBenpol ffMenpol ffPenpol
+state <bool> ffAenpol ffADenpol ffBenpol ffDenpol ffMenpol ffPenpol
 state <int> ffPoffset
 
 match dsp
@@ -235,6 +235,61 @@ match ffBmux
 	set ffBenpol pol
 	optional
 endmatch
+
+match ffD
+	if param(dsp, \DREG).as_int() == 0
+	select ffD->type.in($dff)
+	// DSP48E1 does not support clock inversion
+	select param(ffD, \CLK_POLARITY).as_bool()
+	filter GetSize(port(ffD, \Q)) >= GetSize(sigD)
+	slice offset GetSize(port(ffD, \Q))
+	filter offset+GetSize(sigD) <= GetSize(port(ffD, \Q))
+	filter port(ffD, \Q).extract(offset, GetSize(sigD)) == sigD
+	optional
+endmatch
+
+code sigD sigffDmuxY clock
+	if (ffD) {
+		for (auto b : port(ffD, \Q))
+			if (b.wire->get_bool_attribute(\keep))
+				reject;
+
+		SigBit c = port(ffD, \CLK).as_bit();
+		if (clock != SigBit() && c != clock)
+			reject;
+		clock = c;
+
+		SigSpec D = sigD;
+		D.replace(port(ffD, \Q), port(ffD, \D));
+		// Only search for ffBmux if ffB.Q has at
+		//   least 3 users (ffB, dsp, ffBmux) and
+		//   its ffB.D only has two (ffB, ffBmux)
+		if (nusers(sigD) >= 3 && nusers(D) == 2)
+			sigffDmuxY = sigD;
+		sigD = std::move(D);
+	}
+endcode
+
+match ffDmux
+	if !sigffDmuxY.empty()
+	select ffDmux->type.in($mux)
+	index <SigSpec> port(ffDmux, \Y) === port(ffD, \D)
+	filter GetSize(port(ffDmux, \Y)) >= GetSize(sigD)
+	slice offset GetSize(port(ffDmux, \Y))
+	filter offset+GetSize(sigD) <= GetSize(port(ffDmux, \Y))
+	filter port(ffDmux, \Y).extract(offset, GetSize(sigB)) == sigD
+	choice <IdString> AB {\A, \B}
+	filter offset+GetSize(sigffDmuxY) <= GetSize(port(ffDmux, \Y))
+	filter port(ffDmux, AB).extract(offset, GetSize(sigffDmuxY)) == sigffDmuxY
+	define <bool> pol (AB == \A)
+	set ffDenpol pol
+	optional
+endmatch
+
+code sigD
+	if (ffDmux)
+		sigD.replace(port(ffDmux, \Y), port(ffDmux, ffDenpol ? \B : \A));
+endcode
 
 match ffMmux
 	if param(dsp, \MREG).as_int() == 0

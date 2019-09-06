@@ -38,6 +38,8 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 	log("ffAmux:     %s\n", log_id(st.ffAmux, "--"));
 	log("ffB:        %s\n", log_id(st.ffB, "--"));
 	log("ffBmux:     %s\n", log_id(st.ffBmux, "--"));
+	log("ffD:        %s\n", log_id(st.ffD, "--"));
+	log("ffDmux:     %s\n", log_id(st.ffDmux, "--"));
 	log("dsp:        %s\n", log_id(st.dsp, "--"));
 	log("ffM:        %s\n", log_id(st.ffM, "--"));
 	log("ffMmux:     %s\n", log_id(st.ffMmux, "--"));
@@ -140,6 +142,17 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 			cell->setPort("\\B", B);
 
 			cell->setParam("\\BREG", 1);
+		}
+		if (st.ffD) {
+			if (st.ffDmux) {
+				SigSpec S = st.ffDmux->getPort("\\S");
+				cell->setPort("\\CED", st.ffBenpol ? S : pm.module->Not(NEW_ID, S));
+			}
+			else
+				cell->setPort("\\CED", State::S1);
+			cell->setPort("\\D", st.sigD);
+
+			cell->setParam("\\DREG", 1);
 		}
 		if (st.ffM) {
 			if (st.ffMmux) {
