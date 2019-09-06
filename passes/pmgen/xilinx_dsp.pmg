@@ -1,7 +1,7 @@
 pattern xilinx_dsp
 
 state <SigBit> clock
-state <SigSpec> sigA sigffAmux sigB sigffBmux sigC sigM sigP
+state <SigSpec> sigA sigffAmuxY sigB sigffBmuxY sigC sigM sigP
 state <IdString> postAddAB postAddMuxAB
 state <bool> ffAenpol ffBenpol ffMenpol ffPenpol
 
@@ -9,7 +9,7 @@ match dsp
 	select dsp->type.in(\DSP48E1)
 endmatch
 
-code sigA sigffAmux sigB sigffBmux sigM
+code sigA sigffAmuxY sigB sigffBmuxY sigM
 	sigA = port(dsp, \A);
 	int i;
 	for (i = GetSize(sigA)-1; i > 0; i--)
@@ -38,6 +38,9 @@ code sigA sigffAmux sigB sigffBmux sigM
 	log_assert(nusers(P.extract_end(i)) <= 1);
 	//if (GetSize(sigM) <= 10)
 	//	reject;
+
+	sigffAmuxY = SigSpec();
+	sigffBmuxY = SigSpec();
 endcode
 
 match ffA
@@ -51,7 +54,7 @@ match ffA
 	optional
 endmatch
 
-code sigA sigffAmux clock
+code sigA sigffAmuxY clock
 	if (ffA) {
 		for (auto b : port(ffA, \Q))
 			if (b.wire->get_bool_attribute(\keep))
@@ -59,19 +62,25 @@ code sigA sigffAmux clock
 
 		clock = port(ffA, \CLK).as_bit();
 
-		sigffAmux = sigA;
-		sigA.replace(port(ffA, \Q), port(ffA, \D));
+		SigSpec A = sigA;
+		A.replace(port(ffA, \Q), port(ffA, \D));
+		// Only search for ffAmux if ffA.Q has at
+		//   least 3 users (ffA, dsp, ffAmux) and
+		//   its ffA.D only has two (ffA, ffAmux)
+		if (nusers(sigA) >= 3 && nusers(A) == 2)
+			sigffAmuxY = sigA;
+		sigA = std::move(A);
 	}
 endcode
 
 match ffAmux
-	if ffA
+	if !sigffAmuxY.empty()
 	select ffAmux->type.in($mux)
 	filter GetSize(port(ffAmux, \Y)) >= GetSize(sigA)
 	slice offset GetSize(port(ffAmux, \Y))
 	filter offset+GetSize(sigA) <= GetSize(port(ffAmux, \Y)) && port(ffAmux, \Y).extract(offset, GetSize(sigA)) == sigA
 	choice <IdString> BA {\B, \A}
-	filter offset+GetSize(sigffAmux) <= GetSize(port(ffAmux, \Y)) && port(ffAmux, BA).extract(offset, GetSize(sigffAmux)) == sigffAmux
+	filter offset+GetSize(sigffAmuxY) <= GetSize(port(ffAmux, \Y)) && port(ffAmux, BA).extract(offset, GetSize(sigffAmuxY)) == sigffAmuxY
 	define <bool> pol (BA == \B)
 	set ffAenpol pol
 	semioptional
@@ -88,32 +97,36 @@ match ffB
 	optional
 endmatch
 
-code sigB sigffBmux clock
+code sigB sigffBmuxY clock
 	if (ffB) {
 		for (auto b : port(ffB, \Q))
 			if (b.wire->get_bool_attribute(\keep))
 				reject;
 
 		SigBit c = port(ffB, \CLK).as_bit();
-
 		if (clock != SigBit() && c != clock)
 			reject;
-
 		clock = c;
 
-		sigffBmux = sigB;
-		sigB.replace(port(ffB, \Q), port(ffB, \D));
+		SigSpec B = sigB;
+		B.replace(port(ffB, \Q), port(ffB, \D));
+		// Only search for ffBmux if ffB.Q has at
+		//   least 3 users (ffB, dsp, ffBmux) and
+		//   its ffB.D only has two (ffB, ffBmux)
+		if (nusers(sigB) >= 3 && nusers(B) == 2)
+			sigffBmuxY = sigB;
+		sigB = std::move(B);
 	}
 endcode
 
 match ffBmux
-	if ffB
+	if !sigffBmuxY.empty()
 	select ffBmux->type.in($mux)
 	filter GetSize(port(ffBmux, \Y)) >= GetSize(sigB)
 	slice offset GetSize(port(ffBmux, \Y))
 	filter offset+GetSize(sigB) <= GetSize(port(ffBmux, \Y)) && port(ffBmux, \Y).extract(offset, GetSize(sigB)) == sigB
 	choice <IdString> BA {\B, \A}
-	filter offset+GetSize(sigffBmux) <= GetSize(port(ffBmux, \Y)) && port(ffBmux, BA).extract(offset, GetSize(sigffBmux)) == sigffBmux
+	filter offset+GetSize(sigffBmuxY) <= GetSize(port(ffBmux, \Y)) && port(ffBmux, BA).extract(offset, GetSize(sigffBmuxY)) == sigffBmuxY
 	define <bool> pol (BA == \B)
 	set ffBenpol pol
 	semioptional
