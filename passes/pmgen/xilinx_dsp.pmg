@@ -83,7 +83,7 @@ match ffAmux
 	filter offset+GetSize(sigffAmuxY) <= GetSize(port(ffAmux, \Y)) && port(ffAmux, BA).extract(offset, GetSize(sigffAmuxY)) == sigffAmuxY
 	define <bool> pol (BA == \B)
 	set ffAenpol pol
-	semioptional
+	optional
 endmatch
 
 match ffB
@@ -129,7 +129,7 @@ match ffBmux
 	filter offset+GetSize(sigffBmuxY) <= GetSize(port(ffBmux, \Y)) && port(ffBmux, BA).extract(offset, GetSize(sigffBmuxY)) == sigffBmuxY
 	define <bool> pol (BA == \B)
 	set ffBenpol pol
-	semioptional
+	optional
 endmatch
 
 match ffMmux
@@ -180,10 +180,8 @@ code clock sigM sigP
 				reject;
 
 		SigBit c = port(ffM, \CLK).as_bit();
-
 		if (clock != SigBit() && c != clock)
 			reject;
-
 		clock = c;
 	}
 	// Cannot have ffMmux enable mux without ffM
@@ -198,6 +196,8 @@ match postAdd
 	if port(dsp, \OPMODE).extract(4,3).is_fully_zero()
 
 	select postAdd->type.in($add)
+	select GetSize(port(postAdd, \Y)) <= 48
+	select nusers(port(postAdd, \Y)) == 2
 	choice <IdString> AB {\A, \B}
 	select nusers(port(postAdd, AB)) <= 3
 	filter ffMmux || nusers(port(postAdd, AB)) == 2
@@ -256,6 +256,7 @@ match ffP
 	select ffP->type.in($dff)
 	// DSP48E1 does not support clock inversion
 	select param(ffP, \CLK_POLARITY).as_bool()
+	select nusers(port(ffP, \D)) == 2
 	filter GetSize(port(ffP, \D)) >= GetSize(sigP)
 	slice offset GetSize(port(ffP, \D))
 	filter offset+GetSize(sigP) <= GetSize(port(ffP, \D)) && port(ffP, \D).extract(offset, GetSize(sigP)) == sigP
