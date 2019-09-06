@@ -219,10 +219,10 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 	cell->setParam("\\B_SIGNED", st.mul->getParam("\\B_SIGNED").as_bool());
 
 	if (st.ffO) {
-		if (st.ffO_hilo)
-			cell->setParam("\\TOPOUTPUT_SELECT", Const(1, 2));
-		else
+		if (st.ffO_lo)
 			cell->setParam("\\TOPOUTPUT_SELECT", Const(st.addAB ? 0 : 3, 2));
+		else
+			cell->setParam("\\TOPOUTPUT_SELECT", Const(1, 2));
 
 		st.ffO->connections_.at("\\Q").replace(O, pm.module->addWire(NEW_ID, GetSize(O)));
 		cell->setParam("\\BOTOUTPUT_SELECT", Const(1, 2));

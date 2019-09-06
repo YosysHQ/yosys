@@ -3,7 +3,7 @@ pattern ice40_dsp
 state <SigBit> clock
 state <bool> clock_pol cd_signed
 state <SigSpec> sigA sigB sigCD sigH sigO
-state <Cell*> addAB muxAB ffO
+state <Cell*> addAB muxAB
 
 match mul
 	select mul->type.in($mul, \SB_MAC16)
@@ -202,21 +202,21 @@ code muxAB sigO
 		sigO = port(muxAB, \Y);
 endcode
 
-match ffO_hilo
+match ffO
 	// Ensure that register is not already used
 	if mul->type != \SB_MAC16 || (mul->parameters.at(\TOPOUTPUT_SELECT, 0).as_int() != 1 && mul->parameters.at(\BOTOUTPUT_SELECT, 0).as_int() != 1)
 	// Ensure that OLOADTOP/OLOADBOT is unused or zero
 	if mul->type != \SB_MAC16 || (mul->connections_.at(\OLOADTOP, State::S0).is_fully_zero() && mul->connections_.at(\OLOADBOT, State::S0).is_fully_zero())
 	if nusers(sigO) == 2
-	select ffO_hilo->type.in($dff)
-	filter GetSize(port(ffO_hilo, \D)) >= GetSize(sigO)
-	slice offset GetSize(port(ffO_hilo, \D))
-	filter offset+GetSize(sigO) <= GetSize(port(ffO_hilo, \D)) && port(ffO_hilo, \D).extract(offset, GetSize(sigO)) == sigO
+	select ffO->type.in($dff)
+	filter GetSize(port(ffO, \D)) >= GetSize(sigO)
+	slice offset GetSize(port(ffO, \D))
+	filter offset+GetSize(sigO) <= GetSize(port(ffO, \D)) && port(ffO, \D).extract(offset, GetSize(sigO)) == sigO
 	optional
 endmatch
 
 match ffO_lo
-	if !ffO_hilo && GetSize(sigO) > 16
+	if !ffO && GetSize(sigO) > 16
 	// Ensure that register is not already used
 	if mul->type != \SB_MAC16 || (mul->parameters.at(\TOPOUTPUT_SELECT, 0).as_int() != 1 && mul->parameters.at(\BOTOUTPUT_SELECT, 0).as_int() != 1)
 	// Ensure that OLOADTOP/OLOADBOT is unused or zero
@@ -230,11 +230,10 @@ match ffO_lo
 endmatch
 
 code ffO clock clock_pol sigO sigCD cd_signed
-	ffO = nullptr;
-	if (ffO_hilo)
-		ffO = ffO_hilo;
-	else if (ffO_lo)
+	if (ffO_lo) {
+		log_assert(!ffO);
 		ffO = ffO_lo;
+	}
 	if (ffO) {
 		for (auto b : port(ffO, \Q))
 			if (b.wire->get_bool_attribute(\keep))
