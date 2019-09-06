@@ -286,11 +286,6 @@ match ffDmux
 	optional
 endmatch
 
-code sigD
-	if (ffDmux)
-		sigD.replace(port(ffDmux, \Y), port(ffDmux, ffDenpol ? \B : \A));
-endcode
-
 match ffMmux
 	if param(dsp, \MREG).as_int() == 0
 	if nusers(sigM) == 2
