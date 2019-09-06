@@ -78,6 +78,7 @@ endcode
 match ffAmux
 	if !sigffAmuxY.empty()
 	select ffAmux->type.in($mux)
+	index <SigSpec> port(ffAmux, \Y) === port(ffA, \D)
 	filter GetSize(port(ffAmux, \Y)) >= GetSize(sigA)
 	slice offset GetSize(port(ffAmux, \Y))
 	filter offset+GetSize(sigA) <= GetSize(port(ffAmux, \Y))
@@ -127,6 +128,7 @@ endcode
 match ffBmux
 	if !sigffBmuxY.empty()
 	select ffBmux->type.in($mux)
+	index <SigSpec> port(ffBmux, \Y) === port(ffB, \D)
 	filter GetSize(port(ffBmux, \Y)) >= GetSize(sigB)
 	slice offset GetSize(port(ffBmux, \Y))
 	filter offset+GetSize(sigB) <= GetSize(port(ffBmux, \Y))
@@ -165,23 +167,32 @@ code sigM
 		sigM = port(ffMmux, \Y);
 endcode
 
+match ffM_enable
+	if ffMmux
+	if nusers(sigM) == 2
+	select ffM_enable->type.in($dff)
+	// DSP48E1 does not support clock inversion
+	select param(ffM_enable, \CLK_POLARITY).as_bool()
+	index <SigSpec> port(ffM_enable, \D) === sigM
+	index <SigSpec> port(ffM_enable, \Q) === port(ffMmux, ffMenpol ? \A : \B)
+endmatch
+
 match ffM
+	if !ffM_enable
 	if param(dsp, \MREG).as_int() == 0
 	if nusers(sigM) == 2
 	select ffM->type.in($dff)
 	// DSP48E1 does not support clock inversion
 	select param(ffM, \CLK_POLARITY).as_bool()
-	select nusers(port(ffM, \D)) == 2
-	filter GetSize(port(ffM, \D)) <= GetSize(sigM)
-	filter port(ffM, \D) == sigM.extract(0, GetSize(port(ffM, \D)))
-	// Remaining bits on sigM must not have any other users
-	filter nusers(sigM.extract_end(GetSize(port(ffM, \D)))) <= 1
-	// Check ffMmux (when present) is a $dff enable mux
-	filter !ffMmux || port(ffM, \Q) == port(ffMmux, ffMenpol ? \A : \B)
+	index <SigSpec> port(ffM, \D) === sigM
 	optional
 endmatch
 
-code clock sigM sigP
+code ffM clock sigM sigP
+	if (ffM_enable) {
+		log_assert(!ffM);
+		ffM = ffM_enable;
+	}
 	if (ffM) {
 		sigM = port(ffM, \Q);
 
@@ -194,10 +205,6 @@ code clock sigM sigP
 			reject;
 		clock = c;
 	}
-	// Cannot have ffMmux enable mux without ffM
-	else if (ffMmux)
-		reject;
-
 	sigP = sigM;
 endcode
 
@@ -311,9 +318,6 @@ code ffP sigP clock
 
 		sigP.replace(port(ffP, \D), port(ffP, \Q));
 	}
-	// Cannot have ffPmux enable mux without ffP
-	else if (ffPmux)
-		reject;
 endcode
 
 match postAddMux
