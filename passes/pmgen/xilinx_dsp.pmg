@@ -300,6 +300,10 @@ code ffM clock sigM sigP
 			reject;
 		clock = c;
 	}
+	// No enable mux possible without flop
+	else if (ffMmux)
+		reject;
+
 	sigP = sigM;
 endcode
 
@@ -341,8 +345,11 @@ endcode
 
 match ffPmux
 	if param(dsp, \PREG).as_int() == 0
-	// new-value net must have exactly two users: dsp and ffP
-	if nusers(sigP) == 2
+	// If ffMmux, new-value net must have exactly three users: ffMmux, ffM and ffPmux
+	if !ffMmux || nusers(sigP) == 3
+	// Otherwise new-value net must have exactly two users: dsp and ffPmux
+	if ffMmux || nusers(sigP) == 2
+
 	select ffPmux->type.in($mux)
 	// ffPmux output must have two users: ffPmux and ffP.D
 	select nusers(port(ffPmux, \Y)) == 2
@@ -383,7 +390,11 @@ endmatch
 match ffP
 	if !ffP_enable
 	if param(dsp, \PREG).as_int() == 0
-	if nusers(sigP) == 2
+	// If ffMmux, input net must have exactly three users: ffMmux, ffM and ffP
+	if !ffMmux || nusers(sigP) == 3
+	// Otherwise input net must have exactly two users: dsp and ffP
+	if ffMmux || nusers(sigP) == 2
+
 	select ffP->type.in($dff)
 	// DSP48E1 does not support clock inversion
 	select param(ffP, \CLK_POLARITY).as_bool()
@@ -413,6 +424,9 @@ code ffP sigP clock
 
 		sigP.replace(port(ffP, \D), port(ffP, \Q));
 	}
+	// No enable mux possible without flop
+	else if (ffPmux)
+		reject;
 endcode
 
 match postAddMux
