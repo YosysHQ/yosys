@@ -28,7 +28,6 @@ PRIVATE_NAMESPACE_BEGIN
 void create_ice40_dsp(ice40_dsp_pm &pm)
 {
 	auto &st = pm.st_ice40_dsp;
-	Cell* ffO = st.ffO ? st.ffO : st.ffO_lo;
 
 #if 1
 	log("\n");
@@ -38,7 +37,7 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 	log("ffFJKG: %s\n", log_id(st.ffFJKG, "--"));
 	log("addAB:  %s\n", log_id(st.addAB, "--"));
 	log("muxAB:  %s\n", log_id(st.muxAB, "--"));
-	log("ffO:    %s\n", log_id(ffO, "--"));
+	log("ffO:    %s\n", log_id(st.ffO, "--"));
 #endif
 
 	log("Checking %s.%s for iCE40 DSP inference.\n", log_id(pm.module), log_id(st.mul));
@@ -120,8 +119,8 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 		if (st.ffFJKG)
 			log(" ffFJKG:%s", log_id(st.ffFJKG));
 
-		if (ffO)
-			log(" ffO:%s", log_id(ffO));
+		if (st.ffO)
+			log(" ffO:%s", log_id(st.ffO));
 
 		log("\n");
 	}
@@ -167,9 +166,9 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 	bool accum = false;
 	if (st.addAB) {
 		if (st.addA)
-			accum = (ffO && st.addAB->getPort("\\B") == st.sigO);
+			accum = (st.ffO && st.addAB->getPort("\\B") == st.sigO);
 		else if (st.addB)
-			accum = (ffO && st.addAB->getPort("\\A") == st.sigO);
+			accum = (st.ffO && st.addAB->getPort("\\A") == st.sigO);
 		else log_abort();
 		if (accum)
 			log("  accumulator %s (%s)\n", log_id(st.addAB), log_id(st.addAB->type));
@@ -219,13 +218,13 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 	cell->setParam("\\A_SIGNED", st.mul->getParam("\\A_SIGNED").as_bool());
 	cell->setParam("\\B_SIGNED", st.mul->getParam("\\B_SIGNED").as_bool());
 
-	if (ffO) {
-		if (st.ffO)
+	if (st.ffO) {
+		if (st.ffO_hilo)
 			cell->setParam("\\TOPOUTPUT_SELECT", Const(1, 2));
 		else
 			cell->setParam("\\TOPOUTPUT_SELECT", Const(st.addAB ? 0 : 3, 2));
 
-		ffO->connections_.at("\\Q").replace(O, pm.module->addWire(NEW_ID, GetSize(O)));
+		st.ffO->connections_.at("\\Q").replace(O, pm.module->addWire(NEW_ID, GetSize(O)));
 		cell->setParam("\\BOTOUTPUT_SELECT", Const(1, 2));
 	}
 	else {
