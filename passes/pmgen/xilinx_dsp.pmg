@@ -50,7 +50,8 @@ match ffA
 	select param(ffA, \CLK_POLARITY).as_bool()
 	filter GetSize(port(ffA, \Q)) >= GetSize(sigA)
 	slice offset GetSize(port(ffA, \Q))
-	filter offset+GetSize(sigA) <= GetSize(port(ffA, \Q)) && port(ffA, \Q).extract(offset, GetSize(sigA)) == sigA
+	filter offset+GetSize(sigA) <= GetSize(port(ffA, \Q))
+	filter port(ffA, \Q).extract(offset, GetSize(sigA)) == sigA
 	optional
 endmatch
 
@@ -78,9 +79,11 @@ match ffAmux
 	select ffAmux->type.in($mux)
 	filter GetSize(port(ffAmux, \Y)) >= GetSize(sigA)
 	slice offset GetSize(port(ffAmux, \Y))
-	filter offset+GetSize(sigA) <= GetSize(port(ffAmux, \Y)) && port(ffAmux, \Y).extract(offset, GetSize(sigA)) == sigA
+	filter offset+GetSize(sigA) <= GetSize(port(ffAmux, \Y))
+	filter port(ffAmux, \Y).extract(offset, GetSize(sigA)) == sigA
 	choice <IdString> BA {\B, \A}
-	filter offset+GetSize(sigffAmuxY) <= GetSize(port(ffAmux, \Y)) && port(ffAmux, BA).extract(offset, GetSize(sigffAmuxY)) == sigffAmuxY
+	filter offset+GetSize(sigffAmuxY) <= GetSize(port(ffAmux, \Y))
+	filter port(ffAmux, BA).extract(offset, GetSize(sigffAmuxY)) == sigffAmuxY
 	define <bool> pol (BA == \B)
 	set ffAenpol pol
 	optional
@@ -93,7 +96,8 @@ match ffB
 	select param(ffB, \CLK_POLARITY).as_bool()
 	filter GetSize(port(ffB, \Q)) >= GetSize(sigB)
 	slice offset GetSize(port(ffB, \Q))
-	filter offset+GetSize(sigB) <= GetSize(port(ffB, \Q)) && port(ffB, \Q).extract(offset, GetSize(sigB)) == sigB
+	filter offset+GetSize(sigB) <= GetSize(port(ffB, \Q))
+	filter port(ffB, \Q).extract(offset, GetSize(sigB)) == sigB
 	optional
 endmatch
 
@@ -124,9 +128,11 @@ match ffBmux
 	select ffBmux->type.in($mux)
 	filter GetSize(port(ffBmux, \Y)) >= GetSize(sigB)
 	slice offset GetSize(port(ffBmux, \Y))
-	filter offset+GetSize(sigB) <= GetSize(port(ffBmux, \Y)) && port(ffBmux, \Y).extract(offset, GetSize(sigB)) == sigB
+	filter offset+GetSize(sigB) <= GetSize(port(ffBmux, \Y))
+	filter port(ffBmux, \Y).extract(offset, GetSize(sigB)) == sigB
 	choice <IdString> BA {\B, \A}
-	filter offset+GetSize(sigffBmuxY) <= GetSize(port(ffBmux, \Y)) && port(ffBmux, BA).extract(offset, GetSize(sigffBmuxY)) == sigffBmuxY
+	filter offset+GetSize(sigffBmuxY) <= GetSize(port(ffBmux, \Y))
+	filter port(ffBmux, BA).extract(offset, GetSize(sigffBmuxY)) == sigffBmuxY
 	define <bool> pol (BA == \B)
 	set ffBenpol pol
 	optional
