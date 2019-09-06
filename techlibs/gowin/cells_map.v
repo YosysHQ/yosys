@@ -32,8 +32,8 @@ module  \$__DFFS_PN0_ (input D, C, R, output Q); DFFR _TECHMAP_REPLACE_ (.D(D), 
 module  \$__DFFS_PP0_ (input D, C, R, output Q); DFFR _TECHMAP_REPLACE_ (.D(D), .Q(Q), .CLK(C), .RESET(R)); endmodule
 
 // DFFS      D Flip-Flop with Synchronous Set
-module  \$__DFFS_PN1_ (input D, C, S, output Q); DFFS _TECHMAP_REPLACE_ (.D(D), .Q(Q), .CLK(C), .SET(!S)); endmodule
-module  \$__DFFS_PP1_ (input D, C, S, output Q); DFFS _TECHMAP_REPLACE_ (.D(D), .Q(Q), .CLK(C), .SET(S)); endmodule
+module  \$__DFFS_PN1_ (input D, C, R, output Q); DFFS _TECHMAP_REPLACE_ (.D(D), .Q(Q), .CLK(C), .SET(!R)); endmodule
+module  \$__DFFS_PP1_ (input D, C, R, output Q); DFFS _TECHMAP_REPLACE_ (.D(D), .Q(Q), .CLK(C), .SET(R)); endmodule
 
 // DFFP      D Flip-Flop with Asynchronous Preset
 module  \$_DFF_PP1_ (input D, C, R, output Q); DFFP _TECHMAP_REPLACE_ (.D(D), .Q(Q), .CLK(C), .PRESET(R)); endmodule
@@ -43,11 +43,11 @@ module  \$_DFF_PP0_ (input D, C, R, output Q); DFFC _TECHMAP_REPLACE_ (.D(D), .Q
 module  \$_DFF_PN0_ (input D, C, R, output Q); DFFC _TECHMAP_REPLACE_ (.D(D), .Q(Q), .CLK(C), .CLEAR(!R)); endmodule
 
 // DFFPE     D Flip-Flop with Clock Enable and Asynchronous Preset
-module  \$__DFFE_PP1_ (input D, C, R, E, output Q); DFFPE _TECHMAP_REPLACE_ (.D(D), .Q(Q), .CLK(C), .PRESET(R), .CE(E)); endmodule
-module  \$__DFFE_PN1_ (input D, C, R, E, output Q); DFFPE _TECHMAP_REPLACE_ (.D(D), .Q(Q), .CLK(C), .PRESET(!R), .CE(E)); endmodule
+module  \$__DFFE_PP1 (input D, C, R, E, output Q); DFFPE _TECHMAP_REPLACE_ (.D(D), .Q(Q), .CLK(C), .PRESET(R), .CE(E)); endmodule
+module  \$__DFFE_PN1 (input D, C, R, E, output Q); DFFPE _TECHMAP_REPLACE_ (.D(D), .Q(Q), .CLK(C), .PRESET(!R), .CE(E)); endmodule
 // DFFCE     D Flip-Flop with Clock Enable and Asynchronous Clear
-module  \$__DFFE_PP0_ (input D, C, R, E, output Q); DFFCE _TECHMAP_REPLACE_ (.D(D), .Q(Q), .CLK(C), .CLEAR(R), .CE(E)); endmodule
-module  \$__DFFE_PN0_ (input D, C, R, E, output Q); DFFCE _TECHMAP_REPLACE_ (.D(D), .Q(Q), .CLK(C), .CLEAR(!R), .CE(E)); endmodule
+module  \$__DFFE_PP0 (input D, C, R, E, output Q); DFFCE _TECHMAP_REPLACE_ (.D(D), .Q(Q), .CLK(C), .CLEAR(R), .CE(E)); endmodule
+module  \$__DFFE_PN0 (input D, C, R, E, output Q); DFFCE _TECHMAP_REPLACE_ (.D(D), .Q(Q), .CLK(C), .CLEAR(!R), .CE(E)); endmodule
 
 
 module  \$_MUX_ (input A, B, S, output Y); MUX2  _TECHMAP_REPLACE_ (.I0(A), .I1(B), .S0(S), .O(Y)); endmodule

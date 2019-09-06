@@ -62,6 +62,111 @@ module DFFR (output reg Q, input D, CLK, RESET);
 	end
 endmodule // DFFR (positive clock edge; synchronous reset)
 
+module DFFE (output reg Q, input D, CLK, CE);
+  parameter [0:0] INIT = 1'b0;
+  initial Q = INIT;
+  always @(posedge CLK) begin
+    if (CE)
+      Q <= D;
+  end
+endmodule // DFFE (positive clock edge; clock enable)
+
+
+module DFFS (output reg Q, input D, CLK, SET);
+  parameter [0:0] INIT = 1'b0;
+  initial Q = INIT;
+  always @(posedge CLK) begin
+    if (SET)
+      Q <= 1'b1;
+    else
+      Q <= D;	
+  end
+endmodule // DFFS (positive clock edge; synchronous set)
+
+
+module DFFSE (output reg Q, input D, CLK, CE, SET);
+  parameter [0:0] INIT = 1'b0;
+  initial Q = INIT;
+  always @(posedge CLK) begin
+    if (SET)
+      Q <= 1'b1;
+    else if (CE)
+      Q <= D;
+end
+endmodule // DFFSE (positive clock edge; synchronous set takes precedence over clock enable)
+
+
+module DFFR (output reg Q, input D, CLK, RESET);
+  parameter [0:0] INIT = 1'b0;
+  initial Q = INIT;
+  always @(posedge CLK) begin
+    if (RESET)
+      Q <= 1'b0;
+    else
+      Q <= D;
+  end
+endmodule // DFFR (positive clock edge; synchronous reset)
+
+
+module DFFRE (output reg Q, input D, CLK, CE, RESET);
+  parameter [0:0] INIT = 1'b0;
+  initial Q = INIT;
+  always @(posedge CLK) begin
+    if (RESET)
+      Q <= 1'b0;
+    else if (CE)
+      Q <= D;
+  end
+endmodule // DFFRE (positive clock edge; synchronous reset takes precedence over clock enable)
+
+
+module DFFP (output reg Q, input D, CLK, PRESET);
+  parameter [0:0] INIT = 1'b0;
+  initial Q = INIT;
+  always @(posedge CLK or posedge PRESET) begin
+    if(PRESET)
+      Q <= 1'b1;
+    else
+      Q <= D;
+  end
+endmodule // DFFP (positive clock edge; asynchronous preset)
+
+
+module DFFPE (output reg Q, input D, CLK, CE, PRESET);
+  parameter [0:0] INIT = 1'b0;
+  initial Q = INIT;
+  always @(posedge CLK or posedge PRESET) begin
+    if(PRESET)
+      Q <= 1'b1;
+    else if (CE)
+      Q <= D;
+  end
+endmodule // DFFPE (positive clock edge; asynchronous preset; clock enable)
+
+
+module DFFC (output reg Q, input D, CLK, CLEAR);
+  parameter [0:0] INIT = 1'b0;
+  initial Q = INIT;
+  always @(posedge CLK or posedge CLEAR) begin
+    if(CLEAR)
+      Q <= 1'b0;
+    else
+      Q <= D;
+  end
+endmodule // DFFC (positive clock edge; asynchronous clear)
+
+
+module DFFCE (output reg Q, input D, CLK, CE, CLEAR);
+  parameter [0:0] INIT = 1'b0;
+  initial Q = INIT;
+  always @(posedge CLK or posedge CLEAR) begin
+    if(CLEAR)
+      Q <= 1'b0;
+    else if (CE)
+      Q <= D;
+  end
+endmodule // DFFCE (positive clock edge; asynchronous clear; clock enable)
+
 // TODO add more DFF sim cells
 
 module VCC(output V);
