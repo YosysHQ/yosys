@@ -2,7 +2,8 @@ pattern xilinx_dsp
 
 state <SigBit> clock
 state <SigSpec> sigA sigffAmux sigB sigffBmux sigC sigM sigP
-state <IdString> ffAmuxAB ffBmuxAB ffMmuxAB ffPmuxAB postAddAB postAddMuxAB
+state <IdString> ffBmuxAB ffMmuxAB ffPmuxAB postAddAB postAddMuxAB
+state <bool> ffAenpol
 
 match dsp
 	select dsp->type.in(\DSP48E1)
@@ -69,9 +70,10 @@ match ffAmux
 	filter GetSize(port(ffAmux, \Y)) >= GetSize(sigA)
 	slice offset GetSize(port(ffAmux, \Y))
 	filter offset+GetSize(sigA) <= GetSize(port(ffAmux, \Y)) && port(ffAmux, \Y).extract(offset, GetSize(sigA)) == sigA
-	choice <IdString> AB {\A, \B}
-	filter offset+GetSize(sigffAmux) <= GetSize(port(ffAmux, \Y)) && port(ffAmux, AB).extract(offset, GetSize(sigffAmux)) == sigffAmux
-	set ffAmuxAB AB
+	choice <IdString> BA {\B, \A}
+	filter offset+GetSize(sigffAmux) <= GetSize(port(ffAmux, \Y)) && port(ffAmux, BA).extract(offset, GetSize(sigffAmux)) == sigffAmux
+	define <bool> pol (BA == \B)
+	set ffAenpol pol
 	semioptional
 endmatch
 

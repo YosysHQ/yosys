@@ -83,9 +83,10 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 			A.replace(Q, D);
 			if (st.ffAmux) {
 				SigSpec Y = st.ffAmux->getPort("\\Y");
-				SigSpec AB = st.ffAmux->getPort(st.ffAmuxAB == "\\A" ? "\\B" : "\\A");
+				SigSpec AB = st.ffAmux->getPort(st.ffAenpol ? "\\A" : "\\B");
 				A.replace(Y, AB);
-				cell->setPort("\\CEA2", st.ffAmux->getPort("\\S"));
+				SigSpec S = st.ffAmux->getPort("\\S");
+				cell->setPort("\\CEA2", st.ffAenpol ? S : pm.module->Not(NEW_ID, S));
 			}
 			else
 				cell->setPort("\\CEA2", State::S1);
