@@ -280,12 +280,17 @@ struct SynthEcp5Pass : public ScriptPass
 			if (abc2 || help_mode) {
 				run("abc", "      (only if -abc2)");
 			}
-			run("techmap -map +/ecp5/latches_map.v");
+			std::string techmap_args = "-map +/ecp5/latches_map.v";
+			if (abc9)
+				techmap_args += " -map +/ecp5/abc_map.v -max_iter 1";
+			run("techmap " + techmap_args);
+
 			if (abc9) {
 				if (nowidelut)
 					run("abc9 -lut +/ecp5/abc_5g_nowide.lut -box +/ecp5/abc_5g.box -W 200");
 				else
 					run("abc9 -lut +/ecp5/abc_5g.lut -box +/ecp5/abc_5g.box -W 200");
+				run("techmap -map +/ecp5/abc_unmap.v");
 			} else {
 				if (nowidelut)
 					run("abc -lut 4 -dress");

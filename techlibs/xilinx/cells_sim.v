@@ -184,14 +184,6 @@ module MUXF8(output O, input I0, I1, S);
   assign O = S ? I1 : I0;
 endmodule
 
-`ifdef _ABC
-(* abc_box_id = 3, lib_whitebox *)
-module \$__XILINX_MUXF78 (output O, input I0, I1, I2, I3, S0, S1);
-  assign O = S1 ? (S0 ? I3 : I2)
-                : (S0 ? I1 : I0);
-endmodule
-`endif
-
 module XORCY(output O, input CI, LI);
   assign O = CI ^ LI;
 endmodule
@@ -236,7 +228,15 @@ endmodule
 
 `endif
 
-module FDRE (output reg Q, (* clkbuf_sink *) input C, input CE, D, R);
+// Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf#L238-L250
+
+module FDRE (
+  (* abc_arrival=303 *)
+  output reg Q,
+  (* clkbuf_sink *)
+  input C, 
+  input CE, D, R
+);
   parameter [0:0] INIT = 1'b0;
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
@@ -248,7 +248,13 @@ module FDRE (output reg Q, (* clkbuf_sink *) input C, input CE, D, R);
   endcase endgenerate
 endmodule
 
-module FDSE (output reg Q, (* clkbuf_sink *) input C, input CE, D, S);
+module FDSE (
+  (* abc_arrival=303 *)
+  output reg Q,
+  (* clkbuf_sink *)
+  input C,
+  input CE, D, S
+);
   parameter [0:0] INIT = 1'b1;
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
@@ -260,7 +266,13 @@ module FDSE (output reg Q, (* clkbuf_sink *) input C, input CE, D, S);
   endcase endgenerate
 endmodule
 
-module FDCE (output reg Q, (* clkbuf_sink *) input C, input CE, D, CLR);
+module FDCE (
+  (* abc_arrival=303 *)
+  output reg Q,
+  (* clkbuf_sink *)
+  input C,
+  input CE, D, CLR
+);
   parameter [0:0] INIT = 1'b0;
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
@@ -274,7 +286,13 @@ module FDCE (output reg Q, (* clkbuf_sink *) input C, input CE, D, CLR);
   endcase endgenerate
 endmodule
 
-module FDPE (output reg Q, (* clkbuf_sink *) input C, input CE, D, PRE);
+module FDPE (
+  (* abc_arrival=303 *)
+  output reg Q,
+  (* clkbuf_sink *)
+  input C,
+  input CE, D, PRE
+);
   parameter [0:0] INIT = 1'b1;
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
@@ -288,38 +306,61 @@ module FDPE (output reg Q, (* clkbuf_sink *) input C, input CE, D, PRE);
   endcase endgenerate
 endmodule
 
-module FDRE_1 (output reg Q, (* clkbuf_sink *) input C, input CE, D, R);
+module FDRE_1 (
+  (* abc_arrival=303 *)
+  output reg Q,
+  (* clkbuf_sink *)
+  input C,
+  input CE, D, R
+);
   parameter [0:0] INIT = 1'b0;
   initial Q <= INIT;
   always @(negedge C) if (R) Q <= 1'b0; else if(CE) Q <= D;
 endmodule
 
-module FDSE_1 (output reg Q, (* clkbuf_sink *) input C, input CE, D, S);
+module FDSE_1 (
+  (* abc_arrival=303 *)
+  output reg Q,
+  (* clkbuf_sink *)
+  input C,
+  input CE, D, S
+);
   parameter [0:0] INIT = 1'b1;
   initial Q <= INIT;
   always @(negedge C) if (S) Q <= 1'b1; else if(CE) Q <= D;
 endmodule
 
-module FDCE_1 (output reg Q, (* clkbuf_sink *) input C, input CE, D, CLR);
+module FDCE_1 (
+  (* abc_arrival=303 *)
+  output reg Q,
+  (* clkbuf_sink *)
+  input C,
+  input CE, D, CLR
+);
   parameter [0:0] INIT = 1'b0;
   initial Q <= INIT;
   always @(negedge C, posedge CLR) if (CLR) Q <= 1'b0; else if (CE) Q <= D;
 endmodule
 
-module FDPE_1 (output reg Q, (* clkbuf_sink *) input C, input CE, D, PRE);
+module FDPE_1 (
+  (* abc_arrival=303 *)
+  output reg Q,
+  (* clkbuf_sink *)
+  input C,
+  input CE, D, PRE
+);
   parameter [0:0] INIT = 1'b1;
   initial Q <= INIT;
   always @(negedge C, posedge PRE) if (PRE) Q <= 1'b1; else if (CE) Q <= D;
 endmodule
 
-(* abc_box_id = 5 *)
 module RAM32X1D (
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
+  (* abc_arrival=1153 *)
   output DPO, SPO,
-  (* abc_scc_break *)
   input  D,
   (* clkbuf_sink *)
   input  WCLK,
-  (* abc_scc_break *)
   input  WE,
   input  A0, A1, A2, A3, A4,
   input  DPRA0, DPRA1, DPRA2, DPRA3, DPRA4
@@ -335,14 +376,13 @@ module RAM32X1D (
   always @(posedge clk) if (WE) mem[a] <= D;
 endmodule
 
-(* abc_box_id = 6 *)
 module RAM64X1D (
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
+  (* abc_arrival=1153 *)
   output DPO, SPO,
-  (* abc_scc_break *)
   input  D,
   (* clkbuf_sink *)
   input  WCLK,
-  (* abc_scc_break *)
   input  WE,
   input  A0, A1, A2, A3, A4, A5,
   input  DPRA0, DPRA1, DPRA2, DPRA3, DPRA4, DPRA5
@@ -358,14 +398,13 @@ module RAM64X1D (
   always @(posedge clk) if (WE) mem[a] <= D;
 endmodule
 
-(* abc_box_id = 7 *)
 module RAM128X1D (
-  output       DPO, SPO,
-  (* abc_scc_break *)
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
+  (* abc_arrival=1153 *)
+  output DPO, SPO,
   input        D,
   (* clkbuf_sink *)
   input        WCLK,
-  (* abc_scc_break *)
   input        WE,
   input  [6:0] A, DPRA
 );
@@ -379,6 +418,8 @@ module RAM128X1D (
 endmodule
 
 module SRL16E (
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L904-L905
+  (* abc_arrival=1472 *)
   output Q,
   input A0, A1, A2, A3, CE,
   (* clkbuf_sink *)
@@ -423,7 +464,10 @@ module SRLC16E (
 endmodule
 
 module SRLC32E (
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L904-L905
+  (* abc_arrival=1472 *)
   output Q,
+  (* abc_arrival=1114 *)
   output Q31,
   input [4:0] A,
   input CE,
