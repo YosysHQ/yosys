@@ -55,7 +55,7 @@ endmodule
 EOT
 
 prep -nokeepdc
-equiv_opt peepopt
+equiv_opt -assert peepopt
 design -load postopt
 clean
 select -assert-count 1 t:$dff r:WIDTH=2 %i
