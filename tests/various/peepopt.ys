@@ -5,7 +5,7 @@ endmodule
 EOT
 
 prep -nokeepdc
-equiv_opt peepopt
+equiv_opt -assert peepopt
 design -load postopt
 clean
 select -assert-count 1 t:$shiftx
@@ -21,7 +21,7 @@ endmodule
 EOT
 
 prep -nokeepdc
-equiv_opt peepopt
+equiv_opt -assert peepopt
 design -load postopt
 clean
 select -assert-count 1 t:$shr
@@ -40,7 +40,7 @@ endmodule
 EOT
 
 prep -nokeepdc
-equiv_opt peepopt
+equiv_opt -assert peepopt
 design -load postopt
 clean
 select -assert-count 0 t:*
