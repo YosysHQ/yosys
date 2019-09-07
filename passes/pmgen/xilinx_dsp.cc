@@ -38,6 +38,8 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 	log("ffAmux:     %s\n", log_id(st.ffAmux, "--"));
 	log("ffB:        %s\n", log_id(st.ffB, "--"));
 	log("ffBmux:     %s\n", log_id(st.ffBmux, "--"));
+	log("ffC:        %s\n", log_id(st.ffC, "--"));
+	log("ffCmux:     %s\n", log_id(st.ffCmux, "--"));
 	log("ffD:        %s\n", log_id(st.ffD, "--"));
 	log("ffDmux:     %s\n", log_id(st.ffDmux, "--"));
 	log("dsp:        %s\n", log_id(st.dsp, "--"));
@@ -53,7 +55,6 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 
 	Cell *cell = st.dsp;
 	bit_to_driver.insert(std::make_pair(cell->getPort("\\P")[17], cell));
-	SigSpec C = st.sigC;
 	SigSpec P = st.sigP;
 
 	if (st.preAdd) {
@@ -91,14 +92,20 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 			opmode[4] = st.postAddMux->getPort("\\S");
 			pm.autoremove(st.postAddMux);
 		}
-		else if (st.ffP && C == P) {
-			C = SigSpec();
+		else if (st.ffP && st.sigC == P)
 			opmode[4] = State::S0;
-		}
 		else
 			opmode[4] = State::S1;
 		opmode[6] = State::S0;
 		opmode[5] = State::S1;
+
+		if (opmode[4] != State::S0) {
+			if (st.postAddMuxAB == "\\A")
+				st.sigC.extend_u0(48, st.postAdd->getParam("\\B_SIGNED").as_bool());
+			else
+				st.sigC.extend_u0(48, st.postAdd->getParam("\\A_SIGNED").as_bool());
+			cell->setPort("\\C", st.sigC);
+		}
 
 		pm.autoremove(st.postAdd);
 	}
@@ -143,10 +150,30 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 
 			cell->setParam("\\BREG", 1);
 		}
+		if (st.ffC) {
+			SigSpec C = cell->getPort("\\C");
+			SigSpec D = st.ffC->getPort("\\D");
+			SigSpec Q = st.ffC->getPort("\\Q");
+			C.replace(Q, D);
+
+			if (st.ffCmux) {
+				SigSpec Y = st.ffCmux->getPort("\\Y");
+				SigSpec AB = st.ffCmux->getPort(st.ffCenpol ? "\\B" : "\\A");
+				SigSpec S = st.ffCmux->getPort("\\S");
+				C.replace(Y, AB);
+
+				cell->setPort("\\CEC", st.ffCenpol ? S : pm.module->Not(NEW_ID, S));
+			}
+			else
+				cell->setPort("\\CEC", State::S1);
+			cell->setPort("\\C", C);
+
+			cell->setParam("\\CREG", 1);
+		}
 		if (st.ffD) {
 			SigSpec D_ = cell->getPort("\\D");
-			SigSpec D = st.ffB->getPort("\\D");
-			SigSpec Q = st.ffB->getPort("\\Q");
+			SigSpec D = st.ffD->getPort("\\D");
+			SigSpec Q = st.ffD->getPort("\\Q");
 			D_.replace(Q, D);
 
 			if (st.ffDmux) {
@@ -205,6 +232,12 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 		if (st.ffB)
 			log(" ffB:%s", log_id(st.ffB));
 
+		if (st.ffC)
+			log(" ffC:%s", log_id(st.ffC));
+
+		if (st.ffD)
+			log(" ffD:%s", log_id(st.ffD));
+
 		if (st.ffM)
 			log(" ffM:%s", log_id(st.ffM));
 
@@ -212,12 +245,6 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 			log(" ffP:%s", log_id(st.ffP));
 
 		log("\n");
-	}
-
-	if (!C.empty()) {
-		if (GetSize(C) < 48)
-			C.extend_u0(48, true);
-		cell->setPort("\\C", C);
 	}
 
 	if (GetSize(P) < 48)
@@ -264,6 +291,8 @@ struct XilinxDspPass : public Pass {
 			//       $add cells into the DSP
 			for (auto cell : module->cells()) {
 				if (cell->type != "\\DSP48E1")
+					continue;
+				if (cell->parameters.at("\\CREG", State::S1).as_bool())
 					continue;
 				SigSpec &opmode = cell->connections_.at("\\OPMODE");
 				if (opmode.extract(4,3) != Const::from_string("011"))

@@ -1,29 +1,29 @@
 pattern xilinx_dsp
 
-state <std::function<SigSpec(const SigSpec&, bool)>> unextend
+state <std::function<SigSpec(const SigSpec&)>> unextend
 state <SigBit> clock
-state <SigSpec> sigA sigffAmuxY sigB sigffBmuxY sigC sigD sigffDmuxY sigM sigP
+state <SigSpec> sigA sigffAmuxY sigB sigffBmuxY sigC sigffCmuxY sigD sigffDmuxY sigM sigP
 state <IdString> postAddAB postAddMuxAB
-state <bool> ffAenpol ffADenpol ffBenpol ffDenpol ffMenpol ffPenpol
+state <bool> ffAenpol ffADenpol ffBenpol ffCenpol ffDenpol ffMenpol ffPenpol
 state <int> ffPoffset
 
 match dsp
 	select dsp->type.in(\DSP48E1)
 endmatch
 
-code unextend sigA sigffAmuxY sigB sigffBmuxY sigC sigD sigffDmuxY sigM
-	unextend = [](const SigSpec &sig, bool keep_sign) {
+code unextend sigA sigffAmuxY sigB sigffBmuxY sigC sigffCmuxY sigD sigffDmuxY sigM
+	unextend = [](const SigSpec &sig) {
 		int i;
 		for (i = GetSize(sig)-1; i > 0; i--)
 			if (sig[i] != sig[i-1])
 				break;
 		// Do not remove non-const sign bit
-		if (!keep_sign && sig[i].wire)
+		if (sig[i].wire)
 			++i;
 		return sig.extract(0, i);
 	};
-	sigA = unextend(port(dsp, \A), false);
-	sigB = unextend(port(dsp, \B), false);
+	sigA = unextend(port(dsp, \A));
+	sigB = unextend(port(dsp, \B));
 
 	sigC = dsp->connections_.at(\C, SigSpec());
 	sigD = dsp->connections_.at(\D, SigSpec());
@@ -42,6 +42,7 @@ code unextend sigA sigffAmuxY sigB sigffBmuxY sigC sigD sigffDmuxY sigM
 
 	sigffAmuxY = SigSpec();
 	sigffBmuxY = SigSpec();
+	sigffCmuxY = SigSpec();
 	sigffDmuxY = SigSpec();
 endcode
 
@@ -260,9 +261,9 @@ code sigD sigffDmuxY clock
 
 		SigSpec D = sigD;
 		D.replace(port(ffD, \Q), port(ffD, \D));
-		// Only search for ffBmux if ffB.Q has at
-		//   least 3 users (ffB, dsp, ffBmux) and
-		//   its ffB.D only has two (ffB, ffBmux)
+		// Only search for ffDmux if ffD.Q has at
+		//   least 3 users (ffD, dsp, ffDmux) and
+		//   its ffD.D only has two (ffD, ffDmux)
 		if (nusers(sigD) >= 3 && nusers(D) == 2)
 			sigffDmuxY = sigD;
 		sigD = std::move(D);
@@ -276,7 +277,7 @@ match ffDmux
 	filter GetSize(port(ffDmux, \Y)) >= GetSize(sigD)
 	slice offset GetSize(port(ffDmux, \Y))
 	filter offset+GetSize(sigD) <= GetSize(port(ffDmux, \Y))
-	filter port(ffDmux, \Y).extract(offset, GetSize(sigB)) == sigD
+	filter port(ffDmux, \Y).extract(offset, GetSize(sigD)) == sigD
 	choice <IdString> AB {\A, \B}
 	filter offset+GetSize(sigffDmuxY) <= GetSize(port(ffDmux, \Y))
 	filter port(ffDmux, AB).extract(offset, GetSize(sigffDmuxY)) == sigffDmuxY
@@ -290,17 +291,17 @@ match ffMmux
 	if nusers(sigM) == 2
 	select ffMmux->type.in($mux)
 	choice <IdString> BA {\B, \A}
-	// new-value net must have exactly two users: dsp and ffM
+	// new-value net must have exactly two users: dsp and ffMmux
 	select nusers(port(ffMmux, BA)) == 2
 	define <IdString> AB (BA == \B ? \A : \B)
 	// keep-last-value net must have at least three users: ffMmux, ffM, downstream sink(s)
 	select nusers(port(ffMmux, AB)) >= 3
 	// ffMmux output must have two users: ffMmux and ffM.D
 	select nusers(port(ffMmux, \Y)) == 2
-	filter GetSize(port(ffMmux, \Y)) <= GetSize(sigM)
-	filter port(ffMmux, BA) == sigM.extract(0, GetSize(port(ffMmux, \Y)))
+	filter GetSize(unextend(port(ffMmux, BA))) <= GetSize(sigM)
+	filter unextend(port(ffMmux, BA)) == sigM.extract(0, GetSize(unextend(port(ffMmux, BA))))
 	// Remaining bits on sigM must not have any other users
-	filter nusers(sigM.extract_end(GetSize(port(ffMmux, BA)))) <= 1
+	filter nusers(sigM.extract_end(GetSize(unextend(port(ffMmux, BA))))) <= 1
 	define <bool> pol (AB == \A)
 	set ffMenpol pol
 	optional
@@ -367,9 +368,9 @@ match postAdd
 	select nusers(port(postAdd, AB)) <= 3
 	filter ffMmux || nusers(port(postAdd, AB)) == 2
 	filter !ffMmux || nusers(port(postAdd, AB)) == 3
-	filter GetSize(port(postAdd, AB)) <= GetSize(sigP)
-	filter port(postAdd, AB) == sigP.extract(0, GetSize(port(postAdd, AB)))
-	filter nusers(sigP.extract_end(GetSize(port(postAdd, AB)))) <= 1
+	filter GetSize(unextend(port(postAdd, AB))) <= GetSize(sigP)
+	filter unextend(port(postAdd, AB)) == sigP.extract(0, GetSize(unextend(port(postAdd, AB))))
+	filter nusers(sigP.extract_end(GetSize(unextend(port(postAdd, AB))))) <= 1
 	set postAddAB AB
 	optional
 endmatch
@@ -494,6 +495,56 @@ code sigC
 	if (postAddMux)
 		sigC = port(postAddMux, postAddMuxAB == \A ? \B : \A);
 endcode
+
+match ffC
+	if param(dsp, \CREG).as_int() == 0
+	select ffC->type.in($dff)
+	// DSP48E1 does not support clock inversion
+	select param(ffC, \CLK_POLARITY).as_bool()
+	filter GetSize(port(ffC, \Q)) >= GetSize(sigD)
+	slice offset GetSize(port(ffC, \Q))
+	filter offset+GetSize(sigC) <= GetSize(port(ffC, \Q))
+	filter port(ffC, \Q).extract(offset, GetSize(sigC)) == sigC
+	optional
+endmatch
+
+code sigC sigffCmuxY clock
+	if (ffC) {
+		for (auto b : port(ffC, \Q))
+			if (b.wire->get_bool_attribute(\keep))
+				reject;
+
+		SigBit c = port(ffC, \CLK).as_bit();
+		if (clock != SigBit() && c != clock)
+			reject;
+		clock = c;
+
+		SigSpec C = sigC;
+		C.replace(port(ffC, \Q), port(ffC, \D));
+		// Only search for ffCmux if ffC.Q has at
+		//   least 3 users (ffC, dsp, ffCmux) and
+		//   its ffC.D only has two (ffC, ffCmux)
+		if (nusers(sigC) >= 3 && nusers(C) == 2)
+			sigffCmuxY = sigC;
+		sigC = std::move(C);
+	}
+endcode
+
+match ffCmux
+	if !sigffCmuxY.empty()
+	select ffCmux->type.in($mux)
+	index <SigSpec> port(ffCmux, \Y) === port(ffC, \D)
+	filter GetSize(port(ffCmux, \Y)) >= GetSize(sigC)
+	slice offset GetSize(port(ffCmux, \Y))
+	filter offset+GetSize(sigC) <= GetSize(port(ffCmux, \Y))
+	filter port(ffCmux, \Y).extract(offset, GetSize(sigC)) == sigC
+	choice <IdString> AB {\A, \B}
+	filter offset+GetSize(sigffCmuxY) <= GetSize(port(ffCmux, \Y))
+	filter port(ffCmux, AB).extract(offset, GetSize(sigffCmuxY)) == sigffCmuxY
+	define <bool> pol (AB == \A)
+	set ffCenpol pol
+	optional
+endmatch
 
 code
 	accept;
