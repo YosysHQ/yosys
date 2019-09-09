@@ -1,0 +1,13 @@
+read_verilog tristates_2.v
+hierarchy -top tristates_2
+proc
+tribuf
+flatten
+synth
+equiv_opt -assert -map +/xilinx/cells_sim.v -map +/simcells.v synth_xilinx # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd tristates_2 # Constrain all select calls below inside the top module
+#Vivado synthesizes 3 IBUF, 1 OBUFT.
+select -assert-count 1 t:LUT1
+select -assert-count 1 t:$_TBUF_
+select -assert-none t:LUT1 t:$_TBUF_ %% t:* %D

@@ -1,0 +1,21 @@
+read_verilog rams_dist.v
+hierarchy -top rams_dist
+proc
+memory -nomap
+equiv_opt -run :prove -map +/xilinx/cells_sim.v synth_xilinx
+memory
+opt -full
+
+# TODO
+#equiv_opt -run prove: -assert null
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+#sat -verify -prove-asserts -tempinduct -show-inputs -show-outputs miter
+
+design -load postopt
+cd rams_dist
+stat
+#Vivado synthesizes 32 RAM64X1D.
+select -assert-count 1 t:BUFG
+select -assert-count 32 t:RAM64X1D
+
+select -assert-none t:BUFG t:RAM64X1D %% t:* %D

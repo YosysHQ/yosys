@@ -1,0 +1,16 @@
+read_verilog sfir_shifter.v
+hierarchy -top sfir_shifter
+proc
+flatten
+#ERROR: Found 32 unproven $equiv cells in 'equiv_status -assert'.
+#equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
+equiv_opt -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+
+cd sfir_shifter
+#Vivado synthesizes 32 FDRE, 16 SRL16E.
+stat
+select -assert-count 1 t:BUFG
+select -assert-count 16 t:SRL16E
+
+select -assert-none t:BUFG t:SRL16E %% t:* %D

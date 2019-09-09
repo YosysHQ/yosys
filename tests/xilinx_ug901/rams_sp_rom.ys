@@ -1,0 +1,22 @@
+read_verilog rams_sp_rom.v
+hierarchy -top rams_sp_rom
+proc
+memory -nomap
+equiv_opt -run :prove -map +/xilinx/cells_sim.v synth_xilinx
+memory
+opt -full
+
+# TODO
+#equiv_opt -run prove: -assert null
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+#sat -verify -prove-asserts -tempinduct -show-inputs -show-outputs miter
+
+design -load postopt
+cd rams_sp_rom
+stat
+#Vivado synthesizes 1 RAMB18E1.
+select -assert-count 1 t:BUFG
+select -assert-count 20 t:RAM64X1D
+select -assert-count 20 t:FDRE
+
+select -assert-none t:BUFG t:RAM64X1D t:FDRE %% t:* %D

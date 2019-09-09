@@ -1,0 +1,12 @@
+read_verilog registers_1.v
+hierarchy -top registers_1
+proc
+flatten
+equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd registers_1 # Constrain all select calls below inside the top module
+#Vivado synthesizes 1 BUFG, 8 FDRE.
+select -assert-count 1 t:BUFG
+select -assert-count 8 t:FDRE
+select -assert-count 9 t:LUT2
+select -assert-none t:BUFG t:FDRE t:LUT2 %% t:* %D
