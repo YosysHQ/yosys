@@ -411,8 +411,7 @@ code dffQ
 			if (port(ff, \CLK) != clock)
 				reject;
 		}
-		else
-			dffclock = port(ff, \CLK);
+		dffclock = port(ff, \CLK);
 
 		dff = ff;
 		dffD = dffQ;
