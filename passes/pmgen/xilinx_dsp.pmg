@@ -7,11 +7,21 @@ state <IdString> postAddAB postAddMuxAB
 state <bool> ffAenpol ffADenpol ffBenpol ffCenpol ffDenpol ffMenpol ffPenpol
 state <int> ffPoffset
 
+state <Cell*> ffAD ffADmux ffA ffAmux ffB ffBmux ffC ffCmux ffD ffDmux
+
+// subpattern
+state <SigSpec> dffQ
+state <bool> dffenpol_
+udata <SigSpec> dffD
+udata <SigBit> dffclock
+udata <Cell*> dff dffmux
+udata <bool> dffenpol
+
 match dsp
 	select dsp->type.in(\DSP48E1)
 endmatch
 
-code unextend sigA sigffAmuxY sigB sigffBmuxY sigC sigffCmuxY sigD sigffDmuxY sigM
+code unextend sigA sigB sigC sigD sigM
 	unextend = [](const SigSpec &sig) {
 		int i;
 		for (i = GetSize(sig)-1; i > 0; i--)
@@ -39,59 +49,23 @@ code unextend sigA sigffAmuxY sigB sigffBmuxY sigC sigffCmuxY sigD sigffDmuxY si
 	log_assert(nusers(P.extract_end(i)) <= 1);
 	//if (GetSize(sigM) <= 10)
 	//	reject;
-
-	sigffAmuxY = SigSpec();
-	sigffBmuxY = SigSpec();
-	sigffCmuxY = SigSpec();
-	sigffDmuxY = SigSpec();
 endcode
 
-match ffAD
-	if param(dsp, \ADREG).as_int() == 0
-	select ffAD->type.in($dff)
-	// DSP48E1 does not support clock inversion
-	select param(ffAD, \CLK_POLARITY).as_bool()
-	filter GetSize(port(ffAD, \Q)) >= GetSize(sigA)
-	slice offset GetSize(port(ffAD, \Q))
-	filter offset+GetSize(sigA) <= GetSize(port(ffAD, \Q))
-	filter port(ffAD, \Q).extract(offset, GetSize(sigA)) == sigA
-	optional
-endmatch
-
-code sigA sigffAmuxY clock
-	if (ffAD) {
-		for (auto b : port(ffAD, \Q))
-			if (b.wire->get_bool_attribute(\keep))
-				reject;
-
-		clock = port(ffAD, \CLK).as_bit();
-
-		SigSpec A = sigA;
-		A.replace(port(ffAD, \Q), port(ffAD, \D));
-		// Only search for ffAmux if ffA.Q has at
-		//   least 3 users (ffA, dsp, ffAmux) and
-		//   its ffA.D only has two (ffA, ffAmux)
-		if (nusers(sigA) >= 3 && nusers(A) == 2)
-			sigffAmuxY = sigA;
-		sigA = std::move(A);
+code dffQ ffAD ffADmux ffADenpol sigA clock
+	if (param(dsp, \ADREG).as_int() == 0) {
+		dffQ = sigA;
+		subpattern(in_dffe);
+		if (dff) {
+			ffAD = dff;
+			clock = dffclock;
+			if (dffmux) {
+				ffADmux = dffmux;
+				ffADenpol = dffenpol;
+			}
+			sigA = dffD;
+		}
 	}
 endcode
-
-match ffADmux
-	if !sigffAmuxY.empty()
-	select ffADmux->type.in($mux)
-	index <SigSpec> port(ffADmux, \Y) === port(ffAD, \D)
-	filter GetSize(port(ffADmux, \Y)) >= GetSize(sigA)
-	slice offset GetSize(port(ffADmux, \Y))
-	filter offset+GetSize(sigA) <= GetSize(port(ffADmux, \Y))
-	filter port(ffADmux, \Y).extract(offset, GetSize(sigA)) == sigA
-	choice <IdString> AB {\A, \B}
-	filter offset+GetSize(sigffAmuxY) <= GetSize(port(ffADmux, \Y))
-	filter port(ffADmux, AB).extract(offset, GetSize(sigffAmuxY)) == sigffAmuxY
-	define <bool> pol (AB == \A)
-	set ffADenpol pol
-	optional
-endmatch
 
 match preAdd
 	if sigD.empty() || sigD.is_fully_zero()
@@ -123,168 +97,65 @@ code sigA sigD
 	}
 endcode
 
-match ffA
-	if !preAdd
-	if param(dsp, \AREG).as_int() == 0
-	select ffA->type.in($dff)
-	// DSP48E1 does not support clock inversion
-	select param(ffA, \CLK_POLARITY).as_bool()
-	filter GetSize(port(ffA, \Q)) >= GetSize(sigA)
-	slice offset GetSize(port(ffA, \Q))
-	filter offset+GetSize(sigA) <= GetSize(port(ffA, \Q))
-	filter port(ffA, \Q).extract(offset, GetSize(sigA)) == sigA
-	optional
-endmatch
-
-code sigA sigffAmuxY clock
-	if (ffA) {
-		for (auto b : port(ffA, \Q))
-			if (b.wire->get_bool_attribute(\keep))
-				reject;
-
-		clock = port(ffA, \CLK).as_bit();
-
-		SigSpec A = sigA;
-		A.replace(port(ffA, \Q), port(ffA, \D));
-		// Only search for ffAmux if ffA.Q has at
-		//   least 3 users (ffA, dsp, ffAmux) and
-		//   its ffA.D only has two (ffA, ffAmux)
-		if (nusers(sigA) >= 3 && nusers(A) == 2)
-			sigffAmuxY = sigA;
-		sigA = std::move(A);
+code dffQ ffA ffAmux ffAenpol sigA clock ffAD ffADmux ffADenpol
+	// Only search for ffA if there was a pre-adder
+	//   (otherwise ffA would have been matched as ffAD)
+	if (preAdd) {
+		if (param(dsp, \AREG).as_int() == 0) {
+			dffQ = sigA;
+			subpattern(in_dffe);
+			if (dff) {
+				ffA = dff;
+				clock = dffclock;
+				if (dffmux) {
+					ffAmux = dffmux;
+					ffAenpol = dffenpol;
+				}
+				sigA = dffD;
+			}
+		}
 	}
-	else if (!preAdd) {
-		sigffAmuxY = SigSpec();
-	}
-endcode
-
-match ffAmux
-	if !sigffAmuxY.empty()
-	select ffAmux->type.in($mux)
-	index <SigSpec> port(ffAmux, \Y) === port(ffA, \D)
-	filter GetSize(port(ffAmux, \Y)) >= GetSize(sigA)
-	slice offset GetSize(port(ffAmux, \Y))
-	filter offset+GetSize(sigA) <= GetSize(port(ffAmux, \Y))
-	filter port(ffAmux, \Y).extract(offset, GetSize(sigA)) == sigA
-	choice <IdString> AB {\A, \B}
-	filter offset+GetSize(sigffAmuxY) <= GetSize(port(ffAmux, \Y))
-	filter port(ffAmux, AB).extract(offset, GetSize(sigffAmuxY)) == sigffAmuxY
-	define <bool> pol (AB == \A)
-	set ffAenpol pol
-	optional
-endmatch
-
-code ffA ffAmux ffAenpol ffAD ffADmux
-	// Move AD register to A if no pre-adder
-	if (!ffA && !preAdd && ffAD) {
-		ffA = ffAD;
-		ffAmux = ffADmux;
+	// And if there wasn't a pre-adder,
+	//   move AD register to A
+	else if (ffAD) {
+		log_assert(!ffA && !ffAmux);
+		std::swap(ffA, ffAD);
+		std::swap(ffAmux, ffADmux);
 		ffAenpol = ffADenpol;
-
-		ffAD = nullptr;
-		ffADmux = nullptr;
 	}
 endcode
 
-match ffB
-	if param(dsp, \BREG).as_int() == 0
-	select ffB->type.in($dff)
-	// DSP48E1 does not support clock inversion
-	select param(ffB, \CLK_POLARITY).as_bool()
-	filter GetSize(port(ffB, \Q)) >= GetSize(sigB)
-	slice offset GetSize(port(ffB, \Q))
-	filter offset+GetSize(sigB) <= GetSize(port(ffB, \Q))
-	filter port(ffB, \Q).extract(offset, GetSize(sigB)) == sigB
-	optional
-endmatch
-
-code sigB sigffBmuxY clock
-	if (ffB) {
-		for (auto b : port(ffB, \Q))
-			if (b.wire->get_bool_attribute(\keep))
-				reject;
-
-		SigBit c = port(ffB, \CLK).as_bit();
-		if (clock != SigBit() && c != clock)
-			reject;
-		clock = c;
-
-		SigSpec B = sigB;
-		B.replace(port(ffB, \Q), port(ffB, \D));
-		// Only search for ffBmux if ffB.Q has at
-		//   least 3 users (ffB, dsp, ffBmux) and
-		//   its ffB.D only has two (ffB, ffBmux)
-		if (nusers(sigB) >= 3 && nusers(B) == 2)
-			sigffBmuxY = sigB;
-		sigB = std::move(B);
+code dffQ ffB ffBmux ffBenpol sigB clock
+	if (param(dsp, \BREG).as_int() == 0) {
+		dffQ = sigB;
+		subpattern(in_dffe);
+		if (dff) {
+			ffB = dff;
+			clock = dffclock;
+			if (dffmux) {
+				ffBmux = dffmux;
+				ffBenpol = dffenpol;
+			}
+			sigB = dffD;
+		}
 	}
 endcode
 
-match ffBmux
-	if !sigffBmuxY.empty()
-	select ffBmux->type.in($mux)
-	index <SigSpec> port(ffBmux, \Y) === port(ffB, \D)
-	filter GetSize(port(ffBmux, \Y)) >= GetSize(sigB)
-	slice offset GetSize(port(ffBmux, \Y))
-	filter offset+GetSize(sigB) <= GetSize(port(ffBmux, \Y))
-	filter port(ffBmux, \Y).extract(offset, GetSize(sigB)) == sigB
-	choice <IdString> AB {\A, \B}
-	filter offset+GetSize(sigffBmuxY) <= GetSize(port(ffBmux, \Y))
-	filter port(ffBmux, AB).extract(offset, GetSize(sigffBmuxY)) == sigffBmuxY
-	define <bool> pol (AB == \A)
-	set ffBenpol pol
-	optional
-endmatch
-
-match ffD
-	if param(dsp, \DREG).as_int() == 0
-	select ffD->type.in($dff)
-	// DSP48E1 does not support clock inversion
-	select param(ffD, \CLK_POLARITY).as_bool()
-	filter GetSize(port(ffD, \Q)) >= GetSize(sigD)
-	slice offset GetSize(port(ffD, \Q))
-	filter offset+GetSize(sigD) <= GetSize(port(ffD, \Q))
-	filter port(ffD, \Q).extract(offset, GetSize(sigD)) == sigD
-	optional
-endmatch
-
-code sigD sigffDmuxY clock
-	if (ffD) {
-		for (auto b : port(ffD, \Q))
-			if (b.wire->get_bool_attribute(\keep))
-				reject;
-
-		SigBit c = port(ffD, \CLK).as_bit();
-		if (clock != SigBit() && c != clock)
-			reject;
-		clock = c;
-
-		SigSpec D = sigD;
-		D.replace(port(ffD, \Q), port(ffD, \D));
-		// Only search for ffDmux if ffD.Q has at
-		//   least 3 users (ffD, dsp, ffDmux) and
-		//   its ffD.D only has two (ffD, ffDmux)
-		if (nusers(sigD) >= 3 && nusers(D) == 2)
-			sigffDmuxY = sigD;
-		sigD = std::move(D);
+code dffQ ffD ffDmux ffDenpol sigD clock
+	if (param(dsp, \DREG).as_int() == 0) {
+		dffQ = sigD;
+		subpattern(in_dffe);
+		if (dff) {
+			ffD = dff;
+			clock = dffclock;
+			if (dffmux) {
+				ffDmux = dffmux;
+				ffDenpol = dffenpol;
+			}
+			sigD = dffD;
+		}
 	}
 endcode
-
-match ffDmux
-	if !sigffDmuxY.empty()
-	select ffDmux->type.in($mux)
-	index <SigSpec> port(ffDmux, \Y) === port(ffD, \D)
-	filter GetSize(port(ffDmux, \Y)) >= GetSize(sigD)
-	slice offset GetSize(port(ffDmux, \Y))
-	filter offset+GetSize(sigD) <= GetSize(port(ffDmux, \Y))
-	filter port(ffDmux, \Y).extract(offset, GetSize(sigD)) == sigD
-	choice <IdString> AB {\A, \B}
-	filter offset+GetSize(sigffDmuxY) <= GetSize(port(ffDmux, \Y))
-	filter port(ffDmux, AB).extract(offset, GetSize(sigffDmuxY)) == sigffDmuxY
-	define <bool> pol (AB == \A)
-	set ffDenpol pol
-	optional
-endmatch
 
 match ffMmux
 	if param(dsp, \MREG).as_int() == 0
@@ -496,56 +367,91 @@ code sigC
 		sigC = port(postAddMux, postAddMuxAB == \A ? \B : \A);
 endcode
 
-match ffC
-	if param(dsp, \CREG).as_int() == 0
-	select ffC->type.in($dff)
-	// DSP48E1 does not support clock inversion
-	select param(ffC, \CLK_POLARITY).as_bool()
-	filter GetSize(port(ffC, \Q)) >= GetSize(sigD)
-	slice offset GetSize(port(ffC, \Q))
-	filter offset+GetSize(sigC) <= GetSize(port(ffC, \Q))
-	filter port(ffC, \Q).extract(offset, GetSize(sigC)) == sigC
-	optional
-endmatch
-
-code sigC sigffCmuxY clock
-	if (ffC) {
-		for (auto b : port(ffC, \Q))
-			if (b.wire->get_bool_attribute(\keep))
-				reject;
-
-		SigBit c = port(ffC, \CLK).as_bit();
-		if (clock != SigBit() && c != clock)
-			reject;
-		clock = c;
-
-		SigSpec C = sigC;
-		C.replace(port(ffC, \Q), port(ffC, \D));
-		// Only search for ffCmux if ffC.Q has at
-		//   least 3 users (ffC, dsp, ffCmux) and
-		//   its ffC.D only has two (ffC, ffCmux)
-		if (nusers(sigC) >= 3 && nusers(C) == 2)
-			sigffCmuxY = sigC;
-		sigC = std::move(C);
+code dffQ ffC ffCmux ffCenpol sigC clock
+	if (param(dsp, \CREG).as_int() == 0) {
+		dffQ = sigC;
+		subpattern(in_dffe);
+		if (dff) {
+			ffC = dff;
+			clock = dffclock;
+			if (dffmux) {
+				ffCmux = dffmux;
+				ffCenpol = dffenpol;
+			}
+			sigC = dffD;
+		}
 	}
 endcode
 
-match ffCmux
-	if !sigffCmuxY.empty()
-	select ffCmux->type.in($mux)
-	index <SigSpec> port(ffCmux, \Y) === port(ffC, \D)
-	filter GetSize(port(ffCmux, \Y)) >= GetSize(sigC)
-	slice offset GetSize(port(ffCmux, \Y))
-	filter offset+GetSize(sigC) <= GetSize(port(ffCmux, \Y))
-	filter port(ffCmux, \Y).extract(offset, GetSize(sigC)) == sigC
+code
+	accept;
+endcode
+
+subpattern in_dffe
+arg dffQ clock dffenpol_
+
+code
+	dff = nullptr;
+	dffmux = nullptr;
+endcode
+
+match ff
+	select ff->type.in($dff)
+	// DSP48E1 does not support clock inversion
+	select param(ff, \CLK_POLARITY).as_bool()
+	filter GetSize(port(ff, \Q)) >= GetSize(dffQ)
+	slice offset GetSize(port(ff, \Q))
+	filter offset+GetSize(dffQ) <= GetSize(port(ff, \Q))
+	filter port(ff, \Q).extract(offset, GetSize(dffQ)) == dffQ
+	semioptional
+endmatch
+
+code dffQ
+	if (ff) {
+		for (auto b : dffQ)
+			if (b.wire->get_bool_attribute(\keep))
+				reject;
+
+		if (clock != SigBit()) {
+			if (port(ff, \CLK) != clock)
+				reject;
+		}
+		else
+			dffclock = port(ff, \CLK);
+
+		dff = ff;
+		dffD = dffQ;
+		dffD.replace(port(ff, \Q), port(ff, \D));
+		// Only search for ffmux if ff.Q has at
+		//   least 3 users (ff, dsp, ffmux) and
+		//   its ff.D only has two (ff, ffmux)
+		if (!(nusers(dffQ) >= 3 && nusers(dffD) == 2))
+			dffQ = SigSpec();
+	}
+	else
+		dffQ = SigSpec();
+endcode
+
+match ffmux
+	if !dffQ.empty()
+	select ffmux->type.in($mux)
+	index <SigSpec> port(ffmux, \Y) === port(ff, \D)
+	filter GetSize(port(ffmux, \Y)) >= GetSize(dffD)
+	slice offset GetSize(port(ffmux, \Y))
+	filter offset+GetSize(dffD) <= GetSize(port(ffmux, \Y))
+	filter port(ffmux, \Y).extract(offset, GetSize(dffD)) == dffD
 	choice <IdString> AB {\A, \B}
-	filter offset+GetSize(sigffCmuxY) <= GetSize(port(ffCmux, \Y))
-	filter port(ffCmux, AB).extract(offset, GetSize(sigffCmuxY)) == sigffCmuxY
+	filter offset+GetSize(dffQ) <= GetSize(port(ffmux, \Y))
+	filter port(ffmux, AB).extract(offset, GetSize(dffQ)) == dffQ
 	define <bool> pol (AB == \A)
-	set ffCenpol pol
-	optional
+	set dffenpol_ pol
+	semioptional
 endmatch
 
 code
-	accept;
+	if (ffmux) {
+		dffmux = ffmux;
+		dffenpol = dffenpol_;
+		dffD = port(ffmux, dffenpol ? \B : \A);
+	}
 endcode
