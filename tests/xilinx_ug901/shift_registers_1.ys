@@ -2,7 +2,7 @@ read_verilog shift_registers_1.v
 hierarchy -top shift_registers_1
 proc
 flatten
-
+#ERROR: Found 2 unproven $equiv cells in 'equiv_status -assert'.
 #equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
 equiv_opt -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
 
