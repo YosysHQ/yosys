@@ -390,11 +390,6 @@ endcode
 subpattern in_dffe
 arg dffQ clock dffenpol_
 
-code
-	dff = nullptr;
-	dffmux = nullptr;
-endcode
-
 match ff
 	select ff->type.in($dff)
 	// DSP48E1 does not support clock inversion
@@ -428,8 +423,10 @@ code dffQ
 		if (!(nusers(dffQ) >= 3 && nusers(dffD) == 2))
 			dffQ = SigSpec();
 	}
-	else
+	else {
+		dff = nullptr;
 		dffQ = SigSpec();
+	}
 endcode
 
 match ffmux
@@ -454,4 +451,6 @@ code
 		dffenpol = dffenpol_;
 		dffD = port(ffmux, dffenpol ? \B : \A);
 	}
+	else
+		dffmux = nullptr;
 endcode
