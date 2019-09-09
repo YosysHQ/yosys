@@ -108,12 +108,13 @@ bool cell_supported(RTLIL::Cell *cell)
 	return false;
 }
 
-std::map<IdString, IdString> mergeable_type_map{
-  {ID($sub), ID($add)},
-};
+std::map<IdString, IdString> mergeable_type_map;
 
 bool mergeable(RTLIL::Cell *a, RTLIL::Cell *b)
 {
+	if (mergeable_type_map.empty()) {
+		mergeable_type_map.insert({ID($sub), ID($add)});
+	}
 	auto a_type = a->type;
 	if (mergeable_type_map.count(a_type))
 		a_type = mergeable_type_map.at(a_type);
