@@ -1,0 +1,23 @@
+read_verilog macc.v
+hierarchy -top macc
+proc
+flatten
+equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+
+cd macc
+#Vivado synthesizes 1 DSP48E1, 1 FDRE. (When SIZEIN = 12, SIZEOUT = 30)
+stat
+select -assert-count 1 t:BUFG
+select -assert-count 53 t:FDRE
+select -assert-count 64 t:LUT2
+select -assert-count 10 t:LUT3
+select -assert-count 22 t:LUT4
+select -assert-count 14 t:LUT5
+select -assert-count 123 t:LUT6
+select -assert-count 34 t:MUXCY
+select -assert-count 41 t:MUXF7
+select -assert-count 14 t:MUXF8
+select -assert-count 36 t:XORCY
+
+select -assert-none t:BUFG t:FDRE t:LUT2 t:LUT3 t:LUT4 t:LUT5 t:LUT6 t:MUXCY t:MUXF7 t:MUXF8 t:XORCY %% t:* %D

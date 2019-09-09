@@ -1,0 +1,13 @@
+read_verilog shift_registers_0.v
+hierarchy -top shift_registers_0
+proc
+flatten
+#equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
+equiv_opt -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
+
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd shift_registers_0 # Constrain all select calls below inside the top module
+#Vivado synthesizes 1 BUFG, 2 FDRE, 3 SRLC32E.
+select -assert-count 1 t:BUFG
+select -assert-count 1 t:SRLC32E
+select -assert-none t:BUFG t:SRLC32E %% t:* %D

@@ -1,0 +1,13 @@
+read_verilog top_mux.v
+hierarchy -top mux4
+proc
+flatten
+equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+
+cd mux4
+#Vivado synthesizes 2 LUT.
+stat
+select -assert-count 2 t:LUT6
+
+select -assert-none t:LUT6 %% t:* %D
