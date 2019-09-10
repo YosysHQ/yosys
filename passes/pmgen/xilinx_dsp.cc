@@ -25,6 +25,38 @@ PRIVATE_NAMESPACE_BEGIN
 
 #include "passes/pmgen/xilinx_dsp_pm.h"
 
+static Cell* addDsp(Module *module) {
+	Cell *cell = module->addCell(NEW_ID, "\\DSP48E1");
+	cell->setParam("\\ACASCREG", 0);
+	cell->setParam("\\ADREG", 0);
+	cell->setParam("\\A_INPUT", Const("DIRECT"));
+	cell->setParam("\\ALUMODEREG", 0);
+	cell->setParam("\\AREG", 0);
+	cell->setParam("\\BCASCREG", 0);
+	cell->setParam("\\B_INPUT", Const("DIRECT"));
+	cell->setParam("\\BREG", 0);
+	cell->setParam("\\CARRYINREG", 0);
+	cell->setParam("\\CARRYINSELREG", 0);
+	cell->setParam("\\CREG", 0);
+	cell->setParam("\\DREG", 0);
+	cell->setParam("\\INMODEREG", 0);
+	cell->setParam("\\MREG", 0);
+	cell->setParam("\\OPMODEREG", 0);
+	cell->setParam("\\PREG", 0);
+	cell->setParam("\\USE_MULT", Const("NONE"));
+
+	cell->setPort("\\D", Const(0, 24));
+	cell->setPort("\\INMODE", Const(0, 5));
+	cell->setPort("\\ALUMODE", Const(0, 4));
+	cell->setPort("\\OPMODE", Const(0, 7));
+	cell->setPort("\\CARRYINSEL", Const(0, 3));
+	cell->setPort("\\ACIN", Const(0, 30));
+	cell->setPort("\\BCIN", Const(0, 18));
+	cell->setPort("\\PCIN", Const(0, 48));
+	cell->setPort("\\CARRYIN", Const(0, 1));
+	return cell;
+}
+
 void pack_xilinx_simd(Module *module, const std::vector<Cell*> &selected_cells)
 {
 	std::deque<Cell*> simd12, simd24;
@@ -56,38 +88,6 @@ void pack_xilinx_simd(Module *module, const std::vector<Cell*> &selected_cells)
 			simd24.push_back(cell);
 		}
 	}
-
-	auto addDsp = [module] {
-		Cell *cell = module->addCell(NEW_ID, "\\DSP48E1");
-		cell->setParam("\\ACASCREG", 0);
-		cell->setParam("\\ADREG", 0);
-		cell->setParam("\\A_INPUT", Const("DIRECT"));
-		cell->setParam("\\ALUMODEREG", 0);
-		cell->setParam("\\AREG", 0);
-		cell->setParam("\\BCASCREG", 0);
-		cell->setParam("\\B_INPUT", Const("DIRECT"));
-		cell->setParam("\\BREG", 0);
-		cell->setParam("\\CARRYINREG", 0);
-		cell->setParam("\\CARRYINSELREG", 0);
-		cell->setParam("\\CREG", 0);
-		cell->setParam("\\DREG", 0);
-		cell->setParam("\\INMODEREG", 0);
-		cell->setParam("\\MREG", 0);
-		cell->setParam("\\OPMODEREG", 0);
-		cell->setParam("\\PREG", 0);
-		cell->setParam("\\USE_MULT", Const("NONE"));
-
-		cell->setPort("\\D", Const(0, 24));
-		cell->setPort("\\INMODE", Const(0, 5));
-		cell->setPort("\\ALUMODE", Const(0, 4));
-		cell->setPort("\\OPMODE", Const(0, 7));
-		cell->setPort("\\CARRYINSEL", Const(0, 3));
-		cell->setPort("\\ACIN", Const(0, 30));
-		cell->setPort("\\BCIN", Const(0, 18));
-		cell->setPort("\\PCIN", Const(0, 48));
-		cell->setPort("\\CARRYIN", Const(0, 1));
-		return cell;
-	};
 
 	SigSpec AB;
 	SigSpec C;
@@ -132,7 +132,7 @@ void pack_xilinx_simd(Module *module, const std::vector<Cell*> &selected_cells)
 
 		log("Analysing %s.%s for Xilinx DSP SIMD12 packing.\n", log_id(module), log_id(lane1));
 
-		Cell *cell = addDsp();
+		Cell *cell = addDsp(module);
 		cell->setParam("\\USE_SIMD", Const("FOUR12"));
 		// X = A:B
 		// Y = 0
