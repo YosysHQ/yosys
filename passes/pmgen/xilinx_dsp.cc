@@ -59,10 +59,11 @@ static Cell* addDsp(Module *module) {
 
 void pack_xilinx_simd(Module *module, const std::vector<Cell*> &selected_cells)
 {
-	std::deque<Cell*> simd12, simd24;
+	std::deque<Cell*> simd12_add, simd12_sub;
+	std::deque<Cell*> simd24_add, simd24_sub;
 
 	for (auto cell : selected_cells) {
-		if (!cell->type.in("$add"))
+		if (!cell->type.in("$add", "$sub"))
 			continue;
 		SigSpec Y = cell->getPort("\\Y");
 		if (!Y.is_chunk())
@@ -78,24 +79,26 @@ void pack_xilinx_simd(Module *module, const std::vector<Cell*> &selected_cells)
 				continue;
 			if (GetSize(B) > 12)
 				continue;
-			simd12.push_back(cell);
+			if (cell->type == "$add")
+				simd12_add.push_back(cell);
+			else if (cell->type == "$sub")
+				simd12_sub.push_back(cell);
 		}
 		else if (GetSize(Y) <= 25) {
 			if (GetSize(A) > 24)
 				continue;
 			if (GetSize(B) > 24)
 				continue;
-			simd24.push_back(cell);
+			if (cell->type == "$add")
+				simd24_add.push_back(cell);
+			else if (cell->type == "$sub")
+				simd24_sub.push_back(cell);
 		}
 		else
 			log_abort();
 	}
 
-	SigSpec AB;
-	SigSpec C;
-	SigSpec P;
-	SigSpec CARRYOUT;
-	auto f12 = [&AB,&C,&P,&CARRYOUT,module](Cell *lane) {
+	auto f12 = [module](SigSpec &AB, SigSpec &C, SigSpec &P, SigSpec &CARRYOUT, Cell *lane) {
 		SigSpec A = lane->getPort("\\A");
 		SigSpec B = lane->getPort("\\B");
 		SigSpec Y = lane->getPort("\\Y");
@@ -110,84 +113,86 @@ void pack_xilinx_simd(Module *module, const std::vector<Cell*> &selected_cells)
 		P.append(Y.extract(0, 12));
 		CARRYOUT.append(Y[12]);
 	};
-	while (simd12.size() > 1) {
-		AB = SigSpec();
-		C = SigSpec();
-		P = SigSpec();
-		CARRYOUT = SigSpec();
+	auto g12 = [&f12,module](std::deque<Cell*> &simd12) {
+		while (simd12.size() > 1) {
+			SigSpec AB, C, P, CARRYOUT;
 
-		Cell *lane1 = simd12.front();
-		simd12.pop_front();
-		Cell *lane2 = simd12.front();
-		simd12.pop_front();
-		Cell *lane3 = nullptr;
-		Cell *lane4 = nullptr;
-
-		if (!simd12.empty()) {
-			lane3 = simd12.front();
+			Cell *lane1 = simd12.front();
 			simd12.pop_front();
+			Cell *lane2 = simd12.front();
+			simd12.pop_front();
+			Cell *lane3 = nullptr;
+			Cell *lane4 = nullptr;
+
 			if (!simd12.empty()) {
-				lane4 = simd12.front();
+				lane3 = simd12.front();
 				simd12.pop_front();
+				if (!simd12.empty()) {
+					lane4 = simd12.front();
+					simd12.pop_front();
+				}
 			}
-		}
 
-		log("Analysing %s.%s for Xilinx DSP SIMD12 packing.\n", log_id(module), log_id(lane1));
+			log("Analysing %s.%s for Xilinx DSP SIMD12 packing.\n", log_id(module), log_id(lane1));
 
-		Cell *cell = addDsp(module);
-		cell->setParam("\\USE_SIMD", Const("FOUR12"));
-		// X = A:B
-		// Y = 0
-		// Z = C
-		cell->setPort("\\OPMODE", Const::from_string("0110011"));
+			Cell *cell = addDsp(module);
+			cell->setParam("\\USE_SIMD", Const("FOUR12"));
+			// X = A:B
+			// Y = 0
+			// Z = C
+			cell->setPort("\\OPMODE", Const::from_string("0110011"));
 
-		log_assert(lane1);
-		log_assert(lane2);
-		f12(lane1);
-		f12(lane2);
-		if (lane3) {
-			f12(lane3);
-			if (lane4)
-				f12(lane4);
+			log_assert(lane1);
+			log_assert(lane2);
+			f12(AB, C, P, CARRYOUT, lane1);
+			f12(AB, C, P, CARRYOUT, lane2);
+			if (lane3) {
+				f12(AB, C, P, CARRYOUT, lane3);
+				if (lane4)
+					f12(AB, C, P, CARRYOUT, lane4);
+				else {
+					AB.append(Const(0, 12));
+					C.append(Const(0, 12));
+					P.append(module->addWire(NEW_ID, 12));
+					CARRYOUT.append(module->addWire(NEW_ID, 1));
+				}
+			}
 			else {
-				AB.append(Const(0, 12));
-				C.append(Const(0, 12));
-				P.append(module->addWire(NEW_ID, 12));
-				CARRYOUT.append(module->addWire(NEW_ID, 1));
+				AB.append(Const(0, 24));
+				C.append(Const(0, 24));
+				P.append(module->addWire(NEW_ID, 24));
+				CARRYOUT.append(module->addWire(NEW_ID, 2));
 			}
+			log_assert(GetSize(AB) == 48);
+			log_assert(GetSize(C) == 48);
+			log_assert(GetSize(P) == 48);
+			log_assert(GetSize(CARRYOUT) == 4);
+			cell->setPort("\\A", AB.extract(18, 30));
+			cell->setPort("\\B", AB.extract(0, 18));
+			cell->setPort("\\C", C);
+			cell->setPort("\\P", P);
+			cell->setPort("\\CARRYOUT", CARRYOUT);
+			if (lane1->type == "$sub")
+				cell->setPort("\\ALUMODE", Const::from_string("0011"));
+
+			module->remove(lane1);
+			module->remove(lane2);
+			if (lane3) module->remove(lane3);
+			if (lane4) module->remove(lane4);
+
+			module->design->select(module, cell);
 		}
-		else {
-			AB.append(Const(0, 24));
-			C.append(Const(0, 24));
-			P.append(module->addWire(NEW_ID, 24));
-			CARRYOUT.append(module->addWire(NEW_ID, 2));
-		}
-		log_assert(GetSize(AB) == 48);
-		log_assert(GetSize(C) == 48);
-		log_assert(GetSize(P) == 48);
-		log_assert(GetSize(CARRYOUT) == 4);
-		cell->setPort("\\A", AB.extract(18, 30));
-		cell->setPort("\\B", AB.extract(0, 18));
-		cell->setPort("\\C", C);
-		cell->setPort("\\P", P);
-		cell->setPort("\\CARRYOUT", CARRYOUT);
+	};
+	g12(simd12_add);
+	g12(simd12_sub);
 
-		module->remove(lane1);
-		module->remove(lane2);
-		if (lane3) module->remove(lane3);
-		if (lane4) module->remove(lane4);
-
-		module->design->select(module, cell);
-	}
-
-	auto f24 = [&AB,&C,&P,&CARRYOUT,module](Cell *lane) {
+	auto f24 = [module](SigSpec &AB, SigSpec &C, SigSpec &P, SigSpec &CARRYOUT, Cell *lane) {
 		SigSpec A = lane->getPort("\\A");
 		SigSpec B = lane->getPort("\\B");
 		SigSpec Y = lane->getPort("\\Y");
 		A.extend_u0(24, lane->getParam("\\A_SIGNED").as_bool());
 		B.extend_u0(24, lane->getParam("\\B_SIGNED").as_bool());
-		AB.append(A);
-		C.append(B);
+		AB.append(B);
 		if (GetSize(Y) < 25)
 			Y.append(module->addWire(NEW_ID, 25-GetSize(Y)));
 		else
@@ -196,45 +201,51 @@ void pack_xilinx_simd(Module *module, const std::vector<Cell*> &selected_cells)
 		CARRYOUT.append(module->addWire(NEW_ID)); // TWO24 uses every other bit
 		CARRYOUT.append(Y[24]);
 	};
-	while (simd24.size() > 1) {
-		AB = SigSpec();
-		C = SigSpec();
-		P = SigSpec();
-		CARRYOUT = SigSpec();
+	auto g24 = [&f24,module](std::deque<Cell*> &simd24) {
+		while (simd24.size() > 1) {
+			SigSpec AB;
+			SigSpec C;
+			SigSpec P;
+			SigSpec CARRYOUT;
 
-		Cell *lane1 = simd24.front();
-		simd24.pop_front();
-		Cell *lane2 = simd24.front();
-		simd24.pop_front();
+			Cell *lane1 = simd24.front();
+			simd24.pop_front();
+			Cell *lane2 = simd24.front();
+			simd24.pop_front();
 
-		log("Analysing %s.%s for Xilinx DSP SIMD24 packing.\n", log_id(module), log_id(lane1));
+			log("Analysing %s.%s for Xilinx DSP SIMD24 packing.\n", log_id(module), log_id(lane1));
 
-		Cell *cell = addDsp(module);
-		cell->setParam("\\USE_SIMD", Const("TWO24"));
-		// X = A:B
-		// Y = 0
-		// Z = C
-		cell->setPort("\\OPMODE", Const::from_string("0110011"));
+			Cell *cell = addDsp(module);
+			cell->setParam("\\USE_SIMD", Const("TWO24"));
+			// X = A:B
+			// Y = 0
+			// Z = C
+			cell->setPort("\\OPMODE", Const::from_string("0110011"));
 
-		log_assert(lane1);
-		log_assert(lane2);
-		f24(lane1);
-		f24(lane2);
-		log_assert(GetSize(AB) == 48);
-		log_assert(GetSize(C) == 48);
-		log_assert(GetSize(P) == 48);
-		log_assert(GetSize(CARRYOUT) == 4);
-		cell->setPort("\\A", AB.extract(18, 30));
-		cell->setPort("\\B", AB.extract(0, 18));
-		cell->setPort("\\C", C);
-		cell->setPort("\\P", P);
-		cell->setPort("\\CARRYOUT", CARRYOUT);
+			log_assert(lane1);
+			log_assert(lane2);
+			f24(AB, C, P, CARRYOUT, lane1);
+			f24(AB, C, P, CARRYOUT, lane2);
+			log_assert(GetSize(AB) == 48);
+			log_assert(GetSize(C) == 48);
+			log_assert(GetSize(P) == 48);
+			log_assert(GetSize(CARRYOUT) == 4);
+			cell->setPort("\\A", AB.extract(18, 30));
+			cell->setPort("\\B", AB.extract(0, 18));
+			cell->setPort("\\C", C);
+			cell->setPort("\\P", P);
+			cell->setPort("\\CARRYOUT", CARRYOUT);
+			if (lane1->type == "$sub")
+				cell->setPort("\\ALUMODE", Const::from_string("0011"));
 
-		module->remove(lane1);
-		module->remove(lane2);
+			module->remove(lane1);
+			module->remove(lane2);
 
-		module->design->select(module, cell);
-	}
+			module->design->select(module, cell);
+		}
+	};
+	g24(simd24_add);
+	g24(simd24_sub);
 }
 
 
