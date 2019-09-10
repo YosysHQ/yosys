@@ -39,16 +39,18 @@ code unextend sigA sigB sigC sigD sigM
 	sigD = dsp->connections_.at(\D, SigSpec());
 
 	SigSpec P = port(dsp, \P);
-	// Only care about those bits that are used
-	int i;
-	for (i = 0; i < GetSize(P); i++) {
-		if (nusers(P[i]) <= 1)
-			break;
-		sigM.append(P[i]);
+	if (dsp->parameters.at(\USE_MULT, Const("MULTIPLY")).decode_string() == "MULTIPLY") {
+		// Only care about those bits that are used
+		int i;
+		for (i = 0; i < GetSize(P); i++) {
+			if (nusers(P[i]) <= 1)
+				break;
+			sigM.append(P[i]);
+		}
+		log_assert(nusers(P.extract_end(i)) <= 1);
 	}
-	log_assert(nusers(P.extract_end(i)) <= 1);
-	//if (GetSize(sigM) <= 10)
-	//	reject;
+	else
+		sigM = P;
 endcode
 
 code argQ ffAD ffADmux ffADenpol sigA clock
@@ -159,6 +161,7 @@ endcode
 
 match ffMmux
 	if param(dsp, \MREG).as_int() == 0
+	if dsp->parameters.at(\USE_MULT, Const("MULTIPLY")).decode_string() == "MULTIPLY"
 	if nusers(sigM) == 2
 	select ffMmux->type.in($mux)
 	choice <IdString> BA {\B, \A}
@@ -194,6 +197,7 @@ match ffM_enable
 endmatch
 
 match ffM
+	if dsp->parameters.at(\USE_MULT, Const("MULTIPLY")).decode_string() == "MULTIPLY"
 	if !ffM_enable
 	if param(dsp, \MREG).as_int() == 0
 	if nusers(sigM) == 2
