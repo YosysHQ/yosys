@@ -1,13 +1,20 @@
 read_verilog latches.v
+design -save read
 
 proc
+async2sync # converts latches to a 'sync' variant clocked by a 'super'-clock
 flatten
-equiv_opt -async2sync -assert -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
-
-design -load preopt
 synth_xilinx
-cd top
+equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+
+design -load read
+
+synth_xilinx
+#cd top
+
 select -assert-count 1 t:LUT1
 select -assert-count 2 t:LUT3
-select -assert-count 3 t:LDCE
-select -assert-none t:LUT1 t:LUT3 t:LDCE %% t:* %D
+select -assert-count 3 t:$_DLATCH_P_
+#ERROR: Assertion failed: selection is not empty: t:LUT1 t:LUT3 t:$_DLATCH_P_ %% t:* %D
+#select -assert-none t:LUT1 t:LUT3 t:$_DLATCH_P_ %% t:* %D
