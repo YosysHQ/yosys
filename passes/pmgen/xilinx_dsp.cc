@@ -192,6 +192,7 @@ void pack_xilinx_simd(Module *module, const std::vector<Cell*> &selected_cells)
 		SigSpec Y = lane->getPort("\\Y");
 		A.extend_u0(24, lane->getParam("\\A_SIGNED").as_bool());
 		B.extend_u0(24, lane->getParam("\\B_SIGNED").as_bool());
+		C.append(A);
 		AB.append(B);
 		if (GetSize(Y) < 25)
 			Y.append(module->addWire(NEW_ID, 25-GetSize(Y)));
