@@ -716,7 +716,6 @@ test: $(TARGETS) $(EXTRA_TARGETS)
 	+cd tests/ice40 && bash run-test.sh $(SEEDOPT)
 	+cd tests/rpc && bash run-test.sh
 	+cd tests/xilinx && bash run-test.sh $(SEEDOPT)
-	+cd tests/xilinx_ug901 && bash run-test.sh $(SEEDOPT)
 	@echo ""
 	@echo "  Passed \"make test\"."
 	@echo ""
