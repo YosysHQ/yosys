@@ -321,12 +321,12 @@ struct SynthXilinxPass : public ScriptPass
 			run("techmap -map +/cmp2lut.v -D LUT_WIDTH=6");
 		}
 
-		if (check_label("map_dsp")) {
+		if (check_label("map_dsp"), "(skip if '-nodsp')") {
 			if (!nodsp || help_mode) {
 				// NB: Xilinx multipliers are signed only
-				run("techmap -map +/mul2dsp.v -map +/xilinx/dsp_map.v -D DSP_A_MAXWIDTH=25 -D DSP_A_MAXWIDTH_PARTIAL=18 -D DSP_B_MAXWIDTH=18 -D DSP_SIGNEDONLY=1 -D DSP_NAME=$__MUL25X18", "(skip if '-nodsp')");
-				run("xilinx_dsp", "                     (skip if '-nodsp')");
-				run("chtype -set $mul t:$__soft_mul","  (skip if '-nodsp')");
+				run("techmap -map +/mul2dsp.v -map +/xilinx/dsp_map.v -D DSP_A_MAXWIDTH=25 -D DSP_A_MAXWIDTH_PARTIAL=18 -D DSP_B_MAXWIDTH=18 -D DSP_SIGNEDONLY=1 -D DSP_NAME=$__MUL25X18");
+				run("xilinx_dsp");
+				run("chtype -set $mul t:$__soft_mul");
 			}
 		}
 
