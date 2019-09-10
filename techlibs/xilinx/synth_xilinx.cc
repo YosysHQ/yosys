@@ -328,7 +328,6 @@ struct SynthXilinxPass : public ScriptPass
 				// Necessary for optimising away $shl cells, as well as $add cells
 				//   that have inputs with 1'b0 LSBs
 				run("opt_expr -fine", "                 (skip if '-nodsp')");
-				run("wreduce", "                        (skip if '-nodsp')");
 				run("xilinx_dsp", "                     (skip if '-nodsp')");
 				run("chtype -set $mul t:$__soft_mul","  (skip if '-nodsp')");
 			}
