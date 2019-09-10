@@ -940,6 +940,7 @@ static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast
 	current_module->attributes["\\src"] = stringf("%s:%d", ast->filename.c_str(), ast->linenum);
 	current_module->set_bool_attribute("\\cells_not_processed");
 
+	ast = ast->clone();
 	current_ast_mod = ast;
 	AstNode *ast_before_simplify;
 	if (original_ast != NULL)
@@ -1129,6 +1130,7 @@ static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast
 		log("--- END OF RTLIL DUMP ---\n");
 	}
 
+	delete ast;
 	return current_module;
 }
 

@@ -41,6 +41,18 @@ YOSYS_NAMESPACE_BEGIN
 using namespace AST;
 using namespace AST_INTERNAL;
 
+static void prefixWith(AstNode* x, std::string prefix) {
+	if (x->type == AST_IDENTIFIER || x->type == AST_FCALL || x->type == AST_TCALL ||
+			x->type == AST_WIRE || x->type == AST_MEMORY || x->type == AST_PARAMETER || x->type == AST_LOCALPARAM ||
+			x->type == AST_FUNCTION || x->type == AST_TASK || x->type == AST_CELL) {
+		x->str = prefix + "." + (x->str[0] == '\\' ? x->str.substr(1) : x->str);
+	}
+
+	for (auto c : x->children) {
+		prefixWith(c, prefix);
+	}
+}
+
 // convert the AST into a simpler AST that has all parameters substituted by their
 // values, unrolled for-loops, expanded generate blocks, etc. when this function
 // is done with an AST it can be converted into RTLIL using genRTLIL().
@@ -173,6 +185,98 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		while (simplify(const_fold, at_zero, in_lvalue, 2, width_hint, sign_hint, in_param)) { }
 		recursion_counter--;
 		return false;
+	}
+
+
+	// macromodule inlining
+	if (current_ast && type == AST_CELL && children.size() >= 1 && children[0]->type == AST_CELLTYPE) {
+		for (auto decl : current_ast->children) {
+			if (!(decl->type == AST_MODULE && decl->str == children[0]->str.c_str())) continue;
+			bool should_inline = decl->is_signed;
+			for (auto c : children) {
+				should_inline &= c->type == AST_CELLTYPE || c->type == AST_PARASET || c->type == AST_ARGUMENT;
+			}
+			if (!should_inline) {
+				break;
+			}
+
+			auto instance = decl->clone();
+
+			std::vector<AstNode*> posparams, posargs;
+			dict<RTLIL::IdString, AstNode*> kwparams, kwargs;
+			for (auto c : children) {
+				if (c->type == AST_CELLTYPE) {
+					// handled already
+				} else if (c->type == AST_PARASET && c->children.size() == 1) {
+					if (c->str.empty()) {
+						posparams.push_back(c->children[0]);
+					} else {
+						kwparams[c->str] = c->children[0];
+					}
+				} else if (c->type == AST_ARGUMENT && c->children.size() == 1) {
+					if (c->str.empty()) {
+						posargs.push_back(c->children[0]);
+					} else {
+						kwargs[c->str] = c->children[0];
+					}
+				} else {
+					log("UNKOWN CELL TYPE %d\n", c->type);
+					log_abort();
+				}
+			}
+
+			size_t parameters_declared = 0;
+			size_t arguments_declared = 0;
+			for (auto c : instance->children) {
+				if (c->type == AST_PARAMETER) {
+					size_t idx = parameters_declared++;
+					AstNode* arg = nullptr;
+					if (kwparams.count(c->str)) {
+						arg = kwparams[c->str];
+					} else if (idx < posparams.size()) {
+						arg = posparams[idx];
+					} else {
+						continue;
+					}
+					delete c->children.at(0);
+					c->children[0] = arg->clone();
+					c->type = AST_LOCALPARAM;
+				} else if (c->type == AST_WIRE && (c->is_input || c->is_output)) {
+					size_t idx = arguments_declared++;
+					AstNode *arg = nullptr;
+					if (kwargs.count(c->str)) {
+						arg = kwargs[c->str];
+					} else if (idx < posargs.size()) {
+						arg = posargs[idx];
+					} else {
+						continue;
+					}
+					AstNode *wire_id = new AstNode(AST_IDENTIFIER);
+					wire_id->str = str + "." + (c->str[0] == '\\' ? c->str.substr(1) : c->str);
+					AstNode *assign = c->is_input ?
+						new AstNode(AST_ASSIGN, wire_id, arg->clone()) :
+						new AstNode(AST_ASSIGN, arg->clone(), wire_id);
+					assign->children[0]->was_checked = true;
+					current_ast_mod->children.push_back(assign);
+					c->is_input = c->is_output = false;
+				}
+			}
+
+			prefixWith(instance, str);
+			for (auto c : instance->children) {
+				c->simplify(false, false, false, stage, -1, false, false);
+				current_ast_mod->children.push_back(c); // TODO: what if this is inside a AST_GENBLOCK?
+				current_scope[c->str] = c;
+			}
+
+			instance->children.clear();
+			delete instance;
+
+			delete_children();
+			type = AST_GENBLOCK;
+			did_something = true;
+			break;
+		}
 	}
 
 	current_filename = filename;

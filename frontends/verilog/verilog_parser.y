@@ -136,7 +136,7 @@ struct specify_rise_fall {
 %token <string> TOK_SVA_LABEL TOK_SPECIFY_OPER TOK_MSG_TASKS
 %token TOK_ASSERT TOK_ASSUME TOK_RESTRICT TOK_COVER TOK_FINAL
 %token ATTR_BEGIN ATTR_END DEFATTR_BEGIN DEFATTR_END
-%token TOK_MODULE TOK_ENDMODULE TOK_PARAMETER TOK_LOCALPARAM TOK_DEFPARAM
+%token TOK_MODULE TOK_MACROMODULE TOK_ENDMODULE TOK_PARAMETER TOK_LOCALPARAM TOK_DEFPARAM
 %token TOK_PACKAGE TOK_ENDPACKAGE TOK_PACKAGESEP
 %token TOK_INTERFACE TOK_ENDINTERFACE TOK_MODPORT TOK_VAR
 %token TOK_INPUT TOK_OUTPUT TOK_INOUT TOK_WIRE TOK_WAND TOK_WOR TOK_REG TOK_LOGIC
@@ -156,7 +156,7 @@ struct specify_rise_fall {
 %type <ast> range range_or_multirange  non_opt_range non_opt_multirange range_or_signed_int
 %type <ast> wire_type expr basic_expr concat_list rvalue lvalue lvalue_concat_list
 %type <string> opt_label opt_sva_label tok_prim_wrapper hierarchical_id
-%type <boolean> opt_signed opt_property unique_case_attr
+%type <boolean> opt_signed opt_property unique_case_attr module_keyword
 %type <al> attr case_attr
 
 %type <specify_target_ptr> specify_target
@@ -290,8 +290,16 @@ hierarchical_id:
 		$$ = $1;
 	};
 
+module_keyword:
+	TOK_MACROMODULE {
+		$$ = true;
+	} |
+	TOK_MODULE {
+		$$ = false;
+	};
+
 module:
-	attr TOK_MODULE TOK_ID {
+	attr module_keyword TOK_ID {
 		do_not_require_port_stubs = false;
 		AstNode *mod = new AstNode(AST_MODULE);
 		ast_stack.back()->children.push_back(mod);
@@ -300,6 +308,7 @@ module:
 		port_stubs.clear();
 		port_counter = 0;
 		mod->str = *$3;
+		mod->is_signed = $2;
 		append_attr(mod, $1);
 		delete $3;
 	} module_para_opt module_args_opt ';' module_body TOK_ENDMODULE {

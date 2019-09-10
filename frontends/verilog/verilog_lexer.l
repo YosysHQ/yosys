@@ -146,6 +146,7 @@ YOSYS_NAMESPACE_END
 }
 
 "module"       { return TOK_MODULE; }
+"macromodule"  { return TOK_MACROMODULE; }
 "endmodule"    { return TOK_ENDMODULE; }
 "function"     { return TOK_FUNCTION; }
 "endfunction"  { return TOK_ENDFUNCTION; }
