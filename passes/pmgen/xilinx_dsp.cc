@@ -25,6 +25,161 @@ PRIVATE_NAMESPACE_BEGIN
 
 #include "passes/pmgen/xilinx_dsp_pm.h"
 
+void pack_xilinx_simd(Module *module, const std::vector<Cell*> &selected_cells)
+{
+	std::deque<Cell*> simd12, simd24;
+
+	for (auto cell : selected_cells) {
+		if (!cell->type.in("$add"))
+			continue;
+		SigSpec Y = cell->getPort("\\Y");
+		if (!Y.is_chunk())
+			continue;
+		if (!Y.as_chunk().wire->get_strpool_attribute("\\use_dsp").count("simd"))
+			continue;
+		if (GetSize(Y) > 25)
+			continue;
+		SigSpec A = cell->getPort("\\A");
+		SigSpec B = cell->getPort("\\B");
+		if (GetSize(Y) <= 13) {
+			if (GetSize(A) > 12)
+				continue;
+			if (GetSize(B) > 12)
+				continue;
+			simd12.push_back(cell);
+		}
+		else {
+			if (GetSize(A) > 24)
+				continue;
+			if (GetSize(B) > 24)
+				continue;
+			simd24.push_back(cell);
+		}
+	}
+
+	auto addDsp = [module] {
+		Cell *cell = module->addCell(NEW_ID, "\\DSP48E1");
+		cell->setParam("\\ACASCREG", 0);
+		cell->setParam("\\ADREG", 0);
+		cell->setParam("\\A_INPUT", Const("DIRECT"));
+		cell->setParam("\\ALUMODEREG", 0);
+		cell->setParam("\\AREG", 0);
+		cell->setParam("\\BCASCREG", 0);
+		cell->setParam("\\B_INPUT", Const("DIRECT"));
+		cell->setParam("\\BREG", 0);
+		cell->setParam("\\CARRYINREG", 0);
+		cell->setParam("\\CARRYINSELREG", 0);
+		cell->setParam("\\CREG", 0);
+		cell->setParam("\\DREG", 0);
+		cell->setParam("\\INMODEREG", 0);
+		cell->setParam("\\MREG", 0);
+		cell->setParam("\\OPMODEREG", 0);
+		cell->setParam("\\PREG", 0);
+		cell->setParam("\\USE_MULT", Const("NONE"));
+
+		cell->setPort("\\D", Const(0, 24));
+		cell->setPort("\\INMODE", Const(0, 5));
+		cell->setPort("\\ALUMODE", Const(0, 4));
+		cell->setPort("\\OPMODE", Const(0, 7));
+		cell->setPort("\\CARRYINSEL", Const(0, 3));
+		cell->setPort("\\ACIN", Const(0, 30));
+		cell->setPort("\\BCIN", Const(0, 18));
+		cell->setPort("\\PCIN", Const(0, 48));
+		cell->setPort("\\CARRYIN", Const(0, 1));
+		return cell;
+	};
+
+	SigSpec AB;
+	SigSpec C;
+	SigSpec P;
+	SigSpec CARRYOUT;
+	auto f12 = [&AB,&C,&P,&CARRYOUT,module](Cell *lane) {
+		SigSpec A = lane->getPort("\\A");
+		SigSpec B = lane->getPort("\\B");
+		SigSpec Y = lane->getPort("\\Y");
+		A.extend_u0(12, lane->getParam("\\A_SIGNED").as_bool());
+		B.extend_u0(12, lane->getParam("\\B_SIGNED").as_bool());
+		AB.append(A);
+		C.append(B);
+		if (GetSize(Y) < 13)
+			Y.append(module->addWire(NEW_ID, 13-GetSize(Y)));
+		else
+			log_assert(GetSize(Y) == 13);
+		P.append(Y.extract(0, 12));
+		CARRYOUT.append(Y[12]);
+	};
+	while (simd12.size() > 1) {
+		AB = SigSpec();
+		C = SigSpec();
+		P = SigSpec();
+		CARRYOUT = SigSpec();
+
+		Cell *lane1 = simd12.front();
+		simd12.pop_front();
+		Cell *lane2 = simd12.front();
+		simd12.pop_front();
+		Cell *lane3 = nullptr;
+		Cell *lane4 = nullptr;
+
+		if (!simd12.empty()) {
+			lane3 = simd12.front();
+			simd12.pop_front();
+			if (!simd12.empty()) {
+				lane4 = simd12.front();
+				simd12.pop_front();
+			}
+		}
+
+		log("Analysing %s.%s for Xilinx DSP SIMD12 packing.\n", log_id(module), log_id(lane1));
+
+		Cell *cell = addDsp();
+		cell->setParam("\\USE_SIMD", Const("FOUR12"));
+		// X = A:B
+		// Y = 0
+		// Z = C
+		cell->setPort("\\OPMODE", Const::from_string("0110011"));
+
+		log_assert(lane1);
+		log_assert(lane2);
+		f12(lane1);
+		f12(lane2);
+		if (lane3) {
+			f12(lane3);
+			if (lane4)
+				f12(lane4);
+			else {
+				AB.append(Const(0, 12));
+				C.append(Const(0, 12));
+				P.append(module->addWire(NEW_ID, 12));
+				CARRYOUT.append(module->addWire(NEW_ID, 1));
+			}
+		}
+		else {
+			AB.append(Const(0, 24));
+			C.append(Const(0, 24));
+			P.append(module->addWire(NEW_ID, 24));
+			CARRYOUT.append(module->addWire(NEW_ID, 2));
+		}
+		log_assert(GetSize(AB) == 48);
+		log_assert(GetSize(C) == 48);
+		log_assert(GetSize(P) == 48);
+		log_assert(GetSize(CARRYOUT) == 4);
+		cell->setPort("\\A", AB.extract(18, 30));
+		cell->setPort("\\B", AB.extract(0, 18));
+		cell->setPort("\\C", C);
+		cell->setPort("\\P", P);
+		cell->setPort("\\CARRYOUT", CARRYOUT);
+
+		module->remove(lane1);
+		module->remove(lane2);
+		if (lane3) module->remove(lane3);
+		if (lane4) module->remove(lane4);
+
+		module->design->select(module, cell);
+	}
+}
+
+
 void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 {
 	auto &st = pm.st_xilinx_dsp;
@@ -281,6 +436,8 @@ struct XilinxDspPass : public Pass {
 		extra_args(args, argidx, design);
 
 		for (auto module : design->selected_modules()) {
+			pack_xilinx_simd(module, module->selected_cells());
+
 			xilinx_dsp_pm pm(module, module->selected_cells());
 			dict<SigBit, Cell*> bit_to_driver;
 			auto f = [&bit_to_driver](xilinx_dsp_pm &pm){ pack_xilinx_dsp(bit_to_driver, pm); };
