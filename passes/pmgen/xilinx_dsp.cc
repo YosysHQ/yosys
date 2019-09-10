@@ -480,19 +480,37 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 }
 
 struct XilinxDspPass : public Pass {
-	XilinxDspPass() : Pass("xilinx_dsp", "Xilinx: pack DSP registers") { }
+	XilinxDspPass() : Pass("xilinx_dsp", "Xilinx: pack resources into DSPs") { }
 	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
 		log("    xilinx_dsp [options] [selection]\n");
 		log("\n");
-		log("Pack registers into Xilinx DSPs\n");
+		log("Pack input registers (A, B, C, D, AD; with optional enable), pipeline registers\n");
+		log("(M; with optional enable), output registers (P; with optional enable),\n");
+		log("pre-adder and/or post-adder into Xilinx DSP resources.\n");
+		log("\n");
+		log("Multiply-accumulate operations using the post-adder with feedback on the 'C'\n");
+		log("input will be folded into the DSP. In this scenario only, the 'C' input can be\n");
+		log("used to override the existing accumulation result with a new value.\n");
+		log("\n");
+		log("'PCOUT' -> 'PCIN' cascading is detected for 'P' -> 'C' connections, where 'P' is\n");
+		log("is right-shifted by 18-bits and used as an input to the post-adder (a common\n");
+		log("pattern for summing partial products).\n");
+		log("\n");
+		log("Not currently supported: reset (RST*) inputs on any register.\n");
+		log("\n");
+		log("\n");
+		log("Experimental feature: addition/subtractions less than 12 or 24 bits with the\n");
+		log("'(* use_dsp=\"simd\" *)' attribute attached to the output wire or attached to\n");
+		log("the add/subtract operator will cause those operations to be implemented using\n");
+		log("the 'SIMD' feature of DSPs.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
-		log_header(design, "Executing XILINX_DSP pass (pack DSPs).\n");
+		log_header(design, "Executing XILINX_DSP pass (pack resources into DSPs).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
