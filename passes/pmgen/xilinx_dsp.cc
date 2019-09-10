@@ -495,9 +495,9 @@ struct XilinxDspPass : public Pass {
 		log("input will be folded into the DSP. In this scenario only, the 'C' input can be\n");
 		log("used to override the existing accumulation result with a new value.\n");
 		log("\n");
-		log("'PCOUT' -> 'PCIN' cascading is detected for 'P' -> 'C' connections, where 'P' is\n");
-		log("is right-shifted by 18-bits and used as an input to the post-adder (a common\n");
-		log("pattern for summing partial products).\n");
+		log("Use of the dedicated 'PCOUT' -> 'PCIN' path is detected for 'P' -> 'C' connections\n");
+		log("where 'P' is right-shifted by 18-bits and used as an input to the post-adder (a\n");
+		log("pattern common for summing partial products to implement wide multiplies).\n");
 		log("\n");
 		log("Not currently supported: reset (RST*) inputs on any register.\n");
 		log("\n");
