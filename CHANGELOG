@@ -38,6 +38,11 @@ Yosys 0.9 .. Yosys 0.9-dev
     - Improvements in pmgen: slices, choices, define, generate
     - Added "xilinx_srl" for Xilinx shift register extraction
     - Removed "shregmap -tech xilinx" (superseded by "xilinx_srl")
+    - Added +/mul2dsp.v for decomposing wide multipliers to custom-sized ones
+    - Added "xilinx_dsp" for Xilinx DSP packing
+    - "synth_xilinx" to now infer DSP blocks (-nodsp to disable)
+    - "synth_ecp5" to now infer DSP blocks (-nodsp to disable, experimental)
+    - "synth_ice40 -dsp" to infer DSP blocks
 
 Yosys 0.8 .. Yosys 0.9
 ----------------------
