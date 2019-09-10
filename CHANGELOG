@@ -39,6 +39,7 @@ Yosys 0.9 .. Yosys 0.9-dev
     - Added "xilinx_srl" for Xilinx shift register extraction
     - Removed "shregmap -tech xilinx" (superseded by "xilinx_srl")
     - Added "_TECHMAP_WIREINIT_*_" attribute and "_TECHMAP_REMOVEINIT_*_" wire for "techmap" pass
+    - Added "-match-init" option to "dff2dffs" pass
 
 Yosys 0.8 .. Yosys 0.9
 ----------------------
