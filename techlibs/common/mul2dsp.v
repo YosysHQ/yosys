@@ -153,11 +153,11 @@ module _80_mul (A, B, Y);
 					//   to save on a call to 'opt_expr -fine' which would
 					//   optimise away the '<<' op and trim size of adder
 					//assign partial_sum[i] = (partial[i] << i*(`DSP_A_MAXWIDTH_PARTIAL-sign_headroom)) + partial_sum[i-1];
-					wire [Y_WIDTH-1:0] shifted_sum = {partial[i], {i*(`DSP_A_MAXWIDTH_PARTIAL-sign_headroom){1'b0}}};
-					assign partial_sum[i] = {
-						partial_sum[i-1][i*(`DSP_A_MAXWIDTH_PARTIAL-sign_headroom)-1:0],
-						shifted_sum[Y_WIDTH-1:i*(`DSP_A_MAXWIDTH_PARTIAL-sign_headroom)] + partial_sum[i-1][Y_WIDTH-1:i*(`DSP_A_MAXWIDTH_PARTIAL-sign_headroom)]
-					};
+					if (A_SIGNED && B_SIGNED)
+						assign partial_sum[i][Y_WIDTH-1:i*(`DSP_A_MAXWIDTH_PARTIAL-sign_headroom)] = partial[i] + $signed(partial_sum[i-1][Y_WIDTH-1:i*(`DSP_A_MAXWIDTH_PARTIAL-sign_headroom)]);
+					else
+						assign partial_sum[i][Y_WIDTH-1:i*(`DSP_A_MAXWIDTH_PARTIAL-sign_headroom)] = partial[i] + partial_sum[i-1][Y_WIDTH-1:i*(`DSP_A_MAXWIDTH_PARTIAL-sign_headroom)];
+					assign partial_sum[i][i*(`DSP_A_MAXWIDTH_PARTIAL-sign_headroom)-1:0] = partial_sum[i-1][i*(`DSP_A_MAXWIDTH_PARTIAL-sign_headroom)-1:0];
 				end
 			end
 
@@ -173,11 +173,11 @@ module _80_mul (A, B, Y);
 				.Y(last_partial)
 			);
 			//assign partial_sum[n] = (last_partial << n*(`DSP_A_MAXWIDTH_PARTIAL-sign_headroom)) + partial_sum[n-1];
-			wire [Y_WIDTH-1:0] shifted_sum = {last_partial, {n*(`DSP_A_MAXWIDTH_PARTIAL-sign_headroom){1'b0}}};
-			assign partial_sum[n] = {
-				partial_sum[n-1][n*(`DSP_A_MAXWIDTH_PARTIAL-sign_headroom)-1:0],
-				shifted_sum[Y_WIDTH-1:n*(`DSP_A_MAXWIDTH_PARTIAL-sign_headroom)] + partial_sum[n-1][Y_WIDTH-1:n*(`DSP_A_MAXWIDTH_PARTIAL-sign_headroom)]
-			};
+			if (A_SIGNED && B_SIGNED)
+				assign partial_sum[n][Y_WIDTH-1:n*(`DSP_A_MAXWIDTH_PARTIAL-sign_headroom)] = last_partial + $signed(partial_sum[n-1][Y_WIDTH-1:n*(`DSP_A_MAXWIDTH_PARTIAL-sign_headroom)]);
+			else
+				assign partial_sum[n][Y_WIDTH-1:n*(`DSP_A_MAXWIDTH_PARTIAL-sign_headroom)] = last_partial + partial_sum[n-1][Y_WIDTH-1:n*(`DSP_A_MAXWIDTH_PARTIAL-sign_headroom)];
+			assign partial_sum[n][n*(`DSP_A_MAXWIDTH_PARTIAL-sign_headroom)-1:0] = partial_sum[n-1][n*(`DSP_A_MAXWIDTH_PARTIAL-sign_headroom)-1:0];
 			assign Y = partial_sum[n];
 		end
 		else if (B_WIDTH > `DSP_B_MAXWIDTH) begin
@@ -217,11 +217,12 @@ module _80_mul (A, B, Y);
 					// Rewrite the following statement explicitly in order
 					//   to save on a call to 'opt_expr -fine' which would
 					//   optimise away the '<<' op and trim size of adder
-					wire [Y_WIDTH-1:0] shifted_sum = {partial[i], {i*(`DSP_B_MAXWIDTH_PARTIAL-sign_headroom){1'b0}}};
-					assign partial_sum[i] = {
-						partial_sum[i-1][i*(`DSP_B_MAXWIDTH_PARTIAL-sign_headroom)-1:0],
-						shifted_sum[Y_WIDTH-1:i*(`DSP_B_MAXWIDTH_PARTIAL-sign_headroom)] + partial_sum[i-1][Y_WIDTH-1:i*(`DSP_B_MAXWIDTH_PARTIAL-sign_headroom)]
-					};
+					//assign partial_sum[i] = (partial[i] << i*(`DSP_B_MAXWIDTH_PARTIAL-sign_headroom)) + partial_sum[i-1];
+					if (A_SIGNED && B_SIGNED)
+						assign partial_sum[i][Y_WIDTH-1:i*(`DSP_B_MAXWIDTH_PARTIAL-sign_headroom)] = partial[i] + $signed(partial_sum[i-1][Y_WIDTH-1:i*(`DSP_B_MAXWIDTH_PARTIAL-sign_headroom)]);
+					else
+						assign partial_sum[i][Y_WIDTH-1:i*(`DSP_B_MAXWIDTH_PARTIAL-sign_headroom)] = partial[i] + partial_sum[i-1][Y_WIDTH-1:i*(`DSP_B_MAXWIDTH_PARTIAL-sign_headroom)];
+					assign partial_sum[i][i*(`DSP_B_MAXWIDTH_PARTIAL-sign_headroom)-1:0] = partial_sum[i-1][i*(`DSP_B_MAXWIDTH_PARTIAL-sign_headroom)-1:0];
 				end
 			end
 
@@ -237,11 +238,11 @@ module _80_mul (A, B, Y);
 				.Y(last_partial)
 			);
 			//assign partial_sum[n] = (last_partial << n*(`DSP_B_MAXWIDTH_PARTIAL-sign_headroom)) + partial_sum[n-1];
-			wire [Y_WIDTH-1:0] shifted_sum = {last_partial, {n*(`DSP_B_MAXWIDTH_PARTIAL-sign_headroom){1'b0}}};
-			assign partial_sum[n] = {
-				partial_sum[n-1][n*(`DSP_B_MAXWIDTH_PARTIAL-sign_headroom)-1:0],
-				shifted_sum[Y_WIDTH-1:n*(`DSP_B_MAXWIDTH_PARTIAL-sign_headroom)] + partial_sum[n-1][Y_WIDTH-1:n*(`DSP_B_MAXWIDTH_PARTIAL-sign_headroom)]
-			};
+			if (A_SIGNED && B_SIGNED)
+				assign partial_sum[n][Y_WIDTH-1:n*(`DSP_B_MAXWIDTH_PARTIAL-sign_headroom)] = last_partial + partial_sum[n-1][Y_WIDTH-1:n*(`DSP_B_MAXWIDTH_PARTIAL-sign_headroom)];
+			else
+				assign partial_sum[n][Y_WIDTH-1:n*(`DSP_B_MAXWIDTH_PARTIAL-sign_headroom)] = last_partial + $signed(partial_sum[n-1][Y_WIDTH-1:n*(`DSP_B_MAXWIDTH_PARTIAL-sign_headroom)]);
+			assign partial_sum[n][n*(`DSP_B_MAXWIDTH_PARTIAL-sign_headroom)-1:0] = partial_sum[n-1][n*(`DSP_B_MAXWIDTH_PARTIAL-sign_headroom)-1:0];
 			assign Y = partial_sum[n];
 		end
 		else begin
