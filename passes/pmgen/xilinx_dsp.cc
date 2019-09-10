@@ -80,13 +80,15 @@ void pack_xilinx_simd(Module *module, const std::vector<Cell*> &selected_cells)
 				continue;
 			simd12.push_back(cell);
 		}
-		else {
+		else if (GetSize(Y) <= 25) {
 			if (GetSize(A) > 24)
 				continue;
 			if (GetSize(B) > 24)
 				continue;
 			simd24.push_back(cell);
 		}
+		else
+			log_abort();
 	}
 
 	SigSpec AB;
@@ -174,6 +176,62 @@ void pack_xilinx_simd(Module *module, const std::vector<Cell*> &selected_cells)
 		module->remove(lane2);
 		if (lane3) module->remove(lane3);
 		if (lane4) module->remove(lane4);
+
+		module->design->select(module, cell);
+	}
+
+	auto f24 = [&AB,&C,&P,&CARRYOUT,module](Cell *lane) {
+		SigSpec A = lane->getPort("\\A");
+		SigSpec B = lane->getPort("\\B");
+		SigSpec Y = lane->getPort("\\Y");
+		A.extend_u0(24, lane->getParam("\\A_SIGNED").as_bool());
+		B.extend_u0(24, lane->getParam("\\B_SIGNED").as_bool());
+		AB.append(A);
+		C.append(B);
+		if (GetSize(Y) < 25)
+			Y.append(module->addWire(NEW_ID, 25-GetSize(Y)));
+		else
+			log_assert(GetSize(Y) == 25);
+		P.append(Y.extract(0, 24));
+		CARRYOUT.append(module->addWire(NEW_ID)); // TWO24 uses every other bit
+		CARRYOUT.append(Y[24]);
+	};
+	while (simd24.size() > 1) {
+		AB = SigSpec();
+		C = SigSpec();
+		P = SigSpec();
+		CARRYOUT = SigSpec();
+
+		Cell *lane1 = simd24.front();
+		simd24.pop_front();
+		Cell *lane2 = simd24.front();
+		simd24.pop_front();
+
+		log("Analysing %s.%s for Xilinx DSP SIMD24 packing.\n", log_id(module), log_id(lane1));
+
+		Cell *cell = addDsp(module);
+		cell->setParam("\\USE_SIMD", Const("TWO24"));
+		// X = A:B
+		// Y = 0
+		// Z = C
+		cell->setPort("\\OPMODE", Const::from_string("0110011"));
+
+		log_assert(lane1);
+		log_assert(lane2);
+		f24(lane1);
+		f24(lane2);
+		log_assert(GetSize(AB) == 48);
+		log_assert(GetSize(C) == 48);
+		log_assert(GetSize(P) == 48);
+		log_assert(GetSize(CARRYOUT) == 4);
+		cell->setPort("\\A", AB.extract(18, 30));
+		cell->setPort("\\B", AB.extract(0, 18));
+		cell->setPort("\\C", C);
+		cell->setPort("\\P", P);
+		cell->setPort("\\CARRYOUT", CARRYOUT);
+
+		module->remove(lane1);
+		module->remove(lane2);
 
 		module->design->select(module, cell);
 	}
