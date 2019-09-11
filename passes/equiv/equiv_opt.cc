@@ -46,6 +46,9 @@ struct EquivOptPass:public ScriptPass
 		log("    -assert\n");
 		log("        produce an error if the circuits are not equivalent.\n");
 		log("\n");
+		log("    -multiclock\n");
+		log("        run clk2fflogic before equivalence checking.\n");
+		log("\n");
 		log("    -undef\n");
 		log("        enable modelling of undef states during equiv_induct.\n");
 		log("\n");
@@ -55,7 +58,7 @@ struct EquivOptPass:public ScriptPass
 	}
 
 	std::string command, techmap_opts;
-	bool assert, undef;
+	bool assert, undef, multiclock;
 
 	void clear_flags() YS_OVERRIDE
 	{
@@ -63,6 +66,7 @@ struct EquivOptPass:public ScriptPass
 		techmap_opts = "";
 		assert = false;
 		undef = false;
+		multiclock = false;
 	}
 
 	void execute(std::vector < std::string > args, RTLIL::Design * design) YS_OVERRIDE
@@ -90,6 +94,10 @@ struct EquivOptPass:public ScriptPass
 			}
 			if (args[argidx] == "-undef") {
 				undef = true;
+				continue;
+			}
+			if (args[argidx] == "-multiclock") {
+				multiclock = true;
 				continue;
 			}
 			break;
@@ -146,6 +154,8 @@ struct EquivOptPass:public ScriptPass
 		}
 
 		if (check_label("prove")) {
+			if (multiclock || help_mode)
+				run("clk2fflogic", "(only with -multiclock)");
 			run("equiv_make gold gate equiv");
 			if (help_mode)
 				run("equiv_induct [-undef] equiv");
