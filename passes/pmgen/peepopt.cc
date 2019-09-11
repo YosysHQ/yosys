@@ -60,7 +60,7 @@ struct PeepoptPass : public Pass {
 				peepopt_pm pm(module, module->selected_cells());
 				pm.run_shiftmul();
 				pm.run_muldiv();
-				pm.run_dffmuxext();
+				pm.run_dffmux();
 			}
 		}
 	}

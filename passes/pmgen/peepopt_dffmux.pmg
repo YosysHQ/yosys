@@ -1,0 +1,89 @@
+pattern dffmux
+
+state <IdString> muxAB
+
+match dff
+	select dff->type == $dff
+	select GetSize(port(dff, \D)) > 1
+endmatch
+
+match mux
+	select mux->type == $mux
+	select GetSize(port(mux, \Y)) > 1
+	choice <IdString> AB {\A, \B}
+	//select port(mux, AB)[GetSize(port(mux, \Y))-1].wire
+	index <SigSpec> port(mux, \Y) === port(dff, \D)
+	define <IdString> BA (AB == \A ? \B : \A)
+	index <SigSpec> port(mux, BA) === port(dff, \Q)
+	set muxAB AB
+endmatch
+
+code
+	SigSpec &D = mux->connections_.at(muxAB);
+	SigSpec &Q = dff->connections_.at(\Q);
+	int width = GetSize(D);
+
+	SigSpec AB = port(mux, muxAB);
+	if (AB[width-1] == AB[width-2]) {
+		did_something = true;
+
+		SigBit sign = D[width-1];
+		bool is_signed = sign.wire;
+		int i;
+		for (i = width-1; i >= 2; i--) {
+			if (!is_signed) {
+				module->connect(Q[i], sign);
+				if (D[i-1] != sign)
+					break;
+			}
+			else {
+				module->connect(Q[i], Q[i-1]);
+				if (D[i-2] != sign)
+					break;
+			}
+		}
+
+		mux->connections_.at(\A).remove(i, width-i);
+		mux->connections_.at(\B).remove(i, width-i);
+		mux->connections_.at(\Y).remove(i, width-i);
+		mux->fixup_parameters();
+		dff->connections_.at(\D).remove(i, width-i);
+		dff->connections_.at(\Q).remove(i, width-i);
+		dff->fixup_parameters();
+
+		log("dffmux pattern in %s: dff=%s, mux=%s; removed top %d bits.\n", log_id(module), log_id(dff), log_id(mux), width-i);
+		accept;
+	}
+	else {
+		int count = 0;
+		for (int i = width-1; i >= 0; i--) {
+			if (AB[i].wire)
+				continue;
+			Wire *w = Q[i].wire;
+			auto it = w->attributes.find(\init);
+			State init;
+			if (it != w->attributes.end())
+				init = it->second[Q[i].offset];
+			else
+				init = State::Sx;
+
+			if (init == State::Sx || init == AB[i].data) {
+				count++;
+				module->connect(Q[i], AB[i]);
+				mux->connections_.at(\A).remove(i);
+				mux->connections_.at(\B).remove(i);
+				mux->connections_.at(\Y).remove(i);
+				dff->connections_.at(\D).remove(i);
+				dff->connections_.at(\Q).remove(i);
+			}
+		}
+		if (count > 0) {
+			did_something = true;
+			mux->fixup_parameters();
+			dff->fixup_parameters();
+		}
+
+		log("dffmux pattern in %s: dff=%s, mux=%s; removed %d constant bits.\n", log_id(module), log_id(dff), log_id(mux), count);
+		accept;
+	}
+endcode
