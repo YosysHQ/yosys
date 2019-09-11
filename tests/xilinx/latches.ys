@@ -15,5 +15,6 @@ flatten
 cd top
 select -assert-count 1 t:LUT1
 select -assert-count 2 t:LUT3
+#Xilinx Vivado synthesizes LDCE cell for this case. Need support it.
 select -assert-count 3 t:$_DLATCH_P_
 select -assert-none t:LUT1 t:LUT3 t:$_DLATCH_P_ %% t:* %D

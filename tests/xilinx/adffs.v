@@ -22,30 +22,26 @@ module adffn
             q <= d;
 endmodule
 
-module dffsr
+module dffs
     ( input d, clk, pre, clr, output reg q );
     initial begin
       q = 0;
     end
-	always @( posedge clk, posedge pre, posedge clr )
-		if ( clr )
-			q <= 1'b0;
-		else if ( pre )
+	always @( posedge clk )
+		if ( pre )
 			q <= 1'b1;
 		else
             q <= d;
 endmodule
 
-module ndffnsnr
+module ndffnr
     ( input d, clk, pre, clr, output reg q );
     initial begin
       q = 0;
     end
-	always @( negedge clk, negedge pre, negedge clr )
+	always @( negedge clk )
 		if ( !clr )
 			q <= 1'b0;
-		else if ( !pre )
-			q <= 1'b1;
 		else
             q <= d;
 endmodule
@@ -58,7 +54,7 @@ input a,
 output b,b1,b2,b3
 );
 
-dffsr u_dffsr (
+dffs u_dffs (
         .clk (clk ),
         .clr (clr),
         .pre (pre),
@@ -66,7 +62,7 @@ dffsr u_dffsr (
         .q (b )
     );
 
-ndffnsnr u_ndffnsnr (
+ndffnr u_ndffnr (
         .clk (clk ),
         .clr (clr),
         .pre (pre),
