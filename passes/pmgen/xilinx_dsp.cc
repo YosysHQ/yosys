@@ -269,7 +269,8 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 	log("ffDmux:     %s\n", log_id(st.ffDmux, "--"));
 	log("dsp:        %s\n", log_id(st.dsp, "--"));
 	log("ffM:        %s\n", log_id(st.ffM, "--"));
-	log("ffMmux:     %s\n", log_id(st.ffMmux, "--"));
+	log("ffMcemux:   %s\n", log_id(st.ffMcemux, "--"));
+	log("ffMrstmux:  %s\n", log_id(st.ffMrstmux, "--"));
 	log("postAdd:    %s\n", log_id(st.postAdd, "--"));
 	log("postAddMux: %s\n", log_id(st.postAddMux, "--"));
 	log("ffP:        %s\n", log_id(st.ffP, "--"));
@@ -417,38 +418,48 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 			cell->setParam("\\DREG", 1);
 		}
 		if (st.ffM) {
-			if (st.ffMmux) {
-				SigSpec S = st.ffMmux->getPort("\\S");
+			if (st.ffMrstmux) {
+				SigSpec S = st.ffMrstmux->getPort("\\S");
+				cell->setPort("\\RSTM", st.ffMrstpol ? S : pm.module->Not(NEW_ID, S));
+			}
+			else
+				cell->setPort("\\RSTM", State::S0);
+			if (st.ffMcemux) {
+				SigSpec S = st.ffMcemux->getPort("\\S");
 				cell->setPort("\\CEM", st.ffMcepol ? S : pm.module->Not(NEW_ID, S));
-				pm.autoremove(st.ffMmux);
 			}
 			else
 				cell->setPort("\\CEM", State::S1);
 			SigSpec D = st.ffM->getPort("\\D");
 			SigSpec Q = st.ffM->getPort("\\Q");
-			P.replace(pm.sigmap(D), Q);
+			st.ffM->connections_.at("\\Q").replace(st.sigM, pm.module->addWire(NEW_ID, GetSize(st.sigM)));
+
+			for (auto c : Q.chunks()) {
+				auto it = c.wire->attributes.find("\\init");
+				if (it == c.wire->attributes.end())
+					continue;
+				for (int i = c.offset; i < c.offset+c.width; i++) {
+					log_assert(it->second[i] == State::S0 || it->second[i] == State::Sx);
+					it->second[i] = State::Sx;
+				}
+			}
 
 			cell->setParam("\\MREG", State::S1);
-			pm.autoremove(st.ffM);
 		}
 		if (st.ffP) {
 			if (st.ffPrstmux) {
 				SigSpec S = st.ffPrstmux->getPort("\\S");
 				cell->setPort("\\RSTP", st.ffPrstpol ? S : pm.module->Not(NEW_ID, S));
-				st.ffPrstmux->connections_.at("\\Y").replace(P, pm.module->addWire(NEW_ID, GetSize(P)));
 			}
 			else
 				cell->setPort("\\RSTP", State::S0);
 			if (st.ffPcemux) {
 				SigSpec S = st.ffPcemux->getPort("\\S");
 				cell->setPort("\\CEP", st.ffPcepol ? S : pm.module->Not(NEW_ID, S));
-				st.ffPcemux->connections_.at("\\Y").replace(P, pm.module->addWire(NEW_ID, GetSize(P)));
 			}
 			else
 				cell->setPort("\\CEP", State::S1);
-			SigSpec D = st.ffP->getPort("\\D");
 			SigSpec Q = st.ffP->getPort("\\Q");
-			P.replace(pm.sigmap(D), Q);
 			st.ffP->connections_.at("\\Q").replace(P, pm.module->addWire(NEW_ID, GetSize(P)));
 
 			for (auto c : Q.chunks()) {
