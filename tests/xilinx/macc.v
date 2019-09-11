@@ -35,7 +35,39 @@ always @(posedge clk)
 		adder_out <= old_result + mult_reg;
 	end
 
-	// Output accumulation result
-	assign accum_out = adder_out;
+// Output accumulation result
+assign accum_out = adder_out;
+
+endmodule
+
+// Adapted variant of above
+module macc2 # (parameter SIZEIN = 16, SIZEOUT = 40) (
+	input clk, ce, rst,
+	input signed [SIZEIN-1:0] a, b,
+	output signed [SIZEOUT-1:0] accum_out
+);
+// Declare registers for intermediate values
+reg signed [SIZEIN-1:0] a_reg, b_reg;
+reg rst_reg;
+reg signed [2*SIZEIN-1:0] mult_reg;
+reg signed [SIZEOUT-1:0] adder_out, old_result;
+always @(posedge clk) begin
+	if (ce)
+	begin
+		a_reg <= a;
+		b_reg <= b;
+		mult_reg <= a_reg * b_reg;
+		rst_reg <= rst;
+		// Store accumulation result into a register
+		adder_out <= adder_out + mult_reg;
+	end
+    if (rst) begin
+		mult_reg <= 0;
+		adder_out <= 0;
+    end
+end
+
+// Output accumulation result
+assign accum_out = adder_out;
 
 endmodule
