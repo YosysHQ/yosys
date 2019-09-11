@@ -451,6 +451,16 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 			P.replace(pm.sigmap(D), Q);
 			st.ffP->connections_.at("\\Q").replace(P, pm.module->addWire(NEW_ID, GetSize(P)));
 
+			for (auto c : Q.chunks()) {
+				auto it = c.wire->attributes.find("\\init");
+				if (it == c.wire->attributes.end())
+					continue;
+				for (int i = c.offset; i < c.offset+c.width; i++) {
+					log_assert(it->second[i] == State::S0 || it->second[i] == State::Sx);
+					it->second[i] = State::Sx;
+				}
+			}
+
 			cell->setParam("\\PREG", State::S1);
 		}
 

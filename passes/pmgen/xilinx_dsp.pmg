@@ -290,8 +290,8 @@ endmatch
 
 code argQ
 	if (ff) {
-		for (auto b : argQ)
-			if (b.wire->get_bool_attribute(\keep))
+		for (auto c : argQ.chunks())
+			if (c.wire->get_bool_attribute(\keep))
 				reject;
 
 		if (clock != SigBit()) {
@@ -447,9 +447,13 @@ code
 	if (dff) {
 		dffQ = port(dff, \Q);
 
-		for (auto b : dffQ)
-			if (b.wire->get_bool_attribute(\keep))
+		for (auto c : dffQ.chunks()) {
+			if (c.wire->get_bool_attribute(\keep))
 				reject;
+			Const init = c.wire->attributes.at(\init, State::Sx);
+			if (!init.is_fully_undef() && !init.is_fully_zero())
+				reject;
+		}
 
 		if (clock != SigBit()) {
 			if (port(dff, \CLK) != clock)
