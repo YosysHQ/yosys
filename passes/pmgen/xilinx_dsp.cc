@@ -297,7 +297,7 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 		if (st.ffAD) {
 			if (st.ffADmux) {
 				SigSpec S = st.ffADmux->getPort("\\S");
-				cell->setPort("\\CEAD", st.ffADenpol ? S : pm.module->Not(NEW_ID, S));
+				cell->setPort("\\CEAD", st.ffADcepol ? S : pm.module->Not(NEW_ID, S));
 			}
 			else
 				cell->setPort("\\CEAD", State::S1);
@@ -346,10 +346,10 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 			A.replace(Q, D);
 			if (st.ffAmux) {
 				SigSpec Y = st.ffAmux->getPort("\\Y");
-				SigSpec AB = st.ffAmux->getPort(st.ffAenpol ? "\\B" : "\\A");
+				SigSpec AB = st.ffAmux->getPort(st.ffAcepol ? "\\B" : "\\A");
 				SigSpec S = st.ffAmux->getPort("\\S");
 				A.replace(Y, AB);
-				cell->setPort("\\CEA2", st.ffAenpol ? S : pm.module->Not(NEW_ID, S));
+				cell->setPort("\\CEA2", st.ffAcepol ? S : pm.module->Not(NEW_ID, S));
 			}
 			else
 				cell->setPort("\\CEA2", State::S1);
@@ -364,10 +364,10 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 			B.replace(Q, D);
 			if (st.ffBmux) {
 				SigSpec Y = st.ffBmux->getPort("\\Y");
-				SigSpec AB = st.ffBmux->getPort(st.ffBenpol ? "\\B" : "\\A");
+				SigSpec AB = st.ffBmux->getPort(st.ffBcepol ? "\\B" : "\\A");
 				SigSpec S = st.ffBmux->getPort("\\S");
 				B.replace(Y, AB);
-				cell->setPort("\\CEB2", st.ffBenpol ? S : pm.module->Not(NEW_ID, S));
+				cell->setPort("\\CEB2", st.ffBcepol ? S : pm.module->Not(NEW_ID, S));
 			}
 			else
 				cell->setPort("\\CEB2", State::S1);
@@ -383,11 +383,11 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 
 			if (st.ffCmux) {
 				SigSpec Y = st.ffCmux->getPort("\\Y");
-				SigSpec AB = st.ffCmux->getPort(st.ffCenpol ? "\\B" : "\\A");
+				SigSpec AB = st.ffCmux->getPort(st.ffCcepol ? "\\B" : "\\A");
 				SigSpec S = st.ffCmux->getPort("\\S");
 				C.replace(Y, AB);
 
-				cell->setPort("\\CEC", st.ffCenpol ? S : pm.module->Not(NEW_ID, S));
+				cell->setPort("\\CEC", st.ffCcepol ? S : pm.module->Not(NEW_ID, S));
 			}
 			else
 				cell->setPort("\\CEC", State::S1);
@@ -403,11 +403,11 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 
 			if (st.ffDmux) {
 				SigSpec Y = st.ffDmux->getPort("\\Y");
-				SigSpec AB = st.ffDmux->getPort(st.ffDenpol ? "\\B" : "\\A");
+				SigSpec AB = st.ffDmux->getPort(st.ffDcepol ? "\\B" : "\\A");
 				SigSpec S = st.ffDmux->getPort("\\S");
 				D_.replace(Y, AB);
 
-				cell->setPort("\\CED", st.ffDenpol ? S : pm.module->Not(NEW_ID, S));
+				cell->setPort("\\CED", st.ffDcepol ? S : pm.module->Not(NEW_ID, S));
 			}
 			else
 				cell->setPort("\\CED", State::S1);
@@ -418,7 +418,7 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 		if (st.ffM) {
 			if (st.ffMmux) {
 				SigSpec S = st.ffMmux->getPort("\\S");
-				cell->setPort("\\CEM", st.ffMenpol ? S : pm.module->Not(NEW_ID, S));
+				cell->setPort("\\CEM", st.ffMcepol ? S : pm.module->Not(NEW_ID, S));
 				pm.autoremove(st.ffMmux);
 			}
 			else
@@ -433,7 +433,7 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 		if (st.ffP) {
 			if (st.ffPmux) {
 				SigSpec S = st.ffPmux->getPort("\\S");
-				cell->setPort("\\CEP", st.ffPenpol ? S : pm.module->Not(NEW_ID, S));
+				cell->setPort("\\CEP", st.ffPcepol ? S : pm.module->Not(NEW_ID, S));
 				st.ffPmux->connections_.at("\\Y").replace(P, pm.module->addWire(NEW_ID, GetSize(P)));
 			}
 			else
