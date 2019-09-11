@@ -272,7 +272,6 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 	log("Analysing %s.%s for Xilinx DSP packing.\n", log_id(pm.module), log_id(st.dsp));
 
 	Cell *cell = st.dsp;
-	bit_to_driver.insert(std::make_pair(cell->getPort("\\P")[17], cell));
 
 	if (st.preAdd) {
 		log("  preadder %s (%s)\n", log_id(st.preAdd), log_id(st.preAdd->type));
@@ -317,10 +316,10 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 		opmode[5] = State::S1;
 
 		if (opmode[4] != State::S0) {
-			if (st.postAddMuxAB == "\\A")
-				st.sigC.extend_u0(48, st.postAdd->getParam("\\B_SIGNED").as_bool());
-			else
-				st.sigC.extend_u0(48, st.postAdd->getParam("\\A_SIGNED").as_bool());
+			//if (st.postAddMuxAB == "\\A")
+			//	st.sigC.extend_u0(48, st.postAdd->getParam("\\B_SIGNED").as_bool());
+			//else
+			//	st.sigC.extend_u0(48, st.postAdd->getParam("\\A_SIGNED").as_bool());
 			cell->setPort("\\C", st.sigC);
 		}
 
@@ -436,6 +435,9 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 		P.append(pm.module->addWire(NEW_ID, 48-GetSize(P)));
 	cell->setPort("\\P", P);
 
+	bit_to_driver.insert(std::make_pair(P[0], cell));
+	bit_to_driver.insert(std::make_pair(P[17], cell));
+
 	pm.blacklist(cell);
 }
 
@@ -489,6 +491,7 @@ struct XilinxDspPass : public Pass {
 			auto f = [&bit_to_driver](xilinx_dsp_pm &pm){ pack_xilinx_dsp(bit_to_driver, pm); };
 			pm.run_xilinx_dsp(f);
 
+			auto &unextend = pm.ud_xilinx_dsp.unextend;
 			// Look for ability to convert C input from another DSP into PCIN
 			//   NB: Needs to be done after pattern matcher has folded all
 			//       $add cells into the DSP
@@ -500,22 +503,26 @@ struct XilinxDspPass : public Pass {
 				SigSpec &opmode = cell->connections_.at("\\OPMODE");
 				if (opmode.extract(4,3) != Const::from_string("011"))
 					continue;
-				SigSpec C = pm.sigmap(cell->getPort("\\C"));
-				if (C.has_const())
+				SigSpec C = unextend(pm.sigmap(cell->getPort("\\C")));
+				if (!C[0].wire)
 					continue;
 				auto it = bit_to_driver.find(C[0]);
 				if (it == bit_to_driver.end())
 					continue;
 				auto driver = it->second;
 
-				// Unextend C
-				int i;
-				for (i = GetSize(C)-1; i > 0; i--)
-					if (C[i] != C[i-1])
-						break;
-				if (i > 48-17)
-					continue;
-				if (driver->getPort("\\P").extract(17, i) == C.extract(0, i)) {
+				SigSpec P = driver->getPort("\\P");
+				if (GetSize(P) >= GetSize(C) && P.extract(0, GetSize(C)) == C) {
+					cell->setPort("\\C", Const(0, 48));
+					Wire *cascade = module->addWire(NEW_ID, 48);
+					driver->setPort("\\PCOUT", cascade);
+					cell->setPort("\\PCIN", cascade);
+					opmode[6] = State::S0;
+					opmode[5] = State::S0;
+					opmode[4] = State::S1;
+					bit_to_driver.erase(it);
+				}
+				else if (GetSize(P) >= GetSize(C)+17 && P.extract(17, GetSize(C)) == C) {
 					cell->setPort("\\C", Const(0, 48));
 					Wire *cascade = module->addWire(NEW_ID, 48);
 					driver->setPort("\\PCOUT", cascade);
