@@ -369,30 +369,38 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 		};
 
 		if (st.ffA) {
-			f(cell->connections_.at("\\A"), st.ffA, st.ffAcemux, st.ffAcepol, "\\CEA2", st.ffArstmux, st.ffArstpol, "\\RSTA");
+			SigSpec &A = cell->connections_.at("\\A");
+			f(A, st.ffA, st.ffAcemux, st.ffAcepol, "\\CEA2", st.ffArstmux, st.ffArstpol, "\\RSTA");
+			pm.add_siguser(A, cell);
 			cell->setParam("\\AREG", 1);
 		}
 		if (st.ffB) {
-			f(cell->connections_.at("\\B"), st.ffB, st.ffBcemux, st.ffBcepol, "\\CEB2", st.ffBrstmux, st.ffBrstpol, "\\RSTB");
+			SigSpec &B = cell->connections_.at("\\B");
+			f(B, st.ffB, st.ffBcemux, st.ffBcepol, "\\CEB2", st.ffBrstmux, st.ffBrstpol, "\\RSTB");
+			pm.add_siguser(B, cell);
 			cell->setParam("\\BREG", 1);
 		}
 		if (st.ffC) {
-			f(cell->connections_.at("\\C"), st.ffC, st.ffCcemux, st.ffCcepol, "\\CEC", st.ffCrstmux, st.ffCrstpol, "\\RSTC");
+			SigSpec &C = cell->connections_.at("\\C");
+			f(C, st.ffC, st.ffCcemux, st.ffCcepol, "\\CEC", st.ffCrstmux, st.ffCrstpol, "\\RSTC");
+			pm.add_siguser(C, cell);
 			cell->setParam("\\CREG", 1);
 		}
 		if (st.ffD) {
-			f(cell->connections_.at("\\D"), st.ffD, st.ffDcemux, st.ffDcepol, "\\CED", st.ffDrstmux, st.ffDrstpol, "\\RSTD");
+			SigSpec &D = cell->connections_.at("\\D");
+			f(D, st.ffD, st.ffDcemux, st.ffDcepol, "\\CED", st.ffDrstmux, st.ffDrstpol, "\\RSTD");
+			pm.add_siguser(D, cell);
 			cell->setParam("\\DREG", 1);
 		}
 		if (st.ffM) {
-			SigSpec _;
-			f(_, st.ffM, st.ffMcemux, st.ffMcepol, "\\CEM", st.ffMrstmux, st.ffMrstpol, "\\RSTM");
+			SigSpec M; // unused
+			f(M, st.ffM, st.ffMcemux, st.ffMcepol, "\\CEM", st.ffMrstmux, st.ffMrstpol, "\\RSTM");
 			st.ffM->connections_.at("\\Q").replace(st.sigM, pm.module->addWire(NEW_ID, GetSize(st.sigM)));
 			cell->setParam("\\MREG", State::S1);
 		}
 		if (st.ffP) {
-			SigSpec _;
-			f(_, st.ffP, st.ffPcemux, st.ffPcepol, "\\CEP", st.ffPrstmux, st.ffPrstpol, "\\RSTP");
+			SigSpec P; // unused
+			f(P, st.ffP, st.ffPcemux, st.ffPcepol, "\\CEP", st.ffPrstmux, st.ffPrstpol, "\\RSTP");
 			st.ffP->connections_.at("\\Q").replace(st.sigP, pm.module->addWire(NEW_ID, GetSize(st.sigP)));
 			cell->setParam("\\PREG", State::S1);
 		}
