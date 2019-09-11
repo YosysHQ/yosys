@@ -1,16 +1,34 @@
 pattern dffmux
 
-state <IdString> cemuxAB
+state <IdString> cemuxAB rstmuxBA
+state <SigSpec> sigD
 
 match dff
 	select dff->type == $dff
 	select GetSize(port(dff, \D)) > 1
 endmatch
 
+match rstmux
+	select rstmux->type == $mux
+	select GetSize(port(rstmux, \Y)) > 1
+	index <SigSpec> port(rstmux, \Y) === port(dff, \D)
+	choice <IdString> BA {\B, \A}
+	select port(rstmux, BA).is_fully_const()
+	set rstmuxBA BA
+	optional
+endmatch
+
+code sigD
+	if (rstmux)
+		sigD = port(rstmux, rstmuxBA == \B ? \A : \B);
+	else
+		sigD = port(dff, \D);
+endcode
+
 match cemux
 	select cemux->type == $mux
 	select GetSize(port(cemux, \Y)) > 1
-	index <SigSpec> port(cemux, \Y) === port(dff, \D)
+	index <SigSpec> port(cemux, \Y) === sigD
 	choice <IdString> AB {\A, \B}
 	index <SigSpec> port(cemux, AB) === port(dff, \Q)
 	set cemuxAB AB
@@ -19,6 +37,9 @@ endmatch
 code
 	SigSpec &D = cemux->connections_.at(cemuxAB == \A ? \B : \A);
 	SigSpec &Q = dff->connections_.at(\Q);
+	Const rst;
+	if (rstmux)
+		rst = port(rstmux, rstmuxBA).as_const();
 	int width = GetSize(D);
 
 	if (D[width-1] == D[width-2]) {
@@ -30,12 +51,12 @@ code
 		for (i = width-1; i >= 2; i--) {
 			if (!is_signed) {
 				module->connect(Q[i], sign);
-				if (D[i-1] != sign)
+				if (D[i-1] != sign || (rst.size() && rst[i-1] != rst[width-1]))
 					break;
 			}
 			else {
 				module->connect(Q[i], Q[i-1]);
-				if (D[i-2] != sign)
+				if (D[i-2] != sign || (rst.size() && rst[i-1] != rst[width-1]))
 					break;
 			}
 		}

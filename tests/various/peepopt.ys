@@ -110,3 +110,42 @@ design -load postopt
 select -assert-count 1 t:$dff r:WIDTH=5 %i
 select -assert-count 1 t:$mux r:WIDTH=5 %i
 select -assert-count 0 t:$dff t:$mux %% t:* %D
+
+####################
+
+design -reset
+read_verilog <<EOT
+module peepopt_dffmuxext_unsigned_rst(input clk, ce, rst, input [1:0] i, output reg [3:0] o);
+    always @(posedge clk) if (rst) o <= 0; else if (ce) o <= i;
+endmodule
+EOT
+
+proc
+equiv_opt -assert peepopt
+design -load postopt
+wreduce
+select -assert-count 1 t:$dff r:WIDTH=2 %i
+select -assert-count 2 t:$mux
+select -assert-count 2 t:$mux r:WIDTH=2 %i
+select -assert-count 0 t:$dff t:$mux %% t:* %D
+
+####################
+
+design -reset
+read_verilog <<EOT
+module peepopt_dffmuxext_signed_rst(input clk, ce, rstn, input signed [1:0] i, output reg signed [3:0] o);
+    always @(posedge clk) begin
+        if (ce) o <= i;
+        if (!rstn) o <= 4'b1111;
+    end
+endmodule
+EOT
+
+proc
+equiv_opt -assert peepopt
+design -load postopt
+wreduce
+select -assert-count 1 t:$dff r:WIDTH=2 %i
+select -assert-count 2 t:$mux
+select -assert-count 2 t:$mux r:WIDTH=2 %i
+select -assert-count 0 t:$logic_not t:$dff t:$mux %% t:* %D
