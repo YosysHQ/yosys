@@ -1,30 +1,27 @@
 pattern dffmux
 
-state <IdString> muxAB
+state <IdString> cemuxAB
 
 match dff
 	select dff->type == $dff
 	select GetSize(port(dff, \D)) > 1
 endmatch
 
-match mux
-	select mux->type == $mux
-	select GetSize(port(mux, \Y)) > 1
+match cemux
+	select cemux->type == $mux
+	select GetSize(port(cemux, \Y)) > 1
+	index <SigSpec> port(cemux, \Y) === port(dff, \D)
 	choice <IdString> AB {\A, \B}
-	//select port(mux, AB)[GetSize(port(mux, \Y))-1].wire
-	index <SigSpec> port(mux, \Y) === port(dff, \D)
-	define <IdString> BA (AB == \A ? \B : \A)
-	index <SigSpec> port(mux, BA) === port(dff, \Q)
-	set muxAB AB
+	index <SigSpec> port(cemux, AB) === port(dff, \Q)
+	set cemuxAB AB
 endmatch
 
 code
-	SigSpec &D = mux->connections_.at(muxAB);
+	SigSpec &D = cemux->connections_.at(cemuxAB == \A ? \B : \A);
 	SigSpec &Q = dff->connections_.at(\Q);
 	int width = GetSize(D);
 
-	SigSpec AB = port(mux, muxAB);
-	if (AB[width-1] == AB[width-2]) {
+	if (D[width-1] == D[width-2]) {
 		did_something = true;
 
 		SigBit sign = D[width-1];
@@ -43,21 +40,21 @@ code
 			}
 		}
 
-		mux->connections_.at(\A).remove(i, width-i);
-		mux->connections_.at(\B).remove(i, width-i);
-		mux->connections_.at(\Y).remove(i, width-i);
-		mux->fixup_parameters();
+		cemux->connections_.at(\A).remove(i, width-i);
+		cemux->connections_.at(\B).remove(i, width-i);
+		cemux->connections_.at(\Y).remove(i, width-i);
+		cemux->fixup_parameters();
 		dff->connections_.at(\D).remove(i, width-i);
 		dff->connections_.at(\Q).remove(i, width-i);
 		dff->fixup_parameters();
 
-		log("dffmux pattern in %s: dff=%s, mux=%s; removed top %d bits.\n", log_id(module), log_id(dff), log_id(mux), width-i);
+		log("dffcemux pattern in %s: dff=%s, cemux=%s; removed top %d bits.\n", log_id(module), log_id(dff), log_id(cemux), width-i);
 		accept;
 	}
 	else {
 		int count = 0;
 		for (int i = width-1; i >= 0; i--) {
-			if (AB[i].wire)
+			if (D[i].wire)
 				continue;
 			Wire *w = Q[i].wire;
 			auto it = w->attributes.find(\init);
@@ -67,21 +64,21 @@ code
 			else
 				init = State::Sx;
 
-			if (init == State::Sx || init == AB[i].data) {
+			if (init == State::Sx || init == D[i].data) {
 				count++;
-				module->connect(Q[i], AB[i]);
-				mux->connections_.at(\A).remove(i);
-				mux->connections_.at(\B).remove(i);
-				mux->connections_.at(\Y).remove(i);
+				module->connect(Q[i], D[i]);
+				cemux->connections_.at(\A).remove(i);
+				cemux->connections_.at(\B).remove(i);
+				cemux->connections_.at(\Y).remove(i);
 				dff->connections_.at(\D).remove(i);
 				dff->connections_.at(\Q).remove(i);
 			}
 		}
 		if (count > 0) {
 			did_something = true;
-			mux->fixup_parameters();
+			cemux->fixup_parameters();
 			dff->fixup_parameters();
-			log("dffmux pattern in %s: dff=%s, mux=%s; removed %d constant bits.\n", log_id(module), log_id(dff), log_id(mux), count);
+			log("dffcemux pattern in %s: dff=%s, cemux=%s; removed %d constant bits.\n", log_id(module), log_id(dff), log_id(cemux), count);
 		}
 
 		accept;
