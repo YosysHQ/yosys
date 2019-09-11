@@ -438,7 +438,7 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 				st.ffPrstmux->connections_.at("\\Y").replace(P, pm.module->addWire(NEW_ID, GetSize(P)));
 			}
 			else
-				cell->setPort("\\RSTP", State::S1);
+				cell->setPort("\\RSTP", State::S0);
 			if (st.ffPcemux) {
 				SigSpec S = st.ffPcemux->getPort("\\S");
 				cell->setPort("\\CEP", st.ffPcepol ? S : pm.module->Not(NEW_ID, S));
