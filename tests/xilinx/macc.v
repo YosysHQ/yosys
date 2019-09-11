@@ -61,10 +61,12 @@ always @(posedge clk) begin
 		// Store accumulation result into a register
 		adder_out <= adder_out + mult_reg;
 	end
-    if (rst) begin
+	if (rst) begin
+		a_reg <= 0;
+		b_reg <= 0;
 		mult_reg <= 0;
 		adder_out <= 0;
-    end
+	end
 end
 
 // Output accumulation result
