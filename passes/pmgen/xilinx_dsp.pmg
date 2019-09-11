@@ -7,12 +7,12 @@ state <IdString> postAddAB postAddMuxAB
 state <bool> ffAenpol ffADenpol ffBenpol ffCenpol ffDenpol ffMenpol ffPenpol
 state <int> ffPoffset
 
-state <Cell*> ffAD ffADmux ffA ffAmux ffB ffBmux ffC ffCmux ffD ffDmux
+state <Cell*> ffAD ffADmux ffA ffAmux ffB ffBmux ffC ffCmux ffD ffDmux ffM ffMmux ffP ffPmux
 
 // subpattern
-state <SigSpec> argQ
+state <SigSpec> argQ argD
 state <bool> ffenpol
-udata <SigSpec> dffD
+udata <SigSpec> dffD dffQ
 udata <SigBit> dffclock
 udata <Cell*> dff dffmux
 udata <bool> dffenpol
@@ -159,76 +159,20 @@ code argQ ffD ffDmux ffDenpol sigD clock
 	}
 endcode
 
-match ffMmux
-	if param(dsp, \MREG).as_int() == 0
-	if dsp->parameters.at(\USE_MULT, Const("MULTIPLY")).decode_string() == "MULTIPLY"
-	if nusers(sigM) == 2
-	select ffMmux->type.in($mux)
-	choice <IdString> BA {\B, \A}
-	// new-value net must have exactly two users: dsp and ffMmux
-	select nusers(port(ffMmux, BA)) == 2
-	define <IdString> AB (BA == \B ? \A : \B)
-	// keep-last-value net must have at least three users: ffMmux, ffM, downstream sink(s)
-	select nusers(port(ffMmux, AB)) >= 3
-	// ffMmux output must have two users: ffMmux and ffM.D
-	select nusers(port(ffMmux, \Y)) == 2
-	filter GetSize(unextend(port(ffMmux, BA))) <= GetSize(sigM)
-	filter unextend(port(ffMmux, BA)) == sigM.extract(0, GetSize(unextend(port(ffMmux, BA))))
-	// Remaining bits on sigM must not have any other users
-	filter nusers(sigM.extract_end(GetSize(unextend(port(ffMmux, BA))))) <= 1
-	define <bool> pol (AB == \A)
-	set ffMenpol pol
-	optional
-endmatch
-
-code sigM
-	if (ffMmux)
-		sigM = port(ffMmux, \Y);
-endcode
-
-match ffM_enable
-	if ffMmux
-	if nusers(sigM) == 2
-	select ffM_enable->type.in($dff)
-	// DSP48E1 does not support clock inversion
-	select param(ffM_enable, \CLK_POLARITY).as_bool()
-	index <SigSpec> port(ffM_enable, \D) === sigM
-	index <SigSpec> port(ffM_enable, \Q) === port(ffMmux, ffMenpol ? \A : \B)
-endmatch
-
-match ffM
-	if dsp->parameters.at(\USE_MULT, Const("MULTIPLY")).decode_string() == "MULTIPLY"
-	if !ffM_enable
-	if param(dsp, \MREG).as_int() == 0
-	if nusers(sigM) == 2
-	select ffM->type.in($dff)
-	// DSP48E1 does not support clock inversion
-	select param(ffM, \CLK_POLARITY).as_bool()
-	index <SigSpec> port(ffM, \D) === sigM
-	optional
-endmatch
-
-code ffM clock sigM sigP
-	if (ffM_enable) {
-		log_assert(!ffM);
-		ffM = ffM_enable;
+code argD ffM ffMmux ffMenpol sigM sigP clock
+	if (param(dsp, \MREG).as_int() == 0 && nusers(sigM) == 2) {
+		argD = sigM;
+		subpattern(out_dffe);
+		if (dff) {
+			ffM = dff;
+			clock = dffclock;
+			if (dffmux) {
+				ffMmux = dffmux;
+				ffMenpol = dffenpol;
+			}
+			sigM = dffQ;
+		}
 	}
-	if (ffM) {
-		sigM = port(ffM, \Q);
-
-		for (auto b : sigM)
-			if (b.wire->get_bool_attribute(\keep))
-				reject;
-
-		SigBit c = port(ffM, \CLK).as_bit();
-		if (clock != SigBit() && c != clock)
-			reject;
-		clock = c;
-	}
-	// No enable mux possible without flop
-	else if (ffMmux)
-		reject;
-
 	sigP = sigM;
 endcode
 
@@ -268,90 +212,25 @@ code sigC sigP
 	}
 endcode
 
-match ffPmux
-	if param(dsp, \PREG).as_int() == 0
-	// If ffMmux and no postAdd new-value net must have exactly three users: ffMmux, ffM and ffPmux
-	if !ffMmux || postAdd || nusers(sigP) == 3
-	// Otherwise new-value net must have exactly two users: dsp and ffPmux
-	if (ffMmux && !postAdd) || nusers(sigP) == 2
-
-	select ffPmux->type.in($mux)
-	// ffPmux output must have two users: ffPmux and ffP.D
-	select nusers(port(ffPmux, \Y)) == 2
-	filter GetSize(port(ffPmux, \Y)) >= GetSize(sigP)
-
-	slice offset GetSize(port(ffPmux, \Y))
-	filter offset+GetSize(sigP) <= GetSize(port(ffPmux, \Y))
-	choice <IdString> BA {\B, \A}
-	filter port(ffPmux, BA).extract(offset, GetSize(sigP)) == sigP
-
-	define <IdString> AB (BA == \B ? \A : \B)
-	// keep-last-value net must have at least three users: ffPmux, ffP, downstream sink(s)
-	filter nusers(port(ffPmux, AB)) >= 3
-	define <bool> pol (AB == \A)
-	set ffPenpol pol
-	set ffPoffset offset
-	optional
-endmatch
-
-code sigP
-	if (ffPmux)
-		sigP.replace(port(ffPmux, ffPenpol ? \B : \A), port(ffPmux, \Y));
-endcode
-
-match ffP_enable
-	if ffPmux
-	if nusers(sigP) == 2
-	select ffP_enable->type.in($dff)
-	// DSP48E1 does not support clock inversion
-	select param(ffP_enable, \CLK_POLARITY).as_bool()
-	index <SigSpec> port(ffP_enable, \D) === port(ffPmux, \Y)
-	index <SigSpec> port(ffP_enable, \Q) === port(ffPmux, ffPenpol ? \A : \B)
-	filter GetSize(port(ffP_enable, \D)) >= GetSize(sigP)
-	filter ffPoffset+GetSize(sigP) <= GetSize(port(ffP_enable, \D))
-	filter port(ffP_enable, \D).extract(ffPoffset, GetSize(sigP)) == sigP
-endmatch
-
-match ffP
-	if !ffP_enable
-	if param(dsp, \PREG).as_int() == 0
-	// If ffMmux and no postAdd new-value net must have exactly three users: ffMmux, ffM and ffPmux
-	if !ffMmux || postAdd || nusers(sigP) == 3
-	// Otherwise new-value net must have exactly two users: dsp and ffPmux
-	if (ffMmux && !postAdd) || nusers(sigP) == 2
-
-	select ffP->type.in($dff)
-	// DSP48E1 does not support clock inversion
-	select param(ffP, \CLK_POLARITY).as_bool()
-	filter GetSize(port(ffP, \D)) >= GetSize(sigP)
-	slice offset GetSize(port(ffP, \D))
-	filter offset+GetSize(sigP) <= GetSize(port(ffP, \D))
-	filter port(ffP, \D).extract(offset, GetSize(sigP)) == sigP
-	optional
-endmatch
-
-code ffP sigP clock
-	if (ffP_enable) {
-		log_assert(!ffP);
-		ffP = ffP_enable;
+code argD ffP ffPmux ffPenpol sigP clock
+	if (param(dsp, \PREG).as_int() == 0) {
+		// If ffMmux and no postAdd new-value net must have exactly three users: ffMmux, ffM and ffPmux
+		if ((ffMmux && !postAdd && nusers(sigP) == 3) ||
+				// Otherwise new-value net must have exactly two users: dsp and ffPmux
+				((!ffMmux || postAdd) && nusers(sigP) == 2)) {
+			argD = sigP;
+			subpattern(out_dffe);
+			if (dff) {
+				ffP = dff;
+				clock = dffclock;
+				if (dffmux) {
+					ffPmux = dffmux;
+					ffPenpol = dffenpol;
+				}
+				sigP = dffQ;
+			}
+		}
 	}
-	if (ffP) {
-		for (auto b : port(ffP, \Q))
-			if (b.wire->get_bool_attribute(\keep))
-				reject;
-
-		SigBit c = port(ffP, \CLK).as_bit();
-
-		if (clock != SigBit() && c != clock)
-			reject;
-
-		clock = c;
-
-		sigP.replace(port(ffP, \D), port(ffP, \Q));
-	}
-	// No enable mux possible without flop
-	else if (ffPmux)
-		reject;
 endcode
 
 match postAddMux
@@ -390,6 +269,8 @@ endcode
 code
 	accept;
 endcode
+
+// #######################
 
 subpattern in_dffe
 arg argQ clock ffenpol
@@ -456,4 +337,90 @@ code
 	}
 	else
 		dffmux = nullptr;
+endcode
+
+// #######################
+
+subpattern out_dffe
+arg argD clock ffenpol
+arg unextend
+
+match ffmux
+	select ffmux->type.in($mux)
+	// ffmux output must have two users: ffmux and ff.D
+	select nusers(port(ffmux, \Y)) == 2
+	filter GetSize(port(ffmux, \Y)) >= GetSize(argD)
+
+	choice <IdString> BA {\B, \A}
+	// new-value net must have exactly two users: (upstream) and ffmux
+	select nusers(port(ffmux, BA)) == 2
+
+	slice offset GetSize(port(ffmux, \Y))
+	filter offset+GetSize(argD) <= GetSize(port(ffmux, \Y))
+	filter port(ffmux, BA).extract(offset, GetSize(argD)) == argD
+
+	define <IdString> AB (BA == \B ? \A : \B)
+	// keep-last-value net must have at least three users: ffmux, ff, downstream sink(s)
+	select nusers(port(ffmux, AB)) >= 3
+
+	filter GetSize(unextend(port(ffmux, BA))) <= GetSize(argD)
+	filter unextend(port(ffmux, BA)) == argD.extract(0, GetSize(unextend(port(ffmux, BA))))
+	// Remaining bits on argD must not have any other users
+	filter nusers(argD.extract_end(GetSize(unextend(port(ffmux, BA))))) <= 1
+
+	define <bool> pol (AB == \A)
+	set ffenpol pol
+	semioptional
+endmatch
+
+code argD
+	if (ffmux) {
+		dffmux = ffmux;
+		dffenpol = ffenpol;
+		argD = port(ffmux, \Y);
+	}
+	else
+		dffmux = nullptr;
+endcode
+
+match ff_enable
+	if ffmux
+	select ff_enable->type.in($dff)
+	// DSP48E1 does not support clock inversion
+	select param(ff_enable, \CLK_POLARITY).as_bool()
+	index <SigSpec> port(ff_enable, \D) === argD
+	index <SigSpec> port(ff_enable, \Q) === port(ffmux, ffenpol ? \A : \B)
+endmatch
+
+match ff
+	if !ff_enable
+	select ff->type.in($dff)
+	// DSP48E1 does not support clock inversion
+	select param(ff, \CLK_POLARITY).as_bool()
+	index <SigSpec> port(ff, \D) === argD
+	semioptional
+endmatch
+
+code
+	if (ff_enable)
+		dff = ff_enable;
+	else
+		dff = ff;
+	log_dump("ffM", dff, dffmux);
+	if (dff) {
+		dffQ = port(dff, \Q);
+
+		for (auto b : dffQ)
+			if (b.wire->get_bool_attribute(\keep))
+				reject;
+
+		if (clock != SigBit()) {
+			if (port(dff, \CLK) != clock)
+				reject;
+		}
+		dffclock = port(dff, \CLK);
+	}
+	// No enable mux possible without flop
+	else if (ffmux)
+		reject;
 endcode
