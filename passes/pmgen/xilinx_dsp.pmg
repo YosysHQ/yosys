@@ -4,19 +4,18 @@ state <std::function<SigSpec(const SigSpec&)>> unextend
 state <SigBit> clock
 state <SigSpec> sigA sigffAmuxY sigB sigffBmuxY sigC sigffCmuxY sigD sigffDmuxY sigM sigP
 state <IdString> postAddAB postAddMuxAB
-state <bool> ffAcepol ffADcepol ffBcepol ffCcepol ffDcepol ffMcepol ffPcepol
+state <bool> ffAcepol ffADcepol ffBcepol ffCcepol ffDcepol ffMcepol ffPcepol ffPrstpol
 state <int> ffPoffset
 
-state <Cell*> ffAD ffADmux ffA ffAmux ffB ffBmux ffC ffCmux ffD ffDmux ffM ffMmux ffP ffPmux
+state <Cell*> ffAD ffADmux ffA ffAmux ffB ffBmux ffC ffCmux ffD ffDmux ffM ffMmux ffP ffPcemux ffPrstmux
 
 // subpattern
 state <SigSpec> argQ argD
-state <bool> ffcepol
-state <Cell*> ffmux
+state <bool> ffcepol ffrstpol
 udata <SigSpec> dffD dffQ
 udata <SigBit> dffclock
-udata <Cell*> dff dffcemux
-udata <bool> dffcepol
+udata <Cell*> dff dffcemux dffrstmux
+udata <bool> dffcepol dffrstpol
 
 match dsp
 	select dsp->type.in(\DSP48E1)
@@ -213,11 +212,11 @@ code sigC sigP
 	}
 endcode
 
-code argD ffP ffPmux ffPcepol sigP clock
+code argD ffP ffPcemux ffPrstmux ffPcepol ffPrstpol sigP clock
 	if (param(dsp, \PREG).as_int() == 0) {
-		// If ffMmux and no postAdd new-value net must have exactly three users: ffMmux, ffM and ffPmux
+		// If ffMmux and no postAdd new-value net must have exactly three users: ffMmux, ffM and ffPcemux
 		if ((ffMmux && !postAdd && nusers(sigP) == 3) ||
-				// Otherwise new-value net must have exactly two users: dsp and ffPmux
+				// Otherwise new-value net must have exactly two users: dsp and ffPcemux
 				((!ffMmux || postAdd) && nusers(sigP) == 2)) {
 			argD = sigP;
 			subpattern(out_dffe);
@@ -225,8 +224,10 @@ code argD ffP ffPmux ffPcepol sigP clock
 				ffP = dff;
 				clock = dffclock;
 				if (dffcemux) {
-					ffPmux = dffcemux;
+					ffPcemux = dffcemux;
 					ffPcepol = dffcepol;
+					ffPrstmux = dffrstmux;
+					ffPrstpol = dffrstpol;
 				}
 				sigP = dffQ;
 			}
@@ -343,8 +344,8 @@ endcode
 // #######################
 
 subpattern out_dffe
-arg argD clock ffcepol
-arg unextend ffmux
+arg argD argQ clock
+arg unextend
 
 match ffcemux
 	select ffcemux->type.in($mux)
@@ -356,14 +357,11 @@ match ffcemux
 	// new-value net must have exactly two users: (upstream) and ffcemux
 	select nusers(port(ffcemux, BA)) == 2
 
-	slice offset GetSize(port(ffcemux, \Y))
-	filter offset+GetSize(argD) <= GetSize(port(ffcemux, \Y))
-	filter port(ffcemux, BA).extract(offset, GetSize(argD)) == argD
-
 	define <IdString> AB (BA == \B ? \A : \B)
 	// keep-last-value net must have at least three users: ffcemux, ff, downstream sink(s)
 	select nusers(port(ffcemux, AB)) >= 3
 
+	slice offset GetSize(port(ffcemux, \Y))
 	filter GetSize(unextend(port(ffcemux, BA))) <= GetSize(argD)
 	filter unextend(port(ffcemux, BA)) == argD.extract(0, GetSize(unextend(port(ffcemux, BA))))
 	// Remaining bits on argD must not have any other users
@@ -374,24 +372,62 @@ match ffcemux
 	semioptional
 endmatch
 
-code argD ffmux
+code argD argQ
 	if (ffcemux) {
 		dffcemux = ffcemux;
 		dffcepol = ffcepol;
 		argD = port(ffcemux, \Y);
-		ffmux = ffcemux;
+		argQ = port(ffcemux, ffcepol ? \A : \B);
 	}
 	else
 		dffcemux = nullptr;
 endcode
 
+match ffrstmux
+	if !argQ.empty()
+	select ffrstmux->type.in($mux)
+	// ffrstmux output must have two users: ffrstmux and ff.D
+	select nusers(port(ffrstmux, \Y)) == 2
+	filter GetSize(port(ffrstmux, \Y)) >= GetSize(argD)
+
+	choice <IdString> BA {\B, \A}
+	// DSP48E1 only supports reset to zero
+	select port(ffrstmux, BA).is_fully_zero()
+
+	define <IdString> AB (BA == \B ? \A : \B)
+	// keep-last-value net must have exactly 2 users: ffrstmux, ffcemux/<upstream>
+	select nusers(port(ffrstmux, AB)) == 2
+
+	slice offset GetSize(port(ffrstmux, \Y))
+	filter GetSize(port(ffrstmux, AB)) <= GetSize(argD)
+	filter port(ffrstmux, AB) == argD.extract(0, GetSize(port(ffrstmux, AB)))
+	// Remaining bits on argD must not have any other users
+	filter nusers(argD.extract_end(GetSize(port(ffrstmux, AB)))) <= 1
+
+	define <bool> pol (AB == \A)
+	set ffrstpol pol
+	semioptional
+endmatch
+
+code argD argQ
+	if (ffrstmux) {
+		dffrstmux = ffrstmux;
+		dffrstpol = ffrstpol;
+		argD = port(ffrstmux, \Y);
+	}
+	else {
+		dffrstmux = nullptr;
+		argQ = SigSpec();
+	}
+endcode
+
 match ff_enable
-	if ffmux
+	if !argQ.empty()
 	select ff_enable->type.in($dff)
 	// DSP48E1 does not support clock inversion
 	select param(ff_enable, \CLK_POLARITY).as_bool()
 	index <SigSpec> port(ff_enable, \D) === argD
-	index <SigSpec> port(ff_enable, \Q) === port(ffmux, ffcepol ? \A : \B)
+	index <SigSpec> port(ff_enable, \Q) === argQ
 endmatch
 
 match ff
@@ -421,7 +457,7 @@ code
 		}
 		dffclock = port(dff, \CLK);
 	}
-	// No enable mux possible without flop
-	else if (ffmux)
+	// No enable/reset mux possible without flop
+	else if (ffcemux || ffrstmux)
 		reject;
 endcode

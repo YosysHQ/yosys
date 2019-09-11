@@ -273,7 +273,8 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 	log("postAdd:    %s\n", log_id(st.postAdd, "--"));
 	log("postAddMux: %s\n", log_id(st.postAddMux, "--"));
 	log("ffP:        %s\n", log_id(st.ffP, "--"));
-	log("ffPmux:     %s\n", log_id(st.ffPmux, "--"));
+	log("ffPcemux:   %s\n", log_id(st.ffPcemux, "--"));
+	log("ffPrstmux:  %s\n", log_id(st.ffPrstmux, "--"));
 #endif
 
 	log("Analysing %s.%s for Xilinx DSP packing.\n", log_id(pm.module), log_id(st.dsp));
@@ -431,10 +432,17 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 			pm.autoremove(st.ffM);
 		}
 		if (st.ffP) {
-			if (st.ffPmux) {
-				SigSpec S = st.ffPmux->getPort("\\S");
+			if (st.ffPrstmux) {
+				SigSpec S = st.ffPrstmux->getPort("\\S");
+				cell->setPort("\\RSTP", st.ffPrstpol ? S : pm.module->Not(NEW_ID, S));
+				st.ffPrstmux->connections_.at("\\Y").replace(P, pm.module->addWire(NEW_ID, GetSize(P)));
+			}
+			else
+				cell->setPort("\\RSTP", State::S1);
+			if (st.ffPcemux) {
+				SigSpec S = st.ffPcemux->getPort("\\S");
 				cell->setPort("\\CEP", st.ffPcepol ? S : pm.module->Not(NEW_ID, S));
-				st.ffPmux->connections_.at("\\Y").replace(P, pm.module->addWire(NEW_ID, GetSize(P)));
+				st.ffPcemux->connections_.at("\\Y").replace(P, pm.module->addWire(NEW_ID, GetSize(P)));
 			}
 			else
 				cell->setPort("\\CEP", State::S1);
