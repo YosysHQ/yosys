@@ -49,12 +49,29 @@ select -assert-count 0 t:*
 
 design -reset
 read_verilog <<EOT
+module peepopt_dffmuxext_unsigned(input clk, ce, input [1:0] i, output reg [3:0] o);
+    always @(posedge clk) if (ce) o <= i;
+endmodule
+EOT
+
+proc
+equiv_opt -assert peepopt
+design -load postopt
+clean
+select -assert-count 1 t:$dff r:WIDTH=2 %i
+select -assert-count 1 t:$mux r:WIDTH=2 %i
+select -assert-count 0 t:$dff t:$mux %% t:* %D
+
+####################
+
+design -reset
+read_verilog <<EOT
 module peepopt_dffmuxext_signed(input clk, ce, input signed [1:0] i, output reg signed [3:0] o);
     always @(posedge clk) if (ce) o <= i;
 endmodule
 EOT
 
-prep -nokeepdc
+proc
 equiv_opt -assert peepopt
 design -load postopt
 clean
