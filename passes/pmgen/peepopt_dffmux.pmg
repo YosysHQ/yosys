@@ -35,8 +35,8 @@ match cemux
 endmatch
 
 code
-	SigSpec &D = cemux->connections_.at(cemuxAB == \A ? \B : \A);
-	SigSpec &Q = dff->connections_.at(\Q);
+	SigSpec D = port(cemux, cemuxAB == \A ? \B : \A);
+	SigSpec Q = port(dff, \Q);
 	Const rst;
 	if (rstmux)
 		rst = port(rstmux, rstmuxBA).as_const();
