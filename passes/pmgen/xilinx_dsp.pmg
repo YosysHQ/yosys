@@ -14,7 +14,7 @@ state <SigSpec> argQ argD
 state <bool> ffenpol
 udata <SigSpec> dffD dffQ
 udata <SigBit> dffclock
-udata <Cell*> dff dffmux
+udata <Cell*> dff dffcemux
 udata <bool> dffenpol
 
 match dsp
@@ -60,8 +60,8 @@ code argQ ffAD ffADmux ffADenpol sigA clock
 		if (dff) {
 			ffAD = dff;
 			clock = dffclock;
-			if (dffmux) {
-				ffADmux = dffmux;
+			if (dffcemux) {
+				ffADmux = dffcemux;
 				ffADenpol = dffenpol;
 			}
 			sigA = dffD;
@@ -109,8 +109,8 @@ code argQ ffA ffAmux ffAenpol sigA clock ffAD ffADmux ffADenpol
 			if (dff) {
 				ffA = dff;
 				clock = dffclock;
-				if (dffmux) {
-					ffAmux = dffmux;
+				if (dffcemux) {
+					ffAmux = dffcemux;
 					ffAenpol = dffenpol;
 				}
 				sigA = dffD;
@@ -134,8 +134,8 @@ code argQ ffB ffBmux ffBenpol sigB clock
 		if (dff) {
 			ffB = dff;
 			clock = dffclock;
-			if (dffmux) {
-				ffBmux = dffmux;
+			if (dffcemux) {
+				ffBmux = dffcemux;
 				ffBenpol = dffenpol;
 			}
 			sigB = dffD;
@@ -150,8 +150,8 @@ code argQ ffD ffDmux ffDenpol sigD clock
 		if (dff) {
 			ffD = dff;
 			clock = dffclock;
-			if (dffmux) {
-				ffDmux = dffmux;
+			if (dffcemux) {
+				ffDmux = dffcemux;
 				ffDenpol = dffenpol;
 			}
 			sigD = dffD;
@@ -166,8 +166,8 @@ code argD ffM ffMmux ffMenpol sigM sigP clock
 		if (dff) {
 			ffM = dff;
 			clock = dffclock;
-			if (dffmux) {
-				ffMmux = dffmux;
+			if (dffcemux) {
+				ffMmux = dffcemux;
 				ffMenpol = dffenpol;
 			}
 			sigM = dffQ;
@@ -223,8 +223,8 @@ code argD ffP ffPmux ffPenpol sigP clock
 			if (dff) {
 				ffP = dff;
 				clock = dffclock;
-				if (dffmux) {
-					ffPmux = dffmux;
+				if (dffcemux) {
+					ffPmux = dffcemux;
 					ffPenpol = dffenpol;
 				}
 				sigP = dffQ;
@@ -257,8 +257,8 @@ code argQ ffC ffCmux ffCenpol sigC clock
 		if (dff) {
 			ffC = dff;
 			clock = dffclock;
-			if (dffmux) {
-				ffCmux = dffmux;
+			if (dffcemux) {
+				ffCmux = dffcemux;
 				ffCenpol = dffenpol;
 			}
 			sigC = dffD;
@@ -301,9 +301,9 @@ code argQ
 		dff = ff;
 		dffD = argQ;
 		dffD.replace(port(ff, \Q), port(ff, \D));
-		// Only search for ffmux if ff.Q has at
-		//   least 3 users (ff, dsp, ffmux) and
-		//   its ff.D only has two (ff, ffmux)
+		// Only search for ffcemux if argQ has at
+		//   least 3 users (ff, <upstream>, ffcemux) and
+		//   its ff.D only has two (ff, ffcemux)
 		if (!(nusers(argQ) >= 3 && nusers(dffD) == 2))
 			argQ = SigSpec();
 	}
@@ -313,30 +313,30 @@ code argQ
 	}
 endcode
 
-match ffmux
+match ffcemux
 	if !argQ.empty()
-	select ffmux->type.in($mux)
-	index <SigSpec> port(ffmux, \Y) === port(ff, \D)
-	filter GetSize(port(ffmux, \Y)) >= GetSize(dffD)
-	slice offset GetSize(port(ffmux, \Y))
-	filter offset+GetSize(dffD) <= GetSize(port(ffmux, \Y))
-	filter port(ffmux, \Y).extract(offset, GetSize(dffD)) == dffD
+	select ffcemux->type.in($mux)
+	index <SigSpec> port(ffcemux, \Y) === port(ff, \D)
+	filter GetSize(port(ffcemux, \Y)) >= GetSize(dffD)
+	slice offset GetSize(port(ffcemux, \Y))
+	filter offset+GetSize(dffD) <= GetSize(port(ffcemux, \Y))
+	filter port(ffcemux, \Y).extract(offset, GetSize(dffD)) == dffD
 	choice <IdString> AB {\A, \B}
-	filter offset+GetSize(argQ) <= GetSize(port(ffmux, \Y))
-	filter port(ffmux, AB).extract(offset, GetSize(argQ)) == argQ
+	filter offset+GetSize(argQ) <= GetSize(port(ffcemux, \Y))
+	filter port(ffcemux, AB).extract(offset, GetSize(argQ)) == argQ
 	define <bool> pol (AB == \A)
 	set ffenpol pol
 	semioptional
 endmatch
 
 code
-	if (ffmux) {
-		dffmux = ffmux;
+	if (ffcemux) {
+		dffcemux = ffcemux;
 		dffenpol = ffenpol;
-		dffD = port(ffmux, dffenpol ? \B : \A);
+		dffD = port(ffcemux, dffenpol ? \B : \A);
 	}
 	else
-		dffmux = nullptr;
+		dffcemux = nullptr;
 endcode
 
 // #######################
@@ -375,12 +375,12 @@ endmatch
 
 code argD
 	if (ffmux) {
-		dffmux = ffmux;
+		dffcemux = ffmux;
 		dffenpol = ffenpol;
 		argD = port(ffmux, \Y);
 	}
 	else
-		dffmux = nullptr;
+		dffcemux = nullptr;
 endcode
 
 match ff_enable
@@ -406,7 +406,6 @@ code
 		dff = ff_enable;
 	else
 		dff = ff;
-	log_dump("ffM", dff, dffmux);
 	if (dff) {
 		dffQ = port(dff, \Q);
 
