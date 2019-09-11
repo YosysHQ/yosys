@@ -1,6 +1,6 @@
 pattern xilinx_dsp
 
-state <std::function<SigSpec(const SigSpec&)>> unextend
+udata <std::function<SigSpec(const SigSpec&)>> unextend
 state <SigBit> clock
 state <SigSpec> sigA sigffAcemuxY sigB sigffBcemuxY sigC sigffCcemuxY sigD sigffDcemuxY sigM sigP
 state <IdString> postAddAB postAddMuxAB
@@ -23,7 +23,7 @@ match dsp
 	select dsp->type.in(\DSP48E1)
 endmatch
 
-code unextend sigA sigB sigC sigD sigM
+code sigA sigB sigC sigD sigM
 	unextend = [](const SigSpec &sig) {
 		int i;
 		for (i = GetSize(sig)-1; i > 0; i--)
@@ -396,7 +396,6 @@ endcode
 
 subpattern out_dffe
 arg argD argQ clock
-arg unextend
 
 code
 	dff = nullptr;
