@@ -81,9 +81,9 @@ code
 			did_something = true;
 			mux->fixup_parameters();
 			dff->fixup_parameters();
+			log("dffmux pattern in %s: dff=%s, mux=%s; removed %d constant bits.\n", log_id(module), log_id(dff), log_id(mux), count);
 		}
 
-		log("dffmux pattern in %s: dff=%s, mux=%s; removed %d constant bits.\n", log_id(module), log_id(dff), log_id(mux), count);
 		accept;
 	}
 endcode
