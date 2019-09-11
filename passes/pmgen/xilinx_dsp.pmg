@@ -4,10 +4,11 @@ udata <std::function<SigSpec(const SigSpec&)>> unextend
 state <SigBit> clock
 state <SigSpec> sigA sigffAcemuxY sigB sigffBcemuxY sigC sigffCcemuxY sigD sigffDcemuxY sigM sigP
 state <IdString> postAddAB postAddMuxAB
-state <bool> ffAcepol ffADcepol ffBcepol ffCcepol ffDcepol ffMcepol ffPcepol
+state <bool> ffA1cepol ffA2cepol ffADcepol ffB1cepol ffB2cepol ffCcepol ffDcepol ffMcepol ffPcepol
 state <bool> ffArstpol ffADrstpol ffBrstpol ffCrstpol ffDrstpol ffMrstpol ffPrstpol
 
-state <Cell*> ffAD ffADcemux ffADrstmux ffA ffAcemux ffArstmux ffB ffBcemux ffBrstmux ffC ffCcemux ffCrstmux
+state <Cell*> ffAD ffADcemux ffADrstmux ffA1 ffA1cemux ffA1rstmux ffA2 ffA2cemux ffA2rstmux
+state <Cell*> ffB1 ffB1cemux ffB1rstmux ffB2 ffB2cemux ffB2rstmux ffC ffCcemux ffCrstmux
 state <Cell*> ffD ffDcemux ffDrstmux ffM ffMcemux ffMrstmux ffP ffPcemux ffPrstmux
 
 // subpattern
@@ -103,20 +104,20 @@ code sigA sigD
 	}
 endcode
 
-code argQ ffA ffAcemux ffArstmux ffAcepol ffArstpol sigA clock ffAD ffADcemux ffADrstmux ffADcepol ffADrstpol
-	// Only search for ffA if there was a pre-adder
-	//   (otherwise ffA would have been matched as ffAD)
+code argQ ffAD ffADcemux ffADrstmux ffADcepol ffADrstpol sigA clock ffA2 ffA2cemux ffA2rstmux ffA2cepol ffArstpol
+	// Only search for ffA2 if there was a pre-adder
+	//   (otherwise ffA2 would have been matched as ffA2)
 	if (preAdd) {
 		if (param(dsp, \AREG).as_int() == 0) {
 			argQ = sigA;
 			subpattern(in_dffe);
 			if (dff) {
-				ffA = dff;
+				ffA2 = dff;
 				clock = dffclock;
 				if (dffcemux) {
-					ffAcemux = dffcemux;
-					ffArstmux = dffrstmux;
-					ffAcepol = dffcepol;
+					ffA2cemux = dffcemux;
+					ffA2rstmux = dffrstmux;
+					ffA2cepol = dffcepol;
 					ffArstpol = dffrstpol;
 				}
 				sigA = dffD;
@@ -126,26 +127,26 @@ code argQ ffA ffAcemux ffArstmux ffAcepol ffArstpol sigA clock ffAD ffADcemux ff
 	// And if there wasn't a pre-adder,
 	//   move AD register to A
 	else if (ffAD) {
-		log_assert(!ffA && !ffAcemux && !ffArstmux);
-		std::swap(ffA, ffAD);
-		std::swap(ffAcemux, ffADcemux);
-		std::swap(ffArstmux, ffADrstmux);
-		ffAcepol = ffADcepol;
+		log_assert(!ffA2 && !ffA2cemux && !ffA2rstmux);
+		std::swap(ffA2, ffAD);
+		std::swap(ffA2cemux, ffADcemux);
+		std::swap(ffA2rstmux, ffADrstmux);
+		ffA2cepol = ffADcepol;
 		ffArstpol = ffADrstpol;
 	}
 endcode
 
-code argQ ffB ffBcemux ffBrstmux ffBcepol ffBrstpol sigB clock
+code argQ ffB2 ffB2cemux ffB2rstmux ffB2cepol ffBrstpol sigB clock
 	if (param(dsp, \BREG).as_int() == 0) {
 		argQ = sigB;
 		subpattern(in_dffe);
 		if (dff) {
-			ffB = dff;
+			ffB2 = dff;
 			clock = dffclock;
 			if (dffcemux) {
-				ffBcemux = dffcemux;
-				ffBrstmux = dffrstmux;
-				ffBcepol = dffcepol;
+				ffB2cemux = dffcemux;
+				ffB2rstmux = dffrstmux;
+				ffB2cepol = dffcepol;
 				ffBrstpol = dffrstpol;
 			}
 			sigB = dffD;

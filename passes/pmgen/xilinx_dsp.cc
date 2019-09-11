@@ -258,8 +258,8 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 	log("\n");
 	log("preAdd:     %s\n", log_id(st.preAdd, "--"));
 	log("ffAD:       %s %s %s\n", log_id(st.ffAD, "--"), log_id(st.ffADcemux, "--"), log_id(st.ffADrstmux, "--"));
-	log("ffA:        %s %s %s\n", log_id(st.ffA, "--"), log_id(st.ffAcemux, "--"), log_id(st.ffArstmux, "--"));
-	log("ffB:        %s %s %s\n", log_id(st.ffB, "--"), log_id(st.ffBcemux, "--"), log_id(st.ffBrstmux, "--"));
+	log("ffA2:       %s %s %s\n", log_id(st.ffA2, "--"), log_id(st.ffA2cemux, "--"), log_id(st.ffA2rstmux, "--"));
+	log("ffB2:       %s %s %s\n", log_id(st.ffB2, "--"), log_id(st.ffB2cemux, "--"), log_id(st.ffB2rstmux, "--"));
 	log("ffC:        %s %s %s\n", log_id(st.ffC, "--"), log_id(st.ffCcemux, "--"), log_id(st.ffCrstmux, "--"));
 	log("ffD:        %s %s %s\n", log_id(st.ffD, "--"), log_id(st.ffDcemux, "--"), log_id(st.ffDrstmux, "--"));
 	log("dsp:        %s\n", log_id(st.dsp, "--"));
@@ -367,16 +367,16 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 			}
 		};
 
-		if (st.ffA) {
-			SigSpec &A = cell->connections_.at("\\A");
-			f(A, st.ffA, st.ffAcemux, st.ffAcepol, "\\CEA2", st.ffArstmux, st.ffArstpol, "\\RSTA");
-			pm.add_siguser(A, cell);
+		if (st.ffA2) {
+			SigSpec &A2 = cell->connections_.at("\\A");
+			f(A2, st.ffA2, st.ffA2cemux, st.ffA2cepol, "\\CEA2", st.ffA2rstmux, st.ffArstpol, "\\RSTA");
+			pm.add_siguser(A2, cell);
 			cell->setParam("\\AREG", 1);
 		}
-		if (st.ffB) {
-			SigSpec &B = cell->connections_.at("\\B");
-			f(B, st.ffB, st.ffBcemux, st.ffBcepol, "\\CEB2", st.ffBrstmux, st.ffBrstpol, "\\RSTB");
-			pm.add_siguser(B, cell);
+		if (st.ffB2) {
+			SigSpec &B2 = cell->connections_.at("\\B");
+			f(B2, st.ffB2, st.ffB2cemux, st.ffB2cepol, "\\CEB2", st.ffB2rstmux, st.ffBrstpol, "\\RSTB");
+			pm.add_siguser(B2, cell);
 			cell->setParam("\\BREG", 1);
 		}
 		if (st.ffC) {
@@ -406,14 +406,14 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 
 		log("  clock: %s (%s)", log_signal(st.clock), "posedge");
 
-		if (st.ffA)
-			log(" ffA:%s", log_id(st.ffA));
+		if (st.ffA2)
+			log(" ffA2:%s", log_id(st.ffA2));
 
 		if (st.ffAD)
 			log(" ffAD:%s", log_id(st.ffAD));
 
-		if (st.ffB)
-			log(" ffB:%s", log_id(st.ffB));
+		if (st.ffB2)
+			log(" ffB2:%s", log_id(st.ffB2));
 
 		if (st.ffC)
 			log(" ffC:%s", log_id(st.ffC));
