@@ -78,3 +78,35 @@ clean
 select -assert-count 1 t:$dff r:WIDTH=2 %i
 select -assert-count 1 t:$mux r:WIDTH=2 %i
 select -assert-count 0 t:$dff t:$mux %% t:* %D
+
+###################
+
+design -reset
+read_verilog <<EOT
+module peepopt_dffmuxext_const(input clk, ce, input [1:0] i, output reg [5:0] o);
+    always @(posedge clk) if (ce) o <= {1'b0, i[1], 2'b1x, i[0], 1'bz};
+endmodule
+EOT
+
+proc
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 1 t:$dff r:WIDTH=2 %i
+select -assert-count 1 t:$mux r:WIDTH=2 %i
+select -assert-count 0 t:$dff t:$mux %% t:* %D
+
+###################
+
+design -reset
+read_verilog <<EOT
+module peepopt_dffmuxext_const_init(input clk, ce, input [1:0] i, (* init=6'b0x00x1 *) output reg [5:0] o);
+    always @(posedge clk) if (ce) o <= {1'b0, i[1], 2'b1x, i[0], 1'bz};
+endmodule
+EOT
+
+proc
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 1 t:$dff r:WIDTH=5 %i
+select -assert-count 1 t:$mux r:WIDTH=5 %i
+select -assert-count 0 t:$dff t:$mux %% t:* %D
