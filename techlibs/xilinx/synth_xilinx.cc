@@ -83,6 +83,7 @@ struct SynthXilinxPass : public ScriptPass
 		log("\n");
 		log("    -nodsp\n");
 		log("        do not use DSP48E1s to implement multipliers and associated logic\n");
+		log("\n");
 		log("    -iopad\n");
 		log("        enable I/O buffer insertion (selected automatically by -ise)\n");
 		log("\n");
