@@ -47,7 +47,7 @@ module macc2 # (parameter SIZEIN = 16, SIZEOUT = 40) (
 	output signed [SIZEOUT-1:0] accum_out
 );
 // Declare registers for intermediate values
-reg signed [SIZEIN-1:0] a_reg, b_reg;
+reg signed [SIZEIN-1:0] a_reg, b_reg, a_reg2, b_reg2;
 reg rst_reg;
 reg signed [2*SIZEIN-1:0] mult_reg;
 reg signed [SIZEOUT-1:0] adder_out, old_result;
@@ -56,14 +56,18 @@ always @(posedge clk) begin
 	begin
 		a_reg <= a;
 		b_reg <= b;
-		mult_reg <= a_reg * b_reg;
+		a_reg2 <= a_reg;
+		b_reg2 <= b_reg;
+		mult_reg <= a_reg2 * b_reg2;
 		rst_reg <= rst;
 		// Store accumulation result into a register
 		adder_out <= adder_out + mult_reg;
 	end
 	if (rst) begin
 		a_reg <= 0;
+		a_reg2 <= 0;
 		b_reg <= 0;
+		b_reg2 <= 0;
 		mult_reg <= 0;
 		adder_out <= 0;
 	end
