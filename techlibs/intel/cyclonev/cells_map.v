@@ -26,36 +26,43 @@
 // Normal mode DFF negedge clk, negedge reset
 module  \$_DFF_N_ (input D, C, output Q);
    parameter WYSIWYG="TRUE";
-   parameter power_up=1'bx;
+   parameter power_up=1'b0;
    dffeas #(.is_wysiwyg(WYSIWYG), .power_up(power_up)) _TECHMAP_REPLACE_ (.d(D), .q(Q), .clk(C), .clrn(1'b1), .prn(1'b1), .ena(1'b1), .asdata(1'b0), .aload(1'b0), .sclr(1'b0), .sload(1'b0));
 endmodule
 // Normal mode DFF
 module  \$_DFF_P_ (input D, C, output Q);
    parameter WYSIWYG="TRUE";
-   parameter power_up=1'bx;
+   parameter power_up=1'b0;
    dffeas #(.is_wysiwyg(WYSIWYG), .power_up(power_up)) _TECHMAP_REPLACE_ (.d(D), .q(Q), .clk(C), .clrn(1'b1), .prn(1'b1), .ena(1'b1), .asdata(1'b0), .aload(1'b0), .sclr(1'b0), .sload(1'b0));
 endmodule
 
 // Async Active Low Reset DFF
 module  \$_DFF_PN0_ (input D, C, R, output Q);
    parameter WYSIWYG="TRUE";
-   parameter power_up=1'bx;
+   parameter power_up=1'b0;
    dffeas #(.is_wysiwyg(WYSIWYG), .power_up("power_up")) _TECHMAP_REPLACE_ (.d(D), .q(Q), .clk(C), .clrn(R), .prn(1'b1), .ena(1'b1), .asdata(1'b0), .aload(1'b0), .sclr(1'b0), .sload(1'b0));
 endmodule
 // Async Active High Reset DFF
 module  \$_DFF_PP0_ (input D, C, R, output Q);
    parameter WYSIWYG="TRUE";
-   parameter power_up=1'bx;
+   parameter power_up=1'b0;
    wire R_i = ~ R;
    dffeas #(.is_wysiwyg(WYSIWYG), .power_up(power_up)) _TECHMAP_REPLACE_ (.d(D), .q(Q), .clk(C), .clrn(R_i), .prn(1'b1), .ena(1'b1), .asdata(1'b0), .aload(1'b0), .sclr(1'b0), .sload(1'b0));
 endmodule
 
 module  \$__DFFE_PP0 (input D, C, E, R, output Q);
    parameter WYSIWYG="TRUE";
-   parameter power_up=1'bx;
+   parameter power_up=1'b0;
    wire E_i = ~ E;
    dffeas #(.is_wysiwyg(WYSIWYG), .power_up(power_up)) _TECHMAP_REPLACE_ (.d(D), .q(Q), .clk(C), .clrn(R), .prn(1'b1), .ena(1'b1), .asdata(1'b0), .aload(1'b0), .sclr(E_i), .sload(1'b0));
 endmodule
+
+module \$_DFF_PN1_ (input D, C, R, output Q);
+   parameter WYSIWYG="TRUE";
+   parameter power_up=1'b0;
+   dffeas #(.is_wysiwyg(WYSIWYG), .power_up(power_up)) _TECHMAP_REPLACE_ (.d(D), .q(Q), .clk(C), .clrn(!R), .prn(1'b1), .ena(1'b1), .asdata(1'b0), .aload(1'b0), .sclr(1'b0), .sload(1'b0));
+endmodule
+
 
 // Input buffer map
 module \$__inpad (input I, output O);
