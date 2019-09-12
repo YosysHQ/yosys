@@ -61,7 +61,7 @@ struct SatHelper
 	// model variables
 	std::vector<std::string> shows;
 	SigPool show_signal_pool;
-	SigSet<RTLIL::Cell*> show_drivers;
+	SigSet<RTLIL::Cell*, RTLIL::sort_by_name_id<RTLIL::Cell>> show_drivers;
 	int max_timestep, timeout;
 	bool gotTimeout;
 

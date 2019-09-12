@@ -33,7 +33,7 @@ struct ConstEval
 	SigMap assign_map;
 	SigMap values_map;
 	SigPool stop_signals;
-	SigSet<RTLIL::Cell*> sig2driver;
+	SigSet<RTLIL::Cell*, RTLIL::sort_by_name_id<RTLIL::Cell>> sig2driver;
 	std::set<RTLIL::Cell*> busy;
 	std::vector<SigMap> stack;
 	RTLIL::State defaultval;

@@ -37,7 +37,7 @@ struct OptReduceWorker
 	int total_count;
 	bool did_something;
 
-	void opt_reduce(pool<RTLIL::Cell*> &cells, SigSet<RTLIL::Cell*> &drivers, RTLIL::Cell *cell)
+	void opt_reduce(pool<RTLIL::Cell*> &cells, SigSet<RTLIL::Cell*, RTLIL::sort_by_name_id<RTLIL::Cell>> &drivers, RTLIL::Cell *cell)
 	{
 		if (cells.count(cell) == 0)
 			return;
@@ -289,7 +289,7 @@ struct OptReduceWorker
 			const IdString type_list[] = { ID($reduce_or), ID($reduce_and) };
 			for (auto type : type_list)
 			{
-				SigSet<RTLIL::Cell*> drivers;
+				SigSet<RTLIL::Cell*, RTLIL::sort_by_name_id<RTLIL::Cell>> drivers;
 				pool<RTLIL::Cell*> cells;
 
 				for (auto &cell_it : module->cells_) {
