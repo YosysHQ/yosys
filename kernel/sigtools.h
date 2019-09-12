@@ -138,7 +138,7 @@ struct SigPool
 template <typename T, class Compare = std::less<T>>
 struct SigSet
 {
-	static_assert(!std::is_pointer<T>::value || !std::is_same<Compare, std::less<T>>::value, "Explicit `Compare' class require for SigSet with pointer-type values!");
+	static_assert(!std::is_pointer<T>::value || !std::is_same<Compare, std::less<T>>::value, "Explicit `Compare' class required for SigSet with pointer-type values!");
 
 	struct bitDef_t : public std::pair<RTLIL::Wire*, int> {
 		bitDef_t() : std::pair<RTLIL::Wire*, int>(NULL, 0) { }
