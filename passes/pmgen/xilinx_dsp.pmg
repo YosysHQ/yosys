@@ -104,9 +104,9 @@ code sigA sigD
 	}
 endcode
 
-code argQ ffAD ffADcemux ffADrstmux ffADcepol ffADrstpol sigA clock ffA2 ffA2cemux ffA2rstmux ffA2cepol ffArstpol
+code argQ ffAD ffADcemux ffADrstmux ffADcepol ffADrstpol sigA clock ffA2 ffA2cemux ffA2rstmux ffA2cepol ffArstpol ffA1 ffA1cemux ffA1rstmux ffA1cepol
 	// Only search for ffA2 if there was a pre-adder
-	//   (otherwise ffA2 would have been matched as ffA2)
+	//   (otherwise ffA2 would have been matched as ffAD)
 	if (preAdd) {
 		if (param(dsp, \AREG).as_int() == 0) {
 			argQ = sigA;
@@ -114,11 +114,13 @@ code argQ ffAD ffADcemux ffADrstmux ffADcepol ffADrstpol sigA clock ffA2 ffA2cem
 			if (dff) {
 				ffA2 = dff;
 				clock = dffclock;
+				if (dffrstmux) {
+					ffA2cepol = dffcepol;
+					ffArstpol = dffrstpol;
+				}
 				if (dffcemux) {
 					ffA2cemux = dffcemux;
 					ffA2rstmux = dffrstmux;
-					ffA2cepol = dffcepol;
-					ffArstpol = dffrstpol;
 				}
 				sigA = dffD;
 			}
@@ -134,9 +136,37 @@ code argQ ffAD ffADcemux ffADrstmux ffADcepol ffADrstpol sigA clock ffA2 ffA2cem
 		ffA2cepol = ffADcepol;
 		ffArstpol = ffADrstpol;
 	}
+
+	// Now attempt to match A1
+	if (ffA2) {
+		argQ = sigA;
+		subpattern(in_dffe);
+		if (dff) {
+			if ((ffA2rstmux != nullptr) ^ (dffrstmux != nullptr))
+				goto ffA1_end;
+			if (dffrstmux) {
+				if (ffArstpol != dffrstpol)
+					goto ffA1_end;
+				if (port(ffA2rstmux, \S) != port(dffrstmux, \S))
+					goto ffA1_end;
+				ffA1rstmux = dffrstmux;
+			}
+
+			ffA1 = dff;
+			clock = dffclock;
+
+			if (dffcemux) {
+				ffA1cemux = dffcemux;
+				ffA1cepol = dffcepol;
+			}
+			sigA = dffD;
+
+ffA1_end:		;
+		}
+	}
 endcode
 
-code argQ ffB2 ffB2cemux ffB2rstmux ffB2cepol ffBrstpol sigB clock
+code argQ ffB2 ffB2cemux ffB2rstmux ffB2cepol ffBrstpol sigB clock ffB1 ffB1cemux ffB1rstmux ffB1cepol
 	if (param(dsp, \BREG).as_int() == 0) {
 		argQ = sigB;
 		subpattern(in_dffe);
@@ -150,6 +180,35 @@ code argQ ffB2 ffB2cemux ffB2rstmux ffB2cepol ffBrstpol sigB clock
 				ffBrstpol = dffrstpol;
 			}
 			sigB = dffD;
+
+			// Now attempt to match B1
+			if (ffB2) {
+				argQ = sigB;
+				subpattern(in_dffe);
+				if (dff) {
+					if ((ffB2rstmux != nullptr) ^ (dffrstmux != nullptr))
+						goto ffB1_end;
+					if (dffrstmux) {
+						if (ffBrstpol != dffrstpol)
+							goto ffB1_end;
+						if (port(ffB2rstmux, \S) != port(dffrstmux, \S))
+							goto ffB1_end;
+						ffB1rstmux = dffrstmux;
+					}
+
+					ffB1 = dff;
+					clock = dffclock;
+
+					if (dffcemux) {
+						ffB1cemux = dffcemux;
+						ffB1cepol = dffcepol;
+					}
+					sigB = dffD;
+
+ffB1_end:				;
+				}
+			}
+
 		}
 	}
 endcode
@@ -387,6 +446,7 @@ code argD
 	if (ffcemux) {
 		dffcemux = ffcemux;
 		dffcepol = ffcepol;
+		argD = port(ffcemux, ffcepol ? \B : \A);
 		dffD.replace(port(ffcemux, \Y), argD);
 	}
 	else

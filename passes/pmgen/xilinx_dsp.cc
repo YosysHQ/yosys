@@ -259,7 +259,9 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 	log("preAdd:     %s\n", log_id(st.preAdd, "--"));
 	log("ffAD:       %s %s %s\n", log_id(st.ffAD, "--"), log_id(st.ffADcemux, "--"), log_id(st.ffADrstmux, "--"));
 	log("ffA2:       %s %s %s\n", log_id(st.ffA2, "--"), log_id(st.ffA2cemux, "--"), log_id(st.ffA2rstmux, "--"));
+	log("ffA1:       %s %s %s\n", log_id(st.ffA1, "--"), log_id(st.ffA1cemux, "--"), log_id(st.ffA1rstmux, "--"));
 	log("ffB2:       %s %s %s\n", log_id(st.ffB2, "--"), log_id(st.ffB2cemux, "--"), log_id(st.ffB2rstmux, "--"));
+	log("ffB1:       %s %s %s\n", log_id(st.ffB1, "--"), log_id(st.ffB1cemux, "--"), log_id(st.ffB1rstmux, "--"));
 	log("ffC:        %s %s %s\n", log_id(st.ffC, "--"), log_id(st.ffCcemux, "--"), log_id(st.ffCrstmux, "--"));
 	log("ffD:        %s %s %s\n", log_id(st.ffD, "--"), log_id(st.ffDcemux, "--"), log_id(st.ffDrstmux, "--"));
 	log("dsp:        %s\n", log_id(st.dsp, "--"));
@@ -338,12 +340,14 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 			if (rstmux) {
 				SigSpec Y = rstmux->getPort("\\Y");
 				SigSpec AB = rstmux->getPort(rstpol ? "\\A" : "\\B");
-				SigSpec S = rstmux->getPort("\\S");
 				if (!A.empty())
 					A.replace(Y, AB);
-				cell->setPort(rstport, rstpol ? S : pm.module->Not(NEW_ID, S));
+				if (rstport != IdString()) {
+					SigSpec S = rstmux->getPort("\\S");
+					cell->setPort(rstport, rstpol ? S : pm.module->Not(NEW_ID, S));
+				}
 			}
-			else
+			else if (rstport != IdString())
 				cell->setPort(rstport, State::S0);
 			if (cemux) {
 				SigSpec Y = cemux->getPort("\\Y");
@@ -368,16 +372,26 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 		};
 
 		if (st.ffA2) {
-			SigSpec &A2 = cell->connections_.at("\\A");
-			f(A2, st.ffA2, st.ffA2cemux, st.ffA2cepol, "\\CEA2", st.ffA2rstmux, st.ffArstpol, "\\RSTA");
-			pm.add_siguser(A2, cell);
-			cell->setParam("\\AREG", 1);
+			SigSpec &A = cell->connections_.at("\\A");
+			f(A, st.ffA2, st.ffA2cemux, st.ffA2cepol, "\\CEA2", st.ffA2rstmux, st.ffArstpol, "\\RSTA");
+			pm.add_siguser(A, cell);
+			if (st.ffA1) {
+				f(A, st.ffA1, st.ffA1cemux, st.ffA1cepol, "\\CEA1", st.ffA1rstmux, st.ffArstpol, IdString());
+				cell->setParam("\\AREG", 2);
+			}
+			else
+				cell->setParam("\\AREG", 1);
 		}
 		if (st.ffB2) {
-			SigSpec &B2 = cell->connections_.at("\\B");
-			f(B2, st.ffB2, st.ffB2cemux, st.ffB2cepol, "\\CEB2", st.ffB2rstmux, st.ffBrstpol, "\\RSTB");
-			pm.add_siguser(B2, cell);
-			cell->setParam("\\BREG", 1);
+			SigSpec &B = cell->connections_.at("\\B");
+			f(B, st.ffB2, st.ffB2cemux, st.ffB2cepol, "\\CEB2", st.ffB2rstmux, st.ffBrstpol, "\\RSTB");
+			pm.add_siguser(B, cell);
+			if (st.ffB1) {
+				f(B, st.ffB1, st.ffB1cemux, st.ffB1cepol, "\\CEB1", st.ffB1rstmux, st.ffBrstpol, IdString());
+				cell->setParam("\\BREG", 2);
+			}
+			else
+				cell->setParam("\\BREG", 1);
 		}
 		if (st.ffC) {
 			SigSpec &C = cell->connections_.at("\\C");
@@ -406,14 +420,20 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 
 		log("  clock: %s (%s)", log_signal(st.clock), "posedge");
 
-		if (st.ffA2)
+		if (st.ffA2) {
 			log(" ffA2:%s", log_id(st.ffA2));
+			if (st.ffA1)
+				log(" ffA1:%s", log_id(st.ffA1));
+		}
 
 		if (st.ffAD)
 			log(" ffAD:%s", log_id(st.ffAD));
 
-		if (st.ffB2)
+		if (st.ffB2) {
 			log(" ffB2:%s", log_id(st.ffB2));
+			if (st.ffB1)
+				log(" ffB1:%s", log_id(st.ffB1));
+		}
 
 		if (st.ffC)
 			log(" ffC:%s", log_id(st.ffC));
@@ -449,17 +469,18 @@ struct XilinxDspPass : public Pass {
 		log("\n");
 		log("    xilinx_dsp [options] [selection]\n");
 		log("\n");
-		log("Pack input registers (A, B, C, D, AD; with optional enable/reset), pipeline\n");
-		log("registers (M; with optional enable/reset), output registers (P; with optional\n");
-		log("enable/reset), pre-adder and/or post-adder into Xilinx DSP resources.\n");
+		log("Pack input registers (A2, A1, B2, B1, C, D, AD; with optional enable/reset),\n");
+		log("pipeline registers (M; with optional enable/reset), output registers (P; with\n");
+		log("optional enable/reset), pre-adder and/or post-adder into Xilinx DSP resources.\n");
 		log("\n");
 		log("Multiply-accumulate operations using the post-adder with feedback on the 'C'\n");
 		log("input will be folded into the DSP. In this scenario only, the 'C' input can be\n");
 		log("used to override the existing accumulation result with a new value.\n");
 		log("\n");
-		log("Use of the dedicated 'PCOUT' -> 'PCIN' path is detected for 'P' -> 'C' connections\n");
-		log("where 'P' is right-shifted by 18-bits and used as an input to the post-adder (a\n");
-		log("pattern common for summing partial products to implement wide multiplies).\n");
+		log("Use of the dedicated 'PCOUT' -> 'PCIN' cascade path is detected for 'P' -> 'C'\n");
+		log("connections (optionally, where 'P' is right-shifted by 18-bits and used as an\n");
+		log("input to the post-adder -- a pattern common for summing partial products to\n");
+		log("implement wide multipliers).\n");
 		log("\n");
 		log("\n");
 		log("Experimental feature: addition/subtractions less than 12 or 24 bits with the\n");
