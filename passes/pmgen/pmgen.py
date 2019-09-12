@@ -305,7 +305,8 @@ def process_pmgfile(f, filename):
             block["states"] = set()
 
             for s in line.split()[1:]:
-                assert s in state_types[current_pattern]
+                if s not in state_types[current_pattern]:
+                    raise RuntimeError("'%s' not in state_types" % s)
                 block["states"].add(s)
 
             codetype = "code"
