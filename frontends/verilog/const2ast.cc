@@ -199,13 +199,13 @@ AstNode *VERILOG_FRONTEND::const2ast(std::string code, char case_type, bool warn
 	if (str == endptr)
 		len_in_bits = -1;
 
-	// The "<bits>'s?[bodhBODH]<digits>" syntax
+	// The "<bits>'[sS]?[bodhBODH]<digits>" syntax
 	if (*endptr == '\'')
 	{
 		std::vector<RTLIL::State> data;
 		bool is_signed = false;
 		bool is_unsized = len_in_bits < 0;
-		if (*(endptr+1) == 's') {
+		if (*(endptr+1) == 's' || *(endptr+1) == 'S') {
 			is_signed = true;
 			endptr++;
 		}
