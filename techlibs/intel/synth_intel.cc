@@ -225,8 +225,7 @@ struct SynthIntelPass : public ScriptPass {
 			if (iopads || help_mode)
 				run("iopadmap -bits -outpad $__outpad I:O -inpad $__inpad O:I", "(if -iopads)");
                         run(stringf("techmap -map +/intel/%s/cells_map.v", family_opt.c_str()));
-			run("dffinit -ff dffeas q power_up");
-			run("dffeas_init");
+			run("dffinit -highlow -ff dffeas q power_up");
 			run("clean -purge");
 		}
 

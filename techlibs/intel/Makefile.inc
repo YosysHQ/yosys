@@ -1,6 +1,5 @@
 
 OBJS += techlibs/intel/synth_intel.o
-OBJS += techlibs/intel/dffeas_init.o
 
 $(eval $(call add_share_file,share/intel/common,techlibs/intel/common/m9k_bb.v))
 $(eval $(call add_share_file,share/intel/common,techlibs/intel/common/altpll_bb.v))
