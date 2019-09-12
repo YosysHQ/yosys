@@ -65,7 +65,7 @@ SOFTWARE. */
 
 int child_pid=0;
 
-int fail(char *format, char *data) {
+int fail(const char *format, const char *data) {
     /* Print error message to stderr and return 2 */
     fprintf(stderr, format, data);
     return 2;
@@ -76,7 +76,7 @@ char *quoted(char *data) {
 
     /* We allocate twice as much space as needed to deal with worse-case
        of having to escape everything. */
-    char *result = calloc(ln*2+3, sizeof(char));
+    char *result = (char *)calloc(ln*2+3, sizeof(char));
     char *presult = result;
 
     *presult++ = '"';
@@ -120,7 +120,7 @@ char *loadable_exe(char *exename) {
     if (!hPython) return NULL; */
 
     /* Return the absolute filename for spawnv */
-    result = calloc(MAX_PATH, sizeof(char));
+    result = (char *)calloc(MAX_PATH, sizeof(char));
     strncpy(result, exename, MAX_PATH);
     /*if (result) GetModuleFileNameA(hPython, result, MAX_PATH);
 
@@ -158,7 +158,7 @@ char **parse_argv(char *cmdline, int *argc)
 {
     /* Parse a command line in-place using MS C rules */
 
-    char **result = calloc(strlen(cmdline), sizeof(char *));
+    char **result = (char **)calloc(strlen(cmdline), sizeof(char *));
     char *output = cmdline;
     char c;
     int nb = 0;

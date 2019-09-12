@@ -16,7 +16,7 @@ yosys-smtbmc-script.py: backends/smt2/smtbmc.py
 		-e "s|#!/usr/bin/env python3|#!$(PYTHON)|" < $< > $@
 
 yosys-smtbmc.exe: misc/launcher.c yosys-smtbmc-script.py
-	$(P) gcc -DGUI=0 -O -s -o $@ $<
+	$(P) $(CXX) -DGUI=0 -O -s -o $@ $<
 # Other targets
 else
 TARGETS += yosys-smtbmc
