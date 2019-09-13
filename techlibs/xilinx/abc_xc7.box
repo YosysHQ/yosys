@@ -60,6 +60,16 @@ $__ABC_LUT6 2000 0 7 1
 $__ABC_LUT7 2001 0 8 1
 0 1047 1036 877 812 643 532 478
 
+# Boxes used to represent the comb/seq behaviour of DSP48E1
+#   With abc_map.v responsible for disconnecting inputs to
+#   the combinatorial DSP48E1 model by a register (e.g.
+#   disconnecting A when AREG, MREG or PREG is enabled)
+#   this mux captures the existence of a replacement path
+#   between AREG/BREG/CREG/etc. and P/PCOUT.
+#   Since the Aq/ADq/Bq/etc. inputs are assumed to arrive at
+#   the mux at zero time, the combinatorial delay through
+#   these muxes thus represents the clock-to-q delay at
+#   P/PCOUT.
 $__ABC_DSP48E1_MULT_P_MUX 2100 0 55 48
 # A AD    B    C D    M P                                                                                                Pq
 2952 - 2813 1687 - 1671 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 329
@@ -110,7 +120,6 @@ $__ABC_DSP48E1_MULT_P_MUX 2100 0 55 48
 2952 - 2813 1687 - 1671 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 329
 2952 - 2813 1687 - 1671 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 329
 2952 - 2813 1687 - 1671 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 329
-
 $__ABC_DSP48E1_MULT_PCOUT_MUX 2101 0 55 48
 # A AD    B    C D    M P                                                                                                Pq
 3098 - 2960 1835 - 1819 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 435

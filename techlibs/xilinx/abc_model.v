@@ -44,6 +44,16 @@ endmodule
 module \$__ABC_LUT7 (input A, input [6:0] S, output Y);
 endmodule
 
+// Boxes used to represent the comb/seq behaviour of DSP48E1
+//   With abc_map.v responsible for disconnecting inputs to
+//   the combinatorial DSP48E1 model by a register (e.g.
+//   disconnecting A when AREG, MREG or PREG is enabled)
+//   this mux captures the existence of a replacement path
+//   between AREG/BREG/CREG/etc. and P/PCOUT.
+//   Since the Aq/ADq/Bq/etc. inputs are assumed to arrive at
+//   the mux at zero time, the combinatorial delay through
+//   these muxes thus represents the clock-to-q delay at
+//   P/PCOUT.
 (* abc_box_id=2100 *)
 module \$__ABC_DSP48E1_MULT_P_MUX (input Aq, ADq, Bq, Cq, Dq, Mq, input [47:0] P, input Pq, output [47:0] O);
 endmodule
@@ -51,10 +61,6 @@ endmodule
 module \$__ABC_DSP48E1_MULT_PCOUT_MUX (input Aq, ADq, Bq, Cq, Dq, Mq, input [47:0] P, input Pq, output [47:0] O);
 endmodule
 
-// Box used to represent the comb/seq behaviour of DSP48E1
-//   abc_map.v is responsible for disconnecting inputs to
-//   the combinatorial DSP48E1 model by a register (e.g.
-//   disconnecting A when AREG, MREG or PREG is enabled)
 (* abc_box_id=3000 *)
 module \$__ABC_DSP48E1_MULT (
     output [29:0] ACOUT,
