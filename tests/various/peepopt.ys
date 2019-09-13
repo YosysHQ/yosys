@@ -16,7 +16,7 @@ select -assert-count 0 t:$shiftx t:* %D
 design -reset
 read_verilog <<EOT
 module peepopt_shiftmul_1 (output [7:0] y, input [2:0] w);
-assign y = 1'b1 >> (w * (8'b110));
+assign y = 1'b1 >> (w * (3'b110));
 endmodule
 EOT
 
@@ -25,7 +25,7 @@ equiv_opt -assert peepopt
 design -load postopt
 clean
 select -assert-count 1 t:$shr
-select -assert-count 0 t:$mul
+select -assert-count 1 t:$mul
 select -assert-count 0 t:$shr t:$mul %% t:* %D
 
 ####################
