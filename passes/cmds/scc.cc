@@ -116,7 +116,7 @@ struct SccWorker
 		}
 
 		SigPool selectedSignals;
-		SigSet<RTLIL::Cell*, RTLIL::sort_by_name_id<RTLIL::Cell>> sigToNextCells;
+		SigSet<RTLIL::Cell*> sigToNextCells;
 
 		for (auto &it : module->wires_)
 			if (design->selected(module, it.second))

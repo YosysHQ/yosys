@@ -29,7 +29,7 @@ USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 SigMap assign_map, dff_init_map;
-SigSet<RTLIL::Cell*, RTLIL::sort_by_name_id<RTLIL::Cell>> mux_drivers;
+SigSet<RTLIL::Cell*> mux_drivers;
 dict<SigBit, RTLIL::Cell*> bit2driver;
 dict<SigBit, pool<SigBit>> init_attributes;
 
