@@ -205,6 +205,7 @@ module DSP48E1 (
     parameter [6:0] IS_OPMODE_INVERTED = 7'b0;
 
     parameter _TECHMAP_CELLTYPE_ = "";
+    localparam techmap_guard = (_TECHMAP_CELLTYPE_ != "");
 
     generate
     if (USE_MULT == "MULTIPLY" && USE_DPORT == "FALSE") begin
@@ -232,9 +233,9 @@ module DSP48E1 (
             \$__ABC_DSP48E1_REG rC (.I(C), .O(iC), .Q(pC));
         if (DREG == 0)
             assign iD = D;
-        else if (_TECHMAP_CELLTYPE_ != "")
+        else if (techmap_guard)
 			$error("Invalid DSP48E1 configuration: DREG enabled but USE_DPORT == \"FALSE\"");
-        if (ADREG == 1 && _TECHMAP_CELLTYPE_ != "")
+        if (ADREG == 1 && techmap_guard)
 			$error("Invalid DSP48E1 configuration: ADREG enabled but USE_DPORT == \"FALSE\"");
 		if (PREG == 0) begin
 			if (MREG == 1)
