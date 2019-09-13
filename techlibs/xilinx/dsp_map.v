@@ -25,7 +25,8 @@ module \$__MUL25X18 (input [24:0] A, input [17:0] B, output [42:0] Y);
 		.OPMODEREG(0),
 		.PREG(0),
 		.USE_MULT("MULTIPLY"),
-		.USE_SIMD("ONE48")
+		.USE_SIMD("ONE48"),
+		.USE_DPORT("FALSE")
 	) _TECHMAP_REPLACE_ (
 		//Data path
 		.A({{5{A[24]}}, A}),

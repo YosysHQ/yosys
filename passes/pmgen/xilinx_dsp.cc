@@ -44,6 +44,8 @@ static Cell* addDsp(Module *module) {
 	cell->setParam("\\OPMODEREG", 0);
 	cell->setParam("\\PREG", 0);
 	cell->setParam("\\USE_MULT", Const("NONE"));
+	cell->setParam("\\USE_SIMD", Const("ONE48"));
+	cell->setParam("\\USE_DPORT", Const("FALSE"));
 
 	cell->setPort("\\D", Const(0, 24));
 	cell->setPort("\\INMODE", Const(0, 5));
