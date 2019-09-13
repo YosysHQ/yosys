@@ -135,7 +135,7 @@ struct SigPool
 	}
 };
 
-template <typename T, class Compare=void>
+template <typename T, class Compare = void>
 struct SigSet
 {
 	static_assert(!std::is_same<Compare,void>::value, "Default value for `Compare' class not found for SigSet<T>. Please specify.");
