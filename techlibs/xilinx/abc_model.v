@@ -48,12 +48,31 @@ endmodule
 //   With abc_map.v responsible for disconnecting inputs to
 //   the combinatorial DSP48E1 model by a register (e.g.
 //   disconnecting A when AREG, MREG or PREG is enabled)
-//   this mux captures the existence of a replacement path
-//   between AREG/BREG/CREG/etc. and P/PCOUT.
+//   this blackbox captures the existence of a replacement
+//   path between AREG/BREG/CREG/etc. and P/PCOUT.
 //   Since the Aq/ADq/Bq/etc. inputs are assumed to arrive at
-//   the mux at zero time, the combinatorial delay through
+//   the box at zero time, the combinatorial delay through
 //   these muxes thus represents the clock-to-q delay at
 //   P/PCOUT.
+//   Doing so should means that ABC is able to analyse the
+//   worst-case delay through to P.
+//   However, the true value of being as complete as this is
+//   questionable since if AREG=1 and BREG=0 (as below)
+//   then the worse-case path would very likely be through B
+//   and very unlikely to be through AREG.Q...?
+//
+//   In graphical form:
+//
+//             NEW "PI" >>---+
+//           for AREG.Q      |
+//                           |
+//            +---------+    |   __
+//    A --X X-|         |    +--|  \
+//            | DSP48E1 |P      |   |--- P
+//            | AREG=1  |-------|__/
+//    B ------|         |
+//            +---------+
+//
 (* abc_box_id=2100 *)
 module \$__ABC_DSP48E1_MULT_P_MUX (input Aq, ADq, Bq, Cq, Dq, Mq, input [47:0] P, input Pq, output [47:0] O);
 endmodule
