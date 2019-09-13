@@ -30,12 +30,12 @@ endmodule
 module \$__ABC_DSP48E1_REG (input [47:0] I, output [47:0] O, output Q);
   assign O = I;
 endmodule
-(* techmap_celltype = "$__ABC_DSP48E1_MULT_P_MUX $__ABC_DSP48E1_MULT_PCOUT_MUX $__ABC_DSP48E1_MULT_DPORT_P_MUX $__ABC_DSP48E1_MULT_DPORT_PCOUT_MUX" *)
+(* techmap_celltype = "$__ABC_DSP48E1_MULT_P_MUX $__ABC_DSP48E1_MULT_PCOUT_MUX $__ABC_DSP48E1_MULT_DPORT_P_MUX $__ABC_DSP48E1_MULT_DPORT_PCOUT_MUX $__ABC_DSP48E1_P_MUX $__ABC_DSP48E1_PCOUT_MUX" *)
 module \$__ABC_DSP48E1_MUX (input Aq, Bq, Cq, Dq, ADq, Mq, input [47:0] P, input Pq, output [47:0] O);
   assign O = P;
 endmodule
 
-(* techmap_celltype = "$__ABC_DSP48E1_MULT $__ABC_DSP48E1_MULT_DPORT" *)
+(* techmap_celltype = "$__ABC_DSP48E1_MULT $__ABC_DSP48E1_MULT_DPORT $__ABC_DSP48E1" *)
 module \$__ABC_DSP48E1 (
     output [29:0] ACOUT,
     output [17:0] BCOUT,
