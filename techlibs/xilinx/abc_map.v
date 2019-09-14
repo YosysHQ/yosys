@@ -207,7 +207,7 @@ module DSP48E1 (
     parameter _TECHMAP_CELLTYPE_ = "";
     localparam techmap_guard = (_TECHMAP_CELLTYPE_ != "");
 
-`define DSP48E1_inst(__CELL__) """
+`define DSP48E1_INST(__CELL__) """
 __CELL__ #(
             .ACASCREG(ACASCREG),
             .ADREG(ADREG),
@@ -336,7 +336,7 @@ __CELL__ #(
             .Aq(pA), .Bq(pB), .Cq(pC), .Dq(pD), .ADq(pAD), .Mq(pM), .P(oPCOUT), .Pq(pP), .O(PCOUT)
         );
 
-        `DSP48E1_inst(\$__ABC_DSP48E1_MULT )
+        `DSP48E1_INST(\$__ABC_DSP48E1_MULT )
     end
     else if (USE_MULT == "MULTIPLY" && USE_DPORT == "TRUE") begin
         wire [29:0] iA;
@@ -381,7 +381,7 @@ __CELL__ #(
             .Aq(pA), .Bq(pB), .Cq(pC), .Dq(pD), .ADq(pAD), .Mq(pM), .P(oPCOUT), .Pq(pP), .O(PCOUT)
         );
 
-        `DSP48E1_inst(\$__ABC_DSP48E1_MULTD_PORT )
+        `DSP48E1_INST(\$__ABC_DSP48E1_MULTD_PORT )
     end
     else if (USE_MULT == "NONE" && USE_DPORT == "FALSE") begin
         wire [29:0] iA;
@@ -422,9 +422,10 @@ __CELL__ #(
             .Aq(pA), .Bq(pB), .Cq(pC), .Dq(pD), .ADq(pAD), .Mq(pM), .P(oPCOUT), .Pq(pP), .O(PCOUT)
         );
 
-        `DSP48E1_inst(\$__ABC_DSP48E1_MULTD_PORT )
+        `DSP48E1_INST(\$__ABC_DSP48E1_MULTD_PORT )
     end
     else
         $error("Invalid DSP48E1 configuration");
 	endgenerate
+	`undef DSP48E1_INST
 endmodule
