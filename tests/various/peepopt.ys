@@ -47,10 +47,10 @@ design -import gate -as gate peepopt_shiftmul_2
 
 miter -equiv -make_assert -make_outputs -ignore_gold_x -flatten gold gate miter
 sat -show-public -enable_undef -prove-asserts miter
+cd gate
 select -assert-count 1 t:$shr
 select -assert-count 1 t:$mul
 select -assert-count 0 t:$shr t:$mul %% t:* %D
-exit
 
 ####################
 
