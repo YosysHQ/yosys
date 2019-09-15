@@ -135,9 +135,11 @@ struct SigPool
 	}
 };
 
-template <typename T, class Compare = std::less<T>>
+template <typename T, class Compare = void>
 struct SigSet
 {
+	static_assert(!std::is_same<Compare,void>::value, "Default value for `Compare' class not found for SigSet<T>. Please specify.");
+
 	struct bitDef_t : public std::pair<RTLIL::Wire*, int> {
 		bitDef_t() : std::pair<RTLIL::Wire*, int>(NULL, 0) { }
 		bitDef_t(const RTLIL::SigBit &bit) : std::pair<RTLIL::Wire*, int>(bit.wire, bit.offset) { }
@@ -219,6 +221,13 @@ struct SigSet
 		return false;
 	}
 };
+
+template<typename T>
+class SigSet<T, typename std::enable_if<!std::is_pointer<T>::value>::type> : public SigSet<T, std::less<T>> {};
+template<typename T>
+using sort_by_name_id_guard = typename std::enable_if<std::is_same<T,RTLIL::Cell*>::value>::type;
+template<typename T>
+class SigSet<T, sort_by_name_id_guard<T>> : public SigSet<T, RTLIL::sort_by_name_id<typename std::remove_pointer<T>::type>> {};
 
 struct SigMap
 {

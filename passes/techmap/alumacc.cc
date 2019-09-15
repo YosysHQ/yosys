@@ -48,14 +48,25 @@ struct AlumaccWorker
 		RTLIL::SigSpec cached_cf, cached_of, cached_sf;
 
 		RTLIL::SigSpec get_lt() {
-			if (GetSize(cached_lt) == 0)
-				cached_lt = is_signed ? alu_cell->module->Xor(NEW_ID, get_of(), get_sf()) : get_cf();
+			if (GetSize(cached_lt) == 0) {
+				if (is_signed) {
+					get_of();
+					get_sf();
+					cached_lt = alu_cell->module->Xor(NEW_ID, cached_of, cached_sf);
+				}
+				else
+					cached_lt = get_cf();
+			}
 			return cached_lt;
 		}
 
 		RTLIL::SigSpec get_gt() {
-			if (GetSize(cached_gt) == 0)
-				cached_gt = alu_cell->module->Not(NEW_ID, alu_cell->module->Or(NEW_ID, get_lt(), get_eq()), false, alu_cell->get_src_attribute());
+			if (GetSize(cached_gt) == 0) {
+				get_lt();
+				get_eq();
+				SigSpec Or = alu_cell->module->Or(NEW_ID, cached_lt, cached_eq);
+				cached_gt = alu_cell->module->Not(NEW_ID, Or, false, alu_cell->get_src_attribute());
+			}
 			return cached_gt;
 		}
 
