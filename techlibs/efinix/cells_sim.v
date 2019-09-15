@@ -6,6 +6,7 @@ module EFX_LUT4(
    input I3
 );
    parameter LUTMASK  = 16'h0000;
+	assign O = LUTMASK >> {I3, I2, I1, I0};   
 endmodule
 
 module EFX_ADD(
@@ -17,10 +18,18 @@ module EFX_ADD(
 );
    parameter I0_POLARITY   = 1;
    parameter I1_POLARITY   = 1;
+
+   wire i0;
+   wire i1;
+
+   assign i0 = I0_POLARITY ? I0 : ~I0;
+   assign i1 = I1_POLARITY ? I1 : ~I1;
+
+   assign {CO, O} = i0 + i1 + CI;
 endmodule
 
 module EFX_FF(
-   output Q,
+   output reg Q,
    input D,
    input CE,
    input CLK,
@@ -33,6 +42,51 @@ module EFX_FF(
    parameter SR_VALUE = 0;
    parameter SR_SYNC_PRIORITY = 0;
    parameter D_POLARITY = 1;
+
+   wire clk;
+   wire ce;
+   wire sr;
+   wire d;
+   wire prio;
+   wire sync;
+   wire async;
+
+   assign clk = CLK_POLARITY ? CLK : ~CLK;
+   assign ce = CE_POLARITY ? CE : ~CE;
+   assign sr = SR_POLARITY ? SR : ~SR;
+   assign d = D_POLARITY ? D : ~D;
+  
+   generate
+   	if (SR_SYNC == 1) 
+      begin
+         if (SR_SYNC_PRIORITY == 1) 
+         begin
+            always @(posedge clk)
+               if (sr)
+                  Q <= SR_VALUE;
+               else if (ce)
+                  Q <= d;
+         end
+         else
+         begin
+            always @(posedge clk)
+               if (ce)
+                  if (sr)
+                     Q <= SR_VALUE;
+                  else
+                     Q <= d;            
+         end
+      end
+      else
+      begin
+         always @(posedge clk or posedge sr)
+            if (sr)
+               Q <= SR_VALUE;
+            else if (ce)
+               Q <= d;
+         
+      end
+   endgenerate
 endmodule
 
 module EFX_GBUFCE(
@@ -41,6 +95,12 @@ module EFX_GBUFCE(
    output O
 );
    parameter CE_POLARITY = 1'b1;
+
+   wire ce;
+   assign ce = CE_POLARITY ? CE : ~CE;
+   
+   assign O = I & ce;
+   
 endmodule
 
 module EFX_RAM_5K(

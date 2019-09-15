@@ -1,5 +1,5 @@
 module AL_MAP_SEQ (
-	output q,
+	output reg q,
 	input ce,
 	input clk,
 	input sr,
@@ -9,6 +9,70 @@ module AL_MAP_SEQ (
 	parameter REGSET = "RESET"; //RESET/SET
 	parameter SRMUX = "SR"; //SR/INV
 	parameter SRMODE = "SYNC"; //SYNC/ASYNC
+
+	wire clk_ce;
+	assign clk_ce = ce ? clk : 1'b0;
+
+	wire srmux;
+	generate
+		case (SRMUX)
+			"SR": assign srmux = sr;
+			"INV": assign srmux = ~sr;
+			default: assign srmux = sr;
+		endcase
+	endgenerate	
+
+	wire regset;
+	generate
+		case (REGSET)
+			"RESET": assign regset = 1'b0;
+			"SET": assign regset = 1'b1;
+			default: assign regset = 1'b0;
+		endcase
+	endgenerate
+
+	initial q = regset;
+
+	generate
+   		if (DFFMODE == "FF") 
+		begin
+			if (SRMODE == "ASYNC") 
+			begin
+				always @(posedge clk_ce, posedge srmux)
+					if (srmux)
+						q <= regset;
+					else 
+						q <= d;	
+			end 
+			else
+			begin
+				always @(posedge clk_ce)
+					if (srmux)
+						q <= regset;
+					else 
+						q <= d;	
+			end
+		end
+		else
+		begin
+			if (SRMODE == "ASYNC") 
+			begin
+				always @(clk_ce, srmux)
+					if (srmux)
+						q <= regset;
+					else 
+						q <= d;	
+			end 
+			else
+			begin
+				always @(clk_ce)
+					if (srmux)
+						q <= regset;
+					else 
+						q <= d;	
+			end
+		end
+    endgenerate
 endmodule
 
 module AL_MAP_LUT1 (
@@ -100,4 +164,18 @@ module AL_MAP_ADDER (
   output [1:0] o
 );
 	parameter ALUTYPE = "ADD";
+
+	generate
+		case (ALUTYPE)
+			"ADD": 		 assign o = a + b + c;
+			"SUB": 		 assign o = a - b - c;
+			"A_LE_B":    assign o = a - b - c;
+
+			"ADD_CARRY":    assign o = {  a, 1'b0 };
+			"SUB_CARRY":    assign o = { ~a, 1'b0 };
+			"A_LE_B_CARRY": assign o = {  a, 1'b0 };
+			default: assign o = a + b + c;
+		endcase
+	endgenerate	
+
 endmodule
