@@ -953,6 +953,10 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			}
 
 			if (b.is_fully_const()) {
+				if (b.is_fully_undef()) {
+					RTLIL::SigSpec input = b;
+					ACTION_DO(ID::Y, Const(State::Sx, GetSize(cell->getPort(ID::Y))));
+				} else
 				if (b.as_bool() == (cell->type == ID($eq))) {
 					RTLIL::SigSpec input = b;
 					ACTION_DO(ID::Y, cell->getPort(ID::A));

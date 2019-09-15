@@ -85,10 +85,8 @@ static void my_strtobin(std::vector<RTLIL::State> &data, const char *str, int le
 			digits.push_back(10 + *str - 'A');
 		else if (*str == 'x' || *str == 'X')
 			digits.push_back(0xf0);
-		else if (*str == 'z' || *str == 'Z')
+		else if (*str == 'z' || *str == 'Z' || *str == '?')
 			digits.push_back(0xf1);
-		else if (*str == '?')
-			digits.push_back(0xf2);
 		str++;
 	}
 
@@ -112,8 +110,6 @@ static void my_strtobin(std::vector<RTLIL::State> &data, const char *str, int le
 					data.push_back(case_type == 'x' ? RTLIL::Sa : RTLIL::Sx);
 				else if (*it == 0xf1)
 					data.push_back(case_type == 'x' || case_type == 'z' ? RTLIL::Sa : RTLIL::Sz);
-				else if (*it == 0xf2)
-					data.push_back(RTLIL::Sa);
 				else
 					data.push_back((*it & bitmask) ? State::S1 : State::S0);
 			}
