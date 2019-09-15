@@ -46,7 +46,7 @@ struct SynthXilinxPass : public ScriptPass
 		log("    -top <module>\n");
 		log("        use the specified module as top module\n");
 		log("\n");
-		log("    -family {xcup|xcu|xc7|xc6s}\n");
+		log("    -family {xcup|xcu|xc7|xc6v|xc6s}\n");
 		log("        run synthesis for the specified Xilinx architecture\n");
 		log("        generate the synthesis netlist for the specified family.\n");
 		log("        default: xc7\n");
@@ -244,7 +244,7 @@ struct SynthXilinxPass : public ScriptPass
 		}
 		extra_args(args, argidx, design);
 
-		if (family != "xcup" && family != "xcu" && family != "xc7" && family != "xc6s")
+		if (family != "xcup" && family != "xcu" && family != "xc7" && family != "xc6v" & family != "xc6s")
 			log_cmd_error("Invalid Xilinx -family setting: '%s'.\n", family.c_str());
 
 		if (widemux != 0 && widemux < 2)
@@ -268,7 +268,7 @@ struct SynthXilinxPass : public ScriptPass
 	{
 		std::string ff_map_file;
 		if (help_mode)
-			ff_map_file = "+/xilinx/xc6s_ff_map.v";
+			ff_map_file = "+/xilinx/{family}_ff_map.v";
 		else if (family == "xc6s")
 			ff_map_file = "+/xilinx/xc6s_ff_map.v";
 		else
@@ -280,13 +280,22 @@ struct SynthXilinxPass : public ScriptPass
 			else
 				run("read_verilog -lib +/xilinx/cells_sim.v");
 
-			run("read_verilog -lib +/xilinx/cells_xtra.v");
+			if (help_mode)
+				run("read_verilog -lib +/xilinx/{family}_cells_xtra.v");
+			else if (family == "xc6s")
+				run("read_verilog -lib +/xilinx/xc6s_cells_xtra.v");
+			else if (family == "xc6v")
+				run("read_verilog -lib +/xilinx/xc6v_cells_xtra.v");
+			else if (family == "xc7")
+				run("read_verilog -lib +/xilinx/xc7_cells_xtra.v");
+			else if (family == "xcu" || family == "xcup")
+				run("read_verilog -lib +/xilinx/xcu_cells_xtra.v");
 
 			if (help_mode) {
 				run("read_verilog -lib +/xilinx/{family}_brams_bb.v");
 			} else if (family == "xc6s") {
 				run("read_verilog -lib +/xilinx/xc6s_brams_bb.v");
-			} else if (family == "xc7") {
+			} else if (family == "xc6v" || family == "xc7") {
 				run("read_verilog -lib +/xilinx/xc7_brams_bb.v");
 			}
 
@@ -337,7 +346,7 @@ struct SynthXilinxPass : public ScriptPass
 				if (family == "xc6s") {
 					run("memory_bram -rules +/xilinx/xc6s_brams.txt");
 					run("techmap -map +/xilinx/xc6s_brams_map.v");
-				} else if (family == "xc7") {
+				} else if (family == "xc6v" || family == "xc7") {
 					run("memory_bram -rules +/xilinx/xc7_brams.txt");
 					run("techmap -map +/xilinx/xc7_brams_map.v");
 				} else {
