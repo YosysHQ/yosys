@@ -2895,8 +2895,15 @@ AstNode *AstNode::readmem(bool is_readmemh, std::string mem_filename, AstNode *m
 void AstNode::expand_genblock(std::string index_var, std::string prefix, std::map<std::string, std::string> &name_map)
 {
 	if (!index_var.empty() && type == AST_IDENTIFIER && str == index_var) {
-		current_scope[index_var]->children[0]->cloneInto(this);
-		return;
+		if (children.empty()) {
+			current_scope[index_var]->children[0]->cloneInto(this);
+		} else {
+			AstNode *p = new AstNode(AST_LOCALPARAM, current_scope[index_var]->children[0]->clone());
+			p->str = stringf("$genval$%d", autoidx++);
+			current_ast_mod->children.push_back(p);
+			str = p->str;
+			id2ast = p;
+		}
 	}
 
 	if ((type == AST_IDENTIFIER || type == AST_FCALL || type == AST_TCALL) && name_map.count(str) > 0)
