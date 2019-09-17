@@ -1,13 +1,14 @@
 read_verilog adffs.v
 proc
-async2sync # converts async flops to a 'sync' variant clocked by a 'super'-clock
 flatten
-equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
+equiv_opt -multiclock -assert -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd top # Constrain all select calls below inside the top module
 
 select -assert-count 1 t:BUFG
-select -assert-count 3 t:FDRE
+select -assert-count 2 t:FDCE
+select -assert-count 1 t:FDRE
 select -assert-count 1 t:FDRE_1
-select -assert-count 5 t:LUT2
-select -assert-none t:BUFG t:FDRE t:FDRE_1 t:LUT2 %% t:* %D
+select -assert-count 1 t:LUT1
+select -assert-count 2 t:LUT2
+select -assert-none t:BUFG t:FDCE t:FDRE t:FDRE_1 t:LUT1 t:LUT2 %% t:* %D
