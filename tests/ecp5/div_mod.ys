@@ -6,7 +6,7 @@ design -load postopt # load the post-opt design (otherwise equiv_opt loads the p
 cd top # Constrain all select calls below inside the top module
 
 select -assert-count 28 t:CCU2C
-select -assert-count 48 t:L6MUX21
-select -assert-count 194 t:LUT4
-select -assert-count 84 t:PFUMX
+select -assert-count 26 t:L6MUX21
+select -assert-count 138 t:LUT4
+select -assert-count 60 t:PFUMX
 select -assert-none t:LUT4 t:CCU2C t:L6MUX21 t:PFUMX %% t:* %D
