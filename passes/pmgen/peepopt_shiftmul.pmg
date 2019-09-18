@@ -50,9 +50,8 @@ code
 	if (GetSize(const_factor_cnst) > 20)
 		reject;
 
-	if (shift->type.in($shift, $shiftx))
-		if (GetSize(port(shift, \Y)) > const_factor)
-			reject;
+	if (GetSize(port(shift, \Y)) > const_factor)
+		reject;
 
 	int factor_bits = ceil_log2(const_factor);
 	SigSpec mul_din = port(mul, const_factor_port == \A ? \B : \A);
