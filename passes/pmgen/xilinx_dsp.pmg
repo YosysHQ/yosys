@@ -361,8 +361,8 @@ match overflow
 	select overflow->type.in($ge)
 	select GetSize(port(overflow, \Y)) <= 48
 	select port(overflow, \B).is_fully_const()
-	// Check is exact power of 2
-	select (port(overflow, \B).as_int() & (port(overflow, \B).as_int()-1)) == 0
+	define <Const> B port(overflow, \B).as_const()
+	select std::count(B.bits.begin(), B.bits.end(), State::S1) == 1
 	index <SigSpec> port(overflow, \A) === sigP
 	optional
 endmatch

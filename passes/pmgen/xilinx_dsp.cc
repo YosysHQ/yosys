@@ -337,10 +337,20 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 		cell->setParam("\\SEL_MASK", Const("MASK"));
 
 		if (st.overflow->type == "$ge") {
-			int B = st.overflow->getPort("\\B").as_int();
-			log_assert((B & (B-1)) == 0); // Exact power of 2
+			Const B = st.overflow->getPort("\\B").as_const();
+			log_assert(std::count(B.bits.begin(), B.bits.end(), State::S1) == 1);
+			// Since B is an exact power of 2, subtract 1
+			//   by inverting all bits up until hitting
+			//   that one hi bit
+			for (auto &b : B.bits)
+				if (b == State::S0) b = State::S1;
+				else if (b == State::S1) {
+					b = State::S0;
+					break;
+				}
+			B.extu(48);
 
-			cell->setParam("\\MASK", Const(B-1, 48));
+			cell->setParam("\\MASK", B);
 			cell->setParam("\\PATTERN", Const(0, 48));
 			cell->setPort("\\OVERFLOW", st.overflow->getPort("\\Y"));
 		}
