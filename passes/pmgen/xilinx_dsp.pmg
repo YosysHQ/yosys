@@ -63,11 +63,13 @@ code argQ ffAD ffADcemux ffADrstmux ffADcepol ffADrstpol sigA clock
 		if (dff) {
 			ffAD = dff;
 			clock = dffclock;
+			if (dffrstmux) {
+				ffADrstmux = dffrstmux;
+				ffADrstpol = dffrstpol;
+			}
 			if (dffcemux) {
 				ffADcemux = dffcemux;
-				ffADrstmux = dffrstmux;
 				ffADcepol = dffcepol;
-				ffADrstpol = dffrstpol;
 			}
 			sigA = dffD;
 		}
@@ -115,12 +117,12 @@ code argQ ffAD ffADcemux ffADrstmux ffADcepol ffADrstpol sigA clock ffA2 ffA2cem
 				ffA2 = dff;
 				clock = dffclock;
 				if (dffrstmux) {
-					ffA2cepol = dffcepol;
+					ffA2rstmux = dffrstmux;
 					ffArstpol = dffrstpol;
 				}
 				if (dffcemux) {
+					ffA2cepol = dffcepol;
 					ffA2cemux = dffcemux;
-					ffA2rstmux = dffrstmux;
 				}
 				sigA = dffD;
 			}
@@ -173,11 +175,13 @@ code argQ ffB2 ffB2cemux ffB2rstmux ffB2cepol ffBrstpol sigB clock ffB1 ffB1cemu
 		if (dff) {
 			ffB2 = dff;
 			clock = dffclock;
+			if (dffrstmux) {
+				ffB2rstmux = dffrstmux;
+				ffBrstpol = dffrstpol;
+			}
 			if (dffcemux) {
 				ffB2cemux = dffcemux;
-				ffB2rstmux = dffrstmux;
 				ffB2cepol = dffcepol;
-				ffBrstpol = dffrstpol;
 			}
 			sigB = dffD;
 
@@ -220,11 +224,13 @@ code argQ ffD ffDcemux ffDrstmux ffDcepol ffDrstpol sigD clock
 		if (dff) {
 			ffD = dff;
 			clock = dffclock;
+			if (dffrstmux) {
+				ffDrstmux = dffrstmux;
+				ffDrstpol = dffrstpol;
+			}
 			if (dffcemux) {
 				ffDcemux = dffcemux;
-				ffDrstmux = dffrstmux;
 				ffDcepol = dffcepol;
-				ffDrstpol = dffrstpol;
 			}
 			sigD = dffD;
 		}
@@ -238,11 +244,13 @@ code argD ffM ffMcemux ffMrstmux ffMcepol ffMrstpol sigM sigP clock
 		if (dff) {
 			ffM = dff;
 			clock = dffclock;
+			if (dffrstmux) {
+				ffMrstmux = dffrstmux;
+				ffMrstpol = dffrstpol;
+			}
 			if (dffcemux) {
 				ffMcemux = dffcemux;
-				ffMrstmux = dffrstmux;
 				ffMcepol = dffcepol;
-				ffMrstpol = dffrstpol;
 			}
 			sigM = dffQ;
 		}
@@ -288,20 +296,22 @@ endcode
 
 code argD ffP ffPcemux ffPrstmux ffPcepol ffPrstpol sigP clock
 	if (param(dsp, \PREG).as_int() == 0) {
-		// If ffMcemux and no postAdd new-value net must have exactly three users: ffMcemux, ffM and ffPcemux
-		if ((ffMcemux && !postAdd && nusers(sigP) == 3) ||
-				// Otherwise new-value net must have exactly two users: dsp and ffPcemux
-				((!ffMcemux || postAdd) && nusers(sigP) == 2)) {
+		int users = 2;
+		// If ffMcemux and no postAdd new-value net must have three users: ffMcemux, ffM and ffPcemux
+		if (ffMcemux && !postAdd) users++;
+		if (nusers(sigP) == users) {
 			argD = sigP;
 			subpattern(out_dffe);
 			if (dff) {
 				ffP = dff;
 				clock = dffclock;
+				if (dffrstmux) {
+					ffPrstmux = dffrstmux;
+					ffPrstpol = dffrstpol;
+				}
 				if (dffcemux) {
 					ffPcemux = dffcemux;
 					ffPcepol = dffcepol;
-					ffPrstmux = dffrstmux;
-					ffPrstpol = dffrstpol;
 				}
 				sigP = dffQ;
 			}
@@ -333,11 +343,13 @@ code argQ ffC ffCcemux ffCrstmux ffCcepol ffCrstpol sigC clock
 		if (dff) {
 			ffC = dff;
 			clock = dffclock;
+			if (dffrstmux) {
+				ffCrstmux = dffrstmux;
+				ffCrstpol = dffrstpol;
+			}
 			if (dffcemux) {
 				ffCcemux = dffcemux;
-				ffCrstmux = dffrstmux;
 				ffCcepol = dffcepol;
-				ffCrstpol = dffrstpol;
 			}
 			sigC = dffD;
 		}
@@ -421,7 +433,7 @@ code argD
 		argD = port(ffrstmux, ffrstpol ? \A : \B);
 		dffD.replace(port(ffrstmux, \Y), argD);
 
-		// Only search for ffrstmux if argQ has at
+		// Only search for ffcemux if argQ has at
 		//   least 3 users (ff, <upstream>, ffrstmux) and
 		//   dffD only has two (ff, ffrstmux)
 		if (!(nusers(argQ) >= 3 && nusers(dffD) == 2))
@@ -525,7 +537,7 @@ endmatch
 code argD argQ
 	dffrstmux = ffrstmux;
 	if (ffrstmux) {
-		SigSpec AB = port(ffrstmux, ffcepol ? \A : \B);
+		SigSpec AB = port(ffrstmux, ffrstpol ? \A : \B);
 		if (ffoffset + GetSize(argD) > GetSize(AB))
 			reject;
 
