@@ -498,8 +498,8 @@ module DSP48E1 (
     output reg MULTSIGNOUT,
     output OVERFLOW,
     output reg signed [47:0] P,
-    output PATTERNBDETECT,
-    output PATTERNDETECT,
+    output reg PATTERNBDETECT,
+    output reg PATTERNDETECT,
     output [47:0] PCOUT,
     output UNDERFLOW,
     input signed [29:0] A,
@@ -575,10 +575,8 @@ module DSP48E1 (
     initial begin
 `ifdef __ICARUS__
         if (AUTORESET_PATDET != "NO_RESET") $fatal(1, "Unsupported AUTORESET_PATDET value");
-        //if (PREG != 0)              $fatal(1, "Unsupported PREG value");
         if (SEL_MASK != "MASK")     $fatal(1, "Unsupported SEL_MASK value");
         if (SEL_PATTERN != "PATTERN") $fatal(1, "Unsupported SEL_PATTERN value");
-        if (USE_PATTERN_DETECT != "NO_PATDET") $fatal(1, "Unsupported USE_PATTERN_DETECT value");
         if (USE_SIMD != "ONE48" && USE_SIMD != "TWO24" && USE_SIMD != "FOUR12")    $fatal(1, "Unsupported USE_SIMD value");
         if (IS_ALUMODE_INVERTED != 4'b0) $fatal(1, "Unsupported IS_ALUMODE_INVERTED value");
         if (IS_CARRYIN_INVERTED != 1'b0) $fatal(1, "Unsupported IS_CARRYIN_INVERTED value");
@@ -896,5 +894,46 @@ module DSP48E1 (
     endgenerate
 
     assign PCOUT = P;
+
+    generate
+        wire PATTERNDETECTd, PATTERNBDETECTd;
+
+        if (USE_PATTERN_DETECT == "PATDET") begin
+            // TODO: Support SEL_PATTERN != "PATTERN" and SEL_MASK != "MASK
+            assign PATTERNDETECTd = &(~(Pd ^ PATTERN) | MASK);
+            assign PATTERNBDETECTd = &((Pd ^ PATTERN) | MASK);
+        end else begin
+            assign PATTERNDETECTd = 1'b1;
+            assign PATTERNBDETECTd = 1'b1;
+        end
+
+        if (PREG == 1) begin
+            reg PATTERNDETECTPAST, PATTERNBDETECTPAST;
+            initial PATTERNDETECT = 1'b0;
+            initial PATTERNBDETECT = 1'b0;
+            initial PATTERNDETECTPAST = 1'b0;
+            initial PATTERNBDETECTPAST = 1'b0;
+            always @(posedge CLK)
+                if (RSTP) begin
+                    PATTERNDETECT <= 1'b0;
+                    PATTERNBDETECT <= 1'b0;
+                    PATTERNDETECTPAST <= 1'b0;
+                    PATTERNBDETECTPAST <= 1'b0;
+                end else if (CEP) begin
+                    PATTERNDETECT <= PATTERNDETECTd;
+                    PATTERNBDETECT <= PATTERNBDETECTd;
+                    PATTERNDETECTPAST <= PATTERNDETECT;
+                    PATTERNBDETECTPAST <= PATTERNBDETECT;
+                end
+            assign OVERFLOW = &{PATTERNDETECTPAST, ~PATTERNBDETECT, ~PATTERNDETECT};
+            assign UNDERFLOW = &{PATTERNBDETECTPAST, ~PATTERNBDETECT, ~PATTERNDETECT};
+        end else begin
+            always @* begin
+                PATTERNDETECT = PATTERNDETECTd;
+                PATTERNBDETECT = PATTERNBDETECTd;
+            end
+            assign OVERFLOW = 1'bx, UNDERFLOW = 1'bx;
+        end
+    endgenerate
 
 endmodule

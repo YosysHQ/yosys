@@ -81,6 +81,26 @@ module testbench;
 				errcount = errcount + 1;
 				ERROR_FLAG = 1;
 			end
+			if (REF_PATTERNDETECT !== PATTERNDETECT) begin
+				$display("ERROR at %1t: REF_PATTERNDETECT=%b UUT_PATTERNDETECT=%b DIFF=%b REF_P=%b P=%b", $time, REF_PATTERNDETECT, PATTERNDETECT, REF_PATTERNDETECT ^ PATTERNDETECT, REF_P, P);
+				errcount = errcount + 1;
+				ERROR_FLAG = 1;
+			end
+			if (REF_PATTERNBDETECT !== PATTERNBDETECT) begin
+				$display("ERROR at %1t: REF_PATTERNBDETECT=%b UUT_PATTERNBDETECT=%b DIFF=%b", $time, REF_PATTERNBDETECT, PATTERNBDETECT, REF_PATTERNBDETECT ^ PATTERNBDETECT);
+				errcount = errcount + 1;
+				ERROR_FLAG = 1;
+			end
+			if (REF_OVERFLOW !== OVERFLOW) begin
+				$display("ERROR at %1t: REF_OVERFLOW=%b UUT_OVERFLOW=%b DIFF=%b", $time, REF_OVERFLOW, OVERFLOW, REF_OVERFLOW ^ OVERFLOW);
+				errcount = errcount + 1;
+				ERROR_FLAG = 1;
+			end
+			if (REF_UNDERFLOW !== UNDERFLOW) begin
+				$display("ERROR at %1t: REF_UNDERFLOW=%b UUT_UNDERFLOW=%b DIFF=%b", $time, REF_UNDERFLOW, UNDERFLOW, REF_UNDERFLOW ^ UNDERFLOW);
+				errcount = errcount + 1;
+				ERROR_FLAG = 1;
+			end
 			#3;
 		end
 	endtask
@@ -587,6 +607,41 @@ module simd24_preadd_noreg_nocasc;
 		.USE_PATTERN_DETECT ("NO_PATDET"),
 		.USE_SIMD           ("TWO24"),
 		.MASK               (48'h3FFFFFFFFFFF),
+		.PATTERN            (48'h000000000000),
+		.IS_ALUMODE_INVERTED(4'b0),
+		.IS_CARRYIN_INVERTED(1'b0),
+		.IS_CLK_INVERTED    (1'b0),
+		.IS_INMODE_INVERTED (5'b0),
+		.IS_OPMODE_INVERTED (7'b0)
+	) testbench ();
+endmodule
+
+module macc_overflow_underflow;
+	testbench #(
+		.ACASCREG           (0),
+		.ADREG              (0),
+		.ALUMODEREG         (0),
+		.AREG               (0),
+		.AUTORESET_PATDET   ("NO_RESET"),
+		.A_INPUT            ("DIRECT"),
+		.BCASCREG           (0),
+		.BREG               (0),
+		.B_INPUT            ("DIRECT"),
+		.CARRYINREG         (0),
+		.CARRYINSELREG      (0),
+		.CREG               (0),
+		.DREG               (0),
+		.INMODEREG          (0),
+		.MREG               (0),
+		.OPMODEREG          (0),
+		.PREG               (1),
+		.SEL_MASK           ("MASK"),
+		.SEL_PATTERN        ("PATTERN"),
+		.USE_DPORT          ("FALSE"),
+		.USE_MULT           ("DYNAMIC"),
+		.USE_PATTERN_DETECT ("PATDET"),
+		.USE_SIMD           ("ONE48"),
+		.MASK               (48'h1FFFFFFFFFFF),
 		.PATTERN            (48'h000000000000),
 		.IS_ALUMODE_INVERTED(4'b0),
 		.IS_CARRYIN_INVERTED(1'b0),
