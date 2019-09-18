@@ -597,10 +597,10 @@ module DSP48E1 (
         else assign B_muxed = B;
     endgenerate
 
-    reg signed [29:0] Ar1 = 30'b0, Ar2 = 30'b0;
-    reg signed [24:0] Dr = 25'b0;
-    reg signed [17:0] Br1 = 18'b0, Br2 = 18'b0;
-    reg signed [47:0] Cr = 48'b0;
+    reg signed [29:0] Ar1, Ar2;
+    reg signed [24:0] Dr;
+    reg signed [17:0] Br1, Br2;
+    reg signed [47:0] Cr;
     reg        [4:0]  INMODEr = 5'b0;
     reg        [6:0]  OPMODEr = 7'b0;
     reg        [3:0]  ALUMODEr = 4'b0;
@@ -609,6 +609,8 @@ module DSP48E1 (
     generate
         // Configurable A register
         if (AREG == 2) begin
+            initial Ar1 = 30'b0;
+            initial Ar2 = 30'b0;
             always @(posedge CLK)
                 if (RSTA) begin
                     Ar1 <= 30'b0;
@@ -618,6 +620,8 @@ module DSP48E1 (
                     if (CEA2) Ar2 <= Ar1;
                 end
         end else if (AREG == 1) begin
+            //initial Ar1 = 30'b0;
+            initial Ar2 = 30'b0;
             always @(posedge CLK)
                 if (RSTA) begin
                     Ar1 <= 30'b0;
@@ -633,6 +637,8 @@ module DSP48E1 (
 
         // Configurable B register
         if (BREG == 2) begin
+            initial Br1 = 25'b0;
+            initial Br2 = 25'b0;
             always @(posedge CLK)
                 if (RSTB) begin
                     Br1 <= 18'b0;
@@ -642,6 +648,8 @@ module DSP48E1 (
                     if (CEB2) Br2 <= Br1;
                 end
         end else if (BREG == 1) begin
+            //initial Br1 = 25'b0;
+            initial Br2 = 25'b0;
             always @(posedge CLK)
                 if (RSTB) begin
                     Br1 <= 18'b0;
@@ -656,24 +664,30 @@ module DSP48E1 (
         end
 
         // C and D registers
+        if (CREG == 1) initial Cr = 48'b0;
         if (CREG == 1) begin always @(posedge CLK) if (RSTC) Cr <= 48'b0; else if (CEC) Cr <= C; end
         else           always @* Cr <= C;
 
+        if (CREG == 1) initial Dr = 25'b0;
         if (DREG == 1) begin always @(posedge CLK) if (RSTD) Dr <= 25'b0; else if (CED) Dr <= D; end
         else           always @* Dr <= D;
 
         // Control registers
+        if (INMODEREG == 1) initial INMODEr = 5'b0;
         if (INMODEREG == 1) begin always @(posedge CLK) if (RSTINMODE) INMODEr <= 5'b0; else if (CEINMODE) INMODEr <= INMODE; end
         else           always @* INMODEr <= INMODE;
+        if (OPMODEREG == 1) initial OPMODEr = 7'b0;
         if (OPMODEREG == 1) begin always @(posedge CLK) if (RSTCTRL) OPMODEr <= 7'b0; else if (CECTRL) OPMODEr <= OPMODE; end
         else           always @* OPMODEr <= OPMODE;
+        if (ALUMODEREG == 1) initial ALUMODEr = 4'b0;
         if (ALUMODEREG == 1) begin always @(posedge CLK) if (RSTALUMODE) ALUMODEr <= 4'b0; else if (CEALUMODE) ALUMODEr <= ALUMODE; end
         else           always @* ALUMODEr <= ALUMODE;
+        if (CARRYINSELREG == 1) initial CARRYINSELr = 3'b0;
         if (CARRYINSELREG == 1) begin always @(posedge CLK) if (RSTCTRL) CARRYINSELr <= 3'b0; else if (CECTRL) CARRYINSELr <= CARRYINSEL; end
         else           always @* CARRYINSELr <= CARRYINSEL;
     endgenerate
 
-    // A and B cascsde
+    // A and B cascade
     generate
         if (ACASCREG == 1 && AREG == 2) assign ACOUT = Ar1;
         else assign ACOUT = Ar2;
@@ -686,9 +700,10 @@ module DSP48E1 (
     wire signed [24:0] Ar12_gated = INMODEr[1] ? 25'b0 : Ar12_muxed;
     wire signed [24:0] Dr_gated   = INMODEr[2] ? Dr : 25'b0;
     wire signed [24:0] AD_result  = INMODEr[3] ? (Dr_gated - Ar12_gated) : (Dr_gated + Ar12_gated);
-    reg  signed [24:0] ADr = 25'b0;
+    reg  signed [24:0] ADr;
 
     generate
+        if (ADREG == 1) initial ADr = 25'b0;
         if (ADREG == 1) begin always @(posedge CLK) if (RSTD) ADr <= 25'b0; else if (CEAD) ADr <= AD_result; end
         else            always @* ADr <= AD_result;
     endgenerate
@@ -860,10 +875,6 @@ module DSP48E1 (
     endgenerate
 
     wire signed [47:0] Pd = ALUMODEr[1] ? ~alu_sum : alu_sum;
-    initial P = 48'b0;
-    initial CARRYOUT = carryout_reset;
-    initial CARRYCASCOUT = 1'b0;
-    initial MULTSIGNOUT = 1'b0;
     wire [3:0] CARRYOUTd = (OPMODEr[3:0] == 4'b0101 || ALUMODEr[3:2] != 2'b00) ? 4'bxxxx :
                            ((ALUMODEr[0] & ALUMODEr[1]) ? ~ext_carry_out : ext_carry_out);
     wire CARRYCASCOUTd = ext_carry_out[3];
@@ -871,6 +882,10 @@ module DSP48E1 (
 
     generate
         if (PREG == 1) begin
+            initial P = 48'b0;
+            initial CARRYOUT = carryout_reset;
+            initial CARRYCASCOUT = 1'b0;
+            initial MULTSIGNOUT = 1'b0;
             always @(posedge CLK)
                 if (RSTP) begin
                     P <= 48'b0;
