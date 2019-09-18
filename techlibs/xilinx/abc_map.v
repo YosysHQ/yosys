@@ -381,7 +381,7 @@ __CELL__ #(
             .Aq(pA), .Bq(pB), .Cq(pC), .Dq(pD), .ADq(pAD), .Mq(pM), .P(oPCOUT), .Pq(pP), .O(PCOUT)
         );
 
-        `DSP48E1_INST(\$__ABC_DSP48E1_MULTD_PORT )
+        `DSP48E1_INST(\$__ABC_DSP48E1_MULT_DPORT )
     end
     else if (USE_MULT == "NONE" && USE_DPORT == "FALSE") begin
         wire [29:0] iA;
@@ -422,7 +422,7 @@ __CELL__ #(
             .Aq(pA), .Bq(pB), .Cq(pC), .Dq(pD), .ADq(pAD), .Mq(pM), .P(oPCOUT), .Pq(pP), .O(PCOUT)
         );
 
-        `DSP48E1_INST(\$__ABC_DSP48E1_MULTD_PORT )
+        `DSP48E1_INST(\$__ABC_DSP48E1 )
     end
     else
         $error("Invalid DSP48E1 configuration");
