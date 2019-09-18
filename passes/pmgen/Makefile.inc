@@ -27,6 +27,7 @@ $(eval $(call add_extra_objs,passes/pmgen/peepopt_pm.h))
 
 PEEPOPT_PATTERN  = passes/pmgen/peepopt_shiftmul.pmg
 PEEPOPT_PATTERN += passes/pmgen/peepopt_muldiv.pmg
+PEEPOPT_PATTERN += passes/pmgen/peepopt_dffmux.pmg
 
 passes/pmgen/peepopt_pm.h: passes/pmgen/pmgen.py $(PEEPOPT_PATTERN)
 	$(P) mkdir -p passes/pmgen && python3 $< -o $@ -p peepopt $(filter-out $<,$^)
