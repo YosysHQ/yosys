@@ -271,6 +271,7 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 	log("postAdd:    %s\n", log_id(st.postAdd, "--"));
 	log("postAddMux: %s\n", log_id(st.postAddMux, "--"));
 	log("ffP:        %s %s %s\n", log_id(st.ffP, "--"), log_id(st.ffPcemux, "--"), log_id(st.ffPrstmux, "--"));
+	log("overflow:   %s\n", log_id(st.overflow, "--"));
 #endif
 
 	log("Analysing %s.%s for Xilinx DSP packing.\n", log_id(pm.module), log_id(st.dsp));
@@ -328,6 +329,24 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 		}
 
 		pm.autoremove(st.postAdd);
+	}
+	if (st.overflow) {
+		log("  overflow %s (%s)\n", log_id(st.overflow), log_id(st.overflow->type));
+		cell->setParam("\\USE_PATTERN_DETECT", Const("PATDET"));
+		cell->setParam("\\SEL_PATTERN", Const("PATTERN"));
+		cell->setParam("\\SEL_MASK", Const("MASK"));
+
+		if (st.overflow->type == "$ge") {
+			int B = st.overflow->getPort("\\B").as_int();
+			log_assert((B & (B-1)) == 0); // Exact power of 2
+
+			cell->setParam("\\MASK", Const(B-1, 48));
+			cell->setParam("\\PATTERN", Const(0, 48));
+			cell->setPort("\\OVERFLOW", st.overflow->getPort("\\Y"));
+		}
+		else log_abort();
+
+		pm.autoremove(st.overflow);
 	}
 
 	if (st.clock != SigBit())

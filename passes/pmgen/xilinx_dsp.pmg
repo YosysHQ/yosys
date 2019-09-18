@@ -264,7 +264,6 @@ match postAdd
 
 	select postAdd->type.in($add)
 	select GetSize(port(postAdd, \Y)) <= 48
-	select nusers(port(postAdd, \Y)) == 2
 	choice <IdString> AB {\A, \B}
 	select nusers(port(postAdd, AB)) <= 3
 	filter ffMcemux || nusers(port(postAdd, AB)) == 2
@@ -355,6 +354,18 @@ code argQ ffC ffCcemux ffCrstmux ffCcepol ffCrstpol sigC clock
 		}
 	}
 endcode
+
+match overflow
+	if ffP
+	if dsp->parameters.at(\USE_PATTERN_DETECT, Const("NO_PATDET")).decode_string() == "NO_PATDET"
+	select overflow->type.in($ge)
+	select GetSize(port(overflow, \Y)) <= 48
+	select port(overflow, \B).is_fully_const()
+	// Check is exact power of 2
+	select (port(overflow, \B).as_int() & (port(overflow, \B).as_int()-1)) == 0
+	index <SigSpec> port(overflow, \A) === sigP
+	optional
+endmatch
 
 code
 	accept;
