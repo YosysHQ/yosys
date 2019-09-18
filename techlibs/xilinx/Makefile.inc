@@ -25,7 +25,10 @@ techlibs/xilinx/brams_init_8.vh: techlibs/xilinx/brams_init.mk
 
 $(eval $(call add_share_file,share/xilinx,techlibs/xilinx/cells_map.v))
 $(eval $(call add_share_file,share/xilinx,techlibs/xilinx/cells_sim.v))
-$(eval $(call add_share_file,share/xilinx,techlibs/xilinx/cells_xtra.v))
+$(eval $(call add_share_file,share/xilinx,techlibs/xilinx/xc6s_cells_xtra.v))
+$(eval $(call add_share_file,share/xilinx,techlibs/xilinx/xc6v_cells_xtra.v))
+$(eval $(call add_share_file,share/xilinx,techlibs/xilinx/xc7_cells_xtra.v))
+$(eval $(call add_share_file,share/xilinx,techlibs/xilinx/xcu_cells_xtra.v))
 $(eval $(call add_share_file,share/xilinx,techlibs/xilinx/xc6s_brams.txt))
 $(eval $(call add_share_file,share/xilinx,techlibs/xilinx/xc6s_brams_map.v))
 $(eval $(call add_share_file,share/xilinx,techlibs/xilinx/xc6s_brams_bb.v))

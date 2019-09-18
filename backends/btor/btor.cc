@@ -685,7 +685,7 @@ struct BtorWorker
 				}
 				else
 				{
-					int nid_init_val = next_nid++;
+					nid_init_val = next_nid++;
 					btorf("%d state %d\n", nid_init_val, sid);
 
 					for (int i = 0; i < nwords; i++) {
