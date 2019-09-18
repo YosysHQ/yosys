@@ -42,26 +42,29 @@ endmodule
 
 // Adapted variant of above
 module macc2 # (parameter SIZEIN = 16, SIZEOUT = 40) (
-	input clk, ce, rst,
+	input clk,
+	input ce,
+	input rst,
 	input signed [SIZEIN-1:0] a, b,
-	output signed [SIZEOUT-1:0] accum_out
+	output signed [SIZEOUT-1:0] accum_out,
+	output overflow
 );
 // Declare registers for intermediate values
 reg signed [SIZEIN-1:0] a_reg, b_reg, a_reg2, b_reg2;
-reg rst_reg;
-reg signed [2*SIZEIN-1:0] mult_reg;
-reg signed [SIZEOUT-1:0] adder_out, old_result;
+reg signed [2*SIZEIN-1:0] mult_reg = 0;
+reg signed [SIZEOUT:0] adder_out = 0;
+reg overflow_reg;
 always @(posedge clk) begin
-	if (ce)
+	//if (ce)
 	begin
 		a_reg <= a;
 		b_reg <= b;
 		a_reg2 <= a_reg;
 		b_reg2 <= b_reg;
 		mult_reg <= a_reg2 * b_reg2;
-		rst_reg <= rst;
 		// Store accumulation result into a register
 		adder_out <= adder_out + mult_reg;
+		overflow_reg <= overflow;
 	end
 	if (rst) begin
 		a_reg <= 0;
@@ -70,10 +73,12 @@ always @(posedge clk) begin
 		b_reg2 <= 0;
 		mult_reg <= 0;
 		adder_out <= 0;
+		overflow_reg <= 1'b0;
 	end
 end
+assign overflow = (adder_out >= 2**(SIZEOUT-1)) | overflow_reg;
 
 // Output accumulation result
-assign accum_out = adder_out;
+assign accum_out = overflow ? 2**(SIZEOUT-1)-1 : adder_out;
 
 endmodule
