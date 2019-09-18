@@ -55,6 +55,7 @@ module AL_MAP_SEQ (
 		end
 		else
 		begin
+			// DFFMODE == "LATCH"
 			if (SRMODE == "ASYNC") 
 			begin
 				always @(clk_ce, srmux)
