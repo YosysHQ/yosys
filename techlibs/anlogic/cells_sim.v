@@ -81,7 +81,8 @@ module AL_MAP_LUT1 (
 );
 	parameter [1:0] INIT = 2'h0;
 	parameter EQN = "(A)";
-	assign o = INIT >> a;
+
+	assign o = a ? INIT[1] : INIT[0];	
 endmodule
 
 module AL_MAP_LUT2 (
@@ -91,7 +92,9 @@ module AL_MAP_LUT2 (
 );
 	parameter [3:0] INIT = 4'h0;
 	parameter EQN = "(A)";
-	assign o = INIT >> {b, a};
+
+	wire [1:0] s1 = b ? INIT[ 3:2] : INIT[1:0];
+	assign o = a ? s1[1] : s1[0];	
 endmodule
 
 module AL_MAP_LUT3 (
@@ -102,7 +105,10 @@ module AL_MAP_LUT3 (
 );
 	parameter [7:0] INIT = 8'h0;
 	parameter EQN = "(A)";
-	assign o = INIT >> {c, b, a};
+
+	wire [3:0] s2 = c ? INIT[ 7:4] : INIT[3:0];
+	wire [1:0] s1 = b ?   s2[ 3:2] :   s2[1:0];
+	assign o = a ? s1[1] : s1[0];	
 endmodule
 
 module AL_MAP_LUT4 (
@@ -114,7 +120,11 @@ module AL_MAP_LUT4 (
 );
 	parameter [15:0] INIT = 16'h0;
 	parameter EQN = "(A)";
-	assign o = INIT >> {d, c, b, a};
+
+	wire [7:0] s3 = d ? INIT[15:8] : INIT[7:0];
+	wire [3:0] s2 = c ?   s3[ 7:4] :   s3[3:0];
+	wire [1:0] s1 = b ?   s2[ 3:2] :   s2[1:0];
+	assign o = a ? s1[1] : s1[0];	
 endmodule
 
 module AL_MAP_LUT5 (
