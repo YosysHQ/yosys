@@ -2,6 +2,7 @@
  *  yosys -- Yosys Open SYnthesis Suite
  *
  *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *                2019  Eddie Hung    <eddie@fpgeh.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -518,6 +519,10 @@ struct XilinxDspPass : public Pass {
 		log("'(* use_dsp=\"simd\" *)' attribute attached to the output wire or attached to\n");
 		log("the add/subtract operator will cause those operations to be implemented using\n");
 		log("the 'SIMD' feature of DSPs.\n");
+		log("\n");
+		log("Experimental feature: the presence of a `$ge' cell attached to the registered\n");
+		log("P output implementing the operation \"(P >= <power-of-2>)\" will be transformed\n");
+		log("into using the DSP48E1's pattern detector feature for overflow detection.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
