@@ -8,6 +8,7 @@ opt -full
 
 miter -equiv -flatten -make_assert -make_outputs gold gate miter
 
+#Blocked by issue #1358 (Missing ECP5 simulation models)
 #ERROR: Failed to import cell gate.mem.0.0.0 (type DP16KD) to SAT database.
 #sat -verify -prove-asserts -seq 3 -set-init-zero -show-inputs -show-outputs miter
 
