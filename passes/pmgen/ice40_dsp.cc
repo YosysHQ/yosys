@@ -180,7 +180,6 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 	if (O_width == 33) {
 		log_assert(st.add);
 		// If we have a signed multiply-add, then perform sign extension
-		// TODO: Need to check CD[31:16] is sign extension of CD[15:0]?
 		if (st.add->getParam("\\A_SIGNED").as_bool() && st.add->getParam("\\B_SIGNED").as_bool())
 			pm.module->connect(O[32], O[31]);
 		else
