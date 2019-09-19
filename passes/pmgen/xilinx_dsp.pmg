@@ -278,17 +278,6 @@ endmatch
 code sigC sigP
 	if (postAdd) {
 		sigC = port(postAdd, postAddAB == \A ? \B : \A);
-
-		// TODO for DSP48E1, which will have sign extended inputs/outputs
-		//int natural_mul_width = GetSize(port(dsp, \A)) + GetSize(port(dsp, \B));
-		//int actual_mul_width = GetSize(sigP);
-		//int actual_acc_width = GetSize(sigC);
-
-		//if ((actual_acc_width > actual_mul_width) && (natural_mul_width > actual_mul_width))
-		//	reject;
-		//if ((actual_acc_width != actual_mul_width) && (param(dsp, \A_SIGNED).as_bool() != param(postAdd, \A_SIGNED).as_bool()))
-		//	reject;
-
 		sigP = port(postAdd, \Y);
 	}
 endcode
