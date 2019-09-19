@@ -164,6 +164,8 @@ std::string AST::type2str(AstNodeType type)
 	X(AST_MODPORT)
 	X(AST_MODPORTMEMBER)
 	X(AST_PACKAGE)
+	X(AST_WIRETYPE)
+	X(AST_TYPEDEF)
 #undef X
 	default:
 		log_abort();
@@ -206,6 +208,7 @@ AstNode::AstNode(AstNodeType type, AstNode *child1, AstNode *child2, AstNode *ch
 	was_checked = false;
 	range_valid = false;
 	range_swapped = false;
+	is_custom_type = false;
 	port_id = 0;
 	range_left = -1;
 	range_right = 0;

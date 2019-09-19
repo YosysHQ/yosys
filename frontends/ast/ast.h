@@ -148,7 +148,10 @@ namespace AST
 		AST_INTERFACEPORTTYPE,
 		AST_MODPORT,
 		AST_MODPORTMEMBER,
-		AST_PACKAGE
+		AST_PACKAGE,
+
+		AST_WIRETYPE,
+		AST_TYPEDEF
 	};
 
 	// convert an node type to a string (e.g. for debug output)
@@ -174,7 +177,7 @@ namespace AST
 		// node content - most of it is unused in most node types
 		std::string str;
 		std::vector<RTLIL::State> bits;
-		bool is_input, is_output, is_reg, is_logic, is_signed, is_string, is_wand, is_wor, range_valid, range_swapped, was_checked, is_unsized;
+		bool is_input, is_output, is_reg, is_logic, is_signed, is_string, is_wand, is_wor, range_valid, range_swapped, was_checked, is_unsized, is_custom_type;
 		int port_id, range_left, range_right;
 		uint32_t integer;
 		double realvalue;

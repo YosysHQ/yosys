@@ -318,7 +318,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	}
 
 	// activate const folding if this is anything that must be evaluated statically (ranges, parameters, attributes, etc.)
-	if (type == AST_WIRE || type == AST_PARAMETER || type == AST_LOCALPARAM || type == AST_DEFPARAM || type == AST_PARASET || type == AST_RANGE || type == AST_PREFIX)
+	if (type == AST_WIRE || type == AST_PARAMETER || type == AST_LOCALPARAM || type == AST_DEFPARAM || type == AST_PARASET || type == AST_RANGE || type == AST_PREFIX || type == AST_TYPEDEF)
 		const_fold = true;
 	if (type == AST_IDENTIFIER && current_scope.count(str) > 0 && (current_scope[str]->type == AST_PARAMETER || current_scope[str]->type == AST_LOCALPARAM))
 		const_fold = true;
@@ -336,6 +336,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		std::map<std::string, AstNode*> this_wire_scope;
 		for (size_t i = 0; i < children.size(); i++) {
 			AstNode *node = children[i];
+
 			if (node->type == AST_WIRE) {
 				if (node->children.size() == 1 && node->children[0]->type == AST_RANGE) {
 					for (auto c : node->children[0]->children) {
@@ -405,14 +406,15 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				this_wire_scope[node->str] = node;
 			}
 			if (node->type == AST_PARAMETER || node->type == AST_LOCALPARAM || node->type == AST_WIRE || node->type == AST_AUTOWIRE || node->type == AST_GENVAR ||
-					node->type == AST_MEMORY || node->type == AST_FUNCTION || node->type == AST_TASK || node->type == AST_DPI_FUNCTION || node->type == AST_CELL) {
+					node->type == AST_MEMORY || node->type == AST_FUNCTION || node->type == AST_TASK || node->type == AST_DPI_FUNCTION || node->type == AST_CELL ||
+					node->type == AST_TYPEDEF) {
 				backup_scope[node->str] = current_scope[node->str];
 				current_scope[node->str] = node;
 			}
 		}
 		for (size_t i = 0; i < children.size(); i++) {
 			AstNode *node = children[i];
-			if (node->type == AST_PARAMETER || node->type == AST_LOCALPARAM || node->type == AST_WIRE || node->type == AST_AUTOWIRE || node->type == AST_MEMORY)
+			if (node->type == AST_PARAMETER || node->type == AST_LOCALPARAM || node->type == AST_WIRE || node->type == AST_AUTOWIRE || node->type == AST_MEMORY || node->type == AST_TYPEDEF)
 				while (node->simplify(true, false, false, 1, -1, false, node->type == AST_PARAMETER || node->type == AST_LOCALPARAM))
 					did_something = true;
 		}
@@ -778,6 +780,44 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		AstNode *cell = current_scope.at(modname);
 		cell->children.insert(cell->children.begin() + 1, paraset);
 		delete_children();
+	}
+
+	// resolve typedefs
+	if (type == AST_TYPEDEF) {
+		log_assert(children.size() == 1);
+		log_assert(children[0]->type == AST_WIRE);
+		while(children[0]->simplify(const_fold, at_zero, in_lvalue, stage, width_hint, sign_hint, in_param)) {};
+		log_assert(!children[0]->is_custom_type);
+	}
+
+	// resolve types of wires and parameters
+	if (type == AST_WIRE || type == AST_LOCALPARAM || type == AST_PARAMETER) {
+		if (is_custom_type) {
+			log_assert(children.size() == 1);
+			log_assert(children[0]->type == AST_WIRETYPE);
+			if (!current_scope.count(children[0]->str))
+				log_file_error(filename, linenum, "Unknown identifier `%s' used as type name", children[0]->str.c_str());
+			AstNode *resolved_type = current_scope.at(children[0]->str);
+			if (resolved_type->type != AST_TYPEDEF)
+				log_file_error(filename, linenum, "`%s' does not name a type", children[0]->str.c_str());
+			log_assert(resolved_type->children.size() == 1);
+			AstNode *templ = resolved_type->children[0];
+			delete_children(); // type reference no longer needed
+
+			is_reg = templ->is_reg;
+			is_logic = templ->is_logic;
+			is_signed = templ->is_signed;
+			is_string = templ->is_string;
+			is_custom_type = templ->is_custom_type;
+
+			range_valid = templ->range_valid;
+			range_swapped = templ->range_swapped;
+			range_left = templ->range_left;
+			range_right = templ->range_right;
+			for (auto template_child : templ->children)
+				children.push_back(template_child->clone());
+		}
+		log_assert(!is_custom_type);
 	}
 
 	// resolve constant prefixes
@@ -1194,7 +1234,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	if (type == AST_BLOCK && str.empty())
 	{
 		for (size_t i = 0; i < children.size(); i++)
-			if (children[i]->type == AST_WIRE || children[i]->type == AST_MEMORY || children[i]->type == AST_PARAMETER || children[i]->type == AST_LOCALPARAM)
+			if (children[i]->type == AST_WIRE || children[i]->type == AST_MEMORY || children[i]->type == AST_PARAMETER || children[i]->type == AST_LOCALPARAM || children[i]->type == AST_TYPEDEF)
 				log_file_error(children[i]->filename, children[i]->linenum, "Local declaration in unnamed block is an unsupported SystemVerilog feature!\n");
 	}
 
@@ -1206,7 +1246,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 		std::vector<AstNode*> new_children;
 		for (size_t i = 0; i < children.size(); i++)
-			if (children[i]->type == AST_WIRE || children[i]->type == AST_MEMORY || children[i]->type == AST_PARAMETER || children[i]->type == AST_LOCALPARAM) {
+			if (children[i]->type == AST_WIRE || children[i]->type == AST_MEMORY || children[i]->type == AST_PARAMETER || children[i]->type == AST_LOCALPARAM || children[i]->type == AST_TYPEDEF) {
 				children[i]->simplify(false, false, false, stage, -1, false, false);
 				current_ast_mod->children.push_back(children[i]);
 				current_scope[children[i]->str] = children[i];
@@ -2944,6 +2984,7 @@ void AstNode::expand_genblock(std::string index_var, std::string prefix, std::ma
 		if (child->type != AST_FUNCTION && child->type != AST_TASK)
 			child->expand_genblock(index_var, prefix, name_map);
 	}
+
 
 	if (backup_name_map.size() > 0)
 		name_map.swap(backup_name_map);

@@ -112,6 +112,8 @@ struct specify_rise_fall {
 
 %define api.prefix {frontend_verilog_yy}
 
+%glr-parser
+
 /* The union is defined in the header, so we need to provide all the
  * includes it requires
  */
@@ -180,7 +182,7 @@ struct specify_rise_fall {
 %right UNARY_OPS
 
 %define parse.error verbose
-%define parse.lac full
+// %define parse.lac full
 
 %nonassoc FAKE_THEN
 %nonassoc TOK_ELSE
@@ -206,6 +208,7 @@ design:
 	task_func_decl design |
 	param_decl design |
 	localparam_decl design |
+	typedef_decl design |
 	package design |
 	interface design |
 	/* empty */;
@@ -426,6 +429,7 @@ package_body:
 	package_body package_body_stmt |;
 
 package_body_stmt:
+	typedef_decl |
 	localparam_decl;
 
 interface:
@@ -452,7 +456,7 @@ interface_body:
 	interface_body interface_body_stmt |;
 
 interface_body_stmt:
-	param_decl | localparam_decl | defparam_decl | wire_decl | always_stmt | assign_stmt |
+	param_decl | localparam_decl | typedef_decl | defparam_decl | wire_decl | always_stmt | assign_stmt |
 	modport_stmt;
 
 non_opt_delay:
@@ -529,6 +533,11 @@ wire_type_token:
 	} |
 	TOK_CONST {
 		current_wire_const = true;
+	} |
+	hierarchical_id {
+		astbuf3->is_custom_type = true;
+		astbuf3->children.push_back(new AstNode(AST_WIRETYPE));
+		astbuf3->children.back()->str = *$1;
 	};
 
 non_opt_range:
@@ -591,7 +600,7 @@ module_body:
 	/* empty */;
 
 module_body_stmt:
-	task_func_decl | specify_block |param_decl | localparam_decl | defparam_decl | specparam_declaration | wire_decl | assign_stmt | cell_stmt |
+	task_func_decl | specify_block |param_decl | localparam_decl | typedef_decl | defparam_decl | specparam_declaration | wire_decl | assign_stmt | cell_stmt |
 	always_stmt | TOK_GENERATE module_gen_body TOK_ENDGENERATE | defattr | assert_property | checker_decl | ignored_specify_block;
 
 checker_decl:
@@ -1377,6 +1386,27 @@ assign_expr:
 		ast_stack.back()->children.push_back(new AstNode(AST_ASSIGN, $1, $3));
 	};
 
+typedef_decl:
+	TOK_TYPEDEF wire_type range TOK_ID ';' {
+		astbuf1 = $2;
+		astbuf2 = $3;
+		if (astbuf1->range_left >= 0 && astbuf1->range_right >= 0) {
+			if (astbuf2) {
+				frontend_verilog_yyerror("integer/genvar types cannot have packed dimensions.");
+			} else {
+				astbuf2 = new AstNode(AST_RANGE);
+				astbuf2->children.push_back(AstNode::mkconst_int(astbuf1->range_left, true));
+				astbuf2->children.push_back(AstNode::mkconst_int(astbuf1->range_right, true));
+			}
+		}
+		if (astbuf2 && astbuf2->children.size() != 2)
+			frontend_verilog_yyerror("wire/reg/logic packed dimension must be of the form: [<expr>:<expr>], [<expr>+:<expr>], or [<expr>-:<expr>]");
+		if (astbuf2)
+			astbuf1->children.push_back(astbuf2);
+		ast_stack.back()->children.push_back(new AstNode(AST_TYPEDEF, astbuf1));
+		ast_stack.back()->children.back()->str = *$4;
+	};
+
 cell_stmt:
 	attr TOK_ID {
 		astbuf1 = new AstNode(AST_CELL);
@@ -1823,7 +1853,7 @@ simple_behavioral_stmt:
 
 // this production creates the obligatory if-else shift/reduce conflict
 behavioral_stmt:
-	defattr | assert | wire_decl | param_decl | localparam_decl |
+	defattr | assert | wire_decl | param_decl | localparam_decl | typedef_decl |
 	non_opt_delay behavioral_stmt |
 	simple_behavioral_stmt ';' | ';' |
 	hierarchical_id attr {
