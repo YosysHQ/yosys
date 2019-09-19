@@ -22,11 +22,11 @@
 
 module RAM32X1D (
   output DPO, SPO,
-  input  D,
-  input  WCLK,
-  input  WE,
-  input  A0, A1, A2, A3, A4,
-  input  DPRA0, DPRA1, DPRA2, DPRA3, DPRA4
+  (* techmap_autopurge *) input  D,
+  (* techmap_autopurge *) input  WCLK,
+  (* techmap_autopurge *) input  WE,
+  (* techmap_autopurge *) input  A0, A1, A2, A3, A4,
+  (* techmap_autopurge *) input  DPRA0, DPRA1, DPRA2, DPRA3, DPRA4
 );
   parameter INIT = 32'h0;
   parameter IS_WCLK_INVERTED = 1'b0;
@@ -45,11 +45,11 @@ endmodule
 
 module RAM64X1D (
   output DPO, SPO,
-  input  D,
-  input  WCLK,
-  input  WE,
-  input  A0, A1, A2, A3, A4, A5,
-  input  DPRA0, DPRA1, DPRA2, DPRA3, DPRA4, DPRA5
+  (* techmap_autopurge *) input  D,
+  (* techmap_autopurge *) input  WCLK,
+  (* techmap_autopurge *) input  WE,
+  (* techmap_autopurge *) input  A0, A1, A2, A3, A4, A5,
+  (* techmap_autopurge *) input  DPRA0, DPRA1, DPRA2, DPRA3, DPRA4, DPRA5
 );
   parameter INIT = 64'h0;
   parameter IS_WCLK_INVERTED = 1'b0;
@@ -68,10 +68,10 @@ endmodule
 
 module RAM128X1D (
   output       DPO, SPO,
-  input        D,
-  input        WCLK,
-  input        WE,
-  input  [6:0] A, DPRA
+  (* techmap_autopurge *) input        D,
+  (* techmap_autopurge *) input        WCLK,
+  (* techmap_autopurge *) input        WE,
+  (* techmap_autopurge *) input  [6:0] A, DPRA
 );
   parameter INIT = 128'h0;
   parameter IS_WCLK_INVERTED = 1'b0;
@@ -90,7 +90,7 @@ endmodule
 
 module SRL16E (
   output Q,
-  input A0, A1, A2, A3, CE, CLK, D
+  (* techmap_autopurge *) input A0, A1, A2, A3, CE, CLK, D
 );
   parameter [15:0] INIT = 16'h0000;
   parameter [0:0] IS_CLK_INVERTED = 1'b0;
@@ -107,8 +107,8 @@ endmodule
 module SRLC32E (
   output Q,
   output Q31,
-  input [4:0] A,
-  input CE, CLK, D
+  (* techmap_autopurge *) input [4:0] A,
+  (* techmap_autopurge *) input CE, CLK, D
 );
   parameter [31:0] INIT = 32'h00000000;
   parameter [0:0] IS_CLK_INVERTED = 1'b0;
@@ -134,44 +134,44 @@ module DSP48E1 (
     output PATTERNDETECT,
     output [47:0] PCOUT,
     output UNDERFLOW,
-    input signed [29:0] A,
-    input [29:0] ACIN,
-    input [3:0] ALUMODE,
-    input signed [17:0] B,
-    input [17:0] BCIN,
-    input [47:0] C,
-    input CARRYCASCIN,
-    input CARRYIN,
-    input [2:0] CARRYINSEL,
-    input CEA1,
-    input CEA2,
-    input CEAD,
-    input CEALUMODE,
-    input CEB1,
-    input CEB2,
-    input CEC,
-    input CECARRYIN,
-    input CECTRL,
-    input CED,
-    input CEINMODE,
-    input CEM,
-    input CEP,
-    input CLK,
-    input [24:0] D,
-    input [4:0] INMODE,
-    input MULTSIGNIN,
-    input [6:0] OPMODE,
-    input [47:0] PCIN,
-    input RSTA,
-    input RSTALLCARRYIN,
-    input RSTALUMODE,
-    input RSTB,
-    input RSTC,
-    input RSTCTRL,
-    input RSTD,
-    input RSTINMODE,
-    input RSTM,
-    input RSTP
+    (* techmap_autopurge *) input signed [29:0] A,
+    (* techmap_autopurge *) input [29:0] ACIN,
+    (* techmap_autopurge *) input [3:0] ALUMODE,
+    (* techmap_autopurge *) input signed [17:0] B,
+    (* techmap_autopurge *) input [17:0] BCIN,
+    (* techmap_autopurge *) input [47:0] C,
+    (* techmap_autopurge *) input CARRYCASCIN,
+    (* techmap_autopurge *) input CARRYIN,
+    (* techmap_autopurge *) input [2:0] CARRYINSEL,
+    (* techmap_autopurge *) input CEA1,
+    (* techmap_autopurge *) input CEA2,
+    (* techmap_autopurge *) input CEAD,
+    (* techmap_autopurge *) input CEALUMODE,
+    (* techmap_autopurge *) input CEB1,
+    (* techmap_autopurge *) input CEB2,
+    (* techmap_autopurge *) input CEC,
+    (* techmap_autopurge *) input CECARRYIN,
+    (* techmap_autopurge *) input CECTRL,
+    (* techmap_autopurge *) input CED,
+    (* techmap_autopurge *) input CEINMODE,
+    (* techmap_autopurge *) input CEM,
+    (* techmap_autopurge *) input CEP,
+    (* techmap_autopurge *) input CLK,
+    (* techmap_autopurge *) input [24:0] D,
+    (* techmap_autopurge *) input [4:0] INMODE,
+    (* techmap_autopurge *) input MULTSIGNIN,
+    (* techmap_autopurge *) input [6:0] OPMODE,
+    (* techmap_autopurge *) input [47:0] PCIN,
+    (* techmap_autopurge *) input RSTA,
+    (* techmap_autopurge *) input RSTALLCARRYIN,
+    (* techmap_autopurge *) input RSTALUMODE,
+    (* techmap_autopurge *) input RSTB,
+    (* techmap_autopurge *) input RSTC,
+    (* techmap_autopurge *) input RSTCTRL,
+    (* techmap_autopurge *) input RSTD,
+    (* techmap_autopurge *) input RSTINMODE,
+    (* techmap_autopurge *) input RSTM,
+    (* techmap_autopurge *) input RSTP
 );
     parameter integer ACASCREG = 1;
     parameter integer ADREG = 1;
