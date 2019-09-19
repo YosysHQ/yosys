@@ -32,7 +32,7 @@ module \$__MUL25X18 (input [24:0] A, input [17:0] B, output [42:0] Y);
 		.A({{5{A[24]}}, A}),
 		.B(B),
 		.C(48'b0),
-		.D(24'b0),
+		.D(25'b0),
 		.P(P_48),
 
 		.INMODE(5'b00000),
