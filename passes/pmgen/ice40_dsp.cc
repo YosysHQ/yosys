@@ -65,21 +65,21 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 	}
 
 	Cell *cell = st.mul;
-	if (cell->type == "$mul") {
+	if (cell->type == ID($mul)) {
 		log("  replacing %s with SB_MAC16 cell.\n", log_id(st.mul->type));
 
-		cell = pm.module->addCell(NEW_ID, "\\SB_MAC16");
+		cell = pm.module->addCell(NEW_ID, ID(SB_MAC16));
 		pm.module->swap_names(cell, st.mul);
 	}
-	else log_assert(cell->type == "\\SB_MAC16");
+	else log_assert(cell->type == ID(SB_MAC16));
 
 	// SB_MAC16 Input Interface
 	SigSpec A = st.sigA;
-	A.extend_u0(16, st.mul->getParam("\\A_SIGNED").as_bool());
+	A.extend_u0(16, st.mul->getParam(ID(A_SIGNED)).as_bool());
 	log_assert(GetSize(A) == 16);
 
 	SigSpec B = st.sigB;
-	B.extend_u0(16, st.mul->getParam("\\B_SIGNED").as_bool());
+	B.extend_u0(16, st.mul->getParam(ID(B_SIGNED)).as_bool());
 	log_assert(GetSize(B) == 16);
 
 	SigSpec CD = st.sigCD;
@@ -88,51 +88,51 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 	else
 		log_assert(GetSize(CD) == 32);
 
-	cell->setPort("\\A", A);
-	cell->setPort("\\B", B);
-	cell->setPort("\\C", CD.extract(16, 16));
-	cell->setPort("\\D", CD.extract(0, 16));
+	cell->setPort(ID::A, A);
+	cell->setPort(ID::B, B);
+	cell->setPort(ID(C), CD.extract(16, 16));
+	cell->setPort(ID(D), CD.extract(0, 16));
 
-	cell->setParam("\\A_REG", st.ffA ? State::S1 : State::S0);
-	cell->setParam("\\B_REG", st.ffB ? State::S1 : State::S0);
-	cell->setParam("\\C_REG", st.ffCD ? State::S1 : State::S0);
-	cell->setParam("\\D_REG", st.ffCD ? State::S1 : State::S0);
+	cell->setParam(ID(A_REG), st.ffA ? State::S1 : State::S0);
+	cell->setParam(ID(B_REG), st.ffB ? State::S1 : State::S0);
+	cell->setParam(ID(C_REG), st.ffCD ? State::S1 : State::S0);
+	cell->setParam(ID(D_REG), st.ffCD ? State::S1 : State::S0);
 
 	SigSpec AHOLD, BHOLD, CDHOLD;
 	if (st.ffAholdmux)
-		AHOLD = st.ffAholdpol ? st.ffAholdmux->getPort("\\S") : pm.module->Not(NEW_ID, st.ffAholdmux->getPort("\\S"));
+		AHOLD = st.ffAholdpol ? st.ffAholdmux->getPort(ID(S)) : pm.module->Not(NEW_ID, st.ffAholdmux->getPort(ID(S)));
 	else
 		AHOLD = State::S0;
 	if (st.ffBholdmux)
-		BHOLD = st.ffBholdpol ? st.ffBholdmux->getPort("\\S") : pm.module->Not(NEW_ID, st.ffBholdmux->getPort("\\S"));
+		BHOLD = st.ffBholdpol ? st.ffBholdmux->getPort(ID(S)) : pm.module->Not(NEW_ID, st.ffBholdmux->getPort(ID(S)));
 	else
 		BHOLD = State::S0;
 	if (st.ffCDholdmux)
-		CDHOLD = st.ffCDholdpol ? st.ffCDholdmux->getPort("\\S") : pm.module->Not(NEW_ID, st.ffCDholdmux->getPort("\\S"));
+		CDHOLD = st.ffCDholdpol ? st.ffCDholdmux->getPort(ID(S)) : pm.module->Not(NEW_ID, st.ffCDholdmux->getPort(ID(S)));
 	else
 		CDHOLD = State::S0;
-	cell->setPort("\\AHOLD", AHOLD);
-	cell->setPort("\\BHOLD", BHOLD);
-	cell->setPort("\\CHOLD", CDHOLD);
-	cell->setPort("\\DHOLD", CDHOLD);
+	cell->setPort(ID(AHOLD), AHOLD);
+	cell->setPort(ID(BHOLD), BHOLD);
+	cell->setPort(ID(CHOLD), CDHOLD);
+	cell->setPort(ID(DHOLD), CDHOLD);
 
 	SigSpec IRSTTOP, IRSTBOT;
 	if (st.ffArstmux)
-		IRSTTOP = st.ffArstpol ? st.ffArstmux->getPort("\\S") : pm.module->Not(NEW_ID, st.ffArstmux->getPort("\\S"));
+		IRSTTOP = st.ffArstpol ? st.ffArstmux->getPort(ID(S)) : pm.module->Not(NEW_ID, st.ffArstmux->getPort(ID(S)));
 	else
 		IRSTTOP = State::S0;
 	if (st.ffBrstmux)
-		IRSTBOT = st.ffBrstpol ? st.ffBrstmux->getPort("\\S") : pm.module->Not(NEW_ID, st.ffBrstmux->getPort("\\S"));
+		IRSTBOT = st.ffBrstpol ? st.ffBrstmux->getPort(ID(S)) : pm.module->Not(NEW_ID, st.ffBrstmux->getPort(ID(S)));
 	else
 		IRSTBOT = State::S0;
-	cell->setPort("\\IRSTTOP", IRSTTOP);
-	cell->setPort("\\IRSTBOT", IRSTBOT);
+	cell->setPort(ID(IRSTTOP), IRSTTOP);
+	cell->setPort(ID(IRSTBOT), IRSTBOT);
 
 	if (st.clock != SigBit())
 	{
-		cell->setPort("\\CLK", st.clock);
-		cell->setPort("\\CE", State::S1);
-		cell->setParam("\\NEG_TRIGGER", st.clock_pol ? State::S0 : State::S1);
+		cell->setPort(ID(CLK), st.clock);
+		cell->setPort(ID(CE), State::S1);
+		cell->setParam(ID(NEG_TRIGGER), st.clock_pol ? State::S0 : State::S1);
 
 		log("  clock: %s (%s)", log_signal(st.clock), st.clock_pol ? "posedge" : "negedge");
 
@@ -158,20 +158,20 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 	}
 	else
 	{
-		cell->setPort("\\CLK", State::S0);
-		cell->setPort("\\CE", State::S0);
-		cell->setParam("\\NEG_TRIGGER", State::S0);
+		cell->setPort(ID(CLK), State::S0);
+		cell->setPort(ID(CE), State::S0);
+		cell->setParam(ID(NEG_TRIGGER), State::S0);
 	}
 
 	// SB_MAC16 Cascade Interface
 
-	cell->setPort("\\SIGNEXTIN", State::Sx);
-	cell->setPort("\\SIGNEXTOUT", pm.module->addWire(NEW_ID));
+	cell->setPort(ID(SIGNEXTIN), State::Sx);
+	cell->setPort(ID(SIGNEXTOUT), pm.module->addWire(NEW_ID));
 
-	cell->setPort("\\CI", State::Sx);
+	cell->setPort(ID(CI), State::Sx);
 
-	cell->setPort("\\ACCUMCI", State::Sx);
-	cell->setPort("\\ACCUMCO", pm.module->addWire(NEW_ID));
+	cell->setPort(ID(ACCUMCI), State::Sx);
+	cell->setPort(ID(ACCUMCO), pm.module->addWire(NEW_ID));
 
 	// SB_MAC16 Output Interface
 
@@ -180,91 +180,91 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 	if (O_width == 33) {
 		log_assert(st.add);
 		// If we have a signed multiply-add, then perform sign extension
-		if (st.add->getParam("\\A_SIGNED").as_bool() && st.add->getParam("\\B_SIGNED").as_bool())
+		if (st.add->getParam(ID(A_SIGNED)).as_bool() && st.add->getParam(ID(B_SIGNED)).as_bool())
 			pm.module->connect(O[32], O[31]);
 		else
-			cell->setPort("\\CO", O[32]);
+			cell->setPort(ID(CO), O[32]);
 		O.remove(O_width-1);
 	}
 	else
-		cell->setPort("\\CO", pm.module->addWire(NEW_ID));
+		cell->setPort(ID(CO), pm.module->addWire(NEW_ID));
 	log_assert(GetSize(O) <= 32);
 	if (GetSize(O) < 32)
 		O.append(pm.module->addWire(NEW_ID, 32-GetSize(O)));
 
-	cell->setPort("\\O", O);
+	cell->setPort(ID(O), O);
 
 	bool accum = false;
 	if (st.add) {
-		accum = (st.ffO && st.add->getPort(st.addAB == "\\A" ? "\\B" : "\\A") == st.sigO);
+		accum = (st.ffO && st.add->getPort(st.addAB == ID::A ? ID::B : ID::A) == st.sigO);
 		if (accum)
 			log("  accumulator %s (%s)\n", log_id(st.add), log_id(st.add->type));
 		else
 			log("  adder %s (%s)\n", log_id(st.add), log_id(st.add->type));
-		cell->setPort("\\ADDSUBTOP", st.add->type == "$add" ? State::S0 : State::S1);
-		cell->setPort("\\ADDSUBBOT", st.add->type == "$add" ? State::S0 : State::S1);
+		cell->setPort(ID(ADDSUBTOP), st.add->type == ID($add) ? State::S0 : State::S1);
+		cell->setPort(ID(ADDSUBBOT), st.add->type == ID($add) ? State::S0 : State::S1);
 	} else {
-		cell->setPort("\\ADDSUBTOP", State::S0);
-		cell->setPort("\\ADDSUBBOT", State::S0);
+		cell->setPort(ID(ADDSUBTOP), State::S0);
+		cell->setPort(ID(ADDSUBBOT), State::S0);
 	}
 
 	SigSpec OHOLD;
 	if (st.ffOholdmux)
-		OHOLD = st.ffOholdpol ? st.ffOholdmux->getPort("\\S") : pm.module->Not(NEW_ID, st.ffOholdmux->getPort("\\S"));
+		OHOLD = st.ffOholdpol ? st.ffOholdmux->getPort(ID(S)) : pm.module->Not(NEW_ID, st.ffOholdmux->getPort(ID(S)));
 	else
 		OHOLD = State::S0;
-	cell->setPort("\\OHOLDTOP", OHOLD);
-	cell->setPort("\\OHOLDBOT", OHOLD);
+	cell->setPort(ID(OHOLDTOP), OHOLD);
+	cell->setPort(ID(OHOLDBOT), OHOLD);
 
 	SigSpec ORST;
 	if (st.ffOrstmux)
-		ORST = st.ffOrstpol ? st.ffOrstmux->getPort("\\S") : pm.module->Not(NEW_ID, st.ffOrstmux->getPort("\\S"));
+		ORST = st.ffOrstpol ? st.ffOrstmux->getPort(ID(S)) : pm.module->Not(NEW_ID, st.ffOrstmux->getPort(ID(S)));
 	else
 		ORST = State::S0;
-	cell->setPort("\\ORSTTOP", ORST);
-	cell->setPort("\\ORSTBOT", ORST);
+	cell->setPort(ID(ORSTTOP), ORST);
+	cell->setPort(ID(ORSTBOT), ORST);
 
 	SigSpec acc_reset = State::S0;
 	if (st.mux) {
-		if (st.muxAB == "\\A")
-			acc_reset = st.mux->getPort("\\S");
+		if (st.muxAB == ID::A)
+			acc_reset = st.mux->getPort(ID(S));
 		else
-			acc_reset = pm.module->Not(NEW_ID, st.mux->getPort("\\S"));
+			acc_reset = pm.module->Not(NEW_ID, st.mux->getPort(ID(S)));
 	}
-	cell->setPort("\\OLOADTOP", acc_reset);
-	cell->setPort("\\OLOADBOT", acc_reset);
+	cell->setPort(ID(OLOADTOP), acc_reset);
+	cell->setPort(ID(OLOADBOT), acc_reset);
 
 	// SB_MAC16 Remaining Parameters
 
-	cell->setParam("\\TOP_8x8_MULT_REG", st.ffFJKG ? State::S1 : State::S0);
-	cell->setParam("\\BOT_8x8_MULT_REG", st.ffFJKG ? State::S1 : State::S0);
-	cell->setParam("\\PIPELINE_16x16_MULT_REG1", st.ffFJKG ? State::S1 : State::S0);
-	cell->setParam("\\PIPELINE_16x16_MULT_REG2", st.ffH ? State::S1 : State::S0);
+	cell->setParam(ID(TOP_8x8_MULT_REG), st.ffFJKG ? State::S1 : State::S0);
+	cell->setParam(ID(BOT_8x8_MULT_REG), st.ffFJKG ? State::S1 : State::S0);
+	cell->setParam(ID(PIPELINE_16x16_MULT_REG1), st.ffFJKG ? State::S1 : State::S0);
+	cell->setParam(ID(PIPELINE_16x16_MULT_REG2), st.ffH ? State::S1 : State::S0);
 
-	cell->setParam("\\TOPADDSUB_LOWERINPUT", Const(2, 2));
-	cell->setParam("\\TOPADDSUB_UPPERINPUT", accum ? State::S0 : State::S1);
-	cell->setParam("\\TOPADDSUB_CARRYSELECT", Const(3, 2));
+	cell->setParam(ID(TOPADDSUB_LOWERINPUT), Const(2, 2));
+	cell->setParam(ID(TOPADDSUB_UPPERINPUT), accum ? State::S0 : State::S1);
+	cell->setParam(ID(TOPADDSUB_CARRYSELECT), Const(3, 2));
 
-	cell->setParam("\\BOTADDSUB_LOWERINPUT", Const(2, 2));
-	cell->setParam("\\BOTADDSUB_UPPERINPUT", accum ? State::S0 : State::S1);
-	cell->setParam("\\BOTADDSUB_CARRYSELECT", Const(0, 2));
+	cell->setParam(ID(BOTADDSUB_LOWERINPUT), Const(2, 2));
+	cell->setParam(ID(BOTADDSUB_UPPERINPUT), accum ? State::S0 : State::S1);
+	cell->setParam(ID(BOTADDSUB_CARRYSELECT), Const(0, 2));
 
-	cell->setParam("\\MODE_8x8", State::S0);
-	cell->setParam("\\A_SIGNED", st.mul->getParam("\\A_SIGNED").as_bool());
-	cell->setParam("\\B_SIGNED", st.mul->getParam("\\B_SIGNED").as_bool());
+	cell->setParam(ID(MODE_8x8), State::S0);
+	cell->setParam(ID(A_SIGNED), st.mul->getParam(ID(A_SIGNED)).as_bool());
+	cell->setParam(ID(B_SIGNED), st.mul->getParam(ID(B_SIGNED)).as_bool());
 
 	if (st.ffO) {
 		if (st.o_lo)
-			cell->setParam("\\TOPOUTPUT_SELECT", Const(st.add ? 0 : 3, 2));
+			cell->setParam(ID(TOPOUTPUT_SELECT), Const(st.add ? 0 : 3, 2));
 		else
-			cell->setParam("\\TOPOUTPUT_SELECT", Const(1, 2));
+			cell->setParam(ID(TOPOUTPUT_SELECT), Const(1, 2));
 
-		st.ffO->connections_.at("\\Q").replace(O, pm.module->addWire(NEW_ID, GetSize(O)));
-		cell->setParam("\\BOTOUTPUT_SELECT", Const(1, 2));
+		st.ffO->connections_.at(ID(Q)).replace(O, pm.module->addWire(NEW_ID, GetSize(O)));
+		cell->setParam(ID(BOTOUTPUT_SELECT), Const(1, 2));
 	}
 	else {
-		cell->setParam("\\TOPOUTPUT_SELECT", Const(st.add ? 0 : 3, 2));
-		cell->setParam("\\BOTOUTPUT_SELECT", Const(st.add ? 0 : 3, 2));
+		cell->setParam(ID(TOPOUTPUT_SELECT), Const(st.add ? 0 : 3, 2));
+		cell->setParam(ID(BOTOUTPUT_SELECT), Const(st.add ? 0 : 3, 2));
 	}
 
 	if (cell != st.mul)
