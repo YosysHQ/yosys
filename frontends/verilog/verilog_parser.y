@@ -327,13 +327,13 @@ single_module_para:
 		astbuf1 = new AstNode(AST_PARAMETER);
 		astbuf1->children.push_back(AstNode::mkconst_int(0, true));
 		append_attr(astbuf1, $1);
-	} param_signed param_integer param_range single_param_decl |
+	} int_param_type single_param_decl |
 	attr TOK_LOCALPARAM {
 		if (astbuf1) delete astbuf1;
 		astbuf1 = new AstNode(AST_LOCALPARAM);
 		astbuf1->children.push_back(AstNode::mkconst_int(0, true));
 		append_attr(astbuf1, $1);
-	} param_signed param_integer param_range single_param_decl |
+	} int_param_type single_param_decl |
 	single_param_decl;
 
 module_args_opt:
@@ -1158,12 +1158,25 @@ param_range:
 		}
 	};
 
+custom_param_type:
+	hierarchical_id {
+		astbuf1->is_custom_type = true;
+		astbuf1->children.push_back(new AstNode(AST_WIRETYPE));
+		astbuf1->children.back()->str = *$1;
+	};
+
+param_type:
+	param_signed param_integer param_real param_range | custom_param_type;
+
+int_param_type:
+	param_signed param_integer param_range | custom_param_type;
+
 param_decl:
 	attr TOK_PARAMETER {
 		astbuf1 = new AstNode(AST_PARAMETER);
 		astbuf1->children.push_back(AstNode::mkconst_int(0, true));
 		append_attr(astbuf1, $1);
-	} param_signed param_integer param_real param_range param_decl_list ';' {
+	} param_type param_decl_list ';' {
 		delete astbuf1;
 	};
 
@@ -1172,7 +1185,7 @@ localparam_decl:
 		astbuf1 = new AstNode(AST_LOCALPARAM);
 		astbuf1->children.push_back(AstNode::mkconst_int(0, true));
 		append_attr(astbuf1, $1);
-	} param_signed param_integer param_real param_range param_decl_list ';' {
+	}  param_type param_decl_list ';' {
 		delete astbuf1;
 	};
 

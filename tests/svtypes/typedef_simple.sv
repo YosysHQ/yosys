@@ -1,6 +1,3 @@
-`define STRINGIFY(x) `"x`"
-`define STATIC_ASSERT(x) if(!(x)) $error({"assert failed: ", `STRINGIFY(x)})
-
 module top;
 
 	typedef logic [1:0] uint2_t;
