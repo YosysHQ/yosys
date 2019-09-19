@@ -31,12 +31,12 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 
 #if 1
 	log("\n");
-	log("ffA:    %s\n", log_id(st.ffA, "--"));
-	log("ffB:    %s\n", log_id(st.ffB, "--"));
+	log("ffA:    %s %s %s\n", log_id(st.ffA, "--"), log_id(st.ffAcemux, "--"), log_id(st.ffArstmux, "--"));
+	log("ffB:    %s %s %s\n", log_id(st.ffB, "--"), log_id(st.ffBcemux, "--"), log_id(st.ffBrstmux, "--"));
 	log("mul:    %s\n", log_id(st.mul, "--"));
-	log("ffFJKG: %s\n", log_id(st.ffFJKG, "--"));
-	log("addAB:  %s\n", log_id(st.addAB, "--"));
-	log("muxAB:  %s\n", log_id(st.muxAB, "--"));
+	log("ffFJKG: %s n/a %s\n", log_id(st.ffFJKG, "--"), log_id(st.ffFJKGrstmux, "--"));
+	log("add:    %s\n", log_id(st.add, "--"));
+	log("mux:    %s\n", log_id(st.mux, "--"));
 	log("ffO:    %s\n", log_id(st.ffO, "--"));
 #endif
 
@@ -146,10 +146,10 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 	SigSpec O = st.sigO;
 	int O_width = GetSize(O);
 	if (O_width == 33) {
-		log_assert(st.addAB);
+		log_assert(st.add);
 		// If we have a signed multiply-add, then perform sign extension
 		// TODO: Need to check CD[31:16] is sign extension of CD[15:0]?
-		if (st.addAB->getParam("\\A_SIGNED").as_bool() && st.addAB->getParam("\\B_SIGNED").as_bool())
+		if (st.add->getParam("\\A_SIGNED").as_bool() && st.add->getParam("\\B_SIGNED").as_bool())
 			pm.module->connect(O[32], O[31]);
 		else
 			cell->setPort("\\CO", O[32]);
@@ -164,18 +164,14 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 	cell->setPort("\\O", O);
 
 	bool accum = false;
-	if (st.addAB) {
-		if (st.addA)
-			accum = (st.ffO && st.addAB->getPort("\\B") == st.sigO);
-		else if (st.addB)
-			accum = (st.ffO && st.addAB->getPort("\\A") == st.sigO);
-		else log_abort();
+	if (st.add) {
+		accum = (st.ffO && st.add->getPort(st.addAB == "\\A" ? "\\B" : "\\A") == st.sigO);
 		if (accum)
-			log("  accumulator %s (%s)\n", log_id(st.addAB), log_id(st.addAB->type));
+			log("  accumulator %s (%s)\n", log_id(st.add), log_id(st.add->type));
 		else
-			log("  adder %s (%s)\n", log_id(st.addAB), log_id(st.addAB->type));
-		cell->setPort("\\ADDSUBTOP", st.addAB->type == "$add" ? State::S0 : State::S1);
-		cell->setPort("\\ADDSUBBOT", st.addAB->type == "$add" ? State::S0 : State::S1);
+			log("  adder %s (%s)\n", log_id(st.add), log_id(st.add->type));
+		cell->setPort("\\ADDSUBTOP", st.add->type == "$add" ? State::S0 : State::S1);
+		cell->setPort("\\ADDSUBBOT", st.add->type == "$add" ? State::S0 : State::S1);
 	} else {
 		cell->setPort("\\ADDSUBTOP", State::S0);
 		cell->setPort("\\ADDSUBBOT", State::S0);
@@ -188,10 +184,12 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 	cell->setPort("\\OHOLDBOT", State::S0);
 
 	SigSpec acc_reset = State::S0;
-	if (st.muxA)
-		acc_reset = st.muxA->getPort("\\S");
-	if (st.muxB)
-		acc_reset = pm.module->Not(NEW_ID, st.muxB->getPort("\\S"));
+	if (st.mux) {
+		if (st.muxAB == "\\A")
+			acc_reset = st.mux->getPort("\\S");
+		else
+			acc_reset = pm.module->Not(NEW_ID, st.mux->getPort("\\S"));
+	}
 
 	cell->setPort("\\OLOADTOP", acc_reset);
 	cell->setPort("\\OLOADBOT", acc_reset);
@@ -219,8 +217,8 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 	cell->setParam("\\B_SIGNED", st.mul->getParam("\\B_SIGNED").as_bool());
 
 	if (st.ffO) {
-		if (st.ffO_lo)
-			cell->setParam("\\TOPOUTPUT_SELECT", Const(st.addAB ? 0 : 3, 2));
+		if (st.o_lo)
+			cell->setParam("\\TOPOUTPUT_SELECT", Const(st.add ? 0 : 3, 2));
 		else
 			cell->setParam("\\TOPOUTPUT_SELECT", Const(1, 2));
 
@@ -228,8 +226,8 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 		cell->setParam("\\BOTOUTPUT_SELECT", Const(1, 2));
 	}
 	else {
-		cell->setParam("\\TOPOUTPUT_SELECT", Const(st.addAB ? 0 : 3, 2));
-		cell->setParam("\\BOTOUTPUT_SELECT", Const(st.addAB ? 0 : 3, 2));
+		cell->setParam("\\TOPOUTPUT_SELECT", Const(st.add ? 0 : 3, 2));
+		cell->setParam("\\BOTOUTPUT_SELECT", Const(st.add ? 0 : 3, 2));
 	}
 
 	if (cell != st.mul)
@@ -237,7 +235,7 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 	else
 		pm.blacklist(st.mul);
 	pm.autoremove(st.ffFJKG);
-	pm.autoremove(st.addAB);
+	pm.autoremove(st.add);
 }
 
 struct Ice40DspPass : public Pass {
@@ -249,6 +247,7 @@ struct Ice40DspPass : public Pass {
 		log("    ice40_dsp [options] [selection]\n");
 		log("\n");
 		log("Map multipliers and multiply-accumulate blocks to iCE40 DSP resources.\n");
+		log("Currently, only the 16x16 multiply mode is supported and not the 2 x 8x8 mode.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
