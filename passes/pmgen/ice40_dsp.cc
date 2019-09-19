@@ -33,13 +33,13 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 	log("\n");
 	log("ffA:    %s %s %s\n", log_id(st.ffA, "--"), log_id(st.ffAcemux, "--"), log_id(st.ffArstmux, "--"));
 	log("ffB:    %s %s %s\n", log_id(st.ffB, "--"), log_id(st.ffBcemux, "--"), log_id(st.ffBrstmux, "--"));
-	log("ffCD:   %s %s %s\n", log_id(st.ffCD, "--"), log_id(st.ffCDcemux, "--"), log_id(st.ffCDrstmux, "--"));
+	log("ffCD:   %s %s\n", log_id(st.ffCD, "--"), log_id(st.ffCDcemux, "--"));
 	log("mul:    %s\n", log_id(st.mul, "--"));
-	log("ffFJKG: %s n/a %s\n", log_id(st.ffFJKG, "--"), log_id(st.ffFJKGrstmux, "--"));
-	log("ffH:    %s n/a %s\n", log_id(st.ffH, "--"), log_id(st.ffHrstmux, "--"));
+	log("ffFJKG: %s\n", log_id(st.ffFJKG, "--"));
+	log("ffH:    %s\n", log_id(st.ffH, "--"));
 	log("add:    %s\n", log_id(st.add, "--"));
 	log("mux:    %s\n", log_id(st.mux, "--"));
-	log("ffO:    %s\n", log_id(st.ffO, "--"));
+	log("ffO:    %s %s %s\n", log_id(st.ffO, "--"), log_id(st.ffOcemux, "--"), log_id(st.ffOrstmux, "--"));
 #endif
 
 	log("Checking %s.%s for iCE40 DSP inference.\n", log_id(pm.module), log_id(st.mul));
@@ -98,13 +98,35 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 	cell->setParam("\\C_REG", st.ffCD ? State::S1 : State::S0);
 	cell->setParam("\\D_REG", st.ffCD ? State::S1 : State::S0);
 
-	cell->setPort("\\AHOLD", State::S0);
-	cell->setPort("\\BHOLD", State::S0);
-	cell->setPort("\\CHOLD", State::S0);
-	cell->setPort("\\DHOLD", State::S0);
+	SigSpec AHOLD, BHOLD, CDHOLD;
+	if (st.ffAcemux)
+		AHOLD = st.ffAcepol ? pm.module->Not(NEW_ID, st.ffAcemux->getPort("\\S")) : st.ffAcemux->getPort("\\S");
+	else
+		AHOLD = State::S0;
+	if (st.ffBcemux)
+		BHOLD = st.ffBcepol ? pm.module->Not(NEW_ID, st.ffBcemux->getPort("\\S")) : st.ffBcemux->getPort("\\S");
+	else
+		BHOLD = State::S0;
+	if (st.ffCDcemux)
+		CDHOLD = st.ffCDcepol ? pm.module->Not(NEW_ID, st.ffCDcemux->getPort("\\S")) : st.ffCDcemux->getPort("\\S");
+	else
+		CDHOLD = State::S0;
+	cell->setPort("\\AHOLD", AHOLD);
+	cell->setPort("\\BHOLD", BHOLD);
+	cell->setPort("\\CHOLD", CDHOLD);
+	cell->setPort("\\DHOLD", CDHOLD);
 
-	cell->setPort("\\IRSTTOP", State::S0);
-	cell->setPort("\\IRSTBOT", State::S0);
+	SigSpec IRSTTOP, IRSTBOT;
+	if (st.ffArstmux)
+		IRSTTOP = st.ffArstpol ? st.ffArstmux->getPort("\\S") : pm.module->Not(NEW_ID, st.ffArstmux->getPort("\\S"));
+	else
+		IRSTTOP = State::S0;
+	if (st.ffBrstmux)
+		IRSTBOT = st.ffBrstpol ? st.ffBrstmux->getPort("\\S") : pm.module->Not(NEW_ID, st.ffBrstmux->getPort("\\S"));
+	else
+		IRSTBOT = State::S0;
+	cell->setPort("\\IRSTTOP", IRSTTOP);
+	cell->setPort("\\IRSTBOT", IRSTBOT);
 
 	if (st.clock != SigBit())
 	{
@@ -187,11 +209,21 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 		cell->setPort("\\ADDSUBBOT", State::S0);
 	}
 
-	cell->setPort("\\ORSTTOP", State::S0);
-	cell->setPort("\\ORSTBOT", State::S0);
+	SigSpec OHOLD;
+	if (st.ffOcemux)
+		OHOLD = st.ffOcemux ? pm.module->Not(NEW_ID, st.ffOcemux->getPort("\\S")) : st.ffOcemux->getPort("\\S");
+	else
+		OHOLD = State::S0;
+	cell->setPort("\\OHOLDTOP", OHOLD);
+	cell->setPort("\\OHOLDBOT", OHOLD);
 
-	cell->setPort("\\OHOLDTOP", State::S0);
-	cell->setPort("\\OHOLDBOT", State::S0);
+	SigSpec ORST;
+	if (st.ffOrstmux)
+		ORST = st.ffOrstmux ? st.ffOrstmux->getPort("\\S") : pm.module->Not(NEW_ID, st.ffOrstmux->getPort("\\S"));
+	else
+		ORST = State::S0;
+	cell->setPort("\\ORSTTOP", ORST);
+	cell->setPort("\\ORSTBOT", ORST);
 
 	SigSpec acc_reset = State::S0;
 	if (st.mux) {
@@ -200,7 +232,6 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 		else
 			acc_reset = pm.module->Not(NEW_ID, st.mux->getPort("\\S"));
 	}
-
 	cell->setPort("\\OLOADTOP", acc_reset);
 	cell->setPort("\\OLOADBOT", acc_reset);
 

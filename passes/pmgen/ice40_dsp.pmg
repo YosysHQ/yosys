@@ -9,8 +9,8 @@ state <IdString> addAB muxAB
 state <bool> ffAcepol ffBcepol ffCDcepol ffOcepol
 state <bool> ffArstpol ffBrstpol ffCDrstpol ffOrstpol
 
-state <Cell*> ffA ffAcemux ffArstmux ffB ffBcemux ffBrstmux ffCD ffCDcemux ffCDrstmux
-state <Cell*> ffFJKG ffFJKGrstmux ffH ffHrstmux ffO ffOcemux ffOrstmux
+state <Cell*> ffA ffAcemux ffArstmux ffB ffBcemux ffBrstmux ffCD ffCDcemux
+state <Cell*> ffFJKG ffH ffO ffOcemux ffOrstmux
 
 // subpattern
 state <SigSpec> argQ argD
@@ -105,73 +105,77 @@ code argQ ffB ffBcemux ffBrstmux ffBcepol ffBrstpol sigB clock clock_pol
 	}
 endcode
 
-code argD ffFJKG ffFJKGrstmux sigH sigO clock clock_pol
+code argD ffFJKG sigH sigO clock clock_pol
 	if (nusers(sigH) == 2 &&
 			(mul->type != \SB_MAC16 ||
 			 (!param(mul, \TOP_8x8_MULT_REG).as_bool() && !param(mul, \BOT_8x8_MULT_REG).as_bool() && !param(mul, \PIPELINE_16x16_MULT_REG1).as_bool() && !param(mul, \PIPELINE_16x16_MULT_REG1).as_bool()))) {
 		argD = sigH;
 		subpattern(out_dffe);
 		if (dff) {
-			ffFJKG = dff;
-			clock = dffclock;
-			clock_pol = dffclock_pol;
-			if (dffrstmux)
-				ffFJKGrstmux = dffrstmux;
 			// F/J/K/G do not have a CE-like (hold) input
 			if (dffcemux)
-				reject;
+				goto reject_ffFJKG;
 
 			// Reset signal of F/J (IRSTTOP) and K/G (IRSTBOT)
 			//   shared with A and B
-			if ((ffArstmux != NULL) != (ffFJKGrstmux != NULL))
-				reject;
-			if ((ffBrstmux != NULL) != (ffFJKGrstmux != NULL))
-				reject;
+			if ((ffArstmux != NULL) != (dffrstmux != NULL))
+				goto reject_ffFJKG;
+			if ((ffBrstmux != NULL) != (dffrstmux != NULL))
+				goto reject_ffFJKG;
 			if (ffArstmux) {
-				if (port(ffArstmux, \S) != port(ffFJKGrstmux, \S))
-					reject;
+				if (port(ffArstmux, \S) != port(dffrstmux, \S))
+					goto reject_ffFJKG;
 				if (ffArstpol != dffrstpol)
-					reject;
+					goto reject_ffFJKG;
 			}
 			if (ffBrstmux) {
-				if (port(ffBrstmux, \S) != port(ffFJKGrstmux, \S))
-					reject;
+				if (port(ffBrstmux, \S) != port(dffrstmux, \S))
+					goto reject_ffFJKG;
 				if (ffBrstpol != dffrstpol)
-					reject;
+					goto reject_ffFJKG;
 			}
 
+			ffFJKG = dff;
+			clock = dffclock;
+			clock_pol = dffclock_pol;
 			sigH = dffQ;
 		}
 	}
+
+	if (0) {
+reject_ffFJKG: ;
+	}
 endcode
 
-code argD ffH ffHrstmux sigH sigO clock clock_pol
-	if (nusers(sigH) == 2 &&
+code argD ffH sigH sigO clock clock_pol
+	if (ffFJKG && nusers(sigH) == 2 &&
 			(mul->type != \SB_MAC16 || !param(mul, \PIPELINE_16x16_MULT_REG2).as_bool())) {
 		argD = sigH;
 		subpattern(out_dffe);
 		if (dff) {
+			// H does not have a CE-like (hold) input
+			if (dffcemux)
+				goto reject_ffH;
+
+			// Reset signal of H (IRSTBOT) shared with B
+			if ((ffBrstmux != NULL) != (dffrstmux != NULL))
+				goto reject_ffH;
+			if (ffBrstmux) {
+				if (port(ffBrstmux, \S) != port(dffrstmux, \S))
+					goto reject_ffH;
+				if (ffBrstpol != dffrstpol)
+					goto reject_ffH;
+			}
+
 			ffH = dff;
 			clock = dffclock;
 			clock_pol = dffclock_pol;
-			if (dffrstmux)
-				ffHrstmux = dffrstmux;
-			// H does not have a CE-like (hold) input
-			if (dffcemux)
-				reject;
-
-			// Reset signal of H (IRSTBOT) shared with B
-			if ((ffBrstmux != NULL) != (ffHrstmux != NULL))
-				reject;
-			if (ffBrstmux) {
-				if (port(ffBrstmux, \S) != port(ffHrstmux, \S))
-					reject;
-				if (ffBrstpol != dffrstpol)
-					reject;
-			}
-
 			sigH = dffQ;
 		}
+	}
+
+	if (0) {
+reject_ffH: ;
 	}
 
 	sigO = sigH;
@@ -274,25 +278,45 @@ code argD ffO ffOcemux ffOrstmux ffOcepol ffOrstpol sigO sigCD clock clock_pol c
 	}
 endcode
 
-code argQ ffCD ffCDcemux ffCDrstmux ffCDcepol ffCDrstpol sigCD clock clock_pol
+code argQ ffCD ffCDcemux ffCDcepol ffCDrstpol sigCD clock clock_pol
 	if (!sigCD.empty() &&
 			(mul->type != \SB_MAC16 || (!param(mul, \C_REG).as_bool() && !param(mul, \D_REG).as_bool()))) {
 		argQ = sigCD;
 		subpattern(in_dffe);
 		if (dff) {
-			ffCD = dff;
-			clock = dffclock;
-			clock_pol = dffclock_pol;
-			if (dffrstmux) {
-				ffCDrstmux = dffrstmux;
-				ffCDrstpol = dffrstpol;
-			}
 			if (dffcemux) {
 				ffCDcemux = dffcemux;
 				ffCDcepol = dffcepol;
 			}
+
+			// Reset signal of C (IRSTTOP) and D (IRSTBOT)
+			//   shared with A and B
+			if ((ffArstmux != NULL) != (dffrstmux != NULL))
+				goto reject_ffCD;
+			if ((ffBrstmux != NULL) != (dffrstmux != NULL))
+				goto reject_ffCD;
+			if (ffArstmux) {
+				if (port(ffArstmux, \S) != port(dffrstmux, \S))
+					goto reject_ffCD;
+				if (ffArstpol != dffrstpol)
+					goto reject_ffCD;
+			}
+			if (ffBrstmux) {
+				if (port(ffBrstmux, \S) != port(dffrstmux, \S))
+					goto reject_ffCD;
+				if (ffBrstpol != dffrstpol)
+					goto reject_ffCD;
+			}
+
+			ffCD = dff;
+			clock = dffclock;
+			clock_pol = dffclock_pol;
 			sigCD = dffD;
 		}
+	}
+
+	if (0) {
+reject_ffCD: ;
 	}
 endcode
 
@@ -418,6 +442,9 @@ arg argD argQ clock clock_pol
 
 code
 	dff = nullptr;
+	for (auto c : argD.chunks())
+		if (c.wire->get_bool_attribute(\keep))
+			reject;
 endcode
 
 match ffcemux
@@ -434,7 +461,7 @@ match ffcemux
 	index <SigBit> port(ffcemux, BA)[offset] === argD[0]
 
 	// Check that the rest of argD is present
-	filter GetSize(BA) >= offset + GetSize(argD)
+	filter GetSize(port(ffcemux, BA)) >= offset + GetSize(argD)
 	filter port(ffcemux, BA).extract(offset, GetSize(argD)) == argD
 
 	set ffoffset offset
@@ -448,12 +475,6 @@ code argD argQ
 	dffcemux = ffcemux;
 	if (ffcemux) {
 		SigSpec BA = port(ffcemux, ffcepol ? \B : \A);
-		if (ffoffset + GetSize(argD) > GetSize(BA))
-			reject;
-		for (int i = 1; i < GetSize(argD); i++)
-			if (BA[ffoffset+i] != argD[i])
-				reject;
-
 		SigSpec Y = port(ffcemux, \Y);
 		argQ = argD;
 		argD.replace(BA, Y);
@@ -480,7 +501,7 @@ match ffrstmux
 	// Check that offset is consistent
 	filter !ffcemux || ffoffset == offset
 	// Check that the rest of argD is present
-	filter GetSize(AB) >= offset + GetSize(argD)
+	filter GetSize(port(ffrstmux, AB)) >= offset + GetSize(argD)
 	filter port(ffrstmux, AB).extract(offset, GetSize(argD)) == argD
 
 	set ffoffset offset
@@ -519,8 +540,6 @@ match ff
 	filter !ffcemux || port(ff, \Q).extract(offset, GetSize(argQ)) == argQ
 
 	set ffoffset offset
-
-	semioptional
 endmatch
 
 code argQ
@@ -531,7 +550,6 @@ code argQ
 			if (param(ff, \CLK_POLARITY).as_bool() != clock_pol)
 				reject;
 		}
-
 		SigSpec D = port(ff, \D);
 		SigSpec Q = port(ff, \Q);
 		if (!ffcemux) {
@@ -540,8 +558,6 @@ code argQ
 		}
 
 		for (auto c : argQ.chunks()) {
-			if (c.wire->get_bool_attribute(\keep))
-				reject;
 			Const init = c.wire->attributes.at(\init, State::Sx);
 			if (!init.is_fully_undef() && !init.is_fully_zero())
 				reject;
