@@ -796,13 +796,16 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			log_assert(children.size() == 1);
 			log_assert(children[0]->type == AST_WIRETYPE);
 			if (!current_scope.count(children[0]->str))
-				log_file_error(filename, linenum, "Unknown identifier `%s' used as type name", children[0]->str.c_str());
+				log_file_error(filename, linenum, "Unknown identifier `%s' used as type name\n", children[0]->str.c_str());
 			AstNode *resolved_type = current_scope.at(children[0]->str);
 			if (resolved_type->type != AST_TYPEDEF)
-				log_file_error(filename, linenum, "`%s' does not name a type", children[0]->str.c_str());
+				log_file_error(filename, linenum, "`%s' does not name a type\n", children[0]->str.c_str());
 			log_assert(resolved_type->children.size() == 1);
 			AstNode *templ = resolved_type->children[0];
 			delete_children(); // type reference no longer needed
+
+			// Ensure typedef itself is fully simplified
+			while(templ->simplify(const_fold, at_zero, in_lvalue, stage, width_hint, sign_hint, in_param)) {};
 
 			is_reg = templ->is_reg;
 			is_logic = templ->is_logic;
@@ -826,14 +829,17 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			log_assert(children.size() == 2);
 			log_assert(children[1]->type == AST_WIRETYPE);
 			if (!current_scope.count(children[1]->str))
-				log_file_error(filename, linenum, "Unknown identifier `%s' used as type name", children[1]->str.c_str());
+				log_file_error(filename, linenum, "Unknown identifier `%s' used as type name\n", children[1]->str.c_str());
 			AstNode *resolved_type = current_scope.at(children[1]->str);
 			if (resolved_type->type != AST_TYPEDEF)
-				log_file_error(filename, linenum, "`%s' does not name a type", children[1]->str.c_str());
+				log_file_error(filename, linenum, "`%s' does not name a type\n", children[1]->str.c_str());
 			log_assert(resolved_type->children.size() == 1);
 			AstNode *templ = resolved_type->children[0];
 			delete children[1];
 			children.pop_back();
+
+			// Ensure typedef itself is fully simplified
+			while(templ->simplify(const_fold, at_zero, in_lvalue, stage, width_hint, sign_hint, in_param)) {};
 
 			is_signed = templ->is_signed;
 			is_string = templ->is_string;
