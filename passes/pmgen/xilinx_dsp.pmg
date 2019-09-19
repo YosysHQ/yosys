@@ -393,6 +393,11 @@ match ff
 
 	slice offset GetSize(port(ff, \D))
 	index <SigBit> port(ff, \Q)[offset] === argQ[0]
+
+	// Check that the rest of argQ is present
+	filter GetSize(port(ff, \Q)) >= offset + GetSize(argQ)
+	filter port(ff, \Q).extract(offset, GetSize(argQ)) == argQ
+
 	set ffoffset offset
 endmatch
 
@@ -402,12 +407,6 @@ code argQ argD
 		reject;
 
 	SigSpec Q = port(ff, \Q);
-	if (ffoffset + GetSize(argQ) > GetSize(Q))
-		reject;
-	for (int i = 1; i < GetSize(argQ); i++)
-		if (Q[ffoffset+i] != argQ[i])
-			reject;
-
 	dff = ff;
 	dffclock = port(ff, \CLK);
 	dffD = argQ;
@@ -481,6 +480,9 @@ arg argD argQ clock
 
 code
 	dff = nullptr;
+	for (auto c : argD.chunks())
+		if (c.wire->get_bool_attribute(\keep))
+			reject;
 endcode
 
 match ffcemux
@@ -495,8 +497,13 @@ match ffcemux
 	slice offset GetSize(port(ffcemux, \Y))
 	define <IdString> BA (AB == \A ? \B : \A)
 	index <SigBit> port(ffcemux, BA)[offset] === argD[0]
+
+	// Check that the rest of argD is present
+	filter GetSize(port(ffcemux, BA)) >= offset + GetSize(argD)
+	filter port(ffcemux, BA).extract(offset, GetSize(argD)) == argD
+
 	set ffoffset offset
-	define <bool> pol (BA == \B)
+	define <bool> pol (AB == \A)
 	set ffcepol pol
 
 	semioptional
@@ -506,12 +513,6 @@ code argD argQ
 	dffcemux = ffcemux;
 	if (ffcemux) {
 		SigSpec BA = port(ffcemux, ffcepol ? \B : \A);
-		if (ffoffset + GetSize(argD) > GetSize(BA))
-			reject;
-		for (int i = 1; i < GetSize(argD); i++)
-			if (BA[ffoffset+i] != argD[i])
-				reject;
-
 		SigSpec Y = port(ffcemux, \Y);
 		argQ = argD;
 		argD.replace(BA, Y);
@@ -535,7 +536,12 @@ match ffrstmux
 	define <IdString> AB (BA == \B ? \A : \B)
 	index <SigBit> port(ffrstmux, AB)[offset] === argD[0]
 
+	// Check that offset is consistent
 	filter !ffcemux || ffoffset == offset
+	// Check that the rest of argD is present
+	filter GetSize(port(ffrstmux, AB)) >= offset + GetSize(argD)
+	filter port(ffrstmux, AB).extract(offset, GetSize(argD)) == argD
+
 	set ffoffset offset
 	define <bool> pol (AB == \A)
 	set ffrstpol pol
@@ -547,13 +553,6 @@ code argD argQ
 	dffrstmux = ffrstmux;
 	if (ffrstmux) {
 		SigSpec AB = port(ffrstmux, ffrstpol ? \A : \B);
-		if (ffoffset + GetSize(argD) > GetSize(AB))
-			reject;
-
-		for (int i = 1; i < GetSize(argD); i++)
-			if (AB[ffoffset+i] != argD[i])
-				reject;
-
 		SigSpec Y = port(ffrstmux, \Y);
 		argD.replace(AB, Y);
 
@@ -570,10 +569,15 @@ match ff
 	slice offset GetSize(port(ff, \D))
 	index <SigBit> port(ff, \D)[offset] === argD[0]
 
+	// Check that offset is consistent
 	filter (!ffcemux && !ffrstmux) || ffoffset == offset
-	set ffoffset offset
+	// Check that the rest of argD is present
+	filter GetSize(port(ff, \D)) >= offset + GetSize(argD)
+	filter port(ff, \D).extract(offset, GetSize(argD)) == argD
+	// Check that FF.Q is connected to CE-mux
+	filter !ffcemux || port(ff, \Q).extract(offset, GetSize(argQ)) == argQ
 
-	semioptional
+	set ffoffset offset
 endmatch
 
 code argQ
@@ -582,26 +586,13 @@ code argQ
 			reject;
 
 		SigSpec D = port(ff, \D);
-		if (ffoffset + GetSize(argD) > GetSize(D))
-			reject;
-		for (int i = 1; i < GetSize(argD); i++)
-			if (D[ffoffset+i] != argD[i])
-				reject;
-
 		SigSpec Q = port(ff, \Q);
-		if (ffcemux) {
-			for (int i = 0; i < GetSize(argQ); i++)
-				if (Q[ffoffset+i] != argQ[i])
-					reject;
-		}
-		else {
+		if (!ffcemux) {
 			argQ = argD;
 			argQ.replace(D, Q);
 		}
 
 		for (auto c : argQ.chunks()) {
-			if (c.wire->get_bool_attribute(\keep))
-				reject;
 			Const init = c.wire->attributes.at(\init, State::Sx);
 			if (!init.is_fully_undef() && !init.is_fully_zero())
 				reject;
@@ -609,7 +600,7 @@ code argQ
 
 		dff = ff;
 		dffQ = argQ;
-		dffclock = port(dff, \CLK);
+		dffclock = port(ff, \CLK);
 	}
 	// No enable/reset mux possible without flop
 	else if (dffcemux || dffrstmux)
