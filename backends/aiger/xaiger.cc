@@ -405,12 +405,7 @@ struct XAigerWriter
 							if (O != b)
 								alias_map[O] = b;
 							undriven_bits.erase(O);
-
-							auto jt = input_bits.find(b);
-							if (jt != input_bits.end()) {
-								log_assert(keep_bits.count(O));
-								input_bits.erase(b);
-							}
+							input_bits.erase(b);
 						}
 					}
 				}
