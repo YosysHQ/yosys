@@ -322,10 +322,10 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 		opmode[5] = State::S1;
 
 		if (opmode[4] != State::S0) {
-			//if (st.postAddMuxAB == "\\A")
-			//	st.sigC.extend_u0(48, st.postAdd->getParam("\\B_SIGNED").as_bool());
-			//else
-			//	st.sigC.extend_u0(48, st.postAdd->getParam("\\A_SIGNED").as_bool());
+			if (st.postAddMuxAB == "\\A")
+				st.sigC.extend_u0(48, st.postAdd->getParam("\\B_SIGNED").as_bool());
+			else
+				st.sigC.extend_u0(48, st.postAdd->getParam("\\A_SIGNED").as_bool());
 			cell->setPort("\\C", st.sigC);
 		}
 
