@@ -215,7 +215,7 @@ endcode
 match mux
 	select mux->type == $mux
 	choice <IdString> AB {\A, \B}
-	index <int> nusers(port(mux, AB)) === 2
+	select nusers(port(mux, AB)) == 2
 	index <SigSpec> port(mux, AB) === sigO
 	set muxAB AB
 	optional
