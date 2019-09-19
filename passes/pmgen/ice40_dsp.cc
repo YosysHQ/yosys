@@ -33,8 +33,10 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 	log("\n");
 	log("ffA:    %s %s %s\n", log_id(st.ffA, "--"), log_id(st.ffAcemux, "--"), log_id(st.ffArstmux, "--"));
 	log("ffB:    %s %s %s\n", log_id(st.ffB, "--"), log_id(st.ffBcemux, "--"), log_id(st.ffBrstmux, "--"));
+	log("ffCD:   %s %s %s\n", log_id(st.ffCD, "--"), log_id(st.ffCDcemux, "--"), log_id(st.ffCDrstmux, "--"));
 	log("mul:    %s\n", log_id(st.mul, "--"));
 	log("ffFJKG: %s n/a %s\n", log_id(st.ffFJKG, "--"), log_id(st.ffFJKGrstmux, "--"));
+	log("ffH:    %s n/a %s\n", log_id(st.ffH, "--"), log_id(st.ffHrstmux, "--"));
 	log("add:    %s\n", log_id(st.add, "--"));
 	log("mux:    %s\n", log_id(st.mux, "--"));
 	log("ffO:    %s\n", log_id(st.ffO, "--"));
@@ -93,6 +95,8 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 
 	cell->setParam("\\A_REG", st.ffA ? State::S1 : State::S0);
 	cell->setParam("\\B_REG", st.ffB ? State::S1 : State::S0);
+	cell->setParam("\\C_REG", st.ffCD ? State::S1 : State::S0);
+	cell->setParam("\\D_REG", st.ffCD ? State::S1 : State::S0);
 
 	cell->setPort("\\AHOLD", State::S0);
 	cell->setPort("\\BHOLD", State::S0);
@@ -116,8 +120,14 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 		if (st.ffB)
 			log(" ffB:%s", log_id(st.ffB));
 
+		if (st.ffCD)
+			log(" ffCD:%s", log_id(st.ffCD));
+
 		if (st.ffFJKG)
 			log(" ffFJKG:%s", log_id(st.ffFJKG));
+
+		if (st.ffH)
+			log(" ffH:%s", log_id(st.ffH));
 
 		if (st.ffO)
 			log(" ffO:%s", log_id(st.ffO));
@@ -196,13 +206,10 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 
 	// SB_MAC16 Remaining Parameters
 
-	cell->setParam("\\C_REG", State::S0);
-	cell->setParam("\\D_REG", State::S0);
-
 	cell->setParam("\\TOP_8x8_MULT_REG", st.ffFJKG ? State::S1 : State::S0);
 	cell->setParam("\\BOT_8x8_MULT_REG", st.ffFJKG ? State::S1 : State::S0);
 	cell->setParam("\\PIPELINE_16x16_MULT_REG1", st.ffFJKG ? State::S1 : State::S0);
-	cell->setParam("\\PIPELINE_16x16_MULT_REG2", State::S0);
+	cell->setParam("\\PIPELINE_16x16_MULT_REG2", st.ffH ? State::S1 : State::S0);
 
 	cell->setParam("\\TOPADDSUB_LOWERINPUT", Const(2, 2));
 	cell->setParam("\\TOPADDSUB_UPPERINPUT", accum ? State::S0 : State::S1);

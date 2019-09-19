@@ -7,10 +7,10 @@ state <Cell*> add mux
 state <IdString> addAB muxAB
 
 state <bool> ffAcepol ffBcepol ffCDcepol ffOcepol
-state <bool> ffArstpol ffBrstpol ffCDrstpol ffFJKGrstpol ffOrstpol
+state <bool> ffArstpol ffBrstpol ffCDrstpol ffOrstpol
 
 state <Cell*> ffA ffAcemux ffArstmux ffB ffBcemux ffBrstmux ffCD ffCDcemux ffCDrstmux
-state <Cell*> ffFJKG ffFJKGrstmux ffO ffOcemux ffOrstmux
+state <Cell*> ffFJKG ffFJKGrstmux ffH ffHrstmux ffO ffOcemux ffOrstmux
 
 // subpattern
 state <SigSpec> argQ argD
@@ -105,20 +105,18 @@ code argQ ffB ffBcemux ffBrstmux ffBcepol ffBrstpol sigB clock clock_pol
 	}
 endcode
 
-code argD ffFJKG ffFJKGrstmux ffFJKGrstpol sigH sigO clock clock_pol
+code argD ffFJKG ffFJKGrstmux sigH sigO clock clock_pol
 	if (nusers(sigH) == 2 &&
 			(mul->type != \SB_MAC16 ||
-			 (!param(mul, \TOP_8x8_MULT_REG).as_bool() && !param(mul, \BOT_8x8_MULT_REG).as_bool() && !param(mul, \PIPELINE_16x16_MULT_REG1).as_bool() && !param(mul, \PIPELINE_16x16_MULT_REG2).as_bool()))) {
+			 (!param(mul, \TOP_8x8_MULT_REG).as_bool() && !param(mul, \BOT_8x8_MULT_REG).as_bool() && !param(mul, \PIPELINE_16x16_MULT_REG1).as_bool() && !param(mul, \PIPELINE_16x16_MULT_REG1).as_bool()))) {
 		argD = sigH;
 		subpattern(out_dffe);
 		if (dff) {
 			ffFJKG = dff;
 			clock = dffclock;
 			clock_pol = dffclock_pol;
-			if (dffrstmux) {
+			if (dffrstmux)
 				ffFJKGrstmux = dffrstmux;
-				ffFJKGrstpol = dffrstpol;
-			}
 			// F/J/K/G do not have a CE-like (hold) input
 			if (dffcemux)
 				reject;
@@ -132,13 +130,43 @@ code argD ffFJKG ffFJKGrstmux ffFJKGrstpol sigH sigO clock clock_pol
 			if (ffArstmux) {
 				if (port(ffArstmux, \S) != port(ffFJKGrstmux, \S))
 					reject;
-				if (ffArstpol != ffFJKGrstpol)
+				if (ffArstpol != dffrstpol)
 					reject;
 			}
 			if (ffBrstmux) {
 				if (port(ffBrstmux, \S) != port(ffFJKGrstmux, \S))
 					reject;
-				if (ffBrstpol != ffFJKGrstpol)
+				if (ffBrstpol != dffrstpol)
+					reject;
+			}
+
+			sigH = dffQ;
+		}
+	}
+endcode
+
+code argD ffH ffHrstmux sigH sigO clock clock_pol
+	if (nusers(sigH) == 2 &&
+			(mul->type != \SB_MAC16 || !param(mul, \PIPELINE_16x16_MULT_REG2).as_bool())) {
+		argD = sigH;
+		subpattern(out_dffe);
+		if (dff) {
+			ffH = dff;
+			clock = dffclock;
+			clock_pol = dffclock_pol;
+			if (dffrstmux)
+				ffHrstmux = dffrstmux;
+			// H does not have a CE-like (hold) input
+			if (dffcemux)
+				reject;
+
+			// Reset signal of H (IRSTBOT) shared with B
+			if ((ffBrstmux != NULL) != (ffHrstmux != NULL))
+				reject;
+			if (ffBrstmux) {
+				if (port(ffBrstmux, \S) != port(ffHrstmux, \S))
+					reject;
+				if (ffBrstpol != dffrstpol)
 					reject;
 			}
 
@@ -244,6 +272,31 @@ code argD ffO ffOcemux ffOrstmux ffOcepol ffOrstpol sigO sigCD clock clock_pol c
 			cd_signed = add && param(add, \A_SIGNED).as_bool() && param(add, \B_SIGNED).as_bool();
 		}
 	}
+endcode
+
+code argQ ffCD ffCDcemux ffCDrstmux ffCDcepol ffCDrstpol sigCD clock clock_pol
+	if (!sigCD.empty() &&
+			(mul->type != \SB_MAC16 || (!param(mul, \C_REG).as_bool() && !param(mul, \D_REG).as_bool()))) {
+		argQ = sigCD;
+		subpattern(in_dffe);
+		if (dff) {
+			ffCD = dff;
+			clock = dffclock;
+			clock_pol = dffclock_pol;
+			if (dffrstmux) {
+				ffCDrstmux = dffrstmux;
+				ffCDrstpol = dffrstpol;
+			}
+			if (dffcemux) {
+				ffCDcemux = dffcemux;
+				ffCDcepol = dffcepol;
+			}
+			sigCD = dffD;
+		}
+	}
+endcode
+
+code sigCD
 	sigCD.extend_u0(32, cd_signed);
 endcode
 
