@@ -6,20 +6,20 @@ state <SigSpec> sigA sigB sigCD sigH sigO
 state <Cell*> add mux
 state <IdString> addAB muxAB
 
-state <bool> ffAcepol ffBcepol ffCDcepol ffOcepol
+state <bool> ffAholdpol ffBholdpol ffCDholdpol ffOholdpol
 state <bool> ffArstpol ffBrstpol ffCDrstpol ffOrstpol
 
-state <Cell*> ffA ffAcemux ffArstmux ffB ffBcemux ffBrstmux ffCD ffCDcemux
-state <Cell*> ffFJKG ffH ffO ffOcemux ffOrstmux
+state <Cell*> ffA ffAholdmux ffArstmux ffB ffBholdmux ffBrstmux ffCD ffCDholdmux
+state <Cell*> ffFJKG ffH ffO ffOholdmux ffOrstmux
 
 // subpattern
 state <SigSpec> argQ argD
-state <bool> ffcepol ffrstpol
+state <bool> ffholdpol ffrstpol
 state <int> ffoffset
 udata <SigSpec> dffD dffQ
 udata <SigBit> dffclock
-udata <Cell*> dff dffcemux dffrstmux
-udata <bool> dffcepol dffrstpol dffclock_pol
+udata <Cell*> dff dffholdmux dffrstmux
+udata <bool> dffholdpol dffrstpol dffclock_pol
 
 match mul
 	select mul->type.in($mul, \SB_MAC16)
@@ -63,7 +63,7 @@ code sigA sigB sigH
 	log_assert(nusers(O.extract_end(i)) <= 1);
 endcode
 
-code argQ ffA ffAcemux ffArstmux ffAcepol ffArstpol sigA clock clock_pol
+code argQ ffA ffAholdmux ffArstmux ffAholdpol ffArstpol sigA clock clock_pol
 	if (mul->type != \SB_MAC16 || !param(mul, \A_REG).as_bool()) {
 		argQ = sigA;
 		subpattern(in_dffe);
@@ -75,16 +75,16 @@ code argQ ffA ffAcemux ffArstmux ffAcepol ffArstpol sigA clock clock_pol
 				ffArstmux = dffrstmux;
 				ffArstpol = dffrstpol;
 			}
-			if (dffcemux) {
-				ffAcemux = dffcemux;
-				ffAcepol = dffcepol;
+			if (dffholdmux) {
+				ffAholdmux = dffholdmux;
+				ffAholdpol = dffholdpol;
 			}
 			sigA = dffD;
 		}
 	}
 endcode
 
-code argQ ffB ffBcemux ffBrstmux ffBcepol ffBrstpol sigB clock clock_pol
+code argQ ffB ffBholdmux ffBrstmux ffBholdpol ffBrstpol sigB clock clock_pol
 	if (mul->type != \SB_MAC16 || !param(mul, \B_REG).as_bool()) {
 		argQ = sigB;
 		subpattern(in_dffe);
@@ -96,9 +96,9 @@ code argQ ffB ffBcemux ffBrstmux ffBcepol ffBrstpol sigB clock clock_pol
 				ffBrstmux = dffrstmux;
 				ffBrstpol = dffrstpol;
 			}
-			if (dffcemux) {
-				ffBcemux = dffcemux;
-				ffBcepol = dffcepol;
+			if (dffholdmux) {
+				ffBholdmux = dffholdmux;
+				ffBholdpol = dffholdpol;
 			}
 			sigB = dffD;
 		}
@@ -113,7 +113,7 @@ code argD ffFJKG sigH sigO clock clock_pol
 		subpattern(out_dffe);
 		if (dff) {
 			// F/J/K/G do not have a CE-like (hold) input
-			if (dffcemux)
+			if (dffholdmux)
 				goto reject_ffFJKG;
 
 			// Reset signal of F/J (IRSTTOP) and K/G (IRSTBOT)
@@ -154,7 +154,7 @@ code argD ffH sigH sigO clock clock_pol
 		subpattern(out_dffe);
 		if (dff) {
 			// H does not have a CE-like (hold) input
-			if (dffcemux)
+			if (dffholdmux)
 				goto reject_ffH;
 
 			// Reset signal of H (IRSTBOT) shared with B
@@ -226,7 +226,7 @@ code sigO
 		sigO = port(mux, \Y);
 endcode
 
-code argD ffO ffOcemux ffOrstmux ffOcepol ffOrstpol sigO sigCD clock clock_pol cd_signed o_lo
+code argD ffO ffOholdmux ffOrstmux ffOholdpol ffOrstpol sigO sigCD clock clock_pol cd_signed o_lo
 	if (mul->type != \SB_MAC16 ||
 			// Ensure that register is not already used
 			((mul->parameters.at(\TOPOUTPUT_SELECT, 0).as_int() != 1 && mul->parameters.at(\BOTOUTPUT_SELECT, 0).as_int() != 1) &&
@@ -258,9 +258,9 @@ code argD ffO ffOcemux ffOrstmux ffOcepol ffOrstpol sigO sigCD clock clock_pol c
 				ffOrstmux = dffrstmux;
 				ffOrstpol = dffrstpol;
 			}
-			if (dffcemux) {
-				ffOcemux = dffcemux;
-				ffOcepol = dffcepol;
+			if (dffholdmux) {
+				ffOholdmux = dffholdmux;
+				ffOholdpol = dffholdpol;
 			}
 
 			sigO.replace(sigO.extract(0, GetSize(dffQ)), dffQ);
@@ -278,15 +278,15 @@ code argD ffO ffOcemux ffOrstmux ffOcepol ffOrstpol sigO sigCD clock clock_pol c
 	}
 endcode
 
-code argQ ffCD ffCDcemux ffCDcepol ffCDrstpol sigCD clock clock_pol
+code argQ ffCD ffCDholdmux ffCDholdpol ffCDrstpol sigCD clock clock_pol
 	if (!sigCD.empty() &&
 			(mul->type != \SB_MAC16 || (!param(mul, \C_REG).as_bool() && !param(mul, \D_REG).as_bool()))) {
 		argQ = sigCD;
 		subpattern(in_dffe);
 		if (dff) {
-			if (dffcemux) {
-				ffCDcemux = dffcemux;
-				ffCDcepol = dffcepol;
+			if (dffholdmux) {
+				ffCDholdmux = dffholdmux;
+				ffCDholdpol = dffholdpol;
 			}
 
 			// Reset signal of C (IRSTTOP) and D (IRSTBOT)
@@ -403,7 +403,7 @@ code argD
 		argD = port(ffrstmux, ffrstpol ? \A : \B);
 		dffD.replace(port(ffrstmux, \Y), argD);
 
-		// Only search for ffcemux if argQ has at
+		// Only search for ffholdmux if argQ has at
 		//   least 3 users (ff, <upstream>, ffrstmux) and
 		//   dffD only has two (ff, ffrstmux)
 		if (!(nusers(argQ) >= 3 && nusers(dffD) == 2))
@@ -413,26 +413,26 @@ code argD
 		dffrstmux = nullptr;
 endcode
 
-match ffcemux
+match ffholdmux
 	if !argD.empty()
-	select ffcemux->type.in($mux)
-	index <SigSpec> port(ffcemux, \Y) === argD
-	choice <IdString> AB {\A, \B}
-	index <SigSpec> port(ffcemux, AB) === argQ
-	define <bool> pol (AB == \A)
-	set ffcepol pol
+	select ffholdmux->type.in($mux)
+	index <SigSpec> port(ffholdmux, \Y) === argD
+	choice <IdString> BA {\B, \A}
+	index <SigSpec> port(ffholdmux, BA) === argQ
+	define <bool> pol (BA == \B)
+	set ffholdpol pol
 	semioptional
 endmatch
 
 code argD
-	if (ffcemux) {
-		dffcemux = ffcemux;
-		dffcepol = ffcepol;
-		argD = port(ffcemux, ffcepol ? \B : \A);
-		dffD.replace(port(ffcemux, \Y), argD);
+	if (ffholdmux) {
+		dffholdmux = ffholdmux;
+		dffholdpol = ffholdpol;
+		argD = port(ffholdmux, ffholdpol ? \A : \B);
+		dffD.replace(port(ffholdmux, \Y), argD);
 	}
 	else
-		dffcemux = nullptr;
+		dffholdmux = nullptr;
 endcode
 
 // #######################
@@ -447,41 +447,41 @@ code
 			reject;
 endcode
 
-match ffcemux
-	select ffcemux->type.in($mux)
-	// ffcemux output must have two users: ffcemux and ff.D
-	select nusers(port(ffcemux, \Y)) == 2
+match ffholdmux
+	select ffholdmux->type.in($mux)
+	// ffholdmux output must have two users: ffholdmux and ff.D
+	select nusers(port(ffholdmux, \Y)) == 2
 
-	choice <IdString> AB {\A, \B}
-	// keep-last-value net must have at least three users: ffcemux, ff, downstream sink(s)
-	select nusers(port(ffcemux, AB)) >= 3
+	choice <IdString> BA {\B, \A}
+	// keep-last-value net must have at least three users: ffholdmux, ff, downstream sink(s)
+	select nusers(port(ffholdmux, BA)) >= 3
 
-	slice offset GetSize(port(ffcemux, \Y))
-	define <IdString> BA (AB == \A ? \B : \A)
-	index <SigBit> port(ffcemux, BA)[offset] === argD[0]
+	slice offset GetSize(port(ffholdmux, \Y))
+	define <IdString> AB (BA == \B ? \A : \B)
+	index <SigBit> port(ffholdmux, AB)[offset] === argD[0]
 
 	// Check that the rest of argD is present
-	filter GetSize(port(ffcemux, BA)) >= offset + GetSize(argD)
-	filter port(ffcemux, BA).extract(offset, GetSize(argD)) == argD
+	filter GetSize(port(ffholdmux, AB)) >= offset + GetSize(argD)
+	filter port(ffholdmux, AB).extract(offset, GetSize(argD)) == argD
 
 	set ffoffset offset
 	define <bool> pol (BA == \B)
-	set ffcepol pol
+	set ffholdpol pol
 
 	semioptional
 endmatch
 
 code argD argQ
-	dffcemux = ffcemux;
-	if (ffcemux) {
-		SigSpec BA = port(ffcemux, ffcepol ? \B : \A);
-		SigSpec Y = port(ffcemux, \Y);
+	dffholdmux = ffholdmux;
+	if (ffholdmux) {
+		SigSpec AB = port(ffholdmux, ffholdpol ? \A : \B);
+		SigSpec Y = port(ffholdmux, \Y);
 		argQ = argD;
-		argD.replace(BA, Y);
-		argQ.replace(BA, port(ffcemux, ffcepol ? \A : \B));
+		argD.replace(AB, Y);
+		argQ.replace(AB, port(ffholdmux, ffholdpol ? \B : \A));
 
-		dffcemux = ffcemux;
-		dffcepol = ffcepol;
+		dffholdmux = ffholdmux;
+		dffholdpol = ffholdpol;
 	}
 endcode
 
@@ -499,7 +499,7 @@ match ffrstmux
 	index <SigBit> port(ffrstmux, AB)[offset] === argD[0]
 
 	// Check that offset is consistent
-	filter !ffcemux || ffoffset == offset
+	filter !ffholdmux || ffoffset == offset
 	// Check that the rest of argD is present
 	filter GetSize(port(ffrstmux, AB)) >= offset + GetSize(argD)
 	filter port(ffrstmux, AB).extract(offset, GetSize(argD)) == argD
@@ -532,12 +532,12 @@ match ff
 	index <SigBit> port(ff, \D)[offset] === argD[0]
 
 	// Check that offset is consistent
-	filter (!ffcemux && !ffrstmux) || ffoffset == offset
+	filter (!ffholdmux && !ffrstmux) || ffoffset == offset
 	// Check that the rest of argD is present
 	filter GetSize(port(ff, \D)) >= offset + GetSize(argD)
 	filter port(ff, \D).extract(offset, GetSize(argD)) == argD
 	// Check that FF.Q is connected to CE-mux
-	filter !ffcemux || port(ff, \Q).extract(offset, GetSize(argQ)) == argQ
+	filter !ffholdmux || port(ff, \Q).extract(offset, GetSize(argQ)) == argQ
 
 	set ffoffset offset
 endmatch
@@ -552,7 +552,7 @@ code argQ
 		}
 		SigSpec D = port(ff, \D);
 		SigSpec Q = port(ff, \Q);
-		if (!ffcemux) {
+		if (!ffholdmux) {
 			argQ = argD;
 			argQ.replace(D, Q);
 		}
@@ -569,6 +569,6 @@ code argQ
 		dffclock_pol = param(ff, \CLK_POLARITY).as_bool();
 	}
 	// No enable/reset mux possible without flop
-	else if (dffcemux || dffrstmux)
+	else if (dffholdmux || dffrstmux)
 		reject;
 endcode
