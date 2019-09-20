@@ -288,8 +288,8 @@ struct Ice40DspPass : public Pass {
 		log("Currently, only the 16x16 multiply mode is supported and not the 2 x 8x8 mode.\n");
 		log("\n");
 		log("Pack input registers (A, B, {C,D}; with optional hold), pipeline registers\n");
-		log("({F,J,K,G}, H), output registers (O; with optional hold), and post-adder into\n");
-		log("into the SB_MAC16 resource.\n");
+		log("({F,J,K,G}, H), output registers (O -- full 32-bits or lower 16-bits only; with\n");
+		log("optional hold), and post-adder into into the SB_MAC16 resource.\n");
 		log("\n");
 		log("Multiply-accumulate operations using the post-adder with feedback on the {C,D}\n");
 		log("input will be folded into the DSP. In this scenario only, resetting the\n");
