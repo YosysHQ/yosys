@@ -384,6 +384,8 @@ code argQ argD
 endcode
 
 match ffrstmux
+	if false /* TODO: ice40 resets are actually async */
+
 	if !argD.empty()
 	select ffrstmux->type.in($mux)
 	index <SigSpec> port(ffrstmux, \Y) === argD
@@ -487,6 +489,8 @@ code argD argQ
 endcode
 
 match ffrstmux
+	if false /* TODO: ice40 resets are actually async */
+
 	select ffrstmux->type.in($mux)
 	// ffrstmux output must have two users: ffrstmux and ff.D
 	select nusers(port(ffrstmux, \Y)) == 2
