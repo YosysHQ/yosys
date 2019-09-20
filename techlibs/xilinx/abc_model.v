@@ -47,7 +47,7 @@ endmodule
 
 // Modules used to model the comb/seq behaviour of DSP48E1
 //   With abc_map.v responsible for splicing the below modules
-//   into between the combinatorial DSP48E1 box (e.g. disconnecting
+//   between the combinatorial DSP48E1 box (e.g. disconnecting
 //   A when AREG, MREG or PREG is enabled and splicing in the
 //   "$__ABC_DSP48E1_REG" blackbox as "REG" in the diagram below)
 //   this acts to first disables the combinatorial path (as there
