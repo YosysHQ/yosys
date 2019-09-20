@@ -453,9 +453,17 @@ with open(outfile, "w") as f:
     print("    return sigmap(cell->getPort(portname));", file=f)
     print("  }", file=f)
     print("", file=f)
+    print("  SigSpec port(Cell *cell, IdString portname, const SigSpec& defval) {", file=f)
+    print("    return sigmap(cell->connections_.at(portname, defval));", file=f)
+    print("  }", file=f)
+    print("", file=f)
 
     print("  Const param(Cell *cell, IdString paramname) {", file=f)
     print("    return cell->getParam(paramname);", file=f)
+    print("  }", file=f)
+    print("", file=f)
+    print("  Const param(Cell *cell, IdString paramname, const Const& defval) {", file=f)
+    print("    return cell->parameters.at(paramname, defval);", file=f)
     print("  }", file=f)
     print("", file=f)
 
