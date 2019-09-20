@@ -29,20 +29,18 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 {
 	auto &st = pm.st_ice40_dsp;
 
-#if 1
-	log("\n");
-	log("ffA:    %s %s %s\n", log_id(st.ffA, "--"), log_id(st.ffAholdmux, "--"), log_id(st.ffArstmux, "--"));
-	log("ffB:    %s %s %s\n", log_id(st.ffB, "--"), log_id(st.ffBholdmux, "--"), log_id(st.ffBrstmux, "--"));
-	log("ffCD:   %s %s\n", log_id(st.ffCD, "--"), log_id(st.ffCDholdmux, "--"));
-	log("mul:    %s\n", log_id(st.mul, "--"));
-	log("ffFJKG: %s\n", log_id(st.ffFJKG, "--"));
-	log("ffH:    %s\n", log_id(st.ffH, "--"));
-	log("add:    %s\n", log_id(st.add, "--"));
-	log("mux:    %s\n", log_id(st.mux, "--"));
-	log("ffO:    %s %s %s\n", log_id(st.ffO, "--"), log_id(st.ffOholdmux, "--"), log_id(st.ffOrstmux, "--"));
-#endif
-
 	log("Checking %s.%s for iCE40 DSP inference.\n", log_id(pm.module), log_id(st.mul));
+
+	log_debug("\n");
+	log_debug("ffA:    %s %s %s\n", log_id(st.ffA, "--"), log_id(st.ffAholdmux, "--"), log_id(st.ffArstmux, "--"));
+	log_debug("ffB:    %s %s %s\n", log_id(st.ffB, "--"), log_id(st.ffBholdmux, "--"), log_id(st.ffBrstmux, "--"));
+	log_debug("ffCD:   %s %s\n", log_id(st.ffCD, "--"), log_id(st.ffCDholdmux, "--"));
+	log_debug("mul:    %s\n", log_id(st.mul, "--"));
+	log_debug("ffFJKG: %s\n", log_id(st.ffFJKG, "--"));
+	log_debug("ffH:    %s\n", log_id(st.ffH, "--"));
+	log_debug("add:    %s\n", log_id(st.add, "--"));
+	log_debug("mux:    %s\n", log_id(st.mux, "--"));
+	log_debug("ffO:    %s %s %s\n", log_id(st.ffO, "--"), log_id(st.ffOholdmux, "--"), log_id(st.ffOrstmux, "--"));
 
 	if (GetSize(st.sigA) > 16) {
 		log("  input A (%s) is too large (%d > 16).\n", log_signal(st.sigA), GetSize(st.sigA));

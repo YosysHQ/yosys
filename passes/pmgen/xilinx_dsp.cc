@@ -260,25 +260,23 @@ void pack_xilinx_dsp(xilinx_dsp_pm &pm)
 {
 	auto &st = pm.st_xilinx_dsp_pack;
 
-#if 1
-	log("\n");
-	log("preAdd:     %s\n", log_id(st.preAdd, "--"));
-	log("ffAD:       %s %s %s\n", log_id(st.ffAD, "--"), log_id(st.ffADcemux, "--"), log_id(st.ffADrstmux, "--"));
-	log("ffA2:       %s %s %s\n", log_id(st.ffA2, "--"), log_id(st.ffA2cemux, "--"), log_id(st.ffA2rstmux, "--"));
-	log("ffA1:       %s %s %s\n", log_id(st.ffA1, "--"), log_id(st.ffA1cemux, "--"), log_id(st.ffA1rstmux, "--"));
-	log("ffB2:       %s %s %s\n", log_id(st.ffB2, "--"), log_id(st.ffB2cemux, "--"), log_id(st.ffB2rstmux, "--"));
-	log("ffB1:       %s %s %s\n", log_id(st.ffB1, "--"), log_id(st.ffB1cemux, "--"), log_id(st.ffB1rstmux, "--"));
-	log("ffC:        %s %s %s\n", log_id(st.ffC, "--"), log_id(st.ffCcemux, "--"), log_id(st.ffCrstmux, "--"));
-	log("ffD:        %s %s %s\n", log_id(st.ffD, "--"), log_id(st.ffDcemux, "--"), log_id(st.ffDrstmux, "--"));
-	log("dsp:        %s\n", log_id(st.dsp, "--"));
-	log("ffM:        %s %s %s\n", log_id(st.ffM, "--"), log_id(st.ffMcemux, "--"), log_id(st.ffMrstmux, "--"));
-	log("postAdd:    %s\n", log_id(st.postAdd, "--"));
-	log("postAddMux: %s\n", log_id(st.postAddMux, "--"));
-	log("ffP:        %s %s %s\n", log_id(st.ffP, "--"), log_id(st.ffPcemux, "--"), log_id(st.ffPrstmux, "--"));
-	log("overflow:   %s\n", log_id(st.overflow, "--"));
-#endif
-
 	log("Analysing %s.%s for Xilinx DSP packing.\n", log_id(pm.module), log_id(st.dsp));
+
+	log_debug("\n");
+	log_debug("preAdd:     %s\n", log_id(st.preAdd, "--"));
+	log_debug("ffAD:       %s %s %s\n", log_id(st.ffAD, "--"), log_id(st.ffADcemux, "--"), log_id(st.ffADrstmux, "--"));
+	log_debug("ffA2:       %s %s %s\n", log_id(st.ffA2, "--"), log_id(st.ffA2cemux, "--"), log_id(st.ffA2rstmux, "--"));
+	log_debug("ffA1:       %s %s %s\n", log_id(st.ffA1, "--"), log_id(st.ffA1cemux, "--"), log_id(st.ffA1rstmux, "--"));
+	log_debug("ffB2:       %s %s %s\n", log_id(st.ffB2, "--"), log_id(st.ffB2cemux, "--"), log_id(st.ffB2rstmux, "--"));
+	log_debug("ffB1:       %s %s %s\n", log_id(st.ffB1, "--"), log_id(st.ffB1cemux, "--"), log_id(st.ffB1rstmux, "--"));
+	log_debug("ffC:        %s %s %s\n", log_id(st.ffC, "--"), log_id(st.ffCcemux, "--"), log_id(st.ffCrstmux, "--"));
+	log_debug("ffD:        %s %s %s\n", log_id(st.ffD, "--"), log_id(st.ffDcemux, "--"), log_id(st.ffDrstmux, "--"));
+	log_debug("dsp:        %s\n", log_id(st.dsp, "--"));
+	log_debug("ffM:        %s %s %s\n", log_id(st.ffM, "--"), log_id(st.ffMcemux, "--"), log_id(st.ffMrstmux, "--"));
+	log_debug("postAdd:    %s\n", log_id(st.postAdd, "--"));
+	log_debug("postAddMux: %s\n", log_id(st.postAddMux, "--"));
+	log_debug("ffP:        %s %s %s\n", log_id(st.ffP, "--"), log_id(st.ffPcemux, "--"), log_id(st.ffPrstmux, "--"));
+	log_debug("overflow:   %s\n", log_id(st.overflow, "--"));
 
 	Cell *cell = st.dsp;
 
