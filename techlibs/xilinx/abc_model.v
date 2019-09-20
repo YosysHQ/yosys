@@ -44,16 +44,30 @@ endmodule
 module \$__ABC_LUT7 (input A, input [6:0] S, output Y);
 endmodule
 
-// Boxes used to represent the comb/seq behaviour of DSP48E1
-//   With abc_map.v responsible for disconnecting inputs to
-//   the combinatorial DSP48E1 model by a register (e.g.
-//   disconnecting A when AREG, MREG or PREG is enabled)
-//   this blackbox captures the existence of a replacement
-//   path between AREG/BREG/CREG/etc. and P/PCOUT.
-//   Since the Aq/ADq/Bq/etc. inputs are assumed to arrive at
-//   the box at zero time, the combinatorial delay through
-//   these boxes thus represents the clock-to-q delay
-//   (arrival time) at P/PCOUT.
+
+// Modules used to model the comb/seq behaviour of DSP48E1
+//   With abc_map.v responsible for splicing the below modules
+//   into between the combinatorial DSP48E1 box (e.g. disconnecting
+//   A when AREG, MREG or PREG is enabled and splicing in the
+//   "$__ABC_DSP48E1_REG" blackbox as "REG" in the diagram below)
+//   this acts to first disables the combinatorial path (as there
+//   is no connectivity through REG), and secondly, since this is
+//   blackbox a new PI will be introduced with an arrival time of
+//   zero.
+//   Note: Since these "$__ABC_DSP48E1_REG" modules are of a
+//   sequential nature, they are not passed as a box to ABC and
+//   (desirably) represented as PO/PIs.
+//
+//   At the DSP output, we place a blackbox mux ("M" in the diagram
+//   below) to capture the fact that the critical-path could come
+//   from any one of its inputs.
+//   In contrast to "REG", the "$__ABC_DSP48E1_*_MUX" modules are
+//   combinatorial blackboxes that do get passed to ABC.
+//   The propagation delay through this box (specified in the box
+//   file) captures the arrival time of the register (i.e.
+//   propagation from AREG to P after clock edge), or zero delay
+//   for the combinatorial path from the DSP.
+//
 //   Doing so should means that ABC is able to analyse the
 //   worst-case delay through to P, regardless of if it was
 //   through any combinatorial paths (e.g. B, below) or an
@@ -65,18 +79,19 @@ endmodule
 //
 //   In graphical form:
 //
-//               NEW "PI" >>---+
-//             for AREG.Q      |
-//                             |
-//              +---------+    |   __
-//    A >>--X X-|         |    +--|  \
-//              | DSP48E1 |P      |   |--->> P
+//                 +-----+
+//         +------>> REG >>----+
+//         |       +-----+     |
+//         |                   |
+//         |    +---------+    |   __
+//    A >>-+X X-|         |    +--|  \
+//              | DSP48E1 |P      | M |--->> P
 //              | AREG=1  |-------|__/
 //    B >>------|         |
 //              +---------+
 //
 `define ABC_DSP48E1_MUX(__NAME__) """
-module __NAME__ (input Aq, ADq, Bq, Cq, Dq, Mq, input [47:0] P, input Pq, output [47:0] O);
+module __NAME__ (input Aq, ADq, Bq, Cq, Dq, input [47:0] I, input Mq, input [47:0] P, input Pq, output [47:0] O);
 endmodule
 """
 (* abc_box_id=2100 *) `ABC_DSP48E1_MUX(\$__ABC_DSP48E1_MULT_P_MUX )

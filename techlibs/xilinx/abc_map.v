@@ -292,16 +292,17 @@ __CELL__ #(
         );
 """
 
+    wire [29:0] iA;
+    wire [17:0] iB;
+    wire [47:0] iC;
+    wire [24:0] iD;
+
+    wire pA, pB, pC, pD, pAD, pM, pP;
+    wire [47:0] oP, mP;
+    wire [47:0] oPCOUT, mPCOUT;
+
     generate
     if (USE_MULT == "MULTIPLY" && USE_DPORT == "FALSE") begin
-        wire [29:0] iA;
-        wire [17:0] iB;
-        wire [47:0] iC;
-        wire [24:0] iD;
-
-        wire pA, pB, pC, pD, pAD, pM, pP;
-        wire [47:0] oP, oPCOUT;
-
 		// Disconnect the A-input if MREG is enabled, since
 		//   combinatorial path is broken
         if (AREG == 0 && MREG == 0 && PREG == 0)
@@ -336,24 +337,20 @@ __CELL__ #(
             assign pM = 1'bx;
         end
 
+        if (MREG == 0 && PREG == 0)
+            assign mP = oP, mPCOUT = oPCOUT;
+        else
+            assign mP = 1'bx, mPCOUT = 1'bx;
         \$__ABC_DSP48E1_MULT_P_MUX muxP (
-            .Aq(pA), .Bq(pB), .Cq(pC), .Dq(pD), .ADq(pAD), .Mq(pM), .P(oP), .Pq(pP), .O(P)
+            .Aq(pA), .Bq(pB), .Cq(pC), .Dq(pD), .ADq(pAD), .I(oP), .Mq(pM), .P(mP), .Pq(pP), .O(P)
         );
         \$__ABC_DSP48E1_MULT_PCOUT_MUX muxPCOUT (
-            .Aq(pA), .Bq(pB), .Cq(pC), .Dq(pD), .ADq(pAD), .Mq(pM), .P(oPCOUT), .Pq(pP), .O(PCOUT)
+            .Aq(pA), .Bq(pB), .Cq(pC), .Dq(pD), .ADq(pAD), .I(oPCOUT), .Mq(pM), .P(mPCOUT), .Pq(pP), .O(PCOUT)
         );
 
         `DSP48E1_INST(\$__ABC_DSP48E1_MULT )
     end
     else if (USE_MULT == "MULTIPLY" && USE_DPORT == "TRUE") begin
-        wire [29:0] iA;
-        wire [17:0] iB;
-        wire [47:0] iC;
-        wire [24:0] iD;
-
-        wire pA, pB, pC, pD, pAD, pM, pP;
-        wire [47:0] oP, oPCOUT;
-
 		// Disconnect the A-input if MREG is enabled, since
 		//   combinatorial path is broken
         if (AREG == 0 && ADREG == 0 && MREG == 0 && PREG == 0)
@@ -386,24 +383,20 @@ __CELL__ #(
 		else
             \$__ABC_DSP48E1_REG rP (.Q(pP));
 
+        if (MREG == 0 && PREG == 0)
+            assign mP = oP, mPCOUT = oPCOUT;
+        else
+            assign mP = 1'bx, mPCOUT = 1'bx;
         \$__ABC_DSP48E1_MULT_DPORT_P_MUX muxP (
-            .Aq(pA), .Bq(pB), .Cq(pC), .Dq(pD), .ADq(pAD), .Mq(pM), .P(oP), .Pq(pP), .O(P)
+            .Aq(pA), .Bq(pB), .Cq(pC), .Dq(pD), .ADq(pAD), .I(oP), .Mq(pM), .P(mP), .Pq(pP), .O(P)
         );
         \$__ABC_DSP48E1_MULT_DPORT_PCOUT_MUX muxPCOUT (
-            .Aq(pA), .Bq(pB), .Cq(pC), .Dq(pD), .ADq(pAD), .Mq(pM), .P(oPCOUT), .Pq(pP), .O(PCOUT)
+            .Aq(pA), .Bq(pB), .Cq(pC), .Dq(pD), .ADq(pAD), .I(oPCOUT), .Mq(pM), .P(mPCOUT), .Pq(pP), .O(PCOUT)
         );
 
         `DSP48E1_INST(\$__ABC_DSP48E1_MULT_DPORT )
     end
     else if (USE_MULT == "NONE" && USE_DPORT == "FALSE") begin
-        wire [29:0] iA;
-        wire [17:0] iB;
-        wire [47:0] iC;
-        wire [24:0] iD;
-
-        wire pA, pB, pC, pD, pAD, pM, pP;
-        wire [47:0] oP, oPCOUT;
-
 		// Disconnect the A-input if MREG is enabled, since
 		//   combinatorial path is broken
         if (AREG == 0 && PREG == 0)
@@ -432,11 +425,15 @@ __CELL__ #(
         else
             assign pP = 1'bx;
 
+        if (MREG == 0 && PREG == 0)
+            assign mP = oP, mPCOUT = oPCOUT;
+        else
+            assign mP = 1'bx, mPCOUT = 1'bx;
         \$__ABC_DSP48E1_P_MUX muxP (
-            .Aq(pA), .Bq(pB), .Cq(pC), .Dq(pD), .ADq(pAD), .Mq(pM), .P(oP), .Pq(pP), .O(P)
+            .Aq(pA), .Bq(pB), .Cq(pC), .Dq(pD), .ADq(pAD), .I(oP), .Mq(pM), .P(mP), .Pq(pP), .O(P)
         );
         \$__ABC_DSP48E1_PCOUT_MUX muxPCOUT (
-            .Aq(pA), .Bq(pB), .Cq(pC), .Dq(pD), .ADq(pAD), .Mq(pM), .P(oPCOUT), .Pq(pP), .O(PCOUT)
+            .Aq(pA), .Bq(pB), .Cq(pC), .Dq(pD), .ADq(pAD), .I(oPCOUT), .Mq(pM), .P(mPCOUT), .Pq(pP), .O(PCOUT)
         );
 
         `DSP48E1_INST(\$__ABC_DSP48E1 )
