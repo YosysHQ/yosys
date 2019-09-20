@@ -113,7 +113,8 @@ struct specify_rise_fall {
 %define api.prefix {frontend_verilog_yy}
 
 %glr-parser
-%expect 22
+%expect 21
+%expect-rr 2
 
 /* The union is defined in the header, so we need to provide all the
  * includes it requires
@@ -157,7 +158,7 @@ struct specify_rise_fall {
 %token TOK_INCREMENT TOK_DECREMENT TOK_UNIQUE TOK_PRIORITY
 
 %type <ast> range range_or_multirange  non_opt_range non_opt_multirange range_or_signed_int
-%type <ast> wire_type expr basic_expr concat_list rvalue lvalue lvalue_concat_list
+%type <ast> wire_type wire_type_io expr basic_expr concat_list rvalue lvalue lvalue_concat_list
 %type <string> opt_label opt_sva_label tok_prim_wrapper hierarchical_id
 %type <boolean> opt_signed opt_property unique_case_attr
 %type <al> attr case_attr
@@ -395,7 +396,7 @@ module_arg:
 		ast_stack.back()->children.push_back(astbuf2);
 		delete astbuf1; // really only needed if multiple instances of same type.
 	} module_arg_opt_assignment |
-	attr wire_type range TOK_ID {
+	attr wire_type_io range TOK_ID {
 		AstNode *node = $2;
 		node->str = *$4;
 		node->port_id = ++port_counter;
@@ -479,6 +480,15 @@ wire_type:
 		$$ = astbuf3;
 	};
 
+wire_type_io:
+	{
+		astbuf3 = new AstNode(AST_WIRE);
+		current_wire_rand = false;
+		current_wire_const = false;
+	} io_wire_type_token_list delay {
+		$$ = astbuf3;
+	};
+
 wire_type_token_list:
 	wire_type_token | wire_type_token_list wire_type_token |
 	wire_type_token_io ;
@@ -540,6 +550,12 @@ wire_type_token:
 		astbuf3->children.push_back(new AstNode(AST_WIRETYPE));
 		astbuf3->children.back()->str = *$1;
 	};
+
+wire_type_token_list_without_io:
+	wire_type_token | wire_type_token_list wire_type_token;
+
+io_wire_type_token_list:
+	wire_type_token_io | wire_type_token_io wire_type_token_list_without_io;
 
 non_opt_range:
 	'[' expr ':' expr ']' {
