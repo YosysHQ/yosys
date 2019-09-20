@@ -3002,7 +3002,7 @@ void AstNode::expand_genblock(std::string index_var, std::string prefix, std::ma
 		}
 	}
 
-	if ((type == AST_IDENTIFIER || type == AST_FCALL || type == AST_TCALL) && name_map.count(str) > 0)
+	if ((type == AST_IDENTIFIER || type == AST_FCALL || type == AST_TCALL || type == AST_WIRETYPE) && name_map.count(str) > 0)
 		str = name_map[str];
 
 	std::map<std::string, std::string> backup_name_map;
@@ -3010,7 +3010,7 @@ void AstNode::expand_genblock(std::string index_var, std::string prefix, std::ma
 	for (size_t i = 0; i < children.size(); i++) {
 		AstNode *child = children[i];
 		if (child->type == AST_WIRE || child->type == AST_MEMORY || child->type == AST_PARAMETER || child->type == AST_LOCALPARAM ||
-				child->type == AST_FUNCTION || child->type == AST_TASK || child->type == AST_CELL) {
+				child->type == AST_FUNCTION || child->type == AST_TASK || child->type == AST_CELL || child->type == AST_TYPEDEF) {
 			if (backup_name_map.size() == 0)
 				backup_name_map = name_map;
 			std::string new_name = prefix[0] == '\\' ? prefix.substr(1) : prefix;
