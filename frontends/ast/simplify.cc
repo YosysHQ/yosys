@@ -785,8 +785,10 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	// resolve typedefs
 	if (type == AST_TYPEDEF) {
 		log_assert(children.size() == 1);
-		log_assert(children[0]->type == AST_WIRE);
-		while(children[0]->simplify(const_fold, at_zero, in_lvalue, stage, width_hint, sign_hint, in_param)) {};
+		log_assert(children[0]->type == AST_WIRE || children[0]->type == AST_MEMORY);
+		while(children[0]->simplify(const_fold, at_zero, in_lvalue, stage, width_hint, sign_hint, in_param)) {
+			did_something = true;
+		};
 		log_assert(!children[0]->is_custom_type);
 	}
 
@@ -807,6 +809,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			// Ensure typedef itself is fully simplified
 			while(templ->simplify(const_fold, at_zero, in_lvalue, stage, width_hint, sign_hint, in_param)) {};
 
+			type = templ->type;
 			is_reg = templ->is_reg;
 			is_logic = templ->is_logic;
 			is_signed = templ->is_signed;
@@ -819,6 +822,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			range_right = templ->range_right;
 			for (auto template_child : templ->children)
 				children.push_back(template_child->clone());
+			did_something = true;
 		}
 		log_assert(!is_custom_type);
 	}
@@ -841,6 +845,8 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			// Ensure typedef itself is fully simplified
 			while(templ->simplify(const_fold, at_zero, in_lvalue, stage, width_hint, sign_hint, in_param)) {};
 
+			if (templ->type == AST_MEMORY)
+				log_file_error(filename, linenum, "unpacked array type `%s' cannot be used for a parameter\n", children[1]->str.c_str());
 			is_signed = templ->is_signed;
 			is_string = templ->is_string;
 			is_custom_type = templ->is_custom_type;
@@ -851,6 +857,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			range_right = templ->range_right;
 			for (auto template_child : templ->children)
 				children.push_back(template_child->clone());
+			did_something = true;
 		}
 		log_assert(!is_custom_type);
 	}	
@@ -3074,6 +3081,9 @@ void AstNode::mem2reg_as_needed_pass1(dict<AstNode*, pool<std::string>> &mem2reg
 	uint32_t children_flags = 0;
 	int lhs_children_counter = 0;
 
+	if (type == AST_TYPEDEF)
+		return; // don't touch content of typedefs
+
 	if (type == AST_ASSIGN || type == AST_ASSIGN_LE || type == AST_ASSIGN_EQ)
 	{
 		// mark all memories that are used in a complex expression on the left side of an assignment
@@ -3229,6 +3239,9 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 		block = this;
 
 	if (type == AST_FUNCTION || type == AST_TASK)
+		return false;
+
+	if (type == AST_TYPEDEF)
 		return false;
 
 	if (type == AST_MEMINIT && id2ast && mem2reg_set.count(id2ast))

@@ -1400,7 +1400,7 @@ assign_expr:
 	};
 
 typedef_decl:
-	TOK_TYPEDEF wire_type range TOK_ID ';' {
+	TOK_TYPEDEF wire_type range TOK_ID range_or_multirange ';' {
 		astbuf1 = $2;
 		astbuf2 = $3;
 		if (astbuf1->range_left >= 0 && astbuf1->range_right >= 0) {
@@ -1416,6 +1416,24 @@ typedef_decl:
 			frontend_verilog_yyerror("wire/reg/logic packed dimension must be of the form: [<expr>:<expr>], [<expr>+:<expr>], or [<expr>-:<expr>]");
 		if (astbuf2)
 			astbuf1->children.push_back(astbuf2);
+
+		if ($5 != NULL) {
+			if (!astbuf2) {
+				AstNode *rng = new AstNode(AST_RANGE);
+				rng->children.push_back(AstNode::mkconst_int(0, true));
+				rng->children.push_back(AstNode::mkconst_int(0, true));
+				astbuf1->children.push_back(rng);
+			}
+			astbuf1->type = AST_MEMORY;
+			auto *rangeNode = $5;
+			if (rangeNode->type == AST_RANGE && rangeNode->children.size() == 1) {
+				// SV array size [n], rewrite as [n-1:0]
+				rangeNode->children[0] = new AstNode(AST_SUB, rangeNode->children[0], AstNode::mkconst_int(1, true));
+				rangeNode->children.push_back(AstNode::mkconst_int(0, false));
+			}
+			astbuf1->children.push_back(rangeNode);
+		}
+
 		ast_stack.back()->children.push_back(new AstNode(AST_TYPEDEF, astbuf1));
 		ast_stack.back()->children.back()->str = *$4;
 	};
