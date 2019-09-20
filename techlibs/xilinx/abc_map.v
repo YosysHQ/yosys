@@ -308,15 +308,15 @@ __CELL__ #(
         if (AREG == 0 && MREG == 0 && PREG == 0)
             assign iA = A, pA = 1'bx;
         else
-            \$__ABC_DSP48E1_REG rA (.I(A), .O(iA), .Q(pA));
+            \$__ABC_REG #(.WIDTH(30)) rA (.I(A), .O(iA), .Q(pA));
         if (BREG == 0 && MREG == 0 && PREG == 0)
             assign iB = B, pB = 1'bx;
         else
-            \$__ABC_DSP48E1_REG rB (.I(B), .O(iB), .Q(pB));
+            \$__ABC_REG #(.WIDTH(18)) rB (.I(B), .O(iB), .Q(pB));
         if (CREG == 0 && PREG == 0)
             assign iC = C, pC = 1'bx;
         else
-            \$__ABC_DSP48E1_REG rC (.I(C), .O(iC), .Q(pC));
+            \$__ABC_REG #(.WIDTH(48)) rC (.I(C), .O(iC), .Q(pC));
         if (DREG == 0)
             assign iD = D;
         else if (techmap_guard)
@@ -328,12 +328,12 @@ __CELL__ #(
 		if (PREG == 0) begin
             assign pP = 1'bx;
 			if (MREG == 1)
-				\$__ABC_DSP48E1_REG rM (.Q(pM));
+				\$__ABC_REG rM (.Q(pM));
             else
                 assign pM = 1'bx;
 		end
         else begin
-            \$__ABC_DSP48E1_REG rP (.Q(pP));
+            \$__ABC_REG rP (.Q(pP));
             assign pM = 1'bx;
         end
 
@@ -356,32 +356,32 @@ __CELL__ #(
         if (AREG == 0 && ADREG == 0 && MREG == 0 && PREG == 0)
             assign iA = A, pA = 1'bx;
         else
-            \$__ABC_DSP48E1_REG rA (.I(A), .O(iA), .Q(pA));
+            \$__ABC_REG #(.WIDTH(30)) rA (.I(A), .O(iA), .Q(pA));
         if (BREG == 0 && MREG == 0 && PREG == 0)
             assign iB = B, pB = 1'bx;
         else
-            \$__ABC_DSP48E1_REG rB (.I(B), .O(iB), .Q(pB));
+            \$__ABC_REG #(.WIDTH(18)) rB (.I(B), .O(iB), .Q(pB));
         if (CREG == 0 && PREG == 0)
             assign iC = C, pC = 1'bx;
         else
-            \$__ABC_DSP48E1_REG rC (.I(C), .O(iC), .Q(pC));
+            \$__ABC_REG #(.WIDTH(48)) rC (.I(C), .O(iC), .Q(pC));
         if (DREG == 0 && ADREG == 0)
             assign iD = D, pD = 1'bx;
         else
-            \$__ABC_DSP48E1_REG rD (.I(D), .O(iD), .Q(pD));
+            \$__ABC_REG #(.WIDTH(25)) rD (.I(D), .O(iD), .Q(pD));
 		if (PREG == 0) begin
 			if (MREG == 1)
-				\$__ABC_DSP48E1_REG rM (.Q(pM));
+				\$__ABC_REG rM (.Q(pM));
             else begin
                 assign pM = 1'bx;
                 if (ADREG == 1)
-                    \$__ABC_DSP48E1_REG rAD (.Q(pAD));
+                    \$__ABC_REG rAD (.Q(pAD));
                 else
                     assign pAD = 1'bx;
             end
 		end
 		else
-            \$__ABC_DSP48E1_REG rP (.Q(pP));
+            \$__ABC_REG rP (.Q(pP));
 
         if (MREG == 0 && PREG == 0)
             assign mP = oP, mPCOUT = oPCOUT;
@@ -402,15 +402,15 @@ __CELL__ #(
         if (AREG == 0 && PREG == 0)
             assign iA = A, pA = 1'bx;
         else
-            \$__ABC_DSP48E1_REG rA (.I(A), .O(iA), .Q(pA));
+            \$__ABC_REG #(.WIDTH(30)) rA (.I(A), .O(iA), .Q(pA));
         if (BREG == 0 && PREG == 0)
             assign iB = B, pB = 1'bx;
         else
-            \$__ABC_DSP48E1_REG rB (.I(B), .O(iB), .Q(pB));
+            \$__ABC_REG #(.WIDTH(18)) rB (.I(B), .O(iB), .Q(pB));
         if (CREG == 0 && PREG == 0)
             assign iC = C, pC = 1'bx;
         else
-            \$__ABC_DSP48E1_REG rC (.I(C), .O(iC), .Q(pC));
+            \$__ABC_REG #(.WIDTH(48)) rC (.I(C), .O(iC), .Q(pC));
         if (MREG == 1 && techmap_guard)
             $error("Invalid DSP48E1 configuration: MREG enabled but USE_MULT == \"NONE\"");
         assign pM = 1'bx;
@@ -421,7 +421,7 @@ __CELL__ #(
 			$error("Invalid DSP48E1 configuration: ADREG enabled but USE_DPORT == \"FALSE\"");
         assign pAD = 1'bx;
 		if (PREG == 1)
-            \$__ABC_DSP48E1_REG rP (.Q(pP));
+            \$__ABC_REG rP (.Q(pP));
         else
             assign pP = 1'bx;
 
