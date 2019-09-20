@@ -113,6 +113,7 @@ struct specify_rise_fall {
 %define api.prefix {frontend_verilog_yy}
 
 %glr-parser
+%expect 22
 
 /* The union is defined in the header, so we need to provide all the
  * includes it requires
