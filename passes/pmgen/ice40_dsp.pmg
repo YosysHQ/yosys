@@ -136,11 +136,9 @@ code argD ffFJKG sigH clock clock_pol
 			clock = dffclock;
 			clock_pol = dffclock_pol;
 			sigH = dffQ;
-		}
-	}
 
-	if (0) {
-reject_ffFJKG: ;
+reject_ffFJKG: 		;
+		}
 	}
 endcode
 
@@ -168,11 +166,9 @@ code argD ffH sigH sigO clock clock_pol
 			clock = dffclock;
 			clock_pol = dffclock_pol;
 			sigH = dffQ;
-		}
-	}
 
-	if (0) {
-reject_ffH: ;
+reject_ffH:		;
+		}
 	}
 
 	sigO = sigH;
@@ -312,11 +308,9 @@ code argQ ffCD ffCDholdmux ffCDholdpol ffCDrstpol sigCD clock clock_pol
 			clock = dffclock;
 			clock_pol = dffclock_pol;
 			sigCD = dffD;
-		}
-	}
 
-	if (0) {
-reject_ffCD: ;
+reject_ffCD: 		;
+		}
 	}
 endcode
 
