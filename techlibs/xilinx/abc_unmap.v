@@ -27,10 +27,10 @@ module \$__ABC_LUT7 (input A, input [6:0] S, output Y);
   assign Y = A;
 endmodule
 
-module \$__ABC_DSP48E1_REG (input [47:0] I, output [47:0] O, output Q);
+(* techmap_celltype = "$__ABC_DSP48E1_MULT_AREG $__ABC_DSP48E1_MULT_BREG $__ABC_DSP48E1_MULT_CREG $__ABC_DSP48E1_MULT_MREG $__ABC_DSP48E1_MULT_PREG $__ABC_DSP48E1_MULT_DPORT_AREG $__ABC_DSP48E1_MULT_DPORT_BREG $__ABC_DSP48E1_MULT_DPORT_CREG $__ABC_DSP48E1_MULT_DPORT_DREG $__ABC_DSP48E1_MULT_DPORT_ADREG $__ABC_DSP48E1_MULT_DPORT_MREG $__ABC_DSP48E1_MULT_DPORT_PREG " *)
+module \$__ABC_DSP48E1_REG (input [47:0] I, output [47:0] O, output P, PCOUT);
   assign O = I;
 endmodule
-(* techmap_celltype = "$__ABC_DSP48E1_MULT_P_MUX $__ABC_DSP48E1_MULT_PCOUT_MUX $__ABC_DSP48E1_MULT_DPORT_P_MUX $__ABC_DSP48E1_MULT_DPORT_PCOUT_MUX $__ABC_DSP48E1_P_MUX $__ABC_DSP48E1_PCOUT_MUX" *)
 module \$__ABC_DSP48E1_MUX (
   input Aq, Bq, Cq, Dq, ADq, Mq, 
   input [47:0] P, 
