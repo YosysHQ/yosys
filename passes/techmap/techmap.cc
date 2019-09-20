@@ -206,10 +206,27 @@ struct TechmapWorker
 
 		std::map<RTLIL::IdString, RTLIL::IdString> positional_ports;
 		dict<Wire*, IdString> temp_renamed_wires;
+		pool<SigBit> autopurge_tpl_bits;
 
-		for (auto &it : tpl->wires_) {
+		for (auto &it : tpl->wires_)
+		{
 			if (it.second->port_id > 0)
-				positional_ports[stringf("$%d", it.second->port_id)] = it.first;
+			{
+				IdString posportname = stringf("$%d", it.second->port_id);
+				positional_ports[posportname] = it.first;
+
+				if (!flatten_mode && it.second->get_bool_attribute(ID(techmap_autopurge)) &&
+						(!cell->hasPort(it.second->name) || !GetSize(cell->getPort(it.second->name))) &&
+						(!cell->hasPort(posportname) || !GetSize(cell->getPort(posportname))))
+				{
+					if (sigmaps.count(tpl) == 0)
+						sigmaps[tpl].set(tpl);
+
+					for (auto bit : sigmaps.at(tpl)(it.second))
+						if (bit.wire != nullptr)
+							autopurge_tpl_bits.insert(it.second);
+				}
+			}
 			IdString w_name = it.second->name;
 			apply_prefix(cell->name, w_name);
 			RTLIL::Wire *w = module->wire(w_name);
@@ -232,6 +249,8 @@ struct TechmapWorker
 				w->port_input = false;
 				w->port_output = false;
 				w->port_id = 0;
+				if (!flatten_mode)
+					w->attributes.erase(ID(techmap_autopurge));
 				if (it.second->get_bool_attribute(ID(_techmap_special_)))
 					w->attributes.clear();
 				if (w->attributes.count(ID(src)))
@@ -362,10 +381,30 @@ struct TechmapWorker
 			if (!flatten_mode && c->type.begins_with("\\$"))
 				c->type = c->type.substr(1);
 
-			for (auto &it2 : c->connections_) {
-				apply_prefix(cell->name, it2.second, module);
-				port_signal_map.apply(it2.second);
+			vector<IdString> autopurge_ports;
+
+			for (auto &it2 : c->connections_)
+			{
+				bool autopurge = false;
+				if (!autopurge_tpl_bits.empty()) {
+					autopurge = GetSize(it2.second) != 0;
+					for (auto &bit : sigmaps.at(tpl)(it2.second))
+						if (!autopurge_tpl_bits.count(bit)) {
+							autopurge = false;
+							break;
+						}
+				}
+
+				if (autopurge) {
+					autopurge_ports.push_back(it2.first);
+				} else {
+					apply_prefix(cell->name, it2.second, module);
+					port_signal_map.apply(it2.second);
+				}
 			}
+
+			for (auto &it2 : autopurge_ports)
+				c->unsetPort(it2);
 
 			if (c->type.in(ID($memrd), ID($memwr), ID($meminit))) {
 				IdString memid = c->getParam(ID(MEMID)).decode_string();
@@ -1063,6 +1102,11 @@ struct TechmapPass : public Pass {
 		log("When a module in the map file has the 'techmap_wrap' attribute set, techmap\n");
 		log("will create a wrapper for the cell and then run the command string that the\n");
 		log("attribute is set to on the wrapper module.\n");
+		log("\n");
+		log("When a port on a module in the map file has the 'techmap_autopurge' attribute\n");
+		log("set, and that port is not connected in the instantiation that is mapped, then\n");
+		log("then a cell port connected only to such wires will be omitted in the mapped\n");
+		log("version of the circuit.\n");
 		log("\n");
 		log("All wires in the modules from the map file matching the pattern _TECHMAP_*\n");
 		log("or *._TECHMAP_* are special wires that are used to pass instructions from\n");
