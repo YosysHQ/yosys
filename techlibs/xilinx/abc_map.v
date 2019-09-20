@@ -303,8 +303,8 @@ __CELL__ #(
 
     generate
     if (USE_MULT == "MULTIPLY" && USE_DPORT == "FALSE") begin
-		// Disconnect the A-input if MREG is enabled, since
-		//   combinatorial path is broken
+        // Disconnect the A-input if MREG is enabled, since
+        //   combinatorial path is broken
         if (AREG == 0 && MREG == 0 && PREG == 0)
             assign iA = A, pA = 1'bx;
         else
@@ -320,21 +320,20 @@ __CELL__ #(
         if (DREG == 0)
             assign iD = D;
         else if (techmap_guard)
-			$error("Invalid DSP48E1 configuration: DREG enabled but USE_DPORT == \"FALSE\"");
+        $error("Invalid DSP48E1 configuration: DREG enabled but USE_DPORT == \"FALSE\"");
         assign pD = 1'bx;
         if (ADREG == 1 && techmap_guard)
             $error("Invalid DSP48E1 configuration: ADREG enabled but USE_DPORT == \"FALSE\"");
         assign pAD = 1'bx;
-		if (PREG == 0) begin
-            assign pP = 1'bx;
-			if (MREG == 1)
-				\$__ABC_REG rM (.Q(pM));
-            else
-                assign pM = 1'bx;
-		end
-        else begin
-            \$__ABC_REG rP (.Q(pP));
+    if (PREG == 0) begin
+        if (MREG == 1)
+        \$__ABC_REG rM (.Q(pM));
+        else
+        assign pM = 1'bx;
+        assign pP = 1'bx;
+    end else begin
             assign pM = 1'bx;
+            \$__ABC_REG rP (.Q(pP));
         end
 
         if (MREG == 0 && PREG == 0)
@@ -351,8 +350,8 @@ __CELL__ #(
         `DSP48E1_INST(\$__ABC_DSP48E1_MULT )
     end
     else if (USE_MULT == "MULTIPLY" && USE_DPORT == "TRUE") begin
-		// Disconnect the A-input if MREG is enabled, since
-		//   combinatorial path is broken
+        // Disconnect the A-input if MREG is enabled, since
+        //   combinatorial path is broken
         if (AREG == 0 && ADREG == 0 && MREG == 0 && PREG == 0)
             assign iA = A, pA = 1'bx;
         else
@@ -369,19 +368,22 @@ __CELL__ #(
             assign iD = D, pD = 1'bx;
         else
             \$__ABC_REG #(.WIDTH(25)) rD (.I(D), .O(iD), .Q(pD));
-		if (PREG == 0) begin
-			if (MREG == 1)
-				\$__ABC_REG rM (.Q(pM));
-            else begin
-                assign pM = 1'bx;
+        if (PREG == 0) begin
+            if (MREG == 1) begin
+                assign pAD = 1'bx;
+        \$__ABC_REG rM (.Q(pM));
+            end else begin
                 if (ADREG == 1)
                     \$__ABC_REG rAD (.Q(pAD));
                 else
                     assign pAD = 1'bx;
-            end
-		end
-		else
+        assign pM = 1'bx;
+        end
+        assign pP = 1'bx;
+    end else begin
+            assign pAD = 1'bx, pM = 1'bx;
             \$__ABC_REG rP (.Q(pP));
+        end
 
         if (MREG == 0 && PREG == 0)
             assign mP = oP, mPCOUT = oPCOUT;
@@ -397,8 +399,8 @@ __CELL__ #(
         `DSP48E1_INST(\$__ABC_DSP48E1_MULT_DPORT )
     end
     else if (USE_MULT == "NONE" && USE_DPORT == "FALSE") begin
-		// Disconnect the A-input if MREG is enabled, since
-		//   combinatorial path is broken
+        // Disconnect the A-input if MREG is enabled, since
+        //   combinatorial path is broken
         if (AREG == 0 && PREG == 0)
             assign iA = A, pA = 1'bx;
         else
@@ -411,16 +413,16 @@ __CELL__ #(
             assign iC = C, pC = 1'bx;
         else
             \$__ABC_REG #(.WIDTH(48)) rC (.I(C), .O(iC), .Q(pC));
+        if (DREG == 1 && techmap_guard)
+            $error("Invalid DSP48E1 configuration: DREG enabled but USE_DPORT == \"FALSE\"");
+        assign pD = 1'bx;
+        if (ADREG == 1 && techmap_guard)
+            $error("Invalid DSP48E1 configuration: ADREG enabled but USE_DPORT == \"FALSE\"");
+        assign pAD = 1'bx;
         if (MREG == 1 && techmap_guard)
             $error("Invalid DSP48E1 configuration: MREG enabled but USE_MULT == \"NONE\"");
         assign pM = 1'bx;
-        if (DREG == 1 && techmap_guard)
-			$error("Invalid DSP48E1 configuration: DREG enabled but USE_DPORT == \"FALSE\"");
-        assign pD = 1'bx;
-        if (ADREG == 1 && techmap_guard)
-			$error("Invalid DSP48E1 configuration: ADREG enabled but USE_DPORT == \"FALSE\"");
-        assign pAD = 1'bx;
-		if (PREG == 1)
+        if (PREG == 1)
             \$__ABC_REG rP (.Q(pP));
         else
             assign pP = 1'bx;
@@ -440,6 +442,6 @@ __CELL__ #(
     end
     else
         $error("Invalid DSP48E1 configuration");
-	endgenerate
-	`undef DSP48E1_INST
+    endgenerate
+    `undef DSP48E1_INST
 endmodule
