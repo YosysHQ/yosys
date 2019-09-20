@@ -48,7 +48,7 @@ static Cell* addDsp(Module *module) {
 	cell->setParam(ID(USE_SIMD), Const("ONE48"));
 	cell->setParam(ID(USE_DPORT), Const("FALSE"));
 
-	cell->setPort(ID(D), Const(0, 24));
+	cell->setPort(ID(D), Const(0, 25));
 	cell->setPort(ID(INMODE), Const(0, 5));
 	cell->setPort(ID(ALUMODE), Const(0, 4));
 	cell->setPort(ID(OPMODE), Const(0, 7));
