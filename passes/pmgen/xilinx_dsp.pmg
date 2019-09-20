@@ -268,6 +268,8 @@ match postAdd
 	select nusers(port(postAdd, AB)) <= 3
 	filter ffMcemux || nusers(port(postAdd, AB)) == 2
 	filter !ffMcemux || nusers(port(postAdd, AB)) == 3
+
+	index <SigBit> port(postAdd, AB)[0] === sigP[0]
 	filter GetSize(unextend(port(postAdd, AB))) <= GetSize(sigP)
 	filter unextend(port(postAdd, AB)) == sigP.extract(0, GetSize(unextend(port(postAdd, AB))))
 	filter nusers(sigP.extract_end(GetSize(unextend(port(postAdd, AB))))) <= 1
