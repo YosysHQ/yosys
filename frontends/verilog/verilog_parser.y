@@ -1350,7 +1350,7 @@ wire_name:
 		if ($2 != NULL) {
 			if (node->is_input || node->is_output)
 				frontend_verilog_yyerror("input/output/inout ports cannot have unpacked dimensions.");
-			if (!astbuf2) {
+			if (!astbuf2 && !node->is_custom_type) {
 				AstNode *rng = new AstNode(AST_RANGE);
 				rng->children.push_back(AstNode::mkconst_int(0, true));
 				rng->children.push_back(AstNode::mkconst_int(0, true));
