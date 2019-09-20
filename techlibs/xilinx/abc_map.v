@@ -299,60 +299,49 @@ __CELL__ #(
         wire [47:0] iC;
         wire [24:0] iD;
 
-        wire pAP, pBP, pCP, pDP, pADP, pMP, pPP;
-        wire pAPCOUT, pBPCOUT, pCPCOUT, pDPCOUT, pADPCOUT, pMPCOUT, pPPCOUT;
+        wire pA, pB, pC, pD, pAD, pM, pP;
         wire [47:0] oP, oPCOUT;
 
-        // Disconnect the A-input if MREG is enabled, since
-        //   combinatorial path is broken
+		// Disconnect the A-input if MREG is enabled, since
+		//   combinatorial path is broken
         if (AREG == 0 && MREG == 0 && PREG == 0)
-            assign iA = A, pAP = 1'bx, pAPCOUT = 1'bx;
+            assign iA = A, pA = 1'bx;
         else
-            \$__ABC_DSP48E1_MULT_AREG rA (.I(A), .O(iA), .P(pAP), .PCOUT(pAPCOUT));
+            \$__ABC_DSP48E1_REG rA (.I(A), .O(iA), .Q(pA));
         if (BREG == 0 && MREG == 0 && PREG == 0)
-            assign iB = B, pBP = 1'bx, pBPCOUT = 1'bx;
+            assign iB = B, pB = 1'bx;
         else
-            \$__ABC_DSP48E1_MULT_BREG rB (.I(B), .O(iB), .P(pBP), .PCOUT(pBPCOUT));
+            \$__ABC_DSP48E1_REG rB (.I(B), .O(iB), .Q(pB));
         if (CREG == 0 && PREG == 0)
-            assign iC = C, pCP = 1'bx, pCPCOUT = 1'bx;
+            assign iC = C, pC = 1'bx;
         else
-            \$__ABC_DSP48E1_MULT_CREG rC (.I(C), .O(iC), .P(pCP), .PCOUT(pCPCOUT));
+            \$__ABC_DSP48E1_REG rC (.I(C), .O(iC), .Q(pC));
         if (DREG == 0)
             assign iD = D;
         else if (techmap_guard)
-            $error("Invalid DSP48E1 configuration: DREG enabled but USE_DPORT == \"FALSE\"");
-        assign pDP = 1'bx, pDPCOUT = 1'bx;
+			$error("Invalid DSP48E1 configuration: DREG enabled but USE_DPORT == \"FALSE\"");
+        assign pD = 1'bx;
         if (ADREG == 1 && techmap_guard)
             $error("Invalid DSP48E1 configuration: ADREG enabled but USE_DPORT == \"FALSE\"");
-        assign pADP = 1'bx, pADPCOUT = 1'bx;
+        assign pAD = 1'bx;
 		if (PREG == 0) begin
+            assign pP = 1'bx;
 			if (MREG == 1)
-				\$__ABC_DSP48E1_MULT_MREG rM (.P(pMP), .PCOUT(pMPCOUT));
+				\$__ABC_DSP48E1_REG rM (.Q(pM));
             else
-                assign pMP = 1'bx, pMPCOUT = 1'bx;
-            assign pPP = 1'bx, pPPCOUT = 1'bx;
+                assign pM = 1'bx;
 		end
         else begin
-            assign pMP = 1'bx, pMPCOUT = 1'bx;
-            \$__ABC_DSP48E1_MULT_PREG rP (.P(pPP), .PCOUT(pPPCOUT));
+            \$__ABC_DSP48E1_REG rP (.Q(pP));
+            assign pM = 1'bx;
         end
 
-        if (MREG == 0 && PREG == 0) begin
-            \$__ABC_DSP48E1_MUX muxP (
-                .Aq(pAP), .Bq(pBP), .Cq(pCP), .Dq(pDP), .ADq(pADP), .Mq(pMP), .P(oP), .Pq(pPP), .O(P)
-            );
-            \$__ABC_DSP48E1_MUX muxPCOUT (
-                .Aq(pAPCOUT), .Bq(pBPCOUT), .Cq(pCPCOUT), .Dq(pDPCOUT), .ADq(pADPCOUT), .Mq(pMPCOUT), .P(oPCOUT), .Pq(pPPCOUT), .O(PCOUT)
-            );
-        end
-        else begin
-            \$__ABC_DSP48E1_MUX muxP (
-                .Aq(pAP), .Bq(pBP), .Cq(pCP), .Dq(pDP), .ADq(pADP), .Mq(pMP), .P(1'bx), .Pq(pPP), .O(P)
-            );
-            \$__ABC_DSP48E1_MUX muxPCOUT (
-                .Aq(pAPCOUT), .Bq(pBPCOUT), .Cq(pCPCOUT), .Dq(pDPCOUT), .ADq(pADPCOUT), .Mq(pMPCOUT), .P(1'bx), .Pq(pPPCOUT), .O(PCOUT)
-            );
-        end
+        \$__ABC_DSP48E1_MULT_P_MUX muxP (
+            .Aq(pA), .Bq(pB), .Cq(pC), .Dq(pD), .ADq(pAD), .Mq(pM), .P(oP), .Pq(pP), .O(P)
+        );
+        \$__ABC_DSP48E1_MULT_PCOUT_MUX muxPCOUT (
+            .Aq(pA), .Bq(pB), .Cq(pC), .Dq(pD), .ADq(pAD), .Mq(pM), .P(oPCOUT), .Pq(pP), .O(PCOUT)
+        );
 
         `DSP48E1_INST(\$__ABC_DSP48E1_MULT )
     end
@@ -362,53 +351,46 @@ __CELL__ #(
         wire [47:0] iC;
         wire [24:0] iD;
 
-        wire pAP, pBP, pCP, pDP, pADP, pMP, pPP;
-        wire pAPCOUT, pBPCOUT, pCPCOUT, pDPCOUT, pADPCOUT, pMPCOUT, pPPCOUT;
+        wire pA, pB, pC, pD, pAD, pM, pP;
         wire [47:0] oP, oPCOUT;
 
 		// Disconnect the A-input if MREG is enabled, since
 		//   combinatorial path is broken
         if (AREG == 0 && ADREG == 0 && MREG == 0 && PREG == 0)
-            assign iA = A, pAP = 1'bx, pAPCOUT = 1'bx;
+            assign iA = A, pA = 1'bx;
         else
-            \$__ABC_DSP48E1_MULT_DPORT_AREG rA (.I(A), .O(iA), .P(pAP), .PCOUT(pAPCOUT));
+            \$__ABC_DSP48E1_REG rA (.I(A), .O(iA), .Q(pA));
         if (BREG == 0 && MREG == 0 && PREG == 0)
-            assign iB = B, pBP = 1'bx, pBPCOUT = 1'bx;
+            assign iB = B, pB = 1'bx;
         else
-            \$__ABC_DSP48E1_MULT_DPORT_BREG rB (.I(B), .O(iB), .P(pBP), .PCOUT(pBPCOUT));
+            \$__ABC_DSP48E1_REG rB (.I(B), .O(iB), .Q(pB));
         if (CREG == 0 && PREG == 0)
-            assign iC = C, pCP = 1'bx, pCPCOUT = 1'bx;
+            assign iC = C, pC = 1'bx;
         else
-            \$__ABC_DSP48E1_MULT_DPORT_CREG rC (.I(C), .O(iC), .P(pCP), .PCOUT(pCPCOUT));
+            \$__ABC_DSP48E1_REG rC (.I(C), .O(iC), .Q(pC));
         if (DREG == 0 && ADREG == 0)
-            assign iD = D, pDP = 1'bx, pDPCOUT = 1'bx;
+            assign iD = D, pD = 1'bx;
         else
-            \$__ABC_DSP48E1_MULT_DPORT_DREG rD (.I(D), .O(iD), .P(pDP), .PCOUT(pDPCOUT));
+            \$__ABC_DSP48E1_REG rD (.I(D), .O(iD), .Q(pD));
 		if (PREG == 0) begin
-            if (MREG == 1) begin
-                assign pADP = 1'bx, pADPCOUT = 1'bx;
-				\$__ABC_DSP48E1_MULT_DPORT_MREG rM (.P(pMP), .PCOUT(pMPCOUT));
-            end
+			if (MREG == 1)
+				\$__ABC_DSP48E1_REG rM (.Q(pM));
             else begin
+                assign pM = 1'bx;
                 if (ADREG == 1)
-                    \$__ABC_DSP48E1_MULT_DPORT_ADPREG rAD (.P(pADP), .PCOUT(pADPCOUT));
+                    \$__ABC_DSP48E1_REG rAD (.Q(pAD));
                 else
-                    assign pADP = 1'bx, pADPCOUT = 1'bx;
-                assign pMP = 1'bx, pMPCOUT = 1'bx;
+                    assign pAD = 1'bx;
             end
-            assign pPP = 1'bx, pPPCOUT = 1'bx;
 		end
-        else begin
-            assign pADP = 1'bx, pADPCOUT = 1'bx;
-            assign pMP = 1'bx, pMPCOUT = 1'bx;
-            \$__ABC_DSP48E1_MULT_DPORT_PREG rP (.P(pPP), .PCOUT(pPPCOUT));
-        end
+		else
+            \$__ABC_DSP48E1_REG rP (.Q(pP));
 
-        \$__ABC_DSP48E1_MUX muxP (
-            .Aq(pAP), .Bq(pBP), .Cq(pCP), .Dq(pDP), .ADq(pADP), .Mq(pMP), .P(oP), .Pq(pPP), .O(P)
+        \$__ABC_DSP48E1_MULT_DPORT_P_MUX muxP (
+            .Aq(pA), .Bq(pB), .Cq(pC), .Dq(pD), .ADq(pAD), .Mq(pM), .P(oP), .Pq(pP), .O(P)
         );
-        \$__ABC_DSP48E1_MUX muxPCOUT (
-            .Aq(pAPCOUT), .Bq(pBPCOUT), .Cq(pCPCOUT), .Dq(pDPCOUT), .ADq(pADPCOUT), .Mq(pMPCOUT), .P(oPCOUT), .Pq(pPPCOUT), .O(PCOUT)
+        \$__ABC_DSP48E1_MULT_DPORT_PCOUT_MUX muxPCOUT (
+            .Aq(pA), .Bq(pB), .Cq(pC), .Dq(pD), .ADq(pAD), .Mq(pM), .P(oPCOUT), .Pq(pP), .O(PCOUT)
         );
 
         `DSP48E1_INST(\$__ABC_DSP48E1_MULT_DPORT )
@@ -419,43 +401,42 @@ __CELL__ #(
         wire [47:0] iC;
         wire [24:0] iD;
 
-        wire pAP, pBP, pCP, pDP, pADP, pMP, pPP;
-        wire pAPCOUT, pBPCOUT, pCPCOUT, pDPCOUT, pADPCOUT, pMPCOUT, pPPCOUT;
+        wire pA, pB, pC, pD, pAD, pM, pP;
         wire [47:0] oP, oPCOUT;
 
 		// Disconnect the A-input if MREG is enabled, since
 		//   combinatorial path is broken
         if (AREG == 0 && PREG == 0)
-            assign iA = A, pAP = 1'bx, pAPCOUT = 1'bx;
+            assign iA = A, pA = 1'bx;
         else
-            \$__ABC_DSP48E1_AREG rA (.I(A), .O(iA), .P(pAP), .PCOUT(pAPCOUT));
+            \$__ABC_DSP48E1_REG rA (.I(A), .O(iA), .Q(pA));
         if (BREG == 0 && PREG == 0)
-            assign iB = B, pBP = 1'bx, pBPCOUT = 1'bx;
+            assign iB = B, pB = 1'bx;
         else
-            \$__ABC_DSP48E1_BREG rB (.I(B), .O(iB), .P(pB), .PCOUT(pBPCOUT));
+            \$__ABC_DSP48E1_REG rB (.I(B), .O(iB), .Q(pB));
         if (CREG == 0 && PREG == 0)
-            assign iC = C, pCP = 1'bx, pCPCOUT = 1'bx;
+            assign iC = C, pC = 1'bx;
         else
-            \$__ABC_DSP48E1_CREG rC (.I(C), .O(iC), .P(pC), .PCOUT(pCPCOUT));
-        if (DREG == 1 && techmap_guard)
-			$error("Invalid DSP48E1 configuration: DREG enabled but USE_DPORT == \"FALSE\"");
-        assign iD = 25'bx, pDP = 1'bx, pDPCOUT = 1'bx;
-        if (ADREG == 1 && techmap_guard)
-			$error("Invalid DSP48E1 configuration: ADREG enabled but USE_DPORT == \"FALSE\"");
-        assign pADP = 1'bx, pADPCOUT = 1'bx;
+            \$__ABC_DSP48E1_REG rC (.I(C), .O(iC), .Q(pC));
         if (MREG == 1 && techmap_guard)
             $error("Invalid DSP48E1 configuration: MREG enabled but USE_MULT == \"NONE\"");
-        assign pMP = 1'bx, pMPCOUT = 1'bx;
+        assign pM = 1'bx;
+        if (DREG == 1 && techmap_guard)
+			$error("Invalid DSP48E1 configuration: DREG enabled but USE_DPORT == \"FALSE\"");
+        assign pD = 1'bx;
+        if (ADREG == 1 && techmap_guard)
+			$error("Invalid DSP48E1 configuration: ADREG enabled but USE_DPORT == \"FALSE\"");
+        assign pAD = 1'bx;
 		if (PREG == 1)
-            \$__ABC_DSP48E1_PREG rP (.P(pPP), .P(pPCOUT));
+            \$__ABC_DSP48E1_REG rP (.Q(pP));
         else
-            assign pPP = 1'bx, pPPCOUT = 1'bx;
+            assign pP = 1'bx;
 
-        \$__ABC_DSP48E1_MUX muxP (
-            .Aq(pAP), .Bq(pBP), .Cq(pCP), .Dq(pDP), .ADq(pADP), .Mq(pMP), .P(oP), .Pq(pPP), .O(P)
+        \$__ABC_DSP48E1_P_MUX muxP (
+            .Aq(pA), .Bq(pB), .Cq(pC), .Dq(pD), .ADq(pAD), .Mq(pM), .P(oP), .Pq(pP), .O(P)
         );
-        \$__ABC_DSP48E1_MUX muxPCOUT (
-            .Aq(pAPCOUT), .Bq(pBPCOUT), .Cq(pCPCOUT), .Dq(pDPCOUT), .ADq(pADPCOUT), .Mq(pMPCOUT), .P(oPCOUT), .Pq(pPPCOUT), .O(PCOUT)
+        \$__ABC_DSP48E1_PCOUT_MUX muxPCOUT (
+            .Aq(pA), .Bq(pB), .Cq(pC), .Dq(pD), .ADq(pAD), .Mq(pM), .P(oPCOUT), .Pq(pP), .O(PCOUT)
         );
 
         `DSP48E1_INST(\$__ABC_DSP48E1 )

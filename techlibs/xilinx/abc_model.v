@@ -44,6 +44,48 @@ endmodule
 module \$__ABC_LUT7 (input A, input [6:0] S, output Y);
 endmodule
 
+// Boxes used to represent the comb/seq behaviour of DSP48E1
+//   With abc_map.v responsible for disconnecting inputs to
+//   the combinatorial DSP48E1 model by a register (e.g.
+//   disconnecting A when AREG, MREG or PREG is enabled)
+//   this blackbox captures the existence of a replacement
+//   path between AREG/BREG/CREG/etc. and P/PCOUT.
+//   Since the Aq/ADq/Bq/etc. inputs are assumed to arrive at
+//   the box at zero time, the combinatorial delay through
+//   these boxes thus represents the clock-to-q delay
+//   (arrival time) at P/PCOUT.
+//   Doing so should means that ABC is able to analyse the
+//   worst-case delay through to P, regardless of if it was
+//   through any combinatorial paths (e.g. B, below) or an
+//   internal register (A2REG).
+//   However, the true value of being as complete as this is
+//   questionable since if AREG=1 and BREG=0 (as below)
+//   then the worse-case path would very likely be through B
+//   and very unlikely to be through AREG.Q...?
+//
+//   In graphical form:
+//
+//               NEW "PI" >>---+
+//             for AREG.Q      |
+//                             |
+//              +---------+    |   __
+//    A >>--X X-|         |    +--|  \
+//              | DSP48E1 |P      |   |--->> P
+//              | AREG=1  |-------|__/
+//    B >>------|         |
+//              +---------+
+//
+`define ABC_DSP48E1_MUX(__NAME__) """
+module __NAME__ (input Aq, ADq, Bq, Cq, Dq, Mq, input [47:0] P, input Pq, output [47:0] O);
+endmodule
+"""
+(* abc_box_id=2100 *) `ABC_DSP48E1_MUX(\$__ABC_DSP48E1_MULT_P_MUX )
+(* abc_box_id=2101 *) `ABC_DSP48E1_MUX(\$__ABC_DSP48E1_MULT_PCOUT_MUX )
+(* abc_box_id=2102 *) `ABC_DSP48E1_MUX(\$__ABC_DSP48E1_MULT_DPORT_P_MUX )
+(* abc_box_id=2103 *) `ABC_DSP48E1_MUX(\$__ABC_DSP48E1_MULT_DPORT_PCOUT_MUX )
+(* abc_box_id=2104 *) `ABC_DSP48E1_MUX(\$__ABC_DSP48E1_P_MUX )
+(* abc_box_id=2105 *) `ABC_DSP48E1_MUX(\$__ABC_DSP48E1_PCOUT_MUX )
+
 `define ABC_DSP48E1(__NAME__) """
 module \$__ABC_DSP48E1_MULT (
     output [29:0] ACOUT,
@@ -131,66 +173,3 @@ endmodule
 (* abc_box_id=3000 *) `ABC_DSP48E1(\$__ABC_DSP48E1_MULT )
 (* abc_box_id=3001 *) `ABC_DSP48E1(\$__ABC_DSP48E1_MULT_DPORT )
 (* abc_box_id=3002 *) `ABC_DSP48E1(\$__ABC_DSP48E1 )
-
-
-// Modules used to model the comb/seq behaviour of DSP48E1
-//   With abc_map.v responsible for splicing the below modules
-//   into between the combinatorial DSP48E1 box (e.g. disconnecting 
-//   A when AREG, MREG or PREG is enabled and splicing in the
-//   "$__ABC_DSP48E1_MULT_AREG" blackbox as "REG" in the diagram
-//   below) this acts to first disables the combinatorial path
-//   (as there is no connectivity through REG), and secondly, 
-//   since this is blackbox a new PI will be introduced, one which
-//   will have the relevant arrival time (corresponding to delay from
-//   AREG to P) attached.
-//   Note: Since these "$__ABC_DSP48E1*_*REG" modules are of a
-//   sequential nature, they are not passed as a box to ABC./
-//
-//   On the other hand, the "$__ABC_DSP48E1_MUX" is a combinatorial
-//   blackbox that is passed to ABC, with zero delay.
-//
-//   Doing so should means that ABC is able to analyse the
-//   worst-case delay through to P, regardless of if it was
-//   through any combinatorial paths (e.g. B, below) or an
-//   internal register (A2REG).
-//   However, the true value of being as complete as this is
-//   questionable since if AREG=1 and BREG=0 (as below)
-//   then the worse-case path would very likely be through B
-//   and very unlikely to be through AREG.Q...?
-//
-//   In graphical form:
-//
-//                 +-----+
-//         +-------| REG |-----+
-//         |       +-----+     |
-//         |                   |
-//         |    +---------+    |   __
-//    A >>-+X X-|         |    +--|  \
-//              | DSP48E1 |P      | M |--->> P
-//              | AREG=1  |-------|__/
-//    B >>------|         |
-//              +---------+
-//
-
-(* abc_box_id=2100 *)
-module \$__ABC_DSP48E1_MUX (input Aq, ADq, Bq, Cq, Dq, Mq, input [47:0] P, input Pq, output [47:0] O);
-endmodule
-
-module $__ABC_DSP48E1_MULT_AREG (input [29:0] I, output [29:0] O, (* abc_arrival=2952 *) output P, (* abc_arrival=3098 *) output PCOUT); endmodule
-module $__ABC_DSP48E1_MULT_BREG (input [17:0] I, output [17:0] O, (* abc_arrival=2813 *) output P, (* abc_arrival=2960 *) output PCOUT); endmodule
-module $__ABC_DSP48E1_MULT_CREG (input [47:0] I, output [47:0] O, (* abc_arrival=1687 *) output P, (* abc_arrival=1835 *) output PCOUT); endmodule
-module $__ABC_DSP48E1_MULT_MREG (input [47:0] I, output [47:0] O, (* abc_arrival=1671 *) output P, (* abc_arrival=1819 *) output PCOUT); endmodule
-module $__ABC_DSP48E1_MULT_PREG (input [47:0] I, output [47:0] O, (* abc_arrival= 329 *) output P, (* abc_arrival= 435 *) output PCOUT); endmodule
-
-module $__ABC_DSP48E1_MULT_DPORT_AREG  (input [29:0] I, output [29:0] O, (* abc_arrival=3935 *) output P, (* abc_arrival=4083 *) output PCOUT); endmodule
-module $__ABC_DSP48E1_MULT_DPORT_BREG  (input [17:0] I, output [17:0] O, (* abc_arrival=2813 *) output P, (* abc_arrival=2960 *) output PCOUT); endmodule
-module $__ABC_DSP48E1_MULT_DPORT_CREG  (input [47:0] I, output [47:0] O, (* abc_arrival=1687 *) output P, (* abc_arrival=1835 *) output PCOUT); endmodule
-module $__ABC_DSP48E1_MULT_DPORT_DREG  (input [47:0] I, output [47:0] O, (* abc_arrival=3908 *) output P, (* abc_arrival=4056 *) output PCOUT); endmodule
-module $__ABC_DSP48E1_MULT_DPORT_ADREG (input [47:0] I, output [47:0] O, (* abc_arrival=2958 *) output P, (* abc_arrival=2859 *) output PCOUT); endmodule
-module $__ABC_DSP48E1_MULT_DPORT_MREG  (input [47:0] I, output [47:0] O, (* abc_arrival=1671 *) output P, (* abc_arrival=1819 *) output PCOUT); endmodule
-module $__ABC_DSP48E1_MULT_DPORT_PREG  (input [47:0] I, output [47:0] O, (* abc_arrival= 329 *) output P, (* abc_arrival= 435 *) output PCOUT); endmodule
-
-module $__ABC_DSP48E1_AREG (input [29:0] I, output [29:0] O, (* abc_arrival=1632 *) output P, (* abc_arrival=1780 *) output PCOUT); endmodule
-module $__ABC_DSP48E1_BREG (input [17:0] I, output [17:0] O, (* abc_arrival=1616 *) output P, (* abc_arrival=1765 *) output PCOUT); endmodule
-module $__ABC_DSP48E1_CREG (input [47:0] I, output [47:0] O, (* abc_arrival=1687 *) output P, (* abc_arrival=1835 *) output PCOUT); endmodule
-module $__ABC_DSP48E1_PREG (input [47:0] I, output [47:0] O, (* abc_arrival= 329 *) output P, (* abc_arrival= 435 *) output PCOUT); endmodule
