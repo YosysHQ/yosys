@@ -24,6 +24,8 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+bool did_something;
+
 #include "passes/pmgen/xilinx_dsp_pm.h"
 #include "passes/pmgen/xilinx_dsp_cascade_pm.h"
 
@@ -509,7 +511,7 @@ struct XilinxDspPass : public Pass {
 		log("be added to the multiplier result to form the next accumulation result.\n");
 		log("\n");
 		log("Use of the dedicated 'PCOUT' -> 'PCIN' cascade path is detected for 'P' -> 'C'\n");
-		log("connections (optionally, where 'P' is right-shifted by 18-bits and used as an\n");
+		log("connections (optionally, where 'P' is right-shifted by 17-bits and used as an\n");
 		log("input to the post-adder -- a pattern common for summing partial products to\n");
 		log("implement wide multipliers).\n");
 		log("\n");
@@ -545,8 +547,12 @@ struct XilinxDspPass : public Pass {
 			xilinx_dsp_pm pm(module, module->selected_cells());
 			pm.run_xilinx_dsp_pack(pack_xilinx_dsp);
 
-			xilinx_dsp_cascade_pm pmc(module, module->selected_cells());
-			pmc.run_xilinx_dsp_cascade();
+			do {
+				did_something = false;
+				xilinx_dsp_cascade_pm pmc(module, module->selected_cells());
+				pmc.run_xilinx_dsp_cascadeP();
+				pmc.run_xilinx_dsp_cascadeAB();
+			} while (did_something);
 		}
 	}
 } XilinxDspPass;
