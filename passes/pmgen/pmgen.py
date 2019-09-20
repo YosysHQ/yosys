@@ -286,7 +286,7 @@ def process_pmgfile(f, filename):
                         block["gencode"].append(rewrite_cpp(l.rstrip()))
                     break
 
-                assert False
+                raise RuntimeError("'%s' statement not recognised on line %d" % (a[0], linenr))
 
             if block["optional"]:
                 assert not block["semioptional"]
@@ -328,7 +328,7 @@ def process_pmgfile(f, filename):
             blocks.append(block)
             continue
 
-        assert False
+        raise RuntimeError("'%s' command not recognised" % cmd)
 
 for fn in pmgfiles:
     with open(fn, "r") as f:
