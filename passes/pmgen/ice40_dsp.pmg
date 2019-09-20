@@ -1,5 +1,6 @@
 pattern ice40_dsp
 
+udata <std::function<SigSpec(const SigSpec&)>> unextend
 state <SigBit> clock
 state <bool> clock_pol cd_signed o_lo
 state <SigSpec> sigA sigB sigCD sigH sigO
@@ -27,6 +28,19 @@ match mul
 endmatch
 
 code sigA sigB sigH
+	unextend = [](const SigSpec &sig) {
+		int i;
+		for (i = GetSize(sig)-1; i > 0; i--)
+			if (sig[i] != sig[i-1])
+				break;
+		// Do not remove non-const sign bit
+		if (sig[i].wire)
+			++i;
+		return sig.extract(0, i);
+	};
+	sigA = unextend(port(mul, \A));
+	sigB = unextend(port(mul, \B));
+
 	SigSpec O;
 	if (mul->type == $mul)
 		O = mul->getPort(\Y);
@@ -36,25 +50,8 @@ code sigA sigB sigH
 	if (GetSize(O) <= 10)
 		reject;
 
-	sigA = port(mul, \A);
-	int i;
-	for (i = GetSize(sigA)-1; i > 0; i--)
-		if (sigA[i] != sigA[i-1])
-			break;
-	// Do not remove non-const sign bit
-	if (sigA[i].wire)
-		++i;
-	sigA.remove(i, GetSize(sigA)-i);
-	sigB = port(mul, \B);
-	for (i = GetSize(sigB)-1; i > 0; i--)
-		if (sigB[i] != sigB[i-1])
-			break;
-	// Do not remove non-const sign bit
-	if (sigB[i].wire)
-		++i;
-	sigB.remove(i, GetSize(sigB)-i);
-
 	// Only care about those bits that are used
+	int i;
 	for (i = 0; i < GetSize(O); i++) {
 		if (nusers(O[i]) <= 1)
 			break;
@@ -105,7 +102,7 @@ code argQ ffB ffBholdmux ffBrstmux ffBholdpol ffBrstpol sigB clock clock_pol
 	}
 endcode
 
-code argD ffFJKG sigH sigO clock clock_pol
+code argD ffFJKG sigH clock clock_pol
 	if (nusers(sigH) == 2 &&
 			(mul->type != \SB_MAC16 ||
 			 (!param(mul, \TOP_8x8_MULT_REG).as_bool() && !param(mul, \BOT_8x8_MULT_REG).as_bool() && !param(mul, \PIPELINE_16x16_MULT_REG1).as_bool() && !param(mul, \PIPELINE_16x16_MULT_REG1).as_bool()))) {
@@ -183,9 +180,11 @@ endcode
 
 match add
 	if mul->type != \SB_MAC16 || (param(mul, \TOPOUTPUT_SELECT).as_int() == 3 && param(mul, \BOTOUTPUT_SELECT).as_int() == 3)
+
 	select add->type.in($add)
 	choice <IdString> AB {\A, \B}
 	select nusers(port(add, AB)) == 2
+
 	index <SigBit> port(add, AB)[0] === sigH[0]
 	filter GetSize(port(add, AB)) <= GetSize(sigH)
 	filter port(add, AB) == sigH.extract(0, GetSize(port(add, AB)))
