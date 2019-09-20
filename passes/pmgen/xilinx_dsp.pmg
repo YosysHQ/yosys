@@ -1,4 +1,4 @@
-pattern xilinx_dsp
+pattern xilinx_dsp_pack
 
 udata <std::function<SigSpec(const SigSpec&)>> unextend
 state <SigBit> clock

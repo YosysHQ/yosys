@@ -1,0 +1,94 @@
+pattern xilinx_dsp_cascade
+
+udata <std::function<SigSpec(const SigSpec&)>> unextend
+state <SigSpec> sigC
+
+code
+	unextend = [](const SigSpec &sig) {
+		int i;
+		for (i = GetSize(sig)-1; i > 0; i--)
+			if (sig[i] != sig[i-1])
+				break;
+		// Do not remove non-const sign bit
+		if (sig[i].wire)
+			++i;
+		return sig.extract(0, i);
+	};
+endcode
+
+match dsp_pcin
+	select dsp_pcin->type.in(\DSP48E1)
+	select !param(dsp_pcin, \CREG, State::S1).as_bool()
+	select port(dsp_pcin, \OPMODE, Const(0, 7)).extract(4,3) == Const::from_string("011")
+	select nusers(port(dsp_pcin, \C, SigSpec())) > 1
+	select nusers(port(dsp_pcin, \PCIN, SigSpec())) == 0
+endmatch
+
+code sigC
+	sigC = unextend(port(dsp_pcin, \C));
+endcode
+
+match dsp_pcout
+	select dsp_pcout->type.in(\DSP48E1)
+	select nusers(port(dsp_pcout, \P, SigSpec())) > 1
+	select nusers(port(dsp_pcout, \PCOUT, SigSpec())) <= 1
+
+	index <SigSpec> port(dsp_pcout, \P)[0] === sigC[0]
+	filter GetSize(port(dsp_pcin, \P)) >= GetSize(sigC)
+	filter port(dsp_pcout, \P).extract(0, GetSize(sigC)) == sigC
+
+	optional
+endmatch
+
+match dsp_pcout_shift17
+	if !dsp_pcout
+	select dsp_pcout_shift17->type.in(\DSP48E1)
+	select nusers(port(dsp_pcout_shift17, \P, SigSpec())) > 1
+	select nusers(port(dsp_pcout_shift17, \PCOUT, SigSpec())) <= 1
+
+	index <SigSpec> port(dsp_pcout_shift17, \P)[17] === sigC[0]
+	filter GetSize(port(dsp_pcout_shift17, \P)) >= GetSize(sigC)+17
+	filter port(dsp_pcout_shift17, \P).extract(17, GetSize(sigC)) == sigC
+endmatch
+
+code
+	Cell *dsp;
+	if (dsp_pcout)
+		dsp = dsp_pcout;
+	else if (dsp_pcout_shift17)
+		dsp = dsp_pcout_shift17;
+	else log_abort();
+
+	dsp_pcin->setPort(ID(C), Const(0, 48));
+
+	Wire *cascade = module->addWire(NEW_ID, 48);
+	dsp_pcin->setPort(ID(PCIN), cascade);
+	dsp->setPort(ID(PCOUT), cascade);
+	add_siguser(cascade, dsp_pcin);
+	add_siguser(cascade, dsp);
+
+	SigSpec opmode = param(dsp_pcin, \OPMODE, Const(0, 7));
+	if (dsp_pcout)
+		opmode[6] = State::S0;
+	else if (dsp_pcout_shift17)
+		opmode[6] = State::S1;
+	else log_abort();
+
+
+	opmode[5] = State::S0;
+	opmode[4] = State::S1;
+	dsp_pcin->setPort(ID(OPMODE), opmode);
+
+	log_debug("PCOUT -> PCIN cascade for %s -> %s\n", log_id(dsp), log_id(dsp_pcin));
+
+	if (nusers(port(dsp_pcin, \PCOUT, SigSpec())) > 1) {
+		log_debug("  Saturated PCIN/PCOUT on %s\n", log_id(dsp_pcin));
+		blacklist(dsp_pcin);
+	}
+	if (nusers(port(dsp, \PCIN, SigSpec())) > 1)  {
+		log_debug("  Saturated PCIN/PCOUT on %s\n", log_id(dsp));
+		blacklist(dsp_pcout);
+	}
+
+	accept;
+endcode

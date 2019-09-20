@@ -25,6 +25,7 @@ USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 #include "passes/pmgen/xilinx_dsp_pm.h"
+#include "passes/pmgen/xilinx_dsp_cascade_pm.h"
 
 static Cell* addDsp(Module *module) {
 	Cell *cell = module->addCell(NEW_ID, ID(DSP48E1));
@@ -253,9 +254,9 @@ void pack_xilinx_simd(Module *module, const std::vector<Cell*> &selected_cells)
 }
 
 
-void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
+void pack_xilinx_dsp(xilinx_dsp_pm &pm)
 {
-	auto &st = pm.st_xilinx_dsp;
+	auto &st = pm.st_xilinx_dsp_pack;
 
 #if 1
 	log("\n");
@@ -487,9 +488,6 @@ void pack_xilinx_dsp(dict<SigBit, Cell*> &bit_to_driver, xilinx_dsp_pm &pm)
 		P.append(pm.module->addWire(NEW_ID, 48-GetSize(P)));
 	cell->setPort(ID(P), P);
 
-	bit_to_driver.insert(std::make_pair(P[0], cell));
-	bit_to_driver.insert(std::make_pair(P[17], cell));
-
 	pm.blacklist(cell);
 }
 
@@ -508,7 +506,7 @@ struct XilinxDspPass : public Pass {
 		log("Multiply-accumulate operations using the post-adder with feedback on the 'C'\n");
 		log("input will be folded into the DSP. In this scenario only, the 'C' input can be\n");
 		log("used to override the current accumulation result with a new value, which will\n");
-        log("be added to the multiplier result to form the next accumulation result.\n");
+		log("be added to the multiplier result to form the next accumulation result.\n");
 		log("\n");
 		log("Use of the dedicated 'PCOUT' -> 'PCIN' cascade path is detected for 'P' -> 'C'\n");
 		log("connections (optionally, where 'P' is right-shifted by 18-bits and used as an\n");
@@ -545,52 +543,10 @@ struct XilinxDspPass : public Pass {
 			pack_xilinx_simd(module, module->selected_cells());
 
 			xilinx_dsp_pm pm(module, module->selected_cells());
-			dict<SigBit, Cell*> bit_to_driver;
-			auto f = [&bit_to_driver](xilinx_dsp_pm &pm){ pack_xilinx_dsp(bit_to_driver, pm); };
-			pm.run_xilinx_dsp(f);
+			pm.run_xilinx_dsp_pack(pack_xilinx_dsp);
 
-			auto &unextend = pm.ud_xilinx_dsp.unextend;
-			// Look for ability to convert C input from another DSP into PCIN
-			//   NB: Needs to be done after pattern matcher has folded all
-			//       $add cells into the DSP
-			for (auto cell : module->cells()) {
-				if (cell->type != ID(DSP48E1))
-					continue;
-				if (cell->parameters.at(ID(CREG), State::S1).as_bool())
-					continue;
-				SigSpec &opmode = cell->connections_.at(ID(OPMODE));
-				if (opmode.extract(4,3) != Const::from_string("011"))
-					continue;
-				SigSpec C = unextend(pm.sigmap(cell->getPort(ID(C))));
-				if (!C[0].wire)
-					continue;
-				auto it = bit_to_driver.find(C[0]);
-				if (it == bit_to_driver.end())
-					continue;
-				auto driver = it->second;
-
-				SigSpec P = driver->getPort(ID(P));
-				if (GetSize(P) >= GetSize(C) && P.extract(0, GetSize(C)) == C) {
-					cell->setPort(ID(C), Const(0, 48));
-					Wire *cascade = module->addWire(NEW_ID, 48);
-					driver->setPort(ID(PCOUT), cascade);
-					cell->setPort(ID(PCIN), cascade);
-					opmode[6] = State::S0;
-					opmode[5] = State::S0;
-					opmode[4] = State::S1;
-					bit_to_driver.erase(it);
-				}
-				else if (GetSize(P) >= GetSize(C)+17 && P.extract(17, GetSize(C)) == C) {
-					cell->setPort(ID(C), Const(0, 48));
-					Wire *cascade = module->addWire(NEW_ID, 48);
-					driver->setPort(ID(PCOUT), cascade);
-					cell->setPort(ID(PCIN), cascade);
-					opmode[6] = State::S1;
-					opmode[5] = State::S0;
-					opmode[4] = State::S1;
-					bit_to_driver.erase(it);
-				}
-			}
+			xilinx_dsp_cascade_pm pmc(module, module->selected_cells());
+			pmc.run_xilinx_dsp_cascade();
 		}
 	}
 } XilinxDspPass;
