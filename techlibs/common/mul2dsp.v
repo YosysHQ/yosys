@@ -239,9 +239,9 @@ module _80_mul (A, B, Y);
 			);
 			//assign partial_sum[n] = (last_partial << n*(`DSP_B_MAXWIDTH_PARTIAL-sign_headroom)) + partial_sum[n-1];
 			if (A_SIGNED && B_SIGNED)
-				assign partial_sum[n][Y_WIDTH-1:n*(`DSP_B_MAXWIDTH_PARTIAL-sign_headroom)] = last_partial + partial_sum[n-1][Y_WIDTH-1:n*(`DSP_B_MAXWIDTH_PARTIAL-sign_headroom)];
-			else
 				assign partial_sum[n][Y_WIDTH-1:n*(`DSP_B_MAXWIDTH_PARTIAL-sign_headroom)] = last_partial + $signed(partial_sum[n-1][Y_WIDTH-1:n*(`DSP_B_MAXWIDTH_PARTIAL-sign_headroom)]);
+			else
+				assign partial_sum[n][Y_WIDTH-1:n*(`DSP_B_MAXWIDTH_PARTIAL-sign_headroom)] = last_partial + partial_sum[n-1][Y_WIDTH-1:n*(`DSP_B_MAXWIDTH_PARTIAL-sign_headroom)];
 			assign partial_sum[n][n*(`DSP_B_MAXWIDTH_PARTIAL-sign_headroom)-1:0] = partial_sum[n-1][n*(`DSP_B_MAXWIDTH_PARTIAL-sign_headroom)-1:0];
 			assign Y = partial_sum[n];
 		end
