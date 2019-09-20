@@ -67,17 +67,16 @@ code
 	add_siguser(cascade, dsp_pcin);
 	add_siguser(cascade, dsp);
 
-	SigSpec opmode = param(dsp_pcin, \OPMODE, Const(0, 7));
+	SigSpec opmode = port(dsp_pcin, \OPMODE, Const(0, 7));
 	if (dsp_pcout)
 		opmode[6] = State::S0;
 	else if (dsp_pcout_shift17)
 		opmode[6] = State::S1;
 	else log_abort();
 
-
 	opmode[5] = State::S0;
 	opmode[4] = State::S1;
-	dsp_pcin->setPort(ID(OPMODE), opmode);
+	dsp_pcin->setPort(\OPMODE, opmode);
 
 	log_debug("PCOUT -> PCIN cascade for %s -> %s\n", log_id(dsp), log_id(dsp_pcin));
 
@@ -196,7 +195,7 @@ match dspQA2
 	select nusers(port(dspQA2, \ACOUT, SigSpec())) == 0
 	slice offset GetSize(port(dspQA2, \A))
 	index <SigBit> port(dspQA2, \A)[offset] === sigA[0]
-	index <SigBit> port(dspQA2, \CLK) === port(dspD, \CLK)
+	index <SigBit> port(dspQA2, \CLK, State::S0) === port(dspD, \CLK, State::S0)
 
 	// Check that the rest of sigA is present
 	filter GetSize(port(dspQA2, \A)) >= offset + GetSize(sigA)
@@ -257,7 +256,7 @@ match dspQA1
 	select nusers(port(dspQA1, \ACOUT, SigSpec())) == 0
 	slice offset GetSize(port(dspQA1, \A))
 	index <SigBit> port(dspQA1, \A)[offset] === sigA[0]
-	index <SigBit> port(dspQA1, \CLK) === port(dspD, \CLK)
+	index <SigBit> port(dspQA1, \CLK, State::S0) === port(dspD, \CLK, State::S0)
 
 	// Check that the rest of sigA is present
 	filter GetSize(port(dspQA1, \A)) >= offset + GetSize(sigA)
@@ -348,7 +347,7 @@ match dspQB2
 	select nusers(port(dspQB2, \BCOUT, SigSpec())) == 0
 	slice offset GetSize(port(dspQB2, \B))
 	index <SigBit> port(dspQB2, \B)[offset] === sigB[0]
-	index <SigBit> port(dspQB2, \CLK) === port(dspD, \CLK)
+	index <SigBit> port(dspQB2, \CLK, State::S0) === port(dspD, \CLK, State::S0)
 
 	// Check that the rest of sigB is present
 	filter GetSize(port(dspQB2, \B)) >= offset + GetSize(sigB)
@@ -402,7 +401,7 @@ match dspQB1
 	select nusers(port(dspQB1, \BCOUT, SigSpec())) == 0
 	slice offset GetSize(port(dspQB1, \B))
 	index <SigBit> port(dspQB1, \B)[offset] === sigB[0]
-	index <SigBit> port(dspQB1, \CLK) === port(dspD, \CLK)
+	index <SigBit> port(dspQB1, \CLK, State::S0) === port(dspD, \CLK, State::S0)
 
 	// Check that the rest of sigB is present
 	filter GetSize(port(dspQB1, \B)) >= offset + GetSize(sigB)
