@@ -793,9 +793,9 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	}
 
 	// resolve types of wires
-	if (type == AST_WIRE) {
+	if (type == AST_WIRE || type == AST_MEMORY) {
 		if (is_custom_type) {
-			log_assert(children.size() == 1);
+			log_assert(children.size() >= 1);
 			log_assert(children[0]->type == AST_WIRETYPE);
 			if (!current_scope.count(children[0]->str))
 				log_file_error(filename, linenum, "Unknown identifier `%s' used as type name\n", children[0]->str.c_str());
@@ -804,12 +804,15 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				log_file_error(filename, linenum, "`%s' does not name a type\n", children[0]->str.c_str());
 			log_assert(resolved_type->children.size() == 1);
 			AstNode *templ = resolved_type->children[0];
-			delete_children(); // type reference no longer needed
+			// Remove type reference
+			delete children[0];
+			children.erase(children.begin());
 
 			// Ensure typedef itself is fully simplified
 			while(templ->simplify(const_fold, at_zero, in_lvalue, stage, width_hint, sign_hint, in_param)) {};
 
-			type = templ->type;
+			if (type == AST_WIRE)
+				type = templ->type;
 			is_reg = templ->is_reg;
 			is_logic = templ->is_logic;
 			is_signed = templ->is_signed;
@@ -820,8 +823,19 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			range_swapped = templ->range_swapped;
 			range_left = templ->range_left;
 			range_right = templ->range_right;
-			for (auto template_child : templ->children)
-				children.push_back(template_child->clone());
+
+			// Insert clones children from template at beginning
+			for (int i  = 0; i < GetSize(templ->children); i++)
+				children.insert(children.begin() + i, templ->children[i]->clone());
+			
+			if (type == AST_MEMORY && GetSize(children) == 1) {
+				// Single-bit memories must have [0:0] range
+				AstNode *rng = new AstNode(AST_RANGE);
+				rng->children.push_back(AstNode::mkconst_int(0, true));
+				rng->children.push_back(AstNode::mkconst_int(0, true));
+				children.insert(children.begin(), rng);
+			}
+
 			did_something = true;
 		}
 		log_assert(!is_custom_type);
