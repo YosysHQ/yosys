@@ -1,4 +1,4 @@
-pattern xilinx_dsp_cascade
+pattern xilinx_dsp_cascadeP
 
 udata <std::function<SigSpec(const SigSpec&)>> unextend
 state <SigSpec> sigC
@@ -33,7 +33,7 @@ match dsp_pcout
 	select nusers(port(dsp_pcout, \P, SigSpec())) > 1
 	select nusers(port(dsp_pcout, \PCOUT, SigSpec())) <= 1
 
-	index <SigSpec> port(dsp_pcout, \P)[0] === sigC[0]
+	index <SigBit> port(dsp_pcout, \P)[0] === sigC[0]
 	filter GetSize(port(dsp_pcin, \P)) >= GetSize(sigC)
 	filter port(dsp_pcout, \P).extract(0, GetSize(sigC)) == sigC
 
@@ -46,7 +46,7 @@ match dsp_pcout_shift17
 	select nusers(port(dsp_pcout_shift17, \P, SigSpec())) > 1
 	select nusers(port(dsp_pcout_shift17, \PCOUT, SigSpec())) <= 1
 
-	index <SigSpec> port(dsp_pcout_shift17, \P)[17] === sigC[0]
+	index <SigBit> port(dsp_pcout_shift17, \P)[17] === sigC[0]
 	filter GetSize(port(dsp_pcout_shift17, \P)) >= GetSize(sigC)+17
 	filter port(dsp_pcout_shift17, \P).extract(17, GetSize(sigC)) == sigC
 endmatch
@@ -90,5 +90,501 @@ code
 		blacklist(dsp_pcout);
 	}
 
+	did_something = true;
 	accept;
+endcode
+
+// ##########
+
+pattern xilinx_dsp_cascadeAB
+
+udata <std::function<SigSpec(const SigSpec&)>> unextend
+state <SigBit> clock
+state <SigSpec> sigA sigB
+
+state <bool> ffA1cepol ffA2cepol ffB1cepol ffB2cepol
+state <bool> ffArstpol ffBrstpol
+
+state <Cell*> ffA1 ffA1cemux ffA1rstmux ffA2 ffA2cemux ffA2rstmux
+state <Cell*> ffB1 ffB1cemux ffB1rstmux ffB2 ffB2cemux ffB2rstmux
+
+// subpattern
+state <SigSpec> argQ argD
+state <bool> ffcepol ffrstpol
+state <int> ffoffset
+udata <SigSpec> dffD dffQ
+udata <SigBit> dffclock
+udata <Cell*> dff dffcemux dffrstmux
+udata <bool> dffcepol dffrstpol
+
+code
+	unextend = [](const SigSpec &sig) {
+		int i;
+		for (i = GetSize(sig)-1; i > 0; i--)
+			if (sig[i] != sig[i-1])
+				break;
+		// Do not remove non-const sign bit
+		if (sig[i].wire)
+			++i;
+		return sig.extract(0, i);
+	};
+endcode
+
+match dspD
+	select dspD->type.in(\DSP48E1)
+	select (param(dspD, \A_INPUT, Const("DIRECT")).decode_string() == "DIRECT" && nusers(port(dspD, \A, SigSpec())) > 1 && nusers(port(dspD, \ACIN, SigSpec())) == 0) || (param(dspD, \B_INPUT, Const("DIRECT")).decode_string() == "DIRECT" && nusers(port(dspD, \B, SigSpec())) > 1 && nusers(port(dspD, \BCIN, SigSpec())) == 0)
+endmatch
+
+code sigA sigB
+	if (param(dspD, \A_INPUT, Const("DIRECT")).decode_string() == "DIRECT")
+		sigA = unextend(port(dspD, \A));
+	if (param(dspD, \B_INPUT, Const("DIRECT")).decode_string() == "DIRECT")
+		sigB = unextend(port(dspD, \B));
+endcode
+
+code argQ ffA2 ffA2cemux ffA2rstmux ffA2cepol ffArstpol ffA1 ffA1cemux ffA1rstmux ffA1cepol sigA clock
+	if (!sigA.empty()) {
+		argQ = sigA;
+		subpattern(in_dffe);
+		if (dff) {
+			ffA2 = dff;
+			clock = dffclock;
+			if (dffrstmux) {
+				ffA2rstmux = dffrstmux;
+				ffArstpol = dffrstpol;
+			}
+			if (dffcemux) {
+				ffA2cemux = dffcemux;
+				ffA2cepol = dffcepol;
+			}
+			sigA = dffD;
+
+			// Now attempt to match A1
+			argQ = sigA;
+			subpattern(in_dffe);
+			if (dff) {
+				if ((ffA2rstmux != nullptr) ^ (dffrstmux != nullptr))
+					goto reject_ffA1;
+				if (dffrstmux) {
+					if (ffArstpol != dffrstpol)
+						goto reject_ffA1;
+					if (port(ffA2rstmux, \S) != port(dffrstmux, \S))
+						goto reject_ffA1;
+					ffA1rstmux = dffrstmux;
+				}
+
+				ffA1 = dff;
+				clock = dffclock;
+
+				if (dffcemux) {
+					ffA1cemux = dffcemux;
+					ffA1cepol = dffcepol;
+				}
+				sigA = dffD;
+
+reject_ffA1:			;
+			}
+		}
+	}
+endcode
+
+match dspQA2
+	if ffA1
+	select dspQA2->type.in(\DSP48E1)
+	select param(dspQA2, \A_REG, 2).as_int() == 2
+	select nusers(port(dspQA2, \A, SigSpec())) > 1
+	select nusers(port(dspQA2, \ACOUT, SigSpec())) == 0
+	slice offset GetSize(port(dspQA2, \A))
+	index <SigBit> port(dspQA2, \A)[offset] === sigA[0]
+	index <SigBit> port(dspQA2, \CLK) === port(dspD, \CLK)
+
+	// Check that the rest of sigA is present
+	filter GetSize(port(dspQA2, \A)) >= offset + GetSize(sigA)
+	filter port(dspQA2, \A).extract(offset, GetSize(sigA)) == sigA
+
+	optional
+endmatch
+
+code
+	if (dspQA2) {
+		// Check CE and RST are compatible
+		if ((ffA1cemux != nullptr) == port(dspQA2, \CEA1, State::S1).is_fully_const())
+			reject;
+		if ((ffA2cemux != nullptr) == port(dspQA2, \CEA2, State::S1).is_fully_const())
+			reject;
+		if ((ffA1rstmux != nullptr) == port(dspQA2, \RSTA, State::S0).is_fully_const())
+			reject;
+		if ((ffA2rstmux != nullptr) == port(dspQA2, \RSTA, State::S0).is_fully_const())
+			reject;
+
+		if (ffA1cemux) {
+			if (port(dspQA2, \CEA1) != port(ffA1cemux, \S))
+				reject;
+			// TODO: Support inversions
+			if (!ffA1cepol)
+				reject;
+		}
+		if (ffA2cemux) {
+			if (port(dspQA2, \CEA2) != port(ffA2cemux, \S))
+				reject;
+			// TODO: Support inversions
+			if (!ffA2cepol)
+				reject;
+		}
+		if (ffA1rstmux) {
+			if (port(dspQA2, \RSTA) != port(ffA1rstmux, \S))
+				reject;
+			// TODO: Support inversions
+			if (!ffArstpol)
+				reject;
+		}
+		if (ffA2rstmux) {
+			if (port(dspQA2, \RSTA) != port(ffA2rstmux, \S))
+				reject;
+			// TODO: Support inversions
+			if (!ffArstpol)
+				reject;
+		}
+	}
+endcode
+
+match dspQA1
+	if !dspQA1 && !ffA1
+	if ffA2
+	select dspQA1->type.in(\DSP48E1)
+	select param(dspQA1, \A_REG, 2).as_int() == 1
+	select nusers(port(dspQA1, \A, SigSpec())) > 1
+	select nusers(port(dspQA1, \ACOUT, SigSpec())) == 0
+	slice offset GetSize(port(dspQA1, \A))
+	index <SigBit> port(dspQA1, \A)[offset] === sigA[0]
+	index <SigBit> port(dspQA1, \CLK) === port(dspD, \CLK)
+
+	// Check that the rest of sigA is present
+	filter GetSize(port(dspQA1, \A)) >= offset + GetSize(sigA)
+	filter port(dspQA1, \A).extract(offset, GetSize(sigA)) == sigA
+
+	optional
+endmatch
+
+code
+	if (dspQA1) {
+		// Check CE and RST are compatible
+		if ((ffA2cemux != NULL) == port(dspQA1, \CEA2, State::S1).is_fully_const())
+			reject;
+		if ((ffA2rstmux != NULL) == port(dspQA1, \RSTA, State::S0).is_fully_const())
+			reject;
+
+		if (!ffA2cepol || !ffArstpol)
+			reject;
+
+		if (ffA2cemux) {
+			if (port(dspQA1, \CEA2) != port(ffA2cemux, \S))
+				reject;
+			// TODO: Support inversions
+			if (!ffA2cepol)
+				reject;
+		}
+		if (ffA2rstmux) {
+			if (port(dspQA1, \RSTA) != port(ffA2rstmux, \S))
+				reject;
+			// TODO: Support inversions
+			if (!ffArstpol)
+				reject;
+		}
+	}
+endcode
+
+code argQ ffB2 ffB2cemux ffB2rstmux ffB2cepol ffBrstpol ffB1 ffB1cemux ffB1rstmux ffB1cepol sigB clock
+	if (!sigB.empty()) {
+		argQ = sigB;
+		subpattern(in_dffe);
+		if (dff) {
+			ffB2 = dff;
+			clock = dffclock;
+			if (dffrstmux) {
+				ffB2rstmux = dffrstmux;
+				ffBrstpol = dffrstpol;
+			}
+			if (dffcemux) {
+				ffB2cemux = dffcemux;
+				ffB2cepol = dffcepol;
+			}
+			sigB = dffD;
+
+			// Now attempt to match B1
+			argQ = sigB;
+			subpattern(in_dffe);
+			if (dff) {
+				if ((ffB2rstmux != nullptr) ^ (dffrstmux != nullptr))
+					goto reject_ffB1;
+				if (dffrstmux) {
+					if (ffBrstpol != dffrstpol)
+						goto reject_ffB1;
+					if (port(ffB2rstmux, \S) != port(dffrstmux, \S))
+						goto reject_ffB1;
+					ffB1rstmux = dffrstmux;
+				}
+
+				ffB1 = dff;
+				clock = dffclock;
+
+				if (dffcemux) {
+					ffB1cemux = dffcemux;
+					ffB1cepol = dffcepol;
+				}
+				sigB = dffD;
+
+reject_ffB1:			;
+			}
+		}
+	}
+endcode
+
+match dspQB2
+	if ffB1
+	select dspQB2->type.in(\DSP48E1)
+	select param(dspQB2, \B_REG, 2).as_int() == 2
+	select nusers(port(dspQB2, \B, SigSpec())) > 1
+	select nusers(port(dspQB2, \BCOUT, SigSpec())) == 0
+	slice offset GetSize(port(dspQB2, \B))
+	index <SigBit> port(dspQB2, \B)[offset] === sigB[0]
+	index <SigBit> port(dspQB2, \CLK) === port(dspD, \CLK)
+
+	// Check that the rest of sigB is present
+	filter GetSize(port(dspQB2, \B)) >= offset + GetSize(sigB)
+	filter port(dspQB2, \B).extract(offset, GetSize(sigB)) == sigB
+
+	optional
+endmatch
+
+code
+	if (dspQB2) {
+		// Check CE and RST are compatible
+		if ((ffB1cemux != nullptr) == port(dspQB2, \CEB1, State::S1).is_fully_const())
+			reject;
+		if ((ffB2cemux != NULL) == port(dspQB2, \CEB2, State::S1).is_fully_const())
+			reject;
+		if ((ffB1rstmux != NULL) == port(dspQB2, \RSTB, State::S0).is_fully_const())
+			reject;
+		if ((ffB2rstmux != NULL) == port(dspQB2, \RSTB, State::S0).is_fully_const())
+			reject;
+
+		if (ffB1cemux) {
+			if (port(dspQB2, \CEB1) != port(ffB1cemux, \S))
+				reject;
+			// TODO: Support inversions
+			if (!ffB1cepol)
+				reject;
+		}
+		if (ffB2cemux) {
+			if (port(dspQB2, \CEB2) != port(ffB2cemux, \S))
+				reject;
+			// TODO: Support inversions
+			if (!ffB2cepol)
+				reject;
+		}
+		if (ffB2rstmux) {
+			if (port(dspQB2, \RSTB) != port(ffB2rstmux, \S))
+				reject;
+			// TODO: Support inversions
+			if (!ffBrstpol)
+				reject;
+		}
+	}
+endcode
+
+match dspQB1
+	if !dspQB1 && !ffB1
+	if ffB2
+	select dspQB1->type.in(\DSP48E1)
+	select param(dspQB1, \B_REG, 2).as_int() >= 1
+	select nusers(port(dspQB1, \B, SigSpec())) > 1
+	select nusers(port(dspQB1, \BCOUT, SigSpec())) == 0
+	slice offset GetSize(port(dspQB1, \B))
+	index <SigBit> port(dspQB1, \B)[offset] === sigB[0]
+	index <SigBit> port(dspQB1, \CLK) === port(dspD, \CLK)
+
+	// Check that the rest of sigB is present
+	filter GetSize(port(dspQB1, \B)) >= offset + GetSize(sigB)
+	filter port(dspQB1, \B).extract(offset, GetSize(sigB)) == sigB
+
+	optional
+endmatch
+
+code
+	if (dspQB1) {
+		// Check CE and RST are compatible
+		if ((ffB2cemux != NULL) != port(dspQB1, \CEB2, State::S1).is_fully_const())
+			reject;
+		if ((ffB2rstmux != NULL) != port(dspQB1, \RSTB, State::S0).is_fully_const())
+			reject;
+
+		if (!ffA2cepol || !ffArstpol)
+			reject;
+
+		if (ffA2cemux) {
+			if (port(dspQB1, \CEB2) != port(ffB2cemux, \S))
+				reject;
+			// TODO: Support inversions
+			if (!ffA2cepol)
+				reject;
+		}
+		if (ffA2rstmux) {
+			if (port(dspQB1, \RSTB) != port(ffB2rstmux, \S))
+				reject;
+			// TODO: Support inversions
+			if (!ffArstpol)
+				reject;
+		}
+	}
+endcode
+
+code
+	if (dspQA1 || dspQA2) {
+		dspD->setParam(\A_INPUT, Const("CASCADE"));
+		dspD->setPort(\A, Const(0, 30));
+
+		Wire *cascade = module->addWire(NEW_ID, 30);
+		if (dspQA1) {
+			dspQA1->setParam(\ACASCREG, 1);
+			dspQA1->setPort(\ACOUT, cascade);
+			log_debug("ACOUT -> ACIN cascade for %s -> %s\n", log_id(dspQA1), log_id(dspD));
+		}
+		else if (dspQA2) {
+			dspQA2->setParam(\ACASCREG, 2);
+			dspQA2->setPort(\ACOUT, cascade);
+			log_debug("ACOUT -> ACIN cascade for %s -> %s\n", log_id(dspQA2), log_id(dspD));
+		}
+		else
+			log_abort();
+
+		dspD->setPort(\ACIN, cascade);
+		did_something = true;
+	}
+	if (dspQB1 || dspQB2) {
+		dspD->setParam(\B_INPUT, Const("CASCADE"));
+		dspD->setPort(\B, Const(0, 18));
+
+		Wire *cascade = module->addWire(NEW_ID, 18);
+		if (dspQB1) {
+			dspQB1->setParam(\BCASCREG, 1);
+			dspQB1->setPort(\BCOUT, cascade);
+			log_debug("BCOUT -> BCIN cascade for %s -> %s\n", log_id(dspQB1), log_id(dspD));
+		}
+		else if (dspQB2) {
+			dspQB2->setParam(\BCASCREG, 2);
+			dspQB2->setPort(\BCOUT, cascade);
+			log_debug("BCOUT -> BCIN cascade for %s -> %s\n", log_id(dspQB2), log_id(dspD));
+		}
+		else
+			log_abort();
+
+		dspD->setPort(\BCIN, cascade);
+		did_something = true;
+	}
+
+	accept;
+endcode
+
+
+// #######################
+
+subpattern in_dffe
+arg argD argQ clock
+
+code
+	dff = nullptr;
+	for (auto c : argQ.chunks()) {
+		if (!c.wire)
+			reject;
+		if (c.wire->get_bool_attribute(\keep))
+			reject;
+	}
+endcode
+
+match ff
+	select ff->type.in($dff)
+	// DSP48E1 does not support clock inversion
+	select param(ff, \CLK_POLARITY).as_bool()
+
+	slice offset GetSize(port(ff, \D))
+	index <SigBit> port(ff, \Q)[offset] === argQ[0]
+
+	// Check that the rest of argQ is present
+	filter GetSize(port(ff, \Q)) >= offset + GetSize(argQ)
+	filter port(ff, \Q).extract(offset, GetSize(argQ)) == argQ
+
+	set ffoffset offset
+endmatch
+
+code argQ argD
+{
+	if (clock != SigBit() && port(ff, \CLK) != clock)
+		reject;
+
+	SigSpec Q = port(ff, \Q);
+	dff = ff;
+	dffclock = port(ff, \CLK);
+	dffD = argQ;
+	argD = port(ff, \D);
+	argQ = Q;
+	dffD.replace(argQ, argD);
+	// Only search for ffrstmux if dffD only
+	//   has two (ff, ffrstmux) users
+	if (nusers(dffD) > 2)
+		argD = SigSpec();
+}
+endcode
+
+match ffrstmux
+	if !argD.empty()
+	select ffrstmux->type.in($mux)
+	index <SigSpec> port(ffrstmux, \Y) === argD
+
+	choice <IdString> BA {\B, \A}
+	// DSP48E1 only supports reset to zero
+	select port(ffrstmux, BA).is_fully_zero()
+
+	define <bool> pol (BA == \B)
+	set ffrstpol pol
+	semioptional
+endmatch
+
+code argD
+	if (ffrstmux) {
+		dffrstmux = ffrstmux;
+		dffrstpol = ffrstpol;
+		argD = port(ffrstmux, ffrstpol ? \A : \B);
+		dffD.replace(port(ffrstmux, \Y), argD);
+
+		// Only search for ffcemux if argQ has at
+		//   least 3 users (ff, <upstream>, ffrstmux) and
+		//   dffD only has two (ff, ffrstmux)
+		if (!(nusers(argQ) >= 3 && nusers(dffD) == 2))
+			argD = SigSpec();
+	}
+	else
+		dffrstmux = nullptr;
+endcode
+
+match ffcemux
+	if !argD.empty()
+	select ffcemux->type.in($mux)
+	index <SigSpec> port(ffcemux, \Y) === argD
+	choice <IdString> AB {\A, \B}
+	index <SigSpec> port(ffcemux, AB) === argQ
+	define <bool> pol (AB == \A)
+	set ffcepol pol
+	semioptional
+endmatch
+
+code argD
+	if (ffcemux) {
+		dffcemux = ffcemux;
+		dffcepol = ffcepol;
+		argD = port(ffcemux, ffcepol ? \B : \A);
+		dffD.replace(port(ffcemux, \Y), argD);
+	}
+	else
+		dffcemux = nullptr;
 endcode
