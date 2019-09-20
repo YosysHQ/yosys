@@ -225,9 +225,9 @@ endcode
 code argD ffO ffOholdmux ffOrstmux ffOholdpol ffOrstpol sigO sigCD clock clock_pol cd_signed o_lo
 	if (mul->type != \SB_MAC16 ||
 			// Ensure that register is not already used
-			((mul->parameters.at(\TOPOUTPUT_SELECT, 0).as_int() != 1 && mul->parameters.at(\BOTOUTPUT_SELECT, 0).as_int() != 1) &&
+			((param(mul, \TOPOUTPUT_SELECT, 0).as_int() != 1 && param(mul, \BOTOUTPUT_SELECT, 0).as_int() != 1) &&
 			 // Ensure that OLOADTOP/OLOADBOT is unused or zero
-			 (mul->connections_.at(\OLOADTOP, State::S0).is_fully_zero() && mul->connections_.at(\OLOADBOT, State::S0).is_fully_zero()))) {
+			 (port(mul, \OLOADTOP, State::S0).is_fully_zero() && port(mul, \OLOADBOT, State::S0).is_fully_zero()))) {
 
 		dff = nullptr;
 

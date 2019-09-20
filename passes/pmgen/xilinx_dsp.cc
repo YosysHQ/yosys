@@ -290,7 +290,7 @@ void pack_xilinx_dsp(xilinx_dsp_pm &pm)
 		st.sigD.extend_u0(25, D_SIGNED);
 		cell->setPort(ID(A), st.sigA);
 		cell->setPort(ID(D), st.sigD);
-		cell->connections_.at(ID(INMODE)) = Const::from_string("00100");
+		cell->setPort(ID(INMODE), Const::from_string("00100"));
 
 		if (st.ffAD) {
 			if (st.ffADcemux) {

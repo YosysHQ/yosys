@@ -42,7 +42,7 @@ code sigA sigB sigC sigD sigM
 	sigD = dsp->connections_.at(\D, SigSpec());
 
 	SigSpec P = port(dsp, \P);
-	if (dsp->parameters.at(\USE_MULT, Const("MULTIPLY")).decode_string() == "MULTIPLY") {
+	if (param(dsp, \USE_MULT, Const("MULTIPLY")).decode_string() == "MULTIPLY") {
 		// Only care about those bits that are used
 		int i;
 		for (i = 0; i < GetSize(P); i++) {
@@ -79,8 +79,8 @@ endcode
 match preAdd
 	if sigD.empty() || sigD.is_fully_zero()
 	// Ensure that preAdder not already used
-	if dsp->parameters.at(\USE_DPORT, Const("FALSE")).decode_string() == "FALSE"
-	if dsp->connections_.at(\INMODE, Const(0, 5)).is_fully_zero()
+	if param(dsp, \USE_DPORT, Const("FALSE")).decode_string() == "FALSE"
+	if port(dsp, \INMODE, Const(0, 5)).is_fully_zero()
 
 	select preAdd->type.in($add)
 	// Output has to be 25 bits or less
@@ -348,7 +348,7 @@ endcode
 
 match overflow
 	if ffP
-	if dsp->parameters.at(\USE_PATTERN_DETECT, Const("NO_PATDET")).decode_string() == "NO_PATDET"
+	if param(dsp, \USE_PATTERN_DETECT, Const("NO_PATDET")).decode_string() == "NO_PATDET"
 	select overflow->type.in($ge)
 	select GetSize(port(overflow, \Y)) <= 48
 	select port(overflow, \B).is_fully_const()
