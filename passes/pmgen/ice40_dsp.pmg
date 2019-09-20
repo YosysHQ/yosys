@@ -188,7 +188,7 @@ match add
 	select nusers(port(add, AB)) == 2
 	index <SigBit> port(add, AB)[0] === sigH[0]
 	filter GetSize(port(add, AB)) <= GetSize(sigH)
-	filter port(add, AB) ==  sigH.extract(0, GetSize(port(add, AB)))
+	filter port(add, AB) == sigH.extract(0, GetSize(port(add, AB)))
 	filter nusers(sigH.extract_end(GetSize(port(add, AB)))) <= 1
 	set addAB AB
 	optional
@@ -280,7 +280,7 @@ code argD ffO ffOholdmux ffOrstmux ffOholdpol ffOrstpol sigO sigCD clock clock_p
 endcode
 
 code argQ ffCD ffCDholdmux ffCDholdpol ffCDrstpol sigCD clock clock_pol
-	if (!sigCD.empty() &&
+	if (!sigCD.empty() && sigCD != sigO &&
 			(mul->type != \SB_MAC16 || (!param(mul, \C_REG).as_bool() && !param(mul, \D_REG).as_bool()))) {
 		argQ = sigCD;
 		subpattern(in_dffe);
