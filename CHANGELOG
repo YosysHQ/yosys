@@ -41,6 +41,8 @@ Yosys 0.9 .. Yosys 0.9-dev
     - Removed "shregmap -tech xilinx" (superseded by "xilinx_srl")
     - Added "_TECHMAP_WIREINIT_*_" attribute and "_TECHMAP_REMOVEINIT_*_" wire for "techmap" pass
     - Added "-match-init" option to "dff2dffs" pass
+    - Added "techmap_autopurge" support to techmap
+    - Added "add -mod <modname[s]>"
     - Added +/mul2dsp.v for decomposing wide multipliers to custom-sized ones
     - Added "ice40_dsp" for Lattice iCE40 DSP packing
     - Added "xilinx_dsp" for Xilinx DSP packing
