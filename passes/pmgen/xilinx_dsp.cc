@@ -551,7 +551,8 @@ struct XilinxDspPass : public Pass {
 				did_something = false;
 				xilinx_dsp_cascade_pm pmc(module, module->selected_cells());
 				pmc.run_xilinx_dsp_cascadeP();
-				pmc.run_xilinx_dsp_cascadeAB();
+				//pmc.run_xilinx_dsp_cascadeAB();
+				break;
 			} while (did_something);
 		}
 	}
