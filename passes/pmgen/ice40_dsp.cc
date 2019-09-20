@@ -283,8 +283,17 @@ struct Ice40DspPass : public Pass {
 		log("\n");
 		log("    ice40_dsp [options] [selection]\n");
 		log("\n");
-		log("Map multipliers and multiply-accumulate blocks to iCE40 DSP resources.\n");
+		log("Map multipliers ($mul/SB_MAC16) and multiply-accumulate ($mul/SB_MAC16 + $add)\n");
+		log("cells into iCE40 DSP resources.\n");
 		log("Currently, only the 16x16 multiply mode is supported and not the 2 x 8x8 mode.\n");
+		log("\n");
+		log("Pack input registers (A, B, {C,D}; with optional hold/reset), pipeline registers\n");
+		log("({F,J,K,G}, H; with shared reset), output registers (O; with optional hold/reset),\n");
+		log("and post-adder into the SB_MAC16 resource.\n");
+		log("\n");
+		log("Multiply-accumulate operations using the post-adder with feedback on the {C,D}\n");
+		log("input will be folded into the DSP. In this scenario only, resetting the\n");
+		log("the accumulator to an arbitrary value can be inferred to use the {C,D} input.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
