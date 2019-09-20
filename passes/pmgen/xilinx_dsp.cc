@@ -507,7 +507,8 @@ struct XilinxDspPass : public Pass {
 		log("\n");
 		log("Multiply-accumulate operations using the post-adder with feedback on the 'C'\n");
 		log("input will be folded into the DSP. In this scenario only, the 'C' input can be\n");
-		log("used to override the existing accumulation result with a new value.\n");
+		log("used to override the current accumulation result with a new value, which will\n");
+        log("be added to the multiplier result to form the next accumulation result.\n");
 		log("\n");
 		log("Use of the dedicated 'PCOUT' -> 'PCIN' cascade path is detected for 'P' -> 'C'\n");
 		log("connections (optionally, where 'P' is right-shifted by 18-bits and used as an\n");
