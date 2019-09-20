@@ -2,7 +2,7 @@ pattern xilinx_dsp_pack
 
 udata <std::function<SigSpec(const SigSpec&)>> unextend
 state <SigBit> clock
-state <SigSpec> sigA sigffAcemuxY sigB sigffBcemuxY sigC sigffCcemuxY sigD sigffDcemuxY sigM sigP
+state <SigSpec> sigA sigB sigC sigD sigM sigP
 state <IdString> postAddAB postAddMuxAB
 state <bool> ffA1cepol ffA2cepol ffADcepol ffB1cepol ffB2cepol ffCcepol ffDcepol ffMcepol ffPcepol
 state <bool> ffArstpol ffADrstpol ffBrstpol ffCrstpol ffDrstpol ffMrstpol ffPrstpol
