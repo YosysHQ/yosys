@@ -224,7 +224,7 @@ struct TechmapWorker
 
 					for (auto bit : sigmaps.at(tpl)(it.second))
 						if (bit.wire != nullptr)
-							autopurge_tpl_bits.insert(it.second);
+							autopurge_tpl_bits.insert(bit);
 				}
 			}
 			IdString w_name = it.second->name;
