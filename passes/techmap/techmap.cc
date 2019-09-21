@@ -359,6 +359,12 @@ struct TechmapWorker
 				for (auto &attr : w->attributes) {
 					if (attr.first == ID(src))
 						continue;
+					auto lhs = GetSize(extra_connect.first);
+					auto rhs = GetSize(extra_connect.second);
+					if (lhs > rhs)
+						extra_connect.first.remove(rhs, lhs-rhs);
+					else if (rhs > lhs)
+						extra_connect.second.remove(lhs, rhs-lhs);
 					module->connect(extra_connect);
 					break;
 				}
