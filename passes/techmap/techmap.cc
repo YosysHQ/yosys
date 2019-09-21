@@ -224,7 +224,7 @@ struct TechmapWorker
 
 					for (auto bit : sigmaps.at(tpl)(it.second))
 						if (bit.wire != nullptr)
-							autopurge_tpl_bits.insert(it.second);
+							autopurge_tpl_bits.insert(bit);
 				}
 			}
 			IdString w_name = it.second->name;
@@ -359,6 +359,12 @@ struct TechmapWorker
 				for (auto &attr : w->attributes) {
 					if (attr.first == ID(src))
 						continue;
+					auto lhs = GetSize(extra_connect.first);
+					auto rhs = GetSize(extra_connect.second);
+					if (lhs > rhs)
+						extra_connect.first.remove(rhs, lhs-rhs);
+					else if (rhs > lhs)
+						extra_connect.second.remove(lhs, rhs-lhs);
 					module->connect(extra_connect);
 					break;
 				}
