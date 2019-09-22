@@ -371,13 +371,14 @@ void dump_sigspec(std::ostream &f, const RTLIL::SigSpec &sig)
 	}
 }
 
-void dump_attributes(std::ostream &f, std::string indent, dict<RTLIL::IdString, RTLIL::Const> &attributes, char term = '\n', bool modattr = false, bool as_comment = false)
+void dump_attributes(std::ostream &f, std::string indent, dict<RTLIL::IdString, RTLIL::Const> &attributes, char term = '\n', bool modattr = false, bool regattr = false, bool as_comment = false)
 {
 	if (noattr)
 		return;
 	if (attr2comment)
 		as_comment = true;
 	for (auto it = attributes.begin(); it != attributes.end(); ++it) {
+		if (it->first == "\\init" && regattr) continue;
 		f << stringf("%s" "%s %s", indent.c_str(), as_comment ? "/*" : "(*", id(it->first).c_str());
 		f << stringf(" = ");
 		if (modattr && (it->second == State::S0 || it->second == Const(0)))
@@ -392,7 +393,7 @@ void dump_attributes(std::ostream &f, std::string indent, dict<RTLIL::IdString, 
 
 void dump_wire(std::ostream &f, std::string indent, RTLIL::Wire *wire)
 {
-	dump_attributes(f, indent, wire->attributes);
+	dump_attributes(f, indent, wire->attributes, '\n', /*modattr=*/false, /*regattr=*/reg_wires.count(wire->name));
 #if 0
 	if (wire->port_input && !wire->port_output)
 		f << stringf("%s" "input %s", indent.c_str(), reg_wires.count(wire->name) ? "reg " : "");
@@ -1521,7 +1522,7 @@ void dump_proc_switch(std::ostream &f, std::string indent, RTLIL::SwitchRule *sw
 
 	bool got_default = false;
 	for (auto it = sw->cases.begin(); it != sw->cases.end(); ++it) {
-		dump_attributes(f, indent + "  ", (*it)->attributes, '\n', /*modattr=*/false, /*as_comment=*/true);
+		dump_attributes(f, indent + "  ", (*it)->attributes, '\n', /*modattr=*/false, /*regattr=*/false, /*as_comment=*/true);
 		if ((*it)->compare.size() == 0) {
 			if (got_default)
 				continue;
@@ -1686,7 +1687,7 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 		}
 	}
 
-	dump_attributes(f, indent, module->attributes, '\n', /*attr2comment=*/true);
+	dump_attributes(f, indent, module->attributes, '\n', /*modattr=*/true);
 	f << stringf("%s" "module %s(", indent.c_str(), id(module->name, false).c_str());
 	bool keep_running = true;
 	for (int port_id = 1; keep_running; port_id++) {
