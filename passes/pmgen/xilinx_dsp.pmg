@@ -38,8 +38,8 @@ code sigA sigB sigC sigD sigM
 	sigA = unextend(port(dsp, \A));
 	sigB = unextend(port(dsp, \B));
 
-	sigC = dsp->connections_.at(\C, SigSpec());
-	sigD = dsp->connections_.at(\D, SigSpec());
+	sigC = port(dsp, \C, SigSpec());
+	sigD = port(dsp, \D, SigSpec());
 
 	SigSpec P = port(dsp, \P);
 	if (param(dsp, \USE_MULT, Const("MULTIPLY")).decode_string() == "MULTIPLY") {
