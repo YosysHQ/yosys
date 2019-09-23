@@ -4,11 +4,11 @@ udata <std::function<SigSpec(const SigSpec&)>> unextend
 state <SigBit> clock
 state <SigSpec> sigA sigB sigC sigD sigM sigP
 state <IdString> postAddAB postAddMuxAB
-state <bool> ffA1cepol ffA2cepol ffADcepol ffB1cepol ffB2cepol ffCcepol ffDcepol ffMcepol ffPcepol
-state <bool> ffArstpol ffADrstpol ffBrstpol ffCrstpol ffDrstpol ffMrstpol ffPrstpol
+state <bool> ffA1cepol ffA2cepol ffADcepol ffB1cepol ffB2cepol ffDcepol ffMcepol ffPcepol
+state <bool> ffArstpol ffADrstpol ffBrstpol ffDrstpol ffMrstpol ffPrstpol
 
 state <Cell*> ffAD ffADcemux ffADrstmux ffA1 ffA1cemux ffA1rstmux ffA2 ffA2cemux ffA2rstmux
-state <Cell*> ffB1 ffB1cemux ffB1rstmux ffB2 ffB2cemux ffB2rstmux ffC ffCcemux ffCrstmux
+state <Cell*> ffB1 ffB1cemux ffB1rstmux ffB2 ffB2cemux ffB2rstmux
 state <Cell*> ffD ffDcemux ffDrstmux ffM ffMcemux ffMrstmux ffP ffPcemux ffPrstmux
 
 // subpattern
@@ -24,7 +24,7 @@ match dsp
 	select dsp->type.in(\DSP48E1)
 endmatch
 
-code sigA sigB sigC sigD sigM
+code sigA sigB sigC sigD sigM clock
 	unextend = [](const SigSpec &sig) {
 		int i;
 		for (i = GetSize(sig)-1; i > 0; i--)
@@ -54,6 +54,8 @@ code sigA sigB sigC sigD sigM
 	}
 	else
 		sigM = P;
+
+	clock = port(dsp, \CLK, SigBit());
 endcode
 
 code argQ ffAD ffADcemux ffADrstmux ffADcepol ffADrstpol sigA clock
@@ -324,26 +326,6 @@ endmatch
 code sigC
 	if (postAddMux)
 		sigC = port(postAddMux, postAddMuxAB == \A ? \B : \A);
-endcode
-
-code argQ ffC ffCcemux ffCrstmux ffCcepol ffCrstpol sigC clock
-	if (param(dsp, \CREG).as_int() == 0 && sigC != sigP) {
-		argQ = sigC;
-		subpattern(in_dffe);
-		if (dff) {
-			ffC = dff;
-			clock = dffclock;
-			if (dffrstmux) {
-				ffCrstmux = dffrstmux;
-				ffCrstpol = dffrstpol;
-			}
-			if (dffcemux) {
-				ffCcemux = dffcemux;
-				ffCcepol = dffcepol;
-			}
-			sigC = dffD;
-		}
-	}
 endcode
 
 match overflow

@@ -27,6 +27,7 @@ PRIVATE_NAMESPACE_BEGIN
 bool did_something;
 
 #include "passes/pmgen/xilinx_dsp_pm.h"
+#include "passes/pmgen/xilinx_dsp_CREG_pm.h"
 #include "passes/pmgen/xilinx_dsp_cascade_pm.h"
 
 static Cell* addDsp(Module *module) {
@@ -63,7 +64,7 @@ static Cell* addDsp(Module *module) {
 	return cell;
 }
 
-void pack_xilinx_simd(Module *module, const std::vector<Cell*> &selected_cells)
+void xilinx_simd_pack(Module *module, const std::vector<Cell*> &selected_cells)
 {
 	std::deque<Cell*> simd12_add, simd12_sub;
 	std::deque<Cell*> simd24_add, simd24_sub;
@@ -255,21 +256,18 @@ void pack_xilinx_simd(Module *module, const std::vector<Cell*> &selected_cells)
 	g24(simd24_sub);
 }
 
-
-void pack_xilinx_dsp(xilinx_dsp_pm &pm)
+void xilinx_dsp_pack(xilinx_dsp_pm &pm)
 {
 	auto &st = pm.st_xilinx_dsp_pack;
 
 	log("Analysing %s.%s for Xilinx DSP packing.\n", log_id(pm.module), log_id(st.dsp));
 
-	log_debug("\n");
 	log_debug("preAdd:     %s\n", log_id(st.preAdd, "--"));
 	log_debug("ffAD:       %s %s %s\n", log_id(st.ffAD, "--"), log_id(st.ffADcemux, "--"), log_id(st.ffADrstmux, "--"));
 	log_debug("ffA2:       %s %s %s\n", log_id(st.ffA2, "--"), log_id(st.ffA2cemux, "--"), log_id(st.ffA2rstmux, "--"));
 	log_debug("ffA1:       %s %s %s\n", log_id(st.ffA1, "--"), log_id(st.ffA1cemux, "--"), log_id(st.ffA1rstmux, "--"));
 	log_debug("ffB2:       %s %s %s\n", log_id(st.ffB2, "--"), log_id(st.ffB2cemux, "--"), log_id(st.ffB2rstmux, "--"));
 	log_debug("ffB1:       %s %s %s\n", log_id(st.ffB1, "--"), log_id(st.ffB1cemux, "--"), log_id(st.ffB1rstmux, "--"));
-	log_debug("ffC:        %s %s %s\n", log_id(st.ffC, "--"), log_id(st.ffCcemux, "--"), log_id(st.ffCrstmux, "--"));
 	log_debug("ffD:        %s %s %s\n", log_id(st.ffD, "--"), log_id(st.ffDcemux, "--"), log_id(st.ffDrstmux, "--"));
 	log_debug("dsp:        %s\n", log_id(st.dsp, "--"));
 	log_debug("ffM:        %s %s %s\n", log_id(st.ffM, "--"), log_id(st.ffMcemux, "--"), log_id(st.ffMrstmux, "--"));
@@ -277,6 +275,7 @@ void pack_xilinx_dsp(xilinx_dsp_pm &pm)
 	log_debug("postAddMux: %s\n", log_id(st.postAddMux, "--"));
 	log_debug("ffP:        %s %s %s\n", log_id(st.ffP, "--"), log_id(st.ffPcemux, "--"), log_id(st.ffPrstmux, "--"));
 	log_debug("overflow:   %s\n", log_id(st.overflow, "--"));
+	log_debug("\n");
 
 	Cell *cell = st.dsp;
 
@@ -426,12 +425,6 @@ void pack_xilinx_dsp(xilinx_dsp_pm &pm)
 			else
 				cell->setParam(ID(BREG), 1);
 		}
-		if (st.ffC) {
-			SigSpec &C = cell->connections_.at(ID(C));
-			f(C, st.ffC, st.ffCcemux, st.ffCcepol, ID(CEC), st.ffCrstmux, st.ffCrstpol, ID(RSTC));
-			pm.add_siguser(C, cell);
-			cell->setParam(ID(CREG), 1);
-		}
 		if (st.ffD) {
 			SigSpec &D = cell->connections_.at(ID(D));
 			f(D, st.ffD, st.ffDcemux, st.ffDcepol, ID(CED), st.ffDrstmux, st.ffDrstpol, ID(RSTD));
@@ -468,9 +461,6 @@ void pack_xilinx_dsp(xilinx_dsp_pm &pm)
 				log(" ffB1:%s", log_id(st.ffB1));
 		}
 
-		if (st.ffC)
-			log(" ffC:%s", log_id(st.ffC));
-
 		if (st.ffD)
 			log(" ffD:%s", log_id(st.ffD));
 
@@ -487,6 +477,76 @@ void pack_xilinx_dsp(xilinx_dsp_pm &pm)
 	if (GetSize(P) < 48)
 		P.append(pm.module->addWire(NEW_ID, 48-GetSize(P)));
 	cell->setPort(ID(P), P);
+
+	pm.blacklist(cell);
+}
+
+void xilinx_dsp_packC(xilinx_dsp_CREG_pm &pm)
+{
+	auto &st = pm.st_xilinx_dsp_packC;
+
+	log_debug("Analysing %s.%s for Xilinx DSP packing (CREG).\n", log_id(pm.module), log_id(st.dsp));
+	log_debug("ffC:        %s %s %s\n", log_id(st.ffC, "--"), log_id(st.ffCcemux, "--"), log_id(st.ffCrstmux, "--"));
+	log_debug("\n");
+
+	Cell *cell = st.dsp;
+
+	if (st.clock != SigBit())
+	{
+		cell->setPort(ID(CLK), st.clock);
+
+		auto f = [&pm,cell](SigSpec &A, Cell* ff, Cell* cemux, bool cepol, IdString ceport, Cell* rstmux, bool rstpol, IdString rstport) {
+			SigSpec D = ff->getPort(ID(D));
+			SigSpec Q = pm.sigmap(ff->getPort(ID(Q)));
+			if (!A.empty())
+				A.replace(Q, D);
+			if (rstmux) {
+				SigSpec Y = rstmux->getPort(ID(Y));
+				SigSpec AB = rstmux->getPort(rstpol ? ID(A) : ID(B));
+				if (!A.empty())
+					A.replace(Y, AB);
+				if (rstport != IdString()) {
+					SigSpec S = rstmux->getPort(ID(S));
+					cell->setPort(rstport, rstpol ? S : pm.module->Not(NEW_ID, S));
+				}
+			}
+			else if (rstport != IdString())
+				cell->setPort(rstport, State::S0);
+			if (cemux) {
+				SigSpec Y = cemux->getPort(ID(Y));
+				SigSpec BA = cemux->getPort(cepol ? ID(B) : ID(A));
+				SigSpec S = cemux->getPort(ID(S));
+				if (!A.empty())
+					A.replace(Y, BA);
+				cell->setPort(ceport, cepol ? S : pm.module->Not(NEW_ID, S));
+			}
+			else
+				cell->setPort(ceport, State::S1);
+
+			for (auto c : Q.chunks()) {
+				auto it = c.wire->attributes.find(ID(init));
+				if (it == c.wire->attributes.end())
+					continue;
+				for (int i = c.offset; i < c.offset+c.width; i++) {
+					log_assert(it->second[i] == State::S0 || it->second[i] == State::Sx);
+					it->second[i] = State::Sx;
+				}
+			}
+		};
+
+		if (st.ffC) {
+			SigSpec &C = cell->connections_.at(ID(C));
+			f(C, st.ffC, st.ffCcemux, st.ffCcepol, ID(CEC), st.ffCrstmux, st.ffCrstpol, ID(RSTC));
+			pm.add_siguser(C, cell);
+			cell->setParam(ID(CREG), 1);
+		}
+
+		log("  clock: %s (%s)", log_signal(st.clock), "posedge");
+
+		if (st.ffC)
+			log(" ffC:%s", log_id(st.ffC));
+		log("\n");
+	}
 
 	pm.blacklist(cell);
 }
@@ -540,17 +600,23 @@ struct XilinxDspPass : public Pass {
 		extra_args(args, argidx, design);
 
 		for (auto module : design->selected_modules()) {
-			pack_xilinx_simd(module, module->selected_cells());
+			xilinx_simd_pack(module, module->selected_cells());
 
-			xilinx_dsp_pm pm(module, module->selected_cells());
-			pm.run_xilinx_dsp_pack(pack_xilinx_dsp);
+            {
+                xilinx_dsp_pm pm(module, module->selected_cells());
+                pm.run_xilinx_dsp_pack(xilinx_dsp_pack);
+            }
+            {
+                xilinx_dsp_CREG_pm pm(module, module->selected_cells());
+                pm.run_xilinx_dsp_packC(xilinx_dsp_packC);
+            }
 
 			do {
 				did_something = false;
-				xilinx_dsp_cascade_pm pmc(module, module->selected_cells());
-				pmc.run_xilinx_dsp_cascadeP();
-				//pmc.run_xilinx_dsp_cascadeAB();
-				break;
+				xilinx_dsp_cascade_pm pm(module, module->selected_cells());
+				pm.run_xilinx_dsp_cascadeP();
+				//pm.run_xilinx_dsp_cascadeAB();
+                break;
 			} while (did_something);
 		}
 	}
