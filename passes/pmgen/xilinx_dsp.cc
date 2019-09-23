@@ -275,7 +275,6 @@ void xilinx_dsp_pack(xilinx_dsp_pm &pm)
 	log_debug("postAddMux: %s\n", log_id(st.postAddMux, "--"));
 	log_debug("ffP:        %s %s %s\n", log_id(st.ffP, "--"), log_id(st.ffPcemux, "--"), log_id(st.ffPrstmux, "--"));
 	log_debug("overflow:   %s\n", log_id(st.overflow, "--"));
-	log_debug("\n");
 
 	Cell *cell = st.dsp;
 
@@ -410,9 +409,12 @@ void xilinx_dsp_pack(xilinx_dsp_pm &pm)
 			if (st.ffA1) {
 				f(A, st.ffA1, st.ffA1cemux, st.ffA1cepol, ID(CEA1), st.ffA1rstmux, st.ffArstpol, IdString());
 				cell->setParam(ID(AREG), 2);
+				cell->setParam(ID(ACASCREG), 2);
 			}
-			else
+			else {
 				cell->setParam(ID(AREG), 1);
+				cell->setParam(ID(ACASCREG), 1);
+			}
 		}
 		if (st.ffB2) {
 			SigSpec &B = cell->connections_.at(ID(B));
@@ -421,9 +423,12 @@ void xilinx_dsp_pack(xilinx_dsp_pm &pm)
 			if (st.ffB1) {
 				f(B, st.ffB1, st.ffB1cemux, st.ffB1cepol, ID(CEB1), st.ffB1rstmux, st.ffBrstpol, IdString());
 				cell->setParam(ID(BREG), 2);
+				cell->setParam(ID(BCASCREG), 2);
 			}
-			else
+			else {
 				cell->setParam(ID(BREG), 1);
+				cell->setParam(ID(BCASCREG), 1);
+			}
 		}
 		if (st.ffD) {
 			SigSpec &D = cell->connections_.at(ID(D));
@@ -469,9 +474,8 @@ void xilinx_dsp_pack(xilinx_dsp_pm &pm)
 
 		if (st.ffP)
 			log(" ffP:%s", log_id(st.ffP));
-
-		log("\n");
 	}
+	log("\n");
 
 	SigSpec P = st.sigP;
 	if (GetSize(P) < 48)
@@ -624,7 +628,7 @@ struct XilinxDspPass : public Pass {
 				xilinx_dsp_cascade_pm pm(module, module->selected_cells());
 				pm.run_xilinx_dsp_cascadeP();
 				//pm.run_xilinx_dsp_cascadeAB();
-                break;
+				break;
 			} while (did_something);
 		}
 	}
