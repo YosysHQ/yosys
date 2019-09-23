@@ -1,0 +1,17 @@
+read_verilog alu.v
+hierarchy -top top
+proc
+flatten
+equiv_opt -assert -map +/anlogic/cells_sim.v synth_anlogic # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd top # Constrain all select calls below inside the top module
+
+select -assert-count 66 t:AL_MAP_ADDER
+select -assert-count 32 t:AL_MAP_LUT1
+select -assert-count 23 t:AL_MAP_LUT2
+select -assert-count 61 t:AL_MAP_LUT3
+select -assert-count 209 t:AL_MAP_LUT4
+select -assert-count 100 t:AL_MAP_LUT5
+select -assert-count 79 t:AL_MAP_LUT6
+select -assert-count 32 t:AL_MAP_SEQ
+select -assert-none t:AL_MAP_ADDER t:AL_MAP_LUT1 t:AL_MAP_LUT2 t:AL_MAP_LUT3 t:AL_MAP_LUT4 t:AL_MAP_LUT5 t:AL_MAP_LUT6 t:AL_MAP_SEQ %% t:* %D

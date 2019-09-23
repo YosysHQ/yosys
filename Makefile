@@ -710,6 +710,7 @@ test: $(TARGETS) $(EXTRA_TARGETS)
 	+cd tests/aiger && bash run-test.sh $(ABCOPT)
 	+cd tests/arch && bash run-test.sh
 	+cd tests/ice40 && bash run-test.sh $(SEEDOPT)
+	+cd tests/anlogic && bash run-test.sh $(SEEDOPT)
 	@echo ""
 	@echo "  Passed \"make test\"."
 	@echo ""
