@@ -18,7 +18,12 @@
  */
 
 // ============================================================================
-// FF mapping
+// FF mapping for Spartan 6.  The primitives used are the same as Series 7,
+// but with one major difference: the initial value is implied by the
+// primitive type used (FFs with reset pin must have INIT set to 0 or x, FFs
+// with set pin must have INIT set to 1 or x).  For Yosys primitives without
+// set/reset, this means we have to pick the primitive type based on the INIT
+// value.
 
 `ifndef _NO_FFS
 
@@ -29,6 +34,7 @@ module  \$_DFF_N_   (input D, C, output Q);
   else
     FDRE_1 #(.INIT(_TECHMAP_WIREINIT_Q_)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(1'b1), .R(1'b0));
   endgenerate
+  wire _TECHMAP_REMOVEINIT_Q_ = 1;
 endmodule
 module  \$_DFF_P_   (input D, C, output Q);
   parameter [0:0] _TECHMAP_WIREINIT_Q_ = 1'bx;
@@ -37,6 +43,7 @@ module  \$_DFF_P_   (input D, C, output Q);
   else
     FDRE   #(.INIT(_TECHMAP_WIREINIT_Q_)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(1'b1), .R(1'b0));
   endgenerate
+  wire _TECHMAP_REMOVEINIT_Q_ = 1;
 endmodule
 
 module  \$_DFFE_NP_ (input D, C, E, output Q);
@@ -46,6 +53,7 @@ module  \$_DFFE_NP_ (input D, C, E, output Q);
   else
     FDRE_1 #(.INIT(_TECHMAP_WIREINIT_Q_)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(E),    .R(1'b0));
   endgenerate
+  wire _TECHMAP_REMOVEINIT_Q_ = 1;
 endmodule
 module  \$_DFFE_PP_ (input D, C, E, output Q);
   parameter [0:0] _TECHMAP_WIREINIT_Q_ = 1'bx;
@@ -54,6 +62,7 @@ module  \$_DFFE_PP_ (input D, C, E, output Q);
   else
     FDRE   #(.INIT(_TECHMAP_WIREINIT_Q_)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(E),    .R(1'b0));
   endgenerate
+  wire _TECHMAP_REMOVEINIT_Q_ = 1;
 endmodule
 
 module  \$_DFF_NN0_ (input D, C, R, output Q);
@@ -63,6 +72,7 @@ module  \$_DFF_NN0_ (input D, C, R, output Q);
   else
     FDCE_1 #(.INIT(_TECHMAP_WIREINIT_Q_)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(1'b1), .CLR(!R));
   endgenerate
+  wire _TECHMAP_REMOVEINIT_Q_ = 1;
 endmodule
 module  \$_DFF_NP0_ (input D, C, R, output Q);
   parameter [0:0] _TECHMAP_WIREINIT_Q_ = 1'bx;
@@ -71,6 +81,7 @@ module  \$_DFF_NP0_ (input D, C, R, output Q);
   else
     FDCE_1 #(.INIT(_TECHMAP_WIREINIT_Q_)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(1'b1), .CLR( R));
   endgenerate
+  wire _TECHMAP_REMOVEINIT_Q_ = 1;
 endmodule
 module  \$_DFF_PN0_ (input D, C, R, output Q);
   parameter [0:0] _TECHMAP_WIREINIT_Q_ = 1'bx;
@@ -79,6 +90,7 @@ module  \$_DFF_PN0_ (input D, C, R, output Q);
   else
     FDCE   #(.INIT(_TECHMAP_WIREINIT_Q_)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(1'b1), .CLR(!R));
   endgenerate
+  wire _TECHMAP_REMOVEINIT_Q_ = 1;
 endmodule
 module  \$_DFF_PP0_ (input D, C, R, output Q);
   parameter [0:0] _TECHMAP_WIREINIT_Q_ = 1'bx;
@@ -87,6 +99,7 @@ module  \$_DFF_PP0_ (input D, C, R, output Q);
   else
     FDCE   #(.INIT(_TECHMAP_WIREINIT_Q_)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(1'b1), .CLR( R));
   endgenerate
+  wire _TECHMAP_REMOVEINIT_Q_ = 1;
 endmodule
 
 module  \$_DFF_NN1_ (input D, C, R, output Q);
@@ -96,6 +109,7 @@ module  \$_DFF_NN1_ (input D, C, R, output Q);
   else
     FDPE_1 #(.INIT(_TECHMAP_WIREINIT_Q_)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(1'b1), .PRE(!R));
   endgenerate
+  wire _TECHMAP_REMOVEINIT_Q_ = 1;
 endmodule
 module  \$_DFF_NP1_ (input D, C, R, output Q);
   parameter [0:0] _TECHMAP_WIREINIT_Q_ = 1'bx;
@@ -104,6 +118,7 @@ module  \$_DFF_NP1_ (input D, C, R, output Q);
   else
     FDPE_1 #(.INIT(_TECHMAP_WIREINIT_Q_)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(1'b1), .PRE( R));
   endgenerate
+  wire _TECHMAP_REMOVEINIT_Q_ = 1;
 endmodule
 module  \$_DFF_PN1_ (input D, C, R, output Q);
   parameter [0:0] _TECHMAP_WIREINIT_Q_ = 1'bx;
@@ -112,6 +127,7 @@ module  \$_DFF_PN1_ (input D, C, R, output Q);
   else
     FDPE   #(.INIT(_TECHMAP_WIREINIT_Q_)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(1'b1), .PRE(!R));
   endgenerate
+  wire _TECHMAP_REMOVEINIT_Q_ = 1;
 endmodule
 module  \$_DFF_PP1_ (input D, C, R, output Q);
   parameter [0:0] _TECHMAP_WIREINIT_Q_ = 1'bx;
@@ -120,6 +136,26 @@ module  \$_DFF_PP1_ (input D, C, R, output Q);
   else
     FDPE   #(.INIT(_TECHMAP_WIREINIT_Q_)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(1'b1), .PRE( R));
   endgenerate
+  wire _TECHMAP_REMOVEINIT_Q_ = 1;
+endmodule
+
+module  \$_DLATCH_N_ (input E, D, output Q);
+  parameter _TECHMAP_WIREINIT_Q_ = 1'bx;
+  generate if (_TECHMAP_WIREINIT_Q_ === 1'b1)
+    LDPE #(.INIT(_TECHMAP_WIREINIT_Q_), .IS_G_INVERTED(1'b1)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .G(E), .GE(1'b1), .PRE(1'b0));
+  else
+    LDCE #(.INIT(_TECHMAP_WIREINIT_Q_), .IS_G_INVERTED(1'b1)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .G(E), .GE(1'b1), .CLR(1'b0));
+  endgenerate
+  wire _TECHMAP_REMOVEINIT_Q_ = 1;
+endmodule
+module  \$_DLATCH_P_ (input E, D, output Q);
+  parameter _TECHMAP_WIREINIT_Q_ = 1'bx;
+  generate if (_TECHMAP_WIREINIT_Q_ === 1'b1)
+    LDPE #(.INIT(_TECHMAP_WIREINIT_Q_)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .G(E), .GE(1'b1), .PRE(1'b0));
+  else
+    LDCE #(.INIT(_TECHMAP_WIREINIT_Q_)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .G(E), .GE(1'b1), .CLR(1'b0));
+  endgenerate
+  wire _TECHMAP_REMOVEINIT_Q_ = 1;
 endmodule
 
 `endif
