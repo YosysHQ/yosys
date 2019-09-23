@@ -606,6 +606,14 @@ struct XilinxDspPass : public Pass {
                 xilinx_dsp_pm pm(module, module->selected_cells());
                 pm.run_xilinx_dsp_pack(xilinx_dsp_pack);
             }
+            // Separating out CREG packing is necessary since there
+            //   is no guarantee that the cell ordering corresponds
+            //   to the "expected" case (i.e. the order in which
+            //   they appear in the source) thus the possiblity
+            //   existed that a register got packed as CREG into a
+            //   downstream DSP that should have otherwise been a
+            //   PREG of an upstream DSP that had not been pattern
+            //   matched yet
             {
                 xilinx_dsp_CREG_pm pm(module, module->selected_cells());
                 pm.run_xilinx_dsp_packC(xilinx_dsp_packC);
