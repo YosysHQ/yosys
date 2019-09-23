@@ -31,7 +31,6 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 
 	log("Checking %s.%s for iCE40 DSP inference.\n", log_id(pm.module), log_id(st.mul));
 
-	log_debug("\n");
 	log_debug("ffA:    %s %s %s\n", log_id(st.ffA, "--"), log_id(st.ffAholdmux, "--"), log_id(st.ffArstmux, "--"));
 	log_debug("ffB:    %s %s %s\n", log_id(st.ffB, "--"), log_id(st.ffBholdmux, "--"), log_id(st.ffBrstmux, "--"));
 	log_debug("ffCD:   %s %s\n", log_id(st.ffCD, "--"), log_id(st.ffCDholdmux, "--"));
@@ -41,6 +40,7 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 	log_debug("add:    %s\n", log_id(st.add, "--"));
 	log_debug("mux:    %s\n", log_id(st.mux, "--"));
 	log_debug("ffO:    %s %s %s\n", log_id(st.ffO, "--"), log_id(st.ffOholdmux, "--"), log_id(st.ffOrstmux, "--"));
+	log_debug("\n");
 
 	if (GetSize(st.sigA) > 16) {
 		log("  input A (%s) is too large (%d > 16).\n", log_signal(st.sigA), GetSize(st.sigA));
