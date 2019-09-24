@@ -512,8 +512,6 @@ struct SynthXilinxPass : public ScriptPass
 				run("iopadmap -bits -outpad OBUF I:O -inpad IBUF O:I A:top", "(only if '-iopad' or '-ise' and not '-noiopad')");
 			if (help_mode || ise)
 				run("extractinv -inv INV O:I", "(only if '-ise')");
-			if (help_mode || !nodsp)
-				run("xilinx_finalise", "(skip if '-nodsp')");
 		}
 
 		if (check_label("check")) {
