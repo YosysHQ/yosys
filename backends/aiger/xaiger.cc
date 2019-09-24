@@ -350,6 +350,8 @@ struct XAigerWriter
 				if (!box_module || !box_module->attributes.count("\\abc_box_id"))
 					continue;
 
+				bool blackbox = box_module->get_blackbox_attribute(true /* ignore_wb */);
+
 				// Fully pad all unused input connections of this box cell with S0
 				// Fully pad all undriven output connections of this box cell with anonymous wires
 				// NB: Assume box_module->ports are sorted alphabetically
@@ -394,7 +396,10 @@ struct XAigerWriter
 							rhs = it->second;
 						}
 						else {
-							rhs = module->addWire(NEW_ID, GetSize(w));
+							Wire *wire = module->addWire(NEW_ID, GetSize(w));
+							if (blackbox)
+								wire->set_bool_attribute(ID(abc_padding));
+							rhs = wire;
 							cell->setPort(port_name, rhs);
 						}
 
