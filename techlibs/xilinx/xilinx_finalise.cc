@@ -53,7 +53,7 @@ struct XilinxFinalisePass : public Pass
 		for (auto cell : module->selected_cells()) {
 			if (cell->type != ID(DSP48E1))
 				continue;
-			for (auto &conn : cell->connections_) {
+			for (auto conn : cell->connections()) {
 				if (!cell->output(conn.first))
 					continue;
 				bool purge = true;
@@ -74,7 +74,7 @@ struct XilinxFinalisePass : public Pass
 
 				if (purge) {
 					log_debug("Purging unused port connection %s %s (.%s(%s))\n", cell->type.c_str(), log_id(cell), log_id(conn.first), log_signal(conn.second));
-					conn.second = SigSpec();
+					cell->unsetPort(conn.first);
 				}
 			}
 		}
