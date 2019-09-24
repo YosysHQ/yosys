@@ -424,7 +424,7 @@ struct XAigerWriter
 			// inherit existing inout's drivers
 			if ((wire->port_input && wire->port_output && !undriven_bits.count(bit))
 					|| keep_bits.count(bit)) {
-				RTLIL::IdString wire_name = wire->name.str() + "$inout.out";
+				RTLIL::IdString wire_name = stringf("$%s$inout.out", wire->name.c_str());
 				RTLIL::Wire *new_wire = module->wire(wire_name);
 				if (!new_wire)
 					new_wire = module->addWire(wire_name, GetSize(wire));
