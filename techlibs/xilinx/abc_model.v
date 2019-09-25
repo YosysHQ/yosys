@@ -102,7 +102,7 @@ endmodule
 (* abc_box_id=2105 *) `ABC_DSP48E1_MUX(\$__ABC_DSP48E1_PCOUT_MUX )
 
 `define ABC_DSP48E1(__NAME__) """
-module \$__ABC_DSP48E1_MULT (
+module __NAME__ (
     output [29:0] ACOUT,
     output [17:0] BCOUT,
     output reg CARRYCASCOUT,
