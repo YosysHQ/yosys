@@ -61,8 +61,6 @@ module _80_mul (A, B, Y);
 	input [B_WIDTH-1:0] B;
 	output [Y_WIDTH-1:0] Y;
 
-	parameter _TECHMAP_CELLTYPE_ = "";
-
 	generate
 	if (0) begin end
 `ifdef DSP_A_MINWIDTH
@@ -77,10 +75,8 @@ module _80_mul (A, B, Y);
 	else if (Y_WIDTH < `DSP_Y_MINWIDTH)
 		wire _TECHMAP_FAIL_ = 1;
 `endif
-	else if (_TECHMAP_CELLTYPE_ == "$mul" && A_SIGNED != B_SIGNED)
-		wire _TECHMAP_FAIL_ = 1;
 `ifdef DSP_SIGNEDONLY
-	else if (_TECHMAP_CELLTYPE_ == "$mul" && !A_SIGNED)
+	else if (!A_SIGNED)
 		\$mul #(
 			.A_SIGNED(1),
 			.B_SIGNED(1),
@@ -93,7 +89,7 @@ module _80_mul (A, B, Y);
 			.Y(Y)
 		);
 `endif
-	else if (_TECHMAP_CELLTYPE_ == "$mul" && A_WIDTH < B_WIDTH)
+	else if (A_WIDTH < B_WIDTH)
 		\$mul #(
 			.A_SIGNED(B_SIGNED),
 			.B_SIGNED(A_SIGNED),
