@@ -1,6 +1,5 @@
 pattern xilinx_dsp_pack
 
-udata <std::function<SigSpec(const SigSpec&)>> unextend
 state <SigBit> clock
 state <SigSpec> sigA sigB sigC sigD sigM sigP
 state <IdString> postAddAB postAddMuxAB
@@ -25,7 +24,7 @@ match dsp
 endmatch
 
 code sigA sigB sigC sigD sigM clock
-	unextend = [](const SigSpec &sig) {
+	auto unextend = [](const SigSpec &sig) {
 		int i;
 		for (i = GetSize(sig)-1; i > 0; i--)
 			if (sig[i] != sig[i-1])
@@ -272,9 +271,9 @@ match postAdd
 	filter !ffMcemux || nusers(port(postAdd, AB)) == 3
 
 	index <SigBit> port(postAdd, AB)[0] === sigP[0]
-	filter GetSize(unextend(port(postAdd, AB))) <= GetSize(sigP)
-	filter unextend(port(postAdd, AB)) == sigP.extract(0, GetSize(unextend(port(postAdd, AB))))
-	filter nusers(sigP.extract_end(GetSize(unextend(port(postAdd, AB))))) <= 1
+	filter GetSize(port(postAdd, AB)) <= GetSize(sigP)
+	filter port(postAdd, AB) == sigP.extract(0, GetSize(port(postAdd, AB)))
+	filter nusers(sigP.extract_end(GetSize(port(postAdd, AB)))) <= 1
 	set postAddAB AB
 	optional
 endmatch
