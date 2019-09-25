@@ -27,7 +27,7 @@ module dffs
     initial begin
       q = 0;
     end
-	always @( posedge clk )
+	always @( posedge clk, posedge pre )
 		if ( pre )
 			q <= 1'b1;
 		else
@@ -39,9 +39,9 @@ module ndffnr
     initial begin
       q = 0;
     end
-	always @( negedge clk )
-		if ( !clr )
-			q <= 1'b0;
+	always @( negedge clk, negedge pre )
+		if ( !pre )
+			q <= 1'b1;
 		else
             q <= d;
 endmodule
