@@ -403,9 +403,8 @@ void xilinx_dsp_pack(xilinx_dsp_pm &pm)
 		};
 
 		if (st.ffA2) {
-			SigSpec &A = cell->connections_.at(ID(A));
+			SigSpec A = cell->getPort(ID(A));
 			f(A, st.ffA2, st.ffA2cemux, st.ffA2cepol, ID(CEA2), st.ffA2rstmux, st.ffArstpol, ID(RSTA));
-			pm.add_siguser(A, cell);
 			if (st.ffA1) {
 				f(A, st.ffA1, st.ffA1cemux, st.ffA1cepol, ID(CEA1), st.ffA1rstmux, st.ffArstpol, IdString());
 				cell->setParam(ID(AREG), 2);
@@ -415,11 +414,12 @@ void xilinx_dsp_pack(xilinx_dsp_pm &pm)
 				cell->setParam(ID(AREG), 1);
 				cell->setParam(ID(ACASCREG), 1);
 			}
+			pm.add_siguser(A, cell);
+			cell->setPort(ID(A), A);
 		}
 		if (st.ffB2) {
-			SigSpec &B = cell->connections_.at(ID(B));
+			SigSpec B = cell->getPort(ID(B));
 			f(B, st.ffB2, st.ffB2cemux, st.ffB2cepol, ID(CEB2), st.ffB2rstmux, st.ffBrstpol, ID(RSTB));
-			pm.add_siguser(B, cell);
 			if (st.ffB1) {
 				f(B, st.ffB1, st.ffB1cemux, st.ffB1cepol, ID(CEB1), st.ffB1rstmux, st.ffBrstpol, IdString());
 				cell->setParam(ID(BREG), 2);
@@ -429,11 +429,14 @@ void xilinx_dsp_pack(xilinx_dsp_pm &pm)
 				cell->setParam(ID(BREG), 1);
 				cell->setParam(ID(BCASCREG), 1);
 			}
+			pm.add_siguser(B, cell);
+			cell->setPort(ID(B), B);
 		}
 		if (st.ffD) {
-			SigSpec &D = cell->connections_.at(ID(D));
+			SigSpec D = cell->getPort(ID(D));
 			f(D, st.ffD, st.ffDcemux, st.ffDcepol, ID(CED), st.ffDrstmux, st.ffDrstpol, ID(RSTD));
 			pm.add_siguser(D, cell);
+			cell->setPort(ID(D), D);
 			cell->setParam(ID(DREG), 1);
 		}
 		if (st.ffM) {
@@ -539,9 +542,10 @@ void xilinx_dsp_packC(xilinx_dsp_CREG_pm &pm)
 		};
 
 		if (st.ffC) {
-			SigSpec &C = cell->connections_.at(ID(C));
+			SigSpec C = cell->getPort(ID(C));
 			f(C, st.ffC, st.ffCcemux, st.ffCcepol, ID(CEC), st.ffCrstmux, st.ffCrstpol, ID(RSTC));
 			pm.add_siguser(C, cell);
+			cell->setPort(ID(C), C);
 			cell->setParam(ID(CREG), 1);
 		}
 
