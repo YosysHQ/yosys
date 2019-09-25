@@ -1,6 +1,5 @@
 pattern ice40_dsp
 
-udata <std::function<SigSpec(const SigSpec&)>> unextend
 state <SigBit> clock
 state <bool> clock_pol cd_signed o_lo
 state <SigSpec> sigA sigB sigCD sigH sigO
@@ -28,7 +27,7 @@ match mul
 endmatch
 
 code sigA sigB sigH
-	unextend = [](const SigSpec &sig) {
+	auto unextend = [](const SigSpec &sig) {
 		int i;
 		for (i = GetSize(sig)-1; i > 0; i--)
 			if (sig[i] != sig[i-1])
