@@ -35,33 +35,50 @@ struct PortlistPass : public Pass {
 		log("\n");
 		log("If no selection is provided then it lists the ports on the top module.\n");
 		log("\n");
+		log("  -m\n");
+		log("    print verilog blackbox module definitions instead of port lists\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
+		bool m_mode = false;
+
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
-			// if (args[argidx] == "-ltr") {
-			// 	config.ltr = true;
-			// 	continue;
-			// }
+			if (args[argidx] == "-m") {
+				m_mode = true;
+				continue;
+			}
 			break;
 		}
 
+		bool first_module = true;
+
 		auto handle_module = [&](RTLIL::Module *module) {
+			vector<string> ports;
+			if (first_module)
+				first_module = false;
+			else
+				log("\n");
 			for (auto port : module->ports) {
 				auto *w = module->wire(port);
-				log("%s [%d:%d] %s\n", w->port_input ? w->port_output ? "inout" : "input" : "output",
-					w->upto ? w->start_offset : w->start_offset + w->width - 1,
-					w->upto ? w->start_offset + w->width - 1 : w->start_offset,
-					log_id(w));
+				ports.push_back(stringf("%s [%d:%d] %s", w->port_input ? w->port_output ? "inout" : "input" : "output",
+						w->upto ? w->start_offset : w->start_offset + w->width - 1,
+						w->upto ? w->start_offset + w->width - 1 : w->start_offset,
+						log_id(w)));
 			}
+			log("module %s%s\n", log_id(module), m_mode ? " (" : "");
+			for (int i = 0; i < GetSize(ports); i++)
+				log("%s%s\n", ports[i].c_str(), m_mode && i+1 < GetSize(ports) ? "," : "");
+			if (m_mode)
+				log(");\nendmodule\n");
 		};
 
 		if (argidx == args.size())
 		{
 			auto *top = design->top_module();
 			if (top == nullptr)
-				log_error("Can't find top module in current design!\n");
+				log_cmd_error("Can't find top module in current design!\n");
 			handle_module(top);
 		}
 		else
