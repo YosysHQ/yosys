@@ -67,7 +67,7 @@ finally
 					Wire *cascade = module->addWire(NEW_ID, 30);
 					dsp_pcin->setPort(ID(ACIN), cascade);
 					dsp->setPort(ID(ACOUT), cascade);
-					dsp_pcin->unsetPort(ID(A));
+					dsp_pcin->setPort(ID(A), Const(0, 30));
 					add_siguser(cascade, dsp_pcin);
 					add_siguser(cascade, dsp);
 
@@ -80,7 +80,7 @@ finally
 					Wire *cascade = module->addWire(NEW_ID, 18);
 					dsp_pcin->setPort(ID(BCIN), cascade);
 					dsp->setPort(ID(BCOUT), cascade);
-					dsp_pcin->unsetPort(ID(B));
+					dsp_pcin->setPort(ID(B), Const(0, 18));
 					add_siguser(cascade, dsp_pcin);
 					add_siguser(cascade, dsp);
 
