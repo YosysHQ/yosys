@@ -226,16 +226,13 @@ struct SynthEcp5Pass : public ScriptPass
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
 		}
 
-		if (flatten && check_label("flatten", "(unless -noflatten)"))
-		{
-			run("proc");
-			run("flatten");
-			run("tribuf -logic");
-			run("deminout");
-		}
-
 		if (check_label("coarse"))
 		{
+			run("proc");
+			if (flatten || help_mode)
+				run("flatten");
+			run("tribuf -logic");
+			run("deminout");
 			run("opt_expr");
 			run("opt_clean");
 			run("check");
@@ -248,9 +245,7 @@ struct SynthEcp5Pass : public ScriptPass
 			run("opt_expr");
 			run("opt_clean");
 			if (!nodsp) {
-				run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=18 -D DSP_B_MAXWIDTH=18  -D DSP_A_MINWIDTH=2 -D DSP_B_MINWIDTH=2  -D DSP_NAME=$__MUL18X18", "(unless -nodsp)");
-				run("clean", "(unless -nodsp)");
-				run("techmap -map +/ecp5/dsp_map.v", "(unless -nodsp)");
+				run("techmap -map +/mul2dsp.v -map +/ecp5/dsp_map.v -D DSP_A_MAXWIDTH=18 -D DSP_B_MAXWIDTH=18  -D DSP_A_MINWIDTH=2 -D DSP_B_MINWIDTH=2  -D DSP_NAME=$__MUL18X18", "(unless -nodsp)");
 				run("chtype -set $mul t:$__soft_mul", "(unless -nodsp)");
 			}
 			run("alumacc");
