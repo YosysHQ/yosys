@@ -494,7 +494,6 @@ void xilinx_dsp_packC(xilinx_dsp_CREG_pm &pm)
 
 	log_debug("Analysing %s.%s for Xilinx DSP packing (CREG).\n", log_id(pm.module), log_id(st.dsp));
 	log_debug("ffC:        %s %s %s\n", log_id(st.ffC, "--"), log_id(st.ffCcemux, "--"), log_id(st.ffCrstmux, "--"));
-	log_debug("\n");
 
 	Cell *cell = st.dsp;
 
