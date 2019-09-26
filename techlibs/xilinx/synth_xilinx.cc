@@ -347,7 +347,7 @@ struct SynthXilinxPass : public ScriptPass
 						"-D DSP_Y_MINWIDTH=9 " // UG901 suggests small multiplies are those 4x4 and smaller
 						"-D DSP_SIGNEDONLY=1 -D DSP_NAME=$__MUL25X18");
 				run("select a:mul2dsp");
-				run("opt_expr -fine"):
+				run("opt_expr -fine");
 				run("wreduce");
 				run("setattr -unset mul2dsp");
 				run("select -clear");
