@@ -129,14 +129,14 @@ module _80_mul (A, B, Y);
 				wire [Y_WIDTH-1:0] partial_sum [n:0];
 			end
 
-			for (i = 0; i < n; i=i+1) begin:slice
+			for (i = 0; i < n; i=i+1) begin:sliceA
 				\$__mul #(
 					.A_SIGNED(sign_headroom),
 					.B_SIGNED(B_SIGNED),
 					.A_WIDTH(`DSP_A_MAXWIDTH_PARTIAL),
 					.B_WIDTH(B_WIDTH),
 					.Y_WIDTH(partial_Y_WIDTH)
-				) mul_slice (
+				) mul (
 					.A({{sign_headroom{1'b0}}, A[i*(`DSP_A_MAXWIDTH_PARTIAL-sign_headroom) +: `DSP_A_MAXWIDTH_PARTIAL-sign_headroom]}),
 					.B(B),
 					.Y(partial[i])
@@ -165,7 +165,7 @@ module _80_mul (A, B, Y);
 				.A_WIDTH(last_A_WIDTH),
 				.B_WIDTH(B_WIDTH),
 				.Y_WIDTH(last_Y_WIDTH)
-			) mul_slice_last (
+			) sliceA.last (
 				.A(A[A_WIDTH-1 -: last_A_WIDTH]),
 				.B(B),
 				.Y(last_partial)
@@ -194,7 +194,7 @@ module _80_mul (A, B, Y);
 				wire [Y_WIDTH-1:0] partial_sum [n:0];
 			end
 
-			for (i = 0; i < n; i=i+1) begin:slice
+			for (i = 0; i < n; i=i+1) begin:sliceB
 				\$__mul #(
 					.A_SIGNED(A_SIGNED),
 					.B_SIGNED(sign_headroom),
@@ -230,7 +230,7 @@ module _80_mul (A, B, Y);
 				.A_WIDTH(A_WIDTH),
 				.B_WIDTH(last_B_WIDTH),
 				.Y_WIDTH(last_Y_WIDTH)
-			) mul_last (
+			) mul_sliceB_last (
 				.A(A),
 				.B(B[B_WIDTH-1 -: last_B_WIDTH]),
 				.Y(last_partial)
