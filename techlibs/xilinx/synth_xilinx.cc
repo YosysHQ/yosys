@@ -244,7 +244,7 @@ struct SynthXilinxPass : public ScriptPass
 		}
 		extra_args(args, argidx, design);
 
-		if (family != "xcup" && family != "xcu" && family != "xc7" && family != "xc6v" & family != "xc6s")
+		if (family != "xcup" && family != "xcu" && family != "xc7" && family != "xc6v" && family != "xc6s")
 			log_cmd_error("Invalid Xilinx -family setting: '%s'.\n", family.c_str());
 
 		if (widemux != 0 && widemux < 2)
