@@ -49,7 +49,7 @@ $fatal(1, "Macro DSP_NAME must be defined");
 `define MAX(a,b) (a > b ? a : b)
 `define MIN(a,b) (a < b ? a : b)
 
-(* techmap_celltype = "$mul" *)
+(* techmap_celltype = "$mul $__mul" *)
 module _80_mul (A, B, Y);
 	parameter A_SIGNED = 0;
 	parameter B_SIGNED = 0;
@@ -128,9 +128,9 @@ module _80_mul (A, B, Y);
 			end
 
 			for (i = 0; i < n; i=i+1) begin:slice
-				\$mul #(
+				\$__mul #(
 					.A_SIGNED(sign_headroom),
-					.B_SIGNED(sign_headroom),
+					.B_SIGNED(B_SIGNED),
 					.A_WIDTH(`DSP_A_MAXWIDTH_PARTIAL),
 					.B_WIDTH(B_WIDTH),
 					.Y_WIDTH(partial_Y_WIDTH)
@@ -157,7 +157,7 @@ module _80_mul (A, B, Y);
 				end
 			end
 
-			\$mul #(
+			\$__mul #(
 				.A_SIGNED(A_SIGNED),
 				.B_SIGNED(B_SIGNED),
 				.A_WIDTH(last_A_WIDTH),
@@ -193,8 +193,8 @@ module _80_mul (A, B, Y);
 			end
 
 			for (i = 0; i < n; i=i+1) begin:slice
-				\$mul #(
-					.A_SIGNED(sign_headroom),
+				\$__mul #(
+					.A_SIGNED(A_SIGNED),
 					.B_SIGNED(sign_headroom),
 					.A_WIDTH(A_WIDTH),
 					.B_WIDTH(`DSP_B_MAXWIDTH_PARTIAL),
@@ -222,7 +222,7 @@ module _80_mul (A, B, Y);
 				end
 			end
 
-			\$mul #(
+			\$__mul #(
 				.A_SIGNED(A_SIGNED),
 				.B_SIGNED(B_SIGNED),
 				.A_WIDTH(A_WIDTH),
@@ -267,7 +267,7 @@ module _80_mul (A, B, Y);
 	endgenerate
 endmodule
 
-(* techmap_celltype = "$mul" *)
+(* techmap_celltype = "$mul $__mul" *)
 module _90_soft_mul (A, B, Y);
 	parameter A_SIGNED = 0;
 	parameter B_SIGNED = 0;
