@@ -576,8 +576,10 @@ struct XilinxDspPass : public Pass {
 		log("Use of the dedicated 'PCOUT' -> 'PCIN' cascade path is detected for 'P' -> 'C'\n");
 		log("connections (optionally, where 'P' is right-shifted by 17-bits and used as an\n");
 		log("input to the post-adder -- a pattern common for summing partial products to\n");
-		log("implement wide multipliers). Initial support also exists for similar cascading\n");
-		log("for AREG and BREG using '[AB]OUT' -> '[AB]IN'.\n");
+		log("implement wide multipliers). Limited support also exists for similar cascading\n");
+		log("for A and B using '[AB]COUT' -> '[AB]CIN'. Currently, cascade chains are limited\n");
+		log("to a maximum length of 20 cells, corresponding to the smallest Xilinx 7 Series\n");
+		log("device.\n");
 		log("\n");
 		log("\n");
 		log("Experimental feature: addition/subtractions less than 12 or 24 bits with the\n");
