@@ -346,7 +346,9 @@ struct SynthXilinxPass : public ScriptPass
 						"-D DSP_A_MINWIDTH=2 -D DSP_B_MINWIDTH=2 " // Blocks Nx1 multipliers
 						"-D DSP_Y_MINWIDTH=9 " // UG901 suggests small multiplies are those 4x4 and smaller
 						"-D DSP_SIGNEDONLY=1 -D DSP_NAME=$__MUL25X18");
-				run("wreduce t:$add");
+				run("opt_expr -fine a:mul2dsp");
+				run("wreduce a:mul2dsp");
+				run("setattr -unset mul2dsp a:mul2dsp");
 				run("xilinx_dsp");
 				run("chtype -set $mul t:$__soft_mul");
 			}
