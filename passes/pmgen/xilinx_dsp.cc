@@ -24,8 +24,6 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-bool did_something;
-
 #include "passes/pmgen/xilinx_dsp_pm.h"
 #include "passes/pmgen/xilinx_dsp_CREG_pm.h"
 #include "passes/pmgen/xilinx_dsp_cascade_pm.h"

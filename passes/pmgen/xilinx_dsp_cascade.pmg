@@ -40,11 +40,10 @@ finally
 		for (int i = 1; i < GetSize(longest_chain); i++) {
 			std::tie(dsp_pcin,P,AREG,BREG) = longest_chain[i];
 
-			dsp_pcin->setPort(ID(C), Const(0, 48));
-
 			if (i % MAX_DSP_CASCADE > 0) {
 				if (P >= 0) {
 					Wire *cascade = module->addWire(NEW_ID, 48);
+					dsp_pcin->setPort(ID(C), Const(0, 48));
 					dsp_pcin->setPort(ID(PCIN), cascade);
 					dsp->setPort(ID(PCOUT), cascade);
 					add_siguser(cascade, dsp_pcin);
@@ -65,9 +64,9 @@ finally
 				}
 				if (AREG >= 0) {
 					Wire *cascade = module->addWire(NEW_ID, 30);
+					dsp_pcin->setPort(ID(A), Const(0, 30));
 					dsp_pcin->setPort(ID(ACIN), cascade);
 					dsp->setPort(ID(ACOUT), cascade);
-					dsp_pcin->setPort(ID(A), Const(0, 30));
 					add_siguser(cascade, dsp_pcin);
 					add_siguser(cascade, dsp);
 
@@ -78,9 +77,9 @@ finally
 				}
 				if (BREG >= 0) {
 					Wire *cascade = module->addWire(NEW_ID, 18);
+					dsp_pcin->setPort(ID(B), Const(0, 18));
 					dsp_pcin->setPort(ID(BCIN), cascade);
 					dsp->setPort(ID(BCOUT), cascade);
-					dsp_pcin->setPort(ID(B), Const(0, 18));
 					add_siguser(cascade, dsp_pcin);
 					add_siguser(cascade, dsp);
 
@@ -97,7 +96,6 @@ finally
 			dsp = dsp_pcin;
 		}
 
-		did_something = true;
 		accept;
 	}
 endcode
