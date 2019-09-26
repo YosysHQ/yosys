@@ -271,9 +271,9 @@ match postAdd
 	filter !ffMcemux || nusers(port(postAdd, AB)) == 3
 
 	index <SigBit> port(postAdd, AB)[0] === sigP[0]
-	filter GetSize(port(postAdd, AB)) <= GetSize(sigP)
-	filter port(postAdd, AB) == sigP.extract(0, GetSize(port(postAdd, AB)))
-	filter nusers(sigP.extract_end(GetSize(port(postAdd, AB)))) <= 1
+	filter GetSize(port(postAdd, AB)) >= GetSize(sigP)
+	filter port(postAdd, AB).extract(0, GetSize(sigP)) == sigP
+	filter port(postAdd, AB).extract_end(GetSize(sigP)) == SigSpec(sigP[GetSize(sigP)-1], GetSize(port(postAdd, AB))-GetSize(sigP))
 	set postAddAB AB
 	optional
 endmatch
