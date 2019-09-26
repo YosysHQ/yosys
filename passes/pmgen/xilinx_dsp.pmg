@@ -355,6 +355,9 @@ code
 			reject;
 		if (c.wire->get_bool_attribute(\keep))
 			reject;
+		Const init = c.wire->attributes.at(\init, State::Sx);
+		if (!init.is_fully_undef() && !init.is_fully_zero())
+			reject;
 	}
 endcode
 
