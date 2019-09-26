@@ -53,6 +53,10 @@ code sigA sigB sigC sigD sigM clock
 	}
 	else
 		sigM = P;
+	// This sigM could have no users if downstream $add
+	//   is narrower than $mul result, for example
+	if (sigM.empty())
+		reject;
 
 	clock = port(dsp, \CLK, SigBit());
 endcode
@@ -261,7 +265,7 @@ endcode
 
 match postAdd
 	// Ensure that Z mux is not already used
-	if port(dsp, \OPMODE).extract(4,3).is_fully_zero()
+	if port(dsp, \OPMODE, SigSpec()).extract(4,3).is_fully_zero()
 
 	select postAdd->type.in($add)
 	select GetSize(port(postAdd, \Y)) <= 48
