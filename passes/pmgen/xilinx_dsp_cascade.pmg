@@ -1,100 +1,133 @@
 pattern xilinx_dsp_cascadeP
 
-udata <std::function<SigSpec(const SigSpec&)>> unextend
-state <SigSpec> sigC
+udata <vector<std::pair<Cell*,bool>>> chain longest_chain
 
-match dsp_pcin
-	select dsp_pcin->type.in(\DSP48E1)
-	select !param(dsp_pcin, \CREG, State::S1).as_bool()
-	select port(dsp_pcin, \OPMODE, Const(0, 7)).extract(4,3) == Const::from_string("011")
-	select nusers(port(dsp_pcin, \C, SigSpec())) > 1
-	select nusers(port(dsp_pcin, \PCIN, SigSpec())) == 0
-endmatch
-
-code sigC
-	unextend = [](const SigSpec &sig) {
-		int i;
-		for (i = GetSize(sig)-1; i > 0; i--)
-			if (sig[i] != sig[i-1])
-				break;
-		// Do not remove non-const sign bit
-		if (sig[i].wire)
-			++i;
-		return sig.extract(0, i);
-	};
-	sigC = unextend(port(dsp_pcin, \C));
+code
+#define MAX_DSP_CASCADE 20
 endcode
 
-match dsp_pcout
-	select dsp_pcout->type.in(\DSP48E1)
-	select nusers(port(dsp_pcout, \P, SigSpec())) > 1
-	select nusers(port(dsp_pcout, \PCOUT, SigSpec())) <= 1
-
-	index <SigBit> port(dsp_pcout, \P)[0] === sigC[0]
-	filter GetSize(port(dsp_pcin, \P)) >= GetSize(sigC)
-	filter port(dsp_pcout, \P).extract(0, GetSize(sigC)) == sigC
-
-	optional
-endmatch
-
-match dsp_pcout_shift17
-	if !dsp_pcout
-	select dsp_pcout_shift17->type.in(\DSP48E1)
-	select nusers(port(dsp_pcout_shift17, \P, SigSpec())) > 1
-	select nusers(port(dsp_pcout_shift17, \PCOUT, SigSpec())) <= 1
-
-	index <SigBit> port(dsp_pcout_shift17, \P)[17] === sigC[0]
-	filter GetSize(port(dsp_pcout_shift17, \P)) >= GetSize(sigC)+17
-	filter port(dsp_pcout_shift17, \P).extract(17, GetSize(sigC)) == sigC
+match first
+	select first->type.in(\DSP48E1)
+	select port(first, \OPMODE, Const(0, 7)).extract(4,3) == Const::from_string("000")
+	select nusers(port(first, \PCOUT, SigSpec())) <= 1
 endmatch
 
 code
-	Cell *dsp;
-	if (dsp_pcout)
-		dsp = dsp_pcout;
-	else if (dsp_pcout_shift17)
-		dsp = dsp_pcout_shift17;
-	else log_abort();
+	longest_chain.clear();
+	chain.emplace_back(first, false);
+	subpattern(tail);
+finally
+	chain.pop_back();
+	log_assert(chain.empty());
+	if (GetSize(longest_chain) > 1) {
+		Cell *dsp = longest_chain.front().first;
 
-	dsp_pcin->setPort(ID(C), Const(0, 48));
+		for (int i = 1; i < GetSize(longest_chain); i++) {
+			Cell *dsp_pcin = longest_chain[i].first;
+			bool shift17 = longest_chain[i].second;
 
-	Wire *cascade = module->addWire(NEW_ID, 48);
-	dsp_pcin->setPort(ID(PCIN), cascade);
-	dsp->setPort(ID(PCOUT), cascade);
-	add_siguser(cascade, dsp_pcin);
-	add_siguser(cascade, dsp);
+			dsp_pcin->setPort(ID(C), Const(0, 48));
 
-	SigSpec opmode = port(dsp_pcin, \OPMODE, Const(0, 7));
-	if (dsp_pcout)
-		opmode[6] = State::S0;
-	else if (dsp_pcout_shift17)
-		opmode[6] = State::S1;
-	else log_abort();
+			if (i % MAX_DSP_CASCADE > 0) {
+				Wire *cascade = module->addWire(NEW_ID, 48);
+				dsp_pcin->setPort(ID(PCIN), cascade);
+				dsp->setPort(ID(PCOUT), cascade);
+				add_siguser(cascade, dsp_pcin);
+				add_siguser(cascade, dsp);
 
-	opmode[5] = State::S0;
-	opmode[4] = State::S1;
-	dsp_pcin->setPort(\OPMODE, opmode);
+				SigSpec opmode = port(dsp_pcin, \OPMODE, Const(0, 7));
+				if (shift17)
+					opmode[6] = State::S1;
+				else
+					opmode[6] = State::S0;
 
-	log_debug("PCOUT -> PCIN cascade for %s -> %s\n", log_id(dsp), log_id(dsp_pcin));
+				opmode[5] = State::S0;
+				opmode[4] = State::S1;
+				dsp_pcin->setPort(\OPMODE, opmode);
 
-	if (nusers(port(dsp_pcin, \PCOUT, SigSpec())) > 1) {
-		log_debug("  Saturated PCIN/PCOUT on %s\n", log_id(dsp_pcin));
-		blacklist(dsp_pcin);
+				log_debug("PCOUT -> PCIN cascade for %s -> %s\n", log_id(dsp), log_id(dsp_pcin));
+			}
+			else {
+				log_debug("Blocking PCOUT -> PCIN cascade for %s -> %s (exceeds max: %d)\n", log_id(dsp), log_id(dsp_pcin), MAX_DSP_CASCADE);
+			}
+
+			dsp = dsp_pcin;
+		}
+
+		did_something = true;
+		accept;
 	}
-	if (nusers(port(dsp, \PCIN, SigSpec())) > 1)  {
-		log_debug("  Saturated PCIN/PCOUT on %s\n", log_id(dsp));
-		blacklist(dsp_pcout);
-	}
+endcode
 
-	did_something = true;
-	accept;
+// ------------------------------------------------------------------
+
+subpattern tail
+arg first
+
+match next
+	select next->type.in(\DSP48E1)
+	select !param(next, \CREG, State::S1).as_bool()
+	select port(next, \OPMODE, Const(0, 7)).extract(4,3) == Const::from_string("011")
+	select nusers(port(next, \C, SigSpec())) > 1
+	select nusers(port(next, \PCIN, SigSpec())) == 0
+	index <SigBit> port(next, \C)[0] === port(chain.back().first, \P)[0]
+	semioptional
+endmatch
+
+match next_shift17
+	if !next_shift17
+	select next_shift17->type.in(\DSP48E1)
+	select !param(next_shift17, \CREG, State::S1).as_bool()
+	select port(next_shift17, \OPMODE, Const(0, 7)).extract(4,3) == Const::from_string("011")
+	select nusers(port(next_shift17, \C, SigSpec())) > 1
+	select nusers(port(next_shift17, \PCIN, SigSpec())) == 0
+	index <SigBit> port(next_shift17, \C)[0] === port(chain.back().first, \P)[17]
+	semioptional
+endmatch
+
+code next
+	if (!next)
+		next = next_shift17;
+	if (next) {
+		chain.emplace_back(next, next_shift17);
+
+		auto unextend = [](const SigSpec &sig) {
+			int i;
+			for (i = GetSize(sig)-1; i > 0; i--)
+				if (sig[i] != sig[i-1])
+					break;
+			// Do not remove non-const sign bit
+			if (sig[i].wire)
+				++i;
+			return sig.extract(0, i);
+		};
+		SigSpec sigC = unextend(port(next, \C));
+
+		// TODO: Cannot use 'reject' since semioptional
+		if (next_shift17) {
+			if (GetSize(sigC)+17 <= GetSize(port(chain.back().first, \P)) &&
+					port(chain.back().first, \P).extract(17, GetSize(sigC)) != sigC)
+				subpattern(tail);
+		}
+		else {
+			if (GetSize(sigC) <= GetSize(port(chain.back().first, \P)) &&
+					port(chain.back().first, \P).extract(0, GetSize(sigC)) != sigC)
+				subpattern(tail);
+
+		}
+	} else {
+		if (GetSize(chain) > GetSize(longest_chain))
+			longest_chain = chain;
+	}
+finally
+	if (next)
+		chain.pop_back();
 endcode
 
 // ##########
 
 pattern xilinx_dsp_cascadeAB
 
-udata <std::function<SigSpec(const SigSpec&)>> unextend
 state <SigBit> clock
 state <SigSpec> sigA sigB
 
@@ -113,8 +146,13 @@ udata <SigBit> dffclock
 udata <Cell*> dff dffcemux dffrstmux
 udata <bool> dffcepol dffrstpol
 
-code
-	unextend = [](const SigSpec &sig) {
+match dspD
+	select dspD->type.in(\DSP48E1)
+	select (param(dspD, \A_INPUT, Const("DIRECT")).decode_string() == "DIRECT" && nusers(port(dspD, \A, SigSpec())) > 1 && nusers(port(dspD, \ACIN, SigSpec())) == 0) || (param(dspD, \B_INPUT, Const("DIRECT")).decode_string() == "DIRECT" && nusers(port(dspD, \B, SigSpec())) > 1 && nusers(port(dspD, \BCIN, SigSpec())) == 0)
+endmatch
+
+code sigA sigB
+	auto unextend = [](const SigSpec &sig) {
 		int i;
 		for (i = GetSize(sig)-1; i > 0; i--)
 			if (sig[i] != sig[i-1])
@@ -124,14 +162,6 @@ code
 			++i;
 		return sig.extract(0, i);
 	};
-endcode
-
-match dspD
-	select dspD->type.in(\DSP48E1)
-	select (param(dspD, \A_INPUT, Const("DIRECT")).decode_string() == "DIRECT" && nusers(port(dspD, \A, SigSpec())) > 1 && nusers(port(dspD, \ACIN, SigSpec())) == 0) || (param(dspD, \B_INPUT, Const("DIRECT")).decode_string() == "DIRECT" && nusers(port(dspD, \B, SigSpec())) > 1 && nusers(port(dspD, \BCIN, SigSpec())) == 0)
-endmatch
-
-code sigA sigB
 	if (param(dspD, \A_INPUT, Const("DIRECT")).decode_string() == "DIRECT")
 		sigA = unextend(port(dspD, \A));
 	if (param(dspD, \B_INPUT, Const("DIRECT")).decode_string() == "DIRECT")
