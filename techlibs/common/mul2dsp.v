@@ -198,7 +198,7 @@ module _80_mul (A, B, Y);
 				if (i == 0)
 					assign partial_sum[i] = partial[i];
 				else
-					assign partial_sum[i] = (partial[i] << i*(`DSP_B_MAXWIDTH_PARTIAL-sign_headroom)) + partial_sum[i-1];
+					assign partial_sum[i] = (partial[i] << (* mul2dsp *) i*(`DSP_B_MAXWIDTH_PARTIAL-sign_headroom)) + (* mul2dsp *) partial_sum[i-1];
 			end
 
 			\$__mul #(
@@ -212,7 +212,7 @@ module _80_mul (A, B, Y);
 				.B(B[B_WIDTH-1 -: last_B_WIDTH]),
 				.Y(last_partial)
 			);
-			assign partial_sum[n] = (last_partial << n*(`DSP_B_MAXWIDTH_PARTIAL-sign_headroom)) + partial_sum[n-1];
+			assign partial_sum[n] = (last_partial << (* mul2dsp *) n*(`DSP_B_MAXWIDTH_PARTIAL-sign_headroom)) + (* mul2dsp *) partial_sum[n-1];
 			assign Y = partial_sum[n];
 		end
 		else begin
