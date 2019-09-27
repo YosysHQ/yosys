@@ -897,8 +897,11 @@ struct BtorWorker
 
 							int sid = get_bv_sid(GetSize(s));
 							int nid = next_nid++;
-							btorf("%d input %d %s\n", nid, sid);
+							btorf("%d input %d\n", nid, sid);
 							nid_width[nid] = GetSize(s);
+
+							for (int j = 0; j < GetSize(s); j++)
+								nidbits.push_back(make_pair(nid, j));
 
 							i += GetSize(s)-1;
 							continue;
