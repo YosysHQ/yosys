@@ -46,11 +46,13 @@ input clk;
 input d;
 output reg q0 = 0;
 output reg q1 = 1;
+output reg qq0 = 0;
 output reg qx;
 
 always @(posedge clk) begin
 	q0 <= d;
 	q1 <= d;
+	qq0 <= q0;
 	qx <= d;
 end
 endmodule
@@ -64,16 +66,20 @@ simplemap
 techmap -map %map
 clean
 # Make sure the parameter was used properly.
-select -assert-count 2 top/t:ffbb
+select -assert-count 3 top/t:ffbb
 select -set ff0 top/w:q0 %ci t:ffbb %i
+select -set ffq0 top/w:qq0 %ci t:ffbb %i
 select -set ffx top/w:qx %ci t:ffbb %i
 select -assert-count 1 @ff0
+select -assert-count 1 @ffq0
 select -assert-count 1 @ffx
 select -assert-count 1 @ff0 r:INIT=1'b0 %i
+select -assert-count 1 @ffq0 r:INIT=1'b0 %i
 select -assert-count 1 @ffx r:INIT=1'bx %i
 select -assert-count 0 top/w:q1 %ci t:ffbb %i
 # Make sure the init values are dropped from the wires iff mapping was performed.
 select -assert-count 0 top/w:q0 a:init %i
+select -assert-count 0 top/w:qq0 a:init %i
 select -assert-count 1 top/w:q1 a:init=1'b1 %i
 select -assert-count 0 top/w:qx a:init %i
 
@@ -84,15 +90,19 @@ simplemap
 techmap -map %map_noremove
 clean
 # Make sure the parameter was used properly.
-select -assert-count 2 top/t:ffbb
+select -assert-count 3 top/t:ffbb
 select -set ff0 top/w:q0 %ci t:ffbb %i
+select -set ffq0 top/w:qq0 %ci t:ffbb %i
 select -set ffx top/w:qx %ci t:ffbb %i
 select -assert-count 1 @ff0
+select -assert-count 1 @ffq0
 select -assert-count 1 @ffx
 select -assert-count 1 @ff0 r:INIT=1'b0 %i
+select -assert-count 1 @ffq0 r:INIT=1'b0 %i
 select -assert-count 1 @ffx r:INIT=1'bx %i
 select -assert-count 0 top/w:q1 %ci t:ffbb %i
 # Make sure the init values are not dropped from the wires.
 select -assert-count 1 top/w:q0 a:init=1'b0 %i
+select -assert-count 1 top/w:qq0 a:init=1'b0 %i
 select -assert-count 1 top/w:q1 a:init=1'b1 %i
 select -assert-count 0 top/w:qx a:init %i
