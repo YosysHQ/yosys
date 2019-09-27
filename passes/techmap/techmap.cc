@@ -935,19 +935,6 @@ struct TechmapWorker
 							for (auto &it2 : it.second)
 								if (!it2.value.is_fully_const())
 									log_error("Techmap yielded config wire %s with non-const value %s.\n", RTLIL::id2cstr(it2.wire->name), log_signal(it2.value));
-						if (it.first.substr(0, 20) == "_TECHMAP_REMOVEINIT_" && techmap_do_cache[tpl]) {
-							for (auto &it2 : it.second) {
-								auto val = it2.value.as_const();
-								auto wirename = RTLIL::escape_id(it.first.substr(20, it.first.size() - 20 - 1));
-								auto it = cell->connections().find(wirename);
-								if (it != cell->connections().end()) {
-									auto sig = sigmap(it->second);
-									for (int i = 0; i < sig.size(); i++)
-										if (val[i] == State::S1)
-											remove_init_bits.insert(sig[i]);
-								}
-							}
-						}
 						techmap_wire_names.erase(it.first);
 					}
 
@@ -971,6 +958,23 @@ struct TechmapWorker
 					log_header(design, "Continuing TECHMAP pass.\n");
 					log_continue = false;
 					mkdebug.off();
+				}
+
+				TechmapWires twd = techmap_find_special_wires(tpl);
+				for (auto &it : twd) {
+					if (it.first.substr(0, 20) == "_TECHMAP_REMOVEINIT_") {
+						for (auto &it2 : it.second) {
+							auto val = it2.value.as_const();
+							auto wirename = RTLIL::escape_id(it.first.substr(20, it.first.size() - 20 - 1));
+							auto it = cell->connections().find(wirename);
+							if (it != cell->connections().end()) {
+								auto sig = sigmap(it->second);
+								for (int i = 0; i < sig.size(); i++)
+									if (val[i] == State::S1)
+										remove_init_bits.insert(sig[i]);
+							}
+						}
+					}
 				}
 
 				if (extern_mode && !in_recursion)
