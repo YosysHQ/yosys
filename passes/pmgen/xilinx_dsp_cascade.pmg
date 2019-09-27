@@ -146,7 +146,7 @@ code next
 endcode
 
 code argQ clock AREG
-	AREG = 0;
+	AREG = -1;
 	if (next) {
 		Cell *prev = std::get<0>(chain.back());
 		if (param(prev, \AREG, 2).as_int() > 0 &&
@@ -175,7 +175,7 @@ reject_AREG:			;
 endcode
 
 code argQ clock BREG
-	BREG = 0;
+	BREG = -1;
 	if (next) {
 		Cell *prev = std::get<0>(chain.back());
 		if (param(prev, \BREG, 2).as_int() > 0 &&
