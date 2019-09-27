@@ -108,8 +108,8 @@ XC6S_CELLS = [
     # Cell('FDRE'),
     # Cell('FDSE'),
     Cell('IDDR2', port_attrs={'C0': ['clkbuf_sink'], 'C1': ['clkbuf_sink']}),
-    Cell('LDCE'),
-    Cell('LDPE'),
+    # Cell('LDCE'),
+    # Cell('LDPE'),
     Cell('ODDR2', port_attrs={'C0': ['clkbuf_sink'], 'C1': ['clkbuf_sink']}),
 
     # Slice/CLB primitives.

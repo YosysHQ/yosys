@@ -5149,36 +5149,6 @@ module IDDR_2CLK (...);
     input S;
 endmodule
 
-module LDCE (...);
-    parameter [0:0] INIT = 1'b0;
-    parameter [0:0] IS_CLR_INVERTED = 1'b0;
-    parameter [0:0] IS_G_INVERTED = 1'b0;
-    parameter MSGON = "TRUE";
-    parameter XON = "TRUE";
-    output Q;
-    (* invertible_pin = "IS_CLR_INVERTED" *)
-    input CLR;
-    input D;
-    (* invertible_pin = "IS_G_INVERTED" *)
-    input G;
-    input GE;
-endmodule
-
-module LDPE (...);
-    parameter [0:0] INIT = 1'b1;
-    parameter [0:0] IS_G_INVERTED = 1'b0;
-    parameter [0:0] IS_PRE_INVERTED = 1'b0;
-    parameter MSGON = "TRUE";
-    parameter XON = "TRUE";
-    output Q;
-    input D;
-    (* invertible_pin = "IS_G_INVERTED" *)
-    input G;
-    input GE;
-    (* invertible_pin = "IS_PRE_INVERTED" *)
-    input PRE;
-endmodule
-
 module ODDR (...);
     parameter DDR_CLK_EDGE = "OPPOSITE_EDGE";
     parameter INIT = 1'b0;
