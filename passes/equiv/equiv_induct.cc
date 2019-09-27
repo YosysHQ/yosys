@@ -162,7 +162,7 @@ struct EquivInductWorker
 
 struct EquivInductPass : public Pass {
 	EquivInductPass() : Pass("equiv_induct", "proving $equiv cells using temporal induction") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -192,7 +192,7 @@ struct EquivInductPass : public Pass {
 		log("after reset.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, Design *design)
+	void execute(std::vector<std::string> args, Design *design) YS_OVERRIDE
 	{
 		int success_counter = 0;
 		bool model_undef = false;

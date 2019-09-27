@@ -127,7 +127,7 @@ void handle_module(RTLIL::Design *design, RTLIL::Module *module)
 
 struct MemoryUnpackPass : public Pass {
 	MemoryUnpackPass() : Pass("memory_unpack", "unpack multi-port memory cells") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -137,7 +137,7 @@ struct MemoryUnpackPass : public Pass {
 		log("$memwr cells. It is the counterpart to the memory_collect pass.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) {
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE {
 		log_header(design, "Executing MEMORY_UNPACK pass (generating $memrd/$memwr cells form $mem cells).\n");
 		extra_args(args, 1, design);
 		for (auto &mod_it : design->modules_)

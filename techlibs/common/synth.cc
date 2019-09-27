@@ -29,7 +29,7 @@ struct SynthPass : public ScriptPass
 {
 	SynthPass() : ScriptPass("synth", "generic synthesis script") { }
 
-	virtual void help() YS_OVERRIDE
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -50,6 +50,9 @@ struct SynthPass : public ScriptPass
 		log("\n");
 		log("    -encfile <file>\n");
 		log("        passed to 'fsm_recode' via 'fsm'\n");
+		log("\n");
+		log("    -lut <k>\n");
+		log("        perform synthesis for a k-LUT architecture.\n");
 		log("\n");
 		log("    -nofsm\n");
 		log("        do not run FSM optimization\n");
@@ -72,16 +75,20 @@ struct SynthPass : public ScriptPass
 		log("        from label is synonymous to 'begin', and empty to label is\n");
 		log("        synonymous to the end of the command list.\n");
 		log("\n");
+		log("    -abc9\n");
+		log("        use new ABC9 flow (EXPERIMENTAL)\n");
+		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
 		log("\n");
 	}
 
-	string top_module, fsm_opts, memory_opts;
+	string top_module, fsm_opts, memory_opts, abc;
 	bool autotop, flatten, noalumacc, nofsm, noabc, noshare;
+	int lut;
 
-	virtual void clear_flags() YS_OVERRIDE
+	void clear_flags() YS_OVERRIDE
 	{
 		top_module.clear();
 		fsm_opts.clear();
@@ -89,13 +96,15 @@ struct SynthPass : public ScriptPass
 
 		autotop = false;
 		flatten = false;
+		lut = 0;
 		noalumacc = false;
 		nofsm = false;
 		noabc = false;
 		noshare = false;
+		abc = "abc";
 	}
 
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		string run_from, run_to;
 		clear_flags();
@@ -130,6 +139,10 @@ struct SynthPass : public ScriptPass
 				flatten = true;
 				continue;
 			}
+			if (args[argidx] == "-lut") {
+				lut = atoi(args[++argidx].c_str());
+				continue;
+			}
 			if (args[argidx] == "-nofsm") {
 				nofsm = true;
 				continue;
@@ -150,12 +163,19 @@ struct SynthPass : public ScriptPass
 				noshare = true;
 				continue;
 			}
+			if (args[argidx] == "-abc9") {
+				abc = "abc9";
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
 		if (!design->full_selection())
-			log_cmd_error("This comannd only operates on fully selected designs!\n");
+			log_cmd_error("This command only operates on fully selected designs!\n");
+
+		if (abc == "abc9" && !lut)
+			log_cmd_error("ABC9 flow only supported for FPGA synthesis (using '-lut' option)\n");
 
 		log_header(design, "Executing SYNTH pass.\n");
 		log_push();
@@ -165,7 +185,7 @@ struct SynthPass : public ScriptPass
 		log_pop();
 	}
 
-	virtual void script() YS_OVERRIDE
+	void script() YS_OVERRIDE
 	{
 		if (check_label("begin"))
 		{
@@ -186,19 +206,25 @@ struct SynthPass : public ScriptPass
 		{
 			run("proc");
 			if (help_mode || flatten)
-				run("flatten", "(if -flatten)");
+				run("flatten", "  (if -flatten)");
 			run("opt_expr");
 			run("opt_clean");
 			run("check");
 			run("opt");
 			run("wreduce");
+			run("peepopt");
+			run("opt_clean");
+			if (help_mode)
+				run("techmap -map +/cmp2lut.v", " (if -lut)");
+			else
+				run(stringf("techmap -map +/cmp2lut.v -D LUT_WIDTH=%d", lut));
 			if (!noalumacc)
-				run("alumacc");
+				run("alumacc", "  (unless -noalumacc)");
 			if (!noshare)
-				run("share");
+				run("share", "    (unless -noshare)");
 			run("opt");
 			if (!nofsm)
-				run("fsm" + fsm_opts);
+				run("fsm" + fsm_opts, "      (unless -nofsm)");
 			run("opt -fast");
 			run("memory -nomap" + memory_opts);
 			run("opt_clean");
@@ -210,12 +236,33 @@ struct SynthPass : public ScriptPass
 			run("memory_map");
 			run("opt -full");
 			run("techmap");
+			if (help_mode)
+			{
+				run("techmap -map +/gate2lut.v", "(if -noabc and -lut)");
+				run("clean; opt_lut", "           (if -noabc and -lut)");
+			}
+			else if (noabc && lut)
+			{
+				run(stringf("techmap -map +/gate2lut.v -D LUT_WIDTH=%d", lut));
+				run("clean; opt_lut");
+			}
 			run("opt -fast");
 
 			if (!noabc) {
 		#ifdef YOSYS_ENABLE_ABC
-				run("abc -fast");
-				run("opt -fast");
+				if (help_mode)
+				{
+					run(abc + " -fast", "       (unless -noabc, unless -lut)");
+					run(abc + " -fast -lut k", "(unless -noabc, if -lut)");
+				}
+				else
+				{
+					if (lut)
+						run(stringf("%s -fast -lut %d", abc.c_str(), lut));
+					else
+						run(abc + " -fast");
+				}
+				run("opt -fast", "       (unless -noabc)");
 		#endif
 			}
 		}

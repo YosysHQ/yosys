@@ -70,9 +70,9 @@ struct Macc
 				while (GetSize(port.in_b) > 1 && port.in_b[GetSize(port.in_b)-1] == port.in_b[GetSize(port.in_b)-2])
 					port.in_b.remove(GetSize(port.in_b)-1);
 			} else {
-				while (GetSize(port.in_a) > 1 && port.in_a[GetSize(port.in_a)-1] == RTLIL::S0)
+				while (GetSize(port.in_a) > 1 && port.in_a[GetSize(port.in_a)-1] == State::S0)
 					port.in_a.remove(GetSize(port.in_a)-1);
-				while (GetSize(port.in_b) > 1 && port.in_b[GetSize(port.in_b)-1] == RTLIL::S0)
+				while (GetSize(port.in_b) > 1 && port.in_b[GetSize(port.in_b)-1] == State::S0)
 					port.in_b.remove(GetSize(port.in_b)-1);
 			}
 
@@ -80,9 +80,9 @@ struct Macc
 		}
 
 		for (auto &bit : bit_ports)
-			if (bit == RTLIL::S1)
+			if (bit == State::S1)
 				off = const_add(off, RTLIL::Const(1, width), false, false, width);
-			else if (bit != RTLIL::S0)
+			else if (bit != State::S0)
 				new_bit_ports.append(bit);
 
 		if (off.as_bool()) {
@@ -99,24 +99,24 @@ struct Macc
 
 	void from_cell(RTLIL::Cell *cell)
 	{
-		RTLIL::SigSpec port_a = cell->getPort("\\A");
+		RTLIL::SigSpec port_a = cell->getPort(ID::A);
 
 		ports.clear();
-		bit_ports = cell->getPort("\\B");
+		bit_ports = cell->getPort(ID::B);
 
-		std::vector<RTLIL::State> config_bits = cell->getParam("\\CONFIG").bits;
+		std::vector<RTLIL::State> config_bits = cell->getParam(ID(CONFIG)).bits;
 		int config_cursor = 0;
 
 #ifndef NDEBUG
-		int config_width = cell->getParam("\\CONFIG_WIDTH").as_int();
+		int config_width = cell->getParam(ID(CONFIG_WIDTH)).as_int();
 		log_assert(GetSize(config_bits) >= config_width);
 #endif
 
 		int num_bits = 0;
-		if (config_bits[config_cursor++] == RTLIL::S1) num_bits |= 1;
-		if (config_bits[config_cursor++] == RTLIL::S1) num_bits |= 2;
-		if (config_bits[config_cursor++] == RTLIL::S1) num_bits |= 4;
-		if (config_bits[config_cursor++] == RTLIL::S1) num_bits |= 8;
+		if (config_bits[config_cursor++] == State::S1) num_bits |= 1;
+		if (config_bits[config_cursor++] == State::S1) num_bits |= 2;
+		if (config_bits[config_cursor++] == State::S1) num_bits |= 4;
+		if (config_bits[config_cursor++] == State::S1) num_bits |= 8;
 
 		int port_a_cursor = 0;
 		while (port_a_cursor < GetSize(port_a))
@@ -124,12 +124,12 @@ struct Macc
 			log_assert(config_cursor + 2 + 2*num_bits <= config_width);
 
 			port_t this_port;
-			this_port.is_signed = config_bits[config_cursor++] == RTLIL::S1;
-			this_port.do_subtract = config_bits[config_cursor++] == RTLIL::S1;
+			this_port.is_signed = config_bits[config_cursor++] == State::S1;
+			this_port.do_subtract = config_bits[config_cursor++] == State::S1;
 
 			int size_a = 0;
 			for (int i = 0; i < num_bits; i++)
-				if (config_bits[config_cursor++] == RTLIL::S1)
+				if (config_bits[config_cursor++] == State::S1)
 					size_a |= 1 << i;
 
 			this_port.in_a = port_a.extract(port_a_cursor, size_a);
@@ -137,7 +137,7 @@ struct Macc
 
 			int size_b = 0;
 			for (int i = 0; i < num_bits; i++)
-				if (config_bits[config_cursor++] == RTLIL::S1)
+				if (config_bits[config_cursor++] == State::S1)
 					size_b |= 1 << i;
 
 			this_port.in_b = port_a.extract(port_a_cursor, size_b);
@@ -166,43 +166,43 @@ struct Macc
 			num_bits++, max_size /= 2;
 
 		log_assert(num_bits < 16);
-		config_bits.push_back(num_bits & 1 ? RTLIL::S1 : RTLIL::S0);
-		config_bits.push_back(num_bits & 2 ? RTLIL::S1 : RTLIL::S0);
-		config_bits.push_back(num_bits & 4 ? RTLIL::S1 : RTLIL::S0);
-		config_bits.push_back(num_bits & 8 ? RTLIL::S1 : RTLIL::S0);
+		config_bits.push_back(num_bits & 1 ? State::S1 : State::S0);
+		config_bits.push_back(num_bits & 2 ? State::S1 : State::S0);
+		config_bits.push_back(num_bits & 4 ? State::S1 : State::S0);
+		config_bits.push_back(num_bits & 8 ? State::S1 : State::S0);
 
 		for (auto &port : ports)
 		{
 			if (GetSize(port.in_a) == 0)
 				continue;
 
-			config_bits.push_back(port.is_signed ? RTLIL::S1 : RTLIL::S0);
-			config_bits.push_back(port.do_subtract ? RTLIL::S1 : RTLIL::S0);
+			config_bits.push_back(port.is_signed ? State::S1 : State::S0);
+			config_bits.push_back(port.do_subtract ? State::S1 : State::S0);
 
 			int size_a = GetSize(port.in_a);
 			for (int i = 0; i < num_bits; i++)
-				config_bits.push_back(size_a & (1 << i) ? RTLIL::S1 : RTLIL::S0);
+				config_bits.push_back(size_a & (1 << i) ? State::S1 : State::S0);
 
 			int size_b = GetSize(port.in_b);
 			for (int i = 0; i < num_bits; i++)
-				config_bits.push_back(size_b & (1 << i) ? RTLIL::S1 : RTLIL::S0);
+				config_bits.push_back(size_b & (1 << i) ? State::S1 : State::S0);
 
 			port_a.append(port.in_a);
 			port_a.append(port.in_b);
 		}
 
-		cell->setPort("\\A", port_a);
-		cell->setPort("\\B", bit_ports);
-		cell->setParam("\\CONFIG", config_bits);
-		cell->setParam("\\CONFIG_WIDTH", GetSize(config_bits));
-		cell->setParam("\\A_WIDTH", GetSize(port_a));
-		cell->setParam("\\B_WIDTH", GetSize(bit_ports));
+		cell->setPort(ID::A, port_a);
+		cell->setPort(ID::B, bit_ports);
+		cell->setParam(ID(CONFIG), config_bits);
+		cell->setParam(ID(CONFIG_WIDTH), GetSize(config_bits));
+		cell->setParam(ID(A_WIDTH), GetSize(port_a));
+		cell->setParam(ID(B_WIDTH), GetSize(bit_ports));
 	}
 
 	bool eval(RTLIL::Const &result) const
 	{
 		for (auto &bit : result.bits)
-			bit = RTLIL::S0;
+			bit = State::S0;
 
 		for (auto &port : ports)
 		{

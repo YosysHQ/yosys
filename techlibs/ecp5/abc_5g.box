@@ -1,0 +1,43 @@
+# NB: Inputs/Outputs must be ordered alphabetically
+#     (with exceptions for carry in/out)
+
+# Box 1 : CCU2C (2xCARRY + 2xLUT4)
+# Outputs: S0, S1, COUT
+#   (NB: carry chain input/output must be last
+#        input/output and bus has been moved
+#        there overriding the otherwise
+#        alphabetical ordering)
+# name  ID   w/b   ins    outs
+CCU2C   1      1   9      3
+
+#A0   A1   B0   B1   C0    C1  D0   D1   CIN
+379  -    379  -    275   -    141  -    257
+630  379  630  379  526   275  392  141  273
+516  516  516  516  412   412  278  278  43
+
+# Box 2 : TRELLIS_DPR16X4_COMB (16x4 dist ram)
+# Outputs: DO0, DO1, DO2, DO3
+# name               ID  w/b   ins   outs
+$__ABC_DPR16X4_COMB  2     0   8    4
+
+#A0   A1   A2   A3   RAD0   RAD1   RAD2   RAD3
+0     0    0    0    141    379    275    379
+0     0    0    0    141    379    275    379
+0     0    0    0    141    379    275    379
+0     0    0    0    141    379    275    379
+
+# Box 3 : PFUMX (MUX2)
+# Outputs: Z
+# name  ID   w/b   ins    outs
+PFUMX   3    1     3      1
+
+#ALUT  BLUT  C0
+98     98    151
+
+# Box 4 : L6MUX21 (MUX2)
+# Outputs: Z
+# name   ID   w/b   ins    outs
+L6MUX21  4    1     3      1
+
+#D0    D1    SD
+140    141   148

@@ -108,6 +108,7 @@ struct SigSnippets
 
 struct SnippetSwCache
 {
+	dict<RTLIL::SwitchRule*, pool<RTLIL::SigBit>, hash_ptr_ops> full_case_bits_cache;
 	dict<RTLIL::SwitchRule*, pool<int>, hash_ptr_ops> cache;
 	const SigSnippets *snippets;
 	int current_snippet;
@@ -143,7 +144,13 @@ struct SnippetSwCache
 	}
 };
 
-RTLIL::SigSpec gen_cmp(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const std::vector<RTLIL::SigSpec> &compare, RTLIL::SwitchRule *sw, bool ifxmode)
+void apply_attrs(RTLIL::Cell *cell, const RTLIL::SwitchRule *sw, const RTLIL::CaseRule *cs)
+{
+	cell->attributes = sw->attributes;
+	cell->add_strpool_attribute("\\src", cs->get_strpool_attribute("\\src"));
+}
+
+RTLIL::SigSpec gen_cmp(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const std::vector<RTLIL::SigSpec> &compare, RTLIL::SwitchRule *sw, RTLIL::CaseRule *cs, bool ifxmode)
 {
 	std::stringstream sstr;
 	sstr << "$procmux$" << (autoidx++);
@@ -172,7 +179,7 @@ RTLIL::SigSpec gen_cmp(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const s
 		{
 			// create compare cell
 			RTLIL::Cell *eq_cell = mod->addCell(stringf("%s_CMP%d", sstr.str().c_str(), cmp_wire->width), ifxmode ? "$eqx" : "$eq");
-			eq_cell->attributes = sw->attributes;
+			apply_attrs(eq_cell, sw, cs);
 
 			eq_cell->parameters["\\A_SIGNED"] = RTLIL::Const(0);
 			eq_cell->parameters["\\B_SIGNED"] = RTLIL::Const(0);
@@ -198,7 +205,7 @@ RTLIL::SigSpec gen_cmp(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const s
 
 		// reduce cmp vector to one logic signal
 		RTLIL::Cell *any_cell = mod->addCell(sstr.str() + "_ANY", "$reduce_or");
-		any_cell->attributes = sw->attributes;
+		apply_attrs(any_cell, sw, cs);
 
 		any_cell->parameters["\\A_SIGNED"] = RTLIL::Const(0);
 		any_cell->parameters["\\A_WIDTH"] = RTLIL::Const(cmp_wire->width);
@@ -211,7 +218,7 @@ RTLIL::SigSpec gen_cmp(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const s
 	return RTLIL::SigSpec(ctrl_wire);
 }
 
-RTLIL::SigSpec gen_mux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const std::vector<RTLIL::SigSpec> &compare, RTLIL::SigSpec when_signal, RTLIL::SigSpec else_signal, RTLIL::Cell *&last_mux_cell, RTLIL::SwitchRule *sw, bool ifxmode)
+RTLIL::SigSpec gen_mux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const std::vector<RTLIL::SigSpec> &compare, RTLIL::SigSpec when_signal, RTLIL::SigSpec else_signal, RTLIL::Cell *&last_mux_cell, RTLIL::SwitchRule *sw, RTLIL::CaseRule *cs, bool ifxmode)
 {
 	log_assert(when_signal.size() == else_signal.size());
 
@@ -223,7 +230,7 @@ RTLIL::SigSpec gen_mux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const s
 		return when_signal;
 
 	// compare results
-	RTLIL::SigSpec ctrl_sig = gen_cmp(mod, signal, compare, sw, ifxmode);
+	RTLIL::SigSpec ctrl_sig = gen_cmp(mod, signal, compare, sw, cs, ifxmode);
 	if (ctrl_sig.size() == 0)
 		return when_signal;
 	log_assert(ctrl_sig.size() == 1);
@@ -233,7 +240,7 @@ RTLIL::SigSpec gen_mux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const s
 
 	// create the multiplexer itself
 	RTLIL::Cell *mux_cell = mod->addCell(sstr.str(), "$mux");
-	mux_cell->attributes = sw->attributes;
+	apply_attrs(mux_cell, sw, cs);
 
 	mux_cell->parameters["\\WIDTH"] = RTLIL::Const(when_signal.size());
 	mux_cell->setPort("\\A", else_signal);
@@ -245,7 +252,7 @@ RTLIL::SigSpec gen_mux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const s
 	return RTLIL::SigSpec(result_wire);
 }
 
-void append_pmux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const std::vector<RTLIL::SigSpec> &compare, RTLIL::SigSpec when_signal, RTLIL::Cell *last_mux_cell, RTLIL::SwitchRule *sw, bool ifxmode)
+void append_pmux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const std::vector<RTLIL::SigSpec> &compare, RTLIL::SigSpec when_signal, RTLIL::Cell *last_mux_cell, RTLIL::SwitchRule *sw, RTLIL::CaseRule *cs, bool ifxmode)
 {
 	log_assert(last_mux_cell != NULL);
 	log_assert(when_signal.size() == last_mux_cell->getPort("\\A").size());
@@ -253,7 +260,7 @@ void append_pmux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const std::ve
 	if (when_signal == last_mux_cell->getPort("\\A"))
 		return;
 
-	RTLIL::SigSpec ctrl_sig = gen_cmp(mod, signal, compare, sw, ifxmode);
+	RTLIL::SigSpec ctrl_sig = gen_cmp(mod, signal, compare, sw, cs, ifxmode);
 	log_assert(ctrl_sig.size() == 1);
 	last_mux_cell->type = "$pmux";
 
@@ -266,6 +273,49 @@ void append_pmux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const std::ve
 	last_mux_cell->setPort("\\B", new_b);
 
 	last_mux_cell->parameters["\\S_WIDTH"] = last_mux_cell->getPort("\\S").size();
+}
+
+const pool<SigBit> &get_full_case_bits(SnippetSwCache &swcache, RTLIL::SwitchRule *sw)
+{
+	if (!swcache.full_case_bits_cache.count(sw))
+	{
+		pool<SigBit> bits;
+
+		if (sw->get_bool_attribute("\\full_case"))
+		{
+			bool first_case = true;
+
+			for (auto cs : sw->cases)
+			{
+				pool<SigBit> case_bits;
+
+				for (auto it : cs->actions) {
+					for (auto bit : it.first)
+						case_bits.insert(bit);
+				}
+
+				for (auto it : cs->switches) {
+					for (auto bit : get_full_case_bits(swcache, it))
+						case_bits.insert(bit);
+				}
+
+				if (first_case) {
+					first_case = false;
+					bits = case_bits;
+				} else {
+					pool<SigBit> new_bits;
+					for (auto bit : bits)
+						if (case_bits.count(bit))
+							new_bits.insert(bit);
+					bits.swap(new_bits);
+				}
+			}
+		}
+
+		bits.swap(swcache.full_case_bits_cache[sw]);
+	}
+
+	return swcache.full_case_bits_cache.at(sw);
 }
 
 RTLIL::SigSpec signal_to_mux_tree(RTLIL::Module *mod, SnippetSwCache &swcache, dict<RTLIL::SwitchRule*, bool, hash_ptr_ops> &swpara,
@@ -337,6 +387,12 @@ RTLIL::SigSpec signal_to_mux_tree(RTLIL::Module *mod, SnippetSwCache &swcache, d
 			}
 		}
 
+		// mask default bits that are irrelevant because the output is driven by a full case
+		const pool<SigBit> &full_case_bits = get_full_case_bits(swcache, sw);
+		for (int i = 0; i < GetSize(sig); i++)
+			if (full_case_bits.count(sig[i]))
+				result[i] = State::Sx;
+
 		// evaluate in reverse order to give the first entry the top priority
 		RTLIL::SigSpec initial_val = result;
 		RTLIL::Cell *last_mux_cell = NULL;
@@ -345,9 +401,9 @@ RTLIL::SigSpec signal_to_mux_tree(RTLIL::Module *mod, SnippetSwCache &swcache, d
 			RTLIL::CaseRule *cs2 = sw->cases[case_idx];
 			RTLIL::SigSpec value = signal_to_mux_tree(mod, swcache, swpara, cs2, sig, initial_val, ifxmode);
 			if (last_mux_cell && pgroups[case_idx] == pgroups[case_idx+1])
-				append_pmux(mod, sw->signal, cs2->compare, value, last_mux_cell, sw, ifxmode);
+				append_pmux(mod, sw->signal, cs2->compare, value, last_mux_cell, sw, cs2, ifxmode);
 			else
-				result = gen_mux(mod, sw->signal, cs2->compare, value, result, last_mux_cell, sw, ifxmode);
+				result = gen_mux(mod, sw->signal, cs2->compare, value, result, last_mux_cell, sw, cs2, ifxmode);
 		}
 	}
 
@@ -382,7 +438,7 @@ void proc_mux(RTLIL::Module *mod, RTLIL::Process *proc, bool ifxmode)
 
 struct ProcMuxPass : public Pass {
 	ProcMuxPass() : Pass("proc_mux", "convert decision trees to multiplexers") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -396,7 +452,7 @@ struct ProcMuxPass : public Pass {
 		log("        'case' expressions and 'if' conditions.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		bool ifxmode = false;
 		log_header(design, "Executing PROC_MUX pass (convert decision trees to multiplexers).\n");

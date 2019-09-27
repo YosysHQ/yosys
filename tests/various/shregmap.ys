@@ -1,0 +1,33 @@
+read_verilog shregmap.v
+design -save read
+
+design -copy-to model $__SHREG_DFF_P_
+hierarchy -top shregmap_static_test
+prep
+design -save gold
+
+techmap
+shregmap -init
+
+opt
+
+# stat
+# show -width
+select -assert-count 1 t:$_DFF_P_
+select -assert-count 2 t:$__SHREG_DFF_P_
+
+design -stash gate
+
+design -import gold -as gold
+design -import gate -as gate
+design -copy-from model -as $__SHREG_DFF_P_ \$__SHREG_DFF_P_
+prep
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports -seq 5 miter
+
+#design -load gold
+#stat
+
+#design -load gate
+#stat

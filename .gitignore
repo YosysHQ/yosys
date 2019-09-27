@@ -2,6 +2,9 @@
 *.d
 .*.swp
 *.gch
+*.gcda
+*.gcno
+__pycache__
 /.cproject
 /.project
 /.settings
@@ -10,6 +13,8 @@
 /qtcreator.config
 /qtcreator.creator
 /qtcreator.creator.user
+/coverage.info
+/coverage_html
 /Makefile.conf
 /abc
 /viz.js
@@ -20,8 +25,12 @@
 /yosys-abc.exe
 /yosys-config
 /yosys-smtbmc
+/yosys-smtbmc.exe
+/yosys-smtbmc-script.py
 /yosys-filterlib
 /yosys-filterlib.exe
+/kernel/*.pyh
+/kernel/python_wrappers.cc
 /kernel/version_*.cc
 /share
 /yosys-win32-mxebin-*
@@ -30,3 +39,4 @@
 /libyosys.so
 /tests/unit/bintest/
 /tests/unit/objtest/
+/tests/ystests

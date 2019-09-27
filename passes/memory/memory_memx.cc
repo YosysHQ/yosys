@@ -28,7 +28,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct MemoryMemxPass : public Pass {
 	MemoryMemxPass() : Pass("memory_memx", "emulate vlog sim behavior for mem ports") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -38,7 +38,7 @@ struct MemoryMemxPass : public Pass {
 		log("behavior for out-of-bounds memory reads and writes.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) {
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE {
 		log_header(design, "Executing MEMORY_MEMX pass (converting $mem cells to logic and flip-flops).\n");
 		extra_args(args, 1, design);
 

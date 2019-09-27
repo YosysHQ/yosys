@@ -90,7 +90,7 @@ struct EdifNames
 
 struct EdifBackend : public Backend {
 	EdifBackend() : Backend("edif", "write design to EDIF netlist file") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -106,6 +106,13 @@ struct EdifBackend : public Backend {
 		log("        if the design contains constant nets. use \"hilomap\" to map to custom\n");
 		log("        constant drivers first)\n");
 		log("\n");
+		log("    -gndvccy\n");
+		log("        create \"GND\" and \"VCC\" cells with \"Y\" outputs. (the default is \"G\"\n");
+		log("        for \"GND\" and \"P\" for \"VCC\".)\n");
+		log("\n");
+		log("    -attrprop\n");
+		log("        create EDIF properties for cell attributes\n");
+		log("\n");
 		log("    -pvector {par|bra|ang}\n");
 		log("        sets the delimiting character for module port rename clauses to\n");
 		log("        parentheses, square brackets, or angle brackets.\n");
@@ -116,13 +123,14 @@ struct EdifBackend : public Backend {
 		log("is targeted.\n");
 		log("\n");
 	}
-	virtual void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing EDIF backend.\n");
 		std::string top_module_name;
 		bool port_rename = false;
+		bool attr_properties = false;
 		std::map<RTLIL::IdString, std::map<RTLIL::IdString, int>> lib_cell_ports;
-		bool nogndvcc = false;
+		bool nogndvcc = false, gndvccy = false;
 		CellTypes ct(design);
 		EdifNames edif_names;
 
@@ -135,6 +143,14 @@ struct EdifBackend : public Backend {
 			}
 			if (args[argidx] == "-nogndvcc") {
 				nogndvcc = true;
+				continue;
+			}
+			if (args[argidx] == "-gndvccy") {
+				gndvccy = true;
+				continue;
+			}
+			if (args[argidx] == "-attrprop") {
+				attr_properties = true;
 				continue;
 			}
 			if (args[argidx] == "-pvector" && argidx+1 < args.size()) {
@@ -162,7 +178,7 @@ struct EdifBackend : public Backend {
 		for (auto module_it : design->modules_)
 		{
 			RTLIL::Module *module = module_it.second;
-			if (module->get_bool_attribute("\\blackbox"))
+			if (module->get_blackbox_attribute())
 				continue;
 
 			if (top_module_name.empty())
@@ -176,7 +192,7 @@ struct EdifBackend : public Backend {
 			for (auto cell_it : module->cells_)
 			{
 				RTLIL::Cell *cell = cell_it.second;
-				if (!design->modules_.count(cell->type) || design->modules_.at(cell->type)->get_bool_attribute("\\blackbox")) {
+				if (!design->modules_.count(cell->type) || design->modules_.at(cell->type)->get_blackbox_attribute()) {
 					lib_cell_ports[cell->type];
 					for (auto p : cell->connections())
 						lib_cell_ports[cell->type][p.first] = GetSize(p.second);
@@ -203,7 +219,7 @@ struct EdifBackend : public Backend {
 			*f << stringf("      (cellType GENERIC)\n");
 			*f << stringf("      (view VIEW_NETLIST\n");
 			*f << stringf("        (viewType NETLIST)\n");
-			*f << stringf("        (interface (port G (direction OUTPUT)))\n");
+			*f << stringf("        (interface (port %c (direction OUTPUT)))\n", gndvccy ? 'Y' : 'G');
 			*f << stringf("      )\n");
 			*f << stringf("    )\n");
 
@@ -211,7 +227,7 @@ struct EdifBackend : public Backend {
 			*f << stringf("      (cellType GENERIC)\n");
 			*f << stringf("      (view VIEW_NETLIST\n");
 			*f << stringf("        (viewType NETLIST)\n");
-			*f << stringf("        (interface (port P (direction OUTPUT)))\n");
+			*f << stringf("        (interface (port %c (direction OUTPUT)))\n", gndvccy ? 'Y' : 'P');
 			*f << stringf("      )\n");
 			*f << stringf("    )\n");
 		}
@@ -286,7 +302,7 @@ struct EdifBackend : public Backend {
 		*f << stringf("    (technology (numberDefinition))\n");
 		for (auto module : sorted_modules)
 		{
-			if (module->get_bool_attribute("\\blackbox"))
+			if (module->get_blackbox_attribute())
 				continue;
 
 			SigMap sigmap(module);
@@ -332,24 +348,33 @@ struct EdifBackend : public Backend {
 				*f << stringf("          (instance %s\n", EDIF_DEF(cell->name));
 				*f << stringf("            (viewRef VIEW_NETLIST (cellRef %s%s))", EDIF_REF(cell->type),
 						lib_cell_ports.count(cell->type) > 0 ? " (libraryRef LIB)" : "");
-				for (auto &p : cell->parameters)
-					if ((p.second.flags & RTLIL::CONST_FLAG_STRING) != 0)
-						*f << stringf("\n            (property %s (string \"%s\"))", EDIF_DEF(p.first), p.second.decode_string().c_str());
-					else if (p.second.bits.size() <= 32 && RTLIL::SigSpec(p.second).is_fully_def())
-						*f << stringf("\n            (property %s (integer %u))", EDIF_DEF(p.first), p.second.as_int());
+
+				auto add_prop = [&](IdString name, Const val) {
+					if ((val.flags & RTLIL::CONST_FLAG_STRING) != 0)
+						*f << stringf("\n            (property %s (string \"%s\"))", EDIF_DEF(name), val.decode_string().c_str());
+					else if (val.bits.size() <= 32 && RTLIL::SigSpec(val).is_fully_def())
+						*f << stringf("\n            (property %s (integer %u))", EDIF_DEF(name), val.as_int());
 					else {
 						std::string hex_string = "";
-						for (size_t i = 0; i < p.second.bits.size(); i += 4) {
+						for (size_t i = 0; i < val.bits.size(); i += 4) {
 							int digit_value = 0;
-							if (i+0 < p.second.bits.size() && p.second.bits.at(i+0) == RTLIL::State::S1) digit_value |= 1;
-							if (i+1 < p.second.bits.size() && p.second.bits.at(i+1) == RTLIL::State::S1) digit_value |= 2;
-							if (i+2 < p.second.bits.size() && p.second.bits.at(i+2) == RTLIL::State::S1) digit_value |= 4;
-							if (i+3 < p.second.bits.size() && p.second.bits.at(i+3) == RTLIL::State::S1) digit_value |= 8;
+							if (i+0 < val.bits.size() && val.bits.at(i+0) == RTLIL::State::S1) digit_value |= 1;
+							if (i+1 < val.bits.size() && val.bits.at(i+1) == RTLIL::State::S1) digit_value |= 2;
+							if (i+2 < val.bits.size() && val.bits.at(i+2) == RTLIL::State::S1) digit_value |= 4;
+							if (i+3 < val.bits.size() && val.bits.at(i+3) == RTLIL::State::S1) digit_value |= 8;
 							char digit_str[2] = { "0123456789abcdef"[digit_value], 0 };
 							hex_string = std::string(digit_str) + hex_string;
 						}
-						*f << stringf("\n            (property %s (string \"%d'h%s\"))", EDIF_DEF(p.first), GetSize(p.second.bits), hex_string.c_str());
+						*f << stringf("\n            (property %s (string \"%d'h%s\"))", EDIF_DEF(name), GetSize(val.bits), hex_string.c_str());
 					}
+				};
+
+				for (auto &p : cell->parameters)
+					add_prop(p.first, p.second);
+				if (attr_properties)
+					for (auto &p : cell->attributes)
+						add_prop(p.first, p.second);
+
 				*f << stringf(")\n");
 				for (auto &p : cell->connections()) {
 					RTLIL::SigSpec sig = sigmap(p.second);
@@ -403,9 +428,9 @@ struct EdifBackend : public Backend {
 					if (nogndvcc)
 						log_error("Design contains constant nodes (map with \"hilomap\" first).\n");
 					if (sig == RTLIL::State::S0)
-						*f << stringf("            (portRef G (instanceRef GND))\n");
+						*f << stringf("            (portRef %c (instanceRef GND))\n", gndvccy ? 'Y' : 'G');
 					if (sig == RTLIL::State::S1)
-						*f << stringf("            (portRef P (instanceRef VCC))\n");
+						*f << stringf("            (portRef %c (instanceRef VCC))\n", gndvccy ? 'Y' : 'P');
 				}
 				*f << stringf("          ))\n");
 			}

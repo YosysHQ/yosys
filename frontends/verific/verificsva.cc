@@ -357,7 +357,7 @@ struct SvaFsm
 		for (int i = 0; i < GetSize(nodes); i++)
 		{
 			if (next_state_sig[i] != State::S0) {
-				clocking.addDff(NEW_ID, next_state_sig[i], state_wire[i], Const(0, 1));
+				clocking.addDff(NEW_ID, next_state_sig[i], state_wire[i], State::S0);
 			} else {
 				module->connect(state_wire[i], State::S0);
 			}
@@ -466,13 +466,14 @@ struct SvaFsm
 
 		dnode.ctrl.sort_and_unify();
 
-		if (GetSize(dnode.ctrl) > 16) {
+		if (GetSize(dnode.ctrl) > verific_sva_fsm_limit) {
 			if (verific_verbose >= 2) {
 				log("    detected state explosion in DFSM generation:\n");
 				dump();
 				log("      ctrl signal: %s\n", log_signal(dnode.ctrl));
 			}
-			log_error("SVA DFSM state ctrl signal has %d (>16) bits. Stopping to prevent exponential design size explosion.\n", GetSize(dnode.ctrl));
+			log_error("SVA DFSM state ctrl signal has %d (>%d) bits. Stopping to prevent exponential design size explosion.\n",
+					GetSize(dnode.ctrl), verific_sva_fsm_limit);
 		}
 
 		for (int i = 0; i < (1 << GetSize(dnode.ctrl)); i++)
@@ -826,9 +827,9 @@ struct SvaFsm
 
 			for (auto &it : nodes[i].edges) {
 				if (it.second != State::S1)
-					log("          egde %s -> %d\n", log_signal(it.second), it.first);
+					log("          edge %s -> %d\n", log_signal(it.second), it.first);
 				else
-					log("          egde -> %d\n", it.first);
+					log("          edge -> %d\n", it.first);
 			}
 
 			for (auto &it : nodes[i].links) {
@@ -855,9 +856,9 @@ struct SvaFsm
 
 			for (auto &it : unodes[i].edges) {
 				if (!it.second.empty())
-					log("          egde %s -> %d\n", log_signal(it.second), it.first);
+					log("          edge %s -> %d\n", log_signal(it.second), it.first);
 				else
-					log("          egde -> %d\n", it.first);
+					log("          edge -> %d\n", it.first);
 			}
 
 			for (auto &ctrl : unodes[i].accept) {
@@ -1517,9 +1518,11 @@ struct VerificSvaImporter
 
 			Instance *consequent_inst = net_to_ast_driver(consequent_net);
 
-			if (consequent_inst->Type() != PRIM_SVA_S_EVENTUALLY && consequent_inst->Type() != PRIM_SVA_EVENTUALLY) {
+			if (consequent_inst == nullptr)
 				return false;
-			}
+
+			if (consequent_inst->Type() != PRIM_SVA_S_EVENTUALLY && consequent_inst->Type() != PRIM_SVA_EVENTUALLY)
+				return false;
 
 			if (mode_cover || mode_trigger)
 				parser_error(consequent_inst);
@@ -1663,7 +1666,20 @@ struct VerificSvaImporter
 				log("  importing SVA property at root cell %s (%s) at %s:%d.\n", root->Name(), root->View()->Owner()->Name(),
 						LineFile::GetFileName(root->Linefile()), LineFile::GetLineNo(root->Linefile()));
 
-			RTLIL::IdString root_name = module->uniquify(importer->mode_names || root->IsUserDeclared() ? RTLIL::escape_id(root->Name()) : NEW_ID);
+			bool is_user_declared = root->IsUserDeclared();
+
+			// FIXME
+			if (!is_user_declared) {
+				const char *name = root->Name();
+				for (int i = 0; name[i]; i++) {
+					if (i ? (name[i] < '0' || name[i] > '9') : (name[i] != 'i')) {
+						is_user_declared = true;
+						break;
+					}
+				}
+			}
+
+			RTLIL::IdString root_name = module->uniquify(importer->mode_names || is_user_declared ? RTLIL::escape_id(root->Name()) : NEW_ID);
 
 			// parse SVA sequence into trigger signal
 

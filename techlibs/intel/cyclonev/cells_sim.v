@@ -54,7 +54,7 @@ module cyclonev_lcell_comb
    // Internal variables
    // Sub mask for fragmented LUTs
    wire [15:0] mask_a, mask_b, mask_c, mask_d;
-   // Independant output for fragmented LUTs
+   // Independent output for fragmented LUTs
    wire        output_0, output_1, output_2, output_3;
    // Extended mode uses mux to define the output
    wire        mux_0, mux_1;
@@ -85,7 +85,7 @@ module cyclonev_lcell_comb
       begin
          upper_lut_value = lut4(mask[31:16], dataa, datab, datac, datad);
          lower_lut_value = lut4(mask[15:0], dataa, datab, datac, datad);
-         lut5            = (datae) ? upper_mask_value : lower_mask_value;
+         lut5            = (datae) ? upper_lut_value : lower_lut_value;
       end
    endfunction // lut5
 
@@ -95,15 +95,16 @@ module cyclonev_lcell_comb
       input        dataa, datab, datac, datad, datae, dataf;
       reg          upper_lut_value;
       reg          lower_lut_value;
+      reg          out_0, out_1, out_2, out_3;
       begin
          upper_lut_value = lut5(mask[63:32], dataa, datab, datac, datad, datae);
          lower_lut_value = lut5(mask[31:0], dataa, datab, datac, datad, datae);
-         lut6            = (dataf) ?  upper_mask_value : lower_mask_value;
+         lut6            = (dataf) ?  upper_lut_value : lower_lut_value;
       end
    endfunction // lut6
 
    assign {mask_a, mask_b, mask_c, mask_d} = {lut_mask[15:0], lut_mask[31:16], lut_mask[47:32], lut_mask[63:48]};
-
+`ifdef ADVANCED_ALM
    always @(*) begin
       if(extended_lut == "on")
         shared_lut_alm = datag;
@@ -115,6 +116,11 @@ module cyclonev_lcell_comb
       out_2 = lut4(mask_c, dataa, datab, datac, datad);
       out_3 = lut4(mask_d, dataa, datab, shared_lut_alm, datad);
    end
+`else
+   `ifdef DEBUG
+       initial $display("Advanced ALM lut combine is not implemented yet");
+   `endif
+`endif
 endmodule // cyclonev_lcell_comb
 
 

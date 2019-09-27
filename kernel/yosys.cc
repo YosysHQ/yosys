@@ -33,7 +33,7 @@
 #  include <dlfcn.h>
 #endif
 
-#ifdef _WIN32
+#if defined(_WIN32)
 #  include <windows.h>
 #  include <io.h>
 #elif defined(__APPLE__)
@@ -41,18 +41,30 @@
 #  include <unistd.h>
 #  include <dirent.h>
 #  include <sys/stat.h>
-#  include <glob.h>
 #else
 #  include <unistd.h>
 #  include <dirent.h>
 #  include <sys/types.h>
 #  include <sys/wait.h>
 #  include <sys/stat.h>
+#endif
+
+#if !defined(_WIN32) && defined(YOSYS_ENABLE_GLOB)
 #  include <glob.h>
 #endif
 
 #ifdef __FreeBSD__
 #  include <sys/sysctl.h>
+#endif
+
+#ifdef WITH_PYTHON
+#if PY_MAJOR_VERSION >= 3
+#   define INIT_MODULE PyInit_libyosys
+    extern "C" PyObject* INIT_MODULE();
+#else
+#   define INIT_MODULE initlibyosys
+	extern "C" void INIT_MODULE();
+#endif
 #endif
 
 #include <limits.h>
@@ -117,7 +129,7 @@ void yosys_banner()
 	log(" |                                                                            |\n");
 	log(" |  yosys -- Yosys Open SYnthesis Suite                                       |\n");
 	log(" |                                                                            |\n");
-	log(" |  Copyright (C) 2012 - 2018  Clifford Wolf <clifford@clifford.at>           |\n");
+	log(" |  Copyright (C) 2012 - 2019  Clifford Wolf <clifford@clifford.at>           |\n");
 	log(" |                                                                            |\n");
 	log(" |  Permission to use, copy, modify, and/or distribute this software for any  |\n");
 	log(" |  purpose with or without fee is hereby granted, provided that the above    |\n");
@@ -139,14 +151,16 @@ void yosys_banner()
 
 int ceil_log2(int x)
 {
+#if defined(__GNUC__)
+        return x > 1 ? (8*sizeof(int)) - __builtin_clz(x-1) : 0;
+#else
 	if (x <= 0)
 		return 0;
-
 	for (int i = 0; i < 32; i++)
 		if (((x-1) >> i) == 0)
 			return i;
-
 	log_abort();
+#endif
 }
 
 std::string stringf(const char *fmt, ...)
@@ -166,7 +180,7 @@ std::string vstringf(const char *fmt, va_list ap)
 	std::string string;
 	char *str = NULL;
 
-#ifdef _WIN32
+#if defined(_WIN32 )|| defined(__CYGWIN__)
 	int sz = 64, rc;
 	while (1) {
 		va_list apc;
@@ -216,12 +230,18 @@ std::string next_token(std::string &text, const char *sep, bool long_strings)
 
 	if (long_strings && pos_begin != text.size() && text[pos_begin] == '"') {
 		string sep_string = sep;
-		for (size_t i = pos_begin+1; i < text.size(); i++)
+		for (size_t i = pos_begin+1; i < text.size(); i++) {
 			if (text[i] == '"' && (i+1 == text.size() || sep_string.find(text[i+1]) != std::string::npos)) {
 				std::string token = text.substr(pos_begin, i-pos_begin+1);
 				text = text.substr(i+1);
 				return token;
 			}
+			if (i+1 < text.size() && text[i] == '"' && text[i+1] == ';' && (i+2 == text.size() || sep_string.find(text[i+2]) != std::string::npos)) {
+				std::string token = text.substr(pos_begin, i-pos_begin+1);
+				text = text.substr(i+2);
+				return token + ";";
+			}
+		}
 	}
 
 	size_t pos_end = text.find_first_of(sep, pos_begin);
@@ -464,17 +484,45 @@ void remove_directory(std::string dirname)
 #endif
 }
 
+std::string escape_filename_spaces(const std::string& filename)
+{
+	std::string out;
+	out.reserve(filename.size());
+	for (auto c : filename)
+	{
+		if (c == ' ')
+			out += "\\ ";
+		else
+			out.push_back(c);
+	}
+	return out;
+}
+
 int GetSize(RTLIL::Wire *wire)
 {
 	return wire->width;
 }
 
+bool already_setup = false;
+
 void yosys_setup()
 {
-	// if there are already IdString objects then we have a global initialization order bug
-	IdString empty_id;
-	log_assert(empty_id.index_ == 0);
-	IdString::get_reference(empty_id.index_);
+	if(already_setup)
+		return;
+	already_setup = true;
+
+	RTLIL::ID::A = "\\A";
+	RTLIL::ID::B = "\\B";
+	RTLIL::ID::Y = "\\Y";
+	RTLIL::ID::keep = "\\keep";
+	RTLIL::ID::whitebox = "\\whitebox";
+	RTLIL::ID::blackbox = "\\blackbox";
+
+	#ifdef WITH_PYTHON
+		PyImport_AppendInittab((char*)"libyosys", INIT_MODULE);
+		Py_Initialize();
+		PyRun_SimpleString("import sys");
+	#endif
 
 	Pass::init_register();
 	yosys_design = new RTLIL::Design;
@@ -482,8 +530,18 @@ void yosys_setup()
 	log_push();
 }
 
+bool yosys_already_setup()
+{
+	return already_setup;
+}
+
+bool already_shutdown = false;
+
 void yosys_shutdown()
 {
+	if(already_shutdown)
+		return;
+	already_shutdown = true;
 	log_pop();
 
 	delete yosys_design;
@@ -511,11 +569,15 @@ void yosys_shutdown()
 		dlclose(it.second);
 
 	loaded_plugins.clear();
+#ifdef WITH_PYTHON
+	loaded_python_plugins.clear();
+#endif
 	loaded_plugin_aliases.clear();
 #endif
 
-	IdString empty_id;
-	IdString::put_reference(empty_id.index_);
+#ifdef WITH_PYTHON
+	Py_Finalize();
+#endif
 }
 
 RTLIL::IdString new_id(std::string file, int line, std::string func)
@@ -564,7 +626,7 @@ std::vector<std::string> glob_filename(const std::string &filename_pattern)
 {
 	std::vector<std::string> results;
 
-#ifdef _WIN32
+#if defined(_WIN32) || !defined(YOSYS_ENABLE_GLOB)
 	results.push_back(filename_pattern);
 #else
 	glob_t globbuf;
@@ -585,10 +647,14 @@ std::vector<std::string> glob_filename(const std::string &filename_pattern)
 
 void rewrite_filename(std::string &filename)
 {
-	if (filename.substr(0, 1) == "\"" && filename.substr(GetSize(filename)-1) == "\"")
+	if (filename.compare(0, 1, "\"") == 0 && filename.compare(GetSize(filename)-1, std::string::npos, "\"") == 0)
 		filename = filename.substr(1, GetSize(filename)-2);
-	if (filename.substr(0, 2) == "+/")
+	if (filename.compare(0, 2, "+/") == 0)
 		filename = proc_share_dirname() + filename.substr(2);
+#ifndef _WIN32
+	if (filename.compare(0, 2, "~/") == 0)
+		filename = filename.replace(0, 1, getenv("HOME"));
+#endif
 }
 
 #ifdef YOSYS_ENABLE_TCL
@@ -636,9 +702,10 @@ extern Tcl_Interp *yosys_get_tcl_interp()
 
 struct TclPass : public Pass {
 	TclPass() : Pass("tcl", "execute a TCL script file") { }
-	virtual void help() {
+	void help() YS_OVERRIDE {
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    tcl <filename>\n");
+		log("    tcl <filename> [args]\n");
 		log("\n");
 		log("This command executes the tcl commands in the specified file.\n");
 		log("Use 'yosys cmd' to run the yosys command 'cmd' from tcl.\n");
@@ -648,14 +715,24 @@ struct TclPass : public Pass {
 		log("'proc' and 'rename' are wrapped to tcl commands 'procs' and 'renames'\n");
 		log("in order to avoid a name collision with the built in commands.\n");
 		log("\n");
+		log("If any arguments are specified, these arguments are provided to the script via\n");
+		log("the standard $argc and $argv variables.\n");
+		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) {
+	void execute(std::vector<std::string> args, RTLIL::Design *) YS_OVERRIDE {
 		if (args.size() < 2)
 			log_cmd_error("Missing script file.\n");
-		if (args.size() > 2)
-			extra_args(args, 1, design, false);
-		if (Tcl_EvalFile(yosys_get_tcl_interp(), args[1].c_str()) != TCL_OK)
-			log_cmd_error("TCL interpreter returned an error: %s\n", Tcl_GetStringResult(yosys_get_tcl_interp()));
+
+		std::vector<Tcl_Obj*> script_args;
+		for (auto it = args.begin() + 2; it != args.end(); ++it)
+			script_args.push_back(Tcl_NewStringObj((*it).c_str(), (*it).size()));
+
+		Tcl_Interp *interp = yosys_get_tcl_interp();
+		Tcl_ObjSetVar2(interp, Tcl_NewStringObj("argc", 4), NULL, Tcl_NewIntObj(script_args.size()), 0);
+		Tcl_ObjSetVar2(interp, Tcl_NewStringObj("argv", 4), NULL, Tcl_NewListObj(script_args.size(), script_args.data()), 0);
+		Tcl_ObjSetVar2(interp, Tcl_NewStringObj("argv0", 5), NULL, Tcl_NewStringObj(args[1].c_str(), args[1].size()), 0);
+		if (Tcl_EvalFile(interp, args[1].c_str()) != TCL_OK)
+			log_cmd_error("TCL interpreter returned an error: %s\n", Tcl_GetStringResult(interp));
 	}
 } TclPass;
 #endif
@@ -733,7 +810,7 @@ std::string proc_self_dirname()
 	return "/";
 }
 #else
-	#error Dont know how to determine process executable base path!
+	#error "Don't know how to determine process executable base path!"
 #endif
 
 #ifdef EMSCRIPTEN
@@ -799,7 +876,7 @@ static void handle_label(std::string &command, bool &from_to_active, const std::
 	while (pos < GetSize(command) && command[pos] != ' ' && command[pos] != '\t' && command[pos] != '\r' && command[pos] != '\n')
 		label += command[pos++];
 
-	if (label.back() == ':' && GetSize(label) > 1)
+	if (GetSize(label) > 1 && label.back() == ':')
 	{
 		label = label.substr(0, GetSize(label)-1);
 		command = command.substr(pos);
@@ -817,21 +894,26 @@ void run_frontend(std::string filename, std::string command, std::string *backen
 		design = yosys_design;
 
 	if (command == "auto") {
-		if (filename.size() > 2 && filename.substr(filename.size()-2) == ".v")
+		std::string filename_trim = filename;
+		if (filename_trim.size() > 3 && filename_trim.compare(filename_trim.size()-3, std::string::npos, ".gz") == 0)
+			filename_trim.erase(filename_trim.size()-3);
+		if (filename_trim.size() > 2 && filename_trim.compare(filename_trim.size()-2, std::string::npos, ".v") == 0)
 			command = "verilog";
-		else if (filename.size() > 2 && filename.substr(filename.size()-3) == ".sv")
+		else if (filename_trim.size() > 2 && filename_trim.compare(filename_trim.size()-3, std::string::npos, ".sv") == 0)
 			command = "verilog -sv";
-		else if (filename.size() > 2 && filename.substr(filename.size()-4) == ".vhd")
+		else if (filename_trim.size() > 3 && filename_trim.compare(filename_trim.size()-4, std::string::npos, ".vhd") == 0)
 			command = "vhdl";
-		else if (filename.size() > 4 && filename.substr(filename.size()-5) == ".blif")
+		else if (filename_trim.size() > 4 && filename_trim.compare(filename_trim.size()-5, std::string::npos, ".blif") == 0)
 			command = "blif";
-		else if (filename.size() > 4 && filename.substr(filename.size()-5) == ".json")
+		else if (filename_trim.size() > 5 && filename_trim.compare(filename_trim.size()-6, std::string::npos, ".eblif") == 0)
+			command = "blif";
+		else if (filename_trim.size() > 4 && filename_trim.compare(filename_trim.size()-5, std::string::npos, ".json") == 0)
 			command = "json";
-		else if (filename.size() > 3 && filename.substr(filename.size()-3) == ".il")
+		else if (filename_trim.size() > 3 && filename_trim.compare(filename_trim.size()-3, std::string::npos, ".il") == 0)
 			command = "ilang";
-		else if (filename.size() > 3 && filename.substr(filename.size()-3) == ".ys")
+		else if (filename_trim.size() > 3 && filename_trim.compare(filename_trim.size()-3, std::string::npos, ".ys") == 0)
 			command = "script";
-		else if (filename.size() > 2 && filename.substr(filename.size()-4) == ".tcl")
+		else if (filename_trim.size() > 3 && filename_trim.compare(filename_trim.size()-4, std::string::npos, ".tcl") == 0)
 			command = "tcl";
 		else if (filename == "-")
 			command = "script";
@@ -882,14 +964,18 @@ void run_frontend(std::string filename, std::string command, std::string *backen
 					command += next_line;
 				}
 				handle_label(command, from_to_active, run_from, run_to);
-				if (from_to_active)
+				if (from_to_active) {
 					Pass::call(design, command);
+					design->check();
+				}
 			}
 
 			if (!command.empty()) {
 				handle_label(command, from_to_active, run_from, run_to);
-				if (from_to_active)
+				if (from_to_active) {
 					Pass::call(design, command);
+					design->check();
+				}
 			}
 		}
 		catch (...) {
@@ -918,6 +1004,7 @@ void run_frontend(std::string filename, std::string command, std::string *backen
 		Pass::call(design, vector<string>({command, filename}));
 	else
 		Frontend::frontend_call(design, NULL, filename, command);
+	design->check();
 }
 
 void run_frontend(std::string filename, std::string command, RTLIL::Design *design)
@@ -941,17 +1028,17 @@ void run_backend(std::string filename, std::string command, RTLIL::Design *desig
 		design = yosys_design;
 
 	if (command == "auto") {
-		if (filename.size() > 2 && filename.substr(filename.size()-2) == ".v")
+		if (filename.size() > 2 && filename.compare(filename.size()-2, std::string::npos, ".v") == 0)
 			command = "verilog";
-		else if (filename.size() > 3 && filename.substr(filename.size()-3) == ".il")
+		else if (filename.size() > 3 && filename.compare(filename.size()-3, std::string::npos, ".il") == 0)
 			command = "ilang";
-		else if (filename.size() > 4 && filename.substr(filename.size()-4) == ".aig")
+		else if (filename.size() > 4 && filename.compare(filename.size()-4, std::string::npos, ".aig") == 0)
 			command = "aiger";
-		else if (filename.size() > 5 && filename.substr(filename.size()-5) == ".blif")
+		else if (filename.size() > 5 && filename.compare(filename.size()-5, std::string::npos, ".blif") == 0)
 			command = "blif";
-		else if (filename.size() > 5 && filename.substr(filename.size()-5) == ".edif")
+		else if (filename.size() > 5 && filename.compare(filename.size()-5, std::string::npos, ".edif") == 0)
 			command = "edif";
-		else if (filename.size() > 5 && filename.substr(filename.size()-5) == ".json")
+		else if (filename.size() > 5 && filename.compare(filename.size()-5, std::string::npos, ".json") == 0)
 			command = "json";
 		else if (filename == "-")
 			command = "ilang";
@@ -985,7 +1072,7 @@ static char *readline_cmd_generator(const char *text, int state)
 	}
 
 	for (; it != pass_register.end(); it++) {
-		if (it->first.substr(0, len) == text)
+		if (it->first.compare(0, len, text) == 0)
 			return strdup((it++)->first.c_str());
 	}
 	return NULL;
@@ -1007,7 +1094,7 @@ static char *readline_obj_generator(const char *text, int state)
 		if (design->selected_active_module.empty())
 		{
 			for (auto &it : design->modules_)
-				if (RTLIL::unescape_id(it.first).substr(0, len) == text)
+				if (RTLIL::unescape_id(it.first).compare(0, len, text) == 0)
 					obj_names.push_back(strdup(RTLIL::id2cstr(it.first)));
 		}
 		else
@@ -1016,19 +1103,19 @@ static char *readline_obj_generator(const char *text, int state)
 			RTLIL::Module *module = design->modules_.at(design->selected_active_module);
 
 			for (auto &it : module->wires_)
-				if (RTLIL::unescape_id(it.first).substr(0, len) == text)
+				if (RTLIL::unescape_id(it.first).compare(0, len, text) == 0)
 					obj_names.push_back(strdup(RTLIL::id2cstr(it.first)));
 
 			for (auto &it : module->memories)
-				if (RTLIL::unescape_id(it.first).substr(0, len) == text)
+				if (RTLIL::unescape_id(it.first).compare(0, len, text) == 0)
 					obj_names.push_back(strdup(RTLIL::id2cstr(it.first)));
 
 			for (auto &it : module->cells_)
-				if (RTLIL::unescape_id(it.first).substr(0, len) == text)
+				if (RTLIL::unescape_id(it.first).compare(0, len, text) == 0)
 					obj_names.push_back(strdup(RTLIL::id2cstr(it.first)));
 
 			for (auto &it : module->processes)
-				if (RTLIL::unescape_id(it.first).substr(0, len) == text)
+				if (RTLIL::unescape_id(it.first).compare(0, len, text) == 0)
 					obj_names.push_back(strdup(RTLIL::id2cstr(it.first)));
 		}
 
@@ -1101,6 +1188,7 @@ void shell(RTLIL::Design *design)
 				design->selection_stack.pop_back();
 			log_reset_stack();
 		}
+		design->check();
 	}
 	if (command == NULL)
 		printf("exit\n");
@@ -1111,7 +1199,7 @@ void shell(RTLIL::Design *design)
 
 struct ShellPass : public Pass {
 	ShellPass() : Pass("shell", "enter interactive command mode") { }
-	virtual void help() {
+	void help() YS_OVERRIDE {
 		log("\n");
 		log("    shell\n");
 		log("\n");
@@ -1143,7 +1231,7 @@ struct ShellPass : public Pass {
 		log("Press Ctrl-D or type 'exit' to leave the interactive shell.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) {
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE {
 		extra_args(args, 1, design, false);
 		shell(design);
 	}
@@ -1152,7 +1240,7 @@ struct ShellPass : public Pass {
 #if defined(YOSYS_ENABLE_READLINE) || defined(YOSYS_ENABLE_EDITLINE)
 struct HistoryPass : public Pass {
 	HistoryPass() : Pass("history", "show last interactive commands") { }
-	virtual void help() {
+	void help() YS_OVERRIDE {
 		log("\n");
 		log("    history\n");
 		log("\n");
@@ -1161,7 +1249,7 @@ struct HistoryPass : public Pass {
 		log("from executed scripts.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) {
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE {
 		extra_args(args, 1, design, false);
 #ifdef YOSYS_ENABLE_READLINE
 		for(HIST_ENTRY **list = history_list(); *list != NULL; list++)
@@ -1175,24 +1263,59 @@ struct HistoryPass : public Pass {
 #endif
 
 struct ScriptCmdPass : public Pass {
-	ScriptCmdPass() : Pass("script", "execute commands from script file") { }
-	virtual void help() {
+	ScriptCmdPass() : Pass("script", "execute commands from file or wire") { }
+	void help() YS_OVERRIDE {
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
 		log("    script <filename> [<from_label>:<to_label>]\n");
+		log("    script -scriptwire [selection]\n");
 		log("\n");
-		log("This command executes the yosys commands in the specified file.\n");
+		log("This command executes the yosys commands in the specified file (default\n");
+		log("behaviour), or commands embedded in the constant text value connected to the\n");
+		log("selected wires.\n");
 		log("\n");
-		log("The 2nd argument can be used to only execute the section of the\n");
-		log("file between the specified labels. An empty from label is synonymous\n");
-		log("for the beginning of the file and an empty to label is synonymous\n");
-		log("for the end of the file.\n");
+		log("In the default (file) case, the 2nd argument can be used to only execute the\n");
+		log("section of the file between the specified labels. An empty from label is\n");
+		log("synonymous with the beginning of the file and an empty to label is synonymous\n");
+		log("with the end of the file.\n");
 		log("\n");
 		log("If only one label is specified (without ':') then only the block\n");
 		log("marked with that label (until the next label) is executed.\n");
 		log("\n");
+		log("In \"-scriptwire\" mode, the commands on the selected wire(s) will be executed\n");
+		log("in the scope of (and thus, relative to) the wires' owning module(s). This\n");
+		log("'-module' mode can be exited by using the 'cd' command.\n");
+		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) {
-		if (args.size() < 2)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	{
+		bool scriptwire = false;
+
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++) {
+			if (args[argidx] == "-scriptwire") {
+				scriptwire = true;
+				continue;
+			}
+			break;
+		}
+		if (scriptwire) {
+			extra_args(args, argidx, design);
+
+			for (auto mod : design->selected_modules())
+				for (auto &c : mod->connections()) {
+					if (!c.first.is_wire())
+						continue;
+					auto w = c.first.as_wire();
+					if (!mod->selected(w))
+						continue;
+					if (!c.second.is_fully_const())
+						log_error("RHS of selected wire %s.%s is not constant.\n", log_id(mod), log_id(w));
+					auto v = c.second.as_const();
+					Pass::call_on_module(design, mod, v.decode_string());
+				}
+		}
+		else if (args.size() < 2)
 			log_cmd_error("Missing script file.\n");
 		else if (args.size() == 2)
 			run_frontend(args[1], "script", design);

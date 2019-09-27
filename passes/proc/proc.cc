@@ -27,7 +27,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct ProcPass : public Pass {
 	ProcPass() : Pass("proc", "translate processes to netlists") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -37,6 +37,7 @@ struct ProcPass : public Pass {
 		log("\n");
 		log("    proc_clean\n");
 		log("    proc_rmdead\n");
+		log("    proc_prune\n");
 		log("    proc_init\n");
 		log("    proc_arst\n");
 		log("    proc_mux\n");
@@ -57,7 +58,7 @@ struct ProcPass : public Pass {
 		log("        executed in -ifx mode.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		std::string global_arst;
 		bool ifxmode = false;
@@ -83,6 +84,7 @@ struct ProcPass : public Pass {
 		Pass::call(design, "proc_clean");
 		if (!ifxmode)
 			Pass::call(design, "proc_rmdead");
+		Pass::call(design, "proc_prune");
 		Pass::call(design, "proc_init");
 		if (global_arst.empty())
 			Pass::call(design, "proc_arst");

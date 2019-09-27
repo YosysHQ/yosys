@@ -56,14 +56,25 @@ int log_verbose_level;
 string log_last_error;
 void (*log_error_atexit)() = NULL;
 
+int log_make_debug = 0;
+int log_force_debug = 0;
+int log_debug_suppressed = 0;
+
 vector<int> header_count;
-pool<RTLIL::IdString> log_id_cache;
+vector<char*> log_id_cache;
 vector<shared_str> string_buf;
 int string_buf_index = -1;
 
 static struct timeval initial_tv = { 0, 0 };
 static bool next_print_log = false;
 static int log_newline_count = 0;
+
+static void log_id_cache_clear()
+{
+	for (auto p : log_id_cache)
+		free(p);
+	log_id_cache.clear();
+}
 
 #if defined(_WIN32) && !defined(__MINGW32__)
 // this will get time information and return it in timeval, simulating gettimeofday()
@@ -91,6 +102,9 @@ void logv(const char *format, va_list ap)
 		log("\n");
 		format++;
 	}
+
+	if (log_make_debug && !ys_debug(1))
+		return;
 
 	std::string str = vstringf(format, ap);
 
@@ -196,14 +210,19 @@ void logv_header(RTLIL::Design *design, const char *format, va_list ap)
 	if (log_hdump.count(header_id) && design != nullptr)
 		for (auto &filename : log_hdump.at(header_id)) {
 			log("Dumping current design to '%s'.\n", filename.c_str());
+			if (yosys_xtrace)
+				IdString::xtrace_db_dump();
 			Pass::call(design, {"dump", "-o", filename});
+			if (yosys_xtrace)
+				log("#X# -- end of dump --\n");
 		}
 
 	if (pop_errfile)
 		log_files.pop_back();
 }
 
-void logv_warning(const char *format, va_list ap)
+static void logv_warning_with_prefix(const char *prefix,
+                                     const char *format, va_list ap)
 {
 	std::string message = vstringf(format, ap);
 	bool suppressed = false;
@@ -214,17 +233,20 @@ void logv_warning(const char *format, va_list ap)
 
 	if (suppressed)
 	{
-		log("Suppressed warning: %s", message.c_str());
+		log("Suppressed %s%s", prefix, message.c_str());
 	}
 	else
 	{
+		int bak_log_make_debug = log_make_debug;
+		log_make_debug = 0;
+
 		for (auto &re : log_werror_regexes)
 			if (std::regex_search(message, re))
 				log_error("%s",  message.c_str());
 
 		if (log_warnings.count(message))
 		{
-			log("Warning: %s", message.c_str());
+			log("%s%s", prefix, message.c_str());
 			log_flush();
 		}
 		else
@@ -232,7 +254,7 @@ void logv_warning(const char *format, va_list ap)
 			if (log_errfile != NULL && !log_quiet_warnings)
 				log_files.push_back(log_errfile);
 
-			log("Warning: %s", message.c_str());
+			log("%s%s", prefix, message.c_str());
 			log_flush();
 
 			if (log_errfile != NULL && !log_quiet_warnings)
@@ -242,56 +264,52 @@ void logv_warning(const char *format, va_list ap)
 		}
 
 		log_warnings_count++;
+		log_make_debug = bak_log_make_debug;
 	}
+}
+
+void logv_warning(const char *format, va_list ap)
+{
+	logv_warning_with_prefix("Warning: ", format, ap);
 }
 
 void logv_warning_noprefix(const char *format, va_list ap)
 {
-	std::string message = vstringf(format, ap);
-	bool suppressed = false;
-
-	for (auto &re : log_nowarn_regexes)
-		if (std::regex_search(message, re))
-			suppressed = true;
-
-	if (suppressed)
-	{
-		log("%s", message.c_str());
-	}
-	else
-	{
-		for (auto &re : log_werror_regexes)
-			if (std::regex_search(message, re))
-				log_error("%s",  message.c_str());
-
-		if (log_warnings.count(message))
-		{
-			log("%s", message.c_str());
-			log_flush();
-		}
-		else
-		{
-			if (log_errfile != NULL && !log_quiet_warnings)
-				log_files.push_back(log_errfile);
-
-			log("%s", message.c_str());
-			log_flush();
-
-			if (log_errfile != NULL && !log_quiet_warnings)
-				log_files.pop_back();
-
-			log_warnings.insert(message);
-		}
-
-		log_warnings_count++;
-	}
+	logv_warning_with_prefix("", format, ap);
 }
 
-void logv_error(const char *format, va_list ap)
+void log_file_warning(const std::string &filename, int lineno,
+                      const char *format, ...)
+{
+	va_list ap;
+	va_start(ap, format);
+	std::string prefix = stringf("%s:%d: Warning: ",
+			filename.c_str(), lineno);
+	logv_warning_with_prefix(prefix.c_str(), format, ap);
+	va_end(ap);
+}
+
+void log_file_info(const std::string &filename, int lineno,
+                      const char *format, ...)
+{
+	va_list ap;
+	va_start(ap, format);
+	std::string fmt = stringf("%s:%d: Info: %s",
+			filename.c_str(), lineno, format);
+	logv(fmt.c_str(), ap);
+	va_end(ap);
+}
+
+YS_ATTRIBUTE(noreturn)
+static void logv_error_with_prefix(const char *prefix,
+                                   const char *format, va_list ap)
 {
 #ifdef EMSCRIPTEN
 	auto backup_log_files = log_files;
 #endif
+	int bak_log_make_debug = log_make_debug;
+	log_make_debug = 0;
+	log_suppressed();
 
 	if (log_errfile != NULL)
 		log_files.push_back(log_errfile);
@@ -302,8 +320,10 @@ void logv_error(const char *format, va_list ap)
 				f = stderr;
 
 	log_last_error = vstringf(format, ap);
-	log("ERROR: %s", log_last_error.c_str());
+	log("%s%s", prefix, log_last_error.c_str());
 	log_flush();
+
+	log_make_debug = bak_log_make_debug;
 
 	if (log_error_atexit)
 		log_error_atexit();
@@ -316,6 +336,21 @@ void logv_error(const char *format, va_list ap)
 #else
 	_Exit(1);
 #endif
+}
+
+void logv_error(const char *format, va_list ap)
+{
+	logv_error_with_prefix("ERROR: ", format, ap);
+}
+
+void log_file_error(const string &filename, int lineno,
+                    const char *format, ...)
+{
+	va_list ap;
+	va_start(ap, format);
+	std::string prefix = stringf("%s:%d: ERROR: ",
+				     filename.c_str(), lineno);
+	logv_error_with_prefix(prefix.c_str(), format, ap);
 }
 
 void log(const char *format, ...)
@@ -386,7 +421,7 @@ void log_push()
 void log_pop()
 {
 	header_count.pop_back();
-	log_id_cache.clear();
+	log_id_cache_clear();
 	string_buf.clear();
 	string_buf_index = -1;
 	log_flush();
@@ -493,7 +528,7 @@ void log_reset_stack()
 {
 	while (header_count.size() > 1)
 		header_count.pop_back();
-	log_id_cache.clear();
+	log_id_cache_clear();
 	string_buf.clear();
 	string_buf_index = -1;
 	log_flush();
@@ -552,8 +587,8 @@ const char *log_const(const RTLIL::Const &value, bool autoint)
 
 const char *log_id(RTLIL::IdString str)
 {
-	log_id_cache.insert(str);
-	const char *p = str.c_str();
+	log_id_cache.push_back(strdup(str.c_str()));
+	const char *p = log_id_cache.back();
 	if (p[0] != '\\')
 		return p;
 	if (p[1] == '$' || p[1] == '\\' || p[1] == 0)
@@ -636,4 +671,3 @@ dict<std::string, std::pair<std::string, int>> get_coverage_data()
 #endif
 
 YOSYS_NAMESPACE_END
-

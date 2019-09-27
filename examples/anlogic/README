@@ -1,0 +1,12 @@
+LED Blink project for Anlogic Lichee Tang board.
+
+Follow the install instructions for the Tang Dynasty IDE from given link below.
+
+https://tang.sipeed.com/en/getting-started/installing-td-ide/linux/
+
+
+set TD_HOME env variable to the full path to the TD <TD Install Directory> as follow.
+
+export TD_HOME=<TD Install Directory>
+
+then run "bash build.sh" in this directory.

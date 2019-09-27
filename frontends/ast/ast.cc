@@ -2,6 +2,7 @@
  *  yosys -- Yosys Open SYnthesis Suite
  *
  *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2018  Ruben Undheim <ruben.undheim@gmail.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -35,17 +36,17 @@ YOSYS_NAMESPACE_BEGIN
 using namespace AST;
 using namespace AST_INTERNAL;
 
-// instanciate global variables (public API)
+// instantiate global variables (public API)
 namespace AST {
 	std::string current_filename;
 	void (*set_line_num)(int) = NULL;
 	int (*get_line_num)() = NULL;
 }
 
-// instanciate global variables (private API)
+// instantiate global variables (private API)
 namespace AST_INTERNAL {
-	bool flag_dump_ast1, flag_dump_ast2, flag_dump_vlog, flag_dump_rtlil, flag_nolatches, flag_nomeminit;
-	bool flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt, flag_icells, flag_autowire;
+	bool flag_dump_ast1, flag_dump_ast2, flag_no_dump_ptr, flag_dump_vlog1, flag_dump_vlog2, flag_dump_rtlil, flag_nolatches, flag_nomeminit;
+	bool flag_nomem2reg, flag_mem2reg, flag_noblackbox, flag_lib, flag_nowb, flag_noopt, flag_icells, flag_pwires, flag_autowire;
 	AstNode *current_ast, *current_ast_mod;
 	std::map<std::string, AstNode*> current_scope;
 	const dict<RTLIL::SigBit, RTLIL::SigBit> *genRTLIL_subst_ptr = NULL;
@@ -153,9 +154,15 @@ std::string AST::type2str(AstNodeType type)
 	X(AST_GENIF)
 	X(AST_GENCASE)
 	X(AST_GENBLOCK)
+	X(AST_TECALL)
 	X(AST_POSEDGE)
 	X(AST_NEGEDGE)
 	X(AST_EDGE)
+	X(AST_INTERFACE)
+	X(AST_INTERFACEPORT)
+	X(AST_INTERFACEPORTTYPE)
+	X(AST_MODPORT)
+	X(AST_MODPORTMEMBER)
 	X(AST_PACKAGE)
 #undef X
 	default:
@@ -171,8 +178,7 @@ bool AstNode::get_bool_attribute(RTLIL::IdString id)
 
 	AstNode *attr = attributes.at(id);
 	if (attr->type != AST_CONSTANT)
-		log_error("Attribute `%s' with non-constant value at %s:%d!\n",
-				id.c_str(), attr->filename.c_str(), attr->linenum);
+		log_file_error(attr->filename, attr->linenum, "Attribute `%s' with non-constant value!\n", id.c_str());
 
 	return attr->integer != 0;
 }
@@ -191,8 +197,13 @@ AstNode::AstNode(AstNodeType type, AstNode *child1, AstNode *child2, AstNode *ch
 	is_input = false;
 	is_output = false;
 	is_reg = false;
+	is_logic = false;
 	is_signed = false;
 	is_string = false;
+	is_wand = false;
+	is_wor = false;
+	is_unsized = false;
+	was_checked = false;
 	range_valid = false;
 	range_swapped = false;
 	port_id = 0;
@@ -265,18 +276,20 @@ void AstNode::dumpAst(FILE *f, std::string indent) const
 	std::string type_name = type2str(type);
 	fprintf(f, "%s%s <%s:%d>", indent.c_str(), type_name.c_str(), filename.c_str(), linenum);
 
-	if (id2ast)
-		fprintf(f, " [%p -> %p]", this, id2ast);
-	else
-		fprintf(f, " [%p]", this);
+	if (!flag_no_dump_ptr) {
+		if (id2ast)
+			fprintf(f, " [%p -> %p]", this, id2ast);
+		else
+			fprintf(f, " [%p]", this);
+	}
 
 	if (!str.empty())
 		fprintf(f, " str='%s'", str.c_str());
 	if (!bits.empty()) {
 		fprintf(f, " bits='");
 		for (size_t i = bits.size(); i > 0; i--)
-			fprintf(f, "%c", bits[i-1] == RTLIL::S0 ? '0' :
-					bits[i-1] == RTLIL::S1 ? '1' :
+			fprintf(f, "%c", bits[i-1] == State::S0 ? '0' :
+					bits[i-1] == State::S1 ? '1' :
 					bits[i-1] == RTLIL::Sx ? 'x' :
 					bits[i-1] == RTLIL::Sz ? 'z' : '?');
 		fprintf(f, "'(%d)", GetSize(bits));
@@ -285,7 +298,9 @@ void AstNode::dumpAst(FILE *f, std::string indent) const
 		fprintf(f, " input");
 	if (is_output)
 		fprintf(f, " output");
-	if (is_reg)
+	if (is_logic)
+		fprintf(f, " logic");
+	if (is_reg) // this is an AST dump, not Verilog - if we see "logic reg" that's fine.
 		fprintf(f, " reg");
 	if (is_signed)
 		fprintf(f, " signed");
@@ -425,9 +440,12 @@ void AstNode::dumpVlog(FILE *f, std::string indent) const
 		break;
 
 	case AST_RANGE:
-		if (range_valid)
-			fprintf(f, "[%d:%d]", range_left, range_right);
-		else {
+		if (range_valid) {
+			if (range_swapped)
+				fprintf(f, "[%d:%d]", range_right, range_left);
+			else
+				fprintf(f, "[%d:%d]", range_left, range_right);
+		} else {
 			for (auto child : children) {
 				fprintf(f, "%c", first ? '[' : ':');
 				child->dumpVlog(f, "");
@@ -556,7 +574,8 @@ void AstNode::dumpVlog(FILE *f, std::string indent) const
 
 	case AST_CONCAT:
 		fprintf(f, "{");
-		for (auto child : children) {
+		for (int i = GetSize(children)-1; i >= 0; i--) {
+			auto child = children[i];
 			if (!first)
 				fprintf(f, ", ");
 			child->dumpVlog(f, "");
@@ -652,6 +671,8 @@ bool AstNode::operator==(const AstNode &other) const
 		return false;
 	if (is_output != other.is_output)
 		return false;
+	if (is_logic != other.is_logic)
+		return false;
 	if (is_reg != other.is_reg)
 		return false;
 	if (is_signed != other.is_signed)
@@ -700,7 +721,7 @@ AstNode *AstNode::mkconst_int(uint32_t v, bool is_signed, int width)
 	node->integer = v;
 	node->is_signed = is_signed;
 	for (int i = 0; i < width; i++) {
-		node->bits.push_back((v & 1) ? RTLIL::S1 : RTLIL::S0);
+		node->bits.push_back((v & 1) ? State::S1 : State::S0);
 		v = v >> 1;
 	}
 	node->range_valid = true;
@@ -710,21 +731,27 @@ AstNode *AstNode::mkconst_int(uint32_t v, bool is_signed, int width)
 }
 
 // create an AST node for a constant (using a bit vector as value)
-AstNode *AstNode::mkconst_bits(const std::vector<RTLIL::State> &v, bool is_signed)
+AstNode *AstNode::mkconst_bits(const std::vector<RTLIL::State> &v, bool is_signed, bool is_unsized)
 {
 	AstNode *node = new AstNode(AST_CONSTANT);
 	node->is_signed = is_signed;
 	node->bits = v;
 	for (size_t i = 0; i < 32; i++) {
 		if (i < node->bits.size())
-			node->integer |= (node->bits[i] == RTLIL::S1) << i;
+			node->integer |= (node->bits[i] == State::S1) << i;
 		else if (is_signed && !node->bits.empty())
-			node->integer |= (node->bits.back() == RTLIL::S1) << i;
+			node->integer |= (node->bits.back() == State::S1) << i;
 	}
 	node->range_valid = true;
 	node->range_left = node->bits.size()-1;
 	node->range_right = 0;
+	node->is_unsized = is_unsized;
 	return node;
+}
+
+AstNode *AstNode::mkconst_bits(const std::vector<RTLIL::State> &v, bool is_signed)
+{
+	return mkconst_bits(v, is_signed, false);
 }
 
 // create an AST node for a constant (using a string in bit vector form as value)
@@ -745,7 +772,7 @@ AstNode *AstNode::mkconst_str(const std::string &str)
 	for (size_t i = 0; i < str.size(); i++) {
 		unsigned char ch = str[str.size() - i - 1];
 		for (int j = 0; j < 8; j++) {
-			data.push_back((ch & 1) ? RTLIL::S1 : RTLIL::S0);
+			data.push_back((ch & 1) ? State::S1 : State::S0);
 			ch = ch >> 1;
 		}
 	}
@@ -758,9 +785,17 @@ AstNode *AstNode::mkconst_str(const std::string &str)
 bool AstNode::bits_only_01() const
 {
 	for (auto bit : bits)
-		if (bit != RTLIL::S0 && bit != RTLIL::S1)
+		if (bit != State::S0 && bit != State::S1)
 			return false;
 	return true;
+}
+
+RTLIL::Const AstNode::bitsAsUnsizedConst(int width)
+{
+	RTLIL::State extbit = bits.back();
+	while (width > int(bits.size()))
+		bits.push_back(extbit);
+	return RTLIL::Const(bits);
 }
 
 RTLIL::Const AstNode::bitsAsConst(int width, bool is_signed)
@@ -895,9 +930,9 @@ RTLIL::Const AstNode::realAsConst(int width)
 }
 
 // create a new AstModule from an AST_MODULE AST node
-static AstModule* process_module(AstNode *ast, bool defer)
+static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast = NULL)
 {
-	log_assert(ast->type == AST_MODULE);
+	log_assert(ast->type == AST_MODULE || ast->type == AST_INTERFACE);
 
 	if (defer)
 		log("Storing AST representation for module `%s'.\n", ast->str.c_str());
@@ -908,33 +943,116 @@ static AstModule* process_module(AstNode *ast, bool defer)
 	current_module->ast = NULL;
 	current_module->name = ast->str;
 	current_module->attributes["\\src"] = stringf("%s:%d", ast->filename.c_str(), ast->linenum);
+	current_module->set_bool_attribute("\\cells_not_processed");
 
 	current_ast_mod = ast;
-	AstNode *ast_before_simplify = ast->clone();
+	AstNode *ast_before_simplify;
+	if (original_ast != NULL)
+		ast_before_simplify = original_ast;
+	else
+		ast_before_simplify = ast->clone();
 
 	if (flag_dump_ast1) {
-		log("Dumping Verilog AST before simplification:\n");
+		log("Dumping AST before simplification:\n");
 		ast->dumpAst(NULL, "    ");
+		log("--- END OF AST DUMP ---\n");
+	}
+	if (flag_dump_vlog1) {
+		log("Dumping Verilog AST before simplification:\n");
+		ast->dumpVlog(NULL, "    ");
 		log("--- END OF AST DUMP ---\n");
 	}
 
 	if (!defer)
 	{
+		bool blackbox_module = flag_lib;
+
+		if (!blackbox_module && !flag_noblackbox) {
+			blackbox_module = true;
+			for (auto child : ast->children) {
+				if (child->type == AST_WIRE && (child->is_input || child->is_output))
+					continue;
+				if (child->type == AST_PARAMETER || child->type == AST_LOCALPARAM)
+					continue;
+				if (child->type == AST_CELL && child->children.size() > 0 && child->children[0]->type == AST_CELLTYPE &&
+						(child->children[0]->str == "$specify2" || child->children[0]->str == "$specify3" || child->children[0]->str == "$specrule"))
+					continue;
+				blackbox_module = false;
+				break;
+			}
+		}
+
 		while (ast->simplify(!flag_noopt, false, false, 0, -1, false, false)) { }
 
 		if (flag_dump_ast2) {
-			log("Dumping Verilog AST after simplification:\n");
+			log("Dumping AST after simplification:\n");
 			ast->dumpAst(NULL, "    ");
 			log("--- END OF AST DUMP ---\n");
 		}
 
-		if (flag_dump_vlog) {
-			log("Dumping Verilog AST (as requested by dump_vlog option):\n");
+		if (flag_dump_vlog2) {
+			log("Dumping Verilog AST after simplification:\n");
 			ast->dumpVlog(NULL, "    ");
 			log("--- END OF AST DUMP ---\n");
 		}
 
-		if (flag_lib) {
+		if (flag_nowb && ast->attributes.count("\\whitebox")) {
+			delete ast->attributes.at("\\whitebox");
+			ast->attributes.erase("\\whitebox");
+		}
+
+		if (ast->attributes.count("\\lib_whitebox")) {
+			if (!flag_lib || flag_nowb) {
+				delete ast->attributes.at("\\lib_whitebox");
+				ast->attributes.erase("\\lib_whitebox");
+			} else {
+				if (ast->attributes.count("\\whitebox")) {
+					delete ast->attributes.at("\\whitebox");
+					ast->attributes.erase("\\whitebox");
+				}
+				AstNode *n = ast->attributes.at("\\lib_whitebox");
+				ast->attributes["\\whitebox"] = n;
+				ast->attributes.erase("\\lib_whitebox");
+			}
+		}
+
+		if (!blackbox_module && ast->attributes.count("\\blackbox")) {
+			AstNode *n = ast->attributes.at("\\blackbox");
+			if (n->type != AST_CONSTANT)
+				log_file_error(ast->filename, ast->linenum, "Got blackbox attribute with non-constant value!\n");
+			blackbox_module = n->asBool();
+		}
+
+		if (blackbox_module && ast->attributes.count("\\whitebox")) {
+			AstNode *n = ast->attributes.at("\\whitebox");
+			if (n->type != AST_CONSTANT)
+				log_file_error(ast->filename, ast->linenum, "Got whitebox attribute with non-constant value!\n");
+			blackbox_module = !n->asBool();
+		}
+
+		if (ast->attributes.count("\\noblackbox")) {
+			if (blackbox_module) {
+				AstNode *n = ast->attributes.at("\\noblackbox");
+				if (n->type != AST_CONSTANT)
+					log_file_error(ast->filename, ast->linenum, "Got noblackbox attribute with non-constant value!\n");
+				blackbox_module = !n->asBool();
+			}
+			delete ast->attributes.at("\\noblackbox");
+			ast->attributes.erase("\\noblackbox");
+		}
+
+		if (blackbox_module)
+		{
+			if (ast->attributes.count("\\whitebox")) {
+				delete ast->attributes.at("\\whitebox");
+				ast->attributes.erase("\\whitebox");
+			}
+
+			if (ast->attributes.count("\\lib_whitebox")) {
+				delete ast->attributes.at("\\lib_whitebox");
+				ast->attributes.erase("\\lib_whitebox");
+			}
+
 			std::vector<AstNode*> new_children;
 			for (auto child : ast->children) {
 				if (child->type == AST_WIRE && (child->is_input || child->is_output)) {
@@ -943,20 +1061,26 @@ static AstModule* process_module(AstNode *ast, bool defer)
 					child->delete_children();
 					child->children.push_back(AstNode::mkconst_int(0, false, 0));
 					new_children.push_back(child);
+				} else if (child->type == AST_CELL && child->children.size() > 0 && child->children[0]->type == AST_CELLTYPE &&
+						(child->children[0]->str == "$specify2" || child->children[0]->str == "$specify3" || child->children[0]->str == "$specrule")) {
+					new_children.push_back(child);
 				} else {
 					delete child;
 				}
 			}
+
 			ast->children.swap(new_children);
-			ast->attributes["\\blackbox"] = AstNode::mkconst_int(1, false);
+
+			if (ast->attributes.count("\\blackbox") == 0) {
+				ast->attributes["\\blackbox"] = AstNode::mkconst_int(1, false);
+			}
 		}
 
 		ignoreThisSignalsInInitial = RTLIL::SigSpec();
 
 		for (auto &attr : ast->attributes) {
 			if (attr.second->type != AST_CONSTANT)
-				log_error("Attribute `%s' with non-constant value at %s:%d!\n",
-						attr.first.c_str(), ast->filename.c_str(), ast->linenum);
+				log_file_error(ast->filename, ast->linenum, "Attribute `%s' with non-constant value!\n", attr.first.c_str());
 			current_module->attributes[attr.first] = attr.second->asAttrConst();
 		}
 		for (size_t i = 0; i < ast->children.size(); i++) {
@@ -980,15 +1104,27 @@ static AstModule* process_module(AstNode *ast, bool defer)
 
 		ignoreThisSignalsInInitial = RTLIL::SigSpec();
 	}
+	else {
+		for (auto &attr : ast->attributes) {
+			if (attr.second->type != AST_CONSTANT)
+				continue;
+			current_module->attributes[attr.first] = attr.second->asAttrConst();
+		}
+	}
 
+	if (ast->type == AST_INTERFACE)
+		current_module->set_bool_attribute("\\is_interface");
 	current_module->ast = ast_before_simplify;
 	current_module->nolatches = flag_nolatches;
 	current_module->nomeminit = flag_nomeminit;
 	current_module->nomem2reg = flag_nomem2reg;
 	current_module->mem2reg = flag_mem2reg;
+	current_module->noblackbox = flag_noblackbox;
 	current_module->lib = flag_lib;
+	current_module->nowb = flag_nowb;
 	current_module->noopt = flag_noopt;
 	current_module->icells = flag_icells;
+	current_module->pwires = flag_pwires;
 	current_module->autowire = flag_autowire;
 	current_module->fixup_ports();
 
@@ -1002,27 +1138,32 @@ static AstModule* process_module(AstNode *ast, bool defer)
 }
 
 // create AstModule instances for all modules in the AST tree and add them to 'design'
-void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump_ast2, bool dump_vlog, bool dump_rtlil,
-		bool nolatches, bool nomeminit, bool nomem2reg, bool mem2reg, bool lib, bool noopt, bool icells, bool nooverwrite, bool overwrite, bool defer, bool autowire)
+void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump_ast2, bool no_dump_ptr, bool dump_vlog1, bool dump_vlog2, bool dump_rtlil,
+		bool nolatches, bool nomeminit, bool nomem2reg, bool mem2reg, bool noblackbox, bool lib, bool nowb, bool noopt, bool icells, bool pwires, bool nooverwrite, bool overwrite, bool defer, bool autowire)
 {
 	current_ast = ast;
 	flag_dump_ast1 = dump_ast1;
 	flag_dump_ast2 = dump_ast2;
-	flag_dump_vlog = dump_vlog;
+	flag_no_dump_ptr = no_dump_ptr;
+	flag_dump_vlog1 = dump_vlog1;
+	flag_dump_vlog2 = dump_vlog2;
 	flag_dump_rtlil = dump_rtlil;
 	flag_nolatches = nolatches;
 	flag_nomeminit = nomeminit;
 	flag_nomem2reg = nomem2reg;
 	flag_mem2reg = mem2reg;
+	flag_noblackbox = noblackbox;
 	flag_lib = lib;
+	flag_nowb = nowb;
 	flag_noopt = noopt;
 	flag_icells = icells;
+	flag_pwires = pwires;
 	flag_autowire = autowire;
 
 	log_assert(current_ast->type == AST_DESIGN);
 	for (auto it = current_ast->children.begin(); it != current_ast->children.end(); it++)
 	{
-		if ((*it)->type == AST_MODULE)
+		if ((*it)->type == AST_MODULE || (*it)->type == AST_INTERFACE)
 		{
 			for (auto n : design->verilog_globals)
 				(*it)->children.push_back(n->clone());
@@ -1035,7 +1176,7 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 				}
 			}
 
-			if (flag_icells && (*it)->str.substr(0, 2) == "\\$")
+			if (flag_icells && (*it)->str.compare(0, 2, "\\$") == 0)
 				(*it)->str = (*it)->str.substr(1);
 
 			if (defer)
@@ -1043,9 +1184,8 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 
 			if (design->has((*it)->str)) {
 				RTLIL::Module *existing_mod = design->module((*it)->str);
-				if (!nooverwrite && !overwrite && !existing_mod->get_bool_attribute("\\blackbox")) {
-					log_error("Re-definition of module `%s' at %s:%d!\n",
-							(*it)->str.c_str(), (*it)->filename.c_str(), (*it)->linenum);
+				if (!nooverwrite && !overwrite && !existing_mod->get_blackbox_attribute()) {
+					log_file_error((*it)->filename, (*it)->linenum, "Re-definition of module `%s'!\n", (*it)->str.c_str());
 				} else if (nooverwrite) {
 					log("Ignoring re-definition of module `%s' at %s:%d.\n",
 							(*it)->str.c_str(), (*it)->filename.c_str(), (*it)->linenum);
@@ -1074,29 +1214,274 @@ AstModule::~AstModule()
 		delete ast;
 }
 
+
+// An interface port with modport is specified like this:
+//    <interface_name>.<modport_name>
+// This function splits the interface_name from the modport_name, and fails if it is not a valid combination
+std::pair<std::string,std::string> AST::split_modport_from_type(std::string name_type)
+{
+	std::string interface_type = "";
+	std::string interface_modport = "";
+	size_t ndots = std::count(name_type.begin(), name_type.end(), '.');
+	// Separate the interface instance name from any modports:
+	if (ndots == 0) { // Does not have modport
+		interface_type = name_type;
+	}
+	else {
+		std::stringstream name_type_stream(name_type);
+		std::string segment;
+		std::vector<std::string> seglist;
+		while(std::getline(name_type_stream, segment, '.')) {
+			seglist.push_back(segment);
+		}
+		if (ndots == 1) { // Has modport
+			interface_type = seglist[0];
+			interface_modport = seglist[1];
+		}
+		else { // Erroneous port type
+			log_error("More than two '.' in signal port type (%s)\n", name_type.c_str());
+		}
+	}
+	return std::pair<std::string,std::string>(interface_type, interface_modport);
+
+}
+
+AstNode * AST::find_modport(AstNode *intf, std::string name)
+{
+	for (auto &ch : intf->children)
+		if (ch->type == AST_MODPORT)
+			if (ch->str == name) // Modport found
+				return ch;
+	return NULL;
+}
+
+// Iterate over all wires in an interface and add them as wires in the AST module:
+void AST::explode_interface_port(AstNode *module_ast, RTLIL::Module * intfmodule, std::string intfname, AstNode *modport)
+{
+	for (auto &wire_it : intfmodule->wires_){
+		AstNode *wire = new AstNode(AST_WIRE, new AstNode(AST_RANGE, AstNode::mkconst_int(wire_it.second->width -1, true), AstNode::mkconst_int(0, true)));
+		std::string origname = log_id(wire_it.first);
+		std::string newname = intfname + "." + origname;
+		wire->str = newname;
+		if (modport != NULL) {
+			bool found_in_modport = false;
+			// Search for the current wire in the wire list for the current modport
+			for (auto &ch : modport->children) {
+				if (ch->type == AST_MODPORTMEMBER) {
+					std::string compare_name = "\\" + origname;
+					if (ch->str == compare_name) { // Found signal. The modport decides whether it is input or output
+						found_in_modport = true;
+						wire->is_input = ch->is_input;
+						wire->is_output = ch->is_output;
+						break;
+					}
+				}
+			}
+			if (found_in_modport) {
+				module_ast->children.push_back(wire);
+			}
+			else { // If not found in modport, do not create port
+				delete wire;
+			}
+		}
+		else { // If no modport, set inout
+			wire->is_input = true;
+			wire->is_output = true;
+			module_ast->children.push_back(wire);
+		}
+	}
+}
+
+// When an interface instance is found in a module, the whole RTLIL for the module will be rederived again
+// from AST. The interface members are copied into the AST module with the prefix of the interface.
+void AstModule::reprocess_module(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Module*> local_interfaces)
+{
+	loadconfig();
+
+	bool is_top = false;
+	AstNode *new_ast = ast->clone();
+	for (auto &intf : local_interfaces) {
+		std::string intfname = intf.first.str();
+		RTLIL::Module *intfmodule = intf.second;
+		for (auto &wire_it : intfmodule->wires_){
+			AstNode *wire = new AstNode(AST_WIRE, new AstNode(AST_RANGE, AstNode::mkconst_int(wire_it.second->width -1, true), AstNode::mkconst_int(0, true)));
+			std::string newname = log_id(wire_it.first);
+			newname = intfname + "." + newname;
+			wire->str = newname;
+			new_ast->children.push_back(wire);
+		}
+	}
+
+	AstNode *ast_before_replacing_interface_ports = new_ast->clone();
+
+	// Explode all interface ports. Note this will only have an effect on 'top
+	// level' modules. Other sub-modules will have their interface ports
+	// exploded via the derive(..) function
+	for (size_t i =0; i<new_ast->children.size(); i++)
+	{
+		AstNode *ch2 = new_ast->children[i];
+		if (ch2->type == AST_INTERFACEPORT) { // Is an interface port
+			std::string name_port = ch2->str; // Name of the interface port
+			if (ch2->children.size() > 0) {
+				for(size_t j=0; j<ch2->children.size();j++) {
+					AstNode *ch = ch2->children[j];
+					if(ch->type == AST_INTERFACEPORTTYPE) { // Found the AST node containing the type of the interface
+						std::pair<std::string,std::string> res = split_modport_from_type(ch->str);
+						std::string interface_type = res.first;
+						std::string interface_modport = res.second; // Is "", if no modport
+						if (design->modules_.count(interface_type) > 0) {
+							// Add a cell to the module corresponding to the interface port such that
+							// it can further propagated down if needed:
+							AstNode *celltype_for_intf = new AstNode(AST_CELLTYPE);
+							celltype_for_intf->str = interface_type;
+							AstNode *cell_for_intf = new AstNode(AST_CELL, celltype_for_intf);
+							cell_for_intf->str = name_port + "_inst_from_top_dummy";
+							new_ast->children.push_back(cell_for_intf);
+
+							// Get all members of this non-overridden dummy interface instance:
+							RTLIL::Module *intfmodule = design->modules_[interface_type]; // All interfaces should at this point in time (assuming
+							                                                              // reprocess_module is called from the hierarchy pass) be
+							                                                              // present in design->modules_
+							AstModule *ast_module_of_interface = (AstModule*)intfmodule;
+							std::string interface_modport_compare_str = "\\" + interface_modport;
+							AstNode *modport = find_modport(ast_module_of_interface->ast, interface_modport_compare_str); // modport == NULL if no modport
+							// Iterate over all wires in the interface and add them to the module:
+							explode_interface_port(new_ast, intfmodule, name_port, modport);
+						}
+						break;
+					}
+				}
+			}
+		}
+	}
+
+	// The old module will be deleted. Rename and mark for deletion:
+	std::string original_name = this->name.str();
+	std::string changed_name = original_name + "_before_replacing_local_interfaces";
+	design->rename(this, changed_name);
+	this->set_bool_attribute("\\to_delete");
+
+	// Check if the module was the top module. If it was, we need to remove the top attribute and put it on the
+	// new module.
+	if (this->get_bool_attribute("\\initial_top")) {
+		this->attributes.erase("\\initial_top");
+		is_top = true;
+	}
+
+	// Generate RTLIL from AST for the new module and add to the design:
+	AstModule *newmod = process_module(new_ast, false, ast_before_replacing_interface_ports);
+	delete(new_ast);
+	design->add(newmod);
+	RTLIL::Module* mod = design->module(original_name);
+	if (is_top)
+		mod->set_bool_attribute("\\top");
+
+	// Set the attribute "interfaces_replaced_in_module" so that it does not happen again.
+	mod->set_bool_attribute("\\interfaces_replaced_in_module");
+}
+
+// create a new parametric module (when needed) and return the name of the generated module - WITH support for interfaces
+// This method is used to explode the interface when the interface is a port of the module (not instantiated inside)
+RTLIL::IdString AstModule::derive(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters, dict<RTLIL::IdString, RTLIL::Module*> interfaces, dict<RTLIL::IdString, RTLIL::IdString> modports, bool mayfail)
+{
+	AstNode *new_ast = NULL;
+	std::string modname = derive_common(design, parameters, &new_ast, mayfail);
+
+	// Since interfaces themselves may be instantiated with different parameters,
+	// "modname" must also take those into account, so that unique modules
+	// are derived for any variant of interface connections:
+	std::string interf_info = "";
+
+	bool has_interfaces = false;
+	for(auto &intf : interfaces) {
+		interf_info += log_id(intf.second->name);
+		has_interfaces = true;
+	}
+
+	if (has_interfaces)
+		modname += "$interfaces$" + interf_info;
+
+
+	if (!design->has(modname)) {
+		new_ast->str = modname;
+
+		// Iterate over all interfaces which are ports in this module:
+		for(auto &intf : interfaces) {
+			RTLIL::Module * intfmodule = intf.second;
+			std::string intfname = intf.first.str();
+			// Check if a modport applies for the interface port:
+			AstNode *modport = NULL;
+			if (modports.count(intfname) > 0) {
+				std::string interface_modport = modports.at(intfname).str();
+				AstModule *ast_module_of_interface = (AstModule*)intfmodule;
+				AstNode *ast_node_of_interface = ast_module_of_interface->ast;
+				modport = find_modport(ast_node_of_interface, interface_modport);
+			}
+			// Iterate over all wires in the interface and add them to the module:
+			explode_interface_port(new_ast, intfmodule, intfname, modport);
+		}
+
+		design->add(process_module(new_ast, false));
+		design->module(modname)->check();
+
+		RTLIL::Module* mod = design->module(modname);
+
+		// Now that the interfaces have been exploded, we can delete the dummy port related to every interface.
+		for(auto &intf : interfaces) {
+			if(mod->wires_.count(intf.first)) {
+				mod->wires_.erase(intf.first);
+				mod->fixup_ports();
+				// We copy the cell of the interface to the sub-module such that it can further be found if it is propagated
+				// down to sub-sub-modules etc.
+				RTLIL::Cell * new_subcell = mod->addCell(intf.first, intf.second->name);
+				new_subcell->set_bool_attribute("\\is_interface");
+			}
+			else {
+				log_error("No port with matching name found (%s) in %s. Stopping\n", log_id(intf.first), modname.c_str());
+			}
+		}
+
+		// If any interfaces were replaced, set the attribute 'interfaces_replaced_in_module':
+		if (interfaces.size() > 0) {
+			mod->set_bool_attribute("\\interfaces_replaced_in_module");
+		}
+
+	} else {
+		log("Found cached RTLIL representation for module `%s'.\n", modname.c_str());
+	}
+
+	delete new_ast;
+	return modname;
+}
+
+// create a new parametric module (when needed) and return the name of the generated module - without support for interfaces
+RTLIL::IdString AstModule::derive(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters, bool mayfail)
+{
+	AstNode *new_ast = NULL;
+	std::string modname = derive_common(design, parameters, &new_ast, mayfail);
+
+	if (!design->has(modname)) {
+		new_ast->str = modname;
+		design->add(process_module(new_ast, false));
+		design->module(modname)->check();
+	} else {
+		log("Found cached RTLIL representation for module `%s'.\n", modname.c_str());
+	}
+
+	delete new_ast;
+	return modname;
+}
+
 // create a new parametric module (when needed) and return the name of the generated module
-RTLIL::IdString AstModule::derive(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters, bool)
+std::string AstModule::derive_common(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters, AstNode **new_ast_out, bool)
 {
 	std::string stripped_name = name.str();
 
-	if (stripped_name.substr(0, 9) == "$abstract")
+	if (stripped_name.compare(0, 9, "$abstract") == 0)
 		stripped_name = stripped_name.substr(9);
 
 	log_header(design, "Executing AST frontend in derive mode using pre-parsed AST for module `%s'.\n", stripped_name.c_str());
-
-	current_ast = NULL;
-	flag_dump_ast1 = false;
-	flag_dump_ast2 = false;
-	flag_dump_vlog = false;
-	flag_nolatches = nolatches;
-	flag_nomeminit = nomeminit;
-	flag_nomem2reg = nomem2reg;
-	flag_mem2reg = mem2reg;
-	flag_lib = lib;
-	flag_noopt = noopt;
-	flag_icells = icells;
-	flag_autowire = autowire;
-	use_internal_line_num();
+	loadconfig();
 
 	std::string para_info;
 	AstNode *new_ast = ast->clone();
@@ -1114,7 +1499,10 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, dict<RTLIL::IdString, R
 	rewrite_parameter:
 			para_info += stringf("%s=%s", child->str.c_str(), log_signal(RTLIL::SigSpec(parameters[para_id])));
 			delete child->children.at(0);
-			if ((parameters[para_id].flags & RTLIL::CONST_FLAG_STRING) != 0)
+			if ((parameters[para_id].flags & RTLIL::CONST_FLAG_REAL) != 0) {
+				child->children[0] = new AstNode(AST_REALVALUE);
+				child->children[0]->realvalue = std::stod(parameters[para_id].decode_string());
+			} else if ((parameters[para_id].flags & RTLIL::CONST_FLAG_STRING) != 0)
 				child->children[0] = AstNode::mkconst_str(parameters[para_id].decode_string());
 			else
 				child->children[0] = AstNode::mkconst_bits(parameters[para_id].bits, (parameters[para_id].flags & RTLIL::CONST_FLAG_SIGNED) != 0);
@@ -1147,15 +1535,8 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, dict<RTLIL::IdString, R
 	else
 		modname = "$paramod" + stripped_name + para_info;
 
-	if (!design->has(modname)) {
-		new_ast->str = modname;
-		design->add(process_module(new_ast, false));
-		design->module(modname)->check();
-	} else {
-		log("Found cached RTLIL representation for module `%s'.\n", modname.c_str());
-	}
 
-	delete new_ast;
+	(*new_ast_out) = new_ast;
 	return modname;
 }
 
@@ -1170,12 +1551,36 @@ RTLIL::Module *AstModule::clone() const
 	new_mod->nomeminit = nomeminit;
 	new_mod->nomem2reg = nomem2reg;
 	new_mod->mem2reg = mem2reg;
+	new_mod->noblackbox = noblackbox;
 	new_mod->lib = lib;
+	new_mod->nowb = nowb;
 	new_mod->noopt = noopt;
 	new_mod->icells = icells;
+	new_mod->pwires = pwires;
 	new_mod->autowire = autowire;
 
 	return new_mod;
+}
+
+void AstModule::loadconfig() const
+{
+	current_ast = NULL;
+	flag_dump_ast1 = false;
+	flag_dump_ast2 = false;
+	flag_dump_vlog1 = false;
+	flag_dump_vlog2 = false;
+	flag_nolatches = nolatches;
+	flag_nomeminit = nomeminit;
+	flag_nomem2reg = nomem2reg;
+	flag_mem2reg = mem2reg;
+	flag_noblackbox = noblackbox;
+	flag_lib = lib;
+	flag_nowb = nowb;
+	flag_noopt = noopt;
+	flag_icells = icells;
+	flag_pwires = pwires;
+	flag_autowire = autowire;
+	use_internal_line_num();
 }
 
 // internal dummy line number callbacks
@@ -1197,4 +1602,3 @@ void AST::use_internal_line_num()
 }
 
 YOSYS_NAMESPACE_END
-

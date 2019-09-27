@@ -83,18 +83,43 @@ struct JsonWriter
 		return str + " ]";
 	}
 
+	void write_parameter_value(const Const &value)
+	{
+		if ((value.flags & RTLIL::ConstFlags::CONST_FLAG_STRING) != 0) {
+			string str = value.decode_string();
+			int state = 0;
+			for (char c : str) {
+				if (state == 0) {
+					if (c == '0' || c == '1' || c == 'x' || c == 'z')
+						state = 0;
+					else if (c == ' ')
+						state = 1;
+					else
+						state = 2;
+				} else if (state == 1 && c != ' ')
+					state = 2;
+			}
+			if (state < 2)
+				str += " ";
+			f << get_string(str);
+		} else
+		if (GetSize(value) == 32 && value.is_fully_def()) {
+			if ((value.flags & RTLIL::ConstFlags::CONST_FLAG_SIGNED) != 0)
+				f << stringf("%d", value.as_int());
+			else
+				f << stringf("%u", value.as_int());
+		} else {
+			f << get_string(value.as_string());
+		}
+	}
+
 	void write_parameters(const dict<IdString, Const> &parameters, bool for_module=false)
 	{
 		bool first = true;
 		for (auto &param : parameters) {
 			f << stringf("%s\n", first ? "" : ",");
 			f << stringf("        %s%s: ", for_module ? "" : "    ", get_name(param.first).c_str());
-			if ((param.second.flags & RTLIL::ConstFlags::CONST_FLAG_STRING) != 0)
-				f << get_string(param.second.decode_string());
-			else if (GetSize(param.second.bits) > 32)
-				f << get_string(param.second.as_string());
-			else
-				f << stringf("%d", param.second.as_int());
+			write_parameter_value(param.second);
 			first = false;
 		}
 	}
@@ -124,6 +149,10 @@ struct JsonWriter
 			f << stringf("%s\n", first ? "" : ",");
 			f << stringf("        %s: {\n", get_name(n).c_str());
 			f << stringf("          \"direction\": \"%s\",\n", w->port_input ? w->port_output ? "inout" : "input" : "output");
+			if (w->start_offset)
+				f << stringf("          \"offset\": %d,\n", w->start_offset);
+			if (w->upto)
+				f << stringf("          \"upto\": 1,\n");
 			f << stringf("          \"bits\": %s\n", get_bits(w).c_str());
 			f << stringf("        }");
 			first = false;
@@ -187,6 +216,10 @@ struct JsonWriter
 			f << stringf("        %s: {\n", get_name(w->name).c_str());
 			f << stringf("          \"hide_name\": %s,\n", w->name[0] == '$' ? "1" : "0");
 			f << stringf("          \"bits\": %s,\n", get_bits(w).c_str());
+			if (w->start_offset)
+				f << stringf("          \"offset\": %d,\n", w->start_offset);
+			if (w->upto)
+				f << stringf("          \"upto\": 1,\n");
 			f << stringf("          \"attributes\": {");
 			write_parameters(w->attributes);
 			f << stringf("\n          }\n");
@@ -250,7 +283,7 @@ struct JsonWriter
 
 struct JsonBackend : public Backend {
 	JsonBackend() : Backend("json", "write design to a JSON file") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -332,12 +365,13 @@ struct JsonBackend : public Backend {
 		log("Module and cell ports and nets can be single bit wide or vectors of multiple\n");
 		log("bits. Each individual signal bit is assigned a unique integer. The <bit_vector>\n");
 		log("values referenced above are vectors of this integers. Signal bits that are\n");
-		log("connected to a constant driver are denoted as string \"0\" or \"1\" instead of\n");
-		log("a number.\n");
+		log("connected to a constant driver are denoted as string \"0\", \"1\", \"x\", or\n");
+		log("\"z\" instead of a number.\n");
 		log("\n");
-		log("Numeric parameter and attribute values up to 32 bits are written as decimal\n");
-		log("values. Numbers larger than that are written as string holding the binary\n");
-		log("representation of the value.\n");
+		log("Numeric 32-bit parameter and attribute values are written as decimal values.\n");
+		log("Bit verctors of different sizes, or ones containing 'x' or 'z' bits, are written\n");
+		log("as string holding the binary representation of the value. Strings are written\n");
+		log("as strings, with an appended blank in cases of strings of the form /[01xz]* */.\n");
 		log("\n");
 		log("For example the following Verilog code:\n");
 		log("\n");
@@ -458,7 +492,7 @@ struct JsonBackend : public Backend {
 		log("format. A program processing this format must ignore all unknown fields.\n");
 		log("\n");
 	}
-	virtual void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		bool aig_mode = false;
 
@@ -482,7 +516,7 @@ struct JsonBackend : public Backend {
 
 struct JsonPass : public Pass {
 	JsonPass() : Pass("json", "write design in JSON format") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -499,7 +533,7 @@ struct JsonPass : public Pass {
 		log("See 'help write_json' for a description of the JSON format used.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		std::string filename;
 		bool aig_mode = false;
@@ -523,6 +557,7 @@ struct JsonPass : public Pass {
 		std::stringstream buf;
 
 		if (!filename.empty()) {
+			rewrite_filename(filename);
 			std::ofstream *ff = new std::ofstream;
 			ff->open(filename.c_str(), std::ofstream::trunc);
 			if (ff->fail()) {

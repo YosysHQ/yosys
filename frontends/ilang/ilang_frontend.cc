@@ -35,7 +35,7 @@ YOSYS_NAMESPACE_BEGIN
 
 struct IlangFrontend : public Frontend {
 	IlangFrontend() : Frontend("ilang", "read modules from ilang file") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -44,11 +44,47 @@ struct IlangFrontend : public Frontend {
 		log("Load modules from an ilang file to the current design. (ilang is a text\n");
 		log("representation of a design in yosys's internal format.)\n");
 		log("\n");
+		log("    -nooverwrite\n");
+		log("        ignore re-definitions of modules. (the default behavior is to\n");
+		log("        create an error message if the existing module is not a blackbox\n");
+		log("        module, and overwrite the existing module if it is a blackbox module.)\n");
+		log("\n");
+		log("    -overwrite\n");
+		log("        overwrite existing modules with the same name\n");
+		log("\n");
+		log("    -lib\n");
+		log("        only create empty blackbox modules\n");
+		log("\n");
 	}
-	virtual void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
+		ILANG_FRONTEND::flag_nooverwrite = false;
+		ILANG_FRONTEND::flag_overwrite = false;
+		ILANG_FRONTEND::flag_lib = false;
+
 		log_header(design, "Executing ILANG frontend.\n");
-		extra_args(f, filename, args, 1);
+
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++) {
+			std::string arg = args[argidx];
+			if (arg == "-nooverwrite") {
+				ILANG_FRONTEND::flag_nooverwrite = true;
+				ILANG_FRONTEND::flag_overwrite = false;
+				continue;
+			}
+			if (arg == "-overwrite") {
+				ILANG_FRONTEND::flag_nooverwrite = false;
+				ILANG_FRONTEND::flag_overwrite = true;
+				continue;
+			}
+			if (arg == "-lib") {
+				ILANG_FRONTEND::flag_lib = true;
+				continue;
+			}
+			break;
+		}
+		extra_args(f, filename, args, argidx);
+
 		log("Input filename: %s\n", filename.c_str());
 
 		ILANG_FRONTEND::lexin = f;

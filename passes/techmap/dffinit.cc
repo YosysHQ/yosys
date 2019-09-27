@@ -25,7 +25,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct DffinitPass : public Pass {
 	DffinitPass() : Pass("dffinit", "set INIT param on FF cells") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -43,18 +43,37 @@ struct DffinitPass : public Pass {
 		log("        initial value of 1 or 0. (multi-bit values are not supported in this\n");
 		log("        mode.)\n");
 		log("\n");
+		log("    -strinit <string for high> <string for low> \n");
+		log("        use string values in the command line to represent a single-bit\n");
+		log("        initial value of 1 or 0. (multi-bit values are not supported in this\n");
+		log("        mode.)\n");
+		log("\n");
+		log("    -noreinit\n");
+		log("        fail if the FF cell has already a defined initial value set in other\n");
+		log("        passes and the initial value of the net it drives is not equal to\n");
+		log("        the already defined initial value.\n");
+		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing DFFINIT pass (set INIT param on FF cells).\n");
 
 		dict<IdString, dict<IdString, IdString>> ff_types;
-		bool highlow_mode = false;
+		bool highlow_mode = false, noreinit = false;
+		std::string high_string, low_string;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-highlow") {
 				highlow_mode = true;
+				high_string = "high";
+				low_string = "low";
+				continue;
+			}
+			if (args[argidx] == "-strinit" && argidx+2 < args.size()) {
+				highlow_mode = true;
+				high_string = args[++argidx];
+				low_string = args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-ff" && argidx+3 < args.size()) {
@@ -62,6 +81,10 @@ struct DffinitPass : public Pass {
 				IdString output_port = RTLIL::escape_id(args[++argidx]);
 				IdString init_param = RTLIL::escape_id(args[++argidx]);
 				ff_types[cell_name][output_port] = init_param;
+				continue;
+			}
+			if (args[argidx] == "-noreinit") {
+				noreinit = true;
 				continue;
 			}
 			break;
@@ -76,10 +99,11 @@ struct DffinitPass : public Pass {
 			pool<SigBit> used_bits;
 
 			for (auto wire : module->selected_wires()) {
-				if (wire->attributes.count("\\init")) {
-					Const value = wire->attributes.at("\\init");
+				if (wire->attributes.count(ID(init))) {
+					Const value = wire->attributes.at(ID(init));
 					for (int i = 0; i < min(GetSize(value), GetSize(wire)); i++)
-						init_bits[sigmap(SigBit(wire, i))] = value[i];
+						if (value[i] != State::Sx)
+							init_bits[sigmap(SigBit(wire, i))] = value[i];
 				}
 				if (wire->port_output)
 					for (auto bit : sigmap(wire))
@@ -112,6 +136,10 @@ struct DffinitPass : public Pass {
 							continue;
 						while (GetSize(value.bits) <= i)
 							value.bits.push_back(State::S0);
+						if (noreinit && value.bits[i] != State::Sx && value.bits[i] != init_bits.at(sig[i]))
+							log_error("Trying to assign a different init value for %s.%s.%s which technically "
+									"have a conflicted init value.\n",
+									log_id(module), log_id(cell), log_id(it.second));
 						value.bits[i] = init_bits.at(sig[i]);
 						cleanup_bits.insert(sig[i]);
 					}
@@ -121,9 +149,9 @@ struct DffinitPass : public Pass {
 							log_error("Multi-bit init value for %s.%s.%s is incompatible with -highlow mode.\n",
 									log_id(module), log_id(cell), log_id(it.second));
 						if (value[0] == State::S1)
-							value = Const("high");
+							value = Const(high_string);
 						else
-							value = Const("low");
+							value = Const(low_string);
 					}
 
 					log("Setting %s.%s.%s (port=%s, net=%s) to %s.\n", log_id(module), log_id(cell), log_id(it.second),
@@ -133,8 +161,8 @@ struct DffinitPass : public Pass {
 			}
 
 			for (auto wire : module->selected_wires())
-				if (wire->attributes.count("\\init")) {
-					Const &value = wire->attributes.at("\\init");
+				if (wire->attributes.count(ID(init))) {
+					Const &value = wire->attributes.at(ID(init));
 					bool do_cleanup = true;
 					for (int i = 0; i < min(GetSize(value), GetSize(wire)); i++) {
 						SigBit bit = sigmap(SigBit(wire, i));
@@ -145,7 +173,7 @@ struct DffinitPass : public Pass {
 					}
 					if (do_cleanup) {
 						log("Removing init attribute from wire %s.%s.\n", log_id(module), log_id(wire));
-						wire->attributes.erase("\\init");
+						wire->attributes.erase(ID(init));
 					}
 				}
 		}

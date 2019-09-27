@@ -37,13 +37,24 @@ namespace ILANG_FRONTEND {
 	std::vector<std::vector<RTLIL::SwitchRule*>*> switch_stack;
 	std::vector<RTLIL::CaseRule*> case_stack;
 	dict<RTLIL::IdString, RTLIL::Const> attrbuf;
+	bool flag_nooverwrite, flag_overwrite, flag_lib;
+	bool delete_current_module;
 }
 using namespace ILANG_FRONTEND;
 YOSYS_NAMESPACE_END
 USING_YOSYS_NAMESPACE
 %}
 
-%name-prefix "rtlil_frontend_ilang_yy"
+%define api.prefix {rtlil_frontend_ilang_yy}
+
+/* The union is defined in the header, so we need to provide all the
+ * includes it requires
+ */
+%code requires {
+#include <string>
+#include <vector>
+#include "frontends/ilang/ilang_frontend.h"
+}
 
 %union {
 	char *string;
@@ -59,7 +70,7 @@ USING_YOSYS_NAMESPACE
 %token TOK_CELL TOK_CONNECT TOK_SWITCH TOK_CASE TOK_ASSIGN TOK_SYNC
 %token TOK_LOW TOK_HIGH TOK_POSEDGE TOK_NEGEDGE TOK_EDGE TOK_ALWAYS TOK_GLOBAL TOK_INIT
 %token TOK_UPDATE TOK_PROCESS TOK_END TOK_INVALID TOK_EOL TOK_OFFSET
-%token TOK_PARAMETER TOK_ATTRIBUTE TOK_MEMORY TOK_SIZE TOK_SIGNED TOK_UPTO
+%token TOK_PARAMETER TOK_ATTRIBUTE TOK_MEMORY TOK_SIZE TOK_SIGNED TOK_REAL TOK_UPTO
 
 %type <rsigspec> sigspec_list_reversed
 %type <sigspec> sigspec sigspec_list
@@ -93,18 +104,38 @@ design:
 
 module:
 	TOK_MODULE TOK_ID EOL {
-		if (current_design->has($2))
-			rtlil_frontend_ilang_yyerror(stringf("ilang error: redefinition of module %s.", $2).c_str());
+		delete_current_module = false;
+		if (current_design->has($2)) {
+			RTLIL::Module *existing_mod = current_design->module($2);
+			if (!flag_overwrite && (flag_lib || (attrbuf.count("\\blackbox") && attrbuf.at("\\blackbox").as_bool()))) {
+				log("Ignoring blackbox re-definition of module %s.\n", $2);
+				delete_current_module = true;
+			} else if (!flag_nooverwrite && !flag_overwrite && !existing_mod->get_bool_attribute("\\blackbox")) {
+				rtlil_frontend_ilang_yyerror(stringf("ilang error: redefinition of module %s.", $2).c_str());
+			} else if (flag_nooverwrite) {
+				log("Ignoring re-definition of module %s.\n", $2);
+				delete_current_module = true;
+			} else {
+				log("Replacing existing%s module %s.\n", existing_mod->get_bool_attribute("\\blackbox") ? " blackbox" : "", $2);
+				current_design->remove(existing_mod);
+			}
+		}
 		current_module = new RTLIL::Module;
 		current_module->name = $2;
 		current_module->attributes = attrbuf;
-		current_design->add(current_module);
+		if (!delete_current_module)
+			current_design->add(current_module);
 		attrbuf.clear();
 		free($2);
 	} module_body TOK_END {
 		if (attrbuf.size() != 0)
 			rtlil_frontend_ilang_yyerror("dangling attribute");
 		current_module->fixup_ports();
+		if (delete_current_module)
+			delete current_module;
+		else if (flag_lib)
+			current_module->makeblackbox();
+		current_module = nullptr;
 	} EOL;
 
 module_body:
@@ -219,6 +250,12 @@ cell_body:
 		free($4);
 		delete $5;
 	} |
+	cell_body TOK_PARAMETER TOK_REAL TOK_ID constant EOL {
+		current_cell->parameters[$4] = *$5;
+		current_cell->parameters[$4].flags |= RTLIL::CONST_FLAG_REAL;
+		free($4);
+		delete $5;
+	} |
 	cell_body TOK_CONNECT TOK_ID sigspec EOL {
 		if (current_cell->hasPort($3))
 			rtlil_frontend_ilang_yyerror(stringf("ilang error: redefinition of cell port %s.", $3).c_str());
@@ -245,14 +282,14 @@ proc_stmt:
 	} case_body sync_list TOK_END EOL;
 
 switch_stmt:
-	attr_list TOK_SWITCH sigspec EOL {
+	TOK_SWITCH sigspec EOL {
 		RTLIL::SwitchRule *rule = new RTLIL::SwitchRule;
-		rule->signal = *$3;
+		rule->signal = *$2;
 		rule->attributes = attrbuf;
 		switch_stack.back()->push_back(rule);
 		attrbuf.clear();
-		delete $3;
-	} switch_body TOK_END EOL;
+		delete $2;
+	} attr_list switch_body TOK_END EOL;
 
 attr_list:
 	/* empty */ |
@@ -261,9 +298,11 @@ attr_list:
 switch_body:
 	switch_body TOK_CASE {
 		RTLIL::CaseRule *rule = new RTLIL::CaseRule;
+		rule->attributes = attrbuf;
 		switch_stack.back()->back()->cases.push_back(rule);
 		switch_stack.push_back(&rule->switches);
 		case_stack.push_back(rule);
+		attrbuf.clear();
 	} compare_list EOL case_body {
 		switch_stack.pop_back();
 		case_stack.pop_back();
@@ -282,12 +321,15 @@ compare_list:
 	/* empty */;
 
 case_body:
+	case_body attr_stmt |
 	case_body switch_stmt |
 	case_body assign_stmt |
 	/* empty */;
 
 assign_stmt:
 	TOK_ASSIGN sigspec sigspec EOL {
+		if (attrbuf.size() != 0)
+			rtlil_frontend_ilang_yyerror("dangling attribute");
 		case_stack.back()->actions.push_back(RTLIL::SigSig(*$2, *$3));
 		delete $2;
 		delete $3;
@@ -387,17 +429,13 @@ sigspec:
 		$$ = new RTLIL::SigSpec(current_module->wires_[$1]);
 		free($1);
 	} |
-	TOK_ID '[' TOK_INT ']' {
-		if (current_module->wires_.count($1) == 0)
-			rtlil_frontend_ilang_yyerror(stringf("ilang error: wire %s not found", $1).c_str());
-		$$ = new RTLIL::SigSpec(current_module->wires_[$1], $3);
-		free($1);
+	sigspec '[' TOK_INT ']' {
+		$$ = new RTLIL::SigSpec($1->extract($3));
+		delete $1;
 	} |
-	TOK_ID '[' TOK_INT ':' TOK_INT ']' {
-		if (current_module->wires_.count($1) == 0)
-			rtlil_frontend_ilang_yyerror(stringf("ilang error: wire %s not found", $1).c_str());
-		$$ = new RTLIL::SigSpec(current_module->wires_[$1], $5, $3 - $5 + 1);
-		free($1);
+	sigspec '[' TOK_INT ':' TOK_INT ']' {
+		$$ = new RTLIL::SigSpec($1->extract($5, $3 - $5 + 1));
+		delete $1;
 	} |
 	'{' sigspec_list '}' {
 		$$ = $2;
@@ -427,4 +465,3 @@ conn_stmt:
 		delete $2;
 		delete $3;
 	};
-

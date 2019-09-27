@@ -27,7 +27,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct OptPass : public Pass {
 	OptPass() : Pass("opt", "perform simple optimizations") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -44,7 +44,8 @@ struct OptPass : public Pass {
 		log("        opt_muxtree\n");
 		log("        opt_reduce [-fine] [-full]\n");
 		log("        opt_merge [-share_all]\n");
-		log("        opt_rmdff [-keepdc]\n");
+		log("        opt_share (-full only)\n");
+		log("        opt_rmdff [-keepdc] [-sat]\n");
 		log("        opt_clean [-purge]\n");
 		log("        opt_expr [-mux_undef] [-mux_bool] [-undriven] [-clkinv] [-fine] [-full] [-keepdc]\n");
 		log("    while <changed design>\n");
@@ -54,7 +55,7 @@ struct OptPass : public Pass {
 		log("    do\n");
 		log("        opt_expr [-mux_undef] [-mux_bool] [-undriven] [-clkinv] [-fine] [-full] [-keepdc]\n");
 		log("        opt_merge [-share_all]\n");
-		log("        opt_rmdff [-keepdc]\n");
+		log("        opt_rmdff [-keepdc] [-sat]\n");
 		log("        opt_clean [-purge]\n");
 		log("    while <changed design in opt_rmdff>\n");
 		log("\n");
@@ -63,13 +64,14 @@ struct OptPass : public Pass {
 		log("\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		std::string opt_clean_args;
 		std::string opt_expr_args;
 		std::string opt_reduce_args;
 		std::string opt_merge_args;
 		std::string opt_rmdff_args;
+		bool opt_share = false;
 		bool fast_mode = false;
 
 		log_header(design, "Executing OPT pass (performing simple optimizations).\n");
@@ -105,11 +107,16 @@ struct OptPass : public Pass {
 			if (args[argidx] == "-full") {
 				opt_expr_args += " -full";
 				opt_reduce_args += " -full";
+				opt_share = true;
 				continue;
 			}
 			if (args[argidx] == "-keepdc") {
 				opt_expr_args += " -keepdc";
 				opt_rmdff_args += " -keepdc";
+				continue;
+			}
+			if (args[argidx] == "-sat") {
+				opt_rmdff_args += " -sat";
 				continue;
 			}
 			if (args[argidx] == "-share_all") {
@@ -147,6 +154,8 @@ struct OptPass : public Pass {
 				Pass::call(design, "opt_muxtree");
 				Pass::call(design, "opt_reduce" + opt_reduce_args);
 				Pass::call(design, "opt_merge" + opt_merge_args);
+				if (opt_share)
+					Pass::call(design, "opt_share");
 				Pass::call(design, "opt_rmdff" + opt_rmdff_args);
 				Pass::call(design, "opt_clean" + opt_clean_args);
 				Pass::call(design, "opt_expr" + opt_expr_args);

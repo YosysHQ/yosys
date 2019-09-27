@@ -40,8 +40,8 @@ void ILANG_BACKEND::dump_const(std::ostream &f, const RTLIL::Const &data, int wi
 			for (int i = 0; i < width; i++) {
 				log_assert(offset+i < (int)data.bits.size());
 				switch (data.bits[offset+i]) {
-				case RTLIL::S0: break;
-				case RTLIL::S1: val |= 1 << i; break;
+				case State::S0: break;
+				case State::S1: val |= 1 << i; break;
 				default: val = -1; break;
 				}
 			}
@@ -54,8 +54,8 @@ void ILANG_BACKEND::dump_const(std::ostream &f, const RTLIL::Const &data, int wi
 		for (int i = offset+width-1; i >= offset; i--) {
 			log_assert(i < (int)data.bits.size());
 			switch (data.bits[i]) {
-			case RTLIL::S0: f << stringf("0"); break;
-			case RTLIL::S1: f << stringf("1"); break;
+			case State::S0: f << stringf("0"); break;
+			case State::S1: f << stringf("1"); break;
 			case RTLIL::Sx: f << stringf("x"); break;
 			case RTLIL::Sz: f << stringf("z"); break;
 			case RTLIL::Sa: f << stringf("-"); break;
@@ -160,7 +160,10 @@ void ILANG_BACKEND::dump_cell(std::ostream &f, std::string indent, const RTLIL::
 	}
 	f << stringf("%s" "cell %s %s\n", indent.c_str(), cell->type.c_str(), cell->name.c_str());
 	for (auto &it : cell->parameters) {
-		f << stringf("%s  parameter%s %s ", indent.c_str(), (it.second.flags & RTLIL::CONST_FLAG_SIGNED) != 0 ? " signed" : "", it.first.c_str());
+		f << stringf("%s  parameter%s%s %s ", indent.c_str(),
+				(it.second.flags & RTLIL::CONST_FLAG_SIGNED) != 0 ? " signed" : "",
+				(it.second.flags & RTLIL::CONST_FLAG_REAL) != 0 ? " real" : "",
+				it.first.c_str());
 		dump_const(f, it.second);
 		f << stringf("\n");
 	}
@@ -201,10 +204,15 @@ void ILANG_BACKEND::dump_proc_switch(std::ostream &f, std::string indent, const 
 
 	for (auto it = sw->cases.begin(); it != sw->cases.end(); ++it)
 	{
+		for (auto ait = (*it)->attributes.begin(); ait != (*it)->attributes.end(); ++ait) {
+			f << stringf("%s  attribute %s ", indent.c_str(), ait->first.c_str());
+			dump_const(f, ait->second);
+			f << stringf("\n");
+		}
 		f << stringf("%s  case ", indent.c_str());
 		for (size_t i = 0; i < (*it)->compare.size(); i++) {
 			if (i > 0)
-				f << stringf(", ");
+				f << stringf(" , ");
 			dump_sigspec(f, (*it)->compare[i]);
 		}
 		f << stringf("\n");
@@ -382,7 +390,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct IlangBackend : public Backend {
 	IlangBackend() : Backend("ilang", "write design to ilang file") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -395,7 +403,7 @@ struct IlangBackend : public Backend {
 		log("        only write selected parts of the design.\n");
 		log("\n");
 	}
-	virtual void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		bool selected = false;
 
@@ -422,7 +430,7 @@ struct IlangBackend : public Backend {
 
 struct DumpPass : public Pass {
 	DumpPass() : Pass("dump", "print parts of the design in ilang format") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -445,7 +453,7 @@ struct DumpPass : public Pass {
 		log("        like -outfile but append instead of overwrite\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		std::string filename;
 		bool flag_m = false, flag_n = false, append = false;
@@ -480,6 +488,7 @@ struct DumpPass : public Pass {
 		std::stringstream buf;
 
 		if (!filename.empty()) {
+			rewrite_filename(filename);
 			std::ofstream *ff = new std::ofstream;
 			ff->open(filename.c_str(), append ? std::ofstream::app : std::ofstream::trunc);
 			if (ff->fail()) {

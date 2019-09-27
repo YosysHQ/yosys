@@ -55,7 +55,7 @@ bool check_signal(RTLIL::Module *mod, RTLIL::SigSpec signal, RTLIL::SigSpec ref,
 			return check_signal(mod, cell->getPort("\\A"), ref, polarity);
 		}
 
-		if ((cell->type == "$eq" || cell->type == "$eqx") && cell->getPort("\\Y") == signal) {
+		if (cell->type.in("$eq", "$eqx") && cell->getPort("\\Y") == signal) {
 			if (cell->getPort("\\A").is_fully_const()) {
 				if (!cell->getPort("\\A").as_bool())
 					polarity = !polarity;
@@ -68,7 +68,7 @@ bool check_signal(RTLIL::Module *mod, RTLIL::SigSpec signal, RTLIL::SigSpec ref,
 			}
 		}
 
-		if ((cell->type == "$ne" || cell->type == "$nex") && cell->getPort("\\Y") == signal) {
+		if (cell->type.in("$ne", "$nex") && cell->getPort("\\Y") == signal) {
 			if (cell->getPort("\\A").is_fully_const()) {
 				if (cell->getPort("\\A").as_bool())
 					polarity = !polarity;
@@ -172,7 +172,7 @@ restart_proc_arst:
 					sync->type = sync->type == RTLIL::SyncType::STp ? RTLIL::SyncType::ST1 : RTLIL::SyncType::ST0;
 				}
 				for (auto &action : sync->actions) {
-					RTLIL::SigSpec rspec = action.second;
+					RTLIL::SigSpec rspec = assign_map(action.second);
 					RTLIL::SigSpec rval = RTLIL::SigSpec(RTLIL::State::Sm, rspec.size());
 					for (int i = 0; i < GetSize(rspec); i++)
 						if (rspec[i].wire == NULL)
@@ -203,7 +203,7 @@ restart_proc_arst:
 
 struct ProcArstPass : public Pass {
 	ProcArstPass() : Pass("proc_arst", "detect asynchronous resets") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -221,7 +221,7 @@ struct ProcArstPass : public Pass {
 		log("        in the 'init' attribute on the net.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		std::string global_arst;
 		bool global_arst_neg = false;

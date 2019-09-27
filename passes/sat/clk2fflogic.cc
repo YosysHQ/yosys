@@ -25,7 +25,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct Clk2fflogicPass : public Pass {
 	Clk2fflogicPass() : Pass("clk2fflogic", "convert clocked FFs to generic $ff cells") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -36,7 +36,7 @@ struct Clk2fflogicPass : public Pass {
 		log("multiple clocks.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		// bool flag_noinit = false;
 
@@ -252,6 +252,13 @@ struct Clk2fflogicPass : public Pass {
 						SigSpec arst = cell->getPort("\\ARST");
 						SigSpec qval = module->Mux(NEW_ID, past_q, past_d, clock_edge);
 						Const rstval = cell->parameters["\\ARST_VALUE"];
+
+						Wire *past_arst = module->addWire(NEW_ID);
+						module->addFf(NEW_ID, arst, past_arst);
+						if (cell->parameters["\\ARST_POLARITY"].as_bool())
+							arst = module->LogicOr(NEW_ID, arst, past_arst);
+						else
+							arst = module->LogicAnd(NEW_ID, arst, past_arst);
 
 						if (cell->parameters["\\ARST_POLARITY"].as_bool())
 							module->addMux(NEW_ID, qval, rstval, arst, sig_q);

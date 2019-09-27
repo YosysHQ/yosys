@@ -1,0 +1,3 @@
+read_ilang opt_lut_elim.il
+opt_lut
+select -assert-count 0 t:$lut

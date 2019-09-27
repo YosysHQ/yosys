@@ -168,7 +168,7 @@ undef_bit_in_next_state:
 			ctrl_in_bit_indices[ctrl_in[i]] = i;
 
 		for (auto &it : ctrl_in_bit_indices)
-			if (tr.ctrl_in.bits.at(it.second) == RTLIL::S1 && exclusive_ctrls.count(it.first) != 0)
+			if (tr.ctrl_in.bits.at(it.second) == State::S1 && exclusive_ctrls.count(it.first) != 0)
 				for (auto &dc_bit : exclusive_ctrls.at(it.first))
 					if (ctrl_in_bit_indices.count(dc_bit))
 						tr.ctrl_in.bits.at(ctrl_in_bit_indices.at(dc_bit)) = RTLIL::State::Sa;
@@ -178,7 +178,7 @@ undef_bit_in_next_state:
 			log_state_in = fsm_data.state_table.at(state_in);
 
 		if (states.count(ce.values_map(ce.assign_map(dff_in)).as_const()) == 0) {
-			log("  transition: %10s %s -> INVALID_STATE(%s) %s  <ignored invalid transistion!>%s\n",
+			log("  transition: %10s %s -> INVALID_STATE(%s) %s  <ignored invalid transition!>%s\n",
 					log_signal(log_state_in), log_signal(tr.ctrl_in),
 					log_signal(ce.values_map(ce.assign_map(dff_in))), log_signal(tr.ctrl_out),
 					undef_bit_in_next_state_mode ? " SHORTENED" : "");
@@ -194,7 +194,7 @@ undef_bit_in_next_state:
 					log_signal(log_state_in), log_signal(tr.ctrl_in),
 					log_signal(fsm_data.state_table[tr.state_out]), log_signal(tr.ctrl_out));
 		} else {
-			log("  transition: %10s %s -> %10s %s  <ignored undef transistion!>\n",
+			log("  transition: %10s %s -> %10s %s  <ignored undef transition!>\n",
 					log_signal(log_state_in), log_signal(tr.ctrl_in),
 					log_signal(fsm_data.state_table[tr.state_out]), log_signal(tr.ctrl_out));
 		}
@@ -216,13 +216,13 @@ undef_bit_in_next_state:
 		ce.push();
 		dont_care.append(undef);
 		ce.set(undef, constval.as_const());
-		if (exclusive_ctrls.count(undef) && constval == RTLIL::S1)
+		if (exclusive_ctrls.count(undef) && constval == State::S1)
 			for (auto &bit : exclusive_ctrls.at(undef)) {
 				RTLIL::SigSpec bitval = bit;
-				if (ce.eval(bitval) && bitval != RTLIL::S0)
+				if (ce.eval(bitval) && bitval != State::S0)
 					goto found_contradiction_1;
 				else
-					ce.set(bit, RTLIL::S0);
+					ce.set(bit, State::S0);
 			}
 		find_transitions(ce, ce_nostop, fsm_data, states, state_in, ctrl_in, ctrl_out, dff_in, dont_care);
 	found_contradiction_1:
@@ -231,21 +231,21 @@ undef_bit_in_next_state:
 	else
 	{
 		ce.push(), ce_nostop.push();
-		ce.set(undef, RTLIL::S0);
-		ce_nostop.set(undef, RTLIL::S0);
+		ce.set(undef, State::S0);
+		ce_nostop.set(undef, State::S0);
 		find_transitions(ce, ce_nostop, fsm_data, states, state_in, ctrl_in, ctrl_out, dff_in, dont_care);
 		ce.pop(), ce_nostop.pop();
 
 		ce.push(), ce_nostop.push();
-		ce.set(undef, RTLIL::S1);
-		ce_nostop.set(undef, RTLIL::S1);
+		ce.set(undef, State::S1);
+		ce_nostop.set(undef, State::S1);
 		if (exclusive_ctrls.count(undef))
 			for (auto &bit : exclusive_ctrls.at(undef)) {
 				RTLIL::SigSpec bitval = bit;
-				if ((ce.eval(bitval) || ce_nostop.eval(bitval)) && bitval != RTLIL::S0)
+				if ((ce.eval(bitval) || ce_nostop.eval(bitval)) && bitval != State::S0)
 					goto found_contradiction_2;
 				else
-					ce.set(bit, RTLIL::S0), ce_nostop.set(bit, RTLIL::S0);
+					ce.set(bit, State::S0), ce_nostop.set(bit, RTLIL::S0);
 			}
 		find_transitions(ce, ce_nostop, fsm_data, states, state_in, ctrl_in, ctrl_out, dff_in, dont_care);
 	found_contradiction_2:
@@ -263,8 +263,8 @@ static void extract_fsm(RTLIL::Wire *wire)
 	RTLIL::SigSpec dff_in(RTLIL::State::Sm, wire->width);
 	RTLIL::Const reset_state(RTLIL::State::Sx, wire->width);
 
-	RTLIL::SigSpec clk = RTLIL::S0;
-	RTLIL::SigSpec arst = RTLIL::S0;
+	RTLIL::SigSpec clk = State::S0;
+	RTLIL::SigSpec arst = State::S0;
 	bool clk_polarity = true;
 	bool arst_polarity = true;
 
@@ -371,8 +371,8 @@ static void extract_fsm(RTLIL::Wire *wire)
 	RTLIL::Cell *fsm_cell = module->addCell(stringf("$fsm$%s$%d", wire->name.c_str(), autoidx++), "$fsm");
 	fsm_cell->setPort("\\CLK", clk);
 	fsm_cell->setPort("\\ARST", arst);
-	fsm_cell->parameters["\\CLK_POLARITY"] = clk_polarity ? RTLIL::S1 : RTLIL::S0;
-	fsm_cell->parameters["\\ARST_POLARITY"] = arst_polarity ? RTLIL::S1 : RTLIL::S0;
+	fsm_cell->parameters["\\CLK_POLARITY"] = clk_polarity ? State::S1 : State::S0;
+	fsm_cell->parameters["\\ARST_POLARITY"] = arst_polarity ? State::S1 : State::S0;
 	fsm_cell->setPort("\\CTRL_IN", ctrl_in);
 	fsm_cell->setPort("\\CTRL_OUT", ctrl_out);
 	fsm_cell->parameters["\\NAME"] = RTLIL::Const(wire->name.str());
@@ -401,7 +401,7 @@ static void extract_fsm(RTLIL::Wire *wire)
 
 struct FsmExtractPass : public Pass {
 	FsmExtractPass() : Pass("fsm_extract", "extracting FSMs in design") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -417,7 +417,7 @@ struct FsmExtractPass : public Pass {
 		log("'opt_clean' pass to eliminate this signal.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing FSM_EXTRACT pass (extracting FSM from design).\n");
 		extra_args(args, 1, design);

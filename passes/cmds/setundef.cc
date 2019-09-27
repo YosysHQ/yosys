@@ -33,67 +33,32 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-static RTLIL::Wire * add_wire(RTLIL::Design *design, RTLIL::Module *module, std::string name, int width, bool flag_input, bool flag_output, bool flag_global)
+static RTLIL::Wire * add_wire(RTLIL::Module *module, std::string name, int width, bool flag_input, bool flag_output)
 {
-  RTLIL::Wire *wire = NULL;
-  name = RTLIL::escape_id(name);
+	RTLIL::Wire *wire = NULL;
+	name = RTLIL::escape_id(name);
 
-  if (module->count_id(name) != 0)
-  {
-    if (module->wires_.count(name) > 0)
-      wire = module->wires_.at(name);
+	if (module->count_id(name) != 0)
+	{
+		log("Module %s already has such an object %s.\n", module->name.c_str(), name.c_str());
+		name += "$";
+		return add_wire(module, name, width, flag_input, flag_output);
+	}
+	else
+	{
+		wire = module->addWire(name, width);
+		wire->port_input = flag_input;
+		wire->port_output = flag_output;
 
-    if (wire != NULL && wire->width != width)
-      wire = NULL;
+		if (flag_input || flag_output) {
+			wire->port_id = module->wires_.size();
+			module->fixup_ports();
+		}
 
-    if (wire != NULL && wire->port_input != flag_input)
-      wire = NULL;
+		log("Added wire %s to module %s.\n", name.c_str(), module->name.c_str());
+	}
 
-    if (wire != NULL && wire->port_output != flag_output)
-      wire = NULL;
-
-    if (wire == NULL) {
-      return wire;
-      log_cmd_error("Found incompatible object %s with same name in module %s!\n", name.c_str(), module->name.c_str());
-    }
-
-    log("Module %s already has such an object %s.\n", module->name.c_str(), name.c_str());
-  }
-  else
-  {
-    wire = module->addWire(name, width);
-    wire->port_input = flag_input;
-    wire->port_output = flag_output;
-
-    if (flag_input || flag_output) {
-      wire->port_id = module->wires_.size();
-      module->fixup_ports();
-    }
-
-    log("Added wire %s to module %s.\n", name.c_str(), module->name.c_str());
-  }
-
-  if (!flag_global)
-    return wire;
-
-  for (auto &it : module->cells_)
-  {
-    if (design->modules_.count(it.second->type) == 0)
-      continue;
-
-    RTLIL::Module *mod = design->modules_.at(it.second->type);
-    if (!design->selected_whole_module(mod->name))
-      continue;
-    if (mod->get_bool_attribute("\\blackbox"))
-      continue;
-    if (it.second->hasPort(name))
-      continue;
-
-    it.second->setPort(name, wire);
-    log("Added connection %s to cell %s.%s (%s).\n", name.c_str(), module->name.c_str(), it.first.c_str(), it.second->type.c_str());
-  }
-
-  return wire;
+	return wire;
 }
 
 struct SetundefWorker
@@ -142,7 +107,7 @@ struct SetundefWorker
 
 struct SetundefPass : public Pass {
 	SetundefPass() : Pass("setundef", "replace undef values with defined constants") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -172,19 +137,23 @@ struct SetundefPass : public Pass {
 		log("        replace with $anyconst drivers (for formal)\n");
 		log("\n");
 		log("    -random <seed>\n");
-		log("        replace with random bits using the specified integer als seed\n");
+		log("        replace with random bits using the specified integer as seed\n");
 		log("        value for the random number generator.\n");
 		log("\n");
 		log("    -init\n");
 		log("        also create/update init values for flip-flops\n");
 		log("\n");
+		log("    -params\n");
+		log("        replace undef in cell parameters\n");
+		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		bool got_value = false;
 		bool undriven_mode = false;
 		bool expose_mode = false;
 		bool init_mode = false;
+		bool params_mode = false;
 		SetundefWorker worker;
 
 		log_header(design, "Executing SETUNDEF pass (replace undef values with defined constants).\n");
@@ -197,7 +166,6 @@ struct SetundefPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-expose") {
-				got_value = true;
 				expose_mode = true;
 				continue;
 			}
@@ -235,6 +203,10 @@ struct SetundefPass : public Pass {
 				init_mode = true;
 				continue;
 			}
+			if (args[argidx] == "-params") {
+				params_mode = true;
+				continue;
+			}
 			if (args[argidx] == "-random" && !got_value && argidx+1 < args.size()) {
 				got_value = true;
 				worker.next_bit_mode = MODE_RANDOM;
@@ -247,6 +219,13 @@ struct SetundefPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		if (!got_value && expose_mode) {
+			log("Using default as -undef with -expose.\n");
+			got_value = true;
+			worker.next_bit_mode = MODE_UNDEF;
+			worker.next_bit_state = 0;
+		}
+
 		if (expose_mode && !undriven_mode)
 			log_cmd_error("Option -expose must be used with option -undriven.\n");
 		if (!got_value)
@@ -257,105 +236,121 @@ struct SetundefPass : public Pass {
 
 		for (auto module : design->selected_modules())
 		{
+			if (params_mode)
+			{
+				for (auto *cell : module->selected_cells()) {
+					for (auto &parameter : cell->parameters) {
+						for (auto &bit : parameter.second.bits) {
+							if (bit > RTLIL::State::S1)
+								bit = worker.next_bit();
+						}
+					}
+				}
+			}
+
 			if (undriven_mode)
 			{
 				if (!module->processes.empty())
 					log_error("The 'setundef' command can't operate in -undriven mode on modules with processes. Run 'proc' first.\n");
 
-        if (expose_mode) {
-          SigMap sigmap(module);
-          dict<SigBit, bool> wire_drivers;
-          pool<SigBit> used_wires;
-          SigPool undriven_signals;
+				if (expose_mode)
+				{
+					SigMap sigmap(module);
+					dict<SigBit, bool> wire_drivers;
+					pool<SigBit> used_wires;
+					SigPool undriven_signals;
 
-          for (auto cell : module->cells())
-          for (auto &conn : cell->connections()) {
-            SigSpec sig = sigmap(conn.second);
-            if (cell->input(conn.first))
-              for (auto bit : sig)
-                if (bit.wire) {
-                  used_wires.insert(bit);
-                }
-            if (cell->output(conn.first))
-              for (int i = 0; i < GetSize(sig); i++) {
-                if (sig[i].wire)
-                  wire_drivers[sig[i]] = true;
-              }
-          }
+					for (auto cell : module->cells())
+						for (auto &conn : cell->connections()) {
+							SigSpec sig = sigmap(conn.second);
+							if (cell->input(conn.first))
+								for (auto bit : sig)
+									if (bit.wire)
+										used_wires.insert(bit);
+							if (cell->output(conn.first))
+								for (int i = 0; i < GetSize(sig); i++)
+									if (sig[i].wire)
+										wire_drivers[sig[i]] = true;
+						}
 
-          for (auto wire : module->wires()) {
-            if (wire->port_input) {
-              SigSpec sig = sigmap(wire);
-              for (int i = 0; i < GetSize(sig); i++)
-                wire_drivers[sig[i]] = true;
-            }
-            if (wire->port_output)
-              for (auto bit : sigmap(wire))
-                if (bit.wire) used_wires.insert(bit);
-          }
+					for (auto wire : module->wires()) {
+						if (wire->port_input) {
+							SigSpec sig = sigmap(wire);
+							for (int i = 0; i < GetSize(sig); i++)
+								wire_drivers[sig[i]] = true;
+						}
+						if (wire->port_output) {
+							SigSpec sig = sigmap(wire);
+							for (auto bit : sig)
+								if (bit.wire)
+									used_wires.insert(bit);
+						}
+					}
 
-          pool<RTLIL::Wire*> undriven_wires;
-          for (auto bit : used_wires) {
-            if (!wire_drivers.count(bit)) {
-              undriven_wires.insert(bit.wire);
-            }
-          }
+					pool<RTLIL::Wire*> undriven_wires;
+					for (auto bit : used_wires)
+						if (!wire_drivers.count(bit))
+							undriven_wires.insert(bit.wire);
 
-          for (auto &it : undriven_wires)
-            undriven_signals.add(sigmap(it));
+					for (auto &it : undriven_wires)
+						undriven_signals.add(sigmap(it));
 
-          for (auto &it : undriven_wires)
-            if (it->port_input)
-              undriven_signals.del(sigmap(it));
+					for (auto &it : undriven_wires)
+						if (it->port_input)
+							undriven_signals.del(sigmap(it));
 
-          CellTypes ct(design);
-          for (auto &it : module->cells_)
-          for (auto &conn : it.second->connections())
-            if (!ct.cell_known(it.second->type) || ct.cell_output(it.second->type, conn.first))
-              undriven_signals.del(sigmap(conn.second));
+					CellTypes ct(design);
+					for (auto &it : module->cells_)
+					for (auto &conn : it.second->connections())
+						if (!ct.cell_known(it.second->type) || ct.cell_output(it.second->type, conn.first))
+							undriven_signals.del(sigmap(conn.second));
 
-          RTLIL::SigSpec sig = undriven_signals.export_all();
-          for (auto &c : sig.chunks()) {
-            RTLIL::Wire * wire;
-            if (c.wire->width == c.width) {
-              wire = c.wire;
-              wire->port_input = true;
-            }
-            else {
-              string name = c.wire->name.str() + "$[" + std::to_string(c.width + c.offset) + ":" + std::to_string(c.offset) + "]";
-              wire = add_wire(design, module, name, c.width, true, false, false);
-              module->connect(RTLIL::SigSig(c, wire));
-            }
-            log("Exposing undriven wire %s as input.\n", wire->name.c_str());
-          }
-          module->fixup_ports();
-          continue;
-        }
-        else {
-          SigMap sigmap(module);
-          SigPool undriven_signals;
+					RTLIL::SigSpec sig = undriven_signals.export_all();
+					for (auto &c : sig.chunks()) {
+						RTLIL::Wire * wire;
+						if (c.wire->width == c.width) {
+							wire = c.wire;
+							wire->port_input = true;
+						} else {
+							string name = c.wire->name.str() + "$[" + std::to_string(c.width + c.offset) + ":" + std::to_string(c.offset) + "]";
+							wire = add_wire(module, name, c.width, true, false);
+							module->connect(RTLIL::SigSig(c, wire));
+						}
+						log("Exposing undriven wire %s as input.\n", wire->name.c_str());
+					}
+					module->fixup_ports();
+				}
+				else
+				{
+					SigMap sigmap(module);
+					SigPool undriven_signals;
 
-          for (auto &it : module->wires_)
-            undriven_signals.add(sigmap(it.second));
+					for (auto &it : module->wires_)
+						undriven_signals.add(sigmap(it.second));
 
-          for (auto &it : module->wires_)
-            if (it.second->port_input)
-              undriven_signals.del(sigmap(it.second));
+					for (auto &it : module->wires_)
+						if (it.second->port_input)
+							undriven_signals.del(sigmap(it.second));
 
-          CellTypes ct(design);
-          for (auto &it : module->cells_)
-          for (auto &conn : it.second->connections())
-            if (!ct.cell_known(it.second->type) || ct.cell_output(it.second->type, conn.first))
-              undriven_signals.del(sigmap(conn.second));
+					CellTypes ct(design);
+					for (auto &it : module->cells_)
+					for (auto &conn : it.second->connections())
+						if (!ct.cell_known(it.second->type) || ct.cell_output(it.second->type, conn.first))
+							undriven_signals.del(sigmap(conn.second));
 
-          RTLIL::SigSpec sig = undriven_signals.export_all();
-          for (auto &c : sig.chunks()) {
-            RTLIL::SigSpec bits;
-            for (int i = 0; i < c.width; i++)
-              bits.append(worker.next_bit());
-            module->connect(RTLIL::SigSig(c, bits));
-          }
-        }
+					RTLIL::SigSpec sig = undriven_signals.export_all();
+					for (auto &c : sig.chunks()) {
+						RTLIL::SigSpec bits;
+						if (worker.next_bit_mode == MODE_ANYSEQ)
+							bits = module->Anyseq(NEW_ID, c.width);
+						else if (worker.next_bit_mode == MODE_ANYCONST)
+							bits = module->Anyconst(NEW_ID, c.width);
+						else
+							for (int i = 0; i < c.width; i++)
+								bits.append(worker.next_bit());
+						module->connect(RTLIL::SigSig(c, bits));
+					}
+				}
 			}
 
 			if (init_mode)
@@ -398,44 +393,112 @@ struct SetundefPass : public Pass {
 						ffbits.insert(bit);
 				}
 
-				for (auto wire : module->wires())
+				auto process_initwires = [&]()
 				{
-					if (!wire->attributes.count("\\init"))
-						continue;
+					dict<Wire*, int> wire_weights;
 
-					for (auto bit : sigmap(wire))
-						ffbits.erase(bit);
-
-					initwires.insert(wire);
-				}
-
-				for (int wire_types = 0; wire_types < 2; wire_types++)
-					for (auto wire : module->wires())
+					for (auto wire : initwires)
 					{
-						if (wire->name[0] == (wire_types ? '\\' : '$'))
-					next_wire:
-							continue;
+						int weight = 0;
 
 						for (auto bit : sigmap(wire))
-							if (!ffbits.count(bit))
-								goto next_wire;
+							weight += ffbits.count(bit) ? +1 : -1;
 
-						for (auto bit : sigmap(wire))
-							ffbits.erase(bit);
-
-						initwires.insert(wire);
+						wire_weights[wire] = weight;
 					}
 
-				for (auto wire : initwires)
-				{
-					Const &initval = wire->attributes["\\init"];
+					initwires.sort([&](Wire *a, Wire *b) { return wire_weights.at(a) > wire_weights.at(b); });
 
-					for (int i = 0; i < GetSize(wire); i++)
-						if (GetSize(initval) <= i)
-							initval.bits.push_back(worker.next_bit());
-						else if (initval.bits[i] == State::Sx)
-							initval.bits[i] = worker.next_bit();
+					for (auto wire : initwires)
+					{
+						Const &initval = wire->attributes["\\init"];
+						initval.bits.resize(GetSize(wire), State::Sx);
+
+						for (int i = 0; i < GetSize(wire); i++) {
+							SigBit bit = sigmap(SigBit(wire, i));
+							if (initval[i] == State::Sx && ffbits.count(bit)) {
+								initval[i] = worker.next_bit();
+								ffbits.erase(bit);
+							}
+						}
+
+						if (initval.is_fully_undef())
+							wire->attributes.erase("\\init");
+					}
+
+					initwires.clear();
+				};
+
+				for (int wire_types = 0; wire_types < 2; wire_types++)
+				{
+					// prioritize wires that already have an init attribute
+					if (!ffbits.empty())
+					{
+						for (auto wire : module->wires())
+						{
+							if (wire->name[0] == (wire_types ? '\\' : '$'))
+								continue;
+
+							if (!wire->attributes.count("\\init"))
+								continue;
+
+							Const &initval = wire->attributes["\\init"];
+							initval.bits.resize(GetSize(wire), State::Sx);
+
+							if (initval.is_fully_undef()) {
+								wire->attributes.erase("\\init");
+								continue;
+							}
+
+							for (int i = 0; i < GetSize(wire); i++)
+								if (initval[i] != State::Sx)
+									ffbits.erase(sigmap(SigBit(wire, i)));
+
+							initwires.insert(wire);
+						}
+
+						process_initwires();
+					}
+
+					// next consider wires that completely contain bits to be initialized
+					if (!ffbits.empty())
+					{
+						for (auto wire : module->wires())
+						{
+							if (wire->name[0] == (wire_types ? '\\' : '$'))
+								continue;
+
+							for (auto bit : sigmap(wire))
+								if (!ffbits.count(bit))
+									goto next_wire;
+
+							initwires.insert(wire);
+
+						next_wire:
+							continue;
+						}
+
+						process_initwires();
+					}
+
+					// finally use whatever wire we can find.
+					if (!ffbits.empty())
+					{
+						for (auto wire : module->wires())
+						{
+							if (wire->name[0] == (wire_types ? '\\' : '$'))
+								continue;
+
+							for (auto bit : sigmap(wire))
+								if (ffbits.count(bit))
+									initwires.insert(wire);
+						}
+
+						process_initwires();
+					}
 				}
+
+				log_assert(ffbits.empty());
 			}
 
 			module->rewrite_sigspecs(worker);

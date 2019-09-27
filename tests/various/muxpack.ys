@@ -1,0 +1,268 @@
+read_verilog muxpack.v
+design -save read
+
+hierarchy -top mux_if_unbal_4_1
+prep
+design -save gold
+muxpack
+opt
+#stat
+select -assert-count 0 t:$mux
+select -assert-count 1 t:$pmux
+design -stash gate
+design -import gold -as gold
+design -import gate -as gate
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports miter
+
+design -load read
+hierarchy -top mux_if_unbal_5_3
+prep
+design -save gold
+muxpack
+opt
+#stat
+select -assert-count 0 t:$mux
+select -assert-count 1 t:$pmux
+design -stash gate
+design -import gold -as gold
+design -import gate -as gate
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports miter
+
+# TODO: Currently ExclusiveDatabase only analyses $eq cells
+#design -load read
+#hierarchy -top mux_if_unbal_5_3_invert
+#prep
+#design -save gold
+#muxpack
+#opt
+#stat
+#select -assert-count 0 t:$mux
+#select -assert-count 1 t:$pmux
+#design -stash gate
+#design -import gold -as gold
+#design -import gate -as gate
+#miter -equiv -flatten -make_assert -make_outputs gold gate miter
+#sat -verify -prove-asserts -show-ports miter
+
+design -load read
+hierarchy -top mux_if_unbal_5_3_width_mismatch
+prep
+design -save gold
+muxpack
+opt
+#stat
+select -assert-count 0 t:$mux
+select -assert-count 2 t:$pmux
+design -stash gate
+design -import gold -as gold
+design -import gate -as gate
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports miter
+
+design -load read
+hierarchy -top mux_if_unbal_4_1_missing
+prep
+design -save gold
+muxpack
+opt
+#stat
+select -assert-count 0 t:$mux
+select -assert-count 1 t:$pmux
+design -stash gate
+design -import gold -as gold
+design -import gate -as gate
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports miter
+
+design -load read
+hierarchy -top mux_if_unbal_5_3_order
+prep
+design -save gold
+muxpack
+opt
+#stat
+select -assert-count 0 t:$mux
+select -assert-count 1 t:$pmux
+design -stash gate
+design -import gold -as gold
+design -import gate -as gate
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports miter
+
+design -load read
+hierarchy -top mux_if_unbal_4_1_nonexcl
+prep
+design -save gold
+muxpack
+opt
+#stat
+select -assert-count 0 t:$mux
+select -assert-count 1 t:$pmux
+design -stash gate
+design -import gold -as gold
+design -import gate -as gate
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports miter
+
+design -load read
+hierarchy -top mux_if_unbal_5_3_nonexcl
+prep
+design -save gold
+muxpack
+opt
+#stat
+select -assert-count 0 t:$mux
+select -assert-count 1 t:$pmux
+design -stash gate
+design -import gold -as gold
+design -import gate -as gate
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports miter
+
+design -load read
+hierarchy -top mux_case_unbal_8_7
+prep
+design -save gold
+muxpack
+opt
+#stat
+select -assert-count 0 t:$mux
+select -assert-count 1 t:$pmux
+design -stash gate
+design -import gold -as gold
+design -import gate -as gate
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports miter
+
+design -load read
+hierarchy -top mux_if_bal_8_2
+prep
+design -save gold
+muxpack
+opt
+#stat
+select -assert-count 7 t:$mux
+select -assert-count 0 t:$pmux
+design -stash gate
+design -import gold -as gold
+design -import gate -as gate
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports miter
+
+design -load read
+hierarchy -top mux_if_bal_5_1
+prep
+design -save gold
+muxpack
+opt
+#stat
+select -assert-count 4 t:$mux
+select -assert-count 0 t:$pmux
+design -stash gate
+design -import gold -as gold
+design -import gate -as gate
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports miter
+
+design -load read
+hierarchy -top cliffordwolf_nonexclusive_select
+prep
+design -save gold
+muxpack
+opt
+#stat
+select -assert-count 3 t:$mux
+select -assert-count 0 t:$pmux
+design -stash gate
+design -import gold -as gold
+design -import gate -as gate
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports miter
+
+#design -load read
+#hierarchy -top cliffordwolf_freduce
+#prep
+#design -save gold
+#proc; opt; freduce; opt
+#show
+#muxpack
+#opt
+#stat
+#select -assert-count 0 t:$mux
+#select -assert-count 1 t:$pmux
+#design -stash gate
+#design -import gold -as gold
+#design -import gate -as gate
+#miter -equiv -flatten -make_assert -make_outputs gold gate miter
+#sat -verify -prove-asserts -show-ports miter
+
+design -load read
+hierarchy -top case_nonexclusive_select
+prep
+design -save gold
+muxpack
+opt
+#stat
+select -assert-count 0 t:$mux
+select -assert-count 2 t:$pmux
+design -stash gate
+design -import gold -as gold
+design -import gate -as gate
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports miter
+
+design -load read
+hierarchy -top case_nonoverlap
+#prep # Do not prep otherwise $pmux's overlapping entry will get removed
+proc
+design -save gold
+opt -fast -mux_undef
+select -assert-count 2 t:$pmux
+muxpack
+opt
+#stat
+select -assert-count 0 t:$mux
+select -assert-count 1 t:$pmux
+design -stash gate
+design -import gold -as gold
+design -import gate -as gate
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports miter
+
+design -load read
+hierarchy -top case_overlap
+#prep # Do not prep otherwise $pmux's overlapping entry will get removed
+proc
+design -save gold
+opt -fast -mux_undef
+select -assert-count 2 t:$pmux
+muxpack
+opt
+#stat
+select -assert-count 0 t:$mux
+select -assert-count 2 t:$pmux
+design -stash gate
+design -import gold -as gold
+design -import gate -as gate
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports miter
+
+design -load read
+hierarchy -top case_overlap2
+#prep # Do not prep otherwise $pmux's overlapping entry will get removed
+proc
+design -save gold
+opt -fast -mux_undef
+select -assert-count 2 t:$pmux
+muxpack
+opt
+#stat
+select -assert-count 0 t:$mux
+select -assert-count 2 t:$pmux
+design -stash gate
+design -import gold -as gold
+design -import gate -as gate
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports miter

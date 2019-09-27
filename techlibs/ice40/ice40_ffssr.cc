@@ -25,7 +25,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct Ice40FfssrPass : public Pass {
 	Ice40FfssrPass() : Pass("ice40_ffssr", "iCE40: merge synchronous set/reset into FF cells") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		log("\n");
 		log("    ice40_ffssr [options] [selection]\n");
@@ -33,7 +33,7 @@ struct Ice40FfssrPass : public Pass {
 		log("Merge synchronous set/reset $_MUX_ cells into iCE40 FFs.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing ICE40_FFSSR pass (merge synchronous set/reset into FF cells).\n");
 
@@ -81,6 +81,9 @@ struct Ice40FfssrPass : public Pass {
 
 			for (auto cell : ff_cells)
 			{
+				if (cell->get_bool_attribute("\\dont_touch"))
+					continue;
+
 				SigSpec sig_d = cell->getPort("\\D");
 
 				if (GetSize(sig_d) < 1)

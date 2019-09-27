@@ -29,7 +29,7 @@ struct SynthGowinPass : public ScriptPass
 {
 	SynthGowinPass() : ScriptPass("synth_gowin", "synthesis for Gowin FPGAs") { }
 
-	virtual void help() YS_OVERRIDE
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -49,6 +49,18 @@ struct SynthGowinPass : public ScriptPass
 		log("        from label is synonymous to 'begin', and empty to label is\n");
 		log("        synonymous to the end of the command list.\n");
 		log("\n");
+		log("    -nodffe\n");
+		log("        do not use flipflops with CE in output netlist\n");
+		log("\n");
+		log("    -nobram\n");
+		log("        do not use BRAM cells in output netlist\n");
+		log("\n");
+		log("    -nodram\n");
+		log("        do not use distributed RAM cells in output netlist\n");
+		log("\n");
+		log("    -noflatten\n");
+		log("        do not flatten design before synthesis\n");
+		log("\n");
 		log("    -retime\n");
 		log("        run 'abc' with -dff option\n");
 		log("\n");
@@ -59,16 +71,20 @@ struct SynthGowinPass : public ScriptPass
 	}
 
 	string top_opt, vout_file;
-	bool retime;
+	bool retime, nobram, nodram, flatten, nodffe;
 
-	virtual void clear_flags() YS_OVERRIDE
+	void clear_flags() YS_OVERRIDE
 	{
 		top_opt = "-auto-top";
 		vout_file = "";
 		retime = false;
+		flatten = true;
+		nobram = false;
+		nodffe = false;
+		nodram = false;
 	}
 
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		string run_from, run_to;
 		clear_flags();
@@ -96,12 +112,28 @@ struct SynthGowinPass : public ScriptPass
 				retime = true;
 				continue;
 			}
+			if (args[argidx] == "-nobram") {
+				nobram = true;
+				continue;
+			}
+			if (args[argidx] == "-nodram") {
+				nodram = true;
+				continue;
+			}
+			if (args[argidx] == "-nodffe") {
+				nodffe = true;
+				continue;
+			}
+			if (args[argidx] == "-noflatten") {
+				flatten = false;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
 		if (!design->full_selection())
-			log_cmd_error("This comannd only operates on fully selected designs!\n");
+			log_cmd_error("This command only operates on fully selected designs!\n");
 
 		log_header(design, "Executing SYNTH_GOWIN pass.\n");
 		log_push();
@@ -111,7 +143,7 @@ struct SynthGowinPass : public ScriptPass
 		log_pop();
 	}
 
-	virtual void script() YS_OVERRIDE
+	void script() YS_OVERRIDE
 	{
 		if (check_label("begin"))
 		{
@@ -119,7 +151,7 @@ struct SynthGowinPass : public ScriptPass
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
 		}
 
-		if (check_label("flatten"))
+		if (flatten && check_label("flatten", "(unless -noflatten)"))
 		{
 			run("proc");
 			run("flatten");
@@ -131,18 +163,41 @@ struct SynthGowinPass : public ScriptPass
 		{
 			run("synth -run coarse");
 		}
+		
+                if (!nobram && check_label("bram", "(skip if -nobram)"))
+		{
+			run("memory_bram -rules +/gowin/bram.txt");
+			run("techmap -map +/gowin/brams_map.v -map +/gowin/cells_sim.v");
+		}
+
+		if (!nodram && check_label("dram", "(skip if -nodram)"))
+		{
+			run("memory_bram -rules +/gowin/dram.txt");
+			run("techmap -map +/gowin/drams_map.v");
+			run("determine_init");
+		}
 
 		if (check_label("fine"))
 		{
 			run("opt -fast -mux_undef -undriven -fine");
 			run("memory_map");
 			run("opt -undriven -fine");
-			run("techmap");
-			run("clean -purge");
-			run("splitnets -ports");
-			run("setundef -undriven -zero");
+			run("techmap -map +/techmap.v -map +/gowin/arith_map.v");
+			run("techmap -map +/techmap.v");
 			if (retime || help_mode)
 				run("abc -dff", "(only if -retime)");
+		}
+
+		if (check_label("map_ffs"))
+		{
+			run("dffsr2dff");
+			run("dff2dffs");
+			run("opt_clean");
+			if (!nodffe)
+				run("dff2dffe -direct-match $_DFF_* -direct-match $__DFFS_*");
+			run("techmap -map +/gowin/cells_map.v");
+			run("opt_expr -mux_undef");
+			run("simplemap");
 		}
 
 		if (check_label("map_luts"))
@@ -155,8 +210,10 @@ struct SynthGowinPass : public ScriptPass
 		{
 			run("techmap -map +/gowin/cells_map.v");
 			run("hilomap -hicell VCC V -locell GND G");
-			run("iopadmap -inpad IBUF O:I -outpad OBUF I:O");
-			run("clean -purge");
+			run("iopadmap -bits -inpad IBUF O:I -outpad OBUF I:O", "(unless -noiopads)");
+			run("dffinit  -ff DFF Q INIT");
+			run("clean");
+
 		}
 
 		if (check_label("check"))

@@ -36,7 +36,8 @@ static RTLIL::SigSpec parse_func_identifier(RTLIL::Module *module, const char *&
 
 	int id_len = 0;
 	while (('a' <= expr[id_len] && expr[id_len] <= 'z') || ('A' <= expr[id_len] && expr[id_len] <= 'Z') ||
-			('0' <= expr[id_len] && expr[id_len] <= '9') || expr[id_len] == '.' || expr[id_len] == '_') id_len++;
+			('0' <= expr[id_len] && expr[id_len] <= '9') || expr[id_len] == '.' ||
+			expr[id_len] == '_' || expr[id_len] == '[' || expr[id_len] == ']') id_len++;
 
 	if (id_len == 0)
 		log_error("Expected identifier at `%s'.\n", expr);
@@ -452,7 +453,7 @@ void parse_type_map(std::map<std::string, std::tuple<int, int, bool>> &type_map,
 
 struct LibertyFrontend : public Frontend {
 	LibertyFrontend() : Frontend("liberty", "read cells from liberty file") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -485,7 +486,7 @@ struct LibertyFrontend : public Frontend {
 		log("        set the specified attribute (to the value 1) on all loaded modules\n");
 		log("\n");
 	}
-	virtual void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		bool flag_lib = false;
 		bool flag_nooverwrite = false;
@@ -550,7 +551,7 @@ struct LibertyFrontend : public Frontend {
 			if (design->has(cell_name)) {
 				Module *existing_mod = design->module(cell_name);
 				if (!flag_nooverwrite && !flag_overwrite && !existing_mod->get_bool_attribute("\\blackbox")) {
-					log_error("Re-definition of of cell/module %s!\n", log_id(cell_name));
+					log_error("Re-definition of cell/module %s!\n", log_id(cell_name));
 				} else if (flag_nooverwrite) {
 					log("Ignoring re-definition of module %s.\n", log_id(cell_name));
 					continue;
@@ -615,7 +616,7 @@ struct LibertyFrontend : public Frontend {
 					LibertyAst *bus_type_node = node->find("bus_type");
 
 					if (!bus_type_node || !type_map.count(bus_type_node->value))
-						log_error("Unkown or unsupported type for bus interface %s on cell %s.\n",
+						log_error("Unknown or unsupported type for bus interface %s on cell %s.\n",
 								node->args.at(0).c_str(), log_id(cell_name));
 
 					int bus_type_width = std::get<0>(type_map.at(bus_type_node->value));
@@ -634,9 +635,12 @@ struct LibertyFrontend : public Frontend {
 				}
 			}
 
-			for (auto node : cell->children)
+			if (!flag_lib)
 			{
-				if (!flag_lib) {
+				// some liberty files do not put ff/latch at the beginning of a cell
+				// try to find "ff" or "latch" and create FF/latch _before_ processing all other nodes
+				for (auto node : cell->children)
+				{
 					if (node->id == "ff" && node->args.size() == 2)
 						create_ff(module, node);
 					if (node->id == "latch" && node->args.size() == 2)
@@ -645,7 +649,10 @@ struct LibertyFrontend : public Frontend {
 							goto skip_cell;
 						}
 				}
+			}
 
+			for (auto node : cell->children)
+			{
 				if (node->id == "pin" && node->args.size() == 1)
 				{
 					LibertyAst *dir = node->find("direction");

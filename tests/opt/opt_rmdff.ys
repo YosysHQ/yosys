@@ -1,0 +1,26 @@
+read_verilog -icells opt_rmdff.v
+prep
+design -stash gold
+read_verilog -icells opt_rmdff.v
+proc
+opt_rmdff
+
+select -assert-count 0 c:remove*
+select -assert-min 7 c:keep*
+select -assert-count 0  t:$dffe 7:$_DFFE_* %u c:noenable* %i
+
+design -stash gate
+
+design -import gold -as gold
+design -import gate -as gate
+
+equiv_make gold gate equiv
+hierarchy -top equiv
+equiv_simple -undef
+equiv_status -assert
+
+#design -load gold
+#stat
+#
+#design -load gate
+#stat

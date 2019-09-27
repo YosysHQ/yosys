@@ -55,7 +55,7 @@ void hilomap_worker(RTLIL::SigSpec &sig)
 
 struct HilomapPass : public Pass {
 	HilomapPass() : Pass("hilomap", "technology mapping of constant hi- and/or lo-drivers") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		log("\n");
 		log("    hilomap [options] [selection]\n");
@@ -74,7 +74,7 @@ struct HilomapPass : public Pass {
 		log("        each constant bit.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing HILOMAP pass (mapping to constant drivers).\n");
 

@@ -230,6 +230,25 @@ endmodule
 
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
+//-     $_NMUX_ (A, B, S, Y)
+//-
+//- A 2-input inverting MUX gate.
+//-
+//- Truth table:    A B S | Y
+//-                -------+---
+//-                 0 - 0 | 1
+//-                 1 - 0 | 0
+//-                 - 0 1 | 1
+//-                 - 1 1 | 0
+//-
+module \$_NMUX_ (A, B, S, Y);
+input A, B, S;
+output Y;
+assign Y = S ? !B : !A;
+endmodule
+
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
 //-     $_MUX4_ (A, B, C, D, S, T, Y)
 //-
 //- A 4-input MUX gate.
@@ -465,7 +484,7 @@ endmodule
 //-
 //-     $_SR_NP_ (S, R, Q)
 //-
-//- A set-reset latch with negative polarity SET and positive polarioty RESET.
+//- A set-reset latch with negative polarity SET and positive polarity RESET.
 //-
 //- Truth table:    S R | Q
 //-                -----+---
@@ -489,7 +508,7 @@ endmodule
 //-
 //-     $_SR_PN_ (S, R, Q)
 //-
-//- A set-reset latch with positive polarity SET and negative polarioty RESET.
+//- A set-reset latch with positive polarity SET and negative polarity RESET.
 //-
 //- Truth table:    S R | Q
 //-                -----+---

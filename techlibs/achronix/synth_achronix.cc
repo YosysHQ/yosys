@@ -28,7 +28,7 @@ PRIVATE_NAMESPACE_BEGIN
 struct SynthAchronixPass : public ScriptPass {
   SynthAchronixPass() : ScriptPass("synth_achronix", "synthesis for Acrhonix Speedster22i FPGAs.") { }
 
-  virtual void help() YS_OVERRIDE
+  void help() YS_OVERRIDE
   {
     //   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
     log("\n");
@@ -63,7 +63,7 @@ struct SynthAchronixPass : public ScriptPass {
   string top_opt, family_opt, vout_file;
   bool retime, flatten;
 
-  virtual void clear_flags() YS_OVERRIDE
+  void clear_flags() YS_OVERRIDE
   {
     top_opt = "-auto-top";
     vout_file = "";
@@ -71,7 +71,7 @@ struct SynthAchronixPass : public ScriptPass {
     flatten = true;
   }
 
-  virtual void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+  void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
   {
     string run_from, run_to;
     clear_flags();
@@ -95,8 +95,8 @@ struct SynthAchronixPass : public ScriptPass {
           run_to = args[argidx].substr(pos+1);
           continue;
         }
-        if (args[argidx] == "-flatten") {
-          flatten = true;
+        if (args[argidx] == "-noflatten") {
+          flatten = false;
           continue;
         }
         if (args[argidx] == "-retime") {
@@ -108,7 +108,7 @@ struct SynthAchronixPass : public ScriptPass {
     extra_args(args, argidx, design);
 
     if (!design->full_selection())
-      log_cmd_error("This comannd only operates on fully selected designs!\n");
+      log_cmd_error("This command only operates on fully selected designs!\n");
 
     log_header(design, "Executing SYNTH_ACHRONIX pass.\n");
     log_push();
@@ -118,7 +118,7 @@ struct SynthAchronixPass : public ScriptPass {
     log_pop();
   }
 
-  virtual void script() YS_OVERRIDE
+  void script() YS_OVERRIDE
   {
     if (check_label("begin"))
       {

@@ -1,0 +1,2 @@
+read_verilog opt_lut.v
+equiv_opt -map +/ice40/cells_sim.v -assert synth_ice40

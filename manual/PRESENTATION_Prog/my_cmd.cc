@@ -6,7 +6,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct MyPass : public Pass {
     MyPass() : Pass("my_cmd", "just a simple test") { }
-    virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+    void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
     {
         log("Arguments to my_cmd:\n");
         for (auto &arg : args)
@@ -22,7 +22,7 @@ struct MyPass : public Pass {
 
 struct Test1Pass : public Pass {
     Test1Pass() : Pass("test1", "creating the absval module") { }
-    virtual void execute(std::vector<std::string>, RTLIL::Design *design)
+    void execute(std::vector<std::string>, RTLIL::Design *design) YS_OVERRIDE
     {
         if (design->has("\\absval") != 0)
             log_error("A module with the name absval already exists!\n");
@@ -49,7 +49,7 @@ struct Test1Pass : public Pass {
 
 struct Test2Pass : public Pass {
     Test2Pass() : Pass("test2", "demonstrating sigmap on test module") { }
-    virtual void execute(std::vector<std::string>, RTLIL::Design *design)
+    void execute(std::vector<std::string>, RTLIL::Design *design) YS_OVERRIDE
     {
         if (design->selection_stack.back().empty())
             log_cmd_error("This command can't operator on an empty selection!\n");

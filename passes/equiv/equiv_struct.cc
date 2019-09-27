@@ -215,9 +215,9 @@ struct EquivStructWorker
 					if (c != nullptr) {
 						string n = cell_name.str();
 						cells_type = c->type;
-						if (GetSize(n) > 5 && n.substr(GetSize(n)-5) == "_gold")
+						if (GetSize(n) > 5 && n.compare(GetSize(n)-5, std::string::npos, "_gold") == 0)
 							gold_cells.push_back(c);
-						else if (GetSize(n) > 5 && n.substr(GetSize(n)-5) == "_gate")
+						else if (GetSize(n) > 5 && n.compare(GetSize(n)-5, std::string::npos, "_gate") == 0)
 							gate_cells.push_back(c);
 						else
 							other_cells.push_back(c);
@@ -283,7 +283,7 @@ struct EquivStructWorker
 
 struct EquivStructPass : public Pass {
 	EquivStructPass() : Pass("equiv_struct", "structural equivalence checking") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -314,7 +314,7 @@ struct EquivStructPass : public Pass {
 		log("        maximum number of iterations to run before aborting\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, Design *design)
+	void execute(std::vector<std::string> args, Design *design) YS_OVERRIDE
 	{
 		pool<IdString> fwonly_cells({ "$equiv" });
 		bool mode_icells = false;

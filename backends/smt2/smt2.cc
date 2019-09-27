@@ -416,6 +416,7 @@ struct Smt2Worker
 		for (char ch : expr) {
 			if (ch == 'A') processed_expr += get_bv(sig_a);
 			else if (ch == 'B') processed_expr += get_bv(sig_b);
+			else if (ch == 'P') processed_expr += get_bv(cell->getPort("\\B"));
 			else if (ch == 'L') processed_expr += is_signed ? "a" : "l";
 			else if (ch == 'U') processed_expr += is_signed ? "s" : "u";
 			else processed_expr += ch;
@@ -509,6 +510,7 @@ struct Smt2Worker
 		if (cell->type == "$_ANDNOT_") return export_gate(cell, "(and A (not B))");
 		if (cell->type == "$_ORNOT_") return export_gate(cell, "(or A (not B))");
 		if (cell->type == "$_MUX_") return export_gate(cell, "(ite S B A)");
+		if (cell->type == "$_NMUX_") return export_gate(cell, "(not (ite S B A))");
 		if (cell->type == "$_AOI3_") return export_gate(cell, "(not (or (and A B) C))");
 		if (cell->type == "$_OAI3_") return export_gate(cell, "(not (and (or A B) C))");
 		if (cell->type == "$_AOI4_") return export_gate(cell, "(not (or (and A B) (and C D)))");
@@ -554,7 +556,9 @@ struct Smt2Worker
 
 			if (cell->type.in("$shift", "$shiftx")) {
 				if (cell->getParam("\\B_SIGNED").as_bool()) {
-					/* FIXME */
+					return export_bvop(cell, stringf("(ite (bvsge P #b%0*d) "
+							"(bvlshr A B) (bvlshr A (bvneg B)))",
+							GetSize(cell->getPort("\\B")), 0), 's');
 				} else {
 					return export_bvop(cell, "(bvlshr A B)", 's');
 				}
@@ -597,7 +601,7 @@ struct Smt2Worker
 			if (cell->type == "$logic_and") return export_reduce(cell, "(and (or A) (or B))", false);
 			if (cell->type == "$logic_or") return export_reduce(cell, "(or A B)", false);
 
-			if (cell->type == "$mux" || cell->type == "$pmux")
+			if (cell->type.in("$mux", "$pmux"))
 			{
 				int width = GetSize(cell->getPort("\\Y"));
 				std::string processed_expr = get_bv(cell->getPort("\\A"));
@@ -885,8 +889,8 @@ struct Smt2Worker
 
 				string name_a = get_bool(cell->getPort("\\A"));
 				string name_en = get_bool(cell->getPort("\\EN"));
-				decls.push_back(stringf("; yosys-smt2-%s %d %s\n", cell->type.c_str() + 1, id,
-						cell->attributes.count("\\src") ? cell->attributes.at("\\src").decode_string().c_str() : get_id(cell)));
+				string infostr = (cell->name[0] == '$' && cell->attributes.count("\\src")) ? cell->attributes.at("\\src").decode_string() : get_id(cell);
+				decls.push_back(stringf("; yosys-smt2-%s %d %s\n", cell->type.c_str() + 1, id, infostr.c_str()));
 
 				if (cell->type == "$cover")
 					decls.push_back(stringf("(define-fun |%s_%c %d| ((state |%s_s|)) Bool (and %s %s)) ; %s\n",
@@ -1101,20 +1105,27 @@ struct Smt2Worker
 							break;
 
 						Const initword = init_data.extract(i*width, width, State::Sx);
+						Const initmask = initword;
 						bool gen_init_constr = false;
 
-						for (auto bit : initword.bits)
-							if (bit == State::S0 || bit == State::S1)
+						for (int k = 0; k < GetSize(initword); k++) {
+							if (initword[k] == State::S0 || initword[k] == State::S1) {
 								gen_init_constr = true;
+								initmask[k] = State::S1;
+							} else {
+								initmask[k] = State::S0;
+								initword[k] = State::S0;
+							}
+						}
 
 						if (gen_init_constr)
 						{
 							if (statebv)
 								/* FIXME */;
 							else
-								init_list.push_back(stringf("(= (select (|%s#%d#0| state) #b%s) #b%s) ; %s[%d]",
+								init_list.push_back(stringf("(= (bvand (select (|%s#%d#0| state) #b%s) #b%s) #b%s) ; %s[%d]",
 										get_id(module), arrayid, Const(i, abits).as_string().c_str(),
-										initword.as_string().c_str(), get_id(cell), i));
+										initmask.as_string().c_str(), initword.as_string().c_str(), get_id(cell), i));
 						}
 					}
 				}
@@ -1251,7 +1262,7 @@ struct Smt2Worker
 
 struct Smt2Backend : public Backend {
 	Smt2Backend() : Backend("smt2", "write design to SMT-LIBv2 file") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -1407,7 +1418,7 @@ struct Smt2Backend : public Backend {
 		log("from non-zero to zero in the test design.\n");
 		log("\n");
 	}
-	virtual void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		std::ifstream template_f;
 		bool bvmode = true, memmode = true, wiresmode = false, verbose = false, statebv = false, statedt = false;
@@ -1465,7 +1476,7 @@ struct Smt2Backend : public Backend {
 				int indent = 0;
 				while (indent < GetSize(line) && (line[indent] == ' ' || line[indent] == '\t'))
 					indent++;
-				if (line.substr(indent, 2) == "%%")
+				if (line.compare(indent, 2, "%%") == 0)
 					break;
 				*f << line << std::endl;
 			}
@@ -1533,7 +1544,7 @@ struct Smt2Backend : public Backend {
 
 		for (auto module : sorted_modules)
 		{
-			if (module->get_bool_attribute("\\blackbox") || module->has_memories_warn() || module->has_processes_warn())
+			if (module->get_blackbox_attribute() || module->has_memories_warn() || module->has_processes_warn())
 				continue;
 
 			log("Creating SMT-LIBv2 representation of module %s.\n", log_id(module));

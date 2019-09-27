@@ -42,14 +42,14 @@ static std::list<std::vector<std::string>> verilog_defaults_stack;
 static void error_on_dpi_function(AST::AstNode *node)
 {
 	if (node->type == AST::AST_DPI_FUNCTION)
-		log_error("Found DPI function %s at %s:%d.\n", node->str.c_str(), node->filename.c_str(), node->linenum);
+		log_file_error(node->filename, node->linenum, "Found DPI function %s.\n", node->str.c_str());
 	for (auto child : node->children)
 		error_on_dpi_function(child);
 }
 
 struct VerilogFrontend : public Frontend {
 	VerilogFrontend() : Frontend("verilog", "read modules from Verilog file") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -66,11 +66,23 @@ struct VerilogFrontend : public Frontend {
 		log("        enable support for SystemVerilog assertions and some Yosys extensions\n");
 		log("        replace the implicit -D SYNTHESIS with -D FORMAL\n");
 		log("\n");
+		log("    -noassert\n");
+		log("        ignore assert() statements\n");
+		log("\n");
+		log("    -noassume\n");
+		log("        ignore assume() statements\n");
+		log("\n");
 		log("    -norestrict\n");
-		log("        ignore restrict() assertions\n");
+		log("        ignore restrict() statements\n");
 		log("\n");
 		log("    -assume-asserts\n");
 		log("        treat all assert() statements like assume() statements\n");
+		log("\n");
+		log("    -assert-assumes\n");
+		log("        treat all assume() statements like assert() statements\n");
+		log("\n");
+		log("    -debug\n");
+		log("        alias for -dump_ast1 -dump_ast2 -dump_vlog1 -dump_vlog2 -yydebug\n");
 		log("\n");
 		log("    -dump_ast1\n");
 		log("        dump abstract syntax tree (before simplification)\n");
@@ -78,7 +90,13 @@ struct VerilogFrontend : public Frontend {
 		log("    -dump_ast2\n");
 		log("        dump abstract syntax tree (after simplification)\n");
 		log("\n");
-		log("    -dump_vlog\n");
+		log("    -no_dump_ptr\n");
+		log("        do not include hex memory addresses in dump (easier to diff dumps)\n");
+		log("\n");
+		log("    -dump_vlog1\n");
+		log("        dump ast as Verilog code (before simplification)\n");
+		log("\n");
+		log("    -dump_vlog2\n");
 		log("        dump ast as Verilog code (after simplification)\n");
 		log("\n");
 		log("    -dump_rtlil\n");
@@ -127,8 +145,21 @@ struct VerilogFrontend : public Frontend {
 		log("    -nodpi\n");
 		log("        disable DPI-C support\n");
 		log("\n");
+		log("    -noblackbox\n");
+		log("        do not automatically add a (* blackbox *) attribute to an\n");
+		log("        empty module.\n");
+		log("\n");
 		log("    -lib\n");
 		log("        only create empty blackbox modules. This implies -DBLACKBOX.\n");
+		log("        modules with the (* whitebox *) attribute will be preserved.\n");
+		log("        (* lib_whitebox *) will be treated like (* whitebox *).\n");
+		log("\n");
+		log("    -nowb\n");
+		log("        delete (* whitebox *) and (* lib_whitebox *) attributes from\n");
+		log("        all modules.\n");
+		log("\n");
+		log("    -specify\n");
+		log("        parse and import specify blocks\n");
 		log("\n");
 		log("    -noopt\n");
 		log("        don't perform basic optimizations (such as const folding) in the\n");
@@ -136,6 +167,9 @@ struct VerilogFrontend : public Frontend {
 		log("\n");
 		log("    -icells\n");
 		log("        interpret cell types starting with '$' as internal cell types\n");
+		log("\n");
+		log("    -pwires\n");
+		log("        add a wire for each module parameter\n");
 		log("\n");
 		log("    -nooverwrite\n");
 		log("        ignore re-definitions of modules. (the default behavior is to\n");
@@ -180,11 +214,13 @@ struct VerilogFrontend : public Frontend {
 		log("supported by the Yosys Verilog front-end.\n");
 		log("\n");
 	}
-	virtual void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		bool flag_dump_ast1 = false;
 		bool flag_dump_ast2 = false;
-		bool flag_dump_vlog = false;
+		bool flag_no_dump_ptr = false;
+		bool flag_dump_vlog1 = false;
+		bool flag_dump_vlog2 = false;
 		bool flag_dump_rtlil = false;
 		bool flag_nolatches = false;
 		bool flag_nomeminit = false;
@@ -195,9 +231,12 @@ struct VerilogFrontend : public Frontend {
 		bool flag_nodpi = false;
 		bool flag_noopt = false;
 		bool flag_icells = false;
+		bool flag_pwires = false;
 		bool flag_nooverwrite = false;
 		bool flag_overwrite = false;
 		bool flag_defer = false;
+		bool flag_noblackbox = false;
+		bool flag_nowb = false;
 		std::map<std::string, std::string> defines_map;
 		std::list<std::string> include_dirs;
 		std::list<std::string> attributes;
@@ -208,9 +247,8 @@ struct VerilogFrontend : public Frontend {
 		norestrict_mode = false;
 		assume_asserts_mode = false;
 		lib_mode = false;
+		specify_mode = false;
 		default_nettype_wire = true;
-
-		log_header(design, "Executing Verilog-2005 frontend.\n");
 
 		args.insert(args.begin()+1, verilog_defaults.begin(), verilog_defaults.end());
 
@@ -225,12 +263,32 @@ struct VerilogFrontend : public Frontend {
 				formal_mode = true;
 				continue;
 			}
+			if (arg == "-noassert") {
+				noassert_mode = true;
+				continue;
+			}
+			if (arg == "-noassume") {
+				noassume_mode = true;
+				continue;
+			}
 			if (arg == "-norestrict") {
 				norestrict_mode = true;
 				continue;
 			}
 			if (arg == "-assume-asserts") {
 				assume_asserts_mode = true;
+				continue;
+			}
+			if (arg == "-assert-assumes") {
+				assert_assumes_mode = true;
+				continue;
+			}
+			if (arg == "-debug") {
+				flag_dump_ast1 = true;
+				flag_dump_ast2 = true;
+				flag_dump_vlog1 = true;
+				flag_dump_vlog2 = true;
+				frontend_verilog_yydebug = true;
 				continue;
 			}
 			if (arg == "-dump_ast1") {
@@ -241,8 +299,16 @@ struct VerilogFrontend : public Frontend {
 				flag_dump_ast2 = true;
 				continue;
 			}
-			if (arg == "-dump_vlog") {
-				flag_dump_vlog = true;
+			if (arg == "-no_dump_ptr") {
+				flag_no_dump_ptr = true;
+				continue;
+			}
+			if (arg == "-dump_vlog1") {
+				flag_dump_vlog1 = true;
+				continue;
+			}
+			if (arg == "-dump_vlog2") {
+				flag_dump_vlog2 = true;
 				continue;
 			}
 			if (arg == "-dump_rtlil") {
@@ -281,9 +347,21 @@ struct VerilogFrontend : public Frontend {
 				flag_nodpi = true;
 				continue;
 			}
+			if (arg == "-noblackbox") {
+				flag_noblackbox = true;
+				continue;
+			}
 			if (arg == "-lib") {
 				lib_mode = true;
 				defines_map["BLACKBOX"] = string();
+				continue;
+			}
+			if (arg == "-nowb") {
+				flag_nowb = true;
+				continue;
+			}
+			if (arg == "-specify") {
+				specify_mode = true;
 				continue;
 			}
 			if (arg == "-noopt") {
@@ -292,6 +370,10 @@ struct VerilogFrontend : public Frontend {
 			}
 			if (arg == "-icells") {
 				flag_icells = true;
+				continue;
+			}
+			if (arg == "-pwires") {
+				flag_pwires = true;
 				continue;
 			}
 			if (arg == "-ignore_redef" || arg == "-nooverwrite") {
@@ -347,6 +429,8 @@ struct VerilogFrontend : public Frontend {
 		}
 		extra_args(f, filename, args, argidx);
 
+		log_header(design, "Executing Verilog-2005 frontend: %s\n", filename.c_str());
+
 		log("Parsing %s%s input from `%s' to AST representation.\n",
 				formal_mode ? "formal " : "", sv_mode ? "SystemVerilog" : "Verilog", filename.c_str());
 
@@ -381,7 +465,8 @@ struct VerilogFrontend : public Frontend {
 		if (flag_nodpi)
 			error_on_dpi_function(current_ast);
 
-		AST::process(design, current_ast, flag_dump_ast1, flag_dump_ast2, flag_dump_vlog, flag_dump_rtlil, flag_nolatches, flag_nomeminit, flag_nomem2reg, flag_mem2reg, lib_mode, flag_noopt, flag_icells, flag_nooverwrite, flag_overwrite, flag_defer, default_nettype_wire);
+		AST::process(design, current_ast, flag_dump_ast1, flag_dump_ast2, flag_no_dump_ptr, flag_dump_vlog1, flag_dump_vlog2, flag_dump_rtlil, flag_nolatches,
+				flag_nomeminit, flag_nomem2reg, flag_mem2reg, flag_noblackbox, lib_mode, flag_nowb, flag_noopt, flag_icells, flag_pwires, flag_nooverwrite, flag_overwrite, flag_defer, default_nettype_wire);
 
 		if (!flag_nopp)
 			delete lexin;
@@ -395,7 +480,7 @@ struct VerilogFrontend : public Frontend {
 
 struct VerilogDefaults : public Pass {
 	VerilogDefaults() : Pass("verilog_defaults", "set default options for read_verilog") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -416,7 +501,7 @@ struct VerilogDefaults : public Pass {
 		log("not imply -clear.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design*)
+	void execute(std::vector<std::string> args, RTLIL::Design*) YS_OVERRIDE
 	{
 		if (args.size() < 2)
 			cmd_error(args, 1, "Missing argument.");
@@ -453,7 +538,7 @@ struct VerilogDefaults : public Pass {
 
 struct VerilogDefines : public Pass {
 	VerilogDefines() : Pass("verilog_defines", "define and undefine verilog defines") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -469,7 +554,7 @@ struct VerilogDefines : public Pass {
 		log("        undefine the preprocessor symbol 'name'\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -519,13 +604,11 @@ void frontend_verilog_yyerror(char const *fmt, ...)
 	va_list ap;
 	char buffer[1024];
 	char *p = buffer;
-	p += snprintf(p, buffer + sizeof(buffer) - p, "Parser error in line %s:%d: ",
-			YOSYS_NAMESPACE_PREFIX AST::current_filename.c_str(), frontend_verilog_yyget_lineno());
 	va_start(ap, fmt);
 	p += vsnprintf(p, buffer + sizeof(buffer) - p, fmt, ap);
 	va_end(ap);
 	p += snprintf(p, buffer + sizeof(buffer) - p, "\n");
-	YOSYS_NAMESPACE_PREFIX log_error("%s", buffer);
+	YOSYS_NAMESPACE_PREFIX log_file_error(YOSYS_NAMESPACE_PREFIX AST::current_filename, frontend_verilog_yyget_lineno(),
+					      "%s", buffer);
 	exit(1);
 }
-

@@ -17,6 +17,11 @@
  *
  */
 
+// [[CITE]] Btor2 , BtorMC and Boolector 3.0
+// Aina Niemetz, Mathias Preiner, Clifford Wolf, Armin Biere
+// Computer Aided Verification - 30th International Conference, CAV 2018
+// https://cs.stanford.edu/people/niemetz/publication/2018/niemetzpreinerwolfbiere-cav18/
+
 #include "kernel/rtlil.h"
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
@@ -129,16 +134,23 @@ struct BtorWorker
 
 	void export_cell(Cell *cell)
 	{
-		log_assert(cell_recursion_guard.count(cell) == 0);
+		if (cell_recursion_guard.count(cell)) {
+			string cell_list;
+			for (auto c : cell_recursion_guard)
+				cell_list += stringf("\n    %s", log_id(c));
+			log_error("Found topological loop while processing cell %s. Active cells:%s\n", log_id(cell), cell_list.c_str());
+		}
+
 		cell_recursion_guard.insert(cell);
 		btorf_push(log_id(cell));
 
-		if (cell->type.in("$add", "$sub", "$and", "$or", "$xor", "$xnor", "$shl", "$sshl", "$shr", "$sshr", "$shift", "$shiftx",
-				"$_AND_", "$_NAND_", "$_OR_", "$_NOR_", "$_XOR_", "$_XNOR_"))
+		if (cell->type.in("$add", "$sub", "$mul", "$and", "$or", "$xor", "$xnor", "$shl", "$sshl", "$shr", "$sshr", "$shift", "$shiftx",
+				"$concat", "$_AND_", "$_NAND_", "$_OR_", "$_NOR_", "$_XOR_", "$_XNOR_"))
 		{
 			string btor_op;
 			if (cell->type == "$add") btor_op = "add";
 			if (cell->type == "$sub") btor_op = "sub";
+			if (cell->type == "$mul") btor_op = "mul";
 			if (cell->type.in("$shl", "$sshl")) btor_op = "sll";
 			if (cell->type == "$shr") btor_op = "srl";
 			if (cell->type == "$sshr") btor_op = "sra";
@@ -146,6 +158,7 @@ struct BtorWorker
 			if (cell->type.in("$and", "$_AND_")) btor_op = "and";
 			if (cell->type.in("$or", "$_OR_")) btor_op = "or";
 			if (cell->type.in("$xor", "$_XOR_")) btor_op = "xor";
+			if (cell->type == "$concat") btor_op = "concat";
 			if (cell->type == "$_NAND_") btor_op = "nand";
 			if (cell->type == "$_NOR_") btor_op = "nor";
 			if (cell->type.in("$xnor", "$_XNOR_")) btor_op = "xnor";
@@ -200,6 +213,40 @@ struct BtorWorker
 				nid = next_nid++;
 				btorf("%d %s %d %d %d\n", nid, btor_op.c_str(), sid, nid_a, nid_b);
 			}
+
+			SigSpec sig = sigmap(cell->getPort("\\Y"));
+
+			if (GetSize(sig) < width) {
+				int sid = get_bv_sid(GetSize(sig));
+				int nid2 = next_nid++;
+				btorf("%d slice %d %d %d 0\n", nid2, sid, nid, GetSize(sig)-1);
+				nid = nid2;
+			}
+
+			add_nid_sig(nid, sig);
+			goto okay;
+		}
+
+		if (cell->type.in("$div", "$mod"))
+		{
+			string btor_op;
+			if (cell->type == "$div") btor_op = "div";
+			if (cell->type == "$mod") btor_op = "rem";
+			log_assert(!btor_op.empty());
+
+			int width = GetSize(cell->getPort("\\Y"));
+			width = std::max(width, GetSize(cell->getPort("\\A")));
+			width = std::max(width, GetSize(cell->getPort("\\B")));
+
+			bool a_signed = cell->hasParam("\\A_SIGNED") ? cell->getParam("\\A_SIGNED").as_bool() : false;
+			bool b_signed = cell->hasParam("\\B_SIGNED") ? cell->getParam("\\B_SIGNED").as_bool() : false;
+
+			int nid_a = get_sig_nid(cell->getPort("\\A"), width, a_signed);
+			int nid_b = get_sig_nid(cell->getPort("\\B"), width, b_signed);
+
+			int sid = get_bv_sid(width);
+			int nid = next_nid++;
+			btorf("%d %c%s %d %d %d\n", nid, a_signed || b_signed ? 's' : 'u', btor_op.c_str(), sid, nid_a, nid_b);
 
 			SigSpec sig = sigmap(cell->getPort("\\Y"));
 
@@ -304,7 +351,7 @@ struct BtorWorker
 			if (cell->type == "$lt") btor_op = "lt";
 			if (cell->type == "$le") btor_op = "lte";
 			if (cell->type.in("$eq", "$eqx")) btor_op = "eq";
-			if (cell->type.in("$ne", "$nex")) btor_op = "ne";
+			if (cell->type.in("$ne", "$nex")) btor_op = "neq";
 			if (cell->type == "$ge") btor_op = "gte";
 			if (cell->type == "$gt") btor_op = "gt";
 			log_assert(!btor_op.empty());
@@ -449,7 +496,7 @@ struct BtorWorker
 			goto okay;
 		}
 
-		if (cell->type.in("$mux", "$_MUX_"))
+		if (cell->type.in("$mux", "$_MUX_", "$_NMUX_"))
 		{
 			SigSpec sig_a = sigmap(cell->getPort("\\A"));
 			SigSpec sig_b = sigmap(cell->getPort("\\B"));
@@ -463,6 +510,12 @@ struct BtorWorker
 			int sid = get_bv_sid(GetSize(sig_y));
 			int nid = next_nid++;
 			btorf("%d ite %d %d %d %d\n", nid, sid, nid_s, nid_b, nid_a);
+
+			if (cell->type == "$_NMUX_") {
+				int tmp = nid;
+				nid = next_nid++;
+				btorf("%d not %d %d\n", nid, sid, tmp);
+			}
 
 			add_nid_sig(nid, sig_y);
 			goto okay;
@@ -506,6 +559,18 @@ struct BtorWorker
 				}
 			}
 
+			Const initval;
+			for (int i = 0; i < GetSize(sig_q); i++)
+				if (initbits.count(sig_q[i]))
+					initval.bits.push_back(initbits.at(sig_q[i]) ? State::S1 : State::S0);
+				else
+					initval.bits.push_back(State::Sx);
+
+			int nid_init_val = -1;
+
+			if (!initval.is_fully_undef())
+				nid_init_val = get_sig_nid(initval);
+
 			int sid = get_bv_sid(GetSize(sig_q));
 			int nid = next_nid++;
 
@@ -514,15 +579,7 @@ struct BtorWorker
 			else
 				btorf("%d state %d %s\n", nid, sid, log_id(symbol));
 
-			Const initval;
-			for (int i = 0; i < GetSize(sig_q); i++)
-				if (initbits.count(sig_q[i]))
-					initval.bits.push_back(initbits.at(sig_q[i]) ? State::S1 : State::S0);
-				else
-					initval.bits.push_back(State::Sx);
-
-			if (!initval.is_fully_undef()) {
-				int nid_init_val = get_sig_nid(initval);
+			if (nid_init_val >= 0) {
 				int nid_init = next_nid++;
 				if (verbose)
 					btorf("; initval = %s\n", log_signal(initval));
@@ -559,8 +616,8 @@ struct BtorWorker
 			if (initstate_nid < 0)
 			{
 				int sid = get_bv_sid(1);
-				int one_nid = get_sig_nid(Const(1, 1));
-				int zero_nid = get_sig_nid(Const(0, 1));
+				int one_nid = get_sig_nid(State::S1);
+				int zero_nid = get_sig_nid(State::S0);
 				initstate_nid = next_nid++;
 				btorf("%d state %d\n", initstate_nid, sid);
 				btorf("%d init %d %d %d\n", next_nid++, sid, initstate_nid, one_nid);
@@ -575,6 +632,7 @@ struct BtorWorker
 		{
 			int abits = cell->getParam("\\ABITS").as_int();
 			int width = cell->getParam("\\WIDTH").as_int();
+			int nwords = cell->getParam("\\SIZE").as_int();
 			int rdports = cell->getParam("\\RD_PORTS").as_int();
 			int wrports = cell->getParam("\\WR_PORTS").as_int();
 
@@ -601,6 +659,52 @@ struct BtorWorker
 			int data_sid = get_bv_sid(width);
 			int bool_sid = get_bv_sid(1);
 			int sid = get_mem_sid(abits, width);
+
+			Const initdata = cell->getParam("\\INIT");
+			initdata.exts(nwords*width);
+			int nid_init_val = -1;
+
+			if (!initdata.is_fully_undef())
+			{
+				bool constword = true;
+				Const firstword = initdata.extract(0, width);
+
+				for (int i = 1; i < nwords; i++) {
+					Const thisword = initdata.extract(i*width, width);
+					if (thisword != firstword) {
+						constword = false;
+						break;
+					}
+				}
+
+				if (constword)
+				{
+					if (verbose)
+						btorf("; initval = %s\n", log_signal(firstword));
+					nid_init_val = get_sig_nid(firstword);
+				}
+				else
+				{
+					nid_init_val = next_nid++;
+					btorf("%d state %d\n", nid_init_val, sid);
+
+					for (int i = 0; i < nwords; i++) {
+						Const thisword = initdata.extract(i*width, width);
+						if (thisword.is_fully_undef())
+							continue;
+						Const thisaddr(i, abits);
+						int nid_thisword = get_sig_nid(thisword);
+						int nid_thisaddr = get_sig_nid(thisaddr);
+						int last_nid_init_val = nid_init_val;
+						nid_init_val = next_nid++;
+						if (verbose)
+							btorf("; initval[%d] = %s\n", i, log_signal(thisword));
+						btorf("%d write %d %d %d %d\n", nid_init_val, sid, last_nid_init_val, nid_thisaddr, nid_thisword);
+					}
+				}
+			}
+
+
 			int nid = next_nid++;
 			int nid_head = nid;
 
@@ -608,6 +712,12 @@ struct BtorWorker
 				btorf("%d state %d\n", nid, sid);
 			else
 				btorf("%d state %d %s\n", nid, sid, log_id(cell));
+
+			if (nid_init_val >= 0)
+			{
+				int nid_init = next_nid++;
+				btorf("%d init %d %d %d\n", nid_init, sid, nid, nid_init_val);
+			}
 
 			if (asyncwr)
 			{
@@ -776,9 +886,28 @@ struct BtorWorker
 					else
 					{
 						if (bit_cell.count(bit) == 0)
-							log_error("No driver for signal bit %s.\n", log_signal(bit));
-						export_cell(bit_cell.at(bit));
-						log_assert(bit_nid.count(bit));
+						{
+							SigSpec s = bit;
+
+							while (i+GetSize(s) < GetSize(sig) && sig[i+GetSize(s)].wire != nullptr &&
+									bit_cell.count(sig[i+GetSize(s)]) == 0)
+								s.append(sig[i+GetSize(s)]);
+
+							log_warning("No driver for signal %s.\n", log_signal(s));
+
+							int sid = get_bv_sid(GetSize(s));
+							int nid = next_nid++;
+							btorf("%d input %d %s\n", nid, sid);
+							nid_width[nid] = GetSize(s);
+
+							i += GetSize(s)-1;
+							continue;
+						}
+						else
+						{
+							export_cell(bit_cell.at(bit));
+							log_assert(bit_nid.count(bit));
+						}
 					}
 				}
 
@@ -892,9 +1021,8 @@ struct BtorWorker
 
 			btorf_push(stringf("output %s", log_id(wire)));
 
-			int sid = get_bv_sid(GetSize(wire));
 			int nid = get_sig_nid(wire);
-			btorf("%d output %d %d %s\n", next_nid++, sid, nid, log_id(wire));
+			btorf("%d output %d %s\n", next_nid++, nid, log_id(wire));
 
 			btorf_pop(stringf("output %s", log_id(wire)));
 		}
@@ -1076,7 +1204,7 @@ struct BtorWorker
 
 struct BtorBackend : public Backend {
 	BtorBackend() : Backend("btor", "write design to BTOR file") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -1091,7 +1219,7 @@ struct BtorBackend : public Backend {
 		log("    Output only a single bad property for all asserts\n");
 		log("\n");
 	}
-	virtual void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		bool verbose = false, single_bad = false;
 

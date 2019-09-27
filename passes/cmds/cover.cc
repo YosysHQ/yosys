@@ -35,7 +35,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct CoverPass : public Pass {
 	CoverPass() : Pass("cover", "print code coverage counters") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -83,7 +83,7 @@ struct CoverPass : public Pass {
 		log("Coverage counters are only available in Yosys for Linux.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		std::vector<FILE*> out_files;
 		std::vector<std::string> patterns;
@@ -98,28 +98,30 @@ struct CoverPass : public Pass {
 			}
 			if ((args[argidx] == "-o" || args[argidx] == "-a" || args[argidx] == "-d") && argidx+1 < args.size()) {
 				const char *open_mode = args[argidx] == "-a" ? "a+" : "w";
-				std::string filename = args[++argidx];
+				const std::string &filename = args[++argidx];
+				FILE *f = nullptr;
 				if (args[argidx-1] == "-d") {
 			#ifdef _WIN32
 					log_cmd_error("The 'cover -d' option is not supported on win32.\n");
 			#else
 					char filename_buffer[4096];
 					snprintf(filename_buffer, 4096, "%s/yosys_cover_%d_XXXXXX.txt", filename.c_str(), getpid());
-					filename = mkstemps(filename_buffer, 4);
+					f = fdopen(mkstemps(filename_buffer, 4), "w");
 			#endif
+				} else {
+					f = fopen(filename.c_str(), open_mode);
 				}
-				FILE *f = fopen(filename.c_str(), open_mode);
 				if (f == NULL) {
 					for (auto f : out_files)
 						fclose(f);
-					log_cmd_error("Can't create file %s.\n", args[argidx].c_str());
+					log_cmd_error("Can't create file %s%s.\n", args[argidx-1] == "-d" ? "in directory " : "", args[argidx].c_str());
 				}
 				out_files.push_back(f);
 				continue;
 			}
 			break;
 		}
-		while (argidx < args.size() && args[argidx].substr(0, 1) != "-")
+		while (argidx < args.size() && args[argidx].compare(0, 1, "-") != 0)
 			patterns.push_back(args[argidx++]);
 		extra_args(args, argidx, design);
 

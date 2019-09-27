@@ -1,0 +1,61 @@
+# Max delays from https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf
+#                 https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf
+
+# NB: Inputs/Outputs must be ordered alphabetically
+#     (with exceptions for carry in/out)
+
+# Average across F7[AB]MUX
+# Inputs: I0 I1 S0
+# Outputs: O
+F7MUX 1 1 3 1
+204 208 286
+
+# Inputs: I0 I1 S0
+# Outputs: O
+MUXF8 2 1 3 1
+104 94 273
+
+# Box containing MUXF7.[AB] + MUXF8,
+#   Necessary to make these an atomic unit so that
+#   ABC cannot optimise just one of the MUXF7 away
+#   and expect to save on its delay
+# Inputs: I0 I1 I2 I3 S0 S1
+# Outputs: O
+$__MUXF78 3 1 6 1
+294 297 311 317 390 273
+
+# CARRY4 + CARRY4_[ABCD]X
+# Inputs: CYINIT DI0 DI1 DI2 DI3 S0 S1 S2 S3 CI
+# Outputs:  O0 O1 O2 O3 CO0 CO1 CO2 CO3
+#   (NB: carry chain input/output must be last
+#        input/output and the entire bus has been
+#        moved there overriding the otherwise
+#        alphabetical ordering)
+CARRY4 4 1 10 8
+482 -   -   -   -   223 -   -   -   222
+598 407 -   -   -   400 205 -   -   334
+584 556 537 -   -   523 558 226 -   239
+642 615 596 438 -   582 618 330 227 313
+536 379 -   -   -   340 -   -   -   271
+494 465 445 -   -   433 469 -   -   157
+592 540 520 356 -   512 548 292 -   228
+580 526 507 398 385 508 528 378 380 114
+
+# SLICEM/A6LUT
+# Box to emulate comb/seq behaviour of RAMD{32,64} and SRL{16,32}
+#   Necessary since RAMD* and SRL* have both combinatorial (i.e.
+#   same-cycle read operation) and sequential (write operation
+#   is only committed on the next clock edge).
+#   To model the combinatorial path, such cells have to be split
+#   into comb and seq parts, with this box modelling only the former.
+# Inputs: A S0 S1 S2 S3 S4 S5
+# Outputs: Y
+$__ABC_LUT6 2000 0 7 1
+0 642 631 472 407 238 127
+
+# SLICEM/A6LUT + F7BMUX
+# Box to emulate comb/seq behaviour of RAMD128
+# Inputs: A S0 S1 S2 S3 S4 S5 S6
+# Outputs: DPO SPO
+$__ABC_LUT7 2001 0 8 1
+0 1047 1036 877 812 643 532 478

@@ -46,7 +46,7 @@ static std::string netname(std::set<std::string> &conntypes_code, std::set<std::
 
 struct IntersynthBackend : public Backend {
 	IntersynthBackend() : Backend("intersynth", "write design to InterSynth netlist file") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -71,7 +71,7 @@ struct IntersynthBackend : public Backend {
 		log("http://www.clifford.at/intersynth/\n");
 		log("\n");
 	}
-	virtual void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing INTERSYNTH backend.\n");
 		log_push();
@@ -108,7 +108,7 @@ struct IntersynthBackend : public Backend {
 			if (f.fail())
 				log_error("Can't open lib file `%s'.\n", filename.c_str());
 			RTLIL::Design *lib = new RTLIL::Design;
-			Frontend::frontend_call(lib, &f, filename, (filename.size() > 3 && filename.substr(filename.size()-3) == ".il") ? "ilang" : "verilog");
+			Frontend::frontend_call(lib, &f, filename, (filename.size() > 3 && filename.compare(filename.size()-3, std::string::npos, ".il") == 0 ? "ilang" : "verilog"));
 			libs.push_back(lib);
 		}
 
@@ -127,7 +127,7 @@ struct IntersynthBackend : public Backend {
 			RTLIL::Module *module = module_it.second;
 			SigMap sigmap(module);
 
-			if (module->get_bool_attribute("\\blackbox"))
+			if (module->get_blackbox_attribute())
 				continue;
 			if (module->memories.size() == 0 && module->processes.size() == 0 && module->cells_.size() == 0)
 				continue;
@@ -183,7 +183,7 @@ struct IntersynthBackend : public Backend {
 					if (param.second.bits.size() != 32) {
 						node_code += stringf(" %s '", RTLIL::id2cstr(param.first));
 						for (int i = param.second.bits.size()-1; i >= 0; i--)
-							node_code += param.second.bits[i] == RTLIL::S1 ? "1" : "0";
+							node_code += param.second.bits[i] == State::S1 ? "1" : "0";
 					} else
 						node_code += stringf(" %s 0x%x", RTLIL::id2cstr(param.first), param.second.as_int());
 				}

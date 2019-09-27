@@ -2,6 +2,10 @@
 `define SB_DFF_REG reg Q = 0
 // `define SB_DFF_REG reg Q
 
+`define ABC_ARRIVAL_HX(TIME) `ifdef ICE40_HX (* abc_arrival=TIME *) `endif
+`define ABC_ARRIVAL_LP(TIME) `ifdef ICE40_LP (* abc_arrival=TIME *) `endif
+`define ABC_ARRIVAL_U(TIME)  `ifdef ICE40_U (* abc_arrival=TIME *) `endif
+
 // SiliconBlue IO Cells
 
 module SB_IO (
@@ -27,18 +31,27 @@ module SB_IO (
 	reg dout_q_0, dout_q_1;
 	reg outena_q;
 
+	// IO tile generates a constant 1'b1 internally if global_cen is not connected
+	wire clken_pulled = CLOCK_ENABLE || CLOCK_ENABLE === 1'bz;
+	reg  clken_pulled_ri;
+	reg  clken_pulled_ro;
+
 	generate if (!NEG_TRIGGER) begin
-		always @(posedge INPUT_CLK)  if (CLOCK_ENABLE) din_q_0  <= PACKAGE_PIN;
-		always @(negedge INPUT_CLK)  if (CLOCK_ENABLE) din_q_1  <= PACKAGE_PIN;
-		always @(posedge OUTPUT_CLK) if (CLOCK_ENABLE) dout_q_0 <= D_OUT_0;
-		always @(negedge OUTPUT_CLK) if (CLOCK_ENABLE) dout_q_1 <= D_OUT_1;
-		always @(posedge OUTPUT_CLK) if (CLOCK_ENABLE) outena_q <= OUTPUT_ENABLE;
+		always @(posedge INPUT_CLK)                       clken_pulled_ri <= clken_pulled;
+		always @(posedge INPUT_CLK)  if (clken_pulled)    din_q_0         <= PACKAGE_PIN;
+		always @(negedge INPUT_CLK)  if (clken_pulled_ri) din_q_1         <= PACKAGE_PIN;
+		always @(posedge OUTPUT_CLK)                      clken_pulled_ro <= clken_pulled;
+		always @(posedge OUTPUT_CLK) if (clken_pulled)    dout_q_0        <= D_OUT_0;
+		always @(negedge OUTPUT_CLK) if (clken_pulled_ro) dout_q_1        <= D_OUT_1;
+		always @(posedge OUTPUT_CLK) if (clken_pulled)    outena_q        <= OUTPUT_ENABLE;
 	end else begin
-		always @(negedge INPUT_CLK)  if (CLOCK_ENABLE) din_q_0  <= PACKAGE_PIN;
-		always @(posedge INPUT_CLK)  if (CLOCK_ENABLE) din_q_1  <= PACKAGE_PIN;
-		always @(negedge OUTPUT_CLK) if (CLOCK_ENABLE) dout_q_0 <= D_OUT_0;
-		always @(posedge OUTPUT_CLK) if (CLOCK_ENABLE) dout_q_1 <= D_OUT_1;
-		always @(negedge OUTPUT_CLK) if (CLOCK_ENABLE) outena_q <= OUTPUT_ENABLE;
+		always @(negedge INPUT_CLK)                       clken_pulled_ri <= clken_pulled;
+		always @(negedge INPUT_CLK)  if (clken_pulled)    din_q_0         <= PACKAGE_PIN;
+		always @(posedge INPUT_CLK)  if (clken_pulled_ri) din_q_1         <= PACKAGE_PIN;
+		always @(negedge OUTPUT_CLK)                      clken_pulled_ro <= clken_pulled;
+		always @(negedge OUTPUT_CLK) if (clken_pulled)    dout_q_0        <= D_OUT_0;
+		always @(posedge OUTPUT_CLK) if (clken_pulled_ro) dout_q_1        <= D_OUT_1;
+		always @(negedge OUTPUT_CLK) if (clken_pulled)    outena_q        <= OUTPUT_ENABLE;
 	end endgenerate
 
 	always @* begin
@@ -118,6 +131,7 @@ endmodule
 
 // SiliconBlue Logic Cells
 
+(* lib_whitebox *)
 module SB_LUT4 (output O, input I0, I1, I2, I3);
 	parameter [15:0] LUT_INIT = 0;
 	wire [7:0] s3 = I3 ? LUT_INIT[15:8] : LUT_INIT[7:0];
@@ -126,24 +140,75 @@ module SB_LUT4 (output O, input I0, I1, I2, I3);
 	assign O = I0 ? s1[1] : s1[0];
 endmodule
 
+(* lib_whitebox *)
 module SB_CARRY (output CO, input I0, I1, CI);
 	assign CO = (I0 && I1) || ((I0 || I1) && CI);
 endmodule
 
+(* abc_box_id = 1, lib_whitebox *)
+module \$__ICE40_CARRY_WRAPPER (
+	(* abc_carry *)
+	output CO,
+	output O,
+	input A, B,
+	(* abc_carry *)
+	input CI,
+	input I0, I3
+);
+	parameter LUT = 0;
+	SB_CARRY carry (
+		.I0(A),
+		.I1(B),
+		.CI(CI),
+		.CO(CO)
+	);
+	SB_LUT4 #(
+		.LUT_INIT(LUT)
+	) adder (
+		.I0(I0),
+		.I1(A),
+		.I2(B),
+		.I3(I3),
+		.O(O)
+	);
+endmodule
+
+// Max delay from: https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
+//                 https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
+//                 https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
+
 // Positive Edge SiliconBlue FF Cells
 
-module SB_DFF (output `SB_DFF_REG, input C, D);
+module SB_DFF (
+	`ABC_ARRIVAL_HX(540)
+	`ABC_ARRIVAL_LP(796)
+	`ABC_ARRIVAL_U(1391)
+	output `SB_DFF_REG,
+	input C, D
+);
 	always @(posedge C)
 		Q <= D;
 endmodule
 
-module SB_DFFE (output `SB_DFF_REG, input C, E, D);
+module SB_DFFE (
+	`ABC_ARRIVAL_HX(540)
+	`ABC_ARRIVAL_LP(796)
+	`ABC_ARRIVAL_U(1391)
+	output `SB_DFF_REG,
+	input C, E, D
+);
 	always @(posedge C)
 		if (E)
 			Q <= D;
 endmodule
 
-module SB_DFFSR (output `SB_DFF_REG, input C, R, D);
+module SB_DFFSR (
+	`ABC_ARRIVAL_HX(540)
+	`ABC_ARRIVAL_LP(796)
+	`ABC_ARRIVAL_U(1391)
+	output `SB_DFF_REG,
+	input C, R, D
+);
 	always @(posedge C)
 		if (R)
 			Q <= 0;
@@ -151,7 +216,13 @@ module SB_DFFSR (output `SB_DFF_REG, input C, R, D);
 			Q <= D;
 endmodule
 
-module SB_DFFR (output `SB_DFF_REG, input C, R, D);
+module SB_DFFR (
+	`ABC_ARRIVAL_HX(540)
+	`ABC_ARRIVAL_LP(796)
+	`ABC_ARRIVAL_U(1391)
+	output `SB_DFF_REG,
+	input C, R, D
+);
 	always @(posedge C, posedge R)
 		if (R)
 			Q <= 0;
@@ -159,7 +230,13 @@ module SB_DFFR (output `SB_DFF_REG, input C, R, D);
 			Q <= D;
 endmodule
 
-module SB_DFFSS (output `SB_DFF_REG, input C, S, D);
+module SB_DFFSS (
+	`ABC_ARRIVAL_HX(540)
+	`ABC_ARRIVAL_LP(796)
+	`ABC_ARRIVAL_U(1391)
+	output `SB_DFF_REG,
+	input C, S, D
+);
 	always @(posedge C)
 		if (S)
 			Q <= 1;
@@ -167,7 +244,13 @@ module SB_DFFSS (output `SB_DFF_REG, input C, S, D);
 			Q <= D;
 endmodule
 
-module SB_DFFS (output `SB_DFF_REG, input C, S, D);
+module SB_DFFS (
+	`ABC_ARRIVAL_HX(540)
+	`ABC_ARRIVAL_LP(796)
+	`ABC_ARRIVAL_U(1391)
+	output `SB_DFF_REG,
+	input C, S, D
+);
 	always @(posedge C, posedge S)
 		if (S)
 			Q <= 1;
@@ -175,7 +258,13 @@ module SB_DFFS (output `SB_DFF_REG, input C, S, D);
 			Q <= D;
 endmodule
 
-module SB_DFFESR (output `SB_DFF_REG, input C, E, R, D);
+module SB_DFFESR (
+	`ABC_ARRIVAL_HX(540)
+	`ABC_ARRIVAL_LP(796)
+	`ABC_ARRIVAL_U(1391)
+	output `SB_DFF_REG,
+	input C, E, R, D
+);
 	always @(posedge C)
 		if (E) begin
 			if (R)
@@ -185,7 +274,13 @@ module SB_DFFESR (output `SB_DFF_REG, input C, E, R, D);
 		end
 endmodule
 
-module SB_DFFER (output `SB_DFF_REG, input C, E, R, D);
+module SB_DFFER (
+	`ABC_ARRIVAL_HX(540)
+	`ABC_ARRIVAL_LP(796)
+	`ABC_ARRIVAL_U(1391)
+	output `SB_DFF_REG,
+	input C, E, R, D
+);
 	always @(posedge C, posedge R)
 		if (R)
 			Q <= 0;
@@ -193,7 +288,13 @@ module SB_DFFER (output `SB_DFF_REG, input C, E, R, D);
 			Q <= D;
 endmodule
 
-module SB_DFFESS (output `SB_DFF_REG, input C, E, S, D);
+module SB_DFFESS (
+	`ABC_ARRIVAL_HX(540)
+	`ABC_ARRIVAL_LP(796)
+	`ABC_ARRIVAL_U(1391)
+	output `SB_DFF_REG,
+	input C, E, S, D
+);
 	always @(posedge C)
 		if (E) begin
 			if (S)
@@ -203,7 +304,13 @@ module SB_DFFESS (output `SB_DFF_REG, input C, E, S, D);
 		end
 endmodule
 
-module SB_DFFES (output `SB_DFF_REG, input C, E, S, D);
+module SB_DFFES (
+	`ABC_ARRIVAL_HX(540)
+	`ABC_ARRIVAL_LP(796)
+	`ABC_ARRIVAL_U(1391)
+	output `SB_DFF_REG,
+	input C, E, S, D
+);
 	always @(posedge C, posedge S)
 		if (S)
 			Q <= 1;
@@ -213,18 +320,36 @@ endmodule
 
 // Negative Edge SiliconBlue FF Cells
 
-module SB_DFFN (output `SB_DFF_REG, input C, D);
+module SB_DFFN (
+	`ABC_ARRIVAL_HX(540)
+	`ABC_ARRIVAL_LP(796)
+	`ABC_ARRIVAL_U(1391)
+	output `SB_DFF_REG,
+	input C, D
+);
 	always @(negedge C)
 		Q <= D;
 endmodule
 
-module SB_DFFNE (output `SB_DFF_REG, input C, E, D);
+module SB_DFFNE (
+	`ABC_ARRIVAL_HX(540)
+	`ABC_ARRIVAL_LP(796)
+	`ABC_ARRIVAL_U(1391)
+	output `SB_DFF_REG,
+	input C, E, D
+);
 	always @(negedge C)
 		if (E)
 			Q <= D;
 endmodule
 
-module SB_DFFNSR (output `SB_DFF_REG, input C, R, D);
+module SB_DFFNSR (
+	`ABC_ARRIVAL_HX(540)
+	`ABC_ARRIVAL_LP(796)
+	`ABC_ARRIVAL_U(1391)
+	output `SB_DFF_REG,
+	input C, R, D
+);
 	always @(negedge C)
 		if (R)
 			Q <= 0;
@@ -232,7 +357,13 @@ module SB_DFFNSR (output `SB_DFF_REG, input C, R, D);
 			Q <= D;
 endmodule
 
-module SB_DFFNR (output `SB_DFF_REG, input C, R, D);
+module SB_DFFNR (
+	`ABC_ARRIVAL_HX(540)
+	`ABC_ARRIVAL_LP(796)
+	`ABC_ARRIVAL_U(1391)
+	output `SB_DFF_REG,
+	input C, R, D
+);
 	always @(negedge C, posedge R)
 		if (R)
 			Q <= 0;
@@ -240,7 +371,13 @@ module SB_DFFNR (output `SB_DFF_REG, input C, R, D);
 			Q <= D;
 endmodule
 
-module SB_DFFNSS (output `SB_DFF_REG, input C, S, D);
+module SB_DFFNSS (
+	`ABC_ARRIVAL_HX(540)
+	`ABC_ARRIVAL_LP(796)
+	`ABC_ARRIVAL_U(1391)
+	output `SB_DFF_REG,
+	input C, S, D
+);
 	always @(negedge C)
 		if (S)
 			Q <= 1;
@@ -248,7 +385,13 @@ module SB_DFFNSS (output `SB_DFF_REG, input C, S, D);
 			Q <= D;
 endmodule
 
-module SB_DFFNS (output `SB_DFF_REG, input C, S, D);
+module SB_DFFNS (
+	`ABC_ARRIVAL_HX(540)
+	`ABC_ARRIVAL_LP(796)
+	`ABC_ARRIVAL_U(1391)
+	output `SB_DFF_REG,
+	input C, S, D
+);
 	always @(negedge C, posedge S)
 		if (S)
 			Q <= 1;
@@ -256,7 +399,13 @@ module SB_DFFNS (output `SB_DFF_REG, input C, S, D);
 			Q <= D;
 endmodule
 
-module SB_DFFNESR (output `SB_DFF_REG, input C, E, R, D);
+module SB_DFFNESR (
+	`ABC_ARRIVAL_HX(540)
+	`ABC_ARRIVAL_LP(796)
+	`ABC_ARRIVAL_U(1391)
+	output `SB_DFF_REG,
+	input C, E, R, D
+);
 	always @(negedge C)
 		if (E) begin
 			if (R)
@@ -266,7 +415,13 @@ module SB_DFFNESR (output `SB_DFF_REG, input C, E, R, D);
 		end
 endmodule
 
-module SB_DFFNER (output `SB_DFF_REG, input C, E, R, D);
+module SB_DFFNER (
+	`ABC_ARRIVAL_HX(540)
+	`ABC_ARRIVAL_LP(796)
+	`ABC_ARRIVAL_U(1391)
+	output `SB_DFF_REG,
+	input C, E, R, D
+);
 	always @(negedge C, posedge R)
 		if (R)
 			Q <= 0;
@@ -274,7 +429,13 @@ module SB_DFFNER (output `SB_DFF_REG, input C, E, R, D);
 			Q <= D;
 endmodule
 
-module SB_DFFNESS (output `SB_DFF_REG, input C, E, S, D);
+module SB_DFFNESS (
+	`ABC_ARRIVAL_HX(540)
+	`ABC_ARRIVAL_LP(796)
+	`ABC_ARRIVAL_U(1391)
+	output `SB_DFF_REG,
+	input C, E, S, D
+);
 	always @(negedge C)
 		if (E) begin
 			if (S)
@@ -284,7 +445,13 @@ module SB_DFFNESS (output `SB_DFF_REG, input C, E, S, D);
 		end
 endmodule
 
-module SB_DFFNES (output `SB_DFF_REG, input C, E, S, D);
+module SB_DFFNES (
+	`ABC_ARRIVAL_HX(540)
+	`ABC_ARRIVAL_LP(796)
+	`ABC_ARRIVAL_U(1391)
+	output `SB_DFF_REG,
+	input C, E, S, D
+);
 	always @(negedge C, posedge S)
 		if (S)
 			Q <= 1;
@@ -295,6 +462,9 @@ endmodule
 // SiliconBlue RAM Cells
 
 module SB_RAM40_4K (
+	`ABC_ARRIVAL_HX(2146) // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L401
+	`ABC_ARRIVAL_LP(3163) // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L401
+	`ABC_ARRIVAL_U(1179)  // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13026
 	output [15:0] RDATA,
 	input         RCLK, RCLKE, RE,
 	input  [10:0] RADDR,
@@ -325,6 +495,8 @@ module SB_RAM40_4K (
 	parameter INIT_D = 256'h0000000000000000000000000000000000000000000000000000000000000000;
 	parameter INIT_E = 256'h0000000000000000000000000000000000000000000000000000000000000000;
 	parameter INIT_F = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+
+	parameter INIT_FILE = "";
 
 `ifndef BLACKBOX
 	wire [15:0] WMASK_I;
@@ -408,24 +580,27 @@ module SB_RAM40_4K (
 	reg [15:0] memory [0:255];
 
 	initial begin
-		for (i=0; i<16; i=i+1) begin
-			memory[ 0*16 + i] <= INIT_0[16*i +: 16];
-			memory[ 1*16 + i] <= INIT_1[16*i +: 16];
-			memory[ 2*16 + i] <= INIT_2[16*i +: 16];
-			memory[ 3*16 + i] <= INIT_3[16*i +: 16];
-			memory[ 4*16 + i] <= INIT_4[16*i +: 16];
-			memory[ 5*16 + i] <= INIT_5[16*i +: 16];
-			memory[ 6*16 + i] <= INIT_6[16*i +: 16];
-			memory[ 7*16 + i] <= INIT_7[16*i +: 16];
-			memory[ 8*16 + i] <= INIT_8[16*i +: 16];
-			memory[ 9*16 + i] <= INIT_9[16*i +: 16];
-			memory[10*16 + i] <= INIT_A[16*i +: 16];
-			memory[11*16 + i] <= INIT_B[16*i +: 16];
-			memory[12*16 + i] <= INIT_C[16*i +: 16];
-			memory[13*16 + i] <= INIT_D[16*i +: 16];
-			memory[14*16 + i] <= INIT_E[16*i +: 16];
-			memory[15*16 + i] <= INIT_F[16*i +: 16];
-		end
+		if (INIT_FILE != "")
+			$readmemh(INIT_FILE, memory);
+		else
+			for (i=0; i<16; i=i+1) begin
+				memory[ 0*16 + i] = INIT_0[16*i +: 16];
+				memory[ 1*16 + i] = INIT_1[16*i +: 16];
+				memory[ 2*16 + i] = INIT_2[16*i +: 16];
+				memory[ 3*16 + i] = INIT_3[16*i +: 16];
+				memory[ 4*16 + i] = INIT_4[16*i +: 16];
+				memory[ 5*16 + i] = INIT_5[16*i +: 16];
+				memory[ 6*16 + i] = INIT_6[16*i +: 16];
+				memory[ 7*16 + i] = INIT_7[16*i +: 16];
+				memory[ 8*16 + i] = INIT_8[16*i +: 16];
+				memory[ 9*16 + i] = INIT_9[16*i +: 16];
+				memory[10*16 + i] = INIT_A[16*i +: 16];
+				memory[11*16 + i] = INIT_B[16*i +: 16];
+				memory[12*16 + i] = INIT_C[16*i +: 16];
+				memory[13*16 + i] = INIT_D[16*i +: 16];
+				memory[14*16 + i] = INIT_E[16*i +: 16];
+				memory[15*16 + i] = INIT_F[16*i +: 16];
+			end
 	end
 
 	always @(posedge WCLK) begin
@@ -458,6 +633,9 @@ module SB_RAM40_4K (
 endmodule
 
 module SB_RAM40_4KNR (
+	`ABC_ARRIVAL_HX(2146) // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L401
+	`ABC_ARRIVAL_LP(3163) // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L401
+	`ABC_ARRIVAL_U(1179)  // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13026
 	output [15:0] RDATA,
 	input         RCLKN, RCLKE, RE,
 	input  [10:0] RADDR,
@@ -485,6 +663,8 @@ module SB_RAM40_4KNR (
 	parameter INIT_E = 256'h0000000000000000000000000000000000000000000000000000000000000000;
 	parameter INIT_F = 256'h0000000000000000000000000000000000000000000000000000000000000000;
 
+	parameter INIT_FILE = "";
+
 	SB_RAM40_4K #(
 		.WRITE_MODE(WRITE_MODE),
 		.READ_MODE (READ_MODE ),
@@ -503,7 +683,8 @@ module SB_RAM40_4KNR (
 		.INIT_C    (INIT_C    ),
 		.INIT_D    (INIT_D    ),
 		.INIT_E    (INIT_E    ),
-		.INIT_F    (INIT_F    )
+		.INIT_F    (INIT_F    ),
+		.INIT_FILE (INIT_FILE )
 	) RAM (
 		.RDATA(RDATA),
 		.RCLK (~RCLKN),
@@ -520,6 +701,9 @@ module SB_RAM40_4KNR (
 endmodule
 
 module SB_RAM40_4KNW (
+	`ABC_ARRIVAL_HX(2146) // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L401
+	`ABC_ARRIVAL_LP(3163) // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L401
+	`ABC_ARRIVAL_U(1179)  // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13026
 	output [15:0] RDATA,
 	input         RCLK, RCLKE, RE,
 	input  [10:0] RADDR,
@@ -547,6 +731,8 @@ module SB_RAM40_4KNW (
 	parameter INIT_E = 256'h0000000000000000000000000000000000000000000000000000000000000000;
 	parameter INIT_F = 256'h0000000000000000000000000000000000000000000000000000000000000000;
 
+	parameter INIT_FILE = "";
+
 	SB_RAM40_4K #(
 		.WRITE_MODE(WRITE_MODE),
 		.READ_MODE (READ_MODE ),
@@ -565,7 +751,8 @@ module SB_RAM40_4KNW (
 		.INIT_C    (INIT_C    ),
 		.INIT_D    (INIT_D    ),
 		.INIT_E    (INIT_E    ),
-		.INIT_F    (INIT_F    )
+		.INIT_F    (INIT_F    ),
+		.INIT_FILE (INIT_FILE )
 	) RAM (
 		.RDATA(RDATA),
 		.RCLK (RCLK ),
@@ -582,6 +769,9 @@ module SB_RAM40_4KNW (
 endmodule
 
 module SB_RAM40_4KNRNW (
+	`ABC_ARRIVAL_HX(2146) // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L401
+	`ABC_ARRIVAL_LP(3163) // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L401
+	`ABC_ARRIVAL_U(1179)  // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13026
 	output [15:0] RDATA,
 	input         RCLKN, RCLKE, RE,
 	input  [10:0] RADDR,
@@ -609,6 +799,8 @@ module SB_RAM40_4KNRNW (
 	parameter INIT_E = 256'h0000000000000000000000000000000000000000000000000000000000000000;
 	parameter INIT_F = 256'h0000000000000000000000000000000000000000000000000000000000000000;
 
+	parameter INIT_FILE = "";
+
 	SB_RAM40_4K #(
 		.WRITE_MODE(WRITE_MODE),
 		.READ_MODE (READ_MODE ),
@@ -627,7 +819,8 @@ module SB_RAM40_4KNRNW (
 		.INIT_C    (INIT_C    ),
 		.INIT_D    (INIT_D    ),
 		.INIT_E    (INIT_E    ),
-		.INIT_F    (INIT_F    )
+		.INIT_F    (INIT_F    ),
+		.INIT_FILE (INIT_FILE )
 	) RAM (
 		.RDATA(RDATA),
 		.RCLK (~RCLKN),
@@ -647,7 +840,12 @@ endmodule
 
 module ICESTORM_LC (
 	input I0, I1, I2, I3, CIN, CLK, CEN, SR,
-	output LO, O, COUT
+	output LO,
+	`ABC_ARRIVAL_HX(540)
+	`ABC_ARRIVAL_LP(796)
+	`ABC_ARRIVAL_U(1391)
+	output O,
+	output COUT
 );
 	parameter [15:0] LUT_INIT = 0;
 
@@ -657,7 +855,12 @@ module ICESTORM_LC (
 	parameter [0:0] SET_NORESET  = 0;
 	parameter [0:0] ASYNC_SR     = 0;
 
-	assign COUT = CARRY_ENABLE ? (I1 && I2) || ((I1 || I2) && CIN) : 1'bx;
+	parameter [0:0] CIN_CONST    = 0;
+	parameter [0:0] CIN_SET      = 0;
+
+	wire mux_cin = CIN_CONST ? CIN_SET : CIN;
+
+	assign COUT = CARRY_ENABLE ? (I1 && I2) || ((I1 || I2) && mux_cin) : 1'bx;
 
 	wire [7:0] lut_s3 = I3 ? LUT_INIT[15:8] : LUT_INIT[7:0];
 	wire [3:0] lut_s2 = I2 ?   lut_s3[ 7:4] :   lut_s3[3:0];
@@ -862,80 +1065,61 @@ module SB_WARMBOOT (
 );
 endmodule
 
-// UltraPlus feature cells
-(* blackbox *)
-module SB_MAC16 (
-	input CLK,
-	input CE,
-	input [15:0] C,
-	input [15:0] A,
-	input [15:0] B,
-	input [15:0] D,
-	input AHOLD,
-	input BHOLD,
-	input CHOLD,
-	input DHOLD,
-	input IRSTTOP,
-	input IRSTBOT,
-	input ORSTTOP,
-	input ORSTBOT,
-	input OLOADTOP,
-	input OLOADBOT,
-	input ADDSUBTOP,
-	input ADDSUBBOT,
-	input OHOLDTOP,
-	input OHOLDBOT,
-	input CI,
-	input ACCUMCI,
-	input SIGNEXTIN,
-	output [31:0] O,
-	output CO,
-	output ACCUMCO,
-	output SIGNEXTOUT
-);
-parameter NEG_TRIGGER = 1'b0;
-parameter C_REG = 1'b0;
-parameter A_REG = 1'b0;
-parameter B_REG = 1'b0;
-parameter D_REG = 1'b0;
-parameter TOP_8x8_MULT_REG = 1'b0;
-parameter BOT_8x8_MULT_REG = 1'b0;
-parameter PIPELINE_16x16_MULT_REG1 = 1'b0;
-parameter PIPELINE_16x16_MULT_REG2 = 1'b0;
-parameter TOPOUTPUT_SELECT =  2'b00;
-parameter TOPADDSUB_LOWERINPUT = 2'b00;
-parameter TOPADDSUB_UPPERINPUT = 1'b0;
-parameter TOPADDSUB_CARRYSELECT = 2'b00;
-parameter BOTOUTPUT_SELECT =  2'b00;
-parameter BOTADDSUB_LOWERINPUT = 2'b00;
-parameter BOTADDSUB_UPPERINPUT = 1'b0;
-parameter BOTADDSUB_CARRYSELECT = 2'b00;
-parameter MODE_8x8 = 1'b0;
-parameter A_SIGNED = 1'b0;
-parameter B_SIGNED = 1'b0;
-endmodule
-
-(* blackbox *)
-module SB_SPRAM256KA(
+module SB_SPRAM256KA (
 	input [13:0] ADDRESS,
 	input [15:0] DATAIN,
 	input [3:0] MASKWREN,
-	input WREN,
-	input CHIPSELECT,
-	input CLOCK,
-	input STANDBY,
-	input SLEEP,
-	input POWEROFF,
-	output [15:0] DATAOUT
+	input WREN, CHIPSELECT, CLOCK, STANDBY, SLEEP, POWEROFF,
+	output reg [15:0] DATAOUT
 );
+`ifndef BLACKBOX
+`ifndef EQUIV
+	reg [15:0] mem [0:16383];
+	wire off = SLEEP || !POWEROFF;
+	integer i;
+
+	always @(negedge POWEROFF) begin
+		for (i = 0; i <= 16383; i = i+1)
+			mem[i] = 'bx;
+	end
+
+	always @(posedge CLOCK, posedge off) begin
+		if (off) begin
+			DATAOUT <= 0;
+		end else
+		if (CHIPSELECT && !STANDBY && !WREN) begin
+			DATAOUT <= mem[ADDRESS];
+		end else begin
+			if (CHIPSELECT && !STANDBY && WREN) begin
+				if (MASKWREN[0]) mem[ADDRESS][ 3: 0] = DATAIN[ 3: 0];
+				if (MASKWREN[1]) mem[ADDRESS][ 7: 4] = DATAIN[ 7: 4];
+				if (MASKWREN[2]) mem[ADDRESS][11: 8] = DATAIN[11: 8];
+				if (MASKWREN[3]) mem[ADDRESS][15:12] = DATAIN[15:12];
+			end
+			DATAOUT <= 'bx;
+		end
+	end
+`endif
+`endif
 endmodule
 
 (* blackbox *)
 module SB_HFOSC(
+	input TRIM0,
+	input TRIM1,
+	input TRIM2,
+	input TRIM3,
+	input TRIM4,
+	input TRIM5,
+	input TRIM6,
+	input TRIM7,
+	input TRIM8,
+	input TRIM9,
 	input CLKHFPU,
 	input CLKHFEN,
 	output CLKHF
 );
+parameter TRIM_EN = "0b0";
 parameter CLKHF_DIV = "0b00";
 endmodule
 
@@ -954,6 +1138,30 @@ module SB_RGBA_DRV(
 	input RGB0PWM,
 	input RGB1PWM,
 	input RGB2PWM,
+	output RGB0,
+	output RGB1,
+	output RGB2
+);
+parameter CURRENT_MODE = "0b0";
+parameter RGB0_CURRENT = "0b000000";
+parameter RGB1_CURRENT = "0b000000";
+parameter RGB2_CURRENT = "0b000000";
+endmodule
+
+(* blackbox *)
+module SB_LED_DRV_CUR(
+	input EN,
+	output LEDPU
+);
+endmodule
+
+(* blackbox *)
+module SB_RGB_DRV(
+	input RGBLEDEN,
+	input RGB0PWM,
+	input RGB1PWM,
+	input RGB2PWM,
+	input RGBPU,
 	output RGB0,
 	output RGB1,
 	output RGB2
@@ -1227,3 +1435,173 @@ module SB_IO_OD (
 `endif
 endmodule
 
+module SB_MAC16 (
+	input CLK, CE,
+	input [15:0] C, A, B, D,
+	input AHOLD, BHOLD, CHOLD, DHOLD,
+	input IRSTTOP, IRSTBOT,
+	input ORSTTOP, ORSTBOT,
+	input OLOADTOP, OLOADBOT,
+	input ADDSUBTOP, ADDSUBBOT,
+	input OHOLDTOP, OHOLDBOT,
+	input CI, ACCUMCI, SIGNEXTIN,
+	//`ABC_ARRIVAL_U(1984)  // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13026
+	output [31:0] O,
+	output CO, ACCUMCO, SIGNEXTOUT
+);
+	parameter [0:0] NEG_TRIGGER = 0;
+	parameter [0:0] C_REG = 0;
+	parameter [0:0] A_REG = 0;
+	parameter [0:0] B_REG = 0;
+	parameter [0:0] D_REG = 0;
+	parameter [0:0] TOP_8x8_MULT_REG = 0;
+	parameter [0:0] BOT_8x8_MULT_REG = 0;
+	parameter [0:0] PIPELINE_16x16_MULT_REG1 = 0;
+	parameter [0:0] PIPELINE_16x16_MULT_REG2 = 0;
+	parameter [1:0] TOPOUTPUT_SELECT = 0;
+	parameter [1:0] TOPADDSUB_LOWERINPUT = 0;
+	parameter [0:0] TOPADDSUB_UPPERINPUT = 0;
+	parameter [1:0] TOPADDSUB_CARRYSELECT = 0;
+	parameter [1:0] BOTOUTPUT_SELECT = 0;
+	parameter [1:0] BOTADDSUB_LOWERINPUT = 0;
+	parameter [0:0] BOTADDSUB_UPPERINPUT = 0;
+	parameter [1:0] BOTADDSUB_CARRYSELECT = 0;
+	parameter [0:0] MODE_8x8 = 0;
+	parameter [0:0] A_SIGNED = 0;
+	parameter [0:0] B_SIGNED = 0;
+
+	wire clock = CLK ^ NEG_TRIGGER;
+
+	// internal wires, compare Figure on page 133 of ICE Technology Library 3.0 and Fig 2 on page 2 of Lattice TN1295-DSP
+	// http://www.latticesemi.com/~/media/LatticeSemi/Documents/TechnicalBriefs/SBTICETechnologyLibrary201608.pdf
+	// https://www.latticesemi.com/-/media/LatticeSemi/Documents/ApplicationNotes/AD/DSPFunctionUsageGuideforICE40Devices.ashx
+	wire [15:0] iA, iB, iC, iD;
+	wire [15:0] iF, iJ, iK, iG;
+	wire [31:0] iL, iH;
+	wire [15:0] iW, iX, iP, iQ;
+	wire [15:0] iY, iZ, iR, iS;
+	wire HCI, LCI, LCO;
+
+	// Regs C and A
+	reg [15:0] rC, rA;
+	always @(posedge clock, posedge IRSTTOP) begin
+		if (IRSTTOP) begin
+			rC <= 0;
+			rA <= 0;
+		end else if (CE) begin
+			if (!CHOLD) rC <= C;
+			if (!AHOLD) rA <= A;
+		end
+	end
+	assign iC = C_REG ? rC : C;
+	assign iA = A_REG ? rA : A;
+
+	// Regs B and D
+	reg [15:0] rB, rD;
+	always @(posedge clock, posedge IRSTBOT) begin
+		if (IRSTBOT) begin
+			rB <= 0;
+			rD <= 0;
+		end else if (CE) begin
+			if (!BHOLD) rB <= B;
+			if (!DHOLD) rD <= D;
+		end
+	end
+	assign iB = B_REG ? rB : B;
+	assign iD = D_REG ? rD : D;
+
+	// Multiplier Stage
+	wire [15:0] p_Ah_Bh, p_Al_Bh, p_Ah_Bl, p_Al_Bl;
+	wire [15:0] Ah, Al, Bh, Bl;
+	assign Ah = {A_SIGNED ? {8{iA[15]}} : 8'b0, iA[15: 8]};
+	assign Al = {A_SIGNED && MODE_8x8 ? {8{iA[ 7]}} : 8'b0, iA[ 7: 0]};
+	assign Bh = {B_SIGNED ? {8{iB[15]}} : 8'b0, iB[15: 8]};
+	assign Bl = {B_SIGNED && MODE_8x8 ? {8{iB[ 7]}} : 8'b0, iB[ 7: 0]};
+	assign p_Ah_Bh = Ah * Bh; // F
+	assign p_Al_Bh = {8'b0, Al[7:0]} * Bh; // J
+	assign p_Ah_Bl = Ah * {8'b0, Bl[7:0]}; // K
+	assign p_Al_Bl = Al * Bl; // G
+
+	// Regs F and J
+	reg [15:0] rF, rJ;
+	always @(posedge clock, posedge IRSTTOP) begin
+		if (IRSTTOP) begin
+			rF <= 0;
+			rJ <= 0;
+		end else if (CE) begin
+			rF <= p_Ah_Bh;
+			if (!MODE_8x8) rJ <= p_Al_Bh;
+		end
+	end
+	assign iF = TOP_8x8_MULT_REG ? rF : p_Ah_Bh;
+	assign iJ = PIPELINE_16x16_MULT_REG1 ? rJ : p_Al_Bh;
+
+	// Regs K and G
+	reg [15:0] rK, rG;
+	always @(posedge clock, posedge IRSTBOT) begin
+		if (IRSTBOT) begin
+			rK <= 0;
+			rG <= 0;
+		end else if (CE) begin
+			if (!MODE_8x8) rK <= p_Ah_Bl;
+			rG <= p_Al_Bl;
+		end
+	end
+	assign iK = PIPELINE_16x16_MULT_REG1 ? rK : p_Ah_Bl;
+	assign iG = BOT_8x8_MULT_REG ? rG : p_Al_Bl;
+
+	// Adder Stage
+	wire [23:0] iK_e = {A_SIGNED ? {8{iK[15]}} : 8'b0, iK};
+	wire [23:0] iJ_e = {B_SIGNED ? {8{iJ[15]}} : 8'b0, iJ};
+	assign iL = iG + (iK_e << 8) + (iJ_e << 8) + (iF << 16);
+
+	// Reg H
+	reg [31:0] rH;
+	always @(posedge clock, posedge IRSTBOT) begin
+		if (IRSTBOT) begin
+			rH <= 0;
+		end else if (CE) begin
+			if (!MODE_8x8) rH <= iL;
+		end
+	end
+	assign iH = PIPELINE_16x16_MULT_REG2 ? rH : iL;
+
+	// Hi Output Stage
+	wire [15:0] XW, Oh;
+	reg [15:0] rQ;
+	assign iW = TOPADDSUB_UPPERINPUT ? iC : iQ;
+	assign iX = (TOPADDSUB_LOWERINPUT == 0) ? iA : (TOPADDSUB_LOWERINPUT == 1) ? iF : (TOPADDSUB_LOWERINPUT == 2) ? iH[31:16] : {16{iZ[15]}};
+	assign {ACCUMCO, XW} = iX + (iW ^ {16{ADDSUBTOP}}) + HCI;
+	assign CO = ACCUMCO ^ ADDSUBTOP;
+	assign iP = OLOADTOP ? iC : XW ^ {16{ADDSUBTOP}};
+	always @(posedge clock, posedge ORSTTOP) begin
+		if (ORSTTOP) begin
+			rQ <= 0;
+		end else if (CE) begin
+			if (!OHOLDTOP) rQ <= iP;
+		end
+	end
+	assign iQ = rQ;
+	assign Oh = (TOPOUTPUT_SELECT == 0) ? iP : (TOPOUTPUT_SELECT == 1) ? iQ : (TOPOUTPUT_SELECT == 2) ? iF : iH[31:16];
+	assign HCI = (TOPADDSUB_CARRYSELECT == 0) ? 1'b0 : (TOPADDSUB_CARRYSELECT == 1) ? 1'b1 : (TOPADDSUB_CARRYSELECT == 2) ? LCO : LCO ^ ADDSUBBOT;
+	assign SIGNEXTOUT = iX[15];
+
+	// Lo Output Stage
+	wire [15:0] YZ, Ol;
+	reg [15:0] rS;
+	assign iY = BOTADDSUB_UPPERINPUT ? iD : iS;
+	assign iZ = (BOTADDSUB_LOWERINPUT == 0) ? iB : (BOTADDSUB_LOWERINPUT == 1) ? iG : (BOTADDSUB_LOWERINPUT == 2) ? iH[15:0] : {16{SIGNEXTIN}};
+	assign {LCO, YZ} = iZ + (iY ^ {16{ADDSUBBOT}}) + LCI;
+	assign iR = OLOADBOT ? iD : YZ ^ {16{ADDSUBBOT}};
+	always @(posedge clock, posedge ORSTBOT) begin
+		if (ORSTBOT) begin
+			rS <= 0;
+		end else if (CE) begin
+			if (!OHOLDBOT) rS <= iR;
+		end
+	end
+	assign iS = rS;
+	assign Ol = (BOTOUTPUT_SELECT == 0) ? iR : (BOTOUTPUT_SELECT == 1) ? iS : (BOTOUTPUT_SELECT == 2) ? iG : iH[15:0];
+	assign LCI = (BOTADDSUB_CARRYSELECT == 0) ? 1'b0 : (BOTADDSUB_CARRYSELECT == 1) ? 1'b1 : (BOTADDSUB_CARRYSELECT == 2) ? ACCUMCI : CI;
+	assign O = {Oh, Ol};
+endmodule

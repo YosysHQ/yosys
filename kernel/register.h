@@ -1,4 +1,4 @@
-/*
+/* -*- c++ -*-
  *  yosys -- Yosys Open SYnthesis Suite
  *
  *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
@@ -88,9 +88,9 @@ struct Frontend : Pass
 
 	std::string frontend_name;
 	Frontend(std::string name, std::string short_help = "** document me **");
-	virtual void run_register() YS_OVERRIDE;
-	virtual ~Frontend();
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE YS_FINAL;
+	void run_register() YS_OVERRIDE;
+	~Frontend() YS_OVERRIDE;
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE YS_FINAL;
 	virtual void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) = 0;
 
 	static std::vector<std::string> next_args;
@@ -104,9 +104,9 @@ struct Backend : Pass
 {
 	std::string backend_name;
 	Backend(std::string name, std::string short_help = "** document me **");
-	virtual void run_register() YS_OVERRIDE;
-	virtual ~Backend();
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE YS_FINAL;
+	void run_register() YS_OVERRIDE;
+	~Backend() YS_OVERRIDE;
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE YS_FINAL;
 	virtual void execute(std::ostream *&f, std::string filename,  std::vector<std::string> args, RTLIL::Design *design) = 0;
 
 	void extra_args(std::ostream *&f, std::string &filename, std::vector<std::string> args, size_t argidx);

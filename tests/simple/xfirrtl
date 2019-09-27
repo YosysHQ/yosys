@@ -1,0 +1,29 @@
+# This file contains the names of verilog files to exclude from verilog to FIRRTL regression tests due to known failures.
+arraycells.v	inst id[0] of
+defvalue.sv	Initial value not supported
+dff_different_styles.v
+dff_init.v	Initial value not supported
+generate.v	combinational loop
+hierdefparam.v	inst id[0] of
+i2c_master_tests.v   $adff
+implicit_ports.v     not fully initialized
+macros.v	drops modules
+mem2reg.v	drops modules
+mem_arst.v	$adff
+memory.v	$adff
+multiplier.v	inst id[0] of
+muxtree.v	drops modules
+omsp_dbg_uart.v	$adff
+partsel.v	drops modules
+process.v	drops modules
+realexpr.v	drops modules
+retime.v	Initial value (11110101) for (retime_test.ff) not supported
+scopes.v	original verilog issues ( -x where x isn't declared signed)
+sincos.v	$adff
+specify.v	no code (empty module generates error
+subbytes.v	$adff
+task_func.v	drops modules
+values.v	combinational loop
+wandwor.v	Invalid connect to an expression that is not a reference or a WritePort.
+vloghammer.v	combinational loop
+wreduce.v	original verilog issues ( -x where x isn't declared signed)

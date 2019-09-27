@@ -19,3 +19,6 @@ set_property -dict { IOSTANDARD LVCMOS33 PACKAGE_PIN L1  } [get_ports {LD[15]}]
 
 create_clock -add -name sys_clk_pin -period 10.00 -waveform {0 5} [get_ports CLK]
 
+set_property CONFIG_VOLTAGE 3.3 [current_design]
+set_property CFGBVS VCCO [current_design]
+

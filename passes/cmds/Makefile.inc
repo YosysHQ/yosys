@@ -25,8 +25,9 @@ OBJS += passes/cmds/plugin.o
 OBJS += passes/cmds/check.o
 OBJS += passes/cmds/qwp.o
 OBJS += passes/cmds/edgetypes.o
+OBJS += passes/cmds/portlist.o
 OBJS += passes/cmds/chformal.o
 OBJS += passes/cmds/chtype.o
 OBJS += passes/cmds/blackbox.o
 OBJS += passes/cmds/ltp.o
-
+OBJS += passes/cmds/bugpoint.o

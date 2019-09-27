@@ -1,0 +1,15 @@
+read_verilog latches.v
+design -save read
+
+proc
+async2sync # converts latches to a 'sync' variant clocked by a 'super'-clock
+flatten
+synth_ice40
+equiv_opt -assert -map +/ice40/cells_sim.v synth_ice40 # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+
+design -load read
+synth_ice40
+cd top
+select -assert-count 4 t:SB_LUT4
+select -assert-none t:SB_LUT4 %% t:* %D

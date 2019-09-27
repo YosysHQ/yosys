@@ -291,7 +291,7 @@ struct QwpWorker
 		// gaussian elimination
 		for (int i = 0; i < N; i++)
 		{
-			if (config.verbose && ((i+1) % (N/15)) == 0)
+			if (config.verbose && N > 15 && ((i+1) % (N/15)) == 0)
 				log("> Solved %d%%: %d/%d\n", (100*(i+1))/N, i+1, N);
 
 			// find best row
@@ -778,7 +778,7 @@ struct QwpWorker
 
 struct QwpPass : public Pass {
 	QwpPass() : Pass("qwp", "quadratic wirelength placer") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -808,7 +808,7 @@ struct QwpPass : public Pass {
 		log("dense matrix operations. It is only a toy-placer for small circuits.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		QwpConfig config;
 		xorshift32_state = 123456789;

@@ -69,26 +69,49 @@ void proc_clean_switch(RTLIL::SwitchRule *sw, RTLIL::CaseRule *parent, bool &did
 		did_something = true;
 		for (auto &action : sw->cases[0]->actions)
 			parent->actions.push_back(action);
-		for (auto sw2 : sw->cases[0]->switches)
-			parent->switches.push_back(sw2);
+		parent->switches.insert(parent->switches.begin(), sw->cases[0]->switches.begin(), sw->cases[0]->switches.end());
 		sw->cases[0]->switches.clear();
 		delete sw->cases[0];
 		sw->cases.clear();
 	}
 	else
 	{
-		bool all_cases_are_empty = true;
-		for (auto cs : sw->cases) {
-			if (cs->actions.size() != 0 || cs->switches.size() != 0)
-				all_cases_are_empty = false;
+		bool all_fully_def = true;
+		for (auto cs : sw->cases)
+		{
 			if (max_depth != 0)
 				proc_clean_case(cs, did_something, count, max_depth-1);
+			int size = 0;
+			for (auto cmp : cs->compare)
+			{
+				size += cmp.size();
+				if (!cmp.is_fully_def())
+					all_fully_def = false;
+			}
+			if (sw->signal.size() != size)
+				all_fully_def = false;
 		}
-		if (all_cases_are_empty) {
-			did_something = true;
-			for (auto cs : sw->cases)
-				delete cs;
-			sw->cases.clear();
+		if (all_fully_def)
+		{
+			for (auto cs = sw->cases.begin(); cs != sw->cases.end();)
+			{
+				if ((*cs)->empty())
+				{
+					did_something = true;
+					delete *cs;
+					cs = sw->cases.erase(cs);
+				}
+				else ++cs;
+			}
+		}
+		else
+		{
+			while (!sw->cases.empty() && sw->cases.back()->empty())
+			{
+				did_something = true;
+				delete sw->cases.back();
+				sw->cases.pop_back();
+			}
 		}
 	}
 }
@@ -106,7 +129,7 @@ void proc_clean_case(RTLIL::CaseRule *cs, bool &did_something, int &count, int m
 	}
 	for (size_t i = 0; i < cs->switches.size(); i++) {
 		RTLIL::SwitchRule *sw = cs->switches[i];
-		if (sw->cases.size() == 0) {
+		if (sw->empty()) {
 			cs->switches.erase(cs->switches.begin() + (i--));
 			did_something = true;
 			delete sw;
@@ -119,7 +142,7 @@ void proc_clean_case(RTLIL::CaseRule *cs, bool &did_something, int &count, int m
 YOSYS_NAMESPACE_END
 PRIVATE_NAMESPACE_BEGIN
 
-void proc_clean(RTLIL::Module *mod, RTLIL::Process *proc, int &total_count)
+void proc_clean(RTLIL::Module *mod, RTLIL::Process *proc, int &total_count, bool quiet)
 {
 	int count = 0;
 	bool did_something = true;
@@ -136,29 +159,43 @@ void proc_clean(RTLIL::Module *mod, RTLIL::Process *proc, int &total_count)
 		did_something = false;
 		proc_clean_case(&proc->root_case, did_something, count, -1);
 	}
-	if (count > 0)
+	if (count > 0 && !quiet)
 		log("Found and cleaned up %d empty switch%s in `%s.%s'.\n", count, count == 1 ? "" : "es", mod->name.c_str(), proc->name.c_str());
 	total_count += count;
 }
 
 struct ProcCleanPass : public Pass {
 	ProcCleanPass() : Pass("proc_clean", "remove empty parts of processes") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    proc_clean [selection]\n");
+		log("    proc_clean [options] [selection]\n");
+		log("\n");
+		log("    -quiet\n");
+		log("        do not print any messages.\n");
 		log("\n");
 		log("This pass removes empty parts of processes and ultimately removes a process\n");
 		log("if it contains only empty structures.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		int total_count = 0;
-		log_header(design, "Executing PROC_CLEAN pass (remove empty switches from decision trees).\n");
+		bool quiet = false;
 
-		extra_args(args, 1, design);
+		if (find(args.begin(), args.end(), "-quiet") == args.end())
+			log_header(design, "Executing PROC_CLEAN pass (remove empty switches from decision trees).\n");
+
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++)
+		{
+			if (args[argidx] == "-quiet") {
+				quiet = true;
+				continue;
+			}
+		}
+		extra_args(args, argidx, design);
 
 		for (auto mod : design->modules()) {
 			std::vector<RTLIL::IdString> delme;
@@ -167,10 +204,11 @@ struct ProcCleanPass : public Pass {
 			for (auto &proc_it : mod->processes) {
 				if (!design->selected(mod, proc_it.second))
 					continue;
-				proc_clean(mod, proc_it.second, total_count);
+				proc_clean(mod, proc_it.second, total_count, quiet);
 				if (proc_it.second->syncs.size() == 0 && proc_it.second->root_case.switches.size() == 0 &&
 						proc_it.second->root_case.actions.size() == 0) {
-					log("Removing empty process `%s.%s'.\n", log_id(mod), proc_it.second->name.c_str());
+					if (!quiet)
+						log("Removing empty process `%s.%s'.\n", log_id(mod), proc_it.second->name.c_str());
 					delme.push_back(proc_it.first);
 				}
 			}
@@ -180,7 +218,8 @@ struct ProcCleanPass : public Pass {
 			}
 		}
 
-		log("Cleaned up %d empty switch%s.\n", total_count, total_count == 1 ? "" : "es");
+		if (!quiet)
+			log("Cleaned up %d empty switch%s.\n", total_count, total_count == 1 ? "" : "es");
 	}
 } ProcCleanPass;
 

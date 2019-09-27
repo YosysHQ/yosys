@@ -28,7 +28,7 @@
 #include <time.h>
 
 // minisat is using limit macros and format macros in their headers that
-// can be the source of some troubles when used from c++11. thefore we
+// can be the source of some troubles when used from c++11. therefore we
 // don't force ezSAT users to use minisat headers..
 namespace Minisat {
 	class Solver;

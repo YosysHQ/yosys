@@ -34,7 +34,7 @@ static bool match_ids(RTLIL::IdString id, std::string pattern)
 {
 	if (id == pattern)
 		return true;
-	if (id.size() > 0 && id[0] == '\\' && id.substr(1) == pattern)
+	if (id.size() > 0 && id[0] == '\\' && id.compare(1, std::string::npos, pattern.c_str()) == 0)
 		return true;
 	if (patmatch(pattern.c_str(), id.c_str()))
 		return true;
@@ -124,11 +124,11 @@ static bool match_attr(const dict<RTLIL::IdString, RTLIL::Const> &attributes, st
 	size_t pos = match_expr.find_first_of("<!=>");
 
 	if (pos != std::string::npos) {
-		if (match_expr.substr(pos, 2) == "!=")
+		if (match_expr.compare(pos, 2, "!=") == 0)
 			return match_attr(attributes, match_expr.substr(0, pos), match_expr.substr(pos+2), '!');
-		if (match_expr.substr(pos, 2) == "<=")
+		if (match_expr.compare(pos, 2, "<=") == 0)
 			return match_attr(attributes, match_expr.substr(0, pos), match_expr.substr(pos+2), '[');
-		if (match_expr.substr(pos, 2) == ">=")
+		if (match_expr.compare(pos, 2, ">=") == 0)
 			return match_attr(attributes, match_expr.substr(0, pos), match_expr.substr(pos+2), ']');
 		return match_attr(attributes, match_expr.substr(0, pos), match_expr.substr(pos+1), match_expr[pos]);
 	}
@@ -664,7 +664,7 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 		} else
 		if (arg == "%D") {
 			if (work_stack.size() < 2)
-				log_cmd_error("Must have at least two elements on the stack for operator %%d.\n");
+				log_cmd_error("Must have at least two elements on the stack for operator %%D.\n");
 			select_op_diff(design, work_stack[work_stack.size()-1], work_stack[work_stack.size()-2]);
 			work_stack[work_stack.size()-2] = work_stack[work_stack.size()-1];
 			work_stack.pop_back();
@@ -693,7 +693,7 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 		} else
 		if (arg == "%C") {
 			if (work_stack.size() < 1)
-				log_cmd_error("Must have at least one element on the stack for operator %%M.\n");
+				log_cmd_error("Must have at least one element on the stack for operator %%C.\n");
 			select_op_module_to_cells(design, work_stack[work_stack.size()-1]);
 		} else
 		if (arg == "%c") {
@@ -711,32 +711,32 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 				log_cmd_error("Must have at least one element on the stack for operator %%a.\n");
 			select_op_alias(design, work_stack[work_stack.size()-1]);
 		} else
-		if (arg == "%x" || (arg.size() > 2 && arg.substr(0, 2) == "%x" && (arg[2] == ':' || arg[2] == '*' || arg[2] == '.' || ('0' <= arg[2] && arg[2] <= '9')))) {
+		if (arg == "%x" || (arg.size() > 2 && arg.compare(0, 2, "%x") == 0 && (arg[2] == ':' || arg[2] == '*' || arg[2] == '.' || ('0' <= arg[2] && arg[2] <= '9')))) {
 			if (work_stack.size() < 1)
 				log_cmd_error("Must have at least one element on the stack for operator %%x.\n");
 			select_op_expand(design, arg, 'x', false);
 		} else
-		if (arg == "%ci" || (arg.size() > 3 && arg.substr(0, 3) == "%ci" && (arg[3] == ':' || arg[3] == '*' || arg[3] == '.' || ('0' <= arg[3] && arg[3] <= '9')))) {
+		if (arg == "%ci" || (arg.size() > 3 && arg.compare(0, 3, "%ci") == 0 && (arg[3] == ':' || arg[3] == '*' || arg[3] == '.' || ('0' <= arg[3] && arg[3] <= '9')))) {
 			if (work_stack.size() < 1)
 				log_cmd_error("Must have at least one element on the stack for operator %%ci.\n");
 			select_op_expand(design, arg, 'i', false);
 		} else
-		if (arg == "%co" || (arg.size() > 3 && arg.substr(0, 3) == "%co" && (arg[3] == ':' || arg[3] == '*' || arg[3] == '.' || ('0' <= arg[3] && arg[3] <= '9')))) {
+		if (arg == "%co" || (arg.size() > 3 && arg.compare(0, 3, "%co") == 0 && (arg[3] == ':' || arg[3] == '*' || arg[3] == '.' || ('0' <= arg[3] && arg[3] <= '9')))) {
 			if (work_stack.size() < 1)
 				log_cmd_error("Must have at least one element on the stack for operator %%co.\n");
 			select_op_expand(design, arg, 'o', false);
 		} else
-		if (arg == "%xe" || (arg.size() > 3 && arg.substr(0, 3) == "%xe" && (arg[3] == ':' || arg[3] == '*' || arg[3] == '.' || ('0' <= arg[3] && arg[3] <= '9')))) {
+		if (arg == "%xe" || (arg.size() > 3 && arg.compare(0, 3, "%xe") == 0 && (arg[3] == ':' || arg[3] == '*' || arg[3] == '.' || ('0' <= arg[3] && arg[3] <= '9')))) {
 			if (work_stack.size() < 1)
 				log_cmd_error("Must have at least one element on the stack for operator %%xe.\n");
 			select_op_expand(design, arg, 'x', true);
 		} else
-		if (arg == "%cie" || (arg.size() > 4 && arg.substr(0, 4) == "%cie" && (arg[4] == ':' || arg[4] == '*' || arg[4] == '.' || ('0' <= arg[4] && arg[4] <= '9')))) {
+		if (arg == "%cie" || (arg.size() > 4 && arg.compare(0, 4, "%cie") == 0 && (arg[4] == ':' || arg[4] == '*' || arg[4] == '.' || ('0' <= arg[4] && arg[4] <= '9')))) {
 			if (work_stack.size() < 1)
 				log_cmd_error("Must have at least one element on the stack for operator %%cie.\n");
 			select_op_expand(design, arg, 'i', true);
 		} else
-		if (arg == "%coe" || (arg.size() > 4 && arg.substr(0, 4) == "%coe" && (arg[4] == ':' || arg[4] == '*' || arg[4] == '.' || ('0' <= arg[4] && arg[4] <= '9')))) {
+		if (arg == "%coe" || (arg.size() > 4 && arg.compare(0, 4, "%coe") == 0 && (arg[4] == ':' || arg[4] == '*' || arg[4] == '.' || ('0' <= arg[4] && arg[4] <= '9')))) {
 			if (work_stack.size() < 1)
 				log_cmd_error("Must have at least one element on the stack for operator %%coe.\n");
 			select_op_expand(design, arg, 'o', true);
@@ -766,7 +766,7 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 	} else {
 		size_t pos = arg.find('/');
 		if (pos == std::string::npos) {
-			if (arg.find(':') == std::string::npos || arg.substr(0, 1) == "A")
+			if (arg.find(':') == std::string::npos || arg.compare(0, 1, "A") == 0)
 				arg_mod = arg;
 			else
 				arg_mod = "*", arg_memb = arg;
@@ -787,7 +787,7 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 	sel.full_selection = false;
 	for (auto &mod_it : design->modules_)
 	{
-		if (arg_mod.substr(0, 2) == "A:") {
+		if (arg_mod.compare(0, 2, "A:") == 0) {
 			if (!match_attr(mod_it.second->attributes, arg_mod.substr(2)))
 				continue;
 		} else
@@ -800,27 +800,27 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 		}
 
 		RTLIL::Module *mod = mod_it.second;
-		if (arg_memb.substr(0, 2) == "w:") {
+		if (arg_memb.compare(0, 2, "w:") == 0) {
 			for (auto &it : mod->wires_)
 				if (match_ids(it.first, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 		} else
-		if (arg_memb.substr(0, 2) == "i:") {
+		if (arg_memb.compare(0, 2, "i:") == 0) {
 			for (auto &it : mod->wires_)
 				if (it.second->port_input && match_ids(it.first, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 		} else
-		if (arg_memb.substr(0, 2) == "o:") {
+		if (arg_memb.compare(0, 2, "o:") == 0) {
 			for (auto &it : mod->wires_)
 				if (it.second->port_output && match_ids(it.first, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 		} else
-		if (arg_memb.substr(0, 2) == "x:") {
+		if (arg_memb.compare(0, 2, "x:") == 0) {
 			for (auto &it : mod->wires_)
 				if ((it.second->port_input || it.second->port_output) && match_ids(it.first, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 		} else
-		if (arg_memb.substr(0, 2) == "s:") {
+		if (arg_memb.compare(0, 2, "s:") == 0) {
 			size_t delim = arg_memb.substr(2).find(':');
 			if (delim == std::string::npos) {
 				int width = atoi(arg_memb.substr(2).c_str());
@@ -837,27 +837,27 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 						sel.selected_members[mod->name].insert(it.first);
 			}
 		} else
-		if (arg_memb.substr(0, 2) == "m:") {
+		if (arg_memb.compare(0, 2, "m:") == 0) {
 			for (auto &it : mod->memories)
 				if (match_ids(it.first, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 		} else
-		if (arg_memb.substr(0, 2) == "c:") {
+		if (arg_memb.compare(0, 2, "c:") ==0) {
 			for (auto &it : mod->cells_)
 				if (match_ids(it.first, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 		} else
-		if (arg_memb.substr(0, 2) == "t:") {
+		if (arg_memb.compare(0, 2, "t:") == 0) {
 			for (auto &it : mod->cells_)
 				if (match_ids(it.second->type, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 		} else
-		if (arg_memb.substr(0, 2) == "p:") {
+		if (arg_memb.compare(0, 2, "p:") == 0) {
 			for (auto &it : mod->processes)
 				if (match_ids(it.first, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 		} else
-		if (arg_memb.substr(0, 2) == "a:") {
+		if (arg_memb.compare(0, 2, "a:") == 0) {
 			for (auto &it : mod->wires_)
 				if (match_attr(it.second->attributes, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
@@ -871,12 +871,12 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 				if (match_attr(it.second->attributes, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 		} else
-		if (arg_memb.substr(0, 2) == "r:") {
+		if (arg_memb.compare(0, 2, "r:") == 0) {
 			for (auto &it : mod->cells_)
 				if (match_attr(it.second->parameters, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 		} else {
-			if (arg_memb.substr(0, 2) == "n:")
+			if (arg_memb.compare(0, 2, "n:") == 0)
 				arg_memb = arg_memb.substr(2);
 			for (auto &it : mod->wires_)
 				if (match_ids(it.first, arg_memb))
@@ -896,6 +896,29 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 	select_filter_active_mod(design, work_stack.back());
 }
 
+static std::string describe_selection_for_assert(RTLIL::Design *design, RTLIL::Selection *sel)
+{
+	std::string desc = "Selection contains:\n";
+	for (auto mod_it : design->modules_)
+	{
+		if (sel->selected_module(mod_it.first)) {
+			for (auto &it : mod_it.second->wires_)
+				if (sel->selected_member(mod_it.first, it.first))
+					desc += stringf("%s/%s\n", id2cstr(mod_it.first), id2cstr(it.first));
+			for (auto &it : mod_it.second->memories)
+				if (sel->selected_member(mod_it.first, it.first))
+					desc += stringf("%s/%s\n", id2cstr(mod_it.first), id2cstr(it.first));
+			for (auto &it : mod_it.second->cells_)
+				if (sel->selected_member(mod_it.first, it.first))
+					desc += stringf("%s/%s\n", id2cstr(mod_it.first), id2cstr(it.first));
+			for (auto &it : mod_it.second->processes)
+				if (sel->selected_member(mod_it.first, it.first))
+					desc += stringf("%s/%s\n", id2cstr(mod_it.first), id2cstr(it.first));
+		}
+	}
+	return desc;
+}
+
 PRIVATE_NAMESPACE_END
 YOSYS_NAMESPACE_BEGIN
 
@@ -904,7 +927,7 @@ void handle_extra_select_args(Pass *pass, vector<string> args, size_t argidx, si
 {
 	work_stack.clear();
 	for (; argidx < args_size; argidx++) {
-		if (args[argidx].substr(0, 1) == "-") {
+		if (args[argidx].compare(0, 1, "-") == 0) {
 			if (pass != NULL)
 				pass->cmd_error(args, argidx, "Unexpected option in selection arguments.");
 			else
@@ -950,7 +973,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct SelectPass : public Pass {
 	SelectPass() : Pass("select", "modify and view the list of selected objects") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -1167,7 +1190,7 @@ struct SelectPass : public Pass {
 		log("    select */t:SWITCH %%x:+[GATE] */t:SWITCH %%d\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		bool add_mode = false;
 		bool del_mode = false;
@@ -1394,7 +1417,12 @@ struct SelectPass : public Pass {
 				log_cmd_error("No selection to check.\n");
 			work_stack.back().optimize(design);
 			if (!work_stack.back().empty())
-				log_error("Assertion failed: selection is not empty:%s\n", sel_str.c_str());
+			{
+				RTLIL::Selection *sel = &work_stack.back();
+				sel->optimize(design);
+				std::string desc = describe_selection_for_assert(design, sel);
+				log_error("Assertion failed: selection is not empty:%s\n%s", sel_str.c_str(), desc.c_str());
+			}
 			return;
 		}
 
@@ -1404,7 +1432,12 @@ struct SelectPass : public Pass {
 				log_cmd_error("No selection to check.\n");
 			work_stack.back().optimize(design);
 			if (work_stack.back().empty())
-				log_error("Assertion failed: selection is empty:%s\n", sel_str.c_str());
+			{
+				RTLIL::Selection *sel = &work_stack.back();
+				sel->optimize(design);
+				std::string desc = describe_selection_for_assert(design, sel);
+				log_error("Assertion failed: selection is empty:%s\n%s", sel_str.c_str(), desc.c_str());
+			}
 			return;
 		}
 
@@ -1431,14 +1464,23 @@ struct SelectPass : public Pass {
 							total_count++;
 				}
 			if (assert_count >= 0 && assert_count != total_count)
-				log_error("Assertion failed: selection contains %d elements instead of the asserted %d:%s\n",
-						total_count, assert_count, sel_str.c_str());
+			{
+				std::string desc = describe_selection_for_assert(design, sel);
+				log_error("Assertion failed: selection contains %d elements instead of the asserted %d:%s\n%s",
+						total_count, assert_count, sel_str.c_str(), desc.c_str());
+			}
 			if (assert_max >= 0 && assert_max < total_count)
-				log_error("Assertion failed: selection contains %d elements, more than the maximum number %d:%s\n",
-						total_count, assert_max, sel_str.c_str());
+			{
+				std::string desc = describe_selection_for_assert(design, sel);
+				log_error("Assertion failed: selection contains %d elements, more than the maximum number %d:%s\n%s",
+						total_count, assert_max, sel_str.c_str(), desc.c_str());
+			}
 			if (assert_min >= 0 && assert_min > total_count)
-				log_error("Assertion failed: selection contains %d elements, less than the minimum number %d:%s\n",
-						total_count, assert_min, sel_str.c_str());
+			{
+				std::string desc = describe_selection_for_assert(design, sel);
+				log_error("Assertion failed: selection contains %d elements, less than the minimum number %d:%s\n%s",
+						total_count, assert_min, sel_str.c_str(), desc.c_str());
+			}
 			return;
 		}
 
@@ -1470,7 +1512,7 @@ struct SelectPass : public Pass {
 
 struct CdPass : public Pass {
 	CdPass() : Pass("cd", "a shortcut for 'select -module <name>'") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -1496,7 +1538,7 @@ struct CdPass : public Pass {
 		log("This is just a shortcut for 'select -clear'.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		if (args.size() != 1 && args.size() != 2)
 			log_cmd_error("Invalid number of arguments.\n");
@@ -1578,7 +1620,7 @@ static void log_matches(const char *title, Module *module, T list)
 
 struct LsPass : public Pass {
 	LsPass() : Pass("ls", "list modules or objects in modules") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -1589,7 +1631,7 @@ struct LsPass : public Pass {
 		log("When an active module is selected, this prints a list of objects in the module.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		size_t argidx = 1;
 		extra_args(args, argidx, design);

@@ -1,0 +1,2 @@
+set_pin_assignment {CLK_IN} { LOCATION = K14;  } ##24MHZ
+set_pin_assignment {R_LED} { LOCATION = R3;  } ##R_LED

@@ -23,9 +23,18 @@
 #  include <dlfcn.h>
 #endif
 
+#ifdef WITH_PYTHON
+#  include <boost/algorithm/string/predicate.hpp>
+#  include <Python.h>
+#  include <boost/filesystem.hpp>
+#endif
+
 YOSYS_NAMESPACE_BEGIN
 
 std::map<std::string, void*> loaded_plugins;
+#ifdef WITH_PYTHON
+std::map<std::string, void*> loaded_python_plugins;
+#endif
 std::map<std::string, std::string> loaded_plugin_aliases;
 
 #ifdef YOSYS_ENABLE_PLUGINS
@@ -36,7 +45,35 @@ void load_plugin(std::string filename, std::vector<std::string> aliases)
 	if (filename.find('/') == std::string::npos)
 		filename = "./" + filename;
 
+	#ifdef WITH_PYTHON
+	if (!loaded_plugins.count(filename) && !loaded_python_plugins.count(filename)) {
+	#else
 	if (!loaded_plugins.count(filename)) {
+	#endif
+
+		#ifdef WITH_PYTHON
+
+		boost::filesystem::path full_path(filename);
+
+		if(strcmp(full_path.extension().c_str(), ".py") == 0)
+		{
+			std::string path(full_path.parent_path().c_str());
+			filename = full_path.filename().c_str();
+			filename = filename.substr(0,filename.size()-3);
+			PyRun_SimpleString(("sys.path.insert(0,\""+path+"\")").c_str());
+			PyErr_Print();
+			PyObject *module_p = PyImport_ImportModule(filename.c_str());
+			if(module_p == NULL)
+			{
+				PyErr_Print();
+				log_cmd_error("Can't load python module `%s'\n", full_path.filename().c_str());
+				return;
+			}
+			loaded_python_plugins[orig_filename] = module_p;
+			Pass::init_register();
+		} else {
+		#endif
+
 		void *hdl = dlopen(filename.c_str(), RTLD_LAZY|RTLD_LOCAL);
 		if (hdl == NULL && orig_filename.find('/') == std::string::npos)
 			hdl = dlopen((proc_share_dirname() + "plugins/" + orig_filename + ".so").c_str(), RTLD_LAZY|RTLD_LOCAL);
@@ -44,6 +81,10 @@ void load_plugin(std::string filename, std::vector<std::string> aliases)
 			log_cmd_error("Can't load module `%s': %s\n", filename.c_str(), dlerror());
 		loaded_plugins[orig_filename] = hdl;
 		Pass::init_register();
+
+		#ifdef WITH_PYTHON
+		}
+		#endif
 	}
 
 	for (auto &alias : aliases)
@@ -58,7 +99,7 @@ void load_plugin(std::string, std::vector<std::string>)
 
 struct PluginPass : public Pass {
 	PluginPass() : Pass("plugin", "load and list loaded plugins") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -76,7 +117,7 @@ struct PluginPass : public Pass {
 		log("        List loaded plugins\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		std::string plugin_filename;
 		std::vector<std::string> plugin_aliases;
@@ -107,13 +148,22 @@ struct PluginPass : public Pass {
 		if (list_mode)
 		{
 			log("\n");
+#ifdef WITH_PYTHON
+			if (loaded_plugins.empty() and loaded_python_plugins.empty())
+#else
 			if (loaded_plugins.empty())
+#endif
 				log("No plugins loaded.\n");
 			else
 				log("Loaded plugins:\n");
 
 			for (auto &it : loaded_plugins)
 				log("  %s\n", it.first.c_str());
+
+#ifdef WITH_PYTHON
+			for (auto &it : loaded_python_plugins)
+				log("  %s\n", it.first.c_str());
+#endif
 
 			if (!loaded_plugin_aliases.empty()) {
 				log("\n");

@@ -40,6 +40,16 @@ struct EquivMakeWorker
 	pool<SigBit> undriven_bits;
 	SigMap assign_map;
 
+	dict<SigBit, pool<Cell*>> bit2driven; // map: bit <--> and its driven cells
+
+	CellTypes comb_ct;
+
+	EquivMakeWorker()
+	{
+		comb_ct.setup_internals();
+		comb_ct.setup_stdcells();
+	}
+
 	void read_blacklists()
 	{
 		for (auto fn : blacklists)
@@ -278,16 +288,31 @@ struct EquivMakeWorker
 			}
 		}
 
+		init_bit2driven();
+
+		pool<Cell*> visited_cells;
 		for (auto c : cells_list)
 		for (auto &conn : c->connections())
 			if (!ct.cell_output(c->type, conn.first)) {
 				SigSpec old_sig = assign_map(conn.second);
 				SigSpec new_sig = rd_signal_map(old_sig);
-				if (old_sig != new_sig) {
-					log("Changing input %s of cell %s (%s): %s -> %s\n",
-							log_id(conn.first), log_id(c), log_id(c->type),
-							log_signal(old_sig), log_signal(new_sig));
-					c->setPort(conn.first, new_sig);
+
+				if(old_sig != new_sig) {
+					SigSpec tmp_sig = old_sig;
+					for (int i = 0; i < GetSize(old_sig); i++) {
+						SigBit old_bit = old_sig[i], new_bit = new_sig[i];
+
+						visited_cells.clear();
+						if (check_signal_in_fanout(visited_cells, old_bit, new_bit))
+							continue;
+
+						log("Changing input %s of cell %s (%s): %s -> %s\n",
+								log_id(conn.first), log_id(c), log_id(c->type),
+								log_signal(old_bit), log_signal(new_bit));
+
+						tmp_sig[i] = new_bit;
+					}
+					c->setPort(conn.first, tmp_sig);
 				}
 			}
 
@@ -378,6 +403,57 @@ struct EquivMakeWorker
 		}
 	}
 
+	void init_bit2driven()
+	{
+		for (auto cell : equiv_mod->cells()) {
+			if (!ct.cell_known(cell->type) && !cell->type.in("$dff", "$_DFF_P_", "$_DFF_N_", "$ff", "$_FF_"))
+				continue;
+			for (auto &conn : cell->connections())
+			{
+				if (yosys_celltypes.cell_input(cell->type, conn.first))
+					for (auto bit : assign_map(conn.second))
+					{
+						bit2driven[bit].insert(cell);
+					}
+			}
+		}
+	}
+
+	bool check_signal_in_fanout(pool<Cell*> & visited_cells, SigBit source_bit, SigBit target_bit)
+	{
+		if (source_bit == target_bit)
+			return true;
+
+		if (bit2driven.count(source_bit) == 0)
+			return false;
+
+		auto driven_cells = bit2driven.at(source_bit);
+		for (auto driven_cell: driven_cells)
+		{
+			bool is_comb = comb_ct.cell_known(driven_cell->type);
+			if (!is_comb)
+				continue;
+
+			if (visited_cells.count(driven_cell) > 0)
+				continue;
+			visited_cells.insert(driven_cell);
+
+			for (auto &conn: driven_cell->connections())
+			{
+				if (yosys_celltypes.cell_input(driven_cell->type, conn.first))
+					continue;
+
+				for (auto bit: conn.second) {
+					bool is_in_fanout = check_signal_in_fanout(visited_cells, bit, target_bit);
+					if (is_in_fanout == true)
+						return true;
+				}
+			}
+		}
+
+		return false;
+	}
+
 	void run()
 	{
 		copy_to_equiv();
@@ -390,7 +466,7 @@ struct EquivMakeWorker
 
 struct EquivMakePass : public Pass {
 	EquivMakePass() : Pass("equiv_make", "prepare a circuit for equivalence checking") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -415,7 +491,7 @@ struct EquivMakePass : public Pass {
 		log("checking problem. Use 'miter -equiv' if you want to create a miter circuit.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		EquivMakeWorker worker;
 		worker.ct.setup(design);
@@ -456,10 +532,10 @@ struct EquivMakePass : public Pass {
 			log_cmd_error("Equiv module %s already exists.\n", args[argidx+2].c_str());
 
 		if (worker.gold_mod->has_memories() || worker.gold_mod->has_processes())
-			log_cmd_error("Gold module contains memories or procresses. Run 'memory' or 'proc' respectively.\n");
+			log_cmd_error("Gold module contains memories or processes. Run 'memory' or 'proc' respectively.\n");
 
 		if (worker.gate_mod->has_memories() || worker.gate_mod->has_processes())
-			log_cmd_error("Gate module contains memories or procresses. Run 'memory' or 'proc' respectively.\n");
+			log_cmd_error("Gate module contains memories or processes. Run 'memory' or 'proc' respectively.\n");
 
 		worker.read_blacklists();
 		worker.read_encfiles();

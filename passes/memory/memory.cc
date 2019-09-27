@@ -27,7 +27,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct MemoryPass : public Pass {
 	MemoryPass() : Pass("memory", "translate memories to basic cells") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -48,7 +48,7 @@ struct MemoryPass : public Pass {
 		log("or multiport memory blocks if called with the -nomap option.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		bool flag_nomap = false;
 		bool flag_nordff = false;

@@ -47,8 +47,8 @@ struct BruteForceEquivChecker
 	{
 		if (inputs.size() < mod1_inputs.size()) {
 			RTLIL::SigSpec inputs0 = inputs, inputs1 = inputs;
-			inputs0.append(RTLIL::Const(0, 1));
-			inputs1.append(RTLIL::Const(1, 1));
+			inputs0.append(State::S0);
+			inputs1.append(State::S1);
 			run_checker(inputs0);
 			run_checker(inputs1);
 			return;
@@ -360,7 +360,7 @@ struct VlogHammerReporter
 
 struct EvalPass : public Pass {
 	EvalPass() : Pass("eval", "evaluate the circuit given an input") { }
-	virtual void help()
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -383,7 +383,7 @@ struct EvalPass : public Pass {
 		log("        then all output ports of the current module are used.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		std::vector<std::pair<std::string, std::string>> sets;
 		std::vector<std::string> shows, tables;
