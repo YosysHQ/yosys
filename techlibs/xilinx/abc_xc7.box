@@ -15,7 +15,10 @@ F7MUX 1 1 3 1
 MUXF8 2 1 3 1
 104 94 273
 
-# Box containing MUXF7.[AB] + MUXF8
+# Box containing MUXF7.[AB] + MUXF8,
+#   Necessary to make these an atomic unit so that
+#   ABC cannot optimise just one of the MUXF7 away
+#   and expect to save on its delay
 # Inputs: I0 I1 I2 I3 S0 S1
 # Outputs: O
 $__MUXF78 3 1 6 1
@@ -81,14 +84,19 @@ FDPE_1 1006 1 5 1
 
 # SLICEM/A6LUT
 # Box to emulate comb/seq behaviour of RAMD{32,64} and SRL{16,32}
+#   Necessary since RAMD* and SRL* have both combinatorial (i.e.
+#   same-cycle read operation) and sequential (write operation
+#   is only committed on the next clock edge).
+#   To model the combinatorial path, such cells have to be split
+#   into comb and seq parts, with this box modelling only the former.
 # Inputs: A S0 S1 S2 S3 S4 S5
 # Outputs: Y
-$__ABC_LUTRAM6 2000 0 7 1
+$__ABC_LUT6 2000 0 7 1
 0 642 631 472 407 238 127
 
 # SLICEM/A6LUT + F7BMUX
 # Box to emulate comb/seq behaviour of RAMD128
 # Inputs: A S0 S1 S2 S3 S4 S5 S6
 # Outputs: DPO SPO
-$__ABC_LUTRAM7 2001 0 8 1
+$__ABC_LUT7 2001 0 8 1
 0 1047 1036 877 812 643 532 478

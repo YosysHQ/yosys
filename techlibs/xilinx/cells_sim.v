@@ -29,29 +29,49 @@ module GND(output G);
   assign G = 0;
 endmodule
 
-module IBUF(output O, input I);
+module IBUF(
+    output O,
+    (* iopad_external_pin *)
+    input I);
   parameter IOSTANDARD = "default";
   parameter IBUF_LOW_PWR = 0;
   assign O = I;
 endmodule
 
-module OBUF(output O, input I);
+module OBUF(
+    (* iopad_external_pin *)
+    output O,
+    input I);
   parameter IOSTANDARD = "default";
   parameter DRIVE = 12;
   parameter SLEW = "SLOW";
   assign O = I;
 endmodule
 
-module BUFG(output O, input I);
+module BUFG(
+    (* clkbuf_driver *)
+    output O,
+    input I);
+
   assign O = I;
 endmodule
 
 module BUFGCTRL(
+    (* clkbuf_driver *)
     output O,
     input I0, input I1,
-    input S0, input S1,
-    input CE0, input CE1,
-    input IGNORE0, input IGNORE1);
+    (* invertible_pin = "IS_S0_INVERTED" *)
+    input S0,
+    (* invertible_pin = "IS_S1_INVERTED" *)
+    input S1,
+    (* invertible_pin = "IS_CE0_INVERTED" *)
+    input CE0,
+    (* invertible_pin = "IS_CE1_INVERTED" *)
+    input CE1,
+    (* invertible_pin = "IS_IGNORE0_INVERTED" *)
+    input IGNORE0,
+    (* invertible_pin = "IS_IGNORE1_INVERTED" *)
+    input IGNORE1);
 
 parameter [0:0] INIT_OUT = 1'b0;
 parameter PRESELECT_I0 = "FALSE";
@@ -72,7 +92,12 @@ assign O = S0_true ? I0_internal : (S1_true ? I1_internal : INIT_OUT);
 
 endmodule
 
-module BUFHCE(output O, input I, input CE);
+module BUFHCE(
+    (* clkbuf_driver *)
+    output O,
+    input I,
+    (* invertible_pin = "IS_CE_INVERTED" *)
+    input CE);
 
 parameter [0:0] INIT_OUT = 1'b0;
 parameter CE_TYPE = "SYNC";
@@ -175,9 +200,11 @@ endmodule
 
 (* abc_box_id = 4, lib_whitebox *)
 module CARRY4(
-  (* abc_carry *) output [3:0] CO,
+  (* abc_carry *)
+  output [3:0] CO,
   output [3:0] O,
-  (* abc_carry *) input CI,
+  (* abc_carry *)
+  input        CI,
   input        CYINIT,
   input  [3:0] DI, S
 );
@@ -211,7 +238,20 @@ endmodule
 
 `endif
 
-module FDRE (output reg Q, input C, CE, D, R);
+// Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf#L238-L250
+
+module FDRE (
+  (* abc_arrival=303 *)
+  output reg Q,
+  (* clkbuf_sink *)
+  (* invertible_pin = "IS_C_INVERTED" *)
+  input C,
+  input CE,
+  (* invertible_pin = "IS_D_INVERTED" *)
+  input D,
+  (* invertible_pin = "IS_R_INVERTED" *)
+  input R
+);
   parameter [0:0] INIT = 1'b0;
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
@@ -223,7 +263,18 @@ module FDRE (output reg Q, input C, CE, D, R);
   endcase endgenerate
 endmodule
 
-module FDSE (output reg Q, input C, CE, D, S);
+module FDSE (
+  (* abc_arrival=303 *)
+  output reg Q,
+  (* clkbuf_sink *)
+  (* invertible_pin = "IS_C_INVERTED" *)
+  input C,
+  input CE,
+  (* invertible_pin = "IS_D_INVERTED" *)
+  input D,
+  (* invertible_pin = "IS_S_INVERTED" *)
+  input S
+);
   parameter [0:0] INIT = 1'b1;
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
@@ -235,7 +286,18 @@ module FDSE (output reg Q, input C, CE, D, S);
   endcase endgenerate
 endmodule
 
-module FDCE (output reg Q, input C, CE, D, CLR);
+module FDCE (
+  (* abc_arrival=303 *)
+  output reg Q,
+  (* clkbuf_sink *)
+  (* invertible_pin = "IS_C_INVERTED" *)
+  input C,
+  input CE,
+  (* invertible_pin = "IS_D_INVERTED" *)
+  input D,
+  (* invertible_pin = "IS_CLR_INVERTED" *)
+  input CLR
+);
   parameter [0:0] INIT = 1'b0;
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
@@ -249,7 +311,18 @@ module FDCE (output reg Q, input C, CE, D, CLR);
   endcase endgenerate
 endmodule
 
-module FDPE (output reg Q, input C, CE, D, PRE);
+module FDPE (
+  (* abc_arrival=303 *)
+  output reg Q,
+  (* clkbuf_sink *)
+  (* invertible_pin = "IS_C_INVERTED" *)
+  input C,
+  input CE,
+  (* invertible_pin = "IS_D_INVERTED" *)
+  input D,
+  (* invertible_pin = "IS_PRE_INVERTED" *)
+  input PRE
+);
   parameter [0:0] INIT = 1'b1;
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
@@ -263,33 +336,61 @@ module FDPE (output reg Q, input C, CE, D, PRE);
   endcase endgenerate
 endmodule
 
-module FDRE_1 (output reg Q, input C, CE, D, R);
+module FDRE_1 (
+  (* abc_arrival=303 *)
+  output reg Q,
+  (* clkbuf_sink *)
+  input C,
+  input CE, D, R
+);
   parameter [0:0] INIT = 1'b0;
   initial Q <= INIT;
   always @(negedge C) if (R) Q <= 1'b0; else if(CE) Q <= D;
 endmodule
 
-module FDSE_1 (output reg Q, input C, CE, D, S);
+module FDSE_1 (
+  (* abc_arrival=303 *)
+  output reg Q,
+  (* clkbuf_sink *)
+  input C,
+  input CE, D, S
+);
   parameter [0:0] INIT = 1'b1;
   initial Q <= INIT;
   always @(negedge C) if (S) Q <= 1'b1; else if(CE) Q <= D;
 endmodule
 
-module FDCE_1 (output reg Q, input C, CE, D, CLR);
+module FDCE_1 (
+  (* abc_arrival=303 *)
+  output reg Q,
+  (* clkbuf_sink *)
+  input C,
+  input CE, D, CLR
+);
   parameter [0:0] INIT = 1'b0;
   initial Q <= INIT;
   always @(negedge C, posedge CLR) if (CLR) Q <= 1'b0; else if (CE) Q <= D;
 endmodule
 
-module FDPE_1 (output reg Q, input C, CE, D, PRE);
+module FDPE_1 (
+  (* abc_arrival=303 *)
+  output reg Q,
+  (* clkbuf_sink *)
+  input C,
+  input CE, D, PRE
+);
   parameter [0:0] INIT = 1'b1;
   initial Q <= INIT;
   always @(negedge C, posedge PRE) if (PRE) Q <= 1'b1; else if (CE) Q <= D;
 endmodule
 
 module RAM32X1D (
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
+  (* abc_arrival=1153 *)
   output DPO, SPO,
   input  D,
+  (* clkbuf_sink *)
+  (* invertible_pin = "IS_WCLK_INVERTED" *)
   input  WCLK,
   input  WE,
   input  A0, A1, A2, A3, A4,
@@ -307,8 +408,12 @@ module RAM32X1D (
 endmodule
 
 module RAM64X1D (
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
+  (* abc_arrival=1153 *)
   output DPO, SPO,
   input  D,
+  (* clkbuf_sink *)
+  (* invertible_pin = "IS_WCLK_INVERTED" *)
   input  WCLK,
   input  WE,
   input  A0, A1, A2, A3, A4, A5,
@@ -326,8 +431,12 @@ module RAM64X1D (
 endmodule
 
 module RAM128X1D (
-  output       DPO, SPO,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
+  (* abc_arrival=1153 *)
+  output DPO, SPO,
   input        D,
+  (* clkbuf_sink *)
+  (* invertible_pin = "IS_WCLK_INVERTED" *)
   input        WCLK,
   input        WE,
   input  [6:0] A, DPRA
@@ -342,8 +451,14 @@ module RAM128X1D (
 endmodule
 
 module SRL16E (
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L904-L905
+  (* abc_arrival=1472 *)
   output Q,
-  input A0, A1, A2, A3, CE, CLK, D
+  input A0, A1, A2, A3, CE,
+  (* clkbuf_sink *)
+  (* invertible_pin = "IS_CLK_INVERTED" *)
+  input CLK,
+  input D
 );
   parameter [15:0] INIT = 16'h0000;
   parameter [0:0] IS_CLK_INVERTED = 1'b0;
@@ -355,15 +470,46 @@ module SRL16E (
       always @(negedge CLK) if (CE) r <= { r[14:0], D };
     end
     else
-        always @(posedge CLK) if (CE) r <= { r[14:0], D };
+      always @(posedge CLK) if (CE) r <= { r[14:0], D };
+  endgenerate
+endmodule
+
+module SRLC16E (
+  output Q,
+  output Q15,
+  input A0, A1, A2, A3, CE,
+  (* clkbuf_sink *)
+  (* invertible_pin = "IS_CLK_INVERTED" *)
+  input CLK,
+  input D
+);
+  parameter [15:0] INIT = 16'h0000;
+  parameter [0:0] IS_CLK_INVERTED = 1'b0;
+
+  reg [15:0] r = INIT;
+  assign Q15 = r[15];
+  assign Q = r[{A3,A2,A1,A0}];
+  generate
+    if (IS_CLK_INVERTED) begin
+      always @(negedge CLK) if (CE) r <= { r[14:0], D };
+    end
+    else
+      always @(posedge CLK) if (CE) r <= { r[14:0], D };
   endgenerate
 endmodule
 
 module SRLC32E (
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L904-L905
+  (* abc_arrival=1472 *)
   output Q,
+  (* abc_arrival=1114 *)
   output Q31,
   input [4:0] A,
-  input CE, CLK, D
+  input CE,
+  (* clkbuf_sink *)
+  (* invertible_pin = "IS_CLK_INVERTED" *)
+  input CLK,
+  input D
 );
   parameter [31:0] INIT = 32'h00000000;
   parameter [0:0] IS_CLK_INVERTED = 1'b0;

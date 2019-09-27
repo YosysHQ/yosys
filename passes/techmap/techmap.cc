@@ -205,20 +205,57 @@ struct TechmapWorker
 		}
 
 		std::map<RTLIL::IdString, RTLIL::IdString> positional_ports;
+		dict<Wire*, IdString> temp_renamed_wires;
+		pool<SigBit> autopurge_tpl_bits;
 
-		for (auto &it : tpl->wires_) {
+		for (auto &it : tpl->wires_)
+		{
 			if (it.second->port_id > 0)
-				positional_ports[stringf("$%d", it.second->port_id)] = it.first;
+			{
+				IdString posportname = stringf("$%d", it.second->port_id);
+				positional_ports[posportname] = it.first;
+
+				if (!flatten_mode && it.second->get_bool_attribute(ID(techmap_autopurge)) &&
+						(!cell->hasPort(it.second->name) || !GetSize(cell->getPort(it.second->name))) &&
+						(!cell->hasPort(posportname) || !GetSize(cell->getPort(posportname))))
+				{
+					if (sigmaps.count(tpl) == 0)
+						sigmaps[tpl].set(tpl);
+
+					for (auto bit : sigmaps.at(tpl)(it.second))
+						if (bit.wire != nullptr)
+							autopurge_tpl_bits.insert(bit);
+				}
+			}
 			IdString w_name = it.second->name;
 			apply_prefix(cell->name, w_name);
-			RTLIL::Wire *w = module->addWire(w_name, it.second);
-			w->port_input = false;
-			w->port_output = false;
-			w->port_id = 0;
-			if (it.second->get_bool_attribute(ID(_techmap_special_)))
-				w->attributes.clear();
-			if (w->attributes.count(ID(src)))
-				w->add_strpool_attribute(ID(src), extra_src_attrs);
+			RTLIL::Wire *w = module->wire(w_name);
+			if (w != nullptr) {
+				if (!flatten_mode || !w->get_bool_attribute(ID(hierconn))) {
+					temp_renamed_wires[w] = w->name;
+					module->rename(w, NEW_ID);
+					w = nullptr;
+				} else {
+					w->attributes.erase(ID(hierconn));
+					if (GetSize(w) < GetSize(it.second)) {
+						log_warning("Widening signal %s.%s to match size of %s.%s (via %s.%s).\n", log_id(module), log_id(w),
+								log_id(tpl), log_id(it.second), log_id(module), log_id(cell));
+						w->width = GetSize(it.second);
+					}
+				}
+			}
+			if (w == nullptr) {
+				w = module->addWire(w_name, it.second);
+				w->port_input = false;
+				w->port_output = false;
+				w->port_id = 0;
+				if (!flatten_mode)
+					w->attributes.erase(ID(techmap_autopurge));
+				if (it.second->get_bool_attribute(ID(_techmap_special_)))
+					w->attributes.clear();
+				if (w->attributes.count(ID(src)))
+					w->add_strpool_attribute(ID(src), extra_src_attrs);
+			}
 			design->select(module, w);
 		}
 
@@ -322,6 +359,12 @@ struct TechmapWorker
 				for (auto &attr : w->attributes) {
 					if (attr.first == ID(src))
 						continue;
+					auto lhs = GetSize(extra_connect.first);
+					auto rhs = GetSize(extra_connect.second);
+					if (lhs > rhs)
+						extra_connect.first.remove(rhs, lhs-rhs);
+					else if (rhs > lhs)
+						extra_connect.second.remove(lhs, rhs-lhs);
 					module->connect(extra_connect);
 					break;
 				}
@@ -344,10 +387,30 @@ struct TechmapWorker
 			if (!flatten_mode && c->type.begins_with("\\$"))
 				c->type = c->type.substr(1);
 
-			for (auto &it2 : c->connections_) {
-				apply_prefix(cell->name, it2.second, module);
-				port_signal_map.apply(it2.second);
+			vector<IdString> autopurge_ports;
+
+			for (auto &it2 : c->connections_)
+			{
+				bool autopurge = false;
+				if (!autopurge_tpl_bits.empty()) {
+					autopurge = GetSize(it2.second) != 0;
+					for (auto &bit : sigmaps.at(tpl)(it2.second))
+						if (!autopurge_tpl_bits.count(bit)) {
+							autopurge = false;
+							break;
+						}
+				}
+
+				if (autopurge) {
+					autopurge_ports.push_back(it2.first);
+				} else {
+					apply_prefix(cell->name, it2.second, module);
+					port_signal_map.apply(it2.second);
+				}
 			}
+
+			for (auto &it2 : autopurge_ports)
+				c->unsetPort(it2);
 
 			if (c->type.in(ID($memrd), ID($memwr), ID($meminit))) {
 				IdString memid = c->getParam(ID(MEMID)).decode_string();
@@ -380,6 +443,16 @@ struct TechmapWorker
 		}
 
 		module->remove(cell);
+
+		for (auto &it : temp_renamed_wires)
+		{
+			Wire *w = it.first;
+			IdString name = it.second;
+			IdString altname = module->uniquify(name);
+			Wire *other_w = module->wire(name);
+			module->rename(other_w, altname);
+			module->rename(w, name);
+		}
 	}
 
 	bool techmap_module(RTLIL::Design *design, RTLIL::Module *module, RTLIL::Design *map, std::set<RTLIL::Cell*> &handled_cells,
@@ -395,6 +468,18 @@ struct TechmapWorker
 		LogMakeDebugHdl mkdebug;
 
 		SigMap sigmap(module);
+
+		dict<SigBit, State> init_bits;
+		pool<SigBit> remove_init_bits;
+
+		for (auto wire : module->wires()) {
+			if (wire->attributes.count("\\init")) {
+				Const value = wire->attributes.at("\\init");
+				for (int i = 0; i < min(GetSize(value), GetSize(wire)); i++)
+					if (value[i] != State::Sx)
+						init_bits[sigmap(SigBit(wire, i))] = value[i];
+			}
+		}
 
 		TopoSort<RTLIL::Cell*, RTLIL::IdString::compare_ptr_by_name<RTLIL::Cell>> cells;
 		std::map<RTLIL::Cell*, std::set<RTLIL::SigBit>> cell_to_inbit;
@@ -633,6 +718,17 @@ struct TechmapWorker
 									bit = RTLIL::SigBit(RTLIL::State::Sx);
 							parameters[stringf("\\_TECHMAP_CONSTVAL_%s_", RTLIL::id2cstr(conn.first))] = RTLIL::SigSpec(v).as_const();
 						}
+						if (tpl->avail_parameters.count(stringf("\\_TECHMAP_WIREINIT_%s_", RTLIL::id2cstr(conn.first))) != 0) {
+							auto sig = sigmap(conn.second);
+							RTLIL::Const value(State::Sx, sig.size());
+							for (int i = 0; i < sig.size(); i++) {
+								auto it = init_bits.find(sig[i]);
+								if (it != init_bits.end()) {
+									value[i] = it->second;
+								}
+							}
+							parameters[stringf("\\_TECHMAP_WIREINIT_%s_", RTLIL::id2cstr(conn.first))] = value;
+						}
 					}
 
 					int unique_bit_id_counter = 0;
@@ -833,7 +929,7 @@ struct TechmapWorker
 
 					TechmapWires twd = techmap_find_special_wires(tpl);
 					for (auto &it : twd) {
-						if (it.first != "_TECHMAP_FAIL_" && it.first.substr(0, 12) != "_TECHMAP_DO_" && it.first.substr(0, 14) != "_TECHMAP_DONE_")
+						if (it.first != "_TECHMAP_FAIL_" && (it.first.substr(0, 20) != "_TECHMAP_REMOVEINIT_" || it.first[it.first.size()-1] != '_') && it.first.substr(0, 12) != "_TECHMAP_DO_" && it.first.substr(0, 14) != "_TECHMAP_DONE_")
 							log_error("Techmap yielded unknown config wire %s.\n", it.first.c_str());
 						if (techmap_do_cache[tpl])
 							for (auto &it2 : it.second)
@@ -862,6 +958,23 @@ struct TechmapWorker
 					log_header(design, "Continuing TECHMAP pass.\n");
 					log_continue = false;
 					mkdebug.off();
+				}
+
+				TechmapWires twd = techmap_find_special_wires(tpl);
+				for (auto &it : twd) {
+					if (it.first.substr(0, 20) == "_TECHMAP_REMOVEINIT_") {
+						for (auto &it2 : it.second) {
+							auto val = it2.value.as_const();
+							auto wirename = RTLIL::escape_id(it.first.substr(20, it.first.size() - 20 - 1));
+							auto it = cell->connections().find(wirename);
+							if (it != cell->connections().end()) {
+								auto sig = sigmap(it->second);
+								for (int i = 0; i < sig.size(); i++)
+									if (val[i] == State::S1)
+										remove_init_bits.insert(sig[i]);
+							}
+						}
+					}
 				}
 
 				if (extern_mode && !in_recursion)
@@ -907,6 +1020,25 @@ struct TechmapWorker
 			handled_cells.insert(cell);
 		}
 
+		if (!remove_init_bits.empty()) {
+			for (auto wire : module->wires())
+				if (wire->attributes.count("\\init")) {
+					Const &value = wire->attributes.at("\\init");
+					bool do_cleanup = true;
+					for (int i = 0; i < min(GetSize(value), GetSize(wire)); i++) {
+						SigBit bit = sigmap(SigBit(wire, i));
+						if (remove_init_bits.count(bit))
+							value[i] = State::Sx;
+						else if (value[i] != State::Sx)
+							do_cleanup = false;
+					}
+					if (do_cleanup) {
+						log("Removing init attribute from wire %s.%s.\n", log_id(module), log_id(wire));
+						wire->attributes.erase("\\init");
+					}
+				}
+		}
+
 		if (log_continue) {
 			log_header(design, "Continuing TECHMAP pass.\n");
 			log_continue = false;
@@ -943,7 +1075,8 @@ struct TechmapPass : public Pass {
 		log("        instead of inlining them.\n");
 		log("\n");
 		log("    -max_iter <number>\n");
-		log("        only run the specified number of iterations.\n");
+		log("        only run the specified number of iterations on each module.\n");
+		log("        default: unlimited\n");
 		log("\n");
 		log("    -recursive\n");
 		log("        instead of the iterative breadth-first algorithm use a recursive\n");
@@ -979,6 +1112,11 @@ struct TechmapPass : public Pass {
 		log("When a module in the map file has the 'techmap_wrap' attribute set, techmap\n");
 		log("will create a wrapper for the cell and then run the command string that the\n");
 		log("attribute is set to on the wrapper module.\n");
+		log("\n");
+		log("When a port on a module in the map file has the 'techmap_autopurge' attribute\n");
+		log("set, and that port is not connected in the instantiation that is mapped, then\n");
+		log("then a cell port connected only to such wires will be omitted in the mapped\n");
+		log("version of the circuit.\n");
 		log("\n");
 		log("All wires in the modules from the map file matching the pattern _TECHMAP_*\n");
 		log("or *._TECHMAP_* are special wires that are used to pass instructions from\n");
@@ -1018,6 +1156,13 @@ struct TechmapPass : public Pass {
 		log("\n");
 		log("        It is possible to combine both prefixes to 'RECURSION; CONSTMAP; '.\n");
 		log("\n");
+		log("    _TECHMAP_REMOVEINIT_<port-name>_\n");
+		log("        When this wire is set to a constant value, the init attribute of the wire(s)\n");
+		log("        connected to this port will be consumed.  This wire must have the same\n");
+		log("        width as the given port, and for every bit that is set to 1 in the value,\n");
+		log("        the corresponding init attribute bit will be changed to 1'bx.  If all\n");
+		log("        bits of an init attribute are left as x, it will be removed.\n");
+		log("\n");
 		log("In addition to this special wires, techmap also supports special parameters in\n");
 		log("modules in the map file:\n");
 		log("\n");
@@ -1030,6 +1175,13 @@ struct TechmapPass : public Pass {
 		log("        When this pair of parameters is available in a module for a port, then\n");
 		log("        former has a 1-bit for each constant input bit and the latter has the\n");
 		log("        value for this bit. The unused bits of the latter are set to undef (x).\n");
+		log("\n");
+		log("    _TECHMAP_WIREINIT_<port-name>_\n");
+		log("        When a parameter with this name exists, it will be set to the initial\n");
+		log("        value of the wire(s) connected to the given port, as specified by the init\n");
+		log("        attribute. If the attribute doesn't exist, x will be filled for the\n");
+		log("        missing bits.  To remove the init attribute bits used, use the\n");
+		log("        _TECHMAP_REMOVEINIT_*_ wires.\n");
 		log("\n");
 		log("    _TECHMAP_BITS_CONNMAP_\n");
 		log("    _TECHMAP_CONNMAP_<port-name>_\n");
@@ -1157,15 +1309,16 @@ struct TechmapPass : public Pass {
 			RTLIL::Module *module = *worker.module_queue.begin();
 			worker.module_queue.erase(module);
 
+			int module_max_iter = max_iter;
 			bool did_something = true;
 			std::set<RTLIL::Cell*> handled_cells;
 			while (did_something) {
 				did_something = false;
-					if (worker.techmap_module(design, module, map, handled_cells, celltypeMap, false))
-						did_something = true;
+				if (worker.techmap_module(design, module, map, handled_cells, celltypeMap, false))
+					did_something = true;
 				if (did_something)
 					module->check();
-				if (max_iter > 0 && --max_iter == 0)
+				if (module_max_iter > 0 && --module_max_iter == 0)
 					break;
 			}
 		}

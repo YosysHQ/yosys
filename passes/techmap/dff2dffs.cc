@@ -34,11 +34,16 @@ struct Dff2dffsPass : public Pass {
 		log("Merge synchronous set/reset $_MUX_ cells to create $__DFFS_[NP][NP][01], to be run before\n");
 		log("dff2dffe for SR over CE priority.\n");
 		log("\n");
+		log("    -match-init\n");
+		log("        Disallow merging synchronous set/reset that has polarity opposite of the\n");
+		log("        output wire's init attribute (if any).\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing dff2dffs pass (merge synchronous set/reset into FF cells).\n");
 
+		bool match_init = false;
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
@@ -46,6 +51,10 @@ struct Dff2dffsPass : public Pass {
 			// 	singleton_mode = true;
 			// 	continue;
 			// }
+			if (args[argidx] == "-match-init") {
+				match_init = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -96,9 +105,6 @@ struct Dff2dffsPass : public Pass {
 				SigBit bit_b = sigmap(mux_cell->getPort(ID::B));
 				SigBit bit_s = sigmap(mux_cell->getPort(ID(S)));
 
-				log("  Merging %s (A=%s, B=%s, S=%s) into %s (%s).\n", log_id(mux_cell),
-						log_signal(bit_a), log_signal(bit_b), log_signal(bit_s), log_id(cell), log_id(cell->type));
-
 				SigBit sr_val, sr_sig;
 				bool invert_sr;
 				sr_sig = bit_s;
@@ -112,6 +118,23 @@ struct Dff2dffsPass : public Pass {
 					sr_val = bit_b;
 					invert_sr = false;
 				}
+
+				if (match_init) {
+					SigBit bit_q = cell->getPort(ID(Q));
+					if (bit_q.wire) {
+						auto it = bit_q.wire->attributes.find(ID(init));
+						if (it != bit_q.wire->attributes.end()) {
+							auto init_val = it->second[bit_q.offset];
+							if (init_val == State::S1 && sr_val != State::S1)
+								continue;
+							if (init_val == State::S0 && sr_val != State::S0)
+								continue;
+						}
+					}
+				}
+
+				log("  Merging %s (A=%s, B=%s, S=%s) into %s (%s).\n", log_id(mux_cell),
+						log_signal(bit_a), log_signal(bit_b), log_signal(bit_s), log_id(cell), log_id(cell->type));
 
 				if (sr_val == State::S1) {
 					if (cell->type == ID($_DFF_N_)) {

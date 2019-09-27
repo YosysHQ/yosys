@@ -28,6 +28,7 @@ bool did_something;
 
 #include "passes/pmgen/test_pmgen_pm.h"
 #include "passes/pmgen/ice40_dsp_pm.h"
+#include "passes/pmgen/xilinx_srl_pm.h"
 #include "passes/pmgen/peepopt_pm.h"
 
 void reduce_chain(test_pmgen_pm &pm)
@@ -99,6 +100,24 @@ void reduce_tree(test_pmgen_pm &pm)
 	log("    -> %s (%s)\n", log_id(c), log_id(c->type));
 }
 
+void opt_eqpmux(test_pmgen_pm &pm)
+{
+	auto &st = pm.st_eqpmux;
+
+	SigSpec Y = st.pmux->getPort(ID::Y);
+	int width = GetSize(Y);
+
+	SigSpec EQ = st.pmux->getPort(ID::B).extract(st.pmux_slice_eq*width, width);
+	SigSpec NE = st.pmux->getPort(ID::B).extract(st.pmux_slice_ne*width, width);
+
+	log("Found eqpmux circuit driving %s (eq=%s, ne=%s, pmux=%s).\n",
+			log_signal(Y), log_id(st.eq), log_id(st.ne), log_id(st.pmux));
+
+	pm.autoremove(st.pmux);
+	Cell *c = pm.module->addMux(NEW_ID, NE, EQ, st.eq->getPort(ID::Y), Y);
+	log("    -> %s (%s)\n", log_id(c), log_id(c->type));
+}
+
 #define GENERATE_PATTERN(pmclass, pattern) \
 	generate_pattern<pmclass>([](pmclass &pm, std::function<void()> f){ return pm.run_ ## pattern(f); }, #pmclass, #pattern, design)
 
@@ -149,19 +168,20 @@ void generate_pattern(std::function<void(pm&,std::function<void()>)> run, const 
 	log("Generating \"%s\" patterns for pattern matcher \"%s\".\n", pattern, pmclass);
 
 	int modcnt = 0;
+	int maxmodcnt = 100;
 	int maxsubcnt = 4;
 	int timeout = 0;
 	vector<Module*> mods;
 
-	while (modcnt < 100)
+	while (modcnt < maxmodcnt)
 	{
 		int submodcnt = 0, itercnt = 0, cellcnt = 0;
 		Module *mod = design->addModule(NEW_ID);
 
-		while (modcnt < 100 && submodcnt < maxsubcnt && itercnt++ < 1000)
+		while (modcnt < maxmodcnt && submodcnt < maxsubcnt && itercnt++ < 1000)
 		{
 			if (timeout++ > 10000)
-				log_error("pmgen generator is stuck: 10000 iterations an no matching module generated.\n");
+				log_error("pmgen generator is stuck: 10000 iterations with no matching module generated.\n");
 
 			pm matcher(mod, mod->cells());
 
@@ -197,7 +217,7 @@ void generate_pattern(std::function<void(pm&,std::function<void()>)> run, const 
 			run(matcher, [](){});
 		}
 
-		if (submodcnt)
+		if (submodcnt && maxsubcnt < (1 << 16))
 			maxsubcnt *= 2;
 
 		design->remove(mod);
@@ -230,6 +250,12 @@ struct TestPmgenPass : public Pass {
 		log("    test_pmgen -reduce_tree [options] [selection]\n");
 		log("\n");
 		log("Demo for recursive pmgen patterns. Map trees of AND/OR/XOR to $reduce_*.\n");
+		log("\n");
+
+		log("\n");
+		log("    test_pmgen -eqpmux [options] [selection]\n");
+		log("\n");
+		log("Demo for recursive pmgen patterns. Optimize EQ/NE/PMUX circuits.\n");
 		log("\n");
 
 		log("\n");
@@ -277,6 +303,25 @@ struct TestPmgenPass : public Pass {
 			test_pmgen_pm(module, module->selected_cells()).run_reduce(reduce_tree);
 	}
 
+	void execute_eqpmux(std::vector<std::string> args, RTLIL::Design *design)
+	{
+		log_header(design, "Executing TEST_PMGEN pass (-eqpmux).\n");
+
+		size_t argidx;
+		for (argidx = 2; argidx < args.size(); argidx++)
+		{
+			// if (args[argidx] == "-singleton") {
+			// 	singleton_mode = true;
+			// 	continue;
+			// }
+			break;
+		}
+		extra_args(args, argidx, design);
+
+		for (auto module : design->selected_modules())
+			test_pmgen_pm(module, module->selected_cells()).run_eqpmux(opt_eqpmux);
+	}
+
 	void execute_generate(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		log_header(design, "Executing TEST_PMGEN pass (-generate).\n");
@@ -299,8 +344,16 @@ struct TestPmgenPass : public Pass {
 		if (pattern == "reduce")
 			return GENERATE_PATTERN(test_pmgen_pm, reduce);
 
+		if (pattern == "eqpmux")
+			return GENERATE_PATTERN(test_pmgen_pm, eqpmux);
+
 		if (pattern == "ice40_dsp")
 			return GENERATE_PATTERN(ice40_dsp_pm, ice40_dsp);
+
+		if (pattern == "xilinx_srl.fixed")
+			return GENERATE_PATTERN(xilinx_srl_pm, fixed);
+		if (pattern == "xilinx_srl.variable")
+			return GENERATE_PATTERN(xilinx_srl_pm, variable);
 
 		if (pattern == "peepopt-muldiv")
 			return GENERATE_PATTERN(peepopt_pm, muldiv);
@@ -308,7 +361,7 @@ struct TestPmgenPass : public Pass {
 		if (pattern == "peepopt-shiftmul")
 			return GENERATE_PATTERN(peepopt_pm, shiftmul);
 
-		log_cmd_error("Unkown pattern: %s\n", pattern.c_str());
+		log_cmd_error("Unknown pattern: %s\n", pattern.c_str());
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -319,6 +372,8 @@ struct TestPmgenPass : public Pass {
 				return execute_reduce_chain(args, design);
 			if (args[1] == "-reduce_tree")
 				return execute_reduce_tree(args, design);
+			if (args[1] == "-eqpmux")
+				return execute_eqpmux(args, design);
 			if (args[1] == "-generate")
 				return execute_generate(args, design);
 		}

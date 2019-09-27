@@ -48,7 +48,7 @@ using zlib to write gzip-compressed data every time the stream is flushed.
 */
 class gzip_ostream : public std::ostream  {
 public:
-	gzip_ostream()
+	gzip_ostream() : std::ostream(nullptr)
 	{
 		rdbuf(&outbuf);
 	}
@@ -71,7 +71,7 @@ private:
 			str("");
 			return 0;
 		}
-		~gzip_streambuf()
+		virtual ~gzip_streambuf()
 		{
 			sync();
 			gzclose(gzf);
@@ -498,7 +498,15 @@ void Frontend::extra_args(std::istream *&f, std::string &filename, std::vector<s
 			if (f != NULL) {
 				// Check for gzip magic
 				unsigned char magic[3];
-				int n = readsome(*ff, reinterpret_cast<char*>(magic), 3);
+				int n = 0;
+				while (n < 3)
+				{
+					int c = ff->get();
+					if (c != EOF) {
+						magic[n] = (unsigned char) c;
+					}
+					n++;
+				}
 				if (n == 3 && magic[0] == 0x1f && magic[1] == 0x8b) {
 	#ifdef YOSYS_ENABLE_ZLIB
 					log("Found gzip magic in file `%s', decompressing using zlib.\n", filename.c_str());

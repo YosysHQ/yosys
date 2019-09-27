@@ -1,0 +1,50 @@
+read_verilog << EOT
+module top(...);
+input clk;
+input d;
+input sr;
+output reg q0, q1, q2, q3, q4, q5;
+
+initial q0 = 1'b0;
+initial q1 = 1'b0;
+initial q2 = 1'b1;
+initial q3 = 1'b1;
+initial q4 = 1'bx;
+initial q5 = 1'bx;
+
+always @(posedge clk) begin
+	q0 <= sr ? 1'b0 : d;
+	q1 <= sr ? 1'b1 : d;
+	q2 <= sr ? 1'b0 : d;
+	q3 <= sr ? 1'b1 : d;
+	q4 <= sr ? 1'b0 : d;
+	q5 <= sr ? 1'b1 : d;
+end
+
+endmodule
+EOT
+
+proc
+simplemap
+design -save ref
+
+dff2dffs
+clean
+
+select -assert-count 1 w:q0 %x t:$__DFFS_PP0_ %i
+select -assert-count 1 w:q1 %x t:$__DFFS_PP1_ %i
+select -assert-count 1 w:q2 %x t:$__DFFS_PP0_ %i
+select -assert-count 1 w:q3 %x t:$__DFFS_PP1_ %i
+select -assert-count 1 w:q4 %x t:$__DFFS_PP0_ %i
+select -assert-count 1 w:q5 %x t:$__DFFS_PP1_ %i
+
+design -load ref
+dff2dffs -match-init
+clean
+
+select -assert-count 1 w:q0 %x t:$__DFFS_PP0_ %i
+select -assert-count 0 w:q1 %x t:$__DFFS_PP1_ %i
+select -assert-count 0 w:q2 %x t:$__DFFS_PP0_ %i
+select -assert-count 1 w:q3 %x t:$__DFFS_PP1_ %i
+select -assert-count 1 w:q4 %x t:$__DFFS_PP0_ %i
+select -assert-count 1 w:q5 %x t:$__DFFS_PP1_ %i

@@ -345,12 +345,12 @@ struct XAigerWriter
 				}
 			}
 			else {
-				bool cell_known = inst_module;
+				bool cell_known = inst_module || cell->known();
 				for (const auto &c : cell->connections()) {
 					if (c.second.is_fully_const()) continue;
 					auto port_wire = inst_module ? inst_module->wire(c.first) : nullptr;
-					auto is_input = !cell_known || port_wire->port_input;
-					auto is_output = !cell_known || port_wire->port_output;
+					auto is_input = (port_wire && port_wire->port_input) || !cell_known || cell->input(c.first);
+					auto is_output = (port_wire && port_wire->port_output) || !cell_known || cell->output(c.first);
 					if (!is_input && !is_output)
 						log_error("Connection '%s' on cell '%s' (type '%s') not recognised!\n", log_id(c.first), log_id(cell), log_id(cell->type));
 
@@ -653,6 +653,11 @@ struct XAigerWriter
 			aig_outputs.push_back(bit2aig(bit));
 		}
 
+		if (output_bits.empty()) {
+			output_bits.insert(State::S0);
+			omode = true;
+		}
+
 		for (auto bit : output_bits) {
 			ordered_outputs[bit] = aig_o++;
 			aig_outputs.push_back(bit2aig(bit));
@@ -749,6 +754,7 @@ struct XAigerWriter
 
 		f << "c";
 
+		log_assert(!output_bits.empty());
 		auto write_buffer = [](std::stringstream &buffer, int i32) {
 			int32_t i32_be = to_big_endian(i32);
 			buffer.write(reinterpret_cast<const char*>(&i32_be), sizeof(i32_be));
@@ -1024,6 +1030,8 @@ struct XAigerWriter
 			f << stringf("box %d %d %s\n", box_count++, 0, log_id(cell->name));
 
 		output_lines.sort();
+		if (omode)
+			output_lines[State::S0] = "output 0 0 $__dummy__\n";
 		for (auto &it : output_lines)
 			f << it.second;
 		log_assert(output_lines.size() == output_bits.size());
