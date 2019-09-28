@@ -85,7 +85,7 @@ struct XAigerWriter
 	dict<SigBit, pair<SigBit, SigBit>> and_map;
 	vector<std::tuple<SigBit,RTLIL::Cell*,RTLIL::IdString,int>> ci_bits;
 	vector<std::tuple<SigBit,RTLIL::Cell*,RTLIL::IdString,int,int>> co_bits;
-	vector<SigBit> ff_bits;
+	vector<std::pair<SigBit,int>> ff_bits;
 	dict<SigBit, float> arrival_times;
 
 	vector<pair<int, int>> aig_gates;
@@ -319,11 +319,12 @@ struct XAigerWriter
 
 					auto abc_flop_q = r.first->second.q_port;
 					SigBit q = cell->getPort(abc_flop_q);
-					SigBit O = sigmap(q);
-					if (O != q)
-						alias_map[O] = q;
-					undriven_bits.erase(O);
-					ff_bits.emplace_back(q);
+					log_assert(q == sigmap(q));
+					undriven_bits.erase(q);
+					auto it = cell->attributes.find(ID(abc_mergeability));
+					log_assert(it != cell->attributes.end());
+					ff_bits.emplace_back(q, it->second.as_int());
+					cell->attributes.erase(it);
 
 					auto arrival = r.first->second.q_arrival;
 					if (arrival)
@@ -343,56 +344,57 @@ struct XAigerWriter
 						for (auto bit : sigmap(conn.second))
 							bit_drivers[bit].insert(cell->name);
 				}
+
+				continue;
 			}
-			else {
-				bool cell_known = inst_module || cell->known();
-				for (const auto &c : cell->connections()) {
-					if (c.second.is_fully_const()) continue;
-					auto port_wire = inst_module ? inst_module->wire(c.first) : nullptr;
-					auto is_input = (port_wire && port_wire->port_input) || !cell_known || cell->input(c.first);
-					auto is_output = (port_wire && port_wire->port_output) || !cell_known || cell->output(c.first);
-					if (!is_input && !is_output)
-						log_error("Connection '%s' on cell '%s' (type '%s') not recognised!\n", log_id(c.first), log_id(cell), log_id(cell->type));
 
-					if (is_input) {
-						for (auto b : c.second) {
-							Wire *w = b.wire;
-							if (!w) continue;
-							if (!w->port_output || !cell_known) {
-								SigBit I = sigmap(b);
-								if (I != b)
-									alias_map[b] = I;
-								output_bits.insert(b);
-								unused_bits.erase(b);
+			bool cell_known = inst_module || cell->known();
+			for (const auto &c : cell->connections()) {
+				if (c.second.is_fully_const()) continue;
+				auto port_wire = inst_module ? inst_module->wire(c.first) : nullptr;
+				auto is_input = (port_wire && port_wire->port_input) || !cell_known || cell->input(c.first);
+				auto is_output = (port_wire && port_wire->port_output) || !cell_known || cell->output(c.first);
+				if (!is_input && !is_output)
+					log_error("Connection '%s' on cell '%s' (type '%s') not recognised!\n", log_id(c.first), log_id(cell), log_id(cell->type));
 
-								if (!cell_known)
-									keep_bits.insert(b);
-							}
+				if (is_input) {
+					for (auto b : c.second) {
+						Wire *w = b.wire;
+						if (!w) continue;
+						if (!w->port_output || !cell_known) {
+							SigBit I = sigmap(b);
+							if (I != b)
+								alias_map[b] = I;
+							output_bits.insert(b);
+							unused_bits.erase(b);
+
+							if (!cell_known)
+								keep_bits.insert(b);
 						}
 					}
-					if (is_output) {
-						int arrival = 0;
-						if (port_wire) {
-							auto it = port_wire->attributes.find("\\abc_arrival");
-							if (it != port_wire->attributes.end()) {
-								if (it->second.flags != 0)
-									log_error("Attribute 'abc_arrival' on port '%s' of module '%s' is not an integer.\n", log_id(port_wire), log_id(cell->type));
-								arrival = it->second.as_int();
-							}
+				}
+				if (is_output) {
+					int arrival = 0;
+					if (port_wire) {
+						auto it = port_wire->attributes.find("\\abc_arrival");
+						if (it != port_wire->attributes.end()) {
+							if (it->second.flags != 0)
+								log_error("Attribute 'abc_arrival' on port '%s' of module '%s' is not an integer.\n", log_id(port_wire), log_id(cell->type));
+							arrival = it->second.as_int();
 						}
+					}
 
-						for (auto b : c.second) {
-							Wire *w = b.wire;
-							if (!w) continue;
-							input_bits.insert(b);
-							SigBit O = sigmap(b);
-							if (O != b)
-								alias_map[O] = b;
-							undriven_bits.erase(O);
+					for (auto b : c.second) {
+						Wire *w = b.wire;
+						if (!w) continue;
+						input_bits.insert(b);
+						SigBit O = sigmap(b);
+						if (O != b)
+							alias_map[O] = b;
+						undriven_bits.erase(O);
 
-							if (arrival)
-								arrival_times[b] = arrival;
-						}
+						if (arrival)
+							arrival_times[b] = arrival;
 					}
 				}
 			}
@@ -540,12 +542,15 @@ struct XAigerWriter
 			undriven_bits.erase(bit);
 
 		if (!undriven_bits.empty() && !holes_mode) {
+			bool whole_module = module->design->selected_whole_module(module->name);
 			undriven_bits.sort();
 			for (auto bit : undriven_bits) {
-				log_warning("Treating undriven bit %s.%s like $anyseq.\n", log_id(module), log_signal(bit));
+				if (whole_module)
+					log_warning("Treating undriven bit %s.%s like $anyseq.\n", log_id(module), log_signal(bit));
 				input_bits.insert(bit);
 			}
-			log_warning("Treating a total of %d undriven bits in %s like $anyseq.\n", GetSize(undriven_bits), log_id(module));
+			if (whole_module)
+				log_warning("Treating a total of %d undriven bits in %s like $anyseq.\n", GetSize(undriven_bits), log_id(module));
 		}
 
 		init_map.sort();
@@ -576,7 +581,8 @@ struct XAigerWriter
 			aig_map[bit] = 2*aig_m;
 		}
 
-		for (auto bit : ff_bits) {
+		for (const auto &i : ff_bits) {
+			const SigBit &bit = i.first;
 			aig_m++, aig_i++;
 			log_assert(!aig_map.count(bit));
 			aig_map[bit] = 2*aig_m;
@@ -663,7 +669,8 @@ struct XAigerWriter
 			aig_outputs.push_back(bit2aig(bit));
 		}
 
-		for (auto bit : ff_bits) {
+		for (auto &i : ff_bits) {
+			const SigBit &bit = i.first;
 			aig_o++;
 			aig_outputs.push_back(ff_aig_map.at(bit));
 		}
@@ -853,9 +860,9 @@ struct XAigerWriter
 			auto write_r_buffer = std::bind(write_buffer, std::ref(r_buffer), std::placeholders::_1);
 			log_debug("flopNum = %d\n", GetSize(ff_bits));
 			write_r_buffer(ff_bits.size());
-			int mergeability_class = 1;
-			for (auto bit : ff_bits) {
-				write_r_buffer(mergeability_class++);
+			for (const auto &i : ff_bits) {
+				write_r_buffer(i.second);
+				const SigBit &bit = i.first;
 				write_i_buffer(arrival_times.at(bit, 0));
 				//write_o_buffer(0);
 			}
@@ -869,7 +876,8 @@ struct XAigerWriter
 			std::stringstream s_buffer;
 			auto write_s_buffer = std::bind(write_buffer, std::ref(s_buffer), std::placeholders::_1);
 			write_s_buffer(ff_bits.size());
-			for (auto bit : ff_bits) {
+			for (const auto &i : ff_bits) {
+				const SigBit &bit = i.first;
 				auto it = bit.wire->attributes.find("\\init");
 				if (it != bit.wire->attributes.end()) {
 					auto init = it->second[bit.offset];
