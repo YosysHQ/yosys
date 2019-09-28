@@ -68,9 +68,6 @@ int map_autoidx;
 SigMap assign_map;
 RTLIL::Module *module;
 
-bool clk_polarity, en_polarity;
-RTLIL::SigSpec clk_sig, en_sig;
-
 inline std::string remap_name(RTLIL::IdString abc_name)
 {
 	return stringf("$abc$%d$%s", map_autoidx, abc_name.c_str()+1);
@@ -244,7 +241,7 @@ struct abc_output_filter
 };
 
 void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::string script_file, std::string exe_file,
-		bool cleanup, vector<int> lut_costs, bool dff_mode, std::string clk_str,
+		bool cleanup, vector<int> lut_costs, bool /*dff_mode*/, std::string /*clk_str*/,
 		bool /*keepff*/, std::string delay_target, std::string /*lutin_shared*/, bool fast_mode,
 		bool show_tempdir, std::string box_file, std::string lut_file,
 		std::string wire_delay, const dict<int,IdString> &box_lookup
@@ -252,39 +249,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 {
 	module = current_module;
 	map_autoidx = autoidx++;
-
-	if (clk_str != "$")
-	{
-		clk_polarity = true;
-		clk_sig = RTLIL::SigSpec();
-
-		en_polarity = true;
-		en_sig = RTLIL::SigSpec();
-	}
-
-	if (!clk_str.empty() && clk_str != "$")
-	{
-		if (clk_str.find(',') != std::string::npos) {
-			int pos = clk_str.find(',');
-			std::string en_str = clk_str.substr(pos+1);
-			clk_str = clk_str.substr(0, pos);
-			if (en_str[0] == '!') {
-				en_polarity = false;
-				en_str = en_str.substr(1);
-			}
-			if (module->wires_.count(RTLIL::escape_id(en_str)) != 0)
-				en_sig = assign_map(RTLIL::SigSpec(module->wires_.at(RTLIL::escape_id(en_str)), 0));
-		}
-		if (clk_str[0] == '!') {
-			clk_polarity = false;
-			clk_str = clk_str.substr(1);
-		}
-		if (module->wires_.count(RTLIL::escape_id(clk_str)) != 0)
-			clk_sig = assign_map(RTLIL::SigSpec(module->wires_.at(RTLIL::escape_id(clk_str)), 0));
-	}
-
-	if (dff_mode && clk_sig.empty())
-		log_cmd_error("Clock domain %s not found.\n", clk_str.c_str());
 
 	std::string tempdir_name = "/tmp/yosys-abc-XXXXXX";
 	if (!cleanup)
@@ -357,18 +321,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 	fprintf(f, "%s\n", abc_script.c_str());
 	fclose(f);
 
-	if (dff_mode || !clk_str.empty())
-	{
-		if (clk_sig.size() == 0)
-			log("No%s clock domain found. Not extracting any FF cells.\n", clk_str.empty() ? "" : " matching");
-		else {
-			log("Found%s %s clock domain: %s", clk_str.empty() ? "" : " matching", clk_polarity ? "posedge" : "negedge", log_signal(clk_sig));
-			if (en_sig.size() != 0)
-				log(", enabled by %s%s", en_polarity ? "" : "!", log_signal(en_sig));
-			log("\n");
-		}
-	}
-
 	bool count_output = false;
 	for (auto port_name : module->ports) {
 		RTLIL::Wire *port_wire = module->wire(port_name);
@@ -383,13 +335,9 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 
 	if (count_output)
 	{
-		design->selection_stack.emplace_back(false);
-		RTLIL::Selection& sel = design->selection_stack.back();
-		sel.select(module);
-
 		handle_loops(design);
 
-		Pass::call(design, "aigmap");
+		Pass::call(design, "aigmap -select");
 
 		//log("Extracted %d gates and %d wires to a netlist network with %d inputs and %d outputs.\n",
 		//		count_gates, GetSize(signal_list), count_input, count_output);
@@ -413,8 +361,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		Pass::call(design, stringf("write_verilog -noexpr -norename"));
 		design->remove(design->module(ID($__abc9__)));
 #endif
-
-		design->selection_stack.pop_back();
 
 		// Now 'unexpose' those wires by undoing
 		// the expose operation -- remove them from PO/PI
@@ -909,7 +855,7 @@ struct Abc9Pass : public Pass {
 #endif
 		std::string script_file, clk_str, box_file, lut_file;
 		std::string delay_target, lutin_shared = "-S 1", wire_delay;
-		bool fast_mode = false, dff_mode = false, keepff = false, cleanup = true;
+		bool fast_mode = false, /*dff_mode = false,*/ keepff = false, cleanup = true;
 		bool show_tempdir = false;
 		vector<int> lut_costs;
 		markgroups = false;
@@ -1118,20 +1064,6 @@ struct Abc9Pass : public Pass {
 
 			assign_map.set(mod);
 
-			if (!dff_mode || !clk_str.empty()) {
-
-				design->selection_stack.emplace_back(false);
-				RTLIL::Selection& sel = design->selection_stack.back();
-				sel.select(mod);
-
-				abc9_module(design, mod, script_file, exe_file, cleanup, lut_costs, false, clk_str, keepff,
-						delay_target, lutin_shared, fast_mode, show_tempdir,
-						box_file, lut_file, wire_delay, box_lookup);
-
-				design->selection_stack.pop_back();
-				continue;
-			}
-
 			CellTypes ct(design);
 
 			std::vector<RTLIL::Cell*> all_cells = mod->selected_cells();
@@ -1141,8 +1073,8 @@ struct Abc9Pass : public Pass {
 			std::set<RTLIL::Cell*> expand_queue_up, next_expand_queue_up;
 			std::set<RTLIL::Cell*> expand_queue_down, next_expand_queue_down;
 
-			typedef tuple<bool, RTLIL::SigSpec, bool, RTLIL::SigSpec> clkdomain_t;
-			std::map<clkdomain_t, std::vector<RTLIL::Cell*>> assigned_cells;
+			typedef pair<bool, RTLIL::SigSpec> clkdomain_t;
+			std::map<clkdomain_t, pool<RTLIL::IdString>> assigned_cells;
 			std::map<RTLIL::Cell*, clkdomain_t> assigned_cells_reverse;
 
 			std::map<RTLIL::Cell*, std::set<RTLIL::SigBit>> cell_to_bit, cell_to_bit_up, cell_to_bit_down;
@@ -1154,9 +1086,12 @@ struct Abc9Pass : public Pass {
 				IdString en_port;
 			};
 			dict<IdString, flop_data_t> flop_data;
+			typedef clkdomain_t endomain_t;
+			std::map<endomain_t, int> mergeability_class;
 
 			for (auto cell : all_cells) {
 				clkdomain_t key;
+				endomain_t key2;
 
 				for (auto &conn : cell->connections())
 				for (auto bit : conn.second) {
@@ -1175,6 +1110,7 @@ struct Abc9Pass : public Pass {
 					}
 				}
 
+				// TODO: Generate this outside
 				decltype(flop_data)::iterator it;
 				if (seen_cells.insert(cell->type).second) {
 					RTLIL::Module* inst_module = design->module(cell->type);
@@ -1225,15 +1161,20 @@ struct Abc9Pass : public Pass {
 					log_error("'EN_POLARITY' is not a parameter on module '%s'.\n", log_id(cell->type));
 				bool this_en_pol = jt->second.as_bool();
 
-				key = clkdomain_t(this_clk_pol, assign_map(cell->getPort(data.clk_port)), this_en_pol, assign_map(cell->getPort(data.en_port)));
+				key = clkdomain_t(this_clk_pol, assign_map(cell->getPort(data.clk_port)));
 
 				unassigned_cells.erase(cell);
 				expand_queue.insert(cell);
 				expand_queue_up.insert(cell);
 				expand_queue_down.insert(cell);
 
-				assigned_cells[key].push_back(cell);
+				assigned_cells[key].insert(cell->name);
 				assigned_cells_reverse[cell] = key;
+
+				key2 = endomain_t(this_en_pol, assign_map(cell->getPort(data.en_port)));
+				auto r = mergeability_class.emplace(key2, mergeability_class.size() + 1);
+				auto YS_ATTRIBUTE(unused) r2 = cell->attributes.insert(std::make_pair(ID(abc_mergeability),  r.first->second));
+				log_assert(r2.second);
 			}
 
 			while (!expand_queue_up.empty() || !expand_queue_down.empty())
@@ -1249,7 +1190,7 @@ struct Abc9Pass : public Pass {
 						if (unassigned_cells.count(c)) {
 							unassigned_cells.erase(c);
 							next_expand_queue_up.insert(c);
-							assigned_cells[key].push_back(c);
+							assigned_cells[key].insert(c->name);
 							assigned_cells_reverse[c] = key;
 							expand_queue.insert(c);
 						}
@@ -1266,7 +1207,7 @@ struct Abc9Pass : public Pass {
 						if (unassigned_cells.count(c)) {
 							unassigned_cells.erase(c);
 							next_expand_queue_up.insert(c);
-							assigned_cells[key].push_back(c);
+							assigned_cells[key].insert(c->name);
 							assigned_cells_reverse[c] = key;
 							expand_queue.insert(c);
 						}
@@ -1289,7 +1230,7 @@ struct Abc9Pass : public Pass {
 						if (unassigned_cells.count(c)) {
 							unassigned_cells.erase(c);
 							next_expand_queue.insert(c);
-							assigned_cells[key].push_back(c);
+							assigned_cells[key].insert(c->name);
 							assigned_cells_reverse[c] = key;
 						}
 					bit_to_cell[bit].clear();
@@ -1299,28 +1240,27 @@ struct Abc9Pass : public Pass {
 					expand_queue.swap(next_expand_queue);
 			}
 
-			clkdomain_t key(true, RTLIL::SigSpec(), true, RTLIL::SigSpec());
+			clkdomain_t key(true, RTLIL::SigSpec());
 			for (auto cell : unassigned_cells) {
-				assigned_cells[key].push_back(cell);
+				assigned_cells[key].insert(cell->name);
 				assigned_cells_reverse[cell] = key;
 			}
 
 			log_header(design, "Summary of detected clock domains:\n");
 			for (auto &it : assigned_cells)
-				log("  %d cells in clk=%s%s, en=%s%s\n", GetSize(it.second),
-						std::get<0>(it.first) ? "" : "!", log_signal(std::get<1>(it.first)),
-						std::get<2>(it.first) ? "" : "!", log_signal(std::get<3>(it.first)));
+				log("  %d cells in clk=%s%s\n", GetSize(it.second),
+						std::get<0>(it.first) ? "" : "!", log_signal(std::get<1>(it.first)));
 
+			design->selection_stack.emplace_back(false);
 			for (auto &it : assigned_cells) {
-				clk_polarity = std::get<0>(it.first);
-				clk_sig = assign_map(std::get<1>(it.first));
-				en_polarity = std::get<2>(it.first);
-				en_sig = assign_map(std::get<3>(it.first));
-				abc9_module(design, mod, script_file, exe_file, cleanup, lut_costs, !clk_sig.empty(), "$",
+				RTLIL::Selection& sel = design->selection_stack.back();
+				sel.selected_members[mod->name] = std::move(it.second);
+				abc9_module(design, mod, script_file, exe_file, cleanup, lut_costs, false, "$",
 						keepff, delay_target, lutin_shared, fast_mode, show_tempdir,
 						box_file, lut_file, wire_delay, box_lookup);
 				assign_map.set(mod);
 			}
+			design->selection_stack.pop_back();
 		}
 
 		assign_map.clear();
