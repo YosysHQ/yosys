@@ -856,7 +856,7 @@ struct XAigerBackend : public Backend {
 			}
 			break;
 		}
-		extra_args(f, filename, args, argidx);
+		extra_args(f, filename, args, argidx, !ascii_mode);
 
 		Module *top_module = design->top_module();
 
