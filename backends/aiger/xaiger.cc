@@ -314,7 +314,7 @@ struct XAigerWriter
 					SigBit d = cell->getPort(abc_flop_d);
 					SigBit I = sigmap(d);
 					if (I != d)
-						alias_map[I] = d;
+						alias_map[d] = I;
 					unused_bits.erase(d);
 
 					auto abc_flop_q = r.first->second.q_port;
