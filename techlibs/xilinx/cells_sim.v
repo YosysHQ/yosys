@@ -408,7 +408,7 @@ module FDCE_1 (
   always @* Q = \$nextQ ;
 `else
   assign \$currQ = Q;
-  always @(negedge C, posedge CLR) if (CLR == !IS_CLR_INVERTED) Q <= 1'b0; else Q <= \$nextQ ;
+  always @(negedge C, posedge CLR) if (CLR) Q <= 1'b0; else Q <= \$nextQ ;
 `endif
 endmodule
 
