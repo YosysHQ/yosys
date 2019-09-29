@@ -740,7 +740,7 @@ void AigerReader::post_process()
 
 		bool is_flop = false;
 		if (seen_boxes.insert(cell->type).second) {
-			if (box_module->attributes.count("\\abc_flop")) {
+			if (box_module->attributes.count("\\abc9_flop")) {
 				log_assert(flop_count < flopNum);
 				flops.insert(cell->type);
 				is_flop = true;
@@ -811,12 +811,18 @@ void AigerReader::post_process()
 				}
 				rhs.append(wire);
 			}
-
-			if (!is_flop || port_name != "\\$pastQ")
-				cell->setPort(port_name, rhs);
+			cell->setPort(port_name, rhs);
 		}
 
 		if (is_flop) {
+			Wire* port = box_module->wire("\\$currQ");
+			log_assert(port);
+			log_assert(co_count < outputs.size());
+			Wire *wire = outputs[co_count++];
+			log_assert(wire);
+			log_assert(wire->port_output);
+			wire->port_output = false;
+
 			RTLIL::Wire *d = outputs[outputs.size() - flopNum + flop_count];
 			log_assert(d);
 			log_assert(d->port_output);
@@ -827,9 +833,10 @@ void AigerReader::post_process()
 			log_assert(q->port_input);
 			q->port_input = false;
 
+			auto ff = module->addCell(NEW_ID, "$__ABC_FF_");
+			ff->setPort("\\D", d);
+			ff->setPort("\\Q", q);
 			flop_count++;
-			module->connect(q, d);
-			cell->set_bool_attribute("\\abc_flop");
 			continue;
 		}
 	}

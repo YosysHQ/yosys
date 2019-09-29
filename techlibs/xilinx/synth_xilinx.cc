@@ -276,9 +276,9 @@ struct SynthXilinxPass : public ScriptPass
 
 		if (check_label("begin")) {
 			if (vpr)
-				run("read_verilog -lib -D_EXPLICIT_CARRY +/xilinx/cells_sim.v");
+				run("read_verilog -lib -D_ABC -D_EXPLICIT_CARRY +/xilinx/cells_sim.v");
 			else
-				run("read_verilog -lib +/xilinx/cells_sim.v");
+				run("read_verilog -lib -D_ABC +/xilinx/cells_sim.v");
 
 			if (help_mode)
 				run("read_verilog -lib +/xilinx/{family}_cells_xtra.v");

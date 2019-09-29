@@ -536,8 +536,10 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			cell_stats[mapped_cell->type]++;
 
 			RTLIL::Cell *existing_cell = nullptr;
-			if (mapped_cell->type == ID($lut)) {
-				if (GetSize(mapped_cell->getPort(ID::A)) == 1 && mapped_cell->getParam(ID(LUT)) == RTLIL::Const::from_string("01")) {
+			if (mapped_cell->type.in(ID($lut), ID($__ABC_FF_))) {
+				if (mapped_cell->type == ID($lut) &&
+						GetSize(mapped_cell->getPort(ID::A)) == 1 &&
+						mapped_cell->getParam(ID(LUT)) == RTLIL::Const::from_string("01")) {
 					SigSpec my_a = module->wires_.at(remap_name(mapped_cell->getPort(ID::A).as_wire()->name));
 					SigSpec my_y = module->wires_.at(remap_name(mapped_cell->getPort(ID::Y).as_wire()->name));
 					module->connect(my_y, my_a);
@@ -564,7 +566,8 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 				cell->attributes = mapped_cell->attributes;
 			}
 
-			auto abc_flop = mapped_cell->attributes.count("\\abc_flop");
+			RTLIL::Module* box_module = design->module(mapped_cell->type);
+			auto abc_flop = box_module && box_module->attributes.count("\\abc9_flop");
 			for (auto &conn : mapped_cell->connections()) {
 				RTLIL::SigSpec newsig;
 				for (auto c : conn.second.chunks()) {
@@ -1073,29 +1076,18 @@ struct Abc9Pass : public Pass {
 			std::set<RTLIL::Cell*> expand_queue_up, next_expand_queue_up;
 			std::set<RTLIL::Cell*> expand_queue_down, next_expand_queue_down;
 
-			typedef pair<bool, RTLIL::SigSpec> clkdomain_t;
-			std::map<clkdomain_t, pool<RTLIL::IdString>> assigned_cells;
-			std::map<RTLIL::Cell*, clkdomain_t> assigned_cells_reverse;
+			std::map<SigSpec, pool<RTLIL::IdString>> assigned_cells;
+			std::map<RTLIL::Cell*, SigSpec> assigned_cells_reverse;
 
 			std::map<RTLIL::Cell*, std::set<RTLIL::SigBit>> cell_to_bit, cell_to_bit_up, cell_to_bit_down;
 			std::map<RTLIL::SigBit, std::set<RTLIL::Cell*>> bit_to_cell, bit_to_cell_up, bit_to_cell_down;
 
-			pool<IdString> seen_cells;
-			struct flop_data_t {
-				IdString clk_port;
-				IdString en_port;
-			};
-			dict<IdString, flop_data_t> flop_data;
-			typedef clkdomain_t endomain_t;
+			typedef std::pair<IdString, SigSpec> endomain_t;
 			std::map<endomain_t, int> mergeability_class;
 
 			for (auto cell : all_cells) {
-				clkdomain_t key;
-				endomain_t key2;
-
 				for (auto &conn : cell->connections())
-				for (auto bit : conn.second) {
-					bit = assign_map(bit);
+				for (auto bit : assign_map(conn.second))
 					if (bit.wire != nullptr) {
 						cell_to_bit[cell].insert(bit);
 						bit_to_cell[bit].insert(cell);
@@ -1108,72 +1100,68 @@ struct Abc9Pass : public Pass {
 							bit_to_cell_up[bit].insert(cell);
 						}
 					}
+
+				auto inst_module = design->module(cell->type);
+				if (!inst_module || !inst_module->attributes.count("\\abc9_flop"))
+					continue;
+
+				auto derived_name = inst_module->derive(design, cell->parameters);
+				auto derived_module = design->module(derived_name);
+				log_assert(derived_module);
+				Pass::call_on_module(design, derived_module, "proc");
+				SigMap derived_sigmap(derived_module);
+
+				Wire *currQ = derived_module->wire("\\$currQ");
+				if (currQ == NULL)
+					log_error("'\\$currQ' is not a wire present in module '%s'.\n", log_id(cell->type));
+				log_assert(!currQ->port_output);
+				if (!currQ->port_input) {
+					currQ->port_input = true;
+					derived_module->ports.push_back(currQ->name);
+					currQ->port_id = GetSize(derived_module->ports);
+#ifndef NDEBUG
+					derived_module->check();
+#endif
 				}
 
-				// TODO: Generate this outside
-				decltype(flop_data)::iterator it;
-				if (seen_cells.insert(cell->type).second) {
-					RTLIL::Module* inst_module = design->module(cell->type);
-					if (!inst_module)
-						continue;
-
-					if (!inst_module->attributes.count("\\abc_flop"))
-						continue;
-
-					IdString abc_flop_clk, abc_flop_en;
-					for (auto port_name : inst_module->ports) {
-						auto wire = inst_module->wire(port_name);
-						log_assert(wire);
-						if (wire->attributes.count("\\abc_flop_clk")) {
-							if (abc_flop_clk != IdString())
-								log_error("More than one port has the 'abc_flop_clk' attribute set on module '%s'.\n", log_id(cell->type));
-							abc_flop_clk = port_name;
-						}
-						if (wire->attributes.count("\\abc_flop_en")) {
-							if (abc_flop_en != IdString())
-								log_error("More than one port has the 'abc_flop_en' attribute set on module '%s'.\n", log_id(cell->type));
-							abc_flop_en = port_name;
-						}
-					}
-
-					if (abc_flop_clk == IdString())
-						log_error("'abc_flop_clk' attribute not found on any ports on module '%s'.\n", log_id(cell->type));
-					if (abc_flop_en == IdString())
-						log_error("'abc_flop_en' attribute not found on any ports on module '%s'.\n", log_id(cell->type));
-
-					it = flop_data.insert(std::make_pair(cell->type, flop_data_t{abc_flop_clk, abc_flop_en})).first;
-				}
-				else {
-					it = flop_data.find(cell->type);
-					if (it == flop_data.end())
-						continue;
+				SigSpec pattern;
+				SigSpec with;
+				for (auto &conn : cell->connections()) {
+					Wire *first = derived_module->wire(conn.first);
+					log_assert(first);
+					SigSpec second = assign_map(conn.second);
+					log_assert(GetSize(first) == GetSize(second));
+					pattern.append(first);
+					with.append(second);
 				}
 
-				const auto &data = it->second;
+				Wire *abc9_clock_wire = derived_module->wire("\\$abc9_clock");
+				if (abc9_clock_wire == NULL)
+					log_error("'\\$abc9_clock' is not a wire present in module '%s'.\n", log_id(cell->type));
+				SigSpec abc9_clock = derived_sigmap(abc9_clock_wire);
+				abc9_clock.replace(pattern, with);
+				for (const auto &c : abc9_clock.chunks())
+					log_assert(!c.wire || c.wire->module == mod);
 
-				auto jt = cell->parameters.find("\\CLK_POLARITY");
-				if (jt == cell->parameters.end())
-					log_error("'CLK_POLARITY' is not a parameter on module '%s'.\n", log_id(cell->type));
-				bool this_clk_pol = jt->second.as_bool();
-
-				jt = cell->parameters.find("\\EN_POLARITY");
-				if (jt == cell->parameters.end())
-					log_error("'EN_POLARITY' is not a parameter on module '%s'.\n", log_id(cell->type));
-				bool this_en_pol = jt->second.as_bool();
-
-				key = clkdomain_t(this_clk_pol, assign_map(cell->getPort(data.clk_port)));
+				Wire *abc9_control_wire = derived_module->wire("\\$abc9_control");
+				if (abc9_control_wire == NULL)
+					log_error("'\\$abc9_control' is not a wire present in module '%s'.\n", log_id(cell->type));
+				SigSpec abc9_control = derived_sigmap(abc9_control_wire);
+				abc9_control.replace(pattern, with);
+				for (const auto &c : abc9_control.chunks())
+					log_assert(!c.wire || c.wire->module == mod);
 
 				unassigned_cells.erase(cell);
 				expand_queue.insert(cell);
 				expand_queue_up.insert(cell);
 				expand_queue_down.insert(cell);
 
-				assigned_cells[key].insert(cell->name);
-				assigned_cells_reverse[cell] = key;
+				assigned_cells[abc9_clock].insert(cell->name);
+				assigned_cells_reverse[cell] = abc9_clock;
 
-				key2 = endomain_t(this_en_pol, assign_map(cell->getPort(data.en_port)));
-				auto r = mergeability_class.emplace(key2, mergeability_class.size() + 1);
-				auto YS_ATTRIBUTE(unused) r2 = cell->attributes.insert(std::make_pair(ID(abc_mergeability),  r.first->second));
+				endomain_t key(cell->type, abc9_control);
+				auto r = mergeability_class.emplace(key, mergeability_class.size() + 1);
+				auto YS_ATTRIBUTE(unused) r2 = cell->attributes.insert(std::make_pair(ID(abc9_mergeability),  r.first->second));
 				log_assert(r2.second);
 			}
 
@@ -1182,7 +1170,7 @@ struct Abc9Pass : public Pass {
 				if (!expand_queue_up.empty())
 				{
 					RTLIL::Cell *cell = *expand_queue_up.begin();
-					clkdomain_t key = assigned_cells_reverse.at(cell);
+					SigSpec key = assigned_cells_reverse.at(cell);
 					expand_queue_up.erase(cell);
 
 					for (auto bit : cell_to_bit_up[cell])
@@ -1199,7 +1187,7 @@ struct Abc9Pass : public Pass {
 				if (!expand_queue_down.empty())
 				{
 					RTLIL::Cell *cell = *expand_queue_down.begin();
-					clkdomain_t key = assigned_cells_reverse.at(cell);
+					SigSpec key = assigned_cells_reverse.at(cell);
 					expand_queue_down.erase(cell);
 
 					for (auto bit : cell_to_bit_down[cell])
@@ -1222,7 +1210,7 @@ struct Abc9Pass : public Pass {
 			while (!expand_queue.empty())
 			{
 				RTLIL::Cell *cell = *expand_queue.begin();
-				clkdomain_t key = assigned_cells_reverse.at(cell);
+				SigSpec key = assigned_cells_reverse.at(cell);
 				expand_queue.erase(cell);
 
 				for (auto bit : cell_to_bit.at(cell)) {
@@ -1240,7 +1228,7 @@ struct Abc9Pass : public Pass {
 					expand_queue.swap(next_expand_queue);
 			}
 
-			clkdomain_t key(true, RTLIL::SigSpec());
+			SigSpec key;
 			for (auto cell : unassigned_cells) {
 				assigned_cells[key].insert(cell->name);
 				assigned_cells_reverse[cell] = key;
@@ -1248,8 +1236,7 @@ struct Abc9Pass : public Pass {
 
 			log_header(design, "Summary of detected clock domains:\n");
 			for (auto &it : assigned_cells)
-				log("  %d cells in clk=%s%s\n", GetSize(it.second),
-						std::get<0>(it.first) ? "" : "!", log_signal(std::get<1>(it.first)));
+				log("  %d cells in clk=%s\n", GetSize(it.second), log_signal(it.first));
 
 			design->selection_stack.emplace_back(false);
 			for (auto &it : assigned_cells) {

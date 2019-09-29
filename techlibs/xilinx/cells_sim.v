@@ -240,6 +240,7 @@ endmodule
 
 // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf#L238-L250
 
+(* abc_box_id=1001, lib_whitebox, abc9_flop *)
 module FDRE (
   (* abc_arrival=303 *)
   output reg Q,
@@ -257,35 +258,72 @@ module FDRE (
   parameter [0:0] IS_D_INVERTED = 1'b0;
   parameter [0:0] IS_R_INVERTED = 1'b0;
   initial Q <= INIT;
+  wire \$currQ ;
+  reg \$nextQ ;
+  always @* if (R == !IS_R_INVERTED) \$nextQ = 1'b0; else if (CE) \$nextQ = D ^ IS_D_INVERTED; else \$nextQ = \$currQ ;
+`ifdef _ABC
+  // `abc9' requires that complex flops be split into a combinatorial
+  //   box (this module) feeding a simple flop ($_ABC_FF_ in abc_map.v)
+  //   In order to achieve clock-enable behaviour, the current value
+  //   of the sequential output is required which Yosys will
+  //   connect to the special `\$currQ' wire.
+
+  // Special signal indicating clock domain
+  //   (used to partition the module so that `abc9' only performs
+  //    sequential synthesis (reachability analysis) correctly on
+  //    one domain at a time)
+  wire [1:0] \$abc9_clock = {C, IS_C_INVERTED};
+  // Special signal indicating control domain
+  //   (which, combined with this spell type, encodes to `abc9'
+  //    which flops may be merged together)
+  wire [3:0] \$abc9_control = {CE, IS_D_INVERTED, R, IS_R_INVERTED};
+  always @* Q = \$nextQ ;
+`else
+  assign \$currQ = Q;
   generate case (|IS_C_INVERTED)
-    1'b0: always @(posedge C) if (R == !IS_R_INVERTED) Q <= 1'b0; else if (CE) Q <= D ^ IS_D_INVERTED;
-    1'b1: always @(negedge C) if (R == !IS_R_INVERTED) Q <= 1'b0; else if (CE) Q <= D ^ IS_D_INVERTED;
+    1'b0: always @(posedge C) Q <= \$nextQ ;
+    1'b1: always @(negedge C) Q <= \$nextQ ;
   endcase endgenerate
+`endif
 endmodule
 
-module FDSE (
+(* abc_box_id=1002, lib_whitebox, abc9_flop *)
+module FDRE_1 (
   (* abc_arrival=303 *)
   output reg Q,
   (* clkbuf_sink *)
-  (* invertible_pin = "IS_C_INVERTED" *)
   input C,
-  input CE,
-  (* invertible_pin = "IS_D_INVERTED" *)
-  input D,
-  (* invertible_pin = "IS_S_INVERTED" *)
-  input S
+  input CE, D, R
 );
-  parameter [0:0] INIT = 1'b1;
-  parameter [0:0] IS_C_INVERTED = 1'b0;
-  parameter [0:0] IS_D_INVERTED = 1'b0;
-  parameter [0:0] IS_S_INVERTED = 1'b0;
+  parameter [0:0] INIT = 1'b0;
   initial Q <= INIT;
-  generate case (|IS_C_INVERTED)
-    1'b0: always @(posedge C) if (S == !IS_S_INVERTED) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
-    1'b1: always @(negedge C) if (S == !IS_S_INVERTED) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
-  endcase endgenerate
+  wire \$currQ ;
+  reg \$nextQ ;
+  always @* if (R) Q <= 1'b0; else if (CE) Q <= D; else \$nextQ = \$currQ ;
+`ifdef _ABC
+  // `abc9' requires that complex flops be split into a combinatorial
+  //   box (this module) feeding a simple flop ($_ABC_FF_ in abc_map.v)
+  //   In order to achieve clock-enable behaviour, the current value
+  //   of the sequential output is required which Yosys will
+  //   connect to the special `\$currQ' wire.
+
+  // Special signal indicating clock domain
+  //   (used to partition the module so that `abc9' only performs
+  //    sequential synthesis (reachability analysis) correctly on
+  //    one domain at a time)
+  wire [1:0] \$abc9_clock = {C, 1'b1 /* IS_C_INVERTED */};
+  // Special signal indicating control domain
+  //   (which, combined with this spell type, encodes to `abc9'
+  //    which flops may be merged together)
+  wire [3:0] \$abc9_control = {CE, 1'b0 /* IS_D_INVERTED */, R, 1'b0 /* IS_R_INVERTED */};
+  always @* Q = \$nextQ ;
+`else
+  assign \$currQ = Q;
+  always @(negedge C) Q <= \$nextQ ;
+`endif
 endmodule
 
+(* abc_box_id=1003, lib_whitebox, abc9_flop *)
 module FDCE (
   (* abc_arrival=303 *)
   output reg Q,
@@ -303,14 +341,78 @@ module FDCE (
   parameter [0:0] IS_D_INVERTED = 1'b0;
   parameter [0:0] IS_CLR_INVERTED = 1'b0;
   initial Q <= INIT;
+  wire \$currQ ;
+  reg \$nextQ ;
+  always @* if (CE) Q <= D ^ IS_D_INVERTED; else \$nextQ = \$currQ ;
+`ifdef _ABC
+  // `abc9' requires that complex flops be split into a combinatorial
+  //   box (this module) feeding a simple flop ($_ABC_FF_ in abc_map.v)
+  //   In order to achieve clock-enable behaviour, the current value
+  //   of the sequential output is required which Yosys will
+  //   connect to the special `\$currQ' wire.
+  // Since this is an async flop, async behaviour is also dealt with
+  //   using the $_ABC_ASYNC box by abc_map.v
+
+  // Special signal indicating clock domain
+  //   (used to partition the module so that `abc9' only performs
+  //    sequential synthesis (reachability analysis) correctly on
+  //    one domain at a time)
+  wire [1:0] \$abc9_clock = {C, IS_C_INVERTED};
+  // Special signal indicating control domain
+  //   (which, combined with this spell type, encodes to `abc9'
+  //    which flops may be merged together)
+  wire [3:0] \$abc9_control = {CE, IS_D_INVERTED, CLR, IS_CLR_INVERTED};
+  always @* Q = \$nextQ ;
+`else
+  assign \$currQ = Q;
   generate case ({|IS_C_INVERTED, |IS_CLR_INVERTED})
-    2'b00: always @(posedge C, posedge CLR) if ( CLR) Q <= 1'b0; else if (CE) Q <= D ^ IS_D_INVERTED;
-    2'b01: always @(posedge C, negedge CLR) if (!CLR) Q <= 1'b0; else if (CE) Q <= D ^ IS_D_INVERTED;
-    2'b10: always @(negedge C, posedge CLR) if ( CLR) Q <= 1'b0; else if (CE) Q <= D ^ IS_D_INVERTED;
-    2'b11: always @(negedge C, negedge CLR) if (!CLR) Q <= 1'b0; else if (CE) Q <= D ^ IS_D_INVERTED;
+    2'b00: always @(posedge C, posedge CLR) if ( CLR) Q <= 1'b0; else Q <= \$nextQ ;
+    2'b01: always @(posedge C, negedge CLR) if (!CLR) Q <= 1'b0; else Q <= \$nextQ ;
+    2'b10: always @(negedge C, posedge CLR) if ( CLR) Q <= 1'b0; else Q <= \$nextQ ;
+    2'b11: always @(negedge C, negedge CLR) if (!CLR) Q <= 1'b0; else Q <= \$nextQ ;
   endcase endgenerate
+`endif
 endmodule
 
+(* abc_box_id=1004, lib_whitebox, abc9_flop *)
+module FDCE_1 (
+  (* abc_arrival=303 *)
+  output reg Q,
+  (* clkbuf_sink *)
+  input C,
+  input CE, D, CLR
+);
+  parameter [0:0] INIT = 1'b0;
+  initial Q <= INIT;
+  wire \$currQ ;
+  reg \$nextQ ;
+  always @* if (CE) Q <= D; else \$nextQ = \$currQ ;
+`ifdef _ABC
+  // `abc9' requires that complex flops be split into a combinatorial
+  //   box (this module) feeding a simple flop ($_ABC_FF_ in abc_map.v)
+  //   In order to achieve clock-enable behaviour, the current value
+  //   of the sequential output is required which Yosys will
+  //   connect to the special `\$currQ' wire.
+  // Since this is an async flop, async behaviour is also dealt with
+  //   using the $_ABC_ASYNC box by abc_map.v
+
+  // Special signal indicating clock domain
+  //   (used to partition the module so that `abc9' only performs
+  //    sequential synthesis (reachability analysis) correctly on
+  //    one domain at a time)
+  wire [1:0] \$abc9_clock = {C, 1'b1 /* IS_C_INVERTED */};
+  // Special signal indicating control domain
+  //   (which, combined with this spell type, encodes to `abc9'
+  //    which flops may be merged together)
+  wire [3:0] \$abc9_control = {CE, 1'b0 /* IS_D_INVERTED */, CLR, 1'b0 /* IS_CLR_INVERTED */};
+  always @* Q = \$nextQ ;
+`else
+  assign \$currQ = Q;
+  always @(negedge C, posedge CLR) if (CLR == !IS_CLR_INVERTED) Q <= 1'b0; else Q <= \$nextQ ;
+`endif
+endmodule
+
+(* abc_box_id=1005, lib_whitebox, abc9_flop *)
 module FDPE (
   (* abc_arrival=303 *)
   output reg Q,
@@ -328,50 +430,40 @@ module FDPE (
   parameter [0:0] IS_D_INVERTED = 1'b0;
   parameter [0:0] IS_PRE_INVERTED = 1'b0;
   initial Q <= INIT;
+  wire \$currQ ;
+  reg \$nextQ ;
+  always @* if (CE) Q <= D ^ IS_D_INVERTED; else \$nextQ = \$currQ ;
+`ifdef _ABC
+  // `abc9' requires that complex flops be split into a combinatorial
+  //   box (this module) feeding a simple flop ($_ABC_FF_ in abc_map.v)
+  //   In order to achieve clock-enable behaviour, the current value
+  //   of the sequential output is required which Yosys will
+  //   connect to the special `\$currQ' wire.
+  // Since this is an async flop, async behaviour is also dealt with
+  //   using the $_ABC_ASYNC box by abc_map.v
+
+  // Special signal indicating clock domain
+  //   (used to partition the module so that `abc9' only performs
+  //    sequential synthesis (reachability analysis) correctly on
+  //    one domain at a time)
+  wire [1:0] \$abc9_clock = {C, IS_C_INVERTED};
+  // Special signal indicating control domain
+  //   (which, combined with this spell type, encodes to `abc9'
+  //    which flops may be merged together)
+  wire [3:0] \$abc9_control = {CE, IS_D_INVERTED, PRE, IS_PRE_INVERTED};
+  always @* Q = \$nextQ ;
+`else
+  assign \$currQ = Q;
   generate case ({|IS_C_INVERTED, |IS_PRE_INVERTED})
-    2'b00: always @(posedge C, posedge PRE) if ( PRE) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
-    2'b01: always @(posedge C, negedge PRE) if (!PRE) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
-    2'b10: always @(negedge C, posedge PRE) if ( PRE) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
-    2'b11: always @(negedge C, negedge PRE) if (!PRE) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
+    2'b00: always @(posedge C, posedge PRE) if ( PRE) Q <= 1'b1; else Q <= \$nextQ ;
+    2'b01: always @(posedge C, negedge PRE) if (!PRE) Q <= 1'b1; else Q <= \$nextQ ;
+    2'b10: always @(negedge C, posedge PRE) if ( PRE) Q <= 1'b1; else Q <= \$nextQ ;
+    2'b11: always @(negedge C, negedge PRE) if (!PRE) Q <= 1'b1; else Q <= \$nextQ ;
   endcase endgenerate
+`endif
 endmodule
 
-module FDRE_1 (
-  (* abc_arrival=303 *)
-  output reg Q,
-  (* clkbuf_sink *)
-  input C,
-  input CE, D, R
-);
-  parameter [0:0] INIT = 1'b0;
-  initial Q <= INIT;
-  always @(negedge C) if (R) Q <= 1'b0; else if(CE) Q <= D;
-endmodule
-
-module FDSE_1 (
-  (* abc_arrival=303 *)
-  output reg Q,
-  (* clkbuf_sink *)
-  input C,
-  input CE, D, S
-);
-  parameter [0:0] INIT = 1'b1;
-  initial Q <= INIT;
-  always @(negedge C) if (S) Q <= 1'b1; else if(CE) Q <= D;
-endmodule
-
-module FDCE_1 (
-  (* abc_arrival=303 *)
-  output reg Q,
-  (* clkbuf_sink *)
-  input C,
-  input CE, D, CLR
-);
-  parameter [0:0] INIT = 1'b0;
-  initial Q <= INIT;
-  always @(negedge C, posedge CLR) if (CLR) Q <= 1'b0; else if (CE) Q <= D;
-endmodule
-
+(* abc_box_id=1006, lib_whitebox, abc9_flop *)
 module FDPE_1 (
   (* abc_arrival=303 *)
   output reg Q,
@@ -381,7 +473,115 @@ module FDPE_1 (
 );
   parameter [0:0] INIT = 1'b1;
   initial Q <= INIT;
-  always @(negedge C, posedge PRE) if (PRE) Q <= 1'b1; else if (CE) Q <= D;
+  wire \$currQ ;
+  reg \$nextQ ;
+  always @* if (CE) Q <= D; else \$nextQ = \$currQ ;
+`ifdef _ABC
+  // `abc9' requires that complex flops be split into a combinatorial
+  //   box (this module) feeding a simple flop ($_ABC_FF_ in abc_map.v)
+  //   In order to achieve clock-enable behaviour, the current value
+  //   of the sequential output is required which Yosys will
+  //   connect to the special `\$currQ' wire.
+  // Since this is an async flop, async behaviour is also dealt with
+  //   using the $_ABC_ASYNC box by abc_map.v
+
+  // Special signal indicating clock domain
+  //   (used to partition the module so that `abc9' only performs
+  //    sequential synthesis (reachability analysis) correctly on
+  //    one domain at a time)
+  wire [1:0] \$abc9_clock = {C, 1'b1 /* IS_C_INVERTED */};
+  // Special signal indicating control domain
+  //   (which, combined with this spell type, encodes to `abc9'
+  //    which flops may be merged together)
+  wire [3:0] \$abc9_control = {CE, 1'b0 /* IS_D_INVERTED */, PRE, 1'b0 /* IS_PRE_INVERTED */};
+  always @* Q = \$nextQ ;
+`else
+  assign \$currQ = Q;
+  always @(negedge C, posedge PRE) if (PRE) Q <= 1'b1; else Q <= \$nextQ ;
+`endif
+endmodule
+
+(* abc_box_id=1007, lib_whitebox, abc9_flop *)
+module FDSE (
+  (* abc_arrival=303 *)
+  output reg Q,
+  (* clkbuf_sink *)
+  (* invertible_pin = "IS_C_INVERTED" *)
+  input C,
+  input CE,
+  (* invertible_pin = "IS_D_INVERTED" *)
+  input D,
+  (* invertible_pin = "IS_S_INVERTED" *)
+  input S
+);
+  parameter [0:0] INIT = 1'b1;
+  parameter [0:0] IS_C_INVERTED = 1'b0;
+  parameter [0:0] IS_D_INVERTED = 1'b0;
+  parameter [0:0] IS_S_INVERTED = 1'b0;
+  initial Q <= INIT;
+  wire \$currQ ;
+  reg \$nextQ ;
+  always @* if (S == !IS_S_INVERTED) \$nextQ = 1'b1; else if (CE) \$nextQ = D ^ IS_D_INVERTED; else \$nextQ = \$currQ ;
+`ifdef _ABC
+  // `abc9' requires that complex flops be split into a combinatorial
+  //   box (this module) feeding a simple flop ($_ABC_FF_ in abc_map.v)
+  //   In order to achieve clock-enable behaviour, the current value
+  //   of the sequential output is required which Yosys will
+  //   connect to the special `\$currQ' wire.
+
+  // Special signal indicating clock domain
+  //   (used to partition the module so that `abc9' only performs
+  //    sequential synthesis (reachability analysis) correctly on
+  //    one domain at a time)
+  wire [1:0] \$abc9_clock = {C, IS_C_INVERTED};
+  // Special signal indicating control domain
+  //   (which, combined with this spell type, encodes to `abc9'
+  //    which flops may be merged together)
+  wire [3:0] \$abc9_control = {CE, IS_D_INVERTED, S, IS_S_INVERTED};
+  always @* Q = \$nextQ ;
+`else
+  assign \$currQ = Q;
+  generate case (|IS_C_INVERTED)
+    1'b0: always @(posedge C) Q <= \$nextQ ;
+    1'b1: always @(negedge C) Q <= \$nextQ ;
+  endcase endgenerate
+`endif
+endmodule
+
+(* abc_box_id=1008, lib_whitebox, abc9_flop *)
+module FDSE_1 (
+  (* abc_arrival=303 *)
+  output reg Q,
+  (* clkbuf_sink *)
+  input C,
+  input CE, D, S
+);
+  parameter [0:0] INIT = 1'b1;
+  initial Q <= INIT;
+  wire \$currQ ;
+  reg \$nextQ ;
+  always @* if (S) \$nextQ = 1'b1; else if (CE) \$nextQ = D; else \$nextQ = \$currQ ;
+`ifdef _ABC
+  // `abc9' requires that complex flops be split into a combinatorial
+  //   box (this module) feeding a simple flop ($_ABC_FF_ in abc_map.v)
+  //   In order to achieve clock-enable behaviour, the current value
+  //   of the sequential output is required which Yosys will
+  //   connect to the special `\$currQ' wire.
+
+  // Special signal indicating clock domain
+  //   (used to partition the module so that `abc9' only performs
+  //    sequential synthesis (reachability analysis) correctly on
+  //    one domain at a time)
+  wire [1:0] \$abc9_clock = {C, 1'b1 /* IS_C_INVERTED */};
+  // Special signal indicating control domain
+  //   (which, combined with this spell type, encodes to `abc9'
+  //    which flops may be merged together)
+  wire [3:0] \$abc9_control = {CE, 1'b0 /* IS_D_INVERTED */, S, 1'b0 /* IS_S_INVERTED */};
+  always @* Q = \$nextQ ;
+`else
+  assign \$currQ = Q;
+  always @(negedge C) Q <= \$nextQ ;
+`endif
 endmodule
 
 module RAM32X1D (

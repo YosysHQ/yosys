@@ -81,11 +81,11 @@ struct XAigerWriter
 
 	dict<SigBit, bool> init_map;
 	pool<SigBit> input_bits, output_bits;
-	dict<SigBit, SigBit> not_map, ff_map, alias_map;
+	dict<SigBit, SigBit> not_map, /*ff_map,*/ alias_map;
 	dict<SigBit, pair<SigBit, SigBit>> and_map;
 	vector<std::tuple<SigBit,RTLIL::Cell*,RTLIL::IdString,int>> ci_bits;
 	vector<std::tuple<SigBit,RTLIL::Cell*,RTLIL::IdString,int,int>> co_bits;
-	vector<std::pair<SigBit,int>> ff_bits;
+	dict<SigBit, int> ff_bits;
 	dict<SigBit, float> arrival_times;
 
 	vector<pair<int, int>> aig_gates;
@@ -218,13 +218,8 @@ struct XAigerWriter
 		//       box ordering, but not individual AIG cells
 		dict<SigBit, pool<IdString>> bit_drivers, bit_users;
 		TopoSort<IdString, RTLIL::sort_by_id_str> toposort;
-		struct flop_data_t {
-			IdString d_port;
-			IdString q_port;
-			int q_arrival;
-		};
-		dict<IdString, flop_data_t> flop_data;
 		bool abc_box_seen = false;
+		std::vector<Cell*> flop_boxes;
 
 		for (auto cell : module->selected_cells()) {
 			if (cell->type == "$_NOT_")
@@ -269,6 +264,8 @@ struct XAigerWriter
 				unused_bits.erase(D);
 				undriven_bits.erase(Q);
 				alias_map[Q] = D;
+				auto r = ff_bits.insert(std::make_pair(D, 0));
+				log_assert(r.second);
 				continue;
 			}
 
@@ -277,59 +274,6 @@ struct XAigerWriter
 				abc_box_seen = true;
 
 				toposort.node(cell->name);
-
-				auto r = flop_data.insert(std::make_pair(cell->type, flop_data_t{IdString(), IdString(), 0}));
-				if (r.second && inst_module->attributes.count("\\abc_flop")) {
-					IdString &abc_flop_d = r.first->second.d_port;
-					IdString &abc_flop_q = r.first->second.q_port;
-					for (auto port_name : inst_module->ports) {
-						auto wire = inst_module->wire(port_name);
-						log_assert(wire);
-						if (wire->attributes.count("\\abc_flop_d")) {
-							if (abc_flop_d != IdString())
-								log_error("More than one port has the 'abc_flop_d' attribute set on module '%s'.\n", log_id(cell->type));
-							abc_flop_d = port_name;
-						}
-						if (wire->attributes.count("\\abc_flop_q")) {
-							if (abc_flop_q != IdString())
-								log_error("More than one port has the 'abc_flop_q' attribute set on module '%s'.\n", log_id(cell->type));
-							abc_flop_q = port_name;
-
-							auto it = wire->attributes.find("\\abc_arrival");
-							if (it != wire->attributes.end()) {
-								if (it->second.flags != 0)
-									log_error("Attribute 'abc_arrival' on port '%s' of module '%s' is not an integer.\n", log_id(wire), log_id(cell->type));
-								 r.first->second.q_arrival = it->second.as_int();
-							}
-						}
-					}
-					if (abc_flop_d == IdString())
-						log_error("'abc_flop_d' attribute not found on any ports on module '%s'.\n", log_id(cell->type));
-					if (abc_flop_q == IdString())
-						log_error("'abc_flop_q' attribute not found on any ports on module '%s'.\n", log_id(cell->type));
-				}
-
-				auto abc_flop_d = r.first->second.d_port;
-				if (abc_flop_d != IdString()) {
-					SigBit d = cell->getPort(abc_flop_d);
-					SigBit I = sigmap(d);
-					if (I != d)
-						alias_map[d] = I;
-					unused_bits.erase(d);
-
-					auto abc_flop_q = r.first->second.q_port;
-					SigBit q = cell->getPort(abc_flop_q);
-					log_assert(q == sigmap(q));
-					undriven_bits.erase(q);
-					auto it = cell->attributes.find(ID(abc_mergeability));
-					log_assert(it != cell->attributes.end());
-					ff_bits.emplace_back(q, it->second.as_int());
-					cell->attributes.erase(it);
-
-					auto arrival = r.first->second.q_arrival;
-					if (arrival)
-						arrival_times[q] = arrival;
-				}
 
 				for (const auto &conn : cell->connections()) {
 					auto port_wire = inst_module->wire(conn.first);
@@ -345,6 +289,8 @@ struct XAigerWriter
 							bit_drivers[bit].insert(cell->name);
 				}
 
+				if (inst_module->attributes.count("\\abc9_flop"))
+					flop_boxes.push_back(cell);
 				continue;
 			}
 
@@ -403,6 +349,45 @@ struct XAigerWriter
 		}
 
 		if (abc_box_seen) {
+			dict<IdString, std::pair<IdString,int>> flop_q;
+			for (auto cell : flop_boxes) {
+				auto r = flop_q.insert(std::make_pair(cell->type, std::make_pair(IdString(), 0)));
+				SigBit d;
+				if (r.second) {
+					for (const auto &conn : cell->connections()) {
+						const SigSpec &rhs = conn.second;
+						if (!rhs.is_bit())
+							continue;
+						if (!ff_bits.count(rhs))
+							continue;
+						r.first->second.first = conn.first;
+						Module *inst_module = module->design->module(cell->type);
+						Wire *wire = inst_module->wire(conn.first);
+						log_assert(wire);
+						auto jt = wire->attributes.find("\\abc_arrival");
+						if (jt != wire->attributes.end()) {
+							if (jt->second.flags != 0)
+								log_error("Attribute 'abc_arrival' on port '%s' of module '%s' is not an integer.\n", log_id(wire), log_id(cell->type));
+							r.first->second.second = jt->second.as_int();
+						}
+						d = rhs;
+						log_assert(d == sigmap(d));
+						break;
+					}
+				}
+				else
+					d = cell->getPort(r.first->second.first);
+
+				auto it = cell->attributes.find(ID(abc9_mergeability));
+				log_assert(it != cell->attributes.end());
+				ff_bits.at(d) = it->second.as_int();
+				cell->attributes.erase(it);
+
+				auto arrival = r.first->second.second;
+				if (arrival)
+					arrival_times[d] = arrival;
+			}
+
 			for (auto &it : bit_users)
 				if (bit_drivers.count(it.first))
 					for (auto driver_cell : bit_drivers.at(it.first))
@@ -498,6 +483,29 @@ struct XAigerWriter
 						}
 					}
 				}
+
+				if (box_module->get_bool_attribute("\\abc9_flop")) {
+					IdString port_name = "\\$currQ";
+					RTLIL::Wire* w = box_module->wire(port_name);
+					SigSpec rhs = cell->getPort(port_name);
+					log_assert(GetSize(w) == GetSize(rhs));
+
+					int offset = 0;
+					for (auto b : rhs.bits()) {
+						SigBit I = sigmap(b);
+						if (b == RTLIL::Sx)
+							b = State::S0;
+						else if (I != b) {
+							if (I == RTLIL::Sx)
+								alias_map[b] = State::S0;
+							else
+								alias_map[b] = I;
+						}
+						co_bits.emplace_back(b, cell, port_name, offset++, 0);
+						unused_bits.erase(b);
+					}
+				}
+
 				box_list.emplace_back(cell);
 			}
 
@@ -569,7 +577,7 @@ struct XAigerWriter
 		}
 
 		not_map.sort();
-		ff_map.sort();
+		//ff_map.sort();
 		and_map.sort();
 
 		aig_map[State::S0] = 0;
@@ -850,6 +858,28 @@ struct XAigerWriter
 					}
 				}
 
+				if (box_module->get_bool_attribute("\\abc9_flop")) {
+					log_assert(holes_cell);
+					IdString port_name = "\\$currQ";
+					Wire* w = box_module->wire(port_name);
+					SigSpec rhs = cell->getPort(port_name);
+					log_assert(GetSize(w) == GetSize(rhs));
+					SigSpec port_wire;
+					Wire *holes_wire;
+					for (int i = 0; i < GetSize(w); i++) {
+						box_inputs++;
+						holes_wire = holes_module->wire(stringf("\\i%d", box_inputs));
+						if (!holes_wire) {
+							holes_wire = holes_module->addWire(stringf("\\i%d", box_inputs));
+							holes_wire->port_input = true;
+							holes_wire->port_id = port_id++;
+							holes_module->ports.push_back(holes_wire->name);
+						}
+						port_wire.append(holes_wire);
+					}
+					holes_cell->setPort(w->name, port_wire);
+				}
+
 				write_h_buffer(box_inputs);
 				write_h_buffer(box_outputs);
 				write_h_buffer(box_module->attributes.at("\\abc_box_id").as_int());
@@ -861,6 +891,7 @@ struct XAigerWriter
 			log_debug("flopNum = %d\n", GetSize(ff_bits));
 			write_r_buffer(ff_bits.size());
 			for (const auto &i : ff_bits) {
+				log_assert(i.second > 0);
 				write_r_buffer(i.second);
 				const SigBit &bit = i.first;
 				write_i_buffer(arrival_times.at(bit, 0));

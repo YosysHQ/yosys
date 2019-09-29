@@ -52,35 +52,45 @@ $__ABC_ASYNC 1000 0 2 1
 # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L237-L251
 # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L265-L277
 
-# Inputs: C CE D R \$pastQ
+# Inputs: C CE D R \$currQ
 # Outputs: Q
 FDRE 1001 1 5 1
 0 151 0 446 0
 
-# Inputs: C CE D R \$pastQ
+# Inputs: C CE D R \$currQ
 # Outputs: Q
 FDRE_1 1002 1 5 1
 0 151 0 446 0
 
-# Inputs: C CE CLR D \$pastQ
+# Inputs: C CE CLR D \$currQ
 # Outputs: Q
 FDCE 1003 1 5 1
 0 151 806 0 0
 
-# Inputs: C CE CLR D \$pastQ
+# Inputs: C CE CLR D \$currQ
 # Outputs: Q
 FDCE_1 1004 1 5 1
 0 151 806 0 0
 
-# Inputs: C CE D PRE \$pastQ
+# Inputs: C CE D PRE \$currQ
 # Outputs: Q
 FDPE 1005 1 5 1
 0 151 0 806 0
 
-# Inputs: C CE D PRE \$pastQ
+# Inputs: C CE D PRE \$currQ
 # Outputs: Q
 FDPE_1 1006 1 5 1
 0 151 0 806 0
+
+# Inputs: C CE D S \$currQ
+# Outputs: Q
+FDSE 1007 1 5 1
+0 151 0 446 0
+
+# Inputs: C CE D S \$currQ
+# Outputs: Q
+FDSE_1 1008 1 5 1
+0 151 0 446 0
 
 # SLICEM/A6LUT
 # Box to emulate comb/seq behaviour of RAMD{32,64} and SRL{16,32}
