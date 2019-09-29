@@ -75,7 +75,7 @@ inline std::string remap_name(RTLIL::IdString abc_name)
 
 void handle_loops(RTLIL::Design *design)
 {
-	Pass::call(design, "scc -set_attr abc_scc_id {}");
+	Pass::call(design, "scc -set_attr abc_scc_id {} % w:*");
 
 	// For every unique SCC found, (arbitrarily) find the first
 	// cell in the component, and select (and mark) all its output
