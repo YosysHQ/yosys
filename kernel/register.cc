@@ -612,7 +612,7 @@ void Backend::execute(std::vector<std::string> args, RTLIL::Design *design)
 		delete f;
 }
 
-void Backend::extra_args(std::ostream *&f, std::string &filename, std::vector<std::string> args, size_t argidx)
+void Backend::extra_args(std::ostream *&f, std::string &filename, std::vector<std::string> args, size_t argidx, bool bin_output)
 {
 	bool called_with_fp = f != NULL;
 
@@ -647,7 +647,7 @@ void Backend::extra_args(std::ostream *&f, std::string &filename, std::vector<st
 #endif
 		} else {
 			std::ofstream *ff = new std::ofstream;
-			ff->open(filename.c_str(), std::ofstream::trunc);
+			ff->open(filename.c_str(), bin_output ? (std::ofstream::trunc | std::ofstream::binary) : std::ofstream::trunc);
 			yosys_output_files.insert(filename);
 			if (ff->fail()) {
 				delete ff;
