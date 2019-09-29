@@ -1,0 +1,336 @@
+pattern xilinx_dsp_cascade
+
+udata <std::function<SigSpec(const SigSpec&)>> unextend
+udata <vector<std::tuple<Cell*,int,int,int>>> chain longest_chain
+state <Cell*> next
+state <SigSpec> clock
+state <int> AREG BREG
+
+// subpattern
+state <SigSpec> argQ argD
+state <bool> ffcepol ffrstpol
+state <int> ffoffset
+udata <SigSpec> dffD dffQ
+udata <SigBit> dffclock
+udata <Cell*> dff dffcemux dffrstmux
+udata <bool> dffcepol dffrstpol
+
+code
+#define MAX_DSP_CASCADE 20
+endcode
+
+match first
+	select first->type.in(\DSP48E1)
+	select port(first, \OPMODE, Const(0, 7)).extract(4,3) == Const::from_string("000")
+	select nusers(port(first, \PCOUT, SigSpec())) <= 1
+endmatch
+
+code
+	longest_chain.clear();
+	chain.emplace_back(first, -1, -1, -1);
+	subpattern(tail);
+finally
+	chain.pop_back();
+	log_assert(chain.empty());
+	if (GetSize(longest_chain) > 1) {
+		Cell *dsp = std::get<0>(longest_chain.front());
+
+		Cell *dsp_pcin;
+		int P, AREG, BREG;
+		for (int i = 1; i < GetSize(longest_chain); i++) {
+			std::tie(dsp_pcin,P,AREG,BREG) = longest_chain[i];
+
+			if (i % MAX_DSP_CASCADE > 0) {
+				if (P >= 0) {
+					Wire *cascade = module->addWire(NEW_ID, 48);
+					dsp_pcin->setPort(ID(C), Const(0, 48));
+					dsp_pcin->setPort(ID(PCIN), cascade);
+					dsp->setPort(ID(PCOUT), cascade);
+					add_siguser(cascade, dsp_pcin);
+					add_siguser(cascade, dsp);
+
+					SigSpec opmode = port(dsp_pcin, \OPMODE, Const(0, 7));
+					if (P == 17)
+						opmode[6] = State::S1;
+					else if (P == 0)
+						opmode[6] = State::S0;
+					else log_abort();
+
+					opmode[5] = State::S0;
+					opmode[4] = State::S1;
+					dsp_pcin->setPort(\OPMODE, opmode);
+
+					log_debug("PCOUT -> PCIN cascade for %s -> %s\n", log_id(dsp), log_id(dsp_pcin));
+				}
+				if (AREG >= 0) {
+					Wire *cascade = module->addWire(NEW_ID, 30);
+					dsp_pcin->setPort(ID(A), Const(0, 30));
+					dsp_pcin->setPort(ID(ACIN), cascade);
+					dsp->setPort(ID(ACOUT), cascade);
+					add_siguser(cascade, dsp_pcin);
+					add_siguser(cascade, dsp);
+
+					dsp->setParam(ID(ACASCREG), AREG);
+					dsp_pcin->setParam(ID(A_INPUT), Const("CASCADE"));
+
+					log_debug("ACOUT -> ACIN cascade for %s -> %s\n", log_id(dsp), log_id(dsp_pcin));
+				}
+				if (BREG >= 0) {
+					Wire *cascade = module->addWire(NEW_ID, 18);
+					dsp_pcin->setPort(ID(B), Const(0, 18));
+					dsp_pcin->setPort(ID(BCIN), cascade);
+					dsp->setPort(ID(BCOUT), cascade);
+					add_siguser(cascade, dsp_pcin);
+					add_siguser(cascade, dsp);
+
+					dsp->setParam(ID(BCASCREG), BREG);
+					dsp_pcin->setParam(ID(B_INPUT), Const("CASCADE"));
+
+					log_debug("BCOUT -> BCIN cascade for %s -> %s\n", log_id(dsp), log_id(dsp_pcin));
+				}
+			}
+			else {
+				log_debug("  Blocking %s -> %s cascade (exceeds max: %d)\n", log_id(dsp), log_id(dsp_pcin), MAX_DSP_CASCADE);
+			}
+
+			dsp = dsp_pcin;
+		}
+
+		accept;
+	}
+endcode
+
+// ------------------------------------------------------------------
+
+subpattern tail
+arg first
+arg next
+
+match nextP
+	select nextP->type.in(\DSP48E1)
+	select !param(nextP, \CREG, State::S1).as_bool()
+	select port(nextP, \OPMODE, Const(0, 7)).extract(4,3) == Const::from_string("011")
+	select nusers(port(nextP, \C, SigSpec())) > 1
+	select nusers(port(nextP, \PCIN, SigSpec())) == 0
+	index <SigBit> port(nextP, \C)[0] === port(std::get<0>(chain.back()), \P)[0]
+	semioptional
+endmatch
+
+match nextP_shift17
+	if !nextP
+	select nextP_shift17->type.in(\DSP48E1)
+	select !param(nextP_shift17, \CREG, State::S1).as_bool()
+	select port(nextP_shift17, \OPMODE, Const(0, 7)).extract(4,3) == Const::from_string("011")
+	select nusers(port(nextP_shift17, \C, SigSpec())) > 1
+	select nusers(port(nextP_shift17, \PCIN, SigSpec())) == 0
+	index <SigBit> port(nextP_shift17, \C)[0] === port(std::get<0>(chain.back()), \P)[17]
+	semioptional
+endmatch
+
+code next
+	next = nextP;
+	if (!nextP)
+		next = nextP_shift17;
+	if (next) {
+		unextend = [](const SigSpec &sig) {
+			int i;
+			for (i = GetSize(sig)-1; i > 0; i--)
+				if (sig[i] != sig[i-1])
+					break;
+			// Do not remove non-const sign bit
+			if (sig[i].wire)
+				++i;
+			return sig.extract(0, i);
+		};
+	}
+endcode
+
+code argQ clock AREG
+	AREG = -1;
+	if (next) {
+		Cell *prev = std::get<0>(chain.back());
+		if (param(prev, \AREG, 2).as_int() > 0 &&
+				param(next, \AREG, 2).as_int() > 0 &&
+				param(next, \A_INPUT, Const("DIRECT")).decode_string() == "DIRECT" &&
+				port(next, \ACIN, SigSpec()).is_fully_zero() &&
+				nusers(port(prev, \ACOUT, SigSpec())) <= 1) {
+			argQ = unextend(port(next, \A));
+			clock = port(prev, \CLK);
+			subpattern(in_dffe);
+			if (dff) {
+				if (!dffrstmux && port(prev, \RSTA, State::S0) != State::S0)
+					goto reject_AREG;
+				if (dffrstmux && port(dffrstmux, \S) != port(prev, \RSTA, State::S0))
+					goto reject_AREG;
+				if (!dffcemux && port(prev, \CEA2, State::S0) != State::S0)
+					goto reject_AREG;
+				if (dffcemux && port(dffcemux, \S) != port(prev, \CEA2, State::S0))
+					goto reject_AREG;
+				if (dffD == unextend(port(prev, \A)))
+					AREG = 1;
+reject_AREG:			;
+			}
+		}
+	}
+endcode
+
+code argQ clock BREG
+	BREG = -1;
+	if (next) {
+		Cell *prev = std::get<0>(chain.back());
+		if (param(prev, \BREG, 2).as_int() > 0 &&
+				param(next, \BREG, 2).as_int() > 0 &&
+				param(next, \B_INPUT, Const("DIRECT")).decode_string() == "DIRECT" &&
+				port(next, \BCIN, SigSpec()).is_fully_zero() &&
+				nusers(port(prev, \BCOUT, SigSpec())) <= 1) {
+			argQ = unextend(port(next, \B));
+			clock = port(prev, \CLK);
+			subpattern(in_dffe);
+			if (dff) {
+				if (!dffrstmux && port(prev, \RSTB, State::S0) != State::S0)
+					goto reject_BREG;
+				if (dffrstmux && port(dffrstmux, \S) != port(prev, \RSTB, State::S0))
+					goto reject_BREG;
+				if (!dffcemux && port(prev, \CEB2, State::S0) != State::S0)
+					goto reject_BREG;
+				if (dffcemux && port(dffcemux, \S) != port(prev, \CEB2, State::S0))
+					goto reject_BREG;
+				if (dffD == unextend(port(prev, \B)))
+					BREG = 1;
+reject_BREG:			;
+			}
+		}
+	}
+endcode
+
+code
+	if (next) {
+		chain.emplace_back(next, nextP_shift17 ? 17 : nextP ? 0 : -1, AREG, BREG);
+
+		SigSpec sigC = unextend(port(next, \C));
+
+		// TODO: Cannot use 'reject' since semioptional
+		if (nextP_shift17) {
+			if (GetSize(sigC)+17 <= GetSize(port(std::get<0>(chain.back()), \P)) &&
+					port(std::get<0>(chain.back()), \P).extract(17, GetSize(sigC)) != sigC)
+				subpattern(tail);
+		}
+		else {
+			if (GetSize(sigC) <= GetSize(port(std::get<0>(chain.back()), \P)) &&
+					port(std::get<0>(chain.back()), \P).extract(0, GetSize(sigC)) != sigC)
+				subpattern(tail);
+
+		}
+	} else {
+		if (GetSize(chain) > GetSize(longest_chain))
+			longest_chain = chain;
+	}
+finally
+	if (next)
+		chain.pop_back();
+endcode
+
+// #######################
+
+subpattern in_dffe
+arg argD argQ clock
+
+code
+	dff = nullptr;
+	for (auto c : argQ.chunks()) {
+		if (!c.wire)
+			reject;
+		if (c.wire->get_bool_attribute(\keep))
+			reject;
+		Const init = c.wire->attributes.at(\init, State::Sx);
+		if (!init.is_fully_undef() && !init.is_fully_zero())
+			reject;
+	}
+endcode
+
+match ff
+	select ff->type.in($dff)
+	// DSP48E1 does not support clock inversion
+	select param(ff, \CLK_POLARITY).as_bool()
+
+	slice offset GetSize(port(ff, \D))
+	index <SigBit> port(ff, \Q)[offset] === argQ[0]
+
+	// Check that the rest of argQ is present
+	filter GetSize(port(ff, \Q)) >= offset + GetSize(argQ)
+	filter port(ff, \Q).extract(offset, GetSize(argQ)) == argQ
+
+	set ffoffset offset
+endmatch
+
+code argQ argD
+{
+	if (clock != SigBit() && port(ff, \CLK) != clock)
+		reject;
+
+	SigSpec Q = port(ff, \Q);
+	dff = ff;
+	dffclock = port(ff, \CLK);
+	dffD = argQ;
+	argD = port(ff, \D);
+	argQ = Q;
+	dffD.replace(argQ, argD);
+	// Only search for ffrstmux if dffD only
+	//   has two (ff, ffrstmux) users
+	if (nusers(dffD) > 2)
+		argD = SigSpec();
+}
+endcode
+
+match ffrstmux
+	if !argD.empty()
+	select ffrstmux->type.in($mux)
+	index <SigSpec> port(ffrstmux, \Y) === argD
+
+	choice <IdString> BA {\B, \A}
+	// DSP48E1 only supports reset to zero
+	select port(ffrstmux, BA).is_fully_zero()
+
+	define <bool> pol (BA == \B)
+	set ffrstpol pol
+	semioptional
+endmatch
+
+code argD
+	if (ffrstmux) {
+		dffrstmux = ffrstmux;
+		dffrstpol = ffrstpol;
+		argD = port(ffrstmux, ffrstpol ? \A : \B);
+		dffD.replace(port(ffrstmux, \Y), argD);
+
+		// Only search for ffcemux if argQ has at
+		//   least 3 users (ff, <upstream>, ffrstmux) and
+		//   dffD only has two (ff, ffrstmux)
+		if (!(nusers(argQ) >= 3 && nusers(dffD) == 2))
+			argD = SigSpec();
+	}
+	else
+		dffrstmux = nullptr;
+endcode
+
+match ffcemux
+	if !argD.empty()
+	select ffcemux->type.in($mux)
+	index <SigSpec> port(ffcemux, \Y) === argD
+	choice <IdString> AB {\A, \B}
+	index <SigSpec> port(ffcemux, AB) === argQ
+	define <bool> pol (AB == \A)
+	set ffcepol pol
+	semioptional
+endmatch
+
+code argD
+	if (ffcemux) {
+		dffcemux = ffcemux;
+		dffcepol = ffcepol;
+		argD = port(ffcemux, ffcepol ? \B : \A);
+		dffD.replace(port(ffcemux, \Y), argD);
+	}
+	else
+		dffcemux = nullptr;
+endcode

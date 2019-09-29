@@ -286,7 +286,7 @@ def process_pmgfile(f, filename):
                         block["gencode"].append(rewrite_cpp(l.rstrip()))
                     break
 
-                assert False
+                raise RuntimeError("'%s' statement not recognised on line %d" % (a[0], linenr))
 
             if block["optional"]:
                 assert not block["semioptional"]
@@ -305,7 +305,8 @@ def process_pmgfile(f, filename):
             block["states"] = set()
 
             for s in line.split()[1:]:
-                assert s in state_types[current_pattern]
+                if s not in state_types[current_pattern]:
+                    raise RuntimeError("'%s' not in state_types" % s)
                 block["states"].add(s)
 
             codetype = "code"
@@ -327,7 +328,7 @@ def process_pmgfile(f, filename):
             blocks.append(block)
             continue
 
-        assert False
+        raise RuntimeError("'%s' command not recognised" % cmd)
 
 for fn in pmgfiles:
     with open(fn, "r") as f:
@@ -452,9 +453,17 @@ with open(outfile, "w") as f:
     print("    return sigmap(cell->getPort(portname));", file=f)
     print("  }", file=f)
     print("", file=f)
+    print("  SigSpec port(Cell *cell, IdString portname, const SigSpec& defval) {", file=f)
+    print("    return sigmap(cell->connections_.at(portname, defval));", file=f)
+    print("  }", file=f)
+    print("", file=f)
 
     print("  Const param(Cell *cell, IdString paramname) {", file=f)
     print("    return cell->getParam(paramname);", file=f)
+    print("  }", file=f)
+    print("", file=f)
+    print("  Const param(Cell *cell, IdString paramname, const Const& defval) {", file=f)
+    print("    return cell->parameters.at(paramname, defval);", file=f)
     print("  }", file=f)
     print("", file=f)
 

@@ -351,6 +351,11 @@ struct TestAutotbBackend : public Backend {
 		log("    -n <int>\n");
 		log("        number of iterations the test bench should run (default = 1000)\n");
 		log("\n");
+		log("    -seed <int>\n");
+		log("        seed used for pseudo-random number generation (default = 0).\n");
+		log("        a value of 0 will cause an arbitrary seed to be chosen, based on\n");
+		log("        the current system time.\n");
+		log("\n");
 	}
 	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{

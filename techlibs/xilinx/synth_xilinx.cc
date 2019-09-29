@@ -81,6 +81,9 @@ struct SynthXilinxPass : public ScriptPass
 		log("    -nowidelut\n");
 		log("        do not use MUXF[78] resources to implement LUTs larger than LUT6s\n");
 		log("\n");
+		log("    -nodsp\n");
+		log("        do not use DSP48E1s to implement multipliers and associated logic\n");
+		log("\n");
 		log("    -iopad\n");
 		log("        enable I/O buffer insertion (selected automatically by -ise)\n");
 		log("\n");
@@ -116,7 +119,7 @@ struct SynthXilinxPass : public ScriptPass
 	}
 
 	std::string top_opt, edif_file, blif_file, family;
-	bool flatten, retime, vpr, ise, iopad, noiopad, noclkbuf, nobram, nolutram, nosrl, nocarry, nowidelut, abc9;
+	bool flatten, retime, vpr, ise, iopad, noiopad, noclkbuf, nobram, nolutram, nosrl, nocarry, nowidelut, nodsp, abc9;
 	bool flatten_before_abc;
 	int widemux;
 
@@ -139,6 +142,7 @@ struct SynthXilinxPass : public ScriptPass
 		nosrl = false;
 		nocarry = false;
 		nowidelut = false;
+		nodsp = false;
 		abc9 = false;
 		flatten_before_abc = false;
 		widemux = 0;
@@ -240,6 +244,10 @@ struct SynthXilinxPass : public ScriptPass
 				abc9 = true;
 				continue;
 			}
+			if (args[argidx] == "-nodsp") {
+				nodsp = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -302,10 +310,10 @@ struct SynthXilinxPass : public ScriptPass
 			run(stringf("hierarchy -check %s", top_opt.c_str()));
 		}
 
-		if (check_label("coarse")) {
+		if (check_label("prepare")) {
 			run("proc");
-			if (help_mode || flatten)
-				run("flatten", "(if -flatten)");
+			if (flatten || help_mode)
+				run("flatten", "(with '-flatten')");
 			run("opt_expr");
 			run("opt_clean");
 			run("check");
@@ -329,6 +337,26 @@ struct SynthXilinxPass : public ScriptPass
 			}
 
 			run("techmap -map +/cmp2lut.v -D LUT_WIDTH=6");
+		}
+
+		if (check_label("map_dsp"), "(skip if '-nodsp')") {
+			if (!nodsp || help_mode) {
+				// NB: Xilinx multipliers are signed only
+				run("techmap -map +/mul2dsp.v -map +/xilinx/dsp_map.v -D DSP_A_MAXWIDTH=25 -D DSP_A_MAXWIDTH_PARTIAL=18 -D DSP_B_MAXWIDTH=18 "
+						"-D DSP_A_MINWIDTH=2 -D DSP_B_MINWIDTH=2 " // Blocks Nx1 multipliers
+						"-D DSP_Y_MINWIDTH=9 " // UG901 suggests small multiplies are those 4x4 and smaller
+						"-D DSP_SIGNEDONLY=1 -D DSP_NAME=$__MUL25X18");
+				run("select a:mul2dsp");
+				run("setattr -unset mul2dsp");
+				run("opt_expr -fine");
+				run("wreduce");
+				run("select -clear");
+				run("xilinx_dsp");
+				run("chtype -set $mul t:$__soft_mul");
+			}
+		}
+
+		if (check_label("coarse")) {
 			run("alumacc");
 			run("share");
 			run("opt");

@@ -43,6 +43,12 @@ Yosys 0.9 .. Yosys 0.9-dev
     - Added "-match-init" option to "dff2dffs" pass
     - Added "techmap_autopurge" support to techmap
     - Added "add -mod <modname[s]>"
+    - Added +/mul2dsp.v for decomposing wide multipliers to custom-sized ones
+    - Added "ice40_dsp" for Lattice iCE40 DSP packing
+    - Added "xilinx_dsp" for Xilinx DSP packing
+    - "synth_xilinx" to now infer DSP blocks (-nodsp to disable)
+    - "synth_ecp5" to now infer DSP blocks (-nodsp to disable, experimental)
+    - "synth_ice40 -dsp" to infer DSP blocks
 
 Yosys 0.8 .. Yosys 0.9
 ----------------------
