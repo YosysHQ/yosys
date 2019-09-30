@@ -156,6 +156,8 @@ struct EquivOptPass:public ScriptPass
 		if (check_label("prove")) {
 			if (multiclock || help_mode)
 				run("clk2fflogic", "(only with -multiclock)");
+			else
+				run("async2sync", "(only without -multiclock)");
 			run("equiv_make gold gate equiv");
 			if (help_mode)
 				run("equiv_induct [-undef] equiv");
