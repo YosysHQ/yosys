@@ -285,6 +285,8 @@ end_of_header:
 		}
 		else if (c == 'c') {
 			f.ignore(1);
+			if (f.peek() == '\r')
+				f.ignore(1);
 			if (f.peek() == '\n')
 				break;
 			// Else constraint (TODO)
@@ -1056,13 +1058,15 @@ struct AigerFrontend : public Frontend {
 			}
 			break;
 		}
-		extra_args(f, filename, args, argidx);
+		extra_args(f, filename, args, argidx, true);
 
 		if (module_name.empty()) {
 #ifdef _WIN32
 			char fname[_MAX_FNAME];
 			_splitpath(filename.c_str(), NULL /* drive */, NULL /* dir */, fname, NULL /* ext */);
-			module_name = fname;
+			char* bn = strdup(fname);
+			module_name = RTLIL::escape_id(bn);
+			free(bn);
 #else
 			char* bn = strdup(filename.c_str());
 			module_name = RTLIL::escape_id(bn);

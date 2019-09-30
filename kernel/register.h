@@ -94,7 +94,7 @@ struct Frontend : Pass
 	virtual void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) = 0;
 
 	static std::vector<std::string> next_args;
-	void extra_args(std::istream *&f, std::string &filename, std::vector<std::string> args, size_t argidx);
+	void extra_args(std::istream *&f, std::string &filename, std::vector<std::string> args, size_t argidx, bool bin_input = false);
 
 	static void frontend_call(RTLIL::Design *design, std::istream *f, std::string filename, std::string command);
 	static void frontend_call(RTLIL::Design *design, std::istream *f, std::string filename, std::vector<std::string> args);
