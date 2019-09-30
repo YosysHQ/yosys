@@ -804,20 +804,23 @@ struct XAigerWriter
 			RTLIL::Module *holes_module = module->design->addModule("$__holes__");
 			log_assert(holes_module);
 
+			dict<IdString, Cell*> cell_cache;
+
 			int port_id = 1;
 			int box_count = 0;
 			for (auto cell : box_list) {
 				RTLIL::Module* box_module = module->design->module(cell->type);
-				if (box_module->get_bool_attribute("\\abc9_flop")) {
-					auto derived_name = box_module->derive(module->design, cell->parameters);
-					box_module = module->design->module(derived_name);
-				}
+				log_assert(box_module);
+				IdString derived_name = box_module->derive(module->design, cell->parameters);
+				box_module = module->design->module(derived_name);
 
 				int box_inputs = 0, box_outputs = 0;
-				Cell *holes_cell = nullptr;
-				if (box_module->get_bool_attribute("\\whitebox")) {
+				auto r = cell_cache.insert(std::make_pair(derived_name, nullptr));
+				Cell *holes_cell = r.first->second;
+				if (r.second && !holes_cell && box_module->get_bool_attribute("\\whitebox")) {
 					holes_cell = holes_module->addCell(cell->name, cell->type);
 					holes_cell->parameters = cell->parameters;
+					r.first->second = holes_cell;
 				}
 
 				// NB: Assume box_module->ports are sorted alphabetically
@@ -827,7 +830,7 @@ struct XAigerWriter
 					log_assert(w);
 					RTLIL::Wire *holes_wire;
 					RTLIL::SigSpec port_wire;
-					if (w->port_input) {
+					if (w->port_input)
 						for (int i = 0; i < GetSize(w); i++) {
 							box_inputs++;
 							holes_wire = holes_module->wire(stringf("\\i%d", box_inputs));
@@ -840,9 +843,6 @@ struct XAigerWriter
 							if (holes_cell)
 								port_wire.append(holes_wire);
 						}
-						if (!port_wire.empty())
-							holes_cell->setPort(w->name, port_wire);
-					}
 					if (w->port_output) {
 						box_outputs += GetSize(w);
 						for (int i = 0; i < GetSize(w); i++) {
@@ -858,8 +858,12 @@ struct XAigerWriter
 							else
 								holes_module->connect(holes_wire, State::S0);
 						}
-						if (!port_wire.empty())
+					}
+					if (!port_wire.empty()) {
+						if (r.second)
 							holes_cell->setPort(w->name, port_wire);
+						else
+							holes_module->connect(port_wire, holes_cell->getPort(w->name));
 					}
 				}
 
@@ -921,10 +925,6 @@ struct XAigerWriter
 				log_assert(design->selected_active_module == module->name.c_str());
 				design->selected_active_module = holes_module->name.str();
 				sel.select(holes_module);
-
-				// TODO: Should not need to opt_merge if we only instantiate
-				//       each box type once...
-				Pass::call(design, "opt_merge -share_all");
 
 				Pass::call(design, "flatten -wb");
 
