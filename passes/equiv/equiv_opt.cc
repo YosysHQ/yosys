@@ -32,7 +32,8 @@ struct EquivOptPass:public ScriptPass
 		log("\n");
 		log("    equiv_opt [options] [command]\n");
 		log("\n");
-		log("This command checks circuit equivalence before and after an optimization pass.\n");
+		log("This command uses temporal induction to check circuit equivalence before and\n");
+                log("after an optimization pass.\n");
 		log("\n");
 		log("    -run <from_label>:<to_label>\n");
 		log("        only run the commands between the labels (see below). an empty\n");
@@ -156,7 +157,7 @@ struct EquivOptPass:public ScriptPass
 		if (check_label("prove")) {
 			if (multiclock || help_mode)
 				run("clk2fflogic", "(only with -multiclock)");
-			else
+			if (!multiclock || help_mode)
 				run("async2sync", "(only without -multiclock)");
 			run("equiv_make gold gate equiv");
 			if (help_mode)
