@@ -419,6 +419,8 @@ struct XAigerWriter
 				if (!box_module || !box_module->attributes.count("\\abc_box_id"))
 					continue;
 
+				bool blackbox = box_module->get_blackbox_attribute(true /* ignore_wb */);
+
 				// Fully pad all unused input connections of this box cell with S0
 				// Fully pad all undriven output connections of this box cell with anonymous wires
 				// NB: Assume box_module->ports are sorted alphabetically
@@ -463,7 +465,10 @@ struct XAigerWriter
 							rhs = it->second;
 						}
 						else {
-							rhs = module->addWire(NEW_ID, GetSize(w));
+							Wire *wire = module->addWire(NEW_ID, GetSize(w));
+							if (blackbox)
+								wire->set_bool_attribute(ID(abc_padding));
+							rhs = wire;
 							cell->setPort(port_name, rhs);
 						}
 
@@ -474,12 +479,7 @@ struct XAigerWriter
 							if (O != b)
 								alias_map[O] = b;
 							undriven_bits.erase(O);
-
-							auto jt = input_bits.find(b);
-							if (jt != input_bits.end()) {
-								log_assert(keep_bits.count(O));
-								input_bits.erase(b);
-							}
+							input_bits.erase(b);
 						}
 					}
 				}
@@ -521,7 +521,7 @@ struct XAigerWriter
 			// inherit existing inout's drivers
 			if ((wire->port_input && wire->port_output && !undriven_bits.count(bit))
 					|| keep_bits.count(bit)) {
-				RTLIL::IdString wire_name = wire->name.str() + "$inout.out";
+				RTLIL::IdString wire_name = stringf("$%s$inout.out", wire->name.c_str());
 				RTLIL::Wire *new_wire = module->wire(wire_name);
 				if (!new_wire)
 					new_wire = module->addWire(wire_name, GetSize(wire));

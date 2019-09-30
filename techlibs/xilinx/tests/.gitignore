@@ -4,3 +4,8 @@ bram1_[0-9]*/
 bram2.log
 bram2_syn.v
 bram2_tb
+dsp_work*/
+test_dsp_model_ref.v
+test_dsp_model_uut.v
+test_dsp_model
+*.vcd

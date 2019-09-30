@@ -553,7 +553,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 				existing_cell = module->cell(mapped_cell->name);
 				log_assert(existing_cell);
 				cell = module->addCell(remap_name(mapped_cell->name), mapped_cell->type);
-				module->swap_names(cell, existing_cell);
 			}
 
 			if (markgroups) cell->attributes[ID(abcgroup)] = map_autoidx;
@@ -594,8 +593,22 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			}
 		}
 
-		for (auto cell : boxes)
-			module->remove(cell);
+		for (auto existing_cell : boxes) {
+			Cell *cell = module->cell(remap_name(existing_cell->name));
+			if (cell) {
+				for (auto &conn : existing_cell->connections()) {
+					if (!conn.second.is_wire())
+						continue;
+					Wire *wire = conn.second.as_wire();
+					if (!wire->get_bool_attribute(ID(abc_padding)))
+						continue;
+					cell->unsetPort(conn.first);
+					log_debug("Dropping padded port connection for %s (%s) .%s (%s )\n", log_id(cell), cell->type.c_str(), log_id(conn.first), log_signal(conn.second));
+				}
+				module->swap_names(cell, existing_cell);
+			}
+			module->remove(existing_cell);
+		}
 
 		// Copy connections (and rename) from mapped_mod to module
 		for (auto conn : mapped_mod->connections()) {

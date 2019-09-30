@@ -902,7 +902,7 @@ void AigerReader::post_process()
 					if (!existing) {
 						if (escaped_s.ends_with("$inout.out")) {
 							wire->port_output = false;
-							RTLIL::Wire *in_wire = module->wire(escaped_s.substr(0, escaped_s.size()-10));
+							RTLIL::Wire *in_wire = module->wire(escaped_s.substr(1, escaped_s.size()-11));
 							log_assert(in_wire);
 							log_assert(in_wire->port_input && !in_wire->port_output);
 							in_wire->port_output = true;
@@ -923,7 +923,7 @@ void AigerReader::post_process()
 					if (!existing) {
 						if (escaped_s.ends_with("$inout.out")) {
 							wire->port_output = false;
-							RTLIL::Wire *in_wire = module->wire(stringf("%s[%d]", escaped_s.substr(0, escaped_s.size()-10).c_str(), index));
+							RTLIL::Wire *in_wire = module->wire(stringf("%s[%d]", escaped_s.substr(1, escaped_s.size()-11).c_str(), index));
 							log_assert(in_wire);
 							log_assert(in_wire->port_input && !in_wire->port_output);
 							in_wire->port_output = true;

@@ -1,0 +1,587 @@
+pattern xilinx_dsp_pack
+
+state <SigBit> clock
+state <SigSpec> sigA sigB sigC sigD sigM sigP
+state <IdString> postAddAB postAddMuxAB
+state <bool> ffA1cepol ffA2cepol ffADcepol ffB1cepol ffB2cepol ffDcepol ffMcepol ffPcepol
+state <bool> ffArstpol ffADrstpol ffBrstpol ffDrstpol ffMrstpol ffPrstpol
+
+state <Cell*> ffAD ffADcemux ffADrstmux ffA1 ffA1cemux ffA1rstmux ffA2 ffA2cemux ffA2rstmux
+state <Cell*> ffB1 ffB1cemux ffB1rstmux ffB2 ffB2cemux ffB2rstmux
+state <Cell*> ffD ffDcemux ffDrstmux ffM ffMcemux ffMrstmux ffP ffPcemux ffPrstmux
+
+// subpattern
+state <SigSpec> argQ argD
+state <bool> ffcepol ffrstpol
+state <int> ffoffset
+udata <SigSpec> dffD dffQ
+udata <SigBit> dffclock
+udata <Cell*> dff dffcemux dffrstmux
+udata <bool> dffcepol dffrstpol
+
+match dsp
+	select dsp->type.in(\DSP48E1)
+endmatch
+
+code sigA sigB sigC sigD sigM clock
+	auto unextend = [](const SigSpec &sig) {
+		int i;
+		for (i = GetSize(sig)-1; i > 0; i--)
+			if (sig[i] != sig[i-1])
+				break;
+		// Do not remove non-const sign bit
+		if (sig[i].wire)
+			++i;
+		return sig.extract(0, i);
+	};
+	sigA = unextend(port(dsp, \A));
+	sigB = unextend(port(dsp, \B));
+
+	sigC = port(dsp, \C, SigSpec());
+	sigD = port(dsp, \D, SigSpec());
+
+	SigSpec P = port(dsp, \P);
+	if (param(dsp, \USE_MULT, Const("MULTIPLY")).decode_string() == "MULTIPLY") {
+		// Only care about those bits that are used
+		int i;
+		for (i = 0; i < GetSize(P); i++) {
+			if (nusers(P[i]) <= 1)
+				break;
+			sigM.append(P[i]);
+		}
+		log_assert(nusers(P.extract_end(i)) <= 1);
+	}
+	else
+		sigM = P;
+	// This sigM could have no users if downstream $add
+	//   is narrower than $mul result, for example
+	if (sigM.empty())
+		reject;
+
+	clock = port(dsp, \CLK, SigBit());
+endcode
+
+code argQ ffAD ffADcemux ffADrstmux ffADcepol ffADrstpol sigA clock
+	if (param(dsp, \ADREG).as_int() == 0) {
+		argQ = sigA;
+		subpattern(in_dffe);
+		if (dff) {
+			ffAD = dff;
+			clock = dffclock;
+			if (dffrstmux) {
+				ffADrstmux = dffrstmux;
+				ffADrstpol = dffrstpol;
+			}
+			if (dffcemux) {
+				ffADcemux = dffcemux;
+				ffADcepol = dffcepol;
+			}
+			sigA = dffD;
+		}
+	}
+endcode
+
+match preAdd
+	if sigD.empty() || sigD.is_fully_zero()
+	// Ensure that preAdder not already used
+	if param(dsp, \USE_DPORT, Const("FALSE")).decode_string() == "FALSE"
+	if port(dsp, \INMODE, Const(0, 5)).is_fully_zero()
+
+	select preAdd->type.in($add)
+	// Output has to be 25 bits or less
+	select GetSize(port(preAdd, \Y)) <= 25
+	select nusers(port(preAdd, \Y)) == 2
+	choice <IdString> AB {\A, \B}
+	// A port has to be 30 bits or less
+	select GetSize(port(preAdd, AB)) <= 30
+	define <IdString> BA (AB == \A ? \B : \A)
+	// D port has to be 25 bits or less
+	select GetSize(port(preAdd, BA)) <= 25
+	index <SigSpec> port(preAdd, \Y) === sigA
+
+	optional
+endmatch
+
+code sigA sigD
+	if (preAdd) {
+		sigA = port(preAdd, \A);
+		sigD = port(preAdd, \B);
+		if (GetSize(sigA) < GetSize(sigD))
+			std::swap(sigA, sigD);
+	}
+endcode
+
+code argQ ffAD ffADcemux ffADrstmux ffADcepol ffADrstpol sigA clock ffA2 ffA2cemux ffA2rstmux ffA2cepol ffArstpol ffA1 ffA1cemux ffA1rstmux ffA1cepol
+	// Only search for ffA2 if there was a pre-adder
+	//   (otherwise ffA2 would have been matched as ffAD)
+	if (preAdd) {
+		if (param(dsp, \AREG).as_int() == 0) {
+			argQ = sigA;
+			subpattern(in_dffe);
+			if (dff) {
+				ffA2 = dff;
+				clock = dffclock;
+				if (dffrstmux) {
+					ffA2rstmux = dffrstmux;
+					ffArstpol = dffrstpol;
+				}
+				if (dffcemux) {
+					ffA2cepol = dffcepol;
+					ffA2cemux = dffcemux;
+				}
+				sigA = dffD;
+			}
+		}
+	}
+	// And if there wasn't a pre-adder,
+	//   move AD register to A
+	else if (ffAD) {
+		log_assert(!ffA2 && !ffA2cemux && !ffA2rstmux);
+		std::swap(ffA2, ffAD);
+		std::swap(ffA2cemux, ffADcemux);
+		std::swap(ffA2rstmux, ffADrstmux);
+		ffA2cepol = ffADcepol;
+		ffArstpol = ffADrstpol;
+	}
+
+	// Now attempt to match A1
+	if (ffA2) {
+		argQ = sigA;
+		subpattern(in_dffe);
+		if (dff) {
+			if ((ffA2rstmux != nullptr) ^ (dffrstmux != nullptr))
+				goto ffA1_end;
+			if (dffrstmux) {
+				if (ffArstpol != dffrstpol)
+					goto ffA1_end;
+				if (port(ffA2rstmux, \S) != port(dffrstmux, \S))
+					goto ffA1_end;
+				ffA1rstmux = dffrstmux;
+			}
+
+			ffA1 = dff;
+			clock = dffclock;
+
+			if (dffcemux) {
+				ffA1cemux = dffcemux;
+				ffA1cepol = dffcepol;
+			}
+			sigA = dffD;
+
+ffA1_end:		;
+		}
+	}
+endcode
+
+code argQ ffB2 ffB2cemux ffB2rstmux ffB2cepol ffBrstpol sigB clock ffB1 ffB1cemux ffB1rstmux ffB1cepol
+	if (param(dsp, \BREG).as_int() == 0) {
+		argQ = sigB;
+		subpattern(in_dffe);
+		if (dff) {
+			ffB2 = dff;
+			clock = dffclock;
+			if (dffrstmux) {
+				ffB2rstmux = dffrstmux;
+				ffBrstpol = dffrstpol;
+			}
+			if (dffcemux) {
+				ffB2cemux = dffcemux;
+				ffB2cepol = dffcepol;
+			}
+			sigB = dffD;
+
+			// Now attempt to match B1
+			if (ffB2) {
+				argQ = sigB;
+				subpattern(in_dffe);
+				if (dff) {
+					if ((ffB2rstmux != nullptr) ^ (dffrstmux != nullptr))
+						goto ffB1_end;
+					if (dffrstmux) {
+						if (ffBrstpol != dffrstpol)
+							goto ffB1_end;
+						if (port(ffB2rstmux, \S) != port(dffrstmux, \S))
+							goto ffB1_end;
+						ffB1rstmux = dffrstmux;
+					}
+
+					ffB1 = dff;
+					clock = dffclock;
+
+					if (dffcemux) {
+						ffB1cemux = dffcemux;
+						ffB1cepol = dffcepol;
+					}
+					sigB = dffD;
+
+ffB1_end:				;
+				}
+			}
+
+		}
+	}
+endcode
+
+code argQ ffD ffDcemux ffDrstmux ffDcepol ffDrstpol sigD clock
+	if (param(dsp, \DREG).as_int() == 0) {
+		argQ = sigD;
+		subpattern(in_dffe);
+		if (dff) {
+			ffD = dff;
+			clock = dffclock;
+			if (dffrstmux) {
+				ffDrstmux = dffrstmux;
+				ffDrstpol = dffrstpol;
+			}
+			if (dffcemux) {
+				ffDcemux = dffcemux;
+				ffDcepol = dffcepol;
+			}
+			sigD = dffD;
+		}
+	}
+endcode
+
+code argD ffM ffMcemux ffMrstmux ffMcepol ffMrstpol sigM sigP clock
+	if (param(dsp, \MREG).as_int() == 0 && nusers(sigM) == 2) {
+		argD = sigM;
+		subpattern(out_dffe);
+		if (dff) {
+			ffM = dff;
+			clock = dffclock;
+			if (dffrstmux) {
+				ffMrstmux = dffrstmux;
+				ffMrstpol = dffrstpol;
+			}
+			if (dffcemux) {
+				ffMcemux = dffcemux;
+				ffMcepol = dffcepol;
+			}
+			sigM = dffQ;
+		}
+	}
+	sigP = sigM;
+endcode
+
+match postAdd
+	// Ensure that Z mux is not already used
+	if port(dsp, \OPMODE, SigSpec()).extract(4,3).is_fully_zero()
+
+	select postAdd->type.in($add)
+	select GetSize(port(postAdd, \Y)) <= 48
+	choice <IdString> AB {\A, \B}
+	select nusers(port(postAdd, AB)) <= 3
+	filter ffMcemux || nusers(port(postAdd, AB)) == 2
+	filter !ffMcemux || nusers(port(postAdd, AB)) == 3
+
+	index <SigBit> port(postAdd, AB)[0] === sigP[0]
+	filter GetSize(port(postAdd, AB)) >= GetSize(sigP)
+	filter port(postAdd, AB).extract(0, GetSize(sigP)) == sigP
+	filter port(postAdd, AB).extract_end(GetSize(sigP)) == SigSpec(sigP[GetSize(sigP)-1], GetSize(port(postAdd, AB))-GetSize(sigP))
+	set postAddAB AB
+	optional
+endmatch
+
+code sigC sigP
+	if (postAdd) {
+		sigC = port(postAdd, postAddAB == \A ? \B : \A);
+		sigP = port(postAdd, \Y);
+	}
+endcode
+
+code argD ffP ffPcemux ffPrstmux ffPcepol ffPrstpol sigP clock
+	if (param(dsp, \PREG).as_int() == 0) {
+		int users = 2;
+		// If ffMcemux and no postAdd new-value net must have three users: ffMcemux, ffM and ffPcemux
+		if (ffMcemux && !postAdd) users++;
+		if (nusers(sigP) == users) {
+			argD = sigP;
+			subpattern(out_dffe);
+			if (dff) {
+				ffP = dff;
+				clock = dffclock;
+				if (dffrstmux) {
+					ffPrstmux = dffrstmux;
+					ffPrstpol = dffrstpol;
+				}
+				if (dffcemux) {
+					ffPcemux = dffcemux;
+					ffPcepol = dffcepol;
+				}
+				sigP = dffQ;
+			}
+		}
+	}
+endcode
+
+match postAddMux
+	if postAdd
+	if ffP
+	select postAddMux->type.in($mux)
+	select nusers(port(postAddMux, \Y)) == 2
+	choice <IdString> AB {\A, \B}
+	index <SigSpec> port(postAddMux, AB) === sigP
+	index <SigSpec> port(postAddMux, \Y) === sigC
+	set postAddMuxAB AB
+	optional
+endmatch
+
+code sigC
+	if (postAddMux)
+		sigC = port(postAddMux, postAddMuxAB == \A ? \B : \A);
+endcode
+
+match overflow
+	if ffP
+	if param(dsp, \USE_PATTERN_DETECT, Const("NO_PATDET")).decode_string() == "NO_PATDET"
+	select overflow->type.in($ge)
+	select GetSize(port(overflow, \Y)) <= 48
+	select port(overflow, \B).is_fully_const()
+	define <Const> B port(overflow, \B).as_const()
+	select std::count(B.bits.begin(), B.bits.end(), State::S1) == 1
+	index <SigSpec> port(overflow, \A) === sigP
+	optional
+endmatch
+
+code
+	accept;
+endcode
+
+// #######################
+
+subpattern in_dffe
+arg argD argQ clock
+
+code
+	dff = nullptr;
+	for (auto c : argQ.chunks()) {
+		if (!c.wire)
+			reject;
+		if (c.wire->get_bool_attribute(\keep))
+			reject;
+		Const init = c.wire->attributes.at(\init, State::Sx);
+		if (!init.is_fully_undef() && !init.is_fully_zero())
+			reject;
+	}
+endcode
+
+match ff
+	select ff->type.in($dff)
+	// DSP48E1 does not support clock inversion
+	select param(ff, \CLK_POLARITY).as_bool()
+
+	slice offset GetSize(port(ff, \D))
+	index <SigBit> port(ff, \Q)[offset] === argQ[0]
+
+	// Check that the rest of argQ is present
+	filter GetSize(port(ff, \Q)) >= offset + GetSize(argQ)
+	filter port(ff, \Q).extract(offset, GetSize(argQ)) == argQ
+
+	set ffoffset offset
+endmatch
+
+code argQ argD
+{
+	if (clock != SigBit() && port(ff, \CLK) != clock)
+		reject;
+
+	SigSpec Q = port(ff, \Q);
+	dff = ff;
+	dffclock = port(ff, \CLK);
+	dffD = argQ;
+	argD = port(ff, \D);
+	argQ = Q;
+	dffD.replace(argQ, argD);
+	// Only search for ffrstmux if dffD only
+	//   has two (ff, ffrstmux) users
+	if (nusers(dffD) > 2)
+		argD = SigSpec();
+}
+endcode
+
+match ffrstmux
+	if !argD.empty()
+	select ffrstmux->type.in($mux)
+	index <SigSpec> port(ffrstmux, \Y) === argD
+
+	choice <IdString> BA {\B, \A}
+	// DSP48E1 only supports reset to zero
+	select port(ffrstmux, BA).is_fully_zero()
+
+	define <bool> pol (BA == \B)
+	set ffrstpol pol
+	semioptional
+endmatch
+
+code argD
+	if (ffrstmux) {
+		dffrstmux = ffrstmux;
+		dffrstpol = ffrstpol;
+		argD = port(ffrstmux, ffrstpol ? \A : \B);
+		dffD.replace(port(ffrstmux, \Y), argD);
+
+		// Only search for ffcemux if argQ has at
+		//   least 3 users (ff, <upstream>, ffrstmux) and
+		//   dffD only has two (ff, ffrstmux)
+		if (!(nusers(argQ) >= 3 && nusers(dffD) == 2))
+			argD = SigSpec();
+	}
+	else
+		dffrstmux = nullptr;
+endcode
+
+match ffcemux
+	if !argD.empty()
+	select ffcemux->type.in($mux)
+	index <SigSpec> port(ffcemux, \Y) === argD
+	choice <IdString> AB {\A, \B}
+	index <SigSpec> port(ffcemux, AB) === argQ
+	define <bool> pol (AB == \A)
+	set ffcepol pol
+	semioptional
+endmatch
+
+code argD
+	if (ffcemux) {
+		dffcemux = ffcemux;
+		dffcepol = ffcepol;
+		argD = port(ffcemux, ffcepol ? \B : \A);
+		dffD.replace(port(ffcemux, \Y), argD);
+	}
+	else
+		dffcemux = nullptr;
+endcode
+
+// #######################
+
+subpattern out_dffe
+arg argD argQ clock
+
+code
+	dff = nullptr;
+	for (auto c : argD.chunks())
+		if (c.wire->get_bool_attribute(\keep))
+			reject;
+endcode
+
+match ffcemux
+	select ffcemux->type.in($mux)
+	// ffcemux output must have two users: ffcemux and ff.D
+	select nusers(port(ffcemux, \Y)) == 2
+
+	choice <IdString> AB {\A, \B}
+	// keep-last-value net must have at least three users: ffcemux, ff, downstream sink(s)
+	select nusers(port(ffcemux, AB)) >= 3
+
+	slice offset GetSize(port(ffcemux, \Y))
+	define <IdString> BA (AB == \A ? \B : \A)
+	index <SigBit> port(ffcemux, BA)[offset] === argD[0]
+
+	// Check that the rest of argD is present
+	filter GetSize(port(ffcemux, BA)) >= offset + GetSize(argD)
+	filter port(ffcemux, BA).extract(offset, GetSize(argD)) == argD
+
+	set ffoffset offset
+	define <bool> pol (AB == \A)
+	set ffcepol pol
+
+	semioptional
+endmatch
+
+code argD argQ
+	dffcemux = ffcemux;
+	if (ffcemux) {
+		SigSpec BA = port(ffcemux, ffcepol ? \B : \A);
+		SigSpec Y = port(ffcemux, \Y);
+		argQ = argD;
+		argD.replace(BA, Y);
+		argQ.replace(BA, port(ffcemux, ffcepol ? \A : \B));
+
+		dffcemux = ffcemux;
+		dffcepol = ffcepol;
+	}
+endcode
+
+match ffrstmux
+	select ffrstmux->type.in($mux)
+	// ffrstmux output must have two users: ffrstmux and ff.D
+	select nusers(port(ffrstmux, \Y)) == 2
+
+	choice <IdString> BA {\B, \A}
+	// DSP48E1 only supports reset to zero
+	select port(ffrstmux, BA).is_fully_zero()
+
+	slice offset GetSize(port(ffrstmux, \Y))
+	define <IdString> AB (BA == \B ? \A : \B)
+	index <SigBit> port(ffrstmux, AB)[offset] === argD[0]
+
+	// Check that offset is consistent
+	filter !ffcemux || ffoffset == offset
+	// Check that the rest of argD is present
+	filter GetSize(port(ffrstmux, AB)) >= offset + GetSize(argD)
+	filter port(ffrstmux, AB).extract(offset, GetSize(argD)) == argD
+
+	set ffoffset offset
+	define <bool> pol (AB == \A)
+	set ffrstpol pol
+
+	semioptional
+endmatch
+
+code argD argQ
+	dffrstmux = ffrstmux;
+	if (ffrstmux) {
+		SigSpec AB = port(ffrstmux, ffrstpol ? \A : \B);
+		SigSpec Y = port(ffrstmux, \Y);
+		argD.replace(AB, Y);
+
+		dffrstmux = ffrstmux;
+		dffrstpol = ffrstpol;
+	}
+endcode
+
+match ff
+	select ff->type.in($dff)
+	// DSP48E1 does not support clock inversion
+	select param(ff, \CLK_POLARITY).as_bool()
+
+	slice offset GetSize(port(ff, \D))
+	index <SigBit> port(ff, \D)[offset] === argD[0]
+
+	// Check that offset is consistent
+	filter (!ffcemux && !ffrstmux) || ffoffset == offset
+	// Check that the rest of argD is present
+	filter GetSize(port(ff, \D)) >= offset + GetSize(argD)
+	filter port(ff, \D).extract(offset, GetSize(argD)) == argD
+	// Check that FF.Q is connected to CE-mux
+	filter !ffcemux || port(ff, \Q).extract(offset, GetSize(argQ)) == argQ
+
+	set ffoffset offset
+endmatch
+
+code argQ
+	if (ff) {
+		if (clock != SigBit() && port(ff, \CLK) != clock)
+			reject;
+
+		SigSpec D = port(ff, \D);
+		SigSpec Q = port(ff, \Q);
+		if (!ffcemux) {
+			argQ = argD;
+			argQ.replace(D, Q);
+		}
+
+		for (auto c : argQ.chunks()) {
+			Const init = c.wire->attributes.at(\init, State::Sx);
+			if (!init.is_fully_undef() && !init.is_fully_zero())
+				reject;
+		}
+
+		dff = ff;
+		dffQ = argQ;
+		dffclock = port(ff, \CLK);
+	}
+	// No enable/reset mux possible without flop
+	else if (dffcemux || dffrstmux)
+		reject;
+endcode
