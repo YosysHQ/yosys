@@ -1398,11 +1398,17 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, dict<RTLIL::IdString, R
 		has_interfaces = true;
 	}
 
+	std::string new_modname = modname;
 	if (has_interfaces)
-		modname += "$interfaces$" + interf_info;
+		new_modname += "$interfaces$" + interf_info;
 
 
-	if (!design->has(modname)) {
+	if (!design->has(new_modname)) {
+		if (!new_ast) {
+			auto mod = dynamic_cast<AstModule*>(design->module(modname));
+			new_ast = mod->ast->clone();
+		}
+		modname = new_modname;
 		new_ast->str = modname;
 
 		// Iterate over all interfaces which are ports in this module:
