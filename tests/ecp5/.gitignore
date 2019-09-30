@@ -1,0 +1,2 @@
+*.log
+/run-test.mk
