@@ -150,6 +150,11 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 					reg->str = stringf("%s[%d]", node->str.c_str(), i);
 					reg->is_reg = true;
 					reg->is_signed = node->is_signed;
+					for (auto &it : node->attributes)
+						if (it.first != ID(mem2reg))
+							reg->attributes.emplace(it.first, it.second->clone());
+					reg->filename = node->filename;
+					reg->linenum = node->linenum;
 					children.push_back(reg);
 					while (reg->simplify(true, false, false, 1, -1, false, false)) { }
 				}
@@ -1525,10 +1530,16 @@ skip_dynamic_range_lvalue_expansion:;
 		current_scope[wire_en->str] = wire_en;
 		while (wire_en->simplify(true, false, false, 1, -1, false, false)) { }
 
-		std::vector<RTLIL::State> x_bit;
-		x_bit.push_back(RTLIL::State::Sx);
+		AstNode *check_defval;
+		if (type == AST_LIVE || type == AST_FAIR) {
+			check_defval = new AstNode(AST_REDUCE_BOOL, children[0]->clone());
+		} else {
+			std::vector<RTLIL::State> x_bit;
+			x_bit.push_back(RTLIL::State::Sx);
+			check_defval = mkconst_bits(x_bit, false);
+		}
 
-		AstNode *assign_check = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), mkconst_bits(x_bit, false));
+		AstNode *assign_check = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), check_defval);
 		assign_check->children[0]->str = id_check;
 		assign_check->children[0]->was_checked = true;
 
@@ -1541,9 +1552,13 @@ skip_dynamic_range_lvalue_expansion:;
 		default_signals->children.push_back(assign_en);
 		current_top_block->children.insert(current_top_block->children.begin(), default_signals);
 
-		assign_check = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), new AstNode(AST_REDUCE_BOOL, children[0]->clone()));
-		assign_check->children[0]->str = id_check;
-		assign_check->children[0]->was_checked = true;
+		if (type == AST_LIVE || type == AST_FAIR) {
+			assign_check = nullptr;
+		} else {
+			assign_check = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), new AstNode(AST_REDUCE_BOOL, children[0]->clone()));
+			assign_check->children[0]->str = id_check;
+			assign_check->children[0]->was_checked = true;
+		}
 
 		if (current_always == nullptr || current_always->type != AST_INITIAL) {
 			assign_en = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), mkconst_int(1, false, 1));
@@ -1555,7 +1570,8 @@ skip_dynamic_range_lvalue_expansion:;
 		assign_en->children[0]->was_checked = true;
 
 		newNode = new AstNode(AST_BLOCK);
-		newNode->children.push_back(assign_check);
+		if (assign_check != nullptr)
+			newNode->children.push_back(assign_check);
 		newNode->children.push_back(assign_en);
 
 		AstNode *assertnode = new AstNode(type);
@@ -2879,8 +2895,15 @@ AstNode *AstNode::readmem(bool is_readmemh, std::string mem_filename, AstNode *m
 void AstNode::expand_genblock(std::string index_var, std::string prefix, std::map<std::string, std::string> &name_map)
 {
 	if (!index_var.empty() && type == AST_IDENTIFIER && str == index_var) {
-		current_scope[index_var]->children[0]->cloneInto(this);
-		return;
+		if (children.empty()) {
+			current_scope[index_var]->children[0]->cloneInto(this);
+		} else {
+			AstNode *p = new AstNode(AST_LOCALPARAM, current_scope[index_var]->children[0]->clone());
+			p->str = stringf("$genval$%d", autoidx++);
+			current_ast_mod->children.push_back(p);
+			str = p->str;
+			id2ast = p;
+		}
 	}
 
 	if ((type == AST_IDENTIFIER || type == AST_FCALL || type == AST_TCALL) && name_map.count(str) > 0)

@@ -299,6 +299,7 @@ namespace AST
 		std::string derive_common(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters, AstNode **new_ast_out, bool mayfail);
 		void reprocess_module(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Module *> local_interfaces) YS_OVERRIDE;
 		RTLIL::Module *clone() const YS_OVERRIDE;
+		void loadconfig() const;
 	};
 
 	// this must be set by the language frontend before parsing the sources
