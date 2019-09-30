@@ -18,8 +18,24 @@
  *
  */
 
+// The following techmapping rules are intended to be run (with -max_iter 1)
+//   before invoking the `abc9` pass in order to transform the design into
+//   a format that it understands.
+//
+// For example, (complex) flip-flops are expected to be described as an
+//   combinatorial box (containing all control logic such as clock enable
+//   or synchronous resets) followed by a basic D-Q flop.
+
 // ============================================================================
 
+// The purpose of the following FD* rules are to wrap the flop (which, when
+//   called with the `_ABC' macro set captures contains only its combinatorial
+//   behaviour) with:
+// (a) a special $__ABC_FF_ in front of the FD*'s output, indicating to abc9
+//     the location of its basic D-Q flop
+// (b) a special \$currQ connection that feeds back into the (combinatorial)
+//     FD* cell to facilitate clock-enable behaviour -- note that \$currQ
+//     isn't a real input port, it is one that is understood only by abc9
 module FDRE (output reg Q, input C, CE, D, R);
   parameter [0:0] INIT = 1'b0;
   parameter [0:0] IS_C_INVERTED = 1'b0;
