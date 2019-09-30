@@ -808,6 +808,11 @@ struct XAigerWriter
 			int box_count = 0;
 			for (auto cell : box_list) {
 				RTLIL::Module* box_module = module->design->module(cell->type);
+				if (box_module->get_bool_attribute("\\abc9_flop")) {
+					auto derived_name = box_module->derive(module->design, cell->parameters);
+					box_module = module->design->module(derived_name);
+				}
+
 				int box_inputs = 0, box_outputs = 0;
 				Cell *holes_cell = nullptr;
 				if (box_module->get_bool_attribute("\\whitebox")) {
@@ -856,28 +861,6 @@ struct XAigerWriter
 						if (!port_wire.empty())
 							holes_cell->setPort(w->name, port_wire);
 					}
-				}
-
-				if (box_module->get_bool_attribute("\\abc9_flop")) {
-					log_assert(holes_cell);
-					IdString port_name = "\\$currQ";
-					Wire* w = box_module->wire(port_name);
-					SigSpec rhs = cell->getPort(port_name);
-					log_assert(GetSize(w) == GetSize(rhs));
-					SigSpec port_wire;
-					Wire *holes_wire;
-					for (int i = 0; i < GetSize(w); i++) {
-						box_inputs++;
-						holes_wire = holes_module->wire(stringf("\\i%d", box_inputs));
-						if (!holes_wire) {
-							holes_wire = holes_module->addWire(stringf("\\i%d", box_inputs));
-							holes_wire->port_input = true;
-							holes_wire->port_id = port_id++;
-							holes_module->ports.push_back(holes_wire->name);
-						}
-						port_wire.append(holes_wire);
-					}
-					holes_cell->setPort(w->name, port_wire);
 				}
 
 				write_h_buffer(box_inputs);
