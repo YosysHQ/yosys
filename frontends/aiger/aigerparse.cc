@@ -817,8 +817,6 @@ void AigerReader::post_process()
 		}
 
 		if (is_flop) {
-			Wire* port = box_module->wire("\\$currQ");
-			log_assert(port);
 			log_assert(co_count < outputs.size());
 			Wire *wire = outputs[co_count++];
 			log_assert(wire);
