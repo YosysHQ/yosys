@@ -35,6 +35,7 @@ endmodule
 
 (* abc_box_id = 1000 *)
 module \$__ABC_ASYNC (input A, S, output Y);
+endmodule
 
 // Box to emulate comb/seq behaviour of RAMD{32,64} and SRL{16,32}
 //   Necessary since RAMD* and SRL* have both combinatorial (i.e.
