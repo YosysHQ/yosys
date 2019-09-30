@@ -483,12 +483,12 @@ struct XAigerWriter
 
 				if (box_module->get_bool_attribute("\\abc9_flop")) {
 					IdString port_name = "\\$currQ";
-					RTLIL::Wire* w = box_module->wire(port_name);
-					SigSpec rhs = cell->getPort(port_name);
+					Wire *w = box_module->wire(port_name);
+					SigSpec rhs = module->wire(stringf("%s.$currQ", cell->name.c_str()));
 					log_assert(GetSize(w) == GetSize(rhs));
 
 					int offset = 0;
-					for (auto b : rhs.bits()) {
+					for (auto b : rhs) {
 						SigBit I = sigmap(b);
 						if (b == RTLIL::Sx)
 							b = State::S0;
