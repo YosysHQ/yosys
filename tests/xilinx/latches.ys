@@ -4,11 +4,7 @@ design -save read
 proc
 async2sync # converts latches to a 'sync' variant clocked by a 'super'-clock
 flatten
-synth_xilinx
 equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
-design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
-
-design -load read
 
 synth_xilinx
 flatten
