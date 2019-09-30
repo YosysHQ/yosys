@@ -915,30 +915,34 @@ struct XAigerWriter
 				//holes_module->fixup_ports();
 				holes_module->check();
 
-				holes_module->design->selection_stack.emplace_back(false);
-				RTLIL::Selection& sel = holes_module->design->selection_stack.back();
+				Design *design = holes_module->design;
+				design->selection_stack.emplace_back(false);
+				RTLIL::Selection& sel = design->selection_stack.back();
+				log_assert(design->selected_active_module == module->name.c_str());
+				design->selected_active_module = holes_module->name.str();
 				sel.select(holes_module);
 
 				// TODO: Should not need to opt_merge if we only instantiate
 				//       each box type once...
-				Pass::call(holes_module->design, "opt_merge -share_all");
+				Pass::call(design, "opt_merge -share_all");
 
-				Pass::call(holes_module->design, "flatten -wb");
+				Pass::call(design, "flatten -wb");
 
 				// TODO: Should techmap/aigmap/check all lib_whitebox-es just once,
 				//       instead of per write_xaiger call
-				Pass::call(holes_module->design, "techmap");
-				Pass::call(holes_module->design, "aigmap");
+				Pass::call(design, "techmap");
+				Pass::call(design, "aigmap");
 				for (auto cell : holes_module->cells())
 					if (!cell->type.in("$_NOT_", "$_AND_"))
 						log_error("Whitebox contents cannot be represented as AIG. Please verify whiteboxes are synthesisable.\n");
 
-				holes_module->design->selection_stack.pop_back();
+				design->selection_stack.pop_back();
+				design->selected_active_module = module->name.str();
 
 				// Move into a new (temporary) design so that "clean" will only
 				// operate (and run checks on) this one module
 				RTLIL::Design *holes_design = new RTLIL::Design;
-				holes_module->design->modules_.erase(holes_module->name);
+				design->modules_.erase(holes_module->name);
 				holes_design->add(holes_module);
 				Pass::call(holes_design, "clean -purge");
 

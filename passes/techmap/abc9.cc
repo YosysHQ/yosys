@@ -65,16 +65,15 @@ PRIVATE_NAMESPACE_BEGIN
 
 bool markgroups;
 int map_autoidx;
-SigMap assign_map;
-RTLIL::Module *module;
 
 inline std::string remap_name(RTLIL::IdString abc_name)
 {
 	return stringf("$abc$%d$%s", map_autoidx, abc_name.c_str()+1);
 }
 
-void handle_loops(RTLIL::Design *design)
+void handle_loops(RTLIL::Design *design, RTLIL::Module *module)
 {
+	// FIXME: Do not run on all modules in design!?!
 	Pass::call(design, "scc -set_attr abc_scc_id {} % w:*");
 
 	// For every unique SCC found, (arbitrarily) find the first
@@ -240,14 +239,13 @@ struct abc_output_filter
 	}
 };
 
-void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::string script_file, std::string exe_file,
+void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string script_file, std::string exe_file,
 		bool cleanup, vector<int> lut_costs, bool /*dff_mode*/, std::string /*clk_str*/,
 		bool /*keepff*/, std::string delay_target, std::string /*lutin_shared*/, bool fast_mode,
 		bool show_tempdir, std::string box_file, std::string lut_file,
 		std::string wire_delay, const dict<int,IdString> &box_lookup
 )
 {
-	module = current_module;
 	map_autoidx = autoidx++;
 
 	std::string tempdir_name = "/tmp/yosys-abc-XXXXXX";
@@ -335,7 +333,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 
 	if (count_output)
 	{
-		handle_loops(design);
+		handle_loops(design, module);
 
 		Pass::call(design, "aigmap -select");
 
@@ -862,8 +860,6 @@ struct Abc9Pass : public Pass {
 		log_header(design, "Executing ABC9 pass (technology mapping using ABC9).\n");
 		log_push();
 
-		assign_map.clear();
-
 #ifdef ABCEXTERNAL
 		std::string exe_file = ABCEXTERNAL;
 #else
@@ -1068,21 +1064,21 @@ struct Abc9Pass : public Pass {
 			}
 		}
 
-		for (auto mod : design->selected_modules())
+		for (auto module : design->selected_modules())
 		{
-			if (mod->attributes.count(ID(abc_box_id)))
+			if (module->attributes.count(ID(abc_box_id)))
 				continue;
 
-			if (mod->processes.size() > 0) {
-				log("Skipping module %s as it contains processes.\n", log_id(mod));
+			if (module->processes.size() > 0) {
+				log("Skipping module %s as it contains processes.\n", log_id(module));
 				continue;
 			}
 
-			assign_map.set(mod);
+			SigMap assign_map(module);
 
 			CellTypes ct(design);
 
-			std::vector<RTLIL::Cell*> all_cells = mod->selected_cells();
+			std::vector<RTLIL::Cell*> all_cells = module->selected_cells();
 			std::set<RTLIL::Cell*> unassigned_cells(all_cells.begin(), all_cells.end());
 
 			std::set<RTLIL::Cell*> expand_queue, next_expand_queue;
@@ -1154,7 +1150,7 @@ struct Abc9Pass : public Pass {
 				SigSpec abc9_clock = derived_sigmap(abc9_clock_wire);
 				abc9_clock.replace(pattern, with);
 				for (const auto &c : abc9_clock.chunks())
-					log_assert(!c.wire || c.wire->module == mod);
+					log_assert(!c.wire || c.wire->module == module);
 
 				Wire *abc9_control_wire = derived_module->wire("\\$abc9_control");
 				if (abc9_control_wire == NULL)
@@ -1162,7 +1158,7 @@ struct Abc9Pass : public Pass {
 				SigSpec abc9_control = derived_sigmap(abc9_control_wire);
 				abc9_control.replace(pattern, with);
 				for (const auto &c : abc9_control.chunks())
-					log_assert(!c.wire || c.wire->module == mod);
+					log_assert(!c.wire || c.wire->module == module);
 
 				unassigned_cells.erase(cell);
 				expand_queue.insert(cell);
@@ -1252,18 +1248,17 @@ struct Abc9Pass : public Pass {
 				log("  %d cells in clk=%s\n", GetSize(it.second), log_signal(it.first));
 
 			design->selection_stack.emplace_back(false);
+			design->selected_active_module = module->name.str();
 			for (auto &it : assigned_cells) {
 				RTLIL::Selection& sel = design->selection_stack.back();
-				sel.selected_members[mod->name] = std::move(it.second);
-				abc9_module(design, mod, script_file, exe_file, cleanup, lut_costs, false, "$",
+				sel.selected_members[module->name] = std::move(it.second);
+				abc9_module(design, module, script_file, exe_file, cleanup, lut_costs, false, "$",
 						keepff, delay_target, lutin_shared, fast_mode, show_tempdir,
 						box_file, lut_file, wire_delay, box_lookup);
-				assign_map.set(mod);
 			}
 			design->selection_stack.pop_back();
+			design->selected_active_module.clear();
 		}
-
-		assign_map.clear();
 
 		log_pop();
 	}
