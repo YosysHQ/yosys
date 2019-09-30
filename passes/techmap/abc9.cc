@@ -1117,6 +1117,7 @@ struct Abc9Pass : public Pass {
 				auto derived_name = inst_module->derive(design, cell->parameters);
 				auto derived_module = design->module(derived_name);
 				log_assert(derived_module);
+				// FIXME: call once
 				Pass::call_on_module(design, derived_module, "proc");
 				SigMap derived_sigmap(derived_module);
 
