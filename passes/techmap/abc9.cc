@@ -417,7 +417,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 			log_error("ABC: execution of command \"%s\" failed: return code %d.\n", buffer.c_str(), ret);
 
 		buffer = stringf("%s/%s", tempdir_name.c_str(), "output.aig");
-		ifs.open(buffer);
+		ifs.open(buffer, std::ifstream::binary);
 		if (ifs.fail())
 			log_error("Can't open ABC output file `%s'.\n", buffer.c_str());
 

@@ -115,7 +115,7 @@ LDFLAGS += -rdynamic
 LDLIBS += -lrt
 endif
 
-YOSYS_VER := 0.9+431
+YOSYS_VER := 0.9+899
 GIT_REV := $(shell cd $(YOSYS_SRC) && git rev-parse --short HEAD 2> /dev/null || echo UNKNOWN)
 OBJS = kernel/version_$(GIT_REV).o
 
@@ -528,6 +528,7 @@ $(eval $(call add_include_file,kernel/satgen.h))
 $(eval $(call add_include_file,libs/ezsat/ezsat.h))
 $(eval $(call add_include_file,libs/ezsat/ezminisat.h))
 $(eval $(call add_include_file,libs/sha1/sha1.h))
+$(eval $(call add_include_file,libs/json11/json11.hpp))
 $(eval $(call add_include_file,passes/fsm/fsmdata.h))
 $(eval $(call add_include_file,frontends/ast/ast.h))
 $(eval $(call add_include_file,backends/ilang/ilang_backend.h))
@@ -544,6 +545,8 @@ OBJS += libs/bigint/BigUnsigned.o libs/bigint/BigUnsignedInABase.o
 OBJS += libs/sha1/sha1.o
 
 ifneq ($(SMALL),1)
+
+OBJS += libs/json11/json11.o
 
 OBJS += libs/subcircuit/subcircuit.o
 
@@ -710,6 +713,7 @@ test: $(TARGETS) $(EXTRA_TARGETS)
 	+cd tests/aiger && bash run-test.sh $(ABCOPT)
 	+cd tests/arch && bash run-test.sh
 	+cd tests/ice40 && bash run-test.sh $(SEEDOPT)
+	+cd tests/rpc && bash run-test.sh
 	@echo ""
 	@echo "  Passed \"make test\"."
 	@echo ""
