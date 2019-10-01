@@ -6,7 +6,7 @@ for x in *.ys; do
 	echo "all:: run-$x"
 	echo "run-$x:"
 	echo "	@echo 'Running $x..'"
-	echo "	@../../yosys -ql ${x%.ys}.log $x"
+	echo "	@../../yosys -ql ${x%.ys}.log -w 'Yosys has only limited support for tri-state logic at the moment.' $x"
 done
 for s in *.sh; do
 	if [ "$s" != "run-test.sh" ]; then
