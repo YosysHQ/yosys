@@ -1121,19 +1121,6 @@ struct Abc9Pass : public Pass {
 					Pass::call_on_module(design, derived_module, "proc");
 				SigMap derived_sigmap(derived_module);
 
-				Wire *currQ = derived_module->wire("\\$currQ");
-				if (currQ == NULL)
-					log_error("'\\$currQ' is not a wire present in module '%s'.\n", log_id(cell->type));
-				log_assert(!currQ->port_output);
-				if (!currQ->port_input) {
-					currQ->port_input = true;
-					derived_module->ports.push_back(currQ->name);
-					currQ->port_id = GetSize(derived_module->ports);
-#ifndef NDEBUG
-					derived_module->check();
-#endif
-				}
-
 				SigSpec pattern;
 				SigSpec with;
 				for (auto &conn : cell->connections()) {

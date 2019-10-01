@@ -481,6 +481,7 @@ struct XAigerWriter
 					}
 				}
 
+				// Connect $currQ as an input to the flop box
 				if (box_module->get_bool_attribute("\\abc9_flop")) {
 					IdString port_name = "\\$currQ";
 					Wire *w = box_module->wire(port_name);
@@ -784,6 +785,29 @@ struct XAigerWriter
 						else
 							holes_module->connect(port_wire, holes_cell->getPort(w->name));
 					}
+				}
+
+				// For flops only, create an extra input for $currQ
+				if (box_module->get_bool_attribute("\\abc9_flop")) {
+					log_assert(holes_cell);
+
+					Wire *w = box_module->wire("\\$currQ");
+					Wire *holes_wire;
+					RTLIL::SigSpec port_wire;
+					for (int i = 0; i < GetSize(w); i++) {
+						box_inputs++;
+						holes_wire = holes_module->wire(stringf("\\i%d", box_inputs));
+						if (!holes_wire) {
+							holes_wire = holes_module->addWire(stringf("\\i%d", box_inputs));
+							holes_wire->port_input = true;
+							holes_wire->port_id = port_id++;
+							holes_module->ports.push_back(holes_wire->name);
+						}
+						port_wire.append(holes_wire);
+					}
+					w = holes_module->addWire(stringf("%s.$currQ", cell->name.c_str()), GetSize(w));
+					w->set_bool_attribute("\\hierconn");
+					holes_module->connect(w, port_wire);
 				}
 
 				write_h_buffer(box_inputs);
