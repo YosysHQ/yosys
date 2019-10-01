@@ -6,4 +6,5 @@ bram_conn_2.vh
 bram_conn_4.vh
 bram_conn_9.vh
 bram_conn_18.vh
+bram_conn_36.vh
 brams_connect.mk
