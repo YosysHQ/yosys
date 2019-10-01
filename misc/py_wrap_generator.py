@@ -1081,6 +1081,8 @@ class WConstructor:
 		con.args = []
 		con.duplicate = False
 		con.protected = protected
+		if str.startswith(str_def, "inline "):
+			str_def = str_def[7:]
 		if not str.startswith(str_def, class_.name + "("):
 			return None
 		str_def = str_def[len(class_.name)+1:]

@@ -352,7 +352,7 @@ state variables used to pass arguments.
     subpattern tail
     ...
 
-Subpatterns cann be called recursively.
+Subpatterns can be called recursively.
 
 If a `subpattern` statement is preceded by a `fallthrough` statement, this is
 equivalent to calling the subpattern at the end of the preceding block.

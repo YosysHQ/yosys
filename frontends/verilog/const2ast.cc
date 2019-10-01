@@ -85,10 +85,8 @@ static void my_strtobin(std::vector<RTLIL::State> &data, const char *str, int le
 			digits.push_back(10 + *str - 'A');
 		else if (*str == 'x' || *str == 'X')
 			digits.push_back(0xf0);
-		else if (*str == 'z' || *str == 'Z')
+		else if (*str == 'z' || *str == 'Z' || *str == '?')
 			digits.push_back(0xf1);
-		else if (*str == '?')
-			digits.push_back(0xf2);
 		str++;
 	}
 
@@ -112,8 +110,6 @@ static void my_strtobin(std::vector<RTLIL::State> &data, const char *str, int le
 					data.push_back(case_type == 'x' ? RTLIL::Sa : RTLIL::Sx);
 				else if (*it == 0xf1)
 					data.push_back(case_type == 'x' || case_type == 'z' ? RTLIL::Sa : RTLIL::Sz);
-				else if (*it == 0xf2)
-					data.push_back(RTLIL::Sa);
 				else
 					data.push_back((*it & bitmask) ? State::S1 : State::S0);
 			}
@@ -199,13 +195,13 @@ AstNode *VERILOG_FRONTEND::const2ast(std::string code, char case_type, bool warn
 	if (str == endptr)
 		len_in_bits = -1;
 
-	// The "<bits>'s?[bodhBODH]<digits>" syntax
+	// The "<bits>'[sS]?[bodhBODH]<digits>" syntax
 	if (*endptr == '\'')
 	{
 		std::vector<RTLIL::State> data;
 		bool is_signed = false;
 		bool is_unsized = len_in_bits < 0;
-		if (*(endptr+1) == 's') {
+		if (*(endptr+1) == 's' || *(endptr+1) == 'S') {
 			is_signed = true;
 			endptr++;
 		}

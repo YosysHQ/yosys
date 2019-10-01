@@ -808,6 +808,30 @@ struct HierarchyPass : public Pass {
 				if (mod_it.second->get_bool_attribute("\\top"))
 					top_mod = mod_it.second;
 
+		if (top_mod != nullptr && top_mod->name.begins_with("$abstract")) {
+			IdString top_name = top_mod->name.substr(strlen("$abstract"));
+
+			dict<RTLIL::IdString, RTLIL::Const> top_parameters;
+			for (auto &para : parameters) {
+				SigSpec sig_value;
+				if (!RTLIL::SigSpec::parse(sig_value, NULL, para.second))
+					log_cmd_error("Can't decode value '%s'!\n", para.second.c_str());
+				top_parameters[RTLIL::escape_id(para.first)] = sig_value.as_const();
+			}
+
+			top_mod = design->module(top_mod->derive(design, top_parameters));
+
+			if (top_mod != nullptr && top_mod->name != top_name) {
+				Module *m = top_mod->clone();
+				m->name = top_name;
+				Module *old_mod = design->module(top_name);
+				if (old_mod)
+					design->remove(old_mod);
+				design->add(m);
+				top_mod = m;
+			}
+		}
+
 		if (top_mod == nullptr && auto_top_mode) {
 			log_header(design, "Finding top of design hierarchy..\n");
 			dict<Module*, int> db;
