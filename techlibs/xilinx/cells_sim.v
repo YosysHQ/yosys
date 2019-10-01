@@ -260,7 +260,7 @@ module FDRE (
   initial Q <= INIT;
   wire \$currQ ;
   reg \$nextQ ;
-  always @* if (R == !IS_R_INVERTED) $nextQ = 1'b0; else if (CE) $nextQ = D ^ IS_D_INVERTED; else $nextQ = \$currQ ;
+  always @* if (R == !IS_R_INVERTED) \$nextQ = 1'b0; else if (CE) \$nextQ = D ^ IS_D_INVERTED; else \$nextQ = \$currQ ;
 `ifdef _ABC
   // `abc9' requires that complex flops be split into a combinatorial
   //   box (this module) feeding a simple flop ($_ABC_FF_ in abc_map.v)
@@ -279,7 +279,7 @@ module FDRE (
   wire [3:0] $abc9_control = {CE, IS_D_INVERTED, R, IS_R_INVERTED};
   always @* Q = \$nextQ ;
 `else
-  assign $currQ = Q;
+  assign \$currQ = Q;
   generate case (|IS_C_INVERTED)
     1'b0: always @(posedge C) Q <= \$nextQ ;
     1'b1: always @(negedge C) Q <= \$nextQ ;
@@ -299,7 +299,7 @@ module FDRE_1 (
   initial Q <= INIT;
   wire \$currQ ;
   reg \$nextQ ;
-  always @* if (R) Q <= 1'b0; else if (CE) Q <= D; else $nextQ = \$currQ ;
+  always @* if (R) Q <= 1'b0; else if (CE) Q <= D; else \$nextQ = \$currQ ;
 `ifdef _ABC
   // `abc9' requires that complex flops be split into a combinatorial
   //   box (this module) feeding a simple flop ($_ABC_FF_ in abc_map.v)
@@ -318,7 +318,7 @@ module FDRE_1 (
   wire [3:0] $abc9_control = {CE, 1'b0 /* IS_D_INVERTED */, R, 1'b0 /* IS_R_INVERTED */};
   always @* Q = \$nextQ ;
 `else
-  assign $currQ = Q;
+  assign \$currQ = Q;
   always @(negedge C) Q <= \$nextQ ;
 `endif
 endmodule
@@ -343,7 +343,7 @@ module FDCE (
   initial Q <= INIT;
   wire \$currQ ;
   reg \$nextQ ;
-  always @* if (CE) Q <= D ^ IS_D_INVERTED; else $nextQ = \$currQ ;
+  always @* if (CE) Q <= D ^ IS_D_INVERTED; else \$nextQ = \$currQ ;
 `ifdef _ABC
   // `abc9' requires that complex flops be split into a combinatorial
   //   box (this module) feeding a simple flop ($_ABC_FF_ in abc_map.v)
@@ -364,7 +364,7 @@ module FDCE (
   wire [3:0] $abc9_control = {CE, IS_D_INVERTED, CLR, IS_CLR_INVERTED};
   always @* Q = \$nextQ ;
 `else
-  assign $currQ = Q;
+  assign \$currQ = Q;
   generate case ({|IS_C_INVERTED, |IS_CLR_INVERTED})
     2'b00: always @(posedge C, posedge CLR) if ( CLR) Q <= 1'b0; else Q <= \$nextQ ;
     2'b01: always @(posedge C, negedge CLR) if (!CLR) Q <= 1'b0; else Q <= \$nextQ ;
@@ -386,7 +386,7 @@ module FDCE_1 (
   initial Q <= INIT;
   wire \$currQ ;
   reg \$nextQ ;
-  always @* if (CE) Q <= D; else $nextQ = \$currQ ;
+  always @* if (CE) Q <= D; else \$nextQ = \$currQ ;
 `ifdef _ABC
   // `abc9' requires that complex flops be split into a combinatorial
   //   box (this module) feeding a simple flop ($_ABC_FF_ in abc_map.v)
@@ -407,7 +407,7 @@ module FDCE_1 (
   wire [3:0] $abc9_control = {CE, 1'b0 /* IS_D_INVERTED */, CLR, 1'b0 /* IS_CLR_INVERTED */};
   always @* Q = \$nextQ ;
 `else
-  assign $currQ = Q;
+  assign \$currQ = Q;
   always @(negedge C, posedge CLR) if (CLR) Q <= 1'b0; else Q <= \$nextQ ;
 `endif
 endmodule
@@ -432,7 +432,7 @@ module FDPE (
   initial Q <= INIT;
   wire \$currQ ;
   reg \$nextQ ;
-  always @* if (CE) Q <= D ^ IS_D_INVERTED; else $nextQ = \$currQ ;
+  always @* if (CE) Q <= D ^ IS_D_INVERTED; else \$nextQ = \$currQ ;
 `ifdef _ABC
   // `abc9' requires that complex flops be split into a combinatorial
   //   box (this module) feeding a simple flop ($_ABC_FF_ in abc_map.v)
@@ -453,7 +453,7 @@ module FDPE (
   wire [3:0] $abc9_control = {CE, IS_D_INVERTED, PRE, IS_PRE_INVERTED};
   always @* Q = \$nextQ ;
 `else
-  assign $currQ = Q;
+  assign \$currQ = Q;
   generate case ({|IS_C_INVERTED, |IS_PRE_INVERTED})
     2'b00: always @(posedge C, posedge PRE) if ( PRE) Q <= 1'b1; else Q <= \$nextQ ;
     2'b01: always @(posedge C, negedge PRE) if (!PRE) Q <= 1'b1; else Q <= \$nextQ ;
@@ -475,7 +475,7 @@ module FDPE_1 (
   initial Q <= INIT;
   wire \$currQ ;
   reg \$nextQ ;
-  always @* if (CE) Q <= D; else $nextQ = \$currQ ;
+  always @* if (CE) Q <= D; else \$nextQ = \$currQ ;
 `ifdef _ABC
   // `abc9' requires that complex flops be split into a combinatorial
   //   box (this module) feeding a simple flop ($_ABC_FF_ in abc_map.v)
@@ -496,7 +496,7 @@ module FDPE_1 (
   wire [3:0] $abc9_control = {CE, 1'b0 /* IS_D_INVERTED */, PRE, 1'b0 /* IS_PRE_INVERTED */};
   always @* Q = \$nextQ ;
 `else
-  assign $currQ = Q;
+  assign \$currQ = Q;
   always @(negedge C, posedge PRE) if (PRE) Q <= 1'b1; else Q <= \$nextQ ;
 `endif
 endmodule
@@ -521,7 +521,7 @@ module FDSE (
   initial Q <= INIT;
   wire \$currQ ;
   reg \$nextQ ;
-  always @* if (S == !IS_S_INVERTED) $nextQ = 1'b1; else if (CE) $nextQ = D ^ IS_D_INVERTED; else $nextQ = \$currQ ;
+  always @* if (S == !IS_S_INVERTED) \$nextQ = 1'b1; else if (CE) \$nextQ = D ^ IS_D_INVERTED; else \$nextQ = \$currQ ;
 `ifdef _ABC
   // `abc9' requires that complex flops be split into a combinatorial
   //   box (this module) feeding a simple flop ($_ABC_FF_ in abc_map.v)
@@ -540,7 +540,7 @@ module FDSE (
   wire [3:0] $abc9_control = {CE, IS_D_INVERTED, S, IS_S_INVERTED};
   always @* Q = \$nextQ ;
 `else
-  assign $currQ = Q;
+  assign \$currQ = Q;
   generate case (|IS_C_INVERTED)
     1'b0: always @(posedge C) Q <= \$nextQ ;
     1'b1: always @(negedge C) Q <= \$nextQ ;
@@ -560,7 +560,7 @@ module FDSE_1 (
   initial Q <= INIT;
   wire \$currQ ;
   reg \$nextQ ;
-  always @* if (S) $nextQ = 1'b1; else if (CE) $nextQ = D; else $nextQ = \$currQ ;
+  always @* if (S) \$nextQ = 1'b1; else if (CE) \$nextQ = D; else \$nextQ = \$currQ ;
 `ifdef _ABC
   // `abc9' requires that complex flops be split into a combinatorial
   //   box (this module) feeding a simple flop ($_ABC_FF_ in abc_map.v)
@@ -579,7 +579,7 @@ module FDSE_1 (
   wire [3:0] $abc9_control = {CE, 1'b0 /* IS_D_INVERTED */, S, 1'b0 /* IS_S_INVERTED */};
   always @* Q = \$nextQ ;
 `else
-  assign $currQ = Q;
+  assign \$currQ = Q;
   always @(negedge C) Q <= \$nextQ ;
 `endif
 endmodule
