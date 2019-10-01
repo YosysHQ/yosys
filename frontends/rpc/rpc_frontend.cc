@@ -34,6 +34,8 @@
 #include "libs/sha1/sha1.h"
 #include "kernel/yosys.h"
 
+extern char **environ;
+
 YOSYS_NAMESPACE_BEGIN
 
 #if defined(_WIN32)
