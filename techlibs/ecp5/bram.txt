@@ -40,7 +40,7 @@ endbram
 match $__ECP5_PDPW16KD
   min bits 2048
   min efficiency 5
-  shuffle_enable B
+  shuffle_enable A
   make_transp
   or_next_if_better
 endmatch
@@ -48,5 +48,5 @@ endmatch
 match $__ECP5_DP16KD
   min bits 2048
   min efficiency 5
-  shuffle_enable B
+  shuffle_enable A
 endmatch
