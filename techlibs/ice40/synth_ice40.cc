@@ -238,7 +238,14 @@ struct SynthIce40Pass : public ScriptPass
 	{
 		if (check_label("begin"))
 		{
-			run("read_verilog -icells -lib +/ice40/cells_sim.v");
+			std::string define;
+			if (device_opt == "lp")
+				define = "-D ICE40_LP";
+			else if (device_opt == "u")
+				define = "-D ICE40_U";
+			else
+				define = "-D ICE40_HX";
+			run("read_verilog -icells " + define + " -lib +/ice40/cells_sim.v");
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
 			run("proc");
 		}
@@ -265,8 +272,18 @@ struct SynthIce40Pass : public ScriptPass
 			run("techmap -map +/cmp2lut.v -D LUT_WIDTH=4");
 			run("opt_expr");
 			run("opt_clean");
-			if (help_mode || dsp)
-				run("ice40_dsp", "(if -dsp)");
+			if (help_mode || dsp) {
+				run("techmap -map +/mul2dsp.v -map +/ice40/dsp_map.v -D DSP_A_MAXWIDTH=16 -D DSP_B_MAXWIDTH=16 "
+						"-D DSP_A_MINWIDTH=2 -D DSP_B_MINWIDTH=2 -D DSP_Y_MINWIDTH=11 "
+						"-D DSP_NAME=$__MUL16X16", "(if -dsp)");
+				run("select a:mul2dsp", "              (if -dsp)");
+				run("setattr -unset mul2dsp", "        (if -dsp)");
+				run("opt_expr -fine", "                (if -dsp)");
+				run("wreduce", "                       (if -dsp)");
+				run("select -clear", "                 (if -dsp)");
+				run("ice40_dsp", "                     (if -dsp)");
+				run("chtype -set $mul t:$__soft_mul", "(if -dsp)");
+			}
 			run("alumacc");
 			run("opt");
 			run("fsm");

@@ -48,7 +48,7 @@ using zlib to write gzip-compressed data every time the stream is flushed.
 */
 class gzip_ostream : public std::ostream  {
 public:
-	gzip_ostream()
+	gzip_ostream() : std::ostream(nullptr)
 	{
 		rdbuf(&outbuf);
 	}
@@ -71,7 +71,7 @@ private:
 			str("");
 			return 0;
 		}
-		~gzip_streambuf()
+		virtual ~gzip_streambuf()
 		{
 			sync();
 			gzclose(gzf);
@@ -439,7 +439,7 @@ void Frontend::execute(std::vector<std::string> args, RTLIL::Design *design)
 FILE *Frontend::current_script_file = NULL;
 std::string Frontend::last_here_document;
 
-void Frontend::extra_args(std::istream *&f, std::string &filename, std::vector<std::string> args, size_t argidx)
+void Frontend::extra_args(std::istream *&f, std::string &filename, std::vector<std::string> args, size_t argidx, bool bin_input)
 {
 	bool called_with_fp = f != NULL;
 
@@ -489,7 +489,7 @@ void Frontend::extra_args(std::istream *&f, std::string &filename, std::vector<s
 				next_args.insert(next_args.end(), filenames.begin()+1, filenames.end());
 			}
 			std::ifstream *ff = new std::ifstream;
-			ff->open(filename.c_str());
+			ff->open(filename.c_str(), bin_input ? std::ifstream::binary : std::ifstream::in);
 			yosys_input_files.insert(filename);
 			if (ff->fail())
 				delete ff;
@@ -498,7 +498,15 @@ void Frontend::extra_args(std::istream *&f, std::string &filename, std::vector<s
 			if (f != NULL) {
 				// Check for gzip magic
 				unsigned char magic[3];
-				int n = readsome(*ff, reinterpret_cast<char*>(magic), 3);
+				int n = 0;
+				while (n < 3)
+				{
+					int c = ff->get();
+					if (c != EOF) {
+						magic[n] = (unsigned char) c;
+					}
+					n++;
+				}
 				if (n == 3 && magic[0] == 0x1f && magic[1] == 0x8b) {
 	#ifdef YOSYS_ENABLE_ZLIB
 					log("Found gzip magic in file `%s', decompressing using zlib.\n", filename.c_str());
@@ -604,7 +612,7 @@ void Backend::execute(std::vector<std::string> args, RTLIL::Design *design)
 		delete f;
 }
 
-void Backend::extra_args(std::ostream *&f, std::string &filename, std::vector<std::string> args, size_t argidx)
+void Backend::extra_args(std::ostream *&f, std::string &filename, std::vector<std::string> args, size_t argidx, bool bin_output)
 {
 	bool called_with_fp = f != NULL;
 
@@ -639,7 +647,7 @@ void Backend::extra_args(std::ostream *&f, std::string &filename, std::vector<st
 #endif
 		} else {
 			std::ofstream *ff = new std::ofstream;
-			ff->open(filename.c_str(), std::ofstream::trunc);
+			ff->open(filename.c_str(), bin_output ? (std::ofstream::trunc | std::ofstream::binary) : std::ofstream::trunc);
 			yosys_output_files.insert(filename);
 			if (ff->fail()) {
 				delete ff;

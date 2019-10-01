@@ -198,6 +198,7 @@ struct Async2syncPass : public Pass {
 						module->addMux(NEW_ID, sig_d, new_q, sig_en, sig_q);
 					}
 
+					cell->setPort("\\D", sig_q);
 					cell->setPort("\\Q", new_q);
 					cell->unsetPort("\\EN");
 					cell->unsetParam("\\EN_POLARITY");

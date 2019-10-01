@@ -21,12 +21,21 @@ $(eval $(call add_extra_objs,passes/pmgen/ice40_wrapcarry_pm.h))
 
 # --------------------------------------
 
+OBJS += passes/pmgen/xilinx_dsp.o
+passes/pmgen/xilinx_dsp.o: passes/pmgen/xilinx_dsp_pm.h passes/pmgen/xilinx_dsp_CREG_pm.h passes/pmgen/xilinx_dsp_cascade_pm.h
+$(eval $(call add_extra_objs,passes/pmgen/xilinx_dsp_pm.h))
+$(eval $(call add_extra_objs,passes/pmgen/xilinx_dsp_CREG_pm.h))
+$(eval $(call add_extra_objs,passes/pmgen/xilinx_dsp_cascade_pm.h))
+
+# --------------------------------------
+
 OBJS += passes/pmgen/peepopt.o
 passes/pmgen/peepopt.o: passes/pmgen/peepopt_pm.h
 $(eval $(call add_extra_objs,passes/pmgen/peepopt_pm.h))
 
 PEEPOPT_PATTERN  = passes/pmgen/peepopt_shiftmul.pmg
 PEEPOPT_PATTERN += passes/pmgen/peepopt_muldiv.pmg
+PEEPOPT_PATTERN += passes/pmgen/peepopt_dffmux.pmg
 
 passes/pmgen/peepopt_pm.h: passes/pmgen/pmgen.py $(PEEPOPT_PATTERN)
 	$(P) mkdir -p passes/pmgen && python3 $< -o $@ -p peepopt $(filter-out $<,$^)

@@ -158,6 +158,11 @@ std::string AST::type2str(AstNodeType type)
 	X(AST_POSEDGE)
 	X(AST_NEGEDGE)
 	X(AST_EDGE)
+	X(AST_INTERFACE)
+	X(AST_INTERFACEPORT)
+	X(AST_INTERFACEPORTTYPE)
+	X(AST_MODPORT)
+	X(AST_MODPORTMEMBER)
 	X(AST_PACKAGE)
 #undef X
 	default:
@@ -1099,6 +1104,13 @@ static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast
 
 		ignoreThisSignalsInInitial = RTLIL::SigSpec();
 	}
+	else {
+		for (auto &attr : ast->attributes) {
+			if (attr.second->type != AST_CONSTANT)
+				continue;
+			current_module->attributes[attr.first] = attr.second->asAttrConst();
+		}
+	}
 
 	if (ast->type == AST_INTERFACE)
 		current_module->set_bool_attribute("\\is_interface");
@@ -1284,6 +1296,8 @@ void AST::explode_interface_port(AstNode *module_ast, RTLIL::Module * intfmodule
 // from AST. The interface members are copied into the AST module with the prefix of the interface.
 void AstModule::reprocess_module(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Module*> local_interfaces)
 {
+	loadconfig();
+
 	bool is_top = false;
 	AstNode *new_ast = ast->clone();
 	for (auto &intf : local_interfaces) {
@@ -1467,24 +1481,7 @@ std::string AstModule::derive_common(RTLIL::Design *design, dict<RTLIL::IdString
 		stripped_name = stripped_name.substr(9);
 
 	log_header(design, "Executing AST frontend in derive mode using pre-parsed AST for module `%s'.\n", stripped_name.c_str());
-
-	current_ast = NULL;
-	flag_dump_ast1 = false;
-	flag_dump_ast2 = false;
-	flag_dump_vlog1 = false;
-	flag_dump_vlog2 = false;
-	flag_nolatches = nolatches;
-	flag_nomeminit = nomeminit;
-	flag_nomem2reg = nomem2reg;
-	flag_mem2reg = mem2reg;
-	flag_noblackbox = noblackbox;
-	flag_lib = lib;
-	flag_nowb = nowb;
-	flag_noopt = noopt;
-	flag_icells = icells;
-	flag_pwires = pwires;
-	flag_autowire = autowire;
-	use_internal_line_num();
+	loadconfig();
 
 	std::string para_info;
 	AstNode *new_ast = ast->clone();
@@ -1563,6 +1560,27 @@ RTLIL::Module *AstModule::clone() const
 	new_mod->autowire = autowire;
 
 	return new_mod;
+}
+
+void AstModule::loadconfig() const
+{
+	current_ast = NULL;
+	flag_dump_ast1 = false;
+	flag_dump_ast2 = false;
+	flag_dump_vlog1 = false;
+	flag_dump_vlog2 = false;
+	flag_nolatches = nolatches;
+	flag_nomeminit = nomeminit;
+	flag_nomem2reg = nomem2reg;
+	flag_mem2reg = mem2reg;
+	flag_noblackbox = noblackbox;
+	flag_lib = lib;
+	flag_nowb = nowb;
+	flag_noopt = noopt;
+	flag_icells = icells;
+	flag_pwires = pwires;
+	flag_autowire = autowire;
+	use_internal_line_num();
 }
 
 // internal dummy line number callbacks

@@ -332,6 +332,10 @@ Verilog Attributes and non-standard features
   that represent module parameters or localparams (when the HDL front-end
   is run in ``-pwires`` mode).
 
+- Wires marked with the ``hierconn`` attribute are connected to wires with the
+  same name (format ``cell_name.identifier``) when they are imported from
+  sub-modules by ``flatten``.
+
 - The ``clkbuf_driver`` attribute can be set on an output port of a blackbox
   module to mark it as a clock buffer output, and thus prevent ``clkbufmap``
   from inserting another clock buffer on a net driven by such output.
@@ -343,6 +347,12 @@ Verilog Attributes and non-standard features
   automatic clock buffer insertion by ``clkbufmap``. This behaviour can be
   overridden by providing a custom selection to ``clkbufmap``.
 
+- The ``invertible_pin`` attribute can be set on a port to mark it as
+  invertible via a cell parameter.  The name of the inversion parameter
+  is specified as the value of this attribute.  The value of the inversion
+  parameter must be of the same width as the port, with 1 indicating
+  an inverted bit and 0 indicating a non-inverted bit.
+
 - The ``iopad_external_pin`` attribute on a blackbox module's port marks
   it as the external-facing pin of an I/O pad, and prevents ``iopadmap``
   from inserting another pad cell on it.
@@ -351,18 +361,15 @@ Verilog Attributes and non-standard features
   blackbox or whitebox definition to a corresponding entry in a `abc9`
   box-file.
 
-- The port attribute ``abc_scc_break`` indicates a module input port that will
-  be treated as a primary output during `abc9` techmapping. Doing so eliminates
-  the possibility of a strongly-connected component (i.e. a combinatorial loop)
-  existing. Typically, this is specified for sequential inputs on otherwise
-  combinatorial boxes -- for example, applying ``abc_scc_break`` onto the `D`
-  port of a LUTRAM cell prevents `abc9` from interpreting any `Q` -> `D` paths
-  as a combinatorial loop.
-
 - The port attribute ``abc_carry`` marks the carry-in (if an input port) and
   carry-out (if output port) ports of a box. This information is necessary for
   `abc9` to preserve the integrity of carry-chains. Specifying this attribute
   onto a bus port will affect only its most significant bit.
+
+- The port attribute ``abc_arrival`` specifies an integer (for output ports
+  only) to be used as the arrival time of this sequential port. It can be used,
+  for example, to specify the clk-to-Q delay of a flip-flop for consideration
+  during techmapping.
 
 - In addition to the ``(* ... *)`` attribute syntax, Yosys supports
   the non-standard ``{* ... *}`` attribute syntax to set default attributes

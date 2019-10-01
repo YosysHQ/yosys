@@ -1,0 +1,113 @@
+pattern dffmux
+
+state <IdString> cemuxAB rstmuxBA
+state <SigSpec> sigD
+
+match dff
+	select dff->type == $dff
+	select GetSize(port(dff, \D)) > 1
+endmatch
+
+match rstmux
+	select rstmux->type == $mux
+	select GetSize(port(rstmux, \Y)) > 1
+	index <SigSpec> port(rstmux, \Y) === port(dff, \D)
+	choice <IdString> BA {\B, \A}
+	select port(rstmux, BA).is_fully_const()
+	set rstmuxBA BA
+	optional
+endmatch
+
+code sigD
+	if (rstmux)
+		sigD = port(rstmux, rstmuxBA == \B ? \A : \B);
+	else
+		sigD = port(dff, \D);
+endcode
+
+match cemux
+	select cemux->type == $mux
+	select GetSize(port(cemux, \Y)) > 1
+	index <SigSpec> port(cemux, \Y) === sigD
+	choice <IdString> AB {\A, \B}
+	index <SigSpec> port(cemux, AB) === port(dff, \Q)
+	set cemuxAB AB
+endmatch
+
+code
+	SigSpec D = port(cemux, cemuxAB == \A ? \B : \A);
+	SigSpec Q = port(dff, \Q);
+	Const rst;
+	if (rstmux)
+		rst = port(rstmux, rstmuxBA).as_const();
+	int width = GetSize(D);
+
+	SigSpec &ceA = cemux->connections_.at(\A);
+	SigSpec &ceB = cemux->connections_.at(\B);
+	SigSpec &ceY = cemux->connections_.at(\Y);
+	SigSpec &dffD = dff->connections_.at(\D);
+	SigSpec &dffQ = dff->connections_.at(\Q);
+
+	if (D[width-1] == D[width-2]) {
+		did_something = true;
+
+		SigBit sign = D[width-1];
+		bool is_signed = sign.wire;
+		int i;
+		for (i = width-1; i >= 2; i--) {
+			if (!is_signed) {
+				module->connect(Q[i], sign);
+				if (D[i-1] != sign || (rst.size() && rst[i-1] != rst[width-1]))
+					break;
+			}
+			else {
+				module->connect(Q[i], Q[i-1]);
+				if (D[i-2] != sign || (rst.size() && rst[i-1] != rst[width-1]))
+					break;
+			}
+		}
+
+		ceA.remove(i, width-i);
+		ceB.remove(i, width-i);
+		ceY.remove(i, width-i);
+		cemux->fixup_parameters();
+		dffD.remove(i, width-i);
+		dffQ.remove(i, width-i);
+		dff->fixup_parameters();
+
+		log("dffcemux pattern in %s: dff=%s, cemux=%s; removed top %d bits.\n", log_id(module), log_id(dff), log_id(cemux), width-i);
+		accept;
+	}
+	else {
+		int count = 0;
+		for (int i = width-1; i >= 0; i--) {
+			if (D[i].wire)
+				continue;
+			Wire *w = Q[i].wire;
+			auto it = w->attributes.find(\init);
+			State init;
+			if (it != w->attributes.end())
+				init = it->second[Q[i].offset];
+			else
+				init = State::Sx;
+
+			if (init == State::Sx || init == D[i].data) {
+				count++;
+				module->connect(Q[i], D[i]);
+				ceA.remove(i);
+				ceB.remove(i);
+				ceY.remove(i);
+				dffD.remove(i);
+				dffQ.remove(i);
+			}
+		}
+		if (count > 0) {
+			did_something = true;
+			cemux->fixup_parameters();
+			dff->fixup_parameters();
+			log("dffcemux pattern in %s: dff=%s, cemux=%s; removed %d constant bits.\n", log_id(module), log_id(dff), log_id(cemux), count);
+		}
+
+		accept;
+	}
+endcode

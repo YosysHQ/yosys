@@ -101,7 +101,7 @@ struct AigerWriter
 		return a;
 	}
 
-	AigerWriter(Module *module, bool zinit_mode, bool imode, bool omode, bool bmode) : module(module), zinit_mode(zinit_mode), sigmap(module)
+	AigerWriter(Module *module, bool zinit_mode, bool imode, bool omode, bool bmode, bool lmode) : module(module), zinit_mode(zinit_mode), sigmap(module)
 	{
 		pool<SigBit> undriven_bits;
 		pool<SigBit> unused_bits;
@@ -365,6 +365,12 @@ struct AigerWriter
 				aig_latchin.push_back(a ^ 1);
 			else
 				aig_latchin.push_back(a);
+		}
+
+		if (lmode && aig_l == 0) {
+			aig_m++, aig_l++;
+			aig_latchinit.push_back(0);
+			aig_latchin.push_back(0);
 		}
 
 		if (!initstate_bits.empty() || !init_inputs.empty())
@@ -704,9 +710,9 @@ struct AigerBackend : public Backend {
 		log("    -vmap <filename>\n");
 		log("        like -map, but more verbose\n");
 		log("\n");
-		log("    -I, -O, -B\n");
-		log("        If the design contains no input/output/assert then create one\n");
-		log("        dummy input/output/bad_state pin to make the tools reading the\n");
+		log("    -I, -O, -B, -L\n");
+		log("        If the design contains no input/output/assert/flip-flop then create one\n");
+		log("        dummy input/output/bad_state-pin or latch to make the tools reading the\n");
 		log("        AIGER file happy.\n");
 		log("\n");
 	}
@@ -720,6 +726,7 @@ struct AigerBackend : public Backend {
 		bool imode = false;
 		bool omode = false;
 		bool bmode = false;
+		bool lmode = false;
 		std::string map_filename;
 
 		log_header(design, "Executing AIGER backend.\n");
@@ -764,16 +771,20 @@ struct AigerBackend : public Backend {
 				bmode = true;
 				continue;
 			}
+			if (args[argidx] == "-L") {
+				lmode = true;
+				continue;
+			}
 			break;
 		}
-		extra_args(f, filename, args, argidx);
+		extra_args(f, filename, args, argidx, !ascii_mode);
 
 		Module *top_module = design->top_module();
 
 		if (top_module == nullptr)
 			log_error("Can't find top module in current design!\n");
 
-		AigerWriter writer(top_module, zinit_mode, imode, omode, bmode);
+		AigerWriter writer(top_module, zinit_mode, imode, omode, bmode, lmode);
 		writer.write_aiger(*f, ascii_mode, miter_mode, symbols_mode);
 
 		if (!map_filename.empty()) {

@@ -1528,7 +1528,7 @@ std::vector<RTLIL::Wire*> RTLIL::Module::selected_wires() const
 std::vector<RTLIL::Cell*> RTLIL::Module::selected_cells() const
 {
 	std::vector<RTLIL::Cell*> result;
-	result.reserve(wires_.size());
+	result.reserve(cells_.size());
 	for (auto &it : cells_)
 		if (design->selected(this, it.second))
 			result.push_back(it.second);
@@ -3083,6 +3083,7 @@ void RTLIL::SigSpec::replace(const dict<RTLIL::SigBit, RTLIL::SigBit> &rules, RT
 	log_assert(other != NULL);
 	log_assert(width_ == other->width_);
 
+	if (rules.empty()) return;
 	unpack();
 	other->unpack();
 
@@ -3107,6 +3108,7 @@ void RTLIL::SigSpec::replace(const std::map<RTLIL::SigBit, RTLIL::SigBit> &rules
 	log_assert(other != NULL);
 	log_assert(width_ == other->width_);
 
+	if (rules.empty()) return;
 	unpack();
 	other->unpack();
 
