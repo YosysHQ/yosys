@@ -257,6 +257,12 @@ struct TechmapWorker
 					w->add_strpool_attribute(ID(src), extra_src_attrs);
 			}
 			design->select(module, w);
+
+			if (it.second->name.begins_with("\\_TECHMAP_REPLACE_.")) {
+				IdString replace_name = stringf("%s%s", orig_cell_name.c_str(), it.second->name.c_str() + strlen("\\_TECHMAP_REPLACE_"));
+				Wire *replace_w = module->addWire(replace_name, it.second);
+				module->connect(replace_w, w);
+			}
 		}
 
 		SigMap tpl_sigmap(tpl);
@@ -1198,6 +1204,10 @@ struct TechmapPass : public Pass {
 		log("\n");
 		log("A cell with the name _TECHMAP_REPLACE_ in the map file will inherit the name\n");
 		log("and attributes of the cell that is being replaced.\n");
+		log("A wire with a name of the form `_TECHMAP_REPLACE_.<suffix>` in the map file will\n");
+		log("cause a new wire alias to be created with its name set to the original but with\n");
+		log("its `_TECHMAP_REPLACE_' prefix to be substituted with the name of the cell being\n");
+		log("replaced.\n");
 		log("\n");
 		log("See 'help extract' for a pass that does the opposite thing.\n");
 		log("\n");
