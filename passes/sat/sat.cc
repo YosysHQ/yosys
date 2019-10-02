@@ -265,15 +265,18 @@ struct SatHelper
 				RTLIL::SigSpec rhs = it.second->attributes.at("\\init");
 				log_assert(lhs.size() == rhs.size());
 
+				dict<RTLIL::SigBit,SigBit> seen_init;
 				RTLIL::SigSpec removed_bits;
 				for (int i = 0; i < lhs.size(); i++) {
 					RTLIL::SigSpec bit = lhs.extract(i, 1);
-					if (rhs[i] == State::Sx || !satgen.initial_state.check_all(bit)) {
+					if (rhs[i] == State::Sx || !satgen.initial_state.check_all(bit) || seen_init.at(bit, rhs[i]) != rhs[i]) {
 						removed_bits.append(bit);
 						lhs.remove(i, 1);
 						rhs.remove(i, 1);
 						i--;
 					}
+					else
+						seen_init[bit] = rhs[i];
 				}
 
 				if (removed_bits.size())
