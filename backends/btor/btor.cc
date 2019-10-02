@@ -569,7 +569,7 @@ struct BtorWorker
 			int nid_init_val = -1;
 
 			if (!initval.is_fully_undef())
-				nid_init_val = get_sig_nid(initval);
+				nid_init_val = get_sig_nid(initval, -1, false, true);
 
 			int sid = get_bv_sid(GetSize(sig_q));
 			int nid = next_nid++;
@@ -681,7 +681,7 @@ struct BtorWorker
 				{
 					if (verbose)
 						btorf("; initval = %s\n", log_signal(firstword));
-					nid_init_val = get_sig_nid(firstword);
+					nid_init_val = get_sig_nid(firstword, -1, false, true);
 				}
 				else
 				{
@@ -693,8 +693,8 @@ struct BtorWorker
 						if (thisword.is_fully_undef())
 							continue;
 						Const thisaddr(i, abits);
-						int nid_thisword = get_sig_nid(thisword);
-						int nid_thisaddr = get_sig_nid(thisaddr);
+						int nid_thisword = get_sig_nid(thisword, -1, false, true);
+						int nid_thisaddr = get_sig_nid(thisaddr, -1, false, true);
 						int last_nid_init_val = nid_init_val;
 						nid_init_val = next_nid++;
 						if (verbose)
@@ -792,7 +792,7 @@ struct BtorWorker
 		cell_recursion_guard.erase(cell);
 	}
 
-	int get_sig_nid(SigSpec sig, int to_width = -1, bool is_signed = false)
+	int get_sig_nid(SigSpec sig, int to_width = -1, bool is_signed = false, bool is_init = false)
 	{
 		int nid = -1;
 		sigmap.apply(sig);
@@ -823,7 +823,10 @@ struct BtorWorker
 				int sid = get_bv_sid(GetSize(sig));
 
 				int nid_input = next_nid++;
-				btorf("%d input %d\n", nid_input, sid);
+				if (is_init)
+					btorf("%d state %d\n", nid_input, sid);
+				else
+					btorf("%d input %d\n", nid_input, sid);
 
 				int nid_masked_input;
 				if (sig_mask_undef.is_fully_ones()) {
