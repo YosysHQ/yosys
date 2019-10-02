@@ -2,6 +2,7 @@ read_verilog <<EOT
 module sub(input i, output o, input j);
 foobar _TECHMAP_REPLACE_(i, o, j);
 wire _TECHMAP_REPLACE_.asdf = i ;
+barfoo _TECHMAP_REPLACE_.blah (i, o, j);
 endmodule
 EOT
 design -stash techmap
@@ -14,3 +15,4 @@ EOT
 
 techmap -map %techmap
 select -assert-any w:s0.asdf
+select -assert-any c:s0.blah
