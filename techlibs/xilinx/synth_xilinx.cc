@@ -264,6 +264,11 @@ struct SynthXilinxPass : public ScriptPass
 		if (abc9 && retime)
 			log_cmd_error("-retime option not currently compatible with -abc9!\n");
 
+		if (!nodsp && family != "xc7") {
+			log_warning("DSP inference not yet supported for family '%s': forcing '-nodsp'.\n", family.c_str());
+			nodsp = true;
+		}
+
 		log_header(design, "Executing SYNTH_XILINX pass.\n");
 		log_push();
 
