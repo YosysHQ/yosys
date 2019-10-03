@@ -41,17 +41,24 @@ struct CheckPass : public Pass {
 		log("\n");
 		log(" - used wires that do not have a driver\n");
 		log("\n");
-		log("When called with -noinit then this command also checks for wires which have\n");
-		log("the 'init' attribute set.\n");
+		log("Options:\n");
 		log("\n");
-		log("When called with -initdrv then this command also checks for wires which have\n");
-		log("the 'init' attribute set and aren't driven by a FF cell type.\n");
+		log("  -noinit\n");
+		log("    Also check for wires which have the 'init' attribute set.\n");
 		log("\n");
-		log("When called with -mapped then this command also checks for internal cells\n");
-		log("that have not been mapped to cells of the target architecture.\n");
+		log("  -initdrv\n");
+		log("    Also check for wires that have the 'init' attribute set and are not\n");
+		log("    driven by an FF cell type.\n");
 		log("\n");
-		log("When called with -assert then the command will produce an error if any\n");
-		log("problems are found in the current design.\n");
+		log("  -mapped\n");
+		log("    Also check for internal cells that have not been mapped to cells of the\n");
+		log("    target architecture.\n");
+		log("\n");
+		log("  -allow-tbuf\n");
+		log("    Modify the -mapped behavior to still allow $_TBUF_ cells.\n");
+		log("\n");
+		log("  -assert\n");
+		log("    Produce a runtime error if any problems are found in the current design.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -60,6 +67,7 @@ struct CheckPass : public Pass {
 		bool noinit = false;
 		bool initdrv = false;
 		bool mapped = false;
+		bool allow_tbuf = false;
 		bool assert_mode = false;
 
 		size_t argidx;
@@ -74,6 +82,10 @@ struct CheckPass : public Pass {
 			}
 			if (args[argidx] == "-mapped") {
 				mapped = true;
+				continue;
+			}
+			if (args[argidx] == "-allow-tbuf") {
+				allow_tbuf = true;
 				continue;
 			}
 			if (args[argidx] == "-assert") {
@@ -145,8 +157,10 @@ struct CheckPass : public Pass {
 			for (auto cell : module->cells())
 			{
 				if (mapped && cell->type.begins_with("$") && design->module(cell->type) == nullptr) {
+					if (allow_tbuf && cell->type == ID($_TBUF_)) goto cell_allowed;
 					log_warning("Cell %s.%s is an unmapped internal cell of type %s.\n", log_id(module), log_id(cell), log_id(cell->type));
 					counter++;
+				cell_allowed:;
 				}
 				for (auto &conn : cell->connections()) {
 					SigSpec sig = sigmap(conn.second);
