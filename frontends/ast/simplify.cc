@@ -786,9 +786,8 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	if (type == AST_TYPEDEF) {
 		log_assert(children.size() == 1);
 		log_assert(children[0]->type == AST_WIRE || children[0]->type == AST_MEMORY);
-		while(children[0]->simplify(const_fold, at_zero, in_lvalue, stage, width_hint, sign_hint, in_param)) {
+		while(children[0]->simplify(const_fold, at_zero, in_lvalue, stage, width_hint, sign_hint, in_param))
 			did_something = true;
-		};
 		log_assert(!children[0]->is_custom_type);
 	}
 
