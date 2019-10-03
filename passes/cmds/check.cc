@@ -41,14 +41,24 @@ struct CheckPass : public Pass {
 		log("\n");
 		log(" - used wires that do not have a driver\n");
 		log("\n");
-		log("When called with -noinit then this command also checks for wires which have\n");
-		log("the 'init' attribute set.\n");
+		log("Options:\n");
 		log("\n");
-		log("When called with -initdrv then this command also checks for wires which have\n");
-		log("the 'init' attribute set and aren't driven by a FF cell type.\n");
+		log("  -noinit\n");
+		log("    Also check for wires which have the 'init' attribute set.\n");
 		log("\n");
-		log("When called with -assert then the command will produce an error if any\n");
-		log("problems are found in the current design.\n");
+		log("  -initdrv\n");
+		log("    Also check for wires that have the 'init' attribute set and are not\n");
+		log("    driven by an FF cell type.\n");
+		log("\n");
+		log("  -mapped\n");
+		log("    Also check for internal cells that have not been mapped to cells of the\n");
+		log("    target architecture.\n");
+		log("\n");
+		log("  -allow-tbuf\n");
+		log("    Modify the -mapped behavior to still allow $_TBUF_ cells.\n");
+		log("\n");
+		log("  -assert\n");
+		log("    Produce a runtime error if any problems are found in the current design.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -56,6 +66,8 @@ struct CheckPass : public Pass {
 		int counter = 0;
 		bool noinit = false;
 		bool initdrv = false;
+		bool mapped = false;
+		bool allow_tbuf = false;
 		bool assert_mode = false;
 
 		size_t argidx;
@@ -66,6 +78,14 @@ struct CheckPass : public Pass {
 			}
 			if (args[argidx] == "-initdrv") {
 				initdrv = true;
+				continue;
+			}
+			if (args[argidx] == "-mapped") {
+				mapped = true;
+				continue;
+			}
+			if (args[argidx] == "-allow-tbuf") {
+				allow_tbuf = true;
 				continue;
 			}
 			if (args[argidx] == "-assert") {
@@ -135,29 +155,37 @@ struct CheckPass : public Pass {
 			TopoSort<string> topo;
 
 			for (auto cell : module->cells())
-			for (auto &conn : cell->connections()) {
-				SigSpec sig = sigmap(conn.second);
-				bool logic_cell = yosys_celltypes.cell_evaluable(cell->type);
-				if (cell->input(conn.first))
-					for (auto bit : sig)
-						if (bit.wire) {
+			{
+				if (mapped && cell->type.begins_with("$") && design->module(cell->type) == nullptr) {
+					if (allow_tbuf && cell->type == ID($_TBUF_)) goto cell_allowed;
+					log_warning("Cell %s.%s is an unmapped internal cell of type %s.\n", log_id(module), log_id(cell), log_id(cell->type));
+					counter++;
+				cell_allowed:;
+				}
+				for (auto &conn : cell->connections()) {
+					SigSpec sig = sigmap(conn.second);
+					bool logic_cell = yosys_celltypes.cell_evaluable(cell->type);
+					if (cell->input(conn.first))
+						for (auto bit : sig)
+							if (bit.wire) {
+								if (logic_cell)
+									topo.edge(stringf("wire %s", log_signal(bit)),
+											stringf("cell %s (%s)", log_id(cell), log_id(cell->type)));
+								used_wires.insert(bit);
+							}
+					if (cell->output(conn.first))
+						for (int i = 0; i < GetSize(sig); i++) {
 							if (logic_cell)
-								topo.edge(stringf("wire %s", log_signal(bit)),
-										stringf("cell %s (%s)", log_id(cell), log_id(cell->type)));
-							used_wires.insert(bit);
+								topo.edge(stringf("cell %s (%s)", log_id(cell), log_id(cell->type)),
+										stringf("wire %s", log_signal(sig[i])));
+							if (sig[i].wire)
+								wire_drivers[sig[i]].push_back(stringf("port %s[%d] of cell %s (%s)",
+										log_id(conn.first), i, log_id(cell), log_id(cell->type)));
 						}
-				if (cell->output(conn.first))
-					for (int i = 0; i < GetSize(sig); i++) {
-						if (logic_cell)
-							topo.edge(stringf("cell %s (%s)", log_id(cell), log_id(cell->type)),
-									stringf("wire %s", log_signal(sig[i])));
-						if (sig[i].wire)
-							wire_drivers[sig[i]].push_back(stringf("port %s[%d] of cell %s (%s)",
-									log_id(conn.first), i, log_id(cell), log_id(cell->type)));
-					}
-				if (!cell->input(conn.first) && cell->output(conn.first))
-					for (auto bit : sig)
-						if (bit.wire) wire_drivers_count[bit]++;
+					if (!cell->input(conn.first) && cell->output(conn.first))
+						for (auto bit : sig)
+							if (bit.wire) wire_drivers_count[bit]++;
+				}
 			}
 
 			pool<SigBit> init_bits;
