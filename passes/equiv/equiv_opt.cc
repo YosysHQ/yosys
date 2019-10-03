@@ -58,7 +58,7 @@ struct EquivOptPass:public ScriptPass
 	}
 
 	std::string command, techmap_opts;
-	bool assert, undef, multiclock;
+	bool assert, undef, multiclock, async2sync;
 
 	void clear_flags() YS_OVERRIDE
 	{
@@ -67,6 +67,7 @@ struct EquivOptPass:public ScriptPass
 		assert = false;
 		undef = false;
 		multiclock = false;
+		async2sync = false;
 	}
 
 	void execute(std::vector < std::string > args, RTLIL::Design * design) YS_OVERRIDE
@@ -100,6 +101,10 @@ struct EquivOptPass:public ScriptPass
 				multiclock = true;
 				continue;
 			}
+			if (args[argidx] == "-async2sync") {
+				async2sync = true;
+				continue;
+			}
 			break;
 		}
 
@@ -118,6 +123,9 @@ struct EquivOptPass:public ScriptPass
 
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");
+
+		if (async2sync && multiclock)
+			log_cmd_error("The '-async2sync' and '-multiclock' options are mutually exclusive!\n");
 
 		log_header(design, "Executing EQUIV_OPT pass.\n");
 		log_push();
@@ -156,6 +164,8 @@ struct EquivOptPass:public ScriptPass
 		if (check_label("prove")) {
 			if (multiclock || help_mode)
 				run("clk2fflogic", "(only with -multiclock)");
+			if (async2sync || help_mode)
+				run("async2sync", "(only with -async2sync)");
 			run("equiv_make gold gate equiv");
 			if (help_mode)
 				run("equiv_induct [-undef] equiv");
