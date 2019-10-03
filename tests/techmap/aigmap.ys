@@ -1,0 +1,10 @@
+read_verilog <<EOT
+module top(input i, j, s, output o, p);
+assign o = s ? j : i;
+assign p = ~i;
+endmodule
+EOT
+
+select t:$mux
+aigmap -select
+select -assert-any %

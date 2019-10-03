@@ -210,6 +210,7 @@ namespace RTLIL {
 	struct Module;
 	struct Design;
 	struct Monitor;
+	enum State : unsigned char;
 }
 
 namespace AST {

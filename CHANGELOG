@@ -50,6 +50,7 @@ Yosys 0.9 .. Yosys 0.9-dev
     - "synth_ecp5" to now infer DSP blocks (-nodsp to disable, experimental)
     - "synth_ice40 -dsp" to infer DSP blocks
     - Added latch support to synth_xilinx
+    - Added "check -mapped"
 
 Yosys 0.8 .. Yosys 0.9
 ----------------------

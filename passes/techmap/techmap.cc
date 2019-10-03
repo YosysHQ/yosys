@@ -265,6 +265,12 @@ struct TechmapWorker
 			}
 
 			design->select(module, w);
+
+			if (it.second->name.begins_with("\\_TECHMAP_REPLACE_.")) {
+				IdString replace_name = stringf("%s%s", orig_cell_name.c_str(), it.second->name.c_str() + strlen("\\_TECHMAP_REPLACE_"));
+				Wire *replace_w = module->addWire(replace_name, it.second);
+				module->connect(replace_w, w);
+			}
 		}
 
 		SigMap tpl_sigmap(tpl);
@@ -386,6 +392,8 @@ struct TechmapWorker
 
 			if (techmap_replace_cell)
 				c_name = orig_cell_name;
+			else if (it.second->name.begins_with("\\_TECHMAP_REPLACE_."))
+				c_name = stringf("%s%s", orig_cell_name.c_str(), c_name.c_str() + strlen("\\_TECHMAP_REPLACE_"));
 			else
 				apply_prefix(cell->name, c_name);
 
@@ -1206,6 +1214,12 @@ struct TechmapPass : public Pass {
 		log("\n");
 		log("A cell with the name _TECHMAP_REPLACE_ in the map file will inherit the name\n");
 		log("and attributes of the cell that is being replaced.\n");
+		log("A cell with a name of the form `_TECHMAP_REPLACE_.<suffix>` in the map file will\n");
+		log("be named thus but with the `_TECHMAP_REPLACE_' prefix substituted with the name\n");
+		log("of the cell being replaced.\n");
+		log("Similarly, a wire named in the form `_TECHMAP_REPLACE_.<suffix>` will cause a\n");
+		log("new wire alias to be created and named as above but with the `_TECHMAP_REPLACE_'\n");
+		log("prefix also substituted.\n");
 		log("\n");
 		log("See 'help extract' for a pass that does the opposite thing.\n");
 		log("\n");
