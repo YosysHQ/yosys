@@ -29,11 +29,11 @@
 // ============================================================================
 
 // The purpose of the following FD* rules are to wrap the flop (which, when
-//   called with the `_ABC' macro set captures contains only its combinatorial
+//   called with the `_ABC' macro set captures only its combinatorial
 //   behaviour) with:
 // (a) a special $__ABC_FF_ in front of the FD*'s output, indicating to abc9
-//     the location of its basic D-Q flop
-// (b) a special TECHMAP_REPLACE_.$currQwire that will be used for feedback
+//     the connectivity of its basic D-Q flop
+// (b) a special TECHMAP_REPLACE_.$currQ wire that will be used for feedback
 //     into the (combinatorial) FD* cell to facilitate clock-enable behaviour
 module FDRE (output reg Q, input C, CE, D, R);
   parameter [0:0] INIT = 1'b0;
