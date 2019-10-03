@@ -44,6 +44,7 @@ techlibs/ecp5/bram_conn_2.vh: techlibs/ecp5/brams_connect.mk
 techlibs/ecp5/bram_conn_4.vh: techlibs/ecp5/brams_connect.mk
 techlibs/ecp5/bram_conn_9.vh: techlibs/ecp5/brams_connect.mk
 techlibs/ecp5/bram_conn_18.vh: techlibs/ecp5/brams_connect.mk
+techlibs/ecp5/bram_conn_36.vh: techlibs/ecp5/brams_connect.mk
 
 $(eval $(call add_gen_share_file,share/ecp5,techlibs/ecp5/bram_init_1_2_4.vh))
 $(eval $(call add_gen_share_file,share/ecp5,techlibs/ecp5/bram_init_9_18_36.vh))
@@ -53,3 +54,4 @@ $(eval $(call add_gen_share_file,share/ecp5,techlibs/ecp5/bram_conn_2.vh))
 $(eval $(call add_gen_share_file,share/ecp5,techlibs/ecp5/bram_conn_4.vh))
 $(eval $(call add_gen_share_file,share/ecp5,techlibs/ecp5/bram_conn_9.vh))
 $(eval $(call add_gen_share_file,share/ecp5,techlibs/ecp5/bram_conn_18.vh))
+$(eval $(call add_gen_share_file,share/ecp5,techlibs/ecp5/bram_conn_36.vh))
