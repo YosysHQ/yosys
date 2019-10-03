@@ -188,6 +188,13 @@ endmodule
 EOT
 
 proc
+# NB: equiv_opt uses equiv_induct which covers
+#     only the induction half of temporal induction
+#     --- missing the base-case half
+#     This makes it akin to `sat -tempinduct-inductonly`
+#     instead of `sat -tempinduct-baseonly` or
+#     `sat -tempinduct` which is necessary for this
+#     testcase
 #equiv_opt -assert peepopt
 
 design -save gold
@@ -197,7 +204,7 @@ design -stash gate
 design -import gold -as gold
 design -import gate -as gate
 miter -equiv -flatten -make_assert -make_outputs gold gate miter
-sat -seq 1 -verify -prove-asserts -show-ports miter
+sat -tempinduct -verify -prove-asserts -show-ports miter
 
 design -load gate
 select -assert-count 1 t:$dff r:WIDTH=4 %i
