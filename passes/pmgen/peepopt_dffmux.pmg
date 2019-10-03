@@ -74,9 +74,9 @@ code
 		return lhs == rhs;
 	};
 
-	int i = width;
-	while (i > 2) {
-		i--;
+	int i = width-1;
+	while (i > 1) {
+		log_dump(i, D[i], D[i-1], rst[i], rst[i-1], init[i], init[i-1]);
 		if (D[i] != D[i-1])
 			break;
 		if (!cmpx(rst[i], rst[i-1]))
@@ -86,26 +86,36 @@ code
 		if (!cmpx(rst[i], init[i]))
 			break;
 		module->connect(Q[i], Q[i-1]);
-		did_something = true;
+		i--;
 	}
 	if (i < width-1) {
+		did_something = true;
 		if (cemux) {
 			SigSpec &ceA = cemux->connections_.at(\A);
 			SigSpec &ceB = cemux->connections_.at(\B);
 			SigSpec &ceY = cemux->connections_.at(\Y);
-			ceA.remove(i, width-i);
-			ceB.remove(i, width-i);
-			ceY.remove(i, width-i);
+			ceA.remove(i, width-1-i);
+			ceB.remove(i, width-1-i);
+			ceY.remove(i, width-1-i);
 			cemux->fixup_parameters();
 		}
-		dffD.remove(i, width-i);
-		dffQ.remove(i, width-i);
+		if (rstmux) {
+			SigSpec &rstA = rstmux->connections_.at(\A);
+			SigSpec &rstB = rstmux->connections_.at(\B);
+			SigSpec &rstY = rstmux->connections_.at(\Y);
+			rstA.remove(i, width-1-i);
+			rstB.remove(i, width-1-i);
+			rstY.remove(i, width-1-i);
+			rstmux->fixup_parameters();
+		}
+		dffD.remove(i, width-1-i);
+		dffQ.remove(i, width-1-i);
 		dff->fixup_parameters();
 
-		log("dffcemux pattern in %s: dff=%s, cemux=%s; removed top %d bits.\n", log_id(module), log_id(dff), log_id(cemux), width-i);
-		accept;
+		log("dffcemux pattern in %s: dff=%s, cemux=%s, rstmux=%s; removed top %d bits.\n", log_id(module), log_id(dff), log_id(cemux, "n/a"), log_id(rstmux, "n/a"), width-1-i);
+		width = i+1;
 	}
-	else if (cemux) {
+	if (cemux) {
 		SigSpec &ceA = cemux->connections_.at(\A);
 		SigSpec &ceB = cemux->connections_.at(\B);
 		SigSpec &ceY = cemux->connections_.at(\Y);
@@ -114,15 +124,7 @@ code
 		for (int i = width-1; i >= 0; i--) {
 			if (D[i].wire)
 				continue;
-			Wire *w = Q[i].wire;
-			auto it = w->attributes.find(\init);
-			State init;
-			if (it != w->attributes.end())
-				init = it->second[Q[i].offset];
-			else
-				init = State::Sx;
-
-			if (init == State::Sx || init == D[i].data) {
+			if (cmpx(rst[i], D[i].data) && cmpx(init[i], D[i].data)) {
 				count++;
 				module->connect(Q[i], D[i]);
 				ceA.remove(i);
@@ -136,9 +138,10 @@ code
 			did_something = true;
 			cemux->fixup_parameters();
 			dff->fixup_parameters();
-			log("dffcemux pattern in %s: dff=%s, cemux=%s; removed %d constant bits.\n", log_id(module), log_id(dff), log_id(cemux), count);
+			log("dffcemux pattern in %s: dff=%s, cemux=%s, rstmux=%s; removed %d constant bits.\n", log_id(module), log_id(dff), log_id(cemux), log_id(rstmux, "n/a"), count);
 		}
-
-		accept;
 	}
+
+	if (did_something)
+		accept;
 endcode

@@ -131,8 +131,8 @@ EOT
 proc
 equiv_opt -assert peepopt
 design -load postopt
-select -assert-count 1 t:$dff r:WIDTH=5 %i
-select -assert-count 1 t:$mux r:WIDTH=5 %i
+select -assert-count 1 t:$dff r:WIDTH=4 %i
+select -assert-count 1 t:$mux r:WIDTH=4 %i
 select -assert-count 0 t:$dff t:$mux %% t:* %D
 
 ####################
