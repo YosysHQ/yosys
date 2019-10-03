@@ -188,19 +188,9 @@ endmodule
 EOT
 
 proc
-#equiv_opt -assert peepopt
-
-design -save gold
-peepopt
-design -stash gate
-design -import gold -as gold
-design -import gate -as gate
-miter -equiv -flatten -make_assert -make_outputs gold gate miter
-sat -seq 1 -verify -prove-asserts -show-ports miter
-
+equiv_opt -assert peepopt
 design -load postopt
-wreduce
-select -assert-count 1 t:$dff r:WIDTH=2 %i
+select -assert-count 1 t:$dff r:WIDTH=4 %i
 select -assert-count 2 t:$mux
-select -assert-count 2 t:$mux r:WIDTH=2 %i
+select -assert-count 2 t:$mux r:WIDTH=4 %i
 select -assert-count 0 t:$logic_not t:$dff t:$mux %% t:* %D
