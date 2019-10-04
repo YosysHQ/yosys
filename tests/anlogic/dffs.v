@@ -13,25 +13,3 @@ module dffe
 		if ( en )
 			q <= d;
 endmodule
-
-module top (
-input clk,
-input en,
-input a,
-output b,b1,
-);
-
-dff u_dff (
-        .clk (clk ),
-        .d (a ),
-        .q (b )
-    );
-
-dffe u_ndffe (
-        .clk (clk ),
-        .en (en),
-        .d (a ),
-        .q (b1 )
-    );
-
-endmodule
