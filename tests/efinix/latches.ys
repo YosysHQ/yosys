@@ -1,0 +1,20 @@
+read_verilog latches.v
+design -save read
+
+proc
+async2sync # converts latches to a 'sync' variant clocked by a 'super'-clock
+flatten
+synth_efinix
+equiv_opt -assert -map +/efinix/cells_sim.v synth_efinix # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+
+design -load read
+
+synth_efinix
+flatten
+cd top
+#Internall cell type $_DLATCH_P_. Should be realized by using LUTs.
+#The same result by using just synth_efinix.
+select -assert-count 3  t:$_DLATCH_P_
+select -assert-count 3  t:EFX_LUT4
+select -assert-none t:$_DLATCH_P_ t:EFX_LUT4 %% t:* %D
