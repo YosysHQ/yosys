@@ -8,4 +8,4 @@ cd top # Constrain all select calls below inside the top module
 
 select -assert-count 9 t:AL_MAP_ADDER
 select -assert-count 8 t:AL_MAP_SEQ
-select -assert-none t:SB_CARRY t:AL_MAP_SEQ t:AL_MAP_ADDER %% t:* %D
+select -assert-none t:AL_MAP_SEQ t:AL_MAP_ADDER %% t:* %D

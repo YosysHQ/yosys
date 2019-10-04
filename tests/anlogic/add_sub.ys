@@ -5,5 +5,5 @@ design -load postopt # load the post-opt design (otherwise equiv_opt loads the p
 cd top # Constrain all select calls below inside the top module
 select -assert-count 10 t:AL_MAP_ADDER
 select -assert-count 4 t:AL_MAP_LUT1
-select -assert-none t:AL_MAP_LUT1 t:AL_MAP_ADDER %% t:* %D
 
+select -assert-none t:AL_MAP_LUT1 t:AL_MAP_ADDER %% t:* %D
