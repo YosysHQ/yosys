@@ -425,22 +425,42 @@ endcode
 
 // #######################
 
+// Subpattern for matching against input registers, based on knowledge of the
+//   'Q' input.
+// At a high level:
+//   (1) Starting from a $dff cell that (partially or fully) drives the given
+//       'Q' argument
+//   (2) Match for a $mux cell implementing synchronous reset semantics ---
+//       one that exclusively drives the 'D' input of the $dff, with one of its
+//       $mux inputs being fully zero
+//   (3) Match for a $mux cell implement clock enable semantics --- one that
+//       exclusively drives the 'D' input of the $dff (or the other input of
+//       the reset $mux) and where one of this $mux's inputs is connected to
+//       the 'Q' output of the $dff
 subpattern in_dffe
 arg argD argQ clock
 
 code
 	dff = nullptr;
-	for (auto c : argQ.chunks()) {
+	for (const auto &c : argQ.chunks()) {
+		// Abandon matches when 'Q' is a constant
 		if (!c.wire)
 			reject;
+		// Abandon matches when 'Q' has the keep attribute set
 		if (c.wire->get_bool_attribute(\keep))
 			reject;
-		Const init = c.wire->attributes.at(\init, State::Sx);
-		if (!init.is_fully_undef() && !init.is_fully_zero())
-			reject;
+		// Abandon matches when 'Q' has a non-zero init attribute set
+		// (not supported by DSP48E1)
+		Const init = c.wire->attributes.at(\init, Const());
+		if (!init.empty())
+			for (auto b : init.extract(c.offset, c.width))
+				if (b != State::Sx && b != State::S0)
+					reject;
 	}
 endcode
 
+// (1) Starting from a $dff cell that (partially or fully) drives the given
+//     'Q' argument
 match ff
 	select ff->type.in($dff)
 	// DSP48E1 does not support clock inversion
@@ -453,14 +473,12 @@ match ff
 	filter GetSize(port(ff, \Q)) >= offset + GetSize(argQ)
 	filter port(ff, \Q).extract(offset, GetSize(argQ)) == argQ
 
+	filter clock == SigBit() || port(ff, \CLK) == clock
+
 	set ffoffset offset
 endmatch
 
 code argQ argD
-{
-	if (clock != SigBit() && port(ff, \CLK) != clock)
-		reject;
-
 	SigSpec Q = port(ff, \Q);
 	dff = ff;
 	dffclock = port(ff, \CLK);
@@ -472,9 +490,11 @@ code argQ argD
 	//   has two (ff, ffrstmux) users
 	if (nusers(dffD) > 2)
 		argD = SigSpec();
-}
 endcode
 
+// (2) Match for a $mux cell implementing synchronous reset semantics ---
+//     exclusively drives the 'D' input of the $dff, with one of the $mux
+//     inputs being fully zero
 match ffrstmux
 	if !argD.empty()
 	select ffrstmux->type.in($mux)
@@ -506,6 +526,10 @@ code argD
 		dffrstmux = nullptr;
 endcode
 
+// (3) Match for a $mux cell implement clock enable semantics --- one that
+//     exclusively drives the 'D' input of the $dff (or the other input of
+//     the reset $mux) and where one of this $mux's inputs is connected to
+//     the 'Q' output of the $dff
 match ffcemux
 	if !argD.empty()
 	select ffcemux->type.in($mux)
@@ -530,16 +554,32 @@ endcode
 
 // #######################
 
+// Subpattern for matching against output registers, based on knowledge of the
+//   'D' input.
+// At a high level:
+//   (1) Starting from an optional $mux cell that implements clock enable
+//       semantics --- one where the given 'D' argument (partially or fully)
+//       drives one of its two inputs
+//   (2) Starting from, or continuing onto, another optional $mux cell that
+//       implements synchronous reset semantics --- one where the given 'D'
+//       argument (or the clock enable $mux output) drives one of its two inputs
+//       and where the other input is fully zero
+//   (3) Match for a $dff cell (whose 'D' input is the 'D' argument, or the
+//       output of the previous clock enable or reset $mux cells)
 subpattern out_dffe
 arg argD argQ clock
 
 code
 	dff = nullptr;
 	for (auto c : argD.chunks())
+		// Abandon matches when 'D' has the keep attribute set
 		if (c.wire->get_bool_attribute(\keep))
 			reject;
 endcode
 
+// (1) Starting from an optional $mux cell that implements clock enable
+//     semantics --- one where the given 'D' argument (partially or fully)
+//     drives one of its two inputs
 match ffcemux
 	select ffcemux->type.in($mux)
 	// ffcemux output must have two users: ffcemux and ff.D
@@ -578,6 +618,10 @@ code argD argQ
 	}
 endcode
 
+// (2) Starting from, or continuing onto, another optional $mux cell that
+//     implements synchronous reset semantics --- one where the given 'D'
+//     argument (or the clock enable $mux output) drives one of its two inputs
+//     and where the other input is fully zero
 match ffrstmux
 	select ffrstmux->type.in($mux)
 	// ffrstmux output must have two users: ffrstmux and ff.D
@@ -616,6 +660,8 @@ code argD argQ
 	}
 endcode
 
+// (3) Match for a $dff cell (whose 'D' input is the 'D' argument, or the
+//     output of the previous clock enable or reset $mux cells)
 match ff
 	select ff->type.in($dff)
 	// DSP48E1 does not support clock inversion
@@ -632,32 +678,30 @@ match ff
 	// Check that FF.Q is connected to CE-mux
 	filter !ffcemux || port(ff, \Q).extract(offset, GetSize(argQ)) == argQ
 
+	filter clock == SigBit() || port(ff, \CLK) == clock
+
 	set ffoffset offset
 endmatch
 
 code argQ
-	if (ff) {
-		if (clock != SigBit() && port(ff, \CLK) != clock)
-			reject;
-
-		SigSpec D = port(ff, \D);
-		SigSpec Q = port(ff, \Q);
-		if (!ffcemux) {
-			argQ = argD;
-			argQ.replace(D, Q);
-		}
-
-		for (auto c : argQ.chunks()) {
-			Const init = c.wire->attributes.at(\init, State::Sx);
-			if (!init.is_fully_undef() && !init.is_fully_zero())
-				reject;
-		}
-
-		dff = ff;
-		dffQ = argQ;
-		dffclock = port(ff, \CLK);
+	SigSpec D = port(ff, \D);
+	SigSpec Q = port(ff, \Q);
+	if (!ffcemux) {
+		argQ = argD;
+		argQ.replace(D, Q);
 	}
-	// No enable/reset mux possible without flop
-	else if (dffcemux || dffrstmux)
-		reject;
+
+	// Abandon matches when 'Q' has a non-zero init attribute set
+	// (not supported by DSP48E1)
+	for (auto c : argQ.chunks()) {
+		Const init = c.wire->attributes.at(\init, Const());
+		if (!init.empty())
+			for (auto b : init.extract(c.offset, c.width))
+				if (b != State::Sx && b != State::S0)
+					reject;
+	}
+
+	dff = ff;
+	dffQ = argQ;
+	dffclock = port(ff, \CLK);
 endcode
