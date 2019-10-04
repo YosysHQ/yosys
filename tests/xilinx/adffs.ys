@@ -1,14 +1,44 @@
 read_verilog adffs.v
-proc
-flatten
-equiv_opt -multiclock -assert -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
-design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
-cd top # Constrain all select calls below inside the top module
+design -save read
 
+proc
+hierarchy -top adff
+equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd adff # Constrain all select calls below inside the top module
 select -assert-count 1 t:BUFG
-select -assert-count 2 t:FDCE
-select -assert-count 1 t:FDRE
-select -assert-count 1 t:FDRE_1
+select -assert-count 1 t:FDCE
+select -assert-none t:BUFG t:FDCE %% t:* %D
+
+design -load read
+proc
+hierarchy -top adffn
+equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd adffn # Constrain all select calls below inside the top module
+select -assert-count 1 t:BUFG
+select -assert-count 1 t:FDCE
 select -assert-count 1 t:LUT1
-select -assert-count 2 t:LUT2
-select -assert-none t:BUFG t:FDCE t:FDRE t:FDRE_1 t:LUT1 t:LUT2 %% t:* %D
+select -assert-none t:BUFG t:FDCE t:LUT1 %% t:* %D
+
+design -load read
+proc
+hierarchy -top dffs
+equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd dffs # Constrain all select calls below inside the top module
+select -assert-count 1 t:BUFG
+select -assert-count 1 t:FDRE
+select -assert-count 1 t:LUT2
+select -assert-none t:BUFG t:FDRE t:LUT2 %% t:* %D
+
+design -load read
+proc
+hierarchy -top ndffnr
+equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd ndffnr # Constrain all select calls below inside the top module
+select -assert-count 1 t:BUFG
+select -assert-count 1 t:FDRE_1
+select -assert-count 1 t:LUT2
+select -assert-none t:BUFG t:FDRE_1 t:LUT2 %% t:* %D
