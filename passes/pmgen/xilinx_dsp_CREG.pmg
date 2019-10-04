@@ -45,7 +45,7 @@ match dsp
 	select nusers(port(dsp, \C, SigSpec())) > 1
 endmatch
 
-code sigC sigP
+code sigC sigP clock
 	unextend = [](const SigSpec &sig) {
 		int i;
 		for (i = GetSize(sig)-1; i > 0; i--)
@@ -71,6 +71,8 @@ code sigC sigP
 	}
 	else
 		sigP = P;
+
+	clock = port(dsp, \CLK, SigBit());
 endcode
 
 // (2) Match the driver of the 'C' input to a possible $dff cell (CREG)
@@ -81,8 +83,6 @@ code argQ ffC ffCcemux ffCrstmux ffCcepol ffCrstpol sigC clock
 	// If this DSP implements an accumulator, do not attempt to match
 	if (sigC == sigP)
 		reject;
-
-	clock = port(dsp, \CLK, SigBit());
 
 	argQ = sigC;
 	subpattern(in_dffe);
