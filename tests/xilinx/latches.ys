@@ -2,15 +2,34 @@ read_verilog latches.v
 design -save read
 
 proc
-async2sync # converts latches to a 'sync' variant clocked by a 'super'-clock
-flatten
+hierarchy -top latchp
 equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd latchp # Constrain all select calls below inside the top module
+select -assert-count 1 t:LDCE
 
-synth_xilinx
-flatten
-cd top
+select -assert-none t:LDCE %% t:* %D
+
+
+design -load read
+proc
+hierarchy -top latchn
+equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd latchn # Constrain all select calls below inside the top module
+select -assert-count 1 t:LDCE
 select -assert-count 1 t:LUT1
+
+select -assert-none t:LDCE t:LUT1 %% t:* %D
+
+
+design -load read
+proc
+hierarchy -top latchsr
+equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd latchsr # Constrain all select calls below inside the top module
+select -assert-count 1 t:LDCE
 select -assert-count 2 t:LUT3
-#Xilinx Vivado synthesizes LDCE cell for this case. Need support it.
-select -assert-count 3 t:$_DLATCH_P_
-select -assert-none t:LUT1 t:LUT3 t:$_DLATCH_P_ %% t:* %D
+
+select -assert-none t:LDCE t:LUT3 %% t:* %D
