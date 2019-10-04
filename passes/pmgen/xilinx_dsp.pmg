@@ -100,14 +100,10 @@ code sigA sigB sigC sigD sigM clock
 			sigM.append(P[i]);
 		}
 		log_assert(nusers(P.extract_end(i)) <= 1);
+		log_assert(!sigM.empty());
 	}
 	else
 		sigM = P;
-	// TODO: Check if necessary
-	// This sigM could have no users if downstream $add
-	//   is narrower than $mul result, for example
-	if (sigM.empty())
-		reject;
 
 	clock = port(dsp, \CLK, SigBit());
 endcode
@@ -160,12 +156,9 @@ match preAdd
 endmatch
 
 code sigA sigD
-	// TODO: Check if this is necessary?
 	if (preAdd) {
 		sigA = port(preAdd, \A);
 		sigD = port(preAdd, \B);
-		if (GetSize(sigA) < GetSize(sigD))
-			std::swap(sigA, sigD);
 	}
 endcode
 
