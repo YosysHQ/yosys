@@ -22,37 +22,3 @@ module latchsr
 		else if ( en )
 			q <= d;
 endmodule
-
-
-module top (
-input clk,
-input clr,
-input pre,
-input a,
-output b,b1,b2
-);
-
-
-latchp u_latchp (
-        .en (clk ),
-        .d (a ),
-        .q (b )
-    );
-
-
-latchn u_latchn (
-        .en (clk ),
-        .d (a ),
-        .q (b1 )
-    );
-
-
-latchsr u_latchsr (
-        .en (clk ),
-        .clr (clr),
-        .pre (pre),
-        .d (a ),
-        .q (b2 )
-    );
-
-endmodule
