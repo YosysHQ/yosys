@@ -145,34 +145,6 @@ module SB_CARRY (output CO, input I0, I1, CI);
 	assign CO = (I0 && I1) || ((I0 || I1) && CI);
 endmodule
 
-(* abc_box_id = 1, lib_whitebox *)
-module \$__ICE40_CARRY_WRAPPER (
-	(* abc_carry *)
-	output CO,
-	output O,
-	input A, B,
-	(* abc_carry *)
-	input CI,
-	input I0, I3
-);
-	parameter LUT = 0;
-	SB_CARRY carry (
-		.I0(A),
-		.I1(B),
-		.CI(CI),
-		.CO(CO)
-	);
-	SB_LUT4 #(
-		.LUT_INIT(LUT)
-	) adder (
-		.I0(I0),
-		.I1(A),
-		.I2(B),
-		.I3(I3),
-		.O(O)
-	);
-endmodule
-
 // Max delay from: https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
 //                 https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
 //                 https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102

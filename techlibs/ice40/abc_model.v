@@ -25,5 +25,3 @@ module \$__ICE40_CARRY_WRAPPER (
 		.O(O)
 	);
 endmodule
-
-

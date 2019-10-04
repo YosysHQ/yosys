@@ -311,6 +311,7 @@ struct SynthEcp5Pass : public ScriptPass
 			run("techmap " + techmap_args);
 
 			if (abc9) {
+				run("read_verilog -icells -lib +/ecp5/abc_model.v");
 				if (nowidelut)
 					run("abc9 -lut +/ecp5/abc_5g_nowide.lut -box +/ecp5/abc_5g.box -W 200");
 				else
