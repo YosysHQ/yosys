@@ -64,37 +64,3 @@ assign Y = D[S];
 
 endmodule
 
-
-module top (
-input [3:0] S,
-input [15:0] D,
-output M2,M4,M8,M16
-);
-
-mux2 u_mux2 (
-        .S (S[0]),
-        .A (D[0]),
-        .B (D[1]),
-        .Y (M2)
-    );
-
-
-mux4 u_mux4 (
-        .S (S[1:0]),
-        .D (D[3:0]),
-        .Y (M4)
-    );
-
-mux8 u_mux8 (
-        .S (S[2:0]),
-        .D (D[7:0]),
-        .Y (M8)
-    );
-
-mux16 u_mux16 (
-        .S (S[3:0]),
-        .D (D[15:0]),
-        .Y (M16)
-    );
-
-endmodule
