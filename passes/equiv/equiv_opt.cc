@@ -50,6 +50,9 @@ struct EquivOptPass:public ScriptPass
 		log("    -multiclock\n");
 		log("        run clk2fflogic before equivalence checking.\n");
 		log("\n");
+		log("    -async2sync\n");
+		log("        run async2sync before equivalence checking.\n");
+		log("\n");
 		log("    -undef\n");
 		log("        enable modelling of undef states during equiv_induct.\n");
 		log("\n");
@@ -166,7 +169,7 @@ struct EquivOptPass:public ScriptPass
 			if (multiclock || help_mode)
 				run("clk2fflogic", "(only with -multiclock)");
 			if (async2sync || help_mode)
-				run("async2sync", "(only with -async2sync)");
+				run("async2sync", " (only with -async2sync)");
 			run("equiv_make gold gate equiv");
 			if (help_mode)
 				run("equiv_induct [-undef] equiv");
