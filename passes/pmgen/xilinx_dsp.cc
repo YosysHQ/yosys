@@ -608,8 +608,13 @@ struct XilinxDspPass : public Pass {
 		extra_args(args, argidx, design);
 
 		for (auto module : design->selected_modules()) {
+			// Experimental feature: pack $add/$sub cells with
+			//   (* use_dsp48="simd" *) into DSP48E1's using its
+			//   SIMD feature
 			xilinx_simd_pack(module, module->selected_cells());
 
+			// Match for all features ([ABDMP][12]?REG, pre-adder,
+			// (post-adder, pattern detector, etc.) except for CREG
 			{
 				xilinx_dsp_pm pm(module, module->selected_cells());
 				pm.run_xilinx_dsp_pack(xilinx_dsp_pack);
@@ -618,14 +623,17 @@ struct XilinxDspPass : public Pass {
 			//   is no guarantee that the cell ordering corresponds
 			//   to the "expected" case (i.e. the order in which
 			//   they appear in the source) thus the possiblity
-			//   existed that a register got packed as CREG into a
+			//   existed that a register got packed as a CREG into a
 			//   downstream DSP that should have otherwise been a
-			//   PREG of an upstream DSP that had not been pattern
-			//   matched yet
+			//   PREG of an upstream DSP that had not been visited
+			//   yet
 			{
 				xilinx_dsp_CREG_pm pm(module, module->selected_cells());
 				pm.run_xilinx_dsp_packC(xilinx_dsp_packC);
 			}
+			// Lastly, identify and utilise PCOUT -> PCIN,
+			//   ACOUT -> ACIN, and BCOUT-> BCIN dedicated cascade
+			//   chains
 			{
 				xilinx_dsp_cascade_pm pm(module, module->selected_cells());
 				pm.run_xilinx_dsp_cascade();

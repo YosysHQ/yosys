@@ -1,3 +1,53 @@
+// This file describes the main pattern matcher setup (of three total) that
+//   forms the `xilinx_dsp` pass described in xilinx_dsp.cc
+// At a high level, it works as follows:
+//   ( 1) Starting from a DSP48E1 cell
+//   ( 2) Match the driver of the 'A' input to a possible $dff cell (ADREG)
+//        (attached to at most two $mux cells that implement clock-enable or
+//         reset functionality, using a subpattern discussed below)
+//        If ADREG matched, treat 'A' input as input of ADREG
+//   ( 3) Match the driver of the 'A' and 'D' inputs for a possible $add cell
+//       (pre-adder)
+//   ( 4) If pre-adder was present, find match 'A' input for A2REG
+//        If pre-adder was not present, move ADREG to A2REG
+//        If A2REG, then match 'A' input for A1REG
+//   ( 5) Match 'B' input for B2REG
+//        If B2REG, then match 'B' input for B1REG
+//   ( 6) Match 'D' input for DREG
+//   ( 7) Match 'P' output that exclusively drives an MREG
+//   ( 8) Match 'P' output that exclusively drives one of two inputs to an $add
+//        cell (post-adder).
+//        The other input to the adder is assumed to come in from the 'C' input
+//        (note: 'P' -> 'C' connections that exist for accumulators are
+//         recognised in xilinx_dsp.cc).
+//   ( 9) Match 'P' output that exclusively drives a PREG
+//   (10) If post-adder and PREG both present, match for a $mux cell driving
+//        the 'C' input, where one of the $mux's inputs is the PREG output.
+//        This indicates an accumulator situation, and one where a $mux exists
+//        to override the accumulated value:
+//             +--------------------------------+
+//             |   ____                         |
+//             +--|    \                        |
+//                |$mux|-+                      |
+//         'C' ---|____/ |                      |
+//                       | /-------\   +----+   |
+//            +----+     +-| post- |___|PREG|---+ 'P'
+//            |MREG|------ | adder |   +----+
+//            +----+       \-------/
+//   (11) If PREG present, match for a greater-than-or-equal $ge cell attached
+//        to the 'P' output where it is compared to a constant that is a
+//        power-of-2: e.g. `assign overflow = (PREG >= 2**40);`
+//        In this scenario, the pattern detector functionality of a DSP48E1 can
+//        to implement this function
+// Notes:
+//   - The intention of this pattern matcher is for it to be compatible with
+//     DSP48E1 cells inferred from multiply operations by Yosys, as well as for
+//     user instantiations that may already contain the cells being packed...
+//     (though the latter is currently untested)
+//   - Since the $dff-with-clock-enable-or-reset-mux pattern is used for each
+//     *REG match, it has been factored out into two subpatterns: in_dffe
+//     out_dffe located at the bottom of this file
+
 pattern xilinx_dsp_pack
 
 state <SigBit> clock
@@ -5,12 +55,11 @@ state <SigSpec> sigA sigB sigC sigD sigM sigP
 state <IdString> postAddAB postAddMuxAB
 state <bool> ffA1cepol ffA2cepol ffADcepol ffB1cepol ffB2cepol ffDcepol ffMcepol ffPcepol
 state <bool> ffArstpol ffADrstpol ffBrstpol ffDrstpol ffMrstpol ffPrstpol
-
 state <Cell*> ffAD ffADcemux ffADrstmux ffA1 ffA1cemux ffA1rstmux ffA2 ffA2cemux ffA2rstmux
 state <Cell*> ffB1 ffB1cemux ffB1rstmux ffB2 ffB2cemux ffB2rstmux
 state <Cell*> ffD ffDcemux ffDrstmux ffM ffMcemux ffMrstmux ffP ffPcemux ffPrstmux
 
-// subpattern
+// Variables used for subpatterns
 state <SigSpec> argQ argD
 state <bool> ffcepol ffrstpol
 state <int> ffoffset
@@ -19,6 +68,7 @@ udata <SigBit> dffclock
 udata <Cell*> dff dffcemux dffrstmux
 udata <bool> dffcepol dffrstpol
 
+// (1) Starting from a DSP48E1 cell
 match dsp
 	select dsp->type.in(\DSP48E1)
 endmatch
@@ -53,6 +103,7 @@ code sigA sigB sigC sigD sigM clock
 	}
 	else
 		sigM = P;
+	// TODO: Check if necessary
 	// This sigM could have no users if downstream $add
 	//   is narrower than $mul result, for example
 	if (sigM.empty())
@@ -61,6 +112,10 @@ code sigA sigB sigC sigD sigM clock
 	clock = port(dsp, \CLK, SigBit());
 endcode
 
+// (2) Match the driver of the 'A' input to a possible $dff cell (ADREG)
+//     (attached to at most two $mux cells that implement clock-enable or
+//      reset functionality, using a subpattern discussed above)
+//     If matched, treat 'A' input as input of ADREG
 code argQ ffAD ffADcemux ffADrstmux ffADcepol ffADrstpol sigA clock
 	if (param(dsp, \ADREG).as_int() == 0) {
 		argQ = sigA;
@@ -81,6 +136,8 @@ code argQ ffAD ffADcemux ffADrstmux ffADcepol ffADrstpol sigA clock
 	}
 endcode
 
+// (3) Match the driver of the 'A' and 'D' inputs for a possible $add cell
+//     (pre-adder)
 match preAdd
 	if sigD.empty() || sigD.is_fully_zero()
 	// Ensure that preAdder not already used
@@ -103,6 +160,7 @@ match preAdd
 endmatch
 
 code sigA sigD
+	// TODO: Check if this is necessary?
 	if (preAdd) {
 		sigA = port(preAdd, \A);
 		sigD = port(preAdd, \B);
@@ -111,6 +169,9 @@ code sigA sigD
 	}
 endcode
 
+// (4) If pre-adder was present, find match 'A' input for A2REG
+//     If pre-adder was not present, move ADREG to A2REG
+//     Then match 'A' input for A1REG
 code argQ ffAD ffADcemux ffADrstmux ffADcepol ffADrstpol sigA clock ffA2 ffA2cemux ffA2rstmux ffA2cepol ffArstpol ffA1 ffA1cemux ffA1rstmux ffA1cepol
 	// Only search for ffA2 if there was a pre-adder
 	//   (otherwise ffA2 would have been matched as ffAD)
@@ -173,6 +234,8 @@ ffA1_end:		;
 	}
 endcode
 
+// (5) Match 'B' input for B2REG
+//     If B2REG, then match 'B' input for B1REG
 code argQ ffB2 ffB2cemux ffB2rstmux ffB2cepol ffBrstpol sigB clock ffB1 ffB1cemux ffB1rstmux ffB1cepol
 	if (param(dsp, \BREG).as_int() == 0) {
 		argQ = sigB;
@@ -222,6 +285,7 @@ ffB1_end:				;
 	}
 endcode
 
+// (6) Match 'D' input for DREG
 code argQ ffD ffDcemux ffDrstmux ffDcepol ffDrstpol sigD clock
 	if (param(dsp, \DREG).as_int() == 0) {
 		argQ = sigD;
@@ -242,6 +306,7 @@ code argQ ffD ffDcemux ffDrstmux ffDcepol ffDrstpol sigD clock
 	}
 endcode
 
+// (7) Match 'P' output that exclusively drives an MREG
 code argD ffM ffMcemux ffMrstmux ffMcepol ffMrstpol sigM sigP clock
 	if (param(dsp, \MREG).as_int() == 0 && nusers(sigM) == 2) {
 		argD = sigM;
@@ -263,6 +328,11 @@ code argD ffM ffMcemux ffMrstmux ffMcepol ffMrstpol sigM sigP clock
 	sigP = sigM;
 endcode
 
+// (8) Match 'P' output that exclusively drives one of two inputs to an $add
+//     cell (post-adder).
+//     The other input to the adder is assumed to come in from the 'C' input
+//     (note: 'P' -> 'C' connections that exist for accumulators are
+//      recognised in xilinx_dsp.cc).
 match postAdd
 	// Ensure that Z mux is not already used
 	if port(dsp, \OPMODE, SigSpec()).extract(4,3).is_fully_zero()
@@ -291,6 +361,7 @@ code sigC sigP
 	}
 endcode
 
+// (9) Match 'P' output that exclusively drives a PREG
 code argD ffP ffPcemux ffPrstmux ffPcepol ffPrstpol sigP clock
 	if (param(dsp, \PREG).as_int() == 0) {
 		int users = 2;
@@ -316,6 +387,19 @@ code argD ffP ffPcemux ffPrstmux ffPcepol ffPrstpol sigP clock
 	}
 endcode
 
+// (10) If post-adder and PREG both present, match for a $mux cell driving
+//      the 'C' input, where one of the $mux's inputs is the PREG output.
+//      This indicates an accumulator situation, and one where a $mux exists
+//      to override the accumulated value:
+//           +--------------------------------+
+//           |   ____                         |
+//           +--|    \                        |
+//              |$mux|-+                      |
+//       'C' ---|____/ |                      |
+//                     | /-------\   +----+   |
+//          +----+     +-| post- |___|PREG|---+ 'P'
+//          |MREG|------ | adder |   +----+
+//          +----+       \-------/
 match postAddMux
 	if postAdd
 	if ffP
@@ -333,6 +417,11 @@ code sigC
 		sigC = port(postAddMux, postAddMuxAB == \A ? \B : \A);
 endcode
 
+// (11) If PREG present, match for a greater-than-or-equal $ge cell attached to
+//      the 'P' output where it is compared to a constant that is a power-of-2:
+//      e.g. `assign overflow = (PREG >= 2**40);`
+//      In this scenario, the pattern detector functionality of a DSP48E1 can
+//      to implement this function
 match overflow
 	if ffP
 	if param(dsp, \USE_PATTERN_DETECT, Const("NO_PATDET")).decode_string() == "NO_PATDET"
