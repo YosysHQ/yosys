@@ -1,4 +1,4 @@
-(* abc9_box_id = 1, lib_whitebox *)
+(* abc_box_id = 1, lib_whitebox *)
 module \$__ICE40_CARRY_WRAPPER (
 	(* abc_carry *)
 	output CO,
