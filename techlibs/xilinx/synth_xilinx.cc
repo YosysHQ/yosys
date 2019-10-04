@@ -474,13 +474,14 @@ struct SynthXilinxPass : public ScriptPass
 				run("abc -luts 2:2,3,6:5[,10,20] [-dff]", "(option for 'nowidelut'; option for '-retime')");
 			else if (abc9) {
 				if (family != "xc7")
-					log_warning("'synth_xilinx -abc9' currently supports '-family xc7' only.\n");
-				run("techmap -map +/xilinx/abc_map.v -max_iter 1");
-				run("read_verilog -icells -lib +/xilinx/abc_model.v");
+					log_warning("'synth_xilinx -abc9' not currently supported for the '%s' family, "
+                            "will use timing for 'xc7' instead.\n", family.c_str());
+				run("techmap -map +/xilinx/abc9_map.v -max_iter 1");
+				run("read_verilog -icells -lib +/xilinx/abc9_model.v");
 				if (nowidelut)
-					run("abc9 -lut +/xilinx/abc_xc7_nowide.lut -box +/xilinx/abc_xc7.box -W " + std::to_string(XC7_WIRE_DELAY));
+					run("abc9 -lut +/xilinx/abc9_xc7_nowide.lut -box +/xilinx/abc9_xc7.box -W " + std::to_string(XC7_WIRE_DELAY));
 				else
-					run("abc9 -lut +/xilinx/abc_xc7.lut -box +/xilinx/abc_xc7.box -W " + std::to_string(XC7_WIRE_DELAY));
+					run("abc9 -lut +/xilinx/abc9_xc7.lut -box +/xilinx/abc9_xc7.box -W " + std::to_string(XC7_WIRE_DELAY));
 			}
 			else {
 				if (nowidelut)
@@ -498,7 +499,7 @@ struct SynthXilinxPass : public ScriptPass
 			if (help_mode)
 				techmap_args += " [-map " + ff_map_file + "]";
 			else if (abc9)
-				techmap_args += " -map +/xilinx/abc_unmap.v";
+				techmap_args += " -map +/xilinx/abc9_unmap.v";
 			else
 				techmap_args += " -map " + ff_map_file;
 			run("techmap " + techmap_args);

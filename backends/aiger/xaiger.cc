@@ -215,7 +215,7 @@ struct XAigerWriter
 		//       box ordering, but not individual AIG cells
 		dict<SigBit, pool<IdString>> bit_drivers, bit_users;
 		TopoSort<IdString, RTLIL::sort_by_id_str> toposort;
-		bool abc_box_seen = false;
+		bool abc9_box_seen = false;
 		std::vector<Cell*> flop_boxes;
 
 		for (auto cell : module->selected_cells()) {
@@ -267,8 +267,8 @@ struct XAigerWriter
 			}
 
 			RTLIL::Module* inst_module = module->design->module(cell->type);
-			if (inst_module && inst_module->attributes.count("\\abc_box_id")) {
-				abc_box_seen = true;
+			if (inst_module && inst_module->attributes.count("\\abc9_box_id")) {
+				abc9_box_seen = true;
 
 				toposort.node(cell->name);
 
@@ -319,10 +319,10 @@ struct XAigerWriter
 				if (is_output) {
 					int arrival = 0;
 					if (port_wire) {
-						auto it = port_wire->attributes.find("\\abc_arrival");
+						auto it = port_wire->attributes.find("\\abc9_arrival");
 						if (it != port_wire->attributes.end()) {
 							if (it->second.flags != 0)
-								log_error("Attribute 'abc_arrival' on port '%s' of module '%s' is not an integer.\n", log_id(port_wire), log_id(cell->type));
+								log_error("Attribute 'abc9_arrival' on port '%s' of module '%s' is not an integer.\n", log_id(port_wire), log_id(cell->type));
 							arrival = it->second.as_int();
 						}
 					}
@@ -345,7 +345,7 @@ struct XAigerWriter
 			//log_warning("Unsupported cell type: %s (%s)\n", log_id(cell->type), log_id(cell));
 		}
 
-		if (abc_box_seen) {
+		if (abc9_box_seen) {
 			dict<IdString, std::pair<IdString,int>> flop_q;
 			for (auto cell : flop_boxes) {
 				auto r = flop_q.insert(std::make_pair(cell->type, std::make_pair(IdString(), 0)));
@@ -361,10 +361,10 @@ struct XAigerWriter
 						Module *inst_module = module->design->module(cell->type);
 						Wire *wire = inst_module->wire(conn.first);
 						log_assert(wire);
-						auto jt = wire->attributes.find("\\abc_arrival");
+						auto jt = wire->attributes.find("\\abc9_arrival");
 						if (jt != wire->attributes.end()) {
 							if (jt->second.flags != 0)
-								log_error("Attribute 'abc_arrival' on port '%s' of module '%s' is not an integer.\n", log_id(wire), log_id(cell->type));
+								log_error("Attribute 'abc9_arrival' on port '%s' of module '%s' is not an integer.\n", log_id(wire), log_id(cell->type));
 							r.first->second.second = jt->second.as_int();
 						}
 						d = rhs;
@@ -413,7 +413,7 @@ struct XAigerWriter
 				log_assert(cell);
 
 				RTLIL::Module* box_module = module->design->module(cell->type);
-				if (!box_module || !box_module->attributes.count("\\abc_box_id"))
+				if (!box_module || !box_module->attributes.count("\\abc9_box_id"))
 					continue;
 
 				bool blackbox = box_module->get_blackbox_attribute(true /* ignore_wb */);
@@ -464,7 +464,7 @@ struct XAigerWriter
 						else {
 							Wire *wire = module->addWire(NEW_ID, GetSize(w));
 							if (blackbox)
-								wire->set_bool_attribute(ID(abc_padding));
+								wire->set_bool_attribute(ID(abc9_padding));
 							rhs = wire;
 							cell->setPort(port_name, rhs);
 						}
@@ -812,7 +812,7 @@ struct XAigerWriter
 
 				write_h_buffer(box_inputs);
 				write_h_buffer(box_outputs);
-				write_h_buffer(box_module->attributes.at("\\abc_box_id").as_int());
+				write_h_buffer(box_module->attributes.at("\\abc9_box_id").as_int());
 				write_h_buffer(box_count++);
 			}
 

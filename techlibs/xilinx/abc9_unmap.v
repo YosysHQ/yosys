@@ -20,20 +20,26 @@
 
 // ============================================================================
 
-module \$__ABC_ASYNC (input A, S, output Y);
+module \$__ABC9_ASYNC (input A, S, output Y);
   assign Y = A;
 endmodule
 
-module \$__ABC_FF_ (input D, output Q);
+module \$__ABC9_FF_ (input D, output Q);
   assign Q = D;
+
+module \$__ABC9_LUT6 (input A, input [5:0] S, output Y);
+  assign Y = A;
+endmodule
+module \$__ABC9_LUT7 (input A, input [6:0] S, output Y);
+  assign Y = A;
 endmodule
 
-module \$__ABC_REG (input [WIDTH-1:0] I, output [WIDTH-1:0] O, output Q);
+module \$__ABC9_REG (input [WIDTH-1:0] I, output [WIDTH-1:0] O, output Q);
   parameter WIDTH = 1;
   assign O = I;
 endmodule
-(* techmap_celltype = "$__ABC_DSP48E1_MULT_P_MUX $__ABC_DSP48E1_MULT_PCOUT_MUX $__ABC_DSP48E1_MULT_DPORT_P_MUX $__ABC_DSP48E1_MULT_DPORT_PCOUT_MUX $__ABC_DSP48E1_P_MUX $__ABC_DSP48E1_PCOUT_MUX" *)
-module \$__ABC_DSP48E1_MUX (
+(* techmap_celltype = "$__ABC9_DSP48E1_MULT_P_MUX $__ABC9_DSP48E1_MULT_PCOUT_MUX $__ABC9_DSP48E1_MULT_DPORT_P_MUX $__ABC9_DSP48E1_MULT_DPORT_PCOUT_MUX $__ABC9_DSP48E1_P_MUX $__ABC9_DSP48E1_PCOUT_MUX" *)
+module \$__ABC9_DSP48E1_MUX (
   input Aq, Bq, Cq, Dq, ADq,
   input [47:0] I,
   input Mq,
@@ -44,8 +50,8 @@ module \$__ABC_DSP48E1_MUX (
   assign O = I;
 endmodule
 
-(* techmap_celltype = "$__ABC_DSP48E1_MULT $__ABC_DSP48E1_MULT_DPORT $__ABC_DSP48E1" *)
-module \$__ABC_DSP48E1 (
+(* techmap_celltype = "$__ABC9_DSP48E1_MULT $__ABC9_DSP48E1_MULT_DPORT $__ABC9_DSP48E1" *)
+module \$__ABC9_DSP48E1 (
     (* techmap_autopurge *) output [29:0] ACOUT,
     (* techmap_autopurge *) output [17:0] BCOUT,
     (* techmap_autopurge *) output reg CARRYCASCOUT,

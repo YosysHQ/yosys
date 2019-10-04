@@ -9,19 +9,19 @@ module LUT4(input A, B, C, D, output Z);
 endmodule
 
 // ---------------------------------------
-(* abc_box_id=4, lib_whitebox *)
+(* abc9_box_id=4, lib_whitebox *)
 module L6MUX21 (input D0, D1, SD, output Z);
 	assign Z = SD ? D1 : D0;
 endmodule
 
 // ---------------------------------------
-(* abc_box_id=1, lib_whitebox *)
+(* abc9_box_id=1, lib_whitebox *)
 module CCU2C(
-	(* abc_carry *)
+	(* abc9_carry *)
 	input  CIN,
 	input  A0, B0, C0, D0, A1, B1, C1, D1,
 	output S0, S1,
-	(* abc_carry *)
+	(* abc9_carry *)
 	output COUT
 );
 	parameter [15:0] INIT0 = 16'h0000;
@@ -103,7 +103,7 @@ module TRELLIS_RAM16X2 (
 endmodule
 
 // ---------------------------------------
-(* abc_box_id=3, lib_whitebox *)
+(* abc9_box_id=3, lib_whitebox *)
 module PFUMX (input ALUT, BLUT, C0, output Z);
 	assign Z = C0 ? ALUT : BLUT;
 endmodule
@@ -115,7 +115,7 @@ module TRELLIS_DPR16X4 (
 	input        WRE,
 	input        WCK,
 	input  [3:0] RAD,
-	/* (* abc_arrival=<TODO> *) */
+	/* (* abc9_arrival=<TODO> *) */
 	output [3:0] DO
 );
 	parameter WCKMUX = "WCK";
