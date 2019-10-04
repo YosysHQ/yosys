@@ -52,22 +52,4 @@
  endcase
  end
 
- endmodule
-
- module top (
-input clk,
-input rst,
-input a,
-input b,
-output g0,
-output g1
-);
-
-fsm u_fsm ( .clock(clk),
-            .reset(rst),
-            .req_0(a),
-            .req_1(b),
-            .gnt_0(g0),
-            .gnt_1(g1));
-
 endmodule
