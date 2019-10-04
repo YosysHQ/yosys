@@ -9,14 +9,8 @@ in
 
     always @(posedge clk)
 	begin
-`ifndef BUG
-		out    <= out >> 1;
-		out[7] <= in;
-`else
-
 		out    <= out << 1;
 		out[7] <= in;
-`endif
 	end
 
 endmodule
