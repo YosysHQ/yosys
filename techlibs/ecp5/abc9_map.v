@@ -20,5 +20,5 @@ module TRELLIS_DPR16X4 (
       .RAD(RAD), .DO(\$DO )
     );
 
-    \$__ABC_DPR16X4_COMB do (.A(\$DO ), .S(RAD), .Y(DO));
+    \$__ABC9_DPR16X4_COMB do (.A(\$DO ), .S(RAD), .Y(DO));
 endmodule

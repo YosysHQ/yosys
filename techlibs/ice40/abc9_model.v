@@ -1,10 +1,10 @@
-(* abc_box_id = 1, lib_whitebox *)
+(* abc9_box_id = 1, lib_whitebox *)
 module \$__ICE40_CARRY_WRAPPER (
-	(* abc_carry *)
+	(* abc9_carry *)
 	output CO,
 	output O,
 	input A, B,
-	(* abc_carry *)
+	(* abc9_carry *)
 	input CI,
 	input I0, I3
 );

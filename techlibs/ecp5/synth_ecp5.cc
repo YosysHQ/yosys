@@ -307,16 +307,16 @@ struct SynthEcp5Pass : public ScriptPass
 			}
 			std::string techmap_args = "-map +/ecp5/latches_map.v";
 			if (abc9)
-				techmap_args += " -map +/ecp5/abc_map.v -max_iter 1";
+				techmap_args += " -map +/ecp5/abc9_map.v -max_iter 1";
 			run("techmap " + techmap_args);
 
 			if (abc9) {
-				run("read_verilog -icells -lib +/ecp5/abc_model.v");
+				run("read_verilog -icells -lib +/ecp5/abc9_model.v");
 				if (nowidelut)
-					run("abc9 -lut +/ecp5/abc_5g_nowide.lut -box +/ecp5/abc_5g.box -W 200");
+					run("abc9 -lut +/ecp5/abc9_5g_nowide.lut -box +/ecp5/abc9_5g.box -W 200");
 				else
-					run("abc9 -lut +/ecp5/abc_5g.lut -box +/ecp5/abc_5g.box -W 200");
-				run("techmap -map +/ecp5/abc_unmap.v");
+					run("abc9 -lut +/ecp5/abc9_5g.lut -box +/ecp5/abc9_5g.box -W 200");
+				run("techmap -map +/ecp5/abc9_unmap.v");
 			} else {
 				if (nowidelut)
 					run("abc -lut 4 -dress");

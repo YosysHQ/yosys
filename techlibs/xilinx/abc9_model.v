@@ -24,7 +24,7 @@
 //   Necessary to make these an atomic unit so that
 //   ABC cannot optimise just one of the MUXF7 away
 //   and expect to save on its delay
-(* abc_box_id = 3, lib_whitebox *)
+(* abc9_box_id = 3, lib_whitebox *)
 module \$__XILINX_MUXF78 (output O, input I0, I1, I2, I3, S0, S1);
   assign O = S1 ? (S0 ? I3 : I2)
                 : (S0 ? I1 : I0);
@@ -36,32 +36,32 @@ endmodule
 //   is only committed on the next clock edge).
 //   To model the combinatorial path, such cells have to be split
 //   into comb and seq parts, with this box modelling only the former.
-(* abc_box_id=2000 *)
-module \$__ABC_LUT6 (input A, input [5:0] S, output Y);
+(* abc9_box_id=2000 *)
+module \$__ABC9_LUT6 (input A, input [5:0] S, output Y);
 endmodule
 // Box to emulate comb/seq behaviour of RAMD128
-(* abc_box_id=2001 *)
-module \$__ABC_LUT7 (input A, input [6:0] S, output Y);
+(* abc9_box_id=2001 *)
+module \$__ABC9_LUT7 (input A, input [6:0] S, output Y);
 endmodule
 
 
 // Modules used to model the comb/seq behaviour of DSP48E1
-//   With abc_map.v responsible for splicing the below modules
+//   With abc9_map.v responsible for splicing the below modules
 //   between the combinatorial DSP48E1 box (e.g. disconnecting
 //   A when AREG, MREG or PREG is enabled and splicing in the
-//   "$__ABC_DSP48E1_REG" blackbox as "REG" in the diagram below)
+//   "$__ABC9_DSP48E1_REG" blackbox as "REG" in the diagram below)
 //   this acts to first disables the combinatorial path (as there
 //   is no connectivity through REG), and secondly, since this is
 //   blackbox a new PI will be introduced with an arrival time of
 //   zero.
-//   Note: Since these "$__ABC_DSP48E1_REG" modules are of a
+//   Note: Since these "$__ABC9_DSP48E1_REG" modules are of a
 //   sequential nature, they are not passed as a box to ABC and
 //   (desirably) represented as PO/PIs.
 //
 //   At the DSP output, we place a blackbox mux ("M" in the diagram
 //   below) to capture the fact that the critical-path could come
 //   from any one of its inputs.
-//   In contrast to "REG", the "$__ABC_DSP48E1_*_MUX" modules are
+//   In contrast to "REG", the "$__ABC9_DSP48E1_*_MUX" modules are
 //   combinatorial blackboxes that do get passed to ABC.
 //   The propagation delay through this box (specified in the box
 //   file) captures the arrival time of the register (i.e.
@@ -90,18 +90,18 @@ endmodule
 //    B >>------|         |
 //              +---------+
 //
-`define ABC_DSP48E1_MUX(__NAME__) """
+`define ABC9_DSP48E1_MUX(__NAME__) """
 module __NAME__ (input Aq, ADq, Bq, Cq, Dq, input [47:0] I, input Mq, input [47:0] P, input Pq, output [47:0] O);
 endmodule
 """
-(* abc_box_id=2100 *) `ABC_DSP48E1_MUX(\$__ABC_DSP48E1_MULT_P_MUX )
-(* abc_box_id=2101 *) `ABC_DSP48E1_MUX(\$__ABC_DSP48E1_MULT_PCOUT_MUX )
-(* abc_box_id=2102 *) `ABC_DSP48E1_MUX(\$__ABC_DSP48E1_MULT_DPORT_P_MUX )
-(* abc_box_id=2103 *) `ABC_DSP48E1_MUX(\$__ABC_DSP48E1_MULT_DPORT_PCOUT_MUX )
-(* abc_box_id=2104 *) `ABC_DSP48E1_MUX(\$__ABC_DSP48E1_P_MUX )
-(* abc_box_id=2105 *) `ABC_DSP48E1_MUX(\$__ABC_DSP48E1_PCOUT_MUX )
+(* abc9_box_id=2100 *) `ABC9_DSP48E1_MUX(\$__ABC9_DSP48E1_MULT_P_MUX )
+(* abc9_box_id=2101 *) `ABC9_DSP48E1_MUX(\$__ABC9_DSP48E1_MULT_PCOUT_MUX )
+(* abc9_box_id=2102 *) `ABC9_DSP48E1_MUX(\$__ABC9_DSP48E1_MULT_DPORT_P_MUX )
+(* abc9_box_id=2103 *) `ABC9_DSP48E1_MUX(\$__ABC9_DSP48E1_MULT_DPORT_PCOUT_MUX )
+(* abc9_box_id=2104 *) `ABC9_DSP48E1_MUX(\$__ABC9_DSP48E1_P_MUX )
+(* abc9_box_id=2105 *) `ABC9_DSP48E1_MUX(\$__ABC9_DSP48E1_PCOUT_MUX )
 
-`define ABC_DSP48E1(__NAME__) """
+`define ABC9_DSP48E1(__NAME__) """
 module __NAME__ (
     output [29:0] ACOUT,
     output [17:0] BCOUT,
@@ -185,6 +185,6 @@ module __NAME__ (
     parameter [6:0] IS_OPMODE_INVERTED = 7'b0;
 endmodule
 """
-(* abc_box_id=3000 *) `ABC_DSP48E1(\$__ABC_DSP48E1_MULT )
-(* abc_box_id=3001 *) `ABC_DSP48E1(\$__ABC_DSP48E1_MULT_DPORT )
-(* abc_box_id=3002 *) `ABC_DSP48E1(\$__ABC_DSP48E1 )
+(* abc9_box_id=3000 *) `ABC9_DSP48E1(\$__ABC9_DSP48E1_MULT )
+(* abc9_box_id=3001 *) `ABC9_DSP48E1(\$__ABC9_DSP48E1_MULT_DPORT )
+(* abc9_box_id=3002 *) `ABC9_DSP48E1(\$__ABC9_DSP48E1 )
