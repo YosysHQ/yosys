@@ -20,6 +20,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include <deque>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
