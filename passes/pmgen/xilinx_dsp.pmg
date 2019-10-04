@@ -103,11 +103,6 @@ code sigA sigB sigC sigD sigM clock
 	}
 	else
 		sigM = P;
-	// TODO: Check if necessary
-	// This sigM could have no users if downstream $add
-	//   is narrower than $mul result, for example
-	if (sigM.empty())
-		reject;
 
 	clock = port(dsp, \CLK, SigBit());
 endcode
@@ -158,16 +153,6 @@ match preAdd
 
 	optional
 endmatch
-
-code sigA sigD
-	// TODO: Check if this is necessary?
-	if (preAdd) {
-		sigA = port(preAdd, \A);
-		sigD = port(preAdd, \B);
-		if (GetSize(sigA) < GetSize(sigD))
-			std::swap(sigA, sigD);
-	}
-endcode
 
 // (4) If pre-adder was present, find match 'A' input for A2REG
 //     If pre-adder was not present, move ADREG to A2REG

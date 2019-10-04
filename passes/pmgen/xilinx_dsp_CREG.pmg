@@ -79,11 +79,6 @@ endcode
 //     (attached to at most two $mux cells that implement clock-enable or
 //      reset functionality, using a subpattern discussed below)
 code argQ ffC ffCcemux ffCrstmux ffCcepol ffCrstpol sigC clock
-	// TODO: Any downside to allowing this?
-	// If this DSP implements an accumulator, do not attempt to match
-	if (sigC == sigP)
-		reject;
-
 	argQ = sigC;
 	subpattern(in_dffe);
 	if (dff) {
