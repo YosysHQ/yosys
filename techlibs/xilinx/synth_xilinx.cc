@@ -339,7 +339,7 @@ struct SynthXilinxPass : public ScriptPass
 			run("techmap -map +/cmp2lut.v -D LUT_WIDTH=6");
 		}
 
-		if (check_label("map_dsp"), "(skip if '-nodsp')") {
+		if (check_label("map_dsp", "(skip if '-nodsp')")) {
 			if (!nodsp || help_mode) {
 				// NB: Xilinx multipliers are signed only
 				run("techmap -map +/mul2dsp.v -map +/xilinx/dsp_map.v -D DSP_A_MAXWIDTH=25 -D DSP_A_MAXWIDTH_PARTIAL=18 -D DSP_B_MAXWIDTH=18 "
