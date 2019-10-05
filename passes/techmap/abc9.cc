@@ -1251,7 +1251,7 @@ struct Abc9Pass : public Pass {
 				abc9_module(design, module, script_file, exe_file, cleanup, lut_costs, false, "$",
 						keepff, delay_target, lutin_shared, fast_mode, show_tempdir,
 						box_file, lut_file, wire_delay, box_lookup, nomfs);
-				assign_map.set(mod);
+				assign_map.set(module);
 			}
 			design->selection_stack.pop_back();
 			design->selected_active_module.clear();
