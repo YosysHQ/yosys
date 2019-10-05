@@ -247,7 +247,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		bool cleanup, vector<int> lut_costs, bool dff_mode, std::string clk_str,
 		bool /*keepff*/, std::string delay_target, std::string /*lutin_shared*/, bool fast_mode,
 		bool show_tempdir, std::string box_file, std::string lut_file,
-		std::string wire_delay, const dict<int,IdString> &box_lookup
+		std::string wire_delay, const dict<int,IdString> &box_lookup, bool nomfs
 )
 {
 	module = current_module;
@@ -345,6 +345,11 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 
 	for (size_t pos = abc_script.find("{W}"); pos != std::string::npos; pos = abc_script.find("{W}", pos))
 		abc_script = abc_script.substr(0, pos) + wire_delay + abc_script.substr(pos+3);
+
+	if (nomfs)
+		for (size_t pos = abc_script.find("&mfs"); pos != std::string::npos; pos = abc_script.find("&mfs", pos))
+			abc_script = abc_script.erase(pos, strlen("&mfs"));
+
 
 	abc_script += stringf("; &write %s/output.aig", tempdir_name.c_str());
 	abc_script = add_echos_to_abc_cmd(abc_script);
@@ -921,6 +926,7 @@ struct Abc9Pass : public Pass {
 		std::string delay_target, lutin_shared = "-S 1", wire_delay;
 		bool fast_mode = false, dff_mode = false, keepff = false, cleanup = true;
 		bool show_tempdir = false;
+		bool nomfs = false;
 		vector<int> lut_costs;
 		markgroups = false;
 
@@ -1043,6 +1049,10 @@ struct Abc9Pass : public Pass {
 				wire_delay = "-W " + args[++argidx];
 				continue;
 			}
+			if (arg == "-nomfs") {
+				nomfs = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -1131,7 +1141,7 @@ struct Abc9Pass : public Pass {
 			if (!dff_mode || !clk_str.empty()) {
 				abc9_module(design, mod, script_file, exe_file, cleanup, lut_costs, dff_mode, clk_str, keepff,
 						delay_target, lutin_shared, fast_mode, show_tempdir,
-						box_file, lut_file, wire_delay, box_lookup);
+						box_file, lut_file, wire_delay, box_lookup, nomfs);
 				continue;
 			}
 
@@ -1277,7 +1287,7 @@ struct Abc9Pass : public Pass {
 				en_sig = assign_map(std::get<3>(it.first));
 				abc9_module(design, mod, script_file, exe_file, cleanup, lut_costs, !clk_sig.empty(), "$",
 						keepff, delay_target, lutin_shared, fast_mode, show_tempdir,
-						box_file, lut_file, wire_delay, box_lookup);
+						box_file, lut_file, wire_delay, box_lookup, nomfs);
 				assign_map.set(mod);
 			}
 		}

@@ -477,10 +477,14 @@ struct SynthXilinxPass : public ScriptPass
 					log_warning("'synth_xilinx -abc9' currently supports '-family xc7' only.\n");
 				run("techmap -map +/xilinx/abc_map.v -max_iter 1");
 				run("read_verilog -icells -lib +/xilinx/abc_model.v");
+				std::string abc9_opts = " -box +/xilinx/abc_xc7.box";
+				abc9_opts += stringf(" -W %d", XC7_WIRE_DELAY);
+				abc9_opts += " -nomfs";
 				if (nowidelut)
-					run("abc9 -lut +/xilinx/abc_xc7_nowide.lut -box +/xilinx/abc_xc7.box -W " + std::to_string(XC7_WIRE_DELAY));
+					abc9_opts += " -lut +/xilinx/abc_xc7_nowide.lut";
 				else
-					run("abc9 -lut +/xilinx/abc_xc7.lut -box +/xilinx/abc_xc7.box -W " + std::to_string(XC7_WIRE_DELAY));
+					abc9_opts += " -lut +/xilinx/abc_xc7.lut";
+				run("abc9" + abc9_opts);
 			}
 			else {
 				if (nowidelut)
