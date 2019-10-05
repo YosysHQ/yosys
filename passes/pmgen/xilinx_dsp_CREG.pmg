@@ -7,11 +7,12 @@
 //       (attached to at most two $mux cells that implement clock-enable or
 //        reset functionality, using a subpattern discussed below)
 // Notes:
-//   - Separating out CREG packing is necessary since there is no guarantee
-//     that the cell ordering corresponds to the "expected" case (i.e. the order
-//     in which they appear in the source) thus the possiblity existed that a
-//     register got packed as a CREG into a downstream DSP that should have
-//     otherwise been a PREG of an upstream DSP that had not been visited yet
+//   - Running CREG packing after xilinx_dsp_pack is necessary since there is no
+//     guarantee that the cell ordering corresponds to the "expected" case (i.e.
+//     the order in which they appear in the source) thus the possiblity existed
+//     that a register got packed as a CREG into a downstream DSP that should
+//     have otherwise been a PREG of an upstream DSP that had not been visited
+//     yet
 //   - The reason this is separated out from the xilinx_dsp.pmg file is
 //     for efficiency --- each *.pmg file creates a class of the same basename,
 //     which when constructed, creates a custom database tailored to the
@@ -28,7 +29,7 @@ state <SigSpec> sigC sigP
 state <bool> ffCcepol ffCrstpol
 state <Cell*> ffC ffCcemux ffCrstmux
 
-// subpattern
+// Variables used for subpatterns
 state <SigSpec> argQ argD
 state <bool> ffcepol ffrstpol
 state <int> ffoffset
