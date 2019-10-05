@@ -137,7 +137,7 @@ XC6V_CELLS = [
     Cell('SYSMON'),
 
     # Arithmetic functions.
-    Cell('DSP48E1', port_attrs={'CLK': ['clkbuf_sink']}),
+    #Cell('DSP48E1', port_attrs={'CLK': ['clkbuf_sink']}),
 
     # Clock components.
     # Cell('BUFG', port_attrs={'O': ['clkbuf_driver']}),
@@ -264,7 +264,7 @@ XC7_CELLS = [
     Cell('XADC'),
 
     # Arithmetic functions.
-    Cell('DSP48E1', port_attrs={'CLK': ['clkbuf_sink']}),
+    #Cell('DSP48E1', port_attrs={'CLK': ['clkbuf_sink']}),
 
     # Clock components.
     # Cell('BUFG', port_attrs={'O': ['clkbuf_driver']}),
