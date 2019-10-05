@@ -100,7 +100,10 @@ code sigA sigB sigC sigD sigM clock
 			sigM.append(P[i]);
 		}
 		log_assert(nusers(P.extract_end(i)) <= 1);
-		log_assert(!sigM.empty());
+		// This sigM could have no users if downstream sinks (e.g. $add) is
+		//   narrower than $mul result, for example
+		if (sigM.empty())
+			reject;
 	}
 	else
 		sigM = P;
