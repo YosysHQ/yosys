@@ -485,7 +485,11 @@ struct XAigerWriter
 				if (box_module->get_bool_attribute("\\abc9_flop")) {
 					IdString port_name = "\\$currQ";
 					Wire *w = box_module->wire(port_name);
+					if (!w)
+						log_error("'$currQ' is not a wire present in module '%s'.\n", log_id(box_module));
 					SigSpec rhs = module->wire(stringf("%s.$currQ", cell->name.c_str()));
+					if (rhs.empty())
+						log_error("'%s.$currQ' is not a wire present in module '%s'.\n", log_id(cell), log_id(module));
 					log_assert(GetSize(w) == GetSize(rhs));
 
 					int offset = 0;
