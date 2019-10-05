@@ -481,13 +481,13 @@ struct SynthXilinxPass : public ScriptPass
 							"will use timing for 'xc7' instead.\n", family.c_str());
 				run("techmap -map +/xilinx/abc9_map.v -max_iter 1");
 				run("read_verilog -icells -lib +/xilinx/abc9_model.v");
-				std::string abc9_opts = " -box +/xilinx/abc_xc7.box";
+				std::string abc9_opts = " -box +/xilinx/abc9_xc7.box";
 				abc9_opts += stringf(" -W %d", XC7_WIRE_DELAY);
 				abc9_opts += " -nomfs";
 				if (nowidelut)
-					abc9_opts += " -lut +/xilinx/abc_xc7_nowide.lut";
+					abc9_opts += " -lut +/xilinx/abc9_xc7_nowide.lut";
 				else
-					abc9_opts += " -lut +/xilinx/abc_xc7.lut";
+					abc9_opts += " -lut +/xilinx/abc9_xc7.lut";
 				run("abc9" + abc9_opts);
 			}
 			else {
