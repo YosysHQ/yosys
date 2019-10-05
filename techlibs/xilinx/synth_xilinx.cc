@@ -283,10 +283,13 @@ struct SynthXilinxPass : public ScriptPass
 			ff_map_file = "+/xilinx/xc7_ff_map.v";
 
 		if (check_label("begin")) {
+			std::string read_args;
 			if (vpr)
-				run("read_verilog -lib -D_ABC -D_EXPLICIT_CARRY +/xilinx/cells_sim.v");
-			else
-				run("read_verilog -lib -D_ABC +/xilinx/cells_sim.v");
+				read_args += " -D_EXPLICIT_CARRY";
+			if (abc9)
+				read_args += " -D_ABC9";
+			read_args += " -lib +/xilinx/cells_sim.v";
+			run("read_verilog" + read_args);
 
 			if (help_mode)
 				run("read_verilog -lib +/xilinx/{family}_cells_xtra.v");
