@@ -105,7 +105,9 @@ endcode
 // #######################
 
 // Subpattern for matching against input registers, based on knowledge of the
-//   'Q' input.
+//   'Q' input. Typically, this task would be handled by other Yosys passes
+//   such as dff2dffe, but since DSP inference happens much before this, these
+//   patterns have to be manually identified.
 // At a high level:
 //   (1) Starting from a $dff cell that (partially or fully) drives the given
 //       'Q' argument
