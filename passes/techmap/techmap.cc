@@ -256,14 +256,6 @@ struct TechmapWorker
 				if (w->attributes.count(ID(src)))
 					w->add_strpool_attribute(ID(src), extra_src_attrs);
 			}
-
-
-			if (it.second->name.begins_with("\\_TECHMAP_REPLACE_")) {
-				IdString replace_name = stringf("%s%s", orig_cell_name.c_str(), it.second->name.c_str() + strlen("\\_TECHMAP_REPLACE_"));
-				Wire *replace_w = module->addWire(replace_name, it.second);
-				module->connect(replace_w, w);
-			}
-
 			design->select(module, w);
 
 			if (it.second->name.begins_with("\\_TECHMAP_REPLACE_.")) {

@@ -833,7 +833,7 @@ void AigerReader::post_process()
 			log_assert(q->port_input);
 			q->port_input = false;
 
-			auto ff = module->addCell(NEW_ID, "$__ABC_FF_");
+			auto ff = module->addCell(NEW_ID, "$__ABC9_FF_");
 			ff->setPort("\\D", d);
 			ff->setPort("\\Q", q);
 			flop_count++;

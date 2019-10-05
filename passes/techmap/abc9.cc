@@ -459,7 +459,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 		dict<IdString, bool> abc9_box;
 		vector<RTLIL::Cell*> boxes;
 		for (auto cell : module->selected_cells()) {
-			if (cell->type.in(ID($_AND_), ID($_NOT_), ID($__ABC_FF_))) {
+			if (cell->type.in(ID($_AND_), ID($_NOT_), ID($__ABC9_FF_))) {
 				module->remove(cell);
 				continue;
 			}
@@ -533,7 +533,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 			cell_stats[mapped_cell->type]++;
 
 			RTLIL::Cell *existing_cell = nullptr;
-			if (mapped_cell->type.in(ID($lut), ID($__ABC_FF_))) {
+			if (mapped_cell->type.in(ID($lut), ID($__ABC9_FF_))) {
 				if (mapped_cell->type == ID($lut) &&
 						GetSize(mapped_cell->getPort(ID::A)) == 1 &&
 						mapped_cell->getParam(ID(LUT)) == RTLIL::Const::from_string("01")) {

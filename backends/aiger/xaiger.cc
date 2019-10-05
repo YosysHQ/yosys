@@ -254,7 +254,7 @@ struct XAigerWriter
 
 			log_assert(!holes_mode);
 
-			if (cell->type == "$__ABC_FF_")
+			if (cell->type == "$__ABC9_FF_")
 			{
 				SigBit D = sigmap(cell->getPort("\\D").as_bit());
 				SigBit Q = sigmap(cell->getPort("\\Q").as_bit());

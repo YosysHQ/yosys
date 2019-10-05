@@ -31,7 +31,7 @@
 // The purpose of the following FD* rules are to wrap the flop (which, when
 //   called with the `_ABC' macro set captures only its combinatorial
 //   behaviour) with:
-// (a) a special $__ABC_FF_ in front of the FD*'s output, indicating to abc9
+// (a) a special $__ABC9_FF_ in front of the FD*'s output, indicating to abc9
 //     the connectivity of its basic D-Q flop
 // (b) a special TECHMAP_REPLACE_.$currQ wire that will be used for feedback
 //     into the (combinatorial) FD* cell to facilitate clock-enable behaviour
@@ -50,7 +50,7 @@ module FDRE (output reg Q, input C, CE, D, R);
     .D(D), .Q($nextQ), .C(C), .CE(CE), .R(R)
   );
   wire _TECHMAP_REPLACE_.$currQ = Q;
-  \$__ABC_FF_ abc_dff (.D($nextQ), .Q(Q));
+  \$__ABC9_FF_ abc_dff (.D($nextQ), .Q(Q));
 endmodule
 module FDRE_1 (output reg Q, input C, CE, D, R);
   parameter [0:0] INIT = 1'b0;
@@ -61,7 +61,7 @@ module FDRE_1 (output reg Q, input C, CE, D, R);
     .D(D), .Q($nextQ), .C(C), .CE(CE), .R(R)
   );
   wire _TECHMAP_REPLACE_.$currQ = Q;
-  \$__ABC_FF_ abc_dff (.D($nextQ), .Q(Q));
+  \$__ABC9_FF_ abc_dff (.D($nextQ), .Q(Q));
 endmodule
 
 module FDCE (output reg Q, input C, CE, D, CLR);
@@ -79,7 +79,7 @@ module FDCE (output reg Q, input C, CE, D, CLR);
     .D(D), .Q($nextQ),  .C(C), .CE(CE), .CLR(CLR)
   );
   wire _TECHMAP_REPLACE_.$currQ = Q;
-  \$__ABC_FF_ abc_dff (.D($nextQ), .Q($currQ));
+  \$__ABC9_FF_ abc_dff (.D($nextQ), .Q($currQ));
   \$__ABC_ASYNC abc_async (.A($currQ), .S(CLR ^ IS_CLR_INVERTED), .Y(Q));
 endmodule
 module FDCE_1 (output reg Q, input C, CE, D, CLR);
@@ -91,7 +91,7 @@ module FDCE_1 (output reg Q, input C, CE, D, CLR);
     .D(D), .Q($nextQ), .C(C), .CE(CE), .CLR(CLR)
   );
   wire _TECHMAP_REPLACE_.$currQ = Q;
-  \$__ABC_FF_ abc_dff (.D($nextQ), .Q($currQ));
+  \$__ABC9_FF_ abc_dff (.D($nextQ), .Q($currQ));
   \$__ABC_ASYNC abc_async (.A($currQ), .S(CLR), .Y(Q));
 endmodule
 
@@ -110,7 +110,7 @@ module FDPE (output reg Q, input C, CE, D, PRE);
     .D(D), .Q($nextQ), .C(C), .CE(CE), .PRE(PRE)
   );
   wire _TECHMAP_REPLACE_.$currQ = Q;
-  \$__ABC_FF_ abc_dff (.D($nextQ), .Q($currQ));
+  \$__ABC9_FF_ abc_dff (.D($nextQ), .Q($currQ));
   \$__ABC_ASYNC abc_async (.A($currQ), .S(PRE ^ IS_PRE_INVERTED), .Y(Q));
 endmodule
 module FDPE_1 (output reg Q, input C, CE, D, PRE);
@@ -122,7 +122,7 @@ module FDPE_1 (output reg Q, input C, CE, D, PRE);
     .D(D), .Q($nextQ), .C(C), .CE(CE), .PRE(PRE)
   );
   wire _TECHMAP_REPLACE_.$currQ = Q;
-  \$__ABC_FF_ abc_dff (.D($nextQ), .Q($currQ));
+  \$__ABC9_FF_ abc_dff (.D($nextQ), .Q($currQ));
   \$__ABC_ASYNC abc_async (.A($currQ), .S(PRE), .Y(Q));
 endmodule
 
@@ -141,7 +141,7 @@ module FDSE (output reg Q, input C, CE, D, S);
     .D(D), .Q($nextQ), .C(C), .CE(CE), .S(S)
   );
   wire _TECHMAP_REPLACE_.$currQ = Q;
-  \$__ABC_FF_ abc_dff (.D($nextQ), .Q(Q));
+  \$__ABC9_FF_ abc_dff (.D($nextQ), .Q(Q));
 endmodule
 module FDSE_1 (output reg Q, input C, CE, D, S);
   parameter [0:0] INIT = 1'b0;
@@ -152,7 +152,7 @@ module FDSE_1 (output reg Q, input C, CE, D, S);
     .D(D), .Q($nextQ), .C(C), .CE(CE), .S(S)
   );
   wire _TECHMAP_REPLACE_.$currQ = Q;
-  \$__ABC_FF_ abc_dff (.D($nextQ), .Q(Q));
+  \$__ABC9_FF_ abc_dff (.D($nextQ), .Q(Q));
 endmodule
 
 module RAM32X1D (
