@@ -609,8 +609,11 @@ struct RTLIL::Const
 	std::string decode_string() const;
 
 	inline int size() const { return bits.size(); }
+	inline bool empty() const { return bits.empty(); }
 	inline RTLIL::State &operator[](int index) { return bits.at(index); }
 	inline const RTLIL::State &operator[](int index) const { return bits.at(index); }
+	inline decltype(bits)::iterator begin() { return bits.begin(); }
+	inline decltype(bits)::iterator end() { return bits.end(); }
 
 	bool is_fully_zero() const;
 	bool is_fully_ones() const;

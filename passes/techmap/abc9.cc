@@ -242,7 +242,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 		bool cleanup, vector<int> lut_costs, bool /*dff_mode*/, std::string /*clk_str*/,
 		bool /*keepff*/, std::string delay_target, std::string /*lutin_shared*/, bool fast_mode,
 		bool show_tempdir, std::string box_file, std::string lut_file,
-		std::string wire_delay, const dict<int,IdString> &box_lookup
+		std::string wire_delay, const dict<int,IdString> &box_lookup, bool nomfs
 )
 {
 	map_autoidx = autoidx++;
@@ -306,6 +306,10 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 
 	for (size_t pos = abc9_script.find("{W}"); pos != std::string::npos; pos = abc9_script.find("{W}", pos))
 		abc9_script = abc9_script.substr(0, pos) + wire_delay + abc9_script.substr(pos+3);
+
+	if (nomfs)
+		for (size_t pos = abc9_script.find("&mfs"); pos != std::string::npos; pos = abc9_script.find("&mfs", pos))
+			abc9_script = abc9_script.erase(pos, strlen("&mfs"));
 
 	abc9_script += stringf("; &write %s/output.aig", tempdir_name.c_str());
 	abc9_script = add_echos_to_abc9_cmd(abc9_script);
@@ -868,6 +872,7 @@ struct Abc9Pass : public Pass {
 		std::string delay_target, lutin_shared = "-S 1", wire_delay;
 		bool fast_mode = false, /*dff_mode = false,*/ keepff = false, cleanup = true;
 		bool show_tempdir = false;
+		bool nomfs = false;
 		vector<int> lut_costs;
 		markgroups = false;
 
@@ -988,6 +993,10 @@ struct Abc9Pass : public Pass {
 			}
 			if (arg == "-W" && argidx+1 < args.size()) {
 				wire_delay = "-W " + args[++argidx];
+				continue;
+			}
+			if (arg == "-nomfs") {
+				nomfs = true;
 				continue;
 			}
 			break;
@@ -1241,7 +1250,8 @@ struct Abc9Pass : public Pass {
 				sel.selected_members[module->name] = std::move(it.second);
 				abc9_module(design, module, script_file, exe_file, cleanup, lut_costs, false, "$",
 						keepff, delay_target, lutin_shared, fast_mode, show_tempdir,
-						box_file, lut_file, wire_delay, box_lookup);
+						box_file, lut_file, wire_delay, box_lookup, nomfs);
+				assign_map.set(mod);
 			}
 			design->selection_stack.pop_back();
 			design->selected_active_module.clear();
