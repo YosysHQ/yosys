@@ -44,9 +44,13 @@
 //     DSP48E1 cells inferred from multiply operations by Yosys, as well as for
 //     user instantiations that may already contain the cells being packed...
 //     (though the latter is currently untested)
-//   - Since the $dff-with-clock-enable-or-reset-mux pattern is used for each
-//     *REG match, it has been factored out into two subpatterns: in_dffe
-//     out_dffe located at the bottom of this file
+//   - Since the $dff-with-optional-clock-enable-or-reset-mux pattern is used
+//     for each *REG match, it has been factored out into two subpatterns:
+//     in_dffe and out_dffe located at the bottom of this file.
+//   - Matching for pattern detector features is currently incomplete. For
+//     example, matching for underflow as well as overflow detection is
+//     possible, as would auto-reset, enabling saturated arithmetic, detecting
+//     custom patterns, etc.
 
 pattern xilinx_dsp_pack
 
