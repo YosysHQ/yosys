@@ -614,7 +614,7 @@ struct XilinxDspPass : public Pass {
 			xilinx_simd_pack(module, module->selected_cells());
 
 			// Match for all features ([ABDMP][12]?REG, pre-adder,
-			// (post-adder, pattern detector, etc.) except for CREG
+			// post-adder, pattern detector, etc.) except for CREG
 			{
 				xilinx_dsp_pm pm(module, module->selected_cells());
 				pm.run_xilinx_dsp_pack(xilinx_dsp_pack);
