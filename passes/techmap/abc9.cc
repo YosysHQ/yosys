@@ -1122,39 +1122,15 @@ struct Abc9Pass : public Pass {
 				if (!inst_module || !inst_module->attributes.count("\\abc9_flop"))
 					continue;
 
-				auto derived_name = inst_module->derive(design, cell->parameters);
-				auto derived_module = design->module(derived_name);
-				log_assert(derived_module);
-				if (derived_module->has_processes())
-					Pass::call_on_module(design, derived_module, "proc");
-				SigMap derived_sigmap(derived_module);
-
-				SigSpec pattern;
-				SigSpec with;
-				for (auto &conn : cell->connections()) {
-					Wire *first = derived_module->wire(conn.first);
-					log_assert(first);
-					SigSpec second = assign_map(conn.second);
-					log_assert(GetSize(first) == GetSize(second));
-					pattern.append(first);
-					with.append(second);
-				}
-
-				Wire *abc9_clock_wire = derived_module->wire("\\$abc9_clock");
+				Wire *abc9_clock_wire = module->wire(stringf("%s.$abc9_clock", cell->name.c_str()));
 				if (abc9_clock_wire == NULL)
-					log_error("'\\$abc9_clock' is not a wire present in module '%s'.\n", log_id(cell->type));
-				SigSpec abc9_clock = derived_sigmap(abc9_clock_wire);
-				abc9_clock.replace(pattern, with);
-				for (const auto &c : abc9_clock.chunks())
-					log_assert(!c.wire || c.wire->module == module);
+					log_error("'%s$abc9_clock' is not a wire present in module '%s'.\n", cell->name.c_str(), log_id(module));
+				SigSpec abc9_clock = assign_map(abc9_clock_wire);
 
-				Wire *abc9_control_wire = derived_module->wire("\\$abc9_control");
+				Wire *abc9_control_wire = module->wire(stringf("%s.$abc9_control", cell->name.c_str()));
 				if (abc9_control_wire == NULL)
-					log_error("'\\$abc9_control' is not a wire present in module '%s'.\n", log_id(cell->type));
-				SigSpec abc9_control = derived_sigmap(abc9_control_wire);
-				abc9_control.replace(pattern, with);
-				for (const auto &c : abc9_control.chunks())
-					log_assert(!c.wire || c.wire->module == module);
+					log_error("'%s$abc9_control' is not a wire present in module '%s'.\n", cell->name.c_str(), log_id(module));
+				SigSpec abc9_control = assign_map(abc9_control_wire);
 
 				unassigned_cells.erase(cell);
 				expand_queue.insert(cell);

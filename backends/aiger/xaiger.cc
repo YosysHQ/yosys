@@ -481,16 +481,11 @@ struct XAigerWriter
 					}
 				}
 
-				// Connect $currQ as an input to the flop box
+				// Connect <cell>.$currQ (inserted by abc9_map.v) as an input to the flop box
 				if (box_module->get_bool_attribute("\\abc9_flop")) {
-					IdString port_name = "\\$currQ";
-					Wire *w = box_module->wire(port_name);
-					if (!w)
-						log_error("'$currQ' is not a wire present in module '%s'.\n", log_id(box_module));
 					SigSpec rhs = module->wire(stringf("%s.$currQ", cell->name.c_str()));
 					if (rhs.empty())
 						log_error("'%s.$currQ' is not a wire present in module '%s'.\n", log_id(cell), log_id(module));
-					log_assert(GetSize(w) == GetSize(rhs));
 
 					int offset = 0;
 					for (auto b : rhs) {
@@ -503,7 +498,7 @@ struct XAigerWriter
 							else
 								alias_map[b] = I;
 						}
-						co_bits.emplace_back(b, cell, port_name, offset++, 0);
+						co_bits.emplace_back(b, cell, "\\$currQ", offset++, 0);
 						unused_bits.erase(b);
 					}
 				}
@@ -737,6 +732,8 @@ struct XAigerWriter
 				log_assert(box_module);
 				IdString derived_name = box_module->derive(module->design, cell->parameters);
 				box_module = module->design->module(derived_name);
+				if (box_module->has_processes())
+					Pass::call_on_module(module->design, box_module, "proc");
 
 				int box_inputs = 0, box_outputs = 0;
 				auto r = cell_cache.insert(std::make_pair(derived_name, nullptr));
@@ -753,7 +750,7 @@ struct XAigerWriter
 					RTLIL::Wire *w = box_module->wire(port_name);
 					log_assert(w);
 					RTLIL::Wire *holes_wire;
-					RTLIL::SigSpec port_wire;
+					RTLIL::SigSpec port_sig;
 					if (w->port_input)
 						for (int i = 0; i < GetSize(w); i++) {
 							box_inputs++;
@@ -765,7 +762,7 @@ struct XAigerWriter
 								holes_module->ports.push_back(holes_wire->name);
 							}
 							if (holes_cell)
-								port_wire.append(holes_wire);
+								port_sig.append(holes_wire);
 						}
 					if (w->port_output) {
 						box_outputs += GetSize(w);
@@ -777,41 +774,36 @@ struct XAigerWriter
 							holes_wire->port_output = true;
 							holes_wire->port_id = port_id++;
 							holes_module->ports.push_back(holes_wire->name);
-							if (holes_cell)
-								port_wire.append(holes_wire);
+							if (holes_cell) {
+								port_sig.append(holes_wire);
+							}
 							else
 								holes_module->connect(holes_wire, State::S0);
 						}
 					}
-					if (!port_wire.empty()) {
+					if (!port_sig.empty()) {
 						if (r.second)
-							holes_cell->setPort(w->name, port_wire);
+							holes_cell->setPort(w->name, port_sig);
 						else
-							holes_module->connect(port_wire, holes_cell->getPort(w->name));
+							holes_module->connect(holes_cell->getPort(w->name), port_sig);
 					}
 				}
 
-				// For flops only, create an extra input for $currQ
+				// For flops only, create an extra 1-bit input that drives a new wire
+				//   called "<cell>.$currQ" that is used below
 				if (box_module->get_bool_attribute("\\abc9_flop")) {
 					log_assert(holes_cell);
 
-					Wire *w = box_module->wire("\\$currQ");
-					Wire *holes_wire;
-					RTLIL::SigSpec port_wire;
-					for (int i = 0; i < GetSize(w); i++) {
-						box_inputs++;
-						holes_wire = holes_module->wire(stringf("\\i%d", box_inputs));
-						if (!holes_wire) {
-							holes_wire = holes_module->addWire(stringf("\\i%d", box_inputs));
-							holes_wire->port_input = true;
-							holes_wire->port_id = port_id++;
-							holes_module->ports.push_back(holes_wire->name);
-						}
-						port_wire.append(holes_wire);
+					box_inputs++;
+					Wire *holes_wire = holes_module->wire(stringf("\\i%d", box_inputs));
+					if (!holes_wire) {
+						holes_wire = holes_module->addWire(stringf("\\i%d", box_inputs));
+						holes_wire->port_input = true;
+						holes_wire->port_id = port_id++;
+						holes_module->ports.push_back(holes_wire->name);
 					}
-					w = holes_module->addWire(stringf("%s.$currQ", cell->name.c_str()), GetSize(w));
-					w->set_bool_attribute("\\hierconn");
-					holes_module->connect(w, port_wire);
+					Wire *w = holes_module->addWire(stringf("%s.$currQ", cell->name.c_str()));
+					holes_module->connect(w, holes_wire);
 				}
 
 				write_h_buffer(box_inputs);
@@ -866,37 +858,67 @@ struct XAigerWriter
 				//holes_module->fixup_ports();
 				holes_module->check();
 
-				Design *design = holes_module->design;
-				design->selection_stack.emplace_back(false);
-				RTLIL::Selection& sel = design->selection_stack.back();
-				log_assert(design->selected_active_module == module->name.c_str());
-				design->selected_active_module = holes_module->name.str();
-				sel.select(holes_module);
-
-				Pass::call(design, "flatten -wb");
-
 				// TODO: Should techmap/aigmap/check all lib_whitebox-es just once,
 				//       instead of per write_xaiger call
-				Pass::call(design, "techmap");
-				Pass::call(design, "aigmap");
-				for (auto cell : holes_module->cells())
-					if (!cell->type.in("$_NOT_", "$_AND_"))
-						log_error("Whitebox contents cannot be represented as AIG. Please verify whiteboxes are synthesisable.\n");
+				Pass::call_on_module(holes_module->design, holes_module, "flatten -wb; techmap; aigmap");
 
-				design->selection_stack.pop_back();
-				design->selected_active_module = module->name.str();
+				dict<SigBit, Wire*> output_port;
+				SigMap holes_sigmap(holes_module);
+				for (auto port_name : holes_module->ports) {
+					Wire *port = holes_module->wire(port_name);
+					if (port->port_input)
+						continue;
+					output_port.insert(std::make_pair(holes_sigmap(port), port));
+				}
+
+				dict<SigSig, SigSig> replace;
+				for (auto it = holes_module->cells_.begin(); it != holes_module->cells_.end(); ) {
+					auto cell = it->second;
+					if (cell->type.in("$_DFF_N_", "$_DFF_P_")) {
+						SigBit D = cell->getPort("\\D");
+						SigBit Q = cell->getPort("\\Q");
+						// Remove the DFF cell from what needs to be a combinatorial box
+						it = holes_module->cells_.erase(it);
+						Wire *port = output_port.at(Q);
+						log_assert(port);
+						// Prepare to replace "assign <port> = DFF.Q;" with "assign <port> = DFF.D;"
+						//   in order to extract the combinatorial control logic that feeds the box
+						//   (i.e. clock enable, synchronous reset, etc.)
+						replace.insert(std::make_pair(SigSig(port,Q), SigSig(port,D)));
+						// Since `flatten` above would have created wires named "<cell>.Q",
+						//   extract the pre-techmap cell name
+						auto pos = Q.wire->name.str().rfind(".");
+						log_assert(pos != std::string::npos);
+						IdString driver = Q.wire->name.substr(0, pos);
+						// And drive the signal that was previously driven by "DFF.Q" (typically
+						//   used to implement clock-enable functionality) with the "<cell>.$currQ"
+						//   wire (which itself is driven an input port) we inserted above
+						Wire *currQ = holes_module->wire(stringf("%s.$currQ", driver.c_str()));
+						log_assert(currQ);
+						holes_module->connect(Q, currQ);
+						continue;
+					}
+					else if (!cell->type.in("$_NOT_", "$_AND_"))
+						log_error("Whitebox contents cannot be represented as AIG. Please verify whiteboxes are synthesisable.\n");
+					++it;
+				}
+
+				for (auto &conn : holes_module->connections_) {
+					auto it = replace.find(conn);
+					if (it != replace.end())
+						conn = it->second;
+				}
 
 				// Move into a new (temporary) design so that "clean" will only
 				// operate (and run checks on) this one module
 				RTLIL::Design *holes_design = new RTLIL::Design;
-				design->modules_.erase(holes_module->name);
+				module->design->modules_.erase(holes_module->name);
 				holes_design->add(holes_module);
 				Pass::call(holes_design, "clean -purge");
 
 				std::stringstream a_buffer;
 				XAigerWriter writer(holes_module, false /*zinit_mode*/, true /* holes_mode */);
 				writer.write_aiger(a_buffer, false /*ascii_mode*/);
-
 				delete holes_design;
 
 				f << "a";

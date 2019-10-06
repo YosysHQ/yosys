@@ -44,7 +44,7 @@ CARRY4 4 1 10 8
 # Box to emulate async behaviour of FD[CP]*
 # Inputs: A S
 # Outputs: Y
-$__ABC_ASYNC 1000 0 2 1
+$__ABC9_ASYNC 1000 0 2 1
 0 764
 
 # The following FD*.{CE,R,CLR,PRE) are offset by 46ps to

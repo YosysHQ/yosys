@@ -30,11 +30,8 @@ module \$__XILINX_MUXF78 (output O, input I0, I1, I2, I3, S0, S1);
                 : (S0 ? I1 : I0);
 endmodule
 
-module \$__ABC_FF_ (input D, output Q);
-endmodule
-
 (* abc_box_id = 1000 *)
-module \$__ABC_ASYNC (input A, S, output Y);
+module \$__ABC9_ASYNC (input A, S, output Y);
 endmodule
 
 // Box to emulate comb/seq behaviour of RAMD{32,64} and SRL{16,32}
