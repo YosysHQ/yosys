@@ -93,7 +93,6 @@ struct XAigerWriter
 
 	dict<SigBit, int> aig_map;
 	dict<SigBit, int> ordered_outputs;
-	dict<SigBit, int> ordered_latches;
 
 	vector<Cell*> box_list;
 	bool omode = false;
@@ -950,7 +949,6 @@ struct XAigerWriter
 		dict<int, string> input_lines;
 		dict<int, string> init_lines;
 		dict<int, string> output_lines;
-		dict<int, string> latch_lines;
 		dict<int, string> wire_lines;
 
 		for (auto wire : module->wires())
@@ -1011,10 +1009,6 @@ struct XAigerWriter
 		if (omode && output_bits.empty())
 			f << "output " << output_lines.size() << " 0 $__dummy__\n";
 
-		latch_lines.sort();
-		for (auto &it : latch_lines)
-			f << it.second;
-
 		wire_lines.sort();
 		for (auto &it : wire_lines)
 			f << it.second;
@@ -1036,7 +1030,7 @@ struct XAigerBackend : public Backend {
 		log("        write ASCII version of AIGER format\n");
 		log("\n");
 		log("    -map <filename>\n");
-		log("        write an extra file with port and latch symbols\n");
+		log("        write an extra file with port and box symbols\n");
 		log("\n");
 		log("    -vmap <filename>\n");
 		log("        like -map, but more verbose\n");
