@@ -842,6 +842,7 @@ struct XAigerWriter
 						continue;
 					}
 				}
+				// Default flop init is zero
 				write_s_buffer(0);
 			}
 			f << "s";
