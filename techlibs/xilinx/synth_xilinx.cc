@@ -286,8 +286,6 @@ struct SynthXilinxPass : public ScriptPass
 			std::string read_args;
 			if (vpr)
 				read_args += " -D_EXPLICIT_CARRY";
-			if (abc9)
-				read_args += " -D_ABC9";
 			read_args += " -lib +/xilinx/cells_sim.v";
 			run("read_verilog" + read_args);
 
