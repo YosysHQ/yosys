@@ -852,8 +852,17 @@ struct Abc9Pass : public Pass {
 		log("internally. This is not going to \"run ABC on your design\". It will instead run\n");
 		log("ABC on logic snippets extracted from your design. You will not get any useful\n");
 		log("output when passing an ABC script that writes a file. Instead write your full\n");
-		log("design as BLIF file with write_blif and then load that into ABC externally if\n");
-		log("you want to use ABC to convert your design into another format.\n");
+		log("design as an XAIGER file with write_xaiger and then load that into ABC externally\n");
+		log("if you want to use ABC to convert your design into another format.\n");
+		log("\n");
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("Delay targets can also be specified on a per clock basis by attaching a\n");
+		log("'(* abc9_period = <int> *)' attribute onto clock wires (specifically, onto wires\n");
+		log("that appear inside any special '$abc9_clock' wires inserted by abc9_map.v). This\n");
+		log("can be achieved by modifying the source directly, or through a `setattr`\n");
+		log("invocation. Since such attributes cannot yet be propagated through a\n");
+		log("hierarchical design (whether or not it has been uniquified) it is recommended\n");
+		log("that the design be flattened when using this feature.\n");
 		log("\n");
 		log("[1] http://www.eecs.berkeley.edu/~alanmi/abc/\n");
 		log("\n");
@@ -1222,10 +1231,22 @@ struct Abc9Pass : public Pass {
 			design->selection_stack.emplace_back(false);
 			design->selected_active_module = module->name.str();
 			for (auto &it : assigned_cells) {
+				std::string target = delay_target;
+				if (target.empty()) {
+					for (auto b : assign_map(it.first))
+						if (b.wire) {
+							auto jt = b.wire->attributes.find("\\abc9_period");
+							if (jt != b.wire->attributes.end()) {
+								target = stringf("-D %d", jt->second.as_int());
+								log("Target period = %s ps for clock domain %s\n", target.c_str(), log_signal(it.first));
+								break;
+							}
+						}
+				}
 				RTLIL::Selection& sel = design->selection_stack.back();
 				sel.selected_members[module->name] = std::move(it.second);
 				abc9_module(design, module, script_file, exe_file, cleanup, lut_costs, false, "$",
-						keepff, delay_target, lutin_shared, fast_mode, show_tempdir,
+						keepff, target, lutin_shared, fast_mode, show_tempdir,
 						box_file, lut_file, wire_delay, box_lookup, nomfs);
 				assign_map.set(module);
 			}
