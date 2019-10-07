@@ -28,12 +28,53 @@
 
 // ============================================================================
 
-// The purpose of the following FD* rules are to wrap the flop (which, when
-//   called with the `_ABC' macro set captures only its combinatorial
-//   behaviour) with:
+// `abc9' requires that complex flops be split into a combinatorial box
+//   feeding a simple flop ($_ABC9_FF_).
+// Yosys will automatically analyse the simulation model (described in
+//   cells_sim.v) and detach any $_DFF_P_ or $_DFF_N_ cells present in
+//   order to extract the combinatorial control logic left behind.
+//   Specifically, a simulation model similar to the one below:
+//
+//           ++===================================++
+//           ||                        Sim model  ||
+//           ||      /\/\/\/\                     ||
+//       D -->>-----<        >     +------+       ||
+//       R -->>-----<  Comb. >     |$_DFF_|       ||
+//      CE -->>-----<  logic >-----| [NP]_|---+---->>-- Q
+//           ||  +--<        >     +------+   |   ||
+//           ||  |   \/\/\/\/                 |   ||
+//           ||  |                            |   ||
+//           ||  +----------------------------+   ||
+//           ||                                   ||
+//           ++===================================++
+//
+//   is transformed into:
+//
+//           ++==================++
+//           ||         Comb box ||
+//           ||                  ||
+//           ||      /\/\/\/\    ||
+//      D  -->>-----<        >   ||            +------+
+//      R  -->>-----<  Comb. >   ||            |$_ABC_|
+//     CE  -->>-----<  logic >--->>-- $nextQ --|  FF_ |--+-->> Q
+// $currQ +-->>-----<        >   ||            +------+  |
+//        |  ||      \/\/\/\/    ||                      |
+//        |  ||                  ||                      |
+//        |  ++==================++                      |
+//        |                                              |
+//        +----------------------------------------------+
+//
+// The purpose of the following FD* rules are to wrap the flop with:
 // (a) a special $__ABC9_FF_ in front of the FD*'s output, indicating to abc9
 //     the connectivity of its basic D-Q flop
-// (b) a special TECHMAP_REPLACE_.$currQ wire that will be used for feedback
+// (b) a special _TECHMAP_REPLACE_.$abc9_clock wire to capture its clock
+//     domain (used when partitioning the module so that `abc9' only
+//     performs sequential synthesis (with reachability analysis) correctly on
+//     one domain at a time)
+// (c) a special _TECHMAP_REPLACE_.$abc9_control that captures the control 
+//     domain (which, combined with this cell type, encodes to `abc9' which
+//     flops may be merged together)
+// (d) a special _TECHMAP_REPLACE_.$currQ wire that will be used for feedback
 //     into the (combinatorial) FD* cell to facilitate clock-enable behaviour
 module FDRE (output reg Q, input C, CE, D, R);
   parameter [0:0] INIT = 1'b0;
@@ -49,56 +90,11 @@ module FDRE (output reg Q, input C, CE, D, R);
   ) _TECHMAP_REPLACE_ (
     .D(D), .Q($nextQ), .C(C), .CE(CE), .R(R)
   );
-  // `abc9' requires that complex flops be split into a combinatorial box
-  //   feeding a simple flop ($_ABC9_FF_).
-  // Yosys will automatically analyse the simulation model (described in
-  //   cells_sim.v) and detach any $_DFF_P_ or $_DFF_N_ cells present in
-  //   order to extract the combinatorial control logic left behind.
-  //   Specifically, a simulation model similar to the one below:
-  //
-  //           ++===================================++
-  //           ||                        Sim model  ||
-  //           ||      /\/\/\/\                     ||
-  //       D -->>-----<        >     +------+       ||
-  //       R -->>-----<  Comb. >     |$_DFF_|       ||
-  //      CE -->>-----<  logic >-----| [NP]_|---+---->>-- Q
-  //           ||  +--<        >     +------+   |   ||
-  //           ||  |   \/\/\/\/                 |   ||
-  //           ||  |                            |   ||
-  //           ||  +----------------------------+   ||
-  //           ||                                   ||
-  //           ++===================================++
-  //
-  //   is transformed into:
-  //
-  //           ++==================++
-  //           ||         Comb box ||
-  //           ||                  ||
-  //           ||      /\/\/\/\    ||
-  //      D  -->>-----<        >   ||            +------+
-  //      R  -->>-----<  Comb. >   ||            |$_ABC_|
-  //     CE  -->>-----<  logic >--->>-- $nextQ --|  FF_ |--+-->> Q
-  // $currQ +-->>-----<        >   ||            +------+  |
-  //        |  ||      \/\/\/\/    ||                      |
-  //        |  ||                  ||                      |
-  //        |  ++==================++                      |
-  //        |                                              |
-  //        +----------------------------------------------+
   \$__ABC9_FF_ abc_dff (.D($nextQ), .Q(Q));
 
-  // Special signal indicating clock domain
-  //   (used to partition the module so that `abc9' only performs
-  //    sequential synthesis (reachability analysis) correctly on
-  //    one domain at a time)
+  // Special signals
   wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, IS_C_INVERTED};
-  // Special signal indicating control domain
-  //   (which, combined with this cell type, encodes to `abc9'
-  //    which flops may be merged together)
   wire [3:0] _TECHMAP_REPLACE_.$abc9_control = {CE, IS_D_INVERTED, R, IS_R_INVERTED};
-  // Special signal indicating the current value of the flip-flop
-  //   In order to achieve clock-enable behaviour, the current value
-  //   of the sequential output is required which Yosys will
-  //   connect to the special `$currQ' wire.
   wire _TECHMAP_REPLACE_.$currQ = Q;
 endmodule
 module FDRE_1 (output reg Q, input C, CE, D, R);
@@ -111,19 +107,9 @@ module FDRE_1 (output reg Q, input C, CE, D, R);
   );
   \$__ABC9_FF_ abc_dff (.D($nextQ), .Q(Q));
 
-  // Special signal indicating clock domain
-  //   (used to partition the module so that `abc9' only performs
-  //    sequential synthesis (reachability analysis) correctly on
-  //    one domain at a time)
+  // Special signals
   wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, 1'b1 /* IS_C_INVERTED */};
-  // Special signal indicating control domain
-  //   (which, combined with this spell type, encodes to `abc9'
-  //    which flops may be merged together)
   wire [3:0] _TECHMAP_REPLACE_.$abc9_control = {CE, 1'b0 /* IS_D_INVERTED */, R, 1'b0 /* IS_R_INVERTED */};
-  // Special signal indicating the current value of the flip-flop
-  //   In order to achieve clock-enable behaviour, the current value
-  //   of the sequential output is required which Yosys will
-  //   connect to the special `$currQ' wire.
   wire _TECHMAP_REPLACE_.$currQ = Q;
 endmodule
 
@@ -142,7 +128,7 @@ module FDCE (output reg Q, input C, CE, D, CLR);
     .D(D), .Q($nextQ),  .C(C), .CE(CE), .CLR(IS_CLR_INVERTED)
                                          // ^^^ Note that async
                                          //     control is disabled
-                                         //     and captured by
+                                         //     here but captured by
                                          //     $__ABC9_ASYNC below
   );
   \$__ABC9_FF_ abc_dff (.D($nextQ), .Q($currQ));
@@ -150,19 +136,9 @@ module FDCE (output reg Q, input C, CE, D, CLR);
   //   using the $_ABC9_ASYNC box by abc9_map.v
   \$__ABC9_ASYNC abc_async (.A($currQ), .S(CLR ^ IS_CLR_INVERTED), .Y(Q));
 
-  // Special signal indicating clock domain
-  //   (used to partition the module so that `abc9' only performs
-  //    sequential synthesis (reachability analysis) correctly on
-  //    one domain at a time)
+  // Special signals
   wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, IS_C_INVERTED};
-  // Special signal indicating control domain
-  //   (which, combined with this spell type, encodes to `abc9'
-  //    which flops may be merged together)
   wire [3:0] _TECHMAP_REPLACE_.$abc9_control = {CE, IS_D_INVERTED, CLR, IS_CLR_INVERTED};
-  // Special signal indicating the current value of the flip-flop
-  //   In order to achieve clock-enable behaviour, the current value
-  //   of the sequential output is required which Yosys will
-  //   connect to the special `$currQ' wire.
   wire _TECHMAP_REPLACE_.$currQ = $currQ;
 endmodule
 module FDCE_1 (output reg Q, input C, CE, D, CLR);
@@ -174,25 +150,15 @@ module FDCE_1 (output reg Q, input C, CE, D, CLR);
     .D(D), .Q($nextQ), .C(C), .CE(CE), .CLR(1'b0)
                                          // ^^^ Note that async
                                          //     control is disabled
-                                         //     and captured by
+                                         //     here but captured by
                                          //     $__ABC9_ASYNC below
   );
   \$__ABC9_FF_ abc_dff (.D($nextQ), .Q($currQ));
   \$__ABC9_ASYNC abc_async (.A($currQ), .S(CLR), .Y(Q));
 
-  // Special signal indicating clock domain
-  //   (used to partition the module so that `abc9' only performs
-  //    sequential synthesis (reachability analysis) correctly on
-  //    one domain at a time)
+  // Special signals
   wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, 1'b1 /* IS_C_INVERTED */};
-  // Special signal indicating control domain
-  //   (which, combined with this spell type, encodes to `abc9'
-  //    which flops may be merged together)
   wire [3:0] _TECHMAP_REPLACE_.$abc9_control = {CE, 1'b0 /* IS_D_INVERTED */, CLR, 1'b0 /* IS_CLR_INVERTED */};
-  // Special signal indicating the current value of the flip-flop
-  //   In order to achieve clock-enable behaviour, the current value
-  //   of the sequential output is required which Yosys will
-  //   connect to the special `$currQ' wire.
   wire _TECHMAP_REPLACE_.$currQ = $currQ;
 endmodule
 
@@ -211,25 +177,15 @@ module FDPE (output reg Q, input C, CE, D, PRE);
     .D(D), .Q($nextQ), .C(C), .CE(CE), .PRE(IS_PRE_INVERTED)
                                          // ^^^ Note that async
                                          //     control is disabled
-                                         //     and captured by
+                                         //     here but captured by
                                          //     $__ABC9_ASYNC below
   );
   \$__ABC9_FF_ abc_dff (.D($nextQ), .Q($currQ));
   \$__ABC9_ASYNC abc_async (.A($currQ), .S(PRE ^ IS_PRE_INVERTED), .Y(Q));
 
-  // Special signal indicating clock domain
-  //   (used to partition the module so that `abc9' only performs
-  //    sequential synthesis (reachability analysis) correctly on
-  //    one domain at a time)
+  // Special signals
   wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, IS_C_INVERTED};
-  // Special signal indicating control domain
-  //   (which, combined with this spell type, encodes to `abc9'
-  //    which flops may be merged together)
   wire [3:0] _TECHMAP_REPLACE_.$abc9_control = {CE, IS_D_INVERTED, PRE, IS_PRE_INVERTED};
-  // Special signal indicating the current value of the flip-flop
-  //   In order to achieve clock-enable behaviour, the current value
-  //   of the sequential output is required which Yosys will
-  //   connect to the special `$currQ' wire.
   wire _TECHMAP_REPLACE_.$currQ = $currQ;
 endmodule
 module FDPE_1 (output reg Q, input C, CE, D, PRE);
@@ -241,25 +197,15 @@ module FDPE_1 (output reg Q, input C, CE, D, PRE);
     .D(D), .Q($nextQ), .C(C), .CE(CE), .PRE(1'b0)
                                          // ^^^ Note that async
                                          //     control is disabled
-                                         //     and captured by
+                                         //     here but captured by
                                          //     $__ABC9_ASYNC below
   );
   \$__ABC9_FF_ abc_dff (.D($nextQ), .Q($currQ));
   \$__ABC9_ASYNC abc_async (.A($currQ), .S(PRE), .Y(Q));
 
-  // Special signal indicating clock domain
-  //   (used to partition the module so that `abc9' only performs
-  //    sequential synthesis (reachability analysis) correctly on
-  //    one domain at a time)
+  // Special signals
   wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, 1'b1 /* IS_C_INVERTED */};
-  // Special signal indicating control domain
-  //   (which, combined with this spell type, encodes to `abc9'
-  //    which flops may be merged together)
   wire [3:0] _TECHMAP_REPLACE_.$abc9_control = {CE, 1'b0 /* IS_D_INVERTED */, PRE, 1'b0 /* IS_PRE_INVERTED */};
-  // Special signal indicating the current value of the flip-flop
-  //   In order to achieve clock-enable behaviour, the current value
-  //   of the sequential output is required which Yosys will
-  //   connect to the special `$currQ' wire.
   wire _TECHMAP_REPLACE_.$currQ = $currQ;
 endmodule
 
@@ -279,19 +225,9 @@ module FDSE (output reg Q, input C, CE, D, S);
   );
   \$__ABC9_FF_ abc_dff (.D($nextQ), .Q(Q));
 
-  // Special signal indicating clock domain
-  //   (used to partition the module so that `abc9' only performs
-  //    sequential synthesis (reachability analysis) correctly on
-  //    one domain at a time)
+  // Special signals
   wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, IS_C_INVERTED};
-  // Special signal indicating control domain
-  //   (which, combined with this spell type, encodes to `abc9'
-  //    which flops may be merged together)
   wire [3:0] _TECHMAP_REPLACE_.$abc9_control = {CE, IS_D_INVERTED, S, IS_S_INVERTED};
-  // Special signal indicating the current value of the flip-flop
-  //   In order to achieve clock-enable behaviour, the current value
-  //   of the sequential output is required which Yosys will
-  //   connect to the special `$currQ' wire.
   wire _TECHMAP_REPLACE_.$currQ = Q;
 endmodule
 module FDSE_1 (output reg Q, input C, CE, D, S);
@@ -304,19 +240,9 @@ module FDSE_1 (output reg Q, input C, CE, D, S);
   );
   \$__ABC9_FF_ abc_dff (.D($nextQ), .Q(Q));
 
-  // Special signal indicating clock domain
-  //   (used to partition the module so that `abc9' only performs
-  //    sequential synthesis (reachability analysis) correctly on
-  //    one domain at a time)
+  // Special signals
   wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, 1'b1 /* IS_C_INVERTED */};
-  // Special signal indicating control domain
-  //   (which, combined with this spell type, encodes to `abc9'
-  //    which flops may be merged together)
   wire [3:0] _TECHMAP_REPLACE_.$abc9_control = {CE, 1'b0 /* IS_D_INVERTED */, S, 1'b0 /* IS_S_INVERTED */};
-  // Special signal indicating the current value of the flip-flop
-  //   In order to achieve clock-enable behaviour, the current value
-  //   of the sequential output is required which Yosys will
-  //   connect to the special `$currQ' wire.
   wire _TECHMAP_REPLACE_.$currQ = Q;
 endmodule
 
