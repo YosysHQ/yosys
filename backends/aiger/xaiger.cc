@@ -768,15 +768,14 @@ struct XAigerWriter
 						box_outputs += GetSize(w);
 						for (int i = 0; i < GetSize(w); i++) {
 							if (GetSize(w) == 1)
-								holes_wire = holes_module->addWire(stringf("%s.%s", cell->name.c_str(), w->name.c_str()));
+								holes_wire = holes_module->addWire(stringf("$abc%s.%s", cell->name.c_str(), log_id(w->name)));
 							else
-								holes_wire = holes_module->addWire(stringf("%s.%s[%d]", cell->name.c_str(), w->name.c_str(), i));
+								holes_wire = holes_module->addWire(stringf("$abc%s.%s[%d]", cell->name.c_str(), log_id(w->name), i));
 							holes_wire->port_output = true;
 							holes_wire->port_id = port_id++;
 							holes_module->ports.push_back(holes_wire->name);
-							if (holes_cell) {
+							if (holes_cell)
 								port_sig.append(holes_wire);
-							}
 							else
 								holes_module->connect(holes_wire, State::S0);
 						}
@@ -862,15 +861,6 @@ struct XAigerWriter
 				//       instead of per write_xaiger call
 				Pass::call_on_module(holes_module->design, holes_module, "flatten -wb; techmap; aigmap");
 
-				dict<SigBit, Wire*> output_port;
-				SigMap holes_sigmap(holes_module);
-				for (auto port_name : holes_module->ports) {
-					Wire *port = holes_module->wire(port_name);
-					if (port->port_input)
-						continue;
-					output_port.insert(std::make_pair(holes_sigmap(port), port));
-				}
-
 				dict<SigSig, SigSig> replace;
 				for (auto it = holes_module->cells_.begin(); it != holes_module->cells_.end(); ) {
 					auto cell = it->second;
@@ -879,7 +869,11 @@ struct XAigerWriter
 						SigBit Q = cell->getPort("\\Q");
 						// Remove the DFF cell from what needs to be a combinatorial box
 						it = holes_module->cells_.erase(it);
-						Wire *port = output_port.at(Q);
+						Wire *port;
+						if (GetSize(Q.wire) == 1)
+							port = holes_module->wire(stringf("$abc%s", Q.wire->name.c_str()));
+						else
+							port = holes_module->wire(stringf("$abc%s[%d]", Q.wire->name.c_str(), Q.offset));
 						log_assert(port);
 						// Prepare to replace "assign <port> = DFF.Q;" with "assign <port> = DFF.D;"
 						//   in order to extract the combinatorial control logic that feeds the box
