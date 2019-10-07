@@ -76,7 +76,6 @@ void aiger_encode(std::ostream &f, int x)
 struct XAigerWriter
 {
 	Module *module;
-	bool zinit_mode;
 	SigMap sigmap;
 
 	dict<SigBit, bool> init_map;
@@ -141,7 +140,7 @@ struct XAigerWriter
 		return a;
 	}
 
-	XAigerWriter(Module *module, bool zinit_mode, bool holes_mode=false) : module(module), zinit_mode(zinit_mode), sigmap(module)
+	XAigerWriter(Module *module, bool holes_mode=false) : module(module), sigmap(module)
 	{
 		pool<SigBit> undriven_bits;
 		pool<SigBit> unused_bits;
@@ -912,7 +911,7 @@ struct XAigerWriter
 				Pass::call(holes_design, "clean -purge");
 
 				std::stringstream a_buffer;
-				XAigerWriter writer(holes_module, false /*zinit_mode*/, true /* holes_mode */);
+				XAigerWriter writer(holes_module, true /* holes_mode */);
 				writer.write_aiger(a_buffer, false /*ascii_mode*/);
 				delete holes_design;
 
@@ -972,10 +971,10 @@ struct XAigerWriter
 
 				if (output_bits.count(b)) {
 					int o = ordered_outputs.at(b);
-					int init = zinit_mode ? 0 : 2;
+					int init = 0;
 					auto it = init_map.find(b);
-					if (it != init_map.end())
-						init = it->second ? 1 : 0;
+					if (it != init_map.end() && it->second)
+						init = 1;
 					output_lines[o] += stringf("output %d %d %s %d\n", o - GetSize(co_bits), i, log_id(wire), init);
 					continue;
 				}
@@ -1036,10 +1035,6 @@ struct XAigerBackend : public Backend {
 		log("    -ascii\n");
 		log("        write ASCII version of AIGER format\n");
 		log("\n");
-		log("    -zinit\n");
-		log("        convert FFs to zero-initialized FFs, adding additional inputs for\n");
-		log("        uninitialized FFs.\n");
-		log("\n");
 		log("    -map <filename>\n");
 		log("        write an extra file with port and latch symbols\n");
 		log("\n");
@@ -1050,7 +1045,6 @@ struct XAigerBackend : public Backend {
 	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		bool ascii_mode = false;
-		bool zinit_mode = false;
 		bool verbose_map = false;
 		std::string map_filename;
 
@@ -1061,10 +1055,6 @@ struct XAigerBackend : public Backend {
 		{
 			if (args[argidx] == "-ascii") {
 				ascii_mode = true;
-				continue;
-			}
-			if (args[argidx] == "-zinit") {
-				zinit_mode = true;
 				continue;
 			}
 			if (map_filename.empty() && args[argidx] == "-map" && argidx+1 < args.size()) {
@@ -1085,7 +1075,7 @@ struct XAigerBackend : public Backend {
 		if (top_module == nullptr)
 			log_error("Can't find top module in current design!\n");
 
-		XAigerWriter writer(top_module, zinit_mode);
+		XAigerWriter writer(top_module);
 		writer.write_aiger(*f, ascii_mode);
 
 		if (!map_filename.empty()) {
