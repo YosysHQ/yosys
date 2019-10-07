@@ -25,11 +25,6 @@
 // For example, (complex) flip-flops are expected to be described as an
 //   combinatorial box (containing all control logic such as clock enable
 //   or synchronous resets) followed by a basic D-Q flop.
-
-// ============================================================================
-
-// `abc9' requires that complex flops be split into a combinatorial box
-//   feeding a simple flop ($_ABC9_FF_).
 // Yosys will automatically analyse the simulation model (described in
 //   cells_sim.v) and detach any $_DFF_P_ or $_DFF_N_ cells present in
 //   order to extract the combinatorial control logic left behind.
@@ -55,8 +50,8 @@
 //                ||                  ||
 //                ||      /\/\/\/\    ||
 //           D  -->>-----<        >   ||            +------+
-//           R  -->>-----<  Comb. >   ||            |$_ABC_|
-//          CE  -->>-----<  logic >--->>-- $nextQ --|  FF_ |--+-->> Q
+//           R  -->>-----<  Comb. >   ||            |$__ABC|
+//          CE  -->>-----<  logic >--->>-- $nextQ --| _FF_ |--+-->> Q
 // $abc9_currQ +-->>-----<        >   ||            +------+  |
 //             |  ||      \/\/\/\/    ||                      |
 //             |  ||                  ||                      |
