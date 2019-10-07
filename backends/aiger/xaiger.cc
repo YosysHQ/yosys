@@ -479,11 +479,11 @@ struct XAigerWriter
 					}
 				}
 
-				// Connect <cell>.$currQ (inserted by abc9_map.v) as an input to the flop box
+				// Connect <cell>.$abc9_currQ (inserted by abc9_map.v) as an input to the flop box
 				if (box_module->get_bool_attribute("\\abc9_flop")) {
-					SigSpec rhs = module->wire(stringf("%s.$currQ", cell->name.c_str()));
+					SigSpec rhs = module->wire(stringf("%s.$abc9_currQ", cell->name.c_str()));
 					if (rhs.empty())
-						log_error("'%s.$currQ' is not a wire present in module '%s'.\n", log_id(cell), log_id(module));
+						log_error("'%s.$abc9_currQ' is not a wire present in module '%s'.\n", log_id(cell), log_id(module));
 
 					int offset = 0;
 					for (auto b : rhs) {
@@ -496,7 +496,7 @@ struct XAigerWriter
 							else
 								alias_map[b] = I;
 						}
-						co_bits.emplace_back(b, cell, "\\$currQ", offset++, 0);
+						co_bits.emplace_back(b, cell, "\\$abc9_currQ", offset++, 0);
 						unused_bits.erase(b);
 					}
 				}
@@ -787,7 +787,7 @@ struct XAigerWriter
 				}
 
 				// For flops only, create an extra 1-bit input that drives a new wire
-				//   called "<cell>.$currQ" that is used below
+				//   called "<cell>.$abc9_currQ" that is used below
 				if (box_module->get_bool_attribute("\\abc9_flop")) {
 					log_assert(holes_cell);
 
@@ -799,7 +799,7 @@ struct XAigerWriter
 						holes_wire->port_id = port_id++;
 						holes_module->ports.push_back(holes_wire->name);
 					}
-					Wire *w = holes_module->addWire(stringf("%s.$currQ", cell->name.c_str()));
+					Wire *w = holes_module->addWire(stringf("%s.$abc9_currQ", cell->name.c_str()));
 					holes_module->connect(w, holes_wire);
 				}
 
@@ -884,9 +884,9 @@ struct XAigerWriter
 						log_assert(pos != std::string::npos);
 						IdString driver = Q.wire->name.substr(0, pos);
 						// And drive the signal that was previously driven by "DFF.Q" (typically
-						//   used to implement clock-enable functionality) with the "<cell>.$currQ"
+						//   used to implement clock-enable functionality) with the "<cell>.$abc9_currQ"
 						//   wire (which itself is driven an input port) we inserted above
-						Wire *currQ = holes_module->wire(stringf("%s.$currQ", driver.c_str()));
+						Wire *currQ = holes_module->wire(stringf("%s.$abc9_currQ", driver.c_str()));
 						log_assert(currQ);
 						holes_module->connect(Q, currQ);
 						continue;

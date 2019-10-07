@@ -35,34 +35,34 @@
 //   order to extract the combinatorial control logic left behind.
 //   Specifically, a simulation model similar to the one below:
 //
-//           ++===================================++
-//           ||                        Sim model  ||
-//           ||      /\/\/\/\                     ||
-//       D -->>-----<        >     +------+       ||
-//       R -->>-----<  Comb. >     |$_DFF_|       ||
-//      CE -->>-----<  logic >-----| [NP]_|---+---->>-- Q
-//           ||  +--<        >     +------+   |   ||
-//           ||  |   \/\/\/\/                 |   ||
-//           ||  |                            |   ||
-//           ||  +----------------------------+   ||
-//           ||                                   ||
-//           ++===================================++
+//                ++===================================++
+//                ||                        Sim model  ||
+//                ||      /\/\/\/\                     ||
+//            D -->>-----<        >     +------+       ||
+//            R -->>-----<  Comb. >     |$_DFF_|       ||
+//           CE -->>-----<  logic >-----| [NP]_|---+---->>-- Q
+//                ||  +--<        >     +------+   |   ||
+//                ||  |   \/\/\/\/                 |   ||
+//                ||  |                            |   ||
+//                ||  +----------------------------+   ||
+//                ||                                   ||
+//                ++===================================++
 //
 //   is transformed into:
 //
-//           ++==================++
-//           ||         Comb box ||
-//           ||                  ||
-//           ||      /\/\/\/\    ||
-//      D  -->>-----<        >   ||            +------+
-//      R  -->>-----<  Comb. >   ||            |$_ABC_|
-//     CE  -->>-----<  logic >--->>-- $nextQ --|  FF_ |--+-->> Q
-// $currQ +-->>-----<        >   ||            +------+  |
-//        |  ||      \/\/\/\/    ||                      |
-//        |  ||                  ||                      |
-//        |  ++==================++                      |
-//        |                                              |
-//        +----------------------------------------------+
+//                ++==================++
+//                ||         Comb box ||
+//                ||                  ||
+//                ||      /\/\/\/\    ||
+//           D  -->>-----<        >   ||            +------+
+//           R  -->>-----<  Comb. >   ||            |$_ABC_|
+//          CE  -->>-----<  logic >--->>-- $nextQ --|  FF_ |--+-->> Q
+// $abc9_currQ +-->>-----<        >   ||            +------+  |
+//             |  ||      \/\/\/\/    ||                      |
+//             |  ||                  ||                      |
+//             |  ++==================++                      |
+//             |                                              |
+//             +----------------------------------------------+
 //
 // The purpose of the following FD* rules are to wrap the flop with:
 // (a) a special $__ABC9_FF_ in front of the FD*'s output, indicating to abc9
@@ -74,7 +74,7 @@
 // (c) a special _TECHMAP_REPLACE_.$abc9_control that captures the control 
 //     domain (which, combined with this cell type, encodes to `abc9' which
 //     flops may be merged together)
-// (d) a special _TECHMAP_REPLACE_.$currQ wire that will be used for feedback
+// (d) a special _TECHMAP_REPLACE_.$abc9_currQ wire that will be used for feedback
 //     into the (combinatorial) FD* cell to facilitate clock-enable behaviour
 module FDRE (output reg Q, input C, CE, D, R);
   parameter [0:0] INIT = 1'b0;
@@ -95,7 +95,7 @@ module FDRE (output reg Q, input C, CE, D, R);
   // Special signals
   wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, IS_C_INVERTED};
   wire [3:0] _TECHMAP_REPLACE_.$abc9_control = {CE, IS_D_INVERTED, R, IS_R_INVERTED};
-  wire _TECHMAP_REPLACE_.$currQ = Q;
+  wire _TECHMAP_REPLACE_.$abc9_currQ = Q;
 endmodule
 module FDRE_1 (output reg Q, input C, CE, D, R);
   parameter [0:0] INIT = 1'b0;
@@ -110,7 +110,7 @@ module FDRE_1 (output reg Q, input C, CE, D, R);
   // Special signals
   wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, 1'b1 /* IS_C_INVERTED */};
   wire [3:0] _TECHMAP_REPLACE_.$abc9_control = {CE, 1'b0 /* IS_D_INVERTED */, R, 1'b0 /* IS_R_INVERTED */};
-  wire _TECHMAP_REPLACE_.$currQ = Q;
+  wire _TECHMAP_REPLACE_.$abc9_currQ = Q;
 endmodule
 
 module FDCE (output reg Q, input C, CE, D, CLR);
@@ -118,7 +118,7 @@ module FDCE (output reg Q, input C, CE, D, CLR);
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
   parameter [0:0] IS_CLR_INVERTED = 1'b0;
-  wire $nextQ, $currQ;
+  wire $nextQ, $abc9_currQ;
   FDCE #(
     .INIT(INIT),
     .IS_C_INVERTED(IS_C_INVERTED),
@@ -131,19 +131,19 @@ module FDCE (output reg Q, input C, CE, D, CLR);
                                          //     here but captured by
                                          //     $__ABC9_ASYNC below
   );
-  \$__ABC9_FF_ abc_dff (.D($nextQ), .Q($currQ));
+  \$__ABC9_FF_ abc_dff (.D($nextQ), .Q($abc9_currQ));
   // Since this is an async flop, async behaviour is also dealt with
   //   using the $_ABC9_ASYNC box by abc9_map.v
-  \$__ABC9_ASYNC abc_async (.A($currQ), .S(CLR ^ IS_CLR_INVERTED), .Y(Q));
+  \$__ABC9_ASYNC abc_async (.A($abc9_currQ), .S(CLR ^ IS_CLR_INVERTED), .Y(Q));
 
   // Special signals
   wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, IS_C_INVERTED};
   wire [3:0] _TECHMAP_REPLACE_.$abc9_control = {CE, IS_D_INVERTED, CLR, IS_CLR_INVERTED};
-  wire _TECHMAP_REPLACE_.$currQ = $currQ;
+  wire _TECHMAP_REPLACE_.$abc9_currQ = $abc9_currQ;
 endmodule
 module FDCE_1 (output reg Q, input C, CE, D, CLR);
   parameter [0:0] INIT = 1'b0;
-  wire $nextQ, $currQ;
+  wire $nextQ, $abc9_currQ;
   FDCE_1 #(
     .INIT(INIT)
   ) _TECHMAP_REPLACE_ (
@@ -153,13 +153,13 @@ module FDCE_1 (output reg Q, input C, CE, D, CLR);
                                          //     here but captured by
                                          //     $__ABC9_ASYNC below
   );
-  \$__ABC9_FF_ abc_dff (.D($nextQ), .Q($currQ));
-  \$__ABC9_ASYNC abc_async (.A($currQ), .S(CLR), .Y(Q));
+  \$__ABC9_FF_ abc_dff (.D($nextQ), .Q($abc9_currQ));
+  \$__ABC9_ASYNC abc_async (.A($abc9_currQ), .S(CLR), .Y(Q));
 
   // Special signals
   wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, 1'b1 /* IS_C_INVERTED */};
   wire [3:0] _TECHMAP_REPLACE_.$abc9_control = {CE, 1'b0 /* IS_D_INVERTED */, CLR, 1'b0 /* IS_CLR_INVERTED */};
-  wire _TECHMAP_REPLACE_.$currQ = $currQ;
+  wire _TECHMAP_REPLACE_.$abc9_currQ = $abc9_currQ;
 endmodule
 
 module FDPE (output reg Q, input C, CE, D, PRE);
@@ -167,7 +167,7 @@ module FDPE (output reg Q, input C, CE, D, PRE);
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
   parameter [0:0] IS_PRE_INVERTED = 1'b0;
-  wire $nextQ, $currQ;
+  wire $nextQ, $abc9_currQ;
   FDPE #(
     .INIT(INIT),
     .IS_C_INVERTED(IS_C_INVERTED),
@@ -180,17 +180,17 @@ module FDPE (output reg Q, input C, CE, D, PRE);
                                          //     here but captured by
                                          //     $__ABC9_ASYNC below
   );
-  \$__ABC9_FF_ abc_dff (.D($nextQ), .Q($currQ));
-  \$__ABC9_ASYNC abc_async (.A($currQ), .S(PRE ^ IS_PRE_INVERTED), .Y(Q));
+  \$__ABC9_FF_ abc_dff (.D($nextQ), .Q($abc9_currQ));
+  \$__ABC9_ASYNC abc_async (.A($abc9_currQ), .S(PRE ^ IS_PRE_INVERTED), .Y(Q));
 
   // Special signals
   wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, IS_C_INVERTED};
   wire [3:0] _TECHMAP_REPLACE_.$abc9_control = {CE, IS_D_INVERTED, PRE, IS_PRE_INVERTED};
-  wire _TECHMAP_REPLACE_.$currQ = $currQ;
+  wire _TECHMAP_REPLACE_.$abc9_currQ = $abc9_currQ;
 endmodule
 module FDPE_1 (output reg Q, input C, CE, D, PRE);
   parameter [0:0] INIT = 1'b0;
-  wire $nextQ, $currQ;
+  wire $nextQ, $abc9_currQ;
   FDPE_1 #(
     .INIT(INIT)
   ) _TECHMAP_REPLACE_ (
@@ -200,13 +200,13 @@ module FDPE_1 (output reg Q, input C, CE, D, PRE);
                                          //     here but captured by
                                          //     $__ABC9_ASYNC below
   );
-  \$__ABC9_FF_ abc_dff (.D($nextQ), .Q($currQ));
-  \$__ABC9_ASYNC abc_async (.A($currQ), .S(PRE), .Y(Q));
+  \$__ABC9_FF_ abc_dff (.D($nextQ), .Q($abc9_currQ));
+  \$__ABC9_ASYNC abc_async (.A($abc9_currQ), .S(PRE), .Y(Q));
 
   // Special signals
   wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, 1'b1 /* IS_C_INVERTED */};
   wire [3:0] _TECHMAP_REPLACE_.$abc9_control = {CE, 1'b0 /* IS_D_INVERTED */, PRE, 1'b0 /* IS_PRE_INVERTED */};
-  wire _TECHMAP_REPLACE_.$currQ = $currQ;
+  wire _TECHMAP_REPLACE_.$abc9_currQ = $abc9_currQ;
 endmodule
 
 module FDSE (output reg Q, input C, CE, D, S);
@@ -228,7 +228,7 @@ module FDSE (output reg Q, input C, CE, D, S);
   // Special signals
   wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, IS_C_INVERTED};
   wire [3:0] _TECHMAP_REPLACE_.$abc9_control = {CE, IS_D_INVERTED, S, IS_S_INVERTED};
-  wire _TECHMAP_REPLACE_.$currQ = Q;
+  wire _TECHMAP_REPLACE_.$abc9_currQ = Q;
 endmodule
 module FDSE_1 (output reg Q, input C, CE, D, S);
   parameter [0:0] INIT = 1'b0;
@@ -243,7 +243,7 @@ module FDSE_1 (output reg Q, input C, CE, D, S);
   // Special signals
   wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, 1'b1 /* IS_C_INVERTED */};
   wire [3:0] _TECHMAP_REPLACE_.$abc9_control = {CE, 1'b0 /* IS_D_INVERTED */, S, 1'b0 /* IS_S_INVERTED */};
-  wire _TECHMAP_REPLACE_.$currQ = Q;
+  wire _TECHMAP_REPLACE_.$abc9_currQ = Q;
 endmodule
 
 module RAM32X1D (
