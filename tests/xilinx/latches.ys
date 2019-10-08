@@ -2,9 +2,7 @@ read_verilog latches.v
 
 proc
 flatten
-equiv_opt -assert -run :prove -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
-async2sync
-equiv_opt -assert -run prove: -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
+equiv_opt -async2sync -assert -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
 
 design -load preopt
 synth_xilinx
