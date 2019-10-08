@@ -343,14 +343,51 @@ struct SynthXilinxPass : public ScriptPass
 			if (!nodsp || help_mode) {
 				run("memory_dff"); // xilinx_dsp will merge registers, reserve memory port registers first
 				// NB: Xilinx multipliers are signed only
-				run("techmap -map +/mul2dsp.v -map +/xilinx/dsp_map.v -D DSP_A_MAXWIDTH=25 "
-					"-D DSP_A_MAXWIDTH_PARTIAL=18 -D DSP_B_MAXWIDTH=18 "    // Partial multipliers are intentionally
-												// limited to 18x18 in order to take
-												// advantage of the (PCOUT << 17) -> PCIN
-												// dedicated cascade chain capability
-					"-D DSP_A_MINWIDTH=2 -D DSP_B_MINWIDTH=2 " // Blocks Nx1 multipliers
-					"-D DSP_Y_MINWIDTH=9 " // UG901 suggests small multiplies are those 4x4 and smaller
-					"-D DSP_SIGNEDONLY=1 -D DSP_NAME=$__MUL25X18");
+				if (help_mode)
+					run("techmap -map +/mul2dsp.v -map +/xilinx/{family}_dsp_map.v {options}");
+				else if (family == "xc2v" || family == "xc3s" || family == "xc3se" || family == "xc3sa")
+					run("techmap -map +/mul2dsp.v -map +/xilinx/xc3s_mult_map.v -D DSP_A_MAXWIDTH=18 -D DSP_B_MAXWIDTH=18 "
+						"-D DSP_A_MINWIDTH=2 -D DSP_B_MINWIDTH=2 " // Blocks Nx1 multipliers
+						"-D DSP_Y_MINWIDTH=9 " // UG901 suggests small multiplies are those 4x4 and smaller
+						"-D DSP_SIGNEDONLY=1 -D DSP_NAME=$__MUL18X18");
+				else if (family == "xc3sda")
+					run("techmap -map +/mul2dsp.v -map +/xilinx/xc3sda_dsp_map.v -D DSP_A_MAXWIDTH=18 -D DSP_B_MAXWIDTH=18 "
+						"-D DSP_A_MINWIDTH=2 -D DSP_B_MINWIDTH=2 " // Blocks Nx1 multipliers
+						"-D DSP_Y_MINWIDTH=9 " // UG901 suggests small multiplies are those 4x4 and smaller
+						"-D DSP_SIGNEDONLY=1 -D DSP_NAME=$__MUL18X18");
+				else if (family == "xc6s")
+					run("techmap -map +/mul2dsp.v -map +/xilinx/xc6s_dsp_map.v -D DSP_A_MAXWIDTH=18 -D DSP_B_MAXWIDTH=18 "
+						"-D DSP_A_MINWIDTH=2 -D DSP_B_MINWIDTH=2 " // Blocks Nx1 multipliers
+						"-D DSP_Y_MINWIDTH=9 " // UG901 suggests small multiplies are those 4x4 and smaller
+						"-D DSP_SIGNEDONLY=1 -D DSP_NAME=$__MUL18X18");
+				else if (family == "xc4v")
+					run("techmap -map +/mul2dsp.v -map +/xilinx/xc4v_dsp_map.v -D DSP_A_MAXWIDTH=18 -D DSP_B_MAXWIDTH=18 "
+						"-D DSP_A_MINWIDTH=2 -D DSP_B_MINWIDTH=2 " // Blocks Nx1 multipliers
+						"-D DSP_Y_MINWIDTH=9 " // UG901 suggests small multiplies are those 4x4 and smaller
+						"-D DSP_SIGNEDONLY=1 -D DSP_NAME=$__MUL18X18");
+				else if (family == "xc5v")
+					run("techmap -map +/mul2dsp.v -map +/xilinx/xc5v_dsp_map.v -D DSP_A_MAXWIDTH=25 -D DSP_B_MAXWIDTH=18 "
+						"-D DSP_A_MINWIDTH=2 -D DSP_B_MINWIDTH=2 " // Blocks Nx1 multipliers
+						"-D DSP_Y_MINWIDTH=9 " // UG901 suggests small multiplies are those 4x4 and smaller
+						"-D DSP_SIGNEDONLY=1 -D DSP_NAME=$__MUL25X18");
+				else if (family == "xc6v" || family == "xc7")
+					run("techmap -map +/mul2dsp.v -map +/xilinx/xc7_dsp_map.v -D DSP_A_MAXWIDTH=25 -D DSP_B_MAXWIDTH=18 "
+						"-D DSP_A_MAXWIDTH_PARTIAL=18 "	// Partial multipliers are intentionally
+										// limited to 18x18 in order to take
+										// advantage of the (PCOUT << 17) -> PCIN
+										// dedicated cascade chain capability
+						"-D DSP_A_MINWIDTH=2 -D DSP_B_MINWIDTH=2 " // Blocks Nx1 multipliers
+						"-D DSP_Y_MINWIDTH=9 " // UG901 suggests small multiplies are those 4x4 and smaller
+						"-D DSP_SIGNEDONLY=1 -D DSP_NAME=$__MUL25X18");
+				else if (family == "xcu" || family == "xcup")
+					run("techmap -map +/mul2dsp.v -map +/xilinx/xcu_dsp_map.v -D DSP_A_MAXWIDTH=27 -D DSP_B_MAXWIDTH=18 "
+						"-D DSP_A_MAXWIDTH_PARTIAL=18 "	// Partial multipliers are intentionally
+										// limited to 18x18 in order to take
+										// advantage of the (PCOUT << 17) -> PCIN
+										// dedicated cascade chain capability
+						"-D DSP_A_MINWIDTH=2 -D DSP_B_MINWIDTH=2 " // Blocks Nx1 multipliers
+						"-D DSP_Y_MINWIDTH=9 " // UG901 suggests small multiplies are those 4x4 and smaller
+						"-D DSP_SIGNEDONLY=1 -D DSP_NAME=$__MUL27X18");
 				run("select a:mul2dsp");
 				run("setattr -unset mul2dsp");
 				run("opt_expr -fine");
