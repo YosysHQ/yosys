@@ -2,9 +2,9 @@
 `define SB_DFF_REG reg Q = 0
 // `define SB_DFF_REG reg Q
 
-`define ABC_ARRIVAL_HX(TIME) `ifdef ICE40_HX (* abc_arrival=TIME *) `endif
-`define ABC_ARRIVAL_LP(TIME) `ifdef ICE40_LP (* abc_arrival=TIME *) `endif
-`define ABC_ARRIVAL_U(TIME)  `ifdef ICE40_U (* abc_arrival=TIME *) `endif
+`define ABC9_ARRIVAL_HX(TIME) `ifdef ICE40_HX (* abc9_arrival=TIME *) `endif
+`define ABC9_ARRIVAL_LP(TIME) `ifdef ICE40_LP (* abc9_arrival=TIME *) `endif
+`define ABC9_ARRIVAL_U(TIME)  `ifdef ICE40_U (* abc9_arrival=TIME *) `endif
 
 // SiliconBlue IO Cells
 
@@ -152,9 +152,9 @@ endmodule
 // Positive Edge SiliconBlue FF Cells
 
 module SB_DFF (
-	`ABC_ARRIVAL_HX(540)
-	`ABC_ARRIVAL_LP(796)
-	`ABC_ARRIVAL_U(1391)
+	`ABC9_ARRIVAL_HX(540)
+	`ABC9_ARRIVAL_LP(796)
+	`ABC9_ARRIVAL_U(1391)
 	output `SB_DFF_REG,
 	input C, D
 );
@@ -163,9 +163,9 @@ module SB_DFF (
 endmodule
 
 module SB_DFFE (
-	`ABC_ARRIVAL_HX(540)
-	`ABC_ARRIVAL_LP(796)
-	`ABC_ARRIVAL_U(1391)
+	`ABC9_ARRIVAL_HX(540)
+	`ABC9_ARRIVAL_LP(796)
+	`ABC9_ARRIVAL_U(1391)
 	output `SB_DFF_REG,
 	input C, E, D
 );
@@ -175,9 +175,9 @@ module SB_DFFE (
 endmodule
 
 module SB_DFFSR (
-	`ABC_ARRIVAL_HX(540)
-	`ABC_ARRIVAL_LP(796)
-	`ABC_ARRIVAL_U(1391)
+	`ABC9_ARRIVAL_HX(540)
+	`ABC9_ARRIVAL_LP(796)
+	`ABC9_ARRIVAL_U(1391)
 	output `SB_DFF_REG,
 	input C, R, D
 );
@@ -189,9 +189,9 @@ module SB_DFFSR (
 endmodule
 
 module SB_DFFR (
-	`ABC_ARRIVAL_HX(540)
-	`ABC_ARRIVAL_LP(796)
-	`ABC_ARRIVAL_U(1391)
+	`ABC9_ARRIVAL_HX(540)
+	`ABC9_ARRIVAL_LP(796)
+	`ABC9_ARRIVAL_U(1391)
 	output `SB_DFF_REG,
 	input C, R, D
 );
@@ -203,9 +203,9 @@ module SB_DFFR (
 endmodule
 
 module SB_DFFSS (
-	`ABC_ARRIVAL_HX(540)
-	`ABC_ARRIVAL_LP(796)
-	`ABC_ARRIVAL_U(1391)
+	`ABC9_ARRIVAL_HX(540)
+	`ABC9_ARRIVAL_LP(796)
+	`ABC9_ARRIVAL_U(1391)
 	output `SB_DFF_REG,
 	input C, S, D
 );
@@ -217,9 +217,9 @@ module SB_DFFSS (
 endmodule
 
 module SB_DFFS (
-	`ABC_ARRIVAL_HX(540)
-	`ABC_ARRIVAL_LP(796)
-	`ABC_ARRIVAL_U(1391)
+	`ABC9_ARRIVAL_HX(540)
+	`ABC9_ARRIVAL_LP(796)
+	`ABC9_ARRIVAL_U(1391)
 	output `SB_DFF_REG,
 	input C, S, D
 );
@@ -231,9 +231,9 @@ module SB_DFFS (
 endmodule
 
 module SB_DFFESR (
-	`ABC_ARRIVAL_HX(540)
-	`ABC_ARRIVAL_LP(796)
-	`ABC_ARRIVAL_U(1391)
+	`ABC9_ARRIVAL_HX(540)
+	`ABC9_ARRIVAL_LP(796)
+	`ABC9_ARRIVAL_U(1391)
 	output `SB_DFF_REG,
 	input C, E, R, D
 );
@@ -247,9 +247,9 @@ module SB_DFFESR (
 endmodule
 
 module SB_DFFER (
-	`ABC_ARRIVAL_HX(540)
-	`ABC_ARRIVAL_LP(796)
-	`ABC_ARRIVAL_U(1391)
+	`ABC9_ARRIVAL_HX(540)
+	`ABC9_ARRIVAL_LP(796)
+	`ABC9_ARRIVAL_U(1391)
 	output `SB_DFF_REG,
 	input C, E, R, D
 );
@@ -261,9 +261,9 @@ module SB_DFFER (
 endmodule
 
 module SB_DFFESS (
-	`ABC_ARRIVAL_HX(540)
-	`ABC_ARRIVAL_LP(796)
-	`ABC_ARRIVAL_U(1391)
+	`ABC9_ARRIVAL_HX(540)
+	`ABC9_ARRIVAL_LP(796)
+	`ABC9_ARRIVAL_U(1391)
 	output `SB_DFF_REG,
 	input C, E, S, D
 );
@@ -277,9 +277,9 @@ module SB_DFFESS (
 endmodule
 
 module SB_DFFES (
-	`ABC_ARRIVAL_HX(540)
-	`ABC_ARRIVAL_LP(796)
-	`ABC_ARRIVAL_U(1391)
+	`ABC9_ARRIVAL_HX(540)
+	`ABC9_ARRIVAL_LP(796)
+	`ABC9_ARRIVAL_U(1391)
 	output `SB_DFF_REG,
 	input C, E, S, D
 );
@@ -293,9 +293,9 @@ endmodule
 // Negative Edge SiliconBlue FF Cells
 
 module SB_DFFN (
-	`ABC_ARRIVAL_HX(540)
-	`ABC_ARRIVAL_LP(796)
-	`ABC_ARRIVAL_U(1391)
+	`ABC9_ARRIVAL_HX(540)
+	`ABC9_ARRIVAL_LP(796)
+	`ABC9_ARRIVAL_U(1391)
 	output `SB_DFF_REG,
 	input C, D
 );
@@ -304,9 +304,9 @@ module SB_DFFN (
 endmodule
 
 module SB_DFFNE (
-	`ABC_ARRIVAL_HX(540)
-	`ABC_ARRIVAL_LP(796)
-	`ABC_ARRIVAL_U(1391)
+	`ABC9_ARRIVAL_HX(540)
+	`ABC9_ARRIVAL_LP(796)
+	`ABC9_ARRIVAL_U(1391)
 	output `SB_DFF_REG,
 	input C, E, D
 );
@@ -316,9 +316,9 @@ module SB_DFFNE (
 endmodule
 
 module SB_DFFNSR (
-	`ABC_ARRIVAL_HX(540)
-	`ABC_ARRIVAL_LP(796)
-	`ABC_ARRIVAL_U(1391)
+	`ABC9_ARRIVAL_HX(540)
+	`ABC9_ARRIVAL_LP(796)
+	`ABC9_ARRIVAL_U(1391)
 	output `SB_DFF_REG,
 	input C, R, D
 );
@@ -330,9 +330,9 @@ module SB_DFFNSR (
 endmodule
 
 module SB_DFFNR (
-	`ABC_ARRIVAL_HX(540)
-	`ABC_ARRIVAL_LP(796)
-	`ABC_ARRIVAL_U(1391)
+	`ABC9_ARRIVAL_HX(540)
+	`ABC9_ARRIVAL_LP(796)
+	`ABC9_ARRIVAL_U(1391)
 	output `SB_DFF_REG,
 	input C, R, D
 );
@@ -344,9 +344,9 @@ module SB_DFFNR (
 endmodule
 
 module SB_DFFNSS (
-	`ABC_ARRIVAL_HX(540)
-	`ABC_ARRIVAL_LP(796)
-	`ABC_ARRIVAL_U(1391)
+	`ABC9_ARRIVAL_HX(540)
+	`ABC9_ARRIVAL_LP(796)
+	`ABC9_ARRIVAL_U(1391)
 	output `SB_DFF_REG,
 	input C, S, D
 );
@@ -358,9 +358,9 @@ module SB_DFFNSS (
 endmodule
 
 module SB_DFFNS (
-	`ABC_ARRIVAL_HX(540)
-	`ABC_ARRIVAL_LP(796)
-	`ABC_ARRIVAL_U(1391)
+	`ABC9_ARRIVAL_HX(540)
+	`ABC9_ARRIVAL_LP(796)
+	`ABC9_ARRIVAL_U(1391)
 	output `SB_DFF_REG,
 	input C, S, D
 );
@@ -372,9 +372,9 @@ module SB_DFFNS (
 endmodule
 
 module SB_DFFNESR (
-	`ABC_ARRIVAL_HX(540)
-	`ABC_ARRIVAL_LP(796)
-	`ABC_ARRIVAL_U(1391)
+	`ABC9_ARRIVAL_HX(540)
+	`ABC9_ARRIVAL_LP(796)
+	`ABC9_ARRIVAL_U(1391)
 	output `SB_DFF_REG,
 	input C, E, R, D
 );
@@ -388,9 +388,9 @@ module SB_DFFNESR (
 endmodule
 
 module SB_DFFNER (
-	`ABC_ARRIVAL_HX(540)
-	`ABC_ARRIVAL_LP(796)
-	`ABC_ARRIVAL_U(1391)
+	`ABC9_ARRIVAL_HX(540)
+	`ABC9_ARRIVAL_LP(796)
+	`ABC9_ARRIVAL_U(1391)
 	output `SB_DFF_REG,
 	input C, E, R, D
 );
@@ -402,9 +402,9 @@ module SB_DFFNER (
 endmodule
 
 module SB_DFFNESS (
-	`ABC_ARRIVAL_HX(540)
-	`ABC_ARRIVAL_LP(796)
-	`ABC_ARRIVAL_U(1391)
+	`ABC9_ARRIVAL_HX(540)
+	`ABC9_ARRIVAL_LP(796)
+	`ABC9_ARRIVAL_U(1391)
 	output `SB_DFF_REG,
 	input C, E, S, D
 );
@@ -418,9 +418,9 @@ module SB_DFFNESS (
 endmodule
 
 module SB_DFFNES (
-	`ABC_ARRIVAL_HX(540)
-	`ABC_ARRIVAL_LP(796)
-	`ABC_ARRIVAL_U(1391)
+	`ABC9_ARRIVAL_HX(540)
+	`ABC9_ARRIVAL_LP(796)
+	`ABC9_ARRIVAL_U(1391)
 	output `SB_DFF_REG,
 	input C, E, S, D
 );
@@ -434,9 +434,9 @@ endmodule
 // SiliconBlue RAM Cells
 
 module SB_RAM40_4K (
-	`ABC_ARRIVAL_HX(2146) // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L401
-	`ABC_ARRIVAL_LP(3163) // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L401
-	`ABC_ARRIVAL_U(1179)  // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13026
+	`ABC9_ARRIVAL_HX(2146) // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L401
+	`ABC9_ARRIVAL_LP(3163) // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L401
+	`ABC9_ARRIVAL_U(1179)  // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13026
 	output [15:0] RDATA,
 	input         RCLK, RCLKE, RE,
 	input  [10:0] RADDR,
@@ -605,9 +605,9 @@ module SB_RAM40_4K (
 endmodule
 
 module SB_RAM40_4KNR (
-	`ABC_ARRIVAL_HX(2146) // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L401
-	`ABC_ARRIVAL_LP(3163) // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L401
-	`ABC_ARRIVAL_U(1179)  // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13026
+	`ABC9_ARRIVAL_HX(2146) // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L401
+	`ABC9_ARRIVAL_LP(3163) // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L401
+	`ABC9_ARRIVAL_U(1179)  // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13026
 	output [15:0] RDATA,
 	input         RCLKN, RCLKE, RE,
 	input  [10:0] RADDR,
@@ -673,9 +673,9 @@ module SB_RAM40_4KNR (
 endmodule
 
 module SB_RAM40_4KNW (
-	`ABC_ARRIVAL_HX(2146) // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L401
-	`ABC_ARRIVAL_LP(3163) // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L401
-	`ABC_ARRIVAL_U(1179)  // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13026
+	`ABC9_ARRIVAL_HX(2146) // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L401
+	`ABC9_ARRIVAL_LP(3163) // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L401
+	`ABC9_ARRIVAL_U(1179)  // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13026
 	output [15:0] RDATA,
 	input         RCLK, RCLKE, RE,
 	input  [10:0] RADDR,
@@ -741,9 +741,9 @@ module SB_RAM40_4KNW (
 endmodule
 
 module SB_RAM40_4KNRNW (
-	`ABC_ARRIVAL_HX(2146) // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L401
-	`ABC_ARRIVAL_LP(3163) // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L401
-	`ABC_ARRIVAL_U(1179)  // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13026
+	`ABC9_ARRIVAL_HX(2146) // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L401
+	`ABC9_ARRIVAL_LP(3163) // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L401
+	`ABC9_ARRIVAL_U(1179)  // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13026
 	output [15:0] RDATA,
 	input         RCLKN, RCLKE, RE,
 	input  [10:0] RADDR,
@@ -813,9 +813,9 @@ endmodule
 module ICESTORM_LC (
 	input I0, I1, I2, I3, CIN, CLK, CEN, SR,
 	output LO,
-	`ABC_ARRIVAL_HX(540)
-	`ABC_ARRIVAL_LP(796)
-	`ABC_ARRIVAL_U(1391)
+	`ABC9_ARRIVAL_HX(540)
+	`ABC9_ARRIVAL_LP(796)
+	`ABC9_ARRIVAL_U(1391)
 	output O,
 	output COUT
 );
@@ -1417,7 +1417,6 @@ module SB_MAC16 (
 	input ADDSUBTOP, ADDSUBBOT,
 	input OHOLDTOP, OHOLDBOT,
 	input CI, ACCUMCI, SIGNEXTIN,
-	//`ABC_ARRIVAL_U(1984)  // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13026
 	output [31:0] O,
 	output CO, ACCUMCO, SIGNEXTOUT
 );
