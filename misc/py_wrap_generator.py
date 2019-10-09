@@ -909,14 +909,14 @@ class WClass:
 	def gen_boost_py(self):
 		body = self.gen_boost_py_body()
 		if self.link_type == link_types.derive:
-			text = "\n\t\tclass_<" + self.name + ">(\"" + self.name + "\""
+			text = "\n\t\tclass_<" + self.name + ">(\"Cpp" + self.name + "\""
 			text += body
 			text += "\n\t\tclass_<" + self.name
 			text += "Wrap, boost::noncopyable"
 			text += ">(\"" + self.name + "\""
 			text += body
 		else:
-			text = "\n\t\tclass_<" + self.name + ">(\"Cpp" + self.name + "\""
+			text = "\n\t\tclass_<" + self.name + ">(\"" + self.name + "\""
 			text += body
 		return text
 	
