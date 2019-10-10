@@ -297,6 +297,7 @@ struct SynthEcp5Pass : public ScriptPass
 			run("simplemap");
 			run("ecp5_ffinit");
 			run("ecp5_gsr");
+			run("attrmvcp -copy -attr syn_useioff");
 			run("opt_clean");
 		}
 
