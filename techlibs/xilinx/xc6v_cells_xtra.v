@@ -1821,16 +1821,6 @@ module IBUFDS_GTHE1 (...);
     input IB;
 endmodule
 
-module IBUFG (...);
-    parameter CAPACITANCE = "DONT_CARE";
-    parameter IBUF_DELAY_VALUE = "0";
-    parameter IBUF_LOW_PWR = "TRUE";
-    parameter IOSTANDARD = "DEFAULT";
-    output O;
-    (* iopad_external_pin *)
-    input I;
-endmodule
-
 module IBUFGDS (...);
     parameter CAPACITANCE = "DONT_CARE";
     parameter DIFF_TERM = "FALSE";
