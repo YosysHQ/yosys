@@ -334,6 +334,13 @@ module ECLKSYNCB(
 endmodule
 
 (* blackbox *)
+module ECLKBRIDGECS(
+	input CLK0, CLK1, SEL,
+	output ECSOUT
+);
+endmodule
+
+(* blackbox *)
 module DCCA(
 	input CLKI, CE,
 	output CLKO
