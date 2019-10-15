@@ -155,7 +155,7 @@ struct specify_rise_fall {
 
 %type <ast> range range_or_multirange  non_opt_range non_opt_multirange range_or_signed_int
 %type <ast> wire_type expr basic_expr concat_list rvalue lvalue lvalue_concat_list
-%type <string> opt_label opt_sva_label tok_prim_wrapper hierarchical_id
+%type <string> opt_label opt_sva_label tok_prim_wrapper hierarchical_id hierarchical_type_id
 %type <boolean> opt_signed opt_property unique_case_attr
 %type <al> attr case_attr
 
@@ -206,6 +206,7 @@ design:
 	task_func_decl design |
 	param_decl design |
 	localparam_decl design |
+	typedef_decl design |
 	package design |
 	interface design |
 	/* empty */;
@@ -290,6 +291,9 @@ hierarchical_id:
 		$$ = $1;
 	};
 
+hierarchical_type_id:
+	'(' hierarchical_id ')' { $$ = $2; };
+
 module:
 	attr TOK_MODULE TOK_ID {
 		do_not_require_port_stubs = false;
@@ -324,13 +328,13 @@ single_module_para:
 		astbuf1 = new AstNode(AST_PARAMETER);
 		astbuf1->children.push_back(AstNode::mkconst_int(0, true));
 		append_attr(astbuf1, $1);
-	} param_signed param_integer param_range single_param_decl |
+	} param_type single_param_decl |
 	attr TOK_LOCALPARAM {
 		if (astbuf1) delete astbuf1;
 		astbuf1 = new AstNode(AST_LOCALPARAM);
 		astbuf1->children.push_back(AstNode::mkconst_int(0, true));
 		append_attr(astbuf1, $1);
-	} param_signed param_integer param_range single_param_decl |
+	} param_type single_param_decl |
 	single_param_decl;
 
 module_args_opt:
@@ -426,6 +430,7 @@ package_body:
 	package_body package_body_stmt |;
 
 package_body_stmt:
+	typedef_decl |
 	localparam_decl;
 
 interface:
@@ -452,7 +457,7 @@ interface_body:
 	interface_body interface_body_stmt |;
 
 interface_body_stmt:
-	param_decl | localparam_decl | defparam_decl | wire_decl | always_stmt | assign_stmt |
+	param_decl | localparam_decl | typedef_decl | defparam_decl | wire_decl | always_stmt | assign_stmt |
 	modport_stmt;
 
 non_opt_delay:
@@ -475,8 +480,14 @@ wire_type:
 	};
 
 wire_type_token_list:
-	wire_type_token | wire_type_token_list wire_type_token |
-	wire_type_token_io ;
+	wire_type_token |
+	wire_type_token_list wire_type_token |
+	wire_type_token_io |
+	hierarchical_type_id {
+		astbuf3->is_custom_type = true;
+		astbuf3->children.push_back(new AstNode(AST_WIRETYPE));
+		astbuf3->children.back()->str = *$1;
+	};
 
 wire_type_token_io:
 	TOK_INPUT {
@@ -591,7 +602,7 @@ module_body:
 	/* empty */;
 
 module_body_stmt:
-	task_func_decl | specify_block |param_decl | localparam_decl | defparam_decl | specparam_declaration | wire_decl | assign_stmt | cell_stmt |
+	task_func_decl | specify_block | param_decl | localparam_decl | typedef_decl | defparam_decl | specparam_declaration | wire_decl | assign_stmt | cell_stmt |
 	always_stmt | TOK_GENERATE module_gen_body TOK_ENDGENERATE | defattr | assert_property | checker_decl | ignored_specify_block;
 
 checker_decl:
@@ -1149,12 +1160,20 @@ param_range:
 		}
 	};
 
+param_type:
+	param_signed param_integer param_real param_range |
+	hierarchical_type_id {
+		astbuf1->is_custom_type = true;
+		astbuf1->children.push_back(new AstNode(AST_WIRETYPE));
+		astbuf1->children.back()->str = *$1;
+	};
+
 param_decl:
 	attr TOK_PARAMETER {
 		astbuf1 = new AstNode(AST_PARAMETER);
 		astbuf1->children.push_back(AstNode::mkconst_int(0, true));
 		append_attr(astbuf1, $1);
-	} param_signed param_integer param_real param_range param_decl_list ';' {
+	} param_type param_decl_list ';' {
 		delete astbuf1;
 	};
 
@@ -1163,7 +1182,7 @@ localparam_decl:
 		astbuf1 = new AstNode(AST_LOCALPARAM);
 		astbuf1->children.push_back(AstNode::mkconst_int(0, true));
 		append_attr(astbuf1, $1);
-	} param_signed param_integer param_real param_range param_decl_list ';' {
+	} param_type param_decl_list ';' {
 		delete astbuf1;
 	};
 
@@ -1327,7 +1346,7 @@ wire_name:
 		if ($2 != NULL) {
 			if (node->is_input || node->is_output)
 				frontend_verilog_yyerror("input/output/inout ports cannot have unpacked dimensions.");
-			if (!astbuf2) {
+			if (!astbuf2 && !node->is_custom_type) {
 				AstNode *rng = new AstNode(AST_RANGE);
 				rng->children.push_back(AstNode::mkconst_int(0, true));
 				rng->children.push_back(AstNode::mkconst_int(0, true));
@@ -1375,6 +1394,45 @@ assign_expr_list:
 assign_expr:
 	lvalue '=' expr {
 		ast_stack.back()->children.push_back(new AstNode(AST_ASSIGN, $1, $3));
+	};
+
+typedef_decl:
+	TOK_TYPEDEF wire_type range TOK_ID range_or_multirange ';' {
+		astbuf1 = $2;
+		astbuf2 = $3;
+		if (astbuf1->range_left >= 0 && astbuf1->range_right >= 0) {
+			if (astbuf2) {
+				frontend_verilog_yyerror("integer/genvar types cannot have packed dimensions.");
+			} else {
+				astbuf2 = new AstNode(AST_RANGE);
+				astbuf2->children.push_back(AstNode::mkconst_int(astbuf1->range_left, true));
+				astbuf2->children.push_back(AstNode::mkconst_int(astbuf1->range_right, true));
+			}
+		}
+		if (astbuf2 && astbuf2->children.size() != 2)
+			frontend_verilog_yyerror("wire/reg/logic packed dimension must be of the form: [<expr>:<expr>], [<expr>+:<expr>], or [<expr>-:<expr>]");
+		if (astbuf2)
+			astbuf1->children.push_back(astbuf2);
+
+		if ($5 != NULL) {
+			if (!astbuf2) {
+				AstNode *rng = new AstNode(AST_RANGE);
+				rng->children.push_back(AstNode::mkconst_int(0, true));
+				rng->children.push_back(AstNode::mkconst_int(0, true));
+				astbuf1->children.push_back(rng);
+			}
+			astbuf1->type = AST_MEMORY;
+			auto *rangeNode = $5;
+			if (rangeNode->type == AST_RANGE && rangeNode->children.size() == 1) {
+				// SV array size [n], rewrite as [n-1:0]
+				rangeNode->children[0] = new AstNode(AST_SUB, rangeNode->children[0], AstNode::mkconst_int(1, true));
+				rangeNode->children.push_back(AstNode::mkconst_int(0, false));
+			}
+			astbuf1->children.push_back(rangeNode);
+		}
+
+		ast_stack.back()->children.push_back(new AstNode(AST_TYPEDEF, astbuf1));
+		ast_stack.back()->children.back()->str = *$4;
 	};
 
 cell_stmt:
@@ -1823,7 +1881,7 @@ simple_behavioral_stmt:
 
 // this production creates the obligatory if-else shift/reduce conflict
 behavioral_stmt:
-	defattr | assert | wire_decl | param_decl | localparam_decl |
+	defattr | assert | wire_decl | param_decl | localparam_decl | typedef_decl |
 	non_opt_delay behavioral_stmt |
 	simple_behavioral_stmt ';' | ';' |
 	hierarchical_id attr {
