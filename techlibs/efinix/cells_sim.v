@@ -59,7 +59,9 @@ module EFX_FF(
    assign ce = CE_POLARITY ? CE : ~CE;
    assign sr = SR_POLARITY ? SR : ~SR;
    assign d = D_POLARITY ? D : ~D;
-  
+
+	initial Q = 1'b0;
+
    generate
    	if (SR_SYNC == 1) 
       begin

@@ -715,6 +715,7 @@ test: $(TARGETS) $(EXTRA_TARGETS)
 	+cd tests/arch && bash run-test.sh
 	+cd tests/ice40 && bash run-test.sh $(SEEDOPT)
 	+cd tests/rpc && bash run-test.sh
+	+cd tests/efinix && bash run-test.sh $(SEEDOPT)
 	+cd tests/anlogic && bash run-test.sh $(SEEDOPT)
 	+cd tests/ecp5 && bash run-test.sh $(SEEDOPT)
 	+cd tests/xilinx && bash run-test.sh $(SEEDOPT)

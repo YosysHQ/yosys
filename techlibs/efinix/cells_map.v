@@ -17,6 +17,18 @@ module  \$_DFF_NP1_ (input D, C, R, output Q); EFX_FF #(.CLK_POLARITY(1'b0), .CE
 module  \$_DFF_PP0_ (input D, C, R, output Q); EFX_FF #(.CLK_POLARITY(1'b1), .CE_POLARITY(1'b1), .SR_POLARITY(1'b1), .D_POLARITY(1'b1), .SR_SYNC(1'b0), .SR_VALUE(1'b0), .SR_SYNC_PRIORITY(1'b1)) _TECHMAP_REPLACE_ (.D(D), .CE(1'b1), .CLK(C), .SR(R), .Q(Q)); endmodule
 module  \$_DFF_PP1_ (input D, C, R, output Q); EFX_FF #(.CLK_POLARITY(1'b1), .CE_POLARITY(1'b1), .SR_POLARITY(1'b1), .D_POLARITY(1'b1), .SR_SYNC(1'b0), .SR_VALUE(1'b1), .SR_SYNC_PRIORITY(1'b1)) _TECHMAP_REPLACE_ (.D(D), .CE(1'b1), .CLK(C), .SR(R), .Q(Q)); endmodule
 
+module \$_DLATCH_N_ (E, D, Q);
+  wire [1023:0] _TECHMAP_DO_ = "simplemap; opt";
+  input E, D;
+  output Q = !E ? D : Q;
+endmodule
+
+module \$_DLATCH_P_ (E, D, Q);
+  wire [1023:0] _TECHMAP_DO_ = "simplemap; opt";
+  input E, D;
+  output Q = E ? D : Q;
+endmodule
+
 `ifndef NO_LUT
 module \$lut (A, Y);
   parameter WIDTH = 0;
