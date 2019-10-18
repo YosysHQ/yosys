@@ -1,8 +1,4 @@
-module top    (
-out,
-clk,
-in
-);
+module top(out, clk, in);
     output [7:0] out;
     input signed clk, in;
     reg signed [7:0] out = 0;
@@ -11,6 +7,5 @@ in
 	begin
 		out    <= out >> 1;
 		out[7] <= in;
-	end
-
+	end    
 endmodule

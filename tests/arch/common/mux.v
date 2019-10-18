@@ -8,51 +8,47 @@ module mux2 (S,A,B,Y);
 endmodule
 
 module mux4 ( S, D, Y );
+    input[1:0] S;
+    input[3:0] D;
+    output Y;
 
-input[1:0] S;
-input[3:0] D;
-output Y;
+    reg Y;
+    wire[1:0] S;
+    wire[3:0] D;
 
-reg Y;
-wire[1:0] S;
-wire[3:0] D;
-
-always @*
-begin
-    case( S )
-       0 : Y = D[0];
-       1 : Y = D[1];
-       2 : Y = D[2];
-       3 : Y = D[3];
-   endcase
-end
-
+    always @*
+    begin
+        case( S )
+            0 : Y = D[0];
+            1 : Y = D[1];
+            2 : Y = D[2];
+            3 : Y = D[3];
+        endcase
+    end
 endmodule
 
 module mux8 ( S, D, Y );
+    input[2:0] S;
+    input[7:0] D;
+    output Y;
 
-input[2:0] S;
-input[7:0] D;
-output Y;
+    reg Y;
+    wire[2:0] S;
+    wire[7:0] D;
 
-reg Y;
-wire[2:0] S;
-wire[7:0] D;
-
-always @*
-begin
-   case( S )
-       0 : Y = D[0];
-       1 : Y = D[1];
-       2 : Y = D[2];
-       3 : Y = D[3];
-       4 : Y = D[4];
-       5 : Y = D[5];
-       6 : Y = D[6];
-       7 : Y = D[7];
-   endcase
-end
-
+    always @*
+    begin
+        case( S )
+            0 : Y = D[0];
+            1 : Y = D[1];
+            2 : Y = D[2];
+            3 : Y = D[3];
+            4 : Y = D[4];
+            5 : Y = D[5];
+            6 : Y = D[6];
+            7 : Y = D[7];
+        endcase
+    end
 endmodule
 
 module mux16 (D, S, Y);
@@ -60,6 +56,5 @@ module mux16 (D, S, Y);
  	input  [3:0] S;
  	output Y;
 
-assign Y = D[S];
-
+    assign Y = D[S];
 endmodule
