@@ -1,8 +1,8 @@
 read_verilog mux.v
 design -save read
 
-proc
 hierarchy -top mux2
+proc
 equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd mux2 # Constrain all select calls below inside the top module
@@ -12,8 +12,8 @@ select -assert-none t:LUT3 %% t:* %D
 
 
 design -load read
-proc
 hierarchy -top mux4
+proc
 equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd mux4 # Constrain all select calls below inside the top module
@@ -23,8 +23,8 @@ select -assert-none t:LUT6 %% t:* %D
 
 
 design -load read
-proc
 hierarchy -top mux8
+proc
 equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd mux8 # Constrain all select calls below inside the top module
@@ -35,8 +35,8 @@ select -assert-none t:LUT3 t:LUT6 %% t:* %D
 
 
 design -load read
-proc
 hierarchy -top mux16
+proc
 equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd mux16 # Constrain all select calls below inside the top module

@@ -1,8 +1,8 @@
 read_verilog latches.v
 design -save read
 
-proc
 hierarchy -top latchp
+proc
 equiv_opt -async2sync -assert -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd latchp # Constrain all select calls below inside the top module
@@ -12,8 +12,8 @@ select -assert-none t:LDCE %% t:* %D
 
 
 design -load read
-proc
 hierarchy -top latchn
+proc
 equiv_opt -async2sync -assert -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd latchn # Constrain all select calls below inside the top module
@@ -24,8 +24,8 @@ select -assert-none t:LDCE t:LUT1 %% t:* %D
 
 
 design -load read
-proc
 hierarchy -top latchsr
+proc
 equiv_opt -async2sync -assert -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd latchsr # Constrain all select calls below inside the top module

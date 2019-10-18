@@ -1,8 +1,8 @@
 read_verilog adffs.v
 design -save read
 
-proc
 hierarchy -top adff
+proc
 equiv_opt -async2sync  -assert -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd adff # Constrain all select calls below inside the top module
@@ -13,8 +13,8 @@ select -assert-none t:BUFG t:FDCE %% t:* %D
 
 
 design -load read
-proc
 hierarchy -top adffn
+proc
 equiv_opt -async2sync  -assert -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd adffn # Constrain all select calls below inside the top module
@@ -26,8 +26,8 @@ select -assert-none t:BUFG t:FDCE t:LUT1 %% t:* %D
 
 
 design -load read
-proc
 hierarchy -top dffs
+proc
 equiv_opt -async2sync  -assert -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd dffs # Constrain all select calls below inside the top module
@@ -39,8 +39,8 @@ select -assert-none t:BUFG t:FDRE t:LUT2 %% t:* %D
 
 
 design -load read
-proc
 hierarchy -top ndffnr
+proc
 equiv_opt -async2sync  -assert -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd ndffnr # Constrain all select calls below inside the top module
