@@ -53,7 +53,7 @@ XC6S_CELLS = [
     # Cell('IBUF', port_attrs={'I': ['iopad_external_pin']}),
     Cell('IBUFDS', port_attrs={'I': ['iopad_external_pin'], 'IB': ['iopad_external_pin']}),
     Cell('IBUFDS_DIFF_OUT', port_attrs={'I': ['iopad_external_pin'], 'IB': ['iopad_external_pin']}),
-    Cell('IBUFG', port_attrs={'I': ['iopad_external_pin']}),
+    # Cell('IBUFG', port_attrs={'I': ['iopad_external_pin']}),
     Cell('IBUFGDS', port_attrs={'I': ['iopad_external_pin'], 'IB': ['iopad_external_pin']}),
     Cell('IBUFGDS_DIFF_OUT', port_attrs={'I': ['iopad_external_pin'], 'IB': ['iopad_external_pin']}),
     Cell('IOBUF', port_attrs={'IO': ['iopad_external_pin']}),
@@ -137,7 +137,7 @@ XC6V_CELLS = [
     Cell('SYSMON'),
 
     # Arithmetic functions.
-    Cell('DSP48E1', port_attrs={'CLK': ['clkbuf_sink']}),
+    #Cell('DSP48E1', port_attrs={'CLK': ['clkbuf_sink']}),
 
     # Clock components.
     # Cell('BUFG', port_attrs={'O': ['clkbuf_driver']}),
@@ -174,7 +174,7 @@ XC6V_CELLS = [
     Cell('IBUFDS', port_attrs={'I': ['iopad_external_pin'], 'IB': ['iopad_external_pin']}),
     Cell('IBUFDS_DIFF_OUT', port_attrs={'I': ['iopad_external_pin'], 'IB': ['iopad_external_pin']}),
     Cell('IBUFDS_GTHE1', port_attrs={'I': ['iopad_external_pin'], 'IB': ['iopad_external_pin']}),
-    Cell('IBUFG', port_attrs={'I': ['iopad_external_pin']}),
+    # Cell('IBUFG', port_attrs={'I': ['iopad_external_pin']}),
     Cell('IBUFGDS', port_attrs={'I': ['iopad_external_pin'], 'IB': ['iopad_external_pin']}),
     Cell('IBUFGDS_DIFF_OUT', port_attrs={'I': ['iopad_external_pin'], 'IB': ['iopad_external_pin']}),
     Cell('IDELAYCTRL', keep=True, port_attrs={'REFCLK': ['clkbuf_sink']}),
@@ -264,7 +264,7 @@ XC7_CELLS = [
     Cell('XADC'),
 
     # Arithmetic functions.
-    Cell('DSP48E1', port_attrs={'CLK': ['clkbuf_sink']}),
+    #Cell('DSP48E1', port_attrs={'CLK': ['clkbuf_sink']}),
 
     # Clock components.
     # Cell('BUFG', port_attrs={'O': ['clkbuf_driver']}),
@@ -307,7 +307,7 @@ XC7_CELLS = [
     Cell('IBUFDS_GTE2', port_attrs={'I': ['iopad_external_pin'], 'IB': ['iopad_external_pin']}),
     Cell('IBUFDS_IBUFDISABLE', port_attrs={'I': ['iopad_external_pin'], 'IB': ['iopad_external_pin']}),
     Cell('IBUFDS_INTERMDISABLE', port_attrs={'I': ['iopad_external_pin'], 'IB': ['iopad_external_pin']}),
-    Cell('IBUFG', port_attrs={'I': ['iopad_external_pin']}),
+    # Cell('IBUFG', port_attrs={'I': ['iopad_external_pin']}),
     Cell('IBUFGDS', port_attrs={'I': ['iopad_external_pin'], 'IB': ['iopad_external_pin']}),
     Cell('IBUFGDS_DIFF_OUT', port_attrs={'I': ['iopad_external_pin'], 'IB': ['iopad_external_pin']}),
     Cell('IDELAYCTRL', keep=True, port_attrs={'REFCLK': ['clkbuf_sink']}),

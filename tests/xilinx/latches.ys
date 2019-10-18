@@ -1,15 +1,35 @@
 read_verilog latches.v
+design -save read
 
+hierarchy -top latchp
 proc
-flatten
-equiv_opt -assert -run :prove -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
-async2sync
-equiv_opt -assert -run prove: -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
+equiv_opt -async2sync -assert -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd latchp # Constrain all select calls below inside the top module
+select -assert-count 1 t:LDCE
 
-design -load preopt
-synth_xilinx
-cd top
+select -assert-none t:LDCE %% t:* %D
+
+
+design -load read
+hierarchy -top latchn
+proc
+equiv_opt -async2sync -assert -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd latchn # Constrain all select calls below inside the top module
+select -assert-count 1 t:LDCE
 select -assert-count 1 t:LUT1
+
+select -assert-none t:LDCE t:LUT1 %% t:* %D
+
+
+design -load read
+hierarchy -top latchsr
+proc
+equiv_opt -async2sync -assert -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd latchsr # Constrain all select calls below inside the top module
+select -assert-count 1 t:LDCE
 select -assert-count 2 t:LUT3
-select -assert-count 3 t:LDCE
-select -assert-none t:LUT1 t:LUT3 t:LDCE %% t:* %D
+
+select -assert-none t:LDCE t:LUT3 %% t:* %D

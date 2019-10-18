@@ -39,8 +39,8 @@ module RAM32X1D (
     .A0(A0), .A1(A1), .A2(A2), .A3(A3), .A4(A4),
     .DPRA0(DPRA0), .DPRA1(DPRA1), .DPRA2(DPRA2), .DPRA3(DPRA3), .DPRA4(DPRA4)
   );
-  \$__ABC_LUT6 dpo (.A(\$DPO ), .S({1'b0, A0, A1, A2, A3, A4}), .Y(DPO));
-  \$__ABC_LUT6 spo (.A(\$SPO ), .S({1'b0, A0, A1, A2, A3, A4}), .Y(SPO));
+  \$__ABC9_LUT6 dpo (.A(\$DPO ), .S({1'b0, A0, A1, A2, A3, A4}), .Y(DPO));
+  \$__ABC9_LUT6 spo (.A(\$SPO ), .S({1'b0, A0, A1, A2, A3, A4}), .Y(SPO));
 endmodule
 
 module RAM64X1D (
@@ -62,8 +62,8 @@ module RAM64X1D (
     .A0(A0), .A1(A1), .A2(A2), .A3(A3), .A4(A4), .A5(A5),
     .DPRA0(DPRA0), .DPRA1(DPRA1), .DPRA2(DPRA2), .DPRA3(DPRA3), .DPRA4(DPRA4), .DPRA5(DPRA5)
   );
-  \$__ABC_LUT6 dpo (.A(\$DPO ), .S({A0, A1, A2, A3, A4, A5}), .Y(DPO));
-  \$__ABC_LUT6 spo (.A(\$SPO ), .S({A0, A1, A2, A3, A4, A5}), .Y(SPO));
+  \$__ABC9_LUT6 dpo (.A(\$DPO ), .S({A0, A1, A2, A3, A4, A5}), .Y(DPO));
+  \$__ABC9_LUT6 spo (.A(\$SPO ), .S({A0, A1, A2, A3, A4, A5}), .Y(SPO));
 endmodule
 
 module RAM128X1D (
@@ -84,8 +84,8 @@ module RAM128X1D (
     .A(A),
     .DPRA(DPRA)
   );
-  \$__ABC_LUT7 dpo (.A(\$DPO ), .S(A), .Y(DPO));
-  \$__ABC_LUT7 spo (.A(\$SPO ), .S(A), .Y(SPO));
+  \$__ABC9_LUT7 dpo (.A(\$DPO ), .S(A), .Y(DPO));
+  \$__ABC9_LUT7 spo (.A(\$SPO ), .S(A), .Y(SPO));
 endmodule
 
 module SRL16E (
@@ -101,7 +101,7 @@ module SRL16E (
     .Q(\$Q ),
     .A0(A0), .A1(A1), .A2(A2), .A3(A3), .CE(CE), .CLK(CLK), .D(D)
   );
-  \$__ABC_LUT6 q (.A(\$Q ), .S({1'b1, A0, A1, A2, A3, 1'b1}), .Y(Q));
+  \$__ABC9_LUT6 q (.A(\$Q ), .S({1'b1, A0, A1, A2, A3, 1'b1}), .Y(Q));
 endmodule
 
 module SRLC32E (
@@ -119,7 +119,7 @@ module SRLC32E (
     .Q(\$Q ), .Q31(Q31),
     .A(A), .CE(CE), .CLK(CLK), .D(D)
   );
-  \$__ABC_LUT6 q (.A(\$Q ), .S({1'b1, A}), .Y(Q));
+  \$__ABC9_LUT6 q (.A(\$Q ), .S({1'b1, A}), .Y(Q));
 endmodule
 
 module DSP48E1 (
@@ -308,15 +308,15 @@ __CELL__ #(
         if (AREG == 0 && MREG == 0 && PREG == 0)
             assign iA = A, pA = 1'bx;
         else
-            \$__ABC_REG #(.WIDTH(30)) rA (.I(A), .O(iA), .Q(pA));
+            \$__ABC9_REG #(.WIDTH(30)) rA (.I(A), .O(iA), .Q(pA));
         if (BREG == 0 && MREG == 0 && PREG == 0)
             assign iB = B, pB = 1'bx;
         else
-            \$__ABC_REG #(.WIDTH(18)) rB (.I(B), .O(iB), .Q(pB));
+            \$__ABC9_REG #(.WIDTH(18)) rB (.I(B), .O(iB), .Q(pB));
         if (CREG == 0 && PREG == 0)
             assign iC = C, pC = 1'bx;
         else
-            \$__ABC_REG #(.WIDTH(48)) rC (.I(C), .O(iC), .Q(pC));
+            \$__ABC9_REG #(.WIDTH(48)) rC (.I(C), .O(iC), .Q(pC));
         if (DREG == 0)
             assign iD = D;
         else if (techmap_guard)
@@ -327,27 +327,27 @@ __CELL__ #(
         assign pAD = 1'bx;
     if (PREG == 0) begin
         if (MREG == 1)
-        \$__ABC_REG rM (.Q(pM));
+        \$__ABC9_REG rM (.Q(pM));
         else
         assign pM = 1'bx;
         assign pP = 1'bx;
     end else begin
             assign pM = 1'bx;
-            \$__ABC_REG rP (.Q(pP));
+            \$__ABC9_REG rP (.Q(pP));
         end
 
         if (MREG == 0 && PREG == 0)
             assign mP = oP, mPCOUT = oPCOUT;
         else
             assign mP = 1'bx, mPCOUT = 1'bx;
-        \$__ABC_DSP48E1_MULT_P_MUX muxP (
+        \$__ABC9_DSP48E1_MULT_P_MUX muxP (
             .Aq(pA), .Bq(pB), .Cq(pC), .Dq(pD), .ADq(pAD), .I(oP), .Mq(pM), .P(mP), .Pq(pP), .O(P)
         );
-        \$__ABC_DSP48E1_MULT_PCOUT_MUX muxPCOUT (
+        \$__ABC9_DSP48E1_MULT_PCOUT_MUX muxPCOUT (
             .Aq(pA), .Bq(pB), .Cq(pC), .Dq(pD), .ADq(pAD), .I(oPCOUT), .Mq(pM), .P(mPCOUT), .Pq(pP), .O(PCOUT)
         );
 
-        `DSP48E1_INST(\$__ABC_DSP48E1_MULT )
+        `DSP48E1_INST(\$__ABC9_DSP48E1_MULT )
     end
     else if (USE_MULT == "MULTIPLY" && USE_DPORT == "TRUE") begin
         // Disconnect the A-input if MREG is enabled, since
@@ -355,26 +355,26 @@ __CELL__ #(
         if (AREG == 0 && ADREG == 0 && MREG == 0 && PREG == 0)
             assign iA = A, pA = 1'bx;
         else
-            \$__ABC_REG #(.WIDTH(30)) rA (.I(A), .O(iA), .Q(pA));
+            \$__ABC9_REG #(.WIDTH(30)) rA (.I(A), .O(iA), .Q(pA));
         if (BREG == 0 && MREG == 0 && PREG == 0)
             assign iB = B, pB = 1'bx;
         else
-            \$__ABC_REG #(.WIDTH(18)) rB (.I(B), .O(iB), .Q(pB));
+            \$__ABC9_REG #(.WIDTH(18)) rB (.I(B), .O(iB), .Q(pB));
         if (CREG == 0 && PREG == 0)
             assign iC = C, pC = 1'bx;
         else
-            \$__ABC_REG #(.WIDTH(48)) rC (.I(C), .O(iC), .Q(pC));
+            \$__ABC9_REG #(.WIDTH(48)) rC (.I(C), .O(iC), .Q(pC));
         if (DREG == 0 && ADREG == 0)
             assign iD = D, pD = 1'bx;
         else
-            \$__ABC_REG #(.WIDTH(25)) rD (.I(D), .O(iD), .Q(pD));
+            \$__ABC9_REG #(.WIDTH(25)) rD (.I(D), .O(iD), .Q(pD));
         if (PREG == 0) begin
             if (MREG == 1) begin
                 assign pAD = 1'bx;
-        \$__ABC_REG rM (.Q(pM));
+        \$__ABC9_REG rM (.Q(pM));
             end else begin
                 if (ADREG == 1)
-                    \$__ABC_REG rAD (.Q(pAD));
+                    \$__ABC9_REG rAD (.Q(pAD));
                 else
                     assign pAD = 1'bx;
         assign pM = 1'bx;
@@ -382,21 +382,21 @@ __CELL__ #(
         assign pP = 1'bx;
     end else begin
             assign pAD = 1'bx, pM = 1'bx;
-            \$__ABC_REG rP (.Q(pP));
+            \$__ABC9_REG rP (.Q(pP));
         end
 
         if (MREG == 0 && PREG == 0)
             assign mP = oP, mPCOUT = oPCOUT;
         else
             assign mP = 1'bx, mPCOUT = 1'bx;
-        \$__ABC_DSP48E1_MULT_DPORT_P_MUX muxP (
+        \$__ABC9_DSP48E1_MULT_DPORT_P_MUX muxP (
             .Aq(pA), .Bq(pB), .Cq(pC), .Dq(pD), .ADq(pAD), .I(oP), .Mq(pM), .P(mP), .Pq(pP), .O(P)
         );
-        \$__ABC_DSP48E1_MULT_DPORT_PCOUT_MUX muxPCOUT (
+        \$__ABC9_DSP48E1_MULT_DPORT_PCOUT_MUX muxPCOUT (
             .Aq(pA), .Bq(pB), .Cq(pC), .Dq(pD), .ADq(pAD), .I(oPCOUT), .Mq(pM), .P(mPCOUT), .Pq(pP), .O(PCOUT)
         );
 
-        `DSP48E1_INST(\$__ABC_DSP48E1_MULT_DPORT )
+        `DSP48E1_INST(\$__ABC9_DSP48E1_MULT_DPORT )
     end
     else if (USE_MULT == "NONE" && USE_DPORT == "FALSE") begin
         // Disconnect the A-input if MREG is enabled, since
@@ -404,15 +404,15 @@ __CELL__ #(
         if (AREG == 0 && PREG == 0)
             assign iA = A, pA = 1'bx;
         else
-            \$__ABC_REG #(.WIDTH(30)) rA (.I(A), .O(iA), .Q(pA));
+            \$__ABC9_REG #(.WIDTH(30)) rA (.I(A), .O(iA), .Q(pA));
         if (BREG == 0 && PREG == 0)
             assign iB = B, pB = 1'bx;
         else
-            \$__ABC_REG #(.WIDTH(18)) rB (.I(B), .O(iB), .Q(pB));
+            \$__ABC9_REG #(.WIDTH(18)) rB (.I(B), .O(iB), .Q(pB));
         if (CREG == 0 && PREG == 0)
             assign iC = C, pC = 1'bx;
         else
-            \$__ABC_REG #(.WIDTH(48)) rC (.I(C), .O(iC), .Q(pC));
+            \$__ABC9_REG #(.WIDTH(48)) rC (.I(C), .O(iC), .Q(pC));
         if (DREG == 1 && techmap_guard)
             $error("Invalid DSP48E1 configuration: DREG enabled but USE_DPORT == \"FALSE\"");
         assign pD = 1'bx;
@@ -423,7 +423,7 @@ __CELL__ #(
             $error("Invalid DSP48E1 configuration: MREG enabled but USE_MULT == \"NONE\"");
         assign pM = 1'bx;
         if (PREG == 1)
-            \$__ABC_REG rP (.Q(pP));
+            \$__ABC9_REG rP (.Q(pP));
         else
             assign pP = 1'bx;
 
@@ -431,14 +431,14 @@ __CELL__ #(
             assign mP = oP, mPCOUT = oPCOUT;
         else
             assign mP = 1'bx, mPCOUT = 1'bx;
-        \$__ABC_DSP48E1_P_MUX muxP (
+        \$__ABC9_DSP48E1_P_MUX muxP (
             .Aq(pA), .Bq(pB), .Cq(pC), .Dq(pD), .ADq(pAD), .I(oP), .Mq(pM), .P(mP), .Pq(pP), .O(P)
         );
-        \$__ABC_DSP48E1_PCOUT_MUX muxPCOUT (
+        \$__ABC9_DSP48E1_PCOUT_MUX muxPCOUT (
             .Aq(pA), .Bq(pB), .Cq(pC), .Dq(pD), .ADq(pAD), .I(oPCOUT), .Mq(pM), .P(mPCOUT), .Pq(pP), .O(PCOUT)
         );
 
-        `DSP48E1_INST(\$__ABC_DSP48E1 )
+        `DSP48E1_INST(\$__ABC9_DSP48E1 )
     end
     else
         $error("Invalid DSP48E1 configuration");

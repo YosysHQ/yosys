@@ -1,3 +1,46 @@
+// This file describes the third of three pattern matcher setups that
+//   forms the `xilinx_dsp` pass described in xilinx_dsp.cc
+// At a high level, it works as follows:
+//   (1) Starting from a DSP48E1 cell that (a) has the Z multiplexer
+//       (controlled by OPMODE[6:4]) set to zero and (b) doesn't already
+//       use the 'PCOUT' port
+//   (2.1) Match another DSP48E1 cell that (a) does not have the CREG enabled,
+//         (b) has its Z multiplexer output set to the 'C' port, which is
+//         driven by the 'P' output of the previous DSP cell, and (c) has its
+//         'PCIN' port unused
+//   (2.2) Same as (2.1) but with the 'C' port driven by the 'P' output of the
+//         previous DSP cell right-shifted by 17 bits
+//   (3) For this subequent DSP48E1 match (i.e. PCOUT -> PCIN cascade exists)
+//       if (a) the previous DSP48E1 uses either the A2REG or A1REG, (b) this
+//       DSP48 does not use A2REG nor A1REG, (c) this DSP48E1 does not already
+//       have an ACOUT -> ACIN cascade, (d) the previous DSP does not already
+//       use its ACOUT port, then examine if an ACOUT -> ACIN cascade
+//       opportunity exists by matching for a $dff-with-optional-clock-enable-
+//       or-reset and checking that the 'D' input of this register is the same
+//       as the 'A' input of the previous DSP
+//   (4) Same as (3) but for BCOUT -> BCIN cascade
+//   (5) Recursively go to (2.1) until no more matches possible, keeping track
+//       of the longest possible chain found
+//   (6) The longest chain is then divided into chunks of no more than
+//       MAX_DSP_CASCADE in length (to prevent long cascades that exceed the
+//       height of a DSP column) with each DSP in each chunk being rewritten
+//       to use [ABP]COUT -> [ABP]CIN cascading as appropriate
+// Notes:
+//   - Currently, [AB]COUT -> [AB]COUT cascades (3 or 4) are only considered
+//     if a PCOUT -> PCIN cascade is (2.1 or 2.2) first identified; this need
+//     not be the case --- [AB] cascades can exist independently of a P cascade
+//     (though all three cascades must come from the same DSP). This situation
+//     is not handled currently.
+//   - In addition, [AB]COUT -> [AB]COUT cascades (3 or 4) are currently
+//     conservative in that they examine the situation where (a) the previous
+//     DSP has [AB]2REG or [AB]1REG enabled, (b) that the downstream DSP has no
+//     registers enabled, and (c) that there exists only one additional register
+//     between the upstream and downstream DSPs. This can certainly be relaxed
+//     to identify situations ranging from (i) neither DSP uses any registers,
+//     to (ii) upstream DSP has 2 registers, downstream DSP has 2 registers, and
+//     there exists a further 2 registers between them. This remains a TODO
+//     item.
+
 pattern xilinx_dsp_cascade
 
 udata <std::function<SigSpec(const SigSpec&)>> unextend
@@ -6,7 +49,7 @@ state <Cell*> next
 state <SigSpec> clock
 state <int> AREG BREG
 
-// subpattern
+// Variables used for subpatterns
 state <SigSpec> argQ argD
 state <bool> ffcepol ffrstpol
 state <int> ffoffset
@@ -19,12 +62,19 @@ code
 #define MAX_DSP_CASCADE 20
 endcode
 
+// (1) Starting from a DSP48E1 cell that (a) has the Z multiplexer
+//     (controlled by OPMODE[6:4]) set to zero and (b) doesn't already
+//     use the 'PCOUT' port
 match first
 	select first->type.in(\DSP48E1)
 	select port(first, \OPMODE, Const(0, 7)).extract(4,3) == Const::from_string("000")
 	select nusers(port(first, \PCOUT, SigSpec())) <= 1
 endmatch
 
+// (6) The longest chain is then divided into chunks of no more than
+//     MAX_DSP_CASCADE in length (to prevent long cascades that exceed the
+//     height of a DSP column) with each DSP in each chunk being rewritten
+//     to use [ABP]COUT -> [ABP]CIN cascading as appropriate
 code
 	longest_chain.clear();
 	chain.emplace_back(first, -1, -1, -1);
@@ -106,6 +156,10 @@ subpattern tail
 arg first
 arg next
 
+// (2.1) Match another DSP48E1 cell that (a) does not have the CREG enabled,
+//       (b) has its Z multiplexer output set to the 'C' port, which is
+//       driven by the 'P' output of the previous DSP cell, and (c) has its
+//       'PCIN' port unused
 match nextP
 	select nextP->type.in(\DSP48E1)
 	select !param(nextP, \CREG, State::S1).as_bool()
@@ -116,6 +170,8 @@ match nextP
 	semioptional
 endmatch
 
+// (2.2) Same as (2.1) but with the 'C' port driven by the 'P' output of the
+//       previous DSP cell right-shifted by 17 bits
 match nextP_shift17
 	if !nextP
 	select nextP_shift17->type.in(\DSP48E1)
@@ -145,6 +201,14 @@ code next
 	}
 endcode
 
+// (3) For this subequent DSP48E1 match (i.e. PCOUT -> PCIN cascade exists)
+//     if (a) the previous DSP48E1 uses either the A2REG or A1REG, (b) this
+//     DSP48 does not use A2REG nor A1REG, (c) this DSP48E1 does not already
+//     have an ACOUT -> ACIN cascade, (d) the previous DSP does not already
+//     use its ACOUT port, then examine if an ACOUT -> ACIN cascade
+//     opportunity exists by matching for a $dff-with-optional-clock-enable-
+//     or-reset and checking that the 'D' input of this register is the same
+//     as the 'A' input of the previous DSP
 code argQ clock AREG
 	AREG = -1;
 	if (next) {
@@ -152,7 +216,6 @@ code argQ clock AREG
 		if (param(prev, \AREG, 2).as_int() > 0 &&
 				param(next, \AREG, 2).as_int() > 0 &&
 				param(next, \A_INPUT, Const("DIRECT")).decode_string() == "DIRECT" &&
-				port(next, \ACIN, SigSpec()).is_fully_zero() &&
 				nusers(port(prev, \ACOUT, SigSpec())) <= 1) {
 			argQ = unextend(port(next, \A));
 			clock = port(prev, \CLK);
@@ -174,6 +237,7 @@ reject_AREG:			;
 	}
 endcode
 
+// (4) Same as (3) but for BCOUT -> BCIN cascade
 code argQ clock BREG
 	BREG = -1;
 	if (next) {
@@ -203,13 +267,14 @@ reject_BREG:			;
 	}
 endcode
 
+// (5) Recursively go to (2.1) until no more matches possible, recording the
+//     longest possible chain
 code
 	if (next) {
 		chain.emplace_back(next, nextP_shift17 ? 17 : nextP ? 0 : -1, AREG, BREG);
 
 		SigSpec sigC = unextend(port(next, \C));
 
-		// TODO: Cannot use 'reject' since semioptional
 		if (nextP_shift17) {
 			if (GetSize(sigC)+17 <= GetSize(port(std::get<0>(chain.back()), \P)) &&
 					port(std::get<0>(chain.back()), \P).extract(17, GetSize(sigC)) != sigC)
@@ -232,22 +297,44 @@ endcode
 
 // #######################
 
+// Subpattern for matching against input registers, based on knowledge of the
+//   'Q' input. Typically, identifying registers with clock-enable and reset
+//   capability would be a task would be handled by other Yosys passes such as
+//   dff2dffe, but since DSP inference happens much before this, these patterns
+//   have to be manually identified.
+// At a high level:
+//   (1) Starting from a $dff cell that (partially or fully) drives the given
+//       'Q' argument
+//   (2) Match for a $mux cell implementing synchronous reset semantics ---
+//       one that exclusively drives the 'D' input of the $dff, with one of its
+//       $mux inputs being fully zero
+//   (3) Match for a $mux cell implement clock enable semantics --- one that
+//       exclusively drives the 'D' input of the $dff (or the other input of
+//       the reset $mux) and where one of this $mux's inputs is connected to
+//       the 'Q' output of the $dff
 subpattern in_dffe
 arg argD argQ clock
 
 code
 	dff = nullptr;
-	for (auto c : argQ.chunks()) {
+	for (const auto &c : argQ.chunks()) {
+		// Abandon matches when 'Q' is a constant
 		if (!c.wire)
 			reject;
+		// Abandon matches when 'Q' has the keep attribute set
 		if (c.wire->get_bool_attribute(\keep))
 			reject;
-		Const init = c.wire->attributes.at(\init, State::Sx);
-		if (!init.is_fully_undef() && !init.is_fully_zero())
-			reject;
+		// Abandon matches when 'Q' has a non-zero init attribute set
+		// (not supported by DSP48E1)
+		Const init = c.wire->attributes.at(\init, Const());
+		for (auto b : init.extract(c.offset, c.width))
+			if (b != State::Sx && b != State::S0)
+				reject;
 	}
 endcode
 
+// (1) Starting from a $dff cell that (partially or fully) drives the given
+//     'Q' argument
 match ff
 	select ff->type.in($dff)
 	// DSP48E1 does not support clock inversion
@@ -260,14 +347,12 @@ match ff
 	filter GetSize(port(ff, \Q)) >= offset + GetSize(argQ)
 	filter port(ff, \Q).extract(offset, GetSize(argQ)) == argQ
 
+	filter clock == SigBit() || port(ff, \CLK) == clock
+
 	set ffoffset offset
 endmatch
 
 code argQ argD
-{
-	if (clock != SigBit() && port(ff, \CLK) != clock)
-		reject;
-
 	SigSpec Q = port(ff, \Q);
 	dff = ff;
 	dffclock = port(ff, \CLK);
@@ -279,9 +364,11 @@ code argQ argD
 	//   has two (ff, ffrstmux) users
 	if (nusers(dffD) > 2)
 		argD = SigSpec();
-}
 endcode
 
+// (2) Match for a $mux cell implementing synchronous reset semantics ---
+//     exclusively drives the 'D' input of the $dff, with one of the $mux
+//     inputs being fully zero
 match ffrstmux
 	if !argD.empty()
 	select ffrstmux->type.in($mux)
@@ -313,6 +400,10 @@ code argD
 		dffrstmux = nullptr;
 endcode
 
+// (3) Match for a $mux cell implement clock enable semantics --- one that
+//     exclusively drives the 'D' input of the $dff (or the other input of
+//     the reset $mux) and where one of this $mux's inputs is connected to
+//     the 'Q' output of the $dff
 match ffcemux
 	if !argD.empty()
 	select ffcemux->type.in($mux)

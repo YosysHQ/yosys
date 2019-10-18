@@ -15,12 +15,12 @@ $(eval $(call add_share_file,share/ecp5,techlibs/ecp5/arith_map.v))
 $(eval $(call add_share_file,share/ecp5,techlibs/ecp5/latches_map.v))
 $(eval $(call add_share_file,share/ecp5,techlibs/ecp5/dsp_map.v))
 
-$(eval $(call add_share_file,share/ecp5,techlibs/ecp5/abc_map.v))
-$(eval $(call add_share_file,share/ecp5,techlibs/ecp5/abc_unmap.v))
-$(eval $(call add_share_file,share/ecp5,techlibs/ecp5/abc_model.v))
-$(eval $(call add_share_file,share/ecp5,techlibs/ecp5/abc_5g.box))
-$(eval $(call add_share_file,share/ecp5,techlibs/ecp5/abc_5g.lut))
-$(eval $(call add_share_file,share/ecp5,techlibs/ecp5/abc_5g_nowide.lut))
+$(eval $(call add_share_file,share/ecp5,techlibs/ecp5/abc9_map.v))
+$(eval $(call add_share_file,share/ecp5,techlibs/ecp5/abc9_unmap.v))
+$(eval $(call add_share_file,share/ecp5,techlibs/ecp5/abc9_model.v))
+$(eval $(call add_share_file,share/ecp5,techlibs/ecp5/abc9_5g.box))
+$(eval $(call add_share_file,share/ecp5,techlibs/ecp5/abc9_5g.lut))
+$(eval $(call add_share_file,share/ecp5,techlibs/ecp5/abc9_5g_nowide.lut))
 
 EXTRA_OBJS += techlibs/ecp5/brams_init.mk techlibs/ecp5/brams_connect.mk
 .SECONDARY: techlibs/ecp5/brams_init.mk techlibs/ecp5/brams_connect.mk
@@ -44,6 +44,7 @@ techlibs/ecp5/bram_conn_2.vh: techlibs/ecp5/brams_connect.mk
 techlibs/ecp5/bram_conn_4.vh: techlibs/ecp5/brams_connect.mk
 techlibs/ecp5/bram_conn_9.vh: techlibs/ecp5/brams_connect.mk
 techlibs/ecp5/bram_conn_18.vh: techlibs/ecp5/brams_connect.mk
+techlibs/ecp5/bram_conn_36.vh: techlibs/ecp5/brams_connect.mk
 
 $(eval $(call add_gen_share_file,share/ecp5,techlibs/ecp5/bram_init_1_2_4.vh))
 $(eval $(call add_gen_share_file,share/ecp5,techlibs/ecp5/bram_init_9_18_36.vh))
@@ -53,3 +54,4 @@ $(eval $(call add_gen_share_file,share/ecp5,techlibs/ecp5/bram_conn_2.vh))
 $(eval $(call add_gen_share_file,share/ecp5,techlibs/ecp5/bram_conn_4.vh))
 $(eval $(call add_gen_share_file,share/ecp5,techlibs/ecp5/bram_conn_9.vh))
 $(eval $(call add_gen_share_file,share/ecp5,techlibs/ecp5/bram_conn_18.vh))
+$(eval $(call add_gen_share_file,share/ecp5,techlibs/ecp5/bram_conn_36.vh))

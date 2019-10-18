@@ -19,9 +19,13 @@ module RAMB8BWER (
 	input [1:0] WEAWEL,
 	input [1:0] WEBWEU,
 
+	/* (* abc9_arrival=<TODO> *) */
 	output [15:0] DOADO,
+	/* (* abc9_arrival=<TODO> *) */
 	output [15:0] DOBDO,
+	/* (* abc9_arrival=<TODO> *) */
 	output [1:0] DOPADOP,
+	/* (* abc9_arrival=<TODO> *) */
 	output [1:0] DOPBDOP
 );
 	parameter INITP_00 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
@@ -109,9 +113,13 @@ module RAMB16BWER (
 	input [3:0] WEA,
 	input [3:0] WEB,
 
+	/* (* abc9_arrival=<TODO> *) */
 	output [31:0] DOA,
+	/* (* abc9_arrival=<TODO> *) */
 	output [31:0] DOB,
+	/* (* abc9_arrival=<TODO> *) */
 	output [3:0] DOPA,
+	/* (* abc9_arrival=<TODO> *) */
 	output [3:0] DOPB
 );
 	parameter INITP_00 = 256'h0000000000000000000000000000000000000000000000000000000000000000;

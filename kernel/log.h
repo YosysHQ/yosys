@@ -292,6 +292,7 @@ static inline void log_dump_val_worker(PerformanceTimer p) { log("%f seconds", p
 static inline void log_dump_args_worker(const char *p YS_ATTRIBUTE(unused)) { log_assert(*p == 0); }
 void log_dump_val_worker(RTLIL::IdString v);
 void log_dump_val_worker(RTLIL::SigSpec v);
+void log_dump_val_worker(RTLIL::State v);
 
 template<typename K, typename T, typename OPS>
 static inline void log_dump_val_worker(dict<K, T, OPS> &v) {
