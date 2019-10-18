@@ -1,6 +1,7 @@
 read_verilog mul_unsigned.v
-proc
 hierarchy -top mul_unsigned
+proc
+
 equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd mul_unsigned # Constrain all select calls below inside the top module
