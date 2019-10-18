@@ -1,4 +1,4 @@
-read_verilog memory.v
+read_verilog ../common/memory.v
 hierarchy -top top
 proc
 memory -nomap
