@@ -1,4 +1,4 @@
-read_verilog logic.v
+read_verilog ../common/logic.v
 hierarchy -top top
 proc
 equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx # equivalency check

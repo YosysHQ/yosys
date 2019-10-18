@@ -1,4 +1,4 @@
-read_verilog mul.v
+read_verilog ../common/mul.v
 hierarchy -top top
 proc
 # Blocked by issue #1358 (Missing ECP5 simulation models)

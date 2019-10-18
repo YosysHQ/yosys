@@ -1,4 +1,4 @@
-read_verilog dffs.v
+read_verilog ../common/dffs.v
 design -save read
 
 hierarchy -top dff

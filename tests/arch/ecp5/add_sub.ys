@@ -1,4 +1,4 @@
-read_verilog add_sub.v
+read_verilog ../common/add_sub.v
 hierarchy -top top
 proc
 equiv_opt -assert -map +/ecp5/cells_sim.v synth_ecp5 # equivalency check
