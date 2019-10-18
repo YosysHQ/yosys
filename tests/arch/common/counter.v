@@ -6,6 +6,6 @@ module top ( out, clk, reset );
     always @(posedge clk, posedge reset)
       if (reset)
           out <= 8'b0;
-      end
+      else
           out <= out + 1;
 endmodule
