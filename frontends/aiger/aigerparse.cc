@@ -740,22 +740,22 @@ void AigerReader::post_process()
 		log_assert(box_module);
 
 		if (seen_boxes.insert(cell->type).second) {
-			auto it = box_module->attributes.find("\\abc_carry");
+			auto it = box_module->attributes.find("\\abc9_carry");
 			if (it != box_module->attributes.end()) {
 				RTLIL::Wire *carry_in = nullptr, *carry_out = nullptr;
 				auto carry_in_out = it->second.decode_string();
 				auto pos = carry_in_out.find(',');
 				if (pos == std::string::npos)
-					log_error("'abc_carry' attribute on module '%s' does not contain ','.\n", log_id(cell->type));
+					log_error("'abc9_carry' attribute on module '%s' does not contain ','.\n", log_id(cell->type));
 				auto carry_in_name = RTLIL::escape_id(carry_in_out.substr(0, pos));
 				carry_in = box_module->wire(carry_in_name);
 				if (!carry_in || !carry_in->port_input)
-					log_error("'abc_carry' on module '%s' contains '%s' which does not exist or is not an input port.\n", log_id(cell->type), carry_in_name.c_str());
+					log_error("'abc9_carry' on module '%s' contains '%s' which does not exist or is not an input port.\n", log_id(cell->type), carry_in_name.c_str());
 
 				auto carry_out_name = RTLIL::escape_id(carry_in_out.substr(pos+1));
 				carry_out = box_module->wire(carry_out_name);
 				if (!carry_out || !carry_out->port_output)
-					log_error("'abc_carry' on module '%s' contains '%s' which does not exist or is not an output port.\n", log_id(cell->type), carry_out_name.c_str());
+					log_error("'abc9_carry' on module '%s' contains '%s' which does not exist or is not an output port.\n", log_id(cell->type), carry_out_name.c_str());
 
 				auto &ports = box_module->ports;
 				for (auto jt = ports.begin(); jt != ports.end(); ) {

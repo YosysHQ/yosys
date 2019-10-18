@@ -708,6 +708,7 @@ test: $(TARGETS) $(EXTRA_TARGETS)
 	+cd tests/various && bash run-test.sh
 	+cd tests/sat && bash run-test.sh
 	+cd tests/svinterfaces && bash run-test.sh $(SEEDOPT)
+	+cd tests/svtypes && bash run-test.sh $(SEEDOPT)
 	+cd tests/proc && bash run-test.sh
 	+cd tests/opt && bash run-test.sh
 	+cd tests/aiger && bash run-test.sh $(ABCOPT)
@@ -715,6 +716,9 @@ test: $(TARGETS) $(EXTRA_TARGETS)
 	+cd tests/ice40 && bash run-test.sh $(SEEDOPT)
 	+cd tests/rpc && bash run-test.sh
 	+cd tests/efinix && bash run-test.sh $(SEEDOPT)
+	+cd tests/anlogic && bash run-test.sh $(SEEDOPT)
+	+cd tests/ecp5 && bash run-test.sh $(SEEDOPT)
+	+cd tests/xilinx && bash run-test.sh $(SEEDOPT)
 	@echo ""
 	@echo "  Passed \"make test\"."
 	@echo ""

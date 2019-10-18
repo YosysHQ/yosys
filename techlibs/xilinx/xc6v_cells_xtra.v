@@ -647,94 +647,6 @@ module SYSMON (...);
     input [6:0] DADDR;
 endmodule
 
-module DSP48E1 (...);
-    parameter integer ACASCREG = 1;
-    parameter integer ADREG = 1;
-    parameter integer ALUMODEREG = 1;
-    parameter integer AREG = 1;
-    parameter AUTORESET_PATDET = "NO_RESET";
-    parameter A_INPUT = "DIRECT";
-    parameter integer BCASCREG = 1;
-    parameter integer BREG = 1;
-    parameter B_INPUT = "DIRECT";
-    parameter integer CARRYINREG = 1;
-    parameter integer CARRYINSELREG = 1;
-    parameter integer CREG = 1;
-    parameter integer DREG = 1;
-    parameter integer INMODEREG = 1;
-    parameter integer MREG = 1;
-    parameter integer OPMODEREG = 1;
-    parameter integer PREG = 1;
-    parameter SEL_MASK = "MASK";
-    parameter SEL_PATTERN = "PATTERN";
-    parameter USE_DPORT = "FALSE";
-    parameter USE_MULT = "MULTIPLY";
-    parameter USE_PATTERN_DETECT = "NO_PATDET";
-    parameter USE_SIMD = "ONE48";
-    parameter [47:0] MASK = 48'h3FFFFFFFFFFF;
-    parameter [47:0] PATTERN = 48'h000000000000;
-    parameter [3:0] IS_ALUMODE_INVERTED = 4'b0;
-    parameter [0:0] IS_CARRYIN_INVERTED = 1'b0;
-    parameter [0:0] IS_CLK_INVERTED = 1'b0;
-    parameter [4:0] IS_INMODE_INVERTED = 5'b0;
-    parameter [6:0] IS_OPMODE_INVERTED = 7'b0;
-    output [29:0] ACOUT;
-    output [17:0] BCOUT;
-    output CARRYCASCOUT;
-    output [3:0] CARRYOUT;
-    output MULTSIGNOUT;
-    output OVERFLOW;
-    output [47:0] P;
-    output PATTERNBDETECT;
-    output PATTERNDETECT;
-    output [47:0] PCOUT;
-    output UNDERFLOW;
-    input [29:0] A;
-    input [29:0] ACIN;
-    (* invertible_pin = "IS_ALUMODE_INVERTED" *)
-    input [3:0] ALUMODE;
-    input [17:0] B;
-    input [17:0] BCIN;
-    input [47:0] C;
-    input CARRYCASCIN;
-    (* invertible_pin = "IS_CARRYIN_INVERTED" *)
-    input CARRYIN;
-    input [2:0] CARRYINSEL;
-    input CEA1;
-    input CEA2;
-    input CEAD;
-    input CEALUMODE;
-    input CEB1;
-    input CEB2;
-    input CEC;
-    input CECARRYIN;
-    input CECTRL;
-    input CED;
-    input CEINMODE;
-    input CEM;
-    input CEP;
-    (* clkbuf_sink *)
-    (* invertible_pin = "IS_CLK_INVERTED" *)
-    input CLK;
-    input [24:0] D;
-    (* invertible_pin = "IS_INMODE_INVERTED" *)
-    input [4:0] INMODE;
-    input MULTSIGNIN;
-    (* invertible_pin = "IS_OPMODE_INVERTED" *)
-    input [6:0] OPMODE;
-    input [47:0] PCIN;
-    input RSTA;
-    input RSTALLCARRYIN;
-    input RSTALUMODE;
-    input RSTB;
-    input RSTC;
-    input RSTCTRL;
-    input RSTD;
-    input RSTINMODE;
-    input RSTM;
-    input RSTP;
-endmodule
-
 module BUFGCE (...);
     parameter CE_TYPE = "SYNC";
     parameter [0:0] IS_CE_INVERTED = 1'b0;
@@ -1907,16 +1819,6 @@ module IBUFDS_GTHE1 (...);
     input I;
     (* iopad_external_pin *)
     input IB;
-endmodule
-
-module IBUFG (...);
-    parameter CAPACITANCE = "DONT_CARE";
-    parameter IBUF_DELAY_VALUE = "0";
-    parameter IBUF_LOW_PWR = "TRUE";
-    parameter IOSTANDARD = "DEFAULT";
-    output O;
-    (* iopad_external_pin *)
-    input I;
 endmodule
 
 module IBUFGDS (...);

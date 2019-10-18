@@ -9,3 +9,7 @@ match lut
 	index <SigSpec> port(lut, \I1) === port(carry, \I0)
 	index <SigSpec> port(lut, \I2) === port(carry, \I1)
 endmatch
+
+code
+	accept;
+endcode

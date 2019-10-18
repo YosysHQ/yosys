@@ -18,7 +18,7 @@ CCU2C   1      1   9      3
 # Box 2 : TRELLIS_DPR16X4_COMB (16x4 dist ram)
 # Outputs: DO0, DO1, DO2, DO3
 # name               ID  w/b   ins   outs
-$__ABC_DPR16X4_COMB  2     0   8    4
+$__ABC9_DPR16X4_COMB  2     0   8    4
 
 #A0   A1   A2   A3   RAD0   RAD1   RAD2   RAD3
 0     0    0    0    141    379    275    379
