@@ -1,4 +1,5 @@
 read_verilog rom.v
+hierarchy -top top
 proc
 flatten
 equiv_opt -assert -map +/ecp5/cells_sim.v synth_ecp5 # equivalency check

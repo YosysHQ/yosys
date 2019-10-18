@@ -1,6 +1,6 @@
 read_verilog macc.v
-proc
 hierarchy -top top
+proc
 # Blocked by issue #1358 (Missing ECP5 simulation models)
 #equiv_opt -assert -map +/ecp5/cells_sim.v synth_ecp5 # equivalency check
 equiv_opt -map +/ecp5/cells_sim.v synth_ecp5 # equivalency check
