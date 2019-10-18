@@ -228,8 +228,8 @@ XC6V_CELLS = [
     # Cell('FDSE'),
     Cell('IDDR', port_attrs={'C': ['clkbuf_sink']}),
     Cell('IDDR_2CLK', port_attrs={'C': ['clkbuf_sink'], 'CB': ['clkbuf_sink']}),
-    Cell('LDCE'),
-    Cell('LDPE'),
+    # Cell('LDCE'),
+    # Cell('LDPE'),
     Cell('ODDR', port_attrs={'C': ['clkbuf_sink']}),
 
     # Slice/CLB primitives.
@@ -378,8 +378,8 @@ XC7_CELLS = [
     # Cell('FDSE'),
     Cell('IDDR', port_attrs={'C': ['clkbuf_sink']}),
     Cell('IDDR_2CLK', port_attrs={'C': ['clkbuf_sink'], 'CB': ['clkbuf_sink']}),
-    Cell('LDCE'),
-    Cell('LDPE'),
+    # Cell('LDCE'),
+    # Cell('LDPE'),
     Cell('ODDR', port_attrs={'C': ['clkbuf_sink']}),
 
     # Slice/CLB primitives.
@@ -435,8 +435,8 @@ XCU_CELLS = [
     # Blockram.
     Cell('FIFO18E2', port_attrs={'RDCLK': ['clkbuf_sink'], 'WRCLK': ['clkbuf_sink']}),
     Cell('FIFO36E2', port_attrs={'RDCLK': ['clkbuf_sink'], 'WRCLK': ['clkbuf_sink']}),
-    Cell('RAMB18E2', port_attrs={'CLKARDCLK': ['clkbuf_sink'], 'CLKBWRCLK': ['clkbuf_sink']}),
-    Cell('RAMB36E2', port_attrs={'CLKARDCLK': ['clkbuf_sink'], 'CLKBWRCLK': ['clkbuf_sink']}),
+    #Cell('RAMB18E2', port_attrs={'CLKARDCLK': ['clkbuf_sink'], 'CLKBWRCLK': ['clkbuf_sink']}),
+    #Cell('RAMB36E2', port_attrs={'CLKARDCLK': ['clkbuf_sink'], 'CLKBWRCLK': ['clkbuf_sink']}),
     Cell('URAM288', port_attrs={'CLK': ['clkbuf_sink']}),
     Cell('URAM288_BASE', port_attrs={'CLK': ['clkbuf_sink']}),
 
@@ -491,6 +491,12 @@ XCU_CELLS = [
     Cell('PLLE3_BASE'),
     Cell('PLLE4_ADV'),
     Cell('PLLE4_BASE'),
+    # the "E2" variants are not strictly speaking UltraScale[+] cells
+    # but are automatically upgraded for backwards compatibility purposes
+    Cell('MMCME2_ADV'),
+    Cell('MMCME2_BASE'),
+    Cell('PLLE2_ADV'),
+    Cell('PLLE2_BASE'),
 
     # Configuration.
     Cell('BSCANE2', keep=True),
@@ -562,8 +568,8 @@ XCU_CELLS = [
     # Cell('FDSE'),
     Cell('HARD_SYNC', port_attrs={'CLK': ['clkbuf_sink']}),
     Cell('IDDRE1', port_attrs={'C': ['clkbuf_sink'], 'CB': ['clkbuf_sink']}),
-    Cell('LDCE'),
-    Cell('LDPE'),
+    # Cell('LDCE'),
+    # Cell('LDPE'),
     Cell('ODDRE1', port_attrs={'C': ['clkbuf_sink']}),
 
     # NOTE: not in the official library guide!

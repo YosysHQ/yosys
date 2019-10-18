@@ -305,6 +305,8 @@ struct SynthXilinxPass : public ScriptPass
 				run("read_verilog -lib +/xilinx/xc6s_brams_bb.v");
 			} else if (family == "xc6v" || family == "xc7") {
 				run("read_verilog -lib +/xilinx/xc7_brams_bb.v");
+			} else if (family == "xcu" || family == "xcup") {
+				run("read_verilog -lib +/xilinx/xcu_brams_bb.v");
 			}
 
 			run(stringf("hierarchy -check %s", top_opt.c_str()));
@@ -417,8 +419,11 @@ struct SynthXilinxPass : public ScriptPass
 					run("memory_bram -rules +/xilinx/xc6s_brams.txt");
 					run("techmap -map +/xilinx/xc6s_brams_map.v");
 				} else if (family == "xc6v" || family == "xc7") {
-					run("memory_bram -rules +/xilinx/xc7_brams.txt");
+					run("memory_bram -rules +/xilinx/xc7_xcu_brams.txt");
 					run("techmap -map +/xilinx/xc7_brams_map.v");
+				} else if (family == "xcu" || family == "xcup") {
+					run("memory_bram -rules +/xilinx/xc7_xcu_brams.txt");
+					run("techmap -map +/xilinx/xcu_brams_map.v");					
 				} else {
 					log_warning("Block RAM inference not yet supported for family %s.\n", family.c_str());
 				}
