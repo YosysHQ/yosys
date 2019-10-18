@@ -38,6 +38,17 @@ module IBUF(
   assign O = I;
 endmodule
 
+module IBUFG(
+    output O,
+    (* iopad_external_pin *)
+    input I);
+  parameter CAPACITANCE = "DONT_CARE";
+  parameter IBUF_DELAY_VALUE = "0";
+  parameter IBUF_LOW_PWR = "TRUE";
+  parameter IOSTANDARD = "DEFAULT";
+  assign O = I;
+endmodule
+
 module OBUF(
     (* iopad_external_pin *)
     output O,
@@ -184,12 +195,12 @@ module MUXCY(output O, input CI, DI, S);
   assign O = S ? CI : DI;
 endmodule
 
-(* abc_box_id = 1, lib_whitebox *)
+(* abc9_box_id = 1, lib_whitebox *)
 module MUXF7(output O, input I0, I1, S);
   assign O = S ? I1 : I0;
 endmodule
 
-(* abc_box_id = 2, lib_whitebox *)
+(* abc9_box_id = 2, lib_whitebox *)
 module MUXF8(output O, input I0, I1, S);
   assign O = S ? I1 : I0;
 endmodule
@@ -198,12 +209,12 @@ module XORCY(output O, input CI, LI);
   assign O = CI ^ LI;
 endmodule
 
-(* abc_box_id = 4, lib_whitebox *)
+(* abc9_box_id = 4, lib_whitebox *)
 module CARRY4(
-  (* abc_carry *)
+  (* abc9_carry *)
   output [3:0] CO,
   output [3:0] O,
-  (* abc_carry *)
+  (* abc9_carry *)
   input        CI,
   input        CYINIT,
   input  [3:0] DI, S
@@ -241,7 +252,7 @@ endmodule
 // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf#L238-L250
 
 module FDRE (
-  (* abc_arrival=303 *)
+  (* abc9_arrival=303 *)
   output reg Q,
   (* clkbuf_sink *)
   (* invertible_pin = "IS_C_INVERTED" *)
@@ -264,7 +275,7 @@ module FDRE (
 endmodule
 
 module FDSE (
-  (* abc_arrival=303 *)
+  (* abc9_arrival=303 *)
   output reg Q,
   (* clkbuf_sink *)
   (* invertible_pin = "IS_C_INVERTED" *)
@@ -287,7 +298,7 @@ module FDSE (
 endmodule
 
 module FDCE (
-  (* abc_arrival=303 *)
+  (* abc9_arrival=303 *)
   output reg Q,
   (* clkbuf_sink *)
   (* invertible_pin = "IS_C_INVERTED" *)
@@ -312,7 +323,7 @@ module FDCE (
 endmodule
 
 module FDPE (
-  (* abc_arrival=303 *)
+  (* abc9_arrival=303 *)
   output reg Q,
   (* clkbuf_sink *)
   (* invertible_pin = "IS_C_INVERTED" *)
@@ -337,7 +348,7 @@ module FDPE (
 endmodule
 
 module FDRE_1 (
-  (* abc_arrival=303 *)
+  (* abc9_arrival=303 *)
   output reg Q,
   (* clkbuf_sink *)
   input C,
@@ -349,7 +360,7 @@ module FDRE_1 (
 endmodule
 
 module FDSE_1 (
-  (* abc_arrival=303 *)
+  (* abc9_arrival=303 *)
   output reg Q,
   (* clkbuf_sink *)
   input C,
@@ -361,7 +372,7 @@ module FDSE_1 (
 endmodule
 
 module FDCE_1 (
-  (* abc_arrival=303 *)
+  (* abc9_arrival=303 *)
   output reg Q,
   (* clkbuf_sink *)
   input C,
@@ -373,7 +384,7 @@ module FDCE_1 (
 endmodule
 
 module FDPE_1 (
-  (* abc_arrival=303 *)
+  (* abc9_arrival=303 *)
   output reg Q,
   (* clkbuf_sink *)
   input C,
@@ -430,7 +441,7 @@ endmodule
 
 module RAM32X1D (
   // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
-  (* abc_arrival=1153 *)
+  (* abc9_arrival=1153 *)
   output DPO, SPO,
   input  D,
   (* clkbuf_sink *)
@@ -453,7 +464,7 @@ endmodule
 
 module RAM64X1D (
   // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
-  (* abc_arrival=1153 *)
+  (* abc9_arrival=1153 *)
   output DPO, SPO,
   input  D,
   (* clkbuf_sink *)
@@ -476,7 +487,7 @@ endmodule
 
 module RAM128X1D (
   // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
-  (* abc_arrival=1153 *)
+  (* abc9_arrival=1153 *)
   output DPO, SPO,
   input        D,
   (* clkbuf_sink *)
@@ -496,7 +507,7 @@ endmodule
 
 module SRL16E (
   // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L904-L905
-  (* abc_arrival=1472 *)
+  (* abc9_arrival=1472 *)
   output Q,
   input A0, A1, A2, A3, CE,
   (* clkbuf_sink *)
@@ -544,9 +555,9 @@ endmodule
 
 module SRLC32E (
   // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L904-L905
-  (* abc_arrival=1472 *)
+  (* abc9_arrival=1472 *)
   output Q,
-  (* abc_arrival=1114 *)
+  (* abc9_arrival=1114 *)
   output Q31,
   input [4:0] A,
   input CE,

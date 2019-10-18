@@ -339,13 +339,17 @@ struct SynthXilinxPass : public ScriptPass
 			run("techmap -map +/cmp2lut.v -D LUT_WIDTH=6");
 		}
 
-		if (check_label("map_dsp"), "(skip if '-nodsp')") {
+		if (check_label("map_dsp", "(skip if '-nodsp')")) {
 			if (!nodsp || help_mode) {
 				// NB: Xilinx multipliers are signed only
-				run("techmap -map +/mul2dsp.v -map +/xilinx/dsp_map.v -D DSP_A_MAXWIDTH=25 -D DSP_A_MAXWIDTH_PARTIAL=18 -D DSP_B_MAXWIDTH=18 "
-						"-D DSP_A_MINWIDTH=2 -D DSP_B_MINWIDTH=2 " // Blocks Nx1 multipliers
-						"-D DSP_Y_MINWIDTH=9 " // UG901 suggests small multiplies are those 4x4 and smaller
-						"-D DSP_SIGNEDONLY=1 -D DSP_NAME=$__MUL25X18");
+				run("techmap -map +/mul2dsp.v -map +/xilinx/dsp_map.v -D DSP_A_MAXWIDTH=25 "
+					"-D DSP_A_MAXWIDTH_PARTIAL=18 -D DSP_B_MAXWIDTH=18 "    // Partial multipliers are intentionally
+												// limited to 18x18 in order to take
+												// advantage of the (PCOUT << 17) -> PCIN
+												// dedicated cascade chain capability
+					"-D DSP_A_MINWIDTH=2 -D DSP_B_MINWIDTH=2 " // Blocks Nx1 multipliers
+					"-D DSP_Y_MINWIDTH=9 " // UG901 suggests small multiplies are those 4x4 and smaller
+					"-D DSP_SIGNEDONLY=1 -D DSP_NAME=$__MUL25X18");
 				run("select a:mul2dsp");
 				run("setattr -unset mul2dsp");
 				run("opt_expr -fine");
@@ -474,13 +478,18 @@ struct SynthXilinxPass : public ScriptPass
 				run("abc -luts 2:2,3,6:5[,10,20] [-dff]", "(option for 'nowidelut'; option for '-retime')");
 			else if (abc9) {
 				if (family != "xc7")
-					log_warning("'synth_xilinx -abc9' currently supports '-family xc7' only.\n");
-				run("techmap -map +/xilinx/abc_map.v -max_iter 1");
-				run("read_verilog -icells -lib +/xilinx/abc_model.v");
+					log_warning("'synth_xilinx -abc9' not currently supported for the '%s' family, "
+							"will use timing for 'xc7' instead.\n", family.c_str());
+				run("techmap -map +/xilinx/abc9_map.v -max_iter 1");
+				run("read_verilog -icells -lib +/xilinx/abc9_model.v");
+				std::string abc9_opts = " -box +/xilinx/abc9_xc7.box";
+				abc9_opts += stringf(" -W %d", XC7_WIRE_DELAY);
+				abc9_opts += " -nomfs";
 				if (nowidelut)
-					run("abc9 -lut +/xilinx/abc_xc7_nowide.lut -box +/xilinx/abc_xc7.box -W " + std::to_string(XC7_WIRE_DELAY));
+					abc9_opts += " -lut +/xilinx/abc9_xc7_nowide.lut";
 				else
-					run("abc9 -lut +/xilinx/abc_xc7.lut -box +/xilinx/abc_xc7.box -W " + std::to_string(XC7_WIRE_DELAY));
+					abc9_opts += " -lut +/xilinx/abc9_xc7.lut";
+				run("abc9" + abc9_opts);
 			}
 			else {
 				if (nowidelut)
@@ -498,7 +507,7 @@ struct SynthXilinxPass : public ScriptPass
 			if (help_mode)
 				techmap_args += " [-map " + ff_map_file + "]";
 			else if (abc9)
-				techmap_args += " -map +/xilinx/abc_unmap.v";
+				techmap_args += " -map +/xilinx/abc9_unmap.v";
 			else
 				techmap_args += " -map " + ff_map_file;
 			run("techmap " + techmap_args);
