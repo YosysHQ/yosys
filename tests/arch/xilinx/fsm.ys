@@ -1,0 +1,14 @@
+read_verilog ../common/fsm.v
+hierarchy -top fsm
+proc
+flatten
+equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd fsm # Constrain all select calls below inside the top module
+
+select -assert-count 1 t:BUFG
+select -assert-count 5 t:FDRE
+select -assert-count 1 t:LUT3
+select -assert-count 2 t:LUT4
+select -assert-count 4 t:LUT6
+select -assert-none t:BUFG t:FDRE t:LUT3 t:LUT4 t:LUT6 %% t:* %D
