@@ -13,7 +13,7 @@ EXTRA_OBJS += techlibs/xilinx/brams_init.mk
 
 techlibs/xilinx/brams_init.mk: techlibs/xilinx/brams_init.py
 	$(Q) mkdir -p techlibs/xilinx
-	$(P) python3 $<
+	$(P) $(PYTHON_EXECUTABLE) $<
 	$(Q) touch $@
 
 techlibs/xilinx/brams_init_36.vh: techlibs/xilinx/brams_init.mk
