@@ -27,12 +27,12 @@ EXTRA_OBJS += techlibs/ecp5/brams_init.mk techlibs/ecp5/brams_connect.mk
 
 techlibs/ecp5/brams_init.mk: techlibs/ecp5/brams_init.py
 	$(Q) mkdir -p techlibs/ecp5
-	$(P) python3 $<
+	$(P) $(PYTHON_EXECUTABLE) $<
 	$(Q) touch $@
 
 techlibs/ecp5/brams_connect.mk: techlibs/ecp5/brams_connect.py
 	$(Q) mkdir -p techlibs/ecp5
-	$(P) python3 $<
+	$(P) $(PYTHON_EXECUTABLE) $<
 	$(Q) touch $@
 
 
