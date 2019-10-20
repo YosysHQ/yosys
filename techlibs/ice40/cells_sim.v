@@ -1,4 +1,4 @@
-
+`timescale 1ps / 1ps
 `define SB_DFF_REG reg Q = 0
 // `define SB_DFF_REG reg Q
 
@@ -81,6 +81,37 @@ module SB_IO (
 		if (PIN_TYPE[5:4] == 2'b11) assign PACKAGE_PIN = outena_q ? dout : 1'bz;
 	endgenerate
 `endif
+`ifdef TIMING
+specify
+	(INPUT_CLK => D_IN_0) = (0:0:0, 0:0:0);
+	(INPUT_CLK => D_IN_1) = (0:0:0, 0:0:0);
+	(PACKAGE_PIN => D_IN_0) = (0:0:0, 0:0:0);
+	(OUTPUT_CLK => PACKAGE_PIN) = (0:0:0, 0:0:0);
+	(D_OUT_0 => PACKAGE_PIN) = (0:0:0, 0:0:0);
+	(OUTPUT_ENABLE => PACKAGE_PIN) = (0:0:0, 0:0:0);
+
+	$setuphold(posedge OUTPUT_CLK, posedge D_OUT_0, 0:0:0, 0:0:0);
+	$setuphold(posedge OUTPUT_CLK, negedge D_OUT_0, 0:0:0, 0:0:0);
+	$setuphold(negedge OUTPUT_CLK, posedge D_OUT_1, 0:0:0, 0:0:0);
+	$setuphold(negedge OUTPUT_CLK, negedge D_OUT_1, 0:0:0, 0:0:0);
+	$setuphold(negedge OUTPUT_CLK, posedge D_OUT_0, 0:0:0, 0:0:0);
+	$setuphold(negedge OUTPUT_CLK, negedge D_OUT_0, 0:0:0, 0:0:0);
+	$setuphold(posedge OUTPUT_CLK, posedge D_OUT_1, 0:0:0, 0:0:0);
+	$setuphold(posedge OUTPUT_CLK, negedge D_OUT_1, 0:0:0, 0:0:0);
+	$setuphold(posedge INPUT_CLK, posedge CLOCK_ENABLE, 0:0:0, 0:0:0);
+	$setuphold(posedge INPUT_CLK, negedge CLOCK_ENABLE, 0:0:0, 0:0:0);
+	$setuphold(posedge OUTPUT_CLK, posedge CLOCK_ENABLE, 0:0:0, 0:0:0);
+	$setuphold(posedge OUTPUT_CLK, negedge CLOCK_ENABLE, 0:0:0, 0:0:0);
+	$setuphold(posedge INPUT_CLK, posedge PACKAGE_PIN, 0:0:0, 0:0:0);
+	$setuphold(posedge INPUT_CLK, negedge PACKAGE_PIN, 0:0:0, 0:0:0);
+	$setuphold(negedge INPUT_CLK, posedge PACKAGE_PIN, 0:0:0, 0:0:0);
+	$setuphold(negedge INPUT_CLK, negedge PACKAGE_PIN, 0:0:0, 0:0:0);
+	$setuphold(posedge OUTPUT_CLK, posedge OUTPUT_ENABLE, 0:0:0, 0:0:0);
+	$setuphold(posedge OUTPUT_CLK, negedge OUTPUT_ENABLE, 0:0:0, 0:0:0);
+	$setuphold(negedge OUTPUT_CLK, posedge OUTPUT_ENABLE, 0:0:0, 0:0:0);
+	$setuphold(negedge OUTPUT_CLK, negedge OUTPUT_ENABLE, 0:0:0, 0:0:0);
+endspecify
+`endif
 endmodule
 
 module SB_GB_IO (
@@ -127,6 +158,11 @@ module SB_GB (
 	output GLOBAL_BUFFER_OUTPUT
 );
 	assign GLOBAL_BUFFER_OUTPUT = USER_SIGNAL_TO_GLOBAL_BUFFER;
+`ifdef TIMING
+specify
+	(USER_SIGNAL_TO_GLOBAL_BUFFER => GLOBAL_BUFFER_OUTPUT) = (0:0:0, 0:0:0);
+endspecify
+`endif
 endmodule
 
 // SiliconBlue Logic Cells
@@ -830,33 +866,81 @@ module ICESTORM_LC (
 	parameter [0:0] CIN_CONST    = 0;
 	parameter [0:0] CIN_SET      = 0;
 
+	wire I0_pd = (I0 === 1'bz) ? 1'b0 : I0;
+	wire I1_pd = (I1 === 1'bz) ? 1'b0 : I1;
+	wire I2_pd = (I2 === 1'bz) ? 1'b0 : I2;
+	wire I3_pd = (I3 === 1'bz) ? 1'b0 : I3;
+	wire SR_pd = (SR === 1'bz) ? 1'b0 : SR;
+	wire CEN_pu = (CEN === 1'bz) ? 1'b1 : CEN;
+
 	wire mux_cin = CIN_CONST ? CIN_SET : CIN;
 
-	assign COUT = CARRY_ENABLE ? (I1 && I2) || ((I1 || I2) && mux_cin) : 1'bx;
+	assign COUT = CARRY_ENABLE ? (I1_pd && I2_pd) || ((I1_pd || I2_pd) && mux_cin) : 1'bx;
 
-	wire [7:0] lut_s3 = I3 ? LUT_INIT[15:8] : LUT_INIT[7:0];
-	wire [3:0] lut_s2 = I2 ?   lut_s3[ 7:4] :   lut_s3[3:0];
-	wire [1:0] lut_s1 = I1 ?   lut_s2[ 3:2] :   lut_s2[1:0];
-	wire       lut_o  = I0 ?   lut_s1[   1] :   lut_s1[  0];
+	wire [7:0] lut_s3 = I3_pd ? LUT_INIT[15:8] : LUT_INIT[7:0];
+	wire [3:0] lut_s2 = I2_pd ?   lut_s3[ 7:4] :   lut_s3[3:0];
+	wire [1:0] lut_s1 = I1_pd ?   lut_s2[ 3:2] :   lut_s2[1:0];
+	wire       lut_o  = I0_pd ?   lut_s1[   1] :   lut_s1[  0];
 
 	assign LO = lut_o;
 
 	wire polarized_clk;
 	assign polarized_clk = CLK ^ NEG_CLK;
 
-	reg o_reg;
+	reg o_reg = 1'b0;
 	always @(posedge polarized_clk)
-		if (CEN)
-			o_reg <= SR ? SET_NORESET : lut_o;
+		if (CEN_pu)
+			o_reg <= SR_pd ? SET_NORESET : lut_o;
 
-	reg o_reg_async;
+	reg o_reg_async = 1'b0;
 	always @(posedge polarized_clk, posedge SR)
-		if (SR)
+		if (SR_pd)
 			o_reg <= SET_NORESET;
-		else if (CEN)
+		else if (CEN_pu)
 			o_reg <= lut_o;
 
 	assign O = DFF_ENABLE ? ASYNC_SR ? o_reg_async : o_reg : lut_o;
+`ifdef TIMING
+specify
+	(I0 => O) = (0:0:0, 0:0:0);
+	(I1 => O) = (0:0:0, 0:0:0);
+	(I2 => O) = (0:0:0, 0:0:0);
+	(I3 => O) = (0:0:0, 0:0:0);
+	(I0 => LO) = (0:0:0, 0:0:0);
+	(I1 => LO) = (0:0:0, 0:0:0);
+	(I2 => LO) = (0:0:0, 0:0:0);
+	(I3 => LO) = (0:0:0, 0:0:0);
+	(I1 => COUT) = (0:0:0, 0:0:0);
+	(I2 => COUT) = (0:0:0, 0:0:0);
+	(CIN => COUT) = (0:0:0, 0:0:0);
+	(CLK => O) = (0:0:0, 0:0:0);
+	(SR => O) = (0:0:0, 0:0:0);
+	$setuphold(posedge CLK, posedge I0, 0:0:0, 0:0:0);
+	$setuphold(posedge CLK, negedge I0, 0:0:0, 0:0:0);
+	$setuphold(negedge CLK, posedge I0, 0:0:0, 0:0:0);
+	$setuphold(negedge CLK, negedge I0, 0:0:0, 0:0:0);
+	$setuphold(posedge CLK, posedge I1, 0:0:0, 0:0:0);
+	$setuphold(posedge CLK, negedge I1, 0:0:0, 0:0:0);
+	$setuphold(negedge CLK, posedge I1, 0:0:0, 0:0:0);
+	$setuphold(negedge CLK, negedge I1, 0:0:0, 0:0:0);
+	$setuphold(posedge CLK, posedge I2, 0:0:0, 0:0:0);
+	$setuphold(posedge CLK, negedge I2, 0:0:0, 0:0:0);
+	$setuphold(negedge CLK, posedge I2, 0:0:0, 0:0:0);
+	$setuphold(negedge CLK, negedge I2, 0:0:0, 0:0:0);
+	$setuphold(posedge CLK, posedge I3, 0:0:0, 0:0:0);
+	$setuphold(posedge CLK, negedge I3, 0:0:0, 0:0:0);
+	$setuphold(negedge CLK, posedge I3, 0:0:0, 0:0:0);
+	$setuphold(negedge CLK, negedge I3, 0:0:0, 0:0:0);
+	$setuphold(posedge CLK, posedge CEN, 0:0:0, 0:0:0);
+	$setuphold(posedge CLK, negedge CEN, 0:0:0, 0:0:0);
+	$setuphold(negedge CLK, posedge CEN, 0:0:0, 0:0:0);
+	$setuphold(negedge CLK, negedge CEN, 0:0:0, 0:0:0);
+	$setuphold(posedge CLK, posedge SR, 0:0:0, 0:0:0);
+	$setuphold(posedge CLK, negedge SR, 0:0:0, 0:0:0);
+	$setuphold(negedge CLK, posedge SR, 0:0:0, 0:0:0);
+	$setuphold(negedge CLK, negedge SR, 0:0:0, 0:0:0);
+endspecify
+`endif
 endmodule
 
 // SiliconBlue PLL Cells
