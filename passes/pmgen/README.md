@@ -190,7 +190,7 @@ create matches for different sections of a cell. For example:
         select pmux->type == $pmux
         slice idx GetSize(port(pmux, \S))
         index <SigBit> port(pmux, \S)[idx] === port(eq, \Y)
-	set pmux_slice idx
+        set pmux_slice idx
     endmatch
 
 The first argument to `slice` is the local variable name used to identify the
@@ -352,7 +352,7 @@ state variables used to pass arguments.
     subpattern tail
     ...
 
-Subpatterns cann be called recursively.
+Subpatterns can be called recursively.
 
 If a `subpattern` statement is preceded by a `fallthrough` statement, this is
 equivalent to calling the subpattern at the end of the preceding block.

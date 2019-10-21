@@ -24,8 +24,11 @@ USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 bool did_something;
+dict<SigBit, State> initbits;
+pool<SigBit> rminitbits;
 
 #include "passes/pmgen/peepopt_pm.h"
+#include "generate.h"
 
 struct PeepoptPass : public Pass {
 	PeepoptPass() : Pass("peepopt", "collection of peephole optimizers") { }
@@ -40,26 +43,86 @@ struct PeepoptPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
+		std::string genmode;
+
 		log_header(design, "Executing PEEPOPT pass (run peephole optimizers).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
-			// if (args[argidx] == "-singleton") {
-			// 	singleton_mode = true;
-			// 	continue;
-			// }
+			if (args[argidx] == "-generate" && argidx+1 < args.size()) {
+				genmode = args[++argidx];
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
-		for (auto module : design->selected_modules()) {
+		if (!genmode.empty())
+		{
+			initbits.clear();
+			rminitbits.clear();
+
+			if (genmode == "shiftmul")
+				GENERATE_PATTERN(peepopt_pm, shiftmul);
+			else if (genmode == "muldiv")
+				GENERATE_PATTERN(peepopt_pm, muldiv);
+			else if (genmode == "dffmux")
+				GENERATE_PATTERN(peepopt_pm, dffmux);
+			else
+				log_abort();
+			return;
+		}
+
+		for (auto module : design->selected_modules())
+		{
 			did_something = true;
-			while (did_something) {
+
+			while (did_something)
+			{
 				did_something = false;
-				peepopt_pm pm(module, module->selected_cells());
+				initbits.clear();
+				rminitbits.clear();
+
+				peepopt_pm pm(module);
+
+				for (auto w : module->wires()) {
+					auto it = w->attributes.find(ID(init));
+					if (it != w->attributes.end()) {
+						SigSpec sig = pm.sigmap(w);
+						Const val = it->second;
+						int len = std::min(GetSize(sig), GetSize(val));
+						for (int i = 0; i < len; i++) {
+							if (sig[i].wire == nullptr)
+								continue;
+							if (val[i] != State::S0 && val[i] != State::S1)
+								continue;
+							initbits[sig[i]] = val[i];
+						}
+					}
+				}
+
+				pm.setup(module->selected_cells());
+
 				pm.run_shiftmul();
 				pm.run_muldiv();
+				pm.run_dffmux();
+
+				for (auto w : module->wires()) {
+					auto it = w->attributes.find(ID(init));
+					if (it != w->attributes.end()) {
+						SigSpec sig = pm.sigmap(w);
+						Const &val = it->second;
+						int len = std::min(GetSize(sig), GetSize(val));
+						for (int i = 0; i < len; i++) {
+							if (rminitbits.count(sig[i]))
+								val[i] = State::Sx;
+						}
+					}
+				}
+
+				initbits.clear();
+				rminitbits.clear();
 			}
 		}
 	}

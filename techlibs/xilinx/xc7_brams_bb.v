@@ -1,15 +1,25 @@
+// Max delays from https://github.com/SymbiFlow/prjxray-db/blob/f8e0364116b2983ac72a3dc8c509ea1cc79e2e3d/artix7/timings/BRAM_L.sdf#L138-L147
+
 module RAMB18E1 (
 	(* clkbuf_sink *)
+	(* invertible_pin = "IS_CLKARDCLK_INVERTED" *)
 	input CLKARDCLK,
 	(* clkbuf_sink *)
+	(* invertible_pin = "IS_CLKBWRCLK_INVERTED" *)
 	input CLKBWRCLK,
+	(* invertible_pin = "IS_ENARDEN_INVERTED" *)
 	input ENARDEN,
+	(* invertible_pin = "IS_ENBWREN_INVERTED" *)
 	input ENBWREN,
 	input REGCEAREGCE,
 	input REGCEB,
+	(* invertible_pin = "IS_RSTRAMARSTRAM_INVERTED" *)
 	input RSTRAMARSTRAM,
+	(* invertible_pin = "IS_RSTRAMB_INVERTED" *)
 	input RSTRAMB,
+	(* invertible_pin = "IS_RSTREGARSTREG_INVERTED" *)
 	input RSTREGARSTREG,
+	(* invertible_pin = "IS_RSTREGB_INVERTED" *)
 	input RSTREGB,
 
 	input [13:0] ADDRARDADDR,
@@ -21,9 +31,13 @@ module RAMB18E1 (
 	input [1:0] WEA,
 	input [3:0] WEBWE,
 
+	(* abc9_arrival=2454 *)
 	output [15:0] DOADO,
+	(* abc9_arrival=2454 *)
 	output [15:0] DOBDO,
+	(* abc9_arrival=2454 *)
 	output [1:0] DOPADOP,
+	(* abc9_arrival=2454 *)
 	output [1:0] DOPBDOP
 );
 	parameter INITP_00 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
@@ -126,16 +140,24 @@ endmodule
 
 module RAMB36E1 (
 	(* clkbuf_sink *)
+	(* invertible_pin = "IS_CLKARDCLK_INVERTED" *)
 	input CLKARDCLK,
 	(* clkbuf_sink *)
+	(* invertible_pin = "IS_CLKBWRCLK_INVERTED" *)
 	input CLKBWRCLK,
+	(* invertible_pin = "IS_ENARDEN_INVERTED" *)
 	input ENARDEN,
+	(* invertible_pin = "IS_ENBWREN_INVERTED" *)
 	input ENBWREN,
 	input REGCEAREGCE,
 	input REGCEB,
+	(* invertible_pin = "IS_RSTRAMARSTRAM_INVERTED" *)
 	input RSTRAMARSTRAM,
+	(* invertible_pin = "IS_RSTRAMB_INVERTED" *)
 	input RSTRAMB,
+	(* invertible_pin = "IS_RSTREGARSTREG_INVERTED" *)
 	input RSTREGARSTREG,
+	(* invertible_pin = "IS_RSTREGB_INVERTED" *)
 	input RSTREGB,
 
 	input [15:0] ADDRARDADDR,
@@ -147,9 +169,13 @@ module RAMB36E1 (
 	input [3:0] WEA,
 	input [7:0] WEBWE,
 
+	(* abc9_arrival=2454 *)
 	output [31:0] DOADO,
+	(* abc9_arrival=2454 *)
 	output [31:0] DOBDO,
+	(* abc9_arrival=2454 *)
 	output [3:0] DOPADOP,
+	(* abc9_arrival=2454 *)
 	output [3:0] DOPBDOP
 );
 	parameter INITP_00 = 256'h0000000000000000000000000000000000000000000000000000000000000000;

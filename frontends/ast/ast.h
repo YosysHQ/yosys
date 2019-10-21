@@ -148,7 +148,10 @@ namespace AST
 		AST_INTERFACEPORTTYPE,
 		AST_MODPORT,
 		AST_MODPORTMEMBER,
-		AST_PACKAGE
+		AST_PACKAGE,
+
+		AST_WIRETYPE,
+		AST_TYPEDEF
 	};
 
 	// convert an node type to a string (e.g. for debug output)
@@ -174,7 +177,7 @@ namespace AST
 		// node content - most of it is unused in most node types
 		std::string str;
 		std::vector<RTLIL::State> bits;
-		bool is_input, is_output, is_reg, is_logic, is_signed, is_string, is_wand, is_wor, range_valid, range_swapped, was_checked, is_unsized;
+		bool is_input, is_output, is_reg, is_logic, is_signed, is_string, is_wand, is_wor, range_valid, range_swapped, was_checked, is_unsized, is_custom_type;
 		int port_id, range_left, range_right;
 		uint32_t integer;
 		double realvalue;
@@ -296,9 +299,10 @@ namespace AST
 		~AstModule() YS_OVERRIDE;
 		RTLIL::IdString derive(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters, bool mayfail) YS_OVERRIDE;
 		RTLIL::IdString derive(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters, dict<RTLIL::IdString, RTLIL::Module*> interfaces, dict<RTLIL::IdString, RTLIL::IdString> modports, bool mayfail) YS_OVERRIDE;
-		std::string derive_common(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters, AstNode **new_ast_out, bool mayfail);
+		std::string derive_common(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters, AstNode **new_ast_out);
 		void reprocess_module(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Module *> local_interfaces) YS_OVERRIDE;
 		RTLIL::Module *clone() const YS_OVERRIDE;
+		void loadconfig() const;
 	};
 
 	// this must be set by the language frontend before parsing the sources

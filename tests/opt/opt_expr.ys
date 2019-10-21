@@ -204,7 +204,7 @@ endmodule
 EOT
 check
 
-equiv_opt opt_expr -fine
+equiv_opt -assert opt_expr -fine
 design -load postopt
 select -assert-count 1 t:$alu r:A_WIDTH=4 r:B_WIDTH=4 r:Y_WIDTH=5 %i %i %i
 
@@ -218,7 +218,7 @@ endmodule
 EOT
 check
 
-equiv_opt opt_expr -fine
+equiv_opt -assert opt_expr -fine
 design -load postopt
 select -assert-count 1 t:$alu r:A_WIDTH=8 r:B_WIDTH=8 r:Y_WIDTH=9 %i %i %i
 
@@ -232,7 +232,7 @@ endmodule
 EOT
 check
 
-equiv_opt opt_expr
+equiv_opt -assert opt_expr
 design -load postopt
 select -assert-count 1 t:$shiftx r:A_WIDTH=3 %i
 
@@ -246,7 +246,7 @@ endmodule
 EOT
 check
 
-equiv_opt opt_expr
+equiv_opt -assert opt_expr
 design -load postopt
 select -assert-count 1 t:$shiftx r:A_WIDTH=12 %i
 
@@ -260,7 +260,7 @@ endmodule
 EOT
 check
 
-equiv_opt opt_expr
+equiv_opt -assert opt_expr
 design -load postopt
 select -assert-count 1 t:$shift r:A_WIDTH=3 %i
 
@@ -274,7 +274,7 @@ endmodule
 EOT
 check
 
-equiv_opt opt_expr
+equiv_opt -assert opt_expr
 design -load postopt
 select -assert-count 1 t:$shift r:A_WIDTH=10 %i
 
@@ -288,6 +288,6 @@ endmodule
 EOT
 check
 
-equiv_opt opt_expr -keepdc
+equiv_opt -assert opt_expr -keepdc
 design -load postopt
 select -assert-count 1 t:$shift r:A_WIDTH=13 %i

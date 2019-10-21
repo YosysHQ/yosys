@@ -345,8 +345,16 @@ struct TestAutotbBackend : public Backend {
 		log("value after initialization. This can e.g. be used to force a reset signal\n");
 		log("low in order to explore more inner states in a state machine.\n");
 		log("\n");
+		log("The attribute 'gentb_skip' can be attached to modules to suppress testbench\n");
+		log("generation.\n");
+		log("\n");
 		log("    -n <int>\n");
 		log("        number of iterations the test bench should run (default = 1000)\n");
+		log("\n");
+		log("    -seed <int>\n");
+		log("        seed used for pseudo-random number generation (default = 0).\n");
+		log("        a value of 0 will cause an arbitrary seed to be chosen, based on\n");
+		log("        the current system time.\n");
 		log("\n");
 	}
 	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE

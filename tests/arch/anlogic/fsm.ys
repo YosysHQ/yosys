@@ -1,0 +1,15 @@
+read_verilog ../common/fsm.v
+hierarchy -top fsm
+proc
+#flatten
+#ERROR: Found 4 unproven $equiv cells in 'equiv_status -assert'.
+#equiv_opt -assert -map +/anlogic/cells_sim.v synth_anlogic # equivalency check
+equiv_opt -map +/anlogic/cells_sim.v synth_anlogic # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd fsm # Constrain all select calls below inside the top module
+select -assert-count 1 t:AL_MAP_LUT2
+select -assert-count 5 t:AL_MAP_LUT5
+select -assert-count 1 t:AL_MAP_LUT6
+select -assert-count 6 t:AL_MAP_SEQ
+
+select -assert-none t:AL_MAP_LUT2 t:AL_MAP_LUT5 t:AL_MAP_LUT6 t:AL_MAP_SEQ %% t:* %D

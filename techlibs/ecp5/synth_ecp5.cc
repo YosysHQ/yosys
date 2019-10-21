@@ -89,6 +89,9 @@ struct SynthEcp5Pass : public ScriptPass
 		log("        generate an output netlist (and BLIF file) suitable for VPR\n");
 		log("        (this feature is experimental and incomplete)\n");
 		log("\n");
+		log("    -nodsp\n");
+		log("        do not map multipliers to MULT18X18D\n");
+		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
@@ -96,7 +99,7 @@ struct SynthEcp5Pass : public ScriptPass
 	}
 
 	string top_opt, blif_file, edif_file, json_file;
-	bool noccu2, nodffe, nobram, nolutram, nowidelut, flatten, retime, abc2, abc9, vpr;
+	bool noccu2, nodffe, nobram, nolutram, nowidelut, flatten, retime, abc2, abc9, nodsp, vpr;
 
 	void clear_flags() YS_OVERRIDE
 	{
@@ -114,6 +117,7 @@ struct SynthEcp5Pass : public ScriptPass
 		abc2 = false;
 		vpr = false;
 		abc9 = false;
+		nodsp = false;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -192,6 +196,10 @@ struct SynthEcp5Pass : public ScriptPass
 				abc9 = true;
 				continue;
 			}
+			if (args[argidx] == "-nodsp") {
+				nodsp = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -218,17 +226,34 @@ struct SynthEcp5Pass : public ScriptPass
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
 		}
 
-		if (flatten && check_label("flatten", "(unless -noflatten)"))
-		{
-			run("proc");
-			run("flatten");
-			run("tribuf -logic");
-			run("deminout");
-		}
-
 		if (check_label("coarse"))
 		{
-			run("synth -run coarse");
+			run("proc");
+			if (flatten || help_mode)
+				run("flatten");
+			run("tribuf -logic");
+			run("deminout");
+			run("opt_expr");
+			run("opt_clean");
+			run("check");
+			run("opt");
+			run("wreduce");
+			run("peepopt");
+			run("opt_clean");
+			run("share");
+			run("techmap -map +/cmp2lut.v -D LUT_WIDTH=4");
+			run("opt_expr");
+			run("opt_clean");
+			if (!nodsp) {
+				run("techmap -map +/mul2dsp.v -map +/ecp5/dsp_map.v -D DSP_A_MAXWIDTH=18 -D DSP_B_MAXWIDTH=18  -D DSP_A_MINWIDTH=2 -D DSP_B_MINWIDTH=2  -D DSP_NAME=$__MUL18X18", "(unless -nodsp)");
+				run("chtype -set $mul t:$__soft_mul", "(unless -nodsp)");
+			}
+			run("alumacc");
+			run("opt");
+			run("fsm");
+			run("opt -fast");
+			run("memory -nomap");
+			run("opt_clean");
 		}
 
 		if (!nobram && check_label("map_bram", "(skip if -nobram)"))
@@ -272,6 +297,7 @@ struct SynthEcp5Pass : public ScriptPass
 			run("simplemap");
 			run("ecp5_ffinit");
 			run("ecp5_gsr");
+			run("attrmvcp -copy -attr syn_useioff");
 			run("opt_clean");
 		}
 
@@ -280,12 +306,18 @@ struct SynthEcp5Pass : public ScriptPass
 			if (abc2 || help_mode) {
 				run("abc", "      (only if -abc2)");
 			}
-			run("techmap -map +/ecp5/latches_map.v");
+			std::string techmap_args = "-map +/ecp5/latches_map.v";
+			if (abc9)
+				techmap_args += " -map +/ecp5/abc9_map.v -max_iter 1";
+			run("techmap " + techmap_args);
+
 			if (abc9) {
+				run("read_verilog -icells -lib +/ecp5/abc9_model.v");
 				if (nowidelut)
-					run("abc9 -lut +/ecp5/abc_5g_nowide.lut -box +/ecp5/abc_5g.box -W 200");
+					run("abc9 -lut +/ecp5/abc9_5g_nowide.lut -box +/ecp5/abc9_5g.box -W 200 -nomfs");
 				else
-					run("abc9 -lut +/ecp5/abc_5g.lut -box +/ecp5/abc_5g.box -W 200");
+					run("abc9 -lut +/ecp5/abc9_5g.lut -box +/ecp5/abc9_5g.box -W 200 -nomfs");
+				run("techmap -map +/ecp5/abc9_unmap.v");
 			} else {
 				if (nowidelut)
 					run("abc -lut 4 -dress");

@@ -1,0 +1,171 @@
+pattern dffmux
+
+state <IdString> cemuxAB rstmuxBA
+state <SigSpec> sigD
+
+match dff
+	select dff->type == $dff
+	select GetSize(port(dff, \D)) > 1
+endmatch
+
+code sigD
+	sigD = port(dff, \D);
+endcode
+
+match rstmux
+	select rstmux->type == $mux
+	select GetSize(port(rstmux, \Y)) > 1
+	index <SigSpec> port(rstmux, \Y) === sigD
+	choice <IdString> BA {\B, \A}
+	select port(rstmux, BA).is_fully_const()
+	set rstmuxBA BA
+	semioptional
+endmatch
+
+code sigD
+	if (rstmux)
+		sigD = port(rstmux, rstmuxBA == \B ? \A : \B);
+endcode
+
+match cemux
+	select cemux->type == $mux
+	select GetSize(port(cemux, \Y)) > 1
+	index <SigSpec> port(cemux, \Y) === sigD
+	choice <IdString> AB {\A, \B}
+	index <SigSpec> port(cemux, AB) === port(dff, \Q)
+	set cemuxAB AB
+	semioptional
+endmatch
+
+code
+	if (!cemux && !rstmux)
+		reject;
+endcode
+
+code
+	Const rst;
+	SigSpec D;
+	if (cemux) {
+		D = port(cemux, cemuxAB == \A ? \B : \A);
+		if (rstmux)
+			rst = port(rstmux, rstmuxBA).as_const();
+		else
+			rst = Const(State::Sx, GetSize(D));
+	}
+	else {
+		log_assert(rstmux);
+		D = port(rstmux, rstmuxBA  == \B ? \A : \B);
+		rst = port(rstmux, rstmuxBA).as_const();
+	}
+	SigSpec Q = port(dff, \Q);
+	int width = GetSize(D);
+
+	SigSpec dffD = dff->getPort(\D);
+	SigSpec dffQ = dff->getPort(\Q);
+
+	Const initval;
+	for (auto b : Q) {
+		auto it = initbits.find(b);
+		initval.bits.push_back(it == initbits.end() ? State::Sx : it->second);
+	}
+
+	auto cmpx = [=](State lhs, State rhs) {
+		if (lhs == State::Sx || rhs == State::Sx)
+			return true;
+		return lhs == rhs;
+	};
+
+	int i = width-1;
+	while (i > 1) {
+		if (D[i] != D[i-1])
+			break;
+		if (!cmpx(rst[i], rst[i-1]))
+			break;
+		if (!cmpx(initval[i], initval[i-1]))
+			break;
+		if (!cmpx(rst[i], initval[i]))
+			break;
+		rminitbits.insert(Q[i]);
+		module->connect(Q[i], Q[i-1]);
+		i--;
+	}
+	if (i < width-1) {
+		did_something = true;
+		if (cemux) {
+			SigSpec ceA = cemux->getPort(\A);
+			SigSpec ceB = cemux->getPort(\B);
+			SigSpec ceY = cemux->getPort(\Y);
+			ceA.remove(i, width-1-i);
+			ceB.remove(i, width-1-i);
+			ceY.remove(i, width-1-i);
+			cemux->setPort(\A, ceA);
+			cemux->setPort(\B, ceB);
+			cemux->setPort(\Y, ceY);
+			cemux->fixup_parameters();
+			blacklist(cemux);
+		}
+		if (rstmux) {
+			SigSpec rstA = rstmux->getPort(\A);
+			SigSpec rstB = rstmux->getPort(\B);
+			SigSpec rstY = rstmux->getPort(\Y);
+			rstA.remove(i, width-1-i);
+			rstB.remove(i, width-1-i);
+			rstY.remove(i, width-1-i);
+			rstmux->setPort(\A, rstA);
+			rstmux->setPort(\B, rstB);
+			rstmux->setPort(\Y, rstY);
+			rstmux->fixup_parameters();
+			blacklist(rstmux);
+		}
+		dffD.remove(i, width-1-i);
+		dffQ.remove(i, width-1-i);
+		dff->setPort(\D, dffD);
+		dff->setPort(\Q, dffQ);
+		dff->fixup_parameters();
+		blacklist(dff);
+
+		log("dffcemux pattern in %s: dff=%s, cemux=%s, rstmux=%s; removed top %d bits.\n", log_id(module), log_id(dff), log_id(cemux, "n/a"), log_id(rstmux, "n/a"), width-1-i);
+		width = i+1;
+	}
+	if (cemux) {
+		SigSpec ceA = cemux->getPort(\A);
+		SigSpec ceB = cemux->getPort(\B);
+		SigSpec ceY = cemux->getPort(\Y);
+
+		int count = 0;
+		for (int i = width-1; i >= 0; i--) {
+			if (D[i].wire)
+				continue;
+			if (cmpx(rst[i], D[i].data) && cmpx(initval[i], D[i].data)) {
+				count++;
+				rminitbits.insert(Q[i]);
+				module->connect(Q[i], D[i]);
+				ceA.remove(i);
+				ceB.remove(i);
+				ceY.remove(i);
+				dffD.remove(i);
+				dffQ.remove(i);
+			}
+		}
+		if (count > 0)
+		{
+			did_something = true;
+
+			cemux->setPort(\A, ceA);
+			cemux->setPort(\B, ceB);
+			cemux->setPort(\Y, ceY);
+			cemux->fixup_parameters();
+			blacklist(cemux);
+
+			dff->setPort(\D, dffD);
+			dff->setPort(\Q, dffQ);
+			dff->fixup_parameters();
+			blacklist(dff);
+
+			log("dffcemux pattern in %s: dff=%s, cemux=%s, rstmux=%s; removed %d constant bits.\n", log_id(module), log_id(dff), log_id(cemux), log_id(rstmux, "n/a"), count);
+		}
+	}
+
+	if (did_something)
+		accept;
+endcode

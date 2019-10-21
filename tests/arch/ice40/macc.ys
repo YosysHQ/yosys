@@ -1,0 +1,25 @@
+read_verilog macc.v
+proc
+design -save read
+
+hierarchy -top top
+equiv_opt -assert -multiclock -map +/ice40/cells_sim.v synth_ice40 -dsp # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd top # Constrain all select calls below inside the top module
+select -assert-count 1 t:SB_MAC16
+select -assert-none t:SB_MAC16 %% t:* %D
+
+design -load read
+hierarchy -top top2
+
+#equiv_opt -multiclock -assert -map +/ice40/cells_sim.v synth_ice40 -dsp # equivalency check
+
+equiv_opt -run :prove -multiclock -assert -map +/ice40/cells_sim.v synth_ice40 -dsp # equivalency check
+clk2fflogic
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -set-init-zero -seq 4 -verify -prove-asserts -show-ports miter
+
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd top2 # Constrain all select calls below inside the top module
+select -assert-count 1 t:SB_MAC16
+select -assert-none t:SB_MAC16 %% t:* %D

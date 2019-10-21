@@ -27,6 +27,7 @@ Yosys 0.9 .. Yosys 0.9-dev
     - Improve attribute and parameter encoding in JSON to avoid ambiguities between
       bit vectors and strings containing [01xz]*
     - Added "clkbufmap" pass
+    - Added "extractinv" pass and "invertible_pin" attribute
     - Added "synth_xilinx -family xc6s" for Spartan 6 support (experimental)
     - Added "synth_xilinx -ise" (experimental)
     - Added "synth_xilinx -iopad"
@@ -38,6 +39,18 @@ Yosys 0.9 .. Yosys 0.9-dev
     - Improvements in pmgen: slices, choices, define, generate
     - Added "xilinx_srl" for Xilinx shift register extraction
     - Removed "shregmap -tech xilinx" (superseded by "xilinx_srl")
+    - Added "_TECHMAP_WIREINIT_*_" attribute and "_TECHMAP_REMOVEINIT_*_" wire for "techmap" pass
+    - Added "-match-init" option to "dff2dffs" pass
+    - Added "techmap_autopurge" support to techmap
+    - Added "add -mod <modname[s]>"
+    - Added +/mul2dsp.v for decomposing wide multipliers to custom-sized ones
+    - Added "ice40_dsp" for Lattice iCE40 DSP packing
+    - Added "xilinx_dsp" for Xilinx DSP packing
+    - "synth_xilinx" to now infer DSP blocks (-nodsp to disable)
+    - "synth_ecp5" to now infer DSP blocks (-nodsp to disable, experimental)
+    - "synth_ice40 -dsp" to infer DSP blocks
+    - Added latch support to synth_xilinx
+    - Added "check -mapped"
 
 Yosys 0.8 .. Yosys 0.9
 ----------------------

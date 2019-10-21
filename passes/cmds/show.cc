@@ -26,6 +26,10 @@
 #  include <dirent.h>
 #endif
 
+#ifdef __APPLE__
+#  include <unistd.h>
+#endif
+
 #ifdef YOSYS_ENABLE_READLINE
 #  include <readline/readline.h>
 #endif
@@ -866,7 +870,11 @@ struct ShowPass : public Pass {
 				log_cmd_error("Shell command failed!\n");
 		} else
 		if (format.empty()) {
+			#ifdef __APPLE__
+			std::string cmd = stringf("ps -fu %d | grep -q '[ ]%s' || xdot '%s' &", getuid(), dot_file.c_str(), dot_file.c_str());
+			#else
 			std::string cmd = stringf("{ test -f '%s.pid' && fuser -s '%s.pid'; } || ( echo $$ >&3; exec xdot '%s'; ) 3> '%s.pid' &", dot_file.c_str(), dot_file.c_str(), dot_file.c_str(), dot_file.c_str());
+			#endif
 			log("Exec: %s\n", cmd.c_str());
 			if (run_command(cmd) != 0)
 				log_cmd_error("Shell command failed!\n");
