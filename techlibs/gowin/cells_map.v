@@ -1,10 +1,3 @@
-// TODO add these DFF types
-// Primitive Description
-// DFFSE     D Flip-Flop with Clock Enable and Synchronous Set
-// DFFRE     D Flip-Flop with Clock Enable and Synchronous Reset
-
-// DFFNSE    D Flip-Flop with Negative-Edge Clock,Clock Enable,and Synchronous Set
-// DFFNRE    D Flip-Flop with Negative-Edge Clock,Clock Enable, and Synchronous Reset
 //TODO all DFF* have INIT
 
 // DFFN      D Flip-Flop with Negative-Edge Clock
@@ -28,6 +21,14 @@ module  \$__DFFS_PP0_ (input D, C, R, output Q); DFFR _TECHMAP_REPLACE_ (.D(D), 
 module  \$__DFFS_NN0_ (input D, C, R, output Q); DFFNR _TECHMAP_REPLACE_ (.D(D), .Q(Q), .CLK(C), .RESET(!R)); endmodule
 module  \$__DFFS_NP0_ (input D, C, R, output Q); DFFNR _TECHMAP_REPLACE_ (.D(D), .Q(Q), .CLK(C), .RESET(R)); endmodule
 
+// DFFRE     D Flip-Flop with Clock Enable and Synchronous Reset
+module  \$__DFFSE_PN0 (input D, C, R, E, output Q); DFFRE _TECHMAP_REPLACE_ (.D(D), .Q(Q), .CLK(C), .RESET(!R), .CE(E)); endmodule
+module  \$__DFFSE_PP0 (input D, C, R, E, output Q); DFFRE _TECHMAP_REPLACE_ (.D(D), .Q(Q), .CLK(C), .RESET(R), .CE(!E)); endmodule
+
+// DFFNRE    D Flip-Flop with Negative-Edge Clock,Clock Enable, and Synchronous Reset
+module  \$__DFFNSE_PN0 (input D, C, R, E, output Q); DFFNRE _TECHMAP_REPLACE_ (.D(D), .Q(Q), .CLK(C), .RESET(!R), .CE(E)); endmodule
+module  \$__DFFNSE_PP0 (input D, C, R, E, output Q); DFFNRE _TECHMAP_REPLACE_ (.D(D), .Q(Q), .CLK(C), .RESET(R), .CE(!E)); endmodule
+
 // DFFS      D Flip-Flop with Synchronous Set
 module  \$__DFFS_PN1_ (input D, C, R, output Q); DFFS _TECHMAP_REPLACE_ (.D(D), .Q(Q), .CLK(C), .SET(!R)); endmodule
 module  \$__DFFS_PP1_ (input D, C, R, output Q); DFFS _TECHMAP_REPLACE_ (.D(D), .Q(Q), .CLK(C), .SET(R)); endmodule
@@ -35,6 +36,14 @@ module  \$__DFFS_PP1_ (input D, C, R, output Q); DFFS _TECHMAP_REPLACE_ (.D(D), 
 // DFFNS     D Flip-Flop with Negative-Edge Clock and Synchronous Set
 module  \$__DFFS_NN1_ (input D, C, R, output Q); DFFNS _TECHMAP_REPLACE_ (.D(D), .Q(Q), .CLK(C), .SET(!R)); endmodule
 module  \$__DFFS_NP1_ (input D, C, R, output Q); DFFNS _TECHMAP_REPLACE_ (.D(D), .Q(Q), .CLK(C), .SET(R)); endmodule
+
+// DFFSE     D Flip-Flop with Clock Enable and Synchronous Set
+module  \$__DFFSE_PN1 (input D, C, R, E, output Q); DFFSE _TECHMAP_REPLACE_ (.D(D), .Q(Q), .CLK(C), .SET(!R), .CE(E)); endmodule
+module  \$__DFFSE_PP1 (input D, C, R, E, output Q); DFFSE _TECHMAP_REPLACE_ (.D(D), .Q(Q), .CLK(C), .SET(R), .CE(!E)); endmodule
+
+// DFFNSE    D Flip-Flop with Negative-Edge Clock,Clock Enable,and Synchronous Set
+module  \$__DFFSE_NN1 (input D, C, R, E, output Q); DFFNSE _TECHMAP_REPLACE_ (.D(D), .Q(Q), .CLK(C), .SET(!R), .CE(E)); endmodule
+module  \$__DFFSE_NP1 (input D, C, R, E, output Q); DFFNSE _TECHMAP_REPLACE_ (.D(D), .Q(Q), .CLK(C), .SET(R), .CE(!E)); endmodule
 
 // DFFP      D Flip-Flop with Asynchronous Preset
 module  \$_DFF_PP1_ (input D, C, R, output Q); DFFP _TECHMAP_REPLACE_ (.D(D), .Q(Q), .CLK(C), .PRESET(R)); endmodule
