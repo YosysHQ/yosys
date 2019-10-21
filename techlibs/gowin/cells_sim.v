@@ -31,14 +31,6 @@ module DFF (output reg Q, input CLK, D);
 		Q <= D;
 endmodule
 
-module DFFN (output reg Q, input CLK, D);
-	parameter [0:0] INIT = 1'b0;
-	initial Q = INIT;
-	always @(negedge CLK)
-		Q <= D;
-endmodule
-
-
 module DFFE (output reg Q, input D, CLK, CE);
   parameter [0:0] INIT = 1'b0;
   initial Q = INIT;
@@ -143,6 +135,119 @@ module DFFCE (output reg Q, input D, CLK, CE, CLEAR);
       Q <= D;
   end
 endmodule // DFFCE (positive clock edge; asynchronous clear; clock enable)
+
+
+module DFFN (output reg Q, input CLK, D);
+	parameter [0:0] INIT = 1'b0;
+	initial Q = INIT;
+	always @(negedge CLK)
+		Q <= D;
+endmodule
+
+module DFFNE (output reg Q, input D, CLK, CE);
+  parameter [0:0] INIT = 1'b0;
+  initial Q = INIT;
+  always @(negedge CLK) begin
+    if (CE)
+      Q <= D;
+  end
+endmodule // DFFNE (negative clock edge; clock enable)
+
+
+module DFFNS (output reg Q, input D, CLK, SET);
+  parameter [0:0] INIT = 1'b0;
+  initial Q = INIT;
+  always @(negedge CLK) begin
+    if (SET)
+      Q <= 1'b1;
+    else
+      Q <= D;	
+  end
+endmodule // DFFNS (negative clock edge; synchronous set)
+
+
+module DFFNSE (output reg Q, input D, CLK, CE, SET);
+  parameter [0:0] INIT = 1'b0;
+  initial Q = INIT;
+  always @(negedge CLK) begin
+    if (SET)
+      Q <= 1'b1;
+    else if (CE)
+      Q <= D;
+end
+endmodule // DFFNSE (negative clock edge; synchronous set takes precedence over clock enable)
+
+
+module DFFNR (output reg Q, input D, CLK, RESET);
+  parameter [0:0] INIT = 1'b0;
+  initial Q = INIT;
+  always @(negedge CLK) begin
+    if (RESET)
+      Q <= 1'b0;
+    else
+      Q <= D;
+  end
+endmodule // DFFNR (negative clock edge; synchronous reset)
+
+
+module DFFNRE (output reg Q, input D, CLK, CE, RESET);
+  parameter [0:0] INIT = 1'b0;
+  initial Q = INIT;
+  always @(negedge CLK) begin
+    if (RESET)
+      Q <= 1'b0;
+    else if (CE)
+      Q <= D;
+  end
+endmodule // DFFNRE (negative clock edge; synchronous reset takes precedence over clock enable)
+
+
+module DFFNP (output reg Q, input D, CLK, PRESET);
+  parameter [0:0] INIT = 1'b0;
+  initial Q = INIT;
+  always @(negedge CLK or posedge PRESET) begin
+    if(PRESET)
+      Q <= 1'b1;
+    else
+      Q <= D;
+  end
+endmodule // DFFNP (negative clock edge; asynchronous preset)
+
+
+module DFFNPE (output reg Q, input D, CLK, CE, PRESET);
+  parameter [0:0] INIT = 1'b0;
+  initial Q = INIT;
+  always @(negedge CLK or posedge PRESET) begin
+    if(PRESET)
+      Q <= 1'b1;
+    else if (CE)
+      Q <= D;
+  end
+endmodule // DFFNPE (negative clock edge; asynchronous preset; clock enable)
+
+
+module DFFNC (output reg Q, input D, CLK, CLEAR);
+  parameter [0:0] INIT = 1'b0;
+  initial Q = INIT;
+  always @(negedge CLK or posedge CLEAR) begin
+    if(CLEAR)
+      Q <= 1'b0;
+    else
+      Q <= D;
+  end
+endmodule // DFFNC (negative clock edge; asynchronous clear)
+
+
+module DFFNCE (output reg Q, input D, CLK, CE, CLEAR);
+  parameter [0:0] INIT = 1'b0;
+  initial Q = INIT;
+  always @(negedge CLK or posedge CLEAR) begin
+    if(CLEAR)
+      Q <= 1'b0;
+    else if (CE)
+      Q <= D;
+  end
+endmodule // DFFNCE (negative clock edge; asynchronous clear; clock enable)
 
 // TODO add more DFF sim cells
 
