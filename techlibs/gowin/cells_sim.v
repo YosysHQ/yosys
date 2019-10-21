@@ -166,10 +166,80 @@ module GSR (input GSRI);
 	wire GSRO = GSRI;
 endmodule
 
-module ALU (input I0, input I1, input I3, input CIN, output COUT, output SUM);
-   parameter [3:0] ALU_MODE = 0; // default 0 = ADD
-   assign  {COUT, SUM} = CIN + I1 + I0;
-endmodule // alu
+module ALU (SUM, COUT, I0, I1, I3, CIN);
+
+input I0;
+input I1;
+input I3;
+input CIN;
+output SUM;
+output COUT;
+
+parameter ADD = 0;
+parameter SUB = 1;
+parameter ADDSUB = 2;
+parameter NE = 3;
+parameter GE = 4;
+parameter LE = 5;
+parameter CUP = 6;
+parameter CDN = 7;
+parameter CUPCDN = 8;
+parameter MULT = 9;
+
+parameter ALU_MODE = 0;
+
+reg S, C;
+
+assign SUM = S ^ CIN;
+assign COUT = S? CIN : C;
+
+always @(I0, I1, I3,CIN) begin
+	case (ALU_MODE)
+		ADD: begin
+			S = I0 ^ I1;
+			C = I0;
+		end
+		SUB: begin
+			S = I0 ^ ~I1;
+			C = I0;
+		end
+		ADDSUB: begin
+			S = I3? I0 ^ I1 : I0 ^ ~I1;
+			C = I0;
+		end
+		NE: begin
+			S = I0 ^ ~I1;
+			C = 1'b1;
+		end
+		GE: begin
+			S = I0 ^ ~I1;
+			C = I0;
+		end
+		LE: begin
+			S = ~I0 ^ I1;
+			C = I1;
+		end
+		CUP: begin
+			S = I0;
+			C = 1'b0;
+		end
+		CDN: begin
+			S = ~I0;
+			C = 1'b1;
+		end
+		CUPCDN: begin
+			S = I3? I0 : ~I0;
+			C = I0;
+		end
+		MULT: begin
+			S = I0 & I1;
+			C = I0 & I1;
+		end
+	endcase
+end
+
+endmodule
+
 
 module RAM16S4 (DO, DI, AD, WRE, CLK);
    parameter WIDTH  = 4;
