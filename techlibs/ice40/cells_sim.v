@@ -895,9 +895,9 @@ module ICESTORM_LC (
 	reg o_reg_async = 1'b0;
 	always @(posedge polarized_clk, posedge SR)
 		if (SR_pd)
-			o_reg <= SET_NORESET;
+			o_reg_async <= SET_NORESET;
 		else if (CEN_pu)
-			o_reg <= lut_o;
+			o_reg_async <= lut_o;
 
 	assign O = DFF_ENABLE ? ASYNC_SR ? o_reg_async : o_reg : lut_o;
 `ifdef TIMING
@@ -1659,4 +1659,342 @@ module SB_MAC16 (
 	assign Ol = (BOTOUTPUT_SELECT == 0) ? iR : (BOTOUTPUT_SELECT == 1) ? iS : (BOTOUTPUT_SELECT == 2) ? iG : iH[15:0];
 	assign LCI = (BOTADDSUB_CARRYSELECT == 0) ? 1'b0 : (BOTADDSUB_CARRYSELECT == 1) ? 1'b1 : (BOTADDSUB_CARRYSELECT == 2) ? ACCUMCI : CI;
 	assign O = {Oh, Ol};
+endmodule
+
+// Post-place-and-route RAM model
+module ICESTORM_RAM(
+	output RDATA_15, RDATA_14, RDATA_13, RDATA_12, RDATA_11, RDATA_10, RDATA_9, RDATA_8, RDATA_7, RDATA_6, RDATA_5, RDATA_4, RDATA_3, RDATA_2, RDATA_1, RDATA_0,
+	input  RCLK, RCLKE, RE,
+	input  RADDR_10, RADDR_9, RADDR_8, RADDR_7, RADDR_6, RADDR_5, RADDR_4, RADDR_3, RADDR_2, RADDR_1, RADDR_0,
+	input  WCLK, WCLKE, WE,
+	input  WADDR_10, WADDR_9, WADDR_8, WADDR_7, WADDR_6, WADDR_5, WADDR_4, WADDR_3, WADDR_2, WADDR_1, WADDR_0,
+	input  MASK_15, MASK_14, MASK_13, MASK_12, MASK_11, MASK_10, MASK_9, MASK_8, MASK_7, MASK_6, MASK_5, MASK_4, MASK_3, MASK_2, MASK_1, MASK_0,
+	input  WDATA_15, WDATA_14, WDATA_13, WDATA_12, WDATA_11, WDATA_10, WDATA_9, WDATA_8, WDATA_7, WDATA_6, WDATA_5, WDATA_4, WDATA_3, WDATA_2, WDATA_1, WDATA_0
+);
+	parameter WRITE_MODE = 0;
+	parameter READ_MODE = 0;
+
+	parameter NEG_CLK_R = 1'b0;
+	parameter NEG_CLK_W = 1'b0;
+
+	parameter INIT_0 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+	parameter INIT_1 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+	parameter INIT_2 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+	parameter INIT_3 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+	parameter INIT_4 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+	parameter INIT_5 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+	parameter INIT_6 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+	parameter INIT_7 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+	parameter INIT_8 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+	parameter INIT_9 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+	parameter INIT_A = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+	parameter INIT_B = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+	parameter INIT_C = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+	parameter INIT_D = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+	parameter INIT_E = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+	parameter INIT_F = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+
+	// Pull-down and pull-up functions
+	function pd;
+		input x;
+		begin
+			pd = (x === 1'bz) ? 1'b0 : x;
+		end
+	endfunction
+
+	function pu;
+		input x;
+		begin
+			pu = (x === 1'bz) ? 1'b1 : x;
+		end
+	endfunction
+
+	SB_RAM40_4K #(
+		.WRITE_MODE(WRITE_MODE),
+		.READ_MODE (READ_MODE ),
+		.INIT_0    (INIT_0    ),
+		.INIT_1    (INIT_1    ),
+		.INIT_2    (INIT_2    ),
+		.INIT_3    (INIT_3    ),
+		.INIT_4    (INIT_4    ),
+		.INIT_5    (INIT_5    ),
+		.INIT_6    (INIT_6    ),
+		.INIT_7    (INIT_7    ),
+		.INIT_8    (INIT_8    ),
+		.INIT_9    (INIT_9    ),
+		.INIT_A    (INIT_A    ),
+		.INIT_B    (INIT_B    ),
+		.INIT_C    (INIT_C    ),
+		.INIT_D    (INIT_D    ),
+		.INIT_E    (INIT_E    ),
+		.INIT_F    (INIT_F    )
+	) RAM (
+		.RDATA({RDATA_15, RDATA_14, RDATA_13, RDATA_12, RDATA_11, RDATA_10, RDATA_9, RDATA_8, RDATA_7, RDATA_6, RDATA_5, RDATA_4, RDATA_3, RDATA_2, RDATA_1, RDATA_0}),
+		.RCLK (pd(RCLK) ^ NEG_CLK_R),
+		.RCLKE(pu(RCLKE)),
+		.RE   (pd(RE)),
+		.RADDR({pd(RADDR_10), pd(RADDR_9), pd(RADDR_8), pd(RADDR_7), pd(RADDR_6), pd(RADDR_5), pd(RADDR_4), pd(RADDR_3), pd(RADDR_2), pd(RADDR_1), pd(RADDR_0)}),
+		.WCLK (pd(WCLK) ^ NEG_CLK_W),
+		.WCLKE(pu(WCLKE)),
+		.WE   (pd(WE)),
+		.WADDR({pd(WADDR_10), pd(WADDR_9), pd(WADDR_8), pd(WADDR_7), pd(WADDR_6), pd(WADDR_5), pd(WADDR_4), pd(WADDR_3), pd(WADDR_2), pd(WADDR_1), pd(WADDR_0)}),
+		.MASK ({pd(MASK_15), pd(MASK_14), pd(MASK_13), pd(MASK_12), pd(MASK_11), pd(MASK_10), pd(MASK_9), pd(MASK_8),
+			pd(MASK_7), pd(MASK_6), pd(MASK_5), pd(MASK_4), pd(MASK_3), pd(MASK_2), pd(MASK_1), pd(MASK_0)}),
+		.WDATA({pd(WDATA_15), pd(WDATA_14), pd(WDATA_13), pd(WDATA_12), pd(WDATA_11), pd(WDATA_10), pd(WDATA_9), pd(WDATA_8),
+			pd(WDATA_7), pd(WDATA_6), pd(WDATA_5), pd(WDATA_4), pd(WDATA_3), pd(WDATA_2), pd(WDATA_1), pd(WDATA_0)})
+	);
+
+`ifdef TIMING
+specify
+	(RCLK => RDATA_15) = (0:0:0, 0:0:0);
+	(RCLK => RDATA_14) = (0:0:0, 0:0:0);
+	(RCLK => RDATA_13) = (0:0:0, 0:0:0);
+	(RCLK => RDATA_12) = (0:0:0, 0:0:0);
+	(RCLK => RDATA_11) = (0:0:0, 0:0:0);
+	(RCLK => RDATA_10) = (0:0:0, 0:0:0);
+	(RCLK => RDATA_9) = (0:0:0, 0:0:0);
+	(RCLK => RDATA_8) = (0:0:0, 0:0:0);
+	(RCLK => RDATA_7) = (0:0:0, 0:0:0);
+	(RCLK => RDATA_6) = (0:0:0, 0:0:0);
+	(RCLK => RDATA_5) = (0:0:0, 0:0:0);
+	(RCLK => RDATA_4) = (0:0:0, 0:0:0);
+	(RCLK => RDATA_3) = (0:0:0, 0:0:0);
+	(RCLK => RDATA_2) = (0:0:0, 0:0:0);
+	(RCLK => RDATA_1) = (0:0:0, 0:0:0);
+	(RCLK => RDATA_0) = (0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, posedge RCLKE, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, negedge RCLKE, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, posedge RCLKE, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, negedge RCLKE, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, posedge RE, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, negedge RE, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, posedge RE, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, negedge RE, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, posedge RADDR_10, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, negedge RADDR_10, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, posedge RADDR_10, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, negedge RADDR_10, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, posedge RADDR_9, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, negedge RADDR_9, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, posedge RADDR_9, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, negedge RADDR_9, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, posedge RADDR_8, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, negedge RADDR_8, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, posedge RADDR_8, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, negedge RADDR_8, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, posedge RADDR_7, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, negedge RADDR_7, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, posedge RADDR_7, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, negedge RADDR_7, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, posedge RADDR_6, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, negedge RADDR_6, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, posedge RADDR_6, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, negedge RADDR_6, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, posedge RADDR_5, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, negedge RADDR_5, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, posedge RADDR_5, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, negedge RADDR_5, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, posedge RADDR_4, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, negedge RADDR_4, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, posedge RADDR_4, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, negedge RADDR_4, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, posedge RADDR_3, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, negedge RADDR_3, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, posedge RADDR_3, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, negedge RADDR_3, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, posedge RADDR_2, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, negedge RADDR_2, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, posedge RADDR_2, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, negedge RADDR_2, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, posedge RADDR_1, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, negedge RADDR_1, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, posedge RADDR_1, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, negedge RADDR_1, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, posedge RADDR_0, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, negedge RADDR_0, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, posedge RADDR_0, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, negedge RADDR_0, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WCLKE, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WCLKE, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WCLKE, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WCLKE, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WE, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WE, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WE, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WE, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WADDR_10, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WADDR_10, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WADDR_10, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WADDR_10, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WADDR_9, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WADDR_9, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WADDR_9, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WADDR_9, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WADDR_8, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WADDR_8, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WADDR_8, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WADDR_8, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WADDR_7, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WADDR_7, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WADDR_7, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WADDR_7, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WADDR_6, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WADDR_6, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WADDR_6, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WADDR_6, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WADDR_5, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WADDR_5, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WADDR_5, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WADDR_5, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WADDR_4, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WADDR_4, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WADDR_4, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WADDR_4, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WADDR_3, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WADDR_3, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WADDR_3, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WADDR_3, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WADDR_2, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WADDR_2, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WADDR_2, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WADDR_2, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WADDR_1, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WADDR_1, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WADDR_1, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WADDR_1, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WADDR_0, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WADDR_0, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WADDR_0, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WADDR_0, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_15, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_15, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_15, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_15, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_14, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_14, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_14, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_14, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_13, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_13, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_13, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_13, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_12, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_12, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_12, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_12, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_11, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_11, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_11, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_11, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_10, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_10, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_10, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_10, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_9, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_9, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_9, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_9, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_8, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_8, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_8, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_8, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_7, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_7, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_7, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_7, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_6, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_6, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_6, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_6, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_5, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_5, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_5, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_5, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_4, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_4, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_4, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_4, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_3, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_3, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_3, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_3, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_2, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_2, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_2, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_2, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_1, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_1, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_1, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_1, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_0, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_0, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_0, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_0, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_15, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_15, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_15, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_15, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_14, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_14, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_14, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_14, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_13, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_13, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_13, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_13, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_12, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_12, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_12, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_12, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_11, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_11, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_11, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_11, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_10, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_10, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_10, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_10, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_9, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_9, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_9, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_9, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_8, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_8, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_8, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_8, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_7, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_7, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_7, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_7, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_6, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_6, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_6, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_6, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_5, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_5, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_5, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_5, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_4, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_4, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_4, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_4, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_3, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_3, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_3, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_3, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_2, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_2, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_2, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_2, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_1, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_1, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_1, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_1, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_0, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_0, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_0, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_0, 0:0:0, 0:0:0);
+
+endspecify
+`endif
 endmodule
