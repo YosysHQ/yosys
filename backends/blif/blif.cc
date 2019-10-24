@@ -31,6 +31,52 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+enum class gate_type_t {
+	G_NONE,
+	G_FF,
+	G_BUF,
+	G_NOT,
+	G_AND,
+	G_NAND,
+	G_OR,
+	G_NOR,
+	G_XOR,
+	G_XNOR,
+	G_ANDNOT,
+	G_ORNOT,
+	G_MUX,
+	G_AOI3,
+	G_OAI3,
+	G_AOI4,
+	G_OAI4
+};
+
+#define G(_name) gate_type_t::G_ ## _name
+
+struct gate_t
+{
+	int id;
+	gate_type_t type;
+	int in1, in2, in3, in4;
+	bool is_port;
+	RTLIL::SigBit bit;
+	RTLIL::State init;
+};
+
+bool markgroups;
+int map_autoidx;
+SigMap assign_map;
+RTLIL::Module *module;
+std::vector<gate_t> signal_list;
+std::map<RTLIL::SigBit, int> signal_map;
+std::map<RTLIL::SigBit, RTLIL::State> signal_init;
+pool<std::string> enabled_gates;
+bool recover_init;
+
+bool clk_polarity, en_polarity;
+RTLIL::SigSpec clk_sig, en_sig;
+dict<int, std::string> pi_map, po_map;
+
 struct BlifDumperConfig
 {
 	bool icells_mode;
@@ -53,6 +99,528 @@ struct BlifDumperConfig
 			cname_mode(false), iname_mode(false), param_mode(false), attr_mode(false), iattr_mode(false),
 			blackbox_mode(false), noalias_mode(false) { }
 };
+
+int map_signal(RTLIL::SigBit bit, gate_type_t gate_type = G(NONE), int in1 = -1, int in2 = -1, int in3 = -1, int in4 = -1)
+{
+	assign_map.apply(bit);
+
+	if (signal_map.count(bit) == 0) {
+		gate_t gate;
+		gate.id = signal_list.size();
+		gate.type = G(NONE);
+		gate.in1 = -1;
+		gate.in2 = -1;
+		gate.in3 = -1;
+		gate.in4 = -1;
+		gate.is_port = false;
+		gate.bit = bit;
+		if (signal_init.count(bit))
+			gate.init = signal_init.at(bit);
+		else
+			gate.init = State::Sx;
+		signal_list.push_back(gate);
+		signal_map[bit] = gate.id;
+	}
+
+	gate_t &gate = signal_list[signal_map[bit]];
+
+	if (gate_type != G(NONE))
+		gate.type = gate_type;
+	if (in1 >= 0)
+		gate.in1 = in1;
+	if (in2 >= 0)
+		gate.in2 = in2;
+	if (in3 >= 0)
+		gate.in3 = in3;
+	if (in4 >= 0)
+		gate.in4 = in4;
+
+	return gate.id;
+}
+
+void mark_port(RTLIL::SigSpec sig)
+{
+	for (auto &bit : assign_map(sig))
+		if (bit.wire != NULL && signal_map.count(bit) > 0)
+			signal_list[signal_map[bit]].is_port = true;
+}
+
+void extract_cell(RTLIL::Cell *cell)
+{
+	if (cell->type.in("$_DFF_N_", "$_DFF_P_", "$dff"))
+	{
+		std::cout << "Type is DFF_N or DFF_P\n";
+		if (GetSize(en_sig) != 0)
+			return;
+		std::cout << "about to goto\n";
+		goto matching_dff;
+	}
+
+	if (cell->type.in("$_DFFE_NN_", "$_DFFE_NP_", "$_DFFE_PN_", "$_DFFE_PP_"))
+	{
+		std::cout << "Type is DFFE_NN or DFFE_NP or DFFE_PN or DFFE_PP\n";
+		if (clk_polarity != (cell->type == "$_DFFE_PN_" || cell->type == "$_DFFE_PP_"))
+			return;
+		if (en_polarity != (cell->type == "$_DFFE_NP_" || cell->type == "$_DFFE_PP_"))
+			return;
+		if (clk_sig != assign_map(cell->getPort("\\C")))
+			return;
+		if (en_sig != assign_map(cell->getPort("\\E")))
+			return;
+		goto matching_dff;
+	}
+
+	if (0) {
+	matching_dff:
+		RTLIL::SigSpec sig_d = cell->getPort("\\D");
+		RTLIL::SigSpec sig_q = cell->getPort("\\Q");
+
+		
+		for (auto &c : sig_q.chunks())
+			if (c.wire != NULL)
+				c.wire->attributes["\\keep"] = 1;
+
+		assign_map.apply(sig_d);
+		assign_map.apply(sig_q);
+
+		map_signal(sig_q, G(FF), map_signal(sig_d));
+
+		module->remove(cell);
+		return;
+	}
+
+	if (cell->type.in("$_BUF_", "$_NOT_"))
+	{
+		RTLIL::SigSpec sig_a = cell->getPort("\\A");
+		RTLIL::SigSpec sig_y = cell->getPort("\\Y");
+
+		assign_map.apply(sig_a);
+		assign_map.apply(sig_y);
+
+		map_signal(sig_y, cell->type == "$_BUF_" ? G(BUF) : G(NOT), map_signal(sig_a));
+
+		module->remove(cell);
+		return;
+	}
+
+	if (cell->type.in("$_AND_", "$_NAND_", "$_OR_", "$_NOR_", "$_XOR_", "$_XNOR_", "$_ANDNOT_", "$_ORNOT_"))
+	{
+		RTLIL::SigSpec sig_a = cell->getPort("\\A");
+		RTLIL::SigSpec sig_b = cell->getPort("\\B");
+		RTLIL::SigSpec sig_y = cell->getPort("\\Y");
+
+		assign_map.apply(sig_a);
+		assign_map.apply(sig_b);
+		assign_map.apply(sig_y);
+
+		int mapped_a = map_signal(sig_a);
+		int mapped_b = map_signal(sig_b);
+
+		if (cell->type == "$_AND_")
+			map_signal(sig_y, G(AND), mapped_a, mapped_b);
+		else if (cell->type == "$_NAND_")
+			map_signal(sig_y, G(NAND), mapped_a, mapped_b);
+		else if (cell->type == "$_OR_")
+			map_signal(sig_y, G(OR), mapped_a, mapped_b);
+		else if (cell->type == "$_NOR_")
+			map_signal(sig_y, G(NOR), mapped_a, mapped_b);
+		else if (cell->type == "$_XOR_")
+			map_signal(sig_y, G(XOR), mapped_a, mapped_b);
+		else if (cell->type == "$_XNOR_")
+			map_signal(sig_y, G(XNOR), mapped_a, mapped_b);
+		else if (cell->type == "$_ANDNOT_")
+			map_signal(sig_y, G(ANDNOT), mapped_a, mapped_b);
+		else if (cell->type == "$_ORNOT_")
+			map_signal(sig_y, G(ORNOT), mapped_a, mapped_b);
+		else
+			log_abort();
+
+		module->remove(cell);
+		return;
+	}
+
+	if (cell->type == "$_MUX_")
+	{
+		RTLIL::SigSpec sig_a = cell->getPort("\\A");
+		RTLIL::SigSpec sig_b = cell->getPort("\\B");
+		RTLIL::SigSpec sig_s = cell->getPort("\\S");
+		RTLIL::SigSpec sig_y = cell->getPort("\\Y");
+
+		assign_map.apply(sig_a);
+		assign_map.apply(sig_b);
+		assign_map.apply(sig_s);
+		assign_map.apply(sig_y);
+
+		int mapped_a = map_signal(sig_a);
+		int mapped_b = map_signal(sig_b);
+		int mapped_s = map_signal(sig_s);
+
+		map_signal(sig_y, G(MUX), mapped_a, mapped_b, mapped_s);
+
+		module->remove(cell);
+		return;
+	}
+
+	if (cell->type.in("$_AOI3_", "$_OAI3_"))
+	{
+		RTLIL::SigSpec sig_a = cell->getPort("\\A");
+		RTLIL::SigSpec sig_b = cell->getPort("\\B");
+		RTLIL::SigSpec sig_c = cell->getPort("\\C");
+		RTLIL::SigSpec sig_y = cell->getPort("\\Y");
+
+		assign_map.apply(sig_a);
+		assign_map.apply(sig_b);
+		assign_map.apply(sig_c);
+		assign_map.apply(sig_y);
+
+		int mapped_a = map_signal(sig_a);
+		int mapped_b = map_signal(sig_b);
+		int mapped_c = map_signal(sig_c);
+
+		map_signal(sig_y, cell->type == "$_AOI3_" ? G(AOI3) : G(OAI3), mapped_a, mapped_b, mapped_c);
+
+		module->remove(cell);
+		return;
+	}
+
+	if (cell->type.in("$_AOI4_", "$_OAI4_"))
+	{
+		RTLIL::SigSpec sig_a = cell->getPort("\\A");
+		RTLIL::SigSpec sig_b = cell->getPort("\\B");
+		RTLIL::SigSpec sig_c = cell->getPort("\\C");
+		RTLIL::SigSpec sig_d = cell->getPort("\\D");
+		RTLIL::SigSpec sig_y = cell->getPort("\\Y");
+
+		assign_map.apply(sig_a);
+		assign_map.apply(sig_b);
+		assign_map.apply(sig_c);
+		assign_map.apply(sig_d);
+		assign_map.apply(sig_y);
+
+		int mapped_a = map_signal(sig_a);
+		int mapped_b = map_signal(sig_b);
+		int mapped_c = map_signal(sig_c);
+		int mapped_d = map_signal(sig_d);
+
+		map_signal(sig_y, cell->type == "$_AOI4_" ? G(AOI4) : G(OAI4), mapped_a, mapped_b, mapped_c, mapped_d);
+
+		module->remove(cell);
+		return;
+	}
+}
+
+void dump_loop_graph(FILE *f, int &nr, std::map<int, std::set<int>> &edges, std::set<int> &workpool, std::vector<int> &in_counts)
+{
+	if (f == NULL)
+		return;
+
+	log("Dumping loop state graph to slide %d.\n", ++nr);
+
+	fprintf(f, "digraph \"slide%d\" {\n", nr);
+	fprintf(f, "  label=\"slide%d\";\n", nr);
+	fprintf(f, "  rankdir=\"TD\";\n");
+
+	std::set<int> nodes;
+	for (auto &e : edges) {
+		nodes.insert(e.first);
+		for (auto n : e.second)
+			nodes.insert(n);
+	}
+
+	for (auto n : nodes)
+		fprintf(f, "  ys__n%d [label=\"%s\\nid=%d, count=%d\"%s];\n", n, log_signal(signal_list[n].bit),
+				n, in_counts[n], workpool.count(n) ? ", shape=box" : "");
+
+	for (auto &e : edges)
+	for (auto n : e.second)
+		fprintf(f, "  ys__n%d -> ys__n%d;\n", e.first, n);
+
+	fprintf(f, "}\n");
+}
+
+void handle_loops()
+{
+	// http://en.wikipedia.org/wiki/Topological_sorting
+	// (Kahn, Arthur B. (1962), "Topological sorting of large networks")
+
+	std::map<int, std::set<int>> edges;
+	std::vector<int> in_edges_count(signal_list.size());
+	std::set<int> workpool;
+
+	FILE *dot_f = NULL;
+	int dot_nr = 0;
+
+	// uncomment for troubleshooting the loop detection code
+	// dot_f = fopen("test.dot", "w");
+
+	for (auto &g : signal_list) {
+		if (g.type == G(NONE) || g.type == G(FF)) {
+			workpool.insert(g.id);
+		} else {
+			if (g.in1 >= 0) {
+				edges[g.in1].insert(g.id);
+				in_edges_count[g.id]++;
+			}
+			if (g.in2 >= 0 && g.in2 != g.in1) {
+				edges[g.in2].insert(g.id);
+				in_edges_count[g.id]++;
+			}
+			if (g.in3 >= 0 && g.in3 != g.in2 && g.in3 != g.in1) {
+				edges[g.in3].insert(g.id);
+				in_edges_count[g.id]++;
+			}
+			if (g.in4 >= 0 && g.in4 != g.in3 && g.in4 != g.in2 && g.in4 != g.in1) {
+				edges[g.in4].insert(g.id);
+				in_edges_count[g.id]++;
+			}
+		}
+	}
+
+	dump_loop_graph(dot_f, dot_nr, edges, workpool, in_edges_count);
+
+	while (workpool.size() > 0)
+	{
+		int id = *workpool.begin();
+		workpool.erase(id);
+
+		// log("Removing non-loop node %d from graph: %s\n", id, log_signal(signal_list[id].bit));
+
+		for (int id2 : edges[id]) {
+			log_assert(in_edges_count[id2] > 0);
+			if (--in_edges_count[id2] == 0)
+				workpool.insert(id2);
+		}
+		edges.erase(id);
+
+		dump_loop_graph(dot_f, dot_nr, edges, workpool, in_edges_count);
+
+		while (workpool.size() == 0)
+		{
+			if (edges.size() == 0)
+				break;
+
+			int id1 = edges.begin()->first;
+
+			for (auto &edge_it : edges) {
+				int id2 = edge_it.first;
+				RTLIL::Wire *w1 = signal_list[id1].bit.wire;
+				RTLIL::Wire *w2 = signal_list[id2].bit.wire;
+				if (w1 == NULL)
+					id1 = id2;
+				else if (w2 == NULL)
+					continue;
+				else if (w1->name[0] == '$' && w2->name[0] == '\\')
+					id1 = id2;
+				else if (w1->name[0] == '\\' && w2->name[0] == '$')
+					continue;
+				else if (edges[id1].size() < edges[id2].size())
+					id1 = id2;
+				else if (edges[id1].size() > edges[id2].size())
+					continue;
+				else if (w2->name.str() < w1->name.str())
+					id1 = id2;
+			}
+
+			if (edges[id1].size() == 0) {
+				edges.erase(id1);
+				continue;
+			}
+
+			log_assert(signal_list[id1].bit.wire != NULL);
+
+			std::stringstream sstr;
+			sstr << "$abcloop$" << (autoidx++);
+			RTLIL::Wire *wire = module->addWire(sstr.str());
+
+			bool first_line = true;
+			for (int id2 : edges[id1]) {
+				if (first_line)
+					log("Breaking loop using new signal %s: %s -> %s\n", log_signal(RTLIL::SigSpec(wire)),
+							log_signal(signal_list[id1].bit), log_signal(signal_list[id2].bit));
+				else
+					log("                               %*s  %s -> %s\n", int(strlen(log_signal(RTLIL::SigSpec(wire)))), "",
+							log_signal(signal_list[id1].bit), log_signal(signal_list[id2].bit));
+				first_line = false;
+			}
+
+			int id3 = map_signal(RTLIL::SigSpec(wire));
+			signal_list[id1].is_port = true;
+			signal_list[id3].is_port = true;
+			log_assert(id3 == int(in_edges_count.size()));
+			in_edges_count.push_back(0);
+			workpool.insert(id3);
+
+			for (int id2 : edges[id1]) {
+				if (signal_list[id2].in1 == id1)
+					signal_list[id2].in1 = id3;
+				if (signal_list[id2].in2 == id1)
+					signal_list[id2].in2 = id3;
+				if (signal_list[id2].in3 == id1)
+					signal_list[id2].in3 = id3;
+				if (signal_list[id2].in4 == id1)
+					signal_list[id2].in4 = id3;
+			}
+			edges[id1].swap(edges[id3]);
+
+			module->connect(RTLIL::SigSig(signal_list[id3].bit, signal_list[id1].bit));
+			dump_loop_graph(dot_f, dot_nr, edges, workpool, in_edges_count);
+		}
+	}
+
+	if (dot_f != NULL)
+		fclose(dot_f);
+}
+
+void blif_writer_module(std::ostream &f, RTLIL::Module *current_module, RTLIL::Design *design,
+		const std::vector<RTLIL::Cell*> &cells)
+{
+	module = current_module;
+	map_autoidx = autoidx++;
+
+	signal_map.clear();
+	signal_list.clear();
+	pi_map.clear();
+	po_map.clear();
+	recover_init = false;
+
+	for (auto c : cells)
+		extract_cell(c);
+
+	for (auto &wire_it : module->wires_) {
+		if (wire_it.second->port_id > 0 || wire_it.second->get_bool_attribute("\\keep"))
+			mark_port(RTLIL::SigSpec(wire_it.second));
+	}
+
+	for (auto &cell_it : module->cells_)
+	for (auto &port_it : cell_it.second->connections())
+		mark_port(port_it.second);
+
+	if (clk_sig.size() != 0)
+		mark_port(clk_sig);
+
+	if (en_sig.size() != 0)
+		mark_port(en_sig);
+
+	handle_loops();
+
+	dict<int, std::string> node_names;
+
+	f << stringf(".model top\n");
+
+	for (auto &si : signal_list){
+		
+		std::string name = log_signal(si.bit);
+		// Remove beginning slash and any whitespace
+		name.erase(0,1);
+		name.erase(remove(name.begin(), name.end(), ' '), name.end());
+		node_names[si.id] = name;
+	}
+
+	int count_input = 0;
+	f << stringf(".inputs");
+	for (auto &si : signal_list) {
+		if (!si.is_port || si.type != G(NONE))
+			continue;
+		f << stringf(" %s", node_names[si.id].c_str());
+		pi_map[count_input++] = log_signal(si.bit);
+	}
+	if (count_input == 0)
+		f << stringf(" dummy_input\n");
+	f << stringf("\n");
+
+	int count_output = 0;
+	f << stringf(".outputs");
+	for (auto &si : signal_list) {
+		if (!si.is_port || si.type == G(NONE) || si.type == G(FF))
+			continue;
+		f << stringf(" %s", node_names[si.id].c_str());
+		po_map[count_output++] = log_signal(si.bit);
+	}
+	f << stringf("\n");
+
+	for (auto &si : signal_list) {
+		if (si.bit.wire == NULL) {
+			f << stringf(".names %s\n", node_names[si.id].c_str());
+			if (si.bit == RTLIL::State::S1)
+				f << stringf("1\n");
+		}
+	}
+
+	int count_gates = 0;
+	for (auto &si : signal_list) {
+		if (si.type == G(BUF)) {
+			f << stringf(".names %s %s\n", node_names[si.in1].c_str(), node_names[si.id].c_str());
+			f << stringf("1 1\n");
+		} else if (si.type == G(NOT)) {
+			f << stringf(".names %s %s\n", node_names[si.in1].c_str(), node_names[si.id].c_str());
+			f << stringf("0 1\n");
+		} else if (si.type == G(AND)) {
+			f << stringf(".names %s %s %s\n", node_names[si.in1].c_str(), node_names[si.in2].c_str(), node_names[si.id].c_str());
+			f << stringf("11 1\n");
+		} else if (si.type == G(NAND)) {
+			f << stringf(".names %s %s %s\n", node_names[si.in1].c_str(), node_names[si.in2].c_str(), node_names[si.id].c_str());
+			f << stringf("0- 1\n");
+			f << stringf("-0 1\n");
+		} else if (si.type == G(OR)) {
+			f << stringf(".names %s %s %s\n", node_names[si.in1].c_str(), node_names[si.in2].c_str(), node_names[si.id].c_str());
+			f << stringf("-1 1\n");
+			f << stringf("1- 1\n");
+		} else if (si.type == G(NOR)) {
+			f << stringf(".names %s %s %s\n", node_names[si.in1].c_str(), node_names[si.in2].c_str(), node_names[si.id].c_str());
+			f << stringf("00 1\n");
+		} else if (si.type == G(XOR)) {
+			f << stringf(".names %s %s %s\n", node_names[si.in1].c_str(), node_names[si.in2].c_str(), node_names[si.id].c_str());
+			f << stringf("01 1\n");
+			f << stringf("10 1\n");
+		} else if (si.type == G(XNOR)) {
+			f << stringf(".names %s %s %s\n", node_names[si.in1].c_str(), node_names[si.in2].c_str(), node_names[si.id].c_str());
+			f << stringf("00 1\n");
+			f << stringf("11 1\n");
+		} else if (si.type == G(ANDNOT)) {
+			f << stringf(".names %s %s %s\n", node_names[si.in1].c_str(), node_names[si.in2].c_str(), node_names[si.id].c_str());
+			f << stringf("10 1\n");
+		} else if (si.type == G(ORNOT)) {
+			f << stringf(".names %s %s %s\n", node_names[si.in1].c_str(), node_names[si.in2].c_str(), node_names[si.id].c_str());
+			f << stringf("1- 1\n");
+			f << stringf("-0 1\n");
+		} else if (si.type == G(MUX)) {
+			f << stringf(".names %s %s %s %s\n", node_names[si.in1].c_str(), node_names[si.in2].c_str(), node_names[si.in3].c_str(), node_names[si.id].c_str());
+			f << stringf("1-0 1\n");
+			f << stringf("-11 1\n");
+		} else if (si.type == G(AOI3)) {
+			f << stringf(".names %s %s %s %s\n", node_names[si.in1].c_str(), node_names[si.in2].c_str(), node_names[si.in3].c_str(), node_names[si.id].c_str());
+			f << stringf("-00 1\n");
+			f << stringf("0-0 1\n");
+		} else if (si.type == G(OAI3)) {
+			f << stringf(".names %s %s %s %s\n", node_names[si.in1].c_str(), node_names[si.in2].c_str(), node_names[si.in3].c_str(), node_names[si.id].c_str());
+			f << stringf("00- 1\n");
+			f << stringf("--0 1\n");
+		} else if (si.type == G(AOI4)) {
+			f << stringf(".names %s %s %s %s %s\n", node_names[si.in1].c_str(), node_names[si.in2].c_str(), node_names[si.in3].c_str(), node_names[si.in4].c_str(), node_names[si.id].c_str());
+			f << stringf("-0-0 1\n");
+			f << stringf("-00- 1\n");
+			f << stringf("0--0 1\n");
+			f << stringf("0-0- 1\n");
+		} else if (si.type == G(OAI4)) {
+			f << stringf(".names %s %s %s %s %s\n", node_names[si.in1].c_str(), node_names[si.in2].c_str(), node_names[si.in3].c_str(), node_names[si.in4].c_str(), node_names[si.id].c_str());
+			f << stringf("00-- 1\n");
+			f << stringf("--00 1\n");
+		} else if (si.type == G(FF)) {
+			if (si.init == State::S0 || si.init == State::S1) {
+				f << stringf(".latch %s %s %d\n", node_names[si.in1].c_str(), node_names[si.id].c_str(), si.init == State::S1 ? 1 : 0);
+				recover_init = true;
+			} else
+				f << stringf(".latch %s %s 2\n", node_names[si.in1].c_str(), node_names[si.id].c_str());
+		} else if (si.type != G(NONE))
+			log_abort();
+		if (si.type != G(NONE))
+			count_gates++;
+	}
+
+	f << stringf(".end\n");
+	log_pop();
+
+}
 
 struct BlifDumper
 {
@@ -327,13 +895,6 @@ struct BlifDumper
 				goto internal_cell;
 			}
 
-			if (!config->icells_mode && cell->type == "$_NMUX_") {
-				f << stringf(".names %s %s %s %s\n0-0 1\n-01 1\n",
-						cstr(cell->getPort("\\A")), cstr(cell->getPort("\\B")),
-						cstr(cell->getPort("\\S")), cstr(cell->getPort("\\Y")));
-				goto internal_cell;
-			}
-
 			if (!config->icells_mode && cell->type == "$_FF_") {
 				f << stringf(".latch %s %s%s\n", cstr(cell->getPort("\\D")), cstr(cell->getPort("\\Q")),
 						cstr_init(cell->getPort("\\Q")));
@@ -377,7 +938,7 @@ struct BlifDumper
 				f << stringf("\n");
 				RTLIL::SigSpec mask = cell->parameters.at("\\LUT");
 				for (int i = 0; i < (1 << width); i++)
-					if (mask[i] == State::S1) {
+					if (mask[i] == RTLIL::S1) {
 						for (int j = width-1; j >= 0; j--) {
 							f << ((i>>j)&1 ? '1' : '0');
 						}
@@ -554,6 +1115,9 @@ struct BlifBackend : public Backend {
 		log("    -impltf\n");
 		log("        do not write definitions for the $true, $false and $undef wires.\n");
 		log("\n");
+		log("    -flatten\n");
+		log("        write design in BLIF format without the use of the .subckt or .gate functions.\n");
+		log("\n");
 	}
 	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
@@ -562,6 +1126,7 @@ struct BlifBackend : public Backend {
 		std::string true_type, true_out;
 		std::string false_type, false_out;
 		BlifDumperConfig config;
+		bool flatten = false;
 
 		log_header(design, "Executing BLIF backend.\n");
 
@@ -644,6 +1209,10 @@ struct BlifBackend : public Backend {
 				config.noalias_mode = true;
 				continue;
 			}
+			if (args[argidx] == "-flatten") {
+				flatten = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(f, filename, args, argidx);
@@ -681,8 +1250,12 @@ struct BlifBackend : public Backend {
 		if (!top_module_name.empty())
 			log_error("Can't find top module `%s'!\n", top_module_name.c_str());
 
-		for (auto module : mod_list)
-			BlifDumper::dump(*f, module, design, config);
+		for (auto module : mod_list){
+			if (flatten)
+				blif_writer_module(*f, module, design, module->selected_cells());
+			else
+				BlifDumper::dump(*f, module, design, config);
+		}
 	}
 } BlifBackend;
 
