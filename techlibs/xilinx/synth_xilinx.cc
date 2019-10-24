@@ -93,6 +93,9 @@ struct SynthXilinxPass : public ScriptPass
 		log("    -noclkbuf\n");
 		log("        disable automatic clock buffer insertion\n");
 		log("\n");
+		log("    -uram\n");
+		log("        infer URAM288s for large memories (xcup only)\n");
+		log("\n");
 		log("    -widemux <int>\n");
 		log("        enable inference of hard multiplexer resources (MUXF[78]) for muxes at or\n");
 		log("        above this number of inputs (minimum value 2, recommended value >= 5).\n");
@@ -119,7 +122,7 @@ struct SynthXilinxPass : public ScriptPass
 	}
 
 	std::string top_opt, edif_file, blif_file, family;
-	bool flatten, retime, vpr, ise, iopad, noiopad, noclkbuf, nobram, nolutram, nosrl, nocarry, nowidelut, nodsp, abc9;
+	bool flatten, retime, vpr, ise, iopad, noiopad, noclkbuf, nobram, nolutram, nosrl, nocarry, nowidelut, nodsp, uram, abc9;
 	bool flatten_before_abc;
 	int widemux;
 
@@ -143,6 +146,7 @@ struct SynthXilinxPass : public ScriptPass
 		nocarry = false;
 		nowidelut = false;
 		nodsp = false;
+		uram = false;
 		abc9 = false;
 		flatten_before_abc = false;
 		widemux = 0;
@@ -248,6 +252,10 @@ struct SynthXilinxPass : public ScriptPass
 				nodsp = true;
 				continue;
 			}
+			if (args[argidx] == "-uram") {
+				uram = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -305,6 +313,8 @@ struct SynthXilinxPass : public ScriptPass
 				run("read_verilog -lib +/xilinx/xc6s_brams_bb.v");
 			} else if (family == "xc6v" || family == "xc7") {
 				run("read_verilog -lib +/xilinx/xc7_brams_bb.v");
+			} else if (family == "xcu" || family == "xcup") {
+				run("read_verilog -lib +/xilinx/xcu_brams_bb.v");
 			}
 
 			run(stringf("hierarchy -check %s", top_opt.c_str()));
@@ -408,6 +418,20 @@ struct SynthXilinxPass : public ScriptPass
 			run("opt_clean");
 		}
 
+		if (check_label("map_uram", "(only if '-uram')")) {
+			if (help_mode) {
+				run("memory_bram -rules +/xilinx/{family}_urams.txt");
+				run("techmap -map +/xilinx/{family}_urams_map.v");
+			} else if (uram) {
+				if (family == "xcup") {
+					run("memory_bram -rules +/xilinx/xcup_urams.txt");
+					run("techmap -map +/xilinx/xcup_urams_map.v");
+				} else {
+					log_warning("UltraRAM inference not supported for family %s.\n", family.c_str());
+				}
+			}
+		}
+
 		if (check_label("map_bram", "(skip if '-nobram')")) {
 			if (help_mode) {
 				run("memory_bram -rules +/xilinx/{family}_brams.txt");
@@ -417,8 +441,11 @@ struct SynthXilinxPass : public ScriptPass
 					run("memory_bram -rules +/xilinx/xc6s_brams.txt");
 					run("techmap -map +/xilinx/xc6s_brams_map.v");
 				} else if (family == "xc6v" || family == "xc7") {
-					run("memory_bram -rules +/xilinx/xc7_brams.txt");
+					run("memory_bram -rules +/xilinx/xc7_xcu_brams.txt");
 					run("techmap -map +/xilinx/xc7_brams_map.v");
+				} else if (family == "xcu" || family == "xcup") {
+					run("memory_bram -rules +/xilinx/xc7_xcu_brams.txt");
+					run("techmap -map +/xilinx/xcu_brams_map.v");					
 				} else {
 					log_warning("Block RAM inference not yet supported for family %s.\n", family.c_str());
 				}
