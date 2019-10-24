@@ -1939,10 +1939,16 @@ struct VerificPass : public Pass {
 		log("Load the specified VHDL files into Verific.\n");
 		log("\n");
 		log("\n");
-		log("    verific -work <libname> {-sv|-vhdl|...} <hdl-file>\n");
+		log("    verific [-work <libname>] {-sv|-vhdl|...} <hdl-file>\n");
 		log("\n");
 		log("Load the specified Verilog/SystemVerilog/VHDL file into the specified library.\n");
 		log("(default library when -work is not present: \"work\")\n");
+		log("\n");
+		log("\n");
+		log("    verific [-L <libname>] {-sv|-vhdl|...} <hdl-file>\n");
+		log("\n");
+		log("Look up external definitions in the specified library.\n");
+		log("(-L may be used more than once)\n");
 		log("\n");
 		log("\n");
 		log("    verific -vlog-incdir <directory>..\n");
@@ -2158,10 +2164,15 @@ struct VerificPass : public Pass {
 			goto check_error;
 		}
 
+		veri_file::RemoveAllLOptions();
 		for (; argidx < GetSize(args); argidx++)
 		{
 			if (args[argidx] == "-work" && argidx+1 < GetSize(args)) {
 				work = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-L" && argidx+1 < GetSize(args)) {
+				veri_file::AddLOption(args[++argidx].c_str());
 				continue;
 			}
 			break;
