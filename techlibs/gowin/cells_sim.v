@@ -280,16 +280,16 @@ input CIN;
 output SUM;
 output COUT;
 
-parameter ADD = 0;
-parameter SUB = 1;
-parameter ADDSUB = 2;
-parameter NE = 3;
-parameter GE = 4;
-parameter LE = 5;
-parameter CUP = 6;
-parameter CDN = 7;
-parameter CUPCDN = 8;
-parameter MULT = 9;
+localparam ADD = 0;
+localparam SUB = 1;
+localparam ADDSUB = 2;
+localparam NE = 3;
+localparam GE = 4;
+localparam LE = 5;
+localparam CUP = 6;
+localparam CDN = 7;
+localparam CUPCDN = 8;
+localparam MULT = 9;
 
 parameter ALU_MODE = 0;
 
@@ -298,7 +298,7 @@ reg S, C;
 assign SUM = S ^ CIN;
 assign COUT = S? CIN : C;
 
-always @(I0, I1, I3,CIN) begin
+always @* begin
 	case (ALU_MODE)
 		ADD: begin
 			S = I0 ^ I1;
