@@ -787,7 +787,18 @@ void VerificImporter::merge_past_ffs(pool<RTLIL::Cell*> &candidates)
 void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*> &nl_todo)
 {
 	std::string netlist_name = nl->GetAtt(" \\top") ? nl->CellBaseName() : nl->Owner()->Name();
-	std::string module_name = nl->IsOperator() ? "$verific$" + netlist_name : RTLIL::escape_id(netlist_name);
+	std::string module_name = netlist_name;
+
+	if (nl->IsOperator()) {
+		module_name = "$verific$" + module_name;
+	} else {
+		if (*nl->Name()) {
+			module_name += "(";
+			module_name += nl->Name();
+			module_name += ")";
+		}
+		module_name = "\\" + module_name;
+	}
 
 	netlist = nl;
 
@@ -1396,8 +1407,20 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 	import_verific_cells:
 		nl_todo.insert(inst->View());
 
-		RTLIL::Cell *cell = module->addCell(inst_name, inst->IsOperator() ?
-				std::string("$verific$") + inst->View()->Owner()->Name() : RTLIL::escape_id(inst->View()->Owner()->Name()));
+		std::string inst_type = inst->View()->Owner()->Name();
+
+		if (inst->View()->IsOperator()) {
+			inst_type = "$verific$" + inst_type;
+		} else {
+			if (*inst->View()->Name()) {
+				inst_type += "(";
+				inst_type += inst->View()->Name();
+				inst_type += ")";
+			}
+			inst_type = "\\" + inst_type;
+		}
+
+		RTLIL::Cell *cell = module->addCell(inst_name, inst_type);
 
 		if (inst->IsPrimitive() && mode_keep)
 			cell->attributes["\\keep"] = 1;
