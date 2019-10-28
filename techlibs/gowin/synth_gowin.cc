@@ -230,7 +230,8 @@ struct SynthGowinPass : public ScriptPass
 			run("techmap -map +/gowin/cells_map.v");
 			run("setundef -undriven -params -zero");
 			run("hilomap -singleton -hicell VCC V -locell GND G");
-			run("iopadmap -bits -inpad IBUF O:I -outpad OBUF I:O, -toutpad TBUF OEN:I:O", "(unless -noiopads)");
+			run("iopadmap -bits -inpad IBUF O:I -outpad OBUF I:O "
+				"-toutpad TBUF OEN:I:O -tinoutpad IOBUF OEN:O:I:IO", "(unless -noiopads)");
 			run("dffinit  -ff DFF Q INIT");
 			run("clean");
 

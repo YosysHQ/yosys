@@ -308,6 +308,14 @@ module TBUF (O, I, OEN);
   assign O = OEN ? I : 1'bz;
 endmodule
 
+module IOBUF (O, IO, I, OEN);
+  input I,OEN;
+  output O;
+  inout IO;
+  assign IO = OEN ? I : 1'bz;
+  assign I = IO;
+endmodule
+
 module GSR (input GSRI);
 	wire GSRO = GSRI;
 endmodule
