@@ -109,12 +109,30 @@ module \$__GW1NR_SDP (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1EN);
 			.RESET_MODE("SYNC")
 		) _TECHMAP_REPLACE_ (
 			.CLKA(CLK2),   .CLKB(CLK3),
-			.WREA(A1EN),   .OCE(1'b0),
+			.WREA(|A1EN),   .OCE(1'b0),
 			.WREB(1'b0),   .CEB(B1EN), .CEA(1'b1),
 			.RESETA(1'b0), .RESETB(1'b0), .BLKSEL(3'b000),
 			.DI({{(32-CFG_DBITS){1'b0}}, A1DATA}),
 			.DO({open, B1DATA}),
-			.ADA({A1ADDR, {(12-CFG_ABITS){1'b0}}, 2'b11}),
+			.ADA({A1ADDR, {(12-CFG_ABITS){1'b0}}, A1EN}),
+			.ADB({B1ADDR, {(14-CFG_ABITS){1'b0}}})
+		);
+	end else if (CFG_DBITS <= 32) begin
+		SDP    #(
+      `include "bram_init_16.vh"
+			.READ_MODE(0),
+			.BIT_WIDTH_0(32),
+			.BIT_WIDTH_1(32),
+			.BLK_SEL(3'b000),
+			.RESET_MODE("SYNC")
+		) _TECHMAP_REPLACE_ (
+			.CLKA(CLK2),   .CLKB(CLK3),
+			.WREA(|A1EN),   .OCE(1'b0),
+			.WREB(1'b0),   .CEB(B1EN), .CEA(1'b1),
+			.RESETA(1'b0), .RESETB(1'b0), .BLKSEL(3'b000),
+			.DI(A1DATA),
+			.DO(B1DATA),
+			.ADA({A1ADDR, {(10-CFG_ABITS){1'b0}}, A1EN}),
 			.ADB({B1ADDR, {(14-CFG_ABITS){1'b0}}})
 		);
 	end else begin
