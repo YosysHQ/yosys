@@ -718,6 +718,7 @@ test: $(TARGETS) $(EXTRA_TARGETS)
 	+cd tests/arch/ecp5 && bash run-test.sh $(SEEDOPT)
 	+cd tests/arch/efinix && bash run-test.sh $(SEEDOPT)
 	+cd tests/arch/anlogic && bash run-test.sh $(SEEDOPT)
+	+cd tests/arch/gowin && bash run-test.sh $(SEEDOPT)
 	+cd tests/rpc && bash run-test.sh
 	@echo ""
 	@echo "  Passed \"make test\"."
