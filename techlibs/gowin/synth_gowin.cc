@@ -174,7 +174,7 @@ struct SynthGowinPass : public ScriptPass
 			run("synth -run coarse");
 		}
 		
-                if (!nobram && check_label("bram", "(skip if -nobram)"))
+		if (!nobram && check_label("bram", "(skip if -nobram)"))
 		{
 			run("memory_bram -rules +/gowin/bram.txt");
 			run("techmap -map +/gowin/brams_map.v -map +/gowin/cells_sim.v");
@@ -230,7 +230,7 @@ struct SynthGowinPass : public ScriptPass
 			run("techmap -map +/gowin/cells_map.v");
 			run("setundef -undriven -params -zero");
 			run("hilomap -singleton -hicell VCC V -locell GND G");
-			run("iopadmap -bits -inpad IBUF O:I -outpad OBUF I:O", "(unless -noiopads)");
+			run("iopadmap -bits -inpad IBUF O:I -outpad OBUF I:O, -toutpad TBUF OEN:I:O", "(unless -noiopads)");
 			run("dffinit  -ff DFF Q INIT");
 			run("clean");
 
