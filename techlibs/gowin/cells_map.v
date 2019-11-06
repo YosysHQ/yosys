@@ -104,27 +104,27 @@ module \$lut (A, Y);
     end else
     if (WIDTH == 5) begin
       wire f0, f1;
-      \$lut #(.LUT(LUT[15: 0]), .WIDTH(4)) lut0 (.A(A[1:4]), .Y(f0));
-      \$lut #(.LUT(LUT[31:16]), .WIDTH(4)) lut1 (.A(A[1:4]), .Y(f1));
-      MUX2_LUT5 mux5(.I0(f0), .I1(f1), .S0(A[0]), .O(Y));
+      \$lut #(.LUT(LUT[15: 0]), .WIDTH(4)) lut0 (.A(A[3:0]), .Y(f0));
+      \$lut #(.LUT(LUT[31:16]), .WIDTH(4)) lut1 (.A(A[3:0]), .Y(f1));
+      MUX2_LUT5 mux5(.I0(f0), .I1(f1), .S0(A[4]), .O(Y));
     end else
     if (WIDTH == 6) begin
       wire f0, f1;
-      \$lut #(.LUT(LUT[31: 0]), .WIDTH(5)) lut0 (.A(A[1:5]), .Y(f0));
-      \$lut #(.LUT(LUT[63:32]), .WIDTH(5)) lut1 (.A(A[1:5]), .Y(f1));
-      MUX2_LUT6 mux6(.I0(f0), .I1(f1), .S0(A[0]), .O(Y));
+      \$lut #(.LUT(LUT[31: 0]), .WIDTH(5)) lut0 (.A(A[4:0]), .Y(f0));
+      \$lut #(.LUT(LUT[63:32]), .WIDTH(5)) lut1 (.A(A[4:0]), .Y(f1));
+      MUX2_LUT6 mux6(.I0(f0), .I1(f1), .S0(A[5]), .O(Y));
     end else
     if (WIDTH == 7) begin
       wire f0, f1;
-      \$lut #(.LUT(LUT[63: 0]), .WIDTH(6)) lut0 (.A(A[1:6]), .Y(f0));
-      \$lut #(.LUT(LUT[127:64]), .WIDTH(6)) lut1 (.A(A[1:6]), .Y(f1));
-      MUX2_LUT7 mux7(.I0(f0), .I1(f1), .S0(A[0]), .O(Y));
+      \$lut #(.LUT(LUT[63: 0]), .WIDTH(6)) lut0 (.A(A[5:0]), .Y(f0));
+      \$lut #(.LUT(LUT[127:64]), .WIDTH(6)) lut1 (.A(A[5:0]), .Y(f1));
+      MUX2_LUT7 mux7(.I0(f0), .I1(f1), .S0(A[6]), .O(Y));
     end else
     if (WIDTH == 8) begin
       wire f0, f1;
-      \$lut #(.LUT(LUT[127: 0]), .WIDTH(7)) lut0 (.A(A[1:7]), .Y(f0));
-      \$lut #(.LUT(LUT[255:128]), .WIDTH(7)) lut1 (.A(A[1:7]), .Y(f1));
-      MUX2_LUT8 mux8(.I0(f0), .I1(f1), .S0(A[0]), .O(Y));
+      \$lut #(.LUT(LUT[127: 0]), .WIDTH(7)) lut0 (.A(A[6:0]), .Y(f0));
+      \$lut #(.LUT(LUT[255:128]), .WIDTH(7)) lut1 (.A(A[6:0]), .Y(f1));
+      MUX2_LUT8 mux8(.I0(f0), .I1(f1), .S0(A[7]), .O(Y));
     end else begin
       wire _TECHMAP_FAIL_ = 1;
     end
