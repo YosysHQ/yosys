@@ -45,8 +45,10 @@
 #  include <unistd.h>
 #  include <dirent.h>
 #  include <sys/types.h>
-#  include <sys/wait.h>
 #  include <sys/stat.h>
+#  if !defined(YOSYS_DISABLE_SPAWN)
+#    include <sys/wait.h>
+#  endif
 #endif
 
 #if !defined(_WIN32) && defined(YOSYS_ENABLE_GLOB)
@@ -336,16 +338,13 @@ bool patmatch(const char *pattern, const char *string)
 	return false;
 }
 
+#if !defined(YOSYS_DISABLE_SPAWN)
 int run_command(const std::string &command, std::function<void(const std::string&)> process_line)
 {
 	if (!process_line)
 		return system(command.c_str());
 
-#ifdef EMSCRIPTEN
-	FILE *f = nullptr;
-#else
 	FILE *f = popen(command.c_str(), "r");
-#endif
 	if (f == nullptr)
 		return -1;
 
@@ -368,10 +367,16 @@ int run_command(const std::string &command, std::function<void(const std::string
 	return WEXITSTATUS(ret);
 #endif
 }
+#endif
 
 std::string make_temp_file(std::string template_str)
 {
-#ifdef _WIN32
+#if defined(__wasm)
+	size_t pos = template_str.rfind("XXXXXX");
+	log_assert(pos != std::string::npos);
+	static size_t index = 0;
+	template_str.replace(pos, 6, stringf("%06zu", index++));
+#elif defined(_WIN32)
 	if (template_str.rfind("/tmp/", 0) == 0) {
 #  ifdef __MINGW32__
 		char longpath[MAX_PATH + 1];
@@ -420,9 +425,13 @@ std::string make_temp_file(std::string template_str)
 
 std::string make_temp_dir(std::string template_str)
 {
-#ifdef _WIN32
+#if defined(_WIN32)
 	template_str = make_temp_file(template_str);
 	mkdir(template_str.c_str());
+	return template_str;
+#elif defined(__wasm)
+	template_str = make_temp_file(template_str);
+	mkdir(template_str.c_str(), 0777);
 	return template_str;
 #else
 #  ifndef NDEBUG
@@ -806,7 +815,7 @@ std::string proc_self_dirname()
 		path += char(shortpath[i]);
 	return path;
 }
-#elif defined(EMSCRIPTEN)
+#elif defined(EMSCRIPTEN) || defined(__wasm)
 std::string proc_self_dirname()
 {
 	return "/";
@@ -815,7 +824,7 @@ std::string proc_self_dirname()
 	#error "Don't know how to determine process executable base path!"
 #endif
 
-#ifdef EMSCRIPTEN
+#if defined(EMSCRIPTEN) || defined(__wasm)
 std::string proc_share_dirname()
 {
 	return "/share/";

@@ -57,7 +57,7 @@ passes/techmap/techmap.inc: techlibs/common/techmap.v
 
 passes/techmap/techmap.o: passes/techmap/techmap.inc
 
-ifneq ($(CONFIG),emcc)
+ifeq ($(DISABLE_SPAWN),0)
 TARGETS += $(PROGRAM_PREFIX)yosys-filterlib$(EXE)
 EXTRA_OBJS += passes/techmap/filterlib.o
 

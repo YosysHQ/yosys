@@ -16,4 +16,4 @@ patch -p0 < 00_PATCH_mkLit_default_arg.patch
 patch -p0 < 00_PATCH_remove_zlib.patch
 patch -p0 < 00_PATCH_no_fpu_control.patch
 patch -p0 < 00_PATCH_typofixes.patch
-
+patch -p0 < 00_PATCH_wasm.patch

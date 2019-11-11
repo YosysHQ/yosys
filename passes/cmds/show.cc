@@ -682,7 +682,7 @@ struct ShowPass : public Pass {
 		std::vector<std::pair<std::string, RTLIL::Selection>> color_selections;
 		std::vector<std::pair<std::string, RTLIL::Selection>> label_selections;
 
-#if defined(EMSCRIPTEN) || defined(_WIN32)
+#if defined(_WIN32) || defined(YOSYS_DISABLE_SPAWN)
 		std::string format = "dot";
 		std::string prefix = "show";
 #else
@@ -849,10 +849,15 @@ struct ShowPass : public Pass {
 			std::string cmd = stringf(DOT_CMD, format.c_str(), dot_file.c_str(), out_file.c_str(), out_file.c_str(), out_file.c_str());
 			#undef DOT_CMD
 			log("Exec: %s\n", cmd.c_str());
-			if (run_command(cmd) != 0)
-				log_cmd_error("Shell command failed!\n");
+			#if !defined(YOSYS_DISABLE_SPAWN)
+				if (run_command(cmd) != 0)
+					log_cmd_error("Shell command failed!\n");
+			#endif
 		}
 
+		#if defined(YOSYS_DISABLE_SPAWN)
+			log_assert(viewer_exe.empty() && !format.empty());
+		#else
 		if (!viewer_exe.empty()) {
 			#ifdef _WIN32
 				// system()/cmd.exe does not understand single quotes nor
@@ -876,6 +881,7 @@ struct ShowPass : public Pass {
 			if (run_command(cmd) != 0)
 				log_cmd_error("Shell command failed!\n");
 		}
+		#endif
 
 		if (flag_pause) {
 		#ifdef YOSYS_ENABLE_READLINE

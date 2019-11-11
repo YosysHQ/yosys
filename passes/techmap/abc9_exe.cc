@@ -420,11 +420,15 @@ struct Abc9ExePass : public Pass {
 		}
 
 		size_t argidx;
+#if defined(__wasm)
+		const char *pwd = ".";
+#else
 		char pwd [PATH_MAX];
 		if (!getcwd(pwd, sizeof(pwd))) {
 			log_cmd_error("getcwd failed: %s\n", strerror(errno));
 			log_abort();
 		}
+#endif
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			std::string arg = args[argidx];
 			if (arg == "-exe" && argidx+1 < args.size()) {

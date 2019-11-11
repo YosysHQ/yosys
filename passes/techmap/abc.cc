@@ -771,7 +771,10 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		if (abc_script[i] == ';' && abc_script[i+1] == ' ')
 			abc_script[i+1] = '\n';
 
-	FILE *f = fopen(stringf("%s/abc.script", tempdir_name.c_str()).c_str(), "wt");
+	std::string buffer = stringf("%s/abc.script", tempdir_name.c_str());
+	FILE *f = fopen(buffer.c_str(), "wt");
+	if (f == nullptr)
+		log_error("Opening %s for writing failed: %s\n", buffer.c_str(), strerror(errno));
 	fprintf(f, "%s\n", abc_script.c_str());
 	fclose(f);
 
@@ -807,7 +810,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 
 	handle_loops();
 
-	std::string buffer = stringf("%s/input.blif", tempdir_name.c_str());
+	buffer = stringf("%s/input.blif", tempdir_name.c_str());
 	f = fopen(buffer.c_str(), "wt");
 	if (f == nullptr)
 		log_error("Opening %s for writing failed: %s\n", buffer.c_str(), strerror(errno));
@@ -1541,11 +1544,15 @@ struct AbcPass : public Pass {
 
 		size_t argidx, g_argidx;
 		bool g_arg_from_cmd = false;
+#if defined(__wasm)
+		const char *pwd = ".";
+#else
 		char pwd [PATH_MAX];
 		if (!getcwd(pwd, sizeof(pwd))) {
 			log_cmd_error("getcwd failed: %s\n", strerror(errno));
 			log_abort();
 		}
+#endif
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			std::string arg = args[argidx];
 			if (arg == "-exe" && argidx+1 < args.size()) {

@@ -155,6 +155,19 @@ int yosys_history_offset = 0;
 std::string yosys_history_file;
 #endif
 
+#if defined(__wasm)
+extern "C" {
+	// FIXME: WASI does not currently support exceptions.
+	void* __cxa_allocate_exception(size_t thrown_size) throw() {
+		return malloc(thrown_size);
+	}
+	bool __cxa_uncaught_exception() throw();
+	void __cxa_throw(void* thrown_exception, struct std::type_info * tinfo, void (*dest)(void*)) {
+		std::terminate();
+	}
+}
+#endif
+
 void yosys_atexit()
 {
 #if defined(YOSYS_ENABLE_READLINE) || defined(YOSYS_ENABLE_EDITLINE)
@@ -587,9 +600,11 @@ int main(int argc, char **argv)
 			ru_buffer.ru_utime.tv_usec += ru_buffer_children.ru_utime.tv_usec;
 			ru_buffer.ru_stime.tv_sec += ru_buffer_children.ru_stime.tv_sec;
 			ru_buffer.ru_stime.tv_usec += ru_buffer_children.ru_stime.tv_usec;
+#if defined(__linux__) || defined(__FreeBSD__)
 			ru_buffer.ru_maxrss = std::max(ru_buffer.ru_maxrss, ru_buffer_children.ru_maxrss);
+#endif
 		}
-#  if defined(__linux__) || defined(__FreeBSD__)
+#if defined(__linux__) || defined(__FreeBSD__)
 		meminfo = stringf(", MEM: %.2f MB peak",
 				ru_buffer.ru_maxrss / 1024.0);
 #endif
