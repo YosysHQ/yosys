@@ -2,9 +2,11 @@ read_verilog ../common/fsm.v
 hierarchy -top fsm
 proc
 flatten
-#ERROR: Found 4 unproven $equiv cells in 'equiv_status -assert'.
-#equiv_opt -assert -map +/efinix/cells_sim.v synth_efinix # equivalency check
-equiv_opt -map +/efinix/cells_sim.v synth_efinix # equivalency check
+
+equiv_opt -run :prove -map +/efinix/cells_sim.v synth_efinix
+miter -equiv -make_assert -flatten gold gate miter
+sat -verify -prove-asserts -show-public -set-at 1 in_reset 1 -seq 20 -prove-skip 1 miter
+
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd fsm # Constrain all select calls below inside the top module
 
