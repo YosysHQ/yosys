@@ -22,6 +22,8 @@
 // are not always transparent or easy to change. Given that generated HDL code get be extremely large, it is
 // unwise to rely on those limits being large enough, and using byte-oriented sockets is guaranteed to work.
 
+#if !defined(__wasm)
+
 #ifndef _WIN32
 #include <unistd.h>
 #include <spawn.h>
@@ -593,3 +595,5 @@ cleanup_path:
 } RpcFrontend;
 
 YOSYS_NAMESPACE_END
+
+#endif

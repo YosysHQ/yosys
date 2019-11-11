@@ -155,6 +155,23 @@ int yosys_history_offset = 0;
 std::string yosys_history_file;
 #endif
 
+#if defined(__wasm)
+extern "C" {
+	// FIXME: WASI does not currently support exceptions.
+	void* __cxa_allocate_exception(size_t thrown_size) throw() {
+		return malloc(thrown_size);
+	}
+	bool __cxa_uncaught_exception() throw();
+	void __cxa_throw(void* thrown_exception, struct std::type_info * tinfo, void (*dest)(void*)) {
+		std::terminate();
+	}
+
+	// FIXME: these are called from abc, even if the system headers don't define them.
+	int system(const char *) { std::terminate(); }
+	int mkstemp(char *) { std::terminate(); }
+}
+#endif
+
 void yosys_atexit()
 {
 #if defined(YOSYS_ENABLE_READLINE) || defined(YOSYS_ENABLE_EDITLINE)

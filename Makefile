@@ -4,6 +4,7 @@ CONFIG := clang
 # CONFIG := gcc-4.8
 # CONFIG := afl-gcc
 # CONFIG := emcc
+# CONFIG := wasi
 # CONFIG := mxe
 # CONFIG := msys2
 # CONFIG := msys2-64
@@ -256,6 +257,32 @@ yosysjs-$(YOSYS_VER).zip: yosys.js viz.js misc/yosysjs/*
 
 yosys.html: misc/yosys.html
 	$(P) cp misc/yosys.html yosys.html
+
+else ifeq ($(CONFIG),wasi)
+ifeq ($(WASI_PREFIX),)
+CXX = clang
+LD = clang++
+AR = ar
+RANLIB = ranlib
+WASIFLAGS :=
+else
+CXX = $(WASI_PREFIX)/bin/clang
+LD = $(WASI_PREFIX)/bin/clang++
+AR = $(WASI_PREFIX)/bin/ar
+RANLIB = $(WASI_PREFIX)/bin/ranlib
+WASIFLAGS := --sysroot $(WASI_PREFIX)/share/wasi-sysroot
+endif
+CXXFLAGS := $(WASIFLAGS) -std=c++11 -Os $(CXXFLAGS)
+LDFLAGS := $(WASIFLAGS) $(LDFLAGS)
+ABCMKARGS += AR="$(AR)" RANLIB="$(RANLIB)"
+ABCMKARGS += ARCHFLAGS="$(WASIFLAGS) -DABC_USE_STDINT_H -DABC_NO_DYNAMIC_LINKING -DABC_NO_RLIMIT"
+ABCMKARGS += OPTFLAGS="-Os"
+EXE = .wasm
+
+ifeq ($(ENABLE_ABC),1)
+LINK_ABC := 1
+DISABLE_ABC_THREADS := 1
+endif
 
 else ifeq ($(CONFIG),mxe)
 PKG_CONFIG = /usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-pkg-config

@@ -45,8 +45,10 @@
 #  include <unistd.h>
 #  include <dirent.h>
 #  include <sys/types.h>
-#  include <sys/wait.h>
 #  include <sys/stat.h>
+#  if !defined(__wasm)
+#    include <sys/wait.h>
+#  endif
 #endif
 
 #if !defined(_WIN32) && defined(YOSYS_ENABLE_GLOB)
@@ -338,6 +340,11 @@ bool patmatch(const char *pattern, const char *string)
 
 int run_command(const std::string &command, std::function<void(const std::string&)> process_line)
 {
+#if defined(__wasm)
+	(void)command;
+	(void)process_line;
+	return -1;
+#else
 	if (!process_line)
 		return system(command.c_str());
 
@@ -363,10 +370,15 @@ int run_command(const std::string &command, std::function<void(const std::string
 #else
 	return WEXITSTATUS(ret);
 #endif
+#endif
 }
 
 std::string make_temp_file(std::string template_str)
 {
+#if defined(__wasm)
+	(void)template_str;
+	throw "make_temp_file() is not supported on this platform";
+#else
 #ifdef _WIN32
 	if (template_str.rfind("/tmp/", 0) == 0) {
 #  ifdef __MINGW32__
@@ -412,11 +424,15 @@ std::string make_temp_file(std::string template_str)
 #endif
 
 	return template_str;
+#endif
 }
 
 std::string make_temp_dir(std::string template_str)
 {
-#ifdef _WIN32
+#if defined(__wasm)
+	(void)template_str;
+	throw "make_temp_dir() is not supported on this platform";
+#elif defined(_WIN32)
 	template_str = make_temp_file(template_str);
 	mkdir(template_str.c_str());
 	return template_str;
@@ -804,7 +820,7 @@ std::string proc_self_dirname()
 		path += char(shortpath[i]);
 	return path;
 }
-#elif defined(EMSCRIPTEN)
+#elif defined(EMSCRIPTEN) || defined(__wasm)
 std::string proc_self_dirname()
 {
 	return "/";
@@ -813,7 +829,7 @@ std::string proc_self_dirname()
 	#error "Don't know how to determine process executable base path!"
 #endif
 
-#ifdef EMSCRIPTEN
+#if defined(EMSCRIPTEN) || defined(__wasm)
 std::string proc_share_dirname()
 {
 	return "/share/";
