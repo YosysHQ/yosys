@@ -1050,7 +1050,7 @@ struct FlowmapWorker
 
 				auto cut_inputs = cut_lut_at_gate(lut, lut_gate);
 				pool<RTLIL::SigBit> gate_inputs = cut_inputs.first, other_inputs = cut_inputs.second;
-				if (gate_inputs.empty() && (int)other_inputs.size() == order)
+				if (gate_inputs.empty() && (int)other_inputs.size() >= order)
 				{
 					if (debug_relax)
 						log("      Breaking would result in a (k+1)-LUT.\n");
