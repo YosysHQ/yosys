@@ -787,7 +787,18 @@ void VerificImporter::merge_past_ffs(pool<RTLIL::Cell*> &candidates)
 void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*> &nl_todo)
 {
 	std::string netlist_name = nl->GetAtt(" \\top") ? nl->CellBaseName() : nl->Owner()->Name();
-	std::string module_name = nl->IsOperator() ? "$verific$" + netlist_name : RTLIL::escape_id(netlist_name);
+	std::string module_name = netlist_name;
+
+	if (nl->IsOperator()) {
+		module_name = "$verific$" + module_name;
+	} else {
+		if (*nl->Name()) {
+			module_name += "(";
+			module_name += nl->Name();
+			module_name += ")";
+		}
+		module_name = "\\" + module_name;
+	}
 
 	netlist = nl;
 
@@ -1256,7 +1267,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 		if (inst->Type() == PRIM_SVA_ASSERT || inst->Type() == PRIM_SVA_IMMEDIATE_ASSERT)
 			sva_asserts.insert(inst);
 
-		if (inst->Type() == PRIM_SVA_ASSUME || inst->Type() == PRIM_SVA_IMMEDIATE_ASSUME)
+		if (inst->Type() == PRIM_SVA_ASSUME || inst->Type() == PRIM_SVA_IMMEDIATE_ASSUME || inst->Type() == PRIM_SVA_RESTRICT)
 			sva_assumes.insert(inst);
 
 		if (inst->Type() == PRIM_SVA_COVER || inst->Type() == PRIM_SVA_IMMEDIATE_COVER)
@@ -1396,8 +1407,20 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 	import_verific_cells:
 		nl_todo.insert(inst->View());
 
-		RTLIL::Cell *cell = module->addCell(inst_name, inst->IsOperator() ?
-				std::string("$verific$") + inst->View()->Owner()->Name() : RTLIL::escape_id(inst->View()->Owner()->Name()));
+		std::string inst_type = inst->View()->Owner()->Name();
+
+		if (inst->View()->IsOperator()) {
+			inst_type = "$verific$" + inst_type;
+		} else {
+			if (*inst->View()->Name()) {
+				inst_type += "(";
+				inst_type += inst->View()->Name();
+				inst_type += ")";
+			}
+			inst_type = "\\" + inst_type;
+		}
+
+		RTLIL::Cell *cell = module->addCell(inst_name, inst_type);
 
 		if (inst->IsPrimitive() && mode_keep)
 			cell->attributes["\\keep"] = 1;
@@ -1939,10 +1962,16 @@ struct VerificPass : public Pass {
 		log("Load the specified VHDL files into Verific.\n");
 		log("\n");
 		log("\n");
-		log("    verific -work <libname> {-sv|-vhdl|...} <hdl-file>\n");
+		log("    verific [-work <libname>] {-sv|-vhdl|...} <hdl-file>\n");
 		log("\n");
 		log("Load the specified Verilog/SystemVerilog/VHDL file into the specified library.\n");
 		log("(default library when -work is not present: \"work\")\n");
+		log("\n");
+		log("\n");
+		log("    verific [-L <libname>] {-sv|-vhdl|...} <hdl-file>\n");
+		log("\n");
+		log("Look up external definitions in the specified library.\n");
+		log("(-L may be used more than once)\n");
 		log("\n");
 		log("\n");
 		log("    verific -vlog-incdir <directory>..\n");
@@ -2158,10 +2187,15 @@ struct VerificPass : public Pass {
 			goto check_error;
 		}
 
+		veri_file::RemoveAllLOptions();
 		for (; argidx < GetSize(args); argidx++)
 		{
 			if (args[argidx] == "-work" && argidx+1 < GetSize(args)) {
 				work = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-L" && argidx+1 < GetSize(args)) {
+				veri_file::AddLOption(args[++argidx].c_str());
 				continue;
 			}
 			break;
