@@ -173,9 +173,10 @@ static void detect_fsm(RTLIL::Wire *wire)
 
 			if (set_output || clr_output) {
 				for (auto &port_it : cell->connections())
-					for (auto bit : assign_map(port_it.second))
-						if (bit.wire != nullptr && !sig_q_bits.count(bit))
-							goto next_cellport;
+					if (cell->input(port_it.first))
+						for (auto bit : assign_map(port_it.second))
+							if (bit.wire != nullptr && !sig_q_bits.count(bit))
+								goto next_cellport;
 			}
 
 			if (set_output || clr_output) {
