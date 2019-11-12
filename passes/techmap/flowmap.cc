@@ -394,7 +394,7 @@ struct FlowGraph
 
 	pair<pool<RTLIL::SigBit>, pool<RTLIL::SigBit>> edge_cut()
 	{
-		pool<RTLIL::SigBit> x, xi;
+		pool<RTLIL::SigBit> x = {source}, xi; // X and X̅ in the paper
 
 		NodePrime source_prime = {source, true};
 		pool<NodePrime> visited;
@@ -437,6 +437,7 @@ struct FlowGraph
 		for (auto collapsed_node : collapsed[sink])
 			xi.insert(collapsed_node);
 
+		log_assert(x[source] && !xi[source]);
 		log_assert(!x[sink] && xi[sink]);
 		return {x, xi};
 	}
