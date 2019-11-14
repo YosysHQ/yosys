@@ -192,6 +192,14 @@ struct EdifBackend : public Backend {
 
 		for (auto module : design->modules())
 		{
+			lib_cell_ports[module->name];
+
+			for (auto port : module->ports)
+			{
+				Wire *wire = module->wire(port);
+				lib_cell_ports[module->name][port] = std::max(lib_cell_ports[module->name][port], GetSize(wire));
+			}
+
 			if (module->get_blackbox_attribute())
 				continue;
 
@@ -208,7 +216,7 @@ struct EdifBackend : public Backend {
 				if (design->module(cell->type) == nullptr || design->module(cell->type)->get_blackbox_attribute()) {
 					lib_cell_ports[cell->type];
 					for (auto p : cell->connections())
-						lib_cell_ports[cell->type][p.first] = GetSize(p.second);
+						lib_cell_ports[cell->type][p.first] = std::max(lib_cell_ports[cell->type][p.first], GetSize(p.second));
 				}
 			}
 		}
