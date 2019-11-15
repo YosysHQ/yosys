@@ -33,11 +33,11 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-bool verbose, norename, noattr, attr2comment, noexpr, nodec, nohex, nostr, defparam, decimal, siminit;
-int auto_name_counter, auto_name_offset, auto_name_digits;
+bool verbose, norename, noattr, attr2comment, noexpr, nodec, nohex, nostr, extmem, defparam, decimal, siminit;
+int auto_name_counter, auto_name_offset, auto_name_digits, extmem_counter;
 std::map<RTLIL::IdString, int> auto_name_map;
 std::set<RTLIL::IdString> reg_wires, reg_ct;
-std::string auto_prefix;
+std::string auto_prefix, extmem_prefix;
 
 RTLIL::Module *active_module;
 dict<RTLIL::SigBit, RTLIL::State> active_initdata;
@@ -1069,14 +1069,64 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		f << stringf("%s" "reg [%d:%d] %s [%d:%d];\n", indent.c_str(), width-1, 0, mem_id.c_str(), size+offset-1, offset);
 		if (use_init)
 		{
-			f << stringf("%s" "initial begin\n", indent.c_str());
-			for (int i=0; i<size; i++)
+			if (extmem)
 			{
-				f << stringf("%s" "  %s[%d] = ", indent.c_str(), mem_id.c_str(), i);
-				dump_const(f, cell->parameters["\\INIT"].extract(i*width, width));
-				f << stringf(";\n");
+				std::string extmem_filename = stringf("%s-%d.mem", extmem_prefix.c_str(), extmem_counter++);
+
+				std::string extmem_filename_esc;
+				for (auto c : extmem_filename)
+				{
+					if (c == '\n')
+						extmem_filename_esc += "\\n";
+					else if (c == '\t')
+						extmem_filename_esc += "\\t";
+					else if (c < 32)
+						extmem_filename_esc += stringf("\\%03o", c);
+					else if (c == '"')
+						extmem_filename_esc += "\\\"";
+					else if (c == '\\')
+						extmem_filename_esc += "\\\\";
+					else
+						extmem_filename_esc += c;
+				}
+				f << stringf("%s" "initial $readmemb(\"%s\", %s);\n", indent.c_str(), extmem_filename_esc.c_str(), mem_id.c_str());
+
+				std::ofstream extmem_f(extmem_filename, std::ofstream::trunc);
+				if (extmem_f.fail())
+					log_error("Can't open file `%s' for writing: %s\n", extmem_filename.c_str(), strerror(errno));
+				else
+				{
+					for (int i=0; i<size; i++)
+					{
+						RTLIL::Const element = cell->parameters["\\INIT"].extract(i*width, width);
+						for (int j=0; j<element.size(); j++)
+						{
+							switch (element[element.size()-j-1])
+							{
+								case State::S0: extmem_f << '0'; break;
+								case State::S1: extmem_f << '1'; break;
+								case State::Sx: extmem_f << 'x'; break;
+								case State::Sz: extmem_f << 'z'; break;
+								case State::Sa: extmem_f << '_'; break;
+								case State::Sm: log_error("Found marker state in final netlist.");
+							}
+						}
+						extmem_f << '\n';
+					}
+				}
+
 			}
-			f << stringf("%s" "end\n", indent.c_str());
+			else
+			{
+				f << stringf("%s" "initial begin\n", indent.c_str());
+				for (int i=0; i<size; i++)
+				{
+					f << stringf("%s" "  %s[%d] = ", indent.c_str(), mem_id.c_str(), i);
+					dump_const(f, cell->parameters["\\INIT"].extract(i*width, width));
+					f << stringf(";\n");
+				}
+				f << stringf("%s" "end\n", indent.c_str());
+			}
 		}
 
 		// create a map : "edge clk" -> expressions within that clock domain
@@ -1777,8 +1827,16 @@ struct VerilogBackend : public Backend {
 		log("        deactivates this feature and instead will write string constants\n");
 		log("        as binary numbers.\n");
 		log("\n");
+		log("    -extmem\n");
+		log("        instead of initializing memories using assignments to individual\n");
+		log("        elements, use the '$readmemh' function to read initialization data\n");
+		log("        from a file. This data is written to a file named by appending\n");
+		log("        a sequential index to the Verilog filename and replacing the extension\n");
+		log("        with '.mem', e.g. 'write_verilog -extmem foo.v' writes 'foo-1.mem',\n");
+		log("        'foo-2.mem' and so on.\n");
+		log("\n");
 		log("    -defparam\n");
-		log("        Use 'defparam' statements instead of the Verilog-2001 syntax for\n");
+		log("        use 'defparam' statements instead of the Verilog-2001 syntax for\n");
 		log("        cell parameters.\n");
 		log("\n");
 		log("    -blackboxes\n");
@@ -1812,6 +1870,7 @@ struct VerilogBackend : public Backend {
 		nodec = false;
 		nohex = false;
 		nostr = false;
+		extmem = false;
 		defparam = false;
 		decimal = false;
 		siminit = false;
@@ -1885,6 +1944,11 @@ struct VerilogBackend : public Backend {
 				nostr = true;
 				continue;
 			}
+			if (arg == "-extmem") {
+				extmem = true;
+				extmem_counter = 1;
+				continue;
+			}
 			if (arg == "-defparam") {
 				defparam = true;
 				continue;
@@ -1912,6 +1976,12 @@ struct VerilogBackend : public Backend {
 			break;
 		}
 		extra_args(f, filename, args, argidx);
+		if (extmem)
+		{
+			if (filename.empty())
+				log_cmd_error("Option -extmem must be used with a filename.\n");
+			extmem_prefix = filename.substr(0, filename.rfind('.'));
+		}
 
 		design->sort();
 
