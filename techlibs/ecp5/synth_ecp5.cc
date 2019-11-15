@@ -339,6 +339,7 @@ struct SynthEcp5Pass : public ScriptPass
 
 		if (check_label("check"))
 		{
+			run("autoname");
 			run("hierarchy -check");
 			run("stat");
 			run("check -noinit");
