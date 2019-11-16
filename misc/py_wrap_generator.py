@@ -253,6 +253,8 @@ class WContainer:
 			candidate = WType.from_string(arg.strip(), containing_file, line_number)
 			if candidate == None:
 				return None
+			if candidate.name == "void":
+				return None
 			cont.args.append(candidate)
 		return cont
 
@@ -880,11 +882,8 @@ class WClass:
 				text += fun.gen_def_virtual()
 		return text
 
-	def gen_boost_py(self):
-		text = "\n\t\tclass_<" + self.name
-		if self.link_type == link_types.derive:
-			text += "Wrap, boost::noncopyable"
-		text += ">(\"" + self.name + "\""
+	def gen_boost_py_body(self):
+		text = ""
 		if self.printable_constrs() == 0 or not self.contains_default_constr():
 			text += ", no_init"
 		text += ")"
@@ -906,6 +905,21 @@ class WClass:
 			text += "\n\t\t\t.def(\"__hash__\", &" + self.name + "::get_hash_py)"
 		text += "\n\t\t\t;\n"
 		return text
+
+	def gen_boost_py(self):
+		body = self.gen_boost_py_body()
+		if self.link_type == link_types.derive:
+			text = "\n\t\tclass_<" + self.name + ">(\"Cpp" + self.name + "\""
+			text += body
+			text += "\n\t\tclass_<" + self.name
+			text += "Wrap, boost::noncopyable"
+			text += ">(\"" + self.name + "\""
+			text += body
+		else:
+			text = "\n\t\tclass_<" + self.name + ">(\"" + self.name + "\""
+			text += body
+		return text
+	
 
 	def contains_default_constr(self):
 		for c in self.found_constrs:
@@ -974,6 +988,7 @@ blacklist_methods = ["YOSYS_NAMESPACE::Pass::run_register", "YOSYS_NAMESPACE::Mo
 enum_names = ["State","SyncType","ConstFlags"]
 
 enums = [] #Do not edit
+glbls = []
 
 unowned_functions = []
 
@@ -1723,6 +1738,159 @@ class WMember:
 		text += ")"
 		return text
 
+class WGlobal:
+	orig_text = None
+	wtype = attr_types.default
+	name = None
+	containing_file = None
+	namespace = ""
+	is_const = False
+
+	def from_string(str_def, containing_file, line_number, namespace):
+		glbl = WGlobal()
+		glbl.orig_text = str_def
+		glbl.wtype = None
+		glbl.name = ""
+		glbl.containing_file = containing_file
+		glbl.namespace = namespace
+		glbl.is_const = False
+
+		if not str.startswith(str_def, "extern"):
+			return None
+		str_def = str_def[7:]
+
+		if str.startswith(str_def, "const "):
+			glbl.is_const = True
+			str_def = str_def[6:]
+
+		if str_def.count(" ") == 0:
+			return None
+
+		parts = split_list(str_def.strip(), " ")
+
+		prefix = ""
+		i = 0
+		for part in parts:
+			if part in ["unsigned", "long", "short"]:
+				prefix += part + " "
+				i += 1
+			else:
+				break
+		parts = parts[i:]
+
+		if len(parts) <= 1:
+			return None
+
+		glbl.wtype = WType.from_string(prefix + parts[0], containing_file, line_number)
+
+		if glbl.wtype == None:
+			return None
+
+		str_def = parts[1]
+		for part in parts[2:]:
+			str_def = str_def + " " + part
+
+		if str_def.find("(") != -1 or str_def.find(")") != -1 or str_def.find("{") != -1 or str_def.find("}") != -1:
+			return None
+
+		found = str_def.find(";")
+		if found == -1:
+			return None
+
+		found_eq = str_def.find("=")
+		if found_eq != -1:
+			found = found_eq
+
+		glbl.name = str_def[:found]
+		str_def = str_def[found+1:]
+		if glbl.name.find("*") == 0:
+			glbl.name = glbl.name.replace("*", "")
+			glbl.wtype.attr_type = attr_types.star
+		if glbl.name.find("&&") == 0:
+			glbl.name = glbl.name.replace("&&", "")
+			glbl.wtype.attr_type = attr_types.ampamp
+		if glbl.name.find("&") == 0:
+			glbl.name = glbl.name.replace("&", "")
+			glbl.wtype.attr_type = attr_types.amp
+
+		if(len(str_def.strip()) != 0):
+			return None
+
+		if len(glbl.name.split(",")) > 1:
+			glbl_list = []
+			for name in glbl.name.split(","):
+				name = name.strip();
+				glbl_list.append(WGlobal())
+				glbl_list[-1].orig_text = glbl.orig_text
+				glbl_list[-1].wtype = glbl.wtype
+				glbl_list[-1].name = name
+				glbl_list[-1].containing_file = glbl.containing_file
+				glbl_list[-1].namespace = glbl.namespace
+				glbl_list[-1].is_const = glbl.is_const
+			return glbl_list
+
+		return glbl
+
+	def gen_def(self):
+		text = "\n\t"
+		if self.is_const:
+			text += "const "
+		text += self.wtype.gen_text() + " get_var_py_" + self.name + "()"
+		text += "\n\t{\n\t\t"
+		if self.wtype.attr_type == attr_types.star:
+			text += "if(" + self.namespace + "::" + self.name + " == NULL)\n\t\t\t"
+			text += "throw std::runtime_error(\"" + self.namespace + "::" + self.name + " is NULL\");\n\t\t"
+		if self.wtype.name in known_containers:
+			text += self.wtype.gen_text_cpp()
+		else:
+			if self.is_const:
+				text += "const "
+			text += self.wtype.gen_text()
+
+		if self.wtype.name in classnames or (self.wtype.name in known_containers and self.wtype.attr_type == attr_types.star):
+			text += "*"
+		text += " ret_ = "
+		if self.wtype.name in classnames:
+			text += self.wtype.name + "::get_py_obj("
+			if self.wtype.attr_type != attr_types.star:
+				text += "&"
+		text += self.namespace + "::" + self.name
+		if self.wtype.name in classnames:
+			text += ")"
+		text += ";"
+		
+		if self.wtype.name in classnames:
+			text += "\n\t\treturn *ret_;"
+		elif self.wtype.name in known_containers:
+			text += known_containers[self.wtype.name].translate_cpp("ret_", self.wtype.cont.args, "\n\t\t", self.wtype.attr_type == attr_types.star)
+			text += "\n\t\treturn ret____tmp;"
+		else:
+			text += "\n\t\treturn ret_;"
+		text += "\n\t}\n"
+
+		if self.is_const:
+			return text
+
+		ret = Attribute(self.wtype, "rhs");
+
+		if self.wtype.name in classnames:
+			text += "\n\tvoid set_var_py_" + self.name + "(" + self.wtype.gen_text() + " *rhs)"
+		else:
+			text += "\n\tvoid set_var_py_" + self.name + "(" + self.wtype.gen_text() + " rhs)"
+		text += "\n\t{"
+		text += ret.gen_translation()
+		text += "\n\t\t" + self.namespace + "::" + self.name + " = " + ret.gen_call() + ";"
+		text += "\n\t}\n"		
+
+		return text;
+
+	def gen_boost_py(self):
+		text = "\n\t\t\t.add_static_property(\"" + self.name + "\", &" + "YOSYS_PYTHON::get_var_py_" + self.name 
+		if not self.is_const:
+			text += ", &YOSYS_PYTHON::set_var_py_" + self.name
+		text += ")"
+		return text
+
 def concat_namespace(tuple_list):
 	if len(tuple_list) == 0:
 		return ""
@@ -1859,6 +2027,16 @@ def parse_header(source):
 							else:
 								debug("\t\tFound member \"" + candidate.name + "\" of class \"" + class_[0].name + "\" of type \"" + candidate.wtype.name + "\"", 2)
 								class_[0].found_vars.append(candidate)
+				if candidate == None and class_ == None:
+					candidate = WGlobal.from_string(ugly_line, source.name, i, concat_namespace(namespaces))
+					if candidate != None:
+						if type(candidate) == list:
+							for c in candidate:
+								glbls.append(c)
+								debug("\tFound global \"" + c.name + "\" in namespace " + concat_namespace(namespaces), 2)
+						else:
+							glbls.append(candidate)
+							debug("\tFound global \"" + candidate.name + "\" in namespace " + concat_namespace(namespaces), 2)
 
 			j = i
 			line = unpretty_string(line)
@@ -1887,6 +2065,17 @@ def parse_header(source):
 					if candidate != None:
 						debug("\t\tFound constructor of class \"" + class_[0].name + "\" in namespace " + concat_namespace(namespaces),2)
 						class_[0].found_constrs.append(candidate)
+						continue
+				if class_ == None:
+					candidate = WGlobal.from_string(line, source.name, i, concat_namespace(namespaces))
+					if candidate != None:
+						if type(candidate) == list:
+							for c in candidate:
+								glbls.append(c)
+								debug("\tFound global \"" + c.name + "\" in namespace " + concat_namespace(namespaces), 2)
+						else:
+							glbls.append(candidate)
+							debug("\tFound global \"" + candidate.name + "\" in namespace " + concat_namespace(namespaces), 2)
 						continue
 		if candidate != None:
 			while i < j:
@@ -1990,6 +2179,7 @@ def gen_wrappers(filename, debug_level_ = 0):
 			if len(class_.found_constrs) == 0:
 				class_.found_constrs.append(WConstructor(source.name, class_))
 	debug(str(len(unowned_functions)) + " functions are unowned", 1)
+	debug(str(len(unowned_functions)) + " global variables", 1)
 	for enum in enums:
 		debug("Enum " + assure_length(enum.name, len(max(enum_names, key=len)), True) + " contains " + assure_length(str(len(enum.values)), 2, False) + " values", 1)
 	debug("-"*col, 1)
@@ -2025,10 +2215,15 @@ def gen_wrappers(filename, debug_level_ = 0):
 #include <boost/python/wrapper.hpp>
 #include <boost/python/call.hpp>
 #include <boost/python.hpp>
-
+#include <iosfwd> // std::streamsize
+#include <iostream>
+#include <boost/iostreams/concepts.hpp>	// boost::iostreams::sink
+#include <boost/iostreams/stream.hpp>
 USING_YOSYS_NAMESPACE
 
 namespace YOSYS_PYTHON {
+
+	struct YosysStatics{};
 """)
 
 	for source in sources:
@@ -2050,6 +2245,9 @@ namespace YOSYS_PYTHON {
 	for fun in unowned_functions:
 		wrapper_file.write(fun.gen_def())
 
+	for glbl in glbls:
+		wrapper_file.write(glbl.gen_def())
+
 	wrapper_file.write("""	struct Initializer
 	{
 		Initializer() {
@@ -2068,12 +2266,89 @@ namespace YOSYS_PYTHON {
 		}
 	};
 
+
+	/// source: https://stackoverflow.com/questions/26033781/converting-python-io-object-to-stdostream-when-using-boostpython?noredirect=1&lq=1
+	/// @brief Type that implements the Boost.IOStream's Sink and Flushable
+	///        concept for writing data to Python object that support:
+	///          n = object.write(str) # n = None or bytes written
+	///          object.flush()        # if flush exists, then it is callable
+	class PythonOutputDevice
+	{
+	public:
+
+		// This class models both the Sink and Flushable concepts.
+		struct category
+			: boost::iostreams::sink_tag,
+				boost::iostreams::flushable_tag
+		{};
+
+		explicit
+		PythonOutputDevice(boost::python::object object)
+			: object_(object)
+		{}
+
+	// Sink concept.
+	public:
+
+		typedef char char_type;
+
+		std::streamsize write(const char* buffer, std::streamsize buffer_size)
+		{
+			namespace python = boost::python;
+			// Copy the buffer to a python string.
+			python::str data(buffer, buffer_size);
+
+			// Invoke write on the python object, passing in the data.	The following
+			// is equivalent to:
+			//	 n = object_.write(data)
+			python::extract<std::streamsize> bytes_written(
+				object_.attr("write")(data));
+
+			// Per the Sink concept, return the number of bytes written.	If the
+			// Python return value provides a numeric result, then use it.	Otherwise,
+			// such as the case of a File object, use the buffer_size.
+			return bytes_written.check()
+				? bytes_written
+				: buffer_size;
+		}
+
+	// Flushable concept.
+	public:
+
+		bool flush()
+		{
+			// If flush exists, then call it.
+			boost::python::object flush = object_.attr("flush");
+			if (!flush.is_none())
+			{
+				flush();
+			}
+
+			// Always return true.	If an error occurs, an exception should be thrown.
+				return true;
+		}
+
+	private:
+		boost::python::object object_;
+	};
+
+	/// @brief Use an auxiliary function to adapt the legacy function.
+	void log_to_stream(boost::python::object object)
+	{
+		// Create an ostream that delegates to the python object.
+		boost::iostreams::stream<PythonOutputDevice>* output = new boost::iostreams::stream<PythonOutputDevice>(object);
+		Yosys::log_streams.insert(Yosys::log_streams.begin(), output);
+	};
+
+
 	BOOST_PYTHON_MODULE(libyosys)
 	{
 		using namespace boost::python;
 
 		class_<Initializer>("Initializer");
 		scope().attr("_hidden") = new Initializer();
+
+		def("log_to_stream", &log_to_stream);
 """)
 
 	for enum in enums:
@@ -2085,6 +2360,11 @@ namespace YOSYS_PYTHON {
 
 	for fun in unowned_functions:
 		wrapper_file.write(fun.gen_boost_py())
+
+	wrapper_file.write("\n\n\t\tclass_<YosysStatics>(\"Yosys\")\n")
+	for glbl in glbls:
+		wrapper_file.write(glbl.gen_boost_py())
+	wrapper_file.write("\t\t;\n")
 
 	wrapper_file.write("\n\t}\n}\n#endif")
 

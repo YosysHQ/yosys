@@ -1070,7 +1070,12 @@ struct BtorWorker
 					bad_properties.push_back(nid_en_and_not_a);
 				} else {
 					int nid = next_nid++;
-					btorf("%d bad %d\n", nid, nid_en_and_not_a);
+					string infostr = log_id(cell);
+					if (infostr[0] == '$' && cell->attributes.count("\\src")) {
+						infostr = cell->attributes.at("\\src").decode_string().c_str();
+						std::replace(infostr.begin(), infostr.end(), ' ', '_');
+					}
+					btorf("%d bad %d %s\n", nid, nid_en_and_not_a, infostr.c_str());
 				}
 
 				btorf_pop(log_id(cell));

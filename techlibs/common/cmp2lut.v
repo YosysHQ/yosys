@@ -7,7 +7,7 @@
 // with n <= k inputs should be techmapped in this way, because this shortens the critical path
 // from n to 1 by avoiding carry chains.
 
-(* techmap_celltype = "$eq $ne $lt $le $gt $ge" *)
+(* techmap_celltype = "$lt $le $gt $ge" *)
 module _90_lut_cmp_ (A, B, Y);
 
 parameter A_SIGNED = 0;
