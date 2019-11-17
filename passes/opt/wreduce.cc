@@ -143,12 +143,17 @@ struct WreduceWorker
 
 		SigSpec sig_d = mi.sigmap(cell->getPort(ID(D)));
 		SigSpec sig_q = mi.sigmap(cell->getPort(ID(Q)));
-		Const initval;
+		bool is_adff = (cell->type == ID($adff));
+		Const initval, arst_value;
 
 		int width_before = GetSize(sig_q);
 
 		if (width_before == 0)
 			return;
+
+		if (cell->parameters.count(ID(ARST_VALUE))) {
+			arst_value = cell->parameters[ID(ARST_VALUE)];
+		}
 
 		bool zero_ext = sig_d[GetSize(sig_d)-1] == State::S0;
 		bool sign_ext = !zero_ext;
@@ -163,7 +168,8 @@ struct WreduceWorker
 
 		for (int i = GetSize(sig_q)-1; i >= 0; i--)
 		{
-			if (zero_ext && sig_d[i] == State::S0 && (initval[i] == State::S0 || initval[i] == State::Sx)) {
+			if (zero_ext && sig_d[i] == State::S0 && (initval[i] == State::S0 || initval[i] == State::Sx) &&
+					(!is_adff || i >= GetSize(arst_value) || arst_value[i] == State::S0 || arst_value[i] == State::Sx)) {
 				module->connect(sig_q[i], State::S0);
 				remove_init_bits.insert(sig_q[i]);
 				sig_d.remove(i);
@@ -171,7 +177,8 @@ struct WreduceWorker
 				continue;
 			}
 
-			if (sign_ext && i > 0 && sig_d[i] == sig_d[i-1] && initval[i] == initval[i-1]) {
+			if (sign_ext && i > 0 && sig_d[i] == sig_d[i-1] && initval[i] == initval[i-1] &&
+					(!is_adff || i >= GetSize(arst_value) || arst_value[i] == arst_value[i-1])) {
 				module->connect(sig_q[i], sig_q[i-1]);
 				remove_init_bits.insert(sig_q[i]);
 				sig_d.remove(i);
@@ -214,7 +221,6 @@ struct WreduceWorker
 
 		// Narrow ARST_VALUE parameter to new size.
 		if (cell->parameters.count(ID(ARST_VALUE))) {
-			Const arst_value = cell->getParam(ID(ARST_VALUE));
 			arst_value.bits.resize(GetSize(sig_q));
 			cell->setParam(ID(ARST_VALUE), arst_value);
 		}
