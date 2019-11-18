@@ -64,6 +64,12 @@ struct SynthGowinPass : public ScriptPass
 		log("    -retime\n");
 		log("        run 'abc' with -dff option\n");
 		log("\n");
+		log("    -nowidelut\n");
+		log("        do not use muxes to implement LUTs larger than LUT4s\n");
+		log("\n");
+		log("    -abc9\n");
+		log("        use new ABC9 flow (EXPERIMENTAL)\n");
+		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
@@ -173,7 +179,7 @@ struct SynthGowinPass : public ScriptPass
 		{
 			run("synth -run coarse");
 		}
-		
+
 		if (!nobram && check_label("bram", "(skip if -nobram)"))
 		{
 			run("memory_bram -rules +/gowin/bram.txt");
