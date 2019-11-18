@@ -1,0 +1,13 @@
+read_ilang << EOF
+module \top
+  wire input 1 \A
+  wire output 2 \Y
+  cell $_AND_ \sub
+    connect \A \A
+    connect \B 1'0
+    connect \Y \Y
+  end
+end
+EOF
+
+extract_fa
