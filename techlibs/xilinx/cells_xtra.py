@@ -204,11 +204,11 @@ CELLS = [
     Cell('URAM288_BASE', port_attrs={'CLK': ['clkbuf_sink']}),
 
     # Multipliers and DSP.
-    Cell('MULT18X18'), # Spartan 3
-    Cell('MULT18X18S', port_attrs={'C': ['clkbuf_sink']}), # Spartan 3
-    Cell('MULT18X18SIO', port_attrs={'CLK': ['clkbuf_sink']}), # Spartan 3E
-    Cell('DSP48A', port_attrs={'CLK': ['clkbuf_sink']}), # Spartan 3A DSP
-    Cell('DSP48A1', port_attrs={'CLK': ['clkbuf_sink']}), # Spartan 6
+    # Cell('MULT18X18'), # Virtex 2, Spartan 3
+    # Cell('MULT18X18S', port_attrs={'C': ['clkbuf_sink']}), # Spartan 3
+    # Cell('MULT18X18SIO', port_attrs={'CLK': ['clkbuf_sink']}), # Spartan 3E
+    # Cell('DSP48A', port_attrs={'CLK': ['clkbuf_sink']}), # Spartan 3A DSP
+    # Cell('DSP48A1', port_attrs={'CLK': ['clkbuf_sink']}), # Spartan 6
     Cell('DSP48', port_attrs={'CLK': ['clkbuf_sink']}), # Virtex 4
     Cell('DSP48E', port_attrs={'CLK': ['clkbuf_sink']}), # Virtex 5
     #Cell('DSP48E1', port_attrs={'CLK': ['clkbuf_sink']}), # Virtex 6 / Series 7
