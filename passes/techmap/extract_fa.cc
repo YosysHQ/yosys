@@ -262,10 +262,14 @@ struct ExtractFaWorker
 			pool<SigBit> new_leaves = leaves;
 
 			new_leaves.erase(bit);
-			if (cell->hasPort(ID::A)) new_leaves.insert(sigmap(SigBit(cell->getPort(ID::A))));
-			if (cell->hasPort(ID::B)) new_leaves.insert(sigmap(SigBit(cell->getPort(ID::B))));
-			if (cell->hasPort(ID(C))) new_leaves.insert(sigmap(SigBit(cell->getPort(ID(C)))));
-			if (cell->hasPort(ID(D))) new_leaves.insert(sigmap(SigBit(cell->getPort(ID(D)))));
+			for (auto port : {ID::A, ID::B, ID(C), ID(D)}) {
+				if (!cell->hasPort(port))
+					continue;
+				auto bit = sigmap(SigBit(cell->getPort(port)));
+				if (!bit.wire)
+					continue;
+				new_leaves.insert(bit);
+			}
 
 			if (GetSize(new_leaves) > maxbreadth)
 				continue;
