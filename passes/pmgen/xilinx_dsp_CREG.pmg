@@ -63,12 +63,12 @@ code sigC sigP clock
 	if (param(dsp, \USE_MULT, Const("MULTIPLY")).decode_string() == "MULTIPLY") {
 		// Only care about those bits that are used
 		int i;
-		for (i = 0; i < GetSize(P); i++) {
-			if (nusers(P[i]) <= 1)
+		for (i = GetSize(P)-1; i >= 0; i--)
+			if (nusers(P[i]) > 1)
 				break;
-			sigP.append(P[i]);
-		}
+		i++;
 		log_assert(nusers(P.extract_end(i)) <= 1);
+		sigP = P.extract(0, i);
 	}
 	else
 		sigP = P;

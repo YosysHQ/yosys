@@ -98,16 +98,16 @@ code sigA sigB sigC sigD sigM clock
 	if (param(dsp, \USE_MULT, Const("MULTIPLY")).decode_string() == "MULTIPLY") {
 		// Only care about those bits that are used
 		int i;
-		for (i = 0; i < GetSize(P); i++) {
-			if (nusers(P[i]) <= 1)
+		for (i = GetSize(P)-1; i >= 0; i--)
+			if (nusers(P[i]) > 1)
 				break;
-			sigM.append(P[i]);
-		}
+		i++;
 		log_assert(nusers(P.extract_end(i)) <= 1);
 		// This sigM could have no users if downstream sinks (e.g. $add) is
 		//   narrower than $mul result, for example
-		if (sigM.empty())
+		if (i == 0)
 			reject;
+		sigM = P.extract(0, i);
 	}
 	else
 		sigM = P;
@@ -460,6 +460,8 @@ arg argD argQ clock
 
 code
 	dff = nullptr;
+	if (GetSize(argQ) == 0)
+		reject;
 	for (const auto &c : argQ.chunks()) {
 		// Abandon matches when 'Q' is a constant
 		if (!c.wire)
