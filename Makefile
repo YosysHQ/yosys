@@ -131,7 +131,7 @@ bumpversion:
 ABCREV = 623b5e8
 ABCPULL = 1
 ABCURL ?= https://github.com/berkeley-abc/abc
-ABCMKARGS = CC="$(CXX)" CXX="$(CXX)" ABC_USE_LIBSTDCXX=1
+ABCMKARGS = CC="$(CC)" CXX="$(CXX)" ABC_USE_LIBSTDCXX=1
 
 # set ABCEXTERNAL = <abc-command> to use an external ABC instance
 # Note: The in-tree ABC (yosys-abc) will not be installed when ABCEXTERNAL is set.
