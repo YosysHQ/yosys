@@ -2397,7 +2397,7 @@ struct VerificPass : public Pass {
 			else
 			{
 				if (argidx == GetSize(args))
-					cmd_error(arg, argidx, "No top module specified.\n");
+					cmd_error(args, argidx, "No top module specified.\n");
 
 				Array veri_modules, vhdl_units;
 				for (; argidx < GetSize(args); argidx++)
