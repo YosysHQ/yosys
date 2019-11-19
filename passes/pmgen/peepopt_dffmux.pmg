@@ -60,12 +60,13 @@ code
 	SigSpec Q = port(dff, \Q);
 	int width = GetSize(D);
 
-	SigSpec &dffD = dff->connections_.at(\D);
-	SigSpec &dffQ = dff->connections_.at(\Q);
-	Const init;
-	for (const auto &b : Q) {
-		auto it = b.wire->attributes.find(\init);
-		init.bits.push_back(it == b.wire->attributes.end() ? State::Sx : it->second[b.offset]);
+	SigSpec dffD = dff->getPort(\D);
+	SigSpec dffQ = dff->getPort(\Q);
+
+	Const initval;
+	for (auto b : Q) {
+		auto it = initbits.find(b);
+		initval.bits.push_back(it == initbits.end() ? State::Sx : it->second);
 	}
 
 	auto cmpx = [=](State lhs, State rhs) {
@@ -76,56 +77,68 @@ code
 
 	int i = width-1;
 	while (i > 1) {
-		log_dump(i, D[i], D[i-1], rst[i], rst[i-1], init[i], init[i-1]);
 		if (D[i] != D[i-1])
 			break;
 		if (!cmpx(rst[i], rst[i-1]))
 			break;
-		if (!cmpx(init[i], init[i-1]))
+		if (!cmpx(initval[i], initval[i-1]))
 			break;
-		if (!cmpx(rst[i], init[i]))
+		if (!cmpx(rst[i], initval[i]))
 			break;
+		rminitbits.insert(Q[i]);
 		module->connect(Q[i], Q[i-1]);
 		i--;
 	}
 	if (i < width-1) {
 		did_something = true;
 		if (cemux) {
-			SigSpec &ceA = cemux->connections_.at(\A);
-			SigSpec &ceB = cemux->connections_.at(\B);
-			SigSpec &ceY = cemux->connections_.at(\Y);
+			SigSpec ceA = cemux->getPort(\A);
+			SigSpec ceB = cemux->getPort(\B);
+			SigSpec ceY = cemux->getPort(\Y);
 			ceA.remove(i, width-1-i);
 			ceB.remove(i, width-1-i);
 			ceY.remove(i, width-1-i);
+			cemux->setPort(\A, ceA);
+			cemux->setPort(\B, ceB);
+			cemux->setPort(\Y, ceY);
 			cemux->fixup_parameters();
+			blacklist(cemux);
 		}
 		if (rstmux) {
-			SigSpec &rstA = rstmux->connections_.at(\A);
-			SigSpec &rstB = rstmux->connections_.at(\B);
-			SigSpec &rstY = rstmux->connections_.at(\Y);
+			SigSpec rstA = rstmux->getPort(\A);
+			SigSpec rstB = rstmux->getPort(\B);
+			SigSpec rstY = rstmux->getPort(\Y);
 			rstA.remove(i, width-1-i);
 			rstB.remove(i, width-1-i);
 			rstY.remove(i, width-1-i);
+			rstmux->setPort(\A, rstA);
+			rstmux->setPort(\B, rstB);
+			rstmux->setPort(\Y, rstY);
 			rstmux->fixup_parameters();
+			blacklist(rstmux);
 		}
 		dffD.remove(i, width-1-i);
 		dffQ.remove(i, width-1-i);
+		dff->setPort(\D, dffD);
+		dff->setPort(\Q, dffQ);
 		dff->fixup_parameters();
+		blacklist(dff);
 
 		log("dffcemux pattern in %s: dff=%s, cemux=%s, rstmux=%s; removed top %d bits.\n", log_id(module), log_id(dff), log_id(cemux, "n/a"), log_id(rstmux, "n/a"), width-1-i);
 		width = i+1;
 	}
 	if (cemux) {
-		SigSpec &ceA = cemux->connections_.at(\A);
-		SigSpec &ceB = cemux->connections_.at(\B);
-		SigSpec &ceY = cemux->connections_.at(\Y);
+		SigSpec ceA = cemux->getPort(\A);
+		SigSpec ceB = cemux->getPort(\B);
+		SigSpec ceY = cemux->getPort(\Y);
 
 		int count = 0;
 		for (int i = width-1; i >= 0; i--) {
 			if (D[i].wire)
 				continue;
-			if (cmpx(rst[i], D[i].data) && cmpx(init[i], D[i].data)) {
+			if (cmpx(rst[i], D[i].data) && cmpx(initval[i], D[i].data)) {
 				count++;
+				rminitbits.insert(Q[i]);
 				module->connect(Q[i], D[i]);
 				ceA.remove(i);
 				ceB.remove(i);
@@ -134,10 +147,21 @@ code
 				dffQ.remove(i);
 			}
 		}
-		if (count > 0) {
+		if (count > 0)
+		{
 			did_something = true;
+
+			cemux->setPort(\A, ceA);
+			cemux->setPort(\B, ceB);
+			cemux->setPort(\Y, ceY);
 			cemux->fixup_parameters();
+			blacklist(cemux);
+
+			dff->setPort(\D, dffD);
+			dff->setPort(\Q, dffQ);
 			dff->fixup_parameters();
+			blacklist(dff);
+
 			log("dffcemux pattern in %s: dff=%s, cemux=%s, rstmux=%s; removed %d constant bits.\n", log_id(module), log_id(dff), log_id(cemux), log_id(rstmux, "n/a"), count);
 		}
 	}

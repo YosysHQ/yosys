@@ -14,7 +14,7 @@ EXTRA_OBJS += techlibs/ice40/brams_init.mk
 
 techlibs/ice40/brams_init.mk: techlibs/ice40/brams_init.py
 	$(Q) mkdir -p techlibs/ice40
-	$(P) python3 $<
+	$(P) $(PYTHON_EXECUTABLE) $<
 	$(Q) touch techlibs/ice40/brams_init.mk
 
 techlibs/ice40/brams_init1.vh: techlibs/ice40/brams_init.mk

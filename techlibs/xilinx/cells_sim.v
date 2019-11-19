@@ -38,6 +38,17 @@ module IBUF(
   assign O = I;
 endmodule
 
+module IBUFG(
+    output O,
+    (* iopad_external_pin *)
+    input I);
+  parameter CAPACITANCE = "DONT_CARE";
+  parameter IBUF_DELAY_VALUE = "0";
+  parameter IBUF_LOW_PWR = "TRUE";
+  parameter IOSTANDARD = "DEFAULT";
+  assign O = I;
+endmodule
+
 module OBUF(
     (* iopad_external_pin *)
     output O,
@@ -578,6 +589,515 @@ module SRLC32E (
   endgenerate
 endmodule
 
+// DSP
+
+// Virtex 2, Virtex 2 Pro, Spartan 3.
+
+// Asynchronous mode.
+
+module MULT18X18 (
+    input signed [17:0] A,
+    input signed [17:0] B,
+    output signed [35:0] P
+);
+
+assign P = A * B;
+
+endmodule
+
+// Synchronous mode.
+
+module MULT18X18S (
+    input signed [17:0] A,
+    input signed [17:0] B,
+    output reg signed [35:0] P,
+    (* clkbuf_sink *)
+    input C,
+    input CE,
+    input R
+);
+
+always @(posedge C)
+	if (R)
+		P <= 0;
+	else if (CE)
+		P <= A * B;
+
+endmodule
+
+// Spartan 3E, Spartan 3A.
+
+module MULT18X18SIO (
+    input signed [17:0] A,
+    input signed [17:0] B,
+    output signed [35:0] P,
+    (* clkbuf_sink *)
+    input CLK,
+    input CEA,
+    input CEB,
+    input CEP,
+    input RSTA,
+    input RSTB,
+    input RSTP,
+    input signed [17:0] BCIN,
+    output signed [17:0] BCOUT
+);
+
+parameter integer AREG = 1;
+parameter integer BREG = 1;
+parameter B_INPUT = "DIRECT";
+parameter integer PREG = 1;
+
+// The multiplier.
+wire signed [35:0] P_MULT;
+assign P_MULT = A_MULT * B_MULT;
+
+// The cascade output.
+assign BCOUT = B_MULT;
+
+// The B input multiplexer.
+wire signed [17:0] B_MUX;
+assign B_MUX = (B_INPUT == "DIRECT") ? B : BCIN;
+
+// The registers.
+reg signed [17:0] A_REG;
+reg signed [17:0] B_REG;
+reg signed [35:0] P_REG;
+
+initial begin
+	A_REG = 0;
+	B_REG = 0;
+	P_REG = 0;
+end
+
+always @(posedge CLK) begin
+	if (RSTA)
+		A_REG <= 0;
+	else if (CEA)
+		A_REG <= A;
+
+	if (RSTB)
+		B_REG <= 0;
+	else if (CEB)
+		B_REG <= B_MUX;
+
+	if (RSTP)
+		P_REG <= 0;
+	else if (CEP)
+		P_REG <= P_MULT;
+end
+
+// The register enables.
+wire signed [17:0] A_MULT;
+wire signed [17:0] B_MULT;
+assign A_MULT = (AREG == 1) ? A_REG : A;
+assign B_MULT = (BREG == 1) ? B_REG : B_MUX;
+assign P = (PREG == 1) ? P_REG : P_MULT;
+
+endmodule
+
+// Spartan 3A DSP.
+
+module DSP48A (
+    input signed [17:0] A,
+    input signed [17:0] B,
+    input signed [47:0] C,
+    input signed [17:0] D,
+    input signed [47:0] PCIN,
+    input CARRYIN,
+    input [7:0] OPMODE,
+    output signed [47:0] P,
+    output signed [17:0] BCOUT,
+    output signed [47:0] PCOUT,
+    output CARRYOUT,
+    (* clkbuf_sink *)
+    input CLK,
+    input CEA,
+    input CEB,
+    input CEC,
+    input CED,
+    input CEM,
+    input CECARRYIN,
+    input CEOPMODE,
+    input CEP,
+    input RSTA,
+    input RSTB,
+    input RSTC,
+    input RSTD,
+    input RSTM,
+    input RSTCARRYIN,
+    input RSTOPMODE,
+    input RSTP
+);
+
+parameter integer A0REG = 0;
+parameter integer A1REG = 1;
+parameter integer B0REG = 0;
+parameter integer B1REG = 1;
+parameter integer CREG = 1;
+parameter integer DREG = 1;
+parameter integer MREG = 1;
+parameter integer CARRYINREG = 1;
+parameter integer OPMODEREG = 1;
+parameter integer PREG = 1;
+parameter CARRYINSEL = "CARRYIN";
+parameter RSTTYPE = "SYNC";
+
+// This is a strict subset of Spartan 6 -- reuse its model.
+
+DSP48A1 #(
+	.A0REG(A0REG),
+	.A1REG(A1REG),
+	.B0REG(B0REG),
+	.B1REG(B1REG),
+	.CREG(CREG),
+	.DREG(DREG),
+	.MREG(MREG),
+	.CARRYINREG(CARRYINREG),
+	.CARRYOUTREG(0),
+	.OPMODEREG(OPMODEREG),
+	.PREG(PREG),
+	.CARRYINSEL(CARRYINSEL),
+	.RSTTYPE(RSTTYPE)
+) upgrade (
+	.A(A),
+	.B(B),
+	.C(C),
+	.D(D),
+	.PCIN(PCIN),
+	.CARRYIN(CARRYIN),
+	.OPMODE(OPMODE),
+	// M unconnected
+	.P(P),
+	.BCOUT(BCOUT),
+	.PCOUT(PCOUT),
+	.CARRYOUT(CARRYOUT),
+	// CARRYOUTF unconnected
+	.CLK(CLK),
+	.CEA(CEA),
+	.CEB(CEB),
+	.CEC(CEC),
+	.CED(CED),
+	.CEM(CEM),
+	.CECARRYIN(CECARRYIN),
+	.CEOPMODE(CEOPMODE),
+	.CEP(CEP),
+	.RSTA(RSTA),
+	.RSTB(RSTB),
+	.RSTC(RSTC),
+	.RSTD(RSTD),
+	.RSTM(RSTM),
+	.RSTCARRYIN(RSTCARRYIN),
+	.RSTOPMODE(RSTOPMODE),
+	.RSTP(RSTP)
+);
+
+endmodule
+
+// Spartan 6.
+
+module DSP48A1 (
+    input signed [17:0] A,
+    input signed [17:0] B,
+    input signed [47:0] C,
+    input signed [17:0] D,
+    input signed [47:0] PCIN,
+    input CARRYIN,
+    input [7:0] OPMODE,
+    output signed [35:0] M,
+    output signed [47:0] P,
+    output signed [17:0] BCOUT,
+    output signed [47:0] PCOUT,
+    output CARRYOUT,
+    output CARRYOUTF,
+    (* clkbuf_sink *)
+    input CLK,
+    input CEA,
+    input CEB,
+    input CEC,
+    input CED,
+    input CEM,
+    input CECARRYIN,
+    input CEOPMODE,
+    input CEP,
+    input RSTA,
+    input RSTB,
+    input RSTC,
+    input RSTD,
+    input RSTM,
+    input RSTCARRYIN,
+    input RSTOPMODE,
+    input RSTP
+);
+
+parameter integer A0REG = 0;
+parameter integer A1REG = 1;
+parameter integer B0REG = 0;
+parameter integer B1REG = 1;
+parameter integer CREG = 1;
+parameter integer DREG = 1;
+parameter integer MREG = 1;
+parameter integer CARRYINREG = 1;
+parameter integer CARRYOUTREG = 1;
+parameter integer OPMODEREG = 1;
+parameter integer PREG = 1;
+parameter CARRYINSEL = "OPMODE5";
+parameter RSTTYPE = "SYNC";
+
+wire signed [35:0] M_MULT;
+wire signed [47:0] P_IN;
+wire signed [17:0] A0_OUT;
+wire signed [17:0] B0_OUT;
+wire signed [17:0] A1_OUT;
+wire signed [17:0] B1_OUT;
+wire signed [17:0] B1_IN;
+wire signed [47:0] C_OUT;
+wire signed [17:0] D_OUT;
+wire signed [7:0] OPMODE_OUT;
+wire CARRYIN_OUT;
+wire CARRYOUT_IN;
+wire CARRYIN_IN;
+reg signed [47:0] XMUX;
+reg signed [47:0] ZMUX;
+
+// The registers.
+reg signed [17:0] A0_REG;
+reg signed [17:0] A1_REG;
+reg signed [17:0] B0_REG;
+reg signed [17:0] B1_REG;
+reg signed [47:0] C_REG;
+reg signed [17:0] D_REG;
+reg signed [35:0] M_REG;
+reg signed [47:0] P_REG;
+reg [7:0] OPMODE_REG;
+reg CARRYIN_REG;
+reg CARRYOUT_REG;
+
+initial begin
+	A0_REG = 0;
+	A1_REG = 0;
+	B0_REG = 0;
+	B1_REG = 0;
+	C_REG = 0;
+	D_REG = 0;
+	M_REG = 0;
+	P_REG = 0;
+	OPMODE_REG = 0;
+	CARRYIN_REG = 0;
+	CARRYOUT_REG = 0;
+end
+
+generate
+
+if (RSTTYPE == "SYNC") begin
+	always @(posedge CLK) begin
+		if (RSTA) begin
+			A0_REG <= 0;
+			A1_REG <= 0;
+		end else if (CEA) begin
+			A0_REG <= A;
+			A1_REG <= A0_OUT;
+		end
+	end
+
+	always @(posedge CLK) begin
+		if (RSTB) begin
+			B0_REG <= 0;
+			B1_REG <= 0;
+		end else if (CEB) begin
+			B0_REG <= B;
+			B1_REG <= B1_IN;
+		end
+	end
+
+	always @(posedge CLK) begin
+		if (RSTC) begin
+			C_REG <= 0;
+		end else if (CEC) begin
+			C_REG <= C;
+		end
+	end
+
+	always @(posedge CLK) begin
+		if (RSTD) begin
+			D_REG <= 0;
+		end else if (CED) begin
+			D_REG <= D;
+		end
+	end
+
+	always @(posedge CLK) begin
+		if (RSTM) begin
+			M_REG <= 0;
+		end else if (CEM) begin
+			M_REG <= M_MULT;
+		end
+	end
+
+	always @(posedge CLK) begin
+		if (RSTP) begin
+			P_REG <= 0;
+		end else if (CEP) begin
+			P_REG <= P_IN;
+		end
+	end
+
+	always @(posedge CLK) begin
+		if (RSTOPMODE) begin
+			OPMODE_REG <= 0;
+		end else if (CEOPMODE) begin
+			OPMODE_REG <= OPMODE;
+		end
+	end
+
+	always @(posedge CLK) begin
+		if (RSTCARRYIN) begin
+			CARRYIN_REG <= 0;
+			CARRYOUT_REG <= 0;
+		end else if (CECARRYIN) begin
+			CARRYIN_REG <= CARRYIN_IN;
+			CARRYOUT_REG <= CARRYOUT_IN;
+		end
+	end
+end else begin
+	always @(posedge CLK, posedge RSTA) begin
+		if (RSTA) begin
+			A0_REG <= 0;
+			A1_REG <= 0;
+		end else if (CEA) begin
+			A0_REG <= A;
+			A1_REG <= A0_OUT;
+		end
+	end
+
+	always @(posedge CLK, posedge RSTB) begin
+		if (RSTB) begin
+			B0_REG <= 0;
+			B1_REG <= 0;
+		end else if (CEB) begin
+			B0_REG <= B;
+			B1_REG <= B1_IN;
+		end
+	end
+
+	always @(posedge CLK, posedge RSTC) begin
+		if (RSTC) begin
+			C_REG <= 0;
+		end else if (CEC) begin
+			C_REG <= C;
+		end
+	end
+
+	always @(posedge CLK, posedge RSTD) begin
+		if (RSTD) begin
+			D_REG <= 0;
+		end else if (CED) begin
+			D_REG <= D;
+		end
+	end
+
+	always @(posedge CLK, posedge RSTM) begin
+		if (RSTM) begin
+			M_REG <= 0;
+		end else if (CEM) begin
+			M_REG <= M_MULT;
+		end
+	end
+
+	always @(posedge CLK, posedge RSTP) begin
+		if (RSTP) begin
+			P_REG <= 0;
+		end else if (CEP) begin
+			P_REG <= P_IN;
+		end
+	end
+
+	always @(posedge CLK, posedge RSTOPMODE) begin
+		if (RSTOPMODE) begin
+			OPMODE_REG <= 0;
+		end else if (CEOPMODE) begin
+			OPMODE_REG <= OPMODE;
+		end
+	end
+
+	always @(posedge CLK, posedge RSTCARRYIN) begin
+		if (RSTCARRYIN) begin
+			CARRYIN_REG <= 0;
+			CARRYOUT_REG <= 0;
+		end else if (CECARRYIN) begin
+			CARRYIN_REG <= CARRYIN_IN;
+			CARRYOUT_REG <= CARRYOUT_IN;
+		end
+	end
+end
+
+endgenerate
+
+// The register enables.
+assign A0_OUT = (A0REG == 1) ? A0_REG : A;
+assign A1_OUT = (A1REG == 1) ? A1_REG : A0_OUT;
+assign B0_OUT = (B0REG == 1) ? B0_REG : B;
+assign B1_OUT = (B1REG == 1) ? B1_REG : B1_IN;
+assign C_OUT = (CREG == 1) ? C_REG : C;
+assign D_OUT = (DREG == 1) ? D_REG : D;
+assign M = (MREG == 1) ? M_REG : M_MULT;
+assign P = (PREG == 1) ? P_REG : P_IN;
+assign OPMODE_OUT = (OPMODEREG == 1) ? OPMODE_REG : OPMODE;
+assign CARRYIN_OUT = (CARRYINREG == 1) ? CARRYIN_REG : CARRYIN_IN;
+assign CARRYOUT = (CARRYOUTREG == 1) ? CARRYOUT_REG : CARRYOUT_IN;
+assign CARRYOUTF = CARRYOUT;
+
+// The pre-adder.
+wire signed [17:0] PREADDER;
+assign B1_IN = OPMODE_OUT[4] ? PREADDER : B0_OUT;
+assign PREADDER = OPMODE_OUT[6] ? D_OUT - B0_OUT : D_OUT + B0_OUT;
+
+// The multiplier.
+assign M_MULT = A1_OUT * B1_OUT;
+
+// The carry in selection.
+assign CARRYIN_IN = (CARRYINSEL == "OPMODE5") ? OPMODE_OUT[5] : CARRYIN;
+
+// The post-adder inputs.
+always @* begin
+	case (OPMODE_OUT[1:0])
+		2'b00: XMUX <= 0;
+		2'b01: XMUX <= M;
+		2'b10: XMUX <= P;
+		2'b11: XMUX <= {D_OUT[11:0], B1_OUT, A1_OUT};
+		default: XMUX <= 48'hxxxxxxxxxxxx;
+	endcase
+end
+
+always @* begin
+	case (OPMODE_OUT[3:2])
+		2'b00: ZMUX <= 0;
+		2'b01: ZMUX <= PCIN;
+		2'b10: ZMUX <= P;
+		2'b11: ZMUX <= C_OUT;
+		default: ZMUX <= 48'hxxxxxxxxxxxx;
+	endcase
+end
+
+// The post-adder.
+wire signed [48:0] X_EXT;
+wire signed [48:0] Z_EXT;
+assign X_EXT = XMUX;
+assign Z_EXT = ZMUX;
+assign {CARRYOUT_IN, P_IN} = OPMODE_OUT[7] ? (Z_EXT - (X_EXT + CARRYIN_OUT)) : (Z_EXT + X_EXT + CARRYIN_OUT);
+
+// Cascade outputs.
+assign BCOUT = B1_OUT;
+assign PCOUT = P;
+
+endmodule
+
+// TODO: DSP48 (Virtex 4).
+
+// TODO: DSP48E (Virtex 5).
+
+// Virtex 6, Series 7.
+
 module DSP48E1 (
     output [29:0] ACOUT,
     output [17:0] BCOUT,
@@ -1040,3 +1560,5 @@ module DSP48E1 (
     endgenerate
 
 endmodule
+
+// TODO: DSP48E2 (Ultrascale).

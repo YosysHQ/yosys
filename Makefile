@@ -147,9 +147,9 @@ $(info $(subst $$--$$,$(newline),$(shell sed 's,^,[Makefile.conf] ,; s,$$,$$--$$
 include Makefile.conf
 endif
 
+PYTHON_EXECUTABLE := $(shell if python3 -c ""; then echo "python3"; else echo "python"; fi)
 ifeq ($(ENABLE_PYOSYS),1)
 PYTHON_VERSION_TESTCODE := "import sys;t='{v[0]}.{v[1]}'.format(v=list(sys.version_info[:2]));print(t)"
-PYTHON_EXECUTABLE := $(shell if python3 -c ""; then echo "python3"; else echo "python"; fi)
 PYTHON_VERSION := $(shell $(PYTHON_EXECUTABLE) -c ""$(PYTHON_VERSION_TESTCODE)"")
 PYTHON_MAJOR_VERSION := $(shell echo $(PYTHON_VERSION) | cut -f1 -d.)
 PYTHON_PREFIX := $(shell $(PYTHON_EXECUTABLE)-config --prefix)
@@ -708,11 +708,17 @@ test: $(TARGETS) $(EXTRA_TARGETS)
 	+cd tests/various && bash run-test.sh
 	+cd tests/sat && bash run-test.sh
 	+cd tests/svinterfaces && bash run-test.sh $(SEEDOPT)
+	+cd tests/svtypes && bash run-test.sh $(SEEDOPT)
 	+cd tests/proc && bash run-test.sh
 	+cd tests/opt && bash run-test.sh
 	+cd tests/aiger && bash run-test.sh $(ABCOPT)
 	+cd tests/arch && bash run-test.sh
-	+cd tests/ice40 && bash run-test.sh $(SEEDOPT)
+	+cd tests/arch/ice40 && bash run-test.sh $(SEEDOPT)
+	+cd tests/arch/xilinx && bash run-test.sh $(SEEDOPT)
+	+cd tests/arch/ecp5 && bash run-test.sh $(SEEDOPT)
+	+cd tests/arch/efinix && bash run-test.sh $(SEEDOPT)
+	+cd tests/arch/anlogic && bash run-test.sh $(SEEDOPT)
+	+cd tests/arch/gowin && bash run-test.sh $(SEEDOPT)
 	+cd tests/rpc && bash run-test.sh
 	@echo ""
 	@echo "  Passed \"make test\"."
