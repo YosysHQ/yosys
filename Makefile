@@ -152,7 +152,14 @@ ifeq ($(ENABLE_PYOSYS),1)
 PYTHON_VERSION_TESTCODE := "import sys;t='{v[0]}.{v[1]}'.format(v=list(sys.version_info[:2]));print(t)"
 PYTHON_VERSION := $(shell $(PYTHON_EXECUTABLE) -c ""$(PYTHON_VERSION_TESTCODE)"")
 PYTHON_MAJOR_VERSION := $(shell echo $(PYTHON_VERSION) | cut -f1 -d.)
+
+ENABLE_PYTHON_CONFIG_EMBED ?= $(shell $(PYTHON_EXECUTABLE)-config --embed --libs > /dev/null && echo 1)
+ifeq ($(ENABLE_PYTHON_CONFIG_EMBED),1)
+PYTHON_CONFIG := $(PYTHON_EXECUTABLE)-config --embed
+else
 PYTHON_CONFIG := $(PYTHON_EXECUTABLE)-config
+endif
+
 PYTHON_PREFIX := $(shell $(PYTHON_CONFIG) --prefix)
 PYTHON_DESTDIR := $(PYTHON_PREFIX)/lib/python$(PYTHON_VERSION)/site-packages
 
