@@ -1,0 +1,20 @@
+bram __MISTRAL_MLAB
+    init   0   # TODO: Re-enable when I figure out how LUTRAM init works
+    abits  5
+    dbits  16  @D32x16
+    dbits  18  @D32x18
+    dbits  20  @D32x20
+    groups 2
+    ports  1 1
+    wrmode 1 0
+    # read enable
+    enable 1 0
+    transp 1 0
+    clocks 1 2
+    clkpol 1 1
+endbram
+
+match __MISTRAL_MLAB
+    min efficiency 5
+    make_outreg
+endmatch
