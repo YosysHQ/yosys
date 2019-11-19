@@ -1,0 +1,11 @@
+read_verilog ../common/fsm.v
+hierarchy -top fsm
+proc
+flatten
+
+equiv_opt -run :prove -map +/gowin/cells_sim.v synth_gowin # equivalency check
+miter -equiv -make_assert -flatten gold gate miter
+sat -verify -show-all -dump_vcd x.vcd -prove-asserts -set-at 1 in_reset 1 -seq 20 -prove-skip 1 miter
+
+#design -load postopt
+#shell
