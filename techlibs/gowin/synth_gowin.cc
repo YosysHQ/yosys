@@ -238,7 +238,6 @@ struct SynthGowinPass : public ScriptPass
 			run("hilomap -singleton -hicell VCC V -locell GND G");
 			run("iopadmap -bits -inpad IBUF O:I -outpad OBUF I:O "
 				"-toutpad TBUF OEN:I:O -tinoutpad IOBUF OEN:O:I:IO", "(unless -noiopads)");
-			run("dffinit  -ff DFF Q INIT");
 			run("clean");
 
 		}

@@ -1,9 +1,10 @@
-//TODO all DFF* have INIT
+//All DFF* have INIT, but the hardware is always initialised to the reset
+//value regardless. The parameter is ignored.
 
 // DFFN      D Flip-Flop with Negative-Edge Clock
 module  \$_DFF_N_ (input D, C, output Q); DFFN _TECHMAP_REPLACE_ (.D(D), .Q(Q), .CLK(C)); endmodule
 // DFF       D Flip-Flop
-module  \$_DFF_P_ #(parameter INIT = 1'b0) (input D, C, output Q); DFF  #(.INIT(INIT)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .CLK(C)); endmodule
+module  \$_DFF_P_ (input D, C, output Q); DFF _TECHMAP_REPLACE_ (.D(D), .Q(Q), .CLK(C)); endmodule
 
 // DFFE      D Flip-Flop with Clock Enable
 module  \$_DFFE_PP_ (input D, C, E, output Q); DFFE _TECHMAP_REPLACE_ (.D(D), .Q(Q), .CLK(C), .CE(E)); endmodule
