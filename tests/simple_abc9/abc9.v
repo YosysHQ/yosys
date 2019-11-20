@@ -267,3 +267,8 @@ module abc9_test026(output [3:0] o, p);
 assign o = { 1'b1, 1'bx };
 assign p = { 1'b1, 1'bx, 1'b0 };
 endmodule
+
+module abc9_test029(input clk1, clk2, input d, output reg q1, q2);
+always @(posedge clk1) q1 <= d;
+always @(negedge clk2) q2 <= q1;
+endmodule
