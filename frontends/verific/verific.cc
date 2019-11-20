@@ -130,7 +130,7 @@ RTLIL::SigBit VerificImporter::net_map_at(Net *net)
 
 bool is_blackbox(Netlist *nl)
 {
-	if (nl->IsBlackBox())
+	if (nl->IsBlackBox() || nl->IsEmptyBox())
 		return true;
 
 	const char *attr = nl->GetAttValue("blackbox");
