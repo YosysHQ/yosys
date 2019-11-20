@@ -432,7 +432,7 @@ void AigerReader::parse_xaiger(const dict<int,IdString> &box_lookup)
 			else if (c == 'r') {
 				uint32_t dataSize YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
 				flopNum = parse_xaiger_literal(f);
-				log_debug("flopNum: %u\n", flopNum);
+				log_debug("flopNum = %u\n", flopNum);
 				log_assert(dataSize == (flopNum+1) * sizeof(uint32_t));
 				f.ignore(flopNum * sizeof(uint32_t));
 			}
@@ -464,9 +464,10 @@ void AigerReader::parse_xaiger(const dict<int,IdString> &box_lookup)
 					boxes.emplace_back(cell);
 				}
 			}
-			else if (c == 'a' || c == 'i' || c == 'o') {
+			else if (c == 'a' || c == 'i' || c == 'o' || c == 's') {
 				uint32_t dataSize = parse_xaiger_literal(f);
 				f.ignore(dataSize);
+				log_debug("ignoring '%c'\n", c);
 			}
 			else {
 				break;
