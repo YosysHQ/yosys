@@ -32,10 +32,9 @@ equiv_opt -async2sync  -assert -map +/xilinx/cells_sim.v synth_xilinx # equivale
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd dffs # Constrain all select calls below inside the top module
 select -assert-count 1 t:BUFG
-select -assert-count 1 t:FDRE
-select -assert-count 1 t:LUT2
+select -assert-count 1 t:FDSE
 
-select -assert-none t:BUFG t:FDRE t:LUT2 %% t:* %D
+select -assert-none t:BUFG t:FDSE %% t:* %D
 
 
 design -load read
@@ -46,6 +45,6 @@ design -load postopt # load the post-opt design (otherwise equiv_opt loads the p
 cd ndffnr # Constrain all select calls below inside the top module
 select -assert-count 1 t:BUFG
 select -assert-count 1 t:FDRE_1
-select -assert-count 1 t:LUT2
+select -assert-count 1 t:INV
 
-select -assert-none t:BUFG t:FDRE_1 t:LUT2 %% t:* %D
+select -assert-none t:BUFG t:FDRE_1 t:INV %% t:* %D
