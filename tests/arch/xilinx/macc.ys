@@ -23,9 +23,10 @@ miter -equiv -flatten -make_assert -make_outputs gold gate miter
 sat -verify -prove-asserts -seq 10 -show-inputs -show-outputs miter
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd macc2 # Constrain all select calls below inside the top module
+
 select -assert-count 1 t:BUFG
 select -assert-count 1 t:DSP48E1
 select -assert-count 1 t:FDRE
 select -assert-count 1 t:LUT2
-select -assert-count 41 t:LUT3
+select -assert-count 40 t:LUT3
 select -assert-none t:BUFG t:DSP48E1 t:FDRE t:LUT2 t:LUT3 %% t:* %D
