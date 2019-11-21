@@ -5476,49 +5476,6 @@ module URAM288_BASE (...);
     input SLEEP;
 endmodule
 
-module DSP48 (...);
-    parameter integer AREG = 1;
-    parameter integer BREG = 1;
-    parameter B_INPUT = "DIRECT";
-    parameter integer CARRYINREG = 1;
-    parameter integer CARRYINSELREG = 1;
-    parameter integer CREG = 1;
-    parameter LEGACY_MODE = "MULT18X18S";
-    parameter integer MREG = 1;
-    parameter integer OPMODEREG = 1;
-    parameter integer PREG = 1;
-    parameter integer SUBTRACTREG = 1;
-    output [17:0] BCOUT;
-    output [47:0] P;
-    output [47:0] PCOUT;
-    input [17:0] A;
-    input [17:0] B;
-    input [17:0] BCIN;
-    input [47:0] C;
-    input CARRYIN;
-    input [1:0] CARRYINSEL;
-    input CEA;
-    input CEB;
-    input CEC;
-    input CECARRYIN;
-    input CECINSUB;
-    input CECTRL;
-    input CEM;
-    input CEP;
-    (* clkbuf_sink *)
-    input CLK;
-    input [6:0] OPMODE;
-    input [47:0] PCIN;
-    input RSTA;
-    input RSTB;
-    input RSTC;
-    input RSTCARRYIN;
-    input RSTCTRL;
-    input RSTM;
-    input RSTP;
-    input SUBTRACT;
-endmodule
-
 module DSP48E (...);
     parameter SIM_MODE = "SAFE";
     parameter integer ACASCREG = 1;
