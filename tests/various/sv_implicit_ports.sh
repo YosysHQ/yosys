@@ -54,3 +54,14 @@ module top(input [7:0] a, output [7:0] q);
 endmodule
 EOT
 ) 2>&1 | grep -F "ERROR: Width mismatch between wire (7 bits) and port (8 bits) for implicit port connection \`b' of cell top.add_i (add)." > /dev/null
+
+# Defaults
+../../yosys -f "verilog -sv" -qp "prep -flatten -top top; select -assert-count 1 t:\$add" - <<EOT
+module add(input [7:0] a = 8'd00, input [7:0] b = 8'd01, output [7:0] q);
+assign q = a + b;
+endmodule
+
+module top(input [7:0] a, output [7:0] q);
+	add add_i(.*);
+endmodule
+EOT

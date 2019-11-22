@@ -983,6 +983,15 @@ struct HierarchyPass : public Pass {
 			}
 		}
 
+		// Determine default values
+		dict<IdString, dict<IdString, Const>> defaults_db;
+		if (!nodefaults)
+		{
+			for (auto module : design->modules())
+				for (auto wire : module->wires())
+					if (wire->port_input && wire->attributes.count("\\defaultvalue"))
+						defaults_db[module->name][wire->name] = wire->attributes.at("\\defaultvalue");
+		}
 		// Process SV implicit port connections
 		std::set<Module*> blackbox_derivatives;
 		std::vector<Module*> design_modules = design->modules();
@@ -1019,6 +1028,11 @@ struct HierarchyPass : public Pass {
 						continue;
 					// Make sure a wire of correct name exists in the parent
 					Wire* parent_wire = find_implicit_port_wire(module, cell, wire->name.str());
+
+					// Missing wires are OK when a default value is set
+					if (!nodefaults && parent_wire == nullptr && defaults_db.count(cell->type) && defaults_db.at(cell->type).count(wire->name))
+						continue;
+
 					if (parent_wire == nullptr)
 						log_error("No matching wire for implicit port connection `%s' of cell %s.%s (%s).\n",
 								RTLIL::id2cstr(wire->name), RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
@@ -1034,13 +1048,6 @@ struct HierarchyPass : public Pass {
 
 		if (!nodefaults)
 		{
-			dict<IdString, dict<IdString, Const>> defaults_db;
-
-			for (auto module : design->modules())
-				for (auto wire : module->wires())
-					if (wire->port_input && wire->attributes.count("\\defaultvalue"))
-						defaults_db[module->name][wire->name] = wire->attributes.at("\\defaultvalue");
-
 			for (auto module : design->modules())
 				for (auto cell : module->cells())
 				{
