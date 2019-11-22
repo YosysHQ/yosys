@@ -36,6 +36,8 @@
 // basic_property:
 //   sequence
 //   not basic_property
+//   nexttime basic_property
+//   nexttime[N] basic_property
 //   sequence #-# basic_property
 //   sequence #=# basic_property
 //   basic_property or basic_property           (cover only)
@@ -1262,6 +1264,26 @@ struct VerificSvaImporter
 			}
 
 			return node;
+		}
+
+		if (inst->Type() == PRIM_SVA_NEXTTIME || inst->Type() == PRIM_SVA_S_NEXTTIME)
+		{
+			const char *sva_low_s = inst->GetAttValue("sva:low");
+			const char *sva_high_s = inst->GetAttValue("sva:high");
+
+			int sva_low = atoi(sva_low_s);
+			int sva_high = atoi(sva_high_s);
+			log_assert(sva_low == sva_high);
+
+			int node = start_node;
+
+			for (int i = 0; i < sva_low; i++) {
+				int next_node = fsm.createNode();
+				fsm.createEdge(node, next_node);
+				node = next_node;
+			}
+
+			return parse_sequence(fsm, node, inst->GetInput());
 		}
 
 		if (inst->Type() == PRIM_SVA_SEQ_CONCAT)
