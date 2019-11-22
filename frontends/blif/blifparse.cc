@@ -174,6 +174,12 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 			if (module == nullptr)
 				goto error;
 
+			if (!strcmp(cmd, ".blackbox"))
+			{
+				module->attributes["\\blackbox"] = RTLIL::Const(1);
+				continue;
+			}
+
 			if (!strcmp(cmd, ".end"))
 			{
 				for (auto &wp : wideports_cache)
@@ -280,7 +286,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 					goto error_with_reason;
 				}
 
-				module->rename(lastcell, p);
+				module->rename(lastcell, RTLIL::escape_id(p));
 				continue;
 			}
 

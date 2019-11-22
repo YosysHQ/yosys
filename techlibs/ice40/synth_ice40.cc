@@ -245,7 +245,7 @@ struct SynthIce40Pass : public ScriptPass
 				define = "-D ICE40_U";
 			else
 				define = "-D ICE40_HX";
-			run("read_verilog -icells " + define + " -lib +/ice40/cells_sim.v");
+			run("read_verilog " + define + " -lib +/ice40/cells_sim.v");
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
 			run("proc");
 		}
@@ -272,8 +272,19 @@ struct SynthIce40Pass : public ScriptPass
 			run("techmap -map +/cmp2lut.v -D LUT_WIDTH=4");
 			run("opt_expr");
 			run("opt_clean");
-			if (help_mode || dsp)
-				run("ice40_dsp", "(if -dsp)");
+			if (help_mode || dsp) {
+				run("memory_dff");
+				run("techmap -map +/mul2dsp.v -map +/ice40/dsp_map.v -D DSP_A_MAXWIDTH=16 -D DSP_B_MAXWIDTH=16 "
+						"-D DSP_A_MINWIDTH=2 -D DSP_B_MINWIDTH=2 -D DSP_Y_MINWIDTH=11 "
+						"-D DSP_NAME=$__MUL16X16", "(if -dsp)");
+				run("select a:mul2dsp", "              (if -dsp)");
+				run("setattr -unset mul2dsp", "        (if -dsp)");
+				run("opt_expr -fine", "                (if -dsp)");
+				run("wreduce", "                       (if -dsp)");
+				run("select -clear", "                 (if -dsp)");
+				run("ice40_dsp", "                     (if -dsp)");
+				run("chtype -set $mul t:$__soft_mul", "(if -dsp)");
+			}
 			run("alumacc");
 			run("opt");
 			run("fsm");
@@ -339,6 +350,7 @@ struct SynthIce40Pass : public ScriptPass
 			}
 			if (!noabc) {
 				if (abc == "abc9") {
+					run("read_verilog -icells -lib +/ice40/abc9_model.v");
 					int wire_delay;
 					if (device_opt == "lp")
 						wire_delay = 400;
@@ -346,7 +358,7 @@ struct SynthIce40Pass : public ScriptPass
 						wire_delay = 750;
 					else
 						wire_delay = 250;
-					run(abc + stringf(" -W %d -lut +/ice40/abc_%s.lut -box +/ice40/abc_%s.box", wire_delay, device_opt.c_str(), device_opt.c_str()), "(skip if -noabc)");
+					run(abc + stringf(" -W %d -lut +/ice40/abc9_%s.lut -box +/ice40/abc9_%s.box", wire_delay, device_opt.c_str(), device_opt.c_str()), "(skip if -noabc)");
 				}
 				else
 					run(abc + " -dress -lut 4", "(skip if -noabc)");
@@ -368,6 +380,7 @@ struct SynthIce40Pass : public ScriptPass
 
 		if (check_label("check"))
 		{
+			run("autoname");
 			run("hierarchy -check");
 			run("stat");
 			run("check -noinit");

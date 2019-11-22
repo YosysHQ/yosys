@@ -5,6 +5,7 @@ OBJS += passes/cmds/design.o
 OBJS += passes/cmds/select.o
 OBJS += passes/cmds/show.o
 OBJS += passes/cmds/rename.o
+OBJS += passes/cmds/autoname.o
 OBJS += passes/cmds/connect.o
 OBJS += passes/cmds/scatter.o
 OBJS += passes/cmds/setundef.o

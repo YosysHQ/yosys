@@ -3083,6 +3083,7 @@ void RTLIL::SigSpec::replace(const dict<RTLIL::SigBit, RTLIL::SigBit> &rules, RT
 	log_assert(other != NULL);
 	log_assert(width_ == other->width_);
 
+	if (rules.empty()) return;
 	unpack();
 	other->unpack();
 
@@ -3107,6 +3108,7 @@ void RTLIL::SigSpec::replace(const std::map<RTLIL::SigBit, RTLIL::SigBit> &rules
 	log_assert(other != NULL);
 	log_assert(width_ == other->width_);
 
+	if (rules.empty()) return;
 	unpack();
 	other->unpack();
 
@@ -3551,6 +3553,12 @@ bool RTLIL::SigSpec::operator ==(const RTLIL::SigSpec &other) const
 
 	if (width_ != other.width_)
 		return false;
+
+	// Without this, SigSpec() == SigSpec(State::S0, 0) will fail
+	//   since the RHS will contain one SigChunk of width 0 causing
+	//   the size check below to fail
+	if (width_ == 0)
+		return true;
 
 	pack();
 	other.pack();

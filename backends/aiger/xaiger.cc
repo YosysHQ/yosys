@@ -203,7 +203,7 @@ struct XAigerWriter
 		//       box ordering, but not individual AIG cells
 		dict<SigBit, pool<IdString>> bit_drivers, bit_users;
 		TopoSort<IdString, RTLIL::sort_by_id_str> toposort;
-		bool abc_box_seen = false;
+		bool abc9_box_seen = false;
 
 		for (auto cell : module->selected_cells()) {
 			if (cell->type == "$_NOT_")
@@ -242,8 +242,8 @@ struct XAigerWriter
 			log_assert(!holes_mode);
 
 			RTLIL::Module* inst_module = module->design->module(cell->type);
-			if (inst_module && inst_module->attributes.count("\\abc_box_id")) {
-				abc_box_seen = true;
+			if (inst_module && inst_module->attributes.count("\\abc9_box_id")) {
+				abc9_box_seen = true;
 
 				if (!holes_mode) {
 					toposort.node(cell->name);
@@ -291,10 +291,10 @@ struct XAigerWriter
 					if (is_output) {
 						int arrival = 0;
 						if (port_wire) {
-							auto it = port_wire->attributes.find("\\abc_arrival");
+							auto it = port_wire->attributes.find("\\abc9_arrival");
 							if (it != port_wire->attributes.end()) {
 								if (it->second.flags != 0)
-									log_error("Attribute 'abc_arrival' on port '%s' of module '%s' is not an integer.\n", log_id(port_wire), log_id(cell->type));
+									log_error("Attribute 'abc9_arrival' on port '%s' of module '%s' is not an integer.\n", log_id(port_wire), log_id(cell->type));
 								arrival = it->second.as_int();
 							}
 						}
@@ -318,7 +318,7 @@ struct XAigerWriter
 			//log_warning("Unsupported cell type: %s (%s)\n", log_id(cell->type), log_id(cell));
 		}
 
-		if (abc_box_seen) {
+		if (abc9_box_seen) {
 			for (auto &it : bit_users)
 				if (bit_drivers.count(it.first))
 					for (auto driver_cell : bit_drivers.at(it.first))
@@ -347,8 +347,10 @@ struct XAigerWriter
 				log_assert(cell);
 
 				RTLIL::Module* box_module = module->design->module(cell->type);
-				if (!box_module || !box_module->attributes.count("\\abc_box_id"))
+				if (!box_module || !box_module->attributes.count("\\abc9_box_id"))
 					continue;
+
+				bool blackbox = box_module->get_blackbox_attribute(true /* ignore_wb */);
 
 				// Fully pad all unused input connections of this box cell with S0
 				// Fully pad all undriven output connections of this box cell with anonymous wires
@@ -394,7 +396,10 @@ struct XAigerWriter
 							rhs = it->second;
 						}
 						else {
-							rhs = module->addWire(NEW_ID, GetSize(w));
+							Wire *wire = module->addWire(NEW_ID, GetSize(w));
+							if (blackbox)
+								wire->set_bool_attribute(ID(abc9_padding));
+							rhs = wire;
 							cell->setPort(port_name, rhs);
 						}
 
@@ -405,12 +410,7 @@ struct XAigerWriter
 							if (O != b)
 								alias_map[O] = b;
 							undriven_bits.erase(O);
-
-							auto jt = input_bits.find(b);
-							if (jt != input_bits.end()) {
-								log_assert(keep_bits.count(O));
-								input_bits.erase(b);
-							}
+							input_bits.erase(b);
 						}
 					}
 				}
@@ -429,7 +429,7 @@ struct XAigerWriter
 			// inherit existing inout's drivers
 			if ((wire->port_input && wire->port_output && !undriven_bits.count(bit))
 					|| keep_bits.count(bit)) {
-				RTLIL::IdString wire_name = wire->name.str() + "$inout.out";
+				RTLIL::IdString wire_name = stringf("$%s$inout.out", wire->name.c_str());
 				RTLIL::Wire *new_wire = module->wire(wire_name);
 				if (!new_wire)
 					new_wire = module->addWire(wire_name, GetSize(wire));
@@ -666,7 +666,7 @@ struct XAigerWriter
 
 				write_h_buffer(box_inputs);
 				write_h_buffer(box_outputs);
-				write_h_buffer(box_module->attributes.at("\\abc_box_id").as_int());
+				write_h_buffer(box_module->attributes.at("\\abc9_box_id").as_int());
 				write_h_buffer(box_count++);
 			}
 
@@ -856,7 +856,7 @@ struct XAigerBackend : public Backend {
 			}
 			break;
 		}
-		extra_args(f, filename, args, argidx);
+		extra_args(f, filename, args, argidx, !ascii_mode);
 
 		Module *top_module = design->top_module();
 

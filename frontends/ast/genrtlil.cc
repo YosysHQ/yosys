@@ -863,6 +863,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	case AST_PACKAGE:
 	case AST_MODPORT:
 	case AST_MODPORTMEMBER:
+	case AST_TYPEDEF:
 		break;
 	case AST_INTERFACEPORT: {
 		// If a port in a module with unknown type is found, mark it with the attribute 'is_interface'

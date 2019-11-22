@@ -286,7 +286,7 @@ def process_pmgfile(f, filename):
                         block["gencode"].append(rewrite_cpp(l.rstrip()))
                     break
 
-                assert False
+                raise RuntimeError("'%s' statement not recognised on line %d" % (a[0], linenr))
 
             if block["optional"]:
                 assert not block["semioptional"]
@@ -305,7 +305,8 @@ def process_pmgfile(f, filename):
             block["states"] = set()
 
             for s in line.split()[1:]:
-                assert s in state_types[current_pattern]
+                if s not in state_types[current_pattern]:
+                    raise RuntimeError("'%s' not in state_types" % s)
                 block["states"].add(s)
 
             codetype = "code"
@@ -327,7 +328,7 @@ def process_pmgfile(f, filename):
             blocks.append(block)
             continue
 
-        assert False
+        raise RuntimeError("'%s' command not recognised" % cmd)
 
 for fn in pmgfiles:
     with open(fn, "r") as f:
@@ -361,6 +362,7 @@ with open(outfile, "w") as f:
     print("  Module *module;", file=f)
     print("  SigMap sigmap;", file=f)
     print("  std::function<void()> on_accept;", file=f)
+    print("  bool setup_done;", file=f)
     print("  bool generate_mode;", file=f)
     print("  int accept_cnt;", file=f)
     print("", file=f)
@@ -452,9 +454,17 @@ with open(outfile, "w") as f:
     print("    return sigmap(cell->getPort(portname));", file=f)
     print("  }", file=f)
     print("", file=f)
+    print("  SigSpec port(Cell *cell, IdString portname, const SigSpec& defval) {", file=f)
+    print("    return sigmap(cell->connections_.at(portname, defval));", file=f)
+    print("  }", file=f)
+    print("", file=f)
 
     print("  Const param(Cell *cell, IdString paramname) {", file=f)
     print("    return cell->getParam(paramname);", file=f)
+    print("  }", file=f)
+    print("", file=f)
+    print("  Const param(Cell *cell, IdString paramname, const Const& defval) {", file=f)
+    print("    return cell->parameters.at(paramname, defval);", file=f)
     print("  }", file=f)
     print("", file=f)
 
@@ -468,7 +478,17 @@ with open(outfile, "w") as f:
     print("", file=f)
 
     print("  {}_pm(Module *module, const vector<Cell*> &cells) :".format(prefix), file=f)
-    print("      module(module), sigmap(module), generate_mode(false), rngseed(12345678) {", file=f)
+    print("      module(module), sigmap(module), setup_done(false), generate_mode(false), rngseed(12345678) {", file=f)
+    print("    setup(cells);", file=f)
+    print("  }", file=f)
+    print("", file=f)
+
+    print("  {}_pm(Module *module) :".format(prefix), file=f)
+    print("      module(module), sigmap(module), setup_done(false), generate_mode(false), rngseed(12345678) {", file=f)
+    print("  }", file=f)
+    print("", file=f)
+
+    print("  void setup(const vector<Cell*> &cells) {", file=f)
     for current_pattern in sorted(patterns.keys()):
         for s, t in sorted(udata_types[current_pattern].items()):
             if t.endswith("*"):
@@ -476,6 +496,8 @@ with open(outfile, "w") as f:
             else:
                 print("    ud_{}.{} = {}();".format(current_pattern, s, t), file=f)
     current_pattern = None
+    print("    log_assert(!setup_done);", file=f)
+    print("    setup_done = true;", file=f)
     print("    for (auto port : module->ports)", file=f)
     print("      add_siguser(module->wire(port), nullptr);", file=f)
     print("    for (auto cell : module->cells())", file=f)
@@ -530,6 +552,7 @@ with open(outfile, "w") as f:
 
     for current_pattern in sorted(patterns.keys()):
         print("  int run_{}(std::function<void()> on_accept_f) {{".format(current_pattern), file=f)
+        print("    log_assert(setup_done);", file=f)
         print("    accept_cnt = 0;", file=f)
         print("    on_accept = on_accept_f;", file=f)
         print("    rollback = 0;", file=f)

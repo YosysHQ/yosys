@@ -371,6 +371,11 @@ Verilog Attributes and non-standard features
   for example, to specify the clk-to-Q delay of a flip-flop for consideration
   during techmapping.
 
+- The frontend sets attributes ``always_comb``, ``always_latch`` and
+  ``always_ff`` on processes derived from SystemVerilog style always blocks
+  according to the type of the always. These are checked for correctness in
+  ``proc_dlatch``.
+
 - In addition to the ``(* ... *)`` attribute syntax, Yosys supports
   the non-standard ``{* ... *}`` attribute syntax to set default attributes
   for everything that comes after the ``{* ... *}`` statement. (Reset
@@ -509,6 +514,8 @@ from SystemVerilog:
 - SystemVerilog packages are supported. Once a SystemVerilog file is read
   into a design with ``read_verilog``, all its packages are available to
   SystemVerilog files being read into the same design afterwards.
+
+- typedefs are supported (including inside packages)
 
 - SystemVerilog interfaces (SVIs) are supported. Modports for specifying whether
   ports are inputs or outputs are supported.

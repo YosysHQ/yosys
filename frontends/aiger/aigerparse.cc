@@ -285,6 +285,8 @@ end_of_header:
 		}
 		else if (c == 'c') {
 			f.ignore(1);
+			if (f.peek() == '\r')
+				f.ignore(1);
 			if (f.peek() == '\n')
 				break;
 			// Else constraint (TODO)
@@ -738,22 +740,22 @@ void AigerReader::post_process()
 		log_assert(box_module);
 
 		if (seen_boxes.insert(cell->type).second) {
-			auto it = box_module->attributes.find("\\abc_carry");
+			auto it = box_module->attributes.find("\\abc9_carry");
 			if (it != box_module->attributes.end()) {
 				RTLIL::Wire *carry_in = nullptr, *carry_out = nullptr;
 				auto carry_in_out = it->second.decode_string();
 				auto pos = carry_in_out.find(',');
 				if (pos == std::string::npos)
-					log_error("'abc_carry' attribute on module '%s' does not contain ','.\n", log_id(cell->type));
+					log_error("'abc9_carry' attribute on module '%s' does not contain ','.\n", log_id(cell->type));
 				auto carry_in_name = RTLIL::escape_id(carry_in_out.substr(0, pos));
 				carry_in = box_module->wire(carry_in_name);
 				if (!carry_in || !carry_in->port_input)
-					log_error("'abc_carry' on module '%s' contains '%s' which does not exist or is not an input port.\n", log_id(cell->type), carry_in_name.c_str());
+					log_error("'abc9_carry' on module '%s' contains '%s' which does not exist or is not an input port.\n", log_id(cell->type), carry_in_name.c_str());
 
 				auto carry_out_name = RTLIL::escape_id(carry_in_out.substr(pos+1));
 				carry_out = box_module->wire(carry_out_name);
 				if (!carry_out || !carry_out->port_output)
-					log_error("'abc_carry' on module '%s' contains '%s' which does not exist or is not an output port.\n", log_id(cell->type), carry_out_name.c_str());
+					log_error("'abc9_carry' on module '%s' contains '%s' which does not exist or is not an output port.\n", log_id(cell->type), carry_out_name.c_str());
 
 				auto &ports = box_module->ports;
 				for (auto jt = ports.begin(); jt != ports.end(); ) {
@@ -868,7 +870,7 @@ void AigerReader::post_process()
 					if (!existing) {
 						if (escaped_s.ends_with("$inout.out")) {
 							wire->port_output = false;
-							RTLIL::Wire *in_wire = module->wire(escaped_s.substr(0, escaped_s.size()-10));
+							RTLIL::Wire *in_wire = module->wire(escaped_s.substr(1, escaped_s.size()-11));
 							log_assert(in_wire);
 							log_assert(in_wire->port_input && !in_wire->port_output);
 							in_wire->port_output = true;
@@ -889,7 +891,7 @@ void AigerReader::post_process()
 					if (!existing) {
 						if (escaped_s.ends_with("$inout.out")) {
 							wire->port_output = false;
-							RTLIL::Wire *in_wire = module->wire(stringf("%s[%d]", escaped_s.substr(0, escaped_s.size()-10).c_str(), index));
+							RTLIL::Wire *in_wire = module->wire(stringf("%s[%d]", escaped_s.substr(1, escaped_s.size()-11).c_str(), index));
 							log_assert(in_wire);
 							log_assert(in_wire->port_input && !in_wire->port_output);
 							in_wire->port_output = true;
@@ -1056,13 +1058,15 @@ struct AigerFrontend : public Frontend {
 			}
 			break;
 		}
-		extra_args(f, filename, args, argidx);
+		extra_args(f, filename, args, argidx, true);
 
 		if (module_name.empty()) {
 #ifdef _WIN32
 			char fname[_MAX_FNAME];
 			_splitpath(filename.c_str(), NULL /* drive */, NULL /* dir */, fname, NULL /* ext */);
-			module_name = fname;
+			char* bn = strdup(fname);
+			module_name = RTLIL::escape_id(bn);
+			free(bn);
 #else
 			char* bn = strdup(filename.c_str());
 			module_name = RTLIL::escape_id(bn);

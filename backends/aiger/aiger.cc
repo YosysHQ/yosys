@@ -91,6 +91,9 @@ struct AigerWriter
 		} else
 		if (alias_map.count(bit)) {
 			a = bit2aig(alias_map.at(bit));
+		} else
+		if (initstate_bits.count(bit)) {
+			a = initstate_ff;
 		}
 
 		if (bit == State::Sx || bit == State::Sz)
@@ -777,7 +780,7 @@ struct AigerBackend : public Backend {
 			}
 			break;
 		}
-		extra_args(f, filename, args, argidx);
+		extra_args(f, filename, args, argidx, !ascii_mode);
 
 		Module *top_module = design->top_module();
 
