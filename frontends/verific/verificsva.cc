@@ -1590,15 +1590,25 @@ struct VerificSvaImporter
 			Instance *consequent_inst = net_to_ast_driver(consequent_net);
 
 			if (consequent_inst && (consequent_inst->Type() == PRIM_SVA_UNTIL || consequent_inst->Type() == PRIM_SVA_S_UNTIL ||
-					consequent_inst->Type() == PRIM_SVA_UNTIL_WITH || consequent_inst->Type() == PRIM_SVA_S_UNTIL_WITH))
+					consequent_inst->Type() == PRIM_SVA_UNTIL_WITH || consequent_inst->Type() == PRIM_SVA_S_UNTIL_WITH ||
+					consequent_inst->Type() == PRIM_SVA_ALWAYS || consequent_inst->Type() == PRIM_SVA_S_ALWAYS))
 			{
 				bool until_with = consequent_inst->Type() == PRIM_SVA_UNTIL_WITH || consequent_inst->Type() == PRIM_SVA_S_UNTIL_WITH;
 
-				Net *until_net = consequent_inst->GetInput2();
-				consequent_net = consequent_inst->GetInput1();
-				consequent_inst = net_to_ast_driver(consequent_net);
+				Net *until_net = nullptr;
+				if (consequent_inst->Type() == PRIM_SVA_ALWAYS || consequent_inst->Type() == PRIM_SVA_S_ALWAYS)
+				{
+					consequent_net = consequent_inst->GetInput();
+					consequent_inst = net_to_ast_driver(consequent_net);
+				}
+				else
+				{
+					until_net = consequent_inst->GetInput2();
+					consequent_net = consequent_inst->GetInput1();
+					consequent_inst = net_to_ast_driver(consequent_net);
+				}
 
-				SigBit until_sig = parse_expression(until_net);
+				SigBit until_sig = until_net ? parse_expression(until_net) : RTLIL::S0;
 				SigBit not_until_sig = module->Not(NEW_ID, until_sig);
 				antecedent_fsm.createEdge(node, node, not_until_sig);
 
