@@ -349,6 +349,10 @@ void proc_dlatch(proc_dlatch_db_t &db, RTLIL::Process *proc)
 			continue;
 		}
 
+		if (proc->get_bool_attribute(ID(always_ff)))
+			log_error("Found non edge/level sensitive event in always_ff process `%s.%s'.\n",
+					db.module->name.c_str(), proc->name.c_str());
+
 		for (auto ss : sr->actions)
 		{
 			db.sigmap.apply(ss.first);
@@ -383,8 +387,12 @@ void proc_dlatch(proc_dlatch_db_t &db, RTLIL::Process *proc)
 	int offset = 0;
 	for (auto chunk : nolatches_bits.first.chunks()) {
 		SigSpec lhs = chunk, rhs = nolatches_bits.second.extract(offset, chunk.width);
-		log("No latch inferred for signal `%s.%s' from process `%s.%s'.\n",
-				db.module->name.c_str(), log_signal(lhs), db.module->name.c_str(), proc->name.c_str());
+		if (proc->get_bool_attribute(ID(always_latch)))
+			log_error("No latch inferred for signal `%s.%s' from always_latch process `%s.%s'.\n",
+					db.module->name.c_str(), log_signal(lhs), db.module->name.c_str(), proc->name.c_str());
+		else
+			log("No latch inferred for signal `%s.%s' from process `%s.%s'.\n",
+					db.module->name.c_str(), log_signal(lhs), db.module->name.c_str(), proc->name.c_str());
 		db.module->connect(lhs, rhs);
 		offset += chunk.width;
 	}
@@ -410,8 +418,12 @@ void proc_dlatch(proc_dlatch_db_t &db, RTLIL::Process *proc)
 			cell->set_src_attribute(src);
 			db.generated_dlatches.insert(cell);
 
-			log("Latch inferred for signal `%s.%s' from process `%s.%s': %s\n",
-					db.module->name.c_str(), log_signal(lhs), db.module->name.c_str(), proc->name.c_str(), log_id(cell));
+			if (proc->get_bool_attribute(ID(always_comb)))
+				log_error("Latch inferred for signal `%s.%s' from always_comb process `%s.%s'.\n",
+						db.module->name.c_str(), log_signal(lhs), db.module->name.c_str(), proc->name.c_str());
+			else
+				log("Latch inferred for signal `%s.%s' from process `%s.%s': %s\n",
+						db.module->name.c_str(), log_signal(lhs), db.module->name.c_str(), proc->name.c_str(), log_id(cell));
 		}
 
 		offset += width;
