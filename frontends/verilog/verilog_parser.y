@@ -1582,7 +1582,7 @@ cell_port:
 		free_attr($1);
 	} |
 	attr TOK_AUTOCONNECT_ALL {
-		astbuf2->attributes[ID(autoconnect)] = AstNode::mkconst_int(1, false);
+		astbuf2->attributes[ID(implicit_port_conns)] = AstNode::mkconst_int(1, false);
 	};
 
 always_comb_or_latch:
