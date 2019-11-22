@@ -387,6 +387,10 @@ Verilog Attributes and non-standard features
   according to the type of the always. These are checked for correctness in
   ``proc_dlatch``.
 
+- The cell attribute ``wildcard_port_conns`` represents wildcard port
+  connections (SystemVerilog ``.*``). These are resolved to concrete
+  connections to matching wires in ``hierarchy``.  
+
 - In addition to the ``(* ... *)`` attribute syntax, Yosys supports
   the non-standard ``{* ... *}`` attribute syntax to set default attributes
   for everything that comes after the ``{* ... *}`` statement. (Reset
