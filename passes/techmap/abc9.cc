@@ -1165,7 +1165,7 @@ struct Abc9Pass : public Pass {
 
 					for (auto bit : cell_to_bit_up[cell])
 					for (auto c : bit_to_cell_up[bit])
-						if (unassigned_cells.count(c)) {
+						if (unassigned_cells.count(c) && !c->type.in("$__ABC9_FF_", "$__ABC9_ASYNC_")) {
 							unassigned_cells.erase(c);
 							next_expand_queue_up.insert(c);
 							assigned_cells[key].insert(c->name);
