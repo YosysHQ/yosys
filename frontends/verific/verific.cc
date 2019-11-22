@@ -789,7 +789,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 	std::string netlist_name = nl->GetAtt(" \\top") ? nl->CellBaseName() : nl->Owner()->Name();
 	std::string module_name = netlist_name;
 
-	if (nl->IsOperator()) {
+	if (nl->IsOperator() || nl->IsPrimitive()) {
 		module_name = "$verific$" + module_name;
 	} else {
 		if (!norename && *nl->Name()) {
@@ -1409,7 +1409,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 
 		std::string inst_type = inst->View()->Owner()->Name();
 
-		if (inst->View()->IsOperator()) {
+		if (inst->View()->IsOperator() || inst->View()->IsPrimitive()) {
 			inst_type = "$verific$" + inst_type;
 		} else {
 			if (*inst->View()->Name()) {
