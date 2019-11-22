@@ -130,7 +130,7 @@ RTLIL::SigBit VerificImporter::net_map_at(Net *net)
 
 bool is_blackbox(Netlist *nl)
 {
-	if (nl->IsBlackBox())
+	if (nl->IsBlackBox() || nl->IsEmptyBox())
 		return true;
 
 	const char *attr = nl->GetAttValue("blackbox");
@@ -784,15 +784,15 @@ void VerificImporter::merge_past_ffs(pool<RTLIL::Cell*> &candidates)
 		merge_past_ffs_clock(it.second, it.first.first, it.first.second);
 }
 
-void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*> &nl_todo)
+void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*> &nl_todo, bool norename)
 {
 	std::string netlist_name = nl->GetAtt(" \\top") ? nl->CellBaseName() : nl->Owner()->Name();
 	std::string module_name = netlist_name;
 
-	if (nl->IsOperator()) {
+	if (nl->IsOperator() || nl->IsPrimitive()) {
 		module_name = "$verific$" + module_name;
 	} else {
-		if (*nl->Name()) {
+		if (!norename && *nl->Name()) {
 			module_name += "(";
 			module_name += nl->Name();
 			module_name += ")";
@@ -1409,7 +1409,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 
 		std::string inst_type = inst->View()->Owner()->Name();
 
-		if (inst->View()->IsOperator()) {
+		if (inst->View()->IsOperator() || inst->View()->IsPrimitive()) {
 			inst_type = "$verific$" + inst_type;
 		} else {
 			if (*inst->View()->Name()) {
@@ -1899,7 +1899,7 @@ void verific_import(Design *design, const std::map<std::string,std::string> &par
 		Netlist *nl = *nl_todo.begin();
 		if (nl_done.count(nl) == 0) {
 			VerificImporter importer(false, false, false, false, false, false, false);
-			importer.import_netlist(design, nl, nl_todo);
+			importer.import_netlist(design, nl, nl_todo, nl->Owner()->Name() == top);
 		}
 		nl_todo.erase(nl);
 		nl_done.insert(nl);
@@ -2373,6 +2373,8 @@ struct VerificPass : public Pass {
 			if (argidx > GetSize(args) && args[argidx].compare(0, 1, "-") == 0)
 				cmd_error(args, argidx, "unknown option");
 
+			std::set<std::string> top_mod_names;
+
 			if (mode_all)
 			{
 				log("Running hier_tree::ElaborateAll().\n");
@@ -2401,6 +2403,7 @@ struct VerificPass : public Pass {
 				for (; argidx < GetSize(args); argidx++)
 				{
 					const char *name = args[argidx].c_str();
+					top_mod_names.insert(name);
 					VeriLibrary* veri_lib = veri_file::GetLibrary(work.c_str(), 1);
 
 					if (veri_lib) {
@@ -2466,7 +2469,7 @@ struct VerificPass : public Pass {
 				if (nl_done.count(nl) == 0) {
 					VerificImporter importer(mode_gates, mode_keep, mode_nosva,
 							mode_names, mode_verific, mode_autocover, mode_fullinit);
-					importer.import_netlist(design, nl, nl_todo);
+					importer.import_netlist(design, nl, nl_todo, top_mod_names.count(nl->Owner()->Name()));
 				}
 				nl_todo.erase(nl);
 				nl_done.insert(nl);

@@ -141,6 +141,7 @@ struct specify_rise_fall {
 %token TOK_INTERFACE TOK_ENDINTERFACE TOK_MODPORT TOK_VAR
 %token TOK_INPUT TOK_OUTPUT TOK_INOUT TOK_WIRE TOK_WAND TOK_WOR TOK_REG TOK_LOGIC
 %token TOK_INTEGER TOK_SIGNED TOK_ASSIGN TOK_ALWAYS TOK_INITIAL
+%token TOK_ALWAYS_FF TOK_ALWAYS_COMB TOK_ALWAYS_LATCH
 %token TOK_BEGIN TOK_END TOK_IF TOK_ELSE TOK_FOR TOK_WHILE TOK_REPEAT
 %token TOK_DPI_FUNCTION TOK_POSEDGE TOK_NEGEDGE TOK_OR TOK_AUTOMATIC
 %token TOK_CASE TOK_CASEX TOK_CASEZ TOK_ENDCASE TOK_DEFAULT
@@ -156,7 +157,7 @@ struct specify_rise_fall {
 %type <ast> range range_or_multirange  non_opt_range non_opt_multirange range_or_signed_int
 %type <ast> wire_type expr basic_expr concat_list rvalue lvalue lvalue_concat_list
 %type <string> opt_label opt_sva_label tok_prim_wrapper hierarchical_id hierarchical_type_id
-%type <boolean> opt_signed opt_property unique_case_attr
+%type <boolean> opt_signed opt_property unique_case_attr always_comb_or_latch always_or_always_ff
 %type <al> attr case_attr
 
 %type <specify_target_ptr> specify_target
@@ -1581,13 +1582,47 @@ cell_port:
 		free_attr($1);
 	};
 
+always_comb_or_latch:
+	TOK_ALWAYS_COMB {
+		$$ = false;
+	} |
+	TOK_ALWAYS_LATCH {
+		$$ = true;
+	};
+
+always_or_always_ff:
+	TOK_ALWAYS {
+		$$ = false;
+	} |
+	TOK_ALWAYS_FF {
+		$$ = true;
+	};
+
 always_stmt:
-	attr TOK_ALWAYS {
+	attr always_or_always_ff {
 		AstNode *node = new AstNode(AST_ALWAYS);
 		append_attr(node, $1);
+		if ($2)
+			node->attributes[ID(always_ff)] = AstNode::mkconst_int(1, false);
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);
 	} always_cond {
+		AstNode *block = new AstNode(AST_BLOCK);
+		ast_stack.back()->children.push_back(block);
+		ast_stack.push_back(block);
+	} behavioral_stmt {
+		ast_stack.pop_back();
+		ast_stack.pop_back();
+	} |
+	attr always_comb_or_latch {
+		AstNode *node = new AstNode(AST_ALWAYS);
+		append_attr(node, $1);
+		if ($2)
+			node->attributes[ID(always_latch)] = AstNode::mkconst_int(1, false);
+		else
+			node->attributes[ID(always_comb)] = AstNode::mkconst_int(1, false);
+		ast_stack.back()->children.push_back(node);
+		ast_stack.push_back(node);
 		AstNode *block = new AstNode(AST_BLOCK);
 		ast_stack.back()->children.push_back(block);
 		ast_stack.push_back(block);
