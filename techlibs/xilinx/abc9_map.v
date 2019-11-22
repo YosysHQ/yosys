@@ -120,10 +120,11 @@ module FDCE (output reg Q, input C, CE, D, CLR);
     .IS_D_INVERTED(IS_D_INVERTED),
     .IS_CLR_INVERTED(IS_CLR_INVERTED)
   ) _TECHMAP_REPLACE_ (
-    .D(D), .Q($nextQ),  .C(C), .CE(CE), .CLR(IS_CLR_INVERTED)
+    .D(D), .Q($nextQ),  .C(C), .CE(CE), .CLR(CLR)
                                          // ^^^ Note that async
-                                         //     control is disabled
-                                         //     here but captured by
+                                         //     control is not directly
+                                         //     supported by abc9 but its
+                                         //     behaviour is captured by
                                          //     $__ABC9_ASYNC below
   );
   \$__ABC9_FF_ abc_dff (.D($nextQ), .Q($abc9_currQ));
@@ -142,10 +143,11 @@ module FDCE_1 (output reg Q, input C, CE, D, CLR);
   FDCE_1 #(
     .INIT(INIT)
   ) _TECHMAP_REPLACE_ (
-    .D(D), .Q($nextQ), .C(C), .CE(CE), .CLR(1'b0)
+    .D(D), .Q($nextQ), .C(C), .CE(CE), .CLR(CLR)
                                          // ^^^ Note that async
-                                         //     control is disabled
-                                         //     here but captured by
+                                         //     control is not directly
+                                         //     supported by abc9 but its
+                                         //     behaviour is captured by
                                          //     $__ABC9_ASYNC below
   );
   \$__ABC9_FF_ abc_dff (.D($nextQ), .Q($abc9_currQ));
@@ -169,10 +171,11 @@ module FDPE (output reg Q, input C, CE, D, PRE);
     .IS_D_INVERTED(IS_D_INVERTED),
     .IS_PRE_INVERTED(IS_PRE_INVERTED),
   ) _TECHMAP_REPLACE_ (
-    .D(D), .Q($nextQ), .C(C), .CE(CE), .PRE(IS_PRE_INVERTED)
+    .D(D), .Q($nextQ), .C(C), .CE(CE), .PRE(PRE)
                                          // ^^^ Note that async
-                                         //     control is disabled
-                                         //     here but captured by
+                                         //     control is not directly
+                                         //     supported by abc9 but its
+                                         //     behaviour is captured by
                                          //     $__ABC9_ASYNC below
   );
   \$__ABC9_FF_ abc_dff (.D($nextQ), .Q($abc9_currQ));
@@ -189,10 +192,11 @@ module FDPE_1 (output reg Q, input C, CE, D, PRE);
   FDPE_1 #(
     .INIT(INIT)
   ) _TECHMAP_REPLACE_ (
-    .D(D), .Q($nextQ), .C(C), .CE(CE), .PRE(1'b0)
+    .D(D), .Q($nextQ), .C(C), .CE(CE), .PRE(PRE)
                                          // ^^^ Note that async
-                                         //     control is disabled
-                                         //     here but captured by
+                                         //     control is not directly
+                                         //     supported by abc9 but its
+                                         //     behaviour is captured by
                                          //     $__ABC9_ASYNC below
   );
   \$__ABC9_FF_ abc_dff (.D($nextQ), .Q($abc9_currQ));

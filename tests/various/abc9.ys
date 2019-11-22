@@ -22,3 +22,19 @@ abc9 -lut 4
 select -assert-count 1 t:$lut r:LUT=2'b01 r:WIDTH=1 %i %i
 select -assert-count 1 t:unknown
 select -assert-none t:$lut t:unknown %% t: %D
+
+design -load read
+hierarchy -top abc9_test031
+proc
+async2sync
+design -save gold
+
+abc9 -lut 4
+check
+design -stash gate
+
+design -import gold -as gold
+design -import gate -as gate
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -seq 10 -verify -prove-asserts -show-ports miter
