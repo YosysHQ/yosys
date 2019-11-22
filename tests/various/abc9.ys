@@ -26,7 +26,7 @@ select -assert-none t:$lut t:unknown %% t: %D
 design -load read
 hierarchy -top abc9_test031
 proc
-async2sync
+clk2fflogic
 design -save gold
 
 abc9 -lut 4
