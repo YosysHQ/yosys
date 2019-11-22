@@ -542,30 +542,18 @@ struct XAigerWriter
 		}
 
 		for (auto bit : unused_bits)
-			if (holes_mode)
-				undriven_bits.erase(bit);
-			else if (!undriven_bits.count(bit))
-				output_bits.insert(bit);
+			undriven_bits.erase(bit);
 
-		if (!holes_mode) {
-			for (auto port : module->ports) {
-				auto wire = module->wire(port);
-				if (!wire->port_output)
-					continue;
-				for (int i = 0; i < GetSize(wire); i++) {
-					SigBit wirebit(wire, i);
-					SigBit bit = sigmap(wirebit);
-					if (bit == State::Sx)
-						continue;
-					if (!undriven_bits.count(bit)) {
-						output_bits.insert(wirebit);
-					}
-				}
+		if (!undriven_bits.empty() && !holes_mode) {
+			bool whole_module = module->design->selected_whole_module(module->name);
+			undriven_bits.sort();
+			for (auto bit : undriven_bits) {
+				if (whole_module)
+					log_warning("Treating undriven bit %s.%s like $anyseq.\n", log_id(module), log_signal(bit));
+				input_bits.insert(bit);
 			}
-
-			if (!undriven_bits.empty())
-				for (auto bit : undriven_bits)
-					input_bits.insert(bit);
+			if (whole_module)
+				log_warning("Treating a total of %d undriven bits in %s like $anyseq.\n", GetSize(undriven_bits), log_id(module));
 		}
 
 		if (holes_mode) {
