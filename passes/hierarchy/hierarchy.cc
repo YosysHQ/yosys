@@ -992,7 +992,7 @@ struct HierarchyPass : public Pass {
 					if (wire->port_input && wire->attributes.count("\\defaultvalue"))
 						defaults_db[module->name][wire->name] = wire->attributes.at("\\defaultvalue");
 		}
-		// Process SV implicit port connections
+		// Process SV implicit wildcard port connections
 		std::set<Module*> blackbox_derivatives;
 		std::vector<Module*> design_modules = design->modules();
 
@@ -1000,7 +1000,7 @@ struct HierarchyPass : public Pass {
 		{
 			for (auto cell : module->cells())
 			{
-				if (!cell->get_bool_attribute(ID(implicit_port_conns)))
+				if (!cell->get_bool_attribute(ID(wildcard_port_conns)))
 					continue;
 				Module *m = design->module(cell->type);
 
@@ -1042,7 +1042,7 @@ struct HierarchyPass : public Pass {
 								RTLIL::id2cstr(wire->name), RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
 					cell->setPort(wire->name, parent_wire);
 				}
-				cell->attributes.erase(ID(implicit_port_conns));
+				cell->attributes.erase(ID(wildcard_port_conns));
 			}
 		}
 
