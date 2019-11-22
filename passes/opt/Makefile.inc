@@ -1,6 +1,7 @@
 
 OBJS += passes/opt/opt.o
 OBJS += passes/opt/opt_merge.o
+OBJS += passes/opt/opt_mem.o
 OBJS += passes/opt/opt_muxtree.o
 OBJS += passes/opt/opt_reduce.o
 OBJS += passes/opt/opt_rmdff.o
