@@ -24,7 +24,7 @@ select -assert-count 1 t:unknown
 select -assert-none t:$lut t:unknown %% t: %D
 
 design -load read
-hierarchy -top abc9_test031
+hierarchy -top abc9_test032
 proc
 clk2fflogic
 design -save gold

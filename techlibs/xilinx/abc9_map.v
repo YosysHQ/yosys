@@ -96,7 +96,7 @@ module FDRE_1 (output reg Q, input C, CE, D, R);
   parameter [0:0] INIT = 1'b0;
   wire $nextQ;
   FDRE_1 #(
-    .INIT(|0),
+    .INIT(INIT),
   ) _TECHMAP_REPLACE_ (
     .D(D), .Q($nextQ), .C(C), .CE(CE), .R(R)
   );
@@ -209,7 +209,7 @@ module FDPE_1 (output reg Q, input C, CE, D, PRE);
 endmodule
 
 module FDSE (output reg Q, input C, CE, D, S);
-  parameter [0:0] INIT = 1'b0;
+  parameter [0:0] INIT = 1'b1;
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
   parameter [0:0] IS_S_INVERTED = 1'b0;
@@ -230,10 +230,10 @@ module FDSE (output reg Q, input C, CE, D, S);
   wire _TECHMAP_REPLACE_.$abc9_currQ = Q;
 endmodule
 module FDSE_1 (output reg Q, input C, CE, D, S);
-  parameter [0:0] INIT = 1'b0;
+  parameter [0:0] INIT = 1'b1;
   wire $nextQ;
   FDSE_1 #(
-    .INIT(|0),
+    .INIT(INIT),
   ) _TECHMAP_REPLACE_ (
     .D(D), .Q($nextQ), .C(C), .CE(CE), .S(S)
   );

@@ -1108,8 +1108,8 @@ struct Abc9Pass : public Pass {
 			std::map<RTLIL::Cell*, std::set<RTLIL::SigBit>> cell_to_bit, cell_to_bit_up, cell_to_bit_down;
 			std::map<RTLIL::SigBit, std::set<RTLIL::Cell*>> bit_to_cell, bit_to_cell_up, bit_to_cell_down;
 
-			typedef std::pair<IdString, SigSpec> endomain_t;
-			std::map<endomain_t, int> mergeability_class;
+			typedef std::pair<IdString, SigSpec> ctrldomain_t;
+			std::map<ctrldomain_t, int> mergeability_class;
 
 			for (auto cell : all_cells) {
 				for (auto &conn : cell->connections())
@@ -1149,7 +1149,7 @@ struct Abc9Pass : public Pass {
 				assigned_cells[abc9_clock].insert(cell->name);
 				assigned_cells_reverse[cell] = abc9_clock;
 
-				endomain_t key(cell->type, abc9_control);
+				ctrldomain_t key(cell->type, abc9_control);
 				auto r = mergeability_class.emplace(key, mergeability_class.size() + 1);
 				auto YS_ATTRIBUTE(unused) r2 = cell->attributes.insert(std::make_pair(ID(abc9_mergeability),  r.first->second));
 				log_assert(r2.second);
