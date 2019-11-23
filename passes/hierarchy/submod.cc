@@ -233,7 +233,6 @@ struct SubmodWorker
 				if (c.wire == wire)
 					continue;
 				outputs.insert(c.wire);
-				log_dump(c.wire->name);
 			}
 		}
 
