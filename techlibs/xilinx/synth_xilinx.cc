@@ -513,6 +513,7 @@ struct SynthXilinxPass : public ScriptPass
 
 		if (check_label("map_ffs")) {
 			if (abc9 || help_mode) {
+				run("clkpart -set_attr clkpart 1", "('-abc9' only)");
 				run("techmap -map " + ff_map_file, "('-abc9' only)");
 			}
 		}
@@ -537,6 +538,7 @@ struct SynthXilinxPass : public ScriptPass
 				else
 					abc9_opts += " -lut +/xilinx/abc9_xc7.lut";
 				run("abc9" + abc9_opts);
+				run("clkpart -unpart clkpart");
 			}
 			else {
 				if (nowidelut)
