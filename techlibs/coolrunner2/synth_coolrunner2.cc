@@ -194,8 +194,6 @@ struct SynthCoolrunner2Pass : public ScriptPass
 			if (!json_file.empty() || help_mode)
 				run(stringf("write_json %s", help_mode ? "<file-name>" : json_file.c_str()));
 		}
-
-		log_pop();
 	}
 } SynthCoolrunner2Pass;
 
