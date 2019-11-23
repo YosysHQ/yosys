@@ -545,15 +545,12 @@ struct XAigerWriter
 			undriven_bits.erase(bit);
 
 		if (!undriven_bits.empty() && !holes_mode) {
-			bool whole_module = module->design->selected_whole_module(module->name);
 			undriven_bits.sort();
 			for (auto bit : undriven_bits) {
-				if (whole_module)
-					log_warning("Treating undriven bit %s.%s like $anyseq.\n", log_id(module), log_signal(bit));
+				log_warning("Treating undriven bit %s.%s like $anyseq.\n", log_id(module), log_signal(bit));
 				input_bits.insert(bit);
 			}
-			if (whole_module)
-				log_warning("Treating a total of %d undriven bits in %s like $anyseq.\n", GetSize(undriven_bits), log_id(module));
+			log_warning("Treating a total of %d undriven bits in %s like $anyseq.\n", GetSize(undriven_bits), log_id(module));
 		}
 
 		if (holes_mode) {
