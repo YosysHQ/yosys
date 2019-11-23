@@ -15,7 +15,6 @@ proc
 design -save gold
 
 submod
-flatten
 design -stash gate
 
 design -import gold -as gold
@@ -42,8 +41,6 @@ proc
 design -save gold
 
 submod
-dump
-flatten
 design -stash gate
 
 design -import gold -as gold

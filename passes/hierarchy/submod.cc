@@ -33,7 +33,8 @@ struct SubmodWorker
 	CellTypes ct;
 	RTLIL::Design *design;
 	RTLIL::Module *module;
-	pool<Wire*> constants, outputs;
+	SigMap sigmap;
+	pool<SigBit> outputs;
 
 	bool copy_mode;
 	std::string opt_name;
@@ -46,44 +47,44 @@ struct SubmodWorker
 
 	std::map<std::string, SubModule> submodules;
 
-	struct wire_flags_t {
+	struct bit_flags_t {
 		RTLIL::Wire *new_wire;
 		bool is_int_driven, is_int_used, is_ext_driven, is_ext_used;
-		wire_flags_t() : new_wire(NULL), is_int_driven(false), is_int_used(false), is_ext_driven(false), is_ext_used(false) { }
+		bit_flags_t() : new_wire(NULL), is_int_driven(false), is_int_used(false), is_ext_driven(false), is_ext_used(false) { }
 	};
-	std::map<RTLIL::Wire*, wire_flags_t> wire_flags;
+	std::map<SigBit, bit_flags_t> bit_flags;
 	bool flag_found_something;
 
-	void flag_wire(RTLIL::Wire *wire, bool create, bool set_int_driven, bool set_int_used, bool set_ext_driven, bool set_ext_used)
+	void flag_bit(RTLIL::SigBit bit, bool create, bool set_int_driven, bool set_int_used, bool set_ext_driven, bool set_ext_used)
 	{
-		if (wire_flags.count(wire) == 0) {
+		if (bit_flags.count(bit) == 0) {
 			if (!create)
 				return;
-			wire_flags[wire] = wire_flags_t();
+			bit_flags[bit] = bit_flags_t();
 		}
 		if (set_int_driven)
-			wire_flags[wire].is_int_driven = true;
+			bit_flags[bit].is_int_driven = true;
 		if (set_int_used)
-			wire_flags[wire].is_int_used = true;
+			bit_flags[bit].is_int_used = true;
 		if (set_ext_driven)
-			wire_flags[wire].is_ext_driven = true;
+			bit_flags[bit].is_ext_driven = true;
 		if (set_ext_used)
-			wire_flags[wire].is_ext_used = true;
+			bit_flags[bit].is_ext_used = true;
 		flag_found_something = true;
 	}
 
 	void flag_signal(const RTLIL::SigSpec &sig, bool create, bool set_int_driven, bool set_int_used, bool set_ext_driven, bool set_ext_used)
 	{
-		for (auto &c : sig.chunks())
-			if (c.wire != NULL)
-				flag_wire(c.wire, create, set_int_driven, set_int_used, set_ext_driven, set_ext_used);
+		for (auto &b : sig)
+			if (b.wire != NULL)
+				flag_bit(b, create, set_int_driven, set_int_used, set_ext_driven, set_ext_used);
 	}
 
 	void handle_submodule(SubModule &submod)
 	{
 		log("Creating submodule %s (%s) of module %s.\n", submod.name.c_str(), submod.full_name.c_str(), module->name.c_str());
 
-		wire_flags.clear();
+		bit_flags.clear();
 		for (RTLIL::Cell *cell : submod.cells) {
 			if (ct.cell_known(cell->type)) {
 				for (auto &conn : cell->connections())
@@ -116,18 +117,19 @@ struct SubmodWorker
 		int auto_name_counter = 1;
 
 		std::set<RTLIL::IdString> all_wire_names;
-		for (auto &it : wire_flags) {
-			all_wire_names.insert(it.first->name);
+		for (auto &it : bit_flags) {
+			all_wire_names.insert(it.first.wire->name);
 		}
 
-		for (auto &it : wire_flags)
+		for (auto &it : bit_flags)
 		{
-			RTLIL::Wire *wire = it.first;
-			wire_flags_t &flags = it.second;
+			const RTLIL::SigBit &bit = it.first;
+			RTLIL::Wire *wire = bit.wire;
+			bit_flags_t &flags = it.second;
 
-			if (wire->port_input || constants.count(wire))
+			if (wire->port_input)
 				flags.is_ext_driven = true;
-			if (wire->port_output || outputs.count(wire))
+			if (outputs.count(bit))
 				flags.is_ext_used = true;
 
 			bool new_wire_port_input = false;
@@ -141,7 +143,11 @@ struct SubmodWorker
 			if (flags.is_int_driven && flags.is_ext_driven)
 				new_wire_port_input = true, new_wire_port_output = true;
 
-			std::string new_wire_name = wire->name.str();
+			RTLIL::IdString new_wire_name;
+			if (GetSize(wire) == 1)
+				new_wire_name = wire->name;
+			else
+				new_wire_name = stringf("%s[%d]", wire->name.c_str(), bit.offset);
 			if (new_wire_port_input || new_wire_port_output) {
 				while (new_wire_name[0] == '$') {
 					std::string next_wire_name = stringf("\\n%d", auto_name_counter++);
@@ -152,10 +158,9 @@ struct SubmodWorker
 				}
 			}
 
-			RTLIL::Wire *new_wire = new_mod->addWire(new_wire_name, wire->width);
+			RTLIL::Wire *new_wire = new_mod->addWire(new_wire_name);
 			new_wire->port_input = new_wire_port_input;
 			new_wire->port_output = new_wire_port_output;
-			new_wire->start_offset = wire->start_offset;
 			new_wire->attributes = wire->attributes;
 
 			if (new_wire->port_input && new_wire->port_output)
@@ -178,8 +183,8 @@ struct SubmodWorker
 			for (auto &conn : new_cell->connections_)
 				for (auto &bit : conn.second)
 					if (bit.wire != NULL) {
-						log_assert(wire_flags.count(bit.wire) > 0);
-						bit.wire = wire_flags[bit.wire].new_wire;
+						log_assert(bit_flags.count(bit) > 0);
+						bit = bit_flags[bit].new_wire;
 					}
 			log("  cell %s (%s)\n", new_cell->name.c_str(), new_cell->type.c_str());
 			if (!copy_mode)
@@ -189,18 +194,18 @@ struct SubmodWorker
 
 		if (!copy_mode) {
 			RTLIL::Cell *new_cell = module->addCell(submod.full_name, submod.full_name);
-			for (auto &it : wire_flags)
+			for (auto &it : bit_flags)
 			{
-				RTLIL::Wire *old_wire = it.first;
+				RTLIL::SigBit old_bit = it.first;
 				RTLIL::Wire *new_wire = it.second.new_wire;
 				if (new_wire->port_id > 0)
-					new_cell->setPort(new_wire->name, RTLIL::SigSpec(old_wire));
+					new_cell->setPort(new_wire->name, old_bit);
 			}
 		}
 	}
 
 	SubmodWorker(RTLIL::Design *design, RTLIL::Module *module, bool copy_mode = false, std::string opt_name = std::string()) :
-			design(design), module(module), copy_mode(copy_mode), opt_name(opt_name)
+			design(design), module(module), sigmap(module), copy_mode(copy_mode), opt_name(opt_name)
 	{
 		if (!design->selected_whole_module(module->name) && opt_name.empty())
 			return;
@@ -221,27 +226,13 @@ struct SubmodWorker
 		ct.setup_stdcells_mem();
 		ct.setup_design(design);
 
-		SigMap sigmap(module);
 		for (auto port : module->ports) {
 			auto wire = module->wire(port);
 			if (!wire->port_output)
 				continue;
-			auto sig = sigmap(wire);
-			for (auto c : sig.chunks()) {
-				if (!c.wire)
-					continue;
-				if (c.wire == wire)
-					continue;
-				outputs.insert(c.wire);
-			}
-		}
-		for (auto wire : module->wires()) {
-			auto sig = sigmap(wire);
-			for (auto c : sig.chunks()) {
-				if (c.wire)
-					continue;
-				constants.insert(wire);
-			}
+			for (auto b : sigmap(wire))
+				if (b.wire)
+					outputs.insert(b);
 		}
 
 		if (opt_name.empty())
