@@ -322,19 +322,10 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 	fprintf(f, "%s\n", abc9_script.c_str());
 	fclose(f);
 
-	bool count_output = false;
-	for (auto port_name : module->ports) {
-		RTLIL::Wire *port_wire = module->wire(port_name);
-		log_assert(port_wire);
-		if (port_wire->port_output) {
-			count_output = true;
-			break;
-		}
-	}
-
+	//bool count_output = false;
 	log_push();
 
-	if (count_output)
+	//if (count_output)
 	{
 		handle_loops(design, module);
 
@@ -736,10 +727,10 @@ clone_lut:
 
 		design->remove(mapped_mod);
 	}
-	else
-	{
-		log("Don't call ABC as there is nothing to map.\n");
-	}
+	//else
+	//{
+	//	log("Don't call ABC as there is nothing to map.\n");
+	//}
 
 	if (cleanup)
 	{
