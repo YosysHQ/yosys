@@ -42,7 +42,6 @@ proc
 design -save gold
 
 submod
-dump
 flatten
 design -stash gate
 
