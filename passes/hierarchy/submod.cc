@@ -33,7 +33,7 @@ struct SubmodWorker
 	CellTypes ct;
 	RTLIL::Design *design;
 	RTLIL::Module *module;
-	pool<Wire*> outputs;
+	pool<Wire*> constants, outputs;
 
 	bool copy_mode;
 	std::string opt_name;
@@ -125,7 +125,7 @@ struct SubmodWorker
 			RTLIL::Wire *wire = it.first;
 			wire_flags_t &flags = it.second;
 
-			if (wire->port_input)
+			if (wire->port_input || constants.count(wire))
 				flags.is_ext_driven = true;
 			if (wire->port_output || outputs.count(wire))
 				flags.is_ext_used = true;
@@ -233,6 +233,14 @@ struct SubmodWorker
 				if (c.wire == wire)
 					continue;
 				outputs.insert(c.wire);
+			}
+		}
+		for (auto wire : module->wires()) {
+			auto sig = sigmap(wire);
+			for (auto c : sig.chunks()) {
+				if (c.wire)
+					continue;
+				constants.insert(wire);
 			}
 		}
 
