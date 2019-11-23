@@ -90,7 +90,9 @@ struct ClkPartPass : public Pass {
 	{
 		CellTypes ct(design);
 		SigMap assign_map;
+		std::vector<std::string> new_submods;
 
+		log_header(design, "Summary of detected clock domains:\n");
 		for (auto mod : design->selected_modules())
 		{
 			if (mod->processes.size() > 0) {
@@ -108,7 +110,7 @@ struct ClkPartPass : public Pass {
 			std::set<RTLIL::Cell*> expand_queue_down, next_expand_queue_down;
 
 			typedef tuple<bool, RTLIL::SigSpec, bool, RTLIL::SigSpec> clkdomain_t;
-			std::map<clkdomain_t, vector<RTLIL::IdString>> assigned_cells;
+			std::map<clkdomain_t, vector<Cell*>> assigned_cells;
 			std::map<RTLIL::Cell*, clkdomain_t> assigned_cells_reverse;
 
 			std::map<RTLIL::Cell*, std::set<RTLIL::SigBit>> cell_to_bit, cell_to_bit_up, cell_to_bit_down;
@@ -154,7 +156,7 @@ struct ClkPartPass : public Pass {
 				expand_queue_up.insert(cell);
 				expand_queue_down.insert(cell);
 
-				assigned_cells[key].push_back(cell->name);
+				assigned_cells[key].push_back(cell);
 				assigned_cells_reverse[cell] = key;
 			}
 
@@ -171,7 +173,7 @@ struct ClkPartPass : public Pass {
 						if (unassigned_cells.count(c)) {
 							unassigned_cells.erase(c);
 							next_expand_queue_up.insert(c);
-							assigned_cells[key].push_back(c->name);
+							assigned_cells[key].push_back(c);
 							assigned_cells_reverse[c] = key;
 							expand_queue.insert(c);
 						}
@@ -188,7 +190,7 @@ struct ClkPartPass : public Pass {
 						if (unassigned_cells.count(c)) {
 							unassigned_cells.erase(c);
 							next_expand_queue_up.insert(c);
-							assigned_cells[key].push_back(c->name);
+							assigned_cells[key].push_back(c);
 							assigned_cells_reverse[c] = key;
 							expand_queue.insert(c);
 						}
@@ -211,7 +213,7 @@ struct ClkPartPass : public Pass {
 						if (unassigned_cells.count(c)) {
 							unassigned_cells.erase(c);
 							next_expand_queue.insert(c);
-							assigned_cells[key].push_back(c->name);
+							assigned_cells[key].push_back(c);
 							assigned_cells_reverse[c] = key;
 						}
 					bit_to_cell[bit].clear();
@@ -223,27 +225,39 @@ struct ClkPartPass : public Pass {
 
 			clkdomain_t key(true, RTLIL::SigSpec(), true, RTLIL::SigSpec());
 			for (auto cell : unassigned_cells) {
-				assigned_cells[key].push_back(cell->name);
+				assigned_cells[key].push_back(cell);
 				assigned_cells_reverse[cell] = key;
 			}
 
-			log_header(design, "Summary of detected clock domains:\n");
-			for (auto &it : assigned_cells)
-				log("  %d cells in clk=%s%s, en=%s%s\n", GetSize(it.second),
+			clkdomain_t largest_domain;
+			int largest_domain_size = 0;
+			log("  module %s\n", mod->name.c_str());
+			for (auto &it : assigned_cells) {
+				log("    %d cells in clk=%s%s, en=%s%s\n", GetSize(it.second),
 						std::get<0>(it.first) ? "" : "!", log_signal(std::get<1>(it.first)),
 						std::get<2>(it.first) ? "" : "!", log_signal(std::get<3>(it.first)));
-
-			if (assigned_cells.size() > 1)
-				for (auto &it : assigned_cells) {
-					RTLIL::Selection sel(false);
-					sel.selected_members[mod->name] = pool<IdString>(it.second.begin(), it.second.end());
-
-					RTLIL::IdString submod = stringf("%s.%s", mod->name.c_str(), NEW_ID.c_str());
-					Pass::call_on_selection(design, sel, stringf("submod -name %s", submod.c_str()));
-
-					design->module(submod)->set_bool_attribute(ID(clkpart));
+				if (GetSize(it.second) > largest_domain_size) {
+					largest_domain = it.first;
+					largest_domain_size = GetSize(it.second);
 				}
+			}
+
+			for (auto &it : assigned_cells) {
+				if (it.first == largest_domain)
+					continue;
+
+				std::string submod = stringf("\\%s%s.%s%s",
+						std::get<0>(it.first) ? "" : "!", log_signal(std::get<1>(it.first)),
+						std::get<2>(it.first) ? "" : "!", log_signal(std::get<3>(it.first)));
+				for (auto c : it.second)
+					c->attributes[ID(submod)] = submod;
+				new_submods.push_back(stringf("%s_%s", mod->name.c_str(), submod.c_str()));
+			}
 		}
+
+		Pass::call(design, "submod");
+		for (auto m : new_submods)
+			design->module(m)->set_bool_attribute(ID(clkpart));
 	}
 
 	void unpart(RTLIL::Design *design)
