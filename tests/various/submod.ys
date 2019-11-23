@@ -13,9 +13,9 @@ EOT
 hierarchy -top top
 proc
 design -save gold
+
 submod
 flatten
-
 design -stash gate
 
 design -import gold -as gold
@@ -23,4 +23,3 @@ design -import gate -as gate
 
 miter -equiv -flatten -make_assert -make_outputs gold gate miter
 sat -verify -prove-asserts -show-ports miter
-
