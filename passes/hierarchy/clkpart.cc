@@ -28,7 +28,7 @@ USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct ClkPartPass : public Pass {
-	ClkPartPass() : Pass("clkpart", "partition design according to clock domain") { }
+	ClkPartPass() : Pass("clkpart", "partition design according to clock/enable domain") { }
 	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -38,11 +38,14 @@ struct ClkPartPass : public Pass {
 		log("Partition the contents of selected modules according to the clock (and optionally\n");
 		log("the enable) domains of its $_DFF* cells by extracting them into sub-modules,\n");
 		log("using the `submod` command.\n");
-		log("Sub-modules created by this command are marked with a 'clkpart' attribute.\n");
 		log("\n");
-		log("    -unpart\n");
-		log("        undo this operation within the selected modules, by flattening those with\n");
-		log("        a 'clkpart' attribute into those modules without this attribute.\n");
+		log("    -set_attr <name> <value>\n");
+		log("        set the specified attribute on all sub-modules created.\n");
+		log("\n");
+		log("    -unpart <name>\n");
+		log("        undo this operation within the selected modules, by flattening those\n");
+		log("        attached with an <name> attribute into those modules without this\n");
+		log("        attribute.\n");
 		log("\n");
 		log("    -enable\n");
 		log("        also consider enable domains.\n");
@@ -50,15 +53,19 @@ struct ClkPartPass : public Pass {
 	}
 
 	bool unpart_mode, enable_mode;
+	IdString attr_name;
+	Const attr_value;
 
 	void clear_flags() YS_OVERRIDE
 	{
 		unpart_mode = false;
 		enable_mode = false;
+		attr_name = IdString();
+		attr_value = Const();
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
-		log_header(design, "Executing CLKPART pass (partition design according to clock domain).\n");
+		log_header(design, "Executing CLKPART pass (partition design according to clock/enable domain).\n");
 		log_push();
 
 		clear_flags();
@@ -66,8 +73,14 @@ struct ClkPartPass : public Pass {
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
-			if (args[argidx] == "-unpart") {
+			if (args[argidx] == "-set_attr" && argidx+2 < args.size()) {
+				attr_name = args[argidx++];
+				attr_value = args[argidx++];
+				continue;
+			}
+			if (args[argidx] == "-unpart" && argidx+1 < args.size()) {
 				unpart_mode = true;
+				attr_name = args[argidx++];
 				continue;
 			}
 			if (args[argidx] == "-enable") {
@@ -258,15 +271,17 @@ struct ClkPartPass : public Pass {
 		}
 
 		Pass::call(design, "submod");
-		for (auto m : new_submods)
-			design->module(m)->set_bool_attribute(ID(clkpart));
+
+		if (!attr_name.empty())
+			for (auto m : new_submods)
+				design->module(m)->attributes[attr_name] = attr_value;
 	}
 
 	void unpart(RTLIL::Design *design)
 	{
 		vector<Module*> keeped;
 		for (auto mod : design->selected_modules()) {
-			if (mod->get_bool_attribute(ID(clkpart)))
+			if (mod->get_bool_attribute(attr_name))
 				continue;
 			if (mod->get_bool_attribute(ID(keep_hierarchy)))
 				continue;
