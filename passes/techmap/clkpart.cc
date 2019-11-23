@@ -58,7 +58,7 @@ struct ClkPartPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
-		log_header(design, "Executing CLKPART pass (TODO).\n");
+		log_header(design, "Executing CLKPART pass (partition design according to clock domain).\n");
 		log_push();
 
 		clear_flags();
