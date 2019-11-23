@@ -233,15 +233,16 @@ struct ClkPartPass : public Pass {
 						std::get<0>(it.first) ? "" : "!", log_signal(std::get<1>(it.first)),
 						std::get<2>(it.first) ? "" : "!", log_signal(std::get<3>(it.first)));
 
-			for (auto &it : assigned_cells) {
-				RTLIL::Selection sel(false);
-				sel.selected_members[mod->name] = pool<IdString>(it.second.begin(), it.second.end());
+			if (assigned_cells.size() > 1)
+				for (auto &it : assigned_cells) {
+					RTLIL::Selection sel(false);
+					sel.selected_members[mod->name] = pool<IdString>(it.second.begin(), it.second.end());
 
-				RTLIL::IdString submod = stringf("%s.%s", mod->name.c_str(), NEW_ID.c_str());
-				Pass::call_on_selection(design, sel, stringf("submod -name %s", submod.c_str()));
+					RTLIL::IdString submod = stringf("%s.%s", mod->name.c_str(), NEW_ID.c_str());
+					Pass::call_on_selection(design, sel, stringf("submod -name %s", submod.c_str()));
 
-				design->module(submod)->set_bool_attribute(ID(clkpart));
-			}
+					design->module(submod)->set_bool_attribute(ID(clkpart));
+				}
 		}
 	}
 
