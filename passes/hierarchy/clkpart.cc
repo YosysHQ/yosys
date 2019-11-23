@@ -261,9 +261,9 @@ struct ClkPartPass : public Pass {
 
 				auto clk = std::get<1>(it.first);
 				auto en = std::get<3>(it.first);
-				std::string submod = stringf("\\%s%s.%s%s",
+				std::string submod = stringf("clk=%s%s%s%s%s",
 						std::get<0>(it.first) ? "" : "!", clk.empty() ? "" : log_signal(clk),
-						std::get<2>(it.first) ? "" : "!", en.empty() ? "" : log_signal(en));
+						std::get<2>(it.first) ? "" : "!", en.empty() ? ".en=" : "", en.empty() ? "" : log_signal(en));
 				for (auto c : it.second)
 					c->attributes[ID(submod)] = submod;
 				new_submods.push_back(stringf("%s_%s", mod->name.c_str(), submod.c_str()));
