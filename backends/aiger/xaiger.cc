@@ -863,7 +863,8 @@ struct XAigerWriter
 				dict<SigSig, SigSig> replace;
 				for (auto it = holes_module->cells_.begin(); it != holes_module->cells_.end(); ) {
 					auto cell = it->second;
-					if (cell->type.in("$_DFF_N_", "$_DFF_P_")) {
+					if (cell->type.in("$_DFF_N_", "$_DFF_NN0_", "$_DFF_NN1_", "$_DFF_NP0_", "$_DFF_NP1_",
+											"$_DFF_P_", "$_DFF_PN0_", "$_DFF_PN1", "$_DFF_PP0_", "$_DFF_PP1_")) {
 						SigBit D = cell->getPort("\\D");
 						SigBit Q = cell->getPort("\\Q");
 						// Remove the DFF cell from what needs to be a combinatorial box
