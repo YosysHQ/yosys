@@ -20,6 +20,7 @@
 #include "kernel/register.h"
 #include "kernel/celltypes.h"
 #include "kernel/log.h"
+#include "kernel/sigtools.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <set>
@@ -32,6 +33,7 @@ struct SubmodWorker
 	CellTypes ct;
 	RTLIL::Design *design;
 	RTLIL::Module *module;
+	pool<Wire*> outputs;
 
 	bool copy_mode;
 	std::string opt_name;
@@ -125,7 +127,7 @@ struct SubmodWorker
 
 			if (wire->port_input)
 				flags.is_ext_driven = true;
-			if (wire->port_output)
+			if (wire->port_output || outputs.count(wire))
 				flags.is_ext_used = true;
 
 			bool new_wire_port_input = false;
@@ -218,6 +220,22 @@ struct SubmodWorker
 		ct.setup_stdcells();
 		ct.setup_stdcells_mem();
 		ct.setup_design(design);
+
+		SigMap sigmap(module);
+		for (auto port : module->ports) {
+			auto wire = module->wire(port);
+			if (!wire->port_output)
+				continue;
+			auto sig = sigmap(wire);
+			for (auto c : sig.chunks()) {
+				if (!c.wire)
+					continue;
+				if (c.wire == wire)
+					continue;
+				outputs.insert(c.wire);
+				log_dump(c.wire->name);
+			}
+		}
 
 		if (opt_name.empty())
 		{
