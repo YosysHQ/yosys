@@ -23,3 +23,31 @@ design -import gate -as gate
 
 miter -equiv -flatten -make_assert -make_outputs gold gate miter
 sat -verify -prove-asserts -show-ports miter
+
+
+design -reset
+read_verilog <<EOT
+module top(input a, output [1:0] b);
+(* submod="bar" *) sub s1(a, b[1]);
+assign b[0] = 1'b0;
+endmodule
+
+module sub(input a, output c);
+assign c = a;
+endmodule
+EOT
+
+hierarchy -top top
+proc
+design -save gold
+
+submod
+dump
+flatten
+design -stash gate
+
+design -import gold -as gold
+design -import gate -as gate
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports miter
