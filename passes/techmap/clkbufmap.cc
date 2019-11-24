@@ -115,6 +115,8 @@ struct ClkbufmapPass : public Pass {
 		// Cell type, port name, bit index.
 		pool<pair<IdString, pair<IdString, int>>> sink_ports;
 		pool<pair<IdString, pair<IdString, int>>> buf_ports;
+		dict<pair<IdString, pair<IdString, int>>, pair<IdString, int>> inv_ports_out;
+		dict<pair<IdString, pair<IdString, int>>, pair<IdString, int>> inv_ports_in;
 
 		// Process submodules before module using them.
 		std::vector<Module *> modules_sorted;
@@ -133,6 +135,14 @@ struct ClkbufmapPass : public Pass {
 					if (wire->get_bool_attribute("\\clkbuf_sink"))
 						for (int i = 0; i < GetSize(wire); i++)
 							sink_ports.insert(make_pair(module->name, make_pair(wire->name, i)));
+					auto it = wire->attributes.find("\\clkbuf_inv");
+					if (it != wire->attributes.end()) {
+						IdString in_name = RTLIL::escape_id(it->second.decode_string());
+						for (int i = 0; i < GetSize(wire); i++) {
+							inv_ports_out[make_pair(module->name, make_pair(wire->name, i))] = make_pair(in_name, i);
+							inv_ports_in[make_pair(module->name, make_pair(in_name, i))] = make_pair(wire->name, i);
+						}
+					}
 				}
 				continue;
 			}
@@ -156,6 +166,37 @@ struct ClkbufmapPass : public Pass {
 			for (int i = 0; i < port.second.size(); i++)
 				if (buf_ports.count(make_pair(cell->type, make_pair(port.first, i))))
 					buf_wire_bits.insert(sigmap(port.second[i]));
+
+			// Third, propagate tags through inverters.
+			bool retry = true;
+			while (retry) {
+				retry = false;
+				for (auto cell : module->cells())
+				for (auto port : cell->connections())
+				for (int i = 0; i < port.second.size(); i++) {
+					auto it = inv_ports_out.find(make_pair(cell->type, make_pair(port.first, i)));
+					auto bit = sigmap(port.second[i]);
+					// If output of an inverter is connected to a sink, mark it as buffered,
+					// and request a buffer on the inverter's input instead.
+					if (it != inv_ports_out.end() && !buf_wire_bits.count(bit) && sink_wire_bits.count(bit)) {
+						buf_wire_bits.insert(bit);
+						auto other_bit = sigmap(cell->getPort(it->second.first)[it->second.second]);
+						sink_wire_bits.insert(other_bit);
+						retry = true;
+					}
+					// If input of an inverter is marked as already-buffered,
+					// mark its output already-buffered as well.
+					auto it2 = inv_ports_in.find(make_pair(cell->type, make_pair(port.first, i)));
+					if (it2 != inv_ports_in.end() && buf_wire_bits.count(bit)) {
+						auto other_bit = sigmap(cell->getPort(it2->second.first)[it2->second.second]);
+						if (!buf_wire_bits.count(other_bit)) {
+							buf_wire_bits.insert(other_bit);
+							retry = true;
+						}
+					}
+
+				}
+			};
 
 			// Collect all driven bits.
 			for (auto cell : module->cells())
