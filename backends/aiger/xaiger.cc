@@ -183,7 +183,7 @@ struct XAigerWriter
 				}
 
 				if (keep)
-					keep_bits.insert(bit);
+					keep_bits.insert(wirebit);
 
 				if (wire->port_input || keep) {
 					if (bit != wirebit)
