@@ -1,0 +1,11 @@
+read_verilog v/consts.v
+
+synth_quicklogic -top my_top
+stat
+cd my_top
+select -assert-count 1 t:my_lut
+select -assert-count 1 t:inpad
+select -assert-count 1 t:outpad
+select -assert-count 1 t:logic_0
+select -assert-count 1 t:logic_1
+

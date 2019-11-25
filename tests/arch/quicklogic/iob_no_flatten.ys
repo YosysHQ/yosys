@@ -1,0 +1,9 @@
+read_verilog v/iob_no_flatten.v
+
+synth_quicklogic -top my_top
+stat
+cd my_top
+select -assert-count 1 t:ckpad
+select -assert-count 2 t:inpad
+select -assert-count 1 t:outpad
+select -assert-count 1 t:bipad

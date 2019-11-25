@@ -29,6 +29,7 @@ frontends/verilog/             @zachjs
 frontends/ast/                 @zachjs
 
 techlibs/intel_alm/            @ZirconiumX
+techlibs/quicklogic/           @kgugala
 
 # pyosys
 misc/*.py                      @btut
