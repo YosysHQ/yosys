@@ -30,7 +30,7 @@
 						"&st; &if -g -K 6; &synch2; &if {W} -v; &save; &load; "\
 						"&mfs; &ps -l"
 #else
-#define ABC_COMMAND_LUT "&st; &scorr; &sweep; &dc2; &st; &dch -f; &ps; &if {W} {D} -v; &mfs; &ps -l"
+#define ABC_COMMAND_LUT "&st; &scorr; &sweep; &dc2; &st; &dch -f; &ps; &if {W} {D} -v; &mfs; &ps -l; time"
 #endif
 
 
