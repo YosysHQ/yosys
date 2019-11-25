@@ -162,6 +162,14 @@ struct ClkPartPass : public Pass {
 					key = clkdomain_t(this_clk_pol, assign_map(cell->getPort(ID(C))), this_en_pol, enable_mode ? assign_map(cell->getPort(ID(E))) : RTLIL::SigSpec());
 				}
 				else
+				if (cell->type.in(ID($_DFF_NN0_), ID($_DFF_NN1_), ID($_DFF_NP0_), ID($_DFF_NP1_),
+							ID($_DFF_PN0_), ID($_DFF_PN1_), ID($_DFF_PP0_), ID($_DFF_PP1_)))
+				{
+					bool this_clk_pol = cell->type.in(ID($_DFF_PN0_), ID($_DFF_PN1_), ID($_DFF_PP0_), ID($_DFF_PP1_));
+					log_assert(!enable_mode); // TODO
+					key = clkdomain_t(this_clk_pol, assign_map(cell->getPort(ID(C))), true, RTLIL::SigSpec());
+				}
+				else
 					continue;
 
 				unassigned_cells.erase(cell);
