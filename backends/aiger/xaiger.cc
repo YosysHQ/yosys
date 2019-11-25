@@ -174,6 +174,7 @@ struct XAigerWriter
 					if (bit != wirebit)
 						alias_map[bit] = wirebit;
 					input_bits.insert(wirebit);
+					undriven_bits.erase(bit);
 				}
 
 				if (wire->port_output || keep) {
@@ -181,18 +182,14 @@ struct XAigerWriter
 						if (bit != wirebit)
 							alias_map[wirebit] = bit;
 						output_bits.insert(wirebit);
+						if (!wire->port_input)
+							unused_bits.erase(bit);
 					}
 					else
 						log_debug("Skipping PO '%s' driven by 1'bx\n", log_signal(wirebit));
 				}
 			}
 		}
-
-		for (auto bit : input_bits)
-			undriven_bits.erase(sigmap(bit));
-		for (auto bit : output_bits)
-			if (!bit.wire->port_input)
-				unused_bits.erase(bit);
 
 		// TODO: Speed up toposort -- ultimately we care about
 		//       box ordering, but not individual AIG cells
