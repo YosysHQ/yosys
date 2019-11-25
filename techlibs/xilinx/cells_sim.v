@@ -126,7 +126,11 @@ endmodule
 //   assign O = IO, IO = T ? 1'bz : I;
 // endmodule
 
-module INV(output O, input I);
+module INV(
+    (* clkbuf_inv = "I" *)
+    output O,
+    input I
+);
   assign O = !I;
 endmodule
 

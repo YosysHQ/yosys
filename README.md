@@ -343,6 +343,13 @@ Verilog Attributes and non-standard features
 - The ``clkbuf_sink`` attribute can be set on an input port of a module to
   request clock buffer insertion by the ``clkbufmap`` pass.
 
+- The ``clkbuf_inv`` attribute can be set on an output port of a module
+  with the value set to the name of an input port of that module.  When
+  the ``clkbufmap`` would otherwise insert a clock buffer on this output,
+  it will instead try inserting the clock buffer on the input port (this
+  is used to implement clock inverter cells that clock buffer insertion
+  will "see through").
+
 - The ``clkbuf_inhibit`` is the default attribute to set on a wire to prevent
   automatic clock buffer insertion by ``clkbufmap``. This behaviour can be
   overridden by providing a custom selection to ``clkbufmap``.
