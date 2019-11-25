@@ -347,10 +347,10 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 		log_assert(!design->module(ID($__abc9__)));
 		{
 			AigerReader reader(design, ifs, ID($__abc9__), "" /* clk_name */, buffer.c_str() /* map_filename */, true /* wideports */);
-			reader.parse_xaiger();
+			reader.parse_xaiger(box_lookup);
 		}
 		ifs.close();
-		Pass::call(design, stringf("write_verilog -noexpr -norename"));
+		Pass::call_on_module(design, design->module(ID($__abc9__)), stringf("write_verilog -noexpr -norename -selected"));
 		design->remove(design->module(ID($__abc9__)));
 #endif
 
@@ -421,7 +421,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 		ifs.close();
 
 #if 0
-		Pass::call(design, stringf("write_verilog -noexpr -norename"));
+		Pass::call_on_module(design, design->module(ID($__abc9__)), stringf("write_verilog -noexpr -norename -selected"));
 #endif
 
 		log_header(design, "Re-integrating ABC9 results.\n");
