@@ -8160,18 +8160,6 @@ module IBUFGDS_DIFF_OUT (...);
     input IB;
 endmodule
 
-module IOBUF (...);
-    parameter integer DRIVE = 12;
-    parameter IBUF_LOW_PWR = "TRUE";
-    parameter IOSTANDARD = "DEFAULT";
-    parameter SLEW = "SLOW";
-    output O;
-    (* iopad_external_pin *)
-    inout IO;
-    input I;
-    input T;
-endmodule
-
 module IOBUF_DCIEN (...);
     parameter integer DRIVE = 12;
     parameter IBUF_LOW_PWR = "TRUE";
@@ -8371,17 +8359,6 @@ module OBUFDS_DPHY (...);
     input LPTX_I_N;
     input LPTX_I_P;
     input LPTX_T;
-endmodule
-
-module OBUFT (...);
-    parameter CAPACITANCE = "DONT_CARE";
-    parameter integer DRIVE = 12;
-    parameter IOSTANDARD = "DEFAULT";
-    parameter SLEW = "SLOW";
-    (* iopad_external_pin *)
-    output O;
-    input I;
-    input T;
 endmodule
 
 module OBUFTDS (...);
