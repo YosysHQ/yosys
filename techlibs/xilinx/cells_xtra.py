@@ -326,7 +326,7 @@ CELLS = [
     Cell('IBUFGDS', port_attrs={'I': ['iopad_external_pin'], 'IB': ['iopad_external_pin']}),
     Cell('IBUFGDS_DIFF_OUT', port_attrs={'I': ['iopad_external_pin'], 'IB': ['iopad_external_pin']}),
     # I/O.
-    Cell('IOBUF', port_attrs={'IO': ['iopad_external_pin']}),
+    # Cell('IOBUF', port_attrs={'IO': ['iopad_external_pin']}),
     Cell('IOBUF_DCIEN', port_attrs={'IO': ['iopad_external_pin']}),
     Cell('IOBUF_INTERMDISABLE', port_attrs={'IO': ['iopad_external_pin']}),
     Cell('IOBUFE3', port_attrs={'IO': ['iopad_external_pin']}),
@@ -342,7 +342,7 @@ CELLS = [
     Cell('OBUFDS', port_attrs={'O': ['iopad_external_pin'], 'OB': ['iopad_external_pin']}),
     Cell('OBUFDS_DPHY', port_attrs={'O': ['iopad_external_pin'], 'OB': ['iopad_external_pin']}),
     # Output + tristate.
-    Cell('OBUFT', port_attrs={'O': ['iopad_external_pin']}),
+    # Cell('OBUFT', port_attrs={'O': ['iopad_external_pin']}),
     Cell('OBUFTDS', port_attrs={'O': ['iopad_external_pin'], 'OB': ['iopad_external_pin']}),
     # Pulls.
     Cell('KEEPER'),
