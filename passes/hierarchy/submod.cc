@@ -296,7 +296,7 @@ struct SubmodPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    submod [-copy] [selection]\n");
+		log("    submod [options] [selection]\n");
 		log("\n");
 		log("This pass identifies all cells with the 'submod' attribute and moves them to\n");
 		log("a newly created module. The value of the attribute is used as name for the\n");
@@ -308,16 +308,15 @@ struct SubmodPass : public Pass {
 		log("This pass only operates on completely selected modules with no processes\n");
 		log("or memories.\n");
 		log("\n");
+		log("    -copy\n");
+		log("        by default the cells are 'moved' from the source module and the source\n");
+		log("        module will use an instance of the new module after this command is\n");
+		log("        finished. call with -copy to not modify the source module.\n");
 		log("\n");
-		log("    submod -name <name> [-copy] [selection]\n");
-		log("\n");
-		log("As above, but don't use the 'submod' attribute but instead use the selection.\n");
-		log("Only objects from one module might be selected. The value of the -name option\n");
-		log("is used as the value of the 'submod' attribute above.\n");
-		log("\n");
-		log("By default the cells are 'moved' from the source module and the source module\n");
-		log("will use an instance of the new module after this command is finished. Call\n");
-		log("with -copy to not modify the source module.\n");
+		log("    -name <name>\n");
+		log("        don't use the 'submod' attribute but instead use the selection. only\n");
+		log("        objects from one module might be selected. the value of the -name option\n");
+		log("        is used as the value of the 'submod' attribute instead.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
