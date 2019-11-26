@@ -81,7 +81,7 @@ match $__XILINX_RAMB36_SDP
 endmatch
 
 match $__XILINX_RAMB18_SDP
-  min bits 4096
+  min bits 1024
   min efficiency 5
   shuffle_enable B
   make_transp
@@ -97,9 +97,12 @@ match $__XILINX_RAMB36_TDP
 endmatch
 
 match $__XILINX_RAMB18_TDP
-  min bits 4096
+  min bits 1024
   min efficiency 5
   shuffle_enable B
   make_transp
 endmatch
+
+# [[CITE]] 7 Series FPGAs Memory Resources User Guide (UG473),
+# v1.14 ed., p 29-30, July, 2019.
 
