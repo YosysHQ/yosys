@@ -75,7 +75,7 @@ struct ClkPartPass : public Pass {
 		{
 			if (args[argidx] == "-set_attr" && argidx+2 < args.size()) {
 				attr_name = RTLIL::escape_id(args[++argidx]);
-				attr_value = args[argidx++];
+				attr_value = args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-unpart" && argidx+1 < args.size()) {
