@@ -37,6 +37,7 @@ struct SubmodWorker
 	pool<SigBit> outputs;
 
 	bool copy_mode;
+	bool hidden_mode;
 	std::string opt_name;
 
 	struct SubModule
@@ -149,13 +150,16 @@ struct SubmodWorker
 			else
 				new_wire_name = stringf("%s[%d]", wire->name.c_str(), bit.offset);
 			if (new_wire_port_input || new_wire_port_output) {
-				while (new_wire_name[0] == '$') {
-					std::string next_wire_name = stringf("\\n%d", auto_name_counter++);
-					if (all_wire_names.count(next_wire_name) == 0) {
-						all_wire_names.insert(next_wire_name);
-						new_wire_name = next_wire_name;
-					}
-				}
+				if (new_wire_name[0] == '$')
+					do {
+						std::string next_wire_name = stringf("%s\\n%d", hidden_mode ? "$submod" : ":", auto_name_counter++);
+						if (all_wire_names.count(next_wire_name) == 0) {
+							all_wire_names.insert(next_wire_name);
+							new_wire_name = next_wire_name;
+						}
+					} while (new_wire_name[0] == '$');
+				else
+					new_wire_name = stringf("$submod%s\n", new_wire_name.c_str());
 			}
 
 			RTLIL::Wire *new_wire = new_mod->addWire(new_wire_name);
@@ -211,8 +215,8 @@ struct SubmodWorker
 		}
 	}
 
-	SubmodWorker(RTLIL::Design *design, RTLIL::Module *module, bool copy_mode = false, std::string opt_name = std::string()) :
-			design(design), module(module), sigmap(module), copy_mode(copy_mode), opt_name(opt_name)
+	SubmodWorker(RTLIL::Design *design, RTLIL::Module *module, bool copy_mode = false, bool hidden_mode = false, std::string opt_name = std::string()) :
+			design(design), module(module), sigmap(module), copy_mode(copy_mode), hidden_mode(hidden_mode), opt_name(opt_name)
 	{
 		if (!design->selected_whole_module(module->name) && opt_name.empty())
 			return;
@@ -318,6 +322,11 @@ struct SubmodPass : public Pass {
 		log("        objects from one module might be selected. the value of the -name option\n");
 		log("        is used as the value of the 'submod' attribute instead.\n");
 		log("\n");
+		log("    -hidden\n");
+		log("        instead of creating submodule ports with public names, create ports with\n");
+		log("        private names so that a subsequent 'flatten; clean' call will restore the\n");
+		log("        original module with original public names.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
@@ -326,6 +335,7 @@ struct SubmodPass : public Pass {
 
 		std::string opt_name;
 		bool copy_mode = false;
+		bool hidden_mode = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -335,6 +345,10 @@ struct SubmodPass : public Pass {
 			}
 			if (args[argidx] == "-copy") {
 				copy_mode = true;
+				continue;
+			}
+			if (args[argidx] == "-hidden") {
+				hidden_mode = true;
 				continue;
 			}
 			break;
@@ -357,7 +371,7 @@ struct SubmodPass : public Pass {
 						queued_modules.push_back(mod_it.first);
 				for (auto &modname : queued_modules)
 					if (design->modules_.count(modname) != 0) {
-						SubmodWorker worker(design, design->modules_[modname], copy_mode);
+						SubmodWorker worker(design, design->modules_[modname], copy_mode, hidden_mode);
 						handled_modules.insert(modname);
 						did_something = true;
 					}
@@ -380,7 +394,7 @@ struct SubmodPass : public Pass {
 			else {
 				Pass::call_on_module(design, module, "opt_clean");
 				log_header(design, "Continuing SUBMOD pass.\n");
-				SubmodWorker worker(design, module, copy_mode, opt_name);
+				SubmodWorker worker(design, module, copy_mode, hidden_mode, opt_name);
 			}
 		}
 
