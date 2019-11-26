@@ -278,7 +278,7 @@ struct ClkPartPass : public Pass {
 			}
 		}
 
-		Pass::call(design, "submod");
+		Pass::call(design, "submod -hidden");
 
 		if (!attr_name.empty())
 			for (auto m : new_submods)
