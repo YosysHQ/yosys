@@ -151,15 +151,16 @@ struct SubmodWorker
 				new_wire_name = stringf("%s[%d]", wire->name.c_str(), bit.offset);
 			if (new_wire_port_input || new_wire_port_output) {
 				if (new_wire_name[0] == '$')
-					do {
-						std::string next_wire_name = stringf("%s\\n%d", hidden_mode ? "$submod" : ":", auto_name_counter++);
+					while (1) {
+						std::string next_wire_name = stringf("%s\\n%d", hidden_mode ? "$submod" : "", auto_name_counter++);
 						if (all_wire_names.count(next_wire_name) == 0) {
 							all_wire_names.insert(next_wire_name);
 							new_wire_name = next_wire_name;
+							break;
 						}
-					} while (new_wire_name[0] == '$');
-				else
-					new_wire_name = stringf("$submod%s\n", new_wire_name.c_str());
+					}
+				else if (hidden_mode)
+					new_wire_name = stringf("$submod%s", new_wire_name.c_str());
 			}
 
 			RTLIL::Wire *new_wire = new_mod->addWire(new_wire_name);
