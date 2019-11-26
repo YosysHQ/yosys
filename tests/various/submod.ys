@@ -48,3 +48,21 @@ design -import gate -as gate
 
 miter -equiv -flatten -make_assert -make_outputs gold gate miter
 sat -verify -prove-asserts -show-ports miter
+
+
+design -reset
+read_verilog -icells <<EOT
+module top(input d, c, (* init = 1'b1 *) output reg q);
+(* submod="bar" *) DFF s1(.D(d), .C(c), .Q(q));
+endmodule
+
+module DFF(input D, C, output Q);
+parameter INIT = 1'b0;
+endmodule
+EOT
+
+hierarchy -top top
+
+submod
+dffinit -ff DFF Q INIT
+check -noinit -assert
