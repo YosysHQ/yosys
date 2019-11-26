@@ -162,6 +162,13 @@ struct SubmodWorker
 			new_wire->port_input = new_wire_port_input;
 			new_wire->port_output = new_wire_port_output;
 			new_wire->attributes = wire->attributes;
+			if (new_wire->port_output) {
+				auto it = wire->attributes.find(ID(init));
+				if (it != wire->attributes.end()) {
+					new_wire->attributes[ID(init)] = it->second[bit.offset];
+					it->second[bit.offset] = State::Sx;
+				}
+			}
 
 			if (new_wire->port_input && new_wire->port_output)
 				log("  signal %s: inout %s\n", wire->name.c_str(), new_wire->name.c_str());
