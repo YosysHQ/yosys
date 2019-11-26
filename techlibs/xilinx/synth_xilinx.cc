@@ -560,7 +560,6 @@ struct SynthXilinxPass : public ScriptPass
 			else
 				techmap_args += " -map " + ff_map_file;
 			run("techmap " + techmap_args);
-			run("clean");
 		}
 
 		if (check_label("finalize")) {
@@ -575,6 +574,7 @@ struct SynthXilinxPass : public ScriptPass
 				run("iopadmap -bits -outpad OBUF I:O -inpad IBUF O:I A:top", "(only if '-iopad' or '-ise' and not '-noiopad')");
 			if (help_mode || ise)
 				run("extractinv -inv INV O:I", "(only if '-ise')");
+			run("clean");
 		}
 
 		if (check_label("check")) {
