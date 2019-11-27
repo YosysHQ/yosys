@@ -267,8 +267,15 @@ assign COUT = CIN;
 
 endmodule
 
-(* abc_box_id = 8, abc_carry="CI,COUT", lib_whitebox *)
-module CARRY4_COUT(output [3:0] O, output COUT, input CI, input CYINIT, input [3:0] DI, S);
+(* abc_box_id = 8, lib_whitebox *)
+module CARRY4_COUT(
+    output [3:0] O,
+    (* abc_carry *)
+    output COUT,
+    (* abc_carry *)
+    input CI,
+    input CYINIT,
+    input [3:0] DI, S);
 `ifdef _ABC
   wire CI0 = CYINIT | CI;
 `else

@@ -41,6 +41,29 @@ CARRY4 4 1 10 8
 592 540 520 356 -   512 548 292 -   228
 580 526 507 398 385 508 528 378 380 114
 
+# CARRY4_COUT + CARRY4_[ABCD]X
+# Inputs: CYINIT DI0 DI1 DI2 DI3 S0 S1 S2 S3 CI
+# Outputs:  O0 O1 O2 O3 COUT
+#   (NB: carry chain input/output must be last
+#        input/output and the entire bus has been
+#        moved there overriding the otherwise
+#        alphabetical ordering)
+CARRY4_COUT 8 1 10 5
+482 -   -   -   -   223 -   -   -   222
+598 407 -   -   -   400 205 -   -   334
+584 556 537 -   -   523 558 226 -   239
+642 615 596 438 -   582 618 330 227 313
+580 526 507 398 385 508 528 378 380 114
+
+# CARRY_COUT_PLUG
+# Inputs: CIN
+# Outputs: COUT
+#
+# This blackbox is simply in place to prevent ABC from optimizating across it,
+# as it uses dedicated routing and cannot be manipulated in general.
+CARRY_COUT_PLUG 9 0 1 1
+0
+
 # SLICEM/A6LUT
 # Box to emulate comb/seq behaviour of RAMD{32,64} and SRL{16,32}
 #   Necessary since RAMD* and SRL* have both combinatorial (i.e.
