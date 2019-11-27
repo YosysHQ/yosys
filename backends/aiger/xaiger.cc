@@ -153,11 +153,6 @@ struct XAigerWriter
 			if (wire->port_input)
 				sigmap.add(wire);
 
-		// promote output wires
-		for (auto wire : module->wires())
-			if (wire->port_output)
-				sigmap.add(wire);
-
 		for (auto wire : module->wires())
 		{
 			bool keep = wire->attributes.count("\\keep");
