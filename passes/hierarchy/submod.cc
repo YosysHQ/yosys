@@ -141,7 +141,7 @@ struct SubmodWorker
 			else {
 				auto sig = sigmap(wire);
 				for (auto c : sig.chunks())
-					if (c.wire->port_output) {
+					if (c.wire && c.wire->port_output) {
 						flags.is_ext_used = true;
 						break;
 					}
