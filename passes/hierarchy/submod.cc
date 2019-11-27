@@ -57,15 +57,13 @@ struct SubmodWorker
 	std::map<RTLIL::Wire*, wire_flags_t> wire_flags;
 	bool flag_found_something;
 
-	void flag_wire(RTLIL::Wire *wire, bool create, bool /*set_int_driven*/, bool set_int_used, bool set_ext_driven, bool set_ext_used)
+	void flag_wire(RTLIL::Wire *wire, bool create, bool set_int_used, bool set_ext_driven, bool set_ext_used)
 	{
 		if (wire_flags.count(wire) == 0) {
 			if (!create)
 				return;
-			wire_flags.emplace(wire, wire_flags_t(wire));
+			wire_flags.emplace(wire, wire);
 		}
-		//if (set_int_driven)
-		//	wire_flags[wire].is_int_driven = true;
 		if (set_int_used)
 			wire_flags.at(wire).is_int_used = true;
 		if (set_ext_driven)
@@ -79,7 +77,7 @@ struct SubmodWorker
 	{
 		for (auto &c : sig.chunks())
 			if (c.wire != NULL) {
-				flag_wire(c.wire, create, set_int_driven, set_int_used, set_ext_driven, set_ext_used);
+				flag_wire(c.wire, create, set_int_used, set_ext_driven, set_ext_used);
 				if (set_int_driven)
 					for (int i = c.offset; i < c.offset+c.width; i++) {
 						wire_flags.at(c.wire).is_int_driven[i] = State::S1;
