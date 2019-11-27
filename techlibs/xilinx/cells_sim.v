@@ -227,6 +227,14 @@ module MUXCY(output O, input CI, DI, S);
   assign O = S ? CI : DI;
 endmodule
 
+module MUXF5(output O, input I0, I1, S);
+  assign O = S ? I1 : I0;
+endmodule
+
+module MUXF6(output O, input I0, I1, S);
+  assign O = S ? I1 : I0;
+endmodule
+
 (* abc9_box_id = 1, lib_whitebox *)
 module MUXF7(output O, input I0, I1, S);
   assign O = S ? I1 : I0;
@@ -234,6 +242,10 @@ endmodule
 
 (* abc9_box_id = 2, lib_whitebox *)
 module MUXF8(output O, input I0, I1, S);
+  assign O = S ? I1 : I0;
+endmodule
+
+module MUXF9(output O, input I0, I1, S);
   assign O = S ? I1 : I0;
 endmodule
 
@@ -258,6 +270,26 @@ module CARRY4(
   assign CO[3] = S[3] ? CO[2] : DI[3];
 endmodule
 
+module CARRY8(
+  output [7:0] CO,
+  output [7:0] O,
+  input        CI,
+  input        CI_TOP,
+  input  [7:0] DI, S
+);
+  parameter CARRY_TYPE = "SINGLE_CY8";
+  wire CI4 = (CARRY_TYPE == "DUAL_CY4" ? CI_TOP : CO[3]);
+  assign O = S ^ {CO[6:4], CI4, CO[2:0], CI};
+  assign CO[0] = S[0] ? CI : DI[0];
+  assign CO[1] = S[1] ? CO[0] : DI[1];
+  assign CO[2] = S[2] ? CO[1] : DI[2];
+  assign CO[3] = S[3] ? CO[2] : DI[3];
+  assign CO[4] = S[4] ? CI4 : DI[4];
+  assign CO[5] = S[5] ? CO[4] : DI[5];
+  assign CO[6] = S[6] ? CO[5] : DI[6];
+  assign CO[7] = S[7] ? CO[6] : DI[7];
+endmodule
+
 `ifdef _EXPLICIT_CARRY
 
 module CARRY0(output CO_CHAIN, CO_FABRIC, O, input CI, CI_INIT, DI, S);
@@ -280,6 +312,16 @@ module CARRY(output CO_CHAIN, CO_FABRIC, O, input CI, DI, S);
 endmodule
 
 `endif
+
+module ORCY (output O, input CI, I);
+  assign O = CI | I;
+endmodule
+
+module MULT_AND (output LO, input I0, I1);
+  assign LO = I0 & I1;
+endmodule
+
+// Flip-flops and latches.
 
 // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf#L238-L250
 
@@ -414,6 +456,51 @@ module FDPE (
   endcase endgenerate
 endmodule
 
+module FDCPE (
+  output wire Q,
+  (* clkbuf_sink *)
+  (* invertible_pin = "IS_C_INVERTED" *)
+  input C,
+  input CE,
+  (* invertible_pin = "IS_CLR_INVERTED" *)
+  input CLR,
+  input D,
+  (* invertible_pin = "IS_PRE_INVERTED" *)
+  input PRE
+);
+  parameter [0:0] INIT = 1'b0;
+  parameter [0:0] IS_C_INVERTED = 1'b0;
+  parameter [0:0] IS_CLR_INVERTED = 1'b0;
+  parameter [0:0] IS_PRE_INVERTED = 1'b0;
+  wire c = C ^ IS_C_INVERTED;
+  wire clr = CLR ^ IS_CLR_INVERTED;
+  wire pre = PRE ^ IS_PRE_INVERTED;
+  // Hacky model to avoid simulation-synthesis mismatches.
+  reg qc, qp, qs;
+  initial qc = INIT;
+  initial qp = INIT;
+  initial qs = 0;
+  always @(posedge c, posedge clr) begin
+    if (clr)
+      qc <= 0;
+    else if (CE)
+      qc <= D;
+  end
+  always @(posedge c, posedge pre) begin
+    if (pre)
+      qp <= 1;
+    else if (CE)
+      qp <= D;
+  end
+  always @* begin
+    if (clr)
+      qs <= 0;
+    else if (pre)
+      qs <= 1;
+  end
+  assign Q = qs ? qp : qc;
+endmodule
+
 module FDRE_1 (
   (* abc9_arrival=303 *)
   output reg Q,
@@ -480,8 +567,8 @@ module LDCE (
   wire clr = CLR ^ IS_CLR_INVERTED;
   wire g = G ^ IS_G_INVERTED;
   always @*
-    if (clr) Q = 1'b0;
-    else if (GE && g) Q = D;
+    if (clr) Q <= 1'b0;
+    else if (GE && g) Q <= D;
 endmodule
 
 module LDPE (
@@ -502,8 +589,59 @@ module LDPE (
   wire g = G ^ IS_G_INVERTED;
   wire pre = PRE ^ IS_PRE_INVERTED;
   always @*
-    if (pre) Q = 1'b1;
-    else if (GE && g) Q = D;
+    if (pre) Q <= 1'b1;
+    else if (GE && g) Q <= D;
+endmodule
+
+module LDCPE (
+  output reg Q,
+  (* invertible_pin = "IS_CLR_INVERTED" *)
+  input CLR,
+  (* invertible_pin = "IS_D_INVERTED" *)
+  input D,
+  (* invertible_pin = "IS_G_INVERTED" *)
+  input G,
+  (* invertible_pin = "IS_GE_INVERTED" *)
+  input GE,
+  (* invertible_pin = "IS_PRE_INVERTED" *)
+  input PRE
+);
+  parameter [0:0] INIT = 1'b1;
+  parameter [0:0] IS_CLR_INVERTED = 1'b0;
+  parameter [0:0] IS_D_INVERTED = 1'b0;
+  parameter [0:0] IS_G_INVERTED = 1'b0;
+  parameter [0:0] IS_GE_INVERTED = 1'b0;
+  parameter [0:0] IS_PRE_INVERTED = 1'b0;
+  initial Q = INIT;
+  wire d = D ^ IS_D_INVERTED;
+  wire g = G ^ IS_G_INVERTED;
+  wire ge = GE ^ IS_GE_INVERTED;
+  wire clr = CLR ^ IS_CLR_INVERTED;
+  wire pre = PRE ^ IS_PRE_INVERTED;
+  always @*
+    if (clr) Q <= 1'b0;
+    else if (pre) Q <= 1'b1;
+    else if (ge && g) Q <= d;
+endmodule
+
+module AND2B1L (
+  output O,
+  input DI,
+  (* invertible_pin = "IS_SRI_INVERTED" *)
+  input SRI
+);
+  parameter [0:0] IS_SRI_INVERTED = 1'b0;
+  assign O = DI & ~(SRI ^ IS_SRI_INVERTED);
+endmodule
+
+module OR2L (
+  output O,
+  input DI,
+  (* invertible_pin = "IS_SRI_INVERTED" *)
+  input SRI
+);
+  parameter [0:0] IS_SRI_INVERTED = 1'b0;
+  assign O = DI | (SRI ^ IS_SRI_INVERTED);
 endmodule
 
 // LUTRAM.
@@ -1369,6 +1507,20 @@ endmodule
 
 // Shift registers.
 
+module SRL16 (
+  output Q,
+  input A0, A1, A2, A3,
+  (* clkbuf_sink *)
+  input CLK,
+  input D
+);
+  parameter [15:0] INIT = 16'h0000;
+
+  reg [15:0] r = INIT;
+  assign Q = r[{A3,A2,A1,A0}];
+  always @(posedge CLK) r <= { r[14:0], D };
+endmodule
+
 module SRL16E (
   // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L904-L905
   (* abc9_arrival=1472 *)
@@ -1391,6 +1543,22 @@ module SRL16E (
     else
       always @(posedge CLK) if (CE) r <= { r[14:0], D };
   endgenerate
+endmodule
+
+module SRLC16 (
+  output Q,
+  output Q15,
+  input A0, A1, A2, A3,
+  (* clkbuf_sink *)
+  input CLK,
+  input D
+);
+  parameter [15:0] INIT = 16'h0000;
+
+  reg [15:0] r = INIT;
+  assign Q15 = r[15];
+  assign Q = r[{A3,A2,A1,A0}];
+  always @(posedge CLK) r <= { r[14:0], D };
 endmodule
 
 module SRLC16E (
@@ -1443,6 +1611,31 @@ module SRLC32E (
     else
       always @(posedge CLK) if (CE) r <= { r[30:0], D };
   endgenerate
+endmodule
+
+module CFGLUT5 (
+  output CDO,
+  output O5,
+  output O6,
+  input I4,
+  input I3,
+  input I2,
+  input I1,
+  input I0,
+  input CDI,
+  input CE,
+  (* clkbuf_sink *)
+  (* invertible_pin = "IS_CLK_INVERTED" *)
+  input CLK
+);
+  parameter [31:0] INIT = 32'h00000000;
+  parameter [0:0] IS_CLK_INVERTED = 1'b0;
+  wire clk = CLK ^ IS_CLK_INVERTED;
+  reg [31:0] r = INIT;
+  assign CDO = r[31];
+  assign O5 = r[{1'b0, I3, I2, I1, I0}];
+  assign O6 = r[{I4, I3, I2, I1, I0}];
+  always @(posedge clk) if (CE) r <= {r[30:0], CDI};
 endmodule
 
 // DSP
