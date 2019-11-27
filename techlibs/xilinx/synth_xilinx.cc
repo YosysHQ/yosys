@@ -538,6 +538,7 @@ struct SynthXilinxPass : public ScriptPass
 				else
 					abc9_opts += " -lut +/xilinx/abc9_xc7.lut";
 				run("abc9" + abc9_opts);
+				run("clean");
 				run("clkpart -unpart clkpart");
 			}
 			else {
@@ -545,8 +546,8 @@ struct SynthXilinxPass : public ScriptPass
 					run("abc -luts 2:2,3,6:5" + string(retime ? " -dff" : ""));
 				else
 					run("abc -luts 2:2,3,6:5,10,20" + string(retime ? " -dff" : ""));
+				run("clean");
 			}
-			run("clean");
 
 			// This shregmap call infers fixed length shift registers after abc
 			//   has performed any necessary retiming
