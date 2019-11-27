@@ -34,7 +34,6 @@ struct SubmodWorker
 	RTLIL::Design *design;
 	RTLIL::Module *module;
 	SigMap sigmap;
-	pool<SigBit> outputs;
 
 	bool copy_mode;
 	bool hidden_mode;
@@ -124,13 +123,13 @@ struct SubmodWorker
 
 		for (auto &it : bit_flags)
 		{
-			const RTLIL::SigBit &bit = it.first;
+			const RTLIL::SigBit &bit = sigmap(it.first);
 			RTLIL::Wire *wire = bit.wire;
 			bit_flags_t &flags = it.second;
 
 			if (wire->port_input)
 				flags.is_ext_driven = true;
-			if (outputs.count(bit))
+			if (wire->port_output)
 				flags.is_ext_used = true;
 
 			bool new_wire_port_input = false;
@@ -240,11 +239,8 @@ struct SubmodWorker
 
 		for (auto port : module->ports) {
 			auto wire = module->wire(port);
-			if (!wire->port_output)
-				continue;
-			for (auto b : sigmap(wire))
-				if (b.wire)
-					outputs.insert(b);
+			if (wire->port_output)
+				sigmap.add(wire);
 		}
 
 		if (opt_name.empty())
