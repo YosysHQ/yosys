@@ -228,11 +228,16 @@ struct SubmodWorker
 				RTLIL::SigSpec old_sig = sigmap(it.first);
 				RTLIL::Wire *new_wire = it.second.new_wire;
 				if (new_wire->port_id > 0) {
-					// Prevents "ERROR: Mismatch in directionality ..." when flattening
 					if (new_wire->port_output)
-						for (auto &b : old_sig)
+						for (int i = 0; i < GetSize(old_sig); i++) {
+							auto &b = old_sig[i];
+							// Prevents "ERROR: Mismatch in directionality ..." when flattening
 							if (!b.wire)
 								b = module->addWire(NEW_ID);
+							// Prevents "Warning: multiple conflicting drivers ..."
+							else if (!it.second.is_int_driven[i])
+								b = module->addWire(NEW_ID);
+						}
 					new_cell->setPort(new_wire->name, old_sig);
 				}
 			}
