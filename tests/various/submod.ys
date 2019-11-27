@@ -1,8 +1,8 @@
 read_verilog <<EOT
-module top(input a, output [1:0] b);
+module top(input a, output b);
 wire c;
 (* submod="bar" *) sub s1(a, c);
-assign b[0] = c;
+assign b = c;
 endmodule
 
 module sub(input a, output c);
