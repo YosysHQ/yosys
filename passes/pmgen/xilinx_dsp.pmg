@@ -347,9 +347,9 @@ match postAdd
 	index <SigBit> port(postAdd, AB)[0] === sigP[0]
 	filter GetSize(port(postAdd, AB)) >= GetSize(sigP)
 	filter port(postAdd, AB).extract(0, GetSize(sigP)) == sigP
-	// Check that remainder of AB is a sign-extension
-	define <bool> AB_SIGNED (param(postAdd, AB == \A ? \A_SIGNED : \B_SIGNED).as_bool())
-	filter port(postAdd, AB).extract_end(GetSize(sigP)) == SigSpec(AB_SIGNED ? sigP[GetSize(sigP)-1] : State::S0, GetSize(port(postAdd, AB))-GetSize(sigP))
+	// Check that remainder of AB is a sign- or zero-extension
+	filter port(postAdd, AB).extract_end(GetSize(sigP)) == SigSpec(sigP[GetSize(sigP)-1], GetSize(port(postAdd, AB))-GetSize(sigP)) || port(postAdd, AB).extract_end(GetSize(sigP)) == SigSpec(State::S0, GetSize(port(postAdd, AB))-GetSize(sigP))
+
 	set postAddAB AB
 	optional
 endmatch
