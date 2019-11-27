@@ -198,11 +198,11 @@ struct XAigerWriter
 			}
 		}
 
+		// Cannot fold into above due to use of sigmap
 		for (auto bit : input_bits)
 			undriven_bits.erase(sigmap(bit));
 		for (auto bit : output_bits)
-			if (!bit.wire->port_input)
-				unused_bits.erase(bit);
+			unused_bits.erase(sigmap(bit));
 
 		// TODO: Speed up toposort -- ultimately we care about
 		//       box ordering, but not individual AIG cells
