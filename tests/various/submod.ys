@@ -15,6 +15,7 @@ proc
 design -save gold
 
 submod
+check -assert
 design -stash gate
 
 design -import gold -as gold
@@ -41,6 +42,7 @@ proc
 design -save gold
 
 submod
+check -assert top
 design -stash gate
 
 design -import gold -as gold
@@ -48,6 +50,35 @@ design -import gate -as gate
 
 miter -equiv -flatten -make_assert -make_outputs gold gate miter
 sat -verify -prove-asserts -show-ports miter
+
+
+design -reset
+read_verilog <<EOT
+module top(input a, output [1:0] b, c);
+(* submod="bar" *) sub s1(a, b[0]);
+(* submod="bar" *) sub s2(a, c[1]);
+assign c = b;
+endmodule
+
+module sub(input a, output c);
+assign c = a;
+endmodule
+EOT
+
+hierarchy -top top
+proc
+design -save gold
+
+submod
+check -assert top
+design -stash gate
+
+design -import gold -as gold
+design -import gate -as gate
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports miter
+
 
 
 design -reset
