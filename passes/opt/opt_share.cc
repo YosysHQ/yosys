@@ -83,7 +83,9 @@ struct ExtSigSpec {
 	bool operator==(const ExtSigSpec &other) const { return is_signed == other.is_signed && sign == other.sign && sig == other.sig && semantics == other.semantics; }
 };
 
-#define BITWISE_OPS ID($_AND_), ID($_NAND_), ID($_OR_), ID($_NOR_), ID($_XOR_), ID($_XNOR_), ID($_ANDNOT_), ID($_ORNOT_), ID($and), ID($or), ID($xor), ID($xnor)
+#define FINE_BITWISE_OPS ID($_AND_), ID($_NAND_), ID($_OR_), ID($_NOR_), ID($_XOR_), ID($_XNOR_), ID($_ANDNOT_), ID($_ORNOT_)
+
+#define BITWISE_OPS FINE_BITWISE_OPS, ID($and), ID($or), ID($xor), ID($xnor)
 
 #define REDUCTION_OPS ID($reduce_and), ID($reduce_or), ID($reduce_xor), ID($reduce_xnor), ID($reduce_bool), ID($reduce_nand)
 
@@ -250,14 +252,19 @@ void merge_operators(RTLIL::Module *module, RTLIL::Cell *mux, const std::vector<
 		shared_op->setPort(ID(CO), alu_co.extract(0, conn_width));
 	}
 
-	shared_op->setParam(ID(Y_WIDTH), conn_width);
+	bool is_fine = shared_op->type.in(FINE_BITWISE_OPS);
+
+	if (!is_fine)
+		shared_op->setParam(ID(Y_WIDTH), conn_width);
 
 	if (decode_port(shared_op, ID::A, &assign_map) == operand) {
 		shared_op->setPort(ID::B, mux_to_oper);
-		shared_op->setParam(ID(B_WIDTH), max_width);
+		if (!is_fine)
+			shared_op->setParam(ID(B_WIDTH), max_width);
 	} else {
 		shared_op->setPort(ID::A, mux_to_oper);
-		shared_op->setParam(ID(A_WIDTH), max_width);
+		if (!is_fine)
+			shared_op->setParam(ID(A_WIDTH), max_width);
 	}
 }
 
