@@ -153,11 +153,6 @@ struct XAigerWriter
 			if (wire->port_input)
 				sigmap.add(wire);
 
-		// promote output wires
-		for (auto wire : module->wires())
-			if (wire->port_output)
-				sigmap.add(wire);
-
 		for (auto wire : module->wires())
 		{
 			bool keep = wire->attributes.count("\\keep");
@@ -173,12 +168,13 @@ struct XAigerWriter
 				}
 
 				if (keep)
-					keep_bits.insert(bit);
+					keep_bits.insert(wirebit);
 
 				if (wire->port_input || keep) {
 					if (bit != wirebit)
 						alias_map[bit] = wirebit;
 					input_bits.insert(wirebit);
+					undriven_bits.erase(bit);
 				}
 
 				if (wire->port_output || keep) {
@@ -186,18 +182,14 @@ struct XAigerWriter
 						if (bit != wirebit)
 							alias_map[wirebit] = bit;
 						output_bits.insert(wirebit);
+						if (!wire->port_input)
+							unused_bits.erase(bit);
 					}
 					else
 						log_debug("Skipping PO '%s' driven by 1'bx\n", log_signal(wirebit));
 				}
 			}
 		}
-
-		for (auto bit : input_bits)
-			undriven_bits.erase(sigmap(bit));
-		for (auto bit : output_bits)
-			if (!bit.wire->port_input)
-				unused_bits.erase(bit);
 
 		// TODO: Speed up toposort -- ultimately we care about
 		//       box ordering, but not individual AIG cells
@@ -824,7 +816,7 @@ struct XAigerBackend : public Backend {
 		log("        write ASCII version of AIGER format\n");
 		log("\n");
 		log("    -map <filename>\n");
-		log("        write an extra file with port and latch symbols\n");
+		log("        write an extra file with port and box symbols\n");
 		log("\n");
 		log("    -vmap <filename>\n");
 		log("        like -map, but more verbose\n");
