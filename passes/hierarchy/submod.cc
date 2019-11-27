@@ -184,7 +184,6 @@ struct SubmodWorker
 				for (int i = 0; i < GetSize(sig); i++) {
 					if (flags.is_int_driven[i] == State::S0)
 						continue;
-					log_dump(i, flags.is_int_driven[i]);
 					if (!sig[i].wire)
 						continue;
 					auto it = sig[i].wire->attributes.find(ID(init));
