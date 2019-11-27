@@ -34,7 +34,6 @@ struct SubmodWorker
 	RTLIL::Design *design;
 	RTLIL::Module *module;
 	SigMap sigmap;
-	std::map<RTLIL::SigBit, RTLIL::SigBit> replace_const;
 
 	bool copy_mode;
 	bool hidden_mode;
@@ -231,7 +230,9 @@ struct SubmodWorker
 				if (new_wire->port_id > 0) {
 					// Prevents "ERROR: Mismatch in directionality ..." when flattening
 					if (new_wire->port_output)
-						old_sig.replace(replace_const);
+						for (auto &b : old_sig)
+							if (!b.wire)
+								b = module->addWire(NEW_ID);
 					new_cell->setPort(new_wire->name, old_sig);
 				}
 			}
@@ -265,11 +266,6 @@ struct SubmodWorker
 			if (wire->port_output)
 				sigmap.add(wire);
 		}
-		auto wire = module->addWire(NEW_ID);
-		replace_const.emplace(State::S0, wire);
-		replace_const.emplace(State::S1, wire);
-		replace_const.emplace(State::Sx, wire);
-		replace_const.emplace(State::Sz, wire);
 
 		if (opt_name.empty())
 		{
