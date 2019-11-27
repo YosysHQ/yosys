@@ -667,8 +667,17 @@ module RAM16X2S (
   parameter [15:0] INIT_00 = 16'h0000;
   parameter [15:0] INIT_01 = 16'h0000;
   parameter [0:0] IS_WCLK_INVERTED = 1'b0;
-  RAM16X1S #(.INIT(INIT_00), .IS_WCLK_INVERTED(IS_WCLK_INVERTED)) ram0 (.O(O0), .A0(A0), .A1(A1), .A2(A2), .A3(A3), .D(D0), .WCLK(WCLK), .WE(WE));
-  RAM16X1S #(.INIT(INIT_01), .IS_WCLK_INVERTED(IS_WCLK_INVERTED)) ram1 (.O(O1), .A0(A0), .A1(A1), .A2(A2), .A3(A3), .D(D1), .WCLK(WCLK), .WE(WE));
+  wire [3:0] a = {A3, A2, A1, A0};
+  wire clk = WCLK ^ IS_WCLK_INVERTED;
+  reg [15:0] mem0 = INIT_00;
+  reg [15:0] mem1 = INIT_01;
+  assign O0 = mem0[a];
+  assign O1 = mem1[a];
+  always @(posedge clk)
+    if (WE) begin
+      mem0[a] <= D0;
+      mem1[a] <= D1;
+    end
 endmodule
 
 module RAM32X2S (
@@ -683,8 +692,17 @@ module RAM32X2S (
   parameter [31:0] INIT_00 = 32'h00000000;
   parameter [31:0] INIT_01 = 32'h00000000;
   parameter [0:0] IS_WCLK_INVERTED = 1'b0;
-  RAM32X1S #(.INIT(INIT_00), .IS_WCLK_INVERTED(IS_WCLK_INVERTED)) ram0 (.O(O0), .A0(A0), .A1(A1), .A2(A2), .A3(A3), .A4(A4), .D(D0), .WCLK(WCLK), .WE(WE));
-  RAM32X1S #(.INIT(INIT_01), .IS_WCLK_INVERTED(IS_WCLK_INVERTED)) ram1 (.O(O1), .A0(A0), .A1(A1), .A2(A2), .A3(A3), .A4(A4), .D(D1), .WCLK(WCLK), .WE(WE));
+  wire [4:0] a = {A4, A3, A2, A1, A0};
+  wire clk = WCLK ^ IS_WCLK_INVERTED;
+  reg [31:0] mem0 = INIT_00;
+  reg [31:0] mem1 = INIT_01;
+  assign O0 = mem0[a];
+  assign O1 = mem1[a];
+  always @(posedge clk)
+    if (WE) begin
+      mem0[a] <= D0;
+      mem1[a] <= D1;
+    end
 endmodule
 
 module RAM64X2S (
@@ -699,8 +717,17 @@ module RAM64X2S (
   parameter [63:0] INIT_00 = 64'h0000000000000000;
   parameter [63:0] INIT_01 = 64'h0000000000000000;
   parameter [0:0] IS_WCLK_INVERTED = 1'b0;
-  RAM64X1S #(.INIT(INIT_00), .IS_WCLK_INVERTED(IS_WCLK_INVERTED)) ram0 (.O(O0), .A0(A0), .A1(A1), .A2(A2), .A3(A3), .A4(A4), .A5(A5), .D(D0), .WCLK(WCLK), .WE(WE));
-  RAM64X1S #(.INIT(INIT_01), .IS_WCLK_INVERTED(IS_WCLK_INVERTED)) ram1 (.O(O1), .A0(A0), .A1(A1), .A2(A2), .A3(A3), .A4(A4), .A5(A5), .D(D1), .WCLK(WCLK), .WE(WE));
+  wire [5:0] a = {A5, A3, A2, A1, A0};
+  wire clk = WCLK ^ IS_WCLK_INVERTED;
+  reg [63:0] mem0 = INIT_00;
+  reg [63:0] mem1 = INIT_01;
+  assign O0 = mem0[a];
+  assign O1 = mem1[a];
+  always @(posedge clk)
+    if (WE) begin
+      mem0[a] <= D0;
+      mem1[a] <= D1;
+    end
 endmodule
 
 module RAM16X4S (
@@ -717,10 +744,23 @@ module RAM16X4S (
   parameter [15:0] INIT_02 = 16'h0000;
   parameter [15:0] INIT_03 = 16'h0000;
   parameter [0:0] IS_WCLK_INVERTED = 1'b0;
-  RAM16X1S #(.INIT(INIT_00), .IS_WCLK_INVERTED(IS_WCLK_INVERTED)) ram0 (.O(O0), .A0(A0), .A1(A1), .A2(A2), .A3(A3), .D(D0), .WCLK(WCLK), .WE(WE));
-  RAM16X1S #(.INIT(INIT_01), .IS_WCLK_INVERTED(IS_WCLK_INVERTED)) ram1 (.O(O1), .A0(A0), .A1(A1), .A2(A2), .A3(A3), .D(D1), .WCLK(WCLK), .WE(WE));
-  RAM16X1S #(.INIT(INIT_02), .IS_WCLK_INVERTED(IS_WCLK_INVERTED)) ram2 (.O(O2), .A0(A0), .A1(A1), .A2(A2), .A3(A3), .D(D2), .WCLK(WCLK), .WE(WE));
-  RAM16X1S #(.INIT(INIT_03), .IS_WCLK_INVERTED(IS_WCLK_INVERTED)) ram3 (.O(O3), .A0(A0), .A1(A1), .A2(A2), .A3(A3), .D(D3), .WCLK(WCLK), .WE(WE));
+  wire [3:0] a = {A3, A2, A1, A0};
+  wire clk = WCLK ^ IS_WCLK_INVERTED;
+  reg [15:0] mem0 = INIT_00;
+  reg [15:0] mem1 = INIT_01;
+  reg [15:0] mem2 = INIT_02;
+  reg [15:0] mem3 = INIT_03;
+  assign O0 = mem0[a];
+  assign O1 = mem1[a];
+  assign O2 = mem2[a];
+  assign O3 = mem3[a];
+  always @(posedge clk)
+    if (WE) begin
+      mem0[a] <= D0;
+      mem1[a] <= D1;
+      mem2[a] <= D2;
+      mem3[a] <= D3;
+    end
 endmodule
 
 module RAM32X4S (
@@ -737,10 +777,23 @@ module RAM32X4S (
   parameter [31:0] INIT_02 = 32'h00000000;
   parameter [31:0] INIT_03 = 32'h00000000;
   parameter [0:0] IS_WCLK_INVERTED = 1'b0;
-  RAM32X1S #(.INIT(INIT_00), .IS_WCLK_INVERTED(IS_WCLK_INVERTED)) ram0 (.O(O0), .A0(A0), .A1(A1), .A2(A2), .A3(A3), .A4(A4), .D(D0), .WCLK(WCLK), .WE(WE));
-  RAM32X1S #(.INIT(INIT_01), .IS_WCLK_INVERTED(IS_WCLK_INVERTED)) ram1 (.O(O1), .A0(A0), .A1(A1), .A2(A2), .A3(A3), .A4(A4), .D(D1), .WCLK(WCLK), .WE(WE));
-  RAM32X1S #(.INIT(INIT_02), .IS_WCLK_INVERTED(IS_WCLK_INVERTED)) ram2 (.O(O2), .A0(A0), .A1(A1), .A2(A2), .A3(A3), .A4(A4), .D(D2), .WCLK(WCLK), .WE(WE));
-  RAM32X1S #(.INIT(INIT_03), .IS_WCLK_INVERTED(IS_WCLK_INVERTED)) ram3 (.O(O3), .A0(A0), .A1(A1), .A2(A2), .A3(A3), .A4(A4), .D(D3), .WCLK(WCLK), .WE(WE));
+  wire [4:0] a = {A4, A3, A2, A1, A0};
+  wire clk = WCLK ^ IS_WCLK_INVERTED;
+  reg [31:0] mem0 = INIT_00;
+  reg [31:0] mem1 = INIT_01;
+  reg [31:0] mem2 = INIT_02;
+  reg [31:0] mem3 = INIT_03;
+  assign O0 = mem0[a];
+  assign O1 = mem1[a];
+  assign O2 = mem2[a];
+  assign O3 = mem3[a];
+  always @(posedge clk)
+    if (WE) begin
+      mem0[a] <= D0;
+      mem1[a] <= D1;
+      mem2[a] <= D2;
+      mem3[a] <= D3;
+    end
 endmodule
 
 module RAM16X8S (
@@ -761,14 +814,35 @@ module RAM16X8S (
   parameter [15:0] INIT_06 = 16'h0000;
   parameter [15:0] INIT_07 = 16'h0000;
   parameter [0:0] IS_WCLK_INVERTED = 1'b0;
-  RAM16X1S #(.INIT(INIT_00), .IS_WCLK_INVERTED(IS_WCLK_INVERTED)) ram0 (.O(O[0]), .A0(A0), .A1(A1), .A2(A2), .A3(A3), .D(D[0]), .WCLK(WCLK), .WE(WE));
-  RAM16X1S #(.INIT(INIT_01), .IS_WCLK_INVERTED(IS_WCLK_INVERTED)) ram1 (.O(O[1]), .A0(A0), .A1(A1), .A2(A2), .A3(A3), .D(D[1]), .WCLK(WCLK), .WE(WE));
-  RAM16X1S #(.INIT(INIT_02), .IS_WCLK_INVERTED(IS_WCLK_INVERTED)) ram2 (.O(O[2]), .A0(A0), .A1(A1), .A2(A2), .A3(A3), .D(D[2]), .WCLK(WCLK), .WE(WE));
-  RAM16X1S #(.INIT(INIT_03), .IS_WCLK_INVERTED(IS_WCLK_INVERTED)) ram3 (.O(O[3]), .A0(A0), .A1(A1), .A2(A2), .A3(A3), .D(D[3]), .WCLK(WCLK), .WE(WE));
-  RAM16X1S #(.INIT(INIT_04), .IS_WCLK_INVERTED(IS_WCLK_INVERTED)) ram4 (.O(O[4]), .A0(A0), .A1(A1), .A2(A2), .A3(A3), .D(D[4]), .WCLK(WCLK), .WE(WE));
-  RAM16X1S #(.INIT(INIT_05), .IS_WCLK_INVERTED(IS_WCLK_INVERTED)) ram5 (.O(O[5]), .A0(A0), .A1(A1), .A2(A2), .A3(A3), .D(D[5]), .WCLK(WCLK), .WE(WE));
-  RAM16X1S #(.INIT(INIT_06), .IS_WCLK_INVERTED(IS_WCLK_INVERTED)) ram6 (.O(O[6]), .A0(A0), .A1(A1), .A2(A2), .A3(A3), .D(D[6]), .WCLK(WCLK), .WE(WE));
-  RAM16X1S #(.INIT(INIT_07), .IS_WCLK_INVERTED(IS_WCLK_INVERTED)) ram7 (.O(O[7]), .A0(A0), .A1(A1), .A2(A2), .A3(A3), .D(D[7]), .WCLK(WCLK), .WE(WE));
+  wire [3:0] a = {A3, A2, A1, A0};
+  wire clk = WCLK ^ IS_WCLK_INVERTED;
+  reg [15:0] mem0 = INIT_00;
+  reg [15:0] mem1 = INIT_01;
+  reg [15:0] mem2 = INIT_02;
+  reg [15:0] mem3 = INIT_03;
+  reg [15:0] mem4 = INIT_04;
+  reg [15:0] mem5 = INIT_05;
+  reg [15:0] mem6 = INIT_06;
+  reg [15:0] mem7 = INIT_07;
+  assign O[0] = mem0[a];
+  assign O[1] = mem1[a];
+  assign O[2] = mem2[a];
+  assign O[3] = mem3[a];
+  assign O[4] = mem4[a];
+  assign O[5] = mem5[a];
+  assign O[6] = mem6[a];
+  assign O[7] = mem7[a];
+  always @(posedge clk)
+    if (WE) begin
+      mem0[a] <= D[0];
+      mem1[a] <= D[1];
+      mem2[a] <= D[2];
+      mem3[a] <= D[3];
+      mem4[a] <= D[4];
+      mem5[a] <= D[5];
+      mem6[a] <= D[6];
+      mem7[a] <= D[7];
+    end
 endmodule
 
 module RAM32X8S (
@@ -789,14 +863,35 @@ module RAM32X8S (
   parameter [31:0] INIT_06 = 32'h00000000;
   parameter [31:0] INIT_07 = 32'h00000000;
   parameter [0:0] IS_WCLK_INVERTED = 1'b0;
-  RAM32X1S #(.INIT(INIT_00), .IS_WCLK_INVERTED(IS_WCLK_INVERTED)) ram0 (.O(O[0]), .A0(A0), .A1(A1), .A2(A2), .A3(A3), .A4(A4), .D(D[0]), .WCLK(WCLK), .WE(WE));
-  RAM32X1S #(.INIT(INIT_01), .IS_WCLK_INVERTED(IS_WCLK_INVERTED)) ram1 (.O(O[1]), .A0(A0), .A1(A1), .A2(A2), .A3(A3), .A4(A4), .D(D[1]), .WCLK(WCLK), .WE(WE));
-  RAM32X1S #(.INIT(INIT_02), .IS_WCLK_INVERTED(IS_WCLK_INVERTED)) ram2 (.O(O[2]), .A0(A0), .A1(A1), .A2(A2), .A3(A3), .A4(A4), .D(D[2]), .WCLK(WCLK), .WE(WE));
-  RAM32X1S #(.INIT(INIT_03), .IS_WCLK_INVERTED(IS_WCLK_INVERTED)) ram3 (.O(O[3]), .A0(A0), .A1(A1), .A2(A2), .A3(A3), .A4(A4), .D(D[3]), .WCLK(WCLK), .WE(WE));
-  RAM32X1S #(.INIT(INIT_04), .IS_WCLK_INVERTED(IS_WCLK_INVERTED)) ram4 (.O(O[4]), .A0(A0), .A1(A1), .A2(A2), .A3(A3), .A4(A4), .D(D[4]), .WCLK(WCLK), .WE(WE));
-  RAM32X1S #(.INIT(INIT_05), .IS_WCLK_INVERTED(IS_WCLK_INVERTED)) ram5 (.O(O[5]), .A0(A0), .A1(A1), .A2(A2), .A3(A3), .A4(A4), .D(D[5]), .WCLK(WCLK), .WE(WE));
-  RAM32X1S #(.INIT(INIT_06), .IS_WCLK_INVERTED(IS_WCLK_INVERTED)) ram6 (.O(O[6]), .A0(A0), .A1(A1), .A2(A2), .A3(A3), .A4(A4), .D(D[6]), .WCLK(WCLK), .WE(WE));
-  RAM32X1S #(.INIT(INIT_07), .IS_WCLK_INVERTED(IS_WCLK_INVERTED)) ram7 (.O(O[7]), .A0(A0), .A1(A1), .A2(A2), .A3(A3), .A4(A4), .D(D[7]), .WCLK(WCLK), .WE(WE));
+  wire [4:0] a = {A4, A3, A2, A1, A0};
+  wire clk = WCLK ^ IS_WCLK_INVERTED;
+  reg [31:0] mem0 = INIT_00;
+  reg [31:0] mem1 = INIT_01;
+  reg [31:0] mem2 = INIT_02;
+  reg [31:0] mem3 = INIT_03;
+  reg [31:0] mem4 = INIT_04;
+  reg [31:0] mem5 = INIT_05;
+  reg [31:0] mem6 = INIT_06;
+  reg [31:0] mem7 = INIT_07;
+  assign O[0] = mem0[a];
+  assign O[1] = mem1[a];
+  assign O[2] = mem2[a];
+  assign O[3] = mem3[a];
+  assign O[4] = mem4[a];
+  assign O[5] = mem5[a];
+  assign O[6] = mem6[a];
+  assign O[7] = mem7[a];
+  always @(posedge clk)
+    if (WE) begin
+      mem0[a] <= D[0];
+      mem1[a] <= D[1];
+      mem2[a] <= D[2];
+      mem3[a] <= D[3];
+      mem4[a] <= D[4];
+      mem5[a] <= D[5];
+      mem6[a] <= D[6];
+      mem7[a] <= D[7];
+    end
 endmodule
 
 // Dual port.
