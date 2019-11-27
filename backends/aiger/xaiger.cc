@@ -816,7 +816,7 @@ struct XAigerBackend : public Backend {
 		log("        write ASCII version of AIGER format\n");
 		log("\n");
 		log("    -map <filename>\n");
-		log("        write an extra file with port and latch symbols\n");
+		log("        write an extra file with port and box symbols\n");
 		log("\n");
 		log("    -vmap <filename>\n");
 		log("        like -map, but more verbose\n");
