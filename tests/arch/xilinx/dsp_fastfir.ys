@@ -1,4 +1,5 @@
 read_verilog <<EOT
+// Citation https://github.com/ZipCPU/dspfilters/blob/master/rtl/fastfir.v
 module fastfir_dynamictaps(i_clk, i_reset, i_tap_wr, i_tap, i_ce, i_sample, o_result);
   wire [30:0] _00_;
   wire [23:0] _01_;
