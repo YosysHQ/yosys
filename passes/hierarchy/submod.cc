@@ -175,7 +175,7 @@ struct SubmodWorker
 			new_wire->port_output = new_wire_port_output;
 			new_wire->start_offset = wire->start_offset;
 			new_wire->attributes = wire->attributes;
-			if (new_wire->port_output) {
+			if (!flags.is_int_driven.is_fully_zero()) {
 				new_wire->attributes.erase(ID(init));
 				auto sig = sigmap(wire);
 				for (int i = 0; i < GetSize(sig); i++) {
