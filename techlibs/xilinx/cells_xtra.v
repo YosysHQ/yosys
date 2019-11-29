@@ -5240,9 +5240,13 @@ module RAMB18E1 (...);
     parameter IS_RSTRAMB_INVERTED = 1'b0;
     parameter IS_RSTREGARSTREG_INVERTED = 1'b0;
     parameter IS_RSTREGB_INVERTED = 1'b0;
+    (* abc9_arrival=2454 *)
     output [15:0] DOADO;
+    (* abc9_arrival=2454 *)
     output [15:0] DOBDO;
+    (* abc9_arrival=2454 *)
     output [1:0] DOPADOP;
+    (* abc9_arrival=2454 *)
     output [1:0] DOPBDOP;
     (* clkbuf_sink *)
     (* invertible_pin = "IS_CLKARDCLK_INVERTED" *)
@@ -5452,9 +5456,13 @@ module RAMB36E1 (...);
     parameter IS_RSTREGB_INVERTED = 1'b0;
     output CASCADEOUTA;
     output CASCADEOUTB;
+    (* abc9_arrival=2454 *)
     output [31:0] DOADO;
+    (* abc9_arrival=2454 *)
     output [31:0] DOBDO;
+    (* abc9_arrival=2454 *)
     output [3:0] DOPADOP;
+    (* abc9_arrival=2454 *)
     output [3:0] DOPBDOP;
     output [7:0] ECCPARITY;
     output [8:0] RDADDRECC;
@@ -8525,6 +8533,18 @@ module BUFIO2FB (...);
     (* clkbuf_driver *)
     output O;
     input I;
+endmodule
+
+module BUFPLL (...);
+    parameter integer DIVIDE = 1;
+    parameter ENABLE_SYNC = "TRUE";
+    (* clkbuf_driver *)
+    output IOCLK;
+    output LOCK;
+    output SERDESSTROBE;
+    input GCLK;
+    input LOCKED;
+    input PLLIN;
 endmodule
 
 module BUFPLL_MCB (...);

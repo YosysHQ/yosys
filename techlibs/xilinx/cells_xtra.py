@@ -372,6 +372,7 @@ CELLS = [
     Cell('BUFIO2', port_attrs={'IOCLK': ['clkbuf_driver'], 'DIVCLK': ['clkbuf_driver']}),
     Cell('BUFIO2_2CLK', port_attrs={'IOCLK': ['clkbuf_driver'], 'DIVCLK': ['clkbuf_driver']}),
     Cell('BUFIO2FB', port_attrs={'O': ['clkbuf_driver']}),
+    Cell('BUFPLL', port_attrs={'IOCLK': ['clkbuf_driver']}),
     Cell('BUFPLL_MCB', port_attrs={'IOCLK0': ['clkbuf_driver'], 'IOCLK1': ['clkbuf_driver']}),
 
     # Clock buffers (IO and regional) -- Virtex.
