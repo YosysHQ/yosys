@@ -258,3 +258,9 @@ module abc9_test026(output [3:0] o, p);
 assign o = { 1'b1, 1'bx };
 assign p = { 1'b1, 1'bx, 1'b0 };
 endmodule
+
+module abc9_test030(input [3:0] d, input en, output reg [3:0] q);
+always @*
+  if (en)
+    q <= d;
+endmodule
