@@ -42,7 +42,7 @@ struct SubmodWorker
 	struct SubModule
 	{
 		std::string name, full_name;
-		std::set<RTLIL::Cell*> cells;
+		pool<RTLIL::Cell*> cells;
 	};
 
 	std::map<std::string, SubModule> submodules;
