@@ -116,11 +116,11 @@ struct ClkPartPass : public Pass {
 			assign_map.set(mod);
 
 			std::vector<RTLIL::Cell*> all_cells = mod->selected_cells();
-			std::set<RTLIL::Cell*> unassigned_cells(all_cells.begin(), all_cells.end());
+			pool<RTLIL::Cell*> unassigned_cells(all_cells.begin(), all_cells.end());
 
-			std::set<RTLIL::Cell*> expand_queue, next_expand_queue;
-			std::set<RTLIL::Cell*> expand_queue_up, next_expand_queue_up;
-			std::set<RTLIL::Cell*> expand_queue_down, next_expand_queue_down;
+			pool<RTLIL::Cell*> expand_queue, next_expand_queue;
+			pool<RTLIL::Cell*> expand_queue_up, next_expand_queue_up;
+			pool<RTLIL::Cell*> expand_queue_down, next_expand_queue_down;
 
 			typedef tuple<bool, RTLIL::SigSpec, bool, RTLIL::SigSpec> clkdomain_t;
 			std::map<clkdomain_t, vector<Cell*>> assigned_cells;
