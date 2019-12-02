@@ -1098,7 +1098,7 @@ struct Abc9Pass : public Pass {
 			pool<Wire*> clocks;
 			std::string target = delay_target;
 
-			for (auto cell : module->selected_cells()) {
+			for (auto cell : module->cells()) {
 				auto inst_module = design->module(cell->type);
 				if (!inst_module || !inst_module->attributes.count("\\abc9_flop"))
 					continue;
@@ -1119,7 +1119,6 @@ struct Abc9Pass : public Pass {
 					}
 				}
 
-
 				Wire *abc9_control_wire = module->wire(stringf("%s.$abc9_control", cell->name.c_str()));
 				if (abc9_control_wire == NULL)
 					log_error("'%s$abc9_control' is not a wire present in module '%s'.\n", cell->name.c_str(), log_id(module));
@@ -1127,7 +1126,7 @@ struct Abc9Pass : public Pass {
 
 				ctrldomain_t key(cell->type, abc9_control);
 				auto r = mergeability_class.emplace(key, mergeability_class.size() + 1);
-				auto YS_ATTRIBUTE(unused) r2 = cell->attributes.insert(std::make_pair(ID(abc9_mergeability),  r.first->second));
+				auto YS_ATTRIBUTE(unused) r2 = cell->attributes.insert(std::make_pair(ID(abc9_mergeability), r.first->second));
 				log_assert(r2.second);
 			}
 
