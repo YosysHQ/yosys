@@ -87,7 +87,7 @@ module FDRE (output reg Q, input C, CE, D, R);
 
   // Special signals
   wire [0:0] _TECHMAP_REPLACE_.$abc9_clock = C;
-  wire [3:0] _TECHMAP_REPLACE_.$abc9_control = {CE, IS_D_INVERTED, R, IS_R_INVERTED};
+  wire [4:0] _TECHMAP_REPLACE_.$abc9_control = {INIT, CE, IS_D_INVERTED, R, IS_R_INVERTED};
   wire _TECHMAP_REPLACE_.$abc9_currQ = Q;
 endmodule
 module FDRE_1 (output reg Q, input C, CE, D, R);
@@ -102,7 +102,7 @@ module FDRE_1 (output reg Q, input C, CE, D, R);
 
   // Special signals
   wire [0:0] _TECHMAP_REPLACE_.$abc9_clock = C;
-  wire [3:0] _TECHMAP_REPLACE_.$abc9_control = {CE, 1'b0 /* IS_D_INVERTED */, R, 1'b0 /* IS_R_INVERTED */};
+  wire [4:0] _TECHMAP_REPLACE_.$abc9_control = {INIT, CE, 1'b0 /* IS_D_INVERTED */, R, 1'b0 /* IS_R_INVERTED */};
   wire _TECHMAP_REPLACE_.$abc9_currQ = Q;
 endmodule
 
@@ -132,7 +132,7 @@ module FDCE (output reg Q, input C, CE, D, CLR);
 
   // Special signals
   wire [0:0] _TECHMAP_REPLACE_.$abc9_clock = C;
-  wire [3:0] _TECHMAP_REPLACE_.$abc9_control = {CE, IS_D_INVERTED, CLR, IS_CLR_INVERTED};
+  wire [4:0] _TECHMAP_REPLACE_.$abc9_control = {INIT, CE, IS_D_INVERTED, CLR, IS_CLR_INVERTED};
   wire _TECHMAP_REPLACE_.$abc9_currQ = $abc9_currQ;
 endmodule
 module FDCE_1 (output reg Q, input C, CE, D, CLR);
@@ -153,7 +153,7 @@ module FDCE_1 (output reg Q, input C, CE, D, CLR);
 
   // Special signals
   wire [0:0] _TECHMAP_REPLACE_.$abc9_clock = C;
-  wire [3:0] _TECHMAP_REPLACE_.$abc9_control = {CE, 1'b0 /* IS_D_INVERTED */, CLR, 1'b0 /* IS_CLR_INVERTED */};
+  wire [4:0] _TECHMAP_REPLACE_.$abc9_control = {INIT, CE, 1'b0 /* IS_D_INVERTED */, CLR, 1'b0 /* IS_CLR_INVERTED */};
   wire _TECHMAP_REPLACE_.$abc9_currQ = $abc9_currQ;
 endmodule
 
@@ -181,7 +181,7 @@ module FDPE (output reg Q, input C, CE, D, PRE);
 
   // Special signals
   wire [0:0] _TECHMAP_REPLACE_.$abc9_clock = C;
-  wire [3:0] _TECHMAP_REPLACE_.$abc9_control = {CE, IS_D_INVERTED, PRE, IS_PRE_INVERTED};
+  wire [4:0] _TECHMAP_REPLACE_.$abc9_control = {INIT, CE, IS_D_INVERTED, PRE, IS_PRE_INVERTED};
   wire _TECHMAP_REPLACE_.$abc9_currQ = $abc9_currQ;
 endmodule
 module FDPE_1 (output reg Q, input C, CE, D, PRE);
@@ -202,7 +202,7 @@ module FDPE_1 (output reg Q, input C, CE, D, PRE);
 
   // Special signals
   wire [0:0] _TECHMAP_REPLACE_.$abc9_clock = C;
-  wire [3:0] _TECHMAP_REPLACE_.$abc9_control = {CE, 1'b0 /* IS_D_INVERTED */, PRE, 1'b0 /* IS_PRE_INVERTED */};
+  wire [4:0] _TECHMAP_REPLACE_.$abc9_control = {INIT, CE, 1'b0 /* IS_D_INVERTED */, PRE, 1'b0 /* IS_PRE_INVERTED */};
   wire _TECHMAP_REPLACE_.$abc9_currQ = $abc9_currQ;
 endmodule
 
@@ -224,7 +224,7 @@ module FDSE (output reg Q, input C, CE, D, S);
 
   // Special signals
   wire [0:0] _TECHMAP_REPLACE_.$abc9_clock = C;
-  wire [3:0] _TECHMAP_REPLACE_.$abc9_control = {CE, IS_D_INVERTED, S, IS_S_INVERTED};
+  wire [4:0] _TECHMAP_REPLACE_.$abc9_control = {INIT, CE, IS_D_INVERTED, S, IS_S_INVERTED};
   wire _TECHMAP_REPLACE_.$abc9_currQ = Q;
 endmodule
 module FDSE_1 (output reg Q, input C, CE, D, S);
@@ -239,7 +239,7 @@ module FDSE_1 (output reg Q, input C, CE, D, S);
 
   // Special signals
   wire [0:0] _TECHMAP_REPLACE_.$abc9_clock = C;
-  wire [3:0] _TECHMAP_REPLACE_.$abc9_control = {CE, 1'b0 /* IS_D_INVERTED */, S, 1'b0 /* IS_S_INVERTED */};
+  wire [4:0] _TECHMAP_REPLACE_.$abc9_control = {INIT, CE, 1'b0 /* IS_D_INVERTED */, S, 1'b0 /* IS_S_INVERTED */};
   wire _TECHMAP_REPLACE_.$abc9_currQ = Q;
 endmodule
 
