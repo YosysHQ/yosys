@@ -50,6 +50,8 @@ void create_ice40_wrapcarry(ice40_wrapcarry_pm &pm)
 	cell->setPort("\\O", st.lut->getPort("\\O"));
 	cell->setParam("\\LUT", st.lut->getParam("\\LUT_INIT"));
 
+	cell->attributes = std::move(st.carry->attributes);
+
 	pm.autoremove(st.carry);
 	pm.autoremove(st.lut);
 }
