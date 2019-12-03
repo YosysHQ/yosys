@@ -41,6 +41,11 @@ static void run_ice40_opts(Module *module)
 
 	for (auto cell : module->selected_cells())
 	{
+		if (!cell->type.in("\\SB_LUT4", "\\SB_CARRY", "$__ICE40_CARRY_WRAPPER"))
+			continue;
+		if (cell->has_keep_attr())
+			continue;
+
 		if (cell->type == "\\SB_LUT4")
 		{
 			sb_lut_cells.push_back(cell);
