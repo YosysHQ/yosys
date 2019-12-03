@@ -538,6 +538,7 @@ struct SynthXilinxPass : public ScriptPass
 				else
 					abc9_opts += " -lut +/xilinx/abc9_xc7.lut";
 				run("abc9" + abc9_opts);
+				run("techmap -map +/xilinx/abc9_unmap.v");
 			}
 			else {
 				if (nowidelut)
@@ -553,12 +554,10 @@ struct SynthXilinxPass : public ScriptPass
 				run("xilinx_srl -fixed -minlen 3", "(skip if '-nosrl')");
 			std::string techmap_args = "-map +/xilinx/lut_map.v -map +/xilinx/cells_map.v";
 			if (help_mode)
-				techmap_args += " [-map " + ff_map_file + "]";
-			else if (abc9)
-				techmap_args += " -map +/xilinx/abc9_unmap.v";
-			else
-				techmap_args += " -map " + ff_map_file;
-			run("techmap " + techmap_args);
+				techmap_args += stringf("[-map %s]", ff_map_file.c_str());
+			else if (!abc9)
+				techmap_args += stringf(" -map %s", ff_map_file.c_str());
+			run("techmap " + techmap_args, "(option without '-abc9')");
 		}
 
 		if (check_label("finalize")) {
