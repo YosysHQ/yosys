@@ -490,13 +490,17 @@ std::string frontend_verilog_preproc(std::istream &f, std::string filename, cons
 			}
 			while (newline_count-- > 0)
 				return_char('\n');
-			// printf("define: >>%s<< -> >>%s<<\n", name.c_str(), value.c_str());
-			defines_map[name] = value;
-			if (state == 2)
-				defines_with_args.insert(name);
-			else
-				defines_with_args.erase(name);
-			global_defines_cache[name] = std::pair<std::string, bool>(value, state == 2);
+			if (strchr("abcdefghijklmnopqrstuvwxyz_ABCDEFGHIJKLMNOPQRSTUVWXYZ$0123456789", name[0])) {
+				// printf("define: >>%s<< -> >>%s<<\n", name.c_str(), value.c_str());
+				defines_map[name] = value;
+				if (state == 2)
+					defines_with_args.insert(name);
+				else
+					defines_with_args.erase(name);
+				global_defines_cache[name] = std::pair<std::string, bool>(value, state == 2);
+			} else {
+				log_file_error(filename, 0, "Invalid name for macro definition: >>%s<<.\n", name.c_str());
+			}
 			continue;
 		}
 

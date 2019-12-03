@@ -553,6 +553,12 @@ struct VerilogDefines : public Pass {
 		log("    -Uname[=definition]\n");
 		log("        undefine the preprocessor symbol 'name'\n");
 		log("\n");
+		log("    -reset\n");
+		log("        clear list of defined preprocessor symbols\n");
+		log("\n");
+		log("    -list\n");
+		log("        list currently defined preprocessor symbols\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
@@ -586,6 +592,16 @@ struct VerilogDefines : public Pass {
 			if (arg.compare(0, 2, "-U") == 0) {
 				std::string name = arg.substr(2);
 				design->verilog_defines.erase(name);
+				continue;
+			}
+			if (arg == "-reset") {
+				design->verilog_defines.clear();
+				continue;
+			}
+			if (arg == "-list") {
+				for (auto &it : design->verilog_defines) {
+					log("`define %s%s %s\n", it.first.c_str(), it.second.second ? "()" : "", it.second.first.c_str());
+				}
 				continue;
 			}
 			break;

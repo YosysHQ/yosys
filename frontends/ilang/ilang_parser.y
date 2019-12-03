@@ -430,10 +430,14 @@ sigspec:
 		free($1);
 	} |
 	sigspec '[' TOK_INT ']' {
+		if ($3 >= $1->size() || $3 < 0)
+			rtlil_frontend_ilang_yyerror("bit index out of range");
 		$$ = new RTLIL::SigSpec($1->extract($3));
 		delete $1;
 	} |
 	sigspec '[' TOK_INT ':' TOK_INT ']' {
+		if ($3 >= $1->size() || $3 < 0 || $3 < $5)
+			rtlil_frontend_ilang_yyerror("invalid slice");
 		$$ = new RTLIL::SigSpec($1->extract($5, $3 - $5 + 1));
 		delete $1;
 	} |

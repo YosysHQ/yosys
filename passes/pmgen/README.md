@@ -190,7 +190,7 @@ create matches for different sections of a cell. For example:
         select pmux->type == $pmux
         slice idx GetSize(port(pmux, \S))
         index <SigBit> port(pmux, \S)[idx] === port(eq, \Y)
-	set pmux_slice idx
+        set pmux_slice idx
     endmatch
 
 The first argument to `slice` is the local variable name used to identify the
