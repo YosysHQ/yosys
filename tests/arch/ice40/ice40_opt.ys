@@ -84,3 +84,4 @@ synth_ice40
 select -assert-count 1 t:SB_LUT4
 select -assert-count 1 t:SB_CARRY
 select -assert-count 1 t:SB_CARRY a:keep %i
+select -assert-count 1 t:SB_CARRY c:carry %i
