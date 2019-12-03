@@ -457,18 +457,19 @@ endmodule
 
 `ifdef _EXPLICIT_CARRY
 
+(* abc9_box_id = 9, blackbox *)
 module CARRY_COUT_PLUG(input CIN, output COUT);
 
 assign COUT = CIN;
 
 endmodule
 
-(* abc_box_id = 8, lib_whitebox *)
+(* abc9_box_id = 8, lib_whitebox *)
 module CARRY4_COUT(
     output [3:0] O,
-    (* abc_carry *)
+    (* abc9_carry *)
     output COUT,
-    (* abc_carry *)
+    (* abc9_carry *)
     input CI,
     input CYINIT,
     input [3:0] DI, S);
