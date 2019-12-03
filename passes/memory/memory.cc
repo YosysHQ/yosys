@@ -35,6 +35,7 @@ struct MemoryPass : public Pass {
 		log("\n");
 		log("This pass calls all the other memory_* passes in a useful order:\n");
 		log("\n");
+		log("    opt_mem\n");
 		log("    memory_dff [-nordff]                (-memx implies -nordff)\n");
 		log("    opt_clean\n");
 		log("    memory_share\n");
@@ -81,6 +82,7 @@ struct MemoryPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		Pass::call(design, "opt_mem");
 		Pass::call(design, flag_nordff ? "memory_dff -nordff" : "memory_dff");
 		Pass::call(design, "opt_clean");
 		Pass::call(design, "memory_share");

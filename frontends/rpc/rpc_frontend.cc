@@ -28,6 +28,7 @@
 #include <sys/wait.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+extern char **environ;
 #endif
 
 #include "libs/json11/json11.hpp"
@@ -235,6 +236,11 @@ struct RpcModule : RTLIL::Module {
 };
 
 #if defined(_WIN32)
+
+#if defined(_MSC_VER)
+#include <BaseTsd.h>
+typedef SSIZE_T ssize_t;
+#endif
 
 struct HandleRpcServer : RpcServer {
 	HANDLE hsend, hrecv;

@@ -1032,12 +1032,17 @@ class MkVcd:
                 print("$var integer 32 t smt_step $end", file=self.f)
                 print("$var event 1 ! smt_clock $end", file=self.f)
 
+                def vcdescape(n):
+                    if n.startswith("$") or ":" in n:
+                        return "\\" + n
+                    return n
+
                 scope = []
                 for path in sorted(self.nets):
                     key, width = self.nets[path]
 
                     uipath = list(path)
-                    if "." in uipath[-1]:
+                    if "." in uipath[-1] and not uipath[-1].startswith("$"):
                         uipath = uipath[0:-1] + uipath[-1].split(".")
                     for i in range(len(uipath)):
                         uipath[i] = re.sub(r"\[([^\]]*)\]", r"<\1>", uipath[i])
@@ -1048,15 +1053,13 @@ class MkVcd:
 
                     while uipath[:-1] != scope:
                         scopename = uipath[len(scope)]
-                        if scopename.startswith("$"):
-                            scopename = "\\" + scopename
-                        print("$scope module %s $end" % scopename, file=self.f)
+                        print("$scope module %s $end" % vcdescape(scopename), file=self.f)
                         scope.append(uipath[len(scope)])
 
                     if path in self.clocks and self.clocks[path][1] == "event":
-                        print("$var event 1 %s %s $end" % (key, uipath[-1]), file=self.f)
+                        print("$var event 1 %s %s $end" % (key, vcdescape(uipath[-1])), file=self.f)
                     else:
-                        print("$var wire %d %s %s $end" % (width, key, uipath[-1]), file=self.f)
+                        print("$var wire %d %s %s $end" % (width, key, vcdescape(uipath[-1])), file=self.f)
 
                 for i in range(len(scope)):
                     print("$upscope $end", file=self.f)

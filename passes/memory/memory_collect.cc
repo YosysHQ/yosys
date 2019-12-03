@@ -218,6 +218,10 @@ Cell *handle_memory(Module *module, RTLIL::Memory *memory)
 	mem->setPort("\\RD_DATA", sig_rd_data);
 	mem->setPort("\\RD_EN", sig_rd_en);
 
+	// Copy attributes from RTLIL memory to $mem
+	for (auto attr : memory->attributes)
+		mem->attributes[attr.first] = attr.second;
+
 	for (auto c : memcells)
 		module->remove(c);
 

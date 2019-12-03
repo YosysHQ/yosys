@@ -1,5 +1,5 @@
 %_pm.h: passes/pmgen/pmgen.py %.pmg
-	$(P) mkdir -p passes/pmgen && python3 $< -o $@ -p $(subst _pm.h,,$(notdir $@)) $(filter-out $<,$^)
+	$(P) mkdir -p passes/pmgen && $(PYTHON_EXECUTABLE) $< -o $@ -p $(subst _pm.h,,$(notdir $@)) $(filter-out $<,$^)
 
 # --------------------------------------
 
@@ -38,7 +38,7 @@ PEEPOPT_PATTERN += passes/pmgen/peepopt_muldiv.pmg
 PEEPOPT_PATTERN += passes/pmgen/peepopt_dffmux.pmg
 
 passes/pmgen/peepopt_pm.h: passes/pmgen/pmgen.py $(PEEPOPT_PATTERN)
-	$(P) mkdir -p passes/pmgen && python3 $< -o $@ -p peepopt $(filter-out $<,$^)
+	$(P) mkdir -p passes/pmgen && $(PYTHON_EXECUTABLE) $< -o $@ -p peepopt $(filter-out $<,$^)
 
 # --------------------------------------
 
