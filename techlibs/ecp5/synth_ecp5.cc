@@ -82,8 +82,8 @@ struct SynthEcp5Pass : public ScriptPass
 		log("    -abc2\n");
 		log("        run two passes of 'abc' for slightly improved logic density\n");
 		log("\n");
-		log("    -abc9\n");
-		log("        use new ABC9 flow (EXPERIMENTAL)\n");
+		log("    -abc1\n");
+		log("        use 'classic' ABC flow instead of ABC9\n");
 		log("\n");
 		log("    -vpr\n");
 		log("        generate an output netlist (and BLIF file) suitable for VPR\n");
@@ -99,7 +99,7 @@ struct SynthEcp5Pass : public ScriptPass
 	}
 
 	string top_opt, blif_file, edif_file, json_file;
-	bool noccu2, nodffe, nobram, nolutram, nowidelut, flatten, retime, abc2, abc9, nodsp, vpr;
+	bool noccu2, nodffe, nobram, nolutram, nowidelut, flatten, retime, abc2, abc1, nodsp, vpr;
 
 	void clear_flags() YS_OVERRIDE
 	{
@@ -116,7 +116,7 @@ struct SynthEcp5Pass : public ScriptPass
 		retime = false;
 		abc2 = false;
 		vpr = false;
-		abc9 = false;
+		abc1 = false;
 		nodsp = false;
 	}
 
@@ -193,9 +193,13 @@ struct SynthEcp5Pass : public ScriptPass
 				continue;
 			}
 			if (args[argidx] == "-abc9") {
-				abc9 = true;
+				// deprecated, now default
 				continue;
 			}
+			if (args[argidx] == "-abc1") {
+				abc1 = true;
+				continue;
+			}			
 			if (args[argidx] == "-nodsp") {
 				nodsp = true;
 				continue;
@@ -207,8 +211,8 @@ struct SynthEcp5Pass : public ScriptPass
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");
 
-		if (abc9 && retime)
-				log_cmd_error("-retime option not currently compatible with -abc9!\n");
+		if (!abc1 && retime)
+				log_cmd_error("-retime option currently requires -abc1!\n");
 
 		log_header(design, "Executing SYNTH_ECP5 pass.\n");
 		log_push();
@@ -307,22 +311,22 @@ struct SynthEcp5Pass : public ScriptPass
 				run("abc", "      (only if -abc2)");
 			}
 			std::string techmap_args = "-map +/ecp5/latches_map.v";
-			if (abc9)
+			if (!abc1)
 				techmap_args += " -map +/ecp5/abc9_map.v -max_iter 1";
 			run("techmap " + techmap_args);
 
-			if (abc9) {
+			if (abc1) {
+				if (nowidelut)
+					run("abc -lut 4 -dress");
+				else
+					run("abc -lut 4:7 -dress");
+			} else {
 				run("read_verilog -icells -lib +/ecp5/abc9_model.v");
 				if (nowidelut)
 					run("abc9 -lut +/ecp5/abc9_5g_nowide.lut -box +/ecp5/abc9_5g.box -W 200 -nomfs");
 				else
 					run("abc9 -lut +/ecp5/abc9_5g.lut -box +/ecp5/abc9_5g.box -W 200 -nomfs");
 				run("techmap -map +/ecp5/abc9_unmap.v");
-			} else {
-				if (nowidelut)
-					run("abc -lut 4 -dress");
-				else
-					run("abc -lut 4:7 -dress");
 			}
 			run("clean");
 		}
