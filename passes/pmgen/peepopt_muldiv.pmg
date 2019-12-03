@@ -1,0 +1,36 @@
+pattern muldiv
+
+state <SigSpec> t x y
+
+match mul
+	select mul->type == $mul
+	select GetSize(port(mul, \A)) + GetSize(port(mul, \B)) <= GetSize(port(mul, \Y))
+endmatch
+
+code t x y
+	t = port(mul, \Y);
+	x = port(mul, \A);
+	y = port(mul, \B);
+	branch;
+	std::swap(x, y);
+endcode
+
+match div
+	select div->type.in($div)
+	index <SigSpec> port(div, \A) === t
+	index <SigSpec> port(div, \B) === x
+endmatch
+
+code
+	SigSpec div_y = port(div, \Y);
+	SigSpec val_y = y;
+
+	if (GetSize(div_y) != GetSize(val_y))
+		val_y.extend_u0(GetSize(div_y), param(div, \A_SIGNED).as_bool());
+
+	did_something = true;
+	log("muldiv pattern in %s: mul=%s, div=%s\n", log_id(module), log_id(mul), log_id(div));
+	module->connect(div_y, val_y);
+	autoremove(div);
+	accept;
+endcode

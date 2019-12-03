@@ -266,7 +266,7 @@ struct ProtobufBackend : public Backend {
 			}
 			break;
 		}
-		extra_args(f, filename, args, argidx);
+		extra_args(f, filename, args, argidx, !text_mode);
 
 		log_header(design, "Executing Protobuf backend.\n");
 
@@ -336,8 +336,9 @@ struct ProtobufPass : public Pass {
 		std::stringstream buf;
 
 		if (!filename.empty()) {
+			rewrite_filename(filename);
 			std::ofstream *ff = new std::ofstream;
-			ff->open(filename.c_str(), std::ofstream::trunc);
+			ff->open(filename.c_str(), text_mode ? std::ofstream::trunc : (std::ofstream::trunc | std::ofstream::binary));
 			if (ff->fail()) {
 				delete ff;
 				log_error("Can't open file `%s' for writing: %s\n", filename.c_str(), strerror(errno));

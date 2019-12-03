@@ -137,7 +137,8 @@ namespace AST
 		AST_GENIF,
 		AST_GENCASE,
 		AST_GENBLOCK,
-
+		AST_TECALL,
+		
 		AST_POSEDGE,
 		AST_NEGEDGE,
 		AST_EDGE,
@@ -147,7 +148,10 @@ namespace AST
 		AST_INTERFACEPORTTYPE,
 		AST_MODPORT,
 		AST_MODPORTMEMBER,
-		AST_PACKAGE
+		AST_PACKAGE,
+
+		AST_WIRETYPE,
+		AST_TYPEDEF
 	};
 
 	// convert an node type to a string (e.g. for debug output)
@@ -173,7 +177,7 @@ namespace AST
 		// node content - most of it is unused in most node types
 		std::string str;
 		std::vector<RTLIL::State> bits;
-		bool is_input, is_output, is_reg, is_logic, is_signed, is_string, range_valid, range_swapped, was_checked;
+		bool is_input, is_output, is_reg, is_logic, is_signed, is_string, is_wand, is_wor, range_valid, range_swapped, was_checked, is_unsized, is_custom_type;
 		int port_id, range_left, range_right;
 		uint32_t integer;
 		double realvalue;
@@ -262,6 +266,7 @@ namespace AST
 
 		// helper functions for creating AST nodes for constants
 		static AstNode *mkconst_int(uint32_t v, bool is_signed, int width = 32);
+		static AstNode *mkconst_bits(const std::vector<RTLIL::State> &v, bool is_signed, bool is_unsized);
 		static AstNode *mkconst_bits(const std::vector<RTLIL::State> &v, bool is_signed);
 		static AstNode *mkconst_str(const std::vector<RTLIL::State> &v);
 		static AstNode *mkconst_str(const std::string &str);
@@ -269,6 +274,7 @@ namespace AST
 		// helper function for creating sign-extended const objects
 		RTLIL::Const bitsAsConst(int width, bool is_signed);
 		RTLIL::Const bitsAsConst(int width = -1);
+		RTLIL::Const bitsAsUnsizedConst(int width);
 		RTLIL::Const asAttrConst();
 		RTLIL::Const asParaConst();
 		uint64_t asInt(bool is_signed);
@@ -282,20 +288,21 @@ namespace AST
 	};
 
 	// process an AST tree (ast must point to an AST_DESIGN node) and generate RTLIL code
-	void process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump_ast2, bool no_dump_ptr, bool dump_vlog, bool dump_rtlil, bool nolatches, bool nomeminit,
-			bool nomem2reg, bool mem2reg, bool lib, bool noopt, bool icells, bool nooverwrite, bool overwrite, bool defer, bool autowire);
+	void process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump_ast2, bool no_dump_ptr, bool dump_vlog1, bool dump_vlog2, bool dump_rtlil, bool nolatches, bool nomeminit,
+			bool nomem2reg, bool mem2reg, bool noblackbox, bool lib, bool nowb, bool noopt, bool icells, bool pwires, bool nooverwrite, bool overwrite, bool defer, bool autowire);
 
 	// parametric modules are supported directly by the AST library
 	// therefore we need our own derivate of RTLIL::Module with overloaded virtual functions
 	struct AstModule : RTLIL::Module {
 		AstNode *ast;
-		bool nolatches, nomeminit, nomem2reg, mem2reg, lib, noopt, icells, autowire;
+		bool nolatches, nomeminit, nomem2reg, mem2reg, noblackbox, lib, nowb, noopt, icells, pwires, autowire;
 		~AstModule() YS_OVERRIDE;
 		RTLIL::IdString derive(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters, bool mayfail) YS_OVERRIDE;
 		RTLIL::IdString derive(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters, dict<RTLIL::IdString, RTLIL::Module*> interfaces, dict<RTLIL::IdString, RTLIL::IdString> modports, bool mayfail) YS_OVERRIDE;
-		std::string derive_common(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters, AstNode **new_ast_out, bool mayfail);
+		std::string derive_common(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters, AstNode **new_ast_out);
 		void reprocess_module(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Module *> local_interfaces) YS_OVERRIDE;
 		RTLIL::Module *clone() const YS_OVERRIDE;
+		void loadconfig() const;
 	};
 
 	// this must be set by the language frontend before parsing the sources
@@ -322,7 +329,7 @@ namespace AST_INTERNAL
 {
 	// internal state variables
 	extern bool flag_dump_ast1, flag_dump_ast2, flag_no_dump_ptr, flag_dump_rtlil, flag_nolatches, flag_nomeminit;
-	extern bool flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt, flag_icells, flag_autowire;
+	extern bool flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt, flag_icells, flag_pwires, flag_autowire;
 	extern AST::AstNode *current_ast, *current_ast_mod;
 	extern std::map<std::string, AST::AstNode*> current_scope;
 	extern const dict<RTLIL::SigBit, RTLIL::SigBit> *genRTLIL_subst_ptr;

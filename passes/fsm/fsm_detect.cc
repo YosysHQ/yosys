@@ -158,22 +158,25 @@ static void detect_fsm(RTLIL::Wire *wire)
 		std::set<sig2driver_entry_t> cellport_list;
 		sig2user.find(sig_q, cellport_list);
 
+		auto sig_q_bits = sig_q.to_sigbit_pool();
+
 		for (auto &cellport : cellport_list)
 		{
 			RTLIL::Cell *cell = cellport.first;
 			bool set_output = false, clr_output = false;
 
-			if (cell->type == "$ne")
+			if (cell->type.in("$ne", "$reduce_or", "$reduce_bool"))
 				set_output = true;
 
-			if (cell->type == "$eq")
+			if (cell->type.in("$eq", "$logic_not", "$reduce_and"))
 				clr_output = true;
 
-			if (!set_output && !clr_output) {
-				clr_output = true;
+			if (set_output || clr_output) {
 				for (auto &port_it : cell->connections())
-					if (port_it.first != "\\A" || port_it.first != "\\Y")
-						clr_output = false;
+					if (cell->input(port_it.first))
+						for (auto bit : assign_map(port_it.second))
+							if (bit.wire != nullptr && !sig_q_bits.count(bit))
+								goto next_cellport;
 			}
 
 			if (set_output || clr_output) {
@@ -184,6 +187,7 @@ static void detect_fsm(RTLIL::Wire *wire)
 						ce.set(sig, val);
 					}
 			}
+		next_cellport:;
 		}
 
 		SigSpec sig_y = sig_d, sig_undef;

@@ -99,10 +99,11 @@ struct DffinitPass : public Pass {
 			pool<SigBit> used_bits;
 
 			for (auto wire : module->selected_wires()) {
-				if (wire->attributes.count("\\init")) {
-					Const value = wire->attributes.at("\\init");
+				if (wire->attributes.count(ID(init))) {
+					Const value = wire->attributes.at(ID(init));
 					for (int i = 0; i < min(GetSize(value), GetSize(wire)); i++)
-						init_bits[sigmap(SigBit(wire, i))] = value[i];
+						if (value[i] != State::Sx)
+							init_bits[sigmap(SigBit(wire, i))] = value[i];
 				}
 				if (wire->port_output)
 					for (auto bit : sigmap(wire))
@@ -160,8 +161,8 @@ struct DffinitPass : public Pass {
 			}
 
 			for (auto wire : module->selected_wires())
-				if (wire->attributes.count("\\init")) {
-					Const &value = wire->attributes.at("\\init");
+				if (wire->attributes.count(ID(init))) {
+					Const &value = wire->attributes.at(ID(init));
 					bool do_cleanup = true;
 					for (int i = 0; i < min(GetSize(value), GetSize(wire)); i++) {
 						SigBit bit = sigmap(SigBit(wire, i));
@@ -172,7 +173,7 @@ struct DffinitPass : public Pass {
 					}
 					if (do_cleanup) {
 						log("Removing init attribute from wire %s.%s.\n", log_id(module), log_id(wire));
-						wire->attributes.erase("\\init");
+						wire->attributes.erase(ID(init));
 					}
 				}
 		}

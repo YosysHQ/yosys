@@ -52,7 +52,9 @@ struct TeePass : public Pass {
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		std::vector<FILE*> backup_log_files, files_to_close;
+		std::vector<std::ostream*> backup_log_streams;
 		int backup_log_verbose_level = log_verbose_level;
+		backup_log_streams = log_streams;
 		backup_log_files = log_files;
 
 		size_t argidx;
@@ -60,6 +62,7 @@ struct TeePass : public Pass {
 		{
 			if (args[argidx] == "-q" && files_to_close.empty()) {
 				log_files.clear();
+				log_streams.clear();
 				continue;
 			}
 			if ((args[argidx] == "-o" || args[argidx] == "-a") && argidx+1 < args.size()) {
@@ -89,6 +92,7 @@ struct TeePass : public Pass {
 			for (auto cf : files_to_close)
 				fclose(cf);
 			log_files = backup_log_files;
+			log_streams = backup_log_streams;
 			throw;
 		}
 
@@ -97,6 +101,7 @@ struct TeePass : public Pass {
 
 		log_verbose_level = backup_log_verbose_level;
 		log_files = backup_log_files;
+		log_streams = backup_log_streams;
 	}
 } TeePass;
 

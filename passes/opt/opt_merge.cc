@@ -47,8 +47,8 @@ struct OptMergeWorker
 
 	static void sort_pmux_conn(dict<RTLIL::IdString, RTLIL::SigSpec> &conn)
 	{
-		SigSpec sig_s = conn.at("\\S");
-		SigSpec sig_b = conn.at("\\B");
+		SigSpec sig_s = conn.at(ID(S));
+		SigSpec sig_b = conn.at(ID::B);
 
 		int s_width = GetSize(sig_s);
 		int width = GetSize(sig_b) / s_width;
@@ -59,12 +59,12 @@ struct OptMergeWorker
 
 		std::sort(sb_pairs.begin(), sb_pairs.end());
 
-		conn["\\S"] = SigSpec();
-		conn["\\B"] = SigSpec();
+		conn[ID(S)] = SigSpec();
+		conn[ID::B] = SigSpec();
 
 		for (auto &it : sb_pairs) {
-			conn["\\S"].append(it.first);
-			conn["\\B"].append(it.second);
+			conn[ID(S)].append(it.first);
+			conn[ID::B].append(it.second);
 		}
 	}
 
@@ -94,32 +94,32 @@ struct OptMergeWorker
 		const dict<RTLIL::IdString, RTLIL::SigSpec> *conn = &cell->connections();
 		dict<RTLIL::IdString, RTLIL::SigSpec> alt_conn;
 
-		if (cell->type == "$and" || cell->type == "$or" || cell->type == "$xor" || cell->type == "$xnor" || cell->type == "$add" || cell->type == "$mul" ||
-				cell->type == "$logic_and" || cell->type == "$logic_or" || cell->type == "$_AND_" || cell->type == "$_OR_" || cell->type == "$_XOR_") {
+		if (cell->type.in(ID($and), ID($or), ID($xor), ID($xnor), ID($add), ID($mul),
+				ID($logic_and), ID($logic_or), ID($_AND_), ID($_OR_), ID($_XOR_))) {
 			alt_conn = *conn;
-			if (assign_map(alt_conn.at("\\A")) < assign_map(alt_conn.at("\\B"))) {
-				alt_conn["\\A"] = conn->at("\\B");
-				alt_conn["\\B"] = conn->at("\\A");
+			if (assign_map(alt_conn.at(ID::A)) < assign_map(alt_conn.at(ID::B))) {
+				alt_conn[ID::A] = conn->at(ID::B);
+				alt_conn[ID::B] = conn->at(ID::A);
 			}
 			conn = &alt_conn;
 		} else
-		if (cell->type == "$reduce_xor" || cell->type == "$reduce_xnor") {
+		if (cell->type.in(ID($reduce_xor), ID($reduce_xnor))) {
 			alt_conn = *conn;
-			assign_map.apply(alt_conn.at("\\A"));
-			alt_conn.at("\\A").sort();
+			assign_map.apply(alt_conn.at(ID::A));
+			alt_conn.at(ID::A).sort();
 			conn = &alt_conn;
 		} else
-		if (cell->type == "$reduce_and" || cell->type == "$reduce_or" || cell->type == "$reduce_bool") {
+		if (cell->type.in(ID($reduce_and), ID($reduce_or), ID($reduce_bool))) {
 			alt_conn = *conn;
-			assign_map.apply(alt_conn.at("\\A"));
-			alt_conn.at("\\A").sort_and_unify();
+			assign_map.apply(alt_conn.at(ID::A));
+			alt_conn.at(ID::A).sort_and_unify();
 			conn = &alt_conn;
 		} else
-		if (cell->type == "$pmux") {
+		if (cell->type == ID($pmux)) {
 			alt_conn = *conn;
-			assign_map.apply(alt_conn.at("\\A"));
-			assign_map.apply(alt_conn.at("\\B"));
-			assign_map.apply(alt_conn.at("\\S"));
+			assign_map.apply(alt_conn.at(ID::A));
+			assign_map.apply(alt_conn.at(ID::B));
+			assign_map.apply(alt_conn.at(ID(S)));
 			sort_pmux_conn(alt_conn);
 			conn = &alt_conn;
 		}
@@ -189,28 +189,28 @@ struct OptMergeWorker
 				assign_map.apply(it.second);
 		}
 
-		if (cell1->type == "$and" || cell1->type == "$or" || cell1->type == "$xor" || cell1->type == "$xnor" || cell1->type == "$add" || cell1->type == "$mul" ||
-				cell1->type == "$logic_and" || cell1->type == "$logic_or" || cell1->type == "$_AND_" || cell1->type == "$_OR_" || cell1->type == "$_XOR_") {
-			if (conn1.at("\\A") < conn1.at("\\B")) {
-				RTLIL::SigSpec tmp = conn1["\\A"];
-				conn1["\\A"] = conn1["\\B"];
-				conn1["\\B"] = tmp;
+		if (cell1->type == ID($and) || cell1->type == ID($or) || cell1->type == ID($xor) || cell1->type == ID($xnor) || cell1->type == ID($add) || cell1->type == ID($mul) ||
+				cell1->type == ID($logic_and) || cell1->type == ID($logic_or) || cell1->type == ID($_AND_) || cell1->type == ID($_OR_) || cell1->type == ID($_XOR_)) {
+			if (conn1.at(ID::A) < conn1.at(ID::B)) {
+				RTLIL::SigSpec tmp = conn1[ID::A];
+				conn1[ID::A] = conn1[ID::B];
+				conn1[ID::B] = tmp;
 			}
-			if (conn2.at("\\A") < conn2.at("\\B")) {
-				RTLIL::SigSpec tmp = conn2["\\A"];
-				conn2["\\A"] = conn2["\\B"];
-				conn2["\\B"] = tmp;
+			if (conn2.at(ID::A) < conn2.at(ID::B)) {
+				RTLIL::SigSpec tmp = conn2[ID::A];
+				conn2[ID::A] = conn2[ID::B];
+				conn2[ID::B] = tmp;
 			}
 		} else
-		if (cell1->type == "$reduce_xor" || cell1->type == "$reduce_xnor") {
-			conn1["\\A"].sort();
-			conn2["\\A"].sort();
+		if (cell1->type == ID($reduce_xor) || cell1->type == ID($reduce_xnor)) {
+			conn1[ID::A].sort();
+			conn2[ID::A].sort();
 		} else
-		if (cell1->type == "$reduce_and" || cell1->type == "$reduce_or" || cell1->type == "$reduce_bool") {
-			conn1["\\A"].sort_and_unify();
-			conn2["\\A"].sort_and_unify();
+		if (cell1->type == ID($reduce_and) || cell1->type == ID($reduce_or) || cell1->type == ID($reduce_bool)) {
+			conn1[ID::A].sort_and_unify();
+			conn2[ID::A].sort_and_unify();
 		} else
-		if (cell1->type == "$pmux") {
+		if (cell1->type == ID($pmux)) {
 			sort_pmux_conn(conn1);
 			sort_pmux_conn(conn2);
 		}
@@ -222,9 +222,9 @@ struct OptMergeWorker
 			return true;
 		}
 
-		if (cell1->type.substr(0, 1) == "$" && conn1.count("\\Q") != 0) {
-			std::vector<RTLIL::SigBit> q1 = dff_init_map(cell1->getPort("\\Q")).to_sigbit_vector();
-			std::vector<RTLIL::SigBit> q2 = dff_init_map(cell2->getPort("\\Q")).to_sigbit_vector();
+		if (cell1->type.begins_with("$") && conn1.count(ID(Q)) != 0) {
+			std::vector<RTLIL::SigBit> q1 = dff_init_map(cell1->getPort(ID(Q))).to_sigbit_vector();
+			std::vector<RTLIL::SigBit> q2 = dff_init_map(cell2->getPort(ID(Q))).to_sigbit_vector();
 			for (size_t i = 0; i < q1.size(); i++)
 				if ((q1.at(i).wire == NULL || q2.at(i).wire == NULL) && q1.at(i) != q2.at(i)) {
 					lt = q1.at(i) < q2.at(i);
@@ -271,24 +271,24 @@ struct OptMergeWorker
 		ct.setup_stdcells_mem();
 
 		if (mode_nomux) {
-			ct.cell_types.erase("$mux");
-			ct.cell_types.erase("$pmux");
+			ct.cell_types.erase(ID($mux));
+			ct.cell_types.erase(ID($pmux));
 		}
 
-		ct.cell_types.erase("$tribuf");
-		ct.cell_types.erase("$_TBUF_");
-		ct.cell_types.erase("$anyseq");
-		ct.cell_types.erase("$anyconst");
-		ct.cell_types.erase("$allseq");
-		ct.cell_types.erase("$allconst");
+		ct.cell_types.erase(ID($tribuf));
+		ct.cell_types.erase(ID($_TBUF_));
+		ct.cell_types.erase(ID($anyseq));
+		ct.cell_types.erase(ID($anyconst));
+		ct.cell_types.erase(ID($allseq));
+		ct.cell_types.erase(ID($allconst));
 
 		log("Finding identical cells in module `%s'.\n", module->name.c_str());
 		assign_map.set(module);
 
 		dff_init_map.set(module);
 		for (auto &it : module->wires_)
-			if (it.second->attributes.count("\\init") != 0) {
-				Const initval = it.second->attributes.at("\\init");
+			if (it.second->attributes.count(ID(init)) != 0) {
+				Const initval = it.second->attributes.at(ID(init));
 				for (int i = 0; i < GetSize(initval) && i < GetSize(it.second); i++)
 					if (initval[i] == State::S0 || initval[i] == State::S1)
 						dff_init_map.add(SigBit(it.second, i), initval[i]);
@@ -315,17 +315,17 @@ struct OptMergeWorker
 			{
 				if (sharemap.count(cell) > 0) {
 					did_something = true;
-					log("  Cell `%s' is identical to cell `%s'.\n", cell->name.c_str(), sharemap[cell]->name.c_str());
+					log_debug("  Cell `%s' is identical to cell `%s'.\n", cell->name.c_str(), sharemap[cell]->name.c_str());
 					for (auto &it : cell->connections()) {
 						if (cell->output(it.first)) {
 							RTLIL::SigSpec other_sig = sharemap[cell]->getPort(it.first);
-							log("    Redirecting output %s: %s = %s\n", it.first.c_str(),
+							log_debug("    Redirecting output %s: %s = %s\n", it.first.c_str(),
 									log_signal(it.second), log_signal(other_sig));
 							module->connect(RTLIL::SigSig(it.second, other_sig));
 							assign_map.add(it.second, other_sig);
 						}
 					}
-					log("    Removing %s cell `%s' from module `%s'.\n", cell->type.c_str(), cell->name.c_str(), module->name.c_str());
+					log_debug("    Removing %s cell `%s' from module `%s'.\n", cell->type.c_str(), cell->name.c_str(), module->name.c_str());
 #ifdef USE_CELL_HASH_CACHE
 					cell_hash_cache.erase(cell);
 #endif
@@ -336,6 +336,8 @@ struct OptMergeWorker
 				}
 			}
 		}
+
+		log_suppressed();
 	}
 };
 

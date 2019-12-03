@@ -1,0 +1,15 @@
+pattern ice40_wrapcarry
+
+match carry
+	select carry->type.in(\SB_CARRY)
+endmatch
+
+match lut
+	select lut->type.in(\SB_LUT4)
+	index <SigSpec> port(lut, \I1) === port(carry, \I0)
+	index <SigSpec> port(lut, \I2) === port(carry, \I1)
+endmatch
+
+code
+	accept;
+endcode

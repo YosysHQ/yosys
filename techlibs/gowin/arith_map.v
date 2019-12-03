@@ -40,15 +40,15 @@ module _80_gw1n_alu(A, B, CI, BI, X, Y, CO);
    \$pos #(.A_SIGNED(B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(Y_WIDTH)) B_conv (.A(B), .Y(B_buf));
 
    wire [Y_WIDTH-1:0] 	AA = A_buf;
-   wire [Y_WIDTH-1:0] 	BB = BI ? ~B_buf : B_buf;
+   wire [Y_WIDTH-1:0] 	BB = B_buf;
    wire [Y_WIDTH-1:0] 	C = {CO, CI};
 
    genvar 		i;
    generate for (i = 0; i < Y_WIDTH; i = i + 1) begin:slice
-      ALU #(.ALU_MODE(32'b0))
+      ALU #(.ALU_MODE(2)) // ADDSUB I3 ? add : sub
       alu(.I0(AA[i]),
 	  .I1(BB[i]),
-	  .I3(1'b0),
+	  .I3(~BI),
 	  .CIN(C[i]),
 	  .COUT(CO[i]),
 	  .SUM(Y[i])

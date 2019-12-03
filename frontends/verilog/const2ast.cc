@@ -71,7 +71,7 @@ static int my_ilog2(int x)
 }
 
 // parse a binary, decimal, hexadecimal or octal number with support for special bits ('x', 'z' and '?')
-static void my_strtobin(std::vector<RTLIL::State> &data, const char *str, int len_in_bits, int base, char case_type)
+static void my_strtobin(std::vector<RTLIL::State> &data, const char *str, int len_in_bits, int base, char case_type, bool is_unsized)
 {
 	// all digits in string (MSB at index 0)
 	std::vector<uint8_t> digits;
@@ -85,10 +85,8 @@ static void my_strtobin(std::vector<RTLIL::State> &data, const char *str, int le
 			digits.push_back(10 + *str - 'A');
 		else if (*str == 'x' || *str == 'X')
 			digits.push_back(0xf0);
-		else if (*str == 'z' || *str == 'Z')
+		else if (*str == 'z' || *str == 'Z' || *str == '?')
 			digits.push_back(0xf1);
-		else if (*str == '?')
-			digits.push_back(0xf2);
 		str++;
 	}
 
@@ -99,7 +97,7 @@ static void my_strtobin(std::vector<RTLIL::State> &data, const char *str, int le
 
 	if (base == 10) {
 		while (!digits.empty())
-			data.push_back(my_decimal_div_by_two(digits) ? RTLIL::S1 : RTLIL::S0);
+			data.push_back(my_decimal_div_by_two(digits) ? State::S1 : State::S0);
 	} else {
 		int bits_per_digit = my_ilog2(base-1);
 		for (auto it = digits.rbegin(), e = digits.rend(); it != e; it++) {
@@ -112,29 +110,30 @@ static void my_strtobin(std::vector<RTLIL::State> &data, const char *str, int le
 					data.push_back(case_type == 'x' ? RTLIL::Sa : RTLIL::Sx);
 				else if (*it == 0xf1)
 					data.push_back(case_type == 'x' || case_type == 'z' ? RTLIL::Sa : RTLIL::Sz);
-				else if (*it == 0xf2)
-					data.push_back(RTLIL::Sa);
 				else
-					data.push_back((*it & bitmask) ? RTLIL::S1 : RTLIL::S0);
+					data.push_back((*it & bitmask) ? State::S1 : State::S0);
 			}
 		}
 	}
 
 	int len = GetSize(data);
-	RTLIL::State msb = data.empty() ? RTLIL::S0 : data.back();
+	RTLIL::State msb = data.empty() ? State::S0 : data.back();
 
 	if (len_in_bits < 0) {
 		if (len < 32)
-			data.resize(32, msb == RTLIL::S0 || msb == RTLIL::S1 ? RTLIL::S0 : msb);
+			data.resize(32, msb == State::S0 || msb == State::S1 ? RTLIL::S0 : msb);
 		return;
 	}
 
+	if (is_unsized && (len > len_in_bits))
+		log_file_error(current_filename, get_line_num(), "Unsized constant must have width of 1 bit, but have %d bits!\n", len);
+
 	for (len = len - 1; len >= 0; len--)
-		if (data[len] == RTLIL::S1)
+		if (data[len] == State::S1)
 			break;
-	if (msb == RTLIL::S0 || msb == RTLIL::S1) {
+	if (msb == State::S0 || msb == State::S1) {
 		len += 1;
-		data.resize(len_in_bits, RTLIL::S0);
+		data.resize(len_in_bits, State::S0);
 	} else {
 		len += 2;
 		data.resize(len_in_bits, msb);
@@ -150,7 +149,7 @@ AstNode *VERILOG_FRONTEND::const2ast(std::string code, char case_type, bool warn
 {
 	if (warn_z) {
 		AstNode *ret = const2ast(code, case_type);
-		if (std::find(ret->bits.begin(), ret->bits.end(), RTLIL::State::Sz) != ret->bits.end())
+		if (ret != nullptr && std::find(ret->bits.begin(), ret->bits.end(), RTLIL::State::Sz) != ret->bits.end())
 			log_warning("Yosys has only limited support for tri-state logic at the moment. (%s:%d)\n",
 				current_filename.c_str(), get_line_num());
 		return ret;
@@ -166,7 +165,7 @@ AstNode *VERILOG_FRONTEND::const2ast(std::string code, char case_type, bool warn
 		for (int i = 0; i < len; i++) {
 			unsigned char ch = str[len - i];
 			for (int j = 0; j < 8; j++) {
-				data.push_back((ch & 1) ? RTLIL::S1 : RTLIL::S0);
+				data.push_back((ch & 1) ? State::S1 : State::S0);
 				ch = ch >> 1;
 			}
 		}
@@ -186,9 +185,9 @@ AstNode *VERILOG_FRONTEND::const2ast(std::string code, char case_type, bool warn
 	// Simple base-10 integer
 	if (*endptr == 0) {
 		std::vector<RTLIL::State> data;
-		my_strtobin(data, str, -1, 10, case_type);
-		if (data.back() == RTLIL::S1)
-			data.push_back(RTLIL::S0);
+		my_strtobin(data, str, -1, 10, case_type, false);
+		if (data.back() == State::S1)
+			data.push_back(State::S0);
 		return AstNode::mkconst_bits(data, true);
 	}
 
@@ -196,12 +195,13 @@ AstNode *VERILOG_FRONTEND::const2ast(std::string code, char case_type, bool warn
 	if (str == endptr)
 		len_in_bits = -1;
 
-	// The "<bits>'s?[bodhBODH]<digits>" syntax
+	// The "<bits>'[sS]?[bodhBODH]<digits>" syntax
 	if (*endptr == '\'')
 	{
 		std::vector<RTLIL::State> data;
 		bool is_signed = false;
-		if (*(endptr+1) == 's') {
+		bool is_unsized = len_in_bits < 0;
+		if (*(endptr+1) == 's' || *(endptr+1) == 'S') {
 			is_signed = true;
 			endptr++;
 		}
@@ -209,28 +209,34 @@ AstNode *VERILOG_FRONTEND::const2ast(std::string code, char case_type, bool warn
 		{
 		case 'b':
 		case 'B':
-			my_strtobin(data, endptr+2, len_in_bits, 2, case_type);
+			my_strtobin(data, endptr+2, len_in_bits, 2, case_type, is_unsized);
 			break;
 		case 'o':
 		case 'O':
-			my_strtobin(data, endptr+2, len_in_bits, 8, case_type);
+			my_strtobin(data, endptr+2, len_in_bits, 8, case_type, is_unsized);
 			break;
 		case 'd':
 		case 'D':
-			my_strtobin(data, endptr+2, len_in_bits, 10, case_type);
+			my_strtobin(data, endptr+2, len_in_bits, 10, case_type, is_unsized);
 			break;
 		case 'h':
 		case 'H':
-			my_strtobin(data, endptr+2, len_in_bits, 16, case_type);
+			my_strtobin(data, endptr+2, len_in_bits, 16, case_type, is_unsized);
 			break;
 		default:
-			return NULL;
+			char next_char = char(tolower(*(endptr+1)));
+			if (next_char == '0' || next_char == '1' || next_char == 'x' || next_char == 'z') {
+				is_unsized = true;
+				my_strtobin(data, endptr+1, 1, 2, case_type, is_unsized);
+			} else {
+				return NULL;
+			}
 		}
 		if (len_in_bits < 0) {
-			if (is_signed && data.back() == RTLIL::S1)
-				data.push_back(RTLIL::S0);
+			if (is_signed && data.back() == State::S1)
+				data.push_back(State::S0);
 		}
-		return AstNode::mkconst_bits(data, is_signed);
+		return AstNode::mkconst_bits(data, is_signed, is_unsized);
 	}
 
 	return NULL;

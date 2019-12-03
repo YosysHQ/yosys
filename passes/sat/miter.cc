@@ -59,7 +59,7 @@ void create_miter_equiv(struct Pass *that, std::vector<std::string> args, RTLIL:
 		}
 		break;
 	}
-	if (argidx+3 != args.size() || args[argidx].substr(0, 1) == "-")
+	if (argidx+3 != args.size() || args[argidx].compare(0, 1, "-") == 0)
 		that->cmd_error(args, argidx, "command argument error");
 
 	RTLIL::IdString gold_name = RTLIL::escape_id(args[argidx++]);
@@ -236,7 +236,7 @@ void create_miter_equiv(struct Pass *that, std::vector<std::string> args, RTLIL:
 	if (flag_make_assert) {
 		RTLIL::Cell *assert_cell = miter_module->addCell(NEW_ID, "$assert");
 		assert_cell->setPort("\\A", all_conditions);
-		assert_cell->setPort("\\EN", RTLIL::SigSpec(1, 1));
+		assert_cell->setPort("\\EN", State::S1);
 	}
 
 	RTLIL::Wire *w_trigger = miter_module->addWire("\\trigger");
@@ -254,7 +254,7 @@ void create_miter_equiv(struct Pass *that, std::vector<std::string> args, RTLIL:
 
 	if (flag_flatten) {
 		log_push();
-		Pass::call_on_module(design, miter_module, "flatten; opt_expr -keepdc -undriven;;");
+		Pass::call_on_module(design, miter_module, "flatten -wb; opt_expr -keepdc -undriven;;");
 		log_pop();
 	}
 }
@@ -279,7 +279,7 @@ void create_miter_assert(struct Pass *that, std::vector<std::string> args, RTLIL
 		}
 		break;
 	}
-	if ((argidx+1 != args.size() && argidx+2 != args.size()) || args[argidx].substr(0, 1) == "-")
+	if ((argidx+1 != args.size() && argidx+2 != args.size()) || args[argidx].compare(0, 1, "-") == 0)
 		that->cmd_error(args, argidx, "command argument error");
 
 	IdString module_name = RTLIL::escape_id(args[argidx++]);
@@ -308,7 +308,7 @@ void create_miter_assert(struct Pass *that, std::vector<std::string> args, RTLIL
 
 	if (flag_flatten) {
 		log_push();
-		Pass::call_on_module(design, module, "flatten;;");
+		Pass::call_on_module(design, module, "flatten -wb;;");
 		log_pop();
 	}
 
@@ -385,7 +385,7 @@ struct MiterPass : public Pass {
 		log("        also create an 'assert' cell that checks if trigger is always low.\n");
 		log("\n");
 		log("    -flatten\n");
-		log("        call 'flatten; opt_expr -keepdc -undriven;;' on the miter circuit.\n");
+		log("        call 'flatten -wb; opt_expr -keepdc -undriven;;' on the miter circuit.\n");
 		log("\n");
 		log("\n");
 		log("    miter -assert [options] module [miter_name]\n");
@@ -399,7 +399,7 @@ struct MiterPass : public Pass {
 		log("        keep module output ports.\n");
 		log("\n");
 		log("    -flatten\n");
-		log("        call 'flatten; opt_expr -keepdc -undriven;;' on the miter circuit.\n");
+		log("        call 'flatten -wb; opt_expr -keepdc -undriven;;' on the miter circuit.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE

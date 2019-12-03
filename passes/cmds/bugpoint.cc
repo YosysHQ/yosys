@@ -51,14 +51,14 @@ struct BugpointPass : public Pass {
 		log("        only consider crashes that place this string in the log file.\n");
 		log("\n");
 		log("    -fast\n");
-		log("        run `clean -purge` after each minimization step. converges faster, but\n");
-		log("        produces larger testcases, and may fail to produce any testcase at all if\n");
-		log("        the crash is related to dangling wires.\n");
+		log("        run `proc_clean; clean -purge` after each minimization step. converges\n");
+		log("        faster, but produces larger testcases, and may fail to produce any\n");
+		log("        testcase at all if the crash is related to dangling wires.\n");
 		log("\n");
 		log("    -clean\n");
-		log("        run `clean -purge` before checking testcase and after finishing. produces\n");
-		log("        smaller and more useful testcases, but may fail to produce any testcase\n");
-		log("        at all if the crash is related to dangling wires.\n");
+		log("        run `proc_clean; clean -purge` before checking testcase and after\n");
+		log("        finishing. produces smaller and more useful testcases, but may fail to\n");
+		log("        produce any testcase at all if the crash is related to dangling wires.\n");
 		log("\n");
 		log("    -modules\n");
 		log("        try to remove modules.\n");
@@ -71,6 +71,12 @@ struct BugpointPass : public Pass {
 		log("\n");
 		log("    -connections\n");
 		log("        try to reconnect ports to 'x.\n");
+		log("\n");
+		log("    -assigns\n");
+		log("        try to remove process assigns from cases.\n");
+		log("\n");
+		log("    -updates\n");
+		log("        try to remove process updates from syncs.\n");
 		log("\n");
 	}
 
@@ -110,6 +116,7 @@ struct BugpointPass : public Pass {
 		RTLIL::Design *design_copy = new RTLIL::Design;
 		for (auto &it : design->modules_)
 			design_copy->add(it.second->clone());
+		Pass::call(design_copy, "proc_clean -quiet");
 		Pass::call(design_copy, "clean -purge");
 
 		if (do_delete)
@@ -117,7 +124,7 @@ struct BugpointPass : public Pass {
 		return design_copy;
 	}
 
-	RTLIL::Design *simplify_something(RTLIL::Design *design, int &seed, bool stage2, bool modules, bool ports, bool cells, bool connections)
+	RTLIL::Design *simplify_something(RTLIL::Design *design, int &seed, bool stage2, bool modules, bool ports, bool cells, bool connections, bool assigns, bool updates)
 	{
 		RTLIL::Design *design_copy = new RTLIL::Design;
 		for (auto &it : design->modules_)
@@ -128,7 +135,7 @@ struct BugpointPass : public Pass {
 		{
 			for (auto &it : design_copy->modules_)
 			{
-				if (it.second->get_bool_attribute("\\blackbox"))
+				if (it.second->get_blackbox_attribute())
 					continue;
 
 				if (index++ == seed)
@@ -143,7 +150,7 @@ struct BugpointPass : public Pass {
 		{
 			for (auto mod : design_copy->modules())
 			{
-				if (mod->get_bool_attribute("\\blackbox"))
+				if (mod->get_blackbox_attribute())
 					continue;
 
 				for (auto wire : mod->wires())
@@ -168,7 +175,7 @@ struct BugpointPass : public Pass {
 		{
 			for (auto mod : design_copy->modules())
 			{
-				if (mod->get_bool_attribute("\\blackbox"))
+				if (mod->get_blackbox_attribute())
 					continue;
 
 				for (auto &it : mod->cells_)
@@ -186,7 +193,7 @@ struct BugpointPass : public Pass {
 		{
 			for (auto mod : design_copy->modules())
 			{
-				if (mod->get_bool_attribute("\\blackbox"))
+				if (mod->get_blackbox_attribute())
 					continue;
 
 				for (auto cell : mod->cells())
@@ -225,6 +232,59 @@ struct BugpointPass : public Pass {
 				}
 			}
 		}
+		if (assigns)
+		{
+			for (auto mod : design_copy->modules())
+			{
+				if (mod->get_blackbox_attribute())
+					continue;
+
+				for (auto &pr : mod->processes)
+				{
+					vector<RTLIL::CaseRule*> cases = {&pr.second->root_case};
+					while (!cases.empty())
+					{
+						RTLIL::CaseRule *cs = cases[0];
+						cases.erase(cases.begin());
+						for (auto it = cs->actions.begin(); it != cs->actions.end(); ++it)
+						{
+							if (index++ == seed)
+							{
+								log("Trying to remove assign %s %s in %s.%s.\n", log_signal((*it).first), log_signal((*it).second), mod->name.c_str(), pr.first.c_str());
+								cs->actions.erase(it);
+								return design_copy;
+							}
+						}
+						for (auto &sw : cs->switches)
+							cases.insert(cases.end(), sw->cases.begin(), sw->cases.end());
+					}
+				}
+			}
+		}
+		if (updates)
+		{
+			for (auto mod : design_copy->modules())
+			{
+				if (mod->get_blackbox_attribute())
+					continue;
+
+				for (auto &pr : mod->processes)
+				{
+					for (auto &sy : pr.second->syncs)
+					{
+						for (auto it = sy->actions.begin(); it != sy->actions.end(); ++it)
+						{
+							if (index++ == seed)
+							{
+								log("Trying to remove sync %s update %s %s in %s.%s.\n", log_signal(sy->signal), log_signal((*it).first), log_signal((*it).second), mod->name.c_str(), pr.first.c_str());
+								sy->actions.erase(it);
+								return design_copy;
+							}
+						}
+					}
+				}
+			}
+		}
 		return NULL;
 	}
 
@@ -232,7 +292,7 @@ struct BugpointPass : public Pass {
 	{
 		string yosys_cmd = "yosys", script, grep;
 		bool fast = false, clean = false;
-		bool modules = false, ports = false, cells = false, connections = false, has_part = false;
+		bool modules = false, ports = false, cells = false, connections = false, assigns = false, updates = false, has_part = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -277,9 +337,22 @@ struct BugpointPass : public Pass {
 				has_part = true;
 				continue;
 			}
+			if (args[argidx] == "-assigns") {
+				assigns = true;
+				has_part = true;
+				continue;
+			}
+			if (args[argidx] == "-updates") {
+				updates = true;
+				has_part = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
+
+		if (script.empty())
+			log_cmd_error("Missing -script option.\n");
 
 		if (!has_part)
 		{
@@ -287,6 +360,8 @@ struct BugpointPass : public Pass {
 			ports = true;
 			cells = true;
 			connections = true;
+			assigns = true;
+			updates = true;
 		}
 
 		if (!design->full_selection())
@@ -298,11 +373,11 @@ struct BugpointPass : public Pass {
 		if (!check_logfile(grep))
 			log_cmd_error("The provided grep string is not found in the log file!\n");
 
-		int seed = 0, crashing_seed = seed;
+		int seed = 0;
 		bool found_something = false, stage2 = false;
 		while (true)
 		{
-			if (RTLIL::Design *simplified = simplify_something(crashing_design, seed, stage2, modules, ports, cells, connections))
+			if (RTLIL::Design *simplified = simplify_something(crashing_design, seed, stage2, modules, ports, cells, connections, assigns, updates))
 			{
 				simplified = clean_design(simplified, fast, /*do_delete=*/true);
 
@@ -324,7 +399,6 @@ struct BugpointPass : public Pass {
 					if (crashing_design != design)
 						delete crashing_design;
 					crashing_design = simplified;
-					crashing_seed = seed;
 					found_something = true;
 				}
 				else

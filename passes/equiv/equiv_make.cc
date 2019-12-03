@@ -532,10 +532,10 @@ struct EquivMakePass : public Pass {
 			log_cmd_error("Equiv module %s already exists.\n", args[argidx+2].c_str());
 
 		if (worker.gold_mod->has_memories() || worker.gold_mod->has_processes())
-			log_cmd_error("Gold module contains memories or procresses. Run 'memory' or 'proc' respectively.\n");
+			log_cmd_error("Gold module contains memories or processes. Run 'memory' or 'proc' respectively.\n");
 
 		if (worker.gate_mod->has_memories() || worker.gate_mod->has_processes())
-			log_cmd_error("Gate module contains memories or procresses. Run 'memory' or 'proc' respectively.\n");
+			log_cmd_error("Gate module contains memories or processes. Run 'memory' or 'proc' respectively.\n");
 
 		worker.read_blacklists();
 		worker.read_encfiles();

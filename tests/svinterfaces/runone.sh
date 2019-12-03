@@ -11,12 +11,12 @@ echo "" > $STDERRFILE
 
 echo -n "Test: ${TESTNAME} -> "
 
-$PWD/../../yosys -p "read_verilog -sv ${TESTNAME}.sv ; hierarchy -check -top TopModule ; synth ; write_verilog ${TESTNAME}_syn.v" >> $STDOUTFILE >> $STDERRFILE
-$PWD/../../yosys -p "read_verilog -sv ${TESTNAME}_ref.v ; hierarchy -check -top TopModule ; synth ; write_verilog ${TESTNAME}_ref_syn.v" >> $STDOUTFILE >> $STDERRFILE
+set -e
+
+$PWD/../../yosys -p "read_verilog -sv ${TESTNAME}.sv ; hierarchy -check -top TopModule ; synth ; write_verilog ${TESTNAME}_syn.v" >> $STDOUTFILE 2>> $STDERRFILE
+$PWD/../../yosys -p "read_verilog -sv ${TESTNAME}_ref.v ; hierarchy -check -top TopModule ; synth ; write_verilog ${TESTNAME}_ref_syn.v" >> $STDOUTFILE 2>> $STDERRFILE
 
 rm -f a.out reference_result.txt dut_result.txt
-
-set -e
 
 iverilog -g2012 ${TESTNAME}_syn.v
 iverilog -g2012 ${TESTNAME}_ref_syn.v

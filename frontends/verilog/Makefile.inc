@@ -14,6 +14,8 @@ frontends/verilog/verilog_lexer.cc: frontends/verilog/verilog_lexer.l
 	$(Q) mkdir -p $(dir $@)
 	$(P) flex -o frontends/verilog/verilog_lexer.cc $<
 
+frontends/verilog/verilog_parser.tab.o: CXXFLAGS += -DYYMAXDEPTH=10000000
+
 OBJS += frontends/verilog/verilog_parser.tab.o
 OBJS += frontends/verilog/verilog_lexer.o
 OBJS += frontends/verilog/preproc.o

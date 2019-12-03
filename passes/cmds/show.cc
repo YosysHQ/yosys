@@ -26,6 +26,10 @@
 #  include <dirent.h>
 #endif
 
+#ifdef __APPLE__
+#  include <unistd.h>
+#endif
+
 #ifdef YOSYS_ENABLE_READLINE
 #  include <readline/readline.h>
 #endif
@@ -237,15 +241,34 @@ struct ShowWorker
 			int idx = single_idx_count++;
 			for (int rep, i = int(sig.chunks().size())-1; i >= 0; i -= rep) {
 				const RTLIL::SigChunk &c = sig.chunks().at(i);
-				net = gen_signode_simple(c, false);
-				log_assert(!net.empty());
+				if (!driver && c.wire == nullptr) {
+					RTLIL::State s1 = c.data.front();
+					for (auto s2 : c.data)
+						if (s1 != s2)
+							goto not_const_stream;
+					net.clear();
+				} else {
+			not_const_stream:
+					net = gen_signode_simple(c, false);
+					log_assert(!net.empty());
+				}
 				for (rep = 1; i-rep >= 0 && c == sig.chunks().at(i-rep); rep++) {}
 				std::string repinfo = rep > 1 ? stringf("%dx ", rep) : "";
 				if (driver) {
+					log_assert(!net.empty());
 					label_string += stringf("<s%d> %d:%d - %s%d:%d |", i, pos, pos-c.width+1, repinfo.c_str(), c.offset+c.width-1, c.offset);
 					net_conn_map[net].in.insert(stringf("x%d:s%d", idx, i));
 					net_conn_map[net].bits = rep*c.width;
 					net_conn_map[net].color = nextColor(c, net_conn_map[net].color);
+				} else
+				if (net.empty()) {
+					log_assert(rep == 1);
+					label_string += stringf("%c -&gt; %d:%d |",
+							c.data.front() == State::S0 ? '0' :
+							c.data.front() == State::S1 ? '1' :
+							c.data.front() == State::Sx ? 'X' :
+							c.data.front() == State::Sz ? 'Z' : '?',
+							pos, pos-rep*c.width+1);
 				} else {
 					label_string += stringf("<s%d> %s%d:%d - %d:%d |", i, repinfo.c_str(), c.offset+c.width-1, c.offset, pos, pos-rep*c.width+1);
 					net_conn_map[net].out.insert(stringf("x%d:s%d", idx, i));
@@ -508,11 +531,11 @@ struct ShowWorker
 		{
 			currentColor = xorshift32(currentColor);
 			if (wires_on_demand.count(it.first) > 0) {
-				if (it.second.in.size() == 1 && it.second.out.size() > 1 && it.second.in.begin()->substr(0, 1) == "p")
+				if (it.second.in.size() == 1 && it.second.out.size() > 1 && it.second.in.begin()->compare(0, 1, "p") == 0)
 					it.second.out.erase(*it.second.in.begin());
 				if (it.second.in.size() == 1 && it.second.out.size() == 1) {
 					std::string from = *it.second.in.begin(), to = *it.second.out.begin();
-					if (from != to || from.substr(0, 1) != "p")
+					if (from != to || from.compare(0, 1, "p") != 0)
 						fprintf(f, "%s:e -> %s:w [%s, %s];\n", from.c_str(), to.c_str(), nextColor(it.second.color).c_str(), widthLabel(it.second.bits).c_str());
 					continue;
 				}
@@ -555,7 +578,7 @@ struct ShowWorker
 			if (!design->selected_module(module->name))
 				continue;
 			if (design->selected_whole_module(module->name)) {
-				if (module->get_bool_attribute("\\blackbox")) {
+				if (module->get_blackbox_attribute()) {
 					// log("Skipping blackbox module %s.\n", id2cstr(module->name));
 					continue;
 				} else
@@ -771,7 +794,7 @@ struct ShowPass : public Pass {
 		if (format != "ps" && format != "dot") {
 			int modcount = 0;
 			for (auto &mod_it : design->modules_) {
-				if (mod_it.second->get_bool_attribute("\\blackbox"))
+				if (mod_it.second->get_blackbox_attribute())
 					continue;
 				if (mod_it.second->cells_.empty() && mod_it.second->connections().empty())
 					continue;
@@ -789,7 +812,7 @@ struct ShowPass : public Pass {
 			if (f.fail())
 				log_error("Can't open lib file `%s'.\n", filename.c_str());
 			RTLIL::Design *lib = new RTLIL::Design;
-			Frontend::frontend_call(lib, &f, filename, (filename.size() > 3 && filename.substr(filename.size()-3) == ".il") ? "ilang" : "verilog");
+			Frontend::frontend_call(lib, &f, filename, (filename.size() > 3 && filename.compare(filename.size()-3, std::string::npos, ".il") == 0 ? "ilang" : "verilog"));
 			libs.push_back(lib);
 		}
 
@@ -847,7 +870,11 @@ struct ShowPass : public Pass {
 				log_cmd_error("Shell command failed!\n");
 		} else
 		if (format.empty()) {
+			#ifdef __APPLE__
+			std::string cmd = stringf("ps -fu %d | grep -q '[ ]%s' || xdot '%s' &", getuid(), dot_file.c_str(), dot_file.c_str());
+			#else
 			std::string cmd = stringf("{ test -f '%s.pid' && fuser -s '%s.pid'; } || ( echo $$ >&3; exec xdot '%s'; ) 3> '%s.pid' &", dot_file.c_str(), dot_file.c_str(), dot_file.c_str(), dot_file.c_str());
+			#endif
 			log("Exec: %s\n", cmd.c_str());
 			if (run_command(cmd) != 0)
 				log_cmd_error("Shell command failed!\n");

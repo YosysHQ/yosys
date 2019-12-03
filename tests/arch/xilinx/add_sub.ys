@@ -1,0 +1,11 @@
+read_verilog ../common/add_sub.v
+hierarchy -top top
+proc
+equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd top # Constrain all select calls below inside the top module
+select -assert-count 14 t:LUT2
+select -assert-count 6 t:MUXCY
+select -assert-count 8 t:XORCY
+select -assert-none t:LUT2 t:MUXCY t:XORCY %% t:* %D
+

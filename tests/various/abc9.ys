@@ -1,0 +1,24 @@
+read_verilog abc9.v
+design -save read
+hierarchy -top abc9_test027
+proc
+design -save gold
+
+abc9 -lut 4
+check
+design -stash gate
+
+design -import gold -as gold
+design -import gate -as gate
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports miter
+
+design -load read
+hierarchy -top abc9_test028
+proc
+
+abc9 -lut 4
+select -assert-count 1 t:$lut r:LUT=2'b01 r:WIDTH=1 %i %i
+select -assert-count 1 t:unknown
+select -assert-none t:$lut t:unknown %% t: %D

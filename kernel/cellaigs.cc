@@ -268,9 +268,9 @@ Aig::Aig(Cell *cell)
 	cell->parameters.sort();
 	for (auto p : cell->parameters)
 	{
-		if (p.first == "\\A_WIDTH" && mkname_a_signed) {
+		if (p.first == ID(A_WIDTH) && mkname_a_signed) {
 			name = mkname_last + stringf(":%d%c", p.second.as_int(), mkname_is_signed ? 'S' : 'U');
-		} else if (p.first == "\\B_WIDTH" && mkname_b_signed) {
+		} else if (p.first == ID(B_WIDTH) && mkname_b_signed) {
 			name = mkname_last + stringf(":%d%c", p.second.as_int(), mkname_is_signed ? 'S' : 'U');
 		} else {
 			mkname_last = name;
@@ -280,181 +280,183 @@ Aig::Aig(Cell *cell)
 		mkname_a_signed = false;
 		mkname_b_signed = false;
 		mkname_is_signed = false;
-		if (p.first == "\\A_SIGNED") {
+		if (p.first == ID(A_SIGNED)) {
 			mkname_a_signed = true;
 			mkname_is_signed = p.second.as_bool();
 		}
-		if (p.first == "\\B_SIGNED") {
+		if (p.first == ID(B_SIGNED)) {
 			mkname_b_signed = true;
 			mkname_is_signed = p.second.as_bool();
 		}
 	}
 
-	if (cell->type.in("$not", "$_NOT_", "$pos", "$_BUF_"))
+	if (cell->type.in(ID($not), ID($_NOT_), ID($pos), ID($_BUF_)))
 	{
-		for (int i = 0; i < GetSize(cell->getPort("\\Y")); i++) {
-			int A = mk.inport("\\A", i);
-			int Y = cell->type.in("$not", "$_NOT_") ? mk.not_gate(A) : A;
-			mk.outport(Y, "\\Y", i);
+		for (int i = 0; i < GetSize(cell->getPort(ID::Y)); i++) {
+			int A = mk.inport(ID::A, i);
+			int Y = cell->type.in(ID($not), ID($_NOT_)) ? mk.not_gate(A) : A;
+			mk.outport(Y, ID::Y, i);
 		}
 		goto optimize;
 	}
 
-	if (cell->type.in("$and", "$_AND_", "$_NAND_", "$or", "$_OR_", "$_NOR_", "$xor", "$xnor", "$_XOR_", "$_XNOR_", "$_ANDNOT_", "$_ORNOT_"))
+	if (cell->type.in(ID($and), ID($_AND_), ID($_NAND_), ID($or), ID($_OR_), ID($_NOR_), ID($xor), ID($xnor), ID($_XOR_), ID($_XNOR_), ID($_ANDNOT_), ID($_ORNOT_)))
 	{
-		for (int i = 0; i < GetSize(cell->getPort("\\Y")); i++) {
-			int A = mk.inport("\\A", i);
-			int B = mk.inport("\\B", i);
-			int Y = cell->type.in("$and", "$_AND_")   ? mk.and_gate(A, B) :
-			        cell->type.in("$_NAND_")          ? mk.nand_gate(A, B) :
-			        cell->type.in("$or", "$_OR_")     ? mk.or_gate(A, B) :
-			        cell->type.in("$_NOR_")           ? mk.nor_gate(A, B) :
-			        cell->type.in("$xor", "$_XOR_")   ? mk.xor_gate(A, B) :
-			        cell->type.in("$xnor", "$_XNOR_") ? mk.xnor_gate(A, B) :
-			        cell->type.in("$_ANDNOT_")        ? mk.andnot_gate(A, B) :
-			        cell->type.in("$_ORNOT_")         ? mk.ornot_gate(A, B) : -1;
-			mk.outport(Y, "\\Y", i);
+		for (int i = 0; i < GetSize(cell->getPort(ID::Y)); i++) {
+			int A = mk.inport(ID::A, i);
+			int B = mk.inport(ID::B, i);
+			int Y = cell->type.in(ID($and), ID($_AND_))   ? mk.and_gate(A, B) :
+			        cell->type.in(ID($_NAND_))          ? mk.nand_gate(A, B) :
+			        cell->type.in(ID($or), ID($_OR_))     ? mk.or_gate(A, B) :
+			        cell->type.in(ID($_NOR_))           ? mk.nor_gate(A, B) :
+			        cell->type.in(ID($xor), ID($_XOR_))   ? mk.xor_gate(A, B) :
+			        cell->type.in(ID($xnor), ID($_XNOR_)) ? mk.xnor_gate(A, B) :
+			        cell->type.in(ID($_ANDNOT_))        ? mk.andnot_gate(A, B) :
+			        cell->type.in(ID($_ORNOT_))         ? mk.ornot_gate(A, B) : -1;
+			mk.outport(Y, ID::Y, i);
 		}
 		goto optimize;
 	}
 
-	if (cell->type.in("$mux", "$_MUX_"))
+	if (cell->type.in(ID($mux), ID($_MUX_)))
 	{
-		int S = mk.inport("\\S");
-		for (int i = 0; i < GetSize(cell->getPort("\\Y")); i++) {
-			int A = mk.inport("\\A", i);
-			int B = mk.inport("\\B", i);
+		int S = mk.inport(ID(S));
+		for (int i = 0; i < GetSize(cell->getPort(ID::Y)); i++) {
+			int A = mk.inport(ID::A, i);
+			int B = mk.inport(ID::B, i);
 			int Y = mk.mux_gate(A, B, S);
-			mk.outport(Y, "\\Y", i);
+			if (cell->type == ID($_NMUX_))
+				Y = mk.not_gate(Y);
+			mk.outport(Y, ID::Y, i);
 		}
 		goto optimize;
 	}
 
-	if (cell->type.in("$reduce_and", "$reduce_or", "$reduce_xor", "$reduce_xnor", "$reduce_bool"))
+	if (cell->type.in(ID($reduce_and), ID($reduce_or), ID($reduce_xor), ID($reduce_xnor), ID($reduce_bool)))
 	{
-		int Y = mk.inport("\\A", 0);
-		for (int i = 1; i < GetSize(cell->getPort("\\A")); i++) {
-			int A = mk.inport("\\A", i);
-			if (cell->type == "$reduce_and")  Y = mk.and_gate(A, Y);
-			if (cell->type == "$reduce_or")   Y = mk.or_gate(A, Y);
-			if (cell->type == "$reduce_bool") Y = mk.or_gate(A, Y);
-			if (cell->type == "$reduce_xor")  Y = mk.xor_gate(A, Y);
-			if (cell->type == "$reduce_xnor") Y = mk.xor_gate(A, Y);
+		int Y = mk.inport(ID::A, 0);
+		for (int i = 1; i < GetSize(cell->getPort(ID::A)); i++) {
+			int A = mk.inport(ID::A, i);
+			if (cell->type == ID($reduce_and))  Y = mk.and_gate(A, Y);
+			if (cell->type == ID($reduce_or))   Y = mk.or_gate(A, Y);
+			if (cell->type == ID($reduce_bool)) Y = mk.or_gate(A, Y);
+			if (cell->type == ID($reduce_xor))  Y = mk.xor_gate(A, Y);
+			if (cell->type == ID($reduce_xnor)) Y = mk.xor_gate(A, Y);
 		}
-		if (cell->type == "$reduce_xnor")
+		if (cell->type == ID($reduce_xnor))
 			Y = mk.not_gate(Y);
-		mk.outport(Y, "\\Y", 0);
-		for (int i = 1; i < GetSize(cell->getPort("\\Y")); i++)
-			mk.outport(mk.bool_node(false), "\\Y", i);
+		mk.outport(Y, ID::Y, 0);
+		for (int i = 1; i < GetSize(cell->getPort(ID::Y)); i++)
+			mk.outport(mk.bool_node(false), ID::Y, i);
 		goto optimize;
 	}
 
-	if (cell->type.in("$logic_not", "$logic_and", "$logic_or"))
+	if (cell->type.in(ID($logic_not), ID($logic_and), ID($logic_or)))
 	{
-		int A = mk.inport("\\A", 0), Y = -1;
-		for (int i = 1; i < GetSize(cell->getPort("\\A")); i++)
-			A = mk.or_gate(mk.inport("\\A", i), A);
-		if (cell->type.in("$logic_and", "$logic_or")) {
-			int B = mk.inport("\\B", 0);
-			for (int i = 1; i < GetSize(cell->getPort("\\B")); i++)
-				B = mk.or_gate(mk.inport("\\B", i), B);
-			if (cell->type == "$logic_and") Y = mk.and_gate(A, B);
-			if (cell->type == "$logic_or")  Y = mk.or_gate(A, B);
+		int A = mk.inport(ID::A, 0), Y = -1;
+		for (int i = 1; i < GetSize(cell->getPort(ID::A)); i++)
+			A = mk.or_gate(mk.inport(ID::A, i), A);
+		if (cell->type.in(ID($logic_and), ID($logic_or))) {
+			int B = mk.inport(ID::B, 0);
+			for (int i = 1; i < GetSize(cell->getPort(ID::B)); i++)
+				B = mk.or_gate(mk.inport(ID::B, i), B);
+			if (cell->type == ID($logic_and)) Y = mk.and_gate(A, B);
+			if (cell->type == ID($logic_or))  Y = mk.or_gate(A, B);
 		} else {
-			if (cell->type == "$logic_not") Y = mk.not_gate(A);
+			if (cell->type == ID($logic_not)) Y = mk.not_gate(A);
 		}
-		mk.outport_bool(Y, "\\Y");
+		mk.outport_bool(Y, ID::Y);
 		goto optimize;
 	}
 
-	if (cell->type.in("$add", "$sub"))
+	if (cell->type.in(ID($add), ID($sub)))
 	{
-		int width = GetSize(cell->getPort("\\Y"));
-		vector<int> A = mk.inport_vec("\\A", width);
-		vector<int> B = mk.inport_vec("\\B", width);
+		int width = GetSize(cell->getPort(ID::Y));
+		vector<int> A = mk.inport_vec(ID::A, width);
+		vector<int> B = mk.inport_vec(ID::B, width);
 		int carry = mk.bool_node(false);
-		if (cell->type == "$sub") {
+		if (cell->type == ID($sub)) {
 			for (auto &n : B)
 				n = mk.not_gate(n);
 			carry = mk.not_gate(carry);
 		}
 		vector<int> Y = mk.adder(A, B, carry);
-		mk.outport_vec(Y, "\\Y");
+		mk.outport_vec(Y, ID::Y);
 		goto optimize;
 	}
 
-	if (cell->type == "$alu")
+	if (cell->type == ID($alu))
 	{
-		int width = GetSize(cell->getPort("\\Y"));
-		vector<int> A = mk.inport_vec("\\A", width);
-		vector<int> B = mk.inport_vec("\\B", width);
-		int carry = mk.inport("\\CI");
-		int binv = mk.inport("\\BI");
+		int width = GetSize(cell->getPort(ID::Y));
+		vector<int> A = mk.inport_vec(ID::A, width);
+		vector<int> B = mk.inport_vec(ID::B, width);
+		int carry = mk.inport(ID(CI));
+		int binv = mk.inport(ID(BI));
 		for (auto &n : B)
 			n = mk.xor_gate(n, binv);
 		vector<int> X(width), CO(width);
 		vector<int> Y = mk.adder(A, B, carry, &X, &CO);
 		for (int i = 0; i < width; i++)
 			X[i] = mk.xor_gate(A[i], B[i]);
-		mk.outport_vec(Y, "\\Y");
-		mk.outport_vec(X, "\\X");
-		mk.outport_vec(CO, "\\CO");
+		mk.outport_vec(Y, ID::Y);
+		mk.outport_vec(X, ID(X));
+		mk.outport_vec(CO, ID(CO));
 		goto optimize;
 	}
 
-	if (cell->type.in("$eq", "$ne"))
+	if (cell->type.in(ID($eq), ID($ne)))
 	{
-		int width = max(GetSize(cell->getPort("\\A")), GetSize(cell->getPort("\\B")));
-		vector<int> A = mk.inport_vec("\\A", width);
-		vector<int> B = mk.inport_vec("\\B", width);
+		int width = max(GetSize(cell->getPort(ID::A)), GetSize(cell->getPort(ID::B)));
+		vector<int> A = mk.inport_vec(ID::A, width);
+		vector<int> B = mk.inport_vec(ID::B, width);
 		int Y = mk.bool_node(false);
 		for (int i = 0; i < width; i++)
 			Y = mk.or_gate(Y, mk.xor_gate(A[i], B[i]));
-		if (cell->type == "$eq")
+		if (cell->type == ID($eq))
 			Y = mk.not_gate(Y);
-		mk.outport_bool(Y, "\\Y");
+		mk.outport_bool(Y, ID::Y);
 		goto optimize;
 	}
 
-	if (cell->type == "$_AOI3_")
+	if (cell->type == ID($_AOI3_))
 	{
-		int A = mk.inport("\\A");
-		int B = mk.inport("\\B");
-		int C = mk.inport("\\C");
+		int A = mk.inport(ID::A);
+		int B = mk.inport(ID::B);
+		int C = mk.inport(ID(C));
 		int Y = mk.nor_gate(mk.and_gate(A, B), C);
-		mk.outport(Y, "\\Y");
+		mk.outport(Y, ID::Y);
 		goto optimize;
 	}
 
-	if (cell->type == "$_OAI3_")
+	if (cell->type == ID($_OAI3_))
 	{
-		int A = mk.inport("\\A");
-		int B = mk.inport("\\B");
-		int C = mk.inport("\\C");
+		int A = mk.inport(ID::A);
+		int B = mk.inport(ID::B);
+		int C = mk.inport(ID(C));
 		int Y = mk.nand_gate(mk.or_gate(A, B), C);
-		mk.outport(Y, "\\Y");
+		mk.outport(Y, ID::Y);
 		goto optimize;
 	}
 
-	if (cell->type == "$_AOI4_")
+	if (cell->type == ID($_AOI4_))
 	{
-		int A = mk.inport("\\A");
-		int B = mk.inport("\\B");
-		int C = mk.inport("\\C");
-		int D = mk.inport("\\D");
+		int A = mk.inport(ID::A);
+		int B = mk.inport(ID::B);
+		int C = mk.inport(ID(C));
+		int D = mk.inport(ID(D));
 		int Y = mk.nor_gate(mk.and_gate(A, B), mk.and_gate(C, D));
-		mk.outport(Y, "\\Y");
+		mk.outport(Y, ID::Y);
 		goto optimize;
 	}
 
-	if (cell->type == "$_OAI4_")
+	if (cell->type == ID($_OAI4_))
 	{
-		int A = mk.inport("\\A");
-		int B = mk.inport("\\B");
-		int C = mk.inport("\\C");
-		int D = mk.inport("\\D");
-		int Y = mk.nand_gate(mk.nor_gate(A, B), mk.nor_gate(C, D));
-		mk.outport(Y, "\\Y");
+		int A = mk.inport(ID::A);
+		int B = mk.inport(ID::B);
+		int C = mk.inport(ID(C));
+		int D = mk.inport(ID(D));
+		int Y = mk.nand_gate(mk.or_gate(A, B), mk.or_gate(C, D));
+		mk.outport(Y, ID::Y);
 		goto optimize;
 	}
 

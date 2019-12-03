@@ -140,7 +140,7 @@ struct BlifDumper
 			return "subckt";
 		if (!design->modules_.count(RTLIL::escape_id(cell_type)))
 			return "gate";
-		if (design->modules_.at(RTLIL::escape_id(cell_type))->get_bool_attribute("\\blackbox"))
+		if (design->modules_.at(RTLIL::escape_id(cell_type))->get_blackbox_attribute())
 			return "gate";
 		return "subckt";
 	}
@@ -196,7 +196,7 @@ struct BlifDumper
 		}
 		f << stringf("\n");
 
-		if (module->get_bool_attribute("\\blackbox")) {
+		if (module->get_blackbox_attribute()) {
 			f << stringf(".blackbox\n");
 			f << stringf(".end\n");
 			return;
@@ -327,6 +327,13 @@ struct BlifDumper
 				goto internal_cell;
 			}
 
+			if (!config->icells_mode && cell->type == "$_NMUX_") {
+				f << stringf(".names %s %s %s %s\n0-0 1\n-01 1\n",
+						cstr(cell->getPort("\\A")), cstr(cell->getPort("\\B")),
+						cstr(cell->getPort("\\S")), cstr(cell->getPort("\\Y")));
+				goto internal_cell;
+			}
+
 			if (!config->icells_mode && cell->type == "$_FF_") {
 				f << stringf(".latch %s %s%s\n", cstr(cell->getPort("\\D")), cstr(cell->getPort("\\Q")),
 						cstr_init(cell->getPort("\\Q")));
@@ -370,7 +377,7 @@ struct BlifDumper
 				f << stringf("\n");
 				RTLIL::SigSpec mask = cell->parameters.at("\\LUT");
 				for (int i = 0; i < (1 << width); i++)
-					if (mask[i] == RTLIL::S1) {
+					if (mask[i] == State::S1) {
 						for (int j = width-1; j >= 0; j--) {
 							f << ((i>>j)&1 ? '1' : '0');
 						}
@@ -409,12 +416,26 @@ struct BlifDumper
 
 			f << stringf(".%s %s", subckt_or_gate(cell->type.str()), cstr(cell->type));
 			for (auto &conn : cell->connections())
-			for (int i = 0; i < conn.second.size(); i++) {
-				if (conn.second.size() == 1)
-					f << stringf(" %s", cstr(conn.first));
-				else
-					f << stringf(" %s[%d]", cstr(conn.first), i);
-				f << stringf("=%s", cstr(conn.second.extract(i, 1)));
+			{
+				if (conn.second.size() == 1) {
+					f << stringf(" %s=%s", cstr(conn.first), cstr(conn.second[0]));
+					continue;
+				}
+
+				Module *m = design->module(cell->type);
+				Wire *w = m ? m->wire(conn.first) : nullptr;
+
+				if (w == nullptr) {
+					for (int i = 0; i < GetSize(conn.second); i++)
+						f << stringf(" %s[%d]=%s", cstr(conn.first), i, cstr(conn.second[i]));
+				} else {
+					for (int i = 0; i < std::min(GetSize(conn.second), GetSize(w)); i++) {
+						SigBit sig(w, i);
+						f << stringf(" %s[%d]=%s", cstr(conn.first), sig.wire->upto ?
+								sig.wire->start_offset+sig.wire->width-sig.offset-1 :
+								sig.wire->start_offset+sig.offset, cstr(conn.second[i]));
+					}
+				}
 			}
 			f << stringf("\n");
 
@@ -640,7 +661,7 @@ struct BlifBackend : public Backend {
 		for (auto module_it : design->modules_)
 		{
 			RTLIL::Module *module = module_it.second;
-			if (module->get_bool_attribute("\\blackbox") && !config.blackbox_mode)
+			if (module->get_blackbox_attribute() && !config.blackbox_mode)
 				continue;
 
 			if (module->processes.size() != 0)

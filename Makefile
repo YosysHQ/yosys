@@ -2,6 +2,7 @@
 CONFIG := clang
 # CONFIG := gcc
 # CONFIG := gcc-4.8
+# CONFIG := afl-gcc
 # CONFIG := emcc
 # CONFIG := mxe
 # CONFIG := msys2
@@ -18,6 +19,10 @@ ENABLE_VERIFIC := 0
 ENABLE_COVER := 1
 ENABLE_LIBYOSYS := 0
 ENABLE_PROTOBUF := 0
+ENABLE_ZLIB := 1
+
+# python wrappers
+ENABLE_PYOSYS := 0
 
 # other configuration flags
 ENABLE_GCOV := 0
@@ -41,6 +46,10 @@ SANITIZER =
 OS := $(shell uname -s)
 PREFIX ?= /usr/local
 INSTALL_SUDO :=
+
+ifneq ($(wildcard Makefile.conf),)
+include Makefile.conf
+endif
 
 BINDIR := $(PREFIX)/bin
 LIBDIR := $(PREFIX)/lib
@@ -79,8 +88,13 @@ ifeq ($(OS), Darwin)
 PLUGIN_LDFLAGS += -undefined dynamic_lookup
 
 # homebrew search paths
-ifneq ($(shell which brew),)
+ifneq ($(shell :; command -v brew),)
 BREW_PREFIX := $(shell brew --prefix)/opt
+$(info $$BREW_PREFIX is [${BREW_PREFIX}])
+ifeq ($(ENABLE_PYOSYS),1)
+CXXFLAGS += -I$(BREW_PREFIX)/boost/include/boost
+LDFLAGS += -L$(BREW_PREFIX)/boost/lib
+endif
 CXXFLAGS += -I$(BREW_PREFIX)/readline/include
 LDFLAGS += -L$(BREW_PREFIX)/readline/lib
 PKG_CONFIG_PATH := $(BREW_PREFIX)/libffi/lib/pkgconfig:$(PKG_CONFIG_PATH)
@@ -88,8 +102,8 @@ PKG_CONFIG_PATH := $(BREW_PREFIX)/tcl-tk/lib/pkgconfig:$(PKG_CONFIG_PATH)
 export PATH := $(BREW_PREFIX)/bison/bin:$(BREW_PREFIX)/gettext/bin:$(BREW_PREFIX)/flex/bin:$(PATH)
 
 # macports search paths
-else ifneq ($(shell which port),)
-PORT_PREFIX := $(patsubst %/bin/port,%,$(shell which port))
+else ifneq ($(shell :; command -v port),)
+PORT_PREFIX := $(patsubst %/bin/port,%,$(shell :; command -v port))
 CXXFLAGS += -I$(PORT_PREFIX)/include
 LDFLAGS += -L$(PORT_PREFIX)/lib
 PKG_CONFIG_PATH := $(PORT_PREFIX)/lib/pkgconfig:$(PKG_CONFIG_PATH)
@@ -101,9 +115,12 @@ LDFLAGS += -rdynamic
 LDLIBS += -lrt
 endif
 
-YOSYS_VER := 0.8+$(shell cd $(YOSYS_SRC) && test -e .git && { git log --author=clifford@clifford.at --oneline 4d4665b.. 2> /dev/null | wc -l; })
+YOSYS_VER := 0.9+932
 GIT_REV := $(shell cd $(YOSYS_SRC) && git rev-parse --short HEAD 2> /dev/null || echo UNKNOWN)
 OBJS = kernel/version_$(GIT_REV).o
+
+bumpversion:
+	sed -i "/^YOSYS_VER := / s/+[0-9][0-9]*$$/+`git log --oneline 8a4c6e6.. | wc -l`/;" Makefile
 
 # set 'ABCREV = default' to use abc/ as it is
 #
@@ -111,7 +128,7 @@ OBJS = kernel/version_$(GIT_REV).o
 # is just a symlink to your actual ABC working directory, as 'make mrproper'
 # will remove the 'abc' directory and you do not want to accidentally
 # delete your work on ABC..
-ABCREV = 2ddc57d
+ABCREV = 623b5e8
 ABCPULL = 1
 ABCURL ?= https://github.com/berkeley-abc/abc
 ABCMKARGS = CC="$(CXX)" CXX="$(CXX)" ABC_USE_LIBSTDCXX=1
@@ -128,6 +145,21 @@ endef
 ifneq ($(wildcard Makefile.conf),)
 $(info $(subst $$--$$,$(newline),$(shell sed 's,^,[Makefile.conf] ,; s,$$,$$--$$,;' < Makefile.conf | tr -d '\n' | sed 's,\$$--\$$$$,,')))
 include Makefile.conf
+endif
+
+PYTHON_EXECUTABLE := $(shell if python3 -c ""; then echo "python3"; else echo "python"; fi)
+ifeq ($(ENABLE_PYOSYS),1)
+PYTHON_VERSION_TESTCODE := "import sys;t='{v[0]}.{v[1]}'.format(v=list(sys.version_info[:2]));print(t)"
+PYTHON_VERSION := $(shell $(PYTHON_EXECUTABLE) -c ""$(PYTHON_VERSION_TESTCODE)"")
+PYTHON_MAJOR_VERSION := $(shell echo $(PYTHON_VERSION) | cut -f1 -d.)
+PYTHON_PREFIX := $(shell $(PYTHON_EXECUTABLE)-config --prefix)
+PYTHON_DESTDIR := $(PYTHON_PREFIX)/lib/python$(PYTHON_VERSION)/site-packages
+
+# Reload Makefile.conf to override python specific variables if defined
+ifneq ($(wildcard Makefile.conf),)
+include Makefile.conf
+endif
+
 endif
 
 ifeq ($(CONFIG),clang)
@@ -174,6 +206,12 @@ endif
 else ifeq ($(CONFIG),gcc-4.8)
 CXX = gcc-4.8
 LD = gcc-4.8
+CXXFLAGS += -std=c++11 -Os
+ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H"
+
+else ifeq ($(CONFIG),afl-gcc)
+CXX = AFL_QUIET=1 AFL_HARDEN=1 afl-gcc
+LD = AFL_QUIET=1 AFL_HARDEN=1 afl-gcc
 CXXFLAGS += -std=c++11 -Os
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H"
 
@@ -228,7 +266,8 @@ CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
 LDFLAGS := $(filter-out -rdynamic,$(LDFLAGS)) -s
 LDLIBS := $(filter-out -lrt,$(LDLIBS))
 ABCMKARGS += ARCHFLAGS="-DWIN32_NO_DLL -DHAVE_STRUCT_TIMESPEC -fpermissive -w"
-ABCMKARGS += LIBS="lib/x86/pthreadVC2.lib -s" ABC_USE_NO_READLINE=1 CC="/usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-gcc"
+# TODO: Try to solve pthread linking issue in more appropriate way
+ABCMKARGS += LIBS="lib/x86/pthreadVC2.lib -s" LDFLAGS="-Wl,--allow-multiple-definition" ABC_USE_NO_READLINE=1 CC="/usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-gcc"
 EXE = .exe
 
 else ifeq ($(CONFIG),msys2)
@@ -259,6 +298,55 @@ endif
 
 ifeq ($(ENABLE_LIBYOSYS),1)
 TARGETS += libyosys.so
+endif
+
+ifeq ($(ENABLE_PYOSYS),1)
+
+#Detect name of boost_python library. Some distros usbe boost_python-py<version>, other boost_python<version>, some only use the major version number, some a concatenation of major and minor version numbers
+ifeq ($(OS), Darwin)
+BOOST_PYTHON_LIB ?= $(shell \
+	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null $(shell $(PYTHON_EXECUTABLE)-config --ldflags) -lboost_python-py$(subst .,,$(PYTHON_VERSION)) - > /dev/null 2>&1;        then echo "-lboost_python-py$(subst .,,$(PYTHON_VERSION))";       else \
+	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null $(shell $(PYTHON_EXECUTABLE)-config --ldflags) -lboost_python-py$(subst .,,$(PYTHON_MAJOR_VERSION)) - > /dev/null 2>&1;  then echo "-lboost_python-py$(subst .,,$(PYTHON_MAJOR_VERSION))"; else \
+	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null $(shell $(PYTHON_EXECUTABLE)-config --ldflags) -lboost_python$(subst .,,$(PYTHON_VERSION)) - > /dev/null 2>&1;           then echo "-lboost_python$(subst .,,$(PYTHON_VERSION))";          else \
+	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null $(shell $(PYTHON_EXECUTABLE)-config --ldflags) -lboost_python$(subst .,,$(PYTHON_MAJOR_VERSION)) - > /dev/null 2>&1;     then echo "-lboost_python$(subst .,,$(PYTHON_MAJOR_VERSION))";    else \
+                                                                                                                                                                                        echo ""; fi; fi; fi; fi;)
+else
+BOOST_PYTHON_LIB ?= $(shell \
+	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null `$(PYTHON_EXECUTABLE)-config --libs` -lboost_python-py$(subst .,,$(PYTHON_VERSION)) - > /dev/null 2>&1;        then echo "-lboost_python-py$(subst .,,$(PYTHON_VERSION))";       else \
+	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null `$(PYTHON_EXECUTABLE)-config --libs` -lboost_python-py$(subst .,,$(PYTHON_MAJOR_VERSION)) - > /dev/null 2>&1;  then echo "-lboost_python-py$(subst .,,$(PYTHON_MAJOR_VERSION))"; else \
+	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null `$(PYTHON_EXECUTABLE)-config --libs` -lboost_python$(subst .,,$(PYTHON_VERSION)) - > /dev/null 2>&1;           then echo "-lboost_python$(subst .,,$(PYTHON_VERSION))";          else \
+	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null `$(PYTHON_EXECUTABLE)-config --libs` -lboost_python$(subst .,,$(PYTHON_MAJOR_VERSION)) - > /dev/null 2>&1;     then echo "-lboost_python$(subst .,,$(PYTHON_MAJOR_VERSION))";    else \
+                                                                                                                                                                                        echo ""; fi; fi; fi; fi;)
+endif
+
+ifeq ($(BOOST_PYTHON_LIB),)
+$(error BOOST_PYTHON_LIB could not be detected. Please define manualy)
+endif
+
+ifeq ($(OS), Darwin)
+ifeq ($(PYTHON_MAJOR_VERSION),3)
+LDLIBS += $(shell $(PYTHON_EXECUTABLE)-config --ldflags) $(BOOST_PYTHON_LIB) -lboost_system -lboost_filesystem
+CXXFLAGS += $(shell $(PYTHON_EXECUTABLE)-config --includes) -DWITH_PYTHON
+else
+LDLIBS += $(shell $(PYTHON_EXECUTABLE)-config --ldflags) $(BOOST_PYTHON_LIB) -lboost_system -lboost_filesystem
+CXXFLAGS += $(shell $(PYTHON_EXECUTABLE)-config --includes) -DWITH_PYTHON
+endif
+else
+ifeq ($(PYTHON_MAJOR_VERSION),3)
+LDLIBS += $(shell $(PYTHON_EXECUTABLE)-config --libs) $(BOOST_PYTHON_LIB) -lboost_system -lboost_filesystem
+CXXFLAGS += $(shell $(PYTHON_EXECUTABLE)-config --includes) -DWITH_PYTHON
+else
+LDLIBS += $(shell $(PYTHON_EXECUTABLE)-config --libs) $(BOOST_PYTHON_LIB) -lboost_system -lboost_filesystem
+CXXFLAGS += $(shell $(PYTHON_EXECUTABLE)-config --includes) -DWITH_PYTHON
+endif
+endif
+
+ifeq ($(ENABLE_PYOSYS),1)
+PY_WRAPPER_FILE = kernel/python_wrappers
+OBJS += $(PY_WRAPPER_FILE).o
+PY_GEN_SCRIPT= py_wrap_generator
+PY_WRAP_INCLUDES := $(shell python$(PYTHON_VERSION) -c "from misc import $(PY_GEN_SCRIPT); $(PY_GEN_SCRIPT).print_includes()")
+endif
 endif
 
 ifeq ($(ENABLE_READLINE),1)
@@ -303,6 +391,12 @@ ifeq ($(ENABLE_GLOB),1)
 CXXFLAGS += -DYOSYS_ENABLE_GLOB
 endif
 
+ifeq ($(ENABLE_ZLIB),1)
+CXXFLAGS += -DYOSYS_ENABLE_ZLIB
+LDLIBS += -lz
+endif
+
+
 ifeq ($(ENABLE_TCL),1)
 TCL_VERSION ?= tcl$(shell bash -c "tclsh <(echo 'puts [info tclversion]')")
 ifeq ($(OS), FreeBSD)
@@ -313,7 +407,7 @@ endif
 
 ifeq ($(CONFIG),mxe)
 CXXFLAGS += -DYOSYS_ENABLE_TCL
-LDLIBS += -ltcl86 -lwsock32 -lws2_32 -lnetapi32 -lz
+LDLIBS += -ltcl86 -lwsock32 -lws2_32 -lnetapi32 -lz -luserenv
 else
 CXXFLAGS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKG_CONFIG) --silence-errors --cflags tcl || echo -I$(TCL_INCLUDE)) -DYOSYS_ENABLE_TCL
 ifeq ($(OS), FreeBSD)
@@ -398,6 +492,11 @@ define add_include_file
 $(eval $(call add_share_file,$(dir share/include/$(1)),$(1)))
 endef
 
+define add_extra_objs
+EXTRA_OBJS += $(1)
+.SECONDARY: $(1)
+endef
+
 ifeq ($(PRETTY), 1)
 P_STATUS = 0
 P_OFFSET = 0
@@ -429,6 +528,7 @@ $(eval $(call add_include_file,kernel/satgen.h))
 $(eval $(call add_include_file,libs/ezsat/ezsat.h))
 $(eval $(call add_include_file,libs/ezsat/ezminisat.h))
 $(eval $(call add_include_file,libs/sha1/sha1.h))
+$(eval $(call add_include_file,libs/json11/json11.hpp))
 $(eval $(call add_include_file,passes/fsm/fsmdata.h))
 $(eval $(call add_include_file,frontends/ast/ast.h))
 $(eval $(call add_include_file,backends/ilang/ilang_backend.h))
@@ -445,6 +545,8 @@ OBJS += libs/bigint/BigUnsigned.o libs/bigint/BigUnsignedInABase.o
 OBJS += libs/sha1/sha1.o
 
 ifneq ($(SMALL),1)
+
+OBJS += libs/json11/json11.o
 
 OBJS += libs/subcircuit/subcircuit.o
 
@@ -504,11 +606,25 @@ yosys$(EXE): $(OBJS)
 	$(P) $(LD) -o yosys$(EXE) $(LDFLAGS) $(OBJS) $(LDLIBS)
 
 libyosys.so: $(filter-out kernel/driver.o,$(OBJS))
+ifeq ($(OS), Darwin)
+	$(P) $(LD) -o libyosys.so -shared -Wl,-install_name,libyosys.so $(LDFLAGS) $^ $(LDLIBS)
+else
 	$(P) $(LD) -o libyosys.so -shared -Wl,-soname,libyosys.so $(LDFLAGS) $^ $(LDLIBS)
+endif
 
 %.o: %.cc
 	$(Q) mkdir -p $(dir $@)
 	$(P) $(CXX) -o $@ -c $(CPPFLAGS) $(CXXFLAGS) $<
+
+%.pyh: %.h
+	$(Q) mkdir -p $(dir $@)
+	$(P) cat $< | grep -E -v "#[ ]*(include|error)" | $(LD) -x c++ -o $@ -E -P -
+
+ifeq ($(ENABLE_PYOSYS),1)
+$(PY_WRAPPER_FILE).cc: misc/$(PY_GEN_SCRIPT).py $(PY_WRAP_INCLUDES)
+	$(Q) mkdir -p $(dir $@)
+	$(P) python$(PYTHON_VERSION) -c "from misc import $(PY_GEN_SCRIPT); $(PY_GEN_SCRIPT).gen_wrappers(\"$(PY_WRAPPER_FILE).cc\")"
+endif
 
 %.o: %.cpp
 	$(Q) mkdir -p $(dir $@)
@@ -571,20 +687,39 @@ else
 SEEDOPT=""
 endif
 
+ifneq ($(ABCEXTERNAL),)
+ABCOPT="-A $(ABCEXTERNAL)"
+else
+ABCOPT=""
+endif
+
 test: $(TARGETS) $(EXTRA_TARGETS)
 	+cd tests/simple && bash run-test.sh $(SEEDOPT)
+	+cd tests/simple_abc9 && bash run-test.sh $(SEEDOPT)
 	+cd tests/hana && bash run-test.sh $(SEEDOPT)
 	+cd tests/asicworld && bash run-test.sh $(SEEDOPT)
-	+cd tests/realmath && bash run-test.sh $(SEEDOPT)
+	# +cd tests/realmath && bash run-test.sh $(SEEDOPT)
 	+cd tests/share && bash run-test.sh $(SEEDOPT)
+	+cd tests/opt_share && bash run-test.sh $(SEEDOPT)
 	+cd tests/fsm && bash run-test.sh $(SEEDOPT)
 	+cd tests/techmap && bash run-test.sh
-	+cd tests/memories && bash run-test.sh $(SEEDOPT)
+	+cd tests/memories && bash run-test.sh $(ABCOPT) $(SEEDOPT)
 	+cd tests/bram && bash run-test.sh $(SEEDOPT)
 	+cd tests/various && bash run-test.sh
 	+cd tests/sat && bash run-test.sh
 	+cd tests/svinterfaces && bash run-test.sh $(SEEDOPT)
+	+cd tests/svtypes && bash run-test.sh $(SEEDOPT)
+	+cd tests/proc && bash run-test.sh
 	+cd tests/opt && bash run-test.sh
+	+cd tests/aiger && bash run-test.sh $(ABCOPT)
+	+cd tests/arch && bash run-test.sh
+	+cd tests/arch/ice40 && bash run-test.sh $(SEEDOPT)
+	+cd tests/arch/xilinx && bash run-test.sh $(SEEDOPT)
+	+cd tests/arch/ecp5 && bash run-test.sh $(SEEDOPT)
+	+cd tests/arch/efinix && bash run-test.sh $(SEEDOPT)
+	+cd tests/arch/anlogic && bash run-test.sh $(SEEDOPT)
+	+cd tests/arch/gowin && bash run-test.sh $(SEEDOPT)
+	+cd tests/rpc && bash run-test.sh
 	@echo ""
 	@echo "  Passed \"make test\"."
 	@echo ""
@@ -634,9 +769,14 @@ endif
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(DATDIR)
 	$(INSTALL_SUDO) cp -r share/. $(DESTDIR)$(DATDIR)/.
 ifeq ($(ENABLE_LIBYOSYS),1)
-	$(INSTALL_SUDO) cp libyosys.so $(DESTDIR)$(LIBDIR)
+	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(LIBDIR)
+	$(INSTALL_SUDO) cp libyosys.so $(DESTDIR)$(LIBDIR)/
 	$(INSTALL_SUDO) $(STRIP) -S $(DESTDIR)$(LIBDIR)/libyosys.so
-	$(INSTALL_SUDO) ldconfig
+ifeq ($(ENABLE_PYOSYS),1)
+	$(INSTALL_SUDO) mkdir -p $(PYTHON_DESTDIR)/pyosys
+	$(INSTALL_SUDO) cp libyosys.so $(PYTHON_DESTDIR)/pyosys/
+	$(INSTALL_SUDO) cp misc/__init__.py $(PYTHON_DESTDIR)/pyosys/
+endif
 endif
 
 uninstall:
@@ -644,6 +784,11 @@ uninstall:
 	$(INSTALL_SUDO) rm -rvf $(DESTDIR)$(DATDIR)
 ifeq ($(ENABLE_LIBYOSYS),1)
 	$(INSTALL_SUDO) rm -vf $(DESTDIR)$(LIBDIR)/libyosys.so
+ifeq ($(ENABLE_PYOSYS),1)
+	$(INSTALL_SUDO) rm -vf $(PYTHON_DESTDIR)/pyosys/libyosys.so
+	$(INSTALL_SUDO) rm -vf $(PYTHON_DESTDIR)/pyosys/__init__.py
+	$(INSTALL_SUDO) rmdir $(PYTHON_DESTDIR)/pyosys
+endif
 endif
 
 update-manual: $(TARGETS) $(EXTRA_TARGETS)
@@ -656,9 +801,10 @@ manual: $(TARGETS) $(EXTRA_TARGETS)
 
 clean:
 	rm -rf share
+	rm -rf kernel/*.pyh
 	if test -d manual; then cd manual && sh clean.sh; fi
-	rm -f $(OBJS) $(GENFILES) $(TARGETS) $(EXTRA_TARGETS) $(EXTRA_OBJS)
-	rm -f kernel/version_*.o kernel/version_*.cc abc/abc-[0-9a-f]* abc/libabc-[0-9a-f]*.a
+	rm -f $(OBJS) $(GENFILES) $(TARGETS) $(EXTRA_TARGETS) $(EXTRA_OBJS) $(PY_WRAP_INCLUDES) $(PY_WRAPPER_FILE).cc
+	rm -f kernel/version_*.o kernel/version_*.cc
 	rm -f libs/*/*.d frontends/*/*.d passes/*/*.d backends/*/*.d kernel/*.d techlibs/*/*.d
 	rm -rf tests/asicworld/*.out tests/asicworld/*.log
 	rm -rf tests/hana/*.out tests/hana/*.log
@@ -731,6 +877,9 @@ config-gcc-static: clean
 config-gcc-4.8: clean
 	echo 'CONFIG := gcc-4.8' > Makefile.conf
 
+config-afl-gcc: clean
+	echo 'CONFIG := afl-gcc' > Makefile.conf
+
 config-emcc: clean
 	echo 'CONFIG := emcc' > Makefile.conf
 	echo 'ENABLE_TCL := 0' >> Makefile.conf
@@ -744,9 +893,11 @@ config-mxe: clean
 
 config-msys2: clean
 	echo 'CONFIG := msys2' > Makefile.conf
+	echo 'ENABLE_PLUGINS := 0' >> Makefile.conf
 
 config-msys2-64: clean
 	echo 'CONFIG := msys2-64' > Makefile.conf
+	echo 'ENABLE_PLUGINS := 0' >> Makefile.conf
 
 config-cygwin: clean
 	echo 'CONFIG := cygwin' > Makefile.conf
@@ -777,5 +928,5 @@ echo-git-rev:
 -include techlibs/*/*.d
 
 .PHONY: all top-all abc test install install-abc manual clean mrproper qtcreator coverage vcxsrc mxebin
-.PHONY: config-clean config-clang config-gcc config-gcc-static config-gcc-4.8 config-gprof config-sudo
+.PHONY: config-clean config-clang config-gcc config-gcc-static config-gcc-4.8 config-afl-gcc config-gprof config-sudo
 

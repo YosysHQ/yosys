@@ -143,7 +143,7 @@ void create_dff_dq_map(std::map<RTLIL::IdString, dff_map_info_t> &map, RTLIL::De
 			continue;
 		}
 
-		if (info.cell->type == "$_DFF_N_" || info.cell->type == "$_DFF_P_") {
+		if (info.cell->type.in("$_DFF_N_", "$_DFF_P_")) {
 			info.bit_clk = sigmap(info.cell->getPort("\\C")).as_bit();
 			info.clk_polarity = info.cell->type == "$_DFF_P_";
 			info.bit_d = sigmap(info.cell->getPort("\\D")).as_bit();
@@ -151,7 +151,7 @@ void create_dff_dq_map(std::map<RTLIL::IdString, dff_map_info_t> &map, RTLIL::De
 			continue;
 		}
 
-		if (info.cell->type.size() == 10 && info.cell->type.substr(0, 6) == "$_DFF_") {
+		if (info.cell->type.size() == 10 && info.cell->type.begins_with("$_DFF_")) {
 			info.bit_clk = sigmap(info.cell->getPort("\\C")).as_bit();
 			info.bit_arst = sigmap(info.cell->getPort("\\R")).as_bit();
 			info.clk_polarity = info.cell->type[6] == 'P';
@@ -508,7 +508,7 @@ struct ExposePass : public Pass {
 				}
 
 				for (auto &conn : module->connections_)
-					conn.first = out_to_in_map(sigmap(conn.first));
+					conn.first = out_to_in_map(conn.first);
 			}
 
 			if (flag_cut)

@@ -331,8 +331,9 @@ to update {\tt \textbackslash{}q}.
 An RTLIL::Process is a container for zero or more RTLIL::SyncRule objects and
 exactly one RTLIL::CaseRule object, which is called the {\it root case}.
 
-An RTLIL::SyncRule object contains an (optional) synchronization condition
-(signal and edge-type) and zero or more assignments (RTLIL::SigSig).
+An RTLIL::SyncRule object contains an (optional) synchronization condition (signal and edge-type) and zero or
+more assignments (RTLIL::SigSig). The {\tt always} synchronization condition is used to break combinatorial
+loops when a latch should be inferred instead.
 
 An RTLIL::CaseRule is a container for zero or more assignments (RTLIL::SigSig)
 and zero or more RTLIL::SwitchRule objects. An RTLIL::SwitchRule objects is a
@@ -349,6 +350,18 @@ and this bit is a one (the second ``1'').} for {\tt \textbackslash{}reset == 1} 
 {\tt \$0\textbackslash{}q[0:0]} to be set (lines 4 and 5) and a default case that in turn contains a switch that
 sets {\tt \$0\textbackslash{}q[0:0]} to the value of {\tt \textbackslash{}d} if {\tt
 \textbackslash{}enable} is active (lines $6 \dots 11$).
+
+A case can specify zero or more compare values that will determine whether it matches. Each of the compare values
+must be the exact same width as the control signal. When more than one compare value is specified, the case matches
+if any of them matches the control signal; when zero compare values are specified, the case always matches (i.e.
+it is the default case).
+
+A switch prioritizes cases from first to last: multiple cases can match, but only the first matched case becomes
+active. This normally synthesizes to a priority encoder. The {\tt parallel\_case} attribute allows passes to assume
+that no more than one case will match, and {\tt full\_case} attribute allows passes to assume that exactly one
+case will match; if these invariants are ever dynamically violated, the behavior is undefined. These attributes
+are useful when an invariant invisible to the synthesizer causes the control signal to never take certain
+bit patterns.
 
 The lines $13 \dots 16$  then cause {\tt \textbackslash{}q} to be updated whenever there is
 a positive clock edge on {\tt \textbackslash{}clock} or {\tt \textbackslash{}reset}.

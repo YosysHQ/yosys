@@ -83,6 +83,52 @@ static void run_ice40_opts(Module *module)
 			}
 			continue;
 		}
+
+		if (cell->type == "$__ICE40_CARRY_WRAPPER")
+		{
+			SigSpec non_const_inputs, replacement_output;
+			int count_zeros = 0, count_ones = 0;
+
+			SigBit inbit[3] = {
+				cell->getPort("\\A"),
+				cell->getPort("\\B"),
+				cell->getPort("\\CI")
+			};
+			for (int i = 0; i < 3; i++)
+				if (inbit[i].wire == nullptr) {
+					if (inbit[i] == State::S1)
+						count_ones++;
+					else
+						count_zeros++;
+				} else
+					non_const_inputs.append(inbit[i]);
+
+			if (count_zeros >= 2)
+				replacement_output = State::S0;
+			else if (count_ones >= 2)
+				replacement_output = State::S1;
+			else if (GetSize(non_const_inputs) == 1)
+				replacement_output = non_const_inputs;
+
+			if (GetSize(replacement_output)) {
+				optimized_co.insert(sigmap(cell->getPort("\\CO")[0]));
+				module->connect(cell->getPort("\\CO")[0], replacement_output);
+				module->design->scratchpad_set_bool("opt.did_something", true);
+				log("Optimized $__ICE40_CARRY_WRAPPER cell back to logic (without SB_CARRY) %s.%s: CO=%s\n",
+						log_id(module), log_id(cell), log_signal(replacement_output));
+				cell->type = "$lut";
+				cell->setPort("\\A", { cell->getPort("\\I0"), inbit[0], inbit[1], cell->getPort("\\I3") });
+				cell->setPort("\\Y", cell->getPort("\\O"));
+				cell->unsetPort("\\B");
+				cell->unsetPort("\\CI");
+				cell->unsetPort("\\I0");
+				cell->unsetPort("\\I3");
+				cell->unsetPort("\\CO");
+				cell->unsetPort("\\O");
+				cell->setParam("\\WIDTH", 4);
+			}
+			continue;
+		}
 	}
 
 	for (auto cell : sb_lut_cells)

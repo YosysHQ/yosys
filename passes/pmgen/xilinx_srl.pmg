@@ -1,0 +1,326 @@
+pattern fixed
+
+state <IdString> clk_port en_port
+udata <vector<Cell*>> chain longest_chain
+udata <pool<Cell*>> non_first_cells
+udata <int> minlen
+
+code
+	non_first_cells.clear();
+	subpattern(setup);
+endcode
+
+match first
+	select first->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_, \FDRE, \FDRE_1)
+	select !first->has_keep_attr()
+	select !first->type.in(\FDRE) || !param(first, \IS_R_INVERTED, State::S0).as_bool()
+	select !first->type.in(\FDRE) || !param(first, \IS_D_INVERTED, State::S0).as_bool()
+	select !first->type.in(\FDRE, \FDRE_1) || port(first, \R, State::S0).is_fully_zero()
+	filter !non_first_cells.count(first)
+generate
+	SigSpec C = module->addWire(NEW_ID);
+	SigSpec D = module->addWire(NEW_ID);
+	SigSpec Q = module->addWire(NEW_ID);
+	auto r = rng(8);
+	Cell* cell;
+	switch (r)
+	{
+	case 0:
+	case 1:
+		cell = module->addCell(NEW_ID, \FDRE);
+		cell->setPort(\C, C);
+		cell->setPort(\D, D);
+		cell->setPort(\Q, Q);
+		cell->setPort(\CE, module->addWire(NEW_ID));
+		if (r & 1)
+			cell->setPort(\R, module->addWire(NEW_ID));
+		else {
+			if (rng(2) == 0)
+				cell->setPort(\R, State::S0);
+		}
+		break;
+	case 2:
+	case 3:
+		cell = module->addDffGate(NEW_ID, C, D, Q, r & 1);
+		break;
+	case 4:
+	case 5:
+	case 6:
+	case 7:
+		cell = module->addDffeGate(NEW_ID, C, module->addWire(NEW_ID), D, Q, r & 1, r & 2);
+		break;
+	default: log_abort();
+	}
+endmatch
+
+code clk_port en_port
+	if (first->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_, \FDRE, \FDRE_1))
+		clk_port = \C;
+	else log_abort();
+	if (first->type.in($_DFF_N_, $_DFF_P_))
+		en_port = IdString();
+	else if (first->type.in($_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_))
+		en_port = \E;
+	else if (first->type.in(\FDRE, \FDRE_1))
+		en_port = \CE;
+	else log_abort();
+
+	longest_chain.clear();
+	chain.push_back(first);
+	subpattern(tail);
+finally
+	chain.pop_back();
+	log_assert(chain.empty());
+	if (GetSize(longest_chain) >= minlen)
+		accept;
+endcode
+
+// ------------------------------------------------------------------
+
+subpattern setup
+arg clk_port
+arg en_port
+
+match first
+	select first->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_, \FDRE, \FDRE_1)
+	select !first->has_keep_attr()
+	select !first->type.in(\FDRE) || !param(first, \IS_R_INVERTED, State::S0).as_bool()
+	select !first->type.in(\FDRE) || !param(first, \IS_D_INVERTED, State::S0).as_bool()
+	select !first->type.in(\FDRE, \FDRE_1) || port(first, \R, State::S0).is_fully_zero()
+endmatch
+
+code clk_port en_port
+	if (first->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_, \FDRE, \FDRE_1))
+		clk_port = \C;
+	else log_abort();
+	if (first->type.in($_DFF_N_, $_DFF_P_))
+		en_port = IdString();
+	else if (first->type.in($_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_))
+		en_port = \E;
+	else if (first->type.in(\FDRE, \FDRE_1))
+		en_port = \CE;
+	else log_abort();
+endcode
+
+match next
+	select next->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_, \FDRE, \FDRE_1)
+	select !next->has_keep_attr()
+	select port(next, \D)[0].wire && !port(next, \D)[0].wire->get_bool_attribute(\keep)
+	select nusers(port(next, \Q)) == 2
+	index <IdString> next->type === first->type
+	index <SigBit> port(next, \Q) === port(first, \D)
+	filter port(next, clk_port) == port(first, clk_port)
+	filter en_port == IdString() || port(next, en_port) == port(first, en_port)
+	filter !first->type.in(\FDRE) || param(next, \IS_C_INVERTED, State::S0).as_bool() == param(first, \IS_C_INVERTED, State::S0).as_bool()
+	filter !first->type.in(\FDRE) || param(next, \IS_D_INVERTED, State::S0).as_bool() == param(first, \IS_D_INVERTED, State::S0).as_bool()
+	filter !first->type.in(\FDRE) || param(next, \IS_R_INVERTED, State::S0).as_bool() == param(first, \IS_R_INVERTED, State::S0).as_bool()
+	filter !first->type.in(\FDRE, \FDRE_1) || port(next, \R, State::S0).is_fully_zero()
+endmatch
+
+code
+	non_first_cells.insert(next);
+endcode
+
+// ------------------------------------------------------------------
+
+subpattern tail
+arg first
+arg clk_port
+arg en_port
+
+match next
+	semioptional
+	select next->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_, \FDRE, \FDRE_1)
+	select !next->has_keep_attr()
+	select port(next, \D)[0].wire && !port(next, \D)[0].wire->get_bool_attribute(\keep)
+	select nusers(port(next, \Q)) == 2
+	index <IdString> next->type === chain.back()->type
+	index <SigBit> port(next, \Q) === port(chain.back(), \D)
+	filter port(next, clk_port) == port(first, clk_port)
+	filter en_port == IdString() || port(next, en_port) == port(first, en_port)
+	filter !first->type.in(\FDRE) || param(next, \IS_C_INVERTED, State::S0).as_bool() == param(first, \IS_C_INVERTED, State::S0).as_bool()
+	filter !first->type.in(\FDRE) || param(next, \IS_D_INVERTED, State::S0).as_bool() == param(first, \IS_D_INVERTED, State::S0).as_bool()
+	filter !first->type.in(\FDRE) || param(next, \IS_R_INVERTED, State::S0).as_bool() == param(first, \IS_R_INVERTED, State::S0).as_bool()
+	filter !first->type.in(\FDRE, \FDRE_1) || port(next, \R, State::S0).is_fully_zero()
+generate
+	Cell *cell = module->addCell(NEW_ID, chain.back()->type);
+	cell->setPort(\C, chain.back()->getPort(\C));
+	cell->setPort(\D, module->addWire(NEW_ID));
+	cell->setPort(\Q, chain.back()->getPort(\D));
+	if (cell->type == \FDRE) {
+		if (rng(2) == 0)
+			cell->setPort(\R, port(chain.back(), \R, State::S0));
+		cell->setPort(\CE, chain.back()->getPort(\CE));
+	}
+	else if (cell->type.begins_with("$_DFFE_"))
+		cell->setPort(\E, chain.back()->getPort(\E));
+endmatch
+
+code
+	if (next) {
+		chain.push_back(next);
+		subpattern(tail);
+	} else {
+		if (GetSize(chain) > GetSize(longest_chain))
+			longest_chain = chain;
+	}
+finally
+	if (next)
+		chain.pop_back();
+endcode
+
+// -----------
+
+pattern variable
+
+state <IdString> clk_port en_port
+state <int> shiftx_width
+state <int> slice
+udata <int> minlen
+udata <vector<pair<Cell*,int>>> chain
+udata <pool<SigBit>> chain_bits
+
+code
+	chain_bits.clear();
+endcode
+
+match shiftx
+	select shiftx->type.in($shiftx)
+	select !shiftx->has_keep_attr()
+	select param(shiftx, \Y_WIDTH).as_int() == 1
+	filter param(shiftx, \A_WIDTH).as_int() >= minlen
+generate
+	minlen = 3;
+	module->addShiftx(NEW_ID, module->addWire(NEW_ID, rng(6)+minlen), module->addWire(NEW_ID, 3), module->addWire(NEW_ID));
+endmatch
+
+code shiftx_width
+	shiftx_width = param(shiftx, \A_WIDTH).as_int();
+endcode
+
+match first
+	select first->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_, $dff, $dffe)
+	select !first->has_keep_attr()
+	select port(first, \Q)[0].wire && !port(first, \Q)[0].wire->get_bool_attribute(\keep)
+	slice idx GetSize(port(first, \Q))
+	select nusers(port(first, \Q)[idx]) <= 2
+	index <SigBit> port(first, \Q)[idx] === port(shiftx, \A)[shiftx_width-1]
+	set slice idx
+generate
+	SigSpec C = module->addWire(NEW_ID);
+	auto WIDTH = rng(3)+1;
+	SigSpec D = module->addWire(NEW_ID, WIDTH);
+	SigSpec Q = module->addWire(NEW_ID, WIDTH);
+	auto r = rng(8);
+	Cell *cell = nullptr;
+	switch (r)
+	{
+	case 0:
+	case 1:
+		cell = module->addDff(NEW_ID, C, D, Q, r & 1);
+		break;
+	case 2:
+	case 3:
+	case 4:
+	case 5:
+		//cell = module->addDffe(NEW_ID, C, module->addWire(NEW_ID), D, Q, r & 1, r & 4);
+		//break;
+	case 6:
+	case 7:
+		WIDTH = 1;
+		cell = module->addDffGate(NEW_ID, C, D[0], Q[0], r & 1);
+		break;
+	default: log_abort();
+	}
+	shiftx->connections_.at(\A)[shiftx_width-1] = port(cell, \Q)[rng(WIDTH)];
+endmatch
+
+code clk_port en_port
+	if (first->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_))
+		clk_port = \C;
+	else if (first->type.in($dff, $dffe))
+		clk_port = \CLK;
+	else log_abort();
+	if (first->type.in($_DFF_N_, $_DFF_P_, $dff))
+		en_port = IdString();
+	else if (first->type.in($_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_))
+		en_port = \E;
+	else if (first->type.in($dffe))
+		en_port = \EN;
+	else log_abort();
+
+	chain_bits.insert(port(first, \Q)[slice]);
+	chain.emplace_back(first, slice);
+	subpattern(tail);
+finally
+	if (GetSize(chain) == shiftx_width)
+		accept;
+	chain.clear();
+endcode
+
+// ------------------------------------------------------------------
+
+subpattern tail
+arg first
+arg shiftx
+arg shiftx_width
+arg slice
+arg clk_port
+arg en_port
+
+match next
+	semioptional
+	select next->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_, $dff, $dffe)
+	select !next->has_keep_attr()
+	select port(next, \D)[0].wire && !port(next, \D)[0].wire->get_bool_attribute(\keep)
+	slice idx GetSize(port(next, \Q))
+	select nusers(port(next, \Q)[idx]) <= 3
+	index <IdString> next->type === chain.back().first->type
+	index <SigBit> port(next, \Q)[idx] === port(chain.back().first, \D)[chain.back().second]
+	index <SigBit> port(next, \Q)[idx] === port(shiftx, \A)[shiftx_width-1-GetSize(chain)]
+	filter port(next, clk_port) == port(first, clk_port)
+	filter en_port == IdString() || port(next, en_port) == port(first, en_port)
+	filter !next->type.in($dff, $dffe) || param(next, \CLK_POLARITY).as_bool() == param(first, \CLK_POLARITY).as_bool()
+	filter !next->type.in($dffe) || param(next, \EN_POLARITY).as_bool() == param(first, \EN_POLARITY).as_bool()
+	filter !chain_bits.count(port(next, \D)[idx])
+	set slice idx
+generate
+	if (GetSize(chain) < shiftx_width) {
+		auto back = chain.back().first;
+		auto slice = chain.back().second;
+		if (back->type.in($dff, $dffe)) {
+			auto WIDTH = GetSize(port(back, \D));
+			if (rng(2) == 0 && slice < WIDTH-1) {
+				auto new_slice = slice + rng(WIDTH-1-slice);
+				back->connections_.at(\D)[slice] = port(back, \Q)[new_slice];
+			}
+			else {
+				auto D = module->addWire(NEW_ID, WIDTH);
+				if (back->type == $dff)
+					module->addDff(NEW_ID, port(back, \CLK), D, port(back, \D), param(back, \CLK_POLARITY).as_bool());
+				else if (back->type == $dffe)
+					module->addDffe(NEW_ID, port(back, \CLK), port(back, \EN), D, port(back, \D), param(back, \CLK_POLARITY).as_bool(), param(back, \EN_POLARITY).as_bool());
+				else
+					log_abort();
+			}
+		}
+		else if (back->type.begins_with("$_DFF_")) {
+			Cell *cell = module->addCell(NEW_ID, back->type);
+			cell->setPort(\C, back->getPort(\C));
+			cell->setPort(\D, module->addWire(NEW_ID));
+			cell->setPort(\Q, back->getPort(\D));
+		}
+		else
+			log_abort();
+		shiftx->connections_.at(\A)[shiftx_width-1-GetSize(chain)] = port(back, \D)[slice];
+	}
+endmatch
+
+code
+	if (next) {
+		chain_bits.insert(port(next, \Q)[slice]);
+		chain.emplace_back(next, slice);
+		if (GetSize(chain) < shiftx_width)
+			subpattern(tail);
+	}
+endcode

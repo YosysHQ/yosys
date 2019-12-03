@@ -1,6 +1,10 @@
-
+`timescale 1ps / 1ps
 `define SB_DFF_REG reg Q = 0
 // `define SB_DFF_REG reg Q
+
+`define ABC9_ARRIVAL_HX(TIME) `ifdef ICE40_HX (* abc9_arrival=TIME *) `endif
+`define ABC9_ARRIVAL_LP(TIME) `ifdef ICE40_LP (* abc9_arrival=TIME *) `endif
+`define ABC9_ARRIVAL_U(TIME)  `ifdef ICE40_U (* abc9_arrival=TIME *) `endif
 
 // SiliconBlue IO Cells
 
@@ -27,18 +31,27 @@ module SB_IO (
 	reg dout_q_0, dout_q_1;
 	reg outena_q;
 
+	// IO tile generates a constant 1'b1 internally if global_cen is not connected
+	wire clken_pulled = CLOCK_ENABLE || CLOCK_ENABLE === 1'bz;
+	reg  clken_pulled_ri;
+	reg  clken_pulled_ro;
+
 	generate if (!NEG_TRIGGER) begin
-		always @(posedge INPUT_CLK)  if (CLOCK_ENABLE) din_q_0  <= PACKAGE_PIN;
-		always @(negedge INPUT_CLK)  if (CLOCK_ENABLE) din_q_1  <= PACKAGE_PIN;
-		always @(posedge OUTPUT_CLK) if (CLOCK_ENABLE) dout_q_0 <= D_OUT_0;
-		always @(negedge OUTPUT_CLK) if (CLOCK_ENABLE) dout_q_1 <= D_OUT_1;
-		always @(posedge OUTPUT_CLK) if (CLOCK_ENABLE) outena_q <= OUTPUT_ENABLE;
+		always @(posedge INPUT_CLK)                       clken_pulled_ri <= clken_pulled;
+		always @(posedge INPUT_CLK)  if (clken_pulled)    din_q_0         <= PACKAGE_PIN;
+		always @(negedge INPUT_CLK)  if (clken_pulled_ri) din_q_1         <= PACKAGE_PIN;
+		always @(posedge OUTPUT_CLK)                      clken_pulled_ro <= clken_pulled;
+		always @(posedge OUTPUT_CLK) if (clken_pulled)    dout_q_0        <= D_OUT_0;
+		always @(negedge OUTPUT_CLK) if (clken_pulled_ro) dout_q_1        <= D_OUT_1;
+		always @(posedge OUTPUT_CLK) if (clken_pulled)    outena_q        <= OUTPUT_ENABLE;
 	end else begin
-		always @(negedge INPUT_CLK)  if (CLOCK_ENABLE) din_q_0  <= PACKAGE_PIN;
-		always @(posedge INPUT_CLK)  if (CLOCK_ENABLE) din_q_1  <= PACKAGE_PIN;
-		always @(negedge OUTPUT_CLK) if (CLOCK_ENABLE) dout_q_0 <= D_OUT_0;
-		always @(posedge OUTPUT_CLK) if (CLOCK_ENABLE) dout_q_1 <= D_OUT_1;
-		always @(negedge OUTPUT_CLK) if (CLOCK_ENABLE) outena_q <= OUTPUT_ENABLE;
+		always @(negedge INPUT_CLK)                       clken_pulled_ri <= clken_pulled;
+		always @(negedge INPUT_CLK)  if (clken_pulled)    din_q_0         <= PACKAGE_PIN;
+		always @(posedge INPUT_CLK)  if (clken_pulled_ri) din_q_1         <= PACKAGE_PIN;
+		always @(negedge OUTPUT_CLK)                      clken_pulled_ro <= clken_pulled;
+		always @(negedge OUTPUT_CLK) if (clken_pulled)    dout_q_0        <= D_OUT_0;
+		always @(posedge OUTPUT_CLK) if (clken_pulled_ro) dout_q_1        <= D_OUT_1;
+		always @(negedge OUTPUT_CLK) if (clken_pulled)    outena_q        <= OUTPUT_ENABLE;
 	end endgenerate
 
 	always @* begin
@@ -67,6 +80,37 @@ module SB_IO (
 		if (PIN_TYPE[5:4] == 2'b10) assign PACKAGE_PIN = OUTPUT_ENABLE ? dout : 1'bz;
 		if (PIN_TYPE[5:4] == 2'b11) assign PACKAGE_PIN = outena_q ? dout : 1'bz;
 	endgenerate
+`endif
+`ifdef TIMING
+specify
+	(INPUT_CLK => D_IN_0) = (0:0:0, 0:0:0);
+	(INPUT_CLK => D_IN_1) = (0:0:0, 0:0:0);
+	(PACKAGE_PIN => D_IN_0) = (0:0:0, 0:0:0);
+	(OUTPUT_CLK => PACKAGE_PIN) = (0:0:0, 0:0:0);
+	(D_OUT_0 => PACKAGE_PIN) = (0:0:0, 0:0:0);
+	(OUTPUT_ENABLE => PACKAGE_PIN) = (0:0:0, 0:0:0);
+
+	$setuphold(posedge OUTPUT_CLK, posedge D_OUT_0, 0:0:0, 0:0:0);
+	$setuphold(posedge OUTPUT_CLK, negedge D_OUT_0, 0:0:0, 0:0:0);
+	$setuphold(negedge OUTPUT_CLK, posedge D_OUT_1, 0:0:0, 0:0:0);
+	$setuphold(negedge OUTPUT_CLK, negedge D_OUT_1, 0:0:0, 0:0:0);
+	$setuphold(negedge OUTPUT_CLK, posedge D_OUT_0, 0:0:0, 0:0:0);
+	$setuphold(negedge OUTPUT_CLK, negedge D_OUT_0, 0:0:0, 0:0:0);
+	$setuphold(posedge OUTPUT_CLK, posedge D_OUT_1, 0:0:0, 0:0:0);
+	$setuphold(posedge OUTPUT_CLK, negedge D_OUT_1, 0:0:0, 0:0:0);
+	$setuphold(posedge INPUT_CLK, posedge CLOCK_ENABLE, 0:0:0, 0:0:0);
+	$setuphold(posedge INPUT_CLK, negedge CLOCK_ENABLE, 0:0:0, 0:0:0);
+	$setuphold(posedge OUTPUT_CLK, posedge CLOCK_ENABLE, 0:0:0, 0:0:0);
+	$setuphold(posedge OUTPUT_CLK, negedge CLOCK_ENABLE, 0:0:0, 0:0:0);
+	$setuphold(posedge INPUT_CLK, posedge PACKAGE_PIN, 0:0:0, 0:0:0);
+	$setuphold(posedge INPUT_CLK, negedge PACKAGE_PIN, 0:0:0, 0:0:0);
+	$setuphold(negedge INPUT_CLK, posedge PACKAGE_PIN, 0:0:0, 0:0:0);
+	$setuphold(negedge INPUT_CLK, negedge PACKAGE_PIN, 0:0:0, 0:0:0);
+	$setuphold(posedge OUTPUT_CLK, posedge OUTPUT_ENABLE, 0:0:0, 0:0:0);
+	$setuphold(posedge OUTPUT_CLK, negedge OUTPUT_ENABLE, 0:0:0, 0:0:0);
+	$setuphold(negedge OUTPUT_CLK, posedge OUTPUT_ENABLE, 0:0:0, 0:0:0);
+	$setuphold(negedge OUTPUT_CLK, negedge OUTPUT_ENABLE, 0:0:0, 0:0:0);
+endspecify
 `endif
 endmodule
 
@@ -114,10 +158,16 @@ module SB_GB (
 	output GLOBAL_BUFFER_OUTPUT
 );
 	assign GLOBAL_BUFFER_OUTPUT = USER_SIGNAL_TO_GLOBAL_BUFFER;
+`ifdef TIMING
+specify
+	(USER_SIGNAL_TO_GLOBAL_BUFFER => GLOBAL_BUFFER_OUTPUT) = (0:0:0, 0:0:0);
+endspecify
+`endif
 endmodule
 
 // SiliconBlue Logic Cells
 
+(* lib_whitebox *)
 module SB_LUT4 (output O, input I0, I1, I2, I3);
 	parameter [15:0] LUT_INIT = 0;
 	wire [7:0] s3 = I3 ? LUT_INIT[15:8] : LUT_INIT[7:0];
@@ -126,24 +176,47 @@ module SB_LUT4 (output O, input I0, I1, I2, I3);
 	assign O = I0 ? s1[1] : s1[0];
 endmodule
 
+(* lib_whitebox *)
 module SB_CARRY (output CO, input I0, I1, CI);
 	assign CO = (I0 && I1) || ((I0 || I1) && CI);
 endmodule
 
+// Max delay from: https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
+//                 https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
+//                 https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
+
 // Positive Edge SiliconBlue FF Cells
 
-module SB_DFF (output `SB_DFF_REG, input C, D);
+module SB_DFF (
+	`ABC9_ARRIVAL_HX(540)
+	`ABC9_ARRIVAL_LP(796)
+	`ABC9_ARRIVAL_U(1391)
+	output `SB_DFF_REG,
+	input C, D
+);
 	always @(posedge C)
 		Q <= D;
 endmodule
 
-module SB_DFFE (output `SB_DFF_REG, input C, E, D);
+module SB_DFFE (
+	`ABC9_ARRIVAL_HX(540)
+	`ABC9_ARRIVAL_LP(796)
+	`ABC9_ARRIVAL_U(1391)
+	output `SB_DFF_REG,
+	input C, E, D
+);
 	always @(posedge C)
 		if (E)
 			Q <= D;
 endmodule
 
-module SB_DFFSR (output `SB_DFF_REG, input C, R, D);
+module SB_DFFSR (
+	`ABC9_ARRIVAL_HX(540)
+	`ABC9_ARRIVAL_LP(796)
+	`ABC9_ARRIVAL_U(1391)
+	output `SB_DFF_REG,
+	input C, R, D
+);
 	always @(posedge C)
 		if (R)
 			Q <= 0;
@@ -151,7 +224,13 @@ module SB_DFFSR (output `SB_DFF_REG, input C, R, D);
 			Q <= D;
 endmodule
 
-module SB_DFFR (output `SB_DFF_REG, input C, R, D);
+module SB_DFFR (
+	`ABC9_ARRIVAL_HX(540)
+	`ABC9_ARRIVAL_LP(796)
+	`ABC9_ARRIVAL_U(1391)
+	output `SB_DFF_REG,
+	input C, R, D
+);
 	always @(posedge C, posedge R)
 		if (R)
 			Q <= 0;
@@ -159,7 +238,13 @@ module SB_DFFR (output `SB_DFF_REG, input C, R, D);
 			Q <= D;
 endmodule
 
-module SB_DFFSS (output `SB_DFF_REG, input C, S, D);
+module SB_DFFSS (
+	`ABC9_ARRIVAL_HX(540)
+	`ABC9_ARRIVAL_LP(796)
+	`ABC9_ARRIVAL_U(1391)
+	output `SB_DFF_REG,
+	input C, S, D
+);
 	always @(posedge C)
 		if (S)
 			Q <= 1;
@@ -167,7 +252,13 @@ module SB_DFFSS (output `SB_DFF_REG, input C, S, D);
 			Q <= D;
 endmodule
 
-module SB_DFFS (output `SB_DFF_REG, input C, S, D);
+module SB_DFFS (
+	`ABC9_ARRIVAL_HX(540)
+	`ABC9_ARRIVAL_LP(796)
+	`ABC9_ARRIVAL_U(1391)
+	output `SB_DFF_REG,
+	input C, S, D
+);
 	always @(posedge C, posedge S)
 		if (S)
 			Q <= 1;
@@ -175,7 +266,13 @@ module SB_DFFS (output `SB_DFF_REG, input C, S, D);
 			Q <= D;
 endmodule
 
-module SB_DFFESR (output `SB_DFF_REG, input C, E, R, D);
+module SB_DFFESR (
+	`ABC9_ARRIVAL_HX(540)
+	`ABC9_ARRIVAL_LP(796)
+	`ABC9_ARRIVAL_U(1391)
+	output `SB_DFF_REG,
+	input C, E, R, D
+);
 	always @(posedge C)
 		if (E) begin
 			if (R)
@@ -185,7 +282,13 @@ module SB_DFFESR (output `SB_DFF_REG, input C, E, R, D);
 		end
 endmodule
 
-module SB_DFFER (output `SB_DFF_REG, input C, E, R, D);
+module SB_DFFER (
+	`ABC9_ARRIVAL_HX(540)
+	`ABC9_ARRIVAL_LP(796)
+	`ABC9_ARRIVAL_U(1391)
+	output `SB_DFF_REG,
+	input C, E, R, D
+);
 	always @(posedge C, posedge R)
 		if (R)
 			Q <= 0;
@@ -193,7 +296,13 @@ module SB_DFFER (output `SB_DFF_REG, input C, E, R, D);
 			Q <= D;
 endmodule
 
-module SB_DFFESS (output `SB_DFF_REG, input C, E, S, D);
+module SB_DFFESS (
+	`ABC9_ARRIVAL_HX(540)
+	`ABC9_ARRIVAL_LP(796)
+	`ABC9_ARRIVAL_U(1391)
+	output `SB_DFF_REG,
+	input C, E, S, D
+);
 	always @(posedge C)
 		if (E) begin
 			if (S)
@@ -203,7 +312,13 @@ module SB_DFFESS (output `SB_DFF_REG, input C, E, S, D);
 		end
 endmodule
 
-module SB_DFFES (output `SB_DFF_REG, input C, E, S, D);
+module SB_DFFES (
+	`ABC9_ARRIVAL_HX(540)
+	`ABC9_ARRIVAL_LP(796)
+	`ABC9_ARRIVAL_U(1391)
+	output `SB_DFF_REG,
+	input C, E, S, D
+);
 	always @(posedge C, posedge S)
 		if (S)
 			Q <= 1;
@@ -213,18 +328,36 @@ endmodule
 
 // Negative Edge SiliconBlue FF Cells
 
-module SB_DFFN (output `SB_DFF_REG, input C, D);
+module SB_DFFN (
+	`ABC9_ARRIVAL_HX(540)
+	`ABC9_ARRIVAL_LP(796)
+	`ABC9_ARRIVAL_U(1391)
+	output `SB_DFF_REG,
+	input C, D
+);
 	always @(negedge C)
 		Q <= D;
 endmodule
 
-module SB_DFFNE (output `SB_DFF_REG, input C, E, D);
+module SB_DFFNE (
+	`ABC9_ARRIVAL_HX(540)
+	`ABC9_ARRIVAL_LP(796)
+	`ABC9_ARRIVAL_U(1391)
+	output `SB_DFF_REG,
+	input C, E, D
+);
 	always @(negedge C)
 		if (E)
 			Q <= D;
 endmodule
 
-module SB_DFFNSR (output `SB_DFF_REG, input C, R, D);
+module SB_DFFNSR (
+	`ABC9_ARRIVAL_HX(540)
+	`ABC9_ARRIVAL_LP(796)
+	`ABC9_ARRIVAL_U(1391)
+	output `SB_DFF_REG,
+	input C, R, D
+);
 	always @(negedge C)
 		if (R)
 			Q <= 0;
@@ -232,7 +365,13 @@ module SB_DFFNSR (output `SB_DFF_REG, input C, R, D);
 			Q <= D;
 endmodule
 
-module SB_DFFNR (output `SB_DFF_REG, input C, R, D);
+module SB_DFFNR (
+	`ABC9_ARRIVAL_HX(540)
+	`ABC9_ARRIVAL_LP(796)
+	`ABC9_ARRIVAL_U(1391)
+	output `SB_DFF_REG,
+	input C, R, D
+);
 	always @(negedge C, posedge R)
 		if (R)
 			Q <= 0;
@@ -240,7 +379,13 @@ module SB_DFFNR (output `SB_DFF_REG, input C, R, D);
 			Q <= D;
 endmodule
 
-module SB_DFFNSS (output `SB_DFF_REG, input C, S, D);
+module SB_DFFNSS (
+	`ABC9_ARRIVAL_HX(540)
+	`ABC9_ARRIVAL_LP(796)
+	`ABC9_ARRIVAL_U(1391)
+	output `SB_DFF_REG,
+	input C, S, D
+);
 	always @(negedge C)
 		if (S)
 			Q <= 1;
@@ -248,7 +393,13 @@ module SB_DFFNSS (output `SB_DFF_REG, input C, S, D);
 			Q <= D;
 endmodule
 
-module SB_DFFNS (output `SB_DFF_REG, input C, S, D);
+module SB_DFFNS (
+	`ABC9_ARRIVAL_HX(540)
+	`ABC9_ARRIVAL_LP(796)
+	`ABC9_ARRIVAL_U(1391)
+	output `SB_DFF_REG,
+	input C, S, D
+);
 	always @(negedge C, posedge S)
 		if (S)
 			Q <= 1;
@@ -256,7 +407,13 @@ module SB_DFFNS (output `SB_DFF_REG, input C, S, D);
 			Q <= D;
 endmodule
 
-module SB_DFFNESR (output `SB_DFF_REG, input C, E, R, D);
+module SB_DFFNESR (
+	`ABC9_ARRIVAL_HX(540)
+	`ABC9_ARRIVAL_LP(796)
+	`ABC9_ARRIVAL_U(1391)
+	output `SB_DFF_REG,
+	input C, E, R, D
+);
 	always @(negedge C)
 		if (E) begin
 			if (R)
@@ -266,7 +423,13 @@ module SB_DFFNESR (output `SB_DFF_REG, input C, E, R, D);
 		end
 endmodule
 
-module SB_DFFNER (output `SB_DFF_REG, input C, E, R, D);
+module SB_DFFNER (
+	`ABC9_ARRIVAL_HX(540)
+	`ABC9_ARRIVAL_LP(796)
+	`ABC9_ARRIVAL_U(1391)
+	output `SB_DFF_REG,
+	input C, E, R, D
+);
 	always @(negedge C, posedge R)
 		if (R)
 			Q <= 0;
@@ -274,7 +437,13 @@ module SB_DFFNER (output `SB_DFF_REG, input C, E, R, D);
 			Q <= D;
 endmodule
 
-module SB_DFFNESS (output `SB_DFF_REG, input C, E, S, D);
+module SB_DFFNESS (
+	`ABC9_ARRIVAL_HX(540)
+	`ABC9_ARRIVAL_LP(796)
+	`ABC9_ARRIVAL_U(1391)
+	output `SB_DFF_REG,
+	input C, E, S, D
+);
 	always @(negedge C)
 		if (E) begin
 			if (S)
@@ -284,7 +453,13 @@ module SB_DFFNESS (output `SB_DFF_REG, input C, E, S, D);
 		end
 endmodule
 
-module SB_DFFNES (output `SB_DFF_REG, input C, E, S, D);
+module SB_DFFNES (
+	`ABC9_ARRIVAL_HX(540)
+	`ABC9_ARRIVAL_LP(796)
+	`ABC9_ARRIVAL_U(1391)
+	output `SB_DFF_REG,
+	input C, E, S, D
+);
 	always @(negedge C, posedge S)
 		if (S)
 			Q <= 1;
@@ -295,6 +470,9 @@ endmodule
 // SiliconBlue RAM Cells
 
 module SB_RAM40_4K (
+	`ABC9_ARRIVAL_HX(2146) // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L401
+	`ABC9_ARRIVAL_LP(3163) // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L401
+	`ABC9_ARRIVAL_U(1179)  // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13026
 	output [15:0] RDATA,
 	input         RCLK, RCLKE, RE,
 	input  [10:0] RADDR,
@@ -463,6 +641,9 @@ module SB_RAM40_4K (
 endmodule
 
 module SB_RAM40_4KNR (
+	`ABC9_ARRIVAL_HX(2146) // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L401
+	`ABC9_ARRIVAL_LP(3163) // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L401
+	`ABC9_ARRIVAL_U(1179)  // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13026
 	output [15:0] RDATA,
 	input         RCLKN, RCLKE, RE,
 	input  [10:0] RADDR,
@@ -528,6 +709,9 @@ module SB_RAM40_4KNR (
 endmodule
 
 module SB_RAM40_4KNW (
+	`ABC9_ARRIVAL_HX(2146) // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L401
+	`ABC9_ARRIVAL_LP(3163) // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L401
+	`ABC9_ARRIVAL_U(1179)  // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13026
 	output [15:0] RDATA,
 	input         RCLK, RCLKE, RE,
 	input  [10:0] RADDR,
@@ -593,6 +777,9 @@ module SB_RAM40_4KNW (
 endmodule
 
 module SB_RAM40_4KNRNW (
+	`ABC9_ARRIVAL_HX(2146) // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L401
+	`ABC9_ARRIVAL_LP(3163) // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L401
+	`ABC9_ARRIVAL_U(1179)  // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13026
 	output [15:0] RDATA,
 	input         RCLKN, RCLKE, RE,
 	input  [10:0] RADDR,
@@ -661,7 +848,12 @@ endmodule
 
 module ICESTORM_LC (
 	input I0, I1, I2, I3, CIN, CLK, CEN, SR,
-	output LO, O, COUT
+	output LO,
+	`ABC9_ARRIVAL_HX(540)
+	`ABC9_ARRIVAL_LP(796)
+	`ABC9_ARRIVAL_U(1391)
+	output O,
+	output COUT
 );
 	parameter [15:0] LUT_INIT = 0;
 
@@ -674,33 +866,81 @@ module ICESTORM_LC (
 	parameter [0:0] CIN_CONST    = 0;
 	parameter [0:0] CIN_SET      = 0;
 
+	wire I0_pd = (I0 === 1'bz) ? 1'b0 : I0;
+	wire I1_pd = (I1 === 1'bz) ? 1'b0 : I1;
+	wire I2_pd = (I2 === 1'bz) ? 1'b0 : I2;
+	wire I3_pd = (I3 === 1'bz) ? 1'b0 : I3;
+	wire SR_pd = (SR === 1'bz) ? 1'b0 : SR;
+	wire CEN_pu = (CEN === 1'bz) ? 1'b1 : CEN;
+
 	wire mux_cin = CIN_CONST ? CIN_SET : CIN;
 
-	assign COUT = CARRY_ENABLE ? (I1 && I2) || ((I1 || I2) && mux_cin) : 1'bx;
+	assign COUT = CARRY_ENABLE ? (I1_pd && I2_pd) || ((I1_pd || I2_pd) && mux_cin) : 1'bx;
 
-	wire [7:0] lut_s3 = I3 ? LUT_INIT[15:8] : LUT_INIT[7:0];
-	wire [3:0] lut_s2 = I2 ?   lut_s3[ 7:4] :   lut_s3[3:0];
-	wire [1:0] lut_s1 = I1 ?   lut_s2[ 3:2] :   lut_s2[1:0];
-	wire       lut_o  = I0 ?   lut_s1[   1] :   lut_s1[  0];
+	wire [7:0] lut_s3 = I3_pd ? LUT_INIT[15:8] : LUT_INIT[7:0];
+	wire [3:0] lut_s2 = I2_pd ?   lut_s3[ 7:4] :   lut_s3[3:0];
+	wire [1:0] lut_s1 = I1_pd ?   lut_s2[ 3:2] :   lut_s2[1:0];
+	wire       lut_o  = I0_pd ?   lut_s1[   1] :   lut_s1[  0];
 
 	assign LO = lut_o;
 
 	wire polarized_clk;
 	assign polarized_clk = CLK ^ NEG_CLK;
 
-	reg o_reg;
+	reg o_reg = 1'b0;
 	always @(posedge polarized_clk)
-		if (CEN)
-			o_reg <= SR ? SET_NORESET : lut_o;
+		if (CEN_pu)
+			o_reg <= SR_pd ? SET_NORESET : lut_o;
 
-	reg o_reg_async;
+	reg o_reg_async = 1'b0;
 	always @(posedge polarized_clk, posedge SR)
-		if (SR)
-			o_reg <= SET_NORESET;
-		else if (CEN)
-			o_reg <= lut_o;
+		if (SR_pd)
+			o_reg_async <= SET_NORESET;
+		else if (CEN_pu)
+			o_reg_async <= lut_o;
 
 	assign O = DFF_ENABLE ? ASYNC_SR ? o_reg_async : o_reg : lut_o;
+`ifdef TIMING
+specify
+	(I0 => O) = (0:0:0, 0:0:0);
+	(I1 => O) = (0:0:0, 0:0:0);
+	(I2 => O) = (0:0:0, 0:0:0);
+	(I3 => O) = (0:0:0, 0:0:0);
+	(I0 => LO) = (0:0:0, 0:0:0);
+	(I1 => LO) = (0:0:0, 0:0:0);
+	(I2 => LO) = (0:0:0, 0:0:0);
+	(I3 => LO) = (0:0:0, 0:0:0);
+	(I1 => COUT) = (0:0:0, 0:0:0);
+	(I2 => COUT) = (0:0:0, 0:0:0);
+	(CIN => COUT) = (0:0:0, 0:0:0);
+	(CLK => O) = (0:0:0, 0:0:0);
+	(SR => O) = (0:0:0, 0:0:0);
+	$setuphold(posedge CLK, posedge I0, 0:0:0, 0:0:0);
+	$setuphold(posedge CLK, negedge I0, 0:0:0, 0:0:0);
+	$setuphold(negedge CLK, posedge I0, 0:0:0, 0:0:0);
+	$setuphold(negedge CLK, negedge I0, 0:0:0, 0:0:0);
+	$setuphold(posedge CLK, posedge I1, 0:0:0, 0:0:0);
+	$setuphold(posedge CLK, negedge I1, 0:0:0, 0:0:0);
+	$setuphold(negedge CLK, posedge I1, 0:0:0, 0:0:0);
+	$setuphold(negedge CLK, negedge I1, 0:0:0, 0:0:0);
+	$setuphold(posedge CLK, posedge I2, 0:0:0, 0:0:0);
+	$setuphold(posedge CLK, negedge I2, 0:0:0, 0:0:0);
+	$setuphold(negedge CLK, posedge I2, 0:0:0, 0:0:0);
+	$setuphold(negedge CLK, negedge I2, 0:0:0, 0:0:0);
+	$setuphold(posedge CLK, posedge I3, 0:0:0, 0:0:0);
+	$setuphold(posedge CLK, negedge I3, 0:0:0, 0:0:0);
+	$setuphold(negedge CLK, posedge I3, 0:0:0, 0:0:0);
+	$setuphold(negedge CLK, negedge I3, 0:0:0, 0:0:0);
+	$setuphold(posedge CLK, posedge CEN, 0:0:0, 0:0:0);
+	$setuphold(posedge CLK, negedge CEN, 0:0:0, 0:0:0);
+	$setuphold(negedge CLK, posedge CEN, 0:0:0, 0:0:0);
+	$setuphold(negedge CLK, negedge CEN, 0:0:0, 0:0:0);
+	$setuphold(posedge CLK, posedge SR, 0:0:0, 0:0:0);
+	$setuphold(posedge CLK, negedge SR, 0:0:0, 0:0:0);
+	$setuphold(negedge CLK, posedge SR, 0:0:0, 0:0:0);
+	$setuphold(negedge CLK, negedge SR, 0:0:0, 0:0:0);
+endspecify
+`endif
 endmodule
 
 // SiliconBlue PLL Cells
@@ -921,10 +1161,21 @@ endmodule
 
 (* blackbox *)
 module SB_HFOSC(
+	input TRIM0,
+	input TRIM1,
+	input TRIM2,
+	input TRIM3,
+	input TRIM4,
+	input TRIM5,
+	input TRIM6,
+	input TRIM7,
+	input TRIM8,
+	input TRIM9,
 	input CLKHFPU,
 	input CLKHFEN,
 	output CLKHF
 );
+parameter TRIM_EN = "0b0";
 parameter CLKHF_DIV = "0b00";
 endmodule
 
@@ -943,6 +1194,30 @@ module SB_RGBA_DRV(
 	input RGB0PWM,
 	input RGB1PWM,
 	input RGB2PWM,
+	output RGB0,
+	output RGB1,
+	output RGB2
+);
+parameter CURRENT_MODE = "0b0";
+parameter RGB0_CURRENT = "0b000000";
+parameter RGB1_CURRENT = "0b000000";
+parameter RGB2_CURRENT = "0b000000";
+endmodule
+
+(* blackbox *)
+module SB_LED_DRV_CUR(
+	input EN,
+	output LEDPU
+);
+endmodule
+
+(* blackbox *)
+module SB_RGB_DRV(
+	input RGBLEDEN,
+	input RGB0PWM,
+	input RGB1PWM,
+	input RGB2PWM,
+	input RGBPU,
 	output RGB0,
 	output RGB1,
 	output RGB2
@@ -1294,13 +1569,13 @@ module SB_MAC16 (
 	wire [15:0] p_Ah_Bh, p_Al_Bh, p_Ah_Bl, p_Al_Bl;
 	wire [15:0] Ah, Al, Bh, Bl;
 	assign Ah = {A_SIGNED ? {8{iA[15]}} : 8'b0, iA[15: 8]};
-	assign Al = {A_SIGNED ? {8{iA[ 7]}} : 8'b0, iA[ 7: 0]};
+	assign Al = {A_SIGNED && MODE_8x8 ? {8{iA[ 7]}} : 8'b0, iA[ 7: 0]};
 	assign Bh = {B_SIGNED ? {8{iB[15]}} : 8'b0, iB[15: 8]};
-	assign Bl = {B_SIGNED ? {8{iB[ 7]}} : 8'b0, iB[ 7: 0]};
-	assign p_Ah_Bh = Ah * Bh;
-	assign p_Al_Bh = Al * Bh;
-	assign p_Ah_Bl = Ah * Bl;
-	assign p_Al_Bl = Al * Bl;
+	assign Bl = {B_SIGNED && MODE_8x8 ? {8{iB[ 7]}} : 8'b0, iB[ 7: 0]};
+	assign p_Ah_Bh = Ah * Bh; // F
+	assign p_Al_Bh = {8'b0, Al[7:0]} * Bh; // J
+	assign p_Ah_Bl = Ah * {8'b0, Bl[7:0]}; // K
+	assign p_Al_Bl = Al * Bl; // G
 
 	// Regs F and J
 	reg [15:0] rF, rJ;
@@ -1331,7 +1606,9 @@ module SB_MAC16 (
 	assign iG = BOT_8x8_MULT_REG ? rG : p_Al_Bl;
 
 	// Adder Stage
-	assign iL = iG + (iK << 8) + (iJ << 8) + (iF << 16);
+	wire [23:0] iK_e = {A_SIGNED ? {8{iK[15]}} : 8'b0, iK};
+	wire [23:0] iJ_e = {B_SIGNED ? {8{iJ[15]}} : 8'b0, iJ};
+	assign iL = iG + (iK_e << 8) + (iJ_e << 8) + (iF << 16);
 
 	// Reg H
 	reg [31:0] rH;
@@ -1382,4 +1659,342 @@ module SB_MAC16 (
 	assign Ol = (BOTOUTPUT_SELECT == 0) ? iR : (BOTOUTPUT_SELECT == 1) ? iS : (BOTOUTPUT_SELECT == 2) ? iG : iH[15:0];
 	assign LCI = (BOTADDSUB_CARRYSELECT == 0) ? 1'b0 : (BOTADDSUB_CARRYSELECT == 1) ? 1'b1 : (BOTADDSUB_CARRYSELECT == 2) ? ACCUMCI : CI;
 	assign O = {Oh, Ol};
+endmodule
+
+// Post-place-and-route RAM model
+module ICESTORM_RAM(
+	output RDATA_15, RDATA_14, RDATA_13, RDATA_12, RDATA_11, RDATA_10, RDATA_9, RDATA_8, RDATA_7, RDATA_6, RDATA_5, RDATA_4, RDATA_3, RDATA_2, RDATA_1, RDATA_0,
+	input  RCLK, RCLKE, RE,
+	input  RADDR_10, RADDR_9, RADDR_8, RADDR_7, RADDR_6, RADDR_5, RADDR_4, RADDR_3, RADDR_2, RADDR_1, RADDR_0,
+	input  WCLK, WCLKE, WE,
+	input  WADDR_10, WADDR_9, WADDR_8, WADDR_7, WADDR_6, WADDR_5, WADDR_4, WADDR_3, WADDR_2, WADDR_1, WADDR_0,
+	input  MASK_15, MASK_14, MASK_13, MASK_12, MASK_11, MASK_10, MASK_9, MASK_8, MASK_7, MASK_6, MASK_5, MASK_4, MASK_3, MASK_2, MASK_1, MASK_0,
+	input  WDATA_15, WDATA_14, WDATA_13, WDATA_12, WDATA_11, WDATA_10, WDATA_9, WDATA_8, WDATA_7, WDATA_6, WDATA_5, WDATA_4, WDATA_3, WDATA_2, WDATA_1, WDATA_0
+);
+	parameter WRITE_MODE = 0;
+	parameter READ_MODE = 0;
+
+	parameter NEG_CLK_R = 1'b0;
+	parameter NEG_CLK_W = 1'b0;
+
+	parameter INIT_0 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+	parameter INIT_1 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+	parameter INIT_2 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+	parameter INIT_3 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+	parameter INIT_4 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+	parameter INIT_5 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+	parameter INIT_6 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+	parameter INIT_7 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+	parameter INIT_8 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+	parameter INIT_9 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+	parameter INIT_A = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+	parameter INIT_B = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+	parameter INIT_C = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+	parameter INIT_D = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+	parameter INIT_E = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+	parameter INIT_F = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+
+	// Pull-down and pull-up functions
+	function pd;
+		input x;
+		begin
+			pd = (x === 1'bz) ? 1'b0 : x;
+		end
+	endfunction
+
+	function pu;
+		input x;
+		begin
+			pu = (x === 1'bz) ? 1'b1 : x;
+		end
+	endfunction
+
+	SB_RAM40_4K #(
+		.WRITE_MODE(WRITE_MODE),
+		.READ_MODE (READ_MODE ),
+		.INIT_0    (INIT_0    ),
+		.INIT_1    (INIT_1    ),
+		.INIT_2    (INIT_2    ),
+		.INIT_3    (INIT_3    ),
+		.INIT_4    (INIT_4    ),
+		.INIT_5    (INIT_5    ),
+		.INIT_6    (INIT_6    ),
+		.INIT_7    (INIT_7    ),
+		.INIT_8    (INIT_8    ),
+		.INIT_9    (INIT_9    ),
+		.INIT_A    (INIT_A    ),
+		.INIT_B    (INIT_B    ),
+		.INIT_C    (INIT_C    ),
+		.INIT_D    (INIT_D    ),
+		.INIT_E    (INIT_E    ),
+		.INIT_F    (INIT_F    )
+	) RAM (
+		.RDATA({RDATA_15, RDATA_14, RDATA_13, RDATA_12, RDATA_11, RDATA_10, RDATA_9, RDATA_8, RDATA_7, RDATA_6, RDATA_5, RDATA_4, RDATA_3, RDATA_2, RDATA_1, RDATA_0}),
+		.RCLK (pd(RCLK) ^ NEG_CLK_R),
+		.RCLKE(pu(RCLKE)),
+		.RE   (pd(RE)),
+		.RADDR({pd(RADDR_10), pd(RADDR_9), pd(RADDR_8), pd(RADDR_7), pd(RADDR_6), pd(RADDR_5), pd(RADDR_4), pd(RADDR_3), pd(RADDR_2), pd(RADDR_1), pd(RADDR_0)}),
+		.WCLK (pd(WCLK) ^ NEG_CLK_W),
+		.WCLKE(pu(WCLKE)),
+		.WE   (pd(WE)),
+		.WADDR({pd(WADDR_10), pd(WADDR_9), pd(WADDR_8), pd(WADDR_7), pd(WADDR_6), pd(WADDR_5), pd(WADDR_4), pd(WADDR_3), pd(WADDR_2), pd(WADDR_1), pd(WADDR_0)}),
+		.MASK ({pd(MASK_15), pd(MASK_14), pd(MASK_13), pd(MASK_12), pd(MASK_11), pd(MASK_10), pd(MASK_9), pd(MASK_8),
+			pd(MASK_7), pd(MASK_6), pd(MASK_5), pd(MASK_4), pd(MASK_3), pd(MASK_2), pd(MASK_1), pd(MASK_0)}),
+		.WDATA({pd(WDATA_15), pd(WDATA_14), pd(WDATA_13), pd(WDATA_12), pd(WDATA_11), pd(WDATA_10), pd(WDATA_9), pd(WDATA_8),
+			pd(WDATA_7), pd(WDATA_6), pd(WDATA_5), pd(WDATA_4), pd(WDATA_3), pd(WDATA_2), pd(WDATA_1), pd(WDATA_0)})
+	);
+
+`ifdef TIMING
+specify
+	(RCLK => RDATA_15) = (0:0:0, 0:0:0);
+	(RCLK => RDATA_14) = (0:0:0, 0:0:0);
+	(RCLK => RDATA_13) = (0:0:0, 0:0:0);
+	(RCLK => RDATA_12) = (0:0:0, 0:0:0);
+	(RCLK => RDATA_11) = (0:0:0, 0:0:0);
+	(RCLK => RDATA_10) = (0:0:0, 0:0:0);
+	(RCLK => RDATA_9) = (0:0:0, 0:0:0);
+	(RCLK => RDATA_8) = (0:0:0, 0:0:0);
+	(RCLK => RDATA_7) = (0:0:0, 0:0:0);
+	(RCLK => RDATA_6) = (0:0:0, 0:0:0);
+	(RCLK => RDATA_5) = (0:0:0, 0:0:0);
+	(RCLK => RDATA_4) = (0:0:0, 0:0:0);
+	(RCLK => RDATA_3) = (0:0:0, 0:0:0);
+	(RCLK => RDATA_2) = (0:0:0, 0:0:0);
+	(RCLK => RDATA_1) = (0:0:0, 0:0:0);
+	(RCLK => RDATA_0) = (0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, posedge RCLKE, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, negedge RCLKE, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, posedge RCLKE, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, negedge RCLKE, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, posedge RE, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, negedge RE, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, posedge RE, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, negedge RE, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, posedge RADDR_10, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, negedge RADDR_10, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, posedge RADDR_10, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, negedge RADDR_10, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, posedge RADDR_9, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, negedge RADDR_9, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, posedge RADDR_9, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, negedge RADDR_9, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, posedge RADDR_8, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, negedge RADDR_8, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, posedge RADDR_8, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, negedge RADDR_8, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, posedge RADDR_7, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, negedge RADDR_7, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, posedge RADDR_7, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, negedge RADDR_7, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, posedge RADDR_6, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, negedge RADDR_6, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, posedge RADDR_6, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, negedge RADDR_6, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, posedge RADDR_5, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, negedge RADDR_5, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, posedge RADDR_5, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, negedge RADDR_5, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, posedge RADDR_4, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, negedge RADDR_4, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, posedge RADDR_4, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, negedge RADDR_4, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, posedge RADDR_3, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, negedge RADDR_3, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, posedge RADDR_3, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, negedge RADDR_3, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, posedge RADDR_2, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, negedge RADDR_2, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, posedge RADDR_2, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, negedge RADDR_2, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, posedge RADDR_1, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, negedge RADDR_1, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, posedge RADDR_1, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, negedge RADDR_1, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, posedge RADDR_0, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, negedge RADDR_0, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, posedge RADDR_0, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, negedge RADDR_0, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WCLKE, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WCLKE, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WCLKE, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WCLKE, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WE, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WE, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WE, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WE, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WADDR_10, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WADDR_10, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WADDR_10, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WADDR_10, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WADDR_9, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WADDR_9, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WADDR_9, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WADDR_9, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WADDR_8, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WADDR_8, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WADDR_8, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WADDR_8, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WADDR_7, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WADDR_7, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WADDR_7, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WADDR_7, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WADDR_6, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WADDR_6, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WADDR_6, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WADDR_6, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WADDR_5, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WADDR_5, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WADDR_5, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WADDR_5, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WADDR_4, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WADDR_4, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WADDR_4, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WADDR_4, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WADDR_3, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WADDR_3, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WADDR_3, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WADDR_3, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WADDR_2, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WADDR_2, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WADDR_2, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WADDR_2, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WADDR_1, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WADDR_1, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WADDR_1, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WADDR_1, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WADDR_0, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WADDR_0, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WADDR_0, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WADDR_0, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_15, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_15, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_15, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_15, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_14, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_14, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_14, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_14, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_13, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_13, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_13, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_13, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_12, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_12, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_12, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_12, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_11, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_11, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_11, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_11, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_10, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_10, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_10, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_10, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_9, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_9, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_9, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_9, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_8, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_8, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_8, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_8, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_7, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_7, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_7, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_7, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_6, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_6, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_6, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_6, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_5, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_5, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_5, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_5, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_4, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_4, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_4, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_4, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_3, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_3, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_3, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_3, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_2, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_2, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_2, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_2, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_1, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_1, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_1, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_1, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_0, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_0, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_0, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_0, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_15, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_15, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_15, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_15, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_14, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_14, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_14, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_14, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_13, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_13, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_13, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_13, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_12, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_12, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_12, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_12, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_11, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_11, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_11, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_11, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_10, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_10, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_10, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_10, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_9, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_9, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_9, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_9, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_8, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_8, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_8, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_8, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_7, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_7, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_7, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_7, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_6, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_6, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_6, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_6, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_5, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_5, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_5, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_5, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_4, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_4, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_4, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_4, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_3, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_3, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_3, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_3, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_2, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_2, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_2, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_2, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_1, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_1, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_1, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_1, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_0, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_0, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_0, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_0, 0:0:0, 0:0:0);
+
+endspecify
+`endif
 endmodule

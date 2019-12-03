@@ -1,0 +1,13 @@
+read_verilog ../common/logic.v
+hierarchy -top top
+proc
+equiv_opt -assert -map +/gowin/cells_sim.v synth_gowin # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd top # Constrain all select calls below inside the top module
+
+select -assert-count 1 t:LUT1
+select -assert-count 6 t:LUT2
+select -assert-count 2 t:LUT4
+select -assert-count 8 t:IBUF
+select -assert-count 10 t:OBUF
+select -assert-none t:LUT1 t:LUT2 t:LUT4 t:IBUF t:OBUF %% t:* %D

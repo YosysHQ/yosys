@@ -75,13 +75,16 @@ struct SynthPass : public ScriptPass
 		log("        from label is synonymous to 'begin', and empty to label is\n");
 		log("        synonymous to the end of the command list.\n");
 		log("\n");
+		log("    -abc9\n");
+		log("        use new ABC9 flow (EXPERIMENTAL)\n");
+		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
 		log("\n");
 	}
 
-	string top_module, fsm_opts, memory_opts;
+	string top_module, fsm_opts, memory_opts, abc;
 	bool autotop, flatten, noalumacc, nofsm, noabc, noshare;
 	int lut;
 
@@ -98,6 +101,7 @@ struct SynthPass : public ScriptPass
 		nofsm = false;
 		noabc = false;
 		noshare = false;
+		abc = "abc";
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -159,12 +163,19 @@ struct SynthPass : public ScriptPass
 				noshare = true;
 				continue;
 			}
+			if (args[argidx] == "-abc9") {
+				abc = "abc9";
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");
+
+		if (abc == "abc9" && !lut)
+			log_cmd_error("ABC9 flow only supported for FPGA synthesis (using '-lut' option)\n");
 
 		log_header(design, "Executing SYNTH pass.\n");
 		log_push();
@@ -201,6 +212,8 @@ struct SynthPass : public ScriptPass
 			run("check");
 			run("opt");
 			run("wreduce");
+			run("peepopt");
+			run("opt_clean");
 			if (help_mode)
 				run("techmap -map +/cmp2lut.v", " (if -lut)");
 			else
@@ -239,15 +252,15 @@ struct SynthPass : public ScriptPass
 		#ifdef YOSYS_ENABLE_ABC
 				if (help_mode)
 				{
-					run("abc -fast", "       (unless -noabc, unless -lut)");
-					run("abc -fast -lut k", "(unless -noabc, if -lut)");
+					run(abc + " -fast", "       (unless -noabc, unless -lut)");
+					run(abc + " -fast -lut k", "(unless -noabc, if -lut)");
 				}
 				else
 				{
 					if (lut)
-						run(stringf("abc -fast -lut %d", lut));
+						run(stringf("%s -fast -lut %d", abc.c_str(), lut));
 					else
-						run("abc -fast");
+						run(abc + " -fast");
 				}
 				run("opt -fast", "       (unless -noabc)");
 		#endif

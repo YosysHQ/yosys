@@ -194,8 +194,8 @@ Cell *handle_memory(Module *module, RTLIL::Memory *memory)
 	log_assert(sig_wr_en.size() == wr_ports * memory->width);
 
 	mem->parameters["\\WR_PORTS"] = Const(wr_ports);
-	mem->parameters["\\WR_CLK_ENABLE"] = wr_ports ? sig_wr_clk_enable.as_const() : Const(0, 1);
-	mem->parameters["\\WR_CLK_POLARITY"] = wr_ports ? sig_wr_clk_polarity.as_const() : Const(0, 1);
+	mem->parameters["\\WR_CLK_ENABLE"] = wr_ports ? sig_wr_clk_enable.as_const() : State::S0;
+	mem->parameters["\\WR_CLK_POLARITY"] = wr_ports ? sig_wr_clk_polarity.as_const() : State::S0;
 
 	mem->setPort("\\WR_CLK", sig_wr_clk);
 	mem->setPort("\\WR_ADDR", sig_wr_addr);
@@ -209,14 +209,18 @@ Cell *handle_memory(Module *module, RTLIL::Memory *memory)
 	log_assert(sig_rd_data.size() == rd_ports * memory->width);
 
 	mem->parameters["\\RD_PORTS"] = Const(rd_ports);
-	mem->parameters["\\RD_CLK_ENABLE"] = rd_ports ? sig_rd_clk_enable.as_const() : Const(0, 1);
-	mem->parameters["\\RD_CLK_POLARITY"] = rd_ports ? sig_rd_clk_polarity.as_const() : Const(0, 1);
-	mem->parameters["\\RD_TRANSPARENT"] = rd_ports ? sig_rd_transparent.as_const() : Const(0, 1);
+	mem->parameters["\\RD_CLK_ENABLE"] = rd_ports ? sig_rd_clk_enable.as_const() : State::S0;
+	mem->parameters["\\RD_CLK_POLARITY"] = rd_ports ? sig_rd_clk_polarity.as_const() : State::S0;
+	mem->parameters["\\RD_TRANSPARENT"] = rd_ports ? sig_rd_transparent.as_const() : State::S0;
 
 	mem->setPort("\\RD_CLK", sig_rd_clk);
 	mem->setPort("\\RD_ADDR", sig_rd_addr);
 	mem->setPort("\\RD_DATA", sig_rd_data);
 	mem->setPort("\\RD_EN", sig_rd_en);
+
+	// Copy attributes from RTLIL memory to $mem
+	for (auto attr : memory->attributes)
+		mem->attributes[attr.first] = attr.second;
 
 	for (auto c : memcells)
 		module->remove(c);

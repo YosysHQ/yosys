@@ -17,6 +17,11 @@
  *
  */
 
+// [[CITE]] Btor2 , BtorMC and Boolector 3.0
+// Aina Niemetz, Mathias Preiner, Clifford Wolf, Armin Biere
+// Computer Aided Verification - 30th International Conference, CAV 2018
+// https://cs.stanford.edu/people/niemetz/publication/2018/niemetzpreinerwolfbiere-cav18/
+
 #include "kernel/rtlil.h"
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
@@ -129,7 +134,13 @@ struct BtorWorker
 
 	void export_cell(Cell *cell)
 	{
-		log_assert(cell_recursion_guard.count(cell) == 0);
+		if (cell_recursion_guard.count(cell)) {
+			string cell_list;
+			for (auto c : cell_recursion_guard)
+				cell_list += stringf("\n    %s", log_id(c));
+			log_error("Found topological loop while processing cell %s. Active cells:%s\n", log_id(cell), cell_list.c_str());
+		}
+
 		cell_recursion_guard.insert(cell);
 		btorf_push(log_id(cell));
 
@@ -340,7 +351,7 @@ struct BtorWorker
 			if (cell->type == "$lt") btor_op = "lt";
 			if (cell->type == "$le") btor_op = "lte";
 			if (cell->type.in("$eq", "$eqx")) btor_op = "eq";
-			if (cell->type.in("$ne", "$nex")) btor_op = "ne";
+			if (cell->type.in("$ne", "$nex")) btor_op = "neq";
 			if (cell->type == "$ge") btor_op = "gte";
 			if (cell->type == "$gt") btor_op = "gt";
 			log_assert(!btor_op.empty());
@@ -485,7 +496,7 @@ struct BtorWorker
 			goto okay;
 		}
 
-		if (cell->type.in("$mux", "$_MUX_"))
+		if (cell->type.in("$mux", "$_MUX_", "$_NMUX_"))
 		{
 			SigSpec sig_a = sigmap(cell->getPort("\\A"));
 			SigSpec sig_b = sigmap(cell->getPort("\\B"));
@@ -499,6 +510,12 @@ struct BtorWorker
 			int sid = get_bv_sid(GetSize(sig_y));
 			int nid = next_nid++;
 			btorf("%d ite %d %d %d %d\n", nid, sid, nid_s, nid_b, nid_a);
+
+			if (cell->type == "$_NMUX_") {
+				int tmp = nid;
+				nid = next_nid++;
+				btorf("%d not %d %d\n", nid, sid, tmp);
+			}
 
 			add_nid_sig(nid, sig_y);
 			goto okay;
@@ -552,7 +569,7 @@ struct BtorWorker
 			int nid_init_val = -1;
 
 			if (!initval.is_fully_undef())
-				nid_init_val = get_sig_nid(initval);
+				nid_init_val = get_sig_nid(initval, -1, false, true);
 
 			int sid = get_bv_sid(GetSize(sig_q));
 			int nid = next_nid++;
@@ -599,8 +616,8 @@ struct BtorWorker
 			if (initstate_nid < 0)
 			{
 				int sid = get_bv_sid(1);
-				int one_nid = get_sig_nid(Const(1, 1));
-				int zero_nid = get_sig_nid(Const(0, 1));
+				int one_nid = get_sig_nid(State::S1);
+				int zero_nid = get_sig_nid(State::S0);
 				initstate_nid = next_nid++;
 				btorf("%d state %d\n", initstate_nid, sid);
 				btorf("%d init %d %d %d\n", next_nid++, sid, initstate_nid, one_nid);
@@ -615,6 +632,7 @@ struct BtorWorker
 		{
 			int abits = cell->getParam("\\ABITS").as_int();
 			int width = cell->getParam("\\WIDTH").as_int();
+			int nwords = cell->getParam("\\SIZE").as_int();
 			int rdports = cell->getParam("\\RD_PORTS").as_int();
 			int wrports = cell->getParam("\\WR_PORTS").as_int();
 
@@ -641,6 +659,52 @@ struct BtorWorker
 			int data_sid = get_bv_sid(width);
 			int bool_sid = get_bv_sid(1);
 			int sid = get_mem_sid(abits, width);
+
+			Const initdata = cell->getParam("\\INIT");
+			initdata.exts(nwords*width);
+			int nid_init_val = -1;
+
+			if (!initdata.is_fully_undef())
+			{
+				bool constword = true;
+				Const firstword = initdata.extract(0, width);
+
+				for (int i = 1; i < nwords; i++) {
+					Const thisword = initdata.extract(i*width, width);
+					if (thisword != firstword) {
+						constword = false;
+						break;
+					}
+				}
+
+				if (constword)
+				{
+					if (verbose)
+						btorf("; initval = %s\n", log_signal(firstword));
+					nid_init_val = get_sig_nid(firstword, -1, false, true);
+				}
+				else
+				{
+					nid_init_val = next_nid++;
+					btorf("%d state %d\n", nid_init_val, sid);
+
+					for (int i = 0; i < nwords; i++) {
+						Const thisword = initdata.extract(i*width, width);
+						if (thisword.is_fully_undef())
+							continue;
+						Const thisaddr(i, abits);
+						int nid_thisword = get_sig_nid(thisword, -1, false, true);
+						int nid_thisaddr = get_sig_nid(thisaddr, -1, false, true);
+						int last_nid_init_val = nid_init_val;
+						nid_init_val = next_nid++;
+						if (verbose)
+							btorf("; initval[%d] = %s\n", i, log_signal(thisword));
+						btorf("%d write %d %d %d %d\n", nid_init_val, sid, last_nid_init_val, nid_thisaddr, nid_thisword);
+					}
+				}
+			}
+
+
 			int nid = next_nid++;
 			int nid_head = nid;
 
@@ -648,6 +712,12 @@ struct BtorWorker
 				btorf("%d state %d\n", nid, sid);
 			else
 				btorf("%d state %d %s\n", nid, sid, log_id(cell));
+
+			if (nid_init_val >= 0)
+			{
+				int nid_init = next_nid++;
+				btorf("%d init %d %d %d\n", nid_init, sid, nid, nid_init_val);
+			}
 
 			if (asyncwr)
 			{
@@ -722,7 +792,7 @@ struct BtorWorker
 		cell_recursion_guard.erase(cell);
 	}
 
-	int get_sig_nid(SigSpec sig, int to_width = -1, bool is_signed = false)
+	int get_sig_nid(SigSpec sig, int to_width = -1, bool is_signed = false, bool is_init = false)
 	{
 		int nid = -1;
 		sigmap.apply(sig);
@@ -753,7 +823,10 @@ struct BtorWorker
 				int sid = get_bv_sid(GetSize(sig));
 
 				int nid_input = next_nid++;
-				btorf("%d input %d\n", nid_input, sid);
+				if (is_init)
+					btorf("%d state %d\n", nid_input, sid);
+				else
+					btorf("%d input %d\n", nid_input, sid);
 
 				int nid_masked_input;
 				if (sig_mask_undef.is_fully_ones()) {
@@ -816,9 +889,31 @@ struct BtorWorker
 					else
 					{
 						if (bit_cell.count(bit) == 0)
-							log_error("No driver for signal bit %s.\n", log_signal(bit));
-						export_cell(bit_cell.at(bit));
-						log_assert(bit_nid.count(bit));
+						{
+							SigSpec s = bit;
+
+							while (i+GetSize(s) < GetSize(sig) && sig[i+GetSize(s)].wire != nullptr &&
+									bit_cell.count(sig[i+GetSize(s)]) == 0)
+								s.append(sig[i+GetSize(s)]);
+
+							log_warning("No driver for signal %s.\n", log_signal(s));
+
+							int sid = get_bv_sid(GetSize(s));
+							int nid = next_nid++;
+							btorf("%d input %d\n", nid, sid);
+							nid_width[nid] = GetSize(s);
+
+							for (int j = 0; j < GetSize(s); j++)
+								nidbits.push_back(make_pair(nid, j));
+
+							i += GetSize(s)-1;
+							continue;
+						}
+						else
+						{
+							export_cell(bit_cell.at(bit));
+							log_assert(bit_nid.count(bit));
+						}
 					}
 				}
 
@@ -932,9 +1027,8 @@ struct BtorWorker
 
 			btorf_push(stringf("output %s", log_id(wire)));
 
-			int sid = get_bv_sid(GetSize(wire));
 			int nid = get_sig_nid(wire);
-			btorf("%d output %d %d %s\n", next_nid++, sid, nid, log_id(wire));
+			btorf("%d output %d %s\n", next_nid++, nid, log_id(wire));
 
 			btorf_pop(stringf("output %s", log_id(wire)));
 		}
@@ -976,7 +1070,12 @@ struct BtorWorker
 					bad_properties.push_back(nid_en_and_not_a);
 				} else {
 					int nid = next_nid++;
-					btorf("%d bad %d\n", nid, nid_en_and_not_a);
+					string infostr = log_id(cell);
+					if (infostr[0] == '$' && cell->attributes.count("\\src")) {
+						infostr = cell->attributes.at("\\src").decode_string().c_str();
+						std::replace(infostr.begin(), infostr.end(), ' ', '_');
+					}
+					btorf("%d bad %d %s\n", nid, nid_en_and_not_a, infostr.c_str());
 				}
 
 				btorf_pop(log_id(cell));

@@ -64,6 +64,10 @@ extern int log_verbose_level;
 extern string log_last_error;
 extern void (*log_error_atexit)();
 
+extern int log_make_debug;
+extern int log_force_debug;
+extern int log_debug_suppressed;
+
 void logv(const char *format, va_list ap);
 void logv_header(RTLIL::Design *design, const char *format, va_list ap);
 void logv_warning(const char *format, va_list ap);
@@ -76,11 +80,51 @@ void log_warning(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
 
 // Log with filename to report a problem in a source file.
 void log_file_warning(const std::string &filename, int lineno, const char *format, ...) YS_ATTRIBUTE(format(printf, 3, 4));
+void log_file_info(const std::string &filename, int lineno, const char *format, ...) YS_ATTRIBUTE(format(printf, 3, 4));
 
 void log_warning_noprefix(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
 YS_NORETURN void log_error(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2), noreturn);
 void log_file_error(const string &filename, int lineno, const char *format, ...) YS_ATTRIBUTE(format(printf, 3, 4), noreturn);
 YS_NORETURN void log_cmd_error(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2), noreturn);
+
+#ifndef NDEBUG
+static inline bool ys_debug(int n = 0) { if (log_force_debug) return true; log_debug_suppressed += n; return false; }
+#  define log_debug(...) do { if (ys_debug(1)) log(__VA_ARGS__); } while (0)
+#else
+static inline bool ys_debug(int = 0) { return false; }
+#  define log_debug(_fmt, ...) do { } while (0)
+#endif
+
+static inline void log_suppressed() {
+	if (log_debug_suppressed && !log_make_debug) {
+		log("<suppressed ~%d debug messages>\n", log_debug_suppressed);
+		log_debug_suppressed = 0;
+	}
+}
+
+struct LogMakeDebugHdl {
+	bool status = false;
+	LogMakeDebugHdl(bool start_on = false) {
+		if (start_on)
+			on();
+	}
+	~LogMakeDebugHdl() {
+		off();
+	}
+	void on() {
+		if (status) return;
+		status=true;
+		log_make_debug++;
+	}
+	void off_silent() {
+		if (!status) return;
+		status=false;
+		log_make_debug--;
+	}
+	void off() {
+		off_silent();
+	}
+};
 
 void log_spacer();
 void log_push();
@@ -248,6 +292,7 @@ static inline void log_dump_val_worker(PerformanceTimer p) { log("%f seconds", p
 static inline void log_dump_args_worker(const char *p YS_ATTRIBUTE(unused)) { log_assert(*p == 0); }
 void log_dump_val_worker(RTLIL::IdString v);
 void log_dump_val_worker(RTLIL::SigSpec v);
+void log_dump_val_worker(RTLIL::State v);
 
 template<typename K, typename T, typename OPS>
 static inline void log_dump_val_worker(dict<K, T, OPS> &v) {

@@ -34,7 +34,7 @@ static bool match_ids(RTLIL::IdString id, std::string pattern)
 {
 	if (id == pattern)
 		return true;
-	if (id.size() > 0 && id[0] == '\\' && id.substr(1) == pattern)
+	if (id.size() > 0 && id[0] == '\\' && id.compare(1, std::string::npos, pattern.c_str()) == 0)
 		return true;
 	if (patmatch(pattern.c_str(), id.c_str()))
 		return true;
@@ -124,11 +124,11 @@ static bool match_attr(const dict<RTLIL::IdString, RTLIL::Const> &attributes, st
 	size_t pos = match_expr.find_first_of("<!=>");
 
 	if (pos != std::string::npos) {
-		if (match_expr.substr(pos, 2) == "!=")
+		if (match_expr.compare(pos, 2, "!=") == 0)
 			return match_attr(attributes, match_expr.substr(0, pos), match_expr.substr(pos+2), '!');
-		if (match_expr.substr(pos, 2) == "<=")
+		if (match_expr.compare(pos, 2, "<=") == 0)
 			return match_attr(attributes, match_expr.substr(0, pos), match_expr.substr(pos+2), '[');
-		if (match_expr.substr(pos, 2) == ">=")
+		if (match_expr.compare(pos, 2, ">=") == 0)
 			return match_attr(attributes, match_expr.substr(0, pos), match_expr.substr(pos+2), ']');
 		return match_attr(attributes, match_expr.substr(0, pos), match_expr.substr(pos+1), match_expr[pos]);
 	}
@@ -664,7 +664,7 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 		} else
 		if (arg == "%D") {
 			if (work_stack.size() < 2)
-				log_cmd_error("Must have at least two elements on the stack for operator %%d.\n");
+				log_cmd_error("Must have at least two elements on the stack for operator %%D.\n");
 			select_op_diff(design, work_stack[work_stack.size()-1], work_stack[work_stack.size()-2]);
 			work_stack[work_stack.size()-2] = work_stack[work_stack.size()-1];
 			work_stack.pop_back();
@@ -693,7 +693,7 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 		} else
 		if (arg == "%C") {
 			if (work_stack.size() < 1)
-				log_cmd_error("Must have at least one element on the stack for operator %%M.\n");
+				log_cmd_error("Must have at least one element on the stack for operator %%C.\n");
 			select_op_module_to_cells(design, work_stack[work_stack.size()-1]);
 		} else
 		if (arg == "%c") {
@@ -711,32 +711,32 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 				log_cmd_error("Must have at least one element on the stack for operator %%a.\n");
 			select_op_alias(design, work_stack[work_stack.size()-1]);
 		} else
-		if (arg == "%x" || (arg.size() > 2 && arg.substr(0, 2) == "%x" && (arg[2] == ':' || arg[2] == '*' || arg[2] == '.' || ('0' <= arg[2] && arg[2] <= '9')))) {
+		if (arg == "%x" || (arg.size() > 2 && arg.compare(0, 2, "%x") == 0 && (arg[2] == ':' || arg[2] == '*' || arg[2] == '.' || ('0' <= arg[2] && arg[2] <= '9')))) {
 			if (work_stack.size() < 1)
 				log_cmd_error("Must have at least one element on the stack for operator %%x.\n");
 			select_op_expand(design, arg, 'x', false);
 		} else
-		if (arg == "%ci" || (arg.size() > 3 && arg.substr(0, 3) == "%ci" && (arg[3] == ':' || arg[3] == '*' || arg[3] == '.' || ('0' <= arg[3] && arg[3] <= '9')))) {
+		if (arg == "%ci" || (arg.size() > 3 && arg.compare(0, 3, "%ci") == 0 && (arg[3] == ':' || arg[3] == '*' || arg[3] == '.' || ('0' <= arg[3] && arg[3] <= '9')))) {
 			if (work_stack.size() < 1)
 				log_cmd_error("Must have at least one element on the stack for operator %%ci.\n");
 			select_op_expand(design, arg, 'i', false);
 		} else
-		if (arg == "%co" || (arg.size() > 3 && arg.substr(0, 3) == "%co" && (arg[3] == ':' || arg[3] == '*' || arg[3] == '.' || ('0' <= arg[3] && arg[3] <= '9')))) {
+		if (arg == "%co" || (arg.size() > 3 && arg.compare(0, 3, "%co") == 0 && (arg[3] == ':' || arg[3] == '*' || arg[3] == '.' || ('0' <= arg[3] && arg[3] <= '9')))) {
 			if (work_stack.size() < 1)
 				log_cmd_error("Must have at least one element on the stack for operator %%co.\n");
 			select_op_expand(design, arg, 'o', false);
 		} else
-		if (arg == "%xe" || (arg.size() > 3 && arg.substr(0, 3) == "%xe" && (arg[3] == ':' || arg[3] == '*' || arg[3] == '.' || ('0' <= arg[3] && arg[3] <= '9')))) {
+		if (arg == "%xe" || (arg.size() > 3 && arg.compare(0, 3, "%xe") == 0 && (arg[3] == ':' || arg[3] == '*' || arg[3] == '.' || ('0' <= arg[3] && arg[3] <= '9')))) {
 			if (work_stack.size() < 1)
 				log_cmd_error("Must have at least one element on the stack for operator %%xe.\n");
 			select_op_expand(design, arg, 'x', true);
 		} else
-		if (arg == "%cie" || (arg.size() > 4 && arg.substr(0, 4) == "%cie" && (arg[4] == ':' || arg[4] == '*' || arg[4] == '.' || ('0' <= arg[4] && arg[4] <= '9')))) {
+		if (arg == "%cie" || (arg.size() > 4 && arg.compare(0, 4, "%cie") == 0 && (arg[4] == ':' || arg[4] == '*' || arg[4] == '.' || ('0' <= arg[4] && arg[4] <= '9')))) {
 			if (work_stack.size() < 1)
 				log_cmd_error("Must have at least one element on the stack for operator %%cie.\n");
 			select_op_expand(design, arg, 'i', true);
 		} else
-		if (arg == "%coe" || (arg.size() > 4 && arg.substr(0, 4) == "%coe" && (arg[4] == ':' || arg[4] == '*' || arg[4] == '.' || ('0' <= arg[4] && arg[4] <= '9')))) {
+		if (arg == "%coe" || (arg.size() > 4 && arg.compare(0, 4, "%coe") == 0 && (arg[4] == ':' || arg[4] == '*' || arg[4] == '.' || ('0' <= arg[4] && arg[4] <= '9')))) {
 			if (work_stack.size() < 1)
 				log_cmd_error("Must have at least one element on the stack for operator %%coe.\n");
 			select_op_expand(design, arg, 'o', true);
@@ -766,7 +766,7 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 	} else {
 		size_t pos = arg.find('/');
 		if (pos == std::string::npos) {
-			if (arg.find(':') == std::string::npos || arg.substr(0, 1) == "A")
+			if (arg.find(':') == std::string::npos || arg.compare(0, 1, "A") == 0)
 				arg_mod = arg;
 			else
 				arg_mod = "*", arg_memb = arg;
@@ -787,7 +787,7 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 	sel.full_selection = false;
 	for (auto &mod_it : design->modules_)
 	{
-		if (arg_mod.substr(0, 2) == "A:") {
+		if (arg_mod.compare(0, 2, "A:") == 0) {
 			if (!match_attr(mod_it.second->attributes, arg_mod.substr(2)))
 				continue;
 		} else
@@ -800,27 +800,27 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 		}
 
 		RTLIL::Module *mod = mod_it.second;
-		if (arg_memb.substr(0, 2) == "w:") {
+		if (arg_memb.compare(0, 2, "w:") == 0) {
 			for (auto &it : mod->wires_)
 				if (match_ids(it.first, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 		} else
-		if (arg_memb.substr(0, 2) == "i:") {
+		if (arg_memb.compare(0, 2, "i:") == 0) {
 			for (auto &it : mod->wires_)
 				if (it.second->port_input && match_ids(it.first, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 		} else
-		if (arg_memb.substr(0, 2) == "o:") {
+		if (arg_memb.compare(0, 2, "o:") == 0) {
 			for (auto &it : mod->wires_)
 				if (it.second->port_output && match_ids(it.first, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 		} else
-		if (arg_memb.substr(0, 2) == "x:") {
+		if (arg_memb.compare(0, 2, "x:") == 0) {
 			for (auto &it : mod->wires_)
 				if ((it.second->port_input || it.second->port_output) && match_ids(it.first, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 		} else
-		if (arg_memb.substr(0, 2) == "s:") {
+		if (arg_memb.compare(0, 2, "s:") == 0) {
 			size_t delim = arg_memb.substr(2).find(':');
 			if (delim == std::string::npos) {
 				int width = atoi(arg_memb.substr(2).c_str());
@@ -837,27 +837,27 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 						sel.selected_members[mod->name].insert(it.first);
 			}
 		} else
-		if (arg_memb.substr(0, 2) == "m:") {
+		if (arg_memb.compare(0, 2, "m:") == 0) {
 			for (auto &it : mod->memories)
 				if (match_ids(it.first, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 		} else
-		if (arg_memb.substr(0, 2) == "c:") {
+		if (arg_memb.compare(0, 2, "c:") ==0) {
 			for (auto &it : mod->cells_)
 				if (match_ids(it.first, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 		} else
-		if (arg_memb.substr(0, 2) == "t:") {
+		if (arg_memb.compare(0, 2, "t:") == 0) {
 			for (auto &it : mod->cells_)
 				if (match_ids(it.second->type, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 		} else
-		if (arg_memb.substr(0, 2) == "p:") {
+		if (arg_memb.compare(0, 2, "p:") == 0) {
 			for (auto &it : mod->processes)
 				if (match_ids(it.first, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 		} else
-		if (arg_memb.substr(0, 2) == "a:") {
+		if (arg_memb.compare(0, 2, "a:") == 0) {
 			for (auto &it : mod->wires_)
 				if (match_attr(it.second->attributes, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
@@ -871,12 +871,12 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 				if (match_attr(it.second->attributes, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 		} else
-		if (arg_memb.substr(0, 2) == "r:") {
+		if (arg_memb.compare(0, 2, "r:") == 0) {
 			for (auto &it : mod->cells_)
 				if (match_attr(it.second->parameters, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 		} else {
-			if (arg_memb.substr(0, 2) == "n:")
+			if (arg_memb.compare(0, 2, "n:") == 0)
 				arg_memb = arg_memb.substr(2);
 			for (auto &it : mod->wires_)
 				if (match_ids(it.first, arg_memb))
@@ -927,7 +927,7 @@ void handle_extra_select_args(Pass *pass, vector<string> args, size_t argidx, si
 {
 	work_stack.clear();
 	for (; argidx < args_size; argidx++) {
-		if (args[argidx].substr(0, 1) == "-") {
+		if (args[argidx].compare(0, 1, "-") == 0) {
 			if (pass != NULL)
 				pass->cmd_error(args, argidx, "Unexpected option in selection arguments.");
 			else

@@ -1,0 +1,96 @@
+pattern shiftmul
+//
+// Optimize mul+shift pairs that result from expressions such as foo[s*W+:W]
+//
+
+state <SigSpec> shamt
+
+match shift
+	select shift->type.in($shift, $shiftx, $shr)
+endmatch
+
+code shamt
+	shamt = port(shift, \B);
+	if (shamt.empty())
+		reject;
+	if (shamt[GetSize(shamt)-1] == State::S0) {
+		do {
+			shamt.remove(GetSize(shamt)-1);
+			if (shamt.empty())
+				reject;
+		} while (shamt[GetSize(shamt)-1] == State::S0);
+	} else
+	if (shift->type.in($shift, $shiftx) && param(shift, \B_SIGNED).as_bool()) {
+		reject;
+	}
+	if (GetSize(shamt) > 20)
+		reject;
+endcode
+
+match mul
+	select mul->type.in($mul)
+	select port(mul, \A).is_fully_const() || port(mul, \B).is_fully_const()
+	index <SigSpec> port(mul, \Y) === shamt
+endmatch
+
+code
+{
+	IdString const_factor_port = port(mul, \A).is_fully_const() ? \A : \B;
+	IdString const_factor_signed = const_factor_port == \A ? \A_SIGNED : \B_SIGNED;
+	Const const_factor_cnst = port(mul, const_factor_port).as_const();
+	int const_factor = const_factor_cnst.as_int();
+
+	if (GetSize(const_factor_cnst) == 0)
+		reject;
+
+	if (const_factor_cnst.bits[GetSize(const_factor_cnst)-1] != State::S0 &&
+			param(mul, const_factor_signed).as_bool())
+		reject;
+
+	if (GetSize(const_factor_cnst) > 20)
+		reject;
+
+	if (GetSize(port(shift, \Y)) > const_factor)
+		reject;
+
+	int factor_bits = ceil_log2(const_factor);
+	SigSpec mul_din = port(mul, const_factor_port == \A ? \B : \A);
+
+	if (GetSize(shamt) < factor_bits+GetSize(mul_din))
+		reject;
+
+	did_something = true;
+	log("shiftmul pattern in %s: shift=%s, mul=%s\n", log_id(module), log_id(shift), log_id(mul));
+
+	int new_const_factor = 1 << factor_bits;
+	SigSpec padding(State::Sx, new_const_factor-const_factor);
+	SigSpec old_a = port(shift, \A), new_a;
+	int trunc = 0;
+
+	if (GetSize(old_a) % const_factor != 0) {
+		trunc = const_factor - GetSize(old_a) % const_factor;
+		old_a.append(SigSpec(State::Sx, trunc));
+	}
+
+	for (int i = 0; i*const_factor < GetSize(old_a); i++) {
+		SigSpec slice = old_a.extract(i*const_factor, const_factor);
+		new_a.append(slice);
+		new_a.append(padding);
+	}
+
+	if (trunc > 0)
+		new_a.remove(GetSize(new_a)-trunc, trunc);
+
+	SigSpec new_b = {mul_din, SigSpec(State::S0, factor_bits)};
+	if (param(shift, \B_SIGNED).as_bool())
+		new_b.append(State::S0);
+
+	shift->setPort(\A, new_a);
+	shift->setParam(\A_WIDTH, GetSize(new_a));
+	shift->setPort(\B, new_b);
+	shift->setParam(\B_WIDTH, GetSize(new_b));
+
+	blacklist(shift);
+	accept;
+}
+endcode

@@ -7,13 +7,16 @@ OBJS += passes/techmap/libparse.o
 
 ifeq ($(ENABLE_ABC),1)
 OBJS += passes/techmap/abc.o
+OBJS += passes/techmap/abc9.o
 ifneq ($(ABCEXTERNAL),)
 passes/techmap/abc.o: CXXFLAGS += -DABCEXTERNAL='"$(ABCEXTERNAL)"'
+passes/techmap/abc9.o: CXXFLAGS += -DABCEXTERNAL='"$(ABCEXTERNAL)"'
 endif
 endif
 
 ifneq ($(SMALL),1)
 OBJS += passes/techmap/iopadmap.o
+OBJS += passes/techmap/clkbufmap.o
 OBJS += passes/techmap/hilomap.o
 OBJS += passes/techmap/extract.o
 OBJS += passes/techmap/extract_fa.o
@@ -37,6 +40,7 @@ OBJS += passes/techmap/attrmap.o
 OBJS += passes/techmap/zinit.o
 OBJS += passes/techmap/dff2dffs.o
 OBJS += passes/techmap/flowmap.o
+OBJS += passes/techmap/extractinv.o
 endif
 
 GENFILES += passes/techmap/techmap.inc

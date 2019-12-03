@@ -61,7 +61,7 @@ struct SmvWorker
 		{
 			string name = stringf("_%s", id.c_str());
 
-			if (name.substr(0, 2) == "_\\")
+			if (name.compare(0, 2, "_\\") == 0)
 				name = "_" + name.substr(2);
 
 			for (auto &c : name) {
@@ -537,6 +537,13 @@ struct SmvWorker
 				continue;
 			}
 
+			if (cell->type == "$_NMUX_")
+			{
+				definitions.push_back(stringf("%s := !(bool(%s) ? %s : %s);", lvalue(cell->getPort("\\Y")),
+						rvalue(cell->getPort("\\S")), rvalue(cell->getPort("\\B")), rvalue(cell->getPort("\\A"))));
+				continue;
+			}
+
 			if (cell->type == "$_AOI3_")
 			{
 				definitions.push_back(stringf("%s := !((%s & %s) | %s);", lvalue(cell->getPort("\\Y")),
@@ -739,7 +746,7 @@ struct SmvBackend : public Backend {
 		pool<Module*> modules;
 
 		for (auto module : design->modules())
-			if (!module->get_bool_attribute("\\blackbox") && !module->has_memories_warn() && !module->has_processes_warn())
+			if (!module->get_blackbox_attribute() && !module->has_memories_warn() && !module->has_processes_warn())
 				modules.insert(module);
 
 		if (template_f.is_open())

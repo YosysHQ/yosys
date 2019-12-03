@@ -53,6 +53,7 @@ echo -n "  no explicit top - "
     module noTop(a, y);
       input a;
       output [31:0] y;
+      assign y = a;
     endmodule
   EOV
   hierarchy -auto-top

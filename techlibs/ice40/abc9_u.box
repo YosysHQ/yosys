@@ -1,0 +1,13 @@
+# From https://github.com/cliffordwolf/icestorm/blob/be0bca0/icefuzz/timings_up5k.txt
+
+# NB: Inputs/Outputs must be ordered alphabetically
+#     (with exceptions for carry in/out)
+
+# Inputs: A B I0 I3 CI
+# Outputs: O CO
+#   (NB: carry chain input/output must be last
+#        input/output and have been moved there
+#        overriding the alphabetical ordering)
+$__ICE40_CARRY_WRAPPER 1 1 5 2
+1231 1205 1285 874 874
+675  609  -    -   278

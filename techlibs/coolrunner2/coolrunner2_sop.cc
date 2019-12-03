@@ -60,10 +60,8 @@ struct Coolrunner2SopPass : public Pass {
 			dict<SigBit, pool<tuple<Cell*, std::string>>> special_pterms_inv;
 			for (auto cell : module->selected_cells())
 			{
-				if (cell->type == "\\FDCP" || cell->type == "\\FDCP_N" || cell->type == "\\FDDCP" ||
-					cell->type == "\\FTCP" || cell->type == "\\FTCP_N" || cell->type == "\\FTDCP" ||
-					cell->type == "\\FDCPE" || cell->type == "\\FDCPE_N" || cell->type == "\\FDDCPE" ||
-					cell->type == "\\LDCP" || cell->type == "\\LDCP_N")
+				if (cell->type.in("\\FDCP", "\\FDCP_N", "\\FDDCP", "\\FTCP", "\\FTCP_N", "\\FTDCP",
+							"\\FDCPE", "\\FDCPE_N", "\\FDDCPE", "\\LDCP", "\\LDCP_N"))
 				{
 					if (cell->hasPort("\\PRE"))
 						special_pterms_no_inv[sigmap(cell->getPort("\\PRE")[0])].insert(
@@ -257,10 +255,8 @@ struct Coolrunner2SopPass : public Pass {
 			pool<SigBit> sig_fed_by_ff;
 			for (auto cell : module->selected_cells())
 			{
-				if (cell->type == "\\FDCP" || cell->type == "\\FDCP_N" || cell->type == "\\FDDCP" ||
-					cell->type == "\\LDCP" || cell->type == "\\LDCP_N" ||
-					cell->type == "\\FTCP" || cell->type == "\\FTCP_N" || cell->type == "\\FTDCP" ||
-					cell->type == "\\FDCPE" || cell->type == "\\FDCPE_N" || cell->type == "\\FDDCPE")
+				if (cell->type.in("\\FDCP", "\\FDCP_N", "\\FDDCP", "\\LDCP", "\\LDCP_N",
+							"\\FTCP", "\\FTCP_N", "\\FTDCP", "\\FDCPE", "\\FDCPE_N", "\\FDDCPE"))
 				{
 					auto output = sigmap(cell->getPort("\\Q")[0]);
 					sig_fed_by_ff.insert(output);
@@ -270,13 +266,11 @@ struct Coolrunner2SopPass : public Pass {
 			// Look at all the FF inputs
 			for (auto cell : module->selected_cells())
 			{
-				if (cell->type == "\\FDCP" || cell->type == "\\FDCP_N" || cell->type == "\\FDDCP" ||
-					cell->type == "\\LDCP" || cell->type == "\\LDCP_N" ||
-					cell->type == "\\FTCP" || cell->type == "\\FTCP_N" || cell->type == "\\FTDCP" ||
-					cell->type == "\\FDCPE" || cell->type == "\\FDCPE_N" || cell->type == "\\FDDCPE")
+				if (cell->type.in("\\FDCP", "\\FDCP_N", "\\FDDCP", "\\LDCP", "\\LDCP_N",
+							"\\FTCP", "\\FTCP_N", "\\FTDCP", "\\FDCPE", "\\FDCPE_N", "\\FDDCPE"))
 				{
 					SigBit input;
-					if (cell->type == "\\FTCP" || cell->type == "\\FTCP_N" || cell->type == "\\FTDCP")
+					if (cell->type.in("\\FTCP", "\\FTCP_N", "\\FTDCP"))
 						input = sigmap(cell->getPort("\\T")[0]);
 					else
 						input = sigmap(cell->getPort("\\D")[0]);
@@ -300,7 +294,7 @@ struct Coolrunner2SopPass : public Pass {
 						xor_cell->setPort("\\IN_PTC", and_to_xor_wire);
 						xor_cell->setPort("\\OUT", xor_to_ff_wire);
 
-						if (cell->type == "\\FTCP" || cell->type == "\\FTCP_N" || cell->type == "\\FTDCP")
+						if (cell->type.in("\\FTCP", "\\FTCP_N", "\\FTDCP"))
 							cell->setPort("\\T", xor_to_ff_wire);
 						else
 							cell->setPort("\\D", xor_to_ff_wire);

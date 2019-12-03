@@ -268,7 +268,7 @@ struct SatHelper
 				RTLIL::SigSpec removed_bits;
 				for (int i = 0; i < lhs.size(); i++) {
 					RTLIL::SigSpec bit = lhs.extract(i, 1);
-					if (!satgen.initial_state.check_all(bit)) {
+					if (rhs[i] == State::Sx || !satgen.initial_state.check_all(bit)) {
 						removed_bits.append(bit);
 						lhs.remove(i, 1);
 						rhs.remove(i, 1);
@@ -519,7 +519,7 @@ struct SatHelper
 					for (auto &p : d->connections()) {
 						if (d->type == "$dff" && p.first == "\\CLK")
 							continue;
-						if (d->type.substr(0, 6) == "$_DFF_" && p.first == "\\C")
+						if (d->type.begins_with("$_DFF_") && p.first == "\\C")
 							continue;
 						queued_signals.add(handled_signals.remove(sigmap(p.second)));
 					}
@@ -659,6 +659,7 @@ struct SatHelper
 
 	void dump_model_to_vcd(std::string vcd_file_name)
 	{
+		rewrite_filename(vcd_file_name);
 		FILE *f = fopen(vcd_file_name.c_str(), "w");
 		if (!f)
 			log_cmd_error("Can't open output file `%s' for writing: %s\n", vcd_file_name.c_str(), strerror(errno));
@@ -761,6 +762,7 @@ struct SatHelper
 
 	void dump_model_to_json(std::string json_file_name)
 	{
+		rewrite_filename(json_file_name);
 		FILE *f = fopen(json_file_name.c_str(), "w");
 		if (!f)
 			log_cmd_error("Can't open output file `%s' for writing: %s\n", json_file_name.c_str(), strerror(errno));
@@ -795,7 +797,7 @@ struct SatHelper
 
 			vector<string> data;
 			string name = wd.first.c_str();
-			while (name.substr(0, 1) == "\\")
+			while (name.compare(0, 1, "\\") == 0)
 				name = name.substr(1);
 
 			fprintf(f, "    { \"name\": \"%s\", \"wave\": \"", name.c_str());
@@ -1169,6 +1171,7 @@ struct SatPass : public Pass {
 			if (args[argidx] == "-tempinduct-def") {
 				tempinduct = true;
 				tempinduct_def = true;
+				enable_undef = true;
 				continue;
 			}
 			if (args[argidx] == "-tempinduct-baseonly") {
@@ -1350,7 +1353,7 @@ struct SatPass : public Pass {
 		if (show_regs) {
 			pool<Wire*> reg_wires;
 			for (auto cell : module->cells()) {
-				if (cell->type == "$dff" || cell->type.substr(0, 6) == "$_DFF_")
+				if (cell->type == "$dff" || cell->type.begins_with("$_DFF_"))
 					for (auto bit : cell->getPort("\\Q"))
 						if (bit.wire)
 							reg_wires.insert(bit.wire);
@@ -1504,6 +1507,7 @@ struct SatPass : public Pass {
 					{
 						if (!cnf_file_name.empty())
 						{
+							rewrite_filename(cnf_file_name);
 							FILE *f = fopen(cnf_file_name.c_str(), "w");
 							if (!f)
 								log_cmd_error("Can't open output file `%s' for writing: %s\n", cnf_file_name.c_str(), strerror(errno));
@@ -1607,6 +1611,7 @@ struct SatPass : public Pass {
 
 			if (!cnf_file_name.empty())
 			{
+				rewrite_filename(cnf_file_name);
 				FILE *f = fopen(cnf_file_name.c_str(), "w");
 				if (!f)
 					log_cmd_error("Can't open output file `%s' for writing: %s\n", cnf_file_name.c_str(), strerror(errno));

@@ -70,37 +70,41 @@ struct AigerWriter
 
 	int bit2aig(SigBit bit)
 	{
-		if (aig_map.count(bit) == 0)
-		{
-			aig_map[bit] = -1;
-
-			if (initstate_bits.count(bit)) {
-				log_assert(initstate_ff > 0);
-				aig_map[bit] = initstate_ff;
-			} else
-			if (not_map.count(bit)) {
-				int a = bit2aig(not_map.at(bit)) ^ 1;
-				aig_map[bit] = a;
-			} else
-			if (and_map.count(bit)) {
-				auto args = and_map.at(bit);
-				int a0 = bit2aig(args.first);
-				int a1 = bit2aig(args.second);
-				aig_map[bit] = mkgate(a0, a1);
-			} else
-			if (alias_map.count(bit)) {
-				aig_map[bit] = bit2aig(alias_map.at(bit));
-			}
-
-			if (bit == State::Sx || bit == State::Sz)
-				log_error("Design contains 'x' or 'z' bits. Use 'setundef' to replace those constants.\n");
+		auto it = aig_map.find(bit);
+		if (it != aig_map.end()) {
+			log_assert(it->second >= 0);
+			return it->second;
 		}
 
-		log_assert(aig_map.at(bit) >= 0);
-		return aig_map.at(bit);
+		// NB: Cannot use iterator returned from aig_map.insert()
+		//     since this function is called recursively
+
+		int a = -1;
+		if (not_map.count(bit)) {
+			a = bit2aig(not_map.at(bit)) ^ 1;
+		} else
+		if (and_map.count(bit)) {
+			auto args = and_map.at(bit);
+			int a0 = bit2aig(args.first);
+			int a1 = bit2aig(args.second);
+			a = mkgate(a0, a1);
+		} else
+		if (alias_map.count(bit)) {
+			a = bit2aig(alias_map.at(bit));
+		} else
+		if (initstate_bits.count(bit)) {
+			a = initstate_ff;
+		}
+
+		if (bit == State::Sx || bit == State::Sz)
+			log_error("Design contains 'x' or 'z' bits. Use 'setundef' to replace those constants.\n");
+
+		log_assert(a >= 0);
+		aig_map[bit] = a;
+		return a;
 	}
 
-	AigerWriter(Module *module, bool zinit_mode, bool imode, bool omode, bool bmode) : module(module), zinit_mode(zinit_mode), sigmap(module)
+	AigerWriter(Module *module, bool zinit_mode, bool imode, bool omode, bool bmode, bool lmode) : module(module), zinit_mode(zinit_mode), sigmap(module)
 	{
 		pool<SigBit> undriven_bits;
 		pool<SigBit> unused_bits;
@@ -364,6 +368,12 @@ struct AigerWriter
 				aig_latchin.push_back(a ^ 1);
 			else
 				aig_latchin.push_back(a);
+		}
+
+		if (lmode && aig_l == 0) {
+			aig_m++, aig_l++;
+			aig_latchinit.push_back(0);
+			aig_latchin.push_back(0);
 		}
 
 		if (!initstate_bits.empty() || !init_inputs.empty())
@@ -685,7 +695,7 @@ struct AigerBackend : public Backend {
 		log("invariant constraints.\n");
 		log("\n");
 		log("    -ascii\n");
-		log("        write ASCII version of AGIER format\n");
+		log("        write ASCII version of AIGER format\n");
 		log("\n");
 		log("    -zinit\n");
 		log("        convert FFs to zero-initialized FFs, adding additional inputs for\n");
@@ -703,9 +713,9 @@ struct AigerBackend : public Backend {
 		log("    -vmap <filename>\n");
 		log("        like -map, but more verbose\n");
 		log("\n");
-		log("    -I, -O, -B\n");
-		log("        If the design contains no input/output/assert then create one\n");
-		log("        dummy input/output/bad_state pin to make the tools reading the\n");
+		log("    -I, -O, -B, -L\n");
+		log("        If the design contains no input/output/assert/flip-flop then create one\n");
+		log("        dummy input/output/bad_state-pin or latch to make the tools reading the\n");
 		log("        AIGER file happy.\n");
 		log("\n");
 	}
@@ -719,6 +729,7 @@ struct AigerBackend : public Backend {
 		bool imode = false;
 		bool omode = false;
 		bool bmode = false;
+		bool lmode = false;
 		std::string map_filename;
 
 		log_header(design, "Executing AIGER backend.\n");
@@ -763,19 +774,24 @@ struct AigerBackend : public Backend {
 				bmode = true;
 				continue;
 			}
+			if (args[argidx] == "-L") {
+				lmode = true;
+				continue;
+			}
 			break;
 		}
-		extra_args(f, filename, args, argidx);
+		extra_args(f, filename, args, argidx, !ascii_mode);
 
 		Module *top_module = design->top_module();
 
 		if (top_module == nullptr)
 			log_error("Can't find top module in current design!\n");
 
-		AigerWriter writer(top_module, zinit_mode, imode, omode, bmode);
+		AigerWriter writer(top_module, zinit_mode, imode, omode, bmode, lmode);
 		writer.write_aiger(*f, ascii_mode, miter_mode, symbols_mode);
 
 		if (!map_filename.empty()) {
+			rewrite_filename(filename);
 			std::ofstream mapf;
 			mapf.open(map_filename.c_str(), std::ofstream::trunc);
 			if (mapf.fail())

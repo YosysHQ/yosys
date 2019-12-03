@@ -83,13 +83,13 @@ struct DeminoutPass : public Pass {
 						for (auto bit : sigmap(conn.second))
 							bits_used.insert(bit);
 
-					if (conn.first == "\\Y" && cell->type.in("$mux", "$pmux", "$_MUX_", "$_TBUF_", "$tribuf"))
+					if (conn.first == ID::Y && cell->type.in(ID($mux), ID($pmux), ID($_MUX_), ID($_TBUF_), ID($tribuf)))
 					{
-						bool tribuf = (cell->type == "$_TBUF_" || cell->type == "$tribuf");
+						bool tribuf = cell->type.in(ID($_TBUF_), ID($tribuf));
 
 						if (!tribuf) {
 							for (auto &c : cell->connections()) {
-								if (!c.first.in("\\A", "\\B"))
+								if (!c.first.in(ID::A, ID::B))
 									continue;
 								for (auto b : sigmap(c.second))
 									if (b == State::Sz)

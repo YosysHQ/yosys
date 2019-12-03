@@ -36,6 +36,8 @@
 // basic_property:
 //   sequence
 //   not basic_property
+//   nexttime basic_property
+//   nexttime[N] basic_property
 //   sequence #-# basic_property
 //   sequence #=# basic_property
 //   basic_property or basic_property           (cover only)
@@ -357,7 +359,7 @@ struct SvaFsm
 		for (int i = 0; i < GetSize(nodes); i++)
 		{
 			if (next_state_sig[i] != State::S0) {
-				clocking.addDff(NEW_ID, next_state_sig[i], state_wire[i], Const(0, 1));
+				clocking.addDff(NEW_ID, next_state_sig[i], state_wire[i], State::S0);
 			} else {
 				module->connect(state_wire[i], State::S0);
 			}
@@ -1264,6 +1266,26 @@ struct VerificSvaImporter
 			return node;
 		}
 
+		if (inst->Type() == PRIM_SVA_NEXTTIME || inst->Type() == PRIM_SVA_S_NEXTTIME)
+		{
+			const char *sva_low_s = inst->GetAttValue("sva:low");
+			const char *sva_high_s = inst->GetAttValue("sva:high");
+
+			int sva_low = atoi(sva_low_s);
+			int sva_high = atoi(sva_high_s);
+			log_assert(sva_low == sva_high);
+
+			int node = start_node;
+
+			for (int i = 0; i < sva_low; i++) {
+				int next_node = fsm.createNode();
+				fsm.createEdge(node, next_node);
+				node = next_node;
+			}
+
+			return parse_sequence(fsm, node, inst->GetInput());
+		}
+
 		if (inst->Type() == PRIM_SVA_SEQ_CONCAT)
 		{
 			const char *sva_low_s = inst->GetAttValue("sva:low");
@@ -1590,15 +1612,25 @@ struct VerificSvaImporter
 			Instance *consequent_inst = net_to_ast_driver(consequent_net);
 
 			if (consequent_inst && (consequent_inst->Type() == PRIM_SVA_UNTIL || consequent_inst->Type() == PRIM_SVA_S_UNTIL ||
-					consequent_inst->Type() == PRIM_SVA_UNTIL_WITH || consequent_inst->Type() == PRIM_SVA_S_UNTIL_WITH))
+					consequent_inst->Type() == PRIM_SVA_UNTIL_WITH || consequent_inst->Type() == PRIM_SVA_S_UNTIL_WITH ||
+					consequent_inst->Type() == PRIM_SVA_ALWAYS || consequent_inst->Type() == PRIM_SVA_S_ALWAYS))
 			{
 				bool until_with = consequent_inst->Type() == PRIM_SVA_UNTIL_WITH || consequent_inst->Type() == PRIM_SVA_S_UNTIL_WITH;
 
-				Net *until_net = consequent_inst->GetInput2();
-				consequent_net = consequent_inst->GetInput1();
-				consequent_inst = net_to_ast_driver(consequent_net);
+				Net *until_net = nullptr;
+				if (consequent_inst->Type() == PRIM_SVA_ALWAYS || consequent_inst->Type() == PRIM_SVA_S_ALWAYS)
+				{
+					consequent_net = consequent_inst->GetInput();
+					consequent_inst = net_to_ast_driver(consequent_net);
+				}
+				else
+				{
+					until_net = consequent_inst->GetInput2();
+					consequent_net = consequent_inst->GetInput1();
+					consequent_inst = net_to_ast_driver(consequent_net);
+				}
 
-				SigBit until_sig = parse_expression(until_net);
+				SigBit until_sig = until_net ? parse_expression(until_net) : RTLIL::S0;
 				SigBit not_until_sig = module->Not(NEW_ID, until_sig);
 				antecedent_fsm.createEdge(node, node, not_until_sig);
 

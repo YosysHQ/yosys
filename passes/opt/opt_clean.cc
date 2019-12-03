@@ -52,7 +52,7 @@ struct keep_cache_t
 			return cache.at(module);
 
 		cache[module] = true;
-		if (!module->get_bool_attribute("\\keep")) {
+		if (!module->get_bool_attribute(ID::keep)) {
 			bool found_keep = false;
 			for (auto cell : module->cells())
 				if (query(cell)) found_keep = true;
@@ -64,7 +64,7 @@ struct keep_cache_t
 
 	bool query(Cell *cell)
 	{
-		if (cell->type.in("$memwr", "$meminit", "$assert", "$assume", "$live", "$fair", "$cover"))
+		if (cell->type.in(ID($memwr), ID($meminit), ID($assert), ID($assume), ID($live), ID($fair), ID($cover), ID($specify2), ID($specify3), ID($specrule)))
 			return true;
 
 		if (cell->has_keep_attr())
@@ -85,22 +85,34 @@ void rmunused_module_cells(Module *module, bool verbose)
 {
 	SigMap sigmap(module);
 	pool<Cell*> queue, unused;
+	pool<SigBit> used_raw_bits;
 	dict<SigBit, pool<Cell*>> wire2driver;
+	dict<SigBit, vector<string>> driver_driver_logs;
+
+	SigMap raw_sigmap;
+	for (auto &it : module->connections_) {
+		for (int i = 0; i < GetSize(it.second); i++) {
+			if (it.second[i].wire != nullptr)
+				raw_sigmap.add(it.first[i], it.second[i]);
+		}
+	}
 
 	for (auto &it : module->cells_) {
 		Cell *cell = it.second;
 		for (auto &it2 : cell->connections()) {
-			if (!ct_all.cell_known(cell->type) || ct_all.cell_output(cell->type, it2.first))
-				for (auto raw_bit : it2.second) {
-					if (raw_bit.wire == nullptr)
-						continue;
-					auto bit = sigmap(raw_bit);
-					if (bit.wire == nullptr)
-						log_warning("Driver-driver conflict for %s between cell %s.%s and constant %s in %s: Resolved using constant.\n",
-								log_signal(raw_bit), log_id(cell), log_id(it2.first), log_signal(bit), log_id(module));
-					if (bit.wire != nullptr)
-						wire2driver[bit].insert(cell);
-				}
+			if (ct_all.cell_known(cell->type) && !ct_all.cell_output(cell->type, it2.first))
+				continue;
+			for (auto raw_bit : it2.second) {
+				if (raw_bit.wire == nullptr)
+					continue;
+				auto bit = sigmap(raw_bit);
+				if (bit.wire == nullptr && ct_all.cell_known(cell->type))
+					driver_driver_logs[raw_sigmap(raw_bit)].push_back(stringf("Driver-driver conflict "
+							"for %s between cell %s.%s and constant %s in %s: Resolved using constant.",
+							log_signal(raw_bit), log_id(cell), log_id(it2.first), log_signal(bit), log_id(module)));
+				if (bit.wire != nullptr)
+					wire2driver[bit].insert(cell);
+			}
 		}
 		if (keep_cache.query(cell))
 			queue.insert(cell);
@@ -110,10 +122,12 @@ void rmunused_module_cells(Module *module, bool verbose)
 
 	for (auto &it : module->wires_) {
 		Wire *wire = it.second;
-		if (wire->port_output || wire->get_bool_attribute("\\keep")) {
+		if (wire->port_output || wire->get_bool_attribute(ID::keep)) {
 			for (auto bit : sigmap(wire))
 			for (auto c : wire2driver[bit])
 				queue.insert(c), unused.erase(c);
+			for (auto raw_bit : SigSpec(wire))
+				used_raw_bits.insert(raw_sigmap(raw_bit));
 		}
 	}
 
@@ -137,18 +151,34 @@ void rmunused_module_cells(Module *module, bool verbose)
 
 	for (auto cell : unused) {
 		if (verbose)
-			log("  removing unused `%s' cell `%s'.\n", cell->type.c_str(), cell->name.c_str());
+			log_debug("  removing unused `%s' cell `%s'.\n", cell->type.c_str(), cell->name.c_str());
 		module->design->scratchpad_set_bool("opt.did_something", true);
 		module->remove(cell);
 		count_rm_cells++;
+	}
+
+	for (auto &it : module->cells_) {
+		Cell *cell = it.second;
+		for (auto &it2 : cell->connections()) {
+			if (ct_all.cell_known(cell->type) && !ct_all.cell_input(cell->type, it2.first))
+				continue;
+			for (auto raw_bit : raw_sigmap(it2.second))
+				used_raw_bits.insert(raw_bit);
+		}
+	}
+
+	for (auto it : driver_driver_logs) {
+		if (used_raw_bits.count(it.first))
+			for (auto msg : it.second)
+				log_warning("%s\n", msg.c_str());
 	}
 }
 
 int count_nontrivial_wire_attrs(RTLIL::Wire *w)
 {
 	int count = w->attributes.size();
-	count -= w->attributes.count("\\src");
-	count -= w->attributes.count("\\unused_bits");
+	count -= w->attributes.count(ID(src));
+	count -= w->attributes.count(ID(unused_bits));
 	return count;
 }
 
@@ -192,17 +222,17 @@ bool compare_signals(RTLIL::SigBit &s1, RTLIL::SigBit &s2, SigPool &regs, SigPoo
 
 bool check_public_name(RTLIL::IdString id)
 {
-	const std::string &id_str = id.str();
-	if (id_str[0] == '$')
+	if (id.begins_with("$"))
 		return false;
-	if (id_str.substr(0, 2) == "\\_" && (id_str[id_str.size()-1] == '_' || id_str.find("_[") != std::string::npos))
+	const std::string &id_str = id.str();
+	if (id.begins_with("\\_") && (id.ends_with("_") || id_str.find("_[") != std::string::npos))
 		return false;
 	if (id_str.find(".$") != std::string::npos)
 		return false;
 	return true;
 }
 
-void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbose)
+bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbose)
 {
 	SigPool register_signals;
 	SigPool connected_signals;
@@ -245,11 +275,13 @@ void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 	module->connections_.clear();
 
 	SigPool used_signals;
+	SigPool raw_used_signals;
 	SigPool used_signals_nodrivers;
 	for (auto &it : module->cells_) {
 		RTLIL::Cell *cell = it.second;
 		for (auto &it2 : cell->connections_) {
 			assign_map.apply(it2.second);
+			raw_used_signals.add(it2.second);
 			used_signals.add(it2.second);
 			if (!ct_all.cell_output(cell->type, it2.first))
 				used_signals_nodrivers.add(it2.second);
@@ -259,84 +291,116 @@ void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 		RTLIL::Wire *wire = it.second;
 		if (wire->port_id > 0) {
 			RTLIL::SigSpec sig = RTLIL::SigSpec(wire);
+			raw_used_signals.add(sig);
 			assign_map.apply(sig);
 			used_signals.add(sig);
 			if (!wire->port_input)
 				used_signals_nodrivers.add(sig);
 		}
-		if (wire->get_bool_attribute("\\keep")) {
+		if (wire->get_bool_attribute(ID::keep)) {
 			RTLIL::SigSpec sig = RTLIL::SigSpec(wire);
 			assign_map.apply(sig);
 			used_signals.add(sig);
 		}
 	}
 
-	std::vector<RTLIL::Wire*> maybe_del_wires;
+	pool<RTLIL::Wire*> del_wires_queue;
 	for (auto wire : module->wires())
 	{
-		if ((!purge_mode && check_public_name(wire->name)) || wire->port_id != 0 || wire->get_bool_attribute("\\keep") || wire->attributes.count("\\init")) {
-			RTLIL::SigSpec s1 = RTLIL::SigSpec(wire), s2 = s1;
-			assign_map.apply(s2);
-			if (!used_signals.check_any(s2) && wire->port_id == 0 && !wire->get_bool_attribute("\\keep")) {
-				maybe_del_wires.push_back(wire);
-			} else {
-				log_assert(GetSize(s1) == GetSize(s2));
-				RTLIL::SigSig new_conn;
-				for (int i = 0; i < GetSize(s1); i++)
-					if (s1[i] != s2[i]) {
-						new_conn.first.append_bit(s1[i]);
-						new_conn.second.append_bit(s2[i]);
-					}
-				if (new_conn.first.size() > 0) {
-					used_signals.add(new_conn.first);
-					used_signals.add(new_conn.second);
-					module->connect(new_conn);
-				}
-			}
-		} else {
-			if (!used_signals.check_any(RTLIL::SigSpec(wire)))
-				maybe_del_wires.push_back(wire);
+		SigSpec s1 = SigSpec(wire), s2 = assign_map(s1);
+		log_assert(GetSize(s1) == GetSize(s2));
+
+		Const initval;
+		if (wire->attributes.count(ID(init)))
+			initval = wire->attributes.at(ID(init));
+		if (GetSize(initval) != GetSize(wire))
+			initval.bits.resize(GetSize(wire), State::Sx);
+		if (initval.is_fully_undef())
+			wire->attributes.erase(ID(init));
+
+		if (GetSize(wire) == 0) {
+			// delete zero-width wires, unless they are module ports
+			if (wire->port_id == 0)
+				goto delete_this_wire;
+		} else
+		if (wire->port_id != 0 || wire->get_bool_attribute(ID::keep) || !initval.is_fully_undef()) {
+			// do not delete anything with "keep" or module ports or initialized wires
+		} else
+		if (!purge_mode && check_public_name(wire->name) && (raw_used_signals.check_any(s1) || used_signals.check_any(s2) || s1 != s2)) {
+			// do not get rid of public names unless in purge mode or if the wire is entirely unused, not even aliased
+		} else
+		if (!raw_used_signals.check_any(s1)) {
+			// delete wires that aren't used by anything directly
+			goto delete_this_wire;
+		} else
+		if (!used_signals.check_any(s2)) {
+			// delete wires that aren't used by anything indirectly, even though other wires may alias it
+			goto delete_this_wire;
 		}
 
-		RTLIL::SigSpec sig = assign_map(RTLIL::SigSpec(wire));
-		if (!used_signals_nodrivers.check_any(sig)) {
-			std::string unused_bits;
-			for (int i = 0; i < GetSize(sig); i++) {
-				if (sig[i].wire == NULL)
-					continue;
-				if (!used_signals_nodrivers.check(sig[i])) {
-					if (!unused_bits.empty())
-						unused_bits += " ";
-					unused_bits += stringf("%d", i);
+		if (0)
+		{
+	delete_this_wire:
+			del_wires_queue.insert(wire);
+		}
+		else
+		{
+			RTLIL::SigSig new_conn;
+			for (int i = 0; i < GetSize(s1); i++)
+				if (s1[i] != s2[i]) {
+					if (s2[i] == State::Sx && (initval[i] == State::S0 || initval[i] == State::S1)) {
+						s2[i] = initval[i];
+						initval[i] = State::Sx;
+					}
+					new_conn.first.append_bit(s1[i]);
+					new_conn.second.append_bit(s2[i]);
 				}
+			if (new_conn.first.size() > 0) {
+				if (initval.is_fully_undef())
+					wire->attributes.erase(ID(init));
+				else
+					wire->attributes.at(ID(init)) = initval;
+				used_signals.add(new_conn.first);
+				used_signals.add(new_conn.second);
+				module->connect(new_conn);
 			}
-			if (unused_bits.empty() || wire->port_id != 0)
-				wire->attributes.erase("\\unused_bits");
-			else
-				wire->attributes["\\unused_bits"] = RTLIL::Const(unused_bits);
-		} else {
-			wire->attributes.erase("\\unused_bits");
+
+			if (!used_signals_nodrivers.check_all(s2)) {
+				std::string unused_bits;
+				for (int i = 0; i < GetSize(s2); i++) {
+					if (s2[i].wire == NULL)
+						continue;
+					if (!used_signals_nodrivers.check(s2[i])) {
+						if (!unused_bits.empty())
+							unused_bits += " ";
+						unused_bits += stringf("%d", i);
+					}
+				}
+				if (unused_bits.empty() || wire->port_id != 0)
+					wire->attributes.erase(ID(unused_bits));
+				else
+					wire->attributes[ID(unused_bits)] = RTLIL::Const(unused_bits);
+			} else {
+				wire->attributes.erase(ID(unused_bits));
+			}
 		}
 	}
 
+	int del_temp_wires_count = 0;
+	for (auto wire : del_wires_queue) {
+		if (ys_debug() || (check_public_name(wire->name) && verbose))
+			log_debug("  removing unused non-port wire %s.\n", wire->name.c_str());
+		else
+			del_temp_wires_count++;
+	}
 
-	pool<RTLIL::Wire*> del_wires;
+	module->remove(del_wires_queue);
+	count_rm_wires += GetSize(del_wires_queue);
 
-	int del_wires_count = 0;
-	for (auto wire : maybe_del_wires)
-		if (!used_signals.check_any(RTLIL::SigSpec(wire))) {
-			if (check_public_name(wire->name) && verbose) {
-				log("  removing unused non-port wire %s.\n", wire->name.c_str());
-			}
-			del_wires.insert(wire);
-			del_wires_count++;
-		}
+	if (verbose && del_temp_wires_count)
+		log_debug("  removed %d unused temporary wires.\n", del_temp_wires_count);
 
-	module->remove(del_wires);
-	count_rm_wires += del_wires.size();
-
-	if (verbose && del_wires_count > 0)
-		log("  removed %d unused temporary wires.\n", del_wires_count);
+	return !del_wires_queue.empty();
 }
 
 bool rmunused_module_init(RTLIL::Module *module, bool purge_mode, bool verbose)
@@ -349,18 +413,18 @@ bool rmunused_module_init(RTLIL::Module *module, bool purge_mode, bool verbose)
 	dict<SigBit, State> qbits;
 
 	for (auto cell : module->cells())
-		if (fftypes.cell_known(cell->type) && cell->hasPort("\\Q"))
+		if (fftypes.cell_known(cell->type) && cell->hasPort(ID(Q)))
 		{
-			SigSpec sig = cell->getPort("\\Q");
+			SigSpec sig = cell->getPort(ID(Q));
 
 			for (int i = 0; i < GetSize(sig); i++)
 			{
 				SigBit bit = sig[i];
 
-				if (bit.wire == nullptr || bit.wire->attributes.count("\\init") == 0)
+				if (bit.wire == nullptr || bit.wire->attributes.count(ID(init)) == 0)
 					continue;
 
-				Const init = bit.wire->attributes.at("\\init");
+				Const init = bit.wire->attributes.at(ID(init));
 
 				if (i >= GetSize(init) || init[i] == State::Sx || init[i] == State::Sz)
 					continue;
@@ -375,10 +439,10 @@ bool rmunused_module_init(RTLIL::Module *module, bool purge_mode, bool verbose)
 		if (!purge_mode && wire->name[0] == '\\')
 			continue;
 
-		if (wire->attributes.count("\\init") == 0)
+		if (wire->attributes.count(ID(init)) == 0)
 			continue;
 
-		Const init = wire->attributes.at("\\init");
+		Const init = wire->attributes.at(ID(init));
 
 		for (int i = 0; i < GetSize(wire) && i < GetSize(init); i++)
 		{
@@ -399,9 +463,9 @@ bool rmunused_module_init(RTLIL::Module *module, bool purge_mode, bool verbose)
 		}
 
 		if (verbose)
-			log("  removing redundant init attribute on %s.\n", log_id(wire));
+			log_debug("  removing redundant init attribute on %s.\n", log_id(wire));
 
-		wire->attributes.erase("\\init");
+		wire->attributes.erase(ID(init));
 		did_something = true;
 	next_wire:;
 	}
@@ -416,28 +480,28 @@ void rmunused_module(RTLIL::Module *module, bool purge_mode, bool verbose, bool 
 
 	std::vector<RTLIL::Cell*> delcells;
 	for (auto cell : module->cells())
-		if (cell->type.in("$pos", "$_BUF_")) {
-			bool is_signed = cell->type == "$pos" && cell->getParam("\\A_SIGNED").as_bool();
-			RTLIL::SigSpec a = cell->getPort("\\A");
-			RTLIL::SigSpec y = cell->getPort("\\Y");
+		if (cell->type.in(ID($pos), ID($_BUF_)) && !cell->has_keep_attr()) {
+			bool is_signed = cell->type == ID($pos) && cell->getParam(ID(A_SIGNED)).as_bool();
+			RTLIL::SigSpec a = cell->getPort(ID::A);
+			RTLIL::SigSpec y = cell->getPort(ID::Y);
 			a.extend_u0(GetSize(y), is_signed);
 			module->connect(y, a);
 			delcells.push_back(cell);
 		}
 	for (auto cell : delcells) {
 		if (verbose)
-			log("  removing buffer cell `%s': %s = %s\n", cell->name.c_str(),
-					log_signal(cell->getPort("\\Y")), log_signal(cell->getPort("\\A")));
+			log_debug("  removing buffer cell `%s': %s = %s\n", cell->name.c_str(),
+					log_signal(cell->getPort(ID::Y)), log_signal(cell->getPort(ID::A)));
 		module->remove(cell);
 	}
 	if (!delcells.empty())
 		module->design->scratchpad_set_bool("opt.did_something", true);
 
 	rmunused_module_cells(module, verbose);
-	rmunused_module_signals(module, purge_mode, verbose);
+	while (rmunused_module_signals(module, purge_mode, verbose)) { }
 
 	if (rminit && rmunused_module_init(module, purge_mode, verbose))
-		rmunused_module_signals(module, purge_mode, verbose);
+		while (rmunused_module_signals(module, purge_mode, verbose)) { }
 }
 
 struct OptCleanPass : public Pass {
@@ -482,6 +546,9 @@ struct OptCleanPass : public Pass {
 		ct_reg.setup_stdcells_mem();
 
 		ct_all.setup(design);
+
+		count_rm_cells = 0;
+		count_rm_wires = 0;
 
 		for (auto module : design->selected_whole_modules_warn()) {
 			if (module->has_processes_warn())
@@ -548,9 +615,10 @@ struct CleanPass : public Pass {
 		for (auto module : design->selected_whole_modules()) {
 			if (module->has_processes())
 				continue;
-			rmunused_module(module, purge_mode, false, false);
+			rmunused_module(module, purge_mode, ys_debug(), false);
 		}
 
+		log_suppressed();
 		if (count_rm_cells > 0 || count_rm_wires > 0)
 			log("Removed %d unused cells and %d unused wires.\n", count_rm_cells, count_rm_wires);
 

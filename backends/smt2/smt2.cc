@@ -510,6 +510,7 @@ struct Smt2Worker
 		if (cell->type == "$_ANDNOT_") return export_gate(cell, "(and A (not B))");
 		if (cell->type == "$_ORNOT_") return export_gate(cell, "(or A (not B))");
 		if (cell->type == "$_MUX_") return export_gate(cell, "(ite S B A)");
+		if (cell->type == "$_NMUX_") return export_gate(cell, "(not (ite S B A))");
 		if (cell->type == "$_AOI3_") return export_gate(cell, "(not (or (and A B) C))");
 		if (cell->type == "$_OAI3_") return export_gate(cell, "(not (and (or A B) C))");
 		if (cell->type == "$_AOI4_") return export_gate(cell, "(not (or (and A B) (and C D)))");
@@ -600,7 +601,7 @@ struct Smt2Worker
 			if (cell->type == "$logic_and") return export_reduce(cell, "(and (or A) (or B))", false);
 			if (cell->type == "$logic_or") return export_reduce(cell, "(or A B)", false);
 
-			if (cell->type == "$mux" || cell->type == "$pmux")
+			if (cell->type.in("$mux", "$pmux"))
 			{
 				int width = GetSize(cell->getPort("\\Y"));
 				std::string processed_expr = get_bv(cell->getPort("\\A"));
@@ -1475,7 +1476,7 @@ struct Smt2Backend : public Backend {
 				int indent = 0;
 				while (indent < GetSize(line) && (line[indent] == ' ' || line[indent] == '\t'))
 					indent++;
-				if (line.substr(indent, 2) == "%%")
+				if (line.compare(indent, 2, "%%") == 0)
 					break;
 				*f << line << std::endl;
 			}
@@ -1543,7 +1544,7 @@ struct Smt2Backend : public Backend {
 
 		for (auto module : sorted_modules)
 		{
-			if (module->get_bool_attribute("\\blackbox") || module->has_memories_warn() || module->has_processes_warn())
+			if (module->get_blackbox_attribute() || module->has_memories_warn() || module->has_processes_warn())
 				continue;
 
 			log("Creating SMT-LIBv2 representation of module %s.\n", log_id(module));

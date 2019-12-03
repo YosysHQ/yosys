@@ -27,6 +27,7 @@ struct AigmapPass : public Pass {
 	AigmapPass() : Pass("aigmap", "map logic to and-inverter-graph circuit") { }
 	void help() YS_OVERRIDE
 	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
 		log("    aigmap [options] [selection]\n");
 		log("\n");
@@ -36,10 +37,15 @@ struct AigmapPass : public Pass {
 		log("    -nand\n");
 		log("        Enable creation of $_NAND_ cells\n");
 		log("\n");
+		log("    -select\n");
+		log("        Overwrite replaced cells in the current selection with new $_AND_,\n");
+		log("        $_NOT_, and $_NAND_, cells\n");
+
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
-		bool nand_mode = false;
+		bool nand_mode = false, select_mode = false;
 
 		log_header(design, "Executing AIGMAP pass (map logic to AIG).\n");
 
@@ -48,6 +54,10 @@ struct AigmapPass : public Pass {
 		{
 			if (args[argidx] == "-nand") {
 				nand_mode = true;
+				continue;
+			}
+			if (args[argidx] == "-select") {
+				select_mode = true;
 				continue;
 			}
 			break;
@@ -62,19 +72,22 @@ struct AigmapPass : public Pass {
 			dict<IdString, int> stat_not_replaced;
 			int orig_num_cells = GetSize(module->cells());
 
+			pool<IdString> new_sel;
 			for (auto cell : module->selected_cells())
 			{
 				Aig aig(cell);
 
-				if (cell->type == "$_AND_" || cell->type == "$_NOT_")
+				if (cell->type.in(ID($_AND_), ID($_NOT_)))
 					aig.name.clear();
 
-				if (nand_mode && cell->type == "$_NAND_")
+				if (nand_mode && cell->type == ID($_NAND_))
 					aig.name.clear();
 
 				if (aig.name.empty()) {
 					not_replaced_count++;
 					stat_not_replaced[cell->type]++;
+					if (select_mode)
+						new_sel.insert(cell->name);
 					continue;
 				}
 
@@ -95,19 +108,33 @@ struct AigmapPass : public Pass {
 						SigBit A = sigs.at(node.left_parent);
 						SigBit B = sigs.at(node.right_parent);
 						if (nand_mode && node.inverter) {
-							bit = module->NandGate(NEW_ID, A, B);
+							bit = module->addWire(NEW_ID);
+							auto gate = module->addNandGate(NEW_ID, A, B, bit);
+							if (select_mode)
+								new_sel.insert(gate->name);
+
 							goto skip_inverter;
 						} else {
 							pair<int, int> key(node.left_parent, node.right_parent);
 							if (and_cache.count(key))
 								bit = and_cache.at(key);
-							else
-								bit = module->AndGate(NEW_ID, A, B);
+							else {
+								bit = module->addWire(NEW_ID);
+								auto gate = module->addAndGate(NEW_ID, A, B, bit);
+								if (select_mode)
+									new_sel.insert(gate->name);
+							}
 						}
 					}
 
-					if (node.inverter)
-						bit = module->NotGate(NEW_ID, bit);
+					if (node.inverter) {
+						SigBit new_bit = module->addWire(NEW_ID);
+						auto gate = module->addNotGate(NEW_ID, bit, new_bit);
+						bit = new_bit;
+						if (select_mode)
+							new_sel.insert(gate->name);
+
+					}
 
 				skip_inverter:
 					for (auto &op : node.outports)
@@ -142,6 +169,13 @@ struct AigmapPass : public Pass {
 
 			for (auto cell : replaced_cells)
 				module->remove(cell);
+
+			if (select_mode) {
+				log_assert(!design->selection_stack.empty());
+				RTLIL::Selection& sel = design->selection_stack.back();
+				sel.selected_members[module->name] = std::move(new_sel);
+			}
+
 		}
 	}
 } AigmapPass;

@@ -504,6 +504,7 @@ struct AST_INTERNAL::ProcessGenerator
 
 					RTLIL::CaseRule *backup_case = current_case;
 					current_case = new RTLIL::CaseRule;
+					current_case->attributes["\\src"] = stringf("%s:%d", child->filename.c_str(), child->linenum);
 					last_generated_case = current_case;
 					addChunkActions(current_case->actions, this_case_eq_ltemp, this_case_eq_rvalue);
 					for (auto node : child->children) {
@@ -525,7 +526,16 @@ struct AST_INTERNAL::ProcessGenerator
 				}
 
 				if (last_generated_case != NULL && ast->get_bool_attribute("\\full_case") && default_case == NULL) {
+			#if 0
+					// this is a valid transformation, but as optimization it is premature.
+					// better: add a default case that assigns 'x' to everything, and let later
+					// optimizations take care of the rest
 					last_generated_case->compare.clear();
+			#else
+					default_case = new RTLIL::CaseRule;
+					addChunkActions(default_case->actions, this_case_eq_ltemp, SigSpec(State::Sx, GetSize(this_case_eq_rvalue)));
+					sw->cases.push_back(default_case);
+			#endif
 				} else {
 					if (default_case == NULL) {
 						default_case = new RTLIL::CaseRule;
@@ -636,6 +646,8 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 			if (!id_ast->children[0]->range_valid)
 				log_file_error(filename, linenum, "Failed to detect width of memory access `%s'!\n", str.c_str());
 			this_width = id_ast->children[0]->range_left - id_ast->children[0]->range_right + 1;
+			if (children.size() > 1)
+				range = children[1];
 		} else
 			log_file_error(filename, linenum, "Failed to detect width for identifier %s!\n", str.c_str());
 		if (range) {
@@ -842,7 +854,6 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	case AST_FUNCTION:
 	case AST_DPI_FUNCTION:
 	case AST_AUTOWIRE:
-	case AST_LOCALPARAM:
 	case AST_DEFPARAM:
 	case AST_GENVAR:
 	case AST_GENFOR:
@@ -852,6 +863,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	case AST_PACKAGE:
 	case AST_MODPORT:
 	case AST_MODPORTMEMBER:
+	case AST_TYPEDEF:
 		break;
 	case AST_INTERFACEPORT: {
 		// If a port in a module with unknown type is found, mark it with the attribute 'is_interface'
@@ -884,6 +896,26 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	// remember the parameter, needed for example in techmap
 	case AST_PARAMETER:
 		current_module->avail_parameters.insert(str);
+		/* fall through */
+	case AST_LOCALPARAM:
+		if (flag_pwires)
+		{
+			if (GetSize(children) < 1 || children[0]->type != AST_CONSTANT)
+				log_file_error(filename, linenum, "Parameter `%s' with non-constant value!\n", str.c_str());
+
+			RTLIL::Const val = children[0]->bitsAsConst();
+			RTLIL::Wire *wire = current_module->addWire(str, GetSize(val));
+			current_module->connect(wire, val);
+
+			wire->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
+			wire->attributes[type == AST_PARAMETER ? "\\parameter" : "\\localparam"] = 1;
+
+			for (auto &attr : attributes) {
+				if (attr.second->type != AST_CONSTANT)
+					log_file_error(filename, linenum, "Attribute `%s' with non-constant value!\n", attr.first.c_str());
+				wire->attributes[attr.first] = attr.second->asAttrConst();
+			}
+		}
 		break;
 
 	// create an RTLIL::Wire for an AST_WIRE node
@@ -893,7 +925,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			if (!range_valid)
 				log_file_error(filename, linenum, "Signal `%s' with non-constant width!\n", str.c_str());
 
-			log_assert(range_left >= range_right || (range_left == -1 && range_right == 0));
+			if (!(range_left >= range_right || (range_left == -1 && range_right == 0)))
+				log_file_error(filename, linenum, "Signal `%s' with invalid width range %d!\n", str.c_str(), range_left - range_right + 1);
 
 			RTLIL::Wire *wire = current_module->addWire(str, range_left - range_right + 1);
 			wire->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
@@ -908,6 +941,9 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 					log_file_error(filename, linenum, "Attribute `%s' with non-constant value!\n", attr.first.c_str());
 				wire->attributes[attr.first] = attr.second->asAttrConst();
 			}
+
+			if (is_wand) wire->set_bool_attribute("\\wand");
+			if (is_wor)  wire->set_bool_attribute("\\wor");
 		}
 		break;
 
@@ -952,8 +988,13 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				detectSignWidth(width_hint, sign_hint);
 			is_signed = sign_hint;
 
-			if (type == AST_CONSTANT)
-				return RTLIL::SigSpec(bitsAsConst());
+			if (type == AST_CONSTANT) {
+				if (is_unsized) {
+					return RTLIL::SigSpec(bitsAsUnsizedConst(width_hint));
+				} else {
+					return RTLIL::SigSpec(bitsAsConst());
+				}
+			}
 
 			RTLIL::SigSpec sig = realAsConst(width_hint);
 			log_file_warning(filename, linenum, "converting real value %e to binary %s.\n", realvalue, log_signal(sig));
@@ -1476,15 +1517,17 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				AstNode *child = *it;
 				if (child->type == AST_CELLTYPE) {
 					cell->type = child->str;
-					if (flag_icells && cell->type.substr(0, 2) == "\\$")
+					if (flag_icells && cell->type.begins_with("\\$"))
 						cell->type = cell->type.substr(1);
 					continue;
 				}
 				if (child->type == AST_PARASET) {
+					int extra_const_flags = 0;
 					IdString paraname = child->str.empty() ? stringf("$%d", ++para_counter) : child->str;
 					if (child->children[0]->type == AST_REALVALUE) {
 						log_file_warning(filename, linenum, "Replacing floating point parameter %s.%s = %f with string.\n",
 								log_id(cell), log_id(paraname), child->children[0]->realvalue);
+						extra_const_flags = RTLIL::CONST_FLAG_REAL;
 						auto strnode = AstNode::mkconst_str(stringf("%f", child->children[0]->realvalue));
 						strnode->cloneInto(child->children[0]);
 						delete strnode;
@@ -1493,6 +1536,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 						log_file_error(filename, linenum, "Parameter %s.%s with non-constant value!\n",
 								log_id(cell), log_id(paraname));
 					cell->parameters[paraname] = child->children[0]->asParaConst();
+					cell->parameters[paraname].flags |= extra_const_flags;
 					continue;
 				}
 				if (child->type == AST_ARGUMENT) {
@@ -1512,8 +1556,28 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			}
 			for (auto &attr : attributes) {
 				if (attr.second->type != AST_CONSTANT)
-					log_file_error(filename, linenum, "Attribute `%s' with non-constant value!\n", attr.first.c_str());
+					log_file_error(filename, linenum, "Attribute `%s' with non-constant value.\n", attr.first.c_str());
 				cell->attributes[attr.first] = attr.second->asAttrConst();
+			}
+			if (cell->type.in("$specify2", "$specify3")) {
+				int src_width = GetSize(cell->getPort("\\SRC"));
+				int dst_width = GetSize(cell->getPort("\\DST"));
+				bool full = cell->getParam("\\FULL").as_bool();
+				if (!full && src_width != dst_width)
+					log_file_error(filename, linenum, "Parallel specify SRC width does not match DST width.\n");
+				if (cell->type == "$specify3") {
+					int dat_width = GetSize(cell->getPort("\\DAT"));
+					if (dat_width != dst_width)
+						log_file_error(filename, linenum, "Specify DAT width does not match DST width.\n");
+				}
+				cell->setParam("\\SRC_WIDTH", Const(src_width));
+				cell->setParam("\\DST_WIDTH", Const(dst_width));
+			}
+			if (cell->type == "$specrule") {
+				int src_width = GetSize(cell->getPort("\\SRC"));
+				int dst_width = GetSize(cell->getPort("\\DST"));
+				cell->setParam("\\SRC_WIDTH", Const(src_width));
+				cell->setParam("\\DST_WIDTH", Const(dst_width));
 			}
 		}
 		break;
@@ -1530,6 +1594,37 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			AstNode *always = this->clone();
 			ProcessGenerator generator(always, ignoreThisSignalsInInitial);
 			delete always;
+		} break;
+
+	case AST_TECALL: {
+			int sz = children.size();
+			if (str == "$info") {
+				if (sz > 0)
+					log_file_info(filename, linenum, "%s.\n", children[0]->str.c_str());
+				else
+					log_file_info(filename, linenum, "\n");
+			} else if (str == "$warning") {
+				if (sz > 0)
+					log_file_warning(filename, linenum, "%s.\n", children[0]->str.c_str());
+				else
+					log_file_warning(filename, linenum, "\n");
+			} else if (str == "$error") {
+				if (sz > 0)
+					log_file_error(filename, linenum, "%s.\n", children[0]->str.c_str());
+				else
+					log_file_error(filename, linenum, "\n");
+			} else if (str == "$fatal") {
+				// TODO: 1st parameter, if exists, is 0,1 or 2, and passed to $finish()
+				// if no parameter is given, default value is 1
+				// dollar_finish(sz ? children[0] : 1);
+				// perhaps create & use log_file_fatal()
+				if (sz > 0)
+					log_file_error(filename, linenum, "FATAL: %s.\n", children[0]->str.c_str());
+				else
+					log_file_error(filename, linenum, "FATAL.\n");
+			} else {
+				log_file_error(filename, linenum, "Unknown elabortoon system task '%s'.\n", str.c_str());
+			}
 		} break;
 
 	case AST_FCALL: {

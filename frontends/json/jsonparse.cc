@@ -25,7 +25,7 @@ struct JsonNode
 {
 	char type; // S=String, N=Number, A=Array, D=Dict
 	string data_string;
-	int data_number;
+	int64_t data_number;
 	vector<JsonNode*> data_array;
 	dict<string, JsonNode*> data_dict;
 	vector<string> data_dict_keys;
@@ -206,6 +206,38 @@ struct JsonNode
 	}
 };
 
+Const json_parse_attr_param_value(JsonNode *node)
+{
+	Const value;
+
+	if (node->type == 'S') {
+		string &s = node->data_string;
+		size_t cursor = s.find_first_not_of("01xz");
+		if (cursor == string::npos) {
+			value = Const::from_string(s);
+		} else if (s.find_first_not_of(' ', cursor) == string::npos) {
+			value = Const(s.substr(0, GetSize(s)-1));
+		} else {
+			value = Const(s);
+		}
+	} else
+	if (node->type == 'N') {
+		value = Const(node->data_number, 32);
+		if (node->data_number < 0)
+			value.flags |= RTLIL::CONST_FLAG_SIGNED;
+	} else
+	if (node->type == 'A') {
+		log_error("JSON attribute or parameter value is an array.\n");
+	} else
+	if (node->type == 'D') {
+		log_error("JSON attribute or parameter value is a dict.\n");
+	} else {
+		log_abort();
+	}
+
+	return value;
+}
+
 void json_parse_attr_param(dict<IdString, Const> &results, JsonNode *node)
 {
 	if (node->type != 'D')
@@ -214,28 +246,7 @@ void json_parse_attr_param(dict<IdString, Const> &results, JsonNode *node)
 	for (auto it : node->data_dict)
 	{
 		IdString key = RTLIL::escape_id(it.first.c_str());
-		JsonNode *value_node = it.second;
-		Const value;
-
-		if (value_node->type == 'S') {
-			string &s = value_node->data_string;
-			if (s.find_first_not_of("01xz") == string::npos)
-				value = Const::from_string(s);
-			else
-				value = Const(s);
-		} else
-		if (value_node->type == 'N') {
-			value = Const(value_node->data_number, 32);
-		} else
-		if (value_node->type == 'A') {
-			log_error("JSON attribute or parameter value is an array.\n");
-		} else
-		if (value_node->type == 'D') {
-			log_error("JSON attribute or parameter value is a dict.\n");
-		} else {
-			log_abort();
-		}
-
+		Const value = json_parse_attr_param_value(it.second);
 		results[key] = value;
 	}
 }
@@ -291,6 +302,18 @@ void json_import(Design *design, string &modname, JsonNode *node)
 
 			if (port_wire == nullptr)
 				port_wire = module->addWire(port_name, GetSize(port_bits_node->data_array));
+
+			if (port_node->data_dict.count("upto") != 0) {
+				JsonNode *val = port_node->data_dict.at("upto");
+				if (val->type == 'N')
+					port_wire->upto = val->data_number != 0;
+			}
+
+			if (port_node->data_dict.count("offset") != 0) {
+				JsonNode *val = port_node->data_dict.at("offset");
+				if (val->type == 'N')
+					port_wire->start_offset = val->data_number;
+			}
 
 			if (port_direction_node->data_string == "input") {
 				port_wire->port_input = true;
@@ -371,6 +394,18 @@ void json_import(Design *design, string &modname, JsonNode *node)
 
 			if (wire == nullptr)
 				wire = module->addWire(net_name, GetSize(bits_node->data_array));
+
+			if (net_node->data_dict.count("upto") != 0) {
+				JsonNode *val = net_node->data_dict.at("upto");
+				if (val->type == 'N')
+					wire->upto = val->data_number != 0;
+			}
+
+			if (net_node->data_dict.count("offset") != 0) {
+				JsonNode *val = net_node->data_dict.at("offset");
+				if (val->type == 'N')
+					wire->start_offset = val->data_number;
+			}
 
 			for (int i = 0; i < GetSize(bits_node->data_array); i++)
 			{

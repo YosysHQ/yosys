@@ -49,14 +49,26 @@ struct SynthGowinPass : public ScriptPass
 		log("        from label is synonymous to 'begin', and empty to label is\n");
 		log("        synonymous to the end of the command list.\n");
 		log("\n");
+		log("    -nodffe\n");
+		log("        do not use flipflops with CE in output netlist\n");
+		log("\n");
 		log("    -nobram\n");
 		log("        do not use BRAM cells in output netlist\n");
+		log("\n");
+		log("    -nodram\n");
+		log("        do not use distributed RAM cells in output netlist\n");
 		log("\n");
 		log("    -noflatten\n");
 		log("        do not flatten design before synthesis\n");
 		log("\n");
 		log("    -retime\n");
 		log("        run 'abc' with -dff option\n");
+		log("\n");
+		log("    -nowidelut\n");
+		log("        do not use muxes to implement LUTs larger than LUT4s\n");
+		log("\n");
+		log("    -abc9\n");
+		log("        use new ABC9 flow (EXPERIMENTAL)\n");
 		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
@@ -65,7 +77,7 @@ struct SynthGowinPass : public ScriptPass
 	}
 
 	string top_opt, vout_file;
-	bool retime, flatten, nobram;
+	bool retime, nobram, nodram, flatten, nodffe, nowidelut, abc9;
 
 	void clear_flags() YS_OVERRIDE
 	{
@@ -73,7 +85,11 @@ struct SynthGowinPass : public ScriptPass
 		vout_file = "";
 		retime = false;
 		flatten = true;
-		nobram = true;
+		nobram = false;
+		nodffe = false;
+		nodram = false;
+		nowidelut = false;
+		abc9 = false;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -108,8 +124,24 @@ struct SynthGowinPass : public ScriptPass
 				nobram = true;
 				continue;
 			}
+			if (args[argidx] == "-nodram") {
+				nodram = true;
+				continue;
+			}
+			if (args[argidx] == "-nodffe") {
+				nodffe = true;
+				continue;
+			}
 			if (args[argidx] == "-noflatten") {
 				flatten = false;
+				continue;
+			}
+			if (args[argidx] == "-nowidelut") {
+				nowidelut = true;
+				continue;
+			}
+			if (args[argidx] == "-abc9") {
+				abc9 = true;
 				continue;
 			}
 			break;
@@ -147,37 +179,67 @@ struct SynthGowinPass : public ScriptPass
 		{
 			run("synth -run coarse");
 		}
+
 		if (!nobram && check_label("bram", "(skip if -nobram)"))
 		{
 			run("memory_bram -rules +/gowin/bram.txt");
-			run("techmap -map +/gowin/brams_map.v");
+			run("techmap -map +/gowin/brams_map.v -map +/gowin/cells_sim.v");
 		}
+
+		if (!nodram && check_label("dram", "(skip if -nodram)"))
+		{
+			run("memory_bram -rules +/gowin/dram.txt");
+			run("techmap -map +/gowin/drams_map.v");
+			run("determine_init");
+		}
+
 		if (check_label("fine"))
 		{
 			run("opt -fast -mux_undef -undriven -fine");
 			run("memory_map");
 			run("opt -undriven -fine");
 			run("techmap -map +/techmap.v -map +/gowin/arith_map.v");
-			run("opt -fine");
-			run("clean -purge");
-			run("splitnets -ports");
-			run("setundef -undriven -zero");
+			run("techmap -map +/techmap.v");
 			if (retime || help_mode)
 				run("abc -dff", "(only if -retime)");
+			run("splitnets");
+		}
+
+		if (check_label("map_ffs"))
+		{
+			run("dffsr2dff");
+			run("dff2dffs");
+			run("opt_clean");
+			if (!nodffe)
+				run("dff2dffe -direct-match $_DFF_* -direct-match $__DFFS_*");
+			run("techmap -map +/gowin/cells_map.v");
+			run("opt_expr -mux_undef");
+			run("simplemap");
 		}
 
 		if (check_label("map_luts"))
 		{
-			run("abc -lut 4");
+			if (nowidelut && abc9) {
+				run("abc9 -lut 4");
+			} else if (nowidelut && !abc9) {
+				run("abc -lut 4");
+			} else if (!nowidelut && abc9) {
+				run("abc9 -lut 4:8");
+			} else if (!nowidelut && !abc9) {
+				run("abc -lut 4:8");
+			}
 			run("clean");
 		}
 
 		if (check_label("map_cells"))
 		{
 			run("techmap -map +/gowin/cells_map.v");
-			run("hilomap -hicell VCC V -locell GND G");
-			run("iopadmap -inpad IBUF O:I -outpad OBUF I:O");
-			run("clean -purge");
+			run("setundef -undriven -params -zero");
+			run("hilomap -singleton -hicell VCC V -locell GND G");
+			run("iopadmap -bits -inpad IBUF O:I -outpad OBUF I:O "
+				"-toutpad TBUF OEN:I:O -tinoutpad IOBUF OEN:O:I:IO", "(unless -noiopads)");
+			run("clean");
+
 		}
 
 		if (check_label("check"))
@@ -190,7 +252,7 @@ struct SynthGowinPass : public ScriptPass
 		if (check_label("vout"))
 		{
 			if (!vout_file.empty() || help_mode)
-				run(stringf("write_verilog -nodec -attr2comment -defparam -renameprefix gen %s",
+				 run(stringf("write_verilog -decimal -attr2comment -defparam -renameprefix gen %s",
 						help_mode ? "<file-name>" : vout_file.c_str()));
 		}
 	}

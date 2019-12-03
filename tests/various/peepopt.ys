@@ -1,0 +1,213 @@
+read_verilog <<EOT
+module peepopt_shiftmul_0 #(parameter N=3, parameter W=3) (input [N*W-1:0] i, input [$clog2(N)-1:0] s, output [W-1:0] o);
+assign o = i[s*W+:W];
+endmodule
+EOT
+
+prep -nokeepdc
+equiv_opt -assert peepopt
+design -load postopt
+clean
+select -assert-count 1 t:$shiftx
+select -assert-count 0 t:$shiftx t:* %D
+
+####################
+
+design -reset
+read_verilog <<EOT
+module peepopt_shiftmul_1 (output [7:0] y, input [2:0] w);
+assign y = 1'b1 >> (w * (3'b110));
+endmodule
+EOT
+
+prep -nokeepdc
+equiv_opt -assert peepopt
+design -load postopt
+clean
+select -assert-count 1 t:$shr
+select -assert-count 1 t:$mul
+select -assert-count 0 t:$shr t:$mul %% t:* %D
+
+####################
+
+design -reset
+read_verilog <<EOT
+module peepopt_shiftmul_2 (input [11:0] D, input [1:0] S, output [11:0] Y);
+	assign Y = D >> (S*3);
+endmodule
+EOT
+
+prep
+design -save gold
+peepopt
+design -stash gate
+
+design -import gold -as gold peepopt_shiftmul_2
+design -import gate -as gate peepopt_shiftmul_2
+
+miter -equiv -make_assert -make_outputs -ignore_gold_x -flatten gold gate miter
+sat -show-public -enable_undef -prove-asserts miter
+cd gate
+select -assert-count 1 t:$shr
+select -assert-count 1 t:$mul
+select -assert-count 0 t:$shr t:$mul %% t:* %D
+
+####################
+
+design -reset
+read_verilog <<EOT
+module peepopt_muldiv_0(input [1:0] i, output [1:0] o);
+wire [3:0] t;
+assign t = i * 3;
+assign o = t / 3;
+endmodule
+EOT
+
+prep -nokeepdc
+equiv_opt -assert peepopt
+design -load postopt
+clean
+select -assert-count 0 t:*
+
+####################
+
+design -reset
+read_verilog <<EOT
+module peepopt_dffmuxext_unsigned(input clk, ce, input [1:0] i, output reg [3:0] o);
+    always @(posedge clk) if (ce) o <= i;
+endmodule
+EOT
+
+proc
+equiv_opt -assert peepopt
+design -load postopt
+clean
+select -assert-count 1 t:$dff r:WIDTH=2 %i
+select -assert-count 1 t:$mux r:WIDTH=2 %i
+select -assert-count 0 t:$dff t:$mux %% t:* %D
+
+####################
+
+design -reset
+read_verilog <<EOT
+module peepopt_dffmuxext_signed(input clk, ce, input signed [1:0] i, output reg signed [3:0] o);
+    always @(posedge clk) if (ce) o <= i;
+endmodule
+EOT
+
+proc
+equiv_opt -assert peepopt
+design -load postopt
+clean
+select -assert-count 1 t:$dff r:WIDTH=2 %i
+select -assert-count 1 t:$mux r:WIDTH=2 %i
+select -assert-count 0 t:$dff t:$mux %% t:* %D
+
+###################
+
+design -reset
+read_verilog <<EOT
+module peepopt_dffmuxext_const(input clk, ce, input [1:0] i, output reg [5:0] o);
+    always @(posedge clk) if (ce) o <= {1'b0, i[1], 2'b1x, i[0], 1'bz};
+endmodule
+EOT
+
+proc
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 1 t:$dff r:WIDTH=2 %i
+select -assert-count 1 t:$mux r:WIDTH=2 %i
+select -assert-count 0 t:$dff t:$mux %% t:* %D
+
+###################
+
+design -reset
+read_verilog <<EOT
+module peepopt_dffmuxext_const_init(input clk, ce, input [1:0] i, (* init=6'b0x00x1 *) output reg [5:0] o);
+    always @(posedge clk) if (ce) o <= {1'b0, i[1], 2'b1x, i[0], 1'bz};
+endmodule
+EOT
+
+proc
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 1 t:$dff r:WIDTH=4 %i
+select -assert-count 1 t:$mux r:WIDTH=4 %i
+select -assert-count 0 t:$dff t:$mux %% t:* %D
+
+####################
+
+design -reset
+read_verilog <<EOT
+module peepopt_dffmuxext_unsigned_rst(input clk, ce, rst, input [1:0] i, output reg [3:0] o);
+    always @(posedge clk) if (rst) o <= 0; else if (ce) o <= i;
+endmodule
+EOT
+
+proc
+equiv_opt -assert peepopt
+design -load postopt
+wreduce
+select -assert-count 1 t:$dff r:WIDTH=2 %i
+select -assert-count 2 t:$mux
+select -assert-count 2 t:$mux r:WIDTH=2 %i
+select -assert-count 0 t:$dff t:$mux %% t:* %D
+
+####################
+
+design -reset
+read_verilog <<EOT
+module peepopt_dffmuxext_signed_rst(input clk, ce, rstn, input signed [1:0] i, output reg signed [3:0] o);
+    always @(posedge clk) begin
+        if (ce) o <= i;
+        if (!rstn) o <= 4'b1111;
+    end
+endmodule
+EOT
+
+proc
+equiv_opt -assert peepopt
+design -load postopt
+wreduce
+select -assert-count 1 t:$dff r:WIDTH=2 %i
+select -assert-count 2 t:$mux
+select -assert-count 2 t:$mux r:WIDTH=2 %i
+select -assert-count 0 t:$logic_not t:$dff t:$mux %% t:* %D
+
+####################
+
+design -reset
+read_verilog <<EOT
+module peepopt_dffmuxext_signed_rst_init(input clk, ce, rstn, input signed [1:0] i, output reg signed [3:0] o);
+    initial o <= 4'b0010;
+    always @(posedge clk) begin
+        if (ce) o <= i;
+        if (!rstn) o <= 4'b1111;
+    end
+endmodule
+EOT
+
+proc
+# NB: equiv_opt uses equiv_induct which covers
+#     only the induction half of temporal induction
+#     --- missing the base-case half
+#     This makes it akin to `sat -tempinduct-inductonly`
+#     instead of `sat -tempinduct-baseonly` or
+#     `sat -tempinduct` which is necessary for this
+#     testcase
+#equiv_opt -assert peepopt
+
+design -save gold
+peepopt
+wreduce
+design -stash gate
+design -import gold -as gold
+design -import gate -as gate
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -tempinduct -verify -prove-asserts -show-ports miter
+
+design -load gate
+select -assert-count 1 t:$dff r:WIDTH=4 %i
+select -assert-count 2 t:$mux
+select -assert-count 2 t:$mux r:WIDTH=4 %i
+select -assert-count 0 t:$logic_not t:$dff t:$mux %% t:* %D

@@ -71,7 +71,7 @@ static void add_wire(RTLIL::Design *design, RTLIL::Module *module, std::string n
 		RTLIL::Module *mod = design->modules_.at(it.second->type);
 		if (!design->selected_whole_module(mod->name))
 			continue;
-		if (mod->get_bool_attribute("\\blackbox"))
+		if (mod->get_blackbox_attribute())
 			continue;
 		if (it.second->hasPort(name))
 			continue;
@@ -105,6 +105,11 @@ struct AddPass : public Pass {
 		log("Like 'add -input', but also connect the signal between instances of the\n");
 		log("selected modules.\n");
 		log("\n");
+		log("\n");
+		log("    add -mod <name[s]>\n");
+		log("\n");
+		log("Add module[s] with the specified name[s].\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
@@ -113,6 +118,7 @@ struct AddPass : public Pass {
 		bool arg_flag_input = false;
 		bool arg_flag_output = false;
 		bool arg_flag_global = false;
+		bool mod_mode = false;
 		int arg_width = 0;
 
 		size_t argidx;
@@ -133,8 +139,20 @@ struct AddPass : public Pass {
 				arg_width = atoi(args[++argidx].c_str());
 				continue;
 			}
+			if (arg == "-mod") {
+				mod_mode = true;
+				argidx++;
+				break;
+			}
 			break;
 		}
+
+		if (mod_mode) {
+			for (; argidx < args.size(); argidx++)
+				design->addModule(RTLIL::escape_id(args[argidx]));
+			return;
+		}
+
 		extra_args(args, argidx, design);
 
 		for (auto &mod : design->modules_)

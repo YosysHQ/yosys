@@ -320,12 +320,10 @@ class SubCircuit::SolverWorker
 
 	static int numberOfPermutations(const std::vector<std::string> &list)
 	{
-		int numPermutations = 1;
-		for (int i = 0; i < int(list.size()); i++) {
-			assert(numPermutations < maxPermutationsLimit);
-			numPermutations *= i+1;
-		}
-		return numPermutations;
+		constexpr size_t mappedPermutationsSize = 10;
+		constexpr int mappedPermutations[mappedPermutationsSize] = {1, 1, 2, 6, 24, 120, 720, 5040, 40320, 362880};
+		assert(list.size() < mappedPermutationsSize);
+		return mappedPermutations[list.size()];
 	}
 
 	static void permutateVectorToMap(std::map<std::string, std::string> &map, const std::vector<std::string> &list, int idx)

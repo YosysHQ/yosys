@@ -1,7 +1,7 @@
 ```
 yosys -- Yosys Open SYnthesis Suite
 
-Copyright (C) 2012 - 2018  Clifford Wolf <clifford@clifford.at>
+Copyright (C) 2012 - 2019  Clifford Wolf <clifford@clifford.at>
 
 Permission to use, copy, modify, and/or distribute this software for any
 purpose with or without fee is hereby granted, provided that the above
@@ -66,25 +66,29 @@ prerequisites for building yosys:
 
 	$ sudo apt-get install build-essential clang bison flex \
 		libreadline-dev gawk tcl-dev libffi-dev git \
-		graphviz xdot pkg-config python3
+		graphviz xdot pkg-config python3 libboost-system-dev \
+		libboost-python-dev libboost-filesystem-dev zlib1g-dev
 
-Similarily, on Mac OS X MacPorts or Homebrew can be used to install dependencies:
+Similarily, on Mac OS X Homebrew can be used to install dependencies:
 
 	$ brew tap Homebrew/bundle && brew bundle
+
+or MacPorts:
+
 	$ sudo port install bison flex readline gawk libffi \
-		git graphviz pkgconfig python36
+		git graphviz pkgconfig python36 boost zlib tcl
 
 On FreeBSD use the following command to install all prerequisites:
 
 	# pkg install bison flex readline gawk libffi\
-		git graphviz pkgconfig python3 python36 tcl-wrapper
+		git graphviz pkgconf python3 python36 tcl-wrapper boost-libs
 
 On FreeBSD system use gmake instead of make. To run tests use:
     % MAKE=gmake CC=cc gmake test
 
 For Cygwin use the following command to install all prerequisites, or select these additional packages:
 
-	setup-x86_64.exe -q --packages=bison,flex,gcc-core,gcc-g++,git,libffi-devel,libreadline-devel,make,pkg-config,python3,tcl-devel
+	setup-x86_64.exe -q --packages=bison,flex,gcc-core,gcc-g++,git,libffi-devel,libreadline-devel,make,pkg-config,python3,tcl-devel,boost-build,zlib-devel
 
 There are also pre-compiled Yosys binary packages for Ubuntu and Win32 as well
 as a source distribution for Visual Studio. Visit the Yosys download page for
@@ -105,11 +109,14 @@ Makefile.
 To build Yosys simply type 'make' in this directory.
 
 	$ make
-	$ make test
 	$ sudo make install
 
 Note that this also downloads, builds and installs ABC (using yosys-abc
 as executable name).
+
+Tests are located in the tests subdirectory and can be executed using the test target. Note that you need gawk as well as a recent version of iverilog (i.e. build from git). Then, execute tests via:
+
+	$ make test
 
 Getting Started
 ===============
@@ -126,17 +133,14 @@ commands and ``help <command>`` to print details on the specified command:
 
 	yosys> help help
 
-reading the design using the Verilog frontend:
+reading and elaborating the design using the Verilog frontend:
 
-	yosys> read_verilog tests/simple/fiedler-cooley.v
+	yosys> read -sv tests/simple/fiedler-cooley.v
+	yosys> hierarchy -top up3down5
 
 writing the design to the console in Yosys's internal format:
 
 	yosys> write_ilang
-
-elaborate design hierarchy:
-
-	yosys> hierarchy
 
 convert processes (``always`` blocks) to netlist elements and perform
 some simple optimizations:
@@ -159,51 +163,26 @@ write design netlist to a new Verilog file:
 
 	yosys> write_verilog synth.v
 
-a similar synthesis can be performed using yosys command line options only:
-
-	$ ./yosys -o synth.v -p hierarchy -p proc -p opt \
-	                     -p techmap -p opt tests/simple/fiedler-cooley.v
-
 or using a simple synthesis script:
 
 	$ cat synth.ys
-	read_verilog tests/simple/fiedler-cooley.v
-	hierarchy; proc; opt; techmap; opt
+	read -sv tests/simple/fiedler-cooley.v
+	hierarchy -top up3down5
+	proc; opt; techmap; opt
 	write_verilog synth.v
 
 	$ ./yosys synth.ys
-
-It is also possible to only have the synthesis commands but not the read/write
-commands in the synthesis script:
-
-	$ cat synth.ys
-	hierarchy; proc; opt; techmap; opt
-
-	$ ./yosys -o synth.v tests/simple/fiedler-cooley.v synth.ys
-
-The following very basic synthesis script should work well with all designs:
-
-	# check design hierarchy
-	hierarchy
-
-	# translate processes (always blocks)
-	proc; opt
-
-	# detect and optimize FSM encodings
-	fsm; opt
-
-	# implement memories (arrays)
-	memory; opt
-
-	# convert to gate logic
-	techmap; opt
 
 If ABC is enabled in the Yosys build configuration and a cell library is given
 in the liberty file ``mycells.lib``, the following synthesis script will
 synthesize for the given cell library:
 
+	# read design
+	read -sv tests/simple/fiedler-cooley.v
+	hierarchy -top up3down5
+
 	# the high-level stuff
-	hierarchy; proc; fsm; opt; memory; opt
+	proc; fsm; opt; memory; opt
 
 	# mapping to internal cell library
 	techmap; opt
@@ -218,7 +197,8 @@ synthesize for the given cell library:
 	clean
 
 If you do not have a liberty file but want to test this synthesis script,
-you can use the file ``examples/cmos/cmos_cells.lib`` from the yosys sources.
+you can use the file ``examples/cmos/cmos_cells.lib`` from the yosys sources
+as simple example.
 
 Liberty file downloads for and information about free and open ASIC standard
 cell libraries can be found here:
@@ -227,20 +207,18 @@ cell libraries can be found here:
 - http://www.vlsitechnology.org/synopsys/vsclib013.lib
 
 The command ``synth`` provides a good default synthesis script (see
-``help synth``).  If possible a synthesis script should borrow from ``synth``.
-For example:
+``help synth``):
 
-	# the high-level stuff
-	hierarchy
-	synth -run coarse
+	read -sv tests/simple/fiedler-cooley.v
+	synth -top up3down5
 
-	# mapping to internal cells
-	techmap; opt -fast
+	# mapping to target cells
 	dfflibmap -liberty mycells.lib
 	abc -liberty mycells.lib
 	clean
 
-Yosys is under construction. A more detailed documentation will follow.
+The command ``prep`` provides a good default word-level synthesis script, as
+used in SMT-based formal verification.
 
 
 Unsupported Verilog-2005 Features
@@ -253,13 +231,9 @@ for them:
 - Non-synthesizable language features as defined in
 	IEC 62142(E):2005 / IEEE Std. 1364.1(E):2002
 
-- The ``tri``, ``triand``, ``trior``, ``wand`` and ``wor`` net types
+- The ``tri``, ``triand`` and ``trior`` net types
 
-- The ``config`` keyword and library map files
-
-- The ``disable``, ``primitive`` and ``specify`` statements
-
-- Latched logic (is synthesized as logic with feedback loops)
+- The ``config`` and ``disable`` keywords and library map files
 
 
 Verilog Attributes and non-standard features
@@ -307,10 +281,25 @@ Verilog Attributes and non-standard features
   that have the same ports as the real thing but do not contain information
   on the internal configuration. This modules are only used by the synthesis
   passes to identify input and output ports of cells. The Verilog backend
-  also does not output blackbox modules on default.
+  also does not output blackbox modules on default. ``read_verilog``, unless
+  called with ``-noblackbox`` will automatically set the blackbox attribute
+  on any empty module it reads.
 
-- The ``dynports'' attribute is used by the Verilog front-end to mark modules
+- The ``noblackbox`` attribute set on an empty module prevents ``read_verilog``
+  from automatically setting the blackbox attribute on the module.
+
+- The ``whitebox`` attribute on modules triggers the same behavior as
+  ``blackbox``, but is for whitebox modules, i.e. library modules that
+  contain a behavioral model of the cell type.
+
+- The ``lib_whitebox`` attribute overwrites ``whitebox`` when ``read_verilog``
+  is run in `-lib` mode. Otherwise it's automatically removed.
+
+- The ``dynports`` attribute is used by the Verilog front-end to mark modules
   that have ports with a width that depends on a parameter.
+
+- The ``hdlname`` attribute is used by some passes to document the original
+  (HDL) name of a module when renaming a module.
 
 - The ``keep`` attribute on cells and wires is used to mark objects that should
   never be removed by the optimizer. This is used for example for cells that
@@ -335,6 +324,65 @@ Verilog Attributes and non-standard features
   through the synthesis. When entities are combined, a new |-separated
   string is created that contains all the string from the original entities.
 
+- The ``defaultvalue`` attribute is used to store default values for
+  module inputs. The attribute is attached to the input wire by the HDL
+  front-end when the input is declared with a default value.
+
+- The ``parameter`` and ``localparam`` attributes are used to mark wires
+  that represent module parameters or localparams (when the HDL front-end
+  is run in ``-pwires`` mode).
+
+- Wires marked with the ``hierconn`` attribute are connected to wires with the
+  same name (format ``cell_name.identifier``) when they are imported from
+  sub-modules by ``flatten``.
+
+- The ``clkbuf_driver`` attribute can be set on an output port of a blackbox
+  module to mark it as a clock buffer output, and thus prevent ``clkbufmap``
+  from inserting another clock buffer on a net driven by such output.
+
+- The ``clkbuf_sink`` attribute can be set on an input port of a module to
+  request clock buffer insertion by the ``clkbufmap`` pass.
+
+- The ``clkbuf_inv`` attribute can be set on an output port of a module
+  with the value set to the name of an input port of that module.  When
+  the ``clkbufmap`` would otherwise insert a clock buffer on this output,
+  it will instead try inserting the clock buffer on the input port (this
+  is used to implement clock inverter cells that clock buffer insertion
+  will "see through").
+
+- The ``clkbuf_inhibit`` is the default attribute to set on a wire to prevent
+  automatic clock buffer insertion by ``clkbufmap``. This behaviour can be
+  overridden by providing a custom selection to ``clkbufmap``.
+
+- The ``invertible_pin`` attribute can be set on a port to mark it as
+  invertible via a cell parameter.  The name of the inversion parameter
+  is specified as the value of this attribute.  The value of the inversion
+  parameter must be of the same width as the port, with 1 indicating
+  an inverted bit and 0 indicating a non-inverted bit.
+
+- The ``iopad_external_pin`` attribute on a blackbox module's port marks
+  it as the external-facing pin of an I/O pad, and prevents ``iopadmap``
+  from inserting another pad cell on it.
+
+- The module attribute ``abc_box_id`` specifies a positive integer linking a
+  blackbox or whitebox definition to a corresponding entry in a `abc9`
+  box-file.
+
+- The port attribute ``abc_carry`` marks the carry-in (if an input port) and
+  carry-out (if output port) ports of a box. This information is necessary for
+  `abc9` to preserve the integrity of carry-chains. Specifying this attribute
+  onto a bus port will affect only its most significant bit.
+
+- The port attribute ``abc_arrival`` specifies an integer (for output ports
+  only) to be used as the arrival time of this sequential port. It can be used,
+  for example, to specify the clk-to-Q delay of a flip-flop for consideration
+  during techmapping.
+
+- The frontend sets attributes ``always_comb``, ``always_latch`` and
+  ``always_ff`` on processes derived from SystemVerilog style always blocks
+  according to the type of the always. These are checked for correctness in
+  ``proc_dlatch``.
+
 - In addition to the ``(* ... *)`` attribute syntax, Yosys supports
   the non-standard ``{* ... *}`` attribute syntax to set default attributes
   for everything that comes after the ``{* ... *}`` statement. (Reset
@@ -351,7 +399,7 @@ Verilog Attributes and non-standard features
 
 - When defining a macro with `define, all text between triple double quotes
   is interpreted as macro body, even if it contains unescaped newlines. The
-  tipple double quotes are removed from the macro body. For example:
+  triple double quotes are removed from the macro body. For example:
 
       `define MY_MACRO(a, b) """
          assign a = 23;
@@ -398,12 +446,18 @@ Verilog Attributes and non-standard features
       $ yosys -p 'plugin -a foo -i /lib/libm.so; read_verilog dpitest.v'
 
 - Sized constants (the syntax ``<size>'s?[bodh]<value>``) support constant
-  expressions as <size>. If the expression is not a simple identifier, it
+  expressions as ``<size>``. If the expression is not a simple identifier, it
   must be put in parentheses. Examples: ``WIDTH'd42``, ``(4+2)'b101010``
 
-- The system tasks ``$finish`` and ``$display`` are supported in initial blocks
-  in an unconditional context (only if/case statements on parameters
-  and constant values). The intended use for this is synthesis-time DRC.
+- The system tasks ``$finish``, ``$stop`` and ``$display`` are supported in
+  initial blocks in an unconditional context (only if/case statements on
+  expressions over parameters and constant values are allowed). The intended
+  use for this is synthesis-time DRC.
+
+- There is limited support for converting specify .. endspecify statements to
+  special ``$specify2``, ``$specify3``, and ``$specrule`` cells, for use in
+  blackboxes and whiteboxes. Use ``read_verilog -specify`` to enable this
+  functionality. (By default specify .. endspecify blocks are ignored.)
 
 
 Non-standard or SystemVerilog features for formal verification
@@ -438,7 +492,7 @@ Non-standard or SystemVerilog features for formal verification
   supported in any clocked block.
 
 - The syntax ``@($global_clock)`` can be used to create FFs that have no
-  explicit clock input ($ff cells). The same can be achieved by using
+  explicit clock input (``$ff`` cells). The same can be achieved by using
   ``@(posedge <netname>)`` or ``@(negedge <netname>)`` when ``<netname>``
   is marked with the ``(* gclk *)`` Verilog attribute.
 
@@ -451,7 +505,7 @@ from SystemVerilog:
 
 - The ``assert`` statement from SystemVerilog is supported in its most basic
   form. In module context: ``assert property (<expression>);`` and within an
-  always block: ``assert(<expression>);``. It is transformed to a $assert cell.
+  always block: ``assert(<expression>);``. It is transformed to an ``$assert`` cell.
 
 - The ``assume``, ``restrict``, and ``cover`` statements from SystemVerilog are
   also supported. The same limitations as with the ``assert`` statement apply.
@@ -467,6 +521,8 @@ from SystemVerilog:
 - SystemVerilog packages are supported. Once a SystemVerilog file is read
   into a design with ``read_verilog``, all its packages are available to
   SystemVerilog files being read into the same design afterwards.
+
+- typedefs are supported (including inside packages)
 
 - SystemVerilog interfaces (SVIs) are supported. Modports for specifying whether
   ports are inputs or outputs are supported.

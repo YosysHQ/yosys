@@ -215,9 +215,9 @@ struct EquivStructWorker
 					if (c != nullptr) {
 						string n = cell_name.str();
 						cells_type = c->type;
-						if (GetSize(n) > 5 && n.substr(GetSize(n)-5) == "_gold")
+						if (GetSize(n) > 5 && n.compare(GetSize(n)-5, std::string::npos, "_gold") == 0)
 							gold_cells.push_back(c);
-						else if (GetSize(n) > 5 && n.substr(GetSize(n)-5) == "_gate")
+						else if (GetSize(n) > 5 && n.compare(GetSize(n)-5, std::string::npos, "_gate") == 0)
 							gate_cells.push_back(c);
 						else
 							other_cells.push_back(c);

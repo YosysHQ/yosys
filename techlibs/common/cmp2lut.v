@@ -7,7 +7,7 @@
 // with n <= k inputs should be techmapped in this way, because this shortens the critical path
 // from n to 1 by avoiding carry chains.
 
-(* techmap_celltype = "$eq $ne $lt $le $gt $ge" *)
+(* techmap_celltype = "$lt $le $gt $ge" *)
 module _90_lut_cmp_ (A, B, Y);
 
 parameter A_SIGNED = 0;
@@ -27,7 +27,7 @@ parameter _TECHMAP_CONSTVAL_A_ = 0;
 parameter _TECHMAP_CONSTMSK_B_ = 0;
 parameter _TECHMAP_CONSTVAL_B_ = 0;
 
-function automatic integer gen_lut;
+function automatic [(1 << `LUT_WIDTH)-1:0] gen_lut;
 	input integer width;
 	input integer operation;
 	input integer swap;

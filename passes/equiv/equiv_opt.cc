@@ -32,7 +32,8 @@ struct EquivOptPass:public ScriptPass
 		log("\n");
 		log("    equiv_opt [options] [command]\n");
 		log("\n");
-		log("This command checks circuit equivalence before and after an optimization pass.\n");
+		log("This command uses temporal induction to check circuit equivalence before and\n");
+		log("after an optimization pass.\n");
 		log("\n");
 		log("    -run <from_label>:<to_label>\n");
 		log("        only run the commands between the labels (see below). an empty\n");
@@ -44,7 +45,16 @@ struct EquivOptPass:public ScriptPass
 		log("        useful for handling architecture-specific primitives.\n");
 		log("\n");
 		log("    -assert\n");
-		log("        produce an error if the circuits are not equivalent\n");
+		log("        produce an error if the circuits are not equivalent.\n");
+		log("\n");
+		log("    -multiclock\n");
+		log("        run clk2fflogic before equivalence checking.\n");
+		log("\n");
+		log("    -async2sync\n");
+		log("        run async2sync before equivalence checking.\n");
+		log("\n");
+		log("    -undef\n");
+		log("        enable modelling of undef states during equiv_induct.\n");
 		log("\n");
 		log("The following commands are executed by this verification command:\n");
 		help_script();
@@ -52,13 +62,16 @@ struct EquivOptPass:public ScriptPass
 	}
 
 	std::string command, techmap_opts;
-	bool assert;
+	bool assert, undef, multiclock, async2sync;
 
 	void clear_flags() YS_OVERRIDE
 	{
 		command = "";
 		techmap_opts = "";
 		assert = false;
+		undef = false;
+		multiclock = false;
+		async2sync = false;
 	}
 
 	void execute(std::vector < std::string > args, RTLIL::Design * design) YS_OVERRIDE
@@ -84,12 +97,24 @@ struct EquivOptPass:public ScriptPass
 				assert = true;
 				continue;
 			}
+			if (args[argidx] == "-undef") {
+				undef = true;
+				continue;
+			}
+			if (args[argidx] == "-multiclock") {
+				multiclock = true;
+				continue;
+			}
+			if (args[argidx] == "-async2sync") {
+				async2sync = true;
+				continue;
+			}
 			break;
 		}
 
 		for (; argidx < args.size(); argidx++) {
 			if (command.empty()) {
-				if (args[argidx].substr(0, 1) == "-")
+				if (args[argidx].compare(0, 1, "-") == 0)
 					cmd_error(args, argidx, "Unknown option.");
 			} else {
 				command += " ";
@@ -102,6 +127,9 @@ struct EquivOptPass:public ScriptPass
 
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");
+
+		if (async2sync && multiclock)
+			log_cmd_error("The '-async2sync' and '-multiclock' options are mutually exclusive!\n");
 
 		log_header(design, "Executing EQUIV_OPT pass.\n");
 		log_push();
@@ -134,12 +162,21 @@ struct EquivOptPass:public ScriptPass
 				opts = " -map <filename> ...";
 			else
 				opts = techmap_opts;
-			run("techmap -D EQUIV -autoproc" + opts);
+			run("techmap -wb -D EQUIV -autoproc" + opts);
 		}
 
 		if (check_label("prove")) {
+			if (multiclock || help_mode)
+				run("clk2fflogic", "(only with -multiclock)");
+			if (async2sync || help_mode)
+				run("async2sync", " (only with -async2sync)");
 			run("equiv_make gold gate equiv");
-			run("equiv_induct equiv");
+			if (help_mode)
+				run("equiv_induct [-undef] equiv");
+			else if (undef)
+				run("equiv_induct -undef equiv");
+			else
+				run("equiv_induct equiv");
 			if (help_mode)
 				run("equiv_status [-assert] equiv");
 			else if (assert)

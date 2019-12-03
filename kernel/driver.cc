@@ -110,6 +110,10 @@ int main(int argc, char **argv)
 	log_error_stderr = true;
 	yosys_banner();
 	yosys_setup();
+#ifdef WITH_PYTHON
+	PyRun_SimpleString(("sys.path.append(\""+proc_self_dirname()+"\")").c_str());
+	PyRun_SimpleString(("sys.path.append(\""+proc_share_dirname()+"plugins\")").c_str());
+#endif
 
 	if (argc == 2)
 	{
@@ -291,6 +295,9 @@ int main(int argc, char **argv)
 		printf("    -E <depsfile>\n");
 		printf("        write a Makefile dependencies file with in- and output file names\n");
 		printf("\n");
+		printf("    -g\n");
+		printf("        globally enable debug log messages\n");
+		printf("\n");
 		printf("    -V\n");
 		printf("        print version information and exit\n");
 		printf("\n");
@@ -311,7 +318,7 @@ int main(int argc, char **argv)
 	}
 
 	int opt;
-	while ((opt = getopt(argc, argv, "MXAQTVSm:f:Hh:b:o:p:l:L:qv:tds:c:W:w:e:D:P:E:")) != -1)
+	while ((opt = getopt(argc, argv, "MXAQTVSgm:f:Hh:b:o:p:l:L:qv:tds:c:W:w:e:D:P:E:")) != -1)
 	{
 		switch (opt)
 		{
@@ -335,6 +342,9 @@ int main(int argc, char **argv)
 			exit(0);
 		case 'S':
 			passes_commands.push_back("synth");
+			break;
+		case 'g':
+			log_force_debug++;
 			break;
 		case 'm':
 			plugin_filenames.push_back(optarg);
@@ -469,6 +479,10 @@ int main(int argc, char **argv)
 #endif
 
 	yosys_setup();
+#ifdef WITH_PYTHON
+	PyRun_SimpleString(("sys.path.append(\""+proc_self_dirname()+"\")").c_str());
+	PyRun_SimpleString(("sys.path.append(\""+proc_share_dirname()+"plugins\")").c_str());
+#endif
 	log_error_atexit = yosys_atexit;
 
 	for (auto &fn : plugin_filenames)
@@ -508,6 +522,12 @@ int main(int argc, char **argv)
 	if (!backend_command.empty())
 		run_backend(output_filename, backend_command);
 
+	yosys_design->check();
+	for (auto it : saved_designs)
+		it.second->check();
+	for (auto it : pushed_designs)
+		it->check();
+
 	if (!depsfile.empty())
 	{
 		FILE *f = fopen(depsfile.c_str(), "wt");
@@ -515,13 +535,13 @@ int main(int argc, char **argv)
 			log_error("Can't open dependencies file for writing: %s\n", strerror(errno));
 		bool first = true;
 		for (auto fn : yosys_output_files) {
-			fprintf(f, "%s%s", first ? "" : " ", fn.c_str());
+			fprintf(f, "%s%s", first ? "" : " ", escape_filename_spaces(fn).c_str());
 			first = false;
 		}
 		fprintf(f, ":");
 		for (auto fn : yosys_input_files) {
 			if (yosys_output_files.count(fn) == 0)
-				fprintf(f, " %s", fn.c_str());
+				fprintf(f, " %s", escape_filename_spaces(fn).c_str());
 		}
 		fprintf(f, "\n");
 	}

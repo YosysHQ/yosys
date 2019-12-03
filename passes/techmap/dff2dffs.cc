@@ -34,11 +34,16 @@ struct Dff2dffsPass : public Pass {
 		log("Merge synchronous set/reset $_MUX_ cells to create $__DFFS_[NP][NP][01], to be run before\n");
 		log("dff2dffe for SR over CE priority.\n");
 		log("\n");
+		log("    -match-init\n");
+		log("        Disallow merging synchronous set/reset that has polarity opposite of the\n");
+		log("        output wire's init attribute (if any).\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing dff2dffs pass (merge synchronous set/reset into FF cells).\n");
 
+		bool match_init = false;
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
@@ -46,13 +51,17 @@ struct Dff2dffsPass : public Pass {
 			// 	singleton_mode = true;
 			// 	continue;
 			// }
+			if (args[argidx] == "-match-init") {
+				match_init = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
 		pool<IdString> dff_types;
-		dff_types.insert("$_DFF_N_");
-		dff_types.insert("$_DFF_P_");
+		dff_types.insert(ID($_DFF_N_));
+		dff_types.insert(ID($_DFF_P_));
 
 		for (auto module : design->selected_modules())
 		{
@@ -69,19 +78,19 @@ struct Dff2dffsPass : public Pass {
 					continue;
 				}
 
-				if (cell->type != "$_MUX_")
+				if (cell->type != ID($_MUX_))
 					continue;
 
-				SigBit bit_a = sigmap(cell->getPort("\\A"));
-				SigBit bit_b = sigmap(cell->getPort("\\B"));
+				SigBit bit_a = sigmap(cell->getPort(ID::A));
+				SigBit bit_b = sigmap(cell->getPort(ID::B));
 
 				if (bit_a.wire == nullptr || bit_b.wire == nullptr)
-					sr_muxes[sigmap(cell->getPort("\\Y"))] = cell;
+					sr_muxes[sigmap(cell->getPort(ID::Y))] = cell;
 			}
 
 			for (auto cell : ff_cells)
 			{
-				SigSpec sig_d = cell->getPort("\\D");
+				SigSpec sig_d = cell->getPort(ID(D));
 
 				if (GetSize(sig_d) < 1)
 					continue;
@@ -92,12 +101,9 @@ struct Dff2dffsPass : public Pass {
 					continue;
 
 				Cell *mux_cell = sr_muxes.at(bit_d);
-				SigBit bit_a = sigmap(mux_cell->getPort("\\A"));
-				SigBit bit_b = sigmap(mux_cell->getPort("\\B"));
-				SigBit bit_s = sigmap(mux_cell->getPort("\\S"));
-
-				log("  Merging %s (A=%s, B=%s, S=%s) into %s (%s).\n", log_id(mux_cell),
-						log_signal(bit_a), log_signal(bit_b), log_signal(bit_s), log_id(cell), log_id(cell->type));
+				SigBit bit_a = sigmap(mux_cell->getPort(ID::A));
+				SigBit bit_b = sigmap(mux_cell->getPort(ID::B));
+				SigBit bit_s = sigmap(mux_cell->getPort(ID(S)));
 
 				SigBit sr_val, sr_sig;
 				bool invert_sr;
@@ -113,27 +119,44 @@ struct Dff2dffsPass : public Pass {
 					invert_sr = false;
 				}
 
-				if (sr_val == State::S1) {
-					if (cell->type == "$_DFF_N_") {
-						if (invert_sr) cell->type = "$__DFFS_NN1_";
-						else cell->type = "$__DFFS_NP1_";
-					} else {
-						log_assert(cell->type == "$_DFF_P_");
-						if (invert_sr) cell->type = "$__DFFS_PN1_";
-						else cell->type = "$__DFFS_PP1_";
-					}
-				} else {
-					if (cell->type == "$_DFF_N_") {
-						if (invert_sr) cell->type = "$__DFFS_NN0_";
-						else cell->type = "$__DFFS_NP0_";
-					} else {
-						log_assert(cell->type == "$_DFF_P_");
-						if (invert_sr) cell->type = "$__DFFS_PN0_";
-						else cell->type = "$__DFFS_PP0_";
+				if (match_init) {
+					SigBit bit_q = cell->getPort(ID(Q));
+					if (bit_q.wire) {
+						auto it = bit_q.wire->attributes.find(ID(init));
+						if (it != bit_q.wire->attributes.end()) {
+							auto init_val = it->second[bit_q.offset];
+							if (init_val == State::S1 && sr_val != State::S1)
+								continue;
+							if (init_val == State::S0 && sr_val != State::S0)
+								continue;
+						}
 					}
 				}
-				cell->setPort("\\R", sr_sig);
-				cell->setPort("\\D", bit_d);
+
+				log("  Merging %s (A=%s, B=%s, S=%s) into %s (%s).\n", log_id(mux_cell),
+						log_signal(bit_a), log_signal(bit_b), log_signal(bit_s), log_id(cell), log_id(cell->type));
+
+				if (sr_val == State::S1) {
+					if (cell->type == ID($_DFF_N_)) {
+						if (invert_sr) cell->type = ID($__DFFS_NN1_);
+						else cell->type = ID($__DFFS_NP1_);
+					} else {
+						log_assert(cell->type == ID($_DFF_P_));
+						if (invert_sr) cell->type = ID($__DFFS_PN1_);
+						else cell->type = ID($__DFFS_PP1_);
+					}
+				} else {
+					if (cell->type == ID($_DFF_N_)) {
+						if (invert_sr) cell->type = ID($__DFFS_NN0_);
+						else cell->type = ID($__DFFS_NP0_);
+					} else {
+						log_assert(cell->type == ID($_DFF_P_));
+						if (invert_sr) cell->type = ID($__DFFS_PN0_);
+						else cell->type = ID($__DFFS_PP0_);
+					}
+				}
+				cell->setPort(ID(R), sr_sig);
+				cell->setPort(ID(D), bit_d);
 			}
 		}
 	}

@@ -1,0 +1,5 @@
+read_verilog opt_rmdff_sat.v
+prep -flatten
+opt_rmdff -sat
+synth
+select -assert-count 5 t:$_DFF_P_

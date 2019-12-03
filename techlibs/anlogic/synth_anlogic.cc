@@ -154,7 +154,7 @@ struct SynthAnlogicPass : public ScriptPass
 		{
 			run("memory_bram -rules +/anlogic/drams.txt");
 			run("techmap -map +/anlogic/drams_map.v");
-			run("anlogic_determine_init");
+			run("setundef -zero -params t:EG_LOGIC_DRAM16X4");
 		}
 
 		if (check_label("fine"))
@@ -186,6 +186,11 @@ struct SynthAnlogicPass : public ScriptPass
 		{
 			run("techmap -map +/anlogic/cells_map.v");
 			run("clean");
+		}
+		
+		if (check_label("map_anlogic"))
+		{
+			run("anlogic_fixcarry");
 			run("anlogic_eqn");
 		}
 
