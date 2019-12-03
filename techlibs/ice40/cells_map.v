@@ -65,7 +65,7 @@ endmodule
 `ifndef NO_ADDER
 module \$__ICE40_CARRY_WRAPPER (output CO, O, input A, B, CI, I0, I3);
   parameter LUT = 0;
-  SB_CARRY carry (
+  SB_CARRY _TECHMAP_REPLACE_ (
     .I0(A),
     .I1(B),
     .CI(CI),
