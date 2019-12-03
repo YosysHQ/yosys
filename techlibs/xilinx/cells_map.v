@@ -71,10 +71,7 @@ module \$__XILINX_SHREG_ (input C, input D, input [31:0] L, input E, output Q, o
       else
           FDRE_1 #(.INIT(INIT_R)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(CE), .R(1'b0));
     end else
-    if (DEPTH <= 16) begin
-      SRL16E #(.INIT(INIT_R), .IS_CLK_INVERTED(~CLKPOL[0])) _TECHMAP_REPLACE_ (.A0(L[0]), .A1(L[1]), .A2(L[2]), .A3(L[3]), .CE(CE), .CLK(C), .D(D), .Q(Q));
-    end else
-    if (DEPTH > 17 && DEPTH <= 32) begin
+    if (DEPTH <= 32) begin
       SRLC32E #(.INIT(INIT_R), .IS_CLK_INVERTED(~CLKPOL[0])) _TECHMAP_REPLACE_ (.A(L[4:0]), .CE(CE), .CLK(C), .D(D), .Q(Q));
     end else
     if (DEPTH > 33 && DEPTH <= 64) begin
@@ -362,4 +359,12 @@ module \$__XILINX_MUXF78 (O, I0, I1, I2, I3, S0, S1);
     assign O = T0;
   else
     MUXF8 mux8 (.I0(T0), .I1(T1), .S(S1), .O(O));
+endmodule
+
+module \$__XILINX_TINOUTPAD (input I, OE, output O, inout IO);
+  IOBUF _TECHMAP_REPLACE_ (.I(I), .O(O), .T(~OE), .IO(IO));
+endmodule
+
+module \$__XILINX_TOUTPAD (input I, OE, output O);
+  OBUFT _TECHMAP_REPLACE_ (.I(I), .O(O), .T(~OE));
 endmodule

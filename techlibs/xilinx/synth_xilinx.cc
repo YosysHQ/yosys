@@ -282,6 +282,7 @@ struct SynthXilinxPass : public ScriptPass
 
 	void script() YS_OVERRIDE
 	{
+		bool do_iopad = iopad || (ise && !noiopad);
 		std::string ff_map_file;
 		if (help_mode)
 			ff_map_file = "+/xilinx/{family}_ff_map.v";
@@ -305,6 +306,8 @@ struct SynthXilinxPass : public ScriptPass
 			run("proc");
 			if (flatten || help_mode)
 				run("flatten", "(with '-flatten')");
+			run("tribuf -logic");
+			run("deminout");
 			run("opt_expr");
 			run("opt_clean");
 			run("check");
@@ -503,6 +506,9 @@ struct SynthXilinxPass : public ScriptPass
 		}
 
 		if (check_label("map_cells")) {
+			// Needs to be done before logic optimization, so that inverters (OE vs T) are handled.
+			if (help_mode || do_iopad)
+				run("iopadmap -bits -outpad OBUF I:O -inpad IBUF O:I -toutpad $__XILINX_TOUTPAD OE:I:O -tinoutpad $__XILINX_TINOUTPAD OE:O:I:IO A:top", "(only if '-iopad' or '-ise' and not '-noiopad')");
 			std::string techmap_args = "-map +/techmap.v -map +/xilinx/cells_map.v";
 			if (widemux > 0)
 				techmap_args += stringf(" -D MIN_MUX_INPUTS=%d", widemux);
@@ -561,15 +567,8 @@ struct SynthXilinxPass : public ScriptPass
 		}
 
 		if (check_label("finalize")) {
-			bool do_iopad = iopad || (ise && !noiopad);
-			if (help_mode || !noclkbuf) {
-				if (help_mode || do_iopad)
-					run("clkbufmap -buf BUFG O:I -inpad IBUFG O:I", "(skip if '-noclkbuf', '-inpad' passed if '-iopad' or '-ise' and not '-noiopad')");
-				else
-					run("clkbufmap -buf BUFG O:I");
-			}
-			if (help_mode || do_iopad)
-				run("iopadmap -bits -outpad OBUF I:O -inpad IBUF O:I A:top", "(only if '-iopad' or '-ise' and not '-noiopad')");
+			if (help_mode || !noclkbuf)
+				run("clkbufmap -buf BUFG O:I ", "(skip if '-noclkbuf')");
 			if (help_mode || ise)
 				run("extractinv -inv INV O:I", "(only if '-ise')");
 		}

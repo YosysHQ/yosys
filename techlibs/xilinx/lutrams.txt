@@ -38,12 +38,12 @@ bram $__XILINX_RAM128X1D
   clkpol 0 2
 endbram
 
-match $__XILINX_RAM32X1D
-  min bits 3
-  min wports 1
-  make_outreg
-  or_next_if_better
-endmatch
+#match $__XILINX_RAM32X1D
+#  min bits 3
+#  min wports 1
+#  make_outreg
+#  or_next_if_better
+#endmatch
 
 match $__XILINX_RAM64X1D
   min bits 5
