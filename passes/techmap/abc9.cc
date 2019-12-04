@@ -1107,6 +1107,7 @@ struct Abc9Pass : public Pass {
 					Wire *abc9_clock_wire = module->wire(stringf("%s.$abc9_clock", cell->name.c_str()));
 					if (abc9_clock_wire == NULL)
 						log_error("'%s.$abc9_clock' is not a wire present in module '%s'.\n", cell->name.c_str(), log_id(module));
+					log_assert(GetSize(abc9_clock_wire) == 1);
 					SigBit abc9_clock = sigmap(abc9_clock_wire);
 					auto r = clocks.insert(abc9_clock.wire);
 					if (r.second) {
