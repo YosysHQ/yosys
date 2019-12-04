@@ -78,13 +78,12 @@ struct XAigerWriter
 	Module *module;
 	SigMap sigmap;
 
-	dict<SigBit, bool> init_map;
 	pool<SigBit> input_bits, output_bits;
 	dict<SigBit, SigBit> not_map, alias_map;
 	dict<SigBit, pair<SigBit, SigBit>> and_map;
 	vector<std::tuple<SigBit,RTLIL::Cell*,RTLIL::IdString,int>> ci_bits;
 	vector<std::tuple<SigBit,RTLIL::Cell*,RTLIL::IdString,int,int>> co_bits;
-	dict<SigBit, int> ff_bits;
+	dict<SigBit, std::pair<int, RTLIL::State>> ff_bits;
 	dict<SigBit, float> arrival_times;
 
 	vector<pair<int, int>> aig_gates;
@@ -157,14 +156,6 @@ struct XAigerWriter
 
 		for (auto wire : module->wires())
 		{
-			if (wire->attributes.count("\\init")) {
-				SigSpec initsig = sigmap(wire);
-				Const initval = wire->attributes.at("\\init");
-				for (int i = 0; i < GetSize(wire) && i < GetSize(initval); i++)
-					if (initval[i] == State::S0 || initval[i] == State::S1)
-						init_map[initsig[i]] = initval[i] == State::S1;
-			}
-
 			bool keep = wire->attributes.count("\\keep");
 
 			for (int i = 0; i < GetSize(wire); i++)
@@ -254,7 +245,7 @@ struct XAigerWriter
 				unused_bits.erase(D);
 				undriven_bits.erase(Q);
 				alias_map[Q] = D;
-				auto r = ff_bits.insert(std::make_pair(D, 0));
+				auto r = ff_bits.insert(std::make_pair(D, std::make_pair(0, State::Sx)));
 				log_assert(r.second);
 				continue;
 			}
@@ -368,10 +359,19 @@ struct XAigerWriter
 				else
 					d = cell->getPort(r.first->second.first);
 
+				auto &rhs = ff_bits.at(d);
+
 				auto it = cell->attributes.find(ID(abc9_mergeability));
 				log_assert(it != cell->attributes.end());
-				ff_bits.at(d) = it->second.as_int();
+				rhs.first = it->second.as_int();
 				cell->attributes.erase(it);
+
+				it = cell->attributes.find(ID(abc9_init));
+				log_assert(it != cell->attributes.end());
+				log_assert(GetSize(it->second) == 1);
+				rhs.second = it->second[0];
+				cell->attributes.erase(it);
+
 
 				auto arrival = r.first->second.second;
 				if (arrival)
@@ -805,10 +805,23 @@ struct XAigerWriter
 			auto write_r_buffer = std::bind(write_buffer, std::ref(r_buffer), std::placeholders::_1);
 			log_debug("flopNum = %d\n", GetSize(ff_bits));
 			write_r_buffer(ff_bits.size());
+
+			std::stringstream s_buffer;
+			auto write_s_buffer = std::bind(write_buffer, std::ref(s_buffer), std::placeholders::_1);
+			write_s_buffer(ff_bits.size());
+
 			for (const auto &i : ff_bits) {
-				log_assert(i.second > 0);
-				write_r_buffer(i.second);
 				const SigBit &bit = i.first;
+				int mergeability = i.second.first;
+				log_assert(mergeability > 0);
+				write_r_buffer(mergeability);
+				State init = i.second.second;
+				if (init == State::S1)
+					write_s_buffer(1);
+				else if (init == State::S0)
+					write_s_buffer(0);
+				else
+					write_s_buffer(0);
 				write_i_buffer(arrival_times.at(bit, 0));
 				//write_o_buffer(0);
 			}
@@ -819,22 +832,6 @@ struct XAigerWriter
 			f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
 			f.write(buffer_str.data(), buffer_str.size());
 
-			std::stringstream s_buffer;
-			auto write_s_buffer = std::bind(write_buffer, std::ref(s_buffer), std::placeholders::_1);
-			write_s_buffer(ff_bits.size());
-			for (const auto &i : ff_bits) {
-				const SigBit &bit = i.first;
-				auto it = bit.wire->attributes.find("\\init");
-				if (it != bit.wire->attributes.end()) {
-					auto init = it->second[bit.offset];
-					if (init == RTLIL::S1) {
-						write_s_buffer(1);
-						continue;
-					}
-				}
-				// Default flop init is zero
-				write_s_buffer(0);
-			}
 			f << "s";
 			buffer_str = s_buffer.str();
 			buffer_size_be = to_big_endian(buffer_str.size());
@@ -962,10 +959,7 @@ struct XAigerWriter
 
 				if (output_bits.count(b)) {
 					int o = ordered_outputs.at(b);
-					int init = 0;
-					auto it = init_map.find(b);
-					if (it != init_map.end() && it->second)
-						init = 1;
+					int init = 2;
 					output_lines[o] += stringf("output %d %d %s %d\n", o - GetSize(co_bits), i, log_id(wire), init);
 					continue;
 				}
