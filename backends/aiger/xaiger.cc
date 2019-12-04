@@ -83,7 +83,7 @@ struct XAigerWriter
 	dict<SigBit, pair<SigBit, SigBit>> and_map;
 	vector<std::tuple<SigBit,RTLIL::Cell*,RTLIL::IdString,int>> ci_bits;
 	vector<std::tuple<SigBit,RTLIL::Cell*,RTLIL::IdString,int,int>> co_bits;
-	dict<SigBit, std::pair<int, RTLIL::State>> ff_bits;
+	dict<SigBit, std::pair<int,int>> ff_bits;
 	dict<SigBit, float> arrival_times;
 
 	vector<pair<int, int>> aig_gates;
@@ -245,7 +245,7 @@ struct XAigerWriter
 				unused_bits.erase(D);
 				undriven_bits.erase(Q);
 				alias_map[Q] = D;
-				auto r = ff_bits.insert(std::make_pair(D, std::make_pair(0, State::Sx)));
+				auto r = ff_bits.insert(std::make_pair(D, std::make_pair(0, 2)));
 				log_assert(r.second);
 				continue;
 			}
@@ -369,9 +369,15 @@ struct XAigerWriter
 				it = cell->attributes.find(ID(abc9_init));
 				log_assert(it != cell->attributes.end());
 				log_assert(GetSize(it->second) == 1);
-				rhs.second = it->second[0];
+				if (it->second[0] == State::S1)
+					rhs.second = 1;
+				else if (it->second[0] == State::S0)
+					rhs.second = 0;
+				else {
+					log_assert(it->second[0] == State::Sx);
+					rhs.second = 0;
+				}
 				cell->attributes.erase(it);
-
 
 				auto arrival = r.first->second.second;
 				if (arrival)
@@ -815,13 +821,8 @@ struct XAigerWriter
 				int mergeability = i.second.first;
 				log_assert(mergeability > 0);
 				write_r_buffer(mergeability);
-				State init = i.second.second;
-				if (init == State::S1)
-					write_s_buffer(1);
-				else if (init == State::S0)
-					write_s_buffer(0);
-				else
-					write_s_buffer(0);
+				int init = i.second.second;
+				write_s_buffer(init);
 				write_i_buffer(arrival_times.at(bit, 0));
 				//write_o_buffer(0);
 			}
