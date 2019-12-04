@@ -1106,7 +1106,7 @@ struct Abc9Pass : public Pass {
 				if (delay_target.empty()) {
 					Wire *abc9_clock_wire = module->wire(stringf("%s.$abc9_clock", cell->name.c_str()));
 					if (abc9_clock_wire == NULL)
-						log_error("'%s$abc9_clock' is not a wire present in module '%s'.\n", cell->name.c_str(), log_id(module));
+						log_error("'%s.$abc9_clock' is not a wire present in module '%s'.\n", cell->name.c_str(), log_id(module));
 					SigBit abc9_clock = sigmap(abc9_clock_wire);
 					auto r = clocks.insert(abc9_clock.wire);
 					if (r.second) {
@@ -1121,12 +1121,22 @@ struct Abc9Pass : public Pass {
 
 				Wire *abc9_control_wire = module->wire(stringf("%s.$abc9_control", cell->name.c_str()));
 				if (abc9_control_wire == NULL)
-					log_error("'%s$abc9_control' is not a wire present in module '%s'.\n", cell->name.c_str(), log_id(module));
+					log_error("'%s.$abc9_control' is not a wire present in module '%s'.\n", cell->name.c_str(), log_id(module));
 				SigSpec abc9_control = sigmap(abc9_control_wire);
 
 				ctrldomain_t key(cell->type, abc9_control);
 				auto r = mergeability_class.emplace(key, mergeability_class.size() + 1);
 				auto YS_ATTRIBUTE(unused) r2 = cell->attributes.insert(std::make_pair(ID(abc9_mergeability), r.first->second));
+				log_assert(r2.second);
+
+				Wire *abc9_init_wire = module->wire(stringf("%s.$abc9_init", cell->name.c_str()));
+				if (abc9_init_wire == NULL)
+					log_error("'%s.$abc9_init' is not a wire present in module '%s'.\n", cell->name.c_str(), log_id(module));
+				log_assert(GetSize(abc9_init_wire) == 1);
+				SigSpec abc9_init = sigmap(abc9_init_wire);
+				if (!abc9_init.is_fully_const())
+					log_error("'%s.$abc9_init' is not a constant wire present in module '%s'.\n", cell->name.c_str(), log_id(module));
+				r2 = cell->attributes.insert(std::make_pair(ID(abc9_init), abc9_init.as_const()));
 				log_assert(r2.second);
 			}
 
