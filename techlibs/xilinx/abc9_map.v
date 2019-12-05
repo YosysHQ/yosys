@@ -73,7 +73,7 @@
 //     into the (combinatorial) FD* cell to facilitate clock-enable behaviour
 // In order to perform sequential synthesis, `abc9' also requires that
 // the initial value of all flops be zero.
-module FDRE (output reg Q, input C, CE, D, R);
+module FDRE (output Q, input C, CE, D, R);
   parameter [0:0] INIT = 1'b0;
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
@@ -100,7 +100,7 @@ module FDRE (output reg Q, input C, CE, D, R);
   wire [0:0] _TECHMAP_REPLACE_.$abc9_init = 1'b0;
   wire [0:0] _TECHMAP_REPLACE_.$abc9_currQ = QQ;
 endmodule
-module FDRE_1 (output reg Q, input C, CE, D, R);
+module FDRE_1 (output Q, input C, CE, D, R);
   parameter [0:0] INIT = 1'b0;
   wire DD, QQ, $nextQ;
   generate if (INIT == 1'b1)
@@ -122,7 +122,7 @@ module FDRE_1 (output reg Q, input C, CE, D, R);
   wire [0:0] _TECHMAP_REPLACE_.$abc9_currQ = QQ;
 endmodule
 
-module FDCE (output reg Q, input C, CE, D, CLR);
+module FDCE (output Q, input C, CE, D, CLR);
   parameter [0:0] INIT = 1'b0;
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
@@ -157,7 +157,7 @@ module FDCE (output reg Q, input C, CE, D, CLR);
   wire [0:0] _TECHMAP_REPLACE_.$abc9_init = 1'b0;
   wire [0:0] _TECHMAP_REPLACE_.$abc9_currQ = $abc9_currQ;
 endmodule
-module FDCE_1 (output reg Q, input C, CE, D, CLR);
+module FDCE_1 (output Q, input C, CE, D, CLR);
   parameter [0:0] INIT = 1'b0;
   wire DD, QQ, $nextQ, $abc9_currQ;
   generate if (INIT == 1'b1)
@@ -185,7 +185,7 @@ module FDCE_1 (output reg Q, input C, CE, D, CLR);
   wire [0:0] _TECHMAP_REPLACE_.$abc9_currQ = $abc9_currQ;
 endmodule
 
-module FDPE (output reg Q, input C, CE, D, PRE);
+module FDPE (output Q, input C, CE, D, PRE);
   parameter [0:0] INIT = 1'b1;
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
@@ -218,7 +218,7 @@ module FDPE (output reg Q, input C, CE, D, PRE);
   wire [0:0] _TECHMAP_REPLACE_.$abc9_init = 1'b0;
   wire [0:0] _TECHMAP_REPLACE_.$abc9_currQ = $abc9_currQ;
 endmodule
-module FDPE_1 (output reg Q, input C, CE, D, PRE);
+module FDPE_1 (output Q, input C, CE, D, PRE);
   parameter [0:0] INIT = 1'b1;
   wire DD, QQ, $nextQ, $abc9_currQ;
   generate if (INIT == 1'b1)
@@ -246,7 +246,7 @@ module FDPE_1 (output reg Q, input C, CE, D, PRE);
   wire [0:0] _TECHMAP_REPLACE_.$abc9_currQ = $abc9_currQ;
 endmodule
 
-module FDSE (output reg Q, input C, CE, D, S);
+module FDSE (output Q, input C, CE, D, S);
   parameter [0:0] INIT = 1'b1;
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
@@ -273,7 +273,7 @@ module FDSE (output reg Q, input C, CE, D, S);
   wire [0:0] _TECHMAP_REPLACE_.$abc9_init = 1'b0;
   wire [0:0] _TECHMAP_REPLACE_.$abc9_currQ = QQ;
 endmodule
-module FDSE_1 (output reg Q, input C, CE, D, S);
+module FDSE_1 (output Q, input C, CE, D, S);
   parameter [0:0] INIT = 1'b1;
   wire DD, QQ, $nextQ;
   generate if (INIT == 1'b1)
