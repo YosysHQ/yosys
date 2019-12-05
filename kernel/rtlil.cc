@@ -783,6 +783,14 @@ namespace {
 			return v;
 		}
 
+		int param_bool(RTLIL::IdString name, bool expected)
+		{
+			int v = param_bool(name);
+			if (v != expected)
+				error(__LINE__);
+			return v;
+		}
+
 		void param_bits(RTLIL::IdString name, int width)
 		{
 			param(name);
@@ -869,13 +877,23 @@ namespace {
 				return;
 			}
 
-			if (cell->type.in(ID($shl), ID($shr), ID($sshl), ID($sshr), ID($shift), ID($shiftx))) {
+			if (cell->type.in(ID($shl), ID($shr), ID($sshl), ID($sshr))) {
+				param_bool(ID(A_SIGNED));
+				param_bool(ID(B_SIGNED), /*expected=*/false);
+				port(ID::A, param(ID(A_WIDTH)));
+				port(ID::B, param(ID(B_WIDTH)));
+				port(ID::Y, param(ID(Y_WIDTH)));
+				check_expected(/*check_matched_sign=*/false);
+				return;
+			}
+
+			if (cell->type.in(ID($shift), ID($shiftx))) {
 				param_bool(ID(A_SIGNED));
 				param_bool(ID(B_SIGNED));
 				port(ID::A, param(ID(A_WIDTH)));
 				port(ID::B, param(ID(B_WIDTH)));
 				port(ID::Y, param(ID(Y_WIDTH)));
-				check_expected(false);
+				check_expected(/*check_matched_sign=*/false);
 				return;
 			}
 
@@ -957,7 +975,7 @@ namespace {
 				port(ID::A, param(ID(A_WIDTH)));
 				port(ID::B, param(ID(B_WIDTH)));
 				port(ID::Y, param(ID(Y_WIDTH)));
-				check_expected(false);
+				check_expected(/*check_matched_sign=*/false);
 				return;
 			}
 
