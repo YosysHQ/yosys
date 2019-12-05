@@ -192,6 +192,7 @@ module FDCE (output Q, input C, CE, D, CLR);
 endmodule
 module FDCE_1 (output Q, input C, CE, D, CLR);
   parameter [0:0] INIT = 1'b0;
+  wire QQ, $nextQ, $abc9_currQ;
   generate if (INIT == 1'b1) begin
     assign Q = ~QQ;
     FDPE_1 #(
