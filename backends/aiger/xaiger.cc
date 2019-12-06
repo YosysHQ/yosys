@@ -78,7 +78,7 @@ struct XAigerWriter
 	Module *module;
 	SigMap sigmap;
 
-	pool<SigBit> input_bits, output_bits;
+	pool<SigBit> input_bits, output_bits, external_bits;
 	dict<SigBit, SigBit> not_map, alias_map;
 	dict<SigBit, pair<SigBit, SigBit>> and_map;
 	vector<std::tuple<SigBit,RTLIL::Cell*,RTLIL::IdString,int>> ci_bits;
@@ -154,6 +154,11 @@ struct XAigerWriter
 			if (wire->port_input)
 				sigmap.add(wire);
 
+		// promote output wires
+		for (auto wire : module->wires())
+			if (wire->port_output)
+				sigmap.add(wire);
+
 		for (auto wire : module->wires())
 		{
 			bool keep = wire->attributes.count("\\keep");
@@ -168,20 +173,29 @@ struct XAigerWriter
 					unused_bits.insert(bit);
 				}
 
-				if (keep)
+				if (keep) {
 					keep_bits.insert(wirebit);
+					if (bit != wirebit)
+						alias_map[wirebit] = bit;
+					input_bits.insert(wirebit);
+					output_bits.insert(wirebit);
+					continue;
+				}
 
-				if (wire->port_input || keep) {
+				if (wire->port_input) {
 					if (bit != wirebit)
 						alias_map[bit] = wirebit;
 					input_bits.insert(wirebit);
 				}
 
-				if (wire->port_output || keep) {
+				if (wire->port_output) {
 					if (bit != RTLIL::Sx) {
 						if (bit != wirebit)
 							alias_map[wirebit] = bit;
-						output_bits.insert(wirebit);
+						if (holes_mode)
+							output_bits.insert(wirebit);
+						else
+							external_bits.insert(wirebit);
 					}
 					else
 						log_debug("Skipping PO '%s' driven by 1'bx\n", log_signal(wirebit));
@@ -293,7 +307,7 @@ struct XAigerWriter
 							if (I != b)
 								alias_map[b] = I;
 							output_bits.insert(b);
-							unused_bits.erase(b);
+							unused_bits.erase(I);
 
 							if (!cell_known)
 								keep_bits.insert(b);
@@ -328,6 +342,12 @@ struct XAigerWriter
 
 			//log_warning("Unsupported cell type: %s (%s)\n", log_id(cell->type), log_id(cell));
 		}
+
+		for (auto cell : module->cells())
+			if (!module->selected(cell))
+				for (auto &conn : cell->connections())
+					for (auto bit : sigmap(conn.second))
+						external_bits.insert(bit);
 
 		if (abc9_box_seen) {
 			dict<IdString, std::pair<IdString,int>> flop_q;
@@ -449,7 +469,7 @@ struct XAigerWriter
 									alias_map[b] = I;
 							}
 							co_bits.emplace_back(b, cell, port_name, offset++, 0);
-							unused_bits.erase(b);
+							unused_bits.erase(I);
 						}
 					}
 					if (w->port_output) {
@@ -498,7 +518,7 @@ struct XAigerWriter
 								alias_map[b] = I;
 						}
 						co_bits.emplace_back(b, cell, "\\$abc9_currQ", offset++, 0);
-						unused_bits.erase(b);
+						unused_bits.erase(I);
 					}
 				}
 
@@ -542,16 +562,22 @@ struct XAigerWriter
 			}
 		}
 
+		for (auto bit : external_bits)
+			if (!undriven_bits.count(sigmap(bit))) {
+				output_bits.insert(bit);
+				unused_bits.erase(sigmap(bit));
+			}
+
 		for (auto bit : unused_bits)
 			undriven_bits.erase(bit);
 
 		if (!undriven_bits.empty() && !holes_mode) {
-			undriven_bits.sort();
+			//undriven_bits.sort();
 			for (auto bit : undriven_bits) {
-				log_warning("Treating undriven bit %s.%s like $anyseq.\n", log_id(module), log_signal(bit));
+				//log_warning("Treating undriven bit %s.%s like $anyseq.\n", log_id(module), log_signal(bit));
 				input_bits.insert(bit);
 			}
-			log_warning("Treating a total of %d undriven bits in %s like $anyseq.\n", GetSize(undriven_bits), log_id(module));
+			//log_warning("Treating a total of %d undriven bits in %s like $anyseq.\n", GetSize(undriven_bits), log_id(module));
 		}
 
 		if (holes_mode) {
