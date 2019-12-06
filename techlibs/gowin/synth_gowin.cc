@@ -67,6 +67,9 @@ struct SynthGowinPass : public ScriptPass
 		log("    -nowidelut\n");
 		log("        do not use muxes to implement LUTs larger than LUT4s\n");
 		log("\n");
+		log("    -noiopads\n");
+		log("        do not emit IOB at top level ports\n");
+		log("\n");
 		log("    -abc9\n");
 		log("        use new ABC9 flow (EXPERIMENTAL)\n");
 		log("\n");
@@ -77,7 +80,7 @@ struct SynthGowinPass : public ScriptPass
 	}
 
 	string top_opt, vout_file;
-	bool retime, nobram, nodram, flatten, nodffe, nowidelut, abc9;
+	bool retime, nobram, nodram, flatten, nodffe, nowidelut, abc9, noiopads;
 
 	void clear_flags() YS_OVERRIDE
 	{
@@ -90,6 +93,7 @@ struct SynthGowinPass : public ScriptPass
 		nodram = false;
 		nowidelut = false;
 		abc9 = false;
+		noiopads = false;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -142,6 +146,10 @@ struct SynthGowinPass : public ScriptPass
 			}
 			if (args[argidx] == "-abc9") {
 				abc9 = true;
+				continue;
+			}
+			if (args[argidx] == "-noiopads") {
+				noiopads = true;
 				continue;
 			}
 			break;
@@ -208,7 +216,7 @@ struct SynthGowinPass : public ScriptPass
 		if (check_label("map_ffs"))
 		{
 			run("dffsr2dff");
-			run("dff2dffs");
+			run("dff2dffs -match-init");
 			run("opt_clean");
 			if (!nodffe)
 				run("dff2dffe -direct-match $_DFF_* -direct-match $__DFFS_*");
@@ -236,8 +244,9 @@ struct SynthGowinPass : public ScriptPass
 			run("techmap -map +/gowin/cells_map.v");
 			run("setundef -undriven -params -zero");
 			run("hilomap -singleton -hicell VCC V -locell GND G");
-			run("iopadmap -bits -inpad IBUF O:I -outpad OBUF I:O "
-				"-toutpad TBUF OEN:I:O -tinoutpad IOBUF OEN:O:I:IO", "(unless -noiopads)");
+			if (!noiopads || help_mode)
+				run("iopadmap -bits -inpad IBUF O:I -outpad OBUF I:O "
+					"-toutpad TBUF OEN:I:O -tinoutpad IOBUF OEN:O:I:IO", "(unless -noiopads)");
 			run("clean");
 
 		}
