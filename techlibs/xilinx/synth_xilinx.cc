@@ -513,7 +513,6 @@ struct SynthXilinxPass : public ScriptPass
 
 		if (check_label("map_ffs")) {
 			if (abc9 || help_mode) {
-				run("clkpart -set_attr clkpart 1", "('-abc9' only)");
 				run("techmap -map " + ff_map_file, "('-abc9' only)");
 			}
 		}
@@ -561,9 +560,6 @@ struct SynthXilinxPass : public ScriptPass
 		}
 
 		if (check_label("finalize")) {
-			if (help_mode || abc9)
-				run("clkpart -unpart clkpart", "(only if 'abc9')");
-
 			bool do_iopad = iopad || (ise && !noiopad);
 			if (help_mode || !noclkbuf) {
 				if (help_mode || do_iopad)
