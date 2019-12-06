@@ -62,16 +62,18 @@
 // The purpose of the following FD* rules are to wrap the flop with:
 // (a) a special $__ABC9_FF_ in front of the FD*'s output, indicating to abc9
 //     the connectivity of its basic D-Q flop
-// (b) a special _TECHMAP_REPLACE_.$abc9_clock wire to capture its clock
+// (b) an optional $__ABC9_ASYNC_ cell in front of $__ABC_FF_'s output to
+//     capture asynchronous behaviour
+// (c) a special _TECHMAP_REPLACE_.$abc9_clock wire to capture its clock
 //     domain (used when partitioning the module so that `abc9' only
 //     performs sequential synthesis (with reachability analysis) correctly on
 //     one domain at a time) and used to infert the delay target
-// (c) a special _TECHMAP_REPLACE_.$abc9_control wire that captures the control
+// (d) a special _TECHMAP_REPLACE_.$abc9_control wire that captures the control
 //     domain (which, combined with this cell type, encodes to `abc9' which
 //     flops may be merged together)
-// (d) a special _TECHMAP_REPLACE_.$abc9_init wire to encode the flop's initial
+// (e) a special _TECHMAP_REPLACE_.$abc9_init wire to encode the flop's initial
 //     state
-// (e) a special _TECHMAP_REPLACE_.$abc9_currQ wire that will be used for feedback
+// (f) a special _TECHMAP_REPLACE_.$abc9_currQ wire that will be used for feedback
 //     into the (combinatorial) FD* cell to facilitate clock-enable behaviour
 //
 // In order to perform sequential synthesis, `abc9' also requires that
@@ -110,7 +112,7 @@ module FDRE (output Q, input C, CE, D, R);
 
   // Special signals
   wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, IS_C_INVERTED};
-  wire [3:0] _TECHMAP_REPLACE_.$abc9_control = {CE, IS_D_INVERTED, R, IS_R_INVERTED};
+  wire [0:0] _TECHMAP_REPLACE_.$abc9_control = {1'b0 /* async */};
   wire [0:0] _TECHMAP_REPLACE_.$abc9_init = 1'b0;
   wire [0:0] _TECHMAP_REPLACE_.$abc9_currQ = QQ;
 endmodule
@@ -138,7 +140,7 @@ module FDRE_1 (output Q, input C, CE, D, R);
 
   // Special signals
   wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, 1'b1 /* IS_C_INVERTED */};
-  wire [3:0] _TECHMAP_REPLACE_.$abc9_control = {CE, 1'b0 /* IS_D_INVERTED */, R, 1'b0 /* IS_R_INVERTED */};
+  wire [0:0] _TECHMAP_REPLACE_.$abc9_control = {1'b1 /* async */};
   wire [0:0] _TECHMAP_REPLACE_.$abc9_init = 1'b0;
   wire [0:0] _TECHMAP_REPLACE_.$abc9_currQ = QQ;
 endmodule
@@ -188,7 +190,7 @@ module FDCE (output Q, input C, CE, D, CLR);
 
   // Special signals
   wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, IS_C_INVERTED};
-  wire [3:0] _TECHMAP_REPLACE_.$abc9_control = {CE, IS_D_INVERTED, CLR, IS_CLR_INVERTED};
+  wire [0:0] _TECHMAP_REPLACE_.$abc9_control = {1'b1 /* async */};
   wire [0:0] _TECHMAP_REPLACE_.$abc9_init = 1'b0;
   wire [0:0] _TECHMAP_REPLACE_.$abc9_currQ = $abc9_currQ;
 endmodule
@@ -226,7 +228,7 @@ module FDCE_1 (output Q, input C, CE, D, CLR);
 
   // Special signals
   wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, 1'b1 /* IS_C_INVERTED */};
-  wire [3:0] _TECHMAP_REPLACE_.$abc9_control = {CE, 1'b0 /* IS_D_INVERTED */, CLR, 1'b0 /* IS_CLR_INVERTED */};
+  wire [0:0] _TECHMAP_REPLACE_.$abc9_control = {1'b1 /* async */};
   wire [0:0] _TECHMAP_REPLACE_.$abc9_init = 1'b0;
   wire [0:0] _TECHMAP_REPLACE_.$abc9_currQ = $abc9_currQ;
 endmodule
@@ -274,7 +276,7 @@ module FDPE (output Q, input C, CE, D, PRE);
 
   // Special signals
   wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, IS_C_INVERTED};
-  wire [3:0] _TECHMAP_REPLACE_.$abc9_control = {CE, IS_D_INVERTED, PRE, IS_PRE_INVERTED};
+  wire [0:0] _TECHMAP_REPLACE_.$abc9_control = {1'b1 /* async */};
   wire [0:0] _TECHMAP_REPLACE_.$abc9_init = 1'b0;
   wire [0:0] _TECHMAP_REPLACE_.$abc9_currQ = $abc9_currQ;
 endmodule
@@ -312,7 +314,8 @@ module FDPE_1 (output Q, input C, CE, D, PRE);
 
   // Special signals
   wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, 1'b1 /* IS_C_INVERTED */};
-  wire [3:0] _TECHMAP_REPLACE_.$abc9_control = {CE, 1'b0 /* IS_D_INVERTED */, PRE, 1'b0 /* IS_PRE_INVERTED */};
+  wire [0:0] _TECHMAP_REPLACE_.$abc9_control = {1'b1 /* async */};
+>>>>>>> d3b23690... abc9 to use mergeability class to differentiate sync/async
   wire [0:0] _TECHMAP_REPLACE_.$abc9_init = 1'b0;
   wire [0:0] _TECHMAP_REPLACE_.$abc9_currQ = $abc9_currQ;
 endmodule
@@ -349,7 +352,7 @@ module FDSE (output Q, input C, CE, D, S);
 
   // Special signals
   wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, IS_C_INVERTED};
-  wire [3:0] _TECHMAP_REPLACE_.$abc9_control = {CE, IS_D_INVERTED, S, IS_S_INVERTED};
+  wire [0:0] _TECHMAP_REPLACE_.$abc9_control = {1'b0 /* async */};
   wire [0:0] _TECHMAP_REPLACE_.$abc9_init = 1'b0;
   wire [0:0] _TECHMAP_REPLACE_.$abc9_currQ = QQ;
 endmodule
@@ -376,7 +379,7 @@ module FDSE_1 (output Q, input C, CE, D, S);
 
   // Special signals
   wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, 1'b1 /* IS_C_INVERTED */};
-  wire [3:0] _TECHMAP_REPLACE_.$abc9_control = {CE, 1'b0 /* IS_D_INVERTED */, S, 1'b0 /* IS_S_INVERTED */};
+  wire [0:0] _TECHMAP_REPLACE_.$abc9_control = {1'b0 /* async */};
   wire [0:0] _TECHMAP_REPLACE_.$abc9_init = 1'b0;
   wire [0:0] _TECHMAP_REPLACE_.$abc9_currQ = QQ;
 endmodule
