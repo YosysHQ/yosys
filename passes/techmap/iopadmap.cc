@@ -87,11 +87,11 @@ struct IopadmapPass : public Pass {
 	{
 		log_header(design, "Executing IOPADMAP pass (mapping inputs/outputs to IO-PAD cells).\n");
 
-		std::string inpad_celltype, inpad_portname, inpad_portname2;
-		std::string outpad_celltype, outpad_portname, outpad_portname2;
-		std::string inoutpad_celltype, inoutpad_portname, inoutpad_portname2;
-		std::string toutpad_celltype, toutpad_portname, toutpad_portname2, toutpad_portname3;
-		std::string tinoutpad_celltype, tinoutpad_portname, tinoutpad_portname2, tinoutpad_portname3, tinoutpad_portname4;
+		std::string inpad_celltype, inpad_portname_o, inpad_portname_pad;
+		std::string outpad_celltype, outpad_portname_i, outpad_portname_pad;
+		std::string inoutpad_celltype, inoutpad_portname_io, inoutpad_portname_pad;
+		std::string toutpad_celltype, toutpad_portname_oe, toutpad_portname_i, toutpad_portname_pad;
+		std::string tinoutpad_celltype, tinoutpad_portname_oe, tinoutpad_portname_o, tinoutpad_portname_i, tinoutpad_portname_pad;
 		std::string widthparam, nameparam;
 		pool<pair<IdString, IdString>> ignore;
 		bool flag_bits = false;
@@ -102,35 +102,35 @@ struct IopadmapPass : public Pass {
 			std::string arg = args[argidx];
 			if (arg == "-inpad" && argidx+2 < args.size()) {
 				inpad_celltype = args[++argidx];
-				inpad_portname = args[++argidx];
-				split_portname_pair(inpad_portname, inpad_portname2);
+				inpad_portname_o = args[++argidx];
+				split_portname_pair(inpad_portname_o, inpad_portname_pad);
 				continue;
 			}
 			if (arg == "-outpad" && argidx+2 < args.size()) {
 				outpad_celltype = args[++argidx];
-				outpad_portname = args[++argidx];
-				split_portname_pair(outpad_portname, outpad_portname2);
+				outpad_portname_i = args[++argidx];
+				split_portname_pair(outpad_portname_i, outpad_portname_pad);
 				continue;
 			}
 			if (arg == "-inoutpad" && argidx+2 < args.size()) {
 				inoutpad_celltype = args[++argidx];
-				inoutpad_portname = args[++argidx];
-				split_portname_pair(inoutpad_portname, inoutpad_portname2);
+				inoutpad_portname_io = args[++argidx];
+				split_portname_pair(inoutpad_portname_io, inoutpad_portname_pad);
 				continue;
 			}
 			if (arg == "-toutpad" && argidx+2 < args.size()) {
 				toutpad_celltype = args[++argidx];
-				toutpad_portname = args[++argidx];
-				split_portname_pair(toutpad_portname, toutpad_portname2);
-				split_portname_pair(toutpad_portname2, toutpad_portname3);
+				toutpad_portname_oe = args[++argidx];
+				split_portname_pair(toutpad_portname_oe, toutpad_portname_i);
+				split_portname_pair(toutpad_portname_i, toutpad_portname_pad);
 				continue;
 			}
 			if (arg == "-tinoutpad" && argidx+2 < args.size()) {
 				tinoutpad_celltype = args[++argidx];
-				tinoutpad_portname = args[++argidx];
-				split_portname_pair(tinoutpad_portname, tinoutpad_portname2);
-				split_portname_pair(tinoutpad_portname2, tinoutpad_portname3);
-				split_portname_pair(tinoutpad_portname3, tinoutpad_portname4);
+				tinoutpad_portname_oe = args[++argidx];
+				split_portname_pair(tinoutpad_portname_oe, tinoutpad_portname_o);
+				split_portname_pair(tinoutpad_portname_o, tinoutpad_portname_i);
+				split_portname_pair(tinoutpad_portname_i, tinoutpad_portname_pad);
 				continue;
 			}
 			if (arg == "-ignore" && argidx+2 < args.size()) {
@@ -161,16 +161,16 @@ struct IopadmapPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		if (!inpad_portname2.empty())
-			ignore.insert(make_pair(RTLIL::escape_id(inpad_celltype), RTLIL::escape_id(inpad_portname2)));
-		if (!outpad_portname2.empty())
-			ignore.insert(make_pair(RTLIL::escape_id(outpad_celltype), RTLIL::escape_id(outpad_portname2)));
-		if (!inoutpad_portname2.empty())
-			ignore.insert(make_pair(RTLIL::escape_id(inoutpad_celltype), RTLIL::escape_id(inoutpad_portname2)));
-		if (!toutpad_portname3.empty())
-			ignore.insert(make_pair(RTLIL::escape_id(toutpad_celltype), RTLIL::escape_id(toutpad_portname3)));
-		if (!tinoutpad_portname4.empty())
-			ignore.insert(make_pair(RTLIL::escape_id(tinoutpad_celltype), RTLIL::escape_id(tinoutpad_portname4)));
+		if (!inpad_portname_pad.empty())
+			ignore.insert(make_pair(RTLIL::escape_id(inpad_celltype), RTLIL::escape_id(inpad_portname_pad)));
+		if (!outpad_portname_pad.empty())
+			ignore.insert(make_pair(RTLIL::escape_id(outpad_celltype), RTLIL::escape_id(outpad_portname_pad)));
+		if (!inoutpad_portname_pad.empty())
+			ignore.insert(make_pair(RTLIL::escape_id(inoutpad_celltype), RTLIL::escape_id(inoutpad_portname_pad)));
+		if (!toutpad_portname_pad.empty())
+			ignore.insert(make_pair(RTLIL::escape_id(toutpad_celltype), RTLIL::escape_id(toutpad_portname_pad)));
+		if (!tinoutpad_portname_pad.empty())
+			ignore.insert(make_pair(RTLIL::escape_id(tinoutpad_celltype), RTLIL::escape_id(tinoutpad_portname_pad)));
 
 		for (auto module : design->modules())
 			if (module->get_blackbox_attribute())
@@ -225,15 +225,15 @@ struct IopadmapPass : public Pass {
 
 							Cell *cell = module->addCell(NEW_ID, RTLIL::escape_id(tinoutpad_celltype));
 
-							cell->setPort(RTLIL::escape_id(tinoutpad_portname), en_sig);
-							cell->setPort(RTLIL::escape_id(tinoutpad_portname2), wire_bit);
-							cell->setPort(RTLIL::escape_id(tinoutpad_portname3), data_sig);
+							cell->setPort(RTLIL::escape_id(tinoutpad_portname_oe), en_sig);
+							cell->setPort(RTLIL::escape_id(tinoutpad_portname_o), wire_bit);
+							cell->setPort(RTLIL::escape_id(tinoutpad_portname_i), data_sig);
 							cell->attributes[ID::keep] = RTLIL::Const(1);
 
 							module->remove(tbuf_cell);
 							skip_wire_bits.insert(wire_bit);
-							if (!tinoutpad_portname4.empty())
-								rewrite_bits[wire][i] = make_pair(cell, RTLIL::escape_id(tinoutpad_portname4));
+							if (!tinoutpad_portname_pad.empty())
+								rewrite_bits[wire][i] = make_pair(cell, RTLIL::escape_id(tinoutpad_portname_pad));
 							continue;
 						}
 
@@ -243,15 +243,15 @@ struct IopadmapPass : public Pass {
 
 							Cell *cell = module->addCell(NEW_ID, RTLIL::escape_id(toutpad_celltype));
 
-							cell->setPort(RTLIL::escape_id(toutpad_portname), en_sig);
-							cell->setPort(RTLIL::escape_id(toutpad_portname2), data_sig);
+							cell->setPort(RTLIL::escape_id(toutpad_portname_oe), en_sig);
+							cell->setPort(RTLIL::escape_id(toutpad_portname_i), data_sig);
 							cell->attributes[ID::keep] = RTLIL::Const(1);
 
 							module->remove(tbuf_cell);
 							module->connect(wire_bit, data_sig);
 							skip_wire_bits.insert(wire_bit);
-							if (!toutpad_portname3.empty())
-								rewrite_bits[wire][i] = make_pair(cell, RTLIL::escape_id(toutpad_portname3));
+							if (!toutpad_portname_pad.empty())
+								rewrite_bits[wire][i] = make_pair(cell, RTLIL::escape_id(toutpad_portname_pad));
 							continue;
 						}
 					}
@@ -263,7 +263,7 @@ struct IopadmapPass : public Pass {
 				if (!wire->port_id)
 					continue;
 
-				std::string celltype, portname, portname2;
+				std::string celltype, portname_int, portname_pad;
 				pool<int> skip_bit_indices;
 
 				for (int i = 0; i < GetSize(wire); i++)
@@ -279,8 +279,8 @@ struct IopadmapPass : public Pass {
 						continue;
 					}
 					celltype = inpad_celltype;
-					portname = inpad_portname;
-					portname2 = inpad_portname2;
+					portname_int = inpad_portname_o;
+					portname_pad = inpad_portname_pad;
 				} else
 				if (!wire->port_input && wire->port_output) {
 					if (outpad_celltype.empty()) {
@@ -288,8 +288,8 @@ struct IopadmapPass : public Pass {
 						continue;
 					}
 					celltype = outpad_celltype;
-					portname = outpad_portname;
-					portname2 = outpad_portname2;
+					portname_int = outpad_portname_i;
+					portname_pad = outpad_portname_pad;
 				} else
 				if (wire->port_input && wire->port_output) {
 					if (inoutpad_celltype.empty()) {
@@ -297,8 +297,8 @@ struct IopadmapPass : public Pass {
 						continue;
 					}
 					celltype = inoutpad_celltype;
-					portname = inoutpad_portname;
-					portname2 = inoutpad_portname2;
+					portname_int = inoutpad_portname_io;
+					portname_pad = inoutpad_portname_pad;
 				} else
 					log_abort();
 
@@ -319,10 +319,10 @@ struct IopadmapPass : public Pass {
 						SigBit wire_bit(wire, i);
 
 						RTLIL::Cell *cell = module->addCell(NEW_ID, RTLIL::escape_id(celltype));
-						cell->setPort(RTLIL::escape_id(portname), wire_bit);
+						cell->setPort(RTLIL::escape_id(portname_int), wire_bit);
 
-						if (!portname2.empty())
-							rewrite_bits[wire][i] = make_pair(cell, RTLIL::escape_id(portname2));
+						if (!portname_pad.empty())
+							rewrite_bits[wire][i] = make_pair(cell, RTLIL::escape_id(portname_pad));
 						if (!widthparam.empty())
 							cell->parameters[RTLIL::escape_id(widthparam)] = RTLIL::Const(1);
 						if (!nameparam.empty())
@@ -333,14 +333,14 @@ struct IopadmapPass : public Pass {
 				else
 				{
 					RTLIL::Cell *cell = module->addCell(NEW_ID, RTLIL::escape_id(celltype));
-					cell->setPort(RTLIL::escape_id(portname), RTLIL::SigSpec(wire));
+					cell->setPort(RTLIL::escape_id(portname_int), RTLIL::SigSpec(wire));
 
-					if (!portname2.empty()) {
+					if (!portname_pad.empty()) {
 						RTLIL::Wire *new_wire = NULL;
 						new_wire = module->addWire(NEW_ID, wire);
 						module->swap_names(new_wire, wire);
 						wire->attributes.clear();
-						cell->setPort(RTLIL::escape_id(portname2), RTLIL::SigSpec(new_wire));
+						cell->setPort(RTLIL::escape_id(portname_pad), RTLIL::SigSpec(new_wire));
 					}
 					if (!widthparam.empty())
 						cell->parameters[RTLIL::escape_id(widthparam)] = RTLIL::Const(wire->width);
