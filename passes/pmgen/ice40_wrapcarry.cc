@@ -51,6 +51,9 @@ void create_ice40_wrapcarry(ice40_wrapcarry_pm &pm)
 	cell->setParam("\\LUT", st.lut->getParam("\\LUT_INIT"));
 
 	cell->attributes = std::move(st.carry->attributes);
+	auto it = cell->attributes.find(ID::keep);
+	if (it != cell->attributes.end() && !it->second.as_bool())
+		cell->attributes.erase(it);
 	cell->attributes.insert(st.lut->attributes.begin(), st.lut->attributes.end());
 
 	pm.autoremove(st.carry);
@@ -68,6 +71,11 @@ struct Ice40WrapCarryPass : public Pass {
 		log("Wrap manually instantiated SB_CARRY cells, along with their associated SB_LUTs,\n");
 		log("into an internal $__ICE40_CARRY_WRAPPER cell for preservation across technology\n");
 		log("mapping.");
+		log("\n");
+		log("Attributes on both cells will be merged, with SB_CARRY attributes having priority\n");
+		log("over SB_LUT4 attributes, except when (* keep *) attributes present on the SB_CARRY4\n");
+		log("that logically evaluate to false will be dropped (thus allowing the keep attribute,\n");
+		log("if any, on the SB_LUT4 to be adopted).\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
