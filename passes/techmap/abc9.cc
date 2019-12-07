@@ -30,7 +30,7 @@
 						"&st; &if -g -K 6; &synch2; &if {W} -v; &save; &load; "\
 						"&mfs; &ps -l"
 #else
-#define ABC_COMMAND_LUT "&st; &scorr; &sweep; &dc2; &st; &dch -f; &ps; &if {W} {D} -v; &mfs; &ps -l; time"
+#define ABC_COMMAND_LUT "&st; &scorr; &sweep; &dc2; &st; &dch -f; &ps; &if {W} {D} -v; &mfs; &ps -l"
 #endif
 
 
@@ -429,26 +429,10 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 		if (mapped_mod == NULL)
 			log_error("ABC output file does not contain a module `$__abc9__'.\n");
 
-		pool<RTLIL::SigBit> output_bits;
 		for (auto &it : mapped_mod->wires_) {
 			RTLIL::Wire *w = it.second;
 			RTLIL::Wire *remap_wire = module->addWire(remap_name(w->name), GetSize(w));
 			if (markgroups) remap_wire->attributes[ID(abcgroup)] = map_autoidx;
-			if (w->port_output) {
-				RTLIL::Wire *wire = module->wire(w->name);
-				log_assert(wire);
-				for (int i = 0; i < GetSize(w); i++)
-					output_bits.insert({wire, i});
-			}
-		}
-
-		for (auto &it : module->connections_) {
-			auto &signal = it.first;
-			auto bits = signal.bits();
-			for (auto &b : bits)
-				if (output_bits.count(b))
-					b = module->addWire(NEW_ID);
-			signal = std::move(bits);
 		}
 
 		dict<IdString, bool> abc9_box;
@@ -1093,14 +1077,12 @@ struct Abc9Pass : public Pass {
 			std::set<RTLIL::Cell*> expand_queue_up, next_expand_queue_up;
 			std::set<RTLIL::Cell*> expand_queue_down, next_expand_queue_down;
 
-			std::map<SigSpec, pool<RTLIL::IdString>> assigned_cells;
-			std::map<RTLIL::Cell*, SigSpec> assigned_cells_reverse;
+			typedef std::pair<SigSpec, IdString> clkdomain_t;
+			std::map<clkdomain_t, pool<RTLIL::IdString>> assigned_cells;
+			std::map<RTLIL::Cell*, clkdomain_t> assigned_cells_reverse;
 
 			std::map<RTLIL::Cell*, std::set<RTLIL::SigBit>> cell_to_bit, cell_to_bit_up, cell_to_bit_down;
 			std::map<RTLIL::SigBit, std::set<RTLIL::Cell*>> bit_to_cell, bit_to_cell_up, bit_to_cell_down;
-
-			typedef std::pair<IdString, SigSpec> ctrldomain_t;
-			std::map<ctrldomain_t, int> mergeability_class;
 
 			for (auto cell : all_cells) {
 				for (auto &conn : cell->connections())
@@ -1127,22 +1109,16 @@ struct Abc9Pass : public Pass {
 					log_error("'%s$abc9_clock' is not a wire present in module '%s'.\n", cell->name.c_str(), log_id(module));
 				SigSpec abc9_clock = assign_map(abc9_clock_wire);
 
-				Wire *abc9_control_wire = module->wire(stringf("%s.$abc9_control", cell->name.c_str()));
-				if (abc9_control_wire == NULL)
-					log_error("'%s$abc9_control' is not a wire present in module '%s'.\n", cell->name.c_str(), log_id(module));
-				SigSpec abc9_control = assign_map(abc9_control_wire);
-
 				unassigned_cells.erase(cell);
 				expand_queue.insert(cell);
 				expand_queue_up.insert(cell);
 				expand_queue_down.insert(cell);
 
-				assigned_cells[abc9_clock].insert(cell->name);
-				assigned_cells_reverse[cell] = abc9_clock;
+				clkdomain_t key(abc9_clock, cell->type);
+				assigned_cells[key].insert(cell->name);
+				assigned_cells_reverse[cell] = key;
 
-				ctrldomain_t key(cell->type, abc9_control);
-				auto r = mergeability_class.emplace(key, mergeability_class.size() + 1);
-				auto YS_ATTRIBUTE(unused) r2 = cell->attributes.insert(std::make_pair(ID(abc9_mergeability),  r.first->second));
+				auto YS_ATTRIBUTE(unused) r2 = cell->attributes.insert(std::make_pair(ID(abc9_mergeability), 1));
 				log_assert(r2.second);
 
 				Wire *abc9_init_wire = module->wire(stringf("%s.$abc9_init", cell->name.c_str()));
@@ -1161,7 +1137,7 @@ struct Abc9Pass : public Pass {
 				if (!expand_queue_up.empty())
 				{
 					RTLIL::Cell *cell = *expand_queue_up.begin();
-					SigSpec key = assigned_cells_reverse.at(cell);
+					auto key = assigned_cells_reverse.at(cell);
 					expand_queue_up.erase(cell);
 
 					for (auto bit : cell_to_bit_up[cell])
@@ -1178,7 +1154,7 @@ struct Abc9Pass : public Pass {
 				if (!expand_queue_down.empty())
 				{
 					RTLIL::Cell *cell = *expand_queue_down.begin();
-					SigSpec key = assigned_cells_reverse.at(cell);
+					auto key = assigned_cells_reverse.at(cell);
 					expand_queue_down.erase(cell);
 
 					for (auto bit : cell_to_bit_down[cell])
@@ -1201,7 +1177,7 @@ struct Abc9Pass : public Pass {
 			while (!expand_queue.empty())
 			{
 				RTLIL::Cell *cell = *expand_queue.begin();
-				SigSpec key = assigned_cells_reverse.at(cell);
+				auto key = assigned_cells_reverse.at(cell);
 				expand_queue.erase(cell);
 
 				for (auto bit : cell_to_bit.at(cell)) {
@@ -1219,7 +1195,7 @@ struct Abc9Pass : public Pass {
 					expand_queue.swap(next_expand_queue);
 			}
 
-			SigSpec key;
+			clkdomain_t key;
 			for (auto cell : unassigned_cells) {
 				assigned_cells[key].insert(cell->name);
 				assigned_cells_reverse[cell] = key;
@@ -1227,19 +1203,19 @@ struct Abc9Pass : public Pass {
 
 			log_header(design, "Summary of detected clock domains:\n");
 			for (auto &it : assigned_cells)
-				log("  %d cells in clk=%s\n", GetSize(it.second), log_signal(it.first));
+				log("  %d cells in clk=%s cell=%s\n", GetSize(it.second), log_signal(it.first.first), log_id(it.first.second));
 
 			design->selection_stack.emplace_back(false);
 			design->selected_active_module = module->name.str();
 			for (auto &it : assigned_cells) {
 				std::string target = delay_target;
 				if (target.empty()) {
-					for (auto b : assign_map(it.first))
+					for (auto b : assign_map(it.first.first))
 						if (b.wire) {
 							auto jt = b.wire->attributes.find("\\abc9_period");
 							if (jt != b.wire->attributes.end()) {
 								target = stringf("-D %d", jt->second.as_int());
-								log("Target period = %s ps for clock domain %s\n", target.c_str(), log_signal(it.first));
+								log("Target period = %s ps for clock domain %s\n", target.c_str(), log_signal(it.first.first));
 								break;
 							}
 						}
