@@ -1005,15 +1005,10 @@ void AigerReader::post_process()
 			if (other_wire) {
 				other_wire->port_input = false;
 				other_wire->port_output = false;
-			}
-			if (wire->port_input) {
-				if (other_wire)
+				if (wire->port_input)
 					module->connect(other_wire, SigSpec(wire, i));
-			}
-			else {
-								  // Since we skip POs that are connected to Sx,
-								  // re-connect them here
-				module->connect(SigSpec(wire, i), other_wire ? other_wire : SigSpec(RTLIL::Sx));
+				else
+					module->connect(SigSpec(wire, i), other_wire);
 			}
 		}
 	}
