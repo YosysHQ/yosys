@@ -670,7 +670,6 @@ struct XAigerWriter
 					}
 				}
 
-
 				write_h_buffer(box_inputs);
 				write_h_buffer(box_outputs);
 				write_h_buffer(box_module->attributes.at("\\abc9_box_id").as_int());
