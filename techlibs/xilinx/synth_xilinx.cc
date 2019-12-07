@@ -533,6 +533,11 @@ struct SynthXilinxPass : public ScriptPass
 					log_warning("'synth_xilinx -abc9' not currently supported for the '%s' family, "
 							"will use timing for 'xc7' instead.\n", family.c_str());
 				run("techmap -map +/xilinx/abc9_map.v -max_iter 1");
+				run("select -set abc9_boxes A:abc9_box_id A:whitebox=1");
+				run("wbflip @abc9_boxes");
+				run("techmap -autoproc @abc9_boxes");
+				run("aigmap @abc9_boxes");
+				run("wbflip @abc9_boxes");
 				run("read_verilog -icells -lib +/xilinx/abc9_model.v");
 				std::string abc9_opts = " -box +/xilinx/abc9_xc7.box";
 				abc9_opts += stringf(" -W %d", XC7_WIRE_DELAY);
