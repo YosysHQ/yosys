@@ -79,6 +79,9 @@ struct SynthEcp5Pass : public ScriptPass
 		log("    -nowidelut\n");
 		log("        do not use PFU muxes to implement LUTs larger than LUT4s\n");
 		log("\n");
+		log("    -asyncprld\n");
+		log("        use async PRLD mode to implement DLATCH and DFFSR (EXPERIMENTAL)\n");
+		log("\n");
 		log("    -abc2\n");
 		log("        run two passes of 'abc' for slightly improved logic density\n");
 		log("\n");
@@ -99,7 +102,7 @@ struct SynthEcp5Pass : public ScriptPass
 	}
 
 	string top_opt, blif_file, edif_file, json_file;
-	bool noccu2, nodffe, nobram, nolutram, nowidelut, flatten, retime, abc2, abc9, nodsp, vpr;
+	bool noccu2, nodffe, nobram, nolutram, nowidelut, asyncprld, flatten, retime, abc2, abc9, nodsp, vpr;
 
 	void clear_flags() YS_OVERRIDE
 	{
@@ -112,6 +115,7 @@ struct SynthEcp5Pass : public ScriptPass
 		nobram = false;
 		nolutram = false;
 		nowidelut = false;
+		asyncprld = false;
 		flatten = true;
 		retime = false;
 		abc2 = false;
@@ -174,6 +178,10 @@ struct SynthEcp5Pass : public ScriptPass
 			}
 			if (args[argidx] == "-nobram") {
 				nobram = true;
+				continue;
+			}
+			if (args[argidx] == "-asyncprld") {
+				asyncprld = true;
 				continue;
 			}
 			if (args[argidx] == "-nolutram" || /*deprecated alias*/ args[argidx] == "-nodram") {
@@ -292,7 +300,7 @@ struct SynthEcp5Pass : public ScriptPass
 			run("opt_clean");
 			if (!nodffe)
 				run("dff2dffe -direct-match $_DFF_* -direct-match $__DFFS_*");
-			run("techmap -D NO_LUT -map +/ecp5/cells_map.v");
+			run(stringf("techmap -D NO_LUT %s -map +/ecp5/cells_map.v", help_mode ? "[-D ASYNC_PRLD]" : (asyncprld ? "-D ASYNC_PRLD" : "")));
 			run("opt_expr -undriven -mux_undef");
 			run("simplemap");
 			run("ecp5_ffinit");
@@ -306,10 +314,11 @@ struct SynthEcp5Pass : public ScriptPass
 			if (abc2 || help_mode) {
 				run("abc", "      (only if -abc2)");
 			}
-			std::string techmap_args = "-map +/ecp5/latches_map.v";
+			std::string techmap_args = asyncprld ? "" : "-map +/ecp5/latches_map.v";
 			if (abc9)
 				techmap_args += " -map +/ecp5/abc9_map.v -max_iter 1";
-			run("techmap " + techmap_args);
+			if (!asyncprld || abc9)
+				run("techmap " + techmap_args);
 
 			if (abc9) {
 				run("read_verilog -icells -lib +/ecp5/abc9_model.v");
