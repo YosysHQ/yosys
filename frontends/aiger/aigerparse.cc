@@ -376,105 +376,98 @@ void AigerReader::parse_xaiger(const dict<int,IdString> &box_lookup)
 	if (n0)
 		module->connect(n0, State::S0);
 
+	int c = f.get();
+	if (c != 'c')
+		log_error("Line %u: cannot interpret first character '%c'!\n", line_count, c);
+	c = f.get();
+	log_assert(c == '\n');
+
 	// Parse footer (symbol table, comments, etc.)
 	std::string s;
-	bool comment_seen = false;
-	for (int c = f.peek(); c != EOF; c = f.peek()) {
-		if (comment_seen || c == 'c') {
-			if (!comment_seen) {
-				f.ignore(1);
-				c = f.peek();
-				comment_seen = true;
-			}
-			if (c == '\n')
-				break;
-			f.ignore(1);
-			// XAIGER extensions
-			if (c == 'm') {
-				uint32_t dataSize YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
-				uint32_t lutNum = parse_xaiger_literal(f);
-				uint32_t lutSize YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
-				log_debug("m: dataSize=%u lutNum=%u lutSize=%u\n", dataSize, lutNum, lutSize);
-				ConstEvalAig ce(module);
-				for (unsigned i = 0; i < lutNum; ++i) {
-					uint32_t rootNodeID = parse_xaiger_literal(f);
-					uint32_t cutLeavesM = parse_xaiger_literal(f);
-					log_debug2("rootNodeID=%d cutLeavesM=%d\n", rootNodeID, cutLeavesM);
-					RTLIL::Wire *output_sig = module->wire(stringf("\\__%d__", rootNodeID));
-					uint32_t nodeID;
-					RTLIL::SigSpec input_sig;
-					for (unsigned j = 0; j < cutLeavesM; ++j) {
-						nodeID = parse_xaiger_literal(f);
-						log_debug2("\t%u\n", nodeID);
-						RTLIL::Wire *wire = module->wire(stringf("\\__%d__", nodeID));
-						log_assert(wire);
-						input_sig.append(wire);
-					}
-					// TODO: Compute LUT mask from AIG in less than O(2 ** input_sig.size())
-					ce.clear();
-					ce.compute_deps(output_sig, input_sig.to_sigbit_pool());
-					RTLIL::Const lut_mask(RTLIL::State::Sx, 1 << input_sig.size());
-					for (int j = 0; j < (1 << cutLeavesM); ++j) {
-						int gray = j ^ (j >> 1);
-						ce.set_incremental(input_sig, RTLIL::Const{gray, static_cast<int>(cutLeavesM)});
-						RTLIL::SigBit o(output_sig);
-						bool success YS_ATTRIBUTE(unused) = ce.eval(o);
-						log_assert(success);
-						log_assert(o.wire == nullptr);
-						lut_mask[gray] = o.data;
-					}
-					RTLIL::Cell *output_cell = module->cell(stringf("\\__%d__$and", rootNodeID));
-					log_assert(output_cell);
-					module->remove(output_cell);
-					module->addLut(stringf("\\__%d__$lut", rootNodeID), input_sig, output_sig, std::move(lut_mask));
+	for (int c = f.get(); c != EOF; c = f.get()) {
+		// XAIGER extensions
+		if (c == 'm') {
+			uint32_t dataSize YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
+			uint32_t lutNum = parse_xaiger_literal(f);
+			uint32_t lutSize YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
+			log_debug("m: dataSize=%u lutNum=%u lutSize=%u\n", dataSize, lutNum, lutSize);
+			ConstEvalAig ce(module);
+			for (unsigned i = 0; i < lutNum; ++i) {
+				uint32_t rootNodeID = parse_xaiger_literal(f);
+				uint32_t cutLeavesM = parse_xaiger_literal(f);
+				log_debug2("rootNodeID=%d cutLeavesM=%d\n", rootNodeID, cutLeavesM);
+				RTLIL::Wire *output_sig = module->wire(stringf("\\__%d__", rootNodeID));
+				uint32_t nodeID;
+				RTLIL::SigSpec input_sig;
+				for (unsigned j = 0; j < cutLeavesM; ++j) {
+					nodeID = parse_xaiger_literal(f);
+					log_debug2("\t%u\n", nodeID);
+					RTLIL::Wire *wire = module->wire(stringf("\\__%d__", nodeID));
+					log_assert(wire);
+					input_sig.append(wire);
 				}
-			}
-			else if (c == 'r') {
-				uint32_t dataSize YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
-				flopNum = parse_xaiger_literal(f);
-				log_debug("flopNum = %u\n", flopNum);
-				log_assert(dataSize == (flopNum+1) * sizeof(uint32_t));
-				f.ignore(flopNum * sizeof(uint32_t));
-			}
-			else if (c == 'n') {
-				parse_xaiger_literal(f);
-				f >> s;
-				log_debug("n: '%s'\n", s.c_str());
-			}
-			else if (c == 'h') {
-				f.ignore(sizeof(uint32_t));
-				uint32_t version YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
-				log_assert(version == 1);
-				uint32_t ciNum YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
-				log_debug("ciNum = %u\n", ciNum);
-				uint32_t coNum YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
-				log_debug("coNum = %u\n", coNum);
-				piNum = parse_xaiger_literal(f);
-				log_debug("piNum = %u\n", piNum);
-				uint32_t poNum YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
-				log_debug("poNum = %u\n", poNum);
-				uint32_t boxNum = parse_xaiger_literal(f);
-				log_debug("boxNum = %u\n", boxNum);
-				for (unsigned i = 0; i < boxNum; i++) {
-					f.ignore(2*sizeof(uint32_t));
-					uint32_t boxUniqueId = parse_xaiger_literal(f);
-					log_assert(boxUniqueId > 0);
-					uint32_t oldBoxNum = parse_xaiger_literal(f);
-					RTLIL::Cell* cell = module->addCell(stringf("$__box%u__", oldBoxNum), box_lookup.at(boxUniqueId));
-					boxes.emplace_back(cell);
+				// TODO: Compute LUT mask from AIG in less than O(2 ** input_sig.size())
+				ce.clear();
+				ce.compute_deps(output_sig, input_sig.to_sigbit_pool());
+				RTLIL::Const lut_mask(RTLIL::State::Sx, 1 << input_sig.size());
+				for (int j = 0; j < (1 << cutLeavesM); ++j) {
+					int gray = j ^ (j >> 1);
+					ce.set_incremental(input_sig, RTLIL::Const{gray, static_cast<int>(cutLeavesM)});
+					RTLIL::SigBit o(output_sig);
+					bool success YS_ATTRIBUTE(unused) = ce.eval(o);
+					log_assert(success);
+					log_assert(o.wire == nullptr);
+					lut_mask[gray] = o.data;
 				}
-			}
-			else if (c == 'a' || c == 'i' || c == 'o' || c == 's') {
-				uint32_t dataSize = parse_xaiger_literal(f);
-				f.ignore(dataSize);
-				log_debug("ignoring '%c'\n", c);
-			}
-			else {
-				break;
+				RTLIL::Cell *output_cell = module->cell(stringf("\\__%d__$and", rootNodeID));
+				log_assert(output_cell);
+				module->remove(output_cell);
+				module->addLut(stringf("\\__%d__$lut", rootNodeID), input_sig, output_sig, std::move(lut_mask));
 			}
 		}
-		else
-			log_error("Line %u: cannot interpret first character '%c'!\n", line_count, c);
+		else if (c == 'r') {
+			uint32_t dataSize YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
+			flopNum = parse_xaiger_literal(f);
+			log_debug("flopNum = %u\n", flopNum);
+			log_assert(dataSize == (flopNum+1) * sizeof(uint32_t));
+			f.ignore(flopNum * sizeof(uint32_t));
+		}
+		else if (c == 'n') {
+			parse_xaiger_literal(f);
+			f >> s;
+			log_debug("n: '%s'\n", s.c_str());
+		}
+		else if (c == 'h') {
+			f.ignore(sizeof(uint32_t));
+			uint32_t version YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
+			log_assert(version == 1);
+			uint32_t ciNum YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
+			log_debug("ciNum = %u\n", ciNum);
+			uint32_t coNum YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
+			log_debug("coNum = %u\n", coNum);
+			piNum = parse_xaiger_literal(f);
+			log_debug("piNum = %u\n", piNum);
+			uint32_t poNum YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
+			log_debug("poNum = %u\n", poNum);
+			uint32_t boxNum = parse_xaiger_literal(f);
+			log_debug("boxNum = %u\n", boxNum);
+			for (unsigned i = 0; i < boxNum; i++) {
+				f.ignore(2*sizeof(uint32_t));
+				uint32_t boxUniqueId = parse_xaiger_literal(f);
+				log_assert(boxUniqueId > 0);
+				uint32_t oldBoxNum = parse_xaiger_literal(f);
+				RTLIL::Cell* cell = module->addCell(stringf("$__box%u__", oldBoxNum), box_lookup.at(boxUniqueId));
+				boxes.emplace_back(cell);
+			}
+		}
+		else if (c == 'a' || c == 'i' || c == 'o' || c == 's') {
+			uint32_t dataSize = parse_xaiger_literal(f);
+			f.ignore(dataSize);
+			log_debug("ignoring '%c'\n", c);
+		}
+		else {
+			break;
+		}
 	}
 
 	post_process();
