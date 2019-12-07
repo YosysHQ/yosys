@@ -142,7 +142,7 @@ struct XAigerWriter
 	{
 		pool<SigBit> undriven_bits;
 		pool<SigBit> unused_bits;
-		pool<SigBit> keep_bits;
+		pool<SigBit> inout_bits;
 
 		// promote public wires
 		for (auto wire : module->wires())
@@ -154,60 +154,45 @@ struct XAigerWriter
 			if (wire->port_input)
 				sigmap.add(wire);
 
-		// promote output wires
+		// promote keep wires
 		for (auto wire : module->wires())
-			if (wire->port_output)
+			if (wire->get_bool_attribute(ID::keep))
 				sigmap.add(wire);
 
 		for (auto wire : module->wires())
-		{
-			bool keep = wire->attributes.count("\\keep");
-
 			for (int i = 0; i < GetSize(wire); i++)
 			{
 				SigBit wirebit(wire, i);
 				SigBit bit = sigmap(wirebit);
 
-				if (bit.wire) {
-					undriven_bits.insert(bit);
-					unused_bits.insert(bit);
-				}
-
-				if (keep) {
-					keep_bits.insert(wirebit);
-					if (bit != wirebit)
-						alias_map[wirebit] = bit;
-					input_bits.insert(wirebit);
-					output_bits.insert(wirebit);
+				if (bit.wire == nullptr) {
+					if (wire->port_output) {
+						aig_map[wirebit] = (bit == State::S1) ? 1 : 0;
+						if (holes_mode)
+							output_bits.insert(wirebit);
+						//external_bits.insert(wirebit);
+					}
 					continue;
 				}
 
-				if (wire->port_input) {
-					if (bit != wirebit)
-						alias_map[bit] = wirebit;
-					input_bits.insert(wirebit);
-				}
+				undriven_bits.insert(bit);
+				unused_bits.insert(bit);
+
+				if (wire->port_input)
+					input_bits.insert(bit);
 
 				if (wire->port_output) {
-					if (bit != RTLIL::Sx) {
-						if (bit != wirebit)
-							alias_map[wirebit] = bit;
-						if (holes_mode)
-							output_bits.insert(wirebit);
-						else
-							external_bits.insert(wirebit);
-					}
+					if (bit != wirebit)
+						alias_map[wirebit] = bit;
+					if (holes_mode)
+						output_bits.insert(wirebit);
 					else
-						log_debug("Skipping PO '%s' driven by 1'bx\n", log_signal(wirebit));
+						external_bits.insert(wirebit);
 				}
-			}
-		}
 
-		// Cannot fold into above due to use of sigmap
-		for (auto bit : input_bits)
-			undriven_bits.erase(sigmap(bit));
-		for (auto bit : output_bits)
-			unused_bits.erase(sigmap(bit));
+				if (wire->port_input && wire->port_output)
+					inout_bits.insert(bit);
+			}
 
 		// TODO: Speed up toposort -- ultimately we care about
 		//       box ordering, but not individual AIG cells
@@ -307,10 +292,9 @@ struct XAigerWriter
 							if (I != b)
 								alias_map[b] = I;
 							output_bits.insert(b);
-							unused_bits.erase(I);
 
 							if (!cell_known)
-								keep_bits.insert(b);
+								inout_bits.insert(b);
 						}
 					}
 				}
@@ -328,11 +312,10 @@ struct XAigerWriter
 					for (auto b : c.second) {
 						Wire *w = b.wire;
 						if (!w) continue;
-						input_bits.insert(b);
 						SigBit O = sigmap(b);
 						if (O != b)
 							alias_map[O] = b;
-						undriven_bits.erase(O);
+						input_bits.insert(b);
 
 						if (arrival)
 							arrival_times[b] = arrival;
@@ -342,12 +325,6 @@ struct XAigerWriter
 
 			//log_warning("Unsupported cell type: %s (%s)\n", log_id(cell->type), log_id(cell));
 		}
-
-		for (auto cell : module->cells())
-			if (!module->selected(cell))
-				for (auto &conn : cell->connections())
-					for (auto bit : sigmap(conn.second))
-						external_bits.insert(bit);
 
 		if (abc9_box_seen) {
 			dict<IdString, std::pair<IdString,int>> flop_q;
@@ -494,8 +471,8 @@ struct XAigerWriter
 							SigBit O = sigmap(b);
 							if (O != b)
 								alias_map[O] = b;
-							undriven_bits.erase(O);
 							input_bits.erase(b);
+							undriven_bits.erase(O);
 						}
 					}
 				}
@@ -528,56 +505,70 @@ struct XAigerWriter
 			// TODO: Free memory from toposort, bit_drivers, bit_users
 		}
 
-		for (auto bit : input_bits) {
-			if (!output_bits.count(bit))
+		if (!holes_mode)
+			for (auto cell : module->cells())
+				if (!module->selected(cell))
+					for (auto &conn : cell->connections())
+						if (cell->input(conn.first))
+							for (auto wirebit : conn.second)
+								if (sigmap(wirebit).wire)
+									external_bits.insert(wirebit);
+
+		// For all bits consumed outside of the selected cells,
+		//   but driven from a selected cell, then add it as
+		//   a primary output
+		for (auto wirebit : external_bits) {
+			SigBit bit = sigmap(wirebit);
+			if (!bit.wire)
 				continue;
-			RTLIL::Wire *wire = bit.wire;
-			// If encountering an inout port, or a keep-ed wire, then create a new wire
-			// with $inout.out suffix, make it a PO driven by the existing inout, and
-			// inherit existing inout's drivers
-			if ((wire->port_input && wire->port_output && !undriven_bits.count(bit))
-					|| keep_bits.count(bit)) {
-				RTLIL::IdString wire_name = stringf("$%s$inout.out", wire->name.c_str());
-				RTLIL::Wire *new_wire = module->wire(wire_name);
-				if (!new_wire)
-					new_wire = module->addWire(wire_name, GetSize(wire));
-				SigBit new_bit(new_wire, bit.offset);
-				module->connect(new_bit, bit);
-				if (not_map.count(bit)) {
-					auto a = not_map.at(bit);
-					not_map[new_bit] = a;
-				}
-				else if (and_map.count(bit)) {
-					auto a = and_map.at(bit);
-					and_map[new_bit] = a;
-				}
-				else if (alias_map.count(bit)) {
-					auto a = alias_map.at(bit);
-					alias_map[new_bit] = a;
-				}
-				else
-					alias_map[new_bit] = bit;
-				output_bits.erase(bit);
-				output_bits.insert(new_bit);
+			if (!undriven_bits.count(bit)) {
+				if (bit != wirebit)
+					alias_map[wirebit] = bit;
+				output_bits.insert(wirebit);
 			}
 		}
 
-		for (auto bit : external_bits)
-			if (!undriven_bits.count(sigmap(bit))) {
-				output_bits.insert(bit);
-				unused_bits.erase(sigmap(bit));
-			}
-
+		for (auto bit : input_bits)
+			undriven_bits.erase(sigmap(bit));
+		for (auto bit : output_bits)
+			unused_bits.erase(sigmap(bit));
 		for (auto bit : unused_bits)
 			undriven_bits.erase(bit);
 
-		if (!undriven_bits.empty() && !holes_mode) {
-			//undriven_bits.sort();
+		// Make all undriven bits a primary input
+		if (!holes_mode)
 			for (auto bit : undriven_bits) {
-				//log_warning("Treating undriven bit %s.%s like $anyseq.\n", log_id(module), log_signal(bit));
 				input_bits.insert(bit);
+				undriven_bits.erase(bit);
 			}
-			//log_warning("Treating a total of %d undriven bits in %s like $anyseq.\n", GetSize(undriven_bits), log_id(module));
+
+		// For inout ports, or keep-ed wires, then create a new wire with an
+		// $inout.out suffix, make it a PO driven by the existing inout, and
+		// inherit existing inout's drivers
+		for (auto bit : inout_bits) {
+			RTLIL::Wire *wire = bit.wire;
+			RTLIL::IdString wire_name = stringf("$%s$inout.out", wire->name.c_str());
+			RTLIL::Wire *new_wire = module->wire(wire_name);
+			if (!new_wire)
+				new_wire = module->addWire(wire_name, GetSize(wire));
+			SigBit new_bit(new_wire, bit.offset);
+			module->connect(new_bit, bit);
+			if (not_map.count(bit)) {
+				auto a = not_map.at(bit);
+				not_map[new_bit] = a;
+			}
+			else if (and_map.count(bit)) {
+				auto a = and_map.at(bit);
+				and_map[new_bit] = a;
+			}
+			else if (alias_map.count(bit)) {
+				auto a = alias_map.at(bit);
+				alias_map[new_bit] = a;
+			}
+			else
+				alias_map[new_bit] = bit;
+			output_bits.erase(bit);
+			output_bits.insert(new_bit);
 		}
 
 		if (holes_mode) {
@@ -880,7 +871,7 @@ struct XAigerWriter
 				for (auto it = holes_module->cells_.begin(); it != holes_module->cells_.end(); ) {
 					auto cell = it->second;
 					if (cell->type.in("$_DFF_N_", "$_DFF_NN0_", "$_DFF_NN1_", "$_DFF_NP0_", "$_DFF_NP1_",
-											"$_DFF_P_", "$_DFF_PN0_", "$_DFF_PN1", "$_DFF_PP0_", "$_DFF_PP1_")) {
+								"$_DFF_P_", "$_DFF_PN0_", "$_DFF_PN1", "$_DFF_PP0_", "$_DFF_PP1_")) {
 						SigBit D = cell->getPort("\\D");
 						SigBit Q = cell->getPort("\\Q");
 						// Remove the DFF cell from what needs to be a combinatorial box
