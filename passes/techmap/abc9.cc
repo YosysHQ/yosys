@@ -89,20 +89,30 @@ void handle_loops(RTLIL::Design *design, RTLIL::Module *module)
 					if (cell->output(c.first)) {
 						SigBit b = c.second.as_bit();
 						Wire *w = b.wire;
-						log_assert(!w->port_input);
-						w->port_input = true;
-						w = module->wire(stringf("%s.abci", w->name.c_str()));
-						if (!w) {
-							w = module->addWire(stringf("%s.abci", b.wire->name.c_str()), GetSize(b.wire));
-							w->port_output = true;
+						if (w->port_input) {
+							// In this case, hopefully the loop break has been already created
+							// Get the non-prefixed wire
+							Wire *wo = module->wire(stringf("%s.abco", b.wire->name.c_str()));
+							log_assert(wo != nullptr);
+							log_assert(wo->port_output);
+							log_assert(b.offset < GetSize(wo));
+							c.second = RTLIL::SigBit(wo, b.offset);
 						}
 						else {
-							log_assert(w->port_input);
-							log_assert(b.offset < GetSize(w));
+							// Create a new output/input loop break
+							w->port_input = true;
+							w = module->wire(stringf("%s.abco", w->name.c_str()));
+							if (!w) {
+								w = module->addWire(stringf("%s.abco", b.wire->name.c_str()), GetSize(b.wire));
+								w->port_output = true;
+							}
+							else {
+								log_assert(w->port_input);
+								log_assert(b.offset < GetSize(w));
+							}
+							w->set_bool_attribute(ID(abc9_scc_break));
+							c.second = RTLIL::SigBit(w, b.offset);
 						}
-						w->set_bool_attribute(ID(abc9_scc_break));
-						module->swap_names(b.wire, w);
-						c.second = RTLIL::SigBit(w, b.offset);
 					}
 				}
 			}
@@ -353,24 +363,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 		Pass::call_on_module(design, design->module(ID($__abc9__)), stringf("write_verilog -noexpr -norename -selected"));
 		design->remove(design->module(ID($__abc9__)));
 #endif
-
-		// Now 'unexpose' those wires by undoing
-		// the expose operation -- remove them from PO/PI
-		// and re-connecting them back together
-		for (auto wire : module->wires()) {
-			auto it = wire->attributes.find(ID(abc9_scc_break));
-			if (it != wire->attributes.end()) {
-				wire->attributes.erase(it);
-				log_assert(wire->port_output);
-				wire->port_output = false;
-				RTLIL::Wire *i_wire = module->wire(wire->name.str() + ".abci");
-				log_assert(i_wire);
-				log_assert(i_wire->port_input);
-				i_wire->port_input = false;
-				module->connect(i_wire, wire);
-			}
-		}
-		module->fixup_ports();
 
 		log_header(design, "Executing ABC9.\n");
 
@@ -704,6 +696,25 @@ clone_lut:
 				bit2sinks[bit].push_back(cell);
 			}
 		}
+
+		// Now 'unexpose' those wires by undoing
+		// the expose operation -- remove them from PO/PI
+		// and re-connecting them back together
+		for (auto wire : module->wires()) {
+			auto it = wire->attributes.find(ID(abc9_scc_break));
+			if (it != wire->attributes.end()) {
+				wire->attributes.erase(it);
+				log_assert(wire->port_output);
+				wire->port_output = false;
+				std::string name = wire->name.str();
+				RTLIL::Wire *i_wire = module->wire(name.substr(0, GetSize(name) - 5));
+				log_assert(i_wire);
+				log_assert(i_wire->port_input);
+				i_wire->port_input = false;
+				module->connect(i_wire, wire);
+			}
+		}
+		module->fixup_ports();
 
 		//log("ABC RESULTS:        internal signals: %8d\n", int(signal_list.size()) - in_wires - out_wires);
 		log("ABC RESULTS:           input signals: %8d\n", in_wires);
