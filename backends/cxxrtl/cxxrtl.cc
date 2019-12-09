@@ -26,7 +26,175 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+static bool is_unary_cell(RTLIL::IdString type)
+{
+	return type.in(
+		ID($not), ID($logic_not), ID($reduce_and), ID($reduce_or), ID($reduce_xor), ID($reduce_xnor), ID($reduce_bool),
+		ID($pos), ID($neg));
+}
+
+static bool is_binary_cell(RTLIL::IdString type)
+{
+	return type.in(
+		ID($and), ID($or), ID($xor), ID($xnor), ID($logic_and), ID($logic_or),
+		ID($shl), ID($sshl), ID($shr), ID($sshr), ID($shift), ID($shiftx),
+		ID($eq), ID($ne), ID($eqx), ID($nex), ID($gt), ID($ge), ID($lt), ID($le),
+		ID($add), ID($sub), ID($mul), ID($div), ID($mod));
+}
+
+static bool is_elidable_cell(RTLIL::IdString type)
+{
+	return is_unary_cell(type) || is_binary_cell(type) || type == ID($mux);
+}
+
+static bool is_ff_cell(RTLIL::IdString type)
+{
+	return type.in(
+		ID($dff), ID($dffe), ID($adff), ID($dffsr));
+}
+
+struct FlowGraph {
+	struct Node {
+		enum class Type {
+			CONNECT,
+			CELL,
+			PROCESS
+		};
+
+		Type type;
+		RTLIL::SigSig connect = {};
+		const RTLIL::Cell *cell = NULL;
+		const RTLIL::Process *process = NULL;
+	};
+
+	std::vector<Node*> nodes;
+	dict<const RTLIL::Wire*, pool<Node*, hash_ptr_ops>> wire_defs, wire_uses;
+	dict<const RTLIL::Wire*, bool> wire_def_elidable, wire_use_elidable;
+
+	~FlowGraph()
+	{
+		for (auto node : nodes)
+			delete node;
+	}
+
+	void add_defs(Node *node, const RTLIL::SigSpec &sig, bool elidable)
+	{
+		for (auto chunk : sig.chunks())
+			if (chunk.wire)
+				wire_defs[chunk.wire].insert(node);
+		// Only defs of an entire wire in the right order can be elided.
+		if (sig.is_wire())
+			wire_def_elidable[sig.as_wire()] = elidable;
+	}
+
+	void add_uses(Node *node, const RTLIL::SigSpec &sig)
+	{
+		for (auto chunk : sig.chunks())
+			if (chunk.wire) {
+				wire_uses[chunk.wire].insert(node);
+				// Only a single use of an entire wire in the right order can be elided.
+				// (But the use can include other chunks.)
+				if (!wire_use_elidable.count(chunk.wire))
+					wire_use_elidable[chunk.wire] = true;
+				else
+					wire_use_elidable[chunk.wire] = false;
+			}
+	}
+
+	bool is_elidable(const RTLIL::Wire *wire) const
+	{
+		if (wire_def_elidable.count(wire) && wire_use_elidable.count(wire))
+			return wire_def_elidable.at(wire) && wire_use_elidable.at(wire);
+		return false;
+	}
+
+	// Connections
+	void add_connect_defs_uses(Node *node, const RTLIL::SigSig &conn)
+	{
+		add_defs(node, conn.first, /*elidable=*/true);
+		add_uses(node, conn.second);
+	}
+
+	void add_node(const RTLIL::SigSig &conn)
+	{
+		Node *node = new Node;
+		node->type = Node::Type::CONNECT;
+		node->connect = conn;
+		nodes.push_back(node);
+		add_connect_defs_uses(node, conn);
+	}
+
+	// Cells
+	void add_cell_defs_uses(Node *node, const RTLIL::Cell *cell)
+	{
+		log_assert(cell->known());
+		for (auto conn : cell->connections()) {
+			if (cell->output(conn.first)) {
+				if (is_ff_cell(cell->type))
+					/* non-combinatorial outputs do not introduce defs */;
+				else if (is_elidable_cell(cell->type))
+					add_defs(node, conn.second, /*elidable=*/true);
+				else
+					add_defs(node, conn.second, /*elidable=*/false);
+			}
+			if (cell->input(conn.first))
+				add_uses(node, conn.second);
+		}
+	}
+
+	void add_node(const RTLIL::Cell *cell)
+	{
+		Node *node = new Node;
+		node->type = Node::Type::CELL;
+		node->cell = cell;
+		nodes.push_back(node);
+		add_cell_defs_uses(node, cell);
+	}
+
+	// Processes
+	void add_case_defs_uses(Node *node, const RTLIL::CaseRule *case_)
+	{
+		for (auto &action : case_->actions) {
+			add_defs(node, action.first, /*elidable=*/false);
+			add_uses(node, action.second);
+		}
+		for (auto sub_switch : case_->switches) {
+			add_uses(node, sub_switch->signal);
+			for (auto sub_case : sub_switch->cases) {
+				for (auto &compare : sub_case->compare)
+					add_uses(node, compare);
+				add_case_defs_uses(node, sub_case);
+			}
+		}
+	}
+
+	void add_process_defs_uses(Node *node, const RTLIL::Process *process)
+	{
+		add_case_defs_uses(node, &process->root_case);
+		for (auto sync : process->syncs)
+			for (auto action : sync->actions) {
+				if (sync->type == RTLIL::STp || sync->type == RTLIL::STn || sync->type == RTLIL::STe)
+				  /* sync actions do not introduce feedback */;
+				else
+					add_defs(node, action.first, /*elidable=*/false);
+				add_uses(node, action.second);
+			}
+	}
+
+	void add_node(const RTLIL::Process *process)
+	{
+		Node *node = new Node;
+		node->type = Node::Type::PROCESS;
+		node->process = process;
+		nodes.push_back(node);
+		add_process_defs_uses(node, process);
+	}
+};
+
 struct CxxrtlWorker {
+	bool elide_internal = false;
+	bool elide_public = false;
+
 	std::ostream &f;
 	std::string indent;
 	int temporary = 0;
@@ -35,6 +203,7 @@ struct CxxrtlWorker {
 	pool<const RTLIL::Wire*> sync_wires;
 	dict<RTLIL::SigBit, RTLIL::SyncType> sync_types;
 	pool<const RTLIL::Memory*> writable_memories;
+	dict<const RTLIL::Wire*, FlowGraph::Node> elided_wires;
 
 	CxxrtlWorker(std::ostream &f) : f(f) {}
 
@@ -183,7 +352,21 @@ struct CxxrtlWorker {
 			dump_const(chunk.data, chunk.width, chunk.offset);
 			return false;
 		} else {
-			f << mangle(chunk.wire) << (is_lhs ? ".next" : ".curr");
+			if (!is_lhs && elided_wires.count(chunk.wire)) {
+				const FlowGraph::Node &node = elided_wires[chunk.wire];
+				switch (node.type) {
+					case FlowGraph::Node::Type::CONNECT:
+						dump_connect_elided(node.connect);
+						break;
+					case FlowGraph::Node::Type::CELL:
+						dump_cell_elided(node.cell);
+						break;
+					default:
+						log_assert(false);
+				}
+			} else {
+				f << mangle(chunk.wire) << (is_lhs ? ".next" : ".curr");
+			}
 			if (chunk.width == chunk.wire->width && chunk.offset == 0)
 				return false;
 			else if (chunk.width == 1)
@@ -228,56 +411,134 @@ struct CxxrtlWorker {
 			f << ".val()";
 	}
 
-	void dump_assign(const RTLIL::SigSig &sigsig)
+	void collect_sigspec_rhs(const RTLIL::SigSpec &sig, std::vector<RTLIL::IdString> &cells)
 	{
+		for (auto chunk : sig.chunks()) {
+			if (!chunk.wire || !elided_wires.count(chunk.wire))
+				continue;
+
+			const FlowGraph::Node &node = elided_wires[chunk.wire];
+			switch (node.type) {
+				case FlowGraph::Node::Type::CONNECT:
+					collect_connect(node.connect, cells);
+					break;
+				case FlowGraph::Node::Type::CELL:
+					collect_cell(node.cell, cells);
+					break;
+				default:
+					log_assert(false);
+			}
+		}
+	}
+
+	void dump_connect_elided(const RTLIL::SigSig &conn)
+	{
+		dump_sigspec_rhs(conn.second);
+	}
+
+	bool is_connect_elided(const RTLIL::SigSig &conn)
+	{
+		return conn.first.is_wire() && elided_wires.count(conn.first.as_wire());
+	}
+
+	void collect_connect(const RTLIL::SigSig &conn, std::vector<RTLIL::IdString> &cells)
+	{
+		if (!is_connect_elided(conn))
+			return;
+
+		collect_sigspec_rhs(conn.second, cells);
+	}
+
+	void dump_connect(const RTLIL::SigSig &conn)
+	{
+		if (is_connect_elided(conn))
+			return;
+
 		f << indent;
-		dump_sigspec_lhs(sigsig.first);
+		dump_sigspec_lhs(conn.first);
 		f << " = ";
-		dump_sigspec_rhs(sigsig.second);
+		dump_connect_elided(conn);
 		f << ";\n";
 	}
 
-	void dump_cell(const RTLIL::Cell *cell)
+	void dump_cell_elided(const RTLIL::Cell *cell)
 	{
-		dump_attrs(cell);
-		f << indent << "// cell " << cell->name.str() << "\n";
 		// Unary cells
-		if (cell->type.in(
-		    ID($not), ID($logic_not), ID($reduce_and), ID($reduce_or), ID($reduce_xor), ID($reduce_xnor), ID($reduce_bool),
-		    ID($pos), ID($neg))) {
-			f << indent;
-			dump_sigspec_lhs(cell->getPort(ID(Y)));
-			f << " = " << cell->type.substr(1) << '_' <<
+		if (is_unary_cell(cell->type)) {
+			f << cell->type.substr(1) << '_' <<
 			     (cell->getParam(ID(A_SIGNED)).as_bool() ? 's' : 'u') <<
 			     "<" << cell->getParam(ID(Y_WIDTH)).as_int() << ">(";
 			dump_sigspec_rhs(cell->getPort(ID(A)));
-			f << ");\n";
+			f << ")";
 		// Binary cells
-		} else if (cell->type.in(
-		    ID($and), ID($or), ID($xor), ID($xnor), ID($logic_and), ID($logic_or),
-		    ID($shl), ID($sshl), ID($shr), ID($sshr), ID($shift), ID($shiftx),
-		    ID($eq), ID($ne), ID($eqx), ID($nex), ID($gt), ID($ge), ID($lt), ID($le),
-		    ID($add), ID($sub), ID($mul), ID($div), ID($mod))) {
-			f << indent;
-			dump_sigspec_lhs(cell->getPort(ID(Y)));
-			f << " = " << cell->type.substr(1) << '_' <<
+		} else if (is_binary_cell(cell->type)) {
+			f << cell->type.substr(1) << '_' <<
 			     (cell->getParam(ID(A_SIGNED)).as_bool() ? 's' : 'u') <<
 			     (cell->getParam(ID(B_SIGNED)).as_bool() ? 's' : 'u') <<
 			     "<" << cell->getParam(ID(Y_WIDTH)).as_int() << ">(";
 			dump_sigspec_rhs(cell->getPort(ID(A)));
 			f << ", ";
 			dump_sigspec_rhs(cell->getPort(ID(B)));
-			f << ");\n";
+			f << ")";
 		// Muxes
 		} else if (cell->type == ID($mux)) {
-			f << indent;
-			dump_sigspec_lhs(cell->getPort(ID(Y)));
-			f << " = ";
+			f << "(";
 			dump_sigspec_rhs(cell->getPort(ID(S)));
 			f << " ? ";
 			dump_sigspec_rhs(cell->getPort(ID(B)));
 			f << " : ";
 			dump_sigspec_rhs(cell->getPort(ID(A)));
+			f << ")";
+		} else {
+			log_assert(false);
+		}
+	}
+
+	bool is_cell_elided(const RTLIL::Cell *cell)
+	{
+		return cell->hasPort(ID(Y)) && cell->getPort(ID(Y)).is_wire() && elided_wires.count(cell->getPort(ID(Y)).as_wire());
+	}
+
+	void collect_cell(const RTLIL::Cell *cell, std::vector<RTLIL::IdString> &cells)
+	{
+		if (!is_cell_elided(cell))
+			return;
+
+		cells.push_back(cell->name);
+		for (auto port : cell->connections())
+			if (port.first != ID(Y))
+				collect_sigspec_rhs(port.second, cells);
+	}
+
+	void dump_cell(const RTLIL::Cell *cell)
+	{
+		if (is_cell_elided(cell))
+			return;
+		if (cell->type == ID($meminit))
+			return; // Handled elsewhere.
+
+		std::vector<RTLIL::IdString> elided_cells;
+		if (is_elidable_cell(cell->type)) {
+			for (auto port : cell->connections())
+				if (port.first != ID(Y))
+					collect_sigspec_rhs(port.second, elided_cells);
+		}
+		if (elided_cells.empty()) {
+			dump_attrs(cell);
+			f << indent << "// cell " << cell->name.str() << "\n";
+		} else {
+			f << indent << "// cells";
+			for (auto elided_cell : elided_cells)
+				f << " " << elided_cell.str();
+			f << "\n";
+		}
+
+		// Elidable cells
+		if (is_elidable_cell(cell->type)) {
+			f << indent;
+			dump_sigspec_lhs(cell->getPort(ID(Y)));
+			f << " = ";
+			dump_cell_elided(cell);
 			f << ";\n";
 		// Parallel (one-hot) muxes
 		} else if (cell->type == ID($pmux)) {
@@ -309,7 +570,7 @@ struct CxxrtlWorker {
 			dec_indent();
 			f << indent << "}\n";
 		// Flip-flops
-		} else if (cell->type.in(ID($dff), ID($dffe), ID($adff), ID($dffsr))) {
+		} else if (is_ff_cell(cell->type)) {
 			if (cell->getPort(ID(CLK)).is_wire()) {
 				// Edge-sensitive logic
 				RTLIL::SigBit clk_bit = cell->getPort(ID(CLK))[0];
@@ -437,13 +698,20 @@ struct CxxrtlWorker {
 				f << indent << "}\n";
 			}
 		// Memory initializers
-		} else if (cell->type == ID($meminit)) {
-			// Handled elsewhere.
 		} else if (cell->type[0] == '$') {
 			log_cmd_error("Unsupported internal cell `%s'.\n", cell->type.c_str());
 		} else {
 			log_assert(false);
 		}
+	}
+
+	void dump_assign(const RTLIL::SigSig &sigsig)
+	{
+		f << indent;
+		dump_sigspec_lhs(sigsig.first);
+		f << " = ";
+		dump_sigspec_rhs(sigsig.second);
+		f << ";\n";
 	}
 
 	void dump_case_rule(const RTLIL::CaseRule *rule)
@@ -571,6 +839,9 @@ struct CxxrtlWorker {
 
 	void dump_wire(const RTLIL::Wire *wire)
 	{
+		if (elided_wires.count(wire))
+			return;
+
 		dump_attrs(wire);
 		f << indent << "wire<" << wire->width << "> " << mangle(wire);
 		if (wire->attributes.count(ID(init))) {
@@ -661,7 +932,7 @@ struct CxxrtlWorker {
 				dump_cell(cell);
 			f << indent << "// connections\n";
 			for (auto conn : module->connections())
-				dump_assign(conn);
+				dump_connect(conn);
 			for (auto proc : module->processes)
 				dump_process(proc.second);
 			for (auto sync_type : sync_types) {
@@ -680,6 +951,8 @@ struct CxxrtlWorker {
 		inc_indent();
 			f << indent << "bool changed = false;\n";
 			for (auto wire : module->wires()) {
+				if (elided_wires.count(wire))
+					continue;
 				if (sync_wires[wire]) {
 					std::string wire_prev = mangle(wire) + "_prev";
 					std::string wire_curr = mangle(wire) + ".curr";
@@ -773,10 +1046,16 @@ struct CxxrtlWorker {
 	void analyze_design(RTLIL::Design *design)
 	{
 		for (auto module : design->modules()) {
+			FlowGraph flow;
 			SigMap &sigmap = sigmaps[module];
 			sigmap.set(module);
 
+			for (auto conn : module->connections())
+				flow.add_node(conn);
+
 			for (auto cell : module->cells()) {
+				flow.add_node(cell);
+
 				// Various DFF cells are treated like posedge/negedge processes, see above for details.
 				if (cell->type.in(ID($dff), ID($dffe), ID($adff), ID($dffsr))) {
 					if (cell->getPort(ID(CLK)).is_wire())
@@ -802,7 +1081,9 @@ struct CxxrtlWorker {
 					log_assert(false);
 			}
 
-			for (auto proc : module->processes)
+			for (auto proc : module->processes) {
+				flow.add_node(proc.second);
+
 				for (auto sync : proc.second->syncs)
 					switch (sync->type) {
 						// Edge-type sync rules require pre-registration.
@@ -826,6 +1107,18 @@ struct CxxrtlWorker {
 						case RTLIL::STg:
 							log_cmd_error("Global clock is not supported.\n");
 					}
+			}
+
+			for (auto wire : module->wires()) {
+				if (!flow.is_elidable(wire)) continue;
+				if (wire->port_id != 0) continue;
+				if (wire->get_bool_attribute(ID(keep))) continue;
+				if (wire->name.begins_with("$") && !elide_internal) continue;
+				if (wire->name.begins_with("\\") && !elide_public) continue;
+				if (sync_wires[wire]) continue;
+				log_assert(flow.wire_defs[wire].size() == 1);
+				elided_wires[wire] = **flow.wire_defs[wire].begin();
+			}
 		}
 	}
 
@@ -879,23 +1172,54 @@ struct CxxrtlBackend : public Backend {
 		log("\n");
 		log("Write C++ code for simulating the design.\n");
 		log("\n");
+		// -O2 (and not -O1) is the default because wire elision results in dramatic (>10x) decrease in compile- and run-time,
+		// which is well worth the need to manually drop to -O1 or to mark interesting wires with (*keep*).
+		log("    -O <level>\n");
+		log("        set the optimization level. the default is -O2.\n");
+		log("\n");
+		log("    -O0\n");
+		log("        no optimization.\n");
+		log("\n");
+		log("    -O1\n");
+		log("        elide internal wires if possible.\n");
+		log("\n");
+		log("    -O2\n");
+		log("        like -O1, and elide public wires not marked (*keep*) if possible.\n");
+		log("\n");
 	}
 	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
+		int opt_level = 2;
+
 		log_header(design, "Executing CXXRTL backend.\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
-			// if (args[argidx] == "-top" && argidx+1 < args.size()) {
-			// 	top_module_name = args[++argidx];
-			// 	continue;
-			// }
+			if (args[argidx] == "-O" && argidx+1 < args.size()) {
+				opt_level = std::stoi(args[++argidx]);
+				continue;
+			}
+			if (args[argidx].substr(0, 2) == "-O" && args[argidx].size() == 3 && isdigit(args[argidx][2])) {
+				opt_level = std::stoi(args[argidx].substr(2));
+				continue;
+			}
 			break;
 		}
 		extra_args(f, filename, args, argidx);
 
 		CxxrtlWorker worker(*f);
+		switch (opt_level) {
+			case 2:
+				worker.elide_public = true;
+			case 1:
+				worker.elide_internal = true;
+			case 0:
+				break;
+			default:
+				log_cmd_error("Invalid optimization level %d.\n", opt_level);
+		}
+
 		worker.prepare_design(design);
 		worker.dump_design(design);
 	}
