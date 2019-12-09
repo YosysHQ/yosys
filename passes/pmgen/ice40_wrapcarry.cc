@@ -121,15 +121,23 @@ struct Ice40WrapCarryPass : public Pass {
 					lut->setPort(ID(A), {cell->getPort(ID(I0)), cell->getPort(ID(A)), cell->getPort(ID(B)), cell->getPort(ID(I3)) });
 					lut->setPort(ID(Y), cell->getPort(ID(O)));
 
+					Const src;
 					for (const auto &a : cell->attributes)
 						if (a.first.begins_with("\\SB_CARRY.\\"))
 							carry->attributes[a.first.c_str() + strlen("\\SB_CARRY.")] = a.second;
 						else if (a.first.begins_with("\\SB_LUT4.\\"))
 							lut->attributes[a.first.c_str() + strlen("\\SB_LUT4.")] = a.second;
-						else if (a.first.in(ID(SB_LUT4.name), ID::keep, ID(module_not_derived), ID(src)))
+						else if (a.first == ID(src))
+							src = a.second;
+						else if (a.first.in(ID(SB_LUT4.name), ID::keep, ID(module_not_derived)))
 							continue;
 						else
 							log_abort();
+
+					if (!src.empty()) {
+						carry->attributes.insert(std::make_pair(ID(src), src));
+						lut->attributes.insert(std::make_pair(ID(src), src));
+					}
 
 					module->remove(cell);
 				}
