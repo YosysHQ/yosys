@@ -107,7 +107,7 @@ $__ABC9_LUT6 2000 0 7 1
 # SLICEM/A6LUT + F7BMUX
 # Box to emulate comb/seq behaviour of RAMD128
 # Inputs: A S0 S1 S2 S3 S4 S5 S6
-# Outputs: DPO SPO
+# Outputs: Y
 $__ABC9_LUT7 2001 0 8 1
 0 1047 1036 877 812 643 532 478
 
