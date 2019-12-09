@@ -111,20 +111,24 @@ struct Ice40WrapCarryPass : public Pass {
 					auto carry = module->addCell(NEW_ID, ID(SB_CARRY));
 					carry->setPort(ID(I0), cell->getPort(ID(A)));
 					carry->setPort(ID(I1), cell->getPort(ID(B)));
-					carry->setPort(ID(CI), cell->getPort(ID(CO)));
+					carry->setPort(ID(CI), cell->getPort(ID(CI)));
+					carry->setPort(ID(CO), cell->getPort(ID(CO)));
 					module->swap_names(carry, cell);
-					auto lut = module->addCell(cell->attributes.at(ID(SB_LUT4.name)).decode_string(), ID(SB_LUT4));
-					lut->setParam(ID(WIDTH), 4);
-					lut->setParam(ID(LUT), cell->getParam(ID(LUT)));
-					lut->setPort(ID(A), { cell->getPort(ID(I0)), cell->getPort(ID(A)), cell->getPort(ID(B)), cell->getPort(ID(I3)) });
-					lut->setPort(ID(Y), cell->getPort(ID(O)));
+					auto lut_name = cell->attributes.at(ID(SB_LUT4.name), Const(NEW_ID.str())).decode_string();
+					auto lut = module->addCell(lut_name, ID(SB_LUT4));
+					lut->setParam(ID(LUT_INIT), cell->getParam(ID(LUT)));
+					lut->setPort(ID(I0), cell->getPort(ID(I0)));
+					lut->setPort(ID(I1), cell->getPort(ID(A)));
+					lut->setPort(ID(I2), cell->getPort(ID(B)));
+					lut->setPort(ID(I3), cell->getPort(ID(I3)));
+					lut->setPort(ID(O), cell->getPort(ID(O)));
 
 					for (const auto &a : cell->attributes)
 						if (a.first.begins_with("\\SB_CARRY.\\"))
 							carry->attributes[a.first.c_str() + strlen("\\SB_CARRY.")] = a.second;
 						else if (a.first.begins_with("\\SB_LUT4.\\"))
 							lut->attributes[a.first.c_str() + strlen("\\SB_LUT4.")] = a.second;
-						else if (a.first.in(ID(SB_LUT4.name), ID::keep))
+						else if (a.first.in(ID(SB_LUT4.name), ID::keep, ID(module_not_derived), ID(src)))
 							continue;
 						else
 							log_abort();
