@@ -80,9 +80,8 @@ miter -equiv -flatten -make_assert -make_outputs gold gate miter
 sat -verify -prove-asserts -show-ports miter
 
 
-
 design -reset
-read_verilog -icells <<EOT
+read_verilog <<EOT
 module top(input d, c, (* init = 3'b011 *) output reg [2:0] q);
 (* submod="bar" *) DFF s1(.D(d), .C(c), .Q(q[1]));
 DFF s2(.D(d), .C(c), .Q(q[0]));
@@ -100,3 +99,26 @@ proc
 submod
 dffinit -ff DFF Q INIT
 check -noinit -assert
+
+
+design -reset
+read_verilog <<EOT
+module top(input d, c, output reg [2:0] q);
+(* submod="bar" *) DFF s1(.D(d), .C(c), .Q(q[1]));
+DFF s2(.D(d), .C(c), .Q(q[0]));
+DFF s3(.D(d), .C(c), .Q(q[2]));
+endmodule
+EOT
+
+hierarchy -top top
+proc
+
+submod
+flatten
+
+read_verilog <<EOT
+module DFF(input D, C, output Q);
+endmodule
+EOT
+
+check -assert
