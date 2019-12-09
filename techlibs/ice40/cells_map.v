@@ -61,22 +61,3 @@ module \$lut (A, Y);
   endgenerate
 endmodule
 `endif
-
-`ifndef NO_ADDER
-module \$__ICE40_CARRY_WRAPPER (output CO, O, input A, B, CI, I0, I3);
-  parameter LUT = 0;
-  SB_CARRY _TECHMAP_REPLACE_ (
-    .I0(A),
-    .I1(B),
-    .CI(CI),
-    .CO(CO)
-  );
-  \$lut #(
-    .WIDTH(4),
-    .LUT(LUT)
-  ) lut (
-    .A({I0,A,B,I3}),
-    .Y(O)
-  );
-endmodule
-`endif

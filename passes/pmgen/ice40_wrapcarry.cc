@@ -50,11 +50,13 @@ void create_ice40_wrapcarry(ice40_wrapcarry_pm &pm)
 	cell->setPort("\\O", st.lut->getPort("\\O"));
 	cell->setParam("\\LUT", st.lut->getParam("\\LUT_INIT"));
 
-	cell->attributes = std::move(st.carry->attributes);
-	auto it = cell->attributes.find(ID::keep);
-	if (it != cell->attributes.end() && !it->second.as_bool())
-		cell->attributes.erase(it);
-	cell->attributes.insert(st.lut->attributes.begin(), st.lut->attributes.end());
+	for (const auto &a : st.carry->attributes)
+		cell->attributes[stringf("\\SB_CARRY.%s", a.first.c_str())] = a.second;
+	for (const auto &a : st.lut->attributes)
+		cell->attributes[stringf("\\SB_LUT4.%s", a.first.c_str())] = a.second;
+	cell->attributes[ID(SB_LUT4.name)] = Const(st.lut->name.str());
+	if (st.carry->get_bool_attribute(ID::keep) || st.lut->get_bool_attribute(ID::keep))
+		cell->attributes[ID::keep] = true;
 
 	pm.autoremove(st.carry);
 	pm.autoremove(st.lut);
@@ -68,33 +70,69 @@ struct Ice40WrapCarryPass : public Pass {
 		log("\n");
 		log("    ice40_wrapcarry [selection]\n");
 		log("\n");
-		log("Wrap manually instantiated SB_CARRY cells, along with their associated SB_LUTs,\n");
+		log("Wrap manually instantiated SB_CARRY cells, along with their associated SB_LUT4s,\n");
 		log("into an internal $__ICE40_CARRY_WRAPPER cell for preservation across technology\n");
-		log("mapping.");
+		log("mapping.\n");
 		log("\n");
-		log("Attributes on both cells will be merged, with SB_CARRY attributes having priority\n");
-		log("over SB_LUT4 attributes, except when (* keep *) attributes present on the SB_CARRY4\n");
-		log("that logically evaluate to false will be dropped (thus allowing the keep attribute,\n");
-		log("if any, on the SB_LUT4 to be adopted).\n");
+		log("Attributes on both cells will have their names prefixed with 'SB_CARRY.' or\n");
+		log("'SB_LUT4.' and attached to the wrapping cell.\n");
+		log("A (* keep *) attribute on either cell will be logically OR-ed together.\n");
+		log("\n");
+		log("    -unwrap\n");
+		log("        unwrap $__ICE40_CARRY_WRAPPER cells back into SB_CARRYs and SB_LUT4s,\n");
+		log("        including restoring their attributes.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
+		bool unwrap = false;
+
 		log_header(design, "Executing ICE40_WRAPCARRY pass (wrap carries).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
-			// if (args[argidx] == "-singleton") {
-			// 	singleton_mode = true;
-			// 	continue;
-			// }
+			if (args[argidx] == "-unwrap") {
+				unwrap = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
-		for (auto module : design->selected_modules())
-			ice40_wrapcarry_pm(module, module->selected_cells()).run_ice40_wrapcarry(create_ice40_wrapcarry);
+		for (auto module : design->selected_modules()) {
+			if (!unwrap)
+				ice40_wrapcarry_pm(module, module->selected_cells()).run_ice40_wrapcarry(create_ice40_wrapcarry);
+			else {
+				for (auto cell : module->selected_cells()) {
+					if (cell->type != ID($__ICE40_CARRY_WRAPPER))
+						continue;
+
+					auto carry = module->addCell(NEW_ID, ID(SB_CARRY));
+					carry->setPort(ID(I0), cell->getPort(ID(A)));
+					carry->setPort(ID(I1), cell->getPort(ID(B)));
+					carry->setPort(ID(CI), cell->getPort(ID(CO)));
+					module->swap_names(carry, cell);
+					auto lut = module->addCell(cell->attributes.at(ID(SB_LUT4.name)).decode_string(), ID(SB_LUT4));
+					lut->setParam(ID(WIDTH), 4);
+					lut->setParam(ID(LUT), cell->getParam(ID(LUT)));
+					lut->setPort(ID(A), { cell->getPort(ID(I0)), cell->getPort(ID(A)), cell->getPort(ID(B)), cell->getPort(ID(I3)) });
+					lut->setPort(ID(Y), cell->getPort(ID(O)));
+
+					for (const auto &a : cell->attributes)
+						if (a.first.begins_with("\\SB_CARRY.\\"))
+							carry->attributes[a.first.c_str() + strlen("\\SB_CARRY.")] = a.second;
+						else if (a.first.begins_with("\\SB_LUT4.\\"))
+							lut->attributes[a.first.c_str() + strlen("\\SB_LUT4.")] = a.second;
+						else if (a.first.in(ID(SB_LUT4.name), ID::keep))
+							continue;
+						else
+							log_abort();
+
+					module->remove(cell);
+				}
+			}
+		}
 	}
 } Ice40WrapCarryPass;
 
