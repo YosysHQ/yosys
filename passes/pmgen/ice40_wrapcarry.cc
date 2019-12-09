@@ -115,13 +115,11 @@ struct Ice40WrapCarryPass : public Pass {
 					carry->setPort(ID(CO), cell->getPort(ID(CO)));
 					module->swap_names(carry, cell);
 					auto lut_name = cell->attributes.at(ID(SB_LUT4.name), Const(NEW_ID.str())).decode_string();
-					auto lut = module->addCell(lut_name, ID(SB_LUT4));
-					lut->setParam(ID(LUT_INIT), cell->getParam(ID(LUT)));
-					lut->setPort(ID(I0), cell->getPort(ID(I0)));
-					lut->setPort(ID(I1), cell->getPort(ID(A)));
-					lut->setPort(ID(I2), cell->getPort(ID(B)));
-					lut->setPort(ID(I3), cell->getPort(ID(I3)));
-					lut->setPort(ID(O), cell->getPort(ID(O)));
+					auto lut = module->addCell(lut_name, ID($lut));
+					lut->setParam(ID(WIDTH), 4);
+					lut->setParam(ID(LUT), cell->getParam(ID(LUT)));
+					lut->setPort(ID(A), {cell->getPort(ID(I0)), cell->getPort(ID(A)), cell->getPort(ID(B)), cell->getPort(ID(I3)) });
+					lut->setPort(ID(Y), cell->getPort(ID(O)));
 
 					for (const auto &a : cell->attributes)
 						if (a.first.begins_with("\\SB_CARRY.\\"))
