@@ -296,6 +296,10 @@ struct value : public expr_base<value<Bits>> {
 		return result;
 	}
 
+	value<Bits> update(const value<Bits> &mask, const value<Bits> &val) const {
+		return bit_and(mask.bit_not()).bit_or(val.bit_and(mask));
+	}
+
 	template<size_t AmountBits>
 	value<Bits> shl(const value<AmountBits> &amount) const {
 		// Ensure our early return is correct by prohibiting values larger than 4 Gbit.
