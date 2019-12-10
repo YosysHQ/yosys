@@ -36,10 +36,10 @@ struct SynthIntelPass : public ScriptPass {
 		log("\n");
 		log("This command runs synthesis for Intel FPGAs.\n");
 		log("\n");
-		log("    -family < max10 | a10gx | cyclone10 | cyclonev | cycloneiv | cycloneive>\n");
+		log("    -family <max10 | a10gx | cyclone10lp | cyclonev | cycloneiv | cycloneive>\n");
 		log("        generate the synthesis netlist for the specified family.\n");
 		log("        MAX10 is the default target if no family argument specified.\n");
-		log("        For Cyclone GX devices, use cycloneiv argument; For Cyclone E, use cycloneive.\n");
+		log("        For Cyclone IV GX devices, use cycloneiv argument; for Cyclone IV E, use cycloneive.\n");
 		log("        Cyclone V and Arria 10 GX devices are experimental.\n");
 		log("\n");
 		log("    -top <module>\n");
@@ -152,7 +152,7 @@ struct SynthIntelPass : public ScriptPass {
 		    family_opt != "cyclonev" &&
 		    family_opt != "cycloneiv" &&
 		    family_opt != "cycloneive" &&
-		    family_opt != "cyclone10")
+		    family_opt != "cyclone10lp")
 			log_cmd_error("Invalid or no family specified: '%s'\n", family_opt.c_str());
 
 		log_header(design, "Executing SYNTH_INTEL pass.\n");
