@@ -119,16 +119,21 @@ struct XilinxDffOptPass : public Pass {
 			log("Optimizing FFs in %s.\n", log_id(module));
 
 			SigMap sigmap(module);
-			dict<SigBit, LutData> bit_to_lut;
+			dict<SigBit, pair<LutData, Cell *>> bit_to_lut;
 			dict<SigBit, int> bit_uses;
 
 			// Gather LUTs.
 			for (auto cell : module->selected_cells())
 			{
+				for (auto port : cell->connections())
+					for (auto bit : port.second)
+						bit_uses[sigmap(bit)]++;
+				if (cell->get_bool_attribute(ID::keep))
+					continue;
 				if (cell->type == ID(INV)) {
 					SigBit sigout = sigmap(cell->getPort(ID(O)));
 					SigBit sigin = sigmap(cell->getPort(ID(I)));
-					bit_to_lut[sigout] = LutData(Const(1, 2), {sigin});
+					bit_to_lut[sigout] = make_pair(LutData(Const(1, 2), {sigin}), cell);
 				} else if (cell->type.in(ID(LUT1), ID(LUT2), ID(LUT3), ID(LUT4), ID(LUT5), ID(LUT6))) {
 					SigBit sigout = sigmap(cell->getPort(ID(O)));
 					const Const &init = cell->getParam(ID(INIT));
@@ -150,11 +155,8 @@ struct XilinxDffOptPass : public Pass {
 						goto lut_sigin_done;
 					sigin.push_back(sigmap(cell->getPort(ID(I5))));
 lut_sigin_done:
-					bit_to_lut[sigout] = LutData(init, sigin);
+					bit_to_lut[sigout] = make_pair(LutData(init, sigin), cell);
 				}
-				for (auto port : cell->connections())
-					for (auto bit : port.second)
-						bit_uses[sigmap(bit)]++;
 			}
 			for (auto wire : module->wires())
 				if (wire->port_output || wire->port_input)
@@ -165,13 +167,13 @@ lut_sigin_done:
 			for (auto cell : module->selected_cells())
 			{
 				bool has_s = false, has_r = false;
-				if (cell->type.in(ID(FDCE), ID(FDPE), ID(FDCPE))) {
+				if (cell->type.in(ID(FDCE), ID(FDPE), ID(FDCPE), ID(FDCE_1), ID(FDPE_1), ID(FDCPE_1))) {
 					// Async reset.
-				} else if (cell->type == ID(FDRE)) {
+				} else if (cell->type.in(ID(FDRE), ID(FDRE_1))) {
 					has_r = true;
-				} else if (cell->type == ID(FDSE)) {
+				} else if (cell->type.in(ID(FDSE), ID(FDSE_1))) {
 					has_s = true;
-				} else if (cell->type == ID(FDRSE)) {
+				} else if (cell->type.in(ID(FDRSE), ID(FDRSE_1))) {
 					has_r = true;
 					has_s = true;
 				} else {
@@ -188,7 +190,8 @@ lut_sigin_done:
 				auto it_D = bit_to_lut.find(sig_D);
 				if (it_D == bit_to_lut.end())
 					continue;
-				LutData lut_d = it_D->second;
+				LutData lut_d = it_D->second.first;
+				Cell *cell_d = it_D->second.second;
 				if (cell->hasParam(ID(IS_D_INVERTED)) && cell->getParam(ID(IS_D_INVERTED)).as_bool()) {
 					// Flip all bits in the LUT.
 					for (int i = 0; i < GetSize(lut_d.first); i++)
@@ -208,7 +211,7 @@ lut_sigin_done:
 				LutData lut_ce = LutData(Const(2, 2), {sig_CE});
 				auto it_CE = bit_to_lut.find(sig_CE);
 				if (it_CE != bit_to_lut.end())
-					lut_ce = it_CE->second;
+					lut_ce = it_CE->second.first;
 				if (sig_CE.wire) {
 					// Merge CE LUT and D LUT into one.  If it cannot be done, nothing to do about this FF.
 					if (!merge_lut(lut_d_post_ce, lut_d, lut_ce, true, sig_Q, max_lut_size))
@@ -232,7 +235,7 @@ lut_sigin_done:
 					bool inv_s = cell->hasParam(ID(IS_S_INVERTED)) && cell->getParam(ID(IS_S_INVERTED)).as_bool();
 					auto it_S = bit_to_lut.find(sig_S);
 					if (it_S != bit_to_lut.end())
-						lut_s = it_S->second;
+						lut_s = it_S->second.first;
 					if (sig_S.wire) {
 						// Merge S LUT and D LUT into one.  If it cannot be done, try to at least merge CE.
 						if (!merge_lut(lut_d_post_s, lut_d_post_ce, lut_s, inv_s, SigBit(State::S1), max_lut_size))
@@ -254,7 +257,7 @@ lut_sigin_done:
 					bool inv_r = cell->hasParam(ID(IS_R_INVERTED)) && cell->getParam(ID(IS_R_INVERTED)).as_bool();
 					auto it_R = bit_to_lut.find(sig_R);
 					if (it_R != bit_to_lut.end())
-						lut_r = it_R->second;
+						lut_r = it_R->second.first;
 					if (sig_R.wire) {
 						// Merge R LUT and D LUT into one.  If it cannot be done, try to at least merge CE/S.
 						if (!merge_lut(lut_d_post_r, lut_d_post_s, lut_r, inv_r, SigBit(State::S0), max_lut_size))
@@ -320,6 +323,7 @@ unmap:
 					default:
 						log_assert(!"unknown lut size");
 				}
+				lut_cell->attributes = cell_d->attributes;
 				Wire *lut_out = module->addWire(NEW_ID);
 				lut_cell->setParam(ID(INIT), final_lut.first);
 				cell->setPort(ID(D), lut_out);
