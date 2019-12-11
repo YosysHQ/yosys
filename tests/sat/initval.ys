@@ -15,7 +15,7 @@ initial o = 2'b10;
 always @(posedge clk)
    o[0] <= i;
 always @*
-   o[1] <= o[0];
+   o[1] = o[0];
 endmodule
 EOT
 
