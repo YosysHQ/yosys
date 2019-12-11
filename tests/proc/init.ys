@@ -1,0 +1,15 @@
+read_verilog <<EOT
+module top(input i, output o);
+reg o = 1'b0;
+always @* o = i;
+endmodule
+EOT
+
+proc_prune
+proc_init
+proc_mux
+proc_dlatch
+proc_clean
+clean
+dump
+check -noinit -assert
