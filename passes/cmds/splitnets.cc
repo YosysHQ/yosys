@@ -141,6 +141,9 @@ struct SplitnetsPass : public Pass {
 
 		for (auto module : design->selected_modules())
 		{
+			if (module->has_processes_warn())
+				continue;
+
 			SplitnetsWorker worker;
 
 			if (flag_ports)
