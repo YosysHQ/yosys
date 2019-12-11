@@ -180,6 +180,8 @@ lut_sigin_done:
 					// Not a FF.
 					continue;
 				}
+				if (cell->get_bool_attribute(ID::keep))
+					continue;
 
 				// Don't bother if D has more than one use.
 				SigBit sig_D = sigmap(cell->getPort(ID(D)));
