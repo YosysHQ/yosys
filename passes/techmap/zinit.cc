@@ -139,6 +139,20 @@ struct ZinitPass : public Pass {
 
 				cell->setPort(ID::D, sig_d);
 				cell->setPort(ID::Q, initwire);
+
+				/*if (cell->type.in(ID($_DFFSR_NNN_), ID($_DFFSR_NNP_), ID($_DFFSR_NPN_), ID($_DFFSR_NPP_),
+							ID($_DFFSR_PNN_), ID($_DFFSR_PNP_), ID($_DFFSR_PPN_), ID($_DFFSR_PPP_)))
+				{
+					// TODO: I think I need a $_DFFRS_* cell where R has priority over S...
+					std::swap(cell->connections_.at(ID(R)), cell->connections_.at(ID(S)));
+				}
+				else*/ if (cell->type.in(ID($_DFF_NN0_), ID($_DFF_NN1_), ID($_DFF_NP0_), ID($_DFF_NP1_),
+							ID($_DFF_PN0_), ID($_DFF_PN1_), ID($_DFF_PP0_), ID($_DFF_PP1_)))
+				{
+					std::string t = cell->type.str();
+					t[8] = (t[8] == '0' ? '1' : '0');
+					cell->type = t;
+				}
 			}
 
 			if (!design->selected_whole_module(module))
