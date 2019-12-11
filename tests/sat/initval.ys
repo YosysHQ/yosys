@@ -3,15 +3,16 @@ proc;;
 
 sat -seq 10 -prove-asserts
 
+design -reset
 read_verilog <<EOT
 module gold(input clk, input i, output reg [1:0] o);
-initial o = 2'b10;
+initial o = 2'b01;
 always @(posedge clk)
    o[0] <= {i,i};
 endmodule
 
 module gate(input clk, input i, output reg [1:0] o);
-initial o = 2'b10;
+initial o = 2'b01;
 always @(posedge clk)
    o[0] <= i;
 always @*
@@ -19,6 +20,6 @@ always @*
 endmodule
 EOT
 
-proc
+proc;;
 miter -equiv -flatten -make_assert -make_outputs gold gate miter
 sat -seq 1 -falsify -prove-asserts -show-ports miter
