@@ -1,0 +1,24 @@
+read_verilog -icells <<EOT
+module top(input C, D, S, R, output [16:0] Q);
+(* init = {17{1'b1}} *)
+wire [16:0] Q;
+$_DFF_NN0_ dff0 (.C(C), .D(D), .R(R), .Q(Q[0]));
+$_DFF_NN1_ dff1 (.C(C), .D(D), .R(R), .Q(Q[1]));
+$_DFF_NP0_ dff2 (.C(C), .D(D), .R(R), .Q(Q[2]));
+$_DFF_NP1_ dff3 (.C(C), .D(D), .R(R), .Q(Q[3]));
+$_DFF_PN0_ dff4 (.C(C), .D(D), .R(R), .Q(Q[4]));
+$_DFF_PN1_ dff5 (.C(C), .D(D), .R(R), .Q(Q[5]));
+$_DFF_PP0_ dff6 (.C(C), .D(D), .R(R), .Q(Q[6]));
+$_DFF_PP1_ dff7 (.C(C), .D(D), .R(R), .Q(Q[7]));
+
+//$_DFFSR_NNN_ dffsr0 (.C(C), .D(D), .S(S), .R(R), .Q(Q[8]));
+//$_DFFSR_NNP_ dffsr1 (.C(C), .D(D), .S(S), .R(R), .Q(Q[9]));
+//$_DFFSR_NPN_ dffsr2 (.C(C), .D(D), .S(S), .R(R), .Q(Q[10]));
+//$_DFFSR_NPP_ dffsr3 (.C(C), .D(D), .S(S), .R(R), .Q(Q[11]));
+//$_DFFSR_PNN_ dffsr4 (.C(C), .D(D), .S(S), .R(R), .Q(Q[12]));
+//$_DFFSR_PNP_ dffsr5 (.C(C), .D(D), .S(S), .R(R), .Q(Q[13]));
+//$_DFFSR_PPN_ dffsr6 (.C(C), .D(D), .S(S), .R(R), .Q(Q[14]));
+//$_DFFSR_PPP_ dffsr7 (.C(C), .D(D), .S(S), .R(R), .Q(Q[15]));
+endmodule
+EOT
+equiv_opt -map +/simcells.v -multiclock zinit
