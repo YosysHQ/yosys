@@ -143,7 +143,7 @@ struct ZinitPass : public Pass {
 				/*if (cell->type.in(ID($_DFFSR_NNN_), ID($_DFFSR_NNP_), ID($_DFFSR_NPN_), ID($_DFFSR_NPP_),
 							ID($_DFFSR_PNN_), ID($_DFFSR_PNP_), ID($_DFFSR_PPN_), ID($_DFFSR_PPP_)))
 				{
-					// TODO: I think I need a $_DFFRS_* cell where R has priority over S...
+					// TODO: I think I need a $_DFFRS_* cell where S has priority over R...
 					std::swap(cell->connections_.at(ID(R)), cell->connections_.at(ID(S)));
 				}
 				else*/ if (cell->type.in(ID($_DFF_NN0_), ID($_DFF_NN1_), ID($_DFF_NP0_), ID($_DFF_NP1_),
