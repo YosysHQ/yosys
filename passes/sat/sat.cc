@@ -269,7 +269,8 @@ struct SatHelper
 				for (int i = 0; i < lhs.size(); i++) {
 					RTLIL::SigSpec bit = lhs.extract(i, 1);
 					if (rhs[i] == State::Sx || !satgen.initial_state.check_all(bit)) {
-						removed_bits.append(bit);
+						if (rhs[i] != State::Sx)
+							removed_bits.append(bit);
 						lhs.remove(i, 1);
 						rhs.remove(i, 1);
 						i--;
