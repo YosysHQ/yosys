@@ -11,5 +11,4 @@ proc_mux
 proc_dlatch
 proc_clean
 clean
-dump
 check -noinit -assert
