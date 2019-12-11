@@ -141,9 +141,10 @@ struct ZinitPass : public Pass {
 				cell->setPort(ID::Q, initwire);
 			}
 
-			for (auto &it : initbits)
-				if (donebits.count(it.first) == 0)
-					log_error("Failed to handle init bit %s = %s.\n", log_signal(it.first), log_signal(it.second));
+			if (!design->selected_whole_module(module))
+				for (auto &it : initbits)
+					if (donebits.count(it.first) == 0)
+						log_error("Failed to handle init bit %s = %s.\n", log_signal(it.first), log_signal(it.second));
 		}
 	}
 } ZinitPass;
