@@ -393,6 +393,15 @@ void proc_dlatch(proc_dlatch_db_t &db, RTLIL::Process *proc)
 		else
 			log("No latch inferred for signal `%s.%s' from process `%s.%s'.\n",
 					db.module->name.c_str(), log_signal(lhs), db.module->name.c_str(), proc->name.c_str());
+		auto it = chunk.wire->attributes.find(ID(init));
+		if (it != chunk.wire->attributes.end())
+			for (int i = offset; i < offset+chunk.width; i++)
+				if (it->second[i] != State::Sx) {
+					log_warning("Discarding 'init' attribute on signal `%s.%s'.\n",
+						db.module->name.c_str(), log_signal(lhs[i]));
+					it->second[i] = State::Sx;
+				}
+
 		db.module->connect(lhs, rhs);
 		offset += chunk.width;
 	}
