@@ -2,6 +2,7 @@
  *  yosys -- Yosys Open SYnthesis Suite
  *
  *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *                2019  Nina Engelhardt <nak@symbioticeda.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -30,14 +31,18 @@ struct ScratchpadPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    scratchpad [ -get id | -set id val | -unset id | -copy id1 id2 ]\n");
+		log("    scratchpad [options]\n");
 		log("\n");
 		log("This pass allows to read and modify values from the scratchpad of the current\n");
 		log("design. Options:\n");
 		log("    -get <identifier>\n");
+		log("        print the value saved in the scratchpad under the given identifier\n");
 		log("    -set <identifier> <value>\n");
+		log("        save the given value in the scratchpad under the given identifier\n");
 		log("    -unset <identifier>\n");
+		log("        remove the entry for the given identifier from the scratchpad\n");
 		log("    -copy <identifier_from> <identifier_to>\n");
+		log("        copy the value of the first identifier to the second identifier\n");
 		log("The identifier may not contain whitespace. By convention, it is usually prefixed\n");
 		log("by the name of the pass that uses it, e.g. 'opt.did_something'. If the value\n");
 		log("contains whitespace, it must be enclosed in double quotes.\n");
