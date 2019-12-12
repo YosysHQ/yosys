@@ -39,8 +39,8 @@ module RAM32X1D (
     .A0(A0), .A1(A1), .A2(A2), .A3(A3), .A4(A4),
     .DPRA0(DPRA0), .DPRA1(DPRA1), .DPRA2(DPRA2), .DPRA3(DPRA3), .DPRA4(DPRA4)
   );
-  \$__ABC9_LUT6 dpo (.A(\$DPO ), .S({1'b0, A0, A1, A2, A3, A4}), .Y(DPO));
-  \$__ABC9_LUT6 spo (.A(\$SPO ), .S({1'b0, A0, A1, A2, A3, A4}), .Y(SPO));
+  \$__ABC9_LUT6 spo (.A(\$SPO ), .S({1'b1, A4, A3, A2, A1, A0}), .Y(SPO));
+  \$__ABC9_LUT6 dpo (.A(\$DPO ), .S({1'b1, DPRA4, DPRA3, DPRA2, DPRA1, DPRA0}), .Y(DPO));
 endmodule
 
 module RAM64X1D (
@@ -62,8 +62,8 @@ module RAM64X1D (
     .A0(A0), .A1(A1), .A2(A2), .A3(A3), .A4(A4), .A5(A5),
     .DPRA0(DPRA0), .DPRA1(DPRA1), .DPRA2(DPRA2), .DPRA3(DPRA3), .DPRA4(DPRA4), .DPRA5(DPRA5)
   );
-  \$__ABC9_LUT6 dpo (.A(\$DPO ), .S({A0, A1, A2, A3, A4, A5}), .Y(DPO));
-  \$__ABC9_LUT6 spo (.A(\$SPO ), .S({A0, A1, A2, A3, A4, A5}), .Y(SPO));
+  \$__ABC9_LUT6 spo (.A(\$SPO ), .S({A5, A4, A3, A2, A1, A0}), .Y(SPO));
+  \$__ABC9_LUT6 dpo (.A(\$DPO ), .S({DPRA5, DPRA4, DPRA3, DPRA2, DPRA1, DPRA0}), .Y(DPO));
 endmodule
 
 module RAM128X1D (
@@ -84,8 +84,8 @@ module RAM128X1D (
     .A(A),
     .DPRA(DPRA)
   );
-  \$__ABC9_LUT7 dpo (.A(\$DPO ), .S(A), .Y(DPO));
   \$__ABC9_LUT7 spo (.A(\$SPO ), .S(A), .Y(SPO));
+  \$__ABC9_LUT7 dpo (.A(\$DPO ), .S(DPRA), .Y(DPO));
 endmodule
 
 module SRL16E (
@@ -101,7 +101,7 @@ module SRL16E (
     .Q(\$Q ),
     .A0(A0), .A1(A1), .A2(A2), .A3(A3), .CE(CE), .CLK(CLK), .D(D)
   );
-  \$__ABC9_LUT6 q (.A(\$Q ), .S({1'b1, A0, A1, A2, A3, 1'b1}), .Y(Q));
+  \$__ABC9_LUT6 q (.A(\$Q ), .S({1'b1, A3, A2, A1, A0, 1'b1}), .Y(Q));
 endmodule
 
 module SRLC32E (
