@@ -1,4 +1,3 @@
-
 bram $__XILINX_RAMB36_SDP
   init 1
   abits 9
@@ -72,6 +71,11 @@ bram $__XILINX_RAMB18_TDP
   clkpol 2 3
 endbram
 
+# The "min bits" value were taken from:
+# [[CITE]] 7 Series FPGAs Memory Resources User Guide (UG473),
+# v1.14 ed., p 29-30, July, 2019.
+# https://www.xilinx.com/support/documentation/user_guides/ug473_7Series_Memory_Resources.pdf
+
 match $__XILINX_RAMB36_SDP
   min bits 1024
   min efficiency 5
@@ -102,7 +106,3 @@ match $__XILINX_RAMB18_TDP
   shuffle_enable B
   make_transp
 endmatch
-
-# [[CITE]] 7 Series FPGAs Memory Resources User Guide (UG473),
-# v1.14 ed., p 29-30, July, 2019.
-
