@@ -1198,6 +1198,15 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		varbuf = new AstNode(AST_LOCALPARAM, varbuf);
 		varbuf->str = init_ast->children[0]->str;
 
+		auto resolved = current_scope.at(init_ast->children[0]->str);
+		if (resolved->range_valid) {
+			varbuf->range_left = resolved->range_left;
+			varbuf->range_right = resolved->range_right;
+			varbuf->range_swapped = resolved->range_swapped;
+			varbuf->range_valid = resolved->range_valid;
+			log_dump(varbuf->range_left, varbuf->range_right);
+		}
+
 		AstNode *backup_scope_varbuf = current_scope[varbuf->str];
 		current_scope[varbuf->str] = varbuf;
 
@@ -2998,6 +3007,14 @@ void AstNode::expand_genblock(std::string index_var, std::string prefix, std::ma
 			current_ast_mod->children.push_back(p);
 			str = p->str;
 			id2ast = p;
+
+			auto resolved = current_scope.at(index_var);
+			if (resolved->range_valid) {
+				p->range_left = resolved->range_left;
+				p->range_right = resolved->range_right;
+				p->range_swapped = resolved->range_swapped;
+				p->range_valid = resolved->range_valid;
+			}
 		}
 	}
 
