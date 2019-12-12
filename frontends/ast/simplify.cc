@@ -1204,7 +1204,6 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			varbuf->range_right = resolved->range_right;
 			varbuf->range_swapped = resolved->range_swapped;
 			varbuf->range_valid = resolved->range_valid;
-			log_dump(varbuf->range_left, varbuf->range_right);
 		}
 
 		AstNode *backup_scope_varbuf = current_scope[varbuf->str];
