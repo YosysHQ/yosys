@@ -1,3 +1,5 @@
+## TODO: Not running equivalence checking because BRAM models does not exists
+##       currently. Checking instance counts instead.
 # Memory bits <= 18K; Data width <= 36; Address width <= 14: -> RAMB18E1
 read_verilog ../common/memory_params.v
 chparam -set ADDRESS_WIDTH 10 -set DATA_WIDTH 1 sync_ram_sdp
