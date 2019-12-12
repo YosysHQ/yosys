@@ -73,7 +73,7 @@ bram $__XILINX_RAMB18_TDP
 endbram
 
 match $__XILINX_RAMB36_SDP
-  min bits 4096
+  min bits 1024
   min efficiency 5
   shuffle_enable B
   make_transp
@@ -89,7 +89,7 @@ match $__XILINX_RAMB18_SDP
 endmatch
 
 match $__XILINX_RAMB36_TDP
-  min bits 4096
+  min bits 1024
   min efficiency 5
   shuffle_enable B
   make_transp
