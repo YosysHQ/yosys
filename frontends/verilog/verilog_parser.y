@@ -2242,7 +2242,7 @@ gen_stmt:
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);
 	} opt_arg_list ';'{
-		ast_stack.pop_back();		
+		ast_stack.pop_back();
 	};
 
 gen_stmt_block:
@@ -2413,19 +2413,19 @@ basic_expr:
 		append_attr($$, $2);
 	} |
 	basic_expr OP_SHL attr basic_expr {
-		$$ = new AstNode(AST_SHIFT_LEFT, $1, $4);
+		$$ = new AstNode(AST_SHIFT_LEFT, $1, new AstNode(AST_TO_UNSIGNED, $4));
 		append_attr($$, $3);
 	} |
 	basic_expr OP_SHR attr basic_expr {
-		$$ = new AstNode(AST_SHIFT_RIGHT, $1, $4);
+		$$ = new AstNode(AST_SHIFT_RIGHT, $1, new AstNode(AST_TO_UNSIGNED, $4));
 		append_attr($$, $3);
 	} |
 	basic_expr OP_SSHL attr basic_expr {
-		$$ = new AstNode(AST_SHIFT_SLEFT, $1, $4);
+		$$ = new AstNode(AST_SHIFT_SLEFT, $1, new AstNode(AST_TO_UNSIGNED, $4));
 		append_attr($$, $3);
 	} |
 	basic_expr OP_SSHR attr basic_expr {
-		$$ = new AstNode(AST_SHIFT_SRIGHT, $1, $4);
+		$$ = new AstNode(AST_SHIFT_SRIGHT, $1, new AstNode(AST_TO_UNSIGNED, $4));
 		append_attr($$, $3);
 	} |
 	basic_expr '<' attr basic_expr {

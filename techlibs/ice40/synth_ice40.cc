@@ -363,6 +363,7 @@ struct SynthIce40Pass : public ScriptPass
 				else
 					run(abc + " -dress -lut 4", "(skip if -noabc)");
 			}
+			run("ice40_wrapcarry -unwrap");
 			run("techmap -D NO_LUT -map +/ice40/cells_map.v");
 			run("clean");
 			run("opt_lut -dlogic SB_CARRY:I0=2:I1=1:CI=0");

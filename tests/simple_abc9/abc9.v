@@ -218,12 +218,6 @@ module MUXF8(input I0, I1, S, output O);
 endmodule
 
 // Citation: https://github.com/alexforencich/verilog-ethernet
-// TODO: yosys -p "synth_xilinx -abc9 -top abc9_test022" abc9.v -q
-// returns before b4321a31
-//   Warning: Wire abc9_test022.\m_eth_payload_axis_tkeep [7] is used but has no
-//   driver.
-//   Warning: Wire abc9_test022.\m_eth_payload_axis_tkeep [3] is used but has no
-//   driver.
 module abc9_test022
 (
     input  wire        clk,
@@ -237,9 +231,6 @@ module abc9_test022
 endmodule
 
 // Citation: https://github.com/riscv/riscv-bitmanip
-// TODO: yosys -p "synth_xilinx -abc9 -top abc9_test023" abc9.v -q
-// returns before 14233843
-//   Warning: Wire abc9_test023.\dout [1] is used but has no driver.
 module abc9_test023 #(
 	parameter integer N = 2,
 	parameter integer M = 2
@@ -266,4 +257,10 @@ endmodule
 module abc9_test026(output [3:0] o, p);
 assign o = { 1'b1, 1'bx };
 assign p = { 1'b1, 1'bx, 1'b0 };
+endmodule
+
+module abc9_test030(input [3:0] d, input en, output reg [3:0] q);
+always @*
+  if (en)
+    q <= d;
 endmodule

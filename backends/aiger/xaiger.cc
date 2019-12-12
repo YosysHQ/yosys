@@ -153,11 +153,6 @@ struct XAigerWriter
 			if (wire->port_input)
 				sigmap.add(wire);
 
-		// promote output wires
-		for (auto wire : module->wires())
-			if (wire->port_output)
-				sigmap.add(wire);
-
 		for (auto wire : module->wires())
 		{
 			bool keep = wire->attributes.count("\\keep");
@@ -173,7 +168,7 @@ struct XAigerWriter
 				}
 
 				if (keep)
-					keep_bits.insert(bit);
+					keep_bits.insert(wirebit);
 
 				if (wire->port_input || keep) {
 					if (bit != wirebit)
@@ -824,7 +819,7 @@ struct XAigerBackend : public Backend {
 		log("        write ASCII version of AIGER format\n");
 		log("\n");
 		log("    -map <filename>\n");
-		log("        write an extra file with port and latch symbols\n");
+		log("        write an extra file with port and box symbols\n");
 		log("\n");
 		log("    -vmap <filename>\n");
 		log("        like -map, but more verbose\n");
