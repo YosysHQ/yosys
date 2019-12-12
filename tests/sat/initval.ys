@@ -5,12 +5,11 @@ sat -seq 10 -prove-asserts
 
 design -reset
 read_verilog -icells <<EOT
-module top(input clk, i, output o, p);
-(* init = 1'b0 *)
-wire o;
-(* init = 1'bx *)
-wire p = o;
-$_DFF_P_ dff (.C(clk), .D(i), .Q(o));
+module top(input clk, i, output [1:0] o);
+(* init = 2'bx0 *)
+wire [1:0] o;
+assign o[1] = o[0];
+$_DFF_P_ dff (.C(clk), .D(i), .Q(o[0]));
 endmodule
 EOT
 sat -seq 1
