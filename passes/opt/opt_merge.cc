@@ -323,6 +323,17 @@ struct OptMergeWorker
 									log_signal(it.second), log_signal(other_sig));
 							module->connect(RTLIL::SigSig(it.second, other_sig));
 							assign_map.add(it.second, other_sig);
+
+							if (cell->type.begins_with("$") && it.first == ID(Q)) {
+								for (auto c : it.second.chunks()) {
+									auto jt = c.wire->attributes.find(ID(init));
+									if (jt == c.wire->attributes.end())
+										continue;
+									for (int i = c.offset; i < c.offset + c.width; i++)
+										jt->second[i] = State::Sx;
+								}
+								dff_init_map.add(it.second, Const(State::Sx, GetSize(it.second)));
+							}
 						}
 					}
 					log_debug("    Removing %s cell `%s' from module `%s'.\n", cell->type.c_str(), cell->name.c_str(), module->name.c_str());
