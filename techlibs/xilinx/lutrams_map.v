@@ -1,4 +1,36 @@
 
+module \$__XILINX_RAM16X1D (CLK1, A1ADDR, A1DATA, B1ADDR, B1DATA, B1EN);
+	parameter [15:0] INIT = 16'bx;
+	parameter CLKPOL2 = 1;
+	input CLK1;
+
+	input [3:0] A1ADDR;
+	output A1DATA;
+
+	input [3:0] B1ADDR;
+	input B1DATA;
+	input B1EN;
+
+	RAM16X1D #(
+		.INIT(INIT),
+		.IS_WCLK_INVERTED(!CLKPOL2)
+	) _TECHMAP_REPLACE_ (
+		.DPRA0(A1ADDR[0]),
+		.DPRA1(A1ADDR[1]),
+		.DPRA2(A1ADDR[2]),
+		.DPRA3(A1ADDR[3]),
+		.DPO(A1DATA),
+
+		.A0(B1ADDR[0]),
+		.A1(B1ADDR[1]),
+		.A2(B1ADDR[2]),
+		.A3(B1ADDR[3]),
+		.D(B1DATA),
+		.WCLK(CLK1),
+		.WE(B1EN)
+	);
+endmodule
+
 module \$__XILINX_RAM32X1D (CLK1, A1ADDR, A1DATA, B1ADDR, B1DATA, B1EN);
 	parameter [31:0] INIT = 32'bx;
 	parameter CLKPOL2 = 1;
@@ -95,3 +127,75 @@ module \$__XILINX_RAM128X1D (CLK1, A1ADDR, A1DATA, B1ADDR, B1DATA, B1EN);
 	);
 endmodule
 
+
+module \$__XILINX_RAM32M (CLK1, A1ADDR, A1DATA, A2ADDR, A2DATA, A3ADDR, A3DATA, B1ADDR, B1DATA, B1EN);
+	parameter [31:0] INIT = 32'bx;
+	parameter CLKPOL2 = 1;
+	input CLK1;
+
+	input [4:0] A1ADDR, A2ADDR, A3ADDR;
+	output [1:0] A1DATA, A2DATA, A3DATA;
+
+	input [4:0] B1ADDR;
+	input [1:0] B1DATA;
+	input B1EN;
+
+	RAM32M #(
+		.INIT_A(INIT),
+		.INIT_B(INIT),
+		.INIT_C(INIT),
+		.INIT_D(INIT),
+		.IS_WCLK_INVERTED(!CLKPOL2)
+	) _TECHMAP_REPLACE_ (
+		.ADDRA(A1ADDR),
+		.ADDRB(A2ADDR),
+		.ADDRC(A3ADDR),
+        .DOA(A1DATA),
+        .DOB(A2DATA),
+        .DOC(A3DATA),
+
+		.ADDRD(B1ADDR),
+		.DIA(B1DATA),
+		.DIB(B1DATA),
+		.DIC(B1DATA),
+		.DID(B1DATA),
+		.WCLK(CLK1),
+		.WE(B1EN)
+	);
+endmodule
+
+module \$__XILINX_RAM64M (CLK1, A1ADDR, A1DATA, A2ADDR, A2DATA, A3ADDR, A3DATA, B1ADDR, B1DATA, B1EN);
+	parameter [63:0] INIT = 32'bx;
+	parameter CLKPOL2 = 1;
+	input CLK1;
+
+	input [5:0] A1ADDR, A2ADDR, A3ADDR;
+	output A1DATA, A2DATA, A3DATA;
+
+	input [5:0] B1ADDR;
+	input B1DATA;
+	input B1EN;
+
+	RAM64M #(
+		.INIT_A(INIT),
+		.INIT_B(INIT),
+		.INIT_C(INIT),
+		.INIT_D(INIT),
+		.IS_WCLK_INVERTED(!CLKPOL2)
+	) _TECHMAP_REPLACE_ (
+		.ADDRA(A1ADDR),
+		.ADDRB(A2ADDR),
+		.ADDRC(A3ADDR),
+        .DOA(A1DATA),
+        .DOB(A2DATA),
+        .DOC(A3DATA),
+
+		.ADDRD(B1ADDR),
+		.DIA(B1DATA),
+		.DIB(B1DATA),
+		.DIC(B1DATA),
+		.DID(B1DATA),
+		.WCLK(CLK1),
+		.WE(B1EN)
+	);
+endmodule
