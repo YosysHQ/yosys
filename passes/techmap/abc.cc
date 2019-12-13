@@ -732,6 +732,8 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 					abc_script += script_file[i];
 		} else
 			abc_script += stringf("source %s", script_file.c_str());
+	} else if (design->scratchpad.count("abc.script")) {
+		abc_script += design->scratchpad_get_string("abc.script");
 	} else if (!lut_costs.empty()) {
 		bool all_luts_cost_same = true;
 		for (int this_cost : lut_costs)
