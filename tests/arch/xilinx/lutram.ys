@@ -62,7 +62,6 @@ read_verilog ../common/lutram.v
 hierarchy -top lutram_1w3r
 proc
 memory -nomap
-synth_xilinx
 equiv_opt -run :prove -map +/xilinx/cells_sim.v synth_xilinx
 memory
 opt -full
@@ -83,7 +82,6 @@ read_verilog ../common/lutram.v
 hierarchy -top lutram_1w3r -chparam A_WIDTH 6
 proc
 memory -nomap
-synth_xilinx
 equiv_opt -run :prove -map +/xilinx/cells_sim.v synth_xilinx
 memory
 opt -full
