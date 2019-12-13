@@ -310,7 +310,6 @@ struct SynthXilinxPass : public ScriptPass
 			run("tribuf -logic");
 			if (!do_iopad && active_design->scratchpad_get_bool("tribuf.added_something"))
 				log_error("Tristate buffers are unsupported without the '-iopad' option.\n");
-			run("tribuf -logic");
 			run("deminout");
 			run("opt_expr");
 			run("opt_clean");
