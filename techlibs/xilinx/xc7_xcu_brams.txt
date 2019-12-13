@@ -81,6 +81,7 @@ match $__XILINX_RAMB36_SDP
   min efficiency 5
   shuffle_enable B
   make_transp
+  attribute !ram_style !logic_block
   or_next_if_better
 endmatch
 
@@ -89,6 +90,14 @@ match $__XILINX_RAMB18_SDP
   min efficiency 5
   shuffle_enable B
   make_transp
+  attribute !ram_style !logic_block
+  or_next_if_better
+endmatch
+
+match $__XILINX_RAMB18_SDP
+  shuffle_enable B
+  make_transp
+  attribute ram_block=1 ram_style=block
   or_next_if_better
 endmatch
 
@@ -97,6 +106,7 @@ match $__XILINX_RAMB36_TDP
   min efficiency 5
   shuffle_enable B
   make_transp
+  attribute !ram_style !logic_block
   or_next_if_better
 endmatch
 
@@ -105,4 +115,13 @@ match $__XILINX_RAMB18_TDP
   min efficiency 5
   shuffle_enable B
   make_transp
+  attribute !ram_style !logic_block
+  or_next_if_better
+endmatch
+
+match $__XILINX_RAMB18_TDP
+  min efficiency 5
+  shuffle_enable B
+  make_transp
+  attribute ram_block=1 ram_style=block
 endmatch

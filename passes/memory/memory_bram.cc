@@ -327,6 +327,20 @@ struct rules_t
 				continue;
 			}
 
+			if (GetSize(tokens) >= 2 && tokens[0] == "attribute") {
+				for (int idx=1; idx<= GetSize(tokens)-1; idx++) {
+					size_t val = tokens[idx].find_first_of("!=");
+					if (val != std::string::npos) {
+						if (val == 0) {
+							data.attr_unmatch[RTLIL::escape_id(tokens[idx].substr(val+1))];
+						}
+						else {
+							data.attr_match[RTLIL::escape_id(tokens[idx].substr(0, val))] = tokens[idx].substr(val+1);
+						}
+					}
+				}
+				continue;
+			}
 			syntax_error();
 		}
 	}
@@ -813,6 +827,27 @@ grow_read_ports:;
 			return false;
 		}
 
+		if (!match.attr_match.empty()) {
+			for (auto iter: match.attr_match) {
+				auto it = cell->attributes.find(iter.first);
+
+				if (iter.second.empty()) {
+					log("    Rule for bram type %s is rejected: requirement 'attribute %s=\"%s\"' not met.\n",
+							log_id(match.name), iter.first.c_str(), iter.second.decode_string().c_str());
+						return false;
+				}
+
+				if (it != cell->attributes.end()) {
+					if (it->second == iter.second)
+						continue;
+					log("    Rule for bram type %s is rejected: requirement 'attribute %s=\"%s\"' not met.\n",
+							log_id(match.name), iter.first.c_str(), iter.second.decode_string().c_str());
+					return false;
+				}
+				continue;
+			}
+		}
+
 		if (mode == 1)
 			return true;
 	}
@@ -997,6 +1032,7 @@ void handle_cell(Cell *cell, const rules_t &rules)
 	log("Processing %s.%s:\n", log_id(cell->module), log_id(cell));
 
 	bool cell_init = !SigSpec(cell->getParam("\\INIT")).is_fully_undef();
+	int access = 0;
 
 	dict<string, int> match_properties;
 	match_properties["words"]  = cell->getParam("\\SIZE").as_int();
@@ -1098,6 +1134,42 @@ void handle_cell(Cell *cell, const rules_t &rules)
 				log("    Rule #%d for bram type %s (variant %d) rejected: requirement 'max %s %d' not met.\n",
 						i+1, log_id(bram.name), bram.variant, it.first.c_str(), it.second);
 				goto next_match_rule;
+			}
+
+			for (auto iter: match.attr_unmatch) {
+				auto it = cell->attributes.find(iter.first);
+
+				if (it != cell->attributes.end()) {
+						log("    Rule for bram type %s is rejected: requirement 'attribute %s' is met.\n",
+								log_id(match.name), iter.first.c_str());
+						goto next_match_rule;
+				}
+				continue;
+			}
+
+			if (!match.attr_match.empty()) {
+				for (auto iter: match.attr_match) {
+					int len=std::tuple_size<decltype(iter)>::value;
+					auto it = cell->attributes.find(iter.first);
+
+					if (iter.second.empty()) {
+						log("    Rule for bram type %s is rejected: requirement 'attribute %s=\"%s\"' not met.\n",
+								log_id(match.name), iter.first.c_str(), iter.second.decode_string().c_str());
+						continue;
+					}
+
+					if (it != cell->attributes.end()) {
+						if (it->second == iter.second)
+							continue;
+						log("    Rule for bram type %s is rejected: requirement 'attribute %s=\"%s\"' not met.\n",
+								log_id(match.name), iter.first.c_str(), iter.second.decode_string().c_str());
+					}
+					access ++;
+					if (access == len) {
+						access = 0;
+						goto next_match_rule;
+					}
+				}
 			}
 
 			log("    Rule #%d for bram type %s (variant %d) accepted.\n", i+1, log_id(bram.name), bram.variant);
@@ -1224,6 +1296,11 @@ struct MemoryBramPass : public Pass {
 		log("    acells  .......  number of cells in 'address-direction'\n");
 		log("    dcells  .......  number of cells in 'data-direction'\n");
 		log("    cells  ........  total number of cells (acells*dcells*dups)\n");
+		log("\n");
+		log("A match containing the condition 'attribute' followed by a name and optional\n");
+		log("value requires that the memory contains the given attribute name and value\n");
+		log("(if specified) or that the attribute is not present (prepending a '!')\n");
+		log("or the value is empty (if value is not specified\n).");
 		log("\n");
 		log("The interface for the created bram instances is derived from the bram\n");
 		log("description. Use 'techmap' to convert the created bram instances into\n");
