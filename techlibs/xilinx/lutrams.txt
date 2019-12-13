@@ -52,6 +52,32 @@ bram $__XILINX_RAM128X1D
 endbram
 
 
+bram $__XILINX_RAM32X6SDP
+  init 1
+  abits 5
+  dbits 6
+  groups 2
+  ports  1 1
+  wrmode 0 1
+  enable 0 1
+  transp 0 0
+  clocks 0 1
+  clkpol 0 2
+endbram
+
+bram $__XILINX_RAM64X3SDP
+  init 1
+  abits 6
+  dbits 3
+  groups 2
+  ports  1 1
+  wrmode 0 1
+  enable 0 1
+  transp 0 0
+  clocks 0 1
+  clkpol 0 2
+endbram
+
 bram $__XILINX_RAM32M
   init 1
   abits 5
@@ -107,6 +133,20 @@ match $__XILINX_RAM128X1D
   or_next_if_better
 endmatch
 
+
+match $__XILINX_RAM32X6SDP
+  min bits 5
+  min wports 1
+  make_outreg
+  or_next_if_better
+endmatch
+
+match $__XILINX_RAM64X3SDP
+  min bits 6
+  min wports 1
+  make_outreg
+  or_next_if_better
+endmatch
 
 match $__XILINX_RAM32M
   min bits 5
