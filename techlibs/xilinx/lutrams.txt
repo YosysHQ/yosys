@@ -105,12 +105,15 @@ bram $__XILINX_RAM64M
 endbram
 
 
-match $__XILINX_RAM16X1D
-  min bits 2
-  min wports 1
-  make_outreg
-  or_next_if_better
-endmatch
+# Disabled for now, pending support for LUT4 arches
+#   since on LUT6 arches this occupies same area as
+#   a RAM32X1D
+#match $__XILINX_RAM16X1D
+#  min bits 2
+#  min wports 1
+#  make_outreg
+#  or_next_if_better
+#endmatch
 
 match $__XILINX_RAM32X1D
   min bits 3
