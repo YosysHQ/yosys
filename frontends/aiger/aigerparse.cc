@@ -610,11 +610,12 @@ void AigerReader::parse_aiger_binary()
 	std::string line;
 
 	// Parse inputs
+	int digits = ceil(log10(I));
 	for (unsigned i = 1; i <= I; ++i) {
 		log_debug2("%d is an input\n", i);
-		RTLIL::Wire *wire = createWireIfNotExists(module, i << 1);
+		RTLIL::Wire *wire = module->addWire(stringf("\\i%0*d", digits, i));
 		wire->port_input = true;
-		log_assert(!wire->port_output);
+		module->connect(createWireIfNotExists(module, i << 1), wire);
 		inputs.push_back(wire);
 	}
 
@@ -664,23 +665,15 @@ void AigerReader::parse_aiger_binary()
 	}
 
 	// Parse outputs
+	digits = ceil(log10(O));
 	for (unsigned i = 0; i < O; ++i, ++line_count) {
 		if (!(f >> l1))
 			log_error("Line %u cannot be interpreted as an output!\n", line_count);
 
 		log_debug2("%d is an output\n", l1);
-		const unsigned variable = l1 >> 1;
-		const bool invert = l1 & 1;
-		RTLIL::IdString wire_name(stringf("\\__%d%s__", variable, invert ? "b" : "")); // FIXME: is "_b" the right suffix?
-		RTLIL::Wire *wire = module->wire(wire_name);
-		if (!wire)
-			wire = createWireIfNotExists(module, l1);
-		else if (wire->port_input || wire->port_output) {
-			RTLIL::Wire *new_wire = module->addWire(NEW_ID);
-			module->connect(new_wire, wire);
-			wire = new_wire;
-		}
+		RTLIL::Wire *wire = module->addWire(stringf("\\o%0*d", digits, i));
 		wire->port_output = true;
+		module->connect(wire, createWireIfNotExists(module, l1));
 		outputs.push_back(wire);
 	}
 	std::getline(f, line); // Ignore up to start of next line
