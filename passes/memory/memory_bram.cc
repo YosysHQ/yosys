@@ -1314,10 +1314,12 @@ struct MemoryBramPass : public Pass {
 		log("    dcells  .......  number of cells in 'data-direction'\n");
 		log("    cells  ........  total number of cells (acells*dcells*dups)\n");
 		log("\n");
-		log("A match containing the condition 'attribute' followed by a name and optional\n");
-		log("value requires that the memory contains the given attribute name and value\n");
-		log("(if specified) or that the attribute is not present (prepending a '!')\n");
-		log("or the value is empty (if value is not specified\n).");
+		log("A match containing the command 'attribute' followed by a list of space\n");
+		log("separated 'name[=string_value]' values requires that the memory contains any\n");
+		log("one of the given attribute name and string values (where specified), or name\n");
+		log("and integer 1 value (if no string_value given, since Verilog will interpret\n");
+		log("'(* attr *)' as '(* attr=1 *)').\n");
+		log("A name prefixed with '!' indicates that the attribute must not exist.\n");
 		log("\n");
 		log("The interface for the created bram instances is derived from the bram\n");
 		log("description. Use 'techmap' to convert the created bram instances into\n");
