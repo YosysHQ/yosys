@@ -134,6 +134,9 @@ struct rules_t
 		dict<string, int> min_limits, max_limits;
 		bool or_next_if_better, make_transp, make_outreg;
 		char shuffle_enable;
+		dict<IdString, vector<pair<IdString, Const>>> attr_match;
+		pair<IdString, Const> attr_val;
+		dict<IdString, Const> attr_unmatch;
 	};
 
 	dict<IdString, vector<bram_t>> brams;
@@ -325,6 +328,32 @@ struct rules_t
 			if (GetSize(tokens) == 1 && tokens[0] == "or_next_if_better") {
 				data.or_next_if_better = true;
 				continue;
+			}
+
+			if (GetSize(tokens) >= 2 && tokens[0] == "attribute") {
+				if (GetSize(tokens) <=2) {
+					size_t notval = tokens[1].find("!");
+					size_t val    = tokens[1].find("=");
+
+					if (notval != std::string::npos) {
+						if (val != std::string::npos)
+							data.attr_unmatch[RTLIL::escape_id(tokens[1].substr(1, val-1))] = tokens[1].substr(val+1);
+						else
+							data.attr_unmatch[RTLIL::escape_id(tokens[1].substr(notval+1))] = RTLIL::Const('1');
+					}
+					continue;
+				}
+
+				else if (GetSize(tokens) > 2) {
+					for (int idx=1; idx<= GetSize(tokens)-1; idx++) {
+						size_t val = tokens[idx].find("=");
+						if (val != std::string::npos) {
+							data.attr_val = make_pair(RTLIL::escape_id(tokens[idx].substr(0, val)), tokens[idx].substr(val+1));
+							data.attr_match[RTLIL::escape_id(tokens[0])].push_back(data.attr_val);
+						}
+					}
+					continue;
+				}
 			}
 
 			syntax_error();
@@ -724,7 +753,7 @@ grow_read_ports:;
 					if (match.make_transp && wr_ports <= 1) {
 						pi.make_transp = true;
 						if (pi.clocks != 0) {
-							if (wr_ports == 1 && wr_clkdom != clkdom) {								
+							if (wr_ports == 1 && wr_clkdom != clkdom) {
 								log("        Bram port %c%d.%d cannot have soft transparency logic added as read and write clock domains differ.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
 								goto skip_bram_rport;
 							}
@@ -791,6 +820,27 @@ grow_read_ports:;
 
 		log("      Updated properties: dups=%d waste=%d efficiency=%d\n",
 				match_properties["dups"], match_properties["waste"], match_properties["efficiency"]);
+
+		for (auto iter: match.attr_match) {
+			for (auto iter: iter.second) {
+				auto it = cell->attributes.find(iter.first);
+
+				if (iter.second.empty()) {
+					log("    Rule for bram type %s is rejected: requirement 'attribute %s=\"%s\"' not met.\n",
+							log_id(match.name), log_id(iter.first), iter.second.decode_string().c_str());
+						return false;
+				}
+
+				if (it != cell->attributes.end()) {
+					if (it->second == iter.second)
+						continue;
+					log("    Rule for bram type %s is rejected: requirement 'attribute %s=\"%s\"' not met.\n",
+							log_id(match.name), log_id(iter.first), iter.second.decode_string().c_str());
+					return false;
+				}
+				return true;
+			}
+		}
 
 		for (auto it : match.min_limits) {
 			if (!match_properties.count(it.first))
@@ -1074,6 +1124,39 @@ void handle_cell(Cell *cell, const rules_t &rules)
 				goto next_match_rule;
 			}
 
+			for (auto iter: match.attr_match) {
+				for (auto iter: iter.second) {
+					auto it = cell->attributes.find(iter.first);
+					
+					if (it != cell->attributes.end()) {
+						if (!it->second.empty()) {
+							if (it->second.decode_string().length() == 1) 
+								it->second = it->second.as_string().back();
+							if (!it->second.decode_string().compare(iter.second.decode_string()))
+								goto attribute_matched;
+							else
+								log("    Rule for bram type %s is rejected: requirement 'attribute %s=\"%s\"' not met.\n",
+										log_id(match.name), log_id(iter.first), iter.second.decode_string().c_str());
+						}
+					}
+				}
+			}
+
+			for (auto& iter: match.attr_unmatch) {
+				auto it = cell->attributes.find(iter.first);
+
+				if (it != cell->attributes.end()) {
+					if (!it->second.empty()) {
+						if (it->second.decode_string().length() == 1) 
+							it->second = it->second.as_string().back();
+						if (!it->second.decode_string().compare(iter.second.decode_string()))
+							goto next_match_rule;
+						log("    Rule for bram type %s is rejected: requirement 'attribute %s=\"%s\"' not met.\n",
+								log_id(match.name), log_id(iter.first), iter.second.decode_string().c_str());
+					}
+				}
+			}
+
 			for (auto it : match.min_limits) {
 				if (it.first == "waste" || it.first == "dups" || it.first == "acells" || it.first == "dcells" || it.first == "cells")
 					continue;
@@ -1100,6 +1183,7 @@ void handle_cell(Cell *cell, const rules_t &rules)
 				goto next_match_rule;
 			}
 
+		attribute_matched:
 			log("    Rule #%d for bram type %s (variant %d) accepted.\n", i+1, log_id(bram.name), bram.variant);
 
 			if (or_next_if_better || !best_rule_cache.empty())
@@ -1224,6 +1308,11 @@ struct MemoryBramPass : public Pass {
 		log("    acells  .......  number of cells in 'address-direction'\n");
 		log("    dcells  .......  number of cells in 'data-direction'\n");
 		log("    cells  ........  total number of cells (acells*dcells*dups)\n");
+		log("\n");
+		log("A match containing the condition 'attribute' followed by a name and optional\n");
+		log("value requires that the memory contains the given attribute name and value\n");
+		log("(if specified) or that the attribute is not present (prepending a '!')\n");
+		log("or the value is empty (if value is not specified\n).");
 		log("\n");
 		log("The interface for the created bram instances is derived from the bram\n");
 		log("description. Use 'techmap' to convert the created bram instances into\n");

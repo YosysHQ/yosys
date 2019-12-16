@@ -77,6 +77,9 @@ endbram
 # https://www.xilinx.com/support/documentation/user_guides/ug473_7Series_Memory_Resources.pdf
 
 match $__XILINX_RAMB36_SDP
+  attribute ram_style=block ram_block=1
+  attribute !ram_style
+  attribute !logic_block
   min bits 1024
   min efficiency 5
   shuffle_enable B
@@ -85,6 +88,9 @@ match $__XILINX_RAMB36_SDP
 endmatch
 
 match $__XILINX_RAMB18_SDP
+  attribute ram_style=block ram_block=1
+  attribute !ram_style
+  attribute !logic_block
   min bits 1024
   min efficiency 5
   shuffle_enable B
@@ -93,6 +99,9 @@ match $__XILINX_RAMB18_SDP
 endmatch
 
 match $__XILINX_RAMB36_TDP
+  attribute ram_style=block ram_block=1
+  attribute !ram_style
+  attribute !logic_block
   min bits 1024
   min efficiency 5
   shuffle_enable B
@@ -101,8 +110,12 @@ match $__XILINX_RAMB36_TDP
 endmatch
 
 match $__XILINX_RAMB18_TDP
+  attribute ram_style=block ram_block=1
+  attribute !ram_style
+  attribute !logic_block
   min bits 1024
   min efficiency 5
   shuffle_enable B
   make_transp
 endmatch
+
