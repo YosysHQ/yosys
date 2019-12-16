@@ -294,7 +294,7 @@ struct XAigerWriter
 							output_bits.insert(b);
 
 							if (!cell_known)
-								inout_bits.insert(b);
+								inout_bits.insert(I);
 						}
 					}
 				}
@@ -315,7 +315,7 @@ struct XAigerWriter
 						SigBit O = sigmap(b);
 						if (O != b)
 							alias_map[O] = b;
-						input_bits.insert(b);
+						input_bits.insert(O);
 
 						if (arrival)
 							arrival_times[b] = arrival;
@@ -542,9 +542,8 @@ struct XAigerWriter
 				undriven_bits.erase(bit);
 			}
 
-		// For inout ports, or keep-ed wires, then create a new wire with an
-		// $inout.out suffix, make it a PO driven by the existing inout, and
-		// inherit existing inout's drivers
+		// For inout ports, or keep-ed wires, which end up being both a PI and a
+		// a PO then replace the PO with a new wire with the $inout.out suffix
 		for (auto bit : inout_bits) {
 			RTLIL::Wire *wire = bit.wire;
 			RTLIL::IdString wire_name = stringf("$%s$inout.out", wire->name.c_str());
