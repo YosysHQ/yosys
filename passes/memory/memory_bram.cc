@@ -821,8 +821,8 @@ grow_read_ports:;
 		log("      Updated properties: dups=%d waste=%d efficiency=%d\n",
 				match_properties["dups"], match_properties["waste"], match_properties["efficiency"]);
 
-		for (auto& iter: match.attr_match) {
-			for (auto& iter: iter.second) {
+		for (auto iter: match.attr_match) {
+			for (auto iter: iter.second) {
 				auto it = cell->attributes.find(iter.first);
 
 				if (iter.second.empty()) {
@@ -1124,8 +1124,8 @@ void handle_cell(Cell *cell, const rules_t &rules)
 				goto next_match_rule;
 			}
 
-			for (auto& iter: match.attr_match) {
-				for (auto& iter: iter.second) {
+			for (auto iter: match.attr_match) {
+				for (auto iter: iter.second) {
 					auto it = cell->attributes.find(iter.first);
 					
 					if (it != cell->attributes.end()) {
@@ -1149,10 +1149,10 @@ void handle_cell(Cell *cell, const rules_t &rules)
 					if (!it->second.empty()) {
 						if (it->second.decode_string().length() == 1) 
 							it->second = it->second.as_string().back();
-							if (!it->second.decode_string().compare(iter.second.decode_string()))
-								goto next_match_rule;
-							log("    Rule for bram type %s is rejected: requirement 'attribute %s=\"%s\"' not met.\n",
-									log_id(match.name), log_id(iter.first), iter.second.decode_string().c_str());
+						if (!it->second.decode_string().compare(iter.second.decode_string()))
+							goto next_match_rule;
+						log("    Rule for bram type %s is rejected: requirement 'attribute %s=\"%s\"' not met.\n",
+								log_id(match.name), log_id(iter.first), iter.second.decode_string().c_str());
 					}
 				}
 			}
