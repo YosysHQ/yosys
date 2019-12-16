@@ -79,3 +79,12 @@ setattr -set logic_block 1 m:memory
 synth_xilinx -top sync_ram_sdp
 cd sync_ram_sdp
 select -assert-count 0 t:RAMB18E1
+
+design -reset
+read_verilog ../common/blockram.v
+hierarchy -top sync_ram_sdp -chparam ADDRESS_WIDTH 8 -chparam DATA_WIDTH 1
+setattr -set ram_style "block" m:memory
+dump m:*
+synth_xilinx -top sync_ram_sdp
+cd sync_ram_sdp
+select -assert-count 1 t:RAMB18E1

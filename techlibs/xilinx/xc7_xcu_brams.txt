@@ -77,7 +77,25 @@ endbram
 # https://www.xilinx.com/support/documentation/user_guides/ug473_7Series_Memory_Resources.pdf
 
 match $__XILINX_RAMB36_SDP
-  attribute !ram_style ram_style=block ram_block
+  attribute !ram_style
+  attribute !logic_block
+  min bits 1024
+  min efficiency 5
+  shuffle_enable B
+  make_transp
+  or_next_if_better
+endmatch
+
+match $__XILINX_RAMB36_SDP
+  attribute ram_style=block ram_block
+  attribute !logic_block
+  shuffle_enable B
+  make_transp
+  or_next_if_better
+endmatch
+
+match $__XILINX_RAMB18_SDP
+  attribute !ram_style
   attribute !logic_block
   min bits 1024
   min efficiency 5
@@ -87,7 +105,15 @@ match $__XILINX_RAMB36_SDP
 endmatch
 
 match $__XILINX_RAMB18_SDP
-  attribute !ram_style ram_style=block ram_block
+  attribute ram_style=block ram_block
+  attribute !logic_block
+  shuffle_enable B
+  make_transp
+  or_next_if_better
+endmatch
+
+match $__XILINX_RAMB36_TDP
+  attribute !ram_style
   attribute !logic_block
   min bits 1024
   min efficiency 5
@@ -97,7 +123,15 @@ match $__XILINX_RAMB18_SDP
 endmatch
 
 match $__XILINX_RAMB36_TDP
-  attribute !ram_style ram_style=block ram_block
+  attribute ram_style=block ram_block
+  attribute !logic_block
+  shuffle_enable B
+  make_transp
+  or_next_if_better
+endmatch
+
+match $__XILINX_RAMB18_TDP
+  attribute !ram_style
   attribute !logic_block
   min bits 1024
   min efficiency 5
@@ -107,10 +141,8 @@ match $__XILINX_RAMB36_TDP
 endmatch
 
 match $__XILINX_RAMB18_TDP
-  attribute !ram_style ram_style=block ram_block
+  attribute ram_style=block ram_block
   attribute !logic_block
-  min bits 1024
-  min efficiency 5
   shuffle_enable B
   make_transp
 endmatch
