@@ -34,15 +34,29 @@ struct ScratchpadPass : public Pass {
 		log("    scratchpad [options]\n");
 		log("\n");
 		log("This pass allows to read and modify values from the scratchpad of the current\n");
-		log("design. Options:\n\n");
+		log("design. Options:\n");
+		log("\n");
 		log("    -get <identifier>\n");
-		log("        print the value saved in the scratchpad under the given identifier.\n\n");
+		log("        print the value saved in the scratchpad under the given identifier.\n");
+		log("\n");
 		log("    -set <identifier> <value>\n");
-		log("        save the given value in the scratchpad under the given identifier.\n\n");
+		log("        save the given value in the scratchpad under the given identifier.\n");
+		log("\n");
 		log("    -unset <identifier>\n");
-		log("        remove the entry for the given identifier from the scratchpad.\n\n");
+		log("        remove the entry for the given identifier from the scratchpad.\n");
+		log("\n");
 		log("    -copy <identifier_from> <identifier_to>\n");
-		log("        copy the value of the first identifier to the second identifier.\n\n");
+		log("        copy the value of the first identifier to the second identifier.\n");
+		log("\n");
+		log("    -assert <identifier> <value>\n");
+		log("        assert that the entry for the given identifier is set to the given value.\n");
+		log("\n");
+		log("    -assert-set <identifier>\n");
+		log("        assert that the entry for the given identifier exists.\n");
+		log("\n");
+		log("    -assert-unset <identifier>\n");
+		log("        assert that the entry for the given identifier does not exist.\n");
+		log("\n");
 		log("The identifier may not contain whitespace. By convention, it is usually prefixed\n");
 		log("by the name of the pass that uses it, e.g. 'opt.did_something'. If the value\n");
 		log("contains whitespace, it must be enclosed in double quotes.\n");
@@ -81,6 +95,31 @@ struct ScratchpadPass : public Pass {
 				if (design->scratchpad.count(identifier_from) == 0) log_error("\"%s\" not set\n", identifier_from.c_str());
 				string value = design->scratchpad_get_string(identifier_from);
 				design->scratchpad_set_string(identifier_to, value);
+				continue;
+			}
+			if (args[argidx] == "-assert" && argidx+2 < args.size()) {
+				string identifier = args[++argidx];
+				string expected = args[++argidx];
+				if (expected.front() == '\"' && expected.back() == '\"') expected = expected.substr(1, expected.size() - 2);
+				if (design->scratchpad.count(identifier) == 0)
+					log_error("Assertion failed: scratchpad entry '%s' is not defined\n", identifier.c_str());
+				string value = design->scratchpad_get_string(identifier);
+				if (value != expected) {
+					log_error("Assertion failed: scratchpad entry '%s' is set to '%s' instead of the asserted '%s'\n",
+					           identifier.c_str(), value.c_str(), expected.c_str());
+				}
+				continue;
+			}
+			if (args[argidx] == "-assert-set" && argidx+1 < args.size()) {
+				string identifier = args[++argidx];
+				if (design->scratchpad.count(identifier) == 0)
+					log_error("Assertion failed: scratchpad entry '%s' is not defined\n", identifier.c_str());
+				continue;
+			}
+			if (args[argidx] == "-assert-unset" && argidx+1 < args.size()) {
+				string identifier = args[++argidx];
+				if (design->scratchpad.count(identifier) > 0)
+					log_error("Assertion failed: scratchpad entry '%s' is defined\n", identifier.c_str());
 				continue;
 			}
 			log("Unrecognized argument: %s\n", args[argidx].c_str());
