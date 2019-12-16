@@ -78,7 +78,7 @@ bram $__XILINX_RAM64X3SDP
   clkpol 0 2
 endbram
 
-bram $__XILINX_RAM32M
+bram $__XILINX_RAM32X2Q
   init 1
   abits 5
   dbits 2
@@ -91,7 +91,7 @@ bram $__XILINX_RAM32M
   clkpol 0 2
 endbram
 
-bram $__XILINX_RAM64M
+bram $__XILINX_RAM64X1Q
   init 1
   abits 6
   dbits 1
@@ -151,7 +151,7 @@ match $__XILINX_RAM64X3SDP
   or_next_if_better
 endmatch
 
-match $__XILINX_RAM32M
+match $__XILINX_RAM32X2Q
   min bits 5
   min rports 3
   min wports 1
@@ -159,7 +159,7 @@ match $__XILINX_RAM32M
   or_next_if_better
 endmatch
 
-match $__XILINX_RAM64M
+match $__XILINX_RAM64X1Q
   min bits 5
   min rports 3
   min wports 1
