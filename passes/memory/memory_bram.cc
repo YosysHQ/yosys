@@ -134,9 +134,7 @@ struct rules_t
 		dict<string, int> min_limits, max_limits;
 		bool or_next_if_better, make_transp, make_outreg;
 		char shuffle_enable;
-		dict<IdString, vector<pair<IdString, Const>>> attr_match;
-		pair<IdString, Const> attr_val;
-		dict<IdString, Const> attr_unmatch;
+		vector<vector<std::tuple<bool,IdString,Const>>> attributes;
 	};
 
 	dict<IdString, vector<bram_t>> brams;
@@ -331,29 +329,20 @@ struct rules_t
 			}
 
 			if (GetSize(tokens) >= 2 && tokens[0] == "attribute") {
-				if (GetSize(tokens) <=2) {
-					size_t notval = tokens[1].find("!");
-					size_t val    = tokens[1].find("=");
+				data.attributes.emplace_back();
+				for (int idx = 1; idx <= GetSize(tokens)-1; idx++) {
+					size_t c1 = tokens[1][0] == '!' ? 1 : 0;
+					size_t c2 = tokens[1].find("=");
+					if (c2 != std::string::npos)
+						c2--;
 
-					if (notval != std::string::npos) {
-						if (val != std::string::npos)
-							data.attr_unmatch[RTLIL::escape_id(tokens[1].substr(1, val-1))] = tokens[1].substr(val+1);
-						else
-							data.attr_unmatch[RTLIL::escape_id(tokens[1].substr(notval+1))] = RTLIL::Const('1');
-					}
-					continue;
-				}
+					bool exists = (c1 == 0);
+					IdString key = RTLIL::escape_id(tokens[1].substr(c1, c2));
+					Const val = c2 != std::string::npos ? tokens[1].substr(c2) : RTLIL::Const(1);
 
-				else if (GetSize(tokens) > 2) {
-					for (int idx=1; idx<= GetSize(tokens)-1; idx++) {
-						size_t val = tokens[idx].find("=");
-						if (val != std::string::npos) {
-							data.attr_val = make_pair(RTLIL::escape_id(tokens[idx].substr(0, val)), tokens[idx].substr(val+1));
-							data.attr_match[RTLIL::escape_id(tokens[0])].push_back(data.attr_val);
-						}
-					}
-					continue;
+					data.attributes.back().emplace_back(exists, key, val);
 				}
+				continue;
 			}
 
 			syntax_error();
@@ -821,27 +810,6 @@ grow_read_ports:;
 		log("      Updated properties: dups=%d waste=%d efficiency=%d\n",
 				match_properties["dups"], match_properties["waste"], match_properties["efficiency"]);
 
-		for (auto iter: match.attr_match) {
-			for (auto iter: iter.second) {
-				auto it = cell->attributes.find(iter.first);
-
-				if (iter.second.empty()) {
-					log("    Rule for bram type %s is rejected: requirement 'attribute %s=\"%s\"' not met.\n",
-							log_id(match.name), log_id(iter.first), iter.second.decode_string().c_str());
-						return false;
-				}
-
-				if (it != cell->attributes.end()) {
-					if (it->second == iter.second)
-						continue;
-					log("    Rule for bram type %s is rejected: requirement 'attribute %s=\"%s\"' not met.\n",
-							log_id(match.name), log_id(iter.first), iter.second.decode_string().c_str());
-					return false;
-				}
-				return true;
-			}
-		}
-
 		for (auto it : match.min_limits) {
 			if (!match_properties.count(it.first))
 				log_error("Unknown property '%s' in match rule for bram type %s.\n",
@@ -861,6 +829,43 @@ grow_read_ports:;
 			log("    Rule for bram type %s rejected: requirement 'max %s %d' not met.\n",
 					log_id(match.name), it.first.c_str(), it.second);
 			return false;
+		}
+
+		for (const auto &sums : match.attributes) {
+			bool found = false;
+			for (const auto &term : sums) {
+				bool exists = std::get<0>(term);
+				IdString key = std::get<1>(term);
+				const Const &value = std::get<2>(term);
+				auto it = cell->attributes.find(key);
+				if (it == cell->attributes.end()) {
+					if (exists)
+						continue;
+					found = true;
+					break;
+				}
+				if (it->second != value)
+					continue;
+				found = true;
+				break;
+			}
+			if (!found) {
+				std::stringstream ss;
+				bool exists = std::get<0>(sums.front());
+				if (!exists)
+					ss << "!";
+				IdString key = std::get<1>(sums.front());
+				ss << key.str();
+				const Const &value = std::get<2>(sums.front());
+				if (exists)
+					ss << "=";
+				if (value != Const(1))
+					ss << "\"" << value.decode_string() << "\"";
+
+				log("    Rule for bram type %s rejected: requirement 'attribute %s ...' not met.\n",
+						log_id(match.name), ss.str().c_str());
+				return false;
+			}
 		}
 
 		if (mode == 1)
@@ -1124,39 +1129,6 @@ void handle_cell(Cell *cell, const rules_t &rules)
 				goto next_match_rule;
 			}
 
-			for (auto iter: match.attr_match) {
-				for (auto iter: iter.second) {
-					auto it = cell->attributes.find(iter.first);
-					
-					if (it != cell->attributes.end()) {
-						if (!it->second.empty()) {
-							if (it->second.decode_string().length() == 1) 
-								it->second = it->second.as_string().back();
-							if (!it->second.decode_string().compare(iter.second.decode_string()))
-								goto attribute_matched;
-							else
-								log("    Rule for bram type %s is rejected: requirement 'attribute %s=\"%s\"' not met.\n",
-										log_id(match.name), log_id(iter.first), iter.second.decode_string().c_str());
-						}
-					}
-				}
-			}
-
-			for (auto& iter: match.attr_unmatch) {
-				auto it = cell->attributes.find(iter.first);
-
-				if (it != cell->attributes.end()) {
-					if (!it->second.empty()) {
-						if (it->second.decode_string().length() == 1) 
-							it->second = it->second.as_string().back();
-						if (!it->second.decode_string().compare(iter.second.decode_string()))
-							goto next_match_rule;
-						log("    Rule for bram type %s is rejected: requirement 'attribute %s=\"%s\"' not met.\n",
-								log_id(match.name), log_id(iter.first), iter.second.decode_string().c_str());
-					}
-				}
-			}
-
 			for (auto it : match.min_limits) {
 				if (it.first == "waste" || it.first == "dups" || it.first == "acells" || it.first == "dcells" || it.first == "cells")
 					continue;
@@ -1183,7 +1155,43 @@ void handle_cell(Cell *cell, const rules_t &rules)
 				goto next_match_rule;
 			}
 
-		attribute_matched:
+			for (const auto &sums : match.attributes) {
+				bool found = false;
+				for (const auto &term : sums) {
+					bool exists = std::get<0>(term);
+					IdString key = std::get<1>(term);
+					const Const &value = std::get<2>(term);
+					auto it = cell->attributes.find(key);
+					if (it == cell->attributes.end()) {
+						if (exists)
+							continue;
+						found = true;
+						break;
+					}
+					if (it->second != value)
+						continue;
+					found = true;
+					break;
+				}
+				if (!found) {
+					std::stringstream ss;
+					bool exists = std::get<0>(sums.front());
+					if (!exists)
+						ss << "!";
+					IdString key = std::get<1>(sums.front());
+					ss << key.str();
+					const Const &value = std::get<2>(sums.front());
+					if (exists)
+						ss << "=";
+					if (value != Const(1))
+						ss << "\"" << value.decode_string() << "\"";
+
+					log("    Rule for bram type %s (variant %d) rejected: requirement 'attribute %s ...' not met.\n",
+							log_id(bram.name), bram.variant, ss.str().c_str());
+					goto next_match_rule;
+				}
+			}
+
 			log("    Rule #%d for bram type %s (variant %d) accepted.\n", i+1, log_id(bram.name), bram.variant);
 
 			if (or_next_if_better || !best_rule_cache.empty())
