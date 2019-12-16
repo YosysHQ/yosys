@@ -331,11 +331,11 @@ struct rules_t
 			if (GetSize(tokens) >= 2 && tokens[0] == "attribute") {
 				data.attributes.emplace_back();
 				for (int idx = 1; idx <= GetSize(tokens)-1; idx++) {
-					size_t c1 = tokens[1][0] == '!' ? 1 : 0;
-					size_t c2 = tokens[1].find("=");
+					size_t c1 = tokens[idx][0] == '!' ? 1 : 0;
+					size_t c2 = tokens[idx].find("=");
 					bool exists = (c1 == 0);
-					IdString key = RTLIL::escape_id(tokens[1].substr(c1, c2));
-					Const val = c2 != std::string::npos ? tokens[1].substr(c2+1) : RTLIL::Const(1);
+					IdString key = RTLIL::escape_id(tokens[idx].substr(c1, c2));
+					Const val = c2 != std::string::npos ? tokens[idx].substr(c2+1) : RTLIL::Const(1);
 
 					data.attributes.back().emplace_back(exists, key, val);
 				}
