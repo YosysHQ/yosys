@@ -78,7 +78,7 @@ endbram
 
 match $__XILINX_RAMB36_SDP
   attribute ram_style=block ram_block=1
-  attribute !ram_style=distributed
+  attribute !ram_style
   attribute !logic_block
   min bits 1024
   min efficiency 5
@@ -89,7 +89,7 @@ endmatch
 
 match $__XILINX_RAMB18_SDP
   attribute ram_style=block ram_block=1
-  attribute !ram_style=distributed
+  attribute !ram_style
   attribute !logic_block
   min bits 1024
   min efficiency 5
@@ -100,7 +100,7 @@ endmatch
 
 match $__XILINX_RAMB36_TDP
   attribute ram_style=block ram_block=1
-  attribute !ram_style=distributed
+  attribute !ram_style
   attribute !logic_block
   min bits 1024
   min efficiency 5
@@ -111,7 +111,7 @@ endmatch
 
 match $__XILINX_RAMB18_TDP
   attribute ram_style=block ram_block=1
-  attribute !ram_style=distributed
+  attribute !ram_style
   attribute !logic_block
   min bits 1024
   min efficiency 5
