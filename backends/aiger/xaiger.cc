@@ -542,10 +542,12 @@ struct XAigerWriter
 				undriven_bits.erase(bit);
 			}
 
-		// For inout ports, or keep-ed wires, then create a new wire with an
-		// $inout.out suffix, make it a PO driven by the existing inout, and
-		// inherit existing inout's drivers
+		// For inout ports, or keep-ed wires, that end up as both a PI and a
+		// PO, then create a new PO with an $inout.out suffix that is driven
+		// by the existing inout, and inherit its drivers
 		for (auto bit : inout_bits) {
+			if (!input_bits.count(bit))
+				continue;
 			RTLIL::Wire *wire = bit.wire;
 			RTLIL::IdString wire_name = stringf("$%s$inout.out", wire->name.c_str());
 			RTLIL::Wire *new_wire = module->wire(wire_name);
