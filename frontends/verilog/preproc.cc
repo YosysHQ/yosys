@@ -28,7 +28,7 @@
  *
  *  Ad-hoc implementation of a Verilog preprocessor. The directives `define,
  *  `include, `ifdef, `ifndef, `else and `endif are handled here. All other
- *  directives are handled by the lexer (see lexer.l).
+ *  directives are handled by the lexer (see verilog_lexer.l).
  *
  */
 
