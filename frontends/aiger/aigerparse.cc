@@ -255,7 +255,7 @@ end_of_header:
 	else
 		log_abort();
 
-	RTLIL::Wire* n0 = module->wire("\\__0__");
+	RTLIL::Wire* n0 = module->wire("$0");
 	if (n0)
 		module->connect(n0, State::S0);
 
@@ -316,14 +316,14 @@ static RTLIL::Wire* createWireIfNotExists(RTLIL::Module *module, unsigned litera
 {
 	const unsigned variable = literal >> 1;
 	const bool invert = literal & 1;
-	RTLIL::IdString wire_name(stringf("\\__%d%s__", variable, invert ? "b" : ""));
+	RTLIL::IdString wire_name(stringf("$%d%s", variable, invert ? "b" : ""));
 	RTLIL::Wire *wire = module->wire(wire_name);
 	if (wire) return wire;
 	log_debug2("Creating %s\n", wire_name.c_str());
 	wire = module->addWire(wire_name);
 	wire->port_input = wire->port_output = false;
 	if (!invert) return wire;
-	RTLIL::IdString wire_inv_name(stringf("\\__%d__", variable));
+	RTLIL::IdString wire_inv_name(stringf("$%d", variable));
 	RTLIL::Wire *wire_inv = module->wire(wire_inv_name);
 	if (wire_inv) {
 		if (module->cell(wire_inv_name)) return wire;
@@ -335,7 +335,7 @@ static RTLIL::Wire* createWireIfNotExists(RTLIL::Module *module, unsigned litera
 	}
 
 	log_debug2("Creating %s = ~%s\n", wire_name.c_str(), wire_inv_name.c_str());
-	module->addNotGate(stringf("\\__%d__$not", variable), wire_inv, wire);
+	module->addNotGate(stringf("$%d$not", variable), wire_inv, wire);
 
 	return wire;
 }
@@ -372,7 +372,7 @@ void AigerReader::parse_xaiger(const dict<int,IdString> &box_lookup)
 	else
 		log_abort();
 
-	RTLIL::Wire* n0 = module->wire("\\__0__");
+	RTLIL::Wire* n0 = module->wire("$0");
 	if (n0)
 		module->connect(n0, State::S0);
 
@@ -396,13 +396,13 @@ void AigerReader::parse_xaiger(const dict<int,IdString> &box_lookup)
 				uint32_t rootNodeID = parse_xaiger_literal(f);
 				uint32_t cutLeavesM = parse_xaiger_literal(f);
 				log_debug2("rootNodeID=%d cutLeavesM=%d\n", rootNodeID, cutLeavesM);
-				RTLIL::Wire *output_sig = module->wire(stringf("\\__%d__", rootNodeID));
+				RTLIL::Wire *output_sig = module->wire(stringf("$%d", rootNodeID));
 				uint32_t nodeID;
 				RTLIL::SigSpec input_sig;
 				for (unsigned j = 0; j < cutLeavesM; ++j) {
 					nodeID = parse_xaiger_literal(f);
 					log_debug2("\t%u\n", nodeID);
-					RTLIL::Wire *wire = module->wire(stringf("\\__%d__", nodeID));
+					RTLIL::Wire *wire = module->wire(stringf("$%d", nodeID));
 					log_assert(wire);
 					input_sig.append(wire);
 				}
@@ -419,10 +419,10 @@ void AigerReader::parse_xaiger(const dict<int,IdString> &box_lookup)
 					log_assert(o.wire == nullptr);
 					lut_mask[gray] = o.data;
 				}
-				RTLIL::Cell *output_cell = module->cell(stringf("\\__%d__$and", rootNodeID));
+				RTLIL::Cell *output_cell = module->cell(stringf("$%d$and", rootNodeID));
 				log_assert(output_cell);
 				module->remove(output_cell);
-				module->addLut(stringf("\\__%d__$lut", rootNodeID), input_sig, output_sig, std::move(lut_mask));
+				module->addLut(stringf("$%d$lut", rootNodeID), input_sig, output_sig, std::move(lut_mask));
 			}
 		}
 		else if (c == 'r') {
@@ -456,7 +456,7 @@ void AigerReader::parse_xaiger(const dict<int,IdString> &box_lookup)
 				uint32_t boxUniqueId = parse_xaiger_literal(f);
 				log_assert(boxUniqueId > 0);
 				uint32_t oldBoxNum = parse_xaiger_literal(f);
-				RTLIL::Cell* cell = module->addCell(stringf("$__box%u__", oldBoxNum), box_lookup.at(boxUniqueId));
+				RTLIL::Cell* cell = module->addCell(stringf("$__box%u", oldBoxNum), box_lookup.at(boxUniqueId));
 				boxes.emplace_back(cell);
 			}
 		}
@@ -544,7 +544,7 @@ void AigerReader::parse_aiger_ascii()
 		log_debug2("%d is an output\n", l1);
 		const unsigned variable = l1 >> 1;
 		const bool invert = l1 & 1;
-		RTLIL::IdString wire_name(stringf("\\__%d%s__", variable, invert ? "b" : "")); // FIXME: is "b" the right suffix?
+		RTLIL::IdString wire_name(stringf("$%d%s", variable, invert ? "b" : "")); // FIXME: is "b" the right suffix?
 		RTLIL::Wire *wire = module->wire(wire_name);
 		if (!wire)
 			wire = createWireIfNotExists(module, l1);
@@ -613,7 +613,7 @@ void AigerReader::parse_aiger_binary()
 	int digits = ceil(log10(I));
 	for (unsigned i = 1; i <= I; ++i) {
 		log_debug2("%d is an input\n", i);
-		RTLIL::Wire *wire = module->addWire(stringf("\\i%0*d", digits, i));
+		RTLIL::Wire *wire = module->addWire(stringf("$i%0*d", digits, i));
 		wire->port_input = true;
 		module->connect(createWireIfNotExists(module, i << 1), wire);
 		inputs.push_back(wire);
@@ -671,7 +671,7 @@ void AigerReader::parse_aiger_binary()
 			log_error("Line %u cannot be interpreted as an output!\n", line_count);
 
 		log_debug2("%d is an output\n", l1);
-		RTLIL::Wire *wire = module->addWire(stringf("\\o%0*d", digits, i));
+		RTLIL::Wire *wire = module->addWire(stringf("$o%0*d", digits, i));
 		wire->port_output = true;
 		module->connect(wire, createWireIfNotExists(module, l1));
 		outputs.push_back(wire);
@@ -915,7 +915,7 @@ void AigerReader::post_process()
 					wire->attributes["\\init"] = init;
 			}
 			else if (type == "box") {
-				RTLIL::Cell* cell = module->cell(stringf("$__box%d__", variable));
+				RTLIL::Cell* cell = module->cell(stringf("$__box%d", variable));
 				if (cell) { // ABC could have optimised this box away
 					module->rename(cell, escaped_s);
 					for (const auto &i : cell->connections()) {
