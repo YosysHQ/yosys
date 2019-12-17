@@ -841,6 +841,8 @@ grow_read_ports:;
 					found = true;
 					break;
 				}
+				else if (!exists)
+					continue;
 				if (it->second != value)
 					continue;
 				found = true;
@@ -1165,6 +1167,8 @@ void handle_cell(Cell *cell, const rules_t &rules)
 						found = true;
 						break;
 					}
+					else if (!exists)
+						continue;
 					if (it->second != value)
 						continue;
 					found = true;
