@@ -1095,7 +1095,7 @@ struct Abc9Pass : public Pass {
 			std::map<RTLIL::Cell*, std::set<RTLIL::SigBit>> cell_to_bit, cell_to_bit_up, cell_to_bit_down;
 			std::map<RTLIL::SigBit, std::set<RTLIL::Cell*>> bit_to_cell, bit_to_cell_up, bit_to_cell_down;
 
-			for (auto cell : all_cells) {
+			for (auto cell : all_cells)
 				for (auto &conn : cell->connections())
 				for (auto bit : assign_map(conn.second))
 					if (bit.wire != nullptr) {
@@ -1111,6 +1111,7 @@ struct Abc9Pass : public Pass {
 						}
 					}
 
+			for (auto cell : all_cells) {
 				auto inst_module = design->module(cell->type);
 				if (!inst_module || !inst_module->attributes.count("\\abc9_flop"))
 					continue;
@@ -1121,10 +1122,7 @@ struct Abc9Pass : public Pass {
 				SigSpec abc9_clock = assign_map(abc9_clock_wire);
 
 				unassigned_cells.erase(cell);
-				expand_queue.insert(cell);
 				expand_queue_up.insert(cell);
-				expand_queue_down.insert(cell);
-
 				clkdomain_t key(abc9_clock, cell->type);
 				assigned_cells[key].insert(cell->name);
 				assigned_cells_reverse[cell] = key;
@@ -1141,6 +1139,30 @@ struct Abc9Pass : public Pass {
 				    log_error("'%s.$abc9_init' is not a constant wire present in module '%s'.\n", cell->name.c_str(), log_id(module));
 				r2 = cell->attributes.insert(std::make_pair(ID(abc9_init), abc9_init.as_const()));
 				log_assert(r2.second);
+
+				// Also assign these special ABC9 cells to the
+				//   same clock domain
+				for (auto b : cell_to_bit_down[cell])
+				for (auto c : bit_to_cell_down[b])
+					if (c->type == "$__ABC9_FF_") {
+						cell = c;
+						unassigned_cells.erase(cell);
+						assigned_cells[key].insert(cell->name);
+						assigned_cells_reverse[cell] = key;
+						break;
+					}
+				for (auto b : cell_to_bit_down[cell])
+				for (auto c : bit_to_cell_down[b])
+					if (c->type == "$__ABC9_ASYNC") {
+						cell = c;
+						unassigned_cells.erase(cell);
+						assigned_cells[key].insert(cell->name);
+						assigned_cells_reverse[cell] = key;
+						break;
+					}
+
+				expand_queue.insert(cell);
+				expand_queue_down.insert(cell);
 			}
 
 			while (!expand_queue_up.empty() || !expand_queue_down.empty())
@@ -1153,7 +1175,7 @@ struct Abc9Pass : public Pass {
 
 					for (auto bit : cell_to_bit_up[cell])
 					for (auto c : bit_to_cell_up[bit])
-						if (unassigned_cells.count(c) && !c->type.in("$__ABC9_FF_", "$__ABC9_ASYNC_")) {
+						if (unassigned_cells.count(c)) {
 							unassigned_cells.erase(c);
 							next_expand_queue_up.insert(c);
 							assigned_cells[key].insert(c->name);
