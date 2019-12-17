@@ -264,9 +264,22 @@ struct XAigerWriter
 							bit_users[bit].insert(cell->name);
 					}
 
-					if (port_wire->port_output)
-						for (auto bit : sigmap(conn.second))
+					if (port_wire->port_output) {
+						int arrival = 0;
+						auto it = port_wire->attributes.find("\\abc9_arrival");
+						if (it != port_wire->attributes.end()) {
+							if (it->second.flags != 0)
+								log_error("Attribute 'abc9_arrival' on port '%s' of module '%s' is not an integer.\n", log_id(port_wire), log_id(cell->type));
+							arrival = it->second.as_int();
+						}
+
+						for (auto bit : sigmap(conn.second)) {
 							bit_drivers[bit].insert(cell->name);
+							if (arrival)
+								arrival_times[bit] = arrival;
+						}
+					}
+
 				}
 
 				if (inst_module->attributes.count("\\abc9_flop"))
@@ -291,34 +304,11 @@ struct XAigerWriter
 							SigBit I = sigmap(b);
 							if (I != b)
 								alias_map[b] = I;
-							output_bits.insert(b);
-
-							if (!cell_known)
-								inout_bits.insert(b);
+							if (holes_mode)
+								output_bits.insert(b);
+							else
+								external_bits.insert(b);
 						}
-					}
-				}
-				if (is_output) {
-					int arrival = 0;
-					if (port_wire) {
-						auto it = port_wire->attributes.find("\\abc9_arrival");
-						if (it != port_wire->attributes.end()) {
-							if (it->second.flags != 0)
-								log_error("Attribute 'abc9_arrival' on port '%s' of module '%s' is not an integer.\n", log_id(port_wire), log_id(cell->type));
-							arrival = it->second.as_int();
-						}
-					}
-
-					for (auto b : c.second) {
-						Wire *w = b.wire;
-						if (!w) continue;
-						SigBit O = sigmap(b);
-						if (O != b)
-							alias_map[O] = b;
-						input_bits.insert(b);
-
-						if (arrival)
-							arrival_times[b] = arrival;
 					}
 				}
 			}
@@ -471,7 +461,7 @@ struct XAigerWriter
 							SigBit O = sigmap(b);
 							if (O != b)
 								alias_map[O] = b;
-							input_bits.erase(b);
+							input_bits.erase(O);
 							undriven_bits.erase(O);
 						}
 					}
@@ -541,37 +531,6 @@ struct XAigerWriter
 				input_bits.insert(bit);
 				undriven_bits.erase(bit);
 			}
-
-		// For inout ports, or keep-ed wires, that end up as both a PI and a
-		// PO, then create a new PO with an $inout.out suffix that is driven
-		// by the existing inout, and inherit its drivers
-		for (auto bit : inout_bits) {
-			if (!input_bits.count(bit))
-				continue;
-			RTLIL::Wire *wire = bit.wire;
-			RTLIL::IdString wire_name = stringf("$%s$inout.out", wire->name.c_str());
-			RTLIL::Wire *new_wire = module->wire(wire_name);
-			if (!new_wire)
-				new_wire = module->addWire(wire_name, GetSize(wire));
-			SigBit new_bit(new_wire, bit.offset);
-			module->connect(new_bit, bit);
-			if (not_map.count(bit)) {
-				auto a = not_map.at(bit);
-				not_map[new_bit] = a;
-			}
-			else if (and_map.count(bit)) {
-				auto a = and_map.at(bit);
-				and_map[new_bit] = a;
-			}
-			else if (alias_map.count(bit)) {
-				auto a = alias_map.at(bit);
-				alias_map[new_bit] = a;
-			}
-			else
-				alias_map[new_bit] = bit;
-			output_bits.erase(bit);
-			output_bits.insert(new_bit);
-		}
 
 		if (holes_mode) {
 			struct sort_by_port_id {
