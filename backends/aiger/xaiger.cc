@@ -191,7 +191,7 @@ struct XAigerWriter
 				}
 
 				if (wire->port_input && wire->port_output)
-					inout_bits.insert(bit);
+					inout_bits.insert(wirebit);
 			}
 
 		// TODO: Speed up toposort -- ultimately we care about
