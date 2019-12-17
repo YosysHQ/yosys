@@ -471,7 +471,7 @@ struct XAigerWriter
 							SigBit O = sigmap(b);
 							if (O != b)
 								alias_map[O] = b;
-							input_bits.erase(b);
+							input_bits.erase(O);
 							undriven_bits.erase(O);
 						}
 					}
