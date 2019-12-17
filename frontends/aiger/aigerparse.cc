@@ -379,8 +379,8 @@ void AigerReader::parse_xaiger(const dict<int,IdString> &box_lookup)
 	int c = f.get();
 	if (c != 'c')
 		log_error("Line %u: cannot interpret first character '%c'!\n", line_count, c);
-	c = f.get();
-	log_assert(c == '\n');
+	if (f.peek() == '\n')
+		f.get();
 
 	// Parse footer (symbol table, comments, etc.)
 	std::string s;
