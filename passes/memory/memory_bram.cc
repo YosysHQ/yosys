@@ -330,7 +330,7 @@ struct rules_t
 
 			if (GetSize(tokens) >= 2 && tokens[0] == "attribute") {
 				data.attributes.emplace_back();
-				for (int idx = 1; idx <= GetSize(tokens)-1; idx++) {
+				for (int idx = 1; idx < GetSize(tokens); idx++) {
 					size_t c1 = tokens[idx][0] == '!' ? 1 : 0;
 					size_t c2 = tokens[idx].find("=");
 					bool exists = (c1 == 0);
@@ -854,12 +854,10 @@ grow_read_ports:;
 				if (!exists)
 					ss << "!";
 				IdString key = std::get<1>(sums.front());
-				ss << key.str();
+				ss << log_id(key);
 				const Const &value = std::get<2>(sums.front());
-				if (exists)
-					ss << "=";
-				if (value != Const(1))
-					ss << "\"" << value.decode_string() << "\"";
+				if (exists && value != Const(1))
+					ss << "=\"" << value.decode_string() << "\"";
 
 				log("    Rule for bram type %s rejected: requirement 'attribute %s ...' not met.\n",
 						log_id(match.name), ss.str().c_str());
@@ -1180,12 +1178,10 @@ void handle_cell(Cell *cell, const rules_t &rules)
 					if (!exists)
 						ss << "!";
 					IdString key = std::get<1>(sums.front());
-					ss << key.str();
+					ss << log_id(key);
 					const Const &value = std::get<2>(sums.front());
-					if (exists)
-						ss << "=";
-					if (value != Const(1))
-						ss << "\"" << value.decode_string() << "\"";
+					if (exists && value != Const(1))
+						ss << "=\"" << value.decode_string() << "\"";
 
 					log("    Rule for bram type %s (variant %d) rejected: requirement 'attribute %s ...' not met.\n",
 							log_id(bram.name), bram.variant, ss.str().c_str());
