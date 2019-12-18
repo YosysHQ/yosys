@@ -40,6 +40,8 @@ proc
 equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd mux16 # Constrain all select calls below inside the top module
-select -assert-count 5 t:LUT6
+select -assert-min 5 t:LUT6
+select -assert-max 7 t:LUT6
+select -assert-max 2 t:MUXF7
 
-select -assert-none t:LUT6 %% t:* %D
+select -assert-none t:LUT6 t:MUXF7 %% t:* %D
