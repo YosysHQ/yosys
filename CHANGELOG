@@ -56,6 +56,7 @@ Yosys 0.9 .. Yosys 0.9-dev
     - Added checking of SystemVerilog always block types (always_comb,
       always_latch and always_ff)
     - Added "xilinx_dffopt" pass
+    - Added "scratchpad" pass
 
 Yosys 0.8 .. Yosys 0.9
 ----------------------
