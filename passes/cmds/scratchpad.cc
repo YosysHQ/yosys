@@ -122,9 +122,9 @@ struct ScratchpadPass : public Pass {
 					log_error("Assertion failed: scratchpad entry '%s' is defined\n", identifier.c_str());
 				continue;
 			}
-			log("Unrecognized argument: %s\n", args[argidx].c_str());
 			break;
 		}
+		extra_args(args, argidx, design, false);
 	}
 } ScratchpadPass;
 PRIVATE_NAMESPACE_END
