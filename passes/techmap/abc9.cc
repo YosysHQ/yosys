@@ -1082,18 +1082,18 @@ struct Abc9Pass : public Pass {
 			assign_map.set(module);
 
 			std::vector<RTLIL::Cell*> all_cells = module->selected_cells();
-			std::set<RTLIL::Cell*> unassigned_cells(all_cells.begin(), all_cells.end());
+			pool<RTLIL::Cell*> unassigned_cells(all_cells.begin(), all_cells.end());
 
-			std::set<RTLIL::Cell*> expand_queue, next_expand_queue;
-			std::set<RTLIL::Cell*> expand_queue_up, next_expand_queue_up;
-			std::set<RTLIL::Cell*> expand_queue_down, next_expand_queue_down;
+			pool<RTLIL::Cell*> expand_queue, next_expand_queue;
+			pool<RTLIL::Cell*> expand_queue_up, next_expand_queue_up;
+			pool<RTLIL::Cell*> expand_queue_down, next_expand_queue_down;
 
 			typedef std::pair<SigSpec, IdString> clkdomain_t;
 			std::map<clkdomain_t, pool<RTLIL::IdString>> assigned_cells;
 			std::map<RTLIL::Cell*, clkdomain_t> assigned_cells_reverse;
 
-			std::map<RTLIL::Cell*, std::set<RTLIL::SigBit>> cell_to_bit, cell_to_bit_up, cell_to_bit_down;
-			std::map<RTLIL::SigBit, std::set<RTLIL::Cell*>> bit_to_cell, bit_to_cell_up, bit_to_cell_down;
+			std::map<RTLIL::Cell*, pool<RTLIL::SigBit>> cell_to_bit, cell_to_bit_up, cell_to_bit_down;
+			std::map<RTLIL::SigBit, pool<RTLIL::Cell*>> bit_to_cell, bit_to_cell_up, bit_to_cell_down;
 
 			for (auto cell : all_cells)
 				for (auto &conn : cell->connections())
