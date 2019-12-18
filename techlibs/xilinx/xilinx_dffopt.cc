@@ -92,7 +92,8 @@ struct XilinxDffOptPass : public Pass {
 		log("    xilinx_dffopt [options] [selection]\n");
 		log("\n");
 		log("Converts hardware clock enable and set/reset signals on FFs to emulation\n");
-		log("using LUTs, if doing so would improve area.\n");
+		log("using LUTs, if doing so would improve area.  Operates on post-techmap Xilinx\n");
+		log("cells (LUT*, FD*).\n");
 		log("\n");
 		log("    -lut4\n");
 		log("        Assume a LUT4-based device (instead of a LUT6-based device).\n");
