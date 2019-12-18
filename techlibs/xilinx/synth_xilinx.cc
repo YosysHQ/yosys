@@ -570,6 +570,7 @@ struct SynthXilinxPass : public ScriptPass
 			else
 				techmap_args += " -map " + ff_map_file;
 			run("techmap " + techmap_args);
+			run("xilinx_dffopt");
 			run("clean");
 		}
 

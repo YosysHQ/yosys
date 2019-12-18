@@ -44,6 +44,10 @@ struct EquivOptPass:public ScriptPass
 		log("        expand the modules in this file before proving equivalence. this is\n");
 		log("        useful for handling architecture-specific primitives.\n");
 		log("\n");
+		log("    -blacklist <file>\n");
+		log("        Do not match cells or signals that match the names in the file\n");
+		log("        (passed to equiv_make).\n");
+		log("\n");
 		log("    -assert\n");
 		log("        produce an error if the circuits are not equivalent.\n");
 		log("\n");
@@ -61,13 +65,14 @@ struct EquivOptPass:public ScriptPass
 		log("\n");
 	}
 
-	std::string command, techmap_opts;
+	std::string command, techmap_opts, make_opts;
 	bool assert, undef, multiclock, async2sync;
 
 	void clear_flags() YS_OVERRIDE
 	{
 		command = "";
 		techmap_opts = "";
+		make_opts = "";
 		assert = false;
 		undef = false;
 		multiclock = false;
@@ -91,6 +96,10 @@ struct EquivOptPass:public ScriptPass
 			}
 			if (args[argidx] == "-map" && argidx + 1 < args.size()) {
 				techmap_opts += " -map " + args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-blacklist" && argidx + 1 < args.size()) {
+				make_opts += " -blacklist " + args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-assert") {
@@ -170,7 +179,12 @@ struct EquivOptPass:public ScriptPass
 				run("clk2fflogic", "(only with -multiclock)");
 			if (async2sync || help_mode)
 				run("async2sync", " (only with -async2sync)");
-			run("equiv_make gold gate equiv");
+			string opts;
+			if (help_mode)
+				opts = " -blacklist <filename> ...";
+			else
+				opts = make_opts;
+			run("equiv_make" + opts + " gold gate equiv");
 			if (help_mode)
 				run("equiv_induct [-undef] equiv");
 			else if (undef)
