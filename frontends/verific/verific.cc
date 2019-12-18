@@ -2065,7 +2065,12 @@ struct VerificPass : public Pass {
 		log("  -d <dump_file>\n");
 		log("    Dump the Verific netlist as a verilog file.\n");
 		log("\n");
-		log("Visit http://verific.com/ for more information on Verific.\n");
+		log("\n");
+		log("Use Symbiotic EDA Suite if you need Yosys+Verifc.\n");
+		log("https://www.symbioticeda.com/seda-suite\n");
+		log("\n");
+		log("Contact office@symbioticeda.com for free evaluation\n");
+		log("binaries of Symbiotic EDA Suite.\n");
 		log("\n");
 	}
 #ifdef YOSYS_ENABLE_VERIFIC
@@ -2074,7 +2079,13 @@ struct VerificPass : public Pass {
 		static bool set_verific_global_flags = true;
 
 		if (check_noverific_env())
-			log_cmd_error("This version of Yosys is built without Verific support.\n");
+			log_cmd_error("This version of Yosys is built without Verific support.\n"
+					"\n"
+					"Use Symbiotic EDA Suite if you need Yosys+Verifc.\n"
+					"https://www.symbioticeda.com/seda-suite\n"
+					"\n"
+					"Contact office@symbioticeda.com for free evaluation\n"
+					"binaries of Symbiotic EDA Suite.\n");
 
 		log_header(design, "Executing VERIFIC (loading SystemVerilog and VHDL designs using Verific).\n");
 
@@ -2493,7 +2504,13 @@ struct VerificPass : public Pass {
 	}
 #else /* YOSYS_ENABLE_VERIFIC */
 	void execute(std::vector<std::string>, RTLIL::Design *) YS_OVERRIDE {
-		log_cmd_error("This version of Yosys is built without Verific support.\n");
+		log_cmd_error("This version of Yosys is built without Verific support.\n"
+				"\n"
+				"Use Symbiotic EDA Suite if you need Yosys+Verifc.\n"
+				"https://www.symbioticeda.com/seda-suite\n"
+				"\n"
+				"Contact office@symbioticeda.com for free evaluation\n"
+				"binaries of Symbiotic EDA Suite.\n");
 	}
 #endif
 } VerificPass;
