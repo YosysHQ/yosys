@@ -66,7 +66,7 @@ CELLS = [
     # CLB -- registers/latches.
     # Virtex 1/2/4/5, Spartan 3.
     Cell('FDCPE', port_attrs={'C': ['clkbuf_sink']}),
-    Cell('FDRSE', port_attrs={'C': ['clkbuf_sink']}),
+    # Cell('FDRSE', port_attrs={'C': ['clkbuf_sink']}),
     Cell('LDCPE', port_attrs={'C': ['clkbuf_sink']}),
     # Virtex 6, Spartan 6, Series 7, Ultrascale.
     # Cell('FDCE'),

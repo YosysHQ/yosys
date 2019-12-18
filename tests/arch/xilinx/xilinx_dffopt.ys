@@ -1,0 +1,216 @@
+read_verilog << EOT
+
+// FDRE, mergeable CE and R.
+
+module t0 (...);
+input wire clk;
+input wire [7:0] i;
+output wire [7:0] o;
+
+wire [7:0] tmp ;
+
+LUT2 #(.INIT(4'h6)) lut0 (.I0(i[0]), .I1(i[1]), .O(tmp[0]));
+LUT2 #(.INIT(4'h6)) lut1 (.I0(i[1]), .I1(i[2]), .O(tmp[1]));
+LUT2 #(.INIT(4'h6)) lut2 (.I0(i[3]), .I1(i[4]), .O(tmp[2]));
+
+FDRE ff (.D(tmp[0]), .CE(tmp[1]), .R(tmp[2]), .Q(o[0]));
+
+endmodule
+
+EOT
+
+design -save t0
+
+equiv_opt -blacklist xilinx_dffopt_blacklist.txt -assert -map +/xilinx/cells_sim.v xilinx_dffopt
+design -load postopt
+clean
+
+select -assert-count 1 t:FDRE
+select -assert-count 1 t:LUT6
+select -assert-count 3 t:LUT2
+select -assert-none t:FDRE t:LUT6 t:LUT2 %% t:* %D
+
+design -load t0
+
+equiv_opt -blacklist xilinx_dffopt_blacklist.txt -assert -map +/xilinx/cells_sim.v xilinx_dffopt -lut4
+design -load postopt
+clean
+
+select -assert-count 1 t:FDRE
+select -assert-count 1 t:LUT4
+select -assert-count 3 t:LUT2
+select -assert-none t:FDRE t:LUT4 t:LUT2 %% t:* %D
+
+design -reset
+
+
+read_verilog << EOT
+
+// FDSE, mergeable CE and S, inversions.
+
+module t0 (...);
+input wire clk;
+input wire [7:0] i;
+output wire [7:0] o;
+
+wire [7:0] tmp ;
+
+LUT2 #(.INIT(4'h6)) lut0 (.I0(i[0]), .I1(i[1]), .O(tmp[0]));
+LUT2 #(.INIT(4'h6)) lut1 (.I0(i[1]), .I1(i[2]), .O(tmp[1]));
+LUT2 #(.INIT(4'h6)) lut2 (.I0(i[3]), .I1(i[4]), .O(tmp[2]));
+
+FDSE #(.IS_D_INVERTED(1'b1), .IS_S_INVERTED(1'b1)) ff (.D(tmp[0]), .CE(tmp[1]), .S(tmp[2]), .Q(o[0]));
+
+endmodule
+
+EOT
+
+design -save t0
+
+equiv_opt -blacklist xilinx_dffopt_blacklist.txt -assert -map +/xilinx/cells_sim.v xilinx_dffopt
+design -load postopt
+clean
+
+select -assert-count 1 t:FDSE
+select -assert-count 1 t:LUT6
+select -assert-count 3 t:LUT2
+select -assert-none t:FDSE t:LUT6 t:LUT2 %% t:* %D
+
+design -load t0
+
+equiv_opt -blacklist xilinx_dffopt_blacklist.txt -assert -map +/xilinx/cells_sim.v xilinx_dffopt -lut4
+design -load postopt
+clean
+
+select -assert-count 1 t:FDSE
+select -assert-count 1 t:LUT4
+select -assert-count 3 t:LUT2
+select -assert-none t:FDSE t:LUT4 t:LUT2 %% t:* %D
+
+design -reset
+
+
+read_verilog << EOT
+
+// FDCE, mergeable CE.
+
+module t0 (...);
+input wire clk;
+input wire [7:0] i;
+output wire [7:0] o;
+
+wire [7:0] tmp ;
+
+LUT2 #(.INIT(4'h6)) lut0 (.I0(i[0]), .I1(i[1]), .O(tmp[0]));
+LUT2 #(.INIT(4'h6)) lut1 (.I0(i[1]), .I1(i[2]), .O(tmp[1]));
+LUT2 #(.INIT(4'h6)) lut2 (.I0(i[3]), .I1(i[4]), .O(tmp[2]));
+
+FDCE ff (.D(tmp[0]), .CE(tmp[1]), .CLR(tmp[2]), .Q(o[0]));
+
+endmodule
+
+EOT
+
+design -save t0
+
+equiv_opt -async2sync -blacklist xilinx_dffopt_blacklist.txt -assert -map +/xilinx/cells_sim.v xilinx_dffopt
+design -load postopt
+clean
+
+select -assert-count 1 t:FDCE
+select -assert-count 1 t:LUT4
+select -assert-count 3 t:LUT2
+select -assert-none t:FDCE t:LUT4 t:LUT2 %% t:* %D
+
+design -reset
+
+
+read_verilog << EOT
+
+// FDSE, mergeable CE and S, but CE only not worth it.
+
+module t0 (...);
+input wire clk;
+input wire [7:0] i;
+output wire [7:0] o;
+
+wire [7:0] tmp ;
+
+LUT2 #(.INIT(4'h6)) lut0 (.I0(i[0]), .I1(i[1]), .O(tmp[0]));
+LUT2 #(.INIT(4'h6)) lut1 (.I0(i[1]), .I1(i[2]), .O(tmp[1]));
+
+FDSE ff (.D(tmp[0]), .CE(i[7]), .S(tmp[1]), .Q(o[0]));
+
+endmodule
+
+EOT
+
+design -save t0
+
+equiv_opt -blacklist xilinx_dffopt_blacklist.txt -assert -map +/xilinx/cells_sim.v xilinx_dffopt
+design -load postopt
+clean
+
+select -assert-count 1 t:FDSE
+select -assert-count 1 t:LUT5
+select -assert-count 2 t:LUT2
+select -assert-none t:FDSE t:LUT5 t:LUT2 %% t:* %D
+
+design -load t0
+
+equiv_opt -blacklist xilinx_dffopt_blacklist.txt -assert -map +/xilinx/cells_sim.v xilinx_dffopt -lut4
+design -load postopt
+clean
+
+select -assert-count 1 t:FDSE
+select -assert-count 2 t:LUT2
+select -assert-none t:FDSE t:LUT2 %% t:* %D
+
+design -reset
+
+
+read_verilog << EOT
+
+// FDRSE, mergeable CE, S, R.
+
+module t0 (...);
+input wire clk;
+input wire [7:0] i;
+output wire [7:0] o;
+
+wire [7:0] tmp ;
+
+LUT2 #(.INIT(4'h6)) lut0 (.I0(i[0]), .I1(i[1]), .O(tmp[0]));
+LUT2 #(.INIT(4'h6)) lut1 (.I0(i[1]), .I1(i[2]), .O(tmp[1]));
+LUT2 #(.INIT(4'h8)) lut2 (.I0(i[2]), .I1(i[0]), .O(tmp[2]));
+LUT2 #(.INIT(4'h6)) lut3 (.I0(i[3]), .I1(i[4]), .O(tmp[3]));
+
+FDRSE ff (.D(tmp[0]), .CE(tmp[1]), .S(tmp[2]), .R(tmp[3]), .Q(o[0]));
+
+endmodule
+
+EOT
+
+design -save t0
+
+equiv_opt -blacklist xilinx_dffopt_blacklist.txt -assert -map +/xilinx/cells_sim.v xilinx_dffopt
+design -load postopt
+clean
+
+select -assert-count 1 t:FDRSE
+select -assert-count 1 t:LUT6
+select -assert-count 4 t:LUT2
+select -assert-none t:FDRSE t:LUT6 t:LUT2 %% t:* %D
+
+design -load t0
+
+equiv_opt -blacklist xilinx_dffopt_blacklist.txt -assert -map +/xilinx/cells_sim.v xilinx_dffopt -lut4
+design -load postopt
+clean
+
+select -assert-count 1 t:FDRSE
+select -assert-count 1 t:LUT4
+select -assert-count 4 t:LUT2
+select -assert-none t:FDRSE t:LUT4 t:LUT2 %% t:* %D
+
+design -reset
