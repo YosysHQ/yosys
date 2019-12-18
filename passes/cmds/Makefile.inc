@@ -32,3 +32,4 @@ OBJS += passes/cmds/chtype.o
 OBJS += passes/cmds/blackbox.o
 OBJS += passes/cmds/ltp.o
 OBJS += passes/cmds/bugpoint.o
+OBJS += passes/cmds/scratchpad.o
