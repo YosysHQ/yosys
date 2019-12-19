@@ -88,6 +88,84 @@ module RAM128X1D (
   \$__ABC9_LUT7 dpo (.A(\$DPO ), .S(DPRA), .Y(DPO));
 endmodule
 
+module RAM32M (
+  output [1:0] DOA,
+  output [1:0] DOB,
+  output [1:0] DOC,
+  output [1:0] DOD,
+  (* techmap_autopurge *) input [4:0] ADDRA,
+  (* techmap_autopurge *) input [4:0] ADDRB,
+  (* techmap_autopurge *) input [4:0] ADDRC,
+  (* techmap_autopurge *) input [4:0] ADDRD,
+  (* techmap_autopurge *) input [1:0] DIA,
+  (* techmap_autopurge *) input [1:0] DIB,
+  (* techmap_autopurge *) input [1:0] DIC,
+  (* techmap_autopurge *) input [1:0] DID,
+  (* techmap_autopurge *) input WCLK,
+  (* techmap_autopurge *) input WE
+);
+  parameter [63:0] INIT_A = 64'h0000000000000000;
+  parameter [63:0] INIT_B = 64'h0000000000000000;
+  parameter [63:0] INIT_C = 64'h0000000000000000;
+  parameter [63:0] INIT_D = 64'h0000000000000000;
+  parameter [0:0] IS_WCLK_INVERTED = 1'b0;
+  wire [1:0] \$DOA , \$DOB , \$DOC , \$DOD ;
+  RAM32M #(
+    .INIT_A(INIT_A), .INIT_B(INIT_B), .INIT_C(INIT_C), .INIT_D(INIT_D),
+    .IS_WCLK_INVERTED(IS_WCLK_INVERTED)
+  ) _TECHMAP_REPLACE_ (
+    .DOA(\$DOA ), .DOB(\$DOB ), .DOC(\$DOC ), .DOD(\$DOD ),
+    .WCLK(WCLK), .WE(WE),
+    .ADDRA(ADDRA), .ADDRB(ADDRB), .ADDRC(ADDRC), .ADDRD(ADDRD),
+    .DIA(DIA), .DIB(DIB), .DIC(DIC), .DID(DID)
+  );
+  \$__ABC9_LUT6 doa0 (.A(\$DOA [0]), .S({1'b1, ADDRA}), .Y(DOA[0]));
+  \$__ABC9_LUT6 doa1 (.A(\$DOA [1]), .S({1'b1, ADDRA}), .Y(DOA[1]));
+  \$__ABC9_LUT6 dob0 (.A(\$DOB [0]), .S({1'b1, ADDRB}), .Y(DOB[0]));
+  \$__ABC9_LUT6 dob1 (.A(\$DOB [1]), .S({1'b1, ADDRB}), .Y(DOB[1]));
+  \$__ABC9_LUT6 doc0 (.A(\$DOC [0]), .S({1'b1, ADDRC}), .Y(DOC[0]));
+  \$__ABC9_LUT6 doc1 (.A(\$DOC [1]), .S({1'b1, ADDRC}), .Y(DOC[1]));
+  \$__ABC9_LUT6 dod0 (.A(\$DOD [0]), .S({1'b1, ADDRD}), .Y(DOD[0]));
+  \$__ABC9_LUT6 dod1 (.A(\$DOD [1]), .S({1'b1, ADDRD}), .Y(DOD[1]));
+endmodule
+
+module RAM64M (
+  output DOA,
+  output DOB,
+  output DOC,
+  output DOD,
+  (* techmap_autopurge *) input [5:0] ADDRA,
+  (* techmap_autopurge *) input [5:0] ADDRB,
+  (* techmap_autopurge *) input [5:0] ADDRC,
+  (* techmap_autopurge *) input [5:0] ADDRD,
+  (* techmap_autopurge *) input DIA,
+  (* techmap_autopurge *) input DIB,
+  (* techmap_autopurge *) input DIC,
+  (* techmap_autopurge *) input DID,
+  (* techmap_autopurge *) input WCLK,
+  (* techmap_autopurge *) input WE
+);
+  parameter [63:0] INIT_A = 64'h0000000000000000;
+  parameter [63:0] INIT_B = 64'h0000000000000000;
+  parameter [63:0] INIT_C = 64'h0000000000000000;
+  parameter [63:0] INIT_D = 64'h0000000000000000;
+  parameter [0:0] IS_WCLK_INVERTED = 1'b0;
+  wire \$DOA , \$DOB , \$DOC , \$DOD ;
+  RAM64M #(
+    .INIT_A(INIT_A), .INIT_B(INIT_B), .INIT_C(INIT_C), .INIT_D(INIT_D),
+    .IS_WCLK_INVERTED(IS_WCLK_INVERTED)
+  ) _TECHMAP_REPLACE_ (
+    .DOA(\$DOA ), .DOB(\$DOB ), .DOC(\$DOC ), .DOD(\$DOD ),
+    .WCLK(WCLK), .WE(WE),
+    .ADDRA(ADDRA), .ADDRB(ADDRB), .ADDRC(ADDRC), .ADDRD(ADDRD),
+    .DIA(DIA), .DIB(DIB), .DIC(DIC), .DID(DID)
+  );
+  \$__ABC9_LUT6 doa (.A(\$DOA ), .S(ADDRA), .Y(DOA));
+  \$__ABC9_LUT6 dob (.A(\$DOB ), .S(ADDRB), .Y(DOB));
+  \$__ABC9_LUT6 doc (.A(\$DOC ), .S(ADDRC), .Y(DOC));
+  \$__ABC9_LUT6 dod (.A(\$DOD ), .S(ADDRD), .Y(DOD));
+endmodule
+
 module SRL16E (
   output Q,
   (* techmap_autopurge *) input A0, A1, A2, A3, CE, CLK, D
