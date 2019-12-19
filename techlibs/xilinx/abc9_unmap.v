@@ -20,7 +20,8 @@
 
 // ============================================================================
 
-module \$__ABC9_ASYNC (input A, S, output Y);
+(* techmap_celltype = "$__ABC9_ASYNC0 $__ABC9_ASYNC1" *)
+module \$__ABC9_ASYNC01 (input A, S, output Y);
   assign Y = A;
 endmodule
 

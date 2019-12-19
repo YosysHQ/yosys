@@ -161,8 +161,10 @@ module FDCE (output Q, input C, CE, D, CLR);
                                             //     control is not directly
                                             //     supported by abc9 but its
                                             //     behaviour is captured by
-                                            //     $__ABC9_ASYNC below
+                                            //     $__ABC9_ASYNC1 below
     );
+    // Since this is an async flop, async behaviour is dealt with here
+    \$__ABC9_ASYNC0 abc_async (.A($abc9_currQ), .S(CLR ^ IS_CLR_INVERTED), .Y(QQ));
   end
   else begin
     assign Q = QQ;
@@ -177,13 +179,12 @@ module FDCE (output Q, input C, CE, D, CLR);
                                            //     control is not directly
                                            //     supported by abc9 but its
                                            //     behaviour is captured by
-                                           //     $__ABC9_ASYNC below
+                                           //     $__ABC9_ASYNC0 below
     );
+    // Since this is an async flop, async behaviour is dealt with here
+    \$__ABC9_ASYNC1 abc_async (.A($abc9_currQ), .S(CLR ^ IS_CLR_INVERTED), .Y(QQ));
   end endgenerate
   \$__ABC9_FF_ abc_dff (.D($nextQ), .Q($abc9_currQ));
-  // Since this is an async flop, async behaviour is also dealt with
-  //   using the $_ABC9_ASYNC box by abc9_map.v
-  \$__ABC9_ASYNC abc_async (.A($abc9_currQ), .S(CLR ^ IS_CLR_INVERTED), .Y(QQ));
 
   // Special signals
   wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, IS_C_INVERTED};
@@ -203,8 +204,9 @@ module FDCE_1 (output Q, input C, CE, D, CLR);
                                             //     control is not directly
                                             //     supported by abc9 but its
                                             //     behaviour is captured by
-                                            //     $__ABC9_ASYNC below
+                                            //     $__ABC9_ASYNC1 below
     );
+    \$__ABC9_ASYNC1 abc_async (.A($abc9_currQ), .S(CLR), .Y(QQ));
   end
   else begin
     assign Q = QQ;
@@ -216,11 +218,11 @@ module FDCE_1 (output Q, input C, CE, D, CLR);
                                            //     control is not directly
                                            //     supported by abc9 but its
                                            //     behaviour is captured by
-                                           //     $__ABC9_ASYNC below
+                                           //     $__ABC9_ASYNC0 below
     );
+    \$__ABC9_ASYNC0 abc_async (.A($abc9_currQ), .S(CLR), .Y(QQ));
   end endgenerate
   \$__ABC9_FF_ abc_dff (.D($nextQ), .Q($abc9_currQ));
-  \$__ABC9_ASYNC abc_async (.A($abc9_currQ), .S(CLR), .Y(QQ));
 
   // Special signals
   wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, 1'b1 /* IS_C_INVERTED */};
@@ -247,8 +249,9 @@ module FDPE (output Q, input C, CE, D, PRE);
                                             //     control is not directly
                                             //     supported by abc9 but its
                                             //     behaviour is captured by
-                                            //     $__ABC9_ASYNC below
+                                            //     $__ABC9_ASYNC0 below
     );
+    \$__ABC9_ASYNC0 abc_async (.A($abc9_currQ), .S(PRE ^ IS_PRE_INVERTED), .Y(QQ));
   end
   else begin
     assign Q = QQ;
@@ -263,11 +266,11 @@ module FDPE (output Q, input C, CE, D, PRE);
                                            //     control is not directly
                                            //     supported by abc9 but its
                                            //     behaviour is captured by
-                                           //     $__ABC9_ASYNC below
+                                           //     $__ABC9_ASYNC1 below
     );
+    \$__ABC9_ASYNC1 abc_async (.A($abc9_currQ), .S(PRE ^ IS_PRE_INVERTED), .Y(QQ));
   end endgenerate
   \$__ABC9_FF_ abc_dff (.D($nextQ), .Q($abc9_currQ));
-  \$__ABC9_ASYNC abc_async (.A($abc9_currQ), .S(PRE ^ IS_PRE_INVERTED), .Y(QQ));
 
   // Special signals
   wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, IS_C_INVERTED};
@@ -287,8 +290,9 @@ module FDPE_1 (output Q, input C, CE, D, PRE);
                                             //     control is not directly
                                             //     supported by abc9 but its
                                             //     behaviour is captured by
-                                            //     $__ABC9_ASYNC below
+                                            //     $__ABC9_ASYNC0 below
     );
+    \$__ABC9_ASYNC0 abc_async (.A($abc9_currQ), .S(PRE), .Y(QQ));
   end
   else begin
     assign Q = QQ;
@@ -300,11 +304,11 @@ module FDPE_1 (output Q, input C, CE, D, PRE);
                                            //     control is not directly
                                            //     supported by abc9 but its
                                            //     behaviour is captured by
-                                           //     $__ABC9_ASYNC below
+                                           //     $__ABC9_ASYNC1 below
     );
+    \$__ABC9_ASYNC1 abc_async (.A($abc9_currQ), .S(PRE), .Y(QQ));
   end endgenerate
   \$__ABC9_FF_ abc_dff (.D($nextQ), .Q($abc9_currQ));
-  \$__ABC9_ASYNC abc_async (.A($abc9_currQ), .S(PRE), .Y(QQ));
 
   // Special signals
   wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, 1'b1 /* IS_C_INVERTED */};

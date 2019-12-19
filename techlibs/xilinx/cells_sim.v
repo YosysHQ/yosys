@@ -283,7 +283,7 @@ endmodule
 
 // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf#L238-L250
 
-(* abc9_box_id=1001, lib_whitebox, abc9_flop *)
+(* abc9_box_id=1100, lib_whitebox, abc9_flop *)
 module FDRE (
   (* abc9_arrival=303 *)
   output reg Q,
@@ -307,7 +307,7 @@ module FDRE (
   endcase endgenerate
 endmodule
 
-(* abc9_box_id=1002, lib_whitebox, abc9_flop *)
+(* abc9_box_id=1101, lib_whitebox, abc9_flop *)
 module FDRE_1 (
   (* abc9_arrival=303 *)
   output reg Q,
@@ -355,7 +355,7 @@ module FDRSE (
       Q <= d;
 endmodule
 
-(* abc9_box_id=1003, lib_whitebox, abc9_flop *)
+(* abc9_box_id=1102, lib_whitebox, abc9_flop *)
 module FDCE (
   (* abc9_arrival=303 *)
   output reg Q,
@@ -381,7 +381,7 @@ module FDCE (
   endcase endgenerate
 endmodule
 
-(* abc9_box_id=1004, lib_whitebox, abc9_flop *)
+(* abc9_box_id=1103, lib_whitebox, abc9_flop *)
 module FDCE_1 (
   (* abc9_arrival=303 *)
   output reg Q,
@@ -394,7 +394,7 @@ module FDCE_1 (
   always @(negedge C, posedge CLR) if (CLR) Q <= 1'b0; else if (CE) Q <= D;
 endmodule
 
-(* abc9_box_id=1005, lib_whitebox, abc9_flop *)
+(* abc9_box_id=1104, lib_whitebox, abc9_flop *)
 module FDPE (
   (* abc9_arrival=303 *)
   output reg Q,
@@ -420,7 +420,7 @@ module FDPE (
   endcase endgenerate
 endmodule
 
-(* abc9_box_id=1006, lib_whitebox, abc9_flop *)
+(* abc9_box_id=1105, lib_whitebox, abc9_flop *)
 module FDPE_1 (
   (* abc9_arrival=303 *)
   output reg Q,
@@ -433,7 +433,7 @@ module FDPE_1 (
   always @(negedge C, posedge PRE) if (PRE) Q <= 1'b1; else if (CE) Q <= D;
 endmodule
 
-(* abc9_box_id=1007, lib_whitebox, abc9_flop *)
+(* abc9_box_id=1106, lib_whitebox, abc9_flop *)
 module FDSE (
   (* abc9_arrival=303 *)
   output reg Q,
@@ -457,7 +457,7 @@ module FDSE (
   endcase endgenerate
 endmodule
 
-(* abc9_box_id=1008, lib_whitebox, abc9_flop *)
+(* abc9_box_id=1107, lib_whitebox, abc9_flop *)
 module FDSE_1 (
   (* abc9_arrival=303 *)
   output reg Q,

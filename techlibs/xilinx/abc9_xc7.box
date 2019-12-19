@@ -41,10 +41,16 @@ CARRY4 4 1 10 8
 592 540 520 356 -   512 548 292 -   228
 580 526 507 398 385 508 528 378 380 114
 
-# Box to emulate async behaviour of FD[CP]*
+# Box to emulate async behaviour of FDC*
 # Inputs: A S
 # Outputs: Y
-$__ABC9_ASYNC 1000 0 2 1
+$__ABC9_ASYNC0 1000 1 2 1
+0 764
+
+# Box to emulate async behaviour of FDP*
+# Inputs: A S
+# Outputs: Y
+$__ABC9_ASYNC1 1001 1 2 1
 0 764
 
 # The following FD*.{CE,R,CLR,PRE) are offset by 46ps to
@@ -54,42 +60,42 @@ $__ABC9_ASYNC 1000 0 2 1
 
 # Inputs: C CE D R \$currQ
 # Outputs: Q
-FDRE 1001 1 5 1
+FDRE 1100 1 5 1
 0 151 0 446 0
 
 # Inputs: C CE D R \$currQ
 # Outputs: Q
-FDRE_1 1002 1 5 1
+FDRE_1 1101 1 5 1
 0 151 0 446 0
 
 # Inputs: C CE CLR D \$currQ
 # Outputs: Q
-FDCE 1003 1 5 1
+FDCE 1102 1 5 1
 0 151 806 0 0
 
 # Inputs: C CE CLR D \$currQ
 # Outputs: Q
-FDCE_1 1004 1 5 1
+FDCE_1 1103 1 5 1
 0 151 806 0 0
 
 # Inputs: C CE D PRE \$currQ
 # Outputs: Q
-FDPE 1005 1 5 1
+FDPE 1104 1 5 1
 0 151 0 806 0
 
 # Inputs: C CE D PRE \$currQ
 # Outputs: Q
-FDPE_1 1006 1 5 1
+FDPE_1 1105 1 5 1
 0 151 0 806 0
 
 # Inputs: C CE D S \$currQ
 # Outputs: Q
-FDSE 1007 1 5 1
+FDSE 1106 1 5 1
 0 151 0 446 0
 
 # Inputs: C CE D S \$currQ
 # Outputs: Q
-FDSE_1 1008 1 5 1
+FDSE_1 1107 1 5 1
 0 151 0 446 0
 
 # SLICEM/A6LUT

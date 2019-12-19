@@ -1088,7 +1088,7 @@ struct Abc9Pass : public Pass {
 			pool<RTLIL::Cell*> expand_queue_up, next_expand_queue_up;
 			pool<RTLIL::Cell*> expand_queue_down, next_expand_queue_down;
 
-			typedef std::pair<SigSpec, IdString> clkdomain_t;
+			typedef SigSpec clkdomain_t;
 			std::map<clkdomain_t, pool<RTLIL::IdString>> assigned_cells;
 			std::map<RTLIL::Cell*, clkdomain_t> assigned_cells_reverse;
 
@@ -1123,7 +1123,7 @@ struct Abc9Pass : public Pass {
 
 				unassigned_cells.erase(cell);
 				expand_queue_up.insert(cell);
-				clkdomain_t key(abc9_clock, cell->type);
+				clkdomain_t key(abc9_clock);
 				assigned_cells[key].insert(cell->name);
 				assigned_cells_reverse[cell] = key;
 
@@ -1236,19 +1236,19 @@ struct Abc9Pass : public Pass {
 
 			log_header(design, "Summary of detected clock domains:\n");
 			for (auto &it : assigned_cells)
-				log("  %d cells in clk=%s cell=%s\n", GetSize(it.second), log_signal(it.first.first), log_id(it.first.second));
+				log("  %d cells in clk=%s\n", GetSize(it.second), log_signal(it.first));
 
 			design->selection_stack.emplace_back(false);
 			design->selected_active_module = module->name.str();
 			for (auto &it : assigned_cells) {
 				std::string target = delay_target;
 				if (target.empty()) {
-					for (auto b : assign_map(it.first.first))
+					for (auto b : assign_map(it.first))
 						if (b.wire) {
 							auto jt = b.wire->attributes.find("\\abc9_period");
 							if (jt != b.wire->attributes.end()) {
 								target = stringf("-D %d", jt->second.as_int());
-								log("Target period = %s ps for clock domain %s\n", target.c_str(), log_signal(it.first.first));
+								log("Target period = %s ps for clock domain %s\n", target.c_str(), log_signal(it.first));
 								break;
 							}
 						}
