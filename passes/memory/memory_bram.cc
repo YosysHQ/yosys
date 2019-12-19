@@ -134,6 +134,7 @@ struct rules_t
 		dict<string, int> min_limits, max_limits;
 		bool or_next_if_better, make_transp, make_outreg;
 		char shuffle_enable;
+		vector<vector<std::tuple<bool,IdString,Const>>> attributes;
 	};
 
 	dict<IdString, vector<bram_t>> brams;
@@ -324,6 +325,20 @@ struct rules_t
 
 			if (GetSize(tokens) == 1 && tokens[0] == "or_next_if_better") {
 				data.or_next_if_better = true;
+				continue;
+			}
+
+			if (GetSize(tokens) >= 2 && tokens[0] == "attribute") {
+				data.attributes.emplace_back();
+				for (int idx = 1; idx < GetSize(tokens); idx++) {
+					size_t c1 = tokens[idx][0] == '!' ? 1 : 0;
+					size_t c2 = tokens[idx].find("=");
+					bool exists = (c1 == 0);
+					IdString key = RTLIL::escape_id(tokens[idx].substr(c1, c2));
+					Const val = c2 != std::string::npos ? tokens[idx].substr(c2+1) : RTLIL::Const(1);
+
+					data.attributes.back().emplace_back(exists, key, val);
+				}
 				continue;
 			}
 
@@ -724,7 +739,7 @@ grow_read_ports:;
 					if (match.make_transp && wr_ports <= 1) {
 						pi.make_transp = true;
 						if (pi.clocks != 0) {
-							if (wr_ports == 1 && wr_clkdom != clkdom) {								
+							if (wr_ports == 1 && wr_clkdom != clkdom) {
 								log("        Bram port %c%d.%d cannot have soft transparency logic added as read and write clock domains differ.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
 								goto skip_bram_rport;
 							}
@@ -811,6 +826,43 @@ grow_read_ports:;
 			log("    Rule for bram type %s rejected: requirement 'max %s %d' not met.\n",
 					log_id(match.name), it.first.c_str(), it.second);
 			return false;
+		}
+
+		for (const auto &sums : match.attributes) {
+			bool found = false;
+			for (const auto &term : sums) {
+				bool exists = std::get<0>(term);
+				IdString key = std::get<1>(term);
+				const Const &value = std::get<2>(term);
+				auto it = cell->attributes.find(key);
+				if (it == cell->attributes.end()) {
+					if (exists)
+						continue;
+					found = true;
+					break;
+				}
+				else if (!exists)
+					continue;
+				if (it->second != value)
+					continue;
+				found = true;
+				break;
+			}
+			if (!found) {
+				std::stringstream ss;
+				bool exists = std::get<0>(sums.front());
+				if (!exists)
+					ss << "!";
+				IdString key = std::get<1>(sums.front());
+				ss << log_id(key);
+				const Const &value = std::get<2>(sums.front());
+				if (exists && value != Const(1))
+					ss << "=\"" << value.decode_string() << "\"";
+
+				log("    Rule for bram type %s rejected: requirement 'attribute %s ...' not met.\n",
+						log_id(match.name), ss.str().c_str());
+				return false;
+			}
 		}
 
 		if (mode == 1)
@@ -1100,6 +1152,43 @@ void handle_cell(Cell *cell, const rules_t &rules)
 				goto next_match_rule;
 			}
 
+			for (const auto &sums : match.attributes) {
+				bool found = false;
+				for (const auto &term : sums) {
+					bool exists = std::get<0>(term);
+					IdString key = std::get<1>(term);
+					const Const &value = std::get<2>(term);
+					auto it = cell->attributes.find(key);
+					if (it == cell->attributes.end()) {
+						if (exists)
+							continue;
+						found = true;
+						break;
+					}
+					else if (!exists)
+						continue;
+					if (it->second != value)
+						continue;
+					found = true;
+					break;
+				}
+				if (!found) {
+					std::stringstream ss;
+					bool exists = std::get<0>(sums.front());
+					if (!exists)
+						ss << "!";
+					IdString key = std::get<1>(sums.front());
+					ss << log_id(key);
+					const Const &value = std::get<2>(sums.front());
+					if (exists && value != Const(1))
+						ss << "=\"" << value.decode_string() << "\"";
+
+					log("    Rule for bram type %s (variant %d) rejected: requirement 'attribute %s ...' not met.\n",
+							log_id(bram.name), bram.variant, ss.str().c_str());
+					goto next_match_rule;
+				}
+			}
+
 			log("    Rule #%d for bram type %s (variant %d) accepted.\n", i+1, log_id(bram.name), bram.variant);
 
 			if (or_next_if_better || !best_rule_cache.empty())
@@ -1224,6 +1313,13 @@ struct MemoryBramPass : public Pass {
 		log("    acells  .......  number of cells in 'address-direction'\n");
 		log("    dcells  .......  number of cells in 'data-direction'\n");
 		log("    cells  ........  total number of cells (acells*dcells*dups)\n");
+		log("\n");
+		log("A match containing the command 'attribute' followed by a list of space\n");
+		log("separated 'name[=string_value]' values requires that the memory contains any\n");
+		log("one of the given attribute name and string values (where specified), or name\n");
+		log("and integer 1 value (if no string_value given, since Verilog will interpret\n");
+		log("'(* attr *)' as '(* attr=1 *)').\n");
+		log("A name prefixed with '!' indicates that the attribute must not exist.\n");
 		log("\n");
 		log("The interface for the created bram instances is derived from the bram\n");
 		log("description. Use 'techmap' to convert the created bram instances into\n");

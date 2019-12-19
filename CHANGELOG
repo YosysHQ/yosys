@@ -50,9 +50,13 @@ Yosys 0.9 .. Yosys 0.9-dev
     - "synth_ecp5" to now infer DSP blocks (-nodsp to disable, experimental)
     - "synth_ice40 -dsp" to infer DSP blocks
     - Added latch support to synth_xilinx
+    - Added support for flip-flops with synchronous reset to synth_xilinx
+    - Added support for flip-flops with reset and enable to synth_xilinx
     - Added "check -mapped"
     - Added checking of SystemVerilog always block types (always_comb,
       always_latch and always_ff)
+    - Added "xilinx_dffopt" pass
+    - Added "scratchpad" pass
 
 Yosys 0.8 .. Yosys 0.9
 ----------------------

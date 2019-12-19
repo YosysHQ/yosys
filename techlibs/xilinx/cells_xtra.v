@@ -17,27 +17,6 @@ module FDCPE (...);
     input PRE;
 endmodule
 
-module FDRSE (...);
-    parameter [0:0] INIT = 1'b0;
-    parameter [0:0] IS_C_INVERTED = 1'b0;
-    parameter [0:0] IS_CE_INVERTED = 1'b0;
-    parameter [0:0] IS_D_INVERTED = 1'b0;
-    parameter [0:0] IS_R_INVERTED = 1'b0;
-    parameter [0:0] IS_S_INVERTED = 1'b0;
-    output Q;
-    (* clkbuf_sink *)
-    (* invertible_pin = "IS_C_INVERTED" *)
-    input C;
-    (* invertible_pin = "IS_CE_INVERTED" *)
-    input CE;
-    (* invertible_pin = "IS_D_INVERTED" *)
-    input D;
-    (* invertible_pin = "IS_R_INVERTED" *)
-    input R;
-    (* invertible_pin = "IS_S_INVERTED" *)
-    input S;
-endmodule
-
 module LDCPE (...);
     parameter [0:0] INIT = 1'b0;
     parameter [0:0] IS_CLR_INVERTED = 1'b0;

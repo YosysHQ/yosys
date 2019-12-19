@@ -978,7 +978,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 		{
 			cover_list("opt.opt_expr.eqneq.cmpzero", "$eq", "$ne", cell->type.str());
 			log_debug("Replacing %s cell `%s' in module `%s' with %s.\n", log_id(cell->type), log_id(cell),
-					log_id(module), "$eq" ? "$logic_not" : "$reduce_bool");
+					log_id(module), cell->type == ID($eq) ? "$logic_not" : "$reduce_bool");
 			cell->type = cell->type == ID($eq) ? ID($logic_not) : ID($reduce_bool);
 			if (assign_map(cell->getPort(ID::A)).is_fully_zero()) {
 				cell->setPort(ID::A, cell->getPort(ID::B));
