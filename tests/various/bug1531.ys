@@ -1,0 +1,34 @@
+read_verilog <<EOT
+module top (y, clk, w);
+   output reg y = 1'b0;
+   input clk, w;
+   reg [1:0] i = 2'b00;
+   always @(posedge clk)
+     // If the constant below is set to 2'b00, the correct output is generated.
+     //       vvvv
+     for (i = 1'b0; i < 2'b01; i = i + 2'b01) 
+       y <= w || i[1:1];
+endmodule
+EOT
+
+synth
+design -stash gate
+
+read_verilog <<EOT
+module gold (y, clk, w);
+  input clk;
+  wire [1:0] i;
+  input w;
+  output y;
+  reg y = 1'h0;
+  always @(posedge clk)
+      y <= w;
+  assign i = 2'h0;
+endmodule
+EOT
+proc gold
+
+design -import gate -as gate
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -seq 10 -verify -prove-asserts -show-ports miter

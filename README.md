@@ -454,10 +454,10 @@ Verilog Attributes and non-standard features
   expressions over parameters and constant values are allowed). The intended
   use for this is synthesis-time DRC.
 
-- There is limited support for converting specify .. endspecify statements to
-  special ``$specify2``, ``$specify3``, and ``$specrule`` cells, for use in
-  blackboxes and whiteboxes. Use ``read_verilog -specify`` to enable this
-  functionality. (By default specify .. endspecify blocks are ignored.)
+- There is limited support for converting ``specify`` .. ``endspecify``
+  statements to special ``$specify2``, ``$specify3``, and ``$specrule`` cells,
+  for use in blackboxes and whiteboxes. Use ``read_verilog -specify`` to
+  enable this functionality. (By default these blocks are ignored.)
 
 
 Non-standard or SystemVerilog features for formal verification

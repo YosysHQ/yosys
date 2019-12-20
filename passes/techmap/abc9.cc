@@ -912,29 +912,28 @@ struct Abc9Pass : public Pass {
 			//}
 			if (arg == "-lut" && argidx+1 < args.size()) {
 				string arg = args[++argidx];
-				size_t pos = arg.find_first_of(':');
-				int lut_mode = 0, lut_mode2 = 0;
-				if (pos != string::npos) {
-					lut_mode = atoi(arg.substr(0, pos).c_str());
-					lut_mode2 = atoi(arg.substr(pos+1).c_str());
-				} else {
-					pos = arg.find_first_of('.');
+				if (arg.find_first_not_of("0123456789:") == std::string::npos) {
+					size_t pos = arg.find_first_of(':');
+					int lut_mode = 0, lut_mode2 = 0;
 					if (pos != string::npos) {
-						lut_file = arg;
-						rewrite_filename(lut_file);
-						if (!lut_file.empty() && !is_absolute_path(lut_file))
-							lut_file = std::string(pwd) + "/" + lut_file;
-					}
-					else {
+						lut_mode = atoi(arg.substr(0, pos).c_str());
+						lut_mode2 = atoi(arg.substr(pos+1).c_str());
+					} else {
 						lut_mode = atoi(arg.c_str());
 						lut_mode2 = lut_mode;
 					}
+					lut_costs.clear();
+					for (int i = 0; i < lut_mode; i++)
+						lut_costs.push_back(1);
+					for (int i = lut_mode; i < lut_mode2; i++)
+						lut_costs.push_back(2 << (i - lut_mode));
 				}
-				lut_costs.clear();
-				for (int i = 0; i < lut_mode; i++)
-					lut_costs.push_back(1);
-				for (int i = lut_mode; i < lut_mode2; i++)
-					lut_costs.push_back(2 << (i - lut_mode));
+				else {
+					lut_file = arg;
+					rewrite_filename(lut_file);
+					if (!lut_file.empty() && !is_absolute_path(lut_file) && lut_file[0] != '+')
+						lut_file = std::string(pwd) + "/" + lut_file;
+				}
 				continue;
 			}
 			if (arg == "-luts" && argidx+1 < args.size()) {
@@ -1003,7 +1002,7 @@ struct Abc9Pass : public Pass {
 		    box_file = "+/dummy.box";
 
 		rewrite_filename(box_file);
-		if (!box_file.empty() && !is_absolute_path(box_file))
+		if (!box_file.empty() && !is_absolute_path(box_file) && box_file[0] != '+')
 		    box_file = std::string(pwd) + "/" + box_file;
 
 		dict<int,IdString> box_lookup;

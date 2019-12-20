@@ -27,8 +27,31 @@ typedef std::pair<Const, std::vector<SigBit>> LutData;
 
 // Compute a LUT implementing (select ^ select_inv) ? alt_data : data.  Returns true if successful.
 bool merge_lut(LutData &result, const LutData &data, const LutData select, bool select_inv, SigBit alt_data, int max_lut_size) {
-	// First, gather input signals.
+	// First, gather input signals -- insert new signals at the beginning
+	// of the vector, so they don't disturb the likely-critical D LUT input
+	// timings.
 	result.second = data.second;
+	// D lut inputs initially start at 0.
+	int idx_data = 0;
+	// Now add the control input LUT inputs.
+	std::vector<int> idx_sel;
+	for (auto bit : select.second) {
+		int idx = -1;
+		for (int i = 0; i < GetSize(result.second); i++)
+			if (result.second[i] == bit)
+				idx = i;
+		if (idx == -1) {
+			idx = 0;
+			// Insert new signal at the beginning and bump all indices.
+			result.second.insert(result.second.begin(), bit);
+			idx_data++;
+			for (int &sidx : idx_sel)
+				sidx++;
+		}
+		idx_sel.push_back(idx);
+	}
+	// Insert the Q signal, if any, to the slowest input -- it will have
+	// no problem meeting timing.
 	int idx_alt = -1;
 	if (alt_data.wire) {
 		// Check if we already have it.
@@ -37,21 +60,12 @@ bool merge_lut(LutData &result, const LutData &data, const LutData select, bool 
 				idx_alt = i;
 		// If not, add it.
 		if (idx_alt == -1) {
-			idx_alt = GetSize(result.second);
-			result.second.push_back(alt_data);
+			idx_alt = 0;
+			result.second.insert(result.second.begin(), alt_data);
+			idx_data++;
+			for (int &sidx : idx_sel)
+				sidx++;
 		}
-	}
-	std::vector<int> idx_sel;
-	for (auto bit : select.second) {
-		int idx = -1;
-		for (int i = 0; i < GetSize(result.second); i++)
-			if (result.second[i] == bit)
-				idx = i;
-		if (idx == -1) {
-			idx = GetSize(result.second);
-			result.second.push_back(bit);
-		}
-		idx_sel.push_back(idx);
 	}
 
 	// If LUT would be too large, bail.
@@ -75,7 +89,7 @@ bool merge_lut(LutData &result, const LutData &data, const LutData select, bool 
 				new_bit = alt_data.data == State::S1;
 		} else {
 			// Use original LUT.
-			int lut_idx = i & ((1 << GetSize(data.second)) - 1);
+			int lut_idx = i >> idx_data & ((1 << GetSize(data.second)) - 1);
 			new_bit = data.first.bits[lut_idx] == State::S1;
 		}
 		result.first.bits[i] = new_bit ? State::S1 : State::S0;
