@@ -1244,18 +1244,11 @@ endmodule
 // Multi port.
 
 module RAM32M (
-  output [1:0] DOA,
-  output [1:0] DOB,
-  output [1:0] DOC,
-  output [1:0] DOD,
-  input [4:0] ADDRA,
-  input [4:0] ADDRB,
-  input [4:0] ADDRC,
-  input [4:0] ADDRD,
-  input [1:0] DIA,
-  input [1:0] DIB,
-  input [1:0] DIC,
-  input [1:0] DID,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
+  (* abc9_arrival=1153 *)
+  output [1:0] DOA, DOB, DOC, DOD,
+  input [4:0] ADDRA, ADDRB, ADDRC, ADDRD,
+  input [1:0] DIA, DIB, DIC, DID,
   (* clkbuf_sink *)
   (* invertible_pin = "IS_WCLK_INVERTED" *)
   input WCLK,
@@ -1354,18 +1347,11 @@ module RAM32M16 (
 endmodule
 
 module RAM64M (
-  output DOA,
-  output DOB,
-  output DOC,
-  output DOD,
-  input [5:0] ADDRA,
-  input [5:0] ADDRB,
-  input [5:0] ADDRC,
-  input [5:0] ADDRD,
-  input DIA,
-  input DIB,
-  input DIC,
-  input DID,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
+  (* abc9_arrival=1153 *)
+  output DOA, DOB, DOC, DOD,
+  input [5:0] ADDRA, ADDRB, ADDRC, ADDRD,
+  input DIA, DIB, DIC, DID,
   (* clkbuf_sink *)
   (* invertible_pin = "IS_WCLK_INVERTED" *)
   input WCLK,
