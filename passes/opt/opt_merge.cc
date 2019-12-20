@@ -222,8 +222,9 @@ struct OptMergeWorker
 			return true;
 		}
 
-		if (conn1.count(ID(Q)) != 0 && (cell1->type.begins_with("$dff") || cell1->type.begins_with("$dlatch") || cell1->type.in("$adff", "$sr", "$ff") ||
-					cell1->type.begins_with("$_DFF") || cell1->type.begins_with("$_DLATCH"))) {
+		if (conn1.count(ID(Q)) != 0 && (cell1->type.begins_with("$dff") || cell1->type.begins_with("$dlatch") ||
+					cell1->type.begins_with("$_DFF") || cell1->type.begins_with("$_DLATCH") || cell1->type.begins_with("$_SR_") ||
+					cell1->type.in("$adff", "$sr", "$ff", "$_FF_"))) {
 			std::vector<RTLIL::SigBit> q1 = dff_init_map(cell1->getPort(ID(Q))).to_sigbit_vector();
 			std::vector<RTLIL::SigBit> q2 = dff_init_map(cell2->getPort(ID(Q))).to_sigbit_vector();
 			for (size_t i = 0; i < q1.size(); i++)
@@ -325,8 +326,9 @@ struct OptMergeWorker
 							module->connect(RTLIL::SigSig(it.second, other_sig));
 							assign_map.add(it.second, other_sig);
 
-							if (it.first == ID(Q) && (cell->type.begins_with("$dff") || cell->type.begins_with("$dlatch") || cell->type.in("$adff", "$sr", "$ff") ||
-										cell->type.begins_with("$_DFF") || cell->type.begins_with("$_DLATCH"))) {
+							if (it.first == ID(Q) && (cell->type.begins_with("$dff") || cell->type.begins_with("$dlatch") ||
+										cell->type.begins_with("$_DFF") || cell->type.begins_with("$_DLATCH") || cell->type.begins_with("$_SR_") ||
+										cell->type.in("$adff", "$sr", "$ff", "$_FF_"))) {
 								for (auto c : it.second.chunks()) {
 									auto jt = c.wire->attributes.find(ID(init));
 									if (jt == c.wire->attributes.end())
