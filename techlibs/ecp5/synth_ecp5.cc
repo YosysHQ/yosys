@@ -321,11 +321,6 @@ struct SynthEcp5Pass : public ScriptPass
 				run("techmap " + techmap_args);
 
 			if (abc9) {
-				run("select -set abc9_boxes A:abc9_box_id A:whitebox=1");
-				run("wbflip @abc9_boxes");
-				run("techmap -autoproc @abc9_boxes");
-				run("aigmap @abc9_boxes");
-				run("wbflip @abc9_boxes");
 				run("read_verilog -icells -lib +/ecp5/abc9_model.v");
 				if (nowidelut)
 					run("abc9 -lut +/ecp5/abc9_5g_nowide.lut -box +/ecp5/abc9_5g.box -W 200 -nomfs");
