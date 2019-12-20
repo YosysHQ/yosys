@@ -350,11 +350,6 @@ struct SynthIce40Pass : public ScriptPass
 			}
 			if (!noabc) {
 				if (abc == "abc9") {
-					run("select -set abc9_boxes A:abc9_box_id A:whitebox=1");
-					run("wbflip @abc9_boxes");
-					run("techmap -autoproc @abc9_boxes");
-					run("aigmap @abc9_boxes");
-					run("wbflip @abc9_boxes");
 					run("read_verilog -icells -lib +/ice40/abc9_model.v");
 					int wire_delay;
 					if (device_opt == "lp")
