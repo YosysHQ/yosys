@@ -208,6 +208,9 @@ struct SynthXilinxPass : public ScriptPass
 				ise = true;
 				continue;
 			}
+			if (args[argidx] == "-iopad") {
+				continue;
+			}			
 			if (args[argidx] == "-noiopad") {
 				noiopad = true;
 				continue;
