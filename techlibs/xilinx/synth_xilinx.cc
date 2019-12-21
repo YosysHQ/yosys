@@ -85,7 +85,8 @@ struct SynthXilinxPass : public ScriptPass
 		log("        do not use DSP48E1s to implement multipliers and associated logic\n");
 		log("\n");
 		log("    -noiopad\n");
-		log("        disable I/O buffer insertion\n");
+		log("        disable I/O buffer insertion (useful for hierarchical or \n");
+		log("        out-of-context flows)\n");
 		log("\n");
 		log("    -noclkbuf\n");
 		log("        disable automatic clock buffer insertion\n");
@@ -210,7 +211,7 @@ struct SynthXilinxPass : public ScriptPass
 			}
 			if (args[argidx] == "-iopad") {
 				continue;
-			}			
+			}
 			if (args[argidx] == "-noiopad") {
 				noiopad = true;
 				continue;
