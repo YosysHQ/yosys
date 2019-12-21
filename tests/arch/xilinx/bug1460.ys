@@ -31,4 +31,4 @@ EOT
 synth_xilinx
 cd register_file
 select -assert-count 32 t:RAM32M
-select -assert-none t:* t:BUFG %d t:RAM32M %d
+select -assert-none t:* t:BUFG %d t:IBUF %d t:OBUF %d t:RAM32M %d

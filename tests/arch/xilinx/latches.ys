@@ -8,7 +8,7 @@ design -load postopt # load the post-opt design (otherwise equiv_opt loads the p
 cd latchp # Constrain all select calls below inside the top module
 select -assert-count 1 t:LDCE
 
-select -assert-none t:LDCE %% t:* %D
+select -assert-none t:LDCE t:IBUF t:OBUF %% t:* %D
 
 
 design -load read
@@ -20,7 +20,7 @@ cd latchn # Constrain all select calls below inside the top module
 select -assert-count 1 t:LDCE
 select -assert-count 1 t:INV
 
-select -assert-none t:LDCE t:INV %% t:* %D
+select -assert-none t:LDCE t:INV t:IBUF t:OBUF %% t:* %D
 
 
 design -load read
@@ -32,4 +32,4 @@ cd latchsr # Constrain all select calls below inside the top module
 select -assert-count 1 t:LDCE
 select -assert-count 2 t:LUT3
 
-select -assert-none t:LDCE t:LUT3 %% t:* %D
+select -assert-none t:LDCE t:LUT3 t:IBUF t:OBUF %% t:* %D
