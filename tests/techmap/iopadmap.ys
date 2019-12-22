@@ -28,6 +28,20 @@ assign io = oe ? i : 1'bz;
 assign o2 = io;
 assign o3 = ~io;
 endmodule
+
+module f(output o, o2);
+assign o = 1'bz;
+endmodule
+
+module g(inout io, output o);
+assign o = io;
+endmodule
+
+module h(inout io, output o, input i);
+assign io = i;
+assign o = io;
+endmodule
+
 EOT
 
 opt_clean
@@ -97,3 +111,12 @@ select -assert-count 1 @oeb %co %co @iob %i
 select -assert-count 1 @iob %co %co @o2b %i
 select -assert-count 1 @iob %co %co t:$_NOT_ %i
 select -assert-count 1 @o3b %ci %ci t:$_NOT_ %i
+
+select -assert-count 2 f/t:obuft
+
+select -assert-count 1 g/t:obuf
+select -assert-count 1 g/t:iobuf
+
+select -assert-count 1 h/t:ibuf
+select -assert-count 1 h/t:iobuf
+select -assert-count 1 h/t:obuf
