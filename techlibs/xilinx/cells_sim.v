@@ -2099,7 +2099,7 @@ always @* begin
 		2'b00: XMUX <= 0;
 		2'b01: XMUX <= M;
 		2'b10: XMUX <= P;
-		2'b11: XMUX <= {D_OUT[11:0], B1_OUT, A1_OUT};
+		2'b11: XMUX <= {D_OUT[11:0], A1_OUT, B1_OUT};
 		default: XMUX <= 48'hxxxxxxxxxxxx;
 	endcase
 end
@@ -2117,8 +2117,8 @@ end
 // The post-adder.
 wire signed [48:0] X_EXT;
 wire signed [48:0] Z_EXT;
-assign X_EXT = XMUX;
-assign Z_EXT = ZMUX;
+assign X_EXT = {1'b0, XMUX};
+assign Z_EXT = {1'b0, ZMUX};
 assign {CARRYOUT_IN, P_IN} = OPMODE_OUT[7] ? (Z_EXT - (X_EXT + CARRYIN_OUT)) : (Z_EXT + X_EXT + CARRYIN_OUT);
 
 // Cascade outputs.
