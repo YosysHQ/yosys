@@ -257,7 +257,7 @@ code argQ clock AREG
 					else if (param(prev, \AREG, 2) == 2)
 						CEA = \CEA1;
 					else log_abort();
-					if (!dffcemux && port(prev, CEA, State::S0) != State::S0)
+					if (!dffcemux && port(prev, CEA, State::S0) != State::S1)
 						goto reject_AREG;
 					if (dffcemux && port(dffcemux, \S) != port(prev, CEA, State::S0))
 						goto reject_AREG;
@@ -303,7 +303,7 @@ code argQ clock BREG
 						else log_abort();
 					}
 					else log_abort();
-					if (!dffcemux && port(prev, CEB, State::S0) != State::S0)
+					if (!dffcemux && port(prev, CEB, State::S0) != State::S1)
 						goto reject_BREG;
 					if (dffcemux && port(dffcemux, \S) != port(prev, CEB, State::S0))
 						goto reject_BREG;
