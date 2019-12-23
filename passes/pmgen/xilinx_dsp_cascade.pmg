@@ -119,21 +119,42 @@ finally
 					add_siguser(cascade, dsp_pcin);
 					add_siguser(cascade, dsp);
 
-					dsp->setParam(ID(ACASCREG), AREG);
+					if (dsp->type.in(\DSP48E1))
+						dsp->setParam(ID(ACASCREG), AREG);
 					dsp_pcin->setParam(ID(A_INPUT), Const("CASCADE"));
 
 					log_debug("ACOUT -> ACIN cascade for %s -> %s\n", log_id(dsp), log_id(dsp_pcin));
 				}
 				if (BREG >= 0) {
 					Wire *cascade = module->addWire(NEW_ID, 18);
-					dsp_pcin->setPort(ID(B), Const(0, 18));
-					dsp_pcin->setPort(ID(BCIN), cascade);
+					if (dsp->type.in(\DSP48A, \DSP48A1)) {
+						// According to UG389 p9 [https://www.xilinx.com/support/documentation/user_guides/ug389.pdf]
+						// "The DSP48A1 component uses this input when cascading
+						//   BCOUT from an adjacent DSP48A1 slice. The tools then
+						//   translate BCOUT cascading to the dedicated BCIN input
+						//   and set the B_INPUT attribute for implementation."
+						dsp_pcin->setPort(ID(B), cascade);
+					}
+					else {
+						dsp_pcin->setPort(ID(B), Const(0, 18));
+						dsp_pcin->setPort(ID(BCIN), cascade);
+					}
 					dsp->setPort(ID(BCOUT), cascade);
 					add_siguser(cascade, dsp_pcin);
 					add_siguser(cascade, dsp);
 
-					dsp->setParam(ID(BCASCREG), BREG);
-					dsp_pcin->setParam(ID(B_INPUT), Const("CASCADE"));
+					if (dsp->type.in(\DSP48E1)) {
+						dsp->setParam(ID(BCASCREG), BREG);
+						// According to UG389 p13 [https://www.xilinx.com/support/documentation/user_guides/ug389.pdf]
+						// "The attribute is only used by place and route tools and
+						//   is not necessary for the users to set for synthesis. The
+						//   attribute is determined by the connection to the B port
+						//   of the DSP48A1 slice. If the B port is connected to the
+						//   BCOUT of another DSP48A1 slice, then the tools automatically
+						//   set the attribute to 'CASCADE', otherwise it is set to
+						//   'DIRECT'".
+						dsp_pcin->setParam(ID(B_INPUT), Const("CASCADE"));
+					}
 
 					log_debug("BCOUT -> BCIN cascade for %s -> %s\n", log_id(dsp), log_id(dsp_pcin));
 				}
@@ -202,36 +223,39 @@ code next
 endcode
 
 // (3) For this subequent DSP48E1 match (i.e. PCOUT -> PCIN cascade exists)
-//     if (a) the previous DSP48E1 uses either the A2REG or A1REG, (b) this
-//     DSP48 does not use A2REG nor A1REG, (c) this DSP48E1 does not already
-//     have an ACOUT -> ACIN cascade, (d) the previous DSP does not already
-//     use its ACOUT port, then examine if an ACOUT -> ACIN cascade
-//     opportunity exists by matching for a $dff-with-optional-clock-enable-
-//     or-reset and checking that the 'D' input of this register is the same
-//     as the 'A' input of the previous DSP
+//     if (a) this DSP48 does not use A2REG nor A1REG, (b) this DSP48E1 does
+//     not already have an ACOUT -> ACIN cascade, (c) the previous DSP does
+//     not already use its ACOUT port, then examine if an ACOUT -> ACIN cascade
+//     opportunity exists if (i) A ports are identical, or (ii) separated by a
+//     $dff-with-optional-clock-enable-or-reset and checking that the 'D' input
+//     of this register is the same as the 'A' input of the previous DSP
+//     TODO: Check for two levels of flops, instead of just one
 code argQ clock AREG
 	AREG = -1;
-	if (next) {
+	if (next && next->type.in(\DSP48E1)) {
 		Cell *prev = std::get<0>(chain.back());
-		if (param(prev, \AREG, 2).as_int() > 0 &&
-				param(next, \AREG, 2).as_int() > 0 &&
+		if (param(next, \AREG, 2).as_int() == 0 &&
 				param(next, \A_INPUT, Const("DIRECT")).decode_string() == "DIRECT" &&
 				nusers(port(prev, \ACOUT, SigSpec())) <= 1) {
-			argQ = unextend(port(next, \A));
-			clock = port(prev, \CLK);
-			subpattern(in_dffe);
-			if (dff) {
-				if (!dffrstmux && port(prev, \RSTA, State::S0) != State::S0)
-					goto reject_AREG;
-				if (dffrstmux && port(dffrstmux, \S) != port(prev, \RSTA, State::S0))
-					goto reject_AREG;
-				if (!dffcemux && port(prev, \CEA2, State::S0) != State::S0)
-					goto reject_AREG;
-				if (dffcemux && port(dffcemux, \S) != port(prev, \CEA2, State::S0))
-					goto reject_AREG;
-				if (dffD == unextend(port(prev, \A)))
-					AREG = 1;
-reject_AREG:			;
+			if (port(prev, \A) == port(next, \A))
+				AREG = 0;
+			else {
+				argQ = unextend(port(next, \A));
+				clock = port(prev, \CLK);
+				subpattern(in_dffe);
+				if (dff) {
+					if (!dffrstmux && port(prev, \RSTA, State::S0) != State::S0)
+						goto reject_AREG;
+					if (dffrstmux && port(dffrstmux, \S) != port(prev, \RSTA, State::S0))
+						goto reject_AREG;
+					if (!dffcemux && port(prev, \CEA2, State::S0) != State::S0)
+						goto reject_AREG;
+					if (dffcemux && port(dffcemux, \S) != port(prev, \CEA2, State::S0))
+						goto reject_AREG;
+					if (dffD == unextend(port(prev, \A)))
+						AREG = 1;
+reject_AREG:				;
+				}
 			}
 		}
 	}
@@ -242,26 +266,29 @@ code argQ clock BREG
 	BREG = -1;
 	if (next) {
 		Cell *prev = std::get<0>(chain.back());
-		if (param(prev, \BREG, 2).as_int() > 0 &&
-				param(next, \BREG, 2).as_int() > 0 &&
+		if (((next->type.in(\DSP48A, \DSP48A1) && param(next, \B1REG, 1) == 0) || (next->type.in(\DSP48E1) && param(next, \BREG, 2).as_int() == 0)) &&
 				param(next, \B_INPUT, Const("DIRECT")).decode_string() == "DIRECT" &&
 				port(next, \BCIN, SigSpec()).is_fully_zero() &&
 				nusers(port(prev, \BCOUT, SigSpec())) <= 1) {
-			argQ = unextend(port(next, \B));
-			clock = port(prev, \CLK);
-			subpattern(in_dffe);
-			if (dff) {
-				if (!dffrstmux && port(prev, \RSTB, State::S0) != State::S0)
-					goto reject_BREG;
-				if (dffrstmux && port(dffrstmux, \S) != port(prev, \RSTB, State::S0))
-					goto reject_BREG;
-				if (!dffcemux && port(prev, \CEB2, State::S0) != State::S0)
-					goto reject_BREG;
-				if (dffcemux && port(dffcemux, \S) != port(prev, \CEB2, State::S0))
-					goto reject_BREG;
-				if (dffD == unextend(port(prev, \B)))
-					BREG = 1;
-reject_BREG:			;
+			if (port(prev, \B) == port(next, \B))
+				BREG = 0;
+			else {
+				argQ = unextend(port(next, \B));
+				clock = port(prev, \CLK);
+				subpattern(in_dffe);
+				if (dff) {
+					if (!dffrstmux && port(prev, \RSTB, State::S0) != State::S0)
+						goto reject_BREG;
+					if (dffrstmux && port(dffrstmux, \S) != port(prev, \RSTB, State::S0))
+						goto reject_BREG;
+					if (!dffcemux && port(prev, \CEB2, State::S0) != State::S0)
+						goto reject_BREG;
+					if (dffcemux && port(dffcemux, \S) != port(prev, \CEB2, State::S0))
+						goto reject_BREG;
+					if (dffD == unextend(port(prev, \B)))
+						BREG = 1;
+reject_BREG:				;
+				}
 			}
 		}
 	}
