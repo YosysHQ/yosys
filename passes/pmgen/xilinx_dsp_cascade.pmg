@@ -223,10 +223,10 @@ code next
 endcode
 
 // (3) For this subequent DSP48E1 match (i.e. PCOUT -> PCIN cascade exists)
-//     if (a) this DSP48 does not use A2REG nor A1REG, (b) this DSP48E1 does
-//     not already have an ACOUT -> ACIN cascade, (c) the previous DSP does
-//     not already use its ACOUT port, then examine if an ACOUT -> ACIN cascade
-//     opportunity exists if (i) A ports are identical, or (ii) separated by a
+//     if (a) this DSP48E1 does not already have an ACOUT -> ACIN cascade,
+//     (b) the previous DSP does  not already use its ACOUT port, then
+//     examine if an ACOUT -> ACIN cascade  opportunity exists if
+//     (i) A ports are identical, or (ii) separated by a
 //     $dff-with-optional-clock-enable-or-reset and checking that the 'D' input
 //     of this register is the same as the 'A' input of the previous DSP
 //     TODO: Check for two levels of flops, instead of just one
@@ -234,11 +234,14 @@ code argQ clock AREG
 	AREG = -1;
 	if (next && next->type.in(\DSP48E1)) {
 		Cell *prev = std::get<0>(chain.back());
-		if (param(next, \AREG, 2).as_int() == 0 &&
-				param(next, \A_INPUT, Const("DIRECT")).decode_string() == "DIRECT" &&
+
+		if (param(next, \A_INPUT, Const("DIRECT")).decode_string() == "DIRECT" &&
+				port(next, \ACIN, SigSpec()).is_fully_zero() &&
 				nusers(port(prev, \ACOUT, SigSpec())) <= 1) {
-			if (port(prev, \A) == port(next, \A))
-				AREG = 0;
+			if (param(prev, \AREG, 2) == 0) {
+				if (port(prev, \A) == port(next, \A))
+					AREG = 0;
+			}
 			else {
 				argQ = unextend(port(next, \A));
 				clock = port(prev, \CLK);
@@ -248,16 +251,22 @@ code argQ clock AREG
 						goto reject_AREG;
 					if (dffrstmux && port(dffrstmux, \S) != port(prev, \RSTA, State::S0))
 						goto reject_AREG;
-					if (!dffcemux && port(prev, \CEA2, State::S0) != State::S0)
+					IdString CEA;
+					if (param(prev, \AREG, 2) == 1)
+						CEA = \CEA2;
+					else if (param(prev, \AREG, 2) == 2)
+						CEA = \CEA1;
+					else log_abort();
+					if (!dffcemux && port(prev, CEA, State::S0) != State::S0)
 						goto reject_AREG;
-					if (dffcemux && port(dffcemux, \S) != port(prev, \CEA2, State::S0))
+					if (dffcemux && port(dffcemux, \S) != port(prev, CEA, State::S0))
 						goto reject_AREG;
 					if (dffD == unextend(port(prev, \A)))
 						AREG = 1;
-reject_AREG:				;
 				}
 			}
 		}
+reject_AREG:	;
 	}
 endcode
 
@@ -266,12 +275,14 @@ code argQ clock BREG
 	BREG = -1;
 	if (next) {
 		Cell *prev = std::get<0>(chain.back());
-		if (((next->type.in(\DSP48A, \DSP48A1) && param(next, \B1REG, 1) == 0) || (next->type.in(\DSP48E1) && param(next, \BREG, 2).as_int() == 0)) &&
-				param(next, \B_INPUT, Const("DIRECT")).decode_string() == "DIRECT" &&
+		if (param(next, \B_INPUT, Const("DIRECT")).decode_string() == "DIRECT" &&
 				port(next, \BCIN, SigSpec()).is_fully_zero() &&
 				nusers(port(prev, \BCOUT, SigSpec())) <= 1) {
-			if (port(prev, \B) == port(next, \B))
-				BREG = 0;
+			if ((next->type.in(\DSP48A, \DSP48A1) && param(prev, \B0REG, 0) == 0 && param(prev, \B1REG, 1) == 0) ||
+				(next->type.in(\DSP48E1) && param(prev, \BREG, 2) == 0)) {
+				if (port(prev, \B) == port(next, \B))
+					BREG = 0;
+			}
 			else {
 				argQ = unextend(port(next, \B));
 				clock = port(prev, \CLK);
@@ -281,16 +292,27 @@ code argQ clock BREG
 						goto reject_BREG;
 					if (dffrstmux && port(dffrstmux, \S) != port(prev, \RSTB, State::S0))
 						goto reject_BREG;
-					if (!dffcemux && port(prev, \CEB2, State::S0) != State::S0)
+					IdString CEB;
+					if (next->type.in(\DSP48A, \DSP48A1))
+						CEB = \CEB;
+					else if (next->type.in(\DSP48E1)) {
+						if (param(prev, \BREG, 2) == 1)
+							CEB = \CEB2;
+						else if (param(prev, \BREG, 2) == 2)
+							CEB = \CEB1;
+						else log_abort();
+					}
+					else log_abort();
+					if (!dffcemux && port(prev, CEB, State::S0) != State::S0)
 						goto reject_BREG;
-					if (dffcemux && port(dffcemux, \S) != port(prev, \CEB2, State::S0))
+					if (dffcemux && port(dffcemux, \S) != port(prev, CEB, State::S0))
 						goto reject_BREG;
 					if (dffD == unextend(port(prev, \B)))
 						BREG = 1;
-reject_BREG:				;
 				}
 			}
 		}
+reject_BREG:	;
 	}
 endcode
 
