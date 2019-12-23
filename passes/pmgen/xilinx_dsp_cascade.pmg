@@ -62,12 +62,11 @@ code
 #define MAX_DSP_CASCADE 20
 endcode
 
-// (1) Starting from a DSP48E1 cell that (a) has the Z multiplexer
-//     (controlled by OPMODE[6:4]) set to zero and (b) doesn't already
-//     use the 'PCOUT' port
+// (1) Starting from a DSP48* cell that (a) has the Z multiplexer
+//     (controlled by OPMODE[3:2] for DSP48A*, by OPMODE[6:4] for DSP48E1)
+//     set to zero and (b) doesn't already use the 'PCOUT' port
 match first
-	select first->type.in(\DSP48E1)
-	select port(first, \OPMODE, Const(0, 7)).extract(4,3) == Const::from_string("000")
+	select (first->type.in(\DSP48A, \DSP48A1) && port(first, \OPMODE, Const(0, 7)).extract(2,2) == Const::from_string("00")) || (first->type.in(\DSP48E1) && port(first, \OPMODE, Const(0, 7)).extract(4,3) == Const::from_string("000"))
 	select nusers(port(first, \PCOUT, SigSpec())) <= 1
 endmatch
 
@@ -156,22 +155,21 @@ subpattern tail
 arg first
 arg next
 
-// (2.1) Match another DSP48E1 cell that (a) does not have the CREG enabled,
+// (2.1) Match another DSP48* cell that (a) does not have the CREG enabled,
 //       (b) has its Z multiplexer output set to the 'C' port, which is
 //       driven by the 'P' output of the previous DSP cell, and (c) has its
 //       'PCIN' port unused
 match nextP
-	select nextP->type.in(\DSP48E1)
 	select !param(nextP, \CREG, State::S1).as_bool()
-	select port(nextP, \OPMODE, Const(0, 7)).extract(4,3) == Const::from_string("011")
+	select (nextP->type.in(\DSP48A, \DSP48A1) && port(nextP, \OPMODE, Const(0, 7)).extract(2,2) == Const::from_string("11")) || (nextP->type.in(\DSP48E1) && port(nextP, \OPMODE, Const(0, 7)).extract(4,3) == Const::from_string("011"))
 	select nusers(port(nextP, \C, SigSpec())) > 1
 	select nusers(port(nextP, \PCIN, SigSpec())) == 0
 	index <SigBit> port(nextP, \C)[0] === port(std::get<0>(chain.back()), \P)[0]
 	semioptional
 endmatch
 
-// (2.2) Same as (2.1) but with the 'C' port driven by the 'P' output of the
-//       previous DSP cell right-shifted by 17 bits
+// (2.2) For DSP48E1 only, same as (2.1) but with the 'C' port driven
+//       by the 'P' output of the previous DSP cell right-shifted by 17 bits
 match nextP_shift17
 	if !nextP
 	select nextP_shift17->type.in(\DSP48E1)
@@ -188,6 +186,8 @@ code next
 	if (!nextP)
 		next = nextP_shift17;
 	if (next) {
+		if (next->type != first->type)
+			reject;
 		unextend = [](const SigSpec &sig) {
 			int i;
 			for (i = GetSize(sig)-1; i > 0; i--)
