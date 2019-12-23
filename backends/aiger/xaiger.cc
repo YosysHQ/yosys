@@ -876,7 +876,7 @@ struct XAigerWriter
 				RTLIL::Design *holes_design = new RTLIL::Design;
 				module->design->modules_.erase(holes_module->name);
 				holes_design->add(holes_module);
-				Pass::call(holes_design, "clean -purge");
+				Pass::call(holes_design, "opt -purge");
 
 				std::stringstream a_buffer;
 				XAigerWriter writer(holes_module, true /* holes_mode */);
