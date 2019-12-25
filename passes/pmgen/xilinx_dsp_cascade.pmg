@@ -66,7 +66,7 @@ endcode
 //     (controlled by OPMODE[3:2] for DSP48A*, by OPMODE[6:4] for DSP48E1)
 //     set to zero and (b) doesn't already use the 'PCOUT' port
 match first
-	select (first->type.in(\DSP48A, \DSP48A1) && port(first, \OPMODE, Const(0, 7)).extract(2,2) == Const::from_string("00")) || (first->type.in(\DSP48E1) && port(first, \OPMODE, Const(0, 7)).extract(4,3) == Const::from_string("000"))
+	select (first->type.in(\DSP48A, \DSP48A1) && port(first, \OPMODE, Const(0, 8)).extract(2,2) == Const::from_string("00")) || (first->type.in(\DSP48E1) && port(first, \OPMODE, Const(0, 7)).extract(4,3) == Const::from_string("000"))
 	select nusers(port(first, \PCOUT, SigSpec())) <= 1
 endmatch
 
@@ -189,7 +189,7 @@ arg next
 //       'PCIN' port unused
 match nextP
 	select !param(nextP, \CREG, State::S1).as_bool()
-	select (nextP->type.in(\DSP48A, \DSP48A1) && port(nextP, \OPMODE, Const(0, 7)).extract(2,2) == Const::from_string("11")) || (nextP->type.in(\DSP48E1) && port(nextP, \OPMODE, Const(0, 7)).extract(4,3) == Const::from_string("011"))
+	select (nextP->type.in(\DSP48A, \DSP48A1) && port(nextP, \OPMODE, Const(0, 8)).extract(2,2) == Const::from_string("11")) || (nextP->type.in(\DSP48E1) && port(nextP, \OPMODE, Const(0, 7)).extract(4,3) == Const::from_string("011"))
 	select nusers(port(nextP, \C, SigSpec())) > 1
 	select nusers(port(nextP, \PCIN, SigSpec())) == 0
 	index <SigBit> port(nextP, \C)[0] === port(std::get<0>(chain.back()), \P)[0]
