@@ -1,5 +1,5 @@
 // This file describes the main pattern matcher setup (of three total) that
-//   forms the `xilinx_dsp` pass described in xilinx_dsp.cc — version for
+//   forms the `xilinx_dsp` pass described in xilinx_dsp.cc - version for
 //   DSP48A/DSP48A1 (Spartan 3A DSP, Spartan 6).
 // At a high level, it works as follows:
 //   ( 1) Starting from a DSP48A/DSP48A1 cell
