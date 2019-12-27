@@ -1112,15 +1112,33 @@ module RAM16X1D_1 (
 endmodule
 
 module RAM32X1D (
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L981
   (* abc9_arrival=1153 *)
   output DPO, SPO,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986
+  (* abc9_required=453 *)
   input  D,
   (* clkbuf_sink *)
   (* invertible_pin = "IS_WCLK_INVERTED" *)
   input  WCLK,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L834
+  (* abc9_required=654 *)
   input  WE,
-  input  A0, A1, A2, A3, A4,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L800
+  (* abc9_required=245 *)
+  input  A0,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/clBLM_R.sdf#L798
+  (* abc9_required=208 *)
+  input  A1,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L796
+  (* abc9_required=147 *)
+  input  A2,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L794
+  (* abc9_required=68 *)
+  input  A3,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L792
+  (* abc9_required=66 *)
+  input  A4,
   input  DPRA0, DPRA1, DPRA2, DPRA3, DPRA4
 );
   parameter INIT = 32'h0;
@@ -1135,15 +1153,33 @@ module RAM32X1D (
 endmodule
 
 module RAM32X1D_1 (
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L981
   (* abc9_arrival=1153 *)
   output DPO, SPO,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986
+  (* abc9_required=453 *)
   input  D,
   (* clkbuf_sink *)
   (* invertible_pin = "IS_WCLK_INVERTED" *)
   input  WCLK,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L834
+  (* abc9_required=654 *)
   input  WE,
-  input  A0, A1, A2, A3, A4,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L800
+  (* abc9_required=245 *)
+  input  A0,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/clBLM_R.sdf#L798
+  (* abc9_required=208 *)
+  input  A1,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L796
+  (* abc9_required=147 *)
+  input  A2,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L794
+  (* abc9_required=68 *)
+  input  A3,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L792
+  (* abc9_required=66 *)
+  input  A4,
   input  DPRA0, DPRA1, DPRA2, DPRA3, DPRA4
 );
   parameter INIT = 32'h0;
@@ -1158,15 +1194,36 @@ module RAM32X1D_1 (
 endmodule
 
 module RAM64X1D (
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L981
   (* abc9_arrival=1153 *)
   output DPO, SPO,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986
+  (* abc9_required=453 *)
   input  D,
   (* clkbuf_sink *)
   (* invertible_pin = "IS_WCLK_INVERTED" *)
   input  WCLK,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L834
+  (* abc9_required=654 *)
   input  WE,
-  input  A0, A1, A2, A3, A4, A5,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L828
+  (* abc9_required=362 *)
+  input  A0,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L826
+  (* abc9_required=245 *)
+  input  A1,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L824
+  (* abc9_required=208 *)
+  input  A2,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L822
+  (* abc9_required=147 *)
+  input  A3,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L820
+  (* abc9_required=68 *)
+  input  A4,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L818
+  (* abc9_required=66 *)
+  input  A5,
   input  DPRA0, DPRA1, DPRA2, DPRA3, DPRA4, DPRA5
 );
   parameter INIT = 64'h0;
@@ -1181,15 +1238,36 @@ module RAM64X1D (
 endmodule
 
 module RAM64X1D_1 (
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L981
   (* abc9_arrival=1153 *)
   output DPO, SPO,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986
+  (* abc9_required=453 *)
   input  D,
   (* clkbuf_sink *)
   (* invertible_pin = "IS_WCLK_INVERTED" *)
   input  WCLK,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L834
+  (* abc9_required=654 *)
   input  WE,
-  input  A0, A1, A2, A3, A4, A5,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L828
+  (* abc9_required=362 *)
+  input  A0,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L826
+  (* abc9_required=245 *)
+  input  A1,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L824
+  (* abc9_required=208 *)
+  input  A2,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L822
+  (* abc9_required=147 *)
+  input  A3,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L820
+  (* abc9_required=68 *)
+  input  A4,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L818
+  (* abc9_required=66 *)
+  input  A5,
   input  DPRA0, DPRA1, DPRA2, DPRA3, DPRA4, DPRA5
 );
   parameter INIT = 64'h0;
@@ -1204,15 +1282,23 @@ module RAM64X1D_1 (
 endmodule
 
 module RAM128X1D (
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
-  (* abc9_arrival=1153 *)
-  output DPO, SPO,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L981
+  //   plus 208ps to cross MUXF7
+  (* abc9_arrival=1359 *)
+  output       DPO, SPO,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986
+  (* abc9_required=453 *)
   input        D,
   (* clkbuf_sink *)
   (* invertible_pin = "IS_WCLK_INVERTED" *)
   input        WCLK,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L834
+  (* abc9_required=654 *)
   input        WE,
-  input  [6:0] A, DPRA
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L818-830
+  (* abc9_required="616 362 245 208 147 68 66" *)
+  input  [6:0] A,
+  input  [6:0] DPRA
 );
   parameter INIT = 128'h0;
   parameter IS_WCLK_INVERTED = 1'b0;
@@ -1244,15 +1330,44 @@ endmodule
 // Multi port.
 
 module RAM32M (
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L889
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L857
+  (* abc9_arrival="1153 1188" *)
+  output [1:0] DOA,
   // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
-  (* abc9_arrival=1153 *)
-  output [1:0] DOA, DOB, DOC, DOD,
-  input [4:0] ADDRA, ADDRB, ADDRC, ADDRD,
-  input [1:0] DIA, DIB, DIC, DID,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L925
+  (* abc9_arrival="1161 1187" *)
+  output [1:0] DOB,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L1025
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L993
+  (* abc9_arrival="1158 1180" *)
+  output [1:0] DOC,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L1093
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L1061
+  (* abc9_arrival="1163 1190" *)
+  output [1:0] DOD,
+  input  [4:0] ADDRA, ADDRB, ADDRC,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L792-L802
+  (* abc9_required="245 208 147 68 66" *)
+  input  [4:0] ADDRD,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986-L988
+  (* abc9_required="453 384" *)
+  input  [1:0] DIA,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L1054-L1056
+  (* abc9_required="461 354" *)
+  input  [1:0] DIB,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L1122-L1124
+  (* abc9_required="457 375" *)
+  input  [1:0] DIC,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L1190-L1192
+  (* abc9_required="310 334" *)
+  input  [1:0] DID,
   (* clkbuf_sink *)
   (* invertible_pin = "IS_WCLK_INVERTED" *)
-  input WCLK,
-  input WE
+  input        WCLK,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L834
+  (* abc9_required=654 *)
+  input        WE
 );
   parameter [63:0] INIT_A = 64'h0000000000000000;
   parameter [63:0] INIT_B = 64'h0000000000000000;
@@ -1347,15 +1462,40 @@ module RAM32M16 (
 endmodule
 
 module RAM64M (
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L889
   (* abc9_arrival=1153 *)
-  output DOA, DOB, DOC, DOD,
-  input [5:0] ADDRA, ADDRB, ADDRC, ADDRD,
-  input DIA, DIB, DIC, DID,
+  output       DOA,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
+  (* abc9_arrival=1161 *)
+  output       DOB,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L1025
+  (* abc9_arrival=1158 *)
+  output       DOC,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L1093
+  (* abc9_arrival=1163 *)
+  output       DOD,
+  input  [5:0] ADDRA, ADDRB, ADDRC,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L818-L830
+  (* abc9_required="362 245 208 147 68 66" *)
+  input  [5:0] ADDRD,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986-L988
+  (* abc9_required=384 *)
+  input        DIA,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L1054-L1056
+  (* abc9_required=354 *)
+  input        DIB,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L1122-L1124
+  (* abc9_required=375 *)
+  input        DIC,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L1190-L1192
+  (* abc9_required=310 *)
+  input        DID,
   (* clkbuf_sink *)
   (* invertible_pin = "IS_WCLK_INVERTED" *)
-  input WCLK,
-  input WE
+  input        WCLK,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L834
+  (* abc9_required=654 *)
+  input        WE
 );
   parameter [63:0] INIT_A = 64'h0000000000000000;
   parameter [63:0] INIT_B = 64'h0000000000000000;
