@@ -199,6 +199,7 @@ struct XAigerWriter
 		dict<SigBit, pool<IdString>> bit_drivers, bit_users;
 		TopoSort<IdString, RTLIL::sort_by_id_str> toposort;
 		bool abc9_box_seen = false;
+		std::vector<int> arrivals;
 
 		for (auto cell : module->selected_cells()) {
 			if (cell->type == "$_NOT_")
@@ -284,16 +285,20 @@ struct XAigerWriter
 						}
 					}
 					if (is_output) {
-						int arrival = 0;
+						arrivals.clear();
 						if (port_wire) {
 							auto it = port_wire->attributes.find("\\abc9_arrival");
 							if (it != port_wire->attributes.end()) {
-								if (it->second.flags != 0)
-									log_error("Attribute 'abc9_arrival' on port '%s' of module '%s' is not an integer.\n", log_id(port_wire), log_id(cell->type));
-								arrival = it->second.as_int();
+								if (it->second.flags == 0)
+									arrivals.push_back(it->second.as_int());
+								else
+									for (const auto &tok : split_tokens(it->second.decode_string()))
+										arrivals.push_back(atoi(tok.c_str()));
 							}
 						}
 
+						log_assert(GetSize(arrivals) <= 1 || GetSize(arrivals) == GetSize(c.second));
+						auto it = arrivals.begin();
 						for (auto b : c.second) {
 							Wire *w = b.wire;
 							if (!w) continue;
@@ -303,8 +308,12 @@ struct XAigerWriter
 								alias_map[O] = b;
 							undriven_bits.erase(O);
 
-							if (arrival)
-								arrival_times[b] = arrival;
+							if (!arrivals.empty()) {
+								if (arrivals.size() == 1)
+									arrival_times[b] = *it;
+								else
+									arrival_times[b] = *it++;
+							}
 						}
 					}
 				}
