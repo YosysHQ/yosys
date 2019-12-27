@@ -255,32 +255,29 @@ struct XAigerWriter
 
 				for (const auto &conn : cell->connections()) {
 					auto port_wire = inst_module->wire(conn.first);
-					int arrival = 0;
 
 					if (port_wire->port_output) {
+						int arrival = 0;
 						auto it = port_wire->attributes.find("\\abc9_arrival");
 						if (it != port_wire->attributes.end()) {
 							if (it->second.flags != 0)
 								log_error("Attribute 'abc9_arrival' on port '%s' of module '%s' is not an integer.\n", log_id(port_wire), log_id(cell->type));
 							arrival = it->second.as_int();
 						}
+						if (arrival)
+							for (auto bit : sigmap(conn.second))
+								arrival_times[bit] = arrival;
 					}
 
 					if (abc9_box) {
-						if (port_wire->port_input) {
-							// Ignore inout for the sake of topographical ordering
-							if (port_wire->port_output) continue;
+						// Ignore inout for the sake of topographical ordering
+						if (port_wire->port_input && !port_wire->port_output)
 							for (auto bit : sigmap(conn.second))
 								bit_users[bit].insert(cell->name);
-						}
 						if (port_wire->port_output)
-							for (auto bit : sigmap(conn.second)) {
+							for (auto bit : sigmap(conn.second))
 								bit_drivers[bit].insert(cell->name);
-								if (arrival)
-									arrival_times[bit] = arrival;
-							}
 					}
-
 				}
 
                                 if (abc9_box) {
