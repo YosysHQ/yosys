@@ -81,8 +81,7 @@ struct XAigerWriter
 	pool<SigBit> input_bits, output_bits;
 	dict<SigBit, SigBit> not_map, alias_map;
 	dict<SigBit, pair<SigBit, SigBit>> and_map;
-	vector<std::tuple<SigBit,RTLIL::Cell*,RTLIL::IdString,int>> ci_bits;
-	vector<std::tuple<SigBit,RTLIL::Cell*,RTLIL::IdString,int,int>> co_bits;
+	vector<SigBit> ci_bits, co_bits;
 	dict<SigBit, float> arrival_times;
 
 	vector<pair<int, int>> aig_gates;
@@ -367,7 +366,6 @@ struct XAigerWriter
 							cell->setPort(port_name, rhs);
 						}
 
-						int offset = 0;
 						for (auto b : rhs.bits()) {
 							SigBit I = sigmap(b);
 							if (b == RTLIL::Sx)
@@ -378,7 +376,7 @@ struct XAigerWriter
 								else
 									alias_map[b] = I;
 							}
-							co_bits.emplace_back(b, cell, port_name, offset++, 0);
+							co_bits.emplace_back(b);
 							unused_bits.erase(b);
 						}
 					}
@@ -398,9 +396,8 @@ struct XAigerWriter
 							cell->setPort(port_name, rhs);
 						}
 
-						int offset = 0;
 						for (const auto &b : rhs.bits()) {
-							ci_bits.emplace_back(b, cell, port_name, offset++);
+							ci_bits.emplace_back(b);
 							SigBit O = sigmap(b);
 							if (O != b)
 								alias_map[O] = b;
@@ -487,15 +484,13 @@ struct XAigerWriter
 			aig_map[bit] = 2*aig_m;
 		}
 
-		for (auto &c : ci_bits) {
-			RTLIL::SigBit bit = std::get<0>(c);
+		for (auto bit : ci_bits) {
 			aig_m++, aig_i++;
 			aig_map[bit] = 2*aig_m;
 		}
 
-		for (auto &c : co_bits) {
-			RTLIL::SigBit bit = std::get<0>(c);
-			std::get<4>(c) = ordered_outputs[bit] = aig_o++;
+		for (auto bit : co_bits) {
+			ordered_outputs[bit] = aig_o++;
 			aig_outputs.push_back(bit2aig(bit));
 		}
 
@@ -508,7 +503,6 @@ struct XAigerWriter
 			ordered_outputs[bit] = aig_o++;
 			aig_outputs.push_back(bit2aig(bit));
 		}
-
 	}
 
 	void write_aiger(std::ostream &f, bool ascii_mode)
