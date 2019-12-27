@@ -21,7 +21,7 @@ MUXF8 2 1 3 1
 #   and expect to save on its delay
 # Inputs: I0 I1 I2 I3 S0 S1
 # Outputs: O
-$__MUXF78 3 1 6 1
+$__XILINX_MUXF78 3 1 6 1
 294 297 311 317 390 273
 
 # CARRY4 + CARRY4_[ABCD]X
