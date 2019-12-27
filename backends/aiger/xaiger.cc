@@ -250,41 +250,48 @@ struct XAigerWriter
 			}
 
 			RTLIL::Module* inst_module = module->design->module(cell->type);
-			if (inst_module && inst_module->attributes.count("\\abc9_box_id")) {
-				abc9_box_seen = true;
-
-				toposort.node(cell->name);
+			if (inst_module) {
+				bool abc9_box = inst_module->attributes.count("\\abc9_box_id");
 
 				for (const auto &conn : cell->connections()) {
 					auto port_wire = inst_module->wire(conn.first);
-					if (port_wire->port_input) {
-						// Ignore inout for the sake of topographical ordering
-						if (port_wire->port_output) continue;
-						for (auto bit : sigmap(conn.second))
-							bit_users[bit].insert(cell->name);
-					}
+					int arrival = 0;
 
 					if (port_wire->port_output) {
-						int arrival = 0;
 						auto it = port_wire->attributes.find("\\abc9_arrival");
 						if (it != port_wire->attributes.end()) {
 							if (it->second.flags != 0)
 								log_error("Attribute 'abc9_arrival' on port '%s' of module '%s' is not an integer.\n", log_id(port_wire), log_id(cell->type));
 							arrival = it->second.as_int();
 						}
+					}
 
-						for (auto bit : sigmap(conn.second)) {
-							bit_drivers[bit].insert(cell->name);
-							if (arrival)
-								arrival_times[bit] = arrival;
+					if (abc9_box) {
+						if (port_wire->port_input) {
+							// Ignore inout for the sake of topographical ordering
+							if (port_wire->port_output) continue;
+							for (auto bit : sigmap(conn.second))
+								bit_users[bit].insert(cell->name);
 						}
+						if (port_wire->port_output)
+							for (auto bit : sigmap(conn.second)) {
+								bit_drivers[bit].insert(cell->name);
+								if (arrival)
+									arrival_times[bit] = arrival;
+							}
 					}
 
 				}
 
-				if (inst_module->attributes.count("\\abc9_flop"))
-					flop_boxes.push_back(cell);
-				continue;
+                                if (abc9_box) {
+                                        abc9_box_seen = true;
+
+                                        toposort.node(cell->name);
+
+                                        if (inst_module->attributes.count("\\abc9_flop"))
+                                                flop_boxes.push_back(cell);
+                                        continue;
+                                }
 			}
 
 			bool cell_known = inst_module || cell->known();
