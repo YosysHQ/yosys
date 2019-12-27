@@ -53,50 +53,59 @@ $__ABC9_ASYNC0 1000 1 2 1
 $__ABC9_ASYNC1 1001 1 2 1
 0 764
 
-# The following FD*.{CE,R,CLR,PRE) are offset by 46ps to
-# reflect the -46ps Tsu
-# https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L237-L251
-# https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L265-L277
+# Max delays from https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L237-L251
+#                 https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L265-L277
+
+# NB: Inputs/Outputs must be ordered alphabetically
+#     (with exception for \$currQ)
 
 # Inputs: C CE D R \$currQ
 # Outputs: Q
 FDRE 1100 1 5 1
-0 151 0 446 0
+#0 109 -46 404 0
+0 109 0 404 0 # Clamp -46ps Tsu
 
 # Inputs: C CE D R \$currQ
 # Outputs: Q
 FDRE_1 1101 1 5 1
-0 151 0 446 0
+#0 109 0 -46 404
+0 109 0 0 404 # Clamp -46ps Tsu
 
 # Inputs: C CE CLR D \$currQ
 # Outputs: Q
 FDCE 1102 1 5 1
-0 151 806 0 0
+#0 109 764 -46 0
+0 109 764 0 0 # Clamp -46ps Tsu
 
 # Inputs: C CE CLR D \$currQ
 # Outputs: Q
 FDCE_1 1103 1 5 1
-0 151 806 0 0
+#0 109 764 -46 0
+0 109 764 0 0 # Clamp -46ps Tsu
 
 # Inputs: C CE D PRE \$currQ
 # Outputs: Q
 FDPE 1104 1 5 1
-0 151 0 806 0
+#0 109 -46 764 0
+0 109 0 764 0 # Clamp -46ps Tsu
 
 # Inputs: C CE D PRE \$currQ
 # Outputs: Q
 FDPE_1 1105 1 5 1
-0 151 0 806 0
+#0 109 -46 764 0
+0 109 0 764 0 # Clamp -46ps Tsu
 
 # Inputs: C CE D S \$currQ
 # Outputs: Q
 FDSE 1106 1 5 1
-0 151 0 446 0
+#0 109 -46 446 0
+0 109 0 446 0 # Clamp -46ps Tsu
 
 # Inputs: C CE D S \$currQ
 # Outputs: Q
 FDSE_1 1107 1 5 1
-0 151 0 446 0
+#0 109 -46 446 0
+0 109 0 446 0 # Clamp -46ps Tsu
 
 # SLICEM/A6LUT
 # Box to emulate comb/seq behaviour of RAMD{32,64} and SRL{16,32}
