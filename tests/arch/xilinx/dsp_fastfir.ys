@@ -63,7 +63,7 @@ module fastfir_dynamictaps(i_clk, i_reset, i_tap_wr, i_tap, i_ce, i_sample, o_re
 endmodule
 EOT
 
-synth_xilinx
+synth_xilinx -noiopad
 cd fastfir_dynamictaps
 select -assert-count 2 t:DSP48E1
 select -assert-none t:* t:DSP48E1 %d t:BUFG %d
