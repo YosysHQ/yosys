@@ -604,27 +604,38 @@ struct XAigerWriter
 			int port_id = 1;
 			int box_count = 0;
 			for (auto cell : box_list) {
-				RTLIL::Module* box_module = module->design->module(cell->type);
-				log_assert(box_module);
-				IdString derived_name = box_module->derive(module->design, cell->parameters);
-				box_module = module->design->module(derived_name);
+				RTLIL::Module* orig_box_module = module->design->module(cell->type);
+				log_assert(orig_box_module);
+				IdString derived_name = orig_box_module->derive(module->design, cell->parameters);
+				RTLIL::Module* box_module = module->design->module(derived_name);
 				if (box_module->has_processes())
 					log_error("ABC9 box '%s' contains processes!\n", box_module->name.c_str());
 
 				int box_inputs = 0, box_outputs = 0;
 				auto r = cell_cache.insert(std::make_pair(derived_name, nullptr));
 				Cell *holes_cell = r.first->second;
-				if (r.second && !holes_cell && box_module->get_bool_attribute("\\whitebox")) {
+				if (r.second && box_module->get_bool_attribute("\\whitebox")) {
 					holes_cell = holes_module->addCell(cell->name, cell->type);
 					holes_cell->parameters = cell->parameters;
 					r.first->second = holes_cell;
+
+					// Since Module::derive() will create a new module, there
+					//   is a chance that the ports will be alphabetically ordered
+					//   again, which is a problem when carry-chains are involved.
+					//   Inherit the port ordering from the original module here...
+					//   (and set the port_id below, when iterating through those)
+					log_assert(GetSize(box_module->ports) == GetSize(orig_box_module->ports));
+					box_module->ports = orig_box_module->ports;
 				}
 
 				// NB: Assume box_module->ports are sorted alphabetically
 				//     (as RTLIL::Module::fixup_ports() would do)
+				int box_port_id = 1;
 				for (const auto &port_name : box_module->ports) {
 					RTLIL::Wire *w = box_module->wire(port_name);
 					log_assert(w);
+					if (r.second)
+						w->port_id = box_port_id++;
 					RTLIL::Wire *holes_wire;
 					RTLIL::SigSpec port_sig;
 					if (w->port_input)
