@@ -430,7 +430,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 
 		design->selection_stack.pop_back();
 
-		log_header(design, "Executing ABC9.\n");
+		log_header(design, "Executing ABC9_MAP.\n");
 
 		if (!lut_costs.empty()) {
 			buffer = stringf("%s/lutdefs.txt", tempdir_name.c_str());
@@ -812,13 +812,13 @@ clone_lut:
 	log_pop();
 }
 
-struct Abc9Pass : public Pass {
-	Abc9Pass() : Pass("abc9", "use ABC9 for technology mapping") { }
+struct Abc9TechmapPass : public Pass {
+	Abc9TechmapPass() : Pass("abc9_map", "use ABC9 for technology mapping") { }
 	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    abc9 [options] [selection]\n");
+		log("    abc9_map [options] [selection]\n");
 		log("\n");
 		log("This pass uses the ABC tool [1] for technology mapping of yosys's internal gate\n");
 		log("library to a target architecture.\n");
@@ -1305,6 +1305,6 @@ struct Abc9Pass : public Pass {
 
 		log_pop();
 	}
-} Abc9Pass;
+} Abc9TechmapPass;
 
 PRIVATE_NAMESPACE_END
