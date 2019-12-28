@@ -8,4 +8,4 @@ cd top # Constrain all select calls below inside the top module
 
 select -assert-count 1 t:BUFG
 select -assert-count 8 t:FDRE
-select -assert-none t:BUFG t:FDRE t:IBUF t:OBUF %% t:* %D
+select -assert-none t:BUFG t:FDRE %% t:* %D

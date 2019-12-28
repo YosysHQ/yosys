@@ -11,4 +11,4 @@ select -assert-count 8 t:FDCE
 select -assert-count 1 t:INV
 select -assert-count 7 t:MUXCY
 select -assert-count 8 t:XORCY
-select -assert-none t:BUFG t:FDCE t:INV t:MUXCY t:XORCY t:IBUF t:OBUF %% t:* %D
+select -assert-none t:BUFG t:FDCE t:INV t:MUXCY t:XORCY %% t:* %D

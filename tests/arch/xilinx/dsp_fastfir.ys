@@ -66,4 +66,4 @@ EOT
 synth_xilinx
 cd fastfir_dynamictaps
 select -assert-count 2 t:DSP48E1
-select -assert-none t:* t:DSP48E1 %d t:BUFG %d t:IBUF %d t:OBUF %d
+select -assert-none t:* t:DSP48E1 %d t:BUFG %d

@@ -9,7 +9,7 @@ cd adff # Constrain all select calls below inside the top module
 select -assert-count 1 t:BUFG
 select -assert-count 1 t:FDCE
 
-select -assert-none t:BUFG t:FDCE t:IBUF t:OBUF %% t:* %D
+select -assert-none t:BUFG t:FDCE %% t:* %D
 
 
 design -load read
@@ -22,7 +22,7 @@ select -assert-count 1 t:BUFG
 select -assert-count 1 t:FDCE
 select -assert-count 1 t:INV
 
-select -assert-none t:BUFG t:FDCE t:INV t:IBUF t:OBUF %% t:* %D
+select -assert-none t:BUFG t:FDCE t:INV %% t:* %D
 
 
 design -load read
@@ -34,7 +34,7 @@ cd dffs # Constrain all select calls below inside the top module
 select -assert-count 1 t:BUFG
 select -assert-count 1 t:FDSE
 
-select -assert-none t:BUFG t:FDSE t:IBUF t:OBUF %% t:* %D
+select -assert-none t:BUFG t:FDSE %% t:* %D
 
 
 design -load read
@@ -47,4 +47,4 @@ select -assert-count 1 t:BUFG
 select -assert-count 1 t:FDRE_1
 select -assert-count 1 t:INV
 
-select -assert-none t:BUFG t:FDRE_1 t:INV t:IBUF t:OBUF %% t:* %D
+select -assert-none t:BUFG t:FDRE_1 t:INV %% t:* %D
