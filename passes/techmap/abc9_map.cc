@@ -76,58 +76,6 @@ inline std::string remap_name(RTLIL::IdString abc9_name)
 	return stringf("$abc$%d$%s", map_autoidx, abc9_name.c_str()+1);
 }
 
-void handle_loops(RTLIL::Design *design)
-{
-	Pass::call(design, "scc -set_attr abc9_scc_id {}");
-
-	// For every unique SCC found, (arbitrarily) find the first
-	// cell in the component, and select (and mark) all its output
-	// wires
-	pool<RTLIL::Const> ids_seen;
-	for (auto cell : module->cells()) {
-		auto it = cell->attributes.find(ID(abc9_scc_id));
-		if (it != cell->attributes.end()) {
-			auto r = ids_seen.insert(it->second);
-			if (r.second) {
-				for (auto &c : cell->connections_) {
-					if (c.second.is_fully_const()) continue;
-					if (cell->output(c.first)) {
-						SigBit b = c.second.as_bit();
-						Wire *w = b.wire;
-						if (w->port_input) {
-							// In this case, hopefully the loop break has been already created
-							// Get the non-prefixed wire
-							Wire *wo = module->wire(stringf("%s.abco", b.wire->name.c_str()));
-							log_assert(wo != nullptr);
-							log_assert(wo->port_output);
-							log_assert(b.offset < GetSize(wo));
-							c.second = RTLIL::SigBit(wo, b.offset);
-						}
-						else {
-							// Create a new output/input loop break
-							w->port_input = true;
-							w = module->wire(stringf("%s.abco", w->name.c_str()));
-							if (!w) {
-								w = module->addWire(stringf("%s.abco", b.wire->name.c_str()), GetSize(b.wire));
-								w->port_output = true;
-							}
-							else {
-								log_assert(w->port_input);
-								log_assert(b.offset < GetSize(w));
-							}
-							w->set_bool_attribute(ID(abc9_scc_break));
-							c.second = RTLIL::SigBit(w, b.offset);
-						}
-					}
-				}
-			}
-			cell->attributes.erase(it);
-		}
-	}
-
-	module->fixup_ports();
-}
-
 std::string add_echos_to_abc9_cmd(std::string str)
 {
 	std::string new_str, token;
@@ -254,10 +202,10 @@ struct abc9_output_filter
 };
 
 void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::string script_file, std::string exe_file,
-		bool cleanup, vector<int> lut_costs, bool dff_mode, std::string clk_str,
+		/*bool cleanup,*/ vector<int> lut_costs, bool dff_mode, std::string clk_str,
 		bool /*keepff*/, std::string delay_target, std::string /*lutin_shared*/, bool fast_mode,
 		bool show_tempdir, std::string box_file, std::string lut_file,
-		std::string wire_delay, const dict<int,IdString> &box_lookup, bool nomfs
+		std::string wire_delay, const dict<int,IdString> &box_lookup, bool nomfs, std::string tempdir_name
 )
 {
 	module = current_module;
@@ -296,10 +244,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 	if (dff_mode && clk_sig.empty())
 		log_cmd_error("Clock domain %s not found.\n", clk_str.c_str());
 
-	std::string tempdir_name = "/tmp/yosys-abc-XXXXXX";
-	if (!cleanup)
-		tempdir_name[0] = tempdir_name[4] = '_';
-	tempdir_name = make_temp_dir(tempdir_name);
 	log_header(design, "Extracting gate netlist of module `%s' to `%s/input.xaig'..\n",
 			module->name.c_str(), replace_tempdir(tempdir_name, tempdir_name, show_tempdir).c_str());
 
@@ -383,33 +327,10 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		}
 	}
 
-	bool count_output = false;
-	for (auto port_name : module->ports) {
-		RTLIL::Wire *port_wire = module->wire(port_name);
-		log_assert(port_wire);
-		if (port_wire->port_output) {
-			count_output = true;
-			break;
-		}
-	}
-
 	log_push();
 
-	if (count_output)
+	//if (count_output)
 	{
-		design->selection_stack.emplace_back(false);
-		RTLIL::Selection& sel = design->selection_stack.back();
-		sel.select(module);
-
-		handle_loops(design);
-
-		Pass::call(design, "aigmap");
-
-		//log("Extracted %d gates and %d wires to a netlist network with %d inputs and %d outputs.\n",
-		//		count_gates, GetSize(signal_list), count_input, count_output);
-
-		Pass::call(design, stringf("write_xaiger -map %s/input.sym %s/input.xaig", tempdir_name.c_str(), tempdir_name.c_str()));
-
 		std::string buffer;
 		std::ifstream ifs;
 #if 0
@@ -427,8 +348,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::stri
 		Pass::call(design, stringf("write_verilog -noexpr -norename"));
 		design->remove(design->module(ID($__abc9__)));
 #endif
-
-		design->selection_stack.pop_back();
 
 		log_header(design, "Executing ABC9_MAP.\n");
 
@@ -773,41 +692,16 @@ clone_lut:
 			}
 		}
 
-		// Now 'unexpose' those wires by undoing
-		// the expose operation -- remove them from PO/PI
-		// and re-connecting them back together
-		for (auto wire : module->wires()) {
-			auto it = wire->attributes.find(ID(abc9_scc_break));
-			if (it != wire->attributes.end()) {
-				wire->attributes.erase(it);
-				log_assert(wire->port_output);
-				wire->port_output = false;
-				std::string name = wire->name.str();
-				RTLIL::Wire *i_wire = module->wire(name.substr(0, GetSize(name) - 5));
-				log_assert(i_wire);
-				log_assert(i_wire->port_input);
-				i_wire->port_input = false;
-				module->connect(i_wire, wire);
-			}
-		}
-		module->fixup_ports();
-
 		//log("ABC RESULTS:        internal signals: %8d\n", int(signal_list.size()) - in_wires - out_wires);
 		log("ABC RESULTS:           input signals: %8d\n", in_wires);
 		log("ABC RESULTS:          output signals: %8d\n", out_wires);
 
 		design->remove(mapped_mod);
 	}
-	else
-	{
-		log("Don't call ABC as there is nothing to map.\n");
-	}
-
-	if (cleanup)
-	{
-		log("Removing temp directory.\n");
-		remove_directory(tempdir_name);
-	}
+	//else
+	//{
+	//	log("Don't call ABC as there is nothing to map.\n");
+	//}
 
 	log_pop();
 }
@@ -894,10 +788,10 @@ struct Abc9TechmapPass : public Pass {
 //		log("        set the \"keep\" attribute on flip-flop output wires. (and thus preserve\n");
 //		log("        them, for example for equivalence checking.)\n");
 //		log("\n");
-		log("    -nocleanup\n");
-		log("        when this option is used, the temporary files created by this pass\n");
-		log("        are not removed. this is useful for debugging.\n");
-		log("\n");
+//		log("    -nocleanup\n");
+//		log("        when this option is used, the temporary files created by this pass\n");
+//		log("        are not removed. this is useful for debugging.\n");
+//		log("\n");
 		log("    -showtmp\n");
 		log("        print the temp dir name in log. usually this is suppressed so that the\n");
 		log("        command output is identical across runs.\n");
@@ -909,6 +803,9 @@ struct Abc9TechmapPass : public Pass {
 		log("\n");
 		log("    -box <file>\n");
 		log("        pass this file with box library to ABC. Use with -lut.\n");
+		log("\n");
+		log("    -tempdir <dir>\n");
+		log("        use this as the temp dir.\n");
 		log("\n");
 		log("Note that this is a logic optimization pass within Yosys that is calling ABC\n");
 		log("internally. This is not going to \"run ABC on your design\". It will instead run\n");
@@ -922,7 +819,7 @@ struct Abc9TechmapPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
-		log_header(design, "Executing ABC9 pass (technology mapping using ABC9).\n");
+		log_header(design, "Executing ABC9_MAP pass (technology mapping using ABC9).\n");
 		log_push();
 
 		assign_map.clear();
@@ -934,7 +831,8 @@ struct Abc9TechmapPass : public Pass {
 #endif
 		std::string script_file, clk_str, box_file, lut_file;
 		std::string delay_target, lutin_shared = "-S 1", wire_delay;
-		bool fast_mode = false, dff_mode = false, keepff = false, cleanup = true;
+		std::string tempdir_name;
+		bool fast_mode = false, dff_mode = false, keepff = false /*, cleanup = true*/;
 		bool show_tempdir = false;
 		bool nomfs = false;
 		vector<int> lut_costs;
@@ -1038,10 +936,10 @@ struct Abc9TechmapPass : public Pass {
 			//	keepff = true;
 			//	continue;
 			//}
-			if (arg == "-nocleanup") {
-				cleanup = false;
-				continue;
-			}
+			//if (arg == "-nocleanup") {
+			//	cleanup = false;
+			//	continue;
+			//}
 			if (arg == "-showtmp") {
 				show_tempdir = true;
 				continue;
@@ -1062,17 +960,24 @@ struct Abc9TechmapPass : public Pass {
 				nomfs = true;
 				continue;
 			}
+			if (arg == "-tempdir" && argidx+1 < args.size()) {
+				tempdir_name = args[++argidx];
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
 		// ABC expects a box file for XAIG
 		if (box_file.empty())
-		    box_file = "+/dummy.box";
+			box_file = "+/dummy.box";
 
 		rewrite_filename(box_file);
 		if (!box_file.empty() && !is_absolute_path(box_file) && box_file[0] != '+')
-		    box_file = std::string(pwd) + "/" + box_file;
+			box_file = std::string(pwd) + "/" + box_file;
+
+		if (tempdir_name.empty())
+			log_cmd_error("abc9_map '-tempdir' option is mandatory.\n");
 
 		dict<int,IdString> box_lookup;
 		for (auto m : design->modules()) {
@@ -1148,9 +1053,9 @@ struct Abc9TechmapPass : public Pass {
 			assign_map.set(mod);
 
 			if (!dff_mode || !clk_str.empty()) {
-				abc9_module(design, mod, script_file, exe_file, cleanup, lut_costs, dff_mode, clk_str, keepff,
+				abc9_module(design, mod, script_file, exe_file, /*cleanup,*/ lut_costs, dff_mode, clk_str, keepff,
 						delay_target, lutin_shared, fast_mode, show_tempdir,
-						box_file, lut_file, wire_delay, box_lookup, nomfs);
+						box_file, lut_file, wire_delay, box_lookup, nomfs, tempdir_name);
 				continue;
 			}
 
@@ -1294,9 +1199,9 @@ struct Abc9TechmapPass : public Pass {
 				clk_sig = assign_map(std::get<1>(it.first));
 				en_polarity = std::get<2>(it.first);
 				en_sig = assign_map(std::get<3>(it.first));
-				abc9_module(design, mod, script_file, exe_file, cleanup, lut_costs, !clk_sig.empty(), "$",
+				abc9_module(design, mod, script_file, exe_file, /*cleanup,*/ lut_costs, !clk_sig.empty(), "$",
 						keepff, delay_target, lutin_shared, fast_mode, show_tempdir,
-						box_file, lut_file, wire_delay, box_lookup, nomfs);
+						box_file, lut_file, wire_delay, box_lookup, nomfs, tempdir_name);
 				assign_map.set(mod);
 			}
 		}
