@@ -49,10 +49,10 @@
 //                ||         Comb box ||
 //                ||                  ||
 //                ||      /\/\/\/\    ||
-//           D  -->>-----<        >   ||            +------+
-//           R  -->>-----<  Comb. >   ||            |$__ABC|
-//          CE  -->>-----<  logic >--->>-- $nextQ --| _FF_ |--+-->> Q
-// $abc9_currQ +-->>-----<        >   ||            +------+  |
+//           D  -->>-----<        >   ||
+//           R  -->>-----<  Comb. >   ||        +----------+
+//          CE  -->>-----<  logic >--->>-- $Q --|$__ABC_FF_|--+-->> Q
+// $abc9_currQ +-->>-----<        >   ||        +----------+  |
 //             |  ||      \/\/\/\/    ||                      |
 //             |  ||                  ||                      |
 //             |  ++==================++                      |
@@ -84,7 +84,7 @@ module FDRE (output Q, input C, CE, D, R);
   parameter [0:0] IS_D_INVERTED = 1'b0;
   parameter [0:0] IS_R_INVERTED = 1'b0;
 `ifdef DFF_MODE
-  wire QQ, $nextQ;
+  wire QQ, $Q;
   generate if (INIT == 1'b1) begin
     assign Q = ~QQ;
     FDSE #(
@@ -93,7 +93,7 @@ module FDRE (output Q, input C, CE, D, R);
       .IS_D_INVERTED(IS_D_INVERTED),
       .IS_S_INVERTED(IS_R_INVERTED)
     ) _TECHMAP_REPLACE_ (
-      .D(~D), .Q($nextQ), .C(C), .CE(CE), .S(R)
+      .D(~D), .Q($Q), .C(C), .CE(CE), .S(R)
     );
   end
   else begin
@@ -104,11 +104,11 @@ module FDRE (output Q, input C, CE, D, R);
       .IS_D_INVERTED(IS_D_INVERTED),
       .IS_R_INVERTED(IS_R_INVERTED)
     ) _TECHMAP_REPLACE_ (
-      .D(D), .Q($nextQ), .C(C), .CE(CE), .R(R)
+      .D(D), .Q($Q), .C(C), .CE(CE), .R(R)
     );
   end
   endgenerate
-  \$__ABC9_FF_ abc_dff (.D($nextQ), .Q(QQ));
+  $__ABC9_FF_ abc_dff (.D($Q), .Q(QQ));
 
   // Special signals
   wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, IS_C_INVERTED};
@@ -129,13 +129,13 @@ endmodule
 module FDRE_1 (output Q, input C, CE, D, R);
   parameter [0:0] INIT = 1'b0;
 `ifdef DFF_MODE
-  wire QQ, $nextQ;
+  wire QQ, $Q;
   generate if (INIT == 1'b1) begin
     assign Q = ~QQ;
     FDSE_1 #(
       .INIT(1'b0)
     ) _TECHMAP_REPLACE_ (
-      .D(~D), .Q($nextQ), .C(C), .CE(CE), .S(R)
+      .D(~D), .Q($Q), .C(C), .CE(CE), .S(R)
     );
   end
   else begin
@@ -143,11 +143,11 @@ module FDRE_1 (output Q, input C, CE, D, R);
     FDRE_1 #(
       .INIT(1'b0)
     ) _TECHMAP_REPLACE_ (
-      .D(D), .Q($nextQ), .C(C), .CE(CE), .R(R)
+      .D(D), .Q($Q), .C(C), .CE(CE), .R(R)
     );
   end
   endgenerate
-  \$__ABC9_FF_ abc_dff (.D($nextQ), .Q(QQ));
+  $__ABC9_FF_ abc_dff (.D($Q), .Q(QQ));
 
   // Special signals
   wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, 1'b1 /* IS_C_INVERTED */};
@@ -169,7 +169,7 @@ module FDCE (output Q, input C, CE, D, CLR);
   parameter [0:0] IS_D_INVERTED = 1'b0;
   parameter [0:0] IS_CLR_INVERTED = 1'b0;
 `ifdef DFF_MODE
-  wire QQ, $nextQ, $abc9_currQ;
+  wire QQ, $Q, $abc9_currQ;
   generate if (INIT == 1'b1) begin
     assign Q = ~QQ;
     FDPE #(
@@ -178,7 +178,7 @@ module FDCE (output Q, input C, CE, D, CLR);
       .IS_D_INVERTED(IS_D_INVERTED),
       .IS_PRE_INVERTED(IS_CLR_INVERTED)
     ) _TECHMAP_REPLACE_ (
-      .D(~D), .Q($nextQ), .C(C), .CE(CE), .PRE(CLR)
+      .D(~D), .Q($Q), .C(C), .CE(CE), .PRE(CLR)
                                             // ^^^ Note that async
                                             //     control is not directly
                                             //     supported by abc9 but its
@@ -186,7 +186,7 @@ module FDCE (output Q, input C, CE, D, CLR);
                                             //     $__ABC9_ASYNC1 below
     );
     // Since this is an async flop, async behaviour is dealt with here
-    \$__ABC9_ASYNC0 abc_async (.A($abc9_currQ), .S(CLR ^ IS_CLR_INVERTED), .Y(QQ));
+    $__ABC9_ASYNC0 abc_async (.A($abc9_currQ), .S(CLR ^ IS_CLR_INVERTED), .Y(QQ));
   end
   else begin
     assign Q = QQ;
@@ -196,7 +196,7 @@ module FDCE (output Q, input C, CE, D, CLR);
       .IS_D_INVERTED(IS_D_INVERTED),
       .IS_CLR_INVERTED(IS_CLR_INVERTED)
     ) _TECHMAP_REPLACE_ (
-      .D(D), .Q($nextQ), .C(C), .CE(CE), .CLR(CLR)
+      .D(D), .Q($Q), .C(C), .CE(CE), .CLR(CLR)
                                            // ^^^ Note that async
                                            //     control is not directly
                                            //     supported by abc9 but its
@@ -204,9 +204,9 @@ module FDCE (output Q, input C, CE, D, CLR);
                                            //     $__ABC9_ASYNC0 below
     );
     // Since this is an async flop, async behaviour is dealt with here
-    \$__ABC9_ASYNC1 abc_async (.A($abc9_currQ), .S(CLR ^ IS_CLR_INVERTED), .Y(QQ));
+    $__ABC9_ASYNC1 abc_async (.A($abc9_currQ), .S(CLR ^ IS_CLR_INVERTED), .Y(QQ));
   end endgenerate
-  \$__ABC9_FF_ abc_dff (.D($nextQ), .Q($abc9_currQ));
+  $__ABC9_FF_ abc_dff (.D($Q), .Q($abc9_currQ));
 
   // Special signals
   wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, IS_C_INVERTED};
@@ -227,36 +227,36 @@ endmodule
 module FDCE_1 (output Q, input C, CE, D, CLR);
   parameter [0:0] INIT = 1'b0;
 `ifdef DFF_MODE
-  wire QQ, $nextQ, $abc9_currQ;
+  wire QQ, $Q, $abc9_currQ;
   generate if (INIT == 1'b1) begin
     assign Q = ~QQ;
     FDPE_1 #(
       .INIT(1'b0)
     ) _TECHMAP_REPLACE_ (
-      .D(~D), .Q($nextQ), .C(C), .CE(CE), .PRE(CLR)
+      .D(~D), .Q($Q), .C(C), .CE(CE), .PRE(CLR)
                                             // ^^^ Note that async
                                             //     control is not directly
                                             //     supported by abc9 but its
                                             //     behaviour is captured by
                                             //     $__ABC9_ASYNC1 below
     );
-    \$__ABC9_ASYNC1 abc_async (.A($abc9_currQ), .S(CLR), .Y(QQ));
+    $__ABC9_ASYNC1 abc_async (.A($abc9_currQ), .S(CLR), .Y(QQ));
   end
   else begin
     assign Q = QQ;
     FDCE_1 #(
       .INIT(1'b0)
     ) _TECHMAP_REPLACE_ (
-      .D(D), .Q($nextQ), .C(C), .CE(CE), .CLR(CLR)
+      .D(D), .Q($Q), .C(C), .CE(CE), .CLR(CLR)
                                            // ^^^ Note that async
                                            //     control is not directly
                                            //     supported by abc9 but its
                                            //     behaviour is captured by
                                            //     $__ABC9_ASYNC0 below
     );
-    \$__ABC9_ASYNC0 abc_async (.A($abc9_currQ), .S(CLR), .Y(QQ));
+    $__ABC9_ASYNC0 abc_async (.A($abc9_currQ), .S(CLR), .Y(QQ));
   end endgenerate
-  \$__ABC9_FF_ abc_dff (.D($nextQ), .Q($abc9_currQ));
+  $__ABC9_FF_ abc_dff (.D($Q), .Q($abc9_currQ));
 
   // Special signals
   wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, 1'b1 /* IS_C_INVERTED */};
@@ -278,7 +278,7 @@ module FDPE (output Q, input C, CE, D, PRE);
   parameter [0:0] IS_D_INVERTED = 1'b0;
   parameter [0:0] IS_PRE_INVERTED = 1'b0;
 `ifdef DFF_MODE
-  wire QQ, $nextQ, $abc9_currQ;
+  wire QQ, $Q, $abc9_currQ;
   generate if (INIT == 1'b1) begin
     assign Q = ~QQ;
     FDCE #(
@@ -287,14 +287,14 @@ module FDPE (output Q, input C, CE, D, PRE);
       .IS_D_INVERTED(IS_D_INVERTED),
       .IS_CLR_INVERTED(IS_PRE_INVERTED),
     ) _TECHMAP_REPLACE_ (
-      .D(~D), .Q($nextQ), .C(C), .CE(CE), .CLR(PRE)
+      .D(~D), .Q($Q), .C(C), .CE(CE), .CLR(PRE)
                                             // ^^^ Note that async
                                             //     control is not directly
                                             //     supported by abc9 but its
                                             //     behaviour is captured by
                                             //     $__ABC9_ASYNC0 below
     );
-    \$__ABC9_ASYNC0 abc_async (.A($abc9_currQ), .S(PRE ^ IS_PRE_INVERTED), .Y(QQ));
+    $__ABC9_ASYNC0 abc_async (.A($abc9_currQ), .S(PRE ^ IS_PRE_INVERTED), .Y(QQ));
   end
   else begin
     assign Q = QQ;
@@ -304,16 +304,16 @@ module FDPE (output Q, input C, CE, D, PRE);
       .IS_D_INVERTED(IS_D_INVERTED),
       .IS_PRE_INVERTED(IS_PRE_INVERTED),
     ) _TECHMAP_REPLACE_ (
-      .D(D), .Q($nextQ), .C(C), .CE(CE), .PRE(PRE)
+      .D(D), .Q($Q), .C(C), .CE(CE), .PRE(PRE)
                                            // ^^^ Note that async
                                            //     control is not directly
                                            //     supported by abc9 but its
                                            //     behaviour is captured by
                                            //     $__ABC9_ASYNC1 below
     );
-    \$__ABC9_ASYNC1 abc_async (.A($abc9_currQ), .S(PRE ^ IS_PRE_INVERTED), .Y(QQ));
+    $__ABC9_ASYNC1 abc_async (.A($abc9_currQ), .S(PRE ^ IS_PRE_INVERTED), .Y(QQ));
   end endgenerate
-  \$__ABC9_FF_ abc_dff (.D($nextQ), .Q($abc9_currQ));
+  $__ABC9_FF_ abc_dff (.D($Q), .Q($abc9_currQ));
 
   // Special signals
   wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, IS_C_INVERTED};
@@ -334,36 +334,36 @@ endmodule
 module FDPE_1 (output Q, input C, CE, D, PRE);
   parameter [0:0] INIT = 1'b1;
 `ifdef DFF_MODE
-  wire QQ, $nextQ, $abc9_currQ;
+  wire QQ, $Q, $abc9_currQ;
   generate if (INIT == 1'b1) begin
     assign Q = ~QQ;
     FDCE_1 #(
       .INIT(1'b0)
     ) _TECHMAP_REPLACE_ (
-      .D(~D), .Q($nextQ), .C(C), .CE(CE), .CLR(PRE)
+      .D(~D), .Q($Q), .C(C), .CE(CE), .CLR(PRE)
                                             // ^^^ Note that async
                                             //     control is not directly
                                             //     supported by abc9 but its
                                             //     behaviour is captured by
                                             //     $__ABC9_ASYNC0 below
     );
-    \$__ABC9_ASYNC0 abc_async (.A($abc9_currQ), .S(PRE), .Y(QQ));
+    $__ABC9_ASYNC0 abc_async (.A($abc9_currQ), .S(PRE), .Y(QQ));
   end
   else begin
     assign Q = QQ;
     FDPE_1 #(
       .INIT(1'b0)
     ) _TECHMAP_REPLACE_ (
-      .D(D), .Q($nextQ), .C(C), .CE(CE), .PRE(PRE)
+      .D(D), .Q($Q), .C(C), .CE(CE), .PRE(PRE)
                                            // ^^^ Note that async
                                            //     control is not directly
                                            //     supported by abc9 but its
                                            //     behaviour is captured by
                                            //     $__ABC9_ASYNC1 below
     );
-    \$__ABC9_ASYNC1 abc_async (.A($abc9_currQ), .S(PRE), .Y(QQ));
+    $__ABC9_ASYNC1 abc_async (.A($abc9_currQ), .S(PRE), .Y(QQ));
   end endgenerate
-  \$__ABC9_FF_ abc_dff (.D($nextQ), .Q($abc9_currQ));
+  $__ABC9_FF_ abc_dff (.D($Q), .Q($abc9_currQ));
 
   // Special signals
   wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, 1'b1 /* IS_C_INVERTED */};
@@ -385,7 +385,7 @@ module FDSE (output Q, input C, CE, D, S);
   parameter [0:0] IS_D_INVERTED = 1'b0;
   parameter [0:0] IS_S_INVERTED = 1'b0;
 `ifdef DFF_MODE
-  wire QQ, $nextQ;
+  wire QQ, $Q;
   generate if (INIT == 1'b1) begin
     assign Q = ~QQ;
     FDRE #(
@@ -394,7 +394,7 @@ module FDSE (output Q, input C, CE, D, S);
       .IS_D_INVERTED(IS_D_INVERTED),
       .IS_R_INVERTED(IS_S_INVERTED)
     ) _TECHMAP_REPLACE_ (
-      .D(~D), .Q($nextQ), .C(C), .CE(CE), .R(S)
+      .D(~D), .Q($Q), .C(C), .CE(CE), .R(S)
     );
   end
   else begin
@@ -405,10 +405,10 @@ module FDSE (output Q, input C, CE, D, S);
       .IS_D_INVERTED(IS_D_INVERTED),
       .IS_S_INVERTED(IS_S_INVERTED)
     ) _TECHMAP_REPLACE_ (
-      .D(D), .Q($nextQ), .C(C), .CE(CE), .S(S)
+      .D(D), .Q($Q), .C(C), .CE(CE), .S(S)
     );
   end endgenerate
-  \$__ABC9_FF_ abc_dff (.D($nextQ), .Q(QQ));
+  $__ABC9_FF_ abc_dff (.D($Q), .Q(QQ));
 
   // Special signals
   wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, IS_C_INVERTED};
@@ -429,13 +429,13 @@ endmodule
 module FDSE_1 (output Q, input C, CE, D, S);
   parameter [0:0] INIT = 1'b1;
 `ifdef DFF_MODE
-  wire QQ, $nextQ;
+  wire QQ, $Q;
   generate if (INIT == 1'b1) begin
     assign Q = ~QQ;
     FDRE_1 #(
       .INIT(1'b0)
     ) _TECHMAP_REPLACE_ (
-      .D(~D), .Q($nextQ), .C(C), .CE(CE), .R(S)
+      .D(~D), .Q($Q), .C(C), .CE(CE), .R(S)
     );
   end
   else begin
@@ -443,10 +443,10 @@ module FDSE_1 (output Q, input C, CE, D, S);
     FDSE_1 #(
       .INIT(1'b0)
     ) _TECHMAP_REPLACE_ (
-      .D(D), .Q($nextQ), .C(C), .CE(CE), .S(S)
+      .D(D), .Q($Q), .C(C), .CE(CE), .S(S)
     );
   end endgenerate
-  \$__ABC9_FF_ abc_dff (.D($nextQ), .Q(QQ));
+  $__ABC9_FF_ abc_dff (.D($Q), .Q(QQ));
 
   // Special signals
   wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, 1'b1 /* IS_C_INVERTED */};
@@ -472,17 +472,17 @@ module RAM32X1D (
 );
   parameter INIT = 32'h0;
   parameter IS_WCLK_INVERTED = 1'b0;
-  wire \$DPO , \$SPO ;
+  wire $DPO, $SPO;
   RAM32X1D #(
     .INIT(INIT), .IS_WCLK_INVERTED(IS_WCLK_INVERTED)
   ) _TECHMAP_REPLACE_ (
-    .DPO(\$DPO ), .SPO(\$SPO ),
+    .DPO($DPO), .SPO($SPO),
     .D(D), .WCLK(WCLK), .WE(WE),
     .A0(A0), .A1(A1), .A2(A2), .A3(A3), .A4(A4),
     .DPRA0(DPRA0), .DPRA1(DPRA1), .DPRA2(DPRA2), .DPRA3(DPRA3), .DPRA4(DPRA4)
   );
-  \$__ABC9_LUT6 spo (.A(\$SPO ), .S({1'b1, A4, A3, A2, A1, A0}), .Y(SPO));
-  \$__ABC9_LUT6 dpo (.A(\$DPO ), .S({1'b1, DPRA4, DPRA3, DPRA2, DPRA1, DPRA0}), .Y(DPO));
+  $__ABC9_LUT6 spo (.A($SPO), .S({1'b1, A4, A3, A2, A1, A0}), .Y(SPO));
+  $__ABC9_LUT6 dpo (.A($DPO), .S({1'b1, DPRA4, DPRA3, DPRA2, DPRA1, DPRA0}), .Y(DPO));
 endmodule
 
 module RAM64X1D (
@@ -495,17 +495,17 @@ module RAM64X1D (
 );
   parameter INIT = 64'h0;
   parameter IS_WCLK_INVERTED = 1'b0;
-  wire \$DPO , \$SPO ;
+  wire $DPO, $SPO;
   RAM64X1D #(
     .INIT(INIT), .IS_WCLK_INVERTED(IS_WCLK_INVERTED)
   ) _TECHMAP_REPLACE_ (
-    .DPO(\$DPO ), .SPO(\$SPO ),
+    .DPO($DPO), .SPO($SPO),
     .D(D), .WCLK(WCLK), .WE(WE),
     .A0(A0), .A1(A1), .A2(A2), .A3(A3), .A4(A4), .A5(A5),
     .DPRA0(DPRA0), .DPRA1(DPRA1), .DPRA2(DPRA2), .DPRA3(DPRA3), .DPRA4(DPRA4), .DPRA5(DPRA5)
   );
-  \$__ABC9_LUT6 spo (.A(\$SPO ), .S({A5, A4, A3, A2, A1, A0}), .Y(SPO));
-  \$__ABC9_LUT6 dpo (.A(\$DPO ), .S({DPRA5, DPRA4, DPRA3, DPRA2, DPRA1, DPRA0}), .Y(DPO));
+  $__ABC9_LUT6 spo (.A($SPO), .S({A5, A4, A3, A2, A1, A0}), .Y(SPO));
+  $__ABC9_LUT6 dpo (.A($DPO), .S({DPRA5, DPRA4, DPRA3, DPRA2, DPRA1, DPRA0}), .Y(DPO));
 endmodule
 
 module RAM128X1D (
@@ -517,17 +517,17 @@ module RAM128X1D (
 );
   parameter INIT = 128'h0;
   parameter IS_WCLK_INVERTED = 1'b0;
-  wire \$DPO , \$SPO ;
+  wire $DPO, $SPO;
   RAM128X1D #(
     .INIT(INIT), .IS_WCLK_INVERTED(IS_WCLK_INVERTED)
   ) _TECHMAP_REPLACE_ (
-    .DPO(\$DPO ), .SPO(\$SPO ),
+    .DPO($DPO), .SPO($SPO),
     .D(D), .WCLK(WCLK), .WE(WE),
     .A(A),
     .DPRA(DPRA)
   );
-  \$__ABC9_LUT7 spo (.A(\$SPO ), .S(A), .Y(SPO));
-  \$__ABC9_LUT7 dpo (.A(\$DPO ), .S(DPRA), .Y(DPO));
+  $__ABC9_LUT7 spo (.A($SPO), .S(A), .Y(SPO));
+  $__ABC9_LUT7 dpo (.A($DPO), .S(DPRA), .Y(DPO));
 endmodule
 
 module RAM32M (
@@ -551,24 +551,24 @@ module RAM32M (
   parameter [63:0] INIT_C = 64'h0000000000000000;
   parameter [63:0] INIT_D = 64'h0000000000000000;
   parameter [0:0] IS_WCLK_INVERTED = 1'b0;
-  wire [1:0] \$DOA , \$DOB , \$DOC , \$DOD ;
+  wire [1:0] $DOA, $DOB, $DOC, $DOD;
   RAM32M #(
     .INIT_A(INIT_A), .INIT_B(INIT_B), .INIT_C(INIT_C), .INIT_D(INIT_D),
     .IS_WCLK_INVERTED(IS_WCLK_INVERTED)
   ) _TECHMAP_REPLACE_ (
-    .DOA(\$DOA ), .DOB(\$DOB ), .DOC(\$DOC ), .DOD(\$DOD ),
+    .DOA($DOA), .DOB($DOB), .DOC($DOC), .DOD($DOD),
     .WCLK(WCLK), .WE(WE),
     .ADDRA(ADDRA), .ADDRB(ADDRB), .ADDRC(ADDRC), .ADDRD(ADDRD),
     .DIA(DIA), .DIB(DIB), .DIC(DIC), .DID(DID)
   );
-  \$__ABC9_LUT6 doa0 (.A(\$DOA [0]), .S({1'b1, ADDRA}), .Y(DOA[0]));
-  \$__ABC9_LUT6 doa1 (.A(\$DOA [1]), .S({1'b1, ADDRA}), .Y(DOA[1]));
-  \$__ABC9_LUT6 dob0 (.A(\$DOB [0]), .S({1'b1, ADDRB}), .Y(DOB[0]));
-  \$__ABC9_LUT6 dob1 (.A(\$DOB [1]), .S({1'b1, ADDRB}), .Y(DOB[1]));
-  \$__ABC9_LUT6 doc0 (.A(\$DOC [0]), .S({1'b1, ADDRC}), .Y(DOC[0]));
-  \$__ABC9_LUT6 doc1 (.A(\$DOC [1]), .S({1'b1, ADDRC}), .Y(DOC[1]));
-  \$__ABC9_LUT6 dod0 (.A(\$DOD [0]), .S({1'b1, ADDRD}), .Y(DOD[0]));
-  \$__ABC9_LUT6 dod1 (.A(\$DOD [1]), .S({1'b1, ADDRD}), .Y(DOD[1]));
+  $__ABC9_LUT6 doa0 (.A($DOA[0]), .S({1'b1, ADDRA}), .Y(DOA[0]));
+  $__ABC9_LUT6 doa1 (.A($DOA[1]), .S({1'b1, ADDRA}), .Y(DOA[1]));
+  $__ABC9_LUT6 dob0 (.A($DOB[0]), .S({1'b1, ADDRB}), .Y(DOB[0]));
+  $__ABC9_LUT6 dob1 (.A($DOB[1]), .S({1'b1, ADDRB}), .Y(DOB[1]));
+  $__ABC9_LUT6 doc0 (.A($DOC[0]), .S({1'b1, ADDRC}), .Y(DOC[0]));
+  $__ABC9_LUT6 doc1 (.A($DOC[1]), .S({1'b1, ADDRC}), .Y(DOC[1]));
+  $__ABC9_LUT6 dod0 (.A($DOD[0]), .S({1'b1, ADDRD}), .Y(DOD[0]));
+  $__ABC9_LUT6 dod1 (.A($DOD[1]), .S({1'b1, ADDRD}), .Y(DOD[1]));
 endmodule
 
 module RAM64M (
@@ -592,20 +592,20 @@ module RAM64M (
   parameter [63:0] INIT_C = 64'h0000000000000000;
   parameter [63:0] INIT_D = 64'h0000000000000000;
   parameter [0:0] IS_WCLK_INVERTED = 1'b0;
-  wire \$DOA , \$DOB , \$DOC , \$DOD ;
+  wire $DOA, $DOB, $DOC, $DOD;
   RAM64M #(
     .INIT_A(INIT_A), .INIT_B(INIT_B), .INIT_C(INIT_C), .INIT_D(INIT_D),
     .IS_WCLK_INVERTED(IS_WCLK_INVERTED)
   ) _TECHMAP_REPLACE_ (
-    .DOA(\$DOA ), .DOB(\$DOB ), .DOC(\$DOC ), .DOD(\$DOD ),
+    .DOA($DOA), .DOB($DOB), .DOC($DOC), .DOD($DOD),
     .WCLK(WCLK), .WE(WE),
     .ADDRA(ADDRA), .ADDRB(ADDRB), .ADDRC(ADDRC), .ADDRD(ADDRD),
     .DIA(DIA), .DIB(DIB), .DIC(DIC), .DID(DID)
   );
-  \$__ABC9_LUT6 doa (.A(\$DOA ), .S(ADDRA), .Y(DOA));
-  \$__ABC9_LUT6 dob (.A(\$DOB ), .S(ADDRB), .Y(DOB));
-  \$__ABC9_LUT6 doc (.A(\$DOC ), .S(ADDRC), .Y(DOC));
-  \$__ABC9_LUT6 dod (.A(\$DOD ), .S(ADDRD), .Y(DOD));
+  $__ABC9_LUT6 doa (.A($DOA), .S(ADDRA), .Y(DOA));
+  $__ABC9_LUT6 dob (.A($DOB), .S(ADDRB), .Y(DOB));
+  $__ABC9_LUT6 doc (.A($DOC), .S(ADDRC), .Y(DOC));
+  $__ABC9_LUT6 dod (.A($DOD), .S(ADDRD), .Y(DOD));
 endmodule
 
 module SRL16E (
@@ -614,14 +614,14 @@ module SRL16E (
 );
   parameter [15:0] INIT = 16'h0000;
   parameter [0:0] IS_CLK_INVERTED = 1'b0;
-  wire \$Q ;
+  wire $Q;
   SRL16E #(
     .INIT(INIT), .IS_CLK_INVERTED(IS_CLK_INVERTED)
   ) _TECHMAP_REPLACE_ (
-    .Q(\$Q ),
+    .Q($Q),
     .A0(A0), .A1(A1), .A2(A2), .A3(A3), .CE(CE), .CLK(CLK), .D(D)
   );
-  \$__ABC9_LUT6 q (.A(\$Q ), .S({1'b1, A3, A2, A1, A0, 1'b1}), .Y(Q));
+  $__ABC9_LUT6 q (.A($Q), .S({1'b1, A3, A2, A1, A0, 1'b1}), .Y(Q));
 endmodule
 
 module SRLC32E (
@@ -632,14 +632,14 @@ module SRLC32E (
 );
   parameter [31:0] INIT = 32'h00000000;
   parameter [0:0] IS_CLK_INVERTED = 1'b0;
-  wire \$Q ;
+  wire $Q;
   SRLC32E #(
     .INIT(INIT), .IS_CLK_INVERTED(IS_CLK_INVERTED)
   ) _TECHMAP_REPLACE_ (
-    .Q(\$Q ), .Q31(Q31),
+    .Q($Q), .Q31(Q31),
     .A(A), .CE(CE), .CLK(CLK), .D(D)
   );
-  \$__ABC9_LUT6 q (.A(\$Q ), .S({1'b1, A}), .Y(Q));
+  $__ABC9_LUT6 q (.A($Q), .S({1'b1, A}), .Y(Q));
 endmodule
 
 module DSP48E1 (
@@ -828,15 +828,15 @@ __CELL__ #(
         if (AREG == 0 && MREG == 0 && PREG == 0)
             assign iA = A, pA = 1'bx;
         else
-            \$__ABC9_REG #(.WIDTH(30)) rA (.I(A), .O(iA), .Q(pA));
+            $__ABC9_REG #(.WIDTH(30)) rA (.I(A), .O(iA), .Q(pA));
         if (BREG == 0 && MREG == 0 && PREG == 0)
             assign iB = B, pB = 1'bx;
         else
-            \$__ABC9_REG #(.WIDTH(18)) rB (.I(B), .O(iB), .Q(pB));
+            $__ABC9_REG #(.WIDTH(18)) rB (.I(B), .O(iB), .Q(pB));
         if (CREG == 0 && PREG == 0)
             assign iC = C, pC = 1'bx;
         else
-            \$__ABC9_REG #(.WIDTH(48)) rC (.I(C), .O(iC), .Q(pC));
+            $__ABC9_REG #(.WIDTH(48)) rC (.I(C), .O(iC), .Q(pC));
         if (DREG == 0)
             assign iD = D;
         else if (techmap_guard)
@@ -847,27 +847,27 @@ __CELL__ #(
         assign pAD = 1'bx;
     if (PREG == 0) begin
         if (MREG == 1)
-        \$__ABC9_REG rM (.Q(pM));
+        $__ABC9_REG rM (.Q(pM));
         else
         assign pM = 1'bx;
         assign pP = 1'bx;
     end else begin
             assign pM = 1'bx;
-            \$__ABC9_REG rP (.Q(pP));
+            $__ABC9_REG rP (.Q(pP));
         end
 
         if (MREG == 0 && PREG == 0)
             assign mP = oP, mPCOUT = oPCOUT;
         else
             assign mP = 1'bx, mPCOUT = 1'bx;
-        \$__ABC9_DSP48E1_MULT_P_MUX muxP (
+        $__ABC9_DSP48E1_MULT_P_MUX muxP (
             .Aq(pA), .Bq(pB), .Cq(pC), .Dq(pD), .ADq(pAD), .I(oP), .Mq(pM), .P(mP), .Pq(pP), .O(P)
         );
-        \$__ABC9_DSP48E1_MULT_PCOUT_MUX muxPCOUT (
+        $__ABC9_DSP48E1_MULT_PCOUT_MUX muxPCOUT (
             .Aq(pA), .Bq(pB), .Cq(pC), .Dq(pD), .ADq(pAD), .I(oPCOUT), .Mq(pM), .P(mPCOUT), .Pq(pP), .O(PCOUT)
         );
 
-        `DSP48E1_INST(\$__ABC9_DSP48E1_MULT )
+        `DSP48E1_INST($__ABC9_DSP48E1_MULT )
     end
     else if (USE_MULT == "MULTIPLY" && USE_DPORT == "TRUE") begin
         // Disconnect the A-input if MREG is enabled, since
@@ -875,26 +875,26 @@ __CELL__ #(
         if (AREG == 0 && ADREG == 0 && MREG == 0 && PREG == 0)
             assign iA = A, pA = 1'bx;
         else
-            \$__ABC9_REG #(.WIDTH(30)) rA (.I(A), .O(iA), .Q(pA));
+            $__ABC9_REG #(.WIDTH(30)) rA (.I(A), .O(iA), .Q(pA));
         if (BREG == 0 && MREG == 0 && PREG == 0)
             assign iB = B, pB = 1'bx;
         else
-            \$__ABC9_REG #(.WIDTH(18)) rB (.I(B), .O(iB), .Q(pB));
+            $__ABC9_REG #(.WIDTH(18)) rB (.I(B), .O(iB), .Q(pB));
         if (CREG == 0 && PREG == 0)
             assign iC = C, pC = 1'bx;
         else
-            \$__ABC9_REG #(.WIDTH(48)) rC (.I(C), .O(iC), .Q(pC));
+            $__ABC9_REG #(.WIDTH(48)) rC (.I(C), .O(iC), .Q(pC));
         if (DREG == 0 && ADREG == 0)
             assign iD = D, pD = 1'bx;
         else
-            \$__ABC9_REG #(.WIDTH(25)) rD (.I(D), .O(iD), .Q(pD));
+            $__ABC9_REG #(.WIDTH(25)) rD (.I(D), .O(iD), .Q(pD));
         if (PREG == 0) begin
             if (MREG == 1) begin
                 assign pAD = 1'bx;
-        \$__ABC9_REG rM (.Q(pM));
+        $__ABC9_REG rM (.Q(pM));
             end else begin
                 if (ADREG == 1)
-                    \$__ABC9_REG rAD (.Q(pAD));
+                    $__ABC9_REG rAD (.Q(pAD));
                 else
                     assign pAD = 1'bx;
         assign pM = 1'bx;
@@ -902,21 +902,21 @@ __CELL__ #(
         assign pP = 1'bx;
     end else begin
             assign pAD = 1'bx, pM = 1'bx;
-            \$__ABC9_REG rP (.Q(pP));
+            $__ABC9_REG rP (.Q(pP));
         end
 
         if (MREG == 0 && PREG == 0)
             assign mP = oP, mPCOUT = oPCOUT;
         else
             assign mP = 1'bx, mPCOUT = 1'bx;
-        \$__ABC9_DSP48E1_MULT_DPORT_P_MUX muxP (
+        $__ABC9_DSP48E1_MULT_DPORT_P_MUX muxP (
             .Aq(pA), .Bq(pB), .Cq(pC), .Dq(pD), .ADq(pAD), .I(oP), .Mq(pM), .P(mP), .Pq(pP), .O(P)
         );
-        \$__ABC9_DSP48E1_MULT_DPORT_PCOUT_MUX muxPCOUT (
+        $__ABC9_DSP48E1_MULT_DPORT_PCOUT_MUX muxPCOUT (
             .Aq(pA), .Bq(pB), .Cq(pC), .Dq(pD), .ADq(pAD), .I(oPCOUT), .Mq(pM), .P(mPCOUT), .Pq(pP), .O(PCOUT)
         );
 
-        `DSP48E1_INST(\$__ABC9_DSP48E1_MULT_DPORT )
+        `DSP48E1_INST($__ABC9_DSP48E1_MULT_DPORT )
     end
     else if (USE_MULT == "NONE" && USE_DPORT == "FALSE") begin
         // Disconnect the A-input if MREG is enabled, since
@@ -924,15 +924,15 @@ __CELL__ #(
         if (AREG == 0 && PREG == 0)
             assign iA = A, pA = 1'bx;
         else
-            \$__ABC9_REG #(.WIDTH(30)) rA (.I(A), .O(iA), .Q(pA));
+            $__ABC9_REG #(.WIDTH(30)) rA (.I(A), .O(iA), .Q(pA));
         if (BREG == 0 && PREG == 0)
             assign iB = B, pB = 1'bx;
         else
-            \$__ABC9_REG #(.WIDTH(18)) rB (.I(B), .O(iB), .Q(pB));
+            $__ABC9_REG #(.WIDTH(18)) rB (.I(B), .O(iB), .Q(pB));
         if (CREG == 0 && PREG == 0)
             assign iC = C, pC = 1'bx;
         else
-            \$__ABC9_REG #(.WIDTH(48)) rC (.I(C), .O(iC), .Q(pC));
+            $__ABC9_REG #(.WIDTH(48)) rC (.I(C), .O(iC), .Q(pC));
         if (DREG == 1 && techmap_guard)
             $error("Invalid DSP48E1 configuration: DREG enabled but USE_DPORT == \"FALSE\"");
         assign pD = 1'bx;
@@ -943,7 +943,7 @@ __CELL__ #(
             $error("Invalid DSP48E1 configuration: MREG enabled but USE_MULT == \"NONE\"");
         assign pM = 1'bx;
         if (PREG == 1)
-            \$__ABC9_REG rP (.Q(pP));
+            $__ABC9_REG rP (.Q(pP));
         else
             assign pP = 1'bx;
 
@@ -951,14 +951,14 @@ __CELL__ #(
             assign mP = oP, mPCOUT = oPCOUT;
         else
             assign mP = 1'bx, mPCOUT = 1'bx;
-        \$__ABC9_DSP48E1_P_MUX muxP (
+        $__ABC9_DSP48E1_P_MUX muxP (
             .Aq(pA), .Bq(pB), .Cq(pC), .Dq(pD), .ADq(pAD), .I(oP), .Mq(pM), .P(mP), .Pq(pP), .O(P)
         );
-        \$__ABC9_DSP48E1_PCOUT_MUX muxPCOUT (
+        $__ABC9_DSP48E1_PCOUT_MUX muxPCOUT (
             .Aq(pA), .Bq(pB), .Cq(pC), .Dq(pD), .ADq(pAD), .I(oPCOUT), .Mq(pM), .P(mPCOUT), .Pq(pP), .O(PCOUT)
         );
 
-        `DSP48E1_INST(\$__ABC9_DSP48E1 )
+        `DSP48E1_INST($__ABC9_DSP48E1 )
     end
     else
         $error("Invalid DSP48E1 configuration");
