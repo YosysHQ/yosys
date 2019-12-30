@@ -209,7 +209,7 @@ struct SynthGowinPass : public ScriptPass
 			run("techmap -map +/techmap.v -map +/gowin/arith_map.v");
 			run("techmap -map +/techmap.v");
 			if (retime || help_mode)
-				run("abc -dff", "(only if -retime)");
+				run("abc -dff -D 1", "(only if -retime)");
 			run("splitnets");
 		}
 

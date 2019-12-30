@@ -152,12 +152,12 @@ struct SynthAchronixPass : public ScriptPass {
         run("clean -purge");
         run("setundef -undriven -zero");
         if (retime || help_mode)
-          run("abc -markgroups -dff", "(only if -retime)");
+          run("abc -markgroups -dff -D 1", "(only if -retime)");
       }
 
     if (check_label("map_luts"))
       {
-        run("abc -lut 4" + string(retime ? " -dff" : ""));
+        run("abc -lut 4" + string(retime ? " -dff -D 1" : ""));
         run("clean");
       }
 

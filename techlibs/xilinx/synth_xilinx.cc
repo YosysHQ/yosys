@@ -555,9 +555,9 @@ struct SynthXilinxPass : public ScriptPass
 			}
 			else {
 				if (nowidelut)
-					run("abc -luts 2:2,3,6:5" + string(retime ? " -dff" : ""));
+					run("abc -luts 2:2,3,6:5" + string(retime ? " -dff -D 1" : ""));
 				else
-					run("abc -luts 2:2,3,6:5,10,20" + string(retime ? " -dff" : ""));
+					run("abc -luts 2:2,3,6:5,10,20" + string(retime ? " -dff -D 1" : ""));
 			}
 			run("clean");
 
