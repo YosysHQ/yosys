@@ -927,7 +927,6 @@ struct XAigerWriter
 	void write_map(std::ostream &f, bool verbose_map)
 	{
 		dict<int, string> input_lines;
-		dict<int, string> init_lines;
 		dict<int, string> output_lines;
 		dict<int, string> wire_lines;
 
@@ -968,10 +967,6 @@ struct XAigerWriter
 		for (auto &it : input_lines)
 			f << it.second;
 		log_assert(input_lines.size() == input_bits.size());
-
-		init_lines.sort();
-		for (auto &it : init_lines)
-			f << it.second;
 
 		int box_count = 0;
 		for (auto cell : box_list)
