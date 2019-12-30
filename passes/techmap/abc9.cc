@@ -249,9 +249,8 @@ struct abc9_output_filter
 };
 
 void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string script_file, std::string exe_file,
-		bool cleanup, vector<int> lut_costs, bool /*dff_mode*/, std::string /*clk_str*/,
-		bool /*keepff*/, std::string delay_target, std::string /*lutin_shared*/, bool fast_mode,
-		bool show_tempdir, std::string box_file, std::string lut_file,
+		bool cleanup, vector<int> lut_costs, std::string delay_target, std::string /*lutin_shared*/, bool fast_mode,
+		const std::vector<RTLIL::Cell*> &/*cells*/, bool show_tempdir, std::string box_file, std::string lut_file,
 		std::string wire_delay, const dict<int,IdString> &box_lookup, bool nomfs
 )
 {
@@ -294,19 +293,9 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 		} else
 			abc9_script += stringf("source %s", script_file.c_str());
 	} else if (!lut_costs.empty() || !lut_file.empty()) {
-		//bool all_luts_cost_same = true;
-		//for (int this_cost : lut_costs)
-		//	if (this_cost != lut_costs.front())
-		//		all_luts_cost_same = false;
 		abc9_script += fast_mode ? ABC_FAST_COMMAND_LUT : ABC_COMMAND_LUT;
-		//if (all_luts_cost_same && !fast_mode)
-		//	abc9_script += "; lutpack {S}";
 	} else
 		log_abort();
-
-	//if (script_file.empty() && !delay_target.empty())
-	//	for (size_t pos = abc9_script.find("dretime;"); pos != std::string::npos; pos = abc9_script.find("dretime;", pos+1))
-	//		abc9_script = abc9_script.substr(0, pos) + "dretime; retime -o {D};" + abc9_script.substr(pos+8);
 
 	for (size_t pos = abc9_script.find("{D}"); pos != std::string::npos; pos = abc9_script.find("{D}", pos))
 		abc9_script = abc9_script.substr(0, pos) + delay_target + abc9_script.substr(pos+3);
@@ -439,8 +428,16 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 				RTLIL::Module* box_module = design->module(cell->type);
 				jt = abc9_box.insert(std::make_pair(cell->type, box_module && box_module->attributes.count(ID(abc9_box_id)))).first;
 			}
-			if (jt->second)
-				boxes.emplace_back(cell);
+			if (jt->second) {
+				auto kt = cell->attributes.find("\\abc9_keep");
+				bool abc9_keep = false;
+				if (kt != cell->attributes.end()) {
+					abc9_keep = kt->second.as_bool();
+					cell->attributes.erase(kt);
+				}
+				if (!abc9_keep)
+					boxes.emplace_back(cell);
+			}
 		}
 
 		dict<SigBit, pool<IdString>> bit_drivers, bit_users;
@@ -766,7 +763,7 @@ struct Abc9Pass : public Pass {
 		log("        if no -script parameter is given, the following scripts are used:\n");
 		log("\n");
 		log("        for -lut/-luts (only one LUT size):\n");
-		log("%s\n", fold_abc9_cmd(ABC_COMMAND_LUT /*"; lutpack {S}"*/).c_str());
+		log("%s\n", fold_abc9_cmd(ABC_COMMAND_LUT).c_str());
 		log("\n");
 		log("        for -lut/-luts (different LUT sizes):\n");
 		log("%s\n", fold_abc9_cmd(ABC_COMMAND_LUT).c_str());
@@ -782,8 +779,6 @@ struct Abc9Pass : public Pass {
 		log("        set delay target. the string {D} in the default scripts above is\n");
 		log("        replaced by this option when used, and an empty string otherwise\n");
 		log("        (indicating best possible delay).\n");
-//		log("        This also replaces 'dretime' with 'dretime; retime -o {D}' in the\n");
-//		log("        default scripts above.\n");
 		log("\n");
 //		log("    -S <num>\n");
 //		log("        maximum number of LUT inputs shared.\n");
@@ -805,19 +800,6 @@ struct Abc9Pass : public Pass {
 		log("        generate netlist using luts. Use the specified costs for luts with 1,\n");
 		log("        2, 3, .. inputs.\n");
 		log("\n");
-//		log("    -dff\n");
-//		log("        also pass $_DFF_?_ and $_DFFE_??_ cells through ABC. modules with many\n");
-//		log("        clock domains are automatically partitioned in clock domains and each\n");
-//		log("        domain is passed through ABC independently.\n");
-//		log("\n");
-//		log("    -clk [!]<clock-signal-name>[,[!]<enable-signal-name>]\n");
-//		log("        use only the specified clock domain. this is like -dff, but only FF\n");
-//		log("        cells that belong to the specified clock domain are used.\n");
-//		log("\n");
-//		log("    -keepff\n");
-//		log("        set the \"keep\" attribute on flip-flop output wires. (and thus preserve\n");
-//		log("        them, for example for equivalence checking.)\n");
-//		log("\n");
 		log("    -nocleanup\n");
 		log("        when this option is used, the temporary files created by this pass\n");
 		log("        are not removed. this is useful for debugging.\n");
@@ -865,7 +847,7 @@ struct Abc9Pass : public Pass {
 #endif
 		std::string script_file, clk_str, box_file, lut_file;
 		std::string delay_target, lutin_shared = "-S 1", wire_delay;
-		bool fast_mode = false, /*dff_mode = false,*/ keepff = false, cleanup = true;
+		bool fast_mode = false, cleanup = true;
 		bool show_tempdir = false;
 		bool nomfs = false;
 		vector<int> lut_costs;
@@ -956,19 +938,6 @@ struct Abc9Pass : public Pass {
 				fast_mode = true;
 				continue;
 			}
-			//if (arg == "-dff") {
-			//	dff_mode = true;
-			//	continue;
-			//}
-			//if (arg == "-clk" && argidx+1 < args.size()) {
-			//	clk_str = args[++argidx];
-			//	dff_mode = true;
-			//	continue;
-			//}
-			//if (arg == "-keepff") {
-			//	keepff = true;
-			//	continue;
-			//}
 			if (arg == "-nocleanup") {
 				cleanup = false;
 				continue;
@@ -1083,7 +1052,7 @@ struct Abc9Pass : public Pass {
 			typedef SigSpec clkdomain_t;
 			dict<clkdomain_t, int> clk_to_mergeability;
 
-			std::vector<RTLIL::Cell*> all_cells = module->selected_cells();
+			const std::vector<RTLIL::Cell*> all_cells = module->selected_cells();
 #if 0
 			pool<RTLIL::Cell*> unassigned_cells(all_cells.begin(), all_cells.end());
 
@@ -1116,7 +1085,8 @@ struct Abc9Pass : public Pass {
 
 			for (auto cell : all_cells) {
 				auto inst_module = design->module(cell->type);
-				if (!inst_module || !inst_module->attributes.count("\\abc9_flop"))
+				if (!inst_module || !inst_module->attributes.count("\\abc9_flop")
+						|| cell->get_bool_attribute("\\abc9_keep"))
 					continue;
 
 				Wire *abc9_clock_wire = module->wire(stringf("%s.$abc9_clock", cell->name.c_str()));
@@ -1268,8 +1238,8 @@ struct Abc9Pass : public Pass {
 				RTLIL::Selection& sel = design->selection_stack.back();
 				sel.selected_members[module->name] = std::move(it.second);
 #endif
-				abc9_module(design, module, script_file, exe_file, cleanup, lut_costs, false, "$",
-						keepff, delay_target, lutin_shared, fast_mode, show_tempdir,
+				abc9_module(design, module, script_file, exe_file, cleanup, lut_costs,
+						delay_target, lutin_shared, fast_mode, all_cells, show_tempdir,
 						box_file, lut_file, wire_delay, box_lookup, nomfs);
 #if 0
 				assign_map.set(module);

@@ -109,6 +109,9 @@ struct SynthXilinxPass : public ScriptPass
 		log("    -flatten\n");
 		log("        flatten design before synthesis\n");
 		log("\n");
+		log("    -dff\n");
+		log("        run 'abc9' with -dff option\n");
+		log("\n");
 		log("    -retime\n");
 		log("        run 'abc' with -dff option\n");
 		log("\n");
@@ -122,7 +125,8 @@ struct SynthXilinxPass : public ScriptPass
 	}
 
 	std::string top_opt, edif_file, blif_file, family;
-	bool flatten, retime, vpr, ise, iopad, noiopad, noclkbuf, nobram, nolutram, nosrl, nocarry, nowidelut, nodsp, uram, abc9;
+	bool flatten, retime, vpr, ise, iopad, noiopad, noclkbuf, nobram, nolutram, nosrl, nocarry, nowidelut, nodsp, uram;
+	bool abc9, dff_mode;
 	bool flatten_before_abc;
 	int widemux;
 
@@ -148,6 +152,7 @@ struct SynthXilinxPass : public ScriptPass
 		nodsp = false;
 		uram = false;
 		abc9 = false;
+		dff_mode = false;
 		flatten_before_abc = false;
 		widemux = 0;
 	}
@@ -254,6 +259,10 @@ struct SynthXilinxPass : public ScriptPass
 			}
 			if (args[argidx] == "-uram") {
 				uram = true;
+				continue;
+			}
+			if (args[argidx] == "-dff") {
+				dff_mode = true;
 				continue;
 			}
 			break;
@@ -540,7 +549,10 @@ struct SynthXilinxPass : public ScriptPass
 				if (family != "xc7")
 					log_warning("'synth_xilinx -abc9' not currently supported for the '%s' family, "
 							"will use timing for 'xc7' instead.\n", family.c_str());
-				run("techmap -map +/xilinx/abc9_map.v -max_iter 1");
+				std::string techmap_args = "-map +/xilinx/abc9_map.v -max_iter 1";
+				if (dff_mode)
+					techmap_args += " -D DFF_MODE";
+				run("techmap " + techmap_args);
 				run("read_verilog -icells -lib +/xilinx/abc9_model.v");
 				std::string abc9_opts = " -box +/xilinx/abc9_xc7.box";
 				abc9_opts += stringf(" -W %d", XC7_WIRE_DELAY);

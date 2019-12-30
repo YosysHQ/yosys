@@ -251,7 +251,7 @@ struct XAigerWriter
 
 			RTLIL::Module* inst_module = module->design->module(cell->type);
 			if (inst_module) {
-				bool abc9_box = inst_module->attributes.count("\\abc9_box_id");
+				bool abc9_box = inst_module->attributes.count("\\abc9_box_id") && !cell->get_bool_attribute("\\abc9_keep");
 
 				for (const auto &conn : cell->connections()) {
 					auto port_wire = inst_module->wire(conn.first);
@@ -403,7 +403,8 @@ struct XAigerWriter
 				log_assert(cell);
 
 				RTLIL::Module* box_module = module->design->module(cell->type);
-				if (!box_module || !box_module->attributes.count("\\abc9_box_id"))
+				if (!box_module || !box_module->attributes.count("\\abc9_box_id")
+						|| cell->get_bool_attribute("\\abc9_keep"))
 					continue;
 
 				bool blackbox = box_module->get_blackbox_attribute(true /* ignore_wb */);

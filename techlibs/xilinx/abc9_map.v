@@ -83,6 +83,7 @@ module FDRE (output Q, input C, CE, D, R);
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
   parameter [0:0] IS_R_INVERTED = 1'b0;
+`ifdef DFF_MODE
   wire QQ, $nextQ;
   generate if (INIT == 1'b1) begin
     assign Q = ~QQ;
@@ -113,9 +114,21 @@ module FDRE (output Q, input C, CE, D, R);
   wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, IS_C_INVERTED};
   wire [0:0] _TECHMAP_REPLACE_.$abc9_init = 1'b0;
   wire [0:0] _TECHMAP_REPLACE_.$abc9_currQ = QQ;
+`else
+  (* abc9_keep *)
+  FDRE #(
+    .INIT(INIT),
+    .IS_C_INVERTED(IS_C_INVERTED),
+    .IS_D_INVERTED(IS_D_INVERTED),
+    .IS_R_INVERTED(IS_R_INVERTED)
+  ) _TECHMAP_REPLACE_ (
+    .D(D), .Q(Q), .C(C), .CE(CE), .R(R)
+  );
+`endif
 endmodule
 module FDRE_1 (output Q, input C, CE, D, R);
   parameter [0:0] INIT = 1'b0;
+`ifdef DFF_MODE
   wire QQ, $nextQ;
   generate if (INIT == 1'b1) begin
     assign Q = ~QQ;
@@ -140,6 +153,14 @@ module FDRE_1 (output Q, input C, CE, D, R);
   wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, 1'b1 /* IS_C_INVERTED */};
   wire [0:0] _TECHMAP_REPLACE_.$abc9_init = 1'b0;
   wire [0:0] _TECHMAP_REPLACE_.$abc9_currQ = QQ;
+`else
+  (* abc9_keep *)
+  FDRE_1 #(
+    .INIT(INIT)
+  ) _TECHMAP_REPLACE_ (
+    .D(D), .Q(Q), .C(C), .CE(CE), .R(R)
+  );
+`endif
 endmodule
 
 module FDCE (output Q, input C, CE, D, CLR);
@@ -147,6 +168,7 @@ module FDCE (output Q, input C, CE, D, CLR);
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
   parameter [0:0] IS_CLR_INVERTED = 1'b0;
+`ifdef DFF_MODE
   wire QQ, $nextQ, $abc9_currQ;
   generate if (INIT == 1'b1) begin
     assign Q = ~QQ;
@@ -190,9 +212,21 @@ module FDCE (output Q, input C, CE, D, CLR);
   wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, IS_C_INVERTED};
   wire [0:0] _TECHMAP_REPLACE_.$abc9_init = 1'b0;
   wire [0:0] _TECHMAP_REPLACE_.$abc9_currQ = $abc9_currQ;
+`else
+  (* abc9_keep *)
+  FDCE #(
+    .INIT(INIT),
+    .IS_C_INVERTED(IS_C_INVERTED),
+    .IS_D_INVERTED(IS_D_INVERTED),
+    .IS_CLR_INVERTED(IS_CLR_INVERTED)
+  ) _TECHMAP_REPLACE_ (
+    .D(D), .Q(Q), .C(C), .CE(CE), .CLR(CLR)
+  );
+`endif
 endmodule
 module FDCE_1 (output Q, input C, CE, D, CLR);
   parameter [0:0] INIT = 1'b0;
+`ifdef DFF_MODE
   wire QQ, $nextQ, $abc9_currQ;
   generate if (INIT == 1'b1) begin
     assign Q = ~QQ;
@@ -228,6 +262,14 @@ module FDCE_1 (output Q, input C, CE, D, CLR);
   wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, 1'b1 /* IS_C_INVERTED */};
   wire [0:0] _TECHMAP_REPLACE_.$abc9_init = 1'b0;
   wire [0:0] _TECHMAP_REPLACE_.$abc9_currQ = $abc9_currQ;
+`else
+  (* abc9_keep *)
+  FDCE_1 #(
+    .INIT(INIT)
+  ) _TECHMAP_REPLACE_ (
+    .D(D), .Q(Q), .C(C), .CE(CE), .CLR(CLR)
+  );
+`endif
 endmodule
 
 module FDPE (output Q, input C, CE, D, PRE);
@@ -235,6 +277,7 @@ module FDPE (output Q, input C, CE, D, PRE);
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
   parameter [0:0] IS_PRE_INVERTED = 1'b0;
+`ifdef DFF_MODE
   wire QQ, $nextQ, $abc9_currQ;
   generate if (INIT == 1'b1) begin
     assign Q = ~QQ;
@@ -276,9 +319,21 @@ module FDPE (output Q, input C, CE, D, PRE);
   wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, IS_C_INVERTED};
   wire [0:0] _TECHMAP_REPLACE_.$abc9_init = 1'b0;
   wire [0:0] _TECHMAP_REPLACE_.$abc9_currQ = $abc9_currQ;
+`else
+  (* abc9_keep *)
+  FDPE #(
+    .INIT(INIT),
+    .IS_C_INVERTED(IS_C_INVERTED),
+    .IS_D_INVERTED(IS_D_INVERTED),
+    .IS_PRE_INVERTED(IS_PRE_INVERTED),
+  ) _TECHMAP_REPLACE_ (
+    .D(D), .Q(Q), .C(C), .CE(CE), .PRE(PRE)
+  );
+`endif
 endmodule
 module FDPE_1 (output Q, input C, CE, D, PRE);
   parameter [0:0] INIT = 1'b1;
+`ifdef DFF_MODE
   wire QQ, $nextQ, $abc9_currQ;
   generate if (INIT == 1'b1) begin
     assign Q = ~QQ;
@@ -314,6 +369,14 @@ module FDPE_1 (output Q, input C, CE, D, PRE);
   wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, 1'b1 /* IS_C_INVERTED */};
   wire [0:0] _TECHMAP_REPLACE_.$abc9_init = 1'b0;
   wire [0:0] _TECHMAP_REPLACE_.$abc9_currQ = $abc9_currQ;
+`else
+  (* abc9_keep *)
+  FDPE_1 #(
+    .INIT(INIT)
+  ) _TECHMAP_REPLACE_ (
+    .D(D), .Q(Q), .C(C), .CE(CE), .PRE(PRE)
+  );
+`endif
 endmodule
 
 module FDSE (output Q, input C, CE, D, S);
@@ -321,6 +384,7 @@ module FDSE (output Q, input C, CE, D, S);
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
   parameter [0:0] IS_S_INVERTED = 1'b0;
+`ifdef DFF_MODE
   wire QQ, $nextQ;
   generate if (INIT == 1'b1) begin
     assign Q = ~QQ;
@@ -350,9 +414,21 @@ module FDSE (output Q, input C, CE, D, S);
   wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, IS_C_INVERTED};
   wire [0:0] _TECHMAP_REPLACE_.$abc9_init = 1'b0;
   wire [0:0] _TECHMAP_REPLACE_.$abc9_currQ = QQ;
+`else
+  (* abc9_keep *)
+  FDSE #(
+    .INIT(INIT),
+    .IS_C_INVERTED(IS_C_INVERTED),
+    .IS_D_INVERTED(IS_D_INVERTED),
+    .IS_S_INVERTED(IS_S_INVERTED)
+  ) _TECHMAP_REPLACE_ (
+    .D(D), .Q(Q), .C(C), .CE(CE), .S(S)
+  );
+`endif
 endmodule
 module FDSE_1 (output Q, input C, CE, D, S);
   parameter [0:0] INIT = 1'b1;
+`ifdef DFF_MODE
   wire QQ, $nextQ;
   generate if (INIT == 1'b1) begin
     assign Q = ~QQ;
@@ -376,6 +452,14 @@ module FDSE_1 (output Q, input C, CE, D, S);
   wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, 1'b1 /* IS_C_INVERTED */};
   wire [0:0] _TECHMAP_REPLACE_.$abc9_init = 1'b0;
   wire [0:0] _TECHMAP_REPLACE_.$abc9_currQ = QQ;
+`else
+  (* abc9_keep *)
+  FDSE_1 #(
+    .INIT(INIT)
+  ) _TECHMAP_REPLACE_ (
+    .D(D), .Q(Q), .C(C), .CE(CE), .S(S)
+  );
+`endif
 endmodule
 
 module RAM32X1D (
