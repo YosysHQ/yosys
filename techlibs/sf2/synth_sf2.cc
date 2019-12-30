@@ -67,7 +67,7 @@ struct SynthSf2Pass : public ScriptPass
 		log("        insert direct PAD->global_net buffers\n");
 		log("\n");
 		log("    -retime\n");
-		log("        run 'abc' with -dff option\n");
+		log("        run 'abc' with '-dff -D 1' options\n");
 		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
