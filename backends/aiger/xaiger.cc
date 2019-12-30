@@ -81,8 +81,7 @@ struct XAigerWriter
 	pool<SigBit> input_bits, output_bits, external_bits;
 	dict<SigBit, SigBit> not_map, alias_map;
 	dict<SigBit, pair<SigBit, SigBit>> and_map;
-	vector<std::tuple<SigBit,RTLIL::Cell*,RTLIL::IdString,int>> ci_bits;
-	vector<std::tuple<SigBit,RTLIL::Cell*,RTLIL::IdString,int,int>> co_bits;
+	vector<SigBit> ci_bits, co_bits;
 	dict<SigBit, std::pair<int,int>> ff_bits;
 	dict<SigBit, float> arrival_times;
 
@@ -429,7 +428,6 @@ struct XAigerWriter
 							cell->setPort(port_name, rhs);
 						}
 
-						int offset = 0;
 						for (auto b : rhs.bits()) {
 							SigBit I = sigmap(b);
 							if (b == RTLIL::Sx)
@@ -440,7 +438,7 @@ struct XAigerWriter
 								else
 									alias_map[b] = I;
 							}
-							co_bits.emplace_back(b, cell, port_name, offset++, 0);
+							co_bits.emplace_back(b);
 							unused_bits.erase(I);
 						}
 					}
@@ -460,9 +458,8 @@ struct XAigerWriter
 							cell->setPort(port_name, rhs);
 						}
 
-						int offset = 0;
 						for (const auto &b : rhs.bits()) {
-							ci_bits.emplace_back(b, cell, port_name, offset++);
+							ci_bits.emplace_back(b);
 							SigBit O = sigmap(b);
 							if (O != b)
 								alias_map[O] = b;
@@ -478,7 +475,6 @@ struct XAigerWriter
 					if (rhs.empty())
 						log_error("'%s.$abc9_currQ' is not a wire present in module '%s'.\n", log_id(cell), log_id(module));
 
-					int offset = 0;
 					for (auto b : rhs) {
 						SigBit I = sigmap(b);
 						if (b == RTLIL::Sx)
@@ -489,7 +485,7 @@ struct XAigerWriter
 							else
 								alias_map[b] = I;
 						}
-						co_bits.emplace_back(b, cell, "\\$abc9_currQ", offset++, 0);
+						co_bits.emplace_back(b);
 						unused_bits.erase(I);
 					}
 				}
@@ -571,17 +567,15 @@ struct XAigerWriter
 		}
 
 		dict<SigBit, int> ff_aig_map;
-		for (auto &c : ci_bits) {
-			RTLIL::SigBit bit = std::get<0>(c);
+		for (auto &bit : ci_bits) {
 			aig_m++, aig_i++;
 			auto r = aig_map.insert(std::make_pair(bit, 2*aig_m));
 			if (!r.second)
 				ff_aig_map[bit] = 2*aig_m;
 		}
 
-		for (auto &c : co_bits) {
-			RTLIL::SigBit bit = std::get<0>(c);
-			std::get<4>(c) = ordered_outputs[bit] = aig_o++;
+		for (auto bit : co_bits) {
+			ordered_outputs[bit] = aig_o++;
 			aig_outputs.push_back(bit2aig(bit));
 		}
 
@@ -707,27 +701,38 @@ struct XAigerWriter
 			int port_id = 1;
 			int box_count = 0;
 			for (auto cell : box_list) {
-				RTLIL::Module* box_module = module->design->module(cell->type);
-				log_assert(box_module);
-				IdString derived_name = box_module->derive(module->design, cell->parameters);
-				box_module = module->design->module(derived_name);
+				RTLIL::Module* orig_box_module = module->design->module(cell->type);
+				log_assert(orig_box_module);
+				IdString derived_name = orig_box_module->derive(module->design, cell->parameters);
+				RTLIL::Module* box_module = module->design->module(derived_name);
 				if (box_module->has_processes())
-					Pass::call_on_module(module->design, box_module, "proc");
+					log_error("ABC9 box '%s' contains processes!\n", box_module->name.c_str());
 
 				int box_inputs = 0, box_outputs = 0;
 				auto r = cell_cache.insert(std::make_pair(derived_name, nullptr));
 				Cell *holes_cell = r.first->second;
-				if (r.second && !holes_cell && box_module->get_bool_attribute("\\whitebox")) {
+				if (r.second && box_module->get_bool_attribute("\\whitebox")) {
 					holes_cell = holes_module->addCell(cell->name, cell->type);
 					holes_cell->parameters = cell->parameters;
 					r.first->second = holes_cell;
+
+					// Since Module::derive() will create a new module, there
+					//   is a chance that the ports will be alphabetically ordered
+					//   again, which is a problem when carry-chains are involved.
+					//   Inherit the port ordering from the original module here...
+					//   (and set the port_id below, when iterating through those)
+					log_assert(GetSize(box_module->ports) == GetSize(orig_box_module->ports));
+					box_module->ports = orig_box_module->ports;
 				}
 
 				// NB: Assume box_module->ports are sorted alphabetically
 				//     (as RTLIL::Module::fixup_ports() would do)
+				int box_port_id = 1;
 				for (const auto &port_name : box_module->ports) {
 					RTLIL::Wire *w = box_module->wire(port_name);
 					log_assert(w);
+					if (r.second)
+						w->port_id = box_port_id++;
 					RTLIL::Wire *holes_wire;
 					RTLIL::SigSpec port_sig;
 					if (w->port_input)
@@ -829,8 +834,9 @@ struct XAigerWriter
 				//holes_module->fixup_ports();
 				holes_module->check();
 
-				// TODO: Should techmap/aigmap/check all lib_whitebox-es just once,
-				//       instead of per write_xaiger call
+				// Cannot techmap/aigmap/check all lib_whitebox-es outside of write_xaiger
+				//   since boxes may contain parameters in which case `flatten` would have
+				//   created a new $paramod ...
 				Pass::call_on_module(holes_module->design, holes_module, "flatten -wb; techmap; aigmap");
 
 				dict<SigSig, SigSig> replace;

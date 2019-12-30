@@ -27,7 +27,7 @@ module \$__MUL18X18 (input [17:0] A, input [17:0] B, output [35:0] Y);
 		.D(18'b0),
 		.P(P_48),
 
-		.OPMODE(8'b0000010)
+		.OPMODE(8'b0000001)
 	);
 	assign Y = P_48;
 endmodule

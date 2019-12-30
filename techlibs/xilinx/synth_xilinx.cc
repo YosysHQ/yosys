@@ -64,7 +64,7 @@ struct SynthXilinxPass : public ScriptPass
 		log("        (this feature is experimental and incomplete)\n");
 		log("\n");
 		log("    -ise\n");
-		log("        generate an output netlist suitable for ISE (enables -iopad)\n");
+		log("        generate an output netlist suitable for ISE\n");
 		log("\n");
 		log("    -nobram\n");
 		log("        do not use block RAM cells in output netlist\n");
@@ -84,11 +84,9 @@ struct SynthXilinxPass : public ScriptPass
 		log("    -nodsp\n");
 		log("        do not use DSP48E1s to implement multipliers and associated logic\n");
 		log("\n");
-		log("    -iopad\n");
-		log("        enable I/O buffer insertion (selected automatically by -ise)\n");
-		log("\n");
 		log("    -noiopad\n");
-		log("        disable I/O buffer insertion (only useful with -ise)\n");
+		log("        disable I/O buffer insertion (useful for hierarchical or \n");
+		log("        out-of-context flows)\n");
 		log("\n");
 		log("    -noclkbuf\n");
 		log("        disable automatic clock buffer insertion\n");
@@ -125,7 +123,7 @@ struct SynthXilinxPass : public ScriptPass
 	}
 
 	std::string top_opt, edif_file, blif_file, family;
-	bool flatten, retime, vpr, ise, iopad, noiopad, noclkbuf, nobram, nolutram, nosrl, nocarry, nowidelut, nodsp, uram;
+	bool flatten, retime, vpr, ise, noiopad, noclkbuf, nobram, nolutram, nosrl, nocarry, nowidelut, nodsp, uram;
 	bool abc9, dff_mode;
 	bool flatten_before_abc;
 	int widemux;
@@ -140,7 +138,6 @@ struct SynthXilinxPass : public ScriptPass
 		retime = false;
 		vpr = false;
 		ise = false;
-		iopad = false;
 		noiopad = false;
 		noclkbuf = false;
 		nocarry = false;
@@ -218,7 +215,6 @@ struct SynthXilinxPass : public ScriptPass
 				continue;
 			}
 			if (args[argidx] == "-iopad") {
-				iopad = true;
 				continue;
 			}
 			if (args[argidx] == "-noiopad") {
@@ -291,7 +287,6 @@ struct SynthXilinxPass : public ScriptPass
 
 	void script() YS_OVERRIDE
 	{
-		bool do_iopad = iopad || (ise && !noiopad);
 		std::string ff_map_file;
 		if (help_mode)
 			ff_map_file = "+/xilinx/{family}_ff_map.v";
@@ -397,7 +392,10 @@ struct SynthXilinxPass : public ScriptPass
 				run("opt_expr -fine");
 				run("wreduce");
 				run("select -clear");
-				run("xilinx_dsp");
+				if (help_mode)
+					run("xilinx_dsp -family <family>");
+				else
+					run("xilinx_dsp -family " + family);
 				run("chtype -set $mul t:$__soft_mul");
 			}
 		}
@@ -524,8 +522,8 @@ struct SynthXilinxPass : public ScriptPass
 
 		if (check_label("map_cells")) {
 			// Needs to be done before logic optimization, so that inverters (OE vs T) are handled.
-			if (help_mode || do_iopad)
-				run("iopadmap -bits -outpad OBUF I:O -inpad IBUF O:I -toutpad $__XILINX_TOUTPAD OE:I:O -tinoutpad $__XILINX_TINOUTPAD OE:O:I:IO A:top", "(only if '-iopad' or '-ise' and not '-noiopad')");
+			if (help_mode || !noiopad)
+				run("iopadmap -bits -outpad OBUF I:O -inpad IBUF O:I -toutpad $__XILINX_TOUTPAD OE:I:O -tinoutpad $__XILINX_TINOUTPAD OE:O:I:IO A:top", "(only if not '-noiopad')");
 			std::string techmap_args = "-map +/techmap.v -map +/xilinx/cells_map.v";
 			if (widemux > 0)
 				techmap_args += stringf(" -D MIN_MUX_INPUTS=%d", widemux);

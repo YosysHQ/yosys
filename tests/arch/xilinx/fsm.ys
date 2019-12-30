@@ -3,7 +3,7 @@ hierarchy -top fsm
 proc
 flatten
 
-equiv_opt -run :prove -map +/xilinx/cells_sim.v synth_xilinx
+equiv_opt -run :prove -map +/xilinx/cells_sim.v synth_xilinx -noiopad
 miter -equiv -make_assert -flatten gold gate miter
 sat -verify -prove-asserts -show-public -set-at 1 in_reset 1 -seq 20 -prove-skip 1 miter
 

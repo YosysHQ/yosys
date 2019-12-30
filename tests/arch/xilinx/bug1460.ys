@@ -28,7 +28,7 @@ module register_file(
 endmodule
 EOT
 
-synth_xilinx
+synth_xilinx -noiopad
 cd register_file
 select -assert-count 32 t:RAM32M
 select -assert-none t:* t:BUFG %d t:RAM32M %d
