@@ -706,7 +706,7 @@ struct XAigerWriter
 				IdString derived_name = orig_box_module->derive(module->design, cell->parameters);
 				RTLIL::Module* box_module = module->design->module(derived_name);
 				if (box_module->has_processes())
-					log_error("ABC9 box '%s' contains processes!\n", box_module->name.c_str());
+					Pass::call_on_module(module->design, box_module, "proc");
 
 				int box_inputs = 0, box_outputs = 0;
 				auto r = cell_cache.insert(std::make_pair(derived_name, nullptr));
