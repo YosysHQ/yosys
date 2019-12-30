@@ -1767,7 +1767,7 @@ struct AbcPass : public Pass {
 		extra_args(args, argidx, design);
 
 		if (!lut_costs.empty() && !liberty_file.empty())
-			log_cmd_error("Got -lut and -liberty! This two options are exclusive.\n");
+			log_cmd_error("Got -lut and -liberty! These two options are exclusive.\n");
 		if (!constr_file.empty() && liberty_file.empty())
 			log_cmd_error("Got -constr but no -liberty!\n");
 
