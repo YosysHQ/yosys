@@ -268,13 +268,13 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 	if (!lut_costs.empty()) {
 		abc9_script += stringf("read_lut %s/lutdefs.txt; ", tempdir_name.c_str());
 		if (!box_file.empty())
-			abc9_script += stringf("read_box -v %s; ", box_file.c_str());
+			abc9_script += stringf("read_box %s; ", box_file.c_str());
 	}
 	else
 	if (!lut_file.empty()) {
 		abc9_script += stringf("read_lut %s; ", lut_file.c_str());
 		if (!box_file.empty())
-			abc9_script += stringf("read_box -v %s; ", box_file.c_str());
+			abc9_script += stringf("read_box %s; ", box_file.c_str());
 	}
 	else
 		log_abort();
@@ -321,20 +321,22 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 	fprintf(f, "%s\n", abc9_script.c_str());
 	fclose(f);
 
-	//bool count_output = false;
 	log_push();
 
-	//if (count_output)
-	{
-		handle_loops(design, module);
+	handle_loops(design, module);
 
-		Pass::call(design, "aigmap -select");
+	Pass::call(design, "aigmap -select");
 
-		//log("Extracted %d gates and %d wires to a netlist network with %d inputs and %d outputs.\n",
-		//		count_gates, GetSize(signal_list), count_input, count_output);
+	Pass::call(design, stringf("write_xaiger -map %s/input.sym %s/input.xaig", tempdir_name.c_str(), tempdir_name.c_str()));
 
-		Pass::call(design, stringf("write_xaiger -map %s/input.sym %s/input.xaig", tempdir_name.c_str(), tempdir_name.c_str()));
+	int count_outputs = design->scratchpad_get_int("write_xaiger.num_outputs");
+	log("Extracted %d AND gates and %d wires to a netlist network with %d inputs and %d outputs.\n",
+			design->scratchpad_get_int("write_xaiger.num_ands"),
+			design->scratchpad_get_int("write_xaiger.num_wires"),
+			design->scratchpad_get_int("write_xaiger.num_inputs"),
+			count_outputs);
 
+	if (count_outputs > 0) {
 		std::string buffer;
 		std::ifstream ifs;
 #if 0
@@ -1053,35 +1055,6 @@ struct Abc9Pass : public Pass {
 			dict<clkdomain_t, int> clk_to_mergeability;
 
 			const std::vector<RTLIL::Cell*> all_cells = module->selected_cells();
-#if 0
-			pool<RTLIL::Cell*> unassigned_cells(all_cells.begin(), all_cells.end());
-
-			pool<RTLIL::Cell*> expand_queue, next_expand_queue;
-			pool<RTLIL::Cell*> expand_queue_up, next_expand_queue_up;
-			pool<RTLIL::Cell*> expand_queue_down, next_expand_queue_down;
-
-			std::map<clkdomain_t, pool<RTLIL::IdString>> assigned_cells;
-			std::map<RTLIL::Cell*, clkdomain_t> assigned_cells_reverse;
-
-			std::map<RTLIL::Cell*, pool<RTLIL::SigBit>> cell_to_bit, cell_to_bit_up, cell_to_bit_down;
-			std::map<RTLIL::SigBit, pool<RTLIL::Cell*>> bit_to_cell, bit_to_cell_up, bit_to_cell_down;
-
-			for (auto cell : all_cells)
-				for (auto &conn : cell->connections())
-				for (auto bit : assign_map(conn.second))
-					if (bit.wire != nullptr) {
-						cell_to_bit[cell].insert(bit);
-						bit_to_cell[bit].insert(cell);
-						if (ct.cell_input(cell->type, conn.first)) {
-							cell_to_bit_up[cell].insert(bit);
-							bit_to_cell_down[bit].insert(cell);
-						}
-						if (ct.cell_output(cell->type, conn.first)) {
-							cell_to_bit_down[cell].insert(bit);
-							bit_to_cell_up[bit].insert(cell);
-						}
-					}
-#endif
 
 			for (auto cell : all_cells) {
 				auto inst_module = design->module(cell->type);
@@ -1095,12 +1068,6 @@ struct Abc9Pass : public Pass {
 				SigSpec abc9_clock = assign_map(abc9_clock_wire);
 
 				clkdomain_t key(abc9_clock);
-#if 0
-				unassigned_cells.erase(cell);
-				expand_queue_up.insert(cell);
-				assigned_cells[key].insert(cell->name);
-				assigned_cells_reverse[cell] = key;
-#endif
 
 				auto r = clk_to_mergeability.insert(std::make_pair(abc9_clock, clk_to_mergeability.size() + 1));
 				auto r2 YS_ATTRIBUTE(unused) = cell->attributes.insert(std::make_pair(ID(abc9_mergeability), r.first->second));
@@ -1115,137 +1082,12 @@ struct Abc9Pass : public Pass {
 				    log_error("'%s.$abc9_init' is not a constant wire present in module '%s'.\n", cell->name.c_str(), log_id(module));
 				r2 = cell->attributes.insert(std::make_pair(ID(abc9_init), abc9_init.as_const()));
 				log_assert(r2.second);
-
-#if 0
-				// Also assign these special ABC9 cells to the
-				//   same clock domain
-				for (auto b : cell_to_bit_down[cell])
-				for (auto c : bit_to_cell_down[b])
-					if (c->type == "$__ABC9_FF_") {
-						cell = c;
-						unassigned_cells.erase(cell);
-						assigned_cells[key].insert(cell->name);
-						assigned_cells_reverse[cell] = key;
-						break;
-					}
-				for (auto b : cell_to_bit_down[cell])
-				for (auto c : bit_to_cell_down[b])
-					if (c->type == "$__ABC9_ASYNC") {
-						cell = c;
-						unassigned_cells.erase(cell);
-						assigned_cells[key].insert(cell->name);
-						assigned_cells_reverse[cell] = key;
-						break;
-					}
-
-				expand_queue.insert(cell);
-				expand_queue_down.insert(cell);
-#endif
 			}
-
-#if 0
-			while (!expand_queue_up.empty() || !expand_queue_down.empty())
-			{
-				if (!expand_queue_up.empty())
-				{
-					RTLIL::Cell *cell = *expand_queue_up.begin();
-					auto key = assigned_cells_reverse.at(cell);
-					expand_queue_up.erase(cell);
-
-					for (auto bit : cell_to_bit_up[cell])
-					for (auto c : bit_to_cell_up[bit])
-						if (unassigned_cells.count(c)) {
-							unassigned_cells.erase(c);
-							next_expand_queue_up.insert(c);
-							assigned_cells[key].insert(c->name);
-							assigned_cells_reverse[c] = key;
-							expand_queue.insert(c);
-						}
-				}
-
-				if (!expand_queue_down.empty())
-				{
-					RTLIL::Cell *cell = *expand_queue_down.begin();
-					auto key = assigned_cells_reverse.at(cell);
-					expand_queue_down.erase(cell);
-
-					for (auto bit : cell_to_bit_down[cell])
-					for (auto c : bit_to_cell_down[bit])
-						if (unassigned_cells.count(c)) {
-							unassigned_cells.erase(c);
-							next_expand_queue_up.insert(c);
-							assigned_cells[key].insert(c->name);
-							assigned_cells_reverse[c] = key;
-							expand_queue.insert(c);
-						}
-				}
-
-				if (expand_queue_up.empty() && expand_queue_down.empty()) {
-					expand_queue_up.swap(next_expand_queue_up);
-					expand_queue_down.swap(next_expand_queue_down);
-				}
-			}
-
-			while (!expand_queue.empty())
-			{
-				RTLIL::Cell *cell = *expand_queue.begin();
-				auto key = assigned_cells_reverse.at(cell);
-				expand_queue.erase(cell);
-
-				for (auto bit : cell_to_bit.at(cell)) {
-					for (auto c : bit_to_cell[bit])
-						if (unassigned_cells.count(c)) {
-							unassigned_cells.erase(c);
-							next_expand_queue.insert(c);
-							assigned_cells[key].insert(c->name);
-							assigned_cells_reverse[c] = key;
-						}
-					bit_to_cell[bit].clear();
-				}
-
-				if (expand_queue.empty())
-					expand_queue.swap(next_expand_queue);
-			}
-
-			clkdomain_t key;
-			for (auto cell : unassigned_cells) {
-				assigned_cells[key].insert(cell->name);
-				assigned_cells_reverse[cell] = key;
-			}
-
-			log_header(design, "Summary of detected clock domains:\n");
-			for (auto &it : assigned_cells) {
-				log("  %d cells in clk=%s\n", GetSize(it.second), log_signal(it.first));
-            }
-#endif
 
 			design->selected_active_module = module->name.str();
-#if 0
-			design->selection_stack.emplace_back(false);
-			for (auto &it : assigned_cells) {
-				std::string target = delay_target;
-				if (target.empty()) {
-					for (auto b : assign_map(it.first))
-						if (b.wire) {
-							auto jt = b.wire->attributes.find("\\abc9_period");
-							if (jt != b.wire->attributes.end()) {
-								target = stringf("-D %d", jt->second.as_int());
-								log("Target period = %s ps for clock domain %s\n", target.c_str(), log_signal(it.first));
-								break;
-							}
-						}
-				}
-				RTLIL::Selection& sel = design->selection_stack.back();
-				sel.selected_members[module->name] = std::move(it.second);
-#endif
-				abc9_module(design, module, script_file, exe_file, cleanup, lut_costs,
-						delay_target, lutin_shared, fast_mode, all_cells, show_tempdir,
-						box_file, lut_file, wire_delay, box_lookup, nomfs);
-#if 0
-				assign_map.set(module);
-			}
-			design->selection_stack.pop_back();
-#endif
+			abc9_module(design, module, script_file, exe_file, cleanup, lut_costs,
+					delay_target, lutin_shared, fast_mode, all_cells, show_tempdir,
+					box_file, lut_file, wire_delay, box_lookup, nomfs);
 			design->selected_active_module.clear();
 		}
 
