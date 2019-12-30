@@ -3,28 +3,28 @@
 # Memory bits <= 18K; Data width <= 36; Address width <= 14: -> RAMB18E1
 read_verilog ../common/blockram.v
 chparam -set ADDRESS_WIDTH 10 -set DATA_WIDTH 1 sync_ram_sdp
-synth_xilinx -top sync_ram_sdp
+synth_xilinx -top sync_ram_sdp -noiopad
 cd sync_ram_sdp
 select -assert-count 1 t:RAMB18E1
 
 design -reset
 read_verilog ../common/blockram.v
 chparam -set ADDRESS_WIDTH 8 -set DATA_WIDTH 18 sync_ram_sdp
-synth_xilinx -top sync_ram_sdp
+synth_xilinx -top sync_ram_sdp -noiopad
 cd sync_ram_sdp
 select -assert-count 1 t:RAMB18E1
 
 design -reset
 read_verilog ../common/blockram.v
 chparam -set ADDRESS_WIDTH 14 -set DATA_WIDTH 1 sync_ram_sdp
-synth_xilinx -top sync_ram_sdp
+synth_xilinx -top sync_ram_sdp -noiopad
 cd sync_ram_sdp
 select -assert-count 1 t:RAMB18E1
 
 design -reset
 read_verilog ../common/blockram.v
 chparam -set ADDRESS_WIDTH 9 -set DATA_WIDTH 36 sync_ram_sdp
-synth_xilinx -top sync_ram_sdp
+synth_xilinx -top sync_ram_sdp -noiopad
 cd sync_ram_sdp
 select -assert-count 1 t:RAMB18E1
 
@@ -32,7 +32,7 @@ select -assert-count 1 t:RAMB18E1
 design -reset
 read_verilog ../common/blockram.v
 chparam -set ADDRESS_WIDTH 8 -set DATA_WIDTH 2 sync_ram_sdp
-synth_xilinx -top sync_ram_sdp
+synth_xilinx -top sync_ram_sdp -noiopad
 cd sync_ram_sdp
 select -assert-count 0 t:RAMB18E1
 select -assert-count 4 t:RAM128X1D
@@ -41,7 +41,7 @@ select -assert-count 4 t:RAM128X1D
 design -reset
 read_verilog ../common/blockram.v
 chparam -set ADDRESS_WIDTH 10 -set DATA_WIDTH 36 sync_ram_sdp
-synth_xilinx -top sync_ram_sdp
+synth_xilinx -top sync_ram_sdp -noiopad
 cd sync_ram_sdp
 select -assert-count 1 t:RAMB36E1
 
@@ -52,7 +52,7 @@ design -reset
 read_verilog ../common/blockram.v
 hierarchy -top sync_ram_sdp -chparam ADDRESS_WIDTH 10 -chparam DATA_WIDTH 1 
 setattr -set ram_style "block" m:memory
-synth_xilinx -top sync_ram_sdp
+synth_xilinx -top sync_ram_sdp -noiopad
 cd sync_ram_sdp
 select -assert-count 1 t:RAMB18E1
 
@@ -60,7 +60,7 @@ design -reset
 read_verilog ../common/blockram.v
 hierarchy -top sync_ram_sdp -chparam ADDRESS_WIDTH 10 -chparam DATA_WIDTH 1 
 setattr -set ram_block 1 m:memory
-synth_xilinx -top sync_ram_sdp
+synth_xilinx -top sync_ram_sdp -noiopad
 cd sync_ram_sdp
 select -assert-count 1 t:RAMB18E1
 
@@ -68,7 +68,7 @@ design -reset
 read_verilog ../common/blockram.v
 hierarchy -top sync_ram_sdp -chparam ADDRESS_WIDTH 10 -chparam DATA_WIDTH 1 
 setattr -set ram_style "dont_infer_a_ram_pretty_please" m:memory
-synth_xilinx -top sync_ram_sdp
+synth_xilinx -top sync_ram_sdp -noiopad
 cd sync_ram_sdp
 select -assert-count 0 t:RAMB18E1
 
@@ -76,7 +76,7 @@ design -reset
 read_verilog ../common/blockram.v
 hierarchy -top sync_ram_sdp -chparam ADDRESS_WIDTH 10 -chparam DATA_WIDTH 1 
 setattr -set logic_block 1 m:memory
-synth_xilinx -top sync_ram_sdp
+synth_xilinx -top sync_ram_sdp -noiopad
 cd sync_ram_sdp
 select -assert-count 0 t:RAMB18E1
 
@@ -84,7 +84,7 @@ design -reset
 read_verilog ../common/blockram.v
 hierarchy -top sync_ram_sdp -chparam ADDRESS_WIDTH 8 -chparam DATA_WIDTH 1
 setattr -set ram_style "block" m:memory
-synth_xilinx -top sync_ram_sdp
+synth_xilinx -top sync_ram_sdp -noiopad
 cd sync_ram_sdp
 select -assert-count 1 t:RAMB18E1
 
@@ -92,6 +92,6 @@ design -reset
 read_verilog ../common/blockram.v
 hierarchy -top sync_ram_sdp -chparam ADDRESS_WIDTH 8 -chparam DATA_WIDTH 1
 setattr -set ram_block 1 m:memory
-synth_xilinx -top sync_ram_sdp
+synth_xilinx -top sync_ram_sdp -noiopad
 cd sync_ram_sdp
 select -assert-count 1 t:RAMB18E1
