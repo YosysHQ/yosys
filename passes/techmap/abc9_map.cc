@@ -268,15 +268,14 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 
 	log_push();
 
-	// FIXME:
-	/*int count_outputs = design->scratchpad_get_int("write_xaiger.num_outputs");
+	int count_outputs = design->scratchpad_get_int("write_xaiger.num_outputs");
 	log("Extracted %d AND gates and %d wires to a netlist network with %d inputs and %d outputs.\n",
 			design->scratchpad_get_int("write_xaiger.num_ands"),
 			design->scratchpad_get_int("write_xaiger.num_wires"),
 			design->scratchpad_get_int("write_xaiger.num_inputs"),
 			count_outputs);
 
-	if (count_outputs > 0)*/ {
+	if (count_outputs > 0) {
 		std::string buffer;
 		std::ifstream ifs;
 #if 0
@@ -965,13 +964,8 @@ struct Abc9MapPass : public Pass {
 		CellTypes ct(design);
 		for (auto module : design->selected_modules())
 		{
-			if (module->attributes.count(ID(abc9_box_id)))
-				continue;
-
-			if (module->processes.size() > 0) {
-				log("Skipping module %s as it contains processes.\n", log_id(module));
-				continue;
-			}
+			if (module->processes.size() > 0)
+				log_error("Module '%s' has processes!\n", log_id(module));
 
 			assign_map.set(module);
 

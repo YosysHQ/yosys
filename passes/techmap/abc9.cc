@@ -164,7 +164,7 @@ struct Abc9Pass : public ScriptPass
 				map_cmd << " " << arg << " " << args[++argidx];
 				continue;
 			}
-			if (arg == "-fast" || /*arg == "-dff" ||*/ arg == "-keepff"
+			if (arg == "-fast"
 					/*|| arg == "-nocleanup"*/ || arg == "-showtmp" || arg == "-markgroups"
 					|| arg == "-nomfs") {
 				map_cmd << " " << arg;
@@ -189,6 +189,14 @@ struct Abc9Pass : public ScriptPass
 		active_design->selection_stack.emplace_back(false);
 
 		for (auto mod : selected_modules) {
+			if (module->attributes.count(ID(abc9_box_id)))
+				continue;
+
+			if (module->processes.size() > 0) {
+				log("Skipping module %s as it contains processes.\n", log_id(module));
+				continue;
+			}
+
 			log_push();
 
 			active_design->selection().select(mod);
