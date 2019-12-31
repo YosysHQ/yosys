@@ -434,6 +434,8 @@ void prep_holes(RTLIL::Module *module)
 	holes_design->modules_.erase(holes_module->name);
 	holes_module->design = design;
 
+	holes_module->set_bool_attribute(ID::whitebox);
+
 	log_pop();
 }
 
@@ -480,6 +482,14 @@ struct Abc9PrepPass : public Pass {
 		extra_args(args, argidx, design);
 
 		for (auto mod : design->selected_modules()) {
+			if (mod->get_blackbox_attribute())
+				continue;
+
+			if (mod->processes.size() > 0) {
+				log("Skipping module %s as it contains processes.\n", log_id(mod));
+				continue;
+			}
+
 			if (break_scc_mode)
 				break_scc(mod);
 			if (unbreak_scc_mode)
