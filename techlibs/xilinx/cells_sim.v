@@ -405,10 +405,10 @@ module FDCE (
   (* invertible_pin = "IS_C_INVERTED" *)
   input C,
   input CE,
-  (* invertible_pin = "IS_D_INVERTED" *)
-  input D,
   (* invertible_pin = "IS_CLR_INVERTED" *)
-  input CLR
+  input CLR,
+  (* invertible_pin = "IS_D_INVERTED" *)
+  input D
 );
   parameter [0:0] INIT = 1'b0;
   parameter [0:0] IS_C_INVERTED = 1'b0;
