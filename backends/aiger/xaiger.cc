@@ -599,25 +599,46 @@ struct XAigerWriter
 			RTLIL::Module *holes_module = module->design->addModule("$__holes__");
 			log_assert(holes_module);
 
+			dict<IdString, Cell*> cell_cache;
+
 			int port_id = 1;
 			int box_count = 0;
 			for (auto cell : box_list) {
-				RTLIL::Module* box_module = module->design->module(cell->type);
+				RTLIL::Module* orig_box_module = module->design->module(cell->type);
+				log_assert(orig_box_module);
+				IdString derived_name = orig_box_module->derive(module->design, cell->parameters);
+				RTLIL::Module* box_module = module->design->module(derived_name);
+				if (box_module->has_processes())
+					log_error("ABC9 box '%s' contains processes!\n", box_module->name.c_str());
+
 				int box_inputs = 0, box_outputs = 0;
-				Cell *holes_cell = nullptr;
-				if (box_module->get_bool_attribute("\\whitebox")) {
+				auto r = cell_cache.insert(std::make_pair(derived_name, nullptr));
+				Cell *holes_cell = r.first->second;
+				if (r.second && box_module->get_bool_attribute("\\whitebox")) {
 					holes_cell = holes_module->addCell(cell->name, cell->type);
 					holes_cell->parameters = cell->parameters;
+					r.first->second = holes_cell;
+
+					// Since Module::derive() will create a new module, there
+					//   is a chance that the ports will be alphabetically ordered
+					//   again, which is a problem when carry-chains are involved.
+					//   Inherit the port ordering from the original module here...
+					//   (and set the port_id below, when iterating through those)
+					log_assert(GetSize(box_module->ports) == GetSize(orig_box_module->ports));
+					box_module->ports = orig_box_module->ports;
 				}
 
 				// NB: Assume box_module->ports are sorted alphabetically
 				//     (as RTLIL::Module::fixup_ports() would do)
+				int box_port_id = 1;
 				for (const auto &port_name : box_module->ports) {
 					RTLIL::Wire *w = box_module->wire(port_name);
 					log_assert(w);
+					if (r.second)
+						w->port_id = box_port_id++;
 					RTLIL::Wire *holes_wire;
-					RTLIL::SigSpec port_wire;
-					if (w->port_input) {
+					RTLIL::SigSpec port_sig;
+					if (w->port_input)
 						for (int i = 0; i < GetSize(w); i++) {
 							box_inputs++;
 							holes_wire = holes_module->wire(stringf("\\i%d", box_inputs));
@@ -628,28 +649,29 @@ struct XAigerWriter
 								holes_module->ports.push_back(holes_wire->name);
 							}
 							if (holes_cell)
-								port_wire.append(holes_wire);
+								port_sig.append(holes_wire);
 						}
-						if (!port_wire.empty())
-							holes_cell->setPort(w->name, port_wire);
-					}
 					if (w->port_output) {
 						box_outputs += GetSize(w);
 						for (int i = 0; i < GetSize(w); i++) {
 							if (GetSize(w) == 1)
-								holes_wire = holes_module->addWire(stringf("%s.%s", cell->name.c_str(), w->name.c_str()));
+								holes_wire = holes_module->addWire(stringf("%s.%s", cell->name.c_str(), log_id(w->name)));
 							else
-								holes_wire = holes_module->addWire(stringf("%s.%s[%d]", cell->name.c_str(), w->name.c_str(), i));
+								holes_wire = holes_module->addWire(stringf("%s.%s[%d]", cell->name.c_str(), log_id(w->name), i));
 							holes_wire->port_output = true;
 							holes_wire->port_id = port_id++;
 							holes_module->ports.push_back(holes_wire->name);
 							if (holes_cell)
-								port_wire.append(holes_wire);
+								port_sig.append(holes_wire);
 							else
 								holes_module->connect(holes_wire, State::S0);
 						}
-						if (!port_wire.empty())
-							holes_cell->setPort(w->name, port_wire);
+					}
+					if (!port_sig.empty()) {
+						if (r.second)
+							holes_cell->setPort(w->name, port_sig);
+						else
+							holes_module->connect(holes_cell->getPort(w->name), port_sig);
 					}
 				}
 
@@ -679,14 +701,11 @@ struct XAigerWriter
 				RTLIL::Selection& sel = holes_module->design->selection_stack.back();
 				sel.select(holes_module);
 
-				// TODO: Should not need to opt_merge if we only instantiate
-				//       each box type once...
-				Pass::call(holes_module->design, "opt_merge -share_all");
-
 				Pass::call(holes_module->design, "flatten -wb");
 
-				// TODO: Should techmap/aigmap/check all lib_whitebox-es just once,
-				//       instead of per write_xaiger call
+				// Cannot techmap/aigmap/check all lib_whitebox-es outside of write_xaiger
+				//   since boxes may contain parameters in which case `flatten` would have
+				//   created a new $paramod ...
 				Pass::call(holes_module->design, "techmap");
 				Pass::call(holes_module->design, "aigmap");
 				for (auto cell : holes_module->cells())
