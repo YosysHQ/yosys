@@ -19,6 +19,7 @@
  */
 
 #include "kernel/register.h"
+#include "kernel/sigtools.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -95,6 +96,44 @@ void unbreak_scc(RTLIL::Module *module) {
 	module->fixup_ports();
 }
 
+void prep_dff(RTLIL::Module *module) {
+	auto design = module->design;
+	log_assert(design);
+
+	SigMap assign_map(module);
+
+	typedef SigSpec clkdomain_t;
+	dict<clkdomain_t, int> clk_to_mergeability;
+
+	for (auto cell : module->selected_cells()) {
+		auto inst_module = design->module(cell->type);
+		if (!inst_module || !inst_module->attributes.count("\\abc9_flop")
+				|| cell->get_bool_attribute("\\abc9_keep"))
+			continue;
+
+		Wire *abc9_clock_wire = module->wire(stringf("%s.$abc9_clock", cell->name.c_str()));
+		if (abc9_clock_wire == NULL)
+			log_error("'%s$abc9_clock' is not a wire present in module '%s'.\n", cell->name.c_str(), log_id(module));
+		SigSpec abc9_clock = assign_map(abc9_clock_wire);
+
+		clkdomain_t key(abc9_clock);
+
+		auto r = clk_to_mergeability.insert(std::make_pair(abc9_clock, clk_to_mergeability.size() + 1));
+		auto r2 YS_ATTRIBUTE(unused) = cell->attributes.insert(std::make_pair(ID(abc9_mergeability), r.first->second));
+		log_assert(r2.second);
+
+		Wire *abc9_init_wire = module->wire(stringf("%s.$abc9_init", cell->name.c_str()));
+		if (abc9_init_wire == NULL)
+		    log_error("'%s.$abc9_init' is not a wire present in module '%s'.\n", cell->name.c_str(), log_id(module));
+		log_assert(GetSize(abc9_init_wire) == 1);
+		SigSpec abc9_init = assign_map(abc9_init_wire);
+		if (!abc9_init.is_fully_const())
+		    log_error("'%s.$abc9_init' is not a constant wire present in module '%s'.\n", cell->name.c_str(), log_id(module));
+		r2 = cell->attributes.insert(std::make_pair(ID(abc9_init), abc9_init.as_const()));
+		log_assert(r2.second);
+	}
+}
+
 struct Abc9PrepPass : public Pass {
 	Abc9PrepPass() : Pass("abc9_ops", "helper functions for ABC9") { }
 	void help() YS_OVERRIDE
@@ -111,6 +150,7 @@ struct Abc9PrepPass : public Pass {
 
 		bool break_scc_mode = false;
 		bool unbreak_scc_mode = false;
+		bool prep_dff_mode = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -123,6 +163,10 @@ struct Abc9PrepPass : public Pass {
 				unbreak_scc_mode = true;
 				continue;
 			}
+			if (arg == "-prep_dff") {
+				prep_dff_mode = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -132,6 +176,8 @@ struct Abc9PrepPass : public Pass {
 				break_scc(mod);
 			if (unbreak_scc_mode)
 				unbreak_scc(mod);
+			if (prep_dff_mode)
+				prep_dff(mod);
 		}
 	}
 } Abc9PrepPass;

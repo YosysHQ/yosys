@@ -189,11 +189,11 @@ struct Abc9Pass : public ScriptPass
 		active_design->selection_stack.emplace_back(false);
 
 		for (auto mod : selected_modules) {
-			if (module->attributes.count(ID(abc9_box_id)))
+			if (mod->attributes.count(ID(abc9_box_id)))
 				continue;
 
-			if (module->processes.size() > 0) {
-				log("Skipping module %s as it contains processes.\n", log_id(module));
+			if (mod->processes.size() > 0) {
+				log("Skipping module %s as it contains processes.\n", log_id(mod));
 				continue;
 			}
 
@@ -207,7 +207,7 @@ struct Abc9Pass : public ScriptPass
 			tempdir_name = make_temp_dir(tempdir_name);
 
 			run("scc -set_attr abc9_scc_id {}");
-			run("abc9_ops -break_scc");
+			run("abc9_ops -break_scc -prep_dff");
 			run("aigmap");
 			run(stringf("write_xaiger -map %s/input.sym %s/input.xaig", tempdir_name.c_str(), tempdir_name.c_str()),
 					"write_xaiger -map <abc-temp-dir>/input.sym <abc-temp-dir>/input.xaig");
