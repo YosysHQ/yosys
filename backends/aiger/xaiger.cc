@@ -714,22 +714,20 @@ struct XAigerWriter
 			f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
 			f.write(buffer_str.data(), buffer_str.size());
 
-			if (holes_module) {
-				module->design->selection_stack.emplace_back(false);
-				module->design->selection().select(holes_module);
+			module->design->selection_stack.emplace_back(false);
+			module->design->selection().select(holes_module);
 
-				std::stringstream a_buffer;
-				XAigerWriter writer(holes_module);
-				writer.write_aiger(a_buffer, false /*ascii_mode*/);
+			std::stringstream a_buffer;
+			XAigerWriter writer(holes_module);
+			writer.write_aiger(a_buffer, false /*ascii_mode*/);
 
-				module->design->selection_stack.pop_back();
+			module->design->selection_stack.pop_back();
 
-				f << "a";
-				std::string buffer_str = a_buffer.str();
-				int32_t buffer_size_be = to_big_endian(buffer_str.size());
-				f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
-				f.write(buffer_str.data(), buffer_str.size());
-			}
+			f << "a";
+			buffer_str = a_buffer.str();
+			buffer_size_be = to_big_endian(buffer_str.size());
+			f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
+			f.write(buffer_str.data(), buffer_str.size());
 		}
 
 		f << "h";
