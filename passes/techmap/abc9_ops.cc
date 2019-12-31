@@ -137,47 +137,47 @@ void prep_dff(RTLIL::Module *module)
 	}
 
 	RTLIL::Module *holes_module = design->module(stringf("%s$holes", module->name.c_str()));
-	log_assert(holes_module);
-
-	dict<SigSig, SigSig> replace;
-	for (auto it = holes_module->cells_.begin(); it != holes_module->cells_.end(); ) {
-		auto cell = it->second;
-		if (cell->type.in("$_DFF_N_", "$_DFF_NN0_", "$_DFF_NN1_", "$_DFF_NP0_", "$_DFF_NP1_",
-					"$_DFF_P_", "$_DFF_PN0_", "$_DFF_PN1", "$_DFF_PP0_", "$_DFF_PP1_")) {
-			SigBit D = cell->getPort("\\D");
-			SigBit Q = cell->getPort("\\Q");
-			// Remove the DFF cell from what needs to be a combinatorial box
-			it = holes_module->cells_.erase(it);
-			Wire *port;
-			if (GetSize(Q.wire) == 1)
-				port = holes_module->wire(stringf("$abc%s", Q.wire->name.c_str()));
+	if (holes_module) {
+		dict<SigSig, SigSig> replace;
+		for (auto it = holes_module->cells_.begin(); it != holes_module->cells_.end(); ) {
+			auto cell = it->second;
+			if (cell->type.in("$_DFF_N_", "$_DFF_NN0_", "$_DFF_NN1_", "$_DFF_NP0_", "$_DFF_NP1_",
+						"$_DFF_P_", "$_DFF_PN0_", "$_DFF_PN1", "$_DFF_PP0_", "$_DFF_PP1_")) {
+				SigBit D = cell->getPort("\\D");
+				SigBit Q = cell->getPort("\\Q");
+				// Remove the DFF cell from what needs to be a combinatorial box
+				it = holes_module->cells_.erase(it);
+				Wire *port;
+				if (GetSize(Q.wire) == 1)
+					port = holes_module->wire(stringf("$abc%s", Q.wire->name.c_str()));
+				else
+					port = holes_module->wire(stringf("$abc%s[%d]", Q.wire->name.c_str(), Q.offset));
+				log_assert(port);
+				// Prepare to replace "assign <port> = DFF.Q;" with "assign <port> = DFF.D;"
+				//   in order to extract the combinatorial control logic that feeds the box
+				//   (i.e. clock enable, synchronous reset, etc.)
+				replace.insert(std::make_pair(SigSig(port,Q), SigSig(port,D)));
+				// Since `flatten` above would have created wires named "<cell>.Q",
+				//   extract the pre-techmap cell name
+				auto pos = Q.wire->name.str().rfind(".");
+				log_assert(pos != std::string::npos);
+				IdString driver = Q.wire->name.substr(0, pos);
+				// And drive the signal that was previously driven by "DFF.Q" (typically
+				//   used to implement clock-enable functionality) with the "<cell>.$abc9_currQ"
+				//   wire (which itself is driven an input port) we inserted above
+				Wire *currQ = holes_module->wire(stringf("%s.$abc9_currQ", driver.c_str()));
+				log_assert(currQ);
+				holes_module->connect(Q, currQ);
+			}
 			else
-				port = holes_module->wire(stringf("$abc%s[%d]", Q.wire->name.c_str(), Q.offset));
-			log_assert(port);
-			// Prepare to replace "assign <port> = DFF.Q;" with "assign <port> = DFF.D;"
-			//   in order to extract the combinatorial control logic that feeds the box
-			//   (i.e. clock enable, synchronous reset, etc.)
-			replace.insert(std::make_pair(SigSig(port,Q), SigSig(port,D)));
-			// Since `flatten` above would have created wires named "<cell>.Q",
-			//   extract the pre-techmap cell name
-			auto pos = Q.wire->name.str().rfind(".");
-			log_assert(pos != std::string::npos);
-			IdString driver = Q.wire->name.substr(0, pos);
-			// And drive the signal that was previously driven by "DFF.Q" (typically
-			//   used to implement clock-enable functionality) with the "<cell>.$abc9_currQ"
-			//   wire (which itself is driven an input port) we inserted above
-			Wire *currQ = holes_module->wire(stringf("%s.$abc9_currQ", driver.c_str()));
-			log_assert(currQ);
-			holes_module->connect(Q, currQ);
+				++it;
 		}
-		else
-			++it;
-	}
 
-	for (auto &conn : holes_module->connections_) {
-		auto it = replace.find(conn);
-		if (it != replace.end())
-			conn = it->second;
+		for (auto &conn : holes_module->connections_) {
+			auto it = replace.find(conn);
+			if (it != replace.end())
+				conn = it->second;
+		}
 	}
 }
 
