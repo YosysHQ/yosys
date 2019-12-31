@@ -645,19 +645,12 @@ struct XAigerWriter
 		//	write_o_buffer(0);
 
 		if (!box_list.empty() || !ff_bits.empty()) {
-			RTLIL::Module *holes_module = module->design->module(stringf("%s$holes", module->name.c_str()));
-			log_assert(holes_module);
-
-			dict<IdString, Cell*> cell_cache;
-
 			int box_count = 0;
 			for (auto cell : box_list) {
 				RTLIL::Module* orig_box_module = module->design->module(cell->type);
 				log_assert(orig_box_module);
 				IdString derived_name = orig_box_module->derive(module->design, cell->parameters);
 				RTLIL::Module* box_module = module->design->module(derived_name);
-				if (box_module->has_processes())
-					Pass::call_on_module(module->design, box_module, "proc");
 
 				int box_inputs = 0, box_outputs = 0;
 				// NB: Assume box_module->ports are sorted alphabetically
@@ -713,6 +706,9 @@ struct XAigerWriter
 			buffer_size_be = to_big_endian(buffer_str.size());
 			f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
 			f.write(buffer_str.data(), buffer_str.size());
+
+			RTLIL::Module *holes_module = module->design->module(stringf("%s$holes", module->name.c_str()));
+			log_assert(holes_module);
 
 			module->design->selection_stack.emplace_back(false);
 			module->design->selection().select(holes_module);
