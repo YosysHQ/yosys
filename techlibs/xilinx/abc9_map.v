@@ -186,7 +186,7 @@ module FDCE (output Q, input C, CE, D, CLR);
                                             //     $__ABC9_ASYNC1 below
     );
     // Since this is an async flop, async behaviour is dealt with here
-    $__ABC9_ASYNC0 abc_async (.A($abc9_currQ), .S(CLR ^ IS_CLR_INVERTED), .Y(QQ));
+    $__ABC9_ASYNC1 abc_async (.A($abc9_currQ), .S(CLR ^ IS_CLR_INVERTED), .Y(QQ));
   end
   else begin
     assign Q = QQ;
@@ -204,7 +204,7 @@ module FDCE (output Q, input C, CE, D, CLR);
                                            //     $__ABC9_ASYNC0 below
     );
     // Since this is an async flop, async behaviour is dealt with here
-    $__ABC9_ASYNC1 abc_async (.A($abc9_currQ), .S(CLR ^ IS_CLR_INVERTED), .Y(QQ));
+    $__ABC9_ASYNC0 abc_async (.A($abc9_currQ), .S(CLR ^ IS_CLR_INVERTED), .Y(QQ));
   end endgenerate
   $__ABC9_FF_ abc_dff (.D($Q), .Q($abc9_currQ));
 
