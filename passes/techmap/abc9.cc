@@ -150,7 +150,7 @@ struct Abc9Pass : public ScriptPass
 			std::string arg = args[argidx];
 			if ((arg == "-exe" || arg == "-script" || arg == "-D" ||
 						/* arg == "-S" || */ arg == "-lut" || arg == "-luts" ||
-						arg == "-clk" || arg == "-box" || arg == "-W") &&
+						arg == "-box" || arg == "-W") &&
 					argidx+1 < args.size()) {
 				map_cmd << " " << arg << " " << args[++argidx];
 				continue;
