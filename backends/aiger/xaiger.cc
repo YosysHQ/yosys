@@ -82,7 +82,7 @@ struct XAigerWriter
 	dict<SigBit, SigBit> not_map, alias_map;
 	dict<SigBit, pair<SigBit, SigBit>> and_map;
 	vector<SigBit> ci_bits, co_bits;
-	dict<SigBit, std::pair<int,int>> ff_bits;
+	dict<SigBit, std::tuple<SigBit,int,int>> ff_bits;
 	dict<SigBit, float> arrival_times;
 
 	vector<pair<int, int>> aig_gates;
@@ -242,7 +242,7 @@ struct XAigerWriter
 				unused_bits.erase(D);
 				undriven_bits.erase(Q);
 				alias_map[Q] = D;
-				auto r = ff_bits.insert(std::make_pair(D, std::make_pair(0, 2)));
+				auto r = ff_bits.insert(std::make_pair(D, std::make_tuple(Q, 0, 2)));
 				log_assert(r.second);
 				continue;
 			}
@@ -348,25 +348,26 @@ struct XAigerWriter
 
 				auto it = cell->attributes.find(ID(abc9_mergeability));
 				log_assert(it != cell->attributes.end());
-				rhs.first = it->second.as_int();
+				std::get<1>(rhs) = it->second.as_int();
 				cell->attributes.erase(it);
 
 				it = cell->attributes.find(ID(abc9_init));
 				log_assert(it != cell->attributes.end());
 				log_assert(GetSize(it->second) == 1);
 				if (it->second[0] == State::S1)
-					rhs.second = 1;
+					std::get<2>(rhs) = 1;
 				else if (it->second[0] == State::S0)
-					rhs.second = 0;
+					std::get<2>(rhs) = 0;
 				else {
 					log_assert(it->second[0] == State::Sx);
-					rhs.second = 0;
+					std::get<2>(rhs) = 0;
 				}
 				cell->attributes.erase(it);
 
+				const SigBit &q = std::get<0>(rhs);
 				auto arrival = r.first->second.second;
 				if (arrival)
-					arrival_times[d] = arrival;
+					arrival_times[q] = arrival;
 			}
 
 			for (auto &it : bit_users)
@@ -510,25 +511,22 @@ struct XAigerWriter
 		// pool<> iterates in LIFO order...
 		for (int i = input_bits.size()-1; i >= 0; i--) {
 			const auto &bit = *input_bits.element(i);
-			log_dump(bit, i);
 			aig_m++, aig_i++;
 			log_assert(!aig_map.count(bit));
 			aig_map[bit] = 2*aig_m;
 		}
 
 		for (const auto &i : ff_bits) {
-			const SigBit &bit = i.first;
+			const SigBit &q = std::get<0>(i.second);
+			aig_m++, aig_i++;
+			log_assert(!aig_map.count(q));
+			aig_map[q] = 2*aig_m;
+		}
+
+		for (auto &bit : ci_bits) {
 			aig_m++, aig_i++;
 			log_assert(!aig_map.count(bit));
 			aig_map[bit] = 2*aig_m;
-		}
-
-		dict<SigBit, int> ff_aig_map;
-		for (auto &bit : ci_bits) {
-			aig_m++, aig_i++;
-			auto r = aig_map.insert(std::make_pair(bit, 2*aig_m));
-			if (!r.second)
-				ff_aig_map[bit] = 2*aig_m;
 		}
 
 		for (auto bit : co_bits) {
@@ -544,9 +542,9 @@ struct XAigerWriter
 		}
 
 		for (auto &i : ff_bits) {
-			const SigBit &bit = i.first;
+			const SigBit &d = i.first;
 			aig_o++;
-			aig_outputs.push_back(ff_aig_map.at(bit));
+			aig_outputs.push_back(aig_map.at(d));
 		}
 	}
 
@@ -752,13 +750,13 @@ struct XAigerWriter
 			write_s_buffer(ff_bits.size());
 
 			for (const auto &i : ff_bits) {
-				const SigBit &bit = i.first;
-				int mergeability = i.second.first;
+				const SigBit &q = std::get<0>(i.second);
+				int mergeability = std::get<1>(i.second);
 				log_assert(mergeability > 0);
 				write_r_buffer(mergeability);
-				int init = i.second.second;
+				int init = std::get<2>(i.second);
 				write_s_buffer(init);
-				write_i_buffer(arrival_times.at(bit, 0));
+				write_i_buffer(arrival_times.at(q, 0));
 				//write_o_buffer(0);
 			}
 
