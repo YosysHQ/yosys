@@ -78,7 +78,7 @@ struct XAigerWriter
 	Module *module;
 	SigMap sigmap;
 
-	pool<SigBit> input_bits, output_bits, external_bits;
+	pool<SigBit> input_bits, output_bits;
 	dict<SigBit, SigBit> not_map, alias_map;
 	dict<SigBit, pair<SigBit, SigBit>> and_map;
 	vector<SigBit> ci_bits, co_bits;
@@ -136,7 +136,7 @@ struct XAigerWriter
 		return a;
 	}
 
-	XAigerWriter(Module *module, bool holes_mode=false) : module(module), sigmap(module)
+	XAigerWriter(Module *module) : module(module), sigmap(module)
 	{
 		pool<SigBit> undriven_bits;
 		pool<SigBit> unused_bits;
@@ -166,9 +166,7 @@ struct XAigerWriter
 				if (bit.wire == nullptr) {
 					if (wire->port_output) {
 						aig_map[wirebit] = (bit == State::S1) ? 1 : 0;
-						if (holes_mode)
-							output_bits.insert(wirebit);
-						//external_bits.insert(wirebit);
+						output_bits.insert(wirebit);
 					}
 					continue;
 				}
@@ -182,10 +180,7 @@ struct XAigerWriter
 				if (wire->port_output) {
 					if (bit != wirebit)
 						alias_map[wirebit] = bit;
-					if (holes_mode)
-						output_bits.insert(wirebit);
-					else
-						external_bits.insert(wirebit);
+					output_bits.insert(wirebit);
 				}
 
 				if (wire->port_input && wire->port_output)
@@ -207,11 +202,9 @@ struct XAigerWriter
 				unused_bits.erase(A);
 				undriven_bits.erase(Y);
 				not_map[Y] = A;
-				if (!holes_mode) {
-					toposort.node(cell->name);
-					bit_users[A].insert(cell->name);
-					bit_drivers[Y].insert(cell->name);
-				}
+				toposort.node(cell->name);
+				bit_users[A].insert(cell->name);
+				bit_drivers[Y].insert(cell->name);
 				continue;
 			}
 
@@ -224,16 +217,12 @@ struct XAigerWriter
 				unused_bits.erase(B);
 				undriven_bits.erase(Y);
 				and_map[Y] = make_pair(A, B);
-				if (!holes_mode) {
-					toposort.node(cell->name);
-					bit_users[A].insert(cell->name);
-					bit_users[B].insert(cell->name);
-					bit_drivers[Y].insert(cell->name);
-				}
+				toposort.node(cell->name);
+				bit_users[A].insert(cell->name);
+				bit_users[B].insert(cell->name);
+				bit_drivers[Y].insert(cell->name);
 				continue;
 			}
-
-			log_assert(!holes_mode);
 
 			if (cell->type == "$__ABC9_FF_")
 			{
@@ -298,7 +287,7 @@ struct XAigerWriter
 				if (!is_input && !is_output)
 					log_error("Connection '%s' on cell '%s' (type '%s') not recognised!\n", log_id(c.first), log_id(cell), log_id(cell->type));
 
-				if (is_input) {
+				if (is_input)
 					for (auto b : c.second) {
 						Wire *w = b.wire;
 						if (!w) continue;
@@ -306,13 +295,19 @@ struct XAigerWriter
 							SigBit I = sigmap(b);
 							if (I != b)
 								alias_map[b] = I;
-							if (holes_mode)
-								output_bits.insert(b);
-							else
-								external_bits.insert(b);
+							output_bits.insert(b);
 						}
 					}
-				}
+
+				if (is_output)
+					for (auto b : c.second) {
+						Wire *w = b.wire;
+						if (!w) continue;
+						SigBit O = sigmap(b);
+						if (O != b)
+							alias_map[O] = b;
+						input_bits.insert(O);
+					}
 			}
 
 			//log_warning("Unsupported cell type: %s (%s)\n", log_id(cell->type), log_id(cell));
@@ -495,57 +490,27 @@ struct XAigerWriter
 			// TODO: Free memory from toposort, bit_drivers, bit_users
 		}
 
-		if (!holes_mode)
-			for (auto cell : module->cells())
-				if (!module->selected(cell))
-					for (auto &conn : cell->connections())
-						if (cell->input(conn.first))
-							for (auto wirebit : conn.second)
-								if (sigmap(wirebit).wire)
-									external_bits.insert(wirebit);
-
-		// For all bits consumed outside of the selected cells,
-		//   but driven from a selected cell, then add it as
-		//   a primary output
-		for (auto wirebit : external_bits) {
-			SigBit bit = sigmap(wirebit);
-			if (!bit.wire)
-				continue;
-			if (!undriven_bits.count(bit)) {
-				if (bit != wirebit)
-					alias_map[wirebit] = bit;
-				output_bits.insert(wirebit);
-			}
-		}
-
 		for (auto bit : input_bits)
-			undriven_bits.erase(sigmap(bit));
+			undriven_bits.erase(bit);
 		for (auto bit : output_bits)
 			unused_bits.erase(sigmap(bit));
 		for (auto bit : unused_bits)
 			undriven_bits.erase(bit);
-
-		// Make all undriven bits a primary input
-		if (!holes_mode)
+		if (!undriven_bits.empty()) {
 			for (auto bit : undriven_bits) {
+				log_warning("Treating undriven bit %s.%s like $anyseq.\n", log_id(module), log_signal(bit));
 				input_bits.insert(bit);
-				undriven_bits.erase(bit);
 			}
-
-		if (holes_mode) {
-			struct sort_by_port_id {
-				bool operator()(const RTLIL::SigBit& a, const RTLIL::SigBit& b) const {
-					return a.wire->port_id < b.wire->port_id;
-				}
-			};
-			input_bits.sort(sort_by_port_id());
-			output_bits.sort(sort_by_port_id());
-		}
-		else {
-			input_bits.sort();
-			output_bits.sort();
+			log_warning("Treating a total of %d undriven bits in %s like $anyseq.\n", GetSize(undriven_bits), log_id(module));
 		}
 
+		struct sort_by_port_id {
+			bool operator()(const RTLIL::SigBit& a, const RTLIL::SigBit& b) const {
+				return a.wire->port_id < b.wire->port_id;
+			}
+		};
+		input_bits.sort(sort_by_port_id());
+		output_bits.sort(sort_by_port_id());
 		not_map.sort();
 		and_map.sort();
 
@@ -877,7 +842,7 @@ struct XAigerWriter
 				Pass::call(holes_design, "opt -purge");
 
 				std::stringstream a_buffer;
-				XAigerWriter writer(holes_module, true /* holes_mode */);
+				XAigerWriter writer(holes_module);
 				writer.write_aiger(a_buffer, false /*ascii_mode*/);
 				delete holes_design;
 
