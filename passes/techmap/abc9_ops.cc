@@ -418,8 +418,8 @@ void prep_holes(RTLIL::Module *module)
 	}
 }
 
-struct Abc9PrepPass : public Pass {
-	Abc9PrepPass() : Pass("abc9_ops", "helper functions for ABC9") { }
+struct Abc9OpsPass : public Pass {
+	Abc9OpsPass() : Pass("abc9_ops", "helper functions for ABC9") { }
 	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -481,6 +481,6 @@ struct Abc9PrepPass : public Pass {
 				prep_holes(mod);
 		}
 	}
-} Abc9PrepPass;
+} Abc9OpsPass;
 
 PRIVATE_NAMESPACE_END
