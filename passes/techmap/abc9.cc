@@ -124,15 +124,6 @@ struct Abc9Pass : public ScriptPass
 		log("design as an XAIGER file with write_xaiger and then load that into ABC externally\n");
 		log("if you want to use ABC to convert your design into another format.\n");
 		log("\n");
-		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
-		log("Delay targets can also be specified on a per clock basis by attaching a\n");
-		log("'(* abc9_period = <int> *)' attribute onto clock wires (specifically, onto wires\n");
-		log("that appear inside any special '$abc9_clock' wires inserted by abc9_map.v). This\n");
-		log("can be achieved by modifying the source directly, or through a `setattr`\n");
-		log("invocation. Since such attributes cannot yet be propagated through a\n");
-		log("hierarchical design (whether or not it has been uniquified) it is recommended\n");
-		log("that the design be flattened when using this feature.\n");
-		log("\n");
 		log("[1] http://www.eecs.berkeley.edu/~alanmi/abc/\n");
 		log("\n");
 		help_script();
