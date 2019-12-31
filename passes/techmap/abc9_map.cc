@@ -198,7 +198,7 @@ struct abc9_output_filter
 
 void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string script_file, std::string exe_file,
 		vector<int> lut_costs, std::string delay_target, std::string /*lutin_shared*/, bool fast_mode,
-		const std::vector<RTLIL::Cell*> &/*cells*/, bool show_tempdir, std::string box_file, std::string lut_file,
+		const std::vector<RTLIL::Cell*> &cells, bool show_tempdir, std::string box_file, std::string lut_file,
 		std::string wire_delay, const dict<int,IdString> &box_lookup, bool nomfs, std::string tempdir_name
 )
 {
@@ -359,7 +359,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 
 		dict<IdString, bool> abc9_box;
 		vector<RTLIL::Cell*> boxes;
-		for (auto cell : module->selected_cells()) {
+		for (auto cell : cells) {
 			if (cell->type.in(ID($_AND_), ID($_NOT_), ID($__ABC9_FF_))) {
 				module->remove(cell);
 				continue;
@@ -960,18 +960,18 @@ struct Abc9MapPass : public Pass {
 			}
 		}
 
-		for (auto module : design->selected_modules())
+		for (auto mod : design->selected_modules())
 		{
-			if (module->processes.size() > 0)
-				log_error("Module '%s' has processes!\n", log_id(module));
+			if (mod->processes.size() > 0) {
+				log("Skipping module %s as it contains processes.\n", log_id(mod));
+				continue;
+			}
 
-			const std::vector<RTLIL::Cell*> all_cells = module->selected_cells();
+			const std::vector<RTLIL::Cell*> all_cells = mod->selected_cells();
 
-			design->selected_active_module = module->name.str();
-			abc9_module(design, module, script_file, exe_file, lut_costs,
+			abc9_module(design, mod, script_file, exe_file, lut_costs,
 					delay_target, lutin_shared, fast_mode, all_cells, show_tempdir,
 					box_file, lut_file, wire_delay, box_lookup, nomfs, tempdir_name);
-			design->selected_active_module.clear();
 		}
 
 		log_pop();
