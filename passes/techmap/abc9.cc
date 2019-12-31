@@ -185,11 +185,21 @@ struct Abc9Pass : public ScriptPass
 
 	void script() YS_OVERRIDE
 	{
+		run("abc9_ops -prep_holes");
+		run("select -set abc9_holes A:abc9_holes");
+		run("flatten -wb @abc9_holes");
+		run("techmap @abc9_holes");
+		run("aigmap @abc9_holes");
+		run("select -list @abc9_holes");
+		run("abc9_ops -prep_dff");
+		run("opt -purge @abc9_holes");
+		run("setattr -mod -set whitebox 1 @abc9_holes");
+
 		auto selected_modules = active_design->selected_modules();
 		active_design->selection_stack.emplace_back(false);
 
 		for (auto mod : selected_modules) {
-			if (mod->attributes.count(ID(abc9_box_id)))
+			if (mod->get_blackbox_attribute())
 				continue;
 
 			if (mod->processes.size() > 0) {
@@ -207,7 +217,7 @@ struct Abc9Pass : public ScriptPass
 			tempdir_name = make_temp_dir(tempdir_name);
 
 			run("scc -set_attr abc9_scc_id {}");
-			run("abc9_ops -break_scc -prep_dff -prep_holes");
+			run("abc9_ops -break_scc");
 			run("aigmap");
 			run(stringf("write_xaiger -map %s/input.sym %s/input.xaig", tempdir_name.c_str(), tempdir_name.c_str()),
 					"write_xaiger -map <abc-temp-dir>/input.sym <abc-temp-dir>/input.xaig");

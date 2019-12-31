@@ -710,6 +710,10 @@ struct XAigerWriter
 			RTLIL::Module *holes_module = module->design->module(stringf("%s$holes", module->name.c_str()));
 			log_assert(holes_module);
 
+			for (auto cell : holes_module->cells())
+				if (!cell->type.in("$_NOT_", "$_AND_"))
+					log_error("Whitebox contents cannot be represented as AIG. Please verify whiteboxes are synthesisable.\n");
+
 			module->design->selection_stack.emplace_back(false);
 			module->design->selection().select(holes_module);
 

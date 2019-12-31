@@ -135,6 +135,50 @@ void prep_dff(RTLIL::Module *module)
 		r2 = cell->attributes.insert(std::make_pair(ID(abc9_init), abc9_init.as_const()));
 		log_assert(r2.second);
 	}
+
+	RTLIL::Module *holes_module = design->module(stringf("%s$holes", module->name.c_str()));
+	log_assert(holes_module);
+
+	dict<SigSig, SigSig> replace;
+	for (auto it = holes_module->cells_.begin(); it != holes_module->cells_.end(); ) {
+		auto cell = it->second;
+		if (cell->type.in("$_DFF_N_", "$_DFF_NN0_", "$_DFF_NN1_", "$_DFF_NP0_", "$_DFF_NP1_",
+					"$_DFF_P_", "$_DFF_PN0_", "$_DFF_PN1", "$_DFF_PP0_", "$_DFF_PP1_")) {
+			SigBit D = cell->getPort("\\D");
+			SigBit Q = cell->getPort("\\Q");
+			// Remove the DFF cell from what needs to be a combinatorial box
+			it = holes_module->cells_.erase(it);
+			Wire *port;
+			if (GetSize(Q.wire) == 1)
+				port = holes_module->wire(stringf("$abc%s", Q.wire->name.c_str()));
+			else
+				port = holes_module->wire(stringf("$abc%s[%d]", Q.wire->name.c_str(), Q.offset));
+			log_assert(port);
+			// Prepare to replace "assign <port> = DFF.Q;" with "assign <port> = DFF.D;"
+			//   in order to extract the combinatorial control logic that feeds the box
+			//   (i.e. clock enable, synchronous reset, etc.)
+			replace.insert(std::make_pair(SigSig(port,Q), SigSig(port,D)));
+			// Since `flatten` above would have created wires named "<cell>.Q",
+			//   extract the pre-techmap cell name
+			auto pos = Q.wire->name.str().rfind(".");
+			log_assert(pos != std::string::npos);
+			IdString driver = Q.wire->name.substr(0, pos);
+			// And drive the signal that was previously driven by "DFF.Q" (typically
+			//   used to implement clock-enable functionality) with the "<cell>.$abc9_currQ"
+			//   wire (which itself is driven an input port) we inserted above
+			Wire *currQ = holes_module->wire(stringf("%s.$abc9_currQ", driver.c_str()));
+			log_assert(currQ);
+			holes_module->connect(Q, currQ);
+		}
+		else
+			++it;
+	}
+
+	for (auto &conn : holes_module->connections_) {
+		auto it = replace.find(conn);
+		if (it != replace.end())
+			conn = it->second;
+	}
 }
 
 void prep_holes(RTLIL::Module *module)
@@ -280,6 +324,7 @@ void prep_holes(RTLIL::Module *module)
 
 	RTLIL::Module *holes_module = design->addModule(stringf("%s$holes", module->name.c_str()));
 	log_assert(holes_module);
+	holes_module->set_bool_attribute("\\abc9_holes");
 
 	dict<IdString, Cell*> cell_cache;
 
@@ -371,72 +416,6 @@ void prep_holes(RTLIL::Module *module)
 			holes_module->connect(w, holes_wire);
 		}
 	}
-
-	log_push();
-
-	// NB: fixup_ports() will sort ports by name
-	//holes_module->fixup_ports();
-	holes_module->check();
-
-	// Cannot techmap/aigmap/check all lib_whitebox-es outside of write_xaiger
-	//   since boxes may contain parameters in which case `flatten` would have
-	//   created a new $paramod ...
-	Pass::call_on_module(design, holes_module, "flatten -wb; techmap; aigmap");
-
-	dict<SigSig, SigSig> replace;
-	for (auto it = holes_module->cells_.begin(); it != holes_module->cells_.end(); ) {
-		auto cell = it->second;
-		if (cell->type.in("$_DFF_N_", "$_DFF_NN0_", "$_DFF_NN1_", "$_DFF_NP0_", "$_DFF_NP1_",
-					"$_DFF_P_", "$_DFF_PN0_", "$_DFF_PN1", "$_DFF_PP0_", "$_DFF_PP1_")) {
-			SigBit D = cell->getPort("\\D");
-			SigBit Q = cell->getPort("\\Q");
-			// Remove the DFF cell from what needs to be a combinatorial box
-			it = holes_module->cells_.erase(it);
-			Wire *port;
-			if (GetSize(Q.wire) == 1)
-				port = holes_module->wire(stringf("$abc%s", Q.wire->name.c_str()));
-			else
-				port = holes_module->wire(stringf("$abc%s[%d]", Q.wire->name.c_str(), Q.offset));
-			log_assert(port);
-			// Prepare to replace "assign <port> = DFF.Q;" with "assign <port> = DFF.D;"
-			//   in order to extract the combinatorial control logic that feeds the box
-			//   (i.e. clock enable, synchronous reset, etc.)
-			replace.insert(std::make_pair(SigSig(port,Q), SigSig(port,D)));
-			// Since `flatten` above would have created wires named "<cell>.Q",
-			//   extract the pre-techmap cell name
-			auto pos = Q.wire->name.str().rfind(".");
-			log_assert(pos != std::string::npos);
-			IdString driver = Q.wire->name.substr(0, pos);
-			// And drive the signal that was previously driven by "DFF.Q" (typically
-			//   used to implement clock-enable functionality) with the "<cell>.$abc9_currQ"
-			//   wire (which itself is driven an input port) we inserted above
-			Wire *currQ = holes_module->wire(stringf("%s.$abc9_currQ", driver.c_str()));
-			log_assert(currQ);
-			holes_module->connect(Q, currQ);
-			continue;
-		}
-		else if (!cell->type.in("$_NOT_", "$_AND_"))
-			log_error("Whitebox contents cannot be represented as AIG. Please verify whiteboxes are synthesisable.\n");
-		++it;
-	}
-
-	for (auto &conn : holes_module->connections_) {
-		auto it = replace.find(conn);
-		if (it != replace.end())
-			conn = it->second;
-	}
-
-	// Move into a new (temporary) design so that "clean" will only
-	// operate (and run checks on) this one module
-	RTLIL::Design *holes_design = new RTLIL::Design;
-	holes_design->add(holes_module);
-	Pass::call(holes_design, "opt -purge");
-	holes_design->modules_.erase(holes_module->name);
-	holes_module->design = design;
-
-	holes_module->set_bool_attribute(ID::whitebox);
-
-	log_pop();
 }
 
 struct Abc9PrepPass : public Pass {
@@ -483,6 +462,8 @@ struct Abc9PrepPass : public Pass {
 
 		for (auto mod : design->selected_modules()) {
 			if (mod->get_blackbox_attribute())
+				continue;
+			if (mod->get_bool_attribute("\\abc9_holes"))
 				continue;
 
 			if (mod->processes.size() > 0) {
