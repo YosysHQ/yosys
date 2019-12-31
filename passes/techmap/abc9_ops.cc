@@ -20,6 +20,7 @@
 
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
+#include "kernel/utils.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -75,7 +76,8 @@ void break_scc(RTLIL::Module *module)
 	module->fixup_ports();
 }
 
-void unbreak_scc(RTLIL::Module *module) {
+void unbreak_scc(RTLIL::Module *module)
+{
 	// Now 'unexpose' those wires by undoing
 	// the expose operation -- remove them from PO/PI
 	// and re-connecting them back together
@@ -96,7 +98,8 @@ void unbreak_scc(RTLIL::Module *module) {
 	module->fixup_ports();
 }
 
-void prep_dff(RTLIL::Module *module) {
+void prep_dff(RTLIL::Module *module)
+{
 	auto design = module->design;
 	log_assert(design);
 
@@ -134,6 +137,306 @@ void prep_dff(RTLIL::Module *module) {
 	}
 }
 
+void prep_holes(RTLIL::Module *module)
+{
+	auto design = module->design;
+	log_assert(design);
+
+	SigMap sigmap(module);
+
+	// TODO: Speed up toposort -- ultimately we care about
+	//       box ordering, but not individual AIG cells
+	dict<SigBit, pool<IdString>> bit_drivers, bit_users;
+	TopoSort<IdString, RTLIL::sort_by_id_str> toposort;
+	bool abc9_box_seen = false;
+
+	for (auto cell : module->selected_cells()) {
+		if (cell->type == "$_NOT_")
+		{
+			SigBit A = sigmap(cell->getPort("\\A").as_bit());
+			SigBit Y = sigmap(cell->getPort("\\Y").as_bit());
+			toposort.node(cell->name);
+			bit_users[A].insert(cell->name);
+			bit_drivers[Y].insert(cell->name);
+			continue;
+		}
+
+		if (cell->type == "$_AND_")
+		{
+			SigBit A = sigmap(cell->getPort("\\A").as_bit());
+			SigBit B = sigmap(cell->getPort("\\B").as_bit());
+			SigBit Y = sigmap(cell->getPort("\\Y").as_bit());
+			toposort.node(cell->name);
+			bit_users[A].insert(cell->name);
+			bit_users[B].insert(cell->name);
+			bit_drivers[Y].insert(cell->name);
+			continue;
+		}
+
+		if (cell->type == "$__ABC9_FF_")
+			continue;
+
+		RTLIL::Module* inst_module = design->module(cell->type);
+		if (inst_module) {
+			if (!inst_module->attributes.count("\\abc9_box_id") || cell->get_bool_attribute("\\abc9_keep"))
+				continue;
+
+			for (const auto &conn : cell->connections()) {
+				auto port_wire = inst_module->wire(conn.first);
+				// Ignore inout for the sake of topographical ordering
+				if (port_wire->port_input && !port_wire->port_output)
+					for (auto bit : sigmap(conn.second))
+						bit_users[bit].insert(cell->name);
+				if (port_wire->port_output)
+					for (auto bit : sigmap(conn.second))
+						bit_drivers[bit].insert(cell->name);
+			}
+
+                        abc9_box_seen = true;
+
+                        toposort.node(cell->name);
+		}
+	}
+
+	if (!abc9_box_seen)
+		return;
+
+	for (auto &it : bit_users)
+		if (bit_drivers.count(it.first))
+			for (auto driver_cell : bit_drivers.at(it.first))
+			for (auto user_cell : it.second)
+				toposort.edge(driver_cell, user_cell);
+
+#if 0
+	toposort.analyze_loops = true;
+#endif
+	bool no_loops YS_ATTRIBUTE(unused) = toposort.sort();
+#if 0
+	unsigned i = 0;
+	for (auto &it : toposort.loops) {
+		log("  loop %d\n", i++);
+		for (auto cell_name : it) {
+			auto cell = module->cell(cell_name);
+			log_assert(cell);
+			log("\t%s (%s @ %s)\n", log_id(cell), log_id(cell->type), cell->get_src_attribute().c_str());
+		}
+	}
+#endif
+	log_assert(no_loops);
+
+	vector<Cell*> box_list;
+	for (auto cell_name : toposort.sorted) {
+		RTLIL::Cell *cell = module->cell(cell_name);
+		log_assert(cell);
+
+		RTLIL::Module* box_module = design->module(cell->type);
+		if (!box_module || !box_module->attributes.count("\\abc9_box_id")
+				|| cell->get_bool_attribute("\\abc9_keep"))
+			continue;
+
+		bool blackbox = box_module->get_blackbox_attribute(true /* ignore_wb */);
+
+		// Fully pad all unused input connections of this box cell with S0
+		// Fully pad all undriven output connections of this box cell with anonymous wires
+		// NB: Assume box_module->ports are sorted alphabetically
+		//     (as RTLIL::Module::fixup_ports() would do)
+		for (const auto &port_name : box_module->ports) {
+			RTLIL::Wire* w = box_module->wire(port_name);
+			log_assert(w);
+			auto it = cell->connections_.find(port_name);
+			if (w->port_input) {
+				RTLIL::SigSpec rhs;
+				if (it != cell->connections_.end()) {
+					if (GetSize(it->second) < GetSize(w))
+						it->second.append(RTLIL::SigSpec(State::S0, GetSize(w)-GetSize(it->second)));
+					rhs = it->second;
+				}
+				else {
+					rhs = RTLIL::SigSpec(State::S0, GetSize(w));
+					cell->setPort(port_name, rhs);
+				}
+			}
+			if (w->port_output) {
+				RTLIL::SigSpec rhs;
+				auto it = cell->connections_.find(w->name);
+				if (it != cell->connections_.end()) {
+					if (GetSize(it->second) < GetSize(w))
+						it->second.append(module->addWire(NEW_ID, GetSize(w)-GetSize(it->second)));
+					rhs = it->second;
+				}
+				else {
+					Wire *wire = module->addWire(NEW_ID, GetSize(w));
+					if (blackbox)
+						wire->set_bool_attribute(ID(abc9_padding));
+					rhs = wire;
+					cell->setPort(port_name, rhs);
+				}
+			}
+		}
+
+		box_list.emplace_back(cell);
+	}
+	log_assert(!box_list.empty());
+
+	RTLIL::Module *holes_module = design->addModule(stringf("%s$holes", module->name.c_str()));
+	log_assert(holes_module);
+
+	dict<IdString, Cell*> cell_cache;
+
+	int port_id = 1;
+	for (auto cell : box_list) {
+		RTLIL::Module* orig_box_module = design->module(cell->type);
+		log_assert(orig_box_module);
+		IdString derived_name = orig_box_module->derive(design, cell->parameters);
+		RTLIL::Module* box_module = design->module(derived_name);
+		if (box_module->has_processes())
+			Pass::call_on_module(design, box_module, "proc");
+
+		int box_inputs = 0;
+		auto r = cell_cache.insert(std::make_pair(derived_name, nullptr));
+		Cell *holes_cell = r.first->second;
+		if (r.second && box_module->get_bool_attribute("\\whitebox")) {
+			holes_cell = holes_module->addCell(cell->name, cell->type);
+			holes_cell->parameters = cell->parameters;
+			r.first->second = holes_cell;
+
+			// Since Module::derive() will create a new module, there
+			//   is a chance that the ports will be alphabetically ordered
+			//   again, which is a problem when carry-chains are involved.
+			//   Inherit the port ordering from the original module here...
+			//   (and set the port_id below, when iterating through those)
+			log_assert(GetSize(box_module->ports) == GetSize(orig_box_module->ports));
+			box_module->ports = orig_box_module->ports;
+		}
+
+		// NB: Assume box_module->ports are sorted alphabetically
+		//     (as RTLIL::Module::fixup_ports() would do)
+		int box_port_id = 1;
+		for (const auto &port_name : box_module->ports) {
+			RTLIL::Wire *w = box_module->wire(port_name);
+			log_assert(w);
+			if (r.second)
+				w->port_id = box_port_id++;
+			RTLIL::Wire *holes_wire;
+			RTLIL::SigSpec port_sig;
+			if (w->port_input)
+				for (int i = 0; i < GetSize(w); i++) {
+					box_inputs++;
+					holes_wire = holes_module->wire(stringf("\\i%d", box_inputs));
+					if (!holes_wire) {
+						holes_wire = holes_module->addWire(stringf("\\i%d", box_inputs));
+						holes_wire->port_input = true;
+						holes_wire->port_id = port_id++;
+						holes_module->ports.push_back(holes_wire->name);
+					}
+					if (holes_cell)
+						port_sig.append(holes_wire);
+				}
+			if (w->port_output)
+				for (int i = 0; i < GetSize(w); i++) {
+					if (GetSize(w) == 1)
+						holes_wire = holes_module->addWire(stringf("$abc%s.%s", cell->name.c_str(), log_id(w->name)));
+					else
+						holes_wire = holes_module->addWire(stringf("$abc%s.%s[%d]", cell->name.c_str(), log_id(w->name), i));
+					holes_wire->port_output = true;
+					holes_wire->port_id = port_id++;
+					holes_module->ports.push_back(holes_wire->name);
+					if (holes_cell)
+						port_sig.append(holes_wire);
+					else
+						holes_module->connect(holes_wire, State::S0);
+				}
+			if (!port_sig.empty()) {
+				if (r.second)
+					holes_cell->setPort(w->name, port_sig);
+				else
+					holes_module->connect(holes_cell->getPort(w->name), port_sig);
+			}
+		}
+
+		// For flops only, create an extra 1-bit input that drives a new wire
+		//   called "<cell>.$abc9_currQ" that is used below
+		if (box_module->get_bool_attribute("\\abc9_flop")) {
+			log_assert(holes_cell);
+
+			box_inputs++;
+			Wire *holes_wire = holes_module->wire(stringf("\\i%d", box_inputs));
+			if (!holes_wire) {
+				holes_wire = holes_module->addWire(stringf("\\i%d", box_inputs));
+				holes_wire->port_input = true;
+				holes_wire->port_id = port_id++;
+				holes_module->ports.push_back(holes_wire->name);
+			}
+			Wire *w = holes_module->addWire(stringf("%s.$abc9_currQ", cell->name.c_str()));
+			holes_module->connect(w, holes_wire);
+		}
+	}
+
+	log_push();
+
+	// NB: fixup_ports() will sort ports by name
+	//holes_module->fixup_ports();
+	holes_module->check();
+
+	// Cannot techmap/aigmap/check all lib_whitebox-es outside of write_xaiger
+	//   since boxes may contain parameters in which case `flatten` would have
+	//   created a new $paramod ...
+	Pass::call_on_module(design, holes_module, "flatten -wb; techmap; aigmap");
+
+	dict<SigSig, SigSig> replace;
+	for (auto it = holes_module->cells_.begin(); it != holes_module->cells_.end(); ) {
+		auto cell = it->second;
+		if (cell->type.in("$_DFF_N_", "$_DFF_NN0_", "$_DFF_NN1_", "$_DFF_NP0_", "$_DFF_NP1_",
+					"$_DFF_P_", "$_DFF_PN0_", "$_DFF_PN1", "$_DFF_PP0_", "$_DFF_PP1_")) {
+			SigBit D = cell->getPort("\\D");
+			SigBit Q = cell->getPort("\\Q");
+			// Remove the DFF cell from what needs to be a combinatorial box
+			it = holes_module->cells_.erase(it);
+			Wire *port;
+			if (GetSize(Q.wire) == 1)
+				port = holes_module->wire(stringf("$abc%s", Q.wire->name.c_str()));
+			else
+				port = holes_module->wire(stringf("$abc%s[%d]", Q.wire->name.c_str(), Q.offset));
+			log_assert(port);
+			// Prepare to replace "assign <port> = DFF.Q;" with "assign <port> = DFF.D;"
+			//   in order to extract the combinatorial control logic that feeds the box
+			//   (i.e. clock enable, synchronous reset, etc.)
+			replace.insert(std::make_pair(SigSig(port,Q), SigSig(port,D)));
+			// Since `flatten` above would have created wires named "<cell>.Q",
+			//   extract the pre-techmap cell name
+			auto pos = Q.wire->name.str().rfind(".");
+			log_assert(pos != std::string::npos);
+			IdString driver = Q.wire->name.substr(0, pos);
+			// And drive the signal that was previously driven by "DFF.Q" (typically
+			//   used to implement clock-enable functionality) with the "<cell>.$abc9_currQ"
+			//   wire (which itself is driven an input port) we inserted above
+			Wire *currQ = holes_module->wire(stringf("%s.$abc9_currQ", driver.c_str()));
+			log_assert(currQ);
+			holes_module->connect(Q, currQ);
+			continue;
+		}
+		else if (!cell->type.in("$_NOT_", "$_AND_"))
+			log_error("Whitebox contents cannot be represented as AIG. Please verify whiteboxes are synthesisable.\n");
+		++it;
+	}
+
+	for (auto &conn : holes_module->connections_) {
+		auto it = replace.find(conn);
+		if (it != replace.end())
+			conn = it->second;
+	}
+
+	// Move into a new (temporary) design so that "clean" will only
+	// operate (and run checks on) this one module
+	RTLIL::Design *holes_design = new RTLIL::Design;
+	holes_design->add(holes_module);
+	Pass::call(holes_design, "opt -purge");
+	holes_design->modules_.erase(holes_module->name);
+	holes_module->design = design;
+
+	log_pop();
+}
+
 struct Abc9PrepPass : public Pass {
 	Abc9PrepPass() : Pass("abc9_ops", "helper functions for ABC9") { }
 	void help() YS_OVERRIDE
@@ -151,6 +454,7 @@ struct Abc9PrepPass : public Pass {
 		bool break_scc_mode = false;
 		bool unbreak_scc_mode = false;
 		bool prep_dff_mode = false;
+		bool prep_holes_mode = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -167,6 +471,10 @@ struct Abc9PrepPass : public Pass {
 				prep_dff_mode = true;
 				continue;
 			}
+			if (arg == "-prep_holes") {
+				prep_holes_mode = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -178,6 +486,8 @@ struct Abc9PrepPass : public Pass {
 				unbreak_scc(mod);
 			if (prep_dff_mode)
 				prep_dff(mod);
+			if (prep_holes_mode)
+				prep_holes(mod);
 		}
 	}
 } Abc9PrepPass;

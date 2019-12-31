@@ -207,7 +207,7 @@ struct Abc9Pass : public ScriptPass
 			tempdir_name = make_temp_dir(tempdir_name);
 
 			run("scc -set_attr abc9_scc_id {}");
-			run("abc9_ops -break_scc -prep_dff");
+			run("abc9_ops -break_scc -prep_dff -prep_holes");
 			run("aigmap");
 			run(stringf("write_xaiger -map %s/input.sym %s/input.xaig", tempdir_name.c_str(), tempdir_name.c_str()),
 					"write_xaiger -map <abc-temp-dir>/input.sym <abc-temp-dir>/input.xaig");
