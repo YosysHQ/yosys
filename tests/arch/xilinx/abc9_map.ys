@@ -6,7 +6,7 @@ endmodule
 EOT
 design -save gold
 
-techmap -map +/xilinx/abc9_map.v -max_iter 1
+techmap -map +/xilinx/abc9_map.v -max_iter 1 -D DFF_MODE
 techmap -map +/xilinx/abc9_unmap.v
 select -assert-count 1 t:FDSE
 select -assert-count 1 t:FDSE_1
@@ -29,7 +29,7 @@ endmodule
 EOT
 design -save gold
 
-techmap -map +/xilinx/abc9_map.v -max_iter 1
+techmap -map +/xilinx/abc9_map.v -max_iter 1 -D DFF_MODE
 techmap -map +/xilinx/abc9_unmap.v
 select -assert-count 1 t:FDRE
 select -assert-count 1 t:FDRE_1
@@ -52,7 +52,7 @@ endmodule
 EOT
 design -save gold
 
-techmap -map +/xilinx/abc9_map.v -max_iter 1
+techmap -map +/xilinx/abc9_map.v -max_iter 1 -D DFF_MODE
 techmap -map +/xilinx/abc9_unmap.v
 select -assert-count 1 t:FDCE
 select -assert-count 1 t:FDCE_1
@@ -76,7 +76,7 @@ endmodule
 EOT
 design -save gold
 
-techmap -map +/xilinx/abc9_map.v -max_iter 1
+techmap -map +/xilinx/abc9_map.v -max_iter 1 -D DFF_MODE
 techmap -map +/xilinx/abc9_unmap.v
 select -assert-count 1 t:FDPE
 techmap -autoproc -map +/xilinx/cells_sim.v
