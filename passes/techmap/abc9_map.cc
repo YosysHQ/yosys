@@ -650,8 +650,8 @@ clone_lut:
 	log_pop();
 }
 
-struct Abc9TechmapPass : public Pass {
-	Abc9TechmapPass() : Pass("abc9_map", "use ABC9 for technology mapping") { }
+struct Abc9MapPass : public Pass {
+	Abc9MapPass() : Pass("abc9_map", "use ABC9 for technology mapping") { }
 	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -1017,6 +1017,6 @@ struct Abc9TechmapPass : public Pass {
 
 		log_pop();
 	}
-} Abc9TechmapPass;
+} Abc9MapPass;
 
 PRIVATE_NAMESPACE_END
