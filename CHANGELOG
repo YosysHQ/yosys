@@ -57,6 +57,7 @@ Yosys 0.9 .. Yosys 0.9-dev
       always_latch and always_ff)
     - Added "xilinx_dffopt" pass
     - Added "scratchpad" pass
+    - Added "synth_xilinx -dff"
 
 Yosys 0.8 .. Yosys 0.9
 ----------------------

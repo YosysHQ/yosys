@@ -30,7 +30,22 @@ module \$__XILINX_MUXF78 (output O, input I0, I1, I2, I3, S0, S1);
                 : (S0 ? I1 : I0);
 endmodule
 
-// Box to emulate comb/seq behaviour of RAMD{32,64} and SRL{16,32}
+module \$__ABC9_FF_ (input D, output Q);
+endmodule
+
+// Box to emulate async behaviour of FDC*
+(* abc_box_id = 1000 *)
+module \$__ABC9_ASYNC0 (input A, S, output Y);
+  assign Y = S ? 1'b0 : A;
+endmodule
+
+// Box to emulate async behaviour of FDP*
+(* abc_box_id = 1001 *)
+module \$__ABC9_ASYNC1 (input A, S, output Y);
+  assign Y = S ? 1'b0 : A;
+endmodule
+
+// Box to emulate comb/seq behaviour of RAM{32,64} and SRL{16,32}
 //   Necessary since RAMD* and SRL* have both combinatorial (i.e.
 //   same-cycle read operation) and sequential (write operation
 //   is only committed on the next clock edge).
@@ -39,7 +54,7 @@ endmodule
 (* abc9_box_id=2000 *)
 module \$__ABC9_LUT6 (input A, input [5:0] S, output Y);
 endmodule
-// Box to emulate comb/seq behaviour of RAMD128
+// Box to emulate comb/seq behaviour of RAM128
 (* abc9_box_id=2001 *)
 module \$__ABC9_LUT7 (input A, input [6:0] S, output Y);
 endmodule

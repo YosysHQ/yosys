@@ -107,6 +107,9 @@ struct SynthXilinxPass : public ScriptPass
 		log("    -flatten\n");
 		log("        flatten design before synthesis\n");
 		log("\n");
+		log("    -dff\n");
+		log("        run 'abc9' with -dff option\n");
+		log("\n");
 		log("    -retime\n");
 		log("        run 'abc' with -dff option\n");
 		log("\n");
@@ -120,7 +123,8 @@ struct SynthXilinxPass : public ScriptPass
 	}
 
 	std::string top_opt, edif_file, blif_file, family;
-	bool flatten, retime, vpr, ise, noiopad, noclkbuf, nobram, nolutram, nosrl, nocarry, nowidelut, nodsp, uram, abc9;
+	bool flatten, retime, vpr, ise, noiopad, noclkbuf, nobram, nolutram, nosrl, nocarry, nowidelut, nodsp, uram;
+	bool abc9, dff_mode;
 	bool flatten_before_abc;
 	int widemux;
 
@@ -145,6 +149,7 @@ struct SynthXilinxPass : public ScriptPass
 		nodsp = false;
 		uram = false;
 		abc9 = false;
+		dff_mode = false;
 		flatten_before_abc = false;
 		widemux = 0;
 	}
@@ -252,6 +257,10 @@ struct SynthXilinxPass : public ScriptPass
 				uram = true;
 				continue;
 			}
+			if (args[argidx] == "-dff") {
+				dff_mode = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -287,10 +296,11 @@ struct SynthXilinxPass : public ScriptPass
 			ff_map_file = "+/xilinx/xc7_ff_map.v";
 
 		if (check_label("begin")) {
+			std::string read_args;
 			if (vpr)
-				run("read_verilog -lib -D_EXPLICIT_CARRY +/xilinx/cells_sim.v");
-			else
-				run("read_verilog -lib +/xilinx/cells_sim.v");
+				read_args += " -D_EXPLICIT_CARRY";
+			read_args += " -lib +/xilinx/cells_sim.v";
+			run("read_verilog" + read_args);
 
 			run("read_verilog -lib +/xilinx/cells_xtra.v");
 
@@ -537,7 +547,10 @@ struct SynthXilinxPass : public ScriptPass
 				if (family != "xc7")
 					log_warning("'synth_xilinx -abc9' not currently supported for the '%s' family, "
 							"will use timing for 'xc7' instead.\n", family.c_str());
-				run("techmap -map +/xilinx/abc9_map.v -max_iter 1");
+				std::string techmap_args = "-map +/xilinx/abc9_map.v -max_iter 1";
+				if (dff_mode)
+					techmap_args += " -D DFF_MODE";
+				run("techmap " + techmap_args);
 				run("read_verilog -icells -lib +/xilinx/abc9_model.v");
 				std::string abc9_opts = " -box +/xilinx/abc9_xc7.box";
 				abc9_opts += stringf(" -W %d", XC7_WIRE_DELAY);
@@ -547,6 +560,7 @@ struct SynthXilinxPass : public ScriptPass
 				else
 					abc9_opts += " -lut +/xilinx/abc9_xc7.lut";
 				run("abc9" + abc9_opts);
+				run("techmap -map +/xilinx/abc9_unmap.v");
 			}
 			else {
 				if (nowidelut)
@@ -562,14 +576,11 @@ struct SynthXilinxPass : public ScriptPass
 				run("xilinx_srl -fixed -minlen 3", "(skip if '-nosrl')");
 			std::string techmap_args = "-map +/xilinx/lut_map.v -map +/xilinx/cells_map.v";
 			if (help_mode)
-				techmap_args += " [-map " + ff_map_file + "]";
-			else if (abc9)
-				techmap_args += " -map +/xilinx/abc9_unmap.v";
-			else
-				techmap_args += " -map " + ff_map_file;
-			run("techmap " + techmap_args);
+				techmap_args += stringf("[-map %s]", ff_map_file.c_str());
+			else if (!abc9)
+				techmap_args += stringf(" -map %s", ff_map_file.c_str());
+			run("techmap " + techmap_args, "(option without '-abc9')");
 			run("xilinx_dffopt");
-			run("clean");
 		}
 
 		if (check_label("finalize")) {
@@ -577,6 +588,7 @@ struct SynthXilinxPass : public ScriptPass
 				run("clkbufmap -buf BUFG O:I ", "(skip if '-noclkbuf')");
 			if (help_mode || ise)
 				run("extractinv -inv INV O:I", "(only if '-ise')");
+			run("clean");
 		}
 
 		if (check_label("check")) {

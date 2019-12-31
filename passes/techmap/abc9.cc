@@ -80,8 +80,6 @@ struct Abc9Pass : public ScriptPass
 		log("        set delay target. the string {D} in the default scripts above is\n");
 		log("        replaced by this option when used, and an empty string otherwise\n");
 		log("        (indicating best possible delay).\n");
-//		log("        This also replaces 'dretime' with 'dretime; retime -o {D}' in the\n");
-//		log("        default scripts above.\n");
 		log("\n");
 //		log("    -S <num>\n");
 //		log("        maximum number of LUT inputs shared.\n");
@@ -103,19 +101,6 @@ struct Abc9Pass : public ScriptPass
 		log("        generate netlist using luts. Use the specified costs for luts with 1,\n");
 		log("        2, 3, .. inputs.\n");
 		log("\n");
-//		log("    -dff\n");
-//		log("        also pass $_DFF_?_ and $_DFFE_??_ cells through ABC. modules with many\n");
-//		log("        clock domains are automatically partitioned in clock domains and each\n");
-//		log("        domain is passed through ABC independently.\n");
-//		log("\n");
-//		log("    -clk [!]<clock-signal-name>[,[!]<enable-signal-name>]\n");
-//		log("        use only the specified clock domain. this is like -dff, but only FF\n");
-//		log("        cells that belong to the specified clock domain are used.\n");
-//		log("\n");
-//		log("    -keepff\n");
-//		log("        set the \"keep\" attribute on flip-flop output wires. (and thus preserve\n");
-//		log("        them, for example for equivalence checking.)\n");
-//		log("\n");
 		log("    -nocleanup\n");
 		log("        when this option is used, the temporary files created by this pass\n");
 		log("        are not removed. this is useful for debugging.\n");
@@ -136,8 +121,17 @@ struct Abc9Pass : public ScriptPass
 		log("internally. This is not going to \"run ABC on your design\". It will instead run\n");
 		log("ABC on logic snippets extracted from your design. You will not get any useful\n");
 		log("output when passing an ABC script that writes a file. Instead write your full\n");
-		log("design as BLIF file with write_blif and then load that into ABC externally if\n");
-		log("you want to use ABC to convert your design into another format.\n");
+		log("design as an XAIGER file with write_xaiger and then load that into ABC externally\n");
+		log("if you want to use ABC to convert your design into another format.\n");
+		log("\n");
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("Delay targets can also be specified on a per clock basis by attaching a\n");
+		log("'(* abc9_period = <int> *)' attribute onto clock wires (specifically, onto wires\n");
+		log("that appear inside any special '$abc9_clock' wires inserted by abc9_map.v). This\n");
+		log("can be achieved by modifying the source directly, or through a `setattr`\n");
+		log("invocation. Since such attributes cannot yet be propagated through a\n");
+		log("hierarchical design (whether or not it has been uniquified) it is recommended\n");
+		log("that the design be flattened when using this feature.\n");
 		log("\n");
 		log("[1] http://www.eecs.berkeley.edu/~alanmi/abc/\n");
 		log("\n");

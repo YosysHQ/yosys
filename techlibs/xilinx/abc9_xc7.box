@@ -41,6 +41,72 @@ CARRY4 4 1 10 8
 592 540 520 356 -   512 548 292 -   228
 580 526 507 398 385 508 528 378 380 114
 
+# Box to emulate async behaviour of FDC*
+# Inputs: A S
+# Outputs: Y
+$__ABC9_ASYNC0 1000 1 2 1
+0 764
+
+# Box to emulate async behaviour of FDP*
+# Inputs: A S
+# Outputs: Y
+$__ABC9_ASYNC1 1001 1 2 1
+0 764
+
+# Max delays from https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L237-L251
+#                 https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L265-L277
+
+# NB: Inputs/Outputs must be ordered alphabetically
+#     (with exception for \$currQ)
+
+# Inputs: C CE D R \$currQ
+# Outputs: Q
+FDRE 1100 1 5 1
+#0 109 -46 404 0
+0 109 0 404 0 # Clamp -46ps Tsu
+
+# Inputs: C CE D R \$currQ
+# Outputs: Q
+FDRE_1 1101 1 5 1
+#0 109 0 -46 404
+0 109 0 0 404 # Clamp -46ps Tsu
+
+# Inputs: C CE CLR D \$currQ
+# Outputs: Q
+FDCE 1102 1 5 1
+#0 109 764 -46 0
+0 109 764 0 0 # Clamp -46ps Tsu
+
+# Inputs: C CE CLR D \$currQ
+# Outputs: Q
+FDCE_1 1103 1 5 1
+#0 109 764 -46 0
+0 109 764 0 0 # Clamp -46ps Tsu
+
+# Inputs: C CE D PRE \$currQ
+# Outputs: Q
+FDPE 1104 1 5 1
+#0 109 -46 764 0
+0 109 0 764 0 # Clamp -46ps Tsu
+
+# Inputs: C CE D PRE \$currQ
+# Outputs: Q
+FDPE_1 1105 1 5 1
+#0 109 -46 764 0
+0 109 0 764 0 # Clamp -46ps Tsu
+
+# Inputs: C CE D S \$currQ
+# Outputs: Q
+FDSE 1106 1 5 1
+#0 109 -46 446 0
+0 109 0 446 0 # Clamp -46ps Tsu
+
+# Inputs: C CE D S \$currQ
+# Outputs: Q
+FDSE_1 1107 1 5 1
+#0 109 -46 446 0
+0 109 0 446 0 # Clamp -46ps Tsu
+
 # SLICEM/A6LUT
 # Box to emulate comb/seq behaviour of RAMD{32,64} and SRL{16,32}
 #   Necessary since RAMD* and SRL* have both combinatorial (i.e.
@@ -56,7 +122,7 @@ $__ABC9_LUT6 2000 0 7 1
 # SLICEM/A6LUT + F7BMUX
 # Box to emulate comb/seq behaviour of RAMD128
 # Inputs: A S0 S1 S2 S3 S4 S5 S6
-# Outputs: DPO SPO
+# Outputs: Y
 $__ABC9_LUT7 2001 0 8 1
 0 1047 1036 877 812 643 532 478
 
