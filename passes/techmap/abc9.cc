@@ -250,7 +250,7 @@ struct abc9_output_filter
 
 void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string script_file, std::string exe_file,
 		bool cleanup, vector<int> lut_costs, bool keepff, std::string delay_target, std::string /*lutin_shared*/, bool fast_mode,
-		const std::vector<RTLIL::Cell*> &/*cells*/, bool show_tempdir, std::string box_file, std::string lut_file,
+		bool show_tempdir, std::string box_file, std::string lut_file,
 		std::string wire_delay, bool nomfs
 )
 {
@@ -796,8 +796,8 @@ struct Abc9Pass : public Pass {
 		log("        2, 3, .. inputs.\n");
 		log("\n");
 		log("    -keepff\n");
-		log("        set the \"keep\" attribute on flip-flop output wires. (and thus preserve\n");
-		log("        them, for example for equivalence checking.)\n");
+		log("        do not represent (* abc9_flop *) modules as boxes (and thus do not perform\n");
+		log("        any form of sequential synthesis).\n");
 		log("\n");
 		log("    -nocleanup\n");
 		log("        when this option is used, the temporary files created by this pass\n");
@@ -985,10 +985,9 @@ struct Abc9Pass : public Pass {
 			typedef SigSpec clkdomain_t;
 			dict<clkdomain_t, int> clk_to_mergeability;
 
-			const std::vector<RTLIL::Cell*> all_cells = module->selected_cells();
 
 			if (!keepff)
-				for (auto cell : all_cells) {
+				for (auto cell : module->selected_cells()) {
 					auto inst_module = design->module(cell->type);
 					if (!inst_module || !inst_module->get_bool_attribute("\\abc9_flop"))
 						continue;
@@ -1017,7 +1016,7 @@ struct Abc9Pass : public Pass {
 
 			design->selected_active_module = module->name.str();
 			abc9_module(design, module, script_file, exe_file, cleanup, lut_costs, keepff,
-					delay_target, lutin_shared, fast_mode, all_cells, show_tempdir,
+					delay_target, lutin_shared, fast_mode, show_tempdir,
 					box_file, lut_file, wire_delay, nomfs);
 			design->selected_active_module.clear();
 		}
