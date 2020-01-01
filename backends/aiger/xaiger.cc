@@ -93,6 +93,7 @@ struct XAigerWriter
 	dict<SigBit, int> ordered_outputs;
 
 	vector<Cell*> box_list;
+	dict<IdString, std::vector<IdString>> box_ports;
 
 	int mkgate(int a0, int a1)
 	{
@@ -404,12 +405,34 @@ struct XAigerWriter
 
 				bool blackbox = box_module->get_blackbox_attribute(true /* ignore_wb */);
 
+				auto r = box_ports.insert(cell->type);
+				if (r.second) {
+					// Make carry in the last PI, and carry out the last PO
+					//   since ABC requires it this way
+					IdString carry_in, carry_out;
+					for (const auto &port_name : box_module->ports) {
+						auto w = box_module->wire(port_name);
+						log_assert(w);
+						if (w->get_bool_attribute("\\abc9_carry")) {
+							if (w->port_input)
+								carry_in = port_name;
+							if (w->port_output)
+								carry_out = port_name;
+						}
+						else
+							r.first->second.push_back(port_name);
+					}
+					if (carry_in != IdString()) {
+						log_assert(carry_out != IdString());
+						r.first->second.push_back(carry_in);
+						r.first->second.push_back(carry_out);
+					}
+				}
+
 				// Fully pad all unused input connections of this box cell with S0
 				// Fully pad all undriven output connections of this box cell with anonymous wires
-				// NB: Assume box_module->ports are sorted alphabetically
-				//     (as RTLIL::Module::fixup_ports() would do)
-				for (const auto &port_name : box_module->ports) {
-					RTLIL::Wire* w = box_module->wire(port_name);
+				for (auto port_name : r.first->second) {
+					auto w = box_module->wire(port_name);
 					log_assert(w);
 					auto it = cell->connections_.find(port_name);
 					if (w->port_input) {
@@ -424,7 +447,7 @@ struct XAigerWriter
 							cell->setPort(port_name, rhs);
 						}
 
-						for (auto b : rhs.bits()) {
+						for (auto b : rhs) {
 							SigBit I = sigmap(b);
 							if (b == RTLIL::Sx)
 								b = State::S0;
@@ -455,11 +478,10 @@ struct XAigerWriter
 						}
 
 						for (const auto &b : rhs.bits()) {
-							ci_bits.emplace_back(b);
 							SigBit O = sigmap(b);
 							if (O != b)
 								alias_map[O] = b;
-							input_bits.erase(O);
+							ci_bits.emplace_back(b);
 							undriven_bits.erase(O);
 						}
 					}
@@ -653,33 +675,21 @@ struct XAigerWriter
 				if (box_module->has_processes())
 					Pass::call_on_module(module->design, box_module, "proc");
 
-				int box_inputs = 0, box_outputs = 0;
 				auto r = cell_cache.insert(std::make_pair(derived_name, nullptr));
 				Cell *holes_cell = r.first->second;
 				if (r.second && box_module->get_bool_attribute("\\whitebox")) {
 					holes_cell = holes_module->addCell(cell->name, cell->type);
 					holes_cell->parameters = cell->parameters;
 					r.first->second = holes_cell;
-
-					// Since Module::derive() will create a new module, there
-					//   is a chance that the ports will be alphabetically ordered
-					//   again, which is a problem when carry-chains are involved.
-					//   Inherit the port ordering from the original module here...
-					//   (and set the port_id below, when iterating through those)
-					log_assert(GetSize(box_module->ports) == GetSize(orig_box_module->ports));
-					box_module->ports = orig_box_module->ports;
 				}
 
-				// NB: Assume box_module->ports are sorted alphabetically
-				//     (as RTLIL::Module::fixup_ports() would do)
-				int box_port_id = 1;
-				for (const auto &port_name : box_module->ports) {
+				int box_inputs = 0, box_outputs = 0;
+				for (auto port_name : box_ports.at(cell->type)) {
 					RTLIL::Wire *w = box_module->wire(port_name);
 					log_assert(w);
-					if (r.second)
-						w->port_id = box_port_id++;
 					RTLIL::Wire *holes_wire;
 					RTLIL::SigSpec port_sig;
+
 					if (w->port_input)
 						for (int i = 0; i < GetSize(w); i++) {
 							box_inputs++;

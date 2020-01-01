@@ -1003,28 +1003,6 @@ struct Abc9Pass : public Pass {
 					log_error("Module '%s' contains an 'abc9_carry' input port but no output port.\n", log_id(m));
 				if (!carry_in && carry_out)
 					log_error("Module '%s' contains an 'abc9_carry' output port but no input port.\n", log_id(m));
-				// Make carry_in the last PI, and carry_out the last PO
-				//   since ABC requires it this way
-				auto &ports = m->ports;
-				for (auto it = ports.begin(); it != ports.end(); ) {
-					RTLIL::Wire* w = m->wire(*it);
-					log_assert(w);
-					if (w == carry_in || w == carry_out) {
-						it = ports.erase(it);
-						continue;
-					}
-					if (w->port_id > carry_in->port_id)
-						--w->port_id;
-					if (w->port_id > carry_out->port_id)
-						--w->port_id;
-					log_assert(w->port_input || w->port_output);
-					log_assert(ports[w->port_id-1] == w->name);
-					++it;
-				}
-				ports.push_back(carry_in->name);
-				carry_in->port_id = ports.size();
-				ports.push_back(carry_out->name);
-				carry_out->port_id = ports.size();
 			}
 		}
 
