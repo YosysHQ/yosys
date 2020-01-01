@@ -187,10 +187,10 @@ struct SynthIntelPass : public ScriptPass {
 		}
 
 		if (!nobram && check_label("map_bram", "(skip if -nobram)")) {
-                        if (family_opt == "cycloneiv" ||
-                            family_opt == "cycloneive" ||
-                            family_opt == "max10" ||
-                            help_mode) {
+				if (family_opt == "cycloneiv" ||
+				    family_opt == "cycloneive" ||
+				    family_opt == "max10" ||
+				    help_mode) {
 				run("memory_bram -rules +/intel/common/brams_m9k.txt", "(if applicable for family)");
 				run("techmap -map +/intel/common/brams_map_m9k.v", "(if applicable for family)");
 			} else {
@@ -224,7 +224,7 @@ struct SynthIntelPass : public ScriptPass {
 		if (check_label("map_cells")) {
 			if (iopads || help_mode)
 				run("iopadmap -bits -outpad $__outpad I:O -inpad $__inpad O:I", "(if -iopads)");
-                        run(stringf("techmap -map +/intel/%s/cells_map.v", family_opt.c_str()));
+			run(stringf("techmap -map +/intel/%s/cells_map.v", family_opt.c_str()));
 			run("dffinit -highlow -ff dffeas q power_up");
 			run("clean -purge");
 		}
