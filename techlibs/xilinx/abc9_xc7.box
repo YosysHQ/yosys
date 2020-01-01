@@ -81,47 +81,47 @@ FDRE_1 1101 1   5   1
 #0 109 -46 404 0
 0 109 0   404 0 # Q (-46ps Tsu clamped to 0)
 
-# Box 1102 : FDCE
+# Box 1102 : FDSE
 # name ID   w/b ins outs
-FDCE   1102 1   5   1
-#C CE  CLR D   $abc9_currQ
-#0 109 764 -46 0
-0 109 764 0   0 # Q (-46ps Tsu clamped to 0)
-
-# Box 1103 : FDCE_1
-# name ID   w/b ins outs
-FDCE_1 1103 1   5   1
-#C CE  CLR D   $abc9_currQ
-#0 109 764 -46 0
-0 109 764 0   0 # Q (-46ps Tsu clamped to 0)
-
-# Box 1104 : FDPE
-# name ID   w/b ins outs
-FDPE   1104 1   5   1
-#C CE  D   PRE $abc9_currQ
-#0 109 -46 764 0
-0 109 -46 764 0 # Q (-46ps Tsu clamped to 0)
-
-# Box 1105 : FDPE_1
-# name ID   w/b ins outs
-FDPE_1 1105 1   5   1
-#C CE  D   PRE $abc9_currQ
-#0 109 -46 764 0
-0 109 -46 764 0 # Q (-46ps Tsu clamped to 0)
-
-# Box 1106 : FDSE
-# name ID   w/b ins outs
-FDSE   1106 1   5   1
+FDSE   1102 1   5   1
 #C CE  D   R   $abc9_currQ
 #0 109 -46 404 0
 0 109 0   404 0 # Q (-46ps Tsu clamped to 0)
 
-# Box 1107 : FDSE_1
+# Box 1103 : FDSE_1
 # name ID   w/b ins outs
-FDSE_1 1107 1   5   1
+FDSE_1 1103 1   5   1
 #C CE  D   R   $abc9_currQ
 #0 109 -46 404 0
 0 109 0   404 0 # Q (-46ps Tsu clamped to 0)
+
+# Box 1104 : FDCE
+# name ID   w/b ins outs
+FDCE   1104 1   5   1
+#C CE  CLR D   $abc9_currQ
+#0 109 764 -46 0
+0 109 764 0   0 # Q (-46ps Tsu clamped to 0)
+
+# Box 1105 : FDCE_1
+# name ID   w/b ins outs
+FDCE_1 1105 1   5   1
+#C CE  CLR D   $abc9_currQ
+#0 109 764 -46 0
+0 109 764 0   0 # Q (-46ps Tsu clamped to 0)
+
+# Box 1106 : FDPE
+# name ID   w/b ins outs
+FDPE   1106 1   5   1
+#C CE  D   PRE $abc9_currQ
+#0 109 -46 764 0
+0 109 -46 764 0 # Q (-46ps Tsu clamped to 0)
+
+# Box 1107 : FDPE_1
+# name ID   w/b ins outs
+FDPE_1 1107 1   5   1
+#C CE  D   PRE $abc9_currQ
+#0 109 -46 764 0
+0 109 -46 764 0 # Q (-46ps Tsu clamped to 0)
 
 # Box 2000 : $__ABC9_LUT6
 #            (private cell to emulate async behaviour of LUTRAMs)

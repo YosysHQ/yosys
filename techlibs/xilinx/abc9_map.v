@@ -163,6 +163,89 @@ module FDRE_1 (output Q, input C, CE, D, R);
 `endif
 endmodule
 
+module FDSE (output Q, input C, CE, D, S);
+  parameter [0:0] INIT = 1'b1;
+  parameter [0:0] IS_C_INVERTED = 1'b0;
+  parameter [0:0] IS_D_INVERTED = 1'b0;
+  parameter [0:0] IS_S_INVERTED = 1'b0;
+`ifdef DFF_MODE
+  wire QQ, $Q;
+  generate if (INIT == 1'b1) begin
+    assign Q = ~QQ;
+    FDRE #(
+      .INIT(1'b0),
+      .IS_C_INVERTED(IS_C_INVERTED),
+      .IS_D_INVERTED(IS_D_INVERTED),
+      .IS_R_INVERTED(IS_S_INVERTED)
+    ) _TECHMAP_REPLACE_ (
+      .D(~D), .Q($Q), .C(C), .CE(CE), .R(S)
+    );
+  end
+  else begin
+    assign Q = QQ;
+    FDSE #(
+      .INIT(1'b0),
+      .IS_C_INVERTED(IS_C_INVERTED),
+      .IS_D_INVERTED(IS_D_INVERTED),
+      .IS_S_INVERTED(IS_S_INVERTED)
+    ) _TECHMAP_REPLACE_ (
+      .D(D), .Q($Q), .C(C), .CE(CE), .S(S)
+    );
+  end endgenerate
+  $__ABC9_FF_ abc_dff (.D($Q), .Q(QQ));
+
+  // Special signals
+  wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, IS_C_INVERTED};
+  wire [0:0] _TECHMAP_REPLACE_.$abc9_init = 1'b0;
+  wire [0:0] _TECHMAP_REPLACE_.$abc9_currQ = QQ;
+`else
+  (* abc9_keep *)
+  FDSE #(
+    .INIT(INIT),
+    .IS_C_INVERTED(IS_C_INVERTED),
+    .IS_D_INVERTED(IS_D_INVERTED),
+    .IS_S_INVERTED(IS_S_INVERTED)
+  ) _TECHMAP_REPLACE_ (
+    .D(D), .Q(Q), .C(C), .CE(CE), .S(S)
+  );
+`endif
+endmodule
+module FDSE_1 (output Q, input C, CE, D, S);
+  parameter [0:0] INIT = 1'b1;
+`ifdef DFF_MODE
+  wire QQ, $Q;
+  generate if (INIT == 1'b1) begin
+    assign Q = ~QQ;
+    FDRE_1 #(
+      .INIT(1'b0)
+    ) _TECHMAP_REPLACE_ (
+      .D(~D), .Q($Q), .C(C), .CE(CE), .R(S)
+    );
+  end
+  else begin
+    assign Q = QQ;
+    FDSE_1 #(
+      .INIT(1'b0)
+    ) _TECHMAP_REPLACE_ (
+      .D(D), .Q($Q), .C(C), .CE(CE), .S(S)
+    );
+  end endgenerate
+  $__ABC9_FF_ abc_dff (.D($Q), .Q(QQ));
+
+  // Special signals
+  wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, 1'b1 /* IS_C_INVERTED */};
+  wire [0:0] _TECHMAP_REPLACE_.$abc9_init = 1'b0;
+  wire [0:0] _TECHMAP_REPLACE_.$abc9_currQ = QQ;
+`else
+  (* abc9_keep *)
+  FDSE_1 #(
+    .INIT(INIT)
+  ) _TECHMAP_REPLACE_ (
+    .D(D), .Q(Q), .C(C), .CE(CE), .S(S)
+  );
+`endif
+endmodule
+
 module FDCE (output Q, input C, CE, D, CLR);
   parameter [0:0] INIT = 1'b0;
   parameter [0:0] IS_C_INVERTED = 1'b0;
@@ -375,89 +458,6 @@ module FDPE_1 (output Q, input C, CE, D, PRE);
     .INIT(INIT)
   ) _TECHMAP_REPLACE_ (
     .D(D), .Q(Q), .C(C), .CE(CE), .PRE(PRE)
-  );
-`endif
-endmodule
-
-module FDSE (output Q, input C, CE, D, S);
-  parameter [0:0] INIT = 1'b1;
-  parameter [0:0] IS_C_INVERTED = 1'b0;
-  parameter [0:0] IS_D_INVERTED = 1'b0;
-  parameter [0:0] IS_S_INVERTED = 1'b0;
-`ifdef DFF_MODE
-  wire QQ, $Q;
-  generate if (INIT == 1'b1) begin
-    assign Q = ~QQ;
-    FDRE #(
-      .INIT(1'b0),
-      .IS_C_INVERTED(IS_C_INVERTED),
-      .IS_D_INVERTED(IS_D_INVERTED),
-      .IS_R_INVERTED(IS_S_INVERTED)
-    ) _TECHMAP_REPLACE_ (
-      .D(~D), .Q($Q), .C(C), .CE(CE), .R(S)
-    );
-  end
-  else begin
-    assign Q = QQ;
-    FDSE #(
-      .INIT(1'b0),
-      .IS_C_INVERTED(IS_C_INVERTED),
-      .IS_D_INVERTED(IS_D_INVERTED),
-      .IS_S_INVERTED(IS_S_INVERTED)
-    ) _TECHMAP_REPLACE_ (
-      .D(D), .Q($Q), .C(C), .CE(CE), .S(S)
-    );
-  end endgenerate
-  $__ABC9_FF_ abc_dff (.D($Q), .Q(QQ));
-
-  // Special signals
-  wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, IS_C_INVERTED};
-  wire [0:0] _TECHMAP_REPLACE_.$abc9_init = 1'b0;
-  wire [0:0] _TECHMAP_REPLACE_.$abc9_currQ = QQ;
-`else
-  (* abc9_keep *)
-  FDSE #(
-    .INIT(INIT),
-    .IS_C_INVERTED(IS_C_INVERTED),
-    .IS_D_INVERTED(IS_D_INVERTED),
-    .IS_S_INVERTED(IS_S_INVERTED)
-  ) _TECHMAP_REPLACE_ (
-    .D(D), .Q(Q), .C(C), .CE(CE), .S(S)
-  );
-`endif
-endmodule
-module FDSE_1 (output Q, input C, CE, D, S);
-  parameter [0:0] INIT = 1'b1;
-`ifdef DFF_MODE
-  wire QQ, $Q;
-  generate if (INIT == 1'b1) begin
-    assign Q = ~QQ;
-    FDRE_1 #(
-      .INIT(1'b0)
-    ) _TECHMAP_REPLACE_ (
-      .D(~D), .Q($Q), .C(C), .CE(CE), .R(S)
-    );
-  end
-  else begin
-    assign Q = QQ;
-    FDSE_1 #(
-      .INIT(1'b0)
-    ) _TECHMAP_REPLACE_ (
-      .D(D), .Q($Q), .C(C), .CE(CE), .S(S)
-    );
-  end endgenerate
-  $__ABC9_FF_ abc_dff (.D($Q), .Q(QQ));
-
-  // Special signals
-  wire [1:0] _TECHMAP_REPLACE_.$abc9_clock = {C, 1'b1 /* IS_C_INVERTED */};
-  wire [0:0] _TECHMAP_REPLACE_.$abc9_init = 1'b0;
-  wire [0:0] _TECHMAP_REPLACE_.$abc9_currQ = QQ;
-`else
-  (* abc9_keep *)
-  FDSE_1 #(
-    .INIT(INIT)
-  ) _TECHMAP_REPLACE_ (
-    .D(D), .Q(Q), .C(C), .CE(CE), .S(S)
   );
 `endif
 endmodule
