@@ -462,6 +462,9 @@ module FDSE_1 (output Q, input C, CE, D, S);
 `endif
 endmodule
 
+// Attach a (combinatorial) black-box onto the output
+//   of thes LUTRAM primitives to capture their
+//   asynchronous read behaviour
 module RAM32X1D (
   output DPO, SPO,
   (* techmap_autopurge *) input  D,
