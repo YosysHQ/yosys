@@ -114,14 +114,14 @@ FDCE_1 1105 1   5   1
 FDPE   1106 1   5   1
 #C CE  D   PRE $abc9_currQ
 #0 109 -46 764 0
-0 109 -46 764 0 # Q (-46ps Tsu clamped to 0)
+0 109 0   764 0 # Q (-46ps Tsu clamped to 0)
 
 # Box 1107 : FDPE_1
 # name ID   w/b ins outs
 FDPE_1 1107 1   5   1
 #C CE  D   PRE $abc9_currQ
 #0 109 -46 764 0
-0 109 -46 764 0 # Q (-46ps Tsu clamped to 0)
+0 109 0   764 0 # Q (-46ps Tsu clamped to 0)
 
 # Box 2000 : $__ABC9_LUT6
 #            (private cell to emulate async behaviour of LUTRAMs)
