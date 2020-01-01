@@ -108,7 +108,7 @@ struct SynthXilinxPass : public ScriptPass
 		log("        flatten design before synthesis\n");
 		log("\n");
 		log("    -dff\n");
-		log("        run 'abc9' with -dff option\n");
+		log("        enable sequential synthesis with 'abc9'\n");
 		log("\n");
 		log("    -retime\n");
 		log("        run 'abc' with -dff option\n");
@@ -559,6 +559,8 @@ struct SynthXilinxPass : public ScriptPass
 					abc9_opts += " -lut +/xilinx/abc9_xc7_nowide.lut";
 				else
 					abc9_opts += " -lut +/xilinx/abc9_xc7.lut";
+				if (!dff_mode)
+					abc9_opts += " -keepff";
 				run("abc9" + abc9_opts);
 				run("techmap -map +/xilinx/abc9_unmap.v");
 			}

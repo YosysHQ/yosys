@@ -249,7 +249,7 @@ struct abc9_output_filter
 };
 
 void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string script_file, std::string exe_file,
-		bool cleanup, vector<int> lut_costs, std::string delay_target, std::string /*lutin_shared*/, bool fast_mode,
+		bool cleanup, vector<int> lut_costs, bool keepff, std::string delay_target, std::string /*lutin_shared*/, bool fast_mode,
 		const std::vector<RTLIL::Cell*> &/*cells*/, bool show_tempdir, std::string box_file, std::string lut_file,
 		std::string wire_delay, bool nomfs
 )
@@ -425,19 +425,12 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 				module->remove(cell);
 				continue;
 			}
+			RTLIL::Module* box_module = design->module(cell->type);
 			auto jt = abc9_box.find(cell->type);
-			if (jt == abc9_box.end()) {
-				RTLIL::Module* box_module = design->module(cell->type);
+			if (jt == abc9_box.end())
 				jt = abc9_box.insert(std::make_pair(cell->type, box_module && box_module->attributes.count(ID(abc9_box_id)))).first;
-			}
 			if (jt->second) {
-				auto kt = cell->attributes.find("\\abc9_keep");
-				bool abc9_keep = false;
-				if (kt != cell->attributes.end()) {
-					abc9_keep = kt->second.as_bool();
-					cell->attributes.erase(kt);
-				}
-				if (!abc9_keep)
+				if (!keepff || !box_module->get_bool_attribute("\\abc9_flop"))
 					boxes.emplace_back(cell);
 			}
 		}
@@ -802,6 +795,10 @@ struct Abc9Pass : public Pass {
 		log("        generate netlist using luts. Use the specified costs for luts with 1,\n");
 		log("        2, 3, .. inputs.\n");
 		log("\n");
+		log("    -keepff\n");
+		log("        set the \"keep\" attribute on flip-flop output wires. (and thus preserve\n");
+		log("        them, for example for equivalence checking.)\n");
+		log("\n");
 		log("    -nocleanup\n");
 		log("        when this option is used, the temporary files created by this pass\n");
 		log("        are not removed. this is useful for debugging.\n");
@@ -840,7 +837,7 @@ struct Abc9Pass : public Pass {
 #endif
 		std::string script_file, clk_str, box_file, lut_file;
 		std::string delay_target, lutin_shared = "-S 1", wire_delay;
-		bool fast_mode = false, cleanup = true;
+		bool fast_mode = false, keepff = false, cleanup = true;
 		bool show_tempdir = false;
 		bool nomfs = false;
 		vector<int> lut_costs;
@@ -931,6 +928,10 @@ struct Abc9Pass : public Pass {
 				fast_mode = true;
 				continue;
 			}
+			if (arg == "-keepff") {
+				keepff = true;
+				continue;
+			}
 			if (arg == "-nocleanup") {
 				cleanup = false;
 				continue;
@@ -986,36 +987,36 @@ struct Abc9Pass : public Pass {
 
 			const std::vector<RTLIL::Cell*> all_cells = module->selected_cells();
 
-			for (auto cell : all_cells) {
-				auto inst_module = design->module(cell->type);
-				if (!inst_module || !inst_module->get_bool_attribute("\\abc9_flop")
-						|| cell->get_bool_attribute("\\abc9_keep"))
-					continue;
+			if (!keepff)
+				for (auto cell : all_cells) {
+					auto inst_module = design->module(cell->type);
+					if (!inst_module || !inst_module->get_bool_attribute("\\abc9_flop"))
+						continue;
 
-				Wire *abc9_clock_wire = module->wire(stringf("%s.$abc9_clock", cell->name.c_str()));
-				if (abc9_clock_wire == NULL)
-					log_error("'%s$abc9_clock' is not a wire present in module '%s'.\n", cell->name.c_str(), log_id(module));
-				SigSpec abc9_clock = assign_map(abc9_clock_wire);
+					Wire *abc9_clock_wire = module->wire(stringf("%s.$abc9_clock", cell->name.c_str()));
+					if (abc9_clock_wire == NULL)
+						log_error("'%s$abc9_clock' is not a wire present in module '%s'.\n", cell->name.c_str(), log_id(module));
+					SigSpec abc9_clock = assign_map(abc9_clock_wire);
 
-				clkdomain_t key(abc9_clock);
+					clkdomain_t key(abc9_clock);
 
-				auto r = clk_to_mergeability.insert(std::make_pair(abc9_clock, clk_to_mergeability.size() + 1));
-				auto r2 YS_ATTRIBUTE(unused) = cell->attributes.insert(std::make_pair(ID(abc9_mergeability), r.first->second));
-				log_assert(r2.second);
+					auto r = clk_to_mergeability.insert(std::make_pair(abc9_clock, clk_to_mergeability.size() + 1));
+					auto r2 YS_ATTRIBUTE(unused) = cell->attributes.insert(std::make_pair(ID(abc9_mergeability), r.first->second));
+					log_assert(r2.second);
 
-				Wire *abc9_init_wire = module->wire(stringf("%s.$abc9_init", cell->name.c_str()));
-				if (abc9_init_wire == NULL)
-				    log_error("'%s.$abc9_init' is not a wire present in module '%s'.\n", cell->name.c_str(), log_id(module));
-				log_assert(GetSize(abc9_init_wire) == 1);
-				SigSpec abc9_init = assign_map(abc9_init_wire);
-				if (!abc9_init.is_fully_const())
-				    log_error("'%s.$abc9_init' is not a constant wire present in module '%s'.\n", cell->name.c_str(), log_id(module));
-				r2 = cell->attributes.insert(std::make_pair(ID(abc9_init), abc9_init.as_const()));
-				log_assert(r2.second);
-			}
+					Wire *abc9_init_wire = module->wire(stringf("%s.$abc9_init", cell->name.c_str()));
+					if (abc9_init_wire == NULL)
+						log_error("'%s.$abc9_init' is not a wire present in module '%s'.\n", cell->name.c_str(), log_id(module));
+					log_assert(GetSize(abc9_init_wire) == 1);
+					SigSpec abc9_init = assign_map(abc9_init_wire);
+					if (!abc9_init.is_fully_const())
+						log_error("'%s.$abc9_init' is not a constant wire present in module '%s'.\n", cell->name.c_str(), log_id(module));
+					r2 = cell->attributes.insert(std::make_pair(ID(abc9_init), abc9_init.as_const()));
+					log_assert(r2.second);
+				}
 
 			design->selected_active_module = module->name.str();
-			abc9_module(design, module, script_file, exe_file, cleanup, lut_costs,
+			abc9_module(design, module, script_file, exe_file, cleanup, lut_costs, keepff,
 					delay_target, lutin_shared, fast_mode, all_cells, show_tempdir,
 					box_file, lut_file, wire_delay, nomfs);
 			design->selected_active_module.clear();
