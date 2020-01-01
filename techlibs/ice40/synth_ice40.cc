@@ -304,7 +304,9 @@ struct SynthIce40Pass : public ScriptPass
 		if (check_label("map_ffram"))
 		{
 			run("opt -fast -mux_undef -undriven -fine");
-			run("memory_map");
+			run("memory_map -iattr -attr !ram_block -attr !rom_block -attr logic_block "
+			    "-attr syn_ramstyle=auto -attr syn_ramstyle=registers "
+			    "-attr syn_romstyle=auto -attr syn_romstyle=logic");
 			run("opt -undriven -fine");
 		}
 
