@@ -250,7 +250,12 @@ struct XAigerWriter
 
 			RTLIL::Module* inst_module = module->design->module(cell->type);
 			if (inst_module) {
-				bool abc9_box = inst_module->attributes.count("\\abc9_box_id") && !cell->get_bool_attribute("\\abc9_keep");
+				bool abc9_box = inst_module->attributes.count("\\abc9_box_id");
+				bool abc9_flop = inst_module->get_bool_attribute("\\abc9_flop");
+				// The lack of an abc9_mergeability attribute indicates that
+				//   we do want to keep this flop, so do not treat it as a box
+				if (abc9_flop && !cell->attributes.count("\\abc9_mergeability"))
+					abc9_box = false;
 
 				for (const auto &conn : cell->connections()) {
 					auto port_wire = inst_module->wire(conn.first);
@@ -279,15 +284,15 @@ struct XAigerWriter
 					}
 				}
 
-                                if (abc9_box) {
-                                        abc9_box_seen = true;
+				if (abc9_box) {
+					abc9_box_seen = true;
 
-                                        toposort.node(cell->name);
+					toposort.node(cell->name);
 
-                                        if (inst_module->get_bool_attribute("\\abc9_flop"))
-                                                flop_boxes.push_back(cell);
-                                        continue;
-                                }
+					if (abc9_flop)
+						flop_boxes.push_back(cell);
+					continue;
+				}
 			}
 
 			bool cell_known = inst_module || cell->known();
@@ -322,11 +327,12 @@ struct XAigerWriter
 				SigBit d;
 				if (r.second) {
 					for (const auto &conn : cell->connections()) {
-						const SigSpec &rhs = conn.second;
-						if (!rhs.is_bit())
+						if (!conn.second.is_bit())
 							continue;
-						if (!ff_bits.count(rhs))
+						d = conn.second;
+						if (!ff_bits.count(d))
 							continue;
+
 						r.first->second.first = conn.first;
 						Module *inst_module = module->design->module(cell->type);
 						Wire *wire = inst_module->wire(conn.first);
@@ -337,7 +343,6 @@ struct XAigerWriter
 								log_error("Attribute 'abc9_arrival' on port '%s' of module '%s' is not an integer.\n", log_id(wire), log_id(cell->type));
 							r.first->second.second = jt->second.as_int();
 						}
-						d = rhs;
 						log_assert(d == sigmap(d));
 						break;
 					}
@@ -399,8 +404,7 @@ struct XAigerWriter
 				log_assert(cell);
 
 				RTLIL::Module* box_module = module->design->module(cell->type);
-				if (!box_module || !box_module->attributes.count("\\abc9_box_id")
-						|| cell->get_bool_attribute("\\abc9_keep"))
+				if (!box_module || !box_module->attributes.count("\\abc9_box_id"))
 					continue;
 
 				bool blackbox = box_module->get_blackbox_attribute(true /* ignore_wb */);
@@ -434,7 +438,6 @@ struct XAigerWriter
 					if (carry_in == IdString() && carry_out != IdString())
 						log_error("Module '%s' contains an 'abc9_carry' output port but no input port.\n", log_id(box_module));
 					if (carry_in != IdString()) {
-						log_assert(carry_out != IdString());
 						r.first->second.push_back(carry_in);
 						r.first->second.push_back(carry_out);
 					}
