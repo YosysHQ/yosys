@@ -533,7 +533,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 			}
 
 			RTLIL::Module* box_module = design->module(mapped_cell->type);
-			auto abc9_flop = box_module && box_module->attributes.count("\\abc9_flop");
+			auto abc9_flop = box_module && box_module->get_bool_attribute("\\abc9_flop");
 			for (auto &conn : mapped_cell->connections()) {
 				RTLIL::SigSpec newsig;
 				for (auto c : conn.second.chunks()) {
@@ -988,7 +988,7 @@ struct Abc9Pass : public Pass {
 
 			for (auto cell : all_cells) {
 				auto inst_module = design->module(cell->type);
-				if (!inst_module || !inst_module->attributes.count("\\abc9_flop")
+				if (!inst_module || !inst_module->get_bool_attribute("\\abc9_flop")
 						|| cell->get_bool_attribute("\\abc9_keep"))
 					continue;
 

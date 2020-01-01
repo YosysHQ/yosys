@@ -284,7 +284,7 @@ struct XAigerWriter
 
                                         toposort.node(cell->name);
 
-                                        if (inst_module->attributes.count("\\abc9_flop"))
+                                        if (inst_module->get_bool_attribute("\\abc9_flop"))
                                                 flop_boxes.push_back(cell);
                                         continue;
                                 }
