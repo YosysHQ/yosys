@@ -722,6 +722,7 @@ void AigerReader::post_process()
 {
 	pool<IdString> seen_boxes;
 	pool<IdString> flops;
+	dict<IdString, std::vector<IdString>> box_ports;
 	unsigned ci_count = 0, co_count = 0, flop_count = 0;
 	for (auto cell : boxes) {
 		RTLIL::Module* box_module = design->module(cell->type);
@@ -734,51 +735,35 @@ void AigerReader::post_process()
 				flops.insert(cell->type);
 				is_flop = true;
 			}
-			auto it = box_module->attributes.find("\\abc9_carry");
-			if (it != box_module->attributes.end()) {
-				RTLIL::Wire *carry_in = nullptr, *carry_out = nullptr;
-				auto carry_in_out = it->second.decode_string();
-				auto pos = carry_in_out.find(',');
-				if (pos == std::string::npos)
-					log_error("'abc9_carry' attribute on module '%s' does not contain ','.\n", log_id(cell->type));
-				auto carry_in_name = RTLIL::escape_id(carry_in_out.substr(0, pos));
-				carry_in = box_module->wire(carry_in_name);
-				if (!carry_in || !carry_in->port_input)
-					log_error("'abc9_carry' on module '%s' contains '%s' which does not exist or is not an input port.\n", log_id(cell->type), carry_in_name.c_str());
-
-				auto carry_out_name = RTLIL::escape_id(carry_in_out.substr(pos+1));
-				carry_out = box_module->wire(carry_out_name);
-				if (!carry_out || !carry_out->port_output)
-					log_error("'abc9_carry' on module '%s' contains '%s' which does not exist or is not an output port.\n", log_id(cell->type), carry_out_name.c_str());
-
-				auto &ports = box_module->ports;
-				for (auto jt = ports.begin(); jt != ports.end(); ) {
-					RTLIL::Wire* w = box_module->wire(*jt);
-					log_assert(w);
-					if (w == carry_in || w == carry_out) {
-						jt = ports.erase(jt);
-						continue;
-					}
-					if (w->port_id > carry_in->port_id)
-						--w->port_id;
-					if (w->port_id > carry_out->port_id)
-						--w->port_id;
-					log_assert(w->port_input || w->port_output);
-					log_assert(ports[w->port_id-1] == w->name);
-					++jt;
-				}
-				ports.push_back(carry_in->name);
-				carry_in->port_id = ports.size();
-				ports.push_back(carry_out->name);
-				carry_out->port_id = ports.size();
-			}
 		}
 		else
 			is_flop = flops.count(cell->type);
 
-		// NB: Assume box_module->ports are sorted alphabetically
-		//     (as RTLIL::Module::fixup_ports() would do)
-		for (auto port_name : box_module->ports) {
+		auto r = box_ports.insert(cell->type);
+		if (r.second) {
+			// Make carry in the last PI, and carry out the last PO
+			//   since ABC requires it this way
+			IdString carry_in, carry_out;
+			for (const auto &port_name : box_module->ports) {
+				auto w = box_module->wire(port_name);
+				log_assert(w);
+				if (w->get_bool_attribute("\\abc9_carry")) {
+					if (w->port_input)
+						carry_in = port_name;
+					if (w->port_output)
+						carry_out = port_name;
+				}
+				else
+					r.first->second.push_back(port_name);
+			}
+			if (carry_in != IdString()) {
+				log_assert(carry_out != IdString());
+				r.first->second.push_back(carry_in);
+				r.first->second.push_back(carry_out);
+			}
+		}
+
+		for (auto port_name : box_ports.at(cell->type)) {
 			RTLIL::Wire* port = box_module->wire(port_name);
 			log_assert(port);
 			RTLIL::SigSpec rhs;
