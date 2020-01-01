@@ -36,6 +36,12 @@ select -assert-count 1 t:SB_RAM40_4K
 
 design -reset; read_verilog ../common/blockram.v
 chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 8 sync_ram_sdp
+setattr -set syn_ramstyle "Block_RAM" m:memory
+synth_ice40 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 1 t:SB_RAM40_4K # any case works
+
+design -reset; read_verilog ../common/blockram.v
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 8 sync_ram_sdp
 setattr -set ram_block 1 m:memory
 synth_ice40 -top sync_ram_sdp; cd sync_ram_sdp
 select -assert-count 1 t:SB_RAM40_4K

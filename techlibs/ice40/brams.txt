@@ -30,6 +30,7 @@ endbram
 
 # The syn_* attributes are described in:
 # https://www.latticesemi.com/-/media/LatticeSemi/Documents/Tutorials/AK/LatticeDiamondTutorial311.ashx
+attr_icase 1
 
 match $__ICE40_RAM4K_M0
   # implicitly requested RAM or ROM
