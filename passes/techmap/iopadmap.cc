@@ -234,6 +234,9 @@ struct IopadmapPass : public Pass {
 						SigBit wire_bit(wire, i);
 						Cell *tbuf_cell = nullptr;
 
+						if (skip_wire_bits.count(wire_bit))
+							continue;
+
 						if (tbuf_bits.count(wire_bit))
 							tbuf_cell = tbuf_bits.at(wire_bit);
 
