@@ -2160,13 +2160,13 @@ module DSP48E1 (
     output reg [3:0] CARRYOUT,
     output reg MULTSIGNOUT,
     output OVERFLOW,
-`ifndef __ICARUS__
+`ifdef YOSYS
     (* abc9_arrival = \DSP48E1.P_arrival (USE_MULT, USE_DPORT, AREG, ADREG, BREG, CREG, DREG, MREG, PREG) *)
 `endif
     output reg signed [47:0] P,
     output reg PATTERNBDETECT,
     output reg PATTERNDETECT,
-`ifndef __ICARUS__
+`ifdef YOSYS
     (* abc9_arrival = \DSP48E1.PCOUT_arrival (USE_MULT, USE_DPORT, AREG, ADREG, BREG, CREG, DREG, MREG, PREG) *)
 `endif
     output [47:0] PCOUT,
