@@ -65,19 +65,14 @@
 //     the connectivity of its basic D-Q flop
 // (b) an optional $__ABC9_ASYNC_ cell in front of $__ABC_FF_'s output to
 //     capture asynchronous behaviour
-// (c) a special _TECHMAP_REPLACE_.abc9_ff.clock wire to capture its clock
-//     domain and polarity (used when partitioning the module so that `abc9' only
-//     performs sequential synthesis (with reachability analysis) correctly on
-//     one domain at a time) and also used to infer the optional delay target
-//     from the (* abc9_clock_period = %d *) attribute attached to any wire
-//     within
-// (d) a special _TECHMAP_REPLACE_.abc9_ff.init wire to encode the flop's initial
-//     state
+// (c) a special abc9_ff.clock wire to capture its clock domain and polarity
+//     (indicated to `abc9' so that it only performs sequential synthesis
+//     (with reachability analysis) correctly on one domain at a time)
+// (d) a special abc9_ff.init wire to encode the flop's initial state
+//     NOTE: in order to perform sequential synthesis, `abc9' also requires
+//     that the initial value of all flops be zero
 // (e) a special _TECHMAP_REPLACE_.abc9_ff.Q wire that will be used for feedback
 //     into the (combinatorial) FD* cell to facilitate clock-enable behaviour
-//
-// In order to perform sequential synthesis, `abc9' also requires that
-// the initial value of all flops be zero.
 
 module FDRE (output Q, input C, CE, D, R);
   parameter [0:0] INIT = 1'b0;
