@@ -65,7 +65,7 @@ struct SynthIce40Pass : public ScriptPass
 		log("        do not flatten design before synthesis\n");
 		log("\n");
 		log("    -retime\n");
-		log("        run 'abc' with -dff option\n");
+		log("        run 'abc' with '-dff -D 1' options\n");
 		log("\n");
 		log("    -nocarry\n");
 		log("        do not use SB_CARRY cells in output netlist\n");
@@ -316,7 +316,7 @@ struct SynthIce40Pass : public ScriptPass
 				run("techmap -map +/techmap.v -map +/ice40/arith_map.v");
 			}
 			if (retime || help_mode)
-				run(abc + " -dff", "(only if -retime)");
+				run(abc + " -dff -D 1", "(only if -retime)");
 			run("ice40_opt");
 		}
 

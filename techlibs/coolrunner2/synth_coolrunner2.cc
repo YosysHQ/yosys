@@ -55,7 +55,7 @@ struct SynthCoolrunner2Pass : public ScriptPass
 		log("        do not flatten design before synthesis\n");
 		log("\n");
 		log("    -retime\n");
-		log("        run 'abc' with -dff option\n");
+		log("        run 'abc' with '-dff -D 1' options\n");
 		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
@@ -161,7 +161,7 @@ struct SynthCoolrunner2Pass : public ScriptPass
 
 		if (check_label("map_pla"))
 		{
-			run("abc -sop -I 40 -P 56");
+			run("abc -sop -I 40 -P 56" + string(retime ? " -dff -D 1" : ""));
 			run("clean");
 		}
 

@@ -62,7 +62,7 @@ struct SynthEcp5Pass : public ScriptPass
 		log("        do not flatten design before synthesis\n");
 		log("\n");
 		log("    -retime\n");
-		log("        run 'abc' with -dff option\n");
+		log("        run 'abc' with '-dff -D 1' options\n");
 		log("\n");
 		log("    -noccu2\n");
 		log("        do not use CCU2 cells in output netlist\n");
@@ -290,7 +290,7 @@ struct SynthEcp5Pass : public ScriptPass
 			else
 				run("techmap -map +/techmap.v -map +/ecp5/arith_map.v");
 			if (retime || help_mode)
-				run("abc -dff", "(only if -retime)");
+				run("abc -dff -D 1", "(only if -retime)");
 		}
 
 		if (check_label("map_ffs"))
