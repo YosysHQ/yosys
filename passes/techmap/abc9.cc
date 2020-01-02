@@ -190,11 +190,10 @@ struct Abc9Pass : public ScriptPass
 		run("flatten -wb @abc9_holes");
 		run("techmap @abc9_holes");
 		run("aigmap @abc9_holes");
-		run("select -list @abc9_holes");
 		if (dff_mode)
 			run("abc9_ops -prep_dff");
 		run("opt -purge @abc9_holes");
-		run("setattr -mod -set whitebox 1 @abc9_holes");
+		run("wbflip @abc9_holes");
 
 		auto selected_modules = active_design->selected_modules();
 		active_design->selection_stack.emplace_back(false);
