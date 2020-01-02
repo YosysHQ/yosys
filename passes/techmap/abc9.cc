@@ -802,8 +802,8 @@ struct Abc9Pass : public Pass {
 		log("        2, 3, .. inputs.\n");
 		log("\n");
 		log("    -dff\n");
-		log("        also pass $_ABC9_FF_ cells through ABC. modules with many clock domains\n");
-		log("        are marked as such and automatically partitioned by ABC.\n");
+		log("        also pass $_ABC9_FF_ cells through to ABC. modules with many clock\n");
+		log("        domains are marked as such and automatically partitioned by ABC.\n");
 		log("\n");
 		log("    -nocleanup\n");
 		log("        when this option is used, the temporary files created by this pass\n");
@@ -825,8 +825,8 @@ struct Abc9Pass : public Pass {
 		log("internally. This is not going to \"run ABC on your design\". It will instead run\n");
 		log("ABC on logic snippets extracted from your design. You will not get any useful\n");
 		log("output when passing an ABC script that writes a file. Instead write your full\n");
-		log("design as an XAIGER file with write_xaiger and then load that into ABC externally\n");
-		log("if you want to use ABC to convert your design into another format.\n");
+		log("design as an XAIGER file with `write_xaiger' and then load that into ABC\n");
+		log("externally if you want to use ABC to convert your design into another format.\n");
 		log("\n");
 		log("[1] http://www.eecs.berkeley.edu/~alanmi/abc/\n");
 		log("\n");
