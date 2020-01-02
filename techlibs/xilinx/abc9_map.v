@@ -373,22 +373,28 @@ module DSP48E1 (
         wire [47:0] $C;
         wire [24:0] $D;
 
-        if (PREG != 0)
-            assign P = $P, PCOUT = $PCOUT;
-        else begin
-            if (AREG == 0) assign $A = A;
-            if (BREG == 0) assign $B = B;
-            if (CREG == 0) assign $C = C;
-            if (DREG == 0) assign $D = D;
+        if (PREG == 0) begin
+            if (MREG == 0 && AREG == 0) assign $A = A;
+            else assign $A = 30'bx;
+            if (MREG == 0 && BREG == 0) assign $B = B;
+            else  assign $B = 18'bx;
+            if (MREG == 0 && DREG == 0) assign $D = D;
+            else assign $D = 25'bx;
 
-            if (USE_MULT == "MULTIPLY" && USE_DPORT == "FALSE")
-                $__ABC9_DSP48E1_MULT dsp_comb(.$A($A), .$B($B), .$C($C), .$D($D), .$P($P), .$PCIN(PCIN), .$PCOUT($PCOUT), .P(P), .PCOUT(PCOUT));
-            else if (USE_MULT == "MULTIPLY" && USE_DPORT == "TRUE")
-                $__ABC9_DSP48E1_MULT_DPORT dsp_comb(.$A($A), .$B($B), .$C($C), .$D($D), .$P($P), .$PCIN(PCIN), .$PCOUT($PCOUT), .P(P), .PCOUT(PCOUT));
-            else if (USE_MULT == "NONE" && USE_DPORT == "FALSE")
-                $__ABC9_DSP48E1 dsp_comb(.$A($A), .$B($B), .$C($C), .$D($D), .$P($P), .$PCIN(PCIN), .$PCOUT($PCOUT), .P(P), .PCOUT(PCOUT));
-            else
-                $error("Invalid DSP48E1 configuration");
+            if (CREG == 0) assign $C = C;
+            else assign $C = 48'bx;
         end
+        else begin
+            assign $A = 30'bx, $B = 18'bx, $C = 48'bx, $D = 25'bx;
+        end
+
+        if (USE_MULT == "MULTIPLY" && USE_DPORT == "FALSE")
+            $__ABC9_DSP48E1_MULT dsp_comb(.$A($A), .$B($B), .$C($C), .$D($D), .$P($P), .$PCIN(PCIN), .$PCOUT($PCOUT), .P(P), .PCOUT(PCOUT));
+        else if (USE_MULT == "MULTIPLY" && USE_DPORT == "TRUE")
+            $__ABC9_DSP48E1_MULT_DPORT dsp_comb(.$A($A), .$B($B), .$C($C), .$D($D), .$P($P), .$PCIN(PCIN), .$PCOUT($PCOUT), .P(P), .PCOUT(PCOUT));
+        else if (USE_MULT == "NONE" && USE_DPORT == "FALSE")
+            $__ABC9_DSP48E1 dsp_comb(.$A($A), .$B($B), .$C($C), .$D($D), .$P($P), .$PCIN(PCIN), .$PCOUT($PCOUT), .P(P), .PCOUT(PCOUT));
+        else
+            $error("Invalid DSP48E1 configuration");
     endgenerate
 endmodule
