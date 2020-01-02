@@ -78,7 +78,7 @@ struct XAigerWriter
 	Module *module;
 	SigMap sigmap;
 
-	pool<SigBit> input_bits, output_bits, external_bits;
+	pool<SigBit> input_bits, output_bits;
 	dict<SigBit, SigBit> not_map, alias_map;
 	dict<SigBit, pair<SigBit, SigBit>> and_map;
 	vector<SigBit> ci_bits, co_bits;
