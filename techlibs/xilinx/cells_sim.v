@@ -2315,7 +2315,7 @@ module DSP48E1 (
     endfunction
 
     initial begin
-`ifdef __ICARUS__
+`ifndef YOSYS
         if (AUTORESET_PATDET != "NO_RESET") $fatal(1, "Unsupported AUTORESET_PATDET value");
         if (SEL_MASK != "MASK")     $fatal(1, "Unsupported SEL_MASK value");
         if (SEL_PATTERN != "PATTERN") $fatal(1, "Unsupported SEL_PATTERN value");
@@ -2478,12 +2478,12 @@ module DSP48E1 (
         case (OPMODEr[1:0])
             2'b00: X = 48'b0;
             2'b01: begin X = $signed(Mrx);
-`ifdef __ICARUS__
+`ifndef YOSYS
                 if (OPMODEr[3:2] != 2'b01) $fatal(1, "OPMODEr[3:2] must be 2'b01 when OPMODEr[1:0] is 2'b01");
 `endif
             end
             2'b10: begin X = P;
-`ifdef __ICARUS__
+`ifndef YOSYS
                 if (PREG != 1) $fatal(1, "PREG must be 1 when OPMODEr[1:0] is 2'b10");
 `endif
             end
@@ -2495,7 +2495,7 @@ module DSP48E1 (
         case (OPMODEr[3:2])
             2'b00: Y = 48'b0;
             2'b01: begin Y = 48'b0; // FIXME: more accurate partial product modelling?
-`ifdef __ICARUS__
+`ifndef YOSYS
                 if (OPMODEr[1:0] != 2'b01) $fatal(1, "OPMODEr[1:0] must be 2'b01 when OPMODEr[3:2] is 2'b01");
 `endif
             end
@@ -2509,13 +2509,13 @@ module DSP48E1 (
             3'b000: Z = 48'b0;
             3'b001: Z = PCIN;
             3'b010: begin Z = P;
-`ifdef __ICARUS__
+`ifndef YOSYS
                 if (PREG != 1) $fatal(1, "PREG must be 1 when OPMODEr[6:4] i0s 3'b010");
 `endif
             end
             3'b011: Z = Cr;
             3'b100: begin Z = P;
-`ifdef __ICARUS__
+`ifndef YOSYS
                 if (PREG != 1) $fatal(1, "PREG must be 1 when OPMODEr[6:4] is 3'b100");
                 if (OPMODEr[3:0] != 4'b1000) $fatal(1, "OPMODEr[3:0] must be 4'b1000 when OPMODEr[6:4] i0s 3'b100");
 `endif
