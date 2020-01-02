@@ -108,10 +108,11 @@ struct SynthXilinxPass : public ScriptPass
 		log("        flatten design before synthesis\n");
 		log("\n");
 		log("    -dff\n");
-		log("        run 'abc9' with -dff option\n");
+		log("        run 'abc'/'abc9' with -dff option\n");
 		log("\n");
 		log("    -retime\n");
-		log("        run 'abc' with '-dff -D 1' options\n");
+		log("        run 'abc' with '-D 1' option to enable flip-flop retiming.\n");
+		log("        implies -dff.\n");
 		log("\n");
 		log("    -abc9\n");
 		log("        use new ABC9 flow (EXPERIMENTAL)\n");
@@ -195,6 +196,7 @@ struct SynthXilinxPass : public ScriptPass
 				continue;
 			}
 			if (args[argidx] == "-retime") {
+				dff_mode = true;
 				retime = true;
 				continue;
 			}
@@ -542,7 +544,7 @@ struct SynthXilinxPass : public ScriptPass
 			if (flatten_before_abc)
 				run("flatten");
 			if (help_mode)
-				run("abc -luts 2:2,3,6:5[,10,20] [-dff]", "(option for 'nowidelut'; option for '-retime')");
+				run("abc -luts 2:2,3,6:5[,10,20] [-dff] [-D 1]", "(option for 'nowidelut', '-dff', '-retime')");
 			else if (abc9) {
 				if (family != "xc7")
 					log_warning("'synth_xilinx -abc9' not currently supported for the '%s' family, "
@@ -559,14 +561,22 @@ struct SynthXilinxPass : public ScriptPass
 					abc9_opts += " -lut +/xilinx/abc9_xc7_nowide.lut";
 				else
 					abc9_opts += " -lut +/xilinx/abc9_xc7.lut";
+				if (dff_mode)
+					abc9_opts += " -dff";
 				run("abc9" + abc9_opts);
 				run("techmap -map +/xilinx/abc9_unmap.v");
 			}
 			else {
+				std::string abc_opts;
 				if (nowidelut)
-					run("abc -luts 2:2,3,6:5" + string(retime ? " -dff -D 1" : ""));
+					abc_opts += " -luts 2:2,3,6:5";
 				else
-					run("abc -luts 2:2,3,6:5,10,20" + string(retime ? " -dff -D 1" : ""));
+					abc_opts += " -luts 2:2,3,6:5,10,20";
+				if (dff_mode)
+					abc_opts += " -dff";
+				if (retime)
+					abc_opts += " -D 1";
+				run("abc" + abc_opts);
 			}
 			run("clean");
 
@@ -579,7 +589,7 @@ struct SynthXilinxPass : public ScriptPass
 				techmap_args += stringf("[-map %s]", ff_map_file.c_str());
 			else if (!abc9)
 				techmap_args += stringf(" -map %s", ff_map_file.c_str());
-			run("techmap " + techmap_args, "(option without '-abc9')");
+			run("techmap " + techmap_args, "(only if '-abc9')");
 			run("xilinx_dffopt");
 		}
 

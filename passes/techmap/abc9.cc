@@ -101,6 +101,10 @@ struct Abc9Pass : public ScriptPass
 		log("        generate netlist using luts. Use the specified costs for luts with 1,\n");
 		log("        2, 3, .. inputs.\n");
 		log("\n");
+		log("    -dff\n");
+		log("        also pass $_ABC9_FF_ cells through to ABC. modules with many clock\n");
+		log("        domains are marked as such and automatically partitioned by ABC.\n");
+		log("\n");
 		log("    -nocleanup\n");
 		log("        when this option is used, the temporary files created by this pass\n");
 		log("        are not removed. this is useful for debugging.\n");
@@ -121,8 +125,8 @@ struct Abc9Pass : public ScriptPass
 		log("internally. This is not going to \"run ABC on your design\". It will instead run\n");
 		log("ABC on logic snippets extracted from your design. You will not get any useful\n");
 		log("output when passing an ABC script that writes a file. Instead write your full\n");
-		log("design as an XAIGER file with write_xaiger and then load that into ABC externally\n");
-		log("if you want to use ABC to convert your design into another format.\n");
+		log("design as an XAIGER file with `write_xaiger' and then load that into ABC\n");
+		log("externally if you want to use ABC to convert your design into another format.\n");
 		log("\n");
 		log("[1] http://www.eecs.berkeley.edu/~alanmi/abc/\n");
 		log("\n");
@@ -131,12 +135,13 @@ struct Abc9Pass : public ScriptPass
 	}
 
 	std::stringstream map_cmd;
-	bool cleanup;
+	bool dff_mode, cleanup;
 
 	void clear_flags() YS_OVERRIDE
 	{
 		map_cmd.str("");
 		map_cmd << "abc9_map";
+		dff_mode = false;
 		cleanup = true;
 	}
 
@@ -155,10 +160,14 @@ struct Abc9Pass : public ScriptPass
 				map_cmd << " " << arg << " " << args[++argidx];
 				continue;
 			}
-			if (arg == "-fast"
-					/*|| arg == "-nocleanup"*/ || arg == "-showtmp" || arg == "-markgroups"
-					|| arg == "-nomfs") {
+			if (arg == "-fast" || /* arg == "-dff" || */
+					/* arg == "-nocleanup" || */ arg == "-showtmp" || arg == "-markgroups" ||
+					arg == "-nomfs") {
 				map_cmd << " " << arg;
+				continue;
+			}
+			if (arg == "-dff") {
+				dff_mode = true;
 				continue;
 			}
 			if (arg == "-nocleanup") {
@@ -182,7 +191,8 @@ struct Abc9Pass : public ScriptPass
 		run("techmap @abc9_holes");
 		run("aigmap @abc9_holes");
 		run("select -list @abc9_holes");
-		run("abc9_ops -prep_dff");
+		if (dff_mode)
+			run("abc9_ops -prep_dff");
 		run("opt -purge @abc9_holes");
 		run("setattr -mod -set whitebox 1 @abc9_holes");
 

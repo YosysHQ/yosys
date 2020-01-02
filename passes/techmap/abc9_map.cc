@@ -199,7 +199,7 @@ struct abc9_output_filter
 void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string script_file, std::string exe_file,
 		vector<int> lut_costs, std::string delay_target, std::string /*lutin_shared*/, bool fast_mode,
 		const std::vector<RTLIL::Cell*> &cells, bool show_tempdir, std::string box_file, std::string lut_file,
-		std::string wire_delay, const dict<int,IdString> &box_lookup, bool nomfs, std::string tempdir_name
+		std::string wire_delay, bool nomfs, std::string tempdir_name
 )
 {
 	map_autoidx = autoidx++;
@@ -287,7 +287,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 		log_assert(!design->module(ID($__abc9__)));
 		{
 			AigerReader reader(design, ifs, ID($__abc9__), "" /* clk_name */, buffer.c_str() /* map_filename */, true /* wideports */);
-			reader.parse_xaiger(box_lookup);
+			reader.parse_xaiger();
 		}
 		ifs.close();
 		Pass::call_on_module(design, design->module(ID($__abc9__)), stringf("write_verilog -noexpr -norename -selected"));
@@ -339,7 +339,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 		log_assert(!design->module(ID($__abc9__)));
 
 		AigerReader reader(design, ifs, ID($__abc9__), "" /* clk_name */, buffer.c_str() /* map_filename */, true /* wideports */);
-		reader.parse_xaiger(box_lookup);
+		reader.parse_xaiger();
 		ifs.close();
 
 #if 0
@@ -899,66 +899,6 @@ struct Abc9MapPass : public Pass {
 		if (tempdir_name.empty())
 			log_cmd_error("abc9_map '-tempdir' option is mandatory.\n");
 
-		dict<int,IdString> box_lookup;
-		for (auto m : design->modules()) {
-			auto it = m->attributes.find(ID(abc9_box_id));
-			if (it == m->attributes.end())
-				continue;
-			if (m->name.begins_with("$paramod"))
-				continue;
-			auto id = it->second.as_int();
-			auto r = box_lookup.insert(std::make_pair(id, m->name));
-			if (!r.second)
-				log_error("Module '%s' has the same abc9_box_id = %d value as '%s'.\n",
-						log_id(m), id, log_id(r.first->second));
-			log_assert(r.second);
-
-			RTLIL::Wire *carry_in = nullptr, *carry_out = nullptr;
-			for (auto p : m->ports) {
-				auto w = m->wire(p);
-				log_assert(w);
-				if (w->attributes.count(ID(abc9_carry))) {
-					if (w->port_input) {
-						if (carry_in)
-							log_error("Module '%s' contains more than one 'abc9_carry' input port.\n", log_id(m));
-						carry_in = w;
-					}
-					else if (w->port_output) {
-						if (carry_out)
-							log_error("Module '%s' contains more than one 'abc9_carry' input port.\n", log_id(m));
-						carry_out = w;
-					}
-				}
-			}
-			if (carry_in || carry_out) {
-				if (carry_in && !carry_out)
-					log_error("Module '%s' contains an 'abc9_carry' input port but no output port.\n", log_id(m));
-				if (!carry_in && carry_out)
-					log_error("Module '%s' contains an 'abc9_carry' output port but no input port.\n", log_id(m));
-				// Make carry_in the last PI, and carry_out the last PO
-				//   since ABC requires it this way
-				auto &ports = m->ports;
-				for (auto it = ports.begin(); it != ports.end(); ) {
-					RTLIL::Wire* w = m->wire(*it);
-					log_assert(w);
-					if (w == carry_in || w == carry_out) {
-						it = ports.erase(it);
-						continue;
-					}
-					if (w->port_id > carry_in->port_id)
-						--w->port_id;
-					if (w->port_id > carry_out->port_id)
-						--w->port_id;
-					log_assert(w->port_input || w->port_output);
-					log_assert(ports[w->port_id-1] == w->name);
-					++it;
-				}
-				ports.push_back(carry_in->name);
-				carry_in->port_id = ports.size();
-				ports.push_back(carry_out->name);
-				carry_out->port_id = ports.size();
-			}
-		}
 
 		for (auto mod : design->selected_modules())
 		{
@@ -971,7 +911,7 @@ struct Abc9MapPass : public Pass {
 
 			abc9_module(design, mod, script_file, exe_file, lut_costs,
 					delay_target, lutin_shared, fast_mode, all_cells, show_tempdir,
-					box_file, lut_file, wire_delay, box_lookup, nomfs, tempdir_name);
+					box_file, lut_file, wire_delay, nomfs, tempdir_name);
 		}
 
 		log_pop();

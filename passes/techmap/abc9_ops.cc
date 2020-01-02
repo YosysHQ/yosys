@@ -108,33 +108,39 @@ void prep_dff(RTLIL::Module *module)
 	typedef SigSpec clkdomain_t;
 	dict<clkdomain_t, int> clk_to_mergeability;
 
-	for (auto cell : module->selected_cells()) {
-		auto inst_module = design->module(cell->type);
-		if (!inst_module || !inst_module->attributes.count("\\abc9_flop")
-				|| cell->get_bool_attribute("\\abc9_keep"))
-			continue;
+	//if (dff_mode)
+		for (auto cell : module->selected_cells()) {
+			if (cell->type != "$__ABC9_FF_")
+				continue;
 
-		Wire *abc9_clock_wire = module->wire(stringf("%s.$abc9_clock", cell->name.c_str()));
-		if (abc9_clock_wire == NULL)
-			log_error("'%s$abc9_clock' is not a wire present in module '%s'.\n", cell->name.c_str(), log_id(module));
-		SigSpec abc9_clock = assign_map(abc9_clock_wire);
+			Wire *abc9_clock_wire = module->wire(stringf("%s.clock", cell->name.c_str()));
+			if (abc9_clock_wire == NULL)
+				log_error("'%s.clock' is not a wire present in module '%s'.\n", cell->name.c_str(), log_id(module));
+			SigSpec abc9_clock = assign_map(abc9_clock_wire);
 
-		clkdomain_t key(abc9_clock);
+			clkdomain_t key(abc9_clock);
 
-		auto r = clk_to_mergeability.insert(std::make_pair(abc9_clock, clk_to_mergeability.size() + 1));
-		auto r2 YS_ATTRIBUTE(unused) = cell->attributes.insert(std::make_pair(ID(abc9_mergeability), r.first->second));
-		log_assert(r2.second);
+			auto r = clk_to_mergeability.insert(std::make_pair(abc9_clock, clk_to_mergeability.size() + 1));
+			auto r2 YS_ATTRIBUTE(unused) = cell->attributes.insert(std::make_pair(ID(abc9_mergeability), r.first->second));
+			log_assert(r2.second);
 
-		Wire *abc9_init_wire = module->wire(stringf("%s.$abc9_init", cell->name.c_str()));
-		if (abc9_init_wire == NULL)
-		    log_error("'%s.$abc9_init' is not a wire present in module '%s'.\n", cell->name.c_str(), log_id(module));
-		log_assert(GetSize(abc9_init_wire) == 1);
-		SigSpec abc9_init = assign_map(abc9_init_wire);
-		if (!abc9_init.is_fully_const())
-		    log_error("'%s.$abc9_init' is not a constant wire present in module '%s'.\n", cell->name.c_str(), log_id(module));
-		r2 = cell->attributes.insert(std::make_pair(ID(abc9_init), abc9_init.as_const()));
-		log_assert(r2.second);
-	}
+			Wire *abc9_init_wire = module->wire(stringf("%s.init", cell->name.c_str()));
+			if (abc9_init_wire == NULL)
+				log_error("'%s.init' is not a wire present in module '%s'.\n", cell->name.c_str(), log_id(module));
+			log_assert(GetSize(abc9_init_wire) == 1);
+			SigSpec abc9_init = assign_map(abc9_init_wire);
+			if (!abc9_init.is_fully_const())
+				log_error("'%s.init' is not a constant wire present in module '%s'.\n", cell->name.c_str(), log_id(module));
+			r2 = cell->attributes.insert(std::make_pair(ID(abc9_init), abc9_init.as_const()));
+			log_assert(r2.second);
+		}
+	//else
+	//	for (auto cell : module->selected_cells()) {
+	//		auto inst_module = design->module(cell->type);
+	//		if (!inst_module || !inst_module->get_bool_attribute("\\abc9_flop"))
+	//			continue;
+	//		cell->set_bool_attribute("\\abc9_keep");
+	//	}
 
 	RTLIL::Module *holes_module = design->module(stringf("%s$holes", module->name.c_str()));
 	if (holes_module) {
@@ -165,7 +171,7 @@ void prep_dff(RTLIL::Module *module)
 				// And drive the signal that was previously driven by "DFF.Q" (typically
 				//   used to implement clock-enable functionality) with the "<cell>.$abc9_currQ"
 				//   wire (which itself is driven an input port) we inserted above
-				Wire *currQ = holes_module->wire(stringf("%s.$abc9_currQ", driver.c_str()));
+				Wire *currQ = holes_module->wire(stringf("%s.abc9_ff.Q", driver.c_str()));
 				log_assert(currQ);
 				holes_module->connect(Q, currQ);
 			}
@@ -412,7 +418,7 @@ void prep_holes(RTLIL::Module *module)
 				holes_wire->port_id = port_id++;
 				holes_module->ports.push_back(holes_wire->name);
 			}
-			Wire *w = holes_module->addWire(stringf("%s.$abc9_currQ", cell->name.c_str()));
+			Wire *w = holes_module->addWire(stringf("%s.abc9_ff.Q", cell->name.c_str()));
 			holes_module->connect(w, holes_wire);
 		}
 	}

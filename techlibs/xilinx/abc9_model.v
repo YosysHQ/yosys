@@ -34,13 +34,13 @@ module \$__ABC9_FF_ (input D, output Q);
 endmodule
 
 // Box to emulate async behaviour of FDC*
-(* abc_box_id = 1000 *)
+(* abc9_box_id = 1000, lib_whitebox *)
 module \$__ABC9_ASYNC0 (input A, S, output Y);
   assign Y = S ? 1'b0 : A;
 endmodule
 
 // Box to emulate async behaviour of FDP*
-(* abc_box_id = 1001 *)
+(* abc9_box_id = 1001, lib_whitebox *)
 module \$__ABC9_ASYNC1 (input A, S, output Y);
   assign Y = S ? 1'b0 : A;
 endmodule
