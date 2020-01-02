@@ -282,244 +282,113 @@ module DSP48E1 (
     parameter [4:0] IS_INMODE_INVERTED = 5'b0;
     parameter [6:0] IS_OPMODE_INVERTED = 7'b0;
 
-    parameter _TECHMAP_CELLTYPE_ = "";
-    localparam techmap_guard = (_TECHMAP_CELLTYPE_ != "");
+    wire [47:0] $P, $PCOUT;
 
-`define DSP48E1_INST(__CELL__) """
-__CELL__ #(
-            .ACASCREG(ACASCREG),
-            .ADREG(ADREG),
-            .ALUMODEREG(ALUMODEREG),
-            .AREG(AREG),
-            .AUTORESET_PATDET(AUTORESET_PATDET),
-            .A_INPUT(A_INPUT),
-            .BCASCREG(BCASCREG),
-            .BREG(BREG),
-            .B_INPUT(B_INPUT),
-            .CARRYINREG(CARRYINREG),
-            .CARRYINSELREG(CARRYINSELREG),
-            .CREG(CREG),
-            .DREG(DREG),
-            .INMODEREG(INMODEREG),
-            .MREG(MREG),
-            .OPMODEREG(OPMODEREG),
-            .PREG(PREG),
-            .SEL_MASK(SEL_MASK),
-            .SEL_PATTERN(SEL_PATTERN),
-            .USE_DPORT(USE_DPORT),
-            .USE_MULT(USE_MULT),
-            .USE_PATTERN_DETECT(USE_PATTERN_DETECT),
-            .USE_SIMD(USE_SIMD),
-            .MASK(MASK),
-            .PATTERN(PATTERN),
-            .IS_ALUMODE_INVERTED(IS_ALUMODE_INVERTED),
-            .IS_CARRYIN_INVERTED(IS_CARRYIN_INVERTED),
-            .IS_CLK_INVERTED(IS_CLK_INVERTED),
-            .IS_INMODE_INVERTED(IS_INMODE_INVERTED),
-            .IS_OPMODE_INVERTED(IS_OPMODE_INVERTED)
-        ) _TECHMAP_REPLACE_ (
-            .ACOUT(ACOUT),
-            .BCOUT(BCOUT),
-            .CARRYCASCOUT(CARRYCASCOUT),
-            .CARRYOUT(CARRYOUT),
-            .MULTSIGNOUT(MULTSIGNOUT),
-            .OVERFLOW(OVERFLOW),
-            .P(oP),
-            .PATTERNBDETECT(PATTERNBDETECT),
-            .PATTERNDETECT(PATTERNDETECT),
-            .PCOUT(oPCOUT),
-            .UNDERFLOW(UNDERFLOW),
-            .A(iA),
-            .ACIN(ACIN),
-            .ALUMODE(ALUMODE),
-            .B(iB),
-            .BCIN(BCIN),
-            .C(iC),
-            .CARRYCASCIN(CARRYCASCIN),
-            .CARRYIN(CARRYIN),
-            .CARRYINSEL(CARRYINSEL),
-            .CEA1(CEA1),
-            .CEA2(CEA2),
-            .CEAD(CEAD),
-            .CEALUMODE(CEALUMODE),
-            .CEB1(CEB1),
-            .CEB2(CEB2),
-            .CEC(CEC),
-            .CECARRYIN(CECARRYIN),
-            .CECTRL(CECTRL),
-            .CED(CED),
-            .CEINMODE(CEINMODE),
-            .CEM(CEM),
-            .CEP(CEP),
-            .CLK(CLK),
-            .D(iD),
-            .INMODE(INMODE),
-            .MULTSIGNIN(MULTSIGNIN),
-            .OPMODE(OPMODE),
-            .PCIN(PCIN),
-            .RSTA(RSTA),
-            .RSTALLCARRYIN(RSTALLCARRYIN),
-            .RSTALUMODE(RSTALUMODE),
-            .RSTB(RSTB),
-            .RSTC(RSTC),
-            .RSTCTRL(RSTCTRL),
-            .RSTD(RSTD),
-            .RSTINMODE(RSTINMODE),
-            .RSTM(RSTM),
-            .RSTP(RSTP)
-        );
-"""
-
-    wire [29:0] iA;
-    wire [17:0] iB;
-    wire [47:0] iC;
-    wire [24:0] iD;
-
-    wire pA, pB, pC, pD, pAD, pM, pP;
-    wire [47:0] oP, mP;
-    wire [47:0] oPCOUT, mPCOUT;
+    DSP48E1 #(
+        .ACASCREG(ACASCREG),
+        .ADREG(ADREG),
+        .ALUMODEREG(ALUMODEREG),
+        .AREG(AREG),
+        .AUTORESET_PATDET(AUTORESET_PATDET),
+        .A_INPUT(A_INPUT),
+        .BCASCREG(BCASCREG),
+        .BREG(BREG),
+        .B_INPUT(B_INPUT),
+        .CARRYINREG(CARRYINREG),
+        .CARRYINSELREG(CARRYINSELREG),
+        .CREG(CREG),
+        .DREG(DREG),
+        .INMODEREG(INMODEREG),
+        .MREG(MREG),
+        .OPMODEREG(OPMODEREG),
+        .PREG(PREG),
+        .SEL_MASK(SEL_MASK),
+        .SEL_PATTERN(SEL_PATTERN),
+        .USE_DPORT(USE_DPORT),
+        .USE_MULT(USE_MULT),
+        .USE_PATTERN_DETECT(USE_PATTERN_DETECT),
+        .USE_SIMD(USE_SIMD),
+        .MASK(MASK),
+        .PATTERN(PATTERN),
+        .IS_ALUMODE_INVERTED(IS_ALUMODE_INVERTED),
+        .IS_CARRYIN_INVERTED(IS_CARRYIN_INVERTED),
+        .IS_CLK_INVERTED(IS_CLK_INVERTED),
+        .IS_INMODE_INVERTED(IS_INMODE_INVERTED),
+        .IS_OPMODE_INVERTED(IS_OPMODE_INVERTED)
+    ) _TECHMAP_REPLACE_ (
+        .ACOUT(ACOUT),
+        .BCOUT(BCOUT),
+        .CARRYCASCOUT(CARRYCASCOUT),
+        .CARRYOUT(CARRYOUT),
+        .MULTSIGNOUT(MULTSIGNOUT),
+        .OVERFLOW(OVERFLOW),
+        .P($P),
+        .PATTERNBDETECT(PATTERNBDETECT),
+        .PATTERNDETECT(PATTERNDETECT),
+        .PCOUT($PCOUT),
+        .UNDERFLOW(UNDERFLOW),
+        .A(A),
+        .ACIN(ACIN),
+        .ALUMODE(ALUMODE),
+        .B(B),
+        .BCIN(BCIN),
+        .C(C),
+        .CARRYCASCIN(CARRYCASCIN),
+        .CARRYIN(CARRYIN),
+        .CARRYINSEL(CARRYINSEL),
+        .CEA1(CEA1),
+        .CEA2(CEA2),
+        .CEAD(CEAD),
+        .CEALUMODE(CEALUMODE),
+        .CEB1(CEB1),
+        .CEB2(CEB2),
+        .CEC(CEC),
+        .CECARRYIN(CECARRYIN),
+        .CECTRL(CECTRL),
+        .CED(CED),
+        .CEINMODE(CEINMODE),
+        .CEM(CEM),
+        .CEP(CEP),
+        .CLK(CLK),
+        .D(D),
+        .INMODE(INMODE),
+        .MULTSIGNIN(MULTSIGNIN),
+        .OPMODE(OPMODE),
+        .PCIN(PCIN),
+        .RSTA(RSTA),
+        .RSTALLCARRYIN(RSTALLCARRYIN),
+        .RSTALUMODE(RSTALUMODE),
+        .RSTB(RSTB),
+        .RSTC(RSTC),
+        .RSTCTRL(RSTCTRL),
+        .RSTD(RSTD),
+        .RSTINMODE(RSTINMODE),
+        .RSTM(RSTM),
+        .RSTP(RSTP)
+    );
 
     generate
-    if (USE_MULT == "MULTIPLY" && USE_DPORT == "FALSE") begin
-        // Disconnect the A-input if MREG is enabled, since
-        //   combinatorial path is broken
-        if (AREG == 0 && MREG == 0 && PREG == 0)
-            assign iA = A, pA = 1'bx;
-        else
-            \$__ABC9_REG #(.WIDTH(30)) rA (.I(A), .O(iA), .Q(pA));
-        if (BREG == 0 && MREG == 0 && PREG == 0)
-            assign iB = B, pB = 1'bx;
-        else
-            \$__ABC9_REG #(.WIDTH(18)) rB (.I(B), .O(iB), .Q(pB));
-        if (CREG == 0 && PREG == 0)
-            assign iC = C, pC = 1'bx;
-        else
-            \$__ABC9_REG #(.WIDTH(48)) rC (.I(C), .O(iC), .Q(pC));
-        if (DREG == 0)
-            assign iD = D;
-        else if (techmap_guard)
-        $error("Invalid DSP48E1 configuration: DREG enabled but USE_DPORT == \"FALSE\"");
-        assign pD = 1'bx;
-        if (ADREG == 1 && techmap_guard)
-            $error("Invalid DSP48E1 configuration: ADREG enabled but USE_DPORT == \"FALSE\"");
-        assign pAD = 1'bx;
-    if (PREG == 0) begin
-        if (MREG == 1)
-        \$__ABC9_REG rM (.Q(pM));
-        else
-        assign pM = 1'bx;
-        assign pP = 1'bx;
-    end else begin
-            assign pM = 1'bx;
-            \$__ABC9_REG rP (.Q(pP));
+        wire [29:0] $A;
+        wire [17:0] $B;
+        wire [47:0] $C;
+        wire [24:0] $D;
+
+        if (PREG != 0)
+            assign P = $P, PCOUT = $PCOUT;
+        else begin
+            if (AREG == 0) assign $A = A;
+            if (BREG == 0) assign $B = B;
+            if (CREG == 0) assign $C = C;
+            if (DREG == 0) assign $D = D;
+
+            if (USE_MULT == "MULTIPLY" && USE_DPORT == "FALSE")
+                $__ABC9_DSP48E1_MULT dsp_comb(.$A($A), .$B($B), .$C($C), .$D($D), .$P($P), .$PCIN(PCIN), .$PCOUT($PCOUT), .P(P), .PCOUT(PCOUT));
+            else if (USE_MULT == "MULTIPLY" && USE_DPORT == "TRUE")
+                $__ABC9_DSP48E1_MULT_DPORT dsp_comb(.$A($A), .$B($B), .$C($C), .$D($D), .$P($P), .$PCIN(PCIN), .$PCOUT($PCOUT), .P(P), .PCOUT(PCOUT));
+            else if (USE_MULT == "NONE" && USE_DPORT == "FALSE")
+                $__ABC9_DSP48E1 dsp_comb(.$A($A), .$B($B), .$C($C), .$D($D), .$P($P), .$PCIN(PCIN), .$PCOUT($PCOUT), .P(P), .PCOUT(PCOUT));
+            else
+                $error("Invalid DSP48E1 configuration");
         end
-
-        if (MREG == 0 && PREG == 0)
-            assign mP = oP, mPCOUT = oPCOUT;
-        else
-            assign mP = 1'bx, mPCOUT = 1'bx;
-        \$__ABC9_DSP48E1_MULT_P_MUX muxP (
-            .Aq(pA), .Bq(pB), .Cq(pC), .Dq(pD), .ADq(pAD), .I(oP), .Mq(pM), .P(mP), .Pq(pP), .O(P)
-        );
-        \$__ABC9_DSP48E1_MULT_PCOUT_MUX muxPCOUT (
-            .Aq(pA), .Bq(pB), .Cq(pC), .Dq(pD), .ADq(pAD), .I(oPCOUT), .Mq(pM), .P(mPCOUT), .Pq(pP), .O(PCOUT)
-        );
-
-        `DSP48E1_INST(\$__ABC9_DSP48E1_MULT )
-    end
-    else if (USE_MULT == "MULTIPLY" && USE_DPORT == "TRUE") begin
-        // Disconnect the A-input if MREG is enabled, since
-        //   combinatorial path is broken
-        if (AREG == 0 && ADREG == 0 && MREG == 0 && PREG == 0)
-            assign iA = A, pA = 1'bx;
-        else
-            \$__ABC9_REG #(.WIDTH(30)) rA (.I(A), .O(iA), .Q(pA));
-        if (BREG == 0 && MREG == 0 && PREG == 0)
-            assign iB = B, pB = 1'bx;
-        else
-            \$__ABC9_REG #(.WIDTH(18)) rB (.I(B), .O(iB), .Q(pB));
-        if (CREG == 0 && PREG == 0)
-            assign iC = C, pC = 1'bx;
-        else
-            \$__ABC9_REG #(.WIDTH(48)) rC (.I(C), .O(iC), .Q(pC));
-        if (DREG == 0 && ADREG == 0)
-            assign iD = D, pD = 1'bx;
-        else
-            \$__ABC9_REG #(.WIDTH(25)) rD (.I(D), .O(iD), .Q(pD));
-        if (PREG == 0) begin
-            if (MREG == 1) begin
-                assign pAD = 1'bx;
-        \$__ABC9_REG rM (.Q(pM));
-            end else begin
-                if (ADREG == 1)
-                    \$__ABC9_REG rAD (.Q(pAD));
-                else
-                    assign pAD = 1'bx;
-        assign pM = 1'bx;
-        end
-        assign pP = 1'bx;
-    end else begin
-            assign pAD = 1'bx, pM = 1'bx;
-            \$__ABC9_REG rP (.Q(pP));
-        end
-
-        if (MREG == 0 && PREG == 0)
-            assign mP = oP, mPCOUT = oPCOUT;
-        else
-            assign mP = 1'bx, mPCOUT = 1'bx;
-        \$__ABC9_DSP48E1_MULT_DPORT_P_MUX muxP (
-            .Aq(pA), .Bq(pB), .Cq(pC), .Dq(pD), .ADq(pAD), .I(oP), .Mq(pM), .P(mP), .Pq(pP), .O(P)
-        );
-        \$__ABC9_DSP48E1_MULT_DPORT_PCOUT_MUX muxPCOUT (
-            .Aq(pA), .Bq(pB), .Cq(pC), .Dq(pD), .ADq(pAD), .I(oPCOUT), .Mq(pM), .P(mPCOUT), .Pq(pP), .O(PCOUT)
-        );
-
-        `DSP48E1_INST(\$__ABC9_DSP48E1_MULT_DPORT )
-    end
-    else if (USE_MULT == "NONE" && USE_DPORT == "FALSE") begin
-        // Disconnect the A-input if MREG is enabled, since
-        //   combinatorial path is broken
-        if (AREG == 0 && PREG == 0)
-            assign iA = A, pA = 1'bx;
-        else
-            \$__ABC9_REG #(.WIDTH(30)) rA (.I(A), .O(iA), .Q(pA));
-        if (BREG == 0 && PREG == 0)
-            assign iB = B, pB = 1'bx;
-        else
-            \$__ABC9_REG #(.WIDTH(18)) rB (.I(B), .O(iB), .Q(pB));
-        if (CREG == 0 && PREG == 0)
-            assign iC = C, pC = 1'bx;
-        else
-            \$__ABC9_REG #(.WIDTH(48)) rC (.I(C), .O(iC), .Q(pC));
-        if (DREG == 1 && techmap_guard)
-            $error("Invalid DSP48E1 configuration: DREG enabled but USE_DPORT == \"FALSE\"");
-        assign pD = 1'bx;
-        if (ADREG == 1 && techmap_guard)
-            $error("Invalid DSP48E1 configuration: ADREG enabled but USE_DPORT == \"FALSE\"");
-        assign pAD = 1'bx;
-        if (MREG == 1 && techmap_guard)
-            $error("Invalid DSP48E1 configuration: MREG enabled but USE_MULT == \"NONE\"");
-        assign pM = 1'bx;
-        if (PREG == 1)
-            \$__ABC9_REG rP (.Q(pP));
-        else
-            assign pP = 1'bx;
-
-        if (MREG == 0 && PREG == 0)
-            assign mP = oP, mPCOUT = oPCOUT;
-        else
-            assign mP = 1'bx, mPCOUT = 1'bx;
-        \$__ABC9_DSP48E1_P_MUX muxP (
-            .Aq(pA), .Bq(pB), .Cq(pC), .Dq(pD), .ADq(pAD), .I(oP), .Mq(pM), .P(mP), .Pq(pP), .O(P)
-        );
-        \$__ABC9_DSP48E1_PCOUT_MUX muxPCOUT (
-            .Aq(pA), .Bq(pB), .Cq(pC), .Dq(pD), .ADq(pAD), .I(oPCOUT), .Mq(pM), .P(mPCOUT), .Pq(pP), .O(PCOUT)
-        );
-
-        `DSP48E1_INST(\$__ABC9_DSP48E1 )
-    end
-    else
-        $error("Invalid DSP48E1 configuration");
     endgenerate
-    `undef DSP48E1_INST
 endmodule

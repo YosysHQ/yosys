@@ -2160,9 +2160,15 @@ module DSP48E1 (
     output reg [3:0] CARRYOUT,
     output reg MULTSIGNOUT,
     output OVERFLOW,
+`ifndef __ICARUS__
+    (* abc9_arrival = \DSP48E1.P_arrival (USE_MULT, USE_DPORT, AREG, ADREG, BREG, CREG, DREG, MREG, PREG) *)
+`endif
     output reg signed [47:0] P,
     output reg PATTERNBDETECT,
     output reg PATTERNDETECT,
+`ifndef __ICARUS__
+    (* abc9_arrival = \DSP48E1.PCOUT_arrival (USE_MULT, USE_DPORT, AREG, ADREG, BREG, CREG, DREG, MREG, PREG) *)
+`endif
     output [47:0] PCOUT,
     output UNDERFLOW,
     input signed [29:0] A,
@@ -2234,6 +2240,79 @@ module DSP48E1 (
     parameter [0:0] IS_CLK_INVERTED = 1'b0;
     parameter [4:0] IS_INMODE_INVERTED = 5'b0;
     parameter [6:0] IS_OPMODE_INVERTED = 7'b0;
+
+    function \DSP48E1.P_arrival ;
+        input USE_MULT, USE_DPORT;
+        input AREG, ADREG, BREG, CREG, DREG, MREG, PREG;
+    begin
+        \DSP48E1.P_arrival = 0;
+        if (USE_MULT == "MULTIPLY" && USE_DPORT == "FALSE") begin
+            if (PREG != 0)      \DSP48E1.P_arrival =  329;
+            // Worse-case from CREG and MREG
+            else if (CREG != 0) \DSP48E1.P_arrival = 1687;
+            else if (MREG != 0) \DSP48E1.P_arrival = 1671;
+            // Worse-case from AREG and BREG
+            else if (AREG != 0) \DSP48E1.P_arrival = 2952;
+            else if (BREG != 0) \DSP48E1.P_arrival = 2813;
+        end
+        else if (USE_MULT == "MULTIPLY" && USE_DPORT == "TRUE") begin
+            if (PREG != 0)      \DSP48E1.P_arrival =  329;
+            // Worse-case from CREG and MREG
+            else if (CREG != 0) \DSP48E1.P_arrival = 1687;
+            else if (MREG != 0) \DSP48E1.P_arrival = 1671;
+            // Worse-case from AREG, ADREG, BREG, DREG
+            else if (AREG != 0)  \DSP48E1.P_arrival = 3935;
+            else if (DREG != 0)  \DSP48E1.P_arrival = 3908;
+            else if (ADREG != 0) \DSP48E1.P_arrival = 2958;
+            else if (BREG != 0)  \DSP48E1.P_arrival = 2813;
+        end
+        else if (USE_MULT == "NONE" && USE_DPORT == "FALSE") begin
+            if (PREG != 0)      \DSP48E1.P_arrival =  329;
+            // Worse-case from AREG, BREG, CREG
+            else if (CREG != 0) \DSP48E1.P_arrival = 1687;
+            else if (AREG != 0) \DSP48E1.P_arrival = 1632;
+            else if (BREG != 0) \DSP48E1.P_arrival = 1616;
+        end
+        //else
+        //    $error("Invalid DSP48E1 configuration");
+    end
+    endfunction
+    function \DSP48E1.PCOUT_arrival ;
+        input USE_MULT, USE_DPORT;
+        input AREG, ADREG, BREG, CREG, DREG, MREG, PREG;
+    begin
+        \DSP48E1.PCOUT_arrival = 0;
+        if (USE_MULT == "MULTIPLY" && USE_DPORT == "FALSE") begin
+            if (PREG != 0)      \DSP48E1.PCOUT_arrival =  435;
+            // Worse-case from CREG and MREG
+            else if (CREG != 0) \DSP48E1.PCOUT_arrival = 1835;
+            else if (MREG != 0) \DSP48E1.PCOUT_arrival = 1819;
+            // Worse-case from AREG and BREG
+            else if (AREG != 0) \DSP48E1.PCOUT_arrival = 3098;
+            else if (BREG != 0) \DSP48E1.PCOUT_arrival = 2960;
+        end
+        else if (USE_MULT == "MULTIPLY" && USE_DPORT == "TRUE") begin
+            if (PREG != 0)      \DSP48E1.PCOUT_arrival =  435;
+            // Worse-case from CREG and MREG
+            else if (CREG != 0) \DSP48E1.PCOUT_arrival = 1835;
+            else if (MREG != 0) \DSP48E1.PCOUT_arrival = 1819;
+            // Worse-case from AREG, ADREG, BREG, DREG
+            else if (AREG != 0)  \DSP48E1.PCOUT_arrival = 4083;
+            else if (DREG != 0)  \DSP48E1.PCOUT_arrival = 4056;
+            else if (BREG != 0)  \DSP48E1.PCOUT_arrival = 2960;
+            else if (ADREG != 0) \DSP48E1.PCOUT_arrival = 2859;
+        end
+        else if (USE_MULT == "NONE" && USE_DPORT == "FALSE") begin
+            if (PREG != 0)      \DSP48E1.PCOUT_arrival =  435;
+            // Worse-case from AREG, BREG, CREG
+            else if (CREG != 0) \DSP48E1.PCOUT_arrival = 1835;
+            else if (AREG != 0) \DSP48E1.PCOUT_arrival = 1780;
+            else if (BREG != 0) \DSP48E1.PCOUT_arrival = 1765;
+        end
+        //else
+        //    $error("Invalid DSP48E1 configuration");
+    end
+    endfunction
 
     initial begin
 `ifdef __ICARUS__
