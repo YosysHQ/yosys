@@ -56,7 +56,7 @@ struct SynthEasicPass : public ScriptPass
 		log("        do not flatten design before synthesis\n");
 		log("\n");
 		log("    -retime\n");
-		log("        run 'abc' with -dff option\n");
+		log("        run 'abc' with '-dff -D 1' options\n");
 		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
@@ -158,7 +158,7 @@ struct SynthEasicPass : public ScriptPass
 			run("techmap");
 			run("opt -fast");
 			if (retime || help_mode) {
-				run("abc -dff", " (only if -retime)");
+				run("abc -dff -D 1", " (only if -retime)");
 				run("opt_clean", "(only if -retime)");
 			}
 		}
