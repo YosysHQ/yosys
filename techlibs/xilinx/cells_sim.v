@@ -1120,8 +1120,8 @@ module RAM16X1D_1 (
 endmodule
 
 module RAM32X1D (
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
-  (* abc9_arrival=1153 *)
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L857
+  (* abc9_arrival=1188 *)
   output DPO, SPO,
   input  D,
   (* clkbuf_sink *)
@@ -1143,8 +1143,8 @@ module RAM32X1D (
 endmodule
 
 module RAM32X1D_1 (
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
-  (* abc9_arrival=1153 *)
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L857
+  (* abc9_arrival=1188 *)
   output DPO, SPO,
   input  D,
   (* clkbuf_sink *)
@@ -1166,7 +1166,7 @@ module RAM32X1D_1 (
 endmodule
 
 module RAM64X1D (
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L889
   (* abc9_arrival=1153 *)
   output DPO, SPO,
   input  D,
@@ -1189,7 +1189,7 @@ module RAM64X1D (
 endmodule
 
 module RAM64X1D_1 (
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L889
   (* abc9_arrival=1153 *)
   output DPO, SPO,
   input  D,
@@ -1212,8 +1212,9 @@ module RAM64X1D_1 (
 endmodule
 
 module RAM128X1D (
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
-  (* abc9_arrival=1153 *)
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L889
+  //   plus 204ps to cross MUXF7
+  (* abc9_arrival=1357 *)
   output DPO, SPO,
   input        D,
   (* clkbuf_sink *)
@@ -1252,9 +1253,18 @@ endmodule
 // Multi port.
 
 module RAM32M (
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
-  (* abc9_arrival=1153 *)
-  output [1:0] DOA, DOB, DOC, DOD,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L857
+  (* abc9_arrival=1188 *)
+  output [1:0] DOA,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L925
+  (* abc9_arrival=1187 *)
+  output [1:0] DOB,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L993
+  (* abc9_arrival=1180 *)
+  output [1:0] DOC,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L1061
+  (* abc9_arrival=1190 *)
+  output [1:0] DOD,
   input [4:0] ADDRA, ADDRB, ADDRC, ADDRD,
   input [1:0] DIA, DIB, DIC, DID,
   (* clkbuf_sink *)
@@ -1355,9 +1365,18 @@ module RAM32M16 (
 endmodule
 
 module RAM64M (
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L889
   (* abc9_arrival=1153 *)
-  output DOA, DOB, DOC, DOD,
+  output DOA,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
+  (* abc9_arrival=1161 *)
+  output DOB,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L1025
+  (* abc9_arrival=1158 *)
+  output DOC,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L1093
+  (* abc9_arrival=1163 *)
+  output DOD,
   input [5:0] ADDRA, ADDRB, ADDRC, ADDRD,
   input DIA, DIB, DIC, DID,
   (* clkbuf_sink *)
@@ -1516,7 +1535,7 @@ module SRL16 (
 endmodule
 
 module SRL16E (
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L904-L905
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L905
   (* abc9_arrival=1472 *)
   output Q,
   input A0, A1, A2, A3, CE,
@@ -1580,9 +1599,10 @@ module SRLC16E (
 endmodule
 
 module SRLC32E (
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L904-L905
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L905
   (* abc9_arrival=1472 *)
   output Q,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L904
   (* abc9_arrival=1114 *)
   output Q31,
   input [4:0] A,
@@ -2224,7 +2244,7 @@ module DSP48E1 (
     parameter [6:0] IS_OPMODE_INVERTED = 7'b0;
 
     initial begin
-`ifdef __ICARUS__
+`ifndef YOSYS
         if (AUTORESET_PATDET != "NO_RESET") $fatal(1, "Unsupported AUTORESET_PATDET value");
         if (SEL_MASK != "MASK")     $fatal(1, "Unsupported SEL_MASK value");
         if (SEL_PATTERN != "PATTERN") $fatal(1, "Unsupported SEL_PATTERN value");
@@ -2387,12 +2407,12 @@ module DSP48E1 (
         case (OPMODEr[1:0])
             2'b00: X = 48'b0;
             2'b01: begin X = $signed(Mrx);
-`ifdef __ICARUS__
+`ifndef YOSYS
                 if (OPMODEr[3:2] != 2'b01) $fatal(1, "OPMODEr[3:2] must be 2'b01 when OPMODEr[1:0] is 2'b01");
 `endif
             end
             2'b10: begin X = P;
-`ifdef __ICARUS__
+`ifndef YOSYS
                 if (PREG != 1) $fatal(1, "PREG must be 1 when OPMODEr[1:0] is 2'b10");
 `endif
             end
@@ -2404,7 +2424,7 @@ module DSP48E1 (
         case (OPMODEr[3:2])
             2'b00: Y = 48'b0;
             2'b01: begin Y = 48'b0; // FIXME: more accurate partial product modelling?
-`ifdef __ICARUS__
+`ifndef YOSYS
                 if (OPMODEr[1:0] != 2'b01) $fatal(1, "OPMODEr[1:0] must be 2'b01 when OPMODEr[3:2] is 2'b01");
 `endif
             end
@@ -2418,13 +2438,13 @@ module DSP48E1 (
             3'b000: Z = 48'b0;
             3'b001: Z = PCIN;
             3'b010: begin Z = P;
-`ifdef __ICARUS__
+`ifndef YOSYS
                 if (PREG != 1) $fatal(1, "PREG must be 1 when OPMODEr[6:4] i0s 3'b010");
 `endif
             end
             3'b011: Z = Cr;
             3'b100: begin Z = P;
-`ifdef __ICARUS__
+`ifndef YOSYS
                 if (PREG != 1) $fatal(1, "PREG must be 1 when OPMODEr[6:4] is 3'b100");
                 if (OPMODEr[3:0] != 4'b1000) $fatal(1, "OPMODEr[3:0] must be 4'b1000 when OPMODEr[6:4] i0s 3'b100");
 `endif

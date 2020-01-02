@@ -2,7 +2,7 @@ read_verilog ../common/counter.v
 hierarchy -top top
 proc
 flatten
-equiv_opt -map +/efinix/cells_sim.v synth_efinix # equivalency check
+equiv_opt -assert -multiclock -map +/efinix/cells_sim.v synth_efinix # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd top # Constrain all select calls below inside the top module
 

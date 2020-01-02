@@ -62,16 +62,16 @@ struct SynthGowinPass : public ScriptPass
 		log("        do not flatten design before synthesis\n");
 		log("\n");
 		log("    -retime\n");
-		log("        run 'abc' with -dff option\n");
+		log("        run 'abc' with '-dff -D 1' options\n");
 		log("\n");
 		log("    -nowidelut\n");
 		log("        do not use muxes to implement LUTs larger than LUT4s\n");
 		log("\n");
 		log("    -noiopads\n");
 		log("        do not emit IOB at top level ports\n");
-		log("\n");
-		log("    -abc9\n");
-		log("        use new ABC9 flow (EXPERIMENTAL)\n");
+		//log("\n");
+		//log("    -abc9\n");
+		//log("        use new ABC9 flow (EXPERIMENTAL)\n");
 		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
@@ -144,10 +144,10 @@ struct SynthGowinPass : public ScriptPass
 				nowidelut = true;
 				continue;
 			}
-			if (args[argidx] == "-abc9") {
-				abc9 = true;
-				continue;
-			}
+			//if (args[argidx] == "-abc9") {
+			//	abc9 = true;
+			//	continue;
+			//}
 			if (args[argidx] == "-noiopads") {
 				noiopads = true;
 				continue;
@@ -209,7 +209,7 @@ struct SynthGowinPass : public ScriptPass
 			run("techmap -map +/techmap.v -map +/gowin/arith_map.v");
 			run("techmap -map +/techmap.v");
 			if (retime || help_mode)
-				run("abc -dff", "(only if -retime)");
+				run("abc -dff -D 1", "(only if -retime)");
 			run("splitnets");
 		}
 
@@ -227,13 +227,13 @@ struct SynthGowinPass : public ScriptPass
 
 		if (check_label("map_luts"))
 		{
-			if (nowidelut && abc9) {
+			/*if (nowidelut && abc9) {
 				run("abc9 -lut 4");
-			} else if (nowidelut && !abc9) {
+			} else*/ if (nowidelut && !abc9) {
 				run("abc -lut 4");
-			} else if (!nowidelut && abc9) {
+			} else /*if (!nowidelut && abc9) {
 				run("abc9 -lut 4:8");
-			} else if (!nowidelut && !abc9) {
+			} else*/ if (!nowidelut && !abc9) {
 				run("abc -lut 4:8");
 			}
 			run("clean");
