@@ -266,13 +266,13 @@ struct SynthEcp5Pass : public ScriptPass
 
 		if (!nobram && check_label("map_bram", "(skip if -nobram)"))
 		{
-			run("memory_bram -rules +/ecp5/bram.txt");
+			run("memory_bram -rules +/ecp5/brams.txt");
 			run("techmap -map +/ecp5/brams_map.v");
 		}
 
 		if (!nolutram && check_label("map_lutram", "(skip if -nolutram)"))
 		{
-			run("memory_bram -rules +/ecp5/lutram.txt");
+			run("memory_bram -rules +/ecp5/lutrams.txt");
 			run("techmap -map +/ecp5/lutrams_map.v");
 		}
 
