@@ -249,7 +249,7 @@ struct abc9_output_filter
 };
 
 void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string script_file, std::string exe_file,
-		bool cleanup, vector<int> lut_costs, bool keepff, std::string delay_target, std::string /*lutin_shared*/, bool fast_mode,
+		bool cleanup, vector<int> lut_costs, bool dff, std::string delay_target, std::string /*lutin_shared*/, bool fast_mode,
 		bool show_tempdir, std::string box_file, std::string lut_file,
 		std::string wire_delay, bool nomfs
 )
@@ -347,7 +347,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 		buffer = stringf("%s/%s", tempdir_name.c_str(), "input.sym");
 		log_assert(!design->module(ID($__abc9__)));
 		{
-			AigerReader reader(design, ifs, ID($__abc9__), "" /* clk_name */, buffer.c_str() /* map_filename */, true /* wideports */);
+			AigerReader reader(design, ifs, ID($__abc9__), "" /* clk_name */, /*buffer.c_str()*/ "" /* map_filename */, true /* wideports */);
 			reader.parse_xaiger();
 		}
 		ifs.close();
@@ -430,7 +430,13 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 			if (jt == abc9_box.end())
 				jt = abc9_box.insert(std::make_pair(cell->type, box_module && box_module->attributes.count(ID(abc9_box_id)))).first;
 			if (jt->second) {
-				if (!keepff || !box_module->get_bool_attribute("\\abc9_flop"))
+				if (box_module->get_bool_attribute("\\abc9_flop")) {
+					if (dff)
+						boxes.emplace_back(cell);
+					else
+						box_module->set_bool_attribute("\\abc9_keep", false);
+				}
+				else
 					boxes.emplace_back(cell);
 			}
 		}
@@ -795,9 +801,9 @@ struct Abc9Pass : public Pass {
 		log("        generate netlist using luts. Use the specified costs for luts with 1,\n");
 		log("        2, 3, .. inputs.\n");
 		log("\n");
-		log("    -keepff\n");
-		log("        do not represent (* abc9_flop *) modules as boxes (and thus do not perform\n");
-		log("        any form of sequential synthesis).\n");
+		log("    -dff\n");
+		log("        also pass $_ABC9_FF_ cells through ABC. modules with many clock domains\n");
+		log("        are marked as such and automatically partitioned by ABC.\n");
 		log("\n");
 		log("    -nocleanup\n");
 		log("        when this option is used, the temporary files created by this pass\n");
@@ -837,7 +843,7 @@ struct Abc9Pass : public Pass {
 #endif
 		std::string script_file, clk_str, box_file, lut_file;
 		std::string delay_target, lutin_shared = "-S 1", wire_delay;
-		bool fast_mode = false, keepff = false, cleanup = true;
+		bool fast_mode = false, dff = false, cleanup = true;
 		bool show_tempdir = false;
 		bool nomfs = false;
 		vector<int> lut_costs;
@@ -928,8 +934,8 @@ struct Abc9Pass : public Pass {
 				fast_mode = true;
 				continue;
 			}
-			if (arg == "-keepff") {
-				keepff = true;
+			if (arg == "-dff") {
+				dff = true;
 				continue;
 			}
 			if (arg == "-nocleanup") {
@@ -985,16 +991,14 @@ struct Abc9Pass : public Pass {
 			typedef SigSpec clkdomain_t;
 			dict<clkdomain_t, int> clk_to_mergeability;
 
-
-			if (!keepff)
+			if (dff)
 				for (auto cell : module->selected_cells()) {
-					auto inst_module = design->module(cell->type);
-					if (!inst_module || !inst_module->get_bool_attribute("\\abc9_flop"))
+					if (cell->type != "$__ABC9_FF_")
 						continue;
 
-					Wire *abc9_clock_wire = module->wire(stringf("%s.$abc9_clock", cell->name.c_str()));
+					Wire *abc9_clock_wire = module->wire(stringf("%s.clock", cell->name.c_str()));
 					if (abc9_clock_wire == NULL)
-						log_error("'%s$abc9_clock' is not a wire present in module '%s'.\n", cell->name.c_str(), log_id(module));
+						log_error("'%s.clock' is not a wire present in module '%s'.\n", cell->name.c_str(), log_id(module));
 					SigSpec abc9_clock = assign_map(abc9_clock_wire);
 
 					clkdomain_t key(abc9_clock);
@@ -1003,19 +1007,26 @@ struct Abc9Pass : public Pass {
 					auto r2 YS_ATTRIBUTE(unused) = cell->attributes.insert(std::make_pair(ID(abc9_mergeability), r.first->second));
 					log_assert(r2.second);
 
-					Wire *abc9_init_wire = module->wire(stringf("%s.$abc9_init", cell->name.c_str()));
+					Wire *abc9_init_wire = module->wire(stringf("%s.init", cell->name.c_str()));
 					if (abc9_init_wire == NULL)
-						log_error("'%s.$abc9_init' is not a wire present in module '%s'.\n", cell->name.c_str(), log_id(module));
+						log_error("'%s.init' is not a wire present in module '%s'.\n", cell->name.c_str(), log_id(module));
 					log_assert(GetSize(abc9_init_wire) == 1);
 					SigSpec abc9_init = assign_map(abc9_init_wire);
 					if (!abc9_init.is_fully_const())
-						log_error("'%s.$abc9_init' is not a constant wire present in module '%s'.\n", cell->name.c_str(), log_id(module));
+						log_error("'%s.init' is not a constant wire present in module '%s'.\n", cell->name.c_str(), log_id(module));
 					r2 = cell->attributes.insert(std::make_pair(ID(abc9_init), abc9_init.as_const()));
 					log_assert(r2.second);
 				}
+			else
+				for (auto cell : module->selected_cells()) {
+					auto inst_module = design->module(cell->type);
+					if (!inst_module || !inst_module->get_bool_attribute("\\abc9_flop"))
+						continue;
+					cell->set_bool_attribute("\\abc9_keep");
+				}
 
 			design->selected_active_module = module->name.str();
-			abc9_module(design, module, script_file, exe_file, cleanup, lut_costs, keepff,
+			abc9_module(design, module, script_file, exe_file, cleanup, lut_costs, dff,
 					delay_target, lutin_shared, fast_mode, show_tempdir,
 					box_file, lut_file, wire_delay, nomfs);
 			design->selected_active_module.clear();
