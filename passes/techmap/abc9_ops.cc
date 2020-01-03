@@ -386,8 +386,6 @@ void prep_holes(RTLIL::Module *module)
 			}
 		}
 
-		// NB: Assume box_module->ports are sorted alphabetically
-		//     (as RTLIL::Module::fixup_ports() would do)
 		for (const auto &port_name : box_ports.at(cell->type)) {
 			RTLIL::Wire *w = box_module->wire(port_name);
 			log_assert(w);
