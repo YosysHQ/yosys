@@ -195,7 +195,11 @@ struct Abc9Pass : public ScriptPass
 		if (dff_mode)
 			run("abc9_ops -prep_dff");
 //		run("opt -purge @abc9_holes");
-//		run("wbflip @abc9_holes");
+
+		run("abc9_ops -prep_holes");
+
+		run("select -set abc9_holes A:abc9_holes");
+		run("wbflip @abc9_holes");
 
 		auto selected_modules = active_design->selected_modules();
 		active_design->selection_stack.emplace_back(false);

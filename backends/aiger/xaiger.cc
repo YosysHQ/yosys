@@ -619,90 +619,30 @@ struct XAigerWriter
 		//	write_o_buffer(0);
 
 		if (!box_list.empty() || !ff_bits.empty()) {
-			RTLIL::Module *holes_module = module->design->addModule("$__holes__");
+			RTLIL::Module *holes_module = module->design->module(stringf("%s$holes", module->name.c_str()));
 			log_assert(holes_module);
 
 			dict<IdString, Cell*> cell_cache;
 
-			int port_id = 1;
 			int box_count = 0;
 			for (auto cell : box_list) {
-				RTLIL::Module* orig_box_module = module->design->module(cell->type);
-				log_assert(orig_box_module);
-				IdString derived_name = orig_box_module->derive(module->design, cell->parameters);
-				RTLIL::Module* box_module = module->design->module(derived_name);
-				if (box_module->has_processes())
-					Pass::call_on_module(module->design, box_module, "proc");
-
-				auto r = cell_cache.insert(std::make_pair(derived_name, nullptr));
-				Cell *holes_cell = r.first->second;
-				if (r.second && box_module->get_bool_attribute("\\whitebox")) {
-					holes_cell = holes_module->addCell(cell->name, cell->type);
-					holes_cell->parameters = cell->parameters;
-					r.first->second = holes_cell;
-				}
+				RTLIL::Module* box_module = module->design->module(cell->type);
+				log_assert(box_module);
 
 				int box_inputs = 0, box_outputs = 0;
-				for (auto port_name : box_ports.at(cell->type)) {
+				for (auto port_name : box_module->ports) {
 					RTLIL::Wire *w = box_module->wire(port_name);
 					log_assert(w);
-					RTLIL::Wire *holes_wire;
-					RTLIL::SigSpec port_sig;
-
 					if (w->port_input)
-						for (int i = 0; i < GetSize(w); i++) {
-							box_inputs++;
-							holes_wire = holes_module->wire(stringf("\\i%d", box_inputs));
-							if (!holes_wire) {
-								holes_wire = holes_module->addWire(stringf("\\i%d", box_inputs));
-								holes_wire->port_input = true;
-								holes_wire->port_id = port_id++;
-								holes_module->ports.push_back(holes_wire->name);
-							}
-							if (holes_cell)
-								port_sig.append(holes_wire);
-						}
-					if (w->port_output) {
+						box_inputs += GetSize(w);
+					if (w->port_output)
 						box_outputs += GetSize(w);
-						for (int i = 0; i < GetSize(w); i++) {
-							if (GetSize(w) == 1)
-								holes_wire = holes_module->addWire(stringf("$abc%s.%s", cell->name.c_str(), log_id(w->name)));
-							else
-								holes_wire = holes_module->addWire(stringf("$abc%s.%s[%d]", cell->name.c_str(), log_id(w->name), i));
-							holes_wire->port_output = true;
-							holes_wire->port_id = port_id++;
-							holes_module->ports.push_back(holes_wire->name);
-							if (holes_cell)
-								port_sig.append(holes_wire);
-							else
-								holes_module->connect(holes_wire, State::S0);
-						}
-					}
-					if (!port_sig.empty()) {
-						if (r.second)
-							holes_cell->setPort(w->name, port_sig);
-						else
-							holes_module->connect(holes_cell->getPort(w->name), port_sig);
-					}
 				}
 
 				// For flops only, create an extra 1-bit input that drives a new wire
 				//   called "<cell>.abc9_ff.Q" that is used below
-				if (box_module->get_bool_attribute("\\abc9_flop")) {
-					log_assert(holes_cell);
-
+				if (box_module->get_bool_attribute("\\abc9_flop"))
 					box_inputs++;
-					Wire *holes_wire = holes_module->wire(stringf("\\i%d", box_inputs));
-					if (!holes_wire) {
-						holes_wire = holes_module->addWire(stringf("\\i%d", box_inputs));
-						holes_wire->port_input = true;
-						holes_wire->port_id = port_id++;
-						holes_module->ports.push_back(holes_wire->name);
-					}
-					Wire *w = holes_module->addWire(stringf("%s.abc9_ff.Q", cell->name.c_str()));
-					log_assert(w);
-					holes_module->connect(w, holes_wire);
-				}
 
 				write_h_buffer(box_inputs);
 				write_h_buffer(box_outputs);
@@ -764,6 +704,7 @@ struct XAigerWriter
 				// Cannot techmap/aigmap/check all lib_whitebox-es outside of write_xaiger
 				//   since boxes may contain parameters in which case `flatten` would have
 				//   created a new $paramod ...
+				Pass::call_on_module(holes_module->design, holes_module, "wbflip");
 				Pass::call_on_module(holes_module->design, holes_module, "flatten -wb; techmap; aigmap");
 
 				dict<SigSig, SigSig> replace;

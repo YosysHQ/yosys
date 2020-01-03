@@ -288,8 +288,6 @@ void prep_holes(RTLIL::Module *module)
 
 		// Fully pad all unused input connections of this box cell with S0
 		// Fully pad all undriven output connections of this box cell with anonymous wires
-		// NB: Assume box_module->ports are sorted alphabetically
-		//     (as RTLIL::Module::fixup_ports() would do)
 		for (const auto &port_name : box_module->ports) {
 			RTLIL::Wire* w = box_module->wire(port_name);
 			log_assert(w);
@@ -333,6 +331,7 @@ void prep_holes(RTLIL::Module *module)
 	holes_module->set_bool_attribute("\\abc9_holes");
 
 	dict<IdString, Cell*> cell_cache;
+	dict<IdString, std::vector<IdString>> box_ports;
 
 	int port_id = 1;
 	for (auto cell : box_list) {
@@ -350,24 +349,47 @@ void prep_holes(RTLIL::Module *module)
 			holes_cell = holes_module->addCell(cell->name, cell->type);
 			holes_cell->parameters = cell->parameters;
 			r.first->second = holes_cell;
+		}
 
-			// Since Module::derive() will create a new module, there
-			//   is a chance that the ports will be alphabetically ordered
-			//   again, which is a problem when carry-chains are involved.
-			//   Inherit the port ordering from the original module here...
-			//   (and set the port_id below, when iterating through those)
-			log_assert(GetSize(box_module->ports) == GetSize(orig_box_module->ports));
-			box_module->ports = orig_box_module->ports;
+		auto r2 = box_ports.insert(cell->type);
+		if (r2.second) {
+			// Make carry in the last PI, and carry out the last PO
+			//   since ABC requires it this way
+			IdString carry_in, carry_out;
+			for (const auto &port_name : box_module->ports) {
+				auto w = box_module->wire(port_name);
+				log_assert(w);
+				if (w->get_bool_attribute("\\abc9_carry")) {
+					if (w->port_input) {
+						if (carry_in != IdString())
+							log_error("Module '%s' contains more than one 'abc9_carry' input port.\n", log_id(box_module));
+						carry_in = port_name;
+					}
+					if (w->port_output) {
+						if (carry_out != IdString())
+							log_error("Module '%s' contains more than one 'abc9_carry' output port.\n", log_id(box_module));
+						carry_out = port_name;
+					}
+				}
+				else
+					r2.first->second.push_back(port_name);
+			}
+
+			if (carry_in != IdString() && carry_out == IdString())
+				log_error("Module '%s' contains an 'abc9_carry' input port but no output port.\n", log_id(box_module));
+			if (carry_in == IdString() && carry_out != IdString())
+				log_error("Module '%s' contains an 'abc9_carry' output port but no input port.\n", log_id(box_module));
+			if (carry_in != IdString()) {
+				r2.first->second.push_back(carry_in);
+				r2.first->second.push_back(carry_out);
+			}
 		}
 
 		// NB: Assume box_module->ports are sorted alphabetically
 		//     (as RTLIL::Module::fixup_ports() would do)
-		int box_port_id = 1;
-		for (const auto &port_name : box_module->ports) {
+		for (const auto &port_name : box_ports.at(cell->type)) {
 			RTLIL::Wire *w = box_module->wire(port_name);
 			log_assert(w);
-			if (r.second)
-				w->port_id = box_port_id++;
 			RTLIL::Wire *holes_wire;
 			RTLIL::SigSpec port_sig;
 			if (w->port_input)
