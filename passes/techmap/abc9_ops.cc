@@ -322,6 +322,7 @@ void prep_holes(RTLIL::Module *module)
 			}
 		}
 
+		cell->attributes["\\abc9_box_order"] = box_list.size();
 		box_list.emplace_back(cell);
 	}
 	log_assert(!box_list.empty());

@@ -187,17 +187,13 @@ struct Abc9Pass : public ScriptPass
 	{
 		run("scc -set_attr abc9_scc_id {}");
 		run("abc9_ops -break_scc"/*" -prep_holes"*/);
-//		run("select -set abc9_holes A:abc9_holes");
-//		run("dump @abc9_holes");
 //		run("flatten -wb @abc9_holes");
 //		run("techmap @abc9_holes");
 		run("aigmap");
+		run("abc9_ops -prep_holes");
 		if (dff_mode)
 			run("abc9_ops -prep_dff");
 //		run("opt -purge @abc9_holes");
-
-		run("abc9_ops -prep_holes");
-
 		run("select -set abc9_holes A:abc9_holes");
 		run("wbflip @abc9_holes");
 
