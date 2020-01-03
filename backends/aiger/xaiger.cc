@@ -137,7 +137,7 @@ struct XAigerWriter
 		return a;
 	}
 
-	XAigerWriter(Module *module) : module(module), sigmap(module)
+	XAigerWriter(Module *module, bool holes_mode=false) : module(module), sigmap(module)
 	{
 		pool<SigBit> undriven_bits;
 		pool<SigBit> unused_bits;
@@ -157,12 +157,8 @@ struct XAigerWriter
 			if (wire->get_bool_attribute(ID::keep))
 				sigmap.add(wire);
 
-		// First, collect all the ports in port_id order
-		//   since module->wires() could be sorted
-		//   alphabetically
-		for (auto port : module->ports) {
-			auto wire = module->wire(port);
-			log_assert(wire);
+
+		for (auto wire : module->wires())
 			for (int i = 0; i < GetSize(wire); i++)
 			{
 				SigBit wirebit(wire, i);
@@ -176,6 +172,9 @@ struct XAigerWriter
 					continue;
 				}
 
+				undriven_bits.insert(bit);
+				unused_bits.insert(bit);
+
 				if (wire->port_input)
 					input_bits.insert(bit);
 
@@ -183,19 +182,6 @@ struct XAigerWriter
 					if (bit != wirebit)
 						alias_map[wirebit] = bit;
 					output_bits.insert(wirebit);
-				}
-			}
-		}
-
-		for (auto wire : module->wires())
-			for (int i = 0; i < GetSize(wire); i++)
-			{
-				SigBit wirebit(wire, i);
-				SigBit bit = sigmap(wirebit);
-
-				if (bit.wire) {
-					undriven_bits.insert(bit);
-					unused_bits.insert(bit);
 				}
 			}
 
@@ -485,12 +471,20 @@ struct XAigerWriter
 			undriven_bits.erase(bit);
 		}
 
+		if (holes_mode) {
+			struct sort_by_port_id {
+				bool operator()(const RTLIL::SigBit& a, const RTLIL::SigBit& b) const {
+					return a.wire->port_id < b.wire->port_id;
+				}
+			};
+			input_bits.sort(sort_by_port_id());
+			output_bits.sort(sort_by_port_id());
+		}
+
 		aig_map[State::S0] = 0;
 		aig_map[State::S1] = 1;
 
-		// pool<> iterates in LIFO order...
-		for (int i = input_bits.size()-1; i >= 0; i--) {
-			const auto &bit = *input_bits.element(i);
+		for (const auto &bit : input_bits) {
 			aig_m++, aig_i++;
 			log_assert(!aig_map.count(bit));
 			aig_map[bit] = 2*aig_m;
@@ -515,9 +509,7 @@ struct XAigerWriter
 			aig_outputs.push_back(bit2aig(bit));
 		}
 
-		// pool<> iterates in LIFO order...
-		for (int i = output_bits.size()-1; i >= 0; i--) {
-			const auto &bit = *output_bits.element(i);
+		for (const auto &bit : output_bits) {
 			ordered_outputs[bit] = aig_o++;
 			aig_outputs.push_back(bit2aig(bit));
 		}
@@ -816,7 +808,7 @@ struct XAigerWriter
 				Pass::call(holes_design, "opt -purge");
 
 				std::stringstream a_buffer;
-				XAigerWriter writer(holes_module);
+				XAigerWriter writer(holes_module, true /* holes_mode */);
 				writer.write_aiger(a_buffer, false /*ascii_mode*/);
 				delete holes_design;
 
