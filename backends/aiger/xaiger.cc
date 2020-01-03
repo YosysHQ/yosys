@@ -473,7 +473,7 @@ struct XAigerWriter
 		}
 
 		for (auto bit : input_bits)
-			undriven_bits.erase(sigmap(bit));
+			undriven_bits.erase(bit);
 		for (auto bit : output_bits)
 			unused_bits.erase(sigmap(bit));
 		for (auto bit : unused_bits)
@@ -700,7 +700,6 @@ struct XAigerWriter
 						holes_module->ports.push_back(holes_wire->name);
 					}
 					Wire *w = holes_module->addWire(stringf("%s.abc9_ff.Q", cell->name.c_str()));
-					log_assert(w);
 					holes_module->connect(w, holes_wire);
 				}
 
