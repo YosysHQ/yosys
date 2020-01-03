@@ -62,7 +62,7 @@ struct SynthEcp5Pass : public ScriptPass
 		log("        do not flatten design before synthesis\n");
 		log("\n");
 		log("    -retime\n");
-		log("        run 'abc' with -dff option\n");
+		log("        run 'abc' with '-dff -D 1' options\n");
 		log("\n");
 		log("    -noccu2\n");
 		log("        do not use CCU2 cells in output netlist\n");
@@ -78,6 +78,9 @@ struct SynthEcp5Pass : public ScriptPass
 		log("\n");
 		log("    -nowidelut\n");
 		log("        do not use PFU muxes to implement LUTs larger than LUT4s\n");
+		log("\n");
+		log("    -asyncprld\n");
+		log("        use async PRLD mode to implement DLATCH and DFFSR (EXPERIMENTAL)\n");
 		log("\n");
 		log("    -abc2\n");
 		log("        run two passes of 'abc' for slightly improved logic density\n");
@@ -99,7 +102,7 @@ struct SynthEcp5Pass : public ScriptPass
 	}
 
 	string top_opt, blif_file, edif_file, json_file;
-	bool noccu2, nodffe, nobram, nolutram, nowidelut, flatten, retime, abc2, abc9, nodsp, vpr;
+	bool noccu2, nodffe, nobram, nolutram, nowidelut, asyncprld, flatten, retime, abc2, abc9, nodsp, vpr;
 
 	void clear_flags() YS_OVERRIDE
 	{
@@ -112,6 +115,7 @@ struct SynthEcp5Pass : public ScriptPass
 		nobram = false;
 		nolutram = false;
 		nowidelut = false;
+		asyncprld = false;
 		flatten = true;
 		retime = false;
 		abc2 = false;
@@ -176,6 +180,10 @@ struct SynthEcp5Pass : public ScriptPass
 				nobram = true;
 				continue;
 			}
+			if (args[argidx] == "-asyncprld") {
+				asyncprld = true;
+				continue;
+			}
 			if (args[argidx] == "-nolutram" || /*deprecated alias*/ args[argidx] == "-nodram") {
 				nolutram = true;
 				continue;
@@ -222,7 +230,7 @@ struct SynthEcp5Pass : public ScriptPass
 	{
 		if (check_label("begin"))
 		{
-			run("read_verilog -D_ABC -lib +/ecp5/cells_sim.v +/ecp5/cells_bb.v");
+			run("read_verilog -lib +/ecp5/cells_sim.v +/ecp5/cells_bb.v");
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
 		}
 
@@ -258,13 +266,13 @@ struct SynthEcp5Pass : public ScriptPass
 
 		if (!nobram && check_label("map_bram", "(skip if -nobram)"))
 		{
-			run("memory_bram -rules +/ecp5/bram.txt");
+			run("memory_bram -rules +/ecp5/brams.txt");
 			run("techmap -map +/ecp5/brams_map.v");
 		}
 
 		if (!nolutram && check_label("map_lutram", "(skip if -nolutram)"))
 		{
-			run("memory_bram -rules +/ecp5/lutram.txt");
+			run("memory_bram -rules +/ecp5/lutrams.txt");
 			run("techmap -map +/ecp5/lutrams_map.v");
 		}
 
@@ -282,7 +290,7 @@ struct SynthEcp5Pass : public ScriptPass
 			else
 				run("techmap -map +/techmap.v -map +/ecp5/arith_map.v");
 			if (retime || help_mode)
-				run("abc -dff", "(only if -retime)");
+				run("abc -dff -D 1", "(only if -retime)");
 		}
 
 		if (check_label("map_ffs"))
@@ -292,7 +300,7 @@ struct SynthEcp5Pass : public ScriptPass
 			run("opt_clean");
 			if (!nodffe)
 				run("dff2dffe -direct-match $_DFF_* -direct-match $__DFFS_*");
-			run("techmap -D NO_LUT -map +/ecp5/cells_map.v");
+			run(stringf("techmap -D NO_LUT %s -map +/ecp5/cells_map.v", help_mode ? "[-D ASYNC_PRLD]" : (asyncprld ? "-D ASYNC_PRLD" : "")));
 			run("opt_expr -undriven -mux_undef");
 			run("simplemap");
 			run("ecp5_ffinit");
@@ -306,10 +314,11 @@ struct SynthEcp5Pass : public ScriptPass
 			if (abc2 || help_mode) {
 				run("abc", "      (only if -abc2)");
 			}
-			std::string techmap_args = "-map +/ecp5/latches_map.v";
+			std::string techmap_args = asyncprld ? "" : "-map +/ecp5/latches_map.v";
 			if (abc9)
 				techmap_args += " -map +/ecp5/abc9_map.v -max_iter 1";
-			run("techmap " + techmap_args);
+			if (!asyncprld || abc9)
+				run("techmap " + techmap_args);
 
 			if (abc9) {
 				run("read_verilog -icells -lib +/ecp5/abc9_model.v");

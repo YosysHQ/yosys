@@ -65,9 +65,9 @@ CELLS = [
 
     # CLB -- registers/latches.
     # Virtex 1/2/4/5, Spartan 3.
-    Cell('FDCPE', port_attrs={'C': ['clkbuf_sink']}),
-    Cell('FDRSE', port_attrs={'C': ['clkbuf_sink']}),
-    Cell('LDCPE', port_attrs={'C': ['clkbuf_sink']}),
+    # Cell('FDCPE', port_attrs={'C': ['clkbuf_sink']}),
+    # Cell('FDRSE', port_attrs={'C': ['clkbuf_sink']}),
+    # Cell('LDCPE', port_attrs={'C': ['clkbuf_sink']}),
     # Virtex 6, Spartan 6, Series 7, Ultrascale.
     # Cell('FDCE'),
     # Cell('FDPE'),
@@ -75,8 +75,8 @@ CELLS = [
     # Cell('FDSE'),
     # Cell('LDCE'),
     # Cell('LDPE'),
-    Cell('AND2B1L'),
-    Cell('OR2L'),
+    # Cell('AND2B1L'),
+    # Cell('OR2L'),
 
     # CLB -- other.
     # Cell('LUT1'),
@@ -86,23 +86,23 @@ CELLS = [
     # Cell('LUT5'),
     # Cell('LUT6'),
     # Cell('LUT6_2'),
-    Cell('MUXF5'),
-    Cell('MUXF6'),
+    # Cell('MUXF5'),
+    # Cell('MUXF6'),
     # Cell('MUXF7'),
     # Cell('MUXF8'),
-    Cell('MUXF9'),
+    # Cell('MUXF9'),
     # Cell('CARRY4'),
-    Cell('CARRY8'),
+    # Cell('CARRY8'),
     # Cell('MUXCY'),
     # Cell('XORCY'),
-    Cell('ORCY'),
-    Cell('MULT_AND'),
-    Cell('SRL16', port_attrs={'CLK': ['clkbuf_sink']}),
+    # Cell('ORCY'),
+    # Cell('MULT_AND'),
+    # Cell('SRL16', port_attrs={'CLK': ['clkbuf_sink']}),
     # Cell('SRL16E', port_attrs={'CLK': ['clkbuf_sink']}),
-    Cell('SRLC16', port_attrs={'CLK': ['clkbuf_sink']}),
+    # Cell('SRLC16', port_attrs={'CLK': ['clkbuf_sink']}),
     # Cell('SRLC16E', port_attrs={'CLK': ['clkbuf_sink']}),
     # Cell('SRLC32E', port_attrs={'CLK': ['clkbuf_sink']}),
-    Cell('CFGLUT5', port_attrs={'CLK': ['clkbuf_sink']}),
+    # Cell('CFGLUT5', port_attrs={'CLK': ['clkbuf_sink']}),
 
     # Block RAM.
     # Virtex.

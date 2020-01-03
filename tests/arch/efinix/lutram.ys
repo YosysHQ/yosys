@@ -1,8 +1,8 @@
-read_verilog ../common/memory.v
-hierarchy -top top
+read_verilog ../common/lutram.v
+hierarchy -top lutram_1w1r
 proc
 memory -nomap
-equiv_opt -run :prove -map +/gowin/cells_sim.v synth_gowin
+equiv_opt -run :prove -map +/efinix/cells_sim.v synth_efinix
 memory
 opt -full
 
@@ -12,7 +12,7 @@ miter -equiv -flatten -make_assert -make_outputs gold gate miter
 sat -prove-asserts -seq 5 -set-init-zero -show-inputs -show-outputs miter
 
 design -load postopt
-cd top
-select -assert-count 8 t:RAM16S4
-# other logic present that is not simple
-#select -assert-none t:RAM16S4 %% t:* %D
+cd lutram_1w1r
+select -assert-count 1 t:EFX_GBUFCE
+select -assert-count 1 t:EFX_RAM_5K
+select -assert-none t:EFX_GBUFCE t:EFX_RAM_5K %% t:* %D

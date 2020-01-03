@@ -7,10 +7,8 @@ module MyMem #(
   input                  Clk_i,
   input  [AddrWidth-1:0] Addr_i,
   input  [DataWidth-1:0] Data_i,
-  output [DataWidth-1:0] Data_o,
+  output reg [DataWidth-1:0] Data_o,
   input                  WR_i);
-
-  reg [DataWidth-1:0] Data_o;
 
   localparam Size = 2**AddrWidth;
 

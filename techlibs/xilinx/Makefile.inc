@@ -1,5 +1,6 @@
 
 OBJS += techlibs/xilinx/synth_xilinx.o
+OBJS += techlibs/xilinx/xilinx_dffopt.o
 
 GENFILES += techlibs/xilinx/brams_init_36.vh
 GENFILES += techlibs/xilinx/brams_init_32.vh

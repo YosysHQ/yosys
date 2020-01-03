@@ -27,6 +27,8 @@
 
 `ifndef _NO_FFS
 
+// No reset.
+
 module  \$_DFF_N_   (input D, C, output Q);
   parameter [0:0] _TECHMAP_WIREINIT_Q_ = 1'bx;
   generate if (_TECHMAP_WIREINIT_Q_ === 1'b1)
@@ -45,6 +47,8 @@ module  \$_DFF_P_   (input D, C, output Q);
   endgenerate
   wire _TECHMAP_REMOVEINIT_Q_ = 1;
 endmodule
+
+// No reset, enable.
 
 module  \$_DFFE_NP_ (input D, C, E, output Q);
   parameter [0:0] _TECHMAP_WIREINIT_Q_ = 1'bx;
@@ -65,30 +69,14 @@ module  \$_DFFE_PP_ (input D, C, E, output Q);
   wire _TECHMAP_REMOVEINIT_Q_ = 1;
 endmodule
 
-module  \$_DFF_NN0_ (input D, C, R, output Q);
-  parameter [0:0] _TECHMAP_WIREINIT_Q_ = 1'bx;
-  generate if (_TECHMAP_WIREINIT_Q_ === 1'b1)
-    $error("Spartan 6 doesn't support FFs with asynchronous reset initialized to 1");
-  else
-    FDCE_1 #(.INIT(_TECHMAP_WIREINIT_Q_)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(1'b1), .CLR(!R));
-  endgenerate
-  wire _TECHMAP_REMOVEINIT_Q_ = 1;
-endmodule
+// Async reset.
+
 module  \$_DFF_NP0_ (input D, C, R, output Q);
   parameter [0:0] _TECHMAP_WIREINIT_Q_ = 1'bx;
   generate if (_TECHMAP_WIREINIT_Q_ === 1'b1)
     $error("Spartan 6 doesn't support FFs with asynchronous reset initialized to 1");
   else
     FDCE_1 #(.INIT(_TECHMAP_WIREINIT_Q_)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(1'b1), .CLR( R));
-  endgenerate
-  wire _TECHMAP_REMOVEINIT_Q_ = 1;
-endmodule
-module  \$_DFF_PN0_ (input D, C, R, output Q);
-  parameter [0:0] _TECHMAP_WIREINIT_Q_ = 1'bx;
-  generate if (_TECHMAP_WIREINIT_Q_ === 1'b1)
-    $error("Spartan 6 doesn't support FFs with asynchronous reset initialized to 1");
-  else
-    FDCE   #(.INIT(_TECHMAP_WIREINIT_Q_)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(1'b1), .CLR(!R));
   endgenerate
   wire _TECHMAP_REMOVEINIT_Q_ = 1;
 endmodule
@@ -102,30 +90,12 @@ module  \$_DFF_PP0_ (input D, C, R, output Q);
   wire _TECHMAP_REMOVEINIT_Q_ = 1;
 endmodule
 
-module  \$_DFF_NN1_ (input D, C, R, output Q);
-  parameter [0:0] _TECHMAP_WIREINIT_Q_ = 1'bx;
-  generate if (_TECHMAP_WIREINIT_Q_ === 1'b0)
-    $error("Spartan 6 doesn't support FFs with asynchronous set initialized to 0");
-  else
-    FDPE_1 #(.INIT(_TECHMAP_WIREINIT_Q_)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(1'b1), .PRE(!R));
-  endgenerate
-  wire _TECHMAP_REMOVEINIT_Q_ = 1;
-endmodule
 module  \$_DFF_NP1_ (input D, C, R, output Q);
   parameter [0:0] _TECHMAP_WIREINIT_Q_ = 1'bx;
   generate if (_TECHMAP_WIREINIT_Q_ === 1'b0)
     $error("Spartan 6 doesn't support FFs with asynchronous set initialized to 0");
   else
     FDPE_1 #(.INIT(_TECHMAP_WIREINIT_Q_)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(1'b1), .PRE( R));
-  endgenerate
-  wire _TECHMAP_REMOVEINIT_Q_ = 1;
-endmodule
-module  \$_DFF_PN1_ (input D, C, R, output Q);
-  parameter [0:0] _TECHMAP_WIREINIT_Q_ = 1'bx;
-  generate if (_TECHMAP_WIREINIT_Q_ === 1'b0)
-    $error("Spartan 6 doesn't support FFs with asynchronous set initialized to 0");
-  else
-    FDPE   #(.INIT(_TECHMAP_WIREINIT_Q_)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(1'b1), .PRE(!R));
   endgenerate
   wire _TECHMAP_REMOVEINIT_Q_ = 1;
 endmodule
@@ -138,6 +108,128 @@ module  \$_DFF_PP1_ (input D, C, R, output Q);
   endgenerate
   wire _TECHMAP_REMOVEINIT_Q_ = 1;
 endmodule
+
+// Async reset, enable.
+
+module  \$__DFFE_NP0 (input D, C, E, R, output Q);
+  parameter [0:0] _TECHMAP_WIREINIT_Q_ = 1'bx;
+  generate if (_TECHMAP_WIREINIT_Q_ === 1'b1)
+    $error("Spartan 6 doesn't support FFs with asynchronous reset initialized to 1");
+  else
+    FDCE_1 #(.INIT(_TECHMAP_WIREINIT_Q_)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(E), .CLR( R));
+  endgenerate
+  wire _TECHMAP_REMOVEINIT_Q_ = 1;
+endmodule
+module  \$__DFFE_PP0 (input D, C, E, R, output Q);
+  parameter [0:0] _TECHMAP_WIREINIT_Q_ = 1'bx;
+  generate if (_TECHMAP_WIREINIT_Q_ === 1'b1)
+    $error("Spartan 6 doesn't support FFs with asynchronous reset initialized to 1");
+  else
+    FDCE   #(.INIT(_TECHMAP_WIREINIT_Q_)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(E), .CLR( R));
+  endgenerate
+  wire _TECHMAP_REMOVEINIT_Q_ = 1;
+endmodule
+
+module  \$__DFFE_NP1 (input D, C, E, R, output Q);
+  parameter [0:0] _TECHMAP_WIREINIT_Q_ = 1'bx;
+  generate if (_TECHMAP_WIREINIT_Q_ === 1'b0)
+    $error("Spartan 6 doesn't support FFs with asynchronous set initialized to 0");
+  else
+    FDPE_1 #(.INIT(_TECHMAP_WIREINIT_Q_)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(E), .PRE( R));
+  endgenerate
+  wire _TECHMAP_REMOVEINIT_Q_ = 1;
+endmodule
+module  \$__DFFE_PP1 (input D, C, E, R, output Q);
+  parameter [0:0] _TECHMAP_WIREINIT_Q_ = 1'bx;
+  generate if (_TECHMAP_WIREINIT_Q_ === 1'b0)
+    $error("Spartan 6 doesn't support FFs with asynchronous set initialized to 0");
+  else
+    FDPE   #(.INIT(_TECHMAP_WIREINIT_Q_)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(E), .PRE( R));
+  endgenerate
+  wire _TECHMAP_REMOVEINIT_Q_ = 1;
+endmodule
+
+// Sync reset.
+
+module  \$__DFFS_NP0_ (input D, C, R, output Q);
+  parameter [0:0] _TECHMAP_WIREINIT_Q_ = 1'bx;
+  generate if (_TECHMAP_WIREINIT_Q_ === 1'b1)
+    $error("Spartan 6 doesn't support FFs with reset initialized to 1");
+  else
+    FDRE_1 #(.INIT(_TECHMAP_WIREINIT_Q_)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(1'b1), .R( R));
+  endgenerate
+  wire _TECHMAP_REMOVEINIT_Q_ = 1;
+endmodule
+module  \$__DFFS_PP0_ (input D, C, R, output Q);
+  parameter [0:0] _TECHMAP_WIREINIT_Q_ = 1'bx;
+  generate if (_TECHMAP_WIREINIT_Q_ === 1'b1)
+    $error("Spartan 6 doesn't support FFs with reset initialized to 1");
+  else
+    FDRE   #(.INIT(_TECHMAP_WIREINIT_Q_)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(1'b1), .R( R));
+  endgenerate
+  wire _TECHMAP_REMOVEINIT_Q_ = 1;
+endmodule
+
+module  \$__DFFS_NP1_ (input D, C, R, output Q);
+  parameter [0:0] _TECHMAP_WIREINIT_Q_ = 1'bx;
+  generate if (_TECHMAP_WIREINIT_Q_ === 1'b0)
+    $error("Spartan 6 doesn't support FFs with set initialized to 0");
+  else
+    FDSE_1 #(.INIT(_TECHMAP_WIREINIT_Q_)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(1'b1), .S( R));
+  endgenerate
+  wire _TECHMAP_REMOVEINIT_Q_ = 1;
+endmodule
+module  \$__DFFS_PP1_ (input D, C, R, output Q);
+  parameter [0:0] _TECHMAP_WIREINIT_Q_ = 1'bx;
+  generate if (_TECHMAP_WIREINIT_Q_ === 1'b0)
+    $error("Spartan 6 doesn't support FFs with set initialized to 0");
+  else
+    FDSE   #(.INIT(_TECHMAP_WIREINIT_Q_)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(1'b1), .S( R));
+  endgenerate
+  wire _TECHMAP_REMOVEINIT_Q_ = 1;
+endmodule
+
+// Sync reset, enable.
+
+module  \$__DFFSE_NP0 (input D, C, E, R, output Q);
+  parameter [0:0] _TECHMAP_WIREINIT_Q_ = 1'bx;
+  generate if (_TECHMAP_WIREINIT_Q_ === 1'b1)
+    $error("Spartan 6 doesn't support FFs with reset initialized to 1");
+  else
+    FDRE_1 #(.INIT(_TECHMAP_WIREINIT_Q_)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(E), .R( R));
+  endgenerate
+  wire _TECHMAP_REMOVEINIT_Q_ = 1;
+endmodule
+module  \$__DFFSE_PP0 (input D, C, E, R, output Q);
+  parameter [0:0] _TECHMAP_WIREINIT_Q_ = 1'bx;
+  generate if (_TECHMAP_WIREINIT_Q_ === 1'b1)
+    $error("Spartan 6 doesn't support FFs with reset initialized to 1");
+  else
+    FDRE   #(.INIT(_TECHMAP_WIREINIT_Q_)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(E), .R( R));
+  endgenerate
+  wire _TECHMAP_REMOVEINIT_Q_ = 1;
+endmodule
+
+module  \$__DFFSE_NP1 (input D, C, E, R, output Q);
+  parameter [0:0] _TECHMAP_WIREINIT_Q_ = 1'bx;
+  generate if (_TECHMAP_WIREINIT_Q_ === 1'b0)
+    $error("Spartan 6 doesn't support FFs with set initialized to 0");
+  else
+    FDSE_1 #(.INIT(_TECHMAP_WIREINIT_Q_)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(E), .S( R));
+  endgenerate
+  wire _TECHMAP_REMOVEINIT_Q_ = 1;
+endmodule
+module  \$__DFFSE_PP1 (input D, C, E, R, output Q);
+  parameter [0:0] _TECHMAP_WIREINIT_Q_ = 1'bx;
+  generate if (_TECHMAP_WIREINIT_Q_ === 1'b0)
+    $error("Spartan 6 doesn't support FFs with set initialized to 0");
+  else
+    FDSE   #(.INIT(_TECHMAP_WIREINIT_Q_)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(E), .S( R));
+  endgenerate
+  wire _TECHMAP_REMOVEINIT_Q_ = 1;
+endmodule
+
+// Latches (no reset).
 
 module  \$_DLATCH_N_ (input E, D, output Q);
   parameter _TECHMAP_WIREINIT_Q_ = 1'bx;
@@ -157,6 +249,8 @@ module  \$_DLATCH_P_ (input E, D, output Q);
   endgenerate
   wire _TECHMAP_REMOVEINIT_Q_ = 1;
 endmodule
+
+// Latches with reset (TODO).
 
 `endif
 

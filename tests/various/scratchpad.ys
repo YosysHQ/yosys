@@ -1,0 +1,5 @@
+scratchpad -set foo "bar baz"
+scratchpad -copy foo oof
+scratchpad -unset foo
+scratchpad -assert oof "bar baz"
+scratchpad -assert-unset foo
