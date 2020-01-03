@@ -21,6 +21,7 @@
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
 #include "kernel/utils.h"
+#include "kernel/celltypes.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -194,58 +195,32 @@ void prep_holes(RTLIL::Module *module)
 
 	SigMap sigmap(module);
 
-	// TODO: Speed up toposort -- ultimately we care about
-	//       box ordering, but not individual AIG cells
 	dict<SigBit, pool<IdString>> bit_drivers, bit_users;
 	TopoSort<IdString, RTLIL::sort_by_id_str> toposort;
 	bool abc9_box_seen = false;
 
 	for (auto cell : module->selected_cells()) {
-		if (cell->type == "$_NOT_")
-		{
-			SigBit A = sigmap(cell->getPort("\\A").as_bit());
-			SigBit Y = sigmap(cell->getPort("\\Y").as_bit());
-			toposort.node(cell->name);
-			bit_users[A].insert(cell->name);
-			bit_drivers[Y].insert(cell->name);
-			continue;
-		}
-
-		if (cell->type == "$_AND_")
-		{
-			SigBit A = sigmap(cell->getPort("\\A").as_bit());
-			SigBit B = sigmap(cell->getPort("\\B").as_bit());
-			SigBit Y = sigmap(cell->getPort("\\Y").as_bit());
-			toposort.node(cell->name);
-			bit_users[A].insert(cell->name);
-			bit_users[B].insert(cell->name);
-			bit_drivers[Y].insert(cell->name);
-			continue;
-		}
-
 		if (cell->type == "$__ABC9_FF_")
 			continue;
 
-		RTLIL::Module* inst_module = design->module(cell->type);
-		if (inst_module) {
-			if (!inst_module->attributes.count("\\abc9_box_id") || cell->get_bool_attribute("\\abc9_keep"))
-				continue;
+		auto inst_module = module->design->module(cell->type);
+		bool abc9_box = inst_module && inst_module->attributes.count("\\abc9_box_id") && !cell->get_bool_attribute("\\abc9_keep");
+		abc9_box_seen = abc9_box_seen || abc9_box;
 
-			for (const auto &conn : cell->connections()) {
-				auto port_wire = inst_module->wire(conn.first);
-				// Ignore inout for the sake of topographical ordering
-				if (port_wire->port_input && !port_wire->port_output)
-					for (auto bit : sigmap(conn.second))
-						bit_users[bit].insert(cell->name);
-				if (port_wire->port_output)
-					for (auto bit : sigmap(conn.second))
-						bit_drivers[bit].insert(cell->name);
-			}
+		if (!abc9_box && !yosys_celltypes.cell_known(cell->type))
+			continue;
 
-                        abc9_box_seen = true;
+		for (auto conn : cell->connections()) {
+			if (cell->input(conn.first))
+				for (auto bit : sigmap(conn.second))
+					bit_users[bit].insert(cell->name);
 
-                        toposort.node(cell->name);
+			if (cell->output(conn.first))
+				for (auto bit : sigmap(conn.second))
+					bit_drivers[bit].insert(cell->name);
 		}
+
+		toposort.node(cell->name);
 	}
 
 	if (!abc9_box_seen)

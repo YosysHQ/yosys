@@ -199,7 +199,7 @@ struct XAigerWriter
 				}
 			}
 
-		for (auto cell : module->selected_cells()) {
+		for (auto cell : module->cells()) {
 			if (cell->type == "$_NOT_")
 			{
 				SigBit A = sigmap(cell->getPort("\\A").as_bit());
@@ -613,16 +613,9 @@ struct XAigerWriter
 			if (holes_module) {
 				log_push();
 
-				// Move into a new (temporary) design so that "clean" will only
-				// operate (and run checks on) this one module
-				RTLIL::Design *holes_design = new RTLIL::Design;
-				module->design->modules_.erase(holes_module->name);
-				holes_design->add(holes_module);
-
 				std::stringstream a_buffer;
 				XAigerWriter writer(holes_module);
 				writer.write_aiger(a_buffer, false /*ascii_mode*/);
-				delete holes_design;
 
 				f << "a";
 				std::string buffer_str = a_buffer.str();
