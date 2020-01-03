@@ -189,6 +189,8 @@ struct Abc9Pass : public ScriptPass
 		run("select -set abc9_holes A:abc9_holes");
 		run("flatten -wb @abc9_holes");
 		run("techmap @abc9_holes");
+		run("scc -set_attr abc9_scc_id {}");
+		run("abc9_ops -break_scc");
 		run("aigmap @abc9_holes");
 		if (dff_mode)
 			run("abc9_ops -prep_dff");
@@ -207,8 +209,6 @@ struct Abc9Pass : public ScriptPass
 				continue;
 			}
 
-			log_push();
-
 			active_design->selection().select(mod);
 
 			std::string tempdir_name = "/tmp/yosys-abc-XXXXXX";
@@ -216,14 +216,10 @@ struct Abc9Pass : public ScriptPass
 				tempdir_name[0] = tempdir_name[4] = '_';
 			tempdir_name = make_temp_dir(tempdir_name);
 
-			run("scc -set_attr abc9_scc_id {}");
-			run("abc9_ops -break_scc");
-			run("aigmap");
 			run(stringf("write_xaiger -map %s/input.sym %s/input.xaig", tempdir_name.c_str(), tempdir_name.c_str()),
 					"write_xaiger -map <abc-temp-dir>/input.sym <abc-temp-dir>/input.xaig");
 			run(stringf("%s -tempdir %s", map_cmd.str().c_str(), tempdir_name.c_str()),
 					"abc9_map [options] -tempdir <abc-temp-dir>");
-			run("abc9_ops -unbreak_scc");
 
 			if (cleanup)
 			{
@@ -232,11 +228,11 @@ struct Abc9Pass : public ScriptPass
 			}
 
 			active_design->selection().selected_modules.clear();
-
-			log_pop();
 		}
 
 		active_design->selection_stack.pop_back();
+
+		run("abc9_ops -unbreak_scc");
 	}
 } Abc9Pass;
 
