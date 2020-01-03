@@ -436,7 +436,6 @@ struct Abc9OpsPass : public Pass {
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing ABC9_OPS pass (helper functions for ABC9).\n");
-		log_push();
 
 		bool break_scc_mode = false;
 		bool unbreak_scc_mode = false;

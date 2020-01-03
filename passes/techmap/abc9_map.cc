@@ -266,8 +266,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 	fprintf(f, "%s\n", abc9_script.c_str());
 	fclose(f);
 
-	log_push();
-
 	int count_outputs = design->scratchpad_get_int("write_xaiger.num_outputs");
 	log("Extracted %d AND gates and %d wires to a netlist network with %d inputs and %d outputs.\n",
 			design->scratchpad_get_int("write_xaiger.num_ands"),
@@ -645,8 +643,6 @@ clone_lut:
 	//{
 	//	log("Don't call ABC as there is nothing to map.\n");
 	//}
-
-	log_pop();
 }
 
 struct Abc9MapPass : public Pass {
@@ -759,7 +755,6 @@ struct Abc9MapPass : public Pass {
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing ABC9_MAP pass (technology mapping using ABC9).\n");
-		log_push();
 
 #ifdef ABCEXTERNAL
 		std::string exe_file = ABCEXTERNAL;
@@ -913,8 +908,6 @@ struct Abc9MapPass : public Pass {
 					delay_target, lutin_shared, fast_mode, all_cells, show_tempdir,
 					box_file, lut_file, wire_delay, nomfs, tempdir_name);
 		}
-
-		log_pop();
 	}
 } Abc9MapPass;
 
