@@ -185,17 +185,17 @@ struct Abc9Pass : public ScriptPass
 
 	void script() YS_OVERRIDE
 	{
-		run("abc9_ops -prep_holes");
-		run("select -set abc9_holes A:abc9_holes");
-		run("flatten -wb @abc9_holes");
-		run("techmap @abc9_holes");
 		run("scc -set_attr abc9_scc_id {}");
-		run("abc9_ops -break_scc");
+		run("abc9_ops -break_scc"/*" -prep_holes"*/);
+//		run("select -set abc9_holes A:abc9_holes");
+//		run("dump @abc9_holes");
+//		run("flatten -wb @abc9_holes");
+//		run("techmap @abc9_holes");
 		run("aigmap");
 		if (dff_mode)
 			run("abc9_ops -prep_dff");
-		run("opt -purge @abc9_holes");
-		run("wbflip @abc9_holes");
+//		run("opt -purge @abc9_holes");
+//		run("wbflip @abc9_holes");
 
 		auto selected_modules = active_design->selected_modules();
 		active_design->selection_stack.emplace_back(false);
