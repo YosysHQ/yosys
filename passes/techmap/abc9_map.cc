@@ -198,7 +198,7 @@ struct abc9_output_filter
 
 void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string script_file, std::string exe_file,
 		vector<int> lut_costs, std::string delay_target, std::string /*lutin_shared*/, bool fast_mode,
-		const std::vector<RTLIL::Cell*> &cells, bool show_tempdir, std::string box_file, std::string lut_file,
+		bool show_tempdir, std::string box_file, std::string lut_file,
 		std::string wire_delay, bool nomfs, std::string tempdir_name
 )
 {
@@ -355,15 +355,11 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 			if (markgroups) remap_wire->attributes[ID(abcgroup)] = map_autoidx;
 		}
 
-		vector<RTLIL::Cell*> boxes;
-		for (auto cell : cells) {
-			if (cell->type.in(ID($_AND_), ID($_NOT_), ID($__ABC9_FF_))) {
-				module->remove(cell);
-				continue;
-			}
-			if (cell->attributes.erase("\\abc9_box_seq"))
-				boxes.emplace_back(cell);
-		}
+		for (auto it = module->cells_.begin(); it != module->cells_.end(); )
+			if (it->second->type.in(ID($_AND_), ID($_NOT_), ID($__ABC9_FF_)))
+				it = module->cells_.erase(it);
+			else
+				++it;
 
 		dict<SigBit, pool<IdString>> bit_drivers, bit_users;
 		TopoSort<IdString, RTLIL::sort_by_id_str> toposort;
@@ -455,9 +451,18 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 				cell->attributes = mapped_cell->attributes;
 			}
 
+			auto abc9_box = cell->attributes.erase("\\abc9_box_seq");
+			if (abc9_box) {
+				module->swap_names(cell, existing_cell);
+				module->remove(existing_cell);
+			}
 			RTLIL::Module* box_module = design->module(mapped_cell->type);
 			auto abc9_flop = box_module && box_module->attributes.count("\\abc9_flop");
 			for (auto &conn : mapped_cell->connections()) {
+				// Skip entire box ports composed entirely of padding only
+				if (abc9_box && conn.second.is_wire() && conn.second.as_wire()->get_bool_attribute(ID(abc9_padding)))
+					continue;
+
 				RTLIL::SigSpec newsig;
 				for (auto c : conn.second.chunks()) {
 					if (c.width == 0)
@@ -481,23 +486,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 							bit_drivers[i].insert(mapped_cell->name);
 				}
 			}
-		}
-
-		for (auto existing_cell : boxes) {
-			Cell *cell = module->cell(remap_name(existing_cell->name));
-			if (cell) {
-				for (auto &conn : existing_cell->connections()) {
-					if (!conn.second.is_wire())
-						continue;
-					Wire *wire = conn.second.as_wire();
-					if (!wire->get_bool_attribute(ID(abc9_padding)))
-						continue;
-					cell->unsetPort(conn.first);
-					log_debug("Dropping padded port connection for %s (%s) .%s (%s )\n", log_id(cell), cell->type.c_str(), log_id(conn.first), log_signal(conn.second));
-				}
-				module->swap_names(cell, existing_cell);
-			}
-			module->remove(existing_cell);
 		}
 
 		// Copy connections (and rename) from mapped_mod to module
@@ -888,10 +876,8 @@ struct Abc9MapPass : public Pass {
 				continue;
 			}
 
-			const std::vector<RTLIL::Cell*> all_cells = mod->selected_cells();
-
 			abc9_module(design, mod, script_file, exe_file, lut_costs,
-					delay_target, lutin_shared, fast_mode, all_cells, show_tempdir,
+					delay_target, lutin_shared, fast_mode, show_tempdir,
 					box_file, lut_file, wire_delay, nomfs, tempdir_name);
 		}
 	}
