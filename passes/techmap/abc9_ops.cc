@@ -109,39 +109,31 @@ void prep_dff(RTLIL::Module *module)
 	typedef SigSpec clkdomain_t;
 	dict<clkdomain_t, int> clk_to_mergeability;
 
-	//if (dff_mode)
-		for (auto cell : module->selected_cells()) {
-			if (cell->type != "$__ABC9_FF_")
-				continue;
+	for (auto cell : module->selected_cells()) {
+		if (cell->type != "$__ABC9_FF_")
+			continue;
 
-			Wire *abc9_clock_wire = module->wire(stringf("%s.clock", cell->name.c_str()));
-			if (abc9_clock_wire == NULL)
-				log_error("'%s.clock' is not a wire present in module '%s'.\n", cell->name.c_str(), log_id(module));
-			SigSpec abc9_clock = assign_map(abc9_clock_wire);
+		Wire *abc9_clock_wire = module->wire(stringf("%s.clock", cell->name.c_str()));
+		if (abc9_clock_wire == NULL)
+			log_error("'%s.clock' is not a wire present in module '%s'.\n", cell->name.c_str(), log_id(module));
+		SigSpec abc9_clock = assign_map(abc9_clock_wire);
 
-			clkdomain_t key(abc9_clock);
+		clkdomain_t key(abc9_clock);
 
-			auto r = clk_to_mergeability.insert(std::make_pair(abc9_clock, clk_to_mergeability.size() + 1));
-			auto r2 YS_ATTRIBUTE(unused) = cell->attributes.insert(std::make_pair(ID(abc9_mergeability), r.first->second));
-			log_assert(r2.second);
+		auto r = clk_to_mergeability.insert(std::make_pair(abc9_clock, clk_to_mergeability.size() + 1));
+		auto r2 YS_ATTRIBUTE(unused) = cell->attributes.insert(std::make_pair(ID(abc9_mergeability), r.first->second));
+		log_assert(r2.second);
 
-			Wire *abc9_init_wire = module->wire(stringf("%s.init", cell->name.c_str()));
-			if (abc9_init_wire == NULL)
-				log_error("'%s.init' is not a wire present in module '%s'.\n", cell->name.c_str(), log_id(module));
-			log_assert(GetSize(abc9_init_wire) == 1);
-			SigSpec abc9_init = assign_map(abc9_init_wire);
-			if (!abc9_init.is_fully_const())
-				log_error("'%s.init' is not a constant wire present in module '%s'.\n", cell->name.c_str(), log_id(module));
-			r2 = cell->attributes.insert(std::make_pair(ID(abc9_init), abc9_init.as_const()));
-			log_assert(r2.second);
-		}
-	//else
-	//	for (auto cell : module->selected_cells()) {
-	//		auto inst_module = design->module(cell->type);
-	//		if (!inst_module || !inst_module->get_bool_attribute("\\abc9_flop"))
-	//			continue;
-	//		cell->set_bool_attribute("\\abc9_keep");
-	//	}
+		Wire *abc9_init_wire = module->wire(stringf("%s.init", cell->name.c_str()));
+		if (abc9_init_wire == NULL)
+			log_error("'%s.init' is not a wire present in module '%s'.\n", cell->name.c_str(), log_id(module));
+		log_assert(GetSize(abc9_init_wire) == 1);
+		SigSpec abc9_init = assign_map(abc9_init_wire);
+		if (!abc9_init.is_fully_const())
+			log_error("'%s.init' is not a constant wire present in module '%s'.\n", cell->name.c_str(), log_id(module));
+		r2 = cell->attributes.insert(std::make_pair(ID(abc9_init), abc9_init.as_const()));
+		log_assert(r2.second);
+	}
 
 	RTLIL::Module *holes_module = design->module(stringf("%s$holes", module->name.c_str()));
 	if (holes_module) {
@@ -188,7 +180,7 @@ void prep_dff(RTLIL::Module *module)
 	}
 }
 
-void prep_holes(RTLIL::Module *module)
+void prep_holes(RTLIL::Module *module, bool dff)
 {
 	auto design = module->design;
 	log_assert(design);
@@ -204,10 +196,15 @@ void prep_holes(RTLIL::Module *module)
 			continue;
 
 		auto inst_module = module->design->module(cell->type);
-		bool abc9_box = inst_module && inst_module->attributes.count("\\abc9_box_id") && !cell->get_bool_attribute("\\abc9_keep");
-		abc9_box_seen = abc9_box_seen || abc9_box;
-
-		if (!abc9_box && !yosys_celltypes.cell_known(cell->type))
+		bool abc9_box = inst_module && inst_module->attributes.count("\\abc9_box_id");
+		bool abc9_flop = false;
+		if (abc9_box) {
+			abc9_flop = inst_module->get_bool_attribute("\\abc9_flop");
+			if (abc9_flop && !dff)
+				continue;
+			abc9_box_seen = abc9_box;
+		}
+		else if (!yosys_celltypes.cell_known(cell->type))
 			continue;
 
 		for (auto conn : cell->connections()) {
@@ -215,7 +212,7 @@ void prep_holes(RTLIL::Module *module)
 				for (auto bit : sigmap(conn.second))
 					bit_users[bit].insert(cell->name);
 
-			if (cell->output(conn.first))
+			if (cell->output(conn.first) && !abc9_flop)
 				for (auto bit : sigmap(conn.second))
 					bit_drivers[bit].insert(cell->name);
 		}
@@ -255,8 +252,7 @@ void prep_holes(RTLIL::Module *module)
 		log_assert(cell);
 
 		RTLIL::Module* box_module = design->module(cell->type);
-		if (!box_module || !box_module->attributes.count("\\abc9_box_id")
-				|| cell->get_bool_attribute("\\abc9_keep"))
+		if (!box_module || !box_module->attributes.count("\\abc9_box_id"))
 			continue;
 
 		bool blackbox = box_module->get_blackbox_attribute(true /* ignore_wb */);
@@ -297,7 +293,7 @@ void prep_holes(RTLIL::Module *module)
 			}
 		}
 
-		cell->attributes["\\abc9_box_order"] = box_list.size();
+		cell->attributes["\\abc9_box_seq"] = box_list.size();
 		box_list.emplace_back(cell);
 	}
 	log_assert(!box_list.empty());
@@ -437,6 +433,7 @@ struct Abc9OpsPass : public Pass {
 		bool unbreak_scc_mode = false;
 		bool prep_dff_mode = false;
 		bool prep_holes_mode = false;
+		bool dff_mode = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -455,6 +452,10 @@ struct Abc9OpsPass : public Pass {
 			}
 			if (arg == "-prep_holes") {
 				prep_holes_mode = true;
+				continue;
+			}
+			if (arg == "-dff") {
+				dff_mode = true;
 				continue;
 			}
 			break;
@@ -479,7 +480,7 @@ struct Abc9OpsPass : public Pass {
 			if (prep_dff_mode)
 				prep_dff(mod);
 			if (prep_holes_mode)
-				prep_holes(mod);
+				prep_holes(mod, dff_mode);
 		}
 	}
 } Abc9OpsPass;

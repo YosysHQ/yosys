@@ -355,28 +355,14 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 			if (markgroups) remap_wire->attributes[ID(abcgroup)] = map_autoidx;
 		}
 
-		dict<IdString, bool> abc9_box;
 		vector<RTLIL::Cell*> boxes;
 		for (auto cell : cells) {
 			if (cell->type.in(ID($_AND_), ID($_NOT_), ID($__ABC9_FF_))) {
 				module->remove(cell);
 				continue;
 			}
-			auto jt = abc9_box.find(cell->type);
-			if (jt == abc9_box.end()) {
-				RTLIL::Module* box_module = design->module(cell->type);
-				jt = abc9_box.insert(std::make_pair(cell->type, box_module && box_module->attributes.count(ID(abc9_box_id)))).first;
-			}
-			if (jt->second) {
-				auto kt = cell->attributes.find("\\abc9_keep");
-				bool abc9_keep = false;
-				if (kt != cell->attributes.end()) {
-					abc9_keep = kt->second.as_bool();
-					cell->attributes.erase(kt);
-				}
-				if (!abc9_keep)
-					boxes.emplace_back(cell);
-			}
+			if (cell->attributes.erase("\\abc9_box_seq"))
+				boxes.emplace_back(cell);
 		}
 
 		dict<SigBit, pool<IdString>> bit_drivers, bit_users;

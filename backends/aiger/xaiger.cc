@@ -239,17 +239,13 @@ struct XAigerWriter
 
 			RTLIL::Module* inst_module = module->design->module(cell->type);
 			if (inst_module) {
-				bool abc9_box = inst_module->attributes.count("\\abc9_box_id");
-				bool abc9_flop = inst_module->get_bool_attribute("\\abc9_flop");
-				if (abc9_box && cell->get_bool_attribute("\\abc9_keep"))
-					abc9_box = false;
-
-				if (abc9_box) {
-					int abc9_box_order = cell->attributes.at("\\abc9_box_order").as_int();
-					if (GetSize(box_list) <= abc9_box_order)
-						box_list.resize(abc9_box_order+1);
-					box_list[abc9_box_order] = cell;
-					if (!abc9_flop)
+				auto it = cell->attributes.find("\\abc9_box_seq");
+				if (it != cell->attributes.end()) {
+					int abc9_box_seq = it->second.as_int();
+					if (GetSize(box_list) <= abc9_box_seq)
+						box_list.resize(abc9_box_seq+1);
+					box_list[abc9_box_seq] = cell;
+					if (!inst_module->get_bool_attribute("\\abc9_flop"))
 						continue;
 				}
 
@@ -542,6 +538,8 @@ struct XAigerWriter
 
 			int box_count = 0;
 			for (auto cell : box_list) {
+				log_assert(cell);
+
 				RTLIL::Module* box_module = module->design->module(cell->type);
 				log_assert(box_module);
 
@@ -611,7 +609,7 @@ struct XAigerWriter
 			f.write(buffer_str.data(), buffer_str.size());
 
 			if (holes_module) {
-				log_push();
+				log_module(holes_module);
 
 				std::stringstream a_buffer;
 				XAigerWriter writer(holes_module);
@@ -622,8 +620,6 @@ struct XAigerWriter
 				int32_t buffer_size_be = to_big_endian(buffer_str.size());
 				f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
 				f.write(buffer_str.data(), buffer_str.size());
-
-				log_pop();
 			}
 		}
 
