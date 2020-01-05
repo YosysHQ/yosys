@@ -254,45 +254,6 @@ void prep_holes(RTLIL::Module *module, bool dff)
 		RTLIL::Module* box_module = design->module(cell->type);
 		if (!box_module || !box_module->attributes.count("\\abc9_box_id"))
 			continue;
-
-		bool blackbox = box_module->get_blackbox_attribute(true /* ignore_wb */);
-
-		// Fully pad all unused input connections of this box cell with S0
-		// Fully pad all undriven output connections of this box cell with anonymous wires
-		for (const auto &port_name : box_module->ports) {
-			RTLIL::Wire* w = box_module->wire(port_name);
-			log_assert(w);
-			auto it = cell->connections_.find(port_name);
-			if (w->port_input) {
-				RTLIL::SigSpec rhs;
-				if (it != cell->connections_.end()) {
-					if (GetSize(it->second) < GetSize(w))
-						it->second.append(RTLIL::SigSpec(State::S0, GetSize(w)-GetSize(it->second)));
-					rhs = it->second;
-				}
-				else {
-					rhs = RTLIL::SigSpec(State::S0, GetSize(w));
-					cell->setPort(port_name, rhs);
-				}
-			}
-			if (w->port_output) {
-				RTLIL::SigSpec rhs;
-				auto it = cell->connections_.find(w->name);
-				if (it != cell->connections_.end()) {
-					if (GetSize(it->second) < GetSize(w))
-						it->second.append(module->addWire(NEW_ID, GetSize(w)-GetSize(it->second)));
-					rhs = it->second;
-				}
-				else {
-					Wire *wire = module->addWire(NEW_ID, GetSize(w));
-					if (blackbox)
-						wire->set_bool_attribute(ID(abc9_padding));
-					rhs = wire;
-					cell->setPort(port_name, rhs);
-				}
-			}
-		}
-
 		cell->attributes["\\abc9_box_seq"] = box_list.size();
 		box_list.emplace_back(cell);
 	}
