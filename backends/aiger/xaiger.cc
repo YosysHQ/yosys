@@ -318,14 +318,13 @@ struct XAigerWriter
 				}
 			}
 
+			// Fully pad all unused input connections of this box cell with S0
+			// Fully pad all undriven output connections of this box cell with anonymous wires
 			for (auto port_name : r.first->second) {
 				auto w = box_module->wire(port_name);
 				log_assert(w);
-
-				SigSpec rhs = cell->connections_.at(port_name, SigSpec());
-				if (w->port_input) {
-					// Add padding to fill entire port
-					rhs.append(SigSpec(State::Sx, GetSize(w)-GetSize(rhs)));
+				auto rhs = cell->getPort(port_name);
+				if (w->port_input)
 					for (auto b : rhs) {
 						SigBit I = sigmap(b);
 						if (b == RTLIL::Sx)
@@ -339,18 +338,14 @@ struct XAigerWriter
 						co_bits.emplace_back(b);
 						unused_bits.erase(I);
 					}
-				}
-				if (w->port_output) {
-					// Add padding to fill entire port
-					rhs.append(SigSpec(State::Sx, GetSize(w)-GetSize(rhs)));
-					for (const auto &b : rhs) {
+				if (w->port_output)
+					for (const auto &b : rhs.bits()) {
 						SigBit O = sigmap(b);
 						if (O != b)
 							alias_map[O] = b;
 						ci_bits.emplace_back(b);
 						undriven_bits.erase(O);
 					}
-				}
 			}
 
 			// Connect <cell>.abc9_ff.Q (inserted by abc9_map.v) as the last input to the flop box
@@ -417,11 +412,8 @@ struct XAigerWriter
 
 		for (auto &bit : ci_bits) {
 			aig_m++, aig_i++;
-			// State::Sx if padding
-			if (bit != State::Sx) {
-				log_assert(!aig_map.count(bit));
-				aig_map[bit] = 2*aig_m;
-			}
+			log_assert(!aig_map.count(bit));
+			aig_map[bit] = 2*aig_m;
 		}
 
 		for (auto bit : co_bits) {
@@ -609,6 +601,8 @@ struct XAigerWriter
 			f.write(buffer_str.data(), buffer_str.size());
 
 			if (holes_module) {
+				log_module(holes_module);
+
 				std::stringstream a_buffer;
 				XAigerWriter writer(holes_module, true /* holes_mode */);
 				writer.write_aiger(a_buffer, false /*ascii_mode*/);

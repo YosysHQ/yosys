@@ -438,19 +438,24 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 			if (existing_cell) {
 				cell->parameters = existing_cell->parameters;
 				cell->attributes = existing_cell->attributes;
-				if (cell->attributes.erase("\\abc9_box_seq")) {
-					module->swap_names(cell, existing_cell);
-					module->remove(existing_cell);
-				}
 			}
 			else {
 				cell->parameters = mapped_cell->parameters;
 				cell->attributes = mapped_cell->attributes;
 			}
 
+			auto abc9_box = cell->attributes.erase("\\abc9_box_seq");
+			if (abc9_box) {
+				module->swap_names(cell, existing_cell);
+				module->remove(existing_cell);
+			}
 			RTLIL::Module* box_module = design->module(mapped_cell->type);
 			auto abc9_flop = box_module && box_module->attributes.count("\\abc9_flop");
 			for (auto &conn : mapped_cell->connections()) {
+				// Skip entire box ports composed entirely of padding only
+				if (abc9_box && conn.second.is_wire() && conn.second.as_wire()->get_bool_attribute(ID(abc9_padding)))
+					continue;
+
 				RTLIL::SigSpec newsig;
 				for (auto c : conn.second.chunks()) {
 					if (c.width == 0)
