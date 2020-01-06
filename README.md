@@ -376,10 +376,11 @@ Verilog Attributes and non-standard features
 - The port attribute ``abc9_arrival`` specifies an integer (for output ports
   only) to be used as the arrival time of this sequential port. It can be used,
   for example, to specify the clk-to-Q delay of a flip-flop for consideration
-  during techmapping.
+  during `abc9` techmapping.
 
 - The module attribute ``abc9_flop`` is a boolean marking the module as a
-  whitebox that describes the synchronous behaviour of a flip-flop.
+  flip-flop. This allows `abc9` to analyse its contents in order to perform
+  sequential synthesis.
 
 - The frontend sets attributes ``always_comb``, ``always_latch`` and
   ``always_ff`` on processes derived from SystemVerilog style always blocks
