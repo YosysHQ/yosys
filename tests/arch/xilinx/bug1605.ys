@@ -1,0 +1,19 @@
+read_verilog <<EOT
+module top(inout io);
+    wire in;
+    wire t;
+    wire o;
+
+    IOBUF IOBUF(
+      .I(in),
+      .T(t),
+      .IO(io),
+      .O(o)
+    );
+endmodule
+EOT
+
+synth_xilinx
+cd top
+select -assert-count 1 t:IOBUF
+select -assert-none t:* t:IOBUF %d

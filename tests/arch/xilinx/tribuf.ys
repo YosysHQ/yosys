@@ -7,6 +7,7 @@ synth
 equiv_opt -assert -map +/xilinx/cells_sim.v -map +/simcells.v synth_xilinx # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd tristate # Constrain all select calls below inside the top module
-# TODO :: Tristate logic not yet supported; see https://github.com/YosysHQ/yosys/issues/1225
-select -assert-count 1 t:$_TBUF_
-select -assert-none t:$_TBUF_ %% t:* %D
+select -assert-count 2 t:IBUF
+select -assert-count 1 t:INV
+select -assert-count 1 t:OBUFT
+select -assert-none t:IBUF t:INV t:OBUFT %% t:* %D

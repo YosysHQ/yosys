@@ -19,7 +19,7 @@ EOT
 proc
 design -save read
 
-equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx
+equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -noiopad
 design -load postopt
 cd cascade
 select -assert-count 3 t:DSP48E1
@@ -35,7 +35,7 @@ select -assert-none t:DSP48E1 t:BUFG %% t:* %D
 select -assert-count 2 t:DSP48E1 %co:+[PCOUT] t:DSP48E1 %d %co:+[PCIN] w:* %d t:DSP48E1 %i
 
 design -load read
-equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -family xc6s
+equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -family xc6s -noiopad
 design -load postopt
 cd cascade
 select -assert-count 3 t:DSP48A1
@@ -65,7 +65,7 @@ EOT
 proc
 design -save read
 
-equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx
+equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -noiopad
 design -load postopt
 cd cascade
 select -assert-count 2 t:DSP48E1
@@ -75,7 +75,7 @@ select -assert-none t:DSP48E1 t:BUFG %% t:* %D
 select -assert-count 1 t:DSP48E1 %co:+[PCOUT] t:DSP48E1 %d %co:+[PCIN] w:* %d t:DSP48E1 %i
 
 design -load read
-equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -family xc6s
+equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -family xc6s -noiopad
 design -load postopt
 cd cascade
 select -assert-count 2 t:DSP48A1

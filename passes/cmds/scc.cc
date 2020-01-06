@@ -301,10 +301,10 @@ struct SccPass : public Pass {
 		RTLIL::Selection newSelection(false);
 		int scc_counter = 0;
 
-		for (auto &mod_it : design->modules_)
-			if (design->selected(mod_it.second))
+		for (auto mod : design->modules())
+			if (!mod->get_blackbox_attribute() && design->selected(mod))
 			{
-				SccWorker worker(design, mod_it.second, nofeedbackMode, allCellTypes, maxDepth);
+				SccWorker worker(design, mod, nofeedbackMode, allCellTypes, maxDepth);
 
 				if (!setAttr.empty())
 				{

@@ -325,6 +325,7 @@ endmodule
 
 // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf#L238-L250
 
+(* abc9_box_id=1100, lib_whitebox, abc9_flop *)
 module FDRE (
   (* abc9_arrival=303 *)
   output reg Q,
@@ -348,6 +349,20 @@ module FDRE (
   endcase endgenerate
 endmodule
 
+(* abc9_box_id=1101, lib_whitebox, abc9_flop *)
+module FDRE_1 (
+  (* abc9_arrival=303 *)
+  output reg Q,
+  (* clkbuf_sink *)
+  input C,
+  input CE, D, R
+);
+  parameter [0:0] INIT = 1'b0;
+  initial Q <= INIT;
+  always @(negedge C) if (R) Q <= 1'b0; else if (CE) Q <= D;
+endmodule
+
+(* abc9_box_id=1102, lib_whitebox, abc9_flop *)
 module FDSE (
   (* abc9_arrival=303 *)
   output reg Q,
@@ -369,6 +384,19 @@ module FDSE (
     1'b0: always @(posedge C) if (S == !IS_S_INVERTED) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
     1'b1: always @(negedge C) if (S == !IS_S_INVERTED) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
   endcase endgenerate
+endmodule
+
+(* abc9_box_id=1103, lib_whitebox, abc9_flop *)
+module FDSE_1 (
+  (* abc9_arrival=303 *)
+  output reg Q,
+  (* clkbuf_sink *)
+  input C,
+  input CE, D, S
+);
+  parameter [0:0] INIT = 1'b1;
+  initial Q <= INIT;
+  always @(negedge C) if (S) Q <= 1'b1; else if (CE) Q <= D;
 endmodule
 
 module FDRSE (
@@ -406,6 +434,7 @@ module FDRSE (
       Q <= d;
 endmodule
 
+(* abc9_box_id=1104, lib_whitebox, abc9_flop *)
 module FDCE (
   (* abc9_arrival=303 *)
   output reg Q,
@@ -413,10 +442,10 @@ module FDCE (
   (* invertible_pin = "IS_C_INVERTED" *)
   input C,
   input CE,
-  (* invertible_pin = "IS_D_INVERTED" *)
-  input D,
   (* invertible_pin = "IS_CLR_INVERTED" *)
-  input CLR
+  input CLR,
+  (* invertible_pin = "IS_D_INVERTED" *)
+  input D
 );
   parameter [0:0] INIT = 1'b0;
   parameter [0:0] IS_C_INVERTED = 1'b0;
@@ -431,6 +460,20 @@ module FDCE (
   endcase endgenerate
 endmodule
 
+(* abc9_box_id=1105, lib_whitebox, abc9_flop *)
+module FDCE_1 (
+  (* abc9_arrival=303 *)
+  output reg Q,
+  (* clkbuf_sink *)
+  input C,
+  input CE, D, CLR
+);
+  parameter [0:0] INIT = 1'b0;
+  initial Q <= INIT;
+  always @(negedge C, posedge CLR) if (CLR) Q <= 1'b0; else if (CE) Q <= D;
+endmodule
+
+(* abc9_box_id=1106, lib_whitebox, abc9_flop *)
 module FDPE (
   (* abc9_arrival=303 *)
   output reg Q,
@@ -454,6 +497,19 @@ module FDPE (
     2'b10: always @(negedge C, posedge PRE) if ( PRE) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
     2'b11: always @(negedge C, negedge PRE) if (!PRE) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
   endcase endgenerate
+endmodule
+
+(* abc9_box_id=1107, lib_whitebox, abc9_flop *)
+module FDPE_1 (
+  (* abc9_arrival=303 *)
+  output reg Q,
+  (* clkbuf_sink *)
+  input C,
+  input CE, D, PRE
+);
+  parameter [0:0] INIT = 1'b1;
+  initial Q <= INIT;
+  always @(negedge C, posedge PRE) if (PRE) Q <= 1'b1; else if (CE) Q <= D;
 endmodule
 
 module FDCPE (
@@ -499,54 +555,6 @@ module FDCPE (
       qs <= 1;
   end
   assign Q = qs ? qp : qc;
-endmodule
-
-module FDRE_1 (
-  (* abc9_arrival=303 *)
-  output reg Q,
-  (* clkbuf_sink *)
-  input C,
-  input CE, D, R
-);
-  parameter [0:0] INIT = 1'b0;
-  initial Q <= INIT;
-  always @(negedge C) if (R) Q <= 1'b0; else if(CE) Q <= D;
-endmodule
-
-module FDSE_1 (
-  (* abc9_arrival=303 *)
-  output reg Q,
-  (* clkbuf_sink *)
-  input C,
-  input CE, D, S
-);
-  parameter [0:0] INIT = 1'b1;
-  initial Q <= INIT;
-  always @(negedge C) if (S) Q <= 1'b1; else if(CE) Q <= D;
-endmodule
-
-module FDCE_1 (
-  (* abc9_arrival=303 *)
-  output reg Q,
-  (* clkbuf_sink *)
-  input C,
-  input CE, D, CLR
-);
-  parameter [0:0] INIT = 1'b0;
-  initial Q <= INIT;
-  always @(negedge C, posedge CLR) if (CLR) Q <= 1'b0; else if (CE) Q <= D;
-endmodule
-
-module FDPE_1 (
-  (* abc9_arrival=303 *)
-  output reg Q,
-  (* clkbuf_sink *)
-  input C,
-  input CE, D, PRE
-);
-  parameter [0:0] INIT = 1'b1;
-  initial Q <= INIT;
-  always @(negedge C, posedge PRE) if (PRE) Q <= 1'b1; else if (CE) Q <= D;
 endmodule
 
 module LDCE (
@@ -1648,7 +1656,7 @@ module SRL16 (
 endmodule
 
 module SRL16E (
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L904-L905
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L905
   (* abc9_arrival=1472 *)
   output Q,
   input A0, A1, A2, A3, CE,
@@ -1712,9 +1720,10 @@ module SRLC16E (
 endmodule
 
 module SRLC32E (
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L904-L905
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L905
   (* abc9_arrival=1472 *)
   output Q,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L904
   (* abc9_arrival=1114 *)
   output Q31,
   input [4:0] A,
@@ -2356,7 +2365,7 @@ module DSP48E1 (
     parameter [6:0] IS_OPMODE_INVERTED = 7'b0;
 
     initial begin
-`ifdef __ICARUS__
+`ifndef YOSYS
         if (AUTORESET_PATDET != "NO_RESET") $fatal(1, "Unsupported AUTORESET_PATDET value");
         if (SEL_MASK != "MASK")     $fatal(1, "Unsupported SEL_MASK value");
         if (SEL_PATTERN != "PATTERN") $fatal(1, "Unsupported SEL_PATTERN value");
@@ -2519,12 +2528,12 @@ module DSP48E1 (
         case (OPMODEr[1:0])
             2'b00: X = 48'b0;
             2'b01: begin X = $signed(Mrx);
-`ifdef __ICARUS__
+`ifndef YOSYS
                 if (OPMODEr[3:2] != 2'b01) $fatal(1, "OPMODEr[3:2] must be 2'b01 when OPMODEr[1:0] is 2'b01");
 `endif
             end
             2'b10: begin X = P;
-`ifdef __ICARUS__
+`ifndef YOSYS
                 if (PREG != 1) $fatal(1, "PREG must be 1 when OPMODEr[1:0] is 2'b10");
 `endif
             end
@@ -2536,7 +2545,7 @@ module DSP48E1 (
         case (OPMODEr[3:2])
             2'b00: Y = 48'b0;
             2'b01: begin Y = 48'b0; // FIXME: more accurate partial product modelling?
-`ifdef __ICARUS__
+`ifndef YOSYS
                 if (OPMODEr[1:0] != 2'b01) $fatal(1, "OPMODEr[1:0] must be 2'b01 when OPMODEr[3:2] is 2'b01");
 `endif
             end
@@ -2550,13 +2559,13 @@ module DSP48E1 (
             3'b000: Z = 48'b0;
             3'b001: Z = PCIN;
             3'b010: begin Z = P;
-`ifdef __ICARUS__
+`ifndef YOSYS
                 if (PREG != 1) $fatal(1, "PREG must be 1 when OPMODEr[6:4] i0s 3'b010");
 `endif
             end
             3'b011: Z = Cr;
             3'b100: begin Z = P;
-`ifdef __ICARUS__
+`ifndef YOSYS
                 if (PREG != 1) $fatal(1, "PREG must be 1 when OPMODEr[6:4] is 3'b100");
                 if (OPMODEr[3:0] != 4'b1000) $fatal(1, "OPMODEr[3:0] must be 4'b1000 when OPMODEr[6:4] i0s 3'b100");
 `endif

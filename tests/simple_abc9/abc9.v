@@ -264,3 +264,30 @@ always @*
   if (en)
     q <= d;
 endmodule
+
+module abc9_test031(input clk1, clk2, d, output reg q1, q2);
+always @(posedge clk1) q1 <= d;
+always @(negedge clk2) q2 <= q1;
+endmodule
+
+module abc9_test032(input clk, d, r, output reg q);
+always @(posedge clk or posedge r)
+    if (r) q <= 1'b0;
+    else q <= d;
+endmodule
+
+module abc9_test033(input clk, d, r, output reg q);
+always @(negedge clk or posedge r)
+    if (r) q <= 1'b1;
+    else q <= d;
+endmodule
+
+module abc9_test034(input clk, d, output reg q1, q2);
+always @(posedge clk) q1 <= d;
+always @(posedge clk) q2 <= q1;
+endmodule
+
+module abc9_test035(input clk, d, output reg [1:0] q);
+always @(posedge clk) q[0] <= d;
+always @(negedge clk) q[1] <= q[0];
+endmodule

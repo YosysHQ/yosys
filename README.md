@@ -378,6 +378,9 @@ Verilog Attributes and non-standard features
   for example, to specify the clk-to-Q delay of a flip-flop for consideration
   during techmapping.
 
+- The module attribute ``abc9_flop`` is a boolean marking the module as a
+  whitebox that describes the synchronous behaviour of a flip-flop.
+
 - The frontend sets attributes ``always_comb``, ``always_latch`` and
   ``always_ff`` on processes derived from SystemVerilog style always blocks
   according to the type of the always. These are checked for correctness in
