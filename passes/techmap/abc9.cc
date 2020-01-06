@@ -249,7 +249,7 @@ struct abc9_output_filter
 };
 
 void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string script_file, std::string exe_file,
-		bool cleanup, vector<int> lut_costs, bool dff, std::string delay_target, std::string /*lutin_shared*/, bool fast_mode,
+		bool cleanup, vector<int> lut_costs, bool dff_mode, std::string delay_target, std::string /*lutin_shared*/, bool fast_mode,
 		bool show_tempdir, std::string box_file, std::string lut_file,
 		std::string wire_delay, bool nomfs
 )
@@ -420,7 +420,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 
 		dict<IdString, bool> abc9_box;
 		vector<RTLIL::Cell*> boxes;
-		for (auto cell : module->selected_cells()) {
+		for (auto cell : module->cells()) {
 			if (cell->type.in(ID($_AND_), ID($_NOT_), ID($__ABC9_FF_))) {
 				module->remove(cell);
 				continue;
@@ -431,7 +431,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 				jt = abc9_box.insert(std::make_pair(cell->type, box_module && box_module->attributes.count(ID(abc9_box_id)))).first;
 			if (jt->second) {
 				if (box_module->get_bool_attribute("\\abc9_flop")) {
-					if (dff)
+					if (dff_mode)
 						boxes.emplace_back(cell);
 					else
 						box_module->set_bool_attribute("\\abc9_keep", false);
@@ -843,7 +843,7 @@ struct Abc9Pass : public Pass {
 #endif
 		std::string script_file, clk_str, box_file, lut_file;
 		std::string delay_target, lutin_shared = "-S 1", wire_delay;
-		bool fast_mode = false, dff = false, cleanup = true;
+		bool fast_mode = false, dff_mode = false, cleanup = true;
 		bool show_tempdir = false;
 		bool nomfs = false;
 		vector<int> lut_costs;
@@ -921,7 +921,7 @@ struct Abc9Pass : public Pass {
 				continue;
 			}
 			if (arg == "-dff") {
-				dff = true;
+				dff_mode = true;
 				continue;
 			}
 			if (arg == "-nocleanup") {
@@ -1010,21 +1010,22 @@ struct Abc9Pass : public Pass {
 		CellTypes ct(design);
 		for (auto module : design->selected_modules())
 		{
-			if (module->attributes.count(ID(abc9_box_id)))
-				continue;
-
 			if (module->processes.size() > 0) {
 				log("Skipping module %s as it contains processes.\n", log_id(module));
 				continue;
 			}
+			log_assert(!module->attributes.count(ID(abc9_box_id)));
+
+			if (!design->selected_whole_module(module))
+				log_cmd_error("Can't handle partially selected module %s!\n", log_id(module));
 
 			assign_map.set(module);
 
 			typedef SigSpec clkdomain_t;
 			dict<clkdomain_t, int> clk_to_mergeability;
 
-			if (dff)
-				for (auto cell : module->selected_cells()) {
+			if (dff_mode)
+				for (auto cell : module->cells()) {
 					if (cell->type != "$__ABC9_FF_")
 						continue;
 
@@ -1050,7 +1051,7 @@ struct Abc9Pass : public Pass {
 					log_assert(r2.second);
 				}
 			else
-				for (auto cell : module->selected_cells()) {
+				for (auto cell : module->cells()) {
 					auto inst_module = design->module(cell->type);
 					if (!inst_module || !inst_module->get_bool_attribute("\\abc9_flop"))
 						continue;
@@ -1058,7 +1059,7 @@ struct Abc9Pass : public Pass {
 				}
 
 			design->selected_active_module = module->name.str();
-			abc9_module(design, module, script_file, exe_file, cleanup, lut_costs, dff,
+			abc9_module(design, module, script_file, exe_file, cleanup, lut_costs, dff_mode,
 					delay_target, lutin_shared, fast_mode, show_tempdir,
 					box_file, lut_file, wire_delay, nomfs);
 			design->selected_active_module.clear();
