@@ -202,19 +202,16 @@ struct Abc9Pass : public ScriptPass
 		active_design->selection_stack.emplace_back(false);
 
 		for (auto mod : selected_modules) {
-			if (mod->get_blackbox_attribute())
-				continue;
-
 			if (mod->processes.size() > 0) {
 				log("Skipping module %s as it contains processes.\n", log_id(mod));
 				continue;
 			}
 			log_assert(!mod->attributes.count(ID(abc9_box_id)));
 
+			active_design->selection().select(mod);
+
 			if (!active_design->selected_whole_module(mod))
 				log_error("Can't handle partially selected module %s!\n", log_id(mod));
-
-			active_design->selection().select(mod);
 
 			std::string tempdir_name = "/tmp/yosys-abc-XXXXXX";
 			if (!cleanup)
