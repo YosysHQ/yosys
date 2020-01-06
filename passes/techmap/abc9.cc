@@ -411,6 +411,9 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 		if (mapped_mod == NULL)
 			log_error("ABC output file does not contain a module `$__abc9__'.\n");
 
+		for (auto w : mapped_mod->wires())
+			module->addWire(remap_name(w->name), GetSize(w));
+
 		dict<IdString, bool> abc9_box;
 		vector<RTLIL::Cell*> boxes;
 		for (auto it = module->cells_.begin(); it != module->cells_.end(); ) {
