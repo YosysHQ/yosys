@@ -1623,6 +1623,8 @@ struct AbcPass : public Pass {
 				continue;
 			}
 			if (arg == "-g" && argidx+1 < args.size()) {
+				if (g_arg_from_cmd)
+					log_cmd_error("Can only use -g once. Please combine.");
 				g_arg = args[++argidx];
 				g_argidx = argidx;
 				g_arg_from_cmd = true;
