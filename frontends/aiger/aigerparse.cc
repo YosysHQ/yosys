@@ -1000,18 +1000,21 @@ struct AigerFrontend : public Frontend {
 		log("Load module from an AIGER file into the current design.\n");
 		log("\n");
 		log("    -module_name <module_name>\n");
-		log("        Name of module to be created (default: <filename>)\n");
+		log("        name of module to be created (default: <filename>)\n");
 		log("\n");
 		log("    -clk_name <wire_name>\n");
-		log("        If specified, AIGER latches to be transformed into $_DFF_P_ cells\n");
-		log("        clocked by wire of this name. Otherwise, $_FF_ cells will be used.\n");
+		log("        if specified, AIGER latches to be transformed into $_DFF_P_ cells\n");
+		log("        clocked by wire of this name. otherwise, $_FF_ cells will be used\n");
 		log("\n");
 		log("    -map <filename>\n");
 		log("        read file with port and latch symbols\n");
 		log("\n");
 		log("    -wideports\n");
-		log("        Merge ports that match the pattern 'name[int]' into a single\n");
-		log("        multi-bit port 'name'.\n");
+		log("        merge ports that match the pattern 'name[int]' into a single\n");
+		log("        multi-bit port 'name'\n");
+		log("\n");
+		log("    -xaiger\n");
+		log("        read XAIGER extensions\n");
 		log("\n");
 	}
 	void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -1021,7 +1024,7 @@ struct AigerFrontend : public Frontend {
 		RTLIL::IdString clk_name = "\\clk";
 		RTLIL::IdString module_name;
 		std::string map_filename;
-		bool wideports = false;
+		bool wideports = false, xaiger = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -1040,6 +1043,10 @@ struct AigerFrontend : public Frontend {
 			}
 			if (arg == "-wideports") {
 				wideports = true;
+				continue;
+			}
+			if (arg == "-xaiger") {
+				xaiger = true;
 				continue;
 			}
 			break;
@@ -1061,7 +1068,10 @@ struct AigerFrontend : public Frontend {
 		}
 
 		AigerReader reader(design, *f, module_name, clk_name, map_filename, wideports);
-		reader.parse_aiger();
+		if (xaiger)
+			reader.parse_xaiger();
+		else
+			reader.parse_aiger();
 	}
 } AigerFrontend;
 
