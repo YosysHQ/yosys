@@ -2241,6 +2241,7 @@ module DSP48E1 (
     parameter [4:0] IS_INMODE_INVERTED = 5'b0;
     parameter [6:0] IS_OPMODE_INVERTED = 7'b0;
 
+`ifdef YOSYS
     function integer \DSP48E1.P_arrival ;
     begin
         \DSP48E1.P_arrival = 0;
@@ -2309,6 +2310,7 @@ module DSP48E1 (
         //    $error("Invalid DSP48E1 configuration");
     end
     endfunction
+`endif
 
     initial begin
 `ifndef YOSYS
