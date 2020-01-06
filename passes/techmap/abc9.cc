@@ -63,7 +63,6 @@ extern "C" int Abc_RealMain(int argc, char *argv[]);
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-bool markgroups;
 int map_autoidx;
 
 inline std::string remap_name(RTLIL::IdString abc9_name)
@@ -412,12 +411,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 		if (mapped_mod == NULL)
 			log_error("ABC output file does not contain a module `$__abc9__'.\n");
 
-		for (auto &it : mapped_mod->wires_) {
-			RTLIL::Wire *w = it.second;
-			RTLIL::Wire *remap_wire = module->addWire(remap_name(w->name), GetSize(w));
-			if (markgroups) remap_wire->attributes[ID(abcgroup)] = map_autoidx;
-		}
-
 		dict<IdString, bool> abc9_box;
 		vector<RTLIL::Cell*> boxes;
 		for (auto cell : module->cells()) {
@@ -496,7 +489,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 				}
 				else
 					log_abort();
-				if (cell && markgroups) cell->attributes[ID(abcgroup)] = map_autoidx;
 				continue;
 			}
 			cell_stats[mapped_cell->type]++;
@@ -509,7 +501,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 					SigSpec my_a = module->wires_.at(remap_name(mapped_cell->getPort(ID::A).as_wire()->name));
 					SigSpec my_y = module->wires_.at(remap_name(mapped_cell->getPort(ID::Y).as_wire()->name));
 					module->connect(my_y, my_a);
-					if (markgroups) mapped_cell->attributes[ID(abcgroup)] = map_autoidx;
 					log_abort();
 					continue;
 				}
@@ -521,7 +512,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 				cell = module->addCell(remap_name(mapped_cell->name), mapped_cell->type);
 			}
 
-			if (markgroups) cell->attributes[ID(abcgroup)] = map_autoidx;
 			if (existing_cell) {
 				cell->parameters = existing_cell->parameters;
 				cell->attributes = existing_cell->attributes;
@@ -743,7 +733,7 @@ struct Abc9Pass : public Pass {
 		log("    abc9 [options] [selection]\n");
 		log("\n");
 		log("This pass uses the ABC tool [1] for technology mapping of yosys's internal gate\n");
-		log("library to a target architecture.\n");
+		log("library to a target architecture. Only fully-selected modules are supported.\n");
 		log("\n");
 		log("    -exe <command>\n");
 #ifdef ABCEXTERNAL
@@ -813,11 +803,6 @@ struct Abc9Pass : public Pass {
 		log("        print the temp dir name in log. usually this is suppressed so that the\n");
 		log("        command output is identical across runs.\n");
 		log("\n");
-		log("    -markgroups\n");
-		log("        set a 'abcgroup' attribute on all objects created by ABC. The value of\n");
-		log("        this attribute is a unique integer for each ABC process started. This\n");
-		log("        is useful for debugging the partitioning of clock domains.\n");
-		log("\n");
 		log("    -box <file>\n");
 		log("        pass this file with box library to ABC. Use with -lut.\n");
 		log("\n");
@@ -847,7 +832,6 @@ struct Abc9Pass : public Pass {
 		bool show_tempdir = false;
 		bool nomfs = false;
 		vector<int> lut_costs;
-		markgroups = false;
 
 #if 0
 		cleanup = false;
@@ -874,7 +858,6 @@ struct Abc9Pass : public Pass {
 		dff_mode = design->scratchpad_get_bool("abc9.dff", dff_mode);
 		cleanup = !design->scratchpad_get_bool("abc9.nocleanup", !cleanup);
 		show_tempdir = design->scratchpad_get_bool("abc9.showtmp", show_tempdir);
-		markgroups = design->scratchpad_get_bool("abc9.markgroups", markgroups);
 		box_file = design->scratchpad_get_string("abc9.box", box_file);
 		if (design->scratchpad.count("abc9.W")) {
 			wire_delay = "-W " + design->scratchpad_get_string("abc9.W");
@@ -930,10 +913,6 @@ struct Abc9Pass : public Pass {
 			}
 			if (arg == "-showtmp") {
 				show_tempdir = true;
-				continue;
-			}
-			if (arg == "-markgroups") {
-				markgroups = true;
 				continue;
 			}
 			if (arg == "-box" && argidx+1 < args.size()) {
