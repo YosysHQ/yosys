@@ -871,6 +871,7 @@ struct Abc9Pass : public Pass {
 		lut_arg = design->scratchpad_get_string("abc9.lut", lut_arg);
 		luts_arg = design->scratchpad_get_string("abc9.luts", luts_arg);
 		fast_mode = design->scratchpad_get_bool("abc9.fast", fast_mode);
+		dff_mode = design->scratchpad_get_bool("abc9.dff", dff_mode);
 		cleanup = !design->scratchpad_get_bool("abc9.nocleanup", !cleanup);
 		show_tempdir = design->scratchpad_get_bool("abc9.showtmp", show_tempdir);
 		markgroups = design->scratchpad_get_bool("abc9.markgroups", markgroups);
