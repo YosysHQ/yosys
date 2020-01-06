@@ -954,39 +954,22 @@ struct Abc9Pass : public Pass {
 
 		// get arguments from scratchpad first, then override by command arguments
 		std::string lut_arg, luts_arg;
-		if (design->scratchpad.count("abc9.script")) {
-			script_file = design->scratchpad_get_string("abc9.script");
-		}
+		exe_file = design->scratchpad_get_string("abc9.exe", exe_file /* inherit default value if not set */);
+		script_file = design->scratchpad_get_string("abc9.script", script_file);
 		if (design->scratchpad.count("abc9.D")) {
 			delay_target = "-D " + design->scratchpad_get_string("abc9.D");
 		}
-		if (design->scratchpad.count("abc9.lut")) {
-			lut_arg = design->scratchpad_get_string("abc9.lut");
-		}
-		if (design->scratchpad.count("abc9.luts")) {
-			luts_arg = design->scratchpad_get_string("abc9.luts");
-		}
-		if (design->scratchpad.count("abc9.fast")) {
-			fast_mode = design->scratchpad_get_bool("abc9.fast", false /* default value if not bool-like */);
-		}
-		if (design->scratchpad.count("abc9.nocleanup")) {
-			cleanup = !design->scratchpad_get_bool("abc9.nocleanup", false /* default value if not bool-like */);
-		}
-		if (design->scratchpad.count("abc9.showtmp")) {
-			show_tempdir = design->scratchpad_get_bool("abc9.showtmp", false /* default value if not bool-like */);
-		}
-		if (design->scratchpad.count("abc9.markgroups")) {
-			markgroups = design->scratchpad_get_bool("abc9.markgroups", false /* default value if not bool-like */);
-		}
-		if (design->scratchpad.count("abc9.box")) {
-			box_file = design->scratchpad_get_string("abc9.box");
-		}
+		lut_arg = design->scratchpad_get_string("abc9.lut", lut_arg);
+		luts_arg = design->scratchpad_get_string("abc9.luts", luts_arg);
+		fast_mode = design->scratchpad_get_bool("abc9.fast", fast_mode);
+		cleanup = !design->scratchpad_get_bool("abc9.nocleanup", !cleanup);
+		show_tempdir = design->scratchpad_get_bool("abc9.showtmp", show_tempdir);
+		markgroups = design->scratchpad_get_bool("abc9.markgroups", markgroups);
+		box_file = design->scratchpad_get_string("abc9.box", box_file);
 		if (design->scratchpad.count("abc9.W")) {
 			wire_delay = "-W " + design->scratchpad_get_string("abc9.W");
 		}
-		if (design->scratchpad.count("abc9.nomfs")) {
-			nomfs = design->scratchpad_get_bool("abc9.nomfs", false /* default value if not bool-like */);
-		}
+		nomfs = design->scratchpad_get_bool("abc9.nomfs", nomfs);
 
 		size_t argidx;
 		char pwd [PATH_MAX];
