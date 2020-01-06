@@ -732,8 +732,6 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 					abc_script += script_file[i];
 		} else
 			abc_script += stringf("source %s", script_file.c_str());
-	} else if (design->scratchpad.count("abc.script")) {
-		abc_script += design->scratchpad_get_string("abc.script");
 	} else if (!lut_costs.empty()) {
 		bool all_luts_cost_same = true;
 		for (int this_cost : lut_costs)
@@ -1516,7 +1514,47 @@ struct AbcPass : public Pass {
 #endif
 #endif
 
-		size_t argidx;
+		// get arguments from scratchpad first, then override by command arguments
+		std::string lut_arg, luts_arg, g_arg;
+		exe_file = design->scratchpad_get_string("abc.exe", exe_file /* inherit default value if not set */);
+		script_file = design->scratchpad_get_string("abc.script", script_file);
+		liberty_file = design->scratchpad_get_string("abc.liberty", liberty_file);
+		constr_file = design->scratchpad_get_string("abc.constr", constr_file);
+		if (design->scratchpad.count("abc.D")) {
+			delay_target = "-D " + design->scratchpad_get_string("abc.D");
+		}
+		if (design->scratchpad.count("abc.I")) {
+			sop_inputs = "-I " + design->scratchpad_get_string("abc.I");
+		}
+		if (design->scratchpad.count("abc.P")) {
+			sop_products = "-P " + design->scratchpad_get_string("abc.P");
+		}
+		if (design->scratchpad.count("abc.S")) {
+			lutin_shared = "-S " + design->scratchpad_get_string("abc.S");
+		}
+		lut_arg = design->scratchpad_get_string("abc.lut", lut_arg);
+		luts_arg = design->scratchpad_get_string("abc.luts", luts_arg);
+		sop_mode = design->scratchpad_get_bool("abc.sop", sop_mode);
+		map_mux4 = design->scratchpad_get_bool("abc.mux4", map_mux4);
+		map_mux8 = design->scratchpad_get_bool("abc.mux8", map_mux8);
+		map_mux16 = design->scratchpad_get_bool("abc.mux16", map_mux16);
+		abc_dress = design->scratchpad_get_bool("abc.dress", abc_dress);
+		g_arg = design->scratchpad_get_string("abc.g", g_arg);
+
+		fast_mode = design->scratchpad_get_bool("abc.fast", fast_mode);
+		dff_mode = design->scratchpad_get_bool("abc.dff", dff_mode);
+		if (design->scratchpad.count("abc.clk")) {
+			clk_str = design->scratchpad_get_string("abc.clk");
+			dff_mode = true;
+		}
+		keepff = design->scratchpad_get_bool("abc.keepff", keepff);
+		cleanup = !design->scratchpad_get_bool("abc.nocleanup", !cleanup);
+		keepff = design->scratchpad_get_bool("abc.keepff", keepff);
+		show_tempdir = design->scratchpad_get_bool("abc.showtmp", show_tempdir);
+		markgroups = design->scratchpad_get_bool("abc.markgroups", markgroups);
+
+		size_t argidx, g_argidx;
+		bool g_arg_from_cmd = false;
 		char pwd [PATH_MAX];
 		if (!getcwd(pwd, sizeof(pwd))) {
 			log_cmd_error("getcwd failed: %s\n", strerror(errno));
@@ -1530,23 +1568,14 @@ struct AbcPass : public Pass {
 			}
 			if (arg == "-script" && argidx+1 < args.size()) {
 				script_file = args[++argidx];
-				rewrite_filename(script_file);
-				if (!script_file.empty() && !is_absolute_path(script_file) && script_file[0] != '+')
-					script_file = std::string(pwd) + "/" + script_file;
 				continue;
 			}
 			if (arg == "-liberty" && argidx+1 < args.size()) {
 				liberty_file = args[++argidx];
-				rewrite_filename(liberty_file);
-				if (!liberty_file.empty() && !is_absolute_path(liberty_file))
-					liberty_file = std::string(pwd) + "/" + liberty_file;
 				continue;
 			}
 			if (arg == "-constr" && argidx+1 < args.size()) {
-				rewrite_filename(constr_file);
 				constr_file = args[++argidx];
-				if (!constr_file.empty() && !is_absolute_path(constr_file))
-					constr_file = std::string(pwd) + "/" + constr_file;
 				continue;
 			}
 			if (arg == "-D" && argidx+1 < args.size()) {
@@ -1566,37 +1595,11 @@ struct AbcPass : public Pass {
 				continue;
 			}
 			if (arg == "-lut" && argidx+1 < args.size()) {
-				string arg = args[++argidx];
-				size_t pos = arg.find_first_of(':');
-				int lut_mode = 0, lut_mode2 = 0;
-				if (pos != string::npos) {
-					lut_mode = atoi(arg.substr(0, pos).c_str());
-					lut_mode2 = atoi(arg.substr(pos+1).c_str());
-				} else {
-					lut_mode = atoi(arg.c_str());
-					lut_mode2 = lut_mode;
-				}
-				lut_costs.clear();
-				for (int i = 0; i < lut_mode; i++)
-					lut_costs.push_back(1);
-				for (int i = lut_mode; i < lut_mode2; i++)
-					lut_costs.push_back(2 << (i - lut_mode));
+				lut_arg = args[++argidx];
 				continue;
 			}
 			if (arg == "-luts" && argidx+1 < args.size()) {
-				lut_costs.clear();
-				for (auto &tok : split_tokens(args[++argidx], ",")) {
-					auto parts = split_tokens(tok, ":");
-					if (GetSize(parts) == 0 && !lut_costs.empty())
-						lut_costs.push_back(lut_costs.back());
-					else if (GetSize(parts) == 1)
-						lut_costs.push_back(atoi(parts.at(0).c_str()));
-					else if (GetSize(parts) == 2)
-						while (GetSize(lut_costs) < std::atoi(parts.at(0).c_str()))
-							lut_costs.push_back(atoi(parts.at(1).c_str()));
-					else
-						log_cmd_error("Invalid -luts syntax.\n");
-				}
+				luts_arg = args[++argidx];
 				continue;
 			}
 			if (arg == "-sop") {
@@ -1620,123 +1623,9 @@ struct AbcPass : public Pass {
 				continue;
 			}
 			if (arg == "-g" && argidx+1 < args.size()) {
-				for (auto g : split_tokens(args[++argidx], ",")) {
-					vector<string> gate_list;
-					bool remove_gates = false;
-					if (GetSize(g) > 0 && g[0] == '-') {
-						remove_gates = true;
-						g = g.substr(1);
-					}
-					if (g == "AND") goto ok_gate;
-					if (g == "NAND") goto ok_gate;
-					if (g == "OR") goto ok_gate;
-					if (g == "NOR") goto ok_gate;
-					if (g == "XOR") goto ok_gate;
-					if (g == "XNOR") goto ok_gate;
-					if (g == "ANDNOT") goto ok_gate;
-					if (g == "ORNOT") goto ok_gate;
-					if (g == "MUX") goto ok_gate;
-					if (g == "NMUX") goto ok_gate;
-					if (g == "AOI3") goto ok_gate;
-					if (g == "OAI3") goto ok_gate;
-					if (g == "AOI4") goto ok_gate;
-					if (g == "OAI4") goto ok_gate;
-					if (g == "simple") {
-						gate_list.push_back("AND");
-						gate_list.push_back("OR");
-						gate_list.push_back("XOR");
-						gate_list.push_back("MUX");
-						goto ok_alias;
-					}
-					if (g == "cmos2") {
-						if (!remove_gates)
-							cmos_cost = true;
-						gate_list.push_back("NAND");
-						gate_list.push_back("NOR");
-						goto ok_alias;
-					}
-					if (g == "cmos3") {
-						if (!remove_gates)
-							cmos_cost = true;
-						gate_list.push_back("NAND");
-						gate_list.push_back("NOR");
-						gate_list.push_back("AOI3");
-						gate_list.push_back("OAI3");
-						goto ok_alias;
-					}
-					if (g == "cmos4") {
-						if (!remove_gates)
-							cmos_cost = true;
-						gate_list.push_back("NAND");
-						gate_list.push_back("NOR");
-						gate_list.push_back("AOI3");
-						gate_list.push_back("OAI3");
-						gate_list.push_back("AOI4");
-						gate_list.push_back("OAI4");
-						goto ok_alias;
-					}
-					if (g == "cmos") {
-						if (!remove_gates)
-							cmos_cost = true;
-						gate_list.push_back("NAND");
-						gate_list.push_back("NOR");
-						gate_list.push_back("AOI3");
-						gate_list.push_back("OAI3");
-						gate_list.push_back("AOI4");
-						gate_list.push_back("OAI4");
-						gate_list.push_back("NMUX");
-						gate_list.push_back("MUX");
-						gate_list.push_back("XOR");
-						gate_list.push_back("XNOR");
-						goto ok_alias;
-					}
-					if (g == "gates") {
-						gate_list.push_back("AND");
-						gate_list.push_back("NAND");
-						gate_list.push_back("OR");
-						gate_list.push_back("NOR");
-						gate_list.push_back("XOR");
-						gate_list.push_back("XNOR");
-						gate_list.push_back("ANDNOT");
-						gate_list.push_back("ORNOT");
-						goto ok_alias;
-					}
-					if (g == "aig") {
-						gate_list.push_back("AND");
-						gate_list.push_back("NAND");
-						gate_list.push_back("OR");
-						gate_list.push_back("NOR");
-						gate_list.push_back("ANDNOT");
-						gate_list.push_back("ORNOT");
-						goto ok_alias;
-					}
-					if (g == "all") {
-						gate_list.push_back("AND");
-						gate_list.push_back("NAND");
-						gate_list.push_back("OR");
-						gate_list.push_back("NOR");
-						gate_list.push_back("XOR");
-						gate_list.push_back("XNOR");
-						gate_list.push_back("ANDNOT");
-						gate_list.push_back("ORNOT");
-						gate_list.push_back("AOI3");
-						gate_list.push_back("OAI3");
-						gate_list.push_back("AOI4");
-						gate_list.push_back("OAI4");
-						gate_list.push_back("MUX");
-						gate_list.push_back("NMUX");
-					}
-					cmd_error(args, argidx, stringf("Unsupported gate type: %s", g.c_str()));
-				ok_gate:
-					gate_list.push_back(g);
-				ok_alias:
-					for (auto gate : gate_list) {
-						if (remove_gates)
-							enabled_gates.erase(gate);
-						else
-							enabled_gates.insert(gate);
-					}
-				}
+				g_arg = args[++argidx];
+				g_argidx = argidx;
+				g_arg_from_cmd = true;
 				continue;
 			}
 			if (arg == "-fast") {
@@ -1771,6 +1660,174 @@ struct AbcPass : public Pass {
 			break;
 		}
 		extra_args(args, argidx, design);
+
+		rewrite_filename(script_file);
+		if (!script_file.empty() && !is_absolute_path(script_file) && script_file[0] != '+')
+			script_file = std::string(pwd) + "/" + script_file;
+		rewrite_filename(liberty_file);
+		if (!liberty_file.empty() && !is_absolute_path(liberty_file))
+			liberty_file = std::string(pwd) + "/" + liberty_file;
+		rewrite_filename(constr_file);
+		if (!constr_file.empty() && !is_absolute_path(constr_file))
+			constr_file = std::string(pwd) + "/" + constr_file;
+
+		// handle -lut argument
+		if (!lut_arg.empty()) {
+			size_t pos = lut_arg.find_first_of(':');
+			int lut_mode = 0, lut_mode2 = 0;
+			if (pos != string::npos) {
+				lut_mode = atoi(lut_arg.substr(0, pos).c_str());
+				lut_mode2 = atoi(lut_arg.substr(pos+1).c_str());
+			} else {
+				lut_mode = atoi(lut_arg.c_str());
+				lut_mode2 = lut_mode;
+			}
+			lut_costs.clear();
+			for (int i = 0; i < lut_mode; i++)
+				lut_costs.push_back(1);
+			for (int i = lut_mode; i < lut_mode2; i++)
+				lut_costs.push_back(2 << (i - lut_mode));
+		}
+		//handle -luts argument
+		if (!luts_arg.empty()){
+			lut_costs.clear();
+			for (auto &tok : split_tokens(luts_arg, ",")) {
+				auto parts = split_tokens(tok, ":");
+				if (GetSize(parts) == 0 && !lut_costs.empty())
+					lut_costs.push_back(lut_costs.back());
+				else if (GetSize(parts) == 1)
+					lut_costs.push_back(atoi(parts.at(0).c_str()));
+				else if (GetSize(parts) == 2)
+					while (GetSize(lut_costs) < std::atoi(parts.at(0).c_str()))
+						lut_costs.push_back(atoi(parts.at(1).c_str()));
+				else
+					log_cmd_error("Invalid -luts syntax.\n");
+			}
+		}
+
+		// handle -g argument
+		if (!g_arg.empty()){
+			for (auto g : split_tokens(g_arg, ",")) {
+				vector<string> gate_list;
+				bool remove_gates = false;
+				if (GetSize(g) > 0 && g[0] == '-') {
+					remove_gates = true;
+					g = g.substr(1);
+				}
+				if (g == "AND") goto ok_gate;
+				if (g == "NAND") goto ok_gate;
+				if (g == "OR") goto ok_gate;
+				if (g == "NOR") goto ok_gate;
+				if (g == "XOR") goto ok_gate;
+				if (g == "XNOR") goto ok_gate;
+				if (g == "ANDNOT") goto ok_gate;
+				if (g == "ORNOT") goto ok_gate;
+				if (g == "MUX") goto ok_gate;
+				if (g == "NMUX") goto ok_gate;
+				if (g == "AOI3") goto ok_gate;
+				if (g == "OAI3") goto ok_gate;
+				if (g == "AOI4") goto ok_gate;
+				if (g == "OAI4") goto ok_gate;
+				if (g == "simple") {
+					gate_list.push_back("AND");
+					gate_list.push_back("OR");
+					gate_list.push_back("XOR");
+					gate_list.push_back("MUX");
+					goto ok_alias;
+				}
+				if (g == "cmos2") {
+					if (!remove_gates)
+						cmos_cost = true;
+					gate_list.push_back("NAND");
+					gate_list.push_back("NOR");
+					goto ok_alias;
+				}
+				if (g == "cmos3") {
+					if (!remove_gates)
+						cmos_cost = true;
+					gate_list.push_back("NAND");
+					gate_list.push_back("NOR");
+					gate_list.push_back("AOI3");
+					gate_list.push_back("OAI3");
+					goto ok_alias;
+				}
+				if (g == "cmos4") {
+					if (!remove_gates)
+						cmos_cost = true;
+					gate_list.push_back("NAND");
+					gate_list.push_back("NOR");
+					gate_list.push_back("AOI3");
+					gate_list.push_back("OAI3");
+					gate_list.push_back("AOI4");
+					gate_list.push_back("OAI4");
+					goto ok_alias;
+				}
+				if (g == "cmos") {
+					if (!remove_gates)
+						cmos_cost = true;
+					gate_list.push_back("NAND");
+					gate_list.push_back("NOR");
+					gate_list.push_back("AOI3");
+					gate_list.push_back("OAI3");
+					gate_list.push_back("AOI4");
+					gate_list.push_back("OAI4");
+					gate_list.push_back("NMUX");
+					gate_list.push_back("MUX");
+					gate_list.push_back("XOR");
+					gate_list.push_back("XNOR");
+					goto ok_alias;
+				}
+				if (g == "gates") {
+					gate_list.push_back("AND");
+					gate_list.push_back("NAND");
+					gate_list.push_back("OR");
+					gate_list.push_back("NOR");
+					gate_list.push_back("XOR");
+					gate_list.push_back("XNOR");
+					gate_list.push_back("ANDNOT");
+					gate_list.push_back("ORNOT");
+					goto ok_alias;
+				}
+				if (g == "aig") {
+					gate_list.push_back("AND");
+					gate_list.push_back("NAND");
+					gate_list.push_back("OR");
+					gate_list.push_back("NOR");
+					gate_list.push_back("ANDNOT");
+					gate_list.push_back("ORNOT");
+					goto ok_alias;
+				}
+				if (g == "all") {
+					gate_list.push_back("AND");
+					gate_list.push_back("NAND");
+					gate_list.push_back("OR");
+					gate_list.push_back("NOR");
+					gate_list.push_back("XOR");
+					gate_list.push_back("XNOR");
+					gate_list.push_back("ANDNOT");
+					gate_list.push_back("ORNOT");
+					gate_list.push_back("AOI3");
+					gate_list.push_back("OAI3");
+					gate_list.push_back("AOI4");
+					gate_list.push_back("OAI4");
+					gate_list.push_back("MUX");
+					gate_list.push_back("NMUX");
+				}
+				if (g_arg_from_cmd)
+					cmd_error(args, g_argidx, stringf("Unsupported gate type: %s", g.c_str()));
+				else
+					log_cmd_error("Unsupported gate type: %s", g.c_str());
+			ok_gate:
+				gate_list.push_back(g);
+			ok_alias:
+				for (auto gate : gate_list) {
+					if (remove_gates)
+						enabled_gates.erase(gate);
+					else
+						enabled_gates.insert(gate);
+				}
+			}
+		}
 
 		if (!lut_costs.empty() && !liberty_file.empty())
 			log_cmd_error("Got -lut and -liberty! These two options are exclusive.\n");
