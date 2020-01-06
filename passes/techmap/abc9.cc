@@ -715,10 +715,10 @@ clone_lut:
 
 		design->remove(mapped_mod);
 	}
-	//else
-	//{
-	//	log("Don't call ABC as there is nothing to map.\n");
-	//}
+	else
+	{
+		log("Don't call ABC as there is nothing to map.\n");
+	}
 
 	if (cleanup)
 	{
