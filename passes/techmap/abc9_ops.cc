@@ -26,6 +26,13 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+int map_autoidx;
+
+inline std::string remap_name(RTLIL::IdString abc9_name)
+{
+	return stringf("$abc$%d$%s", map_autoidx, abc9_name.c_str()+1);
+}
+
 void break_scc(RTLIL::Module *module)
 {
 	// For every unique SCC found, (arbitrarily) find the first
@@ -416,6 +423,276 @@ void prep_holes(RTLIL::Module *module, bool dff)
 	}
 }
 
+void reintegrate(RTLIL::Module *module)
+{
+	auto design = module->design;
+	log_assert(design);
+
+	map_autoidx = autoidx++;
+
+	RTLIL::Module *mapped_mod = design->module(stringf("%s$abc9", module->name.c_str()));
+	if (mapped_mod == NULL)
+		log_error("ABC output file does not contain a module `%s$abc'.\n", log_id(module));
+
+	for (auto w : mapped_mod->wires())
+		module->addWire(remap_name(w->name), GetSize(w));
+
+	for (auto it = module->cells_.begin(); it != module->cells_.end(); )
+		if (it->second->type.in(ID($_AND_), ID($_NOT_), ID($__ABC9_FF_)))
+			it = module->cells_.erase(it);
+		else
+			++it;
+
+	dict<SigBit, pool<IdString>> bit_drivers, bit_users;
+	TopoSort<IdString, RTLIL::sort_by_id_str> toposort;
+	dict<RTLIL::Cell*,RTLIL::Cell*> not2drivers;
+	dict<SigBit, std::vector<RTLIL::Cell*>> bit2sinks;
+
+	std::map<IdString, int> cell_stats;
+	for (auto mapped_cell : mapped_mod->cells())
+	{
+		toposort.node(mapped_cell->name);
+
+		RTLIL::Cell *cell = nullptr;
+		if (mapped_cell->type == ID($_NOT_)) {
+			RTLIL::SigBit a_bit = mapped_cell->getPort(ID::A);
+			RTLIL::SigBit y_bit = mapped_cell->getPort(ID::Y);
+			bit_users[a_bit].insert(mapped_cell->name);
+			bit_drivers[y_bit].insert(mapped_cell->name);
+
+			if (!a_bit.wire) {
+				mapped_cell->setPort(ID::Y, module->addWire(NEW_ID));
+				RTLIL::Wire *wire = module->wire(remap_name(y_bit.wire->name));
+				log_assert(wire);
+				module->connect(RTLIL::SigBit(wire, y_bit.offset), State::S1);
+			}
+			else {
+				RTLIL::Cell* driver_lut = nullptr;
+				// ABC can return NOT gates that drive POs
+				if (!a_bit.wire->port_input) {
+					// If it's not a NOT gate that that comes from a PI directly,
+					// find the driver LUT and clone that to guarantee that we won't
+					// increase the max logic depth
+					// (TODO: Optimise by not cloning unless will increase depth)
+					RTLIL::IdString driver_name;
+					if (GetSize(a_bit.wire) == 1)
+						driver_name = stringf("%s$lut", a_bit.wire->name.c_str());
+					else
+						driver_name = stringf("%s[%d]$lut", a_bit.wire->name.c_str(), a_bit.offset);
+					driver_lut = mapped_mod->cell(driver_name);
+				}
+
+				if (!driver_lut) {
+					// If a driver couldn't be found (could be from PI or box CI)
+					// then implement using a LUT
+					cell = module->addLut(remap_name(stringf("%s$lut", mapped_cell->name.c_str())),
+							RTLIL::SigBit(module->wires_.at(remap_name(a_bit.wire->name)), a_bit.offset),
+							RTLIL::SigBit(module->wires_.at(remap_name(y_bit.wire->name)), y_bit.offset),
+							RTLIL::Const::from_string("01"));
+					bit2sinks[cell->getPort(ID::A)].push_back(cell);
+					cell_stats[ID($lut)]++;
+				}
+				else
+					not2drivers[mapped_cell] = driver_lut;
+			}
+			continue;
+		}
+		cell_stats[mapped_cell->type]++;
+
+		RTLIL::Cell *existing_cell = nullptr;
+		if (mapped_cell->type.in(ID($lut), ID($__ABC9_FF_))) {
+			if (mapped_cell->type == ID($lut) &&
+					GetSize(mapped_cell->getPort(ID::A)) == 1 &&
+					mapped_cell->getParam(ID(LUT)) == RTLIL::Const::from_string("01")) {
+				SigSpec my_a = module->wires_.at(remap_name(mapped_cell->getPort(ID::A).as_wire()->name));
+				SigSpec my_y = module->wires_.at(remap_name(mapped_cell->getPort(ID::Y).as_wire()->name));
+				module->connect(my_y, my_a);
+				log_abort();
+				continue;
+			}
+			cell = module->addCell(remap_name(mapped_cell->name), mapped_cell->type);
+		}
+		else {
+			existing_cell = module->cell(mapped_cell->name);
+			log_assert(existing_cell);
+			cell = module->addCell(remap_name(mapped_cell->name), mapped_cell->type);
+		}
+
+		RTLIL::Module* box_module = design->module(mapped_cell->type);
+		auto abc9_flop = box_module && box_module->attributes.count("\\abc9_flop");
+		for (auto &mapped_conn : mapped_cell->connections()) {
+		    RTLIL::SigSpec newsig;
+		    for (auto c : mapped_conn.second.chunks()) {
+			if (c.width == 0)
+			    continue;
+			//log_assert(c.width == 1);
+			if (c.wire)
+			    c.wire = module->wires_.at(remap_name(c.wire->name));
+			newsig.append(c);
+		    }
+		    if (existing_cell) {
+			auto it = existing_cell->connections_.find(mapped_conn.first);
+			if (it == existing_cell->connections_.end())
+			    continue;
+			log_assert(GetSize(newsig) >= GetSize(it->second));
+			newsig = newsig.extract(0, GetSize(it->second));
+		    }
+		    cell->setPort(mapped_conn.first, newsig);
+
+		    if (abc9_flop)
+			continue;
+
+		    if (cell->input(mapped_conn.first)) {
+			for (auto i : newsig)
+			    bit2sinks[i].push_back(cell);
+			for (auto i : mapped_conn.second)
+			    bit_users[i].insert(mapped_cell->name);
+		    }
+		    if (cell->output(mapped_conn.first))
+			for (auto i : mapped_conn.second)
+			    bit_drivers[i].insert(mapped_cell->name);
+		}
+
+		if (existing_cell) {
+		    cell->parameters = existing_cell->parameters;
+		    cell->attributes = existing_cell->attributes;
+		    if (cell->attributes.erase("\\abc9_box_seq")) {
+			module->swap_names(cell, existing_cell);
+			module->remove(existing_cell);
+		    }
+		}
+		else {
+		    cell->parameters = mapped_cell->parameters;
+		    cell->attributes = mapped_cell->attributes;
+		}
+	}
+
+	// Copy connections (and rename) from mapped_mod to module
+	for (auto conn : mapped_mod->connections()) {
+		if (!conn.first.is_fully_const()) {
+			auto chunks = conn.first.chunks();
+			for (auto &c : chunks)
+				c.wire = module->wires_.at(remap_name(c.wire->name));
+			conn.first = std::move(chunks);
+		}
+		if (!conn.second.is_fully_const()) {
+			auto chunks = conn.second.chunks();
+			for (auto &c : chunks)
+				if (c.wire)
+					c.wire = module->wires_.at(remap_name(c.wire->name));
+			conn.second = std::move(chunks);
+		}
+		module->connect(conn);
+	}
+
+	for (auto &it : cell_stats)
+		log("ABC RESULTS:   %15s cells: %8d\n", it.first.c_str(), it.second);
+	int in_wires = 0, out_wires = 0;
+
+	// Stitch in mapped_mod's inputs/outputs into module
+	for (auto port : mapped_mod->ports) {
+		RTLIL::Wire *w = mapped_mod->wire(port);
+		RTLIL::Wire *wire = module->wire(port);
+		log_assert(wire);
+		RTLIL::Wire *remap_wire = module->wire(remap_name(port));
+		RTLIL::SigSpec signal = RTLIL::SigSpec(wire, 0, GetSize(remap_wire));
+		log_assert(GetSize(signal) >= GetSize(remap_wire));
+
+		RTLIL::SigSig conn;
+		if (w->port_output) {
+			conn.first = signal;
+			conn.second = remap_wire;
+			out_wires++;
+			module->connect(conn);
+		}
+		else if (w->port_input) {
+			conn.first = remap_wire;
+			conn.second = signal;
+			in_wires++;
+			module->connect(conn);
+		}
+	}
+
+	for (auto &it : bit_users)
+		if (bit_drivers.count(it.first))
+			for (auto driver_cell : bit_drivers.at(it.first))
+			for (auto user_cell : it.second)
+				toposort.edge(driver_cell, user_cell);
+	bool no_loops YS_ATTRIBUTE(unused) = toposort.sort();
+	log_assert(no_loops);
+
+	for (auto ii = toposort.sorted.rbegin(); ii != toposort.sorted.rend(); ii++) {
+		RTLIL::Cell *not_cell = mapped_mod->cell(*ii);
+		log_assert(not_cell);
+		if (not_cell->type != ID($_NOT_))
+			continue;
+		auto it = not2drivers.find(not_cell);
+		if (it == not2drivers.end())
+			continue;
+		RTLIL::Cell *driver_lut = it->second;
+		RTLIL::SigBit a_bit = not_cell->getPort(ID::A);
+		RTLIL::SigBit y_bit = not_cell->getPort(ID::Y);
+		RTLIL::Const driver_mask;
+
+		a_bit.wire = module->wires_.at(remap_name(a_bit.wire->name));
+		y_bit.wire = module->wires_.at(remap_name(y_bit.wire->name));
+
+		auto jt = bit2sinks.find(a_bit);
+		if (jt == bit2sinks.end())
+			goto clone_lut;
+
+		for (auto sink_cell : jt->second)
+			if (sink_cell->type != ID($lut))
+				goto clone_lut;
+
+		// Push downstream LUTs past inverter
+		for (auto sink_cell : jt->second) {
+			SigSpec A = sink_cell->getPort(ID::A);
+			RTLIL::Const mask = sink_cell->getParam(ID(LUT));
+			int index = 0;
+			for (; index < GetSize(A); index++)
+				if (A[index] == a_bit)
+					break;
+			log_assert(index < GetSize(A));
+			int i = 0;
+			while (i < GetSize(mask)) {
+				for (int j = 0; j < (1 << index); j++)
+					std::swap(mask[i+j], mask[i+j+(1 << index)]);
+				i += 1 << (index+1);
+			}
+			A[index] = y_bit;
+			sink_cell->setPort(ID::A, A);
+			sink_cell->setParam(ID(LUT), mask);
+		}
+
+		// Since we have rewritten all sinks (which we know
+		// to be only LUTs) to be after the inverter, we can
+		// go ahead and clone the LUT with the expectation
+		// that the original driving LUT will become dangling
+		// and get cleaned away
+clone_lut:
+		driver_mask = driver_lut->getParam(ID(LUT));
+		for (auto &b : driver_mask.bits) {
+			if (b == RTLIL::State::S0) b = RTLIL::State::S1;
+			else if (b == RTLIL::State::S1) b = RTLIL::State::S0;
+		}
+		auto cell = module->addLut(NEW_ID,
+				driver_lut->getPort(ID::A),
+				y_bit,
+				driver_mask);
+		for (auto &bit : cell->connections_.at(ID::A)) {
+			bit.wire = module->wires_.at(remap_name(bit.wire->name));
+			bit2sinks[bit].push_back(cell);
+		}
+	}
+
+	//log("ABC RESULTS:        internal signals: %8d\n", int(signal_list.size()) - in_wires - out_wires);
+	log("ABC RESULTS:           input signals: %8d\n", in_wires);
+	log("ABC RESULTS:          output signals: %8d\n", out_wires);
+
+	design->remove(mapped_mod);
+}
+
 struct Abc9OpsPass : public Pass {
 	Abc9OpsPass() : Pass("abc9_ops", "helper functions for ABC9") { }
 	void help() YS_OVERRIDE
@@ -433,6 +710,7 @@ struct Abc9OpsPass : public Pass {
 		bool unbreak_scc_mode = false;
 		bool prep_dff_mode = false;
 		bool prep_holes_mode = false;
+		bool reintegrate_mode = false;
 		bool dff_mode = false;
 
 		size_t argidx;
@@ -454,6 +732,10 @@ struct Abc9OpsPass : public Pass {
 				prep_holes_mode = true;
 				continue;
 			}
+			if (arg == "-reintegrate") {
+				reintegrate_mode = true;
+				continue;
+			}
 			if (arg == "-dff") {
 				dff_mode = true;
 				continue;
@@ -463,8 +745,6 @@ struct Abc9OpsPass : public Pass {
 		extra_args(args, argidx, design);
 
 		for (auto mod : design->selected_modules()) {
-			if (mod->get_blackbox_attribute())
-				continue;
 			if (mod->get_bool_attribute("\\abc9_holes"))
 				continue;
 
@@ -481,6 +761,8 @@ struct Abc9OpsPass : public Pass {
 				prep_dff(mod);
 			if (prep_holes_mode)
 				prep_holes(mod, dff_mode);
+			if (reintegrate_mode)
+				reintegrate(mod);
 		}
 	}
 } Abc9OpsPass;

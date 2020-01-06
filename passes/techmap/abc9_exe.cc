@@ -37,24 +37,12 @@
 #define ABC_FAST_COMMAND_LUT "&st; &if {W} {D}"
 
 #include "kernel/register.h"
-#include "kernel/sigtools.h"
-#include "kernel/celltypes.h"
-#include "kernel/cost.h"
 #include "kernel/log.h"
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <cerrno>
-#include <sstream>
-#include <climits>
 
 #ifndef _WIN32
 #  include <unistd.h>
 #  include <dirent.h>
 #endif
-
-#include "frontends/aiger/aigerparse.h"
-#include "kernel/utils.h"
 
 #ifdef YOSYS_LINK_ABC
 extern "C" int Abc_RealMain(int argc, char *argv[]);
@@ -62,13 +50,6 @@ extern "C" int Abc_RealMain(int argc, char *argv[]);
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
-
-int map_autoidx;
-
-inline std::string remap_name(RTLIL::IdString abc9_name)
-{
-	return stringf("$abc$%d$%s", map_autoidx, abc9_name.c_str()+1);
-}
 
 std::string add_echos_to_abc9_cmd(std::string str)
 {
@@ -195,14 +176,12 @@ struct abc9_output_filter
 	}
 };
 
-void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string script_file, std::string exe_file,
+void abc9_module(RTLIL::Design *design, std::string script_file, std::string exe_file,
 		vector<int> lut_costs, std::string delay_target, std::string /*lutin_shared*/, bool fast_mode,
 		bool show_tempdir, std::string box_file, std::string lut_file,
 		std::string wire_delay, bool nomfs, std::string tempdir_name
 )
 {
-	map_autoidx = autoidx++;
-
 	//FIXME:
 	//log_header(design, "Extracting gate netlist of module `%s' to `%s/input.xaig'..\n",
 	//		module->name.c_str(), replace_tempdir(tempdir_name, tempdir_name, show_tempdir).c_str());
@@ -274,22 +253,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 
 	if (count_outputs > 0) {
 		std::string buffer;
-		std::ifstream ifs;
-#if 0
-		buffer = stringf("%s/%s", tempdir_name.c_str(), "input.xaig");
-		ifs.open(buffer);
-		if (ifs.fail())
-			log_error("Can't open ABC output file `%s'.\n", buffer.c_str());
-		buffer = stringf("%s/%s", tempdir_name.c_str(), "input.sym");
-		log_assert(!design->module(ID($__abc9__)));
-		{
-			AigerReader reader(design, ifs, ID($__abc9__), "" /* clk_name */, buffer.c_str() /* map_filename */, true /* wideports */);
-			reader.parse_xaiger();
-		}
-		ifs.close();
-		Pass::call_on_module(design, design->module(ID($__abc9__)), stringf("write_verilog -noexpr -norename -selected"));
-		design->remove(design->module(ID($__abc9__)));
-#endif
 
 		log_header(design, "Executing ABC9.\n");
 
@@ -326,302 +289,20 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 #endif
 		if (ret != 0)
 			log_error("ABC: execution of command \"%s\" failed: return code %d.\n", buffer.c_str(), ret);
-
-		buffer = stringf("%s/%s", tempdir_name.c_str(), "output.aig");
-		ifs.open(buffer, std::ifstream::binary);
-		if (ifs.fail())
-			log_error("Can't open ABC output file `%s'.\n", buffer.c_str());
-
-		buffer = stringf("%s/%s", tempdir_name.c_str(), "input.sym");
-		log_assert(!design->module(ID($__abc9__)));
-
-		AigerReader reader(design, ifs, ID($__abc9__), "" /* clk_name */, buffer.c_str() /* map_filename */, true /* wideports */);
-		reader.parse_xaiger();
-		ifs.close();
-
-#if 0
-		Pass::call_on_module(design, design->module(ID($__abc9__)), stringf("write_verilog -noexpr -norename -selected"));
-#endif
-
-		log_header(design, "Re-integrating ABC9 results.\n");
-		RTLIL::Module *mapped_mod = design->module(ID($__abc9__));
-		if (mapped_mod == NULL)
-			log_error("ABC output file does not contain a module `$__abc9__'.\n");
-
-		for (auto w : mapped_mod->wires())
-			module->addWire(remap_name(w->name), GetSize(w));
-
-		for (auto it = module->cells_.begin(); it != module->cells_.end(); )
-			if (it->second->type.in(ID($_AND_), ID($_NOT_), ID($__ABC9_FF_)))
-				it = module->cells_.erase(it);
-			else
-				++it;
-
-		dict<SigBit, pool<IdString>> bit_drivers, bit_users;
-		TopoSort<IdString, RTLIL::sort_by_id_str> toposort;
-		dict<RTLIL::Cell*,RTLIL::Cell*> not2drivers;
-		dict<SigBit, std::vector<RTLIL::Cell*>> bit2sinks;
-
-		std::map<IdString, int> cell_stats;
-		for (auto mapped_cell : mapped_mod->cells())
-		{
-			toposort.node(mapped_cell->name);
-
-			RTLIL::Cell *cell = nullptr;
-			if (mapped_cell->type == ID($_NOT_)) {
-				RTLIL::SigBit a_bit = mapped_cell->getPort(ID::A);
-				RTLIL::SigBit y_bit = mapped_cell->getPort(ID::Y);
-				bit_users[a_bit].insert(mapped_cell->name);
-				bit_drivers[y_bit].insert(mapped_cell->name);
-
-				if (!a_bit.wire) {
-					mapped_cell->setPort(ID::Y, module->addWire(NEW_ID));
-					RTLIL::Wire *wire = module->wire(remap_name(y_bit.wire->name));
-					log_assert(wire);
-					module->connect(RTLIL::SigBit(wire, y_bit.offset), State::S1);
-				}
-				else if (!lut_costs.empty() || !lut_file.empty()) {
-					RTLIL::Cell* driver_lut = nullptr;
-					// ABC can return NOT gates that drive POs
-					if (!a_bit.wire->port_input) {
-						// If it's not a NOT gate that that comes from a PI directly,
-						// find the driver LUT and clone that to guarantee that we won't
-						// increase the max logic depth
-						// (TODO: Optimise by not cloning unless will increase depth)
-						RTLIL::IdString driver_name;
-						if (GetSize(a_bit.wire) == 1)
-							driver_name = stringf("%s$lut", a_bit.wire->name.c_str());
-						else
-							driver_name = stringf("%s[%d]$lut", a_bit.wire->name.c_str(), a_bit.offset);
-						driver_lut = mapped_mod->cell(driver_name);
-					}
-
-					if (!driver_lut) {
-						// If a driver couldn't be found (could be from PI or box CI)
-						// then implement using a LUT
-						cell = module->addLut(remap_name(stringf("%s$lut", mapped_cell->name.c_str())),
-								RTLIL::SigBit(module->wires_.at(remap_name(a_bit.wire->name)), a_bit.offset),
-								RTLIL::SigBit(module->wires_.at(remap_name(y_bit.wire->name)), y_bit.offset),
-								RTLIL::Const::from_string("01"));
-						bit2sinks[cell->getPort(ID::A)].push_back(cell);
-						cell_stats[ID($lut)]++;
-					}
-					else
-						not2drivers[mapped_cell] = driver_lut;
-					continue;
-				}
-				else
-					log_abort();
-				continue;
-			}
-			cell_stats[mapped_cell->type]++;
-
-			RTLIL::Cell *existing_cell = nullptr;
-			if (mapped_cell->type.in(ID($lut), ID($__ABC9_FF_))) {
-				if (mapped_cell->type == ID($lut) &&
-						GetSize(mapped_cell->getPort(ID::A)) == 1 &&
-						mapped_cell->getParam(ID(LUT)) == RTLIL::Const::from_string("01")) {
-					SigSpec my_a = module->wires_.at(remap_name(mapped_cell->getPort(ID::A).as_wire()->name));
-					SigSpec my_y = module->wires_.at(remap_name(mapped_cell->getPort(ID::Y).as_wire()->name));
-					module->connect(my_y, my_a);
-					log_abort();
-					continue;
-				}
-				cell = module->addCell(remap_name(mapped_cell->name), mapped_cell->type);
-			}
-			else {
-				existing_cell = module->cell(mapped_cell->name);
-				log_assert(existing_cell);
-				cell = module->addCell(remap_name(mapped_cell->name), mapped_cell->type);
-			}
-
-			RTLIL::Module* box_module = design->module(mapped_cell->type);
-			auto abc9_flop = box_module && box_module->attributes.count("\\abc9_flop");
-			for (auto &mapped_conn : mapped_cell->connections()) {
-				RTLIL::SigSpec newsig;
-				for (auto c : mapped_conn.second.chunks()) {
-					if (c.width == 0)
-						continue;
-					//log_assert(c.width == 1);
-					if (c.wire)
-						c.wire = module->wires_.at(remap_name(c.wire->name));
-					newsig.append(c);
-				}
-				if (existing_cell) {
-					auto it = existing_cell->connections_.find(mapped_conn.first);
-					if (it == existing_cell->connections_.end())
-						continue;
-					log_assert(GetSize(newsig) >= GetSize(it->second));
-					newsig = newsig.extract(0, GetSize(it->second));
-				}
-				cell->setPort(mapped_conn.first, newsig);
-
-				if (abc9_flop)
-					continue;
-
-				if (cell->input(mapped_conn.first)) {
-					for (auto i : newsig)
-						bit2sinks[i].push_back(cell);
-					for (auto i : mapped_conn.second)
-						bit_users[i].insert(mapped_cell->name);
-				}
-				if (cell->output(mapped_conn.first))
-					for (auto i : mapped_conn.second)
-						bit_drivers[i].insert(mapped_cell->name);
-			}
-
-			if (existing_cell) {
-				cell->parameters = existing_cell->parameters;
-				cell->attributes = existing_cell->attributes;
-				if (cell->attributes.erase("\\abc9_box_seq")) {
-					module->swap_names(cell, existing_cell);
-					module->remove(existing_cell);
-				}
-			}
-			else {
-				cell->parameters = mapped_cell->parameters;
-				cell->attributes = mapped_cell->attributes;
-			}
-		}
-
-		// Copy connections (and rename) from mapped_mod to module
-		for (auto conn : mapped_mod->connections()) {
-			if (!conn.first.is_fully_const()) {
-				auto chunks = conn.first.chunks();
-				for (auto &c : chunks)
-					c.wire = module->wires_.at(remap_name(c.wire->name));
-				conn.first = std::move(chunks);
-			}
-			if (!conn.second.is_fully_const()) {
-				auto chunks = conn.second.chunks();
-				for (auto &c : chunks)
-					if (c.wire)
-						c.wire = module->wires_.at(remap_name(c.wire->name));
-				conn.second = std::move(chunks);
-			}
-			module->connect(conn);
-		}
-
-		for (auto &it : cell_stats)
-			log("ABC RESULTS:   %15s cells: %8d\n", it.first.c_str(), it.second);
-		int in_wires = 0, out_wires = 0;
-
-		// Stitch in mapped_mod's inputs/outputs into module
-		for (auto port : mapped_mod->ports) {
-			RTLIL::Wire *w = mapped_mod->wire(port);
-			RTLIL::Wire *wire = module->wire(port);
-			log_assert(wire);
-			RTLIL::Wire *remap_wire = module->wire(remap_name(port));
-			RTLIL::SigSpec signal = RTLIL::SigSpec(wire, 0, GetSize(remap_wire));
-			log_assert(GetSize(signal) >= GetSize(remap_wire));
-
-			RTLIL::SigSig conn;
-			if (w->port_output) {
-				conn.first = signal;
-				conn.second = remap_wire;
-				out_wires++;
-				module->connect(conn);
-			}
-			else if (w->port_input) {
-				conn.first = remap_wire;
-				conn.second = signal;
-				in_wires++;
-				module->connect(conn);
-			}
-		}
-
-		for (auto &it : bit_users)
-			if (bit_drivers.count(it.first))
-				for (auto driver_cell : bit_drivers.at(it.first))
-				for (auto user_cell : it.second)
-					toposort.edge(driver_cell, user_cell);
-		bool no_loops YS_ATTRIBUTE(unused) = toposort.sort();
-		log_assert(no_loops);
-
-		for (auto ii = toposort.sorted.rbegin(); ii != toposort.sorted.rend(); ii++) {
-			RTLIL::Cell *not_cell = mapped_mod->cell(*ii);
-			log_assert(not_cell);
-			if (not_cell->type != ID($_NOT_))
-				continue;
-			auto it = not2drivers.find(not_cell);
-			if (it == not2drivers.end())
-				continue;
-			RTLIL::Cell *driver_lut = it->second;
-			RTLIL::SigBit a_bit = not_cell->getPort(ID::A);
-			RTLIL::SigBit y_bit = not_cell->getPort(ID::Y);
-			RTLIL::Const driver_mask;
-
-			a_bit.wire = module->wires_.at(remap_name(a_bit.wire->name));
-			y_bit.wire = module->wires_.at(remap_name(y_bit.wire->name));
-
-			auto jt = bit2sinks.find(a_bit);
-			if (jt == bit2sinks.end())
-				goto clone_lut;
-
-			for (auto sink_cell : jt->second)
-				if (sink_cell->type != ID($lut))
-					goto clone_lut;
-
-			// Push downstream LUTs past inverter
-			for (auto sink_cell : jt->second) {
-				SigSpec A = sink_cell->getPort(ID::A);
-				RTLIL::Const mask = sink_cell->getParam(ID(LUT));
-				int index = 0;
-				for (; index < GetSize(A); index++)
-					if (A[index] == a_bit)
-						break;
-				log_assert(index < GetSize(A));
-				int i = 0;
-				while (i < GetSize(mask)) {
-					for (int j = 0; j < (1 << index); j++)
-						std::swap(mask[i+j], mask[i+j+(1 << index)]);
-					i += 1 << (index+1);
-				}
-				A[index] = y_bit;
-				sink_cell->setPort(ID::A, A);
-				sink_cell->setParam(ID(LUT), mask);
-			}
-
-			// Since we have rewritten all sinks (which we know
-			// to be only LUTs) to be after the inverter, we can
-			// go ahead and clone the LUT with the expectation
-			// that the original driving LUT will become dangling
-			// and get cleaned away
-clone_lut:
-			driver_mask = driver_lut->getParam(ID(LUT));
-			for (auto &b : driver_mask.bits) {
-				if (b == RTLIL::State::S0) b = RTLIL::State::S1;
-				else if (b == RTLIL::State::S1) b = RTLIL::State::S0;
-			}
-			auto cell = module->addLut(NEW_ID,
-					driver_lut->getPort(ID::A),
-					y_bit,
-					driver_mask);
-			for (auto &bit : cell->connections_.at(ID::A)) {
-				bit.wire = module->wires_.at(remap_name(bit.wire->name));
-				bit2sinks[bit].push_back(cell);
-			}
-		}
-
-		//log("ABC RESULTS:        internal signals: %8d\n", int(signal_list.size()) - in_wires - out_wires);
-		log("ABC RESULTS:           input signals: %8d\n", in_wires);
-		log("ABC RESULTS:          output signals: %8d\n", out_wires);
-
-		design->remove(mapped_mod);
 	}
-	//else
-	//{
-	//	log("Don't call ABC as there is nothing to map.\n");
-	//}
+	else
+	{
+		log("Don't call ABC as there is nothing to map.\n");
+	}
 }
 
-struct Abc9MapPass : public Pass {
-	Abc9MapPass() : Pass("abc9_map", "use ABC9 for technology mapping") { }
+struct Abc9ExePass : public Pass {
+	Abc9ExePass() : Pass("abc9_exe", "use ABC9 for technology mapping") { }
 	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    abc9_map [options] [selection]\n");
+		log("    abc9_exe [options] [selection]\n");
 		log("\n");
 		log("This pass uses the ABC tool [1] for technology mapping of yosys's internal gate\n");
 		log("library to a target architecture.\n");
@@ -682,10 +363,6 @@ struct Abc9MapPass : public Pass {
 		log("        generate netlist using luts. Use the specified costs for luts with 1,\n");
 		log("        2, 3, .. inputs.\n");
 		log("\n");
-		log("    -dff\n");
-		log("        also pass $_ABC9_FF_ cells through to ABC. modules with many clock\n");
-		log("        domains are marked as such and automatically partitioned by ABC.\n");
-		log("\n");
 		log("    -showtmp\n");
 		log("        print the temp dir name in log. usually this is suppressed so that the\n");
 		log("        command output is identical across runs.\n");
@@ -693,8 +370,10 @@ struct Abc9MapPass : public Pass {
 		log("    -box <file>\n");
 		log("        pass this file with box library to ABC. Use with -lut.\n");
 		log("\n");
-		log("    -tempdir <dir>\n");
-		log("        use this as the temp dir.\n");
+		log("    -cwd <dir>\n");
+		log("        use this as the current working directory, inside which the 'input.xaig'\n");
+		log("        file is expected. temporary files will be created in this directory, and\n");
+		log("        the mapped result will be written to 'output.aig'.\n");
 		log("\n");
 		log("Note that this is a logic optimization pass within Yosys that is calling ABC\n");
 		log("internally. This is not going to \"run ABC on your design\". It will instead run\n");
@@ -803,7 +482,7 @@ struct Abc9MapPass : public Pass {
 				nomfs = true;
 				continue;
 			}
-			if (arg == "-tempdir" && argidx+1 < args.size()) {
+			if (arg == "-cwd" && argidx+1 < args.size()) {
 				tempdir_name = args[++argidx];
 				continue;
 			}
@@ -866,24 +545,13 @@ struct Abc9MapPass : public Pass {
 			box_file = std::string(pwd) + "/" + box_file;
 
 		if (tempdir_name.empty())
-			log_cmd_error("abc9_map '-tempdir' option is mandatory.\n");
+			log_cmd_error("abc9_exe '-cwd' option is mandatory.\n");
 
 
-		for (auto mod : design->selected_modules())
-		{
-			if (mod->processes.size() > 0) {
-				log("Skipping module %s as it contains processes.\n", log_id(mod));
-				continue;
-			}
-
-			if (!design->selected_whole_module(mod))
-				log_error("Can't handle partially selected module %s!\n", log_id(mod));
-
-			abc9_module(design, mod, script_file, exe_file, lut_costs,
-					delay_target, lutin_shared, fast_mode, show_tempdir,
-					box_file, lut_file, wire_delay, nomfs, tempdir_name);
-		}
+		abc9_module(design, script_file, exe_file, lut_costs,
+				delay_target, lutin_shared, fast_mode, show_tempdir,
+				box_file, lut_file, wire_delay, nomfs, tempdir_name);
 	}
-} Abc9MapPass;
+} Abc9ExePass;
 
 PRIVATE_NAMESPACE_END

@@ -129,13 +129,13 @@ struct Abc9Pass : public ScriptPass
 		log("\n");
 	}
 
-	std::stringstream map_cmd;
+	std::stringstream exe_cmd;
 	bool dff_mode, cleanup;
 
 	void clear_flags() YS_OVERRIDE
 	{
-		map_cmd.str("");
-		map_cmd << "abc9_map";
+		exe_cmd.str("");
+		exe_cmd << "abc9_exe";
 		dff_mode = false;
 		cleanup = true;
 	}
@@ -156,13 +156,13 @@ struct Abc9Pass : public ScriptPass
 						/* arg == "-S" || */ arg == "-lut" || arg == "-luts" ||
 						arg == "-box" || arg == "-W") &&
 					argidx+1 < args.size()) {
-				map_cmd << " " << arg << " " << args[++argidx];
+				exe_cmd << " " << arg << " " << args[++argidx];
 				continue;
 			}
 			if (arg == "-fast" || /* arg == "-dff" || */
 					/* arg == "-nocleanup" || */ arg == "-showtmp" ||
 					arg == "-nomfs") {
-				map_cmd << " " << arg;
+				exe_cmd << " " << arg;
 				continue;
 			}
 			if (arg == "-dff") {
@@ -219,9 +219,13 @@ struct Abc9Pass : public ScriptPass
 			tempdir_name = make_temp_dir(tempdir_name);
 
 			run(stringf("write_xaiger -map %s/input.sym %s/input.xaig", tempdir_name.c_str(), tempdir_name.c_str()),
-					"write_xaiger -map <abc-temp-dir>/input.sym <abc-temp-dir>/input.xaig");
-			run(stringf("%s -tempdir %s", map_cmd.str().c_str(), tempdir_name.c_str()),
-					"abc9_map [options] -tempdir <abc-temp-dir>");
+				"write_xaiger -map <abc-temp-dir>/input.sym <abc-temp-dir>/input.xaig");
+			run(stringf("%s -cwd %s", exe_cmd.str().c_str(), tempdir_name.c_str()),
+				"abc9_exe [options] -cwd <abc-temp-dir>");
+
+			run(stringf("read_aiger -xaiger -wideports -module_name %s$abc9 -map %s/input.sym %s/output.aig", log_id(mod->name), tempdir_name.c_str(), tempdir_name.c_str()),
+				"read_aiger -xaiger -wideports -module_name <module-name>$abc9 -map <abc-temp-dir>/input.sym <abc-temp-dir>/output.aig");
+			run("abc9_ops -reintegrate");
 
 			if (cleanup)
 			{
