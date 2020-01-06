@@ -137,7 +137,7 @@ struct XAigerWriter
 		return a;
 	}
 
-	XAigerWriter(Module *module) : module(module), sigmap(module)
+	XAigerWriter(Module *module, bool holes_mode=false) : module(module), sigmap(module)
 	{
 		pool<SigBit> undriven_bits;
 		pool<SigBit> unused_bits;
@@ -157,12 +157,8 @@ struct XAigerWriter
 			if (wire->get_bool_attribute(ID::keep))
 				sigmap.add(wire);
 
-		// First, collect all the ports in port_id order
-		//   since module->wires() could be sorted
-		//   alphabetically
-		for (auto port : module->ports) {
-			auto wire = module->wire(port);
-			log_assert(wire);
+
+		for (auto wire : module->wires())
 			for (int i = 0; i < GetSize(wire); i++)
 			{
 				SigBit wirebit(wire, i);
@@ -176,6 +172,9 @@ struct XAigerWriter
 					continue;
 				}
 
+				undriven_bits.insert(bit);
+				unused_bits.insert(bit);
+
 				if (wire->port_input)
 					input_bits.insert(bit);
 
@@ -183,19 +182,6 @@ struct XAigerWriter
 					if (bit != wirebit)
 						alias_map[wirebit] = bit;
 					output_bits.insert(wirebit);
-				}
-			}
-		}
-
-		for (auto wire : module->wires())
-			for (int i = 0; i < GetSize(wire); i++)
-			{
-				SigBit wirebit(wire, i);
-				SigBit bit = sigmap(wirebit);
-
-				if (bit.wire) {
-					undriven_bits.insert(bit);
-					unused_bits.insert(bit);
 				}
 			}
 
@@ -402,12 +388,20 @@ struct XAigerWriter
 			undriven_bits.erase(bit);
 		}
 
+		if (holes_mode) {
+			struct sort_by_port_id {
+				bool operator()(const RTLIL::SigBit& a, const RTLIL::SigBit& b) const {
+					return a.wire->port_id < b.wire->port_id;
+				}
+			};
+			input_bits.sort(sort_by_port_id());
+			output_bits.sort(sort_by_port_id());
+		}
+
 		aig_map[State::S0] = 0;
 		aig_map[State::S1] = 1;
 
-		// pool<> iterates in LIFO order...
-		for (int i = input_bits.size()-1; i >= 0; i--) {
-			const auto &bit = *input_bits.element(i);
+		for (const auto &bit : input_bits) {
 			aig_m++, aig_i++;
 			log_assert(!aig_map.count(bit));
 			aig_map[bit] = 2*aig_m;
@@ -435,9 +429,7 @@ struct XAigerWriter
 			aig_outputs.push_back(bit2aig(bit));
 		}
 
-		// pool<> iterates in LIFO order...
-		for (int i = output_bits.size()-1; i >= 0; i--) {
-			const auto &bit = *output_bits.element(i);
+		for (const auto &bit : output_bits) {
 			ordered_outputs[bit] = aig_o++;
 			aig_outputs.push_back(bit2aig(bit));
 		}
@@ -618,7 +610,7 @@ struct XAigerWriter
 
 			if (holes_module) {
 				std::stringstream a_buffer;
-				XAigerWriter writer(holes_module);
+				XAigerWriter writer(holes_module, true /* holes_mode */);
 				writer.write_aiger(a_buffer, false /*ascii_mode*/);
 
 				f << "a";
@@ -654,17 +646,13 @@ struct XAigerWriter
 		module->design->scratchpad_set_int("write_xaiger.num_outputs", output_bits.size());
 	}
 
-	void write_map(std::ostream &f, bool verbose_map)
+	void write_map(std::ostream &f)
 	{
 		dict<int, string> input_lines;
 		dict<int, string> output_lines;
-		dict<int, string> wire_lines;
 
 		for (auto wire : module->wires())
 		{
-			//if (!verbose_map && wire->name[0] == '$')
-			//	continue;
-
 			SigSpec sig = sigmap(wire);
 
 			for (int i = 0; i < GetSize(wire); i++)
@@ -682,14 +670,6 @@ struct XAigerWriter
 					output_lines[o] += stringf("output %d %d %s %d\n", o - GetSize(co_bits), i, log_id(wire), init);
 					continue;
 				}
-
-				if (verbose_map) {
-					if (aig_map.count(sig[i]) == 0)
-						continue;
-
-					int a = aig_map.at(sig[i]);
-					wire_lines[a] += stringf("wire %d %d %s\n", a, i, log_id(wire));
-				}
 			}
 		}
 
@@ -706,10 +686,6 @@ struct XAigerWriter
 		for (auto &it : output_lines)
 			f << it.second;
 		log_assert(output_lines.size() == output_bits.size());
-
-		wire_lines.sort();
-		for (auto &it : wire_lines)
-			f << it.second;
 	}
 };
 
@@ -721,8 +697,10 @@ struct XAigerBackend : public Backend {
 		log("\n");
 		log("    write_xaiger [options] [filename]\n");
 		log("\n");
-		log("Write the current design to an XAIGER file. The design must be flattened and\n");
-		log("all unsupported cells will be converted into psuedo-inputs and pseudo-outputs.\n");
+		log("Write the top module (according to the (* top *) attribute or if only one module\n");
+		log("is currently selected) to an XAIGER file. Any non $_NOT_, $_AND_, $_ABC9_FF_, or");
+		log("non (* abc9_box_id *) cells will be converted into psuedo-inputs and\n");
+		log("pseudo-outputs.\n");
 		log("\n");
 		log("    -ascii\n");
 		log("        write ASCII version of AIGER format\n");
@@ -730,14 +708,10 @@ struct XAigerBackend : public Backend {
 		log("    -map <filename>\n");
 		log("        write an extra file with port and box symbols\n");
 		log("\n");
-		log("    -vmap <filename>\n");
-		log("        like -map, but more verbose\n");
-		log("\n");
 	}
 	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		bool ascii_mode = false;
-		bool verbose_map = false;
 		std::string map_filename;
 
 		log_header(design, "Executing XAIGER backend.\n");
@@ -753,11 +727,6 @@ struct XAigerBackend : public Backend {
 				map_filename = args[++argidx];
 				continue;
 			}
-			if (map_filename.empty() && args[argidx] == "-vmap" && argidx+1 < args.size()) {
-				map_filename = args[++argidx];
-				verbose_map = true;
-				continue;
-			}
 			break;
 		}
 		extra_args(f, filename, args, argidx, !ascii_mode);
@@ -767,6 +736,14 @@ struct XAigerBackend : public Backend {
 		if (top_module == nullptr)
 			log_error("Can't find top module in current design!\n");
 
+		if (!design->selected_whole_module(top_module))
+			log_cmd_error("Can't handle partially selected module %s!\n", log_id(top_module));
+
+		if (!top_module->processes.empty())
+			log_error("Found unmapped processes in module %s: unmapped processes are not supported in XAIGER backend!\n", log_id(top_module));
+		if (!top_module->memories.empty())
+			log_error("Found unmapped memories in module %s: unmapped memories are not supported in XAIGER backend!\n", log_id(top_module));
+
 		XAigerWriter writer(top_module);
 		writer.write_aiger(*f, ascii_mode);
 
@@ -775,7 +752,7 @@ struct XAigerBackend : public Backend {
 			mapf.open(map_filename.c_str(), std::ofstream::trunc);
 			if (mapf.fail())
 				log_error("Can't open file `%s' for writing: %s\n", map_filename.c_str(), strerror(errno));
-			writer.write_map(mapf, verbose_map);
+			writer.write_map(mapf);
 		}
 	}
 } XAigerBackend;

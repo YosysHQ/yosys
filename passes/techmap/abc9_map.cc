@@ -63,7 +63,6 @@ extern "C" int Abc_RealMain(int argc, char *argv[]);
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-bool markgroups;
 int map_autoidx;
 
 inline std::string remap_name(RTLIL::IdString abc9_name)
@@ -349,11 +348,8 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 		if (mapped_mod == NULL)
 			log_error("ABC output file does not contain a module `$__abc9__'.\n");
 
-		for (auto &it : mapped_mod->wires_) {
-			RTLIL::Wire *w = it.second;
-			RTLIL::Wire *remap_wire = module->addWire(remap_name(w->name), GetSize(w));
-			if (markgroups) remap_wire->attributes[ID(abcgroup)] = map_autoidx;
-		}
+		for (auto wire : mapped_mod->wires())
+			module->addWire(remap_name(w->name), GetSize(w));
 
 		for (auto it = module->cells_.begin(); it != module->cells_.end(); )
 			if (it->second->type.in(ID($_AND_), ID($_NOT_), ID($__ABC9_FF_)))
@@ -416,7 +412,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 				}
 				else
 					log_abort();
-				if (cell && markgroups) cell->attributes[ID(abcgroup)] = map_autoidx;
 				continue;
 			}
 			cell_stats[mapped_cell->type]++;
@@ -429,7 +424,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 					SigSpec my_a = module->wires_.at(remap_name(mapped_cell->getPort(ID::A).as_wire()->name));
 					SigSpec my_y = module->wires_.at(remap_name(mapped_cell->getPort(ID::Y).as_wire()->name));
 					module->connect(my_y, my_a);
-					if (markgroups) mapped_cell->attributes[ID(abcgroup)] = map_autoidx;
 					log_abort();
 					continue;
 				}
@@ -441,7 +435,6 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 				cell = module->addCell(remap_name(mapped_cell->name), mapped_cell->type);
 			}
 
-			if (markgroups) cell->attributes[ID(abcgroup)] = map_autoidx;
 			if (existing_cell) {
 				cell->parameters = existing_cell->parameters;
 				cell->attributes = existing_cell->attributes;
@@ -660,8 +653,6 @@ struct Abc9MapPass : public Pass {
 		log("        set delay target. the string {D} in the default scripts above is\n");
 		log("        replaced by this option when used, and an empty string otherwise\n");
 		log("        (indicating best possible delay).\n");
-//		log("        This also replaces 'dretime' with 'dretime; retime -o {D}' in the\n");
-//		log("        default scripts above.\n");
 		log("\n");
 //		log("    -S <num>\n");
 //		log("        maximum number of LUT inputs shared.\n");
@@ -683,27 +674,13 @@ struct Abc9MapPass : public Pass {
 		log("        generate netlist using luts. Use the specified costs for luts with 1,\n");
 		log("        2, 3, .. inputs.\n");
 		log("\n");
-//		log("    -dff\n");
-//		log("        also pass $_DFF_?_ and $_DFFE_??_ cells through ABC. modules with many\n");
-//		log("        clock domains are automatically partitioned in clock domains and each\n");
-//		log("        domain is passed through ABC independently.\n");
-//		log("\n");
-//		log("    -clk [!]<clock-signal-name>[,[!]<enable-signal-name>]\n");
-//		log("        use only the specified clock domain. this is like -dff, but only FF\n");
-//		log("        cells that belong to the specified clock domain are used.\n");
-//		log("\n");
-//		log("    -keepff\n");
-//		log("        set the \"keep\" attribute on flip-flop output wires. (and thus preserve\n");
-//		log("        them, for example for equivalence checking.)\n");
-//		log("\n");
+		log("    -dff\n");
+		log("        also pass $_ABC9_FF_ cells through to ABC. modules with many clock\n");
+		log("        domains are marked as such and automatically partitioned by ABC.\n");
+		log("\n");
 		log("    -showtmp\n");
 		log("        print the temp dir name in log. usually this is suppressed so that the\n");
 		log("        command output is identical across runs.\n");
-		log("\n");
-		log("    -markgroups\n");
-		log("        set a 'abcgroup' attribute on all objects created by ABC. The value of\n");
-		log("        this attribute is a unique integer for each ABC process started. This\n");
-		log("        is useful for debugging the partitioning of clock domains.\n");
 		log("\n");
 		log("    -box <file>\n");
 		log("        pass this file with box library to ABC. Use with -lut.\n");
@@ -737,7 +714,6 @@ struct Abc9MapPass : public Pass {
 		bool show_tempdir = false;
 		bool nomfs = false;
 		vector<int> lut_costs;
-		markgroups = false;
 
 #if 0
 		cleanup = false;
@@ -828,10 +804,6 @@ struct Abc9MapPass : public Pass {
 				show_tempdir = true;
 				continue;
 			}
-			if (arg == "-markgroups") {
-				markgroups = true;
-				continue;
-			}
 			if (arg == "-box" && argidx+1 < args.size()) {
 				box_file = args[++argidx];
 				continue;
@@ -870,6 +842,9 @@ struct Abc9MapPass : public Pass {
 				log("Skipping module %s as it contains processes.\n", log_id(mod));
 				continue;
 			}
+
+			if (!design->selected_whole_module(mod))
+				log_error("Can't handle partially selected module %s!\n", log_id(module));
 
 			abc9_module(design, mod, script_file, exe_file, lut_costs,
 					delay_target, lutin_shared, fast_mode, show_tempdir,

@@ -40,7 +40,7 @@ struct Abc9Pass : public ScriptPass
 		log("    abc9 [options] [selection]\n");
 		log("\n");
 		log("This pass uses the ABC tool [1] for technology mapping of yosys's internal gate\n");
-		log("library to a target architecture.\n");
+		log("library to a target architecture. Only fully-selected modules are supported.\n");
 		log("\n");
 		log("    -exe <command>\n");
 #ifdef ABCEXTERNAL
@@ -113,11 +113,6 @@ struct Abc9Pass : public ScriptPass
 		log("        print the temp dir name in log. usually this is suppressed so that the\n");
 		log("        command output is identical across runs.\n");
 		log("\n");
-		log("    -markgroups\n");
-		log("        set a 'abcgroup' attribute on all objects created by ABC. The value of\n");
-		log("        this attribute is a unique integer for each ABC process started. This\n");
-		log("        is useful for debugging the partitioning of clock domains.\n");
-		log("\n");
 		log("    -box <file>\n");
 		log("        pass this file with box library to ABC. Use with -lut.\n");
 		log("\n");
@@ -150,6 +145,25 @@ struct Abc9Pass : public ScriptPass
 		std::string run_from, run_to;
 		clear_flags();
 
+		// get arguments from scratchpad first, then override by command arguments
+		std::string lut_arg, luts_arg;
+		exe_file = design->scratchpad_get_string("abc9.exe", exe_file /* inherit default value if not set */);
+		script_file = design->scratchpad_get_string("abc9.script", script_file);
+		if (design->scratchpad.count("abc9.D")) {
+			delay_target = "-D " + design->scratchpad_get_string("abc9.D");
+		}
+		lut_arg = design->scratchpad_get_string("abc9.lut", lut_arg);
+		luts_arg = design->scratchpad_get_string("abc9.luts", luts_arg);
+		fast_mode = design->scratchpad_get_bool("abc9.fast", fast_mode);
+		dff_mode = design->scratchpad_get_bool("abc9.dff", dff_mode);
+		cleanup = !design->scratchpad_get_bool("abc9.nocleanup", !cleanup);
+		show_tempdir = design->scratchpad_get_bool("abc9.showtmp", show_tempdir);
+		box_file = design->scratchpad_get_string("abc9.box", box_file);
+		if (design->scratchpad.count("abc9.W")) {
+			wire_delay = "-W " + design->scratchpad_get_string("abc9.W");
+		}
+		nomfs = design->scratchpad_get_bool("abc9.nomfs", nomfs);
+
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			std::string arg = args[argidx];
@@ -161,7 +175,7 @@ struct Abc9Pass : public ScriptPass
 				continue;
 			}
 			if (arg == "-fast" || /* arg == "-dff" || */
-					/* arg == "-nocleanup" || */ arg == "-showtmp" || arg == "-markgroups" ||
+					/* arg == "-nocleanup" || */ arg == "-showtmp" ||
 					arg == "-nomfs") {
 				map_cmd << " " << arg;
 				continue;
@@ -210,6 +224,10 @@ struct Abc9Pass : public ScriptPass
 				log("Skipping module %s as it contains processes.\n", log_id(mod));
 				continue;
 			}
+			log_assert(!module->attributes.count(ID(abc9_box_id)));
+
+			if (!design->selected_whole_module(module))
+				log_error("Can't handle partially selected module %s!\n", log_id(module));
 
 			active_design->selection().select(mod);
 

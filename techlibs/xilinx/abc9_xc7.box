@@ -58,7 +58,7 @@ $__ABC9_ASYNC0 1000 1   2   1
 # Box 1001 : $__ABC9_ASYNC1
 #            (private cell to emulate async behaviour of FDP*)
 # name         ID   w/b ins outs
-$__ABC9_ASYNC1 1001 1 2 1
+$__ABC9_ASYNC1 1001 1   2   1
 #A S
 0  764 # Y
 
