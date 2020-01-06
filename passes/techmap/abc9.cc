@@ -413,11 +413,13 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 
 		dict<IdString, bool> abc9_box;
 		vector<RTLIL::Cell*> boxes;
-		for (auto cell : module->cells()) {
+		for (auto it = module->cells_.begin(); it != module->cells_.end(); ) {
+			auto cell = it->second;
 			if (cell->type.in(ID($_AND_), ID($_NOT_), ID($__ABC9_FF_))) {
-				module->remove(cell);
+				it = module->cells_.erase(it);
 				continue;
 			}
+			++it;
 			RTLIL::Module* box_module = design->module(cell->type);
 			auto jt = abc9_box.find(cell->type);
 			if (jt == abc9_box.end())
@@ -996,7 +998,7 @@ struct Abc9Pass : public Pass {
 			log_assert(!module->attributes.count(ID(abc9_box_id)));
 
 			if (!design->selected_whole_module(module))
-				log_cmd_error("Can't handle partially selected module %s!\n", log_id(module));
+				log_error("Can't handle partially selected module %s!\n", log_id(module));
 
 			assign_map.set(module);
 
