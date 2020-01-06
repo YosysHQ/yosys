@@ -348,7 +348,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 		if (mapped_mod == NULL)
 			log_error("ABC output file does not contain a module `$__abc9__'.\n");
 
-		for (auto wire : mapped_mod->wires())
+		for (auto w : mapped_mod->wires())
 			module->addWire(remap_name(w->name), GetSize(w));
 
 		for (auto it = module->cells_.begin(); it != module->cells_.end(); )
@@ -727,6 +727,22 @@ struct Abc9MapPass : public Pass {
 #endif
 #endif
 
+		std::string lut_arg, luts_arg;
+		exe_file = design->scratchpad_get_string("abc9.exe", exe_file /* inherit default value if not set */);
+		script_file = design->scratchpad_get_string("abc9.script", script_file);
+		if (design->scratchpad.count("abc9.D")) {
+			delay_target = "-D " + design->scratchpad_get_string("abc9.D");
+		}
+		lut_arg = design->scratchpad_get_string("abc9.lut", lut_arg);
+		luts_arg = design->scratchpad_get_string("abc9.luts", luts_arg);
+		fast_mode = design->scratchpad_get_bool("abc9.fast", fast_mode);
+		show_tempdir = design->scratchpad_get_bool("abc9.showtmp", show_tempdir);
+		box_file = design->scratchpad_get_string("abc9.box", box_file);
+		if (design->scratchpad.count("abc9.W")) {
+			wire_delay = "-W " + design->scratchpad_get_string("abc9.W");
+		}
+		nomfs = design->scratchpad_get_bool("abc9.nomfs", nomfs);
+
 		size_t argidx;
 		char pwd [PATH_MAX];
 		if (!getcwd(pwd, sizeof(pwd))) {
@@ -741,9 +757,6 @@ struct Abc9MapPass : public Pass {
 			}
 			if (arg == "-script" && argidx+1 < args.size()) {
 				script_file = args[++argidx];
-				rewrite_filename(script_file);
-				if (!script_file.empty() && !is_absolute_path(script_file) && script_file[0] != '+')
-					script_file = std::string(pwd) + "/" + script_file;
 				continue;
 			}
 			if (arg == "-D" && argidx+1 < args.size()) {
@@ -755,45 +768,11 @@ struct Abc9MapPass : public Pass {
 			//	continue;
 			//}
 			if (arg == "-lut" && argidx+1 < args.size()) {
-				string arg = args[++argidx];
-				if (arg.find_first_not_of("0123456789:") == std::string::npos) {
-					size_t pos = arg.find_first_of(':');
-					int lut_mode = 0, lut_mode2 = 0;
-					if (pos != string::npos) {
-						lut_mode = atoi(arg.substr(0, pos).c_str());
-						lut_mode2 = atoi(arg.substr(pos+1).c_str());
-					} else {
-						lut_mode = atoi(arg.c_str());
-						lut_mode2 = lut_mode;
-					}
-					lut_costs.clear();
-					for (int i = 0; i < lut_mode; i++)
-						lut_costs.push_back(1);
-					for (int i = lut_mode; i < lut_mode2; i++)
-						lut_costs.push_back(2 << (i - lut_mode));
-				}
-				else {
-					lut_file = arg;
-					rewrite_filename(lut_file);
-					if (!lut_file.empty() && !is_absolute_path(lut_file) && lut_file[0] != '+')
-						lut_file = std::string(pwd) + "/" + lut_file;
-				}
+				lut_arg = args[++argidx];
 				continue;
 			}
 			if (arg == "-luts" && argidx+1 < args.size()) {
-				lut_costs.clear();
-				for (auto &tok : split_tokens(args[++argidx], ",")) {
-					auto parts = split_tokens(tok, ":");
-					if (GetSize(parts) == 0 && !lut_costs.empty())
-						lut_costs.push_back(lut_costs.back());
-					else if (GetSize(parts) == 1)
-						lut_costs.push_back(atoi(parts.at(0).c_str()));
-					else if (GetSize(parts) == 2)
-						while (GetSize(lut_costs) < atoi(parts.at(0).c_str()))
-							lut_costs.push_back(atoi(parts.at(1).c_str()));
-					else
-						log_cmd_error("Invalid -luts syntax.\n");
-				}
+				lut_arg = args[++argidx];
 				continue;
 			}
 			if (arg == "-fast") {
@@ -824,6 +803,52 @@ struct Abc9MapPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		rewrite_filename(script_file);
+		if (!script_file.empty() && !is_absolute_path(script_file) && script_file[0] != '+')
+			script_file = std::string(pwd) + "/" + script_file;
+
+		// handle -lut / -luts args
+		if (!lut_arg.empty()) {
+			string arg = lut_arg;
+			if (arg.find_first_not_of("0123456789:") == std::string::npos) {
+				size_t pos = arg.find_first_of(':');
+				int lut_mode = 0, lut_mode2 = 0;
+				if (pos != string::npos) {
+					lut_mode = atoi(arg.substr(0, pos).c_str());
+					lut_mode2 = atoi(arg.substr(pos+1).c_str());
+				} else {
+					lut_mode = atoi(arg.c_str());
+					lut_mode2 = lut_mode;
+				}
+				lut_costs.clear();
+				for (int i = 0; i < lut_mode; i++)
+					lut_costs.push_back(1);
+				for (int i = lut_mode; i < lut_mode2; i++)
+					lut_costs.push_back(2 << (i - lut_mode));
+			}
+			else {
+				lut_file = arg;
+				rewrite_filename(lut_file);
+				if (!lut_file.empty() && !is_absolute_path(lut_file) && lut_file[0] != '+')
+					lut_file = std::string(pwd) + "/" + lut_file;
+			}
+		}
+		if (!luts_arg.empty()) {
+			lut_costs.clear();
+			for (auto &tok : split_tokens(luts_arg, ",")) {
+				auto parts = split_tokens(tok, ":");
+				if (GetSize(parts) == 0 && !lut_costs.empty())
+					lut_costs.push_back(lut_costs.back());
+				else if (GetSize(parts) == 1)
+					lut_costs.push_back(atoi(parts.at(0).c_str()));
+				else if (GetSize(parts) == 2)
+					while (GetSize(lut_costs) < atoi(parts.at(0).c_str()))
+						lut_costs.push_back(atoi(parts.at(1).c_str()));
+				else
+					log_cmd_error("Invalid -luts syntax.\n");
+			}
+		}
+
 		// ABC expects a box file for XAIG
 		if (box_file.empty())
 			box_file = "+/dummy.box";
@@ -844,7 +869,7 @@ struct Abc9MapPass : public Pass {
 			}
 
 			if (!design->selected_whole_module(mod))
-				log_error("Can't handle partially selected module %s!\n", log_id(module));
+				log_error("Can't handle partially selected module %s!\n", log_id(mod));
 
 			abc9_module(design, mod, script_file, exe_file, lut_costs,
 					delay_target, lutin_shared, fast_mode, show_tempdir,

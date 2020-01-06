@@ -146,23 +146,8 @@ struct Abc9Pass : public ScriptPass
 		clear_flags();
 
 		// get arguments from scratchpad first, then override by command arguments
-		std::string lut_arg, luts_arg;
-		exe_file = design->scratchpad_get_string("abc9.exe", exe_file /* inherit default value if not set */);
-		script_file = design->scratchpad_get_string("abc9.script", script_file);
-		if (design->scratchpad.count("abc9.D")) {
-			delay_target = "-D " + design->scratchpad_get_string("abc9.D");
-		}
-		lut_arg = design->scratchpad_get_string("abc9.lut", lut_arg);
-		luts_arg = design->scratchpad_get_string("abc9.luts", luts_arg);
-		fast_mode = design->scratchpad_get_bool("abc9.fast", fast_mode);
 		dff_mode = design->scratchpad_get_bool("abc9.dff", dff_mode);
 		cleanup = !design->scratchpad_get_bool("abc9.nocleanup", !cleanup);
-		show_tempdir = design->scratchpad_get_bool("abc9.showtmp", show_tempdir);
-		box_file = design->scratchpad_get_string("abc9.box", box_file);
-		if (design->scratchpad.count("abc9.W")) {
-			wire_delay = "-W " + design->scratchpad_get_string("abc9.W");
-		}
-		nomfs = design->scratchpad_get_bool("abc9.nomfs", nomfs);
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -224,10 +209,10 @@ struct Abc9Pass : public ScriptPass
 				log("Skipping module %s as it contains processes.\n", log_id(mod));
 				continue;
 			}
-			log_assert(!module->attributes.count(ID(abc9_box_id)));
+			log_assert(!mod->attributes.count(ID(abc9_box_id)));
 
-			if (!design->selected_whole_module(module))
-				log_error("Can't handle partially selected module %s!\n", log_id(module));
+			if (!active_design->selected_whole_module(mod))
+				log_error("Can't handle partially selected module %s!\n", log_id(mod));
 
 			active_design->selection().select(mod);
 
