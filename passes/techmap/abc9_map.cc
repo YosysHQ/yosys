@@ -435,29 +435,11 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 				cell = module->addCell(remap_name(mapped_cell->name), mapped_cell->type);
 			}
 
-			if (existing_cell) {
-				cell->parameters = existing_cell->parameters;
-				cell->attributes = existing_cell->attributes;
-			}
-			else {
-				cell->parameters = mapped_cell->parameters;
-				cell->attributes = mapped_cell->attributes;
-			}
-
-			auto abc9_box = cell->attributes.erase("\\abc9_box_seq");
-			if (abc9_box) {
-				module->swap_names(cell, existing_cell);
-				module->remove(existing_cell);
-			}
 			RTLIL::Module* box_module = design->module(mapped_cell->type);
 			auto abc9_flop = box_module && box_module->attributes.count("\\abc9_flop");
-			for (auto &conn : mapped_cell->connections()) {
-				// Skip entire box ports composed entirely of padding only
-				if (abc9_box && conn.second.is_wire() && conn.second.as_wire()->get_bool_attribute(ID(abc9_padding)))
-					continue;
-
+			for (auto &mapped_conn : mapped_cell->connections()) {
 				RTLIL::SigSpec newsig;
-				for (auto c : conn.second.chunks()) {
+				for (auto c : mapped_conn.second.chunks()) {
 					if (c.width == 0)
 						continue;
 					//log_assert(c.width == 1);
@@ -465,19 +447,40 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 						c.wire = module->wires_.at(remap_name(c.wire->name));
 					newsig.append(c);
 				}
-				cell->setPort(conn.first, newsig);
-
-				if (!abc9_flop) {
-					if (cell->input(conn.first)) {
-						for (auto i : newsig)
-							bit2sinks[i].push_back(cell);
-						for (auto i : conn.second)
-							bit_users[i].insert(mapped_cell->name);
-					}
-					if (cell->output(conn.first))
-						for (auto i : conn.second)
-							bit_drivers[i].insert(mapped_cell->name);
+				if (existing_cell) {
+					auto it = existing_cell->connections_.find(mapped_conn.first);
+					if (it == existing_cell->connections_.end())
+						continue;
+					log_assert(GetSize(newsig) >= GetSize(it->second));
+					newsig = newsig.extract(0, GetSize(it->second));
 				}
+				cell->setPort(mapped_conn.first, newsig);
+
+				if (abc9_flop)
+					continue;
+
+				if (cell->input(mapped_conn.first)) {
+					for (auto i : newsig)
+						bit2sinks[i].push_back(cell);
+					for (auto i : mapped_conn.second)
+						bit_users[i].insert(mapped_cell->name);
+				}
+				if (cell->output(mapped_conn.first))
+					for (auto i : mapped_conn.second)
+						bit_drivers[i].insert(mapped_cell->name);
+			}
+
+			if (existing_cell) {
+				cell->parameters = existing_cell->parameters;
+				cell->attributes = existing_cell->attributes;
+				if (cell->attributes.erase("\\abc9_box_seq")) {
+					module->swap_names(cell, existing_cell);
+					module->remove(existing_cell);
+				}
+			}
+			else {
+				cell->parameters = mapped_cell->parameters;
+				cell->attributes = mapped_cell->attributes;
 			}
 		}
 
