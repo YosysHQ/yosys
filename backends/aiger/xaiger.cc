@@ -601,8 +601,6 @@ struct XAigerWriter
 			f.write(buffer_str.data(), buffer_str.size());
 
 			if (holes_module) {
-				log_module(holes_module);
-
 				std::stringstream a_buffer;
 				XAigerWriter writer(holes_module, true /* holes_mode */);
 				writer.write_aiger(a_buffer, false /*ascii_mode*/);
