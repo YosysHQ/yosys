@@ -2396,8 +2396,8 @@ module DSP48E1 (
                     if (CEB2) Br2 <= Br1;
                 end
         end else if (BREG == 1) begin
-            //initial Br1 = 25'b0;
-            initial Br2 = 25'b0;
+            //initial Br1 = 18'b0;
+            initial Br2 = 18'b0;
             always @(posedge CLK)
                 if (RSTB) begin
                     Br1 <= 18'b0;
@@ -2444,7 +2444,7 @@ module DSP48E1 (
     endgenerate
 
     // A/D input selection and pre-adder
-    wire signed [29:0] Ar12_muxed = INMODEr[0] ? Ar1 : Ar2;
+    wire signed [24:0] Ar12_muxed = INMODEr[0] ? Ar1 : Ar2;
     wire signed [24:0] Ar12_gated = INMODEr[1] ? 25'b0 : Ar12_muxed;
     wire signed [24:0] Dr_gated   = INMODEr[2] ? Dr : 25'b0;
     wire signed [24:0] AD_result  = INMODEr[3] ? (Dr_gated - Ar12_gated) : (Dr_gated + Ar12_gated);
