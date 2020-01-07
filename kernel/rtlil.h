@@ -377,6 +377,8 @@ namespace RTLIL
 		extern IdString blackbox;
 	};
 
+	extern dict<std::string, std::string> constpad;
+
 	static inline std::string escape_id(std::string str) {
 		if (str.size() > 0 && str[0] != '\\' && str[0] != '$')
 			return "\\" + str;

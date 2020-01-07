@@ -524,6 +524,15 @@ void yosys_setup()
 		PyRun_SimpleString("import sys");
 	#endif
 
+	RTLIL::constpad["abc9.script.default"] = "&scorr; &sweep; &dc2; &dch -f; &ps; &if {C} {W} {D} -v; &mfs";
+	RTLIL::constpad["abc9.script.default.area"] = "&scorr; &sweep; &dc2; &dch -f; &ps; &if {C} {W} {D} -a -v; &mfs";
+	RTLIL::constpad["abc9.script.default.fast"] = "&if {W} {D}";
+	RTLIL::constpad["abc9.script.flow3"] = "&scorr; &sweep;" \
+		"&if {C} {W} {D}; &save; &st; &syn2; &if {C} {W} {D} -v; &save; &load; "\
+		"&st; &if {C} -g -K 6; &dch -f; &if {C} {W} {D} -v; &save; &load; "\
+		"&st; &if {C} -g -K 6; &synch2; &if {C} {W} {D} -v; &save; &load; "\
+		"&mfs";
+
 	Pass::init_register();
 	yosys_design = new RTLIL::Design;
 	yosys_celltypes.setup();

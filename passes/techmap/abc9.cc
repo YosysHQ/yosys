@@ -22,20 +22,6 @@
 // Berkeley Logic Synthesis and Verification Group, ABC: A System for Sequential Synthesis and Verification
 // http://www.eecs.berkeley.edu/~alanmi/abc/
 
-#if 0
-// Based on &flow3 - better QoR but more experimental
-#define ABC_COMMAND_LUT "&st; &ps -l; &sweep -v; &scorr; " \
-						"&st; &if {W}; &save; &st; &syn2; &if {W} -v; &save; &load; "\
-						"&st; &if -g -K 6; &dch -f; &if {W} -v; &save; &load; "\
-						"&st; &if -g -K 6; &synch2; &if {W} -v; &save; &load; "\
-						"&mfs; &ps -l"
-#else
-#define ABC_COMMAND_LUT "&st; &scorr; &sweep; &dc2; &st; &dch -f; &ps; &if {W} {D} -v; &mfs; &ps -l"
-#endif
-
-
-#define ABC_FAST_COMMAND_LUT "&st; &if {W} {D}"
-
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
 #include "kernel/celltypes.h"
@@ -292,7 +278,8 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 		} else
 			abc9_script += stringf("source %s", script_file.c_str());
 	} else if (!lut_costs.empty() || !lut_file.empty()) {
-		abc9_script += fast_mode ? ABC_FAST_COMMAND_LUT : ABC_COMMAND_LUT;
+		abc9_script += fast_mode ? RTLIL::constpad.at("abc9.script.default.fast")
+			: RTLIL::constpad.at("abc9.script.default");
 	} else
 		log_abort();
 
@@ -305,11 +292,14 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 	for (size_t pos = abc9_script.find("{W}"); pos != std::string::npos; pos = abc9_script.find("{W}", pos))
 		abc9_script = abc9_script.substr(0, pos) + wire_delay + abc9_script.substr(pos+3);
 
+	for (size_t pos = abc9_script.find("{C}"); pos != std::string::npos; pos = abc9_script.find("{C}", pos))
+		abc9_script = abc9_script.substr(0, pos) + design->scratchpad_get_string("abc9.if.C", "") + abc9_script.substr(pos+3);
+
 	if (nomfs)
 		for (size_t pos = abc9_script.find("&mfs"); pos != std::string::npos; pos = abc9_script.find("&mfs", pos))
 			abc9_script = abc9_script.erase(pos, strlen("&mfs"));
 
-	abc9_script += stringf("; &write -n %s/output.aig", tempdir_name.c_str());
+	abc9_script += stringf("&ps -l; &write -n %s/output.aig", tempdir_name.c_str());
 	abc9_script = add_echos_to_abc9_cmd(abc9_script);
 
 	for (size_t i = 0; i+1 < abc9_script.size(); i++)
@@ -758,18 +748,15 @@ struct Abc9Pass : public Pass {
 		log("\n");
 		log("        if no -script parameter is given, the following scripts are used:\n");
 		log("\n");
-		log("        for -lut/-luts (only one LUT size):\n");
-		log("%s\n", fold_abc9_cmd(ABC_COMMAND_LUT).c_str());
-		log("\n");
-		log("        for -lut/-luts (different LUT sizes):\n");
-		log("%s\n", fold_abc9_cmd(ABC_COMMAND_LUT).c_str());
+		log("        for -lut/-luts:\n");
+		log("%s\n", fold_abc9_cmd(RTLIL::constpad.at("abc9.script.default")).c_str());
 		log("\n");
 		log("    -fast\n");
 		log("        use different default scripts that are slightly faster (at the cost\n");
 		log("        of output quality):\n");
 		log("\n");
 		log("        for -lut/-luts:\n");
-		log("%s\n", fold_abc9_cmd(ABC_FAST_COMMAND_LUT).c_str());
+		log("%s\n", fold_abc9_cmd(RTLIL::constpad.at("abc9.script.default.fast")).c_str());
 		log("\n");
 		log("    -D <picoseconds>\n");
 		log("        set delay target. the string {D} in the default scripts above is\n");
@@ -883,9 +870,6 @@ struct Abc9Pass : public Pass {
 			}
 			if (arg == "-script" && argidx+1 < args.size()) {
 				script_file = args[++argidx];
-				rewrite_filename(script_file);
-				if (!script_file.empty() && !is_absolute_path(script_file) && script_file[0] != '+')
-					script_file = std::string(pwd) + "/" + script_file;
 				continue;
 			}
 			if (arg == "-D" && argidx+1 < args.size()) {
