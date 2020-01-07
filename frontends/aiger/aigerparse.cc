@@ -1018,7 +1018,7 @@ struct AigerFrontend : public Frontend {
 	{
 		log_header(design, "Executing AIGER frontend.\n");
 
-		RTLIL::IdString clk_name = "\\clk";
+		RTLIL::IdString clk_name;
 		RTLIL::IdString module_name;
 		std::string map_filename;
 		bool wideports = false;
