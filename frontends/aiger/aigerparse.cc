@@ -280,6 +280,7 @@ end_of_header:
 				if (wire) {
 					// Could have been renamed by a latch
 					module->swap_names(wire, outputs[l1]);
+					module->connect(outputs[l1], wire);
 					goto next;
 				}
 				wire = outputs[l1];
