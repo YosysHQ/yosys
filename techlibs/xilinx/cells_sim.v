@@ -325,6 +325,7 @@ endmodule
 
 // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf#L238-L250
 
+(* abc9_box_id=1100, lib_whitebox, abc9_flop *)
 module FDRE (
   (* abc9_arrival=303 *)
   output reg Q,
@@ -348,6 +349,20 @@ module FDRE (
   endcase endgenerate
 endmodule
 
+(* abc9_box_id=1101, lib_whitebox, abc9_flop *)
+module FDRE_1 (
+  (* abc9_arrival=303 *)
+  output reg Q,
+  (* clkbuf_sink *)
+  input C,
+  input CE, D, R
+);
+  parameter [0:0] INIT = 1'b0;
+  initial Q <= INIT;
+  always @(negedge C) if (R) Q <= 1'b0; else if (CE) Q <= D;
+endmodule
+
+(* abc9_box_id=1102, lib_whitebox, abc9_flop *)
 module FDSE (
   (* abc9_arrival=303 *)
   output reg Q,
@@ -369,6 +384,19 @@ module FDSE (
     1'b0: always @(posedge C) if (S == !IS_S_INVERTED) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
     1'b1: always @(negedge C) if (S == !IS_S_INVERTED) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
   endcase endgenerate
+endmodule
+
+(* abc9_box_id=1103, lib_whitebox, abc9_flop *)
+module FDSE_1 (
+  (* abc9_arrival=303 *)
+  output reg Q,
+  (* clkbuf_sink *)
+  input C,
+  input CE, D, S
+);
+  parameter [0:0] INIT = 1'b1;
+  initial Q <= INIT;
+  always @(negedge C) if (S) Q <= 1'b1; else if (CE) Q <= D;
 endmodule
 
 module FDRSE (
@@ -406,6 +434,7 @@ module FDRSE (
       Q <= d;
 endmodule
 
+(* abc9_box_id=1104, lib_whitebox, abc9_flop *)
 module FDCE (
   (* abc9_arrival=303 *)
   output reg Q,
@@ -413,10 +442,10 @@ module FDCE (
   (* invertible_pin = "IS_C_INVERTED" *)
   input C,
   input CE,
-  (* invertible_pin = "IS_D_INVERTED" *)
-  input D,
   (* invertible_pin = "IS_CLR_INVERTED" *)
-  input CLR
+  input CLR,
+  (* invertible_pin = "IS_D_INVERTED" *)
+  input D
 );
   parameter [0:0] INIT = 1'b0;
   parameter [0:0] IS_C_INVERTED = 1'b0;
@@ -431,6 +460,20 @@ module FDCE (
   endcase endgenerate
 endmodule
 
+(* abc9_box_id=1105, lib_whitebox, abc9_flop *)
+module FDCE_1 (
+  (* abc9_arrival=303 *)
+  output reg Q,
+  (* clkbuf_sink *)
+  input C,
+  input CE, D, CLR
+);
+  parameter [0:0] INIT = 1'b0;
+  initial Q <= INIT;
+  always @(negedge C, posedge CLR) if (CLR) Q <= 1'b0; else if (CE) Q <= D;
+endmodule
+
+(* abc9_box_id=1106, lib_whitebox, abc9_flop *)
 module FDPE (
   (* abc9_arrival=303 *)
   output reg Q,
@@ -454,6 +497,19 @@ module FDPE (
     2'b10: always @(negedge C, posedge PRE) if ( PRE) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
     2'b11: always @(negedge C, negedge PRE) if (!PRE) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
   endcase endgenerate
+endmodule
+
+(* abc9_box_id=1107, lib_whitebox, abc9_flop *)
+module FDPE_1 (
+  (* abc9_arrival=303 *)
+  output reg Q,
+  (* clkbuf_sink *)
+  input C,
+  input CE, D, PRE
+);
+  parameter [0:0] INIT = 1'b1;
+  initial Q <= INIT;
+  always @(negedge C, posedge PRE) if (PRE) Q <= 1'b1; else if (CE) Q <= D;
 endmodule
 
 module FDCPE (
@@ -499,54 +555,6 @@ module FDCPE (
       qs <= 1;
   end
   assign Q = qs ? qp : qc;
-endmodule
-
-module FDRE_1 (
-  (* abc9_arrival=303 *)
-  output reg Q,
-  (* clkbuf_sink *)
-  input C,
-  input CE, D, R
-);
-  parameter [0:0] INIT = 1'b0;
-  initial Q <= INIT;
-  always @(negedge C) if (R) Q <= 1'b0; else if(CE) Q <= D;
-endmodule
-
-module FDSE_1 (
-  (* abc9_arrival=303 *)
-  output reg Q,
-  (* clkbuf_sink *)
-  input C,
-  input CE, D, S
-);
-  parameter [0:0] INIT = 1'b1;
-  initial Q <= INIT;
-  always @(negedge C) if (S) Q <= 1'b1; else if(CE) Q <= D;
-endmodule
-
-module FDCE_1 (
-  (* abc9_arrival=303 *)
-  output reg Q,
-  (* clkbuf_sink *)
-  input C,
-  input CE, D, CLR
-);
-  parameter [0:0] INIT = 1'b0;
-  initial Q <= INIT;
-  always @(negedge C, posedge CLR) if (CLR) Q <= 1'b0; else if (CE) Q <= D;
-endmodule
-
-module FDPE_1 (
-  (* abc9_arrival=303 *)
-  output reg Q,
-  (* clkbuf_sink *)
-  input C,
-  input CE, D, PRE
-);
-  parameter [0:0] INIT = 1'b1;
-  initial Q <= INIT;
-  always @(negedge C, posedge PRE) if (PRE) Q <= 1'b1; else if (CE) Q <= D;
 endmodule
 
 module LDCE (
@@ -2388,8 +2396,8 @@ module DSP48E1 (
                     if (CEB2) Br2 <= Br1;
                 end
         end else if (BREG == 1) begin
-            //initial Br1 = 25'b0;
-            initial Br2 = 25'b0;
+            //initial Br1 = 18'b0;
+            initial Br2 = 18'b0;
             always @(posedge CLK)
                 if (RSTB) begin
                     Br1 <= 18'b0;
@@ -2436,7 +2444,7 @@ module DSP48E1 (
     endgenerate
 
     // A/D input selection and pre-adder
-    wire signed [29:0] Ar12_muxed = INMODEr[0] ? Ar1 : Ar2;
+    wire signed [24:0] Ar12_muxed = INMODEr[0] ? Ar1 : Ar2;
     wire signed [24:0] Ar12_gated = INMODEr[1] ? 25'b0 : Ar12_muxed;
     wire signed [24:0] Dr_gated   = INMODEr[2] ? Dr : 25'b0;
     wire signed [24:0] AD_result  = INMODEr[3] ? (Dr_gated - Ar12_gated) : (Dr_gated + Ar12_gated);
