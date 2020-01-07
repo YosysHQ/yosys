@@ -490,9 +490,9 @@ void AigerReader::parse_aiger_ascii()
 			log_error("Line %u cannot be interpreted as an input!\n", line_count);
 		log_debug2("%d is an input\n", l1);
 		log_assert(!(l1 & 1)); // Inputs can't be inverted
-		RTLIL::Wire *wire = module->addWire(stringf("$i%0*d", digits, i));
+		RTLIL::Wire *wire = module->addWire(stringf("$i%0*d", digits, l1 >> 1));
 		wire->port_input = true;
-		module->connect(createWireIfNotExists(module, l1 << 1), wire);
+		module->connect(createWireIfNotExists(module, l1), wire);
 		inputs.push_back(wire);
 	}
 
@@ -553,7 +553,7 @@ void AigerReader::parse_aiger_ascii()
 		module->connect(wire, createWireIfNotExists(module, l1));
 		outputs.push_back(wire);
 	}
-	std::getline(f, line); // Ignore up to start of next line
+	//std::getline(f, line); // Ignore up to start of next line
 
 	// Parse bad properties
 	for (unsigned i = 0; i < B; ++i, ++line_count) {
@@ -565,8 +565,8 @@ void AigerReader::parse_aiger_ascii()
 		wire->port_output = true;
 		bad_properties.push_back(wire);
 	}
-	if (B > 0)
-		std::getline(f, line); // Ignore up to start of next line
+	//if (B > 0)
+	//	std::getline(f, line); // Ignore up to start of next line
 
 	// TODO: Parse invariant constraints
 	for (unsigned i = 0; i < C; ++i, ++line_count)
