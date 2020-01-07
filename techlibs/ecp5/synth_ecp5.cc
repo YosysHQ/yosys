@@ -323,9 +323,9 @@ struct SynthEcp5Pass : public ScriptPass
 			if (abc9) {
 				run("read_verilog -icells -lib +/ecp5/abc9_model.v");
 				if (nowidelut)
-					run("abc9 -lut +/ecp5/abc9_5g_nowide.lut -box +/ecp5/abc9_5g.box -W 200 -nomfs");
+					run("abc9 -lut +/ecp5/abc9_5g_nowide.lut -box +/ecp5/abc9_5g.box -W 200");
 				else
-					run("abc9 -lut +/ecp5/abc9_5g.lut -box +/ecp5/abc9_5g.box -W 200 -nomfs");
+					run("abc9 -lut +/ecp5/abc9_5g.lut -box +/ecp5/abc9_5g.box -W 200");
 				run("techmap -map +/ecp5/abc9_unmap.v");
 			} else {
 				if (nowidelut)
