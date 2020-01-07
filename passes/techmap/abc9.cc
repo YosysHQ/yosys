@@ -219,16 +219,25 @@ struct Abc9Pass : public ScriptPass
 			tempdir_name = make_temp_dir(tempdir_name);
 
 			run(stringf("write_xaiger -map %s/input.sym %s/input.xaig", tempdir_name.c_str(), tempdir_name.c_str()),
-				"write_xaiger -map <abc-temp-dir>/input.sym <abc-temp-dir>/input.xaig");
-			run(stringf("%s -cwd %s", exe_cmd.str().c_str(), tempdir_name.c_str()),
-				"abc9_exe [options] -cwd <abc-temp-dir>");
+					"write_xaiger -map <abc-temp-dir>/input.sym <abc-temp-dir>/input.xaig");
 
-			run(stringf("read_aiger -xaiger -wideports -module_name %s$abc9 -map %s/input.sym %s/output.aig", log_id(mod->name), tempdir_name.c_str(), tempdir_name.c_str()),
-				"read_aiger -xaiger -wideports -module_name <module-name>$abc9 -map <abc-temp-dir>/input.sym <abc-temp-dir>/output.aig");
-			run("abc9_ops -reintegrate");
+			int num_outputs = active_design->scratchpad_get_int("write_xaiger.num_outputs");
+			log("Extracted %d AND gates and %d wires to a netlist network with %d inputs and %d outputs.\n",
+					active_design->scratchpad_get_int("write_xaiger.num_ands"),
+					active_design->scratchpad_get_int("write_xaiger.num_wires"),
+					active_design->scratchpad_get_int("write_xaiger.num_inputs"),
+					num_outputs);
+			if (num_outputs) {
+				run(stringf("%s -cwd %s", exe_cmd.str().c_str(), tempdir_name.c_str()),
+						"abc9_exe [options] -cwd <abc-temp-dir>");
+				run(stringf("read_aiger -xaiger -wideports -module_name %s$abc9 -map %s/input.sym %s/output.aig", log_id(mod->name), tempdir_name.c_str(), tempdir_name.c_str()),
+						"read_aiger -xaiger -wideports -module_name <module-name>$abc9 -map <abc-temp-dir>/input.sym <abc-temp-dir>/output.aig");
+				run("abc9_ops -reintegrate");
+			}
+			else
+				log("Don't call ABC as there is nothing to map.\n");
 
-			if (cleanup)
-			{
+			if (cleanup) {
 				log("Removing temp directory.\n");
 				remove_directory(tempdir_name);
 			}

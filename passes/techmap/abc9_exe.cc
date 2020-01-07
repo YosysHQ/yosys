@@ -244,56 +244,43 @@ void abc9_module(RTLIL::Design *design, std::string script_file, std::string exe
 	fprintf(f, "%s\n", abc9_script.c_str());
 	fclose(f);
 
-	int count_outputs = design->scratchpad_get_int("write_xaiger.num_outputs");
-	log("Extracted %d AND gates and %d wires to a netlist network with %d inputs and %d outputs.\n",
-			design->scratchpad_get_int("write_xaiger.num_ands"),
-			design->scratchpad_get_int("write_xaiger.num_wires"),
-			design->scratchpad_get_int("write_xaiger.num_inputs"),
-			count_outputs);
+	std::string buffer;
 
-	if (count_outputs > 0) {
-		std::string buffer;
+	log_header(design, "Executing ABC9.\n");
 
-		log_header(design, "Executing ABC9.\n");
+	if (!lut_costs.empty()) {
+		buffer = stringf("%s/lutdefs.txt", tempdir_name.c_str());
+		f = fopen(buffer.c_str(), "wt");
+		if (f == NULL)
+			log_error("Opening %s for writing failed: %s\n", buffer.c_str(), strerror(errno));
+		for (int i = 0; i < GetSize(lut_costs); i++)
+			fprintf(f, "%d %d.00 1.00\n", i+1, lut_costs.at(i));
+		fclose(f);
+	}
 
-		if (!lut_costs.empty()) {
-			buffer = stringf("%s/lutdefs.txt", tempdir_name.c_str());
-			f = fopen(buffer.c_str(), "wt");
-			if (f == NULL)
-				log_error("Opening %s for writing failed: %s\n", buffer.c_str(), strerror(errno));
-			for (int i = 0; i < GetSize(lut_costs); i++)
-				fprintf(f, "%d %d.00 1.00\n", i+1, lut_costs.at(i));
-			fclose(f);
-		}
-
-		buffer = stringf("%s -s -f %s/abc.script 2>&1", exe_file.c_str(), tempdir_name.c_str());
-		log("Running ABC command: %s\n", replace_tempdir(buffer, tempdir_name, show_tempdir).c_str());
+	buffer = stringf("%s -s -f %s/abc.script 2>&1", exe_file.c_str(), tempdir_name.c_str());
+	log("Running ABC command: %s\n", replace_tempdir(buffer, tempdir_name, show_tempdir).c_str());
 
 #ifndef YOSYS_LINK_ABC
-		abc9_output_filter filt(tempdir_name, show_tempdir);
-		int ret = run_command(buffer, std::bind(&abc9_output_filter::next_line, filt, std::placeholders::_1));
+	abc9_output_filter filt(tempdir_name, show_tempdir);
+	int ret = run_command(buffer, std::bind(&abc9_output_filter::next_line, filt, std::placeholders::_1));
 #else
-		// These needs to be mutable, supposedly due to getopt
-		char *abc9_argv[5];
-		string tmp_script_name = stringf("%s/abc.script", tempdir_name.c_str());
-		abc9_argv[0] = strdup(exe_file.c_str());
-		abc9_argv[1] = strdup("-s");
-		abc9_argv[2] = strdup("-f");
-		abc9_argv[3] = strdup(tmp_script_name.c_str());
-		abc9_argv[4] = 0;
-		int ret = Abc_RealMain(4, abc9_argv);
-		free(abc9_argv[0]);
-		free(abc9_argv[1]);
-		free(abc9_argv[2]);
-		free(abc9_argv[3]);
+	// These needs to be mutable, supposedly due to getopt
+	char *abc9_argv[5];
+	string tmp_script_name = stringf("%s/abc.script", tempdir_name.c_str());
+	abc9_argv[0] = strdup(exe_file.c_str());
+	abc9_argv[1] = strdup("-s");
+	abc9_argv[2] = strdup("-f");
+	abc9_argv[3] = strdup(tmp_script_name.c_str());
+	abc9_argv[4] = 0;
+	int ret = Abc_RealMain(4, abc9_argv);
+	free(abc9_argv[0]);
+	free(abc9_argv[1]);
+	free(abc9_argv[2]);
+	free(abc9_argv[3]);
 #endif
-		if (ret != 0)
-			log_error("ABC: execution of command \"%s\" failed: return code %d.\n", buffer.c_str(), ret);
-	}
-	else
-	{
-		log("Don't call ABC as there is nothing to map.\n");
-	}
+	if (ret != 0)
+		log_error("ABC: execution of command \"%s\" failed: return code %d.\n", buffer.c_str(), ret);
 }
 
 struct Abc9ExePass : public Pass {
