@@ -271,14 +271,23 @@ end_of_header:
 			if ((c == 'i' && l1 > inputs.size()) || (c == 'l' && l1 > latches.size()) || (c == 'o' && l1 > outputs.size()))
 				log_error("Line %u has invalid symbol position!\n", line_count);
 
+			RTLIL::IdString escaped_s = stringf("\\%s", s.c_str());
 			RTLIL::Wire* wire;
 			if (c == 'i') wire = inputs[l1];
 			else if (c == 'l') wire = latches[l1];
-			else if (c == 'o') wire = outputs[l1];
+			else if (c == 'o') {
+				wire = module->wire(escaped_s);
+				if (wire) {
+					// Could have been renamed by a latch
+					module->swap_names(wire, outputs[l1]);
+					goto next;
+				}
+				wire = outputs[l1];
+			}
 			else if (c == 'b') wire = bad_properties[l1];
 			else log_abort();
 
-			module->rename(wire, stringf("\\%s", s.c_str()));
+			module->rename(wire, escaped_s);
 		}
 		else if (c == 'j' || c == 'f') {
 			// TODO
@@ -293,6 +302,7 @@ end_of_header:
 		}
 		else
 			log_error("Line %u: cannot interpret first character '%c'!\n", line_count, c);
+next:
 		std::getline(f, line); // Ignore up to start of next line
 	}
 
