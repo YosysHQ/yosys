@@ -292,8 +292,11 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 	for (size_t pos = abc9_script.find("{W}"); pos != std::string::npos; pos = abc9_script.find("{W}", pos))
 		abc9_script = abc9_script.substr(0, pos) + wire_delay + abc9_script.substr(pos+3);
 
+	std::string C;
+	if (design->scratchpad.count("abc9.if.C"))
+		C = "-C " + design->scratchpad_get_string("abc9.if.C");
 	for (size_t pos = abc9_script.find("{C}"); pos != std::string::npos; pos = abc9_script.find("{C}", pos))
-		abc9_script = abc9_script.substr(0, pos) + design->scratchpad_get_string("abc9.if.C", "") + abc9_script.substr(pos+3);
+		abc9_script = abc9_script.substr(0, pos) + C + abc9_script.substr(pos+3);
 
 	if (nomfs)
 		for (size_t pos = abc9_script.find("&mfs"); pos != std::string::npos; pos = abc9_script.find("&mfs", pos))
