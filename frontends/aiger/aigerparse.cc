@@ -271,14 +271,24 @@ end_of_header:
 			if ((c == 'i' && l1 > inputs.size()) || (c == 'l' && l1 > latches.size()) || (c == 'o' && l1 > outputs.size()))
 				log_error("Line %u has invalid symbol position!\n", line_count);
 
+			RTLIL::IdString escaped_s = stringf("\\%s", s.c_str());
 			RTLIL::Wire* wire;
 			if (c == 'i') wire = inputs[l1];
 			else if (c == 'l') wire = latches[l1];
-			else if (c == 'o') wire = outputs[l1];
+			else if (c == 'o') {
+				wire = module->wire(escaped_s);
+				if (wire) {
+					// Could have been renamed by a latch
+					module->swap_names(wire, outputs[l1]);
+					module->connect(outputs[l1], wire);
+					goto next;
+				}
+				wire = outputs[l1];
+			}
 			else if (c == 'b') wire = bad_properties[l1];
 			else log_abort();
 
-			module->rename(wire, stringf("\\%s", s.c_str()));
+			module->rename(wire, escaped_s);
 		}
 		else if (c == 'j' || c == 'f') {
 			// TODO
@@ -293,6 +303,7 @@ end_of_header:
 		}
 		else
 			log_error("Line %u: cannot interpret first character '%c'!\n", line_count, c);
+next:
 		std::getline(f, line); // Ignore up to start of next line
 	}
 
@@ -496,13 +507,15 @@ void AigerReader::parse_aiger_ascii()
 	unsigned l1, l2, l3;
 
 	// Parse inputs
+	int digits = ceil(log10(I));
 	for (unsigned i = 1; i <= I; ++i, ++line_count) {
 		if (!(f >> l1))
 			log_error("Line %u cannot be interpreted as an input!\n", line_count);
 		log_debug2("%d is an input\n", l1);
 		log_assert(!(l1 & 1)); // Inputs can't be inverted
-		RTLIL::Wire *wire = createWireIfNotExists(module, l1);
+		RTLIL::Wire *wire = module->addWire(stringf("$i%0*d", digits, l1 >> 1));
 		wire->port_input = true;
+		module->connect(createWireIfNotExists(module, l1), wire);
 		inputs.push_back(wire);
 	}
 
@@ -516,12 +529,14 @@ void AigerReader::parse_aiger_ascii()
 		clk_wire->port_input = true;
 		clk_wire->port_output = false;
 	}
+	digits = ceil(log10(L));
 	for (unsigned i = 0; i < L; ++i, ++line_count) {
 		if (!(f >> l1 >> l2))
 			log_error("Line %u cannot be interpreted as a latch!\n", line_count);
 		log_debug2("%d %d is a latch\n", l1, l2);
 		log_assert(!(l1 & 1));
-		RTLIL::Wire *q_wire = createWireIfNotExists(module, l1);
+		RTLIL::Wire *q_wire = module->addWire(stringf("$l%0*d", digits, l1 >> 1));
+		module->connect(createWireIfNotExists(module, l1), q_wire);
 		RTLIL::Wire *d_wire = createWireIfNotExists(module, l2);
 
 		if (clk_wire)
@@ -644,12 +659,14 @@ void AigerReader::parse_aiger_binary()
 		clk_wire->port_input = true;
 		clk_wire->port_output = false;
 	}
+	digits = ceil(log10(L));
 	l1 = (I+1) * 2;
 	for (unsigned i = 0; i < L; ++i, ++line_count, l1 += 2) {
 		if (!(f >> l2))
 			log_error("Line %u cannot be interpreted as a latch!\n", line_count);
 		log_debug("%d %d is a latch\n", l1, l2);
-		RTLIL::Wire *q_wire = createWireIfNotExists(module, l1);
+		RTLIL::Wire *q_wire = module->addWire(stringf("$l%0*d", digits, l1 >> 1));
+		module->connect(createWireIfNotExists(module, l1), q_wire);
 		RTLIL::Wire *d_wire = createWireIfNotExists(module, l2);
 
 		if (clk_wire)
@@ -1018,7 +1035,7 @@ struct AigerFrontend : public Frontend {
 	{
 		log_header(design, "Executing AIGER frontend.\n");
 
-		RTLIL::IdString clk_name = "\\clk";
+		RTLIL::IdString clk_name;
 		RTLIL::IdString module_name;
 		std::string map_filename;
 		bool wideports = false;
