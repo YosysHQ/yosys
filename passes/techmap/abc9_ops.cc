@@ -521,49 +521,49 @@ void reintegrate(RTLIL::Module *module)
 		RTLIL::Module* box_module = design->module(mapped_cell->type);
 		auto abc9_flop = box_module && box_module->attributes.count("\\abc9_flop");
 		for (auto &mapped_conn : mapped_cell->connections()) {
-		    RTLIL::SigSpec newsig;
-		    for (auto c : mapped_conn.second.chunks()) {
-			if (c.width == 0)
-			    continue;
-			//log_assert(c.width == 1);
-			if (c.wire)
-			    c.wire = module->wires_.at(remap_name(c.wire->name));
-			newsig.append(c);
-		    }
-		    if (existing_cell) {
-			auto it = existing_cell->connections_.find(mapped_conn.first);
-			if (it == existing_cell->connections_.end())
-			    continue;
-			log_assert(GetSize(newsig) >= GetSize(it->second));
-			newsig = newsig.extract(0, GetSize(it->second));
-		    }
-		    cell->setPort(mapped_conn.first, newsig);
+			RTLIL::SigSpec newsig;
+			for (auto c : mapped_conn.second.chunks()) {
+				if (c.width == 0)
+					continue;
+				//log_assert(c.width == 1);
+				if (c.wire)
+					c.wire = module->wires_.at(remap_name(c.wire->name));
+				newsig.append(c);
+			}
+			if (existing_cell) {
+				auto it = existing_cell->connections_.find(mapped_conn.first);
+				if (it == existing_cell->connections_.end())
+					continue;
+				log_assert(GetSize(newsig) >= GetSize(it->second));
+				newsig = newsig.extract(0, GetSize(it->second));
+			}
+			cell->setPort(mapped_conn.first, newsig);
 
-		    if (abc9_flop)
-			continue;
+			if (abc9_flop)
+				continue;
 
-		    if (cell->input(mapped_conn.first)) {
-			for (auto i : newsig)
-			    bit2sinks[i].push_back(cell);
-			for (auto i : mapped_conn.second)
-			    bit_users[i].insert(mapped_cell->name);
-		    }
-		    if (cell->output(mapped_conn.first))
-			for (auto i : mapped_conn.second)
-			    bit_drivers[i].insert(mapped_cell->name);
+			if (cell->input(mapped_conn.first)) {
+				for (auto i : newsig)
+					bit2sinks[i].push_back(cell);
+				for (auto i : mapped_conn.second)
+					bit_users[i].insert(mapped_cell->name);
+			}
+			if (cell->output(mapped_conn.first))
+				for (auto i : mapped_conn.second)
+					bit_drivers[i].insert(mapped_cell->name);
 		}
 
 		if (existing_cell) {
-		    cell->parameters = existing_cell->parameters;
-		    cell->attributes = existing_cell->attributes;
-		    if (cell->attributes.erase("\\abc9_box_seq")) {
-			module->swap_names(cell, existing_cell);
-			module->remove(existing_cell);
-		    }
+			cell->parameters = existing_cell->parameters;
+			cell->attributes = existing_cell->attributes;
+			if (cell->attributes.erase("\\abc9_box_seq")) {
+				module->swap_names(cell, existing_cell);
+				module->remove(existing_cell);
+			}
 		}
 		else {
-		    cell->parameters = mapped_cell->parameters;
-		    cell->attributes = mapped_cell->attributes;
+			cell->parameters = mapped_cell->parameters;
+			cell->attributes = mapped_cell->attributes;
 		}
 	}
 
@@ -595,7 +595,7 @@ void reintegrate(RTLIL::Module *module)
 		RTLIL::Wire *wire = module->wire(port);
 		log_assert(wire);
 		RTLIL::Wire *remap_wire = module->wire(remap_name(port));
-		RTLIL::SigSpec signal = RTLIL::SigSpec(wire, 0, GetSize(remap_wire));
+		RTLIL::SigSpec signal(wire, 0, GetSize(remap_wire));
 		log_assert(GetSize(signal) >= GetSize(remap_wire));
 
 		RTLIL::SigSig conn;
