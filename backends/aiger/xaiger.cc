@@ -626,9 +626,10 @@ struct XAigerWriter
 				if (box_module->has_processes())
 					Pass::call_on_module(module->design, box_module, "proc");
 
+				bool whitebox = box_module->get_bool_attribute("\\whitebox");
 				auto r = cell_cache.insert(std::make_pair(derived_name, nullptr));
 				Cell *holes_cell = r.first->second;
-				if (r.second && box_module->get_bool_attribute("\\whitebox")) {
+				if (r.second && whitebox) {
 					holes_cell = holes_module->addCell(cell->name, cell->type);
 					holes_cell->parameters = cell->parameters;
 					r.first->second = holes_cell;
@@ -641,19 +642,23 @@ struct XAigerWriter
 					RTLIL::Wire *holes_wire;
 					RTLIL::SigSpec port_sig;
 
-					if (w->port_input)
-						for (int i = 0; i < GetSize(w); i++) {
-							box_inputs++;
-							holes_wire = holes_module->wire(stringf("\\i%d", box_inputs));
-							if (!holes_wire) {
-								holes_wire = holes_module->addWire(stringf("\\i%d", box_inputs));
-								holes_wire->port_input = true;
-								holes_wire->port_id = port_id++;
-								holes_module->ports.push_back(holes_wire->name);
+					if (w->port_input) {
+						if (whitebox)
+							for (int i = 0; i < GetSize(w); i++) {
+								box_inputs++;
+								holes_wire = holes_module->wire(stringf("\\i%d", box_inputs));
+								if (!holes_wire) {
+									holes_wire = holes_module->addWire(stringf("\\i%d", box_inputs));
+									holes_wire->port_input = true;
+									holes_wire->port_id = port_id++;
+									holes_module->ports.push_back(holes_wire->name);
+								}
+								if (holes_cell)
+									port_sig.append(holes_wire);
 							}
-							if (holes_cell)
-								port_sig.append(holes_wire);
-						}
+						else
+							box_inputs += GetSize(w);
+					}
 					if (w->port_output) {
 						box_outputs += GetSize(w);
 						for (int i = 0; i < GetSize(w); i++) {
