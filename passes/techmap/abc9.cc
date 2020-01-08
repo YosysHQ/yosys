@@ -303,6 +303,12 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 	for (size_t pos = abc9_script.find("{C}"); pos != std::string::npos; pos = abc9_script.find("{C}", pos))
 		abc9_script = abc9_script.substr(0, pos) + C + abc9_script.substr(pos+3);
 
+	std::string R;
+	if (design->scratchpad.count("abc9.if.R"))
+		C = "-C " + design->scratchpad_get_string("abc9.if.R");
+	for (size_t pos = abc9_script.find("{R}"); pos != std::string::npos; pos = abc9_script.find("{R}", pos))
+		abc9_script = abc9_script.substr(0, pos) + C + abc9_script.substr(pos+3);
+
 	if (nomfs)
 		for (size_t pos = abc9_script.find("&mfs"); pos != std::string::npos; pos = abc9_script.find("&mfs", pos))
 			abc9_script = abc9_script.erase(pos, strlen("&mfs"));
