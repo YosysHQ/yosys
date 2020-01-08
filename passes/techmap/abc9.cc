@@ -184,70 +184,83 @@ struct Abc9Pass : public ScriptPass
 
 	void script() YS_OVERRIDE
 	{
-		run("scc -set_attr abc9_scc_id {}");
-		if (help_mode)
-			run("abc9_ops -break_scc -prep_holes [-dff]", "(option for -dff)");
-		else
-			run("abc9_ops -break_scc -prep_holes" + std::string(dff_mode ? " -dff" : ""), "(option for -dff)");
-		run("select -set abc9_holes A:abc9_holes");
-		run("flatten -wb @abc9_holes");
-		run("techmap @abc9_holes");
-		run("aigmap");
-		if (dff_mode)
-			run("abc9_ops -prep_dff");
-		run("opt -purge @abc9_holes");
-		run("wbflip @abc9_holes");
-
-		auto selected_modules = active_design->selected_modules();
-		active_design->selection_stack.emplace_back(false);
-
-		for (auto mod : selected_modules) {
-			if (mod->processes.size() > 0) {
-				log("Skipping module %s as it contains processes.\n", log_id(mod));
-				continue;
-			}
-			log_assert(!mod->attributes.count(ID(abc9_box_id)));
-
-			active_design->selection().select(mod);
-
-			if (!active_design->selected_whole_module(mod))
-				log_error("Can't handle partially selected module %s!\n", log_id(mod));
-
-			std::string tempdir_name = "/tmp/yosys-abc-XXXXXX";
-			if (!cleanup)
-				tempdir_name[0] = tempdir_name[4] = '_';
-			tempdir_name = make_temp_dir(tempdir_name);
-
-			run(stringf("write_xaiger -map %s/input.sym %s/input.xaig", tempdir_name.c_str(), tempdir_name.c_str()),
-					"write_xaiger -map <abc-temp-dir>/input.sym <abc-temp-dir>/input.xaig");
-
-			int num_outputs = active_design->scratchpad_get_int("write_xaiger.num_outputs");
-			log("Extracted %d AND gates and %d wires to a netlist network with %d inputs and %d outputs.\n",
-					active_design->scratchpad_get_int("write_xaiger.num_ands"),
-					active_design->scratchpad_get_int("write_xaiger.num_wires"),
-					active_design->scratchpad_get_int("write_xaiger.num_inputs"),
-					num_outputs);
-			if (num_outputs) {
-				run(stringf("%s -cwd %s", exe_cmd.str().c_str(), tempdir_name.c_str()),
-						"abc9_exe [options] -cwd <abc-temp-dir>");
-				run(stringf("read_aiger -xaiger -wideports -module_name %s$abc9 -map %s/input.sym %s/output.aig", log_id(mod->name), tempdir_name.c_str(), tempdir_name.c_str()),
-						"read_aiger -xaiger -wideports -module_name <module-name>$abc9 -map <abc-temp-dir>/input.sym <abc-temp-dir>/output.aig");
-				run("abc9_ops -reintegrate");
-			}
+		if (check_label("pre")) {
+			run("scc -set_attr abc9_scc_id {}");
+			if (help_mode)
+				run("abc9_ops -break_scc -prep_holes [-dff]", "(option for -dff)");
 			else
-				log("Don't call ABC as there is nothing to map.\n");
-
-			if (cleanup) {
-				log("Removing temp directory.\n");
-				remove_directory(tempdir_name);
-			}
-
-			active_design->selection().selected_modules.clear();
+				run("abc9_ops -break_scc -prep_holes" + std::string(dff_mode ? " -dff" : ""), "(option for -dff)");
+			run("select -set abc9_holes A:abc9_holes");
+			run("flatten -wb @abc9_holes");
+			run("techmap @abc9_holes");
+			run("aigmap");
+			if (dff_mode || help_mode)
+				run("abc9_ops -prep_dff", "(only if -dff)");
+			run("opt -purge @abc9_holes");
+			run("wbflip @abc9_holes");
 		}
 
-		active_design->selection_stack.pop_back();
+		if (check_label("map")) {
+			if (help_mode) {
+				run("foreach module in selection");
+				run("    write_xaiger -map <abc-temp-dir>/input.sym <abc-temp-dir>/input.xaig");
+				run("    abc9_exe [options] -cwd <abc-temp-dir>");
+				run("    read_aiger -xaiger -wideports -module_name <module-name>$abc9 -map <abc-temp-dir>/input.sym <abc-temp-dir>/output.aig");
+				run("    abc9_ops -reintegrate");
+			}
+			else {
+				auto selected_modules = active_design->selected_modules();
+				active_design->selection_stack.emplace_back(false);
 
-		run("abc9_ops -unbreak_scc");
+				for (auto mod : selected_modules) {
+					if (mod->processes.size() > 0) {
+						log("Skipping module %s as it contains processes.\n", log_id(mod));
+						continue;
+					}
+					log_assert(!mod->attributes.count(ID(abc9_box_id)));
+
+					active_design->selection().select(mod);
+
+					if (!active_design->selected_whole_module(mod))
+						log_error("Can't handle partially selected module %s!\n", log_id(mod));
+
+					std::string tempdir_name = "/tmp/yosys-abc-XXXXXX";
+					if (!cleanup)
+						tempdir_name[0] = tempdir_name[4] = '_';
+					tempdir_name = make_temp_dir(tempdir_name);
+
+					run(stringf("write_xaiger -map %s/input.sym %s/input.xaig", tempdir_name.c_str(), tempdir_name.c_str()));
+
+					int num_outputs = active_design->scratchpad_get_int("write_xaiger.num_outputs");
+					log("Extracted %d AND gates and %d wires to a netlist network with %d inputs and %d outputs.\n",
+							active_design->scratchpad_get_int("write_xaiger.num_ands"),
+							active_design->scratchpad_get_int("write_xaiger.num_wires"),
+							active_design->scratchpad_get_int("write_xaiger.num_inputs"),
+							num_outputs);
+					if (num_outputs) {
+						run(stringf("%s -cwd %s", exe_cmd.str().c_str(), tempdir_name.c_str()),
+								"abc9_exe [options] -cwd <abc-temp-dir>");
+						run(stringf("read_aiger -xaiger -wideports -module_name %s$abc9 -map %s/input.sym %s/output.aig", log_id(mod->name), tempdir_name.c_str(), tempdir_name.c_str()),
+								"read_aiger -xaiger -wideports -module_name <module-name>$abc9 -map <abc-temp-dir>/input.sym <abc-temp-dir>/output.aig");
+						run("abc9_ops -reintegrate");
+					}
+					else
+						log("Don't call ABC as there is nothing to map.\n");
+
+					if (cleanup) {
+						log("Removing temp directory.\n");
+						remove_directory(tempdir_name);
+					}
+
+					active_design->selection().selected_modules.clear();
+				}
+
+				active_design->selection_stack.pop_back();
+			}
+		}
+
+		if (check_label("post"))
+			run("abc9_ops -unbreak_scc");
 	}
 } Abc9Pass;
 
