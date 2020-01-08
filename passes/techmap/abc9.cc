@@ -204,7 +204,7 @@ struct Abc9Pass : public ScriptPass
 			if (help_mode) {
 				run("foreach module in selection");
 				run("    write_xaiger -map <abc-temp-dir>/input.sym <abc-temp-dir>/input.xaig");
-				run("    abc9_exe [options] -cwd <abc-temp-dir>");
+				run("    abc9_exe -cwd <abc-temp-dir> [options]");
 				run("    read_aiger -xaiger -wideports -module_name <module-name>$abc9 -map <abc-temp-dir>/input.sym <abc-temp-dir>/output.aig");
 				run("    abc9_ops -reintegrate");
 			}
@@ -238,10 +238,8 @@ struct Abc9Pass : public ScriptPass
 							active_design->scratchpad_get_int("write_xaiger.num_inputs"),
 							num_outputs);
 					if (num_outputs) {
-						run(stringf("%s -cwd %s", exe_cmd.str().c_str(), tempdir_name.c_str()),
-								"abc9_exe [options] -cwd <abc-temp-dir>");
-						run(stringf("read_aiger -xaiger -wideports -module_name %s$abc9 -map %s/input.sym %s/output.aig", log_id(mod->name), tempdir_name.c_str(), tempdir_name.c_str()),
-								"read_aiger -xaiger -wideports -module_name <module-name>$abc9 -map <abc-temp-dir>/input.sym <abc-temp-dir>/output.aig");
+						run(stringf("%s -cwd %s", exe_cmd.str().c_str(), tempdir_name.c_str()));
+						run(stringf("read_aiger -xaiger -wideports -module_name %s$abc9 -map %s/input.sym %s/output.aig", log_id(mod->name), tempdir_name.c_str(), tempdir_name.c_str()));
 						run("abc9_ops -reintegrate");
 					}
 					else
