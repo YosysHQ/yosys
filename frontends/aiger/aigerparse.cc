@@ -756,12 +756,6 @@ void AigerReader::post_process()
 	}
 
 	for (uint32_t i = 0; i < flopNum; i++) {
-		log_assert(co_count < outputs.size());
-		Wire *wire = outputs[co_count++];
-		log_assert(wire);
-		log_assert(wire->port_output);
-		wire->port_output = false;
-
 		RTLIL::Wire *d = outputs[outputs.size() - flopNum + i];
 		log_assert(d);
 		log_assert(d->port_output);
