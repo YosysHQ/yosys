@@ -188,20 +188,15 @@ void abc9_module(RTLIL::Design *design, std::string script_file, std::string exe
 
 	std::string abc9_script;
 
-	if (!lut_costs.empty()) {
+	if (!lut_costs.empty())
 		abc9_script += stringf("read_lut %s/lutdefs.txt; ", tempdir_name.c_str());
-		if (!box_file.empty())
-			abc9_script += stringf("read_box %s; ", box_file.c_str());
-	}
 	else
-	if (!lut_file.empty()) {
+	if (!lut_file.empty())
 		abc9_script += stringf("read_lut %s; ", lut_file.c_str());
-		if (!box_file.empty())
-			abc9_script += stringf("read_box %s; ", box_file.c_str());
-	}
 	else
 		log_abort();
 
+	abc9_script += stringf("read_box %s; ", box_file.c_str());
 	abc9_script += stringf("&read %s/input.xaig; &ps; ", tempdir_name.c_str());
 
 	if (!script_file.empty()) {
@@ -355,7 +350,7 @@ struct Abc9ExePass : public Pass {
 		log("        command output is identical across runs.\n");
 		log("\n");
 		log("    -box <file>\n");
-		log("        pass this file with box library to ABC. Use with -lut.\n");
+		log("        pass this file with box library to ABC.\n");
 		log("\n");
 		log("    -cwd <dir>\n");
 		log("        use this as the current working directory, inside which the 'input.xaig'\n");
