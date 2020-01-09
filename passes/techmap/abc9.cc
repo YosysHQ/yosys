@@ -40,7 +40,7 @@ struct Abc9Pass : public ScriptPass
 		log("    abc9 [options] [selection]\n");
 		log("\n");
 		log("This pass uses the ABC tool [1] for technology mapping of yosys's internal gate\n");
-		log("library to a target architecture.\n");
+		log("library to a target architecture. Only fully-selected modules are supported.\n");
 		log("\n");
 		log("    -exe <command>\n");
 #ifdef ABCEXTERNAL
@@ -113,11 +113,6 @@ struct Abc9Pass : public ScriptPass
 		log("        print the temp dir name in log. usually this is suppressed so that the\n");
 		log("        command output is identical across runs.\n");
 		log("\n");
-		log("    -markgroups\n");
-		log("        set a 'abcgroup' attribute on all objects created by ABC. The value of\n");
-		log("        this attribute is a unique integer for each ABC process started. This\n");
-		log("        is useful for debugging the partitioning of clock domains.\n");
-		log("\n");
 		log("    -box <file>\n");
 		log("        pass this file with box library to ABC. Use with -lut.\n");
 		log("\n");
@@ -134,13 +129,13 @@ struct Abc9Pass : public ScriptPass
 		log("\n");
 	}
 
-	std::stringstream map_cmd;
+	std::stringstream exe_cmd;
 	bool dff_mode, cleanup;
 
 	void clear_flags() YS_OVERRIDE
 	{
-		map_cmd.str("");
-		map_cmd << "abc9_map";
+		exe_cmd.str("");
+		exe_cmd << "abc9_exe";
 		dff_mode = false;
 		cleanup = true;
 	}
@@ -150,6 +145,10 @@ struct Abc9Pass : public ScriptPass
 		std::string run_from, run_to;
 		clear_flags();
 
+		// get arguments from scratchpad first, then override by command arguments
+		dff_mode = design->scratchpad_get_bool("abc9.dff", dff_mode);
+		cleanup = !design->scratchpad_get_bool("abc9.nocleanup", !cleanup);
+
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			std::string arg = args[argidx];
@@ -157,13 +156,13 @@ struct Abc9Pass : public ScriptPass
 						/* arg == "-S" || */ arg == "-lut" || arg == "-luts" ||
 						arg == "-box" || arg == "-W") &&
 					argidx+1 < args.size()) {
-				map_cmd << " " << arg << " " << args[++argidx];
+				exe_cmd << " " << arg << " " << args[++argidx];
 				continue;
 			}
 			if (arg == "-fast" || /* arg == "-dff" || */
-					/* arg == "-nocleanup" || */ arg == "-showtmp" || arg == "-markgroups" ||
+					/* arg == "-nocleanup" || */ arg == "-showtmp" ||
 					arg == "-nomfs") {
-				map_cmd << " " << arg;
+				exe_cmd << " " << arg;
 				continue;
 			}
 			if (arg == "-dff") {
@@ -185,56 +184,83 @@ struct Abc9Pass : public ScriptPass
 
 	void script() YS_OVERRIDE
 	{
-		run("scc -set_attr abc9_scc_id {}");
-		if (help_mode)
-			run("abc9_ops -break_scc -prep_holes [-dff]", "(option for -dff)");
-		else
-			run("abc9_ops -break_scc -prep_holes" + std::string(dff_mode ? " -dff" : ""), "(option for -dff)");
-		run("select -set abc9_holes A:abc9_holes");
-		run("flatten -wb @abc9_holes");
-		run("techmap @abc9_holes");
-		run("aigmap");
-		if (dff_mode)
-			run("abc9_ops -prep_dff");
-		run("opt -purge @abc9_holes");
-		run("wbflip @abc9_holes");
-
-		auto selected_modules = active_design->selected_modules();
-		active_design->selection_stack.emplace_back(false);
-
-		for (auto mod : selected_modules) {
-			if (mod->get_blackbox_attribute())
-				continue;
-
-			if (mod->processes.size() > 0) {
-				log("Skipping module %s as it contains processes.\n", log_id(mod));
-				continue;
-			}
-
-			active_design->selection().select(mod);
-
-			std::string tempdir_name = "/tmp/yosys-abc-XXXXXX";
-			if (!cleanup)
-				tempdir_name[0] = tempdir_name[4] = '_';
-			tempdir_name = make_temp_dir(tempdir_name);
-
-			run(stringf("write_xaiger -map %s/input.sym %s/input.xaig", tempdir_name.c_str(), tempdir_name.c_str()),
-					"write_xaiger -map <abc-temp-dir>/input.sym <abc-temp-dir>/input.xaig");
-			run(stringf("%s -tempdir %s", map_cmd.str().c_str(), tempdir_name.c_str()),
-					"abc9_map [options] -tempdir <abc-temp-dir>");
-
-			if (cleanup)
-			{
-				log("Removing temp directory.\n");
-				remove_directory(tempdir_name);
-			}
-
-			active_design->selection().selected_modules.clear();
+		if (check_label("pre")) {
+			run("scc -set_attr abc9_scc_id {}");
+			if (help_mode)
+				run("abc9_ops -break_scc -prep_holes [-dff]", "(option for -dff)");
+			else
+				run("abc9_ops -break_scc -prep_holes" + std::string(dff_mode ? " -dff" : ""), "(option for -dff)");
+			run("select -set abc9_holes A:abc9_holes");
+			run("flatten -wb @abc9_holes");
+			run("techmap @abc9_holes");
+			run("aigmap");
+			if (dff_mode || help_mode)
+				run("abc9_ops -prep_dff", "(only if -dff)");
+			run("opt -purge @abc9_holes");
+			run("wbflip @abc9_holes");
 		}
 
-		active_design->selection_stack.pop_back();
+		if (check_label("map")) {
+			if (help_mode) {
+				run("foreach module in selection");
+				run("    write_xaiger -map <abc-temp-dir>/input.sym <abc-temp-dir>/input.xaig");
+				run("    abc9_exe [options] -cwd <abc-temp-dir>");
+				run("    read_aiger -xaiger -wideports -module_name <module-name>$abc9 -map <abc-temp-dir>/input.sym <abc-temp-dir>/output.aig");
+				run("    abc9_ops -reintegrate");
+			}
+			else {
+				auto selected_modules = active_design->selected_modules();
+				active_design->selection_stack.emplace_back(false);
 
-		run("abc9_ops -unbreak_scc");
+				for (auto mod : selected_modules) {
+					if (mod->processes.size() > 0) {
+						log("Skipping module %s as it contains processes.\n", log_id(mod));
+						continue;
+					}
+					log_assert(!mod->attributes.count(ID(abc9_box_id)));
+
+					active_design->selection().select(mod);
+
+					if (!active_design->selected_whole_module(mod))
+						log_error("Can't handle partially selected module %s!\n", log_id(mod));
+
+					std::string tempdir_name = "/tmp/yosys-abc-XXXXXX";
+					if (!cleanup)
+						tempdir_name[0] = tempdir_name[4] = '_';
+					tempdir_name = make_temp_dir(tempdir_name);
+
+					run(stringf("write_xaiger -map %s/input.sym %s/input.xaig", tempdir_name.c_str(), tempdir_name.c_str()));
+
+					int num_outputs = active_design->scratchpad_get_int("write_xaiger.num_outputs");
+					log("Extracted %d AND gates and %d wires to a netlist network with %d inputs and %d outputs.\n",
+							active_design->scratchpad_get_int("write_xaiger.num_ands"),
+							active_design->scratchpad_get_int("write_xaiger.num_wires"),
+							active_design->scratchpad_get_int("write_xaiger.num_inputs"),
+							num_outputs);
+					if (num_outputs) {
+						run(stringf("%s -cwd %s", exe_cmd.str().c_str(), tempdir_name.c_str()),
+								"abc9_exe [options] -cwd <abc-temp-dir>");
+						run(stringf("read_aiger -xaiger -wideports -module_name %s$abc9 -map %s/input.sym %s/output.aig", log_id(mod->name), tempdir_name.c_str(), tempdir_name.c_str()),
+								"read_aiger -xaiger -wideports -module_name <module-name>$abc9 -map <abc-temp-dir>/input.sym <abc-temp-dir>/output.aig");
+						run("abc9_ops -reintegrate");
+					}
+					else
+						log("Don't call ABC as there is nothing to map.\n");
+
+					if (cleanup) {
+						log("Removing temp directory.\n");
+						remove_directory(tempdir_name);
+					}
+
+					active_design->selection().selected_modules.clear();
+				}
+
+				active_design->selection_stack.pop_back();
+			}
+		}
+
+		if (check_label("post"))
+			run("abc9_ops -unbreak_scc");
 	}
 } Abc9Pass;
 
