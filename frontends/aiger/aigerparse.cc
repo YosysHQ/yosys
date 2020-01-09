@@ -797,6 +797,7 @@ void AigerReader::post_process()
 						wire->port_input = false;
 						module->connect(wire, existing);
 					}
+					log_debug(" -> %s\n", log_id(escaped_s));
 				}
 				else if (index > 0) {
 					std::string indexed_name = stringf("%s[%d]", escaped_s.c_str(), index);
@@ -810,8 +811,8 @@ void AigerReader::post_process()
 						module->connect(wire, existing);
 						wire->port_input = false;
 					}
+					log_debug(" -> %s\n", log_id(indexed_name));
 				}
-				log_debug(" -> %s\n", log_id(wire));
 			}
 			else if (type == "output") {
 				log_assert(static_cast<unsigned>(variable + co_count) < outputs.size());
@@ -833,6 +834,7 @@ void AigerReader::post_process()
 						module->connect(wire, existing);
 						wire = existing;
 					}
+					log_debug(" -> %s\n", log_id(escaped_s));
 				}
 				else if (index > 0) {
 					std::string indexed_name = stringf("%s[%d]", escaped_s.c_str(), index);
@@ -846,8 +848,8 @@ void AigerReader::post_process()
 						module->connect(wire, existing);
 						wire->port_output = false;
 					}
+					log_debug(" -> %s\n", log_id(indexed_name));
 				}
-				log_debug(" -> %s\n", log_id(wire));
 				int init;
 				mf >> init;
 				if (init < 2)
