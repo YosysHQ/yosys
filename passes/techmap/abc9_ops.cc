@@ -488,11 +488,13 @@ void reintegrate(RTLIL::Module *module)
 		}
 	}
 
-	for (auto it = module->cells_.begin(); it != module->cells_.end(); )
-		if (it->second->type.in(ID($_AND_), ID($_NOT_), ID($__ABC9_FF_)))
-			it = module->cells_.erase(it);
-		else
-			++it;
+	std::vector<Cell*> boxes;
+	for (auto cell : module->cells().to_vector()) {
+		if (cell->type.in(ID($_AND_), ID($_NOT_), ID($__ABC9_FF_)))
+			module->remove(cell);
+		else if (cell->attributes.erase("\\abc9_box_seq"))
+			boxes.emplace_back(cell);
+	}
 
 	dict<SigBit, pool<IdString>> bit_drivers, bit_users;
 	TopoSort<IdString, RTLIL::sort_by_id_str> toposort;
@@ -504,7 +506,6 @@ void reintegrate(RTLIL::Module *module)
 	{
 		toposort.node(mapped_cell->name);
 
-		RTLIL::Cell *cell = nullptr;
 		if (mapped_cell->type == ID($_NOT_)) {
 			RTLIL::SigBit a_bit = mapped_cell->getPort(ID::A);
 			RTLIL::SigBit y_bit = mapped_cell->getPort(ID::Y);
@@ -536,7 +537,7 @@ void reintegrate(RTLIL::Module *module)
 				if (!driver_lut) {
 					// If a driver couldn't be found (could be from PI or box CI)
 					// then implement using a LUT
-					cell = module->addLut(remap_name(stringf("%s$lut", mapped_cell->name.c_str())),
+					RTLIL::Cell *cell = module->addLut(remap_name(stringf("%s$lut", mapped_cell->name.c_str())),
 							RTLIL::SigBit(module->wires_.at(remap_name(a_bit.wire->name)), a_bit.offset),
 							RTLIL::SigBit(module->wires_.at(remap_name(y_bit.wire->name)), y_bit.offset),
 							RTLIL::Const::from_string("01"));
@@ -548,10 +549,9 @@ void reintegrate(RTLIL::Module *module)
 			}
 			continue;
 		}
-		cell_stats[mapped_cell->type]++;
 
-		RTLIL::Cell *existing_cell = nullptr;
 		if (mapped_cell->type.in(ID($lut), ID($__ABC9_FF_))) {
+			// Convert buffer into direct connection
 			if (mapped_cell->type == ID($lut) &&
 					GetSize(mapped_cell->getPort(ID::A)) == 1 &&
 					mapped_cell->getParam(ID(LUT)) == RTLIL::Const::from_string("01")) {
@@ -561,22 +561,48 @@ void reintegrate(RTLIL::Module *module)
 				log_abort();
 				continue;
 			}
-			cell = module->addCell(remap_name(mapped_cell->name), mapped_cell->type);
+			RTLIL::Cell *cell = module->addCell(remap_name(mapped_cell->name), mapped_cell->type);
+			cell->parameters = mapped_cell->parameters;
+			cell->attributes = mapped_cell->attributes;
+
+			for (auto &mapped_conn : mapped_cell->connections()) {
+				RTLIL::SigSpec newsig;
+				for (auto c : mapped_conn.second.chunks()) {
+					if (c.width == 0)
+						continue;
+					//log_assert(c.width == 1);
+					if (c.wire)
+						c.wire = module->wires_.at(remap_name(c.wire->name));
+					newsig.append(c);
+				}
+				cell->setPort(mapped_conn.first, newsig);
+
+				if (cell->input(mapped_conn.first)) {
+					for (auto i : newsig)
+						bit2sinks[i].push_back(cell);
+					for (auto i : mapped_conn.second)
+						bit_users[i].insert(mapped_cell->name);
+				}
+				if (cell->output(mapped_conn.first))
+					for (auto i : mapped_conn.second)
+						bit_drivers[i].insert(mapped_cell->name);
+			}
 		}
 		else {
-			existing_cell = module->cell(mapped_cell->name);
+			RTLIL::Cell *existing_cell = module->cell(mapped_cell->name);
 			log_assert(existing_cell);
+			log_assert(mapped_cell->type.begins_with("$__boxid"));
 
-			if (mapped_cell->type.begins_with("$__boxid")) {
-				auto type = box_lookup.at(mapped_cell->type, IdString());
-				if (type == IdString())
-					log_error("No module with abc9_box_id = %s found.\n", mapped_cell->type.c_str() + strlen("$__boxid"));
-				mapped_cell->type = type;
-			}
-			cell = module->addCell(remap_name(mapped_cell->name), mapped_cell->type);
-		}
+			auto type = box_lookup.at(mapped_cell->type, IdString());
+			if (type == IdString())
+				log_error("No module with abc9_box_id = %s found.\n", mapped_cell->type.c_str() + strlen("$__boxid"));
+			mapped_cell->type = type;
 
-		if (existing_cell) {
+			RTLIL::Cell *cell = module->addCell(remap_name(mapped_cell->name), mapped_cell->type);
+			cell->parameters = existing_cell->parameters;
+			cell->attributes = existing_cell->attributes;
+			module->swap_names(cell, existing_cell);
+
 			auto it = mapped_cell->connections_.find("\\i");
 			log_assert(it != mapped_cell->connections_.end());
 			SigSpec inputs = std::move(it->second);
@@ -635,44 +661,12 @@ void reintegrate(RTLIL::Module *module)
 						bit2sinks[i].push_back(cell);
 			}
 		}
-		else {
-			for (auto &mapped_conn : mapped_cell->connections()) {
-				RTLIL::SigSpec newsig;
-				for (auto c : mapped_conn.second.chunks()) {
-					if (c.width == 0)
-						continue;
-					//log_assert(c.width == 1);
-					if (c.wire)
-						c.wire = module->wires_.at(remap_name(c.wire->name));
-					newsig.append(c);
-				}
-				cell->setPort(mapped_conn.first, newsig);
 
-				if (cell->input(mapped_conn.first)) {
-					for (auto i : newsig)
-						bit2sinks[i].push_back(cell);
-					for (auto i : mapped_conn.second)
-						bit_users[i].insert(mapped_cell->name);
-				}
-				if (cell->output(mapped_conn.first))
-					for (auto i : mapped_conn.second)
-						bit_drivers[i].insert(mapped_cell->name);
-			}
-		}
-
-		if (existing_cell) {
-			cell->parameters = existing_cell->parameters;
-			cell->attributes = existing_cell->attributes;
-			if (cell->attributes.erase("\\abc9_box_seq")) {
-				module->swap_names(cell, existing_cell);
-				module->remove(existing_cell);
-			}
-		}
-		else {
-			cell->parameters = mapped_cell->parameters;
-			cell->attributes = mapped_cell->attributes;
-		}
+		cell_stats[mapped_cell->type]++;
 	}
+
+	for (auto cell : boxes)
+		module->remove(cell);
 
 	// Copy connections (and rename) from mapped_mod to module
 	for (auto conn : mapped_mod->connections()) {
