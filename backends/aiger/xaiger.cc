@@ -185,6 +185,7 @@ struct XAigerWriter
 				}
 			}
 
+		std::vector<int> arrivals;
 		for (auto cell : module->cells()) {
 			if (cell->type == "$_NOT_")
 			{
@@ -224,13 +225,15 @@ struct XAigerWriter
 			}
 
 			RTLIL::Module* inst_module = module->design->module(cell->type);
-			if (inst_module) {
+			if (inst_module && inst_module->get_blackbox_attribute()) {
 				auto it = cell->attributes.find("\\abc9_box_seq");
 				if (it != cell->attributes.end()) {
 					int abc9_box_seq = it->second.as_int();
 					if (GetSize(box_list) <= abc9_box_seq)
 						box_list.resize(abc9_box_seq+1);
 					box_list[abc9_box_seq] = cell;
+					// Only flop boxes may have arrival times
+					//   (all others are combinatorial)
 					if (!inst_module->get_bool_attribute("\\abc9_flop"))
 						continue;
 				}
@@ -238,16 +241,26 @@ struct XAigerWriter
 				for (const auto &conn : cell->connections()) {
 					auto port_wire = inst_module->wire(conn.first);
 					if (port_wire->port_output) {
-						int arrival = 0;
+						arrivals.clear();
 						auto it = port_wire->attributes.find("\\abc9_arrival");
 						if (it != port_wire->attributes.end()) {
-							if (it->second.flags != 0)
-								log_error("Attribute 'abc9_arrival' on port '%s' of module '%s' is not an integer.\n", log_id(port_wire), log_id(cell->type));
-							arrival = it->second.as_int();
+							if (it->second.flags == 0)
+								arrivals.emplace_back(it->second.as_int());
+							else
+								for (const auto &tok : split_tokens(it->second.decode_string()))
+									arrivals.push_back(atoi(tok.c_str()));
 						}
-						if (arrival)
-							for (auto bit : sigmap(conn.second))
-								arrival_times[bit] = arrival;
+						if (!arrivals.empty()) {
+							if (GetSize(arrivals) > 1 && GetSize(arrivals) != GetSize(port_wire))
+								log_error("%s.%s is %d bits wide but abc9_arrival = %s has %d value(s)!\n", log_id(cell->type), log_id(conn.first),
+										GetSize(port_wire), log_signal(it->second), GetSize(arrivals));
+							auto jt = arrivals.begin();
+							for (auto bit : sigmap(conn.second)) {
+								arrival_times[bit] = *jt;
+								if (arrivals.size() > 1)
+									jt++;
+							}
+						}
 					}
 				}
 			}
