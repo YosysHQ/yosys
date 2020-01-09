@@ -243,23 +243,21 @@ struct XAigerWriter
 					if (port_wire->port_output) {
 						arrivals.clear();
 						auto it = port_wire->attributes.find("\\abc9_arrival");
-						if (it != port_wire->attributes.end()) {
-							if (it->second.flags == 0)
-								arrivals.emplace_back(it->second.as_int());
-							else
-								for (const auto &tok : split_tokens(it->second.decode_string()))
-									arrivals.push_back(atoi(tok.c_str()));
-						}
-						if (!arrivals.empty()) {
-							if (GetSize(arrivals) > 1 && GetSize(arrivals) != GetSize(port_wire))
-								log_error("%s.%s is %d bits wide but abc9_arrival = %s has %d value(s)!\n", log_id(cell->type), log_id(conn.first),
-										GetSize(port_wire), log_signal(it->second), GetSize(arrivals));
-							auto jt = arrivals.begin();
-							for (auto bit : sigmap(conn.second)) {
-								arrival_times[bit] = *jt;
-								if (arrivals.size() > 1)
-									jt++;
-							}
+						if (it == port_wire->attributes.end())
+							continue;
+						if (it->second.flags == 0)
+							arrivals.emplace_back(it->second.as_int());
+						else
+							for (const auto &tok : split_tokens(it->second.decode_string()))
+								arrivals.push_back(atoi(tok.c_str()));
+						if (GetSize(arrivals) > 1 && GetSize(arrivals) != GetSize(port_wire))
+							log_error("%s.%s is %d bits wide but abc9_arrival = %s has %d value(s)!\n", log_id(cell->type), log_id(conn.first),
+									GetSize(port_wire), log_signal(it->second), GetSize(arrivals));
+						auto jt = arrivals.begin();
+						for (auto bit : sigmap(conn.second)) {
+							arrival_times[bit] = *jt;
+							if (arrivals.size() > 1)
+								jt++;
 						}
 					}
 				}
