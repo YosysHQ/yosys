@@ -33,6 +33,11 @@ endmodule
 module \$__ABC9_FF_ (input D, output Q);
 endmodule
 
+(* abc9_box_id = (9000+DELAY) *)
+module \$__ABC9_DELAY (input I, output O);
+  parameter DELAY = 0;
+endmodule
+
 // Box to emulate async behaviour of FDC*
 (* abc9_box_id = 1000, lib_whitebox *)
 module \$__ABC9_ASYNC0 (input A, S, output Y);
