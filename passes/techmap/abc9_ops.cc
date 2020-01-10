@@ -485,9 +485,9 @@ void prep_times(RTLIL::Design *design)
 				continue;
 			if (!inst_module->get_blackbox_attribute())
 				continue;
-			// Flop inputs cannot have required times
-			//   (required time should be captured by flop box)
-			// TODO: enforce this
+			// Only flop boxes are not combinatorial and may have required times,
+			//   however those times are captured by this flop box, no need to
+			//   add delay boxes
 			if (cell->attributes.count(ID(abc9_box_id)))
 				continue;
 			boxes.emplace_back(cell);
@@ -566,6 +566,7 @@ void write_box(RTLIL::Module *module, const std::string &src, const std::string 
 			ofs << "$__ABC9_DELAY@" << d << " " << ABC9_DELAY_BASE_ID + d << " 0 1 1" << std::endl;
 			ofs << d << std::endl;
 		}
+		module->attributes.erase(it);
 	}
 
 	ofs.close();
