@@ -267,21 +267,16 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 	abc9_script += stringf("&read %s/input.xaig; &ps; ", tempdir_name.c_str());
 
 	if (!script_file.empty()) {
-		if (check_file_exists(script_file))
+		if (script_file[0] == '+') {
+			for (size_t i = 1; i < script_file.size(); i++)
+				if (script_file[i] == '\'')
+					abc9_script += "'\\''";
+				else if (script_file[i] == ',')
+					abc9_script += " ";
+				else
+					abc9_script += script_file[i];
+		} else
 			abc9_script += stringf("source %s", script_file.c_str());
-		else {
-			if (script_file[0] == '+') {
-				for (size_t i = 1; i < script_file.size(); i++)
-					if (script_file[i] == '\'')
-						abc9_script += "'\\''";
-					else if (script_file[i] == ',')
-						abc9_script += " ";
-					else
-						abc9_script += script_file[i];
-			}
-			else
-				abc9_script += script_file;
-		}
 	} else if (!lut_costs.empty() || !lut_file.empty()) {
 		abc9_script += fast_mode ? RTLIL::constpad.at("abc9.script.default.fast")
 			: RTLIL::constpad.at("abc9.script.default");
@@ -313,7 +308,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 		for (size_t pos = abc9_script.find("&mfs"); pos != std::string::npos; pos = abc9_script.find("&mfs", pos))
 			abc9_script = abc9_script.erase(pos, strlen("&mfs"));
 
-	abc9_script += stringf("; &ps -l; &write -n %s/output.aig; time", tempdir_name.c_str());
+	abc9_script += stringf("&ps -l; &write -n %s/output.aig; time", tempdir_name.c_str());
 	abc9_script = add_echos_to_abc9_cmd(abc9_script);
 
 	for (size_t i = 0; i+1 < abc9_script.size(); i++)
@@ -972,7 +967,7 @@ struct Abc9Pass : public Pass {
 		extra_args(args, argidx, design);
 
 		rewrite_filename(script_file);
-		if (!script_file.empty() && !is_absolute_path(script_file) && check_file_exists(script_file))
+		if (!script_file.empty() && !is_absolute_path(script_file) && script_file[0] != '+')
 			script_file = std::string(pwd) + "/" + script_file;
 
 		// handle -lut / -luts args
