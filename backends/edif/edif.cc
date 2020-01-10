@@ -326,7 +326,7 @@ struct EdifBackend : public Backend {
 				continue;
 
 			SigMap sigmap(module);
-			std::map<RTLIL::SigSpec, std::set<std::string>> net_join_db;	
+			std::map<RTLIL::SigSpec, std::set<std::string>> net_join_db;
 
 			*f << stringf("    (cell %s\n", EDIF_DEF(module->name));
 			*f << stringf("      (cellType GENERIC)\n");
