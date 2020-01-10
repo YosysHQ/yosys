@@ -39,9 +39,13 @@ void check(RTLIL::Design *design)
 {
 	dict<IdString,IdString> box_lookup;
 	for (auto m : design->modules()) {
+		auto flop = m->get_bool_attribute(ID(abc9_flop));
 		auto it = m->attributes.find(ID(abc9_box_id));
-		if (it == m->attributes.end())
+		if (it == m->attributes.end()) {
+			if (flop)
+				log_error("Module '%s' contains (* abc9_flop *) but not (* abc9_box_id=<int> *).\n", log_id(m));
 			continue;
+		}
 		if (m->name.begins_with("$paramod"))
 			continue;
 		auto id = it->second.as_int();
@@ -59,21 +63,31 @@ void check(RTLIL::Design *design)
 			if (w->get_bool_attribute("\\abc9_carry")) {
 				if (w->port_input) {
 					if (carry_in != IdString())
-						log_error("Module '%s' contains more than one 'abc9_carry' input port.\n", log_id(m));
+						log_error("Module '%s' contains more than one (* abc9_carry *) input port.\n", log_id(m));
 					carry_in = port_name;
 				}
 				if (w->port_output) {
 					if (carry_out != IdString())
-						log_error("Module '%s' contains more than one 'abc9_carry' output port.\n", log_id(m));
+						log_error("Module '%s' contains more than one (* abc9_carry *) output port.\n", log_id(m));
 					carry_out = port_name;
 				}
 			}
 		}
 
 		if (carry_in != IdString() && carry_out == IdString())
-			log_error("Module '%s' contains an 'abc9_carry' input port but no output port.\n", log_id(m));
+			log_error("Module '%s' contains an (* abc9_carry *) input port but no output port.\n", log_id(m));
 		if (carry_in == IdString() && carry_out != IdString())
-			log_error("Module '%s' contains an 'abc9_carry' output port but no input port.\n", log_id(m));
+			log_error("Module '%s' contains an (* abc9_carry *) output port but no input port.\n", log_id(m));
+
+		if (flop) {
+			int num_outputs = 0;
+			for (auto port_name : m->ports) {
+				auto wire = m->wire(port_name);
+				if (wire->port_output) num_outputs++;
+			}
+			if (num_outputs != 1)
+				log_error("Module '%s' with (* abc_flop *) has %d outputs (expect 1).\n", log_id(m), num_outputs);
+		}
 	}
 }
 
@@ -464,12 +478,10 @@ void prep_holes(RTLIL::Module *module, bool dff)
 void prep_times(RTLIL::Design *design)
 {
 	std::set<int> delays;
+	pool<Module*> flops;
 	std::vector<Cell*> boxes;
 	std::map<int,std::vector<int>> requireds;
 	for (auto module : design->selected_modules()) {
-		if (module->get_bool_attribute("\\abc9_holes"))
-			continue;
-
 		if (module->processes.size() > 0) {
 			log("Skipping module %s as it contains processes.\n", log_id(module));
 			continue;
@@ -485,10 +497,13 @@ void prep_times(RTLIL::Design *design)
 				continue;
 			if (!inst_module->get_blackbox_attribute())
 				continue;
-			// Only flop boxes are not combinatorial and may have required times,
-			//   however those times are captured by this flop box, no need to
-			//   add delay boxes
-			if (cell->attributes.count(ID(abc9_box_id)))
+			if (inst_module->get_bool_attribute(ID(abc9_flop))) {
+				flops.insert(inst_module);
+				continue;
+			}
+			// All remaining boxes are combinatorial and cannot
+			//   contain a required time
+			if (inst_module->attributes.count(ID(abc9_box_id)))
 				continue;
 			boxes.emplace_back(cell);
 		}
@@ -536,15 +551,48 @@ void prep_times(RTLIL::Design *design)
 
 		std::stringstream ss;
 		bool first = true;
-		for (auto d : delays)
-			if (first) {
+		for (auto d : delays) {
+			if (first)
 				first = false;
-				ss << d;
-			}
 			else
-				ss << " " << d;
+				ss << " ";
+			ss << d;
+		}
 		module->attributes[ID(abc9_delays)] = ss.str();
 	}
+
+	std::stringstream ss;
+	for (auto flop_module : flops) {
+		// Skip parameterised flop_modules for now (since we do not
+		//   dynamically generate the abc9_box_id)
+		if (flop_module->name.begins_with("$paramod"))
+			continue;
+
+		int num_inputs = 0, num_outputs = 0;
+		for (auto port_name : flop_module->ports) {
+			auto wire = flop_module->wire(port_name);
+			if (wire->port_input) num_inputs++;
+			if (wire->port_output) num_outputs++;
+		}
+		log_assert(num_outputs == 1);
+
+		ss << log_id(flop_module) << " " << flop_module->attributes.at(ID(abc9_box_id)).as_int();
+		ss << " 1 " << num_inputs+1 << " " << num_outputs << std::endl;
+		bool first = true;
+		for (auto port_name : flop_module->ports) {
+			auto wire = flop_module->wire(port_name);
+			if (!wire->port_input)
+				continue;
+			if (first)
+				first = false;
+			else
+				ss << " ";
+			ss << wire->attributes.at("\\abc9_required", 0).as_int();
+		}
+		// Last input is 'abc9_ff.Q'
+		ss << " 0" << std::endl << std::endl;
+	}
+	design->scratchpad_set_string("abc9_ops.box.flops", ss.str());
 }
 
 void write_box(RTLIL::Module *module, const std::string &src, const std::string &dst) {
@@ -558,6 +606,8 @@ void write_box(RTLIL::Module *module, const std::string &src, const std::string 
 		ofs << ifs.rdbuf() << std::endl;
 		ifs.close();
 	}
+
+	ofs << module->design->scratchpad_get_string("abc9_ops.box.flops");
 
 	auto it = module->attributes.find(ID(abc9_delays));
 	if (it != module->attributes.end()) {
