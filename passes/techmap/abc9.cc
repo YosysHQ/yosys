@@ -416,13 +416,11 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 
 		dict<IdString, bool> abc9_box;
 		vector<RTLIL::Cell*> boxes;
-		for (auto it = module->cells_.begin(); it != module->cells_.end(); ) {
-			auto cell = it->second;
+		for (auto cell : module->cells().to_vector()) {
 			if (cell->type.in(ID($_AND_), ID($_NOT_), ID($__ABC9_FF_))) {
-				it = module->cells_.erase(it);
+				module->remove(cell);
 				continue;
 			}
-			++it;
 			RTLIL::Module* box_module = design->module(cell->type);
 			auto jt = abc9_box.find(cell->type);
 			if (jt == abc9_box.end())
