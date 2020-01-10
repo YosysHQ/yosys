@@ -737,21 +737,29 @@ struct Abc9Pass : public Pass {
 		RTLIL::constpad["abc9.script.default.fast"] = "+&if {C} {W} {D} {R} -v";
 		// Based on ABC's &flow
 		RTLIL::constpad["abc9.script.flow"] = "+&scorr; &sweep;" \
+			"&dch -C 500;" \
 			/* Round 1 */ \
-			"&unmap; &if {C} {W} {D} {R}; &mfs;" \
+			/* Map 1 */ "&unmap; &if {C} {W} {D} {R} -v; &save; &load; &mfs;" \
 			"&st; &dsdb;" \
-			"&unmap; &if {C} {W} {D} {R}; &mfs;" \
+			/* Map 2 */ "&unmap; &if {C} {W} {D} {R} -v; &save; &load; &mfs;" \
 			"&st; &syn2 -m -R 10; &dsdb;" \
 			"&blut -a -K 6;" \
-			"&unmap; &if {C} {W} {D} {R}; &mfs;" \
+			/* Map 3 */ "&unmap; &if {C} {W} {D} {R} -v; &save; &load; &mfs;" \
 			/* Round 2 */ \
 			"&st; &sopb;" \
-			"&unmap; &if {C} {W} {D} {R}; &mfs;" \
+			/* Map 1 */ "&unmap; &if {C} {W} {D} {R} -v; &save; &load; &mfs;" \
 			"&st; &dsdb;" \
-			"&unmap; &if {C} {W} {D} {R}; &mfs;" \
+			/* Map 2 */ "&unmap; &if {C} {W} {D} {R} -v; &save; &load; &mfs;" \
 			"&st; &syn2 -m -R 10; &dsdb;" \
 			"&blut -a -K 6;" \
-			"&unmap; &if {C} {W} {D} {R} -v; &mfs";
+			/* Map 3 */ "&unmap; &if {C} {W} {D} {R} -v; &save; &load; &mfs;" \
+			/* Round 3 */ \
+			/* Map 1 */ "&unmap; &if {C} {W} {D} {R} -v; &save; &load; &mfs;" \
+			"&st; &dsdb;" \
+			/* Map 2 */ "&unmap; &if {C} {W} {D} {R} -v; &save; &load; &mfs;" \
+			"&st; &syn2 -m -R 10; &dsdb;" \
+			"&blut -a -K 6;" \
+			/* Map 3 */ "&unmap; &if {C} {W} {D} {R} -v; &save; &load; &mfs;";
 		// Based on ABC's &flow2
 		RTLIL::constpad["abc9.script.flow2"] = "+&scorr; &sweep;" \
 			/* Comm1 */ "&synch2 -K 6 -C 500; &if -m {C} {W} {D} {R} -v; &mfs "/*"-W 4 -M 500 -C 7000"*/"; &save;"\
