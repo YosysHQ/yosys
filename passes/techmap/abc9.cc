@@ -308,7 +308,14 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 		for (size_t pos = abc9_script.find("&mfs"); pos != std::string::npos; pos = abc9_script.find("&mfs", pos))
 			abc9_script = abc9_script.erase(pos, strlen("&mfs"));
 
-	abc9_script += stringf("; &ps -l; &write -n %s/output.aig; time", tempdir_name.c_str());
+	abc9_script += stringf("; &ps -l; &write -n %s/output.aig;", tempdir_name.c_str());
+	if (design->scratchpad_get_bool("abc9.debug")) {
+		if (dff_mode)
+			abc9_script += "verify -s;";
+		else
+			abc9_script += "verify;";
+	}
+	abc9_script += "time";
 	abc9_script = add_echos_to_abc9_cmd(abc9_script);
 
 	for (size_t i = 0; i+1 < abc9_script.size(); i++)
@@ -909,6 +916,11 @@ struct Abc9Pass : public Pass {
 			wire_delay = "-W " + design->scratchpad_get_string("abc9.W");
 		}
 		nomfs = design->scratchpad_get_bool("abc9.nomfs", nomfs);
+
+		if (design->scratchpad_get_bool("abc9.debug")) {
+			cleanup = false;
+			show_tempdir = true;
+		}
 
 		size_t argidx;
 		char pwd [PATH_MAX];
