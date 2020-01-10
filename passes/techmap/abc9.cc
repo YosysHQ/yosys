@@ -735,6 +735,43 @@ clone_lut:
 
 struct Abc9Pass : public Pass {
 	Abc9Pass() : Pass("abc9", "use ABC9 for technology mapping") { }
+	void on_register() YS_OVERRIDE
+	{
+		RTLIL::constpad["abc9.script.default"] = "&scorr; &sweep; &dc2; &dch -f; &ps; &if {C} {W} {D} {R} -v; &mfs";
+		RTLIL::constpad["abc9.script.default.area"] = "&scorr; &sweep; &dc2; &dch -f; &ps; &if {C} {W} {D} {R} -a -v; &mfs";
+		RTLIL::constpad["abc9.script.default.fast"] = "&if {C} {W} {D} {R}";
+		// Based on ABC's &flow
+		RTLIL::constpad["abc9.script.flow"] = "&scorr; &sweep;" \
+			/* Round 1 */ \
+			"&unmap; &if {C} {W} {D} {R}; &mfs;" \
+			"&st; &dsdb;" \
+			"&unmap; &if {C} {W} {D} {R}; &mfs;" \
+			"&st; &syn2 -m -R 10; &dsdb;" \
+			"&blut -a -K 6;" \
+			"&unmap; &if {C} {W} {D} {R}; &mfs;" \
+			/* Round 2 */ \
+			"&st; &sopb;" \
+			"&unmap; &if {C} {W} {D} {R}; &mfs;" \
+			"&st; &dsdb;" \
+			"&unmap; &if {C} {W} {D} {R}; &mfs;" \
+			"&st; &syn2 -m -R 10; &dsdb;" \
+			"&blut -a -K 6;" \
+			"&unmap; &if {C} {W} {D} {R} -v; &mfs";
+		// Based on ABC's &flow2
+		RTLIL::constpad["abc9.script.flow2"] = "&scorr; &sweep;" \
+			/* Comm1 */ "&synch2 -K 6 -C 500; &if -m {C} {W} {D} {R} -v; &mfs "/*"-W 4 -M 500 -C 7000"*/"; &save;"\
+			/* Comm2 */ "&dch -C 500; &if -m {C} {W} {D} {R} -v; &mfs "/*"-W 4 -M 500 -C 7000"*/"; &save;"\
+			"&load; &st; &sopb -R 10 -C 4; " \
+			/* Comm3 */ "&synch2 -K 6 -C 500; &if -m "/*"-E 5"*/" {C} {W} {D} {R} -v; &mfs "/*"-W 4 -M 500 -C 7000"*/"; &save;"\
+			/* Comm2 */ "&dch -C 500; &if -m {C} {W} {D} {R} -v; &mfs "/*"-W 4 -M 500 -C 7000"*/"; &save; "\
+			"&load";
+		// Based on ABC's &flow3
+		RTLIL::constpad["abc9.script.flow3"] = "&scorr; &sweep;" \
+			"&if {C} {W} {D}; &save; &st; &syn2; &if {C} {W} {D} {R} -v; &save; &load;"\
+			"&st; &if {C} -g -K 6; &dch -f; &if {C} {W} {D} {R} -v; &save; &load;"\
+			"&st; &if {C} -g -K 6; &synch2; &if {C} {W} {D} {R} -v; &save; &load;"\
+			"&mfs";
+	}
 	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
