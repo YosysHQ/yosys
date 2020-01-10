@@ -309,7 +309,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 			abc9_script = abc9_script.erase(pos, strlen("&mfs"));
 
 	abc9_script += stringf("; &ps -l; &write -n %s/output.aig;", tempdir_name.c_str());
-	if (design->scratchpad_get_bool("abc9.debug")) {
+	if (design->scratchpad_get_bool("abc9.verify")) {
 		if (dff_mode)
 			abc9_script += "verify -s;";
 		else
