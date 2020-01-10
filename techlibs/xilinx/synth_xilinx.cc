@@ -26,12 +26,15 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-#define XC7_WIRE_DELAY 300 // Number with which ABC will map a 6-input gate
-                           // to one LUT6 (instead of a LUT5 + LUT2)
-
 struct SynthXilinxPass : public ScriptPass
 {
 	SynthXilinxPass() : ScriptPass("synth_xilinx", "synthesis for Xilinx FPGAs") { }
+
+	void on_register() YS_OVERRIDE
+	{
+		RTLIL::constpad["synth_xilinx.abc9.xc7.W"] = "300"; // Number with which ABC will map a 6-input gate
+								    // to one LUT6 (instead of a LUT5 + LUT2)
+	}
 
 	void help() YS_OVERRIDE
 	{
@@ -555,7 +558,11 @@ struct SynthXilinxPass : public ScriptPass
 				run("techmap " + techmap_args);
 				run("read_verilog -icells -lib +/xilinx/abc9_model.v");
 				std::string abc9_opts = " -box +/xilinx/abc9_xc7.box";
-				abc9_opts += stringf(" -W %d", XC7_WIRE_DELAY);
+				auto k = stringf("synth_xilinx.abc9.%s.W", family.c_str());
+				if (active_design->scratchpad.count(k))
+					abc9_opts += stringf(" -W %s", active_design->scratchpad_get_string(k).c_str());
+				else
+					abc9_opts += stringf(" -W %s", RTLIL::constpad.at(k).c_str());
 				abc9_opts += " -nomfs";
 				if (nowidelut)
 					abc9_opts += " -lut +/xilinx/abc9_xc7_nowide.lut";
