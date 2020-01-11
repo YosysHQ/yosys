@@ -40,7 +40,7 @@ void break_scc(RTLIL::Module *module)
 	//   its output ports into a new PO, and drive its previous
 	//   sinks with a new PI
 	pool<RTLIL::Const> ids_seen;
-	for (auto cell : module->selected_cells()) {
+	for (auto cell : module->cells()) {
 		auto it = cell->attributes.find(ID(abc9_scc_id));
 		if (it == cell->attributes.end())
 			continue;
@@ -116,7 +116,7 @@ void prep_dff(RTLIL::Module *module)
 	typedef SigSpec clkdomain_t;
 	dict<clkdomain_t, int> clk_to_mergeability;
 
-	for (auto cell : module->selected_cells()) {
+	for (auto cell : module->cells()) {
 		if (cell->type != "$__ABC9_FF_")
 			continue;
 
@@ -179,11 +179,8 @@ void prep_dff(RTLIL::Module *module)
 				++it;
 		}
 
-		for (auto &conn : holes_module->connections_) {
-			auto it = replace.find(conn);
-			if (it != replace.end())
-				conn = it->second;
-		}
+		for (auto &conn : holes_module->connections_)
+			conn = replace.at(conn, conn);
 	}
 }
 
@@ -198,7 +195,7 @@ void prep_holes(RTLIL::Module *module, bool dff)
 	TopoSort<IdString, RTLIL::sort_by_id_str> toposort;
 	bool abc9_box_seen = false;
 
-	for (auto cell : module->selected_cells()) {
+	for (auto cell : module->cells()) {
 		if (cell->type == "$__ABC9_FF_")
 			continue;
 
@@ -236,21 +233,23 @@ void prep_holes(RTLIL::Module *module, bool dff)
 			for (auto user_cell : it.second)
 				toposort.edge(driver_cell, user_cell);
 
-#if 0
-	toposort.analyze_loops = true;
-#endif
+	if (ys_debug(1))
+		toposort.analyze_loops = true;
+
 	bool no_loops YS_ATTRIBUTE(unused) = toposort.sort();
-#if 0
-	unsigned i = 0;
-	for (auto &it : toposort.loops) {
-		log("  loop %d\n", i++);
-		for (auto cell_name : it) {
-			auto cell = module->cell(cell_name);
-			log_assert(cell);
-			log("\t%s (%s @ %s)\n", log_id(cell), log_id(cell->type), cell->get_src_attribute().c_str());
+
+	if (ys_debug(1)) {
+		unsigned i = 0;
+		for (auto &it : toposort.loops) {
+			log("  loop %d\n", i++);
+			for (auto cell_name : it) {
+				auto cell = module->cell(cell_name);
+				log_assert(cell);
+				log("\t%s (%s @ %s)\n", log_id(cell), log_id(cell->type), cell->get_src_attribute().c_str());
+			}
 		}
 	}
-#endif
+
 	log_assert(no_loops);
 
 	vector<Cell*> box_list;
@@ -845,6 +844,12 @@ struct Abc9OpsPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		if (!(break_scc_mode || unbreak_scc_mode || prep_dff_mode || reintegrate_mode))
+			log_cmd_error("At least one of -{,un}break_scc, -prep_{dff,holes}, -reintegrate must be specified.\n");
+
+		if (dff_mode && !prep_holes_mode)
+			log_cmd_error("'-dff' option is only relevant for -prep_holes.\n");
+
 		for (auto mod : design->selected_modules()) {
 			if (mod->get_bool_attribute("\\abc9_holes"))
 				continue;
@@ -853,6 +858,9 @@ struct Abc9OpsPass : public Pass {
 				log("Skipping module %s as it contains processes.\n", log_id(mod));
 				continue;
 			}
+
+			if (!design->selected_whole_module(mod))
+				log_error("Can't handle partially selected module %s!\n", log_id(mod));
 
 			if (break_scc_mode)
 				break_scc(mod);

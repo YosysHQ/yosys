@@ -289,10 +289,12 @@ struct Abc9ExePass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    abc9_exe [options] [selection]\n");
+		log("    abc9_exe [options]\n");
 		log("\n");
-		log("This pass uses the ABC tool [1] for technology mapping of yosys's internal gate\n");
-		log("library to a target architecture.\n");
+		log(" \n");
+		log("This pass uses the ABC tool [1] for technology mapping of the top module\n");
+		log("(according to the (* top *) attribute or if only one module is currently selected)\n");
+		log("to a target FPGA architecture.\n");
 		log("\n");
 		log("    -exe <command>\n");
 #ifdef ABCEXTERNAL
@@ -311,18 +313,11 @@ struct Abc9ExePass : public Pass {
 		log("        replaced with blanks before the string is passed to ABC.\n");
 		log("\n");
 		log("        if no -script parameter is given, the following scripts are used:\n");
-		log("\n");
-		log("        for -lut/-luts (only one LUT size):\n");
-		log("%s\n", fold_abc9_cmd(ABC_COMMAND_LUT /*"; lutpack {S}"*/).c_str());
-		log("\n");
-		log("        for -lut/-luts (different LUT sizes):\n");
 		log("%s\n", fold_abc9_cmd(ABC_COMMAND_LUT).c_str());
 		log("\n");
 		log("    -fast\n");
 		log("        use different default scripts that are slightly faster (at the cost\n");
 		log("        of output quality):\n");
-		log("\n");
-		log("        for -lut/-luts:\n");
 		log("%s\n", fold_abc9_cmd(ABC_FAST_COMMAND_LUT).c_str());
 		log("\n");
 		log("    -D <picoseconds>\n");
