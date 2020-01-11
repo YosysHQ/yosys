@@ -26,9 +26,6 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-#define XC7_WIRE_DELAY 300 // Number with which ABC will map a 6-input gate
-                           // to one LUT6 (instead of a LUT5 + LUT2)
-
 struct Abc9Pass : public ScriptPass
 {
 	Abc9Pass() : ScriptPass("abc9", "use ABC9 for technology mapping") { }
@@ -39,8 +36,9 @@ struct Abc9Pass : public ScriptPass
 		log("\n");
 		log("    abc9 [options] [selection]\n");
 		log("\n");
-		log("This pass uses the ABC tool [1] for technology mapping of yosys's internal gate\n");
-		log("library to a target architecture. Only fully-selected modules are supported.\n");
+		log("This script pass performs a sequence of commands to facilitate the use of the ABC\n");
+		log("tool [1] for technology mapping of the current design to a target FPGA\n");
+		log("architecture. Only fully-selected modules are supported.\n");
 		log("\n");
 		log("    -exe <command>\n");
 #ifdef ABCEXTERNAL
@@ -59,21 +57,13 @@ struct Abc9Pass : public ScriptPass
 		log("        replaced with blanks before the string is passed to ABC.\n");
 		log("\n");
 		log("        if no -script parameter is given, the following scripts are used:\n");
-		log("\n");
-		log("        for -lut/-luts (only one LUT size):\n");
-		// FIXME
-		//log("%s\n", fold_abc9_cmd(ABC_COMMAND_LUT /*"; lutpack {S}"*/).c_str());
-		log("\n");
-		log("        for -lut/-luts (different LUT sizes):\n");
-		// FIXME
+		//FIXME:
 		//log("%s\n", fold_abc9_cmd(ABC_COMMAND_LUT).c_str());
 		log("\n");
 		log("    -fast\n");
 		log("        use different default scripts that are slightly faster (at the cost\n");
 		log("        of output quality):\n");
-		log("\n");
-		log("        for -lut/-luts:\n");
-		// FIXME
+		//FIXME:
 		//log("%s\n", fold_abc9_cmd(ABC_FAST_COMMAND_LUT).c_str());
 		log("\n");
 		log("    -D <picoseconds>\n");
