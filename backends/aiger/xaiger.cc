@@ -474,7 +474,8 @@ struct XAigerWriter
 		if (holes_mode) {
 			struct sort_by_port_id {
 				bool operator()(const RTLIL::SigBit& a, const RTLIL::SigBit& b) const {
-					return a.wire->port_id < b.wire->port_id;
+					return a.wire->port_id < b.wire->port_id ||
+					    (a.wire->port_id == b.wire->port_id && a.offset < b.offset);
 				}
 			};
 			input_bits.sort(sort_by_port_id());
