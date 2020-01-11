@@ -810,14 +810,14 @@ struct Abc9Pass : public Pass {
 		log("        if no -script parameter is given, the following scripts are used:\n");
 		log("\n");
 		log("        for -lut/-luts:\n");
-		log("%s\n", fold_abc9_cmd(RTLIL::constpad.at("abc9.script.default")).c_str()+1);
+		log("%s\n", fold_abc9_cmd(RTLIL::constpad.at("abc9.script.default").substr(1,std::string::npos)).c_str());
 		log("\n");
 		log("    -fast\n");
 		log("        use different default scripts that are slightly faster (at the cost\n");
 		log("        of output quality):\n");
 		log("\n");
 		log("        for -lut/-luts:\n");
-		log("%s\n", fold_abc9_cmd(RTLIL::constpad.at("abc9.script.default.fast")).c_str()+1);
+		log("%s\n", fold_abc9_cmd(RTLIL::constpad.at("abc9.script.default.fast").substr(1,std::string::npos)).c_str());
 		log("\n");
 		log("    -D <picoseconds>\n");
 		log("        set delay target. the string {D} in the default scripts above is\n");
