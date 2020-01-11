@@ -2290,21 +2290,30 @@ module DSP48E1 (
     output reg MULTSIGNOUT,
     output OVERFLOW,
 `ifdef YOSYS
-    (* abc9_arrival = \DSP48E1.P_arrival () *)
+    (* abc9_arrival = \P.abc9_arrival () *)
 `endif
     output reg signed [47:0] P,
     output reg PATTERNBDETECT,
     output reg PATTERNDETECT,
 `ifdef YOSYS
-    (* abc9_arrival = \DSP48E1.PCOUT_arrival () *)
+    (* abc9_arrival = \PCOUT.abc9_arrival () *)
 `endif
     output [47:0] PCOUT,
     output UNDERFLOW,
+`ifdef YOSYS
+    (* abc9_required = \A.abc9_required () *)
+`endif
     input signed [29:0] A,
     input [29:0] ACIN,
     input [3:0] ALUMODE,
+`ifdef YOSYS
+    (* abc9_required = \B.abc9_required () *)
+`endif
     input signed [17:0] B,
     input [17:0] BCIN,
+`ifdef YOSYS
+    (* abc9_required = \C.abc9_required () *)
+`endif
     input [47:0] C,
     input CARRYCASCIN,
     input CARRYIN,
@@ -2323,10 +2332,16 @@ module DSP48E1 (
     input CEM,
     input CEP,
     (* clkbuf_sink *) input CLK,
+`ifdef YOSYS
+    (* abc9_required = \D.abc9_required () *)
+`endif
     input [24:0] D,
     input [4:0] INMODE,
     input MULTSIGNIN,
     input [6:0] OPMODE,
+`ifdef YOSYS
+    (* abc9_required = \PCIN.abc9_required () *)
+`endif
     input [47:0] PCIN,
     input RSTA,
     input RSTALLCARRYIN,
@@ -2371,69 +2386,133 @@ module DSP48E1 (
     parameter [6:0] IS_OPMODE_INVERTED = 7'b0;
 
 `ifdef YOSYS
-    function integer \DSP48E1.P_arrival ;
+    function integer \A.abc9_required ;
     begin
-        \DSP48E1.P_arrival = 0;
-        if (USE_MULT == "MULTIPLY" && USE_DPORT == "FALSE") begin
-            if (PREG != 0)      \DSP48E1.P_arrival =  329;
-            // Worst-case from CREG and MREG
-            else if (CREG != 0) \DSP48E1.P_arrival = 1687;
-            else if (MREG != 0) \DSP48E1.P_arrival = 1671;
-            // Worst-case from AREG and BREG
-            else if (AREG != 0) \DSP48E1.P_arrival = 2952;
-            else if (BREG != 0) \DSP48E1.P_arrival = 2813;
+        \A.abc9_required = 0;
+        if (AREG != 0)           \A.abc9_required =  254;
+        else if (USE_MULT == "MULTIPLY" && USE_DPORT == "FALSE") begin
+            if (MREG != 0)       \A.abc9_required = 1416;
+            else if (PREG != 0)  \A.abc9_required = (USE_PATTERN_DETECT != "NO_PATDET" ? 3030 : 2739) ;
         end
         else if (USE_MULT == "MULTIPLY" && USE_DPORT == "TRUE") begin
-            if (PREG != 0)      \DSP48E1.P_arrival =  329;
-            // Worst-case from CREG and MREG
-            else if (CREG != 0) \DSP48E1.P_arrival = 1687;
-            else if (MREG != 0) \DSP48E1.P_arrival = 1671;
-            // Worst-case from AREG, ADREG, BREG, DREG
-            else if (AREG != 0)  \DSP48E1.P_arrival = 3935;
-            else if (DREG != 0)  \DSP48E1.P_arrival = 3908;
-            else if (ADREG != 0) \DSP48E1.P_arrival = 2958;
-            else if (BREG != 0)  \DSP48E1.P_arrival = 2813;
+            // Worst-case from ADREG and MREG
+            if (MREG != 0)       \A.abc9_required = 2400;
+            else if (ADREG != 0) \A.abc9_required = 1283;
+            else if (PREG != 0)  \A.abc9_required = 3723;
+            else if (PREG != 0)  \A.abc9_required = (USE_PATTERN_DETECT != "NO_PATDET" ? 4014 : 3723) ;
         end
         else if (USE_MULT == "NONE" && USE_DPORT == "FALSE") begin
-            if (PREG != 0)      \DSP48E1.P_arrival =  329;
+            if (PREG != 0)       \A.abc9_required = (USE_PATTERN_DETECT != "NO_PATDET" ? 1730 : 1441) ;
+        end
+    end
+    endfunction
+    function integer \B.abc9_required ;
+    begin
+        \B.abc9_required = 0;
+        if (BREG != 0)      \B.abc9_required =  324;
+        else if (MREG != 0) \B.abc9_required = 1285;
+        else if (USE_MULT == "MULTIPLY" && USE_DPORT == "FALSE") begin
+            if (PREG != 0)  \B.abc9_required = (USE_PATTERN_DETECT != "NO_PATDET" ? 2898 : 2608) ;
+        end
+        else if (USE_MULT == "MULTIPLY" && USE_DPORT == "TRUE") begin
+            if (PREG != 0)  \B.abc9_required = (USE_PATTERN_DETECT != "NO_PATDET" ? 2898 : 2608) ;
+        end
+        else if (USE_MULT == "NONE" && USE_DPORT == "FALSE") begin
+            if (PREG != 0)  \B.abc9_required = (USE_PATTERN_DETECT != "NO_PATDET" ? 1718 : 1428) ;
+        end
+    end
+    endfunction
+    function integer \C.abc9_required ;
+    begin
+        \C.abc9_required = 0;
+        if (CREG != 0)      \C.abc9_required =  168;
+        else if (PREG != 0) \C.abc9_required = (USE_PATTERN_DETECT != "NO_PATDET" ? 1534 : 1244) ;
+    end
+    endfunction
+    function integer \D.abc9_required ;
+    begin
+        \D.abc9_required = 0;
+        if (USE_MULT == "MULTIPLY" && USE_DPORT == "FALSE") begin
+        end
+        else if (USE_MULT == "MULTIPLY" && USE_DPORT == "TRUE") begin
+            if (DREG != 0)       \D.abc9_required =  248;
+            else if (ADREG != 0) \D.abc9_required = 1195;
+            else if (MREG != 0)  \D.abc9_required = 2310;
+            else if (PREG != 0)  \D.abc9_required = (USE_PATTERN_DETECT != "NO_PATDET" ? 3925 : 3635) ;
+        end
+        else if (USE_MULT == "NONE" && USE_DPORT == "FALSE") begin
+        end
+    end
+    endfunction
+    function integer \PCIN.abc9_required ;
+    begin
+        \PCIN.abc9_required = 0;
+        if (PREG != 0) \PCIN.abc9_required = (USE_PATTERN_DETECT != "NO_PATDET" ? 1315 : 1025) ;
+    end
+    endfunction
+    function integer \P.abc9_arrival ;
+    begin
+        \P.abc9_arrival = 0;
+        if (USE_MULT == "MULTIPLY" && USE_DPORT == "FALSE") begin
+            if (PREG != 0)       \P.abc9_arrival =  329;
+            // Worst-case from CREG and MREG
+            else if (CREG != 0)  \P.abc9_arrival = 1687;
+            else if (MREG != 0)  \P.abc9_arrival = 1671;
+            // Worst-case from AREG and BREG
+            else if (AREG != 0)  \P.abc9_arrival = 2952;
+            else if (BREG != 0)  \P.abc9_arrival = 2813;
+        end
+        else if (USE_MULT == "MULTIPLY" && USE_DPORT == "TRUE") begin
+            if (PREG != 0)       \P.abc9_arrival =  329;
+            // Worst-case from CREG and MREG
+            else if (CREG != 0)  \P.abc9_arrival = 1687;
+            else if (MREG != 0)  \P.abc9_arrival = 1671;
+            // Worst-case from AREG, ADREG, BREG, DREG
+            else if (AREG != 0)  \P.abc9_arrival = 3935;
+            else if (DREG != 0)  \P.abc9_arrival = 3908;
+            else if (ADREG != 0) \P.abc9_arrival = 2958;
+            else if (BREG != 0)  \P.abc9_arrival = 2813;
+        end
+        else if (USE_MULT == "NONE" && USE_DPORT == "FALSE") begin
+            if (PREG != 0)       \P.abc9_arrival =  329;
             // Worst-case from AREG, BREG, CREG
-            else if (CREG != 0) \DSP48E1.P_arrival = 1687;
-            else if (AREG != 0) \DSP48E1.P_arrival = 1632;
-            else if (BREG != 0) \DSP48E1.P_arrival = 1616;
+            else if (CREG != 0)  \P.abc9_arrival = 1687;
+            else if (AREG != 0)  \P.abc9_arrival = 1632;
+            else if (BREG != 0)  \P.abc9_arrival = 1616;
         end
         //else
         //    $error("Invalid DSP48E1 configuration");
     end
     endfunction
-    function integer \DSP48E1.PCOUT_arrival ;
+    function integer \PCOUT.abc9_arrival ;
     begin
-        \DSP48E1.PCOUT_arrival = 0;
+        \PCOUT.abc9_arrival = 0;
         if (USE_MULT == "MULTIPLY" && USE_DPORT == "FALSE") begin
-            if (PREG != 0)      \DSP48E1.PCOUT_arrival =  435;
+            if (PREG != 0)       \PCOUT.abc9_arrival =  435;
             // Worst-case from CREG and MREG
-            else if (CREG != 0) \DSP48E1.PCOUT_arrival = 1835;
-            else if (MREG != 0) \DSP48E1.PCOUT_arrival = 1819;
+            else if (CREG != 0)  \PCOUT.abc9_arrival = 1835;
+            else if (MREG != 0)  \PCOUT.abc9_arrival = 1819;
             // Worst-case from AREG and BREG
-            else if (AREG != 0) \DSP48E1.PCOUT_arrival = 3098;
-            else if (BREG != 0) \DSP48E1.PCOUT_arrival = 2960;
+            else if (AREG != 0)  \PCOUT.abc9_arrival = 3098;
+            else if (BREG != 0)  \PCOUT.abc9_arrival = 2960;
         end
         else if (USE_MULT == "MULTIPLY" && USE_DPORT == "TRUE") begin
-            if (PREG != 0)      \DSP48E1.PCOUT_arrival =  435;
+            if (PREG != 0)       \PCOUT.abc9_arrival =  435;
             // Worst-case from CREG and MREG
-            else if (CREG != 0) \DSP48E1.PCOUT_arrival = 1835;
-            else if (MREG != 0) \DSP48E1.PCOUT_arrival = 1819;
+            else if (CREG != 0)  \PCOUT.abc9_arrival = 1835;
+            else if (MREG != 0)  \PCOUT.abc9_arrival = 1819;
             // Worst-case from AREG, ADREG, BREG, DREG
-            else if (AREG != 0)  \DSP48E1.PCOUT_arrival = 4083;
-            else if (DREG != 0)  \DSP48E1.PCOUT_arrival = 4056;
-            else if (BREG != 0)  \DSP48E1.PCOUT_arrival = 2960;
-            else if (ADREG != 0) \DSP48E1.PCOUT_arrival = 2859;
+            else if (AREG != 0)  \PCOUT.abc9_arrival = 4083;
+            else if (DREG != 0)  \PCOUT.abc9_arrival = 4056;
+            else if (BREG != 0)  \PCOUT.abc9_arrival = 2960;
+            else if (ADREG != 0) \PCOUT.abc9_arrival = 2859;
         end
         else if (USE_MULT == "NONE" && USE_DPORT == "FALSE") begin
-            if (PREG != 0)      \DSP48E1.PCOUT_arrival =  435;
+            if (PREG != 0)       \PCOUT.abc9_arrival =  435;
             // Worst-case from AREG, BREG, CREG
-            else if (CREG != 0) \DSP48E1.PCOUT_arrival = 1835;
-            else if (AREG != 0) \DSP48E1.PCOUT_arrival = 1780;
-            else if (BREG != 0) \DSP48E1.PCOUT_arrival = 1765;
+            else if (CREG != 0)  \PCOUT.abc9_arrival = 1835;
+            else if (AREG != 0)  \PCOUT.abc9_arrival = 1780;
+            else if (BREG != 0)  \PCOUT.abc9_arrival = 1765;
         end
         //else
         //    $error("Invalid DSP48E1 configuration");
