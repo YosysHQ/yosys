@@ -254,6 +254,14 @@ struct XAigerWriter
 							log_error("%s.%s is %d bits wide but abc9_arrival = %s has %d value(s)!\n", log_id(cell->type), log_id(conn.first),
 									GetSize(port_wire), log_signal(it->second), GetSize(arrivals));
 						auto jt = arrivals.begin();
+
+#ifndef NDEBUG
+						if (ys_debug(1)) {
+							static std::set<std::pair<IdString,IdString>> seen;
+							if (seen.emplace(cell->type, conn.first).second) log("%s.%s abc9_arrival = %d\n", log_id(cell->type), log_id(conn.first), *jt);
+						}
+#endif
+
 						for (auto bit : sigmap(conn.second)) {
 							arrival_times[bit] = *jt;
 							if (arrivals.size() > 1)

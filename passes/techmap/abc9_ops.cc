@@ -512,7 +512,7 @@ void prep_times(RTLIL::Design *design)
 		requireds.clear();
 		for (auto cell : boxes) {
 			RTLIL::Module* inst_module = module->design->module(cell->type);
-
+			log_assert(inst_module);
 			for (auto &conn : cell->connections_) {
 				auto port_wire = inst_module->wire(conn.first);
 				if (!port_wire->port_input)
@@ -537,6 +537,12 @@ void prep_times(RTLIL::Design *design)
 
 				SigSpec O = module->addWire(NEW_ID, GetSize(conn.second));
 				for (const auto &i : requireds) {
+#ifndef NDEBUG
+					if (ys_debug(1)) {
+						static std::set<std::pair<IdString,IdString>> seen;
+						if (seen.emplace(cell->type, conn.first).second) log("%s.%s abc9_required = %d\n", log_id(cell->type), log_id(conn.first), i.first);
+					}
+#endif
 					delays.insert(i.first);
 					for (auto offset : i.second) {
 						auto box = module->addCell(NEW_ID, ID($__ABC9_DELAY));
