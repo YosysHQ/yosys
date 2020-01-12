@@ -771,6 +771,8 @@ struct XAigerWriter
 				//   created a new $paramod ...
 				Pass::call_on_module(holes_module->design, holes_module, "flatten -wb; techmap; aigmap");
 
+				SigMap holes_sigmap(holes_module);
+
 				dict<SigSpec, SigSpec> replace;
 				for (auto it = holes_module->cells_.begin(); it != holes_module->cells_.end(); ) {
 					auto cell = it->second;
@@ -808,7 +810,6 @@ struct XAigerWriter
 					++it;
 				}
 
-				SigMap holes_sigmap(holes_module);
 				for (auto &conn : holes_module->connections_) {
 					auto it = replace.find(sigmap(conn.second));
 					if (it != replace.end())
