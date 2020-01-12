@@ -563,7 +563,6 @@ struct SynthXilinxPass : public ScriptPass
 					abc9_opts += stringf(" -W %s", active_design->scratchpad_get_string(k).c_str());
 				else
 					abc9_opts += stringf(" -W %s", RTLIL::constpad.at(k).c_str());
-				abc9_opts += " -nomfs";
 				if (nowidelut)
 					abc9_opts += " -lut +/xilinx/abc9_xc7_nowide.lut";
 				else
