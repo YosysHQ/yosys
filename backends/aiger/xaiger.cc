@@ -93,7 +93,6 @@ struct XAigerWriter
 	dict<SigBit, int> ordered_outputs;
 
 	vector<Cell*> box_list;
-	dict<IdString, std::vector<IdString>> box_ports;
 
 	int mkgate(int a0, int a1)
 	{
@@ -277,6 +276,7 @@ struct XAigerWriter
 			//log_warning("Unsupported cell type: %s (%s)\n", log_id(cell->type), log_id(cell));
 		}
 
+		dict<IdString, std::vector<IdString>> box_ports;
 		for (auto cell : box_list) {
 			log_assert(cell);
 

@@ -182,12 +182,10 @@ struct Abc9Pass : public ScriptPass
 				run("abc9_ops -break_scc -prep_holes" + std::string(dff_mode ? " -dff" : ""), "(option for -dff)");
 			run("select -set abc9_holes A:abc9_holes");
 			run("flatten -wb @abc9_holes");
-run("dump @abc9_holes");
 			run("techmap @abc9_holes");
 			if (dff_mode || help_mode)
 				run("abc9_ops -prep_dff", "(only if -dff)");
 			run("opt -purge @abc9_holes");
-run("dump @abc9_holes");
 			run("aigmap");
 			run("wbflip @abc9_holes");
 		}
