@@ -114,18 +114,33 @@ void Pass::run_register()
 
 void Pass::init_register()
 {
+	vector<Pass*> added_passes;
 	while (first_queued_pass) {
+		added_passes.push_back(first_queued_pass);
 		first_queued_pass->run_register();
 		first_queued_pass = first_queued_pass->next_queued_pass;
 	}
+	for (auto added_pass : added_passes)
+		added_pass->on_register();
 }
 
 void Pass::done_register()
 {
+	for (auto &it : pass_register)
+		it.second->on_shutdown();
+
 	frontend_register.clear();
 	pass_register.clear();
 	backend_register.clear();
 	log_assert(first_queued_pass == NULL);
+}
+
+void Pass::on_register()
+{
+}
+
+void Pass::on_shutdown()
+{
 }
 
 Pass::~Pass()
