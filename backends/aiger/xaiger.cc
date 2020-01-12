@@ -386,7 +386,8 @@ struct XAigerWriter
 		if (holes_mode) {
 			struct sort_by_port_id {
 				bool operator()(const RTLIL::SigBit& a, const RTLIL::SigBit& b) const {
-					return a.wire->port_id < b.wire->port_id;
+					return a.wire->port_id < b.wire->port_id ||
+					    (a.wire->port_id == b.wire->port_id && a.offset < b.offset);
 				}
 			};
 			input_bits.sort(sort_by_port_id());
@@ -526,7 +527,7 @@ struct XAigerWriter
 			RTLIL::Module *holes_module = module->design->module(stringf("%s$holes", module->name.c_str()));
 			log_assert(holes_module);
 
-			dict<IdString, Cell*> cell_cache;
+			dict<IdString, std::tuple<int,int,int>> cell_cache;
 
 			int box_count = 0;
 			for (auto cell : box_list) {
@@ -535,24 +536,32 @@ struct XAigerWriter
 				RTLIL::Module* box_module = module->design->module(cell->type);
 				log_assert(box_module);
 
-				int box_inputs = 0, box_outputs = 0;
-				for (auto port_name : box_module->ports) {
-					RTLIL::Wire *w = box_module->wire(port_name);
-					log_assert(w);
-					if (w->port_input)
-						box_inputs += GetSize(w);
-					if (w->port_output)
-						box_outputs += GetSize(w);
+				auto r = cell_cache.insert(cell->type);
+				auto &v = r.first->second;
+				if (r.second) {
+					int box_inputs = 0, box_outputs = 0;
+					for (auto port_name : box_module->ports) {
+						RTLIL::Wire *w = box_module->wire(port_name);
+						log_assert(w);
+						if (w->port_input)
+							box_inputs += GetSize(w);
+						if (w->port_output)
+							box_outputs += GetSize(w);
+					}
+
+					// For flops only, create an extra 1-bit input that drives a new wire
+					//   called "<cell>.abc9_ff.Q" that is used below
+					if (box_module->get_bool_attribute("\\abc9_flop"))
+					    box_inputs++;
+
+					std::get<0>(v) = box_inputs;
+					std::get<1>(v) = box_outputs;
+					std::get<2>(v) = box_module->attributes.at("\\abc9_box_id").as_int();
 				}
 
-				// For flops only, create an extra 1-bit input that drives a new wire
-				//   called "<cell>.abc9_ff.Q" that is used below
-				if (box_module->get_bool_attribute("\\abc9_flop"))
-					box_inputs++;
-
-				write_h_buffer(box_inputs);
-				write_h_buffer(box_outputs);
-				write_h_buffer(box_module->attributes.at("\\abc9_box_id").as_int());
+				write_h_buffer(std::get<0>(v));
+				write_h_buffer(std::get<1>(v));
+				write_h_buffer(std::get<2>(v));
 				write_h_buffer(box_count++);
 			}
 

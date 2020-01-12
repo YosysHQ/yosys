@@ -144,14 +144,16 @@ void prep_dff(RTLIL::Module *module)
 
 	RTLIL::Module *holes_module = design->module(stringf("%s$holes", module->name.c_str()));
 	if (holes_module) {
-		dict<SigSig, SigSig> replace;
+		SigMap sigmap(holes_module);
+
+		dict<SigSpec, SigSpec> replace;
 		for (auto it = holes_module->cells_.begin(); it != holes_module->cells_.end(); ) {
 			auto cell = it->second;
 			if (cell->type.in("$_DFF_N_", "$_DFF_NN0_", "$_DFF_NN1_", "$_DFF_NP0_", "$_DFF_NP1_",
 						"$_DFF_P_", "$_DFF_PN0_", "$_DFF_PN1", "$_DFF_PP0_", "$_DFF_PP1_")) {
 				SigBit D = cell->getPort("\\D");
 				SigBit Q = cell->getPort("\\Q");
-				// Remove the DFF cell from what needs to be a combinatorial box
+				// Remove the $_DFF_* cell from what needs to be a combinatorial box
 				it = holes_module->cells_.erase(it);
 				Wire *port;
 				if (GetSize(Q.wire) == 1)
@@ -159,10 +161,10 @@ void prep_dff(RTLIL::Module *module)
 				else
 					port = holes_module->wire(stringf("$abc%s[%d]", Q.wire->name.c_str(), Q.offset));
 				log_assert(port);
-				// Prepare to replace "assign <port> = DFF.Q;" with "assign <port> = DFF.D;"
-				//   in order to extract the combinatorial control logic that feeds the box
+				// Prepare to replace "assign <port> = $_DFF_*.Q;" with "assign <port> = $_DFF_*.D;"
+				//   in order to extract just the combinatorial control logic that feeds the box
 				//   (i.e. clock enable, synchronous reset, etc.)
-				replace.insert(std::make_pair(SigSig(port,Q), SigSig(port,D)));
+				replace.insert(std::make_pair(Q,D));
 				// Since `flatten` above would have created wires named "<cell>.Q",
 				//   extract the pre-techmap cell name
 				auto pos = Q.wire->name.str().rfind(".");
@@ -170,7 +172,7 @@ void prep_dff(RTLIL::Module *module)
 				IdString driver = Q.wire->name.substr(0, pos);
 				// And drive the signal that was previously driven by "DFF.Q" (typically
 				//   used to implement clock-enable functionality) with the "<cell>.$abc9_currQ"
-				//   wire (which itself is driven an input port) we inserted above
+				//   wire (which itself is driven an by input port) we inserted above
 				Wire *currQ = holes_module->wire(stringf("%s.abc9_ff.Q", driver.c_str()));
 				log_assert(currQ);
 				holes_module->connect(Q, currQ);
@@ -180,7 +182,7 @@ void prep_dff(RTLIL::Module *module)
 		}
 
 		for (auto &conn : holes_module->connections_)
-			conn = replace.at(conn, conn);
+			conn.second = replace.at(sigmap(conn.second), conn.second);
 	}
 }
 
@@ -317,107 +319,105 @@ void prep_holes(RTLIL::Module *module, bool dff)
 		log_assert(orig_box_module);
 		IdString derived_name = orig_box_module->derive(design, cell->parameters);
 		RTLIL::Module* box_module = design->module(derived_name);
-		if (box_module->has_processes())
-			Pass::call_on_module(design, box_module, "proc");
 
-		int box_inputs = 0;
-		auto r = cell_cache.insert(std::make_pair(derived_name, nullptr));
-		Cell *holes_cell = r.first->second;
-		if (r.second && box_module->get_bool_attribute("\\whitebox")) {
-			holes_cell = holes_module->addCell(cell->name, cell->type);
-			holes_cell->parameters = cell->parameters;
-			r.first->second = holes_cell;
-		}
+		auto r = cell_cache.insert(derived_name);
+		auto &holes_cell = r.first->second;
+		if (r.second) {
+			if (box_module->has_processes())
+				Pass::call_on_module(design, box_module, "proc");
 
-		auto r2 = box_ports.insert(cell->type);
-		if (r2.second) {
-			// Make carry in the last PI, and carry out the last PO
-			//   since ABC requires it this way
-			IdString carry_in, carry_out;
-			for (const auto &port_name : box_module->ports) {
-				auto w = box_module->wire(port_name);
-				log_assert(w);
-				if (w->get_bool_attribute("\\abc9_carry")) {
-					if (w->port_input) {
-						if (carry_in != IdString())
-							log_error("Module '%s' contains more than one 'abc9_carry' input port.\n", log_id(box_module));
-						carry_in = port_name;
+			auto r2 = box_ports.insert(cell->type);
+			if (r2.second) {
+				// Make carry in the last PI, and carry out the last PO
+				//   since ABC requires it this way
+				IdString carry_in, carry_out;
+				for (const auto &port_name : box_module->ports) {
+					auto w = box_module->wire(port_name);
+					log_assert(w);
+					if (w->get_bool_attribute("\\abc9_carry")) {
+						if (w->port_input) {
+							if (carry_in != IdString())
+								log_error("Module '%s' contains more than one 'abc9_carry' input port.\n", log_id(box_module));
+							carry_in = port_name;
+						}
+						if (w->port_output) {
+							if (carry_out != IdString())
+								log_error("Module '%s' contains more than one 'abc9_carry' output port.\n", log_id(box_module));
+							carry_out = port_name;
+						}
 					}
-					if (w->port_output) {
-						if (carry_out != IdString())
-							log_error("Module '%s' contains more than one 'abc9_carry' output port.\n", log_id(box_module));
-						carry_out = port_name;
-					}
+					else
+						r2.first->second.push_back(port_name);
 				}
-				else
-					r2.first->second.push_back(port_name);
+
+				if (carry_in != IdString() && carry_out == IdString())
+					log_error("Module '%s' contains an 'abc9_carry' input port but no output port.\n", log_id(box_module));
+				if (carry_in == IdString() && carry_out != IdString())
+					log_error("Module '%s' contains an 'abc9_carry' output port but no input port.\n", log_id(box_module));
+				if (carry_in != IdString()) {
+					r2.first->second.push_back(carry_in);
+					r2.first->second.push_back(carry_out);
+				}
 			}
 
-			if (carry_in != IdString() && carry_out == IdString())
-				log_error("Module '%s' contains an 'abc9_carry' input port but no output port.\n", log_id(box_module));
-			if (carry_in == IdString() && carry_out != IdString())
-				log_error("Module '%s' contains an 'abc9_carry' output port but no input port.\n", log_id(box_module));
-			if (carry_in != IdString()) {
-				r2.first->second.push_back(carry_in);
-				r2.first->second.push_back(carry_out);
-			}
-		}
+			if (box_module->get_bool_attribute("\\whitebox")) {
+				holes_cell = holes_module->addCell(cell->name, derived_name);
 
-		for (const auto &port_name : box_ports.at(cell->type)) {
-			RTLIL::Wire *w = box_module->wire(port_name);
-			log_assert(w);
-			RTLIL::Wire *holes_wire;
-			RTLIL::SigSpec port_sig;
-			if (w->port_input)
-				for (int i = 0; i < GetSize(w); i++) {
+				int box_inputs = 0;
+				for (auto port_name : box_ports.at(cell->type)) {
+					RTLIL::Wire *w = box_module->wire(port_name);
+					log_assert(w);
+					log_assert(!w->port_input || !w->port_output);
+					auto &conn = holes_cell->connections_[port_name];
+					if (w->port_input) {
+						for (int i = 0; i < GetSize(w); i++) {
+							box_inputs++;
+							RTLIL::Wire *holes_wire = holes_module->wire(stringf("\\i%d", box_inputs));
+							if (!holes_wire) {
+								holes_wire = holes_module->addWire(stringf("\\i%d", box_inputs));
+								holes_wire->port_input = true;
+								holes_wire->port_id = port_id++;
+								holes_module->ports.push_back(holes_wire->name);
+							}
+							conn.append(holes_wire);
+						}
+					}
+					else if (w->port_output)
+						conn = holes_module->addWire(stringf("%s.%s", derived_name.c_str(), log_id(port_name)), GetSize(w));
+				}
+
+				// For flops only, create an extra 1-bit input that drives a new wire
+				//   called "<cell>.abc9_ff.Q" that is used below
+				if (box_module->get_bool_attribute("\\abc9_flop")) {
 					box_inputs++;
-					holes_wire = holes_module->wire(stringf("\\i%d", box_inputs));
+					Wire *holes_wire = holes_module->wire(stringf("\\i%d", box_inputs));
 					if (!holes_wire) {
 						holes_wire = holes_module->addWire(stringf("\\i%d", box_inputs));
 						holes_wire->port_input = true;
 						holes_wire->port_id = port_id++;
 						holes_module->ports.push_back(holes_wire->name);
 					}
-					if (holes_cell)
-						port_sig.append(holes_wire);
+					Wire *Q = holes_module->addWire(stringf("%s.abc9_ff.Q", cell->name.c_str()));
+					holes_module->connect(Q, holes_wire);
 				}
-			if (w->port_output)
-				for (int i = 0; i < GetSize(w); i++) {
-					if (GetSize(w) == 1)
-						holes_wire = holes_module->addWire(stringf("$abc%s.%s", cell->name.c_str(), log_id(w->name)));
-					else
-						holes_wire = holes_module->addWire(stringf("$abc%s.%s[%d]", cell->name.c_str(), log_id(w->name), i));
-					holes_wire->port_output = true;
-					holes_wire->port_id = port_id++;
-					holes_module->ports.push_back(holes_wire->name);
-					if (holes_cell)
-						port_sig.append(holes_wire);
-					else
-						holes_module->connect(holes_wire, State::S0);
-				}
-			if (!port_sig.empty()) {
-				if (r.second)
-					holes_cell->setPort(w->name, port_sig);
-				else
-					holes_module->connect(holes_cell->getPort(w->name), port_sig);
 			}
+			else // box_module is a blackbox
+				log_assert(holes_cell == nullptr);
 		}
 
-		// For flops only, create an extra 1-bit input that drives a new wire
-		//   called "<cell>.$abc9_currQ" that is used below
-		if (box_module->get_bool_attribute("\\abc9_flop")) {
-			log_assert(holes_cell);
-
-			box_inputs++;
-			Wire *holes_wire = holes_module->wire(stringf("\\i%d", box_inputs));
-			if (!holes_wire) {
-				holes_wire = holes_module->addWire(stringf("\\i%d", box_inputs));
-				holes_wire->port_input = true;
-				holes_wire->port_id = port_id++;
-				holes_module->ports.push_back(holes_wire->name);
-			}
-			Wire *w = holes_module->addWire(stringf("%s.abc9_ff.Q", cell->name.c_str()));
-			holes_module->connect(w, holes_wire);
+		for (auto port_name : box_ports.at(cell->type)) {
+			RTLIL::Wire *w = box_module->wire(port_name);
+			log_assert(w);
+			if (!w->port_output)
+				continue;
+			Wire *holes_wire = holes_module->addWire(stringf("$abc%s.%s", cell->name.c_str(), log_id(port_name)), GetSize(w));
+			holes_wire->port_output = true;
+			holes_wire->port_id = port_id++;
+			holes_module->ports.push_back(holes_wire->name);
+			if (holes_cell) // whitebox
+				holes_module->connect(holes_wire, holes_cell->getPort(port_name));
+			else // blackbox
+				holes_module->connect(holes_wire, Const(State::S0, GetSize(w)));
 		}
 	}
 }
