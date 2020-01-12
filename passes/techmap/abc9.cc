@@ -236,7 +236,7 @@ struct abc9_output_filter
 void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string script_file, std::string exe_file,
 		bool cleanup, vector<int> lut_costs, bool dff_mode, std::string delay_target, std::string /*lutin_shared*/, bool fast_mode,
 		bool show_tempdir, std::string box_file, std::string lut_file,
-		std::string wire_delay, bool nomfs
+		std::string wire_delay
 )
 {
 	map_autoidx = autoidx++;
@@ -422,13 +422,11 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 
 		dict<IdString, bool> abc9_box;
 		vector<RTLIL::Cell*> boxes;
-		for (auto it = module->cells_.begin(); it != module->cells_.end(); ) {
-			auto cell = it->second;
+		for (auto cell : module->cells().to_vector()) {
 			if (cell->type.in(ID($_AND_), ID($_NOT_), ID($__ABC9_FF_))) {
-				it = module->cells_.erase(it);
+				module->remove(cell);
 				continue;
 			}
-			++it;
 			RTLIL::Module* box_module = design->module(cell->type);
 			auto jt = abc9_box.find(cell->type);
 			if (jt == abc9_box.end())
@@ -883,7 +881,6 @@ struct Abc9Pass : public Pass {
 		std::string delay_target, lutin_shared = "-S 1", wire_delay;
 		bool fast_mode = false, dff_mode = false, cleanup = true;
 		bool show_tempdir = false;
-		bool nomfs = false;
 		vector<int> lut_costs;
 
 #if 0
@@ -915,7 +912,6 @@ struct Abc9Pass : public Pass {
 		if (design->scratchpad.count("abc9.W")) {
 			wire_delay = "-W " + design->scratchpad_get_string("abc9.W");
 		}
-		nomfs = design->scratchpad_get_bool("abc9.nomfs", nomfs);
 
 		if (design->scratchpad_get_bool("abc9.debug")) {
 			cleanup = false;
@@ -976,10 +972,6 @@ struct Abc9Pass : public Pass {
 			}
 			if (arg == "-W" && argidx+1 < args.size()) {
 				wire_delay = "-W " + args[++argidx];
-				continue;
-			}
-			if (arg == "-nomfs") {
-				nomfs = true;
 				continue;
 			}
 			break;
@@ -1095,7 +1087,7 @@ struct Abc9Pass : public Pass {
 			design->selected_active_module = module->name.str();
 			abc9_module(design, module, script_file, exe_file, cleanup, lut_costs, dff_mode,
 					delay_target, lutin_shared, fast_mode, show_tempdir,
-					box_file, lut_file, wire_delay, nomfs);
+					box_file, lut_file, wire_delay);
 			design->selected_active_module.clear();
 		}
 
