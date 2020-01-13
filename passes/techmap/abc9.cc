@@ -276,9 +276,11 @@ struct Abc9Pass : public ScriptPass
 					run(stringf("write_xaiger -map %s/input.sym %s/input.xaig", tempdir_name.c_str(), tempdir_name.c_str()));
 
 					int num_outputs = active_design->scratchpad_get_int("write_xaiger.num_outputs");
-					log("Extracted %d AND gates and %d wires to a netlist network with %d inputs and %d outputs.\n",
+
+					log("Extracted %d AND gates and %d wires from module `%s' to a netlist network with %d inputs and %d outputs.\n",
 							active_design->scratchpad_get_int("write_xaiger.num_ands"),
 							active_design->scratchpad_get_int("write_xaiger.num_wires"),
+							log_id(mod),
 							active_design->scratchpad_get_int("write_xaiger.num_inputs"),
 							num_outputs);
 					if (num_outputs) {

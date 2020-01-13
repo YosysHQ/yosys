@@ -168,10 +168,6 @@ void abc9_module(RTLIL::Design *design, std::string script_file, std::string exe
 		std::string wire_delay, std::string tempdir_name
 )
 {
-	//FIXME:
-	//log_header(design, "Extracting gate netlist of module `%s' to `%s/input.xaig'..\n",
-	//		module->name.c_str(), replace_tempdir(tempdir_name, tempdir_name, show_tempdir).c_str());
-
 	std::string abc9_script;
 
 	if (!lut_costs.empty())
