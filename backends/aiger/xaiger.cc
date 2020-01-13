@@ -184,6 +184,7 @@ struct XAigerWriter
 				}
 			}
 
+		dict<IdString,dict<IdString,int>> arrival_cache;
 		for (auto cell : module->cells()) {
 			if (cell->type == "$_NOT_")
 			{
@@ -230,24 +231,29 @@ struct XAigerWriter
 					if (GetSize(box_list) <= abc9_box_seq)
 						box_list.resize(abc9_box_seq+1);
 					box_list[abc9_box_seq] = cell;
+					// Only flop boxes may have arrival times
 					if (!inst_module->get_bool_attribute("\\abc9_flop"))
 						continue;
 				}
 
+				auto &cell_arrivals = arrival_cache[cell->type];
 				for (const auto &conn : cell->connections()) {
-					auto port_wire = inst_module->wire(conn.first);
-					if (port_wire->port_output) {
-						int arrival = 0;
-						auto it = port_wire->attributes.find("\\abc9_arrival");
-						if (it != port_wire->attributes.end()) {
-							if (it->second.flags != 0)
-								log_error("Attribute 'abc9_arrival' on port '%s' of module '%s' is not an integer.\n", log_id(port_wire), log_id(cell->type));
-							arrival = it->second.as_int();
+					auto r = cell_arrivals.insert(conn.first);
+					auto &arrival = r.first->second;
+					if (r.second) {
+						auto port_wire = inst_module->wire(conn.first);
+						if (port_wire->port_output) {
+							auto it = port_wire->attributes.find("\\abc9_arrival");
+							if (it != port_wire->attributes.end()) {
+								if (it->second.flags != 0)
+									log_error("Attribute 'abc9_arrival' on port '%s' of module '%s' is not an integer.\n", log_id(port_wire), log_id(cell->type));
+								arrival = it->second.as_int();
+							}
 						}
-						if (arrival)
-							for (auto bit : sigmap(conn.second))
-								arrival_times[bit] = arrival;
 					}
+					if (arrival)
+						for (auto bit : sigmap(conn.second))
+							arrival_times[bit] = arrival;
 				}
 			}
 
