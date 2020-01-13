@@ -1,0 +1,40 @@
+read_verilog <<EOT
+`define N 256
+module top(input [`N-1:0] a, output o);
+wire [`N-2:0] w;
+assign w[0] = a[0] & a[1];
+genvar i;
+generate for (i = 1; i < `N-1; i++)
+assign w[i] = w[i-1] & a[i+1];
+endgenerate
+assign o = w[`N-2];
+endmodule
+EOT
+simplemap
+dump
+design -save gold
+
+abc9 -lut 4
+
+design -load gold
+abc9 -lut 4 -fast
+
+design -load gold
+scratchpad -copy abc9.script.default.area abc9.script
+abc9 -lut 4
+
+design -load gold
+scratchpad -copy abc9.script.default.fast abc9.script
+abc9 -lut 4
+
+design -load gold
+scratchpad -copy abc9.script.flow abc9.script
+abc9 -lut 4
+
+design -load gold
+scratchpad -copy abc9.script.flow2 abc9.script
+abc9 -lut 4
+
+design -load gold
+scratchpad -copy abc9.script.flow3 abc9.script
+abc9 -lut 4

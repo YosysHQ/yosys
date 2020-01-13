@@ -70,8 +70,10 @@ struct ScratchpadPass : public Pass {
 		{
 			if (args[argidx] == "-get" && argidx+1 < args.size()) {
 				string identifier = args[++argidx];
-				if (design->scratchpad.count(identifier)){
+				if (design->scratchpad.count(identifier)) {
 					log("%s\n", design->scratchpad_get_string(identifier).c_str());
+				} else if (RTLIL::constpad.count(identifier)) {
+					log("%s\n", RTLIL::constpad.at(identifier).c_str());
 				} else {
 					log("\"%s\" not set\n", identifier.c_str());
 				}
@@ -79,6 +81,8 @@ struct ScratchpadPass : public Pass {
 			}
 			if (args[argidx] == "-set" && argidx+2 < args.size()) {
 				string identifier = args[++argidx];
+				if (RTLIL::constpad.count(identifier))
+					log_error("scratchpad entry \"%s\" is a global constant\n", identifier.c_str());
 				string value = args[++argidx];
 				if (value.front() == '\"' && value.back() == '\"') value = value.substr(1, value.size() - 2);
 				design->scratchpad_set_string(identifier, value);
@@ -92,8 +96,15 @@ struct ScratchpadPass : public Pass {
 			if (args[argidx] == "-copy" && argidx+2 < args.size()) {
 				string identifier_from = args[++argidx];
 				string identifier_to = args[++argidx];
-				if (design->scratchpad.count(identifier_from) == 0) log_error("\"%s\" not set\n", identifier_from.c_str());
-				string value = design->scratchpad_get_string(identifier_from);
+				string value;
+				if (design->scratchpad.count(identifier_from))
+					value = design->scratchpad_get_string(identifier_from);
+				else if (RTLIL::constpad.count(identifier_from))
+					value = RTLIL::constpad.at(identifier_from);
+				else
+					log_error("\"%s\" not set\n", identifier_from.c_str());
+				if (RTLIL::constpad.count(identifier_to))
+					log_error("scratchpad entry \"%s\" is a global constant\n", identifier_to.c_str());
 				design->scratchpad_set_string(identifier_to, value);
 				continue;
 			}
@@ -102,10 +113,10 @@ struct ScratchpadPass : public Pass {
 				string expected = args[++argidx];
 				if (expected.front() == '\"' && expected.back() == '\"') expected = expected.substr(1, expected.size() - 2);
 				if (design->scratchpad.count(identifier) == 0)
-					log_error("Assertion failed: scratchpad entry '%s' is not defined\n", identifier.c_str());
+					log_error("scratchpad entry '%s' is not defined\n", identifier.c_str());
 				string value = design->scratchpad_get_string(identifier);
 				if (value != expected) {
-					log_error("Assertion failed: scratchpad entry '%s' is set to '%s' instead of the asserted '%s'\n",
+					log_error("scratchpad entry '%s' is set to '%s' instead of the asserted '%s'\n",
 					           identifier.c_str(), value.c_str(), expected.c_str());
 				}
 				continue;
@@ -113,13 +124,13 @@ struct ScratchpadPass : public Pass {
 			if (args[argidx] == "-assert-set" && argidx+1 < args.size()) {
 				string identifier = args[++argidx];
 				if (design->scratchpad.count(identifier) == 0)
-					log_error("Assertion failed: scratchpad entry '%s' is not defined\n", identifier.c_str());
+					log_error("scratchpad entry '%s' is not defined\n", identifier.c_str());
 				continue;
 			}
 			if (args[argidx] == "-assert-unset" && argidx+1 < args.size()) {
 				string identifier = args[++argidx];
 				if (design->scratchpad.count(identifier) > 0)
-					log_error("Assertion failed: scratchpad entry '%s' is defined\n", identifier.c_str());
+					log_error("scratchpad entry '%s' is defined\n", identifier.c_str());
 				continue;
 			}
 			break;

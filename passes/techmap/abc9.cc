@@ -22,20 +22,6 @@
 // Berkeley Logic Synthesis and Verification Group, ABC: A System for Sequential Synthesis and Verification
 // http://www.eecs.berkeley.edu/~alanmi/abc/
 
-#if 0
-// Based on &flow3 - better QoR but more experimental
-#define ABC_COMMAND_LUT "&st; &ps -l; &sweep -v; &scorr; " \
-						"&st; &if {W}; &save; &st; &syn2; &if {W} -v; &save; &load; "\
-						"&st; &if -g -K 6; &dch -f; &if {W} -v; &save; &load; "\
-						"&st; &if -g -K 6; &synch2; &if {W} -v; &save; &load; "\
-						"&mfs; &ps -l"
-#else
-#define ABC_COMMAND_LUT "&st; &scorr; &sweep; &dc2; &st; &dch -f; &ps; &if {W} {D} -v; &mfs; &ps -l"
-#endif
-
-
-#define ABC_FAST_COMMAND_LUT "&st; &if {W} {D}"
-
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
 #include "kernel/celltypes.h"
@@ -292,7 +278,8 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 		} else
 			abc9_script += stringf("source %s", script_file.c_str());
 	} else if (!lut_costs.empty() || !lut_file.empty()) {
-		abc9_script += fast_mode ? ABC_FAST_COMMAND_LUT : ABC_COMMAND_LUT;
+		abc9_script += fast_mode ? RTLIL::constpad.at("abc9.script.default.fast").substr(1,std::string::npos)
+			: RTLIL::constpad.at("abc9.script.default").substr(1,std::string::npos);
 	} else
 		log_abort();
 
@@ -305,7 +292,26 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 	for (size_t pos = abc9_script.find("{W}"); pos != std::string::npos; pos = abc9_script.find("{W}", pos))
 		abc9_script = abc9_script.substr(0, pos) + wire_delay + abc9_script.substr(pos+3);
 
-	abc9_script += stringf("; &write -n %s/output.aig", tempdir_name.c_str());
+	std::string C;
+	if (design->scratchpad.count("abc9.if.C"))
+		C = "-C " + design->scratchpad_get_string("abc9.if.C");
+	for (size_t pos = abc9_script.find("{C}"); pos != std::string::npos; pos = abc9_script.find("{C}", pos))
+		abc9_script = abc9_script.substr(0, pos) + C + abc9_script.substr(pos+3);
+
+	std::string R;
+	if (design->scratchpad.count("abc9.if.R"))
+		R = "-R " + design->scratchpad_get_string("abc9.if.R");
+	for (size_t pos = abc9_script.find("{R}"); pos != std::string::npos; pos = abc9_script.find("{R}", pos))
+		abc9_script = abc9_script.substr(0, pos) + R + abc9_script.substr(pos+3);
+
+	abc9_script += stringf("; &ps -l; &write -n %s/output.aig;", tempdir_name.c_str());
+	if (design->scratchpad_get_bool("abc9.verify")) {
+		if (dff_mode)
+			abc9_script += "verify -s;";
+		else
+			abc9_script += "verify;";
+	}
+	abc9_script += "time";
 	abc9_script = add_echos_to_abc9_cmd(abc9_script);
 
 	for (size_t i = 0; i+1 < abc9_script.size(); i++)
@@ -725,6 +731,51 @@ clone_lut:
 
 struct Abc9Pass : public Pass {
 	Abc9Pass() : Pass("abc9", "use ABC9 for technology mapping") { }
+	void on_register() YS_OVERRIDE
+	{
+		RTLIL::constpad["abc9.script.default"] = "+&scorr; &sweep; &dc2; &dch -f; &ps; &if {C} {W} {D} {R} -v; &mfs";
+		RTLIL::constpad["abc9.script.default.area"] = "+&scorr; &sweep; &dc2; &dch -f; &ps; &if {C} {W} {D} {R} -a -v; &mfs";
+		RTLIL::constpad["abc9.script.default.fast"] = "+&if {C} {W} {D} {R} -v";
+		// Based on ABC's &flow
+		RTLIL::constpad["abc9.script.flow"] = "+&scorr; &sweep;" \
+			"&dch -C 500;" \
+			/* Round 1 */ \
+			/* Map 1 */ "&unmap; &if {C} {W} {D} {R} -v; &save; &load; &mfs;" \
+			"&st; &dsdb;" \
+			/* Map 2 */ "&unmap; &if {C} {W} {D} {R} -v; &save; &load; &mfs;" \
+			"&st; &syn2 -m -R 10; &dsdb;" \
+			"&blut -a -K 6;" \
+			/* Map 3 */ "&unmap; &if {C} {W} {D} {R} -v; &save; &load; &mfs;" \
+			/* Round 2 */ \
+			"&st; &sopb;" \
+			/* Map 1 */ "&unmap; &if {C} {W} {D} {R} -v; &save; &load; &mfs;" \
+			"&st; &dsdb;" \
+			/* Map 2 */ "&unmap; &if {C} {W} {D} {R} -v; &save; &load; &mfs;" \
+			"&st; &syn2 -m -R 10; &dsdb;" \
+			"&blut -a -K 6;" \
+			/* Map 3 */ "&unmap; &if {C} {W} {D} {R} -v; &save; &load; &mfs;" \
+			/* Round 3 */ \
+			/* Map 1 */ "&unmap; &if {C} {W} {D} {R} -v; &save; &load; &mfs;" \
+			"&st; &dsdb;" \
+			/* Map 2 */ "&unmap; &if {C} {W} {D} {R} -v; &save; &load; &mfs;" \
+			"&st; &syn2 -m -R 10; &dsdb;" \
+			"&blut -a -K 6;" \
+			/* Map 3 */ "&unmap; &if {C} {W} {D} {R} -v; &save; &load; &mfs;";
+		// Based on ABC's &flow2
+		RTLIL::constpad["abc9.script.flow2"] = "+&scorr; &sweep;" \
+			/* Comm1 */ "&synch2 -K 6 -C 500; &if -m {C} {W} {D} {R} -v; &mfs "/*"-W 4 -M 500 -C 7000"*/"; &save;"\
+			/* Comm2 */ "&dch -C 500; &if -m {C} {W} {D} {R} -v; &mfs "/*"-W 4 -M 500 -C 7000"*/"; &save;"\
+			"&load; &st; &sopb -R 10 -C 4; " \
+			/* Comm3 */ "&synch2 -K 6 -C 500; &if -m "/*"-E 5"*/" {C} {W} {D} {R} -v; &mfs "/*"-W 4 -M 500 -C 7000"*/"; &save;"\
+			/* Comm2 */ "&dch -C 500; &if -m {C} {W} {D} {R} -v; &mfs "/*"-W 4 -M 500 -C 7000"*/"; &save; "\
+			"&load";
+		// Based on ABC's &flow3
+		RTLIL::constpad["abc9.script.flow3"] = "+&scorr; &sweep;" \
+			"&if {C} {W} {D}; &save; &st; &syn2; &if {C} {W} {D} {R} -v; &save; &load;"\
+			"&st; &if {C} -g -K 6; &dch -f; &if {C} {W} {D} {R} -v; &save; &load;"\
+			"&st; &if {C} -g -K 6; &synch2; &if {C} {W} {D} {R} -v; &save; &load;"\
+			"&mfs";
+	}
 	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -752,18 +803,15 @@ struct Abc9Pass : public Pass {
 		log("\n");
 		log("        if no -script parameter is given, the following scripts are used:\n");
 		log("\n");
-		log("        for -lut/-luts (only one LUT size):\n");
-		log("%s\n", fold_abc9_cmd(ABC_COMMAND_LUT).c_str());
-		log("\n");
-		log("        for -lut/-luts (different LUT sizes):\n");
-		log("%s\n", fold_abc9_cmd(ABC_COMMAND_LUT).c_str());
+		log("        for -lut/-luts:\n");
+		log("%s\n", fold_abc9_cmd(RTLIL::constpad.at("abc9.script.default").substr(1,std::string::npos)).c_str());
 		log("\n");
 		log("    -fast\n");
 		log("        use different default scripts that are slightly faster (at the cost\n");
 		log("        of output quality):\n");
 		log("\n");
 		log("        for -lut/-luts:\n");
-		log("%s\n", fold_abc9_cmd(ABC_FAST_COMMAND_LUT).c_str());
+		log("%s\n", fold_abc9_cmd(RTLIL::constpad.at("abc9.script.default.fast").substr(1,std::string::npos)).c_str());
 		log("\n");
 		log("    -D <picoseconds>\n");
 		log("        set delay target. the string {D} in the default scripts above is\n");
@@ -861,6 +909,11 @@ struct Abc9Pass : public Pass {
 			wire_delay = "-W " + design->scratchpad_get_string("abc9.W");
 		}
 
+		if (design->scratchpad_get_bool("abc9.debug")) {
+			cleanup = false;
+			show_tempdir = true;
+		}
+
 		size_t argidx;
 		char pwd [PATH_MAX];
 		if (!getcwd(pwd, sizeof(pwd))) {
@@ -875,9 +928,6 @@ struct Abc9Pass : public Pass {
 			}
 			if (arg == "-script" && argidx+1 < args.size()) {
 				script_file = args[++argidx];
-				rewrite_filename(script_file);
-				if (!script_file.empty() && !is_absolute_path(script_file) && script_file[0] != '+')
-					script_file = std::string(pwd) + "/" + script_file;
 				continue;
 			}
 			if (arg == "-D" && argidx+1 < args.size()) {
