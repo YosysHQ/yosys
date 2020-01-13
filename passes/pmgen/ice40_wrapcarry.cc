@@ -48,7 +48,9 @@ void create_ice40_wrapcarry(ice40_wrapcarry_pm &pm)
 	cell->setPort("\\I0", st.lut->getPort("\\I0"));
 	cell->setPort("\\I3", st.lut->getPort("\\I3"));
 	cell->setPort("\\O", st.lut->getPort("\\O"));
-	cell->setParam("\\LUT", st.lut->getParam("\\LUT_INIT"));
+	auto LUT = st.lut->getParam("\\LUT_INIT");
+	LUT = std::vector<State>{LUT[0], LUT[8], LUT[4], LUT[12], LUT[2], LUT[10], LUT[6], LUT[14], LUT[1], LUT[9], LUT[5], LUT[13], LUT[3], LUT[11], LUT[7], LUT[15]};
+	cell->setParam("\\LUT", LUT);
 
 	for (const auto &a : st.carry->attributes)
 		cell->attributes[stringf("\\SB_CARRY.%s", a.first.c_str())] = a.second;
