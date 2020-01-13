@@ -8,7 +8,7 @@ module \$__ICE40_CARRY_WRAPPER (
 	input CI,
 	input I0, I3
 );
-	parameter LUT = 0;
+	parameter LUT_INIT = 0;
 	SB_CARRY carry (
 		.I0(A),
 		.I1(B),
@@ -16,7 +16,7 @@ module \$__ICE40_CARRY_WRAPPER (
 		.CO(CO)
 	);
 	SB_LUT4 #(
-		.LUT_INIT(LUT)
+		.LUT_INIT(LUT_INIT)
 	) adder (
 		.I0(I0),
 		.I1(A),

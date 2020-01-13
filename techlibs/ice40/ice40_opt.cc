@@ -141,6 +141,9 @@ static void run_ice40_opts(Module *module)
 				cell->type = "$lut";
 				cell->setPort("\\A", { cell->getPort("\\I0"), inbit[0], inbit[1], cell->getPort("\\I3") });
 				cell->setPort("\\Y", cell->getPort("\\O"));
+				auto LUT = cell->getParam(ID(LUT_INIT));
+				cell->setParam("\\LUT", std::vector<State>{LUT[0], LUT[8], LUT[4], LUT[12], LUT[2], LUT[10], LUT[6], LUT[14], LUT[1], LUT[9], LUT[5], LUT[13], LUT[3], LUT[11], LUT[7], LUT[15]});
+				cell->unsetParam("\\LUT_INIT");
 				cell->unsetPort("\\B");
 				cell->unsetPort("\\CI");
 				cell->unsetPort("\\I0");
@@ -177,7 +180,8 @@ static void run_ice40_opts(Module *module)
 
 		cell->type ="$lut";
 		cell->setParam("\\WIDTH", 4);
-		cell->setParam("\\LUT", cell->getParam("\\LUT_INIT"));
+		auto LUT = cell->getParam(ID(LUT_INIT));
+		cell->setParam("\\LUT", std::vector<State>{LUT[0], LUT[8], LUT[4], LUT[12], LUT[2], LUT[10], LUT[6], LUT[14], LUT[1], LUT[9], LUT[5], LUT[13], LUT[3], LUT[11], LUT[7], LUT[15]});
 		cell->unsetParam("\\LUT_INIT");
 
 		cell->setPort("\\A", SigSpec({
