@@ -22,20 +22,6 @@
 // Berkeley Logic Synthesis and Verification Group, ABC: A System for Sequential Synthesis and Verification
 // http://www.eecs.berkeley.edu/~alanmi/abc/
 
-#if 0
-// Based on &flow3 - better QoR but more experimental
-#define ABC_COMMAND_LUT "&st; &ps -l; &sweep -v; &scorr; " \
-						"&st; &if {W}; &save; &st; &syn2; &if {W} -v; &save; &load; "\
-						"&st; &if -g -K 6; &dch -f; &if {W} -v; &save; &load; "\
-						"&st; &if -g -K 6; &synch2; &if {W} -v; &save; &load; "\
-						"&mfs; &ps -l"
-#else
-#define ABC_COMMAND_LUT "&st; &scorr; &sweep; &dc2; &st; &dch -f; &ps; &if {W} {D} -v; &mfs; &ps -l"
-#endif
-
-
-#define ABC_FAST_COMMAND_LUT "&st; &if {W} {D}"
-
 #include "kernel/register.h"
 #include "kernel/log.h"
 
@@ -47,6 +33,25 @@
 #ifdef YOSYS_LINK_ABC
 extern "C" int Abc_RealMain(int argc, char *argv[]);
 #endif
+
+std::string fold_abc9_cmd(std::string str)
+{
+	std::string token, new_str = "          ";
+	int char_counter = 10;
+
+	for (size_t i = 0; i <= str.size(); i++) {
+		if (i < str.size())
+			token += str[i];
+		if (i == str.size() || str[i] == ';') {
+			if (char_counter + token.size() > 75)
+				new_str += "\n              ", char_counter = 14;
+			new_str += token, char_counter += token.size();
+			token.clear();
+		}
+	}
+
+	return new_str;
+}
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -68,25 +73,6 @@ std::string add_echos_to_abc9_cmd(std::string str)
 		if (!new_str.empty())
 			new_str += "echo + " + token + "; ";
 		new_str += token;
-	}
-
-	return new_str;
-}
-
-std::string fold_abc9_cmd(std::string str)
-{
-	std::string token, new_str = "          ";
-	int char_counter = 10;
-
-	for (size_t i = 0; i <= str.size(); i++) {
-		if (i < str.size())
-			token += str[i];
-		if (i == str.size() || str[i] == ';') {
-			if (char_counter + token.size() > 75)
-				new_str += "\n              ", char_counter = 14;
-			new_str += token, char_counter += token.size();
-			token.clear();
-		}
 	}
 
 	return new_str;
@@ -177,9 +163,9 @@ struct abc9_output_filter
 };
 
 void abc9_module(RTLIL::Design *design, std::string script_file, std::string exe_file,
-		vector<int> lut_costs, std::string delay_target, std::string /*lutin_shared*/, bool fast_mode,
+		vector<int> lut_costs, bool dff_mode, std::string delay_target, std::string /*lutin_shared*/, bool fast_mode,
 		bool show_tempdir, std::string box_file, std::string lut_file,
-		std::string wire_delay, bool nomfs, std::string tempdir_name
+		std::string wire_delay, std::string tempdir_name
 )
 {
 	//FIXME:
@@ -188,20 +174,15 @@ void abc9_module(RTLIL::Design *design, std::string script_file, std::string exe
 
 	std::string abc9_script;
 
-	if (!lut_costs.empty()) {
+	if (!lut_costs.empty())
 		abc9_script += stringf("read_lut %s/lutdefs.txt; ", tempdir_name.c_str());
-		if (!box_file.empty())
-			abc9_script += stringf("read_box %s; ", box_file.c_str());
-	}
-	else
-	if (!lut_file.empty()) {
+	else if (!lut_file.empty())
 		abc9_script += stringf("read_lut %s; ", lut_file.c_str());
-		if (!box_file.empty())
-			abc9_script += stringf("read_box %s; ", box_file.c_str());
-	}
 	else
 		log_abort();
 
+	log_assert(!box_file.empty());
+	abc9_script += stringf("read_box %s; ", box_file.c_str());
 	abc9_script += stringf("&read %s/input.xaig; &ps; ", tempdir_name.c_str());
 
 	if (!script_file.empty()) {
@@ -216,7 +197,8 @@ void abc9_module(RTLIL::Design *design, std::string script_file, std::string exe
 		} else
 			abc9_script += stringf("source %s", script_file.c_str());
 	} else if (!lut_costs.empty() || !lut_file.empty()) {
-		abc9_script += fast_mode ? ABC_FAST_COMMAND_LUT : ABC_COMMAND_LUT;
+		abc9_script += fast_mode ? RTLIL::constpad.at("abc9.script.default.fast").substr(1,std::string::npos)
+			: RTLIL::constpad.at("abc9.script.default").substr(1,std::string::npos);
 	} else
 		log_abort();
 
@@ -229,11 +211,26 @@ void abc9_module(RTLIL::Design *design, std::string script_file, std::string exe
 	for (size_t pos = abc9_script.find("{W}"); pos != std::string::npos; pos = abc9_script.find("{W}", pos))
 		abc9_script = abc9_script.substr(0, pos) + wire_delay + abc9_script.substr(pos+3);
 
-	if (nomfs)
-		for (size_t pos = abc9_script.find("&mfs"); pos != std::string::npos; pos = abc9_script.find("&mfs", pos))
-			abc9_script = abc9_script.erase(pos, strlen("&mfs"));
+	std::string C;
+	if (design->scratchpad.count("abc9.if.C"))
+		C = "-C " + design->scratchpad_get_string("abc9.if.C");
+	for (size_t pos = abc9_script.find("{C}"); pos != std::string::npos; pos = abc9_script.find("{C}", pos))
+		abc9_script = abc9_script.substr(0, pos) + C + abc9_script.substr(pos+3);
 
-	abc9_script += stringf("; &write -n %s/output.aig", tempdir_name.c_str());
+	std::string R;
+	if (design->scratchpad.count("abc9.if.R"))
+		R = "-R " + design->scratchpad_get_string("abc9.if.R");
+	for (size_t pos = abc9_script.find("{R}"); pos != std::string::npos; pos = abc9_script.find("{R}", pos))
+		abc9_script = abc9_script.substr(0, pos) + R + abc9_script.substr(pos+3);
+
+	abc9_script += stringf("; &ps -l; &write -n %s/output.aig;", tempdir_name.c_str());
+	if (design->scratchpad_get_bool("abc9.verify")) {
+		if (dff_mode)
+			abc9_script += "verify -s;";
+		else
+			abc9_script += "verify;";
+	}
+	abc9_script += "time";
 	abc9_script = add_echos_to_abc9_cmd(abc9_script);
 
 	for (size_t i = 0; i+1 < abc9_script.size(); i++)
@@ -313,12 +310,12 @@ struct Abc9ExePass : public Pass {
 		log("        replaced with blanks before the string is passed to ABC.\n");
 		log("\n");
 		log("        if no -script parameter is given, the following scripts are used:\n");
-		log("%s\n", fold_abc9_cmd(ABC_COMMAND_LUT).c_str());
+		log("%s\n", fold_abc9_cmd(RTLIL::constpad.at("abc9.script.default").substr(1,std::string::npos)).c_str());
 		log("\n");
 		log("    -fast\n");
 		log("        use different default scripts that are slightly faster (at the cost\n");
 		log("        of output quality):\n");
-		log("%s\n", fold_abc9_cmd(ABC_FAST_COMMAND_LUT).c_str());
+		log("%s\n", fold_abc9_cmd(RTLIL::constpad.at("abc9.script.default.fast").substr(1,std::string::npos)).c_str());
 		log("\n");
 		log("    -D <picoseconds>\n");
 		log("        set delay target. the string {D} in the default scripts above is\n");
@@ -350,7 +347,7 @@ struct Abc9ExePass : public Pass {
 		log("        command output is identical across runs.\n");
 		log("\n");
 		log("    -box <file>\n");
-		log("        pass this file with box library to ABC. Use with -lut.\n");
+		log("        pass this file with box library to ABC.\n");
 		log("\n");
 		log("    -cwd <dir>\n");
 		log("        use this as the current working directory, inside which the 'input.xaig'\n");
@@ -379,9 +376,8 @@ struct Abc9ExePass : public Pass {
 		std::string script_file, clk_str, box_file, lut_file;
 		std::string delay_target, lutin_shared = "-S 1", wire_delay;
 		std::string tempdir_name;
-		bool fast_mode = false;
+		bool fast_mode = false, dff_mode = false;
 		bool show_tempdir = false;
-		bool nomfs = false;
 		vector<int> lut_costs;
 
 #if 0
@@ -405,12 +401,12 @@ struct Abc9ExePass : public Pass {
 		lut_arg = design->scratchpad_get_string("abc9.lut", lut_arg);
 		luts_arg = design->scratchpad_get_string("abc9.luts", luts_arg);
 		fast_mode = design->scratchpad_get_bool("abc9.fast", fast_mode);
+		dff_mode = design->scratchpad_get_bool("abc9.dff", dff_mode);
 		show_tempdir = design->scratchpad_get_bool("abc9.showtmp", show_tempdir);
 		box_file = design->scratchpad_get_string("abc9.box", box_file);
 		if (design->scratchpad.count("abc9.W")) {
 			wire_delay = "-W " + design->scratchpad_get_string("abc9.W");
 		}
-		nomfs = design->scratchpad_get_bool("abc9.nomfs", nomfs);
 
 		size_t argidx;
 		char pwd [PATH_MAX];
@@ -448,6 +444,10 @@ struct Abc9ExePass : public Pass {
 				fast_mode = true;
 				continue;
 			}
+			if (arg == "-dff") {
+				dff_mode = true;
+				continue;
+			}
 			if (arg == "-showtmp") {
 				show_tempdir = true;
 				continue;
@@ -458,10 +458,6 @@ struct Abc9ExePass : public Pass {
 			}
 			if (arg == "-W" && argidx+1 < args.size()) {
 				wire_delay = "-W " + args[++argidx];
-				continue;
-			}
-			if (arg == "-nomfs") {
-				nomfs = true;
 				continue;
 			}
 			if (arg == "-cwd" && argidx+1 < args.size()) {
@@ -530,9 +526,9 @@ struct Abc9ExePass : public Pass {
 			log_cmd_error("abc9_exe '-cwd' option is mandatory.\n");
 
 
-		abc9_module(design, script_file, exe_file, lut_costs,
+		abc9_module(design, script_file, exe_file, lut_costs, dff_mode,
 				delay_target, lutin_shared, fast_mode, show_tempdir,
-				box_file, lut_file, wire_delay, nomfs, tempdir_name);
+				box_file, lut_file, wire_delay, tempdir_name);
 	}
 } Abc9ExePass;
 

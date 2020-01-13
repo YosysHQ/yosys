@@ -46,6 +46,7 @@ IdString RTLIL::ID::Y;
 IdString RTLIL::ID::keep;
 IdString RTLIL::ID::whitebox;
 IdString RTLIL::ID::blackbox;
+dict<std::string, std::string> RTLIL::constpad;
 
 RTLIL::Const::Const()
 {
