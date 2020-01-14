@@ -18,10 +18,17 @@
  *
  */
 
+// [[CITE]] ABC
+// Berkeley Logic Synthesis and Verification Group, ABC: A System for Sequential Synthesis and Verification
+// http://www.eecs.berkeley.edu/~alanmi/abc/
+
 #include "kernel/register.h"
 #include "kernel/celltypes.h"
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
+
+// abc9_exe.cc
+std::string fold_abc9_cmd(std::string str);
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -29,7 +36,51 @@ PRIVATE_NAMESPACE_BEGIN
 struct Abc9Pass : public ScriptPass
 {
 	Abc9Pass() : ScriptPass("abc9", "use ABC9 for technology mapping") { }
-
+	void on_register() YS_OVERRIDE
+	{
+		RTLIL::constpad["abc9.script.default"] = "+&scorr; &sweep; &dc2; &dch -f; &ps; &if {C} {W} {D} {R} -v; &mfs";
+		RTLIL::constpad["abc9.script.default.area"] = "+&scorr; &sweep; &dc2; &dch -f; &ps; &if {C} {W} {D} {R} -a -v; &mfs";
+		RTLIL::constpad["abc9.script.default.fast"] = "+&if {C} {W} {D} {R} -v";
+		// Based on ABC's &flow
+		RTLIL::constpad["abc9.script.flow"] = "+&scorr; &sweep;" \
+			"&dch -C 500;" \
+			/* Round 1 */ \
+			/* Map 1 */ "&unmap; &if {C} {W} {D} {R} -v; &save; &load; &mfs;" \
+			"&st; &dsdb;" \
+			/* Map 2 */ "&unmap; &if {C} {W} {D} {R} -v; &save; &load; &mfs;" \
+			"&st; &syn2 -m -R 10; &dsdb;" \
+			"&blut -a -K 6;" \
+			/* Map 3 */ "&unmap; &if {C} {W} {D} {R} -v; &save; &load; &mfs;" \
+			/* Round 2 */ \
+			"&st; &sopb;" \
+			/* Map 1 */ "&unmap; &if {C} {W} {D} {R} -v; &save; &load; &mfs;" \
+			"&st; &dsdb;" \
+			/* Map 2 */ "&unmap; &if {C} {W} {D} {R} -v; &save; &load; &mfs;" \
+			"&st; &syn2 -m -R 10; &dsdb;" \
+			"&blut -a -K 6;" \
+			/* Map 3 */ "&unmap; &if {C} {W} {D} {R} -v; &save; &load; &mfs;" \
+			/* Round 3 */ \
+			/* Map 1 */ "&unmap; &if {C} {W} {D} {R} -v; &save; &load; &mfs;" \
+			"&st; &dsdb;" \
+			/* Map 2 */ "&unmap; &if {C} {W} {D} {R} -v; &save; &load; &mfs;" \
+			"&st; &syn2 -m -R 10; &dsdb;" \
+			"&blut -a -K 6;" \
+			/* Map 3 */ "&unmap; &if {C} {W} {D} {R} -v; &save; &load; &mfs;";
+		// Based on ABC's &flow2
+		RTLIL::constpad["abc9.script.flow2"] = "+&scorr; &sweep;" \
+			/* Comm1 */ "&synch2 -K 6 -C 500; &if -m {C} {W} {D} {R} -v; &mfs "/*"-W 4 -M 500 -C 7000"*/"; &save;"\
+			/* Comm2 */ "&dch -C 500; &if -m {C} {W} {D} {R} -v; &mfs "/*"-W 4 -M 500 -C 7000"*/"; &save;"\
+			"&load; &st; &sopb -R 10 -C 4; " \
+			/* Comm3 */ "&synch2 -K 6 -C 500; &if -m "/*"-E 5"*/" {C} {W} {D} {R} -v; &mfs "/*"-W 4 -M 500 -C 7000"*/"; &save;"\
+			/* Comm2 */ "&dch -C 500; &if -m {C} {W} {D} {R} -v; &mfs "/*"-W 4 -M 500 -C 7000"*/"; &save; "\
+			"&load";
+		// Based on ABC's &flow3
+		RTLIL::constpad["abc9.script.flow3"] = "+&scorr; &sweep;" \
+			"&if {C} {W} {D}; &save; &st; &syn2; &if {C} {W} {D} {R} -v; &save; &load;"\
+			"&st; &if {C} -g -K 6; &dch -f; &if {C} {W} {D} {R} -v; &save; &load;"\
+			"&st; &if {C} -g -K 6; &synch2; &if {C} {W} {D} {R} -v; &save; &load;"\
+			"&mfs";
+	}
 	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -39,6 +90,11 @@ struct Abc9Pass : public ScriptPass
 		log("This script pass performs a sequence of commands to facilitate the use of the ABC\n");
 		log("tool [1] for technology mapping of the current design to a target FPGA\n");
 		log("architecture. Only fully-selected modules are supported.\n");
+		log("\n");
+		log("    -run <from_label>:<to_label>\n");
+		log("        only run the commands between the labels (see below). an empty\n");
+		log("        from label is synonymous to 'begin', and empty to label is\n");
+		log("        synonymous to the end of the command list.\n");
 		log("\n");
 		log("    -exe <command>\n");
 #ifdef ABCEXTERNAL
@@ -57,14 +113,12 @@ struct Abc9Pass : public ScriptPass
 		log("        replaced with blanks before the string is passed to ABC.\n");
 		log("\n");
 		log("        if no -script parameter is given, the following scripts are used:\n");
-		//FIXME:
-		//log("%s\n", fold_abc9_cmd(ABC_COMMAND_LUT).c_str());
+		log("%s\n", fold_abc9_cmd(RTLIL::constpad.at("abc9.script.default").substr(1,std::string::npos)).c_str());
 		log("\n");
 		log("    -fast\n");
 		log("        use different default scripts that are slightly faster (at the cost\n");
 		log("        of output quality):\n");
-		//FIXME:
-		//log("%s\n", fold_abc9_cmd(ABC_FAST_COMMAND_LUT).c_str());
+		log("%s\n", fold_abc9_cmd(RTLIL::constpad.at("abc9.script.default.fast").substr(1,std::string::npos)).c_str());
 		log("\n");
 		log("    -D <picoseconds>\n");
 		log("        set delay target. the string {D} in the default scripts above is\n");
@@ -104,7 +158,7 @@ struct Abc9Pass : public ScriptPass
 		log("        command output is identical across runs.\n");
 		log("\n");
 		log("    -box <file>\n");
-		log("        pass this file with box library to ABC. Use with -lut.\n");
+		log("        pass this file with box library to ABC.\n");
 		log("\n");
 		log("Note that this is a logic optimization pass within Yosys that is calling ABC\n");
 		log("internally. This is not going to \"run ABC on your design\". It will instead run\n");
@@ -141,6 +195,11 @@ struct Abc9Pass : public ScriptPass
 		dff_mode = design->scratchpad_get_bool("abc9.dff", dff_mode);
 		cleanup = !design->scratchpad_get_bool("abc9.nocleanup", !cleanup);
 
+		if (design->scratchpad_get_bool("abc9.debug")) {
+			cleanup = false;
+			exe_cmd << " -showtmp";
+		}
+
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			std::string arg = args[argidx];
@@ -152,13 +211,13 @@ struct Abc9Pass : public ScriptPass
 				continue;
 			}
 			if (arg == "-fast" || /* arg == "-dff" || */
-					/* arg == "-nocleanup" || */ arg == "-showtmp" ||
-					arg == "-nomfs") {
+					/* arg == "-nocleanup" || */ arg == "-showtmp") {
 				exe_cmd << " " << arg;
 				continue;
 			}
 			if (arg == "-dff") {
 				dff_mode = true;
+				exe_cmd << " " << arg;
 				continue;
 			}
 			if (arg == "-nocleanup") {
@@ -167,6 +226,14 @@ struct Abc9Pass : public ScriptPass
 			}
 			if (arg == "-box" && argidx+1 < args.size()) {
 				box_file = args[++argidx];
+				continue;
+			}
+			if (arg == "-run" && argidx+1 < args.size()) {
+				size_t pos = args[argidx+1].find(':');
+				if (pos == std::string::npos)
+					break;
+				run_from = args[++argidx].substr(0, pos);
+				run_to = args[argidx].substr(pos+1);
 				continue;
 			}
 			break;
@@ -184,9 +251,9 @@ struct Abc9Pass : public ScriptPass
 			run("abc9_ops -check");
 			run("scc -set_attr abc9_scc_id {}");
 			if (help_mode)
-				run("abc9_ops -break_scc -prep_times -prep_holes [-dff]", "(option for -dff)");
+				run("abc9_ops -mark_scc -prep_times -prep_xaiger [-dff]", "(option for -dff)");
 			else
-				run("abc9_ops -break_scc -prep_times -prep_holes" + std::string(dff_mode ? " -dff" : ""), "(option for -dff)");
+				run("abc9_ops -mark_scc -prep_times -prep_xaiger" + std::string(dff_mode ? " -dff" : ""), "(option for -dff)");
 			run("select -set abc9_holes A:abc9_holes");
 			run("flatten -wb @abc9_holes");
 			run("techmap @abc9_holes");
@@ -200,7 +267,7 @@ struct Abc9Pass : public ScriptPass
 		if (check_label("map")) {
 			if (help_mode) {
 				run("foreach module in selection");
-				run("    abc9_ops -write_box [(-box value)|(null)] <abc-temp-dir>/input.box");
+				run("    abc9_ops -write_box [(-box <path>)|(null)] <abc-temp-dir>/input.box");
 				run("    write_xaiger -map <abc-temp-dir>/input.sym <abc-temp-dir>/input.xaig");
 				run("    abc9_exe [options] -cwd <abc-temp-dir> -box <abc-temp-dir>/input.box");
 				run("    read_aiger -xaiger -wideports -module_name <module-name>$abc9 -map <abc-temp-dir>/input.sym <abc-temp-dir>/output.aig");
@@ -234,14 +301,16 @@ struct Abc9Pass : public ScriptPass
 					run(stringf("write_xaiger -map %s/input.sym %s/input.xaig", tempdir_name.c_str(), tempdir_name.c_str()));
 
 					int num_outputs = active_design->scratchpad_get_int("write_xaiger.num_outputs");
-					log("Extracted %d AND gates and %d wires to a netlist network with %d inputs and %d outputs.\n",
+
+					log("Extracted %d AND gates and %d wires from module `%s' to a netlist network with %d inputs and %d outputs.\n",
 							active_design->scratchpad_get_int("write_xaiger.num_ands"),
 							active_design->scratchpad_get_int("write_xaiger.num_wires"),
+							log_id(mod),
 							active_design->scratchpad_get_int("write_xaiger.num_inputs"),
 							num_outputs);
 					if (num_outputs) {
 						run(stringf("%s -cwd %s -box %s/input.box", exe_cmd.str().c_str(), tempdir_name.c_str(), tempdir_name.c_str()));
-						run(stringf("read_aiger -xaiger -wideports -module_name %s$abc9 -map %s/input.sym %s/output.aig", log_id(mod->name), tempdir_name.c_str(), tempdir_name.c_str()));
+						run(stringf("read_aiger -xaiger -wideports -module_name %s$abc9 -map %s/input.sym %s/output.aig", log_id(mod), tempdir_name.c_str(), tempdir_name.c_str()));
 						run("abc9_ops -reintegrate");
 					}
 					else
@@ -258,9 +327,6 @@ struct Abc9Pass : public ScriptPass
 				active_design->selection_stack.pop_back();
 			}
 		}
-
-		if (check_label("post"))
-			run("abc9_ops -unbreak_scc");
 	}
 } Abc9Pass;
 
