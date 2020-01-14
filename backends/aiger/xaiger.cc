@@ -349,7 +349,7 @@ struct XAigerWriter
 						unused_bits.erase(I);
 					}
 				if (w->port_output)
-					for (const auto &b : rhs.bits()) {
+					for (const auto &b : rhs) {
 						SigBit O = sigmap(b);
 						if (O != b)
 							alias_map[O] = b;
