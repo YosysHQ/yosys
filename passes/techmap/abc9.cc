@@ -251,9 +251,9 @@ struct Abc9Pass : public ScriptPass
 			run("abc9_ops -check");
 			run("scc -set_attr abc9_scc_id {}");
 			if (help_mode)
-				run("abc9_ops -mark_scc -prep_times -prep_xaiger [-dff]", "(option for -dff)");
+				run("abc9_ops -mark_scc -prep_delays -prep_xaiger [-dff]", "(option for -dff)");
 			else
-				run("abc9_ops -mark_scc -prep_times -prep_xaiger" + std::string(dff_mode ? " -dff" : ""), "(option for -dff)");
+				run("abc9_ops -mark_scc -prep_delays -prep_xaiger" + std::string(dff_mode ? " -dff" : ""), "(option for -dff)");
 			run("select -set abc9_holes A:abc9_holes");
 			run("flatten -wb @abc9_holes");
 			run("techmap @abc9_holes");
@@ -267,7 +267,7 @@ struct Abc9Pass : public ScriptPass
 		if (check_label("map")) {
 			if (help_mode) {
 				run("foreach module in selection");
-				run("    abc9_ops -write_box [(-box <path>)|(null)] <abc-temp-dir>/input.box");
+				run("    abc9_ops -write_box [<value from -box>|(null)] <abc-temp-dir>/input.box");
 				run("    write_xaiger -map <abc-temp-dir>/input.sym <abc-temp-dir>/input.xaig");
 				run("    abc9_exe [options] -cwd <abc-temp-dir> -box <abc-temp-dir>/input.box");
 				run("    read_aiger -xaiger -wideports -module_name <module-name>$abc9 -map <abc-temp-dir>/input.sym <abc-temp-dir>/output.aig");

@@ -383,7 +383,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 	}
 }
 
-void prep_times(RTLIL::Design *design)
+void prep_delays(RTLIL::Design *design)
 {
 	std::set<int> delays;
 	pool<Module*> flops;
@@ -918,6 +918,14 @@ struct Abc9OpsPass : public Pass {
 		log("mapping, and is expected to be called in conjunction with other operations from\n");
 		log("the `abc9' script pass. Only fully-selected modules are supported.\n");
 		log("\n");
+		log("    -check\n");
+		log("        check that the design is valid, e.g. (* abc9_box_id *) values are unique,\n");
+		log("        (* abc9_carry *) is only given for one input/output port, etc.\n");
+		log("\n");
+		log("    -prep_delays\n");
+		log("        insert `$__ABC9_DELAY' blackbox cells into the design to account for\n");
+		log("        certain delays, e.g. (* abc9_required *) values.\n");
+		log("\n");
 		log("    -mark_scc\n");
 		log("        for an arbitrarily chosen cell in each unique SCC of each selected module\n");
 		log("        (tagged with an (* abc9_scc_id = <int> *) attribute), temporarily mark all\n");
@@ -938,6 +946,10 @@ struct Abc9OpsPass : public Pass {
 		log("        compute the clock domain and initial value of each flop in the design.\n");
 		log("        process the '$holes' module to support clock-enable functionality.\n");
 		log("\n");
+		log("    -write_box (<src>|(null)) <dst>\n");
+		log("        copy the existing box file from <src> (skip if '(null)') and append any\n");
+		log("        new box definitions.\n");
+		log("\n");
 		log("    -reintegrate\n");
 		log("        for each selected module, re-intergrate the module '<module-name>$abc9'\n");
 		log("        by first recovering ABC9 boxes, and then stitching in the remaining primary\n");
@@ -949,7 +961,7 @@ struct Abc9OpsPass : public Pass {
 		log_header(design, "Executing ABC9_OPS pass (helper functions for ABC9).\n");
 
 		bool check_mode = false;
-		bool prep_times_mode = false;
+		bool prep_delays_mode = false;
 		bool mark_scc_mode = false;
 		bool prep_dff_mode = false;
 		bool prep_xaiger_mode = false;
@@ -976,8 +988,8 @@ struct Abc9OpsPass : public Pass {
 				prep_xaiger_mode = true;
 				continue;
 			}
-			if (arg == "-prep_times") {
-				prep_times_mode = true;
+			if (arg == "-prep_delays") {
+				prep_delays_mode = true;
 				continue;
 			}
 			if (arg == "-write_box" && argidx+2 < args.size()) {
@@ -999,16 +1011,16 @@ struct Abc9OpsPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		if (!(check_mode || mark_scc_mode || prep_times_mode || prep_xaiger_mode || prep_dff_mode || !write_box_src.empty() || reintegrate_mode))
-			log_cmd_error("At least one of -check, -mark_scc, -prep_{times,xaiger,dff}, -write_box, -reintegrate must be specified.\n");
+		if (!(check_mode || mark_scc_mode || prep_delays_mode || prep_xaiger_mode || prep_dff_mode || !write_box_src.empty() || reintegrate_mode))
+			log_cmd_error("At least one of -check, -mark_scc, -prep_{delays,xaiger,dff}, -write_box, -reintegrate must be specified.\n");
 
 		if (dff_mode && !prep_xaiger_mode)
 			log_cmd_error("'-dff' option is only relevant for -prep_xaiger.\n");
 
 		if (check_mode)
 			check(design);
-		if (prep_times_mode)
-			prep_times(design);
+		if (prep_delays_mode)
+			prep_delays(design);
 
 		for (auto mod : design->selected_modules()) {
 			if (mod->get_bool_attribute("\\abc9_holes"))
