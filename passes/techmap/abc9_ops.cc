@@ -754,15 +754,6 @@ void reintegrate(RTLIL::Module *module)
 						c.wire = module->wires_.at(remap_name(c.wire->name));
 					newsig.append(c);
 				}
-
-				auto it = existing_cell->connections_.find(port_name);
-				if (it == existing_cell->connections_.end())
-					continue;
-				if (GetSize(newsig) > GetSize(it->second))
-					newsig = newsig.extract(0, GetSize(it->second));
-				else
-					log_assert(GetSize(newsig) == GetSize(it->second));
-
 				cell->setPort(port_name, newsig);
 
 				if (w->port_input && !abc9_flop)
