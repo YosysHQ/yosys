@@ -255,7 +255,7 @@ end_of_header:
 	else
 		log_abort();
 
-	RTLIL::Wire* n0 = module->wire("$0");
+	RTLIL::Wire* n0 = module->wire(stringf("$aiger%d$0", aiger_autoidx));
 	if (n0)
 		module->connect(n0, State::S0);
 
@@ -383,7 +383,7 @@ void AigerReader::parse_xaiger()
 	else
 		log_abort();
 
-	RTLIL::Wire* n0 = module->wire("$0");
+	RTLIL::Wire* n0 = module->wire(stringf("$aiger%d$0", aiger_autoidx));
 	if (n0)
 		module->connect(n0, State::S0);
 
