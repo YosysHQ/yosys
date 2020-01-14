@@ -33,7 +33,7 @@ inline std::string remap_name(RTLIL::IdString abc9_name)
 	return stringf("$abc$%d$%s", map_autoidx, abc9_name.c_str()+1);
 }
 
-void break_scc(RTLIL::Module *module)
+void mark_scc(RTLIL::Module *module)
 {
 	// For every unique SCC found, (arbitrarily) find the first
 	//   cell in the component, and convert all wires driven by
@@ -44,7 +44,8 @@ void break_scc(RTLIL::Module *module)
 		auto it = cell->attributes.find(ID(abc9_scc_id));
 		if (it == cell->attributes.end())
 			continue;
-		auto r = ids_seen.insert(it->second);
+		auto id = it->second;
+		auto r = ids_seen.insert(id);
 		cell->attributes.erase(it);
 		if (!r.second)
 			continue;
@@ -54,32 +55,11 @@ void break_scc(RTLIL::Module *module)
 				SigBit b = c.second.as_bit();
 				Wire *w = b.wire;
 				w->set_bool_attribute(ID::keep);
+				w->attributes[ID(abc9_scc_id)] = id.as_int();
 			}
 		}
 	}
 
-	module->fixup_ports();
-}
-
-void unbreak_scc(RTLIL::Module *module)
-{
-	// Now 'unexpose' those wires by undoing
-	// the expose operation -- remove them from PO/PI
-	// and re-connecting them back together
-	for (auto wire : module->wires()) {
-		auto it = wire->attributes.find(ID(abc9_scc_break));
-		if (it != wire->attributes.end()) {
-			wire->attributes.erase(it);
-			log_assert(wire->port_output);
-			wire->port_output = false;
-			std::string name = wire->name.str();
-			RTLIL::Wire *i_wire = module->wire(name.substr(0, GetSize(name) - 5));
-			log_assert(i_wire);
-			log_assert(i_wire->port_input);
-			i_wire->port_input = false;
-			module->connect(i_wire, wire);
-		}
-	}
 	module->fixup_ports();
 }
 
@@ -676,21 +656,25 @@ void reintegrate(RTLIL::Module *module)
 
 	// Stitch in mapped_mod's inputs/outputs into module
 	for (auto port : mapped_mod->ports) {
-		RTLIL::Wire *w = mapped_mod->wire(port);
+		RTLIL::Wire *mapped_wire = mapped_mod->wire(port);
 		RTLIL::Wire *wire = module->wire(port);
 		log_assert(wire);
+		if (wire->attributes.erase(ID(abc9_scc_id))) {
+			auto r YS_ATTRIBUTE(unused) = wire->attributes.erase(ID::keep);
+			log_assert(r);
+		}
 		RTLIL::Wire *remap_wire = module->wire(remap_name(port));
 		RTLIL::SigSpec signal(wire, 0, GetSize(remap_wire));
 		log_assert(GetSize(signal) >= GetSize(remap_wire));
 
 		RTLIL::SigSig conn;
-		if (w->port_output) {
+		if (mapped_wire->port_output) {
 			conn.first = signal;
 			conn.second = remap_wire;
 			out_wires++;
 			module->connect(conn);
 		}
-		else if (w->port_input) {
+		else if (mapped_wire->port_input) {
 			conn.first = remap_wire;
 			conn.second = signal;
 			in_wires++;
@@ -791,8 +775,7 @@ struct Abc9OpsPass : public Pass {
 	{
 		log_header(design, "Executing ABC9_OPS pass (helper functions for ABC9).\n");
 
-		bool break_scc_mode = false;
-		bool unbreak_scc_mode = false;
+		bool mark_scc_mode = false;
 		bool prep_dff_mode = false;
 		bool prep_holes_mode = false;
 		bool reintegrate_mode = false;
@@ -801,12 +784,8 @@ struct Abc9OpsPass : public Pass {
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			std::string arg = args[argidx];
-			if (arg == "-break_scc") {
-				break_scc_mode = true;
-				continue;
-			}
-			if (arg == "-unbreak_scc") {
-				unbreak_scc_mode = true;
+			if (arg == "-mark_scc") {
+				mark_scc_mode = true;
 				continue;
 			}
 			if (arg == "-prep_dff") {
@@ -829,8 +808,8 @@ struct Abc9OpsPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		if (!(break_scc_mode || unbreak_scc_mode || prep_dff_mode || reintegrate_mode))
-			log_cmd_error("At least one of -{,un}break_scc, -prep_{dff,holes}, -reintegrate must be specified.\n");
+		if (!(mark_scc_mode || prep_dff_mode || reintegrate_mode))
+			log_cmd_error("At least one of -mark_scc, -prep_{dff,holes}, -reintegrate must be specified.\n");
 
 		if (dff_mode && !prep_holes_mode)
 			log_cmd_error("'-dff' option is only relevant for -prep_holes.\n");
@@ -847,10 +826,8 @@ struct Abc9OpsPass : public Pass {
 			if (!design->selected_whole_module(mod))
 				log_error("Can't handle partially selected module %s!\n", log_id(mod));
 
-			if (break_scc_mode)
-				break_scc(mod);
-			if (unbreak_scc_mode)
-				unbreak_scc(mod);
+			if (mark_scc_mode)
+				mark_scc(mod);
 			if (prep_dff_mode)
 				prep_dff(mod);
 			if (prep_holes_mode)

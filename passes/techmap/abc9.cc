@@ -244,9 +244,9 @@ struct Abc9Pass : public ScriptPass
 		if (check_label("pre")) {
 			run("scc -set_attr abc9_scc_id {}");
 			if (help_mode)
-				run("abc9_ops -break_scc -prep_holes [-dff]", "(option for -dff)");
+				run("abc9_ops -mark_scc -prep_holes [-dff]", "(option for -dff)");
 			else
-				run("abc9_ops -break_scc -prep_holes" + std::string(dff_mode ? " -dff" : ""), "(option for -dff)");
+				run("abc9_ops -mark_scc -prep_holes" + std::string(dff_mode ? " -dff" : ""), "(option for -dff)");
 			run("select -set abc9_holes A:abc9_holes");
 			run("flatten -wb @abc9_holes");
 			run("techmap @abc9_holes");
@@ -315,9 +315,6 @@ struct Abc9Pass : public ScriptPass
 				active_design->selection_stack.pop_back();
 			}
 		}
-
-		if (check_label("post"))
-			run("abc9_ops -unbreak_scc");
 	}
 } Abc9Pass;
 
