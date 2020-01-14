@@ -659,7 +659,7 @@ void reintegrate(RTLIL::Module *module)
 							bit_drivers[i].insert(mapped_cell->name);
 			}
 		}
-		else if (mapped_cell->type == ID($__ABC9_DELAY)) {
+		else if (box_lookup.at(mapped_cell->type, IdString()) == ID($__ABC9_DELAY)) {
 			SigBit I = mapped_cell->getPort(ID(i));
 			SigBit O = mapped_cell->getPort(ID(o));
 			if (I.wire)
@@ -671,7 +671,8 @@ void reintegrate(RTLIL::Module *module)
 		}
 		else {
 			RTLIL::Cell *existing_cell = module->cell(mapped_cell->name);
-			log_assert(existing_cell);
+			if (!existing_cell)
+				log_error("Cannot find existing box cell with name '%s' in original design.\n", log_id(mapped_cell));
 			log_assert(mapped_cell->type.begins_with("$__boxid"));
 
 			auto type = box_lookup.at(mapped_cell->type, IdString());
