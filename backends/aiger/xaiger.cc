@@ -740,7 +740,8 @@ struct XAigerBackend : public Backend {
 		log("Write the top module (according to the (* top *) attribute or if only one module\n");
 		log("is currently selected) to an XAIGER file. Any non $_NOT_, $_AND_, $_ABC9_FF_, or");
 		log("non (* abc9_box_id *) cells will be converted into psuedo-inputs and\n");
-		log("pseudo-outputs.\n");
+		log("pseudo-outputs. Whitebox contents will be taken from the '<module-name>$holes'\n");
+		log("module, if it exists.\n");
 		log("\n");
 		log("    -ascii\n");
 		log("        write ASCII version of AIGER format\n");

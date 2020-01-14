@@ -739,6 +739,19 @@ struct Abc9OpsPass : public Pass {
 		log("        '<module-name>$holes' module that contains the logic behaviour of ABC9\n");
 		log("        whiteboxes.\n");
 		log("\n");
+		log("    -dff\n");
+		log("        consider flop cells (those instantiating modules marked with (* abc9_flop *)\n");
+		log("        during -prep_xaiger.\n");
+		log("\n");
+		log("    -prep_dff\n");
+		log("        compute the clock domain and initial value of each flop in the design.\n");
+		log("        process the '$holes' module to support clock-enable functionality.\n");
+		log("\n");
+		log("    -reintegrate\n");
+		log("        for each selected module, re-intergrate the module '<module-name>$abc9'\n");
+		log("        by first recovering ABC9 boxes, and then stitching in the remaining primary\n");
+		log("        inputs and outputs.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
