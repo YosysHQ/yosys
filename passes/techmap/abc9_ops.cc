@@ -572,17 +572,12 @@ void reintegrate(RTLIL::Module *module)
 		log_assert(r.second);
 	}
 
-	pool<IdString> delay_boxes;
 	std::vector<Cell*> boxes;
 	for (auto cell : module->cells().to_vector()) {
 		if (cell->has_keep_attr())
 			continue;
-		if (cell->type.in(ID($_AND_), ID($_NOT_), ID($__ABC9_FF_)))
+		if (cell->type.in(ID($_AND_), ID($_NOT_), ID($__ABC9_FF_), ID($__ABC9_DELAY)))
 			module->remove(cell);
-		else if (cell->type.begins_with("$paramod$__ABC9_DELAY\\DELAY=")) {
-			delay_boxes.insert(cell->name);
-			module->remove(cell);
-		}
 		else if (cell->attributes.erase("\\abc9_box_seq"))
 			boxes.emplace_back(cell);
 	}
@@ -674,7 +669,7 @@ void reintegrate(RTLIL::Module *module)
 							bit_drivers[i].insert(mapped_cell->name);
 			}
 		}
-		else if (delay_boxes.count(mapped_cell->name)) {
+		else if (mapped_cell->type == ID($__ABC9_DELAY)) {
 			SigBit I = mapped_cell->getPort(ID(i));
 			SigBit O = mapped_cell->getPort(ID(o));
 			if (I.wire)
