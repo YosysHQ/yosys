@@ -233,25 +233,15 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 					auto w = inst_module->wire(port_name);
 					log_assert(w);
 					if (w->get_bool_attribute("\\abc9_carry")) {
-						if (w->port_input) {
-							if (carry_in != IdString())
-								log_error("Module '%s' contains more than one 'abc9_carry' input port.\n", log_id(inst_module));
+						log_assert(w->port_input != w->port_output);
+						if (w->port_input)
 							carry_in = port_name;
-						}
-						if (w->port_output) {
-							if (carry_out != IdString())
-								log_error("Module '%s' contains more than one 'abc9_carry' output port.\n", log_id(inst_module));
+						else if (w->port_output)
 							carry_out = port_name;
-						}
 					}
 					else
 						r.first->second.push_back(port_name);
 				}
-
-				if (carry_in != IdString() && carry_out == IdString())
-					log_error("Module '%s' contains an 'abc9_carry' input port but no output port.\n", log_id(inst_module));
-				if (carry_in == IdString() && carry_out != IdString())
-					log_error("Module '%s' contains an 'abc9_carry' output port but no input port.\n", log_id(inst_module));
 				if (carry_in != IdString()) {
 					r.first->second.push_back(carry_in);
 					r.first->second.push_back(carry_out);
@@ -723,9 +713,10 @@ void reintegrate(RTLIL::Module *module)
 					auto w = box_module->wire(port_name);
 					log_assert(w);
 					if (w->get_bool_attribute("\\abc9_carry")) {
+						log_assert(w->port_input != w->port_output);
 						if (w->port_input)
 							carry_in = port_name;
-						if (w->port_output)
+						else if (w->port_output)
 							carry_out = port_name;
 					}
 					else
