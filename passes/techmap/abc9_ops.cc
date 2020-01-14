@@ -143,7 +143,7 @@ void prep_dff(RTLIL::Module *module)
 	}
 }
 
-void prep_holes(RTLIL::Module *module, bool dff)
+void prep_xaiger(RTLIL::Module *module, bool dff)
 {
 	auto design = module->design;
 	log_assert(design);
@@ -152,7 +152,7 @@ void prep_holes(RTLIL::Module *module, bool dff)
 
 	dict<SigBit, pool<IdString>> bit_drivers, bit_users;
 	TopoSort<IdString, RTLIL::sort_by_id_str> toposort;
-	bool abc9_box_seen = false;
+	dict<IdString, std::vector<IdString>> box_ports;
 
 	for (auto cell : module->cells()) {
 		if (cell->type == "$__ABC9_FF_")
@@ -165,7 +165,40 @@ void prep_holes(RTLIL::Module *module, bool dff)
 			abc9_flop = inst_module->get_bool_attribute("\\abc9_flop");
 			if (abc9_flop && !dff)
 				continue;
-			abc9_box_seen = abc9_box;
+
+			auto r = box_ports.insert(cell->type);
+			if (r.second) {
+				// Make carry in the last PI, and carry out the last PO
+				//   since ABC requires it this way
+				IdString carry_in, carry_out;
+				for (const auto &port_name : inst_module->ports) {
+					auto w = inst_module->wire(port_name);
+					log_assert(w);
+					if (w->get_bool_attribute("\\abc9_carry")) {
+						if (w->port_input) {
+							if (carry_in != IdString())
+								log_error("Module '%s' contains more than one 'abc9_carry' input port.\n", log_id(inst_module));
+							carry_in = port_name;
+						}
+						if (w->port_output) {
+							if (carry_out != IdString())
+								log_error("Module '%s' contains more than one 'abc9_carry' output port.\n", log_id(inst_module));
+							carry_out = port_name;
+						}
+					}
+					else
+						r.first->second.push_back(port_name);
+				}
+
+				if (carry_in != IdString() && carry_out == IdString())
+					log_error("Module '%s' contains an 'abc9_carry' input port but no output port.\n", log_id(inst_module));
+				if (carry_in == IdString() && carry_out != IdString())
+					log_error("Module '%s' contains an 'abc9_carry' output port but no input port.\n", log_id(inst_module));
+				if (carry_in != IdString()) {
+					r.first->second.push_back(carry_in);
+					r.first->second.push_back(carry_out);
+				}
+			}
 		}
 		else if (!yosys_celltypes.cell_known(cell->type))
 			continue;
@@ -183,7 +216,7 @@ void prep_holes(RTLIL::Module *module, bool dff)
 		toposort.node(cell->name);
 	}
 
-	if (!abc9_box_seen)
+	if (box_ports.empty())
 		return;
 
 	for (auto &it : bit_users)
@@ -211,7 +244,13 @@ void prep_holes(RTLIL::Module *module, bool dff)
 
 	log_assert(no_loops);
 
-	vector<Cell*> box_list;
+	RTLIL::Module *holes_module = design->addModule(stringf("%s$holes", module->name.c_str()));
+	log_assert(holes_module);
+	holes_module->set_bool_attribute("\\abc9_holes");
+
+	dict<IdString, Cell*> cell_cache;
+
+	int port_id = 1, box_count = 0;
 	for (auto cell_name : toposort.sorted) {
 		RTLIL::Cell *cell = module->cell(cell_name);
 		log_assert(cell);
@@ -220,102 +259,16 @@ void prep_holes(RTLIL::Module *module, bool dff)
 		if (!box_module || !box_module->attributes.count("\\abc9_box_id"))
 			continue;
 
-		bool blackbox = box_module->get_blackbox_attribute(true /* ignore_wb */);
+		cell->attributes["\\abc9_box_seq"] = box_count++;
 
-		// Fully pad all unused input connections of this box cell with S0
-		// Fully pad all undriven output connections of this box cell with anonymous wires
-		for (const auto &port_name : box_module->ports) {
-			RTLIL::Wire* w = box_module->wire(port_name);
-			log_assert(w);
-			auto it = cell->connections_.find(port_name);
-			if (w->port_input) {
-				RTLIL::SigSpec rhs;
-				if (it != cell->connections_.end()) {
-					if (GetSize(it->second) < GetSize(w))
-						it->second.append(RTLIL::SigSpec(State::S0, GetSize(w)-GetSize(it->second)));
-					rhs = it->second;
-				}
-				else {
-					rhs = RTLIL::SigSpec(State::S0, GetSize(w));
-					cell->setPort(port_name, rhs);
-				}
-			}
-			if (w->port_output) {
-				RTLIL::SigSpec rhs;
-				auto it = cell->connections_.find(w->name);
-				if (it != cell->connections_.end()) {
-					if (GetSize(it->second) < GetSize(w))
-						it->second.append(module->addWire(NEW_ID, GetSize(w)-GetSize(it->second)));
-					rhs = it->second;
-				}
-				else {
-					Wire *wire = module->addWire(NEW_ID, GetSize(w));
-					if (blackbox)
-						wire->set_bool_attribute(ID(abc9_padding));
-					rhs = wire;
-					cell->setPort(port_name, rhs);
-				}
-			}
-		}
-
-		cell->attributes["\\abc9_box_seq"] = box_list.size();
-		box_list.emplace_back(cell);
-	}
-	log_assert(!box_list.empty());
-
-	RTLIL::Module *holes_module = design->addModule(stringf("%s$holes", module->name.c_str()));
-	log_assert(holes_module);
-	holes_module->set_bool_attribute("\\abc9_holes");
-
-	dict<IdString, Cell*> cell_cache;
-	dict<IdString, std::vector<IdString>> box_ports;
-
-	int port_id = 1;
-	for (auto cell : box_list) {
-		RTLIL::Module* orig_box_module = design->module(cell->type);
-		log_assert(orig_box_module);
-		IdString derived_name = orig_box_module->derive(design, cell->parameters);
-		RTLIL::Module* box_module = design->module(derived_name);
+		IdString derived_name = box_module->derive(design, cell->parameters);
+		box_module = design->module(derived_name);
 
 		auto r = cell_cache.insert(derived_name);
 		auto &holes_cell = r.first->second;
 		if (r.second) {
 			if (box_module->has_processes())
 				Pass::call_on_module(design, box_module, "proc");
-
-			auto r2 = box_ports.insert(cell->type);
-			if (r2.second) {
-				// Make carry in the last PI, and carry out the last PO
-				//   since ABC requires it this way
-				IdString carry_in, carry_out;
-				for (const auto &port_name : box_module->ports) {
-					auto w = box_module->wire(port_name);
-					log_assert(w);
-					if (w->get_bool_attribute("\\abc9_carry")) {
-						if (w->port_input) {
-							if (carry_in != IdString())
-								log_error("Module '%s' contains more than one 'abc9_carry' input port.\n", log_id(box_module));
-							carry_in = port_name;
-						}
-						if (w->port_output) {
-							if (carry_out != IdString())
-								log_error("Module '%s' contains more than one 'abc9_carry' output port.\n", log_id(box_module));
-							carry_out = port_name;
-						}
-					}
-					else
-						r2.first->second.push_back(port_name);
-				}
-
-				if (carry_in != IdString() && carry_out == IdString())
-					log_error("Module '%s' contains an 'abc9_carry' input port but no output port.\n", log_id(box_module));
-				if (carry_in == IdString() && carry_out != IdString())
-					log_error("Module '%s' contains an 'abc9_carry' output port but no input port.\n", log_id(box_module));
-				if (carry_in != IdString()) {
-					r2.first->second.push_back(carry_in);
-					r2.first->second.push_back(carry_out);
-				}
-			}
 
 			if (box_module->get_bool_attribute("\\whitebox")) {
 				holes_cell = holes_module->addCell(cell->name, derived_name);
@@ -770,6 +723,22 @@ struct Abc9OpsPass : public Pass {
 		log("\n");
 		log("    abc9_ops [options] [selection]\n");
 		log("\n");
+		log("This pass contains a set of supporting operations for use during ABC technology\n");
+		log("mapping, and is expected to be called in conjunction with other operations from\n");
+		log("the `abc9' script pass. Only fully-selected modules are supported.\n");
+		log("\n");
+		log("    -mark_scc\n");
+		log("        for an arbitrarily chosen cell in each unique SCC of each selected module\n");
+		log("        (tagged with an (* abc9_scc_id = <int> *) attribute), temporarily mark all\n");
+		log("        wires driven by this cell's outputs with a (* keep *) attribute in order\n");
+		log("        to break the SCC. this temporary attribute will be removed on -reintegrate.\n");
+		log("\n");
+		log("    -prep_xaiger\n");
+		log("        prepare the design for XAIGER output. this includes computing the\n");
+		log("        topological ordering of ABC9 boxes, as well as preparing the\n");
+		log("        '<module-name>$holes' module that contains the logic behaviour of ABC9\n");
+		log("        whiteboxes.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
@@ -777,7 +746,7 @@ struct Abc9OpsPass : public Pass {
 
 		bool mark_scc_mode = false;
 		bool prep_dff_mode = false;
-		bool prep_holes_mode = false;
+		bool prep_xaiger_mode = false;
 		bool reintegrate_mode = false;
 		bool dff_mode = false;
 
@@ -792,8 +761,8 @@ struct Abc9OpsPass : public Pass {
 				prep_dff_mode = true;
 				continue;
 			}
-			if (arg == "-prep_holes") {
-				prep_holes_mode = true;
+			if (arg == "-prep_xaiger") {
+				prep_xaiger_mode = true;
 				continue;
 			}
 			if (arg == "-reintegrate") {
@@ -809,10 +778,10 @@ struct Abc9OpsPass : public Pass {
 		extra_args(args, argidx, design);
 
 		if (!(mark_scc_mode || prep_dff_mode || reintegrate_mode))
-			log_cmd_error("At least one of -mark_scc, -prep_{dff,holes}, -reintegrate must be specified.\n");
+			log_cmd_error("At least one of -mark_scc, -prep_{xaiger,dff}, -reintegrate must be specified.\n");
 
-		if (dff_mode && !prep_holes_mode)
-			log_cmd_error("'-dff' option is only relevant for -prep_holes.\n");
+		if (dff_mode && !prep_xaiger_mode)
+			log_cmd_error("'-dff' option is only relevant for -prep_xaiger.\n");
 
 		for (auto mod : design->selected_modules()) {
 			if (mod->get_bool_attribute("\\abc9_holes"))
@@ -830,8 +799,8 @@ struct Abc9OpsPass : public Pass {
 				mark_scc(mod);
 			if (prep_dff_mode)
 				prep_dff(mod);
-			if (prep_holes_mode)
-				prep_holes(mod, dff_mode);
+			if (prep_xaiger_mode)
+				prep_xaiger(mod, dff_mode);
 			if (reintegrate_mode)
 				reintegrate(mod);
 		}

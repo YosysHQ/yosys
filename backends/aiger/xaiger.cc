@@ -329,12 +329,11 @@ struct XAigerWriter
 				}
 			}
 
-			// Fully pad all unused input connections of this box cell with S0
-			// Fully pad all undriven output connections of this box cell with anonymous wires
 			for (auto port_name : r.first->second) {
 				auto w = box_module->wire(port_name);
 				log_assert(w);
-				auto rhs = cell->getPort(port_name);
+				auto rhs = cell->connections_.at(port_name, SigSpec());
+				rhs.append(Const(State::Sx, GetSize(w)-GetSize(rhs)));
 				if (w->port_input)
 					for (auto b : rhs) {
 						SigBit I = sigmap(b);
@@ -429,6 +428,10 @@ struct XAigerWriter
 
 		for (auto &bit : ci_bits) {
 			aig_m++, aig_i++;
+			// 1'bx may exist here due to a box output
+			//   that has been padded to its full width
+			if (bit == State::Sx)
+				continue;
 			log_assert(!aig_map.count(bit));
 			aig_map[bit] = 2*aig_m;
 		}
