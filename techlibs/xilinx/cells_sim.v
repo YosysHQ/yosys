@@ -325,17 +325,20 @@ endmodule
 
 // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf#L238-L250
 
-(* abc9_box_id=1100, lib_whitebox, abc9_flop *)
+(* abc9_flop, lib_whitebox *)
 module FDRE (
   (* abc9_arrival=303 *)
   output reg Q,
   (* clkbuf_sink *)
   (* invertible_pin = "IS_C_INVERTED" *)
   input C,
+  (* abc9_required=109 *)
   input CE,
   (* invertible_pin = "IS_D_INVERTED" *)
+  //(* abc9_required=-46 *) // Negative required times not currently supported
   input D,
   (* invertible_pin = "IS_R_INVERTED" *)
+  (* abc9_required=404 *)
   input R
 );
   parameter [0:0] INIT = 1'b0;
@@ -349,30 +352,38 @@ module FDRE (
   endcase endgenerate
 endmodule
 
-(* abc9_box_id=1101, lib_whitebox, abc9_flop *)
+(* abc9_flop, lib_whitebox *)
 module FDRE_1 (
   (* abc9_arrival=303 *)
   output reg Q,
   (* clkbuf_sink *)
   input C,
-  input CE, D, R
+  (* abc9_required=109 *)
+  input CE,
+  //(* abc9_required=-46 *) // Negative required times not currently supported
+  input D,
+  (* abc9_required=404 *)
+  input R
 );
   parameter [0:0] INIT = 1'b0;
   initial Q <= INIT;
   always @(negedge C) if (R) Q <= 1'b0; else if (CE) Q <= D;
 endmodule
 
-(* abc9_box_id=1102, lib_whitebox, abc9_flop *)
+(* abc9_flop, lib_whitebox *)
 module FDSE (
   (* abc9_arrival=303 *)
   output reg Q,
   (* clkbuf_sink *)
   (* invertible_pin = "IS_C_INVERTED" *)
   input C,
+  (* abc9_required=109 *)
   input CE,
   (* invertible_pin = "IS_D_INVERTED" *)
+  //(* abc9_required=-46 *) // Negative required times not currently supported
   input D,
   (* invertible_pin = "IS_S_INVERTED" *)
+  (* abc9_required=404 *)
   input S
 );
   parameter [0:0] INIT = 1'b1;
@@ -386,13 +397,18 @@ module FDSE (
   endcase endgenerate
 endmodule
 
-(* abc9_box_id=1103, lib_whitebox, abc9_flop *)
+(* abc9_flop, lib_whitebox *)
 module FDSE_1 (
   (* abc9_arrival=303 *)
   output reg Q,
   (* clkbuf_sink *)
   input C,
-  input CE, D, S
+  (* abc9_required=109 *)
+  input CE,
+  //(* abc9_required=-46 *) // Negative required times not currently supported
+  input D,
+  (* abc9_required=404 *)
+  input S
 );
   parameter [0:0] INIT = 1'b1;
   initial Q <= INIT;
@@ -405,6 +421,7 @@ module FDRSE (
   (* invertible_pin = "IS_C_INVERTED" *)
   input C,
   (* invertible_pin = "IS_CE_INVERTED" *)
+  (* abc9_required=109 *)
   input CE,
   (* invertible_pin = "IS_D_INVERTED" *)
   input D,
@@ -434,17 +451,20 @@ module FDRSE (
       Q <= d;
 endmodule
 
-(* abc9_box_id=1104, lib_whitebox, abc9_flop *)
+(* abc9_flop, lib_whitebox *)
 module FDCE (
   (* abc9_arrival=303 *)
   output reg Q,
   (* clkbuf_sink *)
   (* invertible_pin = "IS_C_INVERTED" *)
   input C,
+  (* abc9_required=109 *)
   input CE,
   (* invertible_pin = "IS_CLR_INVERTED" *)
+  (* abc9_required=764 *)
   input CLR,
   (* invertible_pin = "IS_D_INVERTED" *)
+  //(* abc9_required=-46 *) // Negative required times not currently supported
   input D
 );
   parameter [0:0] INIT = 1'b0;
@@ -460,30 +480,38 @@ module FDCE (
   endcase endgenerate
 endmodule
 
-(* abc9_box_id=1105, lib_whitebox, abc9_flop *)
+(* abc9_flop, lib_whitebox *)
 module FDCE_1 (
   (* abc9_arrival=303 *)
   output reg Q,
   (* clkbuf_sink *)
   input C,
-  input CE, D, CLR
+  (* abc9_required=109 *)
+  input CE,
+  (* abc9_required=764 *)
+  input CLR,
+  //(* abc9_required=-46 *) // Negative required times not currently supported
+  input D
 );
   parameter [0:0] INIT = 1'b0;
   initial Q <= INIT;
   always @(negedge C, posedge CLR) if (CLR) Q <= 1'b0; else if (CE) Q <= D;
 endmodule
 
-(* abc9_box_id=1106, lib_whitebox, abc9_flop *)
+(* abc9_flop, lib_whitebox *)
 module FDPE (
   (* abc9_arrival=303 *)
   output reg Q,
   (* clkbuf_sink *)
   (* invertible_pin = "IS_C_INVERTED" *)
   input C,
+  (* abc9_required=109 *)
   input CE,
   (* invertible_pin = "IS_D_INVERTED" *)
+  //(* abc9_required=-46 *) // Negative required times not currently supported
   input D,
   (* invertible_pin = "IS_PRE_INVERTED" *)
+  (* abc9_required=764 *)
   input PRE
 );
   parameter [0:0] INIT = 1'b1;
@@ -499,13 +527,18 @@ module FDPE (
   endcase endgenerate
 endmodule
 
-(* abc9_box_id=1107, lib_whitebox, abc9_flop *)
+(* abc9_flop, lib_whitebox *)
 module FDPE_1 (
   (* abc9_arrival=303 *)
   output reg Q,
   (* clkbuf_sink *)
   input C,
-  input CE, D, PRE
+  (* abc9_required=109 *)
+  input CE,
+  //(* abc9_required=-46 *) // Negative required times not currently supported
+  input D,
+  (* abc9_required=764 *)
+  input PRE
 );
   parameter [0:0] INIT = 1'b1;
   initial Q <= INIT;

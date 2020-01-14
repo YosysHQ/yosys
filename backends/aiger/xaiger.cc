@@ -596,7 +596,11 @@ struct XAigerWriter
 				RTLIL::Module* box_module = module->design->module(cell->type);
 				log_assert(box_module);
 
-				auto r = cell_cache.insert(cell->type);
+				IdString derived_type = box_module->derive(box_module->design, cell->parameters);
+				box_module = box_module->design->module(derived_type);
+				log_assert(box_module);
+
+				auto r = cell_cache.insert(derived_type);
 				auto &v = r.first->second;
 				if (r.second) {
 					int box_inputs = 0, box_outputs = 0;
