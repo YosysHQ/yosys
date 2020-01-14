@@ -348,7 +348,7 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 		buffer = stringf("%s/%s", tempdir_name.c_str(), "input.sym");
 		log_assert(!design->module(ID($__abc9__)));
 		{
-			AigerReader reader(design, ifs, ID($__abc9__), "" /* clk_name */, /*buffer.c_str()*/ "" /* map_filename */, true /* wideports */);
+			AigerReader reader(design, ifs, ID($__abc9__), "" /* clk_name */, buffer.c_str() /* map_filename */, true /* wideports */);
 			reader.parse_xaiger();
 		}
 		ifs.close();
@@ -472,16 +472,16 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 						// (TODO: Optimise by not cloning unless will increase depth)
 						RTLIL::IdString driver_name;
 						if (GetSize(a_bit.wire) == 1)
-							driver_name = stringf("%s$lut", a_bit.wire->name.c_str());
+							driver_name = stringf("$lut%s", a_bit.wire->name.c_str());
 						else
-							driver_name = stringf("%s[%d]$lut", a_bit.wire->name.c_str(), a_bit.offset);
+							driver_name = stringf("$lut%s[%d]", a_bit.wire->name.c_str(), a_bit.offset);
 						driver_lut = mapped_mod->cell(driver_name);
 					}
 
 					if (!driver_lut) {
 						// If a driver couldn't be found (could be from PI or box CI)
 						// then implement using a LUT
-						cell = module->addLut(remap_name(stringf("%s$lut", mapped_cell->name.c_str())),
+						cell = module->addLut(remap_name(stringf("$lut%s", mapped_cell->name.c_str())),
 								RTLIL::SigBit(module->wires_.at(remap_name(a_bit.wire->name)), a_bit.offset),
 								RTLIL::SigBit(module->wires_.at(remap_name(y_bit.wire->name)), y_bit.offset),
 								RTLIL::Const::from_string("01"));
