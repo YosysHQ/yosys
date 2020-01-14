@@ -298,7 +298,7 @@ struct Abc9Pass : public ScriptPass
 							num_outputs);
 					if (num_outputs) {
 						run(stringf("%s -cwd %s", exe_cmd.str().c_str(), tempdir_name.c_str()));
-						run(stringf("read_aiger -xaiger -wideports -module_name %s$abc9 -map %s/input.sym %s/output.aig", log_id(mod->name), tempdir_name.c_str(), tempdir_name.c_str()));
+						run(stringf("read_aiger -xaiger -wideports -module_name %s$abc9 -map %s/input.sym %s/output.aig", log_id(mod), tempdir_name.c_str(), tempdir_name.c_str()));
 						run("abc9_ops -reintegrate");
 					}
 					else

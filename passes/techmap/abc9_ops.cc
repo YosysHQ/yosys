@@ -53,30 +53,7 @@ void break_scc(RTLIL::Module *module)
 			if (cell->output(c.first)) {
 				SigBit b = c.second.as_bit();
 				Wire *w = b.wire;
-				if (w->port_input) {
-					// In this case, hopefully the loop break has been already created
-					// Get the non-prefixed wire
-					Wire *wo = module->wire(stringf("%s.abco", b.wire->name.c_str()));
-					log_assert(wo != nullptr);
-					log_assert(wo->port_output);
-					log_assert(b.offset < GetSize(wo));
-					c.second = RTLIL::SigBit(wo, b.offset);
-				}
-				else {
-					// Create a new output/input loop break
-					w->port_input = true;
-					w = module->wire(stringf("%s.abco", w->name.c_str()));
-					if (!w) {
-						w = module->addWire(stringf("%s.abco", b.wire->name.c_str()), GetSize(b.wire));
-						w->port_output = true;
-					}
-					else {
-						log_assert(w->port_input);
-						log_assert(b.offset < GetSize(w));
-					}
-					w->set_bool_attribute(ID(abc9_scc_break));
-					c.second = RTLIL::SigBit(w, b.offset);
-				}
+				w->set_bool_attribute(ID::keep);
 			}
 		}
 	}
@@ -586,7 +563,9 @@ void reintegrate(RTLIL::Module *module)
 				}
 				if (cell->output(mapped_conn.first))
 					for (auto i : mapped_conn.second)
-						bit_drivers[i].insert(mapped_cell->name);
+						// Ignore inouts for topo ordering
+						if (i.wire && !(i.wire->port_input && i.wire->port_output))
+							bit_drivers[i].insert(mapped_cell->name);
 			}
 		}
 		else {

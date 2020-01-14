@@ -436,15 +436,22 @@ struct XAigerWriter
 		for (const auto &bit : output_bits) {
 			ordered_outputs[bit] = aig_o++;
 			int aig;
-			// For inout/keep bits only, the output bit
-			//   should be driven by logic, not the PI,
-			//   so temporarily swap that out
+			// Unlike bit2aig() which checks aig_map first, for
+			//   inout/keep bits, since aig_map will point to
+			//   the PI, first attempt to find the NOT/AND driver
+			//   before resorting to an aig_map lookup (which
+			//   could be another PO)
 			if (input_bits.count(bit)) {
-				auto it = aig_map.find(bit);
-				int input_aig = it->second;
-				aig_map.erase(it);
-				aig = bit2aig(bit);
-				aig_map.at(bit) = input_aig;
+				if (not_map.count(bit)) {
+					aig = bit2aig(not_map.at(bit)) ^ 1;
+				} else if (and_map.count(bit)) {
+					auto args = and_map.at(bit);
+					int a0 = bit2aig(args.first);
+					int a1 = bit2aig(args.second);
+					aig = mkgate(a0, a1);
+				}
+				else
+					aig = aig_map.at(bit);
 			}
 			else
 				aig = bit2aig(bit);

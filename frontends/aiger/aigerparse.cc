@@ -831,6 +831,7 @@ void AigerReader::post_process()
 					}
 					else {
 						wire->port_output = false;
+						existing->port_output = true;
 						module->connect(wire, existing);
 						wire = existing;
 					}
@@ -845,8 +846,9 @@ void AigerReader::post_process()
 							wideports_cache[escaped_s] = std::max(wideports_cache[escaped_s], index);
 					}
 					else {
-						module->connect(wire, existing);
 						wire->port_output = false;
+						existing->port_output = true;
+						module->connect(wire, existing);
 					}
 					log_debug(" -> %s\n", log_id(indexed_name));
 				}
