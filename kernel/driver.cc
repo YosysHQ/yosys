@@ -564,6 +564,7 @@ int main(int argc, char **argv)
 #ifdef _WIN32
 		log("End of script. Logfile hash: %s\n", hash.c_str());
 #else
+		std::string meminfo;
 		std::string stats_divider = ", ";
 
 		struct rusage ru_buffer;
@@ -577,10 +578,13 @@ int main(int argc, char **argv)
 			ru_buffer.ru_stime.tv_usec += ru_buffer_children.ru_stime.tv_usec;
 			ru_buffer.ru_maxrss = std::max(ru_buffer.ru_maxrss, ru_buffer_children.ru_maxrss);
 		}
-		log("End of script. Logfile hash: %s%sCPU: user %.2fs system %.2fs, MEM: %.2f MB peak\n", hash.c_str(),
-				stats_divider.c_str(), ru_buffer.ru_utime.tv_sec + 1e-6 * ru_buffer.ru_utime.tv_usec,
-				ru_buffer.ru_stime.tv_sec + 1e-6 * ru_buffer.ru_stime.tv_usec,
+#  if defined(__linux__) || defined(__FreeBSD__)
+		meminfo = stringf(", MEM: %.2f MB peak",
 				ru_buffer.ru_maxrss / 1024.0);
+#endif
+		log("End of script. Logfile hash: %s%sCPU: user %.2fs system %.2fs%s\n", hash.c_str(),
+				stats_divider.c_str(), ru_buffer.ru_utime.tv_sec + 1e-6 * ru_buffer.ru_utime.tv_usec,
+				ru_buffer.ru_stime.tv_sec + 1e-6 * ru_buffer.ru_stime.tv_usec, meminfo.c_str());
 #endif
 		log("%s\n", yosys_version_str);
 
