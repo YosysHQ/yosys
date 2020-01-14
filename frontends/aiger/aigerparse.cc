@@ -206,7 +206,7 @@ eval_end:
 };
 
 AigerReader::AigerReader(RTLIL::Design *design, std::istream &f, RTLIL::IdString module_name, RTLIL::IdString clk_name, std::string map_filename, bool wideports)
-	: design(design), f(f), clk_name(clk_name), map_filename(map_filename), wideports(wideports)
+	: design(design), f(f), clk_name(clk_name), map_filename(map_filename), wideports(wideports), aiger_autoidx(autoidx++)
 {
 	module = new RTLIL::Module;
 	module->name = module_name;
@@ -323,18 +323,18 @@ static uint32_t parse_xaiger_literal(std::istream &f)
 	return from_big_endian(l);
 }
 
-static RTLIL::Wire* createWireIfNotExists(RTLIL::Module *module, unsigned literal)
+RTLIL::Wire* AigerReader::createWireIfNotExists(RTLIL::Module *module, unsigned literal)
 {
 	const unsigned variable = literal >> 1;
 	const bool invert = literal & 1;
-	RTLIL::IdString wire_name(stringf("$%d%s", variable, invert ? "b" : ""));
+	RTLIL::IdString wire_name(stringf("$aiger%d$%d%s", aiger_autoidx, variable, invert ? "b" : ""));
 	RTLIL::Wire *wire = module->wire(wire_name);
 	if (wire) return wire;
 	log_debug2("Creating %s\n", wire_name.c_str());
 	wire = module->addWire(wire_name);
 	wire->port_input = wire->port_output = false;
 	if (!invert) return wire;
-	RTLIL::IdString wire_inv_name(stringf("$%d", variable));
+	RTLIL::IdString wire_inv_name(stringf("$aiger%d$%d", aiger_autoidx, variable));
 	RTLIL::Wire *wire_inv = module->wire(wire_inv_name);
 	if (wire_inv) {
 		if (module->cell(wire_inv_name)) return wire;
@@ -346,7 +346,7 @@ static RTLIL::Wire* createWireIfNotExists(RTLIL::Module *module, unsigned litera
 	}
 
 	log_debug2("Creating %s = ~%s\n", wire_name.c_str(), wire_inv_name.c_str());
-	module->addNotGate(stringf("$not$%d", variable), wire_inv, wire);
+	module->addNotGate(stringf("$not$aiger%d$%d", aiger_autoidx, variable), wire_inv, wire);
 
 	return wire;
 }
@@ -422,13 +422,14 @@ void AigerReader::parse_xaiger()
 				uint32_t rootNodeID = parse_xaiger_literal(f);
 				uint32_t cutLeavesM = parse_xaiger_literal(f);
 				log_debug2("rootNodeID=%d cutLeavesM=%d\n", rootNodeID, cutLeavesM);
-				RTLIL::Wire *output_sig = module->wire(stringf("$%d", rootNodeID));
+				RTLIL::Wire *output_sig = module->wire(stringf("$aiger%d$%d", aiger_autoidx, rootNodeID));
+				log_assert(output_sig);
 				uint32_t nodeID;
 				RTLIL::SigSpec input_sig;
 				for (unsigned j = 0; j < cutLeavesM; ++j) {
 					nodeID = parse_xaiger_literal(f);
 					log_debug2("\t%u\n", nodeID);
-					RTLIL::Wire *wire = module->wire(stringf("$%d", nodeID));
+					RTLIL::Wire *wire = module->wire(stringf("$aiger%d$%d", aiger_autoidx, nodeID));
 					log_assert(wire);
 					input_sig.append(wire);
 				}
@@ -445,10 +446,10 @@ void AigerReader::parse_xaiger()
 					log_assert(o.wire == nullptr);
 					lut_mask[gray] = o.data;
 				}
-				RTLIL::Cell *output_cell = module->cell(stringf("$and$%d", rootNodeID));
+				RTLIL::Cell *output_cell = module->cell(stringf("$and$aiger%d$%d", aiger_autoidx, rootNodeID));
 				log_assert(output_cell);
 				module->remove(output_cell);
-				module->addLut(stringf("$lut$%d", rootNodeID), input_sig, output_sig, std::move(lut_mask));
+				module->addLut(stringf("$lut$aiger%d$%d", aiger_autoidx, rootNodeID), input_sig, output_sig, std::move(lut_mask));
 			}
 		}
 		else if (c == 'r') {
