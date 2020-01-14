@@ -488,7 +488,9 @@ void reintegrate(RTLIL::Module *module)
 			RTLIL::SigBit a_bit = mapped_cell->getPort(ID::A);
 			RTLIL::SigBit y_bit = mapped_cell->getPort(ID::Y);
 			bit_users[a_bit].insert(mapped_cell->name);
-			bit_drivers[y_bit].insert(mapped_cell->name);
+			// Ignore inouts for topo ordering
+			if (y_bit.wire && !(y_bit.wire->port_input && y_bit.wire->port_output))
+				bit_drivers[y_bit].insert(mapped_cell->name);
 
 			if (!a_bit.wire) {
 				mapped_cell->setPort(ID::Y, module->addWire(NEW_ID));
@@ -598,7 +600,9 @@ void reintegrate(RTLIL::Module *module)
 				for (const auto &i : inputs)
 					bit_users[i].insert(mapped_cell->name);
 				for (const auto &i : outputs)
-					bit_drivers[i].insert(mapped_cell->name);
+					// Ignore inouts for topo ordering
+					if (i.wire && !(i.wire->port_input && i.wire->port_output))
+						bit_drivers[i].insert(mapped_cell->name);
 			}
 
 			int input_count = 0, output_count = 0;
