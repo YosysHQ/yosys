@@ -257,6 +257,9 @@ struct XAigerWriter
 									arrivals.push_back(atoi(tok.c_str()));
 						}
 
+						if (arrivals.empty())
+							continue;
+
 						if (GetSize(arrivals) > 1 && GetSize(arrivals) != GetSize(port_wire))
 							log_error("%s.%s is %d bits wide but abc9_arrival = %s has %d value(s)!\n", log_id(cell->type), log_id(conn.first),
 									GetSize(port_wire), log_signal(it->second), GetSize(arrivals));
