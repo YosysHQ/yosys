@@ -489,6 +489,8 @@ void reintegrate(RTLIL::Module *module)
 
 	std::vector<Cell*> boxes;
 	for (auto cell : module->cells().to_vector()) {
+		if (cell->has_keep_attr())
+			continue;
 		if (cell->type.in(ID($_AND_), ID($_NOT_), ID($__ABC9_FF_)))
 			module->remove(cell);
 		else if (cell->attributes.erase("\\abc9_box_seq"))

@@ -51,3 +51,18 @@ simplemap
 equiv_opt -assert abc9 -lut 4
 design -load postopt
 select -assert-count 2 t:$lut
+
+design -reset
+read_verilog -icells <<EOT
+module top(input a, b, output o);
+wire w;
+(* keep *) $_AND_ gate (.Y(w), .A(a), .B(b));
+assign o = ~w;
+endmodule
+EOT
+
+simplemap
+equiv_opt -assert abc9 -lut 4
+design -load postopt
+select -assert-count 1 t:$lut
+select -assert-count 1 t:$_AND_
