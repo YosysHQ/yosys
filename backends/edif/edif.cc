@@ -300,6 +300,26 @@ struct EdifBackend : public Backend {
 		*f << stringf("  (library DESIGN\n");
 		*f << stringf("    (edifLevel 0)\n");
 		*f << stringf("    (technology (numberDefinition))\n");
+
+		auto add_prop = [&](IdString name, Const val) {
+			if ((val.flags & RTLIL::CONST_FLAG_STRING) != 0)
+				*f << stringf("\n            (property %s (string \"%s\"))", EDIF_DEF(name), val.decode_string().c_str());
+			else if (val.bits.size() <= 32 && RTLIL::SigSpec(val).is_fully_def())
+				*f << stringf("\n            (property %s (integer %u))", EDIF_DEF(name), val.as_int());
+			else {
+				std::string hex_string = "";
+				for (size_t i = 0; i < val.bits.size(); i += 4) {
+					int digit_value = 0;
+					if (i+0 < val.bits.size() && val.bits.at(i+0) == RTLIL::State::S1) digit_value |= 1;
+					if (i+1 < val.bits.size() && val.bits.at(i+1) == RTLIL::State::S1) digit_value |= 2;
+					if (i+2 < val.bits.size() && val.bits.at(i+2) == RTLIL::State::S1) digit_value |= 4;
+					if (i+3 < val.bits.size() && val.bits.at(i+3) == RTLIL::State::S1) digit_value |= 8;
+					char digit_str[2] = { "0123456789abcdef"[digit_value], 0 };
+					hex_string = std::string(digit_str) + hex_string;
+				}
+				*f << stringf("\n            (property %s (string \"%d'h%s\"))", EDIF_DEF(name), GetSize(val.bits), hex_string.c_str());
+			}
+		};		
 		for (auto module : sorted_modules)
 		{
 			if (module->get_blackbox_attribute())
@@ -323,14 +343,23 @@ struct EdifBackend : public Backend {
 				else if (!wire->port_input)
 					dir = "OUTPUT";
 				if (wire->width == 1) {
-					*f << stringf("          (port %s (direction %s))\n", EDIF_DEF(wire->name), dir);
+					*f << stringf("          (port %s (direction %s)", EDIF_DEF(wire->name), dir);
+					if (attr_properties)
+						for (auto &p : wire->attributes)
+							add_prop(p.first, p.second);
+					*f << ")\n";
 					RTLIL::SigSpec sig = sigmap(RTLIL::SigSpec(wire));
 					net_join_db[sig].insert(stringf("(portRef %s)", EDIF_REF(wire->name)));
 				} else {
 					int b[2];
 					b[wire->upto ? 0 : 1] = wire->start_offset;
 					b[wire->upto ? 1 : 0] = wire->start_offset + GetSize(wire) - 1;
-					*f << stringf("          (port (array %s %d) (direction %s))\n", EDIF_DEFR(wire->name, port_rename, b[0], b[1]), wire->width, dir);
+					*f << stringf("          (port (array %s %d) (direction %s)", EDIF_DEFR(wire->name, port_rename, b[0], b[1]), wire->width, dir);
+					if (attr_properties)
+						for (auto &p : wire->attributes)
+							add_prop(p.first, p.second);
+
+					*f << ")\n";
 					for (int i = 0; i < wire->width; i++) {
 						RTLIL::SigSpec sig = sigmap(RTLIL::SigSpec(wire, i));
 						net_join_db[sig].insert(stringf("(portRef (member %s %d))", EDIF_REF(wire->name), GetSize(wire)-i-1));
@@ -348,27 +377,6 @@ struct EdifBackend : public Backend {
 				*f << stringf("          (instance %s\n", EDIF_DEF(cell->name));
 				*f << stringf("            (viewRef VIEW_NETLIST (cellRef %s%s))", EDIF_REF(cell->type),
 						lib_cell_ports.count(cell->type) > 0 ? " (libraryRef LIB)" : "");
-
-				auto add_prop = [&](IdString name, Const val) {
-					if ((val.flags & RTLIL::CONST_FLAG_STRING) != 0)
-						*f << stringf("\n            (property %s (string \"%s\"))", EDIF_DEF(name), val.decode_string().c_str());
-					else if (val.bits.size() <= 32 && RTLIL::SigSpec(val).is_fully_def())
-						*f << stringf("\n            (property %s (integer %u))", EDIF_DEF(name), val.as_int());
-					else {
-						std::string hex_string = "";
-						for (size_t i = 0; i < val.bits.size(); i += 4) {
-							int digit_value = 0;
-							if (i+0 < val.bits.size() && val.bits.at(i+0) == RTLIL::State::S1) digit_value |= 1;
-							if (i+1 < val.bits.size() && val.bits.at(i+1) == RTLIL::State::S1) digit_value |= 2;
-							if (i+2 < val.bits.size() && val.bits.at(i+2) == RTLIL::State::S1) digit_value |= 4;
-							if (i+3 < val.bits.size() && val.bits.at(i+3) == RTLIL::State::S1) digit_value |= 8;
-							char digit_str[2] = { "0123456789abcdef"[digit_value], 0 };
-							hex_string = std::string(digit_str) + hex_string;
-						}
-						*f << stringf("\n            (property %s (string \"%d'h%s\"))", EDIF_DEF(name), GetSize(val.bits), hex_string.c_str());
-					}
-				};
-
 				for (auto &p : cell->parameters)
 					add_prop(p.first, p.second);
 				if (attr_properties)
@@ -431,8 +439,12 @@ struct EdifBackend : public Backend {
 						*f << stringf("            (portRef %c (instanceRef GND))\n", gndvccy ? 'Y' : 'G');
 					if (sig == RTLIL::State::S1)
 						*f << stringf("            (portRef %c (instanceRef VCC))\n", gndvccy ? 'Y' : 'P');
-				}
-				*f << stringf("          ))\n");
+				}				
+				*f << stringf("            )");
+				if (attr_properties && sig.wire != NULL)
+					for (auto &p : sig.wire->attributes)
+						add_prop(p.first, p.second);
+				*f << stringf("\n          )\n");
 			}
 			*f << stringf("        )\n");
 			*f << stringf("      )\n");
