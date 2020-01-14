@@ -91,6 +91,11 @@ struct Abc9Pass : public ScriptPass
 		log("tool [1] for technology mapping of the current design to a target FPGA\n");
 		log("architecture. Only fully-selected modules are supported.\n");
 		log("\n");
+		log("    -run <from_label>:<to_label>\n");
+		log("        only run the commands between the labels (see below). an empty\n");
+		log("        from label is synonymous to 'begin', and empty to label is\n");
+		log("        synonymous to the end of the command list.\n");
+		log("\n");
 		log("    -exe <command>\n");
 #ifdef ABCEXTERNAL
 		log("        use the specified command instead of \"" ABCEXTERNAL "\" to execute ABC.\n");
@@ -210,11 +215,19 @@ struct Abc9Pass : public ScriptPass
 			}
 			if (arg == "-dff") {
 				dff_mode = true;
-                exe_cmd << " " << arg;
+				exe_cmd << " " << arg;
 				continue;
 			}
 			if (arg == "-nocleanup") {
 				cleanup = false;
+				continue;
+			}
+			if (arg == "-run" && argidx+1 < args.size()) {
+				size_t pos = args[argidx+1].find(':');
+				if (pos == std::string::npos)
+					break;
+				run_from = args[++argidx].substr(0, pos);
+				run_to = args[argidx].substr(pos+1);
 				continue;
 			}
 			break;
