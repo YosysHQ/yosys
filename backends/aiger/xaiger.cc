@@ -356,6 +356,11 @@ struct XAigerWriter
 							alias_map[O] = b;
 						ci_bits.emplace_back(b);
 						undriven_bits.erase(O);
+						// If PI and CI, then must be a (* keep *) wire
+						if (input_bits.erase(O)) {
+							log_assert(output_bits.count(O));
+							log_assert(O.wire->get_bool_attribute(ID::keep));
+						}
 					}
 			}
 
