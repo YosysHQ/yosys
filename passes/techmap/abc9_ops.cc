@@ -387,7 +387,7 @@ void prep_delays(RTLIL::Design *design)
 	std::set<int> delays;
 	pool<Module*> flops;
 	std::vector<Cell*> cells;
-	std::map<int,std::vector<int>> requireds;
+	dict<IdString,dict<IdString,std::vector<int>>> requireds_cache;
 	for (auto module : design->selected_modules()) {
 		if (module->processes.size() > 0) {
 			log("Skipping module %s as it contains processes.\n", log_id(module));
@@ -418,48 +418,56 @@ void prep_delays(RTLIL::Design *design)
 		}
 
 		delays.clear();
-		requireds.clear();
 		for (auto cell : cells) {
 			RTLIL::Module* inst_module = module->design->module(cell->type);
 			log_assert(inst_module);
+			auto &cell_requireds = requireds_cache[cell->type];
 			for (auto &conn : cell->connections_) {
 				auto port_wire = inst_module->wire(conn.first);
 				if (!port_wire->port_input)
 					continue;
 
-				auto it = port_wire->attributes.find("\\abc9_required");
-				if (it == port_wire->attributes.end())
-					continue;
-
-				int count = 0;
-				requireds.clear();
-				if (it->second.flags == 0) {
-					count = 1;
-					requireds[it->second.as_int()].push_back(0);
+				auto r = cell_requireds.insert(conn.first);
+				auto &requireds = r.first->second;
+				if (r.second) {
+					auto it = port_wire->attributes.find("\\abc9_required");
+					if (it == port_wire->attributes.end())
+						continue;
+					if (it->second.flags == 0) {
+						int delay = it->second.as_int();
+						delays.insert(delay);
+						requireds.emplace_back(delay);
+					}
+					else
+						for (const auto &tok : split_tokens(it->second.decode_string())) {
+							int delay = atoi(tok.c_str());
+							delays.insert(delay);
+							requireds.push_back(delay);
+						}
 				}
-				else
-					for (const auto &tok : split_tokens(it->second.decode_string()))
-						requireds[atoi(tok.c_str())].push_back(count++);
-				if (count > 1 && count != GetSize(port_wire))
+
+				if (requireds.empty())
+					continue;
+				if (GetSize(requireds) > 1 && GetSize(requireds) != GetSize(port_wire))
 					log_error("%s.%s is %d bits wide but abc9_required = %s has %d value(s)!\n", log_id(cell->type), log_id(conn.first),
-							GetSize(port_wire), log_signal(it->second), count);
+							GetSize(port_wire), log_signal(port_wire->attributes.at("\\abc9_required")), GetSize(requireds));
 
 				SigSpec O = module->addWire(NEW_ID, GetSize(conn.second));
-				for (const auto &i : requireds) {
+				auto it = requireds.begin();
+				for (int i = 0; i < GetSize(conn.second); ++i) {
 #ifndef NDEBUG
 					if (ys_debug(1)) {
 						static std::set<std::pair<IdString,IdString>> seen;
-						if (seen.emplace(cell->type, conn.first).second) log("%s.%s abc9_required = %d\n", log_id(cell->type), log_id(conn.first), i.first);
+						if (seen.emplace(cell->type, conn.first).second) log("%s.%s abc9_required = %d\n", log_id(cell->type), log_id(conn.first), requireds[i]);
 					}
 #endif
-					delays.insert(i.first);
-					for (auto offset : i.second) {
-						auto box = module->addCell(NEW_ID, ID($__ABC9_DELAY));
-						box->setPort(ID(I), conn.second[offset]);
-						box->setPort(ID(O), O[offset]);
-						box->setParam(ID(DELAY), i.first);
-						conn.second[offset] = O[offset];
-					}
+					auto box = module->addCell(NEW_ID, ID($__ABC9_DELAY));
+					box->setPort(ID(I), conn.second[i]);
+					box->setPort(ID(O), O[i]);
+					box->setParam(ID(DELAY), *it);
+					if (requireds.size() > 1)
+						it++;
+					conn.second[i] = O[i];
 				}
 			}
 		}
