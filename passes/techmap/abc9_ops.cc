@@ -73,6 +73,36 @@ void check(RTLIL::Design *design)
 					carry_out = port_name;
 				}
 			}
+
+			auto it = w->attributes.find("\\abc9_arrival");
+			if (it != w->attributes.end()) {
+				int count = 0;
+				if (it->second.flags == 0)
+					count++;
+				else
+					for (const auto &tok : split_tokens(it->second.decode_string())) {
+						(void) tok;
+						count++;
+					}
+				if (count > 1 && count != GetSize(w))
+					log_error("%s.%s is %d bits wide but abc9_arrival = %s has %d value(s)!\n", log_id(m), log_id(port_name),
+							GetSize(w), log_signal(it->second), count);
+			}
+
+			it = w->attributes.find("\\abc9_required");
+			if (it != w->attributes.end()) {
+				int count = 0;
+				if (it->second.flags == 0)
+					count++;
+				else
+					for (const auto &tok : split_tokens(it->second.decode_string())) {
+						(void) tok;
+						count++;
+					}
+				if (count > 1 && count != GetSize(w))
+					log_error("%s.%s is %d bits wide but abc9_required = %s has %d value(s)!\n", log_id(m), log_id(port_name),
+							GetSize(w), log_signal(it->second), count);
+			}
 		}
 
 		if (carry_in != IdString() && carry_out == IdString())
@@ -448,9 +478,6 @@ void prep_delays(RTLIL::Design *design)
 
 				if (requireds.empty())
 					continue;
-				if (GetSize(requireds) > 1 && GetSize(requireds) != GetSize(port_wire))
-					log_error("%s.%s is %d bits wide but abc9_required = %s has %d value(s)!\n", log_id(cell->type), log_id(conn.first),
-							GetSize(port_wire), log_signal(port_wire->attributes.at("\\abc9_required")), GetSize(requireds));
 
 				SigSpec O = module->addWire(NEW_ID, GetSize(conn.second));
 				auto it = requireds.begin();
