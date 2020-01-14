@@ -156,7 +156,6 @@ struct XAigerWriter
 			if (wire->get_bool_attribute(ID::keep))
 				sigmap.add(wire);
 
-
 		for (auto wire : module->wires())
 			for (int i = 0; i < GetSize(wire); i++)
 			{
@@ -174,10 +173,11 @@ struct XAigerWriter
 				undriven_bits.insert(bit);
 				unused_bits.insert(bit);
 
-				if (wire->port_input)
+				bool keep = wire->get_bool_attribute(ID::keep);
+				if (wire->port_input || keep)
 					input_bits.insert(bit);
 
-				if (wire->port_output) {
+				if (wire->port_output || keep) {
 					if (bit != wirebit)
 						alias_map[wirebit] = bit;
 					output_bits.insert(wirebit);
@@ -209,9 +209,9 @@ struct XAigerWriter
 			}
 
 			if (cell->type == "$__ABC9_FF_" &&
-                                        // The presence of an abc9_mergeability attribute indicates
-                                        //   that we do want to pass this flop to ABC
-                                        cell->attributes.count("\\abc9_mergeability"))
+					// The presence of an abc9_mergeability attribute indicates
+					//   that we do want to pass this flop to ABC
+					cell->attributes.count("\\abc9_mergeability"))
 			{
 				SigBit D = sigmap(cell->getPort("\\D").as_bit());
 				SigBit Q = sigmap(cell->getPort("\\Q").as_bit());
@@ -430,7 +430,17 @@ struct XAigerWriter
 
 		for (const auto &bit : output_bits) {
 			ordered_outputs[bit] = aig_o++;
-			aig_outputs.push_back(bit2aig(bit));
+			int aig;
+			if (input_bits.count(bit)) {
+				auto it = aig_map.find(bit);
+				int input_aig = it->second;
+				aig_map.erase(it);
+				aig = bit2aig(bit);
+				aig_map.at(bit) = input_aig;
+			}
+			else
+				aig = bit2aig(bit);
+			aig_outputs.push_back(aig);
 		}
 
 		for (auto &i : ff_bits) {
