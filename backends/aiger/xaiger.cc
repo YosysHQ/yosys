@@ -226,6 +226,7 @@ struct XAigerWriter
 				}
 
 				if (inst_module) {
+					bool abc9_flop = inst_module->get_bool_attribute("\\abc9_flop");
 					auto it = cell->attributes.find("\\abc9_box_seq");
 					if (it != cell->attributes.end()) {
 						int abc9_box_seq = it->second.as_int();
@@ -234,7 +235,7 @@ struct XAigerWriter
 						box_list[abc9_box_seq] = cell;
 						// Only flop boxes may have arrival times
 						//   (all others are combinatorial)
-						if (!inst_module->get_bool_attribute("\\abc9_flop"))
+						if (!abc9_flop)
 							continue;
 					}
 
@@ -277,6 +278,9 @@ struct XAigerWriter
 								jt++;
 						}
 					}
+
+					if (abc9_flop)
+						continue;
 				}
 			}
 
@@ -616,7 +620,7 @@ struct XAigerWriter
 					// For flops only, create an extra 1-bit input that drives a new wire
 					//   called "<cell>.abc9_ff.Q" that is used below
 					if (box_module->get_bool_attribute("\\abc9_flop"))
-					    box_inputs++;
+						box_inputs++;
 
 					std::get<0>(v) = box_inputs;
 					std::get<1>(v) = box_outputs;
