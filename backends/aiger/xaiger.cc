@@ -226,7 +226,7 @@ struct XAigerWriter
 				}
 
 				if (inst_module) {
-					bool abc9_flop = inst_module->get_bool_attribute("\\abc9_flop");
+					bool abc9_flop = false;
 					auto it = cell->attributes.find("\\abc9_box_seq");
 					if (it != cell->attributes.end()) {
 						int abc9_box_seq = it->second.as_int();
@@ -235,6 +235,7 @@ struct XAigerWriter
 						box_list[abc9_box_seq] = cell;
 						// Only flop boxes may have arrival times
 						//   (all others are combinatorial)
+						abc9_flop = inst_module->get_bool_attribute("\\abc9_flop");
 						if (!abc9_flop)
 							continue;
 					}
