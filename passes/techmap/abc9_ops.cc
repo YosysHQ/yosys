@@ -117,7 +117,7 @@ void check(RTLIL::Design *design)
 				if (wire->port_output) num_outputs++;
 			}
 			if (num_outputs != 1)
-				log_error("Module '%s' with (* abc_flop *) has %d outputs (expect 1).\n", log_id(m), num_outputs);
+				log_error("Module '%s' with (* abc9_flop *) has %d outputs (expect 1).\n", log_id(m), num_outputs);
 		}
 	}
 }
@@ -333,7 +333,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 		log_assert(cell);
 
 		RTLIL::Module* box_module = design->module(cell->type);
-		if (!box_module || !box_module->attributes.count("\\abc9_box_id"))
+		if (!box_module || (!box_module->attributes.count("\\abc9_box_id") && !box_module->get_bool_attribute("\\abc9_flop")))
 			continue;
 
 		cell->attributes["\\abc9_box_seq"] = box_count++;

@@ -318,7 +318,7 @@ struct XAigerWriter
 
 			RTLIL::Module* box_module = module->design->module(cell->type);
 			log_assert(box_module);
-			log_assert(box_module->attributes.count("\\abc9_box_id"));
+			log_assert(box_module->attributes.count("\\abc9_box_id") || box_module->get_bool_attribute("\\abc9_flop"));
 
 			auto r = box_ports.insert(cell->type);
 			if (r.second) {
