@@ -1001,9 +1001,9 @@ void AigerReader::post_process()
 		if (cell->type != "$lut") continue;
 		auto y_port = cell->getPort("\\Y").as_bit();
 		if (y_port.wire->width == 1)
-			module->rename(cell, stringf("%s$lut", y_port.wire->name.c_str()));
+			module->rename(cell, stringf("$lut%s", y_port.wire->name.c_str()));
 		else
-			module->rename(cell, stringf("%s[%d]$lut", y_port.wire->name.c_str(), y_port.offset));
+			module->rename(cell, stringf("$lut%s[%d]", y_port.wire->name.c_str(), y_port.offset));
 	}
 }
 
