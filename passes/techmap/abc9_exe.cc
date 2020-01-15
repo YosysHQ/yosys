@@ -510,9 +510,8 @@ struct Abc9ExePass : public Pass {
 			}
 		}
 
-		// ABC expects a box file for XAIG
 		if (box_file.empty())
-			box_file = "+/dummy.box";
+			log_cmd_error("abc9_exe '-box' option is mandatory.\n");
 
 		rewrite_filename(box_file);
 		if (!box_file.empty() && !is_absolute_path(box_file) && box_file[0] != '+')

@@ -569,6 +569,9 @@ void write_box(RTLIL::Module *module, const std::string &src, const std::string 
 		module->attributes.erase(it);
 	}
 
+	if (ofs.tellp() == 0)
+		ofs << "(dummy) 1 0 0 0";
+
 	ofs.close();
 }
 
