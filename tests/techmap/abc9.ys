@@ -52,6 +52,7 @@ equiv_opt -assert abc9 -lut 4
 design -load postopt
 select -assert-count 2 t:$lut
 
+
 design -reset
 read_verilog -icells <<EOT
 module top(input a, b, output o);
@@ -66,3 +67,15 @@ equiv_opt -assert abc9 -lut 4
 design -load postopt
 select -assert-count 1 t:$lut
 select -assert-count 1 t:$_AND_
+
+
+design -reset
+read_verilog -icells <<EOT
+module top(input a, b, output o);
+assign o = ~(a & b);
+endmodule
+EOT
+abc9 -lut 4
+clean
+select -assert-count 1 t:$lut
+select -assert-none t:$lut t:* %D
