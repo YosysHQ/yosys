@@ -1523,7 +1523,12 @@ typedef_decl:
 
 		ast_stack.back()->children.push_back(new AstNode(AST_TYPEDEF, astbuf1));
 		ast_stack.back()->children.back()->str = *$4;
-	};
+	} |
+	TOK_TYPEDEF enum_type TOK_ID ';' {
+		ast_stack.back()->children.push_back(new AstNode(AST_TYPEDEF, astbuf1));
+		ast_stack.back()->children.back()->str = *$3;
+	}
+	;
 
 cell_stmt:
 	attr TOK_ID {
