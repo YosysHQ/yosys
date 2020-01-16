@@ -3097,6 +3097,26 @@ void AstNode::expand_genblock(std::string index_var, std::string prefix, std::ma
 				child->str = new_name;
 			current_scope[new_name] = child;
 		}
+		if (child->type == AST_ENUM){
+			for (auto enode : child->children){
+				log_assert(enode->type == AST_ENUM_ITEM);
+				if (backup_name_map.size() == 0)
+					backup_name_map = name_map;
+				std::string new_name = prefix[0] == '\\' ? prefix.substr(1) : prefix;
+				size_t pos = enode->str.rfind('.');
+				if (pos == std::string::npos)
+					pos = enode->str[0] == '\\' && prefix[0] == '\\' ? 1 : 0;
+				else
+					pos = pos + 1;
+				new_name = enode->str.substr(0, pos) + new_name + enode->str.substr(pos);
+				if (new_name[0] != '$' && new_name[0] != '\\')
+					new_name = prefix[0] + new_name;
+				name_map[enode->str] = new_name;
+
+				enode->str = new_name;
+				current_scope[new_name] = enode;
+			}
+		}
 	}
 
 	for (size_t i = 0; i < children.size(); i++) {
