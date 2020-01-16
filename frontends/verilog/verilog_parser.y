@@ -1261,13 +1261,14 @@ enum_type: TOK_ENUM {
 
 enum_base_type: int_vec param_range
 	| int_atom
-	| /* nothing */		{ addRange(astbuf1); }
+	| /* nothing */		{astbuf1->is_reg = true; addRange(astbuf1); }
 	;
 
-int_atom: TOK_INTEGER		{ addRange(astbuf1); }		// probably should do byte, range [7:0] here
+int_atom: TOK_INTEGER		{astbuf1->is_reg=true; addRange(astbuf1); }		// probably should do byte, range [7:0] here
 	;
 
-int_vec: TOK_REG		{ astbuf1->is_reg = true; }	// lexer returns this for logic|bit too
+int_vec: TOK_REG {astbuf1->is_reg = true;}
+	| TOK_LOGIC  {astbuf1->is_logic = true;}
 	;
 
 enum_name_list:
