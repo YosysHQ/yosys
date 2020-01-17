@@ -53,9 +53,9 @@ module _80_xilinx_lcu (P, G, CI, CO);
 				(
 				.CYINIT(CI),
 				.CI    (1'd0),
-				.DI    (G [(Y_WIDTH - 1):i*4]),
-				.S     (S [(Y_WIDTH - 1):i*4]),
-				.CO    (CO[(Y_WIDTH - 1):i*4]),
+				.DI    (G [(WIDTH - 1):i*4]),
+				.S     (S [(WIDTH - 1):i*4]),
+				.CO    (CO[(WIDTH - 1):i*4]),
 				);
 			// Another one
 			end else begin
@@ -63,9 +63,9 @@ module _80_xilinx_lcu (P, G, CI, CO);
 				(
 				.CYINIT(1'd0),
 				.CI    (C [i*4 - 1]),
-				.DI    (G [(Y_WIDTH - 1):i*4]),
-				.S     (S [(Y_WIDTH - 1):i*4]),
-				.CO    (CO[(Y_WIDTH - 1):i*4]),
+				.DI    (G [(WIDTH - 1):i*4]),
+				.S     (S [(WIDTH - 1):i*4]),
+				.CO    (CO[(WIDTH - 1):i*4]),
 				);
 			end
 
