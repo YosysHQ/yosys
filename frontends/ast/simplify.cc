@@ -324,7 +324,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		const_fold = true;
 
 	// in certain cases a function must be evaluated constant. this is what in_param controls.
-	if (type == AST_PARAMETER || type == AST_LOCALPARAM || type == AST_LOCALPARAM || type == AST_ENUM_ITEM || type == AST_DEFPARAM || type == AST_PARASET || type == AST_PREFIX)
+	if (type == AST_PARAMETER || type == AST_LOCALPARAM || type == AST_ENUM_ITEM || type == AST_DEFPARAM || type == AST_PARASET || type == AST_PREFIX)
 		in_param = true;
 
 	std::map<std::string, AstNode*> backup_scope;
@@ -1089,8 +1089,10 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				case AST_TASK:
 				case AST_DPI_FUNCTION:
 					//log("found child %s, %s\n", type2str(node->type).c_str(), node->str.c_str());
-					log("add %s, type %s to scope\n", str.c_str(), type2str(node->type).c_str());
-					current_scope[node->str] = node;
+					if (str == node->str) {
+						log("add %s, type %s to scope\n", str.c_str(), type2str(node->type).c_str());
+						current_scope[node->str] = node;
+					}
 					break;
 				case AST_ENUM:
 					for (auto enum_node : node->children) {
@@ -1327,7 +1329,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			}
 
 			if (buf->type != AST_CONSTANT)
-				log_file_error(filename, linenum, "Right hand side of 3rd expression of generate for-loop is not constant!\n");
+				log_file_error(filename, linenum, "Right hand side of 3rd expression of generate for-loop is not constant (%s)!\n", type2str(buf->type).c_str());
 
 			delete varbuf->children[0];
 			varbuf->children[0] = buf;
