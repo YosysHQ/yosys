@@ -57,6 +57,9 @@ code sigA sigB sigH
 		sigH.append(O[i]);
 	}
 	log_assert(nusers(O.extract_end(i)) <= 1);
+
+	if (sigH.empty())
+		reject;
 endcode
 
 code argQ ffA ffAholdmux ffArstmux ffAholdpol ffArstpol sigA clock clock_pol
@@ -328,6 +331,8 @@ arg argD argQ clock clock_pol
 
 code
 	dff = nullptr;
+	if (argQ.empty())
+		reject;
 	for (auto c : argQ.chunks()) {
 		if (!c.wire)
 			reject;
