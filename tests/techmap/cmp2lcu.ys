@@ -1,0 +1,24 @@
+read_verilog <<EOT
+module top(input [11:0] a, b, output gtu, gts, ltu, lts, geu, ges, leu, les);
+assign gtu = a > b;
+assign gts = $signed(a) > $signed(b);
+assign ltu = a < b;
+assign lts = $signed(a) < $signed(b);
+assign geu = a >= b;
+assign ges = $signed(a) >= $signed(b);
+assign leu = a <= b;
+assign les = $signed(a) <= $signed(b);
+endmodule
+EOT
+proc
+
+equiv_opt -assert techmap -map +/cmp2lcu.v -D LUT_WIDTH=6
+design -load postopt
+select -assert-count 8 t:$lcu
+select -assert-none t:$gt t:$ge t:$lt t:$le
+
+design -load preopt
+equiv_opt -assert techmap -map +/cmp2lcu.v -D LUT_WIDTH=4
+design -load postopt
+select -assert-count 8 t:$lcu
+select -assert-none t:$gt t:$ge t:$lt t:$le
