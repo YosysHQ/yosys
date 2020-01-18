@@ -460,7 +460,7 @@ arg argD argQ clock
 
 code
 	dff = nullptr;
-	if (GetSize(argQ) == 0)
+	if (argQ.empty() == 0)
 		reject;
 	for (const auto &c : argQ.chunks()) {
 		// Abandon matches when 'Q' is a constant
