@@ -273,7 +273,8 @@ struct SynthIce40Pass : public ScriptPass
 			run("opt_expr");
 			run("opt_clean");
 			if (help_mode || dsp) {
-				run("memory_dff");
+				run("memory_dff"); // ice40_dsp will merge registers, reserve memory port registers first
+				run("wreduce t:$mul");
 				run("techmap -map +/mul2dsp.v -map +/ice40/dsp_map.v -D DSP_A_MAXWIDTH=16 -D DSP_B_MAXWIDTH=16 "
 						"-D DSP_A_MINWIDTH=2 -D DSP_B_MINWIDTH=2 -D DSP_Y_MINWIDTH=11 "
 						"-D DSP_NAME=$__MUL16X16", "(if -dsp)");

@@ -73,11 +73,11 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 
 	// SB_MAC16 Input Interface
 	SigSpec A = st.sigA;
-	A.extend_u0(16, st.mul->getParam(ID(A_SIGNED)).as_bool());
+	A.extend_u0(16, st.mul->parameters.at(ID(A_SIGNED), State::S0).as_bool());
 	log_assert(GetSize(A) == 16);
 
 	SigSpec B = st.sigB;
-	B.extend_u0(16, st.mul->getParam(ID(B_SIGNED)).as_bool());
+	B.extend_u0(16, st.mul->parameters.at(ID(B_SIGNED), State::S0).as_bool());
 	log_assert(GetSize(B) == 16);
 
 	SigSpec CD = st.sigCD;
@@ -248,8 +248,8 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 	cell->setParam(ID(BOTADDSUB_CARRYSELECT), Const(0, 2));
 
 	cell->setParam(ID(MODE_8x8), State::S0);
-	cell->setParam(ID(A_SIGNED), st.mul->getParam(ID(A_SIGNED)).as_bool());
-	cell->setParam(ID(B_SIGNED), st.mul->getParam(ID(B_SIGNED)).as_bool());
+	cell->setParam(ID(A_SIGNED), st.mul->parameters.at(ID(A_SIGNED), State::S0).as_bool());
+	cell->setParam(ID(B_SIGNED), st.mul->parameters.at(ID(B_SIGNED), State::S0).as_bool());
 
 	if (st.ffO) {
 		if (st.o_lo)

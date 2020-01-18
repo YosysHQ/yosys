@@ -120,7 +120,7 @@ endcode
 //      reset functionality, using a subpattern discussed above)
 //     If matched, treat 'A' input as input of ADREG
 code argQ ffAD ffADcemux ffADrstmux ffADcepol ffADrstpol sigA clock
-	if (param(dsp, \ADREG).as_int() == 0) {
+	if (param(dsp, \ADREG, 1).as_int() == 0) {
 		argQ = sigA;
 		subpattern(in_dffe);
 		if (dff) {
@@ -176,7 +176,7 @@ code argQ ffAD ffADcemux ffADrstmux ffADcepol ffADrstpol sigA clock ffA2 ffA2cem
 	// Only search for ffA2 if there was a pre-adder
 	//   (otherwise ffA2 would have been matched as ffAD)
 	if (preAdd) {
-		if (param(dsp, \AREG).as_int() == 0) {
+		if (param(dsp, \AREG, 1).as_int() == 0) {
 			argQ = sigA;
 			subpattern(in_dffe);
 			if (dff) {
@@ -237,7 +237,7 @@ endcode
 // (5) Match 'B' input for B2REG
 //     If B2REG, then match 'B' input for B1REG
 code argQ ffB2 ffB2cemux ffB2rstmux ffB2cepol ffBrstpol sigB clock ffB1 ffB1cemux ffB1rstmux ffB1cepol
-	if (param(dsp, \BREG).as_int() == 0) {
+	if (param(dsp, \BREG, 1).as_int() == 0) {
 		argQ = sigB;
 		subpattern(in_dffe);
 		if (dff) {
@@ -287,7 +287,7 @@ endcode
 
 // (6) Match 'D' input for DREG
 code argQ ffD ffDcemux ffDrstmux ffDcepol ffDrstpol sigD clock
-	if (param(dsp, \DREG).as_int() == 0) {
+	if (param(dsp, \DREG, 1).as_int() == 0) {
 		argQ = sigD;
 		subpattern(in_dffe);
 		if (dff) {
@@ -308,7 +308,7 @@ endcode
 
 // (7) Match 'P' output that exclusively drives an MREG
 code argD ffM ffMcemux ffMrstmux ffMcepol ffMrstpol sigM sigP clock
-	if (param(dsp, \MREG).as_int() == 0 && nusers(sigM) == 2) {
+	if (param(dsp, \MREG, 1).as_int() == 0 && nusers(sigM) == 2) {
 		argD = sigM;
 		subpattern(out_dffe);
 		if (dff) {
@@ -335,7 +335,7 @@ endcode
 //      recognised in xilinx_dsp.cc).
 match postAdd
 	// Ensure that Z mux is not already used
-	if port(dsp, \OPMODE, SigSpec()).extract(4,3).is_fully_zero()
+	if port(dsp, \OPMODE, SigSpec(0, 7)).extract(4,3).is_fully_zero()
 
 	select postAdd->type.in($add)
 	select GetSize(port(postAdd, \Y)) <= 48
@@ -363,7 +363,7 @@ endcode
 
 // (9) Match 'P' output that exclusively drives a PREG
 code argD ffP ffPcemux ffPrstmux ffPcepol ffPrstpol sigP clock
-	if (param(dsp, \PREG).as_int() == 0) {
+	if (param(dsp, \PREG, 1).as_int() == 0) {
 		int users = 2;
 		// If ffMcemux and no postAdd new-value net must have three users: ffMcemux, ffM and ffPcemux
 		if (ffMcemux && !postAdd) users++;
@@ -460,7 +460,7 @@ arg argD argQ clock
 
 code
 	dff = nullptr;
-	if (GetSize(argQ) == 0)
+	if (argQ.empty())
 		reject;
 	for (const auto &c : argQ.chunks()) {
 		// Abandon matches when 'Q' is a constant
