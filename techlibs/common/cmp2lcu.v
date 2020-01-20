@@ -17,18 +17,18 @@ input [B_WIDTH-1:0] B;
 output [Y_WIDTH-1:0] Y;
 
 parameter _TECHMAP_CELLTYPE_ = "";
-localparam gt_width = `LUT_WIDTH/2;
+localparam cmp_width = `LUT_WIDTH/2;
 
 generate
-    if (_TECHMAP_CELLTYPE_ == "" || (A_WIDTH <= gt_width || B_WIDTH <= gt_width))
+    if (_TECHMAP_CELLTYPE_ == "" || (A_WIDTH <= cmp_width || B_WIDTH <= cmp_width))
         wire _TECHMAP_FAIL_ = 1;
     else if (_TECHMAP_CELLTYPE_ == "$lt") begin
         // Transform $lt into $gt by swapping A and B
-		$gt #(.A_SIGNED(B_SIGNED), .B_SIGNED(A_SIGNED), .A_WIDTH(B_WIDTH), .B_WIDTH(A_WIDTH), .Y_WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(B), .B(A), .Y(Y));
+        $gt #(.A_SIGNED(B_SIGNED), .B_SIGNED(A_SIGNED), .A_WIDTH(B_WIDTH), .B_WIDTH(A_WIDTH), .Y_WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(B), .B(A), .Y(Y));
     end
     else if (_TECHMAP_CELLTYPE_ == "$le") begin
         // Transform $le into $ge by swapping A and B
-		$ge #(.A_SIGNED(B_SIGNED), .B_SIGNED(A_SIGNED), .A_WIDTH(B_WIDTH), .B_WIDTH(A_WIDTH), .Y_WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(B), .B(A), .Y(Y));
+        $ge #(.A_SIGNED(B_SIGNED), .B_SIGNED(A_SIGNED), .A_WIDTH(B_WIDTH), .B_WIDTH(A_WIDTH), .Y_WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(B), .B(A), .Y(Y));
     end
     else begin
         // Perform sign extension on A and B
@@ -37,26 +37,26 @@ generate
         wire [WIDTH-1:0] BB = {{(WIDTH-B_WIDTH){B_SIGNED ? B[B_WIDTH-1] : 1'b0}}, B};
 
         // Compute width of $lcu/carry-chain cell
-        localparam lcu_width = (WIDTH+gt_width-1)/gt_width;
+        localparam lcu_width = (WIDTH+cmp_width-1)/cmp_width;
         wire [lcu_width-1:0] P, G, CO;
         genvar i, j;
         integer j;
-        for (i = 0; i < WIDTH; i=i+gt_width) begin
-            wire [gt_width-1:0] PP, GG;
-            if (i < WIDTH-gt_width) begin
+        for (i = 0; i < WIDTH; i=i+cmp_width) begin
+            wire [cmp_width-1:0] PP, GG;
+            if (i < WIDTH-cmp_width) begin
                 // Bit-wise equality (xnor) of sign-extended A and B
-                assign PP = AA[i +: gt_width] ^~ BB[i +: gt_width];
+                assign PP = AA[i +: cmp_width] ^~ BB[i +: cmp_width];
                 // Priority "encoder" that checks A[i] == 1'b1 && B[i] == 1'b0
                 //   from MSB down, deferring to less significant bits if the
                 //   MSBs are equal
-                assign GG[gt_width-1] = AA[i+gt_width-1] & ~BB[i+gt_width-1];
-                for (j = gt_width-2; j >= 0; j=j-1)
-                    assign GG[j] = &PP[gt_width-1:j+1] & (AA[i+j] & ~BB[i+j]);
+                assign GG[cmp_width-1] = AA[i+cmp_width-1] & ~BB[i+cmp_width-1];
+                for (j = cmp_width-2; j >= 0; j=j-1)
+                    assign GG[j] = &PP[cmp_width-1:j+1] & (AA[i+j] & ~BB[i+j]);
                 // Propagate only if all bits are equal
                 //   (inconclusive evidence to say A >= B)
-                assign P[i/gt_width] = &PP;
+                assign P[i/cmp_width] = &PP;
                 // Generate if any pairs call for it
-                assign G[i/gt_width] = |GG;
+                assign G[i/cmp_width] = |GG;
             end
             else begin
                 assign PP = AA[WIDTH-1:i] ^~ BB[WIDTH-1:i];
@@ -66,8 +66,8 @@ generate
                     assign GG[WIDTH-i-1] = AA[WIDTH-1] & ~BB[WIDTH-1];
                 for (j = WIDTH-i-2; j >= 0; j=j-1)
                     assign GG[j] = &PP[WIDTH-i-1:j+1] & (AA[i+j] & ~BB[i+j]);
-                assign P[i/gt_width] = &PP[WIDTH-i-1:0];
-                assign G[i/gt_width] = |GG[WIDTH-i-1:0];
+                assign P[i/cmp_width] = &PP[WIDTH-i-1:0];
+                assign G[i/cmp_width] = |GG[WIDTH-i-1:0];
             end
         end
         // For $ge operation, start with the assumption that A and B are
