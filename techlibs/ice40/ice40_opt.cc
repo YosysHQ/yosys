@@ -26,11 +26,12 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-static SigBit get_bit_or_zero(const SigSpec &sig)
+static SigBit get_bit_or_zero(const Cell* cell, IdString port)
 {
-	if (GetSize(sig) == 0)
+	auto it = cell->connections_.find(port);
+	if (it == cell->connections_.end() || GetSize(it->second) == 0)
 		return State::S0;
-	return sig[0];
+	return it->second.as_bit();
 }
 
 static void run_ice40_opts(Module *module)
@@ -58,9 +59,9 @@ static void run_ice40_opts(Module *module)
 			int count_zeros = 0, count_ones = 0;
 
 			SigBit inbit[3] = {
-				get_bit_or_zero(cell->getPort("\\I0")),
-				get_bit_or_zero(cell->getPort("\\I1")),
-				get_bit_or_zero(cell->getPort("\\CI"))
+				get_bit_or_zero(cell, "\\I0"),
+				get_bit_or_zero(cell, "\\I1"),
+				get_bit_or_zero(cell, "\\CI")
 			};
 			for (int i = 0; i < 3; i++)
 				if (inbit[i].wire == nullptr) {
@@ -95,9 +96,9 @@ static void run_ice40_opts(Module *module)
 			int count_zeros = 0, count_ones = 0;
 
 			SigBit inbit[3] = {
-				cell->getPort("\\A"),
-				cell->getPort("\\B"),
-				cell->getPort("\\CI")
+				get_bit_or_zero(cell, "\\A"),
+				get_bit_or_zero(cell, "\\B"),
+				get_bit_or_zero(cell, "\\CI")
 			};
 			for (int i = 0; i < 3; i++)
 				if (inbit[i].wire == nullptr) {
@@ -139,9 +140,12 @@ static void run_ice40_opts(Module *module)
 				log("Optimized $__ICE40_CARRY_WRAPPER cell back to logic (without SB_CARRY) %s.%s: CO=%s\n",
 						log_id(module), log_id(cell), log_signal(replacement_output));
 				cell->type = "$lut";
-				cell->setPort("\\A", { cell->getPort("\\I0"), inbit[0], inbit[1], cell->getPort("\\I3") });
+				cell->setPort("\\A", { get_bit_or_zero(cell, "\\I0"), inbit[0], inbit[1], get_bit_or_zero(cell, "\\I3") });
 				cell->setPort("\\Y", cell->getPort("\\O"));
-				auto LUT = cell->getParam(ID(LUT_INIT));
+				auto LUT = cell->getParam(ID(LUT_INIT)).extract(0, 16, State::Sx);
+				// When transforming SB_LUT4 into $lut, twiddle the LUT mask
+				//   from being indexed by {I0,I1,I2,I3} to {A3,A2,A1,A0}
+				//   since +/ice40/cells_map.v will twiddle it back
 				cell->setParam("\\LUT", std::vector<State>{LUT[0], LUT[8], LUT[4], LUT[12], LUT[2], LUT[10], LUT[6], LUT[14], LUT[1], LUT[9], LUT[5], LUT[13], LUT[3], LUT[11], LUT[7], LUT[15]});
 				cell->unsetParam("\\LUT_INIT");
 				cell->unsetPort("\\B");
@@ -160,10 +164,10 @@ static void run_ice40_opts(Module *module)
 	{
 		SigSpec inbits;
 
-		inbits.append(get_bit_or_zero(cell->getPort("\\I0")));
-		inbits.append(get_bit_or_zero(cell->getPort("\\I1")));
-		inbits.append(get_bit_or_zero(cell->getPort("\\I2")));
-		inbits.append(get_bit_or_zero(cell->getPort("\\I3")));
+		inbits.append(get_bit_or_zero(cell, "\\I0"));
+		inbits.append(get_bit_or_zero(cell, "\\I1"));
+		inbits.append(get_bit_or_zero(cell, "\\I2"));
+		inbits.append(get_bit_or_zero(cell, "\\I3"));
 		sigmap.apply(inbits);
 
 		if (optimized_co.count(inbits[0])) goto remap_lut;
@@ -180,15 +184,18 @@ static void run_ice40_opts(Module *module)
 
 		cell->type ="$lut";
 		cell->setParam("\\WIDTH", 4);
-		auto LUT = cell->getParam(ID(LUT_INIT));
+		auto LUT = cell->getParam(ID(LUT_INIT)).extract(0, 16, State::Sx);
+		// When transforming SB_LUT4 into $lut, twiddle the LUT mask
+		//   from being indexed by {I0,I1,I2,I3} to {A3,A2,A1,A0}
+		//   since +/ice40/cells_map.v will twiddle it back
 		cell->setParam("\\LUT", std::vector<State>{LUT[0], LUT[8], LUT[4], LUT[12], LUT[2], LUT[10], LUT[6], LUT[14], LUT[1], LUT[9], LUT[5], LUT[13], LUT[3], LUT[11], LUT[7], LUT[15]});
 		cell->unsetParam("\\LUT_INIT");
 
 		cell->setPort("\\A", SigSpec({
-			get_bit_or_zero(cell->getPort("\\I3")),
-			get_bit_or_zero(cell->getPort("\\I2")),
-			get_bit_or_zero(cell->getPort("\\I1")),
-			get_bit_or_zero(cell->getPort("\\I0"))
+			get_bit_or_zero(cell, "\\I3"),
+			get_bit_or_zero(cell, "\\I2"),
+			get_bit_or_zero(cell, "\\I1"),
+			get_bit_or_zero(cell, "\\I0")
 		}));
 		cell->setPort("\\Y", cell->getPort("\\O")[0]);
 		cell->unsetPort("\\I0");
