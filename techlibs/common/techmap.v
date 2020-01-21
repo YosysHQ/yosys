@@ -150,11 +150,12 @@ module _90_shift_shiftx (A, B, Y);
 			// Halve the size of $shift/$shiftx by $mux-ing A according to
 			//   the LSB of B, after discarding the zeroed bits
 			localparam len = 2**(B_WIDTH-1);
+			localparam Y_WIDTH2 = 2**CLOG2_Y_WIDTH;
 			wire [len-1:0] T, F;
 			genvar i;
-			for (i = 0; i < A_WIDTH; i=i+Y_WIDTH*2) begin
-				assign F[i/2 +: Y_WIDTH] = A[i +: Y_WIDTH];
-				assign T[i/2 +: Y_WIDTH] = (i + Y_WIDTH < A_WIDTH) ? A[i+Y_WIDTH +: Y_WIDTH] : {Y_WIDTH{extbit}};
+			for (i = 0; i < A_WIDTH; i=i+Y_WIDTH2*2) begin
+				assign F[i/2 +: Y_WIDTH2] = A[i +: Y_WIDTH2];
+				assign T[i/2 +: Y_WIDTH2] = (i + Y_WIDTH2 < A_WIDTH) ? A[i+Y_WIDTH2 +: Y_WIDTH2] : {Y_WIDTH2{extbit}};
 			end
 			wire [len-1:0] AA = B[CLOG2_Y_WIDTH] ? T : F;
 			wire [B_WIDTH-2:0] BB = {B[B_WIDTH-1:CLOG2_Y_WIDTH+1], {CLOG2_Y_WIDTH{1'b0}}};
