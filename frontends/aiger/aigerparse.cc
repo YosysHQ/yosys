@@ -414,6 +414,10 @@ void AigerReader::parse_xaiger()
 				for (unsigned j = 0; j < cutLeavesM; ++j) {
 					nodeID = parse_xaiger_literal(f);
 					log_debug2("\t%u\n", nodeID);
+					if (nodeID < 2) {
+						log_debug("\tLUT '$lut$aiger%d$%d' input %d is constant!\n", aiger_autoidx, rootNodeID, cutLeavesM);
+						continue;
+					}
 					RTLIL::Wire *wire = module->wire(stringf("$aiger%d$%d", aiger_autoidx, nodeID));
 					log_assert(wire);
 					input_sig.append(wire);
@@ -421,10 +425,10 @@ void AigerReader::parse_xaiger()
 				// TODO: Compute LUT mask from AIG in less than O(2 ** input_sig.size())
 				ce.clear();
 				ce.compute_deps(output_sig, input_sig.to_sigbit_pool());
-				RTLIL::Const lut_mask(RTLIL::State::Sx, 1 << input_sig.size());
-				for (int j = 0; j < (1 << cutLeavesM); ++j) {
+				RTLIL::Const lut_mask(RTLIL::State::Sx, 1 << GetSize(input_sig));
+				for (int j = 0; j < GetSize(lut_mask); ++j) {
 					int gray = j ^ (j >> 1);
-					ce.set_incremental(input_sig, RTLIL::Const{gray, static_cast<int>(cutLeavesM)});
+					ce.set_incremental(input_sig, RTLIL::Const{gray, GetSize(input_sig)});
 					RTLIL::SigBit o(output_sig);
 					bool success YS_ATTRIBUTE(unused) = ce.eval(o);
 					log_assert(success);
