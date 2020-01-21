@@ -129,47 +129,82 @@ module _90_shift_shiftx (A, B, Y);
 	input [B_WIDTH-1:0] B;
 	output [Y_WIDTH-1:0] Y;
 
-	localparam BB_WIDTH = `MIN($clog2(`MAX(A_WIDTH, Y_WIDTH)) + (B_SIGNED ? 2 : 1), B_WIDTH);
-	localparam WIDTH = `MAX(A_WIDTH, Y_WIDTH) + (B_SIGNED ? 2**(BB_WIDTH-1) : 0);
-
 	parameter _TECHMAP_CELLTYPE_ = "";
+	parameter [B_WIDTH-1:0] _TECHMAP_CONSTMSK_B_ = 0;
+	parameter [B_WIDTH-1:0] _TECHMAP_CONSTVAL_B_ = 0;
+
 	localparam extbit = _TECHMAP_CELLTYPE_ == "$shift" ? 1'b0 : 1'bx;
 
-	wire [1023:0] _TECHMAP_DO_00_ = "proc;;";
-	wire [1023:0] _TECHMAP_DO_01_ = "CONSTMAP; opt_muxtree; opt_expr -mux_undef -mux_bool -fine;;;";
-
-	integer i;
-	reg [WIDTH-1:0] buffer;
-	reg overflow;
-
-	always @* begin
-		overflow = 0;
-		buffer = {WIDTH{extbit}};
-		buffer[`MAX(A_WIDTH, Y_WIDTH)-1:0] = A;
-
-		if (B_WIDTH > BB_WIDTH) begin
-			if (B_SIGNED) begin
-				for (i = BB_WIDTH; i < B_WIDTH; i = i+1)
-					if (B[i] != B[BB_WIDTH-1])
-						overflow = 1;
-			end else
-				overflow = |B[B_WIDTH-1:BB_WIDTH];
-			if (overflow)
-				buffer = {WIDTH{extbit}};
-		end
-
-		for (i = BB_WIDTH-1; i >= 0; i = i-1)
-			if (B[i]) begin
-				if (B_SIGNED && i == BB_WIDTH-1)
-					buffer = {buffer, {2**i{extbit}}};
-				else if (2**i < WIDTH)
-					buffer = {{2**i{extbit}}, buffer[WIDTH-1 : 2**i]};
-				else
-					buffer = {WIDTH{extbit}};
+	generate
+`ifndef NO_LSB_FIRST_SHIFT_SHIFTX
+		// If $shift/$shiftx only shifts in units of Y_WIDTH
+		//   (a common pattern created by pmux2shiftx)
+		//   which is checked by ensuring that all that
+		//   the appropriate LSBs of B are constant zero,
+		//   then we can decompose LSB first instead of
+		//   MSB first
+		localparam CLOG2_Y_WIDTH = $clog2(Y_WIDTH);
+		if (B_WIDTH > CLOG2_Y_WIDTH+1 &&
+			_TECHMAP_CONSTMSK_B_[CLOG2_Y_WIDTH-1:0] == {CLOG2_Y_WIDTH{1'b1}} &&
+			_TECHMAP_CONSTVAL_B_[CLOG2_Y_WIDTH-1:0] == {CLOG2_Y_WIDTH{1'b0}}) begin
+			// Halve the size of $shift/$shiftx by $mux-ing A according to
+			//   the LSB of B, after discarding the zeroed bits
+			localparam len = 2**(B_WIDTH-1);
+			wire [len-1:0] T, F;
+			genvar i;
+			for (i = 0; i < A_WIDTH; i=i+Y_WIDTH*2) begin
+				assign F[i/2 +: Y_WIDTH] = A[i +: Y_WIDTH];
+				assign T[i/2 +: Y_WIDTH] = (i + Y_WIDTH < A_WIDTH) ? A[i+Y_WIDTH +: Y_WIDTH] : {Y_WIDTH{extbit}};
 			end
-	end
+			wire [len-1:0] AA = B[CLOG2_Y_WIDTH] ? T : F;
+			wire [B_WIDTH-2:0] BB = {B[B_WIDTH-1:CLOG2_Y_WIDTH+1], {CLOG2_Y_WIDTH{1'b0}}};
+			if (_TECHMAP_CELLTYPE_ == "$shift")
+				$shift #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(len), .B_WIDTH(B_WIDTH-1), .Y_WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(AA), .B(BB), .Y(Y));
+			else
+				$shiftx #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(len), .B_WIDTH(B_WIDTH-1), .Y_WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(AA), .B(BB), .Y(Y));
+		end
+		else
+`endif
+		begin
+			localparam BB_WIDTH = `MIN($clog2(`MAX(A_WIDTH, Y_WIDTH)) + (B_SIGNED ? 2 : 1), B_WIDTH);
+			localparam WIDTH = `MAX(A_WIDTH, Y_WIDTH) + (B_SIGNED ? 2**(BB_WIDTH-1) : 0);
 
-	assign Y = buffer;
+			wire [1023:0] _TECHMAP_DO_00_ = "proc;;";
+			wire [1023:0] _TECHMAP_DO_01_ = "CONSTMAP; opt_muxtree; opt_expr -mux_undef -mux_bool -fine;;;";
+
+			integer i;
+			reg [WIDTH-1:0] buffer;
+			reg overflow;
+
+			always @* begin
+				overflow = 0;
+				buffer = {WIDTH{extbit}};
+				buffer[`MAX(A_WIDTH, Y_WIDTH)-1:0] = A;
+
+				if (B_WIDTH > BB_WIDTH) begin
+					if (B_SIGNED) begin
+						for (i = BB_WIDTH; i < B_WIDTH; i = i+1)
+							if (B[i] != B[BB_WIDTH-1])
+								overflow = 1;
+					end else
+						overflow = |B[B_WIDTH-1:BB_WIDTH];
+					if (overflow)
+						buffer = {WIDTH{extbit}};
+				end
+
+				for (i = BB_WIDTH-1; i >= 0; i = i-1)
+					if (B[i]) begin
+						if (B_SIGNED && i == BB_WIDTH-1)
+							buffer = {buffer, {2**i{extbit}}};
+						else if (2**i < WIDTH)
+							buffer = {{2**i{extbit}}, buffer[WIDTH-1 : 2**i]};
+						else
+							buffer = {WIDTH{extbit}};
+					end
+			end
+			assign Y = buffer;
+		end
+	endgenerate
 endmodule
 
 
