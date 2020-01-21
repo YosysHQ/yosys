@@ -36,13 +36,12 @@ module _80_xilinx_lcu (P, G, CI, CO);
 `ifdef _EXPLICIT_CARRY
 
 	wire [WIDTH-1:0] C = {CO, CI};
-	wire [WIDTH-1:0] S = P & ~G;
 
 	generate for (i = 0; i < WIDTH; i = i + 1) begin:slice
 		MUXCY muxcy (
 			.CI(C[i]),
 			.DI(G[i]),
-			.S(S[i]),
+			.S(P[i]),
 			.O(CO[i])
 		);
 	end endgenerate
@@ -53,63 +52,31 @@ module _80_xilinx_lcu (P, G, CI, CO);
 	localparam MAX_WIDTH    = CARRY4_COUNT * 4;
 	localparam PAD_WIDTH    = MAX_WIDTH - WIDTH;
 
-	wire [MAX_WIDTH-1:0] S  = {{PAD_WIDTH{1'b0}}, P & ~G};
-	wire [MAX_WIDTH-1:0] C  = CO;
+	wire [MAX_WIDTH-1:0] GG = {{PAD_WIDTH{1'b0}}, G};
+	wire [MAX_WIDTH-1:0] PP = {{PAD_WIDTH{1'b0}}, P};
+	wire [MAX_WIDTH-1:0] C;
+	assign CO = C;
 
 	generate for (i = 0; i < CARRY4_COUNT; i = i + 1) begin:slice
-
-		// Partially occupied CARRY4
-		if ((i+1)*4 > WIDTH) begin
-
-			// First one
-			if (i == 0) begin
-				CARRY4 carry4_1st_part
-				(
-				.CYINIT(CI),
-				.CI    (1'd0),
-				.DI    (G [(WIDTH - 1):i*4]),
-				.S     (S [(WIDTH - 1):i*4]),
-				.CO    (CO[(WIDTH - 1):i*4]),
-				);
-			// Another one
-			end else begin
-				CARRY4 carry4_part
-				(
-				.CYINIT(1'd0),
-				.CI    (C [i*4 - 1]),
-				.DI    (G [(WIDTH - 1):i*4]),
-				.S     (S [(WIDTH - 1):i*4]),
-				.CO    (CO[(WIDTH - 1):i*4]),
-				);
-			end
-
-		// Fully occupied CARRY4
+		if (i == 0) begin
+			CARRY4 carry4
+			(
+			.CYINIT(CI),
+			.CI    (1'd0),
+			.DI    (GG[i*4 +: 4]),
+			.S     (PP[i*4 +: 4]),
+			.CO    (C [i*4 +: 4]),
+			);
 		end else begin
-
-			// First one
-			if (i == 0) begin
-				CARRY4 carry4_1st_full
-				(
-				.CYINIT(CI),
-				.CI    (1'd0),
-				.DI    (G [((i+1)*4 - 1):i*4]),
-				.S     (S [((i+1)*4 - 1):i*4]),
-				.CO    (CO[((i+1)*4 - 1):i*4]),
-				);
-			// Another one
-			end else begin
-				CARRY4 carry4_full
-				(
-				.CYINIT(1'd0),
-				.CI    (C [i*4 - 1]),
-				.DI    (G [((i+1)*4 - 1):i*4]),
-				.S     (S [((i+1)*4 - 1):i*4]),
-				.CO    (CO[((i+1)*4 - 1):i*4]),
-				);
-			end
-
+			CARRY4 carry4
+			(
+			.CYINIT(1'd0),
+			.CI    (C [i*4 - 1]),
+			.DI    (GG[i*4 +: 4]),
+			.S     (PP[i*4 +: 4]),
+			.CO    (C [i*4 +: 4]),
+			);
 		end
-
 	end endgenerate
 `endif
 
@@ -254,67 +221,33 @@ module _80_xilinx_alu (A, B, CI, BI, X, Y, CO);
 	wire [MAX_WIDTH-1:0] S  = {{PAD_WIDTH{1'b0}}, AA ^ BB};
 	wire [MAX_WIDTH-1:0] DI = {{PAD_WIDTH{1'b0}}, AA & BB};
 
-	wire [MAX_WIDTH-1:0] C  = CO;
+	wire [MAX_WIDTH-1:0] O;
+	wire [MAX_WIDTH-1:0] C;
+	assign Y = O, CO = C;
 
 	genvar i;
 	generate for (i = 0; i < CARRY4_COUNT; i = i + 1) begin:slice
-
-		// Partially occupied CARRY4
-		if ((i+1)*4 > Y_WIDTH) begin
-
-			// First one
-			if (i == 0) begin
-				CARRY4 carry4_1st_part
-				(
-				.CYINIT(CI),
-				.CI    (1'd0),
-				.DI    (DI[(Y_WIDTH - 1):i*4]),
-				.S     (S [(Y_WIDTH - 1):i*4]),
-				.O     (Y [(Y_WIDTH - 1):i*4]),
-				.CO    (CO[(Y_WIDTH - 1):i*4])
-				);
-			// Another one
-			end else begin
-				CARRY4 carry4_part
-				(
-				.CYINIT(1'd0),
-				.CI    (C [i*4 - 1]),
-				.DI    (DI[(Y_WIDTH - 1):i*4]),
-				.S     (S [(Y_WIDTH - 1):i*4]),
-				.O     (Y [(Y_WIDTH - 1):i*4]),
-				.CO    (CO[(Y_WIDTH - 1):i*4])
-				);
-			end
-
-		// Fully occupied CARRY4
+		if (i == 0) begin
+			CARRY4 carry4
+			(
+			.CYINIT(CI),
+			.CI    (1'd0),
+			.DI    (DI[i*4 +: 4]),
+			.S     (S [i*4 +: 4]),
+			.O     (O [i*4 +: 4]),
+			.CO    (C [i*4 +: 4])
+			);
 		end else begin
-
-			// First one
-			if (i == 0) begin
-				CARRY4 carry4_1st_full
-				(
-				.CYINIT(CI),
-				.CI    (1'd0),
-				.DI    (DI[((i+1)*4 - 1):i*4]),
-				.S     (S [((i+1)*4 - 1):i*4]),
-				.O     (Y [((i+1)*4 - 1):i*4]),
-				.CO    (CO[((i+1)*4 - 1):i*4])
-				);
-			// Another one
-			end else begin
-				CARRY4 carry4_full
-				(
-				.CYINIT(1'd0),
-				.CI    (C [i*4 - 1]),
-				.DI    (DI[((i+1)*4 - 1):i*4]),
-				.S     (S [((i+1)*4 - 1):i*4]),
-				.O     (Y [((i+1)*4 - 1):i*4]),
-				.CO    (CO[((i+1)*4 - 1):i*4])
-				);
-			end
-
+		    CARRY4 carry4
+		    (
+			.CYINIT(1'd0),
+			.CI    (C [i*4 - 1]),
+			.DI    (DI[i*4 +: 4]),
+			.S     (S [i*4 +: 4]),
+			.O     (O [i*4 +: 4]),
+			.CO    (C [i*4 +: 4])
+		    );
 		end
-
 	end endgenerate
 
 `endif
