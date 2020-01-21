@@ -414,7 +414,7 @@ void AigerReader::parse_xaiger()
 				for (unsigned j = 0; j < cutLeavesM; ++j) {
 					nodeID = parse_xaiger_literal(f);
 					log_debug2("\t%u\n", nodeID);
-					if (nodeID < 2) {
+					if (nodeID == 0) {
 						log_debug("\tLUT '$lut$aiger%d$%d' input %d is constant!\n", aiger_autoidx, rootNodeID, cutLeavesM);
 						continue;
 					}
