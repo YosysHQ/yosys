@@ -29,52 +29,79 @@ generate
         // Transform $le into $ge by swapping A and B
         $ge #(.A_SIGNED(B_SIGNED), .B_SIGNED(A_SIGNED), .A_WIDTH(B_WIDTH), .B_WIDTH(A_WIDTH), .Y_WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(B), .B(A), .Y(Y));
     end
-    else if (A_WIDTH != B_WIDTH) begin
+    else begin
         // Perform sign extension on A and B
         localparam WIDTH = A_WIDTH > B_WIDTH ? A_WIDTH : B_WIDTH;
         wire [WIDTH-1:0] AA = {{(WIDTH-A_WIDTH){A_SIGNED ? A[A_WIDTH-1] : 1'b0}}, A};
         wire [WIDTH-1:0] BB = {{(WIDTH-B_WIDTH){B_SIGNED ? B[B_WIDTH-1] : 1'b0}}, B};
-        if (_TECHMAP_CELLTYPE_ == "$gt")
-            $gt #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(WIDTH), .B_WIDTH(WIDTH), .Y_WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(AA), .B(BB), .Y(Y));
-        else if (_TECHMAP_CELLTYPE_ == "$ge")
-            $ge #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(WIDTH), .B_WIDTH(WIDTH), .Y_WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(AA), .B(BB), .Y(Y));
-        else
-            wire _TECHMAP_FAIL_ = 1;
-    end
-    else begin
-        localparam cmp_width = `LUT_WIDTH/2;
-        localparam lcu_width = (A_WIDTH+cmp_width-1)/cmp_width;
-        wire [lcu_width-1:0] P, G, CO;
-        genvar i, j;
-        for (i = 0; i < A_WIDTH; i=i+cmp_width) begin
-            wire [cmp_width-1:0] PP, GG;
-            for (j = cmp_width-1; j >= 0 && i+j < A_WIDTH; j = j-1) begin
-                // Bit-wise equality (xnor) of sign-extended A and B
-                assign PP[j] = A[i+j] ^~ B[i+j];
-                if (i+j == A_WIDTH-1 && A_SIGNED && B_SIGNED)
-                    assign GG[j] = ~A[i+j] & B[i+j];
-                else if (j == cmp_width-1)
-                    assign GG[j] = A[i+j] & ~B[i+j];
-                else
-                    // Priority "encoder" that checks A[i] == 1'b1 && B[i] == 1'b0
-                    //   from MSB down, deferring to less significant bits if the
-                    //   MSBs are equal
-                    assign GG[j] = &PP[cmp_width-1:j+1] & (A[i+j] & ~B[i+j]);
-            end
-            // Propagate only if all bit pairs are equal
-            //   (inconclusive evidence to say A >= B)
-            assign P[i/cmp_width] = &PP;
-            // Generate if any bit pairs call for it
-            assign G[i/cmp_width] = |GG;
-        end
         // For $ge operation, start with the assumption that A and B are
         //   equal (propagating this equality if A and B turn out to be so)
         if (_TECHMAP_CELLTYPE_ == "$ge")
-            wire CI = 1'b1;
+            localparam CI = 1'b1;
         else
-            wire CI = 1'b0;
-        $lcu #(.WIDTH(lcu_width)) lcu (.P(P), .G(G), .CI(CI), .CO(CO));
-        assign Y = CO[lcu_width-1];
+            localparam CI = 1'b0;
+        $__CMP2LCU #(.AB_WIDTH(WIDTH), .AB_SIGNED(A_SIGNED && B_SIGNED), .LCU_WIDTH(0), .BUDGET(`LUT_WIDTH), .CI(CI))
+            _TECHMAP_REPLACE_ (.A(AA), .B(BB), .P(), .G(), .PP(1'b1), .GG(1'b0), .Y(Y));
+    end
+endgenerate
+endmodule
+
+module $__CMP2LCU (A, B, P, G, PP, GG, Y);
+
+parameter AB_WIDTH = 0;
+parameter AB_SIGNED = 0;
+parameter LCU_WIDTH = 0;
+parameter BUDGET = 0;
+parameter CI = 0;
+
+input [AB_WIDTH-1:0] A;
+input [AB_WIDTH-1:0] B;
+input [LCU_WIDTH-1:0] P;
+input [LCU_WIDTH-1:0] G;
+input PP;
+input GG;
+output Y;
+
+parameter [AB_WIDTH-1:0] _TECHMAP_CONSTMSK_A_ = 0;
+parameter [AB_WIDTH-1:0] _TECHMAP_CONSTMSK_B_ = 0;
+
+generate
+    if (AB_WIDTH == 0) begin
+        if (BUDGET < `LUT_WIDTH)
+             $__CMP2LCU #(.AB_WIDTH(AB_WIDTH), .AB_SIGNED(AB_SIGNED), .LCU_WIDTH(LCU_WIDTH+1), .BUDGET(`LUT_WIDTH), .CI(CI))
+                _TECHMAP_REPLACE_ (.A(A), .B(B), .P({P, PP}), .G({G, GG}), .PP(1'b1), .GG(1'b0), .Y(Y));
+        else begin
+            wire [LCU_WIDTH-1:0] CO;
+            $lcu #(.WIDTH(LCU_WIDTH)) _TECHMAP_REPLACE_ (.P(P), .G(G), .CI(CI), .CO(CO));
+            assign Y = CO[LCU_WIDTH-1];
+        end
+    end
+    else begin
+        if (BUDGET < 2)
+             $__CMP2LCU #(.AB_WIDTH(AB_WIDTH), .AB_SIGNED(AB_SIGNED), .LCU_WIDTH(LCU_WIDTH+1), .BUDGET(`LUT_WIDTH), .CI(CI))
+                _TECHMAP_REPLACE_ (.A(A), .B(B), .P({P, PP}), .G({G, GG}), .PP(1'b1), .GG(1'b0), .Y(Y));
+        else begin
+            wire PPP, GGG;
+            // Bit-wise equality (xnor) of A and B
+            assign PPP = A[AB_WIDTH-1] ^~ B[AB_WIDTH-1];
+            if (AB_SIGNED)
+                assign GGG = ~A[AB_WIDTH-1] & B[AB_WIDTH-1];
+            else if (BUDGET == `LUT_WIDTH)
+                assign GGG = A[AB_WIDTH-1] & ~B[AB_WIDTH-1];
+            else
+                // Priority "encoder" that checks A[i] == 1'b1 && B[i] == 1'b0
+                //   from MSB down, deferring to less significant bits if the
+                //   MSBs are equal
+                assign GGG = PP & (A[AB_WIDTH-1] & ~B[AB_WIDTH-1]);
+            $__CMP2LCU #(.AB_WIDTH(AB_WIDTH-1), .AB_SIGNED(1'b0), .LCU_WIDTH(LCU_WIDTH), .BUDGET(BUDGET-2), .CI(CI))
+                _TECHMAP_REPLACE_ (.A(A[AB_WIDTH-2:0]), .B(B[AB_WIDTH-2:0]), .P(P), .G(G), 
+                // Propagate only if all bit pairs are equal
+                //   (inconclusive evidence to say A >= B)
+                .PP(PP & PPP), 
+                // Generate if any bit pairs call for it
+                .GG(GG | GGG),
+                .Y(Y));
+        end
     end
 endgenerate
 endmodule

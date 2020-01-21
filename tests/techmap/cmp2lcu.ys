@@ -1,5 +1,5 @@
 read_verilog <<EOT
-module top(input [11:0] a, b, output gtu, gts, ltu, lts, geu, ges, leu, les);
+module top(input [12:0] a, b, output gtu, gts, ltu, lts, geu, ges, leu, les);
 assign gtu = a > b;
 assign gts = $signed(a) > $signed(b);
 assign ltu = a < b;
