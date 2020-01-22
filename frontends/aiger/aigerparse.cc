@@ -442,11 +442,13 @@ void AigerReader::parse_xaiger()
 			}
 		}
 		else if (c == 'r') {
-			uint32_t dataSize YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
+			uint32_t dataSize = parse_xaiger_literal(f);
 			flopNum = parse_xaiger_literal(f);
 			log_debug("flopNum = %u\n", flopNum);
 			log_assert(dataSize == (flopNum+1) * sizeof(uint32_t));
-			f.ignore(flopNum * sizeof(uint32_t));
+			mergeability.reserve(flopNum);
+			for (unsigned i = 0; i < flopNum; i++)
+				mergeability.emplace_back(parse_xaiger_literal(f));
 		}
 		else if (c == 'n') {
 			parse_xaiger_literal(f);
@@ -774,6 +776,7 @@ void AigerReader::post_process()
 		auto ff = module->addCell(NEW_ID, "$__ABC9_FF_");
 		ff->setPort("\\D", d);
 		ff->setPort("\\Q", q);
+		ff->attributes["\\abc9_mergeability"] = mergeability[i];
 	}
 
 	dict<RTLIL::IdString, int> wideports_cache;
