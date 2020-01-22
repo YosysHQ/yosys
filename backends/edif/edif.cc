@@ -412,6 +412,8 @@ struct EdifBackend : public Backend {
 						for (auto &ref : it.second)
 							log_warning("Exporting x-bit on %s as zero bit.\n", ref.c_str());
 						sig = RTLIL::State::S0;
+					} else if (sig == RTLIL::State::Sz) {
+						continue;
 					} else {
 						for (auto &ref : it.second)
 							log_error("Don't know how to handle %s on %s.\n", log_signal(sig), ref.c_str());
