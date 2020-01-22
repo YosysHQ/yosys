@@ -95,6 +95,8 @@ void prep_dff(RTLIL::Module *module)
 		SigSpec abc9_init = assign_map(abc9_init_wire);
 		if (!abc9_init.is_fully_const())
 			log_error("'%s.init' is not a constant wire present in module '%s'.\n", cell->name.c_str(), log_id(module));
+		if (abc9_init == State::S1)
+			log_error("'%s.init' in module '%s' has value 1'b1 which is not supported by 'abc9 -dff'.\n", cell->name.c_str(), log_id(module));
 		r2 = cell->attributes.insert(std::make_pair(ID(abc9_init), abc9_init.as_const()));
 		log_assert(r2.second);
 	}
