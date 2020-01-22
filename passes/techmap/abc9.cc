@@ -304,14 +304,14 @@ void abc9_module(RTLIL::Design *design, RTLIL::Module *module, std::string scrip
 	for (size_t pos = abc9_script.find("{R}"); pos != std::string::npos; pos = abc9_script.find("{R}", pos))
 		abc9_script = abc9_script.substr(0, pos) + R + abc9_script.substr(pos+3);
 
-	abc9_script += stringf("; &ps -l; &write -n %s/output.aig;", tempdir_name.c_str());
+	abc9_script += stringf("; &ps -l; &write -n %s/output.aig", tempdir_name.c_str());
 	if (design->scratchpad_get_bool("abc9.verify")) {
 		if (dff_mode)
-			abc9_script += "verify -s;";
+			abc9_script += "; &verify -s";
 		else
-			abc9_script += "verify;";
+			abc9_script += "; &verify";
 	}
-	abc9_script += "time";
+	abc9_script += "; time";
 	abc9_script = add_echos_to_abc9_cmd(abc9_script);
 
 	for (size_t i = 0; i+1 < abc9_script.size(); i++)
@@ -1069,6 +1069,8 @@ struct Abc9Pass : public Pass {
 					SigSpec abc9_init = assign_map(abc9_init_wire);
 					if (!abc9_init.is_fully_const())
 						log_error("'%s.init' is not a constant wire present in module '%s'.\n", cell->name.c_str(), log_id(module));
+					if (abc9_init == State::S1)
+						log_error("'%s.init' in module '%s' has value 1'b1 which is not supported by 'abc9 -dff'.\n", cell->name.c_str(), log_id(module));
 					r2 = cell->attributes.insert(std::make_pair(ID(abc9_init), abc9_init.as_const()));
 					log_assert(r2.second);
 				}
