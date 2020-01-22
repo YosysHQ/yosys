@@ -572,6 +572,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	case AST_TERNARY:
 		detect_width_simple = true;
 		child_0_is_self_determined = true;
+		while (children[0]->simplify(true, false, false, 1, -1, false, false)) { }
 		break;
 
 	case AST_MEMRD:
@@ -605,9 +606,11 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	if (type == AST_TERNARY) {
 		int width_hint_left, width_hint_right;
 		bool sign_hint_left, sign_hint_right;
-		bool found_real_left, found_real_right;
-		children[1]->detectSignWidth(width_hint_left, sign_hint_left, &found_real_left);
-		children[2]->detectSignWidth(width_hint_right, sign_hint_right, &found_real_right);
+		bool found_real_left = false, found_real_right = false;
+		if (children[0]->type != AST_CONSTANT || children[0]->asBool())
+			children[1]->detectSignWidth(width_hint_left, sign_hint_left, &found_real_left);
+		if (children[0]->type != AST_CONSTANT || !children[0]->asBool())
+			children[2]->detectSignWidth(width_hint_right, sign_hint_right, &found_real_right);
 		if (found_real_left || found_real_right) {
 			child_1_is_self_determined = true;
 			child_2_is_self_determined = true;
