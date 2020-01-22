@@ -1,0 +1,43 @@
+read_verilog <<EOT
+module delay #(parameter width=2, taps=1)(
+       input clk,
+       input [width-1:0] d_in,
+       output reg [width-1:0] d_out
+);
+
+generate
+        genvar k;
+        reg [width-1:0] mem[0:taps-1];
+
+        for (k=0;k<taps;k=k+1) begin : delay_gen
+                always @(posedge clk) begin
+						//if (k == 0)
+						//	mem[k] = d_in;
+						//else
+						//	mem[k] = mem[k-1];
+                        mem[k] <= k==0 ? d_in : mem[k-1]; // <<<<<<<<< ERROR IS HERE
+                end
+        end
+endgenerate
+
+always @(posedge clk) begin
+        b <= mem[taps-1];
+end
+
+endmodule
+
+
+module top (input clk, input wire [3:0] a, output wire [3:0] b);
+        delay #(.width(4), .taps(1))  d(clk, a, b);
+endmodule
+EOT
+
+
+design -reset
+read_verilog <<EOT
+module top(output o1, o2);
+wire i [0:0]; // Only errors out on unpacked...
+assign o1 = (0 == 0) ? i[0] : i[-1];
+assign o2 = (1 > 1) ? i[1] : i[0];
+endmodule
+EOT
