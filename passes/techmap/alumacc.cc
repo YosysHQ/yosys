@@ -397,21 +397,18 @@ struct AlumaccWorker
 		{
 			log("  creating $alu model for %s (%s):", log_id(cell), log_id(cell->type));
 
-			bool cmp_less = false; //cell->type.in(ID($lt), ID($le));
-			bool cmp_equal = false; //cell->type.in(ID($le), ID($ge));
+			bool cmp_less = cell->type.in(ID($lt), ID($le));
+			bool cmp_equal = cell->type.in(ID($le), ID($ge));
 			bool is_signed = cell->getParam(ID(A_SIGNED)).as_bool();
 
 			RTLIL::SigSpec A = sigmap(cell->getPort(ID::A));
 			RTLIL::SigSpec B = sigmap(cell->getPort(ID::B));
 			RTLIL::SigSpec Y = sigmap(cell->getPort(ID::Y));
 
-			if (cell->type.in(ID($lt), ID($ge)))
+			if (B < A && GetSize(B)) {
+				cmp_less = !cmp_less;
 				std::swap(A, B);
-
-			//if (B < A && GetSize(B)) {
-			//	cmp_less = !cmp_less;
-			//	std::swap(A, B);
-			//}
+			}
 
 			alunode_t *n = nullptr;
 
@@ -433,12 +430,6 @@ struct AlumaccWorker
 				log(" new $alu\n");
 			} else {
 				log(" merged with %s.\n", log_id(n->cells.front()));
-			}
-
-			if (cell->type.in(ID($le), ID($ge))) {
-				SigSpec YY = module->addWire(NEW_ID, GetSize(Y));
-				module->addNot(NEW_ID, YY, Y);
-				Y = YY;
 			}
 
 			n->cells.push_back(cell);
