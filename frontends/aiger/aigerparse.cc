@@ -478,6 +478,7 @@ void AigerReader::parse_xaiger()
 				RTLIL::Cell* cell = module->addCell(stringf("$box%u", oldBoxNum), stringf("$__boxid%u", boxUniqueId));
 				cell->setPort("\\i", SigSpec(State::S0, boxInputs));
 				cell->setPort("\\o", SigSpec(State::S0, boxOutputs));
+				cell->attributes["\\abc9_box_seq"] = oldBoxNum;
 				boxes.emplace_back(cell);
 			}
 		}
