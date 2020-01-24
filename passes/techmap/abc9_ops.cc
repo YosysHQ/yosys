@@ -356,24 +356,14 @@ void reintegrate(RTLIL::Module *module)
 	for (auto w : mapped_mod->wires())
 		module->addWire(remap_name(w->name), GetSize(w));
 
-	dict<IdString,IdString> box_lookup;
 	dict<IdString,std::vector<IdString>> box_ports;
 
 	for (auto m : design->modules()) {
-		auto it = m->attributes.find(ID(abc9_box_id));
-		if (it == m->attributes.end())
+		if (!m->attributes.count(ID(abc9_box_id)))
 			continue;
-		if (m->name.begins_with("$paramod"))
-			continue;
-		auto id = it->second.as_int();
-		auto r = box_lookup.insert(std::make_pair(stringf("$__boxid%d", id), m->name));
-		if (!r.second)
-			log_error("Module '%s' has the same abc9_box_id = %d value as '%s'.\n",
-					log_id(m), id, log_id(r.first->second));
-		log_assert(r.second);
 
-		auto r2 = box_ports.insert(m->name);
-		if (r2.second) {
+		auto r = box_ports.insert(m->name);
+		if (r.second) {
 			// Make carry in the last PI, and carry out the last PO
 			//   since ABC requires it this way
 			IdString carry_in, carry_out;
@@ -393,7 +383,7 @@ void reintegrate(RTLIL::Module *module)
 					}
 				}
 				else
-					r2.first->second.push_back(port_name);
+					r.first->second.push_back(port_name);
 			}
 
 			if (carry_in != IdString() && carry_out == IdString())
@@ -401,8 +391,8 @@ void reintegrate(RTLIL::Module *module)
 			if (carry_in == IdString() && carry_out != IdString())
 				log_error("Module '%s' contains an 'abc9_carry' output port but no input port.\n", log_id(m));
 			if (carry_in != IdString()) {
-				r2.first->second.push_back(carry_in);
-				r2.first->second.push_back(carry_out);
+				r.first->second.push_back(carry_in);
+				r.first->second.push_back(carry_out);
 			}
 		}
 	}
@@ -516,28 +506,27 @@ void reintegrate(RTLIL::Module *module)
 		else {
 			RTLIL::Cell *existing_cell = module->cell(mapped_cell->name);
 			log_assert(existing_cell);
-			log_assert(mapped_cell->type.begins_with("$__boxid"));
 
-			auto type = box_lookup.at(mapped_cell->type, IdString());
-			if (type == IdString())
-				log_error("No module with abc9_box_id = %s found.\n", mapped_cell->type.c_str() + strlen("$__boxid"));
-			mapped_cell->type = type;
+			RTLIL::Module* box_module = design->module(existing_cell->type);
+			auto it = box_module->attributes.find(ID(abc9_box_id));
+			log_assert(it != box_module->attributes.end());
+			log_assert(mapped_cell->type == stringf("$__boxid%d", it->second.as_int()));
+			mapped_cell->type = existing_cell->type;
 
 			RTLIL::Cell *cell = module->addCell(remap_name(mapped_cell->name), mapped_cell->type);
 			cell->parameters = existing_cell->parameters;
 			cell->attributes = existing_cell->attributes;
 			module->swap_names(cell, existing_cell);
 
-			auto it = mapped_cell->connections_.find("\\i");
-			log_assert(it != mapped_cell->connections_.end());
-			SigSpec inputs = std::move(it->second);
-			mapped_cell->connections_.erase(it);
-			it = mapped_cell->connections_.find("\\o");
-			log_assert(it != mapped_cell->connections_.end());
-			SigSpec outputs = std::move(it->second);
-			mapped_cell->connections_.erase(it);
+			auto jt = mapped_cell->connections_.find("\\i");
+			log_assert(jt != mapped_cell->connections_.end());
+			SigSpec inputs = std::move(jt->second);
+			mapped_cell->connections_.erase(jt);
+			jt = mapped_cell->connections_.find("\\o");
+			log_assert(jt != mapped_cell->connections_.end());
+			SigSpec outputs = std::move(jt->second);
+			mapped_cell->connections_.erase(jt);
 
-			RTLIL::Module* box_module = design->module(mapped_cell->type);
 			auto abc9_flop = box_module->attributes.count("\\abc9_flop");
 			if (!abc9_flop) {
 				for (const auto &i : inputs)
