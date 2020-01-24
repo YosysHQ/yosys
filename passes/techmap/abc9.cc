@@ -234,6 +234,12 @@ struct Abc9Pass : public ScriptPass
 		}
 		extra_args(args, argidx, design);
 
+		log_assert(design);
+		if (design->selected_modules().empty()) {
+			log_warning("No modules selected for ABC9 techmapping.\n");
+			return;
+		}
+
 		log_header(design, "Executing ABC9 pass.\n");
 		log_push();
 
