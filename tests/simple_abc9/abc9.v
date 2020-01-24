@@ -213,7 +213,7 @@ module arbiter (clk, rst, request, acknowledge, grant, grant_valid, grant_encode
   input rst;
 endmodule
 
-(* abc9_box_id=1 *)
+(* abc9_box_id=1, whitebox *)
 module MUXF8(input I0, I1, S, output O);
 endmodule
 
