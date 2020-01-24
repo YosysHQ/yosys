@@ -165,6 +165,8 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 	for (auto cell : module->cells()) {
 		if (cell->type == "$__ABC9_FF_")
 			continue;
+		if (cell->has_keep_attr())
+			continue;
 
 		auto inst_module = module->design->module(cell->type);
 		bool abc9_box = inst_module && inst_module->attributes.count("\\abc9_box_id");
