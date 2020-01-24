@@ -2470,6 +2470,9 @@ struct VerificPass : public Pass {
 					worker.run(nl);
 			}
 
+			for (auto nl : nl_todo)
+				nl->ChangePortBusStructures(1 /* hierarchical */);
+
 			if (!dumpfile.empty()) {
 				VeriWrite veri_writer;
 				veri_writer.WriteFile(dumpfile.c_str(), Netlist::PresentDesign());
