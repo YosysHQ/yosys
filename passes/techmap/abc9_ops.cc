@@ -77,11 +77,20 @@ void check(RTLIL::Design *design)
 			auto it = w->attributes.find("\\abc9_arrival");
 			if (it != w->attributes.end()) {
 				int count = 0;
-				if (it->second.flags == 0)
+				if (it->second.flags == 0) {
+					if (it->second.as_int() < 0)
+						log_error("%s.%s has negative arrival value %d!\n", log_id(m), log_id(port_name),
+								it->second.as_int());
 					count++;
+				}
 				else
 					for (const auto &tok : split_tokens(it->second.decode_string())) {
-						(void) tok;
+						if (tok.find_first_not_of("0123456789") != std::string::npos)
+							log_error("%s.%s has non-integer arrival value '%s'!\n", log_id(m), log_id(port_name),
+									tok.c_str());
+						if (atoi(tok.c_str()) < 0)
+							log_error("%s.%s has negative arrival value %s!\n", log_id(m), log_id(port_name),
+									tok.c_str());
 						count++;
 					}
 				if (count > 1 && count != GetSize(w))
@@ -92,11 +101,20 @@ void check(RTLIL::Design *design)
 			it = w->attributes.find("\\abc9_required");
 			if (it != w->attributes.end()) {
 				int count = 0;
-				if (it->second.flags == 0)
+				if (it->second.flags == 0) {
+					if (it->second.as_int() < 0)
+						log_error("%s.%s has negative required value %d!\n", log_id(m), log_id(port_name),
+								it->second.as_int());
 					count++;
+				}
 				else
 					for (const auto &tok : split_tokens(it->second.decode_string())) {
-						(void) tok;
+						if (tok.find_first_not_of("0123456789") != std::string::npos)
+							log_error("%s.%s has non-integer required value '%s'!\n", log_id(m), log_id(port_name),
+									tok.c_str());
+						if (atoi(tok.c_str()) < 0)
+							log_error("%s.%s has negative required value %s!\n", log_id(m), log_id(port_name),
+									tok.c_str());
 						count++;
 					}
 				if (count > 1 && count != GetSize(w))
