@@ -767,6 +767,9 @@ struct XilinxDspPass : public Pass {
 		log("to a maximum length of 20 cells, corresponding to the smallest Xilinx 7 Series\n");
 		log("device.\n");
 		log("\n");
+		log("This pass is a no-op if the scratchpad variable 'xilinx_dsp.multonly' is set\n");
+		log("to 1.\n");
+		log("\n");
 		log("\n");
 		log("Experimental feature: addition/subtractions less than 12 or 24 bits with the\n");
 		log("'(* use_dsp=\"simd\" *)' attribute attached to the output wire or attached to\n");
@@ -805,6 +808,10 @@ struct XilinxDspPass : public Pass {
 			family = "xcu";
 
 		for (auto module : design->selected_modules()) {
+
+			if (design->scratchpad_get_bool("xilinx_dsp.multonly"))
+				continue;
+
 			// Experimental feature: pack $add/$sub cells with
 			//   (* use_dsp48="simd" *) into DSP48E1's using its
 			//   SIMD feature
