@@ -127,7 +127,7 @@ struct Ice40WrapCarryPass : public Pass {
 					lut->setParam(ID(WIDTH), 4);
 					lut->setParam(ID(LUT), cell->getParam(ID(LUT)));
 					auto I3 = cell->getPort(cell->getParam(ID(I3_IS_CI)).as_bool() ? ID(CI) : ID(I3));
-					lut->setPort(ID(A), {cell->getPort(ID(I0)), cell->getPort(ID(A)), cell->getPort(ID(B)), I3 });
+					lut->setPort(ID(A), { I3, cell->getPort(ID(B)), cell->getPort(ID(A)), cell->getPort(ID(I0)) });
 					lut->setPort(ID(Y), cell->getPort(ID(O)));
 
 					Const src;
