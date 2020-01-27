@@ -414,6 +414,10 @@ void AigerReader::parse_xaiger()
 				for (unsigned j = 0; j < cutLeavesM; ++j) {
 					nodeID = parse_xaiger_literal(f);
 					log_debug2("\t%u\n", nodeID);
+					if (nodeID == 0) {
+						log_debug("\tLUT '$lut$aiger%d$%d' input %d is constant!\n", aiger_autoidx, rootNodeID, cutLeavesM);
+						continue;
+					}
 					RTLIL::Wire *wire = module->wire(stringf("$aiger%d$%d", aiger_autoidx, nodeID));
 					log_assert(wire);
 					input_sig.append(wire);
@@ -421,10 +425,10 @@ void AigerReader::parse_xaiger()
 				// TODO: Compute LUT mask from AIG in less than O(2 ** input_sig.size())
 				ce.clear();
 				ce.compute_deps(output_sig, input_sig.to_sigbit_pool());
-				RTLIL::Const lut_mask(RTLIL::State::Sx, 1 << input_sig.size());
-				for (int j = 0; j < (1 << cutLeavesM); ++j) {
+				RTLIL::Const lut_mask(RTLIL::State::Sx, 1 << GetSize(input_sig));
+				for (int j = 0; j < GetSize(lut_mask); ++j) {
 					int gray = j ^ (j >> 1);
-					ce.set_incremental(input_sig, RTLIL::Const{gray, static_cast<int>(cutLeavesM)});
+					ce.set_incremental(input_sig, RTLIL::Const{gray, GetSize(input_sig)});
 					RTLIL::SigBit o(output_sig);
 					bool success YS_ATTRIBUTE(unused) = ce.eval(o);
 					log_assert(success);
@@ -438,11 +442,13 @@ void AigerReader::parse_xaiger()
 			}
 		}
 		else if (c == 'r') {
-			uint32_t dataSize YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
+			uint32_t dataSize = parse_xaiger_literal(f);
 			flopNum = parse_xaiger_literal(f);
 			log_debug("flopNum = %u\n", flopNum);
 			log_assert(dataSize == (flopNum+1) * sizeof(uint32_t));
-			f.ignore(flopNum * sizeof(uint32_t));
+			mergeability.reserve(flopNum);
+			for (unsigned i = 0; i < flopNum; i++)
+				mergeability.emplace_back(parse_xaiger_literal(f));
 		}
 		else if (c == 'n') {
 			parse_xaiger_literal(f);
@@ -472,6 +478,7 @@ void AigerReader::parse_xaiger()
 				RTLIL::Cell* cell = module->addCell(stringf("$box%u", oldBoxNum), stringf("$__boxid%u", boxUniqueId));
 				cell->setPort("\\i", SigSpec(State::S0, boxInputs));
 				cell->setPort("\\o", SigSpec(State::S0, boxOutputs));
+				cell->attributes["\\abc9_box_seq"] = oldBoxNum;
 				boxes.emplace_back(cell);
 			}
 		}
@@ -770,6 +777,7 @@ void AigerReader::post_process()
 		auto ff = module->addCell(NEW_ID, "$__ABC9_FF_");
 		ff->setPort("\\D", d);
 		ff->setPort("\\Q", q);
+		ff->attributes["\\abc9_mergeability"] = mergeability[i];
 	}
 
 	dict<RTLIL::IdString, int> wideports_cache;

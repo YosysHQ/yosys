@@ -47,7 +47,7 @@ endmodule
 // Box to emulate async behaviour of FDP*
 (* abc9_box_id = 1001, lib_whitebox *)
 module \$__ABC9_ASYNC1 (input A, S, output Y);
-  assign Y = S ? 1'b0 : A;
+  assign Y = S ? 1'b1 : A;
 endmodule
 
 // Box to emulate comb/seq behaviour of RAM{32,64} and SRL{16,32}

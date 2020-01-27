@@ -222,6 +222,8 @@ struct XAigerWriter
 					alias_map[Q] = D;
 					auto r YS_ATTRIBUTE(unused) = ff_bits.insert(std::make_pair(D, cell));
 					log_assert(r.second);
+					if (input_bits.erase(Q))
+						log_assert(Q.wire->attributes.count(ID::keep));
 					continue;
 				}
 
@@ -589,9 +591,6 @@ struct XAigerWriter
 		//	write_o_buffer(0);
 
 		if (!box_list.empty() || !ff_bits.empty()) {
-			RTLIL::Module *holes_module = module->design->module(stringf("%s$holes", module->name.c_str()));
-			log_assert(holes_module);
-
 			dict<IdString, std::tuple<int,int,int>> cell_cache;
 
 			int box_count = 0;
@@ -678,6 +677,7 @@ struct XAigerWriter
 			f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
 			f.write(buffer_str.data(), buffer_str.size());
 
+			RTLIL::Module *holes_module = module->design->module(stringf("%s$holes", module->name.c_str()));
 			if (holes_module) {
 				std::stringstream a_buffer;
 				XAigerWriter writer(holes_module, true /* holes_mode */);

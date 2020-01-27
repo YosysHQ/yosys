@@ -213,7 +213,7 @@ module arbiter (clk, rst, request, acknowledge, grant, grant_valid, grant_encode
   input rst;
 endmodule
 
-(* abc_box_id=1 *)
+(* abc9_box_id=1, whitebox *)
 module MUXF8(input I0, I1, S, output O);
 endmodule
 
@@ -290,4 +290,20 @@ endmodule
 module abc9_test035(input clk, d, output reg [1:0] q);
 always @(posedge clk) q[0] <= d;
 always @(negedge clk) q[1] <= q[0];
+endmodule
+
+module abc9_test036(input A, B, S, output [1:0] O);
+  (* keep *)
+  MUXF8 m  (
+    .I0(I0),
+    .I1(I1),
+    .O(O[0]),
+    .S(S)
+  );
+  MUXF8 m2  (
+    .I0(I0),
+    .I1(I1),
+    .O(O[1]),
+    .S(S)
+  );
 endmodule

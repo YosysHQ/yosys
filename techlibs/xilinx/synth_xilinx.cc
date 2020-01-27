@@ -518,8 +518,6 @@ struct SynthXilinxPass : public ScriptPass
 				techmap_args += " -map +/xilinx/arith_map.v";
 				if (vpr)
 					techmap_args += " -D _EXPLICIT_CARRY";
-				else
-					techmap_args += " -D _CLB_CARRY";
 			}
 			run("techmap " + techmap_args);
 			run("opt -fast");

@@ -240,9 +240,18 @@ struct Abc9Pass : public ScriptPass
 		}
 		extra_args(args, argidx, design);
 
+		log_assert(design);
+		if (design->selected_modules().empty()) {
+			log_warning("No modules selected for ABC9 techmapping.\n");
+			return;
+		}
+
 		log_header(design, "Executing ABC9 pass.\n");
+		log_push();
 
 		run_script(design, run_from, run_to);
+
+		log_pop();
 	}
 
 	void script() YS_OVERRIDE
@@ -284,6 +293,7 @@ struct Abc9Pass : public ScriptPass
 					}
 					log_assert(!mod->attributes.count(ID(abc9_box_id)));
 
+					log_push();
 					active_design->selection().select(mod);
 
 					if (!active_design->selected_whole_module(mod))
@@ -322,6 +332,7 @@ struct Abc9Pass : public ScriptPass
 					}
 
 					active_design->selection().selected_modules.clear();
+					log_pop();
 				}
 
 				active_design->selection_stack.pop_back();
