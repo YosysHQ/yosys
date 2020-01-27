@@ -2073,10 +2073,8 @@ struct VerificPass : public Pass {
 	{
 		static bool set_verific_global_flags = true;
 
-		if (check_noverific_env()) {
-			help();
+		if (check_noverific_env())
 			log_cmd_error("This version of Yosys is built without Verific support.\n");
-                }
 
 		log_header(design, "Executing VERIFIC (loading SystemVerilog and VHDL designs using Verific).\n");
 
@@ -2492,7 +2490,6 @@ struct VerificPass : public Pass {
 	}
 #else /* YOSYS_ENABLE_VERIFIC */
 	void execute(std::vector<std::string>, RTLIL::Design *) YS_OVERRIDE {
-		help();
 		log_cmd_error("This version of Yosys is built without Verific support.\n");
 	}
 #endif
