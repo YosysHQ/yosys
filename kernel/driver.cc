@@ -317,6 +317,12 @@ int main(int argc, char **argv)
 		exit(0);
 	}
 
+	if (argc == 2 && (!strcmp(argv[1], "-V") || !strcmp(argv[1], "-version") || !strcmp(argv[1], "--version")))
+	{
+		printf("%s\n", yosys_version_str);
+		exit(0);
+	}
+
 	int opt;
 	while ((opt = getopt(argc, argv, "MXAQTVSgm:f:Hh:b:o:p:l:L:qv:tds:c:W:w:e:D:P:E:")) != -1)
 	{
