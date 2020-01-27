@@ -295,6 +295,9 @@ int main(int argc, char **argv)
 		printf("    -E <depsfile>\n");
 		printf("        write a Makefile dependencies file with in- and output file names\n");
 		printf("\n");
+		printf("    -x <feature>\n");
+		printf("        do not print warnings for the specified experimental feature\n");
+		printf("\n");
 		printf("    -g\n");
 		printf("        globally enable debug log messages\n");
 		printf("\n");
@@ -324,7 +327,7 @@ int main(int argc, char **argv)
 	}
 
 	int opt;
-	while ((opt = getopt(argc, argv, "MXAQTVSgm:f:Hh:b:o:p:l:L:qv:tds:c:W:w:e:D:P:E:")) != -1)
+	while ((opt = getopt(argc, argv, "MXAQTVSgm:f:Hh:b:o:p:l:L:qv:tds:c:W:w:e:D:P:E:x:")) != -1)
 	{
 		switch (opt)
 		{
@@ -454,6 +457,9 @@ int main(int argc, char **argv)
 			break;
 		case 'E':
 			depsfile = optarg;
+			break;
+		case 'x':
+			log_experimentals.insert(optarg);
 			break;
 		default:
 			fprintf(stderr, "Run '%s -h' for help.\n", argv[0]);
