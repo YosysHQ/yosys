@@ -213,6 +213,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 		else if (!yosys_celltypes.cell_known(cell->type))
 			continue;
 
+		// TODO: Speed up toposort -- we care about box ordering only
 		for (auto conn : cell->connections()) {
 			if (cell->input(conn.first))
 				for (auto bit : sigmap(conn.second))
@@ -222,7 +223,6 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 				for (auto bit : sigmap(conn.second))
 					bit_drivers[bit].insert(cell->name);
 		}
-
 		toposort.node(cell->name);
 	}
 
@@ -415,6 +415,7 @@ void reintegrate(RTLIL::Module *module)
 	std::map<IdString, int> cell_stats;
 	for (auto mapped_cell : mapped_mod->cells())
 	{
+		// TODO: Speed up toposort -- we care about NOT ordering only
 		toposort.node(mapped_cell->name);
 
 		if (mapped_cell->type == ID($_NOT_)) {
@@ -625,6 +626,17 @@ void reintegrate(RTLIL::Module *module)
 		}
 	}
 
+	// ABC9 will return $_NOT_ gates in its mapping (since they are
+	//   treated as being "free"), in particular driving primary
+	//   outputs (real primary outputs, or cells treated as blackboxes)
+	//   or driving box inputs.
+	// Instead of just mapping those $_NOT_ gates into 2-input $lut-s
+	//   at an area and delay cost, see if it is possible to push
+	//   this $_NOT_ into the driving LUT, or into all sink LUTs.
+	// When this is not possible, (i.e. this signal drives two primary
+	//   outputs, only one of which is complemented) and when the driver
+	//   is a LUT, then clone the LUT so that it can be inverted without
+	//   increasing depth/delay.
 	for (auto &it : bit_users)
 		if (bit_drivers.count(it.first))
 			for (auto driver_cell : bit_drivers.at(it.first))
