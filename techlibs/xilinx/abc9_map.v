@@ -74,7 +74,7 @@
 // (e) a special _TECHMAP_REPLACE_.abc9_ff.Q wire that will be used for feedback
 //     into the (combinatorial) FD* cell to facilitate clock-enable behaviour
 
-module FDRE (output Q, input C, CE, D, R);
+module FDRE (output Q, (* techmap_autopurge *) input C, CE, D, R);
   parameter [0:0] INIT = 1'b0;
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
@@ -110,7 +110,7 @@ module FDRE (output Q, input C, CE, D, R);
   wire [0:0] abc9_ff.init = 1'b0;
   wire [0:0] _TECHMAP_REPLACE_.abc9_ff.Q = QQ;
 endmodule
-module FDRE_1 (output Q, input C, CE, D, R);
+module FDRE_1 (output Q, (* techmap_autopurge *) input C, CE, D, R);
   parameter [0:0] INIT = 1'b0;
   wire QQ, $Q;
   generate if (INIT == 1'b1) begin
@@ -138,7 +138,7 @@ module FDRE_1 (output Q, input C, CE, D, R);
   wire [0:0] _TECHMAP_REPLACE_.abc9_ff.Q = QQ;
 endmodule
 
-module FDSE (output Q, input C, CE, D, S);
+module FDSE (output Q, (* techmap_autopurge *) input C, CE, D, S);
   parameter [0:0] INIT = 1'b1;
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
@@ -173,7 +173,7 @@ module FDSE (output Q, input C, CE, D, S);
   wire [0:0] abc9_ff.init = 1'b0;
   wire [0:0] _TECHMAP_REPLACE_.abc9_ff.Q = QQ;
 endmodule
-module FDSE_1 (output Q, input C, CE, D, S);
+module FDSE_1 (output Q, (* techmap_autopurge *) input C, CE, D, S);
   parameter [0:0] INIT = 1'b1;
   wire QQ, $Q;
   generate if (INIT == 1'b1) begin
@@ -200,7 +200,7 @@ module FDSE_1 (output Q, input C, CE, D, S);
   wire [0:0] _TECHMAP_REPLACE_.abc9_ff.Q = QQ;
 endmodule
 
-module FDCE (output Q, input C, CE, D, CLR);
+module FDCE (output Q, (* techmap_autopurge *) input C, CE, D, CLR);
   parameter [0:0] INIT = 1'b0;
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
@@ -249,7 +249,7 @@ module FDCE (output Q, input C, CE, D, CLR);
   wire [0:0] abc9_ff.init = 1'b0;
   wire [0:0] _TECHMAP_REPLACE_.abc9_ff.Q = $QQ;
 endmodule
-module FDCE_1 (output Q, input C, CE, D, CLR);
+module FDCE_1 (output Q, (* techmap_autopurge *) input C, CE, D, CLR);
   parameter [0:0] INIT = 1'b0;
   wire QQ, $Q, $QQ;
   generate if (INIT == 1'b1) begin
@@ -288,7 +288,7 @@ module FDCE_1 (output Q, input C, CE, D, CLR);
   wire [0:0] _TECHMAP_REPLACE_.abc9_ff.Q = $QQ;
 endmodule
 
-module FDPE (output Q, input C, CE, D, PRE);
+module FDPE (output Q, (* techmap_autopurge *) input C, CE, D, PRE);
   parameter [0:0] INIT = 1'b1;
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
@@ -335,7 +335,7 @@ module FDPE (output Q, input C, CE, D, PRE);
   wire [0:0] abc9_ff.init = 1'b0;
   wire [0:0] _TECHMAP_REPLACE_.abc9_ff.Q = $QQ;
 endmodule
-module FDPE_1 (output Q, input C, CE, D, PRE);
+module FDPE_1 (output Q, (* techmap_autopurge *) input C, CE, D, PRE);
   parameter [0:0] INIT = 1'b1;
   wire QQ, $Q, $QQ;
   generate if (INIT == 1'b1) begin
