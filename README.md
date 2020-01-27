@@ -378,7 +378,7 @@ Verilog Attributes and non-standard features
   port. It can be used, for example, to specify the clk-to-Q delay of a flip-
   flop output for consideration during `abc9` techmapping.
 
-- The input port attribute ``abc9_requiredl`` specifies an integer, or a string
+- The input port attribute ``abc9_required`` specifies an integer, or a string
   of space-separated integers to be used as the required time of this blackbox
   port. It can be used, for example, to specify the setup-time of a flip-flop
   input for consideration during `abc9` techmapping.
