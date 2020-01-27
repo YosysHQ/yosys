@@ -62,6 +62,9 @@ struct Pass
 	virtual void run_register();
 	static void init_register();
 	static void done_register();
+
+	virtual void on_register();
+	virtual void on_shutdown();
 };
 
 struct ScriptPass : Pass

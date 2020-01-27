@@ -10,7 +10,7 @@ module \$__ANLOGIC_DRAM16X4 (CLK1, A1ADDR, A1DATA, B1ADDR, B1DATA, B1EN);
 	input B1EN;
 
 	EG_LOGIC_DRAM16X4 #(
-		`include "dram_init_16x4.vh"
+		`include "lutram_init_16x4.vh"
 	) _TECHMAP_REPLACE_ (
 		.di(B1DATA),
 		.waddr(B1ADDR),

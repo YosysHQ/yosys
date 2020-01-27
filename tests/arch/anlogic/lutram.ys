@@ -1,5 +1,5 @@
-read_verilog ../common/memory.v
-hierarchy -top top
+read_verilog ../common/lutram.v
+hierarchy -top lutram_1w1r
 proc
 memory -nomap
 equiv_opt -run :prove -map +/anlogic/cells_sim.v synth_anlogic
@@ -11,7 +11,7 @@ miter -equiv -flatten -make_assert -make_outputs gold gate miter
 #sat -verify -prove-asserts -seq 3 -set-init-zero -show-inputs -show-outputs miter
 
 design -load postopt
-cd top
+cd lutram_1w1r
 
 select -assert-count 8  t:AL_MAP_LUT2
 select -assert-count 8  t:AL_MAP_LUT4

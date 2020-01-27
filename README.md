@@ -343,6 +343,13 @@ Verilog Attributes and non-standard features
 - The ``clkbuf_sink`` attribute can be set on an input port of a module to
   request clock buffer insertion by the ``clkbufmap`` pass.
 
+- The ``clkbuf_inv`` attribute can be set on an output port of a module
+  with the value set to the name of an input port of that module.  When
+  the ``clkbufmap`` would otherwise insert a clock buffer on this output,
+  it will instead try inserting the clock buffer on the input port (this
+  is used to implement clock inverter cells that clock buffer insertion
+  will "see through").
+
 - The ``clkbuf_inhibit`` is the default attribute to set on a wire to prevent
   automatic clock buffer insertion by ``clkbufmap``. This behaviour can be
   overridden by providing a custom selection to ``clkbufmap``.
@@ -357,19 +364,28 @@ Verilog Attributes and non-standard features
   it as the external-facing pin of an I/O pad, and prevents ``iopadmap``
   from inserting another pad cell on it.
 
-- The module attribute ``abc_box_id`` specifies a positive integer linking a
+- The module attribute ``abc9_box_id`` specifies a positive integer linking a
   blackbox or whitebox definition to a corresponding entry in a `abc9`
   box-file.
 
-- The port attribute ``abc_carry`` marks the carry-in (if an input port) and
+- The port attribute ``abc9_carry`` marks the carry-in (if an input port) and
   carry-out (if output port) ports of a box. This information is necessary for
   `abc9` to preserve the integrity of carry-chains. Specifying this attribute
   onto a bus port will affect only its most significant bit.
 
-- The port attribute ``abc_arrival`` specifies an integer (for output ports
+- The port attribute ``abc9_arrival`` specifies an integer (for output ports
   only) to be used as the arrival time of this sequential port. It can be used,
   for example, to specify the clk-to-Q delay of a flip-flop for consideration
-  during techmapping.
+  during `abc9` techmapping.
+
+- The module attribute ``abc9_flop`` is a boolean marking the module as a
+  flip-flop. This allows `abc9` to analyse its contents in order to perform
+  sequential synthesis.
+
+- The frontend sets attributes ``always_comb``, ``always_latch`` and
+  ``always_ff`` on processes derived from SystemVerilog style always blocks
+  according to the type of the always. These are checked for correctness in
+  ``proc_dlatch``.
 
 - In addition to the ``(* ... *)`` attribute syntax, Yosys supports
   the non-standard ``{* ... *}`` attribute syntax to set default attributes
@@ -442,10 +458,10 @@ Verilog Attributes and non-standard features
   expressions over parameters and constant values are allowed). The intended
   use for this is synthesis-time DRC.
 
-- There is limited support for converting specify .. endspecify statements to
-  special ``$specify2``, ``$specify3``, and ``$specrule`` cells, for use in
-  blackboxes and whiteboxes. Use ``read_verilog -specify`` to enable this
-  functionality. (By default specify .. endspecify blocks are ignored.)
+- There is limited support for converting ``specify`` .. ``endspecify``
+  statements to special ``$specify2``, ``$specify3``, and ``$specrule`` cells,
+  for use in blackboxes and whiteboxes. Use ``read_verilog -specify`` to
+  enable this functionality. (By default these blocks are ignored.)
 
 
 Non-standard or SystemVerilog features for formal verification

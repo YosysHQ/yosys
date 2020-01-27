@@ -56,11 +56,16 @@ code sigA sigB sigH
 			break;
 		sigH.append(O[i]);
 	}
+	// This sigM could have no users if downstream sinks (e.g. $add) is
+	//   narrower than $mul result, for example
+	if (i == 0)
+		reject;
+
 	log_assert(nusers(O.extract_end(i)) <= 1);
 endcode
 
 code argQ ffA ffAholdmux ffArstmux ffAholdpol ffArstpol sigA clock clock_pol
-	if (mul->type != \SB_MAC16 || !param(mul, \A_REG).as_bool()) {
+	if (mul->type != \SB_MAC16 || !param(mul, \A_REG, State::S0).as_bool()) {
 		argQ = sigA;
 		subpattern(in_dffe);
 		if (dff) {
@@ -81,7 +86,7 @@ code argQ ffA ffAholdmux ffArstmux ffAholdpol ffArstpol sigA clock clock_pol
 endcode
 
 code argQ ffB ffBholdmux ffBrstmux ffBholdpol ffBrstpol sigB clock clock_pol
-	if (mul->type != \SB_MAC16 || !param(mul, \B_REG).as_bool()) {
+	if (mul->type != \SB_MAC16 || !param(mul, \B_REG, State::S0).as_bool()) {
 		argQ = sigB;
 		subpattern(in_dffe);
 		if (dff) {
@@ -104,7 +109,7 @@ endcode
 code argD ffFJKG sigH clock clock_pol
 	if (nusers(sigH) == 2 &&
 			(mul->type != \SB_MAC16 ||
-			 (!param(mul, \TOP_8x8_MULT_REG).as_bool() && !param(mul, \BOT_8x8_MULT_REG).as_bool() && !param(mul, \PIPELINE_16x16_MULT_REG1).as_bool() && !param(mul, \PIPELINE_16x16_MULT_REG1).as_bool()))) {
+			 (!param(mul, \TOP_8x8_MULT_REG, State::S0).as_bool() && !param(mul, \BOT_8x8_MULT_REG, State::S0).as_bool() && !param(mul, \PIPELINE_16x16_MULT_REG1, State::S0).as_bool() && !param(mul, \PIPELINE_16x16_MULT_REG1, State::S0).as_bool()))) {
 		argD = sigH;
 		subpattern(out_dffe);
 		if (dff) {
@@ -143,7 +148,7 @@ endcode
 
 code argD ffH sigH sigO clock clock_pol
 	if (ffFJKG && nusers(sigH) == 2 &&
-			(mul->type != \SB_MAC16 || !param(mul, \PIPELINE_16x16_MULT_REG2).as_bool())) {
+			(mul->type != \SB_MAC16 || !param(mul, \PIPELINE_16x16_MULT_REG2, State::S0).as_bool())) {
 		argD = sigH;
 		subpattern(out_dffe);
 		if (dff) {
@@ -174,7 +179,7 @@ reject_ffH:		;
 endcode
 
 match add
-	if mul->type != \SB_MAC16 || (param(mul, \TOPOUTPUT_SELECT).as_int() == 3 && param(mul, \BOTOUTPUT_SELECT).as_int() == 3)
+	if mul->type != \SB_MAC16 || (param(mul, \TOPOUTPUT_SELECT, State::S0).as_int() == 3 && param(mul, \BOTOUTPUT_SELECT, State::S0).as_int() == 3)
 
 	select add->type.in($add)
 	choice <IdString> AB {\A, \B}
@@ -200,7 +205,7 @@ code sigCD sigO cd_signed
 		if ((actual_acc_width > actual_mul_width) && (natural_mul_width > actual_mul_width))
 			reject;
 		// If accumulator, check adder width and signedness
-		if (sigCD == sigH && (actual_acc_width != actual_mul_width) && (param(mul, \A_SIGNED).as_bool() != param(add, \A_SIGNED).as_bool()))
+		if (sigCD == sigH && (actual_acc_width != actual_mul_width) && (param(mul, \A_SIGNED, State::S0).as_bool() != param(add, \A_SIGNED).as_bool()))
 			reject;
 
 		sigO = port(add, \Y);
@@ -275,7 +280,7 @@ endcode
 
 code argQ ffCD ffCDholdmux ffCDholdpol ffCDrstpol sigCD clock clock_pol
 	if (!sigCD.empty() && sigCD != sigO &&
-			(mul->type != \SB_MAC16 || (!param(mul, \C_REG).as_bool() && !param(mul, \D_REG).as_bool()))) {
+			(mul->type != \SB_MAC16 || (!param(mul, \C_REG, State::S0).as_bool() && !param(mul, \D_REG, State::S0).as_bool()))) {
 		argQ = sigCD;
 		subpattern(in_dffe);
 		if (dff) {
@@ -328,6 +333,8 @@ arg argD argQ clock clock_pol
 
 code
 	dff = nullptr;
+	if (argQ.empty())
+		reject;
 	for (auto c : argQ.chunks()) {
 		if (!c.wire)
 			reject;
