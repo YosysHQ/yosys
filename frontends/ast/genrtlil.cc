@@ -580,7 +580,7 @@ struct AST_INTERNAL::ProcessGenerator
 };
 
 // detect sign and width of an expression
-void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *found_real)
+void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *found_real, bool can_fail)
 {
 	std::string type_name;
 	bool sub_sign_hint = true;
@@ -610,8 +610,11 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 		id_ast = id2ast;
 		if (id_ast == NULL && current_scope.count(str))
 			id_ast = current_scope.at(str);
-		if (!id_ast)
+		if (!id_ast) {
+			if (can_fail)
+				return;
 			log_file_error(filename, linenum, "Failed to resolve identifier %s for width detection!\n", str.c_str());
+		}
 		if (id_ast->type == AST_PARAMETER || id_ast->type == AST_LOCALPARAM) {
 			if (id_ast->children.size() > 1 && id_ast->children[1]->range_valid) {
 				this_width = id_ast->children[1]->range_left - id_ast->children[1]->range_right + 1;
@@ -769,8 +772,10 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 		break;
 
 	case AST_TERNARY:
-		children.at(1)->detectSignWidthWorker(width_hint, sign_hint, found_real);
-		children.at(2)->detectSignWidthWorker(width_hint, sign_hint, found_real);
+		children.at(1)->detectSignWidthWorker(width_hint, sign_hint, found_real,
+				children.at(0)->type == AST_CONSTANT && !children.at(0)->asBool() /* can_fail */);
+		children.at(2)->detectSignWidthWorker(width_hint, sign_hint, found_real,
+				children.at(0)->type == AST_CONSTANT && children.at(0)->asBool() /* can_fail */);
 		break;
 
 	case AST_MEMRD:
@@ -817,13 +822,13 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 }
 
 // detect sign and width of an expression
-void AstNode::detectSignWidth(int &width_hint, bool &sign_hint, bool *found_real)
+void AstNode::detectSignWidth(int &width_hint, bool &sign_hint, bool *found_real, bool can_fail)
 {
 	width_hint = -1;
 	sign_hint = true;
 	if (found_real)
 		*found_real = false;
-	detectSignWidthWorker(width_hint, sign_hint, found_real);
+	detectSignWidthWorker(width_hint, sign_hint, found_real, can_fail);
 }
 
 // create RTLIL from an AST node
@@ -1334,18 +1339,31 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				detectSignWidth(width_hint, sign_hint);
 
 			RTLIL::SigSpec cond = children[0]->genRTLIL();
-			RTLIL::SigSpec val1 = children[1]->genRTLIL(width_hint, sign_hint);
-			RTLIL::SigSpec val2 = children[2]->genRTLIL(width_hint, sign_hint);
+			RTLIL::SigSpec sig;
+			if (cond.is_fully_const()) {
+				if (cond.as_bool()) {
+					sig = children[1]->genRTLIL(width_hint, sign_hint);
+					widthExtend(this, sig, sig.size(), children[1]->is_signed);
+				}
+				else {
+					sig = children[2]->genRTLIL(width_hint, sign_hint);
+					widthExtend(this, sig, sig.size(), children[2]->is_signed);
+				}
+			}
+			else {
+				RTLIL::SigSpec val1 = children[1]->genRTLIL(width_hint, sign_hint);
+				RTLIL::SigSpec val2 = children[2]->genRTLIL(width_hint, sign_hint);
 
-			if (cond.size() > 1)
-				cond = uniop2rtlil(this, "$reduce_bool", 1, cond, false);
+				if (cond.size() > 1)
+					cond = uniop2rtlil(this, "$reduce_bool", 1, cond, false);
 
-			int width = max(val1.size(), val2.size());
-			is_signed = children[1]->is_signed && children[2]->is_signed;
-			widthExtend(this, val1, width, is_signed);
-			widthExtend(this, val2, width, is_signed);
+				int width = max(val1.size(), val2.size());
+				is_signed = children[1]->is_signed && children[2]->is_signed;
+				widthExtend(this, val1, width, is_signed);
+				widthExtend(this, val2, width, is_signed);
 
-			RTLIL::SigSpec sig = mux2rtlil(this, cond, val1, val2);
+				sig = mux2rtlil(this, cond, val1, val2);
+			}
 
 			if (sig.size() < width_hint)
 				sig.extend_u0(width_hint, sign_hint);

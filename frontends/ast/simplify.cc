@@ -606,8 +606,10 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		int width_hint_left, width_hint_right;
 		bool sign_hint_left, sign_hint_right;
 		bool found_real_left, found_real_right;
-		children[1]->detectSignWidth(width_hint_left, sign_hint_left, &found_real_left);
-		children[2]->detectSignWidth(width_hint_right, sign_hint_right, &found_real_right);
+		children[1]->detectSignWidth(width_hint_left, sign_hint_left, &found_real_left,
+				children[0]->type == AST_CONSTANT && !children[0]->asBool() /* can_fail */);
+		children[2]->detectSignWidth(width_hint_right, sign_hint_right, &found_real_right,
+				children[0]->type == AST_CONSTANT && children[0]->asBool() /* can_fail */);
 		if (found_real_left || found_real_right) {
 			child_1_is_self_determined = true;
 			child_2_is_self_determined = true;

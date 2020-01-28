@@ -250,8 +250,8 @@ namespace AST
 		void dumpVlog(FILE *f, std::string indent) const;
 
 		// used by genRTLIL() for detecting expression width and sign
-		void detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *found_real = NULL);
-		void detectSignWidth(int &width_hint, bool &sign_hint, bool *found_real = NULL);
+		void detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *found_real = NULL, bool can_fail = false);
+		void detectSignWidth(int &width_hint, bool &sign_hint, bool *found_real = NULL, bool can_fail = false);
 
 		// create RTLIL code for this AST node
 		// for expressions the resulting signal vector is returned
