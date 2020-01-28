@@ -873,7 +873,7 @@ struct ShowPass : public Pass {
 			#ifdef __APPLE__
 			std::string cmd = stringf("ps -fu %d | grep -q '[ ]%s' || xdot '%s' &", getuid(), dot_file.c_str(), dot_file.c_str());
 			#else
-			std::string cmd = stringf("{ test -f '%s.pid' && fuser -s '%s.pid'; } || ( echo $$ >&3; exec xdot '%s'; ) 3> '%s.pid' &", dot_file.c_str(), dot_file.c_str(), dot_file.c_str(), dot_file.c_str());
+			std::string cmd = stringf("{ test -f '%s.pid' && fuser -s '%s.pid' 2> /dev/null; } || ( echo $$ >&3; exec xdot '%s'; ) 3> '%s.pid' &", dot_file.c_str(), dot_file.c_str(), dot_file.c_str(), dot_file.c_str());
 			#endif
 			log("Exec: %s\n", cmd.c_str());
 			if (run_command(cmd) != 0)

@@ -128,6 +128,8 @@ static void run_ice40_opts(Module *module)
 							new_attr.insert(std::make_pair(a.first, a.second));
 						else if (a.first.in(ID(SB_LUT4.name), ID::keep, ID(module_not_derived)))
 							continue;
+						else if (a.first.begins_with("\\SB_CARRY.\\"))
+							continue;
 						else
 							log_abort();
 					cell->attributes = std::move(new_attr);
@@ -137,7 +139,8 @@ static void run_ice40_opts(Module *module)
 				log("Optimized $__ICE40_CARRY_WRAPPER cell back to logic (without SB_CARRY) %s.%s: CO=%s\n",
 						log_id(module), log_id(cell), log_signal(replacement_output));
 				cell->type = "$lut";
-				cell->setPort("\\A", { cell->getPort("\\I0"), inbit[0], inbit[1], cell->getPort("\\I3") });
+				auto I3 = get_bit_or_zero(cell->getPort(cell->getParam(ID(I3_IS_CI)).as_bool() ? ID(CI) : ID(I3)));
+				cell->setPort("\\A", { I3, inbit[1], inbit[0], get_bit_or_zero(cell->getPort("\\I0")) });
 				cell->setPort("\\Y", cell->getPort("\\O"));
 				cell->unsetPort("\\B");
 				cell->unsetPort("\\CI");
@@ -146,6 +149,7 @@ static void run_ice40_opts(Module *module)
 				cell->unsetPort("\\CO");
 				cell->unsetPort("\\O");
 				cell->setParam("\\WIDTH", 4);
+				cell->unsetParam("\\I3_IS_CI");
 			}
 			continue;
 		}

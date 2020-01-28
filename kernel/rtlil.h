@@ -377,6 +377,8 @@ namespace RTLIL
 		extern IdString blackbox;
 	};
 
+	extern dict<std::string, std::string> constpad;
+
 	static inline std::string escape_id(std::string str) {
 		if (str.size() > 0 && str[0] != '\\' && str[0] != '$')
 			return "\\" + str;
@@ -848,6 +850,8 @@ public:
 	void extend_u0(int width, bool is_signed = false);
 
 	RTLIL::SigSpec repeat(int num) const;
+
+	void reverse() { inline_unpack(); std::reverse(bits_.begin(), bits_.end()); }
 
 	bool operator <(const RTLIL::SigSpec &other) const;
 	bool operator ==(const RTLIL::SigSpec &other) const;

@@ -376,7 +376,11 @@ Verilog Attributes and non-standard features
 - The port attribute ``abc9_arrival`` specifies an integer (for output ports
   only) to be used as the arrival time of this sequential port. It can be used,
   for example, to specify the clk-to-Q delay of a flip-flop for consideration
-  during techmapping.
+  during `abc9` techmapping.
+
+- The module attribute ``abc9_flop`` is a boolean marking the module as a
+  flip-flop. This allows `abc9` to analyse its contents in order to perform
+  sequential synthesis.
 
 - The frontend sets attributes ``always_comb``, ``always_latch`` and
   ``always_ff`` on processes derived from SystemVerilog style always blocks
@@ -454,10 +458,10 @@ Verilog Attributes and non-standard features
   expressions over parameters and constant values are allowed). The intended
   use for this is synthesis-time DRC.
 
-- There is limited support for converting specify .. endspecify statements to
-  special ``$specify2``, ``$specify3``, and ``$specrule`` cells, for use in
-  blackboxes and whiteboxes. Use ``read_verilog -specify`` to enable this
-  functionality. (By default specify .. endspecify blocks are ignored.)
+- There is limited support for converting ``specify`` .. ``endspecify``
+  statements to special ``$specify2``, ``$specify3``, and ``$specrule`` cells,
+  for use in blackboxes and whiteboxes. Use ``read_verilog -specify`` to
+  enable this functionality. (By default these blocks are ignored.)
 
 
 Non-standard or SystemVerilog features for formal verification

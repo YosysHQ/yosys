@@ -6,14 +6,14 @@ module  \$_DFFE_NP_ (input D, C, E, output Q); AL_MAP_SEQ #(.DFFMODE("FF"), .REG
 module  \$_DFFE_PN_ (input D, C, E, output Q); AL_MAP_SEQ #(.DFFMODE("FF"), .REGSET(1'bx), .SRMUX("SR"), .SRMODE("SYNC")) _TECHMAP_REPLACE_ (.d(D), .q(Q), .clk(C),  .ce(E), .sr(1'b0)); endmodule
 module  \$_DFFE_PP_ (input D, C, E, output Q); AL_MAP_SEQ #(.DFFMODE("FF"), .REGSET(1'bx), .SRMUX("SR"), .SRMODE("SYNC")) _TECHMAP_REPLACE_ (.d(D), .q(Q), .clk(C),  .ce(E), .sr(1'b0)); endmodule
 
-module  \$_DFF_NN0_ (input D, C, R, output Q); AL_MAP_SEQ #(.DFFMODE("FF"), .REGSET(1'b0), .SRMUX("INV"), .SRMODE("SYNC")) _TECHMAP_REPLACE_ (.d(D), .q(Q), .clk(~C), .ce(1'b1), .sr(R)); endmodule
-module  \$_DFF_NN1_ (input D, C, R, output Q); AL_MAP_SEQ #(.DFFMODE("FF"), .REGSET(1'b1), .SRMUX("INV"), .SRMODE("SYNC")) _TECHMAP_REPLACE_ (.d(D), .q(Q), .clk(~C), .ce(1'b1), .sr(R)); endmodule
-module  \$_DFF_NP0_ (input D, C, R, output Q); AL_MAP_SEQ #(.DFFMODE("FF"), .REGSET(1'b0), .SRMUX("SR"),  .SRMODE("SYNC")) _TECHMAP_REPLACE_ (.d(D), .q(Q), .clk(~C), .ce(1'b1), .sr(R)); endmodule
-module  \$_DFF_NP1_ (input D, C, R, output Q); AL_MAP_SEQ #(.DFFMODE("FF"), .REGSET(1'b1), .SRMUX("SR"),  .SRMODE("SYNC")) _TECHMAP_REPLACE_ (.d(D), .q(Q), .clk(~C), .ce(1'b1), .sr(R)); endmodule
-module  \$_DFF_PN0_ (input D, C, R, output Q); AL_MAP_SEQ #(.DFFMODE("FF"), .REGSET(1'b0), .SRMUX("INV"), .SRMODE("SYNC")) _TECHMAP_REPLACE_ (.d(D), .q(Q), .clk(C) , .ce(1'b1), .sr(R)); endmodule
-module  \$_DFF_PN1_ (input D, C, R, output Q); AL_MAP_SEQ #(.DFFMODE("FF"), .REGSET(1'b1), .SRMUX("INV"), .SRMODE("SYNC")) _TECHMAP_REPLACE_ (.d(D), .q(Q), .clk(C),  .ce(1'b1), .sr(R)); endmodule
-module  \$_DFF_PP0_ (input D, C, R, output Q); AL_MAP_SEQ #(.DFFMODE("FF"), .REGSET(1'b0), .SRMUX("SR"),  .SRMODE("SYNC")) _TECHMAP_REPLACE_ (.d(D), .q(Q), .clk(C),  .ce(1'b1), .sr(R)); endmodule
-module  \$_DFF_PP1_ (input D, C, R, output Q); AL_MAP_SEQ #(.DFFMODE("FF"), .REGSET(1'b1), .SRMUX("SR"), . SRMODE("SYNC")) _TECHMAP_REPLACE_ (.d(D), .q(Q), .clk(C),  .ce(1'b1), .sr(R)); endmodule
+module  \$_DFF_NN0_ (input D, C, R, output Q); AL_MAP_SEQ #(.DFFMODE("FF"), .REGSET(1'b0), .SRMUX("INV"), .SRMODE("ASYNC")) _TECHMAP_REPLACE_ (.d(D), .q(Q), .clk(~C), .ce(1'b1), .sr(R)); endmodule
+module  \$_DFF_NN1_ (input D, C, R, output Q); AL_MAP_SEQ #(.DFFMODE("FF"), .REGSET(1'b1), .SRMUX("INV"), .SRMODE("ASYNC")) _TECHMAP_REPLACE_ (.d(D), .q(Q), .clk(~C), .ce(1'b1), .sr(R)); endmodule
+module  \$_DFF_NP0_ (input D, C, R, output Q); AL_MAP_SEQ #(.DFFMODE("FF"), .REGSET(1'b0), .SRMUX("SR"),  .SRMODE("ASYNC")) _TECHMAP_REPLACE_ (.d(D), .q(Q), .clk(~C), .ce(1'b1), .sr(R)); endmodule
+module  \$_DFF_NP1_ (input D, C, R, output Q); AL_MAP_SEQ #(.DFFMODE("FF"), .REGSET(1'b1), .SRMUX("SR"),  .SRMODE("ASYNC")) _TECHMAP_REPLACE_ (.d(D), .q(Q), .clk(~C), .ce(1'b1), .sr(R)); endmodule
+module  \$_DFF_PN0_ (input D, C, R, output Q); AL_MAP_SEQ #(.DFFMODE("FF"), .REGSET(1'b0), .SRMUX("INV"), .SRMODE("ASYNC")) _TECHMAP_REPLACE_ (.d(D), .q(Q), .clk(C) , .ce(1'b1), .sr(R)); endmodule
+module  \$_DFF_PN1_ (input D, C, R, output Q); AL_MAP_SEQ #(.DFFMODE("FF"), .REGSET(1'b1), .SRMUX("INV"), .SRMODE("ASYNC")) _TECHMAP_REPLACE_ (.d(D), .q(Q), .clk(C),  .ce(1'b1), .sr(R)); endmodule
+module  \$_DFF_PP0_ (input D, C, R, output Q); AL_MAP_SEQ #(.DFFMODE("FF"), .REGSET(1'b0), .SRMUX("SR"),  .SRMODE("ASYNC")) _TECHMAP_REPLACE_ (.d(D), .q(Q), .clk(C),  .ce(1'b1), .sr(R)); endmodule
+module  \$_DFF_PP1_ (input D, C, R, output Q); AL_MAP_SEQ #(.DFFMODE("FF"), .REGSET(1'b1), .SRMUX("SR"), . SRMODE("ASYNC")) _TECHMAP_REPLACE_ (.d(D), .q(Q), .clk(C),  .ce(1'b1), .sr(R)); endmodule
 
 module \$_DLATCH_N_ (E, D, Q);
   wire [1023:0] _TECHMAP_DO_ = "simplemap; opt";

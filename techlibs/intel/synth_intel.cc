@@ -71,7 +71,7 @@ struct SynthIntelPass : public ScriptPass {
 		log("        do not flatten design before synthesis\n");
 		log("\n");
 		log("    -retime\n");
-		log("        run 'abc' with -dff option\n");
+		log("        run 'abc' with '-dff -D 1' options\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
@@ -187,10 +187,10 @@ struct SynthIntelPass : public ScriptPass {
 		}
 
 		if (!nobram && check_label("map_bram", "(skip if -nobram)")) {
-                        if (family_opt == "cycloneiv" ||
-                            family_opt == "cycloneive" ||
-                            family_opt == "max10" ||
-                            help_mode) {
+				if (family_opt == "cycloneiv" ||
+				    family_opt == "cycloneive" ||
+				    family_opt == "max10" ||
+				    help_mode) {
 				run("memory_bram -rules +/intel/common/brams_m9k.txt", "(if applicable for family)");
 				run("techmap -map +/intel/common/brams_map_m9k.v", "(if applicable for family)");
 			} else {
@@ -210,7 +210,7 @@ struct SynthIntelPass : public ScriptPass {
 			run("clean -purge");
 			run("setundef -undriven -zero");
 			if (retime || help_mode)
-				run("abc -markgroups -dff", "(only if -retime)");
+				run("abc -markgroups -dff -D 1", "(only if -retime)");
 		}
 
 		if (check_label("map_luts")) {
@@ -224,7 +224,7 @@ struct SynthIntelPass : public ScriptPass {
 		if (check_label("map_cells")) {
 			if (iopads || help_mode)
 				run("iopadmap -bits -outpad $__outpad I:O -inpad $__inpad O:I", "(if -iopads)");
-                        run(stringf("techmap -map +/intel/%s/cells_map.v", family_opt.c_str()));
+			run(stringf("techmap -map +/intel/%s/cells_map.v", family_opt.c_str()));
 			run("dffinit -highlow -ff dffeas q power_up");
 			run("clean -purge");
 		}

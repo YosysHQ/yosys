@@ -42,11 +42,19 @@ void create_ice40_wrapcarry(ice40_wrapcarry_pm &pm)
 
 	cell->setPort("\\A", st.carry->getPort("\\I0"));
 	cell->setPort("\\B", st.carry->getPort("\\I1"));
-	cell->setPort("\\CI", st.carry->getPort("\\CI"));
+	auto CI = st.carry->getPort("\\CI");
+	cell->setPort("\\CI", CI);
 	cell->setPort("\\CO", st.carry->getPort("\\CO"));
 
 	cell->setPort("\\I0", st.lut->getPort("\\I0"));
-	cell->setPort("\\I3", st.lut->getPort("\\I3"));
+	auto I3 = st.lut->getPort("\\I3");
+	if (pm.sigmap(CI) == pm.sigmap(I3)) {
+		cell->setParam("\\I3_IS_CI", State::S1);
+		I3 = State::Sx;
+	}
+	else
+		cell->setParam("\\I3_IS_CI", State::S0);
+	cell->setPort("\\I3", I3);
 	cell->setPort("\\O", st.lut->getPort("\\O"));
 	cell->setParam("\\LUT", st.lut->getParam("\\LUT_INIT"));
 
@@ -118,7 +126,8 @@ struct Ice40WrapCarryPass : public Pass {
 					auto lut = module->addCell(lut_name, ID($lut));
 					lut->setParam(ID(WIDTH), 4);
 					lut->setParam(ID(LUT), cell->getParam(ID(LUT)));
-					lut->setPort(ID(A), {cell->getPort(ID(I0)), cell->getPort(ID(A)), cell->getPort(ID(B)), cell->getPort(ID(I3)) });
+					auto I3 = cell->getPort(cell->getParam(ID(I3_IS_CI)).as_bool() ? ID(CI) : ID(I3));
+					lut->setPort(ID(A), { I3, cell->getPort(ID(B)), cell->getPort(ID(A)), cell->getPort(ID(I0)) });
 					lut->setPort(ID(Y), cell->getPort(ID(O)));
 
 					Const src;

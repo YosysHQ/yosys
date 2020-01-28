@@ -1,5 +1,6 @@
 // ---------------------------------------
 
+(* lib_whitebox *)
 module LUT4(input A, B, C, D, output Z);
     parameter [15:0] INIT = 16'h0000;
     wire [7:0] s3 = D ?     INIT[15:8] :     INIT[7:0];
@@ -31,13 +32,8 @@ module CCU2C(
 
 	// First half
 	wire LUT4_0, LUT2_0;
-`ifdef _ABC
-	assign LUT4_0 = INIT0[{D0, C0, B0, A0}];
-	assign LUT2_0 = INIT0[{2'b00, B0, A0}];
-`else
 	LUT4 #(.INIT(INIT0)) lut4_0(.A(A0), .B(B0), .C(C0), .D(D0), .Z(LUT4_0));
 	LUT2 #(.INIT(INIT0[3:0])) lut2_0(.A(A0), .B(B0), .Z(LUT2_0));
-`endif
 	wire gated_cin_0 = (INJECT1_0 == "YES") ? 1'b0 : CIN;
 	assign S0 = LUT4_0 ^ gated_cin_0;
 
@@ -46,13 +42,8 @@ module CCU2C(
 
 	// Second half
 	wire LUT4_1, LUT2_1;
-`ifdef _ABC
-	assign LUT4_1 = INIT1[{D1, C1, B1, A1}];
-	assign LUT2_1 = INIT1[{2'b00, B1, A1}];
-`else
 	LUT4 #(.INIT(INIT1)) lut4_1(.A(A1), .B(B1), .C(C1), .D(D1), .Z(LUT4_1));
 	LUT2 #(.INIT(INIT1[3:0])) lut2_1(.A(A1), .B(B1), .Z(LUT2_1));
-`endif
 	wire gated_cin_1 = (INJECT1_1 == "YES") ? 1'b0 : cout_0;
 	assign S1 = LUT4_1 ^ gated_cin_1;
 
@@ -209,6 +200,7 @@ endmodule
 
 // ---------------------------------------
 
+(* lib_whitebox *)
 module LUT2(input A, B, output Z);
     parameter [3:0] INIT = 4'h0;
     wire [1:0] s1 = B ?     INIT[ 3:2] :     INIT[1:0];

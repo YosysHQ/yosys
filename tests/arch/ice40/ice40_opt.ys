@@ -1,24 +1,4 @@
 read_verilog -icells -formal <<EOT
-module \$__ICE40_CARRY_WRAPPER (output CO, O, input A, B, CI, I0, I3);
-  parameter LUT = 0;
-  SB_CARRY carry (
-    .I0(A),
-    .I1(B),
-    .CI(CI),
-    .CO(CO)
-  );
-  \$lut #(
-    .WIDTH(4),
-    .LUT(LUT)
-  ) lut (
-    .A({I0,A,B,I3}),
-    .Y(O)
-  );
-endmodule
-EOT
-design -stash unmap
-
-read_verilog -icells -formal <<EOT
 module top(input CI, I0, output [1:0] CO, output O);
     wire A = 1'b0, B = 1'b0;
 	\$__ICE40_CARRY_WRAPPER #(
@@ -26,13 +6,14 @@ module top(input CI, I0, output [1:0] CO, output O);
 		//    A[1]: 1100 1100 1100 1100
 		//    A[2]: 1111 0000 1111 0000
 		//    A[3]: 1111 1111 0000 0000
-		.LUT(~16'b 0110_1001_1001_0110)
+		.LUT(~16'b 0110_1001_1001_0110),
+		.I3_IS_CI(1'b1)
 	) u0 (
 		.A(A),
 		.B(B),
 		.CI(CI),
 		.I0(I0),
-		.I3(CI),
+		.I3(1'bx),
 		.CO(CO[0]),
 		.O(O)
 	);
@@ -40,7 +21,7 @@ module top(input CI, I0, output [1:0] CO, output O);
 endmodule
 EOT
 
-equiv_opt -assert -map %unmap -map +/ice40/cells_sim.v ice40_opt
+equiv_opt -assert -map +/ice40/abc9_model.v -map +/ice40/cells_sim.v ice40_opt
 design -load postopt
 select -assert-count 1 t:*
 select -assert-count 1 t:$lut
@@ -105,3 +86,33 @@ select -assert-count 1 t:SB_LUT4
 select -assert-count 1 t:SB_CARRY
 select -assert-count 1 t:SB_CARRY a:keep %i
 select -assert-count 1 t:SB_CARRY c:carry %i
+
+
+design -reset
+read_verilog -icells <<EOT
+module top(input I3, I2, I1, I0, output O, O2);
+	SB_LUT4 #(
+		.LUT_INIT(8'b 1001_0110)
+	) u0 (
+		.I0(I0),
+		.I1(I1),
+		.I2(I2),
+		.I3(),
+		.O(O)
+	);
+	wire CO;
+	\$__ICE40_CARRY_WRAPPER #(
+		.LUT(~8'b 1001_0110),
+		.I3_IS_CI(1'b0)
+	) u1 (
+		.A(1'b0),
+		.B(1'b0),
+		.CI(1'b0),
+		.I0(),
+		.I3(),
+		.CO(CO),
+		.O(O2)
+	);
+endmodule
+EOT
+ice40_opt

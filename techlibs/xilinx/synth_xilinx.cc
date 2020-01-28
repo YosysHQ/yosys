@@ -26,12 +26,15 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-#define XC7_WIRE_DELAY 300 // Number with which ABC will map a 6-input gate
-                           // to one LUT6 (instead of a LUT5 + LUT2)
-
 struct SynthXilinxPass : public ScriptPass
 {
 	SynthXilinxPass() : ScriptPass("synth_xilinx", "synthesis for Xilinx FPGAs") { }
+
+	void on_register() YS_OVERRIDE
+	{
+		RTLIL::constpad["synth_xilinx.abc9.xc7.W"] = "300"; // Number with which ABC will map a 6-input gate
+								    // to one LUT6 (instead of a LUT5 + LUT2)
+	}
 
 	void help() YS_OVERRIDE
 	{
@@ -64,7 +67,7 @@ struct SynthXilinxPass : public ScriptPass
 		log("        (this feature is experimental and incomplete)\n");
 		log("\n");
 		log("    -ise\n");
-		log("        generate an output netlist suitable for ISE (enables -iopad)\n");
+		log("        generate an output netlist suitable for ISE\n");
 		log("\n");
 		log("    -nobram\n");
 		log("        do not use block RAM cells in output netlist\n");
@@ -84,11 +87,9 @@ struct SynthXilinxPass : public ScriptPass
 		log("    -nodsp\n");
 		log("        do not use DSP48E1s to implement multipliers and associated logic\n");
 		log("\n");
-		log("    -iopad\n");
-		log("        enable I/O buffer insertion (selected automatically by -ise)\n");
-		log("\n");
 		log("    -noiopad\n");
-		log("        disable I/O buffer insertion (only useful with -ise)\n");
+		log("        disable I/O buffer insertion (useful for hierarchical or \n");
+		log("        out-of-context flows)\n");
 		log("\n");
 		log("    -noclkbuf\n");
 		log("        disable automatic clock buffer insertion\n");
@@ -109,8 +110,12 @@ struct SynthXilinxPass : public ScriptPass
 		log("    -flatten\n");
 		log("        flatten design before synthesis\n");
 		log("\n");
+		log("    -dff\n");
+		log("        run 'abc'/'abc9' with -dff option\n");
+		log("\n");
 		log("    -retime\n");
-		log("        run 'abc' with -dff option\n");
+		log("        run 'abc' with '-D 1' option to enable flip-flop retiming.\n");
+		log("        implies -dff.\n");
 		log("\n");
 		log("    -abc9\n");
 		log("        use new ABC9 flow (EXPERIMENTAL)\n");
@@ -122,7 +127,8 @@ struct SynthXilinxPass : public ScriptPass
 	}
 
 	std::string top_opt, edif_file, blif_file, family;
-	bool flatten, retime, vpr, ise, iopad, noiopad, noclkbuf, nobram, nolutram, nosrl, nocarry, nowidelut, nodsp, uram, abc9;
+	bool flatten, retime, vpr, ise, noiopad, noclkbuf, nobram, nolutram, nosrl, nocarry, nowidelut, nodsp, uram;
+	bool abc9, dff_mode;
 	bool flatten_before_abc;
 	int widemux;
 
@@ -136,7 +142,6 @@ struct SynthXilinxPass : public ScriptPass
 		retime = false;
 		vpr = false;
 		ise = false;
-		iopad = false;
 		noiopad = false;
 		noclkbuf = false;
 		nocarry = false;
@@ -148,6 +153,7 @@ struct SynthXilinxPass : public ScriptPass
 		nodsp = false;
 		uram = false;
 		abc9 = false;
+		dff_mode = false;
 		flatten_before_abc = false;
 		widemux = 0;
 	}
@@ -193,6 +199,7 @@ struct SynthXilinxPass : public ScriptPass
 				continue;
 			}
 			if (args[argidx] == "-retime") {
+				dff_mode = true;
 				retime = true;
 				continue;
 			}
@@ -213,7 +220,6 @@ struct SynthXilinxPass : public ScriptPass
 				continue;
 			}
 			if (args[argidx] == "-iopad") {
-				iopad = true;
 				continue;
 			}
 			if (args[argidx] == "-noiopad") {
@@ -256,6 +262,10 @@ struct SynthXilinxPass : public ScriptPass
 				uram = true;
 				continue;
 			}
+			if (args[argidx] == "-dff") {
+				dff_mode = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -282,7 +292,6 @@ struct SynthXilinxPass : public ScriptPass
 
 	void script() YS_OVERRIDE
 	{
-		bool do_iopad = iopad || (ise && !noiopad);
 		std::string ff_map_file;
 		if (help_mode)
 			ff_map_file = "+/xilinx/{family}_ff_map.v";
@@ -292,10 +301,11 @@ struct SynthXilinxPass : public ScriptPass
 			ff_map_file = "+/xilinx/xc7_ff_map.v";
 
 		if (check_label("begin")) {
+			std::string read_args;
 			if (vpr)
-				run("read_verilog -lib -D_EXPLICIT_CARRY +/xilinx/cells_sim.v");
-			else
-				run("read_verilog -lib +/xilinx/cells_sim.v");
+				read_args += " -D_EXPLICIT_CARRY";
+			read_args += " -lib +/xilinx/cells_sim.v";
+			run("read_verilog" + read_args);
 
 			run("read_verilog -lib +/xilinx/cells_xtra.v");
 
@@ -306,7 +316,10 @@ struct SynthXilinxPass : public ScriptPass
 			run("proc");
 			if (flatten || help_mode)
 				run("flatten", "(with '-flatten')");
+			active_design->scratchpad_unset("tribuf.added_something");
 			run("tribuf -logic");
+			if (noiopad && active_design->scratchpad_get_bool("tribuf.added_something"))
+				log_error("Tristate buffers are unsupported without the '-iopad' option.\n");
 			run("deminout");
 			run("opt_expr");
 			run("opt_clean");
@@ -387,7 +400,10 @@ struct SynthXilinxPass : public ScriptPass
 				run("opt_expr -fine");
 				run("wreduce");
 				run("select -clear");
-				run("xilinx_dsp");
+				if (help_mode)
+					run("xilinx_dsp -family <family>");
+				else
+					run("xilinx_dsp -family " + family);
 				run("chtype -set $mul t:$__soft_mul");
 			}
 		}
@@ -444,6 +460,16 @@ struct SynthXilinxPass : public ScriptPass
 		}
 
 		if (check_label("map_ffram")) {
+			// Required for dffsr2dff to work.
+			run("simplemap t:$dff t:$adff t:$mux");
+			// Needs to be done before opt -mux_bool happens.
+			run("dffsr2dff");
+			if (help_mode)
+				run("dff2dffs [-match-init]", "(-match-init for xc6s only)");
+			else if (family == "xc6s")
+				run("dff2dffs -match-init");
+			else
+				run("dff2dffs");
 			if (widemux > 0)
 				run("opt -fast -mux_bool -undriven -fine"); // Necessary to omit -mux_undef otherwise muxcover
 									    // performs less efficiently
@@ -453,14 +479,11 @@ struct SynthXilinxPass : public ScriptPass
 		}
 
 		if (check_label("fine")) {
-			run("dffsr2dff");
-			run("dff2dffe");
+			run("dff2dffe -direct-match $_DFF_* -direct-match $__DFFS_*");
 			if (help_mode) {
-				run("simplemap t:$mux", "         ('-widemux' only)");
 				run("muxcover <internal options>, ('-widemux' only)");
 			}
 			else if (widemux > 0) {
-				run("simplemap t:$mux");
 				constexpr int cost_mux2 = 100;
 				std::string muxcover_args = stringf(" -nodecode -mux2=%d", cost_mux2);
 				switch (widemux) {
@@ -498,8 +521,6 @@ struct SynthXilinxPass : public ScriptPass
 				techmap_args += " -map +/xilinx/arith_map.v";
 				if (vpr)
 					techmap_args += " -D _EXPLICIT_CARRY";
-				else if (abc9)
-					techmap_args += " -D _CLB_CARRY";
 			}
 			run("techmap " + techmap_args);
 			run("opt -fast");
@@ -507,8 +528,8 @@ struct SynthXilinxPass : public ScriptPass
 
 		if (check_label("map_cells")) {
 			// Needs to be done before logic optimization, so that inverters (OE vs T) are handled.
-			if (help_mode || do_iopad)
-				run("iopadmap -bits -outpad OBUF I:O -inpad IBUF O:I -toutpad $__XILINX_TOUTPAD OE:I:O -tinoutpad $__XILINX_TINOUTPAD OE:O:I:IO A:top", "(only if '-iopad' or '-ise' and not '-noiopad')");
+			if (help_mode || !noiopad)
+				run("iopadmap -bits -outpad OBUF I:O -inpad IBUF O:I -toutpad $__XILINX_TOUTPAD OE:I:O -tinoutpad $__XILINX_TINOUTPAD OE:O:I:IO A:top", "(only if not '-noiopad')");
 			std::string techmap_args = "-map +/techmap.v -map +/xilinx/cells_map.v";
 			if (widemux > 0)
 				techmap_args += stringf(" -D MIN_MUX_INPUTS=%d", widemux);
@@ -527,27 +548,42 @@ struct SynthXilinxPass : public ScriptPass
 			if (flatten_before_abc)
 				run("flatten");
 			if (help_mode)
-				run("abc -luts 2:2,3,6:5[,10,20] [-dff]", "(option for 'nowidelut'; option for '-retime')");
+				run("abc -luts 2:2,3,6:5[,10,20] [-dff] [-D 1]", "(option for 'nowidelut', '-dff', '-retime')");
 			else if (abc9) {
 				if (family != "xc7")
 					log_warning("'synth_xilinx -abc9' not currently supported for the '%s' family, "
 							"will use timing for 'xc7' instead.\n", family.c_str());
-				run("techmap -map +/xilinx/abc9_map.v -max_iter 1");
+				std::string techmap_args = "-map +/xilinx/abc9_map.v -max_iter 1";
+				if (dff_mode)
+					techmap_args += " -D DFF_MODE";
+				run("techmap " + techmap_args);
 				run("read_verilog -icells -lib +/xilinx/abc9_model.v");
 				std::string abc9_opts = " -box +/xilinx/abc9_xc7.box";
-				abc9_opts += stringf(" -W %d", XC7_WIRE_DELAY);
-				abc9_opts += " -nomfs";
+				auto k = stringf("synth_xilinx.abc9.%s.W", family.c_str());
+				if (active_design->scratchpad.count(k))
+					abc9_opts += stringf(" -W %s", active_design->scratchpad_get_string(k).c_str());
+				else
+					abc9_opts += stringf(" -W %s", RTLIL::constpad.at(k, RTLIL::constpad.at("synth_xilinx.abc9.xc7.W")).c_str());
 				if (nowidelut)
 					abc9_opts += " -lut +/xilinx/abc9_xc7_nowide.lut";
 				else
 					abc9_opts += " -lut +/xilinx/abc9_xc7.lut";
+				if (dff_mode)
+					abc9_opts += " -dff";
 				run("abc9" + abc9_opts);
+				run("techmap -map +/xilinx/abc9_unmap.v");
 			}
 			else {
+				std::string abc_opts;
 				if (nowidelut)
-					run("abc -luts 2:2,3,6:5" + string(retime ? " -dff" : ""));
+					abc_opts += " -luts 2:2,3,6:5";
 				else
-					run("abc -luts 2:2,3,6:5,10,20" + string(retime ? " -dff" : ""));
+					abc_opts += " -luts 2:2,3,6:5,10,20";
+				if (dff_mode)
+					abc_opts += " -dff";
+				if (retime)
+					abc_opts += " -D 1";
+				run("abc" + abc_opts);
 			}
 			run("clean");
 
@@ -557,13 +593,11 @@ struct SynthXilinxPass : public ScriptPass
 				run("xilinx_srl -fixed -minlen 3", "(skip if '-nosrl')");
 			std::string techmap_args = "-map +/xilinx/lut_map.v -map +/xilinx/cells_map.v";
 			if (help_mode)
-				techmap_args += " [-map " + ff_map_file + "]";
-			else if (abc9)
-				techmap_args += " -map +/xilinx/abc9_unmap.v";
-			else
-				techmap_args += " -map " + ff_map_file;
-			run("techmap " + techmap_args);
-			run("clean");
+				techmap_args += stringf("[-map %s]", ff_map_file.c_str());
+			else if (!abc9)
+				techmap_args += stringf(" -map %s", ff_map_file.c_str());
+			run("techmap " + techmap_args, "(only if '-abc9')");
+			run("xilinx_dffopt");
 		}
 
 		if (check_label("finalize")) {
@@ -571,6 +605,7 @@ struct SynthXilinxPass : public ScriptPass
 				run("clkbufmap -buf BUFG O:I ", "(skip if '-noclkbuf')");
 			if (help_mode || ise)
 				run("extractinv -inv INV O:I", "(only if '-ise')");
+			run("clean");
 		}
 
 		if (check_label("check")) {
