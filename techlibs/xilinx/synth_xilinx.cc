@@ -318,7 +318,7 @@ struct SynthXilinxPass : public ScriptPass
 				run("flatten", "(with '-flatten')");
 			active_design->scratchpad_unset("tribuf.added_something");
 			run("tribuf -logic");
-			if (!do_iopad && active_design->scratchpad_get_bool("tribuf.added_something"))
+			if (noiopad && active_design->scratchpad_get_bool("tribuf.added_something"))
 				log_error("Tristate buffers are unsupported without the '-iopad' option.\n");
 			run("deminout");
 			run("opt_expr");
