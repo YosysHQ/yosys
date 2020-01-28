@@ -235,7 +235,6 @@ struct OptReduceWorker
 			log("      New connections: %s = %s\n", log_signal(old_sig_conn.first), log_signal(old_sig_conn.second));
 
 			module->connect(old_sig_conn);
-			module->check();
 
 			did_something = true;
 			total_count++;
@@ -324,6 +323,8 @@ struct OptReduceWorker
 				opt_mux(cell);
 			}
 		}
+
+		module->check();
 	}
 };
 
