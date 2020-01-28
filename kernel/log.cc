@@ -42,7 +42,7 @@ std::vector<FILE*> log_files;
 std::vector<std::ostream*> log_streams;
 std::map<std::string, std::set<std::string>> log_hdump;
 std::vector<std::regex> log_warn_regexes, log_nowarn_regexes, log_werror_regexes;
-std::set<std::string> log_warnings, log_experimentals;
+std::set<std::string> log_warnings, log_experimentals, log_experimentals_ignored;
 int log_warnings_count = 0;
 bool log_hdump_all = false;
 FILE *log_errfile = NULL;
@@ -384,7 +384,7 @@ void log_experimental(const char *format, ...)
 	string s = vstringf(format, ap);
 	va_end(ap);
 
-	if (log_experimentals.count(s) == 0) {
+	if (log_experimentals_ignored.count(s) == 0 && log_experimentals.count(s) == 0) {
 		log_warning("Feature '%s' is experimental.\n", s.c_str());
 		log_experimentals.insert(s);
 	}

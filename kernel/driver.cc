@@ -459,7 +459,7 @@ int main(int argc, char **argv)
 			depsfile = optarg;
 			break;
 		case 'x':
-			log_experimentals.insert(optarg);
+			log_experimentals_ignored.insert(optarg);
 			break;
 		default:
 			fprintf(stderr, "Run '%s -h' for help.\n", argv[0]);
@@ -573,6 +573,10 @@ int main(int argc, char **argv)
 
 		if (log_warnings_count)
 			log("Warnings: %d unique messages, %d total\n", GetSize(log_warnings), log_warnings_count);
+
+		if (!log_experimentals.empty())
+			log("Warnings: %d experimental features used (not excluded with -x).\n", GetSize(log_experimentals));
+
 #ifdef _WIN32
 		log("End of script. Logfile hash: %s\n", hash.c_str());
 #else
