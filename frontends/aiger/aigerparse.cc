@@ -410,7 +410,7 @@ void AigerReader::parse_xaiger()
 				RTLIL::Wire *output_sig = module->wire(stringf("$aiger%d$%d", aiger_autoidx, rootNodeID));
 				log_assert(output_sig);
 				uint32_t nodeID;
-				std::vector<SigBit> input_bits;
+				RTLIL::SigSpec input_sig;
 				for (unsigned j = 0; j < cutLeavesM; ++j) {
 					nodeID = parse_xaiger_literal(f);
 					log_debug2("\t%u\n", nodeID);
@@ -420,10 +420,10 @@ void AigerReader::parse_xaiger()
 					}
 					RTLIL::Wire *wire = module->wire(stringf("$aiger%d$%d", aiger_autoidx, nodeID));
 					log_assert(wire);
-					input_bits.push_back(wire);
+					input_sig.append(wire);
 				}
 				// Reverse input order as fastest input is returned first
-				RTLIL::SigSpec input_sig(std::vector<SigBit>(input_bits.rbegin(), input_bits.rend()));
+				input_sig.reverse();
 				// TODO: Compute LUT mask from AIG in less than O(2 ** input_sig.size())
 				ce.clear();
 				ce.compute_deps(output_sig, input_sig.to_sigbit_pool());
