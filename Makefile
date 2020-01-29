@@ -763,8 +763,7 @@ clean-unit-test:
 	@$(MAKE) -C $(UNITESTPATH) clean
 
 install: $(TARGETS) $(EXTRA_TARGETS)
-	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(BINDIR)
-	$(INSTALL_SUDO) cp $(TARGETS) $(DESTDIR)$(BINDIR)
+	$(INSTALL_SUDO) install -D -t $(DESTDIR)$(BINDIR) $(filter-out libyosys.so,$(TARGETS))
 ifneq ($(filter yosys,$(TARGETS)),)
 	$(INSTALL_SUDO) $(STRIP) -S $(DESTDIR)$(BINDIR)/yosys
 endif
@@ -777,13 +776,11 @@ endif
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(DATDIR)
 	$(INSTALL_SUDO) cp -r share/. $(DESTDIR)$(DATDIR)/.
 ifeq ($(ENABLE_LIBYOSYS),1)
-	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(LIBDIR)
-	$(INSTALL_SUDO) cp libyosys.so $(DESTDIR)$(LIBDIR)/
+	$(INSTALL_SUDO) install -D -t $(DESTDIR)$(LIBDIR) libyosys.so
 	$(INSTALL_SUDO) $(STRIP) -S $(DESTDIR)$(LIBDIR)/libyosys.so
 ifeq ($(ENABLE_PYOSYS),1)
-	$(INSTALL_SUDO) mkdir -p $(PYTHON_DESTDIR)/pyosys
-	$(INSTALL_SUDO) cp libyosys.so $(PYTHON_DESTDIR)/pyosys/
-	$(INSTALL_SUDO) cp misc/__init__.py $(PYTHON_DESTDIR)/pyosys/
+	$(INSTALL_SUDO) install -Dm644 -t $(PYTHON_DESTDIR)/pyosys/ misc/__init__.py
+	$(INSTALL_SUDO) ln -s $(LIBDIR)/libyosys.so $(PYTHON_DESTDIR)/pyosys/
 endif
 endif
 
