@@ -44,9 +44,10 @@ struct OptReduceWorker
 		cells.erase(cell);
 
 		RTLIL::SigSpec sig_a = assign_map(cell->getPort(ID::A));
+		sig_a.sort_and_unify();
 		pool<RTLIL::SigBit> new_sig_a_bits;
 
-		for (auto &bit : sig_a.to_sigbit_set())
+		for (auto &bit : sig_a)
 		{
 			if (bit == RTLIL::State::S0) {
 				if (cell->type == ID($reduce_and)) {
@@ -86,6 +87,7 @@ struct OptReduceWorker
 		}
 
 		RTLIL::SigSpec new_sig_a(new_sig_a_bits);
+		new_sig_a.sort_and_unify();
 
 		if (new_sig_a != sig_a || sig_a.size() != cell->getPort(ID::A).size()) {
 			log("    New input vector for %s cell %s: %s\n", cell->type.c_str(), cell->name.c_str(), log_signal(new_sig_a));
