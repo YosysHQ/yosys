@@ -530,7 +530,7 @@ struct SynthXilinxPass : public ScriptPass
 		if (check_label("map_cells")) {
 			// Needs to be done before logic optimization, so that inverters (OE vs T) are handled.
 			if (help_mode || !noiopad)
-				run("iopadmap -bits -outpad OBUF I:O -inpad IBUF O:I -toutpad $__XILINX_TOUTPAD OE:I:O -tinoutpad $__XILINX_TINOUTPAD OE:O:I:IO A:top", "(only if not '-noiopad')");
+				run("iopadmap -bits -outpad OBUF I:O -inpad IBUF O:I -toutpad $__XILINX_TOUTPAD OE:I:O -tinoutpad $__XILINX_TINOUTPAD OE:O:I:IO A:top", "(skip if '-noiopad')");
 			std::string techmap_args = "-map +/techmap.v -map +/xilinx/cells_map.v";
 			if (widemux > 0)
 				techmap_args += stringf(" -D MIN_MUX_INPUTS=%d", widemux);
@@ -593,17 +593,15 @@ struct SynthXilinxPass : public ScriptPass
 			if (!nosrl || help_mode)
 				run("xilinx_srl -fixed -minlen 3", "(skip if '-nosrl')");
 			std::string techmap_args = "-map +/xilinx/lut_map.v -map +/xilinx/cells_map.v";
-			if (help_mode)
-				techmap_args += stringf("[-map %s]", ff_map_file.c_str());
-			else if (!abc9)
+			if (help_mode || !abc9)
 				techmap_args += stringf(" -map %s", ff_map_file.c_str());
-			run("techmap " + techmap_args, "(only if '-abc9')");
+			run("techmap " + techmap_args);
 			run("xilinx_dffopt");
 		}
 
 		if (check_label("finalize")) {
 			if (help_mode || !noclkbuf)
-				run("clkbufmap -buf BUFG O:I ", "(skip if '-noclkbuf')");
+				run("clkbufmap -buf BUFG O:I", "(skip if '-noclkbuf')");
 			if (help_mode || ise)
 				run("extractinv -inv INV O:I", "(only if '-ise')");
 			run("clean");
