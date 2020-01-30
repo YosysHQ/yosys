@@ -2411,7 +2411,7 @@ struct VerificPass : public Pass {
 			else
 			{
 				if (argidx == GetSize(args))
-					log_cmd_error("No top module specified.\n");
+					cmd_error(args, argidx, "No top module specified.\n");
 
 				Array veri_modules, vhdl_units;
 				for (; argidx < GetSize(args); argidx++)
@@ -2501,7 +2501,7 @@ struct VerificPass : public Pass {
 			goto check_error;
 		}
 
-		log_cmd_error("Missing or unsupported mode parameter.\n");
+		cmd_error(args, argidx, "Missing or unsupported mode parameter.\n");
 
 	check_error:
 		if (!verific_error_msg.empty())
@@ -2574,14 +2574,14 @@ struct ReadPass : public Pass {
 		static bool use_verific = verific_available;
 
 		if (args.size() < 2 || args[1][0] != '-')
-			log_cmd_error("Missing mode parameter.\n");
+			cmd_error(args, 1, "Missing mode parameter.\n");
 
 		if (args[1] == "-verific" || args[1] == "-noverific") {
 			if (args.size() != 2)
-				log_cmd_error("Additional arguments to -verific/-noverific.\n");
+				cmd_error(args, 1, "Additional arguments to -verific/-noverific.\n");
 			if (args[1] == "-verific") {
 				if (!verific_available)
-					log_cmd_error("This version of Yosys is built without Verific support.\n");
+					cmd_error(args, 1, "This version of Yosys is built without Verific support.\n");
 				use_verific = true;
 			} else {
 				use_verific = false;
@@ -2590,7 +2590,7 @@ struct ReadPass : public Pass {
 		}
 
 		if (args.size() < 3)
-			log_cmd_error("Missing file name parameter.\n");
+			cmd_error(args, 3, "Missing file name parameter.\n");
 
 		if (args[1] == "-vlog95" || args[1] == "-vlog2k") {
 			if (use_verific) {
@@ -2622,7 +2622,7 @@ struct ReadPass : public Pass {
 				args[0] = "verific";
 				Pass::call(design, args);
 			} else {
-				log_cmd_error("This version of Yosys is built without Verific support.\n");
+				cmd_error(args, 1, "This version of Yosys is built without Verific support.\n");
 			}
 			return;
 		}
@@ -2669,7 +2669,7 @@ struct ReadPass : public Pass {
 			return;
 		}
 
-		log_cmd_error("Missing or unsupported mode parameter.\n");
+		cmd_error(args, 1, "Missing or unsupported mode parameter.\n");
 	}
 } ReadPass;
 
