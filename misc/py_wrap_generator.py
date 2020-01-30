@@ -721,6 +721,7 @@ class WClass:
 	name = None
 	namespace = None
 	link_type = None
+	base_class = None
 	id_ = None
 	string_id = None
 	hash_id = None
@@ -732,6 +733,7 @@ class WClass:
 	def __init__(self, name, link_type, id_, string_id = None, hash_id = None, needs_clone = False):
 		self.name = name
 		self.namespace = None
+		self.base_class = None
 		self.link_type = link_type
 		self.id_ = id_
 		self.string_id = string_id
@@ -1971,9 +1973,21 @@ def parse_header(source):
 			for namespace in impl_namespaces:
 				complete_namespace += "::" + namespace
 			debug("\tFound " + struct_name + " in " + complete_namespace,2)
+
+			base_class_name = None
+			if len(ugly_line.split(" : ")) > 1: # class is derived
+				deriv_str = ugly_line.split(" : ")[1]
+				if len(deriv_str.split("::")) > 1: # namespace of base class is given
+					base_class_name = deriv_str.split("::", 1)[1]
+				else:
+					base_class_name = deriv_str.split(" ")[0]
+				debug("\t  " + struct_name + " is derived from " + base_class_name,2)
+			base_class = class_by_name(base_class_name)
+
 			class_ = (class_by_name(struct_name), ugly_line.count("{"))#calc_ident(line))
 			if struct_name in classnames:
 				class_[0].namespace = complete_namespace
+				class_[0].base_class = base_class
 			i += 1
 			continue
 
@@ -2142,6 +2156,21 @@ def expand_functions():
 				new_funs.extend(expand_function(fun))
 			class_.found_funs = new_funs
 
+def inherit_members():
+	for source in sources:
+		for class_ in source.classes:
+			if class_.base_class:
+				base_funs = copy.deepcopy(class_.base_class.found_funs)
+				for fun in base_funs:
+					fun.member_of = class_
+					fun.namespace = class_.namespace
+				base_vars = copy.deepcopy(class_.base_class.found_vars)
+				for var in base_vars:
+					var.member_of = class_
+					var.namespace = class_.namespace
+				class_.found_funs.extend(base_funs)
+				class_.found_vars.extend(base_vars)
+
 def clean_duplicates():
 	for source in sources:
 		for class_ in source.classes:
@@ -2178,6 +2207,7 @@ def gen_wrappers(filename, debug_level_ = 0):
 		parse_header(source)
 
 	expand_functions()
+	inherit_members()
 	clean_duplicates()
 
 	import shutil
