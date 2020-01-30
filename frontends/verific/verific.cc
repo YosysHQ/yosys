@@ -539,6 +539,14 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 		return true;
 	}
 
+	if (inst->Type() == OPER_REDUCE_NAND) {
+		Wire *tmp = module->addWire(NEW_ID);
+		cell = module->addReduceAnd(inst_name, IN, tmp, SIGNED);
+		module->addNot(NEW_ID, tmp, net_map_at(inst->GetOutput()));
+		import_attributes(cell->attributes, inst);
+		return true;
+	}
+
 	if (inst->Type() == OPER_REDUCE_OR) {
 		cell = module->addReduceOr(inst_name, IN, net_map_at(inst->GetOutput()), SIGNED);
 		import_attributes(cell->attributes, inst);
