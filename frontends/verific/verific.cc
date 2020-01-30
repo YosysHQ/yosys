@@ -1891,6 +1891,9 @@ void verific_import(Design *design, const std::map<std::string,std::string> &par
 	if (!verific_error_msg.empty())
 		log_error("%s\n", verific_error_msg.c_str());
 
+	for (auto nl : nl_todo)
+	    nl->ChangePortBusStructures(1 /* hierarchical */);
+
 	VerificExtNets worker;
 	for (auto nl : nl_todo)
 		worker.run(nl);
@@ -2469,6 +2472,9 @@ struct VerificPass : public Pass {
 				for (auto nl : nl_todo)
 					worker.run(nl);
 			}
+
+			for (auto nl : nl_todo)
+				nl->ChangePortBusStructures(1 /* hierarchical */);
 
 			if (!dumpfile.empty()) {
 				VeriWrite veri_writer;
