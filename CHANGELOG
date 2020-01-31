@@ -53,12 +53,13 @@ Yosys 0.9 .. Yosys 0.9-dev
     - Added support for flip-flops with synchronous reset to synth_xilinx
     - Added support for flip-flops with reset and enable to synth_xilinx
     - Added "check -mapped"
-    - Added checking of SystemVerilog always block types (always_comb,
+    - Added checking of SystemVerilog always block types (always_comb, 
       always_latch and always_ff)
     - Added "xilinx_dffopt" pass
     - Added "scratchpad" pass
     - Added "abc9 -dff"
     - Added "synth_xilinx -dff"
+    - Improved support of $readmem[hb] file inclusion which is now relative to the Verilog file
 
 Yosys 0.8 .. Yosys 0.9
 ----------------------
