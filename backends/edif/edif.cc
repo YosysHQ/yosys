@@ -246,19 +246,25 @@ struct EdifBackend : public Backend {
 					else if (!ct.cell_input(cell_it.first, port_it.first))
 						dir = "OUTPUT";
 				}
-				if (port_it.second == 1)
+				int width = port_it.second;
+				int start = 0;
+				bool upto = false;
+				auto m = design->module(cell_it.first);
+				if (m) {
+					auto w = m->wire(port_it.first);
+					if (w) {
+						width = GetSize(w);
+						start = w->start_offset;
+						upto = w->upto;
+					}
+				}
+				if (width == 1)
 					*f << stringf("          (port %s (direction %s))\n", EDIF_DEF(port_it.first), dir);
 				else {
-					int b[2] = {port_it.second-1, 0};
-					auto m = design->module(cell_it.first);
-					if (m) {
-						auto w = m->wire(port_it.first);
-						if (w) {
-							b[w->upto ? 0 : 1] = w->start_offset;
-							b[w->upto ? 1 : 0] = w->start_offset+GetSize(w)-1;
-						}
-					}
-					*f << stringf("          (port (array %s %d) (direction %s))\n", EDIF_DEFR(port_it.first, port_rename, b[0], b[1]), port_it.second, dir);
+					int b[2];
+					b[upto ? 0 : 1] = start;
+					b[upto ? 1 : 0] = start+width-1;
+					*f << stringf("          (port (array %s %d) (direction %s))\n", EDIF_DEFR(port_it.first, port_rename, b[0], b[1]), width, dir);
 				}
 			}
 			*f << stringf("        )\n");
@@ -390,18 +396,23 @@ struct EdifBackend : public Backend {
 						if (sig[i].wire == NULL && sig[i] != RTLIL::State::S0 && sig[i] != RTLIL::State::S1)
 							log_warning("Bit %d of cell port %s.%s.%s driven by %s will be left unconnected in EDIF output.\n",
 									i, log_id(module), log_id(cell), log_id(p.first), log_signal(sig[i]));
-						else if (sig.size() == 1)
-							net_join_db[sig[i]].insert(make_pair(stringf("(portRef %s (instanceRef %s))", EDIF_REF(p.first), EDIF_REF(cell->name)), cell->output(p.first)));
 						else {
 							int member_idx = GetSize(sig)-i-1;
 							auto m = design->module(cell->type);
+							int width = sig.size();
 							if (m) {
 								auto w = m->wire(p.first);
-								if (w)
+								if (w) {
 									member_idx = GetSize(w)-i-1;
+									width = GetSize(w);
+								}
 							}
-							net_join_db[sig[i]].insert(make_pair(stringf("(portRef (member %s %d) (instanceRef %s))",
-									EDIF_REF(p.first), member_idx, EDIF_REF(cell->name)), cell->output(p.first)));
+							if (width == 1)
+								net_join_db[sig[i]].insert(make_pair(stringf("(portRef %s (instanceRef %s))", EDIF_REF(p.first), EDIF_REF(cell->name)), cell->output(p.first)));
+							else {
+								net_join_db[sig[i]].insert(make_pair(stringf("(portRef (member %s %d) (instanceRef %s))",
+										EDIF_REF(p.first), member_idx, EDIF_REF(cell->name)), cell->output(p.first)));
+							}
 						}
 				}
 			}
