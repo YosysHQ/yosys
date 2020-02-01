@@ -2894,7 +2894,7 @@ AstNode *AstNode::readmem(bool is_readmemh, std::string mem_filename, AstNode *m
 	} else {
 		yosys_input_files.insert(mem_filename);
 	}
-	if (f.fail())
+	if (f.fail() || strlen(mem_filename.c_str()) == 0)
 		log_file_error(filename, linenum, "Can not open file `%s` for %s.\n", mem_filename.c_str(), str.c_str());
 
 	log_assert(GetSize(memory->children) == 2 && memory->children[1]->type == AST_RANGE && memory->children[1]->range_valid);
