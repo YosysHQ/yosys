@@ -2887,9 +2887,13 @@ AstNode *AstNode::readmem(bool is_readmemh, std::string mem_filename, AstNode *m
 
 	std::ifstream f;
 	std::string path = filename.substr(0, filename.find_last_of("\\/")+1);
-	f.open(path + mem_filename.c_str());
-	yosys_input_files.insert(mem_filename);
-
+	f.open(mem_filename.c_str());
+	if (f.fail()) {
+		f.open(path + mem_filename.c_str());
+		yosys_input_files.insert(path + mem_filename);
+	} else {
+		yosys_input_files.insert(mem_filename);
+	}
 	if (f.fail())
 		log_file_error(filename, linenum, "Can not open file `%s` for %s.\n", mem_filename.c_str(), str.c_str());
 
