@@ -46,6 +46,7 @@ IdString RTLIL::ID::Y;
 IdString RTLIL::ID::keep;
 IdString RTLIL::ID::whitebox;
 IdString RTLIL::ID::blackbox;
+dict<std::string, std::string> RTLIL::constpad;
 
 RTLIL::Const::Const()
 {
@@ -783,6 +784,14 @@ namespace {
 			return v;
 		}
 
+		int param_bool(RTLIL::IdString name, bool expected)
+		{
+			int v = param_bool(name);
+			if (v != expected)
+				error(__LINE__);
+			return v;
+		}
+
 		void param_bits(RTLIL::IdString name, int width)
 		{
 			param(name);
@@ -869,13 +878,23 @@ namespace {
 				return;
 			}
 
-			if (cell->type.in(ID($shl), ID($shr), ID($sshl), ID($sshr), ID($shift), ID($shiftx))) {
+			if (cell->type.in(ID($shl), ID($shr), ID($sshl), ID($sshr))) {
+				param_bool(ID(A_SIGNED));
+				param_bool(ID(B_SIGNED), /*expected=*/false);
+				port(ID::A, param(ID(A_WIDTH)));
+				port(ID::B, param(ID(B_WIDTH)));
+				port(ID::Y, param(ID(Y_WIDTH)));
+				check_expected(/*check_matched_sign=*/false);
+				return;
+			}
+
+			if (cell->type.in(ID($shift), ID($shiftx))) {
 				param_bool(ID(A_SIGNED));
 				param_bool(ID(B_SIGNED));
 				port(ID::A, param(ID(A_WIDTH)));
 				port(ID::B, param(ID(B_WIDTH)));
 				port(ID::Y, param(ID(Y_WIDTH)));
-				check_expected(false);
+				check_expected(/*check_matched_sign=*/false);
 				return;
 			}
 
@@ -957,7 +976,7 @@ namespace {
 				port(ID::A, param(ID(A_WIDTH)));
 				port(ID::B, param(ID(B_WIDTH)));
 				port(ID::Y, param(ID(Y_WIDTH)));
-				check_expected(false);
+				check_expected(/*check_matched_sign=*/false);
 				return;
 			}
 
@@ -1875,10 +1894,6 @@ DEF_METHOD(And,      max(sig_a.size(), sig_b.size()), ID($and))
 DEF_METHOD(Or,       max(sig_a.size(), sig_b.size()), ID($or))
 DEF_METHOD(Xor,      max(sig_a.size(), sig_b.size()), ID($xor))
 DEF_METHOD(Xnor,     max(sig_a.size(), sig_b.size()), ID($xnor))
-DEF_METHOD(Shl,      sig_a.size(), ID($shl))
-DEF_METHOD(Shr,      sig_a.size(), ID($shr))
-DEF_METHOD(Sshl,     sig_a.size(), ID($sshl))
-DEF_METHOD(Sshr,     sig_a.size(), ID($sshr))
 DEF_METHOD(Shift,    sig_a.size(), ID($shift))
 DEF_METHOD(Shiftx,   sig_a.size(), ID($shiftx))
 DEF_METHOD(Lt,       1, ID($lt))
@@ -1896,6 +1911,31 @@ DEF_METHOD(Div,      max(sig_a.size(), sig_b.size()), ID($div))
 DEF_METHOD(Mod,      max(sig_a.size(), sig_b.size()), ID($mod))
 DEF_METHOD(LogicAnd, 1, ID($logic_and))
 DEF_METHOD(LogicOr,  1, ID($logic_or))
+#undef DEF_METHOD
+
+#define DEF_METHOD(_func, _y_size, _type) \
+	RTLIL::Cell* RTLIL::Module::add ## _func(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed, const std::string &src) { \
+		RTLIL::Cell *cell = addCell(name, _type);           \
+		cell->parameters[ID(A_SIGNED)] = is_signed;         \
+		cell->parameters[ID(B_SIGNED)] = false;             \
+		cell->parameters[ID(A_WIDTH)] = sig_a.size();       \
+		cell->parameters[ID(B_WIDTH)] = sig_b.size();       \
+		cell->parameters[ID(Y_WIDTH)] = sig_y.size();       \
+		cell->setPort(ID::A, sig_a);                        \
+		cell->setPort(ID::B, sig_b);                        \
+		cell->setPort(ID::Y, sig_y);                        \
+		cell->set_src_attribute(src);                       \
+		return cell;                                        \
+	} \
+	RTLIL::SigSpec RTLIL::Module::_func(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed, const std::string &src) { \
+		RTLIL::SigSpec sig_y = addWire(NEW_ID, _y_size);         \
+		add ## _func(name, sig_a, sig_b, sig_y, is_signed, src); \
+		return sig_y;                                            \
+	}
+DEF_METHOD(Shl,      sig_a.size(), ID($shl))
+DEF_METHOD(Shr,      sig_a.size(), ID($shr))
+DEF_METHOD(Sshl,     sig_a.size(), ID($sshl))
+DEF_METHOD(Sshr,     sig_a.size(), ID($sshr))
 #undef DEF_METHOD
 
 #define DEF_METHOD(_func, _type, _pmux) \

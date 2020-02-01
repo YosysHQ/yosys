@@ -206,7 +206,7 @@ eval_end:
 };
 
 AigerReader::AigerReader(RTLIL::Design *design, std::istream &f, RTLIL::IdString module_name, RTLIL::IdString clk_name, std::string map_filename, bool wideports)
-	: design(design), f(f), clk_name(clk_name), map_filename(map_filename), wideports(wideports)
+	: design(design), f(f), clk_name(clk_name), map_filename(map_filename), wideports(wideports), aiger_autoidx(autoidx++)
 {
 	module = new RTLIL::Module;
 	module->name = module_name;
@@ -255,7 +255,7 @@ end_of_header:
 	else
 		log_abort();
 
-	RTLIL::Wire* n0 = module->wire("\\__0__");
+	RTLIL::Wire* n0 = module->wire(stringf("$aiger%d$0", aiger_autoidx));
 	if (n0)
 		module->connect(n0, State::S0);
 
@@ -271,14 +271,24 @@ end_of_header:
 			if ((c == 'i' && l1 > inputs.size()) || (c == 'l' && l1 > latches.size()) || (c == 'o' && l1 > outputs.size()))
 				log_error("Line %u has invalid symbol position!\n", line_count);
 
+			RTLIL::IdString escaped_s = stringf("\\%s", s.c_str());
 			RTLIL::Wire* wire;
 			if (c == 'i') wire = inputs[l1];
 			else if (c == 'l') wire = latches[l1];
-			else if (c == 'o') wire = outputs[l1];
+			else if (c == 'o') {
+				wire = module->wire(escaped_s);
+				if (wire) {
+					// Could have been renamed by a latch
+					module->swap_names(wire, outputs[l1]);
+					module->connect(outputs[l1], wire);
+					goto next;
+				}
+				wire = outputs[l1];
+			}
 			else if (c == 'b') wire = bad_properties[l1];
 			else log_abort();
 
-			module->rename(wire, stringf("\\%s", s.c_str()));
+			module->rename(wire, escaped_s);
 		}
 		else if (c == 'j' || c == 'f') {
 			// TODO
@@ -293,6 +303,7 @@ end_of_header:
 		}
 		else
 			log_error("Line %u: cannot interpret first character '%c'!\n", line_count, c);
+next:
 		std::getline(f, line); // Ignore up to start of next line
 	}
 
@@ -312,18 +323,18 @@ static uint32_t parse_xaiger_literal(std::istream &f)
 	return from_big_endian(l);
 }
 
-static RTLIL::Wire* createWireIfNotExists(RTLIL::Module *module, unsigned literal)
+RTLIL::Wire* AigerReader::createWireIfNotExists(RTLIL::Module *module, unsigned literal)
 {
 	const unsigned variable = literal >> 1;
 	const bool invert = literal & 1;
-	RTLIL::IdString wire_name(stringf("\\__%d%s__", variable, invert ? "b" : ""));
+	RTLIL::IdString wire_name(stringf("$aiger%d$%d%s", aiger_autoidx, variable, invert ? "b" : ""));
 	RTLIL::Wire *wire = module->wire(wire_name);
 	if (wire) return wire;
 	log_debug2("Creating %s\n", wire_name.c_str());
 	wire = module->addWire(wire_name);
 	wire->port_input = wire->port_output = false;
 	if (!invert) return wire;
-	RTLIL::IdString wire_inv_name(stringf("\\__%d__", variable));
+	RTLIL::IdString wire_inv_name(stringf("$aiger%d$%d", aiger_autoidx, variable));
 	RTLIL::Wire *wire_inv = module->wire(wire_inv_name);
 	if (wire_inv) {
 		if (module->cell(wire_inv_name)) return wire;
@@ -335,12 +346,12 @@ static RTLIL::Wire* createWireIfNotExists(RTLIL::Module *module, unsigned litera
 	}
 
 	log_debug2("Creating %s = ~%s\n", wire_name.c_str(), wire_inv_name.c_str());
-	module->addNotGate(stringf("\\__%d__$not", variable), wire_inv, wire);
+	module->addNotGate(stringf("$not$aiger%d$%d", aiger_autoidx, variable), wire_inv, wire);
 
 	return wire;
 }
 
-void AigerReader::parse_xaiger(const dict<int,IdString> &box_lookup)
+void AigerReader::parse_xaiger()
 {
 	std::string header;
 	f >> header;
@@ -372,108 +383,115 @@ void AigerReader::parse_xaiger(const dict<int,IdString> &box_lookup)
 	else
 		log_abort();
 
-	RTLIL::Wire* n0 = module->wire("\\__0__");
+	RTLIL::Wire* n0 = module->wire(stringf("$aiger%d$0", aiger_autoidx));
 	if (n0)
 		module->connect(n0, State::S0);
 
+	int c = f.get();
+	if (c != 'c')
+		log_error("Line %u: cannot interpret first character '%c'!\n", line_count, c);
+	if (f.peek() == '\n')
+		f.get();
+
 	// Parse footer (symbol table, comments, etc.)
 	std::string s;
-	bool comment_seen = false;
-	for (int c = f.peek(); c != EOF; c = f.peek()) {
-		if (comment_seen || c == 'c') {
-			if (!comment_seen) {
-				f.ignore(1);
-				c = f.peek();
-				comment_seen = true;
-			}
-			if (c == '\n')
-				break;
-			f.ignore(1);
-			// XAIGER extensions
-			if (c == 'm') {
-				uint32_t dataSize YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
-				uint32_t lutNum = parse_xaiger_literal(f);
-				uint32_t lutSize YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
-				log_debug("m: dataSize=%u lutNum=%u lutSize=%u\n", dataSize, lutNum, lutSize);
-				ConstEvalAig ce(module);
-				for (unsigned i = 0; i < lutNum; ++i) {
-					uint32_t rootNodeID = parse_xaiger_literal(f);
-					uint32_t cutLeavesM = parse_xaiger_literal(f);
-					log_debug2("rootNodeID=%d cutLeavesM=%d\n", rootNodeID, cutLeavesM);
-					RTLIL::Wire *output_sig = module->wire(stringf("\\__%d__", rootNodeID));
-					uint32_t nodeID;
-					RTLIL::SigSpec input_sig;
-					for (unsigned j = 0; j < cutLeavesM; ++j) {
-						nodeID = parse_xaiger_literal(f);
-						log_debug2("\t%u\n", nodeID);
-						RTLIL::Wire *wire = module->wire(stringf("\\__%d__", nodeID));
-						log_assert(wire);
-						input_sig.append(wire);
+	for (int c = f.get(); c != EOF; c = f.get()) {
+		// XAIGER extensions
+		if (c == 'm') {
+			uint32_t dataSize YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
+			uint32_t lutNum = parse_xaiger_literal(f);
+			uint32_t lutSize YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
+			log_debug("m: dataSize=%u lutNum=%u lutSize=%u\n", dataSize, lutNum, lutSize);
+			ConstEvalAig ce(module);
+			for (unsigned i = 0; i < lutNum; ++i) {
+				uint32_t rootNodeID = parse_xaiger_literal(f);
+				uint32_t cutLeavesM = parse_xaiger_literal(f);
+				log_debug2("rootNodeID=%d cutLeavesM=%d\n", rootNodeID, cutLeavesM);
+				RTLIL::Wire *output_sig = module->wire(stringf("$aiger%d$%d", aiger_autoidx, rootNodeID));
+				log_assert(output_sig);
+				uint32_t nodeID;
+				RTLIL::SigSpec input_sig;
+				for (unsigned j = 0; j < cutLeavesM; ++j) {
+					nodeID = parse_xaiger_literal(f);
+					log_debug2("\t%u\n", nodeID);
+					if (nodeID == 0) {
+						log_debug("\tLUT '$lut$aiger%d$%d' input %d is constant!\n", aiger_autoidx, rootNodeID, cutLeavesM);
+						continue;
 					}
-					// TODO: Compute LUT mask from AIG in less than O(2 ** input_sig.size())
-					ce.clear();
-					ce.compute_deps(output_sig, input_sig.to_sigbit_pool());
-					RTLIL::Const lut_mask(RTLIL::State::Sx, 1 << input_sig.size());
-					for (int j = 0; j < (1 << cutLeavesM); ++j) {
-						int gray = j ^ (j >> 1);
-						ce.set_incremental(input_sig, RTLIL::Const{gray, static_cast<int>(cutLeavesM)});
-						RTLIL::SigBit o(output_sig);
-						bool success YS_ATTRIBUTE(unused) = ce.eval(o);
-						log_assert(success);
-						log_assert(o.wire == nullptr);
-						lut_mask[gray] = o.data;
-					}
-					RTLIL::Cell *output_cell = module->cell(stringf("\\__%d__$and", rootNodeID));
-					log_assert(output_cell);
-					module->remove(output_cell);
-					module->addLut(stringf("\\__%d__$lut", rootNodeID), input_sig, output_sig, std::move(lut_mask));
+					RTLIL::Wire *wire = module->wire(stringf("$aiger%d$%d", aiger_autoidx, nodeID));
+					log_assert(wire);
+					input_sig.append(wire);
 				}
-			}
-			else if (c == 'r') {
-				uint32_t dataSize YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
-				flopNum = parse_xaiger_literal(f);
-				log_debug("flopNum: %u\n", flopNum);
-				log_assert(dataSize == (flopNum+1) * sizeof(uint32_t));
-				f.ignore(flopNum * sizeof(uint32_t));
-			}
-			else if (c == 'n') {
-				parse_xaiger_literal(f);
-				f >> s;
-				log_debug("n: '%s'\n", s.c_str());
-			}
-			else if (c == 'h') {
-				f.ignore(sizeof(uint32_t));
-				uint32_t version YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
-				log_assert(version == 1);
-				uint32_t ciNum YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
-				log_debug("ciNum = %u\n", ciNum);
-				uint32_t coNum YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
-				log_debug("coNum = %u\n", coNum);
-				piNum = parse_xaiger_literal(f);
-				log_debug("piNum = %u\n", piNum);
-				uint32_t poNum YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
-				log_debug("poNum = %u\n", poNum);
-				uint32_t boxNum = parse_xaiger_literal(f);
-				log_debug("boxNum = %u\n", boxNum);
-				for (unsigned i = 0; i < boxNum; i++) {
-					f.ignore(2*sizeof(uint32_t));
-					uint32_t boxUniqueId = parse_xaiger_literal(f);
-					log_assert(boxUniqueId > 0);
-					uint32_t oldBoxNum = parse_xaiger_literal(f);
-					RTLIL::Cell* cell = module->addCell(stringf("$__box%u__", oldBoxNum), box_lookup.at(boxUniqueId));
-					boxes.emplace_back(cell);
+				// Reverse input order as fastest input is returned first
+				input_sig.reverse();
+				// TODO: Compute LUT mask from AIG in less than O(2 ** input_sig.size())
+				ce.clear();
+				ce.compute_deps(output_sig, input_sig.to_sigbit_pool());
+				RTLIL::Const lut_mask(RTLIL::State::Sx, 1 << GetSize(input_sig));
+				for (int j = 0; j < GetSize(lut_mask); ++j) {
+					int gray = j ^ (j >> 1);
+					ce.set_incremental(input_sig, RTLIL::Const{gray, GetSize(input_sig)});
+					RTLIL::SigBit o(output_sig);
+					bool success YS_ATTRIBUTE(unused) = ce.eval(o);
+					log_assert(success);
+					log_assert(o.wire == nullptr);
+					lut_mask[gray] = o.data;
 				}
-			}
-			else if (c == 'a' || c == 'i' || c == 'o') {
-				uint32_t dataSize = parse_xaiger_literal(f);
-				f.ignore(dataSize);
-			}
-			else {
-				break;
+				RTLIL::Cell *output_cell = module->cell(stringf("$and$aiger%d$%d", aiger_autoidx, rootNodeID));
+				log_assert(output_cell);
+				module->remove(output_cell);
+				module->addLut(stringf("$lut$aiger%d$%d", aiger_autoidx, rootNodeID), input_sig, output_sig, std::move(lut_mask));
 			}
 		}
-		else
-			log_error("Line %u: cannot interpret first character '%c'!\n", line_count, c);
+		else if (c == 'r') {
+			uint32_t dataSize = parse_xaiger_literal(f);
+			flopNum = parse_xaiger_literal(f);
+			log_debug("flopNum = %u\n", flopNum);
+			log_assert(dataSize == (flopNum+1) * sizeof(uint32_t));
+			mergeability.reserve(flopNum);
+			for (unsigned i = 0; i < flopNum; i++)
+				mergeability.emplace_back(parse_xaiger_literal(f));
+		}
+		else if (c == 'n') {
+			parse_xaiger_literal(f);
+			f >> s;
+			log_debug("n: '%s'\n", s.c_str());
+		}
+		else if (c == 'h') {
+			f.ignore(sizeof(uint32_t));
+			uint32_t version YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
+			log_assert(version == 1);
+			uint32_t ciNum YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
+			log_debug("ciNum = %u\n", ciNum);
+			uint32_t coNum YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
+			log_debug("coNum = %u\n", coNum);
+			piNum = parse_xaiger_literal(f);
+			log_debug("piNum = %u\n", piNum);
+			uint32_t poNum YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
+			log_debug("poNum = %u\n", poNum);
+			uint32_t boxNum = parse_xaiger_literal(f);
+			log_debug("boxNum = %u\n", boxNum);
+			for (unsigned i = 0; i < boxNum; i++) {
+				uint32_t boxInputs = parse_xaiger_literal(f);
+				uint32_t boxOutputs = parse_xaiger_literal(f);
+				uint32_t boxUniqueId = parse_xaiger_literal(f);
+				log_assert(boxUniqueId > 0);
+				uint32_t oldBoxNum = parse_xaiger_literal(f);
+				RTLIL::Cell* cell = module->addCell(stringf("$box%u", oldBoxNum), stringf("$__boxid%u", boxUniqueId));
+				cell->setPort("\\i", SigSpec(State::S0, boxInputs));
+				cell->setPort("\\o", SigSpec(State::S0, boxOutputs));
+				cell->attributes["\\abc9_box_seq"] = oldBoxNum;
+				boxes.emplace_back(cell);
+			}
+		}
+		else if (c == 'a' || c == 'i' || c == 'o' || c == 's') {
+			uint32_t dataSize = parse_xaiger_literal(f);
+			f.ignore(dataSize);
+			log_debug("ignoring '%c'\n", c);
+		}
+		else {
+			break;
+		}
 	}
 
 	post_process();
@@ -487,13 +505,15 @@ void AigerReader::parse_aiger_ascii()
 	unsigned l1, l2, l3;
 
 	// Parse inputs
+	int digits = ceil(log10(I));
 	for (unsigned i = 1; i <= I; ++i, ++line_count) {
 		if (!(f >> l1))
 			log_error("Line %u cannot be interpreted as an input!\n", line_count);
 		log_debug2("%d is an input\n", l1);
 		log_assert(!(l1 & 1)); // Inputs can't be inverted
-		RTLIL::Wire *wire = createWireIfNotExists(module, l1);
+		RTLIL::Wire *wire = module->addWire(stringf("$i%0*d", digits, l1 >> 1));
 		wire->port_input = true;
+		module->connect(createWireIfNotExists(module, l1), wire);
 		inputs.push_back(wire);
 	}
 
@@ -507,12 +527,14 @@ void AigerReader::parse_aiger_ascii()
 		clk_wire->port_input = true;
 		clk_wire->port_output = false;
 	}
+	digits = ceil(log10(L));
 	for (unsigned i = 0; i < L; ++i, ++line_count) {
 		if (!(f >> l1 >> l2))
 			log_error("Line %u cannot be interpreted as a latch!\n", line_count);
 		log_debug2("%d %d is a latch\n", l1, l2);
 		log_assert(!(l1 & 1));
-		RTLIL::Wire *q_wire = createWireIfNotExists(module, l1);
+		RTLIL::Wire *q_wire = module->addWire(stringf("$l%0*d", digits, l1 >> 1));
+		module->connect(createWireIfNotExists(module, l1), q_wire);
 		RTLIL::Wire *d_wire = createWireIfNotExists(module, l2);
 
 		if (clk_wire)
@@ -543,25 +565,18 @@ void AigerReader::parse_aiger_ascii()
 	}
 
 	// Parse outputs
+	digits = ceil(log10(O));
 	for (unsigned i = 0; i < O; ++i, ++line_count) {
 		if (!(f >> l1))
 			log_error("Line %u cannot be interpreted as an output!\n", line_count);
 
 		log_debug2("%d is an output\n", l1);
-		const unsigned variable = l1 >> 1;
-		const bool invert = l1 & 1;
-		RTLIL::IdString wire_name(stringf("\\__%d%s__", variable, invert ? "b" : "")); // FIXME: is "b" the right suffix?
-		RTLIL::Wire *wire = module->wire(wire_name);
-		if (!wire)
-			wire = createWireIfNotExists(module, l1);
-		else if (wire->port_input || wire->port_output) {
-			RTLIL::Wire *new_wire = module->addWire(NEW_ID);
-			module->connect(new_wire, wire);
-			wire = new_wire;
-		}
+		RTLIL::Wire *wire = module->addWire(stringf("$o%0*d", digits, i));
 		wire->port_output = true;
+		module->connect(wire, createWireIfNotExists(module, l1));
 		outputs.push_back(wire);
 	}
+	//std::getline(f, line); // Ignore up to start of next line
 
 	// Parse bad properties
 	for (unsigned i = 0; i < B; ++i, ++line_count) {
@@ -573,6 +588,8 @@ void AigerReader::parse_aiger_ascii()
 		wire->port_output = true;
 		bad_properties.push_back(wire);
 	}
+	//if (B > 0)
+	//	std::getline(f, line); // Ignore up to start of next line
 
 	// TODO: Parse invariant constraints
 	for (unsigned i = 0; i < C; ++i, ++line_count)
@@ -596,7 +613,7 @@ void AigerReader::parse_aiger_ascii()
 		RTLIL::Wire *o_wire = createWireIfNotExists(module, l1);
 		RTLIL::Wire *i1_wire = createWireIfNotExists(module, l2);
 		RTLIL::Wire *i2_wire = createWireIfNotExists(module, l3);
-		module->addAndGate(o_wire->name.str() + "$and", i1_wire, i2_wire, o_wire);
+		module->addAndGate("$and" + o_wire->name.str(), i1_wire, i2_wire, o_wire);
 	}
 	std::getline(f, line); // Ignore up to start of next line
 }
@@ -616,11 +633,12 @@ void AigerReader::parse_aiger_binary()
 	std::string line;
 
 	// Parse inputs
+	int digits = ceil(log10(I));
 	for (unsigned i = 1; i <= I; ++i) {
 		log_debug2("%d is an input\n", i);
-		RTLIL::Wire *wire = createWireIfNotExists(module, i << 1);
+		RTLIL::Wire *wire = module->addWire(stringf("$i%0*d", digits, i));
 		wire->port_input = true;
-		log_assert(!wire->port_output);
+		module->connect(createWireIfNotExists(module, i << 1), wire);
 		inputs.push_back(wire);
 	}
 
@@ -634,12 +652,14 @@ void AigerReader::parse_aiger_binary()
 		clk_wire->port_input = true;
 		clk_wire->port_output = false;
 	}
+	digits = ceil(log10(L));
 	l1 = (I+1) * 2;
 	for (unsigned i = 0; i < L; ++i, ++line_count, l1 += 2) {
 		if (!(f >> l2))
 			log_error("Line %u cannot be interpreted as a latch!\n", line_count);
 		log_debug("%d %d is a latch\n", l1, l2);
-		RTLIL::Wire *q_wire = createWireIfNotExists(module, l1);
+		RTLIL::Wire *q_wire = module->addWire(stringf("$l%0*d", digits, l1 >> 1));
+		module->connect(createWireIfNotExists(module, l1), q_wire);
 		RTLIL::Wire *d_wire = createWireIfNotExists(module, l2);
 
 		if (clk_wire)
@@ -670,23 +690,15 @@ void AigerReader::parse_aiger_binary()
 	}
 
 	// Parse outputs
+	digits = ceil(log10(O));
 	for (unsigned i = 0; i < O; ++i, ++line_count) {
 		if (!(f >> l1))
 			log_error("Line %u cannot be interpreted as an output!\n", line_count);
 
 		log_debug2("%d is an output\n", l1);
-		const unsigned variable = l1 >> 1;
-		const bool invert = l1 & 1;
-		RTLIL::IdString wire_name(stringf("\\__%d%s__", variable, invert ? "b" : "")); // FIXME: is "_b" the right suffix?
-		RTLIL::Wire *wire = module->wire(wire_name);
-		if (!wire)
-			wire = createWireIfNotExists(module, l1);
-		else if (wire->port_input || wire->port_output) {
-			RTLIL::Wire *new_wire = module->addWire(NEW_ID);
-			module->connect(new_wire, wire);
-			wire = new_wire;
-		}
+		RTLIL::Wire *wire = module->addWire(stringf("$o%0*d", digits, i));
 		wire->port_output = true;
+		module->connect(wire, createWireIfNotExists(module, l1));
 		outputs.push_back(wire);
 	}
 	std::getline(f, line); // Ignore up to start of next line
@@ -727,86 +739,47 @@ void AigerReader::parse_aiger_binary()
 		RTLIL::Wire *o_wire = createWireIfNotExists(module, l1);
 		RTLIL::Wire *i1_wire = createWireIfNotExists(module, l2);
 		RTLIL::Wire *i2_wire = createWireIfNotExists(module, l3);
-		module->addAndGate(o_wire->name.str() + "$and", i1_wire, i2_wire, o_wire);
+		module->addAndGate("$and" + o_wire->name.str(), i1_wire, i2_wire, o_wire);
 	}
 }
 
 void AigerReader::post_process()
 {
-	pool<IdString> seen_boxes;
 	unsigned ci_count = 0, co_count = 0;
 	for (auto cell : boxes) {
-		RTLIL::Module* box_module = design->module(cell->type);
-		log_assert(box_module);
-
-		if (seen_boxes.insert(cell->type).second) {
-			auto it = box_module->attributes.find("\\abc9_carry");
-			if (it != box_module->attributes.end()) {
-				RTLIL::Wire *carry_in = nullptr, *carry_out = nullptr;
-				auto carry_in_out = it->second.decode_string();
-				auto pos = carry_in_out.find(',');
-				if (pos == std::string::npos)
-					log_error("'abc9_carry' attribute on module '%s' does not contain ','.\n", log_id(cell->type));
-				auto carry_in_name = RTLIL::escape_id(carry_in_out.substr(0, pos));
-				carry_in = box_module->wire(carry_in_name);
-				if (!carry_in || !carry_in->port_input)
-					log_error("'abc9_carry' on module '%s' contains '%s' which does not exist or is not an input port.\n", log_id(cell->type), carry_in_name.c_str());
-
-				auto carry_out_name = RTLIL::escape_id(carry_in_out.substr(pos+1));
-				carry_out = box_module->wire(carry_out_name);
-				if (!carry_out || !carry_out->port_output)
-					log_error("'abc9_carry' on module '%s' contains '%s' which does not exist or is not an output port.\n", log_id(cell->type), carry_out_name.c_str());
-
-				auto &ports = box_module->ports;
-				for (auto jt = ports.begin(); jt != ports.end(); ) {
-					RTLIL::Wire* w = box_module->wire(*jt);
-					log_assert(w);
-					if (w == carry_in || w == carry_out) {
-						jt = ports.erase(jt);
-						continue;
-					}
-					if (w->port_id > carry_in->port_id)
-						--w->port_id;
-					if (w->port_id > carry_out->port_id)
-						--w->port_id;
-					log_assert(w->port_input || w->port_output);
-					log_assert(ports[w->port_id-1] == w->name);
-					++jt;
-				}
-				ports.push_back(carry_in->name);
-				carry_in->port_id = ports.size();
-				ports.push_back(carry_out->name);
-				carry_out->port_id = ports.size();
-			}
+		for (auto &bit : cell->connections_.at("\\i")) {
+			log_assert(bit == State::S0);
+			log_assert(co_count < outputs.size());
+			bit = outputs[co_count++];
+			log_assert(bit.wire && GetSize(bit.wire) == 1);
+			log_assert(bit.wire->port_output);
+			bit.wire->port_output = false;
 		}
-
-		// NB: Assume box_module->ports are sorted alphabetically
-		//     (as RTLIL::Module::fixup_ports() would do)
-		for (auto port_name : box_module->ports) {
-			RTLIL::Wire* port = box_module->wire(port_name);
-			log_assert(port);
-			RTLIL::SigSpec rhs;
-			for (int i = 0; i < GetSize(port); i++) {
-				RTLIL::Wire* wire = nullptr;
-				if (port->port_input) {
-					log_assert(co_count < outputs.size());
-					wire = outputs[co_count++];
-					log_assert(wire);
-					log_assert(wire->port_output);
-					wire->port_output = false;
-				}
-				if (port->port_output) {
-					log_assert((piNum + ci_count) < inputs.size());
-					wire = inputs[piNum + ci_count++];
-					log_assert(wire);
-					log_assert(wire->port_input);
-					wire->port_input = false;
-				}
-				rhs.append(wire);
-			}
-
-			cell->setPort(port_name, rhs);
+		for (auto &bit : cell->connections_.at("\\o")) {
+			log_assert(bit == State::S0);
+			log_assert((piNum + ci_count) < inputs.size());
+			bit = inputs[piNum + ci_count++];
+			log_assert(bit.wire && GetSize(bit.wire) == 1);
+			log_assert(bit.wire->port_input);
+			bit.wire->port_input = false;
 		}
+	}
+
+	for (uint32_t i = 0; i < flopNum; i++) {
+		RTLIL::Wire *d = outputs[outputs.size() - flopNum + i];
+		log_assert(d);
+		log_assert(d->port_output);
+		d->port_output = false;
+
+		RTLIL::Wire *q = inputs[piNum - flopNum + i];
+		log_assert(q);
+		log_assert(q->port_input);
+		q->port_input = false;
+
+		auto ff = module->addCell(NEW_ID, "$__ABC9_FF_");
+		ff->setPort("\\D", d);
+		ff->setPort("\\Q", q);
+		ff->attributes["\\abc9_mergeability"] = mergeability[i];
 	}
 
 	dict<RTLIL::IdString, int> wideports_cache;
@@ -835,6 +808,7 @@ void AigerReader::post_process()
 						wire->port_input = false;
 						module->connect(wire, existing);
 					}
+					log_debug(" -> %s\n", log_id(escaped_s));
 				}
 				else if (index > 0) {
 					std::string indexed_name = stringf("%s[%d]", escaped_s.c_str(), index);
@@ -848,18 +822,14 @@ void AigerReader::post_process()
 						module->connect(wire, existing);
 						wire->port_input = false;
 					}
+					log_debug(" -> %s\n", log_id(indexed_name));
 				}
-				log_debug(" -> %s\n", log_id(wire));
 			}
 			else if (type == "output") {
 				log_assert(static_cast<unsigned>(variable + co_count) < outputs.size());
 				RTLIL::Wire* wire = outputs[variable + co_count];
 				log_assert(wire);
 				log_assert(wire->port_output);
-				if (escaped_s == "$__dummy__") {
-					wire->port_output = false;
-					continue;
-				}
 				log_debug("Renaming output %s", log_id(wire));
 
 				if (index == 0) {
@@ -868,70 +838,40 @@ void AigerReader::post_process()
 					// simply connect the latter to the former
 					RTLIL::Wire* existing = module->wire(escaped_s);
 					if (!existing) {
-						if (escaped_s.ends_with("$inout.out")) {
-							wire->port_output = false;
-							RTLIL::Wire *in_wire = module->wire(escaped_s.substr(1, escaped_s.size()-11));
-							log_assert(in_wire);
-							log_assert(in_wire->port_input && !in_wire->port_output);
-							in_wire->port_output = true;
-							module->connect(in_wire, wire);
-						}
-						else
-							module->rename(wire, escaped_s);
+						module->rename(wire, escaped_s);
 					}
 					else {
 						wire->port_output = false;
+						existing->port_output = true;
 						module->connect(wire, existing);
 						wire = existing;
 					}
+					log_debug(" -> %s\n", log_id(escaped_s));
 				}
 				else if (index > 0) {
 					std::string indexed_name = stringf("%s[%d]", escaped_s.c_str(), index);
 					RTLIL::Wire* existing = module->wire(indexed_name);
 					if (!existing) {
-						if (escaped_s.ends_with("$inout.out")) {
-							wire->port_output = false;
-							RTLIL::Wire *in_wire = module->wire(stringf("%s[%d]", escaped_s.substr(1, escaped_s.size()-11).c_str(), index));
-							log_assert(in_wire);
-							log_assert(in_wire->port_input && !in_wire->port_output);
-							in_wire->port_output = true;
-							module->connect(in_wire, wire);
-						}
-						else {
-							module->rename(wire, indexed_name);
-							if (wideports)
-								wideports_cache[escaped_s] = std::max(wideports_cache[escaped_s], index);
-						}
+						module->rename(wire, indexed_name);
+						if (wideports)
+							wideports_cache[escaped_s] = std::max(wideports_cache[escaped_s], index);
 					}
 					else {
-						module->connect(wire, existing);
 						wire->port_output = false;
+						existing->port_output = true;
+						module->connect(wire, existing);
 					}
+					log_debug(" -> %s\n", log_id(indexed_name));
 				}
-				log_debug(" -> %s\n", log_id(wire));
+				int init;
+				mf >> init;
+				if (init < 2)
+					wire->attributes["\\init"] = init;
 			}
 			else if (type == "box") {
-				RTLIL::Cell* cell = module->cell(stringf("$__box%d__", variable));
-				if (cell) { // ABC could have optimised this box away
+				RTLIL::Cell* cell = module->cell(stringf("$box%d", variable));
+				if (cell) // ABC could have optimised this box away
 					module->rename(cell, escaped_s);
-					for (const auto &i : cell->connections()) {
-						RTLIL::IdString port_name = i.first;
-						RTLIL::SigSpec rhs = i.second;
-						int index = 0;
-						for (auto bit : rhs.bits()) {
-							RTLIL::Wire* wire = bit.wire;
-							RTLIL::IdString escaped_s = RTLIL::escape_id(stringf("%s.%s", log_id(cell), log_id(port_name)));
-							if (index == 0)
-								module->rename(wire, escaped_s);
-							else if (index > 0) {
-								module->rename(wire, stringf("%s[%d]", escaped_s.c_str(), index));
-								if (wideports)
-									wideports_cache[escaped_s] = std::max(wideports_cache[escaped_s], index);
-							}
-							index++;
-						}
-					}
-				}
 			}
 			else
 				log_error("Symbol type '%s' not recognised.\n", type.c_str());
@@ -968,15 +908,10 @@ void AigerReader::post_process()
 			if (other_wire) {
 				other_wire->port_input = false;
 				other_wire->port_output = false;
-			}
-			if (wire->port_input) {
-				if (other_wire)
+				if (wire->port_input)
 					module->connect(other_wire, SigSpec(wire, i));
-			}
-			else {
-								  // Since we skip POs that are connected to Sx,
-								  // re-connect them here
-				module->connect(SigSpec(wire, i), other_wire ? other_wire : SigSpec(RTLIL::Sx));
+				else
+					module->connect(SigSpec(wire, i), other_wire);
 			}
 		}
 	}
@@ -997,9 +932,9 @@ void AigerReader::post_process()
 		if (cell->type != "$lut") continue;
 		auto y_port = cell->getPort("\\Y").as_bit();
 		if (y_port.wire->width == 1)
-			module->rename(cell, stringf("%s$lut", y_port.wire->name.c_str()));
+			module->rename(cell, stringf("$lut%s", y_port.wire->name.c_str()));
 		else
-			module->rename(cell, stringf("%s[%d]$lut", y_port.wire->name.c_str(), y_port.offset));
+			module->rename(cell, stringf("$lut%s[%d]", y_port.wire->name.c_str(), y_port.offset));
 	}
 }
 
@@ -1014,28 +949,31 @@ struct AigerFrontend : public Frontend {
 		log("Load module from an AIGER file into the current design.\n");
 		log("\n");
 		log("    -module_name <module_name>\n");
-		log("        Name of module to be created (default: <filename>)\n");
+		log("        name of module to be created (default: <filename>)\n");
 		log("\n");
 		log("    -clk_name <wire_name>\n");
-		log("        If specified, AIGER latches to be transformed into $_DFF_P_ cells\n");
-		log("        clocked by wire of this name. Otherwise, $_FF_ cells will be used.\n");
+		log("        if specified, AIGER latches to be transformed into $_DFF_P_ cells\n");
+		log("        clocked by wire of this name. otherwise, $_FF_ cells will be used\n");
 		log("\n");
 		log("    -map <filename>\n");
 		log("        read file with port and latch symbols\n");
 		log("\n");
 		log("    -wideports\n");
-		log("        Merge ports that match the pattern 'name[int]' into a single\n");
-		log("        multi-bit port 'name'.\n");
+		log("        merge ports that match the pattern 'name[int]' into a single\n");
+		log("        multi-bit port 'name'\n");
+		log("\n");
+		log("    -xaiger\n");
+		log("        read XAIGER extensions\n");
 		log("\n");
 	}
 	void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing AIGER frontend.\n");
 
-		RTLIL::IdString clk_name = "\\clk";
+		RTLIL::IdString clk_name;
 		RTLIL::IdString module_name;
 		std::string map_filename;
-		bool wideports = false;
+		bool wideports = false, xaiger = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -1054,6 +992,10 @@ struct AigerFrontend : public Frontend {
 			}
 			if (arg == "-wideports") {
 				wideports = true;
+				continue;
+			}
+			if (arg == "-xaiger") {
+				xaiger = true;
 				continue;
 			}
 			break;
@@ -1075,7 +1017,10 @@ struct AigerFrontend : public Frontend {
 		}
 
 		AigerReader reader(design, *f, module_name, clk_name, map_filename, wideports);
-		reader.parse_aiger();
+		if (xaiger)
+			reader.parse_xaiger();
+		else
+			reader.parse_aiger();
 	}
 } AigerFrontend;
 

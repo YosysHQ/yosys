@@ -114,18 +114,33 @@ void Pass::run_register()
 
 void Pass::init_register()
 {
+	vector<Pass*> added_passes;
 	while (first_queued_pass) {
+		added_passes.push_back(first_queued_pass);
 		first_queued_pass->run_register();
 		first_queued_pass = first_queued_pass->next_queued_pass;
 	}
+	for (auto added_pass : added_passes)
+		added_pass->on_register();
 }
 
 void Pass::done_register()
 {
+	for (auto &it : pass_register)
+		it.second->on_shutdown();
+
 	frontend_register.clear();
 	pass_register.clear();
 	backend_register.clear();
 	log_assert(first_queued_pass == NULL);
+}
+
+void Pass::on_register()
+{
+}
+
+void Pass::on_shutdown()
+{
 }
 
 Pass::~Pass()
@@ -288,6 +303,9 @@ void Pass::call(RTLIL::Design *design, std::vector<std::string> args)
 
 	if (pass_register.count(args[0]) == 0)
 		log_cmd_error("No such command: %s (type 'help' for a command overview)\n", args[0].c_str());
+
+	if (pass_register[args[0]]->experimental_flag)
+		log_experimental("%s", args[0].c_str());
 
 	size_t orig_sel_stack_pos = design->selection_stack.size();
 	auto state = pass_register[args[0]]->pre_execute();
@@ -809,6 +827,11 @@ struct HelpPass : public Pass {
 						log("=");
 					log("\n");
 					it.second->help();
+					if (it.second->experimental_flag) {
+						log("\n");
+						log("WARNING: THE '%s' COMMAND IS EXPERIMENTAL.\n", it.first.c_str());
+						log("\n");
+					}
 				}
 			}
 			else if (args[1] == "-cells") {
@@ -831,6 +854,11 @@ struct HelpPass : public Pass {
 					std::ostringstream buf;
 					log_streams.push_back(&buf);
 					it.second->help();
+					if (it.second->experimental_flag) {
+						log("\n");
+						log("WARNING: THE '%s' COMMAND IS EXPERIMENTAL.\n", it.first.c_str());
+						log("\n");
+					}
 					log_streams.pop_back();
 					write_tex(f, it.first, it.second->short_help, buf.str());
 				}
@@ -843,6 +871,11 @@ struct HelpPass : public Pass {
 					std::ostringstream buf;
 					log_streams.push_back(&buf);
 					it.second->help();
+					if (it.second->experimental_flag) {
+						log("\n");
+						log("WARNING: THE '%s' COMMAND IS EXPERIMENTAL.\n", it.first.c_str());
+						log("\n");
+					}
 					log_streams.pop_back();
 					write_html(f, it.first, it.second->short_help, buf.str());
 				}
@@ -850,6 +883,11 @@ struct HelpPass : public Pass {
 			}
 			else if (pass_register.count(args[1])) {
 				pass_register.at(args[1])->help();
+				if (pass_register.at(args[1])->experimental_flag) {
+					log("\n");
+					log("WARNING: THE '%s' COMMAND IS EXPERIMENTAL.\n", args[1].c_str());
+					log("\n");
+				}
 			}
 			else if (cell_help_messages.cell_help.count(args[1])) {
 				log("%s", cell_help_messages.cell_help.at(args[1]).c_str());

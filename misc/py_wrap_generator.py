@@ -1935,6 +1935,19 @@ def parse_header(source):
 		line = source_text[i].replace("YOSYS_NAMESPACE_BEGIN", "                    namespace YOSYS_NAMESPACE{").replace("YOSYS_NAMESPACE_END","                    }")
 		ugly_line = unpretty_string(line)
 
+		# for anonymous unions, ignore union enclosure by skipping start line and replacing end line with new line
+		if 'union {' in line:
+			j = i+1
+			while j < len(source_text):
+				union_line = source_text[j]
+				if '};' in union_line:
+					source_text[j] = '\n'
+					break
+				j += 1
+			if j != len(source_text):
+				i += 1
+				continue
+
 		if str.startswith(ugly_line, "namespace "):# and ugly_line.find("std") == -1 and ugly_line.find("__") == -1:
 			namespace_name = ugly_line[10:].replace("{","").strip()
 			namespaces.append((namespace_name, ugly_line.count("{")))

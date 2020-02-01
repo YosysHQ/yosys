@@ -544,6 +544,8 @@ void yosys_shutdown()
 	already_shutdown = true;
 	log_pop();
 
+	Pass::done_register();
+
 	delete yosys_design;
 	yosys_design = NULL;
 
@@ -553,7 +555,6 @@ void yosys_shutdown()
 	log_errfile = NULL;
 	log_files.clear();
 
-	Pass::done_register();
 	yosys_celltypes.clear();
 
 #ifdef YOSYS_ENABLE_TCL

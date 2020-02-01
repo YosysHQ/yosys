@@ -36,6 +36,11 @@ struct Pass
 
 	int call_counter;
 	int64_t runtime_ns;
+	bool experimental_flag = false;
+
+	void experimental() {
+		experimental_flag = true;
+	}
 
 	struct pre_post_exec_state_t {
 		Pass *parent_pass;
@@ -62,6 +67,9 @@ struct Pass
 	virtual void run_register();
 	static void init_register();
 	static void done_register();
+
+	virtual void on_register();
+	virtual void on_shutdown();
 };
 
 struct ScriptPass : Pass

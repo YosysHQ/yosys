@@ -301,41 +301,40 @@ struct SccPass : public Pass {
 		RTLIL::Selection newSelection(false);
 		int scc_counter = 0;
 
-		for (auto &mod_it : design->modules_)
-			if (design->selected(mod_it.second))
+		for (auto mod : design->selected_modules())
+		{
+			SccWorker worker(design, mod, nofeedbackMode, allCellTypes, maxDepth);
+
+			if (!setAttr.empty())
 			{
-				SccWorker worker(design, mod_it.second, nofeedbackMode, allCellTypes, maxDepth);
-
-				if (!setAttr.empty())
+				for (const auto &cells : worker.sccList)
 				{
-					for (const auto &cells : worker.sccList)
+					for (auto attr : setAttr)
 					{
-						for (auto attr : setAttr)
-						{
-							IdString attr_name(RTLIL::escape_id(attr.first));
-							string attr_valstr = attr.second;
-							string index = stringf("%d", scc_counter);
+						IdString attr_name(RTLIL::escape_id(attr.first));
+						string attr_valstr = attr.second;
+						string index = stringf("%d", scc_counter);
 
-							for (size_t pos = 0; (pos = attr_valstr.find("{}", pos)) != string::npos; pos += index.size())
-								attr_valstr.replace(pos, 2, index);
+						for (size_t pos = 0; (pos = attr_valstr.find("{}", pos)) != string::npos; pos += index.size())
+							attr_valstr.replace(pos, 2, index);
 
-							Const attr_value(attr_valstr);
+						Const attr_value(attr_valstr);
 
-							for (auto cell : cells)
-								cell->attributes[attr_name] = attr_value;
-						}
-
-						scc_counter++;
+						for (auto cell : cells)
+							cell->attributes[attr_name] = attr_value;
 					}
-				}
-				else
-				{
-					scc_counter += GetSize(worker.sccList);
-				}
 
-				if (selectMode)
-					worker.select(newSelection);
+					scc_counter++;
+				}
 			}
+			else
+			{
+				scc_counter += GetSize(worker.sccList);
+			}
+
+			if (selectMode)
+				worker.select(newSelection);
+		}
 
 		if (expect >= 0) {
 			if (scc_counter == expect)

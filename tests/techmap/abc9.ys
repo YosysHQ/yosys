@@ -1,0 +1,81 @@
+read_verilog <<EOT
+`define N 256
+module top(input [`N-1:0] a, output o);
+wire [`N-2:0] w;
+assign w[0] = a[0] & a[1];
+genvar i;
+generate for (i = 1; i < `N-1; i++)
+assign w[i] = w[i-1] & a[i+1];
+endgenerate
+assign o = w[`N-2];
+endmodule
+EOT
+simplemap
+dump
+design -save gold
+
+abc9 -lut 4
+
+design -load gold
+abc9 -lut 4 -fast
+
+design -load gold
+scratchpad -copy abc9.script.default.area abc9.script
+abc9 -lut 4
+
+design -load gold
+scratchpad -copy abc9.script.default.fast abc9.script
+abc9 -lut 4
+
+design -load gold
+scratchpad -copy abc9.script.flow abc9.script
+abc9 -lut 4
+
+design -load gold
+scratchpad -copy abc9.script.flow2 abc9.script
+abc9 -lut 4
+
+design -load gold
+scratchpad -copy abc9.script.flow3 abc9.script
+abc9 -lut 4
+
+design -reset
+read_verilog <<EOT
+module top(input a, b, output o);
+(* keep *) wire w = a & b;
+assign o = ~w;
+endmodule
+EOT
+
+simplemap
+equiv_opt -assert abc9 -lut 4
+design -load postopt
+select -assert-count 2 t:$lut
+
+
+design -reset
+read_verilog -icells <<EOT
+module top(input a, b, output o);
+wire w;
+(* keep *) $_AND_ gate (.Y(w), .A(a), .B(b));
+assign o = ~w;
+endmodule
+EOT
+
+simplemap
+equiv_opt -assert abc9 -lut 4
+design -load postopt
+select -assert-count 1 t:$lut
+select -assert-count 1 t:$_AND_
+
+
+design -reset
+read_verilog -icells <<EOT
+module top(input a, b, output o);
+assign o = ~(a & b);
+endmodule
+EOT
+abc9 -lut 4
+clean
+select -assert-count 1 t:$lut
+select -assert-none t:$lut t:* %D

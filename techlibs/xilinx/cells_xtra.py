@@ -28,46 +28,46 @@ CELLS = [
     # - UG974 (Ultrascale)
 
     # CLB -- RAM/ROM.
-    Cell('RAM16X1S', port_attrs={'WCLK': ['clkbuf_sink']}),
-    Cell('RAM16X1S_1', port_attrs={'WCLK': ['clkbuf_sink']}),
-    Cell('RAM32X1S', port_attrs={'WCLK': ['clkbuf_sink']}),
-    Cell('RAM32X1S_1', port_attrs={'WCLK': ['clkbuf_sink']}),
-    Cell('RAM64X1S', port_attrs={'WCLK': ['clkbuf_sink']}),
-    Cell('RAM64X1S_1', port_attrs={'WCLK': ['clkbuf_sink']}),
-    Cell('RAM128X1S', port_attrs={'WCLK': ['clkbuf_sink']}),
-    Cell('RAM128X1S_1', port_attrs={'WCLK': ['clkbuf_sink']}),
-    Cell('RAM256X1S', port_attrs={'WCLK': ['clkbuf_sink']}),
-    Cell('RAM512X1S', port_attrs={'WCLK': ['clkbuf_sink']}),
-    Cell('RAM16X2S', port_attrs={'WCLK': ['clkbuf_sink']}),
-    Cell('RAM32X2S', port_attrs={'WCLK': ['clkbuf_sink']}),
-    Cell('RAM64X2S', port_attrs={'WCLK': ['clkbuf_sink']}),
-    Cell('RAM16X4S', port_attrs={'WCLK': ['clkbuf_sink']}),
-    Cell('RAM32X4S', port_attrs={'WCLK': ['clkbuf_sink']}),
-    Cell('RAM16X8S', port_attrs={'WCLK': ['clkbuf_sink']}),
-    Cell('RAM32X8S', port_attrs={'WCLK': ['clkbuf_sink']}),
-    Cell('RAM16X1D', port_attrs={'WCLK': ['clkbuf_sink']}),
-    Cell('RAM16X1D_1', port_attrs={'WCLK': ['clkbuf_sink']}),
-    #Cell('RAM32X1D', port_attrs={'WCLK': ['clkbuf_sink']}),
-    Cell('RAM32X1D_1', port_attrs={'WCLK': ['clkbuf_sink']}),
-    #Cell('RAM64X1D', port_attrs={'WCLK': ['clkbuf_sink']}),
-    Cell('RAM64X1D_1', port_attrs={'WCLK': ['clkbuf_sink']}),
-    #Cell('RAM128X1D', port_attrs={'WCLK': ['clkbuf_sink']}),
-    Cell('RAM256X1D', port_attrs={'WCLK': ['clkbuf_sink']}),
-    Cell('RAM32M', port_attrs={'WCLK': ['clkbuf_sink']}),
-    Cell('RAM32M16', port_attrs={'WCLK': ['clkbuf_sink']}),
-    Cell('RAM64M', port_attrs={'WCLK': ['clkbuf_sink']}),
-    Cell('RAM64M8', port_attrs={'WCLK': ['clkbuf_sink']}),
-    Cell('ROM16X1'),
-    Cell('ROM32X1'),
-    Cell('ROM64X1'),
-    Cell('ROM128X1'),
-    Cell('ROM256X1'),
+    # Cell('RAM16X1S', port_attrs={'WCLK': ['clkbuf_sink']}),
+    # Cell('RAM16X1S_1', port_attrs={'WCLK': ['clkbuf_sink']}),
+    # Cell('RAM32X1S', port_attrs={'WCLK': ['clkbuf_sink']}),
+    # Cell('RAM32X1S_1', port_attrs={'WCLK': ['clkbuf_sink']}),
+    # Cell('RAM64X1S', port_attrs={'WCLK': ['clkbuf_sink']}),
+    # Cell('RAM64X1S_1', port_attrs={'WCLK': ['clkbuf_sink']}),
+    # Cell('RAM128X1S', port_attrs={'WCLK': ['clkbuf_sink']}),
+    # Cell('RAM128X1S_1', port_attrs={'WCLK': ['clkbuf_sink']}),
+    # Cell('RAM256X1S', port_attrs={'WCLK': ['clkbuf_sink']}),
+    # Cell('RAM512X1S', port_attrs={'WCLK': ['clkbuf_sink']}),
+    # Cell('RAM16X2S', port_attrs={'WCLK': ['clkbuf_sink']}),
+    # Cell('RAM32X2S', port_attrs={'WCLK': ['clkbuf_sink']}),
+    # Cell('RAM64X2S', port_attrs={'WCLK': ['clkbuf_sink']}),
+    # Cell('RAM16X4S', port_attrs={'WCLK': ['clkbuf_sink']}),
+    # Cell('RAM32X4S', port_attrs={'WCLK': ['clkbuf_sink']}),
+    # Cell('RAM16X8S', port_attrs={'WCLK': ['clkbuf_sink']}),
+    # Cell('RAM32X8S', port_attrs={'WCLK': ['clkbuf_sink']}),
+    # Cell('RAM16X1D', port_attrs={'WCLK': ['clkbuf_sink']}),
+    # Cell('RAM16X1D_1', port_attrs={'WCLK': ['clkbuf_sink']}),
+    # Cell('RAM32X1D', port_attrs={'WCLK': ['clkbuf_sink']}),
+    # Cell('RAM32X1D_1', port_attrs={'WCLK': ['clkbuf_sink']}),
+    # Cell('RAM64X1D', port_attrs={'WCLK': ['clkbuf_sink']}),
+    # Cell('RAM64X1D_1', port_attrs={'WCLK': ['clkbuf_sink']}),
+    # Cell('RAM128X1D', port_attrs={'WCLK': ['clkbuf_sink']}),
+    # Cell('RAM256X1D', port_attrs={'WCLK': ['clkbuf_sink']}),
+    # Cell('RAM32M', port_attrs={'WCLK': ['clkbuf_sink']}),
+    # Cell('RAM32M16', port_attrs={'WCLK': ['clkbuf_sink']}),
+    # Cell('RAM64M', port_attrs={'WCLK': ['clkbuf_sink']}),
+    # Cell('RAM64M8', port_attrs={'WCLK': ['clkbuf_sink']}),
+    # Cell('ROM16X1'),
+    # Cell('ROM32X1'),
+    # Cell('ROM64X1'),
+    # Cell('ROM128X1'),
+    # Cell('ROM256X1'),
 
     # CLB -- registers/latches.
     # Virtex 1/2/4/5, Spartan 3.
-    Cell('FDCPE', port_attrs={'C': ['clkbuf_sink']}),
-    Cell('FDRSE', port_attrs={'C': ['clkbuf_sink']}),
-    Cell('LDCPE', port_attrs={'C': ['clkbuf_sink']}),
+    # Cell('FDCPE', port_attrs={'C': ['clkbuf_sink']}),
+    # Cell('FDRSE', port_attrs={'C': ['clkbuf_sink']}),
+    # Cell('LDCPE', port_attrs={'C': ['clkbuf_sink']}),
     # Virtex 6, Spartan 6, Series 7, Ultrascale.
     # Cell('FDCE'),
     # Cell('FDPE'),
@@ -75,8 +75,8 @@ CELLS = [
     # Cell('FDSE'),
     # Cell('LDCE'),
     # Cell('LDPE'),
-    Cell('AND2B1L'),
-    Cell('OR2L'),
+    # Cell('AND2B1L'),
+    # Cell('OR2L'),
 
     # CLB -- other.
     # Cell('LUT1'),
@@ -86,23 +86,23 @@ CELLS = [
     # Cell('LUT5'),
     # Cell('LUT6'),
     # Cell('LUT6_2'),
-    Cell('MUXF5'),
-    Cell('MUXF6'),
+    # Cell('MUXF5'),
+    # Cell('MUXF6'),
     # Cell('MUXF7'),
     # Cell('MUXF8'),
-    Cell('MUXF9'),
+    # Cell('MUXF9'),
     # Cell('CARRY4'),
-    Cell('CARRY8'),
+    # Cell('CARRY8'),
     # Cell('MUXCY'),
     # Cell('XORCY'),
-    Cell('ORCY'),
-    Cell('MULT_AND'),
-    Cell('SRL16', port_attrs={'CLK': ['clkbuf_sink']}),
+    # Cell('ORCY'),
+    # Cell('MULT_AND'),
+    # Cell('SRL16', port_attrs={'CLK': ['clkbuf_sink']}),
     # Cell('SRL16E', port_attrs={'CLK': ['clkbuf_sink']}),
-    Cell('SRLC16', port_attrs={'CLK': ['clkbuf_sink']}),
+    # Cell('SRLC16', port_attrs={'CLK': ['clkbuf_sink']}),
     # Cell('SRLC16E', port_attrs={'CLK': ['clkbuf_sink']}),
     # Cell('SRLC32E', port_attrs={'CLK': ['clkbuf_sink']}),
-    Cell('CFGLUT5', port_attrs={'CLK': ['clkbuf_sink']}),
+    # Cell('CFGLUT5', port_attrs={'CLK': ['clkbuf_sink']}),
 
     # Block RAM.
     # Virtex.
@@ -209,7 +209,7 @@ CELLS = [
     # Cell('MULT18X18SIO', port_attrs={'CLK': ['clkbuf_sink']}), # Spartan 3E
     # Cell('DSP48A', port_attrs={'CLK': ['clkbuf_sink']}), # Spartan 3A DSP
     # Cell('DSP48A1', port_attrs={'CLK': ['clkbuf_sink']}), # Spartan 6
-    Cell('DSP48', port_attrs={'CLK': ['clkbuf_sink']}), # Virtex 4
+    # Cell('DSP48', port_attrs={'CLK': ['clkbuf_sink']}), # Virtex 4
     Cell('DSP48E', port_attrs={'CLK': ['clkbuf_sink']}), # Virtex 5
     #Cell('DSP48E1', port_attrs={'CLK': ['clkbuf_sink']}), # Virtex 6 / Series 7
     Cell('DSP48E2', port_attrs={'CLK': ['clkbuf_sink']}), # Ultrascale
@@ -326,7 +326,7 @@ CELLS = [
     Cell('IBUFGDS', port_attrs={'I': ['iopad_external_pin'], 'IB': ['iopad_external_pin']}),
     Cell('IBUFGDS_DIFF_OUT', port_attrs={'I': ['iopad_external_pin'], 'IB': ['iopad_external_pin']}),
     # I/O.
-    Cell('IOBUF', port_attrs={'IO': ['iopad_external_pin']}),
+    # Cell('IOBUF', port_attrs={'IO': ['iopad_external_pin']}),
     Cell('IOBUF_DCIEN', port_attrs={'IO': ['iopad_external_pin']}),
     Cell('IOBUF_INTERMDISABLE', port_attrs={'IO': ['iopad_external_pin']}),
     Cell('IOBUFE3', port_attrs={'IO': ['iopad_external_pin']}),
@@ -342,7 +342,7 @@ CELLS = [
     Cell('OBUFDS', port_attrs={'O': ['iopad_external_pin'], 'OB': ['iopad_external_pin']}),
     Cell('OBUFDS_DPHY', port_attrs={'O': ['iopad_external_pin'], 'OB': ['iopad_external_pin']}),
     # Output + tristate.
-    Cell('OBUFT', port_attrs={'O': ['iopad_external_pin']}),
+    # Cell('OBUFT', port_attrs={'O': ['iopad_external_pin']}),
     Cell('OBUFTDS', port_attrs={'O': ['iopad_external_pin'], 'OB': ['iopad_external_pin']}),
     # Pulls.
     Cell('KEEPER'),
@@ -372,6 +372,7 @@ CELLS = [
     Cell('BUFIO2', port_attrs={'IOCLK': ['clkbuf_driver'], 'DIVCLK': ['clkbuf_driver']}),
     Cell('BUFIO2_2CLK', port_attrs={'IOCLK': ['clkbuf_driver'], 'DIVCLK': ['clkbuf_driver']}),
     Cell('BUFIO2FB', port_attrs={'O': ['clkbuf_driver']}),
+    Cell('BUFPLL', port_attrs={'IOCLK': ['clkbuf_driver']}),
     Cell('BUFPLL_MCB', port_attrs={'IOCLK0': ['clkbuf_driver'], 'IOCLK1': ['clkbuf_driver']}),
 
     # Clock buffers (IO and regional) -- Virtex.

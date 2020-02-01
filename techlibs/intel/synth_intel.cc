@@ -26,7 +26,7 @@ USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct SynthIntelPass : public ScriptPass {
-	SynthIntelPass() : ScriptPass("synth_intel", "synthesis for Intel (Altera) FPGAs.") {}
+	SynthIntelPass() : ScriptPass("synth_intel", "synthesis for Intel (Altera) FPGAs.") { experimental(); }
 
 	void help() YS_OVERRIDE
 	{
@@ -36,10 +36,10 @@ struct SynthIntelPass : public ScriptPass {
 		log("\n");
 		log("This command runs synthesis for Intel FPGAs.\n");
 		log("\n");
-		log("    -family < max10 | a10gx | cyclone10 | cyclonev | cycloneiv | cycloneive>\n");
+		log("    -family <max10 | arria10gx | cyclone10lp | cyclonev | cycloneiv | cycloneive>\n");
 		log("        generate the synthesis netlist for the specified family.\n");
 		log("        MAX10 is the default target if no family argument specified.\n");
-		log("        For Cyclone GX devices, use cycloneiv argument; For Cyclone E, use cycloneive.\n");
+		log("        For Cyclone IV GX devices, use cycloneiv argument; for Cyclone IV E, use cycloneive.\n");
 		log("        Cyclone V and Arria 10 GX devices are experimental.\n");
 		log("\n");
 		log("    -top <module>\n");
@@ -71,7 +71,7 @@ struct SynthIntelPass : public ScriptPass {
 		log("        do not flatten design before synthesis\n");
 		log("\n");
 		log("    -retime\n");
-		log("        run 'abc' with -dff option\n");
+		log("        run 'abc' with '-dff -D 1' options\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
@@ -148,11 +148,11 @@ struct SynthIntelPass : public ScriptPass {
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");
 		if (family_opt != "max10" &&
-		    family_opt != "a10gx" &&
+		    family_opt != "arria10gx" &&
 		    family_opt != "cyclonev" &&
 		    family_opt != "cycloneiv" &&
 		    family_opt != "cycloneive" &&
-		    family_opt != "cyclone10")
+		    family_opt != "cyclone10lp")
 			log_cmd_error("Invalid or no family specified: '%s'\n", family_opt.c_str());
 
 		log_header(design, "Executing SYNTH_INTEL pass.\n");
@@ -187,10 +187,10 @@ struct SynthIntelPass : public ScriptPass {
 		}
 
 		if (!nobram && check_label("map_bram", "(skip if -nobram)")) {
-                        if (family_opt == "cycloneiv" ||
-                            family_opt == "cycloneive" ||
-                            family_opt == "max10" ||
-                            help_mode) {
+				if (family_opt == "cycloneiv" ||
+				    family_opt == "cycloneive" ||
+				    family_opt == "max10" ||
+				    help_mode) {
 				run("memory_bram -rules +/intel/common/brams_m9k.txt", "(if applicable for family)");
 				run("techmap -map +/intel/common/brams_map_m9k.v", "(if applicable for family)");
 			} else {
@@ -210,11 +210,11 @@ struct SynthIntelPass : public ScriptPass {
 			run("clean -purge");
 			run("setundef -undriven -zero");
 			if (retime || help_mode)
-				run("abc -markgroups -dff", "(only if -retime)");
+				run("abc -markgroups -dff -D 1", "(only if -retime)");
 		}
 
 		if (check_label("map_luts")) {
-			if (family_opt == "a10gx" || family_opt == "cyclonev")
+			if (family_opt == "arria10gx" || family_opt == "cyclonev")
 				run("abc -luts 2:2,3,6:5" + string(retime ? " -dff" : ""));
 			else
 				run("abc -lut 4" + string(retime ? " -dff" : ""));
@@ -224,7 +224,7 @@ struct SynthIntelPass : public ScriptPass {
 		if (check_label("map_cells")) {
 			if (iopads || help_mode)
 				run("iopadmap -bits -outpad $__outpad I:O -inpad $__inpad O:I", "(if -iopads)");
-                        run(stringf("techmap -map +/intel/%s/cells_map.v", family_opt.c_str()));
+			run(stringf("techmap -map +/intel/%s/cells_map.v", family_opt.c_str()));
 			run("dffinit -highlow -ff dffeas q power_up");
 			run("clean -purge");
 		}

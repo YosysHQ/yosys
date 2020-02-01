@@ -28,7 +28,7 @@
  *
  *  A simple lexer for Verilog code. Non-preprocessor compiler directives are
  *  handled here. The preprocessor stuff is handled in preproc.cc. Everything
- *  else is left to the bison parser (see parser.y).
+ *  else is left to the bison parser (see verilog_parser.y).
  *
  */
 

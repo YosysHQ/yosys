@@ -1,0 +1,74 @@
+read_verilog init.v
+read_verilog -lib +/gowin/cells_sim.v
+design -save read
+
+proc
+flatten
+synth_gowin -run coarse:
+
+# check if all init values are handled
+check -assert -noinit
+# check if every flop mapped correctly
+select -assert-count 1 t:DFF
+select -assert-count 1 t:DFFC
+select -assert-count 1 t:DFFCE
+select -assert-count 1 t:DFFE
+select -assert-count 1 t:DFFN
+select -assert-count 1 t:DFFNC
+select -assert-count 1 t:DFFNCE
+select -assert-count 1 t:DFFNE
+select -assert-count 1 t:DFFNP
+select -assert-count 1 t:DFFNPE
+select -assert-count 1 t:DFFNR
+select -assert-count 1 t:DFFNRE
+select -assert-count 1 t:DFFNS
+select -assert-count 1 t:DFFNSE
+select -assert-count 1 t:DFFP
+select -assert-count 1 t:DFFPE
+select -assert-count 1 t:DFFR
+select -assert-count 1 t:DFFRE
+select -assert-count 1 t:DFFS
+select -assert-count 1 t:DFFSE
+
+delete
+design -load read
+
+# these should synth to a flop with reset
+chparam -set INIT 1 myDFF myDFFN myDFFE myDFFNE
+
+# async should give a warning
+# sync should synth to a mux
+chparam -set INIT 0 myDFF*S* myDFF*P*
+chparam -set INIT 1 myDFF*R* myDFF*C*
+
+proc
+flatten
+synth_gowin -run coarse:
+
+# check the flops mapped as expected
+select -assert-count 1 t:DFF
+select -assert-count 1 t:DFFC
+select -assert-count 1 t:DFFCE
+select -assert-count 1 t:DFFE
+select -assert-count 1 t:DFFN
+select -assert-count 1 t:DFFNC
+select -assert-count 1 t:DFFNCE
+select -assert-count 1 t:DFFNE
+select -assert-count 1 t:DFFNP
+select -assert-count 1 t:DFFNPE
+select -assert-count 0 t:DFFNR
+select -assert-count 0 t:DFFNRE
+select -assert-count 2 t:DFFNS
+select -assert-count 2 t:DFFNSE
+select -assert-count 1 t:DFFP
+select -assert-count 1 t:DFFPE
+select -assert-count 0 t:DFFR
+select -assert-count 0 t:DFFRE
+select -assert-count 2 t:DFFS
+select -assert-count 2 t:DFFSE
+select -assert-count 12 t:LUT2
+
+# check the expected leftover init values
+# this would happen if your reset value is not the initial value
+# which would be weird
+select -assert-count 8 a:init
