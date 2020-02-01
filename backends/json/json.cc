@@ -33,6 +33,7 @@ struct JsonWriter
 	std::ostream &f;
 	bool use_selection;
 	bool aig_mode;
+	bool compat_int_mode;
 
 	Design *design;
 	Module *module;
@@ -42,8 +43,9 @@ struct JsonWriter
 	dict<SigBit, string> sigids;
 	pool<Aig> aig_models;
 
-	JsonWriter(std::ostream &f, bool use_selection, bool aig_mode) :
-			f(f), use_selection(use_selection), aig_mode(aig_mode) { }
+	JsonWriter(std::ostream &f, bool use_selection, bool aig_mode, bool compat_int_mode) :
+			f(f), use_selection(use_selection), aig_mode(aig_mode),
+			compat_int_mode(compat_int_mode) { }
 
 	string get_string(string str)
 	{
@@ -102,8 +104,7 @@ struct JsonWriter
 			if (state < 2)
 				str += " ";
 			f << get_string(str);
-		} else
-		if (GetSize(value) == 32 && value.is_fully_def()) {
+		} else if (compat_int_mode && GetSize(value) == 32 && value.is_fully_def()) {
 			if ((value.flags & RTLIL::ConstFlags::CONST_FLAG_SIGNED) != 0)
 				f << stringf("%d", value.as_int());
 			else
@@ -294,6 +295,10 @@ struct JsonBackend : public Backend {
 		log("    -aig\n");
 		log("        include AIG models for the different gate types\n");
 		log("\n");
+		log("    -compat-int\n");
+		log("        emit 32-bit fully-defined parameter values directly\n");
+		log("        as JSON numbers (for compatibility with old parsers)\n");
+		log("\n");
 		log("\n");
 		log("The general syntax of the JSON output created by this command is as follows:\n");
 		log("\n");
@@ -368,10 +373,9 @@ struct JsonBackend : public Backend {
 		log("connected to a constant driver are denoted as string \"0\", \"1\", \"x\", or\n");
 		log("\"z\" instead of a number.\n");
 		log("\n");
-		log("Numeric 32-bit parameter and attribute values are written as decimal values.\n");
-		log("Bit verctors of different sizes, or ones containing 'x' or 'z' bits, are written\n");
-		log("as string holding the binary representation of the value. Strings are written\n");
-		log("as strings, with an appended blank in cases of strings of the form /[01xz]* */.\n");
+		log("Bit vectors (including integers) are written as string holding the binary");
+		log("representation of the value. Strings are written as strings, with an appended");
+		log("blank in cases of strings of the form /[01xz]* */.\n");
 		log("\n");
 		log("For example the following Verilog code:\n");
 		log("\n");
@@ -495,6 +499,7 @@ struct JsonBackend : public Backend {
 	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		bool aig_mode = false;
+		bool compat_int_mode = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -503,13 +508,17 @@ struct JsonBackend : public Backend {
 				aig_mode = true;
 				continue;
 			}
+			if (args[argidx] == "-compat-int") {
+				compat_int_mode = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(f, filename, args, argidx);
 
 		log_header(design, "Executing JSON backend.\n");
 
-		JsonWriter json_writer(*f, false, aig_mode);
+		JsonWriter json_writer(*f, false, aig_mode, compat_int_mode);
 		json_writer.write_design(design);
 	}
 } JsonBackend;
@@ -530,6 +539,10 @@ struct JsonPass : public Pass {
 		log("    -aig\n");
 		log("        also include AIG models for the different gate types\n");
 		log("\n");
+		log("    -compat-int\n");
+		log("        emit 32-bit fully-defined parameter values directly\n");
+		log("        as JSON numbers (for compatibility with old parsers)\n");
+		log("\n");
 		log("See 'help write_json' for a description of the JSON format used.\n");
 		log("\n");
 	}
@@ -537,6 +550,7 @@ struct JsonPass : public Pass {
 	{
 		std::string filename;
 		bool aig_mode = false;
+		bool compat_int_mode = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -547,6 +561,10 @@ struct JsonPass : public Pass {
 			}
 			if (args[argidx] == "-aig") {
 				aig_mode = true;
+				continue;
+			}
+			if (args[argidx] == "-compat-int") {
+				compat_int_mode = true;
 				continue;
 			}
 			break;
@@ -569,7 +587,7 @@ struct JsonPass : public Pass {
 			f = &buf;
 		}
 
-		JsonWriter json_writer(*f, true, aig_mode);
+		JsonWriter json_writer(*f, true, aig_mode, compat_int_mode);
 		json_writer.write_design(design);
 
 		if (!filename.empty()) {
