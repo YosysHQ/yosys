@@ -153,7 +153,7 @@ endmatch
 
 match $__XILINX_RAM32X2Q
   min bits 5
-  min rports 3
+  min rports 2
   min wports 1
   make_outreg
   or_next_if_better
@@ -161,7 +161,7 @@ endmatch
 
 match $__XILINX_RAM64X1Q
   min bits 5
-  min rports 3
+  min rports 2
   min wports 1
   make_outreg
 endmatch
