@@ -138,7 +138,7 @@ struct specify_rise_fall {
 %token ATTR_BEGIN ATTR_END DEFATTR_BEGIN DEFATTR_END
 %token TOK_MODULE TOK_ENDMODULE TOK_PARAMETER TOK_LOCALPARAM TOK_DEFPARAM
 %token TOK_PACKAGE TOK_ENDPACKAGE TOK_PACKAGESEP
-%token TOK_INTERFACE TOK_ENDINTERFACE TOK_MODPORT TOK_VAR
+%token TOK_INTERFACE TOK_ENDINTERFACE TOK_MODPORT TOK_VAR TOK_WILDCARD_CONNECT
 %token TOK_INPUT TOK_OUTPUT TOK_INOUT TOK_WIRE TOK_WAND TOK_WOR TOK_REG TOK_LOGIC
 %token TOK_INTEGER TOK_SIGNED TOK_ASSIGN TOK_ALWAYS TOK_INITIAL
 %token TOK_ALWAYS_FF TOK_ALWAYS_COMB TOK_ALWAYS_LATCH
@@ -1580,6 +1580,11 @@ cell_port:
 		node->children.back()->str = *$3;
 		delete $3;
 		free_attr($1);
+	} |
+	attr TOK_WILDCARD_CONNECT {
+		if (!sv_mode)
+			frontend_verilog_yyerror("Wildcard port connections are only supported in SystemVerilog mode.");
+		astbuf2->attributes[ID(wildcard_port_conns)] = AstNode::mkconst_int(1, false);
 	};
 
 always_comb_or_latch:
