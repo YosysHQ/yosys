@@ -41,6 +41,103 @@ YOSYS_NAMESPACE_BEGIN
 using namespace AST;
 using namespace AST_INTERNAL;
 
+// Process a format string and arguments for $display, $write, $sprintf, etc
+
+std::string AstNode::process_format_str(const std::string &sformat, int next_arg, int stage, int width_hint, bool sign_hint) {
+	// Other arguments are placeholders. Process the string as we go through it
+	std::string sout;
+	for (size_t i = 0; i < sformat.length(); i++)
+	{
+		// format specifier
+		if (sformat[i] == '%')
+		{
+			// If there's no next character, that's a problem
+			if (i+1 >= sformat.length())
+				log_file_error(filename, linenum, "System task `%s' called with `%%' at end of string.\n", str.c_str());
+
+			char cformat = sformat[++i];
+
+			// %% is special, does not need a matching argument
+			if (cformat == '%')
+			{
+				sout += '%';
+				continue;
+			}
+
+			// Simplify the argument
+			AstNode *node_arg = nullptr;
+
+			// Everything from here on depends on the format specifier
+			switch (cformat)
+			{
+				case 's':
+				case 'S':
+				case 'd':
+				case 'D':
+				case 'x':
+				case 'X':
+					if (next_arg >= GetSize(children))
+						log_file_error(filename, linenum, "Missing argument for %%%c format specifier in system task `%s'.\n",
+								cformat, str.c_str());
+
+					node_arg = children[next_arg++];
+					while (node_arg->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
+					if (node_arg->type != AST_CONSTANT)
+						log_file_error(filename, linenum, "Failed to evaluate system task `%s' with non-constant argument.\n", str.c_str());
+					break;
+
+				case 'm':
+				case 'M':
+					break;
+
+				default:
+					log_file_error(filename, linenum, "System task `%s' called with invalid/unsupported format specifier.\n", str.c_str());
+					break;
+			}
+
+			switch (cformat)
+			{
+				case 's':
+				case 'S':
+					sout += node_arg->bitsAsConst().decode_string();
+					break;
+
+				case 'd':
+				case 'D':
+					{
+						char tmp[128];
+						snprintf(tmp, sizeof(tmp), "%d", node_arg->bitsAsConst().as_int());
+						sout += tmp;
+					}
+					break;
+
+				case 'x':
+				case 'X':
+					{
+						char tmp[128];
+						snprintf(tmp, sizeof(tmp), "%x", node_arg->bitsAsConst().as_int());
+						sout += tmp;
+					}
+					break;
+
+				case 'm':
+				case 'M':
+					sout += log_id(current_module->name);
+					break;
+
+				default:
+					log_abort();
+			}
+		}
+
+		// not a format specifier
+		else
+			sout += sformat[i];
+	}
+	return sout;
+}
+
+
 // convert the AST into a simpler AST that has all parameters substituted by their
 // values, unrolled for-loops, expanded generate blocks, etc. when this function
 // is done with an AST it can be converted into RTLIL using genRTLIL().
@@ -216,99 +313,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		if (node_string->type != AST_CONSTANT)
 			log_file_error(filename, linenum, "Failed to evaluate system task `%s' with non-constant 1st argument.\n", str.c_str());
 		std::string sformat = node_string->bitsAsConst().decode_string();
-
-		// Other arguments are placeholders. Process the string as we go through it
-		std::string sout;
-		int next_arg = 1;
-		for (size_t i = 0; i < sformat.length(); i++)
-		{
-			// format specifier
-			if (sformat[i] == '%')
-			{
-				// If there's no next character, that's a problem
-				if (i+1 >= sformat.length())
-					log_file_error(filename, linenum, "System task `%s' called with `%%' at end of string.\n", str.c_str());
-
-				char cformat = sformat[++i];
-
-				// %% is special, does not need a matching argument
-				if (cformat == '%')
-				{
-					sout += '%';
-					continue;
-				}
-
-				// Simplify the argument
-				AstNode *node_arg = nullptr;
-
-				// Everything from here on depends on the format specifier
-				switch (cformat)
-				{
-					case 's':
-					case 'S':
-					case 'd':
-					case 'D':
-					case 'x':
-					case 'X':
-						if (next_arg >= GetSize(children))
-							log_file_error(filename, linenum, "Missing argument for %%%c format specifier in system task `%s'.\n",
-									cformat, str.c_str());
-
-						node_arg = children[next_arg++];
-						while (node_arg->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
-						if (node_arg->type != AST_CONSTANT)
-							log_file_error(filename, linenum, "Failed to evaluate system task `%s' with non-constant argument.\n", str.c_str());
-						break;
-
-					case 'm':
-					case 'M':
-						break;
-
-					default:
-						log_file_error(filename, linenum, "System task `%s' called with invalid/unsupported format specifier.\n", str.c_str());
-						break;
-				}
-
-				switch (cformat)
-				{
-					case 's':
-					case 'S':
-						sout += node_arg->bitsAsConst().decode_string();
-						break;
-
-					case 'd':
-					case 'D':
-						{
-							char tmp[128];
-							snprintf(tmp, sizeof(tmp), "%d", node_arg->bitsAsConst().as_int());
-							sout += tmp;
-						}
-						break;
-
-					case 'x':
-					case 'X':
-						{
-							char tmp[128];
-							snprintf(tmp, sizeof(tmp), "%x", node_arg->bitsAsConst().as_int());
-							sout += tmp;
-						}
-						break;
-
-					case 'm':
-					case 'M':
-						sout += log_id(current_module->name);
-						break;
-
-					default:
-						log_abort();
-				}
-			}
-
-			// not a format specifier
-			else
-				sout += sformat[i];
-		}
-
+		std::string sout = process_format_str(sformat, 1, stage, width_hint, sign_hint);
 		// Finally, print the message (only include a \n for $display, not for $write)
 		log("%s", sout.c_str());
 		if (str == "$display")
@@ -2241,6 +2246,17 @@ skip_dynamic_range_lvalue_expansion:;
 					else if (str == "\\$itor")  newNode->realvalue = x;
 					else log_abort();
 				}
+				goto apply_newNode;
+			}
+
+			if (str == "\\$sformatf") {
+				AstNode *node_string = children[0];
+				while (node_string->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
+				if (node_string->type != AST_CONSTANT)
+					log_file_error(filename, linenum, "Failed to evaluate system function `%s' with non-constant 1st argument.\n", str.c_str());
+				std::string sformat = node_string->bitsAsConst().decode_string();
+				std::string sout = process_format_str(sformat, 1, stage, width_hint, sign_hint);
+				newNode = AstNode::mkconst_str(sout);
 				goto apply_newNode;
 			}
 
