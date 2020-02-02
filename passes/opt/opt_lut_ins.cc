@@ -32,7 +32,10 @@ struct OptLutInsPass : public Pass {
 		log("    opt_lut_ins [options] [selection]\n");
 		log("\n");
 		log("This pass removes unused inputs from LUT cells (that is, inputs that can not\n");
-		log("influence the output signal given this LUT's value).\n");
+		log("influence the output signal given this LUT's value).  While such LUTs cannot\n");
+		log("be directly emitted by ABC, they can be a result of various post-ABC\n");
+		log("transformations, such as mapping wide LUTs (not all sub-LUTs will use the\n");
+		log("full set of inputs) or optimizations such as xilinx_dffopt.\n");
 		log("\n");
 		log("    -tech <technology>\n");
 		log("        Instead of generic $lut cells, operate on LUT cells specific\n");

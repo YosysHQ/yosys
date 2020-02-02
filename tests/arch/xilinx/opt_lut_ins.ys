@@ -18,8 +18,6 @@ end
 
 EOF
 
-write_verilog crap.v
-
 equiv_opt -assert -map +/xilinx/cells_sim.v opt_lut_ins -tech xilinx
 
 design -load postopt
