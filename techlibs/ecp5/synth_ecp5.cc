@@ -343,6 +343,7 @@ struct SynthEcp5Pass : public ScriptPass
 			else
 				run("techmap -map +/ecp5/cells_map.v", "(with -D NO_LUT in vpr mode)");
 
+			run("opt_lut_ins -tech ecp5");
 			run("clean");
 		}
 

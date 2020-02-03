@@ -60,6 +60,7 @@ Yosys 0.9 .. Yosys 0.9-dev
     - Added "scratchpad" pass
     - Added "abc9 -dff"
     - Added "synth_xilinx -dff"
+    - Added "opt_lut_ins" pass
 
 Yosys 0.8 .. Yosys 0.9
 ----------------------

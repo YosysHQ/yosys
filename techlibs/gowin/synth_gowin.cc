@@ -246,6 +246,7 @@ struct SynthGowinPass : public ScriptPass
 		if (check_label("map_cells"))
 		{
 			run("techmap -map +/gowin/cells_map.v");
+			run("opt_lut_ins -tech gowin");
 			run("setundef -undriven -params -zero");
 			run("hilomap -singleton -hicell VCC V -locell GND G");
 			if (!noiopads || help_mode)

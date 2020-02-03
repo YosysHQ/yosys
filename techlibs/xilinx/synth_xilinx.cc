@@ -597,6 +597,7 @@ struct SynthXilinxPass : public ScriptPass
 				techmap_args += stringf(" -map %s", ff_map_file.c_str());
 			run("techmap " + techmap_args);
 			run("xilinx_dffopt");
+			run("opt_lut_ins -tech xilinx");
 		}
 
 		if (check_label("finalize")) {
