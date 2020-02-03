@@ -834,12 +834,12 @@ def write_vlogtb_trace(steps_start, steps_stop, index):
         print("module testbench;", file=f)
         print("  reg [4095:0] vcdfile;", file=f)
         print("  reg clock;", file=f)
+        print("  reg genclock = 1;", file=f)
         print("`else", file=f)
         print("module testbench(input clock, output reg genclock);", file=f)
         print("  initial genclock = 1;", file=f)
         print("`endif", file=f)
 
-        print("  reg genclock = 1;", file=f)
         print("  reg [31:0] cycle = 0;", file=f)
 
         primary_inputs = list()
