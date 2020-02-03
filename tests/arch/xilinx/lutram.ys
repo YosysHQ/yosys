@@ -135,3 +135,23 @@ select -assert-count 1 t:BUFG
 select -assert-count 6 t:FDRE
 select -assert-count 2 t:RAM64M
 select -assert-none t:BUFG t:FDRE t:RAM64M %% t:* %D
+
+
+design -reset
+read_verilog ../common/lutram.v
+hierarchy -top lutram_1w1r -chparam A_WIDTH 4
+proc
+memory -nomap
+equiv_opt -run :prove -map +/xilinx/cells_sim.v synth_xilinx -family xc3s -noiopad
+memory
+opt -full
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -seq 3 -set-init-zero -show-inputs -show-outputs miter
+
+design -load postopt
+cd lutram_1w1r
+select -assert-count 1 t:BUFG
+select -assert-count 8 t:FDRE
+select -assert-count 8 t:RAM16X1D
+select -assert-none t:BUFG t:FDRE t:RAM16X1D %% t:* %D

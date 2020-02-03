@@ -318,7 +318,6 @@ struct SynthXilinxPass : public ScriptPass
 		if (lut_size != 6) {
 			log_warning("Shift register inference not yet supported for family %s.\n", family.c_str());
 			nosrl = true;
-			nolutram = true;
 		}
 
 		if (widemux != 0 && widemux < 2)
@@ -518,7 +517,7 @@ struct SynthXilinxPass : public ScriptPass
 
 		if (check_label("map_lutram", "(skip if '-nolutram')")) {
 			if (!nolutram || help_mode) {
-				run("memory_bram -rules +/xilinx/lutrams.txt");
+				run("memory_bram -rules +/xilinx/lut" + lut_size_s + "_lutrams.txt");
 				run("techmap -map +/xilinx/lutrams_map.v");
 			}
 		}
