@@ -49,10 +49,25 @@ struct SynthXilinxPass : public ScriptPass
 		log("    -top <module>\n");
 		log("        use the specified module as top module\n");
 		log("\n");
-		log("    -family {xcup|xcu|xc7|xc6v|xc5v|xc6s}\n");
+		log("    -family <family>\n");
 		log("        run synthesis for the specified Xilinx architecture\n");
 		log("        generate the synthesis netlist for the specified family.\n");
-		log("        default: xc7\n");
+		log("        supported values:\n");
+		log("        - xcup: Ultrascale Plus\n");
+		log("        - xcu: Ultrascale\n");
+		log("        - xc7: Series 7 (default)\n");
+		log("        - xc6s: Spartan 6\n");
+		log("        - xc6v: Virtex 6\n");
+		log("        - xc5v: Virtex 5 (EXPERIMENTAL)\n");
+		log("        - xc4v: Virtex 4 (EXPERIMENTAL)\n");
+		log("        - xc3sda: Spartan 3A DSP (EXPERIMENTAL)\n");
+		log("        - xc3sa: Spartan 3A (EXPERIMENTAL)\n");
+		log("        - xc3se: Spartan 3E (EXPERIMENTAL)\n");
+		log("        - xc3s: Spartan 3 (EXPERIMENTAL)\n");
+		log("        - xc2vp: Virtex 2 Pro (EXPERIMENTAL)\n");
+		log("        - xc2v: Virtex 2 (EXPERIMENTAL)\n");
+		log("        - xcve: Virtex E, Spartan 2E (EXPERIMENTAL)\n");
+		log("        - xcv: Virtex, Spartan 2 (EXPERIMENTAL)\n");
 		log("\n");
 		log("    -edif <file>\n");
 		log("        write the design to the specified edif file. writing of an output file\n");
@@ -82,10 +97,10 @@ struct SynthXilinxPass : public ScriptPass
 		log("        do not use XORCY/MUXCY/CARRY4 cells in output netlist\n");
 		log("\n");
 		log("    -nowidelut\n");
-		log("        do not use MUXF[78] resources to implement LUTs larger than LUT6s\n");
+		log("        do not use MUXF[5-9] resources to implement LUTs larger than native for the target\n");
 		log("\n");
 		log("    -nodsp\n");
-		log("        do not use DSP48E1s to implement multipliers and associated logic\n");
+		log("        do not use DSP48*s to implement multipliers and associated logic\n");
 		log("\n");
 		log("    -noiopad\n");
 		log("        disable I/O buffer insertion (useful for hierarchical or \n");
@@ -131,6 +146,8 @@ struct SynthXilinxPass : public ScriptPass
 	bool abc9, dff_mode;
 	bool flatten_before_abc;
 	int widemux;
+	int lut_size;
+	int widelut_size;
 
 	void clear_flags() YS_OVERRIDE
 	{
@@ -156,6 +173,7 @@ struct SynthXilinxPass : public ScriptPass
 		dff_mode = false;
 		flatten_before_abc = false;
 		widemux = 0;
+		lut_size = 6;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -270,8 +288,38 @@ struct SynthXilinxPass : public ScriptPass
 		}
 		extra_args(args, argidx, design);
 
-		if (family != "xcup" && family != "xcu" && family != "xc7" && family != "xc6v" && family != "xc5v" && family != "xc6s")
+		if (family == "xcup" || family == "xcu") {
+			lut_size = 6;
+			widelut_size = 9;
+		} else if (family == "xc7" ||
+				family == "xc6v" ||
+				family == "xc5v" ||
+				family == "xc6s") {
+			lut_size = 6;
+			widelut_size = 8;
+		} else if (family == "xc4v" ||
+				family == "xc3sda" ||
+				family == "xc3sa" ||
+				family == "xc3se" ||
+				family == "xc3s" ||
+				family == "xc2vp" ||
+				family == "xc2v") {
+			lut_size = 4;
+			widelut_size = 8;
+		} else if (family == "xcve" || family == "xcv") {
+			lut_size = 4;
+			widelut_size = 6;
+		} else
 			log_cmd_error("Invalid Xilinx -family setting: '%s'.\n", family.c_str());
+
+		if (widemux != 0 && lut_size != 6)
+			log_cmd_error("-widemux is not currently supported for LUT4-based architectures.\n");
+
+		if (lut_size != 6) {
+			log_warning("Shift register inference not yet supported for family %s.\n", family.c_str());
+			nosrl = true;
+			nolutram = true;
+		}
 
 		if (widemux != 0 && widemux < 2)
 			log_cmd_error("-widemux value must be 0 or >= 2.\n");
@@ -292,6 +340,9 @@ struct SynthXilinxPass : public ScriptPass
 
 	void script() YS_OVERRIDE
 	{
+		std::string lut_size_s = std::to_string(lut_size);
+		if (help_mode)
+			lut_size_s = "[46]";
 		std::string ff_map_file;
 		if (help_mode)
 			ff_map_file = "+/xilinx/{family}_ff_map.v";
@@ -344,7 +395,7 @@ struct SynthXilinxPass : public ScriptPass
 				run("clean", "      (skip if '-nosrl' and '-widemux=0')");
 			}
 
-			run("techmap -map +/cmp2lut.v -D LUT_WIDTH=6");
+			run("techmap -map +/cmp2lut.v -D LUT_WIDTH=" + lut_size_s);
 		}
 
 		if (check_label("map_dsp", "(skip if '-nodsp')")) {
@@ -353,7 +404,7 @@ struct SynthXilinxPass : public ScriptPass
 				// NB: Xilinx multipliers are signed only
 				if (help_mode)
 					run("techmap -map +/mul2dsp.v -map +/xilinx/{family}_dsp_map.v {options}");
-				else if (family == "xc2v" || family == "xc3s" || family == "xc3se" || family == "xc3sa")
+				else if (family == "xc2v" || family == "xc2vp" || family == "xc3s" || family == "xc3se" || family == "xc3sa")
 					run("techmap -map +/mul2dsp.v -map +/xilinx/xc3s_mult_map.v -D DSP_A_MAXWIDTH=18 -D DSP_B_MAXWIDTH=18 "
 						"-D DSP_A_MINWIDTH=2 -D DSP_B_MINWIDTH=2 " // Blocks Nx1 multipliers
 						"-D DSP_Y_MINWIDTH=9 " // UG901 suggests small multiplies are those 4x4 and smaller
@@ -523,14 +574,12 @@ struct SynthXilinxPass : public ScriptPass
 			if (!nosrl || help_mode)
 				run("xilinx_srl -variable -minlen 3", "(skip if '-nosrl')");
 
-			std::string techmap_args = " -map +/techmap.v";
+			std::string techmap_args = " -map +/techmap.v -D LUT_SIZE=" + lut_size_s;
 			if (help_mode)
 				techmap_args += " [-map +/xilinx/mux_map.v]";
 			else if (widemux > 0)
 				techmap_args += stringf(" -D MIN_MUX_INPUTS=%d -map +/xilinx/mux_map.v", widemux);
-			if (help_mode)
-				techmap_args += " [-map +/xilinx/arith_map.v]";
-			else if (!nocarry) {
+			if (!nocarry) {
 				techmap_args += " -map +/xilinx/arith_map.v";
 				if (vpr)
 					techmap_args += " -D _EXPLICIT_CARRY";
@@ -563,6 +612,8 @@ struct SynthXilinxPass : public ScriptPass
 			if (help_mode)
 				run("abc -luts 2:2,3,6:5[,10,20] [-dff] [-D 1]", "(option for 'nowidelut', '-dff', '-retime')");
 			else if (abc9) {
+				if (lut_size != 6)
+					log_error("'synth_xilinx -abc9' not currently supported for LUT4-based devices.\n");
 				if (family != "xc7")
 					log_warning("'synth_xilinx -abc9' not currently supported for the '%s' family, "
 							"will use timing for 'xc7' instead.\n", family.c_str());
@@ -588,10 +639,19 @@ struct SynthXilinxPass : public ScriptPass
 			}
 			else {
 				std::string abc_opts;
-				if (nowidelut)
-					abc_opts += " -luts 2:2,3,6:5";
-				else
-					abc_opts += " -luts 2:2,3,6:5,10,20";
+				if (lut_size != 6) {
+					if (nowidelut)
+						abc_opts += " -lut " + lut_size_s;
+					else
+						abc_opts += " -lut " + lut_size_s + ":" + std::to_string(widelut_size);
+				} else {
+					if (nowidelut)
+						abc_opts += " -luts 2:2,3,6:5";
+					else if (widelut_size == 8)
+						abc_opts += " -luts 2:2,3,6:5,10,20";
+					else
+						abc_opts += " -luts 2:2,3,6:5,10,20,40";
+				}
 				if (dff_mode)
 					abc_opts += " -dff";
 				if (retime)
@@ -607,8 +667,14 @@ struct SynthXilinxPass : public ScriptPass
 			std::string techmap_args = "-map +/xilinx/lut_map.v -map +/xilinx/cells_map.v";
 			if (help_mode || !abc9)
 				techmap_args += stringf(" -map %s", ff_map_file.c_str());
+			techmap_args += " -D LUT_WIDTH=" + lut_size_s;
 			run("techmap " + techmap_args);
-			run("xilinx_dffopt");
+			if (help_mode)
+				run("xilinx_dffopt [-lut4]");
+			else if (lut_size == 4)
+				run("xilinx_dffopt -lut4");
+			else
+				run("xilinx_dffopt");
 			run("opt_lut_ins -tech xilinx");
 		}
 
