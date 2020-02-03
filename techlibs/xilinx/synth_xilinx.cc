@@ -438,7 +438,12 @@ struct SynthXilinxPass : public ScriptPass
 				run("memory_bram -rules +/xilinx/{family}_brams.txt");
 				run("techmap -map +/xilinx/{family}_brams_map.v");
 			} else if (!nobram) {
-				if (family == "xc6s") {
+				if (family == "xc3sda") {
+					// Supported block RAMs for Spartan 3A DSP are
+					// a subset of Spartan 6's ones.
+					run("memory_bram -rules +/xilinx/xc3sda_brams.txt");
+					run("techmap -map +/xilinx/xc6s_brams_map.v");
+				} else if (family == "xc6s") {
 					run("memory_bram -rules +/xilinx/xc6s_brams.txt");
 					run("techmap -map +/xilinx/xc6s_brams_map.v");
 				} else if (family == "xc6v" || family == "xc7") {
