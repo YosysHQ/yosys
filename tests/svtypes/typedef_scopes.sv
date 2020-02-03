@@ -27,7 +27,7 @@ module top;
 	end
 
 	(inner_type) inner_i2 = 8'h42;
-	(inner_type) inner_enum2 = s4;
+	(inner_enum_t) inner_enum2 = s4;
 	always @(*) assert(inner_i2 == 4'h2);
 	always @(*) assert(inner_enum2 == 3'h4);
 

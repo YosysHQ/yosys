@@ -6,7 +6,7 @@ module enum_simple(input clk, input rst);
 		ts0, ts1, ts2, ts3
 	} states_t;
 	(states_t) state;
-	(states_t) enum_const = s1;
+	(states_t) enum_const = ts1;
 
 	always @(posedge clk) begin
 		if (rst) begin
@@ -41,7 +41,7 @@ module enum_simple(input clk, input rst);
 		assert(state != 2'h3);
 		assert(s0 == '0);
 		assert(ts0 == '0);
-		assert(enum_const == s1);
+		assert(enum_const == ts1);
 	end
 
 endmodule

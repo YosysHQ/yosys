@@ -1243,9 +1243,12 @@ single_defparam_decl:
 	};
 
 enum_type: TOK_ENUM {
+		static int enum_count;
 		// create parent node for the enum
 		astbuf2 = new AstNode(AST_ENUM);
 		ast_stack.back()->children.push_back(astbuf2);
+		astbuf2->str = std::string("$enum");
+		astbuf2->str += std::to_string(enum_count++);
 		// create the template for the names
 		astbuf1 = new AstNode(AST_ENUM_ITEM);
 		astbuf1->children.push_back(AstNode::mkconst_int(0, true));
@@ -1254,6 +1257,7 @@ enum_type: TOK_ENUM {
 								delete astbuf1;
 								astbuf1 = tnode;
 								tnode->type = AST_WIRE;
+								tnode->attributes["\\enum_type"] = AstNode::mkconst_str(astbuf2->str);
 								// drop constant but keep any range
 								delete tnode->children[0];
 								tnode->children.erase(tnode->children.begin()); }
@@ -1311,7 +1315,10 @@ enum_var: TOK_ID {
 	}
 	;
 
-enum_decl: enum_type enum_var_list ';'			{ delete astbuf1; }
+enum_decl: enum_type enum_var_list ';'			{
+		//enum_type creates astbuf1 for use by typedef only
+		delete astbuf1;
+	}
 	;
 
 wire_decl:

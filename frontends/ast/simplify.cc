@@ -413,6 +413,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				current_scope[node->str] = node;
 			}
 			if (node->type == AST_ENUM) {
+				current_scope[node->str] = node;
 				for (auto enode : node->children) {
 					log_assert(enode->type==AST_ENUM_ITEM);
 					if (current_scope.count(enode->str) == 0) {
@@ -862,6 +863,63 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			range_swapped = templ->range_swapped;
 			range_left = templ->range_left;
 			range_right = templ->range_right;
+			attributes["\\wiretype"] = mkconst_str(resolved_type->str);
+			//check if enum
+			if (templ->attributes.count("\\enum_type")){
+				//get reference to enum node:
+				std::string enum_type = templ->attributes["\\enum_type"]->str.c_str();
+				// 				log("enum_type=%s (count=%lu)\n", enum_type.c_str(), current_scope.count(enum_type));
+				// 				log("current scope:\n");
+				// 				for (auto &it : current_scope)
+				// 					log("  %s\n", it.first.c_str());
+				log_assert(current_scope.count(enum_type) == 1);
+				AstNode *enum_node = current_scope.at(enum_type);
+				log_assert(enum_node->type == AST_ENUM);
+				//get width from 1st enum item:
+				log_assert(enum_node->children.size() >= 1);
+				AstNode *enum_item0 = enum_node->children[0];
+				log_assert(enum_item0->type == AST_ENUM_ITEM);
+				int width;
+				if (!enum_item0->range_valid)
+					width = 1;
+				else if (enum_item0->range_swapped)
+					width = enum_item0->range_right - enum_item0->range_left + 1;
+				else
+					width = enum_item0->range_left - enum_item0->range_right + 1;
+				log_assert(width > 0);
+				//add declared enum items:
+				for (auto enum_item : enum_node->children){
+					log_assert(enum_item->type == AST_ENUM_ITEM);
+					//get is_signed
+					bool is_signed;
+					if (enum_item->children.size() == 1){
+						is_signed = false;
+					} else if (enum_item->children.size() == 2){
+						log_assert(enum_item->children[1]->type == AST_RANGE);
+						is_signed = enum_item->children[1]->is_signed;
+					} else {
+						log_error("enum_item children size==%lu, expected 1 or 2 for %s (%s)\n",
+								  enum_item->children.size(),
+								  enum_item->str.c_str(), enum_node->str.c_str()
+						);
+					}
+					//start building attribute string
+					std::string enum_item_str = "\\enum_";
+					enum_item_str.append(std::to_string(width));
+					enum_item_str.append("_");
+					//get enum item value
+					if(enum_item->children[0]->type != AST_CONSTANT){
+						log_error("expected const, got %s for %s (%s)\n",
+								  type2str(enum_item->children[0]->type).c_str(),
+								  enum_item->str.c_str(), enum_node->str.c_str()
+ 								);
+					}
+					int val = enum_item->children[0]->asInt(is_signed);
+					enum_item_str.append(std::to_string(val));
+					//set attribute for available val to enum item name mappings
+					attributes[enum_item_str.c_str()] = mkconst_str(enum_item->str);
+				}
+			}
 
 			// Insert clones children from template at beginning
 			for (int i  = 0; i < GetSize(templ->children); i++)
@@ -908,6 +966,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			range_swapped = templ->range_swapped;
 			range_left = templ->range_left;
 			range_right = templ->range_right;
+			attributes["\\wiretype"] = mkconst_str(resolved_type->str);
 			for (auto template_child : templ->children)
 				children.push_back(template_child->clone());
 			did_something = true;
@@ -1104,10 +1163,11 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 					}
 					break;
 				case AST_ENUM:
+					current_scope[node->str] = node;
 					for (auto enum_node : node->children) {
 						log_assert(enum_node->type==AST_ENUM_ITEM);
 						if (str == enum_node->str) {
-							log("\nadding enum %s to scope\n", str.c_str());
+							//log("\nadding enum item %s to scope\n", str.c_str());
 							current_scope[str] = enum_node;
 						}
 					}
@@ -2577,6 +2637,10 @@ skip_dynamic_range_lvalue_expansion:;
 					wire->is_output = false;
 					wire->is_reg = true;
 					wire->attributes["\\nosync"] = AstNode::mkconst_int(1, false);
+					if (child->type == AST_ENUM_ITEM){
+						wire->attributes["\\enum_base_type"] = child->attributes["\\enum_base_type"];
+
+					}
 					wire_cache[child->str] = wire;
 
 					current_ast_mod->children.push_back(wire);
@@ -3109,6 +3173,7 @@ void AstNode::expand_genblock(std::string index_var, std::string prefix, std::ma
 			current_scope[new_name] = child;
 		}
 		if (child->type == AST_ENUM){
+			current_scope[child->str] = child;
 			for (auto enode : child->children){
 				log_assert(enode->type == AST_ENUM_ITEM);
 				if (backup_name_map.size() == 0)
@@ -3872,6 +3937,7 @@ void AstNode::allocateDefaultEnumValues()
 	int last_enum_int = -1;
 	for (auto node : children) {
 		log_assert(node->type==AST_ENUM_ITEM);
+		node->attributes["\\enum_base_type"] = mkconst_str(str);
 		for (size_t i = 0; i < node->children.size(); i++) {
 			switch (node->children[i]->type) {
 			case AST_NONE:
