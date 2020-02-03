@@ -34,6 +34,12 @@ module _80_xilinx_lcu (P, G, CI, CO);
 	genvar i;
 
 `ifdef _EXPLICIT_CARRY
+	localparam EXPLICIT_CARRY = 1'b1;
+`else
+	localparam EXPLICIT_CARRY = 1'b0;
+`endif
+
+generate if (EXPLICIT_CARRY || `LUT_SIZE == 4) begin
 
 	wire [WIDTH-1:0] C = {CO, CI};
 	wire [WIDTH-1:0] S = P & ~G;
@@ -47,7 +53,7 @@ module _80_xilinx_lcu (P, G, CI, CO);
 		);
 	end endgenerate
 
-`else
+end else begin
 
 	localparam CARRY4_COUNT = (WIDTH + 3) / 4;
 	localparam MAX_WIDTH    = CARRY4_COUNT * 4;
@@ -79,7 +85,7 @@ module _80_xilinx_lcu (P, G, CI, CO);
 			);
 		end
 	end endgenerate
-`endif
+end endgenerate
 
 endmodule
 
@@ -116,9 +122,34 @@ module _80_xilinx_alu (A, B, CI, BI, X, Y, CO);
 	genvar i;
 
 `ifdef _EXPLICIT_CARRY
+	localparam EXPLICIT_CARRY = 1'b1;
+`else
+	localparam EXPLICIT_CARRY = 1'b0;
+`endif
+
+generate if (`LUT_SIZE == 4) begin
+
+	wire [Y_WIDTH-1:0] C = {CO, CI};
+	wire [Y_WIDTH-1:0] S  = {AA ^ BB};
+
+	genvar i;
+	generate for (i = 0; i < Y_WIDTH; i = i + 1) begin:slice
+		MUXCY muxcy (
+			.CI(C[i]),
+			.DI(AA[i]),
+			.S(S[i]),
+			.O(CO[i])
+		);
+		XORCY xorcy (
+			.CI(C[i]),
+			.LI(S[i]),
+			.O(Y[i])
+		);
+	end endgenerate
+
+end else if (EXPLICIT_CARRY) begin
 
 	wire [Y_WIDTH-1:0] S = AA ^ BB;
-	wire [Y_WIDTH-1:0] DI = AA & BB;
 
 	wire CINIT;
 	// Carry chain.
@@ -138,7 +169,7 @@ module _80_xilinx_alu (A, B, CI, BI, X, Y, CO);
 	generate for (i = 0; i < 1; i = i + 1) begin:slice
 		CARRY0 #(.CYINIT_FABRIC(1)) carry(
 			.CI_INIT(CI),
-			.DI(DI[0]),
+			.DI(AA[0]),
 			.S(S[0]),
 			.CO_CHAIN(CO_CHAIN[0]),
 			.CO_FABRIC(CO[0]),
@@ -150,7 +181,7 @@ module _80_xilinx_alu (A, B, CI, BI, X, Y, CO);
 		if(i % 4 == 0) begin
 			CARRY0 carry (
 				.CI(C[i]),
-				.DI(DI[i]),
+				.DI(AA[i]),
 				.S(S[i]),
 				.CO_CHAIN(CO_CHAIN[i]),
 				.CO_FABRIC(CO[i]),
@@ -161,7 +192,7 @@ module _80_xilinx_alu (A, B, CI, BI, X, Y, CO);
 		begin
 			CARRY carry (
 				.CI(C[i]),
-				.DI(DI[i]),
+				.DI(AA[i]),
 				.S(S[i]),
 				.CO_CHAIN(CO_CHAIN[i]),
 				.CO_FABRIC(CO[i]),
@@ -174,7 +205,7 @@ module _80_xilinx_alu (A, B, CI, BI, X, Y, CO);
 		if(i % 4 == 0) begin
 			CARRY0 top_of_carry (
 				.CI(C[i]),
-				.DI(DI[i]),
+				.DI(AA[i]),
 				.S(S[i]),
 				.CO_CHAIN(CO_CHAIN[i]),
 				.O(Y[i])
@@ -184,7 +215,7 @@ module _80_xilinx_alu (A, B, CI, BI, X, Y, CO);
 		begin
 			CARRY top_of_carry (
 				.CI(C[i]),
-				.DI(DI[i]),
+				.DI(AA[i]),
 				.S(S[i]),
 				.CO_CHAIN(CO_CHAIN[i]),
 				.O(Y[i])
@@ -213,14 +244,14 @@ module _80_xilinx_alu (A, B, CI, BI, X, Y, CO);
 		end
 	end endgenerate
 
-`else
+end else begin
 
 	localparam CARRY4_COUNT = (Y_WIDTH + 3) / 4;
 	localparam MAX_WIDTH    = CARRY4_COUNT * 4;
 	localparam PAD_WIDTH    = MAX_WIDTH - Y_WIDTH;
 
 	wire [MAX_WIDTH-1:0] S  = {{PAD_WIDTH{1'b0}}, AA ^ BB};
-	wire [MAX_WIDTH-1:0] DI = {{PAD_WIDTH{1'b0}}, AA & BB};
+	wire [MAX_WIDTH-1:0] DI = {{PAD_WIDTH{1'b0}}, AA};
 
 	wire [MAX_WIDTH-1:0] O;
 	wire [MAX_WIDTH-1:0] C;
@@ -251,7 +282,7 @@ module _80_xilinx_alu (A, B, CI, BI, X, Y, CO);
 		end
 	end endgenerate
 
-`endif
+end endgenerate
 
 	assign X = S;
 endmodule
