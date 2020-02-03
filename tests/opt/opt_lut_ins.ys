@@ -1,0 +1,23 @@
+read_ilang << EOF
+
+module \top
+
+  wire width 4 input 1 \A
+
+  wire output 2 \Y
+
+  cell $lut \lut
+    parameter \LUT 16'1111110011000000
+    parameter \WIDTH 4
+    connect \A \A
+    connect \Y \Y
+  end
+end
+
+EOF
+
+equiv_opt -assert opt_lut_ins
+
+design -load postopt
+
+select -assert-count 1 t:$lut r:WIDTH=3 %i

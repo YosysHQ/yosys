@@ -1,0 +1,25 @@
+read_ilang << EOF
+
+module \top
+
+  wire width 4 input 1 \A
+
+  wire output 2 \O
+
+  cell \LUT4 $0
+    parameter \INIT 16'1111110011000000
+    connect \I0 \A [0]
+    connect \I1 \A [1]
+    connect \I2 \A [2]
+    connect \I3 \A [3]
+    connect \O \O
+  end
+end
+
+EOF
+
+equiv_opt -assert -map +/xilinx/cells_sim.v opt_lut_ins -tech xilinx
+
+design -load postopt
+
+select -assert-count 1 t:LUT3
