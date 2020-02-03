@@ -324,7 +324,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		const_fold = true;
 
 	// in certain cases a function must be evaluated constant. this is what in_param controls.
-	if (type == AST_PARAMETER || type == AST_LOCALPARAM || type == AST_ENUM_ITEM || type == AST_DEFPARAM || type == AST_PARASET || type == AST_PREFIX)
+	if (type == AST_PARAMETER || type == AST_LOCALPARAM || type == AST_DEFPARAM || type == AST_PARASET || type == AST_PREFIX)
 		in_param = true;
 
 	std::map<std::string, AstNode*> backup_scope;
@@ -418,8 +418,6 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 					if (current_scope.count(enode->str) == 0) {
 						current_scope[enode->str] = enode;
 					}
-					//	while (enode->simplify(true, false, false, 1, -1, false, true))
-					//		did_something = true;
 				}
 			}
 		}
@@ -431,7 +429,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			if (node->type == AST_ENUM) {
 				for (auto enode : node->children){
 					log_assert(enode->type==AST_ENUM_ITEM);
-					while (node->simplify(true, false, false, 1, -1, false, node->type == AST_ENUM_ITEM))
+					while (node->simplify(true, false, false, 1, -1, false, in_param))
 						did_something = true;
 				}
 			}
@@ -511,10 +509,10 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		break;
 
 	case AST_ENUM:
-		// log("\nENUM %d child %d\n", basic_prep, children[0]->basic_prep);
+		//log("\nENUM %s: %d child %d\n", str.c_str(), basic_prep, children[0]->basic_prep);
 		if (!basic_prep) {
 			for (auto item_node : children) {
-				while (!item_node->basic_prep && item_node->simplify(false, false, false, stage, -1, false, true) == true)
+				while (!item_node->basic_prep && item_node->simplify(false, false, false, stage, -1, false, in_param))
 					did_something = true;
 			}
 			// allocate values (called more than once)
@@ -524,7 +522,6 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 	case AST_PARAMETER:
 	case AST_LOCALPARAM:
-	case AST_ENUM_ITEM:
 		while (!children[0]->basic_prep && children[0]->simplify(false, false, false, stage, -1, false, true) == true)
 			did_something = true;
 		children[0]->detectSignWidth(width_hint, sign_hint);
@@ -533,6 +530,18 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				did_something = true;
 			if (!children[1]->range_valid)
 				log_file_error(filename, linenum, "Non-constant width range on parameter decl.\n");
+			width_hint = max(width_hint, children[1]->range_left - children[1]->range_right + 1);
+		}
+		break;
+	case AST_ENUM_ITEM:
+		while (!children[0]->basic_prep && children[0]->simplify(false, false, false, stage, -1, false, in_param))
+			did_something = true;
+		children[0]->detectSignWidth(width_hint, sign_hint);
+		if (children.size() > 1 && children[1]->type == AST_RANGE) {
+			while (!children[1]->basic_prep && children[1]->simplify(false, false, false, stage, -1, false, in_param))
+				did_something = true;
+			if (!children[1]->range_valid)
+				log_file_error(filename, linenum, "Non-constant width range on enum item decl.\n");
 			width_hint = max(width_hint, children[1]->range_left - children[1]->range_right + 1);
 		}
 		break;
