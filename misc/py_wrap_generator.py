@@ -806,6 +806,8 @@ class WClass:
 
 			for con in self.found_constrs:
 				text += con.gen_decl()
+			if self.base_class is not None:
+				text += "\n\t\tvirtual ~" + self.name + "() { };"
 			for var in self.found_vars:
 				text += var.gen_decl()
 			for fun in self.found_funs:
@@ -910,15 +912,19 @@ class WClass:
 
 	def gen_boost_py(self):
 		body = self.gen_boost_py_body()
+		base_info = ""
+		if self.base_class is not None:
+			base_info = ", bases<%s::%s>" % (self.base_class.namespace, self.base_class.name)
+
 		if self.link_type == link_types.derive:
-			text = "\n\t\tclass_<" + self.name + ">(\"Cpp" + self.name + "\""
+			text = "\n\t\tclass_<" + self.name + base_info + ">(\"Cpp" + self.name + "\""
 			text += body
 			text += "\n\t\tclass_<" + self.name
 			text += "Wrap, boost::noncopyable"
 			text += ">(\"" + self.name + "\""
 			text += body
 		else:
-			text = "\n\t\tclass_<" + self.name + ">(\"" + self.name + "\""
+			text = "\n\t\tclass_<" + self.name + base_info + ">(\"" + self.name + "\""
 			text += body
 		return text
 	
