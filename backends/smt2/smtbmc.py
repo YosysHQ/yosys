@@ -895,7 +895,7 @@ def write_vlogtb_trace(steps_start, steps_stop, index):
             if info[3] is not None:
                 modstate = smt.net_expr(vlogtb_topmod, vlogtb_state.replace("@@step_idx@@", str(steps_start)), info[0])
                 value = smt.bv2bin(smt.get("(|%s| %s)" % (info[1], modstate)))
-                print("    UUT.%s = %d'b%s;" % (".".join(info[0] + [info[3]]), len(value), value), file=f);
+                print("    UUT.%s = %d'b%s;" % (".".join([info[2]]), len(value), value), file=f);
 
         mems = sorted(smt.hiermems(vlogtb_topmod))
         for mempath in mems:
@@ -944,9 +944,9 @@ def write_vlogtb_trace(steps_start, steps_stop, index):
                     modstate = smt.net_expr(vlogtb_topmod, vlogtb_state.replace("@@step_idx@@", str(i)), info[0])
                     value = smt.bv2bin(smt.get("(|%s| %s)" % (info[1], modstate)))
                     if i > 0:
-                        print("      UUT.%s <= %d'b%s;" % (".".join(info[0] + [info[3]]), len(value), value), file=f);
+                        print("      UUT.%s <= %d'b%s;" % (".".join([info[2]]), len(value), value), file=f);
                     else:
-                        print("    UUT.%s = %d'b%s;" % (".".join(info[0] + [info[3]]), len(value), value), file=f);
+                        print("    UUT.%s = %d'b%s;" % (".".join([info[2]]), len(value), value), file=f);
 
             if i > 0:
                 print("    end", file=f)
