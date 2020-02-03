@@ -914,7 +914,7 @@ class WClass:
 		body = self.gen_boost_py_body()
 		base_info = ""
 		if self.base_class is not None:
-			base_info = ", bases<%s::%s>" % (self.base_class.namespace, self.base_class.name)
+			base_info = ", bases<" + (self.base_class.name) + ">"
 
 		if self.link_type == link_types.derive:
 			text = "\n\t\tclass_<" + self.name + base_info + ">(\"Cpp" + self.name + "\""
