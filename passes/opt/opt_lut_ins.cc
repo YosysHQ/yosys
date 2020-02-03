@@ -146,7 +146,6 @@ struct OptLutInsPass : public Pass {
 						continue;
 					}
 				}
-				log("  Considering lut %s (%d)\n", log_id(cell), GetSize(inputs));
 				std::vector<int> swizzle;
 				std::vector<SigBit> new_inputs;
 				bool doit = false;
@@ -210,7 +209,9 @@ struct OptLutInsPass : public Pass {
 					}
 					new_lut[i] = lut[lidx];
 				}
-				if (new_inputs.empty()) {
+				// For ecp5, do not replace with a const driver — the nextpnr
+				// packer requires a complete set of LUTs for wide LUT muxes.
+				if (new_inputs.empty() && techname != "ecp5") {
 					// const driver.
 					remove_cells.push_back(cell);
 					module->connect(output, new_lut[0]);
