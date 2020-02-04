@@ -438,7 +438,14 @@ struct SynthXilinxPass : public ScriptPass
 				run("memory_bram -rules +/xilinx/{family}_brams.txt");
 				run("techmap -map +/xilinx/{family}_brams_map.v");
 			} else if (!nobram) {
-				if (family == "xc3sda") {
+				if (family == "xc2v" || family == "xc2vp" || family == "xc3s" || family == "xc3se") {
+					run("memory_bram -rules +/xilinx/xc2v_brams.txt");
+					run("techmap -map +/xilinx/xc2v_brams_map.v");
+				} else if (family == "xc3sa") {
+					// Superset of Virtex 2 primitives — uses common map file.
+					run("memory_bram -rules +/xilinx/xc3sa_brams.txt");
+					run("techmap -map +/xilinx/xc2v_brams_map.v");
+				} else if (family == "xc3sda") {
 					// Supported block RAMs for Spartan 3A DSP are
 					// a subset of Spartan 6's ones.
 					run("memory_bram -rules +/xilinx/xc3sda_brams.txt");

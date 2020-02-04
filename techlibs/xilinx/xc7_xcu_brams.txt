@@ -1,3 +1,5 @@
+# Virtex 6, Series 7, Ultrascale, Ultrascale Plus block RAM rules.
+
 bram $__XILINX_RAMB36_SDP
   init 1
   abits 9
