@@ -797,7 +797,7 @@ void reintegrate(RTLIL::Module *module)
 			}
 
 			int input_count = 0, output_count = 0;
-			for (const auto &port_name : box_ports.at(cell->type)) {
+			for (const auto &port_name : box_ports.at(derived_type)) {
 				RTLIL::Wire *w = box_module->wire(port_name);
 				log_assert(w);
 
