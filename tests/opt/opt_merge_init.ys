@@ -1,0 +1,49 @@
+read_verilog -icells <<EOT
+module top(input clk, i, (* init = 1'b0 *) output o, p);
+  \$dff  #(
+    .CLK_POLARITY(1'h1),
+    .WIDTH(32'd1)
+  ) ffo  (
+    .CLK(clk),
+    .D(i),
+    .Q(o)
+  );
+  \$dff  #(
+    .CLK_POLARITY(1'h1),
+    .WIDTH(32'd1)
+  ) ffp  (
+    .CLK(clk),
+    .D(i),
+    .Q(p)
+  );
+endmodule
+EOT
+
+opt_merge
+select -assert-count 1 a:init=1'0
+
+
+design -reset
+read_verilog -icells <<EOT
+module top(input clk, i, (* init = 2'b11 *) output [1:0] o);
+  \$dff  #(
+    .CLK_POLARITY(1'h1),
+    .WIDTH(32'd1)
+  ) ff1  (
+    .CLK(clk),
+    .D(i),
+    .Q(o[1])
+  );
+  \$dff  #(
+    .CLK_POLARITY(1'h1),
+    .WIDTH(32'd1)
+  ) ff0  (
+    .CLK(clk),
+    .D(i),
+    .Q(o[0])
+  );
+endmodule
+EOT
+
+opt_merge
+select -assert-count 1 a:init=2'bx1
