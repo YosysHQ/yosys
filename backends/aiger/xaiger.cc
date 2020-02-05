@@ -184,7 +184,7 @@ struct XAigerWriter
 				}
 			}
 
-		dict<IdString,dict<IdString,int>> arrival_cache;
+		dict<IdString,dict<IdString,std::vector<int>>> arrivals_cache;
 		for (auto cell : module->cells()) {
 			RTLIL::Module* inst_module = module->design->module(cell->type);
 			if (!cell->has_keep_attr()) {
@@ -236,29 +236,50 @@ struct XAigerWriter
 							box_list.resize(abc9_box_seq+1);
 						box_list[abc9_box_seq] = cell;
 						// Only flop boxes may have arrival times
+						//   (all others are combinatorial)
 						abc9_flop = inst_module->get_bool_attribute("\\abc9_flop");
 						if (!abc9_flop)
 							continue;
 					}
 
-					auto &cell_arrivals = arrival_cache[cell->type];
+					auto &cell_arrivals = arrivals_cache[cell->type];
 					for (const auto &conn : cell->connections()) {
+						auto port_wire = inst_module->wire(conn.first);
+						if (!port_wire->port_output)
+							continue;
+
 						auto r = cell_arrivals.insert(conn.first);
-						auto &arrival = r.first->second;
+						auto &arrivals = r.first->second;
 						if (r.second) {
-							auto port_wire = inst_module->wire(conn.first);
-							if (port_wire->port_output) {
-								auto it = port_wire->attributes.find("\\abc9_arrival");
-								if (it != port_wire->attributes.end()) {
-									if (it->second.flags != 0)
-										log_error("Attribute 'abc9_arrival' on port '%s' of module '%s' is not an integer.\n", log_id(port_wire), log_id(cell->type));
-									arrival = it->second.as_int();
-								}
-							}
+							auto it = port_wire->attributes.find("\\abc9_arrival");
+							if (it == port_wire->attributes.end())
+								continue;
+							if (it->second.flags == 0)
+								arrivals.emplace_back(it->second.as_int());
+							else
+								for (const auto &tok : split_tokens(it->second.decode_string()))
+									arrivals.push_back(atoi(tok.c_str()));
 						}
-						if (arrival)
-							for (auto bit : sigmap(conn.second))
-								arrival_times[bit] = arrival;
+
+						if (arrivals.empty())
+							continue;
+
+						if (GetSize(arrivals) > 1 && GetSize(arrivals) != GetSize(port_wire))
+							log_error("%s.%s is %d bits wide but abc9_arrival = %s has %d value(s)!\n", log_id(cell->type), log_id(conn.first),
+									GetSize(port_wire), log_signal(it->second), GetSize(arrivals));
+
+						auto jt = arrivals.begin();
+#ifndef NDEBUG
+						if (ys_debug(1)) {
+							static std::set<std::pair<IdString,IdString>> seen;
+							if (seen.emplace(cell->type, conn.first).second) log("%s.%s abc9_arrival = %d\n", log_id(cell->type), log_id(conn.first), *jt);
+						}
+#endif
+						for (auto bit : sigmap(conn.second)) {
+							arrival_times[bit] = *jt;
+							if (arrivals.size() > 1)
+								jt++;
+						}
 					}
 
 					if (abc9_flop)
@@ -300,7 +321,7 @@ struct XAigerWriter
 
 			RTLIL::Module* box_module = module->design->module(cell->type);
 			log_assert(box_module);
-			log_assert(box_module->attributes.count("\\abc9_box_id"));
+			log_assert(box_module->attributes.count("\\abc9_box_id") || box_module->get_bool_attribute("\\abc9_flop"));
 
 			auto r = box_ports.insert(cell->type);
 			if (r.second) {
@@ -579,7 +600,11 @@ struct XAigerWriter
 				RTLIL::Module* box_module = module->design->module(cell->type);
 				log_assert(box_module);
 
-				auto r = cell_cache.insert(cell->type);
+				IdString derived_type = box_module->derive(box_module->design, cell->parameters);
+				box_module = box_module->design->module(derived_type);
+				log_assert(box_module);
+
+				auto r = cell_cache.insert(derived_type);
 				auto &v = r.first->second;
 				if (r.second) {
 					int box_inputs = 0, box_outputs = 0;

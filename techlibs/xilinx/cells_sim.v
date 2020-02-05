@@ -325,17 +325,20 @@ endmodule
 
 // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf#L238-L250
 
-(* abc9_box_id=1100, lib_whitebox, abc9_flop *)
+(* abc9_flop, lib_whitebox *)
 module FDRE (
   (* abc9_arrival=303 *)
   output reg Q,
   (* clkbuf_sink *)
   (* invertible_pin = "IS_C_INVERTED" *)
   input C,
+  (* abc9_required=109 *)
   input CE,
   (* invertible_pin = "IS_D_INVERTED" *)
+  //(* abc9_required=-46 *) // Negative required times not currently supported
   input D,
   (* invertible_pin = "IS_R_INVERTED" *)
+  (* abc9_required=404 *)
   input R
 );
   parameter [0:0] INIT = 1'b0;
@@ -349,30 +352,38 @@ module FDRE (
   endcase endgenerate
 endmodule
 
-(* abc9_box_id=1101, lib_whitebox, abc9_flop *)
+(* abc9_flop, lib_whitebox *)
 module FDRE_1 (
   (* abc9_arrival=303 *)
   output reg Q,
   (* clkbuf_sink *)
   input C,
-  input CE, D, R
+  (* abc9_required=109 *)
+  input CE,
+  //(* abc9_required=-46 *) // Negative required times not currently supported
+  input D,
+  (* abc9_required=404 *)
+  input R
 );
   parameter [0:0] INIT = 1'b0;
   initial Q <= INIT;
   always @(negedge C) if (R) Q <= 1'b0; else if (CE) Q <= D;
 endmodule
 
-(* abc9_box_id=1102, lib_whitebox, abc9_flop *)
+(* abc9_flop, lib_whitebox *)
 module FDSE (
   (* abc9_arrival=303 *)
   output reg Q,
   (* clkbuf_sink *)
   (* invertible_pin = "IS_C_INVERTED" *)
   input C,
+  (* abc9_required=109 *)
   input CE,
   (* invertible_pin = "IS_D_INVERTED" *)
+  //(* abc9_required=-46 *) // Negative required times not currently supported
   input D,
   (* invertible_pin = "IS_S_INVERTED" *)
+  (* abc9_required=404 *)
   input S
 );
   parameter [0:0] INIT = 1'b1;
@@ -386,13 +397,18 @@ module FDSE (
   endcase endgenerate
 endmodule
 
-(* abc9_box_id=1103, lib_whitebox, abc9_flop *)
+(* abc9_flop, lib_whitebox *)
 module FDSE_1 (
   (* abc9_arrival=303 *)
   output reg Q,
   (* clkbuf_sink *)
   input C,
-  input CE, D, S
+  (* abc9_required=109 *)
+  input CE,
+  //(* abc9_required=-46 *) // Negative required times not currently supported
+  input D,
+  (* abc9_required=404 *)
+  input S
 );
   parameter [0:0] INIT = 1'b1;
   initial Q <= INIT;
@@ -405,6 +421,7 @@ module FDRSE (
   (* invertible_pin = "IS_C_INVERTED" *)
   input C,
   (* invertible_pin = "IS_CE_INVERTED" *)
+  (* abc9_required=109 *)
   input CE,
   (* invertible_pin = "IS_D_INVERTED" *)
   input D,
@@ -434,17 +451,20 @@ module FDRSE (
       Q <= d;
 endmodule
 
-(* abc9_box_id=1104, lib_whitebox, abc9_flop *)
+(* abc9_flop, lib_whitebox *)
 module FDCE (
   (* abc9_arrival=303 *)
   output reg Q,
   (* clkbuf_sink *)
   (* invertible_pin = "IS_C_INVERTED" *)
   input C,
+  (* abc9_required=109 *)
   input CE,
   (* invertible_pin = "IS_CLR_INVERTED" *)
+  (* abc9_required=764 *)
   input CLR,
   (* invertible_pin = "IS_D_INVERTED" *)
+  //(* abc9_required=-46 *) // Negative required times not currently supported
   input D
 );
   parameter [0:0] INIT = 1'b0;
@@ -460,30 +480,38 @@ module FDCE (
   endcase endgenerate
 endmodule
 
-(* abc9_box_id=1105, lib_whitebox, abc9_flop *)
+(* abc9_flop, lib_whitebox *)
 module FDCE_1 (
   (* abc9_arrival=303 *)
   output reg Q,
   (* clkbuf_sink *)
   input C,
-  input CE, D, CLR
+  (* abc9_required=109 *)
+  input CE,
+  (* abc9_required=764 *)
+  input CLR,
+  //(* abc9_required=-46 *) // Negative required times not currently supported
+  input D
 );
   parameter [0:0] INIT = 1'b0;
   initial Q <= INIT;
   always @(negedge C, posedge CLR) if (CLR) Q <= 1'b0; else if (CE) Q <= D;
 endmodule
 
-(* abc9_box_id=1106, lib_whitebox, abc9_flop *)
+(* abc9_flop, lib_whitebox *)
 module FDPE (
   (* abc9_arrival=303 *)
   output reg Q,
   (* clkbuf_sink *)
   (* invertible_pin = "IS_C_INVERTED" *)
   input C,
+  (* abc9_required=109 *)
   input CE,
   (* invertible_pin = "IS_D_INVERTED" *)
+  //(* abc9_required=-46 *) // Negative required times not currently supported
   input D,
   (* invertible_pin = "IS_PRE_INVERTED" *)
+  (* abc9_required=764 *)
   input PRE
 );
   parameter [0:0] INIT = 1'b1;
@@ -499,13 +527,18 @@ module FDPE (
   endcase endgenerate
 endmodule
 
-(* abc9_box_id=1107, lib_whitebox, abc9_flop *)
+(* abc9_flop, lib_whitebox *)
 module FDPE_1 (
   (* abc9_arrival=303 *)
   output reg Q,
   (* clkbuf_sink *)
   input C,
-  input CE, D, PRE
+  (* abc9_required=109 *)
+  input CE,
+  //(* abc9_required=-46 *) // Negative required times not currently supported
+  input D,
+  (* abc9_required=764 *)
+  input PRE
 );
   parameter [0:0] INIT = 1'b1;
   initial Q <= INIT;
@@ -1120,15 +1153,33 @@ module RAM16X1D_1 (
 endmodule
 
 module RAM32X1D (
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L857
-  (* abc9_arrival=1188 *)
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L981
+  (* abc9_arrival=1153 *)
   output DPO, SPO,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986
+  (* abc9_required=453 *)
   input  D,
   (* clkbuf_sink *)
   (* invertible_pin = "IS_WCLK_INVERTED" *)
   input  WCLK,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L834
+  (* abc9_required=654 *)
   input  WE,
-  input  A0, A1, A2, A3, A4,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L800
+  (* abc9_required=245 *)
+  input  A0,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/clBLM_R.sdf#L798
+  (* abc9_required=208 *)
+  input  A1,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L796
+  (* abc9_required=147 *)
+  input  A2,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L794
+  (* abc9_required=68 *)
+  input  A3,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L792
+  (* abc9_required=66 *)
+  input  A4,
   input  DPRA0, DPRA1, DPRA2, DPRA3, DPRA4
 );
   parameter INIT = 32'h0;
@@ -1143,15 +1194,33 @@ module RAM32X1D (
 endmodule
 
 module RAM32X1D_1 (
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L857
-  (* abc9_arrival=1188 *)
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L981
+  (* abc9_arrival=1153 *)
   output DPO, SPO,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986
+  (* abc9_required=453 *)
   input  D,
   (* clkbuf_sink *)
   (* invertible_pin = "IS_WCLK_INVERTED" *)
   input  WCLK,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L834
+  (* abc9_required=654 *)
   input  WE,
-  input  A0, A1, A2, A3, A4,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L800
+  (* abc9_required=245 *)
+  input  A0,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/clBLM_R.sdf#L798
+  (* abc9_required=208 *)
+  input  A1,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L796
+  (* abc9_required=147 *)
+  input  A2,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L794
+  (* abc9_required=68 *)
+  input  A3,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L792
+  (* abc9_required=66 *)
+  input  A4,
   input  DPRA0, DPRA1, DPRA2, DPRA3, DPRA4
 );
   parameter INIT = 32'h0;
@@ -1166,15 +1235,36 @@ module RAM32X1D_1 (
 endmodule
 
 module RAM64X1D (
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L889
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L981
   (* abc9_arrival=1153 *)
   output DPO, SPO,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986
+  (* abc9_required=453 *)
   input  D,
   (* clkbuf_sink *)
   (* invertible_pin = "IS_WCLK_INVERTED" *)
   input  WCLK,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L834
+  (* abc9_required=654 *)
   input  WE,
-  input  A0, A1, A2, A3, A4, A5,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L828
+  (* abc9_required=362 *)
+  input  A0,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L826
+  (* abc9_required=245 *)
+  input  A1,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L824
+  (* abc9_required=208 *)
+  input  A2,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L822
+  (* abc9_required=147 *)
+  input  A3,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L820
+  (* abc9_required=68 *)
+  input  A4,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L818
+  (* abc9_required=66 *)
+  input  A5,
   input  DPRA0, DPRA1, DPRA2, DPRA3, DPRA4, DPRA5
 );
   parameter INIT = 64'h0;
@@ -1189,15 +1279,36 @@ module RAM64X1D (
 endmodule
 
 module RAM64X1D_1 (
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L889
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L981
   (* abc9_arrival=1153 *)
   output DPO, SPO,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986
+  (* abc9_required=453 *)
   input  D,
   (* clkbuf_sink *)
   (* invertible_pin = "IS_WCLK_INVERTED" *)
   input  WCLK,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L834
+  (* abc9_required=654 *)
   input  WE,
-  input  A0, A1, A2, A3, A4, A5,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L828
+  (* abc9_required=362 *)
+  input  A0,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L826
+  (* abc9_required=245 *)
+  input  A1,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L824
+  (* abc9_required=208 *)
+  input  A2,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L822
+  (* abc9_required=147 *)
+  input  A3,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L820
+  (* abc9_required=68 *)
+  input  A4,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L818
+  (* abc9_required=66 *)
+  input  A5,
   input  DPRA0, DPRA1, DPRA2, DPRA3, DPRA4, DPRA5
 );
   parameter INIT = 64'h0;
@@ -1212,16 +1323,23 @@ module RAM64X1D_1 (
 endmodule
 
 module RAM128X1D (
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L889
-  //   plus 204ps to cross MUXF7
-  (* abc9_arrival=1357 *)
-  output DPO, SPO,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L981
+  //   plus 208ps to cross MUXF7
+  (* abc9_arrival=1359 *)
+  output       DPO, SPO,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986
+  (* abc9_required=453 *)
   input        D,
   (* clkbuf_sink *)
   (* invertible_pin = "IS_WCLK_INVERTED" *)
   input        WCLK,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L834
+  (* abc9_required=654 *)
   input        WE,
-  input  [6:0] A, DPRA
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L818-830
+  (* abc9_required="616 362 245 208 147 68 66" *)
+  input  [6:0] A,
+  input  [6:0] DPRA
 );
   parameter INIT = 128'h0;
   parameter IS_WCLK_INVERTED = 1'b0;
@@ -1253,24 +1371,44 @@ endmodule
 // Multi port.
 
 module RAM32M (
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L889
   // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L857
-  (* abc9_arrival=1188 *)
+  (* abc9_arrival="1153 1188" *)
   output [1:0] DOA,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
   // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L925
-  (* abc9_arrival=1187 *)
+  (* abc9_arrival="1161 1187" *)
   output [1:0] DOB,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L1025
   // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L993
-  (* abc9_arrival=1180 *)
+  (* abc9_arrival="1158 1180" *)
   output [1:0] DOC,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L1093
   // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L1061
-  (* abc9_arrival=1190 *)
+  (* abc9_arrival="1163 1190" *)
   output [1:0] DOD,
-  input [4:0] ADDRA, ADDRB, ADDRC, ADDRD,
-  input [1:0] DIA, DIB, DIC, DID,
+  input  [4:0] ADDRA, ADDRB, ADDRC,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L792-L802
+  (* abc9_required="245 208 147 68 66" *)
+  input  [4:0] ADDRD,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986-L988
+  (* abc9_required="453 384" *)
+  input  [1:0] DIA,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L1054-L1056
+  (* abc9_required="461 354" *)
+  input  [1:0] DIB,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L1122-L1124
+  (* abc9_required="457 375" *)
+  input  [1:0] DIC,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L1190-L1192
+  (* abc9_required="310 334" *)
+  input  [1:0] DID,
   (* clkbuf_sink *)
   (* invertible_pin = "IS_WCLK_INVERTED" *)
-  input WCLK,
-  input WE
+  input        WCLK,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L834
+  (* abc9_required=654 *)
+  input        WE
 );
   parameter [63:0] INIT_A = 64'h0000000000000000;
   parameter [63:0] INIT_B = 64'h0000000000000000;
@@ -1367,22 +1505,38 @@ endmodule
 module RAM64M (
   // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L889
   (* abc9_arrival=1153 *)
-  output DOA,
+  output       DOA,
   // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
   (* abc9_arrival=1161 *)
-  output DOB,
+  output       DOB,
   // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L1025
   (* abc9_arrival=1158 *)
-  output DOC,
+  output       DOC,
   // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L1093
   (* abc9_arrival=1163 *)
-  output DOD,
-  input [5:0] ADDRA, ADDRB, ADDRC, ADDRD,
-  input DIA, DIB, DIC, DID,
+  output       DOD,
+  input  [5:0] ADDRA, ADDRB, ADDRC,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L818-L830
+  (* abc9_required="362 245 208 147 68 66" *)
+  input  [5:0] ADDRD,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986-L988
+  (* abc9_required=384 *)
+  input        DIA,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L1054-L1056
+  (* abc9_required=354 *)
+  input        DIB,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L1122-L1124
+  (* abc9_required=375 *)
+  input        DIC,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L1190-L1192
+  (* abc9_required=310 *)
+  input        DID,
   (* clkbuf_sink *)
   (* invertible_pin = "IS_WCLK_INVERTED" *)
-  input WCLK,
-  input WE
+  input        WCLK,
+  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L834
+  (* abc9_required=654 *)
+  input        WE
 );
   parameter [63:0] INIT_A = 64'h0000000000000000;
   parameter [63:0] INIT_B = 64'h0000000000000000;
@@ -2397,21 +2551,30 @@ module DSP48E1 (
     output reg MULTSIGNOUT,
     output OVERFLOW,
 `ifdef YOSYS
-    (* abc9_arrival = \DSP48E1.P_arrival () *)
+    (* abc9_arrival = \P.abc9_arrival () *)
 `endif
     output reg signed [47:0] P,
     output reg PATTERNBDETECT,
     output reg PATTERNDETECT,
 `ifdef YOSYS
-    (* abc9_arrival = \DSP48E1.PCOUT_arrival () *)
+    (* abc9_arrival = \PCOUT.abc9_arrival () *)
 `endif
     output [47:0] PCOUT,
     output UNDERFLOW,
+`ifdef YOSYS
+    (* abc9_required = \A.abc9_required () *)
+`endif
     input signed [29:0] A,
     input [29:0] ACIN,
     input [3:0] ALUMODE,
+`ifdef YOSYS
+    (* abc9_required = \B.abc9_required () *)
+`endif
     input signed [17:0] B,
     input [17:0] BCIN,
+`ifdef YOSYS
+    (* abc9_required = \C.abc9_required () *)
+`endif
     input [47:0] C,
     input CARRYCASCIN,
     input CARRYIN,
@@ -2430,10 +2593,16 @@ module DSP48E1 (
     input CEM,
     input CEP,
     (* clkbuf_sink *) input CLK,
+`ifdef YOSYS
+    (* abc9_required = \D.abc9_required () *)
+`endif
     input [24:0] D,
     input [4:0] INMODE,
     input MULTSIGNIN,
     input [6:0] OPMODE,
+`ifdef YOSYS
+    (* abc9_required = \PCIN.abc9_required () *)
+`endif
     input [47:0] PCIN,
     input RSTA,
     input RSTALLCARRYIN,
@@ -2478,69 +2647,133 @@ module DSP48E1 (
     parameter [6:0] IS_OPMODE_INVERTED = 7'b0;
 
 `ifdef YOSYS
-    function integer \DSP48E1.P_arrival ;
+    function integer \A.abc9_required ;
     begin
-        \DSP48E1.P_arrival = 0;
-        if (USE_MULT == "MULTIPLY" && USE_DPORT == "FALSE") begin
-            if (PREG != 0)      \DSP48E1.P_arrival =  329;
-            // Worst-case from CREG and MREG
-            else if (CREG != 0) \DSP48E1.P_arrival = 1687;
-            else if (MREG != 0) \DSP48E1.P_arrival = 1671;
-            // Worst-case from AREG and BREG
-            else if (AREG != 0) \DSP48E1.P_arrival = 2952;
-            else if (BREG != 0) \DSP48E1.P_arrival = 2813;
+        \A.abc9_required = 0;
+        if (AREG != 0)           \A.abc9_required =  254;
+        else if (USE_MULT == "MULTIPLY" && USE_DPORT == "FALSE") begin
+            if (MREG != 0)       \A.abc9_required = 1416;
+            else if (PREG != 0)  \A.abc9_required = (USE_PATTERN_DETECT != "NO_PATDET" ? 3030 : 2739) ;
         end
         else if (USE_MULT == "MULTIPLY" && USE_DPORT == "TRUE") begin
-            if (PREG != 0)      \DSP48E1.P_arrival =  329;
-            // Worst-case from CREG and MREG
-            else if (CREG != 0) \DSP48E1.P_arrival = 1687;
-            else if (MREG != 0) \DSP48E1.P_arrival = 1671;
-            // Worst-case from AREG, ADREG, BREG, DREG
-            else if (AREG != 0)  \DSP48E1.P_arrival = 3935;
-            else if (DREG != 0)  \DSP48E1.P_arrival = 3908;
-            else if (ADREG != 0) \DSP48E1.P_arrival = 2958;
-            else if (BREG != 0)  \DSP48E1.P_arrival = 2813;
+            // Worst-case from ADREG and MREG
+            if (MREG != 0)       \A.abc9_required = 2400;
+            else if (ADREG != 0) \A.abc9_required = 1283;
+            else if (PREG != 0)  \A.abc9_required = 3723;
+            else if (PREG != 0)  \A.abc9_required = (USE_PATTERN_DETECT != "NO_PATDET" ? 4014 : 3723) ;
         end
         else if (USE_MULT == "NONE" && USE_DPORT == "FALSE") begin
-            if (PREG != 0)      \DSP48E1.P_arrival =  329;
+            if (PREG != 0)       \A.abc9_required = (USE_PATTERN_DETECT != "NO_PATDET" ? 1730 : 1441) ;
+        end
+    end
+    endfunction
+    function integer \B.abc9_required ;
+    begin
+        \B.abc9_required = 0;
+        if (BREG != 0)      \B.abc9_required =  324;
+        else if (MREG != 0) \B.abc9_required = 1285;
+        else if (USE_MULT == "MULTIPLY" && USE_DPORT == "FALSE") begin
+            if (PREG != 0)  \B.abc9_required = (USE_PATTERN_DETECT != "NO_PATDET" ? 2898 : 2608) ;
+        end
+        else if (USE_MULT == "MULTIPLY" && USE_DPORT == "TRUE") begin
+            if (PREG != 0)  \B.abc9_required = (USE_PATTERN_DETECT != "NO_PATDET" ? 2898 : 2608) ;
+        end
+        else if (USE_MULT == "NONE" && USE_DPORT == "FALSE") begin
+            if (PREG != 0)  \B.abc9_required = (USE_PATTERN_DETECT != "NO_PATDET" ? 1718 : 1428) ;
+        end
+    end
+    endfunction
+    function integer \C.abc9_required ;
+    begin
+        \C.abc9_required = 0;
+        if (CREG != 0)      \C.abc9_required =  168;
+        else if (PREG != 0) \C.abc9_required = (USE_PATTERN_DETECT != "NO_PATDET" ? 1534 : 1244) ;
+    end
+    endfunction
+    function integer \D.abc9_required ;
+    begin
+        \D.abc9_required = 0;
+        if (USE_MULT == "MULTIPLY" && USE_DPORT == "FALSE") begin
+        end
+        else if (USE_MULT == "MULTIPLY" && USE_DPORT == "TRUE") begin
+            if (DREG != 0)       \D.abc9_required =  248;
+            else if (ADREG != 0) \D.abc9_required = 1195;
+            else if (MREG != 0)  \D.abc9_required = 2310;
+            else if (PREG != 0)  \D.abc9_required = (USE_PATTERN_DETECT != "NO_PATDET" ? 3925 : 3635) ;
+        end
+        else if (USE_MULT == "NONE" && USE_DPORT == "FALSE") begin
+        end
+    end
+    endfunction
+    function integer \PCIN.abc9_required ;
+    begin
+        \PCIN.abc9_required = 0;
+        if (PREG != 0) \PCIN.abc9_required = (USE_PATTERN_DETECT != "NO_PATDET" ? 1315 : 1025) ;
+    end
+    endfunction
+    function integer \P.abc9_arrival ;
+    begin
+        \P.abc9_arrival = 0;
+        if (USE_MULT == "MULTIPLY" && USE_DPORT == "FALSE") begin
+            if (PREG != 0)       \P.abc9_arrival =  329;
+            // Worst-case from CREG and MREG
+            else if (CREG != 0)  \P.abc9_arrival = 1687;
+            else if (MREG != 0)  \P.abc9_arrival = 1671;
+            // Worst-case from AREG and BREG
+            else if (AREG != 0)  \P.abc9_arrival = 2952;
+            else if (BREG != 0)  \P.abc9_arrival = 2813;
+        end
+        else if (USE_MULT == "MULTIPLY" && USE_DPORT == "TRUE") begin
+            if (PREG != 0)       \P.abc9_arrival =  329;
+            // Worst-case from CREG and MREG
+            else if (CREG != 0)  \P.abc9_arrival = 1687;
+            else if (MREG != 0)  \P.abc9_arrival = 1671;
+            // Worst-case from AREG, ADREG, BREG, DREG
+            else if (AREG != 0)  \P.abc9_arrival = 3935;
+            else if (DREG != 0)  \P.abc9_arrival = 3908;
+            else if (ADREG != 0) \P.abc9_arrival = 2958;
+            else if (BREG != 0)  \P.abc9_arrival = 2813;
+        end
+        else if (USE_MULT == "NONE" && USE_DPORT == "FALSE") begin
+            if (PREG != 0)       \P.abc9_arrival =  329;
             // Worst-case from AREG, BREG, CREG
-            else if (CREG != 0) \DSP48E1.P_arrival = 1687;
-            else if (AREG != 0) \DSP48E1.P_arrival = 1632;
-            else if (BREG != 0) \DSP48E1.P_arrival = 1616;
+            else if (CREG != 0)  \P.abc9_arrival = 1687;
+            else if (AREG != 0)  \P.abc9_arrival = 1632;
+            else if (BREG != 0)  \P.abc9_arrival = 1616;
         end
         //else
         //    $error("Invalid DSP48E1 configuration");
     end
     endfunction
-    function integer \DSP48E1.PCOUT_arrival ;
+    function integer \PCOUT.abc9_arrival ;
     begin
-        \DSP48E1.PCOUT_arrival = 0;
+        \PCOUT.abc9_arrival = 0;
         if (USE_MULT == "MULTIPLY" && USE_DPORT == "FALSE") begin
-            if (PREG != 0)      \DSP48E1.PCOUT_arrival =  435;
+            if (PREG != 0)       \PCOUT.abc9_arrival =  435;
             // Worst-case from CREG and MREG
-            else if (CREG != 0) \DSP48E1.PCOUT_arrival = 1835;
-            else if (MREG != 0) \DSP48E1.PCOUT_arrival = 1819;
+            else if (CREG != 0)  \PCOUT.abc9_arrival = 1835;
+            else if (MREG != 0)  \PCOUT.abc9_arrival = 1819;
             // Worst-case from AREG and BREG
-            else if (AREG != 0) \DSP48E1.PCOUT_arrival = 3098;
-            else if (BREG != 0) \DSP48E1.PCOUT_arrival = 2960;
+            else if (AREG != 0)  \PCOUT.abc9_arrival = 3098;
+            else if (BREG != 0)  \PCOUT.abc9_arrival = 2960;
         end
         else if (USE_MULT == "MULTIPLY" && USE_DPORT == "TRUE") begin
-            if (PREG != 0)      \DSP48E1.PCOUT_arrival =  435;
+            if (PREG != 0)       \PCOUT.abc9_arrival =  435;
             // Worst-case from CREG and MREG
-            else if (CREG != 0) \DSP48E1.PCOUT_arrival = 1835;
-            else if (MREG != 0) \DSP48E1.PCOUT_arrival = 1819;
+            else if (CREG != 0)  \PCOUT.abc9_arrival = 1835;
+            else if (MREG != 0)  \PCOUT.abc9_arrival = 1819;
             // Worst-case from AREG, ADREG, BREG, DREG
-            else if (AREG != 0)  \DSP48E1.PCOUT_arrival = 4083;
-            else if (DREG != 0)  \DSP48E1.PCOUT_arrival = 4056;
-            else if (BREG != 0)  \DSP48E1.PCOUT_arrival = 2960;
-            else if (ADREG != 0) \DSP48E1.PCOUT_arrival = 2859;
+            else if (AREG != 0)  \PCOUT.abc9_arrival = 4083;
+            else if (DREG != 0)  \PCOUT.abc9_arrival = 4056;
+            else if (BREG != 0)  \PCOUT.abc9_arrival = 2960;
+            else if (ADREG != 0) \PCOUT.abc9_arrival = 2859;
         end
         else if (USE_MULT == "NONE" && USE_DPORT == "FALSE") begin
-            if (PREG != 0)      \DSP48E1.PCOUT_arrival =  435;
+            if (PREG != 0)       \PCOUT.abc9_arrival =  435;
             // Worst-case from AREG, BREG, CREG
-            else if (CREG != 0) \DSP48E1.PCOUT_arrival = 1835;
-            else if (AREG != 0) \DSP48E1.PCOUT_arrival = 1780;
-            else if (BREG != 0) \DSP48E1.PCOUT_arrival = 1765;
+            else if (CREG != 0)  \PCOUT.abc9_arrival = 1835;
+            else if (AREG != 0)  \PCOUT.abc9_arrival = 1780;
+            else if (BREG != 0)  \PCOUT.abc9_arrival = 1765;
         end
         //else
         //    $error("Invalid DSP48E1 configuration");

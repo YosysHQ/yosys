@@ -175,6 +175,7 @@ struct Abc9Pass : public ScriptPass
 
 	std::stringstream exe_cmd;
 	bool dff_mode, cleanup;
+	std::string box_file;
 
 	void clear_flags() YS_OVERRIDE
 	{
@@ -182,6 +183,7 @@ struct Abc9Pass : public ScriptPass
 		exe_cmd << "abc9_exe";
 		dff_mode = false;
 		cleanup = true;
+		box_file.clear();
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -203,7 +205,7 @@ struct Abc9Pass : public ScriptPass
 			std::string arg = args[argidx];
 			if ((arg == "-exe" || arg == "-script" || arg == "-D" ||
 						/* arg == "-S" || */ arg == "-lut" || arg == "-luts" ||
-						arg == "-box" || arg == "-W") &&
+						/*arg == "-box" ||*/ arg == "-W") &&
 					argidx+1 < args.size()) {
 				exe_cmd << " " << arg << " " << args[++argidx];
 				continue;
@@ -220,6 +222,10 @@ struct Abc9Pass : public ScriptPass
 			}
 			if (arg == "-nocleanup") {
 				cleanup = false;
+				continue;
+			}
+			if (arg == "-box" && argidx+1 < args.size()) {
+				box_file = args[++argidx];
 				continue;
 			}
 			if (arg == "-run" && argidx+1 < args.size()) {
@@ -251,11 +257,12 @@ struct Abc9Pass : public ScriptPass
 	void script() YS_OVERRIDE
 	{
 		if (check_label("pre")) {
+			run("abc9_ops -check");
 			run("scc -set_attr abc9_scc_id {}");
 			if (help_mode)
-				run("abc9_ops -mark_scc -prep_xaiger [-dff]", "(option for -dff)");
+				run("abc9_ops -mark_scc -prep_delays -prep_xaiger [-dff]", "(option for -dff)");
 			else
-				run("abc9_ops -mark_scc -prep_xaiger" + std::string(dff_mode ? " -dff" : ""), "(option for -dff)");
+				run("abc9_ops -mark_scc -prep_delays -prep_xaiger" + std::string(dff_mode ? " -dff" : ""), "(option for -dff)");
 			run("select -set abc9_holes A:abc9_holes");
 			run("flatten -wb @abc9_holes");
 			run("techmap @abc9_holes");
@@ -269,8 +276,9 @@ struct Abc9Pass : public ScriptPass
 		if (check_label("map")) {
 			if (help_mode) {
 				run("foreach module in selection");
+				run("    abc9_ops -write_box [<value from -box>|(null)] <abc-temp-dir>/input.box");
 				run("    write_xaiger -map <abc-temp-dir>/input.sym <abc-temp-dir>/input.xaig");
-				run("    abc9_exe -cwd <abc-temp-dir> [options]");
+				run("    abc9_exe [options] -cwd <abc-temp-dir> -box <abc-temp-dir>/input.box");
 				run("    read_aiger -xaiger -wideports -module_name <module-name>$abc9 -map <abc-temp-dir>/input.sym <abc-temp-dir>/output.aig");
 				run("    abc9_ops -reintegrate");
 			}
@@ -296,6 +304,10 @@ struct Abc9Pass : public ScriptPass
 						tempdir_name[0] = tempdir_name[4] = '_';
 					tempdir_name = make_temp_dir(tempdir_name);
 
+					if (box_file.empty())
+						run(stringf("abc9_ops -write_box (null) %s/input.box", tempdir_name.c_str()));
+					else
+						run(stringf("abc9_ops -write_box %s %s/input.box", box_file.c_str(), tempdir_name.c_str()));
 					run(stringf("write_xaiger -map %s/input.sym %s/input.xaig", tempdir_name.c_str(), tempdir_name.c_str()));
 
 					int num_outputs = active_design->scratchpad_get_int("write_xaiger.num_outputs");
@@ -307,7 +319,7 @@ struct Abc9Pass : public ScriptPass
 							active_design->scratchpad_get_int("write_xaiger.num_inputs"),
 							num_outputs);
 					if (num_outputs) {
-						run(stringf("%s -cwd %s", exe_cmd.str().c_str(), tempdir_name.c_str()));
+						run(stringf("%s -cwd %s -box %s/input.box", exe_cmd.str().c_str(), tempdir_name.c_str(), tempdir_name.c_str()));
 						run(stringf("read_aiger -xaiger -wideports -module_name %s$abc9 -map %s/input.sym %s/output.aig", log_id(mod), tempdir_name.c_str(), tempdir_name.c_str()));
 						run("abc9_ops -reintegrate");
 					}

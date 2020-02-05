@@ -4518,13 +4518,21 @@ module RAMB18E1 (...);
     input RSTREGARSTREG;
     (* invertible_pin = "IS_RSTREGB_INVERTED" *)
     input RSTREGB;
+    (* abc9_required=566 *)
     input [13:0] ADDRARDADDR;
+    (* abc9_required=566 *)
     input [13:0] ADDRBWRADDR;
+    (* abc9_required=737 *)
     input [15:0] DIADI;
+    (* abc9_required=737 *)
     input [15:0] DIBDI;
+    (* abc9_required=737 *)
     input [1:0] DIPADIP;
+    (* abc9_required=737 *)
     input [1:0] DIPBDIP;
+    (* abc9_required=532 *)
     input [1:0] WEA;
+    (* abc9_required=532 *)
     input [3:0] WEBWE;
 endmodule
 
@@ -4742,13 +4750,21 @@ module RAMB36E1 (...);
     input REGCEB;
     input INJECTDBITERR;
     input INJECTSBITERR;
+    (* abc9_required=566 *)
     input [15:0] ADDRARDADDR;
+    (* abc9_required=566 *)
     input [15:0] ADDRBWRADDR;
+    (* abc9_required=737 *)
     input [31:0] DIADI;
+    (* abc9_required=737 *)
     input [31:0] DIBDI;
+    (* abc9_required=737 *)
     input [3:0] DIPADIP;
+    (* abc9_required=737 *)
     input [3:0] DIPBDIP;
+    (* abc9_required=532 *)
     input [3:0] WEA;
+    (* abc9_required=532 *)
     input [7:0] WEBWE;
 endmodule
 
