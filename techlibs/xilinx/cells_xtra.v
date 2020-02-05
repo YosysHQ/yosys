@@ -4518,13 +4518,21 @@ module RAMB18E1 (...);
     input RSTREGARSTREG;
     (* invertible_pin = "IS_RSTREGB_INVERTED" *)
     input RSTREGB;
+    (* abc9_required=566 *)
     input [13:0] ADDRARDADDR;
+    (* abc9_required=566 *)
     input [13:0] ADDRBWRADDR;
+    (* abc9_required=737 *)
     input [15:0] DIADI;
+    (* abc9_required=737 *)
     input [15:0] DIBDI;
+    (* abc9_required=737 *)
     input [1:0] DIPADIP;
+    (* abc9_required=737 *)
     input [1:0] DIPBDIP;
+    (* abc9_required=532 *)
     input [1:0] WEA;
+    (* abc9_required=532 *)
     input [3:0] WEBWE;
 endmodule
 
@@ -4742,13 +4750,21 @@ module RAMB36E1 (...);
     input REGCEB;
     input INJECTDBITERR;
     input INJECTSBITERR;
+    (* abc9_required=566 *)
     input [15:0] ADDRARDADDR;
+    (* abc9_required=566 *)
     input [15:0] ADDRBWRADDR;
+    (* abc9_required=737 *)
     input [31:0] DIADI;
+    (* abc9_required=737 *)
     input [31:0] DIBDI;
+    (* abc9_required=737 *)
     input [3:0] DIPADIP;
+    (* abc9_required=737 *)
     input [3:0] DIPBDIP;
+    (* abc9_required=532 *)
     input [3:0] WEA;
+    (* abc9_required=532 *)
     input [7:0] WEBWE;
 endmodule
 
@@ -5474,49 +5490,6 @@ module URAM288_BASE (...);
     (* invertible_pin = "IS_RST_B_INVERTED" *)
     input RST_B;
     input SLEEP;
-endmodule
-
-module DSP48 (...);
-    parameter integer AREG = 1;
-    parameter integer BREG = 1;
-    parameter B_INPUT = "DIRECT";
-    parameter integer CARRYINREG = 1;
-    parameter integer CARRYINSELREG = 1;
-    parameter integer CREG = 1;
-    parameter LEGACY_MODE = "MULT18X18S";
-    parameter integer MREG = 1;
-    parameter integer OPMODEREG = 1;
-    parameter integer PREG = 1;
-    parameter integer SUBTRACTREG = 1;
-    output [17:0] BCOUT;
-    output [47:0] P;
-    output [47:0] PCOUT;
-    input [17:0] A;
-    input [17:0] B;
-    input [17:0] BCIN;
-    input [47:0] C;
-    input CARRYIN;
-    input [1:0] CARRYINSEL;
-    input CEA;
-    input CEB;
-    input CEC;
-    input CECARRYIN;
-    input CECINSUB;
-    input CECTRL;
-    input CEM;
-    input CEP;
-    (* clkbuf_sink *)
-    input CLK;
-    input [6:0] OPMODE;
-    input [47:0] PCIN;
-    input RSTA;
-    input RSTB;
-    input RSTC;
-    input RSTCARRYIN;
-    input RSTCTRL;
-    input RSTM;
-    input RSTP;
-    input SUBTRACT;
 endmodule
 
 module DSP48E (...);

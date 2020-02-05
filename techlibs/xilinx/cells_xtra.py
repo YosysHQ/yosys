@@ -180,18 +180,58 @@ CELLS = [
     Cell('RAMB18E1', port_attrs={
         'CLKARDCLK': ['clkbuf_sink'],
         'CLKBWRCLK': ['clkbuf_sink'],
+        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L143
         'DOADO': ['abc9_arrival=2454'],
+        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L163
         'DOBDO': ['abc9_arrival=2454'],
+        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L144
         'DOPADOP': ['abc9_arrival=2454'],
+        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L164
         'DOPBDOP': ['abc9_arrival=2454'],
+        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L13
+        'ADDRARDADDR': ['abc9_required=566'],
+        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L17
+        'ADDRBWRADDR': ['abc9_required=566'],
+        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L19
+        'WEA': ['abc9_required=532'],
+        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L21
+        'WEBWE': ['abc9_required=532'],
+        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L123
+        'DIADI': ['abc9_required=737'],
+        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L133
+        'DIBDI': ['abc9_required=737'],
+        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L125
+        'DIPADIP': ['abc9_required=737'],
+        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L135
+        'DIPBDIP': ['abc9_required=737'],
     }),
     Cell('RAMB36E1', port_attrs={
         'CLKARDCLK': ['clkbuf_sink'],
         'CLKBWRCLK': ['clkbuf_sink'],
+        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L143
         'DOADO': ['abc9_arrival=2454'],
+        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L163
         'DOBDO': ['abc9_arrival=2454'],
+        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L144
         'DOPADOP': ['abc9_arrival=2454'],
+        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L164
         'DOPBDOP': ['abc9_arrival=2454'],
+        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L13
+        'ADDRARDADDR': ['abc9_required=566'],
+        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L17
+        'ADDRBWRADDR': ['abc9_required=566'],
+        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L19
+        'WEA': ['abc9_required=532'],
+        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L21
+        'WEBWE': ['abc9_required=532'],
+        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L123
+        'DIADI': ['abc9_required=737'],
+        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L133
+        'DIBDI': ['abc9_required=737'],
+        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L125
+        'DIPADIP': ['abc9_required=737'],
+        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L135
+        'DIPBDIP': ['abc9_required=737'],
     }),
     # Ultrascale.
     Cell('FIFO18E2', port_attrs={'RDCLK': ['clkbuf_sink'], 'WRCLK': ['clkbuf_sink']}),
@@ -209,7 +249,7 @@ CELLS = [
     # Cell('MULT18X18SIO', port_attrs={'CLK': ['clkbuf_sink']}), # Spartan 3E
     # Cell('DSP48A', port_attrs={'CLK': ['clkbuf_sink']}), # Spartan 3A DSP
     # Cell('DSP48A1', port_attrs={'CLK': ['clkbuf_sink']}), # Spartan 6
-    Cell('DSP48', port_attrs={'CLK': ['clkbuf_sink']}), # Virtex 4
+    # Cell('DSP48', port_attrs={'CLK': ['clkbuf_sink']}), # Virtex 4
     Cell('DSP48E', port_attrs={'CLK': ['clkbuf_sink']}), # Virtex 5
     #Cell('DSP48E1', port_attrs={'CLK': ['clkbuf_sink']}), # Virtex 6 / Series 7
     Cell('DSP48E2', port_attrs={'CLK': ['clkbuf_sink']}), # Ultrascale

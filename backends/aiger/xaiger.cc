@@ -93,7 +93,6 @@ struct XAigerWriter
 	dict<SigBit, int> ordered_outputs;
 
 	vector<Cell*> box_list;
-	dict<IdString, std::vector<IdString>> box_ports;
 
 	int mkgate(int a0, int a1)
 	{
@@ -157,7 +156,6 @@ struct XAigerWriter
 			if (wire->get_bool_attribute(ID::keep))
 				sigmap.add(wire);
 
-
 		for (auto wire : module->wires())
 			for (int i = 0; i < GetSize(wire); i++)
 			{
@@ -175,108 +173,117 @@ struct XAigerWriter
 				undriven_bits.insert(bit);
 				unused_bits.insert(bit);
 
-				if (wire->port_input)
+				bool keep = wire->get_bool_attribute(ID::keep);
+				if (wire->port_input || keep)
 					input_bits.insert(bit);
 
-				if (wire->port_output) {
+				if (wire->port_output || keep) {
 					if (bit != wirebit)
 						alias_map[wirebit] = bit;
 					output_bits.insert(wirebit);
 				}
 			}
 
-		// TODO: Speed up toposort -- ultimately we care about
-		//       box ordering, but not individual AIG cells
-		dict<SigBit, pool<IdString>> bit_drivers, bit_users;
-		TopoSort<IdString, RTLIL::sort_by_id_str> toposort;
-		bool abc9_box_seen = false;
-
-		for (auto cell : module->selected_cells()) {
-			if (cell->type == "$_NOT_")
-			{
-				SigBit A = sigmap(cell->getPort("\\A").as_bit());
-				SigBit Y = sigmap(cell->getPort("\\Y").as_bit());
-				unused_bits.erase(A);
-				undriven_bits.erase(Y);
-				not_map[Y] = A;
-				toposort.node(cell->name);
-				bit_users[A].insert(cell->name);
-				bit_drivers[Y].insert(cell->name);
-				continue;
-			}
-
-			if (cell->type == "$_AND_")
-			{
-				SigBit A = sigmap(cell->getPort("\\A").as_bit());
-				SigBit B = sigmap(cell->getPort("\\B").as_bit());
-				SigBit Y = sigmap(cell->getPort("\\Y").as_bit());
-				unused_bits.erase(A);
-				unused_bits.erase(B);
-				undriven_bits.erase(Y);
-				and_map[Y] = make_pair(A, B);
-				toposort.node(cell->name);
-				bit_users[A].insert(cell->name);
-				bit_users[B].insert(cell->name);
-				bit_drivers[Y].insert(cell->name);
-				continue;
-			}
-
-			if (cell->type == "$__ABC9_FF_" &&
-                                        // The presence of an abc9_mergeability attribute indicates
-                                        //   that we do want to pass this flop to ABC
-                                        cell->attributes.count("\\abc9_mergeability"))
-			{
-				SigBit D = sigmap(cell->getPort("\\D").as_bit());
-				SigBit Q = sigmap(cell->getPort("\\Q").as_bit());
-				unused_bits.erase(D);
-				undriven_bits.erase(Q);
-				alias_map[Q] = D;
-				auto r YS_ATTRIBUTE(unused) = ff_bits.insert(std::make_pair(D, cell));
-				log_assert(r.second);
-				continue;
-			}
-
+		dict<IdString,dict<IdString,std::vector<int>>> arrivals_cache;
+		for (auto cell : module->cells()) {
 			RTLIL::Module* inst_module = module->design->module(cell->type);
-			if (inst_module) {
-				bool abc9_box = inst_module->attributes.count("\\abc9_box_id");
-				bool abc9_flop = inst_module->get_bool_attribute("\\abc9_flop");
-				if (abc9_box && cell->get_bool_attribute("\\abc9_keep"))
-					abc9_box = false;
+			if (!cell->has_keep_attr()) {
+				if (cell->type == "$_NOT_")
+				{
+					SigBit A = sigmap(cell->getPort("\\A").as_bit());
+					SigBit Y = sigmap(cell->getPort("\\Y").as_bit());
+					unused_bits.erase(A);
+					undriven_bits.erase(Y);
+					not_map[Y] = A;
+					continue;
+				}
 
-				for (const auto &conn : cell->connections()) {
-					auto port_wire = inst_module->wire(conn.first);
+				if (cell->type == "$_AND_")
+				{
+					SigBit A = sigmap(cell->getPort("\\A").as_bit());
+					SigBit B = sigmap(cell->getPort("\\B").as_bit());
+					SigBit Y = sigmap(cell->getPort("\\Y").as_bit());
+					unused_bits.erase(A);
+					unused_bits.erase(B);
+					undriven_bits.erase(Y);
+					and_map[Y] = make_pair(A, B);
+					continue;
+				}
 
-					if (abc9_box) {
-						// Ignore inout for the sake of topographical ordering
-						if (port_wire->port_input && !port_wire->port_output)
-							for (auto bit : sigmap(conn.second))
-								bit_users[bit].insert(cell->name);
-						if (port_wire->port_output)
-							for (auto bit : sigmap(conn.second))
-								bit_drivers[bit].insert(cell->name);
+				if (cell->type == "$__ABC9_FF_" &&
+						// The presence of an abc9_mergeability attribute indicates
+						//   that we do want to pass this flop to ABC
+						cell->attributes.count("\\abc9_mergeability"))
+				{
+					SigBit D = sigmap(cell->getPort("\\D").as_bit());
+					SigBit Q = sigmap(cell->getPort("\\Q").as_bit());
+					unused_bits.erase(D);
+					undriven_bits.erase(Q);
+					alias_map[Q] = D;
+					auto r YS_ATTRIBUTE(unused) = ff_bits.insert(std::make_pair(D, cell));
+					log_assert(r.second);
+					if (input_bits.erase(Q))
+						log_assert(Q.wire->attributes.count(ID::keep));
+					continue;
+				}
 
+				if (inst_module) {
+					bool abc9_flop = false;
+					auto it = cell->attributes.find("\\abc9_box_seq");
+					if (it != cell->attributes.end()) {
+						int abc9_box_seq = it->second.as_int();
+						if (GetSize(box_list) <= abc9_box_seq)
+							box_list.resize(abc9_box_seq+1);
+						box_list[abc9_box_seq] = cell;
+						// Only flop boxes may have arrival times
+						//   (all others are combinatorial)
+						abc9_flop = inst_module->get_bool_attribute("\\abc9_flop");
 						if (!abc9_flop)
 							continue;
 					}
 
-					if (port_wire->port_output) {
-						int arrival = 0;
-						auto it = port_wire->attributes.find("\\abc9_arrival");
-						if (it != port_wire->attributes.end()) {
-							if (it->second.flags != 0)
-								log_error("Attribute 'abc9_arrival' on port '%s' of module '%s' is not an integer.\n", log_id(port_wire), log_id(cell->type));
-							arrival = it->second.as_int();
-						}
-						if (arrival)
-							for (auto bit : sigmap(conn.second))
-								arrival_times[bit] = arrival;
-					}
-				}
+					auto &cell_arrivals = arrivals_cache[cell->type];
+					for (const auto &conn : cell->connections()) {
+						auto port_wire = inst_module->wire(conn.first);
+						if (!port_wire->port_output)
+							continue;
 
-				if (abc9_box) {
-					abc9_box_seen = true;
-					toposort.node(cell->name);
-					continue;
+						auto r = cell_arrivals.insert(conn.first);
+						auto &arrivals = r.first->second;
+						if (r.second) {
+							auto it = port_wire->attributes.find("\\abc9_arrival");
+							if (it == port_wire->attributes.end())
+								continue;
+							if (it->second.flags == 0)
+								arrivals.emplace_back(it->second.as_int());
+							else
+								for (const auto &tok : split_tokens(it->second.decode_string()))
+									arrivals.push_back(atoi(tok.c_str()));
+						}
+
+						if (arrivals.empty())
+							continue;
+
+						if (GetSize(arrivals) > 1 && GetSize(arrivals) != GetSize(port_wire))
+							log_error("%s.%s is %d bits wide but abc9_arrival = %s has %d value(s)!\n", log_id(cell->type), log_id(conn.first),
+									GetSize(port_wire), log_signal(it->second), GetSize(arrivals));
+
+						auto jt = arrivals.begin();
+#ifndef NDEBUG
+						if (ys_debug(1)) {
+							static std::set<std::pair<IdString,IdString>> seen;
+							if (seen.emplace(cell->type, conn.first).second) log("%s.%s abc9_arrival = %d\n", log_id(cell->type), log_id(conn.first), *jt);
+						}
+#endif
+						for (auto bit : sigmap(conn.second)) {
+							arrival_times[bit] = *jt;
+							if (arrivals.size() > 1)
+								jt++;
+						}
+					}
+
+					if (abc9_flop)
+						continue;
 				}
 			}
 
@@ -293,6 +300,9 @@ struct XAigerWriter
 					for (auto b : c.second) {
 						Wire *w = b.wire;
 						if (!w) continue;
+						// Do not add as PO if bit is already a PI
+						if (input_bits.count(b))
+							continue;
 						if (!w->port_output || !cell_known) {
 							SigBit I = sigmap(b);
 							if (I != b)
@@ -305,138 +315,54 @@ struct XAigerWriter
 			//log_warning("Unsupported cell type: %s (%s)\n", log_id(cell->type), log_id(cell));
 		}
 
-		if (abc9_box_seen) {
-			for (auto &it : bit_users)
-				if (bit_drivers.count(it.first))
-					for (auto driver_cell : bit_drivers.at(it.first))
-					for (auto user_cell : it.second)
-						toposort.edge(driver_cell, user_cell);
+		dict<IdString, std::vector<IdString>> box_ports;
+		for (auto cell : box_list) {
+			log_assert(cell);
 
-#if 0
-			toposort.analyze_loops = true;
-#endif
-			bool no_loops YS_ATTRIBUTE(unused) = toposort.sort();
-#if 0
-			unsigned i = 0;
-			for (auto &it : toposort.loops) {
-				log("  loop %d\n", i++);
-				for (auto cell_name : it) {
-					auto cell = module->cell(cell_name);
-					log_assert(cell);
-					log("\t%s (%s @ %s)\n", log_id(cell), log_id(cell->type), cell->get_src_attribute().c_str());
-				}
-			}
-#endif
-			log_assert(no_loops);
+			RTLIL::Module* box_module = module->design->module(cell->type);
+			log_assert(box_module);
+			log_assert(box_module->attributes.count("\\abc9_box_id") || box_module->get_bool_attribute("\\abc9_flop"));
 
-			for (auto cell_name : toposort.sorted) {
-				RTLIL::Cell *cell = module->cell(cell_name);
-				log_assert(cell);
-
-				RTLIL::Module* box_module = module->design->module(cell->type);
-				if (!box_module || !box_module->attributes.count("\\abc9_box_id"))
-					continue;
-
-				bool blackbox = box_module->get_blackbox_attribute(true /* ignore_wb */);
-
-				auto r = box_ports.insert(cell->type);
-				if (r.second) {
-					// Make carry in the last PI, and carry out the last PO
-					//   since ABC requires it this way
-					IdString carry_in, carry_out;
-					for (const auto &port_name : box_module->ports) {
-						auto w = box_module->wire(port_name);
-						log_assert(w);
-						if (w->get_bool_attribute("\\abc9_carry")) {
-							if (w->port_input) {
-								if (carry_in != IdString())
-									log_error("Module '%s' contains more than one 'abc9_carry' input port.\n", log_id(box_module));
-								carry_in = port_name;
-							}
-							if (w->port_output) {
-								if (carry_out != IdString())
-									log_error("Module '%s' contains more than one 'abc9_carry' output port.\n", log_id(box_module));
-								carry_out = port_name;
-							}
-						}
-						else
-							r.first->second.push_back(port_name);
-					}
-
-					if (carry_in != IdString() && carry_out == IdString())
-						log_error("Module '%s' contains an 'abc9_carry' input port but no output port.\n", log_id(box_module));
-					if (carry_in == IdString() && carry_out != IdString())
-						log_error("Module '%s' contains an 'abc9_carry' output port but no input port.\n", log_id(box_module));
-					if (carry_in != IdString()) {
-						r.first->second.push_back(carry_in);
-						r.first->second.push_back(carry_out);
-					}
-				}
-
-				// Fully pad all unused input connections of this box cell with S0
-				// Fully pad all undriven output connections of this box cell with anonymous wires
-				for (auto port_name : r.first->second) {
+			auto r = box_ports.insert(cell->type);
+			if (r.second) {
+				// Make carry in the last PI, and carry out the last PO
+				//   since ABC requires it this way
+				IdString carry_in, carry_out;
+				for (const auto &port_name : box_module->ports) {
 					auto w = box_module->wire(port_name);
 					log_assert(w);
-					auto it = cell->connections_.find(port_name);
-					if (w->port_input) {
-						RTLIL::SigSpec rhs;
-						if (it != cell->connections_.end()) {
-							if (GetSize(it->second) < GetSize(w))
-								it->second.append(RTLIL::SigSpec(State::S0, GetSize(w)-GetSize(it->second)));
-							rhs = it->second;
+					if (w->get_bool_attribute("\\abc9_carry")) {
+						if (w->port_input) {
+							if (carry_in != IdString())
+								log_error("Module '%s' contains more than one 'abc9_carry' input port.\n", log_id(box_module));
+							carry_in = port_name;
 						}
-						else {
-							rhs = RTLIL::SigSpec(State::S0, GetSize(w));
-							cell->setPort(port_name, rhs);
-						}
-
-						for (auto b : rhs) {
-							SigBit I = sigmap(b);
-							if (b == RTLIL::Sx)
-								b = State::S0;
-							else if (I != b) {
-								if (I == RTLIL::Sx)
-									alias_map[b] = State::S0;
-								else
-									alias_map[b] = I;
-							}
-							co_bits.emplace_back(b);
-							unused_bits.erase(I);
+						if (w->port_output) {
+							if (carry_out != IdString())
+								log_error("Module '%s' contains more than one 'abc9_carry' output port.\n", log_id(box_module));
+							carry_out = port_name;
 						}
 					}
-					if (w->port_output) {
-						RTLIL::SigSpec rhs;
-						auto it = cell->connections_.find(port_name);
-						if (it != cell->connections_.end()) {
-							if (GetSize(it->second) < GetSize(w))
-								it->second.append(module->addWire(NEW_ID, GetSize(w)-GetSize(it->second)));
-							rhs = it->second;
-						}
-						else {
-							Wire *wire = module->addWire(NEW_ID, GetSize(w));
-							if (blackbox)
-								wire->set_bool_attribute(ID(abc9_padding));
-							rhs = wire;
-							cell->setPort(port_name, rhs);
-						}
-
-						for (const auto &b : rhs.bits()) {
-							SigBit O = sigmap(b);
-							if (O != b)
-								alias_map[O] = b;
-							ci_bits.emplace_back(b);
-							undriven_bits.erase(O);
-						}
-					}
+					else
+						r.first->second.push_back(port_name);
 				}
 
-				// Connect <cell>.abc9_ff.Q (inserted by abc9_map.v) as the last input to the flop box
-				if (box_module->get_bool_attribute("\\abc9_flop")) {
-					SigSpec rhs = module->wire(stringf("%s.abc9_ff.Q", cell->name.c_str()));
-					if (rhs.empty())
-						log_error("'%s.abc9_ff.Q' is not a wire present in module '%s'.\n", log_id(cell), log_id(module));
+				if (carry_in != IdString() && carry_out == IdString())
+					log_error("Module '%s' contains an 'abc9_carry' input port but no output port.\n", log_id(box_module));
+				if (carry_in == IdString() && carry_out != IdString())
+					log_error("Module '%s' contains an 'abc9_carry' output port but no input port.\n", log_id(box_module));
+				if (carry_in != IdString()) {
+					r.first->second.push_back(carry_in);
+					r.first->second.push_back(carry_out);
+				}
+			}
 
+			for (auto port_name : r.first->second) {
+				auto w = box_module->wire(port_name);
+				log_assert(w);
+				auto rhs = cell->connections_.at(port_name, SigSpec());
+				rhs.append(Const(State::Sx, GetSize(w)-GetSize(rhs)));
+				if (w->port_input)
 					for (auto b : rhs) {
 						SigBit I = sigmap(b);
 						if (b == RTLIL::Sx)
@@ -450,12 +376,41 @@ struct XAigerWriter
 						co_bits.emplace_back(b);
 						unused_bits.erase(I);
 					}
-				}
-
-				box_list.emplace_back(cell);
+				if (w->port_output)
+					for (const auto &b : rhs) {
+						SigBit O = sigmap(b);
+						if (O != b)
+							alias_map[O] = b;
+						ci_bits.emplace_back(b);
+						undriven_bits.erase(O);
+						// If PI and CI, then must be a (* keep *) wire
+						if (input_bits.erase(O)) {
+							log_assert(output_bits.count(O));
+							log_assert(O.wire->get_bool_attribute(ID::keep));
+						}
+					}
 			}
 
-			// TODO: Free memory from toposort, bit_drivers, bit_users
+			// Connect <cell>.abc9_ff.Q (inserted by abc9_map.v) as the last input to the flop box
+			if (box_module->get_bool_attribute("\\abc9_flop")) {
+				SigSpec rhs = module->wire(stringf("%s.abc9_ff.Q", cell->name.c_str()));
+				if (rhs.empty())
+					log_error("'%s.abc9_ff.Q' is not a wire present in module '%s'.\n", log_id(cell), log_id(module));
+
+				for (auto b : rhs) {
+					SigBit I = sigmap(b);
+					if (b == RTLIL::Sx)
+						b = State::S0;
+					else if (I != b) {
+						if (I == RTLIL::Sx)
+							alias_map[b] = State::S0;
+						else
+							alias_map[b] = I;
+					}
+					co_bits.emplace_back(b);
+					unused_bits.erase(I);
+				}
+			}
 		}
 
 		for (auto bit : input_bits)
@@ -501,6 +456,10 @@ struct XAigerWriter
 
 		for (auto &bit : ci_bits) {
 			aig_m++, aig_i++;
+			// 1'bx may exist here due to a box output
+			//   that has been padded to its full width
+			if (bit == State::Sx)
+				continue;
 			log_assert(!aig_map.count(bit));
 			aig_map[bit] = 2*aig_m;
 		}
@@ -512,7 +471,27 @@ struct XAigerWriter
 
 		for (const auto &bit : output_bits) {
 			ordered_outputs[bit] = aig_o++;
-			aig_outputs.push_back(bit2aig(bit));
+			int aig;
+			// Unlike bit2aig() which checks aig_map first, for
+			//   inout/keep bits, since aig_map will point to
+			//   the PI, first attempt to find the NOT/AND driver
+			//   before resorting to an aig_map lookup (which
+			//   could be another PO)
+			if (input_bits.count(bit)) {
+				if (not_map.count(bit)) {
+					aig = bit2aig(not_map.at(bit)) ^ 1;
+				} else if (and_map.count(bit)) {
+					auto args = and_map.at(bit);
+					int a0 = bit2aig(args.first);
+					int a1 = bit2aig(args.second);
+					aig = mkgate(a0, a1);
+				}
+				else
+					aig = aig_map.at(bit);
+			}
+			else
+				aig = bit2aig(bit);
+			aig_outputs.push_back(aig);
 		}
 
 		for (auto &i : ff_bits) {
@@ -612,106 +591,45 @@ struct XAigerWriter
 		//	write_o_buffer(0);
 
 		if (!box_list.empty() || !ff_bits.empty()) {
-			RTLIL::Module *holes_module = module->design->addModule("$__holes__");
-			log_assert(holes_module);
+			dict<IdString, std::tuple<int,int,int>> cell_cache;
 
-			dict<IdString, std::tuple<Cell*,int,int,int>> cell_cache;
-
-			int port_id = 1;
 			int box_count = 0;
 			for (auto cell : box_list) {
-				RTLIL::Module* orig_box_module = module->design->module(cell->type);
-				log_assert(orig_box_module);
-				IdString derived_name = orig_box_module->derive(module->design, cell->parameters);
-				RTLIL::Module* box_module = module->design->module(derived_name);
+				log_assert(cell);
 
-				auto r = cell_cache.insert(derived_name);
+				RTLIL::Module* box_module = module->design->module(cell->type);
+				log_assert(box_module);
+
+				IdString derived_type = box_module->derive(box_module->design, cell->parameters);
+				box_module = box_module->design->module(derived_type);
+				log_assert(box_module);
+
+				auto r = cell_cache.insert(derived_type);
 				auto &v = r.first->second;
 				if (r.second) {
-					if (box_module->has_processes())
-						Pass::call_on_module(module->design, box_module, "proc");
-
 					int box_inputs = 0, box_outputs = 0;
-					if (box_module->get_bool_attribute("\\whitebox")) {
-						auto holes_cell = holes_module->addCell(cell->name, derived_name);
-						for (auto port_name : box_ports.at(cell->type)) {
-							RTLIL::Wire *w = box_module->wire(port_name);
-							log_assert(w);
-							log_assert(!w->port_input || !w->port_output);
-							auto &conn = holes_cell->connections_[port_name];
-							if (w->port_input) {
-								for (int i = 0; i < GetSize(w); i++) {
-									box_inputs++;
-									RTLIL::Wire *holes_wire = holes_module->wire(stringf("\\i%d", box_inputs));
-									if (!holes_wire) {
-										holes_wire = holes_module->addWire(stringf("\\i%d", box_inputs));
-										holes_wire->port_input = true;
-										holes_wire->port_id = port_id++;
-										holes_module->ports.push_back(holes_wire->name);
-									}
-									conn.append(holes_wire);
-								}
-							}
-							else if (w->port_output) {
-								box_outputs += GetSize(w);
-								conn = holes_module->addWire(stringf("%s.%s", derived_name.c_str(), log_id(port_name)), GetSize(w));
-							}
-						}
-
-						// For flops only, create an extra 1-bit input that drives a new wire
-						//   called "<cell>.abc9_ff.Q" that is used below
-						if (box_module->get_bool_attribute("\\abc9_flop")) {
-							box_inputs++;
-							Wire *holes_wire = holes_module->wire(stringf("\\i%d", box_inputs));
-							if (!holes_wire) {
-								holes_wire = holes_module->addWire(stringf("\\i%d", box_inputs));
-								holes_wire->port_input = true;
-								holes_wire->port_id = port_id++;
-								holes_module->ports.push_back(holes_wire->name);
-							}
-							Wire *Q = holes_module->addWire(stringf("%s.abc9_ff.Q", cell->name.c_str()));
-							holes_module->connect(Q, holes_wire);
-						}
-
-						std::get<0>(v) = holes_cell;
-					}
-					else {
-						for (auto port_name : box_ports.at(cell->type)) {
-							RTLIL::Wire *w = box_module->wire(port_name);
-							log_assert(w);
-							log_assert(!w->port_input || !w->port_output);
-							if (w->port_input)
-								box_inputs += GetSize(w);
-							else if (w->port_output)
-								box_outputs += GetSize(w);
-						}
-						log_assert(std::get<0>(v) == nullptr);
+					for (auto port_name : box_module->ports) {
+						RTLIL::Wire *w = box_module->wire(port_name);
+						log_assert(w);
+						if (w->port_input)
+							box_inputs += GetSize(w);
+						if (w->port_output)
+							box_outputs += GetSize(w);
 					}
 
-					std::get<1>(v) = box_inputs;
-					std::get<2>(v) = box_outputs;
-					std::get<3>(v) = box_module->attributes.at("\\abc9_box_id").as_int();
+					// For flops only, create an extra 1-bit input that drives a new wire
+					//   called "<cell>.abc9_ff.Q" that is used below
+					if (box_module->get_bool_attribute("\\abc9_flop"))
+						box_inputs++;
+
+					std::get<0>(v) = box_inputs;
+					std::get<1>(v) = box_outputs;
+					std::get<2>(v) = box_module->attributes.at("\\abc9_box_id").as_int();
 				}
 
-				auto holes_cell = std::get<0>(v);
-				for (auto port_name : box_ports.at(cell->type)) {
-					RTLIL::Wire *w = box_module->wire(port_name);
-					log_assert(w);
-					if (!w->port_output)
-						continue;
-					Wire *holes_wire = holes_module->addWire(stringf("$abc%s.%s", cell->name.c_str(), log_id(port_name)), GetSize(w));
-					holes_wire->port_output = true;
-					holes_wire->port_id = port_id++;
-					holes_module->ports.push_back(holes_wire->name);
-					if (holes_cell) // whitebox
-						holes_module->connect(holes_wire, holes_cell->getPort(port_name));
-					else // blackbox
-						holes_module->connect(holes_wire, Const(State::S0, GetSize(w)));
-				}
-
+				write_h_buffer(std::get<0>(v));
 				write_h_buffer(std::get<1>(v));
 				write_h_buffer(std::get<2>(v));
-				write_h_buffer(std::get<3>(v));
 				write_h_buffer(box_count++);
 			}
 
@@ -759,82 +677,17 @@ struct XAigerWriter
 			f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
 			f.write(buffer_str.data(), buffer_str.size());
 
+			RTLIL::Module *holes_module = module->design->module(stringf("%s$holes", module->name.c_str()));
 			if (holes_module) {
-				log_push();
-
-				// NB: fixup_ports() will sort ports by name
-				//holes_module->fixup_ports();
-				holes_module->check();
-
-				// Cannot techmap/aigmap/check all lib_whitebox-es outside of write_xaiger
-				//   since boxes may contain parameters in which case `flatten` would have
-				//   created a new $paramod ...
-				Pass::call_on_module(holes_module->design, holes_module, "flatten -wb; techmap; aigmap");
-
-				SigMap holes_sigmap(holes_module);
-
-				dict<SigSpec, SigSpec> replace;
-				for (auto it = holes_module->cells_.begin(); it != holes_module->cells_.end(); ) {
-					auto cell = it->second;
-					if (cell->type.in("$_DFF_N_", "$_DFF_NN0_", "$_DFF_NN1_", "$_DFF_NP0_", "$_DFF_NP1_",
-								"$_DFF_P_", "$_DFF_PN0_", "$_DFF_PN1", "$_DFF_PP0_", "$_DFF_PP1_")) {
-						SigBit D = cell->getPort("\\D");
-						SigBit Q = cell->getPort("\\Q");
-						// Remove the $_DFF_* cell from what needs to be a combinatorial box
-						it = holes_module->cells_.erase(it);
-						Wire *port;
-						if (GetSize(Q.wire) == 1)
-							port = holes_module->wire(stringf("$abc%s", Q.wire->name.c_str()));
-						else
-							port = holes_module->wire(stringf("$abc%s[%d]", Q.wire->name.c_str(), Q.offset));
-						log_assert(port);
-						// Prepare to replace "assign <port> = $_DFF_*.Q;" with "assign <port> = $_DFF_*.D;"
-						//   in order to extract just the combinatorial control logic that feeds the box
-						//   (i.e. clock enable, synchronous reset, etc.)
-						replace.insert(std::make_pair(Q,D));
-						// Since `flatten` above would have created wires named "<cell>.Q",
-						//   extract the pre-techmap cell name
-						auto pos = Q.wire->name.str().rfind(".");
-						log_assert(pos != std::string::npos);
-						IdString driver = Q.wire->name.substr(0, pos);
-						// And drive the signal that was previously driven by "DFF.Q" (typically
-						//   used to implement clock-enable functionality) with the "<cell>.abc9_ff.Q"
-						//   wire (which itself is driven by an input port) we inserted above
-						Wire *currQ = holes_module->wire(stringf("%s.abc9_ff.Q", driver.c_str()));
-						log_assert(currQ);
-						holes_module->connect(Q, currQ);
-						continue;
-					}
-					else if (!cell->type.in("$_NOT_", "$_AND_"))
-						log_error("Whitebox contents cannot be represented as AIG. Please verify whiteboxes are synthesisable.\n");
-					++it;
-				}
-
-				for (auto &conn : holes_module->connections_) {
-					auto it = replace.find(sigmap(conn.second));
-					if (it != replace.end())
-						conn.second = it->second;
-				}
-
-				// Move into a new (temporary) design so that "clean" will only
-				// operate (and run checks on) this one module
-				RTLIL::Design *holes_design = new RTLIL::Design;
-				module->design->modules_.erase(holes_module->name);
-				holes_design->add(holes_module);
-				Pass::call(holes_design, "opt -purge");
-
 				std::stringstream a_buffer;
 				XAigerWriter writer(holes_module, true /* holes_mode */);
 				writer.write_aiger(a_buffer, false /*ascii_mode*/);
-				delete holes_design;
 
 				f << "a";
 				std::string buffer_str = a_buffer.str();
 				int32_t buffer_size_be = to_big_endian(buffer_str.size());
 				f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
 				f.write(buffer_str.data(), buffer_str.size());
-
-				log_pop();
 			}
 		}
 
@@ -917,7 +770,8 @@ struct XAigerBackend : public Backend {
 		log("Write the top module (according to the (* top *) attribute or if only one module\n");
 		log("is currently selected) to an XAIGER file. Any non $_NOT_, $_AND_, $_ABC9_FF_, or");
 		log("non (* abc9_box_id *) cells will be converted into psuedo-inputs and\n");
-		log("pseudo-outputs.\n");
+		log("pseudo-outputs. Whitebox contents will be taken from the '<module-name>$holes'\n");
+		log("module, if it exists.\n");
 		log("\n");
 		log("    -ascii\n");
 		log("        write ASCII version of AIGER format\n");

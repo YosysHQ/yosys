@@ -373,10 +373,15 @@ Verilog Attributes and non-standard features
   `abc9` to preserve the integrity of carry-chains. Specifying this attribute
   onto a bus port will affect only its most significant bit.
 
-- The port attribute ``abc9_arrival`` specifies an integer (for output ports
-  only) to be used as the arrival time of this sequential port. It can be used,
-  for example, to specify the clk-to-Q delay of a flip-flop for consideration
-  during `abc9` techmapping.
+- The output port attribute ``abc9_arrival`` specifies an integer, or a string
+  of space-separated integers to be used as the arrival time of this blackbox
+  port. It can be used, for example, to specify the clk-to-Q delay of a flip-
+  flop output for consideration during `abc9` techmapping.
+
+- The input port attribute ``abc9_required`` specifies an integer, or a string
+  of space-separated integers to be used as the required time of this blackbox
+  port. It can be used, for example, to specify the setup-time of a flip-flop
+  input for consideration during `abc9` techmapping.
 
 - The module attribute ``abc9_flop`` is a boolean marking the module as a
   flip-flop. This allows `abc9` to analyse its contents in order to perform
@@ -386,6 +391,10 @@ Verilog Attributes and non-standard features
   ``always_ff`` on processes derived from SystemVerilog style always blocks
   according to the type of the always. These are checked for correctness in
   ``proc_dlatch``.
+
+- The cell attribute ``wildcard_port_conns`` represents wildcard port
+  connections (SystemVerilog ``.*``). These are resolved to concrete
+  connections to matching wires in ``hierarchy``.  
 
 - In addition to the ``(* ... *)`` attribute syntax, Yosys supports
   the non-standard ``{* ... *}`` attribute syntax to set default attributes

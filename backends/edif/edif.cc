@@ -326,7 +326,7 @@ struct EdifBackend : public Backend {
 				continue;
 
 			SigMap sigmap(module);
-			std::map<RTLIL::SigSpec, std::set<std::string>> net_join_db;
+			std::map<RTLIL::SigSpec, std::set<std::pair<std::string, bool>>> net_join_db;
 
 			*f << stringf("    (cell %s\n", EDIF_DEF(module->name));
 			*f << stringf("      (cellType GENERIC)\n");
@@ -349,7 +349,7 @@ struct EdifBackend : public Backend {
 							add_prop(p.first, p.second);
 					*f << ")\n";
 					RTLIL::SigSpec sig = sigmap(RTLIL::SigSpec(wire));
-					net_join_db[sig].insert(stringf("(portRef %s)", EDIF_REF(wire->name)));
+					net_join_db[sig].insert(make_pair(stringf("(portRef %s)", EDIF_REF(wire->name)), wire->port_input));
 				} else {
 					int b[2];
 					b[wire->upto ? 0 : 1] = wire->start_offset;
@@ -362,7 +362,7 @@ struct EdifBackend : public Backend {
 					*f << ")\n";
 					for (int i = 0; i < wire->width; i++) {
 						RTLIL::SigSpec sig = sigmap(RTLIL::SigSpec(wire, i));
-						net_join_db[sig].insert(stringf("(portRef (member %s %d))", EDIF_REF(wire->name), GetSize(wire)-i-1));
+						net_join_db[sig].insert(make_pair(stringf("(portRef (member %s %d))", EDIF_REF(wire->name), GetSize(wire)-i-1), wire->port_input));
 					}
 				}
 			}
@@ -391,7 +391,7 @@ struct EdifBackend : public Backend {
 							log_warning("Bit %d of cell port %s.%s.%s driven by %s will be left unconnected in EDIF output.\n",
 									i, log_id(module), log_id(cell), log_id(p.first), log_signal(sig[i]));
 						else if (sig.size() == 1)
-							net_join_db[sig[i]].insert(stringf("(portRef %s (instanceRef %s))", EDIF_REF(p.first), EDIF_REF(cell->name)));
+							net_join_db[sig[i]].insert(make_pair(stringf("(portRef %s (instanceRef %s))", EDIF_REF(p.first), EDIF_REF(cell->name)), cell->output(p.first)));
 						else {
 							int member_idx = GetSize(sig)-i-1;
 							auto m = design->module(cell->type);
@@ -400,8 +400,8 @@ struct EdifBackend : public Backend {
 								if (w)
 									member_idx = GetSize(w)-i-1;
 							}
-							net_join_db[sig[i]].insert(stringf("(portRef (member %s %d) (instanceRef %s))",
-									EDIF_REF(p.first), member_idx, EDIF_REF(cell->name)));
+							net_join_db[sig[i]].insert(make_pair(stringf("(portRef (member %s %d) (instanceRef %s))",
+									EDIF_REF(p.first), member_idx, EDIF_REF(cell->name)), cell->output(p.first)));
 						}
 				}
 			}
@@ -410,11 +410,13 @@ struct EdifBackend : public Backend {
 				if (sig.wire == NULL && sig != RTLIL::State::S0 && sig != RTLIL::State::S1) {
 					if (sig == RTLIL::State::Sx) {
 						for (auto &ref : it.second)
-							log_warning("Exporting x-bit on %s as zero bit.\n", ref.c_str());
+							log_warning("Exporting x-bit on %s as zero bit.\n", ref.first.c_str());
 						sig = RTLIL::State::S0;
+					} else if (sig == RTLIL::State::Sz) {
+						continue;
 					} else {
 						for (auto &ref : it.second)
-							log_error("Don't know how to handle %s on %s.\n", log_signal(sig), ref.c_str());
+							log_error("Don't know how to handle %s on %s.\n", log_signal(sig), ref.first.c_str());
 						log_abort();
 					}
 				}
@@ -431,7 +433,7 @@ struct EdifBackend : public Backend {
 				}
 				*f << stringf("          (net %s (joined\n", EDIF_DEF(netname));
 				for (auto &ref : it.second)
-					*f << stringf("            %s\n", ref.c_str());
+					*f << stringf("            %s\n", ref.first.c_str());
 				if (sig.wire == NULL) {
 					if (nogndvcc)
 						log_error("Design contains constant nodes (map with \"hilomap\" first).\n");
@@ -445,6 +447,31 @@ struct EdifBackend : public Backend {
 					for (auto &p : sig.wire->attributes)
 						add_prop(p.first, p.second);
 				*f << stringf("\n          )\n");
+			}
+			for (auto &wire_it : module->wires_) {
+				RTLIL::Wire *wire = wire_it.second;
+				if (!wire->get_bool_attribute(ID::keep))
+					continue;
+				for(int i = 0; i < wire->width; i++) {
+					SigBit raw_sig = RTLIL::SigSpec(wire, i);
+					SigBit mapped_sig = sigmap(raw_sig);
+					if (raw_sig == mapped_sig || net_join_db.count(mapped_sig) == 0)
+						continue;
+					std::string netname = log_signal(raw_sig);
+					for (size_t i = 0; i < netname.size(); i++)
+						if (netname[i] == ' ' || netname[i] == '\\')
+							netname.erase(netname.begin() + i--);
+					*f << stringf("          (net %s (joined\n", EDIF_DEF(netname));
+					auto &refs = net_join_db.at(mapped_sig);
+					for (auto &ref : refs)
+						if (ref.second)
+							*f << stringf("            %s\n", ref.first.c_str());
+					*f << stringf("            )");
+					if (attr_properties && raw_sig.wire != NULL)
+						for (auto &p : raw_sig.wire->attributes)
+							add_prop(p.first, p.second);
+					*f << stringf("\n          )\n");
+				}
 			}
 			*f << stringf("        )\n");
 			*f << stringf("      )\n");

@@ -214,14 +214,38 @@ struct Clk2fflogicPass : public Pass {
 					continue;
 				}
 
-				if (cell->type.in("$dff", "$adff", "$dffsr"))
+				bool word_dff = cell->type.in("$dff", "$adff", "$dffsr");
+				if (word_dff || cell->type.in(ID($_DFF_N_), ID($_DFF_P_),
+						ID($_DFF_NN0_), ID($_DFF_NN1_), ID($_DFF_NP0_), ID($_DFF_NP1_),
+						ID($_DFF_PP0_), ID($_DFF_PP1_), ID($_DFF_PN0_), ID($_DFF_PN1_),
+						ID($_DFFSR_NNN_), ID($_DFFSR_NNP_), ID($_DFFSR_NPN_), ID($_DFFSR_NPP_),
+						ID($_DFFSR_PNN_), ID($_DFFSR_PNP_), ID($_DFFSR_PPN_), ID($_DFFSR_PPP_)))
 				{
-					bool clkpol = cell->parameters["\\CLK_POLARITY"].as_bool();
+					bool clkpol;
+					SigSpec clk;
+					if (word_dff) {
+						clkpol = cell->parameters["\\CLK_POLARITY"].as_bool();
+						clk = cell->getPort("\\CLK");
+					}
+					else {
+						if (cell->type.in(ID($_DFF_P_), ID($_DFF_N_),
+									ID($_DFF_NN0_), ID($_DFF_NN1_), ID($_DFF_NP0_), ID($_DFF_NP1_),
+									ID($_DFF_PP0_), ID($_DFF_PP1_), ID($_DFF_PN0_), ID($_DFF_PN1_)))
+							clkpol = cell->type[6] == 'P';
+						else if (cell->type.in(ID($_DFFSR_NNN_), ID($_DFFSR_NNP_), ID($_DFFSR_NPN_), ID($_DFFSR_NPP_),
+									ID($_DFFSR_PNN_), ID($_DFFSR_PNP_), ID($_DFFSR_PPN_), ID($_DFFSR_PPP_)))
+							clkpol = cell->type[8] == 'P';
+						else log_abort();
+						clk = cell->getPort("\\C");
+					}
 
-					SigSpec clk = cell->getPort("\\CLK");
 					Wire *past_clk = module->addWire(NEW_ID);
 					past_clk->attributes["\\init"] = clkpol ? State::S1 : State::S0;
-					module->addFf(NEW_ID, clk, past_clk);
+
+					if (word_dff)
+						module->addFf(NEW_ID, clk, past_clk);
+					else
+						module->addFfGate(NEW_ID, clk, past_clk);
 
 					SigSpec sig_d = cell->getPort("\\D");
 					SigSpec sig_q = cell->getPort("\\Q");
@@ -244,8 +268,14 @@ struct Clk2fflogicPass : public Pass {
 
 					Wire *past_d = module->addWire(NEW_ID, GetSize(sig_d));
 					Wire *past_q = module->addWire(NEW_ID, GetSize(sig_q));
-					module->addFf(NEW_ID, sig_d, past_d);
-					module->addFf(NEW_ID, sig_q, past_q);
+					if (word_dff) {
+						module->addFf(NEW_ID, sig_d, past_d);
+						module->addFf(NEW_ID, sig_q, past_q);
+					}
+					else {
+						module->addFfGate(NEW_ID, sig_d, past_d);
+						module->addFfGate(NEW_ID, sig_q, past_q);
+					}
 
 					if (cell->type == "$adff")
 					{
@@ -266,6 +296,26 @@ struct Clk2fflogicPass : public Pass {
 							module->addMux(NEW_ID, rstval, qval, arst, sig_q);
 					}
 					else
+					if (cell->type.in(ID($_DFF_NN0_), ID($_DFF_NN1_), ID($_DFF_NP0_), ID($_DFF_NP1_),
+						ID($_DFF_PP0_), ID($_DFF_PP1_), ID($_DFF_PN0_), ID($_DFF_PN1_)))
+					{
+						SigSpec arst = cell->getPort("\\R");
+						SigSpec qval = module->MuxGate(NEW_ID, past_q, past_d, clock_edge);
+						SigBit rstval = (cell->type[8] == '1');
+
+						Wire *past_arst = module->addWire(NEW_ID);
+						module->addFfGate(NEW_ID, arst, past_arst);
+						if (cell->type[7] == 'P')
+							arst = module->OrGate(NEW_ID, arst, past_arst);
+						else
+							arst = module->AndGate(NEW_ID, arst, past_arst);
+
+						if (cell->type[7] == 'P')
+							module->addMuxGate(NEW_ID, qval, rstval, arst, sig_q);
+						else
+							module->addMuxGate(NEW_ID, rstval, qval, arst, sig_q);
+					}
+					else
 					if (cell->type == "$dffsr")
 					{
 						SigSpec qval = module->Mux(NEW_ID, past_q, past_d, clock_edge);
@@ -282,8 +332,29 @@ struct Clk2fflogicPass : public Pass {
 						module->addAnd(NEW_ID, qval, clrval, sig_q);
 					}
 					else
+					if (cell->type.in(ID($_DFFSR_NNN_), ID($_DFFSR_NNP_), ID($_DFFSR_NPN_), ID($_DFFSR_NPP_),
+						ID($_DFFSR_PNN_), ID($_DFFSR_PNP_), ID($_DFFSR_PPN_), ID($_DFFSR_PPP_)))
+					{
+						SigSpec qval = module->MuxGate(NEW_ID, past_q, past_d, clock_edge);
+						SigSpec setval = cell->getPort("\\S");
+						SigSpec clrval = cell->getPort("\\R");
+
+						if (cell->type[9] != 'P')
+							setval = module->Not(NEW_ID, setval);
+
+						if (cell->type[10] == 'P')
+							clrval = module->Not(NEW_ID, clrval);
+
+						qval = module->OrGate(NEW_ID, qval, setval);
+						module->addAndGate(NEW_ID, qval, clrval, sig_q);
+					}
+					else if (cell->type == "$dff")
 					{
 						module->addMux(NEW_ID, past_q, past_d, clock_edge, sig_q);
+					}
+					else
+					{
+						module->addMuxGate(NEW_ID, past_q, past_d, clock_edge, sig_q);
 					}
 
 					Const initval;

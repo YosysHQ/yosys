@@ -295,6 +295,9 @@ int main(int argc, char **argv)
 		printf("    -E <depsfile>\n");
 		printf("        write a Makefile dependencies file with in- and output file names\n");
 		printf("\n");
+		printf("    -x <feature>\n");
+		printf("        do not print warnings for the specified experimental feature\n");
+		printf("\n");
 		printf("    -g\n");
 		printf("        globally enable debug log messages\n");
 		printf("\n");
@@ -317,8 +320,14 @@ int main(int argc, char **argv)
 		exit(0);
 	}
 
+	if (argc == 2 && (!strcmp(argv[1], "-V") || !strcmp(argv[1], "-version") || !strcmp(argv[1], "--version")))
+	{
+		printf("%s\n", yosys_version_str);
+		exit(0);
+	}
+
 	int opt;
-	while ((opt = getopt(argc, argv, "MXAQTVSgm:f:Hh:b:o:p:l:L:qv:tds:c:W:w:e:D:P:E:")) != -1)
+	while ((opt = getopt(argc, argv, "MXAQTVSgm:f:Hh:b:o:p:l:L:qv:tds:c:W:w:e:D:P:E:x:")) != -1)
 	{
 		switch (opt)
 		{
@@ -449,6 +458,9 @@ int main(int argc, char **argv)
 		case 'E':
 			depsfile = optarg;
 			break;
+		case 'x':
+			log_experimentals_ignored.insert(optarg);
+			break;
 		default:
 			fprintf(stderr, "Run '%s -h' for help.\n", argv[0]);
 			exit(1);
@@ -561,6 +573,10 @@ int main(int argc, char **argv)
 
 		if (log_warnings_count)
 			log("Warnings: %d unique messages, %d total\n", GetSize(log_warnings), log_warnings_count);
+
+		if (!log_experimentals.empty())
+			log("Warnings: %d experimental features used (not excluded with -x).\n", GetSize(log_experimentals));
+
 #ifdef _WIN32
 		log("End of script. Logfile hash: %s\n", hash.c_str());
 #else

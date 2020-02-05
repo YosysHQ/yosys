@@ -539,6 +539,14 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 		return true;
 	}
 
+	if (inst->Type() == OPER_REDUCE_NAND) {
+		Wire *tmp = module->addWire(NEW_ID);
+		cell = module->addReduceAnd(inst_name, IN, tmp, SIGNED);
+		module->addNot(NEW_ID, tmp, net_map_at(inst->GetOutput()));
+		import_attributes(cell->attributes, inst);
+		return true;
+	}
+
 	if (inst->Type() == OPER_REDUCE_OR) {
 		cell = module->addReduceOr(inst_name, IN, net_map_at(inst->GetOutput()), SIGNED);
 		import_attributes(cell->attributes, inst);
@@ -1891,6 +1899,9 @@ void verific_import(Design *design, const std::map<std::string,std::string> &par
 	if (!verific_error_msg.empty())
 		log_error("%s\n", verific_error_msg.c_str());
 
+	for (auto nl : nl_todo)
+	    nl->ChangePortBusStructures(1 /* hierarchical */);
+
 	VerificExtNets worker;
 	for (auto nl : nl_todo)
 		worker.run(nl);
@@ -2408,7 +2419,7 @@ struct VerificPass : public Pass {
 			else
 			{
 				if (argidx == GetSize(args))
-					log_cmd_error("No top module specified.\n");
+					cmd_error(args, argidx, "No top module specified.\n");
 
 				Array veri_modules, vhdl_units;
 				for (; argidx < GetSize(args); argidx++)
@@ -2470,6 +2481,9 @@ struct VerificPass : public Pass {
 					worker.run(nl);
 			}
 
+			for (auto nl : nl_todo)
+				nl->ChangePortBusStructures(1 /* hierarchical */);
+
 			if (!dumpfile.empty()) {
 				VeriWrite veri_writer;
 				veri_writer.WriteFile(dumpfile.c_str(), Netlist::PresentDesign());
@@ -2495,7 +2509,7 @@ struct VerificPass : public Pass {
 			goto check_error;
 		}
 
-		log_cmd_error("Missing or unsupported mode parameter.\n");
+		cmd_error(args, argidx, "Missing or unsupported mode parameter.\n");
 
 	check_error:
 		if (!verific_error_msg.empty())
@@ -2568,14 +2582,14 @@ struct ReadPass : public Pass {
 		static bool use_verific = verific_available;
 
 		if (args.size() < 2 || args[1][0] != '-')
-			log_cmd_error("Missing mode parameter.\n");
+			cmd_error(args, 1, "Missing mode parameter.\n");
 
 		if (args[1] == "-verific" || args[1] == "-noverific") {
 			if (args.size() != 2)
-				log_cmd_error("Additional arguments to -verific/-noverific.\n");
+				cmd_error(args, 1, "Additional arguments to -verific/-noverific.\n");
 			if (args[1] == "-verific") {
 				if (!verific_available)
-					log_cmd_error("This version of Yosys is built without Verific support.\n");
+					cmd_error(args, 1, "This version of Yosys is built without Verific support.\n");
 				use_verific = true;
 			} else {
 				use_verific = false;
@@ -2584,7 +2598,7 @@ struct ReadPass : public Pass {
 		}
 
 		if (args.size() < 3)
-			log_cmd_error("Missing file name parameter.\n");
+			cmd_error(args, 3, "Missing file name parameter.\n");
 
 		if (args[1] == "-vlog95" || args[1] == "-vlog2k") {
 			if (use_verific) {
@@ -2616,7 +2630,7 @@ struct ReadPass : public Pass {
 				args[0] = "verific";
 				Pass::call(design, args);
 			} else {
-				log_cmd_error("This version of Yosys is built without Verific support.\n");
+				cmd_error(args, 1, "This version of Yosys is built without Verific support.\n");
 			}
 			return;
 		}
@@ -2663,7 +2677,7 @@ struct ReadPass : public Pass {
 			return;
 		}
 
-		log_cmd_error("Missing or unsupported mode parameter.\n");
+		cmd_error(args, 1, "Missing or unsupported mode parameter.\n");
 	}
 } ReadPass;
 

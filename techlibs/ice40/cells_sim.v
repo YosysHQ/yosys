@@ -1126,6 +1126,7 @@ module SB_SPRAM256KA (
 	input [15:0] DATAIN,
 	input [3:0] MASKWREN,
 	input WREN, CHIPSELECT, CLOCK, STANDBY, SLEEP, POWEROFF,
+	`ABC9_ARRIVAL_U(1821)  // https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13207
 	output reg [15:0] DATAOUT
 );
 `ifndef BLACKBOX

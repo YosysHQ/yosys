@@ -851,6 +851,8 @@ public:
 
 	RTLIL::SigSpec repeat(int num) const;
 
+	void reverse() { inline_unpack(); std::reverse(bits_.begin(), bits_.end()); }
+
 	bool operator <(const RTLIL::SigSpec &other) const;
 	bool operator ==(const RTLIL::SigSpec &other) const;
 	inline bool operator !=(const RTLIL::SigSpec &other) const { return !(*this == other); }

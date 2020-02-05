@@ -28,4 +28,5 @@ exec ${MAKE:-make} -f ../tools/autotest.mk $seed *.v *.sv EXTRA_FLAGS="-n 300 -p
     abc9 -lut 4 -box ../abc.box; \
     clean; \
     check -assert; \
-    select -assert-none t:${DOLLAR}_NOT_ t:${DOLLAR}_AND_ %%'"
+    select -assert-none t:${DOLLAR}_NOT_ t:${DOLLAR}_AND_ %%; \
+    setattr -mod -unset whitebox'"
