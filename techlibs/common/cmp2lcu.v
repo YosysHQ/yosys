@@ -19,7 +19,7 @@ output [Y_WIDTH-1:0] Y;
 parameter _TECHMAP_CELLTYPE_ = "";
 
 generate
-    if (_TECHMAP_CELLTYPE_ == "")
+    if (_TECHMAP_CELLTYPE_ == "" || `LUT_WIDTH < 2)
         wire _TECHMAP_FAIL_ = 1;
     else if (_TECHMAP_CELLTYPE_ == "$lt") begin
         // Transform $lt into $gt by swapping A and B
