@@ -36,12 +36,13 @@ module _80_xilinx_lcu (P, G, CI, CO);
 `ifdef _EXPLICIT_CARRY
 
 	wire [WIDTH-1:0] C = {CO, CI};
+	wire [WIDTH-1:0] S = P & ~G;
 
 	generate for (i = 0; i < WIDTH; i = i + 1) begin:slice
 		MUXCY muxcy (
 			.CI(C[i]),
 			.DI(G[i]),
-			.S(P[i]),
+			.S(S[i]),
 			.O(CO[i])
 		);
 	end endgenerate
@@ -52,8 +53,8 @@ module _80_xilinx_lcu (P, G, CI, CO);
 	localparam MAX_WIDTH    = CARRY4_COUNT * 4;
 	localparam PAD_WIDTH    = MAX_WIDTH - WIDTH;
 
+	wire [MAX_WIDTH-1:0] S =  {{PAD_WIDTH{1'b0}}, P & ~G};
 	wire [MAX_WIDTH-1:0] GG = {{PAD_WIDTH{1'b0}}, G};
-	wire [MAX_WIDTH-1:0] PP = {{PAD_WIDTH{1'b0}}, P};
 	wire [MAX_WIDTH-1:0] C;
 	assign CO = C;
 
@@ -64,7 +65,7 @@ module _80_xilinx_lcu (P, G, CI, CO);
 			.CYINIT(CI),
 			.CI    (1'd0),
 			.DI    (GG[i*4 +: 4]),
-			.S     (PP[i*4 +: 4]),
+			.S     (S [i*4 +: 4]),
 			.CO    (C [i*4 +: 4]),
 			);
 		end else begin
@@ -73,7 +74,7 @@ module _80_xilinx_lcu (P, G, CI, CO);
 			.CYINIT(1'd0),
 			.CI    (C [i*4 - 1]),
 			.DI    (GG[i*4 +: 4]),
-			.S     (PP[i*4 +: 4]),
+			.S     (S [i*4 +: 4]),
 			.CO    (C [i*4 +: 4]),
 			);
 		end
