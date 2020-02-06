@@ -226,7 +226,7 @@ struct SynthPass : public ScriptPass
 			run("opt_clean");
 			if (help_mode)
 				run("techmap -map +/cmp2lut.v -map +/cmp2lcu.v", " (if -lut)");
-			else
+			else if (lut)
 				run(stringf("techmap -map +/cmp2lut.v -map +/cmp2lcu.v -D LUT_WIDTH=%d", lut));
 			if (!noalumacc)
 				run("alumacc", "  (unless -noalumacc)");
