@@ -108,3 +108,14 @@ design -import gate -as gate
 miter -equiv -flatten -make_assert -make_outputs gold gate miter
 sat -verify -prove-asserts -show-ports miter
 
+
+design -reset
+read_verilog <<EOT
+module top(input [6:0] A, input [1:0] B, output [1:0] Y);
+wire [7:0] AA = {1'bx, A};
+assign Y = AA[B*2 +: 2];
+endmodule
+EOT
+opt
+wreduce
+equiv_opt techmap

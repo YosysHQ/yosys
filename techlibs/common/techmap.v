@@ -152,10 +152,11 @@ module _90_shift_shiftx (A, B, Y);
 			localparam len = 2**(B_WIDTH-1);
 			localparam Y_WIDTH2 = 2**CLOG2_Y_WIDTH;
 			wire [len-1:0] T, F, AA;
+			wire [(A_WIDTH+Y_WIDTH2*2):0] Apad = {{Y_WIDTH2*2{extbit}}, A};
 			genvar i;
 			for (i = 0; i < A_WIDTH; i=i+Y_WIDTH2*2) begin
 				assign F[i/2 +: Y_WIDTH2] = A[i +: Y_WIDTH2];
-				assign T[i/2 +: Y_WIDTH2] = (i + Y_WIDTH2 < A_WIDTH) ? A[i+Y_WIDTH2 +: Y_WIDTH2] : {Y_WIDTH2{extbit}};
+				assign T[i/2 +: Y_WIDTH2] = Apad[i+Y_WIDTH2 +: Y_WIDTH2];
 				assign AA[i/2 +: Y_WIDTH2] = B[CLOG2_Y_WIDTH] ? T[i/2 +: Y_WIDTH2] : F[i/2 +: Y_WIDTH2];
 			end
 			wire [B_WIDTH-2:0] BB = {B[B_WIDTH-1:CLOG2_Y_WIDTH+1], {CLOG2_Y_WIDTH{1'b0}}};
