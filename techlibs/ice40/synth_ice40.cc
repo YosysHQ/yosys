@@ -316,6 +316,7 @@ struct SynthIce40Pass : public ScriptPass
 				run("ice40_wrapcarry");
 				run("techmap -map +/techmap.v -map +/ice40/arith_map.v");
 			}
+			run("opt -fast");
 			if (retime || help_mode)
 				run("abc -dff -D 1", "(only if -retime)");
 			run("ice40_opt");

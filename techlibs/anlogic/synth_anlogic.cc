@@ -175,6 +175,7 @@ struct SynthAnlogicPass : public ScriptPass
 		if (check_label("map_gates"))
 		{
 			run("techmap -map +/techmap.v -map +/anlogic/arith_map.v");
+			run("opt -fast");
 			if (retime || help_mode)
 				run("abc -dff -D 1", "(only if -retime)");
 		}

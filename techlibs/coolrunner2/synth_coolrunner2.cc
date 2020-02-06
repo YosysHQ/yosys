@@ -144,8 +144,8 @@ struct SynthCoolrunner2Pass : public ScriptPass
 		if (check_label("fine"))
 		{
 			run("opt -fast -full");
-			run("techmap");
-			run("techmap -map +/coolrunner2/cells_latch.v");
+			run("techmap -map +/techmap.v -map +/coolrunner2/cells_latch.v");
+			run("opt -fast");
 			run("dfflibmap -prepare -liberty +/coolrunner2/xc2_dff.lib");
 		}
 
