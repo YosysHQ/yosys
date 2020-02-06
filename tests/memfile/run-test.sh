@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 mkdir -p temp
 cp content1.dat temp/content2.dat
 
@@ -27,3 +29,21 @@ echo "Running from a child directory with temp/content2.dat"
 ../../../yosys -qp "read_verilog -defer ../memory.v; chparam -set MEMFILE \"temp/content2.dat\" memory"
 echo "Running from a child directory with content2.dat"
 ../../../yosys -qp "read_verilog -defer ../memory.v; chparam -set MEMFILE \"temp/content2.dat\" memory"
+
+cd ..
+
+echo "Checking a failure when zero length filename is provided"
+if ../../yosys -qp "read_verilog memory.v"; then
+	echo "The execution should fail but it didn't happen, which is WRONG."
+	exit 1
+else
+	echo "Execution failed, which is OK."
+fi
+
+echo "Checking a failure when not existing filename is provided"
+if ../../yosys -qp "read_verilog -defer memory.v; chparam -set MEMFILE \"content3.dat\" memory"; then
+	echo "The execution should fail but it didn't happen, which is WRONG."
+	exit 1
+else
+	echo "Execution failed, which is OK."
+fi
