@@ -180,6 +180,7 @@ struct SynthSf2Pass : public ScriptPass
 			run("memory_map");
 			run("opt -undriven -fine");
 			run("techmap -map +/techmap.v -map +/sf2/arith_map.v");
+			run("opt -fast");
 			if (retime || help_mode)
 				run("abc -dff -D 1", "(only if -retime)");
 		}
