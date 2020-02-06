@@ -16,14 +16,6 @@
  *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  */
-module VCC (output V);
-   assign V = 1'b1;
-endmodule // VCC
-
-module GND (output G);
-   assign G = 1'b0;
-endmodule // GND
-
 /* Altera Arria 10 GX devices Input Buffer Primitive */
 module twentynm_io_ibuf (output o, input i, input ibar);
    assign ibar = ibar;
@@ -55,5 +47,60 @@ end
 
 endmodule // twentynm_lcell_comb
 
+/* The `dffeas` Intel primitive is a general purpose wrapper
+ * for various types of flip-flops. It's a Quartus LPM, and
+ * documentation and simulation models are implemented with
+ * User Defined Primitives (UDP).
+ * This model is suitable for Equivalence Checking and 
+ * simulation. 
+ * TODO: Add devpor and devclrn behavior. */
+module dffeas
+  (input wire clk, ena, prn, clrn,
+   input wire asdata, aload, sload,
+   input wire sclr, d,
+   output wire q);
+
+   parameter power_up = "DONT_CARE";
+   parameter is_wysiwyg = "false";
+   
+   wire powerup_value;
+   wire async_load;
+   wire async_load_zero;
+   wire d_next, aset_next, arst_next;
+   
+   assign powerup_value   = (power_up == "high") ? 1'b1 : 1'b0;
+   assign async_load      = (clrn & aload & asdata);
+   assign async_load_zero = (clrn & aload & ~asdata);
+   assign d_next          = ((sclr) ? 1'b0 : (sload) ? asdata : d);
+   assign aset_next       = ((~prn | async_load) ? 1'b1 : 1'b0);
+   assign arst_next       = ((~clrn | async_load_zero) ? 1'b1 : 1'b0);
+`ifdef SIM
+   initial q = powerup_value;
+`endif
+   dff_prim dffsre (.ck(clk), .en(ena), .d(d_next), .s(aset_next), .r(arst_next), .q(q));
+   
+endmodule // dffeas
+
+module dff_prim
+  (input wire ck, en, d, s, r,
+   output reg q);
+
+   wire       d_present;
+   wire       d_next;
+   wire       past_q;
+   
+   assign d_present = (en & d);
+   assign past_q    = (~en & q);
+   assign d_next    = (d_present | past_q);
+   
+   always @(posedge ck, posedge s, posedge r) begin
+      if (r)
+	q <= 1'b0;
+      else if (s)
+	q <= 1'b1;
+      else
+	q <= d_next;
+   end
+endmodule // dff_prim
 
 

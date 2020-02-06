@@ -1,0 +1,114 @@
+read_verilog ../../../techlibs/common/simcells.v
+design -save read
+
+hierarchy -top \$_DFF_N_
+proc
+equiv_opt -assert -async2sync -map +/intel/max10/cells_sim.v synth_intel # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd \$_DFF_N_ # Constrain all select calls below inside the top module
+select -assert-count 1 t:dffeas
+
+design -load read
+hierarchy -top \$_DFF_P_
+proc
+equiv_opt -assert -async2sync -map +/intel/max10/cells_sim.v synth_intel # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd \$_DFF_P_ # Constrain all select calls below inside the top module
+select -assert-count 1 t:dffeas
+
+design -load read
+hierarchy -top \$_DFFE_NN_
+proc
+equiv_opt -assert -async2sync -map +/intel/max10/cells_sim.v synth_intel # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd \$_DFFE_NN_ # Constrain all select calls below inside the top module
+select -assert-count 1 t:dffeas
+
+design -load read
+hierarchy -top \$_DFFE_NP_
+proc
+equiv_opt -assert -async2sync -map +/intel/max10/cells_sim.v synth_intel # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd \$_DFFE_NP_ # Constrain all select calls below inside the top module
+select -assert-count 1 t:dffeas
+
+design -load read
+hierarchy -top \$_DFFE_PN_
+proc
+equiv_opt -assert -async2sync -map +/intel/max10/cells_sim.v synth_intel # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd \$_DFFE_PN_ # Constrain all select calls below inside the top module
+select -assert-count 1 t:dffeas
+
+design -load read
+hierarchy -top \$_DFFE_PP_
+proc
+equiv_opt -assert -async2sync -map +/intel/max10/cells_sim.v synth_intel # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd \$_DFFE_PP_ # Constrain all select calls below inside the top module
+select -assert-count 1 t:dffeas
+
+design -load read
+hierarchy -top \$_DFF_NN0_
+proc
+equiv_opt -assert -async2sync -map +/intel/max10/cells_sim.v synth_intel # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd \$_DFF_NN0_ # Constrain all select calls below inside the top module
+select -assert-count 1 t:dffeas
+
+design -load read
+hierarchy -top \$_DFF_NN1_
+proc
+equiv_opt -assert -async2sync -map +/intel/max10/cells_sim.v synth_intel # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd \$_DFF_NN1_ # Constrain all select calls below inside the top module
+select -assert-count 1 t:dffeas
+
+design -load read
+hierarchy -top \$_DFF_PN0_
+proc
+equiv_opt -assert -async2sync -map +/intel/max10/cells_sim.v synth_intel # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd \$_DFF_PN0_ # Constrain all select calls below inside the top module
+select -assert-count 1 t:dffeas
+
+design -load read
+hierarchy -top \$_DFF_PN1_
+proc
+equiv_opt -assert -async2sync -map +/intel/max10/cells_sim.v synth_intel # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd \$_DFF_PN1_ # Constrain all select calls below inside the top module
+select -assert-count 1 t:dffeas
+
+design -load read
+hierarchy -top \$_DFF_NP0_
+proc
+equiv_opt -assert -async2sync -map +/intel/max10/cells_sim.v synth_intel # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd \$_DFF_NP0_ # Constrain all select calls below inside the top module
+select -assert-count 1 t:dffeas
+
+design -load read
+hierarchy -top \$_DFF_NP1_
+proc
+equiv_opt -assert -async2sync -map +/intel/max10/cells_sim.v synth_intel # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd \$_DFF_NP1_ # Constrain all select calls below inside the top module
+select -assert-count 1 t:dffeas
+
+design -load read
+hierarchy -top \$_DFF_PP0_
+proc
+equiv_opt -assert -async2sync -map +/intel/max10/cells_sim.v synth_intel # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd \$_DFF_PP0_ # Constrain all select calls below inside the top module
+select -assert-count 1 t:dffeas
+
+design -load read
+hierarchy -top \$_DFF_PP1_
+proc
+equiv_opt -assert -async2sync -map +/intel/max10/cells_sim.v synth_intel # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd \$_DFF_PP1_ # Constrain all select calls below inside the top module
+select -assert-count 1 t:dffeas
+
