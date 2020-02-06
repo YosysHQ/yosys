@@ -191,7 +191,7 @@ struct SynthGowinPass : public ScriptPass
 		if (!nobram && check_label("map_bram", "(skip if -nobram)"))
 		{
 			run("memory_bram -rules +/gowin/brams.txt");
-			run("techmap -map +/gowin/brams_map.v -map +/gowin/cells_sim.v");
+			run("techmap -map +/gowin/brams_map.v");
 		}
 
 		if (!nolutram && check_label("map_lutram", "(skip if -nolutram)"))
