@@ -130,7 +130,7 @@ module  \$_DFF_PP1_ (input D, C, R, output Q);
    wire _TECHMAP_REMOVEINIT_Q_ = 1'b1;
    parameter WYSIWYG="TRUE";
    wire Q_n;
-   fiftyfivenm_lcell_comb QH0 (.combout(Q), .dataa(Q_n), .datab(1'b1), .datac(1'b1), .datad(1'b1));
+   `LUT QH0 (.combout(Q), .dataa(Q_n), .datab(1'b1), .datac(1'b1), .datad(1'b1));
    defparam QH0.lut_mask = 16'b0101010101010101;
    defparam QH0.sum_lutc_input = "datac";
    dffeas #(.is_wysiwyg(WYSIWYG), .power_up(_TECHMAP_WIREINIT_Q_)) _TECHMAP_REPLACE_ (.d(~D), .q(Q_n), .clk(C), .clrn(~R), .prn(1'b1), .ena(1'b1), .asdata(1'b0), .aload(1'b0), .sclr(1'b0), .sload(1'b0));
