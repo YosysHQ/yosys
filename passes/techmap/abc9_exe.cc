@@ -471,7 +471,7 @@ struct Abc9ExePass : public Pass {
 		// handle -lut / -luts args
 		if (!lut_arg.empty()) {
 			string arg = lut_arg;
-			if (arg.find_first_not_of("0123456789:") == std::string::npos) {
+			if (arg.find_first_not_of("0123456789:,") == std::string::npos) {
 				size_t pos = arg.find_first_of(':');
 				int lut_mode = 0, lut_mode2 = 0;
 				if (pos != string::npos) {
