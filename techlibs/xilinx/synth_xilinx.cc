@@ -543,9 +543,8 @@ struct SynthXilinxPass : public ScriptPass
 
 		if (check_label("fine")) {
 			run("dff2dffe -direct-match $_DFF_* -direct-match $__DFFS_*");
-			if (help_mode) {
-				run("muxcover <internal options>, ('-widemux' only)");
-			}
+			if (help_mode)
+				run("muxcover <internal options> ('-widemux' only)");
 			else if (widemux > 0) {
 				constexpr int cost_mux2 = 100;
 				std::string muxcover_args = stringf(" -nodecode -mux2=%d", cost_mux2);
