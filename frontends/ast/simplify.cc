@@ -2903,9 +2903,19 @@ AstNode *AstNode::readmem(bool is_readmemh, std::string mem_filename, AstNode *m
 
 	std::ifstream f;
 	f.open(mem_filename.c_str());
-	yosys_input_files.insert(mem_filename);
-
-	if (f.fail())
+	if (f.fail()) {
+#ifdef _WIN32
+		char slash = '\\';
+#else
+		char slash = '/';
+#endif
+		std::string path = filename.substr(0, filename.find_last_of(slash)+1);
+		f.open(path + mem_filename.c_str());
+		yosys_input_files.insert(path + mem_filename);
+	} else {
+		yosys_input_files.insert(mem_filename);
+	}
+	if (f.fail() || GetSize(mem_filename) == 0)
 		log_file_error(filename, linenum, "Can not open file `%s` for %s.\n", mem_filename.c_str(), str.c_str());
 
 	log_assert(GetSize(memory->children) == 2 && memory->children[1]->type == AST_RANGE && memory->children[1]->range_valid);
