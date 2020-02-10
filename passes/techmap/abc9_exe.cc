@@ -362,7 +362,7 @@ struct Abc9ExePass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
-		log_header(design, "Executing ABC9_MAP pass (technology mapping using ABC9).\n");
+		log_header(design, "Executing ABC9_EXE pass (technology mapping using ABC9).\n");
 
 #ifdef ABCEXTERNAL
 		std::string exe_file = ABCEXTERNAL;

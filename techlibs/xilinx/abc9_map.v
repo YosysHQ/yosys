@@ -215,11 +215,11 @@ module FDCE (output Q, (* techmap_autopurge *) input C, CE, D, CLR);
       .IS_PRE_INVERTED(IS_CLR_INVERTED)
     ) _TECHMAP_REPLACE_ (
       .D(~D), .Q($Q), .C(C), .CE(CE), .PRE(CLR)
-                                            // ^^^ Note that async
-                                            //     control is not directly
-                                            //     supported by abc9 but its
-                                            //     behaviour is captured by
-                                            //     $__ABC9_ASYNC1 below
+                                        // ^^^ Note that async
+                                        //     control is not directly
+                                        //     supported by abc9 but its
+                                        //     behaviour is captured by
+                                        //     $__ABC9_ASYNC1 below
     );
     // Since this is an async flop, async behaviour is dealt with here
     $__ABC9_ASYNC1 abc_async (.A($QQ), .S(CLR ^ IS_CLR_INVERTED), .Y(QQ));
@@ -233,11 +233,11 @@ module FDCE (output Q, (* techmap_autopurge *) input C, CE, D, CLR);
       .IS_CLR_INVERTED(IS_CLR_INVERTED)
     ) _TECHMAP_REPLACE_ (
       .D(D), .Q($Q), .C(C), .CE(CE), .CLR(CLR)
-                                           // ^^^ Note that async
-                                           //     control is not directly
-                                           //     supported by abc9 but its
-                                           //     behaviour is captured by
-                                           //     $__ABC9_ASYNC0 below
+                                       // ^^^ Note that async
+                                       //     control is not directly
+                                       //     supported by abc9 but its
+                                       //     behaviour is captured by
+                                       //     $__ABC9_ASYNC0 below
     );
     // Since this is an async flop, async behaviour is dealt with here
     $__ABC9_ASYNC0 abc_async (.A($QQ), .S(CLR ^ IS_CLR_INVERTED), .Y(QQ));
@@ -258,11 +258,11 @@ module FDCE_1 (output Q, (* techmap_autopurge *) input C, CE, D, CLR);
       .INIT(1'b0)
     ) _TECHMAP_REPLACE_ (
       .D(~D), .Q($Q), .C(C), .CE(CE), .PRE(CLR)
-                                            // ^^^ Note that async
-                                            //     control is not directly
-                                            //     supported by abc9 but its
-                                            //     behaviour is captured by
-                                            //     $__ABC9_ASYNC1 below
+                                        // ^^^ Note that async
+                                        //     control is not directly
+                                        //     supported by abc9 but its
+                                        //     behaviour is captured by
+                                        //     $__ABC9_ASYNC1 below
     );
     $__ABC9_ASYNC1 abc_async (.A($QQ), .S(CLR), .Y(QQ));
   end
@@ -272,11 +272,11 @@ module FDCE_1 (output Q, (* techmap_autopurge *) input C, CE, D, CLR);
       .INIT(1'b0)
     ) _TECHMAP_REPLACE_ (
       .D(D), .Q($Q), .C(C), .CE(CE), .CLR(CLR)
-                                           // ^^^ Note that async
-                                           //     control is not directly
-                                           //     supported by abc9 but its
-                                           //     behaviour is captured by
-                                           //     $__ABC9_ASYNC0 below
+                                       // ^^^ Note that async
+                                       //     control is not directly
+                                       //     supported by abc9 but its
+                                       //     behaviour is captured by
+                                       //     $__ABC9_ASYNC0 below
     );
     $__ABC9_ASYNC0 abc_async (.A($QQ), .S(CLR), .Y(QQ));
   end endgenerate
@@ -303,11 +303,11 @@ module FDPE (output Q, (* techmap_autopurge *) input C, CE, D, PRE);
       .IS_CLR_INVERTED(IS_PRE_INVERTED),
     ) _TECHMAP_REPLACE_ (
       .D(~D), .Q($Q), .C(C), .CE(CE), .CLR(PRE)
-                                            // ^^^ Note that async
-                                            //     control is not directly
-                                            //     supported by abc9 but its
-                                            //     behaviour is captured by
-                                            //     $__ABC9_ASYNC0 below
+                                        // ^^^ Note that async
+                                        //     control is not directly
+                                        //     supported by abc9 but its
+                                        //     behaviour is captured by
+                                        //     $__ABC9_ASYNC0 below
     );
     $__ABC9_ASYNC0 abc_async (.A($QQ), .S(PRE ^ IS_PRE_INVERTED), .Y(QQ));
   end
@@ -320,11 +320,11 @@ module FDPE (output Q, (* techmap_autopurge *) input C, CE, D, PRE);
       .IS_PRE_INVERTED(IS_PRE_INVERTED),
     ) _TECHMAP_REPLACE_ (
       .D(D), .Q($Q), .C(C), .CE(CE), .PRE(PRE)
-                                           // ^^^ Note that async
-                                           //     control is not directly
-                                           //     supported by abc9 but its
-                                           //     behaviour is captured by
-                                           //     $__ABC9_ASYNC1 below
+                                       // ^^^ Note that async
+                                       //     control is not directly
+                                       //     supported by abc9 but its
+                                       //     behaviour is captured by
+                                       //     $__ABC9_ASYNC1 below
     );
     $__ABC9_ASYNC1 abc_async (.A($QQ), .S(PRE ^ IS_PRE_INVERTED), .Y(QQ));
   end endgenerate
@@ -344,11 +344,11 @@ module FDPE_1 (output Q, (* techmap_autopurge *) input C, CE, D, PRE);
       .INIT(1'b0)
     ) _TECHMAP_REPLACE_ (
       .D(~D), .Q($Q), .C(C), .CE(CE), .CLR(PRE)
-                                            // ^^^ Note that async
-                                            //     control is not directly
-                                            //     supported by abc9 but its
-                                            //     behaviour is captured by
-                                            //     $__ABC9_ASYNC0 below
+                                        // ^^^ Note that async
+                                        //     control is not directly
+                                        //     supported by abc9 but its
+                                        //     behaviour is captured by
+                                        //     $__ABC9_ASYNC0 below
     );
     $__ABC9_ASYNC0 abc_async (.A($QQ), .S(PRE), .Y(QQ));
   end
@@ -358,11 +358,11 @@ module FDPE_1 (output Q, (* techmap_autopurge *) input C, CE, D, PRE);
       .INIT(1'b0)
     ) _TECHMAP_REPLACE_ (
       .D(D), .Q($Q), .C(C), .CE(CE), .PRE(PRE)
-                                           // ^^^ Note that async
-                                           //     control is not directly
-                                           //     supported by abc9 but its
-                                           //     behaviour is captured by
-                                           //     $__ABC9_ASYNC1 below
+                                       // ^^^ Note that async
+                                       //     control is not directly
+                                       //     supported by abc9 but its
+                                       //     behaviour is captured by
+                                       //     $__ABC9_ASYNC1 below
     );
     $__ABC9_ASYNC1 abc_async (.A($QQ), .S(PRE), .Y(QQ));
   end endgenerate
