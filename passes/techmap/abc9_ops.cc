@@ -572,7 +572,10 @@ void prep_lut(RTLIL::Design *design, int maxlut)
 				continue;
 			log_assert(cell->getParam(ID(SRC_WIDTH)) == 1);
 			log_assert(cell->getParam(ID(DST_WIDTH)) == 1);
+			SigBit s = cell->getPort(ID(SRC));
 			SigBit d = cell->getPort(ID(DST));
+			log_assert(s.wire->port_input);
+			log_assert(d.wire->port_output);
 			if (o == SigBit())
 				o = d;
 			else
