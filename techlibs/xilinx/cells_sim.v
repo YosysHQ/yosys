@@ -318,14 +318,26 @@ module MUXF6(output O, input I0, I1, S);
   assign O = S ? I1 : I0;
 endmodule
 
-(* abc9_box_id = 1, lib_whitebox *)
+(* abc9_box, lib_whitebox *)
 module MUXF7(output O, input I0, I1, S);
   assign O = S ? I1 : I0;
+  specify
+    // https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf#L451-L453
+    (I0 => O) = 204;
+    (I1 => O) = 208;
+    (S => O) = 286;
+  endspecify
 endmodule
 
-(* abc9_box_id = 2, lib_whitebox *)
+(* abc9_box, lib_whitebox *)
 module MUXF8(output O, input I0, I1, S);
   assign O = S ? I1 : I0;
+  specify
+    // Max delays from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf#L462-L464
+    (I0 => O) = 104;
+    (I1 => O) = 94;
+    (S => O) = 273;
+  endspecify
 endmodule
 
 module MUXF9(output O, input I0, I1, S);
@@ -336,7 +348,7 @@ module XORCY(output O, input CI, LI);
   assign O = CI ^ LI;
 endmodule
 
-(* abc9_box_id = 4, lib_whitebox *)
+(* abc9_box, lib_whitebox *)
 module CARRY4(
   (* abc9_carry *)
   output [3:0] CO,
@@ -351,6 +363,61 @@ module CARRY4(
   assign CO[1] = S[1] ? CO[0] : DI[1];
   assign CO[2] = S[2] ? CO[1] : DI[2];
   assign CO[3] = S[3] ? CO[2] : DI[3];
+  specify
+    // https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf#L11-L46
+    (CYINIT => O[0]) = 482;
+    (S[0]   => O[0]) = 223;
+    (CI     => O[0]) = 222;
+    (CYINIT => O[1]) = 598;
+    (DI[0]  => O[1]) = 407;
+    (S[0]   => O[1]) = 400;
+    (S[1]   => O[1]) = 205;
+    (CI     => O[1]) = 334;
+    (CYINIT => O[2]) = 584;
+    (DI[0]  => O[2]) = 556;
+    (DI[1]  => O[2]) = 537;
+    (S[0]   => O[2]) = 523;
+    (S[1]   => O[2]) = 558;
+    (S[2]   => O[2]) = 226;
+    (CI     => O[2]) = 239;
+    (CYINIT => O[3]) = 642;
+    (DI[0]  => O[3]) = 615;
+    (DI[1]  => O[3]) = 596;
+    (DI[2]  => O[3]) = 438;
+    (S[0]   => O[3]) = 582;
+    (S[1]   => O[3]) = 618;
+    (S[2]   => O[3]) = 330;
+    (S[3]   => O[3]) = 227;
+    (CI     => O[3]) = 313;
+    (CYINIT => CO[0]) = 536;
+    (DI[0]  => CO[0]) = 379;
+    (S[0]   => CO[0]) = 340;
+    (CI     => CO[0]) = 271;
+    (CYINIT => CO[1]) = 494;
+    (DI[0]  => CO[1]) = 465;
+    (DI[1]  => CO[1]) = 445;
+    (S[0]   => CO[1]) = 433;
+    (S[1]   => CO[1]) = 469;
+    (CI     => CO[1]) = 157;
+    (CYINIT => CO[2]) = 592;
+    (DI[0]  => CO[2]) = 540;
+    (DI[1]  => CO[2]) = 520;
+    (DI[2]  => CO[2]) = 356;
+    (S[0]   => CO[2]) = 512;
+    (S[1]   => CO[2]) = 548;
+    (S[2]   => CO[2]) = 292;
+    (CI     => CO[2]) = 228;
+    (CYINIT => CO[3]) = 580;
+    (DI[0]  => CO[3]) = 526;
+    (DI[1]  => CO[3]) = 507;
+    (DI[2]  => CO[3]) = 398;
+    (DI[3]  => CO[3]) = 385;
+    (S[0]   => CO[3]) = 508;
+    (S[1]   => CO[3]) = 528;
+    (S[2]   => CO[3]) = 378;
+    (S[3]   => CO[3]) = 380;
+    (CI     => CO[3]) = 114;
+  endspecify
 endmodule
 
 module CARRY8(

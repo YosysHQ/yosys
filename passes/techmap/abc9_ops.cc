@@ -23,9 +23,6 @@
 #include "kernel/utils.h"
 #include "kernel/celltypes.h"
 
-#define ABC9_FLOPS_BASE_ID 8000
-#define ABC9_DELAY_BASE_ID 9000
-
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
@@ -269,7 +266,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 		if (abc9_flop && !dff)
 			continue;
 
-		if ((inst_module && inst_module->attributes.count("\\abc9_box_id")) || abc9_flop) {
+		if ((inst_module && inst_module->get_bool_attribute("\\abc9_box")) || abc9_flop) {
 			auto r = box_ports.insert(cell->type);
 			if (r.second) {
 				// Make carry in the last PI, and carry out the last PO
@@ -350,7 +347,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 		log_assert(cell);
 
 		RTLIL::Module* box_module = design->module(cell->type);
-		if (!box_module || (!box_module->attributes.count("\\abc9_box_id") && !box_module->get_bool_attribute("\\abc9_flop")))
+		if (!box_module || (!box_module->get_bool_attribute("\\abc9_box") && !box_module->get_bool_attribute("\\abc9_flop")))
 			continue;
 
 		cell->attributes["\\abc9_box_seq"] = box_count++;
@@ -431,7 +428,6 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 
 void prep_delays(RTLIL::Design *design)
 {
-	std::set<int> delays;
 	pool<Module*> flops;
 	std::vector<Cell*> cells;
 	dict<IdString,dict<IdString,std::vector<int>>> requireds_cache;
@@ -459,7 +455,7 @@ void prep_delays(RTLIL::Design *design)
 				continue; // because all flop required times
 				          //   will be captured in the flop box
 			}
-			if (inst_module->attributes.count(ID(abc9_box_id)))
+			if (inst_module->attributes.count(ID(abc9_box)))
 				continue;
 			cells.emplace_back(cell);
 		}
@@ -481,13 +477,11 @@ void prep_delays(RTLIL::Design *design)
 						continue;
 					if (it->second.flags == 0) {
 						int delay = it->second.as_int();
-						delays.insert(delay);
 						requireds.emplace_back(delay);
 					}
 					else
 						for (const auto &tok : split_tokens(it->second.decode_string())) {
 							int delay = atoi(tok.c_str());
-							delays.insert(delay);
 							requireds.push_back(delay);
 						}
 				}
@@ -516,12 +510,13 @@ void prep_delays(RTLIL::Design *design)
 		}
 	}
 
-	int flops_id = ABC9_FLOPS_BASE_ID;
+	int abc9_box_id = design->scratchpad_get_int("abc9_ops.box_id");
 	std::stringstream ss;
 	for (auto flop_module : flops) {
 		int num_inputs = 0, num_outputs = 0;
 		for (auto port_name : flop_module->ports) {
 			auto wire = flop_module->wire(port_name);
+			log_assert(GetSize(wire) == 1);
 			if (wire->port_input) num_inputs++;
 			if (wire->port_output) num_outputs++;
 		}
@@ -529,11 +524,27 @@ void prep_delays(RTLIL::Design *design)
 
 		auto r = flop_module->attributes.insert(ID(abc9_box_id));
 		if (r.second)
-			r.first->second = flops_id++;
+			r.first->second = ++abc9_box_id;
 
 		ss << log_id(flop_module) << " " << r.first->second.as_int();
-		ss << " 1 " << num_inputs+1 << " " << num_outputs << std::endl;
+		ss << " " << (flop_module->get_bool_attribute(ID::whitebox) ? "1" : "0");
+		ss << " " << num_inputs+1 << " " << num_outputs << std::endl;
+
+		ss << "#";
 		bool first = true;
+		for (auto port_name : flop_module->ports) {
+			auto wire = flop_module->wire(port_name);
+			if (!wire->port_input)
+				continue;
+			if (first)
+				first = false;
+			else
+				ss << " ";
+			ss << log_id(wire);
+		}
+		ss << " abc9_ff.Q" << std::endl;
+
+		first = true;
 		for (auto port_name : flop_module->ports) {
 			auto wire = flop_module->wire(port_name);
 			if (!wire->port_input)
@@ -548,13 +559,7 @@ void prep_delays(RTLIL::Design *design)
 		ss << " 0" << std::endl << std::endl;
 	}
 	design->scratchpad_set_string("abc9_ops.box_library.flops", ss.str());
-
-	ss.str("");
-	for (const int d : delays) {
-		ss << "$__ABC9_DELAY@" << d << " " << ABC9_DELAY_BASE_ID + d << " 0 1 1" << std::endl;
-		ss << d << std::endl;
-	}
-	design->scratchpad_set_string("abc9_ops.box_library.delays", ss.str());
+	design->scratchpad_set_int("abc9_ops.box_id", abc9_box_id);
 }
 
 void prep_lut(RTLIL::Design *design, int maxlut)
@@ -610,22 +615,93 @@ void write_lut(RTLIL::Module *module, const std::string &dst) {
 	ofs.close();
 }
 
-void prep_box(RTLIL::Design *design, const std::string &src)
+void prep_box(RTLIL::Design *design)
 {
 	std::stringstream ss;
+	ss << design->scratchpad_get_string("abc9_ops.box_library.flops", ss.str());
 
-	// Since ABC can only accept one box file, we have to copy
-	//   over the existing box file
-	if (src != "(null)") {
-		std::ifstream ifs(src);
-		log_assert(ifs.is_open());
-		ss << ifs.rdbuf() << std::endl;
-		ifs.close();
+	int abc9_box_id = design->scratchpad_get_int("abc9_ops.box_id");
+	for (auto module : design->modules()) {
+		auto it = module->attributes.find(ID(abc9_box));
+		if (it == module->attributes.end())
+			continue;
+		module->attributes.erase(it);
+		log_assert(!module->attributes.count(ID(abc9_box_id)));
+
+		dict<std::pair<SigBit,SigBit>, std::string> table;
+		std::vector<SigBit> inputs;
+		std::vector<SigBit> outputs;
+		for (auto port_name : module->ports) {
+			auto wire = module->wire(port_name);
+			if (wire->port_input)
+				for (int i = 0; i < GetSize(wire); i++)
+					inputs.emplace_back(wire, i);
+			if (wire->port_output)
+				for (int i = 0; i < GetSize(wire); i++)
+					outputs.emplace_back(wire, i);
+		}
+		for (auto cell : module->cells()) {
+			if (cell->type != ID($specify2))
+				continue;
+			auto src = cell->getPort(ID(SRC));
+			auto dst = cell->getPort(ID(DST));
+			for (const auto &c : src.chunks())
+				if (!c.wire->port_input)
+					log_error("Module '%s' contains specify cell '%s' where SRC '%s' is not a module input.\n", log_id(module), log_id(cell), log_signal(src));
+			for (const auto &c : dst.chunks())
+				if (!c.wire->port_output)
+					log_error("Module '%s' contains specify cell '%s' where DST '%s' is not a module output.\n", log_id(module), log_id(cell), log_signal(dst));
+			int rise_max = cell->getParam(ID(T_RISE_MAX)).as_int();
+			int fall_max = cell->getParam(ID(T_FALL_MAX)).as_int();
+			int max = std::max(rise_max,fall_max);
+			for (auto s : src)
+				for (auto d : dst) {
+					auto r = table.insert(std::make_pair(s,d));
+					log_assert(r.second);
+					r.first->second = std::to_string(max);
+				}
+		}
+		auto r = module->attributes.insert(ID(abc9_box_id));
+		log_assert(r.second);
+		r.first->second = ++abc9_box_id;
+		ss << log_id(module) << " " << abc9_box_id;
+		ss << " " << (module->get_bool_attribute(ID::whitebox) ? "1" : "0");
+		ss << " " << GetSize(inputs) << " " << GetSize(outputs) << std::endl;
+		bool first = true;
+		ss << "#";
+		for (const auto &i : inputs) {
+			if (first)
+				first = false;
+			else
+				ss << " ";
+			if (GetSize(i.wire) == 1)
+				ss << log_id(i.wire);
+			else
+				ss << log_id(i.wire) << "[" << i.offset << "]";
+		}
+		ss << std::endl;
+		for (const auto &o : outputs) {
+			first = true;
+			for (const auto &i : inputs) {
+				if (first)
+					first = false;
+				else
+					ss << " ";
+				ss << table.at(std::make_pair(i,o), "-");
+			}
+			ss << " # ";
+			if (GetSize(o.wire) == 1)
+				ss << log_id(o.wire);
+			else
+				ss << log_id(o.wire) << "[" << o.offset << "]";
+			ss << std::endl;
+
+		}
+		ss << std::endl;
 	}
 
-	ss << design->scratchpad_get_string("abc9_ops.box_library.flops", ss.str());
-	ss << design->scratchpad_get_string("abc9_ops.box_library.delays", ss.str());
 	design->scratchpad_set_string("abc9_ops.box_library", ss.str());
+	design->scratchpad_set_int("abc9_ops.box_id", abc9_box_id);
 }
 
 void write_box(RTLIL::Module *module, const std::string &dst) {
@@ -1049,14 +1125,15 @@ struct Abc9OpsPass : public Pass {
 		log("        process the '$holes' module to support clock-enable functionality.\n");
 		log("\n");
 		log("    -prep_lut <maxlut>\n");
-		log("        pre-compute the lut library.\n");
+		log("        pre-compute the lut library by analysing all modules marked with\n");
+		log("        (* abc9_lut=<area> *).\n");
 		log("\n");
 		log("    -write_lut <dst>\n");
 		log("        write the pre-computed lut library to <dst>.\n");
 		log("\n");
-		log("    -prep_box <src>\n");
-		log("        pre-compute the box library. copy the existing box file from <src> (skip\n");
-		log("        if '(null)').\n");
+		log("    -prep_box\n");
+		log("        pre-compute the box library by analysing all modules marked with\n");
+		log("        (* abc9_box *)\n");
 		log("\n");
 		log("    -write_box <dst>\n");
 		log("        write the pre-computed box library to <dst>.\n");
@@ -1077,11 +1154,12 @@ struct Abc9OpsPass : public Pass {
 		bool prep_dff_mode = false;
 		bool prep_xaiger_mode = false;
 		bool prep_lut_mode = false;
+		bool prep_box_mode = false;
 		bool reintegrate_mode = false;
 		bool dff_mode = false;
 		std::string write_lut_dst;
 		int maxlut = 0;
-		std::string prep_box_src, write_box_dst;
+		std::string write_box_dst;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -1119,9 +1197,8 @@ struct Abc9OpsPass : public Pass {
 				rewrite_filename(write_lut_dst);
 				continue;
 			}
-			if (arg == "-prep_box" && argidx+1 < args.size()) {
-				prep_box_src = args[++argidx];
-				rewrite_filename(prep_box_src);
+			if (arg == "-prep_box") {
+				prep_box_mode = true;
 				continue;
 			}
 			if (arg == "-write_box" && argidx+1 < args.size()) {
@@ -1141,7 +1218,7 @@ struct Abc9OpsPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		if (!(check_mode || mark_scc_mode || prep_delays_mode || prep_xaiger_mode || prep_dff_mode || prep_lut_mode || !prep_box_src.empty() || !write_lut_dst.empty() || !write_box_dst.empty() || reintegrate_mode))
+		if (!(check_mode || mark_scc_mode || prep_delays_mode || prep_xaiger_mode || prep_dff_mode || prep_lut_mode || prep_box_mode || !write_lut_dst.empty() || !write_box_dst.empty() || reintegrate_mode))
 			log_cmd_error("At least one of -check, -mark_scc, -prep_{delays,xaiger,dff,lut,box}, -write_{lut,box}, -reintegrate must be specified.\n");
 
 		if (dff_mode && !prep_xaiger_mode)
@@ -1153,8 +1230,8 @@ struct Abc9OpsPass : public Pass {
 			prep_delays(design);
 		if (prep_lut_mode)
 			prep_lut(design, maxlut);
-		if (!prep_box_src.empty())
-			prep_box(design, prep_box_src);
+		if (prep_box_mode)
+			prep_box(design);
 
 		for (auto mod : design->selected_modules()) {
 			if (mod->get_bool_attribute("\\abc9_holes"))
