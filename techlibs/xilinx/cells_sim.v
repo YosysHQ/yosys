@@ -162,32 +162,55 @@ module INV(
   assign O = !I;
 endmodule
 
+(* abc9_lut=1 *)
 module LUT1(output O, input I0);
   parameter [1:0] INIT = 0;
   assign O = I0 ? INIT[1] : INIT[0];
+  specify
+    (I0 => O) = 127;
+  endspecify
 endmodule
 
+(* abc9_lut=2 *)
 module LUT2(output O, input I0, I1);
   parameter [3:0] INIT = 0;
   wire [ 1: 0] s1 = I1 ? INIT[ 3: 2] : INIT[ 1: 0];
   assign O = I0 ? s1[1] : s1[0];
+  specify
+    (I0 => O) = 238;
+    (I1 => O) = 127;
+  endspecify
 endmodule
 
+(* abc9_lut=3 *)
 module LUT3(output O, input I0, I1, I2);
   parameter [7:0] INIT = 0;
   wire [ 3: 0] s2 = I2 ? INIT[ 7: 4] : INIT[ 3: 0];
   wire [ 1: 0] s1 = I1 ?   s2[ 3: 2] :   s2[ 1: 0];
   assign O = I0 ? s1[1] : s1[0];
+  specify
+    (I0 => O) = 407;
+    (I1 => O) = 238;
+    (I2 => O) = 127;
+  endspecify
 endmodule
 
+(* abc9_lut=3 *)
 module LUT4(output O, input I0, I1, I2, I3);
   parameter [15:0] INIT = 0;
   wire [ 7: 0] s3 = I3 ? INIT[15: 8] : INIT[ 7: 0];
   wire [ 3: 0] s2 = I2 ?   s3[ 7: 4] :   s3[ 3: 0];
   wire [ 1: 0] s1 = I1 ?   s2[ 3: 2] :   s2[ 1: 0];
   assign O = I0 ? s1[1] : s1[0];
+  specify
+    (I0 => O) = 472;
+    (I1 => O) = 407;
+    (I2 => O) = 238;
+    (I3 => O) = 127;
+  endspecify
 endmodule
 
+(* abc9_lut=3 *)
 module LUT5(output O, input I0, I1, I2, I3, I4);
   parameter [31:0] INIT = 0;
   wire [15: 0] s4 = I4 ? INIT[31:16] : INIT[15: 0];
@@ -195,8 +218,16 @@ module LUT5(output O, input I0, I1, I2, I3, I4);
   wire [ 3: 0] s2 = I2 ?   s3[ 7: 4] :   s3[ 3: 0];
   wire [ 1: 0] s1 = I1 ?   s2[ 3: 2] :   s2[ 1: 0];
   assign O = I0 ? s1[1] : s1[0];
+  specify
+    (I0 => O) = 631;
+    (I1 => O) = 472;
+    (I2 => O) = 407;
+    (I3 => O) = 238;
+    (I4 => O) = 127;
+  endspecify
 endmodule
 
+(* abc9_lut=5 *)
 module LUT6(output O, input I0, I1, I2, I3, I4, I5);
   parameter [63:0] INIT = 0;
   wire [31: 0] s5 = I5 ? INIT[63:32] : INIT[31: 0];
@@ -205,6 +236,14 @@ module LUT6(output O, input I0, I1, I2, I3, I4, I5);
   wire [ 3: 0] s2 = I2 ?   s3[ 7: 4] :   s3[ 3: 0];
   wire [ 1: 0] s1 = I1 ?   s2[ 3: 2] :   s2[ 1: 0];
   assign O = I0 ? s1[1] : s1[0];
+  specify
+    (I0 => O) = 642;
+    (I1 => O) = 631;
+    (I2 => O) = 472;
+    (I3 => O) = 407;
+    (I4 => O) = 238;
+    (I5 => O) = 127;
+  endspecify
 endmodule
 
 module LUT6_2(output O6, output O5, input I0, I1, I2, I3, I4, I5);
@@ -221,6 +260,50 @@ module LUT6_2(output O6, output O5, input I0, I1, I2, I3, I4, I5);
   wire [ 3: 0] s5_2 = I2 ? s5_3[ 7: 4] : s5_3[ 3: 0];
   wire [ 1: 0] s5_1 = I1 ? s5_2[ 3: 2] : s5_2[ 1: 0];
   assign O5 = I0 ? s5_1[1] : s5_1[0];
+endmodule
+
+(* abc9_lut=10 *)
+module $__ABC9_LUT7(output O, input I0, I1, I2, I3, I4, I5, I6);
+  parameter [127:0] INIT = 0;
+  wire [63: 0] s6 = I6 ? INIT[127:64] : INIT[63: 0];
+  wire [31: 0] s5 = I5 ?    s6[63:32] :   s6[31: 0];
+  wire [15: 0] s4 = I4 ?    s5[31:16] :   s5[15: 0];
+  wire [ 7: 0] s3 = I3 ?    s4[15: 8] :   s4[ 7: 0];
+  wire [ 3: 0] s2 = I2 ?    s3[ 7: 4] :   s3[ 3: 0];
+  wire [ 1: 0] s1 = I1 ?    s2[ 3: 2] :   s2[ 1: 0];
+  assign O = I0 ? s1[1] : s1[0];
+  specify
+    (I0 => O) = 1028;
+    (I1 => O) = 1017;
+    (I2 => O) =  858;
+    (I3 => O) =  793;
+    (I4 => O) =  624;
+    (I5 => O) =  513;
+    (I6 => O) =  464;
+  endspecify
+endmodule
+
+(* abc9_lut=20 *)
+module $__ABC9_LUT8(output O, input I0, I1, I2, I3, I4, I5, I6, I7);
+  parameter [255:0] INIT = 0;
+  wire [127: 0] s7 = I7 ? INIT[255:128] : INIT[127: 0];
+  wire [ 63: 0] s6 = I6 ?   s7[127:63]  :   s7[ 64: 0];
+  wire [ 31: 0] s5 = I5 ?   s6[ 63:32]  :   s6[ 31: 0];
+  wire [ 15: 0] s4 = I4 ?   s5[ 31:16]  :   s5[ 15: 0];
+  wire [  7: 0] s3 = I3 ?   s4[ 15: 8]  :   s4[  7: 0];
+  wire [  3: 0] s2 = I2 ?   s3[  7: 4]  :   s3[  3: 0];
+  wire [  1: 0] s1 = I1 ?   s2[  3: 2]  :   s2[  1: 0];
+  assign O = I0 ? s1[1] : s1[0];
+  specify
+    (I0 => O) = 1149;
+    (I1 => O) = 1138;
+    (I2 => O) =  979;
+    (I3 => O) =  914;
+    (I4 => O) =  745;
+    (I5 => O) =  634;
+    (I6 => O) =  585;
+    (I7 => O) =  468;
+  endspecify
 endmodule
 
 module MUXCY(output O, input CI, DI, S);

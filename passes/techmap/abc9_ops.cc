@@ -562,6 +562,56 @@ void prep_delays(RTLIL::Design *design)
 	design->scratchpad_set_string("abc9_ops.box.flops", ss.str());
 }
 
+void prep_lut(RTLIL::Design *design, int maxlut)
+{
+	std::stringstream ss;
+	std::vector<std::pair<int, std::string>> table;
+	for (auto module : design->modules()) {
+		auto it = module->attributes.find(ID(abc9_lut));
+		if (it == module->attributes.end())
+			continue;
+		SigBit o;
+		std::vector<int> specify;
+		for (auto cell : module->cells()) {
+			if (cell->type != ID($specify2))
+				continue;
+			log_assert(cell->getParam(ID(SRC_WIDTH)) == 1);
+			log_assert(cell->getParam(ID(DST_WIDTH)) == 1);
+			SigBit d = cell->getPort(ID(DST));
+			if (o == SigBit())
+				o = d;
+			else
+				log_assert(o == d);
+			int rise_max = cell->getParam(ID(T_RISE_MAX)).as_int();
+			int fall_max = cell->getParam(ID(T_FALL_MAX)).as_int();
+			specify.push_back(std::max(rise_max,fall_max));
+		}
+		if (maxlut && GetSize(specify) > maxlut)
+			continue;
+		std::sort(specify.begin(), specify.end());
+		ss.str("");
+		ss << "# " << module->name.str() << std::endl;
+		ss << GetSize(specify) << " " << it->second.as_int();
+		for (auto i : specify)
+			ss << " " << i;
+		ss << std::endl;
+		table.emplace_back(GetSize(specify), ss.str());
+	}
+	// ABC expects ascending size
+	std::sort(table.begin(), table.end());
+	ss.str("");
+	for (auto &i : table)
+		ss << i.second;
+	design->scratchpad_set_string("abc9_ops.lut_library", ss.str());
+}
+
+void write_lut(RTLIL::Module *module, const std::string &dst) {
+	std::ofstream ofs(dst);
+	log_assert(ofs.is_open());
+	ofs << module->design->scratchpad_get_string("abc9_ops.lut_library");
+	ofs.close();
+}
+
 void write_box(RTLIL::Module *module, const std::string &src, const std::string &dst) {
 	std::ofstream ofs(dst);
 	log_assert(ofs.is_open());
@@ -1002,6 +1052,12 @@ struct Abc9OpsPass : public Pass {
 		log("        compute the clock domain and initial value of each flop in the design.\n");
 		log("        process the '$holes' module to support clock-enable functionality.\n");
 		log("\n");
+		log("    -prep_lut <maxlut>\n");
+		log("        pre-compute the lut library.\n");
+		log("\n");
+		log("    -write_lut <dst>\n");
+		log("        TODO.\n");
+		log("\n");
 		log("    -write_box (<src>|(null)) <dst>\n");
 		log("        copy the existing box file from <src> (skip if '(null)') and append any\n");
 		log("        new box definitions.\n");
@@ -1021,8 +1077,11 @@ struct Abc9OpsPass : public Pass {
 		bool mark_scc_mode = false;
 		bool prep_dff_mode = false;
 		bool prep_xaiger_mode = false;
+		bool prep_lut_mode = false;
 		bool reintegrate_mode = false;
 		bool dff_mode = false;
+		std::string write_lut_dst;
+		int maxlut = 0;
 		std::string write_box_src, write_box_dst;
 
 		size_t argidx;
@@ -1048,6 +1107,19 @@ struct Abc9OpsPass : public Pass {
 				prep_delays_mode = true;
 				continue;
 			}
+			if (arg == "-prep_lut" && argidx+1 < args.size()) {
+				prep_lut_mode = true;
+				maxlut = atoi(args[++argidx].c_str());
+				continue;
+			}
+			if (arg == "-write_lut" && argidx+1 < args.size()) {
+				write_lut_dst = args[++argidx];
+				rewrite_filename(write_lut_dst);
+				continue;
+			}
+			if (arg == "-maxlut" && argidx+1 < args.size()) {
+				continue;
+			}
 			if (arg == "-write_box" && argidx+2 < args.size()) {
 				write_box_src = args[++argidx];
 				write_box_dst = args[++argidx];
@@ -1067,16 +1139,21 @@ struct Abc9OpsPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		if (!(check_mode || mark_scc_mode || prep_delays_mode || prep_xaiger_mode || prep_dff_mode || !write_box_src.empty() || reintegrate_mode))
-			log_cmd_error("At least one of -check, -mark_scc, -prep_{delays,xaiger,dff}, -write_box, -reintegrate must be specified.\n");
+		if (!(check_mode || mark_scc_mode || prep_delays_mode || prep_xaiger_mode || prep_dff_mode || prep_lut_mode || !write_lut_dst.empty() || !write_box_dst.empty() || reintegrate_mode))
+			log_cmd_error("At least one of -check, -mark_scc, -prep_{delays,xaiger,dff,lut}, -write_{lut,box}, -reintegrate must be specified.\n");
 
 		if (dff_mode && !prep_xaiger_mode)
 			log_cmd_error("'-dff' option is only relevant for -prep_xaiger.\n");
+
+		if (maxlut && !write_lut_dst.empty())
+			log_cmd_error("'-maxlut' option is only relevant for -prep_lut.\n");
 
 		if (check_mode)
 			check(design);
 		if (prep_delays_mode)
 			prep_delays(design);
+		if (prep_lut_mode)
+			prep_lut(design, maxlut);
 
 		for (auto mod : design->selected_modules()) {
 			if (mod->get_bool_attribute("\\abc9_holes"))
@@ -1090,7 +1167,9 @@ struct Abc9OpsPass : public Pass {
 			if (!design->selected_whole_module(mod))
 				log_error("Can't handle partially selected module %s!\n", log_id(mod));
 
-			if (!write_box_src.empty())
+			if (!write_lut_dst.empty())
+				write_lut(mod, write_lut_dst);
+			if (!write_box_dst.empty())
 				write_box(mod, write_box_src, write_box_dst);
 			if (mark_scc_mode)
 				mark_scc(mod);

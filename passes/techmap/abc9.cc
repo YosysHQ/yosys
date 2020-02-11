@@ -145,6 +145,11 @@ struct Abc9Pass : public ScriptPass
 		log("        generate netlist using luts. Use the specified costs for luts with 1,\n");
 		log("        2, 3, .. inputs.\n");
 		log("\n");
+		log("    -maxlut <width>\n");
+		log("        when auto-generating the lut library, discard all luts equal to or\n");
+		log("        greater than this size (applicable when neither -lut nor -luts is\n");
+		log("        specified).\n");
+		log("\n");
 		log("    -dff\n");
 		log("        also pass $_ABC9_FF_ cells through to ABC. modules with many clock\n");
 		log("        domains are marked as such and automatically partitioned by ABC.\n");
@@ -175,6 +180,8 @@ struct Abc9Pass : public ScriptPass
 
 	std::stringstream exe_cmd;
 	bool dff_mode, cleanup;
+	bool lut_mode;
+	int maxlut;
 	std::string box_file;
 
 	void clear_flags() YS_OVERRIDE
@@ -183,6 +190,8 @@ struct Abc9Pass : public ScriptPass
 		exe_cmd << "abc9_exe";
 		dff_mode = false;
 		cleanup = true;
+		lut_mode = false;
+		maxlut = 0;
 		box_file.clear();
 	}
 
@@ -204,9 +213,11 @@ struct Abc9Pass : public ScriptPass
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			std::string arg = args[argidx];
 			if ((arg == "-exe" || arg == "-script" || arg == "-D" ||
-						/* arg == "-S" || */ arg == "-lut" || arg == "-luts" ||
+						/*arg == "-S" ||*/ arg == "-lut" || arg == "-luts" ||
 						/*arg == "-box" ||*/ arg == "-W") &&
 					argidx+1 < args.size()) {
+				if (arg == "-lut" || arg == "-luts")
+					lut_mode = true;
 				exe_cmd << " " << arg << " " << args[++argidx];
 				continue;
 			}
@@ -228,6 +239,10 @@ struct Abc9Pass : public ScriptPass
 				box_file = args[++argidx];
 				continue;
 			}
+			if (arg == "-maxlut" && argidx+1 < args.size()) {
+				maxlut = atoi(args[++argidx].c_str());
+				continue;
+			}
 			if (arg == "-run" && argidx+1 < args.size()) {
 				size_t pos = args[argidx+1].find(':');
 				if (pos == std::string::npos)
@@ -239,6 +254,9 @@ struct Abc9Pass : public ScriptPass
 			break;
 		}
 		extra_args(args, argidx, design);
+
+		if (maxlut && lut_mode)
+			log_cmd_error("abc9 '-maxlut' option only applicable without '-lut' nor '-luts'.\n");
 
 		log_assert(design);
 		if (design->selected_modules().empty()) {
@@ -263,6 +281,10 @@ struct Abc9Pass : public ScriptPass
 				run("abc9_ops -mark_scc -prep_delays -prep_xaiger [-dff]", "(option for -dff)");
 			else
 				run("abc9_ops -mark_scc -prep_delays -prep_xaiger" + std::string(dff_mode ? " -dff" : ""), "(option for -dff)");
+			if (help_mode)
+				run("abc9_ops -prep_lut <maxlut>", "(skip if -lut or -luts)");
+			else if (!lut_mode)
+				run(stringf("abc9_ops -prep_lut %d", maxlut));
 			run("select -set abc9_holes A:abc9_holes");
 			run("flatten -wb @abc9_holes");
 			run("techmap @abc9_holes");
@@ -276,9 +298,10 @@ struct Abc9Pass : public ScriptPass
 		if (check_label("map")) {
 			if (help_mode) {
 				run("foreach module in selection");
+				run("    abc9_ops -write_lut <abc-temp-dir>/input.lut", "(skip if '-lut' or '-luts')");
 				run("    abc9_ops -write_box [<value from -box>|(null)] <abc-temp-dir>/input.box");
 				run("    write_xaiger -map <abc-temp-dir>/input.sym <abc-temp-dir>/input.xaig");
-				run("    abc9_exe [options] -cwd <abc-temp-dir> -box <abc-temp-dir>/input.box");
+				run("    abc9_exe [options] -cwd <abc-temp-dir> [-lut <abc-temp-dir>/input.lut] -box <abc-temp-dir>/input.box");
 				run("    read_aiger -xaiger -wideports -module_name <module-name>$abc9 -map <abc-temp-dir>/input.sym <abc-temp-dir>/output.aig");
 				run("    abc9_ops -reintegrate");
 			}
@@ -304,6 +327,8 @@ struct Abc9Pass : public ScriptPass
 						tempdir_name[0] = tempdir_name[4] = '_';
 					tempdir_name = make_temp_dir(tempdir_name);
 
+					if (!lut_mode)
+						run(stringf("abc9_ops -write_lut %s/input.lut", tempdir_name.c_str()));
 					if (box_file.empty())
 						run(stringf("abc9_ops -write_box (null) %s/input.box", tempdir_name.c_str()));
 					else
@@ -319,7 +344,12 @@ struct Abc9Pass : public ScriptPass
 							active_design->scratchpad_get_int("write_xaiger.num_inputs"),
 							num_outputs);
 					if (num_outputs) {
-						run(stringf("%s -cwd %s -box %s/input.box", exe_cmd.str().c_str(), tempdir_name.c_str(), tempdir_name.c_str()));
+						std::string abc9_exe_cmd;
+						abc9_exe_cmd += stringf("%s -cwd %s", exe_cmd.str().c_str(), tempdir_name.c_str());
+						if (!lut_mode)
+							abc9_exe_cmd += stringf(" -lut %s/input.lut", tempdir_name.c_str());
+						abc9_exe_cmd += stringf(" -box %s/input.box", tempdir_name.c_str());
+						run(abc9_exe_cmd);
 						run(stringf("read_aiger -xaiger -wideports -module_name %s$abc9 -map %s/input.sym %s/output.aig", log_id(mod), tempdir_name.c_str(), tempdir_name.c_str()));
 						run("abc9_ops -reintegrate");
 					}
