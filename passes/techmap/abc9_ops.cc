@@ -70,54 +70,6 @@ void check(RTLIL::Design *design)
 					carry_out = port_name;
 				}
 			}
-
-			auto it = w->attributes.find("\\abc9_arrival");
-			if (it != w->attributes.end()) {
-				int count = 0;
-				if (it->second.flags == 0) {
-					if (it->second.as_int() < 0)
-						log_error("%s.%s has negative arrival value %d!\n", log_id(m), log_id(port_name),
-								it->second.as_int());
-					count++;
-				}
-				else
-					for (const auto &tok : split_tokens(it->second.decode_string())) {
-						if (tok.find_first_not_of("0123456789") != std::string::npos)
-							log_error("%s.%s has non-integer arrival value '%s'!\n", log_id(m), log_id(port_name),
-									tok.c_str());
-						if (atoi(tok.c_str()) < 0)
-							log_error("%s.%s has negative arrival value %s!\n", log_id(m), log_id(port_name),
-									tok.c_str());
-						count++;
-					}
-				if (count > 1 && count != GetSize(w))
-					log_error("%s.%s is %d bits wide but abc9_arrival = %s has %d value(s)!\n", log_id(m), log_id(port_name),
-							GetSize(w), log_signal(it->second), count);
-			}
-
-			it = w->attributes.find("\\abc9_required");
-			if (it != w->attributes.end()) {
-				int count = 0;
-				if (it->second.flags == 0) {
-					if (it->second.as_int() < 0)
-						log_error("%s.%s has negative required value %d!\n", log_id(m), log_id(port_name),
-								it->second.as_int());
-					count++;
-				}
-				else
-					for (const auto &tok : split_tokens(it->second.decode_string())) {
-						if (tok.find_first_not_of("0123456789") != std::string::npos)
-							log_error("%s.%s has non-integer required value '%s'!\n", log_id(m), log_id(port_name),
-									tok.c_str());
-						if (atoi(tok.c_str()) < 0)
-							log_error("%s.%s has negative required value %s!\n", log_id(m), log_id(port_name),
-									tok.c_str());
-						count++;
-					}
-				if (count > 1 && count != GetSize(w))
-					log_error("%s.%s is %d bits wide but abc9_required = %s has %d value(s)!\n", log_id(m), log_id(port_name),
-							GetSize(w), log_signal(it->second), count);
-			}
 		}
 
 		if (carry_in != IdString() && carry_out == IdString())
@@ -428,16 +380,15 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 
 void prep_delays(RTLIL::Design *design)
 {
-	pool<Module*> flops;
+	// Derive and collect all blackbox modules, and collect all blackbox instantiations
+	pool<Module*> derived;
 	std::vector<Cell*> cells;
-	dict<IdString,dict<IdString,std::vector<int>>> requireds_cache;
 	for (auto module : design->selected_modules()) {
 		if (module->processes.size() > 0) {
 			log("Skipping module %s as it contains processes.\n", log_id(module));
 			continue;
 		}
 
-		cells.clear();
 		for (auto cell : module->cells()) {
 			if (cell->type.in(ID($_AND_), ID($_NOT_), ID($__ABC9_FF_), ID($__ABC9_DELAY)))
 				continue;
@@ -447,119 +398,186 @@ void prep_delays(RTLIL::Design *design)
 				continue;
 			if (!inst_module->get_blackbox_attribute())
 				continue;
-			if (inst_module->get_bool_attribute(ID(abc9_flop))) {
-				IdString derived_type = inst_module->derive(design, cell->parameters);
-				inst_module = design->module(derived_type);
-				log_assert(inst_module);
-				flops.insert(inst_module);
-				continue; // because all flop required times
-				          //   will be captured in the flop box
-			}
 			if (inst_module->attributes.count(ID(abc9_box)))
 				continue;
+			IdString derived_type = inst_module->derive(design, cell->parameters);
+			inst_module = design->module(derived_type);
+			log_assert(inst_module);
+			derived.insert(inst_module);
+
 			cells.emplace_back(cell);
 		}
+	}
 
-		for (auto cell : cells) {
-			RTLIL::Module* inst_module = module->design->module(cell->type);
-			log_assert(inst_module);
-			auto &cell_requireds = requireds_cache[cell->type];
-			for (auto &conn : cell->connections_) {
-				auto port_wire = inst_module->wire(conn.first);
-				if (!port_wire->port_input)
+	// Transform all $specify3 and $specrule to abc9_{arrival,required} attributes
+	std::vector<Module*> flops;
+	dict<SigBit, int> arrivals, requireds;
+	pool<Wire*> ports;
+	std::stringstream ss;
+	for (auto module : derived) {
+		if (module->get_bool_attribute(ID(abc9_flop)))
+			flops.push_back(module);
+
+		arrivals.clear();
+		requireds.clear();
+		for (auto cell : module->cells()) {
+			if (cell->type == ID($specify3)) {
+				auto src = cell->getPort(ID(SRC));
+				auto dat = cell->getPort(ID(DAT));
+				auto dst = cell->getPort(ID(DST));
+				for (const auto &c : src.chunks())
+					if (!c.wire->port_input)
+						log_error("Module '%s' contains specify cell '%s' where SRC '%s' is not a module input.\n", log_id(module), log_id(cell), log_signal(src));
+				for (const auto &c : dat.chunks())
+					if (!c.wire->port_input)
+						log_error("Module '%s' contains specify cell '%s' where DAT '%s' is not a module input.\n", log_id(module), log_id(cell), log_signal(dat));
+				for (const auto &c : dst.chunks())
+					if (!c.wire->port_output)
+						log_error("Module '%s' contains specify cell '%s' where DST '%s' is not a module output.\n", log_id(module), log_id(cell), log_signal(dst));
+				if (!cell->getParam(ID(EDGE_EN)).as_bool())
 					continue;
+				int rise_max = cell->getParam(ID(T_RISE_MAX)).as_int();
+				int fall_max = cell->getParam(ID(T_FALL_MAX)).as_int();
+				int max = std::max(rise_max,fall_max);
+				if (max < 0) {
+					log_warning("Module '%s' contains specify cell '%s' with T_{RISE,FALL}_MAX < 0 which is currently unsupported. Ignoring.\n", log_id(module), log_id(cell));
+					continue;
+				}
+				for (auto d : dst)
+					arrivals[d] = std::max(arrivals[d], max);
+			}
+			else if (cell->type == ID($specrule)) {
+				auto type = cell->getParam(ID(TYPE)).decode_string();
+				if (type != "$setup" && type != "$setuphold")
+					continue;
+				auto src = cell->getPort(ID(SRC));
+				auto dst = cell->getPort(ID(DST));
+				for (const auto &c : src.chunks())
+					if (!c.wire->port_input)
+						log_error("Module '%s' contains specify cell '%s' where SRC '%s' is not a module input.\n", log_id(module), log_id(cell), log_signal(src));
+				for (const auto &c : dst.chunks())
+					if (!c.wire->port_input)
+						log_error("Module '%s' contains specify cell '%s' where DST '%s' is not a module input.\n", log_id(module), log_id(cell), log_signal(dst));
+				int setup = cell->getParam(ID(T_LIMIT)).as_int();
+				if (setup < 0) {
+					log_warning("Module '%s' contains specify cell '%s' with T_LIMIT < 0 which is currently unsupported. Ignoring.\n", log_id(module), log_id(cell));
+					continue;
+				}
+				for (const auto &s : src)
+					requireds[s] = std::max(requireds[s], setup);
+			}
+		}
 
-				auto r = cell_requireds.insert(conn.first);
-				auto &requireds = r.first->second;
-				if (r.second) {
-					auto it = port_wire->attributes.find("\\abc9_required");
-					if (it == port_wire->attributes.end())
-						continue;
-					if (it->second.flags == 0) {
-						int delay = it->second.as_int();
-						requireds.emplace_back(delay);
-					}
+		if (arrivals.empty() && requireds.empty())
+			continue;
+
+		ports.clear();
+		for (const auto &i : arrivals)
+			ports.insert(i.first.wire);
+		for (auto wire : ports) {
+			log_assert(wire->port_output);
+			ss.str("");
+			if (GetSize(wire) == 1)
+				wire->attributes[ID(abc9_arrival)] = arrivals.at(SigBit(wire,0));
+			else {
+				bool first = true;
+				for (auto b : SigSpec(wire)) {
+					if (first)
+						first = false;
 					else
-						for (const auto &tok : split_tokens(it->second.decode_string())) {
-							int delay = atoi(tok.c_str());
-							requireds.push_back(delay);
-						}
+						ss << " ";
+					auto it = arrivals.find(b);
+					if (it == arrivals.end())
+						ss << "0";
+					else
+						ss << it->second;
 				}
+				wire->attributes[ID(abc9_arrival)] = ss.str();
+			}
+		}
 
-				if (requireds.empty())
-					continue;
-
-				SigSpec O = module->addWire(NEW_ID, GetSize(conn.second));
-				auto it = requireds.begin();
-				for (int i = 0; i < GetSize(conn.second); ++i) {
-#ifndef NDEBUG
-					if (ys_debug(1)) {
-						static std::set<std::pair<IdString,IdString>> seen;
-						if (seen.emplace(cell->type, conn.first).second) log("%s.%s abc9_required = %d\n", log_id(cell->type), log_id(conn.first), requireds[i]);
-					}
-#endif
-					auto box = module->addCell(NEW_ID, ID($__ABC9_DELAY));
-					box->setPort(ID(I), conn.second[i]);
-					box->setPort(ID(O), O[i]);
-					box->setParam(ID(DELAY), *it);
-					if (requireds.size() > 1)
-						it++;
-					conn.second[i] = O[i];
+		ports.clear();
+		for (const auto &i : requireds)
+			ports.insert(i.first.wire);
+		for (auto wire : ports) {
+			log_assert(wire->port_input);
+			ss.str("");
+			if (GetSize(wire) == 1)
+				wire->attributes[ID(abc9_required)] = requireds.at(SigBit(wire,0));
+			else {
+				bool first = true;
+				for (auto b : SigSpec(wire)) {
+					if (first)
+						first = false;
+					else
+						ss << " ";
+					auto it = requireds.find(b);
+					if (it == requireds.end())
+						ss << "0";
+					else
+						ss << it->second;
 				}
+				wire->attributes[ID(abc9_required)] = ss.str();
 			}
 		}
 	}
 
-	int abc9_box_id = design->scratchpad_get_int("abc9_ops.box_id");
-	std::stringstream ss;
-	for (auto flop_module : flops) {
-		int num_inputs = 0, num_outputs = 0;
-		for (auto port_name : flop_module->ports) {
-			auto wire = flop_module->wire(port_name);
-			log_assert(GetSize(wire) == 1);
-			if (wire->port_input) num_inputs++;
-			if (wire->port_output) num_outputs++;
-		}
-		log_assert(num_outputs == 1);
+	// Insert $__ABC9_DELAY cells on all cells that instantiate blackboxes
+	//   with (* abc9_required *) attributes
+	dict<IdString,dict<IdString,std::vector<int>>> requireds_cache;
+	for (auto cell : cells) {
+		auto module = cell->module;
+		RTLIL::Module* inst_module = module->design->module(cell->type);
+		log_assert(inst_module);
+		IdString derived_type = inst_module->derive(design, cell->parameters);
+		inst_module = design->module(derived_type);
+		log_assert(inst_module);
 
-		auto r = flop_module->attributes.insert(ID(abc9_box_id));
-		if (r.second)
-			r.first->second = ++abc9_box_id;
-
-		ss << log_id(flop_module) << " " << r.first->second.as_int();
-		ss << " " << (flop_module->get_bool_attribute(ID::whitebox) ? "1" : "0");
-		ss << " " << num_inputs+1 << " " << num_outputs << std::endl;
-
-		ss << "#";
-		bool first = true;
-		for (auto port_name : flop_module->ports) {
-			auto wire = flop_module->wire(port_name);
-			if (!wire->port_input)
+		auto &cell_requireds = requireds_cache[cell->type];
+		for (auto &conn : cell->connections_) {
+			auto port_wire = inst_module->wire(conn.first);
+			if (!port_wire->port_input)
 				continue;
-			if (first)
-				first = false;
-			else
-				ss << " ";
-			ss << log_id(wire);
-		}
-		ss << " abc9_ff.Q" << std::endl;
 
-		first = true;
-		for (auto port_name : flop_module->ports) {
-			auto wire = flop_module->wire(port_name);
-			if (!wire->port_input)
+			auto r = cell_requireds.insert(conn.first);
+			auto &requireds = r.first->second;
+			if (r.second) {
+				auto it = port_wire->attributes.find("\\abc9_required");
+				if (it == port_wire->attributes.end())
+					continue;
+				if (it->second.flags == 0) {
+					int delay = it->second.as_int();
+					requireds.emplace_back(delay);
+				}
+				else
+					for (const auto &tok : split_tokens(it->second.decode_string())) {
+						int delay = atoi(tok.c_str());
+						requireds.push_back(delay);
+					}
+			}
+
+			if (requireds.empty())
 				continue;
-			if (first)
-				first = false;
-			else
-				ss << " ";
-			ss << wire->attributes.at("\\abc9_required", 0).as_int();
+
+			SigSpec O = module->addWire(NEW_ID, GetSize(conn.second));
+			auto it = requireds.begin();
+			for (int i = 0; i < GetSize(conn.second); ++i) {
+#ifndef NDEBUG
+				if (ys_debug(1)) {
+					static std::set<std::pair<IdString,IdString>> seen;
+					if (seen.emplace(cell->type, conn.first).second) log("%s.%s abc9_required = %d\n", log_id(cell->type), log_id(conn.first), requireds[i]);
+				}
+#endif
+				auto box = module->addCell(NEW_ID, ID($__ABC9_DELAY));
+				box->setPort(ID(I), conn.second[i]);
+				box->setPort(ID(O), O[i]);
+				box->setParam(ID(DELAY), *it);
+				if (requireds.size() > 1)
+					it++;
+				conn.second[i] = O[i];
+			}
 		}
-		// Last input is 'abc9_ff.Q'
-		ss << " 0" << std::endl << std::endl;
 	}
-	design->scratchpad_set_string("abc9_ops.box_library.flops", ss.str());
-	design->scratchpad_set_int("abc9_ops.box_id", abc9_box_id);
 }
 
 void prep_lut(RTLIL::Design *design, int maxlut)
@@ -587,7 +605,10 @@ void prep_lut(RTLIL::Design *design, int maxlut)
 				log_assert(o == d);
 			int rise_max = cell->getParam(ID(T_RISE_MAX)).as_int();
 			int fall_max = cell->getParam(ID(T_FALL_MAX)).as_int();
-			specify.push_back(std::max(rise_max,fall_max));
+			int max = std::max(rise_max,fall_max);
+			if (max < 0)
+				log_error("Module '%s' contains specify cell '%s' with T_{RISE,FALL}_MAX < 0.\n", log_id(module), log_id(cell));
+			specify.push_back(max);
 		}
 		if (maxlut && GetSize(specify) > maxlut)
 			continue;
@@ -618,10 +639,57 @@ void write_lut(RTLIL::Module *module, const std::string &dst) {
 void prep_box(RTLIL::Design *design)
 {
 	std::stringstream ss;
-	ss << design->scratchpad_get_string("abc9_ops.box_library.flops", ss.str());
-
-	int abc9_box_id = design->scratchpad_get_int("abc9_ops.box_id");
+	int abc9_box_id = 1;
+	dict<IdString,std::vector<IdString>> box_ports;
 	for (auto module : design->modules()) {
+		if (module->get_bool_attribute(ID(abc9_flop))) {
+			int num_inputs = 0, num_outputs = 0;
+			for (auto port_name : module->ports) {
+				auto wire = module->wire(port_name);
+				log_assert(GetSize(wire) == 1);
+				if (wire->port_input) num_inputs++;
+				if (wire->port_output) num_outputs++;
+			}
+			log_assert(num_outputs == 1);
+
+			auto r = module->attributes.insert(ID(abc9_box_id));
+			if (r.second)
+				r.first->second = abc9_box_id++;
+
+			ss << log_id(module) << " " << r.first->second.as_int();
+			ss << " " << (module->get_bool_attribute(ID::whitebox) ? "1" : "0");
+			ss << " " << num_inputs+1 << " " << num_outputs << std::endl;
+
+			ss << "#";
+			bool first = true;
+			for (auto port_name : module->ports) {
+				auto wire = module->wire(port_name);
+				if (!wire->port_input)
+					continue;
+				if (first)
+					first = false;
+				else
+					ss << " ";
+				ss << log_id(wire);
+			}
+			ss << " abc9_ff.Q" << std::endl;
+
+			first = true;
+			for (auto port_name : module->ports) {
+				auto wire = module->wire(port_name);
+				if (!wire->port_input)
+					continue;
+				if (first)
+					first = false;
+				else
+					ss << " ";
+				ss << wire->attributes.at("\\abc9_required", 0).as_int();
+			}
+			// Last input is 'abc9_ff.Q'
+			ss << " 0" << std::endl << std::endl;
+			continue;
+		}
+
 		auto it = module->attributes.find(ID(abc9_box));
 		if (it == module->attributes.end())
 			continue;
@@ -631,7 +699,33 @@ void prep_box(RTLIL::Design *design)
 		dict<std::pair<SigBit,SigBit>, std::string> table;
 		std::vector<SigBit> inputs;
 		std::vector<SigBit> outputs;
-		for (auto port_name : module->ports) {
+
+		auto r = box_ports.insert(module->name);
+		if (r.second) {
+			// Make carry in the last PI, and carry out the last PO
+			//   since ABC requires it this way
+			IdString carry_in, carry_out;
+			for (const auto &port_name : module->ports) {
+				auto w = module->wire(port_name);
+				log_assert(w);
+				if (w->get_bool_attribute("\\abc9_carry")) {
+					log_assert(w->port_input != w->port_output);
+					if (w->port_input)
+						carry_in = port_name;
+					else if (w->port_output)
+						carry_out = port_name;
+				}
+				else
+					r.first->second.push_back(port_name);
+			}
+
+			if (carry_in != IdString()) {
+				r.first->second.push_back(carry_in);
+				r.first->second.push_back(carry_out);
+			}
+		}
+
+		for (auto port_name : r.first->second) {
 			auto wire = module->wire(port_name);
 			if (wire->port_input)
 				for (int i = 0; i < GetSize(wire); i++)
@@ -654,17 +748,29 @@ void prep_box(RTLIL::Design *design)
 			int rise_max = cell->getParam(ID(T_RISE_MAX)).as_int();
 			int fall_max = cell->getParam(ID(T_FALL_MAX)).as_int();
 			int max = std::max(rise_max,fall_max);
-			for (auto s : src)
-				for (auto d : dst) {
-					auto r = table.insert(std::make_pair(s,d));
+			if (max < 0)
+				log_error("Module '%s' contains specify cell '%s' with T_{RISE,FALL}_MAX < 0.\n", log_id(module), log_id(cell));
+			if (cell->getParam(ID(FULL)).as_bool()) {
+				for (auto s : src)
+					for (auto d : dst) {
+						auto r = table.insert(std::make_pair(s,d));
+						log_assert(r.second);
+						r.first->second = std::to_string(max);
+					}
+			}
+			else {
+				log_assert(GetSize(src) == GetSize(dst));
+				for (auto i = 0; i < GetSize(src); i++) {
+					auto r = table.insert(std::make_pair(src[i],dst[i]));
 					log_assert(r.second);
 					r.first->second = std::to_string(max);
 				}
+			}
 		}
-		auto r = module->attributes.insert(ID(abc9_box_id));
-		log_assert(r.second);
-		r.first->second = ++abc9_box_id;
+		auto r2 = module->attributes.insert(ID(abc9_box_id));
+		log_assert(r2.second);
 		ss << log_id(module) << " " << abc9_box_id;
+		r2.first->second = abc9_box_id++;
 		ss << " " << (module->get_bool_attribute(ID::whitebox) ? "1" : "0");
 		ss << " " << GetSize(inputs) << " " << GetSize(outputs) << std::endl;
 		bool first = true;
@@ -700,17 +806,17 @@ void prep_box(RTLIL::Design *design)
 		ss << std::endl;
 	}
 
+	// ABC expects at least one box
+	if (ss.tellp() == 0)
+		ss << "(dummy) 1 0 0 0";
+
 	design->scratchpad_set_string("abc9_ops.box_library", ss.str());
-	design->scratchpad_set_int("abc9_ops.box_id", abc9_box_id);
 }
 
 void write_box(RTLIL::Module *module, const std::string &dst) {
 	std::ofstream ofs(dst);
 	log_assert(ofs.is_open());
 	ofs << module->design->scratchpad_get_string("abc9_ops.box_library");
-	// ABC expects at least one box
-	if (ofs.tellp() == 0)
-		ofs << "(dummy) 1 0 0 0";
 	ofs.close();
 }
 
