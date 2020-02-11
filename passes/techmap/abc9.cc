@@ -192,7 +192,7 @@ struct Abc9Pass : public ScriptPass
 		cleanup = true;
 		lut_mode = false;
 		maxlut = 0;
-		box_file.clear();
+		box_file = "(null)";
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -285,6 +285,10 @@ struct Abc9Pass : public ScriptPass
 				run("abc9_ops -prep_lut <maxlut>", "(skip if -lut or -luts)");
 			else if (!lut_mode)
 				run(stringf("abc9_ops -prep_lut %d", maxlut));
+			if (help_mode)
+				run("abc9_ops -prep_box [<-box>|(null)]");
+			else
+				run(stringf("abc9_ops -prep_box %s", box_file.c_str()));
 			run("select -set abc9_holes A:abc9_holes");
 			run("flatten -wb @abc9_holes");
 			run("techmap @abc9_holes");
@@ -299,7 +303,7 @@ struct Abc9Pass : public ScriptPass
 			if (help_mode) {
 				run("foreach module in selection");
 				run("    abc9_ops -write_lut <abc-temp-dir>/input.lut", "(skip if '-lut' or '-luts')");
-				run("    abc9_ops -write_box [<value from -box>|(null)] <abc-temp-dir>/input.box");
+				run("    abc9_ops -write_box <abc-temp-dir>/input.box");
 				run("    write_xaiger -map <abc-temp-dir>/input.sym <abc-temp-dir>/input.xaig");
 				run("    abc9_exe [options] -cwd <abc-temp-dir> [-lut <abc-temp-dir>/input.lut] -box <abc-temp-dir>/input.box");
 				run("    read_aiger -xaiger -wideports -module_name <module-name>$abc9 -map <abc-temp-dir>/input.sym <abc-temp-dir>/output.aig");
@@ -329,10 +333,7 @@ struct Abc9Pass : public ScriptPass
 
 					if (!lut_mode)
 						run(stringf("abc9_ops -write_lut %s/input.lut", tempdir_name.c_str()));
-					if (box_file.empty())
-						run(stringf("abc9_ops -write_box (null) %s/input.box", tempdir_name.c_str()));
-					else
-						run(stringf("abc9_ops -write_box %s %s/input.box", box_file.c_str(), tempdir_name.c_str()));
+					run(stringf("abc9_ops -write_box %s/input.box", tempdir_name.c_str()));
 					run(stringf("write_xaiger -map %s/input.sym %s/input.xaig", tempdir_name.c_str(), tempdir_name.c_str()));
 
 					int num_outputs = active_design->scratchpad_get_int("write_xaiger.num_outputs");

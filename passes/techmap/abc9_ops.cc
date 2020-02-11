@@ -464,7 +464,6 @@ void prep_delays(RTLIL::Design *design)
 			cells.emplace_back(cell);
 		}
 
-		delays.clear();
 		for (auto cell : cells) {
 			RTLIL::Module* inst_module = module->design->module(cell->type);
 			log_assert(inst_module);
@@ -515,17 +514,6 @@ void prep_delays(RTLIL::Design *design)
 				}
 			}
 		}
-
-		std::stringstream ss;
-		bool first = true;
-		for (auto d : delays) {
-			if (first)
-				first = false;
-			else
-				ss << " ";
-			ss << d;
-		}
-		module->attributes[ID(abc9_delays)] = ss.str();
 	}
 
 	int flops_id = ABC9_FLOPS_BASE_ID;
@@ -559,7 +547,14 @@ void prep_delays(RTLIL::Design *design)
 		// Last input is 'abc9_ff.Q'
 		ss << " 0" << std::endl << std::endl;
 	}
-	design->scratchpad_set_string("abc9_ops.box.flops", ss.str());
+	design->scratchpad_set_string("abc9_ops.box_library.flops", ss.str());
+
+	ss.str("");
+	for (const int d : delays) {
+		ss << "$__ABC9_DELAY@" << d << " " << ABC9_DELAY_BASE_ID + d << " 0 1 1" << std::endl;
+		ss << d << std::endl;
+	}
+	design->scratchpad_set_string("abc9_ops.box_library.delays", ss.str());
 }
 
 void prep_lut(RTLIL::Design *design, int maxlut)
@@ -612,33 +607,31 @@ void write_lut(RTLIL::Module *module, const std::string &dst) {
 	ofs.close();
 }
 
-void write_box(RTLIL::Module *module, const std::string &src, const std::string &dst) {
-	std::ofstream ofs(dst);
-	log_assert(ofs.is_open());
+void prep_box(RTLIL::Design *design, const std::string &src)
+{
+	std::stringstream ss;
 
 	// Since ABC can only accept one box file, we have to copy
 	//   over the existing box file
 	if (src != "(null)") {
 		std::ifstream ifs(src);
-		ofs << ifs.rdbuf() << std::endl;
+		log_assert(ifs.is_open());
+		ss << ifs.rdbuf() << std::endl;
 		ifs.close();
 	}
 
-	ofs << module->design->scratchpad_get_string("abc9_ops.box.flops");
+	ss << design->scratchpad_get_string("abc9_ops.box_library.flops", ss.str());
+	ss << design->scratchpad_get_string("abc9_ops.box_library.delays", ss.str());
+	design->scratchpad_set_string("abc9_ops.box_library", ss.str());
+}
 
-	auto it = module->attributes.find(ID(abc9_delays));
-	if (it != module->attributes.end()) {
-		for (const auto &tok : split_tokens(it->second.decode_string())) {
-			int d = atoi(tok.c_str());
-			ofs << "$__ABC9_DELAY@" << d << " " << ABC9_DELAY_BASE_ID + d << " 0 1 1" << std::endl;
-			ofs << d << std::endl;
-		}
-		module->attributes.erase(it);
-	}
-
+void write_box(RTLIL::Module *module, const std::string &dst) {
+	std::ofstream ofs(dst);
+	log_assert(ofs.is_open());
+	ofs << module->design->scratchpad_get_string("abc9_ops.box_library");
+	// ABC expects at least one box
 	if (ofs.tellp() == 0)
 		ofs << "(dummy) 1 0 0 0";
-
 	ofs.close();
 }
 
@@ -1056,11 +1049,14 @@ struct Abc9OpsPass : public Pass {
 		log("        pre-compute the lut library.\n");
 		log("\n");
 		log("    -write_lut <dst>\n");
-		log("        TODO.\n");
+		log("        write the pre-computed lut library to <dst>.\n");
 		log("\n");
-		log("    -write_box (<src>|(null)) <dst>\n");
-		log("        copy the existing box file from <src> (skip if '(null)') and append any\n");
-		log("        new box definitions.\n");
+		log("    -prep_box <src>\n");
+		log("        pre-compute the box library. copy the existing box file from <src> (skip\n");
+		log("        if '(null)').\n");
+		log("\n");
+		log("    -write_box <dst>\n");
+		log("        write the pre-computed box library to <dst>.\n");
 		log("\n");
 		log("    -reintegrate\n");
 		log("        for each selected module, re-intergrate the module '<module-name>$abc9'\n");
@@ -1082,7 +1078,7 @@ struct Abc9OpsPass : public Pass {
 		bool dff_mode = false;
 		std::string write_lut_dst;
 		int maxlut = 0;
-		std::string write_box_src, write_box_dst;
+		std::string prep_box_src, write_box_dst;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -1112,18 +1108,21 @@ struct Abc9OpsPass : public Pass {
 				maxlut = atoi(args[++argidx].c_str());
 				continue;
 			}
+			if (arg == "-maxlut" && argidx+1 < args.size()) {
+				continue;
+			}
 			if (arg == "-write_lut" && argidx+1 < args.size()) {
 				write_lut_dst = args[++argidx];
 				rewrite_filename(write_lut_dst);
 				continue;
 			}
-			if (arg == "-maxlut" && argidx+1 < args.size()) {
+			if (arg == "-prep_box" && argidx+1 < args.size()) {
+				prep_box_src = args[++argidx];
+				rewrite_filename(prep_box_src);
 				continue;
 			}
-			if (arg == "-write_box" && argidx+2 < args.size()) {
-				write_box_src = args[++argidx];
+			if (arg == "-write_box" && argidx+1 < args.size()) {
 				write_box_dst = args[++argidx];
-				rewrite_filename(write_box_src);
 				rewrite_filename(write_box_dst);
 				continue;
 			}
@@ -1139,14 +1138,11 @@ struct Abc9OpsPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		if (!(check_mode || mark_scc_mode || prep_delays_mode || prep_xaiger_mode || prep_dff_mode || prep_lut_mode || !write_lut_dst.empty() || !write_box_dst.empty() || reintegrate_mode))
-			log_cmd_error("At least one of -check, -mark_scc, -prep_{delays,xaiger,dff,lut}, -write_{lut,box}, -reintegrate must be specified.\n");
+		if (!(check_mode || mark_scc_mode || prep_delays_mode || prep_xaiger_mode || prep_dff_mode || prep_lut_mode || !prep_box_src.empty() || !write_lut_dst.empty() || !write_box_dst.empty() || reintegrate_mode))
+			log_cmd_error("At least one of -check, -mark_scc, -prep_{delays,xaiger,dff,lut,box}, -write_{lut,box}, -reintegrate must be specified.\n");
 
 		if (dff_mode && !prep_xaiger_mode)
 			log_cmd_error("'-dff' option is only relevant for -prep_xaiger.\n");
-
-		if (maxlut && !write_lut_dst.empty())
-			log_cmd_error("'-maxlut' option is only relevant for -prep_lut.\n");
 
 		if (check_mode)
 			check(design);
@@ -1154,6 +1150,8 @@ struct Abc9OpsPass : public Pass {
 			prep_delays(design);
 		if (prep_lut_mode)
 			prep_lut(design, maxlut);
+		if (!prep_box_src.empty())
+			prep_box(design, prep_box_src);
 
 		for (auto mod : design->selected_modules()) {
 			if (mod->get_bool_attribute("\\abc9_holes"))
@@ -1170,7 +1168,7 @@ struct Abc9OpsPass : public Pass {
 			if (!write_lut_dst.empty())
 				write_lut(mod, write_lut_dst);
 			if (!write_box_dst.empty())
-				write_box(mod, write_box_src, write_box_dst);
+				write_box(mod, write_box_dst);
 			if (mark_scc_mode)
 				mark_scc(mod);
 			if (prep_dff_mode)

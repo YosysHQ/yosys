@@ -627,7 +627,7 @@ struct SynthXilinxPass : public ScriptPass
 				else
 					abc9_opts += stringf(" -W %s", RTLIL::constpad.at(k, RTLIL::constpad.at("synth_xilinx.abc9.xc7.W")).c_str());
 				if (nowidelut)
-					abc9_opts += stringf(" -maxlut %d", lut_size_s);
+					abc9_opts += stringf(" -maxlut %d", lut_size);
 				if (dff_mode)
 					abc9_opts += " -dff";
 				run("abc9" + abc9_opts);
