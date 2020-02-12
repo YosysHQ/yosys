@@ -1,22 +1,96 @@
 // ---------------------------------------
 
-(* lib_whitebox *)
+(* abc9_lut=1, lib_whitebox *)
 module LUT4(input A, B, C, D, output Z);
     parameter [15:0] INIT = 16'h0000;
     wire [7:0] s3 = D ?     INIT[15:8] :     INIT[7:0];
     wire [3:0] s2 = C ?       s3[ 7:4] :       s3[3:0];
     wire [1:0] s1 = B ?       s2[ 3:2] :       s2[1:0];
     assign Z =      A ?          s1[1] :         s1[0];
+    specify
+        (A => Z) = 141;
+        (B => Z) = 275;
+        (C => Z) = 379;
+        (D => Z) = 379;
+    endspecify
+endmodule
+
+(* abc9_lut=1 *)
+module \$__ABC9_LUT1 (input A, output Z);
+    specify
+        (A => Z) = 141;
+    endspecify
+endmodule
+
+(* abc9_lut=1 *)
+module \$__ABC9_LUT2 (input A, B, output Z);
+    specify
+        (A => Z) = 141;
+        (B => Z) = 275;
+    endspecify
+endmodule
+
+(* abc9_lut=1 *)
+module \$__ABC9_LUT3 (input A, B, C, output Z);
+    specify
+        (A => Z) = 141;
+        (B => Z) = 275;
+        (C => Z) = 379;
+    endspecify
+endmodule
+
+// LUT5 = 2x LUT4 + PFUMX
+(* abc9_lut=2 *)
+module \$__ABC9_LUT5 (input M0, D, C, B, A, output Z);
+    specify
+        (M0 => Z) = 151;
+        (D => Z) = 239;
+        (C => Z) = 373;
+        (B => Z) = 477;
+        (A => Z) = 477;
+    endspecify
+endmodule
+
+// LUT6 = 2x LUT5 + MUX2
+(* abc9_lut=4 *)
+module \$__ABC9_LUT6 (input M1, M0, D, C, B, A, output Z);
+    specify
+        (M1 => Z) = 148;
+        (M0 => Z) = 292;
+        (D => Z) = 380;
+        (C => Z) = 514;
+        (B => Z) = 618;
+        (A => Z) = 618;
+    endspecify
+endmodule
+
+// LUT7 = 2x LUT6 + MUX2
+(* abc9_lut=8 *)
+module \$__ABC9_LUT7 (input M2, M1, M0, D, C, B, A, output Z);
+    specify
+        (M2 => Z) = 148;
+        (M1 => Z) = 289;
+        (M0 => Z) = 433;
+        (D => Z) = 521;
+        (C => Z) = 655;
+        (B => Z) = 759;
+        (A => Z) = 759;
+    endspecify
 endmodule
 
 // ---------------------------------------
-(* abc9_box_id=4, lib_whitebox *)
+(* abc9_box, lib_whitebox *)
 module L6MUX21 (input D0, D1, SD, output Z);
 	assign Z = SD ? D1 : D0;
+	specify
+		(D0 => Z) = 140;
+		(D1 => Z) = 141;
+		(SD => Z) = 148;
+	endspecify
 endmodule
 
 // ---------------------------------------
-(* abc9_box_id=1, lib_whitebox *)
+(* abc9_box, lib_whitebox *)
 module CCU2C(
 	(* abc9_carry *)
 	input  CIN,
@@ -50,6 +124,31 @@ module CCU2C(
 	wire gated_lut2_1 = (INJECT1_1 == "YES") ? 1'b0 : LUT2_1;
 	assign COUT = (~LUT4_1 & gated_lut2_1) | (LUT4_1 & cout_0);
 
+	specify
+		(A0 => S0) = 379;
+		(B0 => S0) = 379;
+		(C0 => S0) = 275;
+		(D0 => S0) = 141;
+		(CIN => S0) = 257;
+		(A0 => S1) = 630;
+		(B0 => S1) = 630;
+		(C0 => S1) = 526;
+		(D0 => S1) = 392;
+		(A1 => S1) = 379;
+		(B1 => S1) = 379;
+		(C1 => S1) = 275;
+		(D1 => S1) = 141;
+		(CIN => S1) = 273;
+		(A0 => COUT) = 516;
+		(B0 => COUT) = 516;
+		(C0 => COUT) = 412;
+		(D0 => COUT) = 278;
+		(A1 => COUT) = 516;
+		(B1 => COUT) = 516;
+		(C1 => COUT) = 412;
+		(D1 => COUT) = 278;
+		(CIN => COUT) = 43;
+	endspecify
 endmodule
 
 // ---------------------------------------
@@ -94,9 +193,14 @@ module TRELLIS_RAM16X2 (
 endmodule
 
 // ---------------------------------------
-(* abc9_box_id=3, lib_whitebox *)
+(* abc9_box, lib_whitebox *)
 module PFUMX (input ALUT, BLUT, C0, output Z);
 	assign Z = C0 ? ALUT : BLUT;
+	specify
+		(ALUT => Z) = 98;
+		(BLUT => Z) = 98;
+		(C0 => Z) = 151;
+	endspecify
 endmodule
 
 // ---------------------------------------
@@ -106,7 +210,6 @@ module TRELLIS_DPR16X4 (
 	input        WRE,
 	input        WCK,
 	input  [3:0] RAD,
-	/* (* abc9_arrival=<TODO> *) */
 	output [3:0] DO
 );
 	parameter WCKMUX = "WCK";
