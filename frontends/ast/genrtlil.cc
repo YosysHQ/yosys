@@ -1559,21 +1559,25 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 					log_file_error(filename, linenum, "Attribute `%s' with non-constant value.\n", attr.first.c_str());
 				cell->attributes[attr.first] = attr.second->asAttrConst();
 			}
-			if (cell->type.in("$specify2", "$specify3")) {
+			if (cell->type == "$specify2") {
 				int src_width = GetSize(cell->getPort("\\SRC"));
 				int dst_width = GetSize(cell->getPort("\\DST"));
 				bool full = cell->getParam("\\FULL").as_bool();
 				if (!full && src_width != dst_width)
 					log_file_error(filename, linenum, "Parallel specify SRC width does not match DST width.\n");
-				if (cell->type == "$specify3") {
-					int dat_width = GetSize(cell->getPort("\\DAT"));
-					if (dat_width != dst_width)
-						log_file_error(filename, linenum, "Specify DAT width does not match DST width.\n");
-				}
 				cell->setParam("\\SRC_WIDTH", Const(src_width));
 				cell->setParam("\\DST_WIDTH", Const(dst_width));
 			}
-			if (cell->type == "$specrule") {
+			else if (cell->type ==  "$specify3") {
+				int dat_width = GetSize(cell->getPort("\\DAT"));
+				int dst_width = GetSize(cell->getPort("\\DST"));
+				if (dat_width != dst_width)
+					log_file_error(filename, linenum, "Specify DAT width does not match DST width.\n");
+				int src_width = GetSize(cell->getPort("\\SRC"));
+				cell->setParam("\\SRC_WIDTH", Const(src_width));
+				cell->setParam("\\DST_WIDTH", Const(dst_width));
+			}
+			else if (cell->type == "$specrule") {
 				int src_width = GetSize(cell->getPort("\\SRC"));
 				int dst_width = GetSize(cell->getPort("\\DST"));
 				cell->setParam("\\SRC_WIDTH", Const(src_width));

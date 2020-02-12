@@ -37,3 +37,10 @@ specify
   (posedge clk *> (q +: d)) = (3,1);
 endspecify
 endmodule
+
+module test3(input clk, input [1:0] d, output [1:0] q);
+specify
+  (posedge clk => (q +: d)) = (3,1);
+  (posedge clk *> (q +: d)) = (3,1);
+endspecify
+endmodule
