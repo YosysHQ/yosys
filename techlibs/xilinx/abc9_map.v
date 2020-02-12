@@ -68,9 +68,10 @@
 // (c) a special abc9_ff.clock wire to capture its clock domain and polarity
 //     (indicated to `abc9' so that it only performs sequential synthesis
 //     (with reachability analysis) correctly on one domain at a time)
-// (d) a special abc9_ff.init wire to encode the flop's initial state
-//     NOTE: in order to perform sequential synthesis, `abc9' also requires
-//     that the initial value of all flops be zero
+// (d) an (* abc9_init *) attribute on the $__ABC9_FF_ cell capturing its
+//     initial state
+//     NOTE: in order to perform sequential synthesis, `abc9' requires that
+//     the initial value of all flops be zero
 // (e) a special _TECHMAP_REPLACE_.abc9_ff.Q wire that will be used for feedback
 //     into the (combinatorial) FD* cell to facilitate clock-enable behaviour
 
@@ -103,11 +104,11 @@ module FDRE (output Q, (* techmap_autopurge *) input C, CE, D, R);
     );
   end
   endgenerate
+  (* abc9_init = 1'b0 *)
   $__ABC9_FF_ abc9_ff (.D($Q), .Q(QQ));
 
   // Special signals
   wire [1:0] abc9_ff.clock = {C, IS_C_INVERTED};
-  wire [0:0] abc9_ff.init = 1'b0;
   wire [0:0] _TECHMAP_REPLACE_.abc9_ff.Q = QQ;
 endmodule
 module FDRE_1 (output Q, (* techmap_autopurge *) input C, CE, D, R);
@@ -130,11 +131,11 @@ module FDRE_1 (output Q, (* techmap_autopurge *) input C, CE, D, R);
     );
   end
   endgenerate
+  (* abc9_init = 1'b0 *)
   $__ABC9_FF_ abc9_ff (.D($Q), .Q(QQ));
 
   // Special signals
   wire [1:0] abc9_ff.clock = {C, 1'b1 /* IS_C_INVERTED */};
-  wire [0:0] abc9_ff.init = 1'b0;
   wire [0:0] _TECHMAP_REPLACE_.abc9_ff.Q = QQ;
 endmodule
 
@@ -166,11 +167,11 @@ module FDSE (output Q, (* techmap_autopurge *) input C, CE, D, S);
       .D(D), .Q($Q), .C(C), .CE(CE), .S(S)
     );
   end endgenerate
+  (* abc9_init = 1'b0 *)
   $__ABC9_FF_ abc9_ff (.D($Q), .Q(QQ));
 
   // Special signals
   wire [1:0] abc9_ff.clock = {C, IS_C_INVERTED};
-  wire [0:0] abc9_ff.init = 1'b0;
   wire [0:0] _TECHMAP_REPLACE_.abc9_ff.Q = QQ;
 endmodule
 module FDSE_1 (output Q, (* techmap_autopurge *) input C, CE, D, S);
@@ -192,11 +193,11 @@ module FDSE_1 (output Q, (* techmap_autopurge *) input C, CE, D, S);
       .D(D), .Q($Q), .C(C), .CE(CE), .S(S)
     );
   end endgenerate
+  (* abc9_init = 1'b0 *)
   $__ABC9_FF_ abc9_ff (.D($Q), .Q(QQ));
 
   // Special signals
   wire [1:0] abc9_ff.clock = {C, 1'b1 /* IS_C_INVERTED */};
-  wire [0:0] abc9_ff.init = 1'b0;
   wire [0:0] _TECHMAP_REPLACE_.abc9_ff.Q = QQ;
 endmodule
 
@@ -242,11 +243,11 @@ module FDCE (output Q, (* techmap_autopurge *) input C, CE, D, CLR);
     // Since this is an async flop, async behaviour is dealt with here
     $__ABC9_ASYNC0 abc_async (.A($QQ), .S(CLR ^ IS_CLR_INVERTED), .Y(QQ));
   end endgenerate
+  (* abc9_init = 1'b0 *)
   $__ABC9_FF_ abc9_ff (.D($Q), .Q($QQ));
 
   // Special signals
   wire [1:0] abc9_ff.clock = {C, IS_C_INVERTED};
-  wire [0:0] abc9_ff.init = 1'b0;
   wire [0:0] _TECHMAP_REPLACE_.abc9_ff.Q = $QQ;
 endmodule
 module FDCE_1 (output Q, (* techmap_autopurge *) input C, CE, D, CLR);
@@ -280,11 +281,11 @@ module FDCE_1 (output Q, (* techmap_autopurge *) input C, CE, D, CLR);
     );
     $__ABC9_ASYNC0 abc_async (.A($QQ), .S(CLR), .Y(QQ));
   end endgenerate
+  (* abc9_init = 1'b0 *)
   $__ABC9_FF_ abc9_ff (.D($Q), .Q($QQ));
 
   // Special signals
   wire [1:0] abc9_ff.clock = {C, 1'b1 /* IS_C_INVERTED */};
-  wire [0:0] abc9_ff.init = 1'b0;
   wire [0:0] _TECHMAP_REPLACE_.abc9_ff.Q = $QQ;
 endmodule
 
@@ -328,11 +329,11 @@ module FDPE (output Q, (* techmap_autopurge *) input C, CE, D, PRE);
     );
     $__ABC9_ASYNC1 abc_async (.A($QQ), .S(PRE ^ IS_PRE_INVERTED), .Y(QQ));
   end endgenerate
+  (* abc9_init = 1'b0 *)
   $__ABC9_FF_ abc9_ff (.D($Q), .Q($QQ));
 
   // Special signals
   wire [1:0] abc9_ff.clock = {C, IS_C_INVERTED};
-  wire [0:0] abc9_ff.init = 1'b0;
   wire [0:0] _TECHMAP_REPLACE_.abc9_ff.Q = $QQ;
 endmodule
 module FDPE_1 (output Q, (* techmap_autopurge *) input C, CE, D, PRE);
@@ -366,11 +367,11 @@ module FDPE_1 (output Q, (* techmap_autopurge *) input C, CE, D, PRE);
     );
     $__ABC9_ASYNC1 abc_async (.A($QQ), .S(PRE), .Y(QQ));
   end endgenerate
+  (* abc9_init = 1'b0 *)
   $__ABC9_FF_ abc9_ff (.D($Q), .Q($QQ));
 
   // Special signals
   wire [1:0] abc9_ff.clock = {C, 1'b1 /* IS_C_INVERTED */};
-  wire [0:0] abc9_ff.init = 1'b0;
   wire [0:0] _TECHMAP_REPLACE_.abc9_ff.Q = $QQ;
 endmodule
 `endif
