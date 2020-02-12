@@ -364,8 +364,13 @@ Verilog Attributes and non-standard features
   it as the external-facing pin of an I/O pad, and prevents ``iopadmap``
   from inserting another pad cell on it.
 
+- The module attribute ``abc9_lut`` is an integer attribute marking to `abc9`
+  that this module describes a LUT with propagation delays described using
+  `specify` statements.
+
 - The module attribute ``abc9_box`` is a boolean specifying a blackbox or
-  whitebox definition for use by `abc9`.
+  whitebox definition, with propagation delays described using `specify`
+  statements, for use by `abc9`.
 
 - The port attribute ``abc9_carry`` marks the carry-in (if an input port) and
   carry-out (if output port) ports of a box. This information is necessary for

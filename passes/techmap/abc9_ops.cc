@@ -380,8 +380,10 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 
 void prep_delays(RTLIL::Design *design)
 {
-	// Derive and collect all blackbox modules, and collect all blackbox instantiations
-	pool<Module*> derived;
+	// Derive and collect all Yosys blackbox modules that are not combinatorial abc9 boxes
+	//   (e.g. DSPs, RAMs, etc.) nor abc9 flops and collect all such instantiations
+	pool<Module*> blackboxes;
+	pool<Module*> flops;
 	std::vector<Cell*> cells;
 	for (auto module : design->selected_modules()) {
 		if (module->processes.size() > 0) {
@@ -400,42 +402,38 @@ void prep_delays(RTLIL::Design *design)
 				continue;
 			if (inst_module->attributes.count(ID(abc9_box)))
 				continue;
-			IdString derived_type = inst_module->derive(design, cell->parameters);
-			inst_module = design->module(derived_type);
+			IdString blackboxes_type = inst_module->derive(design, cell->parameters);
+			inst_module = design->module(blackboxes_type);
 			log_assert(inst_module);
-			derived.insert(inst_module);
+			blackboxes.insert(inst_module);
+
+			if (inst_module->get_bool_attribute(ID(abc9_flop))) {
+				flops.insert(inst_module);
+				continue; // do not add $__ABC9_DELAY boxes to flops
+					  //   as delays will be captured in the flop box
+			}
 
 			cells.emplace_back(cell);
 		}
 	}
 
 	// Transform all $specify3 and $specrule to abc9_{arrival,required} attributes
-	std::vector<Module*> flops;
 	dict<SigBit, int> arrivals, requireds;
 	pool<Wire*> ports;
 	std::stringstream ss;
-	for (auto module : derived) {
-		if (module->get_bool_attribute(ID(abc9_flop)))
-			flops.push_back(module);
-
+	for (auto module : blackboxes) {
 		arrivals.clear();
 		requireds.clear();
 		for (auto cell : module->cells()) {
 			if (cell->type == ID($specify3)) {
 				auto src = cell->getPort(ID(SRC));
-				auto dat = cell->getPort(ID(DAT));
 				auto dst = cell->getPort(ID(DST));
 				for (const auto &c : src.chunks())
 					if (!c.wire->port_input)
 						log_error("Module '%s' contains specify cell '%s' where SRC '%s' is not a module input.\n", log_id(module), log_id(cell), log_signal(src));
-				for (const auto &c : dat.chunks())
-					if (!c.wire->port_input)
-						log_error("Module '%s' contains specify cell '%s' where DAT '%s' is not a module input.\n", log_id(module), log_id(cell), log_signal(dat));
 				for (const auto &c : dst.chunks())
 					if (!c.wire->port_output)
 						log_error("Module '%s' contains specify cell '%s' where DST '%s' is not a module output.\n", log_id(module), log_id(cell), log_signal(dst));
-				if (!cell->getParam(ID(EDGE_EN)).as_bool())
-					continue;
 				int rise_max = cell->getParam(ID(T_RISE_MAX)).as_int();
 				int fall_max = cell->getParam(ID(T_FALL_MAX)).as_int();
 				int max = std::max(rise_max,fall_max);
@@ -443,7 +441,7 @@ void prep_delays(RTLIL::Design *design)
 					log_warning("Module '%s' contains specify cell '%s' with T_{RISE,FALL}_MAX < 0 which is currently unsupported. Ignoring.\n", log_id(module), log_id(cell));
 					continue;
 				}
-				for (auto d : dst)
+				for (const auto &d : dst)
 					arrivals[d] = std::max(arrivals[d], max);
 			}
 			else if (cell->type == ID($specrule)) {
@@ -472,8 +470,10 @@ void prep_delays(RTLIL::Design *design)
 			continue;
 
 		ports.clear();
-		for (const auto &i : arrivals)
+		for (const auto &i : arrivals) {
+			log_dump(i.first, i.first.wire->name);
 			ports.insert(i.first.wire);
+		}
 		for (auto wire : ports) {
 			log_assert(wire->port_output);
 			ss.str("");
@@ -1239,7 +1239,7 @@ struct Abc9OpsPass : public Pass {
 		log("\n");
 		log("    -prep_box\n");
 		log("        pre-compute the box library by analysing all modules marked with\n");
-		log("        (* abc9_box *)\n");
+		log("        (* abc9_box *).\n");
 		log("\n");
 		log("    -write_box <dst>\n");
 		log("        write the pre-computed box library to <dst>.\n");

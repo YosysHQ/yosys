@@ -398,8 +398,8 @@ module RAM32X1D (
     .A0(A0), .A1(A1), .A2(A2), .A3(A3), .A4(A4),
     .DPRA0(DPRA0), .DPRA1(DPRA1), .DPRA2(DPRA2), .DPRA3(DPRA3), .DPRA4(DPRA4)
   );
-  $__ABC9_LUT6 spo (.A($SPO), .S({1'b1, A4, A3, A2, A1, A0}), .Y(SPO));
-  $__ABC9_LUT6 dpo (.A($DPO), .S({1'b1, DPRA4, DPRA3, DPRA2, DPRA1, DPRA0}), .Y(DPO));
+  $__ABC9_RAM6 spo (.A($SPO), .S({1'b1, A4, A3, A2, A1, A0}), .Y(SPO));
+  $__ABC9_RAM6 dpo (.A($DPO), .S({1'b1, DPRA4, DPRA3, DPRA2, DPRA1, DPRA0}), .Y(DPO));
 endmodule
 
 module RAM64X1D (
@@ -421,8 +421,8 @@ module RAM64X1D (
     .A0(A0), .A1(A1), .A2(A2), .A3(A3), .A4(A4), .A5(A5),
     .DPRA0(DPRA0), .DPRA1(DPRA1), .DPRA2(DPRA2), .DPRA3(DPRA3), .DPRA4(DPRA4), .DPRA5(DPRA5)
   );
-  $__ABC9_LUT6 spo (.A($SPO), .S({A5, A4, A3, A2, A1, A0}), .Y(SPO));
-  $__ABC9_LUT6 dpo (.A($DPO), .S({DPRA5, DPRA4, DPRA3, DPRA2, DPRA1, DPRA0}), .Y(DPO));
+  $__ABC9_RAM6 spo (.A($SPO), .S({A5, A4, A3, A2, A1, A0}), .Y(SPO));
+  $__ABC9_RAM6 dpo (.A($DPO), .S({DPRA5, DPRA4, DPRA3, DPRA2, DPRA1, DPRA0}), .Y(DPO));
 endmodule
 
 module RAM128X1D (
@@ -443,8 +443,8 @@ module RAM128X1D (
     .A(A),
     .DPRA(DPRA)
   );
-  $__ABC9_LUT7 spo (.A($SPO), .S(A), .Y(SPO));
-  $__ABC9_LUT7 dpo (.A($DPO), .S(DPRA), .Y(DPO));
+  $__ABC9_RAM7 spo (.A($SPO), .S(A), .Y(SPO));
+  $__ABC9_RAM7 dpo (.A($DPO), .S(DPRA), .Y(DPO));
 endmodule
 
 module RAM32M (
@@ -478,14 +478,14 @@ module RAM32M (
     .ADDRA(ADDRA), .ADDRB(ADDRB), .ADDRC(ADDRC), .ADDRD(ADDRD),
     .DIA(DIA), .DIB(DIB), .DIC(DIC), .DID(DID)
   );
-  $__ABC9_LUT6 doa0 (.A($DOA[0]), .S({1'b1, ADDRA}), .Y(DOA[0]));
-  $__ABC9_LUT6 doa1 (.A($DOA[1]), .S({1'b1, ADDRA}), .Y(DOA[1]));
-  $__ABC9_LUT6 dob0 (.A($DOB[0]), .S({1'b1, ADDRB}), .Y(DOB[0]));
-  $__ABC9_LUT6 dob1 (.A($DOB[1]), .S({1'b1, ADDRB}), .Y(DOB[1]));
-  $__ABC9_LUT6 doc0 (.A($DOC[0]), .S({1'b1, ADDRC}), .Y(DOC[0]));
-  $__ABC9_LUT6 doc1 (.A($DOC[1]), .S({1'b1, ADDRC}), .Y(DOC[1]));
-  $__ABC9_LUT6 dod0 (.A($DOD[0]), .S({1'b1, ADDRD}), .Y(DOD[0]));
-  $__ABC9_LUT6 dod1 (.A($DOD[1]), .S({1'b1, ADDRD}), .Y(DOD[1]));
+  $__ABC9_RAM6 doa0 (.A($DOA[0]), .S({1'b1, ADDRA}), .Y(DOA[0]));
+  $__ABC9_RAM6 doa1 (.A($DOA[1]), .S({1'b1, ADDRA}), .Y(DOA[1]));
+  $__ABC9_RAM6 dob0 (.A($DOB[0]), .S({1'b1, ADDRB}), .Y(DOB[0]));
+  $__ABC9_RAM6 dob1 (.A($DOB[1]), .S({1'b1, ADDRB}), .Y(DOB[1]));
+  $__ABC9_RAM6 doc0 (.A($DOC[0]), .S({1'b1, ADDRC}), .Y(DOC[0]));
+  $__ABC9_RAM6 doc1 (.A($DOC[1]), .S({1'b1, ADDRC}), .Y(DOC[1]));
+  $__ABC9_RAM6 dod0 (.A($DOD[0]), .S({1'b1, ADDRD}), .Y(DOD[0]));
+  $__ABC9_RAM6 dod1 (.A($DOD[1]), .S({1'b1, ADDRD}), .Y(DOD[1]));
 endmodule
 
 module RAM64M (
@@ -519,10 +519,25 @@ module RAM64M (
     .ADDRA(ADDRA), .ADDRB(ADDRB), .ADDRC(ADDRC), .ADDRD(ADDRD),
     .DIA(DIA), .DIB(DIB), .DIC(DIC), .DID(DID)
   );
-  $__ABC9_LUT6 doa (.A($DOA), .S(ADDRA), .Y(DOA));
-  $__ABC9_LUT6 dob (.A($DOB), .S(ADDRB), .Y(DOB));
-  $__ABC9_LUT6 doc (.A($DOC), .S(ADDRC), .Y(DOC));
-  $__ABC9_LUT6 dod (.A($DOD), .S(ADDRD), .Y(DOD));
+  $__ABC9_RAM6 doa (.A($DOA), .S(ADDRA), .Y(DOA));
+  $__ABC9_RAM6 dob (.A($DOB), .S(ADDRB), .Y(DOB));
+  $__ABC9_RAM6 doc (.A($DOC), .S(ADDRC), .Y(DOC));
+  $__ABC9_RAM6 dod (.A($DOD), .S(ADDRD), .Y(DOD));
+endmodule
+
+module SRL16 (
+  output Q,
+  (* techmap_autopurge *) input A0, A1, A2, A3, CLK, D
+);
+  parameter [15:0] INIT = 16'h0000;
+  wire $Q;
+  SRL16 #(
+    .INIT(INIT),
+  ) _TECHMAP_REPLACE_ (
+    .Q($Q),
+    .A0(A0), .A1(A1), .A2(A2), .A3(A3), .CLK(CLK), .D(D)
+  );
+  $__ABC9_RAM6 q (.A($Q), .S({1'b1, A3, A2, A1, A0, 1'b1}), .Y(Q));
 endmodule
 
 module SRL16E (
@@ -538,7 +553,38 @@ module SRL16E (
     .Q($Q),
     .A0(A0), .A1(A1), .A2(A2), .A3(A3), .CE(CE), .CLK(CLK), .D(D)
   );
-  $__ABC9_LUT6 q (.A($Q), .S({1'b1, A3, A2, A1, A0, 1'b1}), .Y(Q));
+  $__ABC9_RAM6 q (.A($Q), .S({1'b1, A3, A2, A1, A0, 1'b1}), .Y(Q));
+endmodule
+
+module SRLC16 (
+  output Q, Q15,
+  (* techmap_autopurge *) input A0, A1, A2, A3, CLK, D
+);
+  parameter [15:0] INIT = 16'h0000;
+  wire $Q;
+  SRLC16 #(
+    .INIT(INIT),
+  ) _TECHMAP_REPLACE_ (
+    .Q($Q), .Q(Q15),
+    .A0(A0), .A1(A1), .A2(A2), .A3(A3), .CLK(CLK), .D(D)
+  );
+  $__ABC9_RAM6 q (.A($Q), .S({1'b1, A3, A2, A1, A0, 1'b1}), .Y(Q));
+endmodule
+
+module SRLC16E (
+  output Q, Q15,
+  (* techmap_autopurge *) input A0, A1, A2, A3, CE, CLK, D
+);
+  parameter [15:0] INIT = 16'h0000;
+  parameter [0:0] IS_CLK_INVERTED = 1'b0;
+  wire $Q;
+  SRLC16E #(
+    .INIT(INIT), .IS_CLK_INVERTED(IS_CLK_INVERTED)
+  ) _TECHMAP_REPLACE_ (
+    .Q($Q), .Q(Q15),
+    .A0(A0), .A1(A1), .A2(A2), .A3(A3), .CE(CE), .CLK(CLK), .D(D)
+  );
+  $__ABC9_RAM6 q (.A($Q), .S({1'b1, A3, A2, A1, A0, 1'b1}), .Y(Q));
 endmodule
 
 module SRLC32E (
@@ -556,7 +602,7 @@ module SRLC32E (
     .Q($Q), .Q31(Q31),
     .A(A), .CE(CE), .CLK(CLK), .D(D)
   );
-  $__ABC9_LUT6 q (.A($Q), .S({1'b1, A}), .Y(Q));
+  $__ABC9_RAM6 q (.A($Q), .S({1'b1, A}), .Y(Q));
 endmodule
 
 module DSP48E1 (

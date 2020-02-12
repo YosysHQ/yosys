@@ -55,6 +55,7 @@ module \$__ABC9_ASYNC0 (input A, S, output Y);
   assign Y = S ? 1'b0 : A;
   specify
     (A => Y) = 0;
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L270
     (S => Y) = 764;
   endspecify
 endmodule
@@ -65,6 +66,7 @@ module \$__ABC9_ASYNC1 (input A, S, output Y);
   assign Y = S ? 1'b1 : A;
   specify
     (A => Y) = 0;
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L270
     (S => Y) = 764;
   endspecify
 endmodule
@@ -76,7 +78,7 @@ endmodule
 //   To model the combinatorial path, such cells have to be split
 //   into comb and seq parts, with this box modelling only the former.
 (* abc9_box *)
-module \$__ABC9_LUT6 (input A, input [5:0] S, output Y);
+module \$__ABC9_RAM6 (input A, input [5:0] S, output Y);
   specify
     (S[0] => Y) = 642;
     (S[1] => Y) = 631;
@@ -88,7 +90,7 @@ module \$__ABC9_LUT6 (input A, input [5:0] S, output Y);
 endmodule
 // Box to emulate comb/seq behaviour of RAM128
 (* abc9_box *)
-module \$__ABC9_LUT7 (input A, input [6:0] S, output Y);
+module \$__ABC9_RAM7 (input A, input [6:0] S, output Y);
   specify
     (S[0] => Y) = 1028;
     (S[1] => Y) = 1017;

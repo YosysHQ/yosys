@@ -227,6 +227,9 @@ struct XAigerWriter
 					continue;
 				}
 
+				if (cell->type.in("$specify2", "$specify3", "$specrule"))
+					continue;
+
 				if (inst_module) {
 					bool abc9_flop = false;
 					auto it = cell->attributes.find("\\abc9_box_seq");

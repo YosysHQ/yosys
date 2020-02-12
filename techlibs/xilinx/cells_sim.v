@@ -263,46 +263,31 @@ module LUT6_2(output O6, output O5, input I0, I1, I2, I3, I4, I5);
 endmodule
 
 (* abc9_lut=10 *)
-module $__ABC9_LUT7(output O, input I0, I1, I2, I3, I4, I5, I6);
-  parameter [127:0] INIT = 0;
-  wire [63: 0] s6 = I6 ? INIT[127:64] : INIT[63: 0];
-  wire [31: 0] s5 = I5 ?    s6[63:32] :   s6[31: 0];
-  wire [15: 0] s4 = I4 ?    s5[31:16] :   s5[15: 0];
-  wire [ 7: 0] s3 = I3 ?    s4[15: 8] :   s4[ 7: 0];
-  wire [ 3: 0] s2 = I2 ?    s3[ 7: 4] :   s3[ 3: 0];
-  wire [ 1: 0] s1 = I1 ?    s2[ 3: 2] :   s2[ 1: 0];
-  assign O = I0 ? s1[1] : s1[0];
+module \$__ABC9_LUT7 (output O, input I0, I1, I2, I3, I4, I5, I6);
   specify
-    (I0 => O) = 1028;
-    (I1 => O) = 1017;
-    (I2 => O) =  858;
-    (I3 => O) =  793;
-    (I4 => O) =  624;
-    (I5 => O) =  513;
-    (I6 => O) =  464;
+                                                 // https://github.com/SymbiFlow/prjxray-db/blob/1c85daf1b115da4d27ca83c6b89f53a94de39748/artix7/timings/slicel.sdf#L867
+    (I0 => O) = 642 + 223 /* to cross MUXF7 */ + 174 /* CMUX */;
+    (I1 => O) = 631 + 223 /* to cross MUXF7 */ + 174 /* CMUX */;
+    (I2 => O) = 472 + 223 /* to cross MUXF7 */ + 174 /* CMUX */;
+    (I3 => O) = 407 + 223 /* to cross MUXF7 */ + 174 /* CMUX */;
+    (I4 => O) = 238 + 223 /* to cross MUXF7 */ + 174 /* CMUX */;
+    (I5 => O) = 127 + 223 /* to cross MUXF7 */ + 174 /* CMUX */;
+    (I6 => O) = 0 + 296 /* to select MUXF7 */ + 174 /* CMUX */;
   endspecify
 endmodule
 
 (* abc9_lut=20 *)
-module $__ABC9_LUT8(output O, input I0, I1, I2, I3, I4, I5, I6, I7);
-  parameter [255:0] INIT = 0;
-  wire [127: 0] s7 = I7 ? INIT[255:128] : INIT[127: 0];
-  wire [ 63: 0] s6 = I6 ?   s7[127:63]  :   s7[ 64: 0];
-  wire [ 31: 0] s5 = I5 ?   s6[ 63:32]  :   s6[ 31: 0];
-  wire [ 15: 0] s4 = I4 ?   s5[ 31:16]  :   s5[ 15: 0];
-  wire [  7: 0] s3 = I3 ?   s4[ 15: 8]  :   s4[  7: 0];
-  wire [  3: 0] s2 = I2 ?   s3[  7: 4]  :   s3[  3: 0];
-  wire [  1: 0] s1 = I1 ?   s2[  3: 2]  :   s2[  1: 0];
-  assign O = I0 ? s1[1] : s1[0];
+module \$__ABC9_LUT8 (output O, input I0, I1, I2, I3, I4, I5, I6, I7);
   specify
-    (I0 => O) = 1149;
-    (I1 => O) = 1138;
-    (I2 => O) =  979;
-    (I3 => O) =  914;
-    (I4 => O) =  745;
-    (I5 => O) =  634;
-    (I6 => O) =  585;
-    (I7 => O) =  468;
+                                                                             // https://github.com/SymbiFlow/prjxray-db/blob/1c85daf1b115da4d27ca83c6b89f53a94de39748/artix7/timings/slicel.sdf#L716
+    (I0 => O) = 642 + 223 /* to cross F7BMUX */ + 104 /* to cross F8MUX */ + 192 /* BMUX */;
+    (I1 => O) = 631 + 223 /* to cross F7BMUX */ + 104 /* to cross F8MUX */ + 192 /* BMUX */;
+    (I2 => O) = 472 + 223 /* to cross F7BMUX */ + 104 /* to cross F8MUX */ + 192 /* BMUX */;
+    (I3 => O) = 407 + 223 /* to cross F7BMUX */ + 104 /* to cross F8MUX */ + 192 /* BMUX */;
+    (I4 => O) = 238 + 223 /* to cross F7BMUX */ + 104 /* to cross F8MUX */ + 192 /* BMUX */;
+    (I5 => O) = 127 + 223 /* to cross F7BMUX */ + 104 /* to cross F8MUX */ + 192 /* BMUX */;
+    (I6 => O) = 0 + 296 /* to select F7BMUX */  + 104 /* to cross F8MUX */ + 192 /* BMUX */;
+    (I7 => O) = 0 + 0 + 273 /* to select F8MUX */ + 192 /* BMUX */;
   endspecify
 endmodule
 
@@ -323,9 +308,9 @@ module MUXF7(output O, input I0, I1, S);
   assign O = S ? I1 : I0;
   specify
     // https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf#L451-L453
-    (I0 => O) = 204;
-    (I1 => O) = 208;
-    (S => O) = 286;
+    (I0 => O) = 217;
+    (I1 => O) = 223;
+    (S => O) = 296;
   endspecify
 endmodule
 
@@ -497,21 +482,23 @@ module FDRE (
     1'b0: always @(posedge C) if (R == !IS_R_INVERTED) Q <= 1'b0; else if (CE) Q <= D ^ IS_D_INVERTED;
     1'b1: always @(negedge C) if (R == !IS_R_INVERTED) Q <= 1'b0; else if (CE) Q <= D ^ IS_D_INVERTED;
   endcase
-  if (!IS_C_INVERTED)
-    specify
-      if (CE) (posedge C => (Q : D)) = 303;
-      //$setup(D , posedge C, -46); // Negative times not currently supported
-      $setup(CE, posedge C, 109);
-      $setup(R , posedge C, 404);
-    endspecify
-  else
-    specify
-      if (CE) (negedge C => (Q : D)) = 303;
-      //if (CE) $setup(D , negedge C, -46); // Negative times not currently supported
-      $setup(CE, negedge C, 109);
-      $setup(R , negedge C, 404);
-    endspecify
   endgenerate
+  specify
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L249
+    //$setup(D , posedge C &&& CE &&& !IS_C_INVERTED , -46); // Negative times not currently supported
+    //$setup(D , negedge C &&& CE &&&  IS_C_INVERTED , -46); // Negative times not currently supported
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L248
+    $setup(CE, posedge C &&& !IS_C_INVERTED, 109);
+    $setup(CE, negedge C &&&  IS_C_INVERTED , 109);
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L274
+    $setup(R , posedge C &&& !IS_C_INVERTED, 404);
+    $setup(R , negedge C &&&  IS_C_INVERTED, 404);
+    // https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf#L243
+    if (!IS_C_INVERTED && R ^ IS_R_INVERTED)        (posedge C => (Q : 1'b0)) = 303;
+    if ( IS_C_INVERTED && R ^ IS_R_INVERTED)        (negedge C => (Q : 1'b0)) = 303;
+    if (!IS_C_INVERTED && R ~^ IS_R_INVERTED && CE) (posedge C => (Q : D ^ IS_D_INVERTED)) = 303;
+    if ( IS_C_INVERTED && R ~^ IS_R_INVERTED && CE) (negedge C => (Q : D ^ IS_D_INVERTED)) = 303;
+  endspecify
 endmodule
 
 (* abc9_flop, lib_whitebox *)
@@ -527,10 +514,14 @@ module FDRE_1 (
   initial Q <= INIT;
   always @(negedge C) if (R) Q <= 1'b0; else if (CE) Q <= D;
   specify
-    if (CE) (negedge C => (Q : D)) = 303;
-    //if (CE) $setup(D , negedge C, -46); // Negative times not currently supported
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L249
+    //$setup(D , negedge C &&& CE, -46); // Negative times not currently supported
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L248
     $setup(CE, negedge C, 109);
-    $setup(R , negedge C, 404);
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L274
+    $setup(R , negedge C, 404);    // https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf#L243
+    if (R)        (negedge C => (Q : 1'b0)) = 303;
+    if (!R && CE) (negedge C => (Q : D)) = 303;
   endspecify
 endmodule
 
@@ -556,21 +547,23 @@ module FDSE (
     1'b0: always @(posedge C) if (S == !IS_S_INVERTED) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
     1'b1: always @(negedge C) if (S == !IS_S_INVERTED) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
   endcase
-  if (!IS_C_INVERTED)
-    specify
-      if (CE) (posedge C => (Q : D)) = 303;
-      //if (CE) $setup(D , posedge C, -46); // Negative times not currently supported
-      $setup(CE, posedge C, 109);
-      $setup(S , posedge C, 404);
-    endspecify
-  else
-    specify
-        if (CE) (negedge C => (Q : D)) = 303;
-        //if (CE) $setup(D , negedge C, -46); // Negative times not currently supported
-        $setup(CE, negedge C, 109);
-        $setup(S , negedge C, 404);
-    endspecify
   endgenerate
+  specify
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L249
+    //$setup(D , posedge C &&& !IS_C_INVERTED &&& CE, -46); // Negative times not currently supported
+    //$setup(D , negedge C &&&  IS_C_INVERTED &&& CE, -46); // Negative times not currently supported
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L248
+    $setup(CE, posedge C &&& !IS_C_INVERTED, 109);
+    $setup(CE, negedge C &&&  IS_C_INVERTED, 109);
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L274
+    $setup(S , posedge C &&& !IS_C_INVERTED, 404);
+    $setup(S , negedge C &&&  IS_C_INVERTED, 404);
+    // https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf#L243
+    if (!IS_C_INVERTED && S ^ IS_S_INVERTED)        (posedge C => (Q : 1'b1)) = 303;
+    if ( IS_C_INVERTED && S ^ IS_S_INVERTED)        (negedge C => (Q : 1'b1)) = 303;
+    if (!IS_C_INVERTED && S ~^ IS_S_INVERTED && CE) (posedge C => (Q : D ^ IS_D_INVERTED)) = 303;
+    if ( IS_C_INVERTED && S ~^ IS_S_INVERTED && CE) (negedge C => (Q : D ^ IS_D_INVERTED)) = 303;
+  endspecify
 endmodule
 
 (* abc9_flop, lib_whitebox *)
@@ -586,10 +579,15 @@ module FDSE_1 (
   initial Q <= INIT;
   always @(negedge C) if (S) Q <= 1'b1; else if (CE) Q <= D;
   specify
-    if (CE) (negedge C => (Q : D)) = 303;
-    //if (CE) $setup(D , negedge C, -46); // Negative times not currently supported
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L249
+    //$setup(D , negedge C &&& CE, -46); // Negative times not currently supported
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L248
     $setup(CE, negedge C, 109);
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L274
     $setup(S , negedge C, 404);
+    // https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf#L243
+    if (S)        (negedge C => (Q : 1'b1)) = 303;
+    if (!S && CE) (negedge C => (Q : D)) = 303;
   endspecify
 endmodule
 
@@ -652,21 +650,22 @@ module FDCE (
     2'b10: always @(negedge C, posedge CLR) if ( CLR) Q <= 1'b0; else if (CE) Q <= D ^ IS_D_INVERTED;
     2'b11: always @(negedge C, negedge CLR) if (!CLR) Q <= 1'b0; else if (CE) Q <= D ^ IS_D_INVERTED;
   endcase
-  if (!IS_C_INVERTED)
-    specify
-      if (CE) (posedge C => (Q : D)) = 303;
-      //if (CE) $setup(D  , posedge C, -46); // Negative times not currently supported
-      $setup(CE , posedge C, 109);
-      $setup(CLR, posedge C, 764);
-    endspecify
-  else
-    specify
-        if (CE) (negedge C => (Q : D)) = 303;
-        //if (CE) $setup(D  , negedge C, -46); // Negative times not currently supported
-        $setup(CE , negedge C, 109);
-        $setup(CLR, negedge C, 764);
-    endspecify
- endgenerate
+  endgenerate
+  specify
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L249
+    //$setup(D , posedge C &&& !IS_C_INVERTED &&& CE, -46); // Negative times not currently supported
+    //$setup(D , negedge C &&&  IS_C_INVERTED &&& CE, -46); // Negative times not currently supported
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L248
+    $setup(CE , posedge C &&& !IS_C_INVERTED, 109);
+    $setup(CE , negedge C &&&  IS_C_INVERTED, 109);
+    $setup(CLR, posedge C &&& !IS_C_INVERTED, 404);
+    $setup(CLR, negedge C &&&  IS_C_INVERTED, 404);
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L270
+    //if (!IS_CLR_INVERTED) (posedge CLR => (Q : 1'b0)) = 764; // Captured by $__ABC9_ASYNC0
+    //if ( IS_CLR_INVERTED) (negedge CLR => (Q : 1'b0)) = 764; // Captured by $__ABC9_ASYNC0
+    if (!IS_C_INVERTED && CLR ~^ IS_CLR_INVERTED && CE) (posedge C => (Q : D ^ IS_D_INVERTED)) = 303;
+    if ( IS_C_INVERTED && CLR ~^ IS_CLR_INVERTED && CE) (negedge C => (Q : D ^ IS_D_INVERTED)) = 303;
+  endspecify
 endmodule
 
 (* abc9_flop, lib_whitebox *)
@@ -682,10 +681,14 @@ module FDCE_1 (
   initial Q <= INIT;
   always @(negedge C, posedge CLR) if (CLR) Q <= 1'b0; else if (CE) Q <= D;
   specify
-    if (CE) (negedge C => (Q : D)) = 303;
-    //if (CE) $setup(D  , negedge C, -46); // Negative times not currently supported
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L249
+    //$setup(D , negedge C &&& CE, -46); // Negative times not currently supported
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L248
     $setup(CE , negedge C, 109);
-    $setup(CLR, negedge C, 764);
+    $setup(CLR, negedge C, 404);
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L270
+    //(posedge CLR => (Q : 1'b0)) = 764; // Captured by $__ABC9_ASYNC0
+    if (!CLR && CE) (negedge C => (Q : D)) = 303;
   endspecify
 endmodule
 
@@ -712,21 +715,22 @@ module FDPE (
     2'b10: always @(negedge C, posedge PRE) if ( PRE) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
     2'b11: always @(negedge C, negedge PRE) if (!PRE) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
   endcase
-  if (!IS_C_INVERTED)
-    specify
-      if (CE) (posedge C => (Q : D)) = 303;
-      //if (CE) $setup(D  , posedge C, -46); // Negative times not currently supported
-      $setup(CE , posedge C, 109);
-      $setup(PRE, posedge C, 764);
-    endspecify
-  else
-    specify
-        if (CE) (negedge C => (Q : D)) = 303;
-        //if (CE) $setup(D  , negedge C, -46); // Negative times not currently supported
-        $setup(CE , negedge C, 109);
-        $setup(PRE, negedge C, 764);
-    endspecify
   endgenerate
+  specify
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L249
+    //$setup(D , posedge C &&& !IS_C_INVERTED &&& CE, -46); // Negative times not currently supported
+    //$setup(D , negedge C &&&  IS_C_INVERTED &&& CE, -46); // Negative times not currently supported
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L248
+    $setup(CE , posedge C &&& !IS_C_INVERTED, 109);
+    $setup(CE , negedge C &&&  IS_C_INVERTED, 109);
+    $setup(PRE, posedge C &&& !IS_C_INVERTED, 404);
+    $setup(PRE, negedge C &&&  IS_C_INVERTED, 404);
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L270
+    //if (!IS_PRE_INVERTED) (posedge PRE => (Q : 1'b1)) = 764; // Captured by $__ABC9_ASYNC1
+    //if ( IS_PRE_INVERTED) (negedge PRE => (Q : 1'b1)) = 764; // Captured by $__ABC9_ASYNC1
+    if (!IS_C_INVERTED && PRE ~^ IS_PRE_INVERTED && CE) (posedge C => (Q : D ^ IS_D_INVERTED)) = 303;
+    if ( IS_C_INVERTED && PRE ~^ IS_PRE_INVERTED && CE) (negedge C => (Q : D ^ IS_D_INVERTED)) = 303;
+  endspecify
 endmodule
 
 (* abc9_flop, lib_whitebox *)
@@ -742,10 +746,15 @@ module FDPE_1 (
   initial Q <= INIT;
   always @(negedge C, posedge PRE) if (PRE) Q <= 1'b1; else if (CE) Q <= D;
   specify
-    if (CE) (negedge C => (Q : D)) = 303;
-    //if (CE) $setup(D  , negedge C, -46); // Negative times not currently supported
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L249
+    //$setup(D , negedge C &&& CE, -46); // Negative times not currently supported
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L248
     $setup(CE , negedge C, 109);
-    $setup(PRE, negedge C, 764);
+    $setup(PRE, negedge C, 404);
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L270
+    //if (!IS_PRE_INVERTED) (posedge PRE => (Q : 1'b1)) = 764; // Captured by $__ABC9_ASYNC1
+    //if (IS_PRE_INVERTED)  (negedge PRE => (Q : 1'b1)) = 764; // Captured by $__ABC9_ASYNC1
+    if (!PRE && CE) (negedge C => (Q : D)) = 303;
   endspecify
 endmodule
 
@@ -1375,48 +1384,38 @@ module RAM32X1D (
   assign DPO = mem[dpra];
   wire clk = WCLK ^ IS_WCLK_INVERTED;
   always @(posedge clk) if (WE) mem[a] <= D;
-  generate
-    if (!IS_WCLK_INVERTED)
-      specify
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L981
-        if (WE) (posedge WCLK => (SPO : D)) = 1153;
-        if (WE) (posedge WCLK => (DPO : D)) = 1153;
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986
-        $setup(D , posedge WCLK, 453);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L834
-        $setup(WE, posedge WCLK, 654);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L800
-        $setup(A0, posedge WCLK, 245);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L798
-        $setup(A1, posedge WCLK, 208);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L796
-        $setup(A2, posedge WCLK, 147);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L794
-        $setup(A3, posedge WCLK, 68);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L792
-        $setup(A4, posedge WCLK, 66);
-      endspecify
-    else
-      specify
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L981
-        if (WE) (negedge WCLK => (SPO : D)) = 1153;
-        if (WE) (negedge WCLK => (DPO : D)) = 1153;
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986
-        $setup(D , negedge WCLK, 453);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L834
-        $setup(WE, negedge WCLK, 654);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L800
-        $setup(A0, negedge WCLK, 245);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L798
-        $setup(A1, negedge WCLK, 208);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L796
-        $setup(A2, negedge WCLK, 147);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L794
-        $setup(A3, negedge WCLK, 68);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L792
-        $setup(A4, negedge WCLK, 66);
-      endspecify
-  endgenerate
+  specify
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986
+    $setup(D , posedge WCLK &&& !IS_WCLK_INVERTED && WE, 453);
+    $setup(D , negedge WCLK &&&  IS_WCLK_INVERTED && WE, 453);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L834
+    $setup(WE, posedge WCLK &&& !IS_WCLK_INVERTED, 654);
+    $setup(WE, negedge WCLK &&&  IS_WCLK_INVERTED, 654);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L800
+    $setup(A0, posedge WCLK &&& !IS_WCLK_INVERTED && WE, 245);
+    $setup(A0, negedge WCLK &&&  IS_WCLK_INVERTED && WE, 245);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L798
+    $setup(A1, posedge WCLK &&& !IS_WCLK_INVERTED && WE, 208);
+    $setup(A1, negedge WCLK &&&  IS_WCLK_INVERTED && WE, 208);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L796
+    $setup(A2, posedge WCLK &&& !IS_WCLK_INVERTED && WE, 147);
+    $setup(A2, negedge WCLK &&&  IS_WCLK_INVERTED && WE, 147);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L794
+    $setup(A3, posedge WCLK &&& !IS_WCLK_INVERTED && WE, 68);
+    $setup(A3, negedge WCLK &&&  IS_WCLK_INVERTED && WE, 68);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L792
+    $setup(A4, posedge WCLK &&& !IS_WCLK_INVERTED && WE, 66);
+    $setup(A4, posedge WCLK &&&  IS_WCLK_INVERTED && WE, 66);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L981
+    if (!IS_WCLK_INVERTED && WE) (posedge WCLK => ({SPO,DPO} : {D,1'bx})) = 1153;
+    if ( IS_WCLK_INVERTED && WE) (negedge WCLK => ({SPO,DPO} : {D,1'bx})) = 1153;
+    // Captured by $__ABC9_RAM6
+    //({A0,DPRA0} => {SPO,DPO}) = 642;
+    //({A1,DPRA1} => {SPO,DPO}) = 631;
+    //({A2,DPRA2} => {SPO,DPO}) = 472;
+    //({A3,DPRA3} => {SPO,DPO}) = 407;
+    //({A4,DPRA4} => {SPO,DPO}) = 238;
+  endspecify
 endmodule
 
 module RAM32X1D_1 (
@@ -1443,23 +1442,28 @@ module RAM32X1D_1 (
   wire clk = WCLK ^ IS_WCLK_INVERTED;
   always @(negedge clk) if (WE) mem[a] <= D;
   specify
-    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L981
-    if (WE) (negedge WCLK => (SPO : D)) = 1153;
-    if (WE) (negedge WCLK => (DPO : D)) = 1153;
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986
-    $setup(D , negedge WCLK, 453);
+    $setup(D , negedge WCLK &&& WE, 453);
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L834
     $setup(WE, negedge WCLK, 654);
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L800
-    $setup(A0, negedge WCLK, 245);
+    $setup(A0, negedge WCLK &&& WE, 245);
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L798
-    $setup(A1, negedge WCLK, 208);
+    $setup(A1, negedge WCLK &&& WE, 208);
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L796
-    $setup(A2, negedge WCLK, 147);
+    $setup(A2, negedge WCLK &&& WE, 147);
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L794
-    $setup(A3, negedge WCLK, 68);
+    $setup(A3, negedge WCLK &&& WE, 68);
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L792
-    $setup(A4, negedge WCLK, 66);
+    $setup(A4, negedge WCLK &&& WE, 66);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L981
+    if (WE) (negedge WCLK => ({SPO,DPO} : {D,1'bx})) = 1153;
+    // Captured by $__ABC9_RAM6
+    //({A0,DPRA0} => {SPO,DPO}) = 642;
+    //({A1,DPRA1} => {SPO,DPO}) = 631;
+    //({A2,DPRA2} => {SPO,DPO}) = 472;
+    //({A3,DPRA3} => {SPO,DPO}) = 407;
+    //({A4,DPRA4} => {SPO,DPO}) = 238;
   endspecify
 endmodule
 
@@ -1482,52 +1486,42 @@ module RAM64X1D (
   assign DPO = mem[dpra];
   wire clk = WCLK ^ IS_WCLK_INVERTED;
   always @(posedge clk) if (WE) mem[a] <= D;
-  generate
-    if (!IS_WCLK_INVERTED)
-      specify
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L981
-        if (WE) (posedge WCLK => (SPO : D)) = 1153;
-        if (WE) (posedge WCLK => (DPO : D)) = 1153;
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986
-        $setup(D , posedge WCLK, 453);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L834
-        $setup(WE, posedge WCLK, 654);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L828
-        $setup(A0, posedge WCLK, 362);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L826
-        $setup(A1, posedge WCLK, 245);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L824
-        $setup(A2, posedge WCLK, 208);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L822
-        $setup(A3, posedge WCLK, 147);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L820
-        $setup(A4, posedge WCLK, 68);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L818
-        $setup(A5, posedge WCLK, 66);
-      endspecify
-    else
-      specify
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L981
-        if (WE) (negedge WCLK => (SPO : D)) = 1153;
-        if (WE) (negedge WCLK => (DPO : D)) = 1153;
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986
-        $setup(D , negedge WCLK, 453);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L834
-        $setup(WE, negedge WCLK, 654);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L828
-        $setup(A0, negedge WCLK, 362);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L826
-        $setup(A1, negedge WCLK, 245);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L824
-        $setup(A2, negedge WCLK, 208);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L822
-        $setup(A3, negedge WCLK, 147);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L820
-        $setup(A4, negedge WCLK, 68);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L818
-        $setup(A5, negedge WCLK, 66);
-      endspecify
-  endgenerate
+  specify
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986
+    $setup(D , posedge WCLK &&& !IS_WCLK_INVERTED && WE, 453);
+    $setup(D , negedge WCLK &&&  IS_WCLK_INVERTED && WE, 453);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L834
+    $setup(WE, posedge WCLK &&& !IS_WCLK_INVERTED, 654);
+    $setup(WE, negedge WCLK &&&  IS_WCLK_INVERTED, 654);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L828
+    $setup(A0, posedge WCLK &&& !IS_WCLK_INVERTED && WE, 362);
+    $setup(A0, negedge WCLK &&&  IS_WCLK_INVERTED && WE, 362);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L826
+    $setup(A1, posedge WCLK &&& !IS_WCLK_INVERTED && WE, 245);
+    $setup(A1, negedge WCLK &&&  IS_WCLK_INVERTED && WE, 245);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L824
+    $setup(A2, posedge WCLK &&& !IS_WCLK_INVERTED && WE, 208);
+    $setup(A2, negedge WCLK &&&  IS_WCLK_INVERTED && WE, 208);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L822
+    $setup(A3, posedge WCLK &&& !IS_WCLK_INVERTED && WE, 147);
+    $setup(A3, negedge WCLK &&&  IS_WCLK_INVERTED && WE, 147);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L820
+    $setup(A4, posedge WCLK &&& !IS_WCLK_INVERTED && WE, 68);
+    $setup(A4, negedge WCLK &&&  IS_WCLK_INVERTED && WE, 68);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L818
+    $setup(A5, posedge WCLK &&& !IS_WCLK_INVERTED && WE, 66);
+    $setup(A5, negedge WCLK &&&  IS_WCLK_INVERTED && WE, 66);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L981
+    if (!IS_WCLK_INVERTED && WE) (posedge WCLK => ({SPO,DPO} : {D,1'bx})) = 1153;
+    if ( IS_WCLK_INVERTED && WE) (negedge WCLK => ({SPO,DPO} : {D,1'bx})) = 1153;
+    // Captured by $__ABC9_RAM6
+    //({A0,DPRA0} => {SPO,DPO}) = 642;
+    //({A1,DPRA1} => {SPO,DPO}) = 631;
+    //({A2,DPRA2} => {SPO,DPO}) = 472;
+    //({A3,DPRA3} => {SPO,DPO}) = 407;
+    //({A4,DPRA4} => {SPO,DPO}) = 238;
+    //({A5,DPRA5} => {SPO,DPO}) = 127;
+  endspecify
 endmodule
 
 module RAM64X1D_1 (
@@ -1550,25 +1544,24 @@ module RAM64X1D_1 (
   wire clk = WCLK ^ IS_WCLK_INVERTED;
   always @(negedge clk) if (WE) mem[a] <= D;
   specify
-    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L981
-    if (WE) (negedge WCLK => (SPO : D)) = 1153;
-    if (WE) (negedge WCLK => (DPO : D)) = 1153;
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986
-    $setup(D , negedge WCLK, 453);
+    $setup(D , negedge WCLK &&& WE, 453);
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L834
     $setup(WE, negedge WCLK, 654);
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L828
-    $setup(A0, negedge WCLK, 362);
+    $setup(A0, negedge WCLK &&& WE, 362);
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L826
-    $setup(A1, negedge WCLK, 245);
+    $setup(A1, negedge WCLK &&& WE, 245);
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L824
-    $setup(A2, negedge WCLK, 208);
+    $setup(A2, negedge WCLK &&& WE, 208);
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L822
-    $setup(A3, negedge WCLK, 147);
+    $setup(A3, negedge WCLK &&& WE, 147);
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L820
-    $setup(A4, negedge WCLK, 68);
+    $setup(A4, negedge WCLK &&& WE, 68);
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L818
-    $setup(A5, negedge WCLK, 66);
+    $setup(A5, negedge WCLK &&& WE, 66);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L981
+    if (WE) (negedge WCLK => ({SPO,DPO} : {D,1'bx})) = 1153;
   endspecify
 endmodule
 
@@ -1579,8 +1572,6 @@ module RAM128X1D (
   (* invertible_pin = "IS_WCLK_INVERTED" *)
   input        WCLK,
   input        WE,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L818-830
-  (* abc9_required="616 362 245 208 147 68 66" *)
   input  [6:0] A,
   input  [6:0] DPRA
 );
@@ -1591,46 +1582,47 @@ module RAM128X1D (
   assign DPO = mem[DPRA];
   wire clk = WCLK ^ IS_WCLK_INVERTED;
   always @(posedge clk) if (WE) mem[A] <= D;
-  generate
-    if (!IS_WCLK_INVERTED)
-      specify
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L981
-        //   plus 208ps to cross MUXF7
-        if (WE) (posedge WCLK => (SPO : D)) = 1359;
-        if (WE) (posedge WCLK => (DPO : D)) = 1359;
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986
-        $setup(D , posedge WCLK, 453);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L834
-        $setup(WE, posedge WCLK, 654);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L818-830
-        $setup(A[0], posedge WCLK, 616);
-        $setup(A[1], posedge WCLK, 362);
-        $setup(A[2], posedge WCLK, 245);
-        $setup(A[3], posedge WCLK, 208);
-        $setup(A[4], posedge WCLK, 147);
-        $setup(A[5], posedge WCLK, 68);
-        $setup(A[6], posedge WCLK, 66);
-      endspecify
-    else
-      specify
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L981
-        //   plus 208ps to cross MUXF7
-        if (WE) (negedge WCLK => (SPO : D)) = 1359;
-        if (WE) (negedge WCLK => (DPO : D)) = 1359;
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986
-        $setup(D , negedge WCLK, 453);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L834
-        $setup(WE, negedge WCLK, 654);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L818-830
-        $setup(A[0], negedge WCLK, 616);
-        $setup(A[1], negedge WCLK, 362);
-        $setup(A[2], negedge WCLK, 245);
-        $setup(A[3], negedge WCLK, 208);
-        $setup(A[4], negedge WCLK, 147);
-        $setup(A[5], negedge WCLK, 68);
-        $setup(A[6], negedge WCLK, 66);
-      endspecify
-  endgenerate
+  specify
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986
+    $setup(D , posedge WCLK &&& !IS_WCLK_INVERTED && WE, 453);
+    $setup(D , negedge WCLK &&&  IS_WCLK_INVERTED && WE, 453);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L834
+    $setup(WE, posedge WCLK &&& !IS_WCLK_INVERTED, 654);
+    $setup(WE, negedge WCLK &&&  IS_WCLK_INVERTED, 654);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L818-830
+    $setup(A[0], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 616);
+    $setup(A[0], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 616);
+    $setup(A[1], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 362);
+    $setup(A[1], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 362);
+    $setup(A[2], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 245);
+    $setup(A[2], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 245);
+    $setup(A[3], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 208);
+    $setup(A[3], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 208);
+    $setup(A[4], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 147);
+    $setup(A[4], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 147);
+    $setup(A[5], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 68);
+    $setup(A[5], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 68);
+    $setup(A[6], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 66);
+    $setup(A[6], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 66);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L981
+    if (!IS_WCLK_INVERTED && WE) (posedge WCLK => (SPO : D))    = 1153 + 217 /* to cross F7AMUX */ + 175 /* AMUX */;
+    if ( IS_WCLK_INVERTED && WE) (negedge WCLK => (DPO : 1'bx)) = 1153 + 223 /* to cross F7BMUX */ + 174 /* CMUX */;
+    // Captured by $__ABC9_RAM7
+    //(A[0] => SPO) = 642 + 193 /* to cross F7AMUX */ + 175 /* AMUX */;
+    //(A[1] => SPO) = 631 + 193 /* to cross F7AMUX */ + 175 /* AMUX */;
+    //(A[2] => SPO) = 472 + 193 /* to cross F7AMUX */ + 175 /* AMUX */;
+    //(A[3] => SPO) = 407 + 193 /* to cross F7AMUX */ + 175 /* AMUX */;
+    //(A[4] => SPO) = 238 + 193 /* to cross F7AMUX */ + 175 /* AMUX */;
+    //(A[5] => SPO) = 127 + 193 /* to cross F7AMUX */ + 175 /* AMUX */;
+    //(A[6] => SPO) = 0 + 276 /* to select F7AMUX */ + 175 /* AMUX */;
+    //(DPRA[0] => DPO) = 642 + 223 /* to cross MUXF7 */ + 174 /* CMUX */;
+    //(DPRA[1] => DPO) = 631 + 223 /* to cross MUXF7 */ + 174 /* CMUX */;
+    //(DPRA[2] => DPO) = 472 + 223 /* to cross MUXF7 */ + 174 /* CMUX */;
+    //(DPRA[3] => DPO) = 407 + 223 /* to cross MUXF7 */ + 174 /* CMUX */;
+    //(DPRA[4] => DPO) = 238 + 223 /* to cross MUXF7 */ + 174 /* CMUX */;
+    //(DPRA[5] => DPO) = 127 + 223 /* to cross MUXF7 */ + 174 /* CMUX */;
+    //(DPRA[6] => DPO) = 0 + 296 /* to select MUXF7 */ + 174 /* CMUX */;
+  endspecify
 endmodule
 
 module RAM256X1D (
@@ -1690,87 +1682,72 @@ module RAM32M (
       mem_c[2*ADDRD+:2] <= DIC;
       mem_d[2*ADDRD+:2] <= DID;
     end
-  generate
-    if (!IS_WCLK_INVERTED)
-      specify
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L889
-        if (WE) (posedge WCLK => (DOA[0] : DIA[0])) = 1153;
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L857
-        if (WE) (posedge WCLK => (DOA[1] : DIA[1])) = 1188;
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
-        if (WE) (posedge WCLK => (DOB[0] : DIB[0])) = 1161;
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L925
-        if (WE) (posedge WCLK => (DOB[1] : DIB[1])) = 1187;
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L993
-        if (WE) (posedge WCLK => (DOC[0] : DIC[0])) = 1158;
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L1025
-        if (WE) (posedge WCLK => (DOC[1] : DIC[1])) = 1180;
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L1093
-        if (WE) (posedge WCLK => (DOD[0] : DID[0])) = 1163;
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L1061
-        if (WE) (posedge WCLK => (DOD[1] : DID[1])) = 1190;
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986
-        $setup(ADDRD[0], posedge WCLK, 245);
-        $setup(ADDRD[1], posedge WCLK, 208);
-        $setup(ADDRD[2], posedge WCLK, 147);
-        $setup(ADDRD[3], posedge WCLK, 68);
-        $setup(ADDRD[4], posedge WCLK, 66);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986-L988
-        $setup(DIA[0], posedge WCLK, 453);
-        $setup(DIA[1], posedge WCLK, 384);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L1054-L1056
-        $setup(DIB[0], posedge WCLK, 461);
-        $setup(DIB[1], posedge WCLK, 354);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L1122-L1124
-        $setup(DIC[0], posedge WCLK, 457);
-        $setup(DIC[1], posedge WCLK, 375);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L1190-L1192
-        $setup(DID[0], posedge WCLK, 310);
-        $setup(DID[1], posedge WCLK, 334);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L834
-        $setup(WE, posedge WCLK, 654);
-      endspecify
-    else
-      specify
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L889
-        if (WE) (negedge WCLK => (DOA[0] : DIA[0])) = 1153;
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L857
-        if (WE) (negedge WCLK => (DOA[1] : DIA[1])) = 1188;
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
-        if (WE) (negedge WCLK => (DOB[0] : DIB[0])) = 1161;
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L925
-        if (WE) (negedge WCLK => (DOB[1] : DIB[1])) = 1187;
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L993
-        if (WE) (negedge WCLK => (DOC[0] : DIC[0])) = 1158;
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L1025
-        if (WE) (negedge WCLK => (DOC[1] : DIC[1])) = 1180;
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L1093
-        if (WE) (negedge WCLK => (DOD[0] : DID[0])) = 1163;
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L1061
-        if (WE) (negedge WCLK => (DOD[1] : DID[1])) = 1190;
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986
-        $setup(ADDRD[0], negedge WCLK, 245);
-        $setup(ADDRD[1], negedge WCLK, 208);
-        $setup(ADDRD[2], negedge WCLK, 147);
-        $setup(ADDRD[3], negedge WCLK, 68);
-        $setup(ADDRD[4], negedge WCLK, 66);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986-L988
-        $setup(DIA[0], negedge WCLK, 453);
-        $setup(DIA[1], negedge WCLK, 384);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L1054-L1056
-        $setup(DIB[0], negedge WCLK, 461);
-        $setup(DIB[1], negedge WCLK, 354);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L1122-L1124
-        $setup(DIC[0], negedge WCLK, 457);
-        $setup(DIC[1], negedge WCLK, 375);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L1190-L1192
-        $setup(DID[0], negedge WCLK, 310);
-        $setup(DID[1], negedge WCLK, 334);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L834
-        $setup(WE, posedge WCLK, 654);
-      endspecify
-  endgenerate
-
+  specify
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986
+    $setup(ADDRD[0], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 245);
+    $setup(ADDRD[0], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 245);
+    $setup(ADDRD[1], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 208);
+    $setup(ADDRD[1], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 208);
+    $setup(ADDRD[2], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 147);
+    $setup(ADDRD[2], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 147);
+    $setup(ADDRD[3], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 68);
+    $setup(ADDRD[3], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 68);
+    $setup(ADDRD[4], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 66);
+    $setup(ADDRD[4], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 66);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986-L988
+    $setup(DIA[0], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 453);
+    $setup(DIA[0], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 453);
+    $setup(DIA[1], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 384);
+    $setup(DIA[1], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 384);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L1054-L1056
+    $setup(DIB[0], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 461);
+    $setup(DIB[0], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 461);
+    $setup(DIB[1], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 354);
+    $setup(DIB[1], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 354);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L1122-L1124
+    $setup(DIC[0], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 457);
+    $setup(DIC[0], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 457);
+    $setup(DIC[1], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 375);
+    $setup(DIC[1], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 375);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L1190-L1192
+    $setup(DID[0], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 310);
+    $setup(DID[0], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 310);
+    $setup(DID[1], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 334);
+    $setup(DID[1], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 334);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L834
+    $setup(WE, posedge WCLK &&& !IS_WCLK_INVERTED, 654);
+    $setup(WE, negedge WCLK &&&  IS_WCLK_INVERTED, 654);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L889
+    if (!IS_WCLK_INVERTED && WE) (posedge WCLK => (DOA[0] : DIA[0])) = 1153;
+    if ( IS_WCLK_INVERTED && WE) (negedge WCLK => (DOA[0] : DIA[0])) = 1153;
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L857
+    if (!IS_WCLK_INVERTED && WE) (posedge WCLK => (DOA[1] : DIA[1])) = 1188;
+    if ( IS_WCLK_INVERTED && WE) (negedge WCLK => (DOA[1] : DIA[1])) = 1188;
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
+    if (!IS_WCLK_INVERTED && WE) (posedge WCLK => (DOB[0] : DIB[0])) = 1161;
+    if ( IS_WCLK_INVERTED && WE) (negedge WCLK => (DOB[0] : DIB[0])) = 1161;
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L925
+    if (!IS_WCLK_INVERTED && WE) (posedge WCLK => (DOB[1] : DIB[1])) = 1187;
+    if ( IS_WCLK_INVERTED && WE) (negedge WCLK => (DOB[1] : DIB[1])) = 1187;
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L993
+    if (!IS_WCLK_INVERTED && WE) (posedge WCLK => (DOC[0] : DIC[0])) = 1158;
+    if ( IS_WCLK_INVERTED && WE) (negedge WCLK => (DOC[0] : DIC[0])) = 1158;
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L1025
+    if (!IS_WCLK_INVERTED && WE) (posedge WCLK => (DOC[1] : DIC[1])) = 1180;
+    if ( IS_WCLK_INVERTED && WE) (negedge WCLK => (DOC[1] : DIC[1])) = 1180;
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L1093
+    if (!IS_WCLK_INVERTED && WE) (posedge WCLK => (DOD[0] : DID[0])) = 1163;
+    if ( IS_WCLK_INVERTED && WE) (negedge WCLK => (DOD[0] : DID[0])) = 1163;
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L1061
+    if (!IS_WCLK_INVERTED && WE) (posedge WCLK => (DOD[1] : DID[1])) = 1190;
+    if ( IS_WCLK_INVERTED && WE) (negedge WCLK => (DOD[1] : DID[1])) = 1190;
+    // Captured by $__ABC9_RAM6
+    //({{2{ADDRA[0]}},{2{ADDRB[0]}},{2{ADDRC[0]}},{2{ADDRD[0]}}} => {DOA,DOB,DOC,DOD}) = 642;
+    //({{2{ADDRA[1]}},{2{ADDRB[1]}},{2{ADDRC[1]}},{2{ADDRD[1]}}} => {DOA,DOB,DOC,DOD}) = 631;
+    //({{2{ADDRA[2]}},{2{ADDRB[2]}},{2{ADDRC[2]}},{2{ADDRD[2]}}} => {DOA,DOB,DOC,DOD}) = 472;
+    //({{2{ADDRA[3]}},{2{ADDRB[3]}},{2{ADDRC[3]}},{2{ADDRD[3]}}} => {DOA,DOB,DOC,DOD}) = 407;
+    //({{2{ADDRA[4]}},{2{ADDRB[4]}},{2{ADDRC[4]}},{2{ADDRD[4]}}} => {DOA,DOB,DOC,DOD}) = 238;
+  endspecify
 endmodule
 
 module RAM32M16 (
@@ -1879,64 +1856,54 @@ module RAM64M (
       mem_c[ADDRD] <= DIC;
       mem_d[ADDRD] <= DID;
     end
-  generate
-    if (!IS_WCLK_INVERTED)
-      specify
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L889
-        if (WE) (posedge WCLK => (DOA : DIA)) = 1153;
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
-        if (WE) (posedge WCLK => (DOB : DIB)) = 1161;
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L1025
-        if (WE) (posedge WCLK => (DOC : DIC)) = 1158;
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L1093
-        if (WE) (posedge WCLK => (DOD : DID)) = 1163;
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L818-L830
-        $setup(ADDRD[0], posedge WCLK, 362);
-        $setup(ADDRD[1], posedge WCLK, 245);
-        $setup(ADDRD[2], posedge WCLK, 208);
-        $setup(ADDRD[3], posedge WCLK, 147);
-        $setup(ADDRD[4], posedge WCLK, 68);
-        $setup(ADDRD[5], posedge WCLK, 66);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986-L988
-        $setup(DIA, posedge WCLK, 384);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L1054-L1056
-        $setup(DIB, posedge WCLK, 354);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L1122-L1124
-        $setup(DIC, posedge WCLK, 375);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L1190-L1192
-        $setup(DID, posedge WCLK, 310);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L834
-        $setup(WE, posedge WCLK, 654);
-      endspecify
-    else
-      specify
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L889
-        if (WE) (negedge WCLK => (DOA : DIA)) = 1153;
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
-        if (WE) (negedge WCLK => (DOB : DIB)) = 1161;
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L1025
-        if (WE) (negedge WCLK => (DOC : DIC)) = 1158;
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L1093
-        if (WE) (negedge WCLK => (DOD : DID)) = 1163;
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L818-L830
-        $setup(ADDRD[0], negedge WCLK, 362);
-        $setup(ADDRD[1], negedge WCLK, 245);
-        $setup(ADDRD[2], negedge WCLK, 208);
-        $setup(ADDRD[3], negedge WCLK, 147);
-        $setup(ADDRD[4], negedge WCLK, 68);
-        $setup(ADDRD[5], negedge WCLK, 66);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986-L988
-        $setup(DIA, negedge WCLK, 384);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L1054-L1056
-        $setup(DIB, negedge WCLK, 354);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L1122-L1124
-        $setup(DIC, negedge WCLK, 375);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L1190-L1192
-        $setup(DID, negedge WCLK, 310);
-        // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L834
-        $setup(WE, negedge WCLK, 654);
-      endspecify
-  endgenerate
+  specify
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L818-L830
+    $setup(ADDRD[0], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 362);
+    $setup(ADDRD[0], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 362);
+    $setup(ADDRD[1], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 245);
+    $setup(ADDRD[1], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 245);
+    $setup(ADDRD[2], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 208);
+    $setup(ADDRD[2], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 208);
+    $setup(ADDRD[3], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 147);
+    $setup(ADDRD[3], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 147);
+    $setup(ADDRD[4], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 68);
+    $setup(ADDRD[4], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 68);
+    $setup(ADDRD[5], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 66);
+    $setup(ADDRD[5], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 66);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986-L988
+    $setup(DIA, posedge WCLK &&& !IS_WCLK_INVERTED && WE, 384);
+    $setup(DIA, negedge WCLK &&&  IS_WCLK_INVERTED && WE, 384);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L1054-L1056
+    $setup(DIB, posedge WCLK &&& !IS_WCLK_INVERTED && WE, 354);
+    $setup(DIB, negedge WCLK &&&  IS_WCLK_INVERTED && WE, 354);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L1122-L1124
+    $setup(DIC, posedge WCLK &&& !IS_WCLK_INVERTED && WE, 375);
+    $setup(DIC, negedge WCLK &&&  IS_WCLK_INVERTED && WE, 375);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L1190-L1192
+    $setup(DID, posedge WCLK &&& !IS_WCLK_INVERTED && WE, 310);
+    $setup(DID, negedge WCLK &&&  IS_WCLK_INVERTED && WE, 310);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L834
+    $setup(WE, posedge WCLK &&& !IS_WCLK_INVERTED && WE, 654);
+    $setup(WE, negedge WCLK &&&  IS_WCLK_INVERTED && WE, 654);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L889
+    if (!IS_WCLK_INVERTED && WE) (posedge WCLK => (DOA : DIA)) = 1153;
+    if ( IS_WCLK_INVERTED && WE) (negedge WCLK => (DOA : DIA)) = 1153;
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
+    if (!IS_WCLK_INVERTED && WE) (posedge WCLK => (DOB : DIB)) = 1161;
+    if ( IS_WCLK_INVERTED && WE) (negedge WCLK => (DOB : DIB)) = 1161;
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L1025
+    if (!IS_WCLK_INVERTED && WE) (posedge WCLK => (DOC : DIC)) = 1158;
+    if ( IS_WCLK_INVERTED && WE) (negedge WCLK => (DOC : DIC)) = 1158;
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L1093
+    if (!IS_WCLK_INVERTED && WE) (posedge WCLK => (DOD : DID)) = 1163;
+    if ( IS_WCLK_INVERTED && WE) (negedge WCLK => (DOD : DID)) = 1163;
+    // Captured by $__ABC9_RAM6
+    //({ADDRA[0],ADDRB[0],ADDRC[0],ADDRD[0]} => {DOA,DOB,DOC,DOD}) = 642;
+    //({ADDRA[1],ADDRB[1],ADDRC[1],ADDRD[1]} => {DOA,DOB,DOC,DOD}) = 631;
+    //({ADDRA[2],ADDRB[2],ADDRC[2],ADDRD[2]} => {DOA,DOB,DOC,DOD}) = 472;
+    //({ADDRA[3],ADDRB[3],ADDRC[3],ADDRD[3]} => {DOA,DOB,DOC,DOD}) = 407;
+    //({ADDRA[4],ADDRB[4],ADDRC[4],ADDRD[4]} => {DOA,DOB,DOC,DOD}) = 238;
+  endspecify
 endmodule
 
 module RAM64M8 (
@@ -2064,11 +2031,21 @@ module SRL16 (
   reg [15:0] r = INIT;
   assign Q = r[{A3,A2,A1,A0}];
   always @(posedge CLK) r <= { r[14:0], D };
+
+  specify
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L905
+    (posedge CLK => (Q : 1'bx)) = 1472;
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L912
+    $setup(D , posedge CLK, 173);
+    // Captured by $__ABC9_RAM6
+    //(A0 => Q) = 631;
+    //(A1 => Q) = 472;
+    //(A2 => Q) = 407;
+    //(A3 => Q) = 238;
+  endspecify
 endmodule
 
 module SRL16E (
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L905
-  (* abc9_arrival=1472 *)
   output Q,
   input A0, A1, A2, A3, CE,
   (* clkbuf_sink *)
@@ -2088,6 +2065,19 @@ module SRL16E (
     else
       always @(posedge CLK) if (CE) r <= { r[14:0], D };
   endgenerate
+  specify
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L912
+    $setup(D , posedge CLK &&& !IS_CLK_INVERTED, 173);
+    $setup(D , negedge CLK &&&  IS_CLK_INVERTED, 173);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L905
+    if (!IS_CLK_INVERTED && CE) (posedge CLK => (Q : 1'bx)) = 1472;
+    if ( IS_CLK_INVERTED && CE) (negedge CLK => (Q : 1'bx)) = 1472;
+    // Captured by $__ABC9_RAM6
+    //(A0 => Q) = 631;
+    //(A1 => Q) = 472;
+    //(A2 => Q) = 407;
+    //(A3 => Q) = 238;
+  endspecify
 endmodule
 
 module SRLC16 (
@@ -2104,6 +2094,18 @@ module SRLC16 (
   assign Q15 = r[15];
   assign Q = r[{A3,A2,A1,A0}];
   always @(posedge CLK) r <= { r[14:0], D };
+
+  specify
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L905
+    (posedge CLK => (Q : 1'bx)) = 1472;
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L912
+    $setup(D , posedge CLK, 173);
+    // Captured by $__ABC9_RAM6
+    //(A0 => Q) = 631;
+    //(A1 => Q) = 472;
+    //(A2 => Q) = 407;
+    //(A3 => Q) = 238;
+  endspecify
 endmodule
 
 module SRLC16E (
@@ -2128,14 +2130,24 @@ module SRLC16E (
     else
       always @(posedge CLK) if (CE) r <= { r[14:0], D };
   endgenerate
+  specify
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L912
+    $setup(D , posedge CLK &&& !IS_CLK_INVERTED, 173);
+    $setup(D , negedge CLK &&&  IS_CLK_INVERTED, 173);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L905
+    if (!IS_CLK_INVERTED && CE) (posedge CLK => (Q : D)) = 1472;
+    if ( IS_CLK_INVERTED && CE) (negedge CLK => (Q : D)) = 1472;
+    // Captured by $__ABC9_RAM6
+    //(A0 => Q) = 642;
+    //(A1 => Q) = 631;
+    //(A2 => Q) = 472;
+    //(A3 => Q) = 407;
+    //(A4 => Q) = 238;
+  endspecify
 endmodule
 
 module SRLC32E (
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L905
-  (* abc9_arrival=1472 *)
   output Q,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L904
-  (* abc9_arrival=1114 *)
   output Q31,
   input [4:0] A,
   input CE,
@@ -2157,6 +2169,23 @@ module SRLC32E (
     else
       always @(posedge CLK) if (CE) r <= { r[30:0], D };
   endgenerate
+  specify
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L912
+    $setup(D , posedge CLK &&& !IS_CLK_INVERTED, 173);
+    $setup(D , negedge CLK &&&  IS_CLK_INVERTED, 173);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L905
+    if (!IS_CLK_INVERTED && CE) (posedge CLK => (Q : 1'bx)) = 1472;
+    if ( IS_CLK_INVERTED && CE) (negedge CLK => (Q : 1'bx)) = 1472;
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L904
+    if (!IS_CLK_INVERTED && CE) (posedge CLK => (Q : 1'bx)) = 1114;
+    if ( IS_CLK_INVERTED && CE) (negedge CLK => (Q : 1'bx)) = 1114;
+    // Captured by $__ABC9_RAM6
+    //(A0 => Q) = 642;
+    //(A1 => Q) = 631;
+    //(A2 => Q) = 472;
+    //(A3 => Q) = 407;
+    //(A4 => Q) = 238;
+  endspecify
 endmodule
 
 module CFGLUT5 (
@@ -2928,31 +2957,16 @@ module DSP48E1 (
     output reg [3:0] CARRYOUT,
     output reg MULTSIGNOUT,
     output OVERFLOW,
-`ifdef YOSYS
-    (* abc9_arrival = \P.abc9_arrival () *)
-`endif
     output reg signed [47:0] P,
     output reg PATTERNBDETECT,
     output reg PATTERNDETECT,
-`ifdef YOSYS
-    (* abc9_arrival = \PCOUT.abc9_arrival () *)
-`endif
     output [47:0] PCOUT,
     output UNDERFLOW,
-`ifdef YOSYS
-    (* abc9_required = \A.abc9_required () *)
-`endif
     input signed [29:0] A,
     input [29:0] ACIN,
     input [3:0] ALUMODE,
-`ifdef YOSYS
-    (* abc9_required = \B.abc9_required () *)
-`endif
     input signed [17:0] B,
     input [17:0] BCIN,
-`ifdef YOSYS
-    (* abc9_required = \C.abc9_required () *)
-`endif
     input [47:0] C,
     input CARRYCASCIN,
     input CARRYIN,
@@ -2971,16 +2985,10 @@ module DSP48E1 (
     input CEM,
     input CEP,
     (* clkbuf_sink *) input CLK,
-`ifdef YOSYS
-    (* abc9_required = \D.abc9_required () *)
-`endif
     input [24:0] D,
     input [4:0] INMODE,
     input MULTSIGNIN,
     input [6:0] OPMODE,
-`ifdef YOSYS
-    (* abc9_required = \PCIN.abc9_required () *)
-`endif
     input [47:0] PCIN,
     input RSTA,
     input RSTALLCARRYIN,
@@ -3157,6 +3165,23 @@ module DSP48E1 (
         //    $error("Invalid DSP48E1 configuration");
     end
     endfunction
+
+    specify
+        $setup(A   , posedge CLK &&& !IS_CLK_INVERTED, \A.abc9_required () );
+        $setup(A   , negedge CLK &&&  IS_CLK_INVERTED, \A.abc9_required () );
+        $setup(B   , posedge CLK &&& !IS_CLK_INVERTED, \B.abc9_required () );
+        $setup(B   , negedge CLK &&&  IS_CLK_INVERTED, \B.abc9_required () );
+        $setup(C   , posedge CLK &&& !IS_CLK_INVERTED, \C.abc9_required () );
+        $setup(C   , negedge CLK &&&  IS_CLK_INVERTED, \C.abc9_required () );
+        $setup(D   , posedge CLK &&& !IS_CLK_INVERTED, \D.abc9_required () );
+        $setup(D   , negedge CLK &&&  IS_CLK_INVERTED, \D.abc9_required () );
+        $setup(PCIN, posedge CLK &&& !IS_CLK_INVERTED, \PCIN.abc9_required () );
+        $setup(PCIN, negedge CLK &&&  IS_CLK_INVERTED, \PCIN.abc9_required () );
+        if (!IS_CLK_INVERTED && CEP) (posedge CLK => (P : 48'bx)) = \P.abc9_arrival () ;
+        if ( IS_CLK_INVERTED && CEP) (negedge CLK => (P : 48'bx)) = \P.abc9_arrival () ;
+        if (!IS_CLK_INVERTED && CEP) (posedge CLK => (PCOUT : 48'bx)) = \PCOUT.abc9_arrival () ;
+        if ( IS_CLK_INVERTED && CEP) (negedge CLK => (PCOUT : 48'bx)) = \PCOUT.abc9_arrival () ;
+    endspecify
 `endif
 
     initial begin
