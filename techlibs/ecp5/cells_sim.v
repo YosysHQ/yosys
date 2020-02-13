@@ -15,30 +15,8 @@ module LUT4(input A, B, C, D, output Z);
     endspecify
 endmodule
 
-(* abc9_lut=1 *)
-module \$__ABC9_LUT1 (input A, output Z);
-    specify
-        (A => Z) = 141;
-    endspecify
-endmodule
-
-(* abc9_lut=1 *)
-module \$__ABC9_LUT2 (input A, B, output Z);
-    specify
-        (A => Z) = 141;
-        (B => Z) = 275;
-    endspecify
-endmodule
-
-(* abc9_lut=1 *)
-module \$__ABC9_LUT3 (input A, B, C, output Z);
-    specify
-        (A => Z) = 141;
-        (B => Z) = 275;
-        (C => Z) = 379;
-    endspecify
-endmodule
-
+// This is a placeholder for ABC9 to extract the area/delay
+//   cost of 5-input LUTs and is not intended to be instantiated
 // LUT5 = 2x LUT4 + PFUMX
 (* abc9_lut=2 *)
 module \$__ABC9_LUT5 (input M0, D, C, B, A, output Z);
@@ -51,6 +29,8 @@ module \$__ABC9_LUT5 (input M0, D, C, B, A, output Z);
     endspecify
 endmodule
 
+// This is a placeholder for ABC9 to extract the area/delay
+//   of 6-input LUTs and is not intended to be instantiated
 // LUT6 = 2x LUT5 + MUX2
 (* abc9_lut=4 *)
 module \$__ABC9_LUT6 (input M1, M0, D, C, B, A, output Z);
@@ -64,6 +44,8 @@ module \$__ABC9_LUT6 (input M1, M0, D, C, B, A, output Z);
     endspecify
 endmodule
 
+// This is a placeholder for ABC9 to extract the area/delay
+//   of 7-input LUTs and is not intended to be instantiated
 // LUT7 = 2x LUT6 + MUX2
 (* abc9_lut=8 *)
 module \$__ABC9_LUT7 (input M2, M1, M0, D, C, B, A, output Z);
