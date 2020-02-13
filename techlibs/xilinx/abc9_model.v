@@ -38,17 +38,6 @@ module \$__XILINX_MUXF78 (output O, input I0, I1, I2, I3, S0, S1);
   endspecify
 endmodule
 
-module \$__ABC9_FF_ (input D, output Q);
-endmodule
-
-(* abc9_box *)
-module \$__ABC9_DELAY (input I, output O);
-  parameter DELAY = 0;
-  specify
-    (I => O) = DELAY;
-  endspecify
-endmodule
-
 // Box to emulate async behaviour of FDC*
 (* abc9_box, lib_whitebox *)
 module \$__ABC9_ASYNC0 (input A, S, output Y);

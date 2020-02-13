@@ -227,6 +227,9 @@ module LUT5(output O, input I0, I1, I2, I3, I4);
   endspecify
 endmodule
 
+// This is a placeholder for ABC9 to extract the area/delay
+//   cost of 3-input LUTs and is not intended to be instantiated
+
 (* abc9_lut=5 *)
 module LUT6(output O, input I0, I1, I2, I3, I4, I5);
   parameter [63:0] INIT = 0;
@@ -262,20 +265,24 @@ module LUT6_2(output O6, output O5, input I0, I1, I2, I3, I4, I5);
   assign O5 = I0 ? s5_1[1] : s5_1[0];
 endmodule
 
+// This is a placeholder for ABC9 to extract the area/delay
+//   cost of 3-input LUTs and is not intended to be instantiated
 (* abc9_lut=10 *)
 module \$__ABC9_LUT7 (output O, input I0, I1, I2, I3, I4, I5, I6);
   specify
                                                  // https://github.com/SymbiFlow/prjxray-db/blob/1c85daf1b115da4d27ca83c6b89f53a94de39748/artix7/timings/slicel.sdf#L867
-    (I0 => O) = 642 + 223 /* to cross MUXF7 */ + 174 /* CMUX */;
-    (I1 => O) = 631 + 223 /* to cross MUXF7 */ + 174 /* CMUX */;
-    (I2 => O) = 472 + 223 /* to cross MUXF7 */ + 174 /* CMUX */;
-    (I3 => O) = 407 + 223 /* to cross MUXF7 */ + 174 /* CMUX */;
-    (I4 => O) = 238 + 223 /* to cross MUXF7 */ + 174 /* CMUX */;
-    (I5 => O) = 127 + 223 /* to cross MUXF7 */ + 174 /* CMUX */;
-    (I6 => O) = 0 + 296 /* to select MUXF7 */ + 174 /* CMUX */;
+    (I0 => O) = 642 + 223 /* to cross F7BMUX */ + 174 /* CMUX */;
+    (I1 => O) = 631 + 223 /* to cross F7BMUX */ + 174 /* CMUX */;
+    (I2 => O) = 472 + 223 /* to cross F7BMUX */ + 174 /* CMUX */;
+    (I3 => O) = 407 + 223 /* to cross F7BMUX */ + 174 /* CMUX */;
+    (I4 => O) = 238 + 223 /* to cross F7BMUX */ + 174 /* CMUX */;
+    (I5 => O) = 127 + 223 /* to cross F7BMUX */ + 174 /* CMUX */;
+    (I6 => O) = 0 + 296 /* to select F7BMUX */ + 174 /* CMUX */;
   endspecify
 endmodule
 
+// This is a placeholder for ABC9 to extract the area/delay
+//   cost of 3-input LUTs and is not intended to be instantiated
 (* abc9_lut=20 *)
 module \$__ABC9_LUT8 (output O, input I0, I1, I2, I3, I4, I5, I6, I7);
   specify
@@ -489,7 +496,7 @@ module FDRE (
     //$setup(D , negedge C &&& CE &&&  IS_C_INVERTED , -46); // Negative times not currently supported
     // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L248
     $setup(CE, posedge C &&& !IS_C_INVERTED, 109);
-    $setup(CE, negedge C &&&  IS_C_INVERTED , 109);
+    $setup(CE, negedge C &&&  IS_C_INVERTED, 109);
     // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L274
     $setup(R , posedge C &&& !IS_C_INVERTED, 404);
     $setup(R , negedge C &&&  IS_C_INVERTED, 404);

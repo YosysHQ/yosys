@@ -619,7 +619,7 @@ struct SynthXilinxPass : public ScriptPass
 				if (dff_mode)
 					techmap_args += " -D DFF_MODE";
 				run("techmap " + techmap_args);
-				run("read_verilog -icells -lib -specify +/xilinx/abc9_model.v");
+				run("read_verilog -icells -lib -specify +/abc9_model.v +/xilinx/abc9_model.v");
 				std::string abc9_opts;
 				auto k = stringf("synth_xilinx.abc9.%s.W", family.c_str());
 				if (active_design->scratchpad.count(k))
