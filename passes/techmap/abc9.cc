@@ -192,7 +192,7 @@ struct Abc9Pass : public ScriptPass
 		cleanup = true;
 		lut_mode = false;
 		maxlut = 0;
-		box_file = "(null)";
+		box_file = "";
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -286,9 +286,9 @@ struct Abc9Pass : public ScriptPass
 			else if (!lut_mode)
 				run(stringf("abc9_ops -prep_lut %d", maxlut));
 			if (help_mode)
-				run("abc9_ops -prep_box [<-box>|(null)]");
-			else
-				run(stringf("abc9_ops -prep_box %s", box_file.c_str()));
+				run("abc9_ops -prep_box [-dff]", "(skip if -box)");
+			else if (box_file.empty())
+				run(stringf("abc9_ops -prep_box %s", dff_mode ? "-dff" : ""));
 			run("select -set abc9_holes A:abc9_holes");
 			run("flatten -wb @abc9_holes");
 			run("techmap @abc9_holes");

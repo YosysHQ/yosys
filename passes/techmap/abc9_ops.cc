@@ -378,7 +378,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 	}
 }
 
-void prep_delays(RTLIL::Design *design)
+void prep_delays(RTLIL::Design *design, bool dff_mode)
 {
 	// Derive and collect all Yosys blackbox modules that are not combinatorial abc9 boxes
 	//   (e.g. DSPs, RAMs, etc.) nor abc9 flops and collect all such instantiations
@@ -407,7 +407,7 @@ void prep_delays(RTLIL::Design *design)
 			log_assert(inst_module);
 			blackboxes.insert(inst_module);
 
-			if (inst_module->get_bool_attribute(ID(abc9_flop))) {
+			if (dff_mode && inst_module->get_bool_attribute(ID(abc9_flop))) {
 				flops.insert(inst_module);
 				continue; // do not add $__ABC9_DELAY boxes to flops
 					  //   as delays will be captured in the flop box
@@ -474,10 +474,8 @@ void prep_delays(RTLIL::Design *design)
 			continue;
 
 		ports.clear();
-		for (const auto &i : arrivals) {
-			log_dump(i.first, i.first.wire->name);
+		for (const auto &i : arrivals)
 			ports.insert(i.first.wire);
-		}
 		for (auto wire : ports) {
 			log_assert(wire->port_output);
 			ss.str("");
@@ -537,7 +535,7 @@ void prep_delays(RTLIL::Design *design)
 		inst_module = design->module(derived_type);
 		log_assert(inst_module);
 
-		auto &cell_requireds = requireds_cache[cell->type];
+		auto &cell_requireds = requireds_cache[derived_type];
 		for (auto &conn : cell->connections_) {
 			auto port_wire = inst_module->wire(conn.first);
 			if (!port_wire->port_input)
@@ -569,7 +567,7 @@ void prep_delays(RTLIL::Design *design)
 #ifndef NDEBUG
 				if (ys_debug(1)) {
 					static std::set<std::pair<IdString,IdString>> seen;
-					if (seen.emplace(cell->type, conn.first).second) log("%s.%s abc9_required = %d\n", log_id(cell->type), log_id(conn.first), requireds[i]);
+					if (seen.emplace(derived_type, conn.first).second) log("%s.%s abc9_required = %d\n", log_id(cell->type), log_id(conn.first), requireds[i]);
 				}
 #endif
 				auto box = module->addCell(NEW_ID, ID($__ABC9_DELAY));
@@ -652,64 +650,66 @@ void write_lut(RTLIL::Module *module, const std::string &dst) {
 	ofs.close();
 }
 
-void prep_box(RTLIL::Design *design)
+void prep_box(RTLIL::Design *design, bool dff_mode)
 {
 	std::stringstream ss;
 	int abc9_box_id = 1;
 	dict<IdString,std::vector<IdString>> box_ports;
 	for (auto module : design->modules()) {
-		if (module->get_bool_attribute(ID(abc9_flop))) {
-			int num_inputs = 0, num_outputs = 0;
-			for (auto port_name : module->ports) {
-				auto wire = module->wire(port_name);
-				log_assert(GetSize(wire) == 1);
-				if (wire->port_input) num_inputs++;
-				if (wire->port_output) num_outputs++;
+		auto abc9_flop = module->get_bool_attribute(ID(abc9_flop));
+		if (abc9_flop) {
+			if (dff_mode) {
+				int num_inputs = 0, num_outputs = 0;
+				for (auto port_name : module->ports) {
+					auto wire = module->wire(port_name);
+					log_assert(GetSize(wire) == 1);
+					if (wire->port_input) num_inputs++;
+					if (wire->port_output) num_outputs++;
+				}
+				log_assert(num_outputs == 1);
+
+				auto r = module->attributes.insert(ID(abc9_box_id));
+				if (r.second)
+					r.first->second = abc9_box_id++;
+
+				ss << log_id(module) << " " << r.first->second.as_int();
+				ss << " " << (module->get_bool_attribute(ID::whitebox) ? "1" : "0");
+				ss << " " << num_inputs+1 << " " << num_outputs << std::endl;
+
+				ss << "#";
+				bool first = true;
+				for (auto port_name : module->ports) {
+					auto wire = module->wire(port_name);
+					if (!wire->port_input)
+						continue;
+					if (first)
+						first = false;
+					else
+						ss << " ";
+					ss << log_id(wire);
+				}
+				ss << " abc9_ff.Q" << std::endl;
+
+				first = true;
+				for (auto port_name : module->ports) {
+					auto wire = module->wire(port_name);
+					if (!wire->port_input)
+						continue;
+					if (first)
+						first = false;
+					else
+						ss << " ";
+					ss << wire->attributes.at("\\abc9_required", 0).as_int();
+				}
+				// Last input is 'abc9_ff.Q'
+				ss << " 0" << std::endl << std::endl;
+				continue;
 			}
-			log_assert(num_outputs == 1);
-
-			auto r = module->attributes.insert(ID(abc9_box_id));
-			if (r.second)
-				r.first->second = abc9_box_id++;
-
-			ss << log_id(module) << " " << r.first->second.as_int();
-			ss << " " << (module->get_bool_attribute(ID::whitebox) ? "1" : "0");
-			ss << " " << num_inputs+1 << " " << num_outputs << std::endl;
-
-			ss << "#";
-			bool first = true;
-			for (auto port_name : module->ports) {
-				auto wire = module->wire(port_name);
-				if (!wire->port_input)
-					continue;
-				if (first)
-					first = false;
-				else
-					ss << " ";
-				ss << log_id(wire);
-			}
-			ss << " abc9_ff.Q" << std::endl;
-
-			first = true;
-			for (auto port_name : module->ports) {
-				auto wire = module->wire(port_name);
-				if (!wire->port_input)
-					continue;
-				if (first)
-					first = false;
-				else
-					ss << " ";
-				ss << wire->attributes.at("\\abc9_required", 0).as_int();
-			}
-			// Last input is 'abc9_ff.Q'
-			ss << " 0" << std::endl << std::endl;
-			continue;
 		}
-
-		auto it = module->attributes.find(ID(abc9_box));
-		if (it == module->attributes.end())
-			continue;
-		module->attributes.erase(it);
+		else {
+			if (!module->attributes.erase(ID(abc9_box)))
+				continue;
+		}
 		log_assert(!module->attributes.count(ID(abc9_box_id)));
 
 		dict<std::pair<SigBit,SigBit>, std::string> table;
@@ -1241,8 +1241,8 @@ struct Abc9OpsPass : public Pass {
 		log("        whiteboxes.\n");
 		log("\n");
 		log("    -dff\n");
-		log("        consider flop cells (those instantiating modules marked with (* abc9_flop *)\n");
-		log("        during -prep_xaiger.\n");
+		log("        consider flop cells (those instantiating modules marked with (* abc9_flop *))\n");
+		log("        during -prep_{delays,xaiger,box}.\n");
 		log("\n");
 		log("    -prep_dff\n");
 		log("        compute the clock domain and initial value of each flop in the design.\n");
@@ -1345,17 +1345,17 @@ struct Abc9OpsPass : public Pass {
 		if (!(check_mode || mark_scc_mode || prep_delays_mode || prep_xaiger_mode || prep_dff_mode || prep_lut_mode || prep_box_mode || !write_lut_dst.empty() || !write_box_dst.empty() || reintegrate_mode))
 			log_cmd_error("At least one of -check, -mark_scc, -prep_{delays,xaiger,dff,lut,box}, -write_{lut,box}, -reintegrate must be specified.\n");
 
-		if (dff_mode && !prep_xaiger_mode)
-			log_cmd_error("'-dff' option is only relevant for -prep_xaiger.\n");
+		if (dff_mode && !prep_delays_mode && !prep_xaiger_mode && !prep_box_mode)
+			log_cmd_error("'-dff' option is only relevant for -prep_{delay,xaiger,box}.\n");
 
 		if (check_mode)
 			check(design);
 		if (prep_delays_mode)
-			prep_delays(design);
+			prep_delays(design, dff_mode);
 		if (prep_lut_mode)
 			prep_lut(design, maxlut);
 		if (prep_box_mode)
-			prep_box(design);
+			prep_box(design, dff_mode);
 
 		for (auto mod : design->selected_modules()) {
 			if (mod->get_bool_attribute("\\abc9_holes"))
