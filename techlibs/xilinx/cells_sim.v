@@ -269,6 +269,7 @@ endmodule
 //   cost of 3-input LUTs and is not intended to be instantiated
 (* abc9_lut=10 *)
 module \$__ABC9_LUT7 (output O, input I0, I1, I2, I3, I4, I5, I6);
+`ifndef __ICARUS__
   specify
                                                  // https://github.com/SymbiFlow/prjxray-db/blob/1c85daf1b115da4d27ca83c6b89f53a94de39748/artix7/timings/slicel.sdf#L867
     (I0 => O) = 642 + 223 /* to cross F7BMUX */ + 174 /* CMUX */;
@@ -279,12 +280,14 @@ module \$__ABC9_LUT7 (output O, input I0, I1, I2, I3, I4, I5, I6);
     (I5 => O) = 127 + 223 /* to cross F7BMUX */ + 174 /* CMUX */;
     (I6 => O) = 0 + 296 /* to select F7BMUX */ + 174 /* CMUX */;
   endspecify
+`endif
 endmodule
 
 // This is a placeholder for ABC9 to extract the area/delay
 //   cost of 3-input LUTs and is not intended to be instantiated
 (* abc9_lut=20 *)
 module \$__ABC9_LUT8 (output O, input I0, I1, I2, I3, I4, I5, I6, I7);
+`ifndef __ICARUS__
   specify
                                                                              // https://github.com/SymbiFlow/prjxray-db/blob/1c85daf1b115da4d27ca83c6b89f53a94de39748/artix7/timings/slicel.sdf#L716
     (I0 => O) = 642 + 223 /* to cross F7BMUX */ + 104 /* to cross F8MUX */ + 192 /* BMUX */;
@@ -296,6 +299,7 @@ module \$__ABC9_LUT8 (output O, input I0, I1, I2, I3, I4, I5, I6, I7);
     (I6 => O) = 0 + 296 /* to select F7BMUX */  + 104 /* to cross F8MUX */ + 192 /* BMUX */;
     (I7 => O) = 0 + 0 + 273 /* to select F8MUX */ + 192 /* BMUX */;
   endspecify
+`endif
 endmodule
 
 module MUXCY(output O, input CI, DI, S);
@@ -1417,9 +1421,11 @@ module RAM32X1D (
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L792
     $setup(A4, posedge WCLK &&& !IS_WCLK_INVERTED && WE, 66);
     $setup(A4, posedge WCLK &&&  IS_WCLK_INVERTED && WE, 66);
+`ifndef __ICARUS__
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L981
     if (!IS_WCLK_INVERTED && WE) (posedge WCLK => ({SPO,DPO} : {D,1'bx})) = 1153;
     if ( IS_WCLK_INVERTED && WE) (negedge WCLK => ({SPO,DPO} : {D,1'bx})) = 1153;
+`endif
     // Captured by $__ABC9_RAM6
     //({A0,DPRA0} => {SPO,DPO}) = 642;
     //({A1,DPRA1} => {SPO,DPO}) = 631;
@@ -1467,8 +1473,10 @@ module RAM32X1D_1 (
     $setup(A3, negedge WCLK &&& WE, 68);
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L792
     $setup(A4, negedge WCLK &&& WE, 66);
+`ifndef __ICARUS__
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L981
     if (WE) (negedge WCLK => ({SPO,DPO} : {D,1'bx})) = 1153;
+`endif
     // Captured by $__ABC9_RAM6
     //({A0,DPRA0} => {SPO,DPO}) = 642;
     //({A1,DPRA1} => {SPO,DPO}) = 631;
@@ -1522,9 +1530,11 @@ module RAM64X1D (
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L818
     $setup(A5, posedge WCLK &&& !IS_WCLK_INVERTED && WE, 66);
     $setup(A5, negedge WCLK &&&  IS_WCLK_INVERTED && WE, 66);
+`ifndef __ICARUS__
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L981
     if (!IS_WCLK_INVERTED && WE) (posedge WCLK => ({SPO,DPO} : {D,1'bx})) = 1153;
     if ( IS_WCLK_INVERTED && WE) (negedge WCLK => ({SPO,DPO} : {D,1'bx})) = 1153;
+`endif
     // Captured by $__ABC9_RAM6
     //({A0,DPRA0} => {SPO,DPO}) = 642;
     //({A1,DPRA1} => {SPO,DPO}) = 631;
@@ -1571,8 +1581,10 @@ module RAM64X1D_1 (
     $setup(A4, negedge WCLK &&& WE, 68);
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L818
     $setup(A5, negedge WCLK &&& WE, 66);
+`ifndef __ICARUS__
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L981
     if (WE) (negedge WCLK => ({SPO,DPO} : {D,1'bx})) = 1153;
+`endif
   endspecify
 endmodule
 
@@ -1615,9 +1627,11 @@ module RAM128X1D (
     $setup(A[5], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 68);
     $setup(A[6], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 66);
     $setup(A[6], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 66);
+`ifndef __ICARUS__
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L981
     if (!IS_WCLK_INVERTED && WE) (posedge WCLK => (SPO : D))    = 1153 + 217 /* to cross F7AMUX */ + 175 /* AMUX */;
     if ( IS_WCLK_INVERTED && WE) (negedge WCLK => (DPO : 1'bx)) = 1153 + 223 /* to cross F7BMUX */ + 174 /* CMUX */;
+`endif
     // Captured by $__ABC9_RAM7
     //(A[0] => SPO) = 642 + 193 /* to cross F7AMUX */ + 175 /* AMUX */;
     //(A[1] => SPO) = 631 + 193 /* to cross F7AMUX */ + 175 /* AMUX */;
@@ -2380,6 +2394,7 @@ parameter RSTTYPE = "SYNC";
 
 // This is a strict subset of Spartan 6 -- reuse its model.
 
+/* verilator lint_off PINMISSING */
 DSP48A1 #(
 	.A0REG(A0REG),
 	.A1REG(A1REG),
@@ -2426,6 +2441,7 @@ DSP48A1 #(
 	.RSTOPMODE(RSTOPMODE),
 	.RSTP(RSTP)
 );
+/* verilator lint_on PINMISSING */
 
 endmodule
 
