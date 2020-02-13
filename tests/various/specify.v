@@ -44,3 +44,10 @@ specify
   (posedge clk *> (q +: d)) = (3,1);
 endspecify
 endmodule
+
+module test4(input clk, d, output q);
+specify
+  $setup(d, posedge clk, 1:2:3);
+  $setuphold(d, posedge clk, 1:2:3, 4:5:6);
+endspecify
+endmodule

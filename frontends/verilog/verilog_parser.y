@@ -161,9 +161,9 @@ struct specify_rise_fall {
 %type <al> attr case_attr
 
 %type <specify_target_ptr> specify_target
-%type <specify_triple_ptr> specify_triple
+%type <specify_triple_ptr> specify_triple specify_opt_triple
 %type <specify_rise_fall_ptr> specify_rise_fall
-%type <ast> specify_if specify_condition specify_opt_arg
+%type <ast> specify_if specify_condition
 %type <ch> specify_edge
 
 // operator precedence from low to high
@@ -855,7 +855,7 @@ specify_item:
 		delete target;
 		delete timing;
 	} |
-	TOK_ID '(' specify_edge expr specify_condition ',' specify_edge expr specify_condition ',' expr specify_opt_arg ')' ';' {
+	TOK_ID '(' specify_edge expr specify_condition ',' specify_edge expr specify_condition ',' specify_triple specify_opt_triple ')' ';' {
 		if (*$1 != "$setup" && *$1 != "$hold" && *$1 != "$setuphold" && *$1 != "$removal" && *$1 != "$recovery" &&
 				*$1 != "$recrem" && *$1 != "$skew" && *$1 != "$timeskew" && *$1 != "$fullskew" && *$1 != "$nochange")
 			frontend_verilog_yyerror("Unsupported specify rule type: %s\n", $1->c_str());
@@ -868,8 +868,8 @@ specify_item:
 		AstNode *dst_pol = AstNode::mkconst_int($7 == 'p', false, 1);
 		AstNode *dst_expr = $8, *dst_en = $9 ? $9 : AstNode::mkconst_int(1, false, 1);
 
-		AstNode *limit = $11;
-		AstNode *limit2 = $12;
+		specify_triple *limit = $11;
+		specify_triple *limit2 = $12;
 
 		AstNode *cell = new AstNode(AST_CELL);
 		ast_stack.back()->children.push_back(cell);
@@ -880,11 +880,23 @@ specify_item:
 		cell->children.push_back(new AstNode(AST_PARASET, AstNode::mkconst_str(*$1)));
 		cell->children.back()->str = "\\TYPE";
 
-		cell->children.push_back(new AstNode(AST_PARASET, limit));
-		cell->children.back()->str = "\\T_LIMIT";
+		cell->children.push_back(new AstNode(AST_PARASET, limit->t_min));
+		cell->children.back()->str = "\\T_LIMIT_MIN";
 
-		cell->children.push_back(new AstNode(AST_PARASET, limit2 ? limit2 : AstNode::mkconst_int(0, true)));
-		cell->children.back()->str = "\\T_LIMIT2";
+		cell->children.push_back(new AstNode(AST_PARASET, limit->t_avg));
+		cell->children.back()->str = "\\T_LIMIT_TYP";
+
+		cell->children.push_back(new AstNode(AST_PARASET, limit->t_max));
+		cell->children.back()->str = "\\T_LIMIT_MAX";
+
+		cell->children.push_back(new AstNode(AST_PARASET, limit2 ? limit2->t_min : AstNode::mkconst_int(0, true)));
+		cell->children.back()->str = "\\T_LIMIT2_MIN";
+
+		cell->children.push_back(new AstNode(AST_PARASET, limit2 ? limit2->t_avg : AstNode::mkconst_int(0, true)));
+		cell->children.back()->str = "\\T_LIMIT2_TYP";
+
+		cell->children.push_back(new AstNode(AST_PARASET, limit2 ? limit2->t_max : AstNode::mkconst_int(0, true)));
+		cell->children.back()->str = "\\T_LIMIT2_MAX";
 
 		cell->children.push_back(new AstNode(AST_PARASET, src_pen));
 		cell->children.back()->str = "\\SRC_PEN";
@@ -913,8 +925,8 @@ specify_item:
 		delete $1;
 	};
 
-specify_opt_arg:
-	',' expr {
+specify_opt_triple:
+	',' specify_triple {
 		$$ = $2;
 	} |
 	/* empty */ {
@@ -1123,7 +1135,12 @@ ignspec_constant_expression:
 	expr { delete $1; };
 
 ignspec_expr:
-	expr { delete $1; };
+	expr { delete $1; } |
+	expr ':' expr ':' expr {
+                delete $1;
+                delete $3;
+                delete $5;
+	};
 
 ignspec_id:
 	TOK_ID { delete $1; };

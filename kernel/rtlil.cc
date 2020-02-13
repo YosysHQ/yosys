@@ -1258,8 +1258,12 @@ namespace {
 				param_bool(ID(SRC_POL));
 				param_bool(ID(DST_PEN));
 				param_bool(ID(DST_POL));
-				param(ID(T_LIMIT));
-				param(ID(T_LIMIT2));
+				param(ID(T_LIMIT_MIN));
+				param(ID(T_LIMIT_TYP));
+				param(ID(T_LIMIT_MAX));
+				param(ID(T_LIMIT2_MIN));
+				param(ID(T_LIMIT2_TYP));
+				param(ID(T_LIMIT2_MAX));
 				port(ID(SRC_EN), 1);
 				port(ID(DST_EN), 1);
 				port(ID(SRC), param(ID(SRC_WIDTH)));

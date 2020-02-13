@@ -1417,11 +1417,19 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		decimal = 1;
 
 		f << ", ";
-		dump_const(f, cell->getParam("\\T_LIMIT"));
+		dump_const(f, cell->getParam("\\T_LIMIT_MIN"));
+		f << ": ";
+		dump_const(f, cell->getParam("\\T_LIMIT_TYP"));
+		f << ": ";
+		dump_const(f, cell->getParam("\\T_LIMIT_MAX"));
 
 		if (spec_type == "$setuphold" || spec_type == "$recrem" || spec_type == "$fullskew") {
 			f << ", ";
-			dump_const(f, cell->getParam("\\T_LIMIT2"));
+			dump_const(f, cell->getParam("\\T_LIMIT2_MIN"));
+			f << ": ";
+			dump_const(f, cell->getParam("\\T_LIMIT2_TYP"));
+			f << ": ";
+			dump_const(f, cell->getParam("\\T_LIMIT2_MAX"));
 		}
 
 		f << ");\n";
