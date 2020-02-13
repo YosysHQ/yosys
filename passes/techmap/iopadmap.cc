@@ -408,18 +408,35 @@ struct IopadmapPass : public Pass {
 				RTLIL::Wire *wire = it.first;
 				RTLIL::Wire *new_wire = module->addWire(NEW_ID, wire);
 				module->swap_names(new_wire, wire);
-				wire->attributes.clear();
 				for (int i = 0; i < wire->width; i++)
 				{
 					SigBit wire_bit(wire, i);
 					if (!it.second.count(i)) {
-						if (wire->port_output)
+						if (wire->port_output) {
 							module->connect(SigSpec(new_wire, i), SigSpec(wire, i));
-						else
+							wire->attributes.clear();
+						}
+						else {
 							module->connect(SigSpec(wire, i), SigSpec(new_wire, i));
+							wire->attributes.clear();
+
+						}
 					} else {
 						auto &new_conn = it.second.at(i);
 						new_conn.first->setPort(new_conn.second, RTLIL::SigSpec(new_wire, i));
+
+						// For cell outputs, move \init attributes from old wire to new wire
+						if (new_conn.first->output(new_conn.second)) {
+							auto it = wire->attributes.find(ID(init));
+							if (it != wire->attributes.end()) {
+								for (auto it2 = wire->attributes.begin(); it2 != wire->attributes.end(); )
+									if (it == it2)
+										++it2;
+									else
+										it2 = wire->attributes.erase(it2);
+								new_wire->attributes.erase(ID(init));
+							}
+						}
 					}
 				}
 
