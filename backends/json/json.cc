@@ -104,7 +104,7 @@ struct JsonWriter
 			if (state < 2)
 				str += " ";
 			f << get_string(str);
-		} else if (compat_int_mode && GetSize(value) == 32 && value.is_fully_def()) {
+		} else if (compat_int_mode && GetSize(value) <= 32 && value.is_fully_def()) {
 			if ((value.flags & RTLIL::ConstFlags::CONST_FLAG_SIGNED) != 0)
 				f << stringf("%d", value.as_int());
 			else
@@ -296,7 +296,7 @@ struct JsonBackend : public Backend {
 		log("        include AIG models for the different gate types\n");
 		log("\n");
 		log("    -compat-int\n");
-		log("        emit 32-bit fully-defined parameter values directly\n");
+		log("        emit 32-bit or smaller fully-defined parameter values directly\n");
 		log("        as JSON numbers (for compatibility with old parsers)\n");
 		log("\n");
 		log("\n");
@@ -540,7 +540,7 @@ struct JsonPass : public Pass {
 		log("        also include AIG models for the different gate types\n");
 		log("\n");
 		log("    -compat-int\n");
-		log("        emit 32-bit fully-defined parameter values directly\n");
+		log("        emit 32-bit or smaller fully-defined parameter values directly\n");
 		log("        as JSON numbers (for compatibility with old parsers)\n");
 		log("\n");
 		log("See 'help write_json' for a description of the JSON format used.\n");
