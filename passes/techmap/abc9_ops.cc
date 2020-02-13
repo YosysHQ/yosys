@@ -437,8 +437,10 @@ void prep_delays(RTLIL::Design *design)
 				int rise_max = cell->getParam(ID(T_RISE_MAX)).as_int();
 				int fall_max = cell->getParam(ID(T_FALL_MAX)).as_int();
 				int max = std::max(rise_max,fall_max);
-				if (max < 0) {
+				if (max < 0)
 					log_warning("Module '%s' contains specify cell '%s' with T_{RISE,FALL}_MAX < 0 which is currently unsupported. Ignoring.\n", log_id(module), log_id(cell));
+				if (max <= 0) {
+					log_debug("Module '%s' contains specify cell '%s' with T_{RISE,FALL}_MAX <= 0 which is currently unsupported. Ignoring.\n", log_id(module), log_id(cell));
 					continue;
 				}
 				for (const auto &d : dst)
@@ -456,9 +458,11 @@ void prep_delays(RTLIL::Design *design)
 				for (const auto &c : dst.chunks())
 					if (!c.wire->port_input)
 						log_error("Module '%s' contains specify cell '%s' where DST '%s' is not a module input.\n", log_id(module), log_id(cell), log_signal(dst));
-				int setup = cell->getParam(ID(T_LIMIT)).as_int();
-				if (setup < 0) {
-					log_warning("Module '%s' contains specify cell '%s' with T_LIMIT < 0 which is currently unsupported. Ignoring.\n", log_id(module), log_id(cell));
+				int setup = cell->getParam(ID(T_LIMIT_MAX)).as_int();
+				if (setup < 0)
+					log_warning("Module '%s' contains specify cell '%s' with T_LIMIT_MAX < 0 which is currently unsupported. Ignoring.\n", log_id(module), log_id(cell));
+				if (setup <= 0) {
+					log_debug("Module '%s' contains specify cell '%s' with T_LIMIT_MAX <= 0 which is currently unsupported. Ignoring.\n", log_id(module), log_id(cell));
 					continue;
 				}
 				for (const auto &s : src)
@@ -582,8 +586,7 @@ void prep_delays(RTLIL::Design *design)
 
 void prep_lut(RTLIL::Design *design, int maxlut)
 {
-	std::stringstream ss;
-	std::vector<std::pair<int, std::string>> table;
+	std::vector<std::tuple<int, IdString, std::vector<int>>> table;
 	for (auto module : design->modules()) {
 		auto it = module->attributes.find(ID(abc9_lut));
 		if (it == module->attributes.end())
@@ -603,6 +606,8 @@ void prep_lut(RTLIL::Design *design, int maxlut)
 				o = d;
 			else
 				log_assert(o == d);
+			// TODO: Don't assume that each specify entry with the destination 'o'
+			//       describes a unique LUT input
 			int rise_max = cell->getParam(ID(T_RISE_MAX)).as_int();
 			int fall_max = cell->getParam(ID(T_FALL_MAX)).as_int();
 			int max = std::max(rise_max,fall_max);
@@ -612,20 +617,30 @@ void prep_lut(RTLIL::Design *design, int maxlut)
 		}
 		if (maxlut && GetSize(specify) > maxlut)
 			continue;
-		std::sort(specify.begin(), specify.end());
-		ss.str("");
-		ss << "# " << module->name.str() << std::endl;
-		ss << GetSize(specify) << " " << it->second.as_int();
-		for (auto i : specify)
-			ss << " " << i;
-		ss << std::endl;
-		table.emplace_back(GetSize(specify), ss.str());
+		// ABC requires ascending LUT input delays
+		table.emplace_back(GetSize(specify), module->name, std::move(specify));
 	}
-	// ABC expects ascending size
+	// ABC requires ascending size
 	std::sort(table.begin(), table.end());
-	ss.str("");
-	for (auto &i : table)
-		ss << i.second;
+
+	std::stringstream ss;
+	const auto &first = table.front();
+	// If the first entry does not start from a 1-input LUT,
+	//   (as ABC requires) crop the first entry to do so
+	for (int i = 1; i < std::get<0>(first); i++) {
+		ss << "# $__ABC9_LUT" << i << std::endl;
+		ss << i;
+		for (int j = 0; j < i; j++)
+			ss << " " << std::get<2>(first)[j];
+		ss << std::endl;
+	}
+	for (const auto &i : table) {
+		ss << "# " << log_id(std::get<1>(i)) << std::endl;
+		ss << GetSize(std::get<2>(i));
+		for (const auto &j : std::get<2>(i))
+			ss << " " << j;
+		ss << std::endl;
+	}
 	design->scratchpad_set_string("abc9_ops.lut_library", ss.str());
 }
 
