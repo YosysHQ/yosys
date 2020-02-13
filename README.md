@@ -72,6 +72,10 @@ prerequisites for building yosys:
 Similarily, on Mac OS X Homebrew can be used to install dependencies:
 
 	$ brew tap Homebrew/bundle && brew bundle
+	
+The brew bundle is not currently working on Catalina, so do:
+
+	$ brew install python3 bison flex readline gawk libffi git graphviz pkgconfig boost zlib tcl tcl-tk
 
 or MacPorts:
 
