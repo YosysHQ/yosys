@@ -476,7 +476,7 @@ wire_type:
 		astbuf3 = new AstNode(AST_WIRE);
 		current_wire_rand = false;
 		current_wire_const = false;
-	} wire_type_token_list delay {
+	} wire_type_token_list {
 		$$ = astbuf3;
 	};
 
@@ -1240,7 +1240,7 @@ wire_decl:
 		}
 		if (astbuf2 && astbuf2->children.size() != 2)
 			frontend_verilog_yyerror("wire/reg/logic packed dimension must be of the form: [<expr>:<expr>], [<expr>+:<expr>], or [<expr>-:<expr>]");
-	} wire_name_list {
+	} delay wire_name_list {
 		delete astbuf1;
 		if (astbuf2 != NULL)
 			delete astbuf2;
