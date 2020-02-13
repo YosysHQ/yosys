@@ -51,3 +51,9 @@ specify
   $setuphold(d, posedge clk, 1:2:3, 4:5:6);
 endspecify
 endmodule
+
+module test5(input clk, d, e, output q);
+specify
+  $setup(d, posedge clk &&& e, 1:2:3);
+endspecify
+endmodule

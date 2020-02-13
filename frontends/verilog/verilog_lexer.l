@@ -440,7 +440,7 @@ import[ \t\r\n]+\"(DPI|DPI-C)\"[ \t\r\n]+function[ \t\r\n]+ {
 }
 
 "&&&" {
-	if (!specify_mode) REJECT;
+	if (!specify_mode) return TOK_IGNORED_SPECIFY_AND;
 	return TOK_SPECIFY_AND;
 }
 

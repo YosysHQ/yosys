@@ -146,7 +146,7 @@ struct specify_rise_fall {
 %token TOK_DPI_FUNCTION TOK_POSEDGE TOK_NEGEDGE TOK_OR TOK_AUTOMATIC
 %token TOK_CASE TOK_CASEX TOK_CASEZ TOK_ENDCASE TOK_DEFAULT
 %token TOK_FUNCTION TOK_ENDFUNCTION TOK_TASK TOK_ENDTASK TOK_SPECIFY
-%token TOK_IGNORED_SPECIFY TOK_ENDSPECIFY TOK_SPECPARAM TOK_SPECIFY_AND
+%token TOK_IGNORED_SPECIFY TOK_ENDSPECIFY TOK_SPECPARAM TOK_SPECIFY_AND TOK_IGNORED_SPECIFY_AND
 %token TOK_GENERATE TOK_ENDGENERATE TOK_GENVAR TOK_REAL
 %token TOK_SYNOPSYS_FULL_CASE TOK_SYNOPSYS_PARALLEL_CASE
 %token TOK_SUPPLY0 TOK_SUPPLY1 TOK_TO_SIGNED TOK_TO_UNSIGNED
@@ -1117,6 +1117,7 @@ system_timing_arg :
 
 system_timing_args :
 	system_timing_arg |
+	system_timing_args TOK_IGNORED_SPECIFY_AND system_timing_arg |
 	system_timing_args ',' system_timing_arg ;
 
 path_delay_expression :
@@ -1137,9 +1138,9 @@ ignspec_constant_expression:
 ignspec_expr:
 	expr { delete $1; } |
 	expr ':' expr ':' expr {
-                delete $1;
-                delete $3;
-                delete $5;
+		delete $1;
+		delete $3;
+		delete $5;
 	};
 
 ignspec_id:
