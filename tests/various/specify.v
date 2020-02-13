@@ -7,11 +7,9 @@ module test (
 		if (EN) Q <= D;
 
 	specify
-`ifndef SKIP_UNSUPPORTED_IGN_PARSER_CONSTRUCTS
 		if (EN) (posedge CLK *> (Q : D)) = (1, 2:3:4);
 		$setup(D, posedge CLK &&& EN, 5);
 		$hold(posedge CLK, D &&& EN, 6);
-`endif
 	endspecify
 endmodule
 

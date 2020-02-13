@@ -1043,7 +1043,7 @@ list_of_specparam_assignments:
 	specparam_assignment | list_of_specparam_assignments ',' specparam_assignment;
 
 specparam_assignment:
-	ignspec_id '=' constant_mintypmax_expression ;
+	ignspec_id '=' ignspec_expr ;
 
 ignspec_opt_cond:
 	TOK_IF '(' ignspec_expr ')' | /* empty */;
@@ -1060,13 +1060,15 @@ simple_path_declaration :
 	;
 
 path_delay_value :
-	'(' path_delay_expression list_of_path_delay_extra_expressions ')'
-	|     path_delay_expression
-	|     path_delay_expression list_of_path_delay_extra_expressions
+	'(' ignspec_expr list_of_path_delay_extra_expressions ')'
+	|     ignspec_expr
+	|     ignspec_expr list_of_path_delay_extra_expressions
 	;
 
 list_of_path_delay_extra_expressions :
-	',' path_delay_expression | ',' path_delay_expression list_of_path_delay_extra_expressions;
+	',' ignspec_expr
+	| ',' ignspec_expr list_of_path_delay_extra_expressions
+	;
 
 specify_edge_identifier :
 	TOK_POSEDGE | TOK_NEGEDGE ;
@@ -1119,14 +1121,6 @@ system_timing_args :
 	system_timing_arg |
 	system_timing_args TOK_IGNORED_SPECIFY_AND system_timing_arg |
 	system_timing_args ',' system_timing_arg ;
-
-path_delay_expression :
-	ignspec_constant_expression;
-
-constant_mintypmax_expression :
-	ignspec_constant_expression
-	| ignspec_constant_expression ':' ignspec_constant_expression ':' ignspec_constant_expression
-	;
 
 // for the time being this is OK, but we may write our own expr here.
 // as I'm not sure it is legal to use a full expr here (probably not)
