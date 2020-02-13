@@ -29,7 +29,7 @@ module \$__ICE40_CARRY_WRAPPER (
 `ifdef ICE40_HX
 	specify
 		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_hx1k.txt#L79
-		(CI => O) = (126, 105);
+		(CI => CO) = (126, 105);
 		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_hx1k.txt#L80
 		(I0 => O) = (449, 386);
 		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_hx1k.txt#L82
@@ -48,7 +48,7 @@ module \$__ICE40_CARRY_WRAPPER (
 `ifdef ICE40_LP
 	specify
 		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_lp1k.txt#L79
-		(CI => O) = (186, 155);
+		(CI => CO) = (186, 155);
 		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_lp1k.txt#L80
 		(I0 => O) = (662, 569);
 		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_lp1k.txt#L82
@@ -67,7 +67,7 @@ module \$__ICE40_CARRY_WRAPPER (
 `ifdef ICE40_U
 	specify
 		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_up5k.txt#L91
-		(CI => O) = (278, 278);
+		(CI => CO) = (278, 278);
 		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_up5k.txt#L92
 		(I0 => O) = (1245, 1285);
 		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_up5k.txt#L94
