@@ -649,7 +649,7 @@ struct XAigerWriter
 				log_assert(mergeability > 0);
 				write_r_buffer(mergeability);
 
-				Const init = cell->attributes.at(ID(abc9_init));
+				Const init = cell->attributes.at(ID(abc9_init), State::Sx);
 				log_assert(GetSize(init) == 1);
 				if (init == State::S1)
 					write_s_buffer(1);
