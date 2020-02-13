@@ -617,7 +617,8 @@ void prep_lut(RTLIL::Design *design, int maxlut)
 		}
 		if (maxlut && GetSize(specify) > maxlut)
 			continue;
-		// ABC requires ascending LUT input delays
+		// ABC requires non-decreasing LUT input delays
+		std::sort(specify.begin(), specify.end());
 		table.emplace_back(GetSize(specify), module->name, it->second.as_int(), std::move(specify));
 	}
 	// ABC requires ascending size
@@ -777,6 +778,8 @@ void prep_box(RTLIL::Design *design)
 				log_assert(GetSize(src) == GetSize(dst));
 				for (auto i = 0; i < GetSize(src); i++) {
 					auto r = table.insert(std::make_pair(src[i],dst[i]));
+					if (!r.second)
+						log_error("Module '%s' contains multiple specify cells for SRC '%s' and DST '%s'.\n", log_id(module), log_signal(src[i]), log_signal(dst[i]));
 					log_assert(r.second);
 					r.first->second = std::to_string(max);
 				}
