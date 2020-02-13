@@ -245,7 +245,7 @@ struct SynthIce40Pass : public ScriptPass
 				define = "-D ICE40_U";
 			else
 				define = "-D ICE40_HX";
-			run("read_verilog " + define + " -lib +/ice40/cells_sim.v");
+			run("read_verilog " + define + " -lib -specify +/ice40/cells_sim.v");
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
 			run("proc");
 		}
@@ -352,7 +352,7 @@ struct SynthIce40Pass : public ScriptPass
 			}
 			if (!noabc) {
 				if (abc9) {
-					run("read_verilog -icells -lib +/ice40/abc9_model.v");
+					run("read_verilog -icells -lib -specify +/abc9_model.v +/ice40/abc9_model.v");
 					int wire_delay;
 					if (device_opt == "lp")
 						wire_delay = 400;
@@ -360,7 +360,7 @@ struct SynthIce40Pass : public ScriptPass
 						wire_delay = 750;
 					else
 						wire_delay = 250;
-					run(stringf("abc9 -W %d -lut +/ice40/abc9_%s.lut -box +/ice40/abc9_%s.box", wire_delay, device_opt.c_str(), device_opt.c_str()));
+					run(stringf("abc9 -W %d", wire_delay, device_opt.c_str(), device_opt.c_str()));
 				}
 				else
 					run("abc -dress -lut 4", "(skip if -noabc)");
