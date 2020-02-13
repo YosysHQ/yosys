@@ -586,7 +586,7 @@ void prep_delays(RTLIL::Design *design)
 
 void prep_lut(RTLIL::Design *design, int maxlut)
 {
-	std::vector<std::tuple<int, IdString, std::vector<int>>> table;
+	std::vector<std::tuple<int, IdString, int, std::vector<int>>> table;
 	for (auto module : design->modules()) {
 		auto it = module->attributes.find(ID(abc9_lut));
 		if (it == module->attributes.end())
@@ -618,7 +618,7 @@ void prep_lut(RTLIL::Design *design, int maxlut)
 		if (maxlut && GetSize(specify) > maxlut)
 			continue;
 		// ABC requires ascending LUT input delays
-		table.emplace_back(GetSize(specify), module->name, std::move(specify));
+		table.emplace_back(GetSize(specify), module->name, it->second.as_int(), std::move(specify));
 	}
 	// ABC requires ascending size
 	std::sort(table.begin(), table.end());
@@ -629,15 +629,15 @@ void prep_lut(RTLIL::Design *design, int maxlut)
 	//   (as ABC requires) crop the first entry to do so
 	for (int i = 1; i < std::get<0>(first); i++) {
 		ss << "# $__ABC9_LUT" << i << std::endl;
-		ss << i;
+		ss << i << " " << std::get<2>(first);
 		for (int j = 0; j < i; j++)
-			ss << " " << std::get<2>(first)[j];
+			ss << " " << std::get<3>(first)[j];
 		ss << std::endl;
 	}
 	for (const auto &i : table) {
 		ss << "# " << log_id(std::get<1>(i)) << std::endl;
-		ss << GetSize(std::get<2>(i));
-		for (const auto &j : std::get<2>(i))
+		ss << std::get<0>(i) << " " << std::get<2>(i);
+		for (const auto &j : std::get<3>(i))
 			ss << " " << j;
 		ss << std::endl;
 	}
