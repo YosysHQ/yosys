@@ -424,8 +424,8 @@ void prep_delays(RTLIL::Design *design, bool dff_mode)
 	std::stringstream ss;
 	for (auto module : design->modules()) {
 
-                auto it = timing.data.find(module->name);
-                if (it == timing.data.end())
+                auto it = timing.find(module->name);
+                if (it == timing.end())
                         continue;
 
                 const auto &t = it->second;
@@ -539,35 +539,31 @@ void prep_delays(RTLIL::Design *design, bool dff_mode)
 
 void prep_lut(RTLIL::Design *design, int maxlut)
 {
+        const TimingInfo timing(design);
+
 	std::vector<std::tuple<int, IdString, int, std::vector<int>>> table;
 	for (auto module : design->modules()) {
 		auto it = module->attributes.find(ID(abc9_lut));
 		if (it == module->attributes.end())
 			continue;
+
+                auto jt = timing.find(module->name);
+                if (jt == timing.end())
+                        continue;
+
 		SigBit o;
 		std::vector<int> specify;
-		for (auto cell : module->cells()) {
-			if (cell->type != ID($specify2))
-				continue;
-			log_assert(cell->getParam(ID(SRC_WIDTH)) == 1);
-			log_assert(cell->getParam(ID(DST_WIDTH)) == 1);
-			SigBit s = cell->getPort(ID(SRC));
-			SigBit d = cell->getPort(ID(DST));
-			log_assert(s.wire->port_input);
-			log_assert(d.wire->port_output);
+		auto &t = jt->second;
+		for (const auto &i : t.comb) {
+			auto &d = i.first.second;
+			log_dump(o, d);
 			if (o == SigBit())
 				o = d;
-			else
-				log_assert(o == d);
-			// TODO: Don't assume that each specify entry with the destination 'o'
-			//       describes a unique LUT input
-			int rise_max = cell->getParam(ID(T_RISE_MAX)).as_int();
-			int fall_max = cell->getParam(ID(T_FALL_MAX)).as_int();
-			int max = std::max(rise_max,fall_max);
-			if (max < 0)
-				log_error("Module '%s' contains specify cell '%s' with T_{RISE,FALL}_MAX < 0.\n", log_id(module), log_id(cell));
-			specify.push_back(max);
-		}
+			else if (o != d)
+				log_error("(* abc9_lut *) module '%s' with has more than one output.\n", log_id(module));
+			specify.push_back(i.second);
+                }
+
 		if (maxlut && GetSize(specify) > maxlut)
 			continue;
 		// ABC requires non-decreasing LUT input delays
@@ -607,14 +603,27 @@ void write_lut(RTLIL::Module *module, const std::string &dst) {
 
 void prep_box(RTLIL::Design *design, bool dff_mode)
 {
+        const TimingInfo timing(design);
+
 	std::stringstream ss;
 	int abc9_box_id = 1;
+	for (auto module : design->modules()) {
+		auto it = module->attributes.find(ID(abc9_box_id));
+		if (it == module->attributes.end())
+			continue;
+		abc9_box_id = std::max(abc9_box_id, it->second.as_int());
+	}
+
 	dict<IdString,std::vector<IdString>> box_ports;
 	for (auto module : design->modules()) {
 		auto abc9_flop = module->get_bool_attribute(ID(abc9_flop));
 		if (abc9_flop) {
+			auto r = module->attributes.insert(ID(abc9_box_id));
+			if (!r.second)
+				continue;
+			r.first->second = abc9_box_id++;
+
 			if (dff_mode) {
-                                log_dump(module->name);
 				int num_inputs = 0, num_outputs = 0;
 				for (auto port_name : module->ports) {
 					auto wire = module->wire(port_name);
@@ -623,10 +632,6 @@ void prep_box(RTLIL::Design *design, bool dff_mode)
 					if (wire->port_output) num_outputs++;
 				}
 				log_assert(num_outputs == 1);
-
-				auto r = module->attributes.insert(ID(abc9_box_id));
-				if (r.second)
-					r.first->second = abc9_box_id++;
 
 				ss << log_id(module) << " " << r.first->second.as_int();
 				ss << " " << (module->get_bool_attribute(ID::whitebox) ? "1" : "0");
@@ -680,12 +685,12 @@ void prep_box(RTLIL::Design *design, bool dff_mode)
 		else {
 			if (!module->attributes.erase(ID(abc9_box)))
 				continue;
-		}
-		log_assert(!module->attributes.count(ID(abc9_box_id)));
 
-		dict<std::pair<SigBit,SigBit>, std::string> table;
-		std::vector<SigBit> inputs;
-		std::vector<SigBit> outputs;
+			auto r = module->attributes.insert(ID(abc9_box_id));
+			if (!r.second)
+				continue;
+			r.first->second = abc9_box_id++;
+		}
 
 		auto r = box_ports.insert(module->name);
 		if (r.second) {
@@ -712,6 +717,8 @@ void prep_box(RTLIL::Design *design, bool dff_mode)
 			}
 		}
 
+		std::vector<SigBit> inputs;
+		std::vector<SigBit> outputs;
 		for (auto port_name : r.first->second) {
 			auto wire = module->wire(port_name);
 			if (wire->port_input)
@@ -721,47 +728,11 @@ void prep_box(RTLIL::Design *design, bool dff_mode)
 				for (int i = 0; i < GetSize(wire); i++)
 					outputs.emplace_back(wire, i);
 		}
-		for (auto cell : module->cells()) {
-			if (cell->type != ID($specify2))
-				continue;
-			auto src = cell->getPort(ID(SRC));
-			auto dst = cell->getPort(ID(DST));
-			for (const auto &c : src.chunks())
-				if (!c.wire->port_input)
-					log_error("Module '%s' contains specify cell '%s' where SRC '%s' is not a module input.\n", log_id(module), log_id(cell), log_signal(src));
-			for (const auto &c : dst.chunks())
-				if (!c.wire->port_output)
-					log_error("Module '%s' contains specify cell '%s' where DST '%s' is not a module output.\n", log_id(module), log_id(cell), log_signal(dst));
-			int rise_max = cell->getParam(ID(T_RISE_MAX)).as_int();
-			int fall_max = cell->getParam(ID(T_FALL_MAX)).as_int();
-			int max = std::max(rise_max,fall_max);
-			if (max < 0)
-				log_error("Module '%s' contains specify cell '%s' with T_{RISE,FALL}_MAX < 0.\n", log_id(module), log_id(cell));
-			if (cell->getParam(ID(FULL)).as_bool()) {
-				for (auto s : src)
-					for (auto d : dst) {
-						auto r = table.insert(std::make_pair(s,d));
-						log_assert(r.second);
-						r.first->second = std::to_string(max);
-					}
-			}
-			else {
-				log_assert(GetSize(src) == GetSize(dst));
-				for (auto i = 0; i < GetSize(src); i++) {
-					auto r = table.insert(std::make_pair(src[i],dst[i]));
-					if (!r.second)
-						log_error("Module '%s' contains multiple specify cells for SRC '%s' and DST '%s'.\n", log_id(module), log_signal(src[i]), log_signal(dst[i]));
-					log_assert(r.second);
-					r.first->second = std::to_string(max);
-				}
-			}
-		}
-		auto r2 = module->attributes.insert(ID(abc9_box_id));
-		log_assert(r2.second);
-		ss << log_id(module) << " " << abc9_box_id;
-		r2.first->second = abc9_box_id++;
+
+		ss << log_id(module) << " " << module->attributes.at(ID(abc9_box_id)).as_int();
 		ss << " " << (module->get_bool_attribute(ID::whitebox) ? "1" : "0");
 		ss << " " << GetSize(inputs) << " " << GetSize(outputs) << std::endl;
+
 		bool first = true;
 		ss << "#";
 		for (const auto &i : inputs) {
@@ -775,6 +746,12 @@ void prep_box(RTLIL::Design *design, bool dff_mode)
 				ss << log_id(i.wire) << "[" << i.offset << "]";
 		}
 		ss << std::endl;
+
+		auto it = timing.find(module->name);
+		if (it == timing.end())
+			log_error("(* abc9_box *) module '%s' has no timing information.\n", log_id(module));
+
+		const auto &t = it->second.comb;
 		for (const auto &o : outputs) {
 			first = true;
 			for (const auto &i : inputs) {
@@ -782,7 +759,11 @@ void prep_box(RTLIL::Design *design, bool dff_mode)
 					first = false;
 				else
 					ss << " ";
-				ss << table.at(std::make_pair(i,o), "-");
+				auto jt = t.find(std::make_pair(i,o));
+				if (jt == t.end())
+					ss << "-";
+				else
+					ss << jt->second;
 			}
 			ss << " # ";
 			if (GetSize(o.wire) == 1)

@@ -148,24 +148,8 @@ struct TimingInfo
 		}
 	}
 
-        int delay(IdString module_name, const SigBit &src, const SigBit &dst) const {
-                auto it = data.find(module_name);
-                if (it == data.end())
-                        return 0;
-                return it->second.comb.at(BitBit(src,dst), 0);
-        }
-        int arrival(IdString module_name, const SigBit &src) const {
-                auto it = data.find(module_name);
-                if (it == data.end())
-                        return 0;
-                return it->second.arrival.at(src, 0);
-        }
-        int required(IdString module_name, const SigBit &dst) const {
-                auto it = data.find(module_name);
-                if (it == data.end())
-                        return 0;
-                return it->second.required.at(dst, 0);
-        }
+        decltype(data)::const_iterator find (RTLIL::IdString module_name) const { return data.find(module_name); }
+        decltype(data)::const_iterator end () const { return data.end(); }
 };
 
 YOSYS_NAMESPACE_END

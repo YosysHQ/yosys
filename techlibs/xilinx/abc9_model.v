@@ -69,6 +69,7 @@ endmodule
 (* abc9_box *)
 module \$__ABC9_RAM6 (input A, input [5:0] S, output Y);
   specify
+    (A    => Y) =   0;
     (S[0] => Y) = 642;
     (S[1] => Y) = 631;
     (S[2] => Y) = 472;
@@ -81,13 +82,15 @@ endmodule
 (* abc9_box *)
 module \$__ABC9_RAM7 (input A, input [6:0] S, output Y);
   specify
-    (S[0] => Y) = 1028;
-    (S[1] => Y) = 1017;
-    (S[2] => Y) =  858;
-    (S[3] => Y) =  793;
-    (S[4] => Y) =  624;
-    (S[5] => Y) =  513;
-    (S[6] => Y) =  464;
+    (A    => Y) = 0;
+                                                    // https://github.com/SymbiFlow/prjxray-db/blob/1c85daf1b115da4d27ca83c6b89f53a94de39748/artix7/timings/slicel.sdf#L867
+    (S[0] => Y) = 642 + 223 /* to cross F7BMUX */ + 174 /* CMUX */;
+    (S[1] => Y) = 631 + 223 /* to cross F7BMUX */ + 174 /* CMUX */;
+    (S[2] => Y) = 472 + 223 /* to cross F7BMUX */ + 174 /* CMUX */;
+    (S[3] => Y) = 407 + 223 /* to cross F7BMUX */ + 174 /* CMUX */;
+    (S[4] => Y) = 238 + 223 /* to cross F7BMUX */ + 174 /* CMUX */;
+    (S[5] => Y) = 127 + 223 /* to cross F7BMUX */ + 174 /* CMUX */;
+    (S[6] => Y) = 0 + 296 /* to select F7BMUX */ + 174 /* CMUX */;
   endspecify
 endmodule
 
