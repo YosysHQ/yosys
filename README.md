@@ -75,7 +75,7 @@ Similarily, on Mac OS X Homebrew can be used to install dependencies:
 	
 The brew bundle is not currently working on Catalina, so do:
 
-	$ brew install python3 bison flex readline gawk libffi git graphviz pkgconfig boost zlib tcl tcl-tk
+	$ brew install python3 bison flex readline gawk libffi git graphviz pkg-config boost zlib tcl tcl-tk xdot
 
 or MacPorts:
 
