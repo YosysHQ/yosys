@@ -22,6 +22,7 @@
 #include "kernel/sigtools.h"
 #include "kernel/utils.h"
 #include "kernel/celltypes.h"
+#include "kernel/timinginfo.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -380,9 +381,8 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 
 void prep_delays(RTLIL::Design *design, bool dff_mode)
 {
-	// Derive and collect all Yosys blackbox modules that are not combinatorial abc9 boxes
+	// Derive all Yosys blackbox modules that are not combinatorial abc9 boxes
 	//   (e.g. DSPs, RAMs, etc.) nor abc9 flops and collect all such instantiations
-	pool<Module*> blackboxes;
 	pool<Module*> flops;
 	std::vector<Cell*> cells;
 	for (auto module : design->selected_modules()) {
@@ -405,7 +405,6 @@ void prep_delays(RTLIL::Design *design, bool dff_mode)
 			IdString blackboxes_type = inst_module->derive(design, cell->parameters);
 			inst_module = design->module(blackboxes_type);
 			log_assert(inst_module);
-			blackboxes.insert(inst_module);
 
 			if (dff_mode && inst_module->get_bool_attribute(ID(abc9_flop))) {
 				flops.insert(inst_module);
@@ -417,70 +416,33 @@ void prep_delays(RTLIL::Design *design, bool dff_mode)
 		}
 	}
 
+        const TimingInfo timing(design);
+
 	// Transform all $specify3 and $specrule to abc9_{arrival,required} attributes
-	dict<SigBit, int> arrivals, requireds;
+        // TODO: Deprecate
 	pool<Wire*> ports;
 	std::stringstream ss;
-	for (auto module : blackboxes) {
-		arrivals.clear();
-		requireds.clear();
-		for (auto cell : module->cells()) {
-			if (cell->type == ID($specify3)) {
-				auto src = cell->getPort(ID(SRC));
-				auto dst = cell->getPort(ID(DST));
-				for (const auto &c : src.chunks())
-					if (!c.wire->port_input)
-						log_error("Module '%s' contains specify cell '%s' where SRC '%s' is not a module input.\n", log_id(module), log_id(cell), log_signal(src));
-				for (const auto &c : dst.chunks())
-					if (!c.wire->port_output)
-						log_error("Module '%s' contains specify cell '%s' where DST '%s' is not a module output.\n", log_id(module), log_id(cell), log_signal(dst));
-				int rise_max = cell->getParam(ID(T_RISE_MAX)).as_int();
-				int fall_max = cell->getParam(ID(T_FALL_MAX)).as_int();
-				int max = std::max(rise_max,fall_max);
-				if (max < 0)
-					log_warning("Module '%s' contains specify cell '%s' with T_{RISE,FALL}_MAX < 0 which is currently unsupported. Ignoring.\n", log_id(module), log_id(cell));
-				if (max <= 0) {
-					log_debug("Module '%s' contains specify cell '%s' with T_{RISE,FALL}_MAX <= 0 which is currently unsupported. Ignoring.\n", log_id(module), log_id(cell));
-					continue;
-				}
-				for (const auto &d : dst)
-					arrivals[d] = std::max(arrivals[d], max);
-			}
-			else if (cell->type == ID($specrule)) {
-				auto type = cell->getParam(ID(TYPE)).decode_string();
-				if (type != "$setup" && type != "$setuphold")
-					continue;
-				auto src = cell->getPort(ID(SRC));
-				auto dst = cell->getPort(ID(DST));
-				for (const auto &c : src.chunks())
-					if (!c.wire->port_input)
-						log_error("Module '%s' contains specify cell '%s' where SRC '%s' is not a module input.\n", log_id(module), log_id(cell), log_signal(src));
-				for (const auto &c : dst.chunks())
-					if (!c.wire->port_input)
-						log_error("Module '%s' contains specify cell '%s' where DST '%s' is not a module input.\n", log_id(module), log_id(cell), log_signal(dst));
-				int setup = cell->getParam(ID(T_LIMIT_MAX)).as_int();
-				if (setup < 0)
-					log_warning("Module '%s' contains specify cell '%s' with T_LIMIT_MAX < 0 which is currently unsupported. Ignoring.\n", log_id(module), log_id(cell));
-				if (setup <= 0) {
-					log_debug("Module '%s' contains specify cell '%s' with T_LIMIT_MAX <= 0 which is currently unsupported. Ignoring.\n", log_id(module), log_id(cell));
-					continue;
-				}
-				for (const auto &s : src)
-					requireds[s] = std::max(requireds[s], setup);
-			}
-		}
+	for (auto module : design->modules()) {
 
-		if (arrivals.empty() && requireds.empty())
-			continue;
+                auto it = timing.data.find(module->name);
+                if (it == timing.data.end())
+                        continue;
+
+                const auto &t = it->second;
+                if (t.arrival.empty() && t.required.empty())
+                        continue;
+
+                const auto &arrival = t.arrival;
+                const auto &required = t.required;
 
 		ports.clear();
-		for (const auto &i : arrivals)
+		for (const auto &i : arrival)
 			ports.insert(i.first.wire);
 		for (auto wire : ports) {
 			log_assert(wire->port_output);
 			ss.str("");
 			if (GetSize(wire) == 1)
-				wire->attributes[ID(abc9_arrival)] = arrivals.at(SigBit(wire,0));
+				wire->attributes[ID(abc9_arrival)] = arrival.at(SigBit(wire,0));
 			else {
 				bool first = true;
 				for (auto b : SigSpec(wire)) {
@@ -488,24 +450,20 @@ void prep_delays(RTLIL::Design *design, bool dff_mode)
 						first = false;
 					else
 						ss << " ";
-					auto it = arrivals.find(b);
-					if (it == arrivals.end())
-						ss << "0";
-					else
-						ss << it->second;
+                                        ss << arrival.at(b, 0);
 				}
 				wire->attributes[ID(abc9_arrival)] = ss.str();
 			}
 		}
 
 		ports.clear();
-		for (const auto &i : requireds)
+		for (const auto &i : required)
 			ports.insert(i.first.wire);
 		for (auto wire : ports) {
 			log_assert(wire->port_input);
 			ss.str("");
 			if (GetSize(wire) == 1)
-				wire->attributes[ID(abc9_required)] = requireds.at(SigBit(wire,0));
+				wire->attributes[ID(abc9_required)] = required.at(SigBit(wire,0));
 			else {
 				bool first = true;
 				for (auto b : SigSpec(wire)) {
@@ -513,11 +471,7 @@ void prep_delays(RTLIL::Design *design, bool dff_mode)
 						first = false;
 					else
 						ss << " ";
-					auto it = requireds.find(b);
-					if (it == requireds.end())
-						ss << "0";
-					else
-						ss << it->second;
+                                        ss << required.at(b, 0);
 				}
 				wire->attributes[ID(abc9_required)] = ss.str();
 			}
@@ -567,7 +521,8 @@ void prep_delays(RTLIL::Design *design, bool dff_mode)
 #ifndef NDEBUG
 				if (ys_debug(1)) {
 					static std::set<std::pair<IdString,IdString>> seen;
-					if (seen.emplace(derived_type, conn.first).second) log("%s.%s abc9_required = %d\n", log_id(cell->type), log_id(conn.first), requireds[i]);
+					if (seen.emplace(derived_type, conn.first).second) log("%s.%s abc9_required = '%s'\n", log_id(cell->type), log_id(conn.first),
+                                                        port_wire->attributes.at("\\abc9_required").decode_string().c_str());
 				}
 #endif
 				auto box = module->addCell(NEW_ID, ID($__ABC9_DELAY));
@@ -659,6 +614,7 @@ void prep_box(RTLIL::Design *design, bool dff_mode)
 		auto abc9_flop = module->get_bool_attribute(ID(abc9_flop));
 		if (abc9_flop) {
 			if (dff_mode) {
+                                log_dump(module->name);
 				int num_inputs = 0, num_outputs = 0;
 				for (auto port_name : module->ports) {
 					auto wire = module->wire(port_name);
@@ -699,7 +655,22 @@ void prep_box(RTLIL::Design *design, bool dff_mode)
 						first = false;
 					else
 						ss << " ";
-					ss << wire->attributes.at("\\abc9_required", 0).as_int();
+                                        auto it = wire->attributes.find("\\abc9_required");
+                                        if (it == wire->attributes.end())
+                                                ss << 0;
+                                        else {
+                                                log_assert(it->second.flags == 0);
+                                                ss << it->second.as_int();
+
+#ifndef NDEBUG
+                                                if (ys_debug(1)) {
+                                                        static std::set<std::pair<IdString,IdString>> seen;
+                                                        if (seen.emplace(module->name, port_name).second) log("%s.%s abc9_required = %d\n", log_id(module),
+                                                                        log_id(port_name), it->second.as_int());
+                                                }
+#endif
+                                        }
+
 				}
 				// Last input is 'abc9_ff.Q'
 				ss << " 0" << std::endl << std::endl;
