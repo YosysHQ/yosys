@@ -144,23 +144,9 @@ CELLS = [
     Cell('RAMB16BWE_S36_S18', port_attrs={'CLKA': ['clkbuf_sink'], 'CLKB': ['clkbuf_sink']}),
     Cell('RAMB16BWE_S36_S36', port_attrs={'CLKA': ['clkbuf_sink'], 'CLKB': ['clkbuf_sink']}),
     # Spartan 3A DSP.
-    Cell('RAMB16BWER', port_attrs={
-        'CLKA': ['clkbuf_sink'],
-        'CLKB': ['clkbuf_sink'],
-        #'DOA': ['abc9_arrival=<TODO>'],
-        #'DOB': ['abc9_arrival=<TODO>'],
-        #'DOPA': ['abc9_arrival=<TODO>'],
-        #'DOPB': ['abc9_arrival=<TODO>'],
-    }),
+    Cell('RAMB16BWER', port_attrs={ 'CLKA': ['clkbuf_sink'], 'CLKB': ['clkbuf_sink']}),
     # Spartan 6 (in addition to above).
-    Cell('RAMB8BWER', port_attrs={
-        'CLKAWRCLK': ['clkbuf_sink'],
-        'CLKBRDCLK': ['clkbuf_sink'],
-        #'DOADO': ['abc9_arrival=<TODO>'],
-        #'DOBDO': ['abc9_arrival=<TODO>'],
-        #'DOPADOP': ['abc9_arrival=<TODO>'],
-        #'DOPBDOP': ['abc9_arrival=<TODO>'],
-    }),
+    Cell('RAMB8BWER', port_attrs={ 'CLKAWRCLK': ['clkbuf_sink'], 'CLKBRDCLK': ['clkbuf_sink']}),
     # Virtex 4.
     Cell('FIFO16', port_attrs={'RDCLK': ['clkbuf_sink'], 'WRCLK': ['clkbuf_sink']}),
     Cell('RAMB16', port_attrs={'CLKA': ['clkbuf_sink'], 'CLKB': ['clkbuf_sink']}),
@@ -177,62 +163,8 @@ CELLS = [
     # Virtex 6 / Series 7.
     Cell('FIFO18E1', port_attrs={'RDCLK': ['clkbuf_sink'], 'WRCLK': ['clkbuf_sink']}),
     Cell('FIFO36E1', port_attrs={'RDCLK': ['clkbuf_sink'], 'WRCLK': ['clkbuf_sink']}),
-    Cell('RAMB18E1', port_attrs={
-        'CLKARDCLK': ['clkbuf_sink'],
-        'CLKBWRCLK': ['clkbuf_sink'],
-        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L143
-        'DOADO': ['abc9_arrival=2454'],
-        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L163
-        'DOBDO': ['abc9_arrival=2454'],
-        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L144
-        'DOPADOP': ['abc9_arrival=2454'],
-        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L164
-        'DOPBDOP': ['abc9_arrival=2454'],
-        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L13
-        'ADDRARDADDR': ['abc9_required=566'],
-        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L17
-        'ADDRBWRADDR': ['abc9_required=566'],
-        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L19
-        'WEA': ['abc9_required=532'],
-        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L21
-        'WEBWE': ['abc9_required=532'],
-        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L123
-        'DIADI': ['abc9_required=737'],
-        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L133
-        'DIBDI': ['abc9_required=737'],
-        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L125
-        'DIPADIP': ['abc9_required=737'],
-        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L135
-        'DIPBDIP': ['abc9_required=737'],
-    }),
-    Cell('RAMB36E1', port_attrs={
-        'CLKARDCLK': ['clkbuf_sink'],
-        'CLKBWRCLK': ['clkbuf_sink'],
-        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L143
-        'DOADO': ['abc9_arrival=2454'],
-        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L163
-        'DOBDO': ['abc9_arrival=2454'],
-        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L144
-        'DOPADOP': ['abc9_arrival=2454'],
-        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L164
-        'DOPBDOP': ['abc9_arrival=2454'],
-        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L13
-        'ADDRARDADDR': ['abc9_required=566'],
-        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L17
-        'ADDRBWRADDR': ['abc9_required=566'],
-        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L19
-        'WEA': ['abc9_required=532'],
-        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L21
-        'WEBWE': ['abc9_required=532'],
-        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L123
-        'DIADI': ['abc9_required=737'],
-        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L133
-        'DIBDI': ['abc9_required=737'],
-        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L125
-        'DIPADIP': ['abc9_required=737'],
-        # https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L135
-        'DIPBDIP': ['abc9_required=737'],
-    }),
+    Cell('RAMB18E1', port_attrs={'CLKARDCLK': ['clkbuf_sink'], 'CLKBWRCLK': ['clkbuf_sink']]}),
+    Cell('RAMB36E1', port_attrs={'CLKARDCLK': ['clkbuf_sink'], 'CLKBWRCLK': ['clkbuf_sink']]}),
     # Ultrascale.
     Cell('FIFO18E2', port_attrs={'RDCLK': ['clkbuf_sink'], 'WRCLK': ['clkbuf_sink']}),
     Cell('FIFO36E2', port_attrs={'RDCLK': ['clkbuf_sink'], 'WRCLK': ['clkbuf_sink']}),

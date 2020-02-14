@@ -293,6 +293,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 	holes_module->set_bool_attribute("\\abc9_holes");
 
 	dict<IdString, Cell*> cell_cache;
+	TimingInfo timing;
 
 	int port_id = 1, box_count = 0;
 	for (auto cell_name : toposort.sorted) {
@@ -404,8 +405,8 @@ void prep_delays(RTLIL::Design *design, bool dff_mode)
 				continue;
 			if (inst_module->attributes.count(ID(abc9_box)))
 				continue;
-			IdString blackboxes_type = inst_module->derive(design, cell->parameters);
-			inst_module = design->module(blackboxes_type);
+			IdString derived_type = inst_module->derive(design, cell->parameters);
+			inst_module = design->module(derived_type);
 			log_assert(inst_module);
 
 			if (dff_mode && inst_module->get_bool_attribute(ID(abc9_flop))) {
@@ -414,71 +415,15 @@ void prep_delays(RTLIL::Design *design, bool dff_mode)
 					  //   as delays will be captured in the flop box
 			}
 
-			if (!timing.count(inst_module->name))
+			if (!timing.count(derived_type))
 				timing.setup_module(inst_module);
 
 			cells.emplace_back(cell);
 		}
 	}
 
-	// Transform all $specify3 and $specrule to abc9_{arrival,required} attributes
-        // TODO: Deprecate
-	pool<Wire*> ports;
-	std::stringstream ss;
-	for (auto &i : timing.data) {
-                const auto &t = i.second;
-                if (t.arrival.empty() && t.required.empty())
-                        continue;
-
-                const auto &arrival = t.arrival;
-                const auto &required = t.required;
-
-		ports.clear();
-		for (const auto &i : arrival)
-			ports.insert(i.first.wire);
-		for (auto wire : ports) {
-			log_assert(wire->port_output);
-			ss.str("");
-			if (GetSize(wire) == 1)
-				wire->attributes[ID(abc9_arrival)] = arrival.at(SigBit(wire,0));
-			else {
-				bool first = true;
-				for (auto b : SigSpec(wire)) {
-					if (first)
-						first = false;
-					else
-						ss << " ";
-                                        ss << arrival.at(b, 0);
-				}
-				wire->attributes[ID(abc9_arrival)] = ss.str();
-			}
-		}
-
-		ports.clear();
-		for (const auto &i : required)
-			ports.insert(i.first.wire);
-		for (auto wire : ports) {
-			log_assert(wire->port_input);
-			ss.str("");
-			if (GetSize(wire) == 1)
-				wire->attributes[ID(abc9_required)] = required.at(SigBit(wire,0));
-			else {
-				bool first = true;
-				for (auto b : SigSpec(wire)) {
-					if (first)
-						first = false;
-					else
-						ss << " ";
-                                        ss << required.at(b, 0);
-				}
-				wire->attributes[ID(abc9_required)] = ss.str();
-			}
-		}
-	}
-
 	// Insert $__ABC9_DELAY cells on all cells that instantiate blackboxes
-	//   with (* abc9_required *) attributes
-	dict<IdString,dict<IdString,std::vector<int>>> requireds_cache;
+	//   with required times
 	for (auto cell : cells) {
 		auto module = cell->module;
 		RTLIL::Module* inst_module = module->design->module(cell->type);
@@ -487,48 +432,29 @@ void prep_delays(RTLIL::Design *design, bool dff_mode)
 		inst_module = design->module(derived_type);
 		log_assert(inst_module);
 
-		auto &cell_requireds = requireds_cache[derived_type];
+		auto &t = timing.at(derived_type).required;
 		for (auto &conn : cell->connections_) {
 			auto port_wire = inst_module->wire(conn.first);
 			if (!port_wire->port_input)
 				continue;
 
-			auto r = cell_requireds.insert(conn.first);
-			auto &requireds = r.first->second;
-			if (r.second) {
-				auto it = port_wire->attributes.find("\\abc9_required");
-				if (it == port_wire->attributes.end())
-					continue;
-				if (it->second.flags == 0) {
-					int delay = it->second.as_int();
-					requireds.emplace_back(delay);
-				}
-				else
-					for (const auto &tok : split_tokens(it->second.decode_string())) {
-						int delay = atoi(tok.c_str());
-						requireds.push_back(delay);
-					}
-			}
-
-			if (requireds.empty())
-				continue;
-
 			SigSpec O = module->addWire(NEW_ID, GetSize(conn.second));
-			auto it = requireds.begin();
-			for (int i = 0; i < GetSize(conn.second); ++i) {
+			for (int i = 0; i < GetSize(conn.second); i++) {
+				auto d = t.at(SigBit(port_wire,i), 0);
+				if (d == 0)
+					continue;
+
 #ifndef NDEBUG
 				if (ys_debug(1)) {
-					static std::set<std::pair<IdString,IdString>> seen;
-					if (seen.emplace(derived_type, conn.first).second) log("%s.%s abc9_required = '%s'\n", log_id(cell->type), log_id(conn.first),
-                                                        port_wire->attributes.at("\\abc9_required").decode_string().c_str());
+					static std::set<std::tuple<IdString,IdString,int>> seen;
+					if (seen.emplace(derived_type, conn.first, i).second) log("%s.%s[%d] abc9_required = %d\n",
+							log_id(cell->type), log_id(conn.first), i, d);
 				}
 #endif
 				auto box = module->addCell(NEW_ID, ID($__ABC9_DELAY));
 				box->setPort(ID(I), conn.second[i]);
 				box->setPort(ID(O), O[i]);
-				box->setParam(ID(DELAY), *it);
-				if (requireds.size() > 1)
-					it++;
+				box->setParam(ID(DELAY), d);
 				conn.second[i] = O[i];
 			}
 		}
@@ -1172,7 +1098,7 @@ struct Abc9OpsPass : public Pass {
 		log("\n");
 		log("    -prep_delays\n");
 		log("        insert `$__ABC9_DELAY' blackbox cells into the design to account for\n");
-		log("        certain delays, e.g. (* abc9_required *) values.\n");
+		log("        certain required times.\n");
 		log("\n");
 		log("    -mark_scc\n");
 		log("        for an arbitrarily chosen cell in each unique SCC of each selected module\n");

@@ -47,6 +47,7 @@ inline static uint32_t bswap32(uint32_t x)
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 #include "kernel/utils.h"
+#include "kernel/timinginfo.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -184,7 +185,8 @@ struct XAigerWriter
 				}
 			}
 
-		dict<IdString,dict<IdString,std::vector<int>>> arrivals_cache;
+		TimingInfo timing;
+
 		for (auto cell : module->cells()) {
 			if (!cell->has_keep_attr()) {
 				if (cell->type == "$_NOT_")
@@ -252,43 +254,27 @@ struct XAigerWriter
 					}
 				}
 
-				auto &cell_arrivals = arrivals_cache[derived_type];
+				if (!timing.count(derived_type))
+					timing.setup_module(inst_module);
+				auto &t = timing.at(derived_type).arrival;
 				for (const auto &conn : cell->connections()) {
 					auto port_wire = inst_module->wire(conn.first);
 					if (!port_wire->port_output)
 						continue;
 
-					auto r = cell_arrivals.insert(conn.first);
-					auto &arrivals = r.first->second;
-					if (r.second) {
-						auto it = port_wire->attributes.find("\\abc9_arrival");
-						if (it == port_wire->attributes.end())
+					for (int i = 0; i < GetSize(conn.second); i++) {
+						auto d = t.at(SigBit(port_wire,i), 0);
+						if (d == 0)
 							continue;
-						if (it->second.flags == 0)
-							arrivals.emplace_back(it->second.as_int());
-						else {
-							for (const auto &tok : split_tokens(it->second.decode_string()))
-								arrivals.push_back(atoi(tok.c_str()));
-							if (GetSize(arrivals) > 1 && GetSize(arrivals) != GetSize(port_wire))
-								log_error("%s.%s is %d bits wide but abc9_arrival = '%s' has %d value(s)!\n", log_id(cell->type), log_id(conn.first),
-										GetSize(port_wire), log_signal(it->second), GetSize(arrivals));
-						}
-					}
 
-					if (arrivals.empty())
-						continue;
-
-					auto jt = arrivals.begin();
 #ifndef NDEBUG
-					if (ys_debug(1)) {
-						static std::set<std::pair<IdString,IdString>> seen;
-						if (seen.emplace(derived_type, conn.first).second) log("%s.%s abc9_arrival = %d\n", log_id(cell->type), log_id(conn.first), *jt);
-					}
+						if (ys_debug(1)) {
+							static std::set<std::tuple<IdString,IdString,int>> seen;
+							if (seen.emplace(derived_type, conn.first, i).second) log("%s.%s[%d] abc9_arrival = %d\n",
+									log_id(cell->type), log_id(conn.first), i, d);
+						}
 #endif
-					for (auto bit : sigmap(conn.second)) {
-						arrival_times[bit] = *jt;
-						if (arrivals.size() > 1)
-							jt++;
+						arrival_times[conn.second[i]] = d;
 					}
 				}
 
