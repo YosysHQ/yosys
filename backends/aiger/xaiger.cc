@@ -656,6 +656,7 @@ struct XAigerWriter
 					write_s_buffer(0);
 				}
 
+				// Use arrival time from output of flop box
 				write_i_buffer(arrival_times.at(d, 0));
 				//write_o_buffer(0);
 			}
