@@ -664,13 +664,15 @@ int main(int argc, char **argv)
 	}
 #endif
 
+	log_check_expected();
+
 	yosys_atexit();
 
 	memhasher_off();
 	if (call_abort)
 		abort();
 
-	log_flush();
+	log_flush();	
 #if defined(_MSC_VER)
 	_exit(0);
 #elif defined(_WIN32)

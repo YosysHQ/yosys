@@ -135,6 +135,23 @@ void log_backtrace(const char *prefix, int levels);
 void log_reset_stack();
 void log_flush();
 
+struct LogExpectedItem
+{
+	LogExpectedItem(std::string pattern, int expected) :
+		expected_count(expected),
+		current_count(0),
+		pattern(pattern)
+	{
+	}
+
+	int expected_count;
+	int current_count;
+	std::string pattern;
+};
+
+extern std::vector<std::pair<std::regex,LogExpectedItem>> log_expect_log, log_expect_warning, log_expect_error;
+void log_check_expected();
+
 const char *log_signal(const RTLIL::SigSpec &sig, bool autoint = true);
 const char *log_const(const RTLIL::Const &value, bool autoint = true);
 const char *log_id(RTLIL::IdString id);
