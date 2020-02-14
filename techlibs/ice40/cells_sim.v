@@ -1507,11 +1507,11 @@ module SB_RAM40_4KNR (
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L343-L358
 		$setup(MASK, posedge WCLK &&& WE && WCLKE, 274);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L359-L369
-		$setup(RADDR, negedge RCLK &&& RE && RCLKE, 203);
+		$setup(RADDR, posedge RCLKN &&& RE && RCLKE, 203);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L370
-		$setup(RCLKE, negedge RCLK, 267);
+		$setup(RCLKE, posedge RCLKN, 267);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L371
-		$setup(RE, negedge RCLK, 98);
+		$setup(RE, posedge RCLKN, 98);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L372-L382
 		$setup(WADDR, posedge WCLK &&& WE && WCLKE, 224);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L383
@@ -1521,7 +1521,7 @@ module SB_RAM40_4KNR (
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L400
 		$setup(WE, posedge WCLK, 133);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L401
-		(negedge RCLK => (RDATA : 16'bx)) = 2146;
+		(posedge RCLKN => (RDATA : 16'bx)) = 2146;
 	endspecify
 `endif
 `ifdef ICE40_LP
@@ -1529,11 +1529,11 @@ module SB_RAM40_4KNR (
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L343-L358
 		$setup(MASK, posedge WCLK &&& WE && WCLKE, 403);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L359-L369
-		$setup(RADDR, negedge RCLK &&& RE && RCLKE, 300);
+		$setup(RADDR, posedge RCLKN &&& RE && RCLKE, 300);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L370
-		$setup(RCLKE, negedge RCLK, 393);
+		$setup(RCLKE, posedge RCLKN, 393);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L371
-		$setup(RE, negedge RCLK, 145);
+		$setup(RE, posedge RCLKN, 145);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L372-L382
 		$setup(WADDR, posedge WCLK &&& WE && WCLKE, 331);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L383
@@ -1543,7 +1543,7 @@ module SB_RAM40_4KNR (
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L400
 		$setup(WE, posedge WCLK, 196);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L401
-		(negedge RCLK => (RDATA : 16'bx)) = 3163;
+		(posedge RCLKN => (RDATA : 16'bx)) = 3163;
 	endspecify
 `endif
 `ifdef ICE40_U
@@ -1551,11 +1551,11 @@ module SB_RAM40_4KNR (
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12968-12983
 		$setup(MASK, posedge WCLK &&& WE && WCLKE, 517);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12984-12994
-		$setup(RADDR, negedge RCLK &&& RE && RCLKE, 384);
+		$setup(RADDR, posedge RCLKN &&& RE && RCLKE, 384);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12995
-		$setup(RCLKE, negedge RCLK, 503);
+		$setup(RCLKE, posedge RCLKN, 503);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12996
-		$setup(RE, negedge RCLK, 185);
+		$setup(RE, posedge RCLKN, 185);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12997-13007
 		$setup(WADDR, posedge WCLK &&& WE && WCLKE, 424);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13008
@@ -1565,7 +1565,7 @@ module SB_RAM40_4KNR (
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13025
 		$setup(WE, posedge WCLK, 252);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13026
-		(negedge RCLK => (RDATA : 16'bx)) = 1179;
+		(posedge RCLKN => (RDATA : 16'bx)) = 1179;
 	endspecify
 `endif
 endmodule
@@ -1636,7 +1636,7 @@ module SB_RAM40_4KNW (
 `ifdef ICE40_HX
 	specify
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L343-L358
-		$setup(MASK, negedge WCLK &&& WE && WCLKE, 274);
+		$setup(MASK, posedge WCLKN &&& WE && WCLKE, 274);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L359-L369
 		$setup(RADDR, posedge RCLK &&& RE && RCLKE, 203);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L370
@@ -1644,13 +1644,13 @@ module SB_RAM40_4KNW (
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L371
 		$setup(RE, posedge RCLK, 98);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L372-L382
-		$setup(WADDR, negedge WCLK &&& WE && WCLKE, 224);
+		$setup(WADDR, posedge WCLKN &&& WE && WCLKE, 224);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L383
-		$setup(WCLKE, negedge WCLK, 267);
+		$setup(WCLKE, posedge WCLKN, 267);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L384-L399
-		$setup(WDATA, negedge WCLK &&& WE && WCLKE, 161);
+		$setup(WDATA, posedge WCLKN &&& WE && WCLKE, 161);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L400
-		$setup(WE, negedge WCLK, 133);
+		$setup(WE, posedge WCLKN, 133);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L401
 		(posedge RCLK => (RDATA : 16'bx)) = 2146;
 	endspecify
@@ -1658,7 +1658,7 @@ module SB_RAM40_4KNW (
 `ifdef ICE40_LP
 	specify
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L343-L358
-		$setup(MASK, negedge WCLK &&& WE && WCLKE, 403);
+		$setup(MASK, posedge WCLKN &&& WE && WCLKE, 403);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L359-L369
 		$setup(RADDR, posedge RCLK &&& RE && RCLKE, 300);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L370
@@ -1666,13 +1666,13 @@ module SB_RAM40_4KNW (
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L371
 		$setup(RE, posedge RCLK, 145);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L372-L382
-		$setup(WADDR, negedge WCLK &&& WE && WCLKE, 331);
+		$setup(WADDR, posedge WCLKN &&& WE && WCLKE, 331);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L383
-		$setup(WCLKE, negedge WCLK, 393);
+		$setup(WCLKE, posedge WCLKN, 393);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L384-L399
-		$setup(WDATA, negedge WCLK &&& WE && WCLKE, 238);
+		$setup(WDATA, posedge WCLKN &&& WE && WCLKE, 238);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L400
-		$setup(WE, negedge WCLK, 196);
+		$setup(WE, posedge WCLKN, 196);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L401
 		(posedge RCLK => (RDATA : 16'bx)) = 3163;
 	endspecify
@@ -1680,7 +1680,7 @@ module SB_RAM40_4KNW (
 `ifdef ICE40_U
 	specify
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12968-12983
-		$setup(MASK, negedge WCLK &&& WE && WCLKE, 517);
+		$setup(MASK, posedge WCLKN &&& WE && WCLKE, 517);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12984-12994
 		$setup(RADDR, posedge RCLK &&& RE && RCLKE, 384);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12995
@@ -1688,13 +1688,13 @@ module SB_RAM40_4KNW (
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12996
 		$setup(RE, posedge RCLK, 185);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12997-13007
-		$setup(WADDR, negedge WCLK &&& WE && WCLKE, 424);
+		$setup(WADDR, posedge WCLKN &&& WE && WCLKE, 424);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13008
-		$setup(WCLKE, negedge WCLK, 503);
+		$setup(WCLKE, posedge WCLKN, 503);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13009-13024
-		$setup(WDATA, negedge WCLK &&& WE && WCLKE, 305);
+		$setup(WDATA, posedge WCLKN &&& WE && WCLKE, 305);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13025
-		$setup(WE, negedge WCLK, 252);
+		$setup(WE, posedge WCLKN, 252);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13026
 		(posedge RCLK => (RDATA : 16'bx)) = 1179;
 	endspecify
