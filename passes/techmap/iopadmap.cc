@@ -423,6 +423,15 @@ struct IopadmapPass : public Pass {
 					}
 				}
 
+				if (wire->port_output) {
+					auto jt = new_wire->attributes.find(ID(init));
+					// For output ports, move \init attributes from old wire to new wire
+					if (jt != new_wire->attributes.end()) {
+						wire->attributes[ID(init)] = std::move(jt->second);
+						new_wire->attributes.erase(jt);
+					}
+				}
+
 				wire->port_id = 0;
 				wire->port_input = false;
 				wire->port_output = false;
