@@ -672,7 +672,7 @@ int main(int argc, char **argv)
 	if (call_abort)
 		abort();
 
-	log_flush();	
+	log_flush();
 #if defined(_MSC_VER)
 	_exit(0);
 #elif defined(_WIN32)
