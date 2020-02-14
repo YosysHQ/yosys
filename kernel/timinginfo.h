@@ -56,7 +56,7 @@ struct TimingInfo
                 }
 	}
 
-	void setup_module(RTLIL::Module *module)
+	const ModuleTiming& setup_module(RTLIL::Module *module)
 	{
                 auto r = data.insert(module->name);
                 log_assert(r.second);
@@ -146,10 +146,13 @@ struct TimingInfo
                                 }
 			}
 		}
+
+                return t;
 	}
 
         decltype(data)::const_iterator find (RTLIL::IdString module_name) const { return data.find(module_name); }
         decltype(data)::const_iterator end () const { return data.end(); }
+        int count (RTLIL::IdString module_name) const { return data.count(module_name); }
 };
 
 YOSYS_NAMESPACE_END

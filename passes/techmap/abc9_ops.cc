@@ -381,6 +381,8 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 
 void prep_delays(RTLIL::Design *design, bool dff_mode)
 {
+        TimingInfo timing;
+
 	// Derive all Yosys blackbox modules that are not combinatorial abc9 boxes
 	//   (e.g. DSPs, RAMs, etc.) nor abc9 flops and collect all such instantiations
 	pool<Module*> flops;
@@ -412,23 +414,19 @@ void prep_delays(RTLIL::Design *design, bool dff_mode)
 					  //   as delays will be captured in the flop box
 			}
 
+			if (!timing.count(inst_module->name))
+				timing.setup_module(inst_module);
+
 			cells.emplace_back(cell);
 		}
 	}
-
-        const TimingInfo timing(design);
 
 	// Transform all $specify3 and $specrule to abc9_{arrival,required} attributes
         // TODO: Deprecate
 	pool<Wire*> ports;
 	std::stringstream ss;
-	for (auto module : design->modules()) {
-
-                auto it = timing.find(module->name);
-                if (it == timing.end())
-                        continue;
-
-                const auto &t = it->second;
+	for (auto &i : timing.data) {
+                const auto &t = i.second;
                 if (t.arrival.empty() && t.required.empty())
                         continue;
 
@@ -539,7 +537,7 @@ void prep_delays(RTLIL::Design *design, bool dff_mode)
 
 void prep_lut(RTLIL::Design *design, int maxlut)
 {
-        const TimingInfo timing(design);
+        TimingInfo timing;
 
 	std::vector<std::tuple<int, IdString, int, std::vector<int>>> table;
 	for (auto module : design->modules()) {
@@ -547,16 +545,12 @@ void prep_lut(RTLIL::Design *design, int maxlut)
 		if (it == module->attributes.end())
 			continue;
 
-                auto jt = timing.find(module->name);
-                if (jt == timing.end())
-                        continue;
+		auto &t = timing.setup_module(module);
 
 		SigBit o;
 		std::vector<int> specify;
-		auto &t = jt->second;
 		for (const auto &i : t.comb) {
 			auto &d = i.first.second;
-			log_dump(o, d);
 			if (o == SigBit())
 				o = d;
 			else if (o != d)
@@ -603,7 +597,7 @@ void write_lut(RTLIL::Module *module, const std::string &dst) {
 
 void prep_box(RTLIL::Design *design, bool dff_mode)
 {
-        const TimingInfo timing(design);
+        TimingInfo timing;
 
 	std::stringstream ss;
 	int abc9_box_id = 1;
@@ -651,6 +645,7 @@ void prep_box(RTLIL::Design *design, bool dff_mode)
 				}
 				ss << " abc9_ff.Q" << std::endl;
 
+				auto &t = timing.setup_module(module).required;
 				first = true;
 				for (auto port_name : module->ports) {
 					auto wire = module->wire(port_name);
@@ -660,18 +655,18 @@ void prep_box(RTLIL::Design *design, bool dff_mode)
 						first = false;
 					else
 						ss << " ";
-                                        auto it = wire->attributes.find("\\abc9_required");
-                                        if (it == wire->attributes.end())
+                                        auto it = t.find(wire);
+                                        if (it == t.end())
+						// Assume that no setup time means zero
                                                 ss << 0;
                                         else {
-                                                log_assert(it->second.flags == 0);
-                                                ss << it->second.as_int();
+                                                ss << it->second;
 
 #ifndef NDEBUG
                                                 if (ys_debug(1)) {
                                                         static std::set<std::pair<IdString,IdString>> seen;
                                                         if (seen.emplace(module->name, port_name).second) log("%s.%s abc9_required = %d\n", log_id(module),
-                                                                        log_id(port_name), it->second.as_int());
+                                                                        log_id(port_name), it->second);
                                                 }
 #endif
                                         }
@@ -747,11 +742,10 @@ void prep_box(RTLIL::Design *design, bool dff_mode)
 		}
 		ss << std::endl;
 
-		auto it = timing.find(module->name);
-		if (it == timing.end())
+		auto &t = timing.setup_module(module).comb;
+		if (t.empty())
 			log_error("(* abc9_box *) module '%s' has no timing information.\n", log_id(module));
 
-		const auto &t = it->second.comb;
 		for (const auto &o : outputs) {
 			first = true;
 			for (const auto &i : inputs) {
