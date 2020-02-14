@@ -643,14 +643,13 @@ struct XAigerWriter
 			write_s_buffer(ff_bits.size());
 
 			for (const auto &i : ff_bits) {
-				const SigBit &d = i.first;
 				const Cell *cell = i.second;
 
 				int mergeability = cell->attributes.at(ID(abc9_mergeability)).as_int();
 				log_assert(mergeability > 0);
 				write_r_buffer(mergeability);
 
-				Const init = cell->attributes.at(ID(abc9_init));
+				Const init = cell->attributes.at(ID(abc9_init), State::Sx);
 				log_assert(GetSize(init) == 1);
 				if (init == State::S1)
 					write_s_buffer(1);
@@ -661,7 +660,11 @@ struct XAigerWriter
 					write_s_buffer(0);
 				}
 
-				write_i_buffer(arrival_times.at(d, 0));
+				auto it = cell->attributes.find(ID(abc9_arrival));
+				if (it != cell->attributes.end())
+					write_i_buffer(it->second.as_int());
+				else
+					write_i_buffer(0);
 				//write_o_buffer(0);
 			}
 

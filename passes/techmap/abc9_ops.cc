@@ -192,20 +192,9 @@ void prep_dff(RTLIL::Module *module)
 		clkdomain_t key(abc9_clock);
 
 		auto r = clk_to_mergeability.insert(std::make_pair(abc9_clock, clk_to_mergeability.size() + 1));
-		auto r2 YS_ATTRIBUTE(unused) = cell->attributes.insert(std::make_pair(ID(abc9_mergeability), r.first->second));
+		auto r2  = cell->attributes.insert(ID(abc9_mergeability));;
 		log_assert(r2.second);
-
-		Wire *abc9_init_wire = module->wire(stringf("%s.init", cell->name.c_str()));
-		if (abc9_init_wire == NULL)
-			log_error("'%s.init' is not a wire present in module '%s'.\n", cell->name.c_str(), log_id(module));
-		log_assert(GetSize(abc9_init_wire) == 1);
-		SigSpec abc9_init = assign_map(abc9_init_wire);
-		if (!abc9_init.is_fully_const())
-			log_error("'%s.init' is not a constant wire present in module '%s'.\n", cell->name.c_str(), log_id(module));
-		if (abc9_init == State::S1)
-			log_error("'%s.init' in module '%s' has value 1'b1 which is not supported by 'abc9 -dff'.\n", cell->name.c_str(), log_id(module));
-		r2 = cell->attributes.insert(std::make_pair(ID(abc9_init), abc9_init.as_const()));
-		log_assert(r2.second);
+		r2.first->second = r.first->second;
 	}
 
 	RTLIL::Module *holes_module = design->module(stringf("%s$holes", module->name.c_str()));
@@ -265,13 +254,19 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 
 	SigMap sigmap(module);
 
+	dict<SigBit, Cell*> abc9_ff_d;
 	dict<SigBit, pool<IdString>> bit_drivers, bit_users;
 	TopoSort<IdString, RTLIL::sort_by_id_str> toposort;
 	dict<IdString, std::vector<IdString>> box_ports;
 
 	for (auto cell : module->cells()) {
-		if (cell->type == "$__ABC9_FF_")
+		if (cell->type == "$__ABC9_FF_") {
+			auto d = sigmap(cell->getPort(ID(D)));
+			auto r = abc9_ff_d.insert(d);
+			log_assert(r.second);
+			r.first->second = cell;
 			continue;
+		}
 		if (cell->has_keep_attr())
 			continue;
 
@@ -368,6 +363,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 
 		IdString derived_type = box_module->derive(design, cell->parameters);
 		box_module = design->module(derived_type);
+		auto abc9_flop = box_module->get_bool_attribute("\\abc9_flop");
 
 		auto r = cell_cache.insert(derived_type);
 		auto &holes_cell = r.first->second;
@@ -406,7 +402,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 
 				// For flops only, create an extra 1-bit input that drives a new wire
 				//   called "<cell>.abc9_ff.Q" that is used below
-				if (box_module->get_bool_attribute("\\abc9_flop")) {
+				if (abc9_flop) {
 					box_inputs++;
 					Wire *holes_wire = holes_module->wire(stringf("\\i%d", box_inputs));
 					if (!holes_wire) {
@@ -436,6 +432,28 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 				holes_module->connect(holes_wire, holes_cell->getPort(port_name));
 			else // blackbox
 				holes_module->connect(holes_wire, Const(State::S0, GetSize(w)));
+
+			// Transfer abc9_arrival value from flop box output to $__ABC9_FF_ cell
+			if (abc9_flop) {
+				auto it = w->attributes.find(ID(abc9_arrival));
+				if (it == w->attributes.end())
+					continue;
+				auto jt = cell->connections_.find(port_name);
+				if (jt == cell->connections_.end())
+					continue;
+				auto kt = abc9_ff_d.find(jt->second);
+				if (kt == abc9_ff_d.end())
+					continue;
+#ifndef NDEBUG
+				if (ys_debug(1)) {
+					static std::set<std::pair<IdString,IdString>> seen;
+					if (seen.emplace(cell->type, port_name).second) log("%s.%s abc9_arrival = %d\n", log_id(cell->type), log_id(port_name), it->second.as_int());
+				}
+#endif
+				auto r = kt->second->attributes.insert(ID(abc9_arrival));
+				log_assert(r.second);
+				r.first->second = it->second;
+			}
 		}
 	}
 }
