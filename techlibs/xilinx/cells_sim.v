@@ -3594,7 +3594,40 @@ endmodule
 
 // Block RAM
 
-module RAMB18E1 (...);
+module RAMB18E1 (
+    (* clkbuf_sink *)
+    (* invertible_pin = "IS_CLKARDCLK_INVERTED" *)
+    input CLKARDCLK,
+    (* clkbuf_sink *)
+    (* invertible_pin = "IS_CLKBWRCLK_INVERTED" *)
+    input CLKBWRCLK,
+    (* invertible_pin = "IS_ENARDEN_INVERTED" *)
+    input ENARDEN,
+    (* invertible_pin = "IS_ENBWREN_INVERTED" *)
+    input ENBWREN,
+    input REGCEAREGCE,
+    input REGCEB,
+    (* invertible_pin = "IS_RSTRAMARSTRAM_INVERTED" *)
+    input RSTRAMARSTRAM,
+    (* invertible_pin = "IS_RSTRAMB_INVERTED" *)
+    input RSTRAMB,
+    (* invertible_pin = "IS_RSTREGARSTREG_INVERTED" *)
+    input RSTREGARSTREG,
+    (* invertible_pin = "IS_RSTREGB_INVERTED" *)
+    input RSTREGB,
+    input [13:0] ADDRARDADDR,
+    input [13:0] ADDRBWRADDR,
+    input [15:0] DIADI,
+    input [15:0] DIBDI,
+    input [1:0] DIPADIP,
+    input [1:0] DIPBDIP,
+    input [1:0] WEA,
+    input [3:0] WEBWE,
+    output [15:0] DOADO,
+    output [15:0] DOBDO,
+    output [1:0] DOPADOP,
+    output [1:0] DOPBDOP
+);
     parameter integer DOA_REG = 0;
     parameter integer DOB_REG = 0;
     parameter INITP_00 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
@@ -3694,38 +3727,6 @@ module RAMB18E1 (...);
     parameter IS_RSTRAMB_INVERTED = 1'b0;
     parameter IS_RSTREGARSTREG_INVERTED = 1'b0;
     parameter IS_RSTREGB_INVERTED = 1'b0;
-    output [15:0] DOADO;
-    output [15:0] DOBDO;
-    output [1:0] DOPADOP;
-    output [1:0] DOPBDOP;
-    (* clkbuf_sink *)
-    (* invertible_pin = "IS_CLKARDCLK_INVERTED" *)
-    input CLKARDCLK;
-    (* clkbuf_sink *)
-    (* invertible_pin = "IS_CLKBWRCLK_INVERTED" *)
-    input CLKBWRCLK;
-    (* invertible_pin = "IS_ENARDEN_INVERTED" *)
-    input ENARDEN;
-    (* invertible_pin = "IS_ENBWREN_INVERTED" *)
-    input ENBWREN;
-    input REGCEAREGCE;
-    input REGCEB;
-    (* invertible_pin = "IS_RSTRAMARSTRAM_INVERTED" *)
-    input RSTRAMARSTRAM;
-    (* invertible_pin = "IS_RSTRAMB_INVERTED" *)
-    input RSTRAMB;
-    (* invertible_pin = "IS_RSTREGARSTREG_INVERTED" *)
-    input RSTREGARSTREG;
-    (* invertible_pin = "IS_RSTREGB_INVERTED" *)
-    input RSTREGB;
-    input [13:0] ADDRARDADDR;
-    input [13:0] ADDRBWRADDR;
-    input [15:0] DIADI;
-    input [15:0] DIBDI;
-    input [1:0] DIPADIP;
-    input [1:0] DIPBDIP;
-    input [1:0] WEA;
-    input [3:0] WEBWE;
 
     specify
         // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L13
@@ -3755,7 +3756,50 @@ module RAMB18E1 (...);
     endspecify
 endmodule
 
-module RAMB36E1 (...);
+module RAMB36E1 (
+    output CASCADEOUTA,
+    output CASCADEOUTB,
+    output [31:0] DOADO,
+    output [31:0] DOBDO,
+    output [3:0] DOPADOP,
+    output [3:0] DOPBDOP,
+    output [7:0] ECCPARITY,
+    output [8:0] RDADDRECC,
+    output SBITERR,
+    output DBITERR,
+    (* invertible_pin = "IS_ENARDEN_INVERTED" *)
+    input ENARDEN,
+    (* clkbuf_sink *)
+    (* invertible_pin = "IS_CLKARDCLK_INVERTED" *)
+    input CLKARDCLK,
+    (* invertible_pin = "IS_RSTRAMARSTRAM_INVERTED" *)
+    input RSTRAMARSTRAM,
+    (* invertible_pin = "IS_RSTREGARSTREG_INVERTED" *)
+    input RSTREGARSTREG,
+    input CASCADEINA,
+    input REGCEAREGCE,
+    (* invertible_pin = "IS_ENBWREN_INVERTED" *)
+    input ENBWREN,
+    (* clkbuf_sink *)
+    (* invertible_pin = "IS_CLKBWRCLK_INVERTED" *)
+    input CLKBWRCLK,
+    (* invertible_pin = "IS_RSTRAMB_INVERTED" *)
+    input RSTRAMB,
+    (* invertible_pin = "IS_RSTREGB_INVERTED" *)
+    input RSTREGB,
+    input CASCADEINB,
+    input REGCEB,
+    input INJECTDBITERR,
+    input INJECTSBITERR,
+    input [15:0] ADDRARDADDR,
+    input [15:0] ADDRBWRADDR,
+    input [31:0] DIADI,
+    input [31:0] DIBDI,
+    input [3:0] DIPADIP,
+    input [3:0] DIPBDIP,
+    input [3:0] WEA,
+    input [7:0] WEBWE
+);
     parameter integer DOA_REG = 0;
     parameter integer DOB_REG = 0;
     parameter EN_ECC_READ = "FALSE";
@@ -3931,48 +3975,6 @@ module RAMB36E1 (...);
     parameter IS_RSTRAMB_INVERTED = 1'b0;
     parameter IS_RSTREGARSTREG_INVERTED = 1'b0;
     parameter IS_RSTREGB_INVERTED = 1'b0;
-    output CASCADEOUTA;
-    output CASCADEOUTB;
-    output [31:0] DOADO;
-    output [31:0] DOBDO;
-    output [3:0] DOPADOP;
-    output [3:0] DOPBDOP;
-    output [7:0] ECCPARITY;
-    output [8:0] RDADDRECC;
-    output SBITERR;
-    output DBITERR;
-    (* invertible_pin = "IS_ENARDEN_INVERTED" *)
-    input ENARDEN;
-    (* clkbuf_sink *)
-    (* invertible_pin = "IS_CLKARDCLK_INVERTED" *)
-    input CLKARDCLK;
-    (* invertible_pin = "IS_RSTRAMARSTRAM_INVERTED" *)
-    input RSTRAMARSTRAM;
-    (* invertible_pin = "IS_RSTREGARSTREG_INVERTED" *)
-    input RSTREGARSTREG;
-    input CASCADEINA;
-    input REGCEAREGCE;
-    (* invertible_pin = "IS_ENBWREN_INVERTED" *)
-    input ENBWREN;
-    (* clkbuf_sink *)
-    (* invertible_pin = "IS_CLKBWRCLK_INVERTED" *)
-    input CLKBWRCLK;
-    (* invertible_pin = "IS_RSTRAMB_INVERTED" *)
-    input RSTRAMB;
-    (* invertible_pin = "IS_RSTREGB_INVERTED" *)
-    input RSTREGB;
-    input CASCADEINB;
-    input REGCEB;
-    input INJECTDBITERR;
-    input INJECTSBITERR;
-    input [15:0] ADDRARDADDR;
-    input [15:0] ADDRBWRADDR;
-    input [31:0] DIADI;
-    input [31:0] DIBDI;
-    input [3:0] DIPADIP;
-    input [3:0] DIPBDIP;
-    input [3:0] WEA;
-    input [7:0] WEBWE;
 
     specify
         // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L13
