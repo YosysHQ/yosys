@@ -143,6 +143,9 @@ struct SynthCoolrunner2Pass : public ScriptPass
 
 		if (check_label("fine"))
 		{
+			run("extract_counter -dir up -allow_arst no");
+			run("techmap -map +/coolrunner2/cells_counter_map.v");
+			run("clean");
 			run("opt -fast -full");
 			run("techmap -map +/techmap.v -map +/coolrunner2/cells_latch.v");
 			run("opt -fast");
