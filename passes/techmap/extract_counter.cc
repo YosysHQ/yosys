@@ -106,6 +106,13 @@ struct CounterExtraction
 	pool<ModIndex::PortInfo> pouts;	//Ports that take a parallel output from us
 };
 
+struct CounterExtractionSettings
+{
+	pool<RTLIL::IdString>& parallel_cells;
+	int maxwidth;
+	int minwidth;
+};
+
 //attempt to extract a counter centered on the given adder cell
 //For now we only support DOWN counters.
 //TODO: up/down support
@@ -113,16 +120,14 @@ int counter_tryextract(
 	ModIndex& index,
 	Cell *cell,
 	CounterExtraction& extract,
-	pool<RTLIL::IdString>& parallel_cells,
-	int maxwidth)
+	CounterExtractionSettings settings)
 {
 	SigMap& sigmap = index.sigmap;
 
-	//A counter with less than 2 bits makes no sense
-	//TODO: configurable min threshold
+	//Check if counter is an appropriate size
 	int a_width = cell->getParam(ID(A_WIDTH)).as_int();
 	extract.width = a_width;
-	if( (a_width < 2) || (a_width > maxwidth) )
+	if( (a_width < settings.minwidth) || (a_width > settings.maxwidth) )
 		return 1;
 
 	//Second input must be a single bit
@@ -291,10 +296,10 @@ int counter_tryextract(
 				continue;
 
 			//If we specified a limited set of cells for parallel output, check that we only drive them
-			if(!parallel_cells.empty())
+			if(!settings.parallel_cells.empty())
 			{
 				//Make sure we're in the whitelist
-				if( parallel_cells.find(c->type) == parallel_cells.end())
+				if( settings.parallel_cells.find(c->type) == settings.parallel_cells.end())
 					return 17;
 			}
 
@@ -337,8 +342,7 @@ void counter_worker(
 	unsigned int& total_counters,
 	pool<Cell*>& cells_to_remove,
 	pool<pair<Cell*, string>>& cells_to_rename,
-	pool<RTLIL::IdString>& parallel_cells,
-	int maxwidth)
+	CounterExtractionSettings settings)
 {
 	SigMap& sigmap = index.sigmap;
 
@@ -385,7 +389,7 @@ void counter_worker(
 
 	//Attempt to extract a counter
 	CounterExtraction extract;
-	int reason = counter_tryextract(index, cell, extract, parallel_cells, maxwidth);
+	int reason = counter_tryextract(index, cell, extract, settings);
 
 	//Nonzero code - we could not find a matchable counter.
 	//Do nothing, unless extraction was forced in which case give an error
@@ -570,7 +574,10 @@ struct ExtractCounterPass : public Pass {
 		log("to the actual target cells.\n");
 		log("\n");
 		log("    -maxwidth N\n");
-		log("        Only extract counters up to N bits wide\n");
+		log("        Only extract counters up to N bits wide (default 64)\n");
+		log("\n");
+		log("    -minwidth N\n");
+		log("        Only extract counters at least N bits wide (default 2)\n");
 		log("\n");
 		log("    -pout X,Y,...\n");
 		log("        Only allow parallel output from the counter to the listed cell types\n");
@@ -582,9 +589,15 @@ struct ExtractCounterPass : public Pass {
 	{
 		log_header(design, "Executing EXTRACT_COUNTER pass (find counters in netlist).\n");
 
-		int maxwidth = 64;
+		pool<RTLIL::IdString> _parallel_cells;
+		CounterExtractionSettings settings
+		{
+			.parallel_cells = _parallel_cells,
+			.maxwidth = 64,
+			.minwidth = 2,
+		};
+
 		size_t argidx;
-		pool<RTLIL::IdString> parallel_cells;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
 			if (args[argidx] == "-pout")
@@ -601,23 +614,36 @@ struct ExtractCounterPass : public Pass {
 				{
 					if(pouts[i] == ',')
 					{
-						parallel_cells.insert(RTLIL::escape_id(tmp));
+						settings.parallel_cells.insert(RTLIL::escape_id(tmp));
 						tmp = "";
 					}
 					else
 						tmp += pouts[i];
 				}
-				parallel_cells.insert(RTLIL::escape_id(tmp));
+				settings.parallel_cells.insert(RTLIL::escape_id(tmp));
 				continue;
 			}
 
 			if (args[argidx] == "-maxwidth" && argidx+1 < args.size())
 			{
-				maxwidth = atoi(args[++argidx].c_str());
+				settings.maxwidth = atoi(args[++argidx].c_str());
+				continue;
+			}
+
+			if (args[argidx] == "-minwidth" && argidx+1 < args.size())
+			{
+				settings.minwidth = atoi(args[++argidx].c_str());
 				continue;
 			}
 		}
 		extra_args(args, argidx, design);
+
+		if (settings.minwidth < 2)
+		{
+			//A counter with less than 2 bits makes no sense
+			log_warning("Minimum counter width is 2 bits wide\n");
+			settings.minwidth = 2;
+		}
 
 		//Extract all of the counters we could find
 		unsigned int total_counters = 0;
@@ -628,7 +654,7 @@ struct ExtractCounterPass : public Pass {
 
 			ModIndex index(module);
 			for (auto cell : module->selected_cells())
-				counter_worker(index, cell, total_counters, cells_to_remove, cells_to_rename, parallel_cells, maxwidth);
+				counter_worker(index, cell, total_counters, cells_to_remove, cells_to_rename, settings);
 
 			for(auto cell : cells_to_remove)
 			{
