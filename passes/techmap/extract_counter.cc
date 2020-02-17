@@ -93,6 +93,7 @@ struct CounterExtraction
 	RTLIL::Wire* rwire;				//the register output
 	bool has_reset;					//true if we have a reset
 	bool has_ce;					//true if we have a clock enable
+	bool ce_inverted;				//true if clock enable is active low
 	RTLIL::SigSpec rst;				//reset pin
 	bool rst_inverted;				//true if reset is active low
 	bool rst_to_max;				//true if we reset to max instead of 0
@@ -223,14 +224,24 @@ int counter_tryextract(
 			return 24;
 		count_reg = *cey_loads.begin();
 
-		//Mux should have A driven by count Q, and B by muxy
-		//TODO: if A and B are swapped, CE polarity is inverted
-		if(sigmap(cemux->getPort(ID::B)) != muxy)
-			return 24;
-		if(sigmap(cemux->getPort(ID::A)) != sigmap(count_reg->getPort(ID(Q))))
-			return 24;
 		if(sigmap(cemux->getPort(ID::Y)) != sigmap(count_reg->getPort(ID(D))))
 			return 24;
+		//Mux should have A driven by count Q, and B by muxy
+		//if A and B are swapped, CE polarity is inverted
+		if(sigmap(cemux->getPort(ID::B)) == muxy && 
+			sigmap(cemux->getPort(ID::A)) == sigmap(count_reg->getPort(ID(Q))))
+		{
+			extract.ce_inverted = false;
+		}
+		else if(sigmap(cemux->getPort(ID::A)) == muxy && 
+				sigmap(cemux->getPort(ID::B)) == sigmap(count_reg->getPort(ID(Q))))
+		{
+			extract.ce_inverted = true;
+		}
+		else
+		{
+			return 24;
+		}
 
 		//Select of the mux is our clock enable
 		extract.has_ce = true;
@@ -271,7 +282,9 @@ int counter_tryextract(
 	//Sanity check that we use the ALU output properly
 	if(extract.has_ce)
 	{
-		if(!is_full_bus(muxy, index, count_mux, ID::Y, cemux, ID::B))
+		if(!extract.ce_inverted && !is_full_bus(muxy, index, count_mux, ID::Y, cemux, ID::B))
+			return 16;
+		if(extract.ce_inverted && !is_full_bus(muxy, index, count_mux, ID::Y, cemux, ID::A))
 			return 16;
 		if(!is_full_bus(cey, index, cemux, ID::Y, count_reg, ID(D)))
 			return 16;
@@ -506,7 +519,14 @@ void counter_worker(
 	if(extract.has_ce)
 	{
 		cell->setParam(ID(HAS_CE), RTLIL::Const(1));
-		cell->setPort(ID(CE), extract.ce);
+		if(extract.ce_inverted)
+		{
+			auto realce = cell->module->addWire(NEW_ID);
+			cell->module->addNot(NEW_ID, extract.ce, RTLIL::SigSpec(realce));
+			cell->setPort(ID(CE), realce);
+		}
+		else
+			cell->setPort(ID(CE), extract.ce);
 	}
 	else
 	{
