@@ -99,7 +99,9 @@ struct CounterExtraction
 	int count_value;				//value we count from
 	RTLIL::SigSpec ce;				//clock signal
 	RTLIL::SigSpec clk;				//clock enable, if any
-	RTLIL::SigSpec outsig;			//counter output signal
+	RTLIL::SigSpec outsig;			//counter overflow output signal
+	RTLIL::SigSpec poutsig;			//counter parallel output signal
+	bool has_pout;					//whether parallel output is used
 	RTLIL::Cell* count_mux;			//counter mux
 	RTLIL::Cell* count_reg;			//counter register
 	RTLIL::Cell* underflow_inv;		//inverter reduction for output-underflow detect
@@ -283,6 +285,8 @@ int counter_tryextract(
 	//(unless we have a parallel output!)
 	//If we have a clock enable, 3 is OK
 	const RTLIL::SigSpec qport = count_reg->getPort(ID(Q));
+	extract.poutsig = qport;
+	extract.has_pout = false;
 	const RTLIL::SigSpec cnout = sigmap(qport);
 	pool<Cell*> cnout_loads = get_other_cells(cnout, index, count_reg);
 	unsigned int max_loads = 2;
@@ -309,6 +313,7 @@ int counter_tryextract(
 
 			//Figure out what port(s) are driven by it
 			//TODO: this can probably be done more efficiently w/o multiple iterations over our whole net?
+			//TODO: For what purpose do we actually need extract.pouts?
 			for(auto b : qport)
 			{
 				pool<ModIndex::PortInfo> ports = index.query_ports(b);
@@ -317,8 +322,17 @@ int counter_tryextract(
 					if(x.cell != c)
 						continue;
 					extract.pouts.insert(ModIndex::PortInfo(c, x.port, 0));
+					extract.has_pout = true;
 				}
 			}
+		}
+	}
+	for (auto b : qport)
+	{
+		if(index.query_is_output(b))
+		{
+			// Parallel out goes out of module
+			extract.has_pout = true;
 		}
 	}
 	if(!is_full_bus(cnout, index, count_reg, ID(Q), underflow_inv, ID::A, true))
@@ -508,13 +522,11 @@ void counter_worker(
 	for(auto load : extract.pouts)
 	{
 		log("    Counter has parallel output to cell %s port %s\n", log_id(load.cell->name), log_id(load.port));
-
-		//Find the wire hooked to the old port
-		auto sig = load.cell->getPort(load.port);
-
+	}
+	if(extract.has_pout)
+	{
 		//Connect it to our parallel output
-		//(this is OK to do more than once b/c they all go to the same place)
-		cell->setPort(ID(POUT), sig);
+		cell->setPort(ID(POUT), extract.poutsig);
 		cell->setParam(ID(HAS_POUT), RTLIL::Const(1));
 	}
 
@@ -546,7 +558,7 @@ void counter_worker(
 
 	//Optimize the counter
 	//If we have no parallel output, and we have redundant bits, shrink us
-	if(extract.pouts.empty())
+	if(!extract.has_pout)
 	{
 		//TODO: Need to update this when we add support for counters with nonzero reset values
 		//to make sure the reset value fits in our bit space too
