@@ -331,7 +331,8 @@ static void logv_error_with_prefix(const char *prefix,
 				f = stderr;
 
 	log_last_error = vstringf(format, ap);
-	log("%s%s", prefix, log_last_error.c_str());
+	if (check_expected_logs)
+		log("%s%s", prefix, log_last_error.c_str());
 	log_flush();
 
 	log_make_debug = bak_log_make_debug;
