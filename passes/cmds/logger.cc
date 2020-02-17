@@ -60,6 +60,9 @@ struct LoggerPass : public Pass {
 		log("    -expect <type> <regex> <expected_count>\n");
 		log("        expect log,warning or error to appear. In case of error return code is 0.\n");
 		log("\n");
+		log("    -expect-no-warnings\n");
+		log("        gives error in case there is at least one warning.\n");
+		log("\n");
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design * design) YS_OVERRIDE
@@ -164,6 +167,10 @@ struct LoggerPass : public Pass {
 						std::regex_constants::optimize |
 						std::regex_constants::egrep), LogExpectedItem(pattern, count)));
 
+				continue;
+			}
+			if (args[argidx] == "-expect-no-warnings") {
+				log_expect_no_warnings = true;
 				continue;
 			}
 			break;

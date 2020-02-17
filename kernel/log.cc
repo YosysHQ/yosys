@@ -45,6 +45,7 @@ std::vector<std::regex> log_warn_regexes, log_nowarn_regexes, log_werror_regexes
 std::vector<std::pair<std::regex,LogExpectedItem>> log_expect_log, log_expect_warning, log_expect_error;
 std::set<std::string> log_warnings, log_experimentals, log_experimentals_ignored;
 int log_warnings_count = 0;
+bool log_expect_no_warnings = false;
 bool log_hdump_all = false;
 FILE *log_errfile = NULL;
 SHA1 *log_hasher = NULL;

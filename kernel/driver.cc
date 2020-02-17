@@ -558,6 +558,9 @@ int main(int argc, char **argv)
 		fprintf(f, "\n");
 	}
 
+	if (log_expect_no_warnings && log_warnings_count)
+		log_error("Warnings: %d unique messages, %d total\n", GetSize(log_warnings), log_warnings_count);
+
 	if (print_stats)
 	{
 		std::string hash = log_hasher->final().substr(0, 10);
