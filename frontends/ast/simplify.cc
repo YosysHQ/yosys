@@ -2637,10 +2637,9 @@ skip_dynamic_range_lvalue_expansion:;
 					wire->is_output = false;
 					wire->is_reg = true;
 					wire->attributes["\\nosync"] = AstNode::mkconst_int(1, false);
-					if (child->type == AST_ENUM_ITEM){
+					if (child->type == AST_ENUM_ITEM)
 						wire->attributes["\\enum_base_type"] = child->attributes["\\enum_base_type"];
 
-					}
 					wire_cache[child->str] = wire;
 
 					current_ast_mod->children.push_back(wire);
