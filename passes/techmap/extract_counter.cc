@@ -111,6 +111,7 @@ struct CounterExtractionSettings
 	pool<RTLIL::IdString>& parallel_cells;
 	int maxwidth;
 	int minwidth;
+	bool allow_arst;
 };
 
 //attempt to extract a counter centered on the given adder cell
@@ -241,6 +242,9 @@ int counter_tryextract(
 		extract.has_reset = false;
 	else if(count_reg->type == ID($adff))
 	{
+		if (!settings.allow_arst)
+			return 25;
+
 		extract.has_reset = true;
 
 		//Check polarity of reset - we may have to add an inverter later on!
@@ -395,7 +399,7 @@ void counter_worker(
 	//Do nothing, unless extraction was forced in which case give an error
 	if(reason != 0)
 	{
-		static const char* reasons[25]=
+		static const char* reasons[]=
 		{
 			"no problem",									//0
 			"counter is too large/small",					//1
@@ -421,7 +425,8 @@ void counter_worker(
 			"Underflow value is not equal to init value",	//21
 			"RESERVED, not implemented",					//22, kept for compatibility but not used anymore
 			"Reset is not to zero or COUNT_TO",				//23
-			"Clock enable configuration is unsupported"		//24
+			"Clock enable configuration is unsupported",	//24
+			"Async reset used but not permitted"			//25
 		};
 
 		if(force_extract)
@@ -579,6 +584,9 @@ struct ExtractCounterPass : public Pass {
 		log("    -minwidth N\n");
 		log("        Only extract counters at least N bits wide (default 2)\n");
 		log("\n");
+		log("    -allow_arst yes|no\n");
+		log("        Allow counters to have async reset (default yes)\n");
+		log("\n");
 		log("    -pout X,Y,...\n");
 		log("        Only allow parallel output from the counter to the listed cell types\n");
 		log("        (if not specified, parallel outputs are not restricted)\n");
@@ -595,6 +603,7 @@ struct ExtractCounterPass : public Pass {
 			.parallel_cells = _parallel_cells,
 			.maxwidth = 64,
 			.minwidth = 2,
+			.allow_arst = true,
 		};
 
 		size_t argidx;
@@ -633,6 +642,12 @@ struct ExtractCounterPass : public Pass {
 			if (args[argidx] == "-minwidth" && argidx+1 < args.size())
 			{
 				settings.minwidth = atoi(args[++argidx].c_str());
+				continue;
+			}
+
+			if (args[argidx] == "-allow_arst" && argidx+1 < args.size())
+			{
+				settings.allow_arst = args[++argidx] == "yes";
 				continue;
 			}
 		}
