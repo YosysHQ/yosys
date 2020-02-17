@@ -71,6 +71,7 @@ static struct timeval initial_tv = { 0, 0 };
 static bool next_print_log = false;
 static int log_newline_count = 0;
 static bool check_expected_logs = true;
+static bool display_error_log_msg = true;
 
 static void log_id_cache_clear()
 {
@@ -332,7 +333,7 @@ static void logv_error_with_prefix(const char *prefix,
 				f = stderr;
 
 	log_last_error = vstringf(format, ap);
-	if (check_expected_logs)
+	if (display_error_log_msg)
 		log("%s%s", prefix, log_last_error.c_str());
 	log_flush();
 
@@ -691,6 +692,7 @@ void log_check_expected()
 				_Exit(0);
 			#endif			
 		} else {
+			display_error_log_msg = false;
 			log_error("Expected error pattern '%s' not found !\n", item.second.pattern.c_str());
 		}
 }
