@@ -509,13 +509,15 @@ void counter_worker(
 		cell->setPort(ID(CE), extract.ce);
 	}
 	else
+	{
 		cell->setParam(ID(HAS_CE), RTLIL::Const(0));
+		cell->setPort(ID(CE), RTLIL::Const(1));
+	}
 
 	//Hook up hard-wired ports (for now up/down are not supported), default to no parallel output
 	cell->setParam(ID(HAS_POUT), RTLIL::Const(0));
 	cell->setParam(ID(RESET_TO_MAX), RTLIL::Const(0));
 	cell->setParam(ID(DIRECTION), RTLIL::Const("DOWN"));
-	cell->setPort(ID(CE), RTLIL::Const(1));
 	cell->setPort(ID(UP), RTLIL::Const(0));
 
 	//Hook up any parallel outputs
