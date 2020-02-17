@@ -62,6 +62,7 @@ Yosys 0.9 .. Yosys 0.9-dev
     - Added "synth_xilinx -dff"
     - Improved support of $readmem[hb] Memory Content File inclusion
     - Added "opt_lut_ins" pass
+    - Added "logger" pass
 
 Yosys 0.8 .. Yosys 0.9
 ----------------------
