@@ -32,7 +32,7 @@ struct StaWorker
 	SigMap sigmap;
 
 	dict<SigBit, std::vector<pair<SigBit, int>>> fanouts;
-	dict<SigBit, std::pair<SigBit,int>> backtrack;
+	dict<SigBit, SigBit> backtrack;
 	std::deque<SigBit> queue;
 	dict<SigBit, int> endpoints;
 
@@ -149,21 +149,62 @@ struct StaWorker
 					}
 					d.first.wire->set_intvec_attribute(ID(sta_arrival), dst_arrivals);
 					queue.emplace_back(d.first);
-					backtrack[d.first] = std::make_pair(b, src_arrival);
+					backtrack[d.first] = b;
 				}
 			}
 		}
 
 		log("Latest arrival time in '%s' is %d:\n", log_id(module), maxarrival);
 		auto b = maxbit;
-		auto arrival = maxarrival;
+		int arrival = maxarrival;
 		auto it = backtrack.find(b);
 		while (it != backtrack.end()) {
 			log("    %6d %s\n", arrival, log_signal(b));
-			std::tie(b,arrival) = it->second;
+			b = it->second;
+			arrival = b.wire->get_intvec_attribute(ID(sta_arrival))[b.offset];
 			it = backtrack.find(b);
 		}
 		log("    %6d %s\n", arrival, log_signal(b));
+
+		std::map<int, unsigned> arrival_histogram;
+		for (const auto &i : endpoints) {
+			const auto &b = i.first;
+			auto arrival = b.wire->get_intvec_attribute(ID(sta_arrival))[b.offset];
+			arrival += i.second;
+			arrival_histogram[arrival]++;
+		}
+		for (auto port_name : module->ports) {
+			auto wire = module->wire(port_name);
+			if (!wire->port_output)
+				continue;
+			for (auto arrival : wire->get_intvec_attribute(ID(sta_arrival)))
+				arrival_histogram[arrival]++;
+		}
+		// Adapted from https://github.com/YosysHQ/nextpnr/blob/affb12cc27ebf409eade062c4c59bb98569d8147/common/timing.cc#L946-L969
+		if (arrival_histogram.size() > 0) {
+			unsigned num_bins = 20;
+			unsigned bar_width = 60;
+			auto min_arrival = arrival_histogram.begin()->first;
+			auto max_arrival = arrival_histogram.rbegin()->first;
+			auto bin_size = std::max<unsigned>(1, ceil((max_arrival - min_arrival + 1) / float(num_bins)));
+			std::vector<unsigned> bins(num_bins);
+			unsigned max_freq = 0;
+			for (const auto &i : arrival_histogram) {
+				auto &bin = bins[(i.first - min_arrival) / bin_size];
+				bin += i.second;
+				max_freq = std::max(max_freq, bin);
+			}
+			bar_width = std::min(bar_width, max_freq);
+
+			log("\n");
+			log("Arrival histogram:\n");
+			log(" legend: * represents %d endpoint(s)\n", max_freq / bar_width);
+			log("         + represents [1,%d) endpoint(s)\n", max_freq / bar_width);
+			for (int i = num_bins-1; i >= 0; --i)
+				log("[%6d, %6d) |%s%c\n", min_arrival + bin_size * i, min_arrival + bin_size * (i + 1),
+						std::string(bins[i] * bar_width / max_freq, '*').c_str(),
+						(bins[i] * bar_width) % max_freq > 0 ? '+' : ' ');
+		}
 	}
 };
 
