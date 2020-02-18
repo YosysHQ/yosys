@@ -160,6 +160,9 @@ module INV(
     input I
 );
   assign O = !I;
+  specify
+    (I => O) = 127;
+  endspecify
 endmodule
 
 (* abc9_lut=1 *)
