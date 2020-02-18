@@ -670,7 +670,7 @@ void prep_box(RTLIL::Design *design, bool dff_mode)
 		ss << std::endl;
 
 		auto &t = timing.setup_module(module).comb;
-		if (t.empty())
+		if (!abc9_flop && t.empty())
 			log_warning("(* abc9_box *) module '%s' has no timing (and thus no connectivity) information.\n", log_id(module));
 
 		for (const auto &o : outputs) {
