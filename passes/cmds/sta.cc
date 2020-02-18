@@ -201,7 +201,7 @@ struct StaWorker
 			log(" legend: * represents %d endpoint(s)\n", max_freq / bar_width);
 			log("         + represents [1,%d) endpoint(s)\n", max_freq / bar_width);
 			for (int i = num_bins-1; i >= 0; --i)
-				log("[%6d, %6d) |%s%c\n", min_arrival + bin_size * i, min_arrival + bin_size * (i + 1),
+				log("(%6d, %6d] |%s%c\n", min_arrival + bin_size * (i + 1), min_arrival + bin_size * i,
 						std::string(bins[i] * bar_width / max_freq, '*').c_str(),
 						(bins[i] * bar_width) % max_freq > 0 ? '+' : ' ');
 		}
