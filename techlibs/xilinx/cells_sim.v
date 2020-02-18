@@ -3740,6 +3740,14 @@ module RAMB18E1 (
         $setup(WEA, posedge CLKARDCLK, 532);
         // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L21
         $setup(WEBWE, posedge CLKBWRCLK, 532);
+        // https://github.com/SymbiFlow/prjxray-db/blob/4bc6385ab300b1819848371f508185f57b649a0e/artix7/timings/BRAM_L.sdf#L29
+        $setup(REGCEAREGCE, posedge CLKARDCLK, 360);
+        // https://github.com/SymbiFlow/prjxray-db/blob/4bc6385ab300b1819848371f508185f57b649a0e/artix7/timings/BRAM_L.sdf#L31
+        $setup(RSTREGARSTREG, posedge CLKARDCLK, 342);
+        // https://github.com/SymbiFlow/prjxray-db/blob/4bc6385ab300b1819848371f508185f57b649a0e/artix7/timings/BRAM_L.sdf#L49
+        $setup(REGCEB, posedge CLKBWRCLK, 360);
+        // https://github.com/SymbiFlow/prjxray-db/blob/4bc6385ab300b1819848371f508185f57b649a0e/artix7/timings/BRAM_L.sdf#L59
+        $setup(RSTREGB, posedge CLKBWRCLK, 342);
         // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L123
         $setup(DIADI, posedge CLKARDCLK, 737);
         // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L133
@@ -3749,13 +3757,21 @@ module RAMB18E1 (
         // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L135
         $setup(DIPBDIP, posedge CLKBWRCLK, 737);
         // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L143
-        (posedge CLKARDCLK => (DOADO : 16'bx)) = 2454;
-        // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L163
-        (posedge CLKBWRCLK => (DOBDO : 16'bx)) = 2454;
+        if (&DOA_REG) (posedge CLKARDCLK => (DOADO : 16'bx)) = 2454;
         // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L144
-        (posedge CLKARDCLK => (DOPADOP : 2'bx)) = 2454;
+        if (&DOA_REG) (posedge CLKARDCLK => (DOPADOP : 2'bx)) = 2454;
+        // https://github.com/SymbiFlow/prjxray-db/blob/4bc6385ab300b1819848371f508185f57b649a0e/artix7/timings/BRAM_L.sdf#L153
+        if (|DOA_REG) (posedge CLKARDCLK => (DOADO : 16'bx)) = 882;
+        // https://github.com/SymbiFlow/prjxray-db/blob/4bc6385ab300b1819848371f508185f57b649a0e/artix7/timings/BRAM_L.sdf#L154
+        if (|DOA_REG) (posedge CLKARDCLK => (DOPADOP : 2'bx)) = 882;
+        // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L163
+        if (&DOB_REG) (posedge CLKBWRCLK => (DOBDO : 16'bx)) = 2454;
         // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L164
-        (posedge CLKARDCLK => (DOPBDOP : 2'bx)) = 2454;
+        if (&DOB_REG) (posedge CLKBWRCLK => (DOPBDOP : 2'bx)) = 2454;
+        // https://github.com/SymbiFlow/prjxray-db/blob/4bc6385ab300b1819848371f508185f57b649a0e/artix7/timings/BRAM_L.sdf#L173
+        if (|DOB_REG) (posedge CLKBWRCLK => (DOBDO : 16'bx)) = 882;
+        // https://github.com/SymbiFlow/prjxray-db/blob/4bc6385ab300b1819848371f508185f57b649a0e/artix7/timings/BRAM_L.sdf#L174
+        if (|DOB_REG) (posedge CLKBWRCLK => (DOPBDOP : 2'bx)) = 882;
     endspecify
 endmodule
 
@@ -3988,6 +4004,14 @@ module RAMB36E1 (
         $setup(WEA, posedge CLKARDCLK, 532);
         // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L21
         $setup(WEBWE, posedge CLKBWRCLK, 532);
+        // https://github.com/SymbiFlow/prjxray-db/blob/4bc6385ab300b1819848371f508185f57b649a0e/artix7/timings/BRAM_L.sdf#L29
+        $setup(REGCEAREGCE, posedge CLKARDCLK, 360);
+        // https://github.com/SymbiFlow/prjxray-db/blob/4bc6385ab300b1819848371f508185f57b649a0e/artix7/timings/BRAM_L.sdf#L31
+        $setup(RSTREGARSTREG, posedge CLKARDCLK, 342);
+        // https://github.com/SymbiFlow/prjxray-db/blob/4bc6385ab300b1819848371f508185f57b649a0e/artix7/timings/BRAM_L.sdf#L49
+        $setup(REGCEB, posedge CLKBWRCLK, 360);
+        // https://github.com/SymbiFlow/prjxray-db/blob/4bc6385ab300b1819848371f508185f57b649a0e/artix7/timings/BRAM_L.sdf#L59
+        $setup(RSTREGB, posedge CLKBWRCLK, 342);
         // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L123
         $setup(DIADI, posedge CLKARDCLK, 737);
         // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L133
@@ -3997,14 +4021,21 @@ module RAMB36E1 (
         // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L135
         $setup(DIPBDIP, posedge CLKBWRCLK, 737);
         // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L143
-        (posedge CLKARDCLK => (DOADO : 32'bx)) = 2454;
-        // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L163
-        (posedge CLKBWRCLK => (DOBDO : 32'bx)) = 2454;
+        if (&DOA_REG) (posedge CLKARDCLK => (DOADO : 32'bx)) = 2454;
         // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L144
-        (posedge CLKARDCLK => (DOPADOP : 4'bx)) = 2454;
+        if (&DOA_REG) (posedge CLKARDCLK => (DOPADOP : 4'bx)) = 2454;
+        // https://github.com/SymbiFlow/prjxray-db/blob/4bc6385ab300b1819848371f508185f57b649a0e/artix7/timings/BRAM_L.sdf#L153
+        if (|DOA_REG) (posedge CLKARDCLK => (DOADO : 32'bx)) = 882;
+        // https://github.com/SymbiFlow/prjxray-db/blob/4bc6385ab300b1819848371f508185f57b649a0e/artix7/timings/BRAM_L.sdf#L154
+        if (|DOA_REG) (posedge CLKARDCLK => (DOPADOP : 4'bx)) = 882;
+        // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L163
+        if (&DOB_REG) (posedge CLKBWRCLK => (DOBDO : 32'bx)) = 2454;
         // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L164
-        (posedge CLKARDCLK => (DOPBDOP : 4'bx)) = 2454;
+        if (&DOB_REG) (posedge CLKBWRCLK => (DOPBDOP : 4'bx)) = 2454;
+        // https://github.com/SymbiFlow/prjxray-db/blob/4bc6385ab300b1819848371f508185f57b649a0e/artix7/timings/BRAM_L.sdf#L173
+        if (|DOB_REG) (posedge CLKBWRCLK => (DOBDO : 32'bx)) = 882;
+        // https://github.com/SymbiFlow/prjxray-db/blob/4bc6385ab300b1819848371f508185f57b649a0e/artix7/timings/BRAM_L.sdf#L174
+        if (|DOB_REG) (posedge CLKBWRCLK => (DOPBDOP : 4'bx)) = 882;
     endspecify
 endmodule
-
 
