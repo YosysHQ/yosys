@@ -440,7 +440,7 @@ void prep_delays(RTLIL::Design *design, bool dff_mode)
 
 			SigSpec O = module->addWire(NEW_ID, GetSize(conn.second));
 			for (int i = 0; i < GetSize(conn.second); i++) {
-				auto d = t.at(SigBit(port_wire,i), 0);
+				auto d = t.at(TimingInfo::NameBit(conn.first,i), 0);
 				if (d == 0)
 					continue;
 
@@ -582,7 +582,7 @@ void prep_box(RTLIL::Design *design, bool dff_mode)
 					else
 						ss << " ";
 					log_assert(GetSize(wire) == 1);
-					auto it = t.find(SigBit(wire,0));
+					auto it = t.find(TimingInfo::NameBit(port_name,0));
 					if (it == t.end())
 						// Assume that no setup time means zero
 						ss << 0;
@@ -680,7 +680,7 @@ void prep_box(RTLIL::Design *design, bool dff_mode)
 					first = false;
 				else
 					ss << " ";
-				auto jt = t.find(std::make_pair(i,o));
+				auto jt = t.find(std::make_pair(TimingInfo::NameBit(i),TimingInfo::NameBit(o)));
 				if (jt == t.end())
 					ss << "-";
 				else

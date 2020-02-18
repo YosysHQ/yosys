@@ -31,8 +31,9 @@ struct TimingInfo
 	{
 		RTLIL::IdString name;
 		int offset;
-		NameBit() {}
-		NameBit(const RTLIL::SigBit &b) : name(b.wire->name), offset(b.offset) {}
+		NameBit() : offset(0) {}
+		NameBit(const RTLIL::IdString name, int offset) : name(name), offset(offset) {}
+		explicit NameBit(const RTLIL::SigBit &b) : name(b.wire->name), offset(b.offset) {}
 		bool operator==(const NameBit& nb) const { return nb.name == name && nb.offset == offset; }
 		bool operator!=(const NameBit& nb) const { return !operator==(nb); }
 		unsigned int hash() const { return mkhash_add(name.hash(), offset); }
@@ -127,7 +128,7 @@ struct TimingInfo
 					continue;
 				}
 				for (const auto &d : dst) {
-					auto &v = t.arrival[d];
+					auto &v = t.arrival[NameBit(d)];
 					v = std::max(v, max);
 				}
 			}
@@ -151,7 +152,7 @@ struct TimingInfo
 					continue;
 				}
 				for (const auto &s : src) {
-					auto &v = t.required[s];
+					auto &v = t.required[NameBit(s)];
 					v = std::max(v, max);
 				}
 			}

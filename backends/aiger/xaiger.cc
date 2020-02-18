@@ -263,7 +263,7 @@ struct XAigerWriter
 						continue;
 
 					for (int i = 0; i < GetSize(conn.second); i++) {
-						auto d = t.at(SigBit(port_wire,i), 0);
+						auto d = t.at(TimingInfo::NameBit(conn.first,i), 0);
 						if (d == 0)
 							continue;
 
