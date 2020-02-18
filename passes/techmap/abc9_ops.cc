@@ -473,11 +473,11 @@ void prep_lut(RTLIL::Design *design, int maxlut)
 
 		auto &t = timing.setup_module(module);
 
-		SigBit o;
+		TimingInfo::NameBit o;
 		std::vector<int> specify;
 		for (const auto &i : t.comb) {
 			auto &d = i.first.second;
-			if (o == SigBit())
+			if (o == TimingInfo::NameBit())
 				o = d;
 			else if (o != d)
 				log_error("(* abc9_lut *) module '%s' with has more than one output.\n", log_id(module));
@@ -581,7 +581,8 @@ void prep_box(RTLIL::Design *design, bool dff_mode)
 						first = false;
 					else
 						ss << " ";
-					auto it = t.find(wire);
+					log_assert(GetSize(wire) == 1);
+					auto it = t.find(SigBit(wire,0));
 					if (it == t.end())
 						// Assume that no setup time means zero
 						ss << 0;

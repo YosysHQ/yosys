@@ -25,17 +25,27 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-typedef std::pair<RTLIL::SigBit,RTLIL::SigBit> BitBit;
-
-struct ModuleTiming
-{
-	RTLIL::IdString type;
-	dict<BitBit, int> comb;
-	dict<RTLIL::SigBit, int> arrival, required;
-};
-
 struct TimingInfo
 {
+	struct NameBit
+	{
+		RTLIL::IdString name;
+		int offset;
+		NameBit() {}
+		NameBit(const RTLIL::SigBit &b) : name(b.wire->name), offset(b.offset) {}
+		bool operator==(const NameBit& nb) const { return nb.name == name && nb.offset == offset; }
+		bool operator!=(const NameBit& nb) const { return !operator==(nb); }
+		unsigned int hash() const { return mkhash_add(name.hash(), offset); }
+	};
+	typedef std::pair<NameBit,NameBit> BitBit;
+
+	struct ModuleTiming
+	{
+		RTLIL::IdString type;
+		dict<BitBit, int> comb;
+		dict<NameBit, int> arrival, required;
+	};
+
 	dict<RTLIL::IdString, ModuleTiming> data;
 
 	TimingInfo()
