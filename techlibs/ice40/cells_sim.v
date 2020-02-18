@@ -211,6 +211,36 @@ endmodule
 (* lib_whitebox *)
 module SB_CARRY (output CO, input I0, I1, CI);
 	assign CO = (I0 && I1) || ((I0 || I1) && CI);
+`ifdef ICE40_HX
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_hx1k.txt#L79
+		(CI => CO) = (126, 105);
+		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_hx1k.txt#L82
+		(I0 => CO) = (259, 245);
+		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_hx1k.txt#L85
+		(I1 => CO) = (231, 133);
+	endspecify
+`endif
+`ifdef ICE40_LP
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_lp1k.txt#L79
+		(CI => CO) = (186, 155);
+		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_lp1k.txt#L82
+		(I0 => CO) = (382, 362);
+		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_lp1k.txt#L85
+		(I0 => CO) = (341, 196);
+	endspecify
+`endif
+`ifdef ICE40_U
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_up5k.txt#L91
+		(CI => CO) = (278, 278);
+		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_up5k.txt#L94
+		(I0 => CO) = (675, 662);
+		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_up5k.txt#L97
+		(I0 => CO) = (609, 358);
+	endspecify
+`endif
 endmodule
 
 // Positive Edge SiliconBlue FF Cells
