@@ -36,7 +36,7 @@ struct ModuleTiming
 
 struct TimingInfo
 {
-        dict<RTLIL::IdString, ModuleTiming> data;
+	dict<RTLIL::IdString, ModuleTiming> data;
 
 	TimingInfo()
 	{
@@ -53,52 +53,52 @@ struct TimingInfo
 			if (!module->get_blackbox_attribute())
 				continue;
 			setup_module(module);
-                }
+		}
 	}
 
 	const ModuleTiming& setup_module(RTLIL::Module *module)
 	{
-                auto r = data.insert(module->name);
-                log_assert(r.second);
-                auto &t = r.first->second;
+		auto r = data.insert(module->name);
+		log_assert(r.second);
+		auto &t = r.first->second;
 
 		for (auto cell : module->cells()) {
-                        if (cell->type == ID($specify2)) {
-                                auto src = cell->getPort(ID(SRC));
-                                auto dst = cell->getPort(ID(DST));
-                                for (const auto &c : src.chunks())
-                                        if (!c.wire->port_input)
-                                                log_error("Module '%s' contains specify cell '%s' where SRC '%s' is not a module input.\n", log_id(module), log_id(cell), log_signal(src));
-                                for (const auto &c : dst.chunks())
-                                        if (!c.wire->port_output)
-                                                log_error("Module '%s' contains specify cell '%s' where DST '%s' is not a module output.\n", log_id(module), log_id(cell), log_signal(dst));
-                                int rise_max = cell->getParam(ID(T_RISE_MAX)).as_int();
-                                int fall_max = cell->getParam(ID(T_FALL_MAX)).as_int();
-                                int max = std::max(rise_max,fall_max);
-                                if (max < 0)
-                                        log_error("Module '%s' contains specify cell '%s' with T_{RISE,FALL}_MAX < 0.\n", log_id(module), log_id(cell));
-                                if (cell->getParam(ID(FULL)).as_bool()) {
-                                        for (const auto &s : src)
-                                                for (const auto &d : dst) {
-                                                        auto r = t.comb.insert(BitBit(s,d));
-                                                        if (!r.second)
-                                                                log_error("Module '%s' contains multiple specify cells for SRC '%s' and DST '%s'.\n", log_id(module), log_signal(s), log_signal(d));
-                                                        r.first->second = max;
-                                                }
-                                }
-                                else {
-                                        log_assert(GetSize(src) == GetSize(dst));
-                                        for (auto i = 0; i < GetSize(src); i++) {
-                                                const auto &s = src[i];
-                                                const auto &d = dst[i];
-                                                auto r = t.comb.insert(BitBit(s,d));
-                                                if (!r.second)
-                                                        log_error("Module '%s' contains multiple specify cells for SRC '%s' and DST '%s'.\n", log_id(module), log_signal(s), log_signal(d));
-                                                r.first->second = max;
-                                        }
-                                }
-                        }
-                        else if (cell->type == ID($specify3)) {
+			if (cell->type == ID($specify2)) {
+				auto src = cell->getPort(ID(SRC));
+				auto dst = cell->getPort(ID(DST));
+				for (const auto &c : src.chunks())
+					if (!c.wire->port_input)
+						log_error("Module '%s' contains specify cell '%s' where SRC '%s' is not a module input.\n", log_id(module), log_id(cell), log_signal(src));
+				for (const auto &c : dst.chunks())
+					if (!c.wire->port_output)
+						log_error("Module '%s' contains specify cell '%s' where DST '%s' is not a module output.\n", log_id(module), log_id(cell), log_signal(dst));
+				int rise_max = cell->getParam(ID(T_RISE_MAX)).as_int();
+				int fall_max = cell->getParam(ID(T_FALL_MAX)).as_int();
+				int max = std::max(rise_max,fall_max);
+				if (max < 0)
+					log_error("Module '%s' contains specify cell '%s' with T_{RISE,FALL}_MAX < 0.\n", log_id(module), log_id(cell));
+				if (cell->getParam(ID(FULL)).as_bool()) {
+					for (const auto &s : src)
+						for (const auto &d : dst) {
+							auto r = t.comb.insert(BitBit(s,d));
+							if (!r.second)
+								log_error("Module '%s' contains multiple specify cells for SRC '%s' and DST '%s'.\n", log_id(module), log_signal(s), log_signal(d));
+							r.first->second = max;
+						}
+				}
+				else {
+					log_assert(GetSize(src) == GetSize(dst));
+					for (auto i = 0; i < GetSize(src); i++) {
+						const auto &s = src[i];
+						const auto &d = dst[i];
+						auto r = t.comb.insert(BitBit(s,d));
+						if (!r.second)
+							log_error("Module '%s' contains multiple specify cells for SRC '%s' and DST '%s'.\n", log_id(module), log_signal(s), log_signal(d));
+						r.first->second = max;
+					}
+				}
+			}
+			else if (cell->type == ID($specify3)) {
 				auto src = cell->getPort(ID(SRC));
 				auto dst = cell->getPort(ID(DST));
 				for (const auto &c : src.chunks())
@@ -117,9 +117,9 @@ struct TimingInfo
 					continue;
 				}
 				for (const auto &d : dst) {
-                                        auto &v = t.arrival[d];
+					auto &v = t.arrival[d];
 					v = std::max(v, max);
-                                }
+				}
 			}
 			else if (cell->type == ID($specrule)) {
 				auto type = cell->getParam(ID(TYPE)).decode_string();
@@ -141,19 +141,19 @@ struct TimingInfo
 					continue;
 				}
 				for (const auto &s : src) {
-                                        auto &v = t.required[s];
+					auto &v = t.required[s];
 					v = std::max(v, max);
-                                }
+				}
 			}
 		}
 
-                return t;
+		return t;
 	}
 
-        decltype(data)::const_iterator find(RTLIL::IdString module_name) const { return data.find(module_name); }
-        decltype(data)::const_iterator end() const { return data.end(); }
-        int count(RTLIL::IdString module_name) const { return data.count(module_name); }
-        const ModuleTiming& at(RTLIL::IdString module_name) const { return data.at(module_name); }
+	decltype(data)::const_iterator find(RTLIL::IdString module_name) const { return data.find(module_name); }
+	decltype(data)::const_iterator end() const { return data.end(); }
+	int count(RTLIL::IdString module_name) const { return data.count(module_name); }
+	const ModuleTiming& at(RTLIL::IdString module_name) const { return data.at(module_name); }
 };
 
 YOSYS_NAMESPACE_END

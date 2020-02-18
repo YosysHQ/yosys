@@ -266,8 +266,8 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 	for (auto &it : bit_users)
 		if (bit_drivers.count(it.first))
 			for (auto driver_cell : bit_drivers.at(it.first))
-			for (auto user_cell : it.second)
-				toposort.edge(driver_cell, user_cell);
+				for (auto user_cell : it.second)
+					toposort.edge(driver_cell, user_cell);
 
 	if (ys_debug(1))
 		toposort.analyze_loops = true;
@@ -382,7 +382,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 
 void prep_delays(RTLIL::Design *design, bool dff_mode)
 {
-        TimingInfo timing;
+	TimingInfo timing;
 
 	// Derive all Yosys blackbox modules that are not combinatorial abc9 boxes
 	//   (e.g. DSPs, RAMs, etc.) nor abc9 flops and collect all such instantiations
@@ -412,7 +412,7 @@ void prep_delays(RTLIL::Design *design, bool dff_mode)
 			if (dff_mode && inst_module->get_bool_attribute(ID(abc9_flop))) {
 				flops.insert(inst_module);
 				continue; // do not add $__ABC9_DELAY boxes to flops
-					  //   as delays will be captured in the flop box
+				//   as delays will be captured in the flop box
 			}
 
 			if (!timing.count(derived_type))
@@ -463,7 +463,7 @@ void prep_delays(RTLIL::Design *design, bool dff_mode)
 
 void prep_lut(RTLIL::Design *design, int maxlut)
 {
-        TimingInfo timing;
+	TimingInfo timing;
 
 	std::vector<std::tuple<int, IdString, int, std::vector<int>>> table;
 	for (auto module : design->modules()) {
@@ -482,7 +482,7 @@ void prep_lut(RTLIL::Design *design, int maxlut)
 			else if (o != d)
 				log_error("(* abc9_lut *) module '%s' with has more than one output.\n", log_id(module));
 			specify.push_back(i.second);
-                }
+		}
 
 		if (maxlut && GetSize(specify) > maxlut)
 			continue;
@@ -523,7 +523,7 @@ void write_lut(RTLIL::Module *module, const std::string &dst) {
 
 void prep_box(RTLIL::Design *design, bool dff_mode)
 {
-        TimingInfo timing;
+	TimingInfo timing;
 
 	std::stringstream ss;
 	int abc9_box_id = 1;
@@ -581,21 +581,21 @@ void prep_box(RTLIL::Design *design, bool dff_mode)
 						first = false;
 					else
 						ss << " ";
-                                        auto it = t.find(wire);
-                                        if (it == t.end())
+					auto it = t.find(wire);
+					if (it == t.end())
 						// Assume that no setup time means zero
-                                                ss << 0;
-                                        else {
-                                                ss << it->second;
+						ss << 0;
+					else {
+						ss << it->second;
 
 #ifndef NDEBUG
-                                                if (ys_debug(1)) {
-                                                        static std::set<std::pair<IdString,IdString>> seen;
-                                                        if (seen.emplace(module->name, port_name).second) log("%s.%s abc9_required = %d\n", log_id(module),
-                                                                        log_id(port_name), it->second);
-                                                }
+						if (ys_debug(1)) {
+							static std::set<std::pair<IdString,IdString>> seen;
+							if (seen.emplace(module->name, port_name).second) log("%s.%s abc9_required = %d\n", log_id(module),
+									log_id(port_name), it->second);
+						}
 #endif
-                                        }
+					}
 
 				}
 				// Last input is 'abc9_ff.Q'
