@@ -39,3 +39,4 @@ OBJS += passes/cmds/bugpoint.o
 endif
 OBJS += passes/cmds/scratchpad.o
 OBJS += passes/cmds/logger.o
+OBJS += passes/cmds/sta.o
