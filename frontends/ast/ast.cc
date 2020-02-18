@@ -939,14 +939,15 @@ RTLIL::Const AstNode::realAsConst(int width)
 }
 
 // create a new AstModule from an AST_MODULE AST node
-static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast = NULL)
+static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast = NULL, bool quiet = false)
 {
 	log_assert(ast->type == AST_MODULE || ast->type == AST_INTERFACE);
 
 	if (defer)
 		log("Storing AST representation for module `%s'.\n", ast->str.c_str());
-	else
+	else if (!quiet) {
 		log("Generating RTLIL representation for module `%s'.\n", ast->str.c_str());
+	}
 
 	current_module = new AstModule;
 	current_module->ast = NULL;
@@ -1484,14 +1485,16 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, dict<RTLIL::IdString, R
 // create a new parametric module (when needed) and return the name of the generated module - without support for interfaces
 RTLIL::IdString AstModule::derive(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters, bool /*mayfail*/)
 {
+	bool quiet = lib || attributes.count(ID(blackbox)) || attributes.count(ID(whitebox));
+
 	AstNode *new_ast = NULL;
-	std::string modname = derive_common(design, parameters, &new_ast);
+	std::string modname = derive_common(design, parameters, &new_ast, quiet);
 
 	if (!design->has(modname)) {
 		new_ast->str = modname;
-		design->add(process_module(new_ast, false));
+		design->add(process_module(new_ast, false, NULL, quiet));
 		design->module(modname)->check();
-	} else {
+	} else if (!quiet) {
 		log("Found cached RTLIL representation for module `%s'.\n", modname.c_str());
 	}
 
@@ -1500,7 +1503,7 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, dict<RTLIL::IdString, R
 }
 
 // create a new parametric module (when needed) and return the name of the generated module
-std::string AstModule::derive_common(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters, AstNode **new_ast_out)
+std::string AstModule::derive_common(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters, AstNode **new_ast_out, bool quiet)
 {
 	std::string stripped_name = name.str();
 
@@ -1516,13 +1519,15 @@ std::string AstModule::derive_common(RTLIL::Design *design, dict<RTLIL::IdString
 		para_counter++;
 		std::string para_id = child->str;
 		if (parameters.count(para_id) > 0) {
-			log("Parameter %s = %s\n", child->str.c_str(), log_signal(RTLIL::SigSpec(parameters[child->str])));
+			if (!quiet)
+				log("Parameter %s = %s\n", child->str.c_str(), log_signal(RTLIL::SigSpec(parameters[child->str])));
 			para_info += stringf("%s=%s", child->str.c_str(), log_signal(RTLIL::SigSpec(parameters[para_id])));
 			continue;
 		}
 		para_id = stringf("$%d", para_counter);
 		if (parameters.count(para_id) > 0) {
-			log("Parameter %d (%s) = %s\n", para_counter, child->str.c_str(), log_signal(RTLIL::SigSpec(parameters[para_id])));
+			if (!quiet)
+				log("Parameter %d (%s) = %s\n", para_counter, child->str.c_str(), log_signal(RTLIL::SigSpec(parameters[para_id])));
 			para_info += stringf("%s=%s", child->str.c_str(), log_signal(RTLIL::SigSpec(parameters[para_id])));
 			continue;
 		}
@@ -1539,7 +1544,8 @@ std::string AstModule::derive_common(RTLIL::Design *design, dict<RTLIL::IdString
 	if (design->has(modname))
 		return modname;
 
-	log_header(design, "Executing AST frontend in derive mode using pre-parsed AST for module `%s'.\n", stripped_name.c_str());
+	if (!quiet)
+		log_header(design, "Executing AST frontend in derive mode using pre-parsed AST for module `%s'.\n", stripped_name.c_str());
 	loadconfig();
 
 	AstNode *new_ast = ast->clone();
@@ -1550,12 +1556,14 @@ std::string AstModule::derive_common(RTLIL::Design *design, dict<RTLIL::IdString
 		para_counter++;
 		std::string para_id = child->str;
 		if (parameters.count(para_id) > 0) {
-			log("Parameter %s = %s\n", child->str.c_str(), log_signal(RTLIL::SigSpec(parameters[child->str])));
+			if (!quiet)
+				log("Parameter %s = %s\n", child->str.c_str(), log_signal(RTLIL::SigSpec(parameters[child->str])));
 			goto rewrite_parameter;
 		}
 		para_id = stringf("$%d", para_counter);
 		if (parameters.count(para_id) > 0) {
-			log("Parameter %d (%s) = %s\n", para_counter, child->str.c_str(), log_signal(RTLIL::SigSpec(parameters[para_id])));
+			if (!quiet)
+				log("Parameter %d (%s) = %s\n", para_counter, child->str.c_str(), log_signal(RTLIL::SigSpec(parameters[para_id])));
 			goto rewrite_parameter;
 		}
 		continue;
