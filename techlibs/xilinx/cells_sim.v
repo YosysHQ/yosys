@@ -36,6 +36,9 @@ module IBUF(
   parameter IOSTANDARD = "default";
   parameter IBUF_LOW_PWR = 0;
   assign O = I;
+  specify
+    (I => O) = 0;
+  endspecify
 endmodule
 
 module IBUFG(
@@ -57,6 +60,9 @@ module OBUF(
   parameter DRIVE = 12;
   parameter SLEW = "SLOW";
   assign O = I;
+  specify
+    (I => O) = 0;
+  endspecify
 endmodule
 
 module IOBUF (
@@ -72,6 +78,10 @@ module IOBUF (
     parameter SLEW = "SLOW";
     assign IO = T ? 1'bz : I;
     assign O = IO;
+    specify
+        (I => IO) = 0;
+        (IO => O) = 0;
+    endspecify
 endmodule
 
 module OBUFT (
@@ -85,14 +95,20 @@ module OBUFT (
     parameter IOSTANDARD = "DEFAULT";
     parameter SLEW = "SLOW";
     assign O = T ? 1'bz : I;
+    specify
+        (I => O) = 0;
+    endspecify
 endmodule
 
 module BUFG(
     (* clkbuf_driver *)
     output O,
     input I);
-
   assign O = I;
+  specify
+    // https://github.com/SymbiFlow/prjxray-db/blob/4bc6385ab300b1819848371f508185f57b649a0e/artix7/timings/CLK_BUFG_TOP_R.sdf#L11
+    (I => O) = 96;
+  endspecify
 endmodule
 
 module BUFGCTRL(
@@ -499,8 +515,8 @@ module FDRE (
   endgenerate
   specify
     // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L249
-    //$setup(D , posedge C &&& CE && !IS_C_INVERTED , -46); // Negative times not currently supported
-    //$setup(D , negedge C &&& CE &&  IS_C_INVERTED , -46); // Negative times not currently supported
+    $setup(D , posedge C &&& CE && !IS_C_INVERTED , /*-46*/ 0); // Negative times not currently supported
+    $setup(D , negedge C &&& CE &&  IS_C_INVERTED , /*-46*/ 0); // Negative times not currently supported
     // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L248
     $setup(CE, posedge C &&& !IS_C_INVERTED, 109);
     $setup(CE, negedge C &&&  IS_C_INVERTED, 109);
@@ -529,7 +545,7 @@ module FDRE_1 (
   always @(negedge C) if (R) Q <= 1'b0; else if (CE) Q <= D;
   specify
     // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L249
-    //$setup(D , negedge C &&& CE, -46); // Negative times not currently supported
+    $setup(D , negedge C &&& CE, /*-46*/ 0); // Negative times not currently supported
     // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L248
     $setup(CE, negedge C, 109);
     // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L274
@@ -564,8 +580,8 @@ module FDSE (
   endgenerate
   specify
     // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L249
-    //$setup(D , posedge C &&& !IS_C_INVERTED && CE, -46); // Negative times not currently supported
-    //$setup(D , negedge C &&&  IS_C_INVERTED && CE, -46); // Negative times not currently supported
+    $setup(D , posedge C &&& !IS_C_INVERTED && CE, /*-46*/ 0); // Negative times not currently supported
+    $setup(D , negedge C &&&  IS_C_INVERTED && CE, /*-46*/ 0); // Negative times not currently supported
     // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L248
     $setup(CE, posedge C &&& !IS_C_INVERTED, 109);
     $setup(CE, negedge C &&&  IS_C_INVERTED, 109);
@@ -594,7 +610,7 @@ module FDSE_1 (
   always @(negedge C) if (S) Q <= 1'b1; else if (CE) Q <= D;
   specify
     // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L249
-    //$setup(D , negedge C &&& CE, -46); // Negative times not currently supported
+    $setup(D , negedge C &&& CE, /*-46*/ 0); // Negative times not currently supported
     // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L248
     $setup(CE, negedge C, 109);
     // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L274
@@ -667,8 +683,8 @@ module FDCE (
   endgenerate
   specify
     // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L249
-    //$setup(D , posedge C &&& !IS_C_INVERTED && CE, -46); // Negative times not currently supported
-    //$setup(D , negedge C &&&  IS_C_INVERTED && CE, -46); // Negative times not currently supported
+    $setup(D , posedge C &&& !IS_C_INVERTED && CE, /*-46*/ 0); // Negative times not currently supported
+    $setup(D , negedge C &&&  IS_C_INVERTED && CE, /*-46*/ 0); // Negative times not currently supported
     // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L248
     $setup(CE , posedge C &&& !IS_C_INVERTED, 109);
     $setup(CE , negedge C &&&  IS_C_INVERTED, 109);
@@ -697,7 +713,7 @@ module FDCE_1 (
   always @(negedge C, posedge CLR) if (CLR) Q <= 1'b0; else if (CE) Q <= D;
   specify
     // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L249
-    //$setup(D , negedge C &&& CE, -46); // Negative times not currently supported
+    $setup(D , negedge C &&& CE, /*-46*/ 0); // Negative times not currently supported
     // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L248
     $setup(CE , negedge C, 109);
     // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L274
@@ -734,8 +750,8 @@ module FDPE (
   endgenerate
   specify
     // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L249
-    //$setup(D , posedge C &&& !IS_C_INVERTED && CE, -46); // Negative times not currently supported
-    //$setup(D , negedge C &&&  IS_C_INVERTED && CE, -46); // Negative times not currently supported
+    $setup(D , posedge C &&& !IS_C_INVERTED && CE, /*-46*/ 0); // Negative times not currently supported
+    $setup(D , negedge C &&&  IS_C_INVERTED && CE, /*-46*/ 0); // Negative times not currently supported
     // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L248
     $setup(CE , posedge C &&& !IS_C_INVERTED, 109);
     $setup(CE , negedge C &&&  IS_C_INVERTED, 109);
@@ -764,7 +780,7 @@ module FDPE_1 (
   always @(negedge C, posedge PRE) if (PRE) Q <= 1'b1; else if (CE) Q <= D;
   specify
     // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L249
-    //$setup(D , negedge C &&& CE, -46); // Negative times not currently supported
+    $setup(D , negedge C &&& CE, /*-46*/ 0); // Negative times not currently supported
     // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L248
     $setup(CE , negedge C, 109);
     // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L274
