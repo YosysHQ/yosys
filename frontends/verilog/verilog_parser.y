@@ -995,7 +995,46 @@ specify_rise_fall:
 		$$->fall = *$4;
 		delete $2;
 		delete $4;
-	};
+	} |
+	'(' specify_triple ',' specify_triple ',' specify_triple ')' {
+		$$ = new specify_rise_fall;
+		$$->rise = *$2;
+		$$->fall = *$4;
+		delete $2;
+		delete $4;
+        delete $6;
+        log_file_warning(current_filename, get_line_num(), "Path delay expressions beyond rise/fall not currently supported. Ignoring.\n");
+	} |
+	'(' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ')' {
+		$$ = new specify_rise_fall;
+		$$->rise = *$2;
+		$$->fall = *$4;
+		delete $2;
+		delete $4;
+        delete $6;
+        delete $8;
+        delete $10;
+        delete $12;
+        log_file_warning(current_filename, get_line_num(), "Path delay expressions beyond rise/fall not currently supported. Ignoring.\n");
+	} |
+	'(' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ')' {
+		$$ = new specify_rise_fall;
+		$$->rise = *$2;
+		$$->fall = *$4;
+		delete $2;
+		delete $4;
+        delete $6;
+        delete $8;
+        delete $10;
+        delete $12;
+        delete $14;
+        delete $16;
+        delete $18;
+        delete $20;
+        delete $22;
+        delete $24;
+        log_file_warning(current_filename, get_line_num(), "Path delay expressions beyond rise/fall not currently supported. Ignoring.\n");
+	}
 
 specify_triple:
 	expr {
