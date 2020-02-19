@@ -132,8 +132,9 @@ struct TimingInfo
 					max = 0;
 				}
 				for (const auto &d : dst) {
-					auto &v = t.arrival[NameBit(d)];
-					if (v.first < max) {
+					auto r = t.arrival.insert(NameBit(d));
+					auto &v = r.first->second;
+					if (r.second || v.first < max) {
 						v.first = max;
 						v.second = NameBit(src);
 					}
@@ -156,8 +157,9 @@ struct TimingInfo
 					max = 0;
 				}
 				for (const auto &s : src) {
-					auto &v = t.required[NameBit(s)];
-					if (v.first < max) {
+					auto r = t.required.insert(NameBit(s));
+					auto &v = r.first->second;
+					if (r.second || v.first < max) {
 						v.first = max;
 						v.second = NameBit(dst);
 					}

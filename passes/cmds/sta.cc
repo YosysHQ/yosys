@@ -27,14 +27,26 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct StaWorker
 {
-	RTLIL::Design *design;
-	RTLIL::Module *module;
+	Design *design;
+	Module *module;
 	SigMap sigmap;
 
-	dict<SigBit, std::vector<pair<SigBit, int>>> fanouts;
-	dict<SigBit, SigBit> backtrack;
+	struct t_data {
+		Cell* driver;
+		IdString dst_port, src_port;
+		vector<tuple<SigBit,int,IdString>> fanouts;
+		SigBit backtrack;
+		t_data() : driver(nullptr) {}
+	};
+	dict<SigBit, t_data> data;
 	std::deque<SigBit> queue;
-	dict<SigBit, int> endpoints;
+	struct t_endpoint {
+		Cell *sink;
+		IdString port;
+		int required;
+		t_endpoint() : sink(nullptr), required(0) {}
+	};
+	dict<SigBit, t_endpoint> endpoints;
 
 	int maxarrival;
 	SigBit maxbit;
@@ -82,16 +94,24 @@ struct StaWorker
 						auto it = t.required.find(namebit);
 						if (it == t.required.end())
 							continue;
-						endpoints[bit] = it->second.first;
+						auto r = endpoints.insert(bit);
+						if (r.second || r.first->second.required < it->second.first) {
+							r.first->second.sink = cell;
+							r.first->second.port = conn.first;
+							r.first->second.required = it->second.first;
+						}
 					}
 					if (cell->output(conn.first)) {
 						dst_bits.insert(std::make_pair(bit,namebit));
+						auto &d = data[bit];
+						d.driver = cell;
+						d.dst_port = conn.first;
 
 						auto it = t.arrival.find(namebit);
 						if (it == t.arrival.end())
 							continue;
 						const auto &s = it->second.second;
-						fanouts[cell->getPort(s.name)[s.offset]].emplace_back(bit,it->second.first);
+						data[cell->getPort(s.name)[s.offset]].fanouts.emplace_back(bit,it->second.first,s.name);
 					}
 				}
 			}
@@ -101,18 +121,21 @@ struct StaWorker
 					auto it = t.comb.find(TimingInfo::BitBit(s.second,d.second));
 					if (it == t.comb.end())
 						continue;
-					fanouts[s.first].emplace_back(d.first,it->second);
+					data[s.first].fanouts.emplace_back(d.first,it->second,s.second.name);
 				}
 		}
 
 		for (auto port_name : module->ports) {
 			auto wire = module->wire(port_name);
-			if (!wire->port_input)
-				continue;
-			for (const auto &b : sigmap(wire))
-				queue.emplace_back(b);
-			// All primary inputs to arrive at time zero
-			wire->set_intvec_attribute(ID(sta_arrival), std::vector<int>(GetSize(wire), 0));
+			if (wire->port_input) {
+				for (const auto &b : sigmap(wire))
+					queue.emplace_back(b);
+				// All primary inputs to arrive at time zero
+				wire->set_intvec_attribute(ID(sta_arrival), std::vector<int>(GetSize(wire), 0));
+			}
+			if (wire->port_output)
+				for (const auto &b : sigmap(wire))
+					endpoints.insert(b);
 		}
 	}
 
@@ -121,44 +144,63 @@ struct StaWorker
 		while (!queue.empty()) {
 			auto b = queue.front();
 			queue.pop_front();
-			auto it = fanouts.find(b);
-			if (it == fanouts.end())
+			auto it = data.find(b);
+			if (it == data.end())
 				continue;
 			const auto& src_arrivals = b.wire->get_intvec_attribute(ID(sta_arrival));
 			log_assert(GetSize(src_arrivals) == GetSize(b.wire));
 			auto src_arrival = src_arrivals[b.offset];
-			for (const auto &d : it->second) {
-				auto dst_arrivals = d.first.wire->get_intvec_attribute(ID(sta_arrival));
+			for (const auto &d : it->second.fanouts) {
+				const auto &dst_bit = std::get<0>(d);
+				auto dst_arrivals = dst_bit.wire->get_intvec_attribute(ID(sta_arrival));
 				if (dst_arrivals.empty())
-					dst_arrivals = std::vector<int>(GetSize(d.first.wire), -1);
+					dst_arrivals = std::vector<int>(GetSize(dst_bit.wire), -1);
 				else
-					log_assert(GetSize(dst_arrivals) == GetSize(d.first.wire));
-				auto &dst_arrival = dst_arrivals[d.first.offset];
-				auto new_arrival = src_arrival + d.second + endpoints.at(d.first, 0);
+					log_assert(GetSize(dst_arrivals) == GetSize(dst_bit.wire));
+				auto &dst_arrival = dst_arrivals[dst_bit.offset];
+				auto new_arrival = src_arrival + std::get<1>(d);
 				if (dst_arrival < new_arrival) {
 					dst_arrival = std::max(dst_arrival, new_arrival);
-					if (endpoints.count(d.first) && dst_arrival > maxarrival) {
-						maxarrival = dst_arrival;
-						maxbit = d.first;
+					dst_bit.wire->set_intvec_attribute(ID(sta_arrival), dst_arrivals);
+					queue.emplace_back(dst_bit);
+
+					data[dst_bit].backtrack = b;
+					data[dst_bit].src_port = std::get<2>(d);
+				}
+				auto it = endpoints.find(dst_bit);
+				if (it != endpoints.end()) {
+					new_arrival += it->second.required;
+					if (new_arrival > maxarrival) {
+						maxarrival = new_arrival;
+						maxbit = dst_bit;
 					}
-					d.first.wire->set_intvec_attribute(ID(sta_arrival), dst_arrivals);
-					queue.emplace_back(d.first);
-					backtrack[d.first] = b;
 				}
 			}
 		}
 
-		log("Latest arrival time in '%s' is %d:\n", log_id(module), maxarrival);
+		log("Latest arrival time in '%s':\n", log_id(module));
 		auto b = maxbit;
-		int arrival = maxarrival;
-		auto it = backtrack.find(b);
-		while (it != backtrack.end()) {
-			log("    %6d %s\n", arrival, log_signal(b));
-			b = it->second;
-			arrival = b.wire->get_intvec_attribute(ID(sta_arrival))[b.offset];
-			it = backtrack.find(b);
+		const auto &e = endpoints.at(maxbit);
+		if (e.sink)
+			log("  %6d %s (%s.%s)\n", maxarrival, log_id(e.sink), log_id(e.sink->type), log_id(e.port));
+		else if (b.wire->port_output)
+			log("  %6d (%s)\n", maxarrival, "<primary output>");
+		else
+			log_abort();
+		auto it = data.find(b);
+		while (it != data.end()) {
+			int arrival = b.wire->get_intvec_attribute(ID(sta_arrival))[b.offset];
+			if (it->second.driver) {
+				log("             %s\n", log_signal(b));
+				log("    %6d %s (%s.%s->%s)\n", arrival, log_id(it->second.driver), log_id(it->second.driver->type), log_id(it->second.src_port), log_id(it->second.dst_port));
+			}
+			else if (b.wire->port_input)
+				log("    %6d   %s (%s)\n", arrival, log_signal(b), "<primary input>");
+			else
+				log_abort();
+			b = it->second.backtrack;
+			it = data.find(b);
 		}
-		log("    %6d %s\n", arrival, log_signal(b));
 
 		std::map<int, unsigned> arrival_histogram;
 		for (const auto &i : endpoints) {
@@ -168,15 +210,14 @@ struct StaWorker
 				continue;
 			}
 			auto arrival = b.wire->get_intvec_attribute(ID(sta_arrival))[b.offset];
-			arrival += i.second;
-			arrival_histogram[arrival]++;
-		}
-		for (auto port_name : module->ports) {
-			auto wire = module->wire(port_name);
-			if (!wire->port_output)
+			if (arrival < 0) {
+				// FIXME: Might be an unreachable signal
+				//        Might be a constant driven signal (e.g. through OBUF)
+				//log_warning("Wire %s.%s has no (* sta_arrival *) value.\n", log_id(module), log_signal(b));
 				continue;
-			for (auto arrival : wire->get_intvec_attribute(ID(sta_arrival)))
-				arrival_histogram[arrival]++;
+			}
+			arrival += i.second.required;
+			arrival_histogram[arrival]++;
 		}
 		// Adapted from https://github.com/YosysHQ/nextpnr/blob/affb12cc27ebf409eade062c4c59bb98569d8147/common/timing.cc#L946-L969
 		if (arrival_histogram.size() > 0) {
