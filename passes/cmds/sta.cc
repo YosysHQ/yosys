@@ -82,7 +82,7 @@ struct StaWorker
 						auto it = t.required.find(namebit);
 						if (it == t.required.end())
 							continue;
-						endpoints[bit] = it->second;
+						endpoints[bit] = it->second.first;
 					}
 					if (cell->output(conn.first)) {
 						dst_bits.insert(std::make_pair(bit,namebit));
@@ -90,14 +90,8 @@ struct StaWorker
 						auto it = t.arrival.find(namebit);
 						if (it == t.arrival.end())
 							continue;
-						auto arrivals = bit.wire->get_intvec_attribute(ID(sta_arrival));
-						if (arrivals.empty())
-							arrivals = std::vector<int>(GetSize(bit.wire), -1);
-						else
-							log_assert(GetSize(arrivals) == GetSize(bit.wire));
-						arrivals[bit.offset] = it->second;
-						bit.wire->set_intvec_attribute(ID(sta_arrival), arrivals);
-						queue.emplace_back(bit);
+						const auto &s = it->second.second;
+						fanouts[cell->getPort(s.name)[s.offset]].emplace_back(bit,it->second.first);
 					}
 				}
 			}
@@ -143,7 +137,7 @@ struct StaWorker
 				auto new_arrival = src_arrival + d.second + endpoints.at(d.first, 0);
 				if (dst_arrival < new_arrival) {
 					dst_arrival = std::max(dst_arrival, new_arrival);
-					if (dst_arrival > maxarrival) {
+					if (endpoints.count(d.first) && dst_arrival > maxarrival) {
 						maxarrival = dst_arrival;
 						maxbit = d.first;
 					}
@@ -169,6 +163,10 @@ struct StaWorker
 		std::map<int, unsigned> arrival_histogram;
 		for (const auto &i : endpoints) {
 			const auto &b = i.first;
+			if (!b.wire->attributes.count(ID(sta_arrival))) {
+				log_warning("Wire %s.%s has no (* sta_arrival *) value.\n", log_id(module), log_signal(b));
+				continue;
+			}
 			auto arrival = b.wire->get_intvec_attribute(ID(sta_arrival))[b.offset];
 			arrival += i.second;
 			arrival_histogram[arrival]++;

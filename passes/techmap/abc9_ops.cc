@@ -440,25 +440,26 @@ void prep_delays(RTLIL::Design *design, bool dff_mode)
 			if (!port_wire->port_input)
 				continue;
 
-			SigSpec O = module->addWire(NEW_ID, GetSize(conn.second));
-			for (int i = 0; i < GetSize(conn.second); i++) {
-				auto d = t.at(TimingInfo::NameBit(conn.first,i), 0);
-				if (d == 0)
-					continue;
+			auto d = i.second.first;
+			if (d == 0)
+				continue;
+			auto offset = i.first.offset;
 
+			auto O = module->addWire(NEW_ID);
+			auto rhs = cell->getPort(i.first.name);
 #ifndef NDEBUG
-				if (ys_debug(1)) {
-					static std::set<std::tuple<IdString,IdString,int>> seen;
-					if (seen.emplace(derived_type, conn.first, i).second) log("%s.%s[%d] abc9_required = %d\n",
-							log_id(cell->type), log_id(conn.first), i, d);
-				}
-#endif
-				auto box = module->addCell(NEW_ID, ID($__ABC9_DELAY));
-				box->setPort(ID::I, conn.second[i]);
-				box->setPort(ID::O, O[i]);
-				box->setParam(ID::DELAY, d);
-				conn.second[i] = O[i];
+			if (ys_debug(1)) {
+				static std::set<std::pair<IdString,TimingInfo::NameBit>> seen;
+				if (seen.emplace(derived_type, i.first).second) log("%s.%s[%d] abc9_required = %d\n",
+						log_id(cell->type), log_id(i.first.name), offset, d);
 			}
+#endif
+			auto box = module->addCell(NEW_ID, ID($__ABC9_DELAY));
+			box->setPort(ID::I, rhs[offset]);
+			box->setPort(ID::O, O);
+			box->setParam(ID::DELAY, d);
+			rhs[offset] = O;
+			cell->setPort(i.first.name, rhs);
 		}
 	}
 }
@@ -606,13 +607,13 @@ void prep_box(RTLIL::Design *design, bool dff_mode)
 						// Assume that no setup time means zero
 						ss << 0;
 					else {
-						ss << it->second;
+						ss << it->second.first;
 
 #ifndef NDEBUG
 						if (ys_debug(1)) {
 							static std::set<std::pair<IdString,IdString>> seen;
 							if (seen.emplace(module->name, port_name).second) log("%s.%s abc9_required = %d\n", log_id(module),
-									log_id(port_name), it->second);
+									log_id(port_name), it->second.first);
 						}
 #endif
 					}
