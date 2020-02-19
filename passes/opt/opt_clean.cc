@@ -51,20 +51,26 @@ struct keep_cache_t
 		if (cache.count(module))
 			return cache.at(module);
 
-		cache[module] = true;
-		if (!module->get_bool_attribute(ID::keep)) {
-			bool found_keep = false;
+		bool found_keep = false;
+		if (module->get_bool_attribute(ID::keep))
+			found_keep = true;
+		else
 			for (auto cell : module->cells())
-				if (query(cell)) found_keep = true;
-			cache[module] = found_keep;
-		}
+				if (query(cell, true /* ignore_specify */)) {
+					found_keep = true;
+					break;
+				}
+		cache[module] = found_keep;
 
-		return cache[module];
+		return found_keep;
 	}
 
-	bool query(Cell *cell)
+	bool query(Cell *cell, bool ignore_specify = false)
 	{
-		if (cell->type.in(ID($memwr), ID($meminit), ID($assert), ID($assume), ID($live), ID($fair), ID($cover), ID($specify2), ID($specify3), ID($specrule)))
+		if (cell->type.in(ID($memwr), ID($meminit), ID($assert), ID($assume), ID($live), ID($fair), ID($cover)))
+			return true;
+
+		if (!ignore_specify && cell->type.in(ID($specify2), ID($specify3), ID($specrule)))
 			return true;
 
 		if (cell->has_keep_attr())
