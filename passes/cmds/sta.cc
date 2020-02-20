@@ -178,7 +178,7 @@ struct StaWorker
 			}
 		}
 
-		log("Latest arrival time in '%s':\n", log_id(module));
+		log("Latest arrival time in '%s' is %d:\n", log_id(module), maxarrival);
 		auto b = maxbit;
 		const auto &e = endpoints.at(maxbit);
 		if (e.sink)
@@ -191,11 +191,11 @@ struct StaWorker
 		while (it != data.end()) {
 			int arrival = b.wire->get_intvec_attribute(ID(sta_arrival))[b.offset];
 			if (it->second.driver) {
-				log("             %s\n", log_signal(b));
-				log("    %6d %s (%s.%s->%s)\n", arrival, log_id(it->second.driver), log_id(it->second.driver->type), log_id(it->second.src_port), log_id(it->second.dst_port));
+				log("           %s\n", log_signal(b));
+				log("  %6d %s (%s.%s->%s)\n", arrival, log_id(it->second.driver), log_id(it->second.driver->type), log_id(it->second.src_port), log_id(it->second.dst_port));
 			}
 			else if (b.wire->port_input)
-				log("    %6d   %s (%s)\n", arrival, log_signal(b), "<primary input>");
+				log("  %6d   %s (%s)\n", arrival, log_signal(b), "<primary input>");
 			else
 				log_abort();
 			b = it->second.backtrack;
