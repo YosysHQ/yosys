@@ -1,0 +1,150 @@
+pattern xilinx_bram
+
+udata <SigSpec> dffD dffQ
+udata <Cell*> dff dffcemux
+state <SigBit> clock
+state <Cell*> ffM ffMcemux
+
+// Variables used for subpatterns
+state <SigSpec> argQ argD sigD sigDOADO
+state <bool> ffcepol ffMcepol
+state <int> ffoffset
+udata <SigBit> dffclock
+udata <bool> dffcepol
+
+match bram
+	select bram->type.in(\RAMB18E1)
+endmatch
+
+code sigDOADO clock
+	auto unextend = [](const SigSpec &sig) {
+		int i;
+		for (i = GetSize(sig)-1; i > 0; i--)
+			if (sig[i] != sig[i-1])
+				break;
+		// Do not remove non-const sign bit
+		if (sig[i].wire)
+			++i;
+		return sig.extract(0, i);
+	};
+	sigDOADO = unextend(port(bram, \DOADO));
+	clock = port(bram, \CLKARDCLK, SigBit());
+endcode
+
+
+// (7) Match 'DOADO' output that exclusively drives an DREG
+code argD ffM ffMcemux ffMcepol sigD sigDOADO clock
+	if (bram->type == \RAMB18E1) {
+		argD = sigD;
+		subpattern(out_dffe);
+		if (dff) {
+			ffM = dff;
+			clock = dffclock;
+			if (dffcemux) {
+				ffMcemux = dffcemux;
+				ffMcepol = dffcepol;
+			}
+			sigD = dffQ;
+		}
+	}
+	sigDOADO = sigD;
+endcode
+
+subpattern out_dffe
+arg argD argQ clock
+
+code
+	dff = nullptr;
+	for (auto c : argD.chunks())
+		// Abandon matches when 'D' has the keep attribute set
+		if (c.wire->get_bool_attribute(\keep))
+			reject;
+endcode
+
+// (1) Starting from an optional $mux cell that implements clock enable
+//     semantics --- one where the given 'D' argument (partially or fully)
+//     drives one of its two inputs
+match ffcemux
+	select ffcemux->type.in($mux)
+	// ffcemux output must have two users: ffcemux and ff.D
+	select nusers(port(ffcemux, \Y)) == 2
+
+	choice <IdString> AB {\A, \B}
+	// keep-last-value net must have at least three users: ffcemux, ff, downstream sink(s)
+	select nusers(port(ffcemux, AB)) >= 3
+
+	slice offset GetSize(port(ffcemux, \Y))
+	define <IdString> BA (AB == \A ? \B : \A)
+	//index <SigBit> port(ffcemux, BA)[offset] === argD[0] // I'm missing something because this line causes a segfault
+
+	// Check that the rest of argD is present
+	filter GetSize(port(ffcemux, BA)) >= offset + GetSize(argD)
+	filter port(ffcemux, BA).extract(offset, GetSize(argD)) == argD
+
+	set ffoffset offset
+	define <bool> pol (AB == \A)
+	set ffcepol pol
+
+	semioptional
+endmatch
+
+code argD argQ
+	dffcemux = ffcemux;
+	if (ffcemux) {
+		SigSpec BA = port(ffcemux, ffcepol ? \B : \A);
+		SigSpec Y = port(ffcemux, \Y);
+		argQ = argD;
+		argD.replace(BA, Y);
+		argQ.replace(BA, port(ffcemux, ffcepol ? \A : \B));
+
+		dffcemux = ffcemux;
+		dffcepol = ffcepol;
+	}
+endcode
+
+// (3) Match for a $dff cell (whose 'D' input is the 'D' argument, or the
+//     output of the previous clock enable or reset $mux cells)
+match ff
+select ff->type.in($dff)
+	// DSP48E1 does not support clock inversion
+	//select param(ff, \CLK_POLARITY).as_bool()
+
+	slice offset GetSize(port(ff, \D))
+	//index <SigBit> port(ff, \D)[offset] === argD[0]
+
+	// Check that offset is consistent
+	filter (!ffcemux) || ffoffset == offset
+	// Check that the rest of argD is present
+	filter GetSize(port(ff, \D)) >= offset + GetSize(argD)
+	filter port(ff, \D).extract(offset, GetSize(argD)) == argD
+	// Check that FF.Q is connected to CE-mux
+	filter !ffcemux || port(ff, \Q).extract(offset, GetSize(argQ)) == argQ
+
+	filter clock == SigBit() || port(ff, \CLK) == clock
+
+	set ffoffset offset
+endmatch
+
+code argQ
+	SigSpec D = port(ff, \D);
+	SigSpec Q = port(ff, \Q);
+	if (!ffcemux) {
+		argQ = argD;
+		argQ.replace(D, Q);
+
+	}
+
+	// Abandon matches when 'Q' has a non-zero init attribute set
+	// (not supported by DSP48E1)
+	for (auto c : argQ.chunks()) {
+		Const init = c.wire->attributes.at(\init, Const());
+		if (!init.empty())
+			for (auto b : init.extract(c.offset, c.width))
+				if (b != State::Sx && b != State::S0)
+					reject;
+	}
+
+	dff = ff;
+	dffQ = argQ;
+	dffclock = port(ff, \CLK);
+endcode
