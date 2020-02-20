@@ -151,22 +151,26 @@ struct LoggerPass : public Pass {
 				if (type=="error" && count!=1)
 					log_cmd_error("Expected error message occurrences must be 1 !\n");
 				log("Added regex '%s' for warnings to expected %s list.\n", pattern.c_str(), type.c_str());
-				if (type=="error")
-					log_expect_error.push_back(std::make_pair(std::regex(pattern,
-						std::regex_constants::nosubs |
-						std::regex_constants::optimize |
-						std::regex_constants::egrep), LogExpectedItem(pattern, count)));
-				else if (type=="warning")
-					log_expect_warning.push_back(std::make_pair(std::regex(pattern,
-						std::regex_constants::nosubs |
-						std::regex_constants::optimize |
-						std::regex_constants::egrep), LogExpectedItem(pattern, count)));
-				else
-					log_expect_log.push_back(std::make_pair(std::regex(pattern,
-						std::regex_constants::nosubs |
-						std::regex_constants::optimize |
-						std::regex_constants::egrep), LogExpectedItem(pattern, count)));
-
+				try {
+					if (type=="error")
+						log_expect_error.push_back(std::make_pair(std::regex(pattern,
+							std::regex_constants::nosubs |
+							std::regex_constants::optimize |
+							std::regex_constants::egrep), LogExpectedItem(pattern, count)));
+					else if (type=="warning")
+						log_expect_warning.push_back(std::make_pair(std::regex(pattern,
+							std::regex_constants::nosubs |
+							std::regex_constants::optimize |
+							std::regex_constants::egrep), LogExpectedItem(pattern, count)));
+					else
+						log_expect_log.push_back(std::make_pair(std::regex(pattern,
+							std::regex_constants::nosubs |
+							std::regex_constants::optimize |
+							std::regex_constants::egrep), LogExpectedItem(pattern, count)));
+				}
+				catch (const std::regex_error& e) {
+					log_cmd_error("Error in regex expression '%s' !\n", pattern.c_str());
+				}
 				continue;
 			}
 			if (args[argidx] == "-expect-no-warnings") {
