@@ -323,9 +323,9 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	}
 
 	// activate const folding if this is anything that must be evaluated statically (ranges, parameters, attributes, etc.)
-	if (type == AST_WIRE || type == AST_PARAMETER || type == AST_LOCALPARAM || type == AST_DEFPARAM || type == AST_PARASET || type == AST_RANGE || type == AST_PREFIX || type == AST_TYPEDEF)
+	if (type == AST_WIRE || type == AST_PARAMETER || type == AST_LOCALPARAM || type == AST_ENUM_ITEM || type == AST_DEFPARAM || type == AST_PARASET || type == AST_RANGE || type == AST_PREFIX || type == AST_TYPEDEF)
 		const_fold = true;
-	if (type == AST_IDENTIFIER && current_scope.count(str) > 0 && (current_scope[str]->type == AST_PARAMETER || current_scope[str]->type == AST_LOCALPARAM))
+	if (type == AST_IDENTIFIER && current_scope.count(str) > 0 && (current_scope[str]->type == AST_PARAMETER || current_scope[str]->type == AST_LOCALPARAM || current_scope[str]->type == AST_ENUM_ITEM))
 		const_fold = true;
 
 	// in certain cases a function must be evaluated constant. this is what in_param controls.
@@ -410,11 +410,21 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				}
 				this_wire_scope[node->str] = node;
 			}
+			// these nodes appear at the top level in a module and can define names
 			if (node->type == AST_PARAMETER || node->type == AST_LOCALPARAM || node->type == AST_WIRE || node->type == AST_AUTOWIRE || node->type == AST_GENVAR ||
 					node->type == AST_MEMORY || node->type == AST_FUNCTION || node->type == AST_TASK || node->type == AST_DPI_FUNCTION || node->type == AST_CELL ||
 					node->type == AST_TYPEDEF) {
 				backup_scope[node->str] = current_scope[node->str];
 				current_scope[node->str] = node;
+			}
+			if (node->type == AST_ENUM) {
+				current_scope[node->str] = node;
+				for (auto enode : node->children) {
+					log_assert(enode->type==AST_ENUM_ITEM);
+					if (current_scope.count(enode->str) == 0) {
+						current_scope[enode->str] = enode;
+					}
+				}
 			}
 		}
 		for (size_t i = 0; i < children.size(); i++) {
@@ -422,6 +432,13 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			if (node->type == AST_PARAMETER || node->type == AST_LOCALPARAM || node->type == AST_WIRE || node->type == AST_AUTOWIRE || node->type == AST_MEMORY || node->type == AST_TYPEDEF)
 				while (node->simplify(true, false, false, 1, -1, false, node->type == AST_PARAMETER || node->type == AST_LOCALPARAM))
 					did_something = true;
+			if (node->type == AST_ENUM) {
+				for (auto enode : node->children){
+					log_assert(enode->type==AST_ENUM_ITEM);
+					while (node->simplify(true, false, false, 1, -1, false, in_param))
+						did_something = true;
+				}
+			}
 		}
 	}
 
@@ -497,6 +514,18 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		}
 		break;
 
+	case AST_ENUM:
+		//log("\nENUM %s: %d child %d\n", str.c_str(), basic_prep, children[0]->basic_prep);
+		if (!basic_prep) {
+			for (auto item_node : children) {
+				while (!item_node->basic_prep && item_node->simplify(false, false, false, stage, -1, false, in_param))
+					did_something = true;
+			}
+			// allocate values (called more than once)
+			allocateDefaultEnumValues();
+		}
+		break;
+
 	case AST_PARAMETER:
 	case AST_LOCALPARAM:
 		while (!children[0]->basic_prep && children[0]->simplify(false, false, false, stage, -1, false, true) == true)
@@ -507,6 +536,18 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				did_something = true;
 			if (!children[1]->range_valid)
 				log_file_error(filename, linenum, "Non-constant width range on parameter decl.\n");
+			width_hint = max(width_hint, children[1]->range_left - children[1]->range_right + 1);
+		}
+		break;
+	case AST_ENUM_ITEM:
+		while (!children[0]->basic_prep && children[0]->simplify(false, false, false, stage, -1, false, in_param))
+			did_something = true;
+		children[0]->detectSignWidth(width_hint, sign_hint);
+		if (children.size() > 1 && children[1]->type == AST_RANGE) {
+			while (!children[1]->basic_prep && children[1]->simplify(false, false, false, stage, -1, false, in_param))
+				did_something = true;
+			if (!children[1]->range_valid)
+				log_file_error(filename, linenum, "Non-constant width range on enum item decl.\n");
 			width_hint = max(width_hint, children[1]->range_left - children[1]->range_right + 1);
 		}
 		break;
@@ -827,11 +868,68 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			range_swapped = templ->range_swapped;
 			range_left = templ->range_left;
 			range_right = templ->range_right;
+			attributes["\\wiretype"] = mkconst_str(resolved_type->str);
+			//check if enum
+			if (templ->attributes.count("\\enum_type")){
+				//get reference to enum node:
+				std::string enum_type = templ->attributes["\\enum_type"]->str.c_str();
+				// 				log("enum_type=%s (count=%lu)\n", enum_type.c_str(), current_scope.count(enum_type));
+				// 				log("current scope:\n");
+				// 				for (auto &it : current_scope)
+				// 					log("  %s\n", it.first.c_str());
+				log_assert(current_scope.count(enum_type) == 1);
+				AstNode *enum_node = current_scope.at(enum_type);
+				log_assert(enum_node->type == AST_ENUM);
+				//get width from 1st enum item:
+				log_assert(enum_node->children.size() >= 1);
+				AstNode *enum_item0 = enum_node->children[0];
+				log_assert(enum_item0->type == AST_ENUM_ITEM);
+				int width;
+				if (!enum_item0->range_valid)
+					width = 1;
+				else if (enum_item0->range_swapped)
+					width = enum_item0->range_right - enum_item0->range_left + 1;
+				else
+					width = enum_item0->range_left - enum_item0->range_right + 1;
+				log_assert(width > 0);
+				//add declared enum items:
+				for (auto enum_item : enum_node->children){
+					log_assert(enum_item->type == AST_ENUM_ITEM);
+					//get is_signed
+					bool is_signed;
+					if (enum_item->children.size() == 1){
+						is_signed = false;
+					} else if (enum_item->children.size() == 2){
+						log_assert(enum_item->children[1]->type == AST_RANGE);
+						is_signed = enum_item->children[1]->is_signed;
+					} else {
+						log_error("enum_item children size==%lu, expected 1 or 2 for %s (%s)\n",
+								  enum_item->children.size(),
+								  enum_item->str.c_str(), enum_node->str.c_str()
+						);
+					}
+					//start building attribute string
+					std::string enum_item_str = "\\enum_";
+					enum_item_str.append(std::to_string(width));
+					enum_item_str.append("_");
+					//get enum item value
+					if(enum_item->children[0]->type != AST_CONSTANT){
+						log_error("expected const, got %s for %s (%s)\n",
+								  type2str(enum_item->children[0]->type).c_str(),
+								  enum_item->str.c_str(), enum_node->str.c_str()
+ 								);
+					}
+					int val = enum_item->children[0]->asInt(is_signed);
+					enum_item_str.append(std::to_string(val));
+					//set attribute for available val to enum item name mappings
+					attributes[enum_item_str.c_str()] = mkconst_str(enum_item->str);
+				}
+			}
 
 			// Insert clones children from template at beginning
 			for (int i  = 0; i < GetSize(templ->children); i++)
 				children.insert(children.begin() + i, templ->children[i]->clone());
-			
+
 			if (type == AST_MEMORY && GetSize(children) == 1) {
 				// Single-bit memories must have [0:0] range
 				AstNode *rng = new AstNode(AST_RANGE);
@@ -873,12 +971,13 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			range_swapped = templ->range_swapped;
 			range_left = templ->range_left;
 			range_right = templ->range_right;
+			attributes["\\wiretype"] = mkconst_str(resolved_type->str);
 			for (auto template_child : templ->children)
 				children.push_back(template_child->clone());
 			did_something = true;
 		}
 		log_assert(!is_custom_type);
-	}	
+	}
 
 	// resolve constant prefixes
 	if (type == AST_PREFIX) {
@@ -1010,7 +1109,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	}
 
 	// trim/extend parameters
-	if (type == AST_PARAMETER || type == AST_LOCALPARAM) {
+	if (type == AST_PARAMETER || type == AST_LOCALPARAM || type == AST_ENUM_ITEM) {
 		if (children.size() > 1 && children[1]->type == AST_RANGE) {
 			if (!children[1]->range_valid)
 				log_file_error(filename, linenum, "Non-constant width range on parameter decl.\n");
@@ -1051,9 +1150,34 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	if (type == AST_IDENTIFIER) {
 		if (current_scope.count(str) == 0) {
 			for (auto node : current_ast_mod->children) {
-				if ((node->type == AST_PARAMETER || node->type == AST_LOCALPARAM || node->type == AST_WIRE || node->type == AST_AUTOWIRE || node->type == AST_GENVAR ||
-						node->type == AST_MEMORY || node->type == AST_FUNCTION || node->type == AST_TASK || node->type == AST_DPI_FUNCTION) && str == node->str) {
+				//log("looking at mod scope child %s\n", type2str(node->type).c_str());
+				switch (node->type) {
+				case AST_PARAMETER:
+				case AST_LOCALPARAM:
+				case AST_WIRE:
+				case AST_AUTOWIRE:
+				case AST_GENVAR:
+				case AST_MEMORY:
+				case AST_FUNCTION:
+				case AST_TASK:
+				case AST_DPI_FUNCTION:
+					//log("found child %s, %s\n", type2str(node->type).c_str(), node->str.c_str());
+					if (str == node->str) {
+						log("add %s, type %s to scope\n", str.c_str(), type2str(node->type).c_str());
+						current_scope[node->str] = node;
+					}
+					break;
+				case AST_ENUM:
 					current_scope[node->str] = node;
+					for (auto enum_node : node->children) {
+						log_assert(enum_node->type==AST_ENUM_ITEM);
+						if (str == enum_node->str) {
+							//log("\nadding enum item %s to scope\n", str.c_str());
+							current_scope[str] = enum_node;
+						}
+					}
+					break;
+				default:
 					break;
 				}
 			}
@@ -1279,7 +1403,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			}
 
 			if (buf->type != AST_CONSTANT)
-				log_file_error(filename, linenum, "Right hand side of 3rd expression of generate for-loop is not constant!\n");
+				log_file_error(filename, linenum, "Right hand side of 3rd expression of generate for-loop is not constant (%s)!\n", type2str(buf->type).c_str());
 
 			delete varbuf->children[0];
 			varbuf->children[0] = buf;
@@ -2498,7 +2622,7 @@ skip_dynamic_range_lvalue_expansion:;
 		}
 
 		for (auto child : decl->children)
-			if (child->type == AST_WIRE || child->type == AST_MEMORY || child->type == AST_PARAMETER || child->type == AST_LOCALPARAM)
+			if (child->type == AST_WIRE || child->type == AST_MEMORY || child->type == AST_PARAMETER || child->type == AST_LOCALPARAM || child->type == AST_ENUM_ITEM)
 			{
 				AstNode *wire = nullptr;
 
@@ -2529,6 +2653,9 @@ skip_dynamic_range_lvalue_expansion:;
 					wire->is_output = false;
 					wire->is_reg = true;
 					wire->attributes["\\nosync"] = AstNode::mkconst_int(1, false);
+					if (child->type == AST_ENUM_ITEM)
+						wire->attributes["\\enum_base_type"] = child->attributes["\\enum_base_type"];
+
 					wire_cache[child->str] = wire;
 
 					current_ast_mod->children.push_back(wire);
@@ -2604,7 +2731,7 @@ replace_fcall_later:;
 		switch (type)
 		{
 		case AST_IDENTIFIER:
-			if (current_scope.count(str) > 0 && (current_scope[str]->type == AST_PARAMETER || current_scope[str]->type == AST_LOCALPARAM)) {
+			if (current_scope.count(str) > 0 && (current_scope[str]->type == AST_PARAMETER || current_scope[str]->type == AST_LOCALPARAM || current_scope[str]->type == AST_ENUM_ITEM)) {
 				if (current_scope[str]->children[0]->type == AST_CONSTANT) {
 					if (children.size() != 0 && children[0]->type == AST_RANGE && children[0]->range_valid) {
 						std::vector<RTLIL::State> data;
@@ -3051,7 +3178,7 @@ void AstNode::expand_genblock(std::string index_var, std::string prefix, std::ma
 	for (size_t i = 0; i < children.size(); i++) {
 		AstNode *child = children[i];
 		if (child->type == AST_WIRE || child->type == AST_MEMORY || child->type == AST_PARAMETER || child->type == AST_LOCALPARAM ||
-				child->type == AST_FUNCTION || child->type == AST_TASK || child->type == AST_CELL || child->type == AST_TYPEDEF) {
+				child->type == AST_FUNCTION || child->type == AST_TASK || child->type == AST_CELL || child->type == AST_TYPEDEF || child->type == AST_ENUM_ITEM) {
 			if (backup_name_map.size() == 0)
 				backup_name_map = name_map;
 			std::string new_name = prefix[0] == '\\' ? prefix.substr(1) : prefix;
@@ -3069,6 +3196,27 @@ void AstNode::expand_genblock(std::string index_var, std::string prefix, std::ma
 			else
 				child->str = new_name;
 			current_scope[new_name] = child;
+		}
+		if (child->type == AST_ENUM){
+			current_scope[child->str] = child;
+			for (auto enode : child->children){
+				log_assert(enode->type == AST_ENUM_ITEM);
+				if (backup_name_map.size() == 0)
+					backup_name_map = name_map;
+				std::string new_name = prefix[0] == '\\' ? prefix.substr(1) : prefix;
+				size_t pos = enode->str.rfind('.');
+				if (pos == std::string::npos)
+					pos = enode->str[0] == '\\' && prefix[0] == '\\' ? 1 : 0;
+				else
+					pos = pos + 1;
+				new_name = enode->str.substr(0, pos) + new_name + enode->str.substr(pos);
+				if (new_name[0] != '$' && new_name[0] != '\\')
+					new_name = prefix[0] + new_name;
+				name_map[enode->str] = new_name;
+
+				enode->str = new_name;
+				current_scope[new_name] = enode;
+			}
 		}
 	}
 
@@ -3806,6 +3954,34 @@ AstNode *AstNode::eval_const_function(AstNode *fcall)
 			current_scope[it.first] = it.second;
 
 	return AstNode::mkconst_bits(variables.at(str).val.bits, variables.at(str).is_signed);
+}
+
+void AstNode::allocateDefaultEnumValues()
+{
+	log_assert(type==AST_ENUM);
+	int last_enum_int = -1;
+	for (auto node : children) {
+		log_assert(node->type==AST_ENUM_ITEM);
+		node->attributes["\\enum_base_type"] = mkconst_str(str);
+		for (size_t i = 0; i < node->children.size(); i++) {
+			switch (node->children[i]->type) {
+			case AST_NONE:
+				// replace with auto-incremented constant
+				delete node->children[i];
+				node->children[i] = AstNode::mkconst_int(++last_enum_int, true);
+				break;
+			case AST_CONSTANT:
+				// explicit constant (or folded expression)
+				// TODO: can't extend 'x or 'z item
+				last_enum_int = node->children[i]->integer;
+				break;
+			default:
+				// ignore ranges
+				break;
+			}
+			// TODO: range check
+		}
+	}
 }
 
 YOSYS_NAMESPACE_END

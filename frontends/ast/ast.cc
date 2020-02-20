@@ -88,6 +88,8 @@ std::string AST::type2str(AstNodeType type)
 	X(AST_LIVE)
 	X(AST_FAIR)
 	X(AST_COVER)
+	X(AST_ENUM)
+	X(AST_ENUM_ITEM)
 	X(AST_FCALL)
 	X(AST_TO_BITS)
 	X(AST_TO_SIGNED)
@@ -202,6 +204,7 @@ AstNode::AstNode(AstNodeType type, AstNode *child1, AstNode *child2, AstNode *ch
 	is_logic = false;
 	is_signed = false;
 	is_string = false;
+	is_enum = false;
 	is_wand = false;
 	is_wor = false;
 	is_unsized = false;
@@ -320,6 +323,9 @@ void AstNode::dumpAst(FILE *f, std::string indent) const
 		for (int v : multirange_dimensions)
 			fprintf(f, " %d", v);
 		fprintf(f, " ]");
+	}
+	if (is_enum) {
+		fprintf(f, " type=enum");
 	}
 	fprintf(f, "\n");
 
@@ -1174,7 +1180,15 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 			for (auto n : design->verilog_packages){
 				for (auto o : n->children) {
 					AstNode *cloned_node = o->clone();
-					cloned_node->str = n->str + std::string("::") + cloned_node->str.substr(1);
+					log("cloned node %s\n", type2str(cloned_node->type).c_str());
+					if (cloned_node->type == AST_ENUM){
+						for (auto e : cloned_node->children){
+							log_assert(e->type == AST_ENUM_ITEM);
+							e->str = n->str + std::string("::") + e->str.substr(1);
+						}
+					} else {
+						cloned_node->str = n->str + std::string("::") + cloned_node->str.substr(1);
+					}
 					(*it)->children.push_back(cloned_node);
 				}
 			}
@@ -1203,10 +1217,14 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 
 			design->add(process_module(*it, defer));
 		}
-		else if ((*it)->type == AST_PACKAGE)
+		else if ((*it)->type == AST_PACKAGE) {
 			design->verilog_packages.push_back((*it)->clone());
-		else
+		}
+		else {
+			// must be global definition
+			(*it)->simplify(false, false, false, 1, -1, false, false); //process enum/other declarations
 			design->verilog_globals.push_back((*it)->clone());
+		}
 	}
 }
 

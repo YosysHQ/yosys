@@ -446,6 +446,17 @@ Verilog Attributes and non-standard features
         ...
       endmodule
 
+- The ``wiretype`` attribute is added by the verilog parser for wires of a
+  typedef'd type to indicate the type identifier.
+
+- Various ``enum_{width}_{value}`` attributes are added to wires of an
+  enumerated type to give a map of possible enum items to their values.
+
+- The ``enum_base_type`` attribute is added to enum items to indicate which
+  enum they belong to (enums -- anonymous and otherwise -- are
+  automatically named with an auto-incrementing counter). Note that enums
+  are currently not strongly typed.
+
 - A limited subset of DPI-C functions is supported. The plugin mechanism
   (see ``help plugin``) can be used to load .so files with implementations
   of DPI-C routines. As a non-standard extension it is possible to specify
@@ -536,6 +547,12 @@ from SystemVerilog:
   SystemVerilog files being read into the same design afterwards.
 
 - typedefs are supported (including inside packages)
+	- type identifiers must currently be enclosed in (parentheses) when declaring
+	  signals of that type (this is syntactically incorrect SystemVerilog)
+	- type casts are currently not supported
+
+- enums are supported (including inside packages)
+	- but are currently not strongly typed
 
 - SystemVerilog interfaces (SVIs) are supported. Modports for specifying whether
   ports are inputs or outputs are supported.
