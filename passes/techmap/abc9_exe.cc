@@ -191,7 +191,7 @@ void abc9_module(RTLIL::Design *design, std::string script_file, std::string exe
 				else
 					abc9_script += script_file[i];
 		} else
-			abc9_script += stringf("source %s", script_file.c_str());
+			abc9_script += stringf("source -x %s", script_file.c_str());
 	} else if (!lut_costs.empty() || !lut_file.empty()) {
 		abc9_script += fast_mode ? RTLIL::constpad.at("abc9.script.default.fast").substr(1,std::string::npos)
 			: RTLIL::constpad.at("abc9.script.default").substr(1,std::string::npos);
