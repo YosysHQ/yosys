@@ -680,7 +680,7 @@ void prep_box(RTLIL::Design *design, bool dff_mode)
 					first = false;
 				else
 					ss << " ";
-				auto jt = t.find(std::make_pair(TimingInfo::NameBit(i),TimingInfo::NameBit(o)));
+				auto jt = t.find(TimingInfo::BitBit(i,o));
 				if (jt == t.end())
 					ss << "-";
 				else

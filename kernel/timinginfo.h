@@ -38,7 +38,14 @@ struct TimingInfo
 		bool operator!=(const NameBit& nb) const { return !operator==(nb); }
 		unsigned int hash() const { return mkhash_add(name.hash(), offset); }
 	};
-	typedef std::pair<NameBit,NameBit> BitBit;
+	struct BitBit
+	{
+		NameBit first, second;
+		BitBit(const NameBit &first, const NameBit &second) : first(first), second(second) {}
+		BitBit(const SigBit &first, const SigBit &second) : first(first), second(second) {}
+		bool operator==(const BitBit& bb) const { return bb.first == first && bb.second == second; }
+		unsigned int hash() const { return mkhash_add(first.hash(), second.hash()); }
+	};
 
 	struct ModuleTiming
 	{
