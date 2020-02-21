@@ -41,6 +41,11 @@ static void run_ice40_opts(Module *module)
 
 	for (auto cell : module->selected_cells())
 	{
+		if (!cell->type.in("\\SB_LUT4", "\\SB_CARRY", "$__ICE40_CARRY_WRAPPER"))
+			continue;
+		if (cell->has_keep_attr())
+			continue;
+
 		if (cell->type == "\\SB_LUT4")
 		{
 			sb_lut_cells.push_back(cell);
@@ -112,12 +117,30 @@ static void run_ice40_opts(Module *module)
 
 			if (GetSize(replacement_output)) {
 				optimized_co.insert(sigmap(cell->getPort("\\CO")[0]));
+				auto it = cell->attributes.find(ID(SB_LUT4.name));
+				if (it != cell->attributes.end()) {
+					module->rename(cell, it->second.decode_string());
+					decltype(Cell::attributes) new_attr;
+					for (const auto &a : cell->attributes)
+						if (a.first.begins_with("\\SB_LUT4.\\"))
+							new_attr[a.first.c_str() + strlen("\\SB_LUT4.")] = a.second;
+						else if (a.first == ID(src))
+							new_attr.insert(std::make_pair(a.first, a.second));
+						else if (a.first.in(ID(SB_LUT4.name), ID::keep, ID(module_not_derived)))
+							continue;
+						else if (a.first.begins_with("\\SB_CARRY.\\"))
+							continue;
+						else
+							log_abort();
+					cell->attributes = std::move(new_attr);
+				}
 				module->connect(cell->getPort("\\CO")[0], replacement_output);
 				module->design->scratchpad_set_bool("opt.did_something", true);
 				log("Optimized $__ICE40_CARRY_WRAPPER cell back to logic (without SB_CARRY) %s.%s: CO=%s\n",
 						log_id(module), log_id(cell), log_signal(replacement_output));
 				cell->type = "$lut";
-				cell->setPort("\\A", { cell->getPort("\\I0"), inbit[0], inbit[1], cell->getPort("\\I3") });
+				auto I3 = get_bit_or_zero(cell->getPort(cell->getParam(ID(I3_IS_CI)).as_bool() ? ID(CI) : ID(I3)));
+				cell->setPort("\\A", { I3, inbit[1], inbit[0], get_bit_or_zero(cell->getPort("\\I0")) });
 				cell->setPort("\\Y", cell->getPort("\\O"));
 				cell->unsetPort("\\B");
 				cell->unsetPort("\\CI");
@@ -126,6 +149,7 @@ static void run_ice40_opts(Module *module)
 				cell->unsetPort("\\CO");
 				cell->unsetPort("\\O");
 				cell->setParam("\\WIDTH", 4);
+				cell->unsetParam("\\I3_IS_CI");
 			}
 			continue;
 		}

@@ -1,3 +1,5 @@
+// Virtex 6 and Series 7 block RAM mapping.
+
 module \$__XILINX_RAMB36_SDP (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1EN);
 	parameter CLKPOL2 = 1;
 	parameter CLKPOL3 = 1;

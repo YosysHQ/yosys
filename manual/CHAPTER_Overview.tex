@@ -234,6 +234,8 @@ An RTLIL::Wire object has the following properties:
 \item The wire name
 \item A list of attributes
 \item A width (buses are just wires with a width > 1)
+\item Bus direction (MSB to LSB or vice versa)
+\item Lowest valid bit index (LSB or MSB depending on bus direction)
 \item If the wire is a port: port number and direction (input/output/inout)
 \end{itemize}
 
@@ -245,6 +247,11 @@ with a width > 1. So Yosys does not convert signal vectors to individual signals
 This makes some aspects of RTLIL more complex but enables Yosys to be used for
 coarse grain synthesis where the cells of the target architecture operate on
 entire signal vectors instead of single bit wires.
+
+In Verilog and VHDL, busses may have arbitrary bounds, and LSB can have either
+the lowest or the highest bit index. In RTLIL, bit 0 always corresponds to LSB;
+however, information from the HDL frontend is preserved so that the bus will be
+correctly indexed in error messages, backend output, constraint files, etc.
 
 An RTLIL::Cell object has the following properties:
 

@@ -595,6 +595,9 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 
 	switch (type)
 	{
+	case AST_NONE:
+		// unallocated enum, ignore
+		break;
 	case AST_CONSTANT:
 		width_hint = max(width_hint, int(bits.size()));
 		if (!is_signed)
@@ -612,7 +615,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 			id_ast = current_scope.at(str);
 		if (!id_ast)
 			log_file_error(filename, linenum, "Failed to resolve identifier %s for width detection!\n", str.c_str());
-		if (id_ast->type == AST_PARAMETER || id_ast->type == AST_LOCALPARAM) {
+		if (id_ast->type == AST_PARAMETER || id_ast->type == AST_LOCALPARAM || id_ast->type == AST_ENUM_ITEM) {
 			if (id_ast->children.size() > 1 && id_ast->children[1]->range_valid) {
 				this_width = id_ast->children[1]->range_left - id_ast->children[1]->range_right + 1;
 			} else
@@ -861,6 +864,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	case AST_GENIF:
 	case AST_GENCASE:
 	case AST_PACKAGE:
+	case AST_ENUM:
 	case AST_MODPORT:
 	case AST_MODPORTMEMBER:
 	case AST_TYPEDEF:
@@ -1022,7 +1026,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				else
 					log_file_error(filename, linenum, "Identifier `%s' is implicitly declared and `default_nettype is set to none.\n", str.c_str());
 			}
-			else if (id2ast->type == AST_PARAMETER || id2ast->type == AST_LOCALPARAM) {
+			else if (id2ast->type == AST_PARAMETER || id2ast->type == AST_LOCALPARAM || id2ast->type == AST_ENUM_ITEM) {
 				if (id2ast->children[0]->type != AST_CONSTANT)
 					log_file_error(filename, linenum, "Parameter %s does not evaluate to constant value!\n", str.c_str());
 				chunk = RTLIL::Const(id2ast->children[0]->bits);
@@ -1559,21 +1563,25 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 					log_file_error(filename, linenum, "Attribute `%s' with non-constant value.\n", attr.first.c_str());
 				cell->attributes[attr.first] = attr.second->asAttrConst();
 			}
-			if (cell->type.in("$specify2", "$specify3")) {
+			if (cell->type == "$specify2") {
 				int src_width = GetSize(cell->getPort("\\SRC"));
 				int dst_width = GetSize(cell->getPort("\\DST"));
 				bool full = cell->getParam("\\FULL").as_bool();
 				if (!full && src_width != dst_width)
 					log_file_error(filename, linenum, "Parallel specify SRC width does not match DST width.\n");
-				if (cell->type == "$specify3") {
-					int dat_width = GetSize(cell->getPort("\\DAT"));
-					if (dat_width != dst_width)
-						log_file_error(filename, linenum, "Specify DAT width does not match DST width.\n");
-				}
 				cell->setParam("\\SRC_WIDTH", Const(src_width));
 				cell->setParam("\\DST_WIDTH", Const(dst_width));
 			}
-			if (cell->type == "$specrule") {
+			else if (cell->type ==  "$specify3") {
+				int dat_width = GetSize(cell->getPort("\\DAT"));
+				int dst_width = GetSize(cell->getPort("\\DST"));
+				if (dat_width != dst_width)
+					log_file_error(filename, linenum, "Specify DAT width does not match DST width.\n");
+				int src_width = GetSize(cell->getPort("\\SRC"));
+				cell->setParam("\\SRC_WIDTH", Const(src_width));
+				cell->setParam("\\DST_WIDTH", Const(dst_width));
+			}
+			else if (cell->type == "$specrule") {
 				int src_width = GetSize(cell->getPort("\\SRC"));
 				int dst_width = GetSize(cell->getPort("\\DST"));
 				cell->setParam("\\SRC_WIDTH", Const(src_width));

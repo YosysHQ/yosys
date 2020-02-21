@@ -7,11 +7,9 @@ module test (
 		if (EN) Q <= D;
 
 	specify
-`ifndef SKIP_UNSUPPORTED_IGN_PARSER_CONSTRUCTS
 		if (EN) (posedge CLK *> (Q : D)) = (1, 2:3:4);
 		$setup(D, posedge CLK &&& EN, 5);
 		$hold(posedge CLK, D &&& EN, 6);
-`endif
 	endspecify
 endmodule
 
@@ -35,5 +33,32 @@ module issue01144(input clk, d, output q);
 specify
   (posedge clk => (q +: d)) = (3,1);
   (posedge clk *> (q +: d)) = (3,1);
+endspecify
+endmodule
+
+module test3(input clk, input [1:0] d, output [1:0] q);
+specify
+  (posedge clk => (q +: d)) = (3,1);
+  (posedge clk *> (q +: d)) = (3,1);
+endspecify
+endmodule
+
+module test4(input clk, d, output q);
+specify
+  $setup(d, posedge clk, 1:2:3);
+  $setuphold(d, posedge clk, 1:2:3, 4:5:6);
+endspecify
+endmodule
+
+module test5(input clk, d, e, output q);
+specify
+  $setup(d, posedge clk &&& e, 1:2:3);
+endspecify
+endmodule
+
+module test6(input clk, d, e, output q);
+specify
+  (d[0] *> q[0]) = (3,1);
+  (posedge clk[0] => (q[0] +: d[0])) = (3,1);
 endspecify
 endmodule

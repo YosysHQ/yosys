@@ -230,7 +230,7 @@ struct SimInstance
 		bool did_something = false;
 
 		sig = sigmap(sig);
-		log_assert(GetSize(sig) == GetSize(value));
+		log_assert(GetSize(sig) <= GetSize(value));
 
 		for (int i = 0; i < GetSize(sig); i++)
 			if (state_nets.at(sig[i]) != value[i]) {

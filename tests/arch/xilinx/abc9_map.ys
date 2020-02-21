@@ -1,0 +1,91 @@
+read_verilog <<EOT
+module top(input C, CE, D, R, output [1:0] Q);
+FDRE   #(.INIT(1'b1)) ff1 (.C(C), .CE(CE), .D(D), .R(R), .Q(Q[0]));
+FDRE_1 #(.INIT(1'b1)) ff2 (.C(C), .CE(CE), .D(D), .R(R), .Q(Q[1]));
+endmodule
+EOT
+design -save gold
+
+techmap -map +/xilinx/abc9_map.v -max_iter 1 -D DFF_MODE
+techmap -map +/xilinx/abc9_unmap.v
+select -assert-count 1 t:FDSE
+select -assert-count 1 t:FDSE_1
+techmap -autoproc -map +/xilinx/cells_sim.v
+design -stash gate
+
+design -import gold -as gold
+design -import gate -as gate
+techmap -autoproc -map +/xilinx/cells_sim.v
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -seq 2 -verify -prove-asserts -show-ports miter
+
+design -reset
+read_verilog <<EOT
+module top(input C, CE, D, S, output [1:0] Q);
+FDSE   #(.INIT(1'b1)) ff1 (.C(C), .CE(CE), .D(D), .S(S), .Q(Q[0]));
+FDSE_1 #(.INIT(1'b1)) ff2 (.C(C), .CE(CE), .D(D), .S(S), .Q(Q[1]));
+endmodule
+EOT
+design -save gold
+
+techmap -map +/xilinx/abc9_map.v -max_iter 1 -D DFF_MODE
+techmap -map +/xilinx/abc9_unmap.v
+select -assert-count 1 t:FDRE
+select -assert-count 1 t:FDRE_1
+techmap -autoproc -map +/xilinx/cells_sim.v
+design -stash gate
+
+design -import gold -as gold
+design -import gate -as gate
+techmap -autoproc -map +/xilinx/cells_sim.v
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -seq 2 -set-init-zero -verify -prove-asserts -show-ports miter
+
+design -reset
+read_verilog <<EOT
+module top(input C, CE, D, PRE, output [1:0] Q);
+FDPE   #(.INIT(1'b1)) ff1 (.C(C), .CE(CE), .D(D), .PRE(PRE), .Q(Q[0]));
+FDPE_1 #(.INIT(1'b1)) ff2 (.C(C), .CE(CE), .D(D), .PRE(PRE), .Q(Q[1]));
+endmodule
+EOT
+design -save gold
+
+techmap -map +/xilinx/abc9_map.v -max_iter 1 -D DFF_MODE
+techmap -map +/xilinx/abc9_unmap.v
+select -assert-count 1 t:FDCE
+select -assert-count 1 t:FDCE_1
+techmap -autoproc -map +/xilinx/cells_sim.v
+design -stash gate
+
+design -import gold -as gold
+design -import gate -as gate
+techmap -autoproc -map +/xilinx/cells_sim.v
+clk2fflogic
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -seq 2 -set-init-zero -verify -prove-asserts -show-ports miter
+
+design -reset
+read_verilog <<EOT
+module top(input C, CE, D, CLR, output [1:0] Q);
+FDCE   #(.INIT(1'b1)) ff1 (.C(C), .CE(CE), .D(D), .CLR(CLR), .Q(Q[0]));
+FDCE_1 #(.INIT(1'b1)) ff2 (.C(C), .CE(CE), .D(D), .CLR(CLR), .Q(Q[1]));
+endmodule
+EOT
+design -save gold
+
+techmap -map +/xilinx/abc9_map.v -max_iter 1 -D DFF_MODE
+techmap -map +/xilinx/abc9_unmap.v
+select -assert-count 1 t:FDPE
+techmap -autoproc -map +/xilinx/cells_sim.v
+design -stash gate
+
+design -import gold -as gold
+design -import gate -as gate
+techmap -autoproc -map +/xilinx/cells_sim.v
+clk2fflogic
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -seq 2 -set-init-zero -verify -prove-asserts -show-ports miter

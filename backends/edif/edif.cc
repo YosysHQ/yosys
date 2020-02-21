@@ -246,19 +246,25 @@ struct EdifBackend : public Backend {
 					else if (!ct.cell_input(cell_it.first, port_it.first))
 						dir = "OUTPUT";
 				}
-				if (port_it.second == 1)
+				int width = port_it.second;
+				int start = 0;
+				bool upto = false;
+				auto m = design->module(cell_it.first);
+				if (m) {
+					auto w = m->wire(port_it.first);
+					if (w) {
+						width = GetSize(w);
+						start = w->start_offset;
+						upto = w->upto;
+					}
+				}
+				if (width == 1)
 					*f << stringf("          (port %s (direction %s))\n", EDIF_DEF(port_it.first), dir);
 				else {
-					int b[2] = {port_it.second-1, 0};
-					auto m = design->module(cell_it.first);
-					if (m) {
-						auto w = m->wire(port_it.first);
-						if (w) {
-							b[w->upto ? 0 : 1] = w->start_offset;
-							b[w->upto ? 1 : 0] = w->start_offset+GetSize(w)-1;
-						}
-					}
-					*f << stringf("          (port (array %s %d) (direction %s))\n", EDIF_DEFR(port_it.first, port_rename, b[0], b[1]), port_it.second, dir);
+					int b[2];
+					b[upto ? 0 : 1] = start;
+					b[upto ? 1 : 0] = start+width-1;
+					*f << stringf("          (port (array %s %d) (direction %s))\n", EDIF_DEFR(port_it.first, port_rename, b[0], b[1]), width, dir);
 				}
 			}
 			*f << stringf("        )\n");
@@ -300,13 +306,33 @@ struct EdifBackend : public Backend {
 		*f << stringf("  (library DESIGN\n");
 		*f << stringf("    (edifLevel 0)\n");
 		*f << stringf("    (technology (numberDefinition))\n");
+
+		auto add_prop = [&](IdString name, Const val) {
+			if ((val.flags & RTLIL::CONST_FLAG_STRING) != 0)
+				*f << stringf("\n            (property %s (string \"%s\"))", EDIF_DEF(name), val.decode_string().c_str());
+			else if (val.bits.size() <= 32 && RTLIL::SigSpec(val).is_fully_def())
+				*f << stringf("\n            (property %s (integer %u))", EDIF_DEF(name), val.as_int());
+			else {
+				std::string hex_string = "";
+				for (size_t i = 0; i < val.bits.size(); i += 4) {
+					int digit_value = 0;
+					if (i+0 < val.bits.size() && val.bits.at(i+0) == RTLIL::State::S1) digit_value |= 1;
+					if (i+1 < val.bits.size() && val.bits.at(i+1) == RTLIL::State::S1) digit_value |= 2;
+					if (i+2 < val.bits.size() && val.bits.at(i+2) == RTLIL::State::S1) digit_value |= 4;
+					if (i+3 < val.bits.size() && val.bits.at(i+3) == RTLIL::State::S1) digit_value |= 8;
+					char digit_str[2] = { "0123456789abcdef"[digit_value], 0 };
+					hex_string = std::string(digit_str) + hex_string;
+				}
+				*f << stringf("\n            (property %s (string \"%d'h%s\"))", EDIF_DEF(name), GetSize(val.bits), hex_string.c_str());
+			}
+		};		
 		for (auto module : sorted_modules)
 		{
 			if (module->get_blackbox_attribute())
 				continue;
 
 			SigMap sigmap(module);
-			std::map<RTLIL::SigSpec, std::set<std::string>> net_join_db;
+			std::map<RTLIL::SigSpec, std::set<std::pair<std::string, bool>>> net_join_db;
 
 			*f << stringf("    (cell %s\n", EDIF_DEF(module->name));
 			*f << stringf("      (cellType GENERIC)\n");
@@ -323,17 +349,26 @@ struct EdifBackend : public Backend {
 				else if (!wire->port_input)
 					dir = "OUTPUT";
 				if (wire->width == 1) {
-					*f << stringf("          (port %s (direction %s))\n", EDIF_DEF(wire->name), dir);
+					*f << stringf("          (port %s (direction %s)", EDIF_DEF(wire->name), dir);
+					if (attr_properties)
+						for (auto &p : wire->attributes)
+							add_prop(p.first, p.second);
+					*f << ")\n";
 					RTLIL::SigSpec sig = sigmap(RTLIL::SigSpec(wire));
-					net_join_db[sig].insert(stringf("(portRef %s)", EDIF_REF(wire->name)));
+					net_join_db[sig].insert(make_pair(stringf("(portRef %s)", EDIF_REF(wire->name)), wire->port_input));
 				} else {
 					int b[2];
 					b[wire->upto ? 0 : 1] = wire->start_offset;
 					b[wire->upto ? 1 : 0] = wire->start_offset + GetSize(wire) - 1;
-					*f << stringf("          (port (array %s %d) (direction %s))\n", EDIF_DEFR(wire->name, port_rename, b[0], b[1]), wire->width, dir);
+					*f << stringf("          (port (array %s %d) (direction %s)", EDIF_DEFR(wire->name, port_rename, b[0], b[1]), wire->width, dir);
+					if (attr_properties)
+						for (auto &p : wire->attributes)
+							add_prop(p.first, p.second);
+
+					*f << ")\n";
 					for (int i = 0; i < wire->width; i++) {
 						RTLIL::SigSpec sig = sigmap(RTLIL::SigSpec(wire, i));
-						net_join_db[sig].insert(stringf("(portRef (member %s %d))", EDIF_REF(wire->name), GetSize(wire)-i-1));
+						net_join_db[sig].insert(make_pair(stringf("(portRef (member %s %d))", EDIF_REF(wire->name), GetSize(wire)-i-1), wire->port_input));
 					}
 				}
 			}
@@ -348,27 +383,6 @@ struct EdifBackend : public Backend {
 				*f << stringf("          (instance %s\n", EDIF_DEF(cell->name));
 				*f << stringf("            (viewRef VIEW_NETLIST (cellRef %s%s))", EDIF_REF(cell->type),
 						lib_cell_ports.count(cell->type) > 0 ? " (libraryRef LIB)" : "");
-
-				auto add_prop = [&](IdString name, Const val) {
-					if ((val.flags & RTLIL::CONST_FLAG_STRING) != 0)
-						*f << stringf("\n            (property %s (string \"%s\"))", EDIF_DEF(name), val.decode_string().c_str());
-					else if (val.bits.size() <= 32 && RTLIL::SigSpec(val).is_fully_def())
-						*f << stringf("\n            (property %s (integer %u))", EDIF_DEF(name), val.as_int());
-					else {
-						std::string hex_string = "";
-						for (size_t i = 0; i < val.bits.size(); i += 4) {
-							int digit_value = 0;
-							if (i+0 < val.bits.size() && val.bits.at(i+0) == RTLIL::State::S1) digit_value |= 1;
-							if (i+1 < val.bits.size() && val.bits.at(i+1) == RTLIL::State::S1) digit_value |= 2;
-							if (i+2 < val.bits.size() && val.bits.at(i+2) == RTLIL::State::S1) digit_value |= 4;
-							if (i+3 < val.bits.size() && val.bits.at(i+3) == RTLIL::State::S1) digit_value |= 8;
-							char digit_str[2] = { "0123456789abcdef"[digit_value], 0 };
-							hex_string = std::string(digit_str) + hex_string;
-						}
-						*f << stringf("\n            (property %s (string \"%d'h%s\"))", EDIF_DEF(name), GetSize(val.bits), hex_string.c_str());
-					}
-				};
-
 				for (auto &p : cell->parameters)
 					add_prop(p.first, p.second);
 				if (attr_properties)
@@ -382,18 +396,23 @@ struct EdifBackend : public Backend {
 						if (sig[i].wire == NULL && sig[i] != RTLIL::State::S0 && sig[i] != RTLIL::State::S1)
 							log_warning("Bit %d of cell port %s.%s.%s driven by %s will be left unconnected in EDIF output.\n",
 									i, log_id(module), log_id(cell), log_id(p.first), log_signal(sig[i]));
-						else if (sig.size() == 1)
-							net_join_db[sig[i]].insert(stringf("(portRef %s (instanceRef %s))", EDIF_REF(p.first), EDIF_REF(cell->name)));
 						else {
 							int member_idx = GetSize(sig)-i-1;
 							auto m = design->module(cell->type);
+							int width = sig.size();
 							if (m) {
 								auto w = m->wire(p.first);
-								if (w)
+								if (w) {
 									member_idx = GetSize(w)-i-1;
+									width = GetSize(w);
+								}
 							}
-							net_join_db[sig[i]].insert(stringf("(portRef (member %s %d) (instanceRef %s))",
-									EDIF_REF(p.first), member_idx, EDIF_REF(cell->name)));
+							if (width == 1)
+								net_join_db[sig[i]].insert(make_pair(stringf("(portRef %s (instanceRef %s))", EDIF_REF(p.first), EDIF_REF(cell->name)), cell->output(p.first)));
+							else {
+								net_join_db[sig[i]].insert(make_pair(stringf("(portRef (member %s %d) (instanceRef %s))",
+										EDIF_REF(p.first), member_idx, EDIF_REF(cell->name)), cell->output(p.first)));
+							}
 						}
 				}
 			}
@@ -402,11 +421,13 @@ struct EdifBackend : public Backend {
 				if (sig.wire == NULL && sig != RTLIL::State::S0 && sig != RTLIL::State::S1) {
 					if (sig == RTLIL::State::Sx) {
 						for (auto &ref : it.second)
-							log_warning("Exporting x-bit on %s as zero bit.\n", ref.c_str());
+							log_warning("Exporting x-bit on %s as zero bit.\n", ref.first.c_str());
 						sig = RTLIL::State::S0;
+					} else if (sig == RTLIL::State::Sz) {
+						continue;
 					} else {
 						for (auto &ref : it.second)
-							log_error("Don't know how to handle %s on %s.\n", log_signal(sig), ref.c_str());
+							log_error("Don't know how to handle %s on %s.\n", log_signal(sig), ref.first.c_str());
 						log_abort();
 					}
 				}
@@ -423,7 +444,7 @@ struct EdifBackend : public Backend {
 				}
 				*f << stringf("          (net %s (joined\n", EDIF_DEF(netname));
 				for (auto &ref : it.second)
-					*f << stringf("            %s\n", ref.c_str());
+					*f << stringf("            %s\n", ref.first.c_str());
 				if (sig.wire == NULL) {
 					if (nogndvcc)
 						log_error("Design contains constant nodes (map with \"hilomap\" first).\n");
@@ -431,8 +452,37 @@ struct EdifBackend : public Backend {
 						*f << stringf("            (portRef %c (instanceRef GND))\n", gndvccy ? 'Y' : 'G');
 					if (sig == RTLIL::State::S1)
 						*f << stringf("            (portRef %c (instanceRef VCC))\n", gndvccy ? 'Y' : 'P');
+				}				
+				*f << stringf("            )");
+				if (attr_properties && sig.wire != NULL)
+					for (auto &p : sig.wire->attributes)
+						add_prop(p.first, p.second);
+				*f << stringf("\n          )\n");
+			}
+			for (auto &wire_it : module->wires_) {
+				RTLIL::Wire *wire = wire_it.second;
+				if (!wire->get_bool_attribute(ID::keep))
+					continue;
+				for(int i = 0; i < wire->width; i++) {
+					SigBit raw_sig = RTLIL::SigSpec(wire, i);
+					SigBit mapped_sig = sigmap(raw_sig);
+					if (raw_sig == mapped_sig || net_join_db.count(mapped_sig) == 0)
+						continue;
+					std::string netname = log_signal(raw_sig);
+					for (size_t i = 0; i < netname.size(); i++)
+						if (netname[i] == ' ' || netname[i] == '\\')
+							netname.erase(netname.begin() + i--);
+					*f << stringf("          (net %s (joined\n", EDIF_DEF(netname));
+					auto &refs = net_join_db.at(mapped_sig);
+					for (auto &ref : refs)
+						if (ref.second)
+							*f << stringf("            %s\n", ref.first.c_str());
+					*f << stringf("            )");
+					if (attr_properties && raw_sig.wire != NULL)
+						for (auto &p : raw_sig.wire->attributes)
+							add_prop(p.first, p.second);
+					*f << stringf("\n          )\n");
 				}
-				*f << stringf("          ))\n");
 			}
 			*f << stringf("        )\n");
 			*f << stringf("      )\n");

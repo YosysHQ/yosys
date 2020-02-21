@@ -59,7 +59,7 @@ struct SynthGreenPAK4Pass : public ScriptPass
 		log("        do not flatten design before synthesis\n");
 		log("\n");
 		log("    -retime\n");
-		log("        run 'abc' with -dff option\n");
+		log("        run 'abc' with '-dff -D 1' options\n");
 		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
@@ -160,12 +160,11 @@ struct SynthGreenPAK4Pass : public ScriptPass
 			run("opt -fast -mux_undef -undriven -fine");
 			run("memory_map");
 			run("opt -undriven -fine");
-			run("techmap");
-			run("techmap -map +/greenpak4/cells_latch.v");
+			run("techmap -map +/techmap.v -map +/greenpak4/cells_latch.v");
 			run("dfflibmap -prepare -liberty +/greenpak4/gp_dff.lib");
 			run("opt -fast");
 			if (retime || help_mode)
-				run("abc -dff", "(only if -retime)");
+				run("abc -dff -D 1", "(only if -retime)");
 		}
 
 		if (check_label("map_luts"))

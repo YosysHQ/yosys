@@ -86,6 +86,7 @@ struct TribufWorker {
 					cell->unsetPort(ID(S));
 					cell->type = tri_type;
 					tribuf_cells[sigmap(cell->getPort(ID::Y))].push_back(cell);
+					module->design->scratchpad_set_bool("tribuf.added_something", true);
 					continue;
 				}
 
@@ -95,6 +96,7 @@ struct TribufWorker {
 					cell->unsetPort(ID(S));
 					cell->type = tri_type;
 					tribuf_cells[sigmap(cell->getPort(ID::Y))].push_back(cell);
+					module->design->scratchpad_set_bool("tribuf.added_something", true);
 					continue;
 				}
 			}
@@ -130,8 +132,10 @@ struct TribufWorker {
 
 				if (no_tribuf)
 					module->connect(it.first, muxout);
-				else
+				else {
 					module->addTribuf(NEW_ID, muxout, module->ReduceOr(NEW_ID, pmux_s), it.first);
+					module->design->scratchpad_set_bool("tribuf.added_something", true);
+				}
 			}
 		}
 	}

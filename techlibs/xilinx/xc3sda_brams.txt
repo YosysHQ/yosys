@@ -1,0 +1,33 @@
+# Spartan 3A DSP block RAM rules.
+
+bram $__XILINX_RAMB16BWER_TDP
+  init 1
+  abits  9     @a9d36
+  dbits 36     @a9d36
+  abits 10     @a10d18
+  dbits 18     @a10d18
+  abits 11     @a11d9
+  dbits  9     @a11d9
+  abits 12     @a12d4
+  dbits  4     @a12d4
+  abits 13     @a13d2
+  dbits  2     @a13d2
+  abits 14     @a14d1
+  dbits  1     @a14d1
+  groups 2
+  ports  1 1
+  wrmode 0 1
+  enable 1 4   @a9d36
+  enable 1 2   @a10d18
+  enable 1 1   @a11d9 @a12d4 @a13d2 @a14d1
+  transp 0 0
+  clocks 2 3
+  clkpol 2 3
+endbram
+
+match $__XILINX_RAMB16BWER_TDP
+  min bits 4096
+  min efficiency 5
+  shuffle_enable B
+  make_transp
+endmatch

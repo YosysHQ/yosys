@@ -33,7 +33,7 @@ design -import gold -as gold
 design -import gate -as gate
 miter -equiv -flatten -make_assert -make_outputs gold gate miter
 sat -verify -prove-asserts -show-ports -seq 16 miter
-"
+" -l ${aag}.log
 done
 
 for aig in *.aig; do
@@ -50,5 +50,5 @@ design -import gold -as gold
 design -import gate -as gate
 miter -equiv -flatten -make_assert -make_outputs gold gate miter
 sat -verify -prove-asserts -show-ports -seq 16 miter
-"
+" -l ${aig}.log
 done

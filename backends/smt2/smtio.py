@@ -304,7 +304,11 @@ class SmtIo:
 
     def p_open(self):
         assert self.p is None
-        self.p = subprocess.Popen(self.popen_vargs, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        try:
+            self.p = subprocess.Popen(self.popen_vargs, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        except FileNotFoundError:
+            print("%s SMT Solver '%s' not found in path." % (self.timestamp(), self.popen_vargs[0]), flush=True)
+            sys.exit(1)
         running_solvers[self.p_index] = self.p
         self.p_running = True
         self.p_next = None

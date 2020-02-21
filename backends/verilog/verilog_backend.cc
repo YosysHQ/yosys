@@ -1066,6 +1066,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		//  initial begin
 		//    memid[0] = ...
 		//  end
+		dump_attributes(f, indent.c_str(), cell->attributes);
 		f << stringf("%s" "reg [%d:%d] %s [%d:%d];\n", indent.c_str(), width-1, 0, mem_id.c_str(), size+offset-1, offset);
 		if (use_init)
 		{
@@ -1416,11 +1417,19 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		decimal = 1;
 
 		f << ", ";
-		dump_const(f, cell->getParam("\\T_LIMIT"));
+		dump_const(f, cell->getParam("\\T_LIMIT_MIN"));
+		f << ": ";
+		dump_const(f, cell->getParam("\\T_LIMIT_TYP"));
+		f << ": ";
+		dump_const(f, cell->getParam("\\T_LIMIT_MAX"));
 
 		if (spec_type == "$setuphold" || spec_type == "$recrem" || spec_type == "$fullskew") {
 			f << ", ";
-			dump_const(f, cell->getParam("\\T_LIMIT2"));
+			dump_const(f, cell->getParam("\\T_LIMIT2_MIN"));
+			f << ": ";
+			dump_const(f, cell->getParam("\\T_LIMIT2_TYP"));
+			f << ": ";
+			dump_const(f, cell->getParam("\\T_LIMIT2_MAX"));
 		}
 
 		f << ");\n";

@@ -28,7 +28,7 @@
  *
  *  A simple lexer for Verilog code. Non-preprocessor compiler directives are
  *  handled here. The preprocessor stuff is handled in preproc.cc. Everything
- *  else is left to the bison parser (see parser.y).
+ *  else is left to the bison parser (see verilog_parser.y).
  *
  */
 
@@ -431,6 +431,8 @@ import[ \t\r\n]+\"(DPI|DPI-C)\"[ \t\r\n]+function[ \t\r\n]+ {
 "+:" { return TOK_POS_INDEXED; }
 "-:" { return TOK_NEG_INDEXED; }
 
+".*" { return TOK_WILDCARD_CONNECT; }
+
 [-+]?[=*]> {
 	if (!specify_mode) REJECT;
 	frontend_verilog_yylval.string = new std::string(yytext);
@@ -438,7 +440,7 @@ import[ \t\r\n]+\"(DPI|DPI-C)\"[ \t\r\n]+function[ \t\r\n]+ {
 }
 
 "&&&" {
-	if (!specify_mode) REJECT;
+	if (!specify_mode) return TOK_IGNORED_SPECIFY_AND;
 	return TOK_SPECIFY_AND;
 }
 

@@ -9,6 +9,8 @@ module \$__ICE40_CARRY_WRAPPER (
 	input I0, I3
 );
 	parameter LUT = 0;
+	parameter I3_IS_CI = 0;
+	wire I3_OR_CI = I3_IS_CI ? CI : I3;
 	SB_CARRY carry (
 		.I0(A),
 		.I1(B),
@@ -21,7 +23,7 @@ module \$__ICE40_CARRY_WRAPPER (
 		.I0(I0),
 		.I1(A),
 		.I2(B),
-		.I3(I3),
+		.I3(I3_OR_CI),
 		.O(O)
 	);
 endmodule

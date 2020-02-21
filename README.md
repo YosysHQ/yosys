@@ -69,7 +69,7 @@ prerequisites for building yosys:
 		graphviz xdot pkg-config python3 libboost-system-dev \
 		libboost-python-dev libboost-filesystem-dev zlib1g-dev
 
-Similarily, on Mac OS X Homebrew can be used to install dependencies:
+Similarily, on Mac OS X Homebrew can be used to install dependencies (from within cloned yosys repository):
 
 	$ brew tap Homebrew/bundle && brew bundle
 
@@ -364,24 +364,37 @@ Verilog Attributes and non-standard features
   it as the external-facing pin of an I/O pad, and prevents ``iopadmap``
   from inserting another pad cell on it.
 
-- The module attribute ``abc_box_id`` specifies a positive integer linking a
+- The module attribute ``abc9_box_id`` specifies a positive integer linking a
   blackbox or whitebox definition to a corresponding entry in a `abc9`
   box-file.
 
-- The port attribute ``abc_carry`` marks the carry-in (if an input port) and
+- The port attribute ``abc9_carry`` marks the carry-in (if an input port) and
   carry-out (if output port) ports of a box. This information is necessary for
   `abc9` to preserve the integrity of carry-chains. Specifying this attribute
   onto a bus port will affect only its most significant bit.
 
-- The port attribute ``abc_arrival`` specifies an integer (for output ports
-  only) to be used as the arrival time of this sequential port. It can be used,
-  for example, to specify the clk-to-Q delay of a flip-flop for consideration
-  during techmapping.
+- The output port attribute ``abc9_arrival`` specifies an integer, or a string
+  of space-separated integers to be used as the arrival time of this blackbox
+  port. It can be used, for example, to specify the clk-to-Q delay of a flip-
+  flop output for consideration during `abc9` techmapping.
+
+- The input port attribute ``abc9_required`` specifies an integer, or a string
+  of space-separated integers to be used as the required time of this blackbox
+  port. It can be used, for example, to specify the setup-time of a flip-flop
+  input for consideration during `abc9` techmapping.
+
+- The module attribute ``abc9_flop`` is a boolean marking the module as a
+  flip-flop. This allows `abc9` to analyse its contents in order to perform
+  sequential synthesis.
 
 - The frontend sets attributes ``always_comb``, ``always_latch`` and
   ``always_ff`` on processes derived from SystemVerilog style always blocks
   according to the type of the always. These are checked for correctness in
   ``proc_dlatch``.
+
+- The cell attribute ``wildcard_port_conns`` represents wildcard port
+  connections (SystemVerilog ``.*``). These are resolved to concrete
+  connections to matching wires in ``hierarchy``.  
 
 - In addition to the ``(* ... *)`` attribute syntax, Yosys supports
   the non-standard ``{* ... *}`` attribute syntax to set default attributes
@@ -433,6 +446,17 @@ Verilog Attributes and non-standard features
         ...
       endmodule
 
+- The ``wiretype`` attribute is added by the verilog parser for wires of a
+  typedef'd type to indicate the type identifier.
+
+- Various ``enum_{width}_{value}`` attributes are added to wires of an
+  enumerated type to give a map of possible enum items to their values.
+
+- The ``enum_base_type`` attribute is added to enum items to indicate which
+  enum they belong to (enums -- anonymous and otherwise -- are
+  automatically named with an auto-incrementing counter). Note that enums
+  are currently not strongly typed.
+
 - A limited subset of DPI-C functions is supported. The plugin mechanism
   (see ``help plugin``) can be used to load .so files with implementations
   of DPI-C routines. As a non-standard extension it is possible to specify
@@ -454,10 +478,10 @@ Verilog Attributes and non-standard features
   expressions over parameters and constant values are allowed). The intended
   use for this is synthesis-time DRC.
 
-- There is limited support for converting specify .. endspecify statements to
-  special ``$specify2``, ``$specify3``, and ``$specrule`` cells, for use in
-  blackboxes and whiteboxes. Use ``read_verilog -specify`` to enable this
-  functionality. (By default specify .. endspecify blocks are ignored.)
+- There is limited support for converting ``specify`` .. ``endspecify``
+  statements to special ``$specify2``, ``$specify3``, and ``$specrule`` cells,
+  for use in blackboxes and whiteboxes. Use ``read_verilog -specify`` to
+  enable this functionality. (By default these blocks are ignored.)
 
 
 Non-standard or SystemVerilog features for formal verification
@@ -523,6 +547,12 @@ from SystemVerilog:
   SystemVerilog files being read into the same design afterwards.
 
 - typedefs are supported (including inside packages)
+	- type identifiers must currently be enclosed in (parentheses) when declaring
+	  signals of that type (this is syntactically incorrect SystemVerilog)
+	- type casts are currently not supported
+
+- enums are supported (including inside packages)
+	- but are currently not strongly typed
 
 - SystemVerilog interfaces (SVIs) are supported. Modports for specifying whether
   ports are inputs or outputs are supported.
