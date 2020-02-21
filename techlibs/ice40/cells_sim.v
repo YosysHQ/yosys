@@ -77,7 +77,6 @@ module SB_IO (
 		if (PIN_TYPE[5:4] == 2'b11) assign PACKAGE_PIN = outena_q ? dout : 1'bz;
 	endgenerate
 `endif
-`ifdef TIMING
 specify
 	(INPUT_CLK => D_IN_0) = (0:0:0, 0:0:0);
 	(INPUT_CLK => D_IN_1) = (0:0:0, 0:0:0);
@@ -107,7 +106,6 @@ specify
 	$setuphold(negedge OUTPUT_CLK, posedge OUTPUT_ENABLE, 0:0:0, 0:0:0);
 	$setuphold(negedge OUTPUT_CLK, negedge OUTPUT_ENABLE, 0:0:0, 0:0:0);
 endspecify
-`endif
 endmodule
 
 module SB_GB_IO (
@@ -147,6 +145,37 @@ module SB_GB_IO (
 		.D_IN_0(D_IN_0),
 		.D_IN_1(D_IN_1)
 	);
+
+specify
+	(PACKAGE_PIN => GLOBAL_BUFFER_OUTPUT) = (0:0:0, 0:0:0);
+	(INPUT_CLK => D_IN_0) = (0:0:0, 0:0:0);
+	(INPUT_CLK => D_IN_1) = (0:0:0, 0:0:0);
+	(PACKAGE_PIN => D_IN_0) = (0:0:0, 0:0:0);
+	(OUTPUT_CLK => PACKAGE_PIN) = (0:0:0, 0:0:0);
+	(D_OUT_0 => PACKAGE_PIN) = (0:0:0, 0:0:0);
+	(OUTPUT_ENABLE => PACKAGE_PIN) = (0:0:0, 0:0:0);
+
+	$setuphold(posedge OUTPUT_CLK, posedge D_OUT_0, 0:0:0, 0:0:0);
+	$setuphold(posedge OUTPUT_CLK, negedge D_OUT_0, 0:0:0, 0:0:0);
+	$setuphold(negedge OUTPUT_CLK, posedge D_OUT_1, 0:0:0, 0:0:0);
+	$setuphold(negedge OUTPUT_CLK, negedge D_OUT_1, 0:0:0, 0:0:0);
+	$setuphold(negedge OUTPUT_CLK, posedge D_OUT_0, 0:0:0, 0:0:0);
+	$setuphold(negedge OUTPUT_CLK, negedge D_OUT_0, 0:0:0, 0:0:0);
+	$setuphold(posedge OUTPUT_CLK, posedge D_OUT_1, 0:0:0, 0:0:0);
+	$setuphold(posedge OUTPUT_CLK, negedge D_OUT_1, 0:0:0, 0:0:0);
+	$setuphold(posedge INPUT_CLK, posedge CLOCK_ENABLE, 0:0:0, 0:0:0);
+	$setuphold(posedge INPUT_CLK, negedge CLOCK_ENABLE, 0:0:0, 0:0:0);
+	$setuphold(posedge OUTPUT_CLK, posedge CLOCK_ENABLE, 0:0:0, 0:0:0);
+	$setuphold(posedge OUTPUT_CLK, negedge CLOCK_ENABLE, 0:0:0, 0:0:0);
+	$setuphold(posedge INPUT_CLK, posedge PACKAGE_PIN, 0:0:0, 0:0:0);
+	$setuphold(posedge INPUT_CLK, negedge PACKAGE_PIN, 0:0:0, 0:0:0);
+	$setuphold(negedge INPUT_CLK, posedge PACKAGE_PIN, 0:0:0, 0:0:0);
+	$setuphold(negedge INPUT_CLK, negedge PACKAGE_PIN, 0:0:0, 0:0:0);
+	$setuphold(posedge OUTPUT_CLK, posedge OUTPUT_ENABLE, 0:0:0, 0:0:0);
+	$setuphold(posedge OUTPUT_CLK, negedge OUTPUT_ENABLE, 0:0:0, 0:0:0);
+	$setuphold(negedge OUTPUT_CLK, posedge OUTPUT_ENABLE, 0:0:0, 0:0:0);
+	$setuphold(negedge OUTPUT_CLK, negedge OUTPUT_ENABLE, 0:0:0, 0:0:0);
+endspecify
 endmodule
 
 module SB_GB (
@@ -154,11 +183,9 @@ module SB_GB (
 	output GLOBAL_BUFFER_OUTPUT
 );
 	assign GLOBAL_BUFFER_OUTPUT = USER_SIGNAL_TO_GLOBAL_BUFFER;
-`ifdef TIMING
 specify
 	(USER_SIGNAL_TO_GLOBAL_BUFFER => GLOBAL_BUFFER_OUTPUT) = (0:0:0, 0:0:0);
 endspecify
-`endif
 endmodule
 
 // SiliconBlue Logic Cells
