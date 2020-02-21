@@ -1,41 +1,35 @@
 pattern xilinx_bram
-
-udata <SigSpec> dffD dffQ
-udata <Cell*> dff dffcemux
-state <SigBit> clock
-state <Cell*> ffM ffMcemux
+state <SigSpec> sigP sigM
+state <SigBit> clock sigEN
 
 // Variables used for subpatterns
-state <SigSpec> argQ argD sigD sigDOADO
-state <bool> ffcepol ffMcepol
+state <SigSpec> argQ argD
+state <Cell*> ffD ffDcemux ffM ffMcemux ffP ffPcemux
+state <bool> ffA1cepol ffA2cepol ffADcepol ffB1cepol ffB2cepol ffDcepol ffMcepol ffPcepol
+state <bool> ffcepol
 state <int> ffoffset
+udata <Cell*> dff dffcemux 
 udata <SigBit> dffclock
 udata <bool> dffcepol
+udata <SigSpec> dffD dffQ
 
+// (1) Starting from a RAMB18E1 cell
 match bram
 	select bram->type.in(\RAMB18E1)
 endmatch
 
-code sigDOADO clock
-	auto unextend = [](const SigSpec &sig) {
-		int i;
-		for (i = GetSize(sig)-1; i > 0; i--)
-			if (sig[i] != sig[i-1])
-				break;
-		// Do not remove non-const sign bit
-		if (sig[i].wire)
-			++i;
-		return sig.extract(0, i);
-	};
-	sigDOADO = unextend(port(bram, \DOADO));
+// Get all BRAM pins needed (in this case, only DOADO, clk, en and that's it?
+code sigM sigEN clock
+	sigEN = port(bram, \REGCEAREGCE, SigSpec());
 	clock = port(bram, \CLKARDCLK, SigBit());
+	sigM = port(bram, \DOADO, SigSpec());
 endcode
 
-
-// (7) Match 'DOADO' output that exclusively drives an DREG
-code argD ffM ffMcemux ffMcepol sigD sigDOADO clock
-	if (bram->type == \RAMB18E1) {
-		argD = sigD;
+// (1) Match 'DOADO' output that exclusively drives an FDRE
+code argD ffM ffMcemux ffMcepol sigM sigP clock
+	if (param(bram, \DOA_REG, 0).as_int() == 0 && nusers(sigM) == 2) {
+		argD = sigM;
+		log("[diego] Signal argD is %s\n", log_signal(argD));
 		subpattern(out_dffe);
 		if (dff) {
 			ffM = dff;
@@ -44,12 +38,18 @@ code argD ffM ffMcemux ffMcepol sigD sigDOADO clock
 				ffMcemux = dffcemux;
 				ffMcepol = dffcepol;
 			}
-			sigD = dffQ;
+			sigM = dffQ;
 		}
 	}
-	sigDOADO = sigD;
+	sigP = sigM;
+	log("[diego-> SIGNALS] %s, %s, %s, %s, %s, %s, %s\n", 
+		log_signal(argD), log_signal(ffM), log_signal(clock),
+		log_signal(ffMcemux), log_signal(ffMcepol), log_signal(sigM),
+		log_signal(sigP));
 endcode
 
+
+// Part two
 subpattern out_dffe
 arg argD argQ clock
 
@@ -75,7 +75,7 @@ match ffcemux
 
 	slice offset GetSize(port(ffcemux, \Y))
 	define <IdString> BA (AB == \A ? \B : \A)
-	//index <SigBit> port(ffcemux, BA)[offset] === argD[0] // I'm missing something because this line causes a segfault
+	index <SigBit> port(ffcemux, BA)[offset] === argD[0]
 
 	// Check that the rest of argD is present
 	filter GetSize(port(ffcemux, BA)) >= offset + GetSize(argD)
@@ -105,12 +105,13 @@ endcode
 // (3) Match for a $dff cell (whose 'D' input is the 'D' argument, or the
 //     output of the previous clock enable or reset $mux cells)
 match ff
-select ff->type.in($dff)
+	select ff->type.in($dff)
 	// DSP48E1 does not support clock inversion
-	//select param(ff, \CLK_POLARITY).as_bool()
+	select param(ff, \CLK_POLARITY).as_bool()
 
 	slice offset GetSize(port(ff, \D))
-	//index <SigBit> port(ff, \D)[offset] === argD[0]
+	index <SigBit> port(ff, \D)[offset] === argD[0] 
+	// this index is not working
 
 	// Check that offset is consistent
 	filter (!ffcemux) || ffoffset == offset
@@ -131,7 +132,6 @@ code argQ
 	if (!ffcemux) {
 		argQ = argD;
 		argQ.replace(D, Q);
-
 	}
 
 	// Abandon matches when 'Q' has a non-zero init attribute set
@@ -147,4 +147,6 @@ code argQ
 	dff = ff;
 	dffQ = argQ;
 	dffclock = port(ff, \CLK);
+	log("[diego] signals from dff filter: %s %s %s\n",
+		log_signal(dff), log_signal(dffQ), log_signal(dffclock));
 endcode
