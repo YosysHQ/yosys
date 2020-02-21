@@ -160,7 +160,7 @@ static void addRange(AstNode *parent, int msb = 31, int lsb = 0, bool isSigned =
 %token TOK_DPI_FUNCTION TOK_POSEDGE TOK_NEGEDGE TOK_OR TOK_AUTOMATIC
 %token TOK_CASE TOK_CASEX TOK_CASEZ TOK_ENDCASE TOK_DEFAULT
 %token TOK_FUNCTION TOK_ENDFUNCTION TOK_TASK TOK_ENDTASK TOK_SPECIFY
-%token TOK_IGNORED_SPECIFY TOK_ENDSPECIFY TOK_SPECPARAM TOK_SPECIFY_AND
+%token TOK_IGNORED_SPECIFY TOK_ENDSPECIFY TOK_SPECPARAM TOK_SPECIFY_AND TOK_IGNORED_SPECIFY_AND
 %token TOK_GENERATE TOK_ENDGENERATE TOK_GENVAR TOK_REAL
 %token TOK_SYNOPSYS_FULL_CASE TOK_SYNOPSYS_PARALLEL_CASE
 %token TOK_SUPPLY0 TOK_SUPPLY1 TOK_TO_SIGNED TOK_TO_UNSIGNED
@@ -176,9 +176,9 @@ static void addRange(AstNode *parent, int msb = 31, int lsb = 0, bool isSigned =
 %type <al> attr case_attr
 
 %type <specify_target_ptr> specify_target
-%type <specify_triple_ptr> specify_triple
+%type <specify_triple_ptr> specify_triple specify_opt_triple
 %type <specify_rise_fall_ptr> specify_rise_fall
-%type <ast> specify_if specify_condition specify_opt_arg
+%type <ast> specify_if specify_condition
 %type <ch> specify_edge
 
 // operator precedence from low to high
@@ -873,7 +873,7 @@ specify_item:
 		delete target;
 		delete timing;
 	} |
-	TOK_ID '(' specify_edge expr specify_condition ',' specify_edge expr specify_condition ',' expr specify_opt_arg ')' ';' {
+	TOK_ID '(' specify_edge expr specify_condition ',' specify_edge expr specify_condition ',' specify_triple specify_opt_triple ')' ';' {
 		if (*$1 != "$setup" && *$1 != "$hold" && *$1 != "$setuphold" && *$1 != "$removal" && *$1 != "$recovery" &&
 				*$1 != "$recrem" && *$1 != "$skew" && *$1 != "$timeskew" && *$1 != "$fullskew" && *$1 != "$nochange")
 			frontend_verilog_yyerror("Unsupported specify rule type: %s\n", $1->c_str());
@@ -886,8 +886,8 @@ specify_item:
 		AstNode *dst_pol = AstNode::mkconst_int($7 == 'p', false, 1);
 		AstNode *dst_expr = $8, *dst_en = $9 ? $9 : AstNode::mkconst_int(1, false, 1);
 
-		AstNode *limit = $11;
-		AstNode *limit2 = $12;
+		specify_triple *limit = $11;
+		specify_triple *limit2 = $12;
 
 		AstNode *cell = new AstNode(AST_CELL);
 		ast_stack.back()->children.push_back(cell);
@@ -898,11 +898,23 @@ specify_item:
 		cell->children.push_back(new AstNode(AST_PARASET, AstNode::mkconst_str(*$1)));
 		cell->children.back()->str = "\\TYPE";
 
-		cell->children.push_back(new AstNode(AST_PARASET, limit));
-		cell->children.back()->str = "\\T_LIMIT";
+		cell->children.push_back(new AstNode(AST_PARASET, limit->t_min));
+		cell->children.back()->str = "\\T_LIMIT_MIN";
 
-		cell->children.push_back(new AstNode(AST_PARASET, limit2 ? limit2 : AstNode::mkconst_int(0, true)));
-		cell->children.back()->str = "\\T_LIMIT2";
+		cell->children.push_back(new AstNode(AST_PARASET, limit->t_avg));
+		cell->children.back()->str = "\\T_LIMIT_TYP";
+
+		cell->children.push_back(new AstNode(AST_PARASET, limit->t_max));
+		cell->children.back()->str = "\\T_LIMIT_MAX";
+
+		cell->children.push_back(new AstNode(AST_PARASET, limit2 ? limit2->t_min : AstNode::mkconst_int(0, true)));
+		cell->children.back()->str = "\\T_LIMIT2_MIN";
+
+		cell->children.push_back(new AstNode(AST_PARASET, limit2 ? limit2->t_avg : AstNode::mkconst_int(0, true)));
+		cell->children.back()->str = "\\T_LIMIT2_TYP";
+
+		cell->children.push_back(new AstNode(AST_PARASET, limit2 ? limit2->t_max : AstNode::mkconst_int(0, true)));
+		cell->children.back()->str = "\\T_LIMIT2_MAX";
 
 		cell->children.push_back(new AstNode(AST_PARASET, src_pen));
 		cell->children.back()->str = "\\SRC_PEN";
@@ -931,8 +943,8 @@ specify_item:
 		delete $1;
 	};
 
-specify_opt_arg:
-	',' expr {
+specify_opt_triple:
+	',' specify_triple {
 		$$ = $2;
 	} |
 	/* empty */ {
@@ -1001,7 +1013,46 @@ specify_rise_fall:
 		$$->fall = *$4;
 		delete $2;
 		delete $4;
-	};
+	} |
+	'(' specify_triple ',' specify_triple ',' specify_triple ')' {
+		$$ = new specify_rise_fall;
+		$$->rise = *$2;
+		$$->fall = *$4;
+		delete $2;
+		delete $4;
+        delete $6;
+        log_file_warning(current_filename, get_line_num(), "Path delay expressions beyond rise/fall not currently supported. Ignoring.\n");
+	} |
+	'(' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ')' {
+		$$ = new specify_rise_fall;
+		$$->rise = *$2;
+		$$->fall = *$4;
+		delete $2;
+		delete $4;
+        delete $6;
+        delete $8;
+        delete $10;
+        delete $12;
+        log_file_warning(current_filename, get_line_num(), "Path delay expressions beyond rise/fall not currently supported. Ignoring.\n");
+	} |
+	'(' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ')' {
+		$$ = new specify_rise_fall;
+		$$->rise = *$2;
+		$$->fall = *$4;
+		delete $2;
+		delete $4;
+        delete $6;
+        delete $8;
+        delete $10;
+        delete $12;
+        delete $14;
+        delete $16;
+        delete $18;
+        delete $20;
+        delete $22;
+        delete $24;
+        log_file_warning(current_filename, get_line_num(), "Path delay expressions beyond rise/fall not currently supported. Ignoring.\n");
+	}
 
 specify_triple:
 	expr {
@@ -1049,7 +1100,7 @@ list_of_specparam_assignments:
 	specparam_assignment | list_of_specparam_assignments ',' specparam_assignment;
 
 specparam_assignment:
-	ignspec_id '=' constant_mintypmax_expression ;
+	ignspec_id '=' ignspec_expr ;
 
 ignspec_opt_cond:
 	TOK_IF '(' ignspec_expr ')' | /* empty */;
@@ -1066,13 +1117,15 @@ simple_path_declaration :
 	;
 
 path_delay_value :
-	'(' path_delay_expression list_of_path_delay_extra_expressions ')'
-	|     path_delay_expression
-	|     path_delay_expression list_of_path_delay_extra_expressions
+	'(' ignspec_expr list_of_path_delay_extra_expressions ')'
+	|     ignspec_expr
+	|     ignspec_expr list_of_path_delay_extra_expressions
 	;
 
 list_of_path_delay_extra_expressions :
-	',' path_delay_expression | ',' path_delay_expression list_of_path_delay_extra_expressions;
+	',' ignspec_expr
+	| ',' ignspec_expr list_of_path_delay_extra_expressions
+	;
 
 specify_edge_identifier :
 	TOK_POSEDGE | TOK_NEGEDGE ;
@@ -1123,15 +1176,8 @@ system_timing_arg :
 
 system_timing_args :
 	system_timing_arg |
+	system_timing_args TOK_IGNORED_SPECIFY_AND system_timing_arg |
 	system_timing_args ',' system_timing_arg ;
-
-path_delay_expression :
-	ignspec_constant_expression;
-
-constant_mintypmax_expression :
-	ignspec_constant_expression
-	| ignspec_constant_expression ':' ignspec_constant_expression ':' ignspec_constant_expression
-	;
 
 // for the time being this is OK, but we may write our own expr here.
 // as I'm not sure it is legal to use a full expr here (probably not)
@@ -1141,10 +1187,16 @@ ignspec_constant_expression:
 	expr { delete $1; };
 
 ignspec_expr:
-	expr { delete $1; };
+	expr { delete $1; } |
+	expr ':' expr ':' expr {
+		delete $1;
+		delete $3;
+		delete $5;
+	};
 
 ignspec_id:
-	TOK_ID { delete $1; };
+	TOK_ID { delete $1; }
+	range_or_multirange { delete $3; };
 
 /**********************************************************************/
 

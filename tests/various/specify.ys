@@ -55,4 +55,23 @@ equiv_induct -seq 5
 equiv_status -assert
 design -reset
 
-read_verilog -DSKIP_UNSUPPORTED_IGN_PARSER_CONSTRUCTS specify.v
+read_verilog -specify <<EOT
+(* blackbox *)
+module test7_sub(input i, output o);
+specify
+    (i => o) = 1;
+endspecify
+assign o = ~i;
+endmodule
+
+module test7(input i, output o);
+    wire w;
+    test7_sub unused(i, w);
+    test7_sub used(i, o);
+endmodule
+EOT
+hierarchy
+cd test7
+clean
+select -assert-count 1 c:used
+select -assert-none c:* c:used %d
