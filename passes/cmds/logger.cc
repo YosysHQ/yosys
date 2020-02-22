@@ -94,31 +94,46 @@ struct LoggerPass : public Pass {
 			if (args[argidx] == "-warn" && argidx+1 < args.size()) {
 				std::string pattern = args[++argidx];
 				if (pattern.front() == '\"' && pattern.back() == '\"') pattern = pattern.substr(1, pattern.size() - 2);		
-				log("Added regex '%s' for warnings to warn list.", pattern.c_str());
-				log_warn_regexes.push_back(std::regex(pattern,
-					std::regex_constants::nosubs |
-					std::regex_constants::optimize |
-					std::regex_constants::egrep));
+				try {
+					log("Added regex '%s' for warnings to warn list.", pattern.c_str());
+					log_warn_regexes.push_back(std::regex(pattern,
+						std::regex_constants::nosubs |
+						std::regex_constants::optimize |
+						std::regex_constants::egrep));
+				}
+				catch (const std::regex_error& e) {
+					log_cmd_error("Error in regex expression '%s' !\n", pattern.c_str());
+				}
 				continue;
 			}
 			if (args[argidx] == "-nowarn" && argidx+1 < args.size()) {
 				std::string pattern = args[++argidx];
 				if (pattern.front() == '\"' && pattern.back() == '\"') pattern = pattern.substr(1, pattern.size() - 2);	
-				log("Added regex '%s' for warnings to nowarn list.", pattern.c_str());
-				log_nowarn_regexes.push_back(std::regex(pattern,
-					std::regex_constants::nosubs |
-					std::regex_constants::optimize |
-					std::regex_constants::egrep));
+				try {
+					log("Added regex '%s' for warnings to nowarn list.", pattern.c_str());
+					log_nowarn_regexes.push_back(std::regex(pattern,
+						std::regex_constants::nosubs |
+						std::regex_constants::optimize |
+						std::regex_constants::egrep));
+				}
+				catch (const std::regex_error& e) {
+					log_cmd_error("Error in regex expression '%s' !\n", pattern.c_str());
+				}
 				continue;
 			}
 			if (args[argidx] == "-werror" && argidx+1 < args.size()) {
 				std::string pattern = args[++argidx];
 				if (pattern.front() == '\"' && pattern.back() == '\"') pattern = pattern.substr(1, pattern.size() - 2);	
-				log("Added regex '%s' for warnings to werror list.", pattern.c_str());
-				log_werror_regexes.push_back(std::regex(pattern,
-					std::regex_constants::nosubs |
-					std::regex_constants::optimize |
-					std::regex_constants::egrep));
+				try {
+					log("Added regex '%s' for warnings to werror list.", pattern.c_str());
+					log_werror_regexes.push_back(std::regex(pattern,
+						std::regex_constants::nosubs |
+						std::regex_constants::optimize |
+						std::regex_constants::egrep));
+				}
+				catch (const std::regex_error& e) {
+					log_cmd_error("Error in regex expression '%s' !\n", pattern.c_str());
+				}
 				continue;
 			}
 			if (args[argidx] == "-debug") {
