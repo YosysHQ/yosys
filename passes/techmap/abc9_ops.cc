@@ -752,13 +752,11 @@ void reintegrate(RTLIL::Module *module)
 				continue;
 			}
 
-#ifndef NDEBUG
 			RTLIL::Module* box_module = design->module(existing_cell->type);
 			IdString derived_type = box_module->derive(design, existing_cell->parameters);
 			RTLIL::Module* derived_module = design->module(derived_type);
 			log_assert(derived_module);
 			log_assert(mapped_cell->type == stringf("$__boxid%d", derived_module->attributes.at("\\abc9_box_id").as_int()));
-#endif
 			mapped_cell->type = existing_cell->type;
 
 			RTLIL::Cell *cell = module->addCell(remap_name(mapped_cell->name), mapped_cell->type);
