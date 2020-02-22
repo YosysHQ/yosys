@@ -558,8 +558,9 @@ int main(int argc, char **argv)
 		fprintf(f, "\n");
 	}
 
-	if (log_expect_no_warnings && log_warnings_count)
-		log_error("Warnings: %d unique messages, %d total\n", GetSize(log_warnings), log_warnings_count);
+	if (log_expect_no_warnings && log_warnings_count_noexpect)
+		log_error("Unexpected warnings found: %d unique messages, %d total, %d expected\n", GetSize(log_warnings),
+					log_warnings_count, log_warnings_count - log_warnings_count_noexpect);
 
 	if (print_stats)
 	{

@@ -45,6 +45,7 @@ std::vector<std::regex> log_warn_regexes, log_nowarn_regexes, log_werror_regexes
 std::vector<std::pair<std::regex,LogExpectedItem>> log_expect_log, log_expect_warning, log_expect_error;
 std::set<std::string> log_warnings, log_experimentals, log_experimentals_ignored;
 int log_warnings_count = 0;
+int log_warnings_count_noexpect = 0;
 bool log_expect_no_warnings = false;
 bool log_hdump_all = false;
 FILE *log_errfile = NULL;
@@ -253,9 +254,12 @@ static void logv_warning_with_prefix(const char *prefix,
 			if (std::regex_search(message, re))
 				log_error("%s",  message.c_str());
 
+		bool warning_match = false;
 		for (auto &item : log_expect_warning)
-			if (std::regex_search(message, item.first))
+			if (std::regex_search(message, item.first)) {
 				item.second.current_count++;
+				warning_match = true;
+			}
 
 		if (log_warnings.count(message))
 		{
@@ -276,6 +280,8 @@ static void logv_warning_with_prefix(const char *prefix,
 			log_warnings.insert(message);
 		}
 
+		if (!warning_match)
+			log_warnings_count_noexpect++;
 		log_warnings_count++;
 		log_make_debug = bak_log_make_debug;
 	}
@@ -661,7 +667,7 @@ void log_check_expected()
 	check_expected_logs = false;
 
 	for (auto &item : log_expect_warning) {
-		if (item.second.current_count != item.second.expected_count) {
+		if (item.second.current_count == 0) {
 			log_error("Expected warning pattern '%s' not found !\n", item.second.pattern.c_str());
 		}
 		if (item.second.current_count != item.second.expected_count) {
