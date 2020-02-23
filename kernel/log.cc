@@ -668,9 +668,11 @@ void log_check_expected()
 
 	for (auto &item : log_expect_warning) {
 		if (item.second.current_count == 0) {
+			log_warn_regexes.clear();
 			log_error("Expected warning pattern '%s' not found !\n", item.second.pattern.c_str());
 		}
 		if (item.second.current_count != item.second.expected_count) {
+			log_warn_regexes.clear();
 			log_error("Expected warning pattern '%s' found %d time(s), instead of %d time(s) !\n", 
 				item.second.pattern.c_str(), item.second.current_count, item.second.expected_count);
 		}
@@ -678,9 +680,11 @@ void log_check_expected()
 
 	for (auto &item : log_expect_log) {
 		if (item.second.current_count == 0) {
+			log_warn_regexes.clear();
 			log_error("Expected log pattern '%s' not found !\n", item.second.pattern.c_str());
 		}
 		if (item.second.current_count != item.second.expected_count) {
+			log_warn_regexes.clear();
 			log_error("Expected log pattern '%s' found %d time(s), instead of %d time(s) !\n",
 				item.second.pattern.c_str(), item.second.current_count, item.second.expected_count);
 		}
@@ -688,6 +692,7 @@ void log_check_expected()
 
 	for (auto &item : log_expect_error)
 		if (item.second.current_count == item.second.expected_count) {
+			log_warn_regexes.clear();
 			log("Expected error pattern '%s' found !!!\n", item.second.pattern.c_str());
 			#ifdef EMSCRIPTEN
 				log_files = backup_log_files;
@@ -699,6 +704,7 @@ void log_check_expected()
 			#endif			
 		} else {
 			display_error_log_msg = false;
+			log_warn_regexes.clear();
 			log_error("Expected error pattern '%s' not found !\n", item.second.pattern.c_str());
 		}
 }
