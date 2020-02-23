@@ -38,7 +38,10 @@
 #include <stack>
 #include <string.h>
 #include "frontends/verilog/verilog_frontend.h"
+#include "frontends/verilog/verilog_parser.tab.hh"
 #include "kernel/log.h"
+
+#define YYLEX_PARAM &yylval, &yylloc
 
 USING_YOSYS_NAMESPACE
 using namespace AST;
@@ -67,6 +70,20 @@ namespace VERILOG_FRONTEND {
 	std::istream *lexin;
 }
 YOSYS_NAMESPACE_END
+
+#define SET_AST_NODE_LOC(WHICH, BEGIN, END) \
+    do { (WHICH)->location.first_line = (BEGIN).first_line; \
+    (WHICH)->location.first_column = (BEGIN).first_column; \
+    (WHICH)->location.last_line = (END).last_line; \
+    (WHICH)->location.last_column = (END).last_column; } while(0)
+
+#define SET_RULE_LOC(LHS, BEGIN, END) \
+    do { (LHS).first_line = (BEGIN).first_line; \
+    (LHS).first_column = (BEGIN).first_column; \
+    (LHS).last_line = (END).last_line; \
+    (LHS).last_column = (END).last_column; } while(0)
+
+int frontend_verilog_yylex(YYSTYPE *yylval_param, YYLTYPE *yyloc_param);
 
 static void append_attr(AstNode *ast, std::map<std::string, AstNode*> *al)
 {
@@ -202,6 +219,8 @@ static void addRange(AstNode *parent, int msb = 31, int lsb = 0, bool isSigned =
 %nonassoc TOK_ELSE
 
 %debug
+%locations
+%pure-parser
 
 %%
 
@@ -244,7 +263,9 @@ attr:
 	};
 
 attr_opt:
-	attr_opt ATTR_BEGIN opt_attr_list ATTR_END |
+	attr_opt ATTR_BEGIN opt_attr_list ATTR_END {
+		SET_RULE_LOC(@$, @2, @$);
+	}|
 	/* empty */;
 
 defattr:
@@ -326,6 +347,7 @@ module:
 		if (port_stubs.size() != 0)
 			frontend_verilog_yyerror("Missing details for module port `%s'.",
 					port_stubs.begin()->first.c_str());
+		SET_AST_NODE_LOC(ast_stack.back(), @2, @$);
 		ast_stack.pop_back();
 		log_assert(ast_stack.size() == 1);
 		current_ast_mod = NULL;
@@ -389,6 +411,7 @@ module_arg:
 			node->str = *$1;
 			node->port_id = ++port_counter;
 			ast_stack.back()->children.push_back(node);
+			SET_AST_NODE_LOC(node, @1, @1);
 		} else {
 			if (port_stubs.count(*$1) != 0)
 				frontend_verilog_yyerror("Duplicate module port `%s'.", $1->c_str());
@@ -414,6 +437,7 @@ module_arg:
 	attr wire_type range TOK_ID {
 		AstNode *node = $2;
 		node->str = *$4;
+		SET_AST_NODE_LOC(node, @4, @4);
 		node->port_id = ++port_counter;
 		if ($3 != NULL)
 			node->children.push_back($3);
@@ -495,6 +519,7 @@ wire_type:
 		current_wire_const = false;
 	} wire_type_token_list {
 		$$ = astbuf3;
+		SET_RULE_LOC(@$, @2, @$);
 	};
 
 wire_type_token_list:
@@ -1477,11 +1502,24 @@ wire_name_and_opt_assign:
 			if (astbuf1->attributes.count("\\defaultvalue"))
 				delete astbuf1->attributes.at("\\defaultvalue");
 			astbuf1->attributes["\\defaultvalue"] = $3;
-		} else
-		if (astbuf1->is_reg || astbuf1->is_logic)
-			ast_stack.back()->children.push_back(new AstNode(AST_INITIAL, new AstNode(AST_BLOCK, new AstNode(AST_ASSIGN_LE, wire, $3))));
-		else
-			ast_stack.back()->children.push_back(new AstNode(AST_ASSIGN, wire, $3));
+		}
+		else if (astbuf1->is_reg || astbuf1->is_logic){
+			AstNode *assign = new AstNode(AST_ASSIGN_LE, wire, $3);
+			AstNode *block = new AstNode(AST_BLOCK, assign);
+			AstNode *init = new AstNode(AST_INITIAL, block);
+
+			SET_AST_NODE_LOC(assign, @1, @3);
+			SET_AST_NODE_LOC(block, @1, @3);
+			SET_AST_NODE_LOC(init, @1, @3);
+
+			ast_stack.back()->children.push_back(init);
+		}
+		else {
+			AstNode *assign = new AstNode(AST_ASSIGN, wire, $3);
+			SET_AST_NODE_LOC(assign, @1, @3);
+			ast_stack.back()->children.push_back(assign);
+		}
+
 	};
 
 wire_name:
@@ -1530,6 +1568,8 @@ wire_name:
 			if (node->is_input || node->is_output)
 				node->port_id = current_function_or_task_port_id++;
 		}
+		//FIXME: for some reason, TOK_ID has a location which always points to one column *after* the real last column...
+		SET_AST_NODE_LOC(node, @1, @1);
 		ast_stack.back()->children.push_back(node);
 
 		delete $1;
@@ -1543,7 +1583,9 @@ assign_expr_list:
 
 assign_expr:
 	lvalue '=' expr {
-		ast_stack.back()->children.push_back(new AstNode(AST_ASSIGN, $1, $3));
+		AstNode *node = new AstNode(AST_ASSIGN, $1, $3);
+		SET_AST_NODE_LOC(node, @$, @$);
+		ast_stack.back()->children.push_back(node);
 	};
 
 typedef_decl:
@@ -1628,14 +1670,19 @@ single_cell:
 			astbuf2->str = *$1;
 		delete $1;
 		ast_stack.back()->children.push_back(astbuf2);
-	} '(' cell_port_list ')' |
+	} '(' cell_port_list ')' {
+		SET_AST_NODE_LOC(astbuf2, @1, @$);
+	} |
 	TOK_ID non_opt_range {
 		astbuf2 = astbuf1->clone();
 		if (astbuf2->type != AST_PRIMITIVE)
 			astbuf2->str = *$1;
 		delete $1;
 		ast_stack.back()->children.push_back(new AstNode(AST_CELLARRAY, $2, astbuf2));
-	} '(' cell_port_list ')';
+	} '(' cell_port_list ')'{
+		SET_AST_NODE_LOC(astbuf2, @1, @$);
+		SET_AST_NODE_LOC(astbuf3, @1, @$);
+	};
 
 prim_list:
 	single_prim |
@@ -1770,8 +1817,13 @@ always_stmt:
 		ast_stack.back()->children.push_back(block);
 		ast_stack.push_back(block);
 	} behavioral_stmt {
+		SET_AST_NODE_LOC(ast_stack.back(), @6, @6);
 		ast_stack.pop_back();
+
+		SET_AST_NODE_LOC(ast_stack.back(), @2, @$);
 		ast_stack.pop_back();
+
+		SET_RULE_LOC(@$, @2, @$);
 	} |
 	attr always_comb_or_latch {
 		AstNode *node = new AstNode(AST_ALWAYS);
@@ -2126,6 +2178,7 @@ behavioral_stmt:
 		ast_stack.back()->children.push_back(block);
 		ast_stack.push_back(block);
 	} behavioral_stmt {
+		SET_AST_NODE_LOC(ast_stack.back(), @13, @13);
 		ast_stack.pop_back();
 		ast_stack.pop_back();
 	} |
@@ -2139,6 +2192,7 @@ behavioral_stmt:
 		ast_stack.back()->children.push_back(block);
 		ast_stack.push_back(block);
 	} behavioral_stmt {
+		SET_AST_NODE_LOC(ast_stack.back(), @7, @7);
 		ast_stack.pop_back();
 		ast_stack.pop_back();
 	} |
@@ -2152,6 +2206,7 @@ behavioral_stmt:
 		ast_stack.back()->children.push_back(block);
 		ast_stack.push_back(block);
 	} behavioral_stmt {
+		SET_AST_NODE_LOC(ast_stack.back(), @7, @7);
 		ast_stack.pop_back();
 		ast_stack.pop_back();
 	} |
@@ -2159,14 +2214,18 @@ behavioral_stmt:
 		AstNode *node = new AstNode(AST_CASE);
 		AstNode *block = new AstNode(AST_BLOCK);
 		AstNode *cond = new AstNode(AST_COND, AstNode::mkconst_int(1, false, 1), block);
+		SET_AST_NODE_LOC(cond, @4, @4);
 		ast_stack.back()->children.push_back(node);
 		node->children.push_back(new AstNode(AST_REDUCE_BOOL, $4));
 		node->children.push_back(cond);
 		ast_stack.push_back(node);
 		ast_stack.push_back(block);
 		append_attr(node, $1);
-	} behavioral_stmt optional_else {
+	} behavioral_stmt {
+		SET_AST_NODE_LOC(ast_stack.back(), @7, @7);
+	} optional_else {
 		ast_stack.pop_back();
+		SET_AST_NODE_LOC(ast_stack.back(), @2, @9);
 		ast_stack.pop_back();
 	} |
 	case_attr case_type '(' expr ')' {
@@ -2174,7 +2233,9 @@ behavioral_stmt:
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);
 		append_attr(node, $1);
+		SET_AST_NODE_LOC(ast_stack.back(), @4, @4);
 	} opt_synopsys_attr case_body TOK_ENDCASE {
+		SET_AST_NODE_LOC(ast_stack.back(), @2, @9);
 		case_type_stack.pop_back();
 		ast_stack.pop_back();
 	};
@@ -2226,10 +2287,14 @@ optional_else:
 	TOK_ELSE {
 		AstNode *block = new AstNode(AST_BLOCK);
 		AstNode *cond = new AstNode(AST_COND, new AstNode(AST_DEFAULT), block);
+		SET_AST_NODE_LOC(cond, @1, @1);
+
 		ast_stack.pop_back();
 		ast_stack.back()->children.push_back(cond);
 		ast_stack.push_back(block);
-	} behavioral_stmt |
+	} behavioral_stmt {
+		SET_AST_NODE_LOC(ast_stack.back(), @3, @3);
+	} |
 	/* empty */ %prec FAKE_THEN;
 
 case_body:
@@ -2250,6 +2315,7 @@ case_item:
 		case_type_stack.push_back(0);
 	} behavioral_stmt {
 		case_type_stack.pop_back();
+		SET_AST_NODE_LOC(ast_stack.back(), @4, @4);
 		ast_stack.pop_back();
 		ast_stack.pop_back();
 	};
