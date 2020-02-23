@@ -73,29 +73,29 @@ struct LoggerPass : public Pass {
 
 			if (args[argidx] == "-time") {
 				log_time = true;
-				log("Enabled timestamp in logs.");
+				log("Enabled timestamp in logs.\n");
 				continue;
 			}
 			if (args[argidx] == "-notime") {
 				log_time = false;
-				log("Disabled timestamp in logs.");
+				log("Disabled timestamp in logs.\n");
 				continue;
 			}
 			if (args[argidx] == "-stderr") {
 				log_error_stderr = true;
-				log("Enabled loggint errors to stderr.");
+				log("Enabled loggint errors to stderr.\n");
 				continue;
 			}
 			if (args[argidx] == "-nostderr") {
 				log_error_stderr = false;
-				log("Disabled loggint errors to stderr.");
+				log("Disabled loggint errors to stderr.\n");
 				continue;
 			}
 			if (args[argidx] == "-warn" && argidx+1 < args.size()) {
 				std::string pattern = args[++argidx];
 				if (pattern.front() == '\"' && pattern.back() == '\"') pattern = pattern.substr(1, pattern.size() - 2);		
 				try {
-					log("Added regex '%s' for warnings to warn list.", pattern.c_str());
+					log("Added regex '%s' for warnings to warn list.\n", pattern.c_str());
 					log_warn_regexes.push_back(std::regex(pattern,
 						std::regex_constants::nosubs |
 						std::regex_constants::optimize |
@@ -110,7 +110,7 @@ struct LoggerPass : public Pass {
 				std::string pattern = args[++argidx];
 				if (pattern.front() == '\"' && pattern.back() == '\"') pattern = pattern.substr(1, pattern.size() - 2);	
 				try {
-					log("Added regex '%s' for warnings to nowarn list.", pattern.c_str());
+					log("Added regex '%s' for warnings to nowarn list.\n", pattern.c_str());
 					log_nowarn_regexes.push_back(std::regex(pattern,
 						std::regex_constants::nosubs |
 						std::regex_constants::optimize |
@@ -125,7 +125,7 @@ struct LoggerPass : public Pass {
 				std::string pattern = args[++argidx];
 				if (pattern.front() == '\"' && pattern.back() == '\"') pattern = pattern.substr(1, pattern.size() - 2);	
 				try {
-					log("Added regex '%s' for warnings to werror list.", pattern.c_str());
+					log("Added regex '%s' for warnings to werror list.\n", pattern.c_str());
 					log_werror_regexes.push_back(std::regex(pattern,
 						std::regex_constants::nosubs |
 						std::regex_constants::optimize |
@@ -138,17 +138,17 @@ struct LoggerPass : public Pass {
 			}
 			if (args[argidx] == "-debug") {
 				log_force_debug = 1;
-				log("Enabled debug log messages.");
+				log("Enabled debug log messages.\n");
 				continue;
 			}
 			if (args[argidx] == "-nodebug") {
 				log_force_debug = 0;
-				log("Disabled debug log messages.");
+				log("Disabled debug log messages.\n");
 				continue;
 			}
 			if (args[argidx] == "-experimental" && argidx+1 < args.size()) {
 				std::string value = args[++argidx];
-				log("Added '%s' experimental ignore list.", value.c_str());
+				log("Added '%s' experimental ignore list.\n", value.c_str());
 				log_experimentals_ignored.insert(value);
 				continue;
 			}
