@@ -7559,6 +7559,7 @@ module IOBUFDSE3 (...);
     output O;
     (* iopad_external_pin *)
     inout IO;
+    (* iopad_external_pin *)
     inout IOB;
     input DCITERMDISABLE;
     input I;
