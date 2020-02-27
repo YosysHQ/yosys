@@ -5,8 +5,8 @@ endpackage
 
 module top;
 
-	(* keep *) (pkg::uint8_t) a = 8'hAA;
-	(* keep *) (pkg::enum8_t) b_enum = pkg::bb;
+	(* keep *) pkg::uint8_t a = 8'hAA;
+	(* keep *) pkg::enum8_t b_enum = pkg::bb;
 
 	always @* assert(a == 8'hAA);
 	always @* assert(b_enum == 8'hBB);
