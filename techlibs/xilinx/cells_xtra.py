@@ -376,7 +376,7 @@ CELLS = [
     Cell('IOBUFDS_DIFF_OUT', port_attrs={'IO': ['iopad_external_pin'], 'IOB': ['iopad_external_pin']}),
     Cell('IOBUFDS_DIFF_OUT_DCIEN', port_attrs={'IO': ['iopad_external_pin'], 'IOB': ['iopad_external_pin']}),
     Cell('IOBUFDS_DIFF_OUT_INTERMDISABLE', port_attrs={'IO': ['iopad_external_pin'], 'IOB': ['iopad_external_pin']}),
-    Cell('IOBUFDSE3', port_attrs={'IO': ['iopad_external_pin']}),
+    Cell('IOBUFDSE3', port_attrs={'IO': ['iopad_external_pin'], 'IOB': ['iopad_external_pin']}),
     # Output.
     # Cell('OBUF', port_attrs={'O': ['iopad_external_pin']}),
     Cell('OBUFDS', port_attrs={'O': ['iopad_external_pin'], 'OB': ['iopad_external_pin']}),
