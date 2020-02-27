@@ -178,6 +178,7 @@ struct SynthCoolrunner2Pass : public ScriptPass
 			run("iopadmap -bits -inpad IBUF O:I -outpad IOBUFE I:IO -inoutpad IOBUFE O:IO -toutpad IOBUFE E:I:IO -tinoutpad IOBUFE E:O:I:IO");
 			run("attrmvcp -attr src -attr LOC t:IOBUFE n:*");
 			run("attrmvcp -attr src -attr LOC -driven t:IBUF n:*");
+			run("coolrunner2_fixup");
 			run("splitnets");
 			run("clean");
 		}
