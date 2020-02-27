@@ -18,8 +18,8 @@
  *
  */
 
-#ifndef TIMINGARCS_H
-#define TIMINGARCS_H
+#ifndef TIMINGINFO_H
+#define TIMINGINFO_H
 
 #include "kernel/yosys.h"
 
