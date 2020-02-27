@@ -54,6 +54,8 @@ namespace VERILOG_FRONTEND {
 	std::map<std::string, AstNode*> *attr_list, default_attr_list;
 	std::stack<std::map<std::string, AstNode*> *> attr_list_stack;
 	std::map<std::string, AstNode*> *albuf;
+	std::map<std::string, AstNode*> user_types;
+	std::map<std::string, AstNode*> pkg_user_types;
 	std::vector<AstNode*> ast_stack;
 	struct AstNode *astbuf1, *astbuf2, *astbuf3;
 	struct AstNode *current_function_or_task;
@@ -125,6 +127,26 @@ struct specify_rise_fall {
 	specify_triple fall;
 };
 
+static void addTypedefNode(std::string *name, AstNode *node)
+{
+	log_assert(node);
+	// seems to be support for local scoped typedefs in simplify()
+	// and tests redefine types.
+	//if (user_types.count(*name) > 0) {
+	//	frontend_verilog_yyerror("Type already defined.");
+	//}
+	auto *tnode = new AstNode(AST_TYPEDEF, node);
+	tnode->str = *name;
+	user_types[*name] = tnode;
+	if (current_ast_mod && current_ast_mod->type == AST_PACKAGE) {
+		// typedef inside a package so we need the qualified name
+		auto qname = current_ast_mod->str + "::" + (*name).substr(1);
+		pkg_user_types[qname] = tnode;
+	}
+	delete name;
+	ast_stack.back()->children.push_back(tnode);
+}
+
 static AstNode *makeRange(int msb = 31, int lsb = 0, bool isSigned = true)
 {
 	auto range = new AstNode(AST_RANGE);
@@ -167,6 +189,7 @@ static void addRange(AstNode *parent, int msb = 31, int lsb = 0, bool isSigned =
 %token <string> TOK_STRING TOK_ID TOK_CONSTVAL TOK_REALVAL TOK_PRIMITIVE
 %token <string> TOK_SVA_LABEL TOK_SPECIFY_OPER TOK_MSG_TASKS
 %token <string> TOK_BASE TOK_BASED_CONSTVAL TOK_UNBASED_UNSIZED_CONSTVAL
+%token <string> TOK_USER_TYPE
 %token TOK_ASSERT TOK_ASSUME TOK_RESTRICT TOK_COVER TOK_FINAL
 %token ATTR_BEGIN ATTR_END DEFATTR_BEGIN DEFATTR_END
 %token TOK_MODULE TOK_ENDMODULE TOK_PARAMETER TOK_LOCALPARAM TOK_DEFPARAM
@@ -190,6 +213,7 @@ static void addRange(AstNode *parent, int msb = 31, int lsb = 0, bool isSigned =
 %type <ast> range range_or_multirange  non_opt_range non_opt_multirange range_or_signed_int
 %type <ast> wire_type expr basic_expr concat_list rvalue lvalue lvalue_concat_list
 %type <string> opt_label opt_sva_label tok_prim_wrapper hierarchical_id hierarchical_type_id integral_number
+%type <string> type_name
 %type <ast> opt_enum_init
 %type <boolean> opt_signed opt_property unique_case_attr always_comb_or_latch always_or_always_ff
 %type <al> attr case_attr
@@ -330,7 +354,9 @@ hierarchical_id:
 	};
 
 hierarchical_type_id:
-	'(' hierarchical_id ')' { $$ = $2; };
+	TOK_USER_TYPE
+	| '(' TOK_USER_TYPE ')'	{ $$ = $2; }		// non-standard grammar
+	;
 
 module:
 	attr TOK_MODULE TOK_ID {
@@ -352,6 +378,7 @@ module:
 		ast_stack.pop_back();
 		log_assert(ast_stack.size() == 1);
 		current_ast_mod = NULL;
+		user_types.clear();
 	};
 
 module_para_opt:
@@ -465,6 +492,7 @@ package:
 	} ';' package_body TOK_ENDPACKAGE {
 		ast_stack.pop_back();
 		current_ast_mod = NULL;
+		user_types.clear();
 	};
 
 package_body:
@@ -1591,8 +1619,12 @@ assign_expr:
 		ast_stack.back()->children.push_back(node);
 	};
 
+type_name: TOK_ID		// first time seen
+	 | TOK_USER_TYPE	// redefinition
+	 ;
+
 typedef_decl:
-	TOK_TYPEDEF wire_type range TOK_ID range_or_multirange ';' {
+	TOK_TYPEDEF wire_type range type_name range_or_multirange ';' {
 		astbuf1 = $2;
 		astbuf2 = $3;
 		if (astbuf1->range_left >= 0 && astbuf1->range_right >= 0) {
@@ -1625,13 +1657,10 @@ typedef_decl:
 			}
 			astbuf1->children.push_back(rangeNode);
 		}
-
-		ast_stack.back()->children.push_back(new AstNode(AST_TYPEDEF, astbuf1));
-		ast_stack.back()->children.back()->str = *$4;
+		addTypedefNode($4, astbuf1);
 	} |
-	TOK_TYPEDEF enum_type TOK_ID ';' {
-		ast_stack.back()->children.push_back(new AstNode(AST_TYPEDEF, astbuf1));
-		ast_stack.back()->children.back()->str = *$3;
+	TOK_TYPEDEF enum_type type_name ';' {
+		addTypedefNode($3, astbuf1);
 	}
 	;
 
