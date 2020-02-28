@@ -1338,18 +1338,31 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				detectSignWidth(width_hint, sign_hint);
 
 			RTLIL::SigSpec cond = children[0]->genRTLIL();
-			RTLIL::SigSpec val1 = children[1]->genRTLIL(width_hint, sign_hint);
-			RTLIL::SigSpec val2 = children[2]->genRTLIL(width_hint, sign_hint);
+			RTLIL::SigSpec sig;
+			if (cond.is_fully_const()) {
+				if (cond.as_bool()) {
+					sig = children[1]->genRTLIL(width_hint, sign_hint);
+					widthExtend(this, sig, sig.size(), children[1]->is_signed);
+				}
+				else {
+					sig = children[2]->genRTLIL(width_hint, sign_hint);
+					widthExtend(this, sig, sig.size(), children[2]->is_signed);
+				}
+			}
+			else {
+				RTLIL::SigSpec val1 = children[1]->genRTLIL(width_hint, sign_hint);
+				RTLIL::SigSpec val2 = children[2]->genRTLIL(width_hint, sign_hint);
 
-			if (cond.size() > 1)
-				cond = uniop2rtlil(this, "$reduce_bool", 1, cond, false);
+				if (cond.size() > 1)
+					cond = uniop2rtlil(this, "$reduce_bool", 1, cond, false);
 
-			int width = max(val1.size(), val2.size());
-			is_signed = children[1]->is_signed && children[2]->is_signed;
-			widthExtend(this, val1, width, is_signed);
-			widthExtend(this, val2, width, is_signed);
+				int width = max(val1.size(), val2.size());
+				is_signed = children[1]->is_signed && children[2]->is_signed;
+				widthExtend(this, val1, width, is_signed);
+				widthExtend(this, val2, width, is_signed);
 
-			RTLIL::SigSpec sig = mux2rtlil(this, cond, val1, val2);
+				sig = mux2rtlil(this, cond, val1, val2);
+			}
 
 			if (sig.size() < width_hint)
 				sig.extend_u0(width_hint, sign_hint);
