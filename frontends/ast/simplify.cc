@@ -1163,7 +1163,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				case AST_DPI_FUNCTION:
 					//log("found child %s, %s\n", type2str(node->type).c_str(), node->str.c_str());
 					if (str == node->str) {
-						log("add %s, type %s to scope\n", str.c_str(), type2str(node->type).c_str());
+						//log("add %s, type %s to scope\n", str.c_str(), type2str(node->type).c_str());
 						current_scope[node->str] = node;
 					}
 					break;
