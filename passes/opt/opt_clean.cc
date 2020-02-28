@@ -51,18 +51,18 @@ struct keep_cache_t
 		if (cache.count(module))
 			return cache.at(module);
 
-		bool found_keep = false;
-		if (module->get_bool_attribute(ID::keep))
-			found_keep = true;
-		else
-			for (auto cell : module->cells())
-				if (query(cell, true /* ignore_specify */)) {
-					found_keep = true;
-					break;
-				}
-		cache[module] = found_keep;
+		cache[module] = true;
+		if (!module->get_bool_attribute(ID::keep)) {
+		    bool found_keep = false;
+		    for (auto cell : module->cells())
+			if (query(cell, true /* ignore_specify */)) {
+			    found_keep = true;
+			    break;
+			}
+		    cache[module] = found_keep;
+		}
 
-		return found_keep;
+		return cache[module];
 	}
 
 	bool query(Cell *cell, bool ignore_specify = false)
