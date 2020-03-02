@@ -41,6 +41,14 @@ RTLIL::Wire *makexorbuffer(RTLIL::Module *module, SigBit inwire)
 		xor_cell->setParam("\\INVERT_OUT", false);
 		xor_cell->setPort("\\OUT", outwire);
 	}
+	else if (inwire == SigBit(RTLIL::State::Sx))
+	{
+		// x; treat as 0
+		log_warning("While buffering, changing x to 0 on wire %s\n", outwire->name.c_str());
+		auto xor_cell = module->addCell(NEW_ID, "\\MACROCELL_XOR");
+		xor_cell->setParam("\\INVERT_OUT", false);
+		xor_cell->setPort("\\OUT", outwire);
+	}
 	else
 	{
 		auto and_to_xor_wire = module->addWire(NEW_ID);
@@ -174,6 +182,74 @@ struct Coolrunner2FixupPass : public Pass {
 				}
 			}
 
+			// This is used to fix the input -> FF -> output scenario
+			pool<SigBit> sig_fed_by_ibuf;
+			for (auto cell : module->selected_cells())
+			{
+				if (cell->type == "\\IBUF")
+				{
+					auto output = sigmap(cell->getPort("\\O")[0]);
+					sig_fed_by_ibuf.insert(output);
+				}
+			}
+
+			// Find all of the sinks for each output from an IBUF
+			dict<SigBit, std::pair<int, RTLIL::Cell *>> ibuf_fanouts;
+			for (auto cell : module->selected_cells())
+			{
+				for (auto &conn : cell->connections())
+				{
+					if (cell->input(conn.first))
+					{
+						for (auto wire_in : sigmap(conn.second))
+						{
+							if (sig_fed_by_ibuf[wire_in])
+							{
+								auto existing_count = ibuf_fanouts[wire_in].first;
+								ibuf_fanouts[wire_in] =
+									std::pair<int, RTLIL::Cell *>(existing_count + 1, cell);
+							}
+						}
+					}
+				}
+			}
+
+			dict<SigBit, RTLIL::Cell *> ibuf_out_to_packed_reg_cell;
+			pool<SigBit> packed_reg_out;
+			for (auto x : ibuf_fanouts)
+			{
+				auto ibuf_out_wire = x.first;
+				auto fanout_count = x.second.first;
+				auto maybe_ff_cell = x.second.second;
+
+				// The register can be packed with the IBUF only if it's
+				// actually a register and it's the only fanout. Otherwise,
+				// the pad-to-zia path has to be used up and the register
+				// can't be packed with the ibuf.
+				if (fanout_count == 1 && maybe_ff_cell->type.in(
+					"\\FDCP", "\\FDCP_N", "\\FDDCP", "\\LDCP", "\\LDCP_N",
+					"\\FTCP", "\\FTCP_N", "\\FTDCP", "\\FDCPE", "\\FDCPE_N", "\\FDDCPE"))
+				{
+					SigBit input;
+					if (maybe_ff_cell->type.in("\\FTCP", "\\FTCP_N", "\\FTDCP"))
+						input = sigmap(maybe_ff_cell->getPort("\\T")[0]);
+					else
+						input = sigmap(maybe_ff_cell->getPort("\\D")[0]);
+					SigBit output = sigmap(maybe_ff_cell->getPort("\\Q")[0]);
+
+					if (input == ibuf_out_wire)
+					{
+						log("Found IBUF %s that can be packed with FF %s (type %s)\n",
+							ibuf_out_wire.wire->name.c_str(),
+							maybe_ff_cell->name.c_str(),
+							maybe_ff_cell->type.c_str());
+
+						ibuf_out_to_packed_reg_cell[ibuf_out_wire] = maybe_ff_cell;
+						packed_reg_out.insert(output);
+					}
+				}
+			}
+
 			for (auto cell : module->selected_cells())
 			{
 				if (cell->type.in("\\FDCP", "\\FDCP_N", "\\FDDCP", "\\LDCP", "\\LDCP_N",
@@ -188,7 +264,12 @@ struct Coolrunner2FixupPass : public Pass {
 					else
 						input = sigmap(cell->getPort("\\D")[0]);
 
-					if (!sig_fed_by_xor[input] && !sig_fed_by_io[input])
+					// If the input wasn't an XOR nor an IO, then a buffer
+					// definitely needs to be added.
+					// Otherwise, if it is an IO, only leave unbuffered
+					// if we're being packed with the IO.
+					if ((!sig_fed_by_xor[input] && !sig_fed_by_io[input]) ||
+						(sig_fed_by_io[input] && ibuf_out_to_packed_reg_cell[input] != cell))
 					{
 						log("Buffering input to \"%s\"\n", cell->name.c_str());
 
@@ -278,7 +359,8 @@ struct Coolrunner2FixupPass : public Pass {
 					// Buffer IOBUFE inputs. This can only be fed from an XOR or FF.
 					SigBit input = sigmap(cell->getPort("\\I")[0]);
 
-					if (!sig_fed_by_xor[input] && !sig_fed_by_ff[input])
+					if ((!sig_fed_by_xor[input] && !sig_fed_by_ff[input]) ||
+						packed_reg_out[input])
 					{
 						log("Buffering input to \"%s\"\n", cell->name.c_str());
 
