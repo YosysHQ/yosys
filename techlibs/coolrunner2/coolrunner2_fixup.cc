@@ -386,6 +386,102 @@ struct Coolrunner2FixupPass : public Pass {
 					}
 				}
 			}
+
+			// Now we have to fix up some cases where shared logic can
+			// cause XORs to have multiple fanouts to something other than
+			// pterms (which is not ok)
+
+			// Find all the XOR outputs
+			dict<SigBit, RTLIL::Cell *> xor_out_to_xor_cell;
+			for (auto cell : module->selected_cells())
+			{
+				if (cell->type == "\\MACROCELL_XOR")
+				{
+					auto output = sigmap(cell->getPort("\\OUT")[0]);
+					xor_out_to_xor_cell[output] = cell;
+				}
+			}
+
+			// Find all of the sinks for each output from an XOR
+			pool<SigBit> xor_fanout_once;
+			for (auto cell : module->selected_cells())
+			{
+				if (cell->type == "\\ANDTERM")
+					continue;
+
+				for (auto &conn : cell->connections())
+				{
+					if (cell->input(conn.first))
+					{
+						for (auto wire_in : sigmap(conn.second))
+						{
+							auto xor_cell = xor_out_to_xor_cell[wire_in];
+							if (xor_cell)
+							{
+								if (xor_fanout_once[wire_in])
+								{
+									log("Additional fanout found for %s into %s (type %s), duplicating\n",
+										xor_cell->name.c_str(),
+										cell->name.c_str(),
+										cell->type.c_str());
+
+									auto new_xor_cell = module->addCell(NEW_ID, xor_cell);
+									auto new_wire = module->addWire(NEW_ID);
+									new_xor_cell->setPort("\\OUT", new_wire);
+									cell->setPort(conn.first, new_wire);
+								}
+								xor_fanout_once.insert(wire_in);
+							}
+						}
+					}
+				}
+			}
+
+			// Do the same fanout fixing for OR terms. By doing this
+			// after doing XORs, both pieces will be duplicated when necessary.
+
+			// Find all the OR outputs
+			dict<SigBit, RTLIL::Cell *> or_out_to_or_cell;
+			for (auto cell : module->selected_cells())
+			{
+				if (cell->type == "\\ORTERM")
+				{
+					auto output = sigmap(cell->getPort("\\OUT")[0]);
+					or_out_to_or_cell[output] = cell;
+				}
+			}
+
+			// Find all of the sinks for each output from an OR
+			pool<SigBit> or_fanout_once;
+			for (auto cell : module->selected_cells())
+			{
+				for (auto &conn : cell->connections())
+				{
+					if (cell->input(conn.first))
+					{
+						for (auto wire_in : sigmap(conn.second))
+						{
+							auto or_cell = or_out_to_or_cell[wire_in];
+							if (or_cell)
+							{
+								if (or_fanout_once[wire_in])
+								{
+									log("Additional fanout found for %s into %s (type %s), duplicating\n",
+										or_cell->name.c_str(),
+										cell->name.c_str(),
+										cell->type.c_str());
+
+									auto new_or_cell = module->addCell(NEW_ID, or_cell);
+									auto new_wire = module->addWire(NEW_ID);
+									new_or_cell->setPort("\\OUT", new_wire);
+									cell->setPort(conn.first, new_wire);
+								}
+								or_fanout_once.insert(wire_in);
+							}
+						}
+					}
+				}
+			}
 		}
 	}
 } Coolrunner2FixupPass;
