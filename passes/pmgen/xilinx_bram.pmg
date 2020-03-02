@@ -1,55 +1,64 @@
 pattern xilinx_bram
-state <SigSpec> sigP sigM
-state <SigBit> clock sigEN
+state <SigSpec> sigDOA
+
+state <SigBit> clock
+state <Cell*> ffDOA ffDOAcemux
+state <bool> ffDOAcepol
 
 // Variables used for subpatterns
 state <SigSpec> argQ argD
-state <Cell*> ffD ffDcemux ffM ffMcemux ffP ffPcemux
-state <bool> ffA1cepol ffA2cepol ffADcepol ffB1cepol ffB2cepol ffDcepol ffMcepol ffPcepol
-state <bool> ffcepol
+state <bool> ffcepol ffrstpol
 state <int> ffoffset
-udata <Cell*> dff dffcemux 
-udata <SigBit> dffclock
-udata <bool> dffcepol
 udata <SigSpec> dffD dffQ
+udata <SigBit> dffclock
+udata <Cell*> dff dffcemux dffrstmux
+udata <bool> dffcepol dffrstpol
 
 // (1) Starting from a RAMB18E1 cell
 match bram
 	select bram->type.in(\RAMB18E1)
 endmatch
 
-// Get all BRAM pins needed (in this case, only DOADO, clk, en and that's it?
-code sigM sigEN clock
-	sigEN = port(bram, \REGCEAREGCE, SigSpec());
-	clock = port(bram, \CLKARDCLK, SigBit());
-	sigM = port(bram, \DOADO, SigSpec());
+code sigDOA
+	if (param(bram, \DOA_REG, 0).as_int() == 0) {
+                SigSpec DOA = port(bram, \DOADO);
+		for (int i = 0; i < GetSize(DOA); i++)
+			// Ignore unused output bits
+			if (nusers(DOA[i]) < 2)
+				continue;
+			// Only collect output bits with a single sink
+			else if (nusers(DOA[i]) == 2)
+                                sigDOA.append(DOA[i]);
+			// Abandon this whole output if any bit
+			//   has more than a single sink
+                        else if (nusers(DOA[i]) > 2) {
+                                sigDOA = SigSpec();
+                                break;
+                        }
+	}
 endcode
 
-// (1) Match 'DOADO' output that exclusively drives an FDRE
-code argD ffM ffMcemux ffMcepol sigM sigP clock
-	if (param(bram, \DOA_REG, 0).as_int() == 0 && nusers(sigM) == 2) {
-		argD = sigM;
-		log("[diego] Signal argD is %s\n", log_signal(argD));
+code argD ffDOA ffDOAcemux ffDOAcepol sigDOA clock
+	if (!sigDOA.empty()) {
+		argD = sigDOA;
+		clock = port(bram, \CLKARDCLK);
 		subpattern(out_dffe);
 		if (dff) {
-			ffM = dff;
-			clock = dffclock;
+			ffDOA = dff;
 			if (dffcemux) {
-				ffMcemux = dffcemux;
-				ffMcepol = dffcepol;
+				ffDOAcemux = dffcemux;
+				ffDOAcepol = dffcepol;
 			}
-			sigM = dffQ;
+			sigDOA = dffQ;
 		}
 	}
-	sigP = sigM;
-	log("[diego-> SIGNALS] %s, %s, %s, %s, %s, %s, %s\n", 
-		log_signal(argD), log_signal(ffM), log_signal(clock),
-		log_signal(ffMcemux), log_signal(ffMcepol), log_signal(sigM),
-		log_signal(sigP));
+endcode
+
+code
+	log_dump(sigDOA, ffDOA);
 endcode
 
 
-// Part two
 subpattern out_dffe
 arg argD argQ clock
 
@@ -111,7 +120,6 @@ match ff
 
 	slice offset GetSize(port(ff, \D))
 	index <SigBit> port(ff, \D)[offset] === argD[0] 
-	// this index is not working
 
 	// Check that offset is consistent
 	filter (!ffcemux) || ffoffset == offset
@@ -147,6 +155,4 @@ code argQ
 	dff = ff;
 	dffQ = argQ;
 	dffclock = port(ff, \CLK);
-	log("[diego] signals from dff filter: %s %s %s\n",
-		log_signal(dff), log_signal(dffQ), log_signal(dffclock));
 endcode
