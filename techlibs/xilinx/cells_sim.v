@@ -160,34 +160,60 @@ module INV(
     input I
 );
   assign O = !I;
+  specify
+    (I => O) = 127;
+  endspecify
 endmodule
 
+(* abc9_lut=1 *)
 module LUT1(output O, input I0);
   parameter [1:0] INIT = 0;
   assign O = I0 ? INIT[1] : INIT[0];
+  specify
+    (I0 => O) = 127;
+  endspecify
 endmodule
 
+(* abc9_lut=2 *)
 module LUT2(output O, input I0, I1);
   parameter [3:0] INIT = 0;
   wire [ 1: 0] s1 = I1 ? INIT[ 3: 2] : INIT[ 1: 0];
   assign O = I0 ? s1[1] : s1[0];
+  specify
+    (I0 => O) = 238;
+    (I1 => O) = 127;
+  endspecify
 endmodule
 
+(* abc9_lut=3 *)
 module LUT3(output O, input I0, I1, I2);
   parameter [7:0] INIT = 0;
   wire [ 3: 0] s2 = I2 ? INIT[ 7: 4] : INIT[ 3: 0];
   wire [ 1: 0] s1 = I1 ?   s2[ 3: 2] :   s2[ 1: 0];
   assign O = I0 ? s1[1] : s1[0];
+  specify
+    (I0 => O) = 407;
+    (I1 => O) = 238;
+    (I2 => O) = 127;
+  endspecify
 endmodule
 
+(* abc9_lut=3 *)
 module LUT4(output O, input I0, I1, I2, I3);
   parameter [15:0] INIT = 0;
   wire [ 7: 0] s3 = I3 ? INIT[15: 8] : INIT[ 7: 0];
   wire [ 3: 0] s2 = I2 ?   s3[ 7: 4] :   s3[ 3: 0];
   wire [ 1: 0] s1 = I1 ?   s2[ 3: 2] :   s2[ 1: 0];
   assign O = I0 ? s1[1] : s1[0];
+  specify
+    (I0 => O) = 472;
+    (I1 => O) = 407;
+    (I2 => O) = 238;
+    (I3 => O) = 127;
+  endspecify
 endmodule
 
+(* abc9_lut=3 *)
 module LUT5(output O, input I0, I1, I2, I3, I4);
   parameter [31:0] INIT = 0;
   wire [15: 0] s4 = I4 ? INIT[31:16] : INIT[15: 0];
@@ -195,8 +221,19 @@ module LUT5(output O, input I0, I1, I2, I3, I4);
   wire [ 3: 0] s2 = I2 ?   s3[ 7: 4] :   s3[ 3: 0];
   wire [ 1: 0] s1 = I1 ?   s2[ 3: 2] :   s2[ 1: 0];
   assign O = I0 ? s1[1] : s1[0];
+  specify
+    (I0 => O) = 631;
+    (I1 => O) = 472;
+    (I2 => O) = 407;
+    (I3 => O) = 238;
+    (I4 => O) = 127;
+  endspecify
 endmodule
 
+// This is a placeholder for ABC9 to extract the area/delay
+//   cost of 3-input LUTs and is not intended to be instantiated
+
+(* abc9_lut=5 *)
 module LUT6(output O, input I0, I1, I2, I3, I4, I5);
   parameter [63:0] INIT = 0;
   wire [31: 0] s5 = I5 ? INIT[63:32] : INIT[31: 0];
@@ -205,6 +242,14 @@ module LUT6(output O, input I0, I1, I2, I3, I4, I5);
   wire [ 3: 0] s2 = I2 ?   s3[ 7: 4] :   s3[ 3: 0];
   wire [ 1: 0] s1 = I1 ?   s2[ 3: 2] :   s2[ 1: 0];
   assign O = I0 ? s1[1] : s1[0];
+  specify
+    (I0 => O) = 642;
+    (I1 => O) = 631;
+    (I2 => O) = 472;
+    (I3 => O) = 407;
+    (I4 => O) = 238;
+    (I5 => O) = 127;
+  endspecify
 endmodule
 
 module LUT6_2(output O6, output O5, input I0, I1, I2, I3, I4, I5);
@@ -223,6 +268,43 @@ module LUT6_2(output O6, output O5, input I0, I1, I2, I3, I4, I5);
   assign O5 = I0 ? s5_1[1] : s5_1[0];
 endmodule
 
+// This is a placeholder for ABC9 to extract the area/delay
+//   cost of 3-input LUTs and is not intended to be instantiated
+(* abc9_lut=10 *)
+module \$__ABC9_LUT7 (output O, input I0, I1, I2, I3, I4, I5, I6);
+`ifndef __ICARUS__
+  specify
+                                                 // https://github.com/SymbiFlow/prjxray-db/blob/1c85daf1b115da4d27ca83c6b89f53a94de39748/artix7/timings/slicel.sdf#L867
+    (I0 => O) = 642 + 223 /* to cross F7BMUX */ + 174 /* CMUX */;
+    (I1 => O) = 631 + 223 /* to cross F7BMUX */ + 174 /* CMUX */;
+    (I2 => O) = 472 + 223 /* to cross F7BMUX */ + 174 /* CMUX */;
+    (I3 => O) = 407 + 223 /* to cross F7BMUX */ + 174 /* CMUX */;
+    (I4 => O) = 238 + 223 /* to cross F7BMUX */ + 174 /* CMUX */;
+    (I5 => O) = 127 + 223 /* to cross F7BMUX */ + 174 /* CMUX */;
+    (I6 => O) = 0 + 296 /* to select F7BMUX */ + 174 /* CMUX */;
+  endspecify
+`endif
+endmodule
+
+// This is a placeholder for ABC9 to extract the area/delay
+//   cost of 3-input LUTs and is not intended to be instantiated
+(* abc9_lut=20 *)
+module \$__ABC9_LUT8 (output O, input I0, I1, I2, I3, I4, I5, I6, I7);
+`ifndef __ICARUS__
+  specify
+                                                                             // https://github.com/SymbiFlow/prjxray-db/blob/1c85daf1b115da4d27ca83c6b89f53a94de39748/artix7/timings/slicel.sdf#L716
+    (I0 => O) = 642 + 223 /* to cross F7BMUX */ + 104 /* to cross F8MUX */ + 192 /* BMUX */;
+    (I1 => O) = 631 + 223 /* to cross F7BMUX */ + 104 /* to cross F8MUX */ + 192 /* BMUX */;
+    (I2 => O) = 472 + 223 /* to cross F7BMUX */ + 104 /* to cross F8MUX */ + 192 /* BMUX */;
+    (I3 => O) = 407 + 223 /* to cross F7BMUX */ + 104 /* to cross F8MUX */ + 192 /* BMUX */;
+    (I4 => O) = 238 + 223 /* to cross F7BMUX */ + 104 /* to cross F8MUX */ + 192 /* BMUX */;
+    (I5 => O) = 127 + 223 /* to cross F7BMUX */ + 104 /* to cross F8MUX */ + 192 /* BMUX */;
+    (I6 => O) = 0 + 296 /* to select F7BMUX */  + 104 /* to cross F8MUX */ + 192 /* BMUX */;
+    (I7 => O) = 0 + 0 + 273 /* to select F8MUX */ + 192 /* BMUX */;
+  endspecify
+`endif
+endmodule
+
 module MUXCY(output O, input CI, DI, S);
   assign O = S ? CI : DI;
 endmodule
@@ -235,14 +317,26 @@ module MUXF6(output O, input I0, I1, S);
   assign O = S ? I1 : I0;
 endmodule
 
-(* abc9_box_id = 1, lib_whitebox *)
+(* abc9_box, lib_whitebox *)
 module MUXF7(output O, input I0, I1, S);
   assign O = S ? I1 : I0;
+  specify
+    // https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf#L451-L453
+    (I0 => O) = 217;
+    (I1 => O) = 223;
+    (S => O) = 296;
+  endspecify
 endmodule
 
-(* abc9_box_id = 2, lib_whitebox *)
+(* abc9_box, lib_whitebox *)
 module MUXF8(output O, input I0, I1, S);
   assign O = S ? I1 : I0;
+  specify
+    // Max delays from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf#L462-L464
+    (I0 => O) = 104;
+    (I1 => O) = 94;
+    (S => O) = 273;
+  endspecify
 endmodule
 
 module MUXF9(output O, input I0, I1, S);
@@ -253,7 +347,7 @@ module XORCY(output O, input CI, LI);
   assign O = CI ^ LI;
 endmodule
 
-(* abc9_box_id = 4, lib_whitebox *)
+(* abc9_box, lib_whitebox *)
 module CARRY4(
   (* abc9_carry *)
   output [3:0] CO,
@@ -268,6 +362,61 @@ module CARRY4(
   assign CO[1] = S[1] ? CO[0] : DI[1];
   assign CO[2] = S[2] ? CO[1] : DI[2];
   assign CO[3] = S[3] ? CO[2] : DI[3];
+  specify
+    // https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf#L11-L46
+    (CYINIT => O[0]) = 482;
+    (S[0]   => O[0]) = 223;
+    (CI     => O[0]) = 222;
+    (CYINIT => O[1]) = 598;
+    (DI[0]  => O[1]) = 407;
+    (S[0]   => O[1]) = 400;
+    (S[1]   => O[1]) = 205;
+    (CI     => O[1]) = 334;
+    (CYINIT => O[2]) = 584;
+    (DI[0]  => O[2]) = 556;
+    (DI[1]  => O[2]) = 537;
+    (S[0]   => O[2]) = 523;
+    (S[1]   => O[2]) = 558;
+    (S[2]   => O[2]) = 226;
+    (CI     => O[2]) = 239;
+    (CYINIT => O[3]) = 642;
+    (DI[0]  => O[3]) = 615;
+    (DI[1]  => O[3]) = 596;
+    (DI[2]  => O[3]) = 438;
+    (S[0]   => O[3]) = 582;
+    (S[1]   => O[3]) = 618;
+    (S[2]   => O[3]) = 330;
+    (S[3]   => O[3]) = 227;
+    (CI     => O[3]) = 313;
+    (CYINIT => CO[0]) = 536;
+    (DI[0]  => CO[0]) = 379;
+    (S[0]   => CO[0]) = 340;
+    (CI     => CO[0]) = 271;
+    (CYINIT => CO[1]) = 494;
+    (DI[0]  => CO[1]) = 465;
+    (DI[1]  => CO[1]) = 445;
+    (S[0]   => CO[1]) = 433;
+    (S[1]   => CO[1]) = 469;
+    (CI     => CO[1]) = 157;
+    (CYINIT => CO[2]) = 592;
+    (DI[0]  => CO[2]) = 540;
+    (DI[1]  => CO[2]) = 520;
+    (DI[2]  => CO[2]) = 356;
+    (S[0]   => CO[2]) = 512;
+    (S[1]   => CO[2]) = 548;
+    (S[2]   => CO[2]) = 292;
+    (CI     => CO[2]) = 228;
+    (CYINIT => CO[3]) = 580;
+    (DI[0]  => CO[3]) = 526;
+    (DI[1]  => CO[3]) = 507;
+    (DI[2]  => CO[3]) = 398;
+    (DI[3]  => CO[3]) = 385;
+    (S[0]   => CO[3]) = 508;
+    (S[1]   => CO[3]) = 528;
+    (S[2]   => CO[3]) = 378;
+    (S[3]   => CO[3]) = 380;
+    (CI     => CO[3]) = 114;
+  endspecify
 endmodule
 
 module CARRY8(
@@ -327,18 +476,14 @@ endmodule
 
 (* abc9_flop, lib_whitebox *)
 module FDRE (
-  (* abc9_arrival=303 *)
   output reg Q,
   (* clkbuf_sink *)
   (* invertible_pin = "IS_C_INVERTED" *)
   input C,
-  (* abc9_required=109 *)
   input CE,
   (* invertible_pin = "IS_D_INVERTED" *)
-  //(* abc9_required=-46 *) // Negative required times not currently supported
   input D,
   (* invertible_pin = "IS_R_INVERTED" *)
-  (* abc9_required=404 *)
   input R
 );
   parameter [0:0] INIT = 1'b0;
@@ -346,44 +491,64 @@ module FDRE (
   parameter [0:0] IS_D_INVERTED = 1'b0;
   parameter [0:0] IS_R_INVERTED = 1'b0;
   initial Q <= INIT;
-  generate case (|IS_C_INVERTED)
+  generate
+  case (|IS_C_INVERTED)
     1'b0: always @(posedge C) if (R == !IS_R_INVERTED) Q <= 1'b0; else if (CE) Q <= D ^ IS_D_INVERTED;
     1'b1: always @(negedge C) if (R == !IS_R_INVERTED) Q <= 1'b0; else if (CE) Q <= D ^ IS_D_INVERTED;
-  endcase endgenerate
+  endcase
+  endgenerate
+  specify
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L249
+    //$setup(D , posedge C &&& CE && !IS_C_INVERTED , -46); // Negative times not currently supported
+    //$setup(D , negedge C &&& CE &&  IS_C_INVERTED , -46); // Negative times not currently supported
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L248
+    $setup(CE, posedge C &&& !IS_C_INVERTED, 109);
+    $setup(CE, negedge C &&&  IS_C_INVERTED, 109);
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L274
+    $setup(R , posedge C &&& !IS_C_INVERTED, 404);
+    $setup(R , negedge C &&&  IS_C_INVERTED, 404);
+    // https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf#L243
+    if (!IS_C_INVERTED && R ^ IS_R_INVERTED)        (posedge C => (Q : 1'b0)) = 303;
+    if ( IS_C_INVERTED && R ^ IS_R_INVERTED)        (negedge C => (Q : 1'b0)) = 303;
+    if (!IS_C_INVERTED && R ~^ IS_R_INVERTED && CE) (posedge C => (Q : D ^ IS_D_INVERTED)) = 303;
+    if ( IS_C_INVERTED && R ~^ IS_R_INVERTED && CE) (negedge C => (Q : D ^ IS_D_INVERTED)) = 303;
+  endspecify
 endmodule
 
 (* abc9_flop, lib_whitebox *)
 module FDRE_1 (
-  (* abc9_arrival=303 *)
   output reg Q,
   (* clkbuf_sink *)
   input C,
-  (* abc9_required=109 *)
   input CE,
-  //(* abc9_required=-46 *) // Negative required times not currently supported
   input D,
-  (* abc9_required=404 *)
   input R
 );
   parameter [0:0] INIT = 1'b0;
   initial Q <= INIT;
   always @(negedge C) if (R) Q <= 1'b0; else if (CE) Q <= D;
+  specify
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L249
+    //$setup(D , negedge C &&& CE, -46); // Negative times not currently supported
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L248
+    $setup(CE, negedge C, 109);
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L274
+    $setup(R , negedge C, 404);    // https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf#L243
+    if (R)        (negedge C => (Q : 1'b0)) = 303;
+    if (!R && CE) (negedge C => (Q : D)) = 303;
+  endspecify
 endmodule
 
 (* abc9_flop, lib_whitebox *)
 module FDSE (
-  (* abc9_arrival=303 *)
   output reg Q,
   (* clkbuf_sink *)
   (* invertible_pin = "IS_C_INVERTED" *)
   input C,
-  (* abc9_required=109 *)
   input CE,
   (* invertible_pin = "IS_D_INVERTED" *)
-  //(* abc9_required=-46 *) // Negative required times not currently supported
   input D,
   (* invertible_pin = "IS_S_INVERTED" *)
-  (* abc9_required=404 *)
   input S
 );
   parameter [0:0] INIT = 1'b1;
@@ -391,28 +556,53 @@ module FDSE (
   parameter [0:0] IS_D_INVERTED = 1'b0;
   parameter [0:0] IS_S_INVERTED = 1'b0;
   initial Q <= INIT;
-  generate case (|IS_C_INVERTED)
+  generate
+  case (|IS_C_INVERTED)
     1'b0: always @(posedge C) if (S == !IS_S_INVERTED) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
     1'b1: always @(negedge C) if (S == !IS_S_INVERTED) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
-  endcase endgenerate
+  endcase
+  endgenerate
+  specify
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L249
+    //$setup(D , posedge C &&& !IS_C_INVERTED && CE, -46); // Negative times not currently supported
+    //$setup(D , negedge C &&&  IS_C_INVERTED && CE, -46); // Negative times not currently supported
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L248
+    $setup(CE, posedge C &&& !IS_C_INVERTED, 109);
+    $setup(CE, negedge C &&&  IS_C_INVERTED, 109);
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L274
+    $setup(S , posedge C &&& !IS_C_INVERTED, 404);
+    $setup(S , negedge C &&&  IS_C_INVERTED, 404);
+    // https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf#L243
+    if (!IS_C_INVERTED && S ^ IS_S_INVERTED)        (posedge C => (Q : 1'b1)) = 303;
+    if ( IS_C_INVERTED && S ^ IS_S_INVERTED)        (negedge C => (Q : 1'b1)) = 303;
+    if (!IS_C_INVERTED && S ~^ IS_S_INVERTED && CE) (posedge C => (Q : D ^ IS_D_INVERTED)) = 303;
+    if ( IS_C_INVERTED && S ~^ IS_S_INVERTED && CE) (negedge C => (Q : D ^ IS_D_INVERTED)) = 303;
+  endspecify
 endmodule
 
 (* abc9_flop, lib_whitebox *)
 module FDSE_1 (
-  (* abc9_arrival=303 *)
   output reg Q,
   (* clkbuf_sink *)
   input C,
-  (* abc9_required=109 *)
   input CE,
-  //(* abc9_required=-46 *) // Negative required times not currently supported
   input D,
-  (* abc9_required=404 *)
   input S
 );
   parameter [0:0] INIT = 1'b1;
   initial Q <= INIT;
   always @(negedge C) if (S) Q <= 1'b1; else if (CE) Q <= D;
+  specify
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L249
+    //$setup(D , negedge C &&& CE, -46); // Negative times not currently supported
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L248
+    $setup(CE, negedge C, 109);
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L274
+    $setup(S , negedge C, 404);
+    // https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf#L243
+    if (S)        (negedge C => (Q : 1'b1)) = 303;
+    if (!S && CE) (negedge C => (Q : D)) = 303;
+  endspecify
 endmodule
 
 module FDRSE (
@@ -421,7 +611,6 @@ module FDRSE (
   (* invertible_pin = "IS_C_INVERTED" *)
   input C,
   (* invertible_pin = "IS_CE_INVERTED" *)
-  (* abc9_required=109 *)
   input CE,
   (* invertible_pin = "IS_D_INVERTED" *)
   input D,
@@ -453,18 +642,14 @@ endmodule
 
 (* abc9_flop, lib_whitebox *)
 module FDCE (
-  (* abc9_arrival=303 *)
   output reg Q,
   (* clkbuf_sink *)
   (* invertible_pin = "IS_C_INVERTED" *)
   input C,
-  (* abc9_required=109 *)
   input CE,
   (* invertible_pin = "IS_CLR_INVERTED" *)
-  (* abc9_required=764 *)
   input CLR,
   (* invertible_pin = "IS_D_INVERTED" *)
-  //(* abc9_required=-46 *) // Negative required times not currently supported
   input D
 );
   parameter [0:0] INIT = 1'b0;
@@ -472,46 +657,67 @@ module FDCE (
   parameter [0:0] IS_D_INVERTED = 1'b0;
   parameter [0:0] IS_CLR_INVERTED = 1'b0;
   initial Q <= INIT;
-  generate case ({|IS_C_INVERTED, |IS_CLR_INVERTED})
+  generate
+  case ({|IS_C_INVERTED, |IS_CLR_INVERTED})
     2'b00: always @(posedge C, posedge CLR) if ( CLR) Q <= 1'b0; else if (CE) Q <= D ^ IS_D_INVERTED;
     2'b01: always @(posedge C, negedge CLR) if (!CLR) Q <= 1'b0; else if (CE) Q <= D ^ IS_D_INVERTED;
     2'b10: always @(negedge C, posedge CLR) if ( CLR) Q <= 1'b0; else if (CE) Q <= D ^ IS_D_INVERTED;
     2'b11: always @(negedge C, negedge CLR) if (!CLR) Q <= 1'b0; else if (CE) Q <= D ^ IS_D_INVERTED;
-  endcase endgenerate
+  endcase
+  endgenerate
+  specify
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L249
+    //$setup(D , posedge C &&& !IS_C_INVERTED && CE, -46); // Negative times not currently supported
+    //$setup(D , negedge C &&&  IS_C_INVERTED && CE, -46); // Negative times not currently supported
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L248
+    $setup(CE , posedge C &&& !IS_C_INVERTED, 109);
+    $setup(CE , negedge C &&&  IS_C_INVERTED, 109);
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L274
+    $setup(CLR, posedge C &&& !IS_C_INVERTED, 404);
+    $setup(CLR, negedge C &&&  IS_C_INVERTED, 404);
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L270
+    //if (!IS_CLR_INVERTED) (posedge CLR => (Q : 1'b0)) = 764; // Captured by $__ABC9_ASYNC0
+    //if ( IS_CLR_INVERTED) (negedge CLR => (Q : 1'b0)) = 764; // Captured by $__ABC9_ASYNC0
+    if (!IS_C_INVERTED && CLR ~^ IS_CLR_INVERTED && CE) (posedge C => (Q : D ^ IS_D_INVERTED)) = 303;
+    if ( IS_C_INVERTED && CLR ~^ IS_CLR_INVERTED && CE) (negedge C => (Q : D ^ IS_D_INVERTED)) = 303;
+  endspecify
 endmodule
 
 (* abc9_flop, lib_whitebox *)
 module FDCE_1 (
-  (* abc9_arrival=303 *)
   output reg Q,
   (* clkbuf_sink *)
   input C,
-  (* abc9_required=109 *)
   input CE,
-  (* abc9_required=764 *)
   input CLR,
-  //(* abc9_required=-46 *) // Negative required times not currently supported
   input D
 );
   parameter [0:0] INIT = 1'b0;
   initial Q <= INIT;
   always @(negedge C, posedge CLR) if (CLR) Q <= 1'b0; else if (CE) Q <= D;
+  specify
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L249
+    //$setup(D , negedge C &&& CE, -46); // Negative times not currently supported
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L248
+    $setup(CE , negedge C, 109);
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L274
+    $setup(CLR, negedge C, 404);
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L270
+    //(posedge CLR => (Q : 1'b0)) = 764; // Captured by $__ABC9_ASYNC0
+    if (!CLR && CE) (negedge C => (Q : D)) = 303;
+  endspecify
 endmodule
 
 (* abc9_flop, lib_whitebox *)
 module FDPE (
-  (* abc9_arrival=303 *)
   output reg Q,
   (* clkbuf_sink *)
   (* invertible_pin = "IS_C_INVERTED" *)
   input C,
-  (* abc9_required=109 *)
   input CE,
   (* invertible_pin = "IS_D_INVERTED" *)
-  //(* abc9_required=-46 *) // Negative required times not currently supported
   input D,
   (* invertible_pin = "IS_PRE_INVERTED" *)
-  (* abc9_required=764 *)
   input PRE
 );
   parameter [0:0] INIT = 1'b1;
@@ -524,25 +730,50 @@ module FDPE (
     2'b01: always @(posedge C, negedge PRE) if (!PRE) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
     2'b10: always @(negedge C, posedge PRE) if ( PRE) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
     2'b11: always @(negedge C, negedge PRE) if (!PRE) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
-  endcase endgenerate
+  endcase
+  endgenerate
+  specify
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L249
+    //$setup(D , posedge C &&& !IS_C_INVERTED && CE, -46); // Negative times not currently supported
+    //$setup(D , negedge C &&&  IS_C_INVERTED && CE, -46); // Negative times not currently supported
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L248
+    $setup(CE , posedge C &&& !IS_C_INVERTED, 109);
+    $setup(CE , negedge C &&&  IS_C_INVERTED, 109);
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L274
+    $setup(PRE, posedge C &&& !IS_C_INVERTED, 404);
+    $setup(PRE, negedge C &&&  IS_C_INVERTED, 404);
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L270
+    //if (!IS_PRE_INVERTED) (posedge PRE => (Q : 1'b1)) = 764; // Captured by $__ABC9_ASYNC1
+    //if ( IS_PRE_INVERTED) (negedge PRE => (Q : 1'b1)) = 764; // Captured by $__ABC9_ASYNC1
+    if (!IS_C_INVERTED && PRE ~^ IS_PRE_INVERTED && CE) (posedge C => (Q : D ^ IS_D_INVERTED)) = 303;
+    if ( IS_C_INVERTED && PRE ~^ IS_PRE_INVERTED && CE) (negedge C => (Q : D ^ IS_D_INVERTED)) = 303;
+  endspecify
 endmodule
 
 (* abc9_flop, lib_whitebox *)
 module FDPE_1 (
-  (* abc9_arrival=303 *)
   output reg Q,
   (* clkbuf_sink *)
   input C,
-  (* abc9_required=109 *)
   input CE,
-  //(* abc9_required=-46 *) // Negative required times not currently supported
   input D,
-  (* abc9_required=764 *)
   input PRE
 );
   parameter [0:0] INIT = 1'b1;
   initial Q <= INIT;
   always @(negedge C, posedge PRE) if (PRE) Q <= 1'b1; else if (CE) Q <= D;
+  specify
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L249
+    //$setup(D , negedge C &&& CE, -46); // Negative times not currently supported
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L248
+    $setup(CE , negedge C, 109);
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L274
+    $setup(PRE, negedge C, 404);
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L270
+    //if (!IS_PRE_INVERTED) (posedge PRE => (Q : 1'b1)) = 764; // Captured by $__ABC9_ASYNC1
+    //if (IS_PRE_INVERTED)  (negedge PRE => (Q : 1'b1)) = 764; // Captured by $__ABC9_ASYNC1
+    if (!PRE && CE) (negedge C => (Q : D)) = 303;
+  endspecify
 endmodule
 
 module FDCPE (
@@ -1153,33 +1384,13 @@ module RAM16X1D_1 (
 endmodule
 
 module RAM32X1D (
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L981
-  (* abc9_arrival=1153 *)
   output DPO, SPO,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986
-  (* abc9_required=453 *)
   input  D,
   (* clkbuf_sink *)
   (* invertible_pin = "IS_WCLK_INVERTED" *)
   input  WCLK,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L834
-  (* abc9_required=654 *)
   input  WE,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L800
-  (* abc9_required=245 *)
-  input  A0,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/clBLM_R.sdf#L798
-  (* abc9_required=208 *)
-  input  A1,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L796
-  (* abc9_required=147 *)
-  input  A2,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L794
-  (* abc9_required=68 *)
-  input  A3,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L792
-  (* abc9_required=66 *)
-  input  A4,
+  input  A0, A1, A2, A3, A4,
   input  DPRA0, DPRA1, DPRA2, DPRA3, DPRA4
 );
   parameter INIT = 32'h0;
@@ -1191,35 +1402,53 @@ module RAM32X1D (
   assign DPO = mem[dpra];
   wire clk = WCLK ^ IS_WCLK_INVERTED;
   always @(posedge clk) if (WE) mem[a] <= D;
+  specify
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986
+    $setup(D , posedge WCLK &&& !IS_WCLK_INVERTED && WE, 453);
+    $setup(D , negedge WCLK &&&  IS_WCLK_INVERTED && WE, 453);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L834
+    $setup(WE, posedge WCLK &&& !IS_WCLK_INVERTED, 654);
+    $setup(WE, negedge WCLK &&&  IS_WCLK_INVERTED, 654);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L800
+    $setup(A0, posedge WCLK &&& !IS_WCLK_INVERTED && WE, 245);
+    $setup(A0, negedge WCLK &&&  IS_WCLK_INVERTED && WE, 245);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L798
+    $setup(A1, posedge WCLK &&& !IS_WCLK_INVERTED && WE, 208);
+    $setup(A1, negedge WCLK &&&  IS_WCLK_INVERTED && WE, 208);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L796
+    $setup(A2, posedge WCLK &&& !IS_WCLK_INVERTED && WE, 147);
+    $setup(A2, negedge WCLK &&&  IS_WCLK_INVERTED && WE, 147);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L794
+    $setup(A3, posedge WCLK &&& !IS_WCLK_INVERTED && WE, 68);
+    $setup(A3, negedge WCLK &&&  IS_WCLK_INVERTED && WE, 68);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L792
+    $setup(A4, posedge WCLK &&& !IS_WCLK_INVERTED && WE, 66);
+    $setup(A4, posedge WCLK &&&  IS_WCLK_INVERTED && WE, 66);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L981
+    if (!IS_WCLK_INVERTED) (posedge WCLK => (SPO : D))    = 1153;
+    if (!IS_WCLK_INVERTED) (posedge WCLK => (DPO : 1'bx)) = 1153;
+    if ( IS_WCLK_INVERTED) (posedge WCLK => (SPO : D))    = 1153;
+    if ( IS_WCLK_INVERTED) (negedge WCLK => (DPO : 1'bx)) = 1153;
+    // Captured by $__ABC9_RAM6
+    //({A0,DPRA0} => {SPO,DPO}) = 642;
+    //({A1,DPRA1} => {SPO,DPO}) = 631;
+    //({A2,DPRA2} => {SPO,DPO}) = 472;
+    //({A3,DPRA3} => {SPO,DPO}) = 407;
+    //({A4,DPRA4} => {SPO,DPO}) = 238;
+  endspecify
 endmodule
 
 module RAM32X1D_1 (
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L981
-  (* abc9_arrival=1153 *)
   output DPO, SPO,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986
-  (* abc9_required=453 *)
   input  D,
   (* clkbuf_sink *)
   (* invertible_pin = "IS_WCLK_INVERTED" *)
   input  WCLK,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L834
-  (* abc9_required=654 *)
   input  WE,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L800
-  (* abc9_required=245 *)
   input  A0,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/clBLM_R.sdf#L798
-  (* abc9_required=208 *)
   input  A1,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L796
-  (* abc9_required=147 *)
   input  A2,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L794
-  (* abc9_required=68 *)
   input  A3,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L792
-  (* abc9_required=66 *)
   input  A4,
   input  DPRA0, DPRA1, DPRA2, DPRA3, DPRA4
 );
@@ -1232,39 +1461,41 @@ module RAM32X1D_1 (
   assign DPO = mem[dpra];
   wire clk = WCLK ^ IS_WCLK_INVERTED;
   always @(negedge clk) if (WE) mem[a] <= D;
+  specify
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986
+    $setup(D , negedge WCLK &&& WE, 453);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L834
+    $setup(WE, negedge WCLK, 654);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L800
+    $setup(A0, negedge WCLK &&& WE, 245);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L798
+    $setup(A1, negedge WCLK &&& WE, 208);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L796
+    $setup(A2, negedge WCLK &&& WE, 147);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L794
+    $setup(A3, negedge WCLK &&& WE, 68);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L792
+    $setup(A4, negedge WCLK &&& WE, 66);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L981
+    if (WE) (negedge WCLK => (SPO : D))    = 1153;
+    if (WE) (negedge WCLK => (DPO : 1'bx)) = 1153;
+    // Captured by $__ABC9_RAM6
+    //({A0,DPRA0} => {SPO,DPO}) = 642;
+    //({A1,DPRA1} => {SPO,DPO}) = 631;
+    //({A2,DPRA2} => {SPO,DPO}) = 472;
+    //({A3,DPRA3} => {SPO,DPO}) = 407;
+    //({A4,DPRA4} => {SPO,DPO}) = 238;
+  endspecify
 endmodule
 
 module RAM64X1D (
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L981
-  (* abc9_arrival=1153 *)
   output DPO, SPO,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986
-  (* abc9_required=453 *)
   input  D,
   (* clkbuf_sink *)
   (* invertible_pin = "IS_WCLK_INVERTED" *)
   input  WCLK,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L834
-  (* abc9_required=654 *)
   input  WE,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L828
-  (* abc9_required=362 *)
-  input  A0,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L826
-  (* abc9_required=245 *)
-  input  A1,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L824
-  (* abc9_required=208 *)
-  input  A2,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L822
-  (* abc9_required=147 *)
-  input  A3,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L820
-  (* abc9_required=68 *)
-  input  A4,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L818
-  (* abc9_required=66 *)
-  input  A5,
+  input  A0, A1, A2, A3, A4, A5,
   input  DPRA0, DPRA1, DPRA2, DPRA3, DPRA4, DPRA5
 );
   parameter INIT = 64'h0;
@@ -1276,39 +1507,54 @@ module RAM64X1D (
   assign DPO = mem[dpra];
   wire clk = WCLK ^ IS_WCLK_INVERTED;
   always @(posedge clk) if (WE) mem[a] <= D;
+  specify
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986
+    $setup(D , posedge WCLK &&& !IS_WCLK_INVERTED && WE, 453);
+    $setup(D , negedge WCLK &&&  IS_WCLK_INVERTED && WE, 453);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L834
+    $setup(WE, posedge WCLK &&& !IS_WCLK_INVERTED, 654);
+    $setup(WE, negedge WCLK &&&  IS_WCLK_INVERTED, 654);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L828
+    $setup(A0, posedge WCLK &&& !IS_WCLK_INVERTED && WE, 362);
+    $setup(A0, negedge WCLK &&&  IS_WCLK_INVERTED && WE, 362);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L826
+    $setup(A1, posedge WCLK &&& !IS_WCLK_INVERTED && WE, 245);
+    $setup(A1, negedge WCLK &&&  IS_WCLK_INVERTED && WE, 245);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L824
+    $setup(A2, posedge WCLK &&& !IS_WCLK_INVERTED && WE, 208);
+    $setup(A2, negedge WCLK &&&  IS_WCLK_INVERTED && WE, 208);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L822
+    $setup(A3, posedge WCLK &&& !IS_WCLK_INVERTED && WE, 147);
+    $setup(A3, negedge WCLK &&&  IS_WCLK_INVERTED && WE, 147);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L820
+    $setup(A4, posedge WCLK &&& !IS_WCLK_INVERTED && WE, 68);
+    $setup(A4, negedge WCLK &&&  IS_WCLK_INVERTED && WE, 68);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L818
+    $setup(A5, posedge WCLK &&& !IS_WCLK_INVERTED && WE, 66);
+    $setup(A5, negedge WCLK &&&  IS_WCLK_INVERTED && WE, 66);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L981
+    if (!IS_WCLK_INVERTED && WE) (posedge WCLK => (SPO : D))    = 1153;
+    if (!IS_WCLK_INVERTED && WE) (posedge WCLK => (DPO : 1'bx)) = 1153;
+    if ( IS_WCLK_INVERTED && WE) (negedge WCLK => (SPO : D))    = 1153;
+    if ( IS_WCLK_INVERTED && WE) (negedge WCLK => (DPO : 1'bx)) = 1153;
+    // Captured by $__ABC9_RAM6
+    //({A0,DPRA0} => {SPO,DPO}) = 642;
+    //({A1,DPRA1} => {SPO,DPO}) = 631;
+    //({A2,DPRA2} => {SPO,DPO}) = 472;
+    //({A3,DPRA3} => {SPO,DPO}) = 407;
+    //({A4,DPRA4} => {SPO,DPO}) = 238;
+    //({A5,DPRA5} => {SPO,DPO}) = 127;
+  endspecify
 endmodule
 
 module RAM64X1D_1 (
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L981
-  (* abc9_arrival=1153 *)
   output DPO, SPO,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986
-  (* abc9_required=453 *)
   input  D,
   (* clkbuf_sink *)
   (* invertible_pin = "IS_WCLK_INVERTED" *)
   input  WCLK,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L834
-  (* abc9_required=654 *)
   input  WE,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L828
-  (* abc9_required=362 *)
-  input  A0,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L826
-  (* abc9_required=245 *)
-  input  A1,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L824
-  (* abc9_required=208 *)
-  input  A2,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L822
-  (* abc9_required=147 *)
-  input  A3,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L820
-  (* abc9_required=68 *)
-  input  A4,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L818
-  (* abc9_required=66 *)
-  input  A5,
+  input  A0, A1, A2, A3, A4, A5,
   input  DPRA0, DPRA1, DPRA2, DPRA3, DPRA4, DPRA5
 );
   parameter INIT = 64'h0;
@@ -1320,24 +1566,36 @@ module RAM64X1D_1 (
   assign DPO = mem[dpra];
   wire clk = WCLK ^ IS_WCLK_INVERTED;
   always @(negedge clk) if (WE) mem[a] <= D;
+  specify
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986
+    $setup(D , negedge WCLK &&& WE, 453);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L834
+    $setup(WE, negedge WCLK, 654);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L828
+    $setup(A0, negedge WCLK &&& WE, 362);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L826
+    $setup(A1, negedge WCLK &&& WE, 245);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L824
+    $setup(A2, negedge WCLK &&& WE, 208);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L822
+    $setup(A3, negedge WCLK &&& WE, 147);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L820
+    $setup(A4, negedge WCLK &&& WE, 68);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L818
+    $setup(A5, negedge WCLK &&& WE, 66);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L981
+    if (WE) (negedge WCLK => (SPO : D))    = 1153;
+    if (WE) (negedge WCLK => (DPO : 1'bx)) = 1153;
+  endspecify
 endmodule
 
 module RAM128X1D (
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L981
-  //   plus 208ps to cross MUXF7
-  (* abc9_arrival=1359 *)
   output       DPO, SPO,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986
-  (* abc9_required=453 *)
   input        D,
   (* clkbuf_sink *)
   (* invertible_pin = "IS_WCLK_INVERTED" *)
   input        WCLK,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L834
-  (* abc9_required=654 *)
   input        WE,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L818-830
-  (* abc9_required="616 362 245 208 147 68 66" *)
   input  [6:0] A,
   input  [6:0] DPRA
 );
@@ -1348,6 +1606,49 @@ module RAM128X1D (
   assign DPO = mem[DPRA];
   wire clk = WCLK ^ IS_WCLK_INVERTED;
   always @(posedge clk) if (WE) mem[A] <= D;
+  specify
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986
+    $setup(D , posedge WCLK &&& !IS_WCLK_INVERTED && WE, 453);
+    $setup(D , negedge WCLK &&&  IS_WCLK_INVERTED && WE, 453);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L834
+    $setup(WE, posedge WCLK &&& !IS_WCLK_INVERTED, 654);
+    $setup(WE, negedge WCLK &&&  IS_WCLK_INVERTED, 654);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L818-830
+    $setup(A[0], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 616);
+    $setup(A[0], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 616);
+    $setup(A[1], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 362);
+    $setup(A[1], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 362);
+    $setup(A[2], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 245);
+    $setup(A[2], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 245);
+    $setup(A[3], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 208);
+    $setup(A[3], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 208);
+    $setup(A[4], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 147);
+    $setup(A[4], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 147);
+    $setup(A[5], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 68);
+    $setup(A[5], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 68);
+    $setup(A[6], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 66);
+    $setup(A[6], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 66);
+`ifndef __ICARUS__
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L981
+    if (!IS_WCLK_INVERTED && WE) (posedge WCLK => (SPO : D))    = 1153 + 217 /* to cross F7AMUX */ + 175 /* AMUX */;
+    if ( IS_WCLK_INVERTED && WE) (negedge WCLK => (DPO : 1'bx)) = 1153 + 223 /* to cross F7BMUX */ + 174 /* CMUX */;
+`endif
+    // Captured by $__ABC9_RAM7
+    //(A[0] => SPO) = 642 + 193 /* to cross F7AMUX */ + 175 /* AMUX */;
+    //(A[1] => SPO) = 631 + 193 /* to cross F7AMUX */ + 175 /* AMUX */;
+    //(A[2] => SPO) = 472 + 193 /* to cross F7AMUX */ + 175 /* AMUX */;
+    //(A[3] => SPO) = 407 + 193 /* to cross F7AMUX */ + 175 /* AMUX */;
+    //(A[4] => SPO) = 238 + 193 /* to cross F7AMUX */ + 175 /* AMUX */;
+    //(A[5] => SPO) = 127 + 193 /* to cross F7AMUX */ + 175 /* AMUX */;
+    //(A[6] => SPO) = 0 + 276 /* to select F7AMUX */ + 175 /* AMUX */;
+    //(DPRA[0] => DPO) = 642 + 223 /* to cross MUXF7 */ + 174 /* CMUX */;
+    //(DPRA[1] => DPO) = 631 + 223 /* to cross MUXF7 */ + 174 /* CMUX */;
+    //(DPRA[2] => DPO) = 472 + 223 /* to cross MUXF7 */ + 174 /* CMUX */;
+    //(DPRA[3] => DPO) = 407 + 223 /* to cross MUXF7 */ + 174 /* CMUX */;
+    //(DPRA[4] => DPO) = 238 + 223 /* to cross MUXF7 */ + 174 /* CMUX */;
+    //(DPRA[5] => DPO) = 127 + 223 /* to cross MUXF7 */ + 174 /* CMUX */;
+    //(DPRA[6] => DPO) = 0 + 296 /* to select MUXF7 */ + 174 /* CMUX */;
+  endspecify
 endmodule
 
 module RAM256X1D (
@@ -1371,43 +1672,19 @@ endmodule
 // Multi port.
 
 module RAM32M (
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L889
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L857
-  (* abc9_arrival="1153 1188" *)
   output [1:0] DOA,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L925
-  (* abc9_arrival="1161 1187" *)
   output [1:0] DOB,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L1025
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L993
-  (* abc9_arrival="1158 1180" *)
   output [1:0] DOC,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L1093
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L1061
-  (* abc9_arrival="1163 1190" *)
   output [1:0] DOD,
   input  [4:0] ADDRA, ADDRB, ADDRC,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L792-L802
-  (* abc9_required="245 208 147 68 66" *)
   input  [4:0] ADDRD,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986-L988
-  (* abc9_required="453 384" *)
   input  [1:0] DIA,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L1054-L1056
-  (* abc9_required="461 354" *)
   input  [1:0] DIB,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L1122-L1124
-  (* abc9_required="457 375" *)
   input  [1:0] DIC,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L1190-L1192
-  (* abc9_required="310 334" *)
   input  [1:0] DID,
   (* clkbuf_sink *)
   (* invertible_pin = "IS_WCLK_INVERTED" *)
   input        WCLK,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L834
-  (* abc9_required=654 *)
   input        WE
 );
   parameter [63:0] INIT_A = 64'h0000000000000000;
@@ -1431,6 +1708,72 @@ module RAM32M (
       mem_c[2*ADDRD+:2] <= DIC;
       mem_d[2*ADDRD+:2] <= DID;
     end
+  specify
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986
+    $setup(ADDRD[0], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 245);
+    $setup(ADDRD[0], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 245);
+    $setup(ADDRD[1], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 208);
+    $setup(ADDRD[1], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 208);
+    $setup(ADDRD[2], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 147);
+    $setup(ADDRD[2], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 147);
+    $setup(ADDRD[3], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 68);
+    $setup(ADDRD[3], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 68);
+    $setup(ADDRD[4], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 66);
+    $setup(ADDRD[4], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 66);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986-L988
+    $setup(DIA[0], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 453);
+    $setup(DIA[0], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 453);
+    $setup(DIA[1], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 384);
+    $setup(DIA[1], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 384);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L1054-L1056
+    $setup(DIB[0], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 461);
+    $setup(DIB[0], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 461);
+    $setup(DIB[1], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 354);
+    $setup(DIB[1], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 354);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L1122-L1124
+    $setup(DIC[0], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 457);
+    $setup(DIC[0], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 457);
+    $setup(DIC[1], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 375);
+    $setup(DIC[1], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 375);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L1190-L1192
+    $setup(DID[0], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 310);
+    $setup(DID[0], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 310);
+    $setup(DID[1], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 334);
+    $setup(DID[1], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 334);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L834
+    $setup(WE, posedge WCLK &&& !IS_WCLK_INVERTED, 654);
+    $setup(WE, negedge WCLK &&&  IS_WCLK_INVERTED, 654);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L889
+    if (!IS_WCLK_INVERTED && WE) (posedge WCLK => (DOA[0] : DIA[0])) = 1153;
+    if ( IS_WCLK_INVERTED && WE) (negedge WCLK => (DOA[0] : DIA[0])) = 1153;
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L857
+    if (!IS_WCLK_INVERTED && WE) (posedge WCLK => (DOA[1] : DIA[1])) = 1188;
+    if ( IS_WCLK_INVERTED && WE) (negedge WCLK => (DOA[1] : DIA[1])) = 1188;
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
+    if (!IS_WCLK_INVERTED && WE) (posedge WCLK => (DOB[0] : DIB[0])) = 1161;
+    if ( IS_WCLK_INVERTED && WE) (negedge WCLK => (DOB[0] : DIB[0])) = 1161;
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L925
+    if (!IS_WCLK_INVERTED && WE) (posedge WCLK => (DOB[1] : DIB[1])) = 1187;
+    if ( IS_WCLK_INVERTED && WE) (negedge WCLK => (DOB[1] : DIB[1])) = 1187;
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L993
+    if (!IS_WCLK_INVERTED && WE) (posedge WCLK => (DOC[0] : DIC[0])) = 1158;
+    if ( IS_WCLK_INVERTED && WE) (negedge WCLK => (DOC[0] : DIC[0])) = 1158;
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L1025
+    if (!IS_WCLK_INVERTED && WE) (posedge WCLK => (DOC[1] : DIC[1])) = 1180;
+    if ( IS_WCLK_INVERTED && WE) (negedge WCLK => (DOC[1] : DIC[1])) = 1180;
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L1093
+    if (!IS_WCLK_INVERTED && WE) (posedge WCLK => (DOD[0] : DID[0])) = 1163;
+    if ( IS_WCLK_INVERTED && WE) (negedge WCLK => (DOD[0] : DID[0])) = 1163;
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L1061
+    if (!IS_WCLK_INVERTED && WE) (posedge WCLK => (DOD[1] : DID[1])) = 1190;
+    if ( IS_WCLK_INVERTED && WE) (negedge WCLK => (DOD[1] : DID[1])) = 1190;
+    // Captured by $__ABC9_RAM6
+    //({{2{ADDRA[0]}},{2{ADDRB[0]}},{2{ADDRC[0]}},{2{ADDRD[0]}}} => {DOA,DOB,DOC,DOD}) = 642;
+    //({{2{ADDRA[1]}},{2{ADDRB[1]}},{2{ADDRC[1]}},{2{ADDRD[1]}}} => {DOA,DOB,DOC,DOD}) = 631;
+    //({{2{ADDRA[2]}},{2{ADDRB[2]}},{2{ADDRC[2]}},{2{ADDRD[2]}}} => {DOA,DOB,DOC,DOD}) = 472;
+    //({{2{ADDRA[3]}},{2{ADDRB[3]}},{2{ADDRC[3]}},{2{ADDRD[3]}}} => {DOA,DOB,DOC,DOD}) = 407;
+    //({{2{ADDRA[4]}},{2{ADDRB[4]}},{2{ADDRC[4]}},{2{ADDRD[4]}}} => {DOA,DOB,DOC,DOD}) = 238;
+  endspecify
 endmodule
 
 module RAM32M16 (
@@ -1503,39 +1846,19 @@ module RAM32M16 (
 endmodule
 
 module RAM64M (
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L889
-  (* abc9_arrival=1153 *)
   output       DOA,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
-  (* abc9_arrival=1161 *)
   output       DOB,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L1025
-  (* abc9_arrival=1158 *)
   output       DOC,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L1093
-  (* abc9_arrival=1163 *)
   output       DOD,
   input  [5:0] ADDRA, ADDRB, ADDRC,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L818-L830
-  (* abc9_required="362 245 208 147 68 66" *)
   input  [5:0] ADDRD,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986-L988
-  (* abc9_required=384 *)
   input        DIA,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L1054-L1056
-  (* abc9_required=354 *)
   input        DIB,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L1122-L1124
-  (* abc9_required=375 *)
   input        DIC,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L1190-L1192
-  (* abc9_required=310 *)
   input        DID,
   (* clkbuf_sink *)
   (* invertible_pin = "IS_WCLK_INVERTED" *)
   input        WCLK,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L834
-  (* abc9_required=654 *)
   input        WE
 );
   parameter [63:0] INIT_A = 64'h0000000000000000;
@@ -1559,6 +1882,54 @@ module RAM64M (
       mem_c[ADDRD] <= DIC;
       mem_d[ADDRD] <= DID;
     end
+  specify
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L818-L830
+    $setup(ADDRD[0], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 362);
+    $setup(ADDRD[0], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 362);
+    $setup(ADDRD[1], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 245);
+    $setup(ADDRD[1], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 245);
+    $setup(ADDRD[2], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 208);
+    $setup(ADDRD[2], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 208);
+    $setup(ADDRD[3], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 147);
+    $setup(ADDRD[3], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 147);
+    $setup(ADDRD[4], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 68);
+    $setup(ADDRD[4], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 68);
+    $setup(ADDRD[5], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 66);
+    $setup(ADDRD[5], negedge WCLK &&&  IS_WCLK_INVERTED && WE, 66);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986-L988
+    $setup(DIA, posedge WCLK &&& !IS_WCLK_INVERTED && WE, 384);
+    $setup(DIA, negedge WCLK &&&  IS_WCLK_INVERTED && WE, 384);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L1054-L1056
+    $setup(DIB, posedge WCLK &&& !IS_WCLK_INVERTED && WE, 354);
+    $setup(DIB, negedge WCLK &&&  IS_WCLK_INVERTED && WE, 354);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L1122-L1124
+    $setup(DIC, posedge WCLK &&& !IS_WCLK_INVERTED && WE, 375);
+    $setup(DIC, negedge WCLK &&&  IS_WCLK_INVERTED && WE, 375);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L1190-L1192
+    $setup(DID, posedge WCLK &&& !IS_WCLK_INVERTED && WE, 310);
+    $setup(DID, negedge WCLK &&&  IS_WCLK_INVERTED && WE, 310);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L834
+    $setup(WE, posedge WCLK &&& !IS_WCLK_INVERTED && WE, 654);
+    $setup(WE, negedge WCLK &&&  IS_WCLK_INVERTED && WE, 654);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L889
+    if (!IS_WCLK_INVERTED && WE) (posedge WCLK => (DOA : DIA)) = 1153;
+    if ( IS_WCLK_INVERTED && WE) (negedge WCLK => (DOA : DIA)) = 1153;
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L957
+    if (!IS_WCLK_INVERTED && WE) (posedge WCLK => (DOB : DIB)) = 1161;
+    if ( IS_WCLK_INVERTED && WE) (negedge WCLK => (DOB : DIB)) = 1161;
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L1025
+    if (!IS_WCLK_INVERTED && WE) (posedge WCLK => (DOC : DIC)) = 1158;
+    if ( IS_WCLK_INVERTED && WE) (negedge WCLK => (DOC : DIC)) = 1158;
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L1093
+    if (!IS_WCLK_INVERTED && WE) (posedge WCLK => (DOD : DID)) = 1163;
+    if ( IS_WCLK_INVERTED && WE) (negedge WCLK => (DOD : DID)) = 1163;
+    // Captured by $__ABC9_RAM6
+    //({ADDRA[0],ADDRB[0],ADDRC[0],ADDRD[0]} => {DOA,DOB,DOC,DOD}) = 642;
+    //({ADDRA[1],ADDRB[1],ADDRC[1],ADDRD[1]} => {DOA,DOB,DOC,DOD}) = 631;
+    //({ADDRA[2],ADDRB[2],ADDRC[2],ADDRD[2]} => {DOA,DOB,DOC,DOD}) = 472;
+    //({ADDRA[3],ADDRB[3],ADDRC[3],ADDRD[3]} => {DOA,DOB,DOC,DOD}) = 407;
+    //({ADDRA[4],ADDRB[4],ADDRC[4],ADDRD[4]} => {DOA,DOB,DOC,DOD}) = 238;
+  endspecify
 endmodule
 
 module RAM64M8 (
@@ -1686,11 +2057,21 @@ module SRL16 (
   reg [15:0] r = INIT;
   assign Q = r[{A3,A2,A1,A0}];
   always @(posedge CLK) r <= { r[14:0], D };
+
+  specify
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L905
+    (posedge CLK => (Q : 1'bx)) = 1472;
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L912
+    $setup(D , posedge CLK, 173);
+    // Captured by $__ABC9_RAM6
+    //(A0 => Q) = 631;
+    //(A1 => Q) = 472;
+    //(A2 => Q) = 407;
+    //(A3 => Q) = 238;
+  endspecify
 endmodule
 
 module SRL16E (
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L905
-  (* abc9_arrival=1472 *)
   output Q,
   input A0, A1, A2, A3, CE,
   (* clkbuf_sink *)
@@ -1710,6 +2091,19 @@ module SRL16E (
     else
       always @(posedge CLK) if (CE) r <= { r[14:0], D };
   endgenerate
+  specify
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L912
+    $setup(D , posedge CLK &&& !IS_CLK_INVERTED, 173);
+    $setup(D , negedge CLK &&&  IS_CLK_INVERTED, 173);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L905
+    if (!IS_CLK_INVERTED && CE) (posedge CLK => (Q : 1'bx)) = 1472;
+    if ( IS_CLK_INVERTED && CE) (negedge CLK => (Q : 1'bx)) = 1472;
+    // Captured by $__ABC9_RAM6
+    //(A0 => Q) = 631;
+    //(A1 => Q) = 472;
+    //(A2 => Q) = 407;
+    //(A3 => Q) = 238;
+  endspecify
 endmodule
 
 module SRLC16 (
@@ -1726,6 +2120,18 @@ module SRLC16 (
   assign Q15 = r[15];
   assign Q = r[{A3,A2,A1,A0}];
   always @(posedge CLK) r <= { r[14:0], D };
+
+  specify
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L905
+    (posedge CLK => (Q : 1'bx)) = 1472;
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L912
+    $setup(D , posedge CLK, 173);
+    // Captured by $__ABC9_RAM6
+    //(A0 => Q) = 631;
+    //(A1 => Q) = 472;
+    //(A2 => Q) = 407;
+    //(A3 => Q) = 238;
+  endspecify
 endmodule
 
 module SRLC16E (
@@ -1750,14 +2156,24 @@ module SRLC16E (
     else
       always @(posedge CLK) if (CE) r <= { r[14:0], D };
   endgenerate
+  specify
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L912
+    $setup(D , posedge CLK &&& !IS_CLK_INVERTED, 173);
+    $setup(D , negedge CLK &&&  IS_CLK_INVERTED, 173);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L905
+    if (!IS_CLK_INVERTED && CE) (posedge CLK => (Q : D)) = 1472;
+    if ( IS_CLK_INVERTED && CE) (negedge CLK => (Q : D)) = 1472;
+    // Captured by $__ABC9_RAM6
+    //(A0 => Q) = 642;
+    //(A1 => Q) = 631;
+    //(A2 => Q) = 472;
+    //(A3 => Q) = 407;
+    //(A4 => Q) = 238;
+  endspecify
 endmodule
 
 module SRLC32E (
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L905
-  (* abc9_arrival=1472 *)
   output Q,
-  // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L904
-  (* abc9_arrival=1114 *)
   output Q31,
   input [4:0] A,
   input CE,
@@ -1779,6 +2195,23 @@ module SRLC32E (
     else
       always @(posedge CLK) if (CE) r <= { r[30:0], D };
   endgenerate
+  specify
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L912
+    $setup(D , posedge CLK &&& !IS_CLK_INVERTED, 173);
+    $setup(D , negedge CLK &&&  IS_CLK_INVERTED, 173);
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L905
+    if (!IS_CLK_INVERTED && CE) (posedge CLK => (Q : 1'bx)) = 1472;
+    if ( IS_CLK_INVERTED && CE) (negedge CLK => (Q : 1'bx)) = 1472;
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L904
+    if (!IS_CLK_INVERTED && CE) (posedge CLK => (Q : 1'bx)) = 1114;
+    if ( IS_CLK_INVERTED && CE) (negedge CLK => (Q : 1'bx)) = 1114;
+    // Captured by $__ABC9_RAM6
+    //(A0 => Q) = 642;
+    //(A1 => Q) = 631;
+    //(A2 => Q) = 472;
+    //(A3 => Q) = 407;
+    //(A4 => Q) = 238;
+  endspecify
 endmodule
 
 module CFGLUT5 (
@@ -1962,6 +2395,7 @@ parameter RSTTYPE = "SYNC";
 
 // This is a strict subset of Spartan 6 -- reuse its model.
 
+/* verilator lint_off PINMISSING */
 DSP48A1 #(
 	.A0REG(A0REG),
 	.A1REG(A1REG),
@@ -2008,6 +2442,7 @@ DSP48A1 #(
 	.RSTOPMODE(RSTOPMODE),
 	.RSTP(RSTP)
 );
+/* verilator lint_on PINMISSING */
 
 endmodule
 
@@ -2550,31 +2985,16 @@ module DSP48E1 (
     output reg [3:0] CARRYOUT,
     output reg MULTSIGNOUT,
     output OVERFLOW,
-`ifdef YOSYS
-    (* abc9_arrival = \P.abc9_arrival () *)
-`endif
     output reg signed [47:0] P,
     output reg PATTERNBDETECT,
     output reg PATTERNDETECT,
-`ifdef YOSYS
-    (* abc9_arrival = \PCOUT.abc9_arrival () *)
-`endif
     output [47:0] PCOUT,
     output UNDERFLOW,
-`ifdef YOSYS
-    (* abc9_required = \A.abc9_required () *)
-`endif
     input signed [29:0] A,
     input [29:0] ACIN,
     input [3:0] ALUMODE,
-`ifdef YOSYS
-    (* abc9_required = \B.abc9_required () *)
-`endif
     input signed [17:0] B,
     input [17:0] BCIN,
-`ifdef YOSYS
-    (* abc9_required = \C.abc9_required () *)
-`endif
     input [47:0] C,
     input CARRYCASCIN,
     input CARRYIN,
@@ -2593,16 +3013,10 @@ module DSP48E1 (
     input CEM,
     input CEP,
     (* clkbuf_sink *) input CLK,
-`ifdef YOSYS
-    (* abc9_required = \D.abc9_required () *)
-`endif
     input [24:0] D,
     input [4:0] INMODE,
     input MULTSIGNIN,
     input [6:0] OPMODE,
-`ifdef YOSYS
-    (* abc9_required = \PCIN.abc9_required () *)
-`endif
     input [47:0] PCIN,
     input RSTA,
     input RSTALLCARRYIN,
@@ -2647,138 +3061,155 @@ module DSP48E1 (
     parameter [6:0] IS_OPMODE_INVERTED = 7'b0;
 
 `ifdef YOSYS
-    function integer \A.abc9_required ;
+    function integer \A.required ;
     begin
-        \A.abc9_required = 0;
-        if (AREG != 0)           \A.abc9_required =  254;
+        \A.required = 0;
+        if (AREG != 0)           \A.required =  254;
         else if (USE_MULT == "MULTIPLY" && USE_DPORT == "FALSE") begin
-            if (MREG != 0)       \A.abc9_required = 1416;
-            else if (PREG != 0)  \A.abc9_required = (USE_PATTERN_DETECT != "NO_PATDET" ? 3030 : 2739) ;
+            if (MREG != 0)       \A.required = 1416;
+            else if (PREG != 0)  \A.required = (USE_PATTERN_DETECT != "NO_PATDET" ? 3030 : 2739) ;
         end
         else if (USE_MULT == "MULTIPLY" && USE_DPORT == "TRUE") begin
             // Worst-case from ADREG and MREG
-            if (MREG != 0)       \A.abc9_required = 2400;
-            else if (ADREG != 0) \A.abc9_required = 1283;
-            else if (PREG != 0)  \A.abc9_required = 3723;
-            else if (PREG != 0)  \A.abc9_required = (USE_PATTERN_DETECT != "NO_PATDET" ? 4014 : 3723) ;
+            if (MREG != 0)       \A.required = 2400;
+            else if (ADREG != 0) \A.required = 1283;
+            else if (PREG != 0)  \A.required = 3723;
+            else if (PREG != 0)  \A.required = (USE_PATTERN_DETECT != "NO_PATDET" ? 4014 : 3723) ;
         end
         else if (USE_MULT == "NONE" && USE_DPORT == "FALSE") begin
-            if (PREG != 0)       \A.abc9_required = (USE_PATTERN_DETECT != "NO_PATDET" ? 1730 : 1441) ;
+            if (PREG != 0)       \A.required = (USE_PATTERN_DETECT != "NO_PATDET" ? 1730 : 1441) ;
         end
     end
     endfunction
-    function integer \B.abc9_required ;
+    function integer \B.required ;
     begin
-        \B.abc9_required = 0;
-        if (BREG != 0)      \B.abc9_required =  324;
-        else if (MREG != 0) \B.abc9_required = 1285;
+        \B.required = 0;
+        if (BREG != 0)      \B.required =  324;
+        else if (MREG != 0) \B.required = 1285;
         else if (USE_MULT == "MULTIPLY" && USE_DPORT == "FALSE") begin
-            if (PREG != 0)  \B.abc9_required = (USE_PATTERN_DETECT != "NO_PATDET" ? 2898 : 2608) ;
+            if (PREG != 0)  \B.required = (USE_PATTERN_DETECT != "NO_PATDET" ? 2898 : 2608) ;
         end
         else if (USE_MULT == "MULTIPLY" && USE_DPORT == "TRUE") begin
-            if (PREG != 0)  \B.abc9_required = (USE_PATTERN_DETECT != "NO_PATDET" ? 2898 : 2608) ;
+            if (PREG != 0)  \B.required = (USE_PATTERN_DETECT != "NO_PATDET" ? 2898 : 2608) ;
         end
         else if (USE_MULT == "NONE" && USE_DPORT == "FALSE") begin
-            if (PREG != 0)  \B.abc9_required = (USE_PATTERN_DETECT != "NO_PATDET" ? 1718 : 1428) ;
+            if (PREG != 0)  \B.required = (USE_PATTERN_DETECT != "NO_PATDET" ? 1718 : 1428) ;
         end
     end
     endfunction
-    function integer \C.abc9_required ;
+    function integer \C.required ;
     begin
-        \C.abc9_required = 0;
-        if (CREG != 0)      \C.abc9_required =  168;
-        else if (PREG != 0) \C.abc9_required = (USE_PATTERN_DETECT != "NO_PATDET" ? 1534 : 1244) ;
+        \C.required = 0;
+        if (CREG != 0)      \C.required =  168;
+        else if (PREG != 0) \C.required = (USE_PATTERN_DETECT != "NO_PATDET" ? 1534 : 1244) ;
     end
     endfunction
-    function integer \D.abc9_required ;
+    function integer \D.required ;
     begin
-        \D.abc9_required = 0;
+        \D.required = 0;
         if (USE_MULT == "MULTIPLY" && USE_DPORT == "FALSE") begin
         end
         else if (USE_MULT == "MULTIPLY" && USE_DPORT == "TRUE") begin
-            if (DREG != 0)       \D.abc9_required =  248;
-            else if (ADREG != 0) \D.abc9_required = 1195;
-            else if (MREG != 0)  \D.abc9_required = 2310;
-            else if (PREG != 0)  \D.abc9_required = (USE_PATTERN_DETECT != "NO_PATDET" ? 3925 : 3635) ;
+            if (DREG != 0)       \D.required =  248;
+            else if (ADREG != 0) \D.required = 1195;
+            else if (MREG != 0)  \D.required = 2310;
+            else if (PREG != 0)  \D.required = (USE_PATTERN_DETECT != "NO_PATDET" ? 3925 : 3635) ;
         end
         else if (USE_MULT == "NONE" && USE_DPORT == "FALSE") begin
         end
     end
     endfunction
-    function integer \PCIN.abc9_required ;
+    function integer \PCIN.required ;
     begin
-        \PCIN.abc9_required = 0;
-        if (PREG != 0) \PCIN.abc9_required = (USE_PATTERN_DETECT != "NO_PATDET" ? 1315 : 1025) ;
+        \PCIN.required = 0;
+        if (PREG != 0) \PCIN.required = (USE_PATTERN_DETECT != "NO_PATDET" ? 1315 : 1025) ;
     end
     endfunction
-    function integer \P.abc9_arrival ;
+    function integer \P.arrival ;
     begin
-        \P.abc9_arrival = 0;
+        \P.arrival = 0;
         if (USE_MULT == "MULTIPLY" && USE_DPORT == "FALSE") begin
-            if (PREG != 0)       \P.abc9_arrival =  329;
+            if (PREG != 0)       \P.arrival =  329;
             // Worst-case from CREG and MREG
-            else if (CREG != 0)  \P.abc9_arrival = 1687;
-            else if (MREG != 0)  \P.abc9_arrival = 1671;
+            else if (CREG != 0)  \P.arrival = 1687;
+            else if (MREG != 0)  \P.arrival = 1671;
             // Worst-case from AREG and BREG
-            else if (AREG != 0)  \P.abc9_arrival = 2952;
-            else if (BREG != 0)  \P.abc9_arrival = 2813;
+            else if (AREG != 0)  \P.arrival = 2952;
+            else if (BREG != 0)  \P.arrival = 2813;
         end
         else if (USE_MULT == "MULTIPLY" && USE_DPORT == "TRUE") begin
-            if (PREG != 0)       \P.abc9_arrival =  329;
+            if (PREG != 0)       \P.arrival =  329;
             // Worst-case from CREG and MREG
-            else if (CREG != 0)  \P.abc9_arrival = 1687;
-            else if (MREG != 0)  \P.abc9_arrival = 1671;
+            else if (CREG != 0)  \P.arrival = 1687;
+            else if (MREG != 0)  \P.arrival = 1671;
             // Worst-case from AREG, ADREG, BREG, DREG
-            else if (AREG != 0)  \P.abc9_arrival = 3935;
-            else if (DREG != 0)  \P.abc9_arrival = 3908;
-            else if (ADREG != 0) \P.abc9_arrival = 2958;
-            else if (BREG != 0)  \P.abc9_arrival = 2813;
+            else if (AREG != 0)  \P.arrival = 3935;
+            else if (DREG != 0)  \P.arrival = 3908;
+            else if (ADREG != 0) \P.arrival = 2958;
+            else if (BREG != 0)  \P.arrival = 2813;
         end
         else if (USE_MULT == "NONE" && USE_DPORT == "FALSE") begin
-            if (PREG != 0)       \P.abc9_arrival =  329;
+            if (PREG != 0)       \P.arrival =  329;
             // Worst-case from AREG, BREG, CREG
-            else if (CREG != 0)  \P.abc9_arrival = 1687;
-            else if (AREG != 0)  \P.abc9_arrival = 1632;
-            else if (BREG != 0)  \P.abc9_arrival = 1616;
+            else if (CREG != 0)  \P.arrival = 1687;
+            else if (AREG != 0)  \P.arrival = 1632;
+            else if (BREG != 0)  \P.arrival = 1616;
         end
         //else
         //    $error("Invalid DSP48E1 configuration");
     end
     endfunction
-    function integer \PCOUT.abc9_arrival ;
+    function integer \PCOUT.arrival ;
     begin
-        \PCOUT.abc9_arrival = 0;
+        \PCOUT.arrival = 0;
         if (USE_MULT == "MULTIPLY" && USE_DPORT == "FALSE") begin
-            if (PREG != 0)       \PCOUT.abc9_arrival =  435;
+            if (PREG != 0)       \PCOUT.arrival =  435;
             // Worst-case from CREG and MREG
-            else if (CREG != 0)  \PCOUT.abc9_arrival = 1835;
-            else if (MREG != 0)  \PCOUT.abc9_arrival = 1819;
+            else if (CREG != 0)  \PCOUT.arrival = 1835;
+            else if (MREG != 0)  \PCOUT.arrival = 1819;
             // Worst-case from AREG and BREG
-            else if (AREG != 0)  \PCOUT.abc9_arrival = 3098;
-            else if (BREG != 0)  \PCOUT.abc9_arrival = 2960;
+            else if (AREG != 0)  \PCOUT.arrival = 3098;
+            else if (BREG != 0)  \PCOUT.arrival = 2960;
         end
         else if (USE_MULT == "MULTIPLY" && USE_DPORT == "TRUE") begin
-            if (PREG != 0)       \PCOUT.abc9_arrival =  435;
+            if (PREG != 0)       \PCOUT.arrival =  435;
             // Worst-case from CREG and MREG
-            else if (CREG != 0)  \PCOUT.abc9_arrival = 1835;
-            else if (MREG != 0)  \PCOUT.abc9_arrival = 1819;
+            else if (CREG != 0)  \PCOUT.arrival = 1835;
+            else if (MREG != 0)  \PCOUT.arrival = 1819;
             // Worst-case from AREG, ADREG, BREG, DREG
-            else if (AREG != 0)  \PCOUT.abc9_arrival = 4083;
-            else if (DREG != 0)  \PCOUT.abc9_arrival = 4056;
-            else if (BREG != 0)  \PCOUT.abc9_arrival = 2960;
-            else if (ADREG != 0) \PCOUT.abc9_arrival = 2859;
+            else if (AREG != 0)  \PCOUT.arrival = 4083;
+            else if (DREG != 0)  \PCOUT.arrival = 4056;
+            else if (BREG != 0)  \PCOUT.arrival = 2960;
+            else if (ADREG != 0) \PCOUT.arrival = 2859;
         end
         else if (USE_MULT == "NONE" && USE_DPORT == "FALSE") begin
-            if (PREG != 0)       \PCOUT.abc9_arrival =  435;
+            if (PREG != 0)       \PCOUT.arrival =  435;
             // Worst-case from AREG, BREG, CREG
-            else if (CREG != 0)  \PCOUT.abc9_arrival = 1835;
-            else if (AREG != 0)  \PCOUT.abc9_arrival = 1780;
-            else if (BREG != 0)  \PCOUT.abc9_arrival = 1765;
+            else if (CREG != 0)  \PCOUT.arrival = 1835;
+            else if (AREG != 0)  \PCOUT.arrival = 1780;
+            else if (BREG != 0)  \PCOUT.arrival = 1765;
         end
         //else
         //    $error("Invalid DSP48E1 configuration");
     end
     endfunction
+
+    specify
+        $setup(A   , posedge CLK &&& !IS_CLK_INVERTED, \A.required () );
+        $setup(A   , negedge CLK &&&  IS_CLK_INVERTED, \A.required () );
+        $setup(B   , posedge CLK &&& !IS_CLK_INVERTED, \B.required () );
+        $setup(B   , negedge CLK &&&  IS_CLK_INVERTED, \B.required () );
+        $setup(C   , posedge CLK &&& !IS_CLK_INVERTED, \C.required () );
+        $setup(C   , negedge CLK &&&  IS_CLK_INVERTED, \C.required () );
+        $setup(D   , posedge CLK &&& !IS_CLK_INVERTED, \D.required () );
+        $setup(D   , negedge CLK &&&  IS_CLK_INVERTED, \D.required () );
+        $setup(PCIN, posedge CLK &&& !IS_CLK_INVERTED, \PCIN.required () );
+        $setup(PCIN, negedge CLK &&&  IS_CLK_INVERTED, \PCIN.required () );
+        if (!IS_CLK_INVERTED && CEP) (posedge CLK => (P : 48'bx)) = \P.arrival () ;
+        if ( IS_CLK_INVERTED && CEP) (negedge CLK => (P : 48'bx)) = \P.arrival () ;
+        if (!IS_CLK_INVERTED && CEP) (posedge CLK => (PCOUT : 48'bx)) = \PCOUT.arrival () ;
+        if ( IS_CLK_INVERTED && CEP) (negedge CLK => (PCOUT : 48'bx)) = \PCOUT.arrival () ;
+    endspecify
 `endif
 
     initial begin
@@ -3163,3 +3594,448 @@ module DSP48E1 (
 endmodule
 
 // TODO: DSP48E2 (Ultrascale).
+
+// Block RAM
+
+module RAMB18E1 (
+    (* clkbuf_sink *)
+    (* invertible_pin = "IS_CLKARDCLK_INVERTED" *)
+    input CLKARDCLK,
+    (* clkbuf_sink *)
+    (* invertible_pin = "IS_CLKBWRCLK_INVERTED" *)
+    input CLKBWRCLK,
+    (* invertible_pin = "IS_ENARDEN_INVERTED" *)
+    input ENARDEN,
+    (* invertible_pin = "IS_ENBWREN_INVERTED" *)
+    input ENBWREN,
+    input REGCEAREGCE,
+    input REGCEB,
+    (* invertible_pin = "IS_RSTRAMARSTRAM_INVERTED" *)
+    input RSTRAMARSTRAM,
+    (* invertible_pin = "IS_RSTRAMB_INVERTED" *)
+    input RSTRAMB,
+    (* invertible_pin = "IS_RSTREGARSTREG_INVERTED" *)
+    input RSTREGARSTREG,
+    (* invertible_pin = "IS_RSTREGB_INVERTED" *)
+    input RSTREGB,
+    input [13:0] ADDRARDADDR,
+    input [13:0] ADDRBWRADDR,
+    input [15:0] DIADI,
+    input [15:0] DIBDI,
+    input [1:0] DIPADIP,
+    input [1:0] DIPBDIP,
+    input [1:0] WEA,
+    input [3:0] WEBWE,
+    output [15:0] DOADO,
+    output [15:0] DOBDO,
+    output [1:0] DOPADOP,
+    output [1:0] DOPBDOP
+);
+    parameter integer DOA_REG = 0;
+    parameter integer DOB_REG = 0;
+    parameter INITP_00 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INITP_01 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INITP_02 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INITP_03 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INITP_04 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INITP_05 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INITP_06 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INITP_07 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_00 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_01 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_02 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_03 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_04 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_05 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_06 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_07 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_08 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_09 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_0A = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_0B = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_0C = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_0D = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_0E = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_0F = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_10 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_11 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_12 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_13 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_14 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_15 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_16 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_17 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_18 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_19 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_1A = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_1B = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_1C = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_1D = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_1E = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_1F = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_20 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_21 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_22 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_23 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_24 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_25 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_26 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_27 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_28 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_29 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_2A = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_2B = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_2C = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_2D = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_2E = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_2F = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_30 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_31 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_32 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_33 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_34 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_35 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_36 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_37 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_38 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_39 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_3A = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_3B = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_3C = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_3D = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_3E = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_3F = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_A = 18'h0;
+    parameter INIT_B = 18'h0;
+    parameter INIT_FILE = "NONE";
+    parameter RAM_MODE = "TDP";
+    parameter RDADDR_COLLISION_HWCONFIG = "DELAYED_WRITE";
+    parameter integer READ_WIDTH_A = 0;
+    parameter integer READ_WIDTH_B = 0;
+    parameter RSTREG_PRIORITY_A = "RSTREG";
+    parameter RSTREG_PRIORITY_B = "RSTREG";
+    parameter SIM_COLLISION_CHECK = "ALL";
+    parameter SIM_DEVICE = "VIRTEX6";
+    parameter SRVAL_A = 18'h0;
+    parameter SRVAL_B = 18'h0;
+    parameter WRITE_MODE_A = "WRITE_FIRST";
+    parameter WRITE_MODE_B = "WRITE_FIRST";
+    parameter integer WRITE_WIDTH_A = 0;
+    parameter integer WRITE_WIDTH_B = 0;
+    parameter IS_CLKARDCLK_INVERTED = 1'b0;
+    parameter IS_CLKBWRCLK_INVERTED = 1'b0;
+    parameter IS_ENARDEN_INVERTED = 1'b0;
+    parameter IS_ENBWREN_INVERTED = 1'b0;
+    parameter IS_RSTRAMARSTRAM_INVERTED = 1'b0;
+    parameter IS_RSTRAMB_INVERTED = 1'b0;
+    parameter IS_RSTREGARSTREG_INVERTED = 1'b0;
+    parameter IS_RSTREGB_INVERTED = 1'b0;
+
+    specify
+        // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L13
+        $setup(ADDRARDADDR, posedge CLKARDCLK, 566);
+        // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L17
+        $setup(ADDRBWRADDR, posedge CLKBWRCLK, 566);
+        // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L19
+        $setup(WEA, posedge CLKARDCLK, 532);
+        // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L21
+        $setup(WEBWE, posedge CLKBWRCLK, 532);
+        // https://github.com/SymbiFlow/prjxray-db/blob/4bc6385ab300b1819848371f508185f57b649a0e/artix7/timings/BRAM_L.sdf#L29
+        $setup(REGCEAREGCE, posedge CLKARDCLK, 360);
+        // https://github.com/SymbiFlow/prjxray-db/blob/4bc6385ab300b1819848371f508185f57b649a0e/artix7/timings/BRAM_L.sdf#L31
+        $setup(RSTREGARSTREG, posedge CLKARDCLK, 342);
+        // https://github.com/SymbiFlow/prjxray-db/blob/4bc6385ab300b1819848371f508185f57b649a0e/artix7/timings/BRAM_L.sdf#L49
+        $setup(REGCEB, posedge CLKBWRCLK, 360);
+        // https://github.com/SymbiFlow/prjxray-db/blob/4bc6385ab300b1819848371f508185f57b649a0e/artix7/timings/BRAM_L.sdf#L59
+        $setup(RSTREGB, posedge CLKBWRCLK, 342);
+        // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L123
+        $setup(DIADI, posedge CLKARDCLK, 737);
+        // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L133
+        $setup(DIBDI, posedge CLKBWRCLK, 737);
+        // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L125
+        $setup(DIPADIP, posedge CLKARDCLK, 737);
+        // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L135
+        $setup(DIPBDIP, posedge CLKBWRCLK, 737);
+        // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L143
+        if (&DOA_REG) (posedge CLKARDCLK => (DOADO : 16'bx)) = 2454;
+        // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L144
+        if (&DOA_REG) (posedge CLKARDCLK => (DOPADOP : 2'bx)) = 2454;
+        // https://github.com/SymbiFlow/prjxray-db/blob/4bc6385ab300b1819848371f508185f57b649a0e/artix7/timings/BRAM_L.sdf#L153
+        if (|DOA_REG) (posedge CLKARDCLK => (DOADO : 16'bx)) = 882;
+        // https://github.com/SymbiFlow/prjxray-db/blob/4bc6385ab300b1819848371f508185f57b649a0e/artix7/timings/BRAM_L.sdf#L154
+        if (|DOA_REG) (posedge CLKARDCLK => (DOPADOP : 2'bx)) = 882;
+        // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L163
+        if (&DOB_REG) (posedge CLKBWRCLK => (DOBDO : 16'bx)) = 2454;
+        // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L164
+        if (&DOB_REG) (posedge CLKBWRCLK => (DOPBDOP : 2'bx)) = 2454;
+        // https://github.com/SymbiFlow/prjxray-db/blob/4bc6385ab300b1819848371f508185f57b649a0e/artix7/timings/BRAM_L.sdf#L173
+        if (|DOB_REG) (posedge CLKBWRCLK => (DOBDO : 16'bx)) = 882;
+        // https://github.com/SymbiFlow/prjxray-db/blob/4bc6385ab300b1819848371f508185f57b649a0e/artix7/timings/BRAM_L.sdf#L174
+        if (|DOB_REG) (posedge CLKBWRCLK => (DOPBDOP : 2'bx)) = 882;
+    endspecify
+endmodule
+
+module RAMB36E1 (
+    output CASCADEOUTA,
+    output CASCADEOUTB,
+    output [31:0] DOADO,
+    output [31:0] DOBDO,
+    output [3:0] DOPADOP,
+    output [3:0] DOPBDOP,
+    output [7:0] ECCPARITY,
+    output [8:0] RDADDRECC,
+    output SBITERR,
+    output DBITERR,
+    (* invertible_pin = "IS_ENARDEN_INVERTED" *)
+    input ENARDEN,
+    (* clkbuf_sink *)
+    (* invertible_pin = "IS_CLKARDCLK_INVERTED" *)
+    input CLKARDCLK,
+    (* invertible_pin = "IS_RSTRAMARSTRAM_INVERTED" *)
+    input RSTRAMARSTRAM,
+    (* invertible_pin = "IS_RSTREGARSTREG_INVERTED" *)
+    input RSTREGARSTREG,
+    input CASCADEINA,
+    input REGCEAREGCE,
+    (* invertible_pin = "IS_ENBWREN_INVERTED" *)
+    input ENBWREN,
+    (* clkbuf_sink *)
+    (* invertible_pin = "IS_CLKBWRCLK_INVERTED" *)
+    input CLKBWRCLK,
+    (* invertible_pin = "IS_RSTRAMB_INVERTED" *)
+    input RSTRAMB,
+    (* invertible_pin = "IS_RSTREGB_INVERTED" *)
+    input RSTREGB,
+    input CASCADEINB,
+    input REGCEB,
+    input INJECTDBITERR,
+    input INJECTSBITERR,
+    input [15:0] ADDRARDADDR,
+    input [15:0] ADDRBWRADDR,
+    input [31:0] DIADI,
+    input [31:0] DIBDI,
+    input [3:0] DIPADIP,
+    input [3:0] DIPBDIP,
+    input [3:0] WEA,
+    input [7:0] WEBWE
+);
+    parameter integer DOA_REG = 0;
+    parameter integer DOB_REG = 0;
+    parameter EN_ECC_READ = "FALSE";
+    parameter EN_ECC_WRITE = "FALSE";
+    parameter INITP_00 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INITP_01 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INITP_02 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INITP_03 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INITP_04 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INITP_05 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INITP_06 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INITP_07 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INITP_08 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INITP_09 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INITP_0A = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INITP_0B = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INITP_0C = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INITP_0D = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INITP_0E = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INITP_0F = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_00 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_01 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_02 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_03 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_04 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_05 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_06 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_07 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_08 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_09 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_0A = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_0B = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_0C = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_0D = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_0E = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_0F = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_10 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_11 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_12 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_13 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_14 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_15 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_16 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_17 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_18 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_19 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_1A = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_1B = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_1C = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_1D = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_1E = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_1F = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_20 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_21 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_22 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_23 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_24 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_25 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_26 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_27 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_28 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_29 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_2A = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_2B = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_2C = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_2D = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_2E = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_2F = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_30 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_31 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_32 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_33 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_34 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_35 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_36 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_37 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_38 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_39 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_3A = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_3B = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_3C = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_3D = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_3E = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_3F = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_40 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_41 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_42 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_43 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_44 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_45 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_46 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_47 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_48 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_49 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_4A = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_4B = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_4C = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_4D = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_4E = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_4F = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_50 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_51 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_52 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_53 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_54 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_55 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_56 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_57 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_58 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_59 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_5A = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_5B = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_5C = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_5D = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_5E = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_5F = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_60 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_61 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_62 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_63 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_64 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_65 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_66 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_67 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_68 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_69 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_6A = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_6B = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_6C = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_6D = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_6E = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_6F = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_70 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_71 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_72 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_73 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_74 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_75 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_76 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_77 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_78 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_79 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_7A = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_7B = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_7C = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_7D = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_7E = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_7F = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+    parameter INIT_A = 36'h0;
+    parameter INIT_B = 36'h0;
+    parameter INIT_FILE = "NONE";
+    parameter RAM_EXTENSION_A = "NONE";
+    parameter RAM_EXTENSION_B = "NONE";
+    parameter RAM_MODE = "TDP";
+    parameter RDADDR_COLLISION_HWCONFIG = "DELAYED_WRITE";
+    parameter integer READ_WIDTH_A = 0;
+    parameter integer READ_WIDTH_B = 0;
+    parameter RSTREG_PRIORITY_A = "RSTREG";
+    parameter RSTREG_PRIORITY_B = "RSTREG";
+    parameter SIM_COLLISION_CHECK = "ALL";
+    parameter SIM_DEVICE = "VIRTEX6";
+    parameter SRVAL_A = 36'h0;
+    parameter SRVAL_B = 36'h0;
+    parameter WRITE_MODE_A = "WRITE_FIRST";
+    parameter WRITE_MODE_B = "WRITE_FIRST";
+    parameter integer WRITE_WIDTH_A = 0;
+    parameter integer WRITE_WIDTH_B = 0;
+    parameter IS_CLKARDCLK_INVERTED = 1'b0;
+    parameter IS_CLKBWRCLK_INVERTED = 1'b0;
+    parameter IS_ENARDEN_INVERTED = 1'b0;
+    parameter IS_ENBWREN_INVERTED = 1'b0;
+    parameter IS_RSTRAMARSTRAM_INVERTED = 1'b0;
+    parameter IS_RSTRAMB_INVERTED = 1'b0;
+    parameter IS_RSTREGARSTREG_INVERTED = 1'b0;
+    parameter IS_RSTREGB_INVERTED = 1'b0;
+
+    specify
+        // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L13
+        $setup(ADDRARDADDR, posedge CLKARDCLK, 566);
+        // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L17
+        $setup(ADDRBWRADDR, posedge CLKBWRCLK, 566);
+        // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L19
+        $setup(WEA, posedge CLKARDCLK, 532);
+        // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L21
+        $setup(WEBWE, posedge CLKBWRCLK, 532);
+        // https://github.com/SymbiFlow/prjxray-db/blob/4bc6385ab300b1819848371f508185f57b649a0e/artix7/timings/BRAM_L.sdf#L29
+        $setup(REGCEAREGCE, posedge CLKARDCLK, 360);
+        // https://github.com/SymbiFlow/prjxray-db/blob/4bc6385ab300b1819848371f508185f57b649a0e/artix7/timings/BRAM_L.sdf#L31
+        $setup(RSTREGARSTREG, posedge CLKARDCLK, 342);
+        // https://github.com/SymbiFlow/prjxray-db/blob/4bc6385ab300b1819848371f508185f57b649a0e/artix7/timings/BRAM_L.sdf#L49
+        $setup(REGCEB, posedge CLKBWRCLK, 360);
+        // https://github.com/SymbiFlow/prjxray-db/blob/4bc6385ab300b1819848371f508185f57b649a0e/artix7/timings/BRAM_L.sdf#L59
+        $setup(RSTREGB, posedge CLKBWRCLK, 342);
+        // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L123
+        $setup(DIADI, posedge CLKARDCLK, 737);
+        // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L133
+        $setup(DIBDI, posedge CLKBWRCLK, 737);
+        // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L125
+        $setup(DIPADIP, posedge CLKARDCLK, 737);
+        // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L135
+        $setup(DIPBDIP, posedge CLKBWRCLK, 737);
+        // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L143
+        if (&DOA_REG) (posedge CLKARDCLK => (DOADO : 32'bx)) = 2454;
+        // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L144
+        if (&DOA_REG) (posedge CLKARDCLK => (DOPADOP : 4'bx)) = 2454;
+        // https://github.com/SymbiFlow/prjxray-db/blob/4bc6385ab300b1819848371f508185f57b649a0e/artix7/timings/BRAM_L.sdf#L153
+        if (|DOA_REG) (posedge CLKARDCLK => (DOADO : 32'bx)) = 882;
+        // https://github.com/SymbiFlow/prjxray-db/blob/4bc6385ab300b1819848371f508185f57b649a0e/artix7/timings/BRAM_L.sdf#L154
+        if (|DOA_REG) (posedge CLKARDCLK => (DOPADOP : 4'bx)) = 882;
+        // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L163
+        if (&DOB_REG) (posedge CLKBWRCLK => (DOBDO : 32'bx)) = 2454;
+        // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L164
+        if (&DOB_REG) (posedge CLKBWRCLK => (DOPBDOP : 4'bx)) = 2454;
+        // https://github.com/SymbiFlow/prjxray-db/blob/4bc6385ab300b1819848371f508185f57b649a0e/artix7/timings/BRAM_L.sdf#L173
+        if (|DOB_REG) (posedge CLKBWRCLK => (DOBDO : 32'bx)) = 882;
+        // https://github.com/SymbiFlow/prjxray-db/blob/4bc6385ab300b1819848371f508185f57b649a0e/artix7/timings/BRAM_L.sdf#L174
+        if (|DOB_REG) (posedge CLKBWRCLK => (DOPBDOP : 4'bx)) = 882;
+    endspecify
+endmodule
+

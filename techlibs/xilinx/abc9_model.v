@@ -24,30 +24,40 @@
 //   Necessary to make these an atomic unit so that
 //   ABC cannot optimise just one of the MUXF7 away
 //   and expect to save on its delay
-(* abc9_box_id = 3, lib_whitebox *)
+(* abc9_box, lib_whitebox *)
 module \$__XILINX_MUXF78 (output O, input I0, I1, I2, I3, S0, S1);
   assign O = S1 ? (S0 ? I3 : I2)
                 : (S0 ? I1 : I0);
-endmodule
-
-module \$__ABC9_FF_ (input D, output Q);
-endmodule
-
-(* abc9_box_id = (9000+DELAY) *)
-module \$__ABC9_DELAY (input I, output O);
-  parameter DELAY = 0;
+  specify
+    (I0 => O) = 294;
+    (I1 => O) = 297;
+    (I2 => O) = 311;
+    (I3 => O) = 317;
+    (S0 => O) = 390;
+    (S1 => O) = 273;
+  endspecify
 endmodule
 
 // Box to emulate async behaviour of FDC*
-(* abc9_box_id = 1000, lib_whitebox *)
+(* abc9_box, lib_whitebox *)
 module \$__ABC9_ASYNC0 (input A, S, output Y);
   assign Y = S ? 1'b0 : A;
+  specify
+    (A => Y) = 0;
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L270
+    (S => Y) = 764;
+  endspecify
 endmodule
 
 // Box to emulate async behaviour of FDP*
-(* abc9_box_id = 1001, lib_whitebox *)
+(* abc9_box, lib_whitebox *)
 module \$__ABC9_ASYNC1 (input A, S, output Y);
   assign Y = S ? 1'b1 : A;
+  specify
+    (A => Y) = 0;
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L270
+    (S => Y) = 764;
+  endspecify
 endmodule
 
 // Box to emulate comb/seq behaviour of RAM{32,64} and SRL{16,32}
@@ -56,12 +66,32 @@ endmodule
 //   is only committed on the next clock edge).
 //   To model the combinatorial path, such cells have to be split
 //   into comb and seq parts, with this box modelling only the former.
-(* abc9_box_id=2000 *)
-module \$__ABC9_LUT6 (input A, input [5:0] S, output Y);
+(* abc9_box *)
+module \$__ABC9_RAM6 (input A, input [5:0] S, output Y);
+  specify
+    (A    => Y) =   0;
+    (S[0] => Y) = 642;
+    (S[1] => Y) = 631;
+    (S[2] => Y) = 472;
+    (S[3] => Y) = 407;
+    (S[4] => Y) = 238;
+    (S[5] => Y) = 127;
+  endspecify
 endmodule
 // Box to emulate comb/seq behaviour of RAM128
-(* abc9_box_id=2001 *)
-module \$__ABC9_LUT7 (input A, input [6:0] S, output Y);
+(* abc9_box *)
+module \$__ABC9_RAM7 (input A, input [6:0] S, output Y);
+  specify
+    (A    => Y) = 0;
+                                                    // https://github.com/SymbiFlow/prjxray-db/blob/1c85daf1b115da4d27ca83c6b89f53a94de39748/artix7/timings/slicel.sdf#L867
+    (S[0] => Y) = 642 + 223 /* to cross F7BMUX */ + 174 /* CMUX */;
+    (S[1] => Y) = 631 + 223 /* to cross F7BMUX */ + 174 /* CMUX */;
+    (S[2] => Y) = 472 + 223 /* to cross F7BMUX */ + 174 /* CMUX */;
+    (S[3] => Y) = 407 + 223 /* to cross F7BMUX */ + 174 /* CMUX */;
+    (S[4] => Y) = 238 + 223 /* to cross F7BMUX */ + 174 /* CMUX */;
+    (S[5] => Y) = 127 + 223 /* to cross F7BMUX */ + 174 /* CMUX */;
+    (S[6] => Y) = 0 + 296 /* to select F7BMUX */ + 174 /* CMUX */;
+  endspecify
 endmodule
 
 // Boxes used to represent the comb behaviour of various modes
@@ -77,9 +107,43 @@ module __NAME__ (
     input [47:0] $PCOUT,
     output [47:0] P,
     output [47:0] PCOUT);
-endmodule
 """
-(* abc9_box_id=3000 *) `ABC9_DSP48E1($__ABC9_DSP48E1_MULT)
-(* abc9_box_id=3001 *) `ABC9_DSP48E1($__ABC9_DSP48E1_MULT_DPORT)
-(* abc9_box_id=3002 *) `ABC9_DSP48E1($__ABC9_DSP48E1)
+(* abc9_box *) `ABC9_DSP48E1($__ABC9_DSP48E1_MULT)
+  specify
+    ($A *> P) = 2823;
+    ($B *> P) = 2690;
+    ($C *> P) = 1325;
+    ($P *> P) = 0;
+    ($A *> PCOUT) = 2970;
+    ($B *> PCOUT) = 2838;
+    ($C *> PCOUT) = 1474;
+    ($PCOUT *> PCOUT) = 0;
+  endspecify
+endmodule
+(* abc9_box *) `ABC9_DSP48E1($__ABC9_DSP48E1_MULT_DPORT)
+  specify
+    ($A *> P) = 3806;
+    ($B *> P) = 2690;
+    ($C *> P) = 1325;
+    ($D *> P) = 3700;
+    ($P *> P) = 0;
+    ($A *> PCOUT) = 3954;
+    ($B *> PCOUT) = 2838;
+    ($C *> PCOUT) = 1474;
+    ($D *> PCOUT) = 3700;
+    ($PCOUT *> PCOUT) = 0;
+  endspecify
+endmodule
+(* abc9_box *) `ABC9_DSP48E1($__ABC9_DSP48E1)
+  specify
+    ($A *> P) = 1523;
+    ($B *> P) = 1509;
+    ($C *> P) = 1325;
+    ($P *> P) = 0;
+    ($A *> PCOUT) = 1671;
+    ($B *> PCOUT) = 1658;
+    ($C *> PCOUT) = 1474;
+    ($PCOUT *> PCOUT) = 0;
+  endspecify
+endmodule
 `undef ABC9_DSP48E1
