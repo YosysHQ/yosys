@@ -94,6 +94,8 @@ struct Coolrunner2SopPass : public Pass {
 					auto sop_width = cell->getParam("\\WIDTH").as_int();
 					auto sop_table = cell->getParam("\\TABLE");
 
+					auto sop_output_wire_name = sop_output.wire->name.c_str();
+
 					// Check for a $_NOT_ at the output
 					bool has_invert = false;
 					if (not_cells.count(sop_output))
@@ -115,7 +117,8 @@ struct Coolrunner2SopPass : public Pass {
 					pool<SigBit> intermed_wires;
 					for (int i = 0; i < sop_depth; i++) {
 						// Wire for the output
-						auto and_out = module->addWire(NEW_ID);
+						auto and_out = module->addWire(
+							module->uniquify(stringf("$xc2sop$%s_AND%d_OUT", sop_output_wire_name, i)));
 						intermed_wires.insert(and_out);
 
 						// Signals for the inputs
@@ -134,7 +137,9 @@ struct Coolrunner2SopPass : public Pass {
 						}
 
 						// Construct the cell
-						auto and_cell = module->addCell(NEW_ID, "\\ANDTERM");
+						auto and_cell = module->addCell(
+							module->uniquify(stringf("$xc2sop$%s_AND%d", sop_output_wire_name, i)),
+							"\\ANDTERM");
 						and_cell->setParam("\\TRUE_INP", GetSize(and_in_true));
 						and_cell->setParam("\\COMP_INP", GetSize(and_in_comp));
 						and_cell->setPort("\\OUT", and_out);
@@ -145,7 +150,9 @@ struct Coolrunner2SopPass : public Pass {
 					if (sop_depth == 1)
 					{
 						// If there is only one term, don't construct an OR cell. Directly construct the XOR gate
-						auto xor_cell = module->addCell(NEW_ID, "\\MACROCELL_XOR");
+						auto xor_cell = module->addCell(
+							module->uniquify(stringf("$xc2sop$%s_XOR", sop_output_wire_name)),
+							"\\MACROCELL_XOR");
 						xor_cell->setParam("\\INVERT_OUT", has_invert);
 						xor_cell->setPort("\\IN_PTC", *intermed_wires.begin());
 						xor_cell->setPort("\\OUT", sop_output);
@@ -190,16 +197,21 @@ struct Coolrunner2SopPass : public Pass {
 					else
 					{
 						// Wire from OR to XOR
-						auto or_to_xor_wire = module->addWire(NEW_ID);
+						auto or_to_xor_wire = module->addWire(
+							module->uniquify(stringf("$xc2sop$%s_OR_OUT", sop_output_wire_name)));
 
 						// Construct the OR cell
-						auto or_cell = module->addCell(NEW_ID, "\\ORTERM");
+						auto or_cell = module->addCell(
+							module->uniquify(stringf("$xc2sop$%s_OR", sop_output_wire_name)),
+							"\\ORTERM");
 						or_cell->setParam("\\WIDTH", sop_depth);
 						or_cell->setPort("\\IN", intermed_wires);
 						or_cell->setPort("\\OUT", or_to_xor_wire);
 
 						// Construct the XOR cell
-						auto xor_cell = module->addCell(NEW_ID, "\\MACROCELL_XOR");
+						auto xor_cell = module->addCell(
+							module->uniquify(stringf("$xc2sop$%s_XOR", sop_output_wire_name)),
+							"\\MACROCELL_XOR");
 						xor_cell->setParam("\\INVERT_OUT", has_invert);
 						xor_cell->setPort("\\IN_ORTERM", or_to_xor_wire);
 						xor_cell->setPort("\\OUT", sop_output);
