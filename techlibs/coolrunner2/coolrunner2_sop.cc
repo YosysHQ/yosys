@@ -94,6 +94,8 @@ struct Coolrunner2SopPass : public Pass {
 					auto sop_width = cell->getParam("\\WIDTH").as_int();
 					auto sop_table = cell->getParam("\\TABLE");
 
+					auto sop_output_wire_name = sop_output.wire->name.c_str();
+
 					// Check for a $_NOT_ at the output
 					bool has_invert = false;
 					if (not_cells.count(sop_output))
@@ -108,20 +110,15 @@ struct Coolrunner2SopPass : public Pass {
 					}
 
 					// Check for special P-term usage
-					bool is_special_pterm = false;
-					bool special_pterm_can_invert = false;
-					if (special_pterms_no_inv.count(sop_output) || special_pterms_inv.count(sop_output))
-					{
-						is_special_pterm = true;
-						if (!special_pterms_no_inv[sop_output].size())
-							special_pterm_can_invert = true;
-					}
+					bool is_special_pterm =
+						special_pterms_no_inv.count(sop_output) || special_pterms_inv.count(sop_output);
 
 					// Construct AND cells
 					pool<SigBit> intermed_wires;
 					for (int i = 0; i < sop_depth; i++) {
 						// Wire for the output
-						auto and_out = module->addWire(NEW_ID);
+						auto and_out = module->addWire(
+							module->uniquify(stringf("$xc2sop$%s_AND%d_OUT", sop_output_wire_name, i)));
 						intermed_wires.insert(and_out);
 
 						// Signals for the inputs
@@ -140,7 +137,9 @@ struct Coolrunner2SopPass : public Pass {
 						}
 
 						// Construct the cell
-						auto and_cell = module->addCell(NEW_ID, "\\ANDTERM");
+						auto and_cell = module->addCell(
+							module->uniquify(stringf("$xc2sop$%s_AND%d", sop_output_wire_name, i)),
+							"\\ANDTERM");
 						and_cell->setParam("\\TRUE_INP", GetSize(and_in_true));
 						and_cell->setParam("\\COMP_INP", GetSize(and_in_comp));
 						and_cell->setPort("\\OUT", and_out);
@@ -151,7 +150,9 @@ struct Coolrunner2SopPass : public Pass {
 					if (sop_depth == 1)
 					{
 						// If there is only one term, don't construct an OR cell. Directly construct the XOR gate
-						auto xor_cell = module->addCell(NEW_ID, "\\MACROCELL_XOR");
+						auto xor_cell = module->addCell(
+							module->uniquify(stringf("$xc2sop$%s_XOR", sop_output_wire_name)),
+							"\\MACROCELL_XOR");
 						xor_cell->setParam("\\INVERT_OUT", has_invert);
 						xor_cell->setPort("\\IN_PTC", *intermed_wires.begin());
 						xor_cell->setPort("\\OUT", sop_output);
@@ -159,88 +160,61 @@ struct Coolrunner2SopPass : public Pass {
 						// Special P-term handling
 						if (is_special_pterm)
 						{
-							if (!has_invert || special_pterm_can_invert)
+							// Can always connect the P-term directly if it's going
+							// into something invert-capable
+							for (auto x : special_pterms_inv[sop_output])
 							{
-								// Can connect the P-term directly to the special term sinks
-								for (auto x : special_pterms_inv[sop_output])
-									std::get<0>(x)->setPort(std::get<1>(x), *intermed_wires.begin());
+								std::get<0>(x)->setPort(std::get<1>(x), *intermed_wires.begin());
+
+								// If this signal is indeed inverted, flip the cell polarity
+								if (has_invert)
+								{
+									auto cell = std::get<0>(x);
+									if (cell->type == "\\FDCP") cell->type = "\\FDCP_N";
+									else if (cell->type == "\\FDCP_N") cell->type = "\\FDCP";
+									else if (cell->type == "\\FTCP") cell->type = "\\FTCP_N";
+									else if (cell->type == "\\FTCP_N") cell->type = "\\FTCP";
+									else if (cell->type == "\\FDCPE") cell->type = "\\FDCPE_N";
+									else if (cell->type == "\\FDCPE_N") cell->type = "\\FDCPE";
+									else if (cell->type == "\\LDCP") cell->type = "\\LDCP_N";
+									else if (cell->type == "\\LDCP_N") cell->type = "\\LDCP";
+									else log_assert(!"Internal error! Bad cell type!");
+								}
+							}
+
+							// If it's going into something that's not invert-capable,
+							// connect it directly only if this signal isn't inverted
+							if (!has_invert)
+							{
 								for (auto x : special_pterms_no_inv[sop_output])
 									std::get<0>(x)->setPort(std::get<1>(x), *intermed_wires.begin());
 							}
 
-							if (has_invert)
-							{
-								if (special_pterm_can_invert)
-								{
-									log_assert(special_pterms_no_inv[sop_output].size() == 0);
-
-									for (auto x : special_pterms_inv[sop_output])
-									{
-										auto cell = std::get<0>(x);
-										// Need to invert the polarity of the cell
-										if (cell->type == "\\FDCP") cell->type = "\\FDCP_N";
-										else if (cell->type == "\\FDCP_N") cell->type = "\\FDCP";
-										else if (cell->type == "\\FTCP") cell->type = "\\FTCP_N";
-										else if (cell->type == "\\FTCP_N") cell->type = "\\FTCP";
-										else if (cell->type == "\\FDCPE") cell->type = "\\FDCPE_N";
-										else if (cell->type == "\\FDCPE_N") cell->type = "\\FDCPE";
-										else if (cell->type == "\\LDCP") cell->type = "\\LDCP_N";
-										else if (cell->type == "\\LDCP_N") cell->type = "\\LDCP";
-										else log_assert(!"Internal error! Bad cell type!");
-									}
-								}
-								else
-								{
-									// Need to construct a feed-through term
-									auto feedthrough_out = module->addWire(NEW_ID);
-									auto feedthrough_cell = module->addCell(NEW_ID, "\\ANDTERM");
-									feedthrough_cell->setParam("\\TRUE_INP", 1);
-									feedthrough_cell->setParam("\\COMP_INP", 0);
-									feedthrough_cell->setPort("\\OUT", feedthrough_out);
-									feedthrough_cell->setPort("\\IN", sop_output);
-									feedthrough_cell->setPort("\\IN_B", SigSpec());
-
-									for (auto x : special_pterms_inv[sop_output])
-										std::get<0>(x)->setPort(std::get<1>(x), feedthrough_out);
-									for (auto x : special_pterms_no_inv[sop_output])
-										std::get<0>(x)->setPort(std::get<1>(x), feedthrough_out);
-								}
-							}
+							// Otherwise, a feedthrough P-term has to be created. Leave that to happen
+							// in the coolrunner2_fixup pass.
 						}
 					}
 					else
 					{
 						// Wire from OR to XOR
-						auto or_to_xor_wire = module->addWire(NEW_ID);
+						auto or_to_xor_wire = module->addWire(
+							module->uniquify(stringf("$xc2sop$%s_OR_OUT", sop_output_wire_name)));
 
 						// Construct the OR cell
-						auto or_cell = module->addCell(NEW_ID, "\\ORTERM");
+						auto or_cell = module->addCell(
+							module->uniquify(stringf("$xc2sop$%s_OR", sop_output_wire_name)),
+							"\\ORTERM");
 						or_cell->setParam("\\WIDTH", sop_depth);
 						or_cell->setPort("\\IN", intermed_wires);
 						or_cell->setPort("\\OUT", or_to_xor_wire);
 
 						// Construct the XOR cell
-						auto xor_cell = module->addCell(NEW_ID, "\\MACROCELL_XOR");
+						auto xor_cell = module->addCell(
+							module->uniquify(stringf("$xc2sop$%s_XOR", sop_output_wire_name)),
+							"\\MACROCELL_XOR");
 						xor_cell->setParam("\\INVERT_OUT", has_invert);
 						xor_cell->setPort("\\IN_ORTERM", or_to_xor_wire);
 						xor_cell->setPort("\\OUT", sop_output);
-
-						if (is_special_pterm)
-						{
-							// Need to construct a feed-through term
-							auto feedthrough_out = module->addWire(NEW_ID);
-							auto feedthrough_cell = module->addCell(NEW_ID, "\\ANDTERM");
-							feedthrough_cell->setParam("\\TRUE_INP", 1);
-							feedthrough_cell->setParam("\\COMP_INP", 0);
-							feedthrough_cell->setPort("\\OUT", feedthrough_out);
-							feedthrough_cell->setPort("\\IN", sop_output);
-							feedthrough_cell->setPort("\\IN_B", SigSpec());
-
-							for (auto x : special_pterms_inv[sop_output])
-								std::get<0>(x)->setPort(std::get<1>(x), feedthrough_out);
-							for (auto x : special_pterms_no_inv[sop_output])
-								std::get<0>(x)->setPort(std::get<1>(x), feedthrough_out);
-						}
 					}
 
 					// Finally, remove the $sop cell
