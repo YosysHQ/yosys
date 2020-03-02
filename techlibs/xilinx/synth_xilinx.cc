@@ -513,6 +513,7 @@ struct SynthXilinxPass : public ScriptPass
 					log_warning("Block RAM inference not yet supported for family %s.\n", family.c_str());
 				}
 			}
+			run("xilinx_bram");
 		}
 
 		if (check_label("map_lutram", "(skip if '-nolutram')")) {
