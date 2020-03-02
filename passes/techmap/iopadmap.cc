@@ -201,7 +201,7 @@ struct IopadmapPass : public Pass {
 			pool<SigBit> buf_bits;
 			SigMap sigmap(module);
 
-			// Collect explicitely-marked already-buffered SigBits.
+			// Collect explicitly-marked already-buffered SigBits.
 			for (auto wire : module->wires())
 				if (wire->get_bool_attribute("\\iopad_external_pin") || ignore.count(make_pair(module->name, wire->name)))
 					for (int i = 0; i < GetSize(wire); i++)
