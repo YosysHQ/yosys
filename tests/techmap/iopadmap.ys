@@ -9,7 +9,6 @@ assign o = i;
 endmodule
 
 module b(input i, output o);
-assign o = i;
 ibuf b (.i(i), .o(o));
 endmodule
 
