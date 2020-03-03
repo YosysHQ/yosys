@@ -1,0 +1,124 @@
+read_verilog <<EOT
+module top(input a, output b);
+wire c;
+(* submod="bar" *) sub s1(a, c);
+assign b = c;
+endmodule
+
+module sub(input a, output c);
+assign c = a;
+endmodule
+EOT
+
+hierarchy -top top
+proc
+design -save gold
+
+submod
+check -assert
+design -stash gate
+
+design -import gold -as gold
+design -import gate -as gate
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports miter
+
+
+design -reset
+read_verilog <<EOT
+module top(input a, output [1:0] b);
+(* submod="bar" *) sub s1(a, b[1]);
+assign b[0] = 1'b0;
+endmodule
+
+module sub(input a, output c);
+assign c = a;
+endmodule
+EOT
+
+hierarchy -top top
+proc
+design -save gold
+
+submod
+check -assert top
+design -stash gate
+
+design -import gold -as gold
+design -import gate -as gate
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports miter
+
+
+design -reset
+read_verilog <<EOT
+module top(input a, output [1:0] b, c);
+(* submod="bar" *) sub s1(a, b[0]);
+(* submod="bar" *) sub s2(a, c[1]);
+assign c = b;
+endmodule
+
+module sub(input a, output c);
+assign c = a;
+endmodule
+EOT
+
+hierarchy -top top
+proc
+design -save gold
+
+submod
+check -assert top
+design -stash gate
+
+design -import gold -as gold
+design -import gate -as gate
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports miter
+
+
+design -reset
+read_verilog <<EOT
+module top(input d, c, (* init = 3'b011 *) output reg [2:0] q);
+(* submod="bar" *) DFF s1(.D(d), .C(c), .Q(q[1]));
+DFF s2(.D(d), .C(c), .Q(q[0]));
+DFF s3(.D(d), .C(c), .Q(q[2]));
+endmodule
+
+module DFF(input D, C, output Q);
+parameter INIT = 1'b0;
+endmodule
+EOT
+
+hierarchy -top top
+proc
+
+submod
+dffinit -ff DFF Q INIT
+check -noinit -assert
+
+
+design -reset
+read_verilog <<EOT
+module top(input d, c, output reg [2:0] q);
+(* submod="bar" *) DFF s1(.D(d), .C(c), .Q(q[1]));
+DFF s2(.D(d), .C(c), .Q(q[0]));
+DFF s3(.D(d), .C(c), .Q(q[2]));
+endmodule
+EOT
+
+hierarchy -top top
+proc
+
+submod
+flatten
+
+read_verilog <<EOT
+module DFF(input D, C, output Q);
+endmodule
+EOT
+
+check -assert
