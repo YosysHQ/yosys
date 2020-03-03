@@ -87,7 +87,6 @@ YOSYS_NAMESPACE_END
 
 // the usual bison/flex stuff
 extern int frontend_verilog_yydebug;
-int frontend_verilog_yylex(void);
 void frontend_verilog_yyerror(char const *fmt, ...);
 void frontend_verilog_yyrestart(FILE *f);
 int frontend_verilog_yyparse(void);

@@ -156,6 +156,13 @@ namespace AST
 		AST_TYPEDEF
 	};
 
+	struct AstSrcLocType {
+		unsigned int first_line, last_line;
+		unsigned int first_column, last_column;
+		AstSrcLocType() : first_line(0), last_line(0), first_column(0), last_column(0) {}
+		AstSrcLocType(int _first_line, int _first_column, int _last_line, int _last_column) : first_line(_first_line), last_line(_last_line), first_column(_first_column), last_column(_last_column) {}
+	};
+
 	// convert an node type to a string (e.g. for debug output)
 	std::string type2str(AstNodeType type);
 
@@ -199,7 +206,7 @@ namespace AST
 		// it is automatically set by the constructor using AST::current_filename and
 		// the AST::get_line_num() callback function.
 		std::string filename;
-		int linenum;
+		AstSrcLocType location;
 
 		// creating and deleting nodes
 		AstNode(AstNodeType type = AST_NONE, AstNode *child1 = NULL, AstNode *child2 = NULL, AstNode *child3 = NULL);

@@ -42,7 +42,7 @@ static std::list<std::vector<std::string>> verilog_defaults_stack;
 static void error_on_dpi_function(AST::AstNode *node)
 {
 	if (node->type == AST::AST_DPI_FUNCTION)
-		log_file_error(node->filename, node->linenum, "Found DPI function %s.\n", node->str.c_str());
+		log_file_error(node->filename, node->location.first_line, "Found DPI function %s.\n", node->str.c_str());
 	for (auto child : node->children)
 		error_on_dpi_function(child);
 }
