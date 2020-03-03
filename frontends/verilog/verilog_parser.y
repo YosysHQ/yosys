@@ -142,6 +142,7 @@ static void addRange(AstNode *parent, int msb = 31, int lsb = 0, bool isSigned =
 %}
 
 %define api.prefix {frontend_verilog_yy}
+%define api.pure
 
 /* The union is defined in the header, so we need to provide all the
  * includes it requires
@@ -220,7 +221,6 @@ static void addRange(AstNode *parent, int msb = 31, int lsb = 0, bool isSigned =
 
 %debug
 %locations
-%pure-parser
 
 %%
 
