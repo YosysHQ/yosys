@@ -522,6 +522,7 @@ interface:
 		ast_stack.pop_back();
 		log_assert(ast_stack.size() == 1);
 		current_ast_mod = NULL;
+		user_types.clear();
 	};
 
 interface_body:
