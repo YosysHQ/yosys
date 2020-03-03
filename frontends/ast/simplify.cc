@@ -1324,16 +1324,22 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		if (varbuf->type != AST_CONSTANT)
 			log_file_error(filename, linenum, "Right hand side of 1st expression of generate for-loop is not constant!\n");
 
-		varbuf = new AstNode(AST_LOCALPARAM, varbuf);
-		varbuf->str = init_ast->children[0]->str;
-
 		auto resolved = current_scope.at(init_ast->children[0]->str);
 		if (resolved->range_valid) {
-			varbuf->range_left = resolved->range_left;
-			varbuf->range_right = resolved->range_right;
-			varbuf->range_swapped = resolved->range_swapped;
-			varbuf->range_valid = resolved->range_valid;
+			int const_size = varbuf->range_left - varbuf->range_right;
+			int resolved_size = resolved->range_left - resolved->range_right;
+			if (const_size < resolved_size) {
+				for (int i = const_size; i < resolved_size; i++)
+					varbuf->bits.push_back(resolved->is_signed ? varbuf->bits.back() : State::S0);
+				varbuf->range_left = resolved->range_left;
+				varbuf->range_right = resolved->range_right;
+				varbuf->range_swapped = resolved->range_swapped;
+				varbuf->range_valid = resolved->range_valid;
+			}
 		}
+
+		varbuf = new AstNode(AST_LOCALPARAM, varbuf);
+		varbuf->str = init_ast->children[0]->str;
 
 		AstNode *backup_scope_varbuf = current_scope[varbuf->str];
 		current_scope[varbuf->str] = varbuf;
@@ -3159,14 +3165,6 @@ void AstNode::expand_genblock(std::string index_var, std::string prefix, std::ma
 			current_ast_mod->children.push_back(p);
 			str = p->str;
 			id2ast = p;
-
-			auto resolved = current_scope.at(index_var);
-			if (resolved->range_valid) {
-				p->range_left = resolved->range_left;
-				p->range_right = resolved->range_right;
-				p->range_swapped = resolved->range_swapped;
-				p->range_valid = resolved->range_valid;
-			}
 		}
 	}
 
