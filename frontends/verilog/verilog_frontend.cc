@@ -465,6 +465,10 @@ struct VerilogFrontend : public Frontend {
 				log("-- Verilog code after preprocessor --\n%s-- END OF DUMP --\n", code_after_preproc.c_str());
 			lexin = new std::istringstream(code_after_preproc);
 		}
+		if (design->verilog_packages.empty()) {
+			// might be because of a `design -reset-vlog` command
+			pkg_user_types.clear();
+		}
 
 		frontend_verilog_yyset_lineno(1);
 		frontend_verilog_yyrestart(NULL);
