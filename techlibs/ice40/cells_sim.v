@@ -273,7 +273,7 @@ module SB_DFF (
 	specify
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
 		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
-		//$setup(D, posedge C, 1232 - 1285); // Negative times not currently supported
+		$setup(D, posedge C, /*1232 - 1285*/ 0); // Negative times not currently supported
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
 		(posedge C => (Q : D)) = 1391;
 	endspecify
@@ -313,7 +313,7 @@ module SB_DFFE (
 	specify
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
 		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
-		//$setup(D, posedge C &&& E, 1232 - 1285); // Negative times not currently supported
+		$setup(D, posedge C &&& E, /*1232 - 1285*/ 0); // Negative times not currently supported
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L86
 		$setup(E, posedge C, 0);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
@@ -359,7 +359,7 @@ module SB_DFFSR (
 	specify
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
 		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
-		//$setup(D, posedge C, 1232 - 1285); // Negative times not currently supported
+		$setup(D, posedge C, /*1232 - 1285*/ 0); // Negative times not currently supported
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L90
 		$setup(R, posedge C, 530);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
@@ -408,7 +408,7 @@ module SB_DFFR (
 	specify
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
 		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
-		//$setup(D, posedge C, 1232 - 1285); // Negative times not currently supported
+		$setup(D, posedge C, /*1232 - 1285*/ 0); // Negative times not currently supported
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L75
 		$setup(negedge R, posedge C, 424);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L103
@@ -456,7 +456,7 @@ module SB_DFFSS (
 	specify
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
 		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
-		//$setup(D, posedge C, 1232 - 1285); // Negative times not currently supported
+		$setup(D, posedge C, /*1232 - 1285*/ 0); // Negative times not currently supported
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L90
 		$setup(S, posedge C, 530);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
@@ -505,7 +505,7 @@ module SB_DFFS (
 	specify
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
 		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
-		//$setup(D, posedge C, 1232 - 1285); // Negative times not currently supported
+		$setup(D, posedge C, /*1232 - 1285*/ 0); // Negative times not currently supported
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L75
 		$setup(negedge S, posedge C, 424);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L103
@@ -559,7 +559,7 @@ module SB_DFFESR (
 	specify
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
 		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
-		//$setup(D, posedge C &&& E, 1232 - 1285); // Negative times not currently supported
+		$setup(D, posedge C &&& E, /*1232 - 1285*/ 0); // Negative times not currently supported
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L86
 		$setup(E, posedge C, 0);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L90
@@ -614,7 +614,7 @@ module SB_DFFER (
 	specify
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
 		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
-		//$setup(D, posedge C &&& E, 1232 - 1285); // Negative times not currently supported
+		$setup(D, posedge C &&& E, /*1232 - 1285*/ 0); // Negative times not currently supported
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L86
 		$setup(E, posedge C, 0);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L75
@@ -670,7 +670,7 @@ module SB_DFFESS (
 	specify
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
 		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
-		//$setup(D, posedge C &&& E, 1232 - 1285); // Negative times not currently supported
+		$setup(D, posedge C &&& E, /*1232 - 1285*/ 0); // Negative times not currently supported
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L86
 		$setup(E, posedge C, 0);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L90
@@ -725,7 +725,7 @@ module SB_DFFES (
 	specify
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
 		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
-		//$setup(D, posedge C &&& E, 1232 - 1285); // Negative times not currently supported
+		$setup(D, posedge C &&& E, /*1232 - 1285*/ 0); // Negative times not currently supported
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L86
 		$setup(E, posedge C, 0);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L75
@@ -768,7 +768,7 @@ module SB_DFFN (
 	specify
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
 		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
-		//$setup(D, negedge C, 1232 - 1285); // Negative times not currently supported
+		$setup(D, negedge C, /*1232 - 1285*/ 0); // Negative times not currently supported
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
 		(negedge C => (Q : D)) = 1391;
 	endspecify
@@ -808,7 +808,7 @@ module SB_DFFNE (
 	specify
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
 		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
-		//$setup(D, negedge C &&& E, 1232 - 1285); // Negative times not currently supported
+		$setup(D, negedge C &&& E, /*1232 - 1285*/ 0); // Negative times not currently supported
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L86
 		$setup(E, negedge C, 0);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
@@ -854,7 +854,7 @@ module SB_DFFNSR (
 	specify
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
 		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
-		//$setup(D, negedge C, 1232 - 1285); // Negative times not currently supported
+		$setup(D, negedge C, /*1232 - 1285*/ 0); // Negative times not currently supported
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L90
 		$setup(R, negedge C, 530);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
@@ -903,7 +903,7 @@ module SB_DFFNR (
 	specify
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
 		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
-		//$setup(D, negedge C, 1232 - 1285); // Negative times not currently supported
+		$setup(D, negedge C, /*1232 - 1285*/ 0); // Negative times not currently supported
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L75
 		$setup(negedge R, negedge C, 424);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L103
@@ -951,7 +951,7 @@ module SB_DFFNSS (
 	specify
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
 		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
-		//$setup(D, negedge C, 1232 - 1285); // Negative times not currently supported
+		$setup(D, negedge C, /*1232 - 1285*/ 0); // Negative times not currently supported
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L90
 		$setup(S, negedge C, 530);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
@@ -974,7 +974,7 @@ module SB_DFFNS (
 	specify
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
 		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
-		$setup(D, negedge C &&& E, 470 - 449);
+		$setup(D, negedge C, 470 - 449);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L63
 		$setup(negedge S, negedge C, 160);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L91
@@ -987,7 +987,7 @@ module SB_DFFNS (
 	specify
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
 		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
-		$setup(D, negedge C &&& E, 693 - 662);
+		$setup(D, negedge C, 693 - 662);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L63
 		$setup(negedge S, negedge C, 235);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L91
@@ -1000,7 +1000,7 @@ module SB_DFFNS (
 	specify
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
 		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
-		//$setup(D, negedge C &&& E, 1232 - 1285); // Negative times not currently supported
+		$setup(D, negedge C, /*1232 - 1285*/ 0); // Negative times not currently supported
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L75
 		$setup(negedge S, negedge C, 424);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L103
@@ -1054,7 +1054,7 @@ module SB_DFFNESR (
 	specify
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
 		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
-		//$setup(D, negedge C &&& E, 1232 - 1285); // Negative times not currently supported
+		$setup(D, negedge C &&& E, /*1232 - 1285*/ 0); // Negative times not currently supported
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L86
 		$setup(E, negedge C, 0);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L90
@@ -1109,7 +1109,7 @@ module SB_DFFNER (
 	specify
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
 		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
-		//$setup(D, negedge C &&& E, 1232 - 1285); // Negative times not currently supported
+		$setup(D, negedge C &&& E, /*1232 - 1285*/ 0); // Negative times not currently supported
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L86
 		$setup(E, negedge C, 0);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L75
@@ -1165,7 +1165,7 @@ module SB_DFFNESS (
 	specify
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
 		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
-		//$setup(D, negedge C &&& E, 1232 - 1285); // Negative times not currently supported
+		$setup(D, negedge C &&& E, /*1232 - 1285*/ 0); // Negative times not currently supported
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L86
 		$setup(E, negedge C, 0);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L90
@@ -1220,7 +1220,7 @@ module SB_DFFNES (
 	specify
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
 		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
-		//$setup(D, negedge C &&& E, 1232 - 1285); // Negative times not currently supported
+		$setup(D, negedge C &&& E, /*1232 - 1285*/ 0); // Negative times not currently supported
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L86
 		$setup(E, negedge C, 0);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L75
