@@ -3063,7 +3063,6 @@ module DSP48E1 (
 `ifdef YOSYS
     function integer \A.required ;
     begin
-        \A.required = 0;
         if (AREG != 0)           \A.required =  254;
         else if (USE_MULT == "MULTIPLY" && USE_DPORT == "FALSE") begin
             if (MREG != 0)       \A.required = 1416;
@@ -3083,7 +3082,6 @@ module DSP48E1 (
     endfunction
     function integer \B.required ;
     begin
-        \B.required = 0;
         if (BREG != 0)      \B.required =  324;
         else if (MREG != 0) \B.required = 1285;
         else if (USE_MULT == "MULTIPLY" && USE_DPORT == "FALSE") begin
@@ -3099,14 +3097,12 @@ module DSP48E1 (
     endfunction
     function integer \C.required ;
     begin
-        \C.required = 0;
         if (CREG != 0)      \C.required =  168;
         else if (PREG != 0) \C.required = (USE_PATTERN_DETECT != "NO_PATDET" ? 1534 : 1244) ;
     end
     endfunction
     function integer \D.required ;
     begin
-        \D.required = 0;
         if (USE_MULT == "MULTIPLY" && USE_DPORT == "FALSE") begin
         end
         else if (USE_MULT == "MULTIPLY" && USE_DPORT == "TRUE") begin
@@ -3119,15 +3115,8 @@ module DSP48E1 (
         end
     end
     endfunction
-    function integer \PCIN.required ;
-    begin
-        \PCIN.required = 0;
-        if (PREG != 0) \PCIN.required = (USE_PATTERN_DETECT != "NO_PATDET" ? 1315 : 1025) ;
-    end
-    endfunction
     function integer \P.arrival ;
     begin
-        \P.arrival = 0;
         if (USE_MULT == "MULTIPLY" && USE_DPORT == "FALSE") begin
             if (PREG != 0)       \P.arrival =  329;
             // Worst-case from CREG and MREG
@@ -3155,13 +3144,10 @@ module DSP48E1 (
             else if (AREG != 0)  \P.arrival = 1632;
             else if (BREG != 0)  \P.arrival = 1616;
         end
-        //else
-        //    $error("Invalid DSP48E1 configuration");
     end
     endfunction
     function integer \PCOUT.arrival ;
     begin
-        \PCOUT.arrival = 0;
         if (USE_MULT == "MULTIPLY" && USE_DPORT == "FALSE") begin
             if (PREG != 0)       \PCOUT.arrival =  435;
             // Worst-case from CREG and MREG
@@ -3189,27 +3175,125 @@ module DSP48E1 (
             else if (AREG != 0)  \PCOUT.arrival = 1780;
             else if (BREG != 0)  \PCOUT.arrival = 1765;
         end
-        //else
-        //    $error("Invalid DSP48E1 configuration");
+    end
+    endfunction
+    function integer \A.P.comb ;
+    begin
+        if (USE_MULT == "MULTIPLY" && USE_DPORT == "FALSE")     \A.P.comb = 2823;
+        else if (USE_MULT == "MULTIPLY" && USE_DPORT == "TRUE") \A.P.comb = 3806;
+        else if (USE_MULT == "NONE" && USE_DPORT == "FALSE")    \A.P.comb = 1523;
+    end
+    endfunction
+    function integer \A.PCOUT.comb ;
+    begin
+        if (USE_MULT == "MULTIPLY" && USE_DPORT == "FALSE")     \A.PCOUT.comb = 2970;
+        else if (USE_MULT == "MULTIPLY" && USE_DPORT == "TRUE") \A.PCOUT.comb = 3954;
+        else if (USE_MULT == "NONE" && USE_DPORT == "FALSE")    \A.PCOUT.comb = 1671;
+    end
+    endfunction
+    function integer \B.P.comb ;
+    begin
+        if (USE_MULT == "MULTIPLY" && USE_DPORT == "FALSE")     \B.P.comb = 2690;
+        else if (USE_MULT == "MULTIPLY" && USE_DPORT == "TRUE") \B.P.comb = 2690;
+        else if (USE_MULT == "NONE" && USE_DPORT == "FALSE")    \B.P.comb = 1509;
+    end
+    endfunction
+    function integer \B.PCOUT.comb ;
+    begin
+        if (USE_MULT == "MULTIPLY" && USE_DPORT == "FALSE")     \B.PCOUT.comb = 2838;
+        else if (USE_MULT == "MULTIPLY" && USE_DPORT == "TRUE") \B.PCOUT.comb = 2838;
+        else if (USE_MULT == "NONE" && USE_DPORT == "FALSE")    \B.PCOUT.comb = 1658;
+    end
+    endfunction
+    function integer \C.P.comb ;
+    begin
+        if (USE_MULT == "MULTIPLY" && USE_DPORT == "FALSE")     \C.P.comb = 1325;
+        else if (USE_MULT == "MULTIPLY" && USE_DPORT == "TRUE") \C.P.comb = 1325;
+        else if (USE_MULT == "NONE" && USE_DPORT == "FALSE")    \C.P.comb = 1325;
+    end
+    endfunction
+    function integer \C.PCOUT.comb ;
+    begin
+        if (USE_MULT == "MULTIPLY" && USE_DPORT == "FALSE")     \C.PCOUT.comb = 1474;
+        else if (USE_MULT == "MULTIPLY" && USE_DPORT == "TRUE") \C.PCOUT.comb = 1474;
+        else if (USE_MULT == "NONE" && USE_DPORT == "FALSE")    \C.PCOUT.comb = 1474;
+    end
+    endfunction
+    function integer \D.P.comb ;
+    begin
+        if (USE_MULT == "MULTIPLY" && USE_DPORT == "TRUE")      \D.P.comb = 3717;
+    end
+    endfunction
+    function integer \D.PCOUT.comb ;
+    begin
+        if (USE_MULT == "MULTIPLY" && USE_DPORT == "TRUE")      \D.PCOUT.comb = 3700;
     end
     endfunction
 
-    specify
-        $setup(A   , posedge CLK &&& !IS_CLK_INVERTED, \A.required () );
-        $setup(A   , negedge CLK &&&  IS_CLK_INVERTED, \A.required () );
-        $setup(B   , posedge CLK &&& !IS_CLK_INVERTED, \B.required () );
-        $setup(B   , negedge CLK &&&  IS_CLK_INVERTED, \B.required () );
-        $setup(C   , posedge CLK &&& !IS_CLK_INVERTED, \C.required () );
-        $setup(C   , negedge CLK &&&  IS_CLK_INVERTED, \C.required () );
-        $setup(D   , posedge CLK &&& !IS_CLK_INVERTED, \D.required () );
-        $setup(D   , negedge CLK &&&  IS_CLK_INVERTED, \D.required () );
-        $setup(PCIN, posedge CLK &&& !IS_CLK_INVERTED, \PCIN.required () );
-        $setup(PCIN, negedge CLK &&&  IS_CLK_INVERTED, \PCIN.required () );
-        if (!IS_CLK_INVERTED && CEP) (posedge CLK => (P : 48'bx)) = \P.arrival () ;
-        if ( IS_CLK_INVERTED && CEP) (negedge CLK => (P : 48'bx)) = \P.arrival () ;
-        if (!IS_CLK_INVERTED && CEP) (posedge CLK => (PCOUT : 48'bx)) = \PCOUT.arrival () ;
-        if ( IS_CLK_INVERTED && CEP) (negedge CLK => (PCOUT : 48'bx)) = \PCOUT.arrival () ;
-    endspecify
+    generate
+        if (PREG == 0 && MREG == 0 && AREG == 0)
+            specify
+                (A *> P) =      \A.P.comb ();
+                (A *> PCOUT) =  \A.PCOUT.comb ();
+            endspecify
+        else
+            specify
+                $setup(A, posedge CLK &&& !IS_CLK_INVERTED, \A.required () );
+                $setup(A, negedge CLK &&&  IS_CLK_INVERTED, \A.required () );
+            endspecify
+
+        if (PREG == 0 && MREG == 0 && BREG == 0)
+            specify
+                (B *> P) =      \B.P.comb ();
+                (B *> PCOUT) =  \B.PCOUT.comb ();
+            endspecify
+        else
+            specify
+                $setup(B, posedge CLK &&& !IS_CLK_INVERTED, \B.required () );
+                $setup(B, negedge CLK &&&  IS_CLK_INVERTED, \B.required () );
+            endspecify
+
+        if (PREG == 0 && CREG == 0)
+            specify
+                (C *> P) =      \C.P.comb ();
+                (C *> PCOUT) =  \C.PCOUT.comb ();
+            endspecify
+        else
+            specify
+                $setup(C, posedge CLK &&& !IS_CLK_INVERTED, \C.required () );
+                $setup(C, negedge CLK &&&  IS_CLK_INVERTED, \C.required () );
+            endspecify
+
+        if (PREG == 0 && MREG == 0 && DREG == 0)
+            specify
+                (D *> P) =      \D.P.comb ();
+                (D *> PCOUT) =  \D.PCOUT.comb ();
+            endspecify
+        else
+            specify
+                $setup(D, posedge CLK &&& !IS_CLK_INVERTED, \D.required () );
+                $setup(D, negedge CLK &&&  IS_CLK_INVERTED, \D.required () );
+            endspecify
+
+        if (PREG == 0)
+            specify
+                (PCIN *> P) =       1107;
+                (PCIN *> PCOUT) =   1255;
+            endspecify
+        else
+            specify
+                $setup(PCIN, posedge CLK &&& !IS_CLK_INVERTED, USE_PATTERN_DETECT != "NO_PATDET" ? 1315 : 1025);
+                $setup(PCIN, negedge CLK &&&  IS_CLK_INVERTED, USE_PATTERN_DETECT != "NO_PATDET" ? 1315 : 1025);
+            endspecify
+
+        if (PREG || AREG || BREG || CREG || DREG || MREG)
+            specify
+                if (!IS_CLK_INVERTED && CEP) (posedge CLK => (P : 48'bx)) = \P.arrival () ;
+                if ( IS_CLK_INVERTED && CEP) (negedge CLK => (P : 48'bx)) = \P.arrival () ;
+                if (!IS_CLK_INVERTED && CEP) (posedge CLK => (PCOUT : 48'bx)) = \PCOUT.arrival () ;
+                if ( IS_CLK_INVERTED && CEP) (negedge CLK => (PCOUT : 48'bx)) = \PCOUT.arrival () ;
+            endspecify
+    endgenerate
 `endif
 
     initial begin
