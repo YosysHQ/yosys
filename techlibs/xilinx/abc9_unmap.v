@@ -36,8 +36,7 @@ module $__ABC9_RAM7(input A, input [6:0] S, output Y);
   assign Y = A;
 endmodule
 
-(* techmap_celltype = "$__ABC9_DSP48E1_MULT $__ABC9_DSP48E1_MULT_DPORT $__ABC9_DSP48E1" *)
-module $ABC9_DSP48E1(
+module $__ABC9_DSP48E1(
     input [29:0] $A,
     input [17:0] $B,
     input [47:0] $C,
@@ -48,5 +47,14 @@ module $ABC9_DSP48E1(
     output [47:0] P,
     output [47:0] PCOUT
 );
+    parameter integer AREG = 1;
+    parameter integer BREG = 1;
+    parameter integer CREG = 1;
+    parameter integer DREG = 1;
+    parameter integer MREG = 1;
+    parameter integer PREG = 1;
+    parameter USE_DPORT = "FALSE";
+    parameter USE_MULT = "MULTIPLY";
+
     assign P = $P, PCOUT = $PCOUT;
 endmodule

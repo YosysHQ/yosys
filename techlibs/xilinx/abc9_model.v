@@ -94,10 +94,9 @@ module \$__ABC9_RAM7 (input A, input [6:0] S, output Y);
   endspecify
 endmodule
 
-// Boxes used to represent the comb behaviour of various modes
-//   of DSP48E1
-`define ABC9_DSP48E1(__NAME__) """
-module __NAME__ (
+// Boxes used to represent the comb behaviour of DSP48E1
+(* abc9_box *)
+module $__ABC9_DSP48E1 (
     input [29:0] $A,
     input [17:0] $B,
     input [47:0] $C,
@@ -106,50 +105,105 @@ module __NAME__ (
     input [47:0] $PCIN,
     input [47:0] $PCOUT,
     output [47:0] P,
-    output [47:0] PCOUT);
-"""
-(* abc9_box *) `ABC9_DSP48E1($__ABC9_DSP48E1_MULT)
-  specify
-    ($A *> P) = 2823;
-    ($B *> P) = 2690;
-    ($C *> P) = 1325;
-    ($PCIN *> P) = 1107;
-    ($P *> P) = 0;
-    ($A *> PCOUT) = 2970;
-    ($B *> PCOUT) = 2838;
-    ($C *> PCOUT) = 1474;
-    ($PCIN *> PCOUT) = 1255;
-    ($PCOUT *> PCOUT) = 0;
-  endspecify
+    output [47:0] PCOUT
+);
+    parameter integer AREG = 1;
+    parameter integer BREG = 1;
+    parameter integer CREG = 1;
+    parameter integer DREG = 1;
+    parameter integer MREG = 1;
+    parameter integer PREG = 1;
+    parameter USE_DPORT = "FALSE";
+    parameter USE_MULT = "MULTIPLY";
+
+    function integer \A.P.comb ;
+    begin
+        if (USE_MULT == "MULTIPLY" && USE_DPORT == "FALSE")     \A.P.comb = 2823;
+        else if (USE_MULT == "MULTIPLY" && USE_DPORT == "TRUE") \A.P.comb = 3806;
+        else if (USE_MULT == "NONE" && USE_DPORT == "FALSE")    \A.P.comb = 1523;
+    end
+    endfunction
+    function integer \A.PCOUT.comb ;
+    begin
+        if (USE_MULT == "MULTIPLY" && USE_DPORT == "FALSE")     \A.PCOUT.comb = 2970;
+        else if (USE_MULT == "MULTIPLY" && USE_DPORT == "TRUE") \A.PCOUT.comb = 3954;
+        else if (USE_MULT == "NONE" && USE_DPORT == "FALSE")    \A.PCOUT.comb = 1671;
+    end
+    endfunction
+    function integer \B.P.comb ;
+    begin
+        if (USE_MULT == "MULTIPLY" && USE_DPORT == "FALSE")     \B.P.comb = 2690;
+        else if (USE_MULT == "MULTIPLY" && USE_DPORT == "TRUE") \B.P.comb = 2690;
+        else if (USE_MULT == "NONE" && USE_DPORT == "FALSE")    \B.P.comb = 1509;
+    end
+    endfunction
+    function integer \B.PCOUT.comb ;
+    begin
+        if (USE_MULT == "MULTIPLY" && USE_DPORT == "FALSE")     \B.PCOUT.comb = 2838;
+        else if (USE_MULT == "MULTIPLY" && USE_DPORT == "TRUE") \B.PCOUT.comb = 2838;
+        else if (USE_MULT == "NONE" && USE_DPORT == "FALSE")    \B.PCOUT.comb = 1658;
+    end
+    endfunction
+    function integer \C.P.comb ;
+    begin
+        if (USE_MULT == "MULTIPLY" && USE_DPORT == "FALSE")     \C.P.comb = 1325;
+        else if (USE_MULT == "MULTIPLY" && USE_DPORT == "TRUE") \C.P.comb = 1325;
+        else if (USE_MULT == "NONE" && USE_DPORT == "FALSE")    \C.P.comb = 1325;
+    end
+    endfunction
+    function integer \C.PCOUT.comb ;
+    begin
+        if (USE_MULT == "MULTIPLY" && USE_DPORT == "FALSE")     \C.PCOUT.comb = 1474;
+        else if (USE_MULT == "MULTIPLY" && USE_DPORT == "TRUE") \C.PCOUT.comb = 1474;
+        else if (USE_MULT == "NONE" && USE_DPORT == "FALSE")    \C.PCOUT.comb = 1474;
+    end
+    endfunction
+    function integer \D.P.comb ;
+    begin
+        if (USE_MULT == "MULTIPLY" && USE_DPORT == "TRUE")      \D.P.comb = 3717;
+    end
+    endfunction
+    function integer \D.PCOUT.comb ;
+    begin
+        if (USE_MULT == "MULTIPLY" && USE_DPORT == "TRUE")      \D.PCOUT.comb = 3700;
+    end
+    endfunction
+
+	specify
+		($P *> P) 			= 0;
+		($PCOUT *> PCOUT)	= 0;
+	endspecify
+
+    // Identical comb delays to DSP48E1 in cells_sim.v
+    generate
+        if (PREG == 0 && MREG == 0 && AREG == 0)
+            specify
+                ($A *> P) =      \A.P.comb ();
+                ($A *> PCOUT) =  \A.PCOUT.comb ();
+            endspecify
+
+        if (PREG == 0 && MREG == 0 && BREG == 0)
+            specify
+                ($B *> P) =      \B.P.comb ();
+                ($B *> PCOUT) =  \B.PCOUT.comb ();
+            endspecify
+
+        if (PREG == 0 && CREG == 0)
+            specify
+                ($C *> P) =      \C.P.comb ();
+                ($C *> PCOUT) =  \C.PCOUT.comb ();
+            endspecify
+
+        if (PREG == 0 && MREG == 0 && DREG == 0)
+            specify
+                ($D *> P) =      \D.P.comb ();
+                ($D *> PCOUT) =  \D.PCOUT.comb ();
+            endspecify
+
+        if (PREG == 0)
+            specify
+                ($PCIN *> P) =       1107;
+                ($PCIN *> PCOUT) =   1255;
+            endspecify
+    endgenerate
 endmodule
-(* abc9_box *) `ABC9_DSP48E1($__ABC9_DSP48E1_MULT_DPORT)
-  specify
-    ($A *> P) = 3806;
-    ($B *> P) = 2690;
-    ($C *> P) = 1325;
-    ($D *> P) = 3717;
-    ($PCIN *> P) = 1107;
-    ($P *> P) = 0;
-    ($A *> PCOUT) = 3954;
-    ($B *> PCOUT) = 2838;
-    ($C *> PCOUT) = 1474;
-    ($D *> PCOUT) = 3700;
-    ($PCIN *> PCOUT) = 1255;
-    ($PCOUT *> PCOUT) = 0;
-  endspecify
-endmodule
-(* abc9_box *) `ABC9_DSP48E1($__ABC9_DSP48E1)
-  specify
-    ($A *> P) = 1523;
-    ($B *> P) = 1509;
-    ($C *> P) = 1325;
-    ($PCIN *> P) = 1107;
-    ($P *> P) = 0;
-    ($A *> PCOUT) = 1671;
-    ($B *> PCOUT) = 1658;
-    ($C *> PCOUT) = 1474;
-    ($PCIN *> PCOUT) = 1255;
-    ($PCOUT *> PCOUT) = 0;
-  endspecify
-endmodule
-`undef ABC9_DSP48E1
