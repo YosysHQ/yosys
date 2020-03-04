@@ -772,6 +772,7 @@ module DSP48E1 (
         .RSTP(RSTP)
     );
     $__ABC9_DSP48E1 #(
+        .ADREG(ADREG),
         .AREG(AREG),
         .BREG(BREG),
         .CREG(CREG),

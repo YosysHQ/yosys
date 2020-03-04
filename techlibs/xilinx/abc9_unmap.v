@@ -47,6 +47,7 @@ module $__ABC9_DSP48E1(
     output [47:0] P,
     output [47:0] PCOUT
 );
+    parameter integer ADREG = 1;
     parameter integer AREG = 1;
     parameter integer BREG = 1;
     parameter integer CREG = 1;

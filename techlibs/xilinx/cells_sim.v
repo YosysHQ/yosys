@@ -3231,7 +3231,7 @@ module DSP48E1 (
     endfunction
 
     generate
-        if (PREG == 0 && MREG == 0 && AREG == 0)
+        if (PREG == 0 && MREG == 0 && AREG == 0 && ADREG == 0)
             specify
                 (A *> P) =      \A.P.comb ();
                 (A *> PCOUT) =  \A.PCOUT.comb ();
@@ -3264,7 +3264,7 @@ module DSP48E1 (
                 $setup(C, negedge CLK &&&  IS_CLK_INVERTED, \C.required () );
             endspecify
 
-        if (PREG == 0 && MREG == 0 && DREG == 0)
+        if (PREG == 0 && MREG == 0 && ADREG == 0 && DREG == 0)
             specify
                 (D *> P) =      \D.P.comb ();
                 (D *> PCOUT) =  \D.PCOUT.comb ();
@@ -3286,7 +3286,7 @@ module DSP48E1 (
                 $setup(PCIN, negedge CLK &&&  IS_CLK_INVERTED, USE_PATTERN_DETECT != "NO_PATDET" ? 1315 : 1025);
             endspecify
 
-        if (PREG || AREG || BREG || CREG || DREG || MREG)
+        if (PREG || AREG || ADREG || BREG || CREG || DREG || MREG)
             specify
                 if (!IS_CLK_INVERTED && CEP) (posedge CLK => (P : 48'bx)) = \P.arrival () ;
                 if ( IS_CLK_INVERTED && CEP) (negedge CLK => (P : 48'bx)) = \P.arrival () ;

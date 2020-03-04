@@ -107,6 +107,7 @@ module $__ABC9_DSP48E1 (
     output [47:0] P,
     output [47:0] PCOUT
 );
+    parameter integer ADREG = 1;
     parameter integer AREG = 1;
     parameter integer BREG = 1;
     parameter integer CREG = 1;
@@ -176,7 +177,7 @@ module $__ABC9_DSP48E1 (
 
     // Identical comb delays to DSP48E1 in cells_sim.v
     generate
-        if (PREG == 0 && MREG == 0 && AREG == 0)
+        if (PREG == 0 && MREG == 0 && AREG == 0 && ADREG == 0)
             specify
                 ($A *> P) =      \A.P.comb ();
                 ($A *> PCOUT) =  \A.PCOUT.comb ();
@@ -194,7 +195,7 @@ module $__ABC9_DSP48E1 (
                 ($C *> PCOUT) =  \C.PCOUT.comb ();
             endspecify
 
-        if (PREG == 0 && MREG == 0 && DREG == 0)
+        if (PREG == 0 && MREG == 0 && ADREG == 0 && DREG == 0)
             specify
                 ($D *> P) =      \D.P.comb ();
                 ($D *> PCOUT) =  \D.PCOUT.comb ();
