@@ -777,6 +777,7 @@ module DSP48E1 (
         wire [17:0] $B;
         wire [47:0] $C;
         wire [24:0] $D;
+        wire [47:0] $PCIN;
 
         if (PREG == 0) begin
             if (MREG == 0 && AREG == 0) assign $A = A;
@@ -788,17 +789,19 @@ module DSP48E1 (
 
             if (CREG == 0) assign $C = C;
             else assign $C = 48'bx;
+
+	    assign $PCIN = PCIN;
         end
         else begin
-            assign $A = 30'bx, $B = 18'bx, $C = 48'bx, $D = 25'bx;
+            assign $A = 30'bx, $B = 18'bx, $C = 48'bx, $D = 25'bx, $PCIN = 48'bx;
         end
 
         if (USE_MULT == "MULTIPLY" && USE_DPORT == "FALSE")
-            $__ABC9_DSP48E1_MULT dsp_comb(.$A($A), .$B($B), .$C($C), .$D($D), .$P($P), .$PCIN(PCIN), .$PCOUT($PCOUT), .P(P), .PCOUT(PCOUT));
+            $__ABC9_DSP48E1_MULT dsp_comb(.$A($A), .$B($B), .$C($C), .$D($D), .$P($P), .$PCIN($PCIN), .$PCOUT($PCOUT), .P(P), .PCOUT(PCOUT));
         else if (USE_MULT == "MULTIPLY" && USE_DPORT == "TRUE")
-            $__ABC9_DSP48E1_MULT_DPORT dsp_comb(.$A($A), .$B($B), .$C($C), .$D($D), .$P($P), .$PCIN(PCIN), .$PCOUT($PCOUT), .P(P), .PCOUT(PCOUT));
+            $__ABC9_DSP48E1_MULT_DPORT dsp_comb(.$A($A), .$B($B), .$C($C), .$D($D), .$P($P), .$PCIN($PCIN), .$PCOUT($PCOUT), .P(P), .PCOUT(PCOUT));
         else if (USE_MULT == "NONE" && USE_DPORT == "FALSE")
-            $__ABC9_DSP48E1 dsp_comb(.$A($A), .$B($B), .$C($C), .$D($D), .$P($P), .$PCIN(PCIN), .$PCOUT($PCOUT), .P(P), .PCOUT(PCOUT));
+            $__ABC9_DSP48E1 dsp_comb(.$A($A), .$B($B), .$C($C), .$D($D), .$P($P), .$PCIN($PCIN), .$PCOUT($PCOUT), .P(P), .PCOUT(PCOUT));
         else
             $error("Invalid DSP48E1 configuration");
     endgenerate

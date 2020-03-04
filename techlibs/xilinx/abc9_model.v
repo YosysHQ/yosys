@@ -113,10 +113,12 @@ module __NAME__ (
     ($A *> P) = 2823;
     ($B *> P) = 2690;
     ($C *> P) = 1325;
+    ($PCIN *> P) = 1107;
     ($P *> P) = 0;
     ($A *> PCOUT) = 2970;
     ($B *> PCOUT) = 2838;
     ($C *> PCOUT) = 1474;
+    ($PCIN *> PCOUT) = 1255;
     ($PCOUT *> PCOUT) = 0;
   endspecify
 endmodule
@@ -125,12 +127,14 @@ endmodule
     ($A *> P) = 3806;
     ($B *> P) = 2690;
     ($C *> P) = 1325;
-    ($D *> P) = 3700;
+    ($D *> P) = 3717;
+    ($PCIN *> P) = 1107;
     ($P *> P) = 0;
     ($A *> PCOUT) = 3954;
     ($B *> PCOUT) = 2838;
     ($C *> PCOUT) = 1474;
     ($D *> PCOUT) = 3700;
+    ($PCIN *> PCOUT) = 1255;
     ($PCOUT *> PCOUT) = 0;
   endspecify
 endmodule
@@ -139,10 +143,12 @@ endmodule
     ($A *> P) = 1523;
     ($B *> P) = 1509;
     ($C *> P) = 1325;
+    ($PCIN *> P) = 1107;
     ($P *> P) = 0;
     ($A *> PCOUT) = 1671;
     ($B *> PCOUT) = 1658;
     ($C *> PCOUT) = 1474;
+    ($PCIN *> PCOUT) = 1255;
     ($PCOUT *> PCOUT) = 0;
   endspecify
 endmodule
