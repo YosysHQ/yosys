@@ -111,7 +111,8 @@ struct StaWorker
 						if (it == t.arrival.end())
 							continue;
 						const auto &s = it->second.second;
-						data[cell->getPort(s.name)[s.offset]].fanouts.emplace_back(bit,it->second.first,s.name);
+						if (cell->hasPort(s.name))
+							data[cell->getPort(s.name)[s.offset]].fanouts.emplace_back(bit,it->second.first,s.name);
 					}
 				}
 			}
