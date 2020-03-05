@@ -1532,7 +1532,7 @@ struct Smt2Backend : public Backend {
 
 		for (auto module : sorted_modules)
 			for (auto cell : module->cells())
-				if (cell->type.in("$allconst", "$allseq"))
+				if (cell->type.in("$anyconst", "$anyseq", "$allconst", "$allseq"))
 					goto found_forall;
 		if (0) {
 	found_forall:
