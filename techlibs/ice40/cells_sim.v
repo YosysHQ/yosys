@@ -2020,7 +2020,7 @@ specify
 	$setuphold(negedge CLK, negedge SR, 113:125:140, 0:0:0);
 endspecify
 `endif
-`ifdef ICE40_LX
+`ifdef ICE40_LP
 specify
 	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L79
 	(CIN => COUT) = (118:153:186, 98:128:155);
@@ -2045,7 +2045,7 @@ specify
 	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L89
 	(I3 => LO) = (249:323:393, 255:332:403);
 	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
-	(posedge CLK => O) = (504:655:796, 504:655:796);
+	(posedge CLK => (O : 1'bx)) = (504:655:796, 504:655:796);
 	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L91-L92
 	(SR => O) = (559:726:883, 559:726:883);
 	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
@@ -2109,7 +2109,7 @@ specify
 	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L101
 	(I3 => LO) = (216:378:583, 226:395:609);
 	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
-	(posedge CLK => O) = (516:903:1391, 516:903:1391);
+	(posedge CLK => (O : 1'bx)) = (516:903:1391, 516:903:1391);
 	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L103-104
 	(SR => O) = (420:734:1131, 590:1032:1589);
 	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L86
@@ -2366,7 +2366,7 @@ module SB_SPRAM256KA (
 `endif
 `ifdef ICE40_U
 	specify
-		https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13169-L13182
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13169-L13182
 		$setup(posedge ADDRESS, posedge CLOCK, 268);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13183
 		$setup(CHIPSELECT, posedge CLOCK, 404);
