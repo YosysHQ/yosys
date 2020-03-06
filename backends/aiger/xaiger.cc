@@ -224,8 +224,6 @@ struct XAigerWriter
 					alias_map[Q] = D;
 					auto r YS_ATTRIBUTE(unused) = ff_bits.insert(std::make_pair(D, cell));
 					log_assert(r.second);
-					if (input_bits.erase(Q))
-						log_assert(Q.wire->attributes.count(ID::keep));
 					continue;
 				}
 
@@ -379,11 +377,6 @@ struct XAigerWriter
 							alias_map[O] = b;
 						ci_bits.emplace_back(b);
 						undriven_bits.erase(O);
-						// If PI and CI, then must be a (* keep *) wire
-						if (input_bits.erase(O)) {
-							log_assert(output_bits.count(O));
-							log_assert(O.wire->get_bool_attribute(ID::keep));
-						}
 					}
 			}
 
@@ -468,8 +461,8 @@ struct XAigerWriter
 		for (const auto &bit : output_bits) {
 			ordered_outputs[bit] = aig_o++;
 			int aig;
-			// Unlike bit2aig() which checks aig_map first, for
-			//   inout/keep bits, since aig_map will point to
+			// Unlike bit2aig() which checks aig_map first for
+			//   inout/scc bits, since aig_map will point to
 			//   the PI, first attempt to find the NOT/AND driver
 			//   before resorting to an aig_map lookup (which
 			//   could be another PO)
