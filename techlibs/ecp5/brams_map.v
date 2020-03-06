@@ -122,7 +122,6 @@ module \$__ECP5_PDPW16KD (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1EN
 	parameter CLKPOL2 = 1;
 	parameter CLKPOL3 = 1;
 	parameter [18431:0] INIT = 18432'bx;
-	parameter TRANSP2 = 0;
 
 	input CLK2;
 	input CLK3;
@@ -137,8 +136,6 @@ module \$__ECP5_PDPW16KD (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1EN
 
 	localparam CLKWMUX = CLKPOL2 ? "CLKA" : "INV";
 	localparam CLKRMUX = CLKPOL3 ? "CLKB" : "INV";
-
-	localparam WRITEMODE_A = TRANSP2 ? "WRITETHROUGH" : "READBEFOREWRITE";
 
 	PDPW16KD #(
 		`include "bram_init_9_18_36.vh"
