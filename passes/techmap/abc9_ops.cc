@@ -93,9 +93,10 @@ void check(RTLIL::Design *design)
 void mark_scc(RTLIL::Module *module)
 {
 	// For every unique SCC found, (arbitrarily) find the first
-	//   cell in the component, and convert all wires driven by
-	//   its output ports into a new PO, and drive its previous
-	//   sinks with a new PI
+	//   cell in the component, and replace its output connections
+	//   with a new wire driven by the old connection but with a
+	//   special (* abc9_scc *) attribute set (which is used by
+	//   write_xaiger to break this wire into PI and POs)
 	pool<RTLIL::Const> ids_seen;
 	for (auto cell : module->cells()) {
 		auto it = cell->attributes.find(ID(abc9_scc_id));
@@ -109,11 +110,10 @@ void mark_scc(RTLIL::Module *module)
 		for (auto &c : cell->connections_) {
 			if (c.second.is_fully_const()) continue;
 			if (cell->output(c.first)) {
-				SigBit b = c.second.as_bit();
-				// TODO: Don't be as heavy handed as to
-				//       mark the entire wire as part of the scc
-				Wire *w = b.wire;
+				Wire *w = module->addWire(NEW_ID, GetSize(c.second));
 				w->set_bool_attribute(ID(abc9_scc));
+				module->connect(w, c.second);
+				c.second = w;
 			}
 		}
 	}
