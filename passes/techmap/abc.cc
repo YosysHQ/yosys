@@ -1553,6 +1553,11 @@ struct AbcPass : public Pass {
 		show_tempdir = design->scratchpad_get_bool("abc.showtmp", show_tempdir);
 		markgroups = design->scratchpad_get_bool("abc.markgroups", markgroups);
 
+		if (design->scratchpad_get_bool("abc.debug")) {
+			cleanup = false;
+			show_tempdir = true;
+		}
+
 		size_t argidx, g_argidx;
 		bool g_arg_from_cmd = false;
 		char pwd [PATH_MAX];
