@@ -110,14 +110,13 @@ void mark_scc(RTLIL::Module *module)
 			if (c.second.is_fully_const()) continue;
 			if (cell->output(c.first)) {
 				SigBit b = c.second.as_bit();
+				// TODO: Don't be as heavy handed as to
+				//       mark the entire wire as part of the scc
 				Wire *w = b.wire;
-				w->set_bool_attribute(ID::keep);
-				w->attributes[ID(abc9_scc_id)] = id.as_int();
+				w->set_bool_attribute(ID(abc9_scc));
 			}
 		}
 	}
-
-	module->fixup_ports();
 }
 
 void prep_dff(RTLIL::Module *module)
@@ -967,10 +966,8 @@ void reintegrate(RTLIL::Module *module)
 		RTLIL::Wire *mapped_wire = mapped_mod->wire(port);
 		RTLIL::Wire *wire = module->wire(port);
 		log_assert(wire);
-		if (wire->attributes.erase(ID(abc9_scc_id))) {
-			auto r YS_ATTRIBUTE(unused) = wire->attributes.erase(ID::keep);
-			log_assert(r);
-		}
+		wire->attributes.erase(ID(abc9_scc));
+
 		RTLIL::Wire *remap_wire = module->wire(remap_name(port));
 		RTLIL::SigSpec signal(wire, 0, GetSize(remap_wire));
 		log_assert(GetSize(signal) >= GetSize(remap_wire));

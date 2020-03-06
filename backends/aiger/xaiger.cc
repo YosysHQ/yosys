@@ -174,11 +174,12 @@ struct XAigerWriter
 				undriven_bits.insert(bit);
 				unused_bits.insert(bit);
 
-				bool keep = wire->get_bool_attribute(ID::keep);
-				if (wire->port_input || keep)
+				bool scc = wire->attributes.count(ID(abc9_scc));
+				if (wire->port_input || scc)
 					input_bits.insert(bit);
 
-				if (wire->port_output || keep) {
+				bool keep = wire->get_bool_attribute(ID::keep);
+				if (wire->port_output || keep || scc) {
 					if (bit != wirebit)
 						alias_map[wirebit] = bit;
 					output_bits.insert(wirebit);
