@@ -1158,6 +1158,8 @@ def smt_forall_assert():
     global asserts_cache_dirty
     asserts_cache_dirty = False
 
+    assert (len(smt.modinfo[topmod].maximize) + len(smt.modinfo[topmod].minimize) <= 1)
+
     def make_assert_expr(asserts_cache):
         expr = list()
         for lst in asserts_cache:
@@ -1235,6 +1237,18 @@ def smt_forall_assert():
     assert_expr.append(") (=> %s %s)))" % (new_antecedent_expr, new_consequent_expr))
 
     smt.write("".join(assert_expr))
+
+    if len(smt.modinfo[topmod].maximize) > 0:
+        for s in states:
+            if s in used_states_db:
+                smt.write("(maximize (|%s| %s))\n" % (smt.modinfo[topmod].maximize.copy().pop(), s))
+                break
+
+    if len(smt.modinfo[topmod].minimize) > 0:
+        for s in states:
+            if s in used_states_db:
+                smt.write("(minimize (|%s| %s))\n" % (smt.modinfo[topmod].minimize.copy().pop(), s))
+                break
 
 def smt_push():
     global asserts_cache_dirty

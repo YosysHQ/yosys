@@ -536,6 +536,14 @@ struct Smt2Worker
 				if (cell->attributes.count("\\reg"))
 					infostr += " " + cell->attributes.at("\\reg").decode_string();
 				decls.push_back(stringf("; yosys-smt2-%s %s#%d %d %s\n", cell->type.c_str() + 1, get_id(module), idcounter, GetSize(cell->getPort("\\Y")), infostr.c_str()));
+				if (cell->getPort("\\Y").is_wire() && cell->getPort("\\Y").as_wire()->get_bool_attribute("\\maximize")){
+					decls.push_back(stringf("; yosys-smt2-maximize %s#%d\n", get_id(module), idcounter));
+					log("Wire %s is maximized\n", cell->getPort("\\Y").as_wire()->name.str().c_str());
+				}
+				else if (cell->getPort("\\Y").is_wire() && cell->getPort("\\Y").as_wire()->get_bool_attribute("\\minimize")){
+					decls.push_back(stringf("; yosys-smt2-minimize %s#%d\n", get_id(module), idcounter));
+					log("Wire %s is minimized\n", cell->getPort("\\Y").as_wire()->name.str().c_str());
+				}
 				makebits(stringf("%s#%d", get_id(module), idcounter), GetSize(cell->getPort("\\Y")), log_signal(cell->getPort("\\Y")));
 				if (cell->type == "$anyseq")
 					ex_input_eq.push_back(stringf("  (= (|%s#%d| state) (|%s#%d| other_state))", get_id(module), idcounter, get_id(module), idcounter));
