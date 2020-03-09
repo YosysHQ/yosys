@@ -136,7 +136,8 @@ struct StaWorker
 			}
 			if (wire->port_output)
 				for (const auto &b : sigmap(wire))
-					endpoints.insert(b);
+					if (b.wire)
+						endpoints.insert(b);
 		}
 	}
 
