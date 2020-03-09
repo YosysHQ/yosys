@@ -332,9 +332,9 @@ struct Abc9Pass : public ScriptPass
 					tempdir_name = make_temp_dir(tempdir_name);
 
 					if (!lut_mode)
-						run(stringf("abc9_ops -write_lut %s/input.lut", tempdir_name.c_str()));
-					run(stringf("abc9_ops -write_box %s/input.box", tempdir_name.c_str()));
-					run(stringf("write_xaiger -map %s/input.sym %s/input.xaig", tempdir_name.c_str(), tempdir_name.c_str()));
+						run_nocheck(stringf("abc9_ops -write_lut %s/input.lut", tempdir_name.c_str()));
+					run_nocheck(stringf("abc9_ops -write_box %s/input.box", tempdir_name.c_str()));
+					run_nocheck(stringf("write_xaiger -map %s/input.sym %s/input.xaig", tempdir_name.c_str(), tempdir_name.c_str()));
 
 					int num_outputs = active_design->scratchpad_get_int("write_xaiger.num_outputs");
 
@@ -350,9 +350,9 @@ struct Abc9Pass : public ScriptPass
 						if (!lut_mode)
 							abc9_exe_cmd += stringf(" -lut %s/input.lut", tempdir_name.c_str());
 						abc9_exe_cmd += stringf(" -box %s/input.box", tempdir_name.c_str());
-						run(abc9_exe_cmd);
-						run(stringf("read_aiger -xaiger -wideports -module_name %s$abc9 -map %s/input.sym %s/output.aig", log_id(mod), tempdir_name.c_str(), tempdir_name.c_str()));
-						run("abc9_ops -reintegrate");
+						run_nocheck(abc9_exe_cmd);
+						run_nocheck(stringf("read_aiger -xaiger -wideports -module_name %s$abc9 -map %s/input.sym %s/output.aig", log_id(mod), tempdir_name.c_str(), tempdir_name.c_str()));
+						run_nocheck("abc9_ops -reintegrate");
 					}
 					else
 						log("Don't call ABC as there is nothing to map.\n");
@@ -361,7 +361,7 @@ struct Abc9Pass : public ScriptPass
 						log("Removing temp directory.\n");
 						remove_directory(tempdir_name);
 					}
-
+					mod->check();
 					active_design->selection().selected_modules.clear();
 					log_pop();
 				}

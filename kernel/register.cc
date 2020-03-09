@@ -400,6 +400,18 @@ void ScriptPass::run(std::string command, std::string info)
 	}
 }
 
+void ScriptPass::run_nocheck(std::string command, std::string info)
+{
+	if (active_design == nullptr) {
+		if (info.empty())
+			log("        %s\n", command.c_str());
+		else
+			log("        %s    %s\n", command.c_str(), info.c_str());
+	} else {
+		Pass::call(active_design, command);
+	}
+}
+
 void ScriptPass::run_script(RTLIL::Design *design, std::string run_from, std::string run_to)
 {
 	help_mode = false;
