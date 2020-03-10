@@ -2113,18 +2113,22 @@ simple_behavioral_stmt:
 	lvalue '=' delay expr {
 		AstNode *node = new AstNode(AST_ASSIGN_EQ, $1, $4);
 		ast_stack.back()->children.push_back(node);
+		SET_AST_NODE_LOC(node, @1, @4);
 	} |
 	lvalue TOK_INCREMENT {
 		AstNode *node = new AstNode(AST_ASSIGN_EQ, $1, new AstNode(AST_ADD, $1->clone(), AstNode::mkconst_int(1, true)));
 		ast_stack.back()->children.push_back(node);
+		SET_AST_NODE_LOC(node, @1, @2);
 	} |
 	lvalue TOK_DECREMENT {
 		AstNode *node = new AstNode(AST_ASSIGN_EQ, $1, new AstNode(AST_SUB, $1->clone(), AstNode::mkconst_int(1, true)));
 		ast_stack.back()->children.push_back(node);
+		SET_AST_NODE_LOC(node, @1, @2);
 	} |
 	lvalue OP_LE delay expr {
 		AstNode *node = new AstNode(AST_ASSIGN_LE, $1, $4);
 		ast_stack.back()->children.push_back(node);
+		SET_AST_NODE_LOC(node, @1, @4);
 	};
 
 // this production creates the obligatory if-else shift/reduce conflict
