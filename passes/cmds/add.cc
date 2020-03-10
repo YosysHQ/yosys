@@ -150,7 +150,7 @@ struct AddPass : public Pass {
 			return;
 		}
 
-		extra_args(args, argidx, design);
+		extra_args(args, argidx, design, false);
 
 		for (auto module : design->modules())
 		{
