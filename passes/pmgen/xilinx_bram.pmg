@@ -1,12 +1,12 @@
 pattern xilinx_bram_pack
-state <SigSpec> sigDOA
+state <SigSpec> sigDOA sigDOB
 
 state <SigBit> clock
-state <Cell*> ffDOA ffDOAcemux
-state <bool> ffDOAcepol
+state <Cell*> ffDOA ffDOAcemux ffDOB ffDOBcemux
+state <bool> ffDOAcepol ffDOBcepol
 
 // Variables used for subpatterns
-state <SigSpec> argQ argD argEN
+state <SigSpec> argQ argD
 state <bool> ffcepol ffrstpol
 state <int> ffoffset
 udata <SigSpec> dffD dffQ
@@ -16,13 +16,14 @@ udata <bool> dffcepol dffrstpol
 
 // (1) Starting from a RAMB18E1 cell
 match bram
-	select bram->type.in(\RAMB18E1)
+	select bram->type.in(\RAMB18E1, \RAMB36E1)
 endmatch
 
 code sigDOA
 	if (param(bram, \DOA_REG, 0).as_int() == 0) {
                 SigSpec DOA = port(bram, \DOADO);
-		for (int i = 0; i < GetSize(DOA); i++)
+		for (int i = 0; i < GetSize(DOA); i++) 
+		{
 			// Ignore unused output bits
 			if (nusers(DOA[i]) < 2)
 				continue;
@@ -35,6 +36,7 @@ code sigDOA
                                 sigDOA = SigSpec();
                                 break;
                         }
+		}
 	}
 endcode
 
@@ -50,6 +52,44 @@ code argD ffDOA ffDOAcemux ffDOAcepol sigDOA clock
 				ffDOAcepol = dffcepol;
 			}
 			sigDOA = dffQ;
+		}
+	}
+endcode
+
+code sigDOB
+	if (param(bram, \DOB_REG, 0).as_int() == 0) {
+                SigSpec DOB = port(bram, \DOBDO);
+		for (int i = 0; i < GetSize(DOB); i++)
+		{
+			// Ignore unused output bits
+			if (nusers(DOB[i]) < 2)
+				continue;
+			// Only collect output bits with a single sink
+			else if (nusers(DOB[i]) == 2)
+                                sigDOB.append(DOB[i]);
+			// Abandon this whole output if any bit
+			//   has more than a single sink
+                        else if (nusers(DOB[i]) > 2) {
+                                sigDOB = SigSpec();
+                                break;
+                        }
+		}
+	}
+
+endcode
+
+code argD ffDOB ffDOBcemux ffDOBcepol sigDOB clock
+	if (!sigDOB.empty()) {
+		argD = sigDOB;
+		clock = port(bram, \CLKARDCLK);
+		subpattern(out_dffe);
+		if (dff) {
+			ffDOB = dff;
+			if (dffcemux) {
+				ffDOBcemux = dffcemux;
+				ffDOBcepol = dffcepol;
+			}
+			sigDOB = dffQ;
 		}
 	}
 endcode

@@ -32,21 +32,42 @@ void xilinx_bram_pack(xilinx_bram_pm &pm)
 	auto &st = pm.st_xilinx_bram_pack;
 	
 	log("Analysing %s.%s for BRAM packing.\n", log_id(pm.module), log_id(st.bram));
-	
+
+	log_debug("ffDOAcemux:	%s\n", log_id(st.ffDOAcemux, "--"));
+	log_debug("ffDOBcemux:	%s\n", log_id(st.ffDOBcemux, "--"));
+	log_debug("ffDOA:	%s\n", log_id(st.ffDOA, "--"));
+	log_debug("ffDOB:	%s\n", log_id(st.ffDOB, "--"));
+
+
 	Cell *cell = st.bram;
-	SigSpec ena;
 
 	if(st.ffDOAcemux)
 	{
-		ena = st.ffDOAcemux->getPort(ID(S));
+		log("	Enable function: %s (%s)\n", log_id(st.ffDOAcemux), log_id(st.ffDOAcemux->type));
+		SigSpec ena = st.ffDOAcemux->getPort(ID(S));
 		cell->setPort(ID(REGCEAREGCE), ena);
+	}
+
+	if(st.ffDOBcemux)
+	{
+		log("	Enable function: %s (%s)\n", log_id(st.ffDOBcemux), log_id(st.ffDOBcemux->type));
+		SigSpec ena = st.ffDOBcemux->getPort(ID(S));
+		cell->setPort(ID(REGCEB), ena);
 	}
 
 	if(st.ffDOA) 
 	{
+		log("	Registers that can be packed: %s (%s)\n", log_id(st.ffDOA), log_id(st.ffDOA->type));
 		cell->setParam(ID(DOA_REG), 1);
 		cell->setPort(ID(DOADO), st.sigDOA);
-	}	
+	}
+
+	if(st.ffDOB)
+	{
+		log("	Enable function: %s (%s)\n", log_id(st.ffDOBcemux), log_id(st.ffDOBcemux->type));
+		cell->setParam(ID(DOB_REG), 1);
+		cell->setPort(ID(DOBDO), st.sigDOB);
+	}
 
 }
 
