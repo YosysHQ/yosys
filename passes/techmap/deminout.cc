@@ -121,8 +121,7 @@ struct DeminoutPass : public Pass {
 									goto tribuf_bit;
 							} else {
 						tribuf_bit:
-								if (bits_used.count(bit))
-									new_input = true;
+								new_input = true;
 							}
 						}
 
