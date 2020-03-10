@@ -24,24 +24,23 @@ PRIVATE_NAMESPACE_BEGIN
 
 static void add_wire(RTLIL::Design *design, RTLIL::Module *module, std::string name, int width, bool flag_input, bool flag_output, bool flag_global)
 {
-	RTLIL::Wire *wire = NULL;
+	RTLIL::Wire *wire = nullptr;
 	name = RTLIL::escape_id(name);
 
 	if (module->count_id(name) != 0)
 	{
-		if (module->wires_.count(name) > 0)
-			wire = module->wires_.at(name);
+		wire = module->wire(name);
 
-		if (wire != NULL && wire->width != width)
-			wire = NULL;
+		if (wire != nullptr && wire->width != width)
+			wire = nullptr;
 
-		if (wire != NULL && wire->port_input != flag_input)
-			wire = NULL;
+		if (wire != nullptr && wire->port_input != flag_input)
+			wire = nullptr;
 
-		if (wire != NULL && wire->port_output != flag_output)
-			wire = NULL;
+		if (wire != nullptr && wire->port_output != flag_output)
+			wire = nullptr;
 
-		if (wire == NULL)
+		if (wire == nullptr)
 			log_cmd_error("Found incompatible object with same name in module %s!\n", module->name.c_str());
 
 		log("Module %s already has such an object.\n", module->name.c_str());
@@ -53,7 +52,6 @@ static void add_wire(RTLIL::Design *design, RTLIL::Module *module, std::string n
 		wire->port_output = flag_output;
 
 		if (flag_input || flag_output) {
-			wire->port_id = module->wires_.size();
 			module->fixup_ports();
 		}
 
@@ -63,21 +61,20 @@ static void add_wire(RTLIL::Design *design, RTLIL::Module *module, std::string n
 	if (!flag_global)
 		return;
 
-	for (auto &it : module->cells_)
+	for (auto cell : module->cells())
 	{
-		if (design->modules_.count(it.second->type) == 0)
+		RTLIL::Module *mod = design->module(cell->type);
+		if (mod == nullptr)
 			continue;
-
-		RTLIL::Module *mod = design->modules_.at(it.second->type);
 		if (!design->selected_whole_module(mod->name))
 			continue;
 		if (mod->get_blackbox_attribute())
 			continue;
-		if (it.second->hasPort(name))
+		if (cell->hasPort(name))
 			continue;
 
-		it.second->setPort(name, wire);
-		log("Added connection %s to cell %s.%s (%s).\n", name.c_str(), module->name.c_str(), it.first.c_str(), it.second->type.c_str());
+		cell->setPort(name, wire);
+		log("Added connection %s to cell %s.%s (%s).\n", name.c_str(), module->name.c_str(), cell->name.c_str(), cell->type.c_str());
 	}
 }
 
@@ -155,9 +152,9 @@ struct AddPass : public Pass {
 
 		extra_args(args, argidx, design);
 
-		for (auto &mod : design->modules_)
+		for (auto module : design->modules())
 		{
-			RTLIL::Module *module = mod.second;
+			log_assert(module != nullptr);
 			if (!design->selected_whole_module(module->name))
 				continue;
 			if (module->get_bool_attribute("\\blackbox"))
