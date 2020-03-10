@@ -27,6 +27,29 @@ PRIVATE_NAMESPACE_BEGIN
 
 #include "passes/pmgen/xilinx_bram_pm.h"
 
+void xilinx_bram_pack(xilinx_bram_pm &pm) 
+{
+	auto &st = pm.st_xilinx_bram_pack;
+	
+	log("Analysing %s.%s for BRAM packing.\n", log_id(pm.module), log_id(st.bram));
+	
+	Cell *cell = st.bram;
+	SigSpec ena;
+
+	if(st.ffDOAcemux)
+	{
+		ena = st.ffDOAcemux->getPort(ID(S));
+		cell->setPort(ID(REGCEAREGCE), ena);
+	}
+
+	if(st.ffDOA) 
+	{
+		cell->setParam(ID(DOA_REG), 1);
+		cell->setPort(ID(DOADO), st.sigDOA);
+	}	
+
+}
+
 struct XilinxBramPass: public Pass {
 	XilinxBramPass() : Pass("xilinx_bram", "Xilinx: pack flip-flops into BRAM") { }
 	void help () YS_OVERRIDE
@@ -35,7 +58,7 @@ struct XilinxBramPass: public Pass {
 		log("\n");
 		log("    xilinx_bram\n");
 		log("\n");
-		log("Pack DOADO output flops into RAMB18/36E1 primitives\n");
+		log("Pack A/B output port flops into RAMB18/36E1 primitives\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
@@ -50,7 +73,7 @@ struct XilinxBramPass: public Pass {
 
 		for (auto module : design->selected_modules()) {
 			xilinx_bram_pm pm(module, module->selected_cells());
-			pm.run_xilinx_bram();
+			pm.run_xilinx_bram_pack(xilinx_bram_pack);
 		}
 	}
 } XilinxBramPass;

@@ -1,4 +1,4 @@
-pattern xilinx_bram
+pattern xilinx_bram_pack
 state <SigSpec> sigDOA
 
 state <SigBit> clock
@@ -6,7 +6,7 @@ state <Cell*> ffDOA ffDOAcemux
 state <bool> ffDOAcepol
 
 // Variables used for subpatterns
-state <SigSpec> argQ argD
+state <SigSpec> argQ argD argEN
 state <bool> ffcepol ffrstpol
 state <int> ffoffset
 udata <SigSpec> dffD dffQ
@@ -53,15 +53,15 @@ code argD ffDOA ffDOAcemux ffDOAcepol sigDOA clock
 		}
 	}
 endcode
-
+ 
 code
-	log_dump(sigDOA, ffDOA);
+	log_dump(sigDOA, ffDOA, ffDOAcemux);
+	accept;
 endcode
-
 
 subpattern out_dffe
 arg argD argQ clock
-
+ 
 code
 	dff = nullptr;
 	for (auto c : argD.chunks())
@@ -69,7 +69,7 @@ code
 		if (c.wire->get_bool_attribute(\keep))
 			reject;
 endcode
-
+ 
 // (1) Starting from an optional $mux cell that implements clock enable
 //     semantics --- one where the given 'D' argument (partially or fully)
 //     drives one of its two inputs
@@ -77,26 +77,26 @@ match ffcemux
 	select ffcemux->type.in($mux)
 	// ffcemux output must have two users: ffcemux and ff.D
 	select nusers(port(ffcemux, \Y)) == 2
-
+ 
 	choice <IdString> AB {\A, \B}
 	// keep-last-value net must have at least three users: ffcemux, ff, downstream sink(s)
 	select nusers(port(ffcemux, AB)) >= 3
-
+ 
 	slice offset GetSize(port(ffcemux, \Y))
 	define <IdString> BA (AB == \A ? \B : \A)
 	index <SigBit> port(ffcemux, BA)[offset] === argD[0]
-
+ 
 	// Check that the rest of argD is present
 	filter GetSize(port(ffcemux, BA)) >= offset + GetSize(argD)
 	filter port(ffcemux, BA).extract(offset, GetSize(argD)) == argD
-
+ 
 	set ffoffset offset
 	define <bool> pol (AB == \A)
 	set ffcepol pol
-
+ 
 	semioptional
 endmatch
-
+ 
 code argD argQ
 	dffcemux = ffcemux;
 	if (ffcemux) {
@@ -105,22 +105,21 @@ code argD argQ
 		argQ = argD;
 		argD.replace(BA, Y);
 		argQ.replace(BA, port(ffcemux, ffcepol ? \A : \B));
-
+ 
 		dffcemux = ffcemux;
 		dffcepol = ffcepol;
 	}
+	log_dump(ffcemux, argD, argQ);
 endcode
-
+ 
 // (3) Match for a $dff cell (whose 'D' input is the 'D' argument, or the
 //     output of the previous clock enable or reset $mux cells)
 match ff
 	select ff->type.in($dff)
-	// DSP48E1 does not support clock inversion
-	select param(ff, \CLK_POLARITY).as_bool()
-
+	
 	slice offset GetSize(port(ff, \D))
 	index <SigBit> port(ff, \D)[offset] === argD[0] 
-
+ 
 	// Check that offset is consistent
 	filter (!ffcemux) || ffoffset == offset
 	// Check that the rest of argD is present
@@ -128,12 +127,12 @@ match ff
 	filter port(ff, \D).extract(offset, GetSize(argD)) == argD
 	// Check that FF.Q is connected to CE-mux
 	filter !ffcemux || port(ff, \Q).extract(offset, GetSize(argQ)) == argQ
-
+ 
 	filter clock == SigBit() || port(ff, \CLK) == clock
-
+ 
 	set ffoffset offset
 endmatch
-
+ 
 code argQ
 	SigSpec D = port(ff, \D);
 	SigSpec Q = port(ff, \Q);
@@ -141,18 +140,9 @@ code argQ
 		argQ = argD;
 		argQ.replace(D, Q);
 	}
-
-	// Abandon matches when 'Q' has a non-zero init attribute set
-	// (not supported by DSP48E1)
-	for (auto c : argQ.chunks()) {
-		Const init = c.wire->attributes.at(\init, Const());
-		if (!init.empty())
-			for (auto b : init.extract(c.offset, c.width))
-				if (b != State::Sx && b != State::S0)
-					reject;
-	}
-
+ 
 	dff = ff;
 	dffQ = argQ;
 	dffclock = port(ff, \CLK);
+	log_dump(ff, dff, dffQ, dffclock);
 endcode
