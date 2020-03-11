@@ -93,9 +93,10 @@ void check(RTLIL::Design *design)
 void mark_scc(RTLIL::Module *module)
 {
 	// For every unique SCC found, (arbitrarily) find the first
-	//   cell in the component, and convert all wires driven by
-	//   its output ports into a new PO, and drive its previous
-	//   sinks with a new PI
+	//   cell in the component, and replace its output connections
+	//   with a new wire driven by the old connection but with a
+	//   special (* abc9_scc *) attribute set (which is used by
+	//   write_xaiger to break this wire into PI and POs)
 	pool<RTLIL::Const> ids_seen;
 	for (auto cell : module->cells()) {
 		auto it = cell->attributes.find(ID(abc9_scc_id));
@@ -109,15 +110,13 @@ void mark_scc(RTLIL::Module *module)
 		for (auto &c : cell->connections_) {
 			if (c.second.is_fully_const()) continue;
 			if (cell->output(c.first)) {
-				SigBit b = c.second.as_bit();
-				Wire *w = b.wire;
-				w->set_bool_attribute(ID::keep);
-				w->attributes[ID(abc9_scc_id)] = id.as_int();
+				Wire *w = module->addWire(NEW_ID, GetSize(c.second));
+				w->set_bool_attribute(ID(abc9_scc));
+				module->connect(w, c.second);
+				c.second = w;
 			}
 		}
 	}
-
-	module->fixup_ports();
 }
 
 void prep_dff(RTLIL::Module *module)
@@ -967,10 +966,8 @@ void reintegrate(RTLIL::Module *module)
 		RTLIL::Wire *mapped_wire = mapped_mod->wire(port);
 		RTLIL::Wire *wire = module->wire(port);
 		log_assert(wire);
-		if (wire->attributes.erase(ID(abc9_scc_id))) {
-			auto r YS_ATTRIBUTE(unused) = wire->attributes.erase(ID::keep);
-			log_assert(r);
-		}
+		wire->attributes.erase(ID(abc9_scc));
+
 		RTLIL::Wire *remap_wire = module->wire(remap_name(port));
 		RTLIL::SigSpec signal(wire, 0, GetSize(remap_wire));
 		log_assert(GetSize(signal) >= GetSize(remap_wire));
