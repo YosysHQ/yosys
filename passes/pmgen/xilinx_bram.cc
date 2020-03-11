@@ -41,35 +41,34 @@ void xilinx_bram_pack(xilinx_bram_pm &pm)
 
 	Cell *cell = st.bram;
 
-	if(st.ffDOAcemux)
-	{
-		log("	Enable function: %s (%s)\n", log_id(st.ffDOAcemux), log_id(st.ffDOAcemux->type));
-		SigSpec ena = st.ffDOAcemux->getPort(ID(S));
-		cell->setPort(ID(REGCEAREGCE), ena);
-	}
-
-	if(st.ffDOBcemux)
-	{
-		log("	Enable function: %s (%s)\n", log_id(st.ffDOBcemux), log_id(st.ffDOBcemux->type));
-		SigSpec ena = st.ffDOBcemux->getPort(ID(S));
-		cell->setPort(ID(REGCEB), ena);
-	}
-
-	if(st.ffDOA) 
-	{
+	if (st.ffDOA) {
 		log("	Registers in DOADO port that can be packed: %s (%s)\n", log_id(st.ffDOA), log_id(st.ffDOA->type));
-		cell->setParam(ID(DOA_REG), 1);
-		cell->setPort(ID(DOADO), st.sigDOA);
-		if (st.ffDOPA) 
-		{	
-			log("	Registers in DOPADOP port that can be packed: %s (%s)\n", log_id(st.ffDOPA), log_id(st.ffDOPA->type));
-			cell->setPort(ID(DOPADOP), st.sigDOPA);
+		auto DOADO = cell->getPort(ID(DOADO));
+		// TODO: Handle rstmux
+		if (st.ffDOAcemux) {
+		    DOADO.replace(pm.sigmap(st.ffDOAcemux->getPort(st.ffDOAcepol ? ID::B : ID::A)),
+			    st.ffDOAcemux->getPort(ID::Y));
+		    log("	Enable function: %s (%s)\n", log_id(st.ffDOAcemux), log_id(st.ffDOAcemux->type));
+		    // TODO: Handle cepol
+		    SigSpec ena = st.ffDOAcemux->getPort(ID(S));
+		    cell->setPort(ID(REGCEAREGCE), ena);
 		}
+		DOADO.replace(pm.sigmap(st.ffDOA->getPort(ID(D))), st.ffDOA->getPort(ID(Q)));
+		cell->setParam(ID(DOA_REG), 1);
+		cell->setPort(ID(DOADO), DOADO);
+
+		auto Q = st.ffDOA->getPort(ID(Q));
+		Q.replace(st.sigDOA, pm.module->addWire(NEW_ID, GetSize(st.sigDOA)));
+		st.ffDOA->setPort(ID(Q), Q);
 	}
 
-	if(st.ffDOB)
-	{
+	if (st.ffDOB) {
 		log("	Enable function: %s (%s)\n", log_id(st.ffDOBcemux), log_id(st.ffDOBcemux->type));
+		if(st.ffDOBcemux) {
+		    log("	Enable function: %s (%s)\n", log_id(st.ffDOBcemux), log_id(st.ffDOBcemux->type));
+		    SigSpec ena = st.ffDOBcemux->getPort(ID(S));
+		    cell->setPort(ID(REGCEB), ena);
+		}
 		cell->setParam(ID(DOB_REG), 1);
 		cell->setPort(ID(DOBDO), st.sigDOB);
 	}
