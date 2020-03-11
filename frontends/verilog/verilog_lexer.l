@@ -113,8 +113,10 @@ extern int frontend_verilog_yylex(YYSTYPE *yylval_param, YYLTYPE *yyloc_param);
 %x SYNOPSYS_TRANSLATE_OFF
 %x SYNOPSYS_FLAGS
 %x IMPORT_DPI
+%x BASED_CONST
 
 %%
+	int comment_caller;
 
 <INITIAL,SYNOPSYS_TRANSLATE_OFF>"`file_push "[^\n]* {
 	fn_stack.push_back(current_filename);
@@ -273,9 +275,21 @@ extern int frontend_verilog_yylex(YYSTYPE *yylval_param, YYLTYPE *yyloc_param);
 	return TOK_CONSTVAL;
 }
 
-[0-9]*[ \t]*\'[sS]?[bodhBODH]?[ \t\r\n]*[0-9a-fA-FzxZX?_]+ {
+\'[01zxZX] {
 	yylval->string = new std::string(yytext);
-	return TOK_CONSTVAL;
+	return TOK_UNBASED_UNSIZED_CONSTVAL;
+}
+
+\'[sS]?[bodhBODH] {
+	BEGIN(BASED_CONST);
+	yylval->string = new std::string(yytext);
+	return TOK_BASE;
+}
+
+<BASED_CONST>[0-9a-fA-FzxZX?][0-9a-fA-FzxZX?_]* {
+	BEGIN(0);
+	yylval->string = new std::string(yytext);
+	return TOK_BASED_CONSTVAL;
 }
 
 [0-9][0-9_]*\.[0-9][0-9_]*([eE][-+]?[0-9_]+)? {
@@ -478,16 +492,17 @@ import[ \t\r\n]+\"(DPI|DPI-C)\"[ \t\r\n]+function[ \t\r\n]+ {
 	return TOK_SPECIFY_AND;
 }
 
-"/*" { BEGIN(COMMENT); }
+<INITIAL,BASED_CONST>"/*" { comment_caller=YY_START; BEGIN(COMMENT); }
 <COMMENT>.    /* ignore comment body */
 <COMMENT>\n   /* ignore comment body */
-<COMMENT>"*/" { BEGIN(0); }
+<COMMENT>"*/" { BEGIN(comment_caller); }
 
-[ \t\r\n]		/* ignore whitespaces */
-\\[\r\n]		/* ignore continuation sequence */
-"//"[^\r\n]*		/* ignore one-line comments */
+<INITIAL,BASED_CONST>[ \t\r\n]		/* ignore whitespaces */
+<INITIAL,BASED_CONST>\\[\r\n]		/* ignore continuation sequence */
+<INITIAL,BASED_CONST>"//"[^\r\n]*	/* ignore one-line comments */
 
-. { return *yytext; }
+<INITIAL>. { return *yytext; }
+<*>. { BEGIN(0); return *yytext; }
 
 %%
 

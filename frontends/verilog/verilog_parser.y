@@ -166,6 +166,7 @@ static void addRange(AstNode *parent, int msb = 31, int lsb = 0, bool isSigned =
 
 %token <string> TOK_STRING TOK_ID TOK_CONSTVAL TOK_REALVAL TOK_PRIMITIVE
 %token <string> TOK_SVA_LABEL TOK_SPECIFY_OPER TOK_MSG_TASKS
+%token <string> TOK_BASE TOK_BASED_CONSTVAL TOK_UNBASED_UNSIZED_CONSTVAL
 %token TOK_ASSERT TOK_ASSUME TOK_RESTRICT TOK_COVER TOK_FINAL
 %token ATTR_BEGIN ATTR_END DEFATTR_BEGIN DEFATTR_END
 %token TOK_MODULE TOK_ENDMODULE TOK_PARAMETER TOK_LOCALPARAM TOK_DEFPARAM
@@ -188,7 +189,7 @@ static void addRange(AstNode *parent, int msb = 31, int lsb = 0, bool isSigned =
 
 %type <ast> range range_or_multirange  non_opt_range non_opt_multirange range_or_signed_int
 %type <ast> wire_type expr basic_expr concat_list rvalue lvalue lvalue_concat_list
-%type <string> opt_label opt_sva_label tok_prim_wrapper hierarchical_id hierarchical_type_id
+%type <string> opt_label opt_sva_label tok_prim_wrapper hierarchical_id hierarchical_type_id integral_number
 %type <ast> opt_enum_init
 %type <boolean> opt_signed opt_property unique_case_attr always_comb_or_latch always_or_always_ff
 %type <al> attr case_attr
@@ -2503,7 +2504,7 @@ basic_expr:
 	rvalue {
 		$$ = $1;
 	} |
-	'(' expr ')' TOK_CONSTVAL {
+	'(' expr ')' integral_number {
 		if ($4->compare(0, 1, "'") != 0)
 			frontend_verilog_yyerror("Cast operation must be applied on sized constants e.g. (<expr>)<constval> , while %s is not a sized constant.", $4->c_str());
 		AstNode *bits = $2;
@@ -2513,7 +2514,7 @@ basic_expr:
 		$$ = new AstNode(AST_TO_BITS, bits, val);
 		delete $4;
 	} |
-	hierarchical_id TOK_CONSTVAL {
+	hierarchical_id integral_number {
 		if ($2->compare(0, 1, "'") != 0)
 			frontend_verilog_yyerror("Cast operation must be applied on sized constants, e.g. <ID>\'d0, while %s is not a sized constant.", $2->c_str());
 		AstNode *bits = new AstNode(AST_IDENTIFIER);
@@ -2525,14 +2526,7 @@ basic_expr:
 		delete $1;
 		delete $2;
 	} |
-	TOK_CONSTVAL TOK_CONSTVAL {
-		$$ = const2ast(*$1 + *$2, case_type_stack.size() == 0 ? 0 : case_type_stack.back(), !lib_mode);
-		if ($$ == NULL || (*$2)[0] != '\'')
-			log_error("Value conversion failed: `%s%s'\n", $1->c_str(), $2->c_str());
-		delete $1;
-		delete $2;
-	} |
-	TOK_CONSTVAL {
+	integral_number {
 		$$ = const2ast(*$1, case_type_stack.size() == 0 ? 0 : case_type_stack.back(), !lib_mode);
 		if ($$ == NULL)
 			log_error("Value conversion failed: `%s'\n", $1->c_str());
@@ -2739,4 +2733,19 @@ concat_list:
 	expr ',' concat_list {
 		$$ = $3;
 		$$->children.push_back($1);
+	};
+
+integral_number:
+	TOK_CONSTVAL { $$ = $1; } |
+	TOK_UNBASED_UNSIZED_CONSTVAL { $$ = $1; } |
+	TOK_BASE TOK_BASED_CONSTVAL {
+		$1->append(*$2);
+		$$ = $1;
+		delete $2;
+	} |
+	TOK_CONSTVAL TOK_BASE TOK_BASED_CONSTVAL {
+		$1->append(*$2).append(*$3);
+		$$ = $1;
+		delete $2;
+		delete $3;
 	};
