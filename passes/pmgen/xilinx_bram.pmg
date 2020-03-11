@@ -1,11 +1,9 @@
 pattern xilinx_bram_pack
-state <SigSpec> sigDOA sigDOPA sigDOB
+state <SigSpec> sigDOA sigDOB
 
 state <SigBit> clock
 state <Cell*> ffDOA ffDOAcemux ffDOB ffDOBcemux
 state <bool> ffDOAcepol ffDOBcepol
-state <Cell*> ffDOPA ffDOPAcemux
-state <bool> ffDOPAcepol
 
 // Variables used for subpatterns
 state <SigSpec> argQ argD
@@ -20,7 +18,7 @@ match bram
 	select bram->type.in(\RAMB18E1, \RAMB36E1)
 endmatch
 
-code sigDOA sigDOPA argD clock ffDOA ffDOAcemux ffDOAcepol ffDOPA ffDOPAcemux ffDOPAcepol
+code sigDOA argD clock ffDOA ffDOAcemux ffDOAcepol
 	if (param(bram, \DOA_REG, 0).as_int() == 0) {
 		// Select the correct consumers of DOADO port
 		for (const auto &b : port(bram, \DOADO))
@@ -38,8 +36,24 @@ code sigDOA sigDOPA argD clock ffDOA ffDOAcemux ffDOAcepol ffDOPA ffDOPAcemux ff
                                 break;
                         }
 		}
+		// Select the correct consumers of DOAPADOP port
+		for (const auto &b : port(bram, \DOPADOP))
+		{
+			// Ignore unused output bits
+			if (nusers(b) < 2)
+				continue;
+			// Only collect output bits with a single sink
+			else if (nusers(b) == 2)
+				sigDOA.append(b);
+			// Abandon this whole output if any bit
+			//   has more than a single sink
+			else if (nusers(b) > 2) {
+				sigDOA = SigSpec();
+				break;
+			}
+		}
 
-		// Traverse the consumers of DOADO
+		// Traverse the consumers of sigDOA
 		if (!sigDOA.empty()) {
 			argD = sigDOA;
 			clock = port(bram, \CLKARDCLK);
@@ -51,40 +65,6 @@ code sigDOA sigDOPA argD clock ffDOA ffDOAcemux ffDOAcepol ffDOPA ffDOPAcemux ff
 					ffDOAcepol = dffcepol;
 				}
 				sigDOA = dffQ;
-			}
-		}
-
-		if (ffDOA) {
-			// Select the correct consumers of DOAPADOP port
-			for (const auto &b : port(bram, \DOPADOP))
-			{
-				// Ignore unused output bits
-				if (nusers(b) < 2)
-					continue;
-				// Only collect output bits with a single sink
-				else if (nusers(b) == 2)
-					sigDOPA.append(b);
-				// Abandon this whole output if any bit
-				//   has more than a single sink
-				else if (nusers(b) > 2) {
-					sigDOPA = SigSpec();
-					break;
-				}
-			}
-
-			// Traverse the consumers of DOADO
-			if (!sigDOPA.empty()) {
-				argD = sigDOPA;
-				clock = port(bram, \CLKARDCLK);
-				subpattern(out_dffe);
-				if (dff) {
-					ffDOPA = dff;
-					if (dffcemux) {
-						ffDOPAcemux = dffcemux;
-						ffDOPAcepol = dffcepol;
-					}
-					sigDOPA = dffQ;
-				}
 			}
 		}
 	}
@@ -131,7 +111,6 @@ endcode
  
 code
 	log_dump(sigDOA, ffDOA, ffDOAcemux);
-	log_dump(sigDOPA, ffDOPA, ffDOPAcemux);
 	accept;
 endcode
 
@@ -175,9 +154,9 @@ code argD argQ
 		SigSpec Y = port(ffcemux, \Y);
 
 		// Check that the rest of argD is present
-		auto Dset = D.to_sigbit_pool();
+		auto BAset = BA.to_sigbit_pool();
 		for (const auto &b : argD)
-			if (!Dset.count(b))
+			if (!BAset.count(b))
 				reject;
 
 		argQ = argD;
