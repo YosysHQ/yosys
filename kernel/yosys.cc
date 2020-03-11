@@ -341,7 +341,11 @@ int run_command(const std::string &command, std::function<void(const std::string
 	if (!process_line)
 		return system(command.c_str());
 
+#ifdef EMSCRIPTEN
+	FILE *f = nullptr;
+#else
 	FILE *f = popen(command.c_str(), "r");
+#endif
 	if (f == nullptr)
 		return -1;
 
