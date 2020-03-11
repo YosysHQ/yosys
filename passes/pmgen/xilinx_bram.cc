@@ -57,9 +57,14 @@ void xilinx_bram_pack(xilinx_bram_pm &pm)
 
 	if(st.ffDOA) 
 	{
-		log("	Registers that can be packed: %s (%s)\n", log_id(st.ffDOA), log_id(st.ffDOA->type));
+		log("	Registers in DOADO port that can be packed: %s (%s)\n", log_id(st.ffDOA), log_id(st.ffDOA->type));
 		cell->setParam(ID(DOA_REG), 1);
 		cell->setPort(ID(DOADO), st.sigDOA);
+		if (st.ffDOPA) 
+		{	
+			log("	Registers in DOPADOP port that can be packed: %s (%s)\n", log_id(st.ffDOPA), log_id(st.ffDOPA->type));
+			cell->setPort(ID(DOPADOP), st.sigDOPA);
+		}
 	}
 
 	if(st.ffDOB)

@@ -1,9 +1,11 @@
 pattern xilinx_bram_pack
-state <SigSpec> sigDOA sigDOB
+state <SigSpec> sigDOA sigDOPA sigDOB
 
 state <SigBit> clock
 state <Cell*> ffDOA ffDOAcemux ffDOB ffDOBcemux
 state <bool> ffDOAcepol ffDOBcepol
+state <Cell*> ffDOPA ffDOPAcemux
+state <bool> ffDOPAcepol
 
 // Variables used for subpatterns
 state <SigSpec> argQ argD
@@ -19,6 +21,7 @@ match bram
 	select bram->type.in(\RAMB18E1, \RAMB36E1)
 endmatch
 
+// Select the correct consumers of DOADO port
 code sigDOA
 	if (param(bram, \DOA_REG, 0).as_int() == 0) {
                 SigSpec DOA = port(bram, \DOADO);
@@ -37,9 +40,11 @@ code sigDOA
                                 break;
                         }
 		}
+
 	}
 endcode
 
+// Traverse the consumers of DOADO
 code argD ffDOA ffDOAcemux ffDOAcepol sigDOA clock
 	if (!sigDOA.empty()) {
 		argD = sigDOA;
@@ -56,6 +61,47 @@ code argD ffDOA ffDOAcemux ffDOAcepol sigDOA clock
 	}
 endcode
 
+// Select the correct consumers of DOAPADOP port
+code sigDOPA
+	if (param(bram, \DOA_REG, 0).as_int() == 0) {
+                SigSpec DOPA = port(bram, \DOPADOP);
+		for (int i = 0; i < GetSize(DOPA); i++) 
+		{
+			// Ignore unused output bits
+			if (nusers(DOPA[i]) < 2)
+				continue;
+			// Only collect output bits with a single sink
+			else if (nusers(DOPA[i]) == 2)
+                                sigDOPA.append(DOPA[i]);
+			// Abandon this whole output if any bit
+			//   has more than a single sink
+                        else if (nusers(DOPA[i]) > 2) {
+                                sigDOPA = SigSpec();
+                                break;
+                        }
+		}
+
+	}
+endcode
+
+// Traverse the consumers of DOADO
+code argD ffDOPA ffDOPAcemux ffDOPAcepol sigDOPA clock
+	if (!sigDOPA.empty()) {
+		argD = sigDOPA;
+		clock = port(bram, \CLKARDCLK);
+		subpattern(out_dffe);
+		if (dff) {
+			ffDOPA = dff;
+			if (dffcemux) {
+				ffDOPAcemux = dffcemux;
+				ffDOPAcepol = dffcepol;
+			}
+			sigDOPA = dffQ;
+		}
+	}
+endcode
+
+//================== PORT B =============================//
 code sigDOB
 	if (param(bram, \DOB_REG, 0).as_int() == 0) {
                 SigSpec DOB = port(bram, \DOBDO);
