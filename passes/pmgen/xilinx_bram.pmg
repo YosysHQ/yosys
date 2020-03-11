@@ -10,7 +10,6 @@ state <bool> ffDOPAcepol
 // Variables used for subpatterns
 state <SigSpec> argQ argD
 state <bool> ffcepol ffrstpol
-state <int> ffoffset
 udata <SigSpec> dffD dffQ
 udata <SigBit> dffclock
 udata <Cell*> dff dffcemux dffrstmux
@@ -21,82 +20,72 @@ match bram
 	select bram->type.in(\RAMB18E1, \RAMB36E1)
 endmatch
 
-// Select the correct consumers of DOADO port
-code sigDOA
+code sigDOA sigDOPA argD clock ffDOA ffDOAcemux ffDOAcepol ffDOPA ffDOPAcemux ffDOPAcepol
 	if (param(bram, \DOA_REG, 0).as_int() == 0) {
-                SigSpec DOA = port(bram, \DOADO);
-		for (int i = 0; i < GetSize(DOA); i++) 
+		// Select the correct consumers of DOADO port
+		for (const auto &b : port(bram, \DOADO))
 		{
 			// Ignore unused output bits
-			if (nusers(DOA[i]) < 2)
+			if (nusers(b) < 2)
 				continue;
 			// Only collect output bits with a single sink
-			else if (nusers(DOA[i]) == 2)
-                                sigDOA.append(DOA[i]);
+			else if (nusers(b) == 2)
+                                sigDOA.append(b);
 			// Abandon this whole output if any bit
 			//   has more than a single sink
-                        else if (nusers(DOA[i]) > 2) {
+                        else if (nusers(b) > 2) {
                                 sigDOA = SigSpec();
                                 break;
                         }
 		}
 
-	}
-endcode
-
-// Traverse the consumers of DOADO
-code argD ffDOA ffDOAcemux ffDOAcepol sigDOA clock
-	if (!sigDOA.empty()) {
-		argD = sigDOA;
-		clock = port(bram, \CLKARDCLK);
-		subpattern(out_dffe);
-		if (dff) {
-			ffDOA = dff;
-			if (dffcemux) {
-				ffDOAcemux = dffcemux;
-				ffDOAcepol = dffcepol;
+		// Traverse the consumers of DOADO
+		if (!sigDOA.empty()) {
+			argD = sigDOA;
+			clock = port(bram, \CLKARDCLK);
+			subpattern(out_dffe);
+			if (dff) {
+				ffDOA = dff;
+				if (dffcemux) {
+					ffDOAcemux = dffcemux;
+					ffDOAcepol = dffcepol;
+				}
+				sigDOA = dffQ;
 			}
-			sigDOA = dffQ;
-		}
-	}
-endcode
-
-// Select the correct consumers of DOAPADOP port
-code sigDOPA
-	if (param(bram, \DOA_REG, 0).as_int() == 0) {
-                SigSpec DOPA = port(bram, \DOPADOP);
-		for (int i = 0; i < GetSize(DOPA); i++) 
-		{
-			// Ignore unused output bits
-			if (nusers(DOPA[i]) < 2)
-				continue;
-			// Only collect output bits with a single sink
-			else if (nusers(DOPA[i]) == 2)
-                                sigDOPA.append(DOPA[i]);
-			// Abandon this whole output if any bit
-			//   has more than a single sink
-                        else if (nusers(DOPA[i]) > 2) {
-                                sigDOPA = SigSpec();
-                                break;
-                        }
 		}
 
-	}
-endcode
-
-// Traverse the consumers of DOADO
-code argD ffDOPA ffDOPAcemux ffDOPAcepol sigDOPA clock
-	if (!sigDOPA.empty()) {
-		argD = sigDOPA;
-		clock = port(bram, \CLKARDCLK);
-		subpattern(out_dffe);
-		if (dff) {
-			ffDOPA = dff;
-			if (dffcemux) {
-				ffDOPAcemux = dffcemux;
-				ffDOPAcepol = dffcepol;
+		if (ffDOA) {
+			// Select the correct consumers of DOAPADOP port
+			for (const auto &b : port(bram, \DOPADOP))
+			{
+				// Ignore unused output bits
+				if (nusers(b) < 2)
+					continue;
+				// Only collect output bits with a single sink
+				else if (nusers(b) == 2)
+					sigDOPA.append(b);
+				// Abandon this whole output if any bit
+				//   has more than a single sink
+				else if (nusers(b) > 2) {
+					sigDOPA = SigSpec();
+					break;
+				}
 			}
-			sigDOPA = dffQ;
+
+			// Traverse the consumers of DOADO
+			if (!sigDOPA.empty()) {
+				argD = sigDOPA;
+				clock = port(bram, \CLKARDCLK);
+				subpattern(out_dffe);
+				if (dff) {
+					ffDOPA = dff;
+					if (dffcemux) {
+						ffDOPAcemux = dffcemux;
+						ffDOPAcepol = dffcepol;
+					}
+					sigDOPA = dffQ;
+				}
+			}
 		}
 	}
 endcode
@@ -142,6 +131,7 @@ endcode
  
 code
 	log_dump(sigDOA, ffDOA, ffDOAcemux);
+	log_dump(sigDOPA, ffDOPA, ffDOPAcemux);
 	accept;
 endcode
 
@@ -172,11 +162,6 @@ match ffcemux
 	define <IdString> BA (AB == \A ? \B : \A)
 	index <SigBit> port(ffcemux, BA)[offset] === argD[0]
  
-	// Check that the rest of argD is present
-	filter GetSize(port(ffcemux, BA)) >= offset + GetSize(argD)
-	filter port(ffcemux, BA).extract(offset, GetSize(argD)) == argD
- 
-	set ffoffset offset
 	define <bool> pol (AB == \A)
 	set ffcepol pol
  
@@ -188,6 +173,13 @@ code argD argQ
 	if (ffcemux) {
 		SigSpec BA = port(ffcemux, ffcepol ? \B : \A);
 		SigSpec Y = port(ffcemux, \Y);
+
+		// Check that the rest of argD is present
+		auto Dset = D.to_sigbit_pool();
+		for (const auto &b : argD)
+			if (!Dset.count(b))
+				reject;
+
 		argQ = argD;
 		argD.replace(BA, Y);
 		argQ.replace(BA, port(ffcemux, ffcepol ? \A : \B));
@@ -206,22 +198,22 @@ match ff
 	slice offset GetSize(port(ff, \D))
 	index <SigBit> port(ff, \D)[offset] === argD[0] 
  
-	// Check that offset is consistent
-	filter (!ffcemux) || ffoffset == offset
-	// Check that the rest of argD is present
-	filter GetSize(port(ff, \D)) >= offset + GetSize(argD)
-	filter port(ff, \D).extract(offset, GetSize(argD)) == argD
 	// Check that FF.Q is connected to CE-mux
-	filter !ffcemux || port(ff, \Q).extract(offset, GetSize(argQ)) == argQ
+	filter !ffcemux || port(ff, \Q) == port(ffcemux, ffcepol ? \A  : \B)
  
 	filter clock == SigBit() || port(ff, \CLK) == clock
- 
-	set ffoffset offset
 endmatch
  
 code argQ
 	SigSpec D = port(ff, \D);
 	SigSpec Q = port(ff, \Q);
+
+	// Check that the rest of argD is present
+	auto Dset = D.to_sigbit_pool();
+	for (const auto &b : argD)
+		if (!Dset.count(b))
+			reject;
+
 	if (!ffcemux) {
 		argQ = argD;
 		argQ.replace(D, Q);
