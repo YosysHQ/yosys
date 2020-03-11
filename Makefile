@@ -238,6 +238,7 @@ EMCCFLAGS := -Os -Wno-warn-absolute-paths
 EMCCFLAGS += --memory-init-file 0 --embed-file share -s NO_EXIT_RUNTIME=1
 EMCCFLAGS += -s EXPORTED_FUNCTIONS="['_main','_run','_prompt','_errmsg']"
 EMCCFLAGS += -s TOTAL_MEMORY=134217728
+EMCCFLAGS += -s EXTRA_EXPORTED_RUNTIME_METHODS='["ccall", "cwrap"]'
 # https://github.com/kripken/emscripten/blob/master/src/settings.js
 CXXFLAGS += $(EMCCFLAGS)
 LDFLAGS += $(EMCCFLAGS)
