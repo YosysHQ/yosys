@@ -669,7 +669,8 @@ ifneq ($(ABCREV),default)
 	$(Q) if ( cd abc 2> /dev/null && ! git diff-index --quiet HEAD; ); then \
 		echo 'REEBE: NOP pbagnvaf ybpny zbqvsvpngvbaf! Frg NOPERI=qrsnhyg va Lbflf Znxrsvyr!' | tr 'A-Za-z' 'N-ZA-Mn-za-m'; false; \
 	fi
-	$(Q) if test "`cd abc 2> /dev/null && git rev-parse --short HEAD`" != "$(ABCREV)"; then \
+	# set a variable so the test fails if git fails to run - when comparing outputs directly, empty string would match empty string
+	$(Q) if ! { cd abc && rev="`git rev-parse $(ABCREV)`" && test "`git rev-parse HEAD`" == "$$rev"; }; then \
 		test $(ABCPULL) -ne 0 || { echo 'REEBE: NOP abg hc gb qngr naq NOPCHYY frg gb 0 va Znxrsvyr!' | tr 'A-Za-z' 'N-ZA-Mn-za-m'; exit 1; }; \
 		echo "Pulling ABC from $(ABCURL):"; set -x; \
 		test -d abc || git clone $(ABCURL) abc; \
@@ -765,8 +766,7 @@ clean-unit-test:
 	@$(MAKE) -C $(UNITESTPATH) clean
 
 install: $(TARGETS) $(EXTRA_TARGETS)
-	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(BINDIR)
-	$(INSTALL_SUDO) cp $(TARGETS) $(DESTDIR)$(BINDIR)
+	$(INSTALL_SUDO) install -D -t $(DESTDIR)$(BINDIR) $(filter-out libyosys.so,$(TARGETS))
 ifneq ($(filter yosys,$(TARGETS)),)
 	$(INSTALL_SUDO) $(STRIP) -S $(DESTDIR)$(BINDIR)/yosys
 endif
@@ -779,13 +779,11 @@ endif
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(DATDIR)
 	$(INSTALL_SUDO) cp -r share/. $(DESTDIR)$(DATDIR)/.
 ifeq ($(ENABLE_LIBYOSYS),1)
-	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(LIBDIR)
-	$(INSTALL_SUDO) cp libyosys.so $(DESTDIR)$(LIBDIR)/
+	$(INSTALL_SUDO) install -D -t $(DESTDIR)$(LIBDIR) libyosys.so
 	$(INSTALL_SUDO) $(STRIP) -S $(DESTDIR)$(LIBDIR)/libyosys.so
 ifeq ($(ENABLE_PYOSYS),1)
-	$(INSTALL_SUDO) mkdir -p $(PYTHON_DESTDIR)/pyosys
-	$(INSTALL_SUDO) cp libyosys.so $(PYTHON_DESTDIR)/pyosys/
-	$(INSTALL_SUDO) cp misc/__init__.py $(PYTHON_DESTDIR)/pyosys/
+	$(INSTALL_SUDO) install -Dm644 -t $(PYTHON_DESTDIR)/pyosys/ misc/__init__.py
+	$(INSTALL_SUDO) ln -s $(LIBDIR)/libyosys.so $(PYTHON_DESTDIR)/pyosys/
 endif
 endif
 
@@ -930,6 +928,9 @@ echo-yosys-ver:
 
 echo-git-rev:
 	@echo "$(GIT_REV)"
+
+echo-abc-rev:
+	@echo "$(ABCREV)"
 
 -include libs/*/*.d
 -include frontends/*/*.d
