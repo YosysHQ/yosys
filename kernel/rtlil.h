@@ -235,7 +235,10 @@ namespace RTLIL
 				return;
 
 			log_assert(refcount == 0);
-
+			free_reference(idx);
+		}
+		static inline void free_reference(int idx)
+		{
 			if (yosys_xtrace) {
 				log("#X# Removed IdString '%s' with index %d.\n", global_id_storage_.at(idx), idx);
 				log_backtrace("-X- ", yosys_xtrace-1);
