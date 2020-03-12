@@ -695,7 +695,6 @@ void log_check_expected()
 			log_warn_regexes.clear();
 			log("Expected error pattern '%s' found !!!\n", item.second.pattern.c_str());
 			#ifdef EMSCRIPTEN
-				log_files = backup_log_files;
 				throw 0;
 			#elif defined(_MSC_VER)
 				_exit(0);

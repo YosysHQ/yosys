@@ -237,7 +237,8 @@ ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H -DABC_MEMALIGN=8"
 EMCCFLAGS := -Os -Wno-warn-absolute-paths
 EMCCFLAGS += --memory-init-file 0 --embed-file share -s NO_EXIT_RUNTIME=1
 EMCCFLAGS += -s EXPORTED_FUNCTIONS="['_main','_run','_prompt','_errmsg']"
-EMCCFLAGS += -s TOTAL_MEMORY=128*1024*1024
+EMCCFLAGS += -s TOTAL_MEMORY=134217728
+EMCCFLAGS += -s EXTRA_EXPORTED_RUNTIME_METHODS='["ccall", "cwrap"]'
 # https://github.com/kripken/emscripten/blob/master/src/settings.js
 CXXFLAGS += $(EMCCFLAGS)
 LDFLAGS += $(EMCCFLAGS)
@@ -895,6 +896,7 @@ config-emcc: clean
 	echo 'ENABLE_ABC := 0' >> Makefile.conf
 	echo 'ENABLE_PLUGINS := 0' >> Makefile.conf
 	echo 'ENABLE_READLINE := 0' >> Makefile.conf
+	echo 'ENABLE_ZLIB := 0' >> Makefile.conf
 
 config-mxe: clean
 	echo 'CONFIG := mxe' > Makefile.conf
