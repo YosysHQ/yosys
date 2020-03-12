@@ -1586,30 +1586,25 @@ void RTLIL::Module::remove(const pool<RTLIL::Wire*> &wires)
 		const pool<RTLIL::Wire*> *wires_p;
 
 		void operator()(RTLIL::SigSpec &sig) {
-			std::vector<RTLIL::SigChunk> chunks = sig;
-			for (auto &c : chunks)
+			for (auto &c : sig.chunks_)
 				if (c.wire != NULL && wires_p->count(c.wire)) {
 					c.wire = module->addWire(NEW_ID, c.width);
 					c.offset = 0;
 				}
-			sig = chunks;
 		}
 
 		void operator()(RTLIL::SigSpec &lhs, RTLIL::SigSpec &rhs) {
 			log_assert(GetSize(lhs) == GetSize(rhs));
-			RTLIL::SigSpec new_lhs, new_rhs;
+			lhs.unpack();
+			rhs.unpack();
 			for (int i = 0; i < GetSize(lhs); i++) {
-				RTLIL::SigBit lhs_bit = lhs[i];
+				RTLIL::SigBit &lhs_bit = lhs.bits_[i];
 				if (lhs_bit.wire != nullptr && wires_p->count(lhs_bit.wire))
 					continue;
-				RTLIL::SigBit rhs_bit = rhs[i];
+				RTLIL::SigBit &rhs_bit = rhs.bits_[i];
 				if (rhs_bit.wire != nullptr && wires_p->count(rhs_bit.wire))
 					continue;
-				new_lhs.append(lhs_bit);
-				new_rhs.append(rhs_bit);
 			}
-			lhs = new_lhs;
-			rhs = new_rhs;
 		}
 	};
 

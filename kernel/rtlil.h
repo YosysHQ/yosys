@@ -758,6 +758,10 @@ private:
 			unpack();
 	}
 
+	// Only used by Module::remove(const pool<Wire*> &wires)
+	// but cannot be more specific as it isn't yet declared
+	friend struct RTLIL::Module;
+
 public:
 	SigSpec();
 	SigSpec(const RTLIL::SigSpec &other);
