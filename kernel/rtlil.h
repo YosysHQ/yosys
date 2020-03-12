@@ -359,8 +359,8 @@ namespace RTLIL
 		// of cell types). the following functions helps with that.
 
 		template<typename T, typename... Args>
-		bool in(T first, Args... rest) const {
-			return in(first) || in(rest...);
+		bool in(T first, Args&&... rest) const {
+			return in(first) || in(std::forward<Args>(rest)...);
 		}
 
 		bool in(IdString rhs) const { return *this == rhs; }
