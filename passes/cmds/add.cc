@@ -206,6 +206,7 @@ struct AddPass : public Pass {
 
 		extra_args(args, argidx, design);
 
+		bool selected_anything = false;
 		for (auto module : design->modules())
 		{
 			log_assert(module != nullptr);
@@ -214,11 +215,14 @@ struct AddPass : public Pass {
 			if (module->get_bool_attribute("\\blackbox"))
 				continue;
 
+			selected_anything = true;
 			if (is_formal_celltype(command))
 				add_formal(module, command, arg_name, enable_name);
 			else if (command == "wire")
 				add_wire(design, module, arg_name, arg_width, arg_flag_input, arg_flag_output, arg_flag_global);
 		}
+		if (!selected_anything)
+			log_warning("No modules selected, or only blackboxes.  Nothing was added.\n");
 	}
 } AddPass;
 
