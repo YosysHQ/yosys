@@ -35,6 +35,8 @@ void xilinx_bram_pack(xilinx_bram_pm &pm)
 
 	log_debug("ffDOAcemux:	%s\n", log_id(st.ffDOAcemux, "--"));
 	log_debug("ffDOBcemux:	%s\n", log_id(st.ffDOBcemux, "--"));
+	log_debug("ffDOArstmux: %s\n", log_id(st.ffADrstmux, "--"));
+	log_debug("ffDOBrstmux: %s\n", log_id(st.ffBDrstmux, "--"));
 	log_debug("ffDOA:	%s\n", log_id(st.ffDOA, "--"));
 	log_debug("ffDOB:	%s\n", log_id(st.ffDOB, "--"));
 
@@ -42,7 +44,7 @@ void xilinx_bram_pack(xilinx_bram_pm &pm)
 	Cell *cell = st.bram;
 
 	if (st.ffDOA) {
-		log("	Registers in DOADO port that can be packed: %s (%s)\n", log_id(st.ffDOA), log_id(st.ffDOA->type));
+		log("	Registers in DOADO port that will be packed: %s (%s)\n", log_id(st.ffDOA), log_id(st.ffDOA->type));
 		auto DOADO = cell->getPort(ID(DOADO));
 
 		// TODO: Handle rstmux
@@ -63,14 +65,23 @@ void xilinx_bram_pack(xilinx_bram_pm &pm)
 	}
 
 	if (st.ffDOB) {
-		log("	Enable function: %s (%s)\n", log_id(st.ffDOBcemux), log_id(st.ffDOBcemux->type));
+		log("	Registers in DOBDO port that will be packed: %s (%s)\n", log_id(st.ffDOB), log_id(st.ffDOB->type));
+		auto DOBDO = cell->getPort(ID(DOBDO));
+
 		if(st.ffDOBcemux) {
+		    DOBDO.replace(pm.sigmap(st.ffDOBcemux->getPort(st.ffDOBcepol ? ID::B : ID::A)),
+			    st.ffDOBcemux->getPort(ID::Y));
 		    log("	Enable function: %s (%s)\n", log_id(st.ffDOBcemux), log_id(st.ffDOBcemux->type));
-		    SigSpec ena = st.ffDOBcemux->getPort(ID(S));
-		    cell->setPort(ID(REGCEB), ena);
+		    SigSpec S = st.ffDOBcemux->getPort(ID(S));
+		    cell->setPort(ID(REGCEB), st.ffDOBcepol ? S : pm.module->Not(NEW_ID, S));
 		}
+		DOBDO.replace(pm.sigmap(st.ffDOA->getPort(ID(D))), st.ffDOA->getPort(ID(Q)));
 		cell->setParam(ID(DOB_REG), 1);
-		cell->setPort(ID(DOBDO), st.sigDOB);
+		cell->setPort(ID(DOBDO), DOBDO);
+
+		auto Q = st.ffDOB->getPort(ID(Q));
+		Q.replace(st.sigDOB, pm.module->addWire(NEW_ID, GetSize(st.sigDOB)));
+		st.ffDOB->setPort(ID(Q), Q);
 	}
 
 }
