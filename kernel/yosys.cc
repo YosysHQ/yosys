@@ -515,12 +515,9 @@ void yosys_setup()
 		return;
 	already_setup = true;
 
-	RTLIL::ID::A = "\\A";
-	RTLIL::ID::B = "\\B";
-	RTLIL::ID::Y = "\\Y";
-	RTLIL::ID::keep = "\\keep";
-	RTLIL::ID::whitebox = "\\whitebox";
-	RTLIL::ID::blackbox = "\\blackbox";
+#define X(_id) RTLIL::ID::_id = "\\" # _id;
+#include "constids.inc"
+#undef X
 
 	#ifdef WITH_PYTHON
 		PyImport_AppendInittab((char*)"libyosys", INIT_MODULE);

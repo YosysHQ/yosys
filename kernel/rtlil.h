@@ -370,11 +370,9 @@ namespace RTLIL
 	};
 
 	namespace ID {
-		// defined in rtlil.cc, initialized in yosys.cc
-		extern IdString A, B, Y;
-		extern IdString keep;
-		extern IdString whitebox;
-		extern IdString blackbox;
+#define X(_id) extern IdString _id;
+#include "constids.inc"
+#undef X
 	};
 
 	extern dict<std::string, std::string> constpad;

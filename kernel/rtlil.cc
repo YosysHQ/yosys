@@ -41,12 +41,10 @@ int RTLIL::IdString::last_created_idx_[8];
 int RTLIL::IdString::last_created_idx_ptr_;
 #endif
 
-IdString RTLIL::ID::A;
-IdString RTLIL::ID::B;
-IdString RTLIL::ID::Y;
-IdString RTLIL::ID::keep;
-IdString RTLIL::ID::whitebox;
-IdString RTLIL::ID::blackbox;
+#define X(_id) IdString RTLIL::ID::_id;
+#include "constids.inc"
+#undef X
+
 dict<std::string, std::string> RTLIL::constpad;
 
 RTLIL::Const::Const()
