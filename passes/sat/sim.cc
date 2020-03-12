@@ -303,19 +303,19 @@ struct SimInstance
 			RTLIL::SigSpec sig_a, sig_b, sig_c, sig_d, sig_s, sig_y;
 			bool has_a, has_b, has_c, has_d, has_s, has_y;
 
-			has_a = cell->hasPort("\\A");
-			has_b = cell->hasPort("\\B");
+			has_a = cell->hasPort(ID::A);
+			has_b = cell->hasPort(ID::B);
 			has_c = cell->hasPort("\\C");
 			has_d = cell->hasPort("\\D");
-			has_s = cell->hasPort("\\S");
-			has_y = cell->hasPort("\\Y");
+			has_s = cell->hasPort(ID::S);
+			has_y = cell->hasPort(ID::Y);
 
-			if (has_a) sig_a = cell->getPort("\\A");
-			if (has_b) sig_b = cell->getPort("\\B");
+			if (has_a) sig_a = cell->getPort(ID::A);
+			if (has_b) sig_b = cell->getPort(ID::B);
 			if (has_c) sig_c = cell->getPort("\\C");
 			if (has_d) sig_d = cell->getPort("\\D");
-			if (has_s) sig_s = cell->getPort("\\S");
-			if (has_y) sig_y = cell->getPort("\\Y");
+			if (has_s) sig_s = cell->getPort(ID::S);
+			if (has_y) sig_y = cell->getPort(ID::Y);
 
 			if (shared->debug)
 				log("[%s] eval %s (%s)\n", hiername().c_str(), log_id(cell), log_id(cell->type));
@@ -505,10 +505,10 @@ struct SimInstance
 		for (auto cell : formal_database)
 		{
 			string label = log_id(cell);
-			if (cell->attributes.count("\\src"))
-				label = cell->attributes.at("\\src").decode_string();
+			if (cell->attributes.count(ID::src))
+				label = cell->attributes.at(ID::src).decode_string();
 
-			State a = get_state(cell->getPort("\\A"))[0];
+			State a = get_state(cell->getPort(ID::A))[0];
 			State en = get_state(cell->getPort("\\EN"))[0];
 
 			if (cell->type == "$cover" && en == State::S1 && a != State::S1)

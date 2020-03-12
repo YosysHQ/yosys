@@ -562,8 +562,8 @@ struct ExposePass : public Pass {
 					c->parameters["\\A_SIGNED"] = 0;
 					c->parameters["\\A_WIDTH"] = 1;
 					c->parameters["\\Y_WIDTH"] = 1;
-					c->setPort("\\A", info.sig_clk);
-					c->setPort("\\Y", wire_c);
+					c->setPort(ID::A, info.sig_clk);
+					c->setPort(ID::Y, wire_c);
 				}
 
 				if (info.sig_arst != RTLIL::State::Sm)
@@ -578,8 +578,8 @@ struct ExposePass : public Pass {
 						c->parameters["\\A_SIGNED"] = 0;
 						c->parameters["\\A_WIDTH"] = 1;
 						c->parameters["\\Y_WIDTH"] = 1;
-						c->setPort("\\A", info.sig_arst);
-						c->setPort("\\Y", wire_r);
+						c->setPort(ID::A, info.sig_arst);
+						c->setPort(ID::Y, wire_r);
 					}
 
 					RTLIL::Wire *wire_v = add_new_wire(module, wire->name.str() + sep + "v", wire->width);

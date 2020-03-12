@@ -248,15 +248,15 @@ struct MemoryMapWorker
 				{
 					RTLIL::Cell *c = module->addCell(genid(cell->name, "$rdmux", i, "", j, "", k), "$mux");
 					c->parameters["\\WIDTH"] = cell->parameters["\\WIDTH"];
-					c->setPort("\\Y", rd_signals[k]);
-					c->setPort("\\S", rd_addr.extract(mem_abits-j-1, 1));
+					c->setPort(ID::Y, rd_signals[k]);
+					c->setPort(ID::S, rd_addr.extract(mem_abits-j-1, 1));
 					count_mux++;
 
-					c->setPort("\\A", module->addWire(genid(cell->name, "$rdmux", i, "", j, "", k, "$a"), mem_width));
-					c->setPort("\\B", module->addWire(genid(cell->name, "$rdmux", i, "", j, "", k, "$b"), mem_width));
+					c->setPort(ID::A, module->addWire(genid(cell->name, "$rdmux", i, "", j, "", k, "$a"), mem_width));
+					c->setPort(ID::B, module->addWire(genid(cell->name, "$rdmux", i, "", j, "", k, "$b"), mem_width));
 
-					next_rd_signals.push_back(c->getPort("\\A"));
-					next_rd_signals.push_back(c->getPort("\\B"));
+					next_rd_signals.push_back(c->getPort(ID::A));
+					next_rd_signals.push_back(c->getPort(ID::B));
 				}
 
 				next_rd_signals.swap(rd_signals);
@@ -309,21 +309,21 @@ struct MemoryMapWorker
 						c->parameters["\\A_WIDTH"] = RTLIL::Const(1);
 						c->parameters["\\B_WIDTH"] = RTLIL::Const(1);
 						c->parameters["\\Y_WIDTH"] = RTLIL::Const(1);
-						c->setPort("\\A", w);
-						c->setPort("\\B", wr_bit);
+						c->setPort(ID::A, w);
+						c->setPort(ID::B, wr_bit);
 
 						w = module->addWire(genid(cell->name, "$wren", i, "", j, "", wr_offset, "$y"));
-						c->setPort("\\Y", RTLIL::SigSpec(w));
+						c->setPort(ID::Y, RTLIL::SigSpec(w));
 					}
 
 					RTLIL::Cell *c = module->addCell(genid(cell->name, "$wrmux", i, "", j, "", wr_offset), "$mux");
 					c->parameters["\\WIDTH"] = wr_width;
-					c->setPort("\\A", sig.extract(wr_offset, wr_width));
-					c->setPort("\\B", wr_data.extract(wr_offset, wr_width));
-					c->setPort("\\S", RTLIL::SigSpec(w));
+					c->setPort(ID::A, sig.extract(wr_offset, wr_width));
+					c->setPort(ID::B, wr_data.extract(wr_offset, wr_width));
+					c->setPort(ID::S, RTLIL::SigSpec(w));
 
 					w = module->addWire(genid(cell->name, "$wrmux", i, "", j, "", wr_offset, "$y"), wr_width);
-					c->setPort("\\Y", w);
+					c->setPort(ID::Y, w);
 
 					sig.replace(wr_offset, w);
 					wr_offset += wr_width;

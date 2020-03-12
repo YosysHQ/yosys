@@ -206,7 +206,7 @@ struct ChformalPass : public Pass {
 				for (auto cell : constr_cells)
 					while (true)
 					{
-						SigSpec A = sigmap(cell->getPort("\\A"));
+						SigSpec A = sigmap(cell->getPort(ID::A));
 						SigSpec EN = sigmap(cell->getPort("\\EN"));
 
 						if (ffmap.count(A) == 0 || ffmap.count(EN) == 0)
@@ -223,7 +223,7 @@ struct ChformalPass : public Pass {
 						if (A_map.second != EN_map.second)
 							break;
 
-						cell->setPort("\\A", A_map.first);
+						cell->setPort(ID::A, A_map.first);
 						cell->setPort("\\EN", EN_map.first);
 					}
 			}
@@ -233,7 +233,7 @@ struct ChformalPass : public Pass {
 				for (auto cell : constr_cells)
 				for (int i = 0; i < mode_arg; i++)
 				{
-					SigSpec orig_a = cell->getPort("\\A");
+					SigSpec orig_a = cell->getPort(ID::A);
 					SigSpec orig_en = cell->getPort("\\EN");
 
 					Wire *new_a = module->addWire(NEW_ID);
@@ -243,7 +243,7 @@ struct ChformalPass : public Pass {
 					module->addFf(NEW_ID, orig_a, new_a);
 					module->addFf(NEW_ID, orig_en, new_en);
 
-					cell->setPort("\\A", new_a);
+					cell->setPort(ID::A, new_a);
 					cell->setPort("\\EN", new_en);
 				}
 			}

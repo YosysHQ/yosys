@@ -116,13 +116,13 @@ struct statdata_t
 						"$shl", "$shr", "$sshl", "$sshr", "$shift", "$shiftx",
 						"$lt", "$le", "$eq", "$ne", "$eqx", "$nex", "$ge", "$gt",
 						"$add", "$sub", "$mul", "$div", "$mod", "$pow", "$alu")) {
-					int width_a = it.second->hasPort("\\A") ? GetSize(it.second->getPort("\\A")) : 0;
-					int width_b = it.second->hasPort("\\B") ? GetSize(it.second->getPort("\\B")) : 0;
-					int width_y = it.second->hasPort("\\Y") ? GetSize(it.second->getPort("\\Y")) : 0;
+					int width_a = it.second->hasPort(ID::A) ? GetSize(it.second->getPort(ID::A)) : 0;
+					int width_b = it.second->hasPort(ID::B) ? GetSize(it.second->getPort(ID::B)) : 0;
+					int width_y = it.second->hasPort(ID::Y) ? GetSize(it.second->getPort(ID::Y)) : 0;
 					cell_type = stringf("%s_%d", cell_type.c_str(), max<int>({width_a, width_b, width_y}));
 				}
 				else if (cell_type.in("$mux", "$pmux"))
-					cell_type = stringf("%s_%d", cell_type.c_str(), GetSize(it.second->getPort("\\Y")));
+					cell_type = stringf("%s_%d", cell_type.c_str(), GetSize(it.second->getPort(ID::Y)));
 				else if (cell_type.in("$sr", "$dff", "$dffsr", "$adff", "$dlatch", "$dlatchsr"))
 					cell_type = stringf("%s_%d", cell_type.c_str(), GetSize(it.second->getPort("\\Q")));
 			}
@@ -357,7 +357,7 @@ struct StatPass : public Pass {
 		for (auto mod : design->selected_modules())
 		{
 			if (!top_mod && design->full_selection())
-				if (mod->get_bool_attribute("\\top"))
+				if (mod->get_bool_attribute(ID::top))
 					top_mod = mod;
 
 			statdata_t data(design, mod, width_mode, cell_area, techname);

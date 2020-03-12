@@ -155,7 +155,7 @@ void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &att
 	Att *attr;
 
 	if (obj->Linefile())
-		attributes["\\src"] = stringf("%s:%d", LineFile::GetFileName(obj->Linefile()), LineFile::GetLineNo(obj->Linefile()));
+		attributes[ID::src] = stringf("%s:%d", LineFile::GetFileName(obj->Linefile()), LineFile::GetLineNo(obj->Linefile()));
 
 	// FIXME: Parse numeric attributes
 	FOREACH_ATTRIBUTE(obj, mi, attr) {

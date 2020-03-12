@@ -133,13 +133,13 @@ struct Ice40FfinitPass : public Pass {
 				if (type_str.back() == 'S') {
 					type_str.back() = 'R';
 					cell->type = type_str;
-					cell->setPort("\\R", cell->getPort("\\S"));
-					cell->unsetPort("\\S");
+					cell->setPort("\\R", cell->getPort(ID::S));
+					cell->unsetPort(ID::S);
 				} else
 				if (type_str.back() == 'R') {
 					type_str.back() = 'S';
 					cell->type = type_str;
-					cell->setPort("\\S", cell->getPort("\\R"));
+					cell->setPort(ID::S, cell->getPort("\\R"));
 					cell->unsetPort("\\R");
 				}
 

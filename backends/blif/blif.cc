@@ -239,95 +239,95 @@ struct BlifDumper
 
 			if (!config->icells_mode && cell->type == "$_NOT_") {
 				f << stringf(".names %s %s\n0 1\n",
-						cstr(cell->getPort("\\A")), cstr(cell->getPort("\\Y")));
+						cstr(cell->getPort(ID::A)), cstr(cell->getPort(ID::Y)));
 				goto internal_cell;
 			}
 
 			if (!config->icells_mode && cell->type == "$_AND_") {
 				f << stringf(".names %s %s %s\n11 1\n",
-						cstr(cell->getPort("\\A")), cstr(cell->getPort("\\B")), cstr(cell->getPort("\\Y")));
+						cstr(cell->getPort(ID::A)), cstr(cell->getPort(ID::B)), cstr(cell->getPort(ID::Y)));
 				goto internal_cell;
 			}
 
 			if (!config->icells_mode && cell->type == "$_OR_") {
 				f << stringf(".names %s %s %s\n1- 1\n-1 1\n",
-						cstr(cell->getPort("\\A")), cstr(cell->getPort("\\B")), cstr(cell->getPort("\\Y")));
+						cstr(cell->getPort(ID::A)), cstr(cell->getPort(ID::B)), cstr(cell->getPort(ID::Y)));
 				goto internal_cell;
 			}
 
 			if (!config->icells_mode && cell->type == "$_XOR_") {
 				f << stringf(".names %s %s %s\n10 1\n01 1\n",
-						cstr(cell->getPort("\\A")), cstr(cell->getPort("\\B")), cstr(cell->getPort("\\Y")));
+						cstr(cell->getPort(ID::A)), cstr(cell->getPort(ID::B)), cstr(cell->getPort(ID::Y)));
 				goto internal_cell;
 			}
 
 			if (!config->icells_mode && cell->type == "$_NAND_") {
 				f << stringf(".names %s %s %s\n0- 1\n-0 1\n",
-						cstr(cell->getPort("\\A")), cstr(cell->getPort("\\B")), cstr(cell->getPort("\\Y")));
+						cstr(cell->getPort(ID::A)), cstr(cell->getPort(ID::B)), cstr(cell->getPort(ID::Y)));
 				goto internal_cell;
 			}
 
 			if (!config->icells_mode && cell->type == "$_NOR_") {
 				f << stringf(".names %s %s %s\n00 1\n",
-						cstr(cell->getPort("\\A")), cstr(cell->getPort("\\B")), cstr(cell->getPort("\\Y")));
+						cstr(cell->getPort(ID::A)), cstr(cell->getPort(ID::B)), cstr(cell->getPort(ID::Y)));
 				goto internal_cell;
 			}
 
 			if (!config->icells_mode && cell->type == "$_XNOR_") {
 				f << stringf(".names %s %s %s\n11 1\n00 1\n",
-						cstr(cell->getPort("\\A")), cstr(cell->getPort("\\B")), cstr(cell->getPort("\\Y")));
+						cstr(cell->getPort(ID::A)), cstr(cell->getPort(ID::B)), cstr(cell->getPort(ID::Y)));
 				goto internal_cell;
 			}
 
 			if (!config->icells_mode && cell->type == "$_ANDNOT_") {
 				f << stringf(".names %s %s %s\n10 1\n",
-						cstr(cell->getPort("\\A")), cstr(cell->getPort("\\B")), cstr(cell->getPort("\\Y")));
+						cstr(cell->getPort(ID::A)), cstr(cell->getPort(ID::B)), cstr(cell->getPort(ID::Y)));
 				goto internal_cell;
 			}
 
 			if (!config->icells_mode && cell->type == "$_ORNOT_") {
 				f << stringf(".names %s %s %s\n1- 1\n-0 1\n",
-						cstr(cell->getPort("\\A")), cstr(cell->getPort("\\B")), cstr(cell->getPort("\\Y")));
+						cstr(cell->getPort(ID::A)), cstr(cell->getPort(ID::B)), cstr(cell->getPort(ID::Y)));
 				goto internal_cell;
 			}
 
 			if (!config->icells_mode && cell->type == "$_AOI3_") {
 				f << stringf(".names %s %s %s %s\n-00 1\n0-0 1\n",
-						cstr(cell->getPort("\\A")), cstr(cell->getPort("\\B")), cstr(cell->getPort("\\C")), cstr(cell->getPort("\\Y")));
+						cstr(cell->getPort(ID::A)), cstr(cell->getPort(ID::B)), cstr(cell->getPort("\\C")), cstr(cell->getPort(ID::Y)));
 				goto internal_cell;
 			}
 
 			if (!config->icells_mode && cell->type == "$_OAI3_") {
 				f << stringf(".names %s %s %s %s\n00- 1\n--0 1\n",
-						cstr(cell->getPort("\\A")), cstr(cell->getPort("\\B")), cstr(cell->getPort("\\C")), cstr(cell->getPort("\\Y")));
+						cstr(cell->getPort(ID::A)), cstr(cell->getPort(ID::B)), cstr(cell->getPort("\\C")), cstr(cell->getPort(ID::Y)));
 				goto internal_cell;
 			}
 
 			if (!config->icells_mode && cell->type == "$_AOI4_") {
 				f << stringf(".names %s %s %s %s %s\n-0-0 1\n-00- 1\n0--0 1\n0-0- 1\n",
-						cstr(cell->getPort("\\A")), cstr(cell->getPort("\\B")),
-						cstr(cell->getPort("\\C")), cstr(cell->getPort("\\D")), cstr(cell->getPort("\\Y")));
+						cstr(cell->getPort(ID::A)), cstr(cell->getPort(ID::B)),
+						cstr(cell->getPort("\\C")), cstr(cell->getPort("\\D")), cstr(cell->getPort(ID::Y)));
 				goto internal_cell;
 			}
 
 			if (!config->icells_mode && cell->type == "$_OAI4_") {
 				f << stringf(".names %s %s %s %s %s\n00-- 1\n--00 1\n",
-						cstr(cell->getPort("\\A")), cstr(cell->getPort("\\B")),
-						cstr(cell->getPort("\\C")), cstr(cell->getPort("\\D")), cstr(cell->getPort("\\Y")));
+						cstr(cell->getPort(ID::A)), cstr(cell->getPort(ID::B)),
+						cstr(cell->getPort("\\C")), cstr(cell->getPort("\\D")), cstr(cell->getPort(ID::Y)));
 				goto internal_cell;
 			}
 
 			if (!config->icells_mode && cell->type == "$_MUX_") {
 				f << stringf(".names %s %s %s %s\n1-0 1\n-11 1\n",
-						cstr(cell->getPort("\\A")), cstr(cell->getPort("\\B")),
-						cstr(cell->getPort("\\S")), cstr(cell->getPort("\\Y")));
+						cstr(cell->getPort(ID::A)), cstr(cell->getPort(ID::B)),
+						cstr(cell->getPort(ID::S)), cstr(cell->getPort(ID::Y)));
 				goto internal_cell;
 			}
 
 			if (!config->icells_mode && cell->type == "$_NMUX_") {
 				f << stringf(".names %s %s %s %s\n0-0 1\n-01 1\n",
-						cstr(cell->getPort("\\A")), cstr(cell->getPort("\\B")),
-						cstr(cell->getPort("\\S")), cstr(cell->getPort("\\Y")));
+						cstr(cell->getPort(ID::A)), cstr(cell->getPort(ID::B)),
+						cstr(cell->getPort(ID::S)), cstr(cell->getPort(ID::Y)));
 				goto internal_cell;
 			}
 
@@ -363,12 +363,12 @@ struct BlifDumper
 
 			if (!config->icells_mode && cell->type == "$lut") {
 				f << stringf(".names");
-				auto &inputs = cell->getPort("\\A");
+				auto &inputs = cell->getPort(ID::A);
 				auto width = cell->parameters.at("\\WIDTH").as_int();
 				log_assert(inputs.size() == width);
 				for (int i = width-1; i >= 0; i--)
 					f << stringf(" %s", cstr(inputs.extract(i, 1)));
-				auto &output = cell->getPort("\\Y");
+				auto &output = cell->getPort(ID::Y);
 				log_assert(output.size() == 1);
 				f << stringf(" %s", cstr(output));
 				f << stringf("\n");
@@ -385,7 +385,7 @@ struct BlifDumper
 
 			if (!config->icells_mode && cell->type == "$sop") {
 				f << stringf(".names");
-				auto &inputs = cell->getPort("\\A");
+				auto &inputs = cell->getPort(ID::A);
 				auto width = cell->parameters.at("\\WIDTH").as_int();
 				auto depth = cell->parameters.at("\\DEPTH").as_int();
 				vector<State> table = cell->parameters.at("\\TABLE").bits;
@@ -394,7 +394,7 @@ struct BlifDumper
 				log_assert(inputs.size() == width);
 				for (int i = 0; i < width; i++)
 					f << stringf(" %s", cstr(inputs.extract(i, 1)));
-				auto &output = cell->getPort("\\Y");
+				auto &output = cell->getPort(ID::Y);
 				log_assert(output.size() == 1);
 				f << stringf(" %s", cstr(output));
 				f << stringf("\n");
@@ -647,7 +647,7 @@ struct BlifBackend : public Backend {
 
 		if (top_module_name.empty())
 			for (auto module : design->modules())
-				if (module->get_bool_attribute("\\top"))
+				if (module->get_bool_attribute(ID::top))
 					top_module_name = module->name.str();
 
 		*f << stringf("# Generated by %s\n", yosys_version_str);

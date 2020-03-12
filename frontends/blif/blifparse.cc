@@ -216,7 +216,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 
 					for (auto cell : module->cells())
 						if (cell->type == "$lut" && cell->getParam("\\LUT") == buffer_lut) {
-							module->connect(cell->getPort("\\Y"), cell->getPort("\\A"));
+							module->connect(cell->getPort(ID::Y), cell->getPort(ID::A));
 							remove_cells.push_back(cell);
 						}
 
@@ -488,8 +488,8 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 					sopcell->parameters["\\WIDTH"] = RTLIL::Const(input_sig.size());
 					sopcell->parameters["\\DEPTH"] = 0;
 					sopcell->parameters["\\TABLE"] = RTLIL::Const();
-					sopcell->setPort("\\A", input_sig);
-					sopcell->setPort("\\Y", output_sig);
+					sopcell->setPort(ID::A, input_sig);
+					sopcell->setPort(ID::Y, output_sig);
 					sopmode = -1;
 					lastcell = sopcell;
 				}
@@ -498,8 +498,8 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 					RTLIL::Cell *cell = module->addCell(NEW_ID, "$lut");
 					cell->parameters["\\WIDTH"] = RTLIL::Const(input_sig.size());
 					cell->parameters["\\LUT"] = RTLIL::Const(RTLIL::State::Sx, 1 << input_sig.size());
-					cell->setPort("\\A", input_sig);
-					cell->setPort("\\Y", output_sig);
+					cell->setPort(ID::A, input_sig);
+					cell->setPort(ID::Y, output_sig);
 					lutptr = &cell->parameters.at("\\LUT");
 					lut_default_state = RTLIL::State::Sx;
 					lastcell = cell;
@@ -545,10 +545,10 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 			if (sopmode == -1) {
 				sopmode = (*output == '1');
 				if (!sopmode) {
-					SigSpec outnet = sopcell->getPort("\\Y");
+					SigSpec outnet = sopcell->getPort(ID::Y);
 					SigSpec tempnet = module->addWire(NEW_ID);
 					module->addNotGate(NEW_ID, tempnet, outnet);
-					sopcell->setPort("\\Y", tempnet);
+					sopcell->setPort(ID::Y, tempnet);
 				}
 			} else
 				log_assert(sopmode == (*output == '1'));

@@ -192,8 +192,8 @@ struct XAigerWriter
 			if (!cell->has_keep_attr()) {
 				if (cell->type == "$_NOT_")
 				{
-					SigBit A = sigmap(cell->getPort("\\A").as_bit());
-					SigBit Y = sigmap(cell->getPort("\\Y").as_bit());
+					SigBit A = sigmap(cell->getPort(ID::A).as_bit());
+					SigBit Y = sigmap(cell->getPort(ID::Y).as_bit());
 					unused_bits.erase(A);
 					undriven_bits.erase(Y);
 					not_map[Y] = A;
@@ -202,9 +202,9 @@ struct XAigerWriter
 
 				if (cell->type == "$_AND_")
 				{
-					SigBit A = sigmap(cell->getPort("\\A").as_bit());
-					SigBit B = sigmap(cell->getPort("\\B").as_bit());
-					SigBit Y = sigmap(cell->getPort("\\Y").as_bit());
+					SigBit A = sigmap(cell->getPort(ID::A).as_bit());
+					SigBit B = sigmap(cell->getPort(ID::B).as_bit());
+					SigBit Y = sigmap(cell->getPort(ID::Y).as_bit());
 					unused_bits.erase(A);
 					unused_bits.erase(B);
 					undriven_bits.erase(Y);

@@ -57,7 +57,7 @@ struct EquivMiterWorker
 		for (auto &conn : c->connections()) {
 			if (!ct.cell_input(c->type, conn.first))
 				continue;
-			if (c->type == "$equiv" && (conn.first == "\\A") != gold_mode)
+			if (c->type == "$equiv" && (conn.first == ID::A) != gold_mode)
 				continue;
 			for (auto bit : sigmap(conn.second))
 				if (bit_to_driver.count(bit))
@@ -213,18 +213,18 @@ struct EquivMiterWorker
 		vector<Cell*> equiv_cells;
 
 		for (auto c : miter_module->cells())
-			if (c->type == "$equiv" && c->getPort("\\A") != c->getPort("\\B"))
+			if (c->type == "$equiv" && c->getPort(ID::A) != c->getPort(ID::B))
 				equiv_cells.push_back(c);
 
 		for (auto c : equiv_cells)
 		{
 			SigSpec cmp = mode_undef ?
-					miter_module->LogicOr(NEW_ID, miter_module->Eqx(NEW_ID, c->getPort("\\A"), State::Sx),
-							miter_module->Eqx(NEW_ID, c->getPort("\\A"), c->getPort("\\B"))) :
-					miter_module->Eq(NEW_ID, c->getPort("\\A"), c->getPort("\\B"));
+					miter_module->LogicOr(NEW_ID, miter_module->Eqx(NEW_ID, c->getPort(ID::A), State::Sx),
+							miter_module->Eqx(NEW_ID, c->getPort(ID::A), c->getPort(ID::B))) :
+					miter_module->Eq(NEW_ID, c->getPort(ID::A), c->getPort(ID::B));
 
 			if (mode_cmp) {
-				string cmp_name = string("\\cmp") + log_signal(c->getPort("\\Y"));
+				string cmp_name = string("\\cmp") + log_signal(c->getPort(ID::Y));
 				for (int i = 1; i < GetSize(cmp_name); i++)
 					if (cmp_name[i] == '\\')
 						cmp_name[i] = '_';

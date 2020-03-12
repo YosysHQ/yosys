@@ -72,11 +72,11 @@ struct Ice40FfssrPass : public Pass {
 				if (cell->type != "$_MUX_")
 					continue;
 
-				SigBit bit_a = sigmap(cell->getPort("\\A"));
-				SigBit bit_b = sigmap(cell->getPort("\\B"));
+				SigBit bit_a = sigmap(cell->getPort(ID::A));
+				SigBit bit_b = sigmap(cell->getPort(ID::B));
 
 				if (bit_a.wire == nullptr || bit_b.wire == nullptr)
-					sr_muxes[sigmap(cell->getPort("\\Y"))] = cell;
+					sr_muxes[sigmap(cell->getPort(ID::Y))] = cell;
 			}
 
 			for (auto cell : ff_cells)
@@ -95,9 +95,9 @@ struct Ice40FfssrPass : public Pass {
 					continue;
 
 				Cell *mux_cell = sr_muxes.at(bit_d);
-				SigBit bit_a = sigmap(mux_cell->getPort("\\A"));
-				SigBit bit_b = sigmap(mux_cell->getPort("\\B"));
-				SigBit bit_s = sigmap(mux_cell->getPort("\\S"));
+				SigBit bit_a = sigmap(mux_cell->getPort(ID::A));
+				SigBit bit_b = sigmap(mux_cell->getPort(ID::B));
+				SigBit bit_s = sigmap(mux_cell->getPort(ID::S));
 
 				log("  Merging %s (A=%s, B=%s, S=%s) into %s (%s).\n", log_id(mux_cell),
 						log_signal(bit_a), log_signal(bit_b), log_signal(bit_s), log_id(cell), log_id(cell->type));
@@ -116,7 +116,7 @@ struct Ice40FfssrPass : public Pass {
 
 				if (sr_val == State::S1) {
 					cell->type = cell->type.str() + "SS";
-					cell->setPort("\\S", sr_sig);
+					cell->setPort(ID::S, sr_sig);
 					cell->setPort("\\D", bit_d);
 				} else {
 					cell->type = cell->type.str() + "SR";

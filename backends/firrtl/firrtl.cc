@@ -199,7 +199,7 @@ struct FirrtlWorker
 		const char *atLine() {
 			if (srcLine == "") {
 				if (pCell) {
-					auto p = pCell->attributes.find("\\src");
+					auto p = pCell->attributes.find(ID::src);
 					srcLine = " at " + p->second.decode_string();
 				}
 			}
@@ -444,7 +444,7 @@ struct FirrtlWorker
 
 			if (cell->type.in("$not", "$logic_not", "$neg", "$reduce_and", "$reduce_or", "$reduce_xor", "$reduce_bool", "$reduce_xnor"))
 			{
-				string a_expr = make_expr(cell->getPort("\\A"));
+				string a_expr = make_expr(cell->getPort(ID::A));
 				wire_decls.push_back(stringf("    wire %s: UInt<%d>\n", y_id.c_str(), y_width));
 
 				if (a_signed) {
@@ -486,7 +486,7 @@ struct FirrtlWorker
 					expr = stringf("asUInt(%s)", expr.c_str());
 
 				cell_exprs.push_back(stringf("    %s <= %s\n", y_id.c_str(), expr.c_str()));
-				register_reverse_wire_map(y_id, cell->getPort("\\Y"));
+				register_reverse_wire_map(y_id, cell->getPort(ID::Y));
 
 				continue;
 			}
@@ -494,8 +494,8 @@ struct FirrtlWorker
 							  "$gt", "$ge", "$lt", "$le", "$ne", "$nex", "$shr", "$sshr", "$sshl", "$shl",
 							  "$logic_and", "$logic_or", "$pow"))
 			{
-				string a_expr = make_expr(cell->getPort("\\A"));
-				string b_expr = make_expr(cell->getPort("\\B"));
+				string a_expr = make_expr(cell->getPort(ID::A));
+				string b_expr = make_expr(cell->getPort(ID::B));
 				wire_decls.push_back(stringf("    wire %s: UInt<%d>\n", y_id.c_str(), y_width));
 
 				if (a_signed) {
@@ -532,7 +532,7 @@ struct FirrtlWorker
 				}
 				// Assume the FIRRTL width is the width of "A"
 				firrtl_width = a_width;
-				auto a_sig = cell->getPort("\\A");
+				auto a_sig = cell->getPort(ID::A);
 
 				if (cell->type == "$add") {
 					primop = "add";
@@ -610,7 +610,7 @@ struct FirrtlWorker
 					// We'll need to offset this by extracting the un-widened portion as Verilog would do.
 					extract_y_bits = true;
 					// Is the shift amount constant?
-					auto b_sig = cell->getPort("\\B");
+					auto b_sig = cell->getPort(ID::B);
 					if (b_sig.is_fully_const()) {
 						primop = "shl";
 						int shift_amount = b_sig.as_int();
@@ -627,7 +627,7 @@ struct FirrtlWorker
 					// We don't need to extract a specific range of bits.
 					extract_y_bits = false;
 					// Is the shift amount constant?
-					auto b_sig = cell->getPort("\\B");
+					auto b_sig = cell->getPort(ID::B);
 					if (b_sig.is_fully_const()) {
 						primop = "shr";
 						int shift_amount = b_sig.as_int();
@@ -669,7 +669,7 @@ struct FirrtlWorker
 						a_expr = firrtl_is_signed ? "SInt(1)" : "UInt(1)";
 						extract_y_bits = true;
 						// Is the shift amount constant?
-						auto b_sig = cell->getPort("\\B");
+						auto b_sig = cell->getPort(ID::B);
 						if (b_sig.is_fully_const()) {
 							primop = "shl";
 							int shiftAmount = b_sig.as_int();
@@ -713,7 +713,7 @@ struct FirrtlWorker
 					expr = stringf("asUInt(%s)", expr.c_str());
 
 				cell_exprs.push_back(stringf("    %s <= %s\n", y_id.c_str(), expr.c_str()));
-				register_reverse_wire_map(y_id, cell->getPort("\\Y"));
+				register_reverse_wire_map(y_id, cell->getPort(ID::Y));
 
 				continue;
 			}
@@ -721,15 +721,15 @@ struct FirrtlWorker
 			if (cell->type.in("$mux"))
 			{
 				int width = cell->parameters.at("\\WIDTH").as_int();
-				string a_expr = make_expr(cell->getPort("\\A"));
-				string b_expr = make_expr(cell->getPort("\\B"));
-				string s_expr = make_expr(cell->getPort("\\S"));
+				string a_expr = make_expr(cell->getPort(ID::A));
+				string b_expr = make_expr(cell->getPort(ID::B));
+				string s_expr = make_expr(cell->getPort(ID::S));
 				wire_decls.push_back(stringf("    wire %s: UInt<%d>\n", y_id.c_str(), width));
 
 				string expr = stringf("mux(%s, %s, %s)", s_expr.c_str(), b_expr.c_str(), a_expr.c_str());
 
 				cell_exprs.push_back(stringf("    %s <= %s\n", y_id.c_str(), expr.c_str()));
-				register_reverse_wire_map(y_id, cell->getPort("\\Y"));
+				register_reverse_wire_map(y_id, cell->getPort(ID::Y));
 
 				continue;
 			}
@@ -885,9 +885,9 @@ struct FirrtlWorker
 				// assign y = a[b +: y_width];
 				// We'll extract the correct bits as part of the primop.
 
-				string a_expr = make_expr(cell->getPort("\\A"));
+				string a_expr = make_expr(cell->getPort(ID::A));
 				// Get the initial bit selector
-				string b_expr = make_expr(cell->getPort("\\B"));
+				string b_expr = make_expr(cell->getPort(ID::B));
 				wire_decls.push_back(stringf("    wire %s: UInt<%d>\n", y_id.c_str(), y_width));
 
 				if (cell->getParam("\\B_SIGNED").as_bool()) {
@@ -899,15 +899,15 @@ struct FirrtlWorker
 				string expr = stringf("dshr(%s, %s)", a_expr.c_str(), b_expr.c_str());
 
 				cell_exprs.push_back(stringf("    %s <= %s\n", y_id.c_str(), expr.c_str()));
-				register_reverse_wire_map(y_id, cell->getPort("\\Y"));
+				register_reverse_wire_map(y_id, cell->getPort(ID::Y));
 				continue;
 			}
 			if (cell->type == "$shift") {
 				// assign y = a >> b;
 				//  where b may be negative
 
-				string a_expr = make_expr(cell->getPort("\\A"));
-				string b_expr = make_expr(cell->getPort("\\B"));
+				string a_expr = make_expr(cell->getPort(ID::A));
+				string b_expr = make_expr(cell->getPort(ID::B));
 				auto b_string = b_expr.c_str();
 				string expr;
 				wire_decls.push_back(stringf("    wire %s: UInt<%d>\n", y_id.c_str(), y_width));
@@ -925,13 +925,13 @@ struct FirrtlWorker
 					expr = stringf("dshr(%s, %s)", a_expr.c_str(), b_string);
 				}
 				cell_exprs.push_back(stringf("    %s <= %s\n", y_id.c_str(), expr.c_str()));
-				register_reverse_wire_map(y_id, cell->getPort("\\Y"));
+				register_reverse_wire_map(y_id, cell->getPort(ID::Y));
 				continue;
 			}
 			if (cell->type == "$pos") {
 				// assign y = a;
 //				printCell(cell);
-				string a_expr = make_expr(cell->getPort("\\A"));
+				string a_expr = make_expr(cell->getPort(ID::A));
 				// Verilog appears to treat the result as signed, so if the result is wider than "A",
 				//  we need to pad.
 				if (a_width < y_width) {
@@ -939,7 +939,7 @@ struct FirrtlWorker
 				}
 				wire_decls.push_back(stringf("    wire %s: UInt<%d>\n", y_id.c_str(), y_width));
 				cell_exprs.push_back(stringf("    %s <= %s\n", y_id.c_str(), a_expr.c_str()));
-				register_reverse_wire_map(y_id, cell->getPort("\\Y"));
+				register_reverse_wire_map(y_id, cell->getPort(ID::Y));
 				continue;
 			}
 			log_error("Cell type not supported: %s (%s.%s)\n", log_id(cell->type), log_id(module), log_id(cell));
@@ -1112,7 +1112,7 @@ struct FirrtlBackend : public Backend {
 		for (auto module : design->modules()) {
 			make_id(module->name);
 			last = module;
-			if (top == nullptr && module->get_bool_attribute("\\top")) {
+			if (top == nullptr && module->get_bool_attribute(ID::top)) {
 				top = module;
 			}
 			for (auto wire : module->wires())

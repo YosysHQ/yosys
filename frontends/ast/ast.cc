@@ -952,7 +952,7 @@ static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast
 	current_module = new AstModule;
 	current_module->ast = NULL;
 	current_module->name = ast->str;
-	current_module->attributes["\\src"] = stringf("%s:%d.%d-%d.%d", ast->filename.c_str(), ast->location.first_line,
+	current_module->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", ast->filename.c_str(), ast->location.first_line,
 		ast->location.first_column, ast->location.last_line, ast->location.last_column);
 	current_module->set_bool_attribute("\\cells_not_processed");
 
@@ -1124,7 +1124,7 @@ static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast
 	}
 
 	if (ast->type == AST_INTERFACE)
-		current_module->set_bool_attribute("\\is_interface");
+		current_module->set_bool_attribute(ID::is_interface);
 	current_module->ast = ast_before_simplify;
 	current_module->nolatches = flag_nolatches;
 	current_module->nomeminit = flag_nomeminit;
@@ -1389,8 +1389,8 @@ void AstModule::reprocess_module(RTLIL::Design *design, const dict<RTLIL::IdStri
 
 	// Check if the module was the top module. If it was, we need to remove the top attribute and put it on the
 	// new module.
-	if (this->get_bool_attribute("\\initial_top")) {
-		this->attributes.erase("\\initial_top");
+	if (this->get_bool_attribute(ID::initial_top)) {
+		this->attributes.erase(ID::initial_top);
 		is_top = true;
 	}
 
@@ -1400,7 +1400,7 @@ void AstModule::reprocess_module(RTLIL::Design *design, const dict<RTLIL::IdStri
 	design->add(newmod);
 	RTLIL::Module* mod = design->module(original_name);
 	if (is_top)
-		mod->set_bool_attribute("\\top");
+		mod->set_bool_attribute(ID::top);
 
 	// Set the attribute "interfaces_replaced_in_module" so that it does not happen again.
 	mod->set_bool_attribute("\\interfaces_replaced_in_module");
@@ -1473,7 +1473,7 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdStr
 				// We copy the cell of the interface to the sub-module such that it
 				//   can further be found if it is propagated down to sub-sub-modules etc.
 				RTLIL::Cell *new_subcell = mod->addCell(intf.first, intf.second->name);
-				new_subcell->set_bool_attribute("\\is_interface");
+				new_subcell->set_bool_attribute(ID::is_interface);
 			}
 			else {
 				log_error("No port with matching name found (%s) in %s. Stopping\n", log_id(intf.first), modname.c_str());

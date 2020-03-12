@@ -64,7 +64,7 @@ struct UniquifyPass : public Pass {
 
 			for (auto module : design->selected_modules())
 			{
-				if (!module->get_bool_attribute("\\unique") && !module->get_bool_attribute("\\top"))
+				if (!module->get_bool_attribute("\\unique") && !module->get_bool_attribute(ID::top))
 					continue;
 
 				for (auto cell : module->selected_cells())

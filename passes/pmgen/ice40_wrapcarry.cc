@@ -40,8 +40,8 @@ void create_ice40_wrapcarry(ice40_wrapcarry_pm &pm)
 	Cell *cell = pm.module->addCell(NEW_ID, "$__ICE40_CARRY_WRAPPER");
 	pm.module->swap_names(cell, st.carry);
 
-	cell->setPort("\\A", st.carry->getPort("\\I0"));
-	cell->setPort("\\B", st.carry->getPort("\\I1"));
+	cell->setPort(ID::A, st.carry->getPort("\\I0"));
+	cell->setPort(ID::B, st.carry->getPort("\\I1"));
 	auto CI = st.carry->getPort("\\CI");
 	cell->setPort("\\CI", CI);
 	cell->setPort("\\CO", st.carry->getPort("\\CO"));

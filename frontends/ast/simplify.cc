@@ -3364,10 +3364,10 @@ void AstNode::mem2reg_as_needed_pass1(dict<AstNode*, pool<std::string>> &mem2reg
 	}
 
 	// also activate if requested, either by using mem2reg attribute or by declaring array as 'wire' instead of 'reg'
-	if (type == AST_MEMORY && (get_bool_attribute("\\mem2reg") || (flags & AstNode::MEM2REG_FL_ALL) || !is_reg))
+	if (type == AST_MEMORY && (get_bool_attribute(ID::mem2reg) || (flags & AstNode::MEM2REG_FL_ALL) || !is_reg))
 		mem2reg_candidates[this] |= AstNode::MEM2REG_FL_FORCED;
 
-	if (type == AST_MODULE && get_bool_attribute("\\mem2reg"))
+	if (type == AST_MODULE && get_bool_attribute(ID::mem2reg))
 		children_flags |= AstNode::MEM2REG_FL_ALL;
 
 	dict<AstNode*, uint32_t> *proc_flags_p = NULL;

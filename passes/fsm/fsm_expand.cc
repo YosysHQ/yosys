@@ -51,32 +51,32 @@ struct FsmExpand
 			return true;
 
 		if (cell->type.in("$mux", "$pmux"))
-			if (cell->getPort("\\A").size() < 2)
+			if (cell->getPort(ID::A).size() < 2)
 				return true;
 
 		int in_bits = 0;
 		RTLIL::SigSpec new_signals;
 
-		if (cell->hasPort("\\A")) {
-			in_bits += GetSize(cell->getPort("\\A"));
-			new_signals.append(assign_map(cell->getPort("\\A")));
+		if (cell->hasPort(ID::A)) {
+			in_bits += GetSize(cell->getPort(ID::A));
+			new_signals.append(assign_map(cell->getPort(ID::A)));
 		}
 
-		if (cell->hasPort("\\B")) {
-			in_bits += GetSize(cell->getPort("\\B"));
-			new_signals.append(assign_map(cell->getPort("\\B")));
+		if (cell->hasPort(ID::B)) {
+			in_bits += GetSize(cell->getPort(ID::B));
+			new_signals.append(assign_map(cell->getPort(ID::B)));
 		}
 
-		if (cell->hasPort("\\S")) {
-			in_bits += GetSize(cell->getPort("\\S"));
-			new_signals.append(assign_map(cell->getPort("\\S")));
+		if (cell->hasPort(ID::S)) {
+			in_bits += GetSize(cell->getPort(ID::S));
+			new_signals.append(assign_map(cell->getPort(ID::S)));
 		}
 
 		if (in_bits > 8)
 			return false;
 
-		if (cell->hasPort("\\Y"))
-			new_signals.append(assign_map(cell->getPort("\\Y")));
+		if (cell->hasPort(ID::Y))
+			new_signals.append(assign_map(cell->getPort(ID::Y)));
 
 		new_signals.sort_and_unify();
 		new_signals.remove_const();
@@ -106,7 +106,7 @@ struct FsmExpand
 			if (merged_set.count(c) > 0 || current_set.count(c) > 0 || no_candidate_set.count(c) > 0)
 				continue;
 			for (auto &p : c->connections()) {
-				if (p.first != "\\A" && p.first != "\\B" && p.first != "\\S" && p.first != "\\Y")
+				if (p.first != ID::A && p.first != ID::B && p.first != ID::S && p.first != ID::Y)
 					goto next_cell;
 			}
 			if (!is_cell_merge_candidate(c)) {
@@ -159,12 +159,12 @@ struct FsmExpand
 		for (int i = 0; i < (1 << input_sig.size()); i++) {
 			RTLIL::Const in_val(i, input_sig.size());
 			RTLIL::SigSpec A, B, S;
-			if (cell->hasPort("\\A"))
-				A = assign_map(cell->getPort("\\A"));
-			if (cell->hasPort("\\B"))
-				B = assign_map(cell->getPort("\\B"));
-			if (cell->hasPort("\\S"))
-				S = assign_map(cell->getPort("\\S"));
+			if (cell->hasPort(ID::A))
+				A = assign_map(cell->getPort(ID::A));
+			if (cell->hasPort(ID::B))
+				B = assign_map(cell->getPort(ID::B));
+			if (cell->hasPort(ID::S))
+				S = assign_map(cell->getPort(ID::S));
 			A.replace(input_sig, RTLIL::SigSpec(in_val));
 			B.replace(input_sig, RTLIL::SigSpec(in_val));
 			S.replace(input_sig, RTLIL::SigSpec(in_val));

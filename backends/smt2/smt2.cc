@@ -367,15 +367,15 @@ struct Smt2Worker
 
 	void export_gate(RTLIL::Cell *cell, std::string expr)
 	{
-		RTLIL::SigBit bit = sigmap(cell->getPort("\\Y").as_bit());
+		RTLIL::SigBit bit = sigmap(cell->getPort(ID::Y).as_bit());
 		std::string processed_expr;
 
 		for (char ch : expr) {
-			if (ch == 'A') processed_expr += get_bool(cell->getPort("\\A"));
-			else if (ch == 'B') processed_expr += get_bool(cell->getPort("\\B"));
+			if (ch == 'A') processed_expr += get_bool(cell->getPort(ID::A));
+			else if (ch == 'B') processed_expr += get_bool(cell->getPort(ID::B));
 			else if (ch == 'C') processed_expr += get_bool(cell->getPort("\\C"));
 			else if (ch == 'D') processed_expr += get_bool(cell->getPort("\\D"));
-			else if (ch == 'S') processed_expr += get_bool(cell->getPort("\\S"));
+			else if (ch == 'S') processed_expr += get_bool(cell->getPort(ID::S));
 			else processed_expr += ch;
 		}
 
@@ -391,23 +391,23 @@ struct Smt2Worker
 	void export_bvop(RTLIL::Cell *cell, std::string expr, char type = 0)
 	{
 		RTLIL::SigSpec sig_a, sig_b;
-		RTLIL::SigSpec sig_y = sigmap(cell->getPort("\\Y"));
+		RTLIL::SigSpec sig_y = sigmap(cell->getPort(ID::Y));
 		bool is_signed = cell->getParam("\\A_SIGNED").as_bool();
 		int width = GetSize(sig_y);
 
 		if (type == 's' || type == 'd' || type == 'b') {
-			width = max(width, GetSize(cell->getPort("\\A")));
-			if (cell->hasPort("\\B"))
-				width = max(width, GetSize(cell->getPort("\\B")));
+			width = max(width, GetSize(cell->getPort(ID::A)));
+			if (cell->hasPort(ID::B))
+				width = max(width, GetSize(cell->getPort(ID::B)));
 		}
 
-		if (cell->hasPort("\\A")) {
-			sig_a = cell->getPort("\\A");
+		if (cell->hasPort(ID::A)) {
+			sig_a = cell->getPort(ID::A);
 			sig_a.extend_u0(width, is_signed);
 		}
 
-		if (cell->hasPort("\\B")) {
-			sig_b = cell->getPort("\\B");
+		if (cell->hasPort(ID::B)) {
+			sig_b = cell->getPort(ID::B);
 			sig_b.extend_u0(width, is_signed && !(type == 's'));
 		}
 
@@ -416,7 +416,7 @@ struct Smt2Worker
 		for (char ch : expr) {
 			if (ch == 'A') processed_expr += get_bv(sig_a);
 			else if (ch == 'B') processed_expr += get_bv(sig_b);
-			else if (ch == 'P') processed_expr += get_bv(cell->getPort("\\B"));
+			else if (ch == 'P') processed_expr += get_bv(cell->getPort(ID::B));
 			else if (ch == 'L') processed_expr += is_signed ? "a" : "l";
 			else if (ch == 'U') processed_expr += is_signed ? "s" : "u";
 			else processed_expr += ch;
@@ -443,7 +443,7 @@ struct Smt2Worker
 
 	void export_reduce(RTLIL::Cell *cell, std::string expr, bool identity_val)
 	{
-		RTLIL::SigSpec sig_y = sigmap(cell->getPort("\\Y"));
+		RTLIL::SigSpec sig_y = sigmap(cell->getPort(ID::Y));
 		std::string processed_expr;
 
 		for (char ch : expr)
@@ -482,7 +482,7 @@ struct Smt2Worker
 
 		if (cell->type == "$initstate")
 		{
-			SigBit bit = sigmap(cell->getPort("\\Y").as_bit());
+			SigBit bit = sigmap(cell->getPort(ID::Y).as_bit());
 			decls.push_back(stringf("(define-fun |%s#%d| ((state |%s_s|)) Bool (|%s_is| state)) ; %s\n",
 					get_id(module), idcounter, get_id(module), get_id(module), log_signal(bit)));
 			register_bool(bit, idcounter++);
@@ -532,22 +532,22 @@ struct Smt2Worker
 			if (cell->type.in("$anyconst", "$anyseq", "$allconst", "$allseq"))
 			{
 				registers.insert(cell);
-				string infostr = cell->attributes.count("\\src") ? cell->attributes.at("\\src").decode_string().c_str() : get_id(cell);
+				string infostr = cell->attributes.count(ID::src) ? cell->attributes.at(ID::src).decode_string().c_str() : get_id(cell);
 				if (cell->attributes.count("\\reg"))
 					infostr += " " + cell->attributes.at("\\reg").decode_string();
-				decls.push_back(stringf("; yosys-smt2-%s %s#%d %d %s\n", cell->type.c_str() + 1, get_id(module), idcounter, GetSize(cell->getPort("\\Y")), infostr.c_str()));
-				if (cell->getPort("\\Y").is_wire() && cell->getPort("\\Y").as_wire()->get_bool_attribute("\\maximize")){
+				decls.push_back(stringf("; yosys-smt2-%s %s#%d %d %s\n", cell->type.c_str() + 1, get_id(module), idcounter, GetSize(cell->getPort(ID::Y)), infostr.c_str()));
+				if (cell->getPort("\\Y").is_wire() && cell->getPort(ID::Y).as_wire()->get_bool_attribute("\\maximize")){
 					decls.push_back(stringf("; yosys-smt2-maximize %s#%d\n", get_id(module), idcounter));
-					log("Wire %s is maximized\n", cell->getPort("\\Y").as_wire()->name.str().c_str());
+					log("Wire %s is maximized\n", cell->getPort(ID::Y).as_wire()->name.str().c_str());
 				}
-				else if (cell->getPort("\\Y").is_wire() && cell->getPort("\\Y").as_wire()->get_bool_attribute("\\minimize")){
+				else if (cell->getPort("\\Y").is_wire() && cell->getPort(ID::Y).as_wire()->get_bool_attribute("\\minimize")){
 					decls.push_back(stringf("; yosys-smt2-minimize %s#%d\n", get_id(module), idcounter));
-					log("Wire %s is minimized\n", cell->getPort("\\Y").as_wire()->name.str().c_str());
+					log("Wire %s is minimized\n", cell->getPort(ID::Y).as_wire()->name.str().c_str());
 				}
-				makebits(stringf("%s#%d", get_id(module), idcounter), GetSize(cell->getPort("\\Y")), log_signal(cell->getPort("\\Y")));
+				makebits(stringf("%s#%d", get_id(module), idcounter), GetSize(cell->getPort(ID::Y)), log_signal(cell->getPort(ID::Y)));
 				if (cell->type == "$anyseq")
 					ex_input_eq.push_back(stringf("  (= (|%s#%d| state) (|%s#%d| other_state))", get_id(module), idcounter, get_id(module), idcounter));
-				register_bv(cell->getPort("\\Y"), idcounter++);
+				register_bv(cell->getPort(ID::Y), idcounter++);
 				recursive_cells.erase(cell);
 				return;
 			}
@@ -566,7 +566,7 @@ struct Smt2Worker
 				if (cell->getParam("\\B_SIGNED").as_bool()) {
 					return export_bvop(cell, stringf("(ite (bvsge P #b%0*d) "
 							"(bvlshr A B) (bvlshr A (bvneg B)))",
-							GetSize(cell->getPort("\\B")), 0), 's');
+							GetSize(cell->getPort(ID::B)), 0), 's');
 				} else {
 					return export_bvop(cell, "(bvlshr A B)", 's');
 				}
@@ -593,9 +593,9 @@ struct Smt2Worker
 			if (cell->type == "$mod") return export_bvop(cell, "(bvUrem A B)", 'd');
 
 			if (cell->type.in("$reduce_and", "$reduce_or", "$reduce_bool") &&
-					2*GetSize(cell->getPort("\\A").chunks()) < GetSize(cell->getPort("\\A"))) {
+					2*GetSize(cell->getPort(ID::A).chunks()) < GetSize(cell->getPort(ID::A))) {
 				bool is_and = cell->type == "$reduce_and";
-				string bits(GetSize(cell->getPort("\\A")), is_and ? '1' : '0');
+				string bits(GetSize(cell->getPort(ID::A)), is_and ? '1' : '0');
 				return export_bvop(cell, stringf("(%s A #b%s)", is_and ? "=" : "distinct", bits.c_str()), 'b');
 			}
 
@@ -611,11 +611,11 @@ struct Smt2Worker
 
 			if (cell->type.in("$mux", "$pmux"))
 			{
-				int width = GetSize(cell->getPort("\\Y"));
-				std::string processed_expr = get_bv(cell->getPort("\\A"));
+				int width = GetSize(cell->getPort(ID::Y));
+				std::string processed_expr = get_bv(cell->getPort(ID::A));
 
-				RTLIL::SigSpec sig_b = cell->getPort("\\B");
-				RTLIL::SigSpec sig_s = cell->getPort("\\S");
+				RTLIL::SigSpec sig_b = cell->getPort(ID::B);
+				RTLIL::SigSpec sig_s = cell->getPort(ID::S);
 				get_bv(sig_b);
 				get_bv(sig_s);
 
@@ -626,7 +626,7 @@ struct Smt2Worker
 				if (verbose)
 					log("%*s-> import cell: %s\n", 2+2*GetSize(recursive_cells), "", log_id(cell));
 
-				RTLIL::SigSpec sig = sigmap(cell->getPort("\\Y"));
+				RTLIL::SigSpec sig = sigmap(cell->getPort(ID::Y));
 				decls.push_back(stringf("(define-fun |%s#%d| ((state |%s_s|)) (_ BitVec %d) %s) ; %s\n",
 						get_id(module), idcounter, get_id(module), width, processed_expr.c_str(), log_signal(sig)));
 				register_bv(sig, idcounter++);
@@ -895,9 +895,9 @@ struct Smt2Worker
 						cell->type == "$assume" ? 'u' :
 						cell->type == "$cover" ? 'c' : 0;
 
-				string name_a = get_bool(cell->getPort("\\A"));
+				string name_a = get_bool(cell->getPort(ID::A));
 				string name_en = get_bool(cell->getPort("\\EN"));
-				string infostr = (cell->name[0] == '$' && cell->attributes.count("\\src")) ? cell->attributes.at("\\src").decode_string() : get_id(cell);
+				string infostr = (cell->name[0] == '$' && cell->attributes.count(ID::src)) ? cell->attributes.at(ID::src).decode_string() : get_id(cell);
 				decls.push_back(stringf("; yosys-smt2-%s %d %s\n", cell->type.c_str() + 1, id, infostr.c_str()));
 
 				if (cell->type == "$cover")
@@ -983,11 +983,11 @@ struct Smt2Worker
 
 				if (cell->type.in("$anyconst", "$allconst"))
 				{
-					std::string expr_d = get_bv(cell->getPort("\\Y"));
-					std::string expr_q = get_bv(cell->getPort("\\Y"), "next_state");
-					trans.push_back(stringf("  (= %s %s) ; %s %s\n", expr_d.c_str(), expr_q.c_str(), get_id(cell), log_signal(cell->getPort("\\Y"))));
+					std::string expr_d = get_bv(cell->getPort(ID::Y));
+					std::string expr_q = get_bv(cell->getPort(ID::Y), "next_state");
+					trans.push_back(stringf("  (= %s %s) ; %s %s\n", expr_d.c_str(), expr_q.c_str(), get_id(cell), log_signal(cell->getPort(ID::Y))));
 					if (cell->type == "$anyconst")
-						ex_state_eq.push_back(stringf("(= %s %s)", get_bv(cell->getPort("\\Y")).c_str(), get_bv(cell->getPort("\\Y"), "other_state").c_str()));
+						ex_state_eq.push_back(stringf("(= %s %s)", get_bv(cell->getPort(ID::Y)).c_str(), get_bv(cell->getPort(ID::Y), "other_state").c_str()));
 				}
 
 				if (cell->type == "$mem")

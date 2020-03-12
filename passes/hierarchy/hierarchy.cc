@@ -168,7 +168,7 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 	// reprocess the module:
 	if(!module->get_bool_attribute("\\interfaces_replaced_in_module")) {
 		for (auto wire : module->wires()) {
-			if ((wire->port_input || wire->port_output) && wire->get_bool_attribute("\\is_interface"))
+			if ((wire->port_input || wire->port_output) && wire->get_bool_attribute(ID::is_interface))
 				has_interface_ports = true;
 		}
 	}
@@ -177,7 +177,7 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 	dict<RTLIL::IdString, RTLIL::Module*> interfaces_in_module;
 	for (auto cell : module->cells())
 	{
-		if(cell->get_bool_attribute("\\is_interface")) {
+		if(cell->get_bool_attribute(ID::is_interface)) {
 			RTLIL::Module *intf_module = design->module(cell->type);
 			interfaces_in_module[cell->name] = intf_module;
 		}
@@ -253,7 +253,7 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 		// Go over all connections and see if any of them are SV interfaces. If they are, then add the replacements to
 		// some lists, so that the ports for sub-modules can be replaced further down:
 		for (auto &conn : cell->connections()) {
-			if(mod->wire(conn.first) != nullptr && mod->wire(conn.first)->get_bool_attribute("\\is_interface")) { // Check if the connection is present as an interface in the sub-module's port list
+			if(mod->wire(conn.first) != nullptr && mod->wire(conn.first)->get_bool_attribute(ID::is_interface)) { // Check if the connection is present as an interface in the sub-module's port list
 				//const pool<string> &interface_type_pool = mod->wire(conn.first)->get_strpool_attribute("\\interface_type");
 				//for (auto &d : interface_type_pool) { // TODO: Compare interface type to type in parent module (not crucially important, but good for robustness)
 				//}
@@ -264,7 +264,7 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 				for (auto &d : interface_modport_pool) {
 					interface_modport = "\\" + d;
 				}
-				if(conn.second.bits().size() == 1 && conn.second.bits()[0].wire->get_bool_attribute("\\is_interface")) { // Check if the connected wire is a potential interface in the parent module
+				if(conn.second.bits().size() == 1 && conn.second.bits()[0].wire->get_bool_attribute(ID::is_interface)) { // Check if the connected wire is a potential interface in the parent module
 					std::string interface_name_str = conn.second.bits()[0].wire->name.str();
 					interface_name_str.replace(0,23,""); // Strip the prefix '$dummywireforinterface' from the dummy wire to get the name
 					interface_name_str = "\\" + interface_name_str;
@@ -370,7 +370,7 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 		if (cell->parameters.size() == 0 && (interfaces_to_add_to_submodule.size() == 0 || !(cell->get_bool_attribute("\\module_not_derived")))) {
 			// If the cell being processed is an the interface instance itself, go down to "handle_interface_instance:",
 			// so that the signals of the interface are added to the parent module.
-			if (mod->get_bool_attribute("\\is_interface")) {
+			if (mod->get_bool_attribute(ID::is_interface)) {
 				goto handle_interface_instance;
 			}
 			continue;
@@ -384,8 +384,8 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 
 			// We add all the signals of the interface explicitly to the parent module. This is always needed when we encounter
 			// an interface instance:
-			if (mod->get_bool_attribute("\\is_interface") && cell->get_bool_attribute("\\module_not_derived")) {
-				cell->set_bool_attribute("\\is_interface");
+			if (mod->get_bool_attribute(ID::is_interface) && cell->get_bool_attribute("\\module_not_derived")) {
+				cell->set_bool_attribute(ID::is_interface);
 				RTLIL::Module *derived_module = design->module(cell->type);
 				interfaces_in_module[cell->name] = derived_module;
 				did_something = true;
@@ -475,7 +475,7 @@ void hierarchy_clean(RTLIL::Design *design, RTLIL::Module *top, bool purge_lib)
 			// safe to delete all of the remaining dummy interface ports:
 			pool<RTLIL::Wire*> del_wires;
 			for(auto wire : mod->wires()) {
-				if ((wire->port_input || wire->port_output) && wire->get_bool_attribute("\\is_interface")) {
+				if ((wire->port_input || wire->port_output) && wire->get_bool_attribute(ID::is_interface)) {
 					del_wires.insert(wire);
 				}
 			}
@@ -532,11 +532,11 @@ int find_top_mod_score(Design *design, Module *module, dict<Module*, int> &db)
 
 RTLIL::Module *check_if_top_has_changed(Design *design, Module *top_mod)
 {
-	if(top_mod != NULL && top_mod->get_bool_attribute("\\initial_top"))
+	if(top_mod != NULL && top_mod->get_bool_attribute(ID::initial_top))
 		return top_mod;
 	else {
 		for (auto mod : design->modules()) {
-			if (mod->get_bool_attribute("\\top")) {
+			if (mod->get_bool_attribute(ID::top)) {
 				return mod;
 			}
 		}
@@ -814,7 +814,7 @@ struct HierarchyPass : public Pass {
 
 		if (top_mod == nullptr)
 			for (auto mod : design->modules())
-				if (mod->get_bool_attribute("\\top"))
+				if (mod->get_bool_attribute(ID::top))
 					top_mod = mod;
 
 		if (top_mod != nullptr && top_mod->name.begins_with("$abstract")) {
@@ -860,9 +860,9 @@ struct HierarchyPass : public Pass {
 		if (top_mod != NULL) {
 			for (auto mod : design->modules())
 				if (mod == top_mod)
-					mod->attributes["\\initial_top"] = RTLIL::Const(1);
+					mod->attributes[ID::initial_top] = RTLIL::Const(1);
 				else
-					mod->attributes.erase("\\initial_top");
+					mod->attributes.erase(ID::initial_top);
 		}
 
 		bool did_something = true;
@@ -915,10 +915,10 @@ struct HierarchyPass : public Pass {
 		if (top_mod != NULL) {
 			for (auto mod : design->modules()) {
 				if (mod == top_mod)
-					mod->attributes["\\top"] = RTLIL::Const(1);
+					mod->attributes[ID::top] = RTLIL::Const(1);
 				else
-					mod->attributes.erase("\\top");
-				mod->attributes.erase("\\initial_top");
+					mod->attributes.erase(ID::top);
+				mod->attributes.erase(ID::initial_top);
 			}
 		}
 
@@ -983,8 +983,8 @@ struct HierarchyPass : public Pass {
 		{
 			for (auto module : design->modules())
 				for (auto wire : module->wires())
-					if (wire->port_input && wire->attributes.count("\\defaultvalue"))
-						defaults_db[module->name][wire->name] = wire->attributes.at("\\defaultvalue");
+					if (wire->port_input && wire->attributes.count(ID::defaultvalue))
+						defaults_db[module->name][wire->name] = wire->attributes.at(ID::defaultvalue);
 		}
 		// Process SV implicit wildcard port connections
 		std::set<Module*> blackbox_derivatives;
@@ -1071,11 +1071,11 @@ struct HierarchyPass : public Pass {
 
 			for (auto wire : module->wires())
 			{
-				if (wire->get_bool_attribute("\\wand")) {
+				if (wire->get_bool_attribute(ID::wand)) {
 					wand_map[wire] = SigSpec();
 					wand_wor_index.insert(wire);
 				}
-				if (wire->get_bool_attribute("\\wor")) {
+				if (wire->get_bool_attribute(ID::wor)) {
 					wor_map[wire] = SigSpec();
 					wand_wor_index.insert(wire);
 				}

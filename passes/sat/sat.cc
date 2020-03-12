@@ -675,9 +675,9 @@ struct SatHelper
 		strftime(stime, sizeof(stime), "%c", now);
 
 		std::string module_fname = "unknown";
-		auto apos = module->attributes.find("\\src");
+		auto apos = module->attributes.find(ID::src);
 		if(apos != module->attributes.end())
-			module_fname = module->attributes["\\src"].decode_string();
+			module_fname = module->attributes[ID::src].decode_string();
 
 		fprintf(f, "$date\n");
 		fprintf(f, "    %s\n", stime);

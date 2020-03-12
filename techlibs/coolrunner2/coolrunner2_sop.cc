@@ -49,8 +49,8 @@ struct Coolrunner2SopPass : public Pass {
 			{
 				if (cell->type == "$_NOT_")
 				{
-					auto not_input = sigmap(cell->getPort("\\A")[0]);
-					auto not_output = sigmap(cell->getPort("\\Y")[0]);
+					auto not_input = sigmap(cell->getPort(ID::A)[0]);
+					auto not_output = sigmap(cell->getPort(ID::Y)[0]);
 					not_cells[not_input] = tuple<SigBit, Cell*>(not_output, cell);
 				}
 			}
@@ -88,8 +88,8 @@ struct Coolrunner2SopPass : public Pass {
 				if (cell->type == "$sop")
 				{
 					// Read the inputs/outputs/parameters of the $sop cell
-					auto sop_inputs = sigmap(cell->getPort("\\A"));
-					auto sop_output = sigmap(cell->getPort("\\Y"))[0];
+					auto sop_inputs = sigmap(cell->getPort(ID::A));
+					auto sop_output = sigmap(cell->getPort(ID::Y))[0];
 					auto sop_depth = cell->getParam("\\DEPTH").as_int();
 					auto sop_width = cell->getParam("\\WIDTH").as_int();
 					auto sop_table = cell->getParam("\\TABLE");

@@ -48,40 +48,40 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 		int width = 1 + xorshift32(8);
 		int swidth = cell_type == "$mux" ? 1 : 1 + xorshift32(8);
 
-		wire = module->addWire("\\A");
+		wire = module->addWire(ID::A);
 		wire->width = width;
 		wire->port_input = true;
-		cell->setPort("\\A", wire);
+		cell->setPort(ID::A, wire);
 
-		wire = module->addWire("\\B");
+		wire = module->addWire(ID::B);
 		wire->width = width * swidth;
 		wire->port_input = true;
-		cell->setPort("\\B", wire);
+		cell->setPort(ID::B, wire);
 
-		wire = module->addWire("\\S");
+		wire = module->addWire(ID::S);
 		wire->width = swidth;
 		wire->port_input = true;
-		cell->setPort("\\S", wire);
+		cell->setPort(ID::S, wire);
 
-		wire = module->addWire("\\Y");
+		wire = module->addWire(ID::Y);
 		wire->width = width;
 		wire->port_output = true;
-		cell->setPort("\\Y", wire);
+		cell->setPort(ID::Y, wire);
 	}
 
 	if (cell_type == "$fa")
 	{
 		int width = 1 + xorshift32(8);
 
-		wire = module->addWire("\\A");
+		wire = module->addWire(ID::A);
 		wire->width = width;
 		wire->port_input = true;
-		cell->setPort("\\A", wire);
+		cell->setPort(ID::A, wire);
 
-		wire = module->addWire("\\B");
+		wire = module->addWire(ID::B);
 		wire->width = width;
 		wire->port_input = true;
-		cell->setPort("\\B", wire);
+		cell->setPort(ID::B, wire);
 
 		wire = module->addWire("\\C");
 		wire->width = width;
@@ -93,10 +93,10 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 		wire->port_output = true;
 		cell->setPort("\\X", wire);
 
-		wire = module->addWire("\\Y");
+		wire = module->addWire(ID::Y);
 		wire->width = width;
 		wire->port_output = true;
-		cell->setPort("\\Y", wire);
+		cell->setPort(ID::Y, wire);
 	}
 
 	if (cell_type == "$lcu")
@@ -130,7 +130,7 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 		int depth = 1 + xorshift32(6);
 		int mulbits_a = 0, mulbits_b = 0;
 
-		RTLIL::Wire *wire_a = module->addWire("\\A");
+		RTLIL::Wire *wire_a = module->addWire(ID::A);
 		wire_a->width = 0;
 		wire_a->port_input = true;
 
@@ -158,15 +158,15 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 			macc.ports.push_back(this_port);
 		}
 
-		wire = module->addWire("\\B");
+		wire = module->addWire(ID::B);
 		wire->width = xorshift32(mulbits_a ? xorshift32(4)+1 : xorshift32(16)+1);
 		wire->port_input = true;
 		macc.bit_ports = wire;
 
-		wire = module->addWire("\\Y");
+		wire = module->addWire(ID::Y);
 		wire->width = width;
 		wire->port_output = true;
-		cell->setPort("\\Y", wire);
+		cell->setPort(ID::Y, wire);
 
 		macc.to_cell(cell);
 	}
@@ -175,14 +175,14 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 	{
 		int width = 1 + xorshift32(6);
 
-		wire = module->addWire("\\A");
+		wire = module->addWire(ID::A);
 		wire->width = width;
 		wire->port_input = true;
-		cell->setPort("\\A", wire);
+		cell->setPort(ID::A, wire);
 
-		wire = module->addWire("\\Y");
+		wire = module->addWire(ID::Y);
 		wire->port_output = true;
-		cell->setPort("\\Y", wire);
+		cell->setPort(ID::Y, wire);
 
 		RTLIL::SigSpec config;
 		for (int i = 0; i < (1 << width); i++)
@@ -196,14 +196,14 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 		int width = 1 + xorshift32(8);
 		int depth = 1 + xorshift32(8);
 
-		wire = module->addWire("\\A");
+		wire = module->addWire(ID::A);
 		wire->width = width;
 		wire->port_input = true;
-		cell->setPort("\\A", wire);
+		cell->setPort(ID::A, wire);
 
-		wire = module->addWire("\\Y");
+		wire = module->addWire(ID::Y);
 		wire->port_output = true;
-		cell->setPort("\\Y", wire);
+		cell->setPort(ID::Y, wire);
 
 		RTLIL::SigSpec config;
 		for (int i = 0; i < width*depth; i++)
@@ -227,20 +227,20 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 	}
 
 	if (cell_type_flags.find('A') != std::string::npos) {
-		wire = module->addWire("\\A");
+		wire = module->addWire(ID::A);
 		wire->width = 1 + xorshift32(8);
 		wire->port_input = true;
-		cell->setPort("\\A", wire);
+		cell->setPort(ID::A, wire);
 	}
 
 	if (cell_type_flags.find('B') != std::string::npos) {
-		wire = module->addWire("\\B");
+		wire = module->addWire(ID::B);
 		if (cell_type_flags.find('h') != std::string::npos)
 			wire->width = 1 + xorshift32(6);
 		else
 			wire->width = 1 + xorshift32(8);
 		wire->port_input = true;
-		cell->setPort("\\B", wire);
+		cell->setPort(ID::B, wire);
 	}
 
 	if (cell_type_flags.find('S') != std::string::npos && xorshift32(2)) {
@@ -258,17 +258,17 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 	}
 
 	if (cell_type_flags.find('Y') != std::string::npos) {
-		wire = module->addWire("\\Y");
+		wire = module->addWire(ID::Y);
 		wire->width = 1 + xorshift32(8);
 		wire->port_output = true;
-		cell->setPort("\\Y", wire);
+		cell->setPort(ID::Y, wire);
 	}
 
 	if (muxdiv && cell_type.in("$div", "$mod")) {
-		auto b_not_zero = module->ReduceBool(NEW_ID, cell->getPort("\\B"));
-		auto div_out = module->addWire(NEW_ID, GetSize(cell->getPort("\\Y")));
-		module->addMux(NEW_ID, RTLIL::SigSpec(0, GetSize(div_out)), div_out, b_not_zero, cell->getPort("\\Y"));
-		cell->setPort("\\Y", div_out);
+		auto b_not_zero = module->ReduceBool(NEW_ID, cell->getPort(ID::B));
+		auto div_out = module->addWire(NEW_ID, GetSize(cell->getPort(ID::Y)));
+		module->addMux(NEW_ID, RTLIL::SigSpec(0, GetSize(div_out)), div_out, b_not_zero, cell->getPort(ID::Y));
+		cell->setPort(ID::Y, div_out);
 	}
 
 	if (cell_type == "$alu")
@@ -282,12 +282,12 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 		cell->setPort("\\BI", wire);
 
 		wire = module->addWire("\\X");
-		wire->width = GetSize(cell->getPort("\\Y"));
+		wire->width = GetSize(cell->getPort(ID::Y));
 		wire->port_output = true;
 		cell->setPort("\\X", wire);
 
 		wire = module->addWire("\\CO");
-		wire->width = GetSize(cell->getPort("\\Y"));
+		wire->width = GetSize(cell->getPort(ID::Y));
 		wire->port_output = true;
 		cell->setPort("\\CO", wire);
 	}

@@ -635,8 +635,8 @@ struct FreduceWorker
 				batches.push_back(outputs);
 				bits_full_total += outputs.size();
 			}
-			if (inv_mode && cell->type == "$_NOT_")
-				inv_pairs.insert(std::pair<RTLIL::SigBit, RTLIL::SigBit>(sigmap(cell->getPort("\\A")), sigmap(cell->getPort("\\Y"))));
+			if (inv_mode && cell->type == ID($_NOT_))
+				inv_pairs.insert(std::pair<RTLIL::SigBit, RTLIL::SigBit>(sigmap(cell->getPort(ID::A)), sigmap(cell->getPort(ID::Y))));
 		}
 
 		int bits_count = 0;
@@ -732,8 +732,8 @@ struct FreduceWorker
 						inv_sig = module->addWire(NEW_ID);
 
 						RTLIL::Cell *inv_cell = module->addCell(NEW_ID, "$_NOT_");
-						inv_cell->setPort("\\A", grp[0].bit);
-						inv_cell->setPort("\\Y", inv_sig);
+						inv_cell->setPort(ID::A, grp[0].bit);
+						inv_cell->setPort(ID::Y, inv_sig);
 					}
 
 					module->connect(RTLIL::SigSig(grp[i].bit, inv_sig));

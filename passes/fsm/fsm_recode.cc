@@ -53,7 +53,7 @@ static void fm_set_fsm_print(RTLIL::Cell *cell, RTLIL::Module *module, FsmData &
 
 static void fsm_recode(RTLIL::Cell *cell, RTLIL::Module *module, FILE *fm_set_fsm_file, FILE *encfile, std::string default_encoding)
 {
-	std::string encoding = cell->attributes.count("\\fsm_encoding") ? cell->attributes.at("\\fsm_encoding").decode_string() : "auto";
+	std::string encoding = cell->attributes.count(ID::fsm_encoding) ? cell->attributes.at(ID::fsm_encoding).decode_string() : "auto";
 
 	log("Recoding FSM `%s' from module `%s' using `%s' encoding:\n", cell->name.c_str(), module->name.c_str(), encoding.c_str());
 

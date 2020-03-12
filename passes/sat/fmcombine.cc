@@ -359,7 +359,7 @@ struct FmcombinePass : public Pass {
 
 		Cell *cell = module->addCell(combined_cell_name, worker.combined_type);
 		cell->attributes = gold_cell->attributes;
-		cell->add_strpool_attribute("\\src", gate_cell->get_strpool_attribute("\\src"));
+		cell->add_strpool_attribute(ID::src, gate_cell->get_strpool_attribute(ID::src));
 
 		log("Combining cells %s and %s in module %s into new cell %s.\n", log_id(gold_cell), log_id(gate_cell), log_id(module), log_id(cell));
 

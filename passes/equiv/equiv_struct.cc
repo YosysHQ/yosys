@@ -127,8 +127,8 @@ struct EquivStructWorker
 
 		for (auto cell : module->selected_cells())
 			if (cell->type == "$equiv") {
-				SigBit sig_a = sigmap(cell->getPort("\\A").as_bit());
-				SigBit sig_b = sigmap(cell->getPort("\\B").as_bit());
+				SigBit sig_a = sigmap(cell->getPort(ID::A).as_bit());
+				SigBit sig_b = sigmap(cell->getPort(ID::B).as_bit());
 				equiv_bits.add(sig_b, sig_a);
 				equiv_inputs.insert(sig_a);
 				equiv_inputs.insert(sig_b);
@@ -140,9 +140,9 @@ struct EquivStructWorker
 
 		for (auto cell : module->selected_cells())
 			if (cell->type == "$equiv") {
-				SigBit sig_a = sigmap(cell->getPort("\\A").as_bit());
-				SigBit sig_b = sigmap(cell->getPort("\\B").as_bit());
-				SigBit sig_y = sigmap(cell->getPort("\\Y").as_bit());
+				SigBit sig_a = sigmap(cell->getPort(ID::A).as_bit());
+				SigBit sig_b = sigmap(cell->getPort(ID::B).as_bit());
+				SigBit sig_y = sigmap(cell->getPort(ID::Y).as_bit());
 				if (sig_a == sig_b && equiv_inputs.count(sig_y)) {
 					log("    Purging redundant $equiv cell %s.\n", log_id(cell));
 					module->connect(sig_y, sig_a);

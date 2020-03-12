@@ -171,8 +171,8 @@ struct AigerWriter
 		{
 			if (cell->type == "$_NOT_")
 			{
-				SigBit A = sigmap(cell->getPort("\\A").as_bit());
-				SigBit Y = sigmap(cell->getPort("\\Y").as_bit());
+				SigBit A = sigmap(cell->getPort(ID::A).as_bit());
+				SigBit Y = sigmap(cell->getPort(ID::Y).as_bit());
 				unused_bits.erase(A);
 				undriven_bits.erase(Y);
 				not_map[Y] = A;
@@ -191,9 +191,9 @@ struct AigerWriter
 
 			if (cell->type == "$_AND_")
 			{
-				SigBit A = sigmap(cell->getPort("\\A").as_bit());
-				SigBit B = sigmap(cell->getPort("\\B").as_bit());
-				SigBit Y = sigmap(cell->getPort("\\Y").as_bit());
+				SigBit A = sigmap(cell->getPort(ID::A).as_bit());
+				SigBit B = sigmap(cell->getPort(ID::B).as_bit());
+				SigBit Y = sigmap(cell->getPort(ID::Y).as_bit());
 				unused_bits.erase(A);
 				unused_bits.erase(B);
 				undriven_bits.erase(Y);
@@ -203,7 +203,7 @@ struct AigerWriter
 
 			if (cell->type == "$initstate")
 			{
-				SigBit Y = sigmap(cell->getPort("\\Y").as_bit());
+				SigBit Y = sigmap(cell->getPort(ID::Y).as_bit());
 				undriven_bits.erase(Y);
 				initstate_bits.insert(Y);
 				continue;
@@ -211,7 +211,7 @@ struct AigerWriter
 
 			if (cell->type == "$assert")
 			{
-				SigBit A = sigmap(cell->getPort("\\A").as_bit());
+				SigBit A = sigmap(cell->getPort(ID::A).as_bit());
 				SigBit EN = sigmap(cell->getPort("\\EN").as_bit());
 				unused_bits.erase(A);
 				unused_bits.erase(EN);
@@ -221,7 +221,7 @@ struct AigerWriter
 
 			if (cell->type == "$assume")
 			{
-				SigBit A = sigmap(cell->getPort("\\A").as_bit());
+				SigBit A = sigmap(cell->getPort(ID::A).as_bit());
 				SigBit EN = sigmap(cell->getPort("\\EN").as_bit());
 				unused_bits.erase(A);
 				unused_bits.erase(EN);
@@ -231,7 +231,7 @@ struct AigerWriter
 
 			if (cell->type == "$live")
 			{
-				SigBit A = sigmap(cell->getPort("\\A").as_bit());
+				SigBit A = sigmap(cell->getPort(ID::A).as_bit());
 				SigBit EN = sigmap(cell->getPort("\\EN").as_bit());
 				unused_bits.erase(A);
 				unused_bits.erase(EN);
@@ -241,7 +241,7 @@ struct AigerWriter
 
 			if (cell->type == "$fair")
 			{
-				SigBit A = sigmap(cell->getPort("\\A").as_bit());
+				SigBit A = sigmap(cell->getPort(ID::A).as_bit());
 				SigBit EN = sigmap(cell->getPort("\\EN").as_bit());
 				unused_bits.erase(A);
 				unused_bits.erase(EN);
@@ -251,7 +251,7 @@ struct AigerWriter
 
 			if (cell->type == "$anyconst")
 			{
-				for (auto bit : sigmap(cell->getPort("\\Y"))) {
+				for (auto bit : sigmap(cell->getPort(ID::Y))) {
 					undriven_bits.erase(bit);
 					ff_map[bit] = bit;
 				}
@@ -260,7 +260,7 @@ struct AigerWriter
 
 			if (cell->type == "$anyseq")
 			{
-				for (auto bit : sigmap(cell->getPort("\\Y"))) {
+				for (auto bit : sigmap(cell->getPort(ID::Y))) {
 					undriven_bits.erase(bit);
 					input_bits.insert(bit);
 				}

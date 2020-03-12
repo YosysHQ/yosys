@@ -114,9 +114,9 @@ struct EquivPurgeWorker
 				continue;
 			}
 
-			SigSpec sig_a = sigmap(cell->getPort("\\A"));
-			SigSpec sig_b = sigmap(cell->getPort("\\B"));
-			SigSpec sig_y = sigmap(cell->getPort("\\Y"));
+			SigSpec sig_a = sigmap(cell->getPort(ID::A));
+			SigSpec sig_b = sigmap(cell->getPort(ID::B));
+			SigSpec sig_y = sigmap(cell->getPort(ID::Y));
 
 			if (sig_a == sig_b)
 				continue;
@@ -130,7 +130,7 @@ struct EquivPurgeWorker
 			for (auto bit : sig_y)
 				visited.insert(bit);
 
-			cell->setPort("\\Y", make_output(sig_y, cell->name));
+			cell->setPort(ID::Y, make_output(sig_y, cell->name));
 		}
 
 		SigSpec srcsig;
@@ -168,7 +168,7 @@ struct EquivPurgeWorker
 
 		for (auto cell : module->cells())
 			if (cell->type == "$equiv")
-				cell->setPort("\\Y", rewrite_sigmap(sigmap(cell->getPort("\\Y"))));
+				cell->setPort(ID::Y, rewrite_sigmap(sigmap(cell->getPort(ID::Y))));
 
 		module->fixup_ports();
 	}

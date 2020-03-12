@@ -336,7 +336,7 @@ struct Clk2fflogicPass : public Pass {
 						ID($_DFFSR_PNN_), ID($_DFFSR_PNP_), ID($_DFFSR_PPN_), ID($_DFFSR_PPP_)))
 					{
 						SigSpec qval = module->MuxGate(NEW_ID, past_q, past_d, clock_edge);
-						SigSpec setval = cell->getPort("\\S");
+						SigSpec setval = cell->getPort(ID::S);
 						SigSpec clrval = cell->getPort("\\R");
 
 						if (cell->type[9] != 'P')

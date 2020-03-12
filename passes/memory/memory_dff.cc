@@ -189,9 +189,9 @@ struct MemoryDffWorker
 			do {
 				bool enable_invert = mux_cells_a.count(sig_data) != 0;
 				Cell *mux = enable_invert ? mux_cells_a.at(sig_data) : mux_cells_b.at(sig_data);
-				check_q.push_back(sigmap(mux->getPort(enable_invert ? "\\B" : "\\A")));
-				sig_data = sigmap(mux->getPort("\\Y"));
-				en.append(enable_invert ? module->LogicNot(NEW_ID, mux->getPort("\\S")) : mux->getPort("\\S"));
+				check_q.push_back(sigmap(mux->getPort(enable_invert ? ID::B : ID::A)));
+				sig_data = sigmap(mux->getPort(ID::Y));
+				en.append(enable_invert ? module->LogicNot(NEW_ID, mux->getPort(ID::S)) : mux->getPort(ID::S));
 			} while (mux_cells_a.count(sig_data) || mux_cells_b.count(sig_data));
 
 			for (auto bit : sig_data)
@@ -259,12 +259,12 @@ struct MemoryDffWorker
 			if (cell->type == "$dff")
 				dff_cells.push_back(cell);
 			if (cell->type == "$mux") {
-				mux_cells_a[sigmap(cell->getPort("\\A"))] = cell;
-				mux_cells_b[sigmap(cell->getPort("\\B"))] = cell;
+				mux_cells_a[sigmap(cell->getPort(ID::A))] = cell;
+				mux_cells_b[sigmap(cell->getPort(ID::B))] = cell;
 			}
-			if (cell->type.in("$not", "$_NOT_") || (cell->type == "$logic_not" && GetSize(cell->getPort("\\A")) == 1)) {
-				SigSpec sig_a = cell->getPort("\\A");
-				SigSpec sig_y = cell->getPort("\\Y");
+			if (cell->type.in("$not", "$_NOT_") || (cell->type == "$logic_not" && GetSize(cell->getPort(ID::A)) == 1)) {
+				SigSpec sig_a = cell->getPort(ID::A);
+				SigSpec sig_y = cell->getPort(ID::Y);
 				if (cell->type == "$not")
 					sig_a.extend_u0(GetSize(sig_y), cell->getParam("\\A_SIGNED").as_bool());
 				if (cell->type == "$logic_not")

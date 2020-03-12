@@ -60,8 +60,8 @@ struct SplitnetsWorker
 		new_wire->port_input = wire->port_input;
 		new_wire->port_output = wire->port_output;
 
-		if (wire->attributes.count("\\src"))
-			new_wire->attributes["\\src"] = wire->attributes.at("\\src");
+		if (wire->attributes.count(ID::src))
+			new_wire->attributes[ID::src] = wire->attributes.at(ID::src);
 
 		if (wire->attributes.count("\\keep"))
 			new_wire->attributes["\\keep"] = wire->attributes.at("\\keep");

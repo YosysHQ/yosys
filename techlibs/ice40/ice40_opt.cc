@@ -95,8 +95,8 @@ static void run_ice40_opts(Module *module)
 			int count_zeros = 0, count_ones = 0;
 
 			SigBit inbit[3] = {
-				cell->getPort("\\A"),
-				cell->getPort("\\B"),
+				cell->getPort(ID::A),
+				cell->getPort(ID::B),
 				cell->getPort("\\CI")
 			};
 			for (int i = 0; i < 3; i++)
@@ -140,9 +140,9 @@ static void run_ice40_opts(Module *module)
 						log_id(module), log_id(cell), log_signal(replacement_output));
 				cell->type = "$lut";
 				auto I3 = get_bit_or_zero(cell->getPort(cell->getParam(ID(I3_IS_CI)).as_bool() ? ID(CI) : ID(I3)));
-				cell->setPort("\\A", { I3, inbit[1], inbit[0], get_bit_or_zero(cell->getPort("\\I0")) });
-				cell->setPort("\\Y", cell->getPort("\\O"));
-				cell->unsetPort("\\B");
+				cell->setPort(ID::A, { I3, inbit[1], inbit[0], get_bit_or_zero(cell->getPort("\\I0")) });
+				cell->setPort(ID::Y, cell->getPort("\\O"));
+				cell->unsetPort(ID::B);
 				cell->unsetPort("\\CI");
 				cell->unsetPort("\\I0");
 				cell->unsetPort("\\I3");
@@ -182,13 +182,13 @@ static void run_ice40_opts(Module *module)
 		cell->setParam("\\LUT", cell->getParam("\\LUT_INIT"));
 		cell->unsetParam("\\LUT_INIT");
 
-		cell->setPort("\\A", SigSpec({
+		cell->setPort(ID::A, SigSpec({
 			get_bit_or_zero(cell->getPort("\\I3")),
 			get_bit_or_zero(cell->getPort("\\I2")),
 			get_bit_or_zero(cell->getPort("\\I1")),
 			get_bit_or_zero(cell->getPort("\\I0"))
 		}));
-		cell->setPort("\\Y", cell->getPort("\\O")[0]);
+		cell->setPort(ID::Y, cell->getPort("\\O")[0]);
 		cell->unsetPort("\\I0");
 		cell->unsetPort("\\I1");
 		cell->unsetPort("\\I2");

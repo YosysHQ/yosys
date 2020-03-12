@@ -118,6 +118,8 @@ struct ClkbufmapPass : public Pass {
 		dict<pair<IdString, pair<IdString, int>>, pair<IdString, int>> inv_ports_out;
 		dict<pair<IdString, pair<IdString, int>>, pair<IdString, int>> inv_ports_in;
 
+		IdString clkbuf_inhibit("\\clkbuf_inhibit");
+
 		// Process submodules before module using them.
 		std::vector<Module *> modules_sorted;
 		pool<Module *> modules_processed;
@@ -215,7 +217,7 @@ struct ClkbufmapPass : public Pass {
 				if (wire->port_input && wire->port_output)
 					continue;
 				bool process_wire = module->selected(wire);
-				if (!select && wire->get_bool_attribute("\\clkbuf_inhibit"))
+				if (!select && wire->get_bool_attribute(clkbuf_inhibit))
 					process_wire = false;
 				if (!process_wire) {
 					// This wire is supposed to be bypassed, so make sure we don't buffer it in
@@ -238,7 +240,7 @@ struct ClkbufmapPass : public Pass {
 							buf_ports.insert(make_pair(module->name, make_pair(wire->name, i)));
 					} else if (!sink_wire_bits.count(mapped_wire_bit)) {
 						// Nothing to do.
-					} else if (driven_wire_bits.count(wire_bit) || (wire->port_input && module->get_bool_attribute("\\top"))) {
+					} else if (driven_wire_bits.count(wire_bit) || (wire->port_input && module->get_bool_attribute(ID::top))) {
 						// Clock network not yet buffered, driven by one of
 						// our cells or a top-level input -- buffer it.
 
@@ -247,7 +249,7 @@ struct ClkbufmapPass : public Pass {
 						Wire *iwire = module->addWire(NEW_ID);
 						cell->setPort(RTLIL::escape_id(buf_portname), mapped_wire_bit);
 						cell->setPort(RTLIL::escape_id(buf_portname2), iwire);
-						if (wire->port_input && !inpad_celltype.empty() && module->get_bool_attribute("\\top")) {
+						if (wire->port_input && !inpad_celltype.empty() && module->get_bool_attribute(ID::top)) {
 							log("Inserting %s on %s.%s[%d].\n", inpad_celltype.c_str(), log_id(module), log_id(wire), i);
 							RTLIL::Cell *cell2 = module->addCell(NEW_ID, RTLIL::escape_id(inpad_celltype));
 							cell2->setPort(RTLIL::escape_id(inpad_portname), iwire);

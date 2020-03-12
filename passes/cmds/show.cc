@@ -482,8 +482,8 @@ struct ShowWorker
 			}
 
 			std::string proc_src = RTLIL::unescape_id(proc->name);
-			if (proc->attributes.count("\\src") > 0)
-				proc_src = proc->attributes.at("\\src").decode_string();
+			if (proc->attributes.count(ID::src) > 0)
+				proc_src = proc->attributes.at(ID::src).decode_string();
 			fprintf(f, "p%d [shape=box, style=rounded, label=\"PROC %s\\n%s\"];\n", pidx, findLabel(proc->name.str()), proc_src.c_str());
 		}
 
