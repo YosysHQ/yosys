@@ -132,7 +132,7 @@ code sigDOB argD clock ffDOB ffDOBcemux ffDOBcepol ffBDrstmux ffBDrstpol
 endcode
 
 code
-	log_dump(sigDOA, ffDOA, ffDOAcemux);
+	log_dump(sigDOA, ffDOA, ffDOAcemux, ffDOAcepol, ffADrstmux, ffADrstpol);
 	accept;
 endcode
 
@@ -156,6 +156,7 @@ match ffcemux
 	select nusers(port(ffcemux, \Y)) == 2
  
 	choice <IdString> AB {\A, \B}
+
 	// keep-last-value net must have at least three users: ffcemux, ff, downstream sink(s)
 	select nusers(port(ffcemux, AB)) >= 3
  
@@ -220,8 +221,15 @@ code argD argQ
 	if (ffrstmux) {
 		SigSpec AB = port(ffrstmux, ffrstpol ? \A : \B);
 		SigSpec Y = port(ffrstmux, \Y);
-		argD.replace(AB, Y);
 
+		// Check that the rest of argD is present
+		auto ABset = AB.to_sigbit_pool();
+		for (const auto &b : argD)
+			if (!ABset.count(b))
+				reject;
+
+		argD.replace(AB, Y);
+	
 		dffrstmux = ffrstmux;
 		dffrstpol = ffrstpol;
 	}
