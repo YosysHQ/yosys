@@ -1500,11 +1500,11 @@ struct Smt2Backend : public Backend {
 
 		// extract module dependencies
 		std::map<RTLIL::Module*, std::set<RTLIL::Module*>> module_deps;
-		for (auto &mod_it : design->modules_) {
-			module_deps[mod_it.second] = std::set<RTLIL::Module*>();
-			for (auto &cell_it : mod_it.second->cells_)
-				if (design->modules_.count(cell_it.second->type) > 0)
-					module_deps[mod_it.second].insert(design->modules_.at(cell_it.second->type));
+		for (auto mod : design->modules()) {
+			module_deps[mod] = std::set<RTLIL::Module*>();
+			for (auto cell : mod->cells())
+				if (design->has(cell->type))
+					module_deps[mod].insert(design->module(cell->type));
 		}
 
 		// simple good-enough topological sort
