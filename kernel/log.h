@@ -23,7 +23,22 @@
 #define LOG_H
 
 #include <time.h>
-#include <regex>
+#if defined(__GNUC__) && ( __GNUC__ == 4 && __GNUC_MINOR__ == 8)
+	#include <boost/xpressive/xpressive.hpp>
+	#define REGEX_TYPE boost::xpressive::sregex
+	#define REGEX_NS boost::xpressive
+	#define REGEX_COMPILE(param) boost::xpressive::sregex::compile(param, \
+					boost::xpressive::regex_constants::nosubs | \
+					boost::xpressive::regex_constants::optimize)
+# else
+	#include <regex>
+	#define REGEX_TYPE std::regex
+	#define REGEX_NS std
+	#define REGEX_COMPILE(param) std::regex(param, \
+					std::regex_constants::nosubs | \
+					std::regex_constants::optimize | \
+					std::regex_constants::egrep)
+#endif
 
 #ifndef _WIN32
 #  include <sys/time.h>
@@ -49,7 +64,7 @@ struct log_cmd_error_exception { };
 extern std::vector<FILE*> log_files;
 extern std::vector<std::ostream*> log_streams;
 extern std::map<std::string, std::set<std::string>> log_hdump;
-extern std::vector<std::regex> log_warn_regexes, log_nowarn_regexes, log_werror_regexes;
+extern std::vector<REGEX_TYPE> log_warn_regexes, log_nowarn_regexes, log_werror_regexes;
 extern std::set<std::string> log_warnings, log_experimentals, log_experimentals_ignored;
 extern int log_warnings_count;
 extern int log_warnings_count_noexpect;
@@ -151,7 +166,7 @@ struct LogExpectedItem
 	std::string pattern;
 };
 
-extern std::vector<std::pair<std::regex,LogExpectedItem>> log_expect_log, log_expect_warning, log_expect_error;
+extern std::vector<std::pair<REGEX_TYPE,LogExpectedItem>> log_expect_log, log_expect_warning, log_expect_error;
 void log_check_expected();
 
 const char *log_signal(const RTLIL::SigSpec &sig, bool autoint = true);
