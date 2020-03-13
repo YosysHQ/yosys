@@ -23,18 +23,21 @@
 #define LOG_H
 
 #include <time.h>
-#if defined(__GNUC__) && ( __GNUC__ == 4 && __GNUC_MINOR__ == 8)
+
+// In GCC 4.8 std::regex is not working correctlty, in order to make features
+// using regular expressions to work replacement regex library is used
+#if defined(__GNUC__) && ( __GNUC__ == 4 && __GNUC_MINOR__ <= 8)
 	#include <boost/xpressive/xpressive.hpp>
-	#define REGEX_TYPE boost::xpressive::sregex
-	#define REGEX_NS boost::xpressive
-	#define REGEX_COMPILE(param) boost::xpressive::sregex::compile(param, \
+	#define YS_REGEX_TYPE boost::xpressive::sregex
+	#define YS_REGEX_NS boost::xpressive
+	#define YS_REGEX_COMPILE(param) boost::xpressive::sregex::compile(param, \
 					boost::xpressive::regex_constants::nosubs | \
 					boost::xpressive::regex_constants::optimize)
 # else
 	#include <regex>
-	#define REGEX_TYPE std::regex
-	#define REGEX_NS std
-	#define REGEX_COMPILE(param) std::regex(param, \
+	#define YS_REGEX_TYPE std::regex
+	#define YS_REGEX_NS std
+	#define YS_REGEX_COMPILE(param) std::regex(param, \
 					std::regex_constants::nosubs | \
 					std::regex_constants::optimize | \
 					std::regex_constants::egrep)
@@ -64,7 +67,7 @@ struct log_cmd_error_exception { };
 extern std::vector<FILE*> log_files;
 extern std::vector<std::ostream*> log_streams;
 extern std::map<std::string, std::set<std::string>> log_hdump;
-extern std::vector<REGEX_TYPE> log_warn_regexes, log_nowarn_regexes, log_werror_regexes;
+extern std::vector<YS_REGEX_TYPE> log_warn_regexes, log_nowarn_regexes, log_werror_regexes;
 extern std::set<std::string> log_warnings, log_experimentals, log_experimentals_ignored;
 extern int log_warnings_count;
 extern int log_warnings_count_noexpect;
@@ -166,7 +169,7 @@ struct LogExpectedItem
 	std::string pattern;
 };
 
-extern std::vector<std::pair<REGEX_TYPE,LogExpectedItem>> log_expect_log, log_expect_warning, log_expect_error;
+extern std::vector<std::pair<YS_REGEX_TYPE,LogExpectedItem>> log_expect_log, log_expect_warning, log_expect_error;
 void log_check_expected();
 
 const char *log_signal(const RTLIL::SigSpec &sig, bool autoint = true);

@@ -413,13 +413,13 @@ int main(int argc, char **argv)
 			scriptfile_tcl = true;
 			break;
 		case 'W':
-			log_warn_regexes.push_back(REGEX_COMPILE(optarg));
+			log_warn_regexes.push_back(YS_REGEX_COMPILE(optarg));
 			break;
 		case 'w':
-			log_nowarn_regexes.push_back(REGEX_COMPILE(optarg));
+			log_nowarn_regexes.push_back(YS_REGEX_COMPILE(optarg));
 			break;
 		case 'e':
-			log_werror_regexes.push_back(REGEX_COMPILE(optarg));
+			log_werror_regexes.push_back(YS_REGEX_COMPILE(optarg));
 			break;
 		case 'D':
 			vlog_defines.push_back(optarg);

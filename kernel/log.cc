@@ -41,8 +41,8 @@ YOSYS_NAMESPACE_BEGIN
 std::vector<FILE*> log_files;
 std::vector<std::ostream*> log_streams;
 std::map<std::string, std::set<std::string>> log_hdump;
-std::vector<REGEX_TYPE> log_warn_regexes, log_nowarn_regexes, log_werror_regexes;
-std::vector<std::pair<REGEX_TYPE,LogExpectedItem>> log_expect_log, log_expect_warning, log_expect_error;
+std::vector<YS_REGEX_TYPE> log_warn_regexes, log_nowarn_regexes, log_werror_regexes;
+std::vector<std::pair<YS_REGEX_TYPE,LogExpectedItem>> log_expect_log, log_expect_warning, log_expect_error;
 std::set<std::string> log_warnings, log_experimentals, log_experimentals_ignored;
 int log_warnings_count = 0;
 int log_warnings_count_noexpect = 0;
@@ -177,11 +177,11 @@ void logv(const char *format, va_list ap)
 
 			if (!linebuffer.empty() && linebuffer.back() == '\n') {
 				for (auto &re : log_warn_regexes)
-					if (REGEX_NS::regex_search(linebuffer, re))
+					if (YS_REGEX_NS::regex_search(linebuffer, re))
 						log_warning("Found log message matching -W regex:\n%s", str.c_str());
 
 				for (auto &item : log_expect_log)
-					if (REGEX_NS::regex_search(linebuffer, item.first))
+					if (YS_REGEX_NS::regex_search(linebuffer, item.first))
 						item.second.current_count++;
 
 				linebuffer.clear();
@@ -238,7 +238,7 @@ static void logv_warning_with_prefix(const char *prefix,
 	bool suppressed = false;
 
 	for (auto &re : log_nowarn_regexes)
-		if (REGEX_NS::regex_search(message, re))
+		if (YS_REGEX_NS::regex_search(message, re))
 			suppressed = true;
 
 	if (suppressed)
@@ -251,12 +251,12 @@ static void logv_warning_with_prefix(const char *prefix,
 		log_make_debug = 0;
 
 		for (auto &re : log_werror_regexes)
-			if (REGEX_NS::regex_search(message, re))
+			if (YS_REGEX_NS::regex_search(message, re))
 				log_error("%s",  message.c_str());
 
 		bool warning_match = false;
 		for (auto &item : log_expect_warning)
-			if (REGEX_NS::regex_search(message, item.first)) {
+			if (YS_REGEX_NS::regex_search(message, item.first)) {
 				item.second.current_count++;
 				warning_match = true;
 			}
@@ -349,7 +349,7 @@ static void logv_error_with_prefix(const char *prefix,
 		log_error_atexit();
 
 	for (auto &item : log_expect_error)
-		if (REGEX_NS::regex_search(log_last_error, item.first))
+		if (YS_REGEX_NS::regex_search(log_last_error, item.first))
 			item.second.current_count++;
 
 	if (check_expected_logs)
