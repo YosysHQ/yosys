@@ -26,7 +26,7 @@
 
 // In GCC 4.8 std::regex is not working correctlty, in order to make features
 // using regular expressions to work replacement regex library is used
-#if defined(__GNUC__) && ( __GNUC__ == 4 && __GNUC_MINOR__ <= 8)
+#if defined(__GNUC__) && !defined( __clang__) && ( __GNUC__ == 4 && __GNUC_MINOR__ <= 8)
 	#include <boost/xpressive/xpressive.hpp>
 	#define YS_REGEX_TYPE boost::xpressive::sregex
 	#define YS_REGEX_NS boost::xpressive
