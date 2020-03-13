@@ -1,0 +1,6 @@
+logger -warn "Successfully finished Verilog frontend." -expect warning "Successfully finished Verilog frontend." 1
+read_verilog << EOF
+module top(...);
+	assign b = w;
+endmodule
+EOF
