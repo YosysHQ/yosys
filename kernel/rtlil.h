@@ -775,11 +775,11 @@ public:
 	SigSpec(const std::string &str);
 	SigSpec(int val, int width = 32);
 	SigSpec(RTLIL::State bit, int width = 1);
-	SigSpec(RTLIL::SigBit bit, int width = 1);
-	SigSpec(std::vector<RTLIL::SigChunk> chunks);
-	SigSpec(std::vector<RTLIL::SigBit> bits);
-	SigSpec(pool<RTLIL::SigBit> bits);
-	SigSpec(std::set<RTLIL::SigBit> bits);
+	SigSpec(const RTLIL::SigBit& bit, int width = 1);
+	SigSpec(const std::vector<RTLIL::SigChunk>& chunks);
+	SigSpec(const std::vector<RTLIL::SigBit>& bits);
+	SigSpec(const pool<RTLIL::SigBit>& bits);
+	SigSpec(const std::set<RTLIL::SigBit>& bits);
 	SigSpec(bool bit);
 
 	SigSpec(RTLIL::SigSpec &&other) {
@@ -849,7 +849,13 @@ public:
 	RTLIL::SigSpec extract_end(int offset) const { return extract(offset, width_ - offset); }
 
 	void append(const RTLIL::SigSpec &signal);
-	void append_bit(const RTLIL::SigBit &bit);
+	inline void append(Wire *wire) { append(RTLIL::SigSpec(wire)); }
+	inline void append(const RTLIL::SigChunk &chunk) { append(RTLIL::SigSpec(chunk)); }
+	inline void append(const RTLIL::Const &const_) { append(RTLIL::SigSpec(const_)); }
+
+	void append(const RTLIL::SigBit &bit);
+	inline void append(RTLIL::State state) { append(RTLIL::SigBit(state)); }
+	inline void append(bool bool_) { append(RTLIL::SigBit(bool_)); }
 
 	void extend_u0(int width, bool is_signed = false);
 
@@ -1469,7 +1475,7 @@ inline RTLIL::SigBit::SigBit(RTLIL::Wire *wire) : wire(wire), offset(0) { log_as
 inline RTLIL::SigBit::SigBit(RTLIL::Wire *wire, int offset) : wire(wire), offset(offset) { log_assert(wire != nullptr); }
 inline RTLIL::SigBit::SigBit(const RTLIL::SigChunk &chunk) : wire(chunk.wire) { log_assert(chunk.width == 1); if (wire) offset = chunk.offset; else data = chunk.data[0]; }
 inline RTLIL::SigBit::SigBit(const RTLIL::SigChunk &chunk, int index) : wire(chunk.wire) { if (wire) offset = chunk.offset + index; else data = chunk.data[index]; }
-inline RTLIL::SigBit::SigBit(const RTLIL::SigBit &sigbit) : wire(sigbit.wire), data(sigbit.data){if(wire) offset = sigbit.offset;}
+inline RTLIL::SigBit::SigBit(const RTLIL::SigBit &sigbit) : wire(sigbit.wire), data(sigbit.data){ if (wire) offset = sigbit.offset; }
 
 inline bool RTLIL::SigBit::operator<(const RTLIL::SigBit &other) const {
 	if (wire == other.wire)

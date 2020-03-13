@@ -1405,7 +1405,7 @@ struct FlowmapWorker
 
 			RTLIL::SigSpec lut_a, lut_y = node;
 			for (auto input_node : input_nodes)
-				lut_a.append_bit(input_node);
+				lut_a.append(input_node);
 			lut_a.append(RTLIL::Const(State::Sx, minlut - input_nodes.size()));
 
 			RTLIL::Cell *lut = module->addLut(NEW_ID, lut_a, lut_y, lut_table);

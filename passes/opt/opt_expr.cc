@@ -193,11 +193,11 @@ bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutativ
 
 		for (auto &it : grouped_bits[i]) {
 			for (auto &bit : it.second) {
-				new_conn.first.append_bit(bit);
-				new_conn.second.append_bit(RTLIL::SigBit(new_y, new_a.size()));
+				new_conn.first.append(bit);
+				new_conn.second.append(RTLIL::SigBit(new_y, new_a.size()));
 			}
-			new_a.append_bit(it.first.first);
-			new_b.append_bit(it.first.second);
+			new_a.append(it.first.first);
+			new_b.append(it.first.second);
 		}
 
 		if (cell->type.in(ID($and), ID($or)) && i == GRP_CONST_A) {

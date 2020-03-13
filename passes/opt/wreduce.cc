@@ -98,7 +98,7 @@ struct WreduceWorker
 
 		SigSpec sig_removed;
 		for (int i = GetSize(bits_removed)-1; i >= 0; i--)
-			sig_removed.append_bit(bits_removed[i]);
+			sig_removed.append(bits_removed[i]);
 
 		if (GetSize(bits_removed) == GetSize(sig_y)) {
 			log("Removed cell %s.%s (%s).\n", log_id(module), log_id(cell), log_id(cell->type));
