@@ -2350,16 +2350,19 @@ module SB_SPRAM256KA (
 		if (off) begin
 			DATAOUT <= 0;
 		end else
-		if (CHIPSELECT && !STANDBY && !WREN) begin
-			DATAOUT <= mem[ADDRESS];
-		end else begin
-			if (CHIPSELECT && !STANDBY && WREN) begin
+		if (STANDBY) begin
+			DATAOUT <= 'bx;
+		end else
+		if (CHIPSELECT) begin
+			if (!WREN) begin
+				DATAOUT <= mem[ADDRESS];
+			end else begin
 				if (MASKWREN[0]) mem[ADDRESS][ 3: 0] = DATAIN[ 3: 0];
 				if (MASKWREN[1]) mem[ADDRESS][ 7: 4] = DATAIN[ 7: 4];
 				if (MASKWREN[2]) mem[ADDRESS][11: 8] = DATAIN[11: 8];
 				if (MASKWREN[3]) mem[ADDRESS][15:12] = DATAIN[15:12];
+				DATAOUT <= 'bx;
 			end
-			DATAOUT <= 'bx;
 		end
 	end
 `endif
