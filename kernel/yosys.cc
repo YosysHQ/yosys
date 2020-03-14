@@ -129,7 +129,7 @@ void yosys_banner()
 	log(" |                                                                            |\n");
 	log(" |  yosys -- Yosys Open SYnthesis Suite                                       |\n");
 	log(" |                                                                            |\n");
-	log(" |  Copyright (C) 2012 - 2019  Clifford Wolf <clifford@clifford.at>           |\n");
+	log(" |  Copyright (C) 2012 - 2020  Clifford Wolf <clifford@clifford.at>           |\n");
 	log(" |                                                                            |\n");
 	log(" |  Permission to use, copy, modify, and/or distribute this software for any  |\n");
 	log(" |  purpose with or without fee is hereby granted, provided that the above    |\n");
