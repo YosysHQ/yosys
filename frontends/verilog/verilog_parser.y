@@ -2113,18 +2113,22 @@ simple_behavioral_stmt:
 	lvalue '=' delay expr {
 		AstNode *node = new AstNode(AST_ASSIGN_EQ, $1, $4);
 		ast_stack.back()->children.push_back(node);
+		SET_AST_NODE_LOC(node, @1, @4);
 	} |
 	lvalue TOK_INCREMENT {
 		AstNode *node = new AstNode(AST_ASSIGN_EQ, $1, new AstNode(AST_ADD, $1->clone(), AstNode::mkconst_int(1, true)));
 		ast_stack.back()->children.push_back(node);
+		SET_AST_NODE_LOC(node, @1, @2);
 	} |
 	lvalue TOK_DECREMENT {
 		AstNode *node = new AstNode(AST_ASSIGN_EQ, $1, new AstNode(AST_SUB, $1->clone(), AstNode::mkconst_int(1, true)));
 		ast_stack.back()->children.push_back(node);
+		SET_AST_NODE_LOC(node, @1, @2);
 	} |
 	lvalue OP_LE delay expr {
 		AstNode *node = new AstNode(AST_ASSIGN_LE, $1, $4);
 		ast_stack.back()->children.push_back(node);
+		SET_AST_NODE_LOC(node, @1, @4);
 	};
 
 // this production creates the obligatory if-else shift/reduce conflict
@@ -2182,6 +2186,7 @@ behavioral_stmt:
 	} behavioral_stmt {
 		SET_AST_NODE_LOC(ast_stack.back(), @13, @13);
 		ast_stack.pop_back();
+		SET_AST_NODE_LOC(ast_stack.back(), @2, @13);
 		ast_stack.pop_back();
 	} |
 	attr TOK_WHILE '(' expr ')' {
@@ -2335,6 +2340,7 @@ gen_case_item:
 		ast_stack.push_back(node);
 	} case_select {
 		case_type_stack.push_back(0);
+		SET_AST_NODE_LOC(ast_stack.back(), @2, @2);
 	} gen_stmt_or_null {
 		case_type_stack.pop_back();
 		ast_stack.pop_back();
@@ -2346,10 +2352,14 @@ case_select:
 
 case_expr_list:
 	TOK_DEFAULT {
-		ast_stack.back()->children.push_back(new AstNode(AST_DEFAULT));
+		AstNode *node = new AstNode(AST_DEFAULT);
+		SET_AST_NODE_LOC(node, @1, @1);
+		ast_stack.back()->children.push_back(node);
 	} |
 	TOK_SVA_LABEL {
-		ast_stack.back()->children.push_back(new AstNode(AST_IDENTIFIER));
+		AstNode *node = new AstNode(AST_IDENTIFIER);
+		SET_AST_NODE_LOC(node, @1, @1);
+		ast_stack.back()->children.push_back(node);
 		ast_stack.back()->children.back()->str = *$1;
 		delete $1;
 	} |
@@ -2496,6 +2506,7 @@ expr:
 		$$->children.push_back($1);
 		$$->children.push_back($4);
 		$$->children.push_back($6);
+		SET_AST_NODE_LOC($$, @1, @$);
 		append_attr($$, $3);
 	};
 
@@ -2518,6 +2529,7 @@ basic_expr:
 			frontend_verilog_yyerror("Cast operation must be applied on sized constants, e.g. <ID>\'d0, while %s is not a sized constant.", $2->c_str());
 		AstNode *bits = new AstNode(AST_IDENTIFIER);
 		bits->str = *$1;
+		SET_AST_NODE_LOC(bits, @1, @1);
 		AstNode *val = const2ast(*$2, case_type_stack.size() == 0 ? 0 : case_type_stack.back(), !lib_mode);
 		if (val == NULL)
 			log_error("Value conversion failed: `%s'\n", $2->c_str());
@@ -2545,6 +2557,7 @@ basic_expr:
 			if ((*$1)[j] != '_')
 				p[i++] = (*$1)[j], p[i] = 0;
 		$$->realvalue = strtod(p, &q);
+		SET_AST_NODE_LOC($$, @1, @1);
 		log_assert(*q == 0);
 		delete $1;
 		free(p);
@@ -2558,6 +2571,7 @@ basic_expr:
 		node->str = *$1;
 		delete $1;
 		ast_stack.push_back(node);
+		SET_AST_NODE_LOC(node, @1, @1);
 		append_attr(node, $2);
 	} '(' arg_list optional_comma ')' {
 		$$ = ast_stack.back();
@@ -2587,148 +2601,185 @@ basic_expr:
 	} |
 	'~' attr basic_expr %prec UNARY_OPS {
 		$$ = new AstNode(AST_BIT_NOT, $3);
+		SET_AST_NODE_LOC($$, @1, @3);
 		append_attr($$, $2);
 	} |
 	basic_expr '&' attr basic_expr {
 		$$ = new AstNode(AST_BIT_AND, $1, $4);
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	basic_expr OP_NAND attr basic_expr {
 		$$ = new AstNode(AST_BIT_NOT, new AstNode(AST_BIT_AND, $1, $4));
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	basic_expr '|' attr basic_expr {
 		$$ = new AstNode(AST_BIT_OR, $1, $4);
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	basic_expr OP_NOR attr basic_expr {
 		$$ = new AstNode(AST_BIT_NOT, new AstNode(AST_BIT_OR, $1, $4));
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	basic_expr '^' attr basic_expr {
 		$$ = new AstNode(AST_BIT_XOR, $1, $4);
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	basic_expr OP_XNOR attr basic_expr {
 		$$ = new AstNode(AST_BIT_XNOR, $1, $4);
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	'&' attr basic_expr %prec UNARY_OPS {
 		$$ = new AstNode(AST_REDUCE_AND, $3);
+		SET_AST_NODE_LOC($$, @1, @3);
 		append_attr($$, $2);
 	} |
 	OP_NAND attr basic_expr %prec UNARY_OPS {
 		$$ = new AstNode(AST_REDUCE_AND, $3);
+		SET_AST_NODE_LOC($$, @1, @3);
 		append_attr($$, $2);
 		$$ = new AstNode(AST_LOGIC_NOT, $$);
 	} |
 	'|' attr basic_expr %prec UNARY_OPS {
 		$$ = new AstNode(AST_REDUCE_OR, $3);
+		SET_AST_NODE_LOC($$, @1, @3);
 		append_attr($$, $2);
 	} |
 	OP_NOR attr basic_expr %prec UNARY_OPS {
 		$$ = new AstNode(AST_REDUCE_OR, $3);
+		SET_AST_NODE_LOC($$, @1, @3);
 		append_attr($$, $2);
 		$$ = new AstNode(AST_LOGIC_NOT, $$);
+		SET_AST_NODE_LOC($$, @1, @3);
 	} |
 	'^' attr basic_expr %prec UNARY_OPS {
 		$$ = new AstNode(AST_REDUCE_XOR, $3);
+		SET_AST_NODE_LOC($$, @1, @3);
 		append_attr($$, $2);
 	} |
 	OP_XNOR attr basic_expr %prec UNARY_OPS {
 		$$ = new AstNode(AST_REDUCE_XNOR, $3);
+		SET_AST_NODE_LOC($$, @1, @3);
 		append_attr($$, $2);
 	} |
 	basic_expr OP_SHL attr basic_expr {
 		$$ = new AstNode(AST_SHIFT_LEFT, $1, new AstNode(AST_TO_UNSIGNED, $4));
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	basic_expr OP_SHR attr basic_expr {
 		$$ = new AstNode(AST_SHIFT_RIGHT, $1, new AstNode(AST_TO_UNSIGNED, $4));
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	basic_expr OP_SSHL attr basic_expr {
 		$$ = new AstNode(AST_SHIFT_SLEFT, $1, new AstNode(AST_TO_UNSIGNED, $4));
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	basic_expr OP_SSHR attr basic_expr {
 		$$ = new AstNode(AST_SHIFT_SRIGHT, $1, new AstNode(AST_TO_UNSIGNED, $4));
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	basic_expr '<' attr basic_expr {
 		$$ = new AstNode(AST_LT, $1, $4);
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	basic_expr OP_LE attr basic_expr {
 		$$ = new AstNode(AST_LE, $1, $4);
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	basic_expr OP_EQ attr basic_expr {
 		$$ = new AstNode(AST_EQ, $1, $4);
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	basic_expr OP_NE attr basic_expr {
 		$$ = new AstNode(AST_NE, $1, $4);
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	basic_expr OP_EQX attr basic_expr {
 		$$ = new AstNode(AST_EQX, $1, $4);
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	basic_expr OP_NEX attr basic_expr {
 		$$ = new AstNode(AST_NEX, $1, $4);
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	basic_expr OP_GE attr basic_expr {
 		$$ = new AstNode(AST_GE, $1, $4);
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	basic_expr '>' attr basic_expr {
 		$$ = new AstNode(AST_GT, $1, $4);
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	basic_expr '+' attr basic_expr {
 		$$ = new AstNode(AST_ADD, $1, $4);
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	basic_expr '-' attr basic_expr {
 		$$ = new AstNode(AST_SUB, $1, $4);
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	basic_expr '*' attr basic_expr {
 		$$ = new AstNode(AST_MUL, $1, $4);
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	basic_expr '/' attr basic_expr {
 		$$ = new AstNode(AST_DIV, $1, $4);
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	basic_expr '%' attr basic_expr {
 		$$ = new AstNode(AST_MOD, $1, $4);
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	basic_expr OP_POW attr basic_expr {
 		$$ = new AstNode(AST_POW, $1, $4);
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	'+' attr basic_expr %prec UNARY_OPS {
 		$$ = new AstNode(AST_POS, $3);
+		SET_AST_NODE_LOC($$, @1, @3);
 		append_attr($$, $2);
 	} |
 	'-' attr basic_expr %prec UNARY_OPS {
 		$$ = new AstNode(AST_NEG, $3);
+		SET_AST_NODE_LOC($$, @1, @3);
 		append_attr($$, $2);
 	} |
 	basic_expr OP_LAND attr basic_expr {
 		$$ = new AstNode(AST_LOGIC_AND, $1, $4);
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	basic_expr OP_LOR attr basic_expr {
 		$$ = new AstNode(AST_LOGIC_OR, $1, $4);
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	'!' attr basic_expr %prec UNARY_OPS {
 		$$ = new AstNode(AST_LOGIC_NOT, $3);
+		SET_AST_NODE_LOC($$, @1, @3);
 		append_attr($$, $2);
 	};
 
