@@ -96,12 +96,9 @@ struct LoggerPass : public Pass {
 				if (pattern.front() == '\"' && pattern.back() == '\"') pattern = pattern.substr(1, pattern.size() - 2);		
 				try {
 					log("Added regex '%s' for warnings to warn list.\n", pattern.c_str());
-					log_warn_regexes.push_back(std::regex(pattern,
-						std::regex_constants::nosubs |
-						std::regex_constants::optimize |
-						std::regex_constants::egrep));
+					log_warn_regexes.push_back(YS_REGEX_COMPILE(pattern));
 				}
-				catch (const std::regex_error& e) {
+				catch (const YS_REGEX_NS::regex_error& e) {
 					log_cmd_error("Error in regex expression '%s' !\n", pattern.c_str());
 				}
 				continue;
@@ -111,12 +108,9 @@ struct LoggerPass : public Pass {
 				if (pattern.front() == '\"' && pattern.back() == '\"') pattern = pattern.substr(1, pattern.size() - 2);	
 				try {
 					log("Added regex '%s' for warnings to nowarn list.\n", pattern.c_str());
-					log_nowarn_regexes.push_back(std::regex(pattern,
-						std::regex_constants::nosubs |
-						std::regex_constants::optimize |
-						std::regex_constants::egrep));
+					log_nowarn_regexes.push_back(YS_REGEX_COMPILE(pattern));
 				}
-				catch (const std::regex_error& e) {
+				catch (const YS_REGEX_NS::regex_error& e) {
 					log_cmd_error("Error in regex expression '%s' !\n", pattern.c_str());
 				}
 				continue;
@@ -126,12 +120,9 @@ struct LoggerPass : public Pass {
 				if (pattern.front() == '\"' && pattern.back() == '\"') pattern = pattern.substr(1, pattern.size() - 2);	
 				try {
 					log("Added regex '%s' for warnings to werror list.\n", pattern.c_str());
-					log_werror_regexes.push_back(std::regex(pattern,
-						std::regex_constants::nosubs |
-						std::regex_constants::optimize |
-						std::regex_constants::egrep));
+					log_werror_regexes.push_back(YS_REGEX_COMPILE(pattern));
 				}
-				catch (const std::regex_error& e) {
+				catch (const YS_REGEX_NS::regex_error& e) {
 					log_cmd_error("Error in regex expression '%s' !\n", pattern.c_str());
 				}
 				continue;
@@ -168,22 +159,13 @@ struct LoggerPass : public Pass {
 				log("Added regex '%s' for warnings to expected %s list.\n", pattern.c_str(), type.c_str());
 				try {
 					if (type=="error")
-						log_expect_error.push_back(std::make_pair(std::regex(pattern,
-							std::regex_constants::nosubs |
-							std::regex_constants::optimize |
-							std::regex_constants::egrep), LogExpectedItem(pattern, count)));
+						log_expect_error.push_back(std::make_pair(YS_REGEX_COMPILE(pattern), LogExpectedItem(pattern, count)));
 					else if (type=="warning")
-						log_expect_warning.push_back(std::make_pair(std::regex(pattern,
-							std::regex_constants::nosubs |
-							std::regex_constants::optimize |
-							std::regex_constants::egrep), LogExpectedItem(pattern, count)));
+						log_expect_warning.push_back(std::make_pair(YS_REGEX_COMPILE(pattern), LogExpectedItem(pattern, count)));
 					else
-						log_expect_log.push_back(std::make_pair(std::regex(pattern,
-							std::regex_constants::nosubs |
-							std::regex_constants::optimize |
-							std::regex_constants::egrep), LogExpectedItem(pattern, count)));
+						log_expect_log.push_back(std::make_pair(YS_REGEX_COMPILE(pattern), LogExpectedItem(pattern, count)));
 				}
-				catch (const std::regex_error& e) {
+				catch (const YS_REGEX_NS::regex_error& e) {
 					log_cmd_error("Error in regex expression '%s' !\n", pattern.c_str());
 				}
 				continue;
