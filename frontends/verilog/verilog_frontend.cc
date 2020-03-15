@@ -465,10 +465,9 @@ struct VerilogFrontend : public Frontend {
 				log("-- Verilog code after preprocessor --\n%s-- END OF DUMP --\n", code_after_preproc.c_str());
 			lexin = new std::istringstream(code_after_preproc);
 		}
-		if (design->verilog_packages.empty()) {
-			// might be because of a `design -reset-vlog` command
-			pkg_user_types.clear();
-		}
+
+		// make package typedefs available to parser
+		add_package_types(pkg_user_types, design->verilog_packages);
 
 		frontend_verilog_yyset_lineno(1);
 		frontend_verilog_yyrestart(NULL);
@@ -488,8 +487,6 @@ struct VerilogFrontend : public Frontend {
 		AST::process(design, current_ast, flag_dump_ast1, flag_dump_ast2, flag_no_dump_ptr, flag_dump_vlog1, flag_dump_vlog2, flag_dump_rtlil, flag_nolatches,
 				flag_nomeminit, flag_nomem2reg, flag_mem2reg, flag_noblackbox, lib_mode, flag_nowb, flag_noopt, flag_icells, flag_pwires, flag_nooverwrite, flag_overwrite, flag_defer, default_nettype_wire);
 
-		// make latest package info available to next parser
-		add_package_types(pkg_user_types, design->verilog_packages);
 
 		if (!flag_nopp)
 			delete lexin;
