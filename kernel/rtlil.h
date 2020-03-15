@@ -361,9 +361,14 @@ namespace RTLIL
 		// often one needs to check if a given IdString is part of a list (for example a list
 		// of cell types). the following functions helps with that.
 
-		template<typename T, typename... Args>
-		bool in(T first, Args... rest) const {
-			return in(first) || in(rest...);
+		template<typename... Args>
+		bool in(Args... args) const {
+			//return in(first) || in(rest...);
+
+            // Credit: https://articles.emptycrate.com/2016/05/14/folds_in_cpp11_ish.html
+            bool result = false;
+            (void) std::initializer_list<int>{ (result = result || in(args), 0)... };
+            return result;
 		}
 
 		bool in(IdString rhs) const { return *this == rhs; }
