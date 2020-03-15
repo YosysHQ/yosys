@@ -1179,12 +1179,13 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 			for (auto n : design->verilog_globals)
 				(*it)->children.push_back(n->clone());
 
-			for (auto n : design->verilog_packages){
-				for (auto o : n->children) {
+			// append nodes from previous packages using package-qualified names
+			for (auto &n : design->verilog_packages) {
+				for (auto &o : n->children) {
 					AstNode *cloned_node = o->clone();
-					log("cloned node %s\n", type2str(cloned_node->type).c_str());
-					if (cloned_node->type == AST_ENUM){
-						for (auto e : cloned_node->children){
+					// log("cloned node %s\n", type2str(cloned_node->type).c_str());
+					if (cloned_node->type == AST_ENUM) {
+						for (auto &e : cloned_node->children) {
 							log_assert(e->type == AST_ENUM_ITEM);
 							e->str = n->str + std::string("::") + e->str.substr(1);
 						}
@@ -1220,6 +1221,8 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 			design->add(process_module(*it, defer));
 		}
 		else if ((*it)->type == AST_PACKAGE) {
+			// process enum/other declarations
+			(*it)->simplify(true, false, false, 1, -1, false, false);
 			design->verilog_packages.push_back((*it)->clone());
 		}
 		else {
