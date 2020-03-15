@@ -433,8 +433,7 @@ struct BtorWorker
 			if (cell->type == "$neg") btor_op = "neg";
 			log_assert(!btor_op.empty());
 
-			int width = GetSize(cell->getPort(ID::Y));
-			width = std::max(width, GetSize(cell->getPort(ID::A)));
+			int width = std::max(GetSize(cell->getPort(ID::A)), GetSize(cell->getPort(ID::Y)));
 
 			bool a_signed = cell->hasParam("\\A_SIGNED") ? cell->getParam("\\A_SIGNED").as_bool() : false;
 
