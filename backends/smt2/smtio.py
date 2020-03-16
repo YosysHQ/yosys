@@ -101,6 +101,8 @@ class SmtModInfo:
         self.cells = dict()
         self.asserts = dict()
         self.covers = dict()
+        self.maximize = set()
+        self.minimize = set()
         self.anyconsts = dict()
         self.anyseqs = dict()
         self.allconsts = dict()
@@ -502,6 +504,12 @@ class SmtIo:
         if fields[1] == "yosys-smt2-cover":
             self.modinfo[self.curmod].covers["%s_c %s" % (self.curmod, fields[2])] = fields[3]
 
+        if fields[1] == "yosys-smt2-maximize":
+            self.modinfo[self.curmod].maximize.add(fields[2])
+
+        if fields[1] == "yosys-smt2-minimize":
+            self.modinfo[self.curmod].minimize.add(fields[2])
+
         if fields[1] == "yosys-smt2-anyconst":
             self.modinfo[self.curmod].anyconsts[fields[2]] = (fields[4], None if len(fields) <= 5 else fields[5])
             self.modinfo[self.curmod].asize[fields[2]] = int(fields[3])
@@ -696,7 +704,9 @@ class SmtIo:
                     if msg is not None:
                         print("%s waiting for solver (%s)" % (self.timestamp(), msg), flush=True)
 
-        result = self.read()
+        result = ""
+        while result not in ["sat", "unsat"]:
+            result = self.read()
 
         if self.debug_file:
             print("(set-info :status %s)" % result, file=self.debug_file)
