@@ -30,9 +30,8 @@ PRIVATE_NAMESPACE_BEGIN
 void xilinx_bram_pack(xilinx_bram_pm &pm) 
 {
 	auto &st = pm.st_xilinx_bram_pack;
-	
-	log("Analysing %s.%s for BRAM packing.\n", log_id(pm.module), log_id(st.bram));
 
+	log("Analysing %s.%s for BRAM packing.\n", log_id(pm.module), log_id(st.bram));
 	log_debug("ffDOAcemux:	%s\n", log_id(st.ffDOAcemux, "--"));
 	log_debug("ffDOBcemux:	%s\n", log_id(st.ffDOBcemux, "--"));
 	log_debug("ffDOArstmux: %s\n", log_id(st.ffADrstmux, "--"));
@@ -41,58 +40,53 @@ void xilinx_bram_pack(xilinx_bram_pm &pm)
 	log_debug("ffDOB:	%s\n", log_id(st.ffDOB, "--"));
 
 	Cell *cell = st.bram;
+	
+	auto replace = [&pm, cell] (SigSpec &source, Cell* cemux, Cell* rstmux, bool cepol, bool rstpol, IdString cetarget, IdString rsttarget) {
+		if (cemux)
+		{
+			source.replace(pm.sigmap(cemux->getPort(cepol ? ID::B : ID::A)),
+		    		 cemux->getPort(ID::Y));
+			log("	Merging Enable function: %s (%s) into BRAM %s port %s.\n", 
+				    log_id(cemux), log_id(cemux->type), log_id(cell), log_id(cetarget));
+			SigSpec S = cemux->getPort(ID(S));
+			cell->setPort(cetarget, cepol ?  S : pm.module->Not(NEW_ID, S));
+		}
+
+		if (rstmux)
+		{
+			source.replace(pm.sigmap(rstmux->getPort(rstpol ? ID::A : ID::B)),
+		   	         rstmux->getPort(ID::Y));
+		   	log("	Merging Reset function: %s (%s) into BRAM %s port %s.\n", 
+				   log_id(rstmux), log_id(rstmux->type), log_id(cell), log_id(rsttarget));
+		   	SigSpec S = rstmux->getPort(ID(S));
+		   	cell->setPort(rsttarget, rstpol ? S : pm.module->Not(NEW_ID, S));
+		}
+	};
 
 	if (st.ffDOA) {
-		log("	Registers in DOADO port that will be packed: %s (%s).\n", log_id(st.ffDOA), log_id(st.ffDOA->type));
+		log("	Candidate registers in DOADO port to pack into BRAM cell: %s (%s).\n", 
+				log_id(st.ffDOA), log_id(st.ffDOA->type));
 		auto DOADO = cell->getPort(ID(DOADO));
 
-		if (st.ffDOAcemux) {
-		    DOADO.replace(pm.sigmap(st.ffDOAcemux->getPort(st.ffDOAcepol ? ID::B : ID::A)),
-		    	    st.ffDOAcemux->getPort(ID::Y));
-		    log("	Merging Enable function: %s (%s) into BRAM port.\n", log_id(st.ffDOAcemux), log_id(st.ffDOAcemux->type));
-		    SigSpec S = st.ffDOAcemux->getPort(ID(S));
-		    cell->setPort(ID(REGCEAREGCE), st.ffDOAcepol ?  S : pm.module->Not(NEW_ID, S));
-		}
-
-		if (st.ffADrstmux) {
-		   DOADO.replace(pm.sigmap(st.ffADrstmux->getPort(st.ffADrstpol ? ID::A : ID::B)),
-		   	   st.ffADrstmux->getPort(ID::Y));
-		   log("	Merging Reset function: %s (%s) into BRAM port.\n", log_id(st.ffADrstmux), log_id(st.ffADrstmux->type));
-		   SigSpec S = st.ffADrstmux->getPort(ID(S));
-		   cell->setPort(ID(RSTRAMB), st.ffADrstpol ? S : pm.module->Not(NEW_ID, S));
-		}
-
-		DOADO.replace(pm.sigmap(st.ffDOA->getPort(ID(D))), st.ffDOA->getPort(ID(Q)));
+		replace (DOADO, st.ffDOAcemux, st.ffADrstmux, st.ffDOAcepol, st.ffADrstpol, ID(REGCEAREGCE), ID(RSTRAMB));
 		cell->setParam(ID(DOA_REG), 1);
+		DOADO.replace(pm.sigmap(st.ffDOA->getPort(ID(D))), st.ffDOA->getPort(ID(Q)));
 		cell->setPort(ID(DOADO), DOADO);
-
+	
+		// Multiple cells fail here	
 		auto Q = st.ffDOA->getPort(ID(Q));
 		Q.replace(st.sigDOA, pm.module->addWire(NEW_ID, GetSize(st.sigDOA)));
 		st.ffDOA->setPort(ID(Q), Q);
 	}
 
 	if (st.ffDOB) {
-		log("	Registers in DOBDO port that will be packed: %s (%s)\n", log_id(st.ffDOB), log_id(st.ffDOB->type));
+		log("	Candidate registers in DOBDO port to pack into BRAM cell: %s (%s).\n", 
+				log_id(st.ffDOB), log_id(st.ffDOB->type));
 		auto DOBDO = cell->getPort(ID(DOBDO));
 
-		if(st.ffDOBcemux) {
-		    DOBDO.replace(pm.sigmap(st.ffDOBcemux->getPort(st.ffDOBcepol ? ID::B : ID::A)),
-			    st.ffDOBcemux->getPort(ID::Y));
-		    log("	Merging Enable function: %s (%s) into BRAM port\n", log_id(st.ffDOBcemux), log_id(st.ffDOBcemux->type));
-		    SigSpec S = st.ffDOBcemux->getPort(ID(S));
-		    cell->setPort(ID(REGCEB), st.ffDOBcepol ? S : pm.module->Not(NEW_ID, S));
-		}
-
-		if (st.ffBDrstmux) {
-		   DOBDO.replace(pm.sigmap(st.ffADrstmux->getPort(st.ffADrstpol ? ID::A : ID::B)),
-		   	   st.ffBDrstmux->getPort(ID::Y));
-		   log("	Merging Reset function: %s (%s) into BRAM port.\n", log_id(st.ffBDrstmux), log_id(st.ffBDrstmux->type));
-		   SigSpec S = st.ffBDrstmux->getPort(ID(S));
-		   cell->setPort(ID(RSTRAMB), st.ffBDrstpol ? S : pm.module->Not(NEW_ID, S));
-		}
-
-		DOBDO.replace(pm.sigmap(st.ffDOA->getPort(ID(D))), st.ffDOA->getPort(ID(Q)));
+		replace (DOBDO, st.ffDOBcemux, st.ffBDrstmux, st.ffDOBcepol, st.ffBDrstpol, ID(REGCEB), ID(RSTRAMB));
 		cell->setParam(ID(DOB_REG), 1);
+		DOBDO.replace(pm.sigmap(st.ffDOA->getPort(ID(D))), st.ffDOA->getPort(ID(Q)));
 		cell->setPort(ID(DOBDO), DOBDO);
 
 		auto Q = st.ffDOB->getPort(ID(Q));
