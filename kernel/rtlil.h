@@ -363,12 +363,10 @@ namespace RTLIL
 
 		template<typename... Args>
 		bool in(Args... args) const {
-			//return in(first) || in(rest...);
-
-            // Credit: https://articles.emptycrate.com/2016/05/14/folds_in_cpp11_ish.html
-            bool result = false;
-            (void) std::initializer_list<int>{ (result = result || in(args), 0)... };
-            return result;
+			// Credit: https://articles.emptycrate.com/2016/05/14/folds_in_cpp11_ish.html
+			bool result = false;
+			(void) std::initializer_list<int>{ (result = result || in(args), 0)... };
+			return result;
 		}
 
 		bool in(IdString rhs) const { return *this == rhs; }
