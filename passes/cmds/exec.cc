@@ -20,7 +20,16 @@
 #include "kernel/register.h"
 #include "kernel/log.h"
 #include <cstdio>
-#include <sys/wait.h>
+
+#if defined(_WIN32)
+#  define WIFEXITED(x) 1
+#  define WIFSIGNALED(x) 0
+#  define WIFSTOPPED(x) 0
+#  define WEXITSTATUS(x) ((x) & 0xff)
+#  define WTERMSIG(x) SIGTERM
+#else
+#  include <sys/wait.h>
+#endif
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -63,7 +72,7 @@ struct ExecPass : public Pass {
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		std::string cmd = "";
-		char buf[4096] = {};
+		char buf[1024] = {};
 		std::string linebuf = "";
 		bool flag_cmd = false;
 		bool flag_quiet = false;
@@ -139,7 +148,11 @@ struct ExecPass : public Pass {
 
 		fflush(stdout);
 		bool keep_reading = true;
-		auto *f = popen(cmd.c_str(), "r");
+		int status = 0;
+		int retval = 0;
+
+#ifndef EMSCRIPTEN
+		FILE *f = popen(cmd.c_str(), "r");
 		if (f == nullptr)
 			log_cmd_error("errno %d after popen() returned NULL.\n", errno);
 		while (keep_reading) {
@@ -162,8 +175,8 @@ struct ExecPass : public Pass {
 				pos = linebuf.find('\n');
 			}
 		}
-		int status = pclose(f);
-		int retval = -1;
+		status = pclose(f);
+#endif
 
 		if(WIFEXITED(status)) {
 		    retval = WEXITSTATUS(status);
