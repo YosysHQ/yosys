@@ -560,7 +560,6 @@ namespace RTLIL
 		ObjRange(decltype(list_p) list_p, int *refcount_p) : list_p(list_p), refcount_p(refcount_p) { }
 		RTLIL::ObjIterator<T> begin() { return RTLIL::ObjIterator<T>(list_p, refcount_p); }
 		RTLIL::ObjIterator<T> end() { return RTLIL::ObjIterator<T>(); }
-		bool contains(const RTLIL::IdString &what) { return (list_p->count(what) > 0); }
 
 		size_t size() const {
 			return list_p->size();

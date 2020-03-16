@@ -228,7 +228,7 @@ static void select_op_submod(RTLIL::Design *design, RTLIL::Selection &lhs)
 		{
 			for (auto cell : mod->cells())
 			{
-				if (!design->has(cell->type))
+				if (design->module(cell->type) == nullptr)
 					continue;
 				lhs.selected_modules.insert(cell->type);
 			}
@@ -242,7 +242,7 @@ static void select_op_cells_to_modules(RTLIL::Design *design, RTLIL::Selection &
 	for (auto mod : design->modules())
 		if (lhs.selected_module(mod->name))
 			for (auto cell : mod->cells())
-				if (lhs.selected_member(mod->name, cell->name) && design->has(cell->type))
+				if (lhs.selected_member(mod->name, cell->name) && (design->module(cell->type) != nullptr))
 					new_sel.selected_modules.insert(cell->type);
 	lhs = new_sel;
 }
@@ -252,7 +252,7 @@ static void select_op_module_to_cells(RTLIL::Design *design, RTLIL::Selection &l
 	RTLIL::Selection new_sel(false);
 	for (auto mod : design->modules())
 		for (auto cell : mod->cells())
-			if (design->has(cell->type) && lhs.selected_whole_module(cell->type))
+			if ((design->module(cell->type) != nullptr) && lhs.selected_whole_module(cell->type))
 				new_sel.selected_members[mod->name].insert(cell->name);
 	lhs = new_sel;
 }
@@ -333,7 +333,7 @@ static void select_op_diff(RTLIL::Design *design, RTLIL::Selection &lhs, const R
 
 	for (auto &it : rhs.selected_members)
 	{
-		if (!design->has(it.first))
+		if (design->module(it.first) == nullptr)
 			continue;
 
 		RTLIL::Module *mod = design->module(it.first);
@@ -1264,7 +1264,7 @@ struct SelectPass : public Pass {
 			}
 			if (arg == "-module" && argidx+1 < args.size()) {
 				RTLIL::IdString mod_name = RTLIL::escape_id(args[++argidx]);
-				if (!design->has(mod_name))
+				if (design->module(mod_name) == nullptr)
 					log_cmd_error("No such module: %s\n", id2cstr(mod_name));
 				design->selected_active_module = mod_name.str();
 				got_module = true;
@@ -1578,15 +1578,13 @@ struct CdPass : public Pass {
 
 		std::string modname = RTLIL::escape_id(args[1]);
 
-		if (!design->has(modname) == 0 && !design->selected_active_module.empty()) {
-			RTLIL::Module *module = nullptr;
-			if (design->has(design->selected_active_module) > 0)
-				module = design->module(design->selected_active_module);
-			if (module != nullptr && module->cells().contains(modname))
+		if (design->module(modname) == nullptr && !design->selected_active_module.empty()) {
+			RTLIL::Module *module = design->module(design->selected_active_module);
+			if (module != nullptr && module->cell(modname) != nullptr)
 				modname = module->cell(modname)->type.str();
 		}
 
-		if (design->has(modname)) {
+		if (design->module(modname) != nullptr) {
 			design->selected_active_module = modname;
 			design->selection_stack.back() = RTLIL::Selection();
 			select_filter_active_mod(design, design->selection_stack.back());
