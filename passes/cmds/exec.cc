@@ -35,41 +35,54 @@ struct ExecPass : public Pass {
 		log("\n");
 		log("Execute a command in the operating system shell.  All supplied arguments are\n");
 		log("concatenated and passed as a command to popen(3).  Whitespace is not guaranteed\n");
-		log("to be preserved, even if quoted.  stdin is not connected, while stdout is\n");
-		log("logged and stderr is logged as a warning.\n");
+		log("to be preserved, even if quoted.  stdin and stderr are not connected, while stdout is\n");
+		log("logged unless the \"-q\" option is specified.\n");
 		log("\n");
 		log("\n");
 		log("    -q\n");
-		log("        suppress stdout and stderr from subprocess\n");
+		log("        Suppress stdout and stderr from subprocess\n");
 		log("\n");
-		log("    -expected-return <int>\n");
-		log("        generates an error if popen() does not return specified value.\n");
+		log("    -expect-return <int>\n");
+		log("        Generate an error if popen() does not return specified value.\n");
+		log("        May only be specified once; the final specified value is controlling\n");
+		log("        if specified multiple times.\n");
 		log("\n");
-		log("    -expected-stdout <regex>\n");
-		log("        generates an error if specified regex does not match any line\n");
-		log("        in subprocess stdout.\n");
+		log("    -expect-stdout <regex>\n");
+		log("        Generate an error if the specified regex does not match any line\n");
+		log("        in subprocess's stdout.  May be specified multiple times.\n");
+		log("\n");
+		log("    -not-expect-stdout <regex>\n");
+		log("        Generate an error if the specified regex matches any line\n");
+		log("        in subprocess's stdout.  May be specified multiple times.\n");
 		log("\n");
 		log("\n");
-		log("    Example: exec -q -expected-return 0 -- echo \"bananapie\" | grep \"nana\"\n");
+		log("    Example: exec -q -expect-return 0 -- echo \"bananapie\" | grep \"nana\"\n");
 		log("\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
-		if(args.size() == 0)
-			log_cmd_error("No command provided.\n");
-
 		std::string cmd = "";
 		char buf[4096] = {};
 		std::string linebuf = "";
 		bool flag_cmd = false;
 		bool flag_quiet = false;
-		bool flag_expected_return = false;
-		bool flag_expected_stdout = false;
-		int expected_return_value = 0;
-		YS_REGEX_TYPE expected_stdout_re;
-		std::string expected_stdout_re_str;
-		bool expected_stdout_re_matched = false;
+		bool flag_expect_return = false;
+		int expect_return_value = 0;
+		bool flag_expect_stdout = false;
+		struct expect_stdout_elem {
+			bool matched;
+			bool polarity;	//true: this regex must match at least one line
+					//false: this regex must not match any line
+			std::string str;
+			YS_REGEX_TYPE re;
+
+			expect_stdout_elem() : matched(false), polarity(true), str(), re(){};
+		};
+		std::vector<expect_stdout_elem> expect_stdout;
+
+		if(args.size() == 0)
+			log_cmd_error("No command provided.\n");
 
 		for(size_t argidx = 1; argidx < args.size(); ++argidx) {
 			if (flag_cmd) {
@@ -79,24 +92,41 @@ struct ExecPass : public Pass {
 					flag_cmd = true;
 				else if (args[argidx] == "-q")
 					flag_quiet = true;
-				else if (args[argidx] == "-expected-return") {
-					flag_expected_return = true;
+				else if (args[argidx] == "-expect-return") {
+					flag_expect_return = true;
 					++argidx;
 					if (argidx >= args.size())
 						log_cmd_error("No expected return value specified.\n");
 
-					expected_return_value = atoi(args[argidx].c_str());
-				} else if (args[argidx] == "-expected-stdout") {
-					flag_expected_stdout = true;
+					expect_return_value = atoi(args[argidx].c_str());
+				} else if (args[argidx] == "-expect-stdout") {
+					flag_expect_stdout = true;
 					++argidx;
 					if (argidx >= args.size())
-						log_cmd_error("No expected regular expression to find in stdout specified.\n");
+						log_cmd_error("No expected regular expression specified.\n");
 
 					try{
-						expected_stdout_re_str = args[argidx];
-						expected_stdout_re = YS_REGEX_COMPILE(args[argidx]);
+						expect_stdout_elem x;
+						x.str = args[argidx];
+						x.re = YS_REGEX_COMPILE(args[argidx]);
+						expect_stdout.push_back(x);
 					} catch (const YS_REGEX_NS::regex_error& e) {
-						log_cmd_error("Error in regex expression '%s' !\n", expected_stdout_re_str.c_str());
+						log_cmd_error("Error in regex expression '%s' !\n", args[argidx].c_str());
+					}
+				} else if (args[argidx] == "-not-expect-stdout") {
+					flag_expect_stdout = true;
+					++argidx;
+					if (argidx >= args.size())
+						log_cmd_error("No expected regular expression specified.\n");
+
+					try{
+						expect_stdout_elem x;
+						x.str = args[argidx];
+						x.re = YS_REGEX_COMPILE(args[argidx]);
+						x.polarity = false;
+						expect_stdout.push_back(x);
+					} catch (const YS_REGEX_NS::regex_error& e) {
+						log_cmd_error("Error in regex expression '%s' !\n", args[argidx].c_str());
 					}
 
 				} else
@@ -124,8 +154,10 @@ struct ExecPass : public Pass {
 				if (!flag_quiet)
 					log("%s\n", line.c_str());
 
-				if(YS_REGEX_NS::regex_search(line, expected_stdout_re))
-					expected_stdout_re_matched = true;
+				if (flag_expect_stdout)
+					for(auto &x : expect_stdout)
+						if (YS_REGEX_NS::regex_search(line, x.re))
+							x.matched = true;
 
 				pos = linebuf.find('\n');
 			}
@@ -143,11 +175,13 @@ struct ExecPass : public Pass {
 		    retval = WSTOPSIG(status);
 		}
 
-		if (flag_expected_return && retval != expected_return_value)
-			log_cmd_error("Return value %d did not match expected return value %d.\n", retval, expected_return_value);
+		if (flag_expect_return && retval != expect_return_value)
+			log_cmd_error("Return value %d did not match expected return value %d.\n", retval, expect_return_value);
 
-		if (flag_expected_stdout && !expected_stdout_re_matched)
-			log_cmd_error("Command stdout did not have a line matching given regex \"%s\".\n", expected_stdout_re_str.c_str());
+		if (flag_expect_stdout)
+			for (auto &x : expect_stdout)
+				if (x.polarity ^ x.matched)
+					log_cmd_error("Command stdout did%s have a line matching given regex \"%s\".\n", (x.polarity? " not" : ""), x.str.c_str());
 
 		log_pop();
 	}
