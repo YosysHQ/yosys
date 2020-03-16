@@ -273,7 +273,7 @@ struct OptMergeWorker
 			}
 
 			did_something = false;
-			std::unordered_map<std::string, RTLIL::Cell*> sharemap;
+			dict<std::string, RTLIL::Cell*> sharemap;
 			for (auto cell : cells)
 			{
 				if ((!mode_share_all && !ct.cell_known(cell->type)) || !cell->known())
