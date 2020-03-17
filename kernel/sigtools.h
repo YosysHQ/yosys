@@ -155,65 +155,65 @@ struct SigSet
 
 	void insert(const RTLIL::SigSpec &sig, T data)
 	{
-		for (auto &bit : sig)
+		for (const auto &bit : sig)
 			if (bit.wire != NULL)
 				bits[bit].insert(data);
 	}
 
-	void insert(RTLIL::SigSpec sig, const std::set<T> &data)
+	void insert(const RTLIL::SigSpec& sig, const std::set<T> &data)
 	{
-		for (auto &bit : sig)
+		for (const auto &bit : sig)
 			if (bit.wire != NULL)
 				bits[bit].insert(data.begin(), data.end());
 	}
 
-	void erase(RTLIL::SigSpec sig)
+	void erase(const RTLIL::SigSpec& sig)
 	{
-		for (auto &bit : sig)
+		for (const auto &bit : sig)
 			if (bit.wire != NULL)
 				bits[bit].clear();
 	}
 
-	void erase(RTLIL::SigSpec sig, T data)
+	void erase(const RTLIL::SigSpec &sig, T data)
 	{
-		for (auto &bit : sig)
+		for (const auto &bit : sig)
 			if (bit.wire != NULL)
 				bits[bit].erase(data);
 	}
 
-	void erase(RTLIL::SigSpec sig, const std::set<T> &data)
+	void erase(const RTLIL::SigSpec &sig, const std::set<T> &data)
 	{
-		for (auto &bit : sig)
+		for (const auto &bit : sig)
 			if (bit.wire != NULL)
 				bits[bit].erase(data.begin(), data.end());
 	}
 
-	void find(RTLIL::SigSpec sig, std::set<T> &result)
+	void find(const RTLIL::SigSpec &sig, std::set<T> &result)
 	{
-		for (auto &bit : sig)
+		for (const auto &bit : sig)
 			if (bit.wire != NULL) {
 				auto &data = bits[bit];
 				result.insert(data.begin(), data.end());
 			}
 	}
 
-	void find(RTLIL::SigSpec sig, pool<T> &result)
+	void find(const RTLIL::SigSpec &sig, pool<T> &result)
 	{
-		for (auto &bit : sig)
+		for (const auto &bit : sig)
 			if (bit.wire != NULL) {
 				auto &data = bits[bit];
 				result.insert(data.begin(), data.end());
 			}
 	}
 
-	std::set<T> find(RTLIL::SigSpec sig)
+	std::set<T> find(const RTLIL::SigSpec &sig)
 	{
 		std::set<T> result;
 		find(sig, result);
 		return result;
 	}
 
-	bool has(RTLIL::SigSpec sig)
+	bool has(const RTLIL::SigSpec &sig)
 	{
 		for (auto &bit : sig)
 			if (bit.wire != NULL && bits.count(bit))
@@ -289,14 +289,14 @@ struct SigMap
 
 	void add(const RTLIL::SigBit &bit)
 	{
-		RTLIL::SigBit b = database.find(bit);
+		const auto &b = database.find(bit);
 		if (b.wire != nullptr)
 			database.promote(bit);
 	}
 
 	void add(const RTLIL::SigSpec &sig)
 	{
-		for (auto &bit : sig)
+		for (const auto &bit : sig)
 			add(bit);
 	}
 
@@ -335,7 +335,7 @@ struct SigMap
 	RTLIL::SigSpec allbits() const
 	{
 		RTLIL::SigSpec sig;
-		for (auto &bit : database)
+		for (const auto &bit : database)
 			if (bit.wire != nullptr)
 				sig.append(bit);
 		return sig;
