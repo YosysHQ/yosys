@@ -2380,6 +2380,7 @@ rvalue:
 	hierarchical_id range {
 		$$ = new AstNode(AST_IDENTIFIER, $2);
 		$$->str = *$1;
+		SET_AST_NODE_LOC($$, @1, @1);
 		delete $1;
 		if ($2 == nullptr && ($$->str == "\\$initstate" ||
 				$$->str == "\\$anyconst" || $$->str == "\\$anyseq" ||
@@ -2389,6 +2390,7 @@ rvalue:
 	hierarchical_id non_opt_multirange {
 		$$ = new AstNode(AST_IDENTIFIER, $2);
 		$$->str = *$1;
+		SET_AST_NODE_LOC($$, @1, @1);
 		delete $1;
 	};
 
