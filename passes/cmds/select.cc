@@ -764,10 +764,7 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 	} else {
 		size_t pos = arg.find('/');
 		if (pos == std::string::npos) {
-			if (arg.find(':') == std::string::npos || arg.compare(0, 1, "A") == 0)
-				arg_mod = arg;
-			else
-				arg_mod = "*", arg_memb = arg;
+			arg_mod = arg;
 		} else {
 			arg_mod = arg.substr(0, pos);
 			arg_memb = arg.substr(pos+1);
@@ -787,6 +784,10 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 	{
 		if (arg_mod.compare(0, 2, "A:") == 0) {
 			if (!match_attr(mod->attributes, arg_mod.substr(2)))
+				continue;
+		} else
+		if (arg_mod.compare(0, 2, "N:") == 0) {
+			if (!match_ids(mod->name, arg_mod.substr(2)))
 				continue;
 		} else
 		if (!match_ids(mod->name, arg_mod))
@@ -1073,6 +1074,10 @@ struct SelectPass : public Pass {
 		log("    A:<pattern>, A:<pattern>=<pattern>\n");
 		log("        all modules with an attribute matching the given pattern\n");
 		log("        in addition to = also <, <=, >=, and > are supported\n");
+		log("\n");
+		log("    N:<pattern>\n");
+		log("        all modules with a name matching the given pattern\n");
+		log("        (i.e. 'N:' is optional as it is the default matching rule)\n");
 		log("\n");
 		log("An <obj_pattern> can be an object name, wildcard expression, or one of\n");
 		log("the following:\n");
