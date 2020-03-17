@@ -52,7 +52,6 @@ code sigDOA argD clock ffDOA ffDOAcemux ffDOAcepol ffADrstmux ffADrstpol
 				break;
 			}
 		}
-
 		// Traverse the consumers of sigDOA
 		if (!sigDOA.empty()) {
 			argD = sigDOA;
@@ -221,7 +220,6 @@ code argD argQ
 	if (ffrstmux) {
 		SigSpec AB = port(ffrstmux, ffrstpol ? \A : \B);
 		SigSpec Y = port(ffrstmux, \Y);
-
 		// Check that the rest of argD is present
 		auto ABset = AB.to_sigbit_pool();
 		for (const auto &b : argD)

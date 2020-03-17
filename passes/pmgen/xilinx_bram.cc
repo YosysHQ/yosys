@@ -40,18 +40,8 @@ void xilinx_bram_pack(xilinx_bram_pm &pm)
 	log_debug("ffDOB:	%s\n", log_id(st.ffDOB, "--"));
 
 	Cell *cell = st.bram;
-	
-	auto replace = [&pm, cell] (SigSpec &source, Cell* cemux, Cell* rstmux, bool cepol, bool rstpol, IdString cetarget, IdString rsttarget) {
-		if (cemux)
-		{
-			source.replace(pm.sigmap(cemux->getPort(cepol ? ID::B : ID::A)),
-		    		 cemux->getPort(ID::Y));
-			log("	Merging Enable function: %s (%s) into BRAM %s port %s.\n", 
-				    log_id(cemux), log_id(cemux->type), log_id(cell), log_id(cetarget));
-			SigSpec S = cemux->getPort(ID(S));
-			cell->setPort(cetarget, cepol ?  S : pm.module->Not(NEW_ID, S));
-		}
 
+	auto replace = [&pm, cell] (SigSpec &source, Cell* cemux, Cell* rstmux, bool cepol, bool rstpol, IdString cetarget, IdString rsttarget) {
 		if (rstmux)
 		{
 			source.replace(pm.sigmap(rstmux->getPort(rstpol ? ID::A : ID::B)),
@@ -61,20 +51,30 @@ void xilinx_bram_pack(xilinx_bram_pm &pm)
 		   	SigSpec S = rstmux->getPort(ID(S));
 		   	cell->setPort(rsttarget, rstpol ? S : pm.module->Not(NEW_ID, S));
 		}
+
+		if (cemux)
+		{
+			source.replace(pm.sigmap(cemux->getPort(cepol ? ID::B : ID::A)),
+				 cemux->getPort(ID::Y));
+			log("	Merging Enable function: %s (%s) into BRAM %s port %s.\n",
+				    log_id(cemux), log_id(cemux->type), log_id(cell), log_id(cetarget));
+			SigSpec S = cemux->getPort(ID(S));
+			cell->setPort(cetarget, cepol ?  S : pm.module->Not(NEW_ID, S));
+		}
 	};
 
 	if (st.ffDOA) {
 		log("	Candidate registers in DOADO port to pack into BRAM cell: %s (%s).\n", 
 				log_id(st.ffDOA), log_id(st.ffDOA->type));
-		auto DOADO = cell->getPort(ID(DOADO));
 
+		SigSpec DOADO = cell->getPort(ID(DOADO));
 		replace (DOADO, st.ffDOAcemux, st.ffADrstmux, st.ffDOAcepol, st.ffADrstpol, ID(REGCEAREGCE), ID(RSTRAMB));
+
 		cell->setParam(ID(DOA_REG), 1);
 		DOADO.replace(pm.sigmap(st.ffDOA->getPort(ID(D))), st.ffDOA->getPort(ID(Q)));
 		cell->setPort(ID(DOADO), DOADO);
-	
-		// Multiple cells fail here	
-		auto Q = st.ffDOA->getPort(ID(Q));
+
+		SigSpec Q = st.ffDOA->getPort(ID(Q));
 		Q.replace(st.sigDOA, pm.module->addWire(NEW_ID, GetSize(st.sigDOA)));
 		st.ffDOA->setPort(ID(Q), Q);
 	}
@@ -82,18 +82,18 @@ void xilinx_bram_pack(xilinx_bram_pm &pm)
 	if (st.ffDOB) {
 		log("	Candidate registers in DOBDO port to pack into BRAM cell: %s (%s).\n", 
 				log_id(st.ffDOB), log_id(st.ffDOB->type));
-		auto DOBDO = cell->getPort(ID(DOBDO));
 
+		SigSpec DOBDO = cell->getPort(ID(DOBDO));
 		replace (DOBDO, st.ffDOBcemux, st.ffBDrstmux, st.ffDOBcepol, st.ffBDrstpol, ID(REGCEB), ID(RSTRAMB));
+
 		cell->setParam(ID(DOB_REG), 1);
 		DOBDO.replace(pm.sigmap(st.ffDOA->getPort(ID(D))), st.ffDOA->getPort(ID(Q)));
 		cell->setPort(ID(DOBDO), DOBDO);
 
-		auto Q = st.ffDOB->getPort(ID(Q));
+		SigSpec Q = st.ffDOB->getPort(ID(Q));
 		Q.replace(st.sigDOB, pm.module->addWire(NEW_ID, GetSize(st.sigDOB)));
 		st.ffDOB->setPort(ID(Q), Q);
 	}
-
 }
 
 struct XilinxBramPass: public Pass {
