@@ -1,0 +1,7 @@
+# Check that we don't allow passing too few arguments (and, while we're at it, check that passing "no"
+# arguments actually passes 1 empty argument).
+logger -expect error "Cannot expand macro `foo by giving only 1 argument \(argument 2 has no default\)." 1
+read_verilog <<EOT
+`define foo(x=1, y)
+`foo()
+EOT

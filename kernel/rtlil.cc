@@ -21,6 +21,7 @@
 #include "kernel/macc.h"
 #include "kernel/celltypes.h"
 #include "frontends/verilog/verilog_frontend.h"
+#include "frontends/verilog/preproc.h"
 #include "backends/ilang/ilang_backend.h"
 
 #include <string.h>
@@ -379,6 +380,7 @@ void RTLIL::Selection::optimize(RTLIL::Design *design)
 }
 
 RTLIL::Design::Design()
+  : verilog_defines (new define_map_t)
 {
 	static unsigned int hashidx_count = 123456789;
 	hashidx_count = mkhash_xorshift(hashidx_count);
