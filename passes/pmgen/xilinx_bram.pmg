@@ -145,8 +145,52 @@ code
 		if (c.wire->get_bool_attribute(\keep))
 			reject;
 endcode
+
+// (1) Starting from, or continuing onto, another optional $mux cell that
+//     implements synchronous reset semantics --- one where the given 'D'
+//     argument (or the clock enable $mux output) drives one of its two inputs
+//     and where the other input is fully zero
+match ffrstmux
+	select ffrstmux->type.in($mux)
+	// ffrstmux output must have two users: ffrstmux and ff.D
+	select nusers(port(ffrstmux, \Y)) == 2
+
+	choice <IdString> BA {\B, \A}
+
+	// Xilinx BRAM only supports registers with zero reset value
+	select port(ffrstmux, BA).is_fully_zero()
+
+	slice offset GetSize(port(ffrstmux, \Y))
+	define <IdString> AB (BA == \B ? \A : \B)
+	index <SigBit> port(ffrstmux, AB)[offset] === argD[0]
+
+	define <bool> pol (AB == \A)
+	set ffrstpol pol
+
+	semioptional
+endmatch
+
+code argD argQ
+	dffrstmux = ffrstmux;
+	if (ffrstmux) {
+		SigSpec AB = port(ffrstmux, ffrstpol ? \A : \B);
+		SigSpec Y = port(ffrstmux, \Y);
+		// Check that the rest of argD is present
+		auto ABset = AB.to_sigbit_pool();
+		for (const auto &b : argD)
+			if (!ABset.count(b))
+				reject;
+
+		argD.replace(AB, Y);
+	
+		dffrstmux = ffrstmux;
+		dffrstpol = ffrstpol;
+	}
+	log_dump(ffrstmux, argD, argQ);
+endcode
+
  
-// (1) Starting from an optional $mux cell that implements clock enable
+// (2) Starting from an optional $mux cell that implements clock enable
 //     semantics --- one where the given 'D' argument (partially or fully)
 //     drives one of its two inputs
 match ffcemux
@@ -189,49 +233,6 @@ code argD argQ
 		dffcepol = ffcepol;
 	}
 	log_dump(ffcemux, argD, argQ);
-endcode
-
-// (2) Starting from, or continuing onto, another optional $mux cell that
-//     implements synchronous reset semantics --- one where the given 'D'
-//     argument (or the clock enable $mux output) drives one of its two inputs
-//     and where the other input is fully zero
-match ffrstmux
-	select ffrstmux->type.in($mux)
-	// ffrstmux output must have two users: ffrstmux and ff.D
-	select nusers(port(ffrstmux, \Y)) == 2
-
-	choice <IdString> BA {\B, \A}
-
-	// Xilinx BRAM only supports registers with zero reset value
-	select port(ffrstmux, BA).is_fully_zero()
-
-	slice offset GetSize(port(ffrstmux, \Y))
-	define <IdString> AB (BA == \B ? \A : \B)
-	index <SigBit> port(ffrstmux, AB)[offset] === argD[0]
-
-	define <bool> pol (AB == \A)
-	set ffrstpol pol
-
-	semioptional
-endmatch
-
-code argD argQ
-	dffrstmux = ffrstmux;
-	if (ffrstmux) {
-		SigSpec AB = port(ffrstmux, ffrstpol ? \A : \B);
-		SigSpec Y = port(ffrstmux, \Y);
-		// Check that the rest of argD is present
-		auto ABset = AB.to_sigbit_pool();
-		for (const auto &b : argD)
-			if (!ABset.count(b))
-				reject;
-
-		argD.replace(AB, Y);
-	
-		dffrstmux = ffrstmux;
-		dffrstpol = ffrstpol;
-	}
-	log_dump(ffrstmux, argD, argQ);
 endcode
  
 // (3) Match for a $dff cell (whose 'D' input is the 'D' argument, or the
