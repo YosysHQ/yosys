@@ -1586,6 +1586,7 @@ void RTLIL::Module::remove(const pool<RTLIL::Wire*> &wires)
 		const pool<RTLIL::Wire*> *wires_p;
 
 		void operator()(RTLIL::SigSpec &sig) {
+			sig.pack();
 			for (auto &c : sig.chunks_)
 				if (c.wire != NULL && wires_p->count(c.wire)) {
 					c.wire = module->addWire(NEW_ID, c.width);
@@ -1599,16 +1600,10 @@ void RTLIL::Module::remove(const pool<RTLIL::Wire*> &wires)
 			rhs.unpack();
 			for (int i = 0; i < GetSize(lhs); i++) {
 				RTLIL::SigBit &lhs_bit = lhs.bits_[i];
-				if (lhs_bit.wire != nullptr && wires_p->count(lhs_bit.wire)) {
-					lhs_bit.wire = module->addWire(NEW_ID);
-					lhs_bit.offset = 0;
-					continue;
-				}
 				RTLIL::SigBit &rhs_bit = rhs.bits_[i];
-				if (rhs_bit.wire != nullptr && wires_p->count(rhs_bit.wire)) {
-					rhs_bit.wire = module->addWire(NEW_ID);
-					rhs_bit.offset = 0;
-					continue;
+				if ((lhs_bit.wire != nullptr && wires_p->count(lhs_bit.wire)) || (rhs_bit.wire != nullptr && wires_p->count(rhs_bit.wire))) {
+					lhs_bit = State::Sx;
+					rhs_bit = State::Sx;
 				}
 			}
 		}
