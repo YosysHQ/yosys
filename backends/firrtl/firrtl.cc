@@ -42,6 +42,60 @@ static const FDirection FD_OUT = 0x2;
 static const FDirection FD_INOUT = 0x3;
 static const int FIRRTL_MAX_DSH_WIDTH_ERROR = 20; // For historic reasons, this is actually one greater than the maximum allowed shift width
 
+// Shamelessly copied from ilang_backend.cc. Something better is surely possible here.
+void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int offset = 0, bool autoint = true)
+{
+	if (width < 0)
+		width = data.bits.size() - offset;
+	if ((data.flags & RTLIL::CONST_FLAG_STRING) == 0 || width != (int)data.bits.size()) {
+		if (width == 32 && autoint) {
+			int32_t val = 0;
+			for (int i = 0; i < width; i++) {
+				log_assert(offset+i < (int)data.bits.size());
+				switch (data.bits[offset+i]) {
+				case RTLIL::S0: break;
+				case RTLIL::S1: val |= 1 << i; break;
+				default: val = -1; break;
+				}
+			}
+			if (val >= 0) {
+				f << stringf("%d", val);
+				return;
+			}
+		}
+		f << stringf("%d'", width);
+		for (int i = offset+width-1; i >= offset; i--) {
+			log_assert(i < (int)data.bits.size());
+			switch (data.bits[i]) {
+			case RTLIL::S0: f << stringf("0"); break;
+			case RTLIL::S1: f << stringf("1"); break;
+			case RTLIL::Sx: f << stringf("x"); break;
+			case RTLIL::Sz: f << stringf("z"); break;
+			case RTLIL::Sa: f << stringf("-"); break;
+			case RTLIL::Sm: f << stringf("m"); break;
+			}
+		}
+	} else {
+		f << stringf("\"");
+		std::string str = data.decode_string();
+		for (size_t i = 0; i < str.size(); i++) {
+			if (str[i] == '\n')
+				f << stringf("\\n");
+			else if (str[i] == '\t')
+				f << stringf("\\t");
+			else if (str[i] < 32)
+				f << stringf("\\%03o", str[i]);
+			else if (str[i] == '"')
+				f << stringf("\\\"");
+			else if (str[i] == '\\')
+				f << stringf("\\\\");
+			else
+				f << str[i];
+		}
+		f << stringf("\"");
+	}
+}
+
 // Get a port direction with respect to a specific module.
 FDirection getPortFDirection(IdString id, Module *module)
 {
@@ -1123,7 +1177,14 @@ struct FirrtlBackend : public Backend {
 		if (top == nullptr)
 			top = last;
 
-		*f << stringf("circuit %s:\n", make_id(top->name));
+		std::ostringstream fileinfo;
+		for (auto &it : top->attributes) {
+			if (it.first == "\\src") {
+				dump_const(fileinfo, it.second);
+			}
+		}
+
+		*f << stringf("circuit %s: @[%s]\n", make_id(top->name), fileinfo.str().c_str());
 
 		for (auto module : design->modules())
 		{
