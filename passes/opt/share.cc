@@ -41,7 +41,8 @@ struct ShareWorkerConfig
 
 struct ShareWorker
 {
-	ShareWorkerConfig config;
+	const ShareWorkerConfig config;
+	int limit;
 	pool<RTLIL::IdString> generic_ops;
 
 	RTLIL::Design *design;
@@ -49,7 +50,6 @@ struct ShareWorker
 
 	CellTypes fwd_ct, cone_ct;
 	ModWalker modwalker;
-	ModIndex mi;
 
 	pool<RTLIL::Cell*> cells_to_remove;
 	pool<RTLIL::Cell*> recursion_state;
@@ -1071,6 +1071,8 @@ struct ShareWorker
 		ct.setup_internals();
 		ct.setup_stdcells();
 
+		ModIndex mi(module);
+
 		pool<RTLIL::Cell*> queue, covered;
 		queue.insert(cell);
 
@@ -1117,13 +1119,9 @@ struct ShareWorker
 		module->remove(cell);
 	}
 
-	ShareWorker(ShareWorkerConfig config, RTLIL::Design *design, RTLIL::Module *module) :
-			config(config), design(design), module(module), mi(module)
+	ShareWorker(ShareWorkerConfig config, RTLIL::Design* design) :
+			config(config), design(design), modwalker(design)
 	{
-	#ifndef NDEBUG
-		bool before_scc = module_has_scc();
-	#endif
-
 		generic_ops.insert(config.generic_uni_ops.begin(), config.generic_uni_ops.end());
 		generic_ops.insert(config.generic_bin_ops.begin(), config.generic_bin_ops.end());
 		generic_ops.insert(config.generic_cbin_ops.begin(), config.generic_cbin_ops.end());
@@ -1140,8 +1138,24 @@ struct ShareWorker
 		cone_ct.cell_types.erase(ID($shr));
 		cone_ct.cell_types.erase(ID($sshl));
 		cone_ct.cell_types.erase(ID($sshr));
+	}
 
-		modwalker.setup(design, module);
+	void operator()(RTLIL::Module *module) {
+		this->module = module;
+
+	#ifndef NDEBUG
+		bool before_scc = module_has_scc();
+	#endif
+
+		limit = config.limit;
+
+		modwalker.setup(module);
+
+		cells_to_remove.clear();
+		recursion_state.clear();;
+		topo_cell_drivers.clear();
+		topo_bit_drivers.clear();
+		exclusive_ctrls.clear();
 
 		find_terminal_bits();
 		find_shareable_cells();
@@ -1399,8 +1413,8 @@ struct ShareWorker
 				topo_cell_drivers[cell] = { supercell };
 				topo_cell_drivers[other_cell] = { supercell };
 
-				if (config.limit > 0)
-					config.limit--;
+				if (limit > 0)
+					limit--;
 
 				break;
 			}
@@ -1528,9 +1542,10 @@ struct SharePass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto &mod_it : design->modules_)
-			if (design->selected(mod_it.second))
-				ShareWorker(config, design, mod_it.second);
+		ShareWorker sw(config, design);
+
+		for (auto module : design->selected_modules())
+			sw(module);
 	}
 } SharePass;
 
