@@ -1317,7 +1317,7 @@ void AST::explode_interface_port(AstNode *module_ast, RTLIL::Module * intfmodule
 
 // When an interface instance is found in a module, the whole RTLIL for the module will be rederived again
 // from AST. The interface members are copied into the AST module with the prefix of the interface.
-void AstModule::reprocess_module(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Module*> local_interfaces)
+void AstModule::reprocess_module(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Module*> &local_interfaces)
 {
 	loadconfig();
 
@@ -1405,7 +1405,7 @@ void AstModule::reprocess_module(RTLIL::Design *design, dict<RTLIL::IdString, RT
 
 // create a new parametric module (when needed) and return the name of the generated module - WITH support for interfaces
 // This method is used to explode the interface when the interface is a port of the module (not instantiated inside)
-RTLIL::IdString AstModule::derive(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters, dict<RTLIL::IdString, RTLIL::Module*> interfaces, dict<RTLIL::IdString, RTLIL::IdString> modports, bool /*mayfail*/)
+RTLIL::IdString AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, const dict<RTLIL::IdString, RTLIL::Module*> &interfaces, const dict<RTLIL::IdString, RTLIL::IdString> &modports, bool /*mayfail*/)
 {
 	AstNode *new_ast = NULL;
 	std::string modname = derive_common(design, parameters, &new_ast);
@@ -1484,7 +1484,7 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, dict<RTLIL::IdString, R
 }
 
 // create a new parametric module (when needed) and return the name of the generated module - without support for interfaces
-RTLIL::IdString AstModule::derive(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters, bool /*mayfail*/)
+RTLIL::IdString AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, bool /*mayfail*/)
 {
 	bool quiet = lib || attributes.count(ID(blackbox)) || attributes.count(ID(whitebox));
 
@@ -1504,7 +1504,7 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, dict<RTLIL::IdString, R
 }
 
 // create a new parametric module (when needed) and return the name of the generated module
-std::string AstModule::derive_common(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters, AstNode **new_ast_out, bool quiet)
+std::string AstModule::derive_common(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, AstNode **new_ast_out, bool quiet)
 {
 	std::string stripped_name = name.str();
 
@@ -1518,18 +1518,18 @@ std::string AstModule::derive_common(RTLIL::Design *design, dict<RTLIL::IdString
 		if (child->type != AST_PARAMETER)
 			continue;
 		para_counter++;
-		std::string para_id = child->str;
-		if (parameters.count(para_id) > 0) {
+		auto it = parameters.find(child->str);
+		if (it != parameters.end()) {
 			if (!quiet)
-				log("Parameter %s = %s\n", child->str.c_str(), log_signal(RTLIL::SigSpec(parameters[child->str])));
-			para_info += stringf("%s=%s", child->str.c_str(), log_signal(RTLIL::SigSpec(parameters[para_id])));
+				log("Parameter %s = %s\n", child->str.c_str(), log_signal(it->second));
+			para_info += stringf("%s=%s", child->str.c_str(), log_signal(it->second));
 			continue;
 		}
-		para_id = stringf("$%d", para_counter);
-		if (parameters.count(para_id) > 0) {
+		it = parameters.find(stringf("$%d", para_counter));
+		if (it != parameters.end()) {
 			if (!quiet)
-				log("Parameter %d (%s) = %s\n", para_counter, child->str.c_str(), log_signal(RTLIL::SigSpec(parameters[para_id])));
-			para_info += stringf("%s=%s", child->str.c_str(), log_signal(RTLIL::SigSpec(parameters[para_id])));
+				log("Parameter %d (%s) = %s\n", para_counter, child->str.c_str(), log_signal(it->second));
+			para_info += stringf("%s=%s", child->str.c_str(), log_signal(it->second));
 			continue;
 		}
 	}
@@ -1549,46 +1549,52 @@ std::string AstModule::derive_common(RTLIL::Design *design, dict<RTLIL::IdString
 		log_header(design, "Executing AST frontend in derive mode using pre-parsed AST for module `%s'.\n", stripped_name.c_str());
 	loadconfig();
 
+	pool<IdString> rewritten;
+	rewritten.reserve(GetSize(parameters));
+
 	AstNode *new_ast = ast->clone();
 	para_counter = 0;
 	for (auto child : new_ast->children) {
 		if (child->type != AST_PARAMETER)
 			continue;
 		para_counter++;
-		std::string para_id = child->str;
-		if (parameters.count(para_id) > 0) {
+		auto it = parameters.find(child->str);
+		if (it != parameters.end()) {
 			if (!quiet)
-				log("Parameter %s = %s\n", child->str.c_str(), log_signal(RTLIL::SigSpec(parameters[child->str])));
+				log("Parameter %s = %s\n", child->str.c_str(), log_signal(it->second));
 			goto rewrite_parameter;
 		}
-		para_id = stringf("$%d", para_counter);
-		if (parameters.count(para_id) > 0) {
+		it = parameters.find(stringf("$%d", para_counter));
+		if (it != parameters.end()) {
 			if (!quiet)
-				log("Parameter %d (%s) = %s\n", para_counter, child->str.c_str(), log_signal(RTLIL::SigSpec(parameters[para_id])));
+				log("Parameter %d (%s) = %s\n", para_counter, child->str.c_str(), log_signal(it->second));
 			goto rewrite_parameter;
 		}
 		continue;
 	rewrite_parameter:
 		delete child->children.at(0);
-		if ((parameters[para_id].flags & RTLIL::CONST_FLAG_REAL) != 0) {
+		if ((it->second.flags & RTLIL::CONST_FLAG_REAL) != 0) {
 			child->children[0] = new AstNode(AST_REALVALUE);
-			child->children[0]->realvalue = std::stod(parameters[para_id].decode_string());
-		} else if ((parameters[para_id].flags & RTLIL::CONST_FLAG_STRING) != 0)
-			child->children[0] = AstNode::mkconst_str(parameters[para_id].decode_string());
+			child->children[0]->realvalue = std::stod(it->second.decode_string());
+		} else if ((it->second.flags & RTLIL::CONST_FLAG_STRING) != 0)
+			child->children[0] = AstNode::mkconst_str(it->second.decode_string());
 		else
-			child->children[0] = AstNode::mkconst_bits(parameters[para_id].bits, (parameters[para_id].flags & RTLIL::CONST_FLAG_SIGNED) != 0);
-		parameters.erase(para_id);
+			child->children[0] = AstNode::mkconst_bits(it->second.bits, (it->second.flags & RTLIL::CONST_FLAG_SIGNED) != 0);
+		rewritten.insert(it->first);
 	}
 
-	for (auto param : parameters) {
-		AstNode *defparam = new AstNode(AST_DEFPARAM, new AstNode(AST_IDENTIFIER));
-		defparam->children[0]->str = param.first.str();
-		if ((param.second.flags & RTLIL::CONST_FLAG_STRING) != 0)
-			defparam->children.push_back(AstNode::mkconst_str(param.second.decode_string()));
-		else
-			defparam->children.push_back(AstNode::mkconst_bits(param.second.bits, (param.second.flags & RTLIL::CONST_FLAG_SIGNED) != 0));
-		new_ast->children.push_back(defparam);
-	}
+	if (GetSize(rewritten) < GetSize(parameters))
+		for (const auto &param : parameters) {
+			if (rewritten.count(param.first))
+				continue;
+			AstNode *defparam = new AstNode(AST_DEFPARAM, new AstNode(AST_IDENTIFIER));
+			defparam->children[0]->str = param.first.str();
+			if ((param.second.flags & RTLIL::CONST_FLAG_STRING) != 0)
+				defparam->children.push_back(AstNode::mkconst_str(param.second.decode_string()));
+			else
+				defparam->children.push_back(AstNode::mkconst_bits(param.second.bits, (param.second.flags & RTLIL::CONST_FLAG_SIGNED) != 0));
+			new_ast->children.push_back(defparam);
+		}
 
 	(*new_ast_out) = new_ast;
 	return modname;

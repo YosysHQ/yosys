@@ -157,7 +157,7 @@ struct RpcServer {
 struct RpcModule : RTLIL::Module {
 	std::shared_ptr<RpcServer> server;
 
-	RTLIL::IdString derive(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters, bool /*mayfail*/) YS_OVERRIDE {
+	RTLIL::IdString derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, bool /*mayfail*/) YS_OVERRIDE {
 		std::string stripped_name = name.str();
 		if (stripped_name.compare(0, 9, "$abstract") == 0)
 			stripped_name = stripped_name.substr(9);

@@ -158,7 +158,7 @@ struct ModIndex : public RTLIL::Monitor
 #endif
 	}
 
-	void notify_connect(RTLIL::Cell *cell, const RTLIL::IdString &port, const RTLIL::SigSpec &old_sig, RTLIL::SigSpec &sig) YS_OVERRIDE
+	void notify_connect(RTLIL::Cell *cell, const RTLIL::IdString &port, const RTLIL::SigSpec &old_sig, const RTLIL::SigSpec &sig) YS_OVERRIDE
 	{
 		log_assert(module == cell->module);
 
