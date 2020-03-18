@@ -766,7 +766,7 @@ public:
 	SigSpec();
 	SigSpec(const RTLIL::SigSpec &other);
 	SigSpec(std::initializer_list<RTLIL::SigSpec> parts);
-	const RTLIL::SigSpec &operator=(const RTLIL::SigSpec &other);
+	RTLIL::SigSpec &operator=(const RTLIL::SigSpec &other);
 
 	SigSpec(const RTLIL::Const &value);
 	SigSpec(const RTLIL::SigChunk &chunk);

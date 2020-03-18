@@ -2709,10 +2709,7 @@ RTLIL::SigChunk::SigChunk(const RTLIL::SigBit &bit)
 
 RTLIL::SigChunk::SigChunk(const RTLIL::SigChunk &sigchunk)
 {
-	wire = sigchunk.wire;
-	data = sigchunk.data;
-	width = sigchunk.width;
-	offset = sigchunk.offset;
+	*this = sigchunk;
 }
 
 RTLIL::SigChunk RTLIL::SigChunk::extract(int offset, int length) const
@@ -2785,40 +2782,14 @@ RTLIL::SigSpec::SigSpec(std::initializer_list<RTLIL::SigSpec> parts)
 		append(*it--);
 }
 
-const RTLIL::SigSpec &RTLIL::SigSpec::operator=(const RTLIL::SigSpec &other)
+RTLIL::SigSpec &RTLIL::SigSpec::operator=(const RTLIL::SigSpec &other)
 {
 	cover("kernel.rtlil.sigspec.assign");
 
 	width_ = other.width_;
 	hash_ = other.hash_;
 	chunks_ = other.chunks_;
-	bits_.clear();
-
-	if (!other.bits_.empty())
-	{
-		RTLIL::SigChunk *last = NULL;
-		int last_end_offset = 0;
-
-		for (auto &bit : other.bits_) {
-			if (last && bit.wire == last->wire) {
-				if (bit.wire == NULL) {
-					last->data.push_back(bit.data);
-					last->width++;
-					continue;
-				} else if (last_end_offset == bit.offset) {
-					last_end_offset++;
-					last->width++;
-					continue;
-				}
-			}
-			chunks_.push_back(bit);
-			last = &chunks_.back();
-			last_end_offset = bit.offset + 1;
-		}
-
-		check();
-	}
-
+	bits_ = other.bits_;
 	return *this;
 }
 
@@ -3009,7 +2980,7 @@ void RTLIL::SigSpec::unpack() const
 	that->bits_.reserve(that->width_);
 	for (auto &c : that->chunks_)
 		for (int i = 0; i < c.width; i++)
-			that->bits_.push_back(RTLIL::SigBit(c, i));
+			that->bits_.emplace_back(c, i);
 
 	that->chunks_.clear();
 	that->hash_ = 0;
