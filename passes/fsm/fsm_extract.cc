@@ -422,11 +422,7 @@ struct FsmExtractPass : public Pass {
 		log_header(design, "Executing FSM_EXTRACT pass (extracting FSM from design).\n");
 		extra_args(args, 1, design);
 
-		CellTypes ct;
-		ct.setup_internals();
-		ct.setup_internals_mem();
-		ct.setup_stdcells();
-		ct.setup_stdcells_mem();
+		CellTypes ct(design);
 
 		for (auto &mod_it : design->modules_)
 		{
