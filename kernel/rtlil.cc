@@ -84,14 +84,14 @@ RTLIL::Const::Const(RTLIL::State bit, int width)
 RTLIL::Const::Const(const std::vector<bool> &bits)
 {
 	flags = RTLIL::CONST_FLAG_NONE;
-	for (auto b : bits)
-		this->bits.push_back(b ? State::S1 : State::S0);
+	for (const auto &b : bits)
+		this->bits.emplace_back(b ? State::S1 : State::S0);
 }
 
 RTLIL::Const::Const(const RTLIL::Const &c)
 {
 	flags = c.flags;
-	for (auto b : c.bits)
+	for (const auto &b : c.bits)
 		this->bits.push_back(b);
 }
 
@@ -138,6 +138,7 @@ int RTLIL::Const::as_int(bool is_signed) const
 std::string RTLIL::Const::as_string() const
 {
 	std::string ret;
+	ret.reserve(bits.size());
 	for (size_t i = bits.size(); i > 0; i--)
 		switch (bits[i-1]) {
 			case S0: ret += "0"; break;
@@ -153,6 +154,7 @@ std::string RTLIL::Const::as_string() const
 RTLIL::Const RTLIL::Const::from_string(std::string str)
 {
 	Const c;
+	c.bits.reserve(str.size());
 	for (auto it = str.rbegin(); it != str.rend(); it++)
 		switch (*it) {
 			case '0': c.bits.push_back(State::S0); break;
@@ -168,17 +170,16 @@ RTLIL::Const RTLIL::Const::from_string(std::string str)
 std::string RTLIL::Const::decode_string() const
 {
 	std::string string;
-	std::vector<char> string_chars;
-	for (int i = 0; i < int (bits.size()); i += 8) {
+	string.reserve(GetSize(bits)/8);
+	for (int i = 0; i < GetSize(bits); i += 8) {
 		char ch = 0;
 		for (int j = 0; j < 8 && i + j < int (bits.size()); j++)
 			if (bits[i + j] == RTLIL::State::S1)
 				ch |= 1 << j;
 		if (ch != 0)
-			string_chars.push_back(ch);
+			string.append({ch});
 	}
-	for (int i = int (string_chars.size()) - 1; i >= 0; i--)
-		string += string_chars[i];
+	std::reverse(string.begin(), string.end());
 	return string;
 }
 
@@ -186,7 +187,7 @@ bool RTLIL::Const::is_fully_zero() const
 {
 	cover("kernel.rtlil.const.is_fully_zero");
 
-	for (auto bit : bits)
+	for (const auto &bit : bits)
 		if (bit != RTLIL::State::S0)
 			return false;
 
@@ -197,7 +198,7 @@ bool RTLIL::Const::is_fully_ones() const
 {
 	cover("kernel.rtlil.const.is_fully_ones");
 
-	for (auto bit : bits)
+	for (const auto &bit : bits)
 		if (bit != RTLIL::State::S1)
 			return false;
 
@@ -208,7 +209,7 @@ bool RTLIL::Const::is_fully_def() const
 {
 	cover("kernel.rtlil.const.is_fully_def");
 
-	for (auto bit : bits)
+	for (const auto &bit : bits)
 		if (bit != RTLIL::State::S0 && bit != RTLIL::State::S1)
 			return false;
 
@@ -219,7 +220,7 @@ bool RTLIL::Const::is_fully_undef() const
 {
 	cover("kernel.rtlil.const.is_fully_undef");
 
-	for (auto bit : bits)
+	for (const auto &bit : bits)
 		if (bit != RTLIL::State::Sx && bit != RTLIL::State::Sz)
 			return false;
 
@@ -230,11 +231,8 @@ void RTLIL::AttrObject::set_bool_attribute(RTLIL::IdString id, bool value)
 {
 	if (value)
 		attributes[id] = RTLIL::Const(1);
-	else {
-                const auto it = attributes.find(id);
-                if (it != attributes.end())
-			attributes.erase(it);
-	}
+	else
+		attributes.erase(id);
 }
 
 bool RTLIL::AttrObject::get_bool_attribute(RTLIL::IdString id) const
@@ -248,7 +246,7 @@ bool RTLIL::AttrObject::get_bool_attribute(RTLIL::IdString id) const
 void RTLIL::AttrObject::set_strpool_attribute(RTLIL::IdString id, const pool<string> &data)
 {
 	string attrval;
-	for (auto &s : data) {
+	for (const auto &s : data) {
 		if (!attrval.empty())
 			attrval += "|";
 		attrval += s;
@@ -284,8 +282,9 @@ void RTLIL::AttrObject::set_src_attribute(const std::string &src)
 std::string RTLIL::AttrObject::get_src_attribute() const
 {
 	std::string src;
-	if (attributes.count(ID(src)))
-		src = attributes.at(ID(src)).decode_string();
+	const auto it = attributes.find(ID(src));
+	if (it != attributes.end())
+		src = it->second.decode_string();
 	return src;
 }
 
@@ -1492,11 +1491,10 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod) const
 		RTLIL::Module *mod;
 		void operator()(RTLIL::SigSpec &sig)
 		{
-			std::vector<RTLIL::SigChunk> chunks = sig.chunks();
-			for (auto &c : chunks)
+			sig.pack();
+			for (auto &c : sig.chunks_)
 				if (c.wire != NULL)
 					c.wire = mod->wires_.at(c.wire->name);
-			sig = chunks;
 		}
 	};
 
@@ -2499,13 +2497,8 @@ void RTLIL::Cell::unsetPort(RTLIL::IdString portname)
 
 void RTLIL::Cell::setPort(RTLIL::IdString portname, RTLIL::SigSpec signal)
 {
-	auto conn_it = connections_.find(portname);
-
-	if (conn_it == connections_.end()) {
-		connections_[portname] = RTLIL::SigSpec();
-		conn_it = connections_.find(portname);
-		log_assert(conn_it != connections_.end());
-	} else
+	auto r = connections_.insert(portname);
+	auto conn_it = r.first;
 	if (conn_it->second == signal)
 		return;
 
