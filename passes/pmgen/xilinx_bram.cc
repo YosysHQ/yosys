@@ -46,7 +46,7 @@ void xilinx_bram_pack(xilinx_bram_pm &pm)
 		{
 			source.replace(pm.sigmap(rstmux->getPort(rstpol ? ID::A : ID::B)),
 		   	         rstmux->getPort(ID::Y));
-		   	log("	Merging Reset function: %s (%s) into BRAM %s port %s.\n", 
+			log("Merging Reset function: %s (%s) into BRAM %s port %s.\n",
 				   log_id(rstmux), log_id(rstmux->type), log_id(cell), log_id(rsttarget));
 		   	SigSpec S = rstmux->getPort(ID(S));
 		   	cell->setPort(rsttarget, rstpol ? S : pm.module->Not(NEW_ID, S));
@@ -56,44 +56,83 @@ void xilinx_bram_pack(xilinx_bram_pm &pm)
 		{
 			source.replace(pm.sigmap(cemux->getPort(cepol ? ID::B : ID::A)),
 				 cemux->getPort(ID::Y));
-			log("	Merging Enable function: %s (%s) into BRAM %s port %s.\n",
+			log("Merging Enable function: %s (%s) into BRAM %s port %s.\n",
 				    log_id(cemux), log_id(cemux->type), log_id(cell), log_id(cetarget));
 			SigSpec S = cemux->getPort(ID(S));
 			cell->setPort(cetarget, cepol ?  S : pm.module->Not(NEW_ID, S));
+
 		}
+
 	};
 
 	if (st.ffDOA) {
-		log("	Candidate registers in DOADO port to pack into BRAM cell: %s (%s).\n", 
+		log("Candidate registers in DOADO port to pack into BRAM cell: %s (%s).\n",
 				log_id(st.ffDOA), log_id(st.ffDOA->type));
 
 		SigSpec DOADO = cell->getPort(ID(DOADO));
+		SigSpec Q = st.ffDOA->getPort(ID(Q));
+
 		replace (DOADO, st.ffDOAcemux, st.ffADrstmux, st.ffDOAcepol, st.ffADrstpol, ID(REGCEAREGCE), ID(RSTRAMB));
 
+		// BRAM DO port flops have been packed. Setting the DOx_REG register to 1, reflecting this change into the cell.
 		cell->setParam(ID(DOA_REG), 1);
+		// Since output flops will be optimised away due packing, its consumers (loads) needs to be connected (moved) to DO port.
+		// At this point, ce and/or rst functionallity is already connected to the corresponding BRAM input port.
 		DOADO.replace(pm.sigmap(st.ffDOA->getPort(ID(D))), st.ffDOA->getPort(ID(Q)));
 		cell->setPort(ID(DOADO), DOADO);
 
-		SigSpec Q = st.ffDOA->getPort(ID(Q));
+		// Flop.Q driver has been moved to BRAM.DO port. Adding dummy wires to it.
 		Q.replace(st.sigDOA, pm.module->addWire(NEW_ID, GetSize(st.sigDOA)));
 		st.ffDOA->setPort(ID(Q), Q);
+
+		// The modification in Flop.Q needs to be carried back to cemux and/or rst mux, to preserve equality.
+		if (st.ffDOAcemux) {
+			SigSpec AB = st.ffDOAcemux->getPort(st.ffDOAcepol ? ID::B : ID::A);
+			AB.replace(AB, Q);
+			st.ffDOAcemux->setPort((st.ffDOAcepol ? ID::A : ID::B), Q);
+		}
+
+		if (st.ffADrstmux) {
+			SigSpec BA = st.ffADrstmux->getPort(st.ffADrstpol ? ID::A : ID::B);
+			BA.replace(BA, Q);
+			st.ffADrstmux->setPort((st.ffADrstpol ? ID::B : ID::A), Q);
+		}
 	}
 
 	if (st.ffDOB) {
-		log("	Candidate registers in DOBDO port to pack into BRAM cell: %s (%s).\n", 
-				log_id(st.ffDOB), log_id(st.ffDOB->type));
+		log("Candidate registers in DOBDO port to pack into BRAM cell: %s (%s).\n",
+			log_id(st.ffDOB), log_id(st.ffDOB->type));
 
 		SigSpec DOBDO = cell->getPort(ID(DOBDO));
-		replace (DOBDO, st.ffDOBcemux, st.ffBDrstmux, st.ffDOBcepol, st.ffBDrstpol, ID(REGCEB), ID(RSTRAMB));
+		SigSpec Q = st.ffDOB->getPort(ID(Q));
 
+		replace (DOBDO, st.ffDOBcemux, st.ffBDrstmux, st.ffDOBcepol, st.ffBDrstpol, ID(REGCEB), ID(RSTREGB));
+
+		// BRAM DO port flops have been packed. Setting the DOx_REG register to 1, reflecting this change into the cell.
 		cell->setParam(ID(DOB_REG), 1);
-		DOBDO.replace(pm.sigmap(st.ffDOA->getPort(ID(D))), st.ffDOA->getPort(ID(Q)));
+		// Since output flops will be optimised away due packing, its consumers (loads) needs to be connected (moved) to DO port.
+		// At this point, ce and/or rst functionallity is already connected to the corresponding BRAM input port.
+		DOBDO.replace(pm.sigmap(st.ffDOB->getPort(ID(D))), st.ffDOB->getPort(ID(Q)));
 		cell->setPort(ID(DOBDO), DOBDO);
 
-		SigSpec Q = st.ffDOB->getPort(ID(Q));
+		// Flop.Q driver has been moved to BRAM.DO port. Adding dummy wires to it.
 		Q.replace(st.sigDOB, pm.module->addWire(NEW_ID, GetSize(st.sigDOB)));
 		st.ffDOB->setPort(ID(Q), Q);
+
+		// The modification in Flop.Q needs to be carried back to cemux and/or rst mux, to preserve equality.
+		if (st.ffDOBcemux) {
+			SigSpec AB = st.ffDOBcemux->getPort(st.ffDOBcepol ? ID::B : ID::A);
+			AB.replace(AB, Q);
+			st.ffDOBcemux->setPort((st.ffDOBcepol ? ID::A : ID::B), Q);
+		}
+
+		if (st.ffBDrstmux) {
+			SigSpec BA = st.ffBDrstmux->getPort(st.ffBDrstpol ? ID::A : ID::B);
+			BA.replace(BA, Q);
+			st.ffBDrstmux->setPort((st.ffBDrstpol ? ID::B : ID::A), Q);
+		}
 	}
+
 }
 
 struct XilinxBramPass: public Pass {
