@@ -47,6 +47,7 @@ inline static uint32_t bswap32(uint32_t x)
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 #include "kernel/utils.h"
+#include "kernel/timinginfo.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -173,20 +174,21 @@ struct XAigerWriter
 				undriven_bits.insert(bit);
 				unused_bits.insert(bit);
 
-				bool keep = wire->get_bool_attribute(ID::keep);
-				if (wire->port_input || keep)
+				bool scc = wire->attributes.count(ID(abc9_scc));
+				if (wire->port_input || scc)
 					input_bits.insert(bit);
 
-				if (wire->port_output || keep) {
+				bool keep = wire->get_bool_attribute(ID::keep);
+				if (wire->port_output || keep || scc) {
 					if (bit != wirebit)
 						alias_map[wirebit] = bit;
 					output_bits.insert(wirebit);
 				}
 			}
 
-		dict<IdString,dict<IdString,std::vector<int>>> arrivals_cache;
+		TimingInfo timing;
+
 		for (auto cell : module->cells()) {
-			RTLIL::Module* inst_module = module->design->module(cell->type);
 			if (!cell->has_keep_attr()) {
 				if (cell->type == "$_NOT_")
 				{
@@ -222,13 +224,21 @@ struct XAigerWriter
 					alias_map[Q] = D;
 					auto r YS_ATTRIBUTE(unused) = ff_bits.insert(std::make_pair(D, cell));
 					log_assert(r.second);
-					if (input_bits.erase(Q))
-						log_assert(Q.wire->attributes.count(ID::keep));
 					continue;
 				}
 
-				if (inst_module) {
-					bool abc9_flop = false;
+				if (cell->type.in("$specify2", "$specify3", "$specrule"))
+					continue;
+			}
+
+			RTLIL::Module* inst_module = module->design->module(cell->type);
+			if (inst_module) {
+				IdString derived_type = inst_module->derive(module->design, cell->parameters);
+				inst_module = module->design->module(derived_type);
+				log_assert(inst_module);
+
+				bool abc9_flop = false;
+				if (!cell->has_keep_attr()) {
 					auto it = cell->attributes.find("\\abc9_box_seq");
 					if (it != cell->attributes.end()) {
 						int abc9_box_seq = it->second.as_int();
@@ -241,50 +251,34 @@ struct XAigerWriter
 						if (!abc9_flop)
 							continue;
 					}
+				}
 
-					auto &cell_arrivals = arrivals_cache[cell->type];
-					for (const auto &conn : cell->connections()) {
-						auto port_wire = inst_module->wire(conn.first);
-						if (!port_wire->port_output)
+				if (!timing.count(derived_type))
+					timing.setup_module(inst_module);
+				auto &t = timing.at(derived_type).arrival;
+				for (const auto &conn : cell->connections()) {
+					auto port_wire = inst_module->wire(conn.first);
+					if (!port_wire->port_output)
+						continue;
+
+					for (int i = 0; i < GetSize(conn.second); i++) {
+						auto d = t.at(TimingInfo::NameBit(conn.first,i), 0);
+						if (d == 0)
 							continue;
 
-						auto r = cell_arrivals.insert(conn.first);
-						auto &arrivals = r.first->second;
-						if (r.second) {
-							auto it = port_wire->attributes.find("\\abc9_arrival");
-							if (it == port_wire->attributes.end())
-								continue;
-							if (it->second.flags == 0)
-								arrivals.emplace_back(it->second.as_int());
-							else
-								for (const auto &tok : split_tokens(it->second.decode_string()))
-									arrivals.push_back(atoi(tok.c_str()));
-						}
-
-						if (arrivals.empty())
-							continue;
-
-						if (GetSize(arrivals) > 1 && GetSize(arrivals) != GetSize(port_wire))
-							log_error("%s.%s is %d bits wide but abc9_arrival = %s has %d value(s)!\n", log_id(cell->type), log_id(conn.first),
-									GetSize(port_wire), log_signal(it->second), GetSize(arrivals));
-
-						auto jt = arrivals.begin();
 #ifndef NDEBUG
 						if (ys_debug(1)) {
-							static std::set<std::pair<IdString,IdString>> seen;
-							if (seen.emplace(cell->type, conn.first).second) log("%s.%s abc9_arrival = %d\n", log_id(cell->type), log_id(conn.first), *jt);
+							static std::set<std::tuple<IdString,IdString,int>> seen;
+							if (seen.emplace(derived_type, conn.first, i).second) log("%s.%s[%d] abc9_arrival = %d\n",
+									log_id(cell->type), log_id(conn.first), i, d);
 						}
 #endif
-						for (auto bit : sigmap(conn.second)) {
-							arrival_times[bit] = *jt;
-							if (arrivals.size() > 1)
-								jt++;
-						}
+						arrival_times[conn.second[i]] = d;
 					}
-
-					if (abc9_flop)
-						continue;
 				}
+
+				if (abc9_flop)
+					continue;
 			}
 
 			bool cell_known = inst_module || cell->known();
@@ -383,11 +377,6 @@ struct XAigerWriter
 							alias_map[O] = b;
 						ci_bits.emplace_back(b);
 						undriven_bits.erase(O);
-						// If PI and CI, then must be a (* keep *) wire
-						if (input_bits.erase(O)) {
-							log_assert(output_bits.count(O));
-							log_assert(O.wire->get_bool_attribute(ID::keep));
-						}
 					}
 			}
 
@@ -472,8 +461,8 @@ struct XAigerWriter
 		for (const auto &bit : output_bits) {
 			ordered_outputs[bit] = aig_o++;
 			int aig;
-			// Unlike bit2aig() which checks aig_map first, for
-			//   inout/keep bits, since aig_map will point to
+			// Unlike bit2aig() which checks aig_map first for
+			//   inout/scc bits, since aig_map will point to
 			//   the PI, first attempt to find the NOT/AND driver
 			//   before resorting to an aig_map lookup (which
 			//   could be another PO)
@@ -661,6 +650,7 @@ struct XAigerWriter
 					write_s_buffer(0);
 				}
 
+				// Use arrival time from output of flop box
 				write_i_buffer(arrival_times.at(d, 0));
 				//write_o_buffer(0);
 			}

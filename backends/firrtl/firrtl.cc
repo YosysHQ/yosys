@@ -25,7 +25,6 @@
 #include "kernel/log.h"
 #include <algorithm>
 #include <string>
-#include <regex>
 #include <vector>
 #include <cmath>
 

@@ -129,7 +129,7 @@ void yosys_banner()
 	log(" |                                                                            |\n");
 	log(" |  yosys -- Yosys Open SYnthesis Suite                                       |\n");
 	log(" |                                                                            |\n");
-	log(" |  Copyright (C) 2012 - 2019  Clifford Wolf <clifford@clifford.at>           |\n");
+	log(" |  Copyright (C) 2012 - 2020  Claire Wolf <claire@symbioticeda.com>          |\n");
 	log(" |                                                                            |\n");
 	log(" |  Permission to use, copy, modify, and/or distribute this software for any  |\n");
 	log(" |  purpose with or without fee is hereby granted, provided that the above    |\n");
@@ -341,7 +341,11 @@ int run_command(const std::string &command, std::function<void(const std::string
 	if (!process_line)
 		return system(command.c_str());
 
+#ifdef EMSCRIPTEN
+	FILE *f = nullptr;
+#else
 	FILE *f = popen(command.c_str(), "r");
+#endif
 	if (f == nullptr)
 		return -1;
 

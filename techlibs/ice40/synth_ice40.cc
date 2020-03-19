@@ -96,6 +96,9 @@ struct SynthIce40Pass : public ScriptPass
 		log("    -abc9\n");
 		log("        use new ABC9 flow (EXPERIMENTAL)\n");
 		log("\n");
+        log("    -flowmap\n");
+        log("        use FlowMap LUT techmapping instead of abc (EXPERIMENTAL)\n");
+        log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
@@ -103,7 +106,7 @@ struct SynthIce40Pass : public ScriptPass
 	}
 
 	string top_opt, blif_file, edif_file, json_file, device_opt;
-	bool nocarry, nodffe, nobram, dsp, flatten, retime, noabc, abc2, vpr, abc9;
+	bool nocarry, nodffe, nobram, dsp, flatten, retime, noabc, abc2, vpr, abc9, flowmap;
 	int min_ce_use;
 
 	void clear_flags() YS_OVERRIDE
@@ -123,6 +126,7 @@ struct SynthIce40Pass : public ScriptPass
 		abc2 = false;
 		vpr = false;
 		abc9 = false;
+        flowmap = false;
 		device_opt = "hx";
 	}
 
@@ -214,6 +218,10 @@ struct SynthIce40Pass : public ScriptPass
 				device_opt = args[++argidx];
 				continue;
 			}
+            if (args[argidx] == "-flowmap") {
+                flowmap = true;
+                continue;
+            }
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -226,6 +234,13 @@ struct SynthIce40Pass : public ScriptPass
 		if (abc9 && retime)
 			log_cmd_error("-retime option not currently compatible with -abc9!\n");
 
+        if (abc9 && noabc)
+            log_cmd_error("-abc9 is incompatible with -noabc!\n");
+        if (abc9 && flowmap)
+            log_cmd_error("-abc9 is incompatible with -flowmap!\n");
+        if (flowmap && noabc)
+            log_cmd_error("-flowmap is incompatible with -noabc!\n");
+
 		log_header(design, "Executing SYNTH_ICE40 pass.\n");
 		log_push();
 
@@ -236,16 +251,16 @@ struct SynthIce40Pass : public ScriptPass
 
 	void script() YS_OVERRIDE
 	{
+		std::string define;
+		if (device_opt == "lp")
+			define = "-D ICE40_LP";
+		else if (device_opt == "u")
+			define = "-D ICE40_U";
+		else
+			define = "-D ICE40_HX";
 		if (check_label("begin"))
 		{
-			std::string define;
-			if (device_opt == "lp")
-				define = "-D ICE40_LP";
-			else if (device_opt == "u")
-				define = "-D ICE40_U";
-			else
-				define = "-D ICE40_HX";
-			run("read_verilog " + define + " -lib +/ice40/cells_sim.v");
+			run("read_verilog " + define + " -lib -specify +/ice40/cells_sim.v");
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
 			run("proc");
 		}
@@ -346,13 +361,16 @@ struct SynthIce40Pass : public ScriptPass
 				run("ice40_opt", "(only if -abc2)");
 			}
 			run("techmap -map +/ice40/latches_map.v");
-			if (noabc || help_mode) {
-				run("simplemap", "                               (only if -noabc)");
-				run("techmap -map +/gate2lut.v -D LUT_WIDTH=4", "(only if -noabc)");
+			if (noabc || flowmap || help_mode) {
+				run("simplemap", "                               (if -noabc or -flowmap)");
+                if (noabc || help_mode)
+				    run("techmap -map +/gate2lut.v -D LUT_WIDTH=4", "(only if -noabc)");
+                if (flowmap || help_mode)
+                    run("flowmap -maxlut 4", "(only if -flowmap)");
 			}
 			if (!noabc) {
 				if (abc9) {
-					run("read_verilog -icells -lib +/ice40/abc9_model.v");
+					run("read_verilog " + define + " -icells -lib -specify +/abc9_model.v +/ice40/abc9_model.v");
 					int wire_delay;
 					if (device_opt == "lp")
 						wire_delay = 400;
@@ -360,7 +378,7 @@ struct SynthIce40Pass : public ScriptPass
 						wire_delay = 750;
 					else
 						wire_delay = 250;
-					run(stringf("abc9 -W %d -lut +/ice40/abc9_%s.lut -box +/ice40/abc9_%s.box", wire_delay, device_opt.c_str(), device_opt.c_str()));
+					run(stringf("abc9 -W %d", wire_delay));
 				}
 				else
 					run("abc -dress -lut 4", "(skip if -noabc)");

@@ -128,7 +128,7 @@ bumpversion:
 # is just a symlink to your actual ABC working directory, as 'make mrproper'
 # will remove the 'abc' directory and you do not want to accidentally
 # delete your work on ABC..
-ABCREV = 71f2b40
+ABCREV = ed90ce2
 ABCPULL = 1
 ABCURL ?= https://github.com/berkeley-abc/abc
 ABCMKARGS = CC="$(CXX)" CXX="$(CXX)" ABC_USE_LIBSTDCXX=1
@@ -237,7 +237,8 @@ ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H -DABC_MEMALIGN=8"
 EMCCFLAGS := -Os -Wno-warn-absolute-paths
 EMCCFLAGS += --memory-init-file 0 --embed-file share -s NO_EXIT_RUNTIME=1
 EMCCFLAGS += -s EXPORTED_FUNCTIONS="['_main','_run','_prompt','_errmsg']"
-EMCCFLAGS += -s TOTAL_MEMORY=128*1024*1024
+EMCCFLAGS += -s TOTAL_MEMORY=134217728
+EMCCFLAGS += -s EXTRA_EXPORTED_RUNTIME_METHODS='["ccall", "cwrap"]'
 # https://github.com/kripken/emscripten/blob/master/src/settings.js
 CXXFLAGS += $(EMCCFLAGS)
 LDFLAGS += $(EMCCFLAGS)
@@ -256,10 +257,10 @@ viz.js:
 	wget -O viz.js.part https://github.com/mdaines/viz.js/releases/download/0.0.3/viz.js
 	mv viz.js.part viz.js
 
-yosysjs-$(YOSYS_VER).zip: yosys.js viz.js misc/yosysjs/*
+yosysjs-$(YOSYS_VER).zip: yosys.js yosys.wasm viz.js misc/yosysjs/*
 	rm -rf yosysjs-$(YOSYS_VER) yosysjs-$(YOSYS_VER).zip
 	mkdir -p yosysjs-$(YOSYS_VER)
-	cp viz.js misc/yosysjs/* yosys.js yosysjs-$(YOSYS_VER)/
+	cp viz.js misc/yosysjs/* yosys.js yosys.wasm yosysjs-$(YOSYS_VER)/
 	zip -r yosysjs-$(YOSYS_VER).zip yosysjs-$(YOSYS_VER)
 
 yosys.html: misc/yosys.html
@@ -668,7 +669,8 @@ ifneq ($(ABCREV),default)
 	$(Q) if ( cd abc 2> /dev/null && ! git diff-index --quiet HEAD; ); then \
 		echo 'REEBE: NOP pbagnvaf ybpny zbqvsvpngvbaf! Frg NOPERI=qrsnhyg va Lbflf Znxrsvyr!' | tr 'A-Za-z' 'N-ZA-Mn-za-m'; false; \
 	fi
-	$(Q) if test "`cd abc 2> /dev/null && git rev-parse --short HEAD`" != "$(ABCREV)"; then \
+# set a variable so the test fails if git fails to run - when comparing outputs directly, empty string would match empty string
+	$(Q) if ! (cd abc && rev="`git rev-parse $(ABCREV)`" && test "`git rev-parse HEAD`" == "$$rev"); then \
 		test $(ABCPULL) -ne 0 || { echo 'REEBE: NOP abg hc gb qngr naq NOPCHYY frg gb 0 va Znxrsvyr!' | tr 'A-Za-z' 'N-ZA-Mn-za-m'; exit 1; }; \
 		echo "Pulling ABC from $(ABCURL):"; set -x; \
 		test -d abc || git clone $(ABCURL) abc; \
@@ -765,7 +767,7 @@ clean-unit-test:
 
 install: $(TARGETS) $(EXTRA_TARGETS)
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(BINDIR)
-	$(INSTALL_SUDO) cp $(TARGETS) $(DESTDIR)$(BINDIR)
+	$(INSTALL_SUDO) cp $(filter-out libyosys.so,$(TARGETS)) $(DESTDIR)$(BINDIR)
 ifneq ($(filter yosys,$(TARGETS)),)
 	$(INSTALL_SUDO) $(STRIP) -S $(DESTDIR)$(BINDIR)/yosys
 endif
@@ -895,6 +897,7 @@ config-emcc: clean
 	echo 'ENABLE_ABC := 0' >> Makefile.conf
 	echo 'ENABLE_PLUGINS := 0' >> Makefile.conf
 	echo 'ENABLE_READLINE := 0' >> Makefile.conf
+	echo 'ENABLE_ZLIB := 0' >> Makefile.conf
 
 config-mxe: clean
 	echo 'CONFIG := mxe' > Makefile.conf
@@ -928,6 +931,9 @@ echo-yosys-ver:
 
 echo-git-rev:
 	@echo "$(GIT_REV)"
+
+echo-abc-rev:
+	@echo "$(ABCREV)"
 
 -include libs/*/*.d
 -include frontends/*/*.d

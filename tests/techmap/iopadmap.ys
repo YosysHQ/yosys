@@ -4,12 +4,15 @@ module obuf (input i, (* iopad_external_pin *) output o); endmodule
 module obuft (input i, input oe, (* iopad_external_pin *) output o); endmodule
 module iobuf (input i, input oe, output o, (* iopad_external_pin *) inout io); endmodule
 
+module buf_inside (input i, output o);
+obuf b (.i(i), .o(o));
+endmodule
+
 module a(input i, output o);
 assign o = i;
 endmodule
 
 module b(input i, output o);
-assign o = i;
 ibuf b (.i(i), .o(o));
 endmodule
 
@@ -42,12 +45,22 @@ assign io = i;
 assign o = io;
 endmodule
 
+module i(input i, output o);
+buf_inside b (.i(i), .o(o));
+endmodule
+
+module j(input i, output o);
+wire tmp;
+obuf b (.i(i), .o(tmp));
+assign o = tmp;
+endmodule
+
 EOT
 
 opt_clean
 tribuf
 simplemap
-iopadmap -bits -inpad ibuf o:i -outpad obuf i:o -toutpad obuft oe:i:o -tinoutpad iobuf oe:o:i:io
+iopadmap -bits -inpad ibuf o:i -outpad obuf i:o -toutpad obuft oe:i:o -tinoutpad iobuf oe:o:i:io a b c d e f g h i j
 opt_clean
 
 select -assert-count 1 a/t:ibuf
@@ -120,6 +133,12 @@ select -assert-count 1 g/t:iobuf
 select -assert-count 1 h/t:ibuf
 select -assert-count 1 h/t:iobuf
 select -assert-count 1 h/t:obuf
+
+select -assert-count 1 i/t:ibuf
+select -assert-count 0 i/t:obuf
+
+select -assert-count 1 j/t:ibuf
+select -assert-count 1 j/t:obuf
 
 
 # Check that \init attributes get moved from output buffer

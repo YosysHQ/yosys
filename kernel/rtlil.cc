@@ -3924,8 +3924,6 @@ bool RTLIL::SigSpec::parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::stri
 	cover("kernel.rtlil.sigspec.parse");
 
 	AST::current_filename = "input";
-	AST::use_internal_line_num();
-	AST::set_line_num(0);
 
 	std::vector<std::string> tokens;
 	sigspec_parse_split(tokens, str, ',');

@@ -84,6 +84,7 @@ struct ScriptPass : Pass
 
 	bool check_label(std::string label, std::string info = std::string());
 	void run(std::string command, std::string info = std::string());
+	void run_nocheck(std::string command, std::string info = std::string());
 	void run_script(RTLIL::Design *design, std::string run_from = std::string(), std::string run_to = std::string());
 	void help_script();
 };

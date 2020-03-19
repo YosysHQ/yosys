@@ -354,7 +354,7 @@ struct SynthXilinxPass : public ScriptPass
 			std::string read_args;
 			if (vpr)
 				read_args += " -D_EXPLICIT_CARRY";
-			read_args += " -lib +/xilinx/cells_sim.v";
+			read_args += " -lib -specify +/xilinx/cells_sim.v";
 			run("read_verilog" + read_args);
 
 			run("read_verilog -lib +/xilinx/cells_xtra.v");
@@ -619,17 +619,15 @@ struct SynthXilinxPass : public ScriptPass
 				if (dff_mode)
 					techmap_args += " -D DFF_MODE";
 				run("techmap " + techmap_args);
-				run("read_verilog -icells -lib +/xilinx/abc9_model.v");
-				std::string abc9_opts = " -box +/xilinx/abc9_xc7.box";
+				run("read_verilog -icells -lib -specify +/abc9_model.v +/xilinx/abc9_model.v");
+				std::string abc9_opts;
 				auto k = stringf("synth_xilinx.abc9.%s.W", family.c_str());
 				if (active_design->scratchpad.count(k))
 					abc9_opts += stringf(" -W %s", active_design->scratchpad_get_string(k).c_str());
 				else
 					abc9_opts += stringf(" -W %s", RTLIL::constpad.at(k, RTLIL::constpad.at("synth_xilinx.abc9.xc7.W")).c_str());
 				if (nowidelut)
-					abc9_opts += " -lut +/xilinx/abc9_xc7_nowide.lut";
-				else
-					abc9_opts += " -lut +/xilinx/abc9_xc7.lut";
+					abc9_opts += stringf(" -maxlut %d", lut_size);
 				if (dff_mode)
 					abc9_opts += " -dff";
 				run("abc9" + abc9_opts);

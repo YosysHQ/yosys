@@ -182,7 +182,7 @@ bool AstNode::get_bool_attribute(RTLIL::IdString id)
 
 	AstNode *attr = attributes.at(id);
 	if (attr->type != AST_CONSTANT)
-		log_file_error(attr->filename, attr->linenum, "Attribute `%s' with non-constant value!\n", id.c_str());
+		log_file_error(attr->filename, attr->location.first_line, "Attribute `%s' with non-constant value!\n", id.c_str());
 
 	return attr->integer != 0;
 }
@@ -197,7 +197,6 @@ AstNode::AstNode(AstNodeType type, AstNode *child1, AstNode *child2, AstNode *ch
 
 	this->type = type;
 	filename = current_filename;
-	linenum = get_line_num();
 	is_input = false;
 	is_output = false;
 	is_reg = false;
@@ -280,7 +279,8 @@ void AstNode::dumpAst(FILE *f, std::string indent) const
 	}
 
 	std::string type_name = type2str(type);
-	fprintf(f, "%s%s <%s:%d>", indent.c_str(), type_name.c_str(), filename.c_str(), linenum);
+	fprintf(f, "%s%s <%s:%d.%d-%d.%d>", indent.c_str(), type_name.c_str(), filename.c_str(), location.first_line,
+		location.first_column, location.last_line, location.last_column);
 
 	if (!flag_no_dump_ptr) {
 		if (id2ast)
@@ -939,19 +939,21 @@ RTLIL::Const AstNode::realAsConst(int width)
 }
 
 // create a new AstModule from an AST_MODULE AST node
-static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast = NULL)
+static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast = NULL, bool quiet = false)
 {
 	log_assert(ast->type == AST_MODULE || ast->type == AST_INTERFACE);
 
 	if (defer)
 		log("Storing AST representation for module `%s'.\n", ast->str.c_str());
-	else
+	else if (!quiet) {
 		log("Generating RTLIL representation for module `%s'.\n", ast->str.c_str());
+	}
 
 	current_module = new AstModule;
 	current_module->ast = NULL;
 	current_module->name = ast->str;
-	current_module->attributes["\\src"] = stringf("%s:%d", ast->filename.c_str(), ast->linenum);
+	current_module->attributes["\\src"] = stringf("%s:%d.%d-%d.%d", ast->filename.c_str(), ast->location.first_line,
+		ast->location.first_column, ast->location.last_line, ast->location.last_column);
 	current_module->set_bool_attribute("\\cells_not_processed");
 
 	current_ast_mod = ast;
@@ -1028,14 +1030,14 @@ static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast
 		if (!blackbox_module && ast->attributes.count("\\blackbox")) {
 			AstNode *n = ast->attributes.at("\\blackbox");
 			if (n->type != AST_CONSTANT)
-				log_file_error(ast->filename, ast->linenum, "Got blackbox attribute with non-constant value!\n");
+				log_file_error(ast->filename, ast->location.first_line, "Got blackbox attribute with non-constant value!\n");
 			blackbox_module = n->asBool();
 		}
 
 		if (blackbox_module && ast->attributes.count("\\whitebox")) {
 			AstNode *n = ast->attributes.at("\\whitebox");
 			if (n->type != AST_CONSTANT)
-				log_file_error(ast->filename, ast->linenum, "Got whitebox attribute with non-constant value!\n");
+				log_file_error(ast->filename, ast->location.first_line, "Got whitebox attribute with non-constant value!\n");
 			blackbox_module = !n->asBool();
 		}
 
@@ -1043,7 +1045,7 @@ static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast
 			if (blackbox_module) {
 				AstNode *n = ast->attributes.at("\\noblackbox");
 				if (n->type != AST_CONSTANT)
-					log_file_error(ast->filename, ast->linenum, "Got noblackbox attribute with non-constant value!\n");
+					log_file_error(ast->filename, ast->location.first_line, "Got noblackbox attribute with non-constant value!\n");
 				blackbox_module = !n->asBool();
 			}
 			delete ast->attributes.at("\\noblackbox");
@@ -1089,7 +1091,7 @@ static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast
 
 		for (auto &attr : ast->attributes) {
 			if (attr.second->type != AST_CONSTANT)
-				log_file_error(ast->filename, ast->linenum, "Attribute `%s' with non-constant value!\n", attr.first.c_str());
+				log_file_error(ast->filename, ast->location.first_line, "Attribute `%s' with non-constant value!\n", attr.first.c_str());
 			current_module->attributes[attr.first] = attr.second->asAttrConst();
 		}
 		for (size_t i = 0; i < ast->children.size(); i++) {
@@ -1203,15 +1205,15 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 			if (design->has((*it)->str)) {
 				RTLIL::Module *existing_mod = design->module((*it)->str);
 				if (!nooverwrite && !overwrite && !existing_mod->get_blackbox_attribute()) {
-					log_file_error((*it)->filename, (*it)->linenum, "Re-definition of module `%s'!\n", (*it)->str.c_str());
+					log_file_error((*it)->filename, (*it)->location.first_line, "Re-definition of module `%s'!\n", (*it)->str.c_str());
 				} else if (nooverwrite) {
-					log("Ignoring re-definition of module `%s' at %s:%d.\n",
-							(*it)->str.c_str(), (*it)->filename.c_str(), (*it)->linenum);
+					log("Ignoring re-definition of module `%s' at %s:%d.%d-%d.%d.\n",
+							(*it)->str.c_str(), (*it)->filename.c_str(), (*it)->location.first_line, (*it)->location.first_column, (*it)->location.last_line, (*it)->location.last_column);
 					continue;
 				} else {
-					log("Replacing existing%s module `%s' at %s:%d.\n",
+					log("Replacing existing%s module `%s' at %s:%d.%d-%d.%d.\n",
 							existing_mod->get_bool_attribute("\\blackbox") ? " blackbox" : "",
-							(*it)->str.c_str(), (*it)->filename.c_str(), (*it)->linenum);
+							(*it)->str.c_str(), (*it)->filename.c_str(), (*it)->location.first_line, (*it)->location.first_column, (*it)->location.last_line, (*it)->location.last_column);
 					design->remove(existing_mod);
 				}
 			}
@@ -1487,14 +1489,16 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, dict<RTLIL::IdString, R
 // create a new parametric module (when needed) and return the name of the generated module - without support for interfaces
 RTLIL::IdString AstModule::derive(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters, bool /*mayfail*/)
 {
+	bool quiet = lib || attributes.count(ID(blackbox)) || attributes.count(ID(whitebox));
+
 	AstNode *new_ast = NULL;
-	std::string modname = derive_common(design, parameters, &new_ast);
+	std::string modname = derive_common(design, parameters, &new_ast, quiet);
 
 	if (!design->has(modname)) {
 		new_ast->str = modname;
-		design->add(process_module(new_ast, false));
+		design->add(process_module(new_ast, false, NULL, quiet));
 		design->module(modname)->check();
-	} else {
+	} else if (!quiet) {
 		log("Found cached RTLIL representation for module `%s'.\n", modname.c_str());
 	}
 
@@ -1503,7 +1507,7 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, dict<RTLIL::IdString, R
 }
 
 // create a new parametric module (when needed) and return the name of the generated module
-std::string AstModule::derive_common(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters, AstNode **new_ast_out)
+std::string AstModule::derive_common(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters, AstNode **new_ast_out, bool quiet)
 {
 	std::string stripped_name = name.str();
 
@@ -1519,13 +1523,15 @@ std::string AstModule::derive_common(RTLIL::Design *design, dict<RTLIL::IdString
 		para_counter++;
 		std::string para_id = child->str;
 		if (parameters.count(para_id) > 0) {
-			log("Parameter %s = %s\n", child->str.c_str(), log_signal(RTLIL::SigSpec(parameters[child->str])));
+			if (!quiet)
+				log("Parameter %s = %s\n", child->str.c_str(), log_signal(RTLIL::SigSpec(parameters[child->str])));
 			para_info += stringf("%s=%s", child->str.c_str(), log_signal(RTLIL::SigSpec(parameters[para_id])));
 			continue;
 		}
 		para_id = stringf("$%d", para_counter);
 		if (parameters.count(para_id) > 0) {
-			log("Parameter %d (%s) = %s\n", para_counter, child->str.c_str(), log_signal(RTLIL::SigSpec(parameters[para_id])));
+			if (!quiet)
+				log("Parameter %d (%s) = %s\n", para_counter, child->str.c_str(), log_signal(RTLIL::SigSpec(parameters[para_id])));
 			para_info += stringf("%s=%s", child->str.c_str(), log_signal(RTLIL::SigSpec(parameters[para_id])));
 			continue;
 		}
@@ -1542,7 +1548,8 @@ std::string AstModule::derive_common(RTLIL::Design *design, dict<RTLIL::IdString
 	if (design->has(modname))
 		return modname;
 
-	log_header(design, "Executing AST frontend in derive mode using pre-parsed AST for module `%s'.\n", stripped_name.c_str());
+	if (!quiet)
+		log_header(design, "Executing AST frontend in derive mode using pre-parsed AST for module `%s'.\n", stripped_name.c_str());
 	loadconfig();
 
 	AstNode *new_ast = ast->clone();
@@ -1553,12 +1560,14 @@ std::string AstModule::derive_common(RTLIL::Design *design, dict<RTLIL::IdString
 		para_counter++;
 		std::string para_id = child->str;
 		if (parameters.count(para_id) > 0) {
-			log("Parameter %s = %s\n", child->str.c_str(), log_signal(RTLIL::SigSpec(parameters[child->str])));
+			if (!quiet)
+				log("Parameter %s = %s\n", child->str.c_str(), log_signal(RTLIL::SigSpec(parameters[child->str])));
 			goto rewrite_parameter;
 		}
 		para_id = stringf("$%d", para_counter);
 		if (parameters.count(para_id) > 0) {
-			log("Parameter %d (%s) = %s\n", para_counter, child->str.c_str(), log_signal(RTLIL::SigSpec(parameters[para_id])));
+			if (!quiet)
+				log("Parameter %d (%s) = %s\n", para_counter, child->str.c_str(), log_signal(RTLIL::SigSpec(parameters[para_id])));
 			goto rewrite_parameter;
 		}
 		continue;
@@ -1628,25 +1637,6 @@ void AstModule::loadconfig() const
 	flag_icells = icells;
 	flag_pwires = pwires;
 	flag_autowire = autowire;
-	use_internal_line_num();
-}
-
-// internal dummy line number callbacks
-namespace {
-	int internal_line_num;
-	void internal_set_line_num(int n) {
-		internal_line_num = n;
-	}
-	int internal_get_line_num() {
-		return internal_line_num;
-	}
-}
-
-// use internal dummy line number callbacks
-void AST::use_internal_line_num()
-{
-	set_line_num = &internal_set_line_num;
-	get_line_num = &internal_get_line_num;
 }
 
 YOSYS_NAMESPACE_END
