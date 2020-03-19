@@ -1,75 +1,168 @@
-read_verilog -sv -defer <<EOT
-module sync_ram_sdp #(parameter DATA_WIDTH=8, ADDRESS_WIDTH=8)
-   (input  wire                      clk, write_enable, en,
-    input  wire  [DATA_WIDTH-1:0]    data_in,
-    input  wire  [ADDRESS_WIDTH-1:0] address_in_r, address_in_w,
-    output logic [DATA_WIDTH-1:0]    data_out);
-   
-   localparam NUMWORDS = (DATA_WIDTH-1);
-   localparam DEPTH = (2**ADDRESS_WIDTH-1);
-   
-   logic [NUMWORDS:0] 		     data_out_r;
-   logic [NUMWORDS:0] 		     memory [0:DEPTH];
-   
-   always_ff @(posedge clk) begin
-      if (write_enable)
-	memory[address_in_w] <= data_in;
-      data_out_r <= memory[address_in_r];
-      if (en) data_out <= data_out_r;
-   end
-   
-   //assign data_out = data_out_r;
-endmodule // sync_ram_sdp
+########### BRAM with both CE and Reset functons #########
+# No ff at DOADO port
+read_verilog -sv ../common/blockram.sv
+hierarchy -top blockram
+synth_xilinx -top blockram -noiopad -noclkbuf -flatten
+cd blockram
+select -assert-count 1 t:RAMB18E1
+select -assert-none t:FD*
 
-module sync_ram_sdp_noen #(parameter DATA_WIDTH=8, ADDRESS_WIDTH=8)
-   (input  wire                      clk, write_enable, en,
-    input  wire  [DATA_WIDTH-1:0]    data_in,
-    input  wire  [ADDRESS_WIDTH-1:0] address_in_r, address_in_w,
-    output logic [DATA_WIDTH-1:0]    data_out);
-    sync_ram_sdp #(.DATA_WIDTH(DATA_WIDTH), .ADDRESS_WIDTH(ADDRESS_WIDTH)) u (.*, .en(1'b1));
+# Increasing address and data width (unordered D argument) 
+design -reset
+read_verilog -sv ../common/blockram.sv
+chparam -set ADDRESS_WIDTH 10 -set DATA_WIDTH 10 blockram
+hierarchy -top blockram
+synth_xilinx -top blockram -noiopad -noclkbuf -flatten
+cd blockram
+select -assert-count 1 t:RAMB18E1
+select -assert-none t:FD*
+
+# Two BRAM cells (preserve equality)
+design -reset
+read_verilog -sv ../common/blockram.sv
+chparam -set ADDRESS_WIDTH 12 -set DATA_WIDTH 8 blockram
+hierarchy -top blockram
+synth_xilinx -top blockram -noiopad -noclkbuf -flatten
+cd blockram
+select -assert-count 2 t:RAMB18E1
+select -assert-none t:FD*
+##########################################################
+
+################# Litex ETHSoC ###########################
+# This design was originally showing this optimisation 
+## oportunity.
+## Small version
+design -reset
+read_verilog -sv -defer <<EOT
+module testcase (input wire clk, input wire [3:0] dataWriteCmd_payload_mask, input wire _zz_1_,
+                 input wire [9:0] dataWriteCmd_payload_address,
+                 input wire [31:0] dataWriteCmd_payload_data,
+                 input wire _zz_5_, io_cpu_writeBack_isStuck,
+                 output reg [31:0] io_cpu_writeBack_data,
+                 input wire  [9:0] dataReadCmd_payload);
+
+
+  (* ram_style = "block" *) reg [7:0] ways_0_data_symbol0 [0:1023];
+  (* ram_style = "block" *) reg [7:0] ways_0_data_symbol1 [0:1023];
+
+  reg [7:0] _zz_24_;
+  reg [7:0] _zz_25_;
+  reg [31:0] _zz_11_;
+  wire [31:0] stageB_dataMux;
+  reg [31:0] stageB_dataReadRsp_0;
+  wire [31:0] ways_0_dataReadRsp;
+
+  always @ (*) begin
+    _zz_11_ = {_zz_27_, _zz_26_, _zz_25_, _zz_24_};
+  end
+
+  always @ (posedge clk) begin
+    if(dataWriteCmd_payload_mask[0] && _zz_1_) begin
+      ways_0_data_symbol0[dataWriteCmd_payload_address] <= dataWriteCmd_payload_data[7 : 0];
+    end
+    if(dataWriteCmd_payload_mask[1] && _zz_1_) begin
+      ways_0_data_symbol1[dataWriteCmd_payload_address] <= dataWriteCmd_payload_data[15 : 8];
+    end
+  end
+
+  always @ (posedge clk) begin
+    if(_zz_5_) begin
+      _zz_24_ <= ways_0_data_symbol0[dataReadCmd_payload];
+      _zz_25_ <= ways_0_data_symbol1[dataReadCmd_payload];
+    end
+  end
+
+assign stageB_dataMux = stageB_dataReadRsp_0;
+assign ways_0_dataReadRsp = _zz_11_;
+
+always @(posedge clk) begin
+if((! io_cpu_writeBack_isStuck))begin
+      stageB_dataReadRsp_0 <= ways_0_dataReadRsp;
+    end
+end
+
+always @(*)
+  io_cpu_writeBack_data = stageB_dataMux;
+
 endmodule
 EOT
 design -save read
 
-
-synth_xilinx -noiopad -noclkbuf -top sync_ram_sdp_noen -flatten
-cd sync_ram_sdp_noen
-select -assert-count 1 t:RAMB18E1
+synth_xilinx -noiopad -noclkbuf -top testcase -flatten
+cd testcase
+select -assert-count 2 t:RAMB18E1
 select -assert-none t:FD*
-select -assert-none t:RAMB18E1 %% t:* %D
+
+### Original version
+design -reset
+read_verilog -sv -defer <<EOT
+`default_nettype none
+module testcase (input wire clk, input wire [3:0] dataWriteCmd_payload_mask, input wire _zz_1_,
+                 input wire [9:0] dataWriteCmd_payload_address,
+                 input wire [31:0] dataWriteCmd_payload_data,
+                 input wire _zz_5_, io_cpu_writeBack_isStuck,
+                 output reg [31:0] io_cpu_writeBack_data,
+                 input wire  [9:0] dataReadCmd_payload);
 
 
-design -load read
-synth_xilinx -noiopad -noclkbuf -top sync_ram_sdp
-cd sync_ram_sdp
-select -assert-count 1 t:RAMB18E1
+  (* ram_style = "block" *) reg [7:0] ways_0_data_symbol0 [0:1023];
+  (* ram_style = "block" *) reg [7:0] ways_0_data_symbol1 [0:1023];
+  (* ram_style = "block" *) reg [7:0] ways_0_data_symbol2 [0:1023];
+  (* ram_style = "block" *) reg [7:0] ways_0_data_symbol3 [0:1023];
+
+  reg [7:0] _zz_24_;
+  reg [7:0] _zz_25_;
+  reg [7:0] _zz_26_;
+  reg [7:0] _zz_27_;
+  reg [31:0] _zz_11_;
+  wire [31:0] stageB_dataMux;
+  reg [31:0] stageB_dataReadRsp_0;
+  wire [31:0] ways_0_dataReadRsp;
+
+  always @ (*) begin
+    _zz_11_ = {_zz_27_, _zz_26_, _zz_25_, _zz_24_};
+  end
+
+  always @ (posedge clk) begin
+    if(dataWriteCmd_payload_mask[0] && _zz_1_) begin
+      ways_0_data_symbol0[dataWriteCmd_payload_address] <= dataWriteCmd_payload_data[7 : 0];
+    end
+    if(dataWriteCmd_payload_mask[1] && _zz_1_) begin
+      ways_0_data_symbol1[dataWriteCmd_payload_address] <= dataWriteCmd_payload_data[15 : 8];
+    end
+    if(dataWriteCmd_payload_mask[2] && _zz_1_) begin
+      ways_0_data_symbol2[dataWriteCmd_payload_address] <= dataWriteCmd_payload_data[23 : 16];
+    end
+    if(dataWriteCmd_payload_mask[3] && _zz_1_) begin
+      ways_0_data_symbol3[dataWriteCmd_payload_address] <= dataWriteCmd_payload_data[31 : 24];
+    end
+  end
+
+  always @ (posedge clk) begin
+    if(_zz_5_) begin
+      _zz_24_ <= ways_0_data_symbol0[dataReadCmd_payload];
+      _zz_25_ <= ways_0_data_symbol1[dataReadCmd_payload];
+      _zz_26_ <= ways_0_data_symbol2[dataReadCmd_payload];
+      _zz_27_ <= ways_0_data_symbol3[dataReadCmd_payload];
+    end
+  end
+
+assign stageB_dataMux = stageB_dataReadRsp_0;
+assign ways_0_dataReadRsp = _zz_11_;
+
+always @(posedge clk) begin
+if((! io_cpu_writeBack_isStuck))begin
+      stageB_dataReadRsp_0 <= ways_0_dataReadRsp;
+    end
+end
+
+always @(*)
+  io_cpu_writeBack_data = stageB_dataMux;
+
+endmodule
+EOT
+synth_xilinx -noiopad -noclkbuf -top testcase -flatten
+cd testcase
+select -assert-count 4 t:RAMB18E1
 select -assert-none t:FD*
-select -assert-none t:RAMB18E1 %% t:* %D
 
-
-
-design -load read
-hierarchy -chparam DATA_WIDTH 10 -top sync_ram_sdp
-synth_xilinx -noiopad -noclkbuf
-cd sync_ram_sdp
-select -assert-count 1 t:RAMB18E1
-select -assert-none t:FD*
-select -assert-none t:RAMB18E1 %% t:* %D
-
-
-design -load read
-hierarchy -chparam DATA_WIDTH 16
-synth_xilinx -noiopad -noclkbuf -top sync_ram_sdp
-cd sync_ram_sdp
-select -assert-count 1 t:RAMB18E1
-select -assert-none t:FD*
-select -assert-none t:RAMB18E1 %% t:* %D
-
-
-design -load read
-hierarchy -chparam DATA_WIDTH 18
-synth_xilinx -noiopad -noclkbuf -top sync_ram_sdp
-cd sync_ram_sdp
-select -assert-count 1 t:RAMB18E1
-select -assert-none t:FD*
-select -assert-none t:RAMB18E1 %% t:* %D
