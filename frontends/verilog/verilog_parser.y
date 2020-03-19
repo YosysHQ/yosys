@@ -1955,6 +1955,7 @@ assert:
 			delete $5;
 		} else {
 			AstNode *node = new AstNode(assume_asserts_mode ? AST_ASSUME : AST_ASSERT, $5);
+			SET_AST_NODE_LOC(node, @1, @6);
 			if ($1 != nullptr)
 				node->str = *$1;
 			ast_stack.back()->children.push_back(node);
@@ -1967,6 +1968,7 @@ assert:
 			delete $5;
 		} else {
 			AstNode *node = new AstNode(assert_assumes_mode ? AST_ASSERT : AST_ASSUME, $5);
+			SET_AST_NODE_LOC(node, @1, @6);
 			if ($1 != nullptr)
 				node->str = *$1;
 			ast_stack.back()->children.push_back(node);
@@ -1979,6 +1981,7 @@ assert:
 			delete $6;
 		} else {
 			AstNode *node = new AstNode(assume_asserts_mode ? AST_FAIR : AST_LIVE, $6);
+			SET_AST_NODE_LOC(node, @1, @7);
 			if ($1 != nullptr)
 				node->str = *$1;
 			ast_stack.back()->children.push_back(node);
@@ -1991,6 +1994,7 @@ assert:
 			delete $6;
 		} else {
 			AstNode *node = new AstNode(assert_assumes_mode ? AST_LIVE : AST_FAIR, $6);
+			SET_AST_NODE_LOC(node, @1, @7);
 			if ($1 != nullptr)
 				node->str = *$1;
 			ast_stack.back()->children.push_back(node);
@@ -2000,6 +2004,7 @@ assert:
 	} |
 	opt_sva_label TOK_COVER opt_property '(' expr ')' ';' {
 		AstNode *node = new AstNode(AST_COVER, $5);
+		SET_AST_NODE_LOC(node, @1, @6);
 		if ($1 != nullptr) {
 			node->str = *$1;
 			delete $1;
@@ -2008,6 +2013,7 @@ assert:
 	} |
 	opt_sva_label TOK_COVER opt_property '(' ')' ';' {
 		AstNode *node = new AstNode(AST_COVER, AstNode::mkconst_int(1, false));
+		SET_AST_NODE_LOC(node, @1, @5);
 		if ($1 != nullptr) {
 			node->str = *$1;
 			delete $1;
@@ -2016,6 +2022,7 @@ assert:
 	} |
 	opt_sva_label TOK_COVER ';' {
 		AstNode *node = new AstNode(AST_COVER, AstNode::mkconst_int(1, false));
+		SET_AST_NODE_LOC(node, @1, @2);
 		if ($1 != nullptr) {
 			node->str = *$1;
 			delete $1;
@@ -2027,6 +2034,7 @@ assert:
 			delete $5;
 		} else {
 			AstNode *node = new AstNode(AST_ASSUME, $5);
+			SET_AST_NODE_LOC(node, @1, @6);
 			if ($1 != nullptr)
 				node->str = *$1;
 			ast_stack.back()->children.push_back(node);
@@ -2041,6 +2049,7 @@ assert:
 			delete $6;
 		} else {
 			AstNode *node = new AstNode(AST_FAIR, $6);
+			SET_AST_NODE_LOC(node, @1, @7);
 			if ($1 != nullptr)
 				node->str = *$1;
 			ast_stack.back()->children.push_back(node);
@@ -2053,35 +2062,45 @@ assert:
 
 assert_property:
 	opt_sva_label TOK_ASSERT TOK_PROPERTY '(' expr ')' ';' {
-		ast_stack.back()->children.push_back(new AstNode(assume_asserts_mode ? AST_ASSUME : AST_ASSERT, $5));
+		AstNode *node = new AstNode(assume_asserts_mode ? AST_ASSUME : AST_ASSERT, $5);
+		SET_AST_NODE_LOC(node, @1, @6);
+		ast_stack.back()->children.push_back(node);
 		if ($1 != nullptr) {
 			ast_stack.back()->children.back()->str = *$1;
 			delete $1;
 		}
 	} |
 	opt_sva_label TOK_ASSUME TOK_PROPERTY '(' expr ')' ';' {
-		ast_stack.back()->children.push_back(new AstNode(AST_ASSUME, $5));
+		AstNode *node = new AstNode(AST_ASSUME, $5);
+		SET_AST_NODE_LOC(node, @1, @6);
+		ast_stack.back()->children.push_back(node);
 		if ($1 != nullptr) {
 			ast_stack.back()->children.back()->str = *$1;
 			delete $1;
 		}
 	} |
 	opt_sva_label TOK_ASSERT TOK_PROPERTY '(' TOK_EVENTUALLY expr ')' ';' {
-		ast_stack.back()->children.push_back(new AstNode(assume_asserts_mode ? AST_FAIR : AST_LIVE, $6));
+		AstNode *node = new AstNode(assume_asserts_mode ? AST_FAIR : AST_LIVE, $6);
+		SET_AST_NODE_LOC(node, @1, @7);
+		ast_stack.back()->children.push_back(node);
 		if ($1 != nullptr) {
 			ast_stack.back()->children.back()->str = *$1;
 			delete $1;
 		}
 	} |
 	opt_sva_label TOK_ASSUME TOK_PROPERTY '(' TOK_EVENTUALLY expr ')' ';' {
-		ast_stack.back()->children.push_back(new AstNode(AST_FAIR, $6));
+		AstNode *node = new AstNode(AST_FAIR, $6);
+		SET_AST_NODE_LOC(node, @1, @7);
+		ast_stack.back()->children.push_back(node);
 		if ($1 != nullptr) {
 			ast_stack.back()->children.back()->str = *$1;
 			delete $1;
 		}
 	} |
 	opt_sva_label TOK_COVER TOK_PROPERTY '(' expr ')' ';' {
-		ast_stack.back()->children.push_back(new AstNode(AST_COVER, $5));
+		AstNode *node = new AstNode(AST_COVER, $5);
+		SET_AST_NODE_LOC(node, @1, @6);
+		ast_stack.back()->children.push_back(node);
 		if ($1 != nullptr) {
 			ast_stack.back()->children.back()->str = *$1;
 			delete $1;
@@ -2091,7 +2110,9 @@ assert_property:
 		if (norestrict_mode) {
 			delete $5;
 		} else {
-			ast_stack.back()->children.push_back(new AstNode(AST_ASSUME, $5));
+			AstNode *node = new AstNode(AST_ASSUME, $5);
+			SET_AST_NODE_LOC(node, @1, @6);
+			ast_stack.back()->children.push_back(node);
 			if ($1 != nullptr) {
 				ast_stack.back()->children.back()->str = *$1;
 				delete $1;
@@ -2102,7 +2123,9 @@ assert_property:
 		if (norestrict_mode) {
 			delete $6;
 		} else {
-			ast_stack.back()->children.push_back(new AstNode(AST_FAIR, $6));
+			AstNode *node = new AstNode(AST_FAIR, $6);
+			SET_AST_NODE_LOC(node, @1, @7);
+			ast_stack.back()->children.push_back(node);
 			if ($1 != nullptr) {
 				ast_stack.back()->children.back()->str = *$1;
 				delete $1;
