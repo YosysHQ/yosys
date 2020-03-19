@@ -496,17 +496,23 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			}
 		}
 
-		if (cell->type == ID($_XOR_) || (cell->type == ID($xor) && GetSize(cell->getPort(ID::A)) == 1 && GetSize(cell->getPort(ID::B)) == 1 && !cell->getParam(ID(A_SIGNED)).as_bool()))
+		if (cell->type.in(ID($_XOR_), ID($_XNOR_)) || (cell->type.in(ID($xor), ID($xnor)) && GetSize(cell->getPort(ID::A)) == 1 && GetSize(cell->getPort(ID::B)) == 1 && !cell->getParam(ID(A_SIGNED)).as_bool()))
 		{
 			SigBit sig_a = assign_map(cell->getPort(ID::A));
 			SigBit sig_b = assign_map(cell->getPort(ID::B));
 			if (!sig_a.wire)
 				std::swap(sig_a, sig_b);
-			if (sig_b == State::S0 || sig_b == State::S1) {
-				cover("opt.opt_expr.xor_buffer");
-				replace_cell(assign_map, module, cell, "xor_buffer", ID::Y, sig_b == State::S1 ? module->NotGate(NEW_ID, sig_a) : sig_a);
-				goto next_cell;
-			}
+			if (sig_b == State::S0 || sig_b == State::S1)
+				if (cell->type.in(ID($xor), ID($_XOR_))) {
+					cover("opt.opt_expr.xor_buffer");
+					replace_cell(assign_map, module, cell, "xor_buffer", ID::Y, sig_b == State::S1 ? module->NotGate(NEW_ID, sig_a) : sig_a);
+					goto next_cell;
+				}
+				if (cell->type.in(ID($xnor), ID($_XNOR_))) {
+					cover("opt.opt_expr.xnor_buffer");
+					replace_cell(assign_map, module, cell, "xor_buffer", ID::Y, sig_b == State::S1 ? sig_a : module->NotGate(NEW_ID, sig_a));
+					goto next_cell;
+				}
 		}
 
 		if (cell->type.in(ID($reduce_and), ID($reduce_or), ID($reduce_bool), ID($reduce_xor), ID($reduce_xnor), ID($neg)) &&
@@ -855,8 +861,6 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			if (input.match("11")) ACTION_DO_Y(0);
 			if (input.match(" *")) ACTION_DO_Y(x);
 			if (input.match("* ")) ACTION_DO_Y(x);
-			if (input.match(" 0")) ACTION_DO(ID::Y, input.extract(1, 1));
-			if (input.match("0 ")) ACTION_DO(ID::Y, input.extract(0, 1));
 		}
 
 		if (cell->type == ID($_MUX_)) {
