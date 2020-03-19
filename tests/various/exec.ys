@@ -1,0 +1,6 @@
+exec -expect-return 0 -- exit 0
+exec -expect-return 27 -- exit 27
+exec -expect-stdout nana -expect-stdout api -not-expect-stdout giraffe -- echo "bananapie"
+
+logger -expect error "stdout did have a line" 1
+exec -not-expect-stdout giraffe -- echo "giraffe"
