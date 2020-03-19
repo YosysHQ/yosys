@@ -1281,9 +1281,9 @@ AstNode * AST::find_modport(AstNode *intf, std::string name)
 // Iterate over all wires in an interface and add them as wires in the AST module:
 void AST::explode_interface_port(AstNode *module_ast, RTLIL::Module * intfmodule, std::string intfname, AstNode *modport)
 {
-	for (auto &wire_it : intfmodule->wires_){
-		AstNode *wire = new AstNode(AST_WIRE, new AstNode(AST_RANGE, AstNode::mkconst_int(wire_it.second->width -1, true), AstNode::mkconst_int(0, true)));
-		std::string origname = log_id(wire_it.first);
+	for (auto w : intfmodule->wires()){
+		AstNode *wire = new AstNode(AST_WIRE, new AstNode(AST_RANGE, AstNode::mkconst_int(w->width -1, true), AstNode::mkconst_int(0, true)));
+		std::string origname = log_id(w->name);
 		std::string newname = intfname + "." + origname;
 		wire->str = newname;
 		if (modport != NULL) {
@@ -1326,9 +1326,9 @@ void AstModule::reprocess_module(RTLIL::Design *design, dict<RTLIL::IdString, RT
 	for (auto &intf : local_interfaces) {
 		std::string intfname = intf.first.str();
 		RTLIL::Module *intfmodule = intf.second;
-		for (auto &wire_it : intfmodule->wires_){
-			AstNode *wire = new AstNode(AST_WIRE, new AstNode(AST_RANGE, AstNode::mkconst_int(wire_it.second->width -1, true), AstNode::mkconst_int(0, true)));
-			std::string newname = log_id(wire_it.first);
+		for (auto w : intfmodule->wires()){
+			AstNode *wire = new AstNode(AST_WIRE, new AstNode(AST_RANGE, AstNode::mkconst_int(w->width -1, true), AstNode::mkconst_int(0, true)));
+			std::string newname = log_id(w->name);
 			newname = intfname + "." + newname;
 			wire->str = newname;
 			new_ast->children.push_back(wire);
@@ -1352,7 +1352,7 @@ void AstModule::reprocess_module(RTLIL::Design *design, dict<RTLIL::IdString, RT
 						std::pair<std::string,std::string> res = split_modport_from_type(ch->str);
 						std::string interface_type = res.first;
 						std::string interface_modport = res.second; // Is "", if no modport
-						if (design->modules_.count(interface_type) > 0) {
+						if (design->module(interface_type) != nullptr) {
 							// Add a cell to the module corresponding to the interface port such that
 							// it can further propagated down if needed:
 							AstNode *celltype_for_intf = new AstNode(AST_CELLTYPE);
@@ -1362,7 +1362,7 @@ void AstModule::reprocess_module(RTLIL::Design *design, dict<RTLIL::IdString, RT
 							new_ast->children.push_back(cell_for_intf);
 
 							// Get all members of this non-overridden dummy interface instance:
-							RTLIL::Module *intfmodule = design->modules_[interface_type]; // All interfaces should at this point in time (assuming
+							RTLIL::Module *intfmodule = design->module(interface_type); // All interfaces should at this point in time (assuming
 							                                                              // reprocess_module is called from the hierarchy pass) be
 							                                                              // present in design->modules_
 							AstModule *ast_module_of_interface = (AstModule*)intfmodule;
@@ -1456,10 +1456,10 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, dict<RTLIL::IdString, R
 		RTLIL::Module* mod = design->module(modname);
 
 		// Now that the interfaces have been exploded, we can delete the dummy port related to every interface.
+		pool<RTLIL::Wire*> to_remove;
 		for(auto &intf : interfaces) {
-			if(mod->wires_.count(intf.first)) {
-				mod->wires_.erase(intf.first);
-				mod->fixup_ports();
+			if(mod->wire(intf.first) != nullptr) {
+				to_remove.insert(mod->wire(intf.first));
 				// We copy the cell of the interface to the sub-module such that it can further be found if it is propagated
 				// down to sub-sub-modules etc.
 				RTLIL::Cell * new_subcell = mod->addCell(intf.first, intf.second->name);
@@ -1469,6 +1469,8 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, dict<RTLIL::IdString, R
 				log_error("No port with matching name found (%s) in %s. Stopping\n", log_id(intf.first), modname.c_str());
 			}
 		}
+		mod->remove(to_remove);
+		mod->fixup_ports();
 
 		// If any interfaces were replaced, set the attribute 'interfaces_replaced_in_module':
 		if (interfaces.size() > 0) {
