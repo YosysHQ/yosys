@@ -394,7 +394,8 @@ struct FirrtlWorker
 			log_warning("No instance for %s.%s\n", cell_type.c_str(), cell_name.c_str());
 			return;
 		}
-		wire_exprs.push_back(stringf("%s" "inst %s%s of %s", indent.c_str(), cell_name.c_str(), cell_name_comment.c_str(), instanceOf.c_str()));
+		auto cellFileinfo = getFileinfo(cell->attributes);
+		wire_exprs.push_back(stringf("%s" "inst %s%s of %s @[%s]", indent.c_str(), cell_name.c_str(), cell_name_comment.c_str(), instanceOf.c_str(), cellFileinfo.c_str()));
 
 		for (auto it = cell->connections().begin(); it != cell->connections().end(); ++it) {
 			if (it->second.size() > 0) {
@@ -435,7 +436,7 @@ struct FirrtlWorker
 					//  as part of the coalesced subfield assignments for this wire.
 					register_reverse_wire_map(sourceExpr, *sinkSig);
 				} else {
-					wire_exprs.push_back(stringf("\n%s%s <= %s", indent.c_str(), sinkExpr.c_str(), sourceExpr.c_str()));
+					wire_exprs.push_back(stringf("\n%s%s <= %s @[%s]", indent.c_str(), sinkExpr.c_str(), sourceExpr.c_str(), cellFileinfo.c_str()));
 				}
 			}
 		}
