@@ -444,7 +444,7 @@ void AigerReader::parse_xaiger()
 			}
 		}
 		else if (c == 'r') {
-			uint32_t dataSize = parse_xaiger_literal(f);
+			uint32_t dataSize YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
 			flopNum = parse_xaiger_literal(f);
 			log_debug("flopNum = %u\n", flopNum);
 			log_assert(dataSize == (flopNum+1) * sizeof(uint32_t));
