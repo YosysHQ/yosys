@@ -651,10 +651,14 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 
 				int i;
 				for (i = 0; i < GetSize(sig_y); i++) {
-					if (sig_b.at(i, State::Sx) == State::S0 && sig_a.at(i, State::Sx) != State::Sx)
-						module->connect(sig_y[i], sig_a[i]);
-					else if (!sub && sig_a.at(i, State::Sx) == State::S0 && sig_b.at(i, State::Sx) != State::Sx)
-						module->connect(sig_y[i], sig_b[i]);
+					RTLIL::SigBit b = sig_b.at(i, State::Sx);
+					RTLIL::SigBit a = sig_a.at(i, State::Sx);
+					if (b == State::S0 && a != State::Sx)
+						module->connect(sig_y[i], a);
+					else if (sub && b == State::S1 && a == State::S1)
+						module->connect(sig_y[i], State::S0);
+					else if (!sub && a == State::S0 && b != State::Sx)
+						module->connect(sig_y[i], b);
 					else
 						break;
 				}
@@ -690,14 +694,21 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 
 				int i;
 				for (i = 0; i < GetSize(sig_y); i++) {
-					if (sig_b.at(i, State::Sx) == State::S0 && sig_a.at(i, State::Sx) != State::Sx) {
-						module->connect(sig_x[i], sub ? module->Not(NEW_ID, sig_a[i]).as_bit() : sig_a[i]);
+					RTLIL::SigBit b = sig_b.at(i, State::Sx);
+					RTLIL::SigBit a = sig_a.at(i, State::Sx);
+					if (b == State::S0 && a != State::Sx) {
 						module->connect(sig_y[i], sig_a[i]);
+						module->connect(sig_x[i], sub ? module->Not(NEW_ID, a).as_bit() : a);
 						module->connect(sig_co[i], sub ? State::S1 : State::S0);
 					}
-					else if (!sub && sig_a.at(i, State::Sx) == State::S0 && sig_b.at(i, State::Sx) != State::Sx) {
-						module->connect(sig_x[i], sig_b[i]);
-						module->connect(sig_y[i], sig_b[i]);
+					else if (sub && b == State::S1 && a == State::S1) {
+						module->connect(sig_y[i], State::S0);
+						module->connect(sig_x[i], module->Not(NEW_ID, a));
+						module->connect(sig_co[i], State::S0);
+					}
+					else if (!sub && a == State::S0 && b != State::Sx) {
+						module->connect(sig_y[i], b);
+						module->connect(sig_x[i], b);
 						module->connect(sig_co[i], State::S0);
 					}
 					else
