@@ -496,6 +496,19 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			}
 		}
 
+		if (cell->type == ID($_XOR_) || (cell->type == ID($xor) && GetSize(cell->getPort(ID::A)) == 1 && GetSize(cell->getPort(ID::B)) == 1 && !cell->getParam(ID(A_SIGNED)).as_bool()))
+		{
+			SigBit sig_a = assign_map(cell->getPort(ID::A));
+			SigBit sig_b = assign_map(cell->getPort(ID::B));
+			if (!sig_a.wire)
+				std::swap(sig_a, sig_b);
+			if (sig_b == State::S0 || sig_b == State::S1) {
+				cover("opt.opt_expr.xor_buffer");
+				replace_cell(assign_map, module, cell, "xor_buffer", ID::Y, sig_b == State::S1 ? module->NotGate(NEW_ID, sig_a) : sig_a);
+				goto next_cell;
+			}
+		}
+
 		if (cell->type.in(ID($reduce_and), ID($reduce_or), ID($reduce_bool), ID($reduce_xor), ID($reduce_xnor), ID($neg)) &&
 				GetSize(cell->getPort(ID::A)) == 1 && GetSize(cell->getPort(ID::Y)) == 1)
 		{
@@ -1590,7 +1603,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 					}
 
 					int const_bit_set = get_highest_hot_index(const_sig);
-					if(const_bit_set >= var_width)
+					if (const_bit_set >= var_width)
 					{
 						string cmp_name;
 						if (cmp_type == ID($lt) || cmp_type == ID($le))
