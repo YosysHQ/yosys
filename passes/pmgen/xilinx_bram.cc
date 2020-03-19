@@ -65,12 +65,35 @@ void xilinx_bram_pack(xilinx_bram_pm &pm)
 
 	};
 
+	auto finalise = [&pm] (Cell* ff, SigSpec DO, Cell* cemux, Cell* rstmux, bool cepol, bool rstpol)
+	{
+		SigSpec Q = ff->getPort(ID(Q));
+
+		// Flop.Q driver has been moved to BRAM.DO port. Adding dummy wires to it.
+		Q.replace(DO, pm.module->addWire(NEW_ID, GetSize(DO)));
+		ff->setPort(ID(Q), Q);
+
+		// The modification in Flop.Q needs to be carried back to cemux and/or rst mux, to preserve equality.
+		if (cemux) {
+			SigSpec AB = cemux->getPort(cepol ? ID::B : ID::A);
+			AB.replace(AB, Q);
+			cemux->setPort((cepol ? ID::A : ID::B), Q);
+		}
+
+		if (rstmux) {
+			SigSpec BA = rstmux->getPort(rstpol ? ID::A : ID::B);
+			BA.replace(BA, Q);
+			rstmux->setPort((rstpol ? ID::B : ID::A), Q);
+		}
+
+	};
+
 	if (st.ffDOA) {
 		log("Candidate registers in DOADO port to pack into BRAM cell: %s (%s).\n",
 				log_id(st.ffDOA), log_id(st.ffDOA->type));
 
 		SigSpec DOADO = cell->getPort(ID(DOADO));
-		SigSpec Q = st.ffDOA->getPort(ID(Q));
+		//SigSpec Q = st.ffDOA->getPort(ID(Q));
 
 		replace (DOADO, st.ffDOAcemux, st.ffADrstmux, st.ffDOAcepol, st.ffADrstpol, ID(REGCEAREGCE), ID(RSTRAMB));
 
@@ -81,22 +104,7 @@ void xilinx_bram_pack(xilinx_bram_pm &pm)
 		DOADO.replace(pm.sigmap(st.ffDOA->getPort(ID(D))), st.ffDOA->getPort(ID(Q)));
 		cell->setPort(ID(DOADO), DOADO);
 
-		// Flop.Q driver has been moved to BRAM.DO port. Adding dummy wires to it.
-		Q.replace(st.sigDOA, pm.module->addWire(NEW_ID, GetSize(st.sigDOA)));
-		st.ffDOA->setPort(ID(Q), Q);
-
-		// The modification in Flop.Q needs to be carried back to cemux and/or rst mux, to preserve equality.
-		if (st.ffDOAcemux) {
-			SigSpec AB = st.ffDOAcemux->getPort(st.ffDOAcepol ? ID::B : ID::A);
-			AB.replace(AB, Q);
-			st.ffDOAcemux->setPort((st.ffDOAcepol ? ID::A : ID::B), Q);
-		}
-
-		if (st.ffADrstmux) {
-			SigSpec BA = st.ffADrstmux->getPort(st.ffADrstpol ? ID::A : ID::B);
-			BA.replace(BA, Q);
-			st.ffADrstmux->setPort((st.ffADrstpol ? ID::B : ID::A), Q);
-		}
+		finalise (st.ffDOA, st.sigDOA, st.ffDOAcemux, st.ffADrstmux, st.ffDOAcepol, st.ffADrstpol);
 	}
 
 	if (st.ffDOB) {
@@ -115,22 +123,8 @@ void xilinx_bram_pack(xilinx_bram_pm &pm)
 		DOBDO.replace(pm.sigmap(st.ffDOB->getPort(ID(D))), st.ffDOB->getPort(ID(Q)));
 		cell->setPort(ID(DOBDO), DOBDO);
 
-		// Flop.Q driver has been moved to BRAM.DO port. Adding dummy wires to it.
-		Q.replace(st.sigDOB, pm.module->addWire(NEW_ID, GetSize(st.sigDOB)));
-		st.ffDOB->setPort(ID(Q), Q);
+		finalise (st.ffDOA, st.sigDOA, st.ffDOAcemux, st.ffADrstmux, st.ffDOAcepol, st.ffADrstpol);
 
-		// The modification in Flop.Q needs to be carried back to cemux and/or rst mux, to preserve equality.
-		if (st.ffDOBcemux) {
-			SigSpec AB = st.ffDOBcemux->getPort(st.ffDOBcepol ? ID::B : ID::A);
-			AB.replace(AB, Q);
-			st.ffDOBcemux->setPort((st.ffDOBcepol ? ID::A : ID::B), Q);
-		}
-
-		if (st.ffBDrstmux) {
-			SigSpec BA = st.ffBDrstmux->getPort(st.ffBDrstpol ? ID::A : ID::B);
-			BA.replace(BA, Q);
-			st.ffBDrstmux->setPort((st.ffBDrstpol ? ID::B : ID::A), Q);
-		}
 	}
 
 }
