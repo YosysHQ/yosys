@@ -682,9 +682,6 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				RTLIL::SigSpec sig_y = cell->getPort(ID::Y);
 				RTLIL::SigSpec sig_co = cell->getPort(ID(CO));
 
-				if (sig_ci.wire || sig_bi.wire)
-					goto next_cell;
-
 				bool sub = (sig_ci == State::S1 && sig_bi == State::S1);
 
 				// If not a subtraction, yet there is a carry or B is inverted
