@@ -96,6 +96,17 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 	}
 }
 
+std::string getFileinfo(dict<RTLIL::IdString, RTLIL::Const> attributes)
+{
+	std::ostringstream fileinfo;
+	for (auto &it : attributes) {
+		if (it.first == "\\src") {
+			dump_const(fileinfo, it.second);
+		}
+	}
+	return fileinfo.str();
+}
+
 // Get a port direction with respect to a specific module.
 FDirection getPortFDirection(IdString id, Module *module)
 {
@@ -448,12 +459,15 @@ struct FirrtlWorker
 
 	void run()
 	{
-		f << stringf("  module %s:\n", make_id(module->name));
+		auto moduleFileinfo = getFileinfo(module->attributes);
+		f << stringf("  module %s: @[%s]\n", make_id(module->name), moduleFileinfo.c_str());
 		vector<string> port_decls, wire_decls, cell_exprs, wire_exprs;
 
 		for (auto wire : module->wires())
 		{
 			const auto wireName = make_id(wire->name);
+			auto wireFileinfo = getFileinfo(wire->attributes);
+
 			// If a wire has initial data, issue a warning since FIRRTL doesn't currently support it.
 			if (wire->attributes.count("\\init")) {
 				log_warning("Initial value (%s) for (%s.%s) not supported\n",
@@ -464,12 +478,12 @@ struct FirrtlWorker
 			{
 				if (wire->port_input && wire->port_output)
 					log_error("Module port %s.%s is inout!\n", log_id(module), log_id(wire));
-				port_decls.push_back(stringf("    %s %s: UInt<%d>\n", wire->port_input ? "input" : "output",
-						wireName, wire->width));
+				port_decls.push_back(stringf("    %s %s: UInt<%d> @[%s]\n", wire->port_input ? "input" : "output",
+						wireName, wire->width, wireFileinfo.c_str()));
 			}
 			else
 			{
-				wire_decls.push_back(stringf("    wire %s: UInt<%d>\n", wireName, wire->width));
+				wire_decls.push_back(stringf("    wire %s: UInt<%d> @[%s]\n", wireName, wire->width, wireFileinfo.c_str()));
 			}
 		}
 
@@ -1177,14 +1191,8 @@ struct FirrtlBackend : public Backend {
 		if (top == nullptr)
 			top = last;
 
-		std::ostringstream fileinfo;
-		for (auto &it : top->attributes) {
-			if (it.first == "\\src") {
-				dump_const(fileinfo, it.second);
-			}
-		}
-
-		*f << stringf("circuit %s: @[%s]\n", make_id(top->name), fileinfo.str().c_str());
+		auto circuitFileinfo = getFileinfo(top->attributes);
+		*f << stringf("circuit %s: @[%s]\n", make_id(top->name), circuitFileinfo.c_str());
 
 		for (auto module : design->modules())
 		{
