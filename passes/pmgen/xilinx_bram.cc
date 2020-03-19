@@ -143,7 +143,7 @@ struct XilinxBramPass: public Pass {
 		log("\n");
 		log("    xilinx_bram\n");
 		log("\n");
-		log("Pack A/B output port flops into RAMB18/36E1 primitives\n");
+		log("Pack BRAMs output port flops with CE and RST function into BRAM cells.\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
