@@ -7072,6 +7072,7 @@ module IOBUFDS (...);
     output O;
     (* iopad_external_pin *)
     inout IO;
+    (* iopad_external_pin *)
     inout IOB;
     input I;
     input T;
