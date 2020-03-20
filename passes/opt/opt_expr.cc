@@ -502,7 +502,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			SigBit sig_b = assign_map(cell->getPort(ID::B));
 			if (!sig_a.wire)
 				std::swap(sig_a, sig_b);
-			if (sig_b == State::S0 || sig_b == State::S1)
+			if (sig_b == State::S0 || sig_b == State::S1) {
 				if (cell->type.in(ID($xor), ID($_XOR_))) {
 					cover("opt.opt_expr.xor_buffer");
 					replace_cell(assign_map, module, cell, "xor_buffer", ID::Y, sig_b == State::S1 ? module->NotGate(NEW_ID, sig_a) : sig_a);
@@ -510,9 +510,11 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				}
 				if (cell->type.in(ID($xnor), ID($_XNOR_))) {
 					cover("opt.opt_expr.xnor_buffer");
-					replace_cell(assign_map, module, cell, "xor_buffer", ID::Y, sig_b == State::S1 ? sig_a : module->NotGate(NEW_ID, sig_a));
+					replace_cell(assign_map, module, cell, "xnor_buffer", ID::Y, sig_b == State::S1 ? sig_a : module->NotGate(NEW_ID, sig_a));
 					goto next_cell;
 				}
+				log_abort();
+			}
 		}
 
 		if (cell->type.in(ID($reduce_and), ID($reduce_or), ID($reduce_bool), ID($reduce_xor), ID($reduce_xnor), ID($neg)) &&
