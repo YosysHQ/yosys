@@ -14,7 +14,7 @@ equiv_opt opt_expr
 design -load postopt
 select -assert-none t:$xor
 select -assert-none t:$xnor
-select -assert-count 2 t:$_NOT_
+select -assert-count 2 t:$not
 
 
 design -load read
@@ -38,3 +38,15 @@ equiv_opt opt_expr
 design -load postopt
 select -assert-none t:$_XNOR_ # NB: simplemap does $xnor -> $_XOR_+$_NOT_
 select -assert-count 1 t:$_NOT_
+
+
+design -reset
+read_verilog <<EOT
+module top(input a, output [1:0] w, x, y, z);
+assign w = a^1'b0;
+assign x = a^1'b1;
+assign y = a~^1'b0;
+assign z = a~^1'b1;
+endmodule
+EOT
+equiv_opt opt_expr
