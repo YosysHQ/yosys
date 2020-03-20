@@ -505,12 +505,27 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			if (sig_b == State::S0 || sig_b == State::S1) {
 				if (cell->type.in(ID($xor), ID($_XOR_))) {
 					cover("opt.opt_expr.xor_buffer");
-					replace_cell(assign_map, module, cell, "xor_buffer", ID::Y, sig_b == State::S1 ? module->NotGate(NEW_ID, sig_a) : sig_a);
+					SigSpec sig_y;
+					if (cell->type == ID($xor))
+						sig_y = (sig_b == State::S1 ? module->Not(NEW_ID, sig_a).as_bit() : sig_a);
+					else if (cell->type == ID($_XOR_))
+						sig_y = (sig_b == State::S1 ? module->NotGate(NEW_ID, sig_a) : sig_a);
+					else log_abort();
+					replace_cell(assign_map, module, cell, "xor_buffer", ID::Y, sig_y);
 					goto next_cell;
 				}
 				if (cell->type.in(ID($xnor), ID($_XNOR_))) {
 					cover("opt.opt_expr.xnor_buffer");
-					replace_cell(assign_map, module, cell, "xnor_buffer", ID::Y, sig_b == State::S1 ? sig_a : module->NotGate(NEW_ID, sig_a));
+					SigSpec sig_y;
+					if (cell->type == ID($xnor)) {
+						sig_y = (sig_b == State::S1 ? sig_a : module->Not(NEW_ID, sig_a).as_bit());
+						int width = cell->getParam(ID(Y_WIDTH)).as_int();
+						sig_y.append(RTLIL::Const(State::S1, width-1));
+					}
+					else if (cell->type == ID($_XNOR_))
+						sig_y = (sig_b == State::S1 ? sig_a : module->NotGate(NEW_ID, sig_a));
+					else log_abort();
+					replace_cell(assign_map, module, cell, "xnor_buffer", ID::Y, sig_y);
 					goto next_cell;
 				}
 				log_abort();
