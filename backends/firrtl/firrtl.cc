@@ -101,7 +101,9 @@ std::string getFileinfo(dict<RTLIL::IdString, RTLIL::Const> attributes)
 	std::ostringstream fileinfo;
 	for (auto &it : attributes) {
 		if (it.first == "\\src") {
+			fileinfo << "@[";
 			dump_const(fileinfo, it.second);
+			fileinfo << "]";
 		}
 	}
 	return fileinfo.str();
@@ -395,7 +397,7 @@ struct FirrtlWorker
 			return;
 		}
 		auto cellFileinfo = getFileinfo(cell->attributes);
-		wire_exprs.push_back(stringf("%s" "inst %s%s of %s @[%s]", indent.c_str(), cell_name.c_str(), cell_name_comment.c_str(), instanceOf.c_str(), cellFileinfo.c_str()));
+		wire_exprs.push_back(stringf("%s" "inst %s%s of %s %s", indent.c_str(), cell_name.c_str(), cell_name_comment.c_str(), instanceOf.c_str(), cellFileinfo.c_str()));
 
 		for (auto it = cell->connections().begin(); it != cell->connections().end(); ++it) {
 			if (it->second.size() > 0) {
@@ -436,7 +438,7 @@ struct FirrtlWorker
 					//  as part of the coalesced subfield assignments for this wire.
 					register_reverse_wire_map(sourceExpr, *sinkSig);
 				} else {
-					wire_exprs.push_back(stringf("\n%s%s <= %s @[%s]", indent.c_str(), sinkExpr.c_str(), sourceExpr.c_str(), cellFileinfo.c_str()));
+					wire_exprs.push_back(stringf("\n%s%s <= %s %s", indent.c_str(), sinkExpr.c_str(), sourceExpr.c_str(), cellFileinfo.c_str()));
 				}
 			}
 		}
@@ -461,7 +463,7 @@ struct FirrtlWorker
 	void run()
 	{
 		auto moduleFileinfo = getFileinfo(module->attributes);
-		f << stringf("  module %s: @[%s]\n", make_id(module->name), moduleFileinfo.c_str());
+		f << stringf("  module %s: %s\n", make_id(module->name), moduleFileinfo.c_str());
 		vector<string> port_decls, wire_decls, cell_exprs, wire_exprs;
 
 		for (auto wire : module->wires())
@@ -479,12 +481,12 @@ struct FirrtlWorker
 			{
 				if (wire->port_input && wire->port_output)
 					log_error("Module port %s.%s is inout!\n", log_id(module), log_id(wire));
-				port_decls.push_back(stringf("    %s %s: UInt<%d> @[%s]\n", wire->port_input ? "input" : "output",
+				port_decls.push_back(stringf("    %s %s: UInt<%d> %s\n", wire->port_input ? "input" : "output",
 						wireName, wire->width, wireFileinfo.c_str()));
 			}
 			else
 			{
-				wire_decls.push_back(stringf("    wire %s: UInt<%d> @[%s]\n", wireName, wire->width, wireFileinfo.c_str()));
+				wire_decls.push_back(stringf("    wire %s: UInt<%d> %s\n", wireName, wire->width, wireFileinfo.c_str()));
 			}
 		}
 
@@ -1193,7 +1195,7 @@ struct FirrtlBackend : public Backend {
 			top = last;
 
 		auto circuitFileinfo = getFileinfo(top->attributes);
-		*f << stringf("circuit %s: @[%s]\n", make_id(top->name), circuitFileinfo.c_str());
+		*f << stringf("circuit %s: %s\n", make_id(top->name), circuitFileinfo.c_str());
 
 		for (auto module : design->modules())
 		{
