@@ -2382,9 +2382,9 @@ module SB_SPRAM256KA (
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13167
 		//$setup(negedge STANDBY, posedge CLOCK, 1715);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13206
-		$setup(WREN, posedge CLK, 289);
+		$setup(WREN, posedge CLOCK, 289);
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13207-L13222
-		(posedge RCLK => (DATAOUT : 16'bx)) = 1821;
+		(posedge CLOCK => (DATAOUT : 16'bx)) = 1821;
 		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13223-L13238
 		(posedge SLEEP => (DATAOUT : 16'b0)) = 1099;
 	endspecify
