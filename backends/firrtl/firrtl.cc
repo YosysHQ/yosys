@@ -261,7 +261,7 @@ struct FirrtlWorker
 			}
 		 }
 		// We need a default constructor for the dict insert.
-	   memory() : pCell(0), read_latency(0), write_latency(1), init_file(""), init_file_srcFileSpec(""){}
+		 memory() : pCell(0), read_latency(0), write_latency(1), init_file(""), init_file_srcFileSpec(""){}
 
 		const char *atLine() {
 			if (srcLine == "") {
@@ -494,7 +494,7 @@ struct FirrtlWorker
 		{
 			static Const ndef(0, 0);
 
-		    // Is this cell is a module instance?
+			// Is this cell is a module instance?
 			if (cell->type[0] != '$')
 			{
 				process_instance(cell, wire_exprs);
@@ -512,11 +512,12 @@ struct FirrtlWorker
 			string primop;
 			bool always_uint = false;
 			string y_id = make_id(cell->name);
+			std::string cellFileinfo = getFileinfo(cell->attributes);
 
 			if (cell->type.in("$not", "$logic_not", "$neg", "$reduce_and", "$reduce_or", "$reduce_xor", "$reduce_bool", "$reduce_xnor"))
 			{
 				string a_expr = make_expr(cell->getPort("\\A"));
-				wire_decls.push_back(stringf("    wire %s: UInt<%d>\n", y_id.c_str(), y_width));
+				wire_decls.push_back(stringf("    wire %s: UInt<%d> %s\n", y_id.c_str(), y_width, cellFileinfo.c_str()));
 
 				if (a_signed) {
 					a_expr = "asSInt(" + a_expr + ")";
@@ -535,16 +536,16 @@ struct FirrtlWorker
 					firrtl_is_signed = true;	// Result of "neg" is signed (an SInt).
 					firrtl_width = a_width;
 				} else if (cell->type == "$logic_not") {
-                                        primop = "eq";
-                                        a_expr = stringf("%s, UInt(0)", a_expr.c_str());
-                                }
+					primop = "eq";
+					a_expr = stringf("%s, UInt(0)", a_expr.c_str());
+				}
 				else if (cell->type == "$reduce_and") primop = "andr";
 				else if (cell->type == "$reduce_or") primop = "orr";
 				else if (cell->type == "$reduce_xor") primop = "xorr";
 				else if (cell->type == "$reduce_xnor") {
-                                        primop = "not";
-                                        a_expr = stringf("xorr(%s)", a_expr.c_str());
-                                }
+					primop = "not";
+					a_expr = stringf("xorr(%s)", a_expr.c_str());
+				}
 				else if (cell->type == "$reduce_bool") {
 					primop = "neq";
 					// Use the sign of the a_expr and its width as the type (UInt/SInt) and width of the comparand.
@@ -556,18 +557,19 @@ struct FirrtlWorker
 				if ((firrtl_is_signed && !always_uint))
 					expr = stringf("asUInt(%s)", expr.c_str());
 
-				cell_exprs.push_back(stringf("    %s <= %s\n", y_id.c_str(), expr.c_str()));
+				cell_exprs.push_back(stringf("    %s <= %s %s\n", y_id.c_str(), expr.c_str(), cellFileinfo.c_str()));
 				register_reverse_wire_map(y_id, cell->getPort("\\Y"));
 
 				continue;
 			}
 			if (cell->type.in("$add", "$sub", "$mul", "$div", "$mod", "$xor", "$xnor", "$and", "$or", "$eq", "$eqx",
-							  "$gt", "$ge", "$lt", "$le", "$ne", "$nex", "$shr", "$sshr", "$sshl", "$shl",
-							  "$logic_and", "$logic_or", "$pow"))
+				"$gt", "$ge", "$lt", "$le", "$ne", "$nex", "$shr", "$sshr", "$sshl", "$shl",
+				"$logic_and", "$logic_or", "$pow"))
 			{
 				string a_expr = make_expr(cell->getPort("\\A"));
 				string b_expr = make_expr(cell->getPort("\\B"));
-				wire_decls.push_back(stringf("    wire %s: UInt<%d>\n", y_id.c_str(), y_width));
+				std::string cellFileinfo = getFileinfo(cell->attributes);
+				wire_decls.push_back(stringf("    wire %s: UInt<%d> %s\n", y_id.c_str(), y_width, cellFileinfo.c_str()));
 
 				if (a_signed) {
 					a_expr = "asSInt(" + a_expr + ")";
@@ -650,7 +652,7 @@ struct FirrtlWorker
 					primop = "eq";
 					always_uint = true;
 					firrtl_width = 1;
-			    }
+				}
 				else if ((cell->type == "$ne") | (cell->type == "$nex")) {
 					primop = "neq";
 					always_uint = true;
@@ -783,7 +785,7 @@ struct FirrtlWorker
 				if ((firrtl_is_signed && !always_uint))
 					expr = stringf("asUInt(%s)", expr.c_str());
 
-				cell_exprs.push_back(stringf("    %s <= %s\n", y_id.c_str(), expr.c_str()));
+				cell_exprs.push_back(stringf("    %s <= %s %s\n", y_id.c_str(), expr.c_str(), cellFileinfo.c_str()));
 				register_reverse_wire_map(y_id, cell->getPort("\\Y"));
 
 				continue;
@@ -795,11 +797,11 @@ struct FirrtlWorker
 				string a_expr = make_expr(cell->getPort("\\A"));
 				string b_expr = make_expr(cell->getPort("\\B"));
 				string s_expr = make_expr(cell->getPort("\\S"));
-				wire_decls.push_back(stringf("    wire %s: UInt<%d>\n", y_id.c_str(), width));
+				wire_decls.push_back(stringf("    wire %s: UInt<%d> %s\n", y_id.c_str(), width, cellFileinfo.c_str()));
 
 				string expr = stringf("mux(%s, %s, %s)", s_expr.c_str(), b_expr.c_str(), a_expr.c_str());
 
-				cell_exprs.push_back(stringf("    %s <= %s\n", y_id.c_str(), expr.c_str()));
+				cell_exprs.push_back(stringf("    %s <= %s %s\n", y_id.c_str(), expr.c_str(), cellFileinfo.c_str()));
 				register_reverse_wire_map(y_id, cell->getPort("\\Y"));
 
 				continue;
@@ -938,9 +940,9 @@ struct FirrtlWorker
 				string expr = make_expr(cell->getPort("\\D"));
 				string clk_expr = "asClock(" + make_expr(cell->getPort("\\CLK")) + ")";
 
-				wire_decls.push_back(stringf("    reg %s: UInt<%d>, %s\n", y_id.c_str(), width, clk_expr.c_str()));
+				wire_decls.push_back(stringf("    reg %s: UInt<%d>, %s %s\n", y_id.c_str(), width, clk_expr.c_str(), cellFileinfo.c_str()));
 
-				cell_exprs.push_back(stringf("    %s <= %s\n", y_id.c_str(), expr.c_str()));
+				cell_exprs.push_back(stringf("    %s <= %s %s\n", y_id.c_str(), expr.c_str(), cellFileinfo.c_str()));
 				register_reverse_wire_map(y_id, cell->getPort("\\Q"));
 
 				continue;
@@ -1030,6 +1032,7 @@ struct FirrtlWorker
 		for (auto wire : module->wires())
 		{
 			string expr;
+			std::string wireFileinfo = getFileinfo(wire->attributes);
 
 			if (wire->port_input)
 				continue;
@@ -1088,14 +1091,20 @@ struct FirrtlWorker
 
 			if (is_valid) {
 				if (make_unconn_id) {
-					wire_decls.push_back(stringf("    wire %s: UInt<1>\n", unconn_id.c_str()));
+					wire_decls.push_back(stringf("    wire %s: UInt<1> %s\n", unconn_id.c_str(), wireFileinfo.c_str()));
+					// `invalid` is a firrtl construction for simulation so we will not
+					// tag it with a @[fileinfo] tag as it doesn't directly correspond to
+					// a specific line of verilog code.
 					wire_decls.push_back(stringf("    %s is invalid\n", unconn_id.c_str()));
 				}
-				wire_exprs.push_back(stringf("    %s <= %s\n", make_id(wire->name), expr.c_str()));
+				wire_exprs.push_back(stringf("    %s <= %s %s\n", make_id(wire->name), expr.c_str(), wireFileinfo.c_str()));
 			} else {
 				if (make_unconn_id) {
 					unconn_id.clear();
 				}
+				// `invalid` is a firrtl construction for simulation so we will not
+				// tag it with a @[fileinfo] tag as it doesn't directly correspond to
+				// a specific line of verilog code.
 				wire_decls.push_back(stringf("    %s is invalid\n", make_id(wire->name)));
 			}
 		}
