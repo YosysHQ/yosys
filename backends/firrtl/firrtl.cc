@@ -106,7 +106,11 @@ std::string getFileinfo(dict<RTLIL::IdString, RTLIL::Const> attributes)
 			fileinfo << "]";
 		}
 	}
-	return fileinfo.str();
+
+  std::string fileinfo_str = fileinfo.str();
+  fileinfo_str.erase(std::remove(fileinfo_str.begin(), fileinfo_str.end(), '\"'), fileinfo_str.end());
+
+  return fileinfo_str;
 }
 
 // Get a port direction with respect to a specific module.
