@@ -18,4 +18,5 @@ OBJS += passes/opt/opt_lut.o
 OBJS += passes/opt/opt_lut_ins.o
 OBJS += passes/opt/pmux2shiftx.o
 OBJS += passes/opt/muxpack.o
+OBJS += passes/opt/opt_whitebox.o
 endif

@@ -1,0 +1,23 @@
+read_verilog -lib opt_whitebox_lib.v
+read_verilog <<EOT
+module top(input a, b, output w, x, y, z, p, q, r, s);
+	and2 u1(a, b, w);
+	and2 u2(a, 0, x);
+	and2 u3(a, a, y);
+	and2 u4(a, 1, z);
+
+	or2 u5(a, b, p);
+	or2 u6(a, 0, q);
+	or2 u7(a, a, r);
+	or2 u8(a, 1, s);
+endmodule
+EOT
+
+prep -top top
+equiv_opt -assert -map opt_whitebox_lib.v opt_whitebox
+design -load postopt
+cd top
+select -assert-count 1 t:and2
+select -assert-count 1 t:or2
+select -assert-none t:and2 t:or2 %% t:* %D
+
