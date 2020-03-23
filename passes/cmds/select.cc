@@ -625,7 +625,7 @@ static void select_filter_active_mod(RTLIL::Design *design, RTLIL::Selection &se
 	}
 }
 
-static void select_stmt(RTLIL::Design *design, std::string arg)
+static void select_stmt(RTLIL::Design *design, std::string arg, bool disable_empty_warning = false)
 {
 	std::string arg_mod, arg_memb;
 	std::unordered_map<std::string, bool> arg_mod_found;
@@ -913,12 +913,12 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 	select_filter_active_mod(design, work_stack.back());
 
 	for (auto &it : arg_mod_found) {
-		if (it.second == false) {
+		if (it.second == false && !disable_empty_warning) {
 			log_warning("Selection \"%s\" did not match any module.\n", it.first.c_str());
 		}
 	}
 	for (auto &it : arg_memb_found) {
-		if (it.second == false) {
+		if (it.second == false && !disable_empty_warning) {
 			log_warning("Selection \"%s\" did not match any object.\n", it.first.c_str());
 		}
 	}
@@ -1311,7 +1311,8 @@ struct SelectPass : public Pass {
 			}
 			if (arg.size() > 0 && arg[0] == '-')
 				log_cmd_error("Unknown option %s.\n", arg.c_str());
-			select_stmt(design, arg);
+			bool disable_empty_warning = count_mode || assert_none || assert_any || (assert_count != -1) || (assert_max != -1) || (assert_min != -1);
+			select_stmt(design, arg, disable_empty_warning);
 			sel_str += " " + arg;
 		}
 
