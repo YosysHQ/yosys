@@ -107,10 +107,10 @@ std::string getFileinfo(const dict<RTLIL::IdString, RTLIL::Const> &attributes)
 		}
 	}
 
-  std::string fileinfo_str = fileinfo.str();
-  fileinfo_str.erase(std::remove(fileinfo_str.begin(), fileinfo_str.end(), '\"'), fileinfo_str.end());
+	std::string fileinfo_str = fileinfo.str();
+	fileinfo_str.erase(std::remove(fileinfo_str.begin(), fileinfo_str.end(), '\"'), fileinfo_str.end());
 
-  return fileinfo_str;
+	return fileinfo_str;
 }
 
 // Get a port direction with respect to a specific module.
@@ -263,9 +263,10 @@ struct FirrtlWorker
 			if (this->width == 0) {
 				log_error("Memory %s has zero width%s\n", this->name.c_str(), this->atLine());
 			}
-		 }
+		}
+
 		// We need a default constructor for the dict insert.
-		 memory() : pCell(0), read_latency(0), write_latency(1), init_file(""), init_file_srcFileSpec(""){}
+		memory() : pCell(0), read_latency(0), write_latency(1), init_file(""), init_file_srcFileSpec(""){}
 
 		const char *atLine() {
 			if (srcLine == "") {
