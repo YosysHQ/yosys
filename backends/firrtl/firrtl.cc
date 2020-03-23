@@ -96,7 +96,7 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 	}
 }
 
-std::string getFileinfo(dict<RTLIL::IdString, RTLIL::Const> attributes)
+std::string getFileinfo(const dict<RTLIL::IdString, RTLIL::Const> &attributes)
 {
 	std::ostringstream fileinfo;
 	for (auto &it : attributes) {
