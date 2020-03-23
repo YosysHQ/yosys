@@ -372,9 +372,33 @@ supply1 { return TOK_SUPPLY1; }
 "$signed"   { return TOK_TO_SIGNED; }
 "$unsigned" { return TOK_TO_UNSIGNED; }
 
+[a-zA-Z_][a-zA-Z0-9_]*::[a-zA-Z_$][a-zA-Z0-9_$]* {
+	// package qualifier
+	auto s = std::string("\\") + yytext;
+	if (pkg_user_types.count(s) > 0) {
+		// found it
+		yylval->string = new std::string(s);
+		return TOK_USER_TYPE;
+	}
+	else {
+		// backup before :: just return first part
+		size_t len = strchr(yytext, ':') - yytext;
+		yyless(len);
+		yylval->string = new std::string(std::string("\\") + yytext);
+		return TOK_ID;
+	}
+}
+
 [a-zA-Z_$][a-zA-Z0-9_$]* {
-	yylval->string = new std::string(std::string("\\") + yytext);
-	return TOK_ID;
+	auto s = std::string("\\") + yytext;
+	if (user_types.count(s) > 0) {
+		yylval->string = new std::string(s);
+		return TOK_USER_TYPE;
+	}
+	else {
+		yylval->string = new std::string(std::string("\\") + yytext);
+		return TOK_ID;
+	}
 }
 
 [a-zA-Z_$][a-zA-Z0-9_$\.]* {

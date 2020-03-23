@@ -47,6 +47,22 @@ static void error_on_dpi_function(AST::AstNode *node)
 		error_on_dpi_function(child);
 }
 
+static void add_package_types(std::map<std::string, AST::AstNode *> &user_types, std::vector<AST::AstNode *> &package_list)
+{
+	// prime the parser's user type lookup table with the package qualified names
+	// of typedefed names in the packages seen so far.
+	user_types.clear();
+	for (const auto &pkg : package_list) {
+		log_assert(pkg->type==AST::AST_PACKAGE);
+		for (const auto &node: pkg->children) {
+			if (node->type == AST::AST_TYPEDEF) {
+				std::string s = pkg->str + "::" + node->str.substr(1);
+				user_types[s] = node;
+			}
+		}
+	}
+}
+
 struct VerilogFrontend : public Frontend {
 	VerilogFrontend() : Frontend("verilog", "read modules from Verilog file") { }
 	void help() YS_OVERRIDE
@@ -450,6 +466,9 @@ struct VerilogFrontend : public Frontend {
 			lexin = new std::istringstream(code_after_preproc);
 		}
 
+		// make package typedefs available to parser
+		add_package_types(pkg_user_types, design->verilog_packages);
+
 		frontend_verilog_yyset_lineno(1);
 		frontend_verilog_yyrestart(NULL);
 		frontend_verilog_yyparse();
@@ -467,6 +486,7 @@ struct VerilogFrontend : public Frontend {
 
 		AST::process(design, current_ast, flag_dump_ast1, flag_dump_ast2, flag_no_dump_ptr, flag_dump_vlog1, flag_dump_vlog2, flag_dump_rtlil, flag_nolatches,
 				flag_nomeminit, flag_nomem2reg, flag_mem2reg, flag_noblackbox, lib_mode, flag_nowb, flag_noopt, flag_icells, flag_pwires, flag_nooverwrite, flag_overwrite, flag_defer, default_nettype_wire);
+
 
 		if (!flag_nopp)
 			delete lexin;
