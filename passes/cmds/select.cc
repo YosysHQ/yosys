@@ -625,9 +625,13 @@ static void select_filter_active_mod(RTLIL::Design *design, RTLIL::Selection &se
 	}
 }
 
-static void select_stmt(RTLIL::Design *design, std::string arg)
+static void select_stmt(RTLIL::Design *design, std::string arg, bool disable_empty_warning = false)
 {
 	std::string arg_mod, arg_memb;
+	std::unordered_map<std::string, bool> arg_mod_found;
+	std::unordered_map<std::string, bool> arg_memb_found;
+	auto isalpha = [](const char &x) { return ((x >= 'a' && x <= 'z') || (x >= 'A' && x <= 'Z')); };
+	bool prefixed = GetSize(arg) >= 2 && isalpha(arg[0]) && arg[1] == ':';
 
 	if (arg.size() == 0)
 		return;
@@ -758,19 +762,21 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 	if (!design->selected_active_module.empty()) {
 		arg_mod = design->selected_active_module;
 		arg_memb = arg;
+		if (!prefixed) arg_memb_found[arg_memb] = false;
 	} else
-	if (GetSize(arg) >= 2 && arg[0] >= 'a' && arg[0] <= 'z' && arg[1] == ':') {
+	if (prefixed && arg[0] >= 'a' && arg[0] <= 'z') {
 		arg_mod = "*", arg_memb = arg;
 	} else {
 		size_t pos = arg.find('/');
 		if (pos == std::string::npos) {
-			if (arg.find(':') == std::string::npos || arg.compare(0, 1, "A") == 0)
-				arg_mod = arg;
-			else
-				arg_mod = "*", arg_memb = arg;
+			arg_mod = arg;
+			if (!prefixed) arg_mod_found[arg_mod] = false;
 		} else {
 			arg_mod = arg.substr(0, pos);
+			if (!prefixed) arg_mod_found[arg_mod] = false;
 			arg_memb = arg.substr(pos+1);
+			bool arg_memb_prefixed = GetSize(arg_memb) >= 2 && isalpha(arg_memb[0]) && arg_memb[1] == ':';
+			if (!arg_memb_prefixed) arg_memb_found[arg_memb] = false;
 		}
 	}
 
@@ -789,8 +795,14 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 			if (!match_attr(mod->attributes, arg_mod.substr(2)))
 				continue;
 		} else
+		if (arg_mod.compare(0, 2, "N:") == 0) {
+			if (!match_ids(mod->name, arg_mod.substr(2)))
+				continue;
+		} else
 		if (!match_ids(mod->name, arg_mod))
 			continue;
+		else
+			arg_mod_found[arg_mod] = true;
 
 		if (arg_memb == "") {
 			sel.selected_modules.insert(mod->name);
@@ -839,7 +851,7 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 				if (match_ids(it.first, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 		} else
-		if (arg_memb.compare(0, 2, "c:") ==0) {
+		if (arg_memb.compare(0, 2, "c:") == 0) {
 			for (auto cell : mod->cells())
 				if (match_ids(cell->name, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(cell->name);
@@ -873,24 +885,44 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 				if (match_attr(cell->parameters, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(cell->name);
 		} else {
+			std::string orig_arg_memb = arg_memb;
 			if (arg_memb.compare(0, 2, "n:") == 0)
 				arg_memb = arg_memb.substr(2);
 			for (auto wire : mod->wires())
-				if (match_ids(wire->name, arg_memb))
+				if (match_ids(wire->name, arg_memb)) {
 					sel.selected_members[mod->name].insert(wire->name);
+					arg_memb_found[orig_arg_memb] = true;
+				}
 			for (auto &it : mod->memories)
-				if (match_ids(it.first, arg_memb))
+				if (match_ids(it.first, arg_memb)) {
 					sel.selected_members[mod->name].insert(it.first);
+					arg_memb_found[orig_arg_memb] = true;
+				}
 			for (auto cell : mod->cells())
-				if (match_ids(cell->name, arg_memb))
+				if (match_ids(cell->name, arg_memb)) {
 					sel.selected_members[mod->name].insert(cell->name);
+					arg_memb_found[orig_arg_memb] = true;
+				}
 			for (auto &it : mod->processes)
-				if (match_ids(it.first, arg_memb))
+				if (match_ids(it.first, arg_memb)) {
 					sel.selected_members[mod->name].insert(it.first);
+					arg_memb_found[orig_arg_memb] = true;
+				}
 		}
 	}
 
 	select_filter_active_mod(design, work_stack.back());
+
+	for (auto &it : arg_mod_found) {
+		if (it.second == false && !disable_empty_warning) {
+			log_warning("Selection \"%s\" did not match any module.\n", it.first.c_str());
+		}
+	}
+	for (auto &it : arg_memb_found) {
+		if (it.second == false && !disable_empty_warning) {
+			log_warning("Selection \"%s\" did not match any object.\n", it.first.c_str());
+		}
+	}
 }
 
 static std::string describe_selection_for_assert(RTLIL::Design *design, RTLIL::Selection *sel)
@@ -1073,6 +1105,10 @@ struct SelectPass : public Pass {
 		log("    A:<pattern>, A:<pattern>=<pattern>\n");
 		log("        all modules with an attribute matching the given pattern\n");
 		log("        in addition to = also <, <=, >=, and > are supported\n");
+		log("\n");
+		log("    N:<pattern>\n");
+		log("        all modules with a name matching the given pattern\n");
+		log("        (i.e. 'N:' is optional as it is the default matching rule)\n");
 		log("\n");
 		log("An <obj_pattern> can be an object name, wildcard expression, or one of\n");
 		log("the following:\n");
@@ -1276,7 +1312,8 @@ struct SelectPass : public Pass {
 			}
 			if (arg.size() > 0 && arg[0] == '-')
 				log_cmd_error("Unknown option %s.\n", arg.c_str());
-			select_stmt(design, arg);
+			bool disable_empty_warning = count_mode || assert_none || assert_any || (assert_count != -1) || (assert_max != -1) || (assert_min != -1);
+			select_stmt(design, arg, disable_empty_warning);
 			sel_str += " " + arg;
 		}
 
