@@ -775,7 +775,8 @@ static void select_stmt(RTLIL::Design *design, std::string arg, bool disable_emp
 			arg_mod = arg.substr(0, pos);
 			if (!prefixed) arg_mod_found[arg_mod] = false;
 			arg_memb = arg.substr(pos+1);
-			if (!prefixed) arg_memb_found[arg_memb] = false;
+			bool arg_memb_prefixed = GetSize(arg_memb) >= 2 && isalpha(arg_memb[0]) && arg_memb[1] == ':';
+			if (!arg_memb_prefixed) arg_memb_found[arg_memb] = false;
 		}
 	}
 
