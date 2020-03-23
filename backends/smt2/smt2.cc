@@ -1394,7 +1394,7 @@ struct Smt2Backend : public Backend {
 		log("\n");
 		log("For this proof we create the following template (test.tpl).\n");
 		log("\n");
-		log("        ; we need QF_UFBV for this poof\n");
+		log("        ; we need QF_UFBV for this proof\n");
 		log("        (set-logic QF_UFBV)\n");
 		log("\n");
 		log("        ; insert the auto-generated code here\n");
