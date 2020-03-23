@@ -716,6 +716,7 @@ test: $(TARGETS) $(EXTRA_TARGETS)
 	+cd tests/memories && bash run-test.sh $(ABCOPT) $(SEEDOPT)
 	+cd tests/bram && bash run-test.sh $(SEEDOPT)
 	+cd tests/various && bash run-test.sh
+	+cd tests/select && bash run-test.sh
 	+cd tests/sat && bash run-test.sh
 	+cd tests/svinterfaces && bash run-test.sh $(SEEDOPT)
 	+cd tests/svtypes && bash run-test.sh $(SEEDOPT)
