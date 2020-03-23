@@ -99,6 +99,18 @@ YYLTYPE old_location;
 #define YY_BUF_SIZE 65536
 
 extern int frontend_verilog_yylex(YYSTYPE *yylval_param, YYLTYPE *yyloc_param);
+
+static bool isUserType(std::string &s)
+{
+	// check current scope then outer scopes for a name
+	for (auto it = user_type_stack.rbegin(); it != user_type_stack.rend(); ++it) {
+		if ((*it)->count(s) > 0) {
+			return true;
+		}
+	}
+	return false;
+}
+
 %}
 
 %option yylineno
@@ -376,7 +388,7 @@ supply1 { return TOK_SUPPLY1; }
 	// package qualifier
 	auto s = std::string("\\") + yytext;
 	if (pkg_user_types.count(s) > 0) {
-		// found it
+		// package qualified typedefed name
 		yylval->string = new std::string(s);
 		return TOK_USER_TYPE;
 	}
@@ -391,7 +403,8 @@ supply1 { return TOK_SUPPLY1; }
 
 [a-zA-Z_$][a-zA-Z0-9_$]* {
 	auto s = std::string("\\") + yytext;
-	if (user_types.count(s) > 0) {
+	if (isUserType(s)) {
+		// previously typedefed name
 		yylval->string = new std::string(s);
 		return TOK_USER_TYPE;
 	}

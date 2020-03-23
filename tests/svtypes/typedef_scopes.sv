@@ -31,5 +31,12 @@ module top;
 	always @(*) assert(inner_i2 == 4'h2);
 	always @(*) assert(inner_enum2 == 3'h4);
 
-
 endmodule
+
+typedef logic[7:0]  between_t;
+
+module other;
+	between_t a = 8'h42;
+	always @(*) assert(a == 8'h42);
+endmodule
+

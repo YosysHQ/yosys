@@ -51,7 +51,6 @@ static void add_package_types(std::map<std::string, AST::AstNode *> &user_types,
 {
 	// prime the parser's user type lookup table with the package qualified names
 	// of typedefed names in the packages seen so far.
-	user_types.clear();
 	for (const auto &pkg : package_list) {
 		log_assert(pkg->type==AST::AST_PACKAGE);
 		for (const auto &node: pkg->children) {
@@ -61,6 +60,8 @@ static void add_package_types(std::map<std::string, AST::AstNode *> &user_types,
 			}
 		}
 	}
+	user_type_stack.clear();
+	user_type_stack.push_back(new UserTypeMap());
 }
 
 struct VerilogFrontend : public Frontend {
