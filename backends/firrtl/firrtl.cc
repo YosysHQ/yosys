@@ -46,15 +46,10 @@ static const int FIRRTL_MAX_DSH_WIDTH_ERROR = 20; // For historic reasons, this 
 std::string getFileinfo(const RTLIL::AttrObject *design_entity)
 {
 	std::string src(design_entity->get_src_attribute());
-
-	std::ostringstream fileinfo;
-	if (!src.empty()) {
-		fileinfo << "@[" << src << "]";
-	}
+	std::string fileinfo_str = src.empty() ? "" : "@[" + src + "]";
 
 	// Remove quotes from src attribute as firrtl automatically escapes and
 	// double-quotes them.
-	std::string fileinfo_str(fileinfo.str());
 	fileinfo_str.erase(std::remove(fileinfo_str.begin(), fileinfo_str.end(), '\"'), fileinfo_str.end());
 
 	return fileinfo_str;
@@ -348,7 +343,7 @@ struct FirrtlWorker
 			log_warning("No instance for %s.%s\n", cell_type.c_str(), cell_name.c_str());
 			return;
 		}
-		auto cellFileinfo = getFileinfo(cell);
+		std::string cellFileinfo = getFileinfo(cell);
 		wire_exprs.push_back(stringf("%s" "inst %s%s of %s %s", indent.c_str(), cell_name.c_str(), cell_name_comment.c_str(), instanceOf.c_str(), cellFileinfo.c_str()));
 
 		for (auto it = cell->connections().begin(); it != cell->connections().end(); ++it) {
@@ -414,14 +409,14 @@ struct FirrtlWorker
 
 	void run()
 	{
-		auto moduleFileinfo = getFileinfo(module);
+		std::string moduleFileinfo = getFileinfo(module);
 		f << stringf("  module %s: %s\n", make_id(module->name), moduleFileinfo.c_str());
 		vector<string> port_decls, wire_decls, cell_exprs, wire_exprs;
 
 		for (auto wire : module->wires())
 		{
 			const auto wireName = make_id(wire->name);
-			auto wireFileinfo = getFileinfo(wire);
+			std::string wireFileinfo = getFileinfo(wire);
 
 			// If a wire has initial data, issue a warning since FIRRTL doesn't currently support it.
 			if (wire->attributes.count("\\init")) {
@@ -1155,7 +1150,7 @@ struct FirrtlBackend : public Backend {
 		if (top == nullptr)
 			top = last;
 
-		auto circuitFileinfo = getFileinfo(top);
+		std::string circuitFileinfo = getFileinfo(top);
 		*f << stringf("circuit %s: %s\n", make_id(top->name), circuitFileinfo.c_str());
 
 		for (auto module : design->modules())
