@@ -390,7 +390,7 @@ supply1 { return TOK_SUPPLY1; }
 	if (pkg_user_types.count(s) > 0) {
 		// package qualified typedefed name
 		yylval->string = new std::string(s);
-		return TOK_USER_TYPE;
+		return TOK_PKG_USER_TYPE;
 	}
 	else {
 		// backup before :: just return first part

@@ -154,6 +154,13 @@ static void exitTypeScope()
 	user_type_stack.pop_back();
 }
 
+static bool isInLocalScope(const std::string *name)
+{
+	// tests if a name was declared in the current block scope
+	auto user_types = user_type_stack.back();
+	return (user_types->count(*name) > 0);
+}
+
 static AstNode *makeRange(int msb = 31, int lsb = 0, bool isSigned = true)
 {
 	auto range = new AstNode(AST_RANGE);
@@ -196,7 +203,7 @@ static void addRange(AstNode *parent, int msb = 31, int lsb = 0, bool isSigned =
 %token <string> TOK_STRING TOK_ID TOK_CONSTVAL TOK_REALVAL TOK_PRIMITIVE
 %token <string> TOK_SVA_LABEL TOK_SPECIFY_OPER TOK_MSG_TASKS
 %token <string> TOK_BASE TOK_BASED_CONSTVAL TOK_UNBASED_UNSIZED_CONSTVAL
-%token <string> TOK_USER_TYPE
+%token <string> TOK_USER_TYPE TOK_PKG_USER_TYPE
 %token TOK_ASSERT TOK_ASSUME TOK_RESTRICT TOK_COVER TOK_FINAL
 %token ATTR_BEGIN ATTR_END DEFATTR_BEGIN DEFATTR_END
 %token TOK_MODULE TOK_ENDMODULE TOK_PARAMETER TOK_LOCALPARAM TOK_DEFPARAM
@@ -362,6 +369,7 @@ hierarchical_id:
 
 hierarchical_type_id:
 	TOK_USER_TYPE
+	| TOK_PKG_USER_TYPE				// package qualified type name
 	| '(' TOK_USER_TYPE ')'	{ $$ = $2; }		// non-standard grammar
 	;
 
@@ -1637,7 +1645,7 @@ assign_expr:
 	};
 
 type_name: TOK_ID		// first time seen
-	 | TOK_USER_TYPE	// redefinition
+	 | TOK_USER_TYPE	{ if (isInLocalScope($1)) frontend_verilog_yyerror("Duplicate declaration of TYPEDEF '%s'", $1->c_str()+1); }
 	 ;
 
 typedef_decl:
