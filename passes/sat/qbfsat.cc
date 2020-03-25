@@ -39,6 +39,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct QbfSolutionType {
 	std::vector<std::string> stdout;
+	std::map<std::string, std::string> hole_to_value;
 	bool sat;
 	bool unknown; //true if neither 'sat' nor 'unsat'
 	bool success; //true if exit code 0
@@ -56,8 +57,34 @@ struct QbfSolveOptions {
 				nocleanup(false), dump_final_smt2(false), timeout_sec(-1) {};
 };
 
-QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
+void recover_solution(RTLIL::Module *mod, QbfSolutionType &sol) {
+	YS_REGEX_TYPE sat_regex = YS_REGEX_COMPILE("Status: PASSED");
+	YS_REGEX_TYPE unsat_regex = YS_REGEX_COMPILE("Solver Error.*model is not available");
+	YS_REGEX_TYPE hole_value_regex = YS_REGEX_COMPILE_WITH_SUBS("Value for anyconst in [a-zA-Z0-9_]* \\(([^:]*:[^\\)]*)\\): (.*)");
+	YS_REGEX_TYPE hole_loc_regex = YS_REGEX_COMPILE("[^:]*:[0-9]+.[0-9]+-[0-9]+.[0-9]+");
+	YS_REGEX_TYPE hole_val_regex = YS_REGEX_COMPILE("[0-9]+");
+	YS_REGEX_MATCH_TYPE m;
+	bool sat_regex_found = false;
+	bool unsat_regex_found = false;
+	std::map<std::string, bool> hole_value_recovered;
+	for (const std::string &x : sol.stdout) {
+		if(YS_REGEX_NS::regex_search(x, m, hole_value_regex)) {
+			std::string loc = m[1].str();
+			std::string val = m[2].str();
+			log_assert(YS_REGEX_NS::regex_search(loc, hole_loc_regex));
+			log_assert(YS_REGEX_NS::regex_search(val, hole_val_regex));
+			sol.hole_to_value[loc] = val;
+		}
+		else if (YS_REGEX_NS::regex_search(x, sat_regex))
+			sat_regex_found = true;
+		else if (YS_REGEX_NS::regex_search(x, unsat_regex))
+			unsat_regex_found = true;
+	}
+	log_assert(!sol.unknown && sol.sat? sat_regex_found : true);
+	log_assert(!sol.unknown && !sol.sat? unsat_regex_found : true);
+}
 
+QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 	QbfSolutionType ret;
 	std::string yosys_smtbmc_exe = proc_self_dirname() + "yosys-smtbmc";
 	std::string smtbmc_warning = "z3: WARNING:";
@@ -127,21 +154,11 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 	if(!opt.nocleanup)
 		remove_directory(tempdir_name);
 
-	YS_REGEX_TYPE sat_regex = YS_REGEX_COMPILE("Status: PASSED");
-	bool sat_regex_found = false;
-	YS_REGEX_TYPE unsat_regex = YS_REGEX_COMPILE("Solver Error.*model is not available");
-	bool unsat_regex_found = false;
-	for (auto &x : ret.stdout) {
-		//TODO: recover values here for later specialization?
-		if (YS_REGEX_NS::regex_search(x, sat_regex))
-			sat_regex_found = true;
-		if (YS_REGEX_NS::regex_search(x, unsat_regex))
-			unsat_regex_found = true;
-	}
-	log_assert(ret.sat? sat_regex_found : true);
-	log_assert(!ret.unknown && !ret.sat? unsat_regex_found : true);
+	recover_solution(mod, ret);
+
 	return ret;
 }
+
 
 void print_proof_failed()
 {
@@ -294,10 +311,9 @@ struct QbfSatPass : public Pass {
 		if (!found_1bit_output)
 			log_cmd_error("Did not find any single-bit outputs, assert()s, or assume()s.  Is this a miter circuit?\n");
 
-		//Do not modify the current design.  Operate on a clone of the selected module.
-		RTLIL::Design *new_design = new Design();
-		module = module->clone();
-		new_design->add(module);
+		//Save the design to restore after modiyfing the current module.
+		std::string module_name = module->name.str();
+		Pass::call(design, "design -save _qbfsat_tmp");
 
 		//Replace input wires with wires assigned $allconst cells.
 		for(auto &n : input_wires) {
@@ -314,6 +330,8 @@ struct QbfSatPass : public Pass {
 		module->fixup_ports();
 
 		QbfSolutionType ret = qbf_solve(module, opt);
+		Pass::call(design, "design -load _qbfsat_tmp");
+		module = design->module(module_name);
 
 		if (ret.unknown)
 			log_warning("solver did not give an answer\n");
@@ -322,9 +340,34 @@ struct QbfSatPass : public Pass {
 		else
 			print_proof_failed();
 
-		//TODO specialize etc.
+		if (opt.specialize) {
+			std::map<std::string, std::string> hole_loc_to_name;
+			for (auto cell : module->cells()) {
+				std::string cell_src = cell->get_src_attribute();
+				auto pos = ret.hole_to_value.find(cell_src);
+				if (pos != ret.hole_to_value.end()) {
+					log_assert(cell->type.in("$anyconst", "$anyseq"));
+					log_assert(cell->hasPort(ID::Y));
+					log_assert(cell->getPort(ID::Y).is_wire());
+					hole_loc_to_name[pos->first] = cell->getPort(ID::Y).as_wire()->name.str();
+				}
+			}
+			for (auto &it : ret.hole_to_value) {
+				std::string hole_loc = it.first;
+				std::string hole_value = it.second;
 
-		delete new_design;
+				auto pos = hole_loc_to_name.find(hole_loc);
+				log_assert(pos != hole_loc_to_name.end());
+
+				std::string hole_name = hole_loc_to_name[hole_loc];
+				RTLIL::Wire *wire = module->wire(hole_name);
+				log_assert(wire != nullptr);
+
+				log("Specializing %s with %s = %s.\n", module->name.c_str(), hole_name.c_str(), hole_value.c_str());
+				module->connect(wire, hole_value);
+			}
+			Pass::call(design, "opt_clean");
+		}
 	}
 } QbfSatPass;
 
