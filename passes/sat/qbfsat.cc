@@ -86,19 +86,35 @@ void recover_solution(QbfSolutionType &sol) {
 	log_assert(!sol.unknown && !sol.sat? unsat_regex_found : true);
 }
 
-void specialize(RTLIL::Module *module, const QbfSolutionType &ret) {
+std::map<std::string, std::string> get_hole_loc_name_map(RTLIL::Module *module, const QbfSolutionType &sol) {
 	std::map<std::string, std::string> hole_loc_to_name;
 	for (auto cell : module->cells()) {
 		std::string cell_src = cell->get_src_attribute();
-		auto pos = ret.hole_to_value.find(cell_src);
-		if (pos != ret.hole_to_value.end()) {
+		auto pos = sol.hole_to_value.find(cell_src);
+		if (pos != sol.hole_to_value.end()) {
 			log_assert(cell->type.in("$anyconst", "$anyseq"));
 			log_assert(cell->hasPort(ID::Y));
 			log_assert(cell->getPort(ID::Y).is_wire());
 			hole_loc_to_name[pos->first] = cell->getPort(ID::Y).as_wire()->name.str();
 		}
 	}
-	for (auto &it : ret.hole_to_value) {
+
+	return hole_loc_to_name;
+}
+
+void write_solution(RTLIL::Module *module, const QbfSolutionType &sol, const std::string &file) {
+	std::ofstream fout(file.c_str());
+	if (!fout)
+		log_cmd_error("could not open solution file for writing.\n");
+
+	std::map<std::string, std::string> hole_loc_to_name = get_hole_loc_name_map(module, sol);
+	for(auto &x : sol.hole_to_value)
+		fout << hole_loc_to_name[x.first] << "=" << x.second << std::endl;
+}
+
+void specialize(RTLIL::Module *module, const QbfSolutionType &sol) {
+	std::map<std::string, std::string> hole_loc_to_name = get_hole_loc_name_map(module, sol);
+	for (auto &it : sol.hole_to_value) {
 		std::string hole_loc = it.first;
 		std::string hole_value = it.second;
 
@@ -389,9 +405,14 @@ struct QbfSatPass : public Pass {
 		else
 			print_proof_failed();
 
-		if (opt.specialize) {
-			specialize(module, ret);
-			Pass::call(design, "opt_clean");
+		if(!ret.unknown && ret.sat) {
+			if (opt.write_solution) {
+				write_solution(module, ret, opt.write_soln_soln_file);
+			}
+			if (opt.specialize) {
+				specialize(module, ret);
+				Pass::call(design, "opt_clean");
+			}
 		}
 	}
 } QbfSatPass;
