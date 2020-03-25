@@ -17,9 +17,22 @@
  *
  */
 
-#include "kernel/register.h"
+#include "kernel/yosys.h"
 #include "kernel/celltypes.h"
 #include "kernel/log.h"
+#include "kernel/rtlil.h"
+#include "kernel/register.h"
+#include <cstdio>
+
+#if defined(_WIN32)
+#  define WIFEXITED(x) 1
+#  define WIFSIGNALED(x) 0
+#  define WIFSTOPPED(x) 0
+#  define WEXITSTATUS(x) ((x) & 0xff)
+#  define WTERMSIG(x) SIGTERM
+#else
+#  include <sys/wait.h>
+#endif
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -33,16 +46,100 @@ struct QbfSolutionType {
 	QbfSolutionType() : sat(false), unknown(true), success(false) {}
 };
 
-QbfSolutionType qbf_solve(RTLIL::Module *mod) {
+struct QbfSolveOptions {
+	bool timeout, specialize, specialize_from_file, write_solution, nocleanup, dump_final_smt2;
+	long timeout_sec;
+	std::string specialize_soln_file;
+	std::string write_soln_soln_file;
+	std::string dump_final_smt2_file;
+	QbfSolveOptions() : timeout(false), specialize(false), specialize_from_file(false), write_solution(false),	
+				nocleanup(false), dump_final_smt2(false), timeout_sec(-1) {};
+};
+
+QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 
 	QbfSolutionType ret;
+	std::string yosys_smtbmc_exe = proc_self_dirname() + "yosys-smtbmc";
+	std::string smtbmc_warning = "z3: WARNING:";
 
-	//TODO: make temporary directory
-	//TODO: call `prep`
-	//TODO: call `write_smt2`
-	//TODO: execute and capture stdout from `yosys-smtbmc`
-	//TODO: remove temporary directory
+	std::string tempdir_name = "/tmp/yosys-z3-XXXXXX";
+	tempdir_name = make_temp_dir(tempdir_name);
+	std::string smt2_command = "write_smt2 -stbv -wires " + tempdir_name + "/problem.smt2";
+	log_assert(mod->design != nullptr);
+	Pass::call(mod->design, smt2_command);
 
+	//Execute and capture stdout from `yosys-smtbmc -s z3 -t 1 -g [--dump-smt2 <file>]`
+	{
+		fflush(stdout);
+		bool keep_reading = true;
+		int status = 0;
+		int retval = 0;
+		char buf[1024] = {0};
+		std::string linebuf = "";
+		std::string cmd = yosys_smtbmc_exe + " -s z3 -t 1 -g " + (opt.dump_final_smt2? "--dump-smt2 " + opt.dump_final_smt2_file + " " : "") + tempdir_name + "/problem.smt2 2>&1";
+		log("Launching \"%s\".\n", cmd.c_str());
+
+#ifndef EMSCRIPTEN
+		FILE *f = popen(cmd.c_str(), "r");
+		if (f == nullptr)
+			log_cmd_error("errno %d after popen() returned NULL.\n", errno);
+		while (keep_reading) {
+			keep_reading = (fgets(buf, sizeof(buf), f) != nullptr);
+			linebuf += buf;
+			memset(buf, 0, sizeof(buf));
+
+			auto pos = linebuf.find('\n');
+			while (pos != std::string::npos) {
+				std::string line = linebuf.substr(0, pos);
+				linebuf.erase(0, pos + 1);
+				ret.stdout.push_back(line);
+				auto warning_pos = line.find(smtbmc_warning);
+				if(warning_pos != std::string::npos)
+					log_warning("%s\n", line.substr(warning_pos + smtbmc_warning.size() + 1).c_str());
+				else
+					log("smtbmc output: %s\n", line.c_str());
+
+				pos = linebuf.find('\n');
+			}
+		}
+		status = pclose(f);
+#endif
+
+		if(WIFEXITED(status)) {
+		    retval = WEXITSTATUS(status);
+		}
+		else if(WIFSIGNALED(status)) {
+		    retval = WTERMSIG(status);
+		}
+		else if(WIFSTOPPED(status)) {
+		    retval = WSTOPSIG(status);
+		}
+
+		if (retval == 0) {
+			ret.sat = true;
+			ret.unknown = false;
+		} else if (retval == 1) {
+			ret.sat = false;
+			ret.unknown = false;
+		}
+	}
+
+	if(!opt.nocleanup)
+		remove_directory(tempdir_name);
+
+	YS_REGEX_TYPE sat_regex = YS_REGEX_COMPILE("Status: PASSED");
+	bool sat_regex_found = false;
+	YS_REGEX_TYPE unsat_regex = YS_REGEX_COMPILE("Solver Error.*model is not available");
+	bool unsat_regex_found = false;
+	for (auto &x : ret.stdout) {
+		//TODO: recover values here for later specialization?
+		if (YS_REGEX_NS::regex_search(x, sat_regex))
+			sat_regex_found = true;
+		if (YS_REGEX_NS::regex_search(x, unsat_regex))
+			unsat_regex_found = true;
+	}
+	log_assert(ret.sat? sat_regex_found : true);
+	log_assert(!ret.unknown && !ret.sat? unsat_regex_found : true);
 	return ret;
 }
 
@@ -55,17 +152,6 @@ void print_proof_failed()
 	log("  |  ____/ ___) _ \\ / _ (_   __)  (_   __|____ | | || ___ |/ _  |_|\n");
 	log("  | |   | |  | |_| | |_| || |       | |  / ___ | | || ____( (_| |_ \n");
 	log("  |_|   |_|   \\___/ \\___/ |_|       |_|  \\_____|_|\\_)_____)\\____|_|\n");
-	log("\n");
-}
-
-void print_timeout()
-{
-	log("\n");
-	log("        _____  _  _      _____ ____  _     _____\n");
-	log("       /__ __\\/ \\/ \\__/|/  __//  _ \\/ \\ /\\/__ __\\\n");
-	log("         / \\  | || |\\/|||  \\  | / \\|| | ||  / \\\n");
-	log("         | |  | || |  |||  /_ | \\_/|| \\_/|  | |\n");
-	log("         \\_/  \\_/\\_/  \\|\\____\\\\____/\\____/  \\_/\n");
 	log("\n");
 }
 
@@ -101,6 +187,13 @@ struct QbfSatPass : public Pass {
 		log("    -timeout <seconds>\n");
 		log("        Set the solver timeout to the specified number of seconds.\n");
 		log("\n");
+		log("    -nocleanup\n");
+		log("        Do not delete temporary files and directories.  Useful for\n");
+		log("        debugging.\n");
+		log("\n");
+		log("    -dump-final-smt2 <file>\n");
+		log("        Pass the --dump-smt2 option to yosys-smtbmc.\n");
+		log("\n");
 		log("    -specialize\n");
 		log("        Replace all \"$anyconst\" cells with constant values determined by the solver.\n");
 		log("\n");
@@ -116,41 +209,49 @@ struct QbfSatPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
-		bool timeout = false, specialize = false, specialize_from_file = false, write_solution = false;
-		long timeout_sec = -1;
-		std::string specialize_soln_file;
-		std::string write_soln_soln_file;
-
+		QbfSolveOptions opt;
 		log_header(design, "Executing QBF-SAT pass (solving QBF-SAT problems in the circuit).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-timeout") {
-				timeout = true;
+				opt.timeout = true;
 				if (args.size() <= argidx + 1)
 					log_cmd_error("timeout not specified.\n");
 				else
-					timeout_sec = atol(args[++argidx].c_str());
+					opt.timeout_sec = atol(args[++argidx].c_str());
+				continue;
+			}
+			else if (args[argidx] == "-nocleanup") {
+				opt.nocleanup = true;
 				continue;
 			}
 			else if (args[argidx] == "-specialize") {
-				specialize = true;
+				opt.specialize = true;
+				continue;
+			}
+			else if (args[argidx] == "-dump-final-smt2") {
+				opt.dump_final_smt2 = true;
+				if (args.size() <= argidx + 1)
+					log_cmd_error("smt2 file not specified.\n");
+				else
+					opt.dump_final_smt2_file = args[++argidx];
 				continue;
 			}
 			else if (args[argidx] == "-specialize-from-file") {
-				specialize_from_file = true;
+				opt.specialize_from_file = true;
 				if (args.size() <= argidx + 1)
 					log_cmd_error("solution file not specified.\n");
 				else
-					specialize_soln_file = args[++argidx];
+					opt.specialize_soln_file = args[++argidx];
 				continue;
 			}
 			else if (args[argidx] == "-write-solution") {
-				write_solution = true;
+				opt.write_solution = true;
 				if (args.size() <= argidx + 1)
 					log_cmd_error("solution file not specified.\n");
 				else
-					write_soln_soln_file = args[++argidx];
+					opt.write_soln_soln_file = args[++argidx];
 				continue;
 			}
 			break;
@@ -169,9 +270,12 @@ struct QbfSatPass : public Pass {
 		bool found_input = false;
 		bool found_hole = false;
 		bool found_1bit_output = false;
+		std::set<std::string> input_wires;
 		for (auto wire : module->wires()) {
-			if (wire->port_input)
+			if (wire->port_input) {
 				found_input = true;
+				input_wires.insert(wire->name.str());
+			}
 			if (wire->port_output && wire->width == 1)
 				found_1bit_output = true;
 		}
@@ -190,7 +294,26 @@ struct QbfSatPass : public Pass {
 		if (!found_1bit_output)
 			log_cmd_error("Did not find any single-bit outputs, assert()s, or assume()s.  Is this a miter circuit?\n");
 
-		QbfSolutionType ret = qbf_solve(module);
+		//Do not modify the current design.  Operate on a clone of the selected module.
+		RTLIL::Design *new_design = new Design();
+		module = module->clone();
+		new_design->add(module);
+
+		//Replace input wires with wires assigned $allconst cells.
+		for(auto &n : input_wires) {
+			RTLIL::Wire *input = module->wire(n);
+			log_assert(input != nullptr);
+
+			RTLIL::Cell *allconst = module->addCell("$allconst$" + n, "$allconst");
+			allconst->setParam(ID(WIDTH), input->width);
+			allconst->setPort(ID::Y, input);
+			allconst->set_src_attribute(input->get_src_attribute());
+			input->port_input = false;
+			log("Replaced input %s with $allconst cell.\n", n.c_str());
+		}
+		module->fixup_ports();
+
+		QbfSolutionType ret = qbf_solve(module, opt);
 
 		if (ret.unknown)
 			log_warning("solver did not give an answer\n");
@@ -200,6 +323,8 @@ struct QbfSatPass : public Pass {
 			print_proof_failed();
 
 		//TODO specialize etc.
+
+		delete new_design;
 	}
 } QbfSatPass;
 
