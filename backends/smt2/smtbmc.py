@@ -49,6 +49,7 @@ presat = False
 smtcinit = False
 smtctop = None
 noinit = False
+binarymode = False
 so = SmtOpts()
 
 
@@ -150,6 +151,9 @@ yosys-smtbmc [options] <yosys_smt2_output>
         add <num_steps> time steps at the end of the trace
         when creating a counter example (this additional time
         steps will still be constrained by assumptions)
+
+    --binary
+        dump anyconst values as raw bit strings
 """ + so.helpmsg())
     sys.exit(1)
 
@@ -158,7 +162,7 @@ try:
     opts, args = getopt.getopt(sys.argv[1:], so.shortopts + "t:igcm:", so.longopts +
             ["final-only", "assume-skipped=", "smtc=", "cex=", "aig=", "aig-noheader", "btorwit=", "presat",
              "dump-vcd=", "dump-vlogtb=", "vlogtb-top=", "dump-smtc=", "dump-all", "noinfo", "append=",
-             "smtc-init", "smtc-top=", "noinit"])
+             "smtc-init", "smtc-top=", "noinit", "binary"])
 except:
     usage()
 
@@ -229,6 +233,8 @@ for o, a in opts:
         covermode = True
     elif o == "-m":
         topmod = a
+    elif o == "--binary":
+        binarymode = True
     elif so.handle(o, a):
         pass
     else:
@@ -1089,9 +1095,15 @@ def print_anyconsts_worker(mod, state, path):
 
     for fun, info in smt.modinfo[mod].anyconsts.items():
         if info[1] is None:
-            print_msg("Value for anyconst in %s (%s): %d" % (path, info[0], smt.bv2int(smt.get("(|%s| %s)" % (fun, state)))))
+            if not binarymode:
+                print_msg("Value for anyconst in %s (%s): %d" % (path, info[0], smt.bv2int(smt.get("(|%s| %s)" % (fun, state)))))
+            else:
+                print_msg("Value for anyconst in %s (%s): %s" % (path, info[0], smt.bv2bin(smt.get("(|%s| %s)" % (fun, state)))))
         else:
-            print_msg("Value for anyconst %s.%s (%s): %d" % (path, info[1], info[0], smt.bv2int(smt.get("(|%s| %s)" % (fun, state)))))
+            if not binarymode:
+                print_msg("Value for anyconst %s.%s (%s): %d" % (path, info[1], info[0], smt.bv2int(smt.get("(|%s| %s)" % (fun, state)))))
+            else:
+                print_msg("Value for anyconst %s.%s (%s): %s" % (path, info[1], info[0], smt.bv2bin(smt.get("(|%s| %s)" % (fun, state)))))
 
 
 def print_anyconsts(state):

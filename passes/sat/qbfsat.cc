@@ -23,6 +23,7 @@
 #include "kernel/rtlil.h"
 #include "kernel/register.h"
 #include <cstdio>
+#include <algorithm>
 
 #if defined(_WIN32)
 #  define WIFEXITED(x) 1
@@ -57,7 +58,7 @@ struct QbfSolveOptions {
 				nocleanup(false), dump_final_smt2(false), timeout_sec(-1) {};
 };
 
-void recover_solution(RTLIL::Module *mod, QbfSolutionType &sol) {
+void recover_solution(QbfSolutionType &sol) {
 	YS_REGEX_TYPE sat_regex = YS_REGEX_COMPILE("Status: PASSED");
 	YS_REGEX_TYPE unsat_regex = YS_REGEX_COMPILE("Solver Error.*model is not available");
 	YS_REGEX_TYPE hole_value_regex = YS_REGEX_COMPILE_WITH_SUBS("Value for anyconst in [a-zA-Z0-9_]* \\(([^:]*:[^\\)]*)\\): (.*)");
@@ -84,6 +85,39 @@ void recover_solution(RTLIL::Module *mod, QbfSolutionType &sol) {
 	log_assert(!sol.unknown && !sol.sat? unsat_regex_found : true);
 }
 
+void specialize(RTLIL::Module *module, const QbfSolutionType &ret) {
+	std::map<std::string, std::string> hole_loc_to_name;
+	for (auto cell : module->cells()) {
+		std::string cell_src = cell->get_src_attribute();
+		auto pos = ret.hole_to_value.find(cell_src);
+		if (pos != ret.hole_to_value.end()) {
+			log_assert(cell->type.in("$anyconst", "$anyseq"));
+			log_assert(cell->hasPort(ID::Y));
+			log_assert(cell->getPort(ID::Y).is_wire());
+			hole_loc_to_name[pos->first] = cell->getPort(ID::Y).as_wire()->name.str();
+		}
+	}
+	for (auto &it : ret.hole_to_value) {
+		std::string hole_loc = it.first;
+		std::string hole_value = it.second;
+
+		auto pos = hole_loc_to_name.find(hole_loc);
+		log_assert(pos != hole_loc_to_name.end());
+
+		std::string hole_name = hole_loc_to_name[hole_loc];
+		RTLIL::Wire *wire = module->wire(hole_name);
+		log_assert(wire != nullptr);
+
+		log("Specializing %s with %s = %d'b%s.\n", module->name.c_str(), hole_name.c_str(), wire->width, hole_value.c_str());
+		std::vector<RTLIL::SigBit> value_bv;
+		value_bv.reserve(wire->width);
+		for (char c : hole_value)
+			value_bv.push_back(c == '1'? RTLIL::S1 : RTLIL::S0);
+		std::reverse(value_bv.begin(), value_bv.end());
+		module->connect(wire, value_bv);
+	}
+}
+
 QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 	QbfSolutionType ret;
 	std::string yosys_smtbmc_exe = proc_self_dirname() + "yosys-smtbmc";
@@ -95,7 +129,7 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 	log_assert(mod->design != nullptr);
 	Pass::call(mod->design, smt2_command);
 
-	//Execute and capture stdout from `yosys-smtbmc -s z3 -t 1 -g [--dump-smt2 <file>]`
+	//Execute and capture stdout from `yosys-smtbmc -s z3 -t 1 -g --binary [--dump-smt2 <file>]`
 	{
 		fflush(stdout);
 		bool keep_reading = true;
@@ -103,7 +137,7 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 		int retval = 0;
 		char buf[1024] = {0};
 		std::string linebuf = "";
-		std::string cmd = yosys_smtbmc_exe + " -s z3 -t 1 -g " + (opt.dump_final_smt2? "--dump-smt2 " + opt.dump_final_smt2_file + " " : "") + tempdir_name + "/problem.smt2 2>&1";
+		std::string cmd = yosys_smtbmc_exe + " -s z3 -t 1 -g --binary " + (opt.dump_final_smt2? "--dump-smt2 " + opt.dump_final_smt2_file + " " : "") + tempdir_name + "/problem.smt2 2>&1";
 		log("Launching \"%s\".\n", cmd.c_str());
 
 #ifndef EMSCRIPTEN
@@ -154,7 +188,7 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 	if(!opt.nocleanup)
 		remove_directory(tempdir_name);
 
-	recover_solution(mod, ret);
+	recover_solution(ret);
 
 	return ret;
 }
@@ -341,31 +375,7 @@ struct QbfSatPass : public Pass {
 			print_proof_failed();
 
 		if (opt.specialize) {
-			std::map<std::string, std::string> hole_loc_to_name;
-			for (auto cell : module->cells()) {
-				std::string cell_src = cell->get_src_attribute();
-				auto pos = ret.hole_to_value.find(cell_src);
-				if (pos != ret.hole_to_value.end()) {
-					log_assert(cell->type.in("$anyconst", "$anyseq"));
-					log_assert(cell->hasPort(ID::Y));
-					log_assert(cell->getPort(ID::Y).is_wire());
-					hole_loc_to_name[pos->first] = cell->getPort(ID::Y).as_wire()->name.str();
-				}
-			}
-			for (auto &it : ret.hole_to_value) {
-				std::string hole_loc = it.first;
-				std::string hole_value = it.second;
-
-				auto pos = hole_loc_to_name.find(hole_loc);
-				log_assert(pos != hole_loc_to_name.end());
-
-				std::string hole_name = hole_loc_to_name[hole_loc];
-				RTLIL::Wire *wire = module->wire(hole_name);
-				log_assert(wire != nullptr);
-
-				log("Specializing %s with %s = %s.\n", module->name.c_str(), hole_name.c_str(), hole_value.c_str());
-				module->connect(wire, hole_value);
-			}
+			specialize(module, ret);
 			Pass::call(design, "opt_clean");
 		}
 	}
