@@ -54,8 +54,9 @@ struct QbfSolveOptions {
 	std::string specialize_soln_file;
 	std::string write_soln_soln_file;
 	std::string dump_final_smt2_file;
+	size_t argidx;
 	QbfSolveOptions() : timeout(false), specialize(false), specialize_from_file(false), write_solution(false),	
-				nocleanup(false), dump_final_smt2(false), timeout_sec(-1) {};
+				nocleanup(false), dump_final_smt2(false), timeout_sec(-1), argidx(0) {};
 };
 
 void recover_solution(QbfSolutionType &sol) {
@@ -116,6 +117,21 @@ void specialize(RTLIL::Module *module, const QbfSolutionType &ret) {
 		std::reverse(value_bv.begin(), value_bv.end());
 		module->connect(wire, value_bv);
 	}
+}
+
+void allconstify_inputs(RTLIL::Module *module, const std::set<std::string> &input_wires) {
+	for(auto &n : input_wires) {
+		RTLIL::Wire *input = module->wire(n);
+		log_assert(input != nullptr);
+
+		RTLIL::Cell *allconst = module->addCell("$allconst$" + n, "$allconst");
+		allconst->setParam(ID(WIDTH), input->width);
+		allconst->setPort(ID::Y, input);
+		allconst->set_src_attribute(input->get_src_attribute());
+		input->port_input = false;
+		log("Replaced input %s with $allconst cell.\n", n.c_str());
+	}
+	module->fixup_ports();
 }
 
 QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
@@ -193,6 +209,86 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 	return ret;
 }
 
+std::set<std::string> validate_design_and_get_inputs(RTLIL::Module *module) {
+	bool found_input = false;
+	bool found_hole = false;
+	bool found_1bit_output = false;
+	std::set<std::string> input_wires;
+	for (auto wire : module->wires()) {
+		if (wire->port_input) {
+			found_input = true;
+			input_wires.insert(wire->name.str());
+		}
+		if (wire->port_output && wire->width == 1)
+			found_1bit_output = true;
+	}
+	for (auto cell : module->cells()) {
+		if (cell->type == "$allconst")
+			found_input = true;
+		if (cell->type == "$anyconst")
+			found_hole = true;
+		if (cell->type.in("$assert", "$assume"))
+			found_1bit_output = true;
+	}
+	if (!found_input)
+		log_cmd_error("Can't perform QBF-SAT on a miter with no inputs!\n");
+	if (!found_hole)
+		log_cmd_error("Did not find any existentially-quantified variables. Use 'sat' instead.\n");
+	if (!found_1bit_output)
+		log_cmd_error("Did not find any single-bit outputs, assert()s, or assume()s.  Is this a miter circuit?\n");
+
+	return input_wires;
+}
+
+
+QbfSolveOptions parse_args(const std::vector<std::string> &args) {
+	QbfSolveOptions opt;
+	for (opt.argidx = 1; opt.argidx < args.size(); opt.argidx++) {
+		if (args[opt.argidx] == "-timeout") {
+			opt.timeout = true;
+			if (args.size() <= opt.argidx + 1)
+				log_cmd_error("timeout not specified.\n");
+			else
+				opt.timeout_sec = atol(args[++opt.argidx].c_str());
+			continue;
+		}
+		else if (args[opt.argidx] == "-nocleanup") {
+			opt.nocleanup = true;
+			continue;
+		}
+		else if (args[opt.argidx] == "-specialize") {
+			opt.specialize = true;
+			continue;
+		}
+		else if (args[opt.argidx] == "-dump-final-smt2") {
+			opt.dump_final_smt2 = true;
+			if (args.size() <= opt.argidx + 1)
+				log_cmd_error("smt2 file not specified.\n");
+			else
+				opt.dump_final_smt2_file = args[++opt.argidx];
+			continue;
+		}
+		else if (args[opt.argidx] == "-specialize-from-file") {
+			opt.specialize_from_file = true;
+			if (args.size() <= opt.argidx + 1)
+				log_cmd_error("solution file not specified.\n");
+			else
+				opt.specialize_soln_file = args[++opt.argidx];
+			continue;
+		}
+		else if (args[opt.argidx] == "-write-solution") {
+			opt.write_solution = true;
+			if (args.size() <= opt.argidx + 1)
+				log_cmd_error("solution file not specified.\n");
+			else
+				opt.write_soln_soln_file = args[++opt.argidx];
+			continue;
+		}
+		break;
+	}
+
+	return opt;
+}
 
 void print_proof_failed()
 {
@@ -260,54 +356,10 @@ struct QbfSatPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
-		QbfSolveOptions opt;
 		log_header(design, "Executing QBF-SAT pass (solving QBF-SAT problems in the circuit).\n");
+		QbfSolveOptions opt = parse_args(args);
+		extra_args(args, opt.argidx, design);
 
-		size_t argidx;
-		for (argidx = 1; argidx < args.size(); argidx++) {
-			if (args[argidx] == "-timeout") {
-				opt.timeout = true;
-				if (args.size() <= argidx + 1)
-					log_cmd_error("timeout not specified.\n");
-				else
-					opt.timeout_sec = atol(args[++argidx].c_str());
-				continue;
-			}
-			else if (args[argidx] == "-nocleanup") {
-				opt.nocleanup = true;
-				continue;
-			}
-			else if (args[argidx] == "-specialize") {
-				opt.specialize = true;
-				continue;
-			}
-			else if (args[argidx] == "-dump-final-smt2") {
-				opt.dump_final_smt2 = true;
-				if (args.size() <= argidx + 1)
-					log_cmd_error("smt2 file not specified.\n");
-				else
-					opt.dump_final_smt2_file = args[++argidx];
-				continue;
-			}
-			else if (args[argidx] == "-specialize-from-file") {
-				opt.specialize_from_file = true;
-				if (args.size() <= argidx + 1)
-					log_cmd_error("solution file not specified.\n");
-				else
-					opt.specialize_soln_file = args[++argidx];
-				continue;
-			}
-			else if (args[argidx] == "-write-solution") {
-				opt.write_solution = true;
-				if (args.size() <= argidx + 1)
-					log_cmd_error("solution file not specified.\n");
-				else
-					opt.write_soln_soln_file = args[++argidx];
-				continue;
-			}
-			break;
-		}
-		extra_args(args, argidx, design);
 
 		RTLIL::Module *module = NULL;
 		for (auto mod : design->selected_modules()) {
@@ -318,50 +370,13 @@ struct QbfSatPass : public Pass {
 		if (module == NULL)
 			log_cmd_error("Can't perform QBF-SAT on an empty selection!\n");
 
-		bool found_input = false;
-		bool found_hole = false;
-		bool found_1bit_output = false;
-		std::set<std::string> input_wires;
-		for (auto wire : module->wires()) {
-			if (wire->port_input) {
-				found_input = true;
-				input_wires.insert(wire->name.str());
-			}
-			if (wire->port_output && wire->width == 1)
-				found_1bit_output = true;
-		}
-		for (auto cell : module->cells()) {
-			if (cell->type == "$allconst")
-				found_input = true;
-			if (cell->type == "$anyconst")
-				found_hole = true;
-			if (cell->type.in("$assert", "$assume"))
-				found_1bit_output = true;
-		}
-		if (!found_input)
-			log_cmd_error("Can't perform QBF-SAT on a miter with no inputs!\n");
-		if (!found_hole)
-			log_cmd_error("Did not find any existentially-quantified variables. Use 'sat' instead.\n");
-		if (!found_1bit_output)
-			log_cmd_error("Did not find any single-bit outputs, assert()s, or assume()s.  Is this a miter circuit?\n");
-
 		//Save the design to restore after modiyfing the current module.
 		std::string module_name = module->name.str();
 		Pass::call(design, "design -save _qbfsat_tmp");
 
 		//Replace input wires with wires assigned $allconst cells.
-		for(auto &n : input_wires) {
-			RTLIL::Wire *input = module->wire(n);
-			log_assert(input != nullptr);
-
-			RTLIL::Cell *allconst = module->addCell("$allconst$" + n, "$allconst");
-			allconst->setParam(ID(WIDTH), input->width);
-			allconst->setPort(ID::Y, input);
-			allconst->set_src_attribute(input->get_src_attribute());
-			input->port_input = false;
-			log("Replaced input %s with $allconst cell.\n", n.c_str());
-		}
-		module->fixup_ports();
+		std::set<std::string> input_wires = validate_design_and_get_inputs(module);
+		allconstify_inputs(module, input_wires);
 
 		QbfSolutionType ret = qbf_solve(module, opt);
 		Pass::call(design, "design -load _qbfsat_tmp");
