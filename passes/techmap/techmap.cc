@@ -177,10 +177,10 @@ struct TechmapWorker
 		std::string orig_cell_name;
 		pool<string> extra_src_attrs = cell->get_strpool_attribute(ID(src));
 
+		orig_cell_name = cell->name.str();
 		if (!flatten_mode) {
 			for (auto &it : tpl->cells_)
 				if (it.first == ID(_TECHMAP_REPLACE_)) {
-					orig_cell_name = cell->name.str();
 					module->rename(cell, stringf("$techmap%d", autoidx++) + cell->name.str());
 					break;
 				}
