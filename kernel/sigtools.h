@@ -300,7 +300,7 @@ struct SigMap
 			add(bit);
 	}
 
-	inline void add(const Wire *wire) { return add(RTLIL::SigSpec(wire)); }
+	inline void add(Wire *wire) { return add(RTLIL::SigSpec(wire)); }
 
 	void apply(RTLIL::SigBit &bit) const
 	{
