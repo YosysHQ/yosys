@@ -112,6 +112,33 @@ void write_solution(RTLIL::Module *module, const QbfSolutionType &sol, const std
 		fout << hole_loc_to_name[x.first] << "=" << x.second << std::endl;
 }
 
+void specialize_from_file(RTLIL::Module *module, const std::string &file) {
+	YS_REGEX_TYPE hole_assn_regex = YS_REGEX_COMPILE_WITH_SUBS("^(.*)=([01]+)$");
+	YS_REGEX_MATCH_TYPE m;
+	std::ifstream fin(file.c_str());
+	if (!fin)
+		log_cmd_error("could not read solution file.\n");
+
+	std::string buf;
+	while (std::getline(fin, buf)) {
+		log_assert(YS_REGEX_NS::regex_search(buf, m, hole_assn_regex));
+		std::string hole_name = m[1].str();
+		std::string hole_value = m[2].str();
+
+		RTLIL::Wire *wire = module->wire(hole_name);
+		log_assert(wire != nullptr);
+		log_assert(wire->width > 0 && hole_value.size() == static_cast<unsigned long>(wire->width));
+
+		log("Specializing %s from file with %s = %d'b%s.\n", module->name.c_str(), hole_name.c_str(), wire->width, hole_value.c_str());
+		std::vector<RTLIL::SigBit> value_bv;
+		value_bv.reserve(wire->width);
+		for (char c : hole_value)
+			value_bv.push_back(c == '1'? RTLIL::S1 : RTLIL::S0);
+		std::reverse(value_bv.begin(), value_bv.end());
+		module->connect(wire, value_bv);
+	}
+}
+
 void specialize(RTLIL::Module *module, const QbfSolutionType &sol) {
 	std::map<std::string, std::string> hole_loc_to_name = get_hole_loc_name_map(module, sol);
 	for (auto &it : sol.hole_to_value) {
@@ -124,6 +151,7 @@ void specialize(RTLIL::Module *module, const QbfSolutionType &sol) {
 		std::string hole_name = hole_loc_to_name[hole_loc];
 		RTLIL::Wire *wire = module->wire(hole_name);
 		log_assert(wire != nullptr);
+		log_assert(wire->width > 0 && hole_value.size() == static_cast<unsigned long>(wire->width));
 
 		log("Specializing %s with %s = %d'b%s.\n", module->name.c_str(), hole_name.c_str(), wire->width, hole_value.c_str());
 		std::vector<RTLIL::SigBit> value_bv;
@@ -386,33 +414,38 @@ struct QbfSatPass : public Pass {
 		if (module == NULL)
 			log_cmd_error("Can't perform QBF-SAT on an empty selection!\n");
 
-		//Save the design to restore after modiyfing the current module.
-		std::string module_name = module->name.str();
-		Pass::call(design, "design -save _qbfsat_tmp");
+		if (!opt.specialize_from_file) {
+			//Save the design to restore after modiyfing the current module.
+			std::string module_name = module->name.str();
+			Pass::call(design, "design -save _qbfsat_tmp");
 
-		//Replace input wires with wires assigned $allconst cells.
-		std::set<std::string> input_wires = validate_design_and_get_inputs(module);
-		allconstify_inputs(module, input_wires);
+			//Replace input wires with wires assigned $allconst cells.
+			std::set<std::string> input_wires = validate_design_and_get_inputs(module);
+			allconstify_inputs(module, input_wires);
 
-		QbfSolutionType ret = qbf_solve(module, opt);
-		Pass::call(design, "design -load _qbfsat_tmp");
-		module = design->module(module_name);
+			QbfSolutionType ret = qbf_solve(module, opt);
+			Pass::call(design, "design -load _qbfsat_tmp");
+			module = design->module(module_name);
 
-		if (ret.unknown)
-			log_warning("solver did not give an answer\n");
-		else if (ret.sat)
-			print_qed();
-		else
-			print_proof_failed();
+			if (ret.unknown)
+				log_warning("solver did not give an answer\n");
+			else if (ret.sat)
+				print_qed();
+			else
+				print_proof_failed();
 
-		if(!ret.unknown && ret.sat) {
-			if (opt.write_solution) {
-				write_solution(module, ret, opt.write_soln_soln_file);
+			if(!ret.unknown && ret.sat) {
+				if (opt.write_solution) {
+					write_solution(module, ret, opt.write_soln_soln_file);
+				}
+				if (opt.specialize) {
+					specialize(module, ret);
+					Pass::call(design, "opt_clean");
+				}
 			}
-			if (opt.specialize) {
-				specialize(module, ret);
-				Pass::call(design, "opt_clean");
-			}
+		} else {
+			specialize_from_file(module, opt.specialize_soln_file);
+			Pass::call(design, "opt_clean");
 		}
 	}
 } QbfSatPass;
