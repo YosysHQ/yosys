@@ -1156,6 +1156,10 @@ struct ShareWorker
 		topo_cell_drivers.clear();
 		topo_bit_drivers.clear();
 		exclusive_ctrls.clear();
+		terminal_bits.clear();
+		shareable_cells.clear();
+		forbidden_controls_cache.clear();
+		activation_patterns_cache.clear();
 
 		find_terminal_bits();
 		find_shareable_cells();
