@@ -63,8 +63,10 @@ void recover_solution(QbfSolutionType &sol) {
 	YS_REGEX_TYPE sat_regex = YS_REGEX_COMPILE("Status: PASSED");
 	YS_REGEX_TYPE unsat_regex = YS_REGEX_COMPILE("Solver Error.*model is not available");
 	YS_REGEX_TYPE hole_value_regex = YS_REGEX_COMPILE_WITH_SUBS("Value for anyconst in [a-zA-Z0-9_]* \\(([^:]*:[^\\)]*)\\): (.*)");
+#ifndef NDEBUG
 	YS_REGEX_TYPE hole_loc_regex = YS_REGEX_COMPILE("[^:]*:[0-9]+.[0-9]+-[0-9]+.[0-9]+");
 	YS_REGEX_TYPE hole_val_regex = YS_REGEX_COMPILE("[0-9]+");
+#endif
 	YS_REGEX_MATCH_TYPE m;
 	bool sat_regex_found = false;
 	bool unsat_regex_found = false;
@@ -73,8 +75,10 @@ void recover_solution(QbfSolutionType &sol) {
 		if(YS_REGEX_NS::regex_search(x, m, hole_value_regex)) {
 			std::string loc = m[1].str();
 			std::string val = m[2].str();
+#ifndef NDEBUG
 			log_assert(YS_REGEX_NS::regex_search(loc, hole_loc_regex));
 			log_assert(YS_REGEX_NS::regex_search(val, hole_val_regex));
+#endif
 			sol.hole_to_value[loc] = val;
 		}
 		else if (YS_REGEX_NS::regex_search(x, sat_regex))
@@ -82,8 +86,10 @@ void recover_solution(QbfSolutionType &sol) {
 		else if (YS_REGEX_NS::regex_search(x, unsat_regex))
 			unsat_regex_found = true;
 	}
+#ifndef NDEBUG
 	log_assert(!sol.unknown && sol.sat? sat_regex_found : true);
 	log_assert(!sol.unknown && !sol.sat? unsat_regex_found : true);
+#endif
 }
 
 std::map<std::string, std::string> get_hole_loc_name_map(RTLIL::Module *module, const QbfSolutionType &sol) {
@@ -92,9 +98,11 @@ std::map<std::string, std::string> get_hole_loc_name_map(RTLIL::Module *module, 
 		std::string cell_src = cell->get_src_attribute();
 		auto pos = sol.hole_to_value.find(cell_src);
 		if (pos != sol.hole_to_value.end()) {
+#ifndef NDEBUG
 			log_assert(cell->type.in("$anyconst", "$anyseq"));
 			log_assert(cell->hasPort(ID::Y));
 			log_assert(cell->getPort(ID::Y).is_wire());
+#endif
 			hole_loc_to_name[pos->first] = cell->getPort(ID::Y).as_wire()->name.str();
 		}
 	}
@@ -126,8 +134,10 @@ void specialize_from_file(RTLIL::Module *module, const std::string &file) {
 		std::string hole_value = m[2].str();
 
 		RTLIL::Wire *wire = module->wire(hole_name);
+#ifndef NDEBUG
 		log_assert(wire != nullptr);
 		log_assert(wire->width > 0 && hole_value.size() == static_cast<unsigned long>(wire->width));
+#endif
 
 		log("Specializing %s from file with %s = %d'b%s.\n", module->name.c_str(), hole_name.c_str(), wire->width, hole_value.c_str());
 		std::vector<RTLIL::SigBit> value_bv;
@@ -145,13 +155,17 @@ void specialize(RTLIL::Module *module, const QbfSolutionType &sol) {
 		std::string hole_loc = it.first;
 		std::string hole_value = it.second;
 
+#ifndef NDEBUG
 		auto pos = hole_loc_to_name.find(hole_loc);
 		log_assert(pos != hole_loc_to_name.end());
+#endif
 
 		std::string hole_name = hole_loc_to_name[hole_loc];
 		RTLIL::Wire *wire = module->wire(hole_name);
+#ifndef NDEBUG
 		log_assert(wire != nullptr);
 		log_assert(wire->width > 0 && hole_value.size() == static_cast<unsigned long>(wire->width));
+#endif
 
 		log("Specializing %s with %s = %d'b%s.\n", module->name.c_str(), hole_name.c_str(), wire->width, hole_value.c_str());
 		std::vector<RTLIL::SigBit> value_bv;
@@ -166,7 +180,9 @@ void specialize(RTLIL::Module *module, const QbfSolutionType &sol) {
 void allconstify_inputs(RTLIL::Module *module, const std::set<std::string> &input_wires) {
 	for(auto &n : input_wires) {
 		RTLIL::Wire *input = module->wire(n);
+#ifndef NDEBUG
 		log_assert(input != nullptr);
+#endif
 
 		RTLIL::Cell *allconst = module->addCell("$allconst$" + n, "$allconst");
 		allconst->setParam(ID(WIDTH), input->width);
@@ -186,7 +202,9 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 	std::string tempdir_name = "/tmp/yosys-z3-XXXXXX";
 	tempdir_name = make_temp_dir(tempdir_name);
 	std::string smt2_command = "write_smt2 -stbv -wires " + tempdir_name + "/problem.smt2";
+#ifndef NDEBUG
 	log_assert(mod->design != nullptr);
+#endif
 	Pass::call(mod->design, smt2_command);
 
 	//Execute and capture stdout from `yosys-smtbmc -s z3 -t 1 -g --binary [--dump-smt2 <file>]`
