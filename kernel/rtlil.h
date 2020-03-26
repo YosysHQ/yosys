@@ -1381,7 +1381,7 @@ public:
 	// access cell ports
 	bool hasPort(RTLIL::IdString portname) const;
 	void unsetPort(RTLIL::IdString portname);
-	void setPort(RTLIL::IdString portname, const RTLIL::SigSpec &signal);
+	void setPort(RTLIL::IdString portname, RTLIL::SigSpec signal);
 	const RTLIL::SigSpec &getPort(RTLIL::IdString portname) const;
 	const dict<RTLIL::IdString, RTLIL::SigSpec> &connections() const;
 
@@ -1393,7 +1393,7 @@ public:
 	// access cell parameters
 	bool hasParam(RTLIL::IdString paramname) const;
 	void unsetParam(RTLIL::IdString paramname);
-	void setParam(RTLIL::IdString paramname, const RTLIL::Const& value);
+	void setParam(RTLIL::IdString paramname, RTLIL::Const value);
 	const RTLIL::Const &getParam(RTLIL::IdString paramname) const;
 
 	void sort();

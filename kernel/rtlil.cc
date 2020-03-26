@@ -2481,11 +2481,11 @@ void RTLIL::Cell::unsetPort(RTLIL::IdString portname)
 	}
 }
 
-void RTLIL::Cell::setPort(RTLIL::IdString portname, const RTLIL::SigSpec &signal)
+void RTLIL::Cell::setPort(RTLIL::IdString portname, RTLIL::SigSpec signal)
 {
 	auto r = connections_.insert(portname);
 	auto conn_it = r.first;
-	if (conn_it->second == signal)
+	if (!r.second && conn_it->second == signal)
 		return;
 
 	for (auto mon : module->monitors)
@@ -2500,7 +2500,7 @@ void RTLIL::Cell::setPort(RTLIL::IdString portname, const RTLIL::SigSpec &signal
 		log_backtrace("-X- ", yosys_xtrace-1);
 	}
 
-	conn_it->second = signal;
+	conn_it->second = std::move(signal);
 }
 
 const RTLIL::SigSpec &RTLIL::Cell::getPort(RTLIL::IdString portname) const
@@ -2556,9 +2556,9 @@ void RTLIL::Cell::unsetParam(RTLIL::IdString paramname)
 	parameters.erase(paramname);
 }
 
-void RTLIL::Cell::setParam(RTLIL::IdString paramname, const RTLIL::Const &value)
+void RTLIL::Cell::setParam(RTLIL::IdString paramname, RTLIL::Const value)
 {
-	parameters[paramname] = value;
+	parameters[paramname] = std::move(value);
 }
 
 const RTLIL::Const &RTLIL::Cell::getParam(RTLIL::IdString paramname) const
