@@ -1898,6 +1898,9 @@ skip_dynamic_range_lvalue_expansion:;
 		bool mem_signed = children[0]->id2ast->is_signed;
 		children[0]->id2ast->meminfo(mem_width, mem_size, addr_bits);
 
+		newNode = new AstNode(AST_BLOCK);
+		AstNode *defNode = new AstNode(AST_BLOCK);
+
 		int data_range_left = children[0]->id2ast->children[0]->range_left;
 		int data_range_right = children[0]->id2ast->children[0]->range_right;
 		int mem_data_range_offset = std::min(data_range_left, data_range_right);
@@ -1907,31 +1910,6 @@ skip_dynamic_range_lvalue_expansion:;
 		children[0]->children[0]->children[0]->detectSignWidthWorker(addr_width_hint, addr_sign_hint);
 		addr_bits = std::max(addr_bits, addr_width_hint);
 
-		AstNode *wire_addr = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(addr_bits-1, true), mkconst_int(0, true)));
-		wire_addr->str = id_addr;
-		wire_addr->was_checked = true;
-		current_ast_mod->children.push_back(wire_addr);
-		current_scope[wire_addr->str] = wire_addr;
-		while (wire_addr->simplify(true, false, false, 1, -1, false, false)) { }
-
-		AstNode *wire_data = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(mem_width-1, true), mkconst_int(0, true)));
-		wire_data->str = id_data;
-		wire_data->was_checked = true;
-		wire_data->is_signed = mem_signed;
-		current_ast_mod->children.push_back(wire_data);
-		current_scope[wire_data->str] = wire_data;
-		while (wire_data->simplify(true, false, false, 1, -1, false, false)) { }
-
-		AstNode *wire_en = nullptr;
-		if (current_always->type != AST_INITIAL) {
-			wire_en = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(mem_width-1, true), mkconst_int(0, true)));
-			wire_en->str = id_en;
-			wire_en->was_checked = true;
-			current_ast_mod->children.push_back(wire_en);
-			current_scope[wire_en->str] = wire_en;
-			while (wire_en->simplify(true, false, false, 1, -1, false, false)) { }
-		}
-
 		std::vector<RTLIL::State> x_bits_addr, x_bits_data, set_bits_en;
 		for (int i = 0; i < addr_bits; i++)
 			x_bits_addr.push_back(RTLIL::State::Sx);
@@ -1940,32 +1918,79 @@ skip_dynamic_range_lvalue_expansion:;
 		for (int i = 0; i < mem_width; i++)
 			set_bits_en.push_back(RTLIL::State::S1);
 
-		AstNode *assign_addr = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), mkconst_bits(x_bits_addr, false));
-		assign_addr->children[0]->str = id_addr;
-		assign_addr->children[0]->was_checked = true;
+		AstNode *node_addr = nullptr;
+		if (children[0]->children[0]->children[0]->isConst()) {
+			node_addr = children[0]->children[0]->children[0]->clone();
+		} else {
+			AstNode *wire_addr = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(addr_bits-1, true), mkconst_int(0, true)));
+			wire_addr->str = id_addr;
+			wire_addr->was_checked = true;
+			current_ast_mod->children.push_back(wire_addr);
+			current_scope[wire_addr->str] = wire_addr;
+			while (wire_addr->simplify(true, false, false, 1, -1, false, false)) { }
 
-		AstNode *assign_data = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), mkconst_bits(x_bits_data, false));
-		assign_data->children[0]->str = id_data;
-		assign_data->children[0]->was_checked = true;
+			AstNode *assign_addr = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), mkconst_bits(x_bits_addr, false));
+			assign_addr->children[0]->str = id_addr;
+			assign_addr->children[0]->was_checked = true;
+			defNode->children.push_back(assign_addr);
 
-		AstNode *assign_en = nullptr;
-		if (current_always->type != AST_INITIAL) {
-			assign_en = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), mkconst_int(0, false, mem_width));
-			assign_en->children[0]->str = id_en;
-			assign_en->children[0]->was_checked = true;
+			assign_addr = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), children[0]->children[0]->children[0]->clone());
+			assign_addr->children[0]->str = id_addr;
+			assign_addr->children[0]->was_checked = true;
+			newNode->children.push_back(assign_addr);
+
+			node_addr = new AstNode(AST_IDENTIFIER);
+			node_addr->str = id_addr;
 		}
 
-		AstNode *default_signals = new AstNode(AST_BLOCK);
-		default_signals->children.push_back(assign_addr);
-		default_signals->children.push_back(assign_data);
-		if (current_always->type != AST_INITIAL)
-			default_signals->children.push_back(assign_en);
-		current_top_block->children.insert(current_top_block->children.begin(), default_signals);
+		AstNode *node_data = nullptr;
+		if (children[0]->children.size() == 1 && children[1]->isConst()) {
+			node_data = children[1]->clone();
+		} else {
+			AstNode *wire_data = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(mem_width-1, true), mkconst_int(0, true)));
+			wire_data->str = id_data;
+			wire_data->was_checked = true;
+			wire_data->is_signed = mem_signed;
+			current_ast_mod->children.push_back(wire_data);
+			current_scope[wire_data->str] = wire_data;
+			while (wire_data->simplify(true, false, false, 1, -1, false, false)) { }
 
-		assign_addr = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), children[0]->children[0]->children[0]->clone());
-		assign_addr->children[0]->str = id_addr;
-		assign_addr->children[0]->was_checked = true;
+			AstNode *assign_data = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), mkconst_bits(x_bits_data, false));
+			assign_data->children[0]->str = id_data;
+			assign_data->children[0]->was_checked = true;
+			defNode->children.push_back(assign_data);
 
+			node_data = new AstNode(AST_IDENTIFIER);
+			node_data->str = id_data;
+		}
+
+		AstNode *node_en = nullptr;
+		if (current_always->type == AST_INITIAL) {
+			node_en = AstNode::mkconst_int(1, false);
+		} else {
+			AstNode *wire_en = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(mem_width-1, true), mkconst_int(0, true)));
+			wire_en->str = id_en;
+			wire_en->was_checked = true;
+			current_ast_mod->children.push_back(wire_en);
+			current_scope[wire_en->str] = wire_en;
+			while (wire_en->simplify(true, false, false, 1, -1, false, false)) { }
+
+			AstNode *assign_en = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), mkconst_int(0, false, mem_width));
+			assign_en->children[0]->str = id_en;
+			assign_en->children[0]->was_checked = true;
+			defNode->children.push_back(assign_en);
+
+			node_en = new AstNode(AST_IDENTIFIER);
+			node_en->str = id_en;
+		}
+
+		if (!defNode->children.empty())
+			current_top_block->children.insert(current_top_block->children.begin(), defNode);
+		else
+			delete defNode;
+
+		AstNode *assign_data = nullptr;
+		AstNode *assign_en = nullptr;
 		if (children[0]->children.size() == 2)
 		{
 			if (children[0]->children[1]->range_valid)
@@ -2026,9 +2051,11 @@ skip_dynamic_range_lvalue_expansion:;
 		}
 		else
 		{
-			assign_data = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), children[1]->clone());
-			assign_data->children[0]->str = id_data;
-			assign_data->children[0]->was_checked = true;
+			if (!(children[0]->children.size() == 1 && children[1]->isConst())) {
+				assign_data = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), children[1]->clone());
+				assign_data->children[0]->str = id_data;
+				assign_data->children[0]->was_checked = true;
+			}
 
 			if (current_always->type != AST_INITIAL) {
 				assign_en = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), mkconst_bits(set_bits_en, false));
@@ -2036,28 +2063,20 @@ skip_dynamic_range_lvalue_expansion:;
 				assign_en->children[0]->was_checked = true;
 			}
 		}
-
-		newNode = new AstNode(AST_BLOCK);
-		newNode->children.push_back(assign_addr);
-		newNode->children.push_back(assign_data);
-		if (current_always->type != AST_INITIAL)
+		if (assign_data)
+			newNode->children.push_back(assign_data);
+		if (assign_en)
 			newNode->children.push_back(assign_en);
 
-		AstNode *wrnode = new AstNode(current_always->type == AST_INITIAL ? AST_MEMINIT : AST_MEMWR);
-		wrnode->children.push_back(new AstNode(AST_IDENTIFIER));
-		wrnode->children.push_back(new AstNode(AST_IDENTIFIER));
-		if (current_always->type != AST_INITIAL)
-			wrnode->children.push_back(new AstNode(AST_IDENTIFIER));
-		else
-			wrnode->children.push_back(AstNode::mkconst_int(1, false));
+		AstNode *wrnode = new AstNode(current_always->type == AST_INITIAL ? AST_MEMINIT : AST_MEMWR, node_addr, node_data, node_en);
 		wrnode->str = children[0]->str;
 		wrnode->id2ast = children[0]->id2ast;
-		wrnode->children[0]->str = id_addr;
-		wrnode->children[1]->str = id_data;
-		if (current_always->type != AST_INITIAL)
-			wrnode->children[2]->str = id_en;
 		current_ast_mod->children.push_back(wrnode);
 
+		if (newNode->children.empty()) {
+			delete newNode;
+			newNode = new AstNode();
+		}
 		goto apply_newNode;
 	}
 
