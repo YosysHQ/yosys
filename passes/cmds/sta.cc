@@ -112,7 +112,7 @@ struct StaWorker
 							continue;
 						const auto &s = it->second.second;
 						if (cell->hasPort(s.name)) {
-							auto &s_bit = cell->getPort(s.name)[s.offset];
+							auto s_bit = sigmap(cell->getPort(s.name)[s.offset]);
 							if (s_bit.wire)
 								data[s_bit].fanouts.emplace_back(bit,it->second.first,s.name);
 						}
