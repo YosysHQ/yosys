@@ -49,14 +49,16 @@ struct QbfSolutionType {
 };
 
 struct QbfSolveOptions {
-	bool timeout, specialize, specialize_from_file, write_solution, nocleanup, dump_final_smt2;
+	bool timeout, specialize, specialize_from_file, write_solution, nocleanup, dump_final_smt2, assume_outputs;
+	bool sat, unsat;
 	long timeout_sec;
 	std::string specialize_soln_file;
 	std::string write_soln_soln_file;
 	std::string dump_final_smt2_file;
 	size_t argidx;
 	QbfSolveOptions() : timeout(false), specialize(false), specialize_from_file(false), write_solution(false),	
-				nocleanup(false), dump_final_smt2(false), timeout_sec(-1), argidx(0) {};
+				nocleanup(false), dump_final_smt2(false), assume_outputs(false), sat(false), unsat(false),
+				timeout_sec(-1), argidx(0) {};
 };
 
 void recover_solution(QbfSolutionType &sol) {
@@ -178,7 +180,7 @@ void specialize(RTLIL::Module *module, const QbfSolutionType &sol) {
 }
 
 void allconstify_inputs(RTLIL::Module *module, const std::set<std::string> &input_wires) {
-	for(auto &n : input_wires) {
+	for (auto &n : input_wires) {
 		RTLIL::Wire *input = module->wire(n);
 #ifndef NDEBUG
 		log_assert(input != nullptr);
@@ -192,6 +194,40 @@ void allconstify_inputs(RTLIL::Module *module, const std::set<std::string> &inpu
 		log("Replaced input %s with $allconst cell.\n", n.c_str());
 	}
 	module->fixup_ports();
+}
+
+void assume_miter_outputs(RTLIL::Module *module) {
+	std::vector<RTLIL::Wire *> wires_to_assume;
+	for (auto w : module->wires())
+		if (w->port_output) {
+			if (w->width == 1)
+				wires_to_assume.push_back(w);
+		}
+	if (wires_to_assume.size() == 0)
+		return;
+	else {
+		log("Adding $assume cell for outputs: ");
+		for (auto w : wires_to_assume)
+			log("\"%s\" ", w->name.c_str());
+		log("\n");
+	}
+
+	std::vector<RTLIL::Wire *>::size_type i;
+	while (wires_to_assume.size() > 1) {
+		std::vector<RTLIL::Wire *> buf;
+		for (i = 0; i + 1 < wires_to_assume.size(); i += 2) {
+			std::stringstream strstr; strstr << i;
+			RTLIL::Wire *and_wire = module->addWire("\\_qbfsat_and_" + strstr.str(), 1);
+			module->addLogicAnd("$_qbfsat_and_" + strstr.str(), wires_to_assume[i], wires_to_assume[i+1], and_wire, false, wires_to_assume[i]->get_src_attribute());
+			buf.push_back(and_wire);
+		}
+		wires_to_assume.swap(buf);
+	}
+
+#ifndef NDEBUG
+	log_assert(wires_to_assume.size() == 1);
+#endif
+	module->addAssume("$assume_qbfsat_miter_outputs", wires_to_assume[0], RTLIL::S1);
 }
 
 QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
@@ -322,6 +358,18 @@ QbfSolveOptions parse_args(const std::vector<std::string> &args) {
 			opt.specialize = true;
 			continue;
 		}
+		else if (args[opt.argidx] == "-assume-outputs") {
+			opt.assume_outputs = true;
+			continue;
+		}
+		else if (args[opt.argidx] == "-sat") {
+			opt.sat = true;
+			continue;
+		}
+		else if (args[opt.argidx] == "-unsat") {
+			opt.unsat = true;
+			continue;
+		}
 		else if (args[opt.argidx] == "-dump-final-smt2") {
 			opt.dump_final_smt2 = true;
 			if (args.size() <= opt.argidx + 1)
@@ -403,6 +451,15 @@ struct QbfSatPass : public Pass {
 		log("    -dump-final-smt2 <file>\n");
 		log("        Pass the --dump-smt2 option to yosys-smtbmc.\n");
 		log("\n");
+		log("    -assume-outputs\n");
+		log("        Add an $assume cell for the conjunction of all one-bit module output wires.\n");
+		log("\n");
+		log("    -sat\n");
+		log("        Generate an error if the solver does not return \"sat\".\n");
+		log("\n");
+		log("    -unsat\n");
+		log("        Generate an error if the solver does not return \"unsat\".\n");
+		log("\n");
 		log("    -specialize\n");
 		log("        Replace all \"$anyconst\" cells with constant values determined by the solver.\n");
 		log("\n");
@@ -440,6 +497,8 @@ struct QbfSatPass : public Pass {
 			//Replace input wires with wires assigned $allconst cells.
 			std::set<std::string> input_wires = validate_design_and_get_inputs(module);
 			allconstify_inputs(module, input_wires);
+			if (opt.assume_outputs)
+				assume_miter_outputs(module);
 
 			QbfSolutionType ret = qbf_solve(module, opt);
 			Pass::call(design, "design -load _qbfsat_tmp");
@@ -460,7 +519,11 @@ struct QbfSatPass : public Pass {
 					specialize(module, ret);
 					Pass::call(design, "opt_clean");
 				}
+				if (opt.unsat)
+					log_cmd_error("expected problem to be UNSAT\n");
 			}
+			else if (!ret.unknown && !ret.sat && opt.sat)
+				log_cmd_error("expected problem to be SAT\n");
 		} else {
 			specialize_from_file(module, opt.specialize_soln_file);
 			Pass::call(design, "opt_clean");
