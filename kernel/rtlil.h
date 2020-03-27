@@ -999,7 +999,7 @@ struct RTLIL::Design
 
 	void scratchpad_set_int(const std::string &varname, int value);
 	void scratchpad_set_bool(const std::string &varname, bool value);
-	void scratchpad_set_string(const std::string &varname, const std::string &value);
+	void scratchpad_set_string(const std::string &varname, std::string value);
 
 	int scratchpad_get_int(const std::string &varname, int default_value = 0) const;
 	bool scratchpad_get_bool(const std::string &varname, bool default_value = false) const;

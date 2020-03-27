@@ -489,9 +489,9 @@ void RTLIL::Design::scratchpad_set_bool(const std::string &varname, bool value)
 	scratchpad[varname] = value ? "true" : "false";
 }
 
-void RTLIL::Design::scratchpad_set_string(const std::string &varname, const std::string &value)
+void RTLIL::Design::scratchpad_set_string(const std::string &varname, std::string value)
 {
-	scratchpad[varname] = value;
+	scratchpad[varname] = std::move(value);
 }
 
 int RTLIL::Design::scratchpad_get_int(const std::string &varname, int default_value) const
