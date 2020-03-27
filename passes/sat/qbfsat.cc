@@ -137,7 +137,7 @@ void specialize_from_file(RTLIL::Module *module, const std::string &file) {
 		RTLIL::Wire *wire = module->wire(hole_name);
 #ifndef NDEBUG
 		log_assert(wire != nullptr);
-		log_assert(wire->width > 0 && hole_value.size() == static_cast<unsigned long>(wire->width));
+		log_assert(wire->width > 0 && GetSize(hole_value) == wire->width);
 #endif
 
 		log("Specializing %s from file with %s = %d'b%s.\n", module->name.c_str(), hole_name.c_str(), wire->width, hole_value.c_str());
@@ -165,7 +165,7 @@ void specialize(RTLIL::Module *module, const QbfSolutionType &sol) {
 		RTLIL::Wire *wire = module->wire(hole_name);
 #ifndef NDEBUG
 		log_assert(wire != nullptr);
-		log_assert(wire->width > 0 && hole_value.size() == static_cast<unsigned long>(wire->width));
+		log_assert(wire->width > 0 && GetSize(hole_value) == wire->width);
 #endif
 
 		log("Specializing %s with %s = %d'b%s.\n", module->name.c_str(), hole_name.c_str(), wire->width, hole_value.c_str());
