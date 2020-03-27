@@ -198,10 +198,9 @@ void allconstify_inputs(RTLIL::Module *module, const std::set<std::string> &inpu
 void assume_miter_outputs(RTLIL::Module *module) {
 	std::vector<RTLIL::Wire *> wires_to_assume;
 	for (auto w : module->wires())
-		if (w->port_output) {
-			if (w->width == 1)
-				wires_to_assume.push_back(w);
-		}
+		if (w->port_output && w->width == 1)
+			wires_to_assume.push_back(w);
+
 	if (wires_to_assume.size() == 0)
 		return;
 	else {
@@ -211,16 +210,19 @@ void assume_miter_outputs(RTLIL::Module *module) {
 		log("\n");
 	}
 
-	std::vector<RTLIL::Wire *>::size_type i;
+	unsigned long i = 0;
 	while (wires_to_assume.size() > 1) {
 		std::vector<RTLIL::Wire *> buf;
-		for (i = 0; i + 1 < wires_to_assume.size(); i += 2) {
-			std::stringstream strstr; strstr << i;
+		for (auto j = 0; j + 1 < GetSize(wires_to_assume); j += 2) {
+			std::stringstream strstr; strstr << i << "_" << j;
 			RTLIL::Wire *and_wire = module->addWire("\\_qbfsat_and_" + strstr.str(), 1);
-			module->addLogicAnd("$_qbfsat_and_" + strstr.str(), wires_to_assume[i], wires_to_assume[i+1], and_wire, false, wires_to_assume[i]->get_src_attribute());
+			module->addLogicAnd("$_qbfsat_and_" + strstr.str(), wires_to_assume[j], wires_to_assume[j+1], and_wire, false, wires_to_assume[j]->get_src_attribute());
 			buf.push_back(and_wire);
 		}
+		if (wires_to_assume.size() % 2 == 1)
+			buf.push_back(wires_to_assume[wires_to_assume.size() - 1]);
 		wires_to_assume.swap(buf);
+		++i;
 	}
 
 #ifndef NDEBUG
