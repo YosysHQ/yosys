@@ -60,6 +60,11 @@ struct DesignPass : public Pass {
 		log("Push the current design to the stack and then clear the current design.\n");
 		log("\n");
 		log("\n");
+		log("    design -duplicate\n");
+		log("\n");
+		log("Push the current design to the stack without clearing the current design.\n");
+		log("\n");
+		log("\n");
 		log("    design -pop\n");
 		log("\n");
 		log("Reset the current design and pop the last design from the stack.\n");
@@ -101,6 +106,7 @@ struct DesignPass : public Pass {
 		bool reset_mode = false;
 		bool reset_vlog_mode = false;
 		bool push_mode = false;
+		bool duplicate_mode = false;
 		bool pop_mode = false;
 		bool import_mode = false;
 		RTLIL::Design *copy_from_design = NULL, *copy_to_design = NULL;
@@ -124,6 +130,11 @@ struct DesignPass : public Pass {
 			if (!got_mode && args[argidx] == "-push") {
 				got_mode = true;
 				push_mode = true;
+				continue;
+			}
+			if (!got_mode && args[argidx] == "-duplicate") {
+				got_mode = true;
+				duplicate_mode = true;
 				continue;
 			}
 			if (!got_mode && args[argidx] == "-pop") {
@@ -307,7 +318,7 @@ struct DesignPass : public Pass {
 			}
 		}
 
-		if (!save_name.empty() || push_mode)
+		if (!save_name.empty() || push_mode || duplicate_mode)
 		{
 			RTLIL::Design *design_copy = new RTLIL::Design;
 
@@ -321,7 +332,7 @@ struct DesignPass : public Pass {
 			if (saved_designs.count(save_name))
 				delete saved_designs.at(save_name);
 
-			if (push_mode)
+			if (push_mode || duplicate_mode)
 				pushed_designs.push_back(design_copy);
 			else
 				saved_designs[save_name] = design_copy;
