@@ -374,7 +374,9 @@ hierarchical_type_id:
 	;
 
 module:
-	attr module_start TOK_ID {
+	attr TOK_MODULE {
+		enterTypeScope();
+	} TOK_ID {
 		do_not_require_port_stubs = false;
 		AstNode *mod = new AstNode(AST_MODULE);
 		ast_stack.back()->children.push_back(mod);
@@ -382,9 +384,9 @@ module:
 		current_ast_mod = mod;
 		port_stubs.clear();
 		port_counter = 0;
-		mod->str = *$3;
+		mod->str = *$4;
 		append_attr(mod, $1);
-		delete $3;
+		delete $4;
 	} module_para_opt module_args_opt ';' module_body TOK_ENDMODULE {
 		if (port_stubs.size() != 0)
 			frontend_verilog_yyerror("Missing details for module port `%s'.",
@@ -395,9 +397,6 @@ module:
 		current_ast_mod = NULL;
 		exitTypeScope();
 	};
-
-module_start: TOK_MODULE	{ enterTypeScope(); }
-	;
 
 module_para_opt:
 	'#' '(' { astbuf1 = nullptr; } module_para_list { if (astbuf1) delete astbuf1; } ')' | /* empty */;
@@ -500,21 +499,20 @@ module_arg:
 	};
 
 package:
-	attr package_start TOK_ID {
+	attr TOK_PACKAGE {
+		enterTypeScope();
+	} TOK_ID {
 		AstNode *mod = new AstNode(AST_PACKAGE);
 		ast_stack.back()->children.push_back(mod);
 		ast_stack.push_back(mod);
 		current_ast_mod = mod;
-		mod->str = *$3;
+		mod->str = *$4;
 		append_attr(mod, $1);
 	} ';' package_body TOK_ENDPACKAGE {
 		ast_stack.pop_back();
 		current_ast_mod = NULL;
 		exitTypeScope();
 	};
-
-package_start: TOK_PACKAGE	{ enterTypeScope(); }
-	;
 
 package_body:
 	package_body package_body_stmt
@@ -526,7 +524,9 @@ package_body_stmt:
 	localparam_decl;
 
 interface:
-	interface_start TOK_ID {
+	TOK_INTERFACE {
+		enterTypeScope();
+	} TOK_ID {
 		do_not_require_port_stubs = false;
 		AstNode *intf = new AstNode(AST_INTERFACE);
 		ast_stack.back()->children.push_back(intf);
@@ -534,8 +534,8 @@ interface:
 		current_ast_mod = intf;
 		port_stubs.clear();
 		port_counter = 0;
-		intf->str = *$2;
-		delete $2;
+		intf->str = *$3;
+		delete $3;
 	} module_para_opt module_args_opt ';' interface_body TOK_ENDINTERFACE {
 		if (port_stubs.size() != 0)
 			frontend_verilog_yyerror("Missing details for module port `%s'.",
@@ -545,9 +545,6 @@ interface:
 		current_ast_mod = NULL;
 		exitTypeScope();
 	};
-
-interface_start: TOK_INTERFACE	{ enterTypeScope(); }
-	;
 
 interface_body:
 	interface_body interface_body_stmt |;
@@ -2234,21 +2231,21 @@ behavioral_stmt:
 	} opt_arg_list ';'{
 		ast_stack.pop_back();
 	} |
-	attr begin opt_label {
+	attr TOK_BEGIN {
+		enterTypeScope();
+	} opt_label {
 		AstNode *node = new AstNode(AST_BLOCK);
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);
 		append_attr(node, $1);
-		if ($3 != NULL)
-			node->str = *$3;
+		if ($4 != NULL)
+			node->str = *$4;
 	} behavioral_stmt_list TOK_END opt_label {
 		exitTypeScope();
-		if ($3 != NULL && $7 != NULL && *$3 != *$7)
-			frontend_verilog_yyerror("Begin label (%s) and end label (%s) don't match.", $3->c_str()+1, $7->c_str()+1);
-		if ($3 != NULL)
-			delete $3;
-		if ($7 != NULL)
-			delete $7;
+		if ($4 != NULL && $8 != NULL && *$4 != *$8)
+			frontend_verilog_yyerror("Begin label (%s) and end label (%s) don't match.", $4->c_str()+1, $8->c_str()+1);
+		delete $4;
+		delete $8;
 		ast_stack.pop_back();
 	} |
 	attr TOK_FOR '(' {
@@ -2326,7 +2323,6 @@ behavioral_stmt:
 		ast_stack.pop_back();
 	};
 
-begin: TOK_BEGIN	{ enterTypeScope(); }
 	;
 
 unique_case_attr:
@@ -2544,17 +2540,17 @@ gen_stmt:
 		case_type_stack.pop_back();
 		ast_stack.pop_back();
 	} |
-	begin opt_label {
+	TOK_BEGIN {
+		enterTypeScope();
+	} opt_label {
 		AstNode *node = new AstNode(AST_GENBLOCK);
-		node->str = $2 ? *$2 : std::string();
+		node->str = $3 ? *$3 : std::string();
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);
 	} module_gen_body TOK_END opt_label {
 		exitTypeScope();
-		if ($2 != NULL)
-			delete $2;
-		if ($6 != NULL)
-			delete $6;
+		delete $3;
+		delete $7;
 		ast_stack.pop_back();
 	} |
 	TOK_MSG_TASKS {
