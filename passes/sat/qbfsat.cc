@@ -231,12 +231,11 @@ void assume_miter_outputs(RTLIL::Module *module) {
 
 QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 	QbfSolutionType ret;
-	std::string yosys_smtbmc_exe = proc_self_dirname() + "yosys-smtbmc";
-	std::string smtbmc_warning = "z3: WARNING:";
+	const std::string yosys_smtbmc_exe = proc_self_dirname() + "yosys-smtbmc";
+	const std::string smtbmc_warning = "z3: WARNING:";
 
-	std::string tempdir_name = "/tmp/yosys-z3-XXXXXX";
-	tempdir_name = make_temp_dir(tempdir_name);
-	std::string smt2_command = "write_smt2 -stbv -wires " + tempdir_name + "/problem.smt2";
+	const std::string tempdir_name = make_temp_dir("/tmp/yosys-z3-XXXXXX");
+	const std::string smt2_command = "write_smt2 -stbv -wires " + tempdir_name + "/problem.smt2";
 #ifndef NDEBUG
 	log_assert(mod->design != nullptr);
 #endif
@@ -244,51 +243,18 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 
 	//Execute and capture stdout from `yosys-smtbmc -s z3 -t 1 -g --binary [--dump-smt2 <file>]`
 	{
-		fflush(stdout);
-		bool keep_reading = true;
-		int status = 0;
-		int retval = 0;
-		char buf[1024] = {0};
-		std::string linebuf = "";
-		std::string cmd = yosys_smtbmc_exe + " -s z3 -t 1 -g --binary " + (opt.dump_final_smt2? "--dump-smt2 " + opt.dump_final_smt2_file + " " : "") + tempdir_name + "/problem.smt2 2>&1";
+		const std::string cmd = yosys_smtbmc_exe + " -s z3 -t 1 -g --binary " + (opt.dump_final_smt2? "--dump-smt2 " + opt.dump_final_smt2_file + " " : "") + tempdir_name + "/problem.smt2 2>&1";
+		auto process_line = [&ret, &smtbmc_warning](const std::string &line) {
+			ret.stdout.push_back(line.substr(0, line.size()-1)); //don't include trailing newline
+			auto warning_pos = line.find(smtbmc_warning);
+			if(warning_pos != std::string::npos)
+				log_warning("%s", line.substr(warning_pos + smtbmc_warning.size() + 1).c_str());
+			else
+				log("smtbmc output: %s", line.c_str());
+		};
+
 		log("Launching \"%s\".\n", cmd.c_str());
-
-#ifndef EMSCRIPTEN
-		FILE *f = popen(cmd.c_str(), "r");
-		if (f == nullptr)
-			log_cmd_error("errno %d after popen() returned NULL.\n", errno);
-		while (keep_reading) {
-			keep_reading = (fgets(buf, sizeof(buf), f) != nullptr);
-			linebuf += buf;
-			memset(buf, 0, sizeof(buf));
-
-			auto pos = linebuf.find('\n');
-			while (pos != std::string::npos) {
-				std::string line = linebuf.substr(0, pos);
-				linebuf.erase(0, pos + 1);
-				ret.stdout.push_back(line);
-				auto warning_pos = line.find(smtbmc_warning);
-				if(warning_pos != std::string::npos)
-					log_warning("%s\n", line.substr(warning_pos + smtbmc_warning.size() + 1).c_str());
-				else
-					log("smtbmc output: %s\n", line.c_str());
-
-				pos = linebuf.find('\n');
-			}
-		}
-		status = pclose(f);
-#endif
-
-		if(WIFEXITED(status)) {
-		    retval = WEXITSTATUS(status);
-		}
-		else if(WIFSIGNALED(status)) {
-		    retval = WTERMSIG(status);
-		}
-		else if(WIFSTOPPED(status)) {
-		    retval = WSTOPSIG(status);
-		}
-
+		int retval = run_command(cmd, process_line);
 		if (retval == 0) {
 			ret.sat = true;
 			ret.unknown = false;
