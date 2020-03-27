@@ -1456,10 +1456,12 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, dict<RTLIL::IdString, R
 		RTLIL::Module* mod = design->module(modname);
 
 		// Now that the interfaces have been exploded, we can delete the dummy port related to every interface.
-		pool<RTLIL::Wire*> to_remove;
 		for(auto &intf : interfaces) {
 			if(mod->wire(intf.first) != nullptr) {
+				pool<RTLIL::Wire*> to_remove;
 				to_remove.insert(mod->wire(intf.first));
+				mod->remove(to_remove);
+				mod->fixup_ports();
 				// We copy the cell of the interface to the sub-module such that it can further be found if it is propagated
 				// down to sub-sub-modules etc.
 				RTLIL::Cell * new_subcell = mod->addCell(intf.first, intf.second->name);
@@ -1469,7 +1471,6 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, dict<RTLIL::IdString, R
 				log_error("No port with matching name found (%s) in %s. Stopping\n", log_id(intf.first), modname.c_str());
 			}
 		}
-		mod->remove(to_remove);
 		mod->fixup_ports();
 
 		// If any interfaces were replaced, set the attribute 'interfaces_replaced_in_module':
