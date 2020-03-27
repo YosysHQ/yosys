@@ -49,16 +49,15 @@ struct QbfSolutionType {
 };
 
 struct QbfSolveOptions {
-	bool timeout, specialize, specialize_from_file, write_solution, nocleanup, dump_final_smt2, assume_outputs;
+	bool specialize, specialize_from_file, write_solution, nocleanup, dump_final_smt2, assume_outputs;
 	bool sat, unsat;
-	long timeout_sec;
 	std::string specialize_soln_file;
 	std::string write_soln_soln_file;
 	std::string dump_final_smt2_file;
 	size_t argidx;
-	QbfSolveOptions() : timeout(false), specialize(false), specialize_from_file(false), write_solution(false),	
+	QbfSolveOptions() : specialize(false), specialize_from_file(false), write_solution(false),
 				nocleanup(false), dump_final_smt2(false), assume_outputs(false), sat(false), unsat(false),
-				timeout_sec(-1), argidx(0) {};
+				argidx(0) {};
 };
 
 void recover_solution(QbfSolutionType &sol) {
@@ -342,15 +341,7 @@ std::set<std::string> validate_design_and_get_inputs(RTLIL::Module *module) {
 QbfSolveOptions parse_args(const std::vector<std::string> &args) {
 	QbfSolveOptions opt;
 	for (opt.argidx = 1; opt.argidx < args.size(); opt.argidx++) {
-		if (args[opt.argidx] == "-timeout") {
-			opt.timeout = true;
-			if (args.size() <= opt.argidx + 1)
-				log_cmd_error("timeout not specified.\n");
-			else
-				opt.timeout_sec = atol(args[++opt.argidx].c_str());
-			continue;
-		}
-		else if (args[opt.argidx] == "-nocleanup") {
+		if (args[opt.argidx] == "-nocleanup") {
 			opt.nocleanup = true;
 			continue;
 		}
@@ -440,9 +431,6 @@ struct QbfSatPass : public Pass {
 		log("Universally-quantified variables may be explicitly declared by assigning a wire\n");
 		log("\"$allconst\", but module inputs will be treated as universally-quantified variables\n");
 		log("by default.\n");
-		log("\n");
-		log("    -timeout <seconds>\n");
-		log("        Set the solver timeout to the specified number of seconds.\n");
 		log("\n");
 		log("    -nocleanup\n");
 		log("        Do not delete temporary files and directories.  Useful for\n");
