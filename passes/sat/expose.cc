@@ -53,7 +53,7 @@ bool consider_cell(RTLIL::Design *design, std::set<RTLIL::IdString> &dff_cells, 
 {
 	if (cell->name[0] == '$' || dff_cells.count(cell->name))
 		return false;
-	if (cell->type[0] == '\\' && !design->modules_.count(cell->type))
+	if (cell->type[0] == '\\' && (design->module(cell->type) == nullptr))
 		return false;
 	return true;
 }
@@ -314,26 +314,26 @@ struct ExposePass : public Pass {
 			RTLIL::Module *first_module = NULL;
 			std::set<RTLIL::IdString> shared_dff_wires;
 
-			for (auto &mod_it : design->modules_)
+			for (auto mod : design->modules())
 			{
-				if (!design->selected(mod_it.second))
+				if (!design->selected(mod))
 					continue;
 
-				create_dff_dq_map(dff_dq_maps[mod_it.second], design, mod_it.second);
+				create_dff_dq_map(dff_dq_maps[mod], design, mod);
 
 				if (!flag_shared)
 					continue;
 
 				if (first_module == NULL) {
-					for (auto &it : dff_dq_maps[mod_it.second])
+					for (auto &it : dff_dq_maps[mod])
 						shared_dff_wires.insert(it.first);
-					first_module = mod_it.second;
+					first_module = mod;
 				} else {
 					std::set<RTLIL::IdString> new_shared_dff_wires;
 					for (auto &it : shared_dff_wires) {
-						if (!dff_dq_maps[mod_it.second].count(it))
+						if (!dff_dq_maps[mod].count(it))
 							continue;
-						if (!compare_wires(first_module->wires_.at(it), mod_it.second->wires_.at(it)))
+						if (!compare_wires(first_module->wires_.at(it), mod->wires_.at(it)))
 							continue;
 						new_shared_dff_wires.insert(it);
 					}
@@ -364,10 +364,8 @@ struct ExposePass : public Pass {
 		{
 			RTLIL::Module *first_module = NULL;
 
-			for (auto &mod_it : design->modules_)
+			for (auto module : design->modules())
 			{
-				RTLIL::Module *module = mod_it.second;
-
 				if (!design->selected(module))
 					continue;
 
