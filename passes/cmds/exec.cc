@@ -27,6 +27,7 @@
 #  define WIFSTOPPED(x) 0
 #  define WEXITSTATUS(x) ((x) & 0xff)
 #  define WTERMSIG(x) SIGTERM
+#  define WSTOPSIG(x) 0
 #else
 #  include <sys/wait.h>
 #endif
