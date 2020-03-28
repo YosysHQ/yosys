@@ -22,6 +22,7 @@
 #include <cstdio>
 
 #if defined(_WIN32)
+#  include <csignal>
 #  define WIFEXITED(x) 1
 #  define WIFSIGNALED(x) 0
 #  define WIFSTOPPED(x) 0
