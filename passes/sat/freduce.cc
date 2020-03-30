@@ -828,9 +828,8 @@ struct FreducePass : public Pass {
 		extra_args(args, argidx, design);
 
 		int bitcount = 0;
-		for (auto module : design->modules()) {
-			if (design->selected(module))
-				bitcount += FreduceWorker(design, module).run();
+		for (auto module : design->selected_modules()) {
+			bitcount += FreduceWorker(design, module).run();
 		}
 
 		log("Rewired a total of %d signal bits.\n", bitcount);
