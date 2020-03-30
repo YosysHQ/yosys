@@ -96,7 +96,7 @@ void find_dff_wires(std::set<RTLIL::IdString> &dff_wires, RTLIL::Module *module)
 	}
 }
 
-void create_dff_dq_map(std::map<RTLIL::IdString, dff_map_info_t> &map, RTLIL::Design *design, RTLIL::Module *module)
+void create_dff_dq_map(std::map<RTLIL::IdString, dff_map_info_t> &map, RTLIL::Module *module)
 {
 	std::map<RTLIL::SigBit, dff_map_bit_info_t> bit_info;
 	SigMap sigmap(module);
@@ -313,7 +313,7 @@ struct ExposePass : public Pass {
 
 			for (auto mod : design->selected_modules())
 			{
-				create_dff_dq_map(dff_dq_maps[mod], design, mod);
+				create_dff_dq_map(dff_dq_maps[mod], mod);
 
 				if (!flag_shared)
 					continue;
