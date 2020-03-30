@@ -665,9 +665,7 @@ struct MemoryShareWorker
 	// Setup and run
 	// -------------
 
-	MemoryShareWorker(RTLIL::Design *design) :
-			design(design), modwalker(design)
-	{
+	MemoryShareWorker(RTLIL::Design *design) : design(design), modwalker(design) {}
 	}
 
 	void operator()(RTLIL::Module* module)
@@ -764,7 +762,6 @@ struct MemorySharePass : public Pass {
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE {
 		log_header(design, "Executing MEMORY_SHARE pass (consolidating $memrd/$memwr cells).\n");
 		extra_args(args, 1, design);
-
 		MemoryShareWorker msw(design);
 
 		for (auto module : design->selected_modules())

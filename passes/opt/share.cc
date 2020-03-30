@@ -1148,11 +1148,10 @@ struct ShareWorker
 	#endif
 
 		limit = config.limit;
-
 		modwalker.setup(module);
 
 		cells_to_remove.clear();
-		recursion_state.clear();;
+		recursion_state.clear();
 		topo_cell_drivers.clear();
 		topo_bit_drivers.clear();
 		exclusive_ctrls.clear();
