@@ -666,7 +666,6 @@ struct MemoryShareWorker
 	// -------------
 
 	MemoryShareWorker(RTLIL::Design *design) : design(design), modwalker(design) {}
-	}
 
 	void operator()(RTLIL::Module* module)
 	{
