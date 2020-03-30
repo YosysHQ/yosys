@@ -952,6 +952,9 @@ struct RTLIL::Monitor
 	virtual void notify_blackout(RTLIL::Module*) { }
 };
 
+// Forward declaration; defined in preproc.h.
+struct define_map_t;
+
 struct RTLIL::Design
 {
 	unsigned int hashidx_;
@@ -963,7 +966,7 @@ struct RTLIL::Design
 	int refcount_modules_;
 	dict<RTLIL::IdString, RTLIL::Module*> modules_;
 	std::vector<AST::AstNode*> verilog_packages, verilog_globals;
-	dict<std::string, std::pair<std::string, bool>> verilog_defines;
+	std::unique_ptr<define_map_t> verilog_defines;
 
 	std::vector<RTLIL::Selection> selection_stack;
 	dict<RTLIL::IdString, RTLIL::Selection> selection_vars;

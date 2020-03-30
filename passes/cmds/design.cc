@@ -18,6 +18,7 @@
  */
 
 #include "kernel/yosys.h"
+#include "frontends/verilog/preproc.h"
 #include "frontends/ast/ast.h"
 
 YOSYS_NAMESPACE_BEGIN
@@ -346,7 +347,7 @@ struct DesignPass : public Pass {
 				delete node;
 			design->verilog_globals.clear();
 
-			design->verilog_defines.clear();
+			design->verilog_defines->clear();
 		}
 
 		if (!load_name.empty() || pop_mode)
