@@ -42,11 +42,10 @@ void generate(RTLIL::Design *design, const std::vector<std::string> &celltypes, 
 {
 	std::set<RTLIL::IdString> found_celltypes;
 
-	for (auto i1 : design->modules_)
-	for (auto i2 : i1.second->cells_)
+	for (auto mod : design->modules())
+	for (auto cell : mod->cells())
 	{
-		RTLIL::Cell *cell = i2.second;
-		if (design->has(cell->type))
+		if (design->module(cell->type) != nullptr)
 			continue;
 		if (cell->type.begins_with("$__"))
 			continue;
@@ -62,15 +61,15 @@ void generate(RTLIL::Design *design, const std::vector<std::string> &celltypes, 
 		std::map<RTLIL::IdString, int> portwidths;
 		log("Generate module for cell type %s:\n", celltype.c_str());
 
-		for (auto i1 : design->modules_)
-		for (auto i2 : i1.second->cells_)
-			if (i2.second->type == celltype) {
-				for (auto &conn : i2.second->connections()) {
+		for (auto mod : design->modules())
+		for (auto cell : mod->cells())
+			if (cell->type == celltype) {
+				for (auto &conn : cell->connections()) {
 					if (conn.first[0] != '$')
 						portnames.insert(conn.first);
 					portwidths[conn.first] = max(portwidths[conn.first], conn.second.size());
 				}
-				for (auto &para : i2.second->parameters)
+				for (auto &para : cell->parameters)
 					parameters.insert(para.first);
 			}
 
@@ -168,26 +167,24 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 	// If any of the ports are actually interface ports, we will always need to
 	// reprocess the module:
 	if(!module->get_bool_attribute("\\interfaces_replaced_in_module")) {
-		for (auto &wire : module->wires_) {
-			if ((wire.second->port_input || wire.second->port_output) && wire.second->get_bool_attribute("\\is_interface"))
+		for (auto wire : module->wires()) {
+			if ((wire->port_input || wire->port_output) && wire->get_bool_attribute("\\is_interface"))
 				has_interface_ports = true;
 		}
 	}
 
 	// Always keep track of all derived interfaces available in the current module in 'interfaces_in_module':
 	dict<RTLIL::IdString, RTLIL::Module*> interfaces_in_module;
-	for (auto &cell_it : module->cells_)
+	for (auto cell : module->cells())
 	{
-		RTLIL::Cell *cell = cell_it.second;
 		if(cell->get_bool_attribute("\\is_interface")) {
-			RTLIL::Module *intf_module = design->modules_[cell->type];
+			RTLIL::Module *intf_module = design->module(cell->type);
 			interfaces_in_module[cell->name] = intf_module;
 		}
 	}
 
-	for (auto &cell_it : module->cells_)
+	for (auto cell : module->cells())
 	{
-		RTLIL::Cell *cell = cell_it.second;
 		bool has_interfaces_not_found = false;
 
 		std::vector<RTLIL::IdString> connections_to_remove;
@@ -208,11 +205,11 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 		dict<RTLIL::IdString, RTLIL::Module*> interfaces_to_add_to_submodule;
 		dict<RTLIL::IdString, RTLIL::IdString> modports_used_in_submodule;
 
-		if (design->modules_.count(cell->type) == 0)
+		if (design->module(cell->type) == nullptr)
 		{
-			if (design->modules_.count("$abstract" + cell->type.str()))
+			if (design->module("$abstract" + cell->type.str()) != nullptr)
 			{
-				cell->type = design->modules_.at("$abstract" + cell->type.str())->derive(design, cell->parameters);
+				cell->type = design->module("$abstract" + cell->type.str())->derive(design, cell->parameters);
 				cell->parameters.clear();
 				did_something = true;
 				continue;
@@ -246,7 +243,7 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 			continue;
 
 		loaded_module:
-			if (design->modules_.count(cell->type) == 0)
+			if (design->module(cell->type) == nullptr)
 				log_error("File `%s' from libdir does not declare module `%s'.\n", filename.c_str(), cell->type.c_str());
 			did_something = true;
 		} else {
@@ -256,7 +253,7 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 		// Go over all connections and see if any of them are SV interfaces. If they are, then add the replacements to
 		// some lists, so that the ports for sub-modules can be replaced further down:
 		for (auto &conn : cell->connections()) {
-			if(mod->wires_.count(conn.first) != 0 && mod->wire(conn.first)->get_bool_attribute("\\is_interface")) { // Check if the connection is present as an interface in the sub-module's port list
+			if(mod->wire(conn.first) != nullptr && mod->wire(conn.first)->get_bool_attribute("\\is_interface")) { // Check if the connection is present as an interface in the sub-module's port list
 				//const pool<string> &interface_type_pool = mod->wire(conn.first)->get_strpool_attribute("\\interface_type");
 				//for (auto &d : interface_type_pool) { // TODO: Compare interface type to type in parent module (not crucially important, but good for robustness)
 				//}
@@ -285,11 +282,11 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 							if (nexactmatch != 0) // Choose the one with the plain name if it exists
 								interface_name2 = interface_name;
 							RTLIL::Module *mod_replace_ports = interfaces_in_module.at(interface_name2);
-							for (auto &mod_wire : mod_replace_ports->wires_) { // Go over all wires in interface, and add replacements to lists.
-								std::string signal_name1 = conn.first.str() + "." + log_id(mod_wire.first);
-								std::string signal_name2 = interface_name.str() + "." + log_id(mod_wire.first);
+							for (auto mod_wire : mod_replace_ports->wires()) { // Go over all wires in interface, and add replacements to lists.
+								std::string signal_name1 = conn.first.str() + "." + log_id(mod_wire->name);
+								std::string signal_name2 = interface_name.str() + "." + log_id(mod_wire);
 								connections_to_add_name.push_back(RTLIL::IdString(signal_name1));
-								if(module->wires_.count(signal_name2) == 0) {
+								if(module->wire(signal_name2) == nullptr) {
 									log_error("Could not find signal '%s' in '%s'\n", signal_name2.c_str(), log_id(module->name));
 								}
 								else {
@@ -344,9 +341,9 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 
 		}
 		}
-		RTLIL::Module *mod = design->modules_[cell->type];
+		RTLIL::Module *mod = design->module(cell->type);
 
-		if (design->modules_.at(cell->type)->get_blackbox_attribute()) {
+		if (design->module(cell->type)->get_blackbox_attribute()) {
 			if (flag_simcheck)
 				log_error("Module `%s' referenced in module `%s' in cell `%s' is a blackbox/whitebox module.\n",
 						cell->type.c_str(), module->name.c_str(), cell->name.c_str());
@@ -389,7 +386,7 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 			// an interface instance:
 			if (mod->get_bool_attribute("\\is_interface") && cell->get_bool_attribute("\\module_not_derived")) {
 				cell->set_bool_attribute("\\is_interface");
-				RTLIL::Module *derived_module = design->modules_[cell->type];
+				RTLIL::Module *derived_module = design->module(cell->type);
 				interfaces_in_module[cell->name] = derived_module;
 				did_something = true;
 			}
@@ -414,25 +411,25 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 		RTLIL::Cell *cell = it.first;
 		int idx = it.second.first, num = it.second.second;
 
-		if (design->modules_.count(cell->type) == 0)
+		if (design->module(cell->type) == nullptr)
 			log_error("Array cell `%s.%s' of unknown type `%s'.\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
 
-		RTLIL::Module *mod = design->modules_[cell->type];
+		RTLIL::Module *mod = design->module(cell->type);
 
 		for (auto &conn : cell->connections_) {
 			int conn_size = conn.second.size();
 			RTLIL::IdString portname = conn.first;
 			if (portname.begins_with("$")) {
 				int port_id = atoi(portname.substr(1).c_str());
-				for (auto &wire_it : mod->wires_)
-					if (wire_it.second->port_id == port_id) {
-						portname = wire_it.first;
+				for (auto wire : mod->wires())
+					if (wire->port_id == port_id) {
+						portname = wire->name;
 						break;
 					}
 			}
-			if (mod->wires_.count(portname) == 0)
+			if (mod->wire(portname) == nullptr)
 				log_error("Array cell `%s.%s' connects to unknown port `%s'.\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(conn.first));
-			int port_size = mod->wires_.at(portname)->width;
+			int port_size = mod->wire(portname)->width;
 			if (conn_size == port_size || conn_size == 0)
 				continue;
 			if (conn_size != port_size*num)
@@ -470,21 +467,21 @@ void hierarchy_clean(RTLIL::Design *design, RTLIL::Module *top, bool purge_lib)
 	hierarchy_worker(design, used, top, 0);
 
 	std::vector<RTLIL::Module*> del_modules;
-	for (auto &it : design->modules_)
-		if (used.count(it.second) == 0)
-			del_modules.push_back(it.second);
+	for (auto mod : design->modules())
+		if (used.count(mod) == 0)
+			del_modules.push_back(mod);
 		else {
 			// Now all interface ports must have been exploded, and it is hence
 			// safe to delete all of the remaining dummy interface ports:
 			pool<RTLIL::Wire*> del_wires;
-			for(auto &wire : it.second->wires_) {
-				if ((wire.second->port_input || wire.second->port_output) && wire.second->get_bool_attribute("\\is_interface")) {
-					del_wires.insert(wire.second);
+			for(auto wire : mod->wires()) {
+				if ((wire->port_input || wire->port_output) && wire->get_bool_attribute("\\is_interface")) {
+					del_wires.insert(wire);
 				}
 			}
 			if (del_wires.size() > 0) {
-				it.second->remove(del_wires);
-				it.second->fixup_ports();
+				mod->remove(del_wires);
+				mod->fixup_ports();
 			}
 		}
 
@@ -493,9 +490,8 @@ void hierarchy_clean(RTLIL::Design *design, RTLIL::Module *top, bool purge_lib)
 		if (!purge_lib && mod->get_blackbox_attribute())
 			continue;
 		log("Removing unused module `%s'.\n", mod->name.c_str());
-		design->modules_.erase(mod->name);
+		design->remove(mod);
 		del_counter++;
-		delete mod;
 	}
 
 	log("Removed %d unused modules.\n", del_counter);
@@ -817,9 +813,9 @@ struct HierarchyPass : public Pass {
 		log_push();
 
 		if (top_mod == nullptr)
-			for (auto &mod_it : design->modules_)
-				if (mod_it.second->get_bool_attribute("\\top"))
-					top_mod = mod_it.second;
+			for (auto mod : design->modules())
+				if (mod->get_bool_attribute("\\top"))
+					top_mod = mod;
 
 		if (top_mod != nullptr && top_mod->name.begins_with("$abstract")) {
 			IdString top_name = top_mod->name.substr(strlen("$abstract"));
@@ -862,11 +858,11 @@ struct HierarchyPass : public Pass {
 			log_error("Design has no top module.\n");
 
 		if (top_mod != NULL) {
-			for (auto &mod_it : design->modules_)
-				if (mod_it.second == top_mod)
-					mod_it.second->attributes["\\initial_top"] = RTLIL::Const(1);
+			for (auto mod : design->modules())
+				if (mod == top_mod)
+					mod->attributes["\\initial_top"] = RTLIL::Const(1);
 				else
-					mod_it.second->attributes.erase("\\initial_top");
+					mod->attributes.erase("\\initial_top");
 		}
 
 		bool did_something = true;
@@ -900,9 +896,9 @@ struct HierarchyPass : public Pass {
 
 			// Delete modules marked as 'to_delete':
 			std::vector<RTLIL::Module *> modules_to_delete;
-			for(auto &mod_it : design->modules_) {
-				if (mod_it.second->get_bool_attribute("\\to_delete")) {
-					modules_to_delete.push_back(mod_it.second);
+			for(auto mod : design->modules()) {
+				if (mod->get_bool_attribute("\\to_delete")) {
+					modules_to_delete.push_back(mod);
 				}
 			}
 			for(size_t i=0; i<modules_to_delete.size(); i++) {
@@ -917,12 +913,12 @@ struct HierarchyPass : public Pass {
 		}
 
 		if (top_mod != NULL) {
-			for (auto &mod_it : design->modules_) {
-				if (mod_it.second == top_mod)
-					mod_it.second->attributes["\\top"] = RTLIL::Const(1);
+			for (auto mod : design->modules()) {
+				if (mod == top_mod)
+					mod->attributes["\\top"] = RTLIL::Const(1);
 				else
-					mod_it.second->attributes.erase("\\top");
-				mod_it.second->attributes.erase("\\initial_top");
+					mod->attributes.erase("\\top");
+				mod->attributes.erase("\\initial_top");
 			}
 		}
 
@@ -941,22 +937,20 @@ struct HierarchyPass : public Pass {
 			std::map<std::pair<RTLIL::Module*,int>, RTLIL::IdString> pos_map;
 			std::vector<std::pair<RTLIL::Module*,RTLIL::Cell*>> pos_work;
 
-			for (auto &mod_it : design->modules_)
-			for (auto &cell_it : mod_it.second->cells_) {
-				RTLIL::Cell *cell = cell_it.second;
-				if (design->modules_.count(cell->type) == 0)
+			for (auto mod : design->modules())
+			for (auto cell : mod->cells()) {
+				if (design->module(cell->type) == nullptr)
 					continue;
 				for (auto &conn : cell->connections())
 					if (conn.first[0] == '$' && '0' <= conn.first[1] && conn.first[1] <= '9') {
-						pos_mods.insert(design->modules_.at(cell->type));
-						pos_work.push_back(std::pair<RTLIL::Module*,RTLIL::Cell*>(mod_it.second, cell));
+						pos_mods.insert(design->module(cell->type));
+						pos_work.push_back(std::pair<RTLIL::Module*,RTLIL::Cell*>(mod, cell));
 						break;
 					}
 			}
 
 			for (auto module : pos_mods)
-			for (auto &wire_it : module->wires_) {
-				RTLIL::Wire *wire = wire_it.second;
+			for (auto wire : module->wires()) {
 				if (wire->port_id > 0)
 					pos_map[std::pair<RTLIL::Module*,int>(module, wire->port_id)] = wire->name;
 			}
@@ -970,7 +964,7 @@ struct HierarchyPass : public Pass {
 				for (auto &conn : cell->connections())
 					if (conn.first[0] == '$' && '0' <= conn.first[1] && conn.first[1] <= '9') {
 						int id = atoi(conn.first.c_str()+1);
-						std::pair<RTLIL::Module*,int> key(design->modules_.at(cell->type), id);
+						std::pair<RTLIL::Module*,int> key(design->module(cell->type), id);
 						if (pos_map.count(key) == 0) {
 							log("  Failed to map positional argument %d of cell %s.%s (%s).\n",
 									id, RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
