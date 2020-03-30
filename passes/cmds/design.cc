@@ -200,7 +200,7 @@ struct DesignPass : public Pass {
 					continue;
 				}
 				if (sel.selected_module(mod->name))
-					log_cmd_error("Module %s is only partly selected.\n", RTLIL::id2cstr(mod->name));
+					log_cmd_error("Module %s is only partly selected.\n", log_id(mod->name));
 			}
 
 			if (import_mode) {
