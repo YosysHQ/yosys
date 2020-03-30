@@ -31,7 +31,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 bool did_something;
 
-void replace_undriven(RTLIL::Module *module, const CellTypes& ct)
+void replace_undriven(RTLIL::Module *module, const CellTypes &ct)
 {
 	SigMap sigmap(module);
 	SigPool driven_signals;

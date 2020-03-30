@@ -670,12 +670,12 @@ struct MemoryShareWorker
 
 	void operator()(RTLIL::Module* module)
 	{
+		std::map<std::string, std::pair<std::vector<RTLIL::Cell*>, std::vector<RTLIL::Cell*>>> memindex;
+
 		this->module = module;
 		sigmap.set(module);
 		sig_to_mux.clear();
 		conditions_logic_cache.clear();
-
-		std::map<std::string, std::pair<std::vector<RTLIL::Cell*>, std::vector<RTLIL::Cell*>>> memindex;
 
 		sigmap_xmux = sigmap;
 		for (auto cell : module->cells())
