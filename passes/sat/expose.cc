@@ -101,11 +101,8 @@ void create_dff_dq_map(std::map<RTLIL::IdString, dff_map_info_t> &map, RTLIL::De
 	std::map<RTLIL::SigBit, dff_map_bit_info_t> bit_info;
 	SigMap sigmap(module);
 
-	for (auto cell : module->cells())
+	for (auto cell : module->selected_cells())
 	{
-		if (!design->selected(module, cell))
-			continue;
-
 		dff_map_bit_info_t info;
 		info.bit_d = RTLIL::State::Sm;
 		info.bit_clk = RTLIL::State::Sm;
@@ -314,11 +311,8 @@ struct ExposePass : public Pass {
 			RTLIL::Module *first_module = NULL;
 			std::set<RTLIL::IdString> shared_dff_wires;
 
-			for (auto mod : design->modules())
+			for (auto mod : design->selected_modules())
 			{
-				if (!design->selected(mod))
-					continue;
-
 				create_dff_dq_map(dff_dq_maps[mod], design, mod);
 
 				if (!flag_shared)
@@ -364,11 +358,8 @@ struct ExposePass : public Pass {
 		{
 			RTLIL::Module *first_module = NULL;
 
-			for (auto module : design->modules())
+			for (auto module : design->selected_modules())
 			{
-				if (!design->selected(module))
-					continue;
-
 				std::set<RTLIL::IdString> dff_wires;
 				if (flag_dff)
 					find_dff_wires(dff_wires, module);
@@ -444,11 +435,8 @@ struct ExposePass : public Pass {
 			}
 		}
 
-		for (auto module : design->modules())
+		for (auto module : design->selected_modules())
 		{
-			if (!design->selected(module))
-				continue;
-
 			std::set<RTLIL::IdString> dff_wires;
 			if (flag_dff && !flag_shared)
 				find_dff_wires(dff_wires, module);
