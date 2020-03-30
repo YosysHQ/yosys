@@ -54,7 +54,7 @@ namespace VERILOG_FRONTEND {
 	std::map<std::string, AstNode*> *attr_list, default_attr_list;
 	std::stack<std::map<std::string, AstNode*> *> attr_list_stack;
 	std::map<std::string, AstNode*> *albuf;
-	std::map<std::string, AstNode*> user_types;
+	std::vector<UserTypeMap*> user_type_stack;
 	std::map<std::string, AstNode*> pkg_user_types;
 	std::vector<AstNode*> ast_stack;
 	struct AstNode *astbuf1, *astbuf2, *astbuf3;
@@ -130,14 +130,10 @@ struct specify_rise_fall {
 static void addTypedefNode(std::string *name, AstNode *node)
 {
 	log_assert(node);
-	// seems to be support for local scoped typedefs in simplify()
-	// and tests redefine types.
-	//if (user_types.count(*name) > 0) {
-	//	frontend_verilog_yyerror("Type already defined.");
-	//}
 	auto *tnode = new AstNode(AST_TYPEDEF, node);
 	tnode->str = *name;
-	user_types[*name] = tnode;
+	auto user_types = user_type_stack.back();
+	(*user_types)[*name] = tnode;
 	if (current_ast_mod && current_ast_mod->type == AST_PACKAGE) {
 		// typedef inside a package so we need the qualified name
 		auto qname = current_ast_mod->str + "::" + (*name).substr(1);
@@ -145,6 +141,24 @@ static void addTypedefNode(std::string *name, AstNode *node)
 	}
 	delete name;
 	ast_stack.back()->children.push_back(tnode);
+}
+
+static void enterTypeScope()
+{
+	auto user_types = new UserTypeMap();
+	user_type_stack.push_back(user_types);
+}
+
+static void exitTypeScope()
+{
+	user_type_stack.pop_back();
+}
+
+static bool isInLocalScope(const std::string *name)
+{
+	// tests if a name was declared in the current block scope
+	auto user_types = user_type_stack.back();
+	return (user_types->count(*name) > 0);
 }
 
 static AstNode *makeRange(int msb = 31, int lsb = 0, bool isSigned = true)
@@ -189,7 +203,7 @@ static void addRange(AstNode *parent, int msb = 31, int lsb = 0, bool isSigned =
 %token <string> TOK_STRING TOK_ID TOK_CONSTVAL TOK_REALVAL TOK_PRIMITIVE
 %token <string> TOK_SVA_LABEL TOK_SPECIFY_OPER TOK_MSG_TASKS
 %token <string> TOK_BASE TOK_BASED_CONSTVAL TOK_UNBASED_UNSIZED_CONSTVAL
-%token <string> TOK_USER_TYPE
+%token <string> TOK_USER_TYPE TOK_PKG_USER_TYPE
 %token TOK_ASSERT TOK_ASSUME TOK_RESTRICT TOK_COVER TOK_FINAL
 %token ATTR_BEGIN ATTR_END DEFATTR_BEGIN DEFATTR_END
 %token TOK_MODULE TOK_ENDMODULE TOK_PARAMETER TOK_LOCALPARAM TOK_DEFPARAM
@@ -355,11 +369,14 @@ hierarchical_id:
 
 hierarchical_type_id:
 	TOK_USER_TYPE
+	| TOK_PKG_USER_TYPE				// package qualified type name
 	| '(' TOK_USER_TYPE ')'	{ $$ = $2; }		// non-standard grammar
 	;
 
 module:
-	attr TOK_MODULE TOK_ID {
+	attr TOK_MODULE {
+		enterTypeScope();
+	} TOK_ID {
 		do_not_require_port_stubs = false;
 		AstNode *mod = new AstNode(AST_MODULE);
 		ast_stack.back()->children.push_back(mod);
@@ -367,9 +384,9 @@ module:
 		current_ast_mod = mod;
 		port_stubs.clear();
 		port_counter = 0;
-		mod->str = *$3;
+		mod->str = *$4;
 		append_attr(mod, $1);
-		delete $3;
+		delete $4;
 	} module_para_opt module_args_opt ';' module_body TOK_ENDMODULE {
 		if (port_stubs.size() != 0)
 			frontend_verilog_yyerror("Missing details for module port `%s'.",
@@ -378,7 +395,7 @@ module:
 		ast_stack.pop_back();
 		log_assert(ast_stack.size() == 1);
 		current_ast_mod = NULL;
-		user_types.clear();
+		exitTypeScope();
 	};
 
 module_para_opt:
@@ -482,17 +499,19 @@ module_arg:
 	};
 
 package:
-	attr TOK_PACKAGE TOK_ID {
+	attr TOK_PACKAGE {
+		enterTypeScope();
+	} TOK_ID {
 		AstNode *mod = new AstNode(AST_PACKAGE);
 		ast_stack.back()->children.push_back(mod);
 		ast_stack.push_back(mod);
 		current_ast_mod = mod;
-		mod->str = *$3;
+		mod->str = *$4;
 		append_attr(mod, $1);
 	} ';' package_body TOK_ENDPACKAGE {
 		ast_stack.pop_back();
 		current_ast_mod = NULL;
-		user_types.clear();
+		exitTypeScope();
 	};
 
 package_body:
@@ -505,7 +524,9 @@ package_body_stmt:
 	localparam_decl;
 
 interface:
-	TOK_INTERFACE TOK_ID {
+	TOK_INTERFACE {
+		enterTypeScope();
+	} TOK_ID {
 		do_not_require_port_stubs = false;
 		AstNode *intf = new AstNode(AST_INTERFACE);
 		ast_stack.back()->children.push_back(intf);
@@ -513,8 +534,8 @@ interface:
 		current_ast_mod = intf;
 		port_stubs.clear();
 		port_counter = 0;
-		intf->str = *$2;
-		delete $2;
+		intf->str = *$3;
+		delete $3;
 	} module_para_opt module_args_opt ';' interface_body TOK_ENDINTERFACE {
 		if (port_stubs.size() != 0)
 			frontend_verilog_yyerror("Missing details for module port `%s'.",
@@ -522,7 +543,7 @@ interface:
 		ast_stack.pop_back();
 		log_assert(ast_stack.size() == 1);
 		current_ast_mod = NULL;
-		user_types.clear();
+		exitTypeScope();
 	};
 
 interface_body:
@@ -1621,7 +1642,7 @@ assign_expr:
 	};
 
 type_name: TOK_ID		// first time seen
-	 | TOK_USER_TYPE	// redefinition
+	 | TOK_USER_TYPE	{ if (isInLocalScope($1)) frontend_verilog_yyerror("Duplicate declaration of TYPEDEF '%s'", $1->c_str()+1); }
 	 ;
 
 typedef_decl:
@@ -2210,20 +2231,21 @@ behavioral_stmt:
 	} opt_arg_list ';'{
 		ast_stack.pop_back();
 	} |
-	attr TOK_BEGIN opt_label {
+	attr TOK_BEGIN {
+		enterTypeScope();
+	} opt_label {
 		AstNode *node = new AstNode(AST_BLOCK);
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);
 		append_attr(node, $1);
-		if ($3 != NULL)
-			node->str = *$3;
+		if ($4 != NULL)
+			node->str = *$4;
 	} behavioral_stmt_list TOK_END opt_label {
-		if ($3 != NULL && $7 != NULL && *$3 != *$7)
-			frontend_verilog_yyerror("Begin label (%s) and end label (%s) don't match.", $3->c_str()+1, $7->c_str()+1);
-		if ($3 != NULL)
-			delete $3;
-		if ($7 != NULL)
-			delete $7;
+		exitTypeScope();
+		if ($4 != NULL && $8 != NULL && *$4 != *$8)
+			frontend_verilog_yyerror("Begin label (%s) and end label (%s) don't match.", $4->c_str()+1, $8->c_str()+1);
+		delete $4;
+		delete $8;
 		ast_stack.pop_back();
 	} |
 	attr TOK_FOR '(' {
@@ -2300,6 +2322,8 @@ behavioral_stmt:
 		case_type_stack.pop_back();
 		ast_stack.pop_back();
 	};
+
+	;
 
 unique_case_attr:
 	/* empty */ {
@@ -2516,16 +2540,17 @@ gen_stmt:
 		case_type_stack.pop_back();
 		ast_stack.pop_back();
 	} |
-	TOK_BEGIN opt_label {
+	TOK_BEGIN {
+		enterTypeScope();
+	} opt_label {
 		AstNode *node = new AstNode(AST_GENBLOCK);
-		node->str = $2 ? *$2 : std::string();
+		node->str = $3 ? *$3 : std::string();
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);
 	} module_gen_body TOK_END opt_label {
-		if ($2 != NULL)
-			delete $2;
-		if ($6 != NULL)
-			delete $6;
+		exitTypeScope();
+		delete $3;
+		delete $7;
 		ast_stack.pop_back();
 	} |
 	TOK_MSG_TASKS {

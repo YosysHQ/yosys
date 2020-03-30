@@ -45,8 +45,9 @@ namespace VERILOG_FRONTEND
 	// this function converts a Verilog constant to an AST_CONSTANT node
 	AST::AstNode *const2ast(std::string code, char case_type = 0, bool warn_z = false);
 
-	// names of locally typedef'ed types
-	extern std::map<std::string, AST::AstNode*> user_types;
+	// names of locally typedef'ed types in a stack
+	typedef std::map<std::string, AST::AstNode*> UserTypeMap;
+	extern std::vector<UserTypeMap *> user_type_stack;
 
 	// names of package typedef'ed types
 	extern std::map<std::string, AST::AstNode*> pkg_user_types;
