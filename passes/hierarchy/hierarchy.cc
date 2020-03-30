@@ -492,7 +492,6 @@ void hierarchy_clean(RTLIL::Design *design, RTLIL::Module *top, bool purge_lib)
 		log("Removing unused module `%s'.\n", mod->name.c_str());
 		design->remove(mod);
 		del_counter++;
-		delete mod;
 	}
 
 	log("Removed %d unused modules.\n", del_counter);
