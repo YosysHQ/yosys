@@ -1727,7 +1727,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		}
 		did_something = true;
 		newNode = new AstNode(AST_CASE, shift_expr);
-		for (int i = 0; i <= source_width-result_width; i++) {
+		for (int i = 0; i < source_width; i++) {
 			int start_bit = children[0]->id2ast->range_right + i;
 			AstNode *cond = new AstNode(AST_COND, mkconst_int(start_bit, true));
 			AstNode *lvalue = children[0]->clone();
