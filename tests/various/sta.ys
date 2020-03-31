@@ -1,0 +1,15 @@
+read_verilog -specify <<EOT
+module buffer(input i, output o);
+specify
+(i => o) = 10;
+endspecify
+endmodule
+
+module top(input i);
+wire w;
+buffer b(.i(i), .o(w));
+endmodule
+EOT
+
+logger -expect warning "Critical-path does not terminate in a recognised endpoint\." 1
+sta

@@ -171,10 +171,10 @@ struct StaWorker
 
 					data[dst_bit].backtrack = b;
 					data[dst_bit].src_port = std::get<2>(d);
-				}
-				auto it = endpoints.find(dst_bit);
-				if (it != endpoints.end()) {
-					new_arrival += it->second.required;
+
+					auto it = endpoints.find(dst_bit);
+					if (it != endpoints.end())
+						new_arrival += it->second.required;
 					if (new_arrival > maxarrival) {
 						maxarrival = new_arrival;
 						maxbit = dst_bit;
@@ -185,26 +185,26 @@ struct StaWorker
 
 		log("Latest arrival time in '%s' is %d:\n", log_id(module), maxarrival);
 		auto b = maxbit;
-		const auto &e = endpoints.at(maxbit);
-		if (e.sink)
-			log("  %6d %s (%s.%s)\n", maxarrival, log_id(e.sink), log_id(e.sink->type), log_id(e.port));
-		else if (b.wire->port_output)
-			log("  %6d (%s)\n", maxarrival, "<primary output>");
-		else
-			log_abort();
-		auto it = data.find(b);
-		while (it != data.end()) {
+		auto it = endpoints.find(maxbit);
+		if (it != endpoints.end() && it->second.sink)
+			log("  %6d %s (%s.%s)\n", maxarrival, log_id(it->second.sink), log_id(it->second.sink->type), log_id(it->second.port));
+		else {
+			log("  %6d (%s)\n", maxarrival, b.wire->port_output ? "<primary output>" : "<unknown>");
+			log_warning("Critical-path does not terminate in a recognised endpoint.\n");
+		}
+		auto jt = data.find(b);
+		while (jt != data.end()) {
 			int arrival = b.wire->get_intvec_attribute(ID(sta_arrival))[b.offset];
-			if (it->second.driver) {
+			if (jt->second.driver) {
 				log("           %s\n", log_signal(b));
-				log("  %6d %s (%s.%s->%s)\n", arrival, log_id(it->second.driver), log_id(it->second.driver->type), log_id(it->second.src_port), log_id(it->second.dst_port));
+				log("  %6d %s (%s.%s->%s)\n", arrival, log_id(jt->second.driver), log_id(jt->second.driver->type), log_id(jt->second.src_port), log_id(jt->second.dst_port));
 			}
 			else if (b.wire->port_input)
 				log("  %6d   %s (%s)\n", arrival, log_signal(b), "<primary input>");
 			else
 				log_abort();
-			b = it->second.backtrack;
-			it = data.find(b);
+			b = jt->second.backtrack;
+			jt = data.find(b);
 		}
 
 		std::map<int, unsigned> arrival_histogram;
