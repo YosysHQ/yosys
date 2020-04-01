@@ -171,13 +171,12 @@ struct EdifBackend : public Backend {
 		extra_args(f, filename, args, argidx);
 
 		if (top_module_name.empty())
-			for (auto & mod_it:design->modules_)
-				if (mod_it.second->get_bool_attribute("\\top"))
-					top_module_name = mod_it.first.str();
+			for (auto module : design->modules())
+				if (module->get_bool_attribute("\\top"))
+					top_module_name = module->name.str();
 
-		for (auto module_it : design->modules_)
+		for (auto module : design->modules())
 		{
-			RTLIL::Module *module = module_it.second;
 			if (module->get_blackbox_attribute())
 				continue;
 
@@ -185,14 +184,13 @@ struct EdifBackend : public Backend {
 				top_module_name = module->name.str();
 
 			if (module->processes.size() != 0)
-				log_error("Found unmapped processes in module %s: unmapped processes are not supported in EDIF backend!\n", RTLIL::id2cstr(module->name));
+				log_error("Found unmapped processes in module %s: unmapped processes are not supported in EDIF backend!\n", log_id(module->name));
 			if (module->memories.size() != 0)
-				log_error("Found unmapped memories in module %s: unmapped memories are not supported in EDIF backend!\n", RTLIL::id2cstr(module->name));
+				log_error("Found unmapped memories in module %s: unmapped memories are not supported in EDIF backend!\n", log_id(module->name));
 
-			for (auto cell_it : module->cells_)
+			for (auto cell : module->cells())
 			{
-				RTLIL::Cell *cell = cell_it.second;
-				if (!design->modules_.count(cell->type) || design->modules_.at(cell->type)->get_blackbox_attribute()) {
+				if (design->module(cell->type) == nullptr || design->module(cell->type)->get_blackbox_attribute()) {
 					lib_cell_ports[cell->type];
 					for (auto p : cell->connections())
 						lib_cell_ports[cell->type][p.first] = GetSize(p.second);
@@ -277,11 +275,11 @@ struct EdifBackend : public Backend {
 
 		// extract module dependencies
 		std::map<RTLIL::Module*, std::set<RTLIL::Module*>> module_deps;
-		for (auto &mod_it : design->modules_) {
-			module_deps[mod_it.second] = std::set<RTLIL::Module*>();
-			for (auto &cell_it : mod_it.second->cells_)
-				if (design->modules_.count(cell_it.second->type) > 0)
-					module_deps[mod_it.second].insert(design->modules_.at(cell_it.second->type));
+		for (auto module : design->modules()) {
+			module_deps[module] = std::set<RTLIL::Module*>();
+			for (auto cell : module->cells())
+				if (design->module(cell->type) != nullptr)
+					module_deps[module].insert(design->module(cell->type));
 		}
 
 		// simple good-enough topological sort
@@ -292,12 +290,12 @@ struct EdifBackend : public Backend {
 				for (auto &dep : it.second)
 					if (module_deps.count(dep) > 0)
 						goto not_ready_yet;
-				// log("Next in topological sort: %s\n", RTLIL::id2cstr(it.first->name));
+				// log("Next in topological sort: %s\n", log_id(it.first->name));
 				sorted_modules.push_back(it.first);
 			not_ready_yet:;
 			}
 			if (sorted_modules_idx == sorted_modules.size())
-				log_error("Cyclic dependency between modules found! Cycle includes module %s.\n", RTLIL::id2cstr(module_deps.begin()->first->name));
+				log_error("Cyclic dependency between modules found! Cycle includes module %s.\n", log_id(module_deps.begin()->first->name));
 			while (sorted_modules_idx < sorted_modules.size())
 				module_deps.erase(sorted_modules.at(sorted_modules_idx++));
 		}
@@ -339,8 +337,7 @@ struct EdifBackend : public Backend {
 			*f << stringf("      (view VIEW_NETLIST\n");
 			*f << stringf("        (viewType NETLIST)\n");
 			*f << stringf("        (interface\n");
-			for (auto &wire_it : module->wires_) {
-				RTLIL::Wire *wire = wire_it.second;
+			for (auto wire : module->wires()) {
 				if (wire->port_id == 0)
 					continue;
 				const char *dir = "INOUT";
@@ -378,8 +375,7 @@ struct EdifBackend : public Backend {
 				*f << stringf("          (instance GND (viewRef VIEW_NETLIST (cellRef GND (libraryRef LIB))))\n");
 				*f << stringf("          (instance VCC (viewRef VIEW_NETLIST (cellRef VCC (libraryRef LIB))))\n");
 			}
-			for (auto &cell_it : module->cells_) {
-				RTLIL::Cell *cell = cell_it.second;
+			for (auto cell : module->cells()) {
 				*f << stringf("          (instance %s\n", EDIF_DEF(cell->name));
 				*f << stringf("            (viewRef VIEW_NETLIST (cellRef %s%s))", EDIF_REF(cell->type),
 						lib_cell_ports.count(cell->type) > 0 ? " (libraryRef LIB)" : "");
@@ -459,8 +455,7 @@ struct EdifBackend : public Backend {
 						add_prop(p.first, p.second);
 				*f << stringf("\n          )\n");
 			}
-			for (auto &wire_it : module->wires_) {
-				RTLIL::Wire *wire = wire_it.second;
+			for (auto wire : module->wires()) {
 				if (!wire->get_bool_attribute(ID::keep))
 					continue;
 				for(int i = 0; i < wire->width; i++) {
