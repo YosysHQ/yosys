@@ -50,14 +50,14 @@ struct QbfSolutionType {
 
 struct QbfSolveOptions {
 	bool specialize, specialize_from_file, write_solution, nocleanup, dump_final_smt2, assume_outputs;
-	bool sat, unsat;
+	bool sat, unsat, show_smtbmc;
 	std::string specialize_soln_file;
 	std::string write_soln_soln_file;
 	std::string dump_final_smt2_file;
 	size_t argidx;
 	QbfSolveOptions() : specialize(false), specialize_from_file(false), write_solution(false),
 				nocleanup(false), dump_final_smt2(false), assume_outputs(false), sat(false), unsat(false),
-				argidx(0) {};
+				show_smtbmc(false), argidx(0) {};
 };
 
 void recover_solution(QbfSolutionType &sol) {
@@ -258,6 +258,7 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 	QbfSolutionType ret;
 	const std::string yosys_smtbmc_exe = proc_self_dirname() + "yosys-smtbmc";
 	const std::string smtbmc_warning = "z3: WARNING:";
+	const bool show_smtbmc = opt.show_smtbmc;
 
 	const std::string tempdir_name = make_temp_dir("/tmp/yosys-z3-XXXXXX");
 	const std::string smt2_command = "write_smt2 -stbv -wires " + tempdir_name + "/problem.smt2";
@@ -270,13 +271,14 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 	//Execute and capture stdout from `yosys-smtbmc -s z3 -t 1 -g --binary [--dump-smt2 <file>]`
 	{
 		const std::string cmd = yosys_smtbmc_exe + " -s z3 -t 1 -g --binary " + (opt.dump_final_smt2? "--dump-smt2 " + opt.dump_final_smt2_file + " " : "") + tempdir_name + "/problem.smt2 2>&1";
-		auto process_line = [&ret, &smtbmc_warning](const std::string &line) {
+		auto process_line = [&ret, &smtbmc_warning, &show_smtbmc](const std::string &line) {
 			ret.stdout.push_back(line.substr(0, line.size()-1)); //don't include trailing newline
 			auto warning_pos = line.find(smtbmc_warning);
-			if(warning_pos != std::string::npos)
+			if (warning_pos != std::string::npos)
 				log_warning("%s", line.substr(warning_pos + smtbmc_warning.size() + 1).c_str());
 			else
-				log("smtbmc output: %s", line.c_str());
+				if (show_smtbmc)
+					log("smtbmc output: %s", line.c_str());
 		};
 
 		log("Launching \"%s\".\n", cmd.c_str());
@@ -351,6 +353,10 @@ QbfSolveOptions parse_args(const std::vector<std::string> &args) {
 		}
 		else if (args[opt.argidx] == "-unsat") {
 			opt.unsat = true;
+			continue;
+		}
+		else if (args[opt.argidx] == "-show-smtbmc") {
+			opt.show_smtbmc = true;
 			continue;
 		}
 		else if (args[opt.argidx] == "-dump-final-smt2") {
@@ -439,6 +445,9 @@ struct QbfSatPass : public Pass {
 		log("\n");
 		log("    -unsat\n");
 		log("        Generate an error if the solver does not return \"unsat\".\n");
+		log("\n");
+		log("    -show-smtbmc\n");
+		log("        Print the output from yosys-smtbmc.\n");
 		log("\n");
 		log("    -specialize\n");
 		log("        Replace all \"$anyconst\" cells with constant values determined by the solver.\n");
