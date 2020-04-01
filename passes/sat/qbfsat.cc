@@ -178,6 +178,29 @@ void specialize(RTLIL::Module *module, const QbfSolutionType &sol) {
 	}
 }
 
+void dump_model(RTLIL::Module *module, const QbfSolutionType &sol) {
+	log("Satisfiable model:\n");
+	std::map<std::string, std::string> hole_loc_to_name = get_hole_loc_name_map(module, sol);
+	for (auto &it : sol.hole_to_value) {
+		std::string hole_loc = it.first;
+		std::string hole_value = it.second;
+
+#ifndef NDEBUG
+		auto pos = hole_loc_to_name.find(hole_loc);
+		log_assert(pos != hole_loc_to_name.end());
+#endif
+
+		std::string hole_name = hole_loc_to_name[hole_loc];
+		log("\t%s = %lu'b%s\n", hole_name.c_str(), hole_value.size(), hole_value.c_str());
+		std::vector<RTLIL::SigBit> value_bv;
+		value_bv.reserve(hole_value.size());
+		for (char c : hole_value)
+			value_bv.push_back(c == '1'? RTLIL::S1 : RTLIL::S0);
+		std::reverse(value_bv.begin(), value_bv.end());
+	}
+
+}
+
 void allconstify_inputs(RTLIL::Module *module, const std::set<std::string> &input_wires) {
 	for (auto &n : input_wires) {
 		RTLIL::Wire *input = module->wire(n);
@@ -242,6 +265,7 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 	log_assert(mod->design != nullptr);
 #endif
 	Pass::call(mod->design, smt2_command);
+	log_header(mod->design, "Solving QBF-SAT problem.\n");
 
 	//Execute and capture stdout from `yosys-smtbmc -s z3 -t 1 -g --binary [--dump-smt2 <file>]`
 	{
@@ -445,6 +469,7 @@ struct QbfSatPass : public Pass {
 		if (module == NULL)
 			log_cmd_error("Can't perform QBF-SAT on an empty selection!\n");
 
+		log_push();
 		if (!opt.specialize_from_file) {
 			//Save the design to restore after modiyfing the current module.
 			std::string module_name = module->name.str();
@@ -474,6 +499,8 @@ struct QbfSatPass : public Pass {
 				if (opt.specialize) {
 					specialize(module, ret);
 					Pass::call(design, "opt_clean");
+				} else {
+					dump_model(module, ret);
 				}
 				if (opt.unsat)
 					log_cmd_error("expected problem to be UNSAT\n");
@@ -484,6 +511,7 @@ struct QbfSatPass : public Pass {
 			specialize_from_file(module, opt.specialize_soln_file);
 			Pass::call(design, "opt_clean");
 		}
+		log_pop();
 	}
 } QbfSatPass;
 
