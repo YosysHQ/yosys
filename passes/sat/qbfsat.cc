@@ -227,14 +227,13 @@ void assume_miter_outputs(RTLIL::Module *module) {
 	if (wires_to_assume.size() == 0)
 		return;
 	else {
-		log("Adding $assume cell for outputs: ");
+		log("Adding $assume cell for output(s): ");
 		for (auto w : wires_to_assume)
 			log("\"%s\" ", w->name.c_str());
 		log("\n");
 	}
 
-	unsigned long i = 0;
-	while (wires_to_assume.size() > 1) {
+	for(auto i = 0; wires_to_assume.size() > 1; ++i) {
 		std::vector<RTLIL::Wire *> buf;
 		for (auto j = 0; j + 1 < GetSize(wires_to_assume); j += 2) {
 			std::stringstream strstr; strstr << i << "_" << j;
@@ -245,7 +244,6 @@ void assume_miter_outputs(RTLIL::Module *module) {
 		if (wires_to_assume.size() % 2 == 1)
 			buf.push_back(wires_to_assume[wires_to_assume.size() - 1]);
 		wires_to_assume.swap(buf);
-		++i;
 	}
 
 #ifndef NDEBUG
