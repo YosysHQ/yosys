@@ -69,9 +69,9 @@ struct SynthGowinPass : public ScriptPass
 		log("\n");
 		log("    -noiopads\n");
 		log("        do not emit IOB at top level ports\n");
-		//log("\n");
-		//log("    -abc9\n");
-		//log("        use new ABC9 flow (EXPERIMENTAL)\n");
+		log("\n");
+		log("    -abc9\n");
+		log("        use new ABC9 flow (EXPERIMENTAL)\n");
 		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
@@ -144,10 +144,10 @@ struct SynthGowinPass : public ScriptPass
 				nowidelut = true;
 				continue;
 			}
-			//if (args[argidx] == "-abc9") {
-			//	abc9 = true;
-			//	continue;
-			//}
+			if (args[argidx] == "-abc9") {
+				abc9 = true;
+				continue;
+			}
 			if (args[argidx] == "-noiopads") {
 				noiopads = true;
 				continue;
@@ -171,7 +171,7 @@ struct SynthGowinPass : public ScriptPass
 	{
 		if (check_label("begin"))
 		{
-			run("read_verilog -lib +/gowin/cells_sim.v");
+			run("read_verilog -specify -lib +/gowin/cells_sim.v");
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
 		}
 
@@ -230,13 +230,15 @@ struct SynthGowinPass : public ScriptPass
 
 		if (check_label("map_luts"))
 		{
-			/*if (nowidelut && abc9) {
-				run("abc9 -lut 4");
-			} else*/ if (nowidelut && !abc9) {
+			if (nowidelut && abc9) {
+				run("read_verilog -icells -lib -specify +/abc9_model.v");
+				run("abc9 -maxlut 4 -W 500");
+			} else if (nowidelut && !abc9) {
 				run("abc -lut 4");
-			} else /*if (!nowidelut && abc9) {
-				run("abc9 -lut 4:8");
-			} else*/ if (!nowidelut && !abc9) {
+			} else if (!nowidelut && abc9) {
+				run("read_verilog -icells -lib -specify +/abc9_model.v");
+				run("abc9 -maxlut 8 -W 500");
+			} else if (!nowidelut && !abc9) {
 				run("abc -lut 4:8");
 			}
 			run("clean");
@@ -252,6 +254,7 @@ struct SynthGowinPass : public ScriptPass
 				run("iopadmap -bits -inpad IBUF O:I -outpad OBUF I:O "
 					"-toutpad TBUF OEN:I:O -tinoutpad IOBUF OEN:O:I:IO", "(unless -noiopads)");
 			run("clean");
+			run("autoname");
 		}
 
 		if (check_label("check"))

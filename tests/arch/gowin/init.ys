@@ -30,7 +30,6 @@ select -assert-count 1 t:DFFRE
 select -assert-count 1 t:DFFS
 select -assert-count 1 t:DFFSE
 
-delete
 design -load read
 
 # these should synth to a flop with reset
@@ -67,6 +66,11 @@ select -assert-count 0 t:DFFRE
 select -assert-count 2 t:DFFS
 select -assert-count 2 t:DFFSE
 select -assert-count 12 t:LUT2
+
+# Remove all whiteboxes so we don't inadvertently
+#   count init attributes inside them
+# Should be superseded by https://github.com/YosysHQ/yosys/pull/1949
+delete A:whitebox=1
 
 # check the expected leftover init values
 # this would happen if your reset value is not the initial value
