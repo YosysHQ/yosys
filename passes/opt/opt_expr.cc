@@ -496,6 +496,42 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			}
 		}
 
+		if (cell->type.in(ID($_XOR_), ID($_XNOR_)) || (cell->type.in(ID($xor), ID($xnor)) && GetSize(cell->getPort(ID::A)) == 1 && GetSize(cell->getPort(ID::B)) == 1 && !cell->getParam(ID(A_SIGNED)).as_bool()))
+		{
+			SigBit sig_a = assign_map(cell->getPort(ID::A));
+			SigBit sig_b = assign_map(cell->getPort(ID::B));
+			if (!sig_a.wire)
+				std::swap(sig_a, sig_b);
+			if (sig_b == State::S0 || sig_b == State::S1) {
+				if (cell->type.in(ID($xor), ID($_XOR_))) {
+					cover("opt.opt_expr.xor_buffer");
+					SigSpec sig_y;
+					if (cell->type == ID($xor))
+						sig_y = (sig_b == State::S1 ? module->Not(NEW_ID, sig_a).as_bit() : sig_a);
+					else if (cell->type == ID($_XOR_))
+						sig_y = (sig_b == State::S1 ? module->NotGate(NEW_ID, sig_a) : sig_a);
+					else log_abort();
+					replace_cell(assign_map, module, cell, "xor_buffer", ID::Y, sig_y);
+					goto next_cell;
+				}
+				if (cell->type.in(ID($xnor), ID($_XNOR_))) {
+					cover("opt.opt_expr.xnor_buffer");
+					SigSpec sig_y;
+					if (cell->type == ID($xnor)) {
+						sig_y = (sig_b == State::S1 ? sig_a : module->Not(NEW_ID, sig_a).as_bit());
+						int width = cell->getParam(ID(Y_WIDTH)).as_int();
+						sig_y.append(RTLIL::Const(State::S1, width-1));
+					}
+					else if (cell->type == ID($_XNOR_))
+						sig_y = (sig_b == State::S1 ? sig_a : module->NotGate(NEW_ID, sig_a));
+					else log_abort();
+					replace_cell(assign_map, module, cell, "xnor_buffer", ID::Y, sig_y);
+					goto next_cell;
+				}
+				log_abort();
+			}
+		}
+
 		if (cell->type.in(ID($reduce_and), ID($reduce_or), ID($reduce_bool), ID($reduce_xor), ID($reduce_xnor), ID($neg)) &&
 				GetSize(cell->getPort(ID::A)) == 1 && GetSize(cell->getPort(ID::Y)) == 1)
 		{
@@ -850,8 +886,6 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			if (input.match("11")) ACTION_DO_Y(0);
 			if (input.match(" *")) ACTION_DO_Y(x);
 			if (input.match("* ")) ACTION_DO_Y(x);
-			if (input.match(" 0")) ACTION_DO(ID::Y, input.extract(1, 1));
-			if (input.match("0 ")) ACTION_DO(ID::Y, input.extract(0, 1));
 		}
 
 		if (cell->type == ID($_MUX_)) {
@@ -1622,7 +1656,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 					}
 
 					int const_bit_set = get_highest_hot_index(const_sig);
-					if(const_bit_set >= var_width)
+					if (const_bit_set >= var_width)
 					{
 						string cmp_name;
 						if (cmp_type == ID($lt) || cmp_type == ID($le))
