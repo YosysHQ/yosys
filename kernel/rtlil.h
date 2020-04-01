@@ -369,7 +369,7 @@ namespace RTLIL
 			return result;
 		}
 
-		bool in(IdString rhs) const { return *this == rhs; }
+		bool in(const IdString &rhs) const { return *this == rhs; }
 		bool in(const char *rhs) const { return *this == rhs; }
 		bool in(const std::string &rhs) const { return *this == rhs; }
 		bool in(const pool<IdString> &rhs) const { return rhs.count(*this) != 0; }
