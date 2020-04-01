@@ -665,10 +665,16 @@ struct MemoryShareWorker
 	// Setup and run
 	// -------------
 
-	MemoryShareWorker(RTLIL::Design *design, RTLIL::Module *module) :
-			design(design), module(module), sigmap(module)
+	MemoryShareWorker(RTLIL::Design *design) : design(design), modwalker(design) {}
+
+	void operator()(RTLIL::Module* module)
 	{
 		std::map<std::string, std::pair<std::vector<RTLIL::Cell*>, std::vector<RTLIL::Cell*>>> memindex;
+
+		this->module = module;
+		sigmap.set(module);
+		sig_to_mux.clear();
+		conditions_logic_cache.clear();
 
 		sigmap_xmux = sigmap;
 		for (auto cell : module->cells())
@@ -717,7 +723,7 @@ struct MemoryShareWorker
 		cone_ct.cell_types.erase("$shift");
 		cone_ct.cell_types.erase("$shiftx");
 
-		modwalker.setup(design, module, &cone_ct);
+		modwalker.setup(module, &cone_ct);
 
 		for (auto &it : memindex)
 			consolidate_wr_using_sat(it.first, it.second.second);
@@ -755,8 +761,10 @@ struct MemorySharePass : public Pass {
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE {
 		log_header(design, "Executing MEMORY_SHARE pass (consolidating $memrd/$memwr cells).\n");
 		extra_args(args, 1, design);
+		MemoryShareWorker msw(design);
+
 		for (auto module : design->selected_modules())
-			MemoryShareWorker(design, module);
+			msw(module);
 	}
 } MemorySharePass;
 

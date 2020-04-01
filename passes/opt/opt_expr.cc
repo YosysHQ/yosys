@@ -31,9 +31,8 @@ PRIVATE_NAMESPACE_BEGIN
 
 bool did_something;
 
-void replace_undriven(RTLIL::Design *design, RTLIL::Module *module)
+void replace_undriven(RTLIL::Module *module, const CellTypes &ct)
 {
-	CellTypes ct(design);
 	SigMap sigmap(module);
 	SigPool driven_signals;
 	SigPool used_signals;
@@ -1803,13 +1802,14 @@ struct OptExprPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		CellTypes ct(design);
 		for (auto module : design->selected_modules())
 		{
 			log("Optimizing module %s.\n", log_id(module));
 
 			if (undriven) {
 				did_something = false;
-				replace_undriven(design, module);
+				replace_undriven(module, ct);
 				if (did_something)
 					design->scratchpad_set_bool("opt.did_something", true);
 			}
