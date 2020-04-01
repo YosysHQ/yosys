@@ -96,9 +96,9 @@ struct SynthIce40Pass : public ScriptPass
 		log("    -abc9\n");
 		log("        use new ABC9 flow (EXPERIMENTAL)\n");
 		log("\n");
-        log("    -flowmap\n");
-        log("        use FlowMap LUT techmapping instead of abc (EXPERIMENTAL)\n");
-        log("\n");
+		log("    -flowmap\n");
+		log("        use FlowMap LUT techmapping instead of abc (EXPERIMENTAL)\n");
+		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
@@ -126,7 +126,7 @@ struct SynthIce40Pass : public ScriptPass
 		abc2 = false;
 		vpr = false;
 		abc9 = false;
-        flowmap = false;
+		flowmap = false;
 		device_opt = "hx";
 	}
 
