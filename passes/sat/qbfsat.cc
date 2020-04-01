@@ -300,10 +300,11 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 	return ret;
 }
 
-std::set<std::string> validate_design_and_get_inputs(RTLIL::Module *module) {
+std::set<std::string> validate_design_and_get_inputs(RTLIL::Module *module, const QbfSolveOptions &opt) {
 	bool found_input = false;
 	bool found_hole = false;
 	bool found_1bit_output = false;
+	bool found_assert_assume = false;
 	std::set<std::string> input_wires;
 	for (auto wire : module->wires()) {
 		if (wire->port_input) {
@@ -319,14 +320,16 @@ std::set<std::string> validate_design_and_get_inputs(RTLIL::Module *module) {
 		if (cell->type == "$anyconst")
 			found_hole = true;
 		if (cell->type.in("$assert", "$assume"))
-			found_1bit_output = true;
+			found_assert_assume = true;
 	}
 	if (!found_input)
 		log_cmd_error("Can't perform QBF-SAT on a miter with no inputs!\n");
 	if (!found_hole)
 		log_cmd_error("Did not find any existentially-quantified variables. Use 'sat' instead.\n");
-	if (!found_1bit_output)
-		log_cmd_error("Did not find any single-bit outputs, assert()s, or assume()s.  Is this a miter circuit?\n");
+	if (!found_1bit_output && !found_assert_assume)
+		log_cmd_error("Did not find any single-bit outputs or $assert/$assume cells. Is this a miter circuit?\n");
+	if (!found_assert_assume && !opt.assume_outputs)
+		log_cmd_error("Did not find any $assert/$assume cells. Single-bit outputs were found, but `-assume-outputs` was not specified.\n");
 
 	return input_wires;
 }
@@ -485,7 +488,7 @@ struct QbfSatPass : public Pass {
 			Pass::call(design, "design -duplicate");
 
 			//Replace input wires with wires assigned $allconst cells.
-			std::set<std::string> input_wires = validate_design_and_get_inputs(module);
+			std::set<std::string> input_wires = validate_design_and_get_inputs(module, opt);
 			allconstify_inputs(module, input_wires);
 			if (opt.assume_outputs)
 				assume_miter_outputs(module);
