@@ -2522,6 +2522,7 @@ gen_stmt:
 	} simple_behavioral_stmt ';' expr {
 		ast_stack.back()->children.push_back($6);
 	} ';' simple_behavioral_stmt ')' gen_stmt_block {
+		SET_AST_NODE_LOC(ast_stack.back(), @1, @11);
 		ast_stack.pop_back();
 	} |
 	TOK_IF '(' expr ')' {
@@ -2530,6 +2531,7 @@ gen_stmt:
 		ast_stack.push_back(node);
 		ast_stack.back()->children.push_back($3);
 	} gen_stmt_block opt_gen_else {
+		SET_AST_NODE_LOC(ast_stack.back(), @1, @7);
 		ast_stack.pop_back();
 	} |
 	case_type '(' expr ')' {
@@ -2538,6 +2540,7 @@ gen_stmt:
 		ast_stack.push_back(node);
 	} gen_case_body TOK_ENDCASE {
 		case_type_stack.pop_back();
+		SET_AST_NODE_LOC(ast_stack.back(), @1, @7);
 		ast_stack.pop_back();
 	} |
 	TOK_BEGIN {
@@ -2551,6 +2554,7 @@ gen_stmt:
 		exitTypeScope();
 		delete $3;
 		delete $7;
+		SET_AST_NODE_LOC(ast_stack.back(), @1, @7);
 		ast_stack.pop_back();
 	} |
 	TOK_MSG_TASKS {
@@ -2560,6 +2564,7 @@ gen_stmt:
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);
 	} opt_arg_list ';'{
+		SET_AST_NODE_LOC(ast_stack.back(), @1, @3);
 		ast_stack.pop_back();
 	};
 
@@ -2569,6 +2574,7 @@ gen_stmt_block:
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);
 	} gen_stmt_or_module_body_stmt {
+		SET_AST_NODE_LOC(ast_stack.back(), @2, @2);
 		ast_stack.pop_back();
 	};
 
