@@ -358,10 +358,10 @@ void ILANG_BACKEND::dump_design(std::ostream &f, RTLIL::Design *design, bool onl
 
 	if (!flag_m) {
 		int count_selected_mods = 0;
-		for (auto it = design->modules_.begin(); it != design->modules_.end(); ++it) {
-			if (design->selected_whole_module(it->first))
+		for (auto module : design->modules()) {
+			if (design->selected_whole_module(module->name))
 				flag_m = true;
-			if (design->selected(it->second))
+			if (design->selected(module))
 				count_selected_mods++;
 		}
 		if (count_selected_mods > 1)
@@ -374,11 +374,11 @@ void ILANG_BACKEND::dump_design(std::ostream &f, RTLIL::Design *design, bool onl
 		f << stringf("autoidx %d\n", autoidx);
 	}
 
-	for (auto it = design->modules_.begin(); it != design->modules_.end(); ++it) {
-		if (!only_selected || design->selected(it->second)) {
+	for (auto module : design->modules()) {
+		if (!only_selected || design->selected(module)) {
 			if (only_selected)
 				f << stringf("\n");
-			dump_module(f, "", it->second, design, only_selected, flag_m, flag_n);
+			dump_module(f, "", module, design, only_selected, flag_m, flag_n);
 		}
 	}
 
