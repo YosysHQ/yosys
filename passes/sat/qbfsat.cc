@@ -507,6 +507,8 @@ struct QbfSatPass : public Pass {
 			}
 			else if (!ret.unknown && !ret.sat && opt.sat)
 				log_cmd_error("expected problem to be SAT\n");
+			else if (ret.unknown && (opt.sat || opt.unsat))
+				log_cmd_error("expected problem to be %s\n", opt.sat? "SAT" : "UNSAT");
 		} else {
 			specialize_from_file(module, opt.specialize_soln_file);
 			Pass::call(design, "opt_clean");
