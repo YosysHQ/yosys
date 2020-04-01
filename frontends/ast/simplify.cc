@@ -1732,8 +1732,9 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			AstNode *cond = new AstNode(AST_COND, mkconst_int(start_bit, true));
 			AstNode *lvalue = children[0]->clone();
 			lvalue->delete_children();
+			int end_bit = std::min(start_bit+result_width,source_width) - 1;
 			lvalue->children.push_back(new AstNode(AST_RANGE,
-					mkconst_int(start_bit+result_width-1, true), mkconst_int(start_bit, true)));
+					mkconst_int(end_bit, true), mkconst_int(start_bit, true)));
 			cond->children.push_back(new AstNode(AST_BLOCK, new AstNode(type, lvalue, children[1]->clone())));
 			newNode->children.push_back(cond);
 		}
