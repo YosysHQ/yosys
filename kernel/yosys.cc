@@ -1098,30 +1098,29 @@ static char *readline_obj_generator(const char *text, int state)
 
 		if (design->selected_active_module.empty())
 		{
-			for (auto &it : design->modules_)
-				if (RTLIL::unescape_id(it.first).compare(0, len, text) == 0)
-					obj_names.push_back(strdup(RTLIL::id2cstr(it.first)));
+			for (auto mod : design->modules())
+				if (RTLIL::unescape_id(mod->name).compare(0, len, text) == 0)
+					obj_names.push_back(strdup(log_id(mod->name)));
 		}
-		else
-		if (design->modules_.count(design->selected_active_module) > 0)
+		else if (design->module(design->selected_active_module) != nullptr)
 		{
-			RTLIL::Module *module = design->modules_.at(design->selected_active_module);
+			RTLIL::Module *module = design->module(design->selected_active_module);
 
-			for (auto &it : module->wires_)
-				if (RTLIL::unescape_id(it.first).compare(0, len, text) == 0)
-					obj_names.push_back(strdup(RTLIL::id2cstr(it.first)));
+			for (auto w : module->wires())
+				if (RTLIL::unescape_id(w->name).compare(0, len, text) == 0)
+					obj_names.push_back(strdup(log_id(w->name)));
 
 			for (auto &it : module->memories)
 				if (RTLIL::unescape_id(it.first).compare(0, len, text) == 0)
-					obj_names.push_back(strdup(RTLIL::id2cstr(it.first)));
+					obj_names.push_back(strdup(log_id(it.first)));
 
-			for (auto &it : module->cells_)
-				if (RTLIL::unescape_id(it.first).compare(0, len, text) == 0)
-					obj_names.push_back(strdup(RTLIL::id2cstr(it.first)));
+			for (auto cell : module->cells())
+				if (RTLIL::unescape_id(cell->name).compare(0, len, text) == 0)
+					obj_names.push_back(strdup(log_id(cell->name)));
 
 			for (auto &it : module->processes)
 				if (RTLIL::unescape_id(it.first).compare(0, len, text) == 0)
-					obj_names.push_back(strdup(RTLIL::id2cstr(it.first)));
+					obj_names.push_back(strdup(log_id(it.first)));
 		}
 
 		std::sort(obj_names.begin(), obj_names.end());
