@@ -906,8 +906,8 @@ struct TechmapWorker
 
 								RTLIL::SigSig port_conn;
 								for (auto &it : port_connmap) {
-									port_conn.first.append_bit(it.first);
-									port_conn.second.append_bit(it.second);
+									port_conn.first.append(it.first);
+									port_conn.second.append(it.second);
 								}
 								tpl->connect(port_conn);
 

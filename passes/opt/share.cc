@@ -516,7 +516,7 @@ struct ShareWorker
 				if (unsigned_cell->getPort(ID::A).to_sigbit_vector().back() != RTLIL::State::S0) {
 					unsigned_cell->parameters.at(ID(A_WIDTH)) = unsigned_cell->parameters.at(ID(A_WIDTH)).as_int() + 1;
 					RTLIL::SigSpec new_a = unsigned_cell->getPort(ID::A);
-					new_a.append_bit(RTLIL::State::S0);
+					new_a.append(RTLIL::State::S0);
 					unsigned_cell->setPort(ID::A, new_a);
 				}
 				unsigned_cell->parameters.at(ID(A_SIGNED)) = true;
@@ -588,7 +588,7 @@ struct ShareWorker
 				if (unsigned_cell->getPort(ID::A).to_sigbit_vector().back() != RTLIL::State::S0) {
 					unsigned_cell->parameters.at(ID(A_WIDTH)) = unsigned_cell->parameters.at(ID(A_WIDTH)).as_int() + 1;
 					RTLIL::SigSpec new_a = unsigned_cell->getPort(ID::A);
-					new_a.append_bit(RTLIL::State::S0);
+					new_a.append(RTLIL::State::S0);
 					unsigned_cell->setPort(ID::A, new_a);
 				}
 				unsigned_cell->parameters.at(ID(A_SIGNED)) = true;
@@ -601,7 +601,7 @@ struct ShareWorker
 				if (unsigned_cell->getPort(ID::B).to_sigbit_vector().back() != RTLIL::State::S0) {
 					unsigned_cell->parameters.at(ID(B_WIDTH)) = unsigned_cell->parameters.at(ID(B_WIDTH)).as_int() + 1;
 					RTLIL::SigSpec new_b = unsigned_cell->getPort(ID::B);
-					new_b.append_bit(RTLIL::State::S0);
+					new_b.append(RTLIL::State::S0);
 					unsigned_cell->setPort(ID::B, new_b);
 				}
 				unsigned_cell->parameters.at(ID(B_SIGNED)) = true;
@@ -790,7 +790,7 @@ struct ShareWorker
 		p.second.bits.clear();
 
 		for (auto &it : p_bits) {
-			p.first.append_bit(it.first);
+			p.first.append(it.first);
 			p.second.bits.push_back(it.second);
 		}
 
@@ -906,14 +906,14 @@ struct ShareWorker
 			if (used_in_a)
 				for (auto p : c_patterns) {
 					for (int i = 0; i < GetSize(sig_s); i++)
-						p.first.append_bit(sig_s[i]), p.second.bits.push_back(RTLIL::State::S0);
+						p.first.append(sig_s[i]), p.second.bits.push_back(RTLIL::State::S0);
 					if (sort_check_activation_pattern(p))
 						activation_patterns_cache[cell].insert(p);
 				}
 
 			for (int idx : used_in_b_parts)
 				for (auto p : c_patterns) {
-					p.first.append_bit(sig_s[idx]), p.second.bits.push_back(RTLIL::State::S1);
+					p.first.append(sig_s[idx]), p.second.bits.push_back(RTLIL::State::S1);
 					if (sort_check_activation_pattern(p))
 						activation_patterns_cache[cell].insert(p);
 				}
@@ -948,7 +948,7 @@ struct ShareWorker
 
 		RTLIL::SigSpec signal;
 		for (auto &bit : all_bits)
-			signal.append_bit(bit);
+			signal.append(bit);
 
 		return signal;
 	}
@@ -963,7 +963,7 @@ struct ShareWorker
 
 			for (int i = 0; i < GetSize(p_first); i++)
 				if (filter_bits.count(p_first[i]) == 0) {
-					new_p.first.append_bit(p_first[i]);
+					new_p.first.append(p_first[i]);
 					new_p.second.bits.push_back(p.second.bits.at(i));
 				}
 

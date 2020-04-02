@@ -93,7 +93,7 @@ struct PruneWorker
 						for (int i = 0; i < GetSize(lhs); i++) {
 							RTLIL::SigBit lhs_bit = lhs[i];
 							if (lhs_bit.wire && !assigned[lhs_bit]) {
-								conn.first.append_bit(lhs_bit);
+								conn.first.append(lhs_bit);
 								conn.second.append(rhs.extract(i));
 							}
 						}

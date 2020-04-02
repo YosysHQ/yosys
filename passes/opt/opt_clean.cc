@@ -203,8 +203,8 @@ bool compare_signals(RTLIL::SigBit &s1, RTLIL::SigBit &s2, SigPool &regs, SigPoo
 		return !(w2->port_input && w2->port_output);
 
 	if (w1->name[0] == '\\' && w2->name[0] == '\\') {
-		if (regs.check_any(s1) != regs.check_any(s2))
-			return regs.check_any(s2);
+		if (regs.check(s1) != regs.check(s2))
+			return regs.check(s2);
 		if (direct_wires.count(w1) != direct_wires.count(w2))
 			return direct_wires.count(w2) != 0;
 		if (conns.check_any(s1) != conns.check_any(s2))
@@ -358,8 +358,8 @@ bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 						s2[i] = initval[i];
 						initval[i] = State::Sx;
 					}
-					new_conn.first.append_bit(s1[i]);
-					new_conn.second.append_bit(s2[i]);
+					new_conn.first.append(s1[i]);
+					new_conn.second.append(s2[i]);
 				}
 			if (new_conn.first.size() > 0) {
 				if (initval.is_fully_undef())

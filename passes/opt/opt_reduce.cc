@@ -192,13 +192,13 @@ struct OptReduceWorker
 
 			if (all_tuple_bits_same)
 			{
-				old_sig_conn.first.append_bit(sig_y.at(i));
-				old_sig_conn.second.append_bit(sig_a.at(i));
+				old_sig_conn.first.append(sig_y.at(i));
+				old_sig_conn.second.append(sig_a.at(i));
 			}
 			else if (consolidated_in_tuples_map.count(in_tuple))
 			{
-				old_sig_conn.first.append_bit(sig_y.at(i));
-				old_sig_conn.second.append_bit(consolidated_in_tuples_map.at(in_tuple));
+				old_sig_conn.first.append(sig_y.at(i));
+				old_sig_conn.second.append(consolidated_in_tuples_map.at(in_tuple));
 			}
 			else
 			{

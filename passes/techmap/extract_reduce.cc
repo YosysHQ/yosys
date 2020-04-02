@@ -286,7 +286,7 @@ struct ExtractReducePass : public Pass
 						SigSpec input;
 						for (auto b : input_pool)
 							if (input_pool_intermed.count(b) == 0)
-								input.append_bit(b);
+								input.append(b);
 
 						SigBit output = sigmap(head_cell->getPort(ID::Y)[0]);
 

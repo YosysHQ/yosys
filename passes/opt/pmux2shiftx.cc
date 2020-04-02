@@ -331,7 +331,7 @@ struct Pmux2ShiftxPass : public Pass {
 					pair<SigSpec, Const> entry;
 
 					for (auto it : bits) {
-						entry.first.append_bit(it.first);
+						entry.first.append(it.first);
 						entry.second.bits.push_back(it.second);
 					}
 
@@ -352,7 +352,7 @@ struct Pmux2ShiftxPass : public Pass {
 					pair<SigSpec, Const> entry;
 
 					for (auto it : bits) {
-						entry.first.append_bit(it.first);
+						entry.first.append(it.first);
 						entry.second.bits.push_back(it.second);
 					}
 

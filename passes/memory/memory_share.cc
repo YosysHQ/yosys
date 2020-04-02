@@ -120,8 +120,8 @@ struct MemoryShareWorker
 		for (auto &cond : conditions) {
 			RTLIL::SigSpec sig1, sig2;
 			for (auto &it : cond) {
-				sig1.append_bit(it.first);
-				sig2.append_bit(it.second ? RTLIL::State::S1 : RTLIL::State::S0);
+				sig1.append(it.first);
+				sig2.append(it.second ? RTLIL::State::S1 : RTLIL::State::S0);
 			}
 			terms.append(module->Ne(NEW_ID, sig1, sig2));
 			created_conditions++;
@@ -284,8 +284,8 @@ struct MemoryShareWorker
 			std::pair<RTLIL::SigBit, RTLIL::SigBit> key(v_bits[i], v_mask_bits[i]);
 			if (groups.count(key) == 0) {
 				groups[key].first = grouped_bits.size();
-				grouped_bits.append_bit(v_bits[i]);
-				grouped_mask_bits.append_bit(v_mask_bits[i]);
+				grouped_bits.append(v_bits[i]);
+				grouped_mask_bits.append(v_mask_bits[i]);
 			}
 			groups[key].second.push_back(i);
 		}
@@ -295,7 +295,7 @@ struct MemoryShareWorker
 
 		for (int i = 0; i < bits.size(); i++) {
 			std::pair<RTLIL::SigBit, RTLIL::SigBit> key(v_bits[i], v_mask_bits[i]);
-			result.append_bit(grouped_result.at(groups.at(key).first));
+			result.append(grouped_result.at(groups.at(key).first));
 		}
 
 		return result;
@@ -326,7 +326,7 @@ struct MemoryShareWorker
 
 		for (int i = 0; i < int(v_old_en.size()); i++) {
 			std::pair<RTLIL::SigBit, RTLIL::SigBit> key(v_old_en[i], v_next_en[i]);
-			new_merged_en.append_bit(grouped_new_en.at(groups.at(key)));
+			new_merged_en.append(grouped_new_en.at(groups.at(key)));
 		}
 
 		// Create the new merged_data signal.
@@ -635,8 +635,8 @@ struct MemoryShareWorker
 			for (int j = 0; j < int(this_en.size()); j++) {
 				std::pair<RTLIL::SigBit, RTLIL::SigBit> key(last_en[j], this_en[j]);
 				if (!groups_en.count(key)) {
-					grouped_last_en.append_bit(last_en[j]);
-					grouped_this_en.append_bit(this_en[j]);
+					grouped_last_en.append(last_en[j]);
+					grouped_this_en.append(this_en[j]);
 					groups_en[key] = grouped_en->width;
 					grouped_en->width++;
 				}

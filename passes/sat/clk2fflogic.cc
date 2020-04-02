@@ -117,11 +117,11 @@ struct Clk2fflogicPass : public Pass {
 						SigSpec clock_edge_pattern;
 
 						if (clkpol) {
-							clock_edge_pattern.append_bit(State::S0);
-							clock_edge_pattern.append_bit(State::S1);
+							clock_edge_pattern.append(State::S0);
+							clock_edge_pattern.append(State::S1);
 						} else {
-							clock_edge_pattern.append_bit(State::S1);
-							clock_edge_pattern.append_bit(State::S0);
+							clock_edge_pattern.append(State::S1);
+							clock_edge_pattern.append(State::S0);
 						}
 
 						SigSpec clock_edge = module->Eqx(NEW_ID, {clk, SigSpec(past_clk)}, clock_edge_pattern);
@@ -257,11 +257,11 @@ struct Clk2fflogicPass : public Pass {
 					SigSpec clock_edge_pattern;
 
 					if (clkpol) {
-						clock_edge_pattern.append_bit(State::S0);
-						clock_edge_pattern.append_bit(State::S1);
+						clock_edge_pattern.append(State::S0);
+						clock_edge_pattern.append(State::S1);
 					} else {
-						clock_edge_pattern.append_bit(State::S1);
-						clock_edge_pattern.append_bit(State::S0);
+						clock_edge_pattern.append(State::S1);
+						clock_edge_pattern.append(State::S0);
 					}
 
 					SigSpec clock_edge = module->Eqx(NEW_ID, {clk, SigSpec(past_clk)}, clock_edge_pattern);
