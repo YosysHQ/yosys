@@ -39,6 +39,7 @@ struct BtorWorker
 	RTLIL::Module *module;
 	bool verbose;
 	bool single_bad;
+	bool cover_mode;
 
 	int next_nid = 1;
 	int initstate_nid = -1;
@@ -71,13 +72,24 @@ struct BtorWorker
 	vector<int> bad_properties;
 	dict<SigBit, bool> initbits;
 	pool<Wire*> statewires;
-	string indent;
+
+	string indent, info_filename;
+	vector<string> info_lines;
+	dict<int, int> info_clocks;
 
 	void btorf(const char *fmt, ...)
 	{
 		va_list ap;
 		va_start(ap, fmt);
 		f << indent << vstringf(fmt, ap);
+		va_end(ap);
+	}
+
+	void infof(const char *fmt, ...)
+	{
+		va_list ap;
+		va_start(ap, fmt);
+		info_lines.push_back(vstringf(fmt, ap));
 		va_end(ap);
 	}
 
@@ -544,10 +556,25 @@ struct BtorWorker
 			goto okay;
 		}
 
-		if (cell->type.in("$dff", "$ff", "$_DFF_P_", "$_DFF_N", "$_FF_"))
+		if (cell->type.in("$dff", "$ff", "$_DFF_P_", "$_DFF_N_", "$_FF_"))
 		{
 			SigSpec sig_d = sigmap(cell->getPort("\\D"));
 			SigSpec sig_q = sigmap(cell->getPort("\\Q"));
+
+			if (!info_filename.empty() && cell->type.in("$dff", "$_DFF_P_", "$_DFF_N_"))
+			{
+				SigSpec sig_c = sigmap(cell->getPort(cell->type == "$dff" ? "\\CLK" : "\\C"));
+				int nid = get_sig_nid(sig_c);
+				bool negedge = false;
+
+				if (cell->type == "$_DFF_N_")
+					negedge = true;
+
+				if (cell->type == "$dff" && !cell->getParam("\\CLK_POLARITY").as_bool())
+					negedge = true;
+
+				info_clocks[nid] |= negedge ? 2 : 1;
+			}
 
 			IdString symbol;
 
@@ -983,9 +1010,12 @@ struct BtorWorker
 		return nid;
 	}
 
-	BtorWorker(std::ostream &f, RTLIL::Module *module, bool verbose, bool single_bad) :
-			f(f), sigmap(module), module(module), verbose(verbose), single_bad(single_bad)
+	BtorWorker(std::ostream &f, RTLIL::Module *module, bool verbose, bool single_bad, bool cover_mode, string info_filename) :
+			f(f), sigmap(module), module(module), verbose(verbose), single_bad(single_bad), cover_mode(cover_mode), info_filename(info_filename)
 	{
+		if (!info_filename.empty())
+			infof("name %s\n", log_id(module));
+
 		btorf_push("inputs");
 
 		for (auto wire : module->wires())
@@ -1066,16 +1096,46 @@ struct BtorWorker
 				btorf("%d not %d %d\n", nid_not_a, sid, nid_a);
 				btorf("%d and %d %d %d\n", nid_en_and_not_a, sid, nid_en, nid_not_a);
 
-				if (single_bad) {
+				if (single_bad && !cover_mode) {
 					bad_properties.push_back(nid_en_and_not_a);
 				} else {
-					int nid = next_nid++;
 					string infostr = log_id(cell);
 					if (infostr[0] == '$' && cell->attributes.count("\\src")) {
 						infostr = cell->attributes.at("\\src").decode_string().c_str();
 						std::replace(infostr.begin(), infostr.end(), ' ', '_');
 					}
-					btorf("%d bad %d %s\n", nid, nid_en_and_not_a, infostr.c_str());
+					if (cover_mode) {
+						infof("bad %d %s\n", nid_en_and_not_a, infostr.c_str());
+					} else {
+						int nid = next_nid++;
+						btorf("%d bad %d %s\n", nid, nid_en_and_not_a, infostr.c_str());
+					}
+				}
+
+				btorf_pop(log_id(cell));
+			}
+
+			if (cell->type == "$cover" && cover_mode)
+			{
+				btorf_push(log_id(cell));
+
+				int sid = get_bv_sid(1);
+				int nid_a = get_sig_nid(cell->getPort("\\A"));
+				int nid_en = get_sig_nid(cell->getPort("\\EN"));
+				int nid_en_and_a = next_nid++;
+
+				btorf("%d and %d %d %d\n", nid_en_and_a, sid, nid_en, nid_a);
+
+				if (single_bad) {
+					bad_properties.push_back(nid_en_and_a);
+				} else {
+					string infostr = log_id(cell);
+					if (infostr[0] == '$' && cell->attributes.count("\\src")) {
+						infostr = cell->attributes.at("\\src").decode_string().c_str();
+						std::replace(infostr.begin(), infostr.end(), ' ', '_');
+					}
+					int nid = next_nid++;
+					btorf("%d bad %d %s\n", nid, nid_en_and_a, infostr.c_str());
 				}
 
 				btorf_pop(log_id(cell));
@@ -1210,6 +1270,35 @@ struct BtorWorker
 				btorf("%d bad %d\n", nid, todo[cursor]);
 			}
 		}
+
+		if (!info_filename.empty())
+		{
+			for (auto &it : info_clocks)
+			{
+				switch (it.second)
+				{
+				case 1:
+					infof("posedge %d\n", it.first);
+					break;
+				case 2:
+					infof("negedge %d\n", it.first);
+					break;
+				case 3:
+					infof("event %d\n", it.first);
+					break;
+				default:
+					log_abort();
+				}
+			}
+
+			std::ofstream f;
+			f.open(info_filename.c_str(), std::ofstream::trunc);
+			if (f.fail())
+				log_error("Can't open file `%s' for writing: %s\n", info_filename.c_str(), strerror(errno));
+			for (auto &it : info_lines)
+				f << it;
+			f.close();
+		}
 	}
 };
 
@@ -1229,10 +1318,17 @@ struct BtorBackend : public Backend {
 		log("  -s\n");
 		log("    Output only a single bad property for all asserts\n");
 		log("\n");
+		log("  -c\n");
+		log("    Output cover properties using 'bad' statements instead of asserts\n");
+		log("\n");
+		log("  -i <filename>\n");
+		log("    Create additional info file with auxiliary information\n");
+		log("\n");
 	}
 	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
-		bool verbose = false, single_bad = false;
+		bool verbose = false, single_bad = false, cover_mode = false;
+		string info_filename;
 
 		log_header(design, "Executing BTOR backend.\n");
 
@@ -1247,6 +1343,14 @@ struct BtorBackend : public Backend {
 				single_bad = true;
 				continue;
 			}
+			if (args[argidx] == "-c") {
+				cover_mode = true;
+				continue;
+			}
+			if (args[argidx] == "-i" && argidx+1 < args.size()) {
+				info_filename = args[++argidx];
+				continue;
+			}
 			break;
 		}
 		extra_args(f, filename, args, argidx);
@@ -1259,7 +1363,7 @@ struct BtorBackend : public Backend {
 		*f << stringf("; BTOR description generated by %s for module %s.\n",
 				yosys_version_str, log_id(topmod));
 
-		BtorWorker(*f, topmod, verbose, single_bad);
+		BtorWorker(*f, topmod, verbose, single_bad, cover_mode, info_filename);
 
 		*f << stringf("; end of yosys output\n");
 	}
