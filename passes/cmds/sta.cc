@@ -135,7 +135,7 @@ struct StaWorker
 				for (const auto &b : sigmap(wire))
 					queue.emplace_back(b);
 				// All primary inputs to arrive at time zero
-				wire->set_intvec_attribute(ID(sta_arrival), std::vector<int>(GetSize(wire), 0));
+				wire->set_intvec_attribute(ID::sta_arrival, std::vector<int>(GetSize(wire), 0));
 			}
 			if (wire->port_output)
 				for (const auto &b : sigmap(wire))
@@ -152,12 +152,12 @@ struct StaWorker
 			auto it = data.find(b);
 			if (it == data.end())
 				continue;
-			const auto& src_arrivals = b.wire->get_intvec_attribute(ID(sta_arrival));
+			const auto& src_arrivals = b.wire->get_intvec_attribute(ID::sta_arrival);
 			log_assert(GetSize(src_arrivals) == GetSize(b.wire));
 			auto src_arrival = src_arrivals[b.offset];
 			for (const auto &d : it->second.fanouts) {
 				const auto &dst_bit = std::get<0>(d);
-				auto dst_arrivals = dst_bit.wire->get_intvec_attribute(ID(sta_arrival));
+				auto dst_arrivals = dst_bit.wire->get_intvec_attribute(ID::sta_arrival);
 				if (dst_arrivals.empty())
 					dst_arrivals = std::vector<int>(GetSize(dst_bit.wire), -1);
 				else
@@ -166,7 +166,7 @@ struct StaWorker
 				auto new_arrival = src_arrival + std::get<1>(d);
 				if (dst_arrival < new_arrival) {
 					dst_arrival = std::max(dst_arrival, new_arrival);
-					dst_bit.wire->set_intvec_attribute(ID(sta_arrival), dst_arrivals);
+					dst_bit.wire->set_intvec_attribute(ID::sta_arrival, dst_arrivals);
 					queue.emplace_back(dst_bit);
 
 					data[dst_bit].backtrack = b;
@@ -194,7 +194,7 @@ struct StaWorker
 		}
 		auto jt = data.find(b);
 		while (jt != data.end()) {
-			int arrival = b.wire->get_intvec_attribute(ID(sta_arrival))[b.offset];
+			int arrival = b.wire->get_intvec_attribute(ID::sta_arrival)[b.offset];
 			if (jt->second.driver) {
 				log("           %s\n", log_signal(b));
 				log("  %6d %s (%s.%s->%s)\n", arrival, log_id(jt->second.driver), log_id(jt->second.driver->type), log_id(jt->second.src_port), log_id(jt->second.dst_port));
@@ -210,11 +210,11 @@ struct StaWorker
 		std::map<int, unsigned> arrival_histogram;
 		for (const auto &i : endpoints) {
 			const auto &b = i.first;
-			if (!b.wire->attributes.count(ID(sta_arrival))) {
+			if (!b.wire->attributes.count(ID::sta_arrival)) {
 				log_warning("Wire %s.%s has no (* sta_arrival *) value.\n", log_id(module), log_signal(b));
 				continue;
 			}
-			auto arrival = b.wire->get_intvec_attribute(ID(sta_arrival))[b.offset];
+			auto arrival = b.wire->get_intvec_attribute(ID::sta_arrival)[b.offset];
 			if (arrival < 0) {
 				// FIXME: Might be an unreachable signal
 				//        Might be a constant driven signal (e.g. through OBUF)

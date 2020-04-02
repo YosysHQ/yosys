@@ -141,8 +141,8 @@ struct TimingInfo
 				}
 			}
 			else if (cell->type == ID($specrule)) {
-				auto type = cell->getParam(ID::TYPE).decode_string();
-				if (type != "$setup" && type != "$setuphold")
+				IdString type = cell->getParam(ID::TYPE).decode_string();
+				if (type != ID($setup) && type != ID($setuphold))
 					continue;
 				auto src = cell->getPort(ID::SRC);
 				auto dst = cell->getPort(ID::DST).as_bit();
