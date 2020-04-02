@@ -147,7 +147,7 @@ struct FminitPass : public Pass {
 					SigSpec insig = i > 0 ? ctrlsig.at(i-1) : State::S0;
 
 					Wire *outwire = module->addWire(NEW_ID);
-					outwire->attributes[ID(init)] = i > 0 ? State::S0 : State::S1;
+					outwire->attributes[ID::init] = i > 0 ? State::S0 : State::S1;
 
 					if (clksig.empty())
 						module->addFf(NEW_ID, insig, outwire);
@@ -161,7 +161,7 @@ struct FminitPass : public Pass {
 				if (i+1 == GetSize(it.second) && ctrlsig_latched[i].empty())
 				{
 					Wire *ffwire = module->addWire(NEW_ID);
-					ffwire->attributes[ID(init)] = State::S0;
+					ffwire->attributes[ID::init] = State::S0;
 					SigSpec outsig = module->Or(NEW_ID, ffwire, ctrlsig[i]);
 
 					if (clksig.empty())

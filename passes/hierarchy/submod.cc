@@ -176,16 +176,16 @@ struct SubmodWorker
 			new_wire->start_offset = wire->start_offset;
 			new_wire->attributes = wire->attributes;
 			if (!flags.is_int_driven.is_fully_zero()) {
-				new_wire->attributes.erase(ID(init));
+				new_wire->attributes.erase(ID::init);
 				auto sig = sigmap(wire);
 				for (int i = 0; i < GetSize(sig); i++) {
 					if (flags.is_int_driven[i] == State::S0)
 						continue;
 					if (!sig[i].wire)
 						continue;
-					auto it = sig[i].wire->attributes.find(ID(init));
+					auto it = sig[i].wire->attributes.find(ID::init);
 					if (it != sig[i].wire->attributes.end()) {
-						auto jt = new_wire->attributes.insert(std::make_pair(ID(init), Const(State::Sx, GetSize(sig)))).first;
+						auto jt = new_wire->attributes.insert(std::make_pair(ID::init, Const(State::Sx, GetSize(sig)))).first;
 						jt->second[i] = it->second[sig[i].offset];
 						it->second[sig[i].offset] = State::Sx;
 					}
@@ -275,18 +275,18 @@ struct SubmodWorker
 		if (opt_name.empty())
 		{
 			for (auto &it : module->wires_)
-				it.second->attributes.erase("\\submod");
+				it.second->attributes.erase(ID::submod);
 
 			for (auto &it : module->cells_)
 			{
 				RTLIL::Cell *cell = it.second;
-				if (cell->attributes.count("\\submod") == 0 || cell->attributes["\\submod"].bits.size() == 0) {
-					cell->attributes.erase("\\submod");
+				if (cell->attributes.count(ID::submod) == 0 || cell->attributes[ID::submod].bits.size() == 0) {
+					cell->attributes.erase(ID::submod);
 					continue;
 				}
 
-				std::string submod_str = cell->attributes["\\submod"].decode_string();
-				cell->attributes.erase("\\submod");
+				std::string submod_str = cell->attributes[ID::submod].decode_string();
+				cell->attributes.erase(ID::submod);
 
 				if (submodules.count(submod_str) == 0) {
 					submodules[submod_str].name = submod_str;

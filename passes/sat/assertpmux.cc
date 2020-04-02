@@ -52,10 +52,10 @@ struct AssertpmuxWorker
 
 		for (auto cell : module->cells())
 		{
-			if (cell->type.in("$mux", "$pmux"))
+			if (cell->type.in(ID($mux), ID($pmux)))
 			{
-				int width = cell->getParam("\\WIDTH").as_int();
-				int numports = cell->type == "$mux" ? 2 : cell->getParam("\\S_WIDTH").as_int() + 1;
+				int width = cell->getParam(ID::WIDTH).as_int();
+				int numports = cell->type == ID($mux) ? 2 : cell->getParam(ID::S_WIDTH).as_int() + 1;
 
 				SigSpec sig_a = sigmap(cell->getPort(ID::A));
 				SigSpec sig_b = sigmap(cell->getPort(ID::B));
@@ -148,7 +148,7 @@ struct AssertpmuxWorker
 	{
 		log("Adding assert for $pmux cell %s.%s.\n", log_id(module), log_id(pmux));
 
-		int swidth = pmux->getParam("\\S_WIDTH").as_int();
+		int swidth = pmux->getParam(ID::S_WIDTH).as_int();
 		int cntbits = ceil_log2(swidth+1);
 
 		SigSpec sel = pmux->getPort(ID::S);
@@ -227,7 +227,7 @@ struct AssertpmuxPass : public Pass {
 			vector<Cell*> pmux_cells;
 
 			for (auto cell : module->selected_cells())
-				if (cell->type == "$pmux")
+				if (cell->type == ID($pmux))
 					pmux_cells.push_back(cell);
 
 			for (auto cell : pmux_cells)

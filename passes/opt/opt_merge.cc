@@ -44,7 +44,7 @@ struct OptMergeWorker
 
 	static void sort_pmux_conn(dict<RTLIL::IdString, RTLIL::SigSpec> &conn)
 	{
-		SigSpec sig_s = conn.at(ID(S));
+		SigSpec sig_s = conn.at(ID::S);
 		SigSpec sig_b = conn.at(ID::B);
 
 		int s_width = GetSize(sig_s);
@@ -56,11 +56,11 @@ struct OptMergeWorker
 
 		std::sort(sb_pairs.begin(), sb_pairs.end());
 
-		conn[ID(S)] = SigSpec();
+		conn[ID::S] = SigSpec();
 		conn[ID::B] = SigSpec();
 
 		for (auto &it : sb_pairs) {
-			conn[ID(S)].append(it.first);
+			conn[ID::S].append(it.first);
 			conn[ID::B].append(it.second);
 		}
 	}
@@ -110,7 +110,7 @@ struct OptMergeWorker
 			alt_conn = *conn;
 			assign_map.apply(alt_conn.at(ID::A));
 			assign_map.apply(alt_conn.at(ID::B));
-			assign_map.apply(alt_conn.at(ID(S)));
+			assign_map.apply(alt_conn.at(ID::S));
 			sort_pmux_conn(alt_conn);
 			conn = &alt_conn;
 		}
@@ -118,9 +118,9 @@ struct OptMergeWorker
 		for (auto &it : *conn) {
 			RTLIL::SigSpec sig;
 			if (cell->output(it.first)) {
-				if (it.first == ID(Q) && (cell->type.begins_with("$dff") || cell->type.begins_with("$dlatch") ||
+				if (it.first == ID::Q && (cell->type.begins_with("$dff") || cell->type.begins_with("$dlatch") ||
 							cell->type.begins_with("$_DFF") || cell->type.begins_with("$_DLATCH") || cell->type.begins_with("$_SR_") ||
-							cell->type.in("$adff", "$sr", "$ff", "$_FF_"))) {
+							cell->type.in(ID($adff), ID($sr), ID($ff), ID($_FF_)))) {
 					// For the 'Q' output of state elements,
 					//   use its (* init *) attribute value
 					for (const auto &b : dff_init_map(it.second))
@@ -175,9 +175,9 @@ struct OptMergeWorker
 
 		for (const auto &it : cell1->connections_) {
 			if (cell1->output(it.first)) {
-				if (it.first == ID(Q) && (cell1->type.begins_with("$dff") || cell1->type.begins_with("$dlatch") ||
+				if (it.first == ID::Q && (cell1->type.begins_with("$dff") || cell1->type.begins_with("$dlatch") ||
 						cell1->type.begins_with("$_DFF") || cell1->type.begins_with("$_DLATCH") || cell1->type.begins_with("$_SR_") ||
-						cell1->type.in("$adff", "$sr", "$ff", "$_FF_"))) {
+						cell1->type.in(ID($adff), ID($sr), ID($ff), ID($_FF_)))) {
 					// For the 'Q' output of state elements,
 					//   use the (* init *) attribute value
 					auto &sig1 = conn1[it.first];
@@ -253,8 +253,8 @@ struct OptMergeWorker
 
 		dff_init_map.set(module);
 		for (auto &it : module->wires_)
-			if (it.second->attributes.count(ID(init)) != 0) {
-				Const initval = it.second->attributes.at(ID(init));
+			if (it.second->attributes.count(ID::init) != 0) {
+				Const initval = it.second->attributes.at(ID::init);
 				for (int i = 0; i < GetSize(initval) && i < GetSize(it.second); i++)
 					if (initval[i] == State::S0 || initval[i] == State::S1)
 						dff_init_map.add(SigBit(it.second, i), initval[i]);
@@ -300,11 +300,11 @@ struct OptMergeWorker
 								module->connect(RTLIL::SigSig(it.second, other_sig));
 								assign_map.add(it.second, other_sig);
 
-								if (it.first == ID(Q) && (cell->type.begins_with("$dff") || cell->type.begins_with("$dlatch") ||
+								if (it.first == ID::Q && (cell->type.begins_with("$dff") || cell->type.begins_with("$dlatch") ||
 											cell->type.begins_with("$_DFF") || cell->type.begins_with("$_DLATCH") || cell->type.begins_with("$_SR_") ||
-											cell->type.in("$adff", "$sr", "$ff", "$_FF_"))) {
+											cell->type.in(ID($adff), ID($sr), ID($ff), ID($_FF_)))) {
 									for (auto c : it.second.chunks()) {
-										auto jt = c.wire->attributes.find(ID(init));
+										auto jt = c.wire->attributes.find(ID::init);
 										if (jt == c.wire->attributes.end())
 											continue;
 										for (int i = c.offset; i < c.offset + c.width; i++)

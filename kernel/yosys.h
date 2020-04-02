@@ -306,9 +306,9 @@ RTLIL::IdString new_id(std::string file, int line, std::string func);
 #define NEW_ID \
 	YOSYS_NAMESPACE_PREFIX new_id(__FILE__, __LINE__, __FUNCTION__)
 
-// Create a statically allocated IdString object, using for example ID(A) or ID($add).
+// Create a statically allocated IdString object, using for example ID::A or ID($add).
 //
-// Recipe for Converting old code that is using conversion of strings like "\\A" and
+// Recipe for Converting old code that is using conversion of strings like ID::A and
 // "$add" for creating IdStrings: Run below SED command on the .cc file and then use for
 // example "meld foo.cc foo.cc.orig" to manually compile errors, if necessary.
 //

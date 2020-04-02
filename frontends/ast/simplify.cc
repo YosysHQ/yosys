@@ -172,7 +172,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		deep_recursion_warning = true;
 		while (simplify(const_fold, at_zero, in_lvalue, 1, width_hint, sign_hint, in_param)) { }
 
-		if (!flag_nomem2reg && !get_bool_attribute("\\nomem2reg"))
+		if (!flag_nomem2reg && !get_bool_attribute(ID::nomem2reg))
 		{
 			dict<AstNode*, pool<std::string>> mem2reg_places;
 			dict<AstNode*, uint32_t> mem2reg_candidates, dummy_proc_flags;
@@ -187,10 +187,10 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				bool this_nomeminit = flag_nomeminit;
 				log_assert((memflags & ~0x00ffff00) == 0);
 
-				if (mem->get_bool_attribute("\\nomem2reg"))
+				if (mem->get_bool_attribute(ID::nomem2reg))
 					continue;
 
-				if (mem->get_bool_attribute("\\nomeminit") || get_bool_attribute("\\nomeminit"))
+				if (mem->get_bool_attribute(ID::nomeminit) || get_bool_attribute(ID::nomeminit))
 					this_nomeminit = true;
 
 				if (memflags & AstNode::MEM2REG_FL_FORCED)
@@ -248,7 +248,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 					reg->is_reg = true;
 					reg->is_signed = node->is_signed;
 					for (auto &it : node->attributes)
-						if (it.first != ID(mem2reg))
+						if (it.first != ID::mem2reg)
 							reg->attributes.emplace(it.first, it.second->clone());
 					reg->filename = node->filename;
 					reg->location = node->location;
@@ -345,9 +345,9 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				if (node->children.size() == 1 && node->children[0]->type == AST_RANGE) {
 					for (auto c : node->children[0]->children) {
 						if (!c->is_simple_const_expr()) {
-							if (attributes.count("\\dynports"))
-								delete attributes.at("\\dynports");
-							attributes["\\dynports"] = AstNode::mkconst_int(1, true);
+							if (attributes.count(ID::dynports))
+								delete attributes.at(ID::dynports);
+							attributes[ID::dynports] = AstNode::mkconst_int(1, true);
 						}
 					}
 				}
@@ -1219,7 +1219,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		AstNode *wire = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(data_range_left, true), mkconst_int(data_range_right, true)));
 		wire->str = wire_id;
 		if (current_block)
-			wire->attributes["\\nosync"] = AstNode::mkconst_int(1, false);
+			wire->attributes[ID::nosync] = AstNode::mkconst_int(1, false);
 		current_ast_mod->children.push_back(wire);
 		while (wire->simplify(true, false, false, 1, -1, false, false)) { }
 
@@ -1856,7 +1856,7 @@ skip_dynamic_range_lvalue_expansion:;
 			wire_tmp->str = stringf("$splitcmplxassign$%s:%d$%d", filename.c_str(), location.first_line, autoidx++);
 			current_ast_mod->children.push_back(wire_tmp);
 			current_scope[wire_tmp->str] = wire_tmp;
-			wire_tmp->attributes["\\nosync"] = AstNode::mkconst_int(1, false);
+			wire_tmp->attributes[ID::nosync] = AstNode::mkconst_int(1, false);
 			while (wire_tmp->simplify(true, false, false, 1, -1, false, false)) { }
 			wire_tmp->is_logic = true;
 
@@ -2676,7 +2676,7 @@ skip_dynamic_range_lvalue_expansion:;
 					wire->is_input = false;
 					wire->is_output = false;
 					wire->is_reg = true;
-					wire->attributes["\\nosync"] = AstNode::mkconst_int(1, false);
+					wire->attributes[ID::nosync] = AstNode::mkconst_int(1, false);
 					if (child->type == AST_ENUM_ITEM)
 						wire->attributes["\\enum_base_type"] = child->attributes["\\enum_base_type"];
 
@@ -3530,7 +3530,7 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 		wire_addr->str = id_addr;
 		wire_addr->is_reg = true;
 		wire_addr->was_checked = true;
-		wire_addr->attributes["\\nosync"] = AstNode::mkconst_int(1, false);
+		wire_addr->attributes[ID::nosync] = AstNode::mkconst_int(1, false);
 		mod->children.push_back(wire_addr);
 		while (wire_addr->simplify(true, false, false, 1, -1, false, false)) { }
 
@@ -3539,7 +3539,7 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 		wire_data->is_reg = true;
 		wire_data->was_checked = true;
 		wire_data->is_signed = mem_signed;
-		wire_data->attributes["\\nosync"] = AstNode::mkconst_int(1, false);
+		wire_data->attributes[ID::nosync] = AstNode::mkconst_int(1, false);
 		mod->children.push_back(wire_data);
 		while (wire_data->simplify(true, false, false, 1, -1, false, false)) { }
 
@@ -3610,7 +3610,7 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 			wire_addr->is_reg = true;
 			wire_addr->was_checked = true;
 			if (block)
-				wire_addr->attributes["\\nosync"] = AstNode::mkconst_int(1, false);
+				wire_addr->attributes[ID::nosync] = AstNode::mkconst_int(1, false);
 			mod->children.push_back(wire_addr);
 			while (wire_addr->simplify(true, false, false, 1, -1, false, false)) { }
 
@@ -3620,7 +3620,7 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 			wire_data->was_checked = true;
 			wire_data->is_signed = mem_signed;
 			if (block)
-				wire_data->attributes["\\nosync"] = AstNode::mkconst_int(1, false);
+				wire_data->attributes[ID::nosync] = AstNode::mkconst_int(1, false);
 			mod->children.push_back(wire_data);
 			while (wire_data->simplify(true, false, false, 1, -1, false, false)) { }
 

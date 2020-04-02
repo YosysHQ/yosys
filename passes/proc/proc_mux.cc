@@ -178,15 +178,15 @@ RTLIL::SigSpec gen_cmp(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const s
 		else
 		{
 			// create compare cell
-			RTLIL::Cell *eq_cell = mod->addCell(stringf("%s_CMP%d", sstr.str().c_str(), cmp_wire->width), ifxmode ? "$eqx" : "$eq");
+			RTLIL::Cell *eq_cell = mod->addCell(stringf("%s_CMP%d", sstr.str().c_str(), cmp_wire->width), ifxmode ? ID($eqx) : ID($eq));
 			apply_attrs(eq_cell, sw, cs);
 
-			eq_cell->parameters["\\A_SIGNED"] = RTLIL::Const(0);
-			eq_cell->parameters["\\B_SIGNED"] = RTLIL::Const(0);
+			eq_cell->parameters[ID::A_SIGNED] = RTLIL::Const(0);
+			eq_cell->parameters[ID::B_SIGNED] = RTLIL::Const(0);
 
-			eq_cell->parameters["\\A_WIDTH"] = RTLIL::Const(sig.size());
-			eq_cell->parameters["\\B_WIDTH"] = RTLIL::Const(comp.size());
-			eq_cell->parameters["\\Y_WIDTH"] = RTLIL::Const(1);
+			eq_cell->parameters[ID::A_WIDTH] = RTLIL::Const(sig.size());
+			eq_cell->parameters[ID::B_WIDTH] = RTLIL::Const(comp.size());
+			eq_cell->parameters[ID::Y_WIDTH] = RTLIL::Const(1);
 
 			eq_cell->setPort(ID::A, sig);
 			eq_cell->setPort(ID::B, comp);
@@ -204,12 +204,12 @@ RTLIL::SigSpec gen_cmp(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const s
 		ctrl_wire = mod->addWire(sstr.str() + "_CTRL");
 
 		// reduce cmp vector to one logic signal
-		RTLIL::Cell *any_cell = mod->addCell(sstr.str() + "_ANY", "$reduce_or");
+		RTLIL::Cell *any_cell = mod->addCell(sstr.str() + "_ANY", ID($reduce_or));
 		apply_attrs(any_cell, sw, cs);
 
-		any_cell->parameters["\\A_SIGNED"] = RTLIL::Const(0);
-		any_cell->parameters["\\A_WIDTH"] = RTLIL::Const(cmp_wire->width);
-		any_cell->parameters["\\Y_WIDTH"] = RTLIL::Const(1);
+		any_cell->parameters[ID::A_SIGNED] = RTLIL::Const(0);
+		any_cell->parameters[ID::A_WIDTH] = RTLIL::Const(cmp_wire->width);
+		any_cell->parameters[ID::Y_WIDTH] = RTLIL::Const(1);
 
 		any_cell->setPort(ID::A, cmp_wire);
 		any_cell->setPort(ID::Y, RTLIL::SigSpec(ctrl_wire));
@@ -239,10 +239,10 @@ RTLIL::SigSpec gen_mux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const s
 	RTLIL::Wire *result_wire = mod->addWire(sstr.str() + "_Y", when_signal.size());
 
 	// create the multiplexer itself
-	RTLIL::Cell *mux_cell = mod->addCell(sstr.str(), "$mux");
+	RTLIL::Cell *mux_cell = mod->addCell(sstr.str(), ID($mux));
 	apply_attrs(mux_cell, sw, cs);
 
-	mux_cell->parameters["\\WIDTH"] = RTLIL::Const(when_signal.size());
+	mux_cell->parameters[ID::WIDTH] = RTLIL::Const(when_signal.size());
 	mux_cell->setPort(ID::A, else_signal);
 	mux_cell->setPort(ID::B, when_signal);
 	mux_cell->setPort(ID::S, ctrl_sig);
@@ -262,7 +262,7 @@ void append_pmux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const std::ve
 
 	RTLIL::SigSpec ctrl_sig = gen_cmp(mod, signal, compare, sw, cs, ifxmode);
 	log_assert(ctrl_sig.size() == 1);
-	last_mux_cell->type = "$pmux";
+	last_mux_cell->type = ID($pmux);
 
 	RTLIL::SigSpec new_s = last_mux_cell->getPort(ID::S);
 	new_s.append(ctrl_sig);
@@ -272,7 +272,7 @@ void append_pmux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const std::ve
 	new_b.append(when_signal);
 	last_mux_cell->setPort(ID::B, new_b);
 
-	last_mux_cell->parameters["\\S_WIDTH"] = last_mux_cell->getPort(ID::S).size();
+	last_mux_cell->parameters[ID::S_WIDTH] = last_mux_cell->getPort(ID::S).size();
 }
 
 const pool<SigBit> &get_full_case_bits(SnippetSwCache &swcache, RTLIL::SwitchRule *sw)

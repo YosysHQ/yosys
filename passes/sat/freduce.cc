@@ -731,7 +731,7 @@ struct FreduceWorker
 					{
 						inv_sig = module->addWire(NEW_ID);
 
-						RTLIL::Cell *inv_cell = module->addCell(NEW_ID, "$_NOT_");
+						RTLIL::Cell *inv_cell = module->addCell(NEW_ID, ID($_NOT_));
 						inv_cell->setPort(ID::A, grp[0].bit);
 						inv_cell->setPort(ID::Y, inv_sig);
 					}

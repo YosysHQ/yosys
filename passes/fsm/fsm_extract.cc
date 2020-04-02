@@ -70,7 +70,7 @@ static bool find_states(RTLIL::SigSpec sig, const RTLIL::SigSpec &dff_out, RTLIL
 	for (auto &cellport : cellport_list)
 	{
 		RTLIL::Cell *cell = module->cells_.at(cellport.first);
-		if ((cell->type != "$mux" && cell->type != "$pmux") || cellport.second != ID::Y) {
+		if ((cell->type != ID($mux) && cell->type != ID($pmux)) || cellport.second != ID::Y) {
 			log("  unexpected cell type %s (%s) found in state selection tree.\n", cell->type.c_str(), cell->name.c_str());
 			return false;
 		}
@@ -272,17 +272,17 @@ static void extract_fsm(RTLIL::Wire *wire)
 	sig2driver.find(dff_out, cellport_list);
 	for (auto &cellport : cellport_list) {
 		RTLIL::Cell *cell = module->cells_.at(cellport.first);
-		if ((cell->type != "$dff" && cell->type != "$adff") || cellport.second != "\\Q")
+		if ((cell->type != ID($dff) && cell->type != ID($adff)) || cellport.second != ID::Q)
 			continue;
 		log("  found %s cell for state register: %s\n", cell->type.c_str(), cell->name.c_str());
-		RTLIL::SigSpec sig_q = assign_map(cell->getPort("\\Q"));
-		RTLIL::SigSpec sig_d = assign_map(cell->getPort("\\D"));
-		clk = cell->getPort("\\CLK");
-		clk_polarity = cell->parameters["\\CLK_POLARITY"].as_bool();
-		if (cell->type == "$adff") {
-			arst = cell->getPort("\\ARST");
-			arst_polarity = cell->parameters["\\ARST_POLARITY"].as_bool();
-			reset_state = cell->parameters["\\ARST_VALUE"];
+		RTLIL::SigSpec sig_q = assign_map(cell->getPort(ID::Q));
+		RTLIL::SigSpec sig_d = assign_map(cell->getPort(ID::D));
+		clk = cell->getPort(ID::CLK);
+		clk_polarity = cell->parameters[ID::CLK_POLARITY].as_bool();
+		if (cell->type == ID($adff)) {
+			arst = cell->getPort(ID::ARST);
+			arst_polarity = cell->parameters[ID::ARST_POLARITY].as_bool();
+			reset_state = cell->parameters[ID::ARST_VALUE];
 		}
 		sig_q.replace(dff_out, sig_d, &dff_in);
 		break;
@@ -368,14 +368,14 @@ static void extract_fsm(RTLIL::Wire *wire)
 
 	// create fsm cell
 
-	RTLIL::Cell *fsm_cell = module->addCell(stringf("$fsm$%s$%d", wire->name.c_str(), autoidx++), "$fsm");
-	fsm_cell->setPort("\\CLK", clk);
-	fsm_cell->setPort("\\ARST", arst);
-	fsm_cell->parameters["\\CLK_POLARITY"] = clk_polarity ? State::S1 : State::S0;
-	fsm_cell->parameters["\\ARST_POLARITY"] = arst_polarity ? State::S1 : State::S0;
-	fsm_cell->setPort("\\CTRL_IN", ctrl_in);
-	fsm_cell->setPort("\\CTRL_OUT", ctrl_out);
-	fsm_cell->parameters["\\NAME"] = RTLIL::Const(wire->name.str());
+	RTLIL::Cell *fsm_cell = module->addCell(stringf("$fsm$%s$%d", wire->name.c_str(), autoidx++), ID($fsm));
+	fsm_cell->setPort(ID::CLK, clk);
+	fsm_cell->setPort(ID::ARST, arst);
+	fsm_cell->parameters[ID::CLK_POLARITY] = clk_polarity ? State::S1 : State::S0;
+	fsm_cell->parameters[ID::ARST_POLARITY] = arst_polarity ? State::S1 : State::S0;
+	fsm_cell->setPort(ID::CTRL_IN, ctrl_in);
+	fsm_cell->setPort(ID::CTRL_OUT, ctrl_out);
+	fsm_cell->parameters[ID::NAME] = RTLIL::Const(wire->name.str());
 	fsm_cell->attributes = wire->attributes;
 	fsm_data.copy_to_cell(fsm_cell);
 
@@ -424,12 +424,9 @@ struct FsmExtractPass : public Pass {
 
 		CellTypes ct(design);
 
-		for (auto &mod_it : design->modules_)
+		for (auto mod : design->selected_modules())
 		{
-			if (!design->selected(mod_it.second))
-				continue;
-
-			module = mod_it.second;
+			module = mod;
 			assign_map.set(module);
 
 			sig2driver.clear();
@@ -449,7 +446,7 @@ struct FsmExtractPass : public Pass {
 						sig2trigger.insert(sig, sig2driver_entry_t(cell->name, conn_it.first));
 					}
 				}
-				if (cell->type == "$pmux") {
+				if (cell->type == ID($pmux)) {
 					RTLIL::SigSpec sel_sig = assign_map(cell->getPort(ID::S));
 					for (auto &bit1 : sel_sig)
 					for (auto &bit2 : sel_sig)
@@ -459,10 +456,9 @@ struct FsmExtractPass : public Pass {
 			}
 
 			std::vector<RTLIL::Wire*> wire_list;
-			for (auto &wire_it : module->wires_)
-				if (wire_it.second->attributes.count(ID::fsm_encoding) > 0 && wire_it.second->attributes[ID::fsm_encoding].decode_string() != "none")
-					if (design->selected(module, wire_it.second))
-						wire_list.push_back(wire_it.second);
+			for (auto wire : module->selected_wires())
+				if (wire->attributes.count(ID::fsm_encoding) > 0 && wire->attributes[ID::fsm_encoding].decode_string() != "none")
+					wire_list.push_back(wire);
 			for (auto wire : wire_list)
 				extract_fsm(wire);
 		}

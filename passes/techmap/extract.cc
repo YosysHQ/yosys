@@ -58,36 +58,36 @@ public:
 			return value;
 
 	#define param_bool(_n) if (param == _n) return value.as_bool();
-		param_bool(ID(ARST_POLARITY));
-		param_bool(ID(A_SIGNED));
-		param_bool(ID(B_SIGNED));
-		param_bool(ID(CLK_ENABLE));
-		param_bool(ID(CLK_POLARITY));
-		param_bool(ID(CLR_POLARITY));
-		param_bool(ID(EN_POLARITY));
-		param_bool(ID(SET_POLARITY));
-		param_bool(ID(TRANSPARENT));
+		param_bool(ID::ARST_POLARITY);
+		param_bool(ID::A_SIGNED);
+		param_bool(ID::B_SIGNED);
+		param_bool(ID::CLK_ENABLE);
+		param_bool(ID::CLK_POLARITY);
+		param_bool(ID::CLR_POLARITY);
+		param_bool(ID::EN_POLARITY);
+		param_bool(ID::SET_POLARITY);
+		param_bool(ID::TRANSPARENT);
 	#undef param_bool
 
 	#define param_int(_n) if (param == _n) return value.as_int();
-		param_int(ID(ABITS))
-		param_int(ID(A_WIDTH))
-		param_int(ID(B_WIDTH))
-		param_int(ID(CTRL_IN_WIDTH))
-		param_int(ID(CTRL_OUT_WIDTH))
-		param_int(ID(OFFSET))
-		param_int(ID(PRIORITY))
-		param_int(ID(RD_PORTS))
-		param_int(ID(SIZE))
-		param_int(ID(STATE_BITS))
-		param_int(ID(STATE_NUM))
-		param_int(ID(STATE_NUM_LOG2))
-		param_int(ID(STATE_RST))
-		param_int(ID(S_WIDTH))
-		param_int(ID(TRANS_NUM))
-		param_int(ID(WIDTH))
-		param_int(ID(WR_PORTS))
-		param_int(ID(Y_WIDTH))
+		param_int(ID::ABITS)
+		param_int(ID::A_WIDTH)
+		param_int(ID::B_WIDTH)
+		param_int(ID::CTRL_IN_WIDTH)
+		param_int(ID::CTRL_OUT_WIDTH)
+		param_int(ID::OFFSET)
+		param_int(ID::PRIORITY)
+		param_int(ID::RD_PORTS)
+		param_int(ID::SIZE)
+		param_int(ID::STATE_BITS)
+		param_int(ID::STATE_NUM)
+		param_int(ID::STATE_NUM_LOG2)
+		param_int(ID::STATE_RST)
+		param_int(ID::S_WIDTH)
+		param_int(ID::TRANS_NUM)
+		param_int(ID::WIDTH)
+		param_int(ID::WR_PORTS)
+		param_int(ID::Y_WIDTH)
 	#undef param_int
 
 		return value;
@@ -341,10 +341,10 @@ RTLIL::Cell *replace(RTLIL::Module *needle, RTLIL::Module *haystack, SubCircuit:
 bool compareSortNeedleList(RTLIL::Module *left, RTLIL::Module *right)
 {
 	int left_idx = 0, right_idx = 0;
-	if (left->attributes.count(ID(extract_order)) > 0)
-		left_idx = left->attributes.at(ID(extract_order)).as_int();
-	if (right->attributes.count(ID(extract_order)) > 0)
-		right_idx = right->attributes.at(ID(extract_order)).as_int();
+	if (left->attributes.count(ID::extract_order) > 0)
+		left_idx = left->attributes.at(ID::extract_order).as_int();
+	if (right->attributes.count(ID::extract_order) > 0)
+		right_idx = right->attributes.at(ID::extract_order).as_int();
 	if (left_idx != right_idx)
 		return left_idx < right_idx;
 	return left->name < right->name;

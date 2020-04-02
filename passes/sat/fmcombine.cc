@@ -43,7 +43,7 @@ struct FmcombineWorker
 
 	FmcombineWorker(Design *design, IdString orig_type, const opts_t &opts) :
 			opts(opts), design(design), original(design->module(orig_type)),
-			orig_type(orig_type), combined_type("$fmcombine" + orig_type.str())
+			orig_type(orig_type), combined_type(stringf("$fmcombine%s", orig_type.c_str()))
 	{
 	}
 
@@ -106,7 +106,7 @@ struct FmcombineWorker
 
 		for (auto cell : original->cells()) {
 			if (design->module(cell->type) == nullptr) {
-				if (opts.anyeq && cell->type.in("$anyseq", "$anyconst")) {
+				if (opts.anyeq && cell->type.in(ID($anyseq), ID($anyconst))) {
 					Cell *gold = import_prim_cell(cell, "_gold");
 					for (auto &conn : cell->connections())
 						module->connect(import_sig(conn.second, "_gate"), gold->getPort(conn.first));
@@ -114,10 +114,10 @@ struct FmcombineWorker
 					Cell *gold = import_prim_cell(cell, "_gold");
 					Cell *gate = import_prim_cell(cell, "_gate");
 					if (opts.initeq) {
-						if (cell->type.in("$ff", "$dff", "$dffe",
-								"$dffsr", "$adff", "$dlatch", "$dlatchsr")) {
-							SigSpec gold_q = gold->getPort("\\Q");
-							SigSpec gate_q = gate->getPort("\\Q");
+						if (cell->type.in(ID($ff), ID($dff), ID($dffe),
+								ID($dffsr), ID($adff), ID($dlatch), ID($dlatchsr))) {
+							SigSpec gold_q = gold->getPort(ID::Q);
+							SigSpec gate_q = gate->getPort(ID::Q);
 							SigSpec en = module->Initstate(NEW_ID);
 							SigSpec eq = module->Eq(NEW_ID, gold_q, gate_q);
 							module->addAssume(NEW_ID, eq, en);

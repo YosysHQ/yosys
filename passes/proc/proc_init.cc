@@ -54,7 +54,7 @@ void proc_init(RTLIL::Module *mod, SigMap &sigmap, RTLIL::Process *proc)
 							log_cmd_error("Non-const initialization value: %s = %s\n", log_signal(lhs_c), log_signal(valuesig));
 
 						Const value = valuesig.as_const();
-						Const &wireinit = lhs_c.wire->attributes["\\init"];
+						Const &wireinit = lhs_c.wire->attributes[ID::init];
 
 						while (GetSize(wireinit.bits) < lhs_c.wire->width)
 							wireinit.bits.push_back(State::Sx);

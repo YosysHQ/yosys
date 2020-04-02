@@ -60,8 +60,8 @@ struct EquivSimpleWorker
 		for (auto &conn : cell->connections())
 			if (yosys_celltypes.cell_input(cell->type, conn.first))
 				for (auto bit : sigmap(conn.second)) {
-					if (cell->type.in("$dff", "$_DFF_P_", "$_DFF_N_", "$ff", "$_FF_")) {
-						if (!conn.first.in("\\CLK", "\\C"))
+					if (cell->type.in(ID($dff), ID($_DFF_P_), ID($_DFF_N_), ID($ff), ID($_FF_))) {
+						if (!conn.first.in(ID::CLK, ID::C))
 							next_seed.insert(bit);
 					} else
 						find_input_cone(next_seed, cells_cone, bits_cone, cells_stop, bits_stop, input_bits, bit);
@@ -344,7 +344,7 @@ struct EquivSimplePass : public Pass {
 			int unproven_cells_counter = 0;
 
 			for (auto cell : module->selected_cells())
-				if (cell->type == "$equiv" && cell->getPort(ID::A) != cell->getPort(ID::B)) {
+				if (cell->type == ID($equiv) && cell->getPort(ID::A) != cell->getPort(ID::B)) {
 					auto bit = sigmap(cell->getPort(ID::Y).as_bit());
 					auto bit_group = bit;
 					if (!nogroup && bit_group.wire)
@@ -360,7 +360,7 @@ struct EquivSimplePass : public Pass {
 					unproven_cells_counter, GetSize(unproven_equiv_cells), log_id(module));
 
 			for (auto cell : module->cells()) {
-				if (!ct.cell_known(cell->type) && !cell->type.in("$dff", "$_DFF_P_", "$_DFF_N_", "$ff", "$_FF_"))
+				if (!ct.cell_known(cell->type) && !cell->type.in(ID($dff), ID($_DFF_P_), ID($_DFF_N_), ID($ff), ID($_FF_)))
 					continue;
 				for (auto &conn : cell->connections())
 					if (yosys_celltypes.cell_output(cell->type, conn.first))

@@ -125,7 +125,7 @@ struct ConstEvalAig
 		if (!inputs.count(sig_a))
 			compute_deps(sig_a, inputs);
 
-		if (cell->type == "$_AND_") {
+		if (cell->type == ID($_AND_)) {
 			RTLIL::SigSpec sig_b = cell->getPort(ID::B);
 			sig2deps[sig_b].reserve(sig2deps[sig_b].size() + sig2deps[output].size()); // Reserve so that any invalidation
 												   // that may occur does so here, and
@@ -135,7 +135,7 @@ struct ConstEvalAig
 			if (!inputs.count(sig_b))
 				compute_deps(sig_b, inputs);
 		}
-		else if (cell->type == "$_NOT_") {
+		else if (cell->type == ID($_NOT_)) {
 		}
 		else log_abort();
 	}
@@ -151,11 +151,11 @@ struct ConstEvalAig
 			return false;
 
 		RTLIL::State eval_ret = RTLIL::Sx;
-		if (cell->type == "$_NOT_") {
+		if (cell->type == ID($_NOT_)) {
 			if (sig_a == State::S0) eval_ret = State::S1;
 			else if (sig_a == State::S1) eval_ret = State::S0;
 		}
-		else if (cell->type == "$_AND_") {
+		else if (cell->type == ID($_AND_)) {
 			if (sig_a == State::S0) {
 				eval_ret = State::S0;
 				goto eval_end;
@@ -478,9 +478,9 @@ void AigerReader::parse_xaiger()
 				log_assert(boxUniqueId > 0);
 				uint32_t oldBoxNum = parse_xaiger_literal(f);
 				RTLIL::Cell* cell = module->addCell(stringf("$box%u", oldBoxNum), stringf("$__boxid%u", boxUniqueId));
-				cell->setPort("\\i", SigSpec(State::S0, boxInputs));
-				cell->setPort("\\o", SigSpec(State::S0, boxOutputs));
-				cell->attributes["\\abc9_box_seq"] = oldBoxNum;
+				cell->setPort(ID(i), SigSpec(State::S0, boxInputs));
+				cell->setPort(ID(o), SigSpec(State::S0, boxOutputs));
+				cell->attributes[ID::abc9_box_seq] = oldBoxNum;
 				boxes.emplace_back(cell);
 			}
 		}
@@ -548,18 +548,18 @@ void AigerReader::parse_aiger_ascii()
 				log_error("Line %u cannot be interpreted as a latch!\n", line_count);
 
 			if (l3 == 0)
-				q_wire->attributes["\\init"] = State::S0;
+				q_wire->attributes[ID::init] = State::S0;
 			else if (l3 == 1)
-				q_wire->attributes["\\init"] = State::S1;
+				q_wire->attributes[ID::init] = State::S1;
 			else if (l3 == l1) {
-				//q_wire->attributes["\\init"] = RTLIL::Sx;
+				//q_wire->attributes[ID::init] = RTLIL::Sx;
 			}
 			else
 				log_error("Line %u has invalid reset literal for latch!\n", line_count);
 		}
 		else {
 			// AIGER latches are assumed to be initialized to zero
-			q_wire->attributes["\\init"] = State::S0;
+			q_wire->attributes[ID::init] = State::S0;
 		}
 		latches.push_back(q_wire);
 	}
@@ -673,18 +673,18 @@ void AigerReader::parse_aiger_binary()
 				log_error("Line %u cannot be interpreted as a latch!\n", line_count);
 
 			if (l3 == 0)
-				q_wire->attributes["\\init"] = State::S0;
+				q_wire->attributes[ID::init] = State::S0;
 			else if (l3 == 1)
-				q_wire->attributes["\\init"] = State::S1;
+				q_wire->attributes[ID::init] = State::S1;
 			else if (l3 == l1) {
-				//q_wire->attributes["\\init"] = RTLIL::Sx;
+				//q_wire->attributes[ID::init] = RTLIL::Sx;
 			}
 			else
 				log_error("Line %u has invalid reset literal for latch!\n", line_count);
 		}
 		else {
 			// AIGER latches are assumed to be initialized to zero
-			q_wire->attributes["\\init"] = State::S0;
+			q_wire->attributes[ID::init] = State::S0;
 		}
 		latches.push_back(q_wire);
 	}
@@ -747,7 +747,7 @@ void AigerReader::post_process()
 {
 	unsigned ci_count = 0, co_count = 0;
 	for (auto cell : boxes) {
-		for (auto &bit : cell->connections_.at("\\i")) {
+		for (auto &bit : cell->connections_.at(ID(i))) {
 			log_assert(bit == State::S0);
 			log_assert(co_count < outputs.size());
 			bit = outputs[co_count++];
@@ -755,7 +755,7 @@ void AigerReader::post_process()
 			log_assert(bit.wire->port_output);
 			bit.wire->port_output = false;
 		}
-		for (auto &bit : cell->connections_.at("\\o")) {
+		for (auto &bit : cell->connections_.at(ID(o))) {
 			log_assert(bit == State::S0);
 			log_assert((piNum + ci_count) < inputs.size());
 			bit = inputs[piNum + ci_count++];
@@ -776,10 +776,10 @@ void AigerReader::post_process()
 		log_assert(q->port_input);
 		q->port_input = false;
 
-		auto ff = module->addCell(NEW_ID, "$__ABC9_FF_");
-		ff->setPort("\\D", d);
-		ff->setPort("\\Q", q);
-		ff->attributes["\\abc9_mergeability"] = mergeability[i];
+		auto ff = module->addCell(NEW_ID, ID($__ABC9_FF_));
+		ff->setPort(ID::D, d);
+		ff->setPort(ID::Q, q);
+		ff->attributes[ID::abc9_mergeability] = mergeability[i];
 	}
 
 	dict<RTLIL::IdString, int> wideports_cache;
@@ -866,7 +866,7 @@ void AigerReader::post_process()
 				int init;
 				mf >> init;
 				if (init < 2)
-					wire->attributes["\\init"] = init;
+					wire->attributes[ID::init] = init;
 			}
 			else if (type == "box") {
 				RTLIL::Cell* cell = module->cell(stringf("$box%d", variable));
@@ -929,7 +929,7 @@ void AigerReader::post_process()
 	design->add(module);
 
 	for (auto cell : module->cells().to_vector()) {
-		if (cell->type != "$lut") continue;
+		if (cell->type != ID($lut)) continue;
 		auto y_port = cell->getPort(ID::Y).as_bit();
 		if (y_port.wire->width == 1)
 			module->rename(cell, stringf("$lut%s", y_port.wire->name.c_str()));

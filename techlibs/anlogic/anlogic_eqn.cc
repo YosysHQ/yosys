@@ -74,34 +74,34 @@ struct AnlogicEqnPass : public Pass {
 		{
 			for (auto cell : module->selected_cells())
 			{
-				if (cell->type == "\\AL_MAP_LUT1")
+				if (cell->type == ID(AL_MAP_LUT1))
 				{
-					cell->setParam("\\EQN", init2eqn(cell->getParam("\\INIT"),1));
+					cell->setParam(ID(EQN), init2eqn(cell->getParam(ID::INIT),1));
 					cnt++;
 				}
-				if (cell->type == "\\AL_MAP_LUT2")
+				if (cell->type == ID(AL_MAP_LUT2))
 				{
-					cell->setParam("\\EQN", init2eqn(cell->getParam("\\INIT"),2));
+					cell->setParam(ID(EQN), init2eqn(cell->getParam(ID::INIT),2));
 					cnt++;
 				}
-				if (cell->type == "\\AL_MAP_LUT3")
+				if (cell->type == ID(AL_MAP_LUT3))
 				{
-					cell->setParam("\\EQN", init2eqn(cell->getParam("\\INIT"),3));
+					cell->setParam(ID(EQN), init2eqn(cell->getParam(ID::INIT),3));
 					cnt++;
 				}
-				if (cell->type == "\\AL_MAP_LUT4")
+				if (cell->type == ID(AL_MAP_LUT4))
 				{
-					cell->setParam("\\EQN", init2eqn(cell->getParam("\\INIT"),4));
+					cell->setParam(ID(EQN), init2eqn(cell->getParam(ID::INIT),4));
 					cnt++;
 				}
-				if (cell->type == "\\AL_MAP_LUT5")
+				if (cell->type == ID(AL_MAP_LUT5))
 				{
-					cell->setParam("\\EQN", init2eqn(cell->getParam("\\INIT"),5));
+					cell->setParam(ID(EQN), init2eqn(cell->getParam(ID::INIT),5));
 					cnt++;
 				}
-				if (cell->type == "\\AL_MAP_LUT6")
+				if (cell->type == ID(AL_MAP_LUT6))
 				{
-					cell->setParam("\\EQN", init2eqn(cell->getParam("\\INIT"),6));
+					cell->setParam(ID(EQN), init2eqn(cell->getParam(ID::INIT),6));
 					cnt++;
 				}
 			}

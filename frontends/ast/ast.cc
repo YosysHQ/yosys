@@ -954,7 +954,7 @@ static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast
 	current_module->name = ast->str;
 	current_module->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", ast->filename.c_str(), ast->location.first_line,
 		ast->location.first_column, ast->location.last_line, ast->location.last_column);
-	current_module->set_bool_attribute("\\cells_not_processed");
+	current_module->set_bool_attribute(ID::cells_not_processed);
 
 	current_ast_mod = ast;
 	AstNode *ast_before_simplify;
@@ -1007,61 +1007,61 @@ static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast
 			log("--- END OF AST DUMP ---\n");
 		}
 
-		if (flag_nowb && ast->attributes.count("\\whitebox")) {
-			delete ast->attributes.at("\\whitebox");
-			ast->attributes.erase("\\whitebox");
+		if (flag_nowb && ast->attributes.count(ID::whitebox)) {
+			delete ast->attributes.at(ID::whitebox);
+			ast->attributes.erase(ID::whitebox);
 		}
 
-		if (ast->attributes.count("\\lib_whitebox")) {
+		if (ast->attributes.count(ID::lib_whitebox)) {
 			if (!flag_lib || flag_nowb) {
-				delete ast->attributes.at("\\lib_whitebox");
-				ast->attributes.erase("\\lib_whitebox");
+				delete ast->attributes.at(ID::lib_whitebox);
+				ast->attributes.erase(ID::lib_whitebox);
 			} else {
-				if (ast->attributes.count("\\whitebox")) {
-					delete ast->attributes.at("\\whitebox");
-					ast->attributes.erase("\\whitebox");
+				if (ast->attributes.count(ID::whitebox)) {
+					delete ast->attributes.at(ID::whitebox);
+					ast->attributes.erase(ID::whitebox);
 				}
-				AstNode *n = ast->attributes.at("\\lib_whitebox");
-				ast->attributes["\\whitebox"] = n;
-				ast->attributes.erase("\\lib_whitebox");
+				AstNode *n = ast->attributes.at(ID::lib_whitebox);
+				ast->attributes[ID::whitebox] = n;
+				ast->attributes.erase(ID::lib_whitebox);
 			}
 		}
 
-		if (!blackbox_module && ast->attributes.count("\\blackbox")) {
-			AstNode *n = ast->attributes.at("\\blackbox");
+		if (!blackbox_module && ast->attributes.count(ID::blackbox)) {
+			AstNode *n = ast->attributes.at(ID::blackbox);
 			if (n->type != AST_CONSTANT)
 				log_file_error(ast->filename, ast->location.first_line, "Got blackbox attribute with non-constant value!\n");
 			blackbox_module = n->asBool();
 		}
 
-		if (blackbox_module && ast->attributes.count("\\whitebox")) {
-			AstNode *n = ast->attributes.at("\\whitebox");
+		if (blackbox_module && ast->attributes.count(ID::whitebox)) {
+			AstNode *n = ast->attributes.at(ID::whitebox);
 			if (n->type != AST_CONSTANT)
 				log_file_error(ast->filename, ast->location.first_line, "Got whitebox attribute with non-constant value!\n");
 			blackbox_module = !n->asBool();
 		}
 
-		if (ast->attributes.count("\\noblackbox")) {
+		if (ast->attributes.count(ID::noblackbox)) {
 			if (blackbox_module) {
-				AstNode *n = ast->attributes.at("\\noblackbox");
+				AstNode *n = ast->attributes.at(ID::noblackbox);
 				if (n->type != AST_CONSTANT)
 					log_file_error(ast->filename, ast->location.first_line, "Got noblackbox attribute with non-constant value!\n");
 				blackbox_module = !n->asBool();
 			}
-			delete ast->attributes.at("\\noblackbox");
-			ast->attributes.erase("\\noblackbox");
+			delete ast->attributes.at(ID::noblackbox);
+			ast->attributes.erase(ID::noblackbox);
 		}
 
 		if (blackbox_module)
 		{
-			if (ast->attributes.count("\\whitebox")) {
-				delete ast->attributes.at("\\whitebox");
-				ast->attributes.erase("\\whitebox");
+			if (ast->attributes.count(ID::whitebox)) {
+				delete ast->attributes.at(ID::whitebox);
+				ast->attributes.erase(ID::whitebox);
 			}
 
-			if (ast->attributes.count("\\lib_whitebox")) {
-				delete ast->attributes.at("\\lib_whitebox");
-				ast->attributes.erase("\\lib_whitebox");
+			if (ast->attributes.count(ID::lib_whitebox)) {
+				delete ast->attributes.at(ID::lib_whitebox);
+				ast->attributes.erase(ID::lib_whitebox);
 			}
 
 			std::vector<AstNode*> new_children;
@@ -1082,8 +1082,8 @@ static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast
 
 			ast->children.swap(new_children);
 
-			if (ast->attributes.count("\\blackbox") == 0) {
-				ast->attributes["\\blackbox"] = AstNode::mkconst_int(1, false);
+			if (ast->attributes.count(ID::blackbox) == 0) {
+				ast->attributes[ID::blackbox] = AstNode::mkconst_int(1, false);
 			}
 		}
 
@@ -1212,7 +1212,7 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 					continue;
 				} else {
 					log("Replacing existing%s module `%s' at %s:%d.%d-%d.%d.\n",
-							existing_mod->get_bool_attribute("\\blackbox") ? " blackbox" : "",
+							existing_mod->get_bool_attribute(ID::blackbox) ? " blackbox" : "",
 							(*it)->str.c_str(), (*it)->filename.c_str(), (*it)->location.first_line, (*it)->location.first_column, (*it)->location.last_line, (*it)->location.last_column);
 					design->remove(existing_mod);
 				}
@@ -1385,7 +1385,7 @@ void AstModule::reprocess_module(RTLIL::Design *design, const dict<RTLIL::IdStri
 	std::string original_name = this->name.str();
 	std::string changed_name = original_name + "_before_replacing_local_interfaces";
 	design->rename(this, changed_name);
-	this->set_bool_attribute("\\to_delete");
+	this->set_bool_attribute(ID::to_delete);
 
 	// Check if the module was the top module. If it was, we need to remove the top attribute and put it on the
 	// new module.
@@ -1403,7 +1403,7 @@ void AstModule::reprocess_module(RTLIL::Design *design, const dict<RTLIL::IdStri
 		mod->set_bool_attribute(ID::top);
 
 	// Set the attribute "interfaces_replaced_in_module" so that it does not happen again.
-	mod->set_bool_attribute("\\interfaces_replaced_in_module");
+	mod->set_bool_attribute(ID::interfaces_replaced_in_module);
 }
 
 // create a new parametric module (when needed) and return the name of the generated module - WITH support for interfaces
@@ -1482,7 +1482,7 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdStr
 
 		// If any interfaces were replaced, set the attribute 'interfaces_replaced_in_module':
 		if (interfaces.size() > 0) {
-			mod->set_bool_attribute("\\interfaces_replaced_in_module");
+			mod->set_bool_attribute(ID::interfaces_replaced_in_module);
 		}
 
 	} else {
@@ -1496,7 +1496,7 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdStr
 // create a new parametric module (when needed) and return the name of the generated module - without support for interfaces
 RTLIL::IdString AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, bool /*mayfail*/)
 {
-	bool quiet = lib || attributes.count(ID(blackbox)) || attributes.count(ID(whitebox));
+	bool quiet = lib || attributes.count(ID::blackbox) || attributes.count(ID::whitebox);
 
 	AstNode *new_ast = NULL;
 	std::string modname = derive_common(design, parameters, &new_ast, quiet);

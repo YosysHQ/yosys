@@ -174,7 +174,7 @@ struct XAigerWriter
 				undriven_bits.insert(bit);
 				unused_bits.insert(bit);
 
-				bool scc = wire->attributes.count(ID(abc9_scc));
+				bool scc = wire->attributes.count(ID::abc9_scc);
 				if (wire->port_input || scc)
 					input_bits.insert(bit);
 
@@ -190,7 +190,7 @@ struct XAigerWriter
 
 		for (auto cell : module->cells()) {
 			if (!cell->has_keep_attr()) {
-				if (cell->type == "$_NOT_")
+				if (cell->type == ID($_NOT_))
 				{
 					SigBit A = sigmap(cell->getPort(ID::A).as_bit());
 					SigBit Y = sigmap(cell->getPort(ID::Y).as_bit());
@@ -200,7 +200,7 @@ struct XAigerWriter
 					continue;
 				}
 
-				if (cell->type == "$_AND_")
+				if (cell->type == ID($_AND_))
 				{
 					SigBit A = sigmap(cell->getPort(ID::A).as_bit());
 					SigBit B = sigmap(cell->getPort(ID::B).as_bit());
@@ -212,13 +212,13 @@ struct XAigerWriter
 					continue;
 				}
 
-				if (cell->type == "$__ABC9_FF_" &&
+				if (cell->type == ID($__ABC9_FF_) &&
 						// The presence of an abc9_mergeability attribute indicates
 						//   that we do want to pass this flop to ABC
-						cell->attributes.count("\\abc9_mergeability"))
+						cell->attributes.count(ID::abc9_mergeability))
 				{
-					SigBit D = sigmap(cell->getPort("\\D").as_bit());
-					SigBit Q = sigmap(cell->getPort("\\Q").as_bit());
+					SigBit D = sigmap(cell->getPort(ID::D).as_bit());
+					SigBit Q = sigmap(cell->getPort(ID::Q).as_bit());
 					unused_bits.erase(D);
 					undriven_bits.erase(Q);
 					alias_map[Q] = D;
@@ -227,7 +227,7 @@ struct XAigerWriter
 					continue;
 				}
 
-				if (cell->type.in("$specify2", "$specify3", "$specrule"))
+				if (cell->type.in(ID($specify2), ID($specify3), ID($specrule)))
 					continue;
 			}
 
@@ -239,7 +239,7 @@ struct XAigerWriter
 
 				bool abc9_flop = false;
 				if (!cell->has_keep_attr()) {
-					auto it = cell->attributes.find("\\abc9_box_seq");
+					auto it = cell->attributes.find(ID::abc9_box_seq);
 					if (it != cell->attributes.end()) {
 						int abc9_box_seq = it->second.as_int();
 						if (GetSize(box_list) <= abc9_box_seq)
@@ -247,7 +247,7 @@ struct XAigerWriter
 						box_list[abc9_box_seq] = cell;
 						// Only flop boxes may have arrival times
 						//   (all others are combinatorial)
-						abc9_flop = inst_module->get_bool_attribute("\\abc9_flop");
+						abc9_flop = inst_module->get_bool_attribute(ID::abc9_flop);
 						if (!abc9_flop)
 							continue;
 					}
@@ -315,7 +315,7 @@ struct XAigerWriter
 
 			RTLIL::Module* box_module = module->design->module(cell->type);
 			log_assert(box_module);
-			log_assert(box_module->attributes.count("\\abc9_box_id") || box_module->get_bool_attribute("\\abc9_flop"));
+			log_assert(box_module->attributes.count(ID::abc9_box_id) || box_module->get_bool_attribute(ID::abc9_flop));
 
 			auto r = box_ports.insert(cell->type);
 			if (r.second) {
@@ -325,7 +325,7 @@ struct XAigerWriter
 				for (const auto &port_name : box_module->ports) {
 					auto w = box_module->wire(port_name);
 					log_assert(w);
-					if (w->get_bool_attribute("\\abc9_carry")) {
+					if (w->get_bool_attribute(ID::abc9_carry)) {
 						if (w->port_input) {
 							if (carry_in != IdString())
 								log_error("Module '%s' contains more than one 'abc9_carry' input port.\n", log_id(box_module));
@@ -381,7 +381,7 @@ struct XAigerWriter
 			}
 
 			// Connect <cell>.abc9_ff.Q (inserted by abc9_map.v) as the last input to the flop box
-			if (box_module->get_bool_attribute("\\abc9_flop")) {
+			if (box_module->get_bool_attribute(ID::abc9_flop)) {
 				SigSpec rhs = module->wire(stringf("%s.abc9_ff.Q", cell->name.c_str()));
 				if (rhs.empty())
 					log_error("'%s.abc9_ff.Q' is not a wire present in module '%s'.\n", log_id(cell), log_id(module));
@@ -437,7 +437,7 @@ struct XAigerWriter
 
 		for (const auto &i : ff_bits) {
 			const Cell *cell = i.second;
-			const SigBit &q = sigmap(cell->getPort("\\Q"));
+			const SigBit &q = sigmap(cell->getPort(ID::Q));
 			aig_m++, aig_i++;
 			log_assert(!aig_map.count(q));
 			aig_map[q] = 2*aig_m;
@@ -608,12 +608,12 @@ struct XAigerWriter
 
 					// For flops only, create an extra 1-bit input that drives a new wire
 					//   called "<cell>.abc9_ff.Q" that is used below
-					if (box_module->get_bool_attribute("\\abc9_flop"))
+					if (box_module->get_bool_attribute(ID::abc9_flop))
 						box_inputs++;
 
 					std::get<0>(v) = box_inputs;
 					std::get<1>(v) = box_outputs;
-					std::get<2>(v) = box_module->attributes.at("\\abc9_box_id").as_int();
+					std::get<2>(v) = box_module->attributes.at(ID::abc9_box_id).as_int();
 				}
 
 				write_h_buffer(std::get<0>(v));
@@ -635,11 +635,11 @@ struct XAigerWriter
 				const SigBit &d = i.first;
 				const Cell *cell = i.second;
 
-				int mergeability = cell->attributes.at(ID(abc9_mergeability)).as_int();
+				int mergeability = cell->attributes.at(ID::abc9_mergeability).as_int();
 				log_assert(mergeability > 0);
 				write_r_buffer(mergeability);
 
-				Const init = cell->attributes.at(ID(abc9_init), State::Sx);
+				Const init = cell->attributes.at(ID::abc9_init, State::Sx);
 				log_assert(GetSize(init) == 1);
 				if (init == State::S1)
 					write_s_buffer(1);

@@ -58,7 +58,7 @@ struct EquivInductWorker
 				log_warning("No SAT model available for cell %s (%s).\n", log_id(cell), log_id(cell->type));
 				cell_warn_cache.insert(cell);
 			}
-			if (cell->type == "$equiv") {
+			if (cell->type == ID($equiv)) {
 				SigBit bit_a = sigmap(cell->getPort(ID::A)).as_bit();
 				SigBit bit_b = sigmap(cell->getPort(ID::B)).as_bit();
 				if (bit_a != bit_b) {
@@ -219,7 +219,7 @@ struct EquivInductPass : public Pass {
 			pool<Cell*> unproven_equiv_cells;
 
 			for (auto cell : module->selected_cells())
-				if (cell->type == "$equiv") {
+				if (cell->type == ID($equiv)) {
 					if (cell->getPort(ID::A) != cell->getPort(ID::B))
 						unproven_equiv_cells.insert(cell);
 				}

@@ -1544,7 +1544,7 @@ wire_name_and_opt_assign:
 				fcall->str = "\\$allconst";
 			if (attr_allseq)
 				fcall->str = "\\$allseq";
-			fcall->attributes["\\reg"] = AstNode::mkconst_str(RTLIL::unescape_id(wire->str));
+			fcall->attributes[ID::reg] = AstNode::mkconst_str(RTLIL::unescape_id(wire->str));
 			ast_stack.back()->children.push_back(new AstNode(AST_ASSIGN, wire, fcall));
 		}
 	} |
@@ -1839,7 +1839,7 @@ cell_port:
 	attr TOK_WILDCARD_CONNECT {
 		if (!sv_mode)
 			frontend_verilog_yyerror("Wildcard port connections are only supported in SystemVerilog mode.");
-		astbuf2->attributes[ID(wildcard_port_conns)] = AstNode::mkconst_int(1, false);
+		astbuf2->attributes[ID::wildcard_port_conns] = AstNode::mkconst_int(1, false);
 	};
 
 always_comb_or_latch:
@@ -1863,7 +1863,7 @@ always_stmt:
 		AstNode *node = new AstNode(AST_ALWAYS);
 		append_attr(node, $1);
 		if ($2)
-			node->attributes[ID(always_ff)] = AstNode::mkconst_int(1, false);
+			node->attributes[ID::always_ff] = AstNode::mkconst_int(1, false);
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);
 	} always_cond {
@@ -1883,9 +1883,9 @@ always_stmt:
 		AstNode *node = new AstNode(AST_ALWAYS);
 		append_attr(node, $1);
 		if ($2)
-			node->attributes[ID(always_latch)] = AstNode::mkconst_int(1, false);
+			node->attributes[ID::always_latch] = AstNode::mkconst_int(1, false);
 		else
-			node->attributes[ID(always_comb)] = AstNode::mkconst_int(1, false);
+			node->attributes[ID::always_comb] = AstNode::mkconst_int(1, false);
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);
 		AstNode *block = new AstNode(AST_BLOCK);

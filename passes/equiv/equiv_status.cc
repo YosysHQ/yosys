@@ -59,7 +59,7 @@ struct EquivStatusPass : public Pass {
 			int proven_equiv_cells = 0;
 
 			for (auto cell : module->selected_cells())
-				if (cell->type == "$equiv") {
+				if (cell->type == ID($equiv)) {
 					if (cell->getPort(ID::A) != cell->getPort(ID::B))
 						unproven_equiv_cells.push_back(cell);
 					else

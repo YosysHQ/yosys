@@ -41,7 +41,7 @@ struct InsbufPass : public Pass {
 	{
 		log_header(design, "Executing INSBUF pass (insert buffer cells for connected wires).\n");
 
-		IdString celltype = "$_BUF_", in_portname = ID::A, out_portname = ID::Y;
+		IdString celltype = ID($_BUF_), in_portname = ID::A, out_portname = ID::Y;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)

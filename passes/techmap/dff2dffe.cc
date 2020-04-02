@@ -88,7 +88,7 @@ struct Dff2dffeWorker
 		cell_int_t mux_cell_int = bit2mux.at(d);
 		RTLIL::SigSpec sig_a = sigmap(mux_cell_int.first->getPort(ID::A));
 		RTLIL::SigSpec sig_b = sigmap(mux_cell_int.first->getPort(ID::B));
-		RTLIL::SigSpec sig_s = sigmap(mux_cell_int.first->getPort(ID(S)));
+		RTLIL::SigSpec sig_s = sigmap(mux_cell_int.first->getPort(ID::S));
 		int width = GetSize(sig_a), index = mux_cell_int.second;
 
 		for (int i = 0; i < GetSize(sig_s); i++)
@@ -185,8 +185,8 @@ struct Dff2dffeWorker
 
 	void handle_dff_cell(RTLIL::Cell *dff_cell)
 	{
-		RTLIL::SigSpec sig_d = sigmap(dff_cell->getPort(ID(D)));
-		RTLIL::SigSpec sig_q = sigmap(dff_cell->getPort(ID(Q)));
+		RTLIL::SigSpec sig_d = sigmap(dff_cell->getPort(ID::D));
+		RTLIL::SigSpec sig_q = sigmap(dff_cell->getPort(ID::Q));
 
 		std::map<patterns_t, std::set<int>> grouped_patterns;
 		std::set<int> remaining_indices;
@@ -208,15 +208,15 @@ struct Dff2dffeWorker
 			}
 			if (!direct_dict.empty()) {
 				log("  converting %s cell %s to %s for %s -> %s.\n", log_id(dff_cell->type), log_id(dff_cell), log_id(direct_dict.at(dff_cell->type)), log_signal(new_sig_d), log_signal(new_sig_q));
-				dff_cell->setPort(ID(E), make_patterns_logic(it.first, true));
+				dff_cell->setPort(ID::E, make_patterns_logic(it.first, true));
 				dff_cell->type = direct_dict.at(dff_cell->type);
 			} else
 			if (dff_cell->type == ID($dff)) {
-				RTLIL::Cell *new_cell = module->addDffe(NEW_ID, dff_cell->getPort(ID(CLK)), make_patterns_logic(it.first, false),
-						new_sig_d, new_sig_q, dff_cell->getParam(ID(CLK_POLARITY)).as_bool(), true);
+				RTLIL::Cell *new_cell = module->addDffe(NEW_ID, dff_cell->getPort(ID::CLK), make_patterns_logic(it.first, false),
+						new_sig_d, new_sig_q, dff_cell->getParam(ID::CLK_POLARITY).as_bool(), true);
 				log("  created $dffe cell %s for %s -> %s.\n", log_id(new_cell), log_signal(new_sig_d), log_signal(new_sig_q));
 			} else {
-				RTLIL::Cell *new_cell = module->addDffeGate(NEW_ID, dff_cell->getPort(ID(C)), make_patterns_logic(it.first, true),
+				RTLIL::Cell *new_cell = module->addDffeGate(NEW_ID, dff_cell->getPort(ID::C), make_patterns_logic(it.first, true),
 						new_sig_d, new_sig_q, dff_cell->type == ID($_DFF_P_), true);
 				log("  created %s cell %s for %s -> %s.\n", log_id(new_cell->type), log_id(new_cell), log_signal(new_sig_d), log_signal(new_sig_q));
 			}
@@ -235,9 +235,9 @@ struct Dff2dffeWorker
 				new_sig_d.append(sig_d[i]);
 				new_sig_q.append(sig_q[i]);
 			}
-			dff_cell->setPort(ID(D), new_sig_d);
-			dff_cell->setPort(ID(Q), new_sig_q);
-			dff_cell->setParam(ID(WIDTH), GetSize(remaining_indices));
+			dff_cell->setPort(ID::D, new_sig_d);
+			dff_cell->setPort(ID::Q, new_sig_q);
+			dff_cell->setParam(ID::WIDTH, GetSize(remaining_indices));
 		}
 	}
 
@@ -361,19 +361,19 @@ struct Dff2dffePass : public Pass {
 								for (auto cell_other : mod->selected_cells()) {
 									if (cell_other->type != cell->type)
 										continue;
-									if (sigmap(cell->getPort(ID(EN))) == sigmap(cell_other->getPort(ID(EN))))
+									if (sigmap(cell->getPort(ID::EN)) == sigmap(cell_other->getPort(ID::EN)))
 										ce_use++;
 								}
 								if (ce_use >= min_ce_use)
 									continue;
 							}
 
-							RTLIL::SigSpec tmp = mod->addWire(NEW_ID, GetSize(cell->getPort(ID(D))));
-							mod->addDff(NEW_ID, cell->getPort(ID(CLK)), tmp, cell->getPort(ID(Q)), cell->getParam(ID(CLK_POLARITY)).as_bool());
-							if (cell->getParam(ID(EN_POLARITY)).as_bool())
-								mod->addMux(NEW_ID, cell->getPort(ID(Q)), cell->getPort(ID(D)), cell->getPort(ID(EN)), tmp);
+							RTLIL::SigSpec tmp = mod->addWire(NEW_ID, GetSize(cell->getPort(ID::D)));
+							mod->addDff(NEW_ID, cell->getPort(ID::CLK), tmp, cell->getPort(ID::Q), cell->getParam(ID::CLK_POLARITY).as_bool());
+							if (cell->getParam(ID::EN_POLARITY).as_bool())
+								mod->addMux(NEW_ID, cell->getPort(ID::Q), cell->getPort(ID::D), cell->getPort(ID::EN), tmp);
 							else
-								mod->addMux(NEW_ID, cell->getPort(ID(D)), cell->getPort(ID(Q)), cell->getPort(ID(EN)), tmp);
+								mod->addMux(NEW_ID, cell->getPort(ID::D), cell->getPort(ID::Q), cell->getPort(ID::EN), tmp);
 							mod->remove(cell);
 							continue;
 						}
@@ -383,7 +383,7 @@ struct Dff2dffePass : public Pass {
 								for (auto cell_other : mod->selected_cells()) {
 									if (cell_other->type != cell->type)
 										continue;
-									if (sigmap(cell->getPort(ID(E))) == sigmap(cell_other->getPort(ID(E))))
+									if (sigmap(cell->getPort(ID::E)) == sigmap(cell_other->getPort(ID::E)))
 										ce_use++;
 								}
 								if (ce_use >= min_ce_use)
@@ -393,11 +393,11 @@ struct Dff2dffePass : public Pass {
 							bool clk_pol = cell->type.compare(7, 1, "P") == 0;
 							bool en_pol = cell->type.compare(8, 1, "P") == 0;
 							RTLIL::SigSpec tmp = mod->addWire(NEW_ID);
-							mod->addDff(NEW_ID, cell->getPort(ID(C)), tmp, cell->getPort(ID(Q)), clk_pol);
+							mod->addDff(NEW_ID, cell->getPort(ID::C), tmp, cell->getPort(ID::Q), clk_pol);
 							if (en_pol)
-								mod->addMux(NEW_ID, cell->getPort(ID(Q)), cell->getPort(ID(D)), cell->getPort(ID(E)), tmp);
+								mod->addMux(NEW_ID, cell->getPort(ID::Q), cell->getPort(ID::D), cell->getPort(ID::E), tmp);
 							else
-								mod->addMux(NEW_ID, cell->getPort(ID(D)), cell->getPort(ID(Q)), cell->getPort(ID(E)), tmp);
+								mod->addMux(NEW_ID, cell->getPort(ID::D), cell->getPort(ID::Q), cell->getPort(ID::E), tmp);
 							mod->remove(cell);
 							continue;
 						}

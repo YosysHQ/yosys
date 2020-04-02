@@ -41,7 +41,7 @@ void remove_init_attr(SigSpec sig)
 	for (auto bit : assign_map(sig))
 		if (init_attributes.count(bit))
 			for (auto wbit : init_attributes.at(bit))
-				wbit.wire->attributes.at(ID(init))[wbit.offset] = State::Sx;
+				wbit.wire->attributes.at(ID::init)[wbit.offset] = State::Sx;
 }
 
 bool handle_dffsr(RTLIL::Module *mod, RTLIL::Cell *cell)
@@ -49,17 +49,17 @@ bool handle_dffsr(RTLIL::Module *mod, RTLIL::Cell *cell)
 	SigSpec sig_set, sig_clr;
 	State pol_set, pol_clr;
 
-	if (cell->hasPort(ID(S)))
-		sig_set = cell->getPort(ID(S));
+	if (cell->hasPort(ID::S))
+		sig_set = cell->getPort(ID::S);
 
-	if (cell->hasPort(ID(R)))
-		sig_clr = cell->getPort(ID(R));
+	if (cell->hasPort(ID::R))
+		sig_clr = cell->getPort(ID::R);
 
-	if (cell->hasPort(ID(SET)))
-		sig_set = cell->getPort(ID(SET));
+	if (cell->hasPort(ID::SET))
+		sig_set = cell->getPort(ID::SET);
 
-	if (cell->hasPort(ID(CLR)))
-		sig_clr = cell->getPort(ID(CLR));
+	if (cell->hasPort(ID::CLR))
+		sig_clr = cell->getPort(ID::CLR);
 
 	log_assert(GetSize(sig_set) == GetSize(sig_clr));
 
@@ -72,16 +72,16 @@ bool handle_dffsr(RTLIL::Module *mod, RTLIL::Cell *cell)
 		pol_clr = cell->type[13] == 'P' ? State::S1 : State::S0;
 	} else
 	if (cell->type.in(ID($dffsr), ID($dlatchsr))) {
-		pol_set = cell->parameters[ID(SET_POLARITY)].as_bool() ? State::S1 : State::S0;
-		pol_clr = cell->parameters[ID(CLR_POLARITY)].as_bool() ? State::S1 : State::S0;
+		pol_set = cell->parameters[ID::SET_POLARITY].as_bool() ? State::S1 : State::S0;
+		pol_clr = cell->parameters[ID::CLR_POLARITY].as_bool() ? State::S1 : State::S0;
 	} else
 		log_abort();
 
 	State npol_set = pol_set == State::S0 ? State::S1 : State::S0;
 	State npol_clr = pol_clr == State::S0 ? State::S1 : State::S0;
 
-	SigSpec sig_d = cell->getPort(ID(D));
-	SigSpec sig_q = cell->getPort(ID(Q));
+	SigSpec sig_d = cell->getPort(ID::D);
+	SigSpec sig_q = cell->getPort(ID::Q);
 
 	bool did_something = false;
 	bool proper_sr = false;
@@ -139,18 +139,18 @@ bool handle_dffsr(RTLIL::Module *mod, RTLIL::Cell *cell)
 
 	if (cell->type.in(ID($dffsr), ID($dlatchsr)))
 	{
-		cell->setParam(ID(WIDTH), GetSize(sig_d));
-		cell->setPort(ID(SET), sig_set);
-		cell->setPort(ID(CLR), sig_clr);
-		cell->setPort(ID(D), sig_d);
-		cell->setPort(ID(Q), sig_q);
+		cell->setParam(ID::WIDTH, GetSize(sig_d));
+		cell->setPort(ID::SET, sig_set);
+		cell->setPort(ID::CLR, sig_clr);
+		cell->setPort(ID::D, sig_d);
+		cell->setPort(ID::Q, sig_q);
 	}
 	else
 	{
-		cell->setPort(ID(S), sig_set);
-		cell->setPort(ID(R), sig_clr);
-		cell->setPort(ID(D), sig_d);
-		cell->setPort(ID(Q), sig_q);
+		cell->setPort(ID::S, sig_set);
+		cell->setPort(ID::R, sig_clr);
+		cell->setPort(ID::D, sig_d);
+		cell->setPort(ID::Q, sig_q);
 	}
 
 	if (proper_sr)
@@ -171,24 +171,24 @@ bool handle_dffsr(RTLIL::Module *mod, RTLIL::Cell *cell)
 			log("Converting %s (%s) to %s in module %s.\n", log_id(cell), log_id(cell->type), "$adff", log_id(mod));
 
 			cell->type = ID($adff);
-			cell->setParam(ID(ARST_POLARITY), unified_pol);
-			cell->setParam(ID(ARST_VALUE), reset_val);
-			cell->setPort(ID(ARST), sig_reset);
+			cell->setParam(ID::ARST_POLARITY, unified_pol);
+			cell->setParam(ID::ARST_VALUE, reset_val);
+			cell->setPort(ID::ARST, sig_reset);
 
-			cell->unsetParam(ID(SET_POLARITY));
-			cell->unsetParam(ID(CLR_POLARITY));
-			cell->unsetPort(ID(SET));
-			cell->unsetPort(ID(CLR));
+			cell->unsetParam(ID::SET_POLARITY);
+			cell->unsetParam(ID::CLR_POLARITY);
+			cell->unsetPort(ID::SET);
+			cell->unsetPort(ID::CLR);
 		}
 		else
 		{
 			log("Converting %s (%s) to %s in module %s.\n", log_id(cell), log_id(cell->type), "$dff", log_id(mod));
 
 			cell->type = ID($dff);
-			cell->unsetParam(ID(SET_POLARITY));
-			cell->unsetParam(ID(CLR_POLARITY));
-			cell->unsetPort(ID(SET));
-			cell->unsetPort(ID(CLR));
+			cell->unsetParam(ID::SET_POLARITY);
+			cell->unsetParam(ID::CLR_POLARITY);
+			cell->unsetPort(ID::SET);
+			cell->unsetPort(ID::CLR);
 		}
 
 		return true;
@@ -208,8 +208,8 @@ bool handle_dffsr(RTLIL::Module *mod, RTLIL::Cell *cell)
 		log("Converting %s (%s) to %s in module %s.\n", log_id(cell), log_id(cell->type), log_id(new_type), log_id(mod));
 
 		cell->type = new_type;
-		cell->unsetPort(ID(S));
-		cell->unsetPort(ID(R));
+		cell->unsetPort(ID::S);
+		cell->unsetPort(ID::R);
 
 		return true;
 	}
@@ -223,17 +223,17 @@ bool handle_dlatch(RTLIL::Module *mod, RTLIL::Cell *dlatch)
 	State on_state, off_state;
 
 	if (dlatch->type == ID($dlatch)) {
-		sig_e = assign_map(dlatch->getPort(ID(EN)));
-		on_state = dlatch->getParam(ID(EN_POLARITY)).as_bool() ? State::S1 : State::S0;
-		off_state = dlatch->getParam(ID(EN_POLARITY)).as_bool() ? State::S0 : State::S1;
+		sig_e = assign_map(dlatch->getPort(ID::EN));
+		on_state = dlatch->getParam(ID::EN_POLARITY).as_bool() ? State::S1 : State::S0;
+		off_state = dlatch->getParam(ID::EN_POLARITY).as_bool() ? State::S0 : State::S1;
 	} else
 	if (dlatch->type == ID($_DLATCH_P_)) {
-		sig_e = assign_map(dlatch->getPort(ID(E)));
+		sig_e = assign_map(dlatch->getPort(ID::E));
 		on_state = State::S1;
 		off_state = State::S0;
 	} else
 	if (dlatch->type == ID($_DLATCH_N_)) {
-		sig_e = assign_map(dlatch->getPort(ID(E)));
+		sig_e = assign_map(dlatch->getPort(ID::E));
 		on_state = State::S0;
 		off_state = State::S1;
 	} else
@@ -242,15 +242,15 @@ bool handle_dlatch(RTLIL::Module *mod, RTLIL::Cell *dlatch)
 	if (sig_e == off_state)
 	{
 		RTLIL::Const val_init;
-		for (auto bit : dff_init_map(dlatch->getPort(ID(Q))))
+		for (auto bit : dff_init_map(dlatch->getPort(ID::Q)))
 			val_init.bits.push_back(bit.wire == NULL ? bit.data : State::Sx);
-		mod->connect(dlatch->getPort(ID(Q)), val_init);
+		mod->connect(dlatch->getPort(ID::Q), val_init);
 		goto delete_dlatch;
 	}
 
 	if (sig_e == on_state)
 	{
-		mod->connect(dlatch->getPort(ID(Q)), dlatch->getPort(ID(D)));
+		mod->connect(dlatch->getPort(ID::Q), dlatch->getPort(ID::D));
 		goto delete_dlatch;
 	}
 
@@ -258,7 +258,7 @@ bool handle_dlatch(RTLIL::Module *mod, RTLIL::Cell *dlatch)
 
 delete_dlatch:
 	log("Removing %s (%s) from module %s.\n", log_id(dlatch), log_id(dlatch->type), log_id(mod));
-	remove_init_attr(dlatch->getPort(ID(Q)));
+	remove_init_attr(dlatch->getPort(ID::Q));
 	mod->remove(dlatch);
 	return true;
 }
@@ -269,23 +269,23 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 	RTLIL::Const val_cp, val_rp, val_rv, val_ep;
 
 	if (dff->type == ID($_FF_)) {
-		sig_d = dff->getPort(ID(D));
-		sig_q = dff->getPort(ID(Q));
+		sig_d = dff->getPort(ID::D);
+		sig_q = dff->getPort(ID::Q);
 	}
 	else if (dff->type == ID($_DFF_N_) || dff->type == ID($_DFF_P_)) {
-		sig_d = dff->getPort(ID(D));
-		sig_q = dff->getPort(ID(Q));
-		sig_c = dff->getPort(ID(C));
+		sig_d = dff->getPort(ID::D);
+		sig_q = dff->getPort(ID::Q);
+		sig_c = dff->getPort(ID::C);
 		val_cp = RTLIL::Const(dff->type == ID($_DFF_P_), 1);
 	}
 	else if (dff->type.begins_with("$_DFF_") && dff->type.compare(9, 1, "_") == 0 &&
 			(dff->type[6] == 'N' || dff->type[6] == 'P') &&
 			(dff->type[7] == 'N' || dff->type[7] == 'P') &&
 			(dff->type[8] == '0' || dff->type[8] == '1')) {
-		sig_d = dff->getPort(ID(D));
-		sig_q = dff->getPort(ID(Q));
-		sig_c = dff->getPort(ID(C));
-		sig_r = dff->getPort(ID(R));
+		sig_d = dff->getPort(ID::D);
+		sig_q = dff->getPort(ID::Q);
+		sig_c = dff->getPort(ID::C);
+		sig_r = dff->getPort(ID::R);
 		val_cp = RTLIL::Const(dff->type[6] == 'P', 1);
 		val_rp = RTLIL::Const(dff->type[7] == 'P', 1);
 		val_rv = RTLIL::Const(dff->type[8] == '1', 1);
@@ -293,39 +293,39 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 	else if (dff->type.begins_with("$_DFFE_") && dff->type.compare(9, 1, "_") == 0 &&
 			(dff->type[7] == 'N' || dff->type[7] == 'P') &&
 			(dff->type[8] == 'N' || dff->type[8] == 'P')) {
-		sig_d = dff->getPort(ID(D));
-		sig_q = dff->getPort(ID(Q));
-		sig_c = dff->getPort(ID(C));
-		sig_e = dff->getPort(ID(E));
+		sig_d = dff->getPort(ID::D);
+		sig_q = dff->getPort(ID::Q);
+		sig_c = dff->getPort(ID::C);
+		sig_e = dff->getPort(ID::E);
 		val_cp = RTLIL::Const(dff->type[7] == 'P', 1);
 		val_ep = RTLIL::Const(dff->type[8] == 'P', 1);
 	}
 	else if (dff->type == ID($ff)) {
-		sig_d = dff->getPort(ID(D));
-		sig_q = dff->getPort(ID(Q));
+		sig_d = dff->getPort(ID::D);
+		sig_q = dff->getPort(ID::Q);
 	}
 	else if (dff->type == ID($dff)) {
-		sig_d = dff->getPort(ID(D));
-		sig_q = dff->getPort(ID(Q));
-		sig_c = dff->getPort(ID(CLK));
-		val_cp = RTLIL::Const(dff->parameters[ID(CLK_POLARITY)].as_bool(), 1);
+		sig_d = dff->getPort(ID::D);
+		sig_q = dff->getPort(ID::Q);
+		sig_c = dff->getPort(ID::CLK);
+		val_cp = RTLIL::Const(dff->parameters[ID::CLK_POLARITY].as_bool(), 1);
 	}
 	else if (dff->type == ID($dffe)) {
-		sig_e = dff->getPort(ID(EN));
-		sig_d = dff->getPort(ID(D));
-		sig_q = dff->getPort(ID(Q));
-		sig_c = dff->getPort(ID(CLK));
-		val_cp = RTLIL::Const(dff->parameters[ID(CLK_POLARITY)].as_bool(), 1);
-		val_ep = RTLIL::Const(dff->parameters[ID(EN_POLARITY)].as_bool(), 1);
+		sig_e = dff->getPort(ID::EN);
+		sig_d = dff->getPort(ID::D);
+		sig_q = dff->getPort(ID::Q);
+		sig_c = dff->getPort(ID::CLK);
+		val_cp = RTLIL::Const(dff->parameters[ID::CLK_POLARITY].as_bool(), 1);
+		val_ep = RTLIL::Const(dff->parameters[ID::EN_POLARITY].as_bool(), 1);
 	}
 	else if (dff->type == ID($adff)) {
-		sig_d = dff->getPort(ID(D));
-		sig_q = dff->getPort(ID(Q));
-		sig_c = dff->getPort(ID(CLK));
-		sig_r = dff->getPort(ID(ARST));
-		val_cp = RTLIL::Const(dff->parameters[ID(CLK_POLARITY)].as_bool(), 1);
-		val_rp = RTLIL::Const(dff->parameters[ID(ARST_POLARITY)].as_bool(), 1);
-		val_rv = dff->parameters[ID(ARST_VALUE)];
+		sig_d = dff->getPort(ID::D);
+		sig_q = dff->getPort(ID::Q);
+		sig_c = dff->getPort(ID::CLK);
+		sig_r = dff->getPort(ID::ARST);
+		val_cp = RTLIL::Const(dff->parameters[ID::CLK_POLARITY].as_bool(), 1);
+		val_rp = RTLIL::Const(dff->parameters[ID::ARST_POLARITY].as_bool(), 1);
+		val_rv = dff->parameters[ID::ARST_VALUE];
 	}
 	else
 		log_abort();
@@ -422,15 +422,15 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 
 		if (dff->type == ID($adff)) {
 			dff->type = ID($dff);
-			dff->unsetPort(ID(ARST));
-			dff->unsetParam(ID(ARST_POLARITY));
-			dff->unsetParam(ID(ARST_VALUE));
+			dff->unsetPort(ID::ARST);
+			dff->unsetParam(ID::ARST_POLARITY);
+			dff->unsetParam(ID::ARST_VALUE);
 			return true;
 		}
 
 		log_assert(dff->type.begins_with("$_DFF_"));
 		dff->type = stringf("$_DFF_%c_", + dff->type[6]);
-		dff->unsetPort(ID(R));
+		dff->unsetPort(ID::R);
 	}
 
 	// If enable signal is present, and is fully constant
@@ -447,14 +447,14 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 
 		if (dff->type == ID($dffe)) {
 			dff->type = ID($dff);
-			dff->unsetPort(ID(EN));
-			dff->unsetParam(ID(EN_POLARITY));
+			dff->unsetPort(ID::EN);
+			dff->unsetParam(ID::EN_POLARITY);
 			return true;
 		}
 
 		log_assert(dff->type.begins_with("$_DFFE_"));
 		dff->type = stringf("$_DFF_%c_", + dff->type[7]);
-		dff->unsetPort(ID(E));
+		dff->unsetPort(ID::E);
 	}
 
 	if (sat && has_init && (!sig_r.size() || val_init == val_rv))
@@ -509,9 +509,9 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 				log("Setting constant %d-bit at position %d on %s (%s) from module %s.\n", sigbit_init_val ? 1 : 0,
 						position, log_id(dff), log_id(dff->type), log_id(mod));
 
-				SigSpec tmp = dff->getPort(ID(D));
+				SigSpec tmp = dff->getPort(ID::D);
 				tmp[position] = sigbit_init_val;
-				dff->setPort(ID(D), tmp);
+				dff->setPort(ID::D, tmp);
 
 				removed_sigbits = true;
 			}
@@ -528,7 +528,7 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 
 delete_dff:
 	log("Removing %s (%s) from module %s.\n", log_id(dff), log_id(dff->type), log_id(mod));
-	remove_init_attr(dff->getPort(ID(Q)));
+	remove_init_attr(dff->getPort(ID::Q));
 	mod->remove(dff);
 
 	for (auto &entry : bit2driver)
@@ -588,8 +588,8 @@ struct OptRmdffPass : public Pass {
 
 			for (auto wire : module->wires())
 			{
-				if (wire->attributes.count(ID(init)) != 0) {
-					Const initval = wire->attributes.at(ID(init));
+				if (wire->attributes.count(ID::init) != 0) {
+					Const initval = wire->attributes.at(ID::init);
 					for (int i = 0; i < GetSize(initval) && i < GetSize(wire); i++)
 						if (initval[i] == State::S0 || initval[i] == State::S1)
 							dff_init_map.add(SigBit(wire, i), initval[i]);

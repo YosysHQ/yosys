@@ -48,7 +48,7 @@ struct EquivMarkWorker
 	{
 		for (auto cell : module->cells())
 		{
-			if (cell->type == "$equiv")
+			if (cell->type == ID($equiv))
 				equiv_cells.insert(cell->name);
 
 			for (auto &port : cell->connections())
@@ -139,7 +139,7 @@ struct EquivMarkWorker
 
 		for (auto cell : module->cells())
 		{
-			if (cell_regions.count(cell->name) || cell->type != "$equiv")
+			if (cell_regions.count(cell->name) || cell->type != ID($equiv))
 				continue;
 
 			SigSpec sig_a = sigmap(cell->getPort(ID::A));
@@ -176,10 +176,10 @@ struct EquivMarkWorker
 		{
 			if (cell_regions.count(cell->name)) {
 				int r = final_region_map.at(cell_regions.at(cell->name));
-				cell->attributes["\\equiv_region"] = Const(r);
+				cell->attributes[ID::equiv_region] = Const(r);
 				region_cell_count[r]++;
 			} else
-				cell->attributes.erase("\\equiv_region");
+				cell->attributes.erase(ID::equiv_region);
 		}
 
 		for (auto wire : module->wires())
@@ -191,10 +191,10 @@ struct EquivMarkWorker
 
 			if (GetSize(regions) == 1) {
 				int r = final_region_map.at(*regions.begin());
-				wire->attributes["\\equiv_region"] = Const(r);
+				wire->attributes[ID::equiv_region] = Const(r);
 				region_wire_count[r]++;
 			} else
-				wire->attributes.erase("\\equiv_region");
+				wire->attributes.erase(ID::equiv_region);
 		}
 
 		for (int i = 0; i < next_final_region; i++)

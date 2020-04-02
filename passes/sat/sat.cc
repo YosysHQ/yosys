@@ -258,11 +258,11 @@ struct SatHelper
 
 			for (auto &it : module->wires_)
 			{
-				if (it.second->attributes.count("\\init") == 0)
+				if (it.second->attributes.count(ID::init) == 0)
 					continue;
 
 				RTLIL::SigSpec lhs = sigmap(it.second);
-				RTLIL::SigSpec rhs = it.second->attributes.at("\\init");
+				RTLIL::SigSpec rhs = it.second->attributes.at(ID::init);
 				log_assert(lhs.size() == rhs.size());
 
 				RTLIL::SigSpec removed_bits;
@@ -518,9 +518,9 @@ struct SatHelper
 				} else {
 					for (auto &d : drivers)
 					for (auto &p : d->connections()) {
-						if (d->type == "$dff" && p.first == "\\CLK")
+						if (d->type == ID($dff) && p.first == ID::CLK)
 							continue;
-						if (d->type.begins_with("$_DFF_") && p.first == "\\C")
+						if (d->type.begins_with("$_DFF_") && p.first == ID::C)
 							continue;
 						queued_signals.add(handled_signals.remove(sigmap(p.second)));
 					}
@@ -1354,8 +1354,8 @@ struct SatPass : public Pass {
 		if (show_regs) {
 			pool<Wire*> reg_wires;
 			for (auto cell : module->cells()) {
-				if (cell->type == "$dff" || cell->type.begins_with("$_DFF_"))
-					for (auto bit : cell->getPort("\\Q"))
+				if (cell->type == ID($dff) || cell->type.begins_with("$_DFF_"))
+					for (auto bit : cell->getPort(ID::Q))
 						if (bit.wire)
 							reg_wires.insert(bit.wire);
 			}

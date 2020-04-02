@@ -55,7 +55,7 @@ ret_false:
 	sig2driver.find(sig, cellport_list);
 	for (auto &cellport : cellport_list)
 	{
-		if ((cellport.first->type != "$mux" && cellport.first->type != "$pmux") || cellport.second != ID::Y) {
+		if ((cellport.first->type != ID($mux) && cellport.first->type != ID($pmux)) || cellport.second != ID::Y) {
 			goto ret_false;
 		}
 
@@ -99,7 +99,7 @@ static bool check_state_users(RTLIL::SigSpec sig)
 		RTLIL::Cell *cell = cellport.first;
 		if (muxtree_cells.count(cell) > 0)
 			continue;
-		if (cell->type == "$logic_not" && assign_map(cell->getPort(ID::A)) == sig)
+		if (cell->type == ID($logic_not) && assign_map(cell->getPort(ID::A)) == sig)
 			continue;
 		if (cellport.second != ID::A && cellport.second != ID::B)
 			return false;
@@ -122,7 +122,7 @@ static void detect_fsm(RTLIL::Wire *wire)
 {
 	bool has_fsm_encoding_attr = wire->attributes.count(ID::fsm_encoding) > 0 && wire->attributes.at(ID::fsm_encoding).decode_string() != "none";
 	bool has_fsm_encoding_none = wire->attributes.count(ID::fsm_encoding) > 0 && wire->attributes.at(ID::fsm_encoding).decode_string() == "none";
-	bool has_init_attr = wire->attributes.count("\\init") > 0;
+	bool has_init_attr = wire->attributes.count(ID::init) > 0;
 	bool is_module_port = sig_at_port.check_any(assign_map(RTLIL::SigSpec(wire)));
 	bool looks_like_state_reg = false, looks_like_good_state_reg = false;
 	bool is_self_resetting = false;
@@ -143,13 +143,13 @@ static void detect_fsm(RTLIL::Wire *wire)
 
 	for (auto &cellport : cellport_list)
 	{
-		if ((cellport.first->type != "$dff" && cellport.first->type != "$adff") || cellport.second != "\\Q")
+		if ((cellport.first->type != ID($dff) && cellport.first->type != ID($adff)) || cellport.second != ID::Q)
 			continue;
 
 		muxtree_cells.clear();
 		pool<Cell*> recursion_monitor;
-		RTLIL::SigSpec sig_q = assign_map(cellport.first->getPort("\\Q"));
-		RTLIL::SigSpec sig_d = assign_map(cellport.first->getPort("\\D"));
+		RTLIL::SigSpec sig_q = assign_map(cellport.first->getPort(ID::Q));
+		RTLIL::SigSpec sig_d = assign_map(cellport.first->getPort(ID::D));
 		dict<RTLIL::SigSpec, bool> mux_tree_cache;
 
 		if (sig_q != assign_map(wire))
@@ -173,10 +173,10 @@ static void detect_fsm(RTLIL::Wire *wire)
 			RTLIL::Cell *cell = cellport.first;
 			bool set_output = false, clr_output = false;
 
-			if (cell->type.in("$ne", "$reduce_or", "$reduce_bool"))
+			if (cell->type.in(ID($ne), ID($reduce_or), ID($reduce_bool)))
 				set_output = true;
 
-			if (cell->type.in("$eq", "$logic_not", "$reduce_and"))
+			if (cell->type.in(ID($eq), ID($logic_not), ID($reduce_and)))
 				clr_output = true;
 
 			if (set_output || clr_output) {
@@ -284,38 +284,34 @@ struct FsmDetectPass : public Pass {
 		ct.setup_stdcells();
 		ct.setup_stdcells_mem();
 
-		for (auto &mod_it : design->modules_)
+		for (auto mod : design->selected_modules())
 		{
-			if (!design->selected(mod_it.second))
-				continue;
-
-			module = mod_it.second;
+			module = mod;
 			assign_map.set(module);
 
 			sig2driver.clear();
 			sig2user.clear();
 			sig_at_port.clear();
-			for (auto &cell_it : module->cells_)
-				for (auto &conn_it : cell_it.second->connections()) {
-					if (ct.cell_output(cell_it.second->type, conn_it.first) || !ct.cell_known(cell_it.second->type)) {
+			for (auto cell : module->cells())
+				for (auto &conn_it : cell->connections()) {
+					if (ct.cell_output(cell->type, conn_it.first) || !ct.cell_known(cell->type)) {
 						RTLIL::SigSpec sig = conn_it.second;
 						assign_map.apply(sig);
-						sig2driver.insert(sig, sig2driver_entry_t(cell_it.second, conn_it.first));
+						sig2driver.insert(sig, sig2driver_entry_t(cell, conn_it.first));
 					}
-					if (!ct.cell_known(cell_it.second->type) || ct.cell_input(cell_it.second->type, conn_it.first)) {
+					if (!ct.cell_known(cell->type) || ct.cell_input(cell->type, conn_it.first)) {
 						RTLIL::SigSpec sig = conn_it.second;
 						assign_map.apply(sig);
-						sig2user.insert(sig, sig2driver_entry_t(cell_it.second, conn_it.first));
+						sig2user.insert(sig, sig2driver_entry_t(cell, conn_it.first));
 					}
 				}
 
-			for (auto &wire_it : module->wires_)
-				if (wire_it.second->port_id != 0)
-					sig_at_port.add(assign_map(RTLIL::SigSpec(wire_it.second)));
+			for (auto wire : module->wires())
+				if (wire->port_id != 0)
+					sig_at_port.add(assign_map(wire));
 
-			for (auto &wire_it : module->wires_)
-				if (design->selected(module, wire_it.second))
-					detect_fsm(wire_it.second);
+			for (auto wire : module->selected_wires())
+				detect_fsm(wire);
 		}
 
 		assign_map.clear();

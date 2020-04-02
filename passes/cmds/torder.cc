@@ -81,9 +81,9 @@ struct TorderPass : public Pass {
 					continue;
 
 				if (!noautostop && yosys_celltypes.cell_known(cell->type)) {
-					if (conn.first.in("\\Q", "\\CTRL_OUT", "\\RD_DATA"))
+					if (conn.first.in(ID::Q, ID::CTRL_OUT, ID::RD_DATA))
 						continue;
-					if (cell->type == "$memrd" && conn.first == "\\DATA")
+					if (cell->type == ID($memrd) && conn.first == ID::DATA)
 						continue;
 				}
 

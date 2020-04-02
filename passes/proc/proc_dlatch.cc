@@ -42,7 +42,7 @@ struct proc_dlatch_db_t
 	{
 		for (auto cell : module->cells())
 		{
-			if (cell->type.in("$mux", "$pmux"))
+			if (cell->type.in(ID($mux), ID($pmux)))
 			{
 				auto sig_y = sigmap(cell->getPort(ID::Y));
 				for (int i = 0; i < GetSize(sig_y); i++)
@@ -281,11 +281,11 @@ struct proc_dlatch_db_t
 			cell->setPort(ID::A, sig_any_valid_b);
 
 		if (GetSize(sig_new_s) == 1) {
-			cell->type = "$mux";
-			cell->unsetParam("\\S_WIDTH");
+			cell->type = ID($mux);
+			cell->unsetParam(ID::S_WIDTH);
 		} else {
-			cell->type = "$pmux";
-			cell->setParam("\\S_WIDTH", GetSize(sig_new_s));
+			cell->type = ID($pmux);
+			cell->setParam(ID::S_WIDTH, GetSize(sig_new_s));
 		}
 
 		cell->setPort(ID::B, sig_new_b);
@@ -317,7 +317,7 @@ struct proc_dlatch_db_t
 			pool<Cell*> next_queue;
 
 			for (auto cell : queue) {
-				if (cell->type.in("$mux", "$pmux"))
+				if (cell->type.in(ID($mux), ID($pmux)))
 					fixup_mux(cell);
 				for (auto bit : upstream_cell2net[cell])
 					for (auto cell : upstream_net2cell[bit])
@@ -349,7 +349,7 @@ void proc_dlatch(proc_dlatch_db_t &db, RTLIL::Process *proc)
 			continue;
 		}
 
-		if (proc->get_bool_attribute(ID(always_ff)))
+		if (proc->get_bool_attribute(ID::always_ff))
 			log_error("Found non edge/level sensitive event in always_ff process `%s.%s'.\n",
 					db.module->name.c_str(), proc->name.c_str());
 
@@ -387,7 +387,7 @@ void proc_dlatch(proc_dlatch_db_t &db, RTLIL::Process *proc)
 	int offset = 0;
 	for (auto chunk : nolatches_bits.first.chunks()) {
 		SigSpec lhs = chunk, rhs = nolatches_bits.second.extract(offset, chunk.width);
-		if (proc->get_bool_attribute(ID(always_latch)))
+		if (proc->get_bool_attribute(ID::always_latch))
 			log_error("No latch inferred for signal `%s.%s' from always_latch process `%s.%s'.\n",
 					db.module->name.c_str(), log_signal(lhs), db.module->name.c_str(), proc->name.c_str());
 		else
@@ -418,7 +418,7 @@ void proc_dlatch(proc_dlatch_db_t &db, RTLIL::Process *proc)
 			cell->set_src_attribute(src);
 			db.generated_dlatches.insert(cell);
 
-			if (proc->get_bool_attribute(ID(always_comb)))
+			if (proc->get_bool_attribute(ID::always_comb))
 				log_error("Latch inferred for signal `%s.%s' from always_comb process `%s.%s'.\n",
 						db.module->name.c_str(), log_signal(lhs), db.module->name.c_str(), proc->name.c_str());
 			else

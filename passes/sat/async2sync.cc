@@ -66,9 +66,9 @@ struct Async2syncPass : public Pass {
 			pool<SigBit> del_initbits;
 
 			for (auto wire : module->wires())
-				if (wire->attributes.count("\\init") > 0)
+				if (wire->attributes.count(ID::init) > 0)
 				{
-					Const initval = wire->attributes.at("\\init");
+					Const initval = wire->attributes.at(ID::init);
 					SigSpec initsig = sigmap(wire);
 
 					for (int i = 0; i < GetSize(initval) && i < GetSize(initsig); i++)
@@ -78,16 +78,16 @@ struct Async2syncPass : public Pass {
 
 			for (auto cell : vector<Cell*>(module->selected_cells()))
 			{
-				if (cell->type.in("$adff"))
+				if (cell->type.in(ID($adff)))
 				{
-					// bool clk_pol = cell->parameters["\\CLK_POLARITY"].as_bool();
-					bool arst_pol = cell->parameters["\\ARST_POLARITY"].as_bool();
-					Const arst_val = cell->parameters["\\ARST_VALUE"];
+					// bool clk_pol = cell->parameters[ID::CLK_POLARITY].as_bool();
+					bool arst_pol = cell->parameters[ID::ARST_POLARITY].as_bool();
+					Const arst_val = cell->parameters[ID::ARST_VALUE];
 
-					// SigSpec sig_clk = cell->getPort("\\CLK");
-					SigSpec sig_arst = cell->getPort("\\ARST");
-					SigSpec sig_d = cell->getPort("\\D");
-					SigSpec sig_q = cell->getPort("\\Q");
+					// SigSpec sig_clk = cell->getPort(ID::CLK);
+					SigSpec sig_arst = cell->getPort(ID::ARST);
+					SigSpec sig_d = cell->getPort(ID::D);
+					SigSpec sig_q = cell->getPort(ID::Q);
 
 					log("Replacing %s.%s (%s): ARST=%s, D=%s, Q=%s\n",
 							log_id(module), log_id(cell), log_id(cell->type),
@@ -102,7 +102,7 @@ struct Async2syncPass : public Pass {
 
 					Wire *new_d = module->addWire(NEW_ID, GetSize(sig_d));
 					Wire *new_q = module->addWire(NEW_ID, GetSize(sig_q));
-					new_q->attributes["\\init"] = init_val;
+					new_q->attributes[ID::init] = init_val;
 
 					if (arst_pol) {
 						module->addMux(NEW_ID, sig_d, arst_val, sig_arst, new_d);
@@ -112,26 +112,26 @@ struct Async2syncPass : public Pass {
 						module->addMux(NEW_ID, arst_val, new_q, sig_arst, sig_q);
 					}
 
-					cell->setPort("\\D", new_d);
-					cell->setPort("\\Q", new_q);
-					cell->unsetPort("\\ARST");
-					cell->unsetParam("\\ARST_POLARITY");
-					cell->unsetParam("\\ARST_VALUE");
-					cell->type = "$dff";
+					cell->setPort(ID::D, new_d);
+					cell->setPort(ID::Q, new_q);
+					cell->unsetPort(ID::ARST);
+					cell->unsetParam(ID::ARST_POLARITY);
+					cell->unsetParam(ID::ARST_VALUE);
+					cell->type = ID($dff);
 					continue;
 				}
 
-				if (cell->type.in("$dffsr"))
+				if (cell->type.in(ID($dffsr)))
 				{
-					// bool clk_pol = cell->parameters["\\CLK_POLARITY"].as_bool();
-					bool set_pol = cell->parameters["\\SET_POLARITY"].as_bool();
-					bool clr_pol = cell->parameters["\\CLR_POLARITY"].as_bool();
+					// bool clk_pol = cell->parameters[ID::CLK_POLARITY].as_bool();
+					bool set_pol = cell->parameters[ID::SET_POLARITY].as_bool();
+					bool clr_pol = cell->parameters[ID::CLR_POLARITY].as_bool();
 
-					// SigSpec sig_clk = cell->getPort("\\CLK");
-					SigSpec sig_set = cell->getPort("\\SET");
-					SigSpec sig_clr = cell->getPort("\\CLR");
-					SigSpec sig_d = cell->getPort("\\D");
-					SigSpec sig_q = cell->getPort("\\Q");
+					// SigSpec sig_clk = cell->getPort(ID::CLK);
+					SigSpec sig_set = cell->getPort(ID::SET);
+					SigSpec sig_clr = cell->getPort(ID::CLR);
+					SigSpec sig_d = cell->getPort(ID::D);
+					SigSpec sig_q = cell->getPort(ID::Q);
 
 					log("Replacing %s.%s (%s): SET=%s, CLR=%s, D=%s, Q=%s\n",
 							log_id(module), log_id(cell), log_id(cell->type),
@@ -146,7 +146,7 @@ struct Async2syncPass : public Pass {
 
 					Wire *new_d = module->addWire(NEW_ID, GetSize(sig_d));
 					Wire *new_q = module->addWire(NEW_ID, GetSize(sig_q));
-					new_q->attributes["\\init"] = init_val;
+					new_q->attributes[ID::init] = init_val;
 
 					if (!set_pol)
 						sig_set = module->Not(NEW_ID, sig_set);
@@ -160,23 +160,23 @@ struct Async2syncPass : public Pass {
 					tmp = module->Or(NEW_ID, new_q, sig_set);
 					module->addAnd(NEW_ID, tmp, sig_clr, sig_q);
 
-					cell->setPort("\\D", new_d);
-					cell->setPort("\\Q", new_q);
-					cell->unsetPort("\\SET");
-					cell->unsetPort("\\CLR");
-					cell->unsetParam("\\SET_POLARITY");
-					cell->unsetParam("\\CLR_POLARITY");
-					cell->type = "$dff";
+					cell->setPort(ID::D, new_d);
+					cell->setPort(ID::Q, new_q);
+					cell->unsetPort(ID::SET);
+					cell->unsetPort(ID::CLR);
+					cell->unsetParam(ID::SET_POLARITY);
+					cell->unsetParam(ID::CLR_POLARITY);
+					cell->type = ID($dff);
 					continue;
 				}
 
-				if (cell->type.in("$dlatch"))
+				if (cell->type.in(ID($dlatch)))
 				{
-					bool en_pol = cell->parameters["\\EN_POLARITY"].as_bool();
+					bool en_pol = cell->parameters[ID::EN_POLARITY].as_bool();
 
-					SigSpec sig_en = cell->getPort("\\EN");
-					SigSpec sig_d = cell->getPort("\\D");
-					SigSpec sig_q = cell->getPort("\\Q");
+					SigSpec sig_en = cell->getPort(ID::EN);
+					SigSpec sig_d = cell->getPort(ID::D);
+					SigSpec sig_q = cell->getPort(ID::Q);
 
 					log("Replacing %s.%s (%s): EN=%s, D=%s, Q=%s\n",
 							log_id(module), log_id(cell), log_id(cell->type),
@@ -190,7 +190,7 @@ struct Async2syncPass : public Pass {
 					}
 
 					Wire *new_q = module->addWire(NEW_ID, GetSize(sig_q));
-					new_q->attributes["\\init"] = init_val;
+					new_q->attributes[ID::init] = init_val;
 
 					if (en_pol) {
 						module->addMux(NEW_ID, new_q, sig_d, sig_en, sig_q);
@@ -198,20 +198,20 @@ struct Async2syncPass : public Pass {
 						module->addMux(NEW_ID, sig_d, new_q, sig_en, sig_q);
 					}
 
-					cell->setPort("\\D", sig_q);
-					cell->setPort("\\Q", new_q);
-					cell->unsetPort("\\EN");
-					cell->unsetParam("\\EN_POLARITY");
-					cell->type = "$ff";
+					cell->setPort(ID::D, sig_q);
+					cell->setPort(ID::Q, new_q);
+					cell->unsetPort(ID::EN);
+					cell->unsetParam(ID::EN_POLARITY);
+					cell->type = ID($ff);
 					continue;
 				}
 			}
 
 			for (auto wire : module->wires())
-				if (wire->attributes.count("\\init") > 0)
+				if (wire->attributes.count(ID::init) > 0)
 				{
 					bool delete_initattr = true;
-					Const initval = wire->attributes.at("\\init");
+					Const initval = wire->attributes.at(ID::init);
 					SigSpec initsig = sigmap(wire);
 
 					for (int i = 0; i < GetSize(initval) && i < GetSize(initsig); i++)
@@ -221,9 +221,9 @@ struct Async2syncPass : public Pass {
 							delete_initattr = false;
 
 					if (delete_initattr)
-						wire->attributes.erase("\\init");
+						wire->attributes.erase(ID::init);
 					else
-						wire->attributes.at("\\init") = initval;
+						wire->attributes.at(ID::init) = initval;
 				}
 		}
 	}

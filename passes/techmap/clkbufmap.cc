@@ -118,8 +118,6 @@ struct ClkbufmapPass : public Pass {
 		dict<pair<IdString, pair<IdString, int>>, pair<IdString, int>> inv_ports_out;
 		dict<pair<IdString, pair<IdString, int>>, pair<IdString, int>> inv_ports_in;
 
-		IdString clkbuf_inhibit("\\clkbuf_inhibit");
-
 		// Process submodules before module using them.
 		std::vector<Module *> modules_sorted;
 		pool<Module *> modules_processed;
@@ -131,13 +129,13 @@ struct ClkbufmapPass : public Pass {
 			if (module->get_blackbox_attribute()) {
 				for (auto port : module->ports) {
 					auto wire = module->wire(port);
-					if (wire->get_bool_attribute("\\clkbuf_driver"))
+					if (wire->get_bool_attribute(ID::clkbuf_driver))
 						for (int i = 0; i < GetSize(wire); i++)
 							buf_ports.insert(make_pair(module->name, make_pair(wire->name, i)));
-					if (wire->get_bool_attribute("\\clkbuf_sink"))
+					if (wire->get_bool_attribute(ID::clkbuf_sink))
 						for (int i = 0; i < GetSize(wire); i++)
 							sink_ports.insert(make_pair(module->name, make_pair(wire->name, i)));
-					auto it = wire->attributes.find("\\clkbuf_inv");
+					auto it = wire->attributes.find(ID::clkbuf_inv);
 					if (it != wire->attributes.end()) {
 						IdString in_name = RTLIL::escape_id(it->second.decode_string());
 						for (int i = 0; i < GetSize(wire); i++) {
@@ -217,7 +215,7 @@ struct ClkbufmapPass : public Pass {
 				if (wire->port_input && wire->port_output)
 					continue;
 				bool process_wire = module->selected(wire);
-				if (!select && wire->get_bool_attribute(clkbuf_inhibit))
+				if (!select && wire->get_bool_attribute(ID::clkbuf_inhibit))
 					process_wire = false;
 				if (!process_wire) {
 					// This wire is supposed to be bypassed, so make sure we don't buffer it in

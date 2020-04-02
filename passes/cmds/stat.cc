@@ -109,22 +109,22 @@ struct statdata_t
 
 			if (width_mode)
 			{
-				if (cell_type.in("$not", "$pos", "$neg",
-						"$logic_not", "$logic_and", "$logic_or",
-						"$reduce_and", "$reduce_or", "$reduce_xor", "$reduce_xnor", "$reduce_bool",
-						"$lut", "$and", "$or", "$xor", "$xnor",
-						"$shl", "$shr", "$sshl", "$sshr", "$shift", "$shiftx",
-						"$lt", "$le", "$eq", "$ne", "$eqx", "$nex", "$ge", "$gt",
-						"$add", "$sub", "$mul", "$div", "$mod", "$pow", "$alu")) {
+				if (cell_type.in(ID($not), ID($pos), ID($neg),
+						ID($logic_not), ID($logic_and), ID($logic_or),
+						ID($reduce_and), ID($reduce_or), ID($reduce_xor), ID($reduce_xnor), ID($reduce_bool),
+						ID($lut), ID($and), ID($or), ID($xor), ID($xnor),
+						ID($shl), ID($shr), ID($sshl), ID($sshr), ID($shift), ID($shiftx),
+						ID($lt), ID($le), ID($eq), ID($ne), ID($eqx), ID($nex), ID($ge), ID($gt),
+						ID($add), ID($sub), ID($mul), ID($div), ID($mod), ID($pow), ID($alu))) {
 					int width_a = it.second->hasPort(ID::A) ? GetSize(it.second->getPort(ID::A)) : 0;
 					int width_b = it.second->hasPort(ID::B) ? GetSize(it.second->getPort(ID::B)) : 0;
 					int width_y = it.second->hasPort(ID::Y) ? GetSize(it.second->getPort(ID::Y)) : 0;
 					cell_type = stringf("%s_%d", cell_type.c_str(), max<int>({width_a, width_b, width_y}));
 				}
-				else if (cell_type.in("$mux", "$pmux"))
+				else if (cell_type.in(ID($mux), ID($pmux)))
 					cell_type = stringf("%s_%d", cell_type.c_str(), GetSize(it.second->getPort(ID::Y)));
-				else if (cell_type.in("$sr", "$dff", "$dffsr", "$adff", "$dlatch", "$dlatchsr"))
-					cell_type = stringf("%s_%d", cell_type.c_str(), GetSize(it.second->getPort("\\Q")));
+				else if (cell_type.in(ID($sr), ID($dff), ID($dffsr), ID($adff), ID($dlatch), ID($dlatchsr)))
+					cell_type = stringf("%s_%d", cell_type.c_str(), GetSize(it.second->getPort(ID::Q)));
 			}
 
 			if (!cell_area.empty()) {
@@ -172,12 +172,12 @@ struct statdata_t
 
 		if (tech == "xilinx")
 		{
-			int lut6_cnt = num_cells_by_type["\\LUT6"];
-			int lut5_cnt = num_cells_by_type["\\LUT5"];
-			int lut4_cnt = num_cells_by_type["\\LUT4"];
-			int lut3_cnt = num_cells_by_type["\\LUT3"];
-			int lut2_cnt = num_cells_by_type["\\LUT2"];
-			int lut1_cnt = num_cells_by_type["\\LUT1"];
+			int lut6_cnt = num_cells_by_type[ID(LUT6)];
+			int lut5_cnt = num_cells_by_type[ID(LUT5)];
+			int lut4_cnt = num_cells_by_type[ID(LUT4)];
+			int lut3_cnt = num_cells_by_type[ID(LUT3)];
+			int lut2_cnt = num_cells_by_type[ID(LUT2)];
+			int lut1_cnt = num_cells_by_type[ID(LUT1)];
 			int lc_cnt = 0;
 
 			lc_cnt += lut6_cnt;
@@ -235,7 +235,7 @@ struct statdata_t
 
 				if (gate_costs.count(ctype))
 					tran_cnt += cnum * gate_costs.at(ctype);
-				else if (ctype.in("$_DFF_P_", "$_DFF_N_"))
+				else if (ctype.in(ID($_DFF_P_), ID($_DFF_N_)))
 					tran_cnt += cnum * 16;
 				else
 					tran_cnt_exact = false;

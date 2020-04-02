@@ -42,9 +42,9 @@ static void add_formal(RTLIL::Module *module, const std::string &celltype, const
 	}
 	else {
 		RTLIL::Cell *formal_cell = module->addCell(NEW_ID, "$" + celltype);
-		formal_cell->setPort(ID(A), wire);
+		formal_cell->setPort(ID::A, wire);
 		if(enable_name == "") {
-			formal_cell->setPort(ID(EN), State::S1);
+			formal_cell->setPort(ID::EN, State::S1);
 			log("Added $%s cell for wire \"%s.%s\"\n", celltype.c_str(), module->name.str().c_str(), name.c_str());
 		}
 		else {
@@ -52,7 +52,7 @@ static void add_formal(RTLIL::Module *module, const std::string &celltype, const
 			if(enable_wire == nullptr)
 				log_error("Could not find enable wire with name \"%s\".\n", enable_name.c_str());
 
-			formal_cell->setPort(ID(EN), enable_wire);
+			formal_cell->setPort(ID::EN, enable_wire);
 			log("Added $%s cell for wire \"%s.%s\" enabled by wire \"%s.%s\".\n", celltype.c_str(), module->name.str().c_str(), name.c_str(), module->name.str().c_str(), enable_name.c_str());
 		}
 	}
@@ -212,7 +212,7 @@ struct AddPass : public Pass {
 			log_assert(module != nullptr);
 			if (!design->selected_whole_module(module->name))
 				continue;
-			if (module->get_bool_attribute("\\blackbox"))
+			if (module->get_bool_attribute(ID::blackbox))
 				continue;
 
 			selected_anything = true;
