@@ -29,8 +29,8 @@ struct EvalDemoPass : public Pass
 		if (module == nullptr)
 			log_error("No top module found!\n");
 
-		Wire *wire_a = module->wire("\\A");
-		Wire *wire_y = module->wire("\\Y");
+		Wire *wire_a = module->wire(ID::A);
+		Wire *wire_y = module->wire(ID::Y);
 
 		if (wire_a == nullptr)
 			log_error("No wire A found!\n");

@@ -235,7 +235,10 @@ namespace RTLIL
 				return;
 
 			log_assert(refcount == 0);
-
+			free_reference(idx);
+		}
+		static inline void free_reference(int idx)
+		{
 			if (yosys_xtrace) {
 				log("#X# Removed IdString '%s' with index %d.\n", global_id_storage_.at(idx), idx);
 				log_backtrace("-X- ", yosys_xtrace-1);
@@ -358,23 +361,24 @@ namespace RTLIL
 		// often one needs to check if a given IdString is part of a list (for example a list
 		// of cell types). the following functions helps with that.
 
-		template<typename T, typename... Args>
-		bool in(T first, Args... rest) const {
-			return in(first) || in(rest...);
+		template<typename... Args>
+		bool in(Args... args) const {
+			// Credit: https://articles.emptycrate.com/2016/05/14/folds_in_cpp11_ish.html
+			bool result = false;
+			(void) std::initializer_list<int>{ (result = result || in(args), 0)... };
+			return result;
 		}
 
-		bool in(IdString rhs) const { return *this == rhs; }
+		bool in(const IdString &rhs) const { return *this == rhs; }
 		bool in(const char *rhs) const { return *this == rhs; }
 		bool in(const std::string &rhs) const { return *this == rhs; }
 		bool in(const pool<IdString> &rhs) const { return rhs.count(*this) != 0; }
 	};
 
 	namespace ID {
-		// defined in rtlil.cc, initialized in yosys.cc
-		extern IdString A, B, Y;
-		extern IdString keep;
-		extern IdString whitebox;
-		extern IdString blackbox;
+#define X(_id) extern IdString _id;
+#include "constids.inc"
+#undef X
 	};
 
 	extern dict<std::string, std::string> constpad;

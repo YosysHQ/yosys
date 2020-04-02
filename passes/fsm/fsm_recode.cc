@@ -32,7 +32,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 static void fm_set_fsm_print(RTLIL::Cell *cell, RTLIL::Module *module, FsmData &fsm_data, const char *prefix, FILE *f)
 {
-	std::string name = cell->parameters["\\NAME"].decode_string();
+	std::string name = cell->parameters[ID::NAME].decode_string();
 
 	fprintf(f, "set_fsm_state_vector {");
 	for (int i = fsm_data.state_bits-1; i >= 0; i--)
@@ -53,7 +53,7 @@ static void fm_set_fsm_print(RTLIL::Cell *cell, RTLIL::Module *module, FsmData &
 
 static void fsm_recode(RTLIL::Cell *cell, RTLIL::Module *module, FILE *fm_set_fsm_file, FILE *encfile, std::string default_encoding)
 {
-	std::string encoding = cell->attributes.count("\\fsm_encoding") ? cell->attributes.at("\\fsm_encoding").decode_string() : "auto";
+	std::string encoding = cell->attributes.count(ID::fsm_encoding) ? cell->attributes.at(ID::fsm_encoding).decode_string() : "auto";
 
 	log("Recoding FSM `%s' from module `%s' using `%s' encoding:\n", cell->name.c_str(), module->name.c_str(), encoding.c_str());
 
@@ -95,7 +95,7 @@ static void fsm_recode(RTLIL::Cell *cell, RTLIL::Module *module, FILE *fm_set_fs
 		log_error("FSM encoding `%s' is not supported!\n", encoding.c_str());
 
 	if (encfile)
-		fprintf(encfile, ".fsm %s %s\n", log_id(module), RTLIL::unescape_id(cell->parameters["\\NAME"].decode_string()).c_str());
+		fprintf(encfile, ".fsm %s %s\n", log_id(module), RTLIL::unescape_id(cell->parameters[ID::NAME].decode_string()).c_str());
 
 	int state_idx_counter = fsm_data.reset_state >= 0 ? 1 : 0;
 	for (int i = 0; i < int(fsm_data.state_table.size()); i++)
@@ -181,11 +181,10 @@ struct FsmRecodePass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto &mod_it : design->modules_)
-			if (design->selected(mod_it.second))
-				for (auto &cell_it : mod_it.second->cells_)
-					if (cell_it.second->type == "$fsm" && design->selected(mod_it.second, cell_it.second))
-						fsm_recode(cell_it.second, mod_it.second, fm_set_fsm_file, encfile, default_encoding);
+		for (auto mod : design->selected_modules())
+			for (auto cell : mod->selected_cells())
+				if (cell->type == ID($fsm))
+					fsm_recode(cell, mod, fm_set_fsm_file, encfile, default_encoding);
 
 		if (fm_set_fsm_file != NULL)
 			fclose(fm_set_fsm_file);

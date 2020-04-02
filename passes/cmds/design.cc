@@ -207,7 +207,7 @@ struct DesignPass : public Pass {
 			if (import_mode) {
 				for (auto module : copy_src_modules)
 				{
-					if (module->get_bool_attribute("\\top")) {
+					if (module->get_bool_attribute(ID::top)) {
 						copy_src_modules.clear();
 						copy_src_modules.push_back(module);
 						break;
@@ -244,7 +244,7 @@ struct DesignPass : public Pass {
 				RTLIL::Module *t = mod->clone();
 				t->name = prefix;
 				t->design = copy_to_design;
-				t->attributes.erase("\\top");
+				t->attributes.erase(ID::top);
 				copy_to_design->add(t);
 
 				queue.insert(t);
@@ -276,7 +276,7 @@ struct DesignPass : public Pass {
 						RTLIL::Module *t = fmod->clone();
 						t->name = trg_name;
 						t->design = copy_to_design;
-						t->attributes.erase("\\top");
+						t->attributes.erase(ID::top);
 						copy_to_design->add(t);
 
 						queue.insert(t);

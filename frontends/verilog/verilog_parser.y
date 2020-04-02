@@ -436,9 +436,9 @@ module_arg_opt_assignment:
 			wire->str = ast_stack.back()->children.back()->str;
 			if (ast_stack.back()->children.back()->is_input) {
 				AstNode *n = ast_stack.back()->children.back();
-				if (n->attributes.count("\\defaultvalue"))
-					delete n->attributes.at("\\defaultvalue");
-				n->attributes["\\defaultvalue"] = $2;
+				if (n->attributes.count(ID::defaultvalue))
+					delete n->attributes.at(ID::defaultvalue);
+				n->attributes[ID::defaultvalue] = $2;
 			} else
 			if (ast_stack.back()->children.back()->is_reg || ast_stack.back()->children.back()->is_logic)
 				ast_stack.back()->children.push_back(new AstNode(AST_INITIAL, new AstNode(AST_BLOCK, new AstNode(AST_ASSIGN_LE, wire, $2))));
@@ -1511,24 +1511,24 @@ wire_name_and_opt_assign:
 		bool attr_anyseq = false;
 		bool attr_allconst = false;
 		bool attr_allseq = false;
-		if (ast_stack.back()->children.back()->get_bool_attribute("\\anyconst")) {
-			delete ast_stack.back()->children.back()->attributes.at("\\anyconst");
-			ast_stack.back()->children.back()->attributes.erase("\\anyconst");
+		if (ast_stack.back()->children.back()->get_bool_attribute(ID::anyconst)) {
+			delete ast_stack.back()->children.back()->attributes.at(ID::anyconst);
+			ast_stack.back()->children.back()->attributes.erase(ID::anyconst);
 			attr_anyconst = true;
 		}
-		if (ast_stack.back()->children.back()->get_bool_attribute("\\anyseq")) {
-			delete ast_stack.back()->children.back()->attributes.at("\\anyseq");
-			ast_stack.back()->children.back()->attributes.erase("\\anyseq");
+		if (ast_stack.back()->children.back()->get_bool_attribute(ID::anyseq)) {
+			delete ast_stack.back()->children.back()->attributes.at(ID::anyseq);
+			ast_stack.back()->children.back()->attributes.erase(ID::anyseq);
 			attr_anyseq = true;
 		}
-		if (ast_stack.back()->children.back()->get_bool_attribute("\\allconst")) {
-			delete ast_stack.back()->children.back()->attributes.at("\\allconst");
-			ast_stack.back()->children.back()->attributes.erase("\\allconst");
+		if (ast_stack.back()->children.back()->get_bool_attribute(ID::allconst)) {
+			delete ast_stack.back()->children.back()->attributes.at(ID::allconst);
+			ast_stack.back()->children.back()->attributes.erase(ID::allconst);
 			attr_allconst = true;
 		}
-		if (ast_stack.back()->children.back()->get_bool_attribute("\\allseq")) {
-			delete ast_stack.back()->children.back()->attributes.at("\\allseq");
-			ast_stack.back()->children.back()->attributes.erase("\\allseq");
+		if (ast_stack.back()->children.back()->get_bool_attribute(ID::allseq)) {
+			delete ast_stack.back()->children.back()->attributes.at(ID::allseq);
+			ast_stack.back()->children.back()->attributes.erase(ID::allseq);
 			attr_allseq = true;
 		}
 		if (current_wire_rand || attr_anyconst || attr_anyseq || attr_allconst || attr_allseq) {
@@ -1544,7 +1544,7 @@ wire_name_and_opt_assign:
 				fcall->str = "\\$allconst";
 			if (attr_allseq)
 				fcall->str = "\\$allseq";
-			fcall->attributes["\\reg"] = AstNode::mkconst_str(RTLIL::unescape_id(wire->str));
+			fcall->attributes[ID::reg] = AstNode::mkconst_str(RTLIL::unescape_id(wire->str));
 			ast_stack.back()->children.push_back(new AstNode(AST_ASSIGN, wire, fcall));
 		}
 	} |
@@ -1552,9 +1552,9 @@ wire_name_and_opt_assign:
 		AstNode *wire = new AstNode(AST_IDENTIFIER);
 		wire->str = ast_stack.back()->children.back()->str;
 		if (astbuf1->is_input) {
-			if (astbuf1->attributes.count("\\defaultvalue"))
-				delete astbuf1->attributes.at("\\defaultvalue");
-			astbuf1->attributes["\\defaultvalue"] = $3;
+			if (astbuf1->attributes.count(ID::defaultvalue))
+				delete astbuf1->attributes.at(ID::defaultvalue);
+			astbuf1->attributes[ID::defaultvalue] = $3;
 		}
 		else if (astbuf1->is_reg || astbuf1->is_logic){
 			AstNode *assign = new AstNode(AST_ASSIGN_LE, wire, $3);
@@ -1839,7 +1839,7 @@ cell_port:
 	attr TOK_WILDCARD_CONNECT {
 		if (!sv_mode)
 			frontend_verilog_yyerror("Wildcard port connections are only supported in SystemVerilog mode.");
-		astbuf2->attributes[ID(wildcard_port_conns)] = AstNode::mkconst_int(1, false);
+		astbuf2->attributes[ID::wildcard_port_conns] = AstNode::mkconst_int(1, false);
 	};
 
 always_comb_or_latch:
@@ -1863,7 +1863,7 @@ always_stmt:
 		AstNode *node = new AstNode(AST_ALWAYS);
 		append_attr(node, $1);
 		if ($2)
-			node->attributes[ID(always_ff)] = AstNode::mkconst_int(1, false);
+			node->attributes[ID::always_ff] = AstNode::mkconst_int(1, false);
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);
 	} always_cond {
@@ -1883,9 +1883,9 @@ always_stmt:
 		AstNode *node = new AstNode(AST_ALWAYS);
 		append_attr(node, $1);
 		if ($2)
-			node->attributes[ID(always_latch)] = AstNode::mkconst_int(1, false);
+			node->attributes[ID::always_latch] = AstNode::mkconst_int(1, false);
 		else
-			node->attributes[ID(always_comb)] = AstNode::mkconst_int(1, false);
+			node->attributes[ID::always_comb] = AstNode::mkconst_int(1, false);
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);
 		AstNode *block = new AstNode(AST_BLOCK);
@@ -2355,12 +2355,12 @@ case_type:
 
 opt_synopsys_attr:
 	opt_synopsys_attr TOK_SYNOPSYS_FULL_CASE {
-		if (ast_stack.back()->attributes.count("\\full_case") == 0)
-			ast_stack.back()->attributes["\\full_case"] = AstNode::mkconst_int(1, false);
+		if (ast_stack.back()->attributes.count(ID::full_case) == 0)
+			ast_stack.back()->attributes[ID::full_case] = AstNode::mkconst_int(1, false);
 	} |
 	opt_synopsys_attr TOK_SYNOPSYS_PARALLEL_CASE {
-		if (ast_stack.back()->attributes.count("\\parallel_case") == 0)
-			ast_stack.back()->attributes["\\parallel_case"] = AstNode::mkconst_int(1, false);
+		if (ast_stack.back()->attributes.count(ID::parallel_case) == 0)
+			ast_stack.back()->attributes[ID::parallel_case] = AstNode::mkconst_int(1, false);
 	} |
 	/* empty */;
 

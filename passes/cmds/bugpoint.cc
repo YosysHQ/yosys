@@ -155,7 +155,7 @@ struct BugpointPass : public Pass {
 
 				for (auto wire : mod->wires())
 				{
-					if (!stage2 && wire->get_bool_attribute("$bugpoint"))
+					if (!stage2 && wire->get_bool_attribute(ID($bugpoint)))
 						continue;
 
 					if (wire->port_input || wire->port_output)
@@ -220,7 +220,7 @@ struct BugpointPass : public Pass {
 						{
 							log("Trying to expose cell port %s.%s.%s as module port.\n", mod->name.c_str(), cell->name.c_str(), it.first.c_str());
 							RTLIL::Wire *wire = mod->addWire(NEW_ID, port.size());
-							wire->set_bool_attribute("$bugpoint");
+							wire->set_bool_attribute(ID($bugpoint));
 							wire->port_input = cell->input(it.first);
 							wire->port_output = cell->output(it.first);
 							cell->unsetPort(it.first);

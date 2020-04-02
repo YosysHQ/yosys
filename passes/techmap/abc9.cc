@@ -318,7 +318,7 @@ struct Abc9Pass : public ScriptPass
 						log("Skipping module %s as it contains processes.\n", log_id(mod));
 						continue;
 					}
-					log_assert(!mod->attributes.count(ID(abc9_box_id)));
+					log_assert(!mod->attributes.count(ID::abc9_box_id));
 
 					log_push();
 					active_design->selection().select(mod);

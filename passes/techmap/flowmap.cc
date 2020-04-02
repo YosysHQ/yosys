@@ -1413,7 +1413,7 @@ struct FlowmapWorker
 			for (auto gate_node : lut_gates[node])
 			{
 				auto gate_origin = node_origins[gate_node];
-				lut->add_strpool_attribute(ID(src), gate_origin.cell->get_strpool_attribute(ID(src)));
+				lut->add_strpool_attribute(ID::src, gate_origin.cell->get_strpool_attribute(ID::src));
 				packed_count++;
 			}
 			lut_count++;

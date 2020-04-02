@@ -47,7 +47,7 @@ struct EquivMiterWorker
 		if (cone.count(c))
 			return;
 
-		if (c->type == "$equiv" && !seed_cells.count(c)) {
+		if (c->type == ID($equiv) && !seed_cells.count(c)) {
 			leaves.insert(c);
 			return;
 		}
@@ -57,7 +57,7 @@ struct EquivMiterWorker
 		for (auto &conn : c->connections()) {
 			if (!ct.cell_input(c->type, conn.first))
 				continue;
-			if (c->type == "$equiv" && (conn.first == "\\A") != gold_mode)
+			if (c->type == ID($equiv) && (conn.first == ID::A) != gold_mode)
 				continue;
 			for (auto bit : sigmap(conn.second))
 				if (bit_to_driver.count(bit))
@@ -81,7 +81,7 @@ struct EquivMiterWorker
 		// find seed cells
 
 		for (auto c : source_module->selected_cells())
-			if (c->type == "$equiv") {
+			if (c->type == ID($equiv)) {
 				log("Seed $equiv cell: %s\n", log_id(c));
 				seed_cells.insert(c);
 			}
@@ -213,18 +213,18 @@ struct EquivMiterWorker
 		vector<Cell*> equiv_cells;
 
 		for (auto c : miter_module->cells())
-			if (c->type == "$equiv" && c->getPort("\\A") != c->getPort("\\B"))
+			if (c->type == ID($equiv) && c->getPort(ID::A) != c->getPort(ID::B))
 				equiv_cells.push_back(c);
 
 		for (auto c : equiv_cells)
 		{
 			SigSpec cmp = mode_undef ?
-					miter_module->LogicOr(NEW_ID, miter_module->Eqx(NEW_ID, c->getPort("\\A"), State::Sx),
-							miter_module->Eqx(NEW_ID, c->getPort("\\A"), c->getPort("\\B"))) :
-					miter_module->Eq(NEW_ID, c->getPort("\\A"), c->getPort("\\B"));
+					miter_module->LogicOr(NEW_ID, miter_module->Eqx(NEW_ID, c->getPort(ID::A), State::Sx),
+							miter_module->Eqx(NEW_ID, c->getPort(ID::A), c->getPort(ID::B))) :
+					miter_module->Eq(NEW_ID, c->getPort(ID::A), c->getPort(ID::B));
 
 			if (mode_cmp) {
-				string cmp_name = string("\\cmp") + log_signal(c->getPort("\\Y"));
+				string cmp_name = stringf("\\cmp%s", log_signal(c->getPort(ID::Y)));
 				for (int i = 1; i < GetSize(cmp_name); i++)
 					if (cmp_name[i] == '\\')
 						cmp_name[i] = '_';
@@ -242,7 +242,7 @@ struct EquivMiterWorker
 		}
 
 		if (mode_trigger) {
-			auto w = miter_module->addWire("\\trigger");
+			auto w = miter_module->addWire(ID(trigger));
 			w->port_output = true;
 			miter_module->addReduceOr(NEW_ID, trigger_signals, w);
 		}

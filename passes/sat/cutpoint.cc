@@ -75,7 +75,7 @@ struct CutpointPass : public Pass {
 			pool<SigBit> cutpoint_bits;
 
 			for (auto cell : module->selected_cells()) {
-				if (cell->type == "$anyseq")
+				if (cell->type == ID($anyseq))
 					continue;
 				log("Removing cell %s.%s, making all cell outputs cutpoints.\n", log_id(module), log_id(cell));
 				for (auto &conn : cell->connections()) {

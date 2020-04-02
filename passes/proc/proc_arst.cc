@@ -39,45 +39,45 @@ bool check_signal(RTLIL::Module *mod, RTLIL::SigSpec signal, RTLIL::SigSpec ref,
 
 	for (auto cell : mod->cells())
 	{
-		if (cell->type == "$reduce_or" && cell->getPort("\\Y") == signal)
-			return check_signal(mod, cell->getPort("\\A"), ref, polarity);
+		if (cell->type == ID($reduce_or) && cell->getPort(ID::Y) == signal)
+			return check_signal(mod, cell->getPort(ID::A), ref, polarity);
 
-		if (cell->type == "$reduce_bool" && cell->getPort("\\Y") == signal)
-			return check_signal(mod, cell->getPort("\\A"), ref, polarity);
+		if (cell->type == ID($reduce_bool) && cell->getPort(ID::Y) == signal)
+			return check_signal(mod, cell->getPort(ID::A), ref, polarity);
 
-		if (cell->type == "$logic_not" && cell->getPort("\\Y") == signal) {
+		if (cell->type == ID($logic_not) && cell->getPort(ID::Y) == signal) {
 			polarity = !polarity;
-			return check_signal(mod, cell->getPort("\\A"), ref, polarity);
+			return check_signal(mod, cell->getPort(ID::A), ref, polarity);
 		}
 
-		if (cell->type == "$not" && cell->getPort("\\Y") == signal) {
+		if (cell->type == ID($not) && cell->getPort(ID::Y) == signal) {
 			polarity = !polarity;
-			return check_signal(mod, cell->getPort("\\A"), ref, polarity);
+			return check_signal(mod, cell->getPort(ID::A), ref, polarity);
 		}
 
-		if (cell->type.in("$eq", "$eqx") && cell->getPort("\\Y") == signal) {
-			if (cell->getPort("\\A").is_fully_const()) {
-				if (!cell->getPort("\\A").as_bool())
+		if (cell->type.in(ID($eq), ID($eqx)) && cell->getPort(ID::Y) == signal) {
+			if (cell->getPort(ID::A).is_fully_const()) {
+				if (!cell->getPort(ID::A).as_bool())
 					polarity = !polarity;
-				return check_signal(mod, cell->getPort("\\B"), ref, polarity);
+				return check_signal(mod, cell->getPort(ID::B), ref, polarity);
 			}
-			if (cell->getPort("\\B").is_fully_const()) {
-				if (!cell->getPort("\\B").as_bool())
+			if (cell->getPort(ID::B).is_fully_const()) {
+				if (!cell->getPort(ID::B).as_bool())
 					polarity = !polarity;
-				return check_signal(mod, cell->getPort("\\A"), ref, polarity);
+				return check_signal(mod, cell->getPort(ID::A), ref, polarity);
 			}
 		}
 
-		if (cell->type.in("$ne", "$nex") && cell->getPort("\\Y") == signal) {
-			if (cell->getPort("\\A").is_fully_const()) {
-				if (cell->getPort("\\A").as_bool())
+		if (cell->type.in(ID($ne), ID($nex)) && cell->getPort(ID::Y) == signal) {
+			if (cell->getPort(ID::A).is_fully_const()) {
+				if (cell->getPort(ID::A).as_bool())
 					polarity = !polarity;
-				return check_signal(mod, cell->getPort("\\B"), ref, polarity);
+				return check_signal(mod, cell->getPort(ID::B), ref, polarity);
 			}
-			if (cell->getPort("\\B").is_fully_const()) {
-				if (cell->getPort("\\B").as_bool())
+			if (cell->getPort(ID::B).is_fully_const()) {
+				if (cell->getPort(ID::B).as_bool())
 					polarity = !polarity;
-				return check_signal(mod, cell->getPort("\\A"), ref, polarity);
+				return check_signal(mod, cell->getPort(ID::A), ref, polarity);
 			}
 		}
 	}
@@ -261,8 +261,8 @@ struct ProcArstPass : public Pass {
 							for (auto &act : sync->actions) {
 								RTLIL::SigSpec arst_sig, arst_val;
 								for (auto &chunk : act.first.chunks())
-									if (chunk.wire && chunk.wire->attributes.count("\\init")) {
-										RTLIL::SigSpec value = chunk.wire->attributes.at("\\init");
+									if (chunk.wire && chunk.wire->attributes.count(ID::init)) {
+										RTLIL::SigSpec value = chunk.wire->attributes.at(ID::init);
 										value.extend_u0(chunk.wire->width, false);
 										arst_sig.append(chunk);
 										arst_val.append(value.extract(chunk.offset, chunk.width));
@@ -285,7 +285,7 @@ struct ProcArstPass : public Pass {
 			}
 
 		for (auto wire : delete_initattr_wires)
-			wire->attributes.erase("\\init");
+			wire->attributes.erase(ID::init);
 	}
 } ProcArstPass;
 

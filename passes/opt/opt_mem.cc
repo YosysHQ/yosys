@@ -45,17 +45,17 @@ struct OptMemWorker
 		for (auto cell : module->cells())
 		{
 			if (cell->type == ID($memrd)) {
-				IdString id = cell->getParam(ID(MEMID)).decode_string();
+				IdString id = cell->getParam(ID::MEMID).decode_string();
 				memrd.at(id).push_back(cell->name);
 			}
 
 			if (cell->type == ID($memwr)) {
-				IdString id = cell->getParam(ID(MEMID)).decode_string();
+				IdString id = cell->getParam(ID::MEMID).decode_string();
 				memwr.at(id).push_back(cell->name);
 			}
 
 			if (cell->type == ID($meminit)) {
-				IdString id = cell->getParam(ID(MEMID)).decode_string();
+				IdString id = cell->getParam(ID::MEMID).decode_string();
 				meminit.at(id).push_back(cell->name);
 			}
 		}

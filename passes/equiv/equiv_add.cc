@@ -152,7 +152,7 @@ struct EquivAddPass : public Pass {
 
 			for (int i = 0; i < GetSize(gold_signal); i++) {
 				Cell *equiv_cell = module->addEquiv(NEW_ID, gold_signal[i], gate_signal[i], equiv_signal[i]);
-				equiv_cell->set_bool_attribute("\\keep");
+				equiv_cell->set_bool_attribute(ID::keep);
 				to_equiv_bits[gold_signal[i]] = equiv_signal[i];
 				to_equiv_bits[gate_signal[i]] = equiv_signal[i];
 				added_equiv_cells.insert(equiv_cell);

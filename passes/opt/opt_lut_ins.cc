@@ -80,7 +80,7 @@ struct OptLutInsPass : public Pass {
 						continue;
 					inputs = cell->getPort(ID::A).bits();
 					output = cell->getPort(ID::Y);
-					lut = cell->getParam(ID(LUT));
+					lut = cell->getParam(ID::LUT);
 				} else if (techname == "xilinx" || techname == "gowin") {
 					if (cell->type == ID(LUT1)) {
 						inputs = {
@@ -125,20 +125,20 @@ struct OptLutInsPass : public Pass {
 						// Not a LUT.
 						continue;
 					}
-					lut = cell->getParam(ID(INIT));
+					lut = cell->getParam(ID::INIT);
 					if (techname == "xilinx")
-						output = cell->getPort(ID(O));
+						output = cell->getPort(ID::O);
 					else
-						output = cell->getPort(ID(F));
+						output = cell->getPort(ID::F);
 				} else if (techname == "ecp5") {
 					if (cell->type == ID(LUT4)) {
 						inputs = {
 							cell->getPort(ID::A),
 							cell->getPort(ID::B),
-							cell->getPort(ID(C)),
-							cell->getPort(ID(D)),
+							cell->getPort(ID::C),
+							cell->getPort(ID::D),
 						};
-						lut = cell->getParam(ID(INIT));
+						lut = cell->getParam(ID::INIT);
 						output = cell->getPort(ID(Z));
 						ignore_const = true;
 					} else {
@@ -217,19 +217,19 @@ struct OptLutInsPass : public Pass {
 					module->connect(output, new_lut[0]);
 				} else {
 					if (techname == "") {
-						cell->setParam(ID(LUT), new_lut);
-						cell->setParam(ID(WIDTH), GetSize(new_inputs));
+						cell->setParam(ID::LUT, new_lut);
+						cell->setParam(ID::WIDTH, GetSize(new_inputs));
 						cell->setPort(ID::A, new_inputs);
 					} else if (techname == "ecp5") {
 						log_assert(GetSize(new_inputs) == 4);
-						cell->setParam(ID(INIT), new_lut);
+						cell->setParam(ID::INIT, new_lut);
 						cell->setPort(ID::A, new_inputs[0]);
 						cell->setPort(ID::B, new_inputs[1]);
-						cell->setPort(ID(C), new_inputs[2]);
-						cell->setPort(ID(D), new_inputs[3]);
+						cell->setPort(ID::C, new_inputs[2]);
+						cell->setPort(ID::D, new_inputs[3]);
 					} else {
 						// xilinx, gowin
-						cell->setParam(ID(INIT), new_lut);
+						cell->setParam(ID::INIT, new_lut);
 						if (techname == "xilinx")
 							log_assert(GetSize(new_inputs) <= 6);
 						else

@@ -34,14 +34,14 @@ static void handle_iobufs(Module *module, bool clkbuf_mode)
 
 	for (auto cell : module->cells())
 	{
-		if (clkbuf_mode && cell->type == "\\SLE") {
-			for (auto bit : sigmap(cell->getPort("\\CLK")))
+		if (clkbuf_mode && cell->type == ID(SLE)) {
+			for (auto bit : sigmap(cell->getPort(ID::CLK)))
 				clk_bits.insert(bit);
 		}
-		if (cell->type.in("\\INBUF", "\\OUTBUF", "\\TRIBUFF", "\\BIBUF", "\\CLKBUF", "\\CLKBIBUF",
-				"\\INBUF_DIFF", "\\OUTBUF_DIFF", "\\BIBUFF_DIFF", "\\TRIBUFF_DIFF", "\\CLKBUF_DIFF",
-				"\\GCLKBUF", "\\GCLKBUF_DIFF", "\\GCLKBIBUF")) {
-			for (auto bit : sigmap(cell->getPort("\\PAD")))
+		if (cell->type.in(ID(INBUF), ID(OUTBUF), ID(TRIBUFF), ID(BIBUF), ID(CLKBUF), ID(CLKBIBUF),
+				ID(INBUF_DIFF), ID(OUTBUF_DIFF), ID(BIBUFF_DIFF), ID(TRIBUFF_DIFF), ID(CLKBUF_DIFF),
+				ID(GCLKBUF), ID(GCLKBUF_DIFF), ID(GCLKBIBUF))) {
+			for (auto bit : sigmap(cell->getPort(ID(PAD))))
 				handled_io_bits.insert(bit);
 		}
 	}
@@ -65,14 +65,14 @@ static void handle_iobufs(Module *module, bool clkbuf_mode)
 			IdString buf_type, buf_port;
 
 			if (wire->port_output) {
-				buf_type = "\\OUTBUF";
-				buf_port = "\\D";
+				buf_type = ID(OUTBUF);
+				buf_port = ID::D;
 			} else if (clkbuf_mode && clk_bits.count(canonical_bit)) {
-				buf_type = "\\CLKBUF";
-				buf_port = "\\Y";
+				buf_type = ID(CLKBUF);
+				buf_port = ID::Y;
 			} else {
-				buf_type = "\\INBUF";
-				buf_port = "\\Y";
+				buf_type = ID(INBUF);
+				buf_port = ID::Y;
 			}
 
 			Cell *c = module->addCell(NEW_ID, buf_type);
@@ -96,7 +96,7 @@ static void handle_iobufs(Module *module, bool clkbuf_mode)
 	module->rewrite_sigspecs(rewrite_function);
 
 	for (auto &it : pad_bits)
-		it.first->setPort("\\PAD", it.second);
+		it.first->setPort(ID(PAD), it.second);
 }
 
 static void handle_clkint(Module *module)
@@ -108,13 +108,13 @@ static void handle_clkint(Module *module)
 
 	for (auto cell : module->cells())
 	{
-		if (cell->type == "\\SLE") {
-			for (auto bit : sigmap(cell->getPort("\\CLK")))
+		if (cell->type == ID(SLE)) {
+			for (auto bit : sigmap(cell->getPort(ID::CLK)))
 				clk_bits.insert(bit);
 		}
-		if (cell->type.in("\\CLKBUF", "\\CLKBIBUF", "\\CLKBUF_DIFF", "\\GCLKBUF", "\\GCLKBUF_DIFF", "\\GCLKBIBUF",
-				"\\CLKINT", "\\CLKINT_PRESERVE", "\\GCLKINT", "\\RCLKINT", "\\RGCLKINT")) {
-			for (auto bit : sigmap(cell->getPort("\\Y")))
+		if (cell->type.in(ID(CLKBUF), ID(CLKBIBUF), ID(CLKBUF_DIFF), ID(GCLKBUF), ID(GCLKBUF_DIFF), ID(GCLKBIBUF),
+				ID(CLKINT), ID(CLKINT_PRESERVE), ID(GCLKINT), ID(RCLKINT), ID(RGCLKINT))) {
+			for (auto bit : sigmap(cell->getPort(ID::Y)))
 				handled_clk_bits.push_back(bit);
 		}
 	}
@@ -134,10 +134,10 @@ static void handle_clkint(Module *module)
 		for (auto &bit : sig) {
 			SigBit canonical_bit = sigmap(bit);
 			if (clk_bits.count(canonical_bit)) {
-				Cell *c = module->addCell(NEW_ID, "\\CLKINT");
+				Cell *c = module->addCell(NEW_ID, ID(CLKINT));
 				SigBit new_bit = module->addWire(NEW_ID);
-				c->setPort("\\A", new_bit);
-				c->setPort("\\Y", bit);
+				c->setPort(ID::A, new_bit);
+				c->setPort(ID::Y, bit);
 				log("Added %s cell %s for clock signal %s.\n", log_id(c->type), log_id(c), log_signal(bit));
 				clk_bits.erase(canonical_bit);
 				did_something = true;

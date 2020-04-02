@@ -33,15 +33,15 @@ static void run_ice40_braminit(Module *module)
 		uint16_t mem[256];
 
 		/* Only consider cells we're interested in */
-		if (cell->type != "\\SB_RAM40_4K" &&
-		    cell->type != "\\SB_RAM40_4KNR" &&
-		    cell->type != "\\SB_RAM40_4KNW" &&
-		    cell->type != "\\SB_RAM40_4KNRNW")
+		if (cell->type != ID(SB_RAM40_4K) &&
+		    cell->type != ID(SB_RAM40_4KNR) &&
+		    cell->type != ID(SB_RAM40_4KNW) &&
+		    cell->type != ID(SB_RAM40_4KNRNW))
 			continue;
-		if (!cell->hasParam("\\INIT_FILE"))
+		if (!cell->hasParam(ID(INIT_FILE)))
 			continue;
-		std::string init_file = cell->getParam("\\INIT_FILE").decode_string();
-		cell->unsetParam("\\INIT_FILE");
+		std::string init_file = cell->getParam(ID(INIT_FILE)).decode_string();
+		cell->unsetParam(ID(INIT_FILE));
 		if (init_file == "")
 			continue;
 

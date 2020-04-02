@@ -85,7 +85,7 @@ struct Ecp5GsrPass : public Pass {
 					continue;
 				
 				bool gsren = found_gsr;
-				if (cell->get_bool_attribute("\\nogsr"))
+				if (cell->get_bool_attribute(ID(nogsr)))
 					gsren = false;
 				cell->setParam(ID(GSR), gsren ? Const("ENABLED") : Const("DISABLED"));
 				
@@ -102,7 +102,7 @@ struct Ecp5GsrPass : public Pass {
 			{
 				if (cell->type != ID($_NOT_))
 					continue;
-				SigSpec sig_a = cell->getPort(ID(A)), sig_y = cell->getPort(ID(Y));
+				SigSpec sig_a = cell->getPort(ID::A), sig_y = cell->getPort(ID::Y);
 				if (GetSize(sig_a) < 1 || GetSize(sig_y) < 1)
 					continue;
 				SigBit a = sigmap(sig_a[0]);

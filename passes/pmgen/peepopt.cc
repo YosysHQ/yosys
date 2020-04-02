@@ -87,7 +87,7 @@ struct PeepoptPass : public Pass {
 				peepopt_pm pm(module);
 
 				for (auto w : module->wires()) {
-					auto it = w->attributes.find(ID(init));
+					auto it = w->attributes.find(ID::init);
 					if (it != w->attributes.end()) {
 						SigSpec sig = pm.sigmap(w);
 						Const val = it->second;
@@ -109,7 +109,7 @@ struct PeepoptPass : public Pass {
 				pm.run_dffmux();
 
 				for (auto w : module->wires()) {
-					auto it = w->attributes.find(ID(init));
+					auto it = w->attributes.find(ID::init);
 					if (it != w->attributes.end()) {
 						SigSpec sig = pm.sigmap(w);
 						Const &val = it->second;

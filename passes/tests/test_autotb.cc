@@ -106,7 +106,7 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter, int s
 
 		RTLIL::Module *mod = it->second;
 
-		if (mod->get_bool_attribute("\\gentb_skip"))
+		if (mod->get_bool_attribute(ID::gentb_skip))
 			continue;
 
 		int count_ports = 0;
@@ -119,7 +119,7 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter, int s
 				f << stringf("wire [%d:0] %s;\n", wire->width-1, idy("sig", mod->name.str(), wire->name.str()).c_str());
 			} else if (wire->port_input) {
 				count_ports++;
-				bool is_clksignal = wire->get_bool_attribute("\\gentb_clock");
+				bool is_clksignal = wire->get_bool_attribute(ID::gentb_clock);
 				for (auto it3 = mod->processes.begin(); it3 != mod->processes.end(); ++it3)
 				for (auto it4 = it3->second->syncs.begin(); it4 != it3->second->syncs.end(); ++it4) {
 					if ((*it4)->type == RTLIL::ST0 || (*it4)->type == RTLIL::ST1)
@@ -129,12 +129,12 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter, int s
 						if (c.wire == wire)
 							is_clksignal = true;
 				}
-				if (is_clksignal && wire->attributes.count("\\gentb_constant") == 0) {
+				if (is_clksignal && wire->attributes.count(ID::gentb_constant) == 0) {
 					signal_clk[idy("sig", mod->name.str(), wire->name.str())] = wire->width;
 				} else {
 					signal_in[idy("sig", mod->name.str(), wire->name.str())] = wire->width;
-					if (wire->attributes.count("\\gentb_constant") != 0)
-						signal_const[idy("sig", mod->name.str(), wire->name.str())] = wire->attributes["\\gentb_constant"].as_string();
+					if (wire->attributes.count(ID::gentb_constant) != 0)
+						signal_const[idy("sig", mod->name.str(), wire->name.str())] = wire->attributes[ID::gentb_constant].as_string();
 				}
 				f << stringf("reg [%d:0] %s;\n", wire->width-1, idy("sig", mod->name.str(), wire->name.str()).c_str());
 			}
@@ -313,7 +313,7 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter, int s
 	f << stringf("\t// $dumpvars(0, testbench);\n");
 	f << stringf("\tfile = $fopen(`outfile);\n");
 	for (auto it = design->modules_.begin(); it != design->modules_.end(); ++it)
-		if (!it->second->get_bool_attribute("\\gentb_skip"))
+		if (!it->second->get_bool_attribute(ID::gentb_skip))
 			f << stringf("\t%s;\n", idy(it->first.str(), "test").c_str());
 	f << stringf("\t$fclose(file);\n");
 	f << stringf("\t$finish;\n");

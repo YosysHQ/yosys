@@ -62,8 +62,8 @@ void proc_rmdead(RTLIL::SwitchRule *sw, int &counter, int &full_case_counter)
 			pool.take_all();
 	}
 
-	if (pool.empty() && !sw->get_bool_attribute("\\full_case")) {
-		sw->set_bool_attribute("\\full_case");
+	if (pool.empty() && !sw->get_bool_attribute(ID::full_case)) {
+		sw->set_bool_attribute(ID::full_case);
 		full_case_counter++;
 	}
 }

@@ -203,7 +203,7 @@ struct IopadmapPass : public Pass {
 
 			// Collect explicitly-marked already-buffered SigBits.
 			for (auto wire : module->wires())
-				if (wire->get_bool_attribute("\\iopad_external_pin") || ignore.count(make_pair(module->name, wire->name)))
+				if (wire->get_bool_attribute(ID::iopad_external_pin) || ignore.count(make_pair(module->name, wire->name)))
 					for (int i = 0; i < GetSize(wire); i++)
 						buf_bits.insert(sigmap(SigBit(wire, i)));
 
@@ -291,7 +291,7 @@ struct IopadmapPass : public Pass {
 
 						if (tbuf_cell != nullptr) {
 							// Found a tristate buffer — use it.
-							en_sig = tbuf_cell->getPort(ID(E)).as_bit();
+							en_sig = tbuf_cell->getPort(ID::E).as_bit();
 							data_sig = tbuf_cell->getPort(ID::A).as_bit();
 						} else if (is_driven) {
 							// No tristate buffer, but an always-on driver is present.
@@ -490,10 +490,10 @@ struct IopadmapPass : public Pass {
 				}
 
 				if (wire->port_output) {
-					auto jt = new_wire->attributes.find(ID(init));
+					auto jt = new_wire->attributes.find(ID::init);
 					// For output ports, move \init attributes from old wire to new wire
 					if (jt != new_wire->attributes.end()) {
-						wire->attributes[ID(init)] = std::move(jt->second);
+						wire->attributes[ID::init] = std::move(jt->second);
 						new_wire->attributes.erase(jt);
 					}
 				}

@@ -219,30 +219,30 @@ struct SmvWorker
 			if (wire->port_input)
 				inputvars.push_back(stringf("%s : unsigned word[%d]; -- %s", cid(wire->name), wire->width, log_id(wire)));
 
-			if (wire->attributes.count("\\init"))
-				assignments.push_back(stringf("init(%s) := %s;", lvalue(wire), rvalue(wire->attributes.at("\\init"))));
+			if (wire->attributes.count(ID::init))
+				assignments.push_back(stringf("init(%s) := %s;", lvalue(wire), rvalue(wire->attributes.at(ID::init))));
 		}
 
 		for (auto cell : module->cells())
 		{
 			// FIXME: $slice, $concat, $mem
 
-			if (cell->type.in("$assert"))
+			if (cell->type.in(ID($assert)))
 			{
-				SigSpec sig_a = cell->getPort("\\A");
-				SigSpec sig_en = cell->getPort("\\EN");
+				SigSpec sig_a = cell->getPort(ID::A);
+				SigSpec sig_en = cell->getPort(ID::EN);
 
 				invarspecs.push_back(stringf("!bool(%s) | bool(%s);", rvalue(sig_en), rvalue(sig_a)));
 
 				continue;
 			}
 
-			if (cell->type.in("$shl", "$shr", "$sshl", "$sshr", "$shift", "$shiftx"))
+			if (cell->type.in(ID($shl), ID($shr), ID($sshl), ID($sshr), ID($shift), ID($shiftx)))
 			{
-				SigSpec sig_a = cell->getPort("\\A");
-				SigSpec sig_b = cell->getPort("\\B");
+				SigSpec sig_a = cell->getPort(ID::A);
+				SigSpec sig_b = cell->getPort(ID::B);
 
-				int width_y = GetSize(cell->getPort("\\Y"));
+				int width_y = GetSize(cell->getPort(ID::Y));
 				int shift_b_width = GetSize(sig_b);
 				int width_ay = max(GetSize(sig_a), width_y);
 				int width = width_ay;
@@ -254,12 +254,12 @@ struct SmvWorker
 						break;
 					}
 
-				bool signed_a = cell->getParam("\\A_SIGNED").as_bool();
-				bool signed_b = cell->getParam("\\B_SIGNED").as_bool();
-				string op = cell->type.in("$shl", "$sshl") ? "<<" : ">>";
+				bool signed_a = cell->getParam(ID::A_SIGNED).as_bool();
+				bool signed_b = cell->getParam(ID::B_SIGNED).as_bool();
+				string op = cell->type.in(ID($shl), ID($sshl)) ? "<<" : ">>";
 				string expr, expr_a;
 
-				if (cell->type == "$sshr" && signed_a)
+				if (cell->type == ID($sshr) && signed_a)
 				{
 					expr_a = rvalue_s(sig_a, width);
 					expr = stringf("resize(unsigned(%s %s %s), %d)", expr_a.c_str(), op.c_str(), rvalue(sig_b.extract(0, shift_b_width)), width_y);
@@ -268,7 +268,7 @@ struct SmvWorker
 								rvalue(sig_b.extract(shift_b_width, GetSize(sig_b) - shift_b_width)), GetSize(sig_b) - shift_b_width,
 								rvalue(sig_a[GetSize(sig_a)-1]), width_y, width_y, expr.c_str());
 				}
-				else if (cell->type.in("$shift", "$shiftx") && signed_b)
+				else if (cell->type.in(ID($shift), ID($shiftx)) && signed_b)
 				{
 					expr_a = rvalue_u(sig_a, width);
 
@@ -292,7 +292,7 @@ struct SmvWorker
 				}
 				else
 				{
-					if (cell->type.in("$shift", "$shiftx") || !signed_a)
+					if (cell->type.in(ID($shift), ID($shiftx)) || !signed_a)
 						expr_a = rvalue_u(sig_a, width);
 					else
 						expr_a = stringf("resize(unsigned(%s), %d)", rvalue_s(sig_a, width_ay), width);
@@ -303,272 +303,272 @@ struct SmvWorker
 								GetSize(sig_b)-shift_b_width, width_y, expr.c_str());
 				}
 
-				definitions.push_back(stringf("%s := %s;", lvalue(cell->getPort("\\Y")), expr.c_str()));
+				definitions.push_back(stringf("%s := %s;", lvalue(cell->getPort(ID::Y)), expr.c_str()));
 
 				continue;
 			}
 
-			if (cell->type.in("$not", "$pos", "$neg"))
+			if (cell->type.in(ID($not), ID($pos), ID($neg)))
 			{
-				int width = GetSize(cell->getPort("\\Y"));
+				int width = GetSize(cell->getPort(ID::Y));
 				string expr_a, op;
 
-				if (cell->type == "$not")  op = "!";
-				if (cell->type == "$pos")  op = "";
-				if (cell->type == "$neg")  op = "-";
+				if (cell->type == ID($not))  op = "!";
+				if (cell->type == ID($pos))  op = "";
+				if (cell->type == ID($neg))  op = "-";
 
-				if (cell->getParam("\\A_SIGNED").as_bool())
+				if (cell->getParam(ID::A_SIGNED).as_bool())
 				{
-					definitions.push_back(stringf("%s := unsigned(%s%s);", lvalue(cell->getPort("\\Y")),
-							op.c_str(), rvalue_s(cell->getPort("\\A"), width)));
+					definitions.push_back(stringf("%s := unsigned(%s%s);", lvalue(cell->getPort(ID::Y)),
+							op.c_str(), rvalue_s(cell->getPort(ID::A), width)));
 				}
 				else
 				{
-					definitions.push_back(stringf("%s := %s%s;", lvalue(cell->getPort("\\Y")),
-							op.c_str(), rvalue_u(cell->getPort("\\A"), width)));
+					definitions.push_back(stringf("%s := %s%s;", lvalue(cell->getPort(ID::Y)),
+							op.c_str(), rvalue_u(cell->getPort(ID::A), width)));
 				}
 
 				continue;
 			}
 
-			if (cell->type.in("$add", "$sub", "$mul", "$and", "$or", "$xor", "$xnor"))
+			if (cell->type.in(ID($add), ID($sub), ID($mul), ID($and), ID($or), ID($xor), ID($xnor)))
 			{
-				int width = GetSize(cell->getPort("\\Y"));
+				int width = GetSize(cell->getPort(ID::Y));
 				string expr_a, expr_b, op;
 
-				if (cell->type == "$add")  op = "+";
-				if (cell->type == "$sub")  op = "-";
-				if (cell->type == "$mul")  op = "*";
-				if (cell->type == "$and")  op = "&";
-				if (cell->type == "$or")   op = "|";
-				if (cell->type == "$xor")  op = "xor";
-				if (cell->type == "$xnor") op = "xnor";
+				if (cell->type == ID($add))  op = "+";
+				if (cell->type == ID($sub))  op = "-";
+				if (cell->type == ID($mul))  op = "*";
+				if (cell->type == ID($and))  op = "&";
+				if (cell->type == ID($or))   op = "|";
+				if (cell->type == ID($xor))  op = "xor";
+				if (cell->type == ID($xnor)) op = "xnor";
 
-				if (cell->getParam("\\A_SIGNED").as_bool())
+				if (cell->getParam(ID::A_SIGNED).as_bool())
 				{
-					definitions.push_back(stringf("%s := unsigned(%s %s %s);", lvalue(cell->getPort("\\Y")),
-							rvalue_s(cell->getPort("\\A"), width), op.c_str(), rvalue_s(cell->getPort("\\B"), width)));
+					definitions.push_back(stringf("%s := unsigned(%s %s %s);", lvalue(cell->getPort(ID::Y)),
+							rvalue_s(cell->getPort(ID::A), width), op.c_str(), rvalue_s(cell->getPort(ID::B), width)));
 				}
 				else
 				{
-					definitions.push_back(stringf("%s := %s %s %s;", lvalue(cell->getPort("\\Y")),
-							rvalue_u(cell->getPort("\\A"), width), op.c_str(), rvalue_u(cell->getPort("\\B"), width)));
+					definitions.push_back(stringf("%s := %s %s %s;", lvalue(cell->getPort(ID::Y)),
+							rvalue_u(cell->getPort(ID::A), width), op.c_str(), rvalue_u(cell->getPort(ID::B), width)));
 				}
 
 				continue;
 			}
 
-			if (cell->type.in("$div", "$mod"))
+			if (cell->type.in(ID($div), ID($mod)))
 			{
-				int width_y = GetSize(cell->getPort("\\Y"));
-				int width = max(width_y, GetSize(cell->getPort("\\A")));
-				width = max(width, GetSize(cell->getPort("\\B")));
+				int width_y = GetSize(cell->getPort(ID::Y));
+				int width = max(width_y, GetSize(cell->getPort(ID::A)));
+				width = max(width, GetSize(cell->getPort(ID::B)));
 				string expr_a, expr_b, op;
 
-				if (cell->type == "$div")  op = "/";
-				if (cell->type == "$mod")  op = "mod";
+				if (cell->type == ID($div))  op = "/";
+				if (cell->type == ID($mod))  op = "mod";
 
-				if (cell->getParam("\\A_SIGNED").as_bool())
+				if (cell->getParam(ID::A_SIGNED).as_bool())
 				{
-					definitions.push_back(stringf("%s := resize(unsigned(%s %s %s), %d);", lvalue(cell->getPort("\\Y")),
-							rvalue_s(cell->getPort("\\A"), width), op.c_str(), rvalue_s(cell->getPort("\\B"), width), width_y));
+					definitions.push_back(stringf("%s := resize(unsigned(%s %s %s), %d);", lvalue(cell->getPort(ID::Y)),
+							rvalue_s(cell->getPort(ID::A), width), op.c_str(), rvalue_s(cell->getPort(ID::B), width), width_y));
 				}
 				else
 				{
-					definitions.push_back(stringf("%s := resize(%s %s %s, %d);", lvalue(cell->getPort("\\Y")),
-							rvalue_u(cell->getPort("\\A"), width), op.c_str(), rvalue_u(cell->getPort("\\B"), width), width_y));
+					definitions.push_back(stringf("%s := resize(%s %s %s, %d);", lvalue(cell->getPort(ID::Y)),
+							rvalue_u(cell->getPort(ID::A), width), op.c_str(), rvalue_u(cell->getPort(ID::B), width), width_y));
 				}
 
 				continue;
 			}
 
-			if (cell->type.in("$eq", "$ne", "$eqx", "$nex", "$lt", "$le", "$ge", "$gt"))
+			if (cell->type.in(ID($eq), ID($ne), ID($eqx), ID($nex), ID($lt), ID($le), ID($ge), ID($gt)))
 			{
-				int width = max(GetSize(cell->getPort("\\A")), GetSize(cell->getPort("\\B")));
+				int width = max(GetSize(cell->getPort(ID::A)), GetSize(cell->getPort(ID::B)));
 				string expr_a, expr_b, op;
 
-				if (cell->type == "$eq")  op = "=";
-				if (cell->type == "$ne")  op = "!=";
-				if (cell->type == "$eqx") op = "=";
-				if (cell->type == "$nex") op = "!=";
-				if (cell->type == "$lt")  op = "<";
-				if (cell->type == "$le")  op = "<=";
-				if (cell->type == "$ge")  op = ">=";
-				if (cell->type == "$gt")  op = ">";
+				if (cell->type == ID($eq))  op = "=";
+				if (cell->type == ID($ne))  op = "!=";
+				if (cell->type == ID($eqx)) op = "=";
+				if (cell->type == ID($nex)) op = "!=";
+				if (cell->type == ID($lt))  op = "<";
+				if (cell->type == ID($le))  op = "<=";
+				if (cell->type == ID($ge))  op = ">=";
+				if (cell->type == ID($gt))  op = ">";
 
-				if (cell->getParam("\\A_SIGNED").as_bool())
+				if (cell->getParam(ID::A_SIGNED).as_bool())
 				{
-					expr_a = stringf("resize(signed(%s), %d)", rvalue(cell->getPort("\\A")), width);
-					expr_b = stringf("resize(signed(%s), %d)", rvalue(cell->getPort("\\B")), width);
+					expr_a = stringf("resize(signed(%s), %d)", rvalue(cell->getPort(ID::A)), width);
+					expr_b = stringf("resize(signed(%s), %d)", rvalue(cell->getPort(ID::B)), width);
 				}
 				else
 				{
-					expr_a = stringf("resize(%s, %d)", rvalue(cell->getPort("\\A")), width);
-					expr_b = stringf("resize(%s, %d)", rvalue(cell->getPort("\\B")), width);
+					expr_a = stringf("resize(%s, %d)", rvalue(cell->getPort(ID::A)), width);
+					expr_b = stringf("resize(%s, %d)", rvalue(cell->getPort(ID::B)), width);
 				}
 
-				definitions.push_back(stringf("%s := resize(word1(%s %s %s), %d);", lvalue(cell->getPort("\\Y")),
-						expr_a.c_str(), op.c_str(), expr_b.c_str(), GetSize(cell->getPort("\\Y"))));
+				definitions.push_back(stringf("%s := resize(word1(%s %s %s), %d);", lvalue(cell->getPort(ID::Y)),
+						expr_a.c_str(), op.c_str(), expr_b.c_str(), GetSize(cell->getPort(ID::Y))));
 
 				continue;
 			}
 
-			if (cell->type.in("$reduce_and", "$reduce_or", "$reduce_bool"))
+			if (cell->type.in(ID($reduce_and), ID($reduce_or), ID($reduce_bool)))
 			{
-				int width_a = GetSize(cell->getPort("\\A"));
-				int width_y = GetSize(cell->getPort("\\Y"));
-				const char *expr_a = rvalue(cell->getPort("\\A"));
-				const char *expr_y = lvalue(cell->getPort("\\Y"));
+				int width_a = GetSize(cell->getPort(ID::A));
+				int width_y = GetSize(cell->getPort(ID::Y));
+				const char *expr_a = rvalue(cell->getPort(ID::A));
+				const char *expr_y = lvalue(cell->getPort(ID::Y));
 				string expr;
 
-				if (cell->type == "$reduce_and")  expr = stringf("%s = !0ub%d_0", expr_a, width_a);
-				if (cell->type == "$reduce_or")   expr = stringf("%s != 0ub%d_0", expr_a, width_a);
-				if (cell->type == "$reduce_bool") expr = stringf("%s != 0ub%d_0", expr_a, width_a);
+				if (cell->type == ID($reduce_and))  expr = stringf("%s = !0ub%d_0", expr_a, width_a);
+				if (cell->type == ID($reduce_or))   expr = stringf("%s != 0ub%d_0", expr_a, width_a);
+				if (cell->type == ID($reduce_bool)) expr = stringf("%s != 0ub%d_0", expr_a, width_a);
 
 				definitions.push_back(stringf("%s := resize(word1(%s), %d);", expr_y, expr.c_str(), width_y));
 				continue;
 			}
 
-			if (cell->type.in("$reduce_xor", "$reduce_xnor"))
+			if (cell->type.in(ID($reduce_xor), ID($reduce_xnor)))
 			{
-				int width_y = GetSize(cell->getPort("\\Y"));
-				const char *expr_y = lvalue(cell->getPort("\\Y"));
+				int width_y = GetSize(cell->getPort(ID::Y));
+				const char *expr_y = lvalue(cell->getPort(ID::Y));
 				string expr;
 
-				for (auto bit : cell->getPort("\\A")) {
+				for (auto bit : cell->getPort(ID::A)) {
 					if (!expr.empty())
 						expr += " xor ";
 					expr += rvalue(bit);
 				}
 
-				if (cell->type == "$reduce_xnor")
+				if (cell->type == ID($reduce_xnor))
 					expr = "!(" + expr + ")";
 
 				definitions.push_back(stringf("%s := resize(%s, %d);", expr_y, expr.c_str(), width_y));
 				continue;
 			}
 
-			if (cell->type.in("$logic_and", "$logic_or"))
+			if (cell->type.in(ID($logic_and), ID($logic_or)))
 			{
-				int width_a = GetSize(cell->getPort("\\A"));
-				int width_b = GetSize(cell->getPort("\\B"));
-				int width_y = GetSize(cell->getPort("\\Y"));
+				int width_a = GetSize(cell->getPort(ID::A));
+				int width_b = GetSize(cell->getPort(ID::B));
+				int width_y = GetSize(cell->getPort(ID::Y));
 
-				string expr_a = stringf("(%s != 0ub%d_0)", rvalue(cell->getPort("\\A")), width_a);
-				string expr_b = stringf("(%s != 0ub%d_0)", rvalue(cell->getPort("\\B")), width_b);
-				const char *expr_y = lvalue(cell->getPort("\\Y"));
+				string expr_a = stringf("(%s != 0ub%d_0)", rvalue(cell->getPort(ID::A)), width_a);
+				string expr_b = stringf("(%s != 0ub%d_0)", rvalue(cell->getPort(ID::B)), width_b);
+				const char *expr_y = lvalue(cell->getPort(ID::Y));
 
 				string expr;
-				if (cell->type == "$logic_and") expr = expr_a + " & " + expr_b;
-				if (cell->type == "$logic_or")  expr = expr_a + " | " + expr_b;
+				if (cell->type == ID($logic_and)) expr = expr_a + " & " + expr_b;
+				if (cell->type == ID($logic_or))  expr = expr_a + " | " + expr_b;
 
 				definitions.push_back(stringf("%s := resize(word1(%s), %d);", expr_y, expr.c_str(), width_y));
 				continue;
 			}
 
-			if (cell->type.in("$logic_not"))
+			if (cell->type.in(ID($logic_not)))
 			{
-				int width_a = GetSize(cell->getPort("\\A"));
-				int width_y = GetSize(cell->getPort("\\Y"));
+				int width_a = GetSize(cell->getPort(ID::A));
+				int width_y = GetSize(cell->getPort(ID::Y));
 
-				string expr_a = stringf("(%s = 0ub%d_0)", rvalue(cell->getPort("\\A")), width_a);
-				const char *expr_y = lvalue(cell->getPort("\\Y"));
+				string expr_a = stringf("(%s = 0ub%d_0)", rvalue(cell->getPort(ID::A)), width_a);
+				const char *expr_y = lvalue(cell->getPort(ID::Y));
 
 				definitions.push_back(stringf("%s := resize(word1(%s), %d);", expr_y, expr_a.c_str(), width_y));
 				continue;
 			}
 
-			if (cell->type.in("$mux", "$pmux"))
+			if (cell->type.in(ID($mux), ID($pmux)))
 			{
-				int width = GetSize(cell->getPort("\\Y"));
-				SigSpec sig_a = cell->getPort("\\A");
-				SigSpec sig_b = cell->getPort("\\B");
-				SigSpec sig_s = cell->getPort("\\S");
+				int width = GetSize(cell->getPort(ID::Y));
+				SigSpec sig_a = cell->getPort(ID::A);
+				SigSpec sig_b = cell->getPort(ID::B);
+				SigSpec sig_s = cell->getPort(ID::S);
 
 				string expr;
 				for (int i = 0; i < GetSize(sig_s); i++)
 					expr += stringf("bool(%s) ? %s : ", rvalue(sig_s[i]), rvalue(sig_b.extract(i*width, width)));
 				expr += rvalue(sig_a);
 
-				definitions.push_back(stringf("%s := %s;", lvalue(cell->getPort("\\Y")), expr.c_str()));
+				definitions.push_back(stringf("%s := %s;", lvalue(cell->getPort(ID::Y)), expr.c_str()));
 				continue;
 			}
 
-			if (cell->type == "$dff")
+			if (cell->type == ID($dff))
 			{
-				vars.push_back(stringf("%s : unsigned word[%d]; -- %s", lvalue(cell->getPort("\\Q")), GetSize(cell->getPort("\\Q")), log_signal(cell->getPort("\\Q"))));
-				assignments.push_back(stringf("next(%s) := %s;", lvalue(cell->getPort("\\Q")), rvalue(cell->getPort("\\D"))));
+				vars.push_back(stringf("%s : unsigned word[%d]; -- %s", lvalue(cell->getPort(ID::Q)), GetSize(cell->getPort(ID::Q)), log_signal(cell->getPort(ID::Q))));
+				assignments.push_back(stringf("next(%s) := %s;", lvalue(cell->getPort(ID::Q)), rvalue(cell->getPort(ID::D))));
 				continue;
 			}
 
-			if (cell->type.in("$_BUF_", "$_NOT_"))
+			if (cell->type.in(ID($_BUF_), ID($_NOT_)))
 			{
-				string op = cell->type == "$_NOT_" ? "!" : "";
-				definitions.push_back(stringf("%s := %s%s;", lvalue(cell->getPort("\\Y")), op.c_str(), rvalue(cell->getPort("\\A"))));
+				string op = cell->type == ID($_NOT_) ? "!" : "";
+				definitions.push_back(stringf("%s := %s%s;", lvalue(cell->getPort(ID::Y)), op.c_str(), rvalue(cell->getPort(ID::A))));
 				continue;
 			}
 
-			if (cell->type.in("$_AND_", "$_NAND_", "$_OR_", "$_NOR_", "$_XOR_", "$_XNOR_", "$_ANDNOT_", "$_ORNOT_"))
+			if (cell->type.in(ID($_AND_), ID($_NAND_), ID($_OR_), ID($_NOR_), ID($_XOR_), ID($_XNOR_), ID($_ANDNOT_), ID($_ORNOT_)))
 			{
 				string op;
 
-				if (cell->type.in("$_AND_", "$_NAND_", "$_ANDNOT_")) op = "&";
-				if (cell->type.in("$_OR_", "$_NOR_", "$_ORNOT_")) op = "|";
-				if (cell->type.in("$_XOR_"))  op = "xor";
-				if (cell->type.in("$_XNOR_"))  op = "xnor";
+				if (cell->type.in(ID($_AND_), ID($_NAND_), ID($_ANDNOT_))) op = "&";
+				if (cell->type.in(ID($_OR_), ID($_NOR_), ID($_ORNOT_))) op = "|";
+				if (cell->type.in(ID($_XOR_)))  op = "xor";
+				if (cell->type.in(ID($_XNOR_)))  op = "xnor";
 
-				if (cell->type.in("$_ANDNOT_", "$_ORNOT_"))
-					definitions.push_back(stringf("%s := %s %s (!%s);", lvalue(cell->getPort("\\Y")),
-							rvalue(cell->getPort("\\A")), op.c_str(), rvalue(cell->getPort("\\B"))));
+				if (cell->type.in(ID($_ANDNOT_), ID($_ORNOT_)))
+					definitions.push_back(stringf("%s := %s %s (!%s);", lvalue(cell->getPort(ID::Y)),
+							rvalue(cell->getPort(ID::A)), op.c_str(), rvalue(cell->getPort(ID::B))));
 				else
-				if (cell->type.in("$_NAND_", "$_NOR_"))
-					definitions.push_back(stringf("%s := !(%s %s %s);", lvalue(cell->getPort("\\Y")),
-							rvalue(cell->getPort("\\A")), op.c_str(), rvalue(cell->getPort("\\B"))));
+				if (cell->type.in(ID($_NAND_), ID($_NOR_)))
+					definitions.push_back(stringf("%s := !(%s %s %s);", lvalue(cell->getPort(ID::Y)),
+							rvalue(cell->getPort(ID::A)), op.c_str(), rvalue(cell->getPort(ID::B))));
 				else
-					definitions.push_back(stringf("%s := %s %s %s;", lvalue(cell->getPort("\\Y")),
-							rvalue(cell->getPort("\\A")), op.c_str(), rvalue(cell->getPort("\\B"))));
+					definitions.push_back(stringf("%s := %s %s %s;", lvalue(cell->getPort(ID::Y)),
+							rvalue(cell->getPort(ID::A)), op.c_str(), rvalue(cell->getPort(ID::B))));
 				continue;
 			}
 
-			if (cell->type == "$_MUX_")
+			if (cell->type == ID($_MUX_))
 			{
-				definitions.push_back(stringf("%s := bool(%s) ? %s : %s;", lvalue(cell->getPort("\\Y")),
-						rvalue(cell->getPort("\\S")), rvalue(cell->getPort("\\B")), rvalue(cell->getPort("\\A"))));
+				definitions.push_back(stringf("%s := bool(%s) ? %s : %s;", lvalue(cell->getPort(ID::Y)),
+						rvalue(cell->getPort(ID::S)), rvalue(cell->getPort(ID::B)), rvalue(cell->getPort(ID::A))));
 				continue;
 			}
 
-			if (cell->type == "$_NMUX_")
+			if (cell->type == ID($_NMUX_))
 			{
-				definitions.push_back(stringf("%s := !(bool(%s) ? %s : %s);", lvalue(cell->getPort("\\Y")),
-						rvalue(cell->getPort("\\S")), rvalue(cell->getPort("\\B")), rvalue(cell->getPort("\\A"))));
+				definitions.push_back(stringf("%s := !(bool(%s) ? %s : %s);", lvalue(cell->getPort(ID::Y)),
+						rvalue(cell->getPort(ID::S)), rvalue(cell->getPort(ID::B)), rvalue(cell->getPort(ID::A))));
 				continue;
 			}
 
-			if (cell->type == "$_AOI3_")
+			if (cell->type == ID($_AOI3_))
 			{
-				definitions.push_back(stringf("%s := !((%s & %s) | %s);", lvalue(cell->getPort("\\Y")),
-						rvalue(cell->getPort("\\A")), rvalue(cell->getPort("\\B")), rvalue(cell->getPort("\\C"))));
+				definitions.push_back(stringf("%s := !((%s & %s) | %s);", lvalue(cell->getPort(ID::Y)),
+						rvalue(cell->getPort(ID::A)), rvalue(cell->getPort(ID::B)), rvalue(cell->getPort(ID::C))));
 				continue;
 			}
 
-			if (cell->type == "$_OAI3_")
+			if (cell->type == ID($_OAI3_))
 			{
-				definitions.push_back(stringf("%s := !((%s | %s) & %s);", lvalue(cell->getPort("\\Y")),
-						rvalue(cell->getPort("\\A")), rvalue(cell->getPort("\\B")), rvalue(cell->getPort("\\C"))));
+				definitions.push_back(stringf("%s := !((%s | %s) & %s);", lvalue(cell->getPort(ID::Y)),
+						rvalue(cell->getPort(ID::A)), rvalue(cell->getPort(ID::B)), rvalue(cell->getPort(ID::C))));
 				continue;
 			}
 
-			if (cell->type == "$_AOI4_")
+			if (cell->type == ID($_AOI4_))
 			{
-				definitions.push_back(stringf("%s := !((%s & %s) | (%s & %s));", lvalue(cell->getPort("\\Y")),
-						rvalue(cell->getPort("\\A")), rvalue(cell->getPort("\\B")), rvalue(cell->getPort("\\C")), rvalue(cell->getPort("\\D"))));
+				definitions.push_back(stringf("%s := !((%s & %s) | (%s & %s));", lvalue(cell->getPort(ID::Y)),
+						rvalue(cell->getPort(ID::A)), rvalue(cell->getPort(ID::B)), rvalue(cell->getPort(ID::C)), rvalue(cell->getPort(ID::D))));
 				continue;
 			}
 
-			if (cell->type == "$_OAI4_")
+			if (cell->type == ID($_OAI4_))
 			{
-				definitions.push_back(stringf("%s := !((%s | %s) & (%s | %s));", lvalue(cell->getPort("\\Y")),
-						rvalue(cell->getPort("\\A")), rvalue(cell->getPort("\\B")), rvalue(cell->getPort("\\C")), rvalue(cell->getPort("\\D"))));
+				definitions.push_back(stringf("%s := !((%s | %s) & (%s | %s));", lvalue(cell->getPort(ID::Y)),
+						rvalue(cell->getPort(ID::A)), rvalue(cell->getPort(ID::B)), rvalue(cell->getPort(ID::C)), rvalue(cell->getPort(ID::D))));
 				continue;
 			}
 

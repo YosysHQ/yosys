@@ -73,7 +73,7 @@ struct BlackboxPass : public Pass {
 
 			module->remove(remove_wires);
 
-			module->set_bool_attribute("\\blackbox");
+			module->set_bool_attribute(ID::blackbox);
 		}
 	}
 } BlackboxPass;

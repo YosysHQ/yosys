@@ -159,10 +159,10 @@ struct WbflipPass : public Pass {
 			if (!design->selected(module))
 				continue;
 
-			if (module->get_bool_attribute("\\blackbox"))
+			if (module->get_bool_attribute(ID::blackbox))
 				continue;
 
-			module->set_bool_attribute("\\whitebox", !module->get_bool_attribute("\\whitebox"));
+			module->set_bool_attribute(ID::whitebox, !module->get_bool_attribute(ID::whitebox));
 		}
 	}
 } WbflipPass;

@@ -360,10 +360,10 @@ struct SetundefPass : public Pass {
 				pool<Wire*> initwires;
 
 				pool<IdString> fftypes;
-				fftypes.insert("$dff");
-				fftypes.insert("$dffe");
-				fftypes.insert("$dffsr");
-				fftypes.insert("$adff");
+				fftypes.insert(ID($dff));
+				fftypes.insert(ID($dffe));
+				fftypes.insert(ID($dffsr));
+				fftypes.insert(ID($adff));
 
 				std::vector<char> list_np = {'N', 'P'}, list_01 = {'0', '1'};
 
@@ -389,7 +389,7 @@ struct SetundefPass : public Pass {
 					if (!fftypes.count(cell->type))
 						continue;
 
-					for (auto bit : sigmap(cell->getPort("\\Q")))
+					for (auto bit : sigmap(cell->getPort(ID::Q)))
 						ffbits.insert(bit);
 				}
 
@@ -411,7 +411,7 @@ struct SetundefPass : public Pass {
 
 					for (auto wire : initwires)
 					{
-						Const &initval = wire->attributes["\\init"];
+						Const &initval = wire->attributes[ID::init];
 						initval.bits.resize(GetSize(wire), State::Sx);
 
 						for (int i = 0; i < GetSize(wire); i++) {
@@ -423,7 +423,7 @@ struct SetundefPass : public Pass {
 						}
 
 						if (initval.is_fully_undef())
-							wire->attributes.erase("\\init");
+							wire->attributes.erase(ID::init);
 					}
 
 					initwires.clear();
@@ -439,14 +439,14 @@ struct SetundefPass : public Pass {
 							if (wire->name[0] == (wire_types ? '\\' : '$'))
 								continue;
 
-							if (!wire->attributes.count("\\init"))
+							if (!wire->attributes.count(ID::init))
 								continue;
 
-							Const &initval = wire->attributes["\\init"];
+							Const &initval = wire->attributes[ID::init];
 							initval.bits.resize(GetSize(wire), State::Sx);
 
 							if (initval.is_fully_undef()) {
-								wire->attributes.erase("\\init");
+								wire->attributes.erase(ID::init);
 								continue;
 							}
 

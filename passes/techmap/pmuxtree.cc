@@ -93,7 +93,7 @@ struct PmuxtreePass : public Pass {
 				continue;
 
 			SigSpec sig_data = cell->getPort(ID::B);
-			SigSpec sig_sel = cell->getPort(ID(S));
+			SigSpec sig_sel = cell->getPort(ID::S);
 
 			if (!cell->getPort(ID::A).is_fully_undef()) {
 				sig_data.append(cell->getPort(ID::A));

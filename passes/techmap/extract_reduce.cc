@@ -294,9 +294,9 @@ struct ExtractReducePass : public Pass
 							gt == GateType::And ? ID($reduce_and) :
 							gt == GateType::Or ? ID($reduce_or) :
 							gt == GateType::Xor ? ID($reduce_xor) : "");
-						new_reduce_cell->setParam(ID(A_SIGNED), 0);
-						new_reduce_cell->setParam(ID(A_WIDTH), input.size());
-						new_reduce_cell->setParam(ID(Y_WIDTH), 1);
+						new_reduce_cell->setParam(ID::A_SIGNED, 0);
+						new_reduce_cell->setParam(ID::A_WIDTH, input.size());
+						new_reduce_cell->setParam(ID::Y_WIDTH, 1);
 						new_reduce_cell->setPort(ID::A, input);
 						new_reduce_cell->setPort(ID::Y, output);
 

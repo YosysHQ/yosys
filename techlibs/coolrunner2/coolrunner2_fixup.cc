@@ -34,9 +34,9 @@ RTLIL::Wire *makexorbuffer(RTLIL::Module *module, SigBit inwire, const char *cel
 			module->uniquify(stringf("$xc2fix$%s_BUF1_XOR_OUT", cellname)));
 		auto xor_cell = module->addCell(
 			module->uniquify(stringf("$xc2fix$%s_BUF1_XOR", cellname)),
-			"\\MACROCELL_XOR");
-		xor_cell->setParam("\\INVERT_OUT", true);
-		xor_cell->setPort("\\OUT", outwire);
+			ID(MACROCELL_XOR));
+		xor_cell->setParam(ID(INVERT_OUT), true);
+		xor_cell->setPort(ID(OUT), outwire);
 	}
 	else if (inwire == SigBit(false))
 	{
@@ -45,9 +45,9 @@ RTLIL::Wire *makexorbuffer(RTLIL::Module *module, SigBit inwire, const char *cel
 			module->uniquify(stringf("$xc2fix$%s_BUF0_XOR_OUT", cellname)));
 		auto xor_cell = module->addCell(
 			module->uniquify(stringf("$xc2fix$%s_BUF0_XOR", cellname)),
-			"\\MACROCELL_XOR");
-		xor_cell->setParam("\\INVERT_OUT", false);
-		xor_cell->setPort("\\OUT", outwire);
+			ID(MACROCELL_XOR));
+		xor_cell->setParam(ID(INVERT_OUT), false);
+		xor_cell->setPort(ID(OUT), outwire);
 	}
 	else if (inwire == SigBit(RTLIL::State::Sx))
 	{
@@ -57,9 +57,9 @@ RTLIL::Wire *makexorbuffer(RTLIL::Module *module, SigBit inwire, const char *cel
 			module->uniquify(stringf("$xc2fix$%s_BUF0_XOR_OUT", cellname)));
 		auto xor_cell = module->addCell(
 			module->uniquify(stringf("$xc2fix$%s_BUF0_XOR", cellname)),
-			"\\MACROCELL_XOR");
-		xor_cell->setParam("\\INVERT_OUT", false);
-		xor_cell->setPort("\\OUT", outwire);
+			ID(MACROCELL_XOR));
+		xor_cell->setParam(ID(INVERT_OUT), false);
+		xor_cell->setPort(ID(OUT), outwire);
 	}
 	else
 	{
@@ -73,19 +73,19 @@ RTLIL::Wire *makexorbuffer(RTLIL::Module *module, SigBit inwire, const char *cel
 
 		auto and_cell = module->addCell(
 			module->uniquify(stringf("$xc2fix$%s_BUF_AND", inwire_name)),
-			"\\ANDTERM");
-		and_cell->setParam("\\TRUE_INP", 1);
-		and_cell->setParam("\\COMP_INP", 0);
-		and_cell->setPort("\\OUT", and_to_xor_wire);
-		and_cell->setPort("\\IN", inwire);
-		and_cell->setPort("\\IN_B", SigSpec());
+			ID(ANDTERM));
+		and_cell->setParam(ID(TRUE_INP), 1);
+		and_cell->setParam(ID(COMP_INP), 0);
+		and_cell->setPort(ID(OUT), and_to_xor_wire);
+		and_cell->setPort(ID(IN), inwire);
+		and_cell->setPort(ID(IN_B), SigSpec());
 
 		auto xor_cell = module->addCell(
 			module->uniquify(stringf("$xc2fix$%s_BUF_XOR", inwire_name)),
-			"\\MACROCELL_XOR");
-		xor_cell->setParam("\\INVERT_OUT", false);
-		xor_cell->setPort("\\IN_PTC", and_to_xor_wire);
-		xor_cell->setPort("\\OUT", outwire);
+			ID(MACROCELL_XOR));
+		xor_cell->setParam(ID(INVERT_OUT), false);
+		xor_cell->setPort(ID(IN_PTC), and_to_xor_wire);
+		xor_cell->setPort(ID(OUT), outwire);
 	}
 
 	return outwire;
@@ -100,12 +100,12 @@ RTLIL::Wire *makeptermbuffer(RTLIL::Module *module, SigBit inwire)
 
 	auto and_cell = module->addCell(
 		module->uniquify(stringf("$xc2fix$%s_BUF_AND", inwire_name)),
-		"\\ANDTERM");
-	and_cell->setParam("\\TRUE_INP", 1);
-	and_cell->setParam("\\COMP_INP", 0);
-	and_cell->setPort("\\OUT", outwire);
-	and_cell->setPort("\\IN", inwire);
-	and_cell->setPort("\\IN_B", SigSpec());
+		ID(ANDTERM));
+	and_cell->setParam(ID(TRUE_INP), 1);
+	and_cell->setParam(ID(COMP_INP), 0);
+	and_cell->setPort(ID(OUT), outwire);
+	and_cell->setPort(ID(IN), inwire);
+	and_cell->setPort(ID(IN_B), SigSpec());
 
 	return outwire;
 }
@@ -133,10 +133,10 @@ struct Coolrunner2FixupPass : public Pass {
 			pool<SigBit> sig_fed_by_ff;
 			for (auto cell : module->selected_cells())
 			{
-				if (cell->type.in("\\FDCP", "\\FDCP_N", "\\FDDCP", "\\LDCP", "\\LDCP_N",
-							"\\FTCP", "\\FTCP_N", "\\FTDCP", "\\FDCPE", "\\FDCPE_N", "\\FDDCPE"))
+				if (cell->type.in(ID(FDCP), ID(FDCP_N), ID(FDDCP), ID(LDCP), ID(LDCP_N),
+							ID(FTCP), ID(FTCP_N), ID(FTDCP), ID(FDCPE), ID(FDCPE_N), ID(FDDCPE)))
 				{
-					auto output = sigmap(cell->getPort("\\Q")[0]);
+					auto output = sigmap(cell->getPort(ID::Q)[0]);
 					sig_fed_by_ff.insert(output);
 				}
 			}
@@ -145,9 +145,9 @@ struct Coolrunner2FixupPass : public Pass {
 			pool<SigBit> sig_fed_by_xor;
 			for (auto cell : module->selected_cells())
 			{
-				if (cell->type == "\\MACROCELL_XOR")
+				if (cell->type == ID(MACROCELL_XOR))
 				{
-					auto output = sigmap(cell->getPort("\\OUT")[0]);
+					auto output = sigmap(cell->getPort(ID(OUT))[0]);
 					sig_fed_by_xor.insert(output);
 				}
 			}
@@ -156,10 +156,10 @@ struct Coolrunner2FixupPass : public Pass {
 			pool<SigBit> sig_fed_by_io;
 			for (auto cell : module->selected_cells())
 			{
-				if (cell->type.in("\\IBUF", "\\IOBUFE"))
+				if (cell->type.in(ID(IBUF), ID(IOBUFE)))
 				{
-					if (cell->hasPort("\\O")) {
-						auto output = sigmap(cell->getPort("\\O")[0]);
+					if (cell->hasPort(ID::O)) {
+						auto output = sigmap(cell->getPort(ID::O)[0]);
 						sig_fed_by_io.insert(output);
 					}
 				}
@@ -169,9 +169,9 @@ struct Coolrunner2FixupPass : public Pass {
 			pool<SigBit> sig_fed_by_pterm;
 			for (auto cell : module->selected_cells())
 			{
-				if (cell->type == "\\ANDTERM")
+				if (cell->type == ID(ANDTERM))
 				{
-					auto output = sigmap(cell->getPort("\\OUT")[0]);
+					auto output = sigmap(cell->getPort(ID(OUT))[0]);
 					sig_fed_by_pterm.insert(output);
 				}
 			}
@@ -180,9 +180,9 @@ struct Coolrunner2FixupPass : public Pass {
 			pool<SigBit> sig_fed_by_bufg;
 			for (auto cell : module->selected_cells())
 			{
-				if (cell->type == "\\BUFG")
+				if (cell->type == ID(BUFG))
 				{
-					auto output = sigmap(cell->getPort("\\O")[0]);
+					auto output = sigmap(cell->getPort(ID::O)[0]);
 					sig_fed_by_bufg.insert(output);
 				}
 			}
@@ -191,9 +191,9 @@ struct Coolrunner2FixupPass : public Pass {
 			pool<SigBit> sig_fed_by_bufgsr;
 			for (auto cell : module->selected_cells())
 			{
-				if (cell->type == "\\BUFGSR")
+				if (cell->type == ID(BUFGSR))
 				{
-					auto output = sigmap(cell->getPort("\\O")[0]);
+					auto output = sigmap(cell->getPort(ID::O)[0]);
 					sig_fed_by_bufgsr.insert(output);
 				}
 			}
@@ -202,9 +202,9 @@ struct Coolrunner2FixupPass : public Pass {
 			pool<SigBit> sig_fed_by_bufgts;
 			for (auto cell : module->selected_cells())
 			{
-				if (cell->type == "\\BUFGTS")
+				if (cell->type == ID(BUFGTS))
 				{
-					auto output = sigmap(cell->getPort("\\O")[0]);
+					auto output = sigmap(cell->getPort(ID::O)[0]);
 					sig_fed_by_bufgts.insert(output);
 				}
 			}
@@ -213,9 +213,9 @@ struct Coolrunner2FixupPass : public Pass {
 			pool<SigBit> sig_fed_by_ibuf;
 			for (auto cell : module->selected_cells())
 			{
-				if (cell->type == "\\IBUF")
+				if (cell->type == ID(IBUF))
 				{
-					auto output = sigmap(cell->getPort("\\O")[0]);
+					auto output = sigmap(cell->getPort(ID::O)[0]);
 					sig_fed_by_ibuf.insert(output);
 				}
 			}
@@ -254,15 +254,15 @@ struct Coolrunner2FixupPass : public Pass {
 				// the pad-to-zia path has to be used up and the register
 				// can't be packed with the ibuf.
 				if (fanout_count == 1 && maybe_ff_cell->type.in(
-					"\\FDCP", "\\FDCP_N", "\\FDDCP", "\\LDCP", "\\LDCP_N",
-					"\\FTCP", "\\FTCP_N", "\\FTDCP", "\\FDCPE", "\\FDCPE_N", "\\FDDCPE"))
+					ID(FDCP), ID(FDCP_N), ID(FDDCP), ID(LDCP), ID(LDCP_N),
+					ID(FTCP), ID(FTCP_N), ID(FTDCP), ID(FDCPE), ID(FDCPE_N), ID(FDDCPE)))
 				{
 					SigBit input;
-					if (maybe_ff_cell->type.in("\\FTCP", "\\FTCP_N", "\\FTDCP"))
-						input = sigmap(maybe_ff_cell->getPort("\\T")[0]);
+					if (maybe_ff_cell->type.in(ID(FTCP), ID(FTCP_N), ID(FTDCP)))
+						input = sigmap(maybe_ff_cell->getPort(ID::T)[0]);
 					else
-						input = sigmap(maybe_ff_cell->getPort("\\D")[0]);
-					SigBit output = sigmap(maybe_ff_cell->getPort("\\Q")[0]);
+						input = sigmap(maybe_ff_cell->getPort(ID::D)[0]);
+					SigBit output = sigmap(maybe_ff_cell->getPort(ID::Q)[0]);
 
 					if (input == ibuf_out_wire)
 					{
@@ -279,17 +279,17 @@ struct Coolrunner2FixupPass : public Pass {
 
 			for (auto cell : module->selected_cells())
 			{
-				if (cell->type.in("\\FDCP", "\\FDCP_N", "\\FDDCP", "\\LDCP", "\\LDCP_N",
-							"\\FTCP", "\\FTCP_N", "\\FTDCP", "\\FDCPE", "\\FDCPE_N", "\\FDDCPE"))
+				if (cell->type.in(ID(FDCP), ID(FDCP_N), ID(FDDCP), ID(LDCP), ID(LDCP_N),
+							ID(FTCP), ID(FTCP_N), ID(FTDCP), ID(FDCPE), ID(FDCPE_N), ID(FDDCPE)))
 				{
 					// Buffering FF inputs. FF inputs can only come from either
 					// an IO pin or from an XOR. Otherwise AND/XOR cells need
 					// to be inserted.
 					SigBit input;
-					if (cell->type.in("\\FTCP", "\\FTCP_N", "\\FTDCP"))
-						input = sigmap(cell->getPort("\\T")[0]);
+					if (cell->type.in(ID(FTCP), ID(FTCP_N), ID(FTDCP)))
+						input = sigmap(cell->getPort(ID::T)[0]);
 					else
-						input = sigmap(cell->getPort("\\D")[0]);
+						input = sigmap(cell->getPort(ID::D)[0]);
 
 					// If the input wasn't an XOR nor an IO, then a buffer
 					// definitely needs to be added.
@@ -302,10 +302,10 @@ struct Coolrunner2FixupPass : public Pass {
 
 						auto xor_to_ff_wire = makexorbuffer(module, input, cell->name.c_str());
 
-						if (cell->type.in("\\FTCP", "\\FTCP_N", "\\FTDCP"))
-							cell->setPort("\\T", xor_to_ff_wire);
+						if (cell->type.in(ID(FTCP), ID(FTCP_N), ID(FTDCP)))
+							cell->setPort(ID::T, xor_to_ff_wire);
 						else
-							cell->setPort("\\D", xor_to_ff_wire);
+							cell->setPort(ID::D, xor_to_ff_wire);
 					}
 
 					// Buffering FF clocks. FF clocks can only come from either
@@ -313,10 +313,10 @@ struct Coolrunner2FixupPass : public Pass {
 					// in coolrunner2_sop (e.g. if clock is generated from
 					// AND-ing two signals) but not in all cases.
 					SigBit clock;
-					if (cell->type.in("\\LDCP", "\\LDCP_N"))
-						clock = sigmap(cell->getPort("\\G")[0]);
+					if (cell->type.in(ID(LDCP), ID(LDCP_N)))
+						clock = sigmap(cell->getPort(ID::G)[0]);
 					else
-						clock = sigmap(cell->getPort("\\C")[0]);
+						clock = sigmap(cell->getPort(ID::C)[0]);
 
 					if (!sig_fed_by_pterm[clock] && !sig_fed_by_bufg[clock])
 					{
@@ -324,16 +324,16 @@ struct Coolrunner2FixupPass : public Pass {
 
 						auto pterm_to_ff_wire = makeptermbuffer(module, clock);
 
-						if (cell->type.in("\\LDCP", "\\LDCP_N"))
-							cell->setPort("\\G", pterm_to_ff_wire);
+						if (cell->type.in(ID(LDCP), ID(LDCP_N)))
+							cell->setPort(ID::G, pterm_to_ff_wire);
 						else
-							cell->setPort("\\C", pterm_to_ff_wire);
+							cell->setPort(ID::C, pterm_to_ff_wire);
 					}
 
 					// Buffering FF set/reset. This can only come from either
 					// a pterm or a bufgsr.
 					SigBit set;
-					set = sigmap(cell->getPort("\\PRE")[0]);
+					set = sigmap(cell->getPort(ID(PRE))[0]);
 					if (set != SigBit(false))
 					{
 						if (!sig_fed_by_pterm[set] && !sig_fed_by_bufgsr[set])
@@ -342,12 +342,12 @@ struct Coolrunner2FixupPass : public Pass {
 
 							auto pterm_to_ff_wire = makeptermbuffer(module, set);
 
-							cell->setPort("\\PRE", pterm_to_ff_wire);
+							cell->setPort(ID(PRE), pterm_to_ff_wire);
 						}
 					}
 
 					SigBit reset;
-					reset = sigmap(cell->getPort("\\CLR")[0]);
+					reset = sigmap(cell->getPort(ID::CLR)[0]);
 					if (reset != SigBit(false))
 					{
 						if (!sig_fed_by_pterm[reset] && !sig_fed_by_bufgsr[reset])
@@ -356,24 +356,24 @@ struct Coolrunner2FixupPass : public Pass {
 
 							auto pterm_to_ff_wire = makeptermbuffer(module, reset);
 
-							cell->setPort("\\CLR", pterm_to_ff_wire);
+							cell->setPort(ID::CLR, pterm_to_ff_wire);
 						}
 					}
 
 					// Buffering FF clock enable
 					// FIXME: This doesn't fully fix PTC conflicts
 					// FIXME: Need to ensure constant enables are optimized out
-					if (cell->type.in("\\FDCPE", "\\FDCPE_N", "\\FDDCPE"))
+					if (cell->type.in(ID(FDCPE), ID(FDCPE_N), ID(FDDCPE)))
 					{
 						SigBit ce;
-						ce = sigmap(cell->getPort("\\CE")[0]);
+						ce = sigmap(cell->getPort(ID(CE))[0]);
 						if (!sig_fed_by_pterm[ce])
 						{
 							log("Buffering clock enable to \"%s\"\n", cell->name.c_str());
 
 							auto pterm_to_ff_wire = makeptermbuffer(module, ce);
 
-							cell->setPort("\\CE", pterm_to_ff_wire);
+							cell->setPort(ID(CE), pterm_to_ff_wire);
 						}
 					}
 				}
@@ -381,10 +381,10 @@ struct Coolrunner2FixupPass : public Pass {
 
 			for (auto cell : module->selected_cells())
 			{
-				if (cell->type == "\\IOBUFE")
+				if (cell->type == ID(IOBUFE))
 				{
 					// Buffer IOBUFE inputs. This can only be fed from an XOR or FF.
-					SigBit input = sigmap(cell->getPort("\\I")[0]);
+					SigBit input = sigmap(cell->getPort(ID::I)[0]);
 
 					if ((!sig_fed_by_xor[input] && !sig_fed_by_ff[input]) ||
 						packed_reg_out[input])
@@ -393,22 +393,22 @@ struct Coolrunner2FixupPass : public Pass {
 
 						auto xor_to_io_wire = makexorbuffer(module, input, cell->name.c_str());
 
-						cell->setPort("\\I", xor_to_io_wire);
+						cell->setPort(ID::I, xor_to_io_wire);
 					}
 
 					// Buffer IOBUFE enables. This can only be fed from a pterm
 					// or a bufgts.
-					if (cell->hasPort("\\E"))
+					if (cell->hasPort(ID::E))
 					{
 						SigBit oe;
-						oe = sigmap(cell->getPort("\\E")[0]);
+						oe = sigmap(cell->getPort(ID::E)[0]);
 						if (!sig_fed_by_pterm[oe] && !sig_fed_by_bufgts[oe])
 						{
 							log("Buffering output enable to \"%s\"\n", cell->name.c_str());
 
 							auto pterm_to_oe_wire = makeptermbuffer(module, oe);
 
-							cell->setPort("\\E", pterm_to_oe_wire);
+							cell->setPort(ID::E, pterm_to_oe_wire);
 						}
 					}
 				}
@@ -422,9 +422,9 @@ struct Coolrunner2FixupPass : public Pass {
 			dict<SigBit, RTLIL::Cell *> xor_out_to_xor_cell;
 			for (auto cell : module->selected_cells())
 			{
-				if (cell->type == "\\MACROCELL_XOR")
+				if (cell->type == ID(MACROCELL_XOR))
 				{
-					auto output = sigmap(cell->getPort("\\OUT")[0]);
+					auto output = sigmap(cell->getPort(ID(OUT))[0]);
 					xor_out_to_xor_cell[output] = cell;
 				}
 			}
@@ -433,7 +433,7 @@ struct Coolrunner2FixupPass : public Pass {
 			pool<SigBit> xor_fanout_once;
 			for (auto cell : module->selected_cells())
 			{
-				if (cell->type == "\\ANDTERM")
+				if (cell->type == ID(ANDTERM))
 					continue;
 
 				for (auto &conn : cell->connections())
@@ -456,7 +456,7 @@ struct Coolrunner2FixupPass : public Pass {
 										module->uniquify(xor_cell->name), xor_cell);
 									auto new_wire = module->addWire(
 										module->uniquify(wire_in.wire->name));
-									new_xor_cell->setPort("\\OUT", new_wire);
+									new_xor_cell->setPort(ID(OUT), new_wire);
 									cell->setPort(conn.first, new_wire);
 								}
 								xor_fanout_once.insert(wire_in);
@@ -473,9 +473,9 @@ struct Coolrunner2FixupPass : public Pass {
 			dict<SigBit, RTLIL::Cell *> or_out_to_or_cell;
 			for (auto cell : module->selected_cells())
 			{
-				if (cell->type == "\\ORTERM")
+				if (cell->type == ID(ORTERM))
 				{
-					auto output = sigmap(cell->getPort("\\OUT")[0]);
+					auto output = sigmap(cell->getPort(ID(OUT))[0]);
 					or_out_to_or_cell[output] = cell;
 				}
 			}
@@ -504,7 +504,7 @@ struct Coolrunner2FixupPass : public Pass {
 										module->uniquify(or_cell->name), or_cell);
 									auto new_wire = module->addWire(
 										module->uniquify(wire_in.wire->name));
-									new_or_cell->setPort("\\OUT", new_wire);
+									new_or_cell->setPort(ID(OUT), new_wire);
 									cell->setPort(conn.first, new_wire);
 								}
 								or_fanout_once.insert(wire_in);

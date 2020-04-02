@@ -74,15 +74,15 @@ static void implement_pattern_cache(RTLIL::Module *module, std::map<RTLIL::Const
 			RTLIL::Wire *eq_wire = module->addWire(NEW_ID);
 			and_sig.append(RTLIL::SigSpec(eq_wire));
 
-			RTLIL::Cell *eq_cell = module->addCell(NEW_ID, "$eq");
-			eq_cell->setPort("\\A", eq_sig_a);
-			eq_cell->setPort("\\B", eq_sig_b);
-			eq_cell->setPort("\\Y", RTLIL::SigSpec(eq_wire));
-			eq_cell->parameters["\\A_SIGNED"] = RTLIL::Const(false);
-			eq_cell->parameters["\\B_SIGNED"] = RTLIL::Const(false);
-			eq_cell->parameters["\\A_WIDTH"] = RTLIL::Const(eq_sig_a.size());
-			eq_cell->parameters["\\B_WIDTH"] = RTLIL::Const(eq_sig_b.size());
-			eq_cell->parameters["\\Y_WIDTH"] = RTLIL::Const(1);
+			RTLIL::Cell *eq_cell = module->addCell(NEW_ID, ID($eq));
+			eq_cell->setPort(ID::A, eq_sig_a);
+			eq_cell->setPort(ID::B, eq_sig_b);
+			eq_cell->setPort(ID::Y, RTLIL::SigSpec(eq_wire));
+			eq_cell->parameters[ID::A_SIGNED] = RTLIL::Const(false);
+			eq_cell->parameters[ID::B_SIGNED] = RTLIL::Const(false);
+			eq_cell->parameters[ID::A_WIDTH] = RTLIL::Const(eq_sig_a.size());
+			eq_cell->parameters[ID::B_WIDTH] = RTLIL::Const(eq_sig_b.size());
+			eq_cell->parameters[ID::Y_WIDTH] = RTLIL::Const(1);
 		}
 
 		std::set<int> complete_in_state_cache = it.second;
@@ -102,12 +102,12 @@ static void implement_pattern_cache(RTLIL::Module *module, std::map<RTLIL::Const
 				RTLIL::Wire *or_wire = module->addWire(NEW_ID);
 				and_sig.append(RTLIL::SigSpec(or_wire));
 
-				RTLIL::Cell *or_cell = module->addCell(NEW_ID, "$reduce_or");
-				or_cell->setPort("\\A", or_sig);
-				or_cell->setPort("\\Y", RTLIL::SigSpec(or_wire));
-				or_cell->parameters["\\A_SIGNED"] = RTLIL::Const(false);
-				or_cell->parameters["\\A_WIDTH"] = RTLIL::Const(or_sig.size());
-				or_cell->parameters["\\Y_WIDTH"] = RTLIL::Const(1);
+				RTLIL::Cell *or_cell = module->addCell(NEW_ID, ID($reduce_or));
+				or_cell->setPort(ID::A, or_sig);
+				or_cell->setPort(ID::Y, RTLIL::SigSpec(or_wire));
+				or_cell->parameters[ID::A_SIGNED] = RTLIL::Const(false);
+				or_cell->parameters[ID::A_WIDTH] = RTLIL::Const(or_sig.size());
+				or_cell->parameters[ID::Y_WIDTH] = RTLIL::Const(1);
 			}
 		}
 
@@ -118,15 +118,15 @@ static void implement_pattern_cache(RTLIL::Module *module, std::map<RTLIL::Const
 				RTLIL::Wire *and_wire = module->addWire(NEW_ID);
 				cases_vector.append(RTLIL::SigSpec(and_wire));
 
-				RTLIL::Cell *and_cell = module->addCell(NEW_ID, "$and");
-				and_cell->setPort("\\A", and_sig.extract(0, 1));
-				and_cell->setPort("\\B", and_sig.extract(1, 1));
-				and_cell->setPort("\\Y", RTLIL::SigSpec(and_wire));
-				and_cell->parameters["\\A_SIGNED"] = RTLIL::Const(false);
-				and_cell->parameters["\\B_SIGNED"] = RTLIL::Const(false);
-				and_cell->parameters["\\A_WIDTH"] = RTLIL::Const(1);
-				and_cell->parameters["\\B_WIDTH"] = RTLIL::Const(1);
-				and_cell->parameters["\\Y_WIDTH"] = RTLIL::Const(1);
+				RTLIL::Cell *and_cell = module->addCell(NEW_ID, ID($and));
+				and_cell->setPort(ID::A, and_sig.extract(0, 1));
+				and_cell->setPort(ID::B, and_sig.extract(1, 1));
+				and_cell->setPort(ID::Y, RTLIL::SigSpec(and_wire));
+				and_cell->parameters[ID::A_SIGNED] = RTLIL::Const(false);
+				and_cell->parameters[ID::B_SIGNED] = RTLIL::Const(false);
+				and_cell->parameters[ID::A_WIDTH] = RTLIL::Const(1);
+				and_cell->parameters[ID::B_WIDTH] = RTLIL::Const(1);
+				and_cell->parameters[ID::Y_WIDTH] = RTLIL::Const(1);
 				break;
 			}
 		case 1:
@@ -141,12 +141,12 @@ static void implement_pattern_cache(RTLIL::Module *module, std::map<RTLIL::Const
 	}
 
 	if (cases_vector.size() > 1) {
-		RTLIL::Cell *or_cell = module->addCell(NEW_ID, "$reduce_or");
-		or_cell->setPort("\\A", cases_vector);
-		or_cell->setPort("\\Y", output);
-		or_cell->parameters["\\A_SIGNED"] = RTLIL::Const(false);
-		or_cell->parameters["\\A_WIDTH"] = RTLIL::Const(cases_vector.size());
-		or_cell->parameters["\\Y_WIDTH"] = RTLIL::Const(1);
+		RTLIL::Cell *or_cell = module->addCell(NEW_ID, ID($reduce_or));
+		or_cell->setPort(ID::A, cases_vector);
+		or_cell->setPort(ID::Y, output);
+		or_cell->parameters[ID::A_SIGNED] = RTLIL::Const(false);
+		or_cell->parameters[ID::A_WIDTH] = RTLIL::Const(cases_vector.size());
+		or_cell->parameters[ID::Y_WIDTH] = RTLIL::Const(1);
 	} else if (cases_vector.size() == 1) {
 		module->connect(RTLIL::SigSig(output, cases_vector));
 	} else {
@@ -161,31 +161,31 @@ static void map_fsm(RTLIL::Cell *fsm_cell, RTLIL::Module *module)
 	FsmData fsm_data;
 	fsm_data.copy_from_cell(fsm_cell);
 
-	RTLIL::SigSpec ctrl_in = fsm_cell->getPort("\\CTRL_IN");
-	RTLIL::SigSpec ctrl_out = fsm_cell->getPort("\\CTRL_OUT");
+	RTLIL::SigSpec ctrl_in = fsm_cell->getPort(ID::CTRL_IN);
+	RTLIL::SigSpec ctrl_out = fsm_cell->getPort(ID::CTRL_OUT);
 
 	// create state register
 
-	RTLIL::Wire *state_wire = module->addWire(module->uniquify(fsm_cell->parameters["\\NAME"].decode_string()), fsm_data.state_bits);
+	RTLIL::Wire *state_wire = module->addWire(module->uniquify(fsm_cell->parameters[ID::NAME].decode_string()), fsm_data.state_bits);
 	RTLIL::Wire *next_state_wire = module->addWire(NEW_ID, fsm_data.state_bits);
 
 	RTLIL::Cell *state_dff = module->addCell(NEW_ID, "");
-	if (fsm_cell->getPort("\\ARST").is_fully_const()) {
-		state_dff->type = "$dff";
+	if (fsm_cell->getPort(ID::ARST).is_fully_const()) {
+		state_dff->type = ID($dff);
 	} else {
-		state_dff->type = "$adff";
-		state_dff->parameters["\\ARST_POLARITY"] = fsm_cell->parameters["\\ARST_POLARITY"];
-		state_dff->parameters["\\ARST_VALUE"] = fsm_data.state_table[fsm_data.reset_state];
-		for (auto &bit : state_dff->parameters["\\ARST_VALUE"].bits)
+		state_dff->type = ID($adff);
+		state_dff->parameters[ID::ARST_POLARITY] = fsm_cell->parameters[ID::ARST_POLARITY];
+		state_dff->parameters[ID::ARST_VALUE] = fsm_data.state_table[fsm_data.reset_state];
+		for (auto &bit : state_dff->parameters[ID::ARST_VALUE].bits)
 			if (bit != RTLIL::State::S1)
 				bit = RTLIL::State::S0;
-		state_dff->setPort("\\ARST", fsm_cell->getPort("\\ARST"));
+		state_dff->setPort(ID::ARST, fsm_cell->getPort(ID::ARST));
 	}
-	state_dff->parameters["\\WIDTH"] = RTLIL::Const(fsm_data.state_bits);
-	state_dff->parameters["\\CLK_POLARITY"] = fsm_cell->parameters["\\CLK_POLARITY"];
-	state_dff->setPort("\\CLK", fsm_cell->getPort("\\CLK"));
-	state_dff->setPort("\\D", RTLIL::SigSpec(next_state_wire));
-	state_dff->setPort("\\Q", RTLIL::SigSpec(state_wire));
+	state_dff->parameters[ID::WIDTH] = RTLIL::Const(fsm_data.state_bits);
+	state_dff->parameters[ID::CLK_POLARITY] = fsm_cell->parameters[ID::CLK_POLARITY];
+	state_dff->setPort(ID::CLK, fsm_cell->getPort(ID::CLK));
+	state_dff->setPort(ID::D, RTLIL::SigSpec(next_state_wire));
+	state_dff->setPort(ID::Q, RTLIL::SigSpec(state_wire));
 
 	// decode state register
 
@@ -212,20 +212,20 @@ static void map_fsm(RTLIL::Cell *fsm_cell, RTLIL::Module *module)
 		{
 			encoding_is_onehot = false;
 
-			RTLIL::Cell *eq_cell = module->addCell(NEW_ID, "$eq");
-			eq_cell->setPort("\\A", sig_a);
-			eq_cell->setPort("\\B", sig_b);
-			eq_cell->setPort("\\Y", RTLIL::SigSpec(state_onehot, i));
-			eq_cell->parameters["\\A_SIGNED"] = RTLIL::Const(false);
-			eq_cell->parameters["\\B_SIGNED"] = RTLIL::Const(false);
-			eq_cell->parameters["\\A_WIDTH"] = RTLIL::Const(sig_a.size());
-			eq_cell->parameters["\\B_WIDTH"] = RTLIL::Const(sig_b.size());
-			eq_cell->parameters["\\Y_WIDTH"] = RTLIL::Const(1);
+			RTLIL::Cell *eq_cell = module->addCell(NEW_ID, ID($eq));
+			eq_cell->setPort(ID::A, sig_a);
+			eq_cell->setPort(ID::B, sig_b);
+			eq_cell->setPort(ID::Y, RTLIL::SigSpec(state_onehot, i));
+			eq_cell->parameters[ID::A_SIGNED] = RTLIL::Const(false);
+			eq_cell->parameters[ID::B_SIGNED] = RTLIL::Const(false);
+			eq_cell->parameters[ID::A_WIDTH] = RTLIL::Const(sig_a.size());
+			eq_cell->parameters[ID::B_WIDTH] = RTLIL::Const(sig_b.size());
+			eq_cell->parameters[ID::Y_WIDTH] = RTLIL::Const(1);
 		}
 	}
 
 	if (encoding_is_onehot)
-		state_wire->set_bool_attribute("\\onehot");
+		state_wire->set_bool_attribute(ID::onehot);
 
 	// generate next_state signal
 
@@ -285,13 +285,13 @@ static void map_fsm(RTLIL::Cell *fsm_cell, RTLIL::Module *module)
 				}
 			}
 
-			RTLIL::Cell *mux_cell = module->addCell(NEW_ID, "$pmux");
-			mux_cell->setPort("\\A", sig_a);
-			mux_cell->setPort("\\B", sig_b);
-			mux_cell->setPort("\\S", sig_s);
-			mux_cell->setPort("\\Y", RTLIL::SigSpec(next_state_wire));
-			mux_cell->parameters["\\WIDTH"] = RTLIL::Const(sig_a.size());
-			mux_cell->parameters["\\S_WIDTH"] = RTLIL::Const(sig_s.size());
+			RTLIL::Cell *mux_cell = module->addCell(NEW_ID, ID($pmux));
+			mux_cell->setPort(ID::A, sig_a);
+			mux_cell->setPort(ID::B, sig_b);
+			mux_cell->setPort(ID::S, sig_s);
+			mux_cell->setPort(ID::Y, RTLIL::SigSpec(next_state_wire));
+			mux_cell->parameters[ID::WIDTH] = RTLIL::Const(sig_a.size());
+			mux_cell->parameters[ID::S_WIDTH] = RTLIL::Const(sig_s.size());
 		}
 	}
 
@@ -336,15 +336,13 @@ struct FsmMapPass : public Pass {
 		log_header(design, "Executing FSM_MAP pass (mapping FSMs to basic logic).\n");
 		extra_args(args, 1, design);
 
-		for (auto &mod_it : design->modules_) {
-			if (!design->selected(mod_it.second))
-				continue;
+		for (auto mod : design->selected_modules()) {
 			std::vector<RTLIL::Cell*> fsm_cells;
-			for (auto &cell_it : mod_it.second->cells_)
-				if (cell_it.second->type == "$fsm" && design->selected(mod_it.second, cell_it.second))
-					fsm_cells.push_back(cell_it.second);
+			for (auto cell : mod->selected_cells())
+				if (cell->type == ID($fsm))
+					fsm_cells.push_back(cell);
 			for (auto cell : fsm_cells)
-					map_fsm(cell, mod_it.second);
+					map_fsm(cell, mod);
 		}
 	}
 } FsmMapPass;
