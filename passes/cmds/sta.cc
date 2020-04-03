@@ -51,6 +51,8 @@ struct StaWorker
 	int maxarrival;
 	SigBit maxbit;
 
+	pool<SigBit> driven;
+
 	StaWorker(RTLIL::Module *module) : design(module->design), module(module), sigmap(module), maxarrival(0)
 	{
 		TimingInfo timing;
@@ -106,6 +108,7 @@ struct StaWorker
 						auto &d = data[bit];
 						d.driver = cell;
 						d.dst_port = conn.first;
+						driven.insert(bit);
 
 						auto it = t.arrival.find(namebit);
 						if (it == t.arrival.end())
@@ -132,8 +135,10 @@ struct StaWorker
 		for (auto port_name : module->ports) {
 			auto wire = module->wire(port_name);
 			if (wire->port_input) {
-				for (const auto &b : sigmap(wire))
+				for (const auto &b : sigmap(wire)) {
 					queue.emplace_back(b);
+					driven.insert(b);
+				}
 				// All primary inputs to arrive at time zero
 				wire->set_intvec_attribute(ID::sta_arrival, std::vector<int>(GetSize(wire), 0));
 			}
@@ -165,8 +170,9 @@ struct StaWorker
 				auto &dst_arrival = dst_arrivals[dst_bit.offset];
 				auto new_arrival = src_arrival + std::get<1>(d);
 				if (dst_arrival < new_arrival) {
+					auto dst_wire = dst_bit.wire;
 					dst_arrival = std::max(dst_arrival, new_arrival);
-					dst_bit.wire->set_intvec_attribute(ID::sta_arrival, dst_arrivals);
+					dst_wire->set_intvec_attribute(ID::sta_arrival, dst_arrivals);
 					queue.emplace_back(dst_bit);
 
 					data[dst_bit].backtrack = b;
@@ -175,7 +181,7 @@ struct StaWorker
 					auto it = endpoints.find(dst_bit);
 					if (it != endpoints.end())
 						new_arrival += it->second.required;
-					if (new_arrival > maxarrival) {
+					if (new_arrival > maxarrival && driven.count(b)) {
 						maxarrival = new_arrival;
 						maxbit = dst_bit;
 					}
@@ -183,14 +189,20 @@ struct StaWorker
 			}
 		}
 
-		log("Latest arrival time in '%s' is %d:\n", log_id(module), maxarrival);
 		auto b = maxbit;
+		if (b == SigBit()) {
+			log("No timing paths found.\n");
+			return;
+		}
+
+		log("Latest arrival time in '%s' is %d:\n", log_id(module), maxarrival);
 		auto it = endpoints.find(maxbit);
 		if (it != endpoints.end() && it->second.sink)
 			log("  %6d %s (%s.%s)\n", maxarrival, log_id(it->second.sink), log_id(it->second.sink->type), log_id(it->second.port));
 		else {
 			log("  %6d (%s)\n", maxarrival, b.wire->port_output ? "<primary output>" : "<unknown>");
-			log_warning("Critical-path does not terminate in a recognised endpoint.\n");
+			if (!b.wire->port_output)
+				log_warning("Critical-path does not terminate in a recognised endpoint.\n");
 		}
 		auto jt = data.find(b);
 		while (jt != data.end()) {
@@ -210,15 +222,17 @@ struct StaWorker
 		std::map<int, unsigned> arrival_histogram;
 		for (const auto &i : endpoints) {
 			const auto &b = i.first;
+			if (!driven.count(b))
+				continue;
+
 			if (!b.wire->attributes.count(ID::sta_arrival)) {
-				log_warning("Wire %s.%s has no (* sta_arrival *) value.\n", log_id(module), log_signal(b));
+				log_warning("Endpoint %s.%s has no (* sta_arrival *) value.\n", log_id(module), log_signal(b));
 				continue;
 			}
+
 			auto arrival = b.wire->get_intvec_attribute(ID::sta_arrival)[b.offset];
 			if (arrival < 0) {
-				// FIXME: Might be an unreachable signal
-				//        Might be a constant driven signal (e.g. through OBUF)
-				//log_warning("Wire %s.%s has no (* sta_arrival *) value.\n", log_id(module), log_signal(b));
+				log_warning("Endpoint %s.%s has no (* sta_arrival *) value.\n", log_id(module), log_signal(b));
 				continue;
 			}
 			arrival += i.second.required;
