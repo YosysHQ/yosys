@@ -52,6 +52,7 @@ struct TimingInfo
 	{
 		dict<BitBit, int> comb;
 		dict<NameBit, std::pair<int,NameBit>> arrival, required;
+		bool has_inputs;
 	};
 
 	dict<RTLIL::IdString, ModuleTiming> data;
@@ -164,6 +165,14 @@ struct TimingInfo
 						v.second = NameBit(dst);
 					}
 				}
+			}
+		}
+
+		for (auto port_name : module->ports) {
+			auto wire = module->wire(port_name);
+			if (wire->port_input) {
+				t.has_inputs = true;
+				break;
 			}
 		}
 

@@ -40,4 +40,42 @@ endmodule
 EOT
 
 sta
+
+
+design -reset
+read_verilog -specify <<EOT
+module buffer(input i, output o);
+specify
+(i => o) = 10;
+endspecify
+endmodule
+
+module top(input i, output o, p);
+buffer b(.i(i), .o(o));
+const0 c(.o(p));
+endmodule
+EOT
+
+logger -expect warning "Cell type 'const0' not recognised! Ignoring\." 1 
+sta
+
+
+design -reset
+read_verilog -specify <<EOT
+module buffer(input i, output o);
+specify
+(i => o) = 10;
+endspecify
+endmodule
+module const0(output o);
+endmodule
+
+module top(input i, output o, p);
+buffer b(.i(i), .o(o));
+const0 c(.o(p));
+endmodule
+EOT
+
+sta
+
 logger -expect-no-warnings
