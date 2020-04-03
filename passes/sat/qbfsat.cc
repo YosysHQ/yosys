@@ -446,7 +446,7 @@ struct QbfSatPass : public Pass {
 		if (!opt.specialize_from_file) {
 			//Save the design to restore after modiyfing the current module.
 			std::string module_name = module->name.str();
-			Pass::call(design, "design -save _qbfsat_tmp");
+			Pass::call(design, "design -duplicate");
 
 			//Replace input wires with wires assigned $allconst cells.
 			std::set<std::string> input_wires = validate_design_and_get_inputs(module);
@@ -455,7 +455,7 @@ struct QbfSatPass : public Pass {
 				assume_miter_outputs(module);
 
 			QbfSolutionType ret = qbf_solve(module, opt);
-			Pass::call(design, "design -load _qbfsat_tmp");
+			Pass::call(design, "design -pop");
 			module = design->module(module_name);
 
 			if (ret.unknown)
