@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2019  whitequark <whitequark@whitequark.org>
+ *  Copyright (C) 2019-2020  whitequark <whitequark@whitequark.org>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -20,6 +20,7 @@
 #include "kernel/rtlil.h"
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
+#include "kernel/utils.h"
 #include "kernel/celltypes.h"
 #include "kernel/log.h"
 
@@ -197,6 +198,11 @@ static bool is_ff_cell(RTLIL::IdString type)
 		ID($dff), ID($dffe), ID($adff), ID($dffsr));
 }
 
+static bool is_internal_cell(RTLIL::IdString type)
+{
+	return type[0] == '$' && !type.begins_with("$paramod\\");
+}
+
 struct FlowGraph {
 	struct Node {
 		enum class Type {
@@ -279,8 +285,13 @@ struct FlowGraph {
 					/* non-combinatorial outputs do not introduce defs */;
 				else if (is_elidable_cell(cell->type))
 					add_defs(node, conn.second, /*elidable=*/true);
-				else
+				else if (is_internal_cell(cell->type))
 					add_defs(node, conn.second, /*elidable=*/false);
+				else {
+					// Unlike outputs of internal cells (which generate code that depends on the ability to set the output
+					// wire bits), outputs of user cells are normal wires, and the wires connected to them can be elided.
+					add_defs(node, conn.second, /*elidable=*/true);
+				}
 			}
 			if (cell->input(conn.first))
 				add_uses(node, conn.second);
@@ -354,6 +365,7 @@ struct CxxrtlWorker {
 	dict<RTLIL::SigBit, RTLIL::SyncType> sync_types;
 	pool<const RTLIL::Memory*> writable_memories;
 	dict<const RTLIL::Cell*, pool<const RTLIL::Cell*>> transparent_for;
+	dict<const RTLIL::Cell*, dict<RTLIL::Wire*, RTLIL::IdString>> cell_wire_defs;
 	dict<const RTLIL::Wire*, FlowGraph::Node> elided_wires;
 	dict<const RTLIL::Module*, std::vector<FlowGraph::Node>> schedule;
 	pool<const RTLIL::Wire*> localized_wires;
@@ -418,6 +430,12 @@ struct CxxrtlWorker {
 		return "memory_" + mangle_name(name);
 	}
 
+	std::string mangle_cell_name(const RTLIL::IdString &name)
+	{
+		// Class member namespace.
+		return "cell_" + mangle_name(name);
+	}
+
 	std::string mangle_wire_name(const RTLIL::IdString &name)
 	{
 		// Class member namespace.
@@ -432,6 +450,11 @@ struct CxxrtlWorker {
 	std::string mangle(const RTLIL::Memory *memory)
 	{
 		return mangle_memory_name(memory->name);
+	}
+
+	std::string mangle(const RTLIL::Cell *cell)
+	{
+		return mangle_cell_name(cell->name);
 	}
 
 	std::string mangle(const RTLIL::Wire *wire)
@@ -512,7 +535,11 @@ struct CxxrtlWorker {
 						dump_connect_elided(node.connect);
 						break;
 					case FlowGraph::Node::Type::CELL:
-						dump_cell_elided(node.cell);
+						if (is_elidable_cell(node.cell->type)) {
+							dump_cell_elided(node.cell);
+						} else {
+							f << mangle(node.cell) << "." << mangle_wire_name(cell_wire_defs[node.cell][chunk.wire]) << ".curr";
+						}
 						break;
 					default:
 						log_assert(false);
@@ -652,7 +679,8 @@ struct CxxrtlWorker {
 
 	bool is_cell_elided(const RTLIL::Cell *cell)
 	{
-		return cell->hasPort(ID(Y)) && cell->getPort(ID(Y)).is_wire() && elided_wires.count(cell->getPort(ID(Y)).as_wire());
+		return is_elidable_cell(cell->type) && cell->hasPort(ID(Y)) && cell->getPort(ID(Y)).is_wire() &&
+			elided_wires.count(cell->getPort(ID(Y)).as_wire());
 	}
 
 	void collect_cell(const RTLIL::Cell *cell, std::vector<RTLIL::IdString> &cells)
@@ -885,11 +913,31 @@ struct CxxrtlWorker {
 				dec_indent();
 				f << indent << "}\n";
 			}
-		// Memory initializers
-		} else if (cell->type[0] == '$') {
+		// Internal cells
+		} else if (is_internal_cell(cell->type)) {
 			log_cmd_error("Unsupported internal cell `%s'.\n", cell->type.c_str());
+		// User cells
 		} else {
-			log_assert(false);
+			log_assert(cell->known());
+			for (auto conn : cell->connections())
+				if (cell->input(conn.first)) {
+					f << indent << mangle(cell) << "." << mangle_wire_name(conn.first) << ".next = ";
+					dump_sigspec_rhs(conn.second);
+					f << ";\n";
+				}
+			f << indent << mangle(cell) << ".eval();\n";
+			for (auto conn : cell->connections()) {
+				if (conn.second.is_wire()) {
+					RTLIL::Wire *wire = conn.second.as_wire();
+					if (elided_wires.count(wire) && cell_wire_defs[cell].count(wire))
+						continue;
+				}
+				if (cell->output(conn.first)) {
+					f << indent;
+					dump_sigspec_lhs(conn.second);
+					f << " = " << mangle(cell) << "." << mangle_wire_name(conn.first) << ".curr;\n";
+				}
+			}
 		}
 	}
 
@@ -1115,9 +1163,21 @@ struct CxxrtlWorker {
 			for (auto wire : module->wires())
 				dump_wire(wire, /*is_local=*/false);
 			f << "\n";
-			for (auto memory : module->memories)
+			bool has_memories = false;
+			for (auto memory : module->memories) {
 				dump_memory(module, memory.second);
-			if (!module->memories.empty())
+				has_memories = true;
+			}
+			if (has_memories)
+				f << "\n";
+			bool has_cells = false;
+			for (auto cell : module->cells()) {
+				if (is_internal_cell(cell->type))
+					continue;
+				f << indent << mangle_module_name(cell->type) << " " << mangle(cell) << ";\n";
+				has_cells = true;
+			}
+			if (has_cells)
 				f << "\n";
 			f << indent << "void eval() override;\n";
 			f << indent << "bool commit() override;\n";
@@ -1152,8 +1212,8 @@ struct CxxrtlWorker {
 			}
 		dec_indent();
 		f << "}\n";
-
 		f << "\n";
+
 		f << "bool " << mangle(module) << "::commit() {\n";
 		inc_indent();
 			f << indent << "bool changed = false;\n";
@@ -1202,29 +1262,45 @@ struct CxxrtlWorker {
 					f << indent << "changed |= " << mangle(memory.second) << "[i].commit();\n";
 				dec_indent();
 			}
+			for (auto cell : module->cells()) {
+				if (is_internal_cell(cell->type))
+					continue;
+				f << indent << "changed |= " << mangle(cell) << ".commit();\n";
+			}
 			f << indent << "return changed;\n";
 		dec_indent();
 		f << "}\n";
+		f << "\n";
 	}
 
 	void dump_design(RTLIL::Design *design)
 	{
+		TopoSort<RTLIL::Module*> topo_design;
+		for (auto module : design->modules()) {
+			if (module->get_blackbox_attribute() || !design->selected_module(module))
+				continue;
+			topo_design.node(module);
+
+			for (auto cell : module->cells()) {
+				if (is_internal_cell(cell->type))
+					continue;
+				log_assert(design->has(cell->type));
+				topo_design.edge(design->module(cell->type), module);
+			}
+		}
+		log_assert(topo_design.sort());
+
 		f << "#include <cxxrtl.h>\n";
 		f << "\n";
 		f << "using namespace cxxrtl_yosys;\n";
 		f << "\n";
 		f << "namespace cxxrtl_design {\n";
-		for (auto module : design->modules()) {
-			if (module->get_blackbox_attribute())
-				continue;
-
+		f << "\n";
+		for (auto module : topo_design.sorted) {
 			if (!design->selected_module(module))
 				continue;
-
-			f << "\n";
 			dump_module(module);
 		}
-		f << "\n";
 		f << "} // namespace cxxrtl_design\n";
 	}
 
@@ -1357,6 +1433,14 @@ struct CxxrtlWorker {
 				elided_wires[wire] = **flow.wire_defs[wire].begin();
 			}
 
+			// Elided wires that are outputs of internal cells are always connected to a well known port (Y).
+			// For user cells, there could be multiple of them, and we need a way to look up the port name
+			// knowing only the wire.
+			for (auto cell : module->cells())
+				for (auto conn : cell->connections())
+					if (conn.second.is_wire() && elided_wires.count(conn.second.as_wire()))
+						cell_wire_defs[cell][conn.second.as_wire()] = conn.first;
+
 			dict<FlowGraph::Node*, pool<const RTLIL::Wire*>, hash_ptr_ops> node_defs;
 			for (auto wire_def : flow.wire_defs)
 				for (auto node : wire_def.second)
@@ -1451,8 +1535,13 @@ struct CxxrtlWorker {
 	{
 		bool has_sync_init, has_packed_mem;
 		check_design(design, has_sync_init, has_packed_mem);
-		if (has_sync_init)
+		if (has_sync_init) {
+			// We're only interested in proc_init, but it depends on proc_prune and proc_clean, so call those
+			// in case they weren't already. (This allows `yosys foo.v -o foo.cc` to work.)
+			Pass::call(design, "proc_prune");
+			Pass::call(design, "proc_clean");
 			Pass::call(design, "proc_init");
+		}
 		if (has_packed_mem)
 			Pass::call(design, "memory_unpack");
 		// Recheck the design if it was modified.
