@@ -393,8 +393,6 @@ struct SynthXilinxPass : public ScriptPass
 				run("pmux2shiftx", "(skip if '-nosrl' and '-widemux=0')");
 				run("clean", "      (skip if '-nosrl' and '-widemux=0')");
 			}
-
-			run("techmap -map +/cmp2lut.v -D LUT_WIDTH=" + lut_size_s);
 		}
 
 		if (check_label("map_dsp", "(skip if '-nodsp')")) {
@@ -460,6 +458,7 @@ struct SynthXilinxPass : public ScriptPass
 		}
 
 		if (check_label("coarse")) {
+			run("techmap -map +/cmp2lut.v -map +/cmp2lcu.v -D LUT_WIDTH=" + lut_size_s);
 			run("alumacc");
 			run("share");
 			run("opt");

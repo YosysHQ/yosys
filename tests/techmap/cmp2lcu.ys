@@ -1,0 +1,52 @@
+read_verilog <<EOT
+module top(input [12:0] a, b, output gtu, gts, ltu, lts, geu, ges, leu, les);
+assign gtu = a > b;
+assign gts = $signed(a) > $signed(b);
+assign ltu = a < b;
+assign lts = $signed(a) < $signed(b);
+assign geu = a >= b;
+assign ges = $signed(a) >= $signed(b);
+assign leu = a <= b;
+assign les = $signed(a) <= $signed(b);
+endmodule
+EOT
+
+equiv_opt -assert techmap -map +/cmp2lcu.v -D LUT_WIDTH=6
+design -load postopt
+select -assert-count 8 t:$lcu r:WIDTH=5 %i
+select -assert-none t:$gt t:$ge t:$lt t:$le
+
+design -load preopt
+equiv_opt -assert techmap -map +/cmp2lcu.v -D LUT_WIDTH=4
+design -load postopt
+select -assert-count 8 t:$lcu r:WIDTH=7 %i
+select -assert-none t:$gt t:$ge t:$lt t:$le
+
+
+design -reset
+read_verilog <<EOT
+module top(input [8:0] a, b, output gtu, gts, ltu, lts, geu, ges, leu, les);
+wire [13:0] c = {a[8:6], 3'b101, a[5:4], 2'b11, a[3:0]};
+wire [13:0] d = {b[8], 3'b101, b[7:4], 2'b01, b[3:0]};
+assign gtu = c > d;
+assign gts = $signed(c) > $signed(d);
+assign ltu = c < d;
+assign lts = $signed(c) < $signed(d);
+assign geu = c >= d;
+assign ges = $signed(c) >= $signed(d);
+assign leu = c <= d;
+assign les = $signed(c) <= $signed(d);
+endmodule
+EOT
+design -save gold
+
+equiv_opt -assert techmap -map +/cmp2lcu.v -D LUT_WIDTH=5
+design -load postopt
+select -assert-count 8 t:$lcu r:WIDTH=2 %i
+select -assert-none t:$gt t:$ge t:$lt t:$le
+
+design -load preopt
+equiv_opt -assert techmap -map +/cmp2lcu.v -D LUT_WIDTH=3
+design -load postopt
+select -assert-count 8 t:$lcu r:WIDTH=4 %i
+select -assert-none t:$gt t:$ge t:$lt t:$le
