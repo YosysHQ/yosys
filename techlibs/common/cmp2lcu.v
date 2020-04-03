@@ -4,7 +4,7 @@
 //   which is typically mapped to dedicated (and fast) FPGA
 //   carry-chains.
 (* techmap_celltype = "$lt $le $gt $ge" *)
-module _90_lcu_cmp_ (A, B, Y);
+module _80_lcu_cmp_ (A, B, Y);
 
 parameter A_SIGNED = 0;
 parameter B_SIGNED = 0;
