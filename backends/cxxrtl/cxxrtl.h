@@ -23,6 +23,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cassert>
 #include <limits>
 #include <type_traits>
 #include <tuple>
@@ -614,7 +615,6 @@ struct memory {
 
 	template<size_t... InitSize>
 	explicit memory(size_t depth, const init<InitSize> &...init) : data(depth) {
-		// FIXME: assert(init.size() <= depth);
 		data.resize(depth);
 		// This utterly reprehensible construct is the most reasonable way to apply a function to every element
 		// of a parameter pack, if the elements all have different types and so cannot be cast to an initializer list.
@@ -622,14 +622,8 @@ struct memory {
 	}
 
 	Elem &operator [](size_t index) {
-		// FIXME: assert(index < data.size());
+		assert(index < data.size());
 		return data[index];
-	}
-
-	template<size_t AddrBits>
-	Elem &operator [](const value<AddrBits> &addr) {
-		static_assert(value<AddrBits>::chunks <= 1, "memory indexing with unreasonably large address is not supported");
-		return (*this)[addr.data[0]];
 	}
 };
 
@@ -1101,6 +1095,17 @@ value<BitsY> mod_uu(const value<BitsA> &a, const value<BitsB> &b) {
 template<size_t BitsY, size_t BitsA, size_t BitsB>
 value<BitsY> mod_ss(const value<BitsA> &a, const value<BitsB> &b) {
 	return divmod_ss<BitsY>(a, b).second;
+}
+
+// Memory helper
+template<size_t BitsAddr>
+std::pair<bool, size_t> memory_index(const value<BitsAddr> &addr, size_t offset, size_t depth) {
+	static_assert(value<BitsAddr>::chunks <= 1, "memory address is too wide");
+	size_t offset_index = addr.data[0];
+
+	bool valid = (offset_index >= offset && offset_index < offset + depth);
+	size_t index = offset_index - offset;
+	return std::make_pair(valid, index);
 }
 
 } // namespace cxxrtl_yosys

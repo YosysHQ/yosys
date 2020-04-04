@@ -798,6 +798,10 @@ struct CxxrtlWorker {
 				inc_indent();
 			}
 			RTLIL::Memory *memory = cell->module->memories[cell->getParam(ID(MEMID)).decode_string()];
+			std::string valid_index_temp = fresh_temporary();
+			f << indent << "std::pair<bool, size_t> " << valid_index_temp << " = memory_index(";
+			dump_sigspec_rhs(cell->getPort(ID(ADDR)));
+			f << ", " << memory->start_offset << ", " << memory->size << ");\n";
 			if (cell->type == ID($memrd)) {
 				if (!cell->getPort(ID(EN)).is_fully_ones()) {
 					f << indent << "if (";
@@ -805,38 +809,54 @@ struct CxxrtlWorker {
 					f << ") {\n";
 					inc_indent();
 				}
-				if (writable_memories[memory]) {
-					std::string addr_temp = fresh_temporary();
-					f << indent << "const value<" << cell->getPort(ID(ADDR)).size() << "> &" << addr_temp << " = ";
-					dump_sigspec_rhs(cell->getPort(ID(ADDR)));
-					f << ";\n";
-					std::string lhs_temp = fresh_temporary();
-					f << indent << "value<" << memory->width << "> " << lhs_temp << " = "
-					            << mangle(memory) << "[" << addr_temp << "].curr;\n";
-					for (auto memwr_cell : transparent_for[cell]) {
-						f << indent << "if (" << addr_temp << " == ";
-						dump_sigspec_rhs(memwr_cell->getPort(ID(ADDR)));
-						f << ") {\n";
-						inc_indent();
-							f << indent << lhs_temp << " = " << lhs_temp;
-							f << ".update(";
-							dump_sigspec_rhs(memwr_cell->getPort(ID(EN)));
-							f << ", ";
-							dump_sigspec_rhs(memwr_cell->getPort(ID(DATA)));
-							f << ");\n";
-						dec_indent();
-						f << indent << "}\n";
+				// The generated code has two bounds checks; one in an assertion, and another that guards the read.
+				// This is done so that the code does not invoke undefined behavior under any conditions, but nevertheless
+				// loudly crashes if an illegal condition is encountered. The assert may be turned off with -NDEBUG not
+				// just for release builds, but also to make sure the simulator (which is presumably embedded in some
+				// larger program) will never crash the code that calls into it.
+				//
+				// If assertions are disabled, out of bounds reads are defined to return zero.
+				f << indent << "assert(" << valid_index_temp << ".first && \"out of bounds read\");\n";
+				f << indent << "if(" << valid_index_temp << ".first) {\n";
+				inc_indent();
+					if (writable_memories[memory]) {
+						std::string addr_temp = fresh_temporary();
+						f << indent << "const value<" << cell->getPort(ID(ADDR)).size() << "> &" << addr_temp << " = ";
+						dump_sigspec_rhs(cell->getPort(ID(ADDR)));
+						f << ";\n";
+						std::string lhs_temp = fresh_temporary();
+						f << indent << "value<" << memory->width << "> " << lhs_temp << " = "
+						            << mangle(memory) << "[" << valid_index_temp << ".second].curr;\n";
+						for (auto memwr_cell : transparent_for[cell]) {
+							f << indent << "if (" << addr_temp << " == ";
+							dump_sigspec_rhs(memwr_cell->getPort(ID(ADDR)));
+							f << ") {\n";
+							inc_indent();
+								f << indent << lhs_temp << " = " << lhs_temp;
+								f << ".update(";
+								dump_sigspec_rhs(memwr_cell->getPort(ID(EN)));
+								f << ", ";
+								dump_sigspec_rhs(memwr_cell->getPort(ID(DATA)));
+								f << ");\n";
+							dec_indent();
+							f << indent << "}\n";
+						}
+						f << indent;
+						dump_sigspec_lhs(cell->getPort(ID(DATA)));
+						f << " = " << lhs_temp << ";\n";
+					} else {
+						f << indent;
+						dump_sigspec_lhs(cell->getPort(ID(DATA)));
+						f << " = " << mangle(memory) << "[" << valid_index_temp << ".second];\n";
 					}
+				dec_indent();
+				f << indent << "} else {\n";
+				inc_indent();
 					f << indent;
 					dump_sigspec_lhs(cell->getPort(ID(DATA)));
-					f << " = " << lhs_temp << ";\n";
-				} else {
-					f << indent;
-					dump_sigspec_lhs(cell->getPort(ID(DATA)));
-					f << " = " << mangle(memory) << "[";
-					dump_sigspec_rhs(cell->getPort(ID(ADDR)));
-					f << "];\n";
-				}
+					f << " = value<" << memory->width << "> {};\n";
+				dec_indent();
+				f << indent << "}\n";
 				if (!cell->getPort(ID(EN)).is_fully_ones()) {
 					dec_indent();
 					f << indent << "}\n";
@@ -844,15 +864,22 @@ struct CxxrtlWorker {
 			} else /*if (cell->type == ID($memwr))*/ {
 				// FIXME: handle write port priority, here and above in transparent $memrd cells
 				log_assert(writable_memories[memory]);
-				std::string lhs_temp = fresh_temporary();
-				f << indent << "wire<" << memory->width << "> &" << lhs_temp << " = " << mangle(memory) << "[";
-				dump_sigspec_rhs(cell->getPort(ID(ADDR)));
-				f << "];\n";
-				f << indent << lhs_temp << ".next = " << lhs_temp << ".curr.update(";
-				dump_sigspec_rhs(cell->getPort(ID(EN)));
-				f << ", ";
-				dump_sigspec_rhs(cell->getPort(ID(DATA)));
-				f << ");\n";
+				// See above for rationale of having both the assert and the condition.
+				//
+				// If assertions are disabled, out of bounds writes are defined to do nothing.
+				f << indent << "assert(" << valid_index_temp << ".first && \"out of bounds write\");\n";
+				f << indent << "if (" << valid_index_temp << ".first) {\n";
+				inc_indent();
+					std::string lhs_temp = fresh_temporary();
+					f << indent << "wire<" << memory->width << "> &" << lhs_temp << " = ";
+					f << mangle(memory) << "[" << valid_index_temp << ".second];\n";
+					f << indent << lhs_temp << ".next = " << lhs_temp << ".curr.update(";
+					dump_sigspec_rhs(cell->getPort(ID(EN)));
+					f << ", ";
+					dump_sigspec_rhs(cell->getPort(ID(DATA)));
+					f << ");\n";
+				dec_indent();
+				f << indent << "}\n";
 			}
 			if (cell->getParam(ID(CLK_ENABLE)).as_bool()) {
 				dec_indent();
