@@ -189,7 +189,8 @@ static bool is_binary_cell(RTLIL::IdString type)
 
 static bool is_elidable_cell(RTLIL::IdString type)
 {
-	return is_unary_cell(type) || is_binary_cell(type) || type == ID($mux);
+	return is_unary_cell(type) || is_binary_cell(type) || type.in(
+		ID($mux), ID($concat), ID($slice));
 }
 
 static bool is_ff_cell(RTLIL::IdString type)
@@ -672,6 +673,20 @@ struct CxxrtlWorker {
 			f << " : ";
 			dump_sigspec_rhs(cell->getPort(ID(A)));
 			f << ")";
+		// Concats
+		} else if (cell->type == ID($concat)) {
+			dump_sigspec_rhs(cell->getPort(ID(B)));
+			f << ".concat(";
+			dump_sigspec_rhs(cell->getPort(ID(A)));
+			f << ").val()";
+		// Slices
+		} else if (cell->type == ID($slice)) {
+			dump_sigspec_rhs(cell->getPort(ID(A)));
+			f << ".slice<";
+			f << cell->getParam(ID(OFFSET)).as_int() + cell->getParam(ID(Y_WIDTH)).as_int() - 1;
+			f << ",";
+			f << cell->getParam(ID(OFFSET)).as_int();
+			f << ">().val()";
 		} else {
 			log_assert(false);
 		}
