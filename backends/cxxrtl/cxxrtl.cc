@@ -193,10 +193,16 @@ static bool is_elidable_cell(RTLIL::IdString type)
 		ID($mux), ID($concat), ID($slice));
 }
 
-static bool is_ff_cell(RTLIL::IdString type)
+static bool is_sync_ff_cell(RTLIL::IdString type)
 {
 	return type.in(
-		ID($dff), ID($dffe), ID($adff), ID($dffsr));
+		ID($dff), ID($dffe));
+}
+
+static bool is_ff_cell(RTLIL::IdString type)
+{
+	return is_sync_ff_cell(type) || type.in(
+		ID($adff), ID($dffsr), ID($sr));
 }
 
 static bool is_internal_cell(RTLIL::IdString type)
@@ -282,7 +288,7 @@ struct FlowGraph {
 		log_assert(cell->known());
 		for (auto conn : cell->connections()) {
 			if (cell->output(conn.first)) {
-				if (is_ff_cell(cell->type) || (cell->type == ID($memrd) && cell->getParam(ID(CLK_ENABLE)).as_bool()))
+				if (is_sync_ff_cell(cell->type) || (cell->type == ID($memrd) && cell->getParam(ID(CLK_ENABLE)).as_bool()))
 					/* non-combinatorial outputs do not introduce defs */;
 				else if (is_elidable_cell(cell->type))
 					add_defs(node, conn.second, /*elidable=*/true);
@@ -770,7 +776,7 @@ struct CxxrtlWorker {
 			f << indent << "}\n";
 		// Flip-flops
 		} else if (is_ff_cell(cell->type)) {
-			if (cell->getPort(ID(CLK)).is_wire()) {
+			if (cell->hasPort(ID(CLK)) && cell->getPort(ID(CLK)).is_wire()) {
 				// Edge-sensitive logic
 				RTLIL::SigBit clk_bit = cell->getPort(ID(CLK))[0];
 				clk_bit = sigmaps[clk_bit.wire->module](clk_bit);
@@ -795,8 +801,8 @@ struct CxxrtlWorker {
 				dec_indent();
 				f << indent << "}\n";
 			}
-			// Level-sensitive logic
-			if (cell->type == ID($adff)) {
+			if (cell->hasPort(ID(ARST))) {
+				// Asynchronous reset (entire coarse cell at once)
 				f << indent << "if (";
 				dump_sigspec_rhs(cell->getPort(ID(ARST)));
 				f << " == value<1> {" << cell->getParam(ID(ARST_POLARITY)).as_bool() << "}) {\n";
@@ -808,28 +814,30 @@ struct CxxrtlWorker {
 					f << ";\n";
 				dec_indent();
 				f << indent << "}\n";
-			} else if (cell->type == ID($dffsr)) {
-				f << indent << "if (";
-				dump_sigspec_rhs(cell->getPort(ID(CLR)));
-				f << " == value<1> {" << cell->getParam(ID(CLR_POLARITY)).as_bool() << "}) {\n";
-				inc_indent();
-					f << indent;
-					dump_sigspec_lhs(cell->getPort(ID(Q)));
-					f << " = ";
-					dump_const(RTLIL::Const(RTLIL::S0, cell->getParam(ID(WIDTH)).as_int()));
-					f << ";\n";
-				dec_indent();
-				f << indent << "} else if (";
+			}
+			if (cell->hasPort(ID(SET))) {
+				// Asynchronous set (for individual bits)
+				f << indent;
+				dump_sigspec_lhs(cell->getPort(ID(Q)));
+				f << " = ";
+				dump_sigspec_lhs(cell->getPort(ID(Q)));
+				f << ".update(";
+				dump_const(RTLIL::Const(RTLIL::S1, cell->getParam(ID(WIDTH)).as_int()));
+				f << ", ";
 				dump_sigspec_rhs(cell->getPort(ID(SET)));
-				f << " == value<1> {" << cell->getParam(ID(SET_POLARITY)).as_bool() << "}) {\n";
-				inc_indent();
-					f << indent;
-					dump_sigspec_lhs(cell->getPort(ID(Q)));
-					f << " = ";
-					dump_const(RTLIL::Const(RTLIL::S1, cell->getParam(ID(WIDTH)).as_int()));
-					f << ";\n";
-				dec_indent();
-				f << indent << "}\n";
+				f << (cell->getParam(ID(SET_POLARITY)).as_bool() ? "" : ".bit_not()") << ");\n";
+			}
+			if (cell->hasPort(ID(CLR))) {
+				// Asynchronous clear (for individual bits; priority over set)
+				f << indent;
+				dump_sigspec_lhs(cell->getPort(ID(Q)));
+				f << " = ";
+				dump_sigspec_lhs(cell->getPort(ID(Q)));
+				f << ".update(";
+				dump_const(RTLIL::Const(RTLIL::S0, cell->getParam(ID(WIDTH)).as_int()));
+				f << ", ";
+				dump_sigspec_rhs(cell->getPort(ID(CLR)));
+				f << (cell->getParam(ID(CLR_POLARITY)).as_bool() ? "" : ".bit_not()") << ");\n";
 			}
 		// Memory ports
 		} else if (cell->type.in(ID($memrd), ID($memwr))) {
