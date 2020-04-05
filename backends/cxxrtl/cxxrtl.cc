@@ -202,7 +202,7 @@ static bool is_sync_ff_cell(RTLIL::IdString type)
 static bool is_ff_cell(RTLIL::IdString type)
 {
 	return is_sync_ff_cell(type) || type.in(
-		ID($adff), ID($dffsr), ID($sr));
+		ID($adff), ID($dffsr), ID($dlatch), ID($dlatchsr), ID($sr));
 }
 
 static bool is_internal_cell(RTLIL::IdString type)
@@ -786,7 +786,7 @@ struct CxxrtlWorker {
 					if (cell->type == ID($dffe)) {
 						f << indent << "if (";
 						dump_sigspec_rhs(cell->getPort(ID(EN)));
-						f << " == value<1> {" << cell->getParam(ID(EN_POLARITY)).as_bool() << "}) {\n";
+						f << " == value<1> {" << cell->getParam(ID(EN_POLARITY)).as_bool() << "u}) {\n";
 						inc_indent();
 					}
 					f << indent;
@@ -800,12 +800,25 @@ struct CxxrtlWorker {
 					}
 				dec_indent();
 				f << indent << "}\n";
+			} else if (cell->hasPort(ID(EN))) {
+				// Level-sensitive logic
+				f << indent << "if (";
+				dump_sigspec_rhs(cell->getPort(ID(EN)));
+				f << " == value<1> {" << cell->getParam(ID(EN_POLARITY)).as_bool() << "u}) {\n";
+				inc_indent();
+					f << indent;
+					dump_sigspec_lhs(cell->getPort(ID(Q)));
+					f << " = ";
+					dump_sigspec_rhs(cell->getPort(ID(D)));
+					f << ";\n";
+				dec_indent();
+				f << indent << "}\n";
 			}
 			if (cell->hasPort(ID(ARST))) {
 				// Asynchronous reset (entire coarse cell at once)
 				f << indent << "if (";
 				dump_sigspec_rhs(cell->getPort(ID(ARST)));
-				f << " == value<1> {" << cell->getParam(ID(ARST_POLARITY)).as_bool() << "}) {\n";
+				f << " == value<1> {" << cell->getParam(ID(ARST_POLARITY)).as_bool() << "u}) {\n";
 				inc_indent();
 					f << indent;
 					dump_sigspec_lhs(cell->getPort(ID(Q)));
