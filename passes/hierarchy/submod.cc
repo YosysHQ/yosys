@@ -51,7 +51,7 @@ struct SubmodWorker
 		RTLIL::Wire *new_wire;
 		RTLIL::Const is_int_driven;
 		bool is_int_used, is_ext_driven, is_ext_used;
-		wire_flags_t(RTLIL::Wire* wire) : new_wire(NULL), is_int_driven(State::S0, GetSize(wire)), is_int_used(false), is_ext_driven(false), is_ext_used(false) { }
+		wire_flags_t(RTLIL::Wire* wire) : new_wire(nullptr), is_int_driven(State::S0, GetSize(wire)), is_int_used(false), is_ext_driven(false), is_ext_used(false) { }
 	};
 	std::map<RTLIL::Wire*, wire_flags_t> wire_flags;
 	bool flag_found_something;
@@ -75,7 +75,7 @@ struct SubmodWorker
 	void flag_signal(const RTLIL::SigSpec &sig, bool create, bool set_int_driven, bool set_int_used, bool set_ext_driven, bool set_ext_used)
 	{
 		for (auto &c : sig.chunks())
-			if (c.wire != NULL) {
+			if (c.wire != nullptr) {
 				flag_wire(c.wire, create, set_int_used, set_ext_driven, set_ext_used);
 				if (set_int_driven)
 					for (int i = c.offset; i < c.offset+c.width; i++) {
@@ -100,8 +100,7 @@ struct SubmodWorker
 					flag_signal(conn.second, true, true, true, false, false);
 			}
 		}
-		for (auto &it : module->cells_) {
-			RTLIL::Cell *cell = it.second;
+		for (auto cell : module->cells()) {
 			if (submod.cells.count(cell) > 0)
 				continue;
 			if (ct.cell_known(cell->type)) {
@@ -211,7 +210,7 @@ struct SubmodWorker
 			RTLIL::Cell *new_cell = new_mod->addCell(cell->name, cell);
 			for (auto &conn : new_cell->connections_)
 				for (auto &bit : conn.second)
-					if (bit.wire != NULL) {
+					if (bit.wire != nullptr) {
 						log_assert(wire_flags.count(bit.wire) > 0);
 						bit.wire = wire_flags.at(bit.wire).new_wire;
 					}
@@ -274,12 +273,11 @@ struct SubmodWorker
 
 		if (opt_name.empty())
 		{
-			for (auto &it : module->wires_)
-				it.second->attributes.erase(ID::submod);
+			for (auto w : module->wires())
+				w->attributes.erase(ID::submod);
 
-			for (auto &it : module->cells_)
+			for (auto cell : module->cells())
 			{
-				RTLIL::Cell *cell = it.second;
 				if (cell->attributes.count(ID::submod) == 0 || cell->attributes[ID::submod].bits.size() == 0) {
 					cell->attributes.erase(ID::submod);
 					continue;
@@ -291,7 +289,7 @@ struct SubmodWorker
 				if (submodules.count(submod_str) == 0) {
 					submodules[submod_str].name = submod_str;
 					submodules[submod_str].full_name = module->name.str() + "_" + submod_str;
-					while (design->modules_.count(submodules[submod_str].full_name) != 0 ||
+					while (design->module(submodules[submod_str].full_name) != nullptr ||
 							module->count_id(submodules[submod_str].full_name) != 0)
 						submodules[submod_str].full_name += "_";
 				}
@@ -301,9 +299,8 @@ struct SubmodWorker
 		}
 		else
 		{
-			for (auto &it : module->cells_)
+			for (auto cell : module->cells())
 			{
-				RTLIL::Cell *cell = it.second;
 				if (!design->selected(module, cell))
 					continue;
 				submodules[opt_name].name = opt_name;
@@ -392,12 +389,12 @@ struct SubmodPass : public Pass {
 			while (did_something) {
 				did_something = false;
 				std::vector<RTLIL::IdString> queued_modules;
-				for (auto &mod_it : design->modules_)
-					if (handled_modules.count(mod_it.first) == 0 && design->selected_whole_module(mod_it.first))
-						queued_modules.push_back(mod_it.first);
+				for (auto mod : design->modules())
+					if (handled_modules.count(mod->name) == 0 && design->selected_whole_module(mod->name))
+						queued_modules.push_back(mod->name);
 				for (auto &modname : queued_modules)
-					if (design->modules_.count(modname) != 0) {
-						SubmodWorker worker(design, design->modules_[modname], copy_mode, hidden_mode);
+					if (design->module(modname) != nullptr) {
+						SubmodWorker worker(design, design->module(modname), copy_mode, hidden_mode);
 						handled_modules.insert(modname);
 						did_something = true;
 					}
@@ -407,15 +404,13 @@ struct SubmodPass : public Pass {
 		}
 		else
 		{
-			RTLIL::Module *module = NULL;
-			for (auto &mod_it : design->modules_) {
-				if (!design->selected_module(mod_it.first))
-					continue;
-				if (module != NULL)
-					log_cmd_error("More than one module selected: %s %s\n", module->name.c_str(), mod_it.first.c_str());
-				module = mod_it.second;
+			RTLIL::Module *module = nullptr;
+			for (auto mod : design->selected_modules()) {
+				if (module != nullptr)
+					log_cmd_error("More than one module selected: %s %s\n", module->name.c_str(), mod->name.c_str());
+				module = mod;
 			}
-			if (module == NULL)
+			if (module == nullptr)
 				log("Nothing selected -> do nothing.\n");
 			else {
 				Pass::call_on_module(design, module, "opt_clean");
