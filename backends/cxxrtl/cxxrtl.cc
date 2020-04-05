@@ -827,7 +827,7 @@ struct CxxrtlWorker {
 			}
 			RTLIL::Memory *memory = cell->module->memories[cell->getParam(ID(MEMID)).decode_string()];
 			std::string valid_index_temp = fresh_temporary();
-			f << indent << "std::pair<bool, size_t> " << valid_index_temp << " = memory_index(";
+			f << indent << "auto " << valid_index_temp << " = memory_index(";
 			dump_sigspec_rhs(cell->getPort(ID(ADDR)));
 			f << ", " << memory->start_offset << ", " << memory->size << ");\n";
 			if (cell->type == ID($memrd)) {
@@ -844,8 +844,8 @@ struct CxxrtlWorker {
 				// larger program) will never crash the code that calls into it.
 				//
 				// If assertions are disabled, out of bounds reads are defined to return zero.
-				f << indent << "assert(" << valid_index_temp << ".first && \"out of bounds read\");\n";
-				f << indent << "if(" << valid_index_temp << ".first) {\n";
+				f << indent << "assert(" << valid_index_temp << ".valid && \"out of bounds read\");\n";
+				f << indent << "if(" << valid_index_temp << ".valid) {\n";
 				inc_indent();
 					if (writable_memories[memory]) {
 						std::string addr_temp = fresh_temporary();
@@ -854,17 +854,22 @@ struct CxxrtlWorker {
 						f << ";\n";
 						std::string lhs_temp = fresh_temporary();
 						f << indent << "value<" << memory->width << "> " << lhs_temp << " = "
-						            << mangle(memory) << "[" << valid_index_temp << ".second].curr;\n";
-						for (auto memwr_cell : transparent_for[cell]) {
+						            << mangle(memory) << "[" << valid_index_temp << ".index];\n";
+						std::vector<const RTLIL::Cell*> memwr_cells(transparent_for[cell].begin(), transparent_for[cell].end());
+						std::sort(memwr_cells.begin(), memwr_cells.end(),
+							[](const RTLIL::Cell *a, const RTLIL::Cell *b) {
+								return a->getParam(ID(PRIORITY)).as_int() < b->getParam(ID(PRIORITY)).as_int();
+							});
+						for (auto memwr_cell : memwr_cells) {
 							f << indent << "if (" << addr_temp << " == ";
 							dump_sigspec_rhs(memwr_cell->getPort(ID(ADDR)));
 							f << ") {\n";
 							inc_indent();
 								f << indent << lhs_temp << " = " << lhs_temp;
 								f << ".update(";
-								dump_sigspec_rhs(memwr_cell->getPort(ID(EN)));
-								f << ", ";
 								dump_sigspec_rhs(memwr_cell->getPort(ID(DATA)));
+								f << ", ";
+								dump_sigspec_rhs(memwr_cell->getPort(ID(EN)));
 								f << ");\n";
 							dec_indent();
 							f << indent << "}\n";
@@ -875,7 +880,7 @@ struct CxxrtlWorker {
 					} else {
 						f << indent;
 						dump_sigspec_lhs(cell->getPort(ID(DATA)));
-						f << " = " << mangle(memory) << "[" << valid_index_temp << ".second];\n";
+						f << " = " << mangle(memory) << "[" << valid_index_temp << ".index];\n";
 					}
 				dec_indent();
 				f << indent << "} else {\n";
@@ -890,22 +895,18 @@ struct CxxrtlWorker {
 					f << indent << "}\n";
 				}
 			} else /*if (cell->type == ID($memwr))*/ {
-				// FIXME: handle write port priority, here and above in transparent $memrd cells
 				log_assert(writable_memories[memory]);
 				// See above for rationale of having both the assert and the condition.
 				//
 				// If assertions are disabled, out of bounds writes are defined to do nothing.
-				f << indent << "assert(" << valid_index_temp << ".first && \"out of bounds write\");\n";
-				f << indent << "if (" << valid_index_temp << ".first) {\n";
+				f << indent << "assert(" << valid_index_temp << ".valid && \"out of bounds write\");\n";
+				f << indent << "if (" << valid_index_temp << ".valid) {\n";
 				inc_indent();
-					std::string lhs_temp = fresh_temporary();
-					f << indent << "wire<" << memory->width << "> &" << lhs_temp << " = ";
-					f << mangle(memory) << "[" << valid_index_temp << ".second];\n";
-					f << indent << lhs_temp << ".next = " << lhs_temp << ".curr.update(";
-					dump_sigspec_rhs(cell->getPort(ID(EN)));
-					f << ", ";
+					f << indent << mangle(memory) << ".update(" << valid_index_temp << ".index, ";
 					dump_sigspec_rhs(cell->getPort(ID(DATA)));
-					f << ");\n";
+					f << ", ";
+					dump_sigspec_rhs(cell->getPort(ID(EN)));
+					f << ", " << cell->getParam(ID(PRIORITY)).as_int() << ");\n";
 				dec_indent();
 				f << indent << "}\n";
 			}
@@ -1122,8 +1123,8 @@ struct CxxrtlWorker {
 		});
 
 		dump_attrs(memory);
-		f << indent << "memory_" << (writable_memories[memory] ? "rw" : "ro")
-		            << "<" << memory->width << "> " << mangle(memory)
+		f << indent << (writable_memories[memory] ? "" : "const ")
+		            << "memory<" << memory->width << "> " << mangle(memory)
 		            << " { " << memory->size << "u";
 		if (init_cells.empty()) {
 			f << " };\n";
@@ -1135,8 +1136,7 @@ struct CxxrtlWorker {
 					RTLIL::Const data = cell->getPort(ID(DATA)).as_const();
 					size_t width = cell->getParam(ID(WIDTH)).as_int();
 					size_t words = cell->getParam(ID(WORDS)).as_int();
-					f << indent << "memory_" << (writable_memories[memory] ? "rw" : "ro")
-					            << "<" << memory->width << ">::init<" << words << "> { "
+					f << indent << "memory<" << memory->width << ">::init<" << words << "> { "
 					            << stringf("%#x", cell->getPort(ID(ADDR)).as_int()) << ", {";
 					inc_indent();
 						for (size_t n = 0; n < words; n++) {
@@ -1257,10 +1257,7 @@ struct CxxrtlWorker {
 			for (auto memory : module->memories) {
 				if (!writable_memories[memory.second])
 					continue;
-				f << indent << "for (size_t i = 0; i < " << memory.second->size << "u; i++)\n";
-				inc_indent();
-					f << indent << "changed |= " << mangle(memory.second) << "[i].commit();\n";
-				dec_indent();
+				f << indent << "changed |= " << mangle(memory.second) << ".commit();\n";
 			}
 			for (auto cell : module->cells()) {
 				if (is_internal_cell(cell->type))

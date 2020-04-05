@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2019  whitequark <whitequark@whitequark.org>
+ *  Copyright (C) 2019-2020  whitequark <whitequark@whitequark.org>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted.
@@ -28,6 +28,7 @@
 #include <type_traits>
 #include <tuple>
 #include <vector>
+#include <algorithm>
 #include <sstream>
 
 // The cxxrtl support library implements compile time specialized arbitrary width arithmetics, as well as provides
@@ -72,9 +73,6 @@ struct value : public expr_base<value<Bits>> {
 	value() = default;
 	template<typename... Init>
 	explicit constexpr value(Init ...init) : data{init...} {}
-
-	// This allows using value<> as well as wire<> in memory initializers.
-	using init = value<Bits>;
 
 	value(const value<Bits> &) = default;
 	value(value<Bits> &&) = default;
@@ -297,7 +295,7 @@ struct value : public expr_base<value<Bits>> {
 		return result;
 	}
 
-	value<Bits> update(const value<Bits> &mask, const value<Bits> &val) const {
+	value<Bits> update(const value<Bits> &val, const value<Bits> &mask) const {
 		return bit_and(mask.bit_not()).bit_or(val.bit_and(mask));
 	}
 
@@ -559,19 +557,6 @@ struct wire {
 	wire(wire<Bits> &&) = default;
 	wire<Bits> &operator=(const wire<Bits> &) = delete;
 
-	// We want to avoid having operator=(wire<>) or operator=(value<>) that overwrites both curr and next,
-	// since this operation is almost always wrong. But we also need an operation like that for memory
-	// initialization. This is solved by adding a wrapper and making the use of operator= valid only when
-	// this wrapper is used.
-	struct init {
-		value<Bits> data;
-	};
-
-	wire<Bits> &operator=(const init &init) {
-		curr = next = init.data;
-		return *this;
-	}
-
 	bool commit() {
 		if (curr != next) {
 			curr = next;
@@ -587,12 +572,10 @@ std::ostream &operator<<(std::ostream &os, const wire<Bits> &val) {
 	return os;
 }
 
-template<class Elem>
+template<size_t Width>
 struct memory {
-	using StoredElem = typename std::remove_const<Elem>::type;
-	std::vector<StoredElem> data;
+	std::vector<value<Width>> data;
 
-	static constexpr size_t width = StoredElem::bits;
 	size_t depth() const {
 		return data.size();
 	}
@@ -600,8 +583,8 @@ struct memory {
 	memory() = delete;
 	explicit memory(size_t depth) : data(depth) {}
 
-	memory(const memory<Elem> &) = delete;
-	memory<Elem> &operator=(const memory<Elem> &) = delete;
+	memory(const memory<Width> &) = delete;
+	memory<Width> &operator=(const memory<Width> &) = delete;
 
 	// The only way to get the compiler to put the initializer in .rodata and do not copy it on stack is to stuff it
 	// into a plain array. You'd think an std::initializer_list would work here, but it doesn't, because you can't
@@ -610,7 +593,7 @@ struct memory {
 	template<size_t Size>
 	struct init {
 		size_t offset;
-		typename Elem::init data[Size];
+		value<Width> data[Size];
 	};
 
 	template<size_t... InitSize>
@@ -621,17 +604,55 @@ struct memory {
 		auto _ = {std::move(std::begin(init.data), std::end(init.data), data.begin() + init.offset)...};
 	}
 
-	Elem &operator [](size_t index) {
+	value<Width> &operator [](size_t index) {
 		assert(index < data.size());
 		return data[index];
 	}
+
+	const value<Width> &operator [](size_t index) const {
+		assert(index < data.size());
+		return data[index];
+	}
+
+	// A simple way to make a writable memory would be to use an array of wires instead of an array of values.
+	// However, there are two significant downsides to this approach: first, it has large overhead (2× space
+	// overhead, and O(depth) time overhead during commit); second, it does not simplify handling write port
+	// priorities. Although in principle write ports could be ordered or conditionally enabled in generated
+	// code based on their priorities and selected addresses, the feedback arc set problem is computationally
+	// expensive, and the heuristic based algorithms are not easily modified to guarantee (rather than prefer)
+	// a particular write port evaluation order.
+	//
+	// The approach used here instead is to queue writes into a buffer during the eval phase, then perform
+	// the writes during the commit phase in the priority order. This approach has low overhead, with both space
+	// and time proportional to the amount of write ports. Because virtually every memory in a practical design
+	// has at most two write ports, linear search is used on every write, being the fastest and simplest approach.
+	struct write {
+		size_t index;
+		value<Width> val;
+		value<Width> mask;
+		int priority;
+	};
+	std::vector<write> write_queue;
+
+	void update(size_t index, const value<Width> &val, const value<Width> &mask, int priority = 0) {
+		assert(index < data.size());
+		write_queue.emplace_back(write { index, val, mask, priority });
+	}
+
+	bool commit() {
+		bool changed = false;
+		std::sort(write_queue.begin(), write_queue.end(),
+			[](const write &a, const write &b) { return a.priority < b.priority; });
+		for (const write &entry : write_queue) {
+			value<Width> elem = data[entry.index];
+			elem = elem.update(entry.val, entry.mask);
+			changed |= (data[entry.index] != elem);
+			data[entry.index] = elem;
+		}
+		write_queue.clear();
+		return changed;
+	}
 };
-
-template<size_t Width>
-using memory_rw = memory<wire<Width>>;
-
-template<size_t Width>
-using memory_ro = memory<const value<Width>>;
 
 struct module {
 	module() {}
@@ -1098,15 +1119,19 @@ value<BitsY> mod_ss(const value<BitsA> &a, const value<BitsB> &b) {
 }
 
 // Memory helper
-template<size_t BitsAddr>
-std::pair<bool, size_t> memory_index(const value<BitsAddr> &addr, size_t offset, size_t depth) {
-	static_assert(value<BitsAddr>::chunks <= 1, "memory address is too wide");
-	size_t offset_index = addr.data[0];
+struct memory_index {
+	bool valid;
+	size_t index;
 
-	bool valid = (offset_index >= offset && offset_index < offset + depth);
-	size_t index = offset_index - offset;
-	return std::make_pair(valid, index);
-}
+	template<size_t BitsAddr>
+	memory_index(const value<BitsAddr> &addr, size_t offset, size_t depth) {
+		static_assert(value<BitsAddr>::chunks <= 1, "memory address is too wide");
+		size_t offset_index = addr.data[0];
+
+		valid = (offset_index >= offset && offset_index < offset + depth);
+		index = offset_index - offset;
+	}
+};
 
 } // namespace cxxrtl_yosys
 
