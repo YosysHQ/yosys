@@ -90,7 +90,7 @@ USING_YOSYS_NAMESPACE
 
 [0-9]+'[01xzm-]*	{ rtlil_frontend_ilang_yylval.string = strdup(yytext); return TOK_VALUE; }
 -?[0-9]+		{
-	char *end = NULL;
+	char *end = nullptr;
 	long value = strtol(yytext, &end, 10);
 	if (end != yytext + strlen(yytext))
 		return TOK_INVALID; // literal out of range of long
@@ -146,4 +146,3 @@ USING_YOSYS_NAMESPACE
 void *rtlil_frontend_ilang_avoid_input_warnings() {
 	return (void*)&yyinput;
 }
-
