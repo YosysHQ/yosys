@@ -38,7 +38,7 @@ struct setunset_t
 			value = RTLIL::Const(set_value.substr(1, GetSize(set_value)-2));
 		} else {
 			RTLIL::SigSpec sig_value;
-			if (!RTLIL::SigSpec::parse(sig_value, NULL, set_value))
+			if (!RTLIL::SigSpec::parse(sig_value, nullptr, set_value))
 				log_cmd_error("Can't decode value '%s'!\n", set_value.c_str());
 			value = sig_value.as_const();
 		}
@@ -96,10 +96,8 @@ struct SetattrPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto &mod : design->modules_)
+		for (auto module : design->modules())
 		{
-			RTLIL::Module *module = mod.second;
-
 			if (flag_mod) {
 				if (design->selected_whole_module(module->name))
 					do_setunset(module->attributes, setunset_list);
@@ -109,17 +107,17 @@ struct SetattrPass : public Pass {
 			if (!design->selected(module))
 				continue;
 
-			for (auto &it : module->wires_)
-				if (design->selected(module, it.second))
-					do_setunset(it.second->attributes, setunset_list);
+			for (auto wire : module->wires())
+				if (design->selected(module, wire))
+					do_setunset(wire->attributes, setunset_list);
 
 			for (auto &it : module->memories)
 				if (design->selected(module, it.second))
 					do_setunset(it.second->attributes, setunset_list);
 
-			for (auto &it : module->cells_)
-				if (design->selected(module, it.second))
-					do_setunset(it.second->attributes, setunset_list);
+			for (auto cell : module->cells())
+				if (design->selected(module, cell))
+					do_setunset(cell->attributes, setunset_list);
 
 			for (auto &it : module->processes)
 				if (design->selected(module, it.second))
@@ -208,19 +206,13 @@ struct SetparamPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto &mod : design->modules_)
+		for (auto module : design->selected_modules())
 		{
-			RTLIL::Module *module = mod.second;
-
-			if (!design->selected(module))
-				continue;
-
-			for (auto &it : module->cells_)
-				if (design->selected(module, it.second)) {
-					if (!new_cell_type.empty())
-						it.second->type = new_cell_type;
-					do_setunset(it.second->parameters, setunset_list);
-				}
+			for (auto cell : module->selected_cells()) {
+				if (!new_cell_type.empty())
+					cell->type = new_cell_type;
+				do_setunset(cell->parameters, setunset_list);
+			}
 		}
 	}
 } SetparamPass;
