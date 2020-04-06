@@ -273,8 +273,8 @@ struct SubmodWorker
 
 		if (opt_name.empty())
 		{
-			for (auto w : module->wires())
-				w->attributes.erase(ID::submod);
+			for (auto wire : module->wires())
+				wire->attributes.erase(ID::submod);
 
 			for (auto cell : module->cells())
 			{
