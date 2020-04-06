@@ -364,20 +364,20 @@ struct ShowWorker
 		std::set<std::string> all_sources, all_sinks;
 
 		std::map<std::string, std::string> wires_on_demand;
-		for (auto w : module->selected_wires()) {
+		for (auto wire : module->selected_wires()) {
 			const char *shape = "diamond";
-			if (w->port_input || w->port_output)
+			if (wire->port_input || wire->port_output)
 				shape = "octagon";
-			if (w->name[0] == '\\') {
+			if (wire->name[0] == '\\') {
 				fprintf(f, "n%d [ shape=%s, label=\"%s\", %s, fontcolor=\"black\" ];\n",
-						id2num(w->name), shape, findLabel(w->name.str()),
-						nextColor(RTLIL::SigSpec(w), "color=\"black\"").c_str());
-				if (w->port_input)
-					all_sources.insert(stringf("n%d", id2num(w->name)));
-				else if (w->port_output)
-					all_sinks.insert(stringf("n%d", id2num(w->name)));
+						id2num(wire->name), shape, findLabel(wire->name.str()),
+						nextColor(RTLIL::SigSpec(wire), "color=\"black\"").c_str());
+				if (wire->port_input)
+					all_sources.insert(stringf("n%d", id2num(wire->name)));
+				else if (wire->port_output)
+					all_sinks.insert(stringf("n%d", id2num(wire->name)));
 			} else {
-				wires_on_demand[stringf("n%d", id2num(w->name))] = w->name.str();
+				wires_on_demand[stringf("n%d", id2num(wire->name))] = wire->name.str();
 			}
 		}
 
