@@ -102,7 +102,7 @@ struct SpliceWorker
 
 		for (auto &bit : sig.to_sigbit_vector())
 		{
-			if (bit.wire == NULL)
+			if (bit.wire == nullptr)
 			{
 				if (last_bit == 0)
 					chunks.back().append(bit);
@@ -149,23 +149,23 @@ struct SpliceWorker
 
 	void run()
 	{
-		log("Splicing signals in module %s:\n", RTLIL::id2cstr(module->name));
+		log("Splicing signals in module %s:\n", log_id(module->name));
 
 		driven_bits.push_back(RTLIL::State::Sm);
 		driven_bits.push_back(RTLIL::State::Sm);
 
-		for (auto &it : module->wires_)
-			if (it.second->port_input) {
-				RTLIL::SigSpec sig = sigmap(it.second);
+		for (auto wire : module->wires())
+			if (wire->port_input) {
+				RTLIL::SigSpec sig = sigmap(wire);
 				driven_chunks.insert(sig);
 				for (auto &bit : sig.to_sigbit_vector())
 					driven_bits.push_back(bit);
 				driven_bits.push_back(RTLIL::State::Sm);
 			}
 
-		for (auto &it : module->cells_)
-		for (auto &conn : it.second->connections())
-			if (!ct.cell_known(it.second->type) || ct.cell_output(it.second->type, conn.first)) {
+		for (auto cell : module->cells())
+		for (auto &conn : cell->connections())
+			if (!ct.cell_known(cell->type) || ct.cell_output(cell->type, conn.first)) {
 				RTLIL::SigSpec sig = sigmap(conn.second);
 				driven_chunks.insert(sig);
 				for (auto &bit : sig.to_sigbit_vector())
@@ -180,9 +180,8 @@ struct SpliceWorker
 
 		SigPool selected_bits;
 		if (!sel_by_cell)
-			for (auto &it : module->wires_)
-				if (design->selected(module, it.second))
-					selected_bits.add(sigmap(it.second));
+			for (auto wire : module->selected_wires())
+				selected_bits.add(sigmap(wire));
 
 		std::vector<Cell*> mod_cells = module->cells();
 
@@ -343,17 +342,14 @@ struct SplicePass : public Pass {
 
 		log_header(design, "Executing SPLICE pass (creating cells for signal splicing).\n");
 
-		for (auto &mod_it : design->modules_)
+		for (auto module : design->selected_modules())
 		{
-			if (!design->selected(mod_it.second))
-				continue;
-
-			if (mod_it.second->processes.size()) {
-				log("Skipping module %s as it contains processes.\n", mod_it.second->name.c_str());
+			if (module->processes.size()) {
+				log("Skipping module %s as it contains processes.\n", module->name.c_str());
 				continue;
 			}
 
-			SpliceWorker worker(design, mod_it.second);
+			SpliceWorker worker(design, module);
 			worker.sel_by_cell = sel_by_cell;
 			worker.sel_by_wire = sel_by_wire;
 			worker.sel_any_bit = sel_any_bit;
