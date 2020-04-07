@@ -124,6 +124,8 @@ void write_solution(RTLIL::Module *module, const QbfSolutionType &sol, const std
 void specialize_from_file(RTLIL::Module *module, const std::string &file) {
 	YS_REGEX_TYPE hole_assn_regex = YS_REGEX_COMPILE_WITH_SUBS("^(.*)=([01]+)$");
 	YS_REGEX_MATCH_TYPE m;
+	std::set<RTLIL::Cell *> anyconsts_to_remove;
+	std::map<std::string, std::string> hole_name_to_value;
 	std::ifstream fin(file.c_str());
 	if (!fin)
 		log_cmd_error("could not read solution file.\n");
@@ -133,7 +135,23 @@ void specialize_from_file(RTLIL::Module *module, const std::string &file) {
 		log_assert(YS_REGEX_NS::regex_search(buf, m, hole_assn_regex));
 		std::string hole_name = m[1].str();
 		std::string hole_value = m[2].str();
+		hole_name_to_value[hole_name] = hole_value;
+	}
 
+	for (auto cell : module->cells())
+		if (cell->type == "$anyconst") {
+			auto anyconst_port_y = cell->getPort(ID::Y).as_wire();
+			if (anyconst_port_y == nullptr)
+				continue;
+			if (hole_name_to_value.find(anyconst_port_y->name.str()) != hole_name_to_value.end())
+				anyconsts_to_remove.insert(cell);
+		}
+	for (auto cell : anyconsts_to_remove)
+		module->remove(cell);
+
+	for (auto &it : hole_name_to_value) {
+		std::string hole_name = it.first;
+		std::string hole_value = it.second;
 		RTLIL::Wire *wire = module->wire(hole_name);
 #ifndef NDEBUG
 		log_assert(wire != nullptr);
@@ -152,6 +170,13 @@ void specialize_from_file(RTLIL::Module *module, const std::string &file) {
 
 void specialize(RTLIL::Module *module, const QbfSolutionType &sol) {
 	std::map<std::string, std::string> hole_loc_to_name = get_hole_loc_name_map(module, sol);
+	std::set<RTLIL::Cell *> anyconsts_to_remove;
+	for (auto cell : module->cells())
+		if (cell->type == "$anyconst")
+			if (hole_loc_to_name.find(cell->get_src_attribute()) != hole_loc_to_name.end())
+				anyconsts_to_remove.insert(cell);
+	for (auto cell : anyconsts_to_remove)
+		module->remove(cell);
 	for (auto &it : sol.hole_to_value) {
 		std::string hole_loc = it.first;
 		std::string hole_value = it.second;
@@ -508,7 +533,6 @@ struct QbfSatPass : public Pass {
 				}
 				if (opt.specialize) {
 					specialize(module, ret);
-					Pass::call(design, "opt_clean");
 				} else {
 					dump_model(module, ret);
 				}
@@ -521,7 +545,6 @@ struct QbfSatPass : public Pass {
 				log_cmd_error("expected problem to be %s\n", opt.sat? "SAT" : "UNSAT");
 		} else {
 			specialize_from_file(module, opt.specialize_soln_file);
-			Pass::call(design, "opt_clean");
 		}
 		log_pop();
 	}
