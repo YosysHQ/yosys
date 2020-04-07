@@ -521,7 +521,8 @@ package_body:
 
 package_body_stmt:
 	typedef_decl |
-	localparam_decl;
+	localparam_decl |
+	param_decl;
 
 interface:
 	TOK_INTERFACE {
