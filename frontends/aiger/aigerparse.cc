@@ -30,7 +30,9 @@
 #include <libkern/OSByteOrder.h>
 #define __builtin_bswap32 OSSwapInt32
 #endif
+#ifndef __STDC_FORMAT_MACROS
 #define __STDC_FORMAT_MACROS
+#endif
 #include <inttypes.h>
 
 #include "kernel/yosys.h"
