@@ -51,6 +51,10 @@ ifneq ($(wildcard Makefile.conf),)
 include Makefile.conf
 endif
 
+ifeq ($(ENABLE_PYOSYS),1)
+ENABLE_LIBYOSYS := 1
+endif
+
 BINDIR := $(PREFIX)/bin
 LIBDIR := $(PREFIX)/lib
 DATDIR := $(PREFIX)/share/yosys
