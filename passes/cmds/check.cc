@@ -98,49 +98,6 @@ struct CheckPass : public Pass {
 
 		log_header(design, "Executing CHECK pass (checking for obvious problems).\n");
 
-		pool<IdString> fftypes;
-		fftypes.insert(ID($sr));
-		fftypes.insert(ID($ff));
-		fftypes.insert(ID($dff));
-		fftypes.insert(ID($dffe));
-		fftypes.insert(ID($dffsr));
-		fftypes.insert(ID($adff));
-		fftypes.insert(ID($dlatch));
-		fftypes.insert(ID($dlatchsr));
-		fftypes.insert(ID($_DFFE_NN_));
-		fftypes.insert(ID($_DFFE_NP_));
-		fftypes.insert(ID($_DFFE_PN_));
-		fftypes.insert(ID($_DFFE_PP_));
-		fftypes.insert(ID($_DFFSR_NNN_));
-		fftypes.insert(ID($_DFFSR_NNP_));
-		fftypes.insert(ID($_DFFSR_NPN_));
-		fftypes.insert(ID($_DFFSR_NPP_));
-		fftypes.insert(ID($_DFFSR_PNN_));
-		fftypes.insert(ID($_DFFSR_PNP_));
-		fftypes.insert(ID($_DFFSR_PPN_));
-		fftypes.insert(ID($_DFFSR_PPP_));
-		fftypes.insert(ID($_DFF_NN0_));
-		fftypes.insert(ID($_DFF_NN1_));
-		fftypes.insert(ID($_DFF_NP0_));
-		fftypes.insert(ID($_DFF_NP1_));
-		fftypes.insert(ID($_DFF_N_));
-		fftypes.insert(ID($_DFF_PN0_));
-		fftypes.insert(ID($_DFF_PN1_));
-		fftypes.insert(ID($_DFF_PP0_));
-		fftypes.insert(ID($_DFF_PP1_));
-		fftypes.insert(ID($_DFF_P_));
-		fftypes.insert(ID($_DLATCHSR_NNN_));
-		fftypes.insert(ID($_DLATCHSR_NNP_));
-		fftypes.insert(ID($_DLATCHSR_NPN_));
-		fftypes.insert(ID($_DLATCHSR_NPP_));
-		fftypes.insert(ID($_DLATCHSR_PNN_));
-		fftypes.insert(ID($_DLATCHSR_PNP_));
-		fftypes.insert(ID($_DLATCHSR_PPN_));
-		fftypes.insert(ID($_DLATCHSR_PPP_));
-		fftypes.insert(ID($_DLATCH_N_));
-		fftypes.insert(ID($_DLATCH_P_));
-		fftypes.insert(ID($_FF_));
-
 		for (auto module : design->selected_whole_modules_warn())
 		{
 			if (module->has_processes_warn())
@@ -242,7 +199,7 @@ struct CheckPass : public Pass {
 			{
 				for (auto cell : module->cells())
 				{
-					if (fftypes.count(cell->type) == 0)
+					if (RTLIL::builtin_ff_cell_types().count(cell->type) == 0)
 						continue;
 
 					for (auto bit : sigmap(cell->getPort(ID::Q)))

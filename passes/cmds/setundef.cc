@@ -359,34 +359,9 @@ struct SetundefPass : public Pass {
 				pool<SigBit> ffbits;
 				pool<Wire*> initwires;
 
-				pool<IdString> fftypes;
-				fftypes.insert(ID($dff));
-				fftypes.insert(ID($dffe));
-				fftypes.insert(ID($dffsr));
-				fftypes.insert(ID($adff));
-
-				std::vector<char> list_np = {'N', 'P'}, list_01 = {'0', '1'};
-
-				for (auto c1 : list_np)
-					fftypes.insert(stringf("$_DFF_%c_", c1));
-
-				for (auto c1 : list_np)
-				for (auto c2 : list_np)
-					fftypes.insert(stringf("$_DFFE_%c%c_", c1, c2));
-
-				for (auto c1 : list_np)
-				for (auto c2 : list_np)
-				for (auto c3 : list_01)
-					fftypes.insert(stringf("$_DFF_%c%c%c_", c1, c2, c3));
-
-				for (auto c1 : list_np)
-				for (auto c2 : list_np)
-				for (auto c3 : list_np)
-					fftypes.insert(stringf("$_DFFSR_%c%c%c_", c1, c2, c3));
-
 				for (auto cell : module->cells())
 				{
-					if (!fftypes.count(cell->type))
+					if (!RTLIL::builtin_ff_cell_types().count(cell->type))
 						continue;
 
 					for (auto bit : sigmap(cell->getPort(ID::Q)))
