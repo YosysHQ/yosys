@@ -117,7 +117,10 @@ struct statdata_t
 				}
 				else if (cell_type.in(ID($mux), ID($pmux)))
 					cell_type = stringf("%s_%d", cell_type.c_str(), GetSize(cell->getPort(ID::Y)));
-				else if (cell_type.in(ID($sr), ID($dff), ID($dffsr), ID($adff), ID($dlatch), ID($dlatchsr)))
+				else if (cell_type.in(
+						ID($sr), ID($ff), ID($dff), ID($dffe), ID($dffsr), ID($dffsre),
+						ID($adff), ID($adffe), ID($sdff), ID($sdffe), ID($sdffce),
+						ID($dlatch), ID($adlatch), ID($dlatchsr)))
 					cell_type = stringf("%s_%d", cell_type.c_str(), GetSize(cell->getPort(ID::Q)));
 			}
 

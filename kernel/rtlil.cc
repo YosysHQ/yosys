@@ -54,8 +54,14 @@ const pool<IdString> &RTLIL::builtin_ff_cell_types() {
 		ID($dff),
 		ID($dffe),
 		ID($dffsr),
+		ID($dffsre),
 		ID($adff),
+		ID($adffe),
+		ID($sdff),
+		ID($sdffe),
+		ID($sdffce),
 		ID($dlatch),
+		ID($adlatch),
 		ID($dlatchsr),
 		ID($_DFFE_NN_),
 		ID($_DFFE_NP_),
@@ -69,16 +75,102 @@ const pool<IdString> &RTLIL::builtin_ff_cell_types() {
 		ID($_DFFSR_PNP_),
 		ID($_DFFSR_PPN_),
 		ID($_DFFSR_PPP_),
+		ID($_DFFSRE_NNNN_),
+		ID($_DFFSRE_NNNP_),
+		ID($_DFFSRE_NNPN_),
+		ID($_DFFSRE_NNPP_),
+		ID($_DFFSRE_NPNN_),
+		ID($_DFFSRE_NPNP_),
+		ID($_DFFSRE_NPPN_),
+		ID($_DFFSRE_NPPP_),
+		ID($_DFFSRE_PNNN_),
+		ID($_DFFSRE_PNNP_),
+		ID($_DFFSRE_PNPN_),
+		ID($_DFFSRE_PNPP_),
+		ID($_DFFSRE_PPNN_),
+		ID($_DFFSRE_PPNP_),
+		ID($_DFFSRE_PPPN_),
+		ID($_DFFSRE_PPPP_),
+		ID($_DFF_N_),
+		ID($_DFF_P_),
 		ID($_DFF_NN0_),
 		ID($_DFF_NN1_),
 		ID($_DFF_NP0_),
 		ID($_DFF_NP1_),
-		ID($_DFF_N_),
 		ID($_DFF_PN0_),
 		ID($_DFF_PN1_),
 		ID($_DFF_PP0_),
 		ID($_DFF_PP1_),
-		ID($_DFF_P_),
+		ID($_DFFE_NN0N_),
+		ID($_DFFE_NN0P_),
+		ID($_DFFE_NN1N_),
+		ID($_DFFE_NN1P_),
+		ID($_DFFE_NP0N_),
+		ID($_DFFE_NP0P_),
+		ID($_DFFE_NP1N_),
+		ID($_DFFE_NP1P_),
+		ID($_DFFE_PN0N_),
+		ID($_DFFE_PN0P_),
+		ID($_DFFE_PN1N_),
+		ID($_DFFE_PN1P_),
+		ID($_DFFE_PP0N_),
+		ID($_DFFE_PP0P_),
+		ID($_DFFE_PP1N_),
+		ID($_DFFE_PP1P_),
+		ID($_SDFF_NN0_),
+		ID($_SDFF_NN1_),
+		ID($_SDFF_NP0_),
+		ID($_SDFF_NP1_),
+		ID($_SDFF_PN0_),
+		ID($_SDFF_PN1_),
+		ID($_SDFF_PP0_),
+		ID($_SDFF_PP1_),
+		ID($_SDFFE_NN0N_),
+		ID($_SDFFE_NN0P_),
+		ID($_SDFFE_NN1N_),
+		ID($_SDFFE_NN1P_),
+		ID($_SDFFE_NP0N_),
+		ID($_SDFFE_NP0P_),
+		ID($_SDFFE_NP1N_),
+		ID($_SDFFE_NP1P_),
+		ID($_SDFFE_PN0N_),
+		ID($_SDFFE_PN0P_),
+		ID($_SDFFE_PN1N_),
+		ID($_SDFFE_PN1P_),
+		ID($_SDFFE_PP0N_),
+		ID($_SDFFE_PP0P_),
+		ID($_SDFFE_PP1N_),
+		ID($_SDFFE_PP1P_),
+		ID($_SDFFCE_NN0N_),
+		ID($_SDFFCE_NN0P_),
+		ID($_SDFFCE_NN1N_),
+		ID($_SDFFCE_NN1P_),
+		ID($_SDFFCE_NP0N_),
+		ID($_SDFFCE_NP0P_),
+		ID($_SDFFCE_NP1N_),
+		ID($_SDFFCE_NP1P_),
+		ID($_SDFFCE_PN0N_),
+		ID($_SDFFCE_PN0P_),
+		ID($_SDFFCE_PN1N_),
+		ID($_SDFFCE_PN1P_),
+		ID($_SDFFCE_PP0N_),
+		ID($_SDFFCE_PP0P_),
+		ID($_SDFFCE_PP1N_),
+		ID($_SDFFCE_PP1P_),
+		ID($_SR_NN_),
+		ID($_SR_NP_),
+		ID($_SR_PN_),
+		ID($_SR_PP_),
+		ID($_DLATCH_N_),
+		ID($_DLATCH_P_),
+		ID($_DLATCH_NN0_),
+		ID($_DLATCH_NN1_),
+		ID($_DLATCH_NP0_),
+		ID($_DLATCH_NP1_),
+		ID($_DLATCH_PN0_),
+		ID($_DLATCH_PN1_),
+		ID($_DLATCH_PP0_),
+		ID($_DLATCH_PP1_),
 		ID($_DLATCHSR_NNN_),
 		ID($_DLATCHSR_NNP_),
 		ID($_DLATCHSR_NPN_),
@@ -87,8 +179,6 @@ const pool<IdString> &RTLIL::builtin_ff_cell_types() {
 		ID($_DLATCHSR_PNP_),
 		ID($_DLATCHSR_PPN_),
 		ID($_DLATCHSR_PPP_),
-		ID($_DLATCH_N_),
-		ID($_DLATCH_P_),
 		ID($_FF_),
 	};
 	return res;
@@ -1139,6 +1229,21 @@ namespace {
 				return;
 			}
 
+			if (cell->type == ID($dffsre)) {
+				param_bool(ID::CLK_POLARITY);
+				param_bool(ID::SET_POLARITY);
+				param_bool(ID::CLR_POLARITY);
+				param_bool(ID::EN_POLARITY);
+				port(ID::CLK, 1);
+				port(ID::EN, 1);
+				port(ID::SET, param(ID::WIDTH));
+				port(ID::CLR, param(ID::WIDTH));
+				port(ID::D, param(ID::WIDTH));
+				port(ID::Q, param(ID::WIDTH));
+				check_expected();
+				return;
+			}
+
 			if (cell->type == ID($adff)) {
 				param_bool(ID::CLK_POLARITY);
 				param_bool(ID::ARST_POLARITY);
@@ -1151,9 +1256,61 @@ namespace {
 				return;
 			}
 
+			if (cell->type == ID($sdff)) {
+				param_bool(ID::CLK_POLARITY);
+				param_bool(ID::SRST_POLARITY);
+				param_bits(ID::SRST_VALUE, param(ID::WIDTH));
+				port(ID::CLK, 1);
+				port(ID::SRST, 1);
+				port(ID::D, param(ID::WIDTH));
+				port(ID::Q, param(ID::WIDTH));
+				check_expected();
+				return;
+			}
+
+			if (cell->type.in(ID($sdffe), ID($sdffce))) {
+				param_bool(ID::CLK_POLARITY);
+				param_bool(ID::EN_POLARITY);
+				param_bool(ID::SRST_POLARITY);
+				param_bits(ID::SRST_VALUE, param(ID::WIDTH));
+				port(ID::CLK, 1);
+				port(ID::EN, 1);
+				port(ID::SRST, 1);
+				port(ID::D, param(ID::WIDTH));
+				port(ID::Q, param(ID::WIDTH));
+				check_expected();
+				return;
+			}
+
+			if (cell->type == ID($adffe)) {
+				param_bool(ID::CLK_POLARITY);
+				param_bool(ID::EN_POLARITY);
+				param_bool(ID::ARST_POLARITY);
+				param_bits(ID::ARST_VALUE, param(ID::WIDTH));
+				port(ID::CLK, 1);
+				port(ID::EN, 1);
+				port(ID::ARST, 1);
+				port(ID::D, param(ID::WIDTH));
+				port(ID::Q, param(ID::WIDTH));
+				check_expected();
+				return;
+			}
+
 			if (cell->type == ID($dlatch)) {
 				param_bool(ID::EN_POLARITY);
 				port(ID::EN, 1);
+				port(ID::D, param(ID::WIDTH));
+				port(ID::Q, param(ID::WIDTH));
+				check_expected();
+				return;
+			}
+
+			if (cell->type == ID($adlatch)) {
+				param_bool(ID::EN_POLARITY);
+				param_bool(ID::ARST_POLARITY);
+				param_bits(ID::ARST_VALUE, param(ID::WIDTH));
+				port(ID::EN, 1);
+				port(ID::ARST, 1);
 				port(ID::D, param(ID::WIDTH));
 				port(ID::Q, param(ID::WIDTH));
 				check_expected();
@@ -1351,49 +1508,69 @@ namespace {
 			if (cell->type == ID($_MUX8_))  { port(ID::A,1); port(ID::B,1); port(ID::C,1); port(ID::D,1); port(ID::E,1); port(ID::F,1); port(ID::G,1); port(ID::H,1); port(ID::S,1); port(ID::T,1); port(ID::U,1); port(ID::Y,1); check_expected(); return; }
 			if (cell->type == ID($_MUX16_)) { port(ID::A,1); port(ID::B,1); port(ID::C,1); port(ID::D,1); port(ID::E,1); port(ID::F,1); port(ID::G,1); port(ID::H,1); port(ID::I,1); port(ID::J,1); port(ID::K,1); port(ID::L,1); port(ID::M,1); port(ID::N,1); port(ID::O,1); port(ID::P,1); port(ID::S,1); port(ID::T,1); port(ID::U,1); port(ID::V,1); port(ID::Y,1); check_expected(); return; }
 
-			if (cell->type == ID($_SR_NN_)) { port(ID::S,1); port(ID::R,1); port(ID::Q,1); check_expected(); return; }
-			if (cell->type == ID($_SR_NP_)) { port(ID::S,1); port(ID::R,1); port(ID::Q,1); check_expected(); return; }
-			if (cell->type == ID($_SR_PN_)) { port(ID::S,1); port(ID::R,1); port(ID::Q,1); check_expected(); return; }
-			if (cell->type == ID($_SR_PP_)) { port(ID::S,1); port(ID::R,1); port(ID::Q,1); check_expected(); return; }
+			if (cell->type.in(ID($_SR_NN_), ID($_SR_NP_), ID($_SR_PN_), ID($_SR_PP_)))
+				{ port(ID::S,1); port(ID::R,1); port(ID::Q,1); check_expected(); return; }
 
-			if (cell->type == ID($_FF_))    { port(ID::D,1); port(ID::Q,1); check_expected();  return; }
-			if (cell->type == ID($_DFF_N_)) { port(ID::D,1); port(ID::Q,1); port(ID::C,1); check_expected(); return; }
-			if (cell->type == ID($_DFF_P_)) { port(ID::D,1); port(ID::Q,1); port(ID::C,1); check_expected(); return; }
+			if (cell->type == ID($_FF_)) { port(ID::D,1); port(ID::Q,1); check_expected();  return; }
 
-			if (cell->type == ID($_DFFE_NN_)) { port(ID::D,1); port(ID::Q,1); port(ID::C,1); port(ID::E,1); check_expected(); return; }
-			if (cell->type == ID($_DFFE_NP_)) { port(ID::D,1); port(ID::Q,1); port(ID::C,1); port(ID::E,1); check_expected(); return; }
-			if (cell->type == ID($_DFFE_PN_)) { port(ID::D,1); port(ID::Q,1); port(ID::C,1); port(ID::E,1); check_expected(); return; }
-			if (cell->type == ID($_DFFE_PP_)) { port(ID::D,1); port(ID::Q,1); port(ID::C,1); port(ID::E,1); check_expected(); return; }
+			if (cell->type.in(ID($_DFF_N_), ID($_DFF_P_)))
+				{ port(ID::D,1); port(ID::Q,1); port(ID::C,1); check_expected(); return; }
 
-			if (cell->type == ID($_DFF_NN0_)) { port(ID::D,1); port(ID::Q,1); port(ID::C,1); port(ID::R,1); check_expected(); return; }
-			if (cell->type == ID($_DFF_NN1_)) { port(ID::D,1); port(ID::Q,1); port(ID::C,1); port(ID::R,1); check_expected(); return; }
-			if (cell->type == ID($_DFF_NP0_)) { port(ID::D,1); port(ID::Q,1); port(ID::C,1); port(ID::R,1); check_expected(); return; }
-			if (cell->type == ID($_DFF_NP1_)) { port(ID::D,1); port(ID::Q,1); port(ID::C,1); port(ID::R,1); check_expected(); return; }
-			if (cell->type == ID($_DFF_PN0_)) { port(ID::D,1); port(ID::Q,1); port(ID::C,1); port(ID::R,1); check_expected(); return; }
-			if (cell->type == ID($_DFF_PN1_)) { port(ID::D,1); port(ID::Q,1); port(ID::C,1); port(ID::R,1); check_expected(); return; }
-			if (cell->type == ID($_DFF_PP0_)) { port(ID::D,1); port(ID::Q,1); port(ID::C,1); port(ID::R,1); check_expected(); return; }
-			if (cell->type == ID($_DFF_PP1_)) { port(ID::D,1); port(ID::Q,1); port(ID::C,1); port(ID::R,1); check_expected(); return; }
+			if (cell->type.in(ID($_DFFE_NN_), ID($_DFFE_NP_), ID($_DFFE_PN_), ID($_DFFE_PP_)))
+				{ port(ID::D,1); port(ID::Q,1); port(ID::C,1); port(ID::E,1); check_expected(); return; }
 
-			if (cell->type == ID($_DFFSR_NNN_)) { port(ID::C,1); port(ID::S,1); port(ID::R,1); port(ID::D,1); port(ID::Q,1); check_expected(); return; }
-			if (cell->type == ID($_DFFSR_NNP_)) { port(ID::C,1); port(ID::S,1); port(ID::R,1); port(ID::D,1); port(ID::Q,1); check_expected(); return; }
-			if (cell->type == ID($_DFFSR_NPN_)) { port(ID::C,1); port(ID::S,1); port(ID::R,1); port(ID::D,1); port(ID::Q,1); check_expected(); return; }
-			if (cell->type == ID($_DFFSR_NPP_)) { port(ID::C,1); port(ID::S,1); port(ID::R,1); port(ID::D,1); port(ID::Q,1); check_expected(); return; }
-			if (cell->type == ID($_DFFSR_PNN_)) { port(ID::C,1); port(ID::S,1); port(ID::R,1); port(ID::D,1); port(ID::Q,1); check_expected(); return; }
-			if (cell->type == ID($_DFFSR_PNP_)) { port(ID::C,1); port(ID::S,1); port(ID::R,1); port(ID::D,1); port(ID::Q,1); check_expected(); return; }
-			if (cell->type == ID($_DFFSR_PPN_)) { port(ID::C,1); port(ID::S,1); port(ID::R,1); port(ID::D,1); port(ID::Q,1); check_expected(); return; }
-			if (cell->type == ID($_DFFSR_PPP_)) { port(ID::C,1); port(ID::S,1); port(ID::R,1); port(ID::D,1); port(ID::Q,1); check_expected(); return; }
+			if (cell->type.in(
+					ID($_DFF_NN0_), ID($_DFF_NN1_), ID($_DFF_NP0_), ID($_DFF_NP1_),
+					ID($_DFF_PN0_), ID($_DFF_PN1_), ID($_DFF_PP0_), ID($_DFF_PP1_)))
+				{ port(ID::D,1); port(ID::Q,1); port(ID::C,1); port(ID::R,1); check_expected(); return; }
 
-			if (cell->type == ID($_DLATCH_N_)) { port(ID::E,1); port(ID::D,1); port(ID::Q,1); check_expected(); return; }
-			if (cell->type == ID($_DLATCH_P_)) { port(ID::E,1); port(ID::D,1); port(ID::Q,1); check_expected(); return; }
+			if (cell->type.in(
+					ID($_DFFE_NN0N_), ID($_DFFE_NN0P_), ID($_DFFE_NN1N_), ID($_DFFE_NN1P_),
+					ID($_DFFE_NP0N_), ID($_DFFE_NP0P_), ID($_DFFE_NP1N_), ID($_DFFE_NP1P_),
+					ID($_DFFE_PN0N_), ID($_DFFE_PN0P_), ID($_DFFE_PN1N_), ID($_DFFE_PN1P_),
+					ID($_DFFE_PP0N_), ID($_DFFE_PP0P_), ID($_DFFE_PP1N_), ID($_DFFE_PP1P_)))
+				{ port(ID::D,1); port(ID::Q,1); port(ID::C,1); port(ID::R,1); port(ID::E,1); check_expected(); return; }
 
-			if (cell->type == ID($_DLATCHSR_NNN_)) { port(ID::E,1); port(ID::S,1); port(ID::R,1); port(ID::D,1); port(ID::Q,1); check_expected(); return; }
-			if (cell->type == ID($_DLATCHSR_NNP_)) { port(ID::E,1); port(ID::S,1); port(ID::R,1); port(ID::D,1); port(ID::Q,1); check_expected(); return; }
-			if (cell->type == ID($_DLATCHSR_NPN_)) { port(ID::E,1); port(ID::S,1); port(ID::R,1); port(ID::D,1); port(ID::Q,1); check_expected(); return; }
-			if (cell->type == ID($_DLATCHSR_NPP_)) { port(ID::E,1); port(ID::S,1); port(ID::R,1); port(ID::D,1); port(ID::Q,1); check_expected(); return; }
-			if (cell->type == ID($_DLATCHSR_PNN_)) { port(ID::E,1); port(ID::S,1); port(ID::R,1); port(ID::D,1); port(ID::Q,1); check_expected(); return; }
-			if (cell->type == ID($_DLATCHSR_PNP_)) { port(ID::E,1); port(ID::S,1); port(ID::R,1); port(ID::D,1); port(ID::Q,1); check_expected(); return; }
-			if (cell->type == ID($_DLATCHSR_PPN_)) { port(ID::E,1); port(ID::S,1); port(ID::R,1); port(ID::D,1); port(ID::Q,1); check_expected(); return; }
-			if (cell->type == ID($_DLATCHSR_PPP_)) { port(ID::E,1); port(ID::S,1); port(ID::R,1); port(ID::D,1); port(ID::Q,1); check_expected(); return; }
+			if (cell->type.in(
+					ID($_DFFSR_NNN_), ID($_DFFSR_NNP_), ID($_DFFSR_NPN_), ID($_DFFSR_NPP_),
+					ID($_DFFSR_PNN_), ID($_DFFSR_PNP_), ID($_DFFSR_PPN_), ID($_DFFSR_PPP_)))
+				{ port(ID::C,1); port(ID::S,1); port(ID::R,1); port(ID::D,1); port(ID::Q,1); check_expected(); return; }
+
+			if (cell->type.in(
+					ID($_DFFSRE_NNNN_), ID($_DFFSRE_NNNP_), ID($_DFFSRE_NNPN_), ID($_DFFSRE_NNPP_),
+					ID($_DFFSRE_NPNN_), ID($_DFFSRE_NPNP_), ID($_DFFSRE_NPPN_), ID($_DFFSRE_NPPP_),
+					ID($_DFFSRE_PNNN_), ID($_DFFSRE_PNNP_), ID($_DFFSRE_PNPN_), ID($_DFFSRE_PNPP_),
+					ID($_DFFSRE_PPNN_), ID($_DFFSRE_PPNP_), ID($_DFFSRE_PPPN_), ID($_DFFSRE_PPPP_)))
+				{ port(ID::C,1); port(ID::S,1); port(ID::R,1); port(ID::D,1); port(ID::E,1); port(ID::Q,1); check_expected(); return; }
+
+			if (cell->type.in(
+					ID($_SDFF_NN0_), ID($_SDFF_NN1_), ID($_SDFF_NP0_), ID($_SDFF_NP1_),
+					ID($_SDFF_PN0_), ID($_SDFF_PN1_), ID($_SDFF_PP0_), ID($_SDFF_PP1_)))
+				{ port(ID::D,1); port(ID::Q,1); port(ID::C,1); port(ID::R,1); check_expected(); return; }
+
+			if (cell->type.in(
+					ID($_SDFFE_NN0N_), ID($_SDFFE_NN0P_), ID($_SDFFE_NN1N_), ID($_SDFFE_NN1P_),
+					ID($_SDFFE_NP0N_), ID($_SDFFE_NP0P_), ID($_SDFFE_NP1N_), ID($_SDFFE_NP1P_),
+					ID($_SDFFE_PN0N_), ID($_SDFFE_PN0P_), ID($_SDFFE_PN1N_), ID($_SDFFE_PN1P_),
+					ID($_SDFFE_PP0N_), ID($_SDFFE_PP0P_), ID($_SDFFE_PP1N_), ID($_SDFFE_PP1P_),
+					ID($_SDFFCE_NN0N_), ID($_SDFFCE_NN0P_), ID($_SDFFCE_NN1N_), ID($_SDFFCE_NN1P_),
+					ID($_SDFFCE_NP0N_), ID($_SDFFCE_NP0P_), ID($_SDFFCE_NP1N_), ID($_SDFFCE_NP1P_),
+					ID($_SDFFCE_PN0N_), ID($_SDFFCE_PN0P_), ID($_SDFFCE_PN1N_), ID($_SDFFCE_PN1P_),
+					ID($_SDFFCE_PP0N_), ID($_SDFFCE_PP0P_), ID($_SDFFCE_PP1N_), ID($_SDFFCE_PP1P_)))
+				{ port(ID::D,1); port(ID::Q,1); port(ID::C,1); port(ID::R,1); port(ID::E,1); check_expected(); return; }
+
+			if (cell->type.in(ID($_DLATCH_N_), ID($_DLATCH_P_)))
+				{ port(ID::E,1); port(ID::D,1); port(ID::Q,1); check_expected(); return; }
+
+			if (cell->type.in(
+					ID($_DLATCH_NN0_), ID($_DLATCH_NN1_), ID($_DLATCH_NP0_), ID($_DLATCH_NP1_),
+					ID($_DLATCH_PN0_), ID($_DLATCH_PN1_), ID($_DLATCH_PP0_), ID($_DLATCH_PP1_)))
+				{ port(ID::E,1); port(ID::R,1); port(ID::D,1); port(ID::Q,1); check_expected(); return; }
+
+			if (cell->type.in(
+					ID($_DLATCHSR_NNN_), ID($_DLATCHSR_NNP_), ID($_DLATCHSR_NPN_), ID($_DLATCHSR_NPP_),
+					ID($_DLATCHSR_PNN_), ID($_DLATCHSR_PNP_), ID($_DLATCHSR_PPN_), ID($_DLATCHSR_PPP_)))
+				{ port(ID::E,1); port(ID::S,1); port(ID::R,1); port(ID::D,1); port(ID::Q,1); check_expected(); return; }
 
 			error(__LINE__);
 		}
