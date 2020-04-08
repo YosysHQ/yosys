@@ -118,9 +118,7 @@ struct OptMergeWorker
 		for (auto &it : *conn) {
 			RTLIL::SigSpec sig;
 			if (cell->output(it.first)) {
-				if (it.first == ID::Q && (cell->type.begins_with("$dff") || cell->type.begins_with("$dlatch") ||
-							cell->type.begins_with("$_DFF") || cell->type.begins_with("$_DLATCH") || cell->type.begins_with("$_SR_") ||
-							cell->type.in(ID($adff), ID($sr), ID($ff), ID($_FF_)))) {
+				if (it.first == ID::Q && RTLIL::builtin_ff_cell_types().count(cell->type)) {
 					// For the 'Q' output of state elements,
 					//   use its (* init *) attribute value
 					for (const auto &b : dff_init_map(it.second))

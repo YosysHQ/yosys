@@ -47,6 +47,53 @@ int RTLIL::IdString::last_created_idx_ptr_;
 
 dict<std::string, std::string> RTLIL::constpad;
 
+const pool<IdString> &RTLIL::builtin_ff_cell_types() {
+	static const pool<IdString> res = {
+		ID($sr),
+		ID($ff),
+		ID($dff),
+		ID($dffe),
+		ID($dffsr),
+		ID($adff),
+		ID($dlatch),
+		ID($dlatchsr),
+		ID($_DFFE_NN_),
+		ID($_DFFE_NP_),
+		ID($_DFFE_PN_),
+		ID($_DFFE_PP_),
+		ID($_DFFSR_NNN_),
+		ID($_DFFSR_NNP_),
+		ID($_DFFSR_NPN_),
+		ID($_DFFSR_NPP_),
+		ID($_DFFSR_PNN_),
+		ID($_DFFSR_PNP_),
+		ID($_DFFSR_PPN_),
+		ID($_DFFSR_PPP_),
+		ID($_DFF_NN0_),
+		ID($_DFF_NN1_),
+		ID($_DFF_NP0_),
+		ID($_DFF_NP1_),
+		ID($_DFF_N_),
+		ID($_DFF_PN0_),
+		ID($_DFF_PN1_),
+		ID($_DFF_PP0_),
+		ID($_DFF_PP1_),
+		ID($_DFF_P_),
+		ID($_DLATCHSR_NNN_),
+		ID($_DLATCHSR_NNP_),
+		ID($_DLATCHSR_NPN_),
+		ID($_DLATCHSR_NPP_),
+		ID($_DLATCHSR_PNN_),
+		ID($_DLATCHSR_PNP_),
+		ID($_DLATCHSR_PPN_),
+		ID($_DLATCHSR_PPP_),
+		ID($_DLATCH_N_),
+		ID($_DLATCH_P_),
+		ID($_FF_),
+	};
+	return res;
+}
+
 RTLIL::Const::Const()
 {
 	flags = RTLIL::CONST_FLAG_NONE;
