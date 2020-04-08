@@ -47,11 +47,6 @@ std::string getFileinfo(const RTLIL::AttrObject *design_entity)
 {
 	std::string src(design_entity->get_src_attribute());
 	std::string fileinfo_str = src.empty() ? "" : "@[" + src + "]";
-
-	// Remove quotes from src attribute as firrtl automatically escapes and
-	// double-quotes them.
-	fileinfo_str.erase(std::remove(fileinfo_str.begin(), fileinfo_str.end(), '\"'), fileinfo_str.end());
-
 	return fileinfo_str;
 }
 
