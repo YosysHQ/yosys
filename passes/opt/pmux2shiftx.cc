@@ -63,11 +63,13 @@ struct OnehotDatabase
 			vector<SigSpec> inputs;
 			SigSpec output;
 
-			if (cell->type.in(ID($adff), ID($dff), ID($dffe), ID($dlatch), ID($ff)))
+			if (cell->type.in(ID($adff), ID($adffe), ID($dff), ID($dffe), ID($sdff), ID($sdffe), ID($sdffce), ID($dlatch), ID($adlatch), ID($ff)))
 			{
 				output = cell->getPort(ID::Q);
-				if (cell->type == ID($adff))
+				if (cell->type.in(ID($adff), ID($adffe), ID($adlatch)))
 					inputs.push_back(cell->getParam(ID::ARST_VALUE));
+				if (cell->type.in(ID($sdff), ID($sdffe), ID($sdffce)))
+					inputs.push_back(cell->getParam(ID::SRST_VALUE));
 				inputs.push_back(cell->getPort(ID::D));
 			}
 
