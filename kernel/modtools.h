@@ -158,7 +158,7 @@ struct ModIndex : public RTLIL::Monitor
 #endif
 	}
 
-	void notify_connect(RTLIL::Cell *cell, const RTLIL::IdString &port, const RTLIL::SigSpec &old_sig, RTLIL::SigSpec &sig) YS_OVERRIDE
+	void notify_connect(RTLIL::Cell *cell, const RTLIL::IdString &port, const RTLIL::SigSpec &old_sig, const RTLIL::SigSpec &sig) YS_OVERRIDE
 	{
 		log_assert(module == cell->module);
 
@@ -380,22 +380,15 @@ struct ModWalker
 		}
 	}
 
-	ModWalker() : design(NULL), module(NULL)
+	ModWalker(RTLIL::Design *design) : design(design), module(NULL)
 	{
+            ct.setup(design);
 	}
 
-	ModWalker(RTLIL::Design *design, RTLIL::Module *module, CellTypes *filter_ct = NULL)
+	void setup(RTLIL::Module *module, CellTypes *filter_ct = NULL)
 	{
-		setup(design, module, filter_ct);
-	}
-
-	void setup(RTLIL::Design *design, RTLIL::Module *module, CellTypes *filter_ct = NULL)
-	{
-		this->design = design;
 		this->module = module;
 
-		ct.clear();
-		ct.setup(design);
 		sigmap.set(module);
 
 		signal_drivers.clear();

@@ -54,6 +54,8 @@ namespace VERILOG_FRONTEND {
 	std::map<std::string, AstNode*> *attr_list, default_attr_list;
 	std::stack<std::map<std::string, AstNode*> *> attr_list_stack;
 	std::map<std::string, AstNode*> *albuf;
+	std::vector<UserTypeMap*> user_type_stack;
+	std::map<std::string, AstNode*> pkg_user_types;
 	std::vector<AstNode*> ast_stack;
 	struct AstNode *astbuf1, *astbuf2, *astbuf3;
 	struct AstNode *current_function_or_task;
@@ -125,6 +127,40 @@ struct specify_rise_fall {
 	specify_triple fall;
 };
 
+static void addTypedefNode(std::string *name, AstNode *node)
+{
+	log_assert(node);
+	auto *tnode = new AstNode(AST_TYPEDEF, node);
+	tnode->str = *name;
+	auto user_types = user_type_stack.back();
+	(*user_types)[*name] = tnode;
+	if (current_ast_mod && current_ast_mod->type == AST_PACKAGE) {
+		// typedef inside a package so we need the qualified name
+		auto qname = current_ast_mod->str + "::" + (*name).substr(1);
+		pkg_user_types[qname] = tnode;
+	}
+	delete name;
+	ast_stack.back()->children.push_back(tnode);
+}
+
+static void enterTypeScope()
+{
+	auto user_types = new UserTypeMap();
+	user_type_stack.push_back(user_types);
+}
+
+static void exitTypeScope()
+{
+	user_type_stack.pop_back();
+}
+
+static bool isInLocalScope(const std::string *name)
+{
+	// tests if a name was declared in the current block scope
+	auto user_types = user_type_stack.back();
+	return (user_types->count(*name) > 0);
+}
+
 static AstNode *makeRange(int msb = 31, int lsb = 0, bool isSigned = true)
 {
 	auto range = new AstNode(AST_RANGE);
@@ -167,6 +203,7 @@ static void addRange(AstNode *parent, int msb = 31, int lsb = 0, bool isSigned =
 %token <string> TOK_STRING TOK_ID TOK_CONSTVAL TOK_REALVAL TOK_PRIMITIVE
 %token <string> TOK_SVA_LABEL TOK_SPECIFY_OPER TOK_MSG_TASKS
 %token <string> TOK_BASE TOK_BASED_CONSTVAL TOK_UNBASED_UNSIZED_CONSTVAL
+%token <string> TOK_USER_TYPE TOK_PKG_USER_TYPE
 %token TOK_ASSERT TOK_ASSUME TOK_RESTRICT TOK_COVER TOK_FINAL
 %token ATTR_BEGIN ATTR_END DEFATTR_BEGIN DEFATTR_END
 %token TOK_MODULE TOK_ENDMODULE TOK_PARAMETER TOK_LOCALPARAM TOK_DEFPARAM
@@ -190,6 +227,7 @@ static void addRange(AstNode *parent, int msb = 31, int lsb = 0, bool isSigned =
 %type <ast> range range_or_multirange  non_opt_range non_opt_multirange range_or_signed_int
 %type <ast> wire_type expr basic_expr concat_list rvalue lvalue lvalue_concat_list
 %type <string> opt_label opt_sva_label tok_prim_wrapper hierarchical_id hierarchical_type_id integral_number
+%type <string> type_name
 %type <ast> opt_enum_init
 %type <boolean> opt_signed opt_property unique_case_attr always_comb_or_latch always_or_always_ff
 %type <al> attr case_attr
@@ -330,10 +368,15 @@ hierarchical_id:
 	};
 
 hierarchical_type_id:
-	'(' hierarchical_id ')' { $$ = $2; };
+	TOK_USER_TYPE
+	| TOK_PKG_USER_TYPE				// package qualified type name
+	| '(' TOK_USER_TYPE ')'	{ $$ = $2; }		// non-standard grammar
+	;
 
 module:
-	attr TOK_MODULE TOK_ID {
+	attr TOK_MODULE {
+		enterTypeScope();
+	} TOK_ID {
 		do_not_require_port_stubs = false;
 		AstNode *mod = new AstNode(AST_MODULE);
 		ast_stack.back()->children.push_back(mod);
@@ -341,9 +384,9 @@ module:
 		current_ast_mod = mod;
 		port_stubs.clear();
 		port_counter = 0;
-		mod->str = *$3;
+		mod->str = *$4;
 		append_attr(mod, $1);
-		delete $3;
+		delete $4;
 	} module_para_opt module_args_opt ';' module_body TOK_ENDMODULE {
 		if (port_stubs.size() != 0)
 			frontend_verilog_yyerror("Missing details for module port `%s'.",
@@ -352,6 +395,7 @@ module:
 		ast_stack.pop_back();
 		log_assert(ast_stack.size() == 1);
 		current_ast_mod = NULL;
+		exitTypeScope();
 	};
 
 module_para_opt:
@@ -392,9 +436,9 @@ module_arg_opt_assignment:
 			wire->str = ast_stack.back()->children.back()->str;
 			if (ast_stack.back()->children.back()->is_input) {
 				AstNode *n = ast_stack.back()->children.back();
-				if (n->attributes.count("\\defaultvalue"))
-					delete n->attributes.at("\\defaultvalue");
-				n->attributes["\\defaultvalue"] = $2;
+				if (n->attributes.count(ID::defaultvalue))
+					delete n->attributes.at(ID::defaultvalue);
+				n->attributes[ID::defaultvalue] = $2;
 			} else
 			if (ast_stack.back()->children.back()->is_reg || ast_stack.back()->children.back()->is_logic)
 				ast_stack.back()->children.push_back(new AstNode(AST_INITIAL, new AstNode(AST_BLOCK, new AstNode(AST_ASSIGN_LE, wire, $2))));
@@ -455,16 +499,19 @@ module_arg:
 	};
 
 package:
-	attr TOK_PACKAGE TOK_ID {
+	attr TOK_PACKAGE {
+		enterTypeScope();
+	} TOK_ID {
 		AstNode *mod = new AstNode(AST_PACKAGE);
 		ast_stack.back()->children.push_back(mod);
 		ast_stack.push_back(mod);
 		current_ast_mod = mod;
-		mod->str = *$3;
+		mod->str = *$4;
 		append_attr(mod, $1);
 	} ';' package_body TOK_ENDPACKAGE {
 		ast_stack.pop_back();
 		current_ast_mod = NULL;
+		exitTypeScope();
 	};
 
 package_body:
@@ -477,7 +524,9 @@ package_body_stmt:
 	localparam_decl;
 
 interface:
-	TOK_INTERFACE TOK_ID {
+	TOK_INTERFACE {
+		enterTypeScope();
+	} TOK_ID {
 		do_not_require_port_stubs = false;
 		AstNode *intf = new AstNode(AST_INTERFACE);
 		ast_stack.back()->children.push_back(intf);
@@ -485,8 +534,8 @@ interface:
 		current_ast_mod = intf;
 		port_stubs.clear();
 		port_counter = 0;
-		intf->str = *$2;
-		delete $2;
+		intf->str = *$3;
+		delete $3;
 	} module_para_opt module_args_opt ';' interface_body TOK_ENDINTERFACE {
 		if (port_stubs.size() != 0)
 			frontend_verilog_yyerror("Missing details for module port `%s'.",
@@ -494,6 +543,7 @@ interface:
 		ast_stack.pop_back();
 		log_assert(ast_stack.size() == 1);
 		current_ast_mod = NULL;
+		exitTypeScope();
 	};
 
 interface_body:
@@ -1461,24 +1511,24 @@ wire_name_and_opt_assign:
 		bool attr_anyseq = false;
 		bool attr_allconst = false;
 		bool attr_allseq = false;
-		if (ast_stack.back()->children.back()->get_bool_attribute("\\anyconst")) {
-			delete ast_stack.back()->children.back()->attributes.at("\\anyconst");
-			ast_stack.back()->children.back()->attributes.erase("\\anyconst");
+		if (ast_stack.back()->children.back()->get_bool_attribute(ID::anyconst)) {
+			delete ast_stack.back()->children.back()->attributes.at(ID::anyconst);
+			ast_stack.back()->children.back()->attributes.erase(ID::anyconst);
 			attr_anyconst = true;
 		}
-		if (ast_stack.back()->children.back()->get_bool_attribute("\\anyseq")) {
-			delete ast_stack.back()->children.back()->attributes.at("\\anyseq");
-			ast_stack.back()->children.back()->attributes.erase("\\anyseq");
+		if (ast_stack.back()->children.back()->get_bool_attribute(ID::anyseq)) {
+			delete ast_stack.back()->children.back()->attributes.at(ID::anyseq);
+			ast_stack.back()->children.back()->attributes.erase(ID::anyseq);
 			attr_anyseq = true;
 		}
-		if (ast_stack.back()->children.back()->get_bool_attribute("\\allconst")) {
-			delete ast_stack.back()->children.back()->attributes.at("\\allconst");
-			ast_stack.back()->children.back()->attributes.erase("\\allconst");
+		if (ast_stack.back()->children.back()->get_bool_attribute(ID::allconst)) {
+			delete ast_stack.back()->children.back()->attributes.at(ID::allconst);
+			ast_stack.back()->children.back()->attributes.erase(ID::allconst);
 			attr_allconst = true;
 		}
-		if (ast_stack.back()->children.back()->get_bool_attribute("\\allseq")) {
-			delete ast_stack.back()->children.back()->attributes.at("\\allseq");
-			ast_stack.back()->children.back()->attributes.erase("\\allseq");
+		if (ast_stack.back()->children.back()->get_bool_attribute(ID::allseq)) {
+			delete ast_stack.back()->children.back()->attributes.at(ID::allseq);
+			ast_stack.back()->children.back()->attributes.erase(ID::allseq);
 			attr_allseq = true;
 		}
 		if (current_wire_rand || attr_anyconst || attr_anyseq || attr_allconst || attr_allseq) {
@@ -1494,7 +1544,7 @@ wire_name_and_opt_assign:
 				fcall->str = "\\$allconst";
 			if (attr_allseq)
 				fcall->str = "\\$allseq";
-			fcall->attributes["\\reg"] = AstNode::mkconst_str(RTLIL::unescape_id(wire->str));
+			fcall->attributes[ID::reg] = AstNode::mkconst_str(RTLIL::unescape_id(wire->str));
 			ast_stack.back()->children.push_back(new AstNode(AST_ASSIGN, wire, fcall));
 		}
 	} |
@@ -1502,9 +1552,9 @@ wire_name_and_opt_assign:
 		AstNode *wire = new AstNode(AST_IDENTIFIER);
 		wire->str = ast_stack.back()->children.back()->str;
 		if (astbuf1->is_input) {
-			if (astbuf1->attributes.count("\\defaultvalue"))
-				delete astbuf1->attributes.at("\\defaultvalue");
-			astbuf1->attributes["\\defaultvalue"] = $3;
+			if (astbuf1->attributes.count(ID::defaultvalue))
+				delete astbuf1->attributes.at(ID::defaultvalue);
+			astbuf1->attributes[ID::defaultvalue] = $3;
 		}
 		else if (astbuf1->is_reg || astbuf1->is_logic){
 			AstNode *assign = new AstNode(AST_ASSIGN_LE, wire, $3);
@@ -1591,8 +1641,12 @@ assign_expr:
 		ast_stack.back()->children.push_back(node);
 	};
 
+type_name: TOK_ID		// first time seen
+	 | TOK_USER_TYPE	{ if (isInLocalScope($1)) frontend_verilog_yyerror("Duplicate declaration of TYPEDEF '%s'", $1->c_str()+1); }
+	 ;
+
 typedef_decl:
-	TOK_TYPEDEF wire_type range TOK_ID range_or_multirange ';' {
+	TOK_TYPEDEF wire_type range type_name range_or_multirange ';' {
 		astbuf1 = $2;
 		astbuf2 = $3;
 		if (astbuf1->range_left >= 0 && astbuf1->range_right >= 0) {
@@ -1625,13 +1679,10 @@ typedef_decl:
 			}
 			astbuf1->children.push_back(rangeNode);
 		}
-
-		ast_stack.back()->children.push_back(new AstNode(AST_TYPEDEF, astbuf1));
-		ast_stack.back()->children.back()->str = *$4;
+		addTypedefNode($4, astbuf1);
 	} |
-	TOK_TYPEDEF enum_type TOK_ID ';' {
-		ast_stack.back()->children.push_back(new AstNode(AST_TYPEDEF, astbuf1));
-		ast_stack.back()->children.back()->str = *$3;
+	TOK_TYPEDEF enum_type type_name ';' {
+		addTypedefNode($3, astbuf1);
 	}
 	;
 
@@ -1788,7 +1839,7 @@ cell_port:
 	attr TOK_WILDCARD_CONNECT {
 		if (!sv_mode)
 			frontend_verilog_yyerror("Wildcard port connections are only supported in SystemVerilog mode.");
-		astbuf2->attributes[ID(wildcard_port_conns)] = AstNode::mkconst_int(1, false);
+		astbuf2->attributes[ID::wildcard_port_conns] = AstNode::mkconst_int(1, false);
 	};
 
 always_comb_or_latch:
@@ -1812,7 +1863,7 @@ always_stmt:
 		AstNode *node = new AstNode(AST_ALWAYS);
 		append_attr(node, $1);
 		if ($2)
-			node->attributes[ID(always_ff)] = AstNode::mkconst_int(1, false);
+			node->attributes[ID::always_ff] = AstNode::mkconst_int(1, false);
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);
 	} always_cond {
@@ -1832,9 +1883,9 @@ always_stmt:
 		AstNode *node = new AstNode(AST_ALWAYS);
 		append_attr(node, $1);
 		if ($2)
-			node->attributes[ID(always_latch)] = AstNode::mkconst_int(1, false);
+			node->attributes[ID::always_latch] = AstNode::mkconst_int(1, false);
 		else
-			node->attributes[ID(always_comb)] = AstNode::mkconst_int(1, false);
+			node->attributes[ID::always_comb] = AstNode::mkconst_int(1, false);
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);
 		AstNode *block = new AstNode(AST_BLOCK);
@@ -1955,6 +2006,7 @@ assert:
 			delete $5;
 		} else {
 			AstNode *node = new AstNode(assume_asserts_mode ? AST_ASSUME : AST_ASSERT, $5);
+			SET_AST_NODE_LOC(node, @1, @6);
 			if ($1 != nullptr)
 				node->str = *$1;
 			ast_stack.back()->children.push_back(node);
@@ -1967,6 +2019,7 @@ assert:
 			delete $5;
 		} else {
 			AstNode *node = new AstNode(assert_assumes_mode ? AST_ASSERT : AST_ASSUME, $5);
+			SET_AST_NODE_LOC(node, @1, @6);
 			if ($1 != nullptr)
 				node->str = *$1;
 			ast_stack.back()->children.push_back(node);
@@ -1979,6 +2032,7 @@ assert:
 			delete $6;
 		} else {
 			AstNode *node = new AstNode(assume_asserts_mode ? AST_FAIR : AST_LIVE, $6);
+			SET_AST_NODE_LOC(node, @1, @7);
 			if ($1 != nullptr)
 				node->str = *$1;
 			ast_stack.back()->children.push_back(node);
@@ -1991,6 +2045,7 @@ assert:
 			delete $6;
 		} else {
 			AstNode *node = new AstNode(assert_assumes_mode ? AST_LIVE : AST_FAIR, $6);
+			SET_AST_NODE_LOC(node, @1, @7);
 			if ($1 != nullptr)
 				node->str = *$1;
 			ast_stack.back()->children.push_back(node);
@@ -2000,6 +2055,7 @@ assert:
 	} |
 	opt_sva_label TOK_COVER opt_property '(' expr ')' ';' {
 		AstNode *node = new AstNode(AST_COVER, $5);
+		SET_AST_NODE_LOC(node, @1, @6);
 		if ($1 != nullptr) {
 			node->str = *$1;
 			delete $1;
@@ -2008,6 +2064,7 @@ assert:
 	} |
 	opt_sva_label TOK_COVER opt_property '(' ')' ';' {
 		AstNode *node = new AstNode(AST_COVER, AstNode::mkconst_int(1, false));
+		SET_AST_NODE_LOC(node, @1, @5);
 		if ($1 != nullptr) {
 			node->str = *$1;
 			delete $1;
@@ -2016,6 +2073,7 @@ assert:
 	} |
 	opt_sva_label TOK_COVER ';' {
 		AstNode *node = new AstNode(AST_COVER, AstNode::mkconst_int(1, false));
+		SET_AST_NODE_LOC(node, @1, @2);
 		if ($1 != nullptr) {
 			node->str = *$1;
 			delete $1;
@@ -2027,6 +2085,7 @@ assert:
 			delete $5;
 		} else {
 			AstNode *node = new AstNode(AST_ASSUME, $5);
+			SET_AST_NODE_LOC(node, @1, @6);
 			if ($1 != nullptr)
 				node->str = *$1;
 			ast_stack.back()->children.push_back(node);
@@ -2041,6 +2100,7 @@ assert:
 			delete $6;
 		} else {
 			AstNode *node = new AstNode(AST_FAIR, $6);
+			SET_AST_NODE_LOC(node, @1, @7);
 			if ($1 != nullptr)
 				node->str = *$1;
 			ast_stack.back()->children.push_back(node);
@@ -2053,35 +2113,45 @@ assert:
 
 assert_property:
 	opt_sva_label TOK_ASSERT TOK_PROPERTY '(' expr ')' ';' {
-		ast_stack.back()->children.push_back(new AstNode(assume_asserts_mode ? AST_ASSUME : AST_ASSERT, $5));
+		AstNode *node = new AstNode(assume_asserts_mode ? AST_ASSUME : AST_ASSERT, $5);
+		SET_AST_NODE_LOC(node, @1, @6);
+		ast_stack.back()->children.push_back(node);
 		if ($1 != nullptr) {
 			ast_stack.back()->children.back()->str = *$1;
 			delete $1;
 		}
 	} |
 	opt_sva_label TOK_ASSUME TOK_PROPERTY '(' expr ')' ';' {
-		ast_stack.back()->children.push_back(new AstNode(AST_ASSUME, $5));
+		AstNode *node = new AstNode(AST_ASSUME, $5);
+		SET_AST_NODE_LOC(node, @1, @6);
+		ast_stack.back()->children.push_back(node);
 		if ($1 != nullptr) {
 			ast_stack.back()->children.back()->str = *$1;
 			delete $1;
 		}
 	} |
 	opt_sva_label TOK_ASSERT TOK_PROPERTY '(' TOK_EVENTUALLY expr ')' ';' {
-		ast_stack.back()->children.push_back(new AstNode(assume_asserts_mode ? AST_FAIR : AST_LIVE, $6));
+		AstNode *node = new AstNode(assume_asserts_mode ? AST_FAIR : AST_LIVE, $6);
+		SET_AST_NODE_LOC(node, @1, @7);
+		ast_stack.back()->children.push_back(node);
 		if ($1 != nullptr) {
 			ast_stack.back()->children.back()->str = *$1;
 			delete $1;
 		}
 	} |
 	opt_sva_label TOK_ASSUME TOK_PROPERTY '(' TOK_EVENTUALLY expr ')' ';' {
-		ast_stack.back()->children.push_back(new AstNode(AST_FAIR, $6));
+		AstNode *node = new AstNode(AST_FAIR, $6);
+		SET_AST_NODE_LOC(node, @1, @7);
+		ast_stack.back()->children.push_back(node);
 		if ($1 != nullptr) {
 			ast_stack.back()->children.back()->str = *$1;
 			delete $1;
 		}
 	} |
 	opt_sva_label TOK_COVER TOK_PROPERTY '(' expr ')' ';' {
-		ast_stack.back()->children.push_back(new AstNode(AST_COVER, $5));
+		AstNode *node = new AstNode(AST_COVER, $5);
+		SET_AST_NODE_LOC(node, @1, @6);
+		ast_stack.back()->children.push_back(node);
 		if ($1 != nullptr) {
 			ast_stack.back()->children.back()->str = *$1;
 			delete $1;
@@ -2091,7 +2161,9 @@ assert_property:
 		if (norestrict_mode) {
 			delete $5;
 		} else {
-			ast_stack.back()->children.push_back(new AstNode(AST_ASSUME, $5));
+			AstNode *node = new AstNode(AST_ASSUME, $5);
+			SET_AST_NODE_LOC(node, @1, @6);
+			ast_stack.back()->children.push_back(node);
 			if ($1 != nullptr) {
 				ast_stack.back()->children.back()->str = *$1;
 				delete $1;
@@ -2102,7 +2174,9 @@ assert_property:
 		if (norestrict_mode) {
 			delete $6;
 		} else {
-			ast_stack.back()->children.push_back(new AstNode(AST_FAIR, $6));
+			AstNode *node = new AstNode(AST_FAIR, $6);
+			SET_AST_NODE_LOC(node, @1, @7);
+			ast_stack.back()->children.push_back(node);
 			if ($1 != nullptr) {
 				ast_stack.back()->children.back()->str = *$1;
 				delete $1;
@@ -2157,20 +2231,21 @@ behavioral_stmt:
 	} opt_arg_list ';'{
 		ast_stack.pop_back();
 	} |
-	attr TOK_BEGIN opt_label {
+	attr TOK_BEGIN {
+		enterTypeScope();
+	} opt_label {
 		AstNode *node = new AstNode(AST_BLOCK);
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);
 		append_attr(node, $1);
-		if ($3 != NULL)
-			node->str = *$3;
+		if ($4 != NULL)
+			node->str = *$4;
 	} behavioral_stmt_list TOK_END opt_label {
-		if ($3 != NULL && $7 != NULL && *$3 != *$7)
-			frontend_verilog_yyerror("Begin label (%s) and end label (%s) don't match.", $3->c_str()+1, $7->c_str()+1);
-		if ($3 != NULL)
-			delete $3;
-		if ($7 != NULL)
-			delete $7;
+		exitTypeScope();
+		if ($4 != NULL && $8 != NULL && *$4 != *$8)
+			frontend_verilog_yyerror("Begin label (%s) and end label (%s) don't match.", $4->c_str()+1, $8->c_str()+1);
+		delete $4;
+		delete $8;
 		ast_stack.pop_back();
 	} |
 	attr TOK_FOR '(' {
@@ -2248,6 +2323,8 @@ behavioral_stmt:
 		ast_stack.pop_back();
 	};
 
+	;
+
 unique_case_attr:
 	/* empty */ {
 		$$ = false;
@@ -2278,12 +2355,12 @@ case_type:
 
 opt_synopsys_attr:
 	opt_synopsys_attr TOK_SYNOPSYS_FULL_CASE {
-		if (ast_stack.back()->attributes.count("\\full_case") == 0)
-			ast_stack.back()->attributes["\\full_case"] = AstNode::mkconst_int(1, false);
+		if (ast_stack.back()->attributes.count(ID::full_case) == 0)
+			ast_stack.back()->attributes[ID::full_case] = AstNode::mkconst_int(1, false);
 	} |
 	opt_synopsys_attr TOK_SYNOPSYS_PARALLEL_CASE {
-		if (ast_stack.back()->attributes.count("\\parallel_case") == 0)
-			ast_stack.back()->attributes["\\parallel_case"] = AstNode::mkconst_int(1, false);
+		if (ast_stack.back()->attributes.count(ID::parallel_case) == 0)
+			ast_stack.back()->attributes[ID::parallel_case] = AstNode::mkconst_int(1, false);
 	} |
 	/* empty */;
 
@@ -2445,6 +2522,7 @@ gen_stmt:
 	} simple_behavioral_stmt ';' expr {
 		ast_stack.back()->children.push_back($6);
 	} ';' simple_behavioral_stmt ')' gen_stmt_block {
+		SET_AST_NODE_LOC(ast_stack.back(), @1, @11);
 		ast_stack.pop_back();
 	} |
 	TOK_IF '(' expr ')' {
@@ -2453,6 +2531,7 @@ gen_stmt:
 		ast_stack.push_back(node);
 		ast_stack.back()->children.push_back($3);
 	} gen_stmt_block opt_gen_else {
+		SET_AST_NODE_LOC(ast_stack.back(), @1, @7);
 		ast_stack.pop_back();
 	} |
 	case_type '(' expr ')' {
@@ -2461,18 +2540,21 @@ gen_stmt:
 		ast_stack.push_back(node);
 	} gen_case_body TOK_ENDCASE {
 		case_type_stack.pop_back();
+		SET_AST_NODE_LOC(ast_stack.back(), @1, @7);
 		ast_stack.pop_back();
 	} |
-	TOK_BEGIN opt_label {
+	TOK_BEGIN {
+		enterTypeScope();
+	} opt_label {
 		AstNode *node = new AstNode(AST_GENBLOCK);
-		node->str = $2 ? *$2 : std::string();
+		node->str = $3 ? *$3 : std::string();
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);
 	} module_gen_body TOK_END opt_label {
-		if ($2 != NULL)
-			delete $2;
-		if ($6 != NULL)
-			delete $6;
+		exitTypeScope();
+		delete $3;
+		delete $7;
+		SET_AST_NODE_LOC(ast_stack.back(), @1, @7);
 		ast_stack.pop_back();
 	} |
 	TOK_MSG_TASKS {
@@ -2482,6 +2564,7 @@ gen_stmt:
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);
 	} opt_arg_list ';'{
+		SET_AST_NODE_LOC(ast_stack.back(), @1, @3);
 		ast_stack.pop_back();
 	};
 
@@ -2491,6 +2574,7 @@ gen_stmt_block:
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);
 	} gen_stmt_or_module_body_stmt {
+		SET_AST_NODE_LOC(ast_stack.back(), @2, @2);
 		ast_stack.pop_back();
 	};
 

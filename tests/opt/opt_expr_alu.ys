@@ -1,0 +1,63 @@
+read_verilog <<EOT
+module test(input a, output [1:0] y);
+assign y = {a,1'b0} + 1'b1;
+endmodule
+EOT
+
+alumacc
+equiv_opt opt_expr -fine
+design -load postopt
+select -assert-count 1 t:$pos
+select -assert-count none t:$pos t:* %D
+
+
+design -reset
+read_verilog <<EOT
+module test(input a, output [1:0] y);
+assign y = {a,1'b1} + 1'b1;
+endmodule
+EOT
+
+alumacc
+select -assert-count 1 t:$alu
+select -assert-count none t:$alu t:* %D
+
+
+design -reset
+read_verilog <<EOT
+module test(input a, output [1:0] y);
+assign y = {a,1'b1} - 1'b1;
+endmodule
+EOT
+
+equiv_opt opt_expr -fine
+design -load postopt
+select -assert-count 1 t:$pos
+select -assert-count none t:$pos t:* %D
+
+
+design -reset
+read_verilog <<EOT
+module test(input a, output [3:0] y);
+assign y = {a,3'b101} - 1'b1;
+endmodule
+EOT
+
+equiv_opt opt_expr -fine
+design -load postopt
+select -assert-count 1 t:$pos
+select -assert-count none t:$pos t:* %D
+
+
+design -reset
+read_verilog <<EOT
+module test(input a, output [3:0] y);
+assign y = {a,3'b101} - 1'b1;
+endmodule
+EOT
+
+alumacc
+equiv_opt opt_expr -fine
+design -load postopt
+select -assert-count 1 t:$pos
+select -assert-count none t:$pos t:* %D

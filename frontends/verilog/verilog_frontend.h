@@ -45,6 +45,13 @@ namespace VERILOG_FRONTEND
 	// this function converts a Verilog constant to an AST_CONSTANT node
 	AST::AstNode *const2ast(std::string code, char case_type = 0, bool warn_z = false);
 
+	// names of locally typedef'ed types in a stack
+	typedef std::map<std::string, AST::AstNode*> UserTypeMap;
+	extern std::vector<UserTypeMap *> user_type_stack;
+
+	// names of package typedef'ed types
+	extern std::map<std::string, AST::AstNode*> pkg_user_types;
+
 	// state of `default_nettype
 	extern bool default_nettype_wire;
 
@@ -78,10 +85,6 @@ namespace VERILOG_FRONTEND
 	// lexer input stream
 	extern std::istream *lexin;
 }
-
-// the pre-processor
-std::string frontend_verilog_preproc(std::istream &f, std::string filename, const std::map<std::string, std::string> &pre_defines_map,
-		dict<std::string, std::pair<std::string, bool>> &global_defines_cache, const std::list<std::string> &include_dirs);
 
 YOSYS_NAMESPACE_END
 

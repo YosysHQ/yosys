@@ -203,7 +203,7 @@ struct IopadmapPass : public Pass {
 
 			// Collect explicitly-marked already-buffered SigBits.
 			for (auto wire : module->wires())
-				if (wire->get_bool_attribute("\\iopad_external_pin") || ignore.count(make_pair(module->name, wire->name)))
+				if (wire->get_bool_attribute(ID::iopad_external_pin) || ignore.count(make_pair(module->name, wire->name)))
 					for (int i = 0; i < GetSize(wire); i++)
 						buf_bits.insert(sigmap(SigBit(wire, i)));
 
@@ -229,11 +229,13 @@ struct IopadmapPass : public Pass {
 		for (auto module : design->selected_modules())
 		{
 			dict<Wire *, dict<int, pair<Cell *, IdString>>> rewrite_bits;
+			pool<SigSig> remove_conns;
 
 			if (!toutpad_celltype.empty() || !tinoutpad_celltype.empty())
 			{
 				dict<SigBit, Cell *> tbuf_bits;
 				pool<SigBit> driven_bits;
+				dict<SigBit, SigSig> z_conns;
 
 				// Gather tristate buffers and always-on drivers.
 				for (auto cell : module->cells())
@@ -252,8 +254,10 @@ struct IopadmapPass : public Pass {
 					for (int i = 0; i < GetSize(conn.first); i++) {
 						SigBit dstbit = conn.first[i];
 						SigBit srcbit = conn.second[i];
-						if (!srcbit.wire && srcbit.data == State::Sz)
+						if (!srcbit.wire && srcbit.data == State::Sz) {
+							z_conns[dstbit] = conn;
 							continue;
+						}
 						driven_bits.insert(dstbit);
 					}
 
@@ -287,7 +291,7 @@ struct IopadmapPass : public Pass {
 
 						if (tbuf_cell != nullptr) {
 							// Found a tristate buffer — use it.
-							en_sig = tbuf_cell->getPort(ID(E)).as_bit();
+							en_sig = tbuf_cell->getPort(ID::E).as_bit();
 							data_sig = tbuf_cell->getPort(ID::A).as_bit();
 						} else if (is_driven) {
 							// No tristate buffer, but an always-on driver is present.
@@ -302,13 +306,17 @@ struct IopadmapPass : public Pass {
 							// enable.
 							en_sig = SigBit(State::S0);
 							data_sig = SigBit(State::Sx);
+							if (z_conns.count(wire_bit))
+								remove_conns.insert(z_conns[wire_bit]);
 						}
 
 						if (wire->port_input)
 						{
 							log("Mapping port %s.%s[%d] using %s.\n", log_id(module), log_id(wire), i, tinoutpad_celltype.c_str());
 
-							Cell *cell = module->addCell(NEW_ID, RTLIL::escape_id(tinoutpad_celltype));
+							Cell *cell = module->addCell(
+								module->uniquify(stringf("$iopadmap$%s.%s[%d]", log_id(module), log_id(wire), i)),
+								RTLIL::escape_id(tinoutpad_celltype));
 
 							cell->setPort(RTLIL::escape_id(tinoutpad_portname_oe), en_sig);
 							cell->attributes[ID::keep] = RTLIL::Const(1);
@@ -328,7 +336,9 @@ struct IopadmapPass : public Pass {
 						} else {
 							log("Mapping port %s.%s[%d] using %s.\n", log_id(module), log_id(wire), i, toutpad_celltype.c_str());
 
-							Cell *cell = module->addCell(NEW_ID, RTLIL::escape_id(toutpad_celltype));
+							Cell *cell = module->addCell(
+								module->uniquify(stringf("$iopadmap$%s.%s[%d]", log_id(module), log_id(wire), i)),
+								RTLIL::escape_id(toutpad_celltype));
 
 							cell->setPort(RTLIL::escape_id(toutpad_portname_oe), en_sig);
 							cell->setPort(RTLIL::escape_id(toutpad_portname_i), data_sig);
@@ -406,7 +416,9 @@ struct IopadmapPass : public Pass {
 
 						SigBit wire_bit(wire, i);
 
-						RTLIL::Cell *cell = module->addCell(NEW_ID, RTLIL::escape_id(celltype));
+						RTLIL::Cell *cell = module->addCell(
+							module->uniquify(stringf("$iopadmap$%s.%s", log_id(module->name), log_id(wire->name))),
+							RTLIL::escape_id(celltype));
 						cell->setPort(RTLIL::escape_id(portname_int), wire_bit);
 
 						if (!portname_pad.empty())
@@ -420,12 +432,16 @@ struct IopadmapPass : public Pass {
 				}
 				else
 				{
-					RTLIL::Cell *cell = module->addCell(NEW_ID, RTLIL::escape_id(celltype));
+					RTLIL::Cell *cell = module->addCell(
+						module->uniquify(stringf("$iopadmap$%s.%s", log_id(module->name), log_id(wire->name))),
+						RTLIL::escape_id(celltype));
 					cell->setPort(RTLIL::escape_id(portname_int), RTLIL::SigSpec(wire));
 
 					if (!portname_pad.empty()) {
 						RTLIL::Wire *new_wire = NULL;
-						new_wire = module->addWire(NEW_ID, wire);
+						new_wire = module->addWire(
+							module->uniquify(stringf("$iopadmap$%s", log_id(wire))),
+							wire);
 						module->swap_names(new_wire, wire);
 						wire->attributes.clear();
 						cell->setPort(RTLIL::escape_id(portname_pad), RTLIL::SigSpec(new_wire));
@@ -444,9 +460,19 @@ struct IopadmapPass : public Pass {
 				}
 			}
 
+			if (!remove_conns.empty()) {
+				std::vector<SigSig> new_conns;
+				for (auto &conn : module->connections())
+					if (!remove_conns.count(conn))
+						new_conns.push_back(conn);
+				module->new_connections(new_conns);
+			}
+
 			for (auto &it : rewrite_bits) {
 				RTLIL::Wire *wire = it.first;
-				RTLIL::Wire *new_wire = module->addWire(NEW_ID, wire);
+				RTLIL::Wire *new_wire = module->addWire(
+					module->uniquify(stringf("$iopadmap$%s", log_id(wire))),
+					wire);
 				module->swap_names(new_wire, wire);
 				wire->attributes.clear();
 				for (int i = 0; i < wire->width; i++)
@@ -464,10 +490,10 @@ struct IopadmapPass : public Pass {
 				}
 
 				if (wire->port_output) {
-					auto jt = new_wire->attributes.find(ID(init));
+					auto jt = new_wire->attributes.find(ID::init);
 					// For output ports, move \init attributes from old wire to new wire
 					if (jt != new_wire->attributes.end()) {
-						wire->attributes[ID(init)] = std::move(jt->second);
+						wire->attributes[ID::init] = std::move(jt->second);
 						new_wire->attributes.erase(jt);
 					}
 				}

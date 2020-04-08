@@ -1,0 +1,52 @@
+read_verilog <<EOT
+module top(input a, output [3:0] y);
+assign y[0] = a^1'b0;
+assign y[1] = 1'b1^a;
+assign y[2] = a~^1'b0;
+assign y[3] = 1'b1^~a;
+endmodule
+EOT
+design -save read
+select -assert-count 2 t:$xor
+select -assert-count 2 t:$xnor
+
+equiv_opt opt_expr
+design -load postopt
+select -assert-none t:$xor
+select -assert-none t:$xnor
+select -assert-count 2 t:$not
+
+
+design -load read
+simplemap
+equiv_opt opt_expr
+design -load postopt
+select -assert-none t:$_XOR_
+select -assert-none t:$_XNOR_ # NB: simplemap does $xnor -> $_XOR_+$_NOT_
+select -assert-count 3 t:$_NOT_
+
+
+design -reset
+read_verilog -icells <<EOT
+module top(input a, output [1:0] y);
+$_XNOR_ u0(.A(a), .B(1'b0), .Y(y[0]));
+$_XNOR_ u1(.A(1'b1), .B(a), .Y(y[1]));
+endmodule
+EOT
+select -assert-count 2 t:$_XNOR_
+equiv_opt opt_expr
+design -load postopt
+select -assert-none t:$_XNOR_ # NB: simplemap does $xnor -> $_XOR_+$_NOT_
+select -assert-count 1 t:$_NOT_
+
+
+design -reset
+read_verilog <<EOT
+module top(input a, output [1:0] w, x, y, z);
+assign w = a^1'b0;
+assign x = a^1'b1;
+assign y = a~^1'b0;
+assign z = a~^1'b1;
+endmodule
+EOT
+equiv_opt opt_expr

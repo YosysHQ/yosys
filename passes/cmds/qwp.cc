@@ -737,7 +737,7 @@ struct QwpWorker
 
 		for (auto &node : nodes)
 			if (node.cell != nullptr)
-				node.cell->attributes["\\qwp_position"] = stringf("%f %f", node.pos, node.alt_pos);
+				node.cell->attributes[ID::qwp_position] = stringf("%f %f", node.pos, node.alt_pos);
 
 		vector<double> edge_lengths;
 		vector<double> weighted_edge_lengths;

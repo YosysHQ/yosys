@@ -183,8 +183,8 @@ void rmunused_module_cells(Module *module, bool verbose)
 int count_nontrivial_wire_attrs(RTLIL::Wire *w)
 {
 	int count = w->attributes.size();
-	count -= w->attributes.count(ID(src));
-	count -= w->attributes.count(ID(unused_bits));
+	count -= w->attributes.count(ID::src);
+	count -= w->attributes.count(ID::unused_bits);
 	return count;
 }
 
@@ -203,8 +203,8 @@ bool compare_signals(RTLIL::SigBit &s1, RTLIL::SigBit &s2, SigPool &regs, SigPoo
 		return !(w2->port_input && w2->port_output);
 
 	if (w1->name[0] == '\\' && w2->name[0] == '\\') {
-		if (regs.check_any(s1) != regs.check_any(s2))
-			return regs.check_any(s2);
+		if (regs.check(s1) != regs.check(s2))
+			return regs.check(s2);
 		if (direct_wires.count(w1) != direct_wires.count(w2))
 			return direct_wires.count(w2) != 0;
 		if (conns.check_any(s1) != conns.check_any(s2))
@@ -317,12 +317,12 @@ bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 		log_assert(GetSize(s1) == GetSize(s2));
 
 		Const initval;
-		if (wire->attributes.count(ID(init)))
-			initval = wire->attributes.at(ID(init));
+		if (wire->attributes.count(ID::init))
+			initval = wire->attributes.at(ID::init);
 		if (GetSize(initval) != GetSize(wire))
 			initval.bits.resize(GetSize(wire), State::Sx);
 		if (initval.is_fully_undef())
-			wire->attributes.erase(ID(init));
+			wire->attributes.erase(ID::init);
 
 		if (GetSize(wire) == 0) {
 			// delete zero-width wires, unless they are module ports
@@ -358,14 +358,14 @@ bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 						s2[i] = initval[i];
 						initval[i] = State::Sx;
 					}
-					new_conn.first.append_bit(s1[i]);
-					new_conn.second.append_bit(s2[i]);
+					new_conn.first.append(s1[i]);
+					new_conn.second.append(s2[i]);
 				}
 			if (new_conn.first.size() > 0) {
 				if (initval.is_fully_undef())
-					wire->attributes.erase(ID(init));
+					wire->attributes.erase(ID::init);
 				else
-					wire->attributes.at(ID(init)) = initval;
+					wire->attributes.at(ID::init) = initval;
 				used_signals.add(new_conn.first);
 				used_signals.add(new_conn.second);
 				module->connect(new_conn);
@@ -383,11 +383,11 @@ bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 					}
 				}
 				if (unused_bits.empty() || wire->port_id != 0)
-					wire->attributes.erase(ID(unused_bits));
+					wire->attributes.erase(ID::unused_bits);
 				else
-					wire->attributes[ID(unused_bits)] = RTLIL::Const(unused_bits);
+					wire->attributes[ID::unused_bits] = RTLIL::Const(unused_bits);
 			} else {
-				wire->attributes.erase(ID(unused_bits));
+				wire->attributes.erase(ID::unused_bits);
 			}
 		}
 	}
@@ -419,18 +419,18 @@ bool rmunused_module_init(RTLIL::Module *module, bool purge_mode, bool verbose)
 	dict<SigBit, State> qbits;
 
 	for (auto cell : module->cells())
-		if (fftypes.cell_known(cell->type) && cell->hasPort(ID(Q)))
+		if (fftypes.cell_known(cell->type) && cell->hasPort(ID::Q))
 		{
-			SigSpec sig = cell->getPort(ID(Q));
+			SigSpec sig = cell->getPort(ID::Q);
 
 			for (int i = 0; i < GetSize(sig); i++)
 			{
 				SigBit bit = sig[i];
 
-				if (bit.wire == nullptr || bit.wire->attributes.count(ID(init)) == 0)
+				if (bit.wire == nullptr || bit.wire->attributes.count(ID::init) == 0)
 					continue;
 
-				Const init = bit.wire->attributes.at(ID(init));
+				Const init = bit.wire->attributes.at(ID::init);
 
 				if (i >= GetSize(init) || init[i] == State::Sx || init[i] == State::Sz)
 					continue;
@@ -445,10 +445,10 @@ bool rmunused_module_init(RTLIL::Module *module, bool purge_mode, bool verbose)
 		if (!purge_mode && wire->name[0] == '\\')
 			continue;
 
-		if (wire->attributes.count(ID(init)) == 0)
+		if (wire->attributes.count(ID::init) == 0)
 			continue;
 
-		Const init = wire->attributes.at(ID(init));
+		Const init = wire->attributes.at(ID::init);
 
 		for (int i = 0; i < GetSize(wire) && i < GetSize(init); i++)
 		{
@@ -471,7 +471,7 @@ bool rmunused_module_init(RTLIL::Module *module, bool purge_mode, bool verbose)
 		if (verbose)
 			log_debug("  removing redundant init attribute on %s.\n", log_id(wire));
 
-		wire->attributes.erase(ID(init));
+		wire->attributes.erase(ID::init);
 		did_something = true;
 	next_wire:;
 	}
@@ -487,7 +487,7 @@ void rmunused_module(RTLIL::Module *module, bool purge_mode, bool verbose, bool 
 	std::vector<RTLIL::Cell*> delcells;
 	for (auto cell : module->cells())
 		if (cell->type.in(ID($pos), ID($_BUF_)) && !cell->has_keep_attr()) {
-			bool is_signed = cell->type == ID($pos) && cell->getParam(ID(A_SIGNED)).as_bool();
+			bool is_signed = cell->type == ID($pos) && cell->getParam(ID::A_SIGNED).as_bool();
 			RTLIL::SigSpec a = cell->getPort(ID::A);
 			RTLIL::SigSpec y = cell->getPort(ID::Y);
 			a.extend_u0(GetSize(y), is_signed);

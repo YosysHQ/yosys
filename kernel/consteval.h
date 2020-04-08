@@ -91,10 +91,10 @@ struct ConstEval
 	{
 		if (cell->type == ID($lcu))
 		{
-			RTLIL::SigSpec sig_p = cell->getPort(ID(P));
-			RTLIL::SigSpec sig_g = cell->getPort(ID(G));
-			RTLIL::SigSpec sig_ci = cell->getPort(ID(CI));
-			RTLIL::SigSpec sig_co = values_map(assign_map(cell->getPort(ID(CO))));
+			RTLIL::SigSpec sig_p = cell->getPort(ID::P);
+			RTLIL::SigSpec sig_g = cell->getPort(ID::G);
+			RTLIL::SigSpec sig_ci = cell->getPort(ID::CI);
+			RTLIL::SigSpec sig_co = values_map(assign_map(cell->getPort(ID::CO)));
 
 			if (sig_co.is_fully_const())
 				return true;
@@ -133,8 +133,8 @@ struct ConstEval
 		if (sig_y.is_fully_const())
 			return true;
 
-		if (cell->hasPort(ID(S))) {
-			sig_s = cell->getPort(ID(S));
+		if (cell->hasPort(ID::S)) {
+			sig_s = cell->getPort(ID::S);
 			if (!eval(sig_s, undef, cell))
 				return false;
 		}
@@ -200,8 +200,8 @@ struct ConstEval
 		}
 		else if (cell->type == ID($fa))
 		{
-			RTLIL::SigSpec sig_c = cell->getPort(ID(C));
-			RTLIL::SigSpec sig_x = cell->getPort(ID(X));
+			RTLIL::SigSpec sig_c = cell->getPort(ID::C);
+			RTLIL::SigSpec sig_x = cell->getPort(ID::X);
 			int width = GetSize(sig_c);
 
 			if (!eval(sig_a, undef, cell))
@@ -229,11 +229,11 @@ struct ConstEval
 		}
 		else if (cell->type == ID($alu))
 		{
-			bool signed_a = cell->parameters.count(ID(A_SIGNED)) > 0 && cell->parameters[ID(A_SIGNED)].as_bool();
-			bool signed_b = cell->parameters.count(ID(B_SIGNED)) > 0 && cell->parameters[ID(B_SIGNED)].as_bool();
+			bool signed_a = cell->parameters.count(ID::A_SIGNED) > 0 && cell->parameters[ID::A_SIGNED].as_bool();
+			bool signed_b = cell->parameters.count(ID::B_SIGNED) > 0 && cell->parameters[ID::B_SIGNED].as_bool();
 
-			RTLIL::SigSpec sig_ci = cell->getPort(ID(CI));
-			RTLIL::SigSpec sig_bi = cell->getPort(ID(BI));
+			RTLIL::SigSpec sig_ci = cell->getPort(ID::CI);
+			RTLIL::SigSpec sig_bi = cell->getPort(ID::BI);
 
 			if (!eval(sig_a, undef, cell))
 				return false;
@@ -247,8 +247,8 @@ struct ConstEval
 			if (!eval(sig_bi, undef, cell))
 				return false;
 
-			RTLIL::SigSpec sig_x = cell->getPort(ID(X));
-			RTLIL::SigSpec sig_co = cell->getPort(ID(CO));
+			RTLIL::SigSpec sig_x = cell->getPort(ID::X);
+			RTLIL::SigSpec sig_co = cell->getPort(ID::CO);
 
 			bool any_input_undef = !(sig_a.is_fully_def() && sig_b.is_fully_def() && sig_ci.is_fully_def() && sig_bi.is_fully_def());
 			sig_a.extend_u0(GetSize(sig_y), signed_a);
@@ -309,10 +309,10 @@ struct ConstEval
 			RTLIL::SigSpec sig_c, sig_d;
 
 			if (cell->type.in(ID($_AOI3_), ID($_OAI3_), ID($_AOI4_), ID($_OAI4_))) {
-				if (cell->hasPort(ID(C)))
-					sig_c = cell->getPort(ID(C));
-				if (cell->hasPort(ID(D)))
-					sig_d = cell->getPort(ID(D));
+				if (cell->hasPort(ID::C))
+					sig_c = cell->getPort(ID::C);
+				if (cell->hasPort(ID::D))
+					sig_d = cell->getPort(ID::D);
 			}
 
 			if (sig_a.size() > 0 && !eval(sig_a, undef, cell))

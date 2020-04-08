@@ -704,8 +704,12 @@ class SmtIo:
                     if msg is not None:
                         print("%s waiting for solver (%s)" % (self.timestamp(), msg), flush=True)
 
-        result = ""
-        while result not in ["sat", "unsat"]:
+        if self.forall:
+            result = self.read()
+            while result not in ["sat", "unsat", "unknown"]:
+                print("%s %s: %s" % (self.timestamp(), self.solver, result))
+                result = self.read()
+        else:
             result = self.read()
 
         if self.debug_file:

@@ -541,8 +541,6 @@ from SystemVerilog:
   SystemVerilog files being read into the same design afterwards.
 
 - typedefs are supported (including inside packages)
-	- type identifiers must currently be enclosed in (parentheses) when declaring
-	  signals of that type (this is syntactically incorrect SystemVerilog)
 	- type casts are currently not supported
 
 - enums are supported (including inside packages)

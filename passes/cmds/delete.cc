@@ -65,27 +65,24 @@ struct DeletePass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		std::vector<RTLIL::IdString> delete_mods;
-
-		for (auto &mod_it : design->modules_)
+		std::vector<RTLIL::Module *> delete_mods;
+		for (auto module : design->modules())
 		{
-			if (design->selected_whole_module(mod_it.first) && !flag_input && !flag_output) {
-				delete_mods.push_back(mod_it.first);
+			if (design->selected_whole_module(module->name) && !flag_input && !flag_output) {
+				delete_mods.push_back(module);
 				continue;
 			}
 
-			if (!design->selected_module(mod_it.first))
+			if (!design->selected_module(module->name))
 				continue;
 
-			RTLIL::Module *module = mod_it.second;
-
 			if (flag_input || flag_output) {
-				for (auto &it : module->wires_)
-					if (design->selected(module, it.second)) {
+				for (auto wire : module->wires())
+					if (design->selected(module, wire)) {
 						if (flag_input)
-							it.second->port_input = false;
+							wire->port_input = false;
 						if (flag_output)
-							it.second->port_output = false;
+							wire->port_output = false;
 					}
 				module->fixup_ports();
 				continue;
@@ -96,20 +93,19 @@ struct DeletePass : public Pass {
 			pool<RTLIL::IdString> delete_procs;
 			pool<RTLIL::IdString> delete_mems;
 
-			for (auto &it : module->wires_)
-				if (design->selected(module, it.second))
-					delete_wires.insert(it.second);
+			for (auto wire : module->selected_wires())
+				delete_wires.insert(wire);
 
 			for (auto &it : module->memories)
 				if (design->selected(module, it.second))
 					delete_mems.insert(it.first);
 
-			for (auto &it : module->cells_) {
-				if (design->selected(module, it.second))
-					delete_cells.insert(it.second);
-				if (it.second->type.in("$memrd", "$memwr") &&
-						delete_mems.count(it.second->parameters.at("\\MEMID").decode_string()) != 0)
-					delete_cells.insert(it.second);
+			for (auto cell : module->cells()) {
+				if (design->selected(module, cell))
+					delete_cells.insert(cell);
+				if (cell->type.in(ID($memrd), ID($memwr)) &&
+						delete_mems.count(cell->parameters.at(ID::MEMID).decode_string()) != 0)
+					delete_cells.insert(cell);
 			}
 
 			for (auto &it : module->processes)
@@ -134,9 +130,8 @@ struct DeletePass : public Pass {
 			module->fixup_ports();
 		}
 
-		for (auto &it : delete_mods) {
-			delete design->modules_.at(it);
-			design->modules_.erase(it);
+		for (auto mod : delete_mods) {
+			design->remove(mod);
 		}
 	}
 } DeletePass;

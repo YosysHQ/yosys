@@ -208,7 +208,7 @@ struct FirrtlWorker
 		const char *atLine() {
 			if (srcLine == "") {
 				if (pCell) {
-					auto p = pCell->attributes.find("\\src");
+					auto p = pCell->attributes.find(ID::src);
 					srcLine = " at " + p->second.decode_string();
 				}
 			}
@@ -414,9 +414,9 @@ struct FirrtlWorker
 			std::string wireFileinfo = getFileinfo(wire);
 
 			// If a wire has initial data, issue a warning since FIRRTL doesn't currently support it.
-			if (wire->attributes.count("\\init")) {
+			if (wire->attributes.count(ID::init)) {
 				log_warning("Initial value (%s) for (%s.%s) not supported\n",
-							wire->attributes.at("\\init").as_string().c_str(),
+							wire->attributes.at(ID::init).as_string().c_str(),
 							log_id(module), log_id(wire));
 			}
 			if (wire->port_id)
@@ -444,11 +444,11 @@ struct FirrtlWorker
 			}
 			// Not a module instance. Set up cell properties
 			bool extract_y_bits = false;		// Assume no extraction of final bits will be required.
-			int a_width = cell->parameters.at("\\A_WIDTH", ndef).as_int();	// The width of "A"
-			int b_width = cell->parameters.at("\\B_WIDTH", ndef).as_int();	// The width of "A"
-			const int y_width = cell->parameters.at("\\Y_WIDTH", ndef).as_int();	// The width of the result
-			const bool a_signed = cell->parameters.at("\\A_SIGNED", ndef).as_bool();
-			const bool b_signed = cell->parameters.at("\\B_SIGNED", ndef).as_bool();
+			int a_width = cell->parameters.at(ID::A_WIDTH, ndef).as_int();	// The width of "A"
+			int b_width = cell->parameters.at(ID::B_WIDTH, ndef).as_int();	// The width of "A"
+			const int y_width = cell->parameters.at(ID::Y_WIDTH, ndef).as_int();	// The width of the result
+			const bool a_signed = cell->parameters.at(ID::A_SIGNED, ndef).as_bool();
+			const bool b_signed = cell->parameters.at(ID::B_SIGNED, ndef).as_bool();
 			bool firrtl_is_signed = a_signed;	// The result is signed (subsequent code may change this).
 			int firrtl_width = 0;
 			string primop;
@@ -456,9 +456,9 @@ struct FirrtlWorker
 			string y_id = make_id(cell->name);
 			std::string cellFileinfo = getFileinfo(cell);
 
-			if (cell->type.in("$not", "$logic_not", "$neg", "$reduce_and", "$reduce_or", "$reduce_xor", "$reduce_bool", "$reduce_xnor"))
+			if (cell->type.in(ID($not), ID($logic_not), ID($neg), ID($reduce_and), ID($reduce_or), ID($reduce_xor), ID($reduce_bool), ID($reduce_xnor)))
 			{
-				string a_expr = make_expr(cell->getPort("\\A"));
+				string a_expr = make_expr(cell->getPort(ID::A));
 				wire_decls.push_back(stringf("    wire %s: UInt<%d> %s\n", y_id.c_str(), y_width, cellFileinfo.c_str()));
 
 				if (a_signed) {
@@ -466,29 +466,29 @@ struct FirrtlWorker
 				}
 
 				// Don't use the results of logical operations (a single bit) to control padding
-				if (!(cell->type.in("$eq", "$eqx", "$gt", "$ge", "$lt", "$le", "$ne", "$nex", "$reduce_bool", "$logic_not") && y_width == 1) ) {
+				if (!(cell->type.in(ID($eq), ID($eqx), ID($gt), ID($ge), ID($lt), ID($le), ID($ne), ID($nex), ID($reduce_bool), ID($logic_not)) && y_width == 1) ) {
 					a_expr = stringf("pad(%s, %d)", a_expr.c_str(), y_width);
 				}
 
 				// Assume the FIRRTL width is a single bit.
 				firrtl_width = 1;
-				if (cell->type == "$not") primop = "not";
-				else if (cell->type == "$neg") {
+				if (cell->type == ID($not)) primop = "not";
+				else if (cell->type == ID($neg)) {
 					primop = "neg";
 					firrtl_is_signed = true;	// Result of "neg" is signed (an SInt).
 					firrtl_width = a_width;
-				} else if (cell->type == "$logic_not") {
+				} else if (cell->type == ID($logic_not)) {
 					primop = "eq";
 					a_expr = stringf("%s, UInt(0)", a_expr.c_str());
 				}
-				else if (cell->type == "$reduce_and") primop = "andr";
-				else if (cell->type == "$reduce_or") primop = "orr";
-				else if (cell->type == "$reduce_xor") primop = "xorr";
-				else if (cell->type == "$reduce_xnor") {
+				else if (cell->type == ID($reduce_and)) primop = "andr";
+				else if (cell->type == ID($reduce_or)) primop = "orr";
+				else if (cell->type == ID($reduce_xor)) primop = "xorr";
+				else if (cell->type == ID($reduce_xnor)) {
 					primop = "not";
 					a_expr = stringf("xorr(%s)", a_expr.c_str());
 				}
-				else if (cell->type == "$reduce_bool") {
+				else if (cell->type == ID($reduce_bool)) {
 					primop = "neq";
 					// Use the sign of the a_expr and its width as the type (UInt/SInt) and width of the comparand.
 					a_expr = stringf("%s, %cInt<%d>(0)", a_expr.c_str(), a_signed ? 'S' : 'U', a_width);
@@ -500,16 +500,16 @@ struct FirrtlWorker
 					expr = stringf("asUInt(%s)", expr.c_str());
 
 				cell_exprs.push_back(stringf("    %s <= %s %s\n", y_id.c_str(), expr.c_str(), cellFileinfo.c_str()));
-				register_reverse_wire_map(y_id, cell->getPort("\\Y"));
+				register_reverse_wire_map(y_id, cell->getPort(ID::Y));
 
 				continue;
 			}
-			if (cell->type.in("$add", "$sub", "$mul", "$div", "$mod", "$xor", "$xnor", "$and", "$or", "$eq", "$eqx",
-				"$gt", "$ge", "$lt", "$le", "$ne", "$nex", "$shr", "$sshr", "$sshl", "$shl",
-				"$logic_and", "$logic_or", "$pow"))
+			if (cell->type.in(ID($add), ID($sub), ID($mul), ID($div), ID($mod), ID($xor), ID($xnor), ID($and), ID($or), ID($eq), ID($eqx),
+												ID($gt), ID($ge), ID($lt), ID($le), ID($ne), ID($nex), ID($shr), ID($sshr), ID($sshl), ID($shl),
+												ID($logic_and), ID($logic_or), ID($pow)))
 			{
-				string a_expr = make_expr(cell->getPort("\\A"));
-				string b_expr = make_expr(cell->getPort("\\B"));
+				string a_expr = make_expr(cell->getPort(ID::A));
+				string b_expr = make_expr(cell->getPort(ID::B));
 				std::string cellFileinfo = getFileinfo(cell);
 				wire_decls.push_back(stringf("    wire %s: UInt<%d> %s\n", y_id.c_str(), y_width, cellFileinfo.c_str()));
 
@@ -523,7 +523,7 @@ struct FirrtlWorker
 				}
 				// Shift amount is always unsigned, and needn't be padded to result width,
 				//  otherwise, we need to cast the b_expr appropriately
-				if (b_signed && !cell->type.in("$shr", "$sshr", "$shl", "$sshl", "$pow")) {
+				if (b_signed && !cell->type.in(ID($shr), ID($sshr), ID($shl), ID($sshl), ID($pow))) {
 					b_expr = "asSInt(" + b_expr + ")";
 					// Expand the "B" operand to the result width
 					if (b_width < y_width) {
@@ -534,7 +534,7 @@ struct FirrtlWorker
 
 				// For the arithmetic ops, expand operand widths to result widths befor performing the operation.
 				// This corresponds (according to iverilog) to what verilog compilers implement.
-				if (cell->type.in("$add", "$sub", "$mul", "$div", "$mod", "$xor", "$xnor", "$and", "$or"))
+				if (cell->type.in(ID($add), ID($sub), ID($mul), ID($div), ID($mod), ID($xor), ID($xnor), ID($and), ID($or)))
 				{
 					if (a_width < y_width) {
 						a_expr = stringf("pad(%s, %d)", a_expr.c_str(), y_width);
@@ -547,85 +547,85 @@ struct FirrtlWorker
 				}
 				// Assume the FIRRTL width is the width of "A"
 				firrtl_width = a_width;
-				auto a_sig = cell->getPort("\\A");
+				auto a_sig = cell->getPort(ID::A);
 
-				if (cell->type == "$add") {
+				if (cell->type == ID($add)) {
 					primop = "add";
 					firrtl_is_signed = a_signed | b_signed;
 					firrtl_width = max(a_width, b_width);
-				} else if (cell->type == "$sub") {
+				} else if (cell->type == ID($sub)) {
 					primop = "sub";
 					firrtl_is_signed = true;
 					int a_widthInc = (!a_signed && b_signed) ? 2 : (a_signed && !b_signed) ? 1 : 0;
 					int b_widthInc = (a_signed && !b_signed) ? 2 : (!a_signed && b_signed) ? 1 : 0;
 					firrtl_width = max(a_width + a_widthInc, b_width + b_widthInc);
-				} else if (cell->type == "$mul") {
+				} else if (cell->type == ID($mul)) {
 					primop = "mul";
 					firrtl_is_signed = a_signed | b_signed;
 					firrtl_width = a_width + b_width;
-				} else if (cell->type == "$div") {
+				} else if (cell->type == ID($div)) {
 					primop = "div";
 					firrtl_is_signed = a_signed | b_signed;
 					firrtl_width = a_width;
-				} else if (cell->type == "$mod") {
+				} else if (cell->type == ID($mod)) {
 					primop = "rem";
 					firrtl_width = min(a_width, b_width);
-				} else if (cell->type == "$and") {
+				} else if (cell->type == ID($and)) {
 					primop = "and";
 					always_uint = true;
 					firrtl_width = max(a_width, b_width);
 				}
-				else if (cell->type == "$or" ) {
+				else if (cell->type == ID($or) ) {
 					primop =  "or";
 					always_uint = true;
 					firrtl_width = max(a_width, b_width);
 				}
-				else if (cell->type == "$xor") {
+				else if (cell->type == ID($xor)) {
 					primop = "xor";
 					always_uint = true;
 					firrtl_width = max(a_width, b_width);
 				}
-				else if (cell->type == "$xnor") {
+				else if (cell->type == ID($xnor)) {
 					primop = "xnor";
 					always_uint = true;
 					firrtl_width = max(a_width, b_width);
 				}
-				else if ((cell->type == "$eq") | (cell->type == "$eqx")) {
+				else if ((cell->type == ID($eq)) | (cell->type == ID($eqx))) {
 					primop = "eq";
 					always_uint = true;
 					firrtl_width = 1;
-				}
-				else if ((cell->type == "$ne") | (cell->type == "$nex")) {
+			    }
+				else if ((cell->type == ID($ne)) | (cell->type == ID($nex))) {
 					primop = "neq";
 					always_uint = true;
 					firrtl_width = 1;
 				}
-				else if (cell->type == "$gt") {
+				else if (cell->type == ID($gt)) {
 					primop = "gt";
 					always_uint = true;
 					firrtl_width = 1;
 				}
-				else if (cell->type == "$ge") {
+				else if (cell->type == ID($ge)) {
 					primop = "geq";
 					always_uint = true;
 					firrtl_width = 1;
 				}
-				else if (cell->type == "$lt") {
+				else if (cell->type == ID($lt)) {
 					primop = "lt";
 					always_uint = true;
 					firrtl_width = 1;
 				}
-				else if (cell->type == "$le") {
+				else if (cell->type == ID($le)) {
 					primop = "leq";
 					always_uint = true;
 					firrtl_width = 1;
 				}
-				else if ((cell->type == "$shl") | (cell->type == "$sshl")) {
+				else if ((cell->type == ID($shl)) | (cell->type == ID($sshl))) {
 					// FIRRTL will widen the result (y) by the amount of the shift.
 					// We'll need to offset this by extracting the un-widened portion as Verilog would do.
 					extract_y_bits = true;
 					// Is the shift amount constant?
-					auto b_sig = cell->getPort("\\B");
+					auto b_sig = cell->getPort(ID::B);
 					if (b_sig.is_fully_const()) {
 						primop = "shl";
 						int shift_amount = b_sig.as_int();
@@ -638,11 +638,11 @@ struct FirrtlWorker
 						firrtl_width = a_width + (1 << b_width) - 1;
 					}
 				}
-				else if ((cell->type == "$shr") | (cell->type == "$sshr")) {
+				else if ((cell->type == ID($shr)) | (cell->type == ID($sshr))) {
 					// We don't need to extract a specific range of bits.
 					extract_y_bits = false;
 					// Is the shift amount constant?
-					auto b_sig = cell->getPort("\\B");
+					auto b_sig = cell->getPort(ID::B);
 					if (b_sig.is_fully_const()) {
 						primop = "shr";
 						int shift_amount = b_sig.as_int();
@@ -655,26 +655,26 @@ struct FirrtlWorker
 					// We'll need to do some special fixups if the source (and thus result) is signed.
 					if (firrtl_is_signed) {
 						// If this is a "logical" shift right, pretend the source is unsigned.
-						if (cell->type == "$shr") {
+						if (cell->type == ID($shr)) {
 							a_expr = "asUInt(" + a_expr + ")";
 						}
 					}
 				}
-				else if ((cell->type == "$logic_and")) {
+				else if ((cell->type == ID($logic_and))) {
 					primop = "and";
 					a_expr = "neq(" + a_expr + ", UInt(0))";
 					b_expr = "neq(" + b_expr + ", UInt(0))";
 					always_uint = true;
 					firrtl_width = 1;
 				}
-				else if ((cell->type == "$logic_or")) {
+				else if ((cell->type == ID($logic_or))) {
 					primop = "or";
 					a_expr = "neq(" + a_expr + ", UInt(0))";
 					b_expr = "neq(" + b_expr + ", UInt(0))";
 					always_uint = true;
 					firrtl_width = 1;
 				}
-				else if ((cell->type == "$pow")) {
+				else if ((cell->type == ID($pow))) {
 					if (a_sig.is_fully_const() && a_sig.as_int() == 2) {
 						// We'll convert this to a shift. To simplify things, change the a_expr to "1"
 						//	so we can use b_expr directly as a shift amount.
@@ -684,7 +684,7 @@ struct FirrtlWorker
 						a_expr = firrtl_is_signed ? "SInt(1)" : "UInt(1)";
 						extract_y_bits = true;
 						// Is the shift amount constant?
-						auto b_sig = cell->getPort("\\B");
+						auto b_sig = cell->getPort(ID::B);
 						if (b_sig.is_fully_const()) {
 							primop = "shl";
 							int shiftAmount = b_sig.as_int();
@@ -704,7 +704,7 @@ struct FirrtlWorker
 					}
 				}
 
-				if (!cell->parameters.at("\\B_SIGNED").as_bool()) {
+				if (!cell->parameters.at(ID::B_SIGNED).as_bool()) {
 					b_expr = "asUInt(" + b_expr + ")";
 				}
 
@@ -728,47 +728,47 @@ struct FirrtlWorker
 					expr = stringf("asUInt(%s)", expr.c_str());
 
 				cell_exprs.push_back(stringf("    %s <= %s %s\n", y_id.c_str(), expr.c_str(), cellFileinfo.c_str()));
-				register_reverse_wire_map(y_id, cell->getPort("\\Y"));
+				register_reverse_wire_map(y_id, cell->getPort(ID::Y));
 
 				continue;
 			}
 
-			if (cell->type.in("$mux"))
+			if (cell->type.in(ID($mux)))
 			{
-				int width = cell->parameters.at("\\WIDTH").as_int();
-				string a_expr = make_expr(cell->getPort("\\A"));
-				string b_expr = make_expr(cell->getPort("\\B"));
-				string s_expr = make_expr(cell->getPort("\\S"));
+				int width = cell->parameters.at(ID::WIDTH).as_int();
+				string a_expr = make_expr(cell->getPort(ID::A));
+				string b_expr = make_expr(cell->getPort(ID::B));
+				string s_expr = make_expr(cell->getPort(ID::S));
 				wire_decls.push_back(stringf("    wire %s: UInt<%d> %s\n", y_id.c_str(), width, cellFileinfo.c_str()));
 
 				string expr = stringf("mux(%s, %s, %s)", s_expr.c_str(), b_expr.c_str(), a_expr.c_str());
 
 				cell_exprs.push_back(stringf("    %s <= %s %s\n", y_id.c_str(), expr.c_str(), cellFileinfo.c_str()));
-				register_reverse_wire_map(y_id, cell->getPort("\\Y"));
+				register_reverse_wire_map(y_id, cell->getPort(ID::Y));
 
 				continue;
 			}
 
-			if (cell->type.in("$mem"))
+			if (cell->type.in(ID($mem)))
 			{
 				string mem_id = make_id(cell->name);
-				int abits = cell->parameters.at("\\ABITS").as_int();
-				int width = cell->parameters.at("\\WIDTH").as_int();
-				int size = cell->parameters.at("\\SIZE").as_int();
+				int abits = cell->parameters.at(ID::ABITS).as_int();
+				int width = cell->parameters.at(ID::WIDTH).as_int();
+				int size = cell->parameters.at(ID::SIZE).as_int();
 				memory m(cell, mem_id, abits, size, width);
-				int rd_ports = cell->parameters.at("\\RD_PORTS").as_int();
-				int wr_ports = cell->parameters.at("\\WR_PORTS").as_int();
+				int rd_ports = cell->parameters.at(ID::RD_PORTS).as_int();
+				int wr_ports = cell->parameters.at(ID::WR_PORTS).as_int();
 
-				Const initdata = cell->parameters.at("\\INIT");
+				Const initdata = cell->parameters.at(ID::INIT);
 				for (State bit : initdata.bits)
 					if (bit != State::Sx)
 						log_error("Memory with initialization data: %s.%s\n", log_id(module), log_id(cell));
 
-				Const rd_clk_enable = cell->parameters.at("\\RD_CLK_ENABLE");
-				Const wr_clk_enable = cell->parameters.at("\\WR_CLK_ENABLE");
-				Const wr_clk_polarity = cell->parameters.at("\\WR_CLK_POLARITY");
+				Const rd_clk_enable = cell->parameters.at(ID::RD_CLK_ENABLE);
+				Const wr_clk_enable = cell->parameters.at(ID::WR_CLK_ENABLE);
+				Const wr_clk_polarity = cell->parameters.at(ID::WR_CLK_POLARITY);
 
-				int offset = cell->parameters.at("\\OFFSET").as_int();
+				int offset = cell->parameters.at(ID::OFFSET).as_int();
 				if (offset != 0)
 					log_error("Memory with nonzero offset: %s.%s\n", log_id(module), log_id(cell));
 
@@ -777,8 +777,8 @@ struct FirrtlWorker
 					if (rd_clk_enable[i] != State::S0)
 						log_error("Clocked read port %d on memory %s.%s.\n", i, log_id(module), log_id(cell));
 
-					SigSpec addr_sig = cell->getPort("\\RD_ADDR").extract(i*abits, abits);
-					SigSpec data_sig = cell->getPort("\\RD_DATA").extract(i*width, width);
+					SigSpec addr_sig = cell->getPort(ID::RD_ADDR).extract(i*abits, abits);
+					SigSpec data_sig = cell->getPort(ID::RD_DATA).extract(i*width, width);
 					string addr_expr = make_expr(addr_sig);
 					string name(stringf("%s.r%d", m.name.c_str(), i));
 					bool clk_enable = false;
@@ -804,14 +804,14 @@ struct FirrtlWorker
 					bool clk_enable = true;
 					bool clk_parity = true;
 					bool transparency = false;
-					SigSpec addr_sig =cell->getPort("\\WR_ADDR").extract(i*abits, abits);
+					SigSpec addr_sig =cell->getPort(ID::WR_ADDR).extract(i*abits, abits);
 					string addr_expr = make_expr(addr_sig);
-					SigSpec data_sig =cell->getPort("\\WR_DATA").extract(i*width, width);
+					SigSpec data_sig =cell->getPort(ID::WR_DATA).extract(i*width, width);
 					string data_expr = make_expr(data_sig);
-					SigSpec clk_sig = cell->getPort("\\WR_CLK").extract(i);
+					SigSpec clk_sig = cell->getPort(ID::WR_CLK).extract(i);
 					string clk_expr = make_expr(clk_sig);
 
-					SigSpec wen_sig = cell->getPort("\\WR_EN").extract(i*width, width);
+					SigSpec wen_sig = cell->getPort(ID::WR_EN).extract(i*width, width);
 					string wen_expr = make_expr(wen_sig[0]);
 
 					for (int i = 1; i < GetSize(wen_sig); i++)
@@ -828,23 +828,23 @@ struct FirrtlWorker
 				continue;
 			}
 
-			if (cell->type.in("$memwr", "$memrd", "$meminit"))
+			if (cell->type.in(ID($memwr), ID($memrd), ID($meminit)))
 			{
 				std::string cell_type = fid(cell->type);
-				std::string mem_id = make_id(cell->parameters["\\MEMID"].decode_string());
-				int abits = cell->parameters.at("\\ABITS").as_int();
-				int width = cell->parameters.at("\\WIDTH").as_int();
+				std::string mem_id = make_id(cell->parameters[ID::MEMID].decode_string());
+				int abits = cell->parameters.at(ID::ABITS).as_int();
+				int width = cell->parameters.at(ID::WIDTH).as_int();
 				memory *mp = nullptr;
-				if (cell->type == "$meminit" ) {
+				if (cell->type == ID($meminit) ) {
 					log_error("$meminit (%s.%s.%s) currently unsupported\n", log_id(module), log_id(cell), mem_id.c_str());
 				} else {
 					// It's a $memwr or $memrd. Remember the read/write port parameters for the eventual FIRRTL memory definition.
-					auto addrSig = cell->getPort("\\ADDR");
-					auto dataSig = cell->getPort("\\DATA");
-					auto enableSig = cell->getPort("\\EN");
-					auto clockSig = cell->getPort("\\CLK");
-					Const clk_enable = cell->parameters.at("\\CLK_ENABLE");
-					Const clk_polarity = cell->parameters.at("\\CLK_POLARITY");
+					auto addrSig = cell->getPort(ID::ADDR);
+					auto dataSig = cell->getPort(ID::DATA);
+					auto enableSig = cell->getPort(ID::EN);
+					auto clockSig = cell->getPort(ID::CLK);
+					Const clk_enable = cell->parameters.at(ID::CLK_ENABLE);
+					Const clk_polarity = cell->parameters.at(ID::CLK_POLARITY);
 
 					// Do we already have an entry for this memory?
 					if (memories.count(mem_id) == 0) {
@@ -855,13 +855,13 @@ struct FirrtlWorker
 					int portNum = 0;
 					bool transparency = false;
 					string data_expr = make_expr(dataSig);
-					if (cell->type.in("$memwr")) {
+					if (cell->type.in(ID($memwr))) {
 						portNum = (int) mp->write_ports.size();
 						write_port wp(stringf("%s.w%d", mem_id.c_str(), portNum), clk_enable.as_bool(), clk_polarity.as_bool(),  transparency, clockSig, enableSig, addrSig, dataSig);
 						mp->add_memory_write_port(wp);
 						cell_exprs.push_back(stringf("%s%s.data <= %s\n", indent.c_str(), wp.name.c_str(), data_expr.c_str()));
 						cell_exprs.push_back(wp.gen_write(indent.c_str()));
-					} else if (cell->type.in("$memrd")) {
+					} else if (cell->type.in(ID($memrd))) {
 						portNum = (int) mp->read_ports.size();
 						read_port rp(stringf("%s.r%d", mem_id.c_str(), portNum), clk_enable.as_bool(), clk_polarity.as_bool(),  transparency, clockSig, enableSig, addrSig);
 						mp->add_memory_read_port(rp);
@@ -872,20 +872,20 @@ struct FirrtlWorker
 				continue;
 			}
 
-			if (cell->type.in("$dff"))
+			if (cell->type.in(ID($dff)))
 			{
-				bool clkpol = cell->parameters.at("\\CLK_POLARITY").as_bool();
+				bool clkpol = cell->parameters.at(ID::CLK_POLARITY).as_bool();
 				if (clkpol == false)
 					log_error("Negative edge clock on FF %s.%s.\n", log_id(module), log_id(cell));
 
-				int width = cell->parameters.at("\\WIDTH").as_int();
-				string expr = make_expr(cell->getPort("\\D"));
-				string clk_expr = "asClock(" + make_expr(cell->getPort("\\CLK")) + ")";
+				int width = cell->parameters.at(ID::WIDTH).as_int();
+				string expr = make_expr(cell->getPort(ID::D));
+				string clk_expr = "asClock(" + make_expr(cell->getPort(ID::CLK)) + ")";
 
 				wire_decls.push_back(stringf("    reg %s: UInt<%d>, %s %s\n", y_id.c_str(), width, clk_expr.c_str(), cellFileinfo.c_str()));
 
 				cell_exprs.push_back(stringf("    %s <= %s %s\n", y_id.c_str(), expr.c_str(), cellFileinfo.c_str()));
-				register_reverse_wire_map(y_id, cell->getPort("\\Q"));
+				register_reverse_wire_map(y_id, cell->getPort(ID::Q));
 
 				continue;
 			}
@@ -896,38 +896,38 @@ struct FirrtlWorker
 				process_instance(cell, wire_exprs);
 				continue;
 			}
-			if (cell->type == "$shiftx") {
+			if (cell->type == ID($shiftx)) {
 				// assign y = a[b +: y_width];
 				// We'll extract the correct bits as part of the primop.
 
-				string a_expr = make_expr(cell->getPort("\\A"));
+				string a_expr = make_expr(cell->getPort(ID::A));
 				// Get the initial bit selector
-				string b_expr = make_expr(cell->getPort("\\B"));
+				string b_expr = make_expr(cell->getPort(ID::B));
 				wire_decls.push_back(stringf("    wire %s: UInt<%d>\n", y_id.c_str(), y_width));
 
-				if (cell->getParam("\\B_SIGNED").as_bool()) {
+				if (cell->getParam(ID::B_SIGNED).as_bool()) {
 					// Use validif to constrain the selection (test the sign bit)
 					auto b_string = b_expr.c_str();
-					int b_sign = cell->parameters.at("\\B_WIDTH").as_int() - 1;
+					int b_sign = cell->parameters.at(ID::B_WIDTH).as_int() - 1;
 					b_expr = stringf("validif(not(bits(%s, %d, %d)), %s)", b_string, b_sign, b_sign, b_string);
 				}
 				string expr = stringf("dshr(%s, %s)", a_expr.c_str(), b_expr.c_str());
 
 				cell_exprs.push_back(stringf("    %s <= %s\n", y_id.c_str(), expr.c_str()));
-				register_reverse_wire_map(y_id, cell->getPort("\\Y"));
+				register_reverse_wire_map(y_id, cell->getPort(ID::Y));
 				continue;
 			}
-			if (cell->type == "$shift") {
+			if (cell->type == ID($shift)) {
 				// assign y = a >> b;
 				//  where b may be negative
 
-				string a_expr = make_expr(cell->getPort("\\A"));
-				string b_expr = make_expr(cell->getPort("\\B"));
+				string a_expr = make_expr(cell->getPort(ID::A));
+				string b_expr = make_expr(cell->getPort(ID::B));
 				auto b_string = b_expr.c_str();
 				string expr;
 				wire_decls.push_back(stringf("    wire %s: UInt<%d>\n", y_id.c_str(), y_width));
 
-				if (cell->getParam("\\B_SIGNED").as_bool()) {
+				if (cell->getParam(ID::B_SIGNED).as_bool()) {
 					// We generate a left or right shift based on the sign of b.
 					std::string dshl = stringf("bits(dshl(%s, %s), 0, %d)", a_expr.c_str(), gen_dshl(b_expr, b_width).c_str(), y_width);
 					std::string dshr = stringf("dshr(%s, %s)", a_expr.c_str(), b_string);
@@ -940,13 +940,13 @@ struct FirrtlWorker
 					expr = stringf("dshr(%s, %s)", a_expr.c_str(), b_string);
 				}
 				cell_exprs.push_back(stringf("    %s <= %s\n", y_id.c_str(), expr.c_str()));
-				register_reverse_wire_map(y_id, cell->getPort("\\Y"));
+				register_reverse_wire_map(y_id, cell->getPort(ID::Y));
 				continue;
 			}
-			if (cell->type == "$pos") {
+			if (cell->type == ID($pos)) {
 				// assign y = a;
 //				printCell(cell);
-				string a_expr = make_expr(cell->getPort("\\A"));
+				string a_expr = make_expr(cell->getPort(ID::A));
 				// Verilog appears to treat the result as signed, so if the result is wider than "A",
 				//  we need to pad.
 				if (a_width < y_width) {
@@ -954,7 +954,7 @@ struct FirrtlWorker
 				}
 				wire_decls.push_back(stringf("    wire %s: UInt<%d>\n", y_id.c_str(), y_width));
 				cell_exprs.push_back(stringf("    %s <= %s\n", y_id.c_str(), a_expr.c_str()));
-				register_reverse_wire_map(y_id, cell->getPort("\\Y"));
+				register_reverse_wire_map(y_id, cell->getPort(ID::Y));
 				continue;
 			}
 			log_error("Cell type not supported: %s (%s.%s)\n", log_id(cell->type), log_id(module), log_id(cell));
@@ -1134,7 +1134,7 @@ struct FirrtlBackend : public Backend {
 		for (auto module : design->modules()) {
 			make_id(module->name);
 			last = module;
-			if (top == nullptr && module->get_bool_attribute("\\top")) {
+			if (top == nullptr && module->get_bool_attribute(ID::top)) {
 				top = module;
 			}
 			for (auto wire : module->wires())

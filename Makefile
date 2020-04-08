@@ -51,6 +51,10 @@ ifneq ($(wildcard Makefile.conf),)
 include Makefile.conf
 endif
 
+ifeq ($(ENABLE_PYOSYS),1)
+ENABLE_LIBYOSYS := 1
+endif
+
 BINDIR := $(PREFIX)/bin
 LIBDIR := $(PREFIX)/lib
 DATDIR := $(PREFIX)/share/yosys
@@ -115,7 +119,7 @@ LDFLAGS += -rdynamic
 LDLIBS += -lrt
 endif
 
-YOSYS_VER := 0.9+1706
+YOSYS_VER := 0.9+2406
 GIT_REV := $(shell cd $(YOSYS_SRC) && git rev-parse --short HEAD 2> /dev/null || echo UNKNOWN)
 OBJS = kernel/version_$(GIT_REV).o
 
@@ -529,6 +533,7 @@ $(eval $(call add_include_file,kernel/register.h))
 $(eval $(call add_include_file,kernel/celltypes.h))
 $(eval $(call add_include_file,kernel/celledges.h))
 $(eval $(call add_include_file,kernel/consteval.h))
+$(eval $(call add_include_file,kernel/constids.inc))
 $(eval $(call add_include_file,kernel/sigtools.h))
 $(eval $(call add_include_file,kernel/modtools.h))
 $(eval $(call add_include_file,kernel/macc.h))
@@ -716,6 +721,7 @@ test: $(TARGETS) $(EXTRA_TARGETS)
 	+cd tests/memories && bash run-test.sh $(ABCOPT) $(SEEDOPT)
 	+cd tests/bram && bash run-test.sh $(SEEDOPT)
 	+cd tests/various && bash run-test.sh
+	+cd tests/select && bash run-test.sh
 	+cd tests/sat && bash run-test.sh
 	+cd tests/svinterfaces && bash run-test.sh $(SEEDOPT)
 	+cd tests/svtypes && bash run-test.sh $(SEEDOPT)

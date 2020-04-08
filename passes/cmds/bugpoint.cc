@@ -114,8 +114,8 @@ struct BugpointPass : public Pass {
 			return design;
 
 		RTLIL::Design *design_copy = new RTLIL::Design;
-		for (auto &it : design->modules_)
-			design_copy->add(it.second->clone());
+		for (auto module : design->modules())
+			design_copy->add(module->clone());
 		Pass::call(design_copy, "proc_clean -quiet");
 		Pass::call(design_copy, "clean -purge");
 
@@ -127,21 +127,21 @@ struct BugpointPass : public Pass {
 	RTLIL::Design *simplify_something(RTLIL::Design *design, int &seed, bool stage2, bool modules, bool ports, bool cells, bool connections, bool assigns, bool updates)
 	{
 		RTLIL::Design *design_copy = new RTLIL::Design;
-		for (auto &it : design->modules_)
-			design_copy->add(it.second->clone());
+		for (auto module : design->modules())
+			design_copy->add(module->clone());
 
 		int index = 0;
 		if (modules)
 		{
-			for (auto &it : design_copy->modules_)
+			for (auto module : design_copy->modules())
 			{
-				if (it.second->get_blackbox_attribute())
+				if (module->get_blackbox_attribute())
 					continue;
 
 				if (index++ == seed)
 				{
-					log("Trying to remove module %s.\n", it.first.c_str());
-					design_copy->remove(it.second);
+					log("Trying to remove module %s.\n", module->name.c_str());
+					design_copy->remove(module);
 					return design_copy;
 				}
 			}
@@ -155,7 +155,7 @@ struct BugpointPass : public Pass {
 
 				for (auto wire : mod->wires())
 				{
-					if (!stage2 && wire->get_bool_attribute("$bugpoint"))
+					if (!stage2 && wire->get_bool_attribute(ID($bugpoint)))
 						continue;
 
 					if (wire->port_input || wire->port_output)
@@ -178,12 +178,12 @@ struct BugpointPass : public Pass {
 				if (mod->get_blackbox_attribute())
 					continue;
 
-				for (auto &it : mod->cells_)
+				for (auto cell : mod->cells())
 				{
 					if (index++ == seed)
 					{
-						log("Trying to remove cell %s.%s.\n", mod->name.c_str(), it.first.c_str());
-						mod->remove(it.second);
+						log("Trying to remove cell %s.%s.\n", mod->name.c_str(), cell->name.c_str());
+						mod->remove(cell);
 						return design_copy;
 					}
 				}
@@ -220,7 +220,7 @@ struct BugpointPass : public Pass {
 						{
 							log("Trying to expose cell port %s.%s.%s as module port.\n", mod->name.c_str(), cell->name.c_str(), it.first.c_str());
 							RTLIL::Wire *wire = mod->addWire(NEW_ID, port.size());
-							wire->set_bool_attribute("$bugpoint");
+							wire->set_bool_attribute(ID($bugpoint));
 							wire->port_input = cell->input(it.first);
 							wire->port_output = cell->output(it.first);
 							cell->unsetPort(it.first);
@@ -285,7 +285,7 @@ struct BugpointPass : public Pass {
 				}
 			}
 		}
-		return NULL;
+		return nullptr;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -433,8 +433,8 @@ struct BugpointPass : public Pass {
 		{
 			Pass::call(design, "design -reset");
 			crashing_design = clean_design(crashing_design, clean, /*do_delete=*/true);
-			for (auto &it : crashing_design->modules_)
-				design->add(it.second->clone());
+			for (auto module : crashing_design->modules())
+				design->add(module->clone());
 			delete crashing_design;
 		}
 	}

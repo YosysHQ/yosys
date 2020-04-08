@@ -439,7 +439,7 @@ void mutate_list(Design *design, const mutate_opts_t &opts, const string &filena
 		dict<SigBit, int> bit_user_cnt;
 
 		for (auto wire : module->wires()) {
-			if (wire->name[0] == '\\' && wire->attributes.count("\\src"))
+			if (wire->name[0] == '\\' && wire->attributes.count(ID::src))
 				sigmap.add(wire);
 		}
 
@@ -489,12 +489,12 @@ void mutate_list(Design *design, const mutate_opts_t &opts, const string &filena
 					entry.port = conn.first;
 					entry.portbit = i;
 
-					for (auto &s : cell->get_strpool_attribute("\\src"))
+					for (auto &s : cell->get_strpool_attribute(ID::src))
 						entry.src.insert(s);
 
 					SigBit bit = sigmap(conn.second[i]);
 					if (bit.wire && bit.wire->name[0] == '\\' && (cell->output(conn.first) || bit_user_cnt[bit] == 1)) {
-						for (auto &s : bit.wire->get_strpool_attribute("\\src"))
+						for (auto &s : bit.wire->get_strpool_attribute(ID::src))
 							entry.src.insert(s);
 						entry.wire = bit.wire->name;
 						entry.wirebit = bit.offset;

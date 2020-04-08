@@ -105,11 +105,11 @@ struct rules_t
 				log_error("Bram %s variants %d and %d have different values for 'groups'.\n", log_id(name), variant, other.variant);
 
 			if (abits != other.abits)
-				variant_params["\\CFG_ABITS"] = abits;
+				variant_params[ID::CFG_ABITS] = abits;
 			if (dbits != other.dbits)
-				variant_params["\\CFG_DBITS"] = dbits;
+				variant_params[ID::CFG_DBITS] = dbits;
 			if (init != other.init)
-				variant_params["\\CFG_INIT"] = init;
+				variant_params[ID::CFG_INIT] = init;
 
 			for (int i = 0; i < groups; i++)
 			{
@@ -414,44 +414,44 @@ bool replace_cell(Cell *cell, const rules_t &rules, const rules_t::bram_t &bram,
 	log("    Mapping to bram type %s (variant %d):\n", log_id(bram.name), bram.variant);
 	// bram.dump_config();
 
-	int mem_size = cell->getParam("\\SIZE").as_int();
-	int mem_abits = cell->getParam("\\ABITS").as_int();
-	int mem_width = cell->getParam("\\WIDTH").as_int();
-	// int mem_offset = cell->getParam("\\OFFSET").as_int();
+	int mem_size = cell->getParam(ID::SIZE).as_int();
+	int mem_abits = cell->getParam(ID::ABITS).as_int();
+	int mem_width = cell->getParam(ID::WIDTH).as_int();
+	// int mem_offset = cell->getParam(ID::OFFSET).as_int();
 
-	bool cell_init = !SigSpec(cell->getParam("\\INIT")).is_fully_undef();
+	bool cell_init = !SigSpec(cell->getParam(ID::INIT)).is_fully_undef();
 	vector<Const> initdata;
 
 	if (cell_init) {
-		Const initparam = cell->getParam("\\INIT");
+		Const initparam = cell->getParam(ID::INIT);
 		initdata.reserve(mem_size);
 		for (int i=0; i < mem_size; i++)
 			initdata.push_back(initparam.extract(mem_width*i, mem_width, State::Sx));
 	}
 
-	int wr_ports = cell->getParam("\\WR_PORTS").as_int();
-	auto wr_clken = SigSpec(cell->getParam("\\WR_CLK_ENABLE"));
-	auto wr_clkpol = SigSpec(cell->getParam("\\WR_CLK_POLARITY"));
+	int wr_ports = cell->getParam(ID::WR_PORTS).as_int();
+	auto wr_clken = SigSpec(cell->getParam(ID::WR_CLK_ENABLE));
+	auto wr_clkpol = SigSpec(cell->getParam(ID::WR_CLK_POLARITY));
 	wr_clken.extend_u0(wr_ports);
 	wr_clkpol.extend_u0(wr_ports);
 
-	SigSpec wr_en = cell->getPort("\\WR_EN");
-	SigSpec wr_clk = cell->getPort("\\WR_CLK");
-	SigSpec wr_data = cell->getPort("\\WR_DATA");
-	SigSpec wr_addr = cell->getPort("\\WR_ADDR");
+	SigSpec wr_en = cell->getPort(ID::WR_EN);
+	SigSpec wr_clk = cell->getPort(ID::WR_CLK);
+	SigSpec wr_data = cell->getPort(ID::WR_DATA);
+	SigSpec wr_addr = cell->getPort(ID::WR_ADDR);
 
-	int rd_ports = cell->getParam("\\RD_PORTS").as_int();
-	auto rd_clken = SigSpec(cell->getParam("\\RD_CLK_ENABLE"));
-	auto rd_clkpol = SigSpec(cell->getParam("\\RD_CLK_POLARITY"));
-	auto rd_transp = SigSpec(cell->getParam("\\RD_TRANSPARENT"));
+	int rd_ports = cell->getParam(ID::RD_PORTS).as_int();
+	auto rd_clken = SigSpec(cell->getParam(ID::RD_CLK_ENABLE));
+	auto rd_clkpol = SigSpec(cell->getParam(ID::RD_CLK_POLARITY));
+	auto rd_transp = SigSpec(cell->getParam(ID::RD_TRANSPARENT));
 	rd_clken.extend_u0(rd_ports);
 	rd_clkpol.extend_u0(rd_ports);
 	rd_transp.extend_u0(rd_ports);
 
-	SigSpec rd_en = cell->getPort("\\RD_EN");
-	SigSpec rd_clk = cell->getPort("\\RD_CLK");
-	SigSpec rd_data = cell->getPort("\\RD_DATA");
-	SigSpec rd_addr = cell->getPort("\\RD_ADDR");
+	SigSpec rd_en = cell->getPort(ID::RD_EN);
+	SigSpec rd_clk = cell->getPort(ID::RD_CLK);
+	SigSpec rd_data = cell->getPort(ID::RD_DATA);
+	SigSpec rd_addr = cell->getPort(ID::RD_ADDR);
 
 	if (match.shuffle_enable && bram.dbits >= portinfos.at(match.shuffle_enable - 'A').enable*2 && portinfos.at(match.shuffle_enable - 'A').enable > 0 && wr_ports > 0)
 	{
@@ -915,7 +915,7 @@ grow_read_ports:;
 						else
 							initparam[i*bram.dbits+j] = padding;
 				}
-				c->setParam("\\INIT", initparam);
+				c->setParam(ID::INIT, initparam);
 			}
 
 			for (auto &pi : portinfos)
@@ -1048,14 +1048,14 @@ void handle_cell(Cell *cell, const rules_t &rules)
 {
 	log("Processing %s.%s:\n", log_id(cell->module), log_id(cell));
 
-	bool cell_init = !SigSpec(cell->getParam("\\INIT")).is_fully_undef();
+	bool cell_init = !SigSpec(cell->getParam(ID::INIT)).is_fully_undef();
 
 	dict<string, int> match_properties;
-	match_properties["words"]  = cell->getParam("\\SIZE").as_int();
-	match_properties["abits"]  = cell->getParam("\\ABITS").as_int();
-	match_properties["dbits"]  = cell->getParam("\\WIDTH").as_int();
-	match_properties["wports"] = cell->getParam("\\WR_PORTS").as_int();
-	match_properties["rports"] = cell->getParam("\\RD_PORTS").as_int();
+	match_properties["words"]  = cell->getParam(ID::SIZE).as_int();
+	match_properties["abits"]  = cell->getParam(ID::ABITS).as_int();
+	match_properties["dbits"]  = cell->getParam(ID::WIDTH).as_int();
+	match_properties["wports"] = cell->getParam(ID::WR_PORTS).as_int();
+	match_properties["rports"] = cell->getParam(ID::RD_PORTS).as_int();
 	match_properties["bits"]   = match_properties["words"] * match_properties["dbits"];
 	match_properties["ports"]  = match_properties["wports"] + match_properties["rports"];
 
@@ -1357,7 +1357,7 @@ struct MemoryBramPass : public Pass {
 
 		for (auto mod : design->selected_modules())
 		for (auto cell : mod->selected_cells())
-			if (cell->type == "$mem")
+			if (cell->type == ID($mem))
 				handle_cell(cell, rules);
 	}
 } MemoryBramPass;

@@ -29,8 +29,6 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-using RTLIL::id2cstr;
-
 class SubCircuitSolver : public SubCircuit::Solver
 {
 public:
@@ -58,36 +56,36 @@ public:
 			return value;
 
 	#define param_bool(_n) if (param == _n) return value.as_bool();
-		param_bool(ID(ARST_POLARITY));
-		param_bool(ID(A_SIGNED));
-		param_bool(ID(B_SIGNED));
-		param_bool(ID(CLK_ENABLE));
-		param_bool(ID(CLK_POLARITY));
-		param_bool(ID(CLR_POLARITY));
-		param_bool(ID(EN_POLARITY));
-		param_bool(ID(SET_POLARITY));
-		param_bool(ID(TRANSPARENT));
+		param_bool(ID::ARST_POLARITY);
+		param_bool(ID::A_SIGNED);
+		param_bool(ID::B_SIGNED);
+		param_bool(ID::CLK_ENABLE);
+		param_bool(ID::CLK_POLARITY);
+		param_bool(ID::CLR_POLARITY);
+		param_bool(ID::EN_POLARITY);
+		param_bool(ID::SET_POLARITY);
+		param_bool(ID::TRANSPARENT);
 	#undef param_bool
 
 	#define param_int(_n) if (param == _n) return value.as_int();
-		param_int(ID(ABITS))
-		param_int(ID(A_WIDTH))
-		param_int(ID(B_WIDTH))
-		param_int(ID(CTRL_IN_WIDTH))
-		param_int(ID(CTRL_OUT_WIDTH))
-		param_int(ID(OFFSET))
-		param_int(ID(PRIORITY))
-		param_int(ID(RD_PORTS))
-		param_int(ID(SIZE))
-		param_int(ID(STATE_BITS))
-		param_int(ID(STATE_NUM))
-		param_int(ID(STATE_NUM_LOG2))
-		param_int(ID(STATE_RST))
-		param_int(ID(S_WIDTH))
-		param_int(ID(TRANS_NUM))
-		param_int(ID(WIDTH))
-		param_int(ID(WR_PORTS))
-		param_int(ID(Y_WIDTH))
+		param_int(ID::ABITS)
+		param_int(ID::A_WIDTH)
+		param_int(ID::B_WIDTH)
+		param_int(ID::CTRL_IN_WIDTH)
+		param_int(ID::CTRL_OUT_WIDTH)
+		param_int(ID::OFFSET)
+		param_int(ID::PRIORITY)
+		param_int(ID::RD_PORTS)
+		param_int(ID::SIZE)
+		param_int(ID::STATE_BITS)
+		param_int(ID::STATE_NUM)
+		param_int(ID::STATE_NUM_LOG2)
+		param_int(ID::STATE_RST)
+		param_int(ID::S_WIDTH)
+		param_int(ID::TRANS_NUM)
+		param_int(ID::WIDTH)
+		param_int(ID::WR_PORTS)
+		param_int(ID::Y_WIDTH)
 	#undef param_int
 
 		return value;
@@ -121,8 +119,8 @@ public:
 
 		if (wire_attr.size() > 0)
 		{
-			RTLIL::Wire *lastNeedleWire = NULL;
-			RTLIL::Wire *lastHaystackWire = NULL;
+			RTLIL::Wire *lastNeedleWire = nullptr;
+			RTLIL::Wire *lastHaystackWire = nullptr;
 			dict<RTLIL::IdString, RTLIL::Const> emptyAttr;
 
 			for (auto &conn : needleCell->connections())
@@ -149,27 +147,27 @@ struct bit_ref_t {
 	int bit;
 };
 
-bool module2graph(SubCircuit::Graph &graph, RTLIL::Module *mod, bool constports, RTLIL::Design *sel = NULL,
-		int max_fanout = -1, std::set<std::pair<RTLIL::IdString, RTLIL::IdString>> *split = NULL)
+bool module2graph(SubCircuit::Graph &graph, RTLIL::Module *mod, bool constports, RTLIL::Design *sel = nullptr,
+		int max_fanout = -1, std::set<std::pair<RTLIL::IdString, RTLIL::IdString>> *split = nullptr)
 {
 	SigMap sigmap(mod);
 	std::map<RTLIL::SigBit, bit_ref_t> sig_bit_ref;
 
 	if (sel && !sel->selected(mod)) {
-		log("  Skipping module %s as it is not selected.\n", id2cstr(mod->name));
+		log("  Skipping module %s as it is not selected.\n", log_id(mod->name));
 		return false;
 	}
 
 	if (mod->processes.size() > 0) {
-		log("  Skipping module %s as it contains unprocessed processes.\n", id2cstr(mod->name));
+		log("  Skipping module %s as it contains unprocessed processes.\n", log_id(mod->name));
 		return false;
 	}
 
 	if (constports) {
-		graph.createNode("$const$0", "$const$0", NULL, true);
-		graph.createNode("$const$1", "$const$1", NULL, true);
-		graph.createNode("$const$x", "$const$x", NULL, true);
-		graph.createNode("$const$z", "$const$z", NULL, true);
+		graph.createNode("$const$0", "$const$0", nullptr, true);
+		graph.createNode("$const$1", "$const$1", nullptr, true);
+		graph.createNode("$const$x", "$const$x", nullptr, true);
+		graph.createNode("$const$z", "$const$z", nullptr, true);
 		graph.createPort("$const$0", "\\Y", 1);
 		graph.createPort("$const$1", "\\Y", 1);
 		graph.createPort("$const$x", "\\Y", 1);
@@ -182,28 +180,26 @@ bool module2graph(SubCircuit::Graph &graph, RTLIL::Module *mod, bool constports,
 
 	std::map<std::pair<RTLIL::Wire*, int>, int> sig_use_count;
 	if (max_fanout > 0)
-		for (auto &cell_it : mod->cells_)
+		for (auto cell : mod->cells())
 		{
-			RTLIL::Cell *cell = cell_it.second;
 			if (!sel || sel->selected(mod, cell))
 				for (auto &conn : cell->connections()) {
 					RTLIL::SigSpec conn_sig = conn.second;
 					sigmap.apply(conn_sig);
 					for (auto &bit : conn_sig)
-						if (bit.wire != NULL)
+						if (bit.wire != nullptr)
 							sig_use_count[std::pair<RTLIL::Wire*, int>(bit.wire, bit.offset)]++;
 				}
 		}
 
 	// create graph nodes from cells
-	for (auto &cell_it : mod->cells_)
+	for (auto cell : mod->cells())
 	{
-		RTLIL::Cell *cell = cell_it.second;
 		if (sel && !sel->selected(mod, cell))
 			continue;
 
 		std::string type = cell->type.str();
-		if (sel == NULL && type.compare(0, 2, "\\$") == 0)
+		if (sel == nullptr && type.compare(0, 2, "\\$") == 0)
 			type = type.substr(1);
 		graph.createNode(cell->name.str(), type, (void*)cell);
 
@@ -221,7 +217,7 @@ bool module2graph(SubCircuit::Graph &graph, RTLIL::Module *mod, bool constports,
 			{
 				auto &bit = conn_sig[i];
 
-				if (bit.wire == NULL) {
+				if (bit.wire == nullptr) {
 					if (constports) {
 						std::string node = "$const$x";
 						if (bit == RTLIL::State::S0) node = "$const$0";
@@ -253,9 +249,8 @@ bool module2graph(SubCircuit::Graph &graph, RTLIL::Module *mod, bool constports,
 	}
 
 	// mark external signals (used in non-selected cells)
-	for (auto &cell_it : mod->cells_)
+	for (auto cell : mod->cells())
 	{
-		RTLIL::Cell *cell = cell_it.second;
 		if (sel && !sel->selected(mod, cell))
 			for (auto &conn : cell->connections())
 			{
@@ -271,9 +266,8 @@ bool module2graph(SubCircuit::Graph &graph, RTLIL::Module *mod, bool constports,
 	}
 
 	// mark external signals (used in module ports)
-	for (auto &wire_it : mod->wires_)
+	for (auto wire : mod->wires())
 	{
-		RTLIL::Wire *wire = wire_it.second;
 		if (wire->port_id > 0)
 		{
 			RTLIL::SigSpec conn_sig(wire);
@@ -300,8 +294,7 @@ RTLIL::Cell *replace(RTLIL::Module *needle, RTLIL::Module *haystack, SubCircuit:
 	RTLIL::Cell *cell = haystack->addCell(stringf("$extract$%s$%d", needle->name.c_str(), autoidx++), needle->name);
 
 	// create cell ports
-	for (auto &it : needle->wires_) {
-		RTLIL::Wire *wire = it.second;
+	for (auto wire : needle->wires()) {
 		if (wire->port_id > 0) {
 			for (int i = 0; i < wire->width; i++)
 				sig2port.insert(sigmap(RTLIL::SigSpec(wire, i)), std::pair<RTLIL::IdString, int>(wire->name, i));
@@ -316,7 +309,7 @@ RTLIL::Cell *replace(RTLIL::Module *needle, RTLIL::Module *haystack, SubCircuit:
 		RTLIL::Cell *needle_cell = (RTLIL::Cell*)mapping.needleUserData;
 		RTLIL::Cell *haystack_cell = (RTLIL::Cell*)mapping.haystackUserData;
 
-		if (needle_cell == NULL)
+		if (needle_cell == nullptr)
 			continue;
 
 		for (auto &conn : needle_cell->connections()) {
@@ -341,10 +334,10 @@ RTLIL::Cell *replace(RTLIL::Module *needle, RTLIL::Module *haystack, SubCircuit:
 bool compareSortNeedleList(RTLIL::Module *left, RTLIL::Module *right)
 {
 	int left_idx = 0, right_idx = 0;
-	if (left->attributes.count(ID(extract_order)) > 0)
-		left_idx = left->attributes.at(ID(extract_order)).as_int();
-	if (right->attributes.count(ID(extract_order)) > 0)
-		right_idx = right->attributes.at(ID(extract_order)).as_int();
+	if (left->attributes.count(ID::extract_order) > 0)
+		left_idx = left->attributes.at(ID::extract_order).as_int();
+	if (right->attributes.count(ID::extract_order) > 0)
+		right_idx = right->attributes.at(ID::extract_order).as_int();
 	if (left_idx != right_idx)
 		return left_idx < right_idx;
 	return left->name < right->name;
@@ -587,7 +580,7 @@ struct ExtractPass : public Pass {
 		if (map_filenames.empty() && mine_outfile.empty())
 			log_cmd_error("Missing option -map <verilog_or_ilang_file> or -mine <output_ilang_file>.\n");
 
-		RTLIL::Design *map = NULL;
+		RTLIL::Design *map = nullptr;
 
 		if (!mine_mode)
 		{
@@ -630,24 +623,24 @@ struct ExtractPass : public Pass {
 		log_header(design, "Creating graphs for SubCircuit library.\n");
 
 		if (!mine_mode)
-			for (auto &mod_it : map->modules_) {
+			for (auto module : map->modules()) {
 				SubCircuit::Graph mod_graph;
-				std::string graph_name = "needle_" + RTLIL::unescape_id(mod_it.first);
+				std::string graph_name = "needle_" + RTLIL::unescape_id(module->name);
 				log("Creating needle graph %s.\n", graph_name.c_str());
-				if (module2graph(mod_graph, mod_it.second, constports)) {
+				if (module2graph(mod_graph, module, constports)) {
 					solver.addGraph(graph_name, mod_graph);
-					needle_map[graph_name] = mod_it.second;
-					needle_list.push_back(mod_it.second);
+					needle_map[graph_name] = module;
+					needle_list.push_back(module);
 				}
 			}
 
-		for (auto &mod_it : design->modules_) {
+		for (auto module : design->modules()) {
 			SubCircuit::Graph mod_graph;
-			std::string graph_name = "haystack_" + RTLIL::unescape_id(mod_it.first);
+			std::string graph_name = "haystack_" + RTLIL::unescape_id(module->name);
 			log("Creating haystack graph %s.\n", graph_name.c_str());
-			if (module2graph(mod_graph, mod_it.second, constports, design, mine_mode ? mine_max_fanout : -1, mine_mode ? &mine_split : NULL)) {
+			if (module2graph(mod_graph, module, constports, design, mine_mode ? mine_max_fanout : -1, mine_mode ? &mine_split : nullptr)) {
 				solver.addGraph(graph_name, mod_graph);
-				haystack_map[graph_name] = mod_it.second;
+				haystack_map[graph_name] = module;
 			}
 		}
 
@@ -680,7 +673,7 @@ struct ExtractPass : public Pass {
 					}
 					RTLIL::Cell *new_cell = replace(needle_map.at(result.needleGraphId), haystack_map.at(result.haystackGraphId), result);
 					design->select(haystack_map.at(result.haystackGraphId), new_cell);
-					log("  new cell: %s\n", id2cstr(new_cell->name));
+					log("  new cell: %s\n", log_id(new_cell->name));
 				}
 			}
 		}
@@ -697,12 +690,12 @@ struct ExtractPass : public Pass {
 			for (auto &result: results)
 			{
 				log("\nFrequent SubCircuit with %d nodes and %d matches:\n", int(result.nodes.size()), result.totalMatchesAfterLimits);
-				log("  primary match in %s:", id2cstr(haystack_map.at(result.graphId)->name));
+				log("  primary match in %s:", log_id(haystack_map.at(result.graphId)->name));
 				for (auto &node : result.nodes)
 					log(" %s", RTLIL::unescape_id(node.nodeId).c_str());
 				log("\n");
 				for (auto &it : result.matchesPerGraph)
-					log("  matches in %s: %d\n", id2cstr(haystack_map.at(it.first)->name), it.second);
+					log("  matches in %s: %d\n", log_id(haystack_map.at(it.first)->name), it.second);
 
 				RTLIL::Module *mod = haystack_map.at(result.graphId);
 				std::set<RTLIL::Cell*> cells;
@@ -717,12 +710,12 @@ struct ExtractPass : public Pass {
 				for (auto &conn : cell->connections()) {
 					RTLIL::SigSpec sig = sigmap(conn.second);
 					for (auto &chunk : sig.chunks())
-						if (chunk.wire != NULL)
+						if (chunk.wire != nullptr)
 							wires.insert(chunk.wire);
 				}
 
 				RTLIL::Module *newMod = new RTLIL::Module;
-				newMod->name = stringf("\\needle%05d_%s_%dx", needleCounter++, id2cstr(haystack_map.at(result.graphId)->name), result.totalMatchesAfterLimits);
+				newMod->name = stringf("\\needle%05d_%s_%dx", needleCounter++, log_id(haystack_map.at(result.graphId)->name), result.totalMatchesAfterLimits);
 				map->add(newMod);
 
 				for (auto wire : wires) {
@@ -739,8 +732,8 @@ struct ExtractPass : public Pass {
 					for (auto &conn : cell->connections()) {
 						std::vector<SigChunk> chunks = sigmap(conn.second);
 						for (auto &chunk : chunks)
-							if (chunk.wire != NULL)
-								chunk.wire = newMod->wires_.at(chunk.wire->name);
+							if (chunk.wire != nullptr)
+								chunk.wire = newMod->wire(chunk.wire->name);
 						newCell->setPort(conn.first, chunks);
 					}
 				}

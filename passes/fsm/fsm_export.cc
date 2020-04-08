@@ -57,7 +57,7 @@ void write_kiss2(struct RTLIL::Module *module, struct RTLIL::Cell *cell, std::st
 	std::string kiss_name;
 	size_t i;
 
-	attr_it = cell->attributes.find("\\fsm_export");
+	attr_it = cell->attributes.find(ID::fsm_export);
 	if (!filename.empty()) {
 		kiss_name.assign(filename);
 	} else if (attr_it != cell->attributes.end() && attr_it->second.decode_string() != "") {
@@ -173,16 +173,15 @@ struct FsmExportPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto &mod_it : design->modules_)
-			if (design->selected(mod_it.second))
-				for (auto &cell_it : mod_it.second->cells_)
-					if (cell_it.second->type == "$fsm" && design->selected(mod_it.second, cell_it.second)) {
-						attr_it = cell_it.second->attributes.find("\\fsm_export");
-						if (!flag_noauto || (attr_it != cell_it.second->attributes.end())) {
-							write_kiss2(mod_it.second, cell_it.second, filename, flag_origenc);
-							filename.clear();
-						}
+		for (auto mod : design->selected_modules())
+			for (auto cell : mod->selected_cells())
+				if (cell->type == ID($fsm)) {
+					attr_it = cell->attributes.find(ID::fsm_export);
+					if (!flag_noauto || (attr_it != cell->attributes.end())) {
+						write_kiss2(mod, cell, filename, flag_origenc);
+						filename.clear();
 					}
+				}
 	}
 } FsmExportPass;
 

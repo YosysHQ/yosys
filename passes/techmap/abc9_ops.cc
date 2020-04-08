@@ -41,8 +41,8 @@ void check(RTLIL::Design *design)
 		if (m->name.begins_with("$paramod"))
 			continue;
 
-		auto flop = m->get_bool_attribute(ID(abc9_flop));
-		auto it = m->attributes.find(ID(abc9_box_id));
+		auto flop = m->get_bool_attribute(ID::abc9_flop);
+		auto it = m->attributes.find(ID::abc9_box_id);
 		if (!flop) {
 			if (it == m->attributes.end())
 				continue;
@@ -59,7 +59,7 @@ void check(RTLIL::Design *design)
 		for (const auto &port_name : m->ports) {
 			auto w = m->wire(port_name);
 			log_assert(w);
-			if (w->get_bool_attribute("\\abc9_carry")) {
+			if (w->get_bool_attribute(ID::abc9_carry)) {
 				if (w->port_input) {
 					if (carry_in != IdString())
 						log_error("Module '%s' contains more than one (* abc9_carry *) input port.\n", log_id(m));
@@ -99,7 +99,7 @@ void mark_scc(RTLIL::Module *module)
 	//   write_xaiger to break this wire into PI and POs)
 	pool<RTLIL::Const> ids_seen;
 	for (auto cell : module->cells()) {
-		auto it = cell->attributes.find(ID(abc9_scc_id));
+		auto it = cell->attributes.find(ID::abc9_scc_id);
 		if (it == cell->attributes.end())
 			continue;
 		auto id = it->second;
@@ -111,7 +111,7 @@ void mark_scc(RTLIL::Module *module)
 			if (c.second.is_fully_const()) continue;
 			if (cell->output(c.first)) {
 				Wire *w = module->addWire(NEW_ID, GetSize(c.second));
-				w->set_bool_attribute(ID(abc9_scc));
+				w->set_bool_attribute(ID::abc9_scc);
 				module->connect(w, c.second);
 				c.second = w;
 			}
@@ -130,7 +130,7 @@ void prep_dff(RTLIL::Module *module)
 	dict<clkdomain_t, int> clk_to_mergeability;
 
 	for (auto cell : module->cells()) {
-		if (cell->type != "$__ABC9_FF_")
+		if (cell->type != ID($__ABC9_FF_))
 			continue;
 
 		Wire *abc9_clock_wire = module->wire(stringf("%s.clock", cell->name.c_str()));
@@ -141,7 +141,7 @@ void prep_dff(RTLIL::Module *module)
 		clkdomain_t key(abc9_clock);
 
 		auto r = clk_to_mergeability.insert(std::make_pair(abc9_clock, clk_to_mergeability.size() + 1));
-		auto r2  = cell->attributes.insert(ID(abc9_mergeability));;
+		auto r2  = cell->attributes.insert(ID::abc9_mergeability);
 		log_assert(r2.second);
 		r2.first->second = r.first->second;
 	}
@@ -152,20 +152,20 @@ void prep_dff(RTLIL::Module *module)
 
 		dict<SigSpec, SigSpec> replace;
 		for (auto cell : holes_module->cells().to_vector()) {
-			if (!cell->type.in("$_DFF_N_", "$_DFF_NN0_", "$_DFF_NN1_", "$_DFF_NP0_", "$_DFF_NP1_",
-						"$_DFF_P_", "$_DFF_PN0_", "$_DFF_PN1", "$_DFF_PP0_", "$_DFF_PP1_"))
+			if (!cell->type.in(ID($_DFF_N_), ID($_DFF_NN0_), ID($_DFF_NN1_), ID($_DFF_NP0_), ID($_DFF_NP1_),
+						ID($_DFF_P_), ID($_DFF_PN0_), ID($_DFF_PN1), ID($_DFF_PP0_), ID($_DFF_PP1_)))
 				continue;
-			SigBit D = cell->getPort("\\D");
-			SigBit Q = cell->getPort("\\Q");
+			SigBit D = cell->getPort(ID::D);
+			SigBit Q = cell->getPort(ID::Q);
 			// Emulate async control embedded inside $_DFF_* cell with mux in front of D
-			if (cell->type.in("$_DFF_NN0_", "$_DFF_PN0_"))
-				D = holes_module->MuxGate(NEW_ID, State::S0, D, cell->getPort("\\R"));
-			else if (cell->type.in("$_DFF_NN1_", "$_DFF_PN1_"))
-				D = holes_module->MuxGate(NEW_ID, State::S1, D, cell->getPort("\\R"));
-			else if (cell->type.in("$_DFF_NP0_", "$_DFF_PP0_"))
-				D = holes_module->MuxGate(NEW_ID, D, State::S0, cell->getPort("\\R"));
-			else if (cell->type.in("$_DFF_NP1_", "$_DFF_PP1_"))
-				D = holes_module->MuxGate(NEW_ID, D, State::S1, cell->getPort("\\R"));
+			if (cell->type.in(ID($_DFF_NN0_), ID($_DFF_PN0_)))
+				D = holes_module->MuxGate(NEW_ID, State::S0, D, cell->getPort(ID::R));
+			else if (cell->type.in(ID($_DFF_NN1_), ID($_DFF_PN1_)))
+				D = holes_module->MuxGate(NEW_ID, State::S1, D, cell->getPort(ID::R));
+			else if (cell->type.in(ID($_DFF_NP0_), ID($_DFF_PP0_)))
+				D = holes_module->MuxGate(NEW_ID, D, State::S0, cell->getPort(ID::R));
+			else if (cell->type.in(ID($_DFF_NP1_), ID($_DFF_PP1_)))
+				D = holes_module->MuxGate(NEW_ID, D, State::S1, cell->getPort(ID::R));
 			// Remove the $_DFF_* cell from what needs to be a combinatorial box
 			holes_module->remove(cell);
 			Wire *port;
@@ -208,17 +208,17 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 	dict<IdString, std::vector<IdString>> box_ports;
 
 	for (auto cell : module->cells()) {
-		if (cell->type == "$__ABC9_FF_")
+		if (cell->type == ID($__ABC9_FF_))
 			continue;
 		if (cell->has_keep_attr())
 			continue;
 
 		auto inst_module = module->design->module(cell->type);
-		bool abc9_flop = inst_module && inst_module->get_bool_attribute("\\abc9_flop");
+		bool abc9_flop = inst_module && inst_module->get_bool_attribute(ID::abc9_flop);
 		if (abc9_flop && !dff)
 			continue;
 
-		if ((inst_module && inst_module->get_bool_attribute("\\abc9_box")) || abc9_flop) {
+		if ((inst_module && inst_module->get_bool_attribute(ID::abc9_box)) || abc9_flop) {
 			auto r = box_ports.insert(cell->type);
 			if (r.second) {
 				// Make carry in the last PI, and carry out the last PO
@@ -227,7 +227,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 				for (const auto &port_name : inst_module->ports) {
 					auto w = inst_module->wire(port_name);
 					log_assert(w);
-					if (w->get_bool_attribute("\\abc9_carry")) {
+					if (w->get_bool_attribute(ID::abc9_carry)) {
 						log_assert(w->port_input != w->port_output);
 						if (w->port_input)
 							carry_in = port_name;
@@ -289,7 +289,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 
 	RTLIL::Module *holes_module = design->addModule(stringf("%s$holes", module->name.c_str()));
 	log_assert(holes_module);
-	holes_module->set_bool_attribute("\\abc9_holes");
+	holes_module->set_bool_attribute(ID::abc9_holes);
 
 	dict<IdString, Cell*> cell_cache;
 	TimingInfo timing;
@@ -300,10 +300,10 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 		log_assert(cell);
 
 		RTLIL::Module* box_module = design->module(cell->type);
-		if (!box_module || (!box_module->get_bool_attribute("\\abc9_box") && !box_module->get_bool_attribute("\\abc9_flop")))
+		if (!box_module || (!box_module->get_bool_attribute(ID::abc9_box) && !box_module->get_bool_attribute(ID::abc9_flop)))
 			continue;
 
-		cell->attributes["\\abc9_box_seq"] = box_count++;
+		cell->attributes[ID::abc9_box_seq] = box_count++;
 
 		IdString derived_type = box_module->derive(design, cell->parameters);
 		box_module = design->module(derived_type);
@@ -314,7 +314,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 			if (box_module->has_processes())
 				Pass::call_on_module(design, box_module, "proc");
 
-			if (box_module->get_bool_attribute("\\whitebox")) {
+			if (box_module->get_bool_attribute(ID::whitebox)) {
 				holes_cell = holes_module->addCell(cell->name, derived_type);
 
 				if (box_module->has_processes())
@@ -345,7 +345,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 
 				// For flops only, create an extra 1-bit input that drives a new wire
 				//   called "<cell>.abc9_ff.Q" that is used below
-				if (box_module->get_bool_attribute("\\abc9_flop")) {
+				if (box_module->get_bool_attribute(ID::abc9_flop)) {
 					box_inputs++;
 					Wire *holes_wire = holes_module->wire(stringf("\\i%d", box_inputs));
 					if (!holes_wire) {
@@ -402,13 +402,13 @@ void prep_delays(RTLIL::Design *design, bool dff_mode)
 				continue;
 			if (!inst_module->get_blackbox_attribute())
 				continue;
-			if (inst_module->attributes.count(ID(abc9_box)))
+			if (inst_module->attributes.count(ID::abc9_box))
 				continue;
 			IdString derived_type = inst_module->derive(design, cell->parameters);
 			inst_module = design->module(derived_type);
 			log_assert(inst_module);
 
-			if (dff_mode && inst_module->get_bool_attribute(ID(abc9_flop))) {
+			if (dff_mode && inst_module->get_bool_attribute(ID::abc9_flop)) {
 				flops.insert(inst_module);
 				continue; // do not add $__ABC9_DELAY boxes to flops
 				//   as delays will be captured in the flop box
@@ -451,9 +451,9 @@ void prep_delays(RTLIL::Design *design, bool dff_mode)
 				}
 #endif
 				auto box = module->addCell(NEW_ID, ID($__ABC9_DELAY));
-				box->setPort(ID(I), conn.second[i]);
-				box->setPort(ID(O), O[i]);
-				box->setParam(ID(DELAY), d);
+				box->setPort(ID::I, conn.second[i]);
+				box->setPort(ID::O, O[i]);
+				box->setParam(ID::DELAY, d);
 				conn.second[i] = O[i];
 			}
 		}
@@ -466,7 +466,7 @@ void prep_lut(RTLIL::Design *design, int maxlut)
 
 	std::vector<std::tuple<int, IdString, int, std::vector<int>>> table;
 	for (auto module : design->modules()) {
-		auto it = module->attributes.find(ID(abc9_lut));
+		auto it = module->attributes.find(ID::abc9_lut);
 		if (it == module->attributes.end())
 			continue;
 
@@ -527,7 +527,7 @@ void prep_box(RTLIL::Design *design, bool dff_mode)
 	std::stringstream ss;
 	int abc9_box_id = 1;
 	for (auto module : design->modules()) {
-		auto it = module->attributes.find(ID(abc9_box_id));
+		auto it = module->attributes.find(ID::abc9_box_id);
 		if (it == module->attributes.end())
 			continue;
 		abc9_box_id = std::max(abc9_box_id, it->second.as_int());
@@ -535,9 +535,9 @@ void prep_box(RTLIL::Design *design, bool dff_mode)
 
 	dict<IdString,std::vector<IdString>> box_ports;
 	for (auto module : design->modules()) {
-		auto abc9_flop = module->get_bool_attribute(ID(abc9_flop));
+		auto abc9_flop = module->get_bool_attribute(ID::abc9_flop);
 		if (abc9_flop) {
-			auto r = module->attributes.insert(ID(abc9_box_id));
+			auto r = module->attributes.insert(ID::abc9_box_id);
 			if (!r.second)
 				continue;
 			r.first->second = abc9_box_id++;
@@ -604,10 +604,10 @@ void prep_box(RTLIL::Design *design, bool dff_mode)
 			}
 		}
 		else {
-			if (!module->attributes.erase(ID(abc9_box)))
+			if (!module->attributes.erase(ID::abc9_box))
 				continue;
 
-			auto r = module->attributes.insert(ID(abc9_box_id));
+			auto r = module->attributes.insert(ID::abc9_box_id);
 			if (!r.second)
 				continue;
 			r.first->second = abc9_box_id++;
@@ -621,7 +621,7 @@ void prep_box(RTLIL::Design *design, bool dff_mode)
 			for (const auto &port_name : module->ports) {
 				auto w = module->wire(port_name);
 				log_assert(w);
-				if (w->get_bool_attribute("\\abc9_carry")) {
+				if (w->get_bool_attribute(ID::abc9_carry)) {
 					log_assert(w->port_input != w->port_output);
 					if (w->port_input)
 						carry_in = port_name;
@@ -650,7 +650,7 @@ void prep_box(RTLIL::Design *design, bool dff_mode)
 					outputs.emplace_back(wire, i);
 		}
 
-		ss << log_id(module) << " " << module->attributes.at(ID(abc9_box_id)).as_int();
+		ss << log_id(module) << " " << module->attributes.at(ID::abc9_box_id).as_int();
 		ss << " " << (module->get_bool_attribute(ID::whitebox) ? "1" : "0");
 		ss << " " << GetSize(inputs) << " " << GetSize(outputs) << std::endl;
 
@@ -727,7 +727,7 @@ void reintegrate(RTLIL::Module *module)
 	dict<IdString,std::vector<IdString>> box_ports;
 
 	for (auto m : design->modules()) {
-		if (!m->attributes.count(ID(abc9_box_id)))
+		if (!m->attributes.count(ID::abc9_box_id))
 			continue;
 
 		auto r = box_ports.insert(m->name);
@@ -740,7 +740,7 @@ void reintegrate(RTLIL::Module *module)
 		for (const auto &port_name : m->ports) {
 			auto w = m->wire(port_name);
 			log_assert(w);
-			if (w->get_bool_attribute("\\abc9_carry")) {
+			if (w->get_bool_attribute(ID::abc9_carry)) {
 				log_assert(w->port_input != w->port_output);
 				if (w->port_input)
 					carry_in = port_name;
@@ -763,7 +763,7 @@ void reintegrate(RTLIL::Module *module)
 			continue;
 		if (cell->type.in(ID($_AND_), ID($_NOT_), ID($__ABC9_FF_)))
 			module->remove(cell);
-		else if (cell->attributes.erase("\\abc9_box_seq"))
+		else if (cell->attributes.erase(ID::abc9_box_seq))
 			boxes.emplace_back(cell);
 	}
 
@@ -874,7 +874,7 @@ void reintegrate(RTLIL::Module *module)
 			IdString derived_type = box_module->derive(design, existing_cell->parameters);
 			RTLIL::Module* derived_module = design->module(derived_type);
 			log_assert(derived_module);
-			log_assert(mapped_cell->type == stringf("$__boxid%d", derived_module->attributes.at("\\abc9_box_id").as_int()));
+			log_assert(mapped_cell->type == stringf("$__boxid%d", derived_module->attributes.at(ID::abc9_box_id).as_int()));
 			mapped_cell->type = existing_cell->type;
 
 			RTLIL::Cell *cell = module->addCell(remap_name(mapped_cell->name), mapped_cell->type);
@@ -882,16 +882,16 @@ void reintegrate(RTLIL::Module *module)
 			cell->attributes = existing_cell->attributes;
 			module->swap_names(cell, existing_cell);
 
-			auto jt = mapped_cell->connections_.find("\\i");
+			auto jt = mapped_cell->connections_.find(ID(i));
 			log_assert(jt != mapped_cell->connections_.end());
 			SigSpec inputs = std::move(jt->second);
 			mapped_cell->connections_.erase(jt);
-			jt = mapped_cell->connections_.find("\\o");
+			jt = mapped_cell->connections_.find(ID(o));
 			log_assert(jt != mapped_cell->connections_.end());
 			SigSpec outputs = std::move(jt->second);
 			mapped_cell->connections_.erase(jt);
 
-			auto abc9_flop = box_module->attributes.count("\\abc9_flop");
+			auto abc9_flop = box_module->attributes.count(ID::abc9_flop);
 			if (!abc9_flop) {
 				for (const auto &i : inputs)
 					bit_users[i].insert(mapped_cell->name);
@@ -966,7 +966,7 @@ void reintegrate(RTLIL::Module *module)
 		RTLIL::Wire *mapped_wire = mapped_mod->wire(port);
 		RTLIL::Wire *wire = module->wire(port);
 		log_assert(wire);
-		wire->attributes.erase(ID(abc9_scc));
+		wire->attributes.erase(ID::abc9_scc);
 
 		RTLIL::Wire *remap_wire = module->wire(remap_name(port));
 		RTLIL::SigSpec signal(wire, 0, GetSize(remap_wire));
@@ -1033,7 +1033,7 @@ void reintegrate(RTLIL::Module *module)
 		// Push downstream LUTs past inverter
 		for (auto sink_cell : jt->second) {
 			SigSpec A = sink_cell->getPort(ID::A);
-			RTLIL::Const mask = sink_cell->getParam(ID(LUT));
+			RTLIL::Const mask = sink_cell->getParam(ID::LUT);
 			int index = 0;
 			for (; index < GetSize(A); index++)
 				if (A[index] == a_bit)
@@ -1047,7 +1047,7 @@ void reintegrate(RTLIL::Module *module)
 			}
 			A[index] = y_bit;
 			sink_cell->setPort(ID::A, A);
-			sink_cell->setParam(ID(LUT), mask);
+			sink_cell->setParam(ID::LUT, mask);
 		}
 
 		// Since we have rewritten all sinks (which we know
@@ -1056,7 +1056,7 @@ void reintegrate(RTLIL::Module *module)
 		// that the original driving LUT will become dangling
 		// and get cleaned away
 clone_lut:
-		driver_mask = driver_lut->getParam(ID(LUT));
+		driver_mask = driver_lut->getParam(ID::LUT);
 		for (auto &b : driver_mask.bits) {
 			if (b == RTLIL::State::S0) b = RTLIL::State::S1;
 			else if (b == RTLIL::State::S1) b = RTLIL::State::S0;
@@ -1228,7 +1228,7 @@ struct Abc9OpsPass : public Pass {
 			prep_box(design, dff_mode);
 
 		for (auto mod : design->selected_modules()) {
-			if (mod->get_bool_attribute("\\abc9_holes"))
+			if (mod->get_bool_attribute(ID::abc9_holes))
 				continue;
 
 			if (mod->processes.size() > 0) {
