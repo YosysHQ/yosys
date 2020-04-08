@@ -279,7 +279,7 @@ struct SatGen
 		bool arith_undef_handled = false;
 		bool is_arith_compare = cell->type.in(ID($lt), ID($le), ID($ge), ID($gt));
 
-		if (model_undef && (cell->type.in(ID($add), ID($sub), ID($mul), ID($div), ID($mod)) || is_arith_compare))
+		if (model_undef && (cell->type.in(ID($add), ID($sub), ID($mul), ID($div), ID($mod), ID($modfloor)) || is_arith_compare))
 		{
 			std::vector<int> undef_a = importUndefSigSpec(cell->getPort(ID::A), timestep);
 			std::vector<int> undef_b = importUndefSigSpec(cell->getPort(ID::B), timestep);
@@ -293,7 +293,7 @@ struct SatGen
 			int undef_any_b = ez->expression(ezSAT::OpOr, undef_b);
 			int undef_y_bit = ez->OR(undef_any_a, undef_any_b);
 
-			if (cell->type.in(ID($div), ID($mod))) {
+			if (cell->type.in(ID($div), ID($mod), ID($modfloor))) {
 				std::vector<int> b = importSigSpec(cell->getPort(ID::B), timestep);
 				undef_y_bit = ez->OR(undef_y_bit, ez->NOT(ez->expression(ezSAT::OpOr, b)));
 			}
@@ -935,7 +935,7 @@ struct SatGen
 			return true;
 		}
 
-		if (cell->type.in(ID($div), ID($mod)))
+		if (cell->type.in(ID($div), ID($mod), ID($modfloor)))
 		{
 			std::vector<int> a = importDefSigSpec(cell->getPort(ID::A), timestep);
 			std::vector<int> b = importDefSigSpec(cell->getPort(ID::B), timestep);
@@ -970,16 +970,28 @@ struct SatGen
 			}
 
 			std::vector<int> y_tmp = ignore_div_by_zero ? yy : ez->vec_var(y.size());
+
+			// modulo calculation
+			std::vector<int> modulo_trunc;
+			int floored_eq_trunc;
+			if (cell->parameters[ID::A_SIGNED].as_bool() && cell->parameters[ID::B_SIGNED].as_bool()) {
+				modulo_trunc = ez->vec_ite(a.back(), ez->vec_neg(chain_buf), chain_buf);
+				// floor == trunc when sgn(a) == sgn(b) or trunc == 0
+				floored_eq_trunc = ez->OR(ez->IFF(a.back(), b.back()), ez->NOT(ez->expression(ezSAT::OpOr, modulo_trunc)));
+			} else {
+				modulo_trunc = chain_buf;
+				floored_eq_trunc = ez->CONST_TRUE;
+			}
+
 			if (cell->type == ID($div)) {
 				if (cell->parameters[ID::A_SIGNED].as_bool() && cell->parameters[ID::B_SIGNED].as_bool())
 					ez->assume(ez->vec_eq(y_tmp, ez->vec_ite(ez->XOR(a.back(), b.back()), ez->vec_neg(y_u), y_u)));
 				else
 					ez->assume(ez->vec_eq(y_tmp, y_u));
-			} else {
-				if (cell->parameters[ID::A_SIGNED].as_bool() && cell->parameters[ID::B_SIGNED].as_bool())
-					ez->assume(ez->vec_eq(y_tmp, ez->vec_ite(a.back(), ez->vec_neg(chain_buf), chain_buf)));
-				else
-					ez->assume(ez->vec_eq(y_tmp, chain_buf));
+			} else if (cell->type == ID($mod)) {
+				ez->assume(ez->vec_eq(y_tmp, modulo_trunc));
+			} else if (cell->type == ID($modfloor)) {
+				ez->assume(ez->vec_eq(y_tmp, ez->vec_ite(floored_eq_trunc, modulo_trunc, ez->vec_add(modulo_trunc, b))));
 			}
 
 			if (ignore_div_by_zero) {
@@ -996,7 +1008,8 @@ struct SatGen
 						div_zero_result.insert(div_zero_result.end(), cell->getPort(ID::A).size(), ez->CONST_TRUE);
 						div_zero_result.insert(div_zero_result.end(), y.size() - div_zero_result.size(), ez->CONST_FALSE);
 					}
-				} else {
+				} else if (cell->type.in(ID($mod), ID($modfloor))) {
+					// a mod 0 = a
 					int copy_a_bits = min(cell->getPort(ID::A).size(), cell->getPort(ID::B).size());
 					div_zero_result.insert(div_zero_result.end(), a.begin(), a.begin() + copy_a_bits);
 					if (cell->parameters[ID::A_SIGNED].as_bool() && cell->parameters[ID::B_SIGNED].as_bool())

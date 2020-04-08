@@ -376,7 +376,7 @@ struct ShareWorker
 				continue;
 			}
 
-			if (cell->type.in(ID($mul), ID($div), ID($mod))) {
+			if (cell->type.in(ID($mul), ID($div), ID($mod), ID($modfloor))) {
 				if (config.opt_aggressive || cell->parameters.at(ID::Y_WIDTH).as_int() >= 4)
 					shareable_cells.insert(cell);
 				continue;
@@ -1133,6 +1133,7 @@ struct ShareWorker
 		cone_ct.cell_types.erase(ID($mul));
 		cone_ct.cell_types.erase(ID($mod));
 		cone_ct.cell_types.erase(ID($div));
+		cone_ct.cell_types.erase(ID($modfloor));
 		cone_ct.cell_types.erase(ID($pow));
 		cone_ct.cell_types.erase(ID($shl));
 		cone_ct.cell_types.erase(ID($shr));
@@ -1512,6 +1513,7 @@ struct SharePass : public Pass {
 		config.generic_bin_ops.insert(ID($sub));
 		config.generic_bin_ops.insert(ID($div));
 		config.generic_bin_ops.insert(ID($mod));
+		config.generic_bin_ops.insert(ID($modfloor));
 		// config.generic_bin_ops.insert(ID($pow));
 
 		config.generic_uni_ops.insert(ID($logic_not));

@@ -266,19 +266,25 @@ struct BtorWorker
 			goto okay;
 		}
 
-		if (cell->type.in(ID($div), ID($mod)))
+		if (cell->type.in(ID($div), ID($mod), ID($modfloor)))
 		{
+			bool a_signed = cell->hasParam(ID::A_SIGNED) ? cell->getParam(ID::A_SIGNED).as_bool() : false;
+			bool b_signed = cell->hasParam(ID::B_SIGNED) ? cell->getParam(ID::B_SIGNED).as_bool() : false;
+
 			string btor_op;
 			if (cell->type == ID($div)) btor_op = "div";
+			// "rem" = truncating modulo
 			if (cell->type == ID($mod)) btor_op = "rem";
+			// "mod" = flooring modulo
+			if (cell->type == ID($modfloor)) {
+				// "umod" doesn't exist because it's the same as "urem"
+				btor_op = a_signed || b_signed ? "mod" : "rem";
+			}
 			log_assert(!btor_op.empty());
 
 			int width = GetSize(cell->getPort(ID::Y));
 			width = std::max(width, GetSize(cell->getPort(ID::A)));
 			width = std::max(width, GetSize(cell->getPort(ID::B)));
-
-			bool a_signed = cell->hasParam(ID::A_SIGNED) ? cell->getParam(ID::A_SIGNED).as_bool() : false;
-			bool b_signed = cell->hasParam(ID::B_SIGNED) ? cell->getParam(ID::B_SIGNED).as_bool() : false;
 
 			int nid_a = get_sig_nid(cell->getPort(ID::A), width, a_signed);
 			int nid_b = get_sig_nid(cell->getPort(ID::B), width, b_signed);

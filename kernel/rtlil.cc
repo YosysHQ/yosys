@@ -948,7 +948,7 @@ namespace {
 				return;
 			}
 
-			if (cell->type.in(ID($add), ID($sub), ID($mul), ID($div), ID($mod), ID($pow))) {
+			if (cell->type.in(ID($add), ID($sub), ID($mul), ID($div), ID($mod), ID($modfloor), ID($pow))) {
 				param_bool(ID::A_SIGNED);
 				param_bool(ID::B_SIGNED);
 				port(ID::A, param(ID::A_WIDTH));
@@ -1949,6 +1949,7 @@ DEF_METHOD(Sub,      max(sig_a.size(), sig_b.size()), ID($sub))
 DEF_METHOD(Mul,      max(sig_a.size(), sig_b.size()), ID($mul))
 DEF_METHOD(Div,      max(sig_a.size(), sig_b.size()), ID($div))
 DEF_METHOD(Mod,      max(sig_a.size(), sig_b.size()), ID($mod))
+DEF_METHOD(ModFloor, max(sig_a.size(), sig_b.size()), ID($modfloor))
 DEF_METHOD(LogicAnd, 1, ID($logic_and))
 DEF_METHOD(LogicOr,  1, ID($logic_or))
 #undef DEF_METHOD

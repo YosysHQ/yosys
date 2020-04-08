@@ -364,7 +364,8 @@ module \$__div_mod_u (A, B, Y, R);
 	end endgenerate
 endmodule
 
-module \$__div_mod (A, B, Y, R);
+// truncating signed division/modulo
+module \$__div_mod_trunc (A, B, Y, R);
 	parameter A_SIGNED = 0;
 	parameter B_SIGNED = 0;
 	parameter A_WIDTH = 1;
@@ -420,7 +421,7 @@ module _90_div (A, B, Y);
 	(* force_downto *)
 	output [Y_WIDTH-1:0] Y;
 
-	\$__div_mod #(
+	\$__div_mod_trunc #(
 		.A_SIGNED(A_SIGNED),
 		.B_SIGNED(B_SIGNED),
 		.A_WIDTH(A_WIDTH),
@@ -448,7 +449,79 @@ module _90_mod (A, B, Y);
 	(* force_downto *)
 	output [Y_WIDTH-1:0] Y;
 
-	\$__div_mod #(
+	\$__div_mod_trunc #(
+		.A_SIGNED(A_SIGNED),
+		.B_SIGNED(B_SIGNED),
+		.A_WIDTH(A_WIDTH),
+		.B_WIDTH(B_WIDTH),
+		.Y_WIDTH(Y_WIDTH)
+	) div_mod (
+		.A(A),
+		.B(B),
+		.R(Y)
+	);
+endmodule
+
+// flooring signed division/modulo
+module \$__div_mod_floor (A, B, Y, R);
+	parameter A_SIGNED = 0;
+	parameter B_SIGNED = 0;
+	parameter A_WIDTH = 1;
+	parameter B_WIDTH = 1;
+	parameter Y_WIDTH = 1;
+
+	localparam WIDTH =
+			A_WIDTH >= B_WIDTH && A_WIDTH >= Y_WIDTH ? A_WIDTH :
+			B_WIDTH >= A_WIDTH && B_WIDTH >= Y_WIDTH ? B_WIDTH : Y_WIDTH;
+
+	input [A_WIDTH-1:0] A;
+	input [B_WIDTH-1:0] B;
+	output [Y_WIDTH-1:0] Y, R;
+
+	wire [WIDTH-1:0] A_buf, B_buf;
+	\$pos #(.A_SIGNED(A_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(WIDTH)) A_conv (.A(A), .Y(A_buf));
+	\$pos #(.A_SIGNED(B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(WIDTH)) B_conv (.A(B), .Y(B_buf));
+
+	wire [WIDTH-1:0] A_buf_u, B_buf_u, Y_u, R_u, R_s;
+	assign A_buf_u = A_SIGNED && A_buf[WIDTH-1] ? -A_buf : A_buf;
+	assign B_buf_u = B_SIGNED && B_buf[WIDTH-1] ? -B_buf : B_buf;
+
+	\$__div_mod_u #(
+		.WIDTH(WIDTH)
+	) div_mod_u (
+		.A(A_buf_u),
+		.B(B_buf_u),
+		.Y(Y_u),
+		.R(R_u)
+	);
+
+	// For negative results, if there was a remainder, subtract one to turn
+	// the round towards 0 into a round towards -inf
+	assign Y = A_SIGNED && B_SIGNED && (A_buf[WIDTH-1] != B_buf[WIDTH-1]) ? (R_u == 0 ? -Y_u : -Y_u-1) : Y_u;
+
+	// truncating modulo
+	assign R_s = A_SIGNED && B_SIGNED && A_buf[WIDTH-1] ? -R_u : R_u;
+	// Flooring modulo differs from truncating modulo only if it is nonzero and
+	// A and B have different signs - then `floor - trunc = B`
+	assign R = (R_s != 0) && A_SIGNED && B_SIGNED && (A_buf[WIDTH-1] != B_buf[WIDTH-1]) ? $signed(B_buf) + $signed(R_s) : R_s;
+endmodule
+
+(* techmap_celltype = "$modfloor" *)
+module _90_modfloor (A, B, Y);
+	parameter A_SIGNED = 0;
+	parameter B_SIGNED = 0;
+	parameter A_WIDTH = 1;
+	parameter B_WIDTH = 1;
+	parameter Y_WIDTH = 1;
+
+	(* force_downto *)
+	input [A_WIDTH-1:0] A;
+	(* force_downto *)
+	input [B_WIDTH-1:0] B;
+	(* force_downto *)
+	output [Y_WIDTH-1:0] Y;
+
+	\$__div_mod_floor #(
 		.A_SIGNED(A_SIGNED),
 		.B_SIGNED(B_SIGNED),
 		.A_WIDTH(A_WIDTH),

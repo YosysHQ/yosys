@@ -864,7 +864,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 skip_fine_alu:
 
 		if (cell->type.in(ID($reduce_xor), ID($reduce_xnor), ID($shift), ID($shiftx), ID($shl), ID($shr), ID($sshl), ID($sshr),
-					ID($lt), ID($le), ID($ge), ID($gt), ID($neg), ID($add), ID($sub), ID($mul), ID($div), ID($mod), ID($pow)))
+					ID($lt), ID($le), ID($ge), ID($gt), ID($neg), ID($add), ID($sub), ID($mul), ID($div), ID($mod), ID($modfloor), ID($pow)))
 		{
 			RTLIL::SigSpec sig_a = assign_map(cell->getPort(ID::A));
 			RTLIL::SigSpec sig_b = cell->hasPort(ID::B) ? assign_map(cell->getPort(ID::B)) : RTLIL::SigSpec();
@@ -883,7 +883,7 @@ skip_fine_alu:
 			if (0) {
 		found_the_x_bit:
 				cover_list("opt.opt_expr.xbit", "$reduce_xor", "$reduce_xnor", "$shl", "$shr", "$sshl", "$sshr", "$shift", "$shiftx",
-						"$lt", "$le", "$ge", "$gt", "$neg", "$add", "$sub", "$mul", "$div", "$mod", "$pow", cell->type.str());
+						"$lt", "$le", "$ge", "$gt", "$neg", "$add", "$sub", "$mul", "$div", "$mod", "$modfloor", "$pow", cell->type.str());
 				if (cell->type.in(ID($reduce_xor), ID($reduce_xnor), ID($lt), ID($le), ID($ge), ID($gt)))
 					replace_cell(assign_map, module, cell, "x-bit in input", ID::Y, RTLIL::State::Sx);
 				else
@@ -1469,6 +1469,7 @@ skip_identity:
 		FOLD_2ARG_CELL(mul)
 		FOLD_2ARG_CELL(div)
 		FOLD_2ARG_CELL(mod)
+		FOLD_2ARG_CELL(modfloor)
 		FOLD_2ARG_CELL(pow)
 
 		FOLD_1ARG_CELL(pos)
@@ -1583,9 +1584,11 @@ skip_identity:
 			}
 		}
 
-		if (!keepdc && cell->type.in(ID($div), ID($mod)))
+		if (!keepdc && cell->type.in(ID($div), ID($mod), ID($modfloor)))
 		{
+			bool a_signed = cell->parameters[ID::A_SIGNED].as_bool();
 			bool b_signed = cell->parameters[ID::B_SIGNED].as_bool();
+			SigSpec sig_a = assign_map(cell->getPort(ID::A));
 			SigSpec sig_b = assign_map(cell->getPort(ID::B));
 			SigSpec sig_y = assign_map(cell->getPort(ID::Y));
 
@@ -1628,11 +1631,13 @@ skip_identity:
 							cell->setPort(ID::B, new_b);
 							cell->check();
 						}
-						else
+						else if (cell->type.in(ID($mod), ID($modfloor)))
 						{
 							cover("opt.opt_expr.mod_mask");
 
-							log_debug("Replacing modulo-by-%d cell `%s' in module `%s' with bitmask.\n",
+							bool is_truncating = cell->type == ID($mod);
+							log_debug("Replacing %s-modulo-by-%d cell `%s' in module `%s' with bitmask.\n",
+									is_truncating ? "truncating" : "flooring",
 									b_val, cell->name.c_str(), module->name.c_str());
 
 							std::vector<RTLIL::SigBit> new_b = RTLIL::SigSpec(State::S1, i);
@@ -1643,6 +1648,24 @@ skip_identity:
 							cell->type = ID($and);
 							cell->parameters[ID::B_WIDTH] = GetSize(new_b);
 							cell->setPort(ID::B, new_b);
+
+							// truncating modulo has the same masked bits as flooring modulo, but
+							// the sign bits are those of A (except when R=0)
+							if (is_truncating && a_signed) {
+								Wire *flooring = module->addWire(NEW_ID, sig_y.size());
+								cell->setPort(ID::Y, flooring);
+								SigSpec truncating = SigSpec(flooring).extract(0, i);
+
+								Wire *rem_nonzero = module->addWire(NEW_ID);
+								module->addReduceOr(NEW_ID, truncating, rem_nonzero);
+								SigSpec a_sign = sig_a[sig_a.size()-1];
+								Wire *extend_bit = module->addWire(NEW_ID);
+								module->addAnd(NEW_ID, a_sign, rem_nonzero, extend_bit);
+
+								truncating.append(extend_bit);
+								module->addPos(NEW_ID, truncating, sig_y, true);
+							}
+
 							cell->check();
 						}
 

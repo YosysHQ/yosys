@@ -740,6 +740,40 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 #undef HANDLE_UNIOP
 #undef HANDLE_BINOP
 
+	if (cell->type == ID($modfloor))
+	{
+		// wire truncated = $signed(A) % $signed(B);
+		// assign Y = (A[-1] == B[-1]) || truncated == 0 ? truncated : $signed(B) + $signed(truncated);
+
+		if (cell->getParam(ID::A_SIGNED).as_bool() && cell->getParam(ID::B_SIGNED).as_bool()) {
+			SigSpec sig_a = cell->getPort(ID::A);
+			SigSpec sig_b = cell->getPort(ID::B);
+
+			std::string temp_id = next_auto_id();
+			f << stringf("%s" "wire [%d:0] %s = ", indent.c_str(), GetSize(cell->getPort(ID::A))-1, temp_id.c_str());
+			dump_cell_expr_port(f, cell, "A", true);
+			f << stringf(" %% ");
+			dump_attributes(f, "", cell->attributes, ' ');
+			dump_cell_expr_port(f, cell, "B", true);
+			f << stringf(";\n");
+
+			f << stringf("%s" "assign ", indent.c_str());
+			dump_sigspec(f, cell->getPort(ID::Y));
+			f << stringf(" = (");
+			dump_sigspec(f, sig_a.extract(sig_a.size()-1));
+			f << stringf(" == ");
+			dump_sigspec(f, sig_b.extract(sig_b.size()-1));
+			f << stringf(") || %s == 0 ? %s : ", temp_id.c_str(), temp_id.c_str());
+			dump_cell_expr_port(f, cell, "B", true);
+			f << stringf(" + $signed(%s);\n", temp_id.c_str());
+			return true;
+		} else {
+			// same as truncating modulo
+			dump_cell_expr_binop(f, indent, cell, "%");
+			return true;
+		}
+	}
+
 	if (cell->type == ID($shift))
 	{
 		f << stringf("%s" "assign ", indent.c_str());

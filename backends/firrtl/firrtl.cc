@@ -585,6 +585,7 @@ struct FirrtlWorker
 					firrtl_is_signed = a_signed | b_signed;
 					firrtl_width = a_width;
 				} else if (cell->type == ID($mod)) {
+					// "rem" = truncating modulo
 					primop = "rem";
 					firrtl_width = min(a_width, b_width);
 				} else if (cell->type.in(ID($and), ID($_AND_))) {
