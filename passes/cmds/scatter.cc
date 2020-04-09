@@ -46,22 +46,19 @@ struct ScatterPass : public Pass {
 		CellTypes ct(design);
 		extra_args(args, 1, design);
 
-		for (auto &mod_it : design->modules_)
+		for (auto module : design->selected_modules())
 		{
-			if (!design->selected(mod_it.second))
-				continue;
-
-			for (auto &c : mod_it.second->cells_)
-			for (auto &p : c.second->connections_)
+			for (auto cell : module->cells())
+			for (auto &p : cell->connections_)
 			{
-				RTLIL::Wire *wire = mod_it.second->addWire(NEW_ID, p.second.size());
+				RTLIL::Wire *wire = module->addWire(NEW_ID, p.second.size());
 
-				if (ct.cell_output(c.second->type, p.first)) {
+				if (ct.cell_output(cell->type, p.first)) {
 					RTLIL::SigSig sigsig(p.second, wire);
-					mod_it.second->connect(sigsig);
+					module->connect(sigsig);
 				} else {
 					RTLIL::SigSig sigsig(wire, p.second);
-					mod_it.second->connect(sigsig);
+					module->connect(sigsig);
 				}
 
 				p.second = wire;
