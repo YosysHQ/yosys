@@ -179,6 +179,9 @@ wire_options:
 	wire_options TOK_WIDTH TOK_INT {
 		current_wire->width = $3;
 	} |
+	wire_options TOK_WIDTH TOK_INVALID {
+		rtlil_frontend_ilang_yyerror("ilang error: invalid wire width");
+	} |
 	wire_options TOK_UPTO {
 		current_wire->upto = true;
 	} |
