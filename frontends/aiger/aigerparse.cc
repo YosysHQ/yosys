@@ -454,6 +454,14 @@ void AigerReader::parse_xaiger()
 			for (unsigned i = 0; i < flopNum; i++)
 				mergeability.emplace_back(parse_xaiger_literal(f));
 		}
+		else if (c == 's') {
+			uint32_t dataSize YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
+			flopNum = parse_xaiger_literal(f);
+			log_assert(dataSize == (flopNum+1) * sizeof(uint32_t));
+			initial_state.reserve(flopNum);
+			for (unsigned i = 0; i < flopNum; i++)
+				initial_state.emplace_back(parse_xaiger_literal(f));
+		}
 		else if (c == 'n') {
 			parse_xaiger_literal(f);
 			f >> s;
@@ -767,6 +775,7 @@ void AigerReader::post_process()
 		}
 	}
 
+	dict<int, Wire*> mergeability_to_clock;
 	for (uint32_t i = 0; i < flopNum; i++) {
 		RTLIL::Wire *d = outputs[outputs.size() - flopNum + i];
 		log_assert(d);
@@ -778,10 +787,22 @@ void AigerReader::post_process()
 		log_assert(q->port_input);
 		q->port_input = false;
 
-		auto ff = module->addCell(NEW_ID, ID($__ABC9_FF_));
+		Cell* ff;
+		int clock_index = mergeability[i];
+		if (clock_index < 0) {
+			ff = module->addCell(NEW_ID, ID($_DFF_N_));
+			clock_index = -clock_index;
+		}
+		else if (clock_index > 0)
+			ff = module->addCell(NEW_ID, ID($_DFF_P_));
+		else log_abort();
+		auto r = mergeability_to_clock.insert(clock_index);
+		if (r.second)
+			r.first->second = module->addWire(NEW_ID);
+		ff->setPort(ID::C, r.first->second);
 		ff->setPort(ID::D, d);
 		ff->setPort(ID::Q, q);
-		ff->attributes[ID::abc9_mergeability] = mergeability[i];
+		ff->attributes[ID::abc9_init] = initial_state[i];
 	}
 
 	dict<RTLIL::IdString, std::pair<int,int>> wideports_cache;
