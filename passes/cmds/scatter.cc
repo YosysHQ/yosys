@@ -48,20 +48,17 @@ struct ScatterPass : public Pass {
 
 		for (auto module : design->selected_modules())
 		{
-			for (auto cell : module->cells())
-			for (auto &p : cell->connections_)
-			{
-				RTLIL::Wire *wire = module->addWire(NEW_ID, p.second.size());
-
-				if (ct.cell_output(cell->type, p.first)) {
-					RTLIL::SigSig sigsig(p.second, wire);
-					module->connect(sigsig);
-				} else {
-					RTLIL::SigSig sigsig(wire, p.second);
-					module->connect(sigsig);
+			for (auto cell : module->cells()) {
+				std::map<RTLIL::IdString, std::pair<RTLIL::SigSpec, RTLIL::SigSpec>> new_connections;
+				for (auto conn : cell->connections())
+					new_connections.emplace(conn.first, std::make_pair(conn.second, module->addWire(NEW_ID, conn.second.size())));
+				for (auto &it : new_connections) {
+					if (ct.cell_output(cell->type, it.first))
+						module->connect(RTLIL::SigSig(it.second.first, it.second.second));
+					else
+						module->connect(RTLIL::SigSig(it.second.second, it.second.first));
+					cell->setPort(it.first, it.second.second);
 				}
-
-				p.second = wire;
 			}
 		}
 	}
