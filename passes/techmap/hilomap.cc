@@ -105,13 +105,9 @@ struct HilomapPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto &it : design->modules_)
+		for (auto mod : design->selected_modules())
 		{
-			module = it.second;
-
-			if (!design->selected(module))
-				continue;
-
+			module = mod;
 			last_hi = RTLIL::State::Sm;
 			last_lo = RTLIL::State::Sm;
 
