@@ -516,7 +516,7 @@ void yosys_setup()
 	already_setup = true;
 
 #define X(_id) RTLIL::ID::_id = "\\" # _id;
-#include "constids.inc"
+#include "kernel/constids.inc"
 #undef X
 
 	#ifdef WITH_PYTHON
