@@ -118,11 +118,11 @@ void handle_memory(RTLIL::Module *module, RTLIL::Cell *memory)
 void handle_module(RTLIL::Design *design, RTLIL::Module *module)
 {
 	std::vector<RTLIL::IdString> memcells;
-	for (auto &cell_it : module->cells_)
-		if (cell_it.second->type == ID($mem) && design->selected(module, cell_it.second))
-			memcells.push_back(cell_it.first);
+	for (auto cell : module->cells())
+		if (cell->type == ID($mem) && design->selected(module, cell))
+			memcells.push_back(cell->name);
 	for (auto &it : memcells)
-		handle_memory(module, module->cells_.at(it));
+		handle_memory(module, module->cell(it));
 }
 
 struct MemoryUnpackPass : public Pass {
@@ -140,9 +140,8 @@ struct MemoryUnpackPass : public Pass {
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE {
 		log_header(design, "Executing MEMORY_UNPACK pass (generating $memrd/$memwr cells form $mem cells).\n");
 		extra_args(args, 1, design);
-		for (auto &mod_it : design->modules_)
-			if (design->selected(mod_it.second))
-				handle_module(design, mod_it.second);
+		for (auto module : design->selected_modules())
+			handle_module(design, module);
 	}
 } MemoryUnpackPass;
 
