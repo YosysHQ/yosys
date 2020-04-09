@@ -258,22 +258,18 @@ struct RenamePass : public Pass {
 
 				for (auto wire : module->selected_wires())
 					if (wire->name[0] == '$') {
-						std::ostringstream buf;
-						do {
-							buf.str("");
-							buf << "\\" << pattern_prefix << counter++ << pattern_suffix;
-						} while (module->count_id(buf.str()) > 0);
-						new_wire_names[wire] = buf.str();
+						RTLIL::IdString buf;
+						do buf = stringf("\\%s%d%s", pattern_prefix.c_str(), counter++, pattern_suffix.c_str());
+						while (module->wire(buf) != nullptr);
+						new_wire_names[wire] = buf;
 					}
 
 				for (auto cell : module->selected_cells())
 					if (cell->name[0] == '$') {
-						std::ostringstream buf;
-						do {
-							buf.str("");
-							buf << "\\" << pattern_prefix << counter++ << pattern_suffix;
-						} while (module->count_id(buf.str()) > 0);
-						new_cell_names[cell] = buf.str();
+						RTLIL::IdString buf;
+						do buf = stringf("\\%s%d%s", pattern_prefix.c_str(), counter++, pattern_suffix.c_str());
+						while (module->cell(buf) != nullptr);
+						new_cell_names[cell] = buf;
 					}
 
 				for (auto &it : new_wire_names)
