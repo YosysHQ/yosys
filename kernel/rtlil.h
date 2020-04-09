@@ -377,7 +377,7 @@ namespace RTLIL
 
 	namespace ID {
 #define X(_id) extern IdString _id;
-#include "constids.inc"
+#include "kernel/constids.inc"
 #undef X
 	};
 

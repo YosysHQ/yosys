@@ -42,7 +42,7 @@ int RTLIL::IdString::last_created_idx_ptr_;
 #endif
 
 #define X(_id) IdString RTLIL::ID::_id;
-#include "constids.inc"
+#include "kernel/constids.inc"
 #undef X
 
 dict<std::string, std::string> RTLIL::constpad;
