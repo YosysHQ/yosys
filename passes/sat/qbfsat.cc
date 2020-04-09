@@ -56,8 +56,8 @@ struct QbfSolveOptions {
 	std::string dump_final_smt2_file;
 	size_t argidx;
 	QbfSolveOptions() : specialize(false), specialize_from_file(false), write_solution(false),
-				nocleanup(false), dump_final_smt2(false), assume_outputs(false), sat(false), unsat(false),
-				show_smtbmc(false), argidx(0) {};
+			nocleanup(false), dump_final_smt2(false), assume_outputs(false), sat(false), unsat(false),
+			show_smtbmc(false), argidx(0) {};
 };
 
 void recover_solution(QbfSolutionType &sol) {
@@ -101,7 +101,6 @@ std::map<std::string, std::string> get_hole_loc_name_map(RTLIL::Module *module, 
 		if (pos != sol.hole_to_value.end()) {
 #ifndef NDEBUG
 			log_assert(cell->type.in("$anyconst", "$anyseq"));
-			log_assert(cell->hasPort(ID::Y));
 			log_assert(cell->getPort(ID::Y).is_wire());
 #endif
 			hole_loc_to_name[pos->first] = cell->getPort(ID::Y).as_wire()->name.str();
@@ -162,7 +161,7 @@ void specialize_from_file(RTLIL::Module *module, const std::string &file) {
 		std::vector<RTLIL::SigBit> value_bv;
 		value_bv.reserve(wire->width);
 		for (char c : hole_value)
-			value_bv.push_back(c == '1'? RTLIL::S1 : RTLIL::S0);
+			value_bv.emplace_back(c == '1'? RTLIL::S1 : RTLIL::S0);
 		std::reverse(value_bv.begin(), value_bv.end());
 		module->connect(wire, value_bv);
 	}
@@ -197,7 +196,7 @@ void specialize(RTLIL::Module *module, const QbfSolutionType &sol) {
 		std::vector<RTLIL::SigBit> value_bv;
 		value_bv.reserve(wire->width);
 		for (char c : hole_value)
-			value_bv.push_back(c == '1'? RTLIL::S1 : RTLIL::S0);
+			value_bv.emplace_back(c == '1'? RTLIL::S1 : RTLIL::S0);
 		std::reverse(value_bv.begin(), value_bv.end());
 		module->connect(wire, value_bv);
 	}
@@ -220,7 +219,7 @@ void dump_model(RTLIL::Module *module, const QbfSolutionType &sol) {
 		std::vector<RTLIL::SigBit> value_bv;
 		value_bv.reserve(hole_value.size());
 		for (char c : hole_value)
-			value_bv.push_back(c == '1'? RTLIL::S1 : RTLIL::S0);
+			value_bv.emplace_back(c == '1'? RTLIL::S1 : RTLIL::S0);
 		std::reverse(value_bv.begin(), value_bv.end());
 	}
 
@@ -357,7 +356,6 @@ std::set<std::string> validate_design_and_get_inputs(RTLIL::Module *module, cons
 	return input_wires;
 }
 
-
 QbfSolveOptions parse_args(const std::vector<std::string> &args) {
 	QbfSolveOptions opt;
 	for (opt.argidx = 1; opt.argidx < args.size(); opt.argidx++) {
@@ -488,20 +486,20 @@ struct QbfSatPass : public Pass {
 		log("\n");
 		log("\n");
 	}
+
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
-		log_header(design, "Executing QBF-SAT pass (solving QBF-SAT problems in the circuit).\n");
+		log_header(design, "Executing QBFSAT pass (solving QBF-SAT problems in the circuit).\n");
 		QbfSolveOptions opt = parse_args(args);
 		extra_args(args, opt.argidx, design);
 
-
-		RTLIL::Module *module = NULL;
+		RTLIL::Module *module = nullptr;
 		for (auto mod : design->selected_modules()) {
 			if (module)
 				log_cmd_error("Only one module must be selected for the QBF-SAT pass! (selected: %s and %s)\n", log_id(module), log_id(mod));
 			module = mod;
 		}
-		if (module == NULL)
+		if (module == nullptr)
 			log_cmd_error("Can't perform QBF-SAT on an empty selection!\n");
 
 		log_push();
@@ -543,9 +541,8 @@ struct QbfSatPass : public Pass {
 				log_cmd_error("expected problem to be SAT\n");
 			else if (ret.unknown && (opt.sat || opt.unsat))
 				log_cmd_error("expected problem to be %s\n", opt.sat? "SAT" : "UNSAT");
-		} else {
+		} else
 			specialize_from_file(module, opt.specialize_soln_file);
-		}
 		log_pop();
 	}
 } QbfSatPass;
