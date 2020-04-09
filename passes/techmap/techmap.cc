@@ -1282,7 +1282,7 @@ struct TechmapPass : public Pass {
 				if (fn.compare(0, 1, "%") == 0) {
 					if (!saved_designs.count(fn.substr(1))) {
 						delete map;
-						log_cmd_error("Can't saved design `%s'.\n", fn.c_str()+1);
+						log_cmd_error("Can't open saved design `%s'.\n", fn.c_str()+1);
 					}
 					for (auto mod : saved_designs.at(fn.substr(1))->modules())
 						if (!map->has(mod->name))
