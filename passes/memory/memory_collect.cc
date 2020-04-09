@@ -60,8 +60,7 @@ Cell *handle_memory(Module *module, RTLIL::Memory *memory)
 	int addr_bits = 0;
 	std::vector<Cell*> memcells;
 
-	for (auto &cell_it : module->cells_) {
-		Cell *cell = cell_it.second;
+	for (auto cell : module->cells())
 		if (cell->type.in(ID($memrd), ID($memwr), ID($meminit)) && memory->name == cell->parameters[ID::MEMID].decode_string()) {
 			SigSpec addr = sigmap(cell->getPort(ID::ADDR));
 			for (int i = 0; i < GetSize(addr); i++)
@@ -69,7 +68,6 @@ Cell *handle_memory(Module *module, RTLIL::Memory *memory)
 					addr_bits = std::max(addr_bits, i+1);
 			memcells.push_back(cell);
 		}
-	}
 
 	if (memory->start_offset == 0 && addr_bits < 30 && (1 << addr_bits) < memory->size)
 		memory->size = 1 << addr_bits;
@@ -260,9 +258,8 @@ struct MemoryCollectPass : public Pass {
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE {
 		log_header(design, "Executing MEMORY_COLLECT pass (generating $mem cells).\n");
 		extra_args(args, 1, design);
-		for (auto &mod_it : design->modules_)
-			if (design->selected(mod_it.second))
-				handle_module(design, mod_it.second);
+		for (auto module : design->selected_modules())
+			handle_module(design, module);
 	}
 } MemoryCollectPass;
 
