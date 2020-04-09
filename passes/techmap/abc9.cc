@@ -303,7 +303,7 @@ struct Abc9Pass : public ScriptPass
 			if (help_mode) {
 				run("foreach module in selection");
 				run("    abc9_ops -write_lut <abc-temp-dir>/input.lut", "(skip if '-lut' or '-luts')");
-				run("    abc9_ops -write_box <abc-temp-dir>/input.box");
+				run("    abc9_ops -write_box <abc-temp-dir>/input.box", "(skip if '-box')");
 				run("    write_xaiger -map <abc-temp-dir>/input.sym <abc-temp-dir>/input.xaig");
 				run("    abc9_exe [options] -cwd <abc-temp-dir> [-lut <abc-temp-dir>/input.lut] -box <abc-temp-dir>/input.box");
 				run("    read_aiger -xaiger -wideports -module_name <module-name>$abc9 -map <abc-temp-dir>/input.sym <abc-temp-dir>/output.aig");
@@ -333,7 +333,8 @@ struct Abc9Pass : public ScriptPass
 
 					if (!lut_mode)
 						run_nocheck(stringf("abc9_ops -write_lut %s/input.lut", tempdir_name.c_str()));
-					run_nocheck(stringf("abc9_ops -write_box %s/input.box", tempdir_name.c_str()));
+					if (box_file.empty())
+						run_nocheck(stringf("abc9_ops -write_box %s/input.box", tempdir_name.c_str()));
 					run_nocheck(stringf("write_xaiger -map %s/input.sym %s/input.xaig", tempdir_name.c_str(), tempdir_name.c_str()));
 
 					int num_outputs = active_design->scratchpad_get_int("write_xaiger.num_outputs");
@@ -349,7 +350,10 @@ struct Abc9Pass : public ScriptPass
 						abc9_exe_cmd += stringf("%s -cwd %s", exe_cmd.str().c_str(), tempdir_name.c_str());
 						if (!lut_mode)
 							abc9_exe_cmd += stringf(" -lut %s/input.lut", tempdir_name.c_str());
-						abc9_exe_cmd += stringf(" -box %s/input.box", tempdir_name.c_str());
+						if (box_file.empty())
+							abc9_exe_cmd += stringf(" -box %s/input.box", tempdir_name.c_str());
+						else
+							abc9_exe_cmd += stringf(" -box %s", box_file.c_str());
 						run_nocheck(abc9_exe_cmd);
 						run_nocheck(stringf("read_aiger -xaiger -wideports -module_name %s$abc9 -map %s/input.sym %s/output.aig", log_id(mod), tempdir_name.c_str(), tempdir_name.c_str()));
 						run_nocheck("abc9_ops -reintegrate");
