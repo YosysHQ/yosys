@@ -137,7 +137,7 @@ struct XAigerWriter
 		return a;
 	}
 
-	XAigerWriter(Module *module, bool holes_mode=false) : module(module), sigmap(module)
+	XAigerWriter(Module *module, bool dff_mode, bool holes_mode=false) : module(module), sigmap(module)
 	{
 		pool<SigBit> undriven_bits;
 		pool<SigBit> unused_bits;
@@ -212,10 +212,7 @@ struct XAigerWriter
 					continue;
 				}
 
-				if (cell->type == ID($__ABC9_FF_) &&
-						// The presence of an abc9_mergeability attribute indicates
-						//   that we do want to pass this flop to ABC
-						cell->attributes.count(ID::abc9_mergeability))
+				if (dff_mode && cell->type.in(ID($_DFF_N_), ID($_DFF_P_)))
 				{
 					SigBit D = sigmap(cell->getPort(ID::D).as_bit());
 					SigBit Q = sigmap(cell->getPort(ID::Q).as_bit());
@@ -233,7 +230,11 @@ struct XAigerWriter
 
 			RTLIL::Module* inst_module = module->design->module(cell->type);
 			if (inst_module) {
-				IdString derived_type = inst_module->derive(module->design, cell->parameters);
+				IdString derived_type;
+				if (cell->parameters.empty())
+					derived_type = cell->type;
+				else
+					derived_type = inst_module->derive(module->design, cell->parameters);
 				inst_module = module->design->module(derived_type);
 				log_assert(inst_module);
 
@@ -319,7 +320,7 @@ struct XAigerWriter
 
 			RTLIL::Module* box_module = module->design->module(cell->type);
 			log_assert(box_module);
-			log_assert(box_module->attributes.count(ID::abc9_box_id) || box_module->get_bool_attribute(ID::abc9_flop));
+			log_assert(box_module->attributes.count(ID::abc9_box_id));
 
 			auto r = box_ports.insert(cell->type);
 			if (r.second) {
@@ -382,27 +383,6 @@ struct XAigerWriter
 						ci_bits.emplace_back(b);
 						undriven_bits.erase(O);
 					}
-			}
-
-			// Connect <cell>.abc9_ff.Q (inserted by abc9_map.v) as the last input to the flop box
-			if (box_module->get_bool_attribute(ID::abc9_flop)) {
-				SigSpec rhs = module->wire(stringf("%s.abc9_ff.Q", cell->name.c_str()));
-				if (rhs.empty())
-					log_error("'%s.abc9_ff.Q' is not a wire present in module '%s'.\n", log_id(cell), log_id(module));
-
-				for (auto b : rhs) {
-					SigBit I = sigmap(b);
-					if (b == RTLIL::Sx)
-						b = State::S0;
-					else if (I != b) {
-						if (I == RTLIL::Sx)
-							alias_map[b] = State::S0;
-						else
-							alias_map[b] = I;
-					}
-					co_bits.emplace_back(b);
-					unused_bits.erase(I);
-				}
 			}
 		}
 
@@ -593,7 +573,11 @@ struct XAigerWriter
 				RTLIL::Module* box_module = module->design->module(cell->type);
 				log_assert(box_module);
 
-				IdString derived_type = box_module->derive(box_module->design, cell->parameters);
+				IdString derived_type;
+				if (cell->parameters.empty())
+					derived_type = cell->type;
+				else
+					derived_type = box_module->derive(module->design, cell->parameters);
 				box_module = box_module->design->module(derived_type);
 				log_assert(box_module);
 
@@ -609,11 +593,6 @@ struct XAigerWriter
 						if (w->port_output)
 							box_outputs += GetSize(w);
 					}
-
-					// For flops only, create an extra 1-bit input that drives a new wire
-					//   called "<cell>.abc9_ff.Q" that is used below
-					if (box_module->get_bool_attribute(ID::abc9_flop))
-						box_inputs++;
 
 					std::get<0>(v) = box_inputs;
 					std::get<1>(v) = box_outputs;
@@ -635,18 +614,34 @@ struct XAigerWriter
 			auto write_s_buffer = std::bind(write_buffer, std::ref(s_buffer), std::placeholders::_1);
 			write_s_buffer(ff_bits.size());
 
+			dict<SigBit, int> clk_to_mergeability;
+
+			bool nonzero_warned = false;
 			for (const auto &i : ff_bits) {
 				const SigBit &d = i.first;
 				const Cell *cell = i.second;
 
-				int mergeability = cell->attributes.at(ID::abc9_mergeability).as_int();
+				log_assert(cell->type.in(ID($_DFF_N_), ID($_DFF_P_)));
+
+				SigBit clock = sigmap(cell->getPort(ID::C));
+				auto r = clk_to_mergeability.insert(std::make_pair(clock, clk_to_mergeability.size() + 1));
+				int mergeability = r.first->second;
 				log_assert(mergeability > 0);
-				write_r_buffer(mergeability);
+				if (cell->type == ID($_DFF_N_))
+					write_r_buffer(-mergeability);
+				else if (cell->type == ID($_DFF_P_))
+					write_r_buffer(mergeability);
+				else log_abort();
 
 				Const init = cell->attributes.at(ID::abc9_init, State::Sx);
 				log_assert(GetSize(init) == 1);
-				if (init == State::S1)
+				if (init == State::S1) {
+					if (!nonzero_warned) {
+						log_warning("Module '%s' contains $_DFF_[NP]_ cell with non-zero initial state -- unsupported by ABC9.\n", log_id(module));
+						nonzero_warned = true;
+					}
 					write_s_buffer(1);
+				}
 				else if (init == State::S0)
 					write_s_buffer(0);
 				else {
@@ -674,7 +669,7 @@ struct XAigerWriter
 			RTLIL::Module *holes_module = module->design->module(stringf("%s$holes", module->name.c_str()));
 			if (holes_module) {
 				std::stringstream a_buffer;
-				XAigerWriter writer(holes_module, true /* holes_mode */);
+				XAigerWriter writer(holes_module, false /* dff_mode */, true /* holes_mode */);
 				writer.write_aiger(a_buffer, false /*ascii_mode*/);
 
 				f << "a";
@@ -761,8 +756,8 @@ struct XAigerBackend : public Backend {
 		log("    write_xaiger [options] [filename]\n");
 		log("\n");
 		log("Write the top module (according to the (* top *) attribute or if only one module\n");
-		log("is currently selected) to an XAIGER file. Any non $_NOT_, $_AND_, $_ABC9_FF_, or");
-		log("non (* abc9_box_id *) cells will be converted into psuedo-inputs and\n");
+		log("is currently selected) to an XAIGER file. Any non $_NOT_, $_AND_, $_DFF_N_,\n");
+		log(" $_DFF_P_, or non (* abc9_box_id *) cells will be converted into psuedo-inputs and\n");
 		log("pseudo-outputs. Whitebox contents will be taken from the '<module-name>$holes'\n");
 		log("module, if it exists.\n");
 		log("\n");
@@ -772,10 +767,13 @@ struct XAigerBackend : public Backend {
 		log("    -map <filename>\n");
 		log("        write an extra file with port and box symbols\n");
 		log("\n");
+		log("    -dff\n");
+		log("        write $_DFF_[NP]_ cells\n");
+		log("\n");
 	}
 	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
-		bool ascii_mode = false;
+		bool ascii_mode = false, dff_mode = false;
 		std::string map_filename;
 
 		log_header(design, "Executing XAIGER backend.\n");
@@ -789,6 +787,10 @@ struct XAigerBackend : public Backend {
 			}
 			if (map_filename.empty() && args[argidx] == "-map" && argidx+1 < args.size()) {
 				map_filename = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-dff") {
+				dff_mode = true;
 				continue;
 			}
 			break;
@@ -808,7 +810,7 @@ struct XAigerBackend : public Backend {
 		if (!top_module->memories.empty())
 			log_error("Found unmapped memories in module %s: unmapped memories are not supported in XAIGER backend!\n", log_id(top_module));
 
-		XAigerWriter writer(top_module);
+		XAigerWriter writer(top_module, dff_mode);
 		writer.write_aiger(*f, ascii_mode);
 
 		if (!map_filename.empty()) {
