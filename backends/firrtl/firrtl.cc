@@ -504,8 +504,8 @@ struct FirrtlWorker
 				continue;
 			}
 			if (cell->type.in(ID($add), ID($sub), ID($mul), ID($div), ID($mod), ID($xor), ID($xnor), ID($and), ID($or), ID($eq), ID($eqx),
-												ID($gt), ID($ge), ID($lt), ID($le), ID($ne), ID($nex), ID($shr), ID($sshr), ID($sshl), ID($shl),
-												ID($logic_and), ID($logic_or), ID($pow)))
+                                        ID($gt), ID($ge), ID($lt), ID($le), ID($ne), ID($nex), ID($shr), ID($sshr), ID($sshl), ID($shl),
+                                        ID($logic_and), ID($logic_or), ID($pow)))
 			{
 				string a_expr = make_expr(cell->getPort(ID::A));
 				string b_expr = make_expr(cell->getPort(ID::B));
@@ -593,7 +593,7 @@ struct FirrtlWorker
 					primop = "eq";
 					always_uint = true;
 					firrtl_width = 1;
-			    }
+				}
 				else if ((cell->type == ID($ne)) | (cell->type == ID($nex))) {
 					primop = "neq";
 					always_uint = true;
