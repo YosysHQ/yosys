@@ -1423,11 +1423,14 @@ struct FlattenPass : public Pass {
 							new_used_modules.insert(cell->type);
 			}
 
+			std::set<RTLIL::Module *> to_remove;
 			for (auto mod : design->modules())
 				if (!used_modules[mod->name] && !mod->get_blackbox_attribute(worker.ignore_wb)) {
 					log("Deleting now unused module %s.\n", log_id(mod));
-					design->remove(mod);
+					to_remove.insert(mod);
 				}
+			for (auto mod : to_remove)
+				design->remove(mod);
 		}
 
 		log_pop();
