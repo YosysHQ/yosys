@@ -479,27 +479,27 @@ void Frontend::extra_args(std::istream *&f, std::string &filename, std::vector<s
 	{
 		std::string arg = args[argidx];
 
-		if (arg.compare(0, 1, "-") == 0 && arg != "-")
+		if (arg.compare(0, 1, "-") == 0)
 			cmd_error(args, argidx, "Unknown option or option in arguments.");
 		if (f != NULL)
 			cmd_error(args, argidx, "Extra filename argument in direct file mode.");
 
-		filename = (arg == "-")? "<stdin>" : arg;
+		filename = arg;
 		//Accommodate heredocs with EOT marker spaced out from "<<", e.g. "<< EOT" vs. "<<EOT"
 		if (filename == "<<" && argidx+1 < args.size())
 			filename += args[++argidx];
-		if (filename.compare(0, 2, "<<") == 0 || filename == "<stdin>") {
-			if (Frontend::current_script_file == NULL && filename != "<stdin>")
-				log_error("Unexpected here document '%s' outside of script!\n", filename.c_str());
+		if (filename.compare(0, 2, "<<") == 0) {
 			if (filename.size() <= 2)
 				log_error("Missing EOT marker in here document!\n");
-			std::string eot_marker = filename == "<stdin>"? "EOT" : filename.substr(2); //"EOT" hardcoded as EOT marker when reading from stdin
+			std::string eot_marker = filename.substr(2);
+			if (Frontend::current_script_file == nullptr)
+				filename = "<stdin>";
 			last_here_document.clear();
 			while (1) {
 				std::string buffer;
 				char block[4096];
 				while (1) {
-					if (fgets(block, 4096, filename == "<stdin>"? stdin : Frontend::current_script_file) == NULL)
+					if (fgets(block, 4096, Frontend::current_script_file == nullptr? stdin : Frontend::current_script_file) == nullptr)
 						log_error("Unexpected end of file in here document '%s'!\n", filename.c_str());
 					buffer += block;
 					if (buffer.size() > 0 && (buffer[buffer.size() - 1] == '\n' || buffer[buffer.size() - 1] == '\r'))
