@@ -2618,6 +2618,7 @@ basic_expr:
 		bits->str = *$1;
 		SET_AST_NODE_LOC(bits, @1, @1);
 		AstNode *val = const2ast(*$2, case_type_stack.size() == 0 ? 0 : case_type_stack.back(), !lib_mode);
+		SET_AST_NODE_LOC(val, @2, @2);
 		if (val == NULL)
 			log_error("Value conversion failed: `%s'\n", $2->c_str());
 		$$ = new AstNode(AST_TO_BITS, bits, val);
@@ -2626,6 +2627,7 @@ basic_expr:
 	} |
 	integral_number {
 		$$ = const2ast(*$1, case_type_stack.size() == 0 ? 0 : case_type_stack.back(), !lib_mode);
+		SET_AST_NODE_LOC($$, @1, @1);
 		if ($$ == NULL)
 			log_error("Value conversion failed: `%s'\n", $1->c_str());
 		delete $1;
@@ -2644,6 +2646,7 @@ basic_expr:
 	} |
 	TOK_STRING {
 		$$ = AstNode::mkconst_str(*$1);
+		SET_AST_NODE_LOC($$, @1, @1);
 		delete $1;
 	} |
 	hierarchical_id attr {
