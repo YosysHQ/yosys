@@ -137,8 +137,25 @@ struct rules_t
 		vector<vector<std::tuple<bool,IdString,Const>>> attributes;
 	};
 
+	bool attr_icase;
 	dict<IdString, vector<bram_t>> brams;
 	vector<match_t> matches;
+
+	std::string map_case(std::string value) const
+	{
+		if (attr_icase) {
+			for (char &c : value)
+				c = tolower(c);
+		}
+		return value;
+	}
+
+	RTLIL::Const map_case(RTLIL::Const value) const
+	{
+		if (value.flags & RTLIL::CONST_FLAG_STRING)
+			return map_case(value.decode_string());
+		return value;
+	}
 
 	std::ifstream infile;
 	vector<string> tokens;
@@ -337,7 +354,7 @@ struct rules_t
 					IdString key = RTLIL::escape_id(tokens[idx].substr(c1, c2));
 					Const val = c2 != std::string::npos ? tokens[idx].substr(c2+1) : RTLIL::Const(1);
 
-					data.attributes.back().emplace_back(exists, key, val);
+					data.attributes.back().emplace_back(exists, key, map_case(val));
 				}
 				continue;
 			}
@@ -351,6 +368,7 @@ struct rules_t
 		rewrite_filename(filename);
 		infile.open(filename);
 		linecount = 0;
+		attr_icase = false;
 
 		if (infile.fail())
 			log_error("Can't open rules file `%s'.\n", filename.c_str());
@@ -359,6 +377,11 @@ struct rules_t
 		{
 			if (!labels.empty())
 				syntax_error();
+
+			if (GetSize(tokens) == 2 && tokens[0] == "attr_icase") {
+				attr_icase = atoi(tokens[1].c_str());
+				continue;
+			}
 
 			if (tokens[0] == "bram") {
 				parse_bram();
@@ -843,7 +866,7 @@ grow_read_ports:;
 				}
 				else if (!exists)
 					continue;
-				if (it->second != value)
+				if (rules.map_case(it->second) != value)
 					continue;
 				found = true;
 				break;
@@ -855,7 +878,7 @@ grow_read_ports:;
 					ss << "!";
 				IdString key = std::get<1>(sums.front());
 				ss << log_id(key);
-				const Const &value = std::get<2>(sums.front());
+				const Const &value = rules.map_case(std::get<2>(sums.front()));
 				if (exists && value != Const(1))
 					ss << "=\"" << value.decode_string() << "\"";
 
@@ -1167,7 +1190,7 @@ void handle_cell(Cell *cell, const rules_t &rules)
 					}
 					else if (!exists)
 						continue;
-					if (it->second != value)
+					if (rules.map_case(it->second) != value)
 						continue;
 					found = true;
 					break;
@@ -1179,7 +1202,7 @@ void handle_cell(Cell *cell, const rules_t &rules)
 						ss << "!";
 					IdString key = std::get<1>(sums.front());
 					ss << log_id(key);
-					const Const &value = std::get<2>(sums.front());
+					const Const &value = rules.map_case(std::get<2>(sums.front()));
 					if (exists && value != Const(1))
 						ss << "=\"" << value.decode_string() << "\"";
 
@@ -1252,8 +1275,13 @@ struct MemoryBramPass : public Pass {
 		log("The given rules file describes the available resources and how they should be\n");
 		log("used.\n");
 		log("\n");
-		log("The rules file contains a set of block ram description and a sequence of match\n");
-		log("rules. A block ram description looks like this:\n");
+		log("The rules file contains configuration options, a set of block ram description\n");
+		log("and a sequence of match rules.\n");
+		log("\n");
+		log("The option 'attr_icase' configures how attribute values are matched. The value 0\n");
+		log("means case-sensitive, 1 means case-insensitive.\n");
+		log("\n");
+		log("A block ram description looks like this:\n");
 		log("\n");
 		log("    bram RAMB1024X32     # name of BRAM cell\n");
 		log("      init 1             # set to '1' if BRAM can be initialized\n");
