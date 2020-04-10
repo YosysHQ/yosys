@@ -57,7 +57,7 @@ ENABLE_LIBYOSYS := 1
 endif
 
 BINDIR := $(PREFIX)/bin
-LIBDIR := $(PREFIX)/lib
+LIBDIR := $(PREFIX)/lib/$(PROGRAM_PREFIX)yosys
 DATDIR := $(PREFIX)/share/$(PROGRAM_PREFIX)yosys
 
 EXE =
@@ -311,7 +311,7 @@ $(error Invalid CONFIG setting '$(CONFIG)'. Valid values: clang, gcc, gcc-4.8, e
 endif
 
 ifeq ($(ENABLE_LIBYOSYS),1)
-TARGETS += lib$(PROGRAM_PREFIX)yosys.so
+TARGETS += libyosys.so
 endif
 
 ifeq ($(ENABLE_PYOSYS),1)
@@ -621,11 +621,11 @@ endif
 $(PROGRAM_PREFIX)yosys$(EXE): $(OBJS)
 	$(P) $(LD) -o $(PROGRAM_PREFIX)yosys$(EXE) $(LDFLAGS) $(OBJS) $(LDLIBS)
 
-lib$(PROGRAM_PREFIX)yosys.so: $(filter-out kernel/driver.o,$(OBJS))
+libyosys.so: $(filter-out kernel/driver.o,$(OBJS))
 ifeq ($(OS), Darwin)
-	$(P) $(LD) -o lib$(PROGRAM_PREFIX)yosys.so -shared -Wl,-install_name,lib$(PROGRAM_PREFIX)yosys.so $(LDFLAGS) $^ $(LDLIBS)
+	$(P) $(LD) -o libyosys.so -shared -Wl,-install_name,$(DESTDIR)$(LIBDIR)/libyosys.so $(LDFLAGS) $^ $(LDLIBS)
 else
-	$(P) $(LD) -o lib$(PROGRAM_PREFIX)yosys.so -shared -Wl,-soname,lib$(PROGRAM_PREFIX)yosys.so $(LDFLAGS) $^ $(LDLIBS)
+	$(P) $(LD) -o libyosys.so -shared -Wl,-soname,$(DESTDIR)$(LIBDIR)/libyosys.so $(LDFLAGS) $^ $(LDLIBS)
 endif
 
 %.o: %.cc
@@ -766,7 +766,7 @@ ystests: $(TARGETS) $(EXTRA_TARGETS)
 	@echo ""
 
 # Unit test
-unit-test: lib$(PROGRAM_PREFIX)yosys.so
+unit-test: libyosys.so
 	@$(MAKE) -C $(UNITESTPATH) CXX="$(CXX)" CPPFLAGS="$(CPPFLAGS)" \
 		CXXFLAGS="$(CXXFLAGS)" LDLIBS="$(LDLIBS)" ROOTPATH="$(CURDIR)"
 
@@ -775,7 +775,7 @@ clean-unit-test:
 
 install: $(TARGETS) $(EXTRA_TARGETS)
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(BINDIR)
-	$(INSTALL_SUDO) cp $(filter-out lib$(PROGRAM_PREFIX)yosys.so,$(TARGETS)) $(DESTDIR)$(BINDIR)
+	$(INSTALL_SUDO) cp $(filter-out libyosys.so,$(TARGETS)) $(DESTDIR)$(BINDIR)
 ifneq ($(filter $(PROGRAM_PREFIX)yosys,$(TARGETS)),)
 	$(INSTALL_SUDO) $(STRIP) -S $(DESTDIR)$(BINDIR)/$(PROGRAM_PREFIX)yosys
 endif
@@ -789,11 +789,11 @@ endif
 	$(INSTALL_SUDO) cp -r share/. $(DESTDIR)$(DATDIR)/.
 ifeq ($(ENABLE_LIBYOSYS),1)
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(LIBDIR)
-	$(INSTALL_SUDO) cp lib$(PROGRAM_PREFIX)yosys.so $(DESTDIR)$(LIBDIR)/
-	$(INSTALL_SUDO) $(STRIP) -S $(DESTDIR)$(LIBDIR)/lib$(PROGRAM_PREFIX)yosys.so
+	$(INSTALL_SUDO) cp libyosys.so $(DESTDIR)$(LIBDIR)/
+	$(INSTALL_SUDO) $(STRIP) -S $(DESTDIR)$(LIBDIR)/libyosys.so
 ifeq ($(ENABLE_PYOSYS),1)
 	$(INSTALL_SUDO) mkdir -p $(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys
-	$(INSTALL_SUDO) cp lib$(PROGRAM_PREFIX)yosys.so $(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/libyosys.so
+	$(INSTALL_SUDO) cp libyosys.so $(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/libyosys.so
 	$(INSTALL_SUDO) cp misc/__init__.py $(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/
 endif
 endif
@@ -802,7 +802,7 @@ uninstall:
 	$(INSTALL_SUDO) rm -vf $(addprefix $(DESTDIR)$(BINDIR)/,$(notdir $(TARGETS)))
 	$(INSTALL_SUDO) rm -rvf $(DESTDIR)$(DATDIR)
 ifeq ($(ENABLE_LIBYOSYS),1)
-	$(INSTALL_SUDO) rm -vf $(DESTDIR)$(LIBDIR)/lib$(PROGRAM_PREFIX)yosys.so
+	$(INSTALL_SUDO) rm -vf $(DESTDIR)$(LIBDIR)/libyosys.so
 ifeq ($(ENABLE_PYOSYS),1)
 	$(INSTALL_SUDO) rm -vf $(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/libyosys.so
 	$(INSTALL_SUDO) rm -vf $(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/__init__.py
